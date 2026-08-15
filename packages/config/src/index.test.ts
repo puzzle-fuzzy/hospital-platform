@@ -2,12 +2,14 @@ import { expect, test } from "bun:test";
 import {
 	appointmentDirectoryConfigurationMissingFields,
 	appointmentDirectoryConfigurationStatus,
+	appointmentRecordsConfigurationMissingFields,
+	appointmentRecordsConfigurationStatus,
 	loadRuntimeConfig,
-	wechatIdentityConfigurationMissingFields,
 	patientDirectoryConfigurationMissingFields,
 	patientDirectoryConfigurationStatus,
 	reportDirectoryConfigurationMissingFields,
 	reportDirectoryConfigurationStatus,
+	wechatIdentityConfigurationMissingFields,
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
@@ -87,6 +89,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(wechatPaymentConfigurationStatus(disabled)).toBe("disabled");
 	expect(patientDirectoryConfigurationStatus(disabled)).toBe("disabled");
 	expect(appointmentDirectoryConfigurationStatus(disabled)).toBe("disabled");
+	expect(appointmentRecordsConfigurationStatus(disabled)).toBe("disabled");
 	expect(reportDirectoryConfigurationStatus(disabled)).toBe("disabled");
 
 	const incomplete = loadRuntimeConfig({
@@ -123,6 +126,16 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
 		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
 	});
+	const appointmentRecordsIncomplete = loadRuntimeConfig({
+		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
+		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
+	});
+	expect(
+		appointmentRecordsConfigurationStatus(appointmentRecordsIncomplete),
+	).toBe("incomplete");
+	expect(
+		appointmentRecordsConfigurationMissingFields(appointmentRecordsIncomplete),
+	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
 	expect(reportDirectoryConfigurationStatus(reportDirectoryIncomplete)).toBe(
 		"incomplete",
 	);
@@ -152,6 +165,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	const configuredPatientDirectory = loadRuntimeConfig({
 		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
+		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
 		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "https://zhongyang.example.test",
 		ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN: "provider-token",
@@ -161,6 +175,9 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	);
 	expect(
 		appointmentDirectoryConfigurationStatus(configuredPatientDirectory),
+	).toBe("configured");
+	expect(
+		appointmentRecordsConfigurationStatus(configuredPatientDirectory),
 	).toBe("configured");
 	expect(reportDirectoryConfigurationStatus(configuredPatientDirectory)).toBe(
 		"configured",

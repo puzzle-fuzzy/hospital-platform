@@ -5,6 +5,13 @@ import {
 	createNotConfiguredGateways,
 	ProviderRequestError,
 } from "@hospital/adapters";
+import {
+	type AppointmentDirectoryGateway,
+	type AppointmentRecordDirectoryGateway,
+	type PatientDirectoryGateway,
+	PaymentOrderService,
+	type ReportDirectoryGateway,
+} from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import {
 	createInMemoryIdentityUserRepository,
@@ -14,22 +21,16 @@ import {
 	createInMemoryPaymentQuoteRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 } from "@hospital/persistence";
-import {
-	PaymentOrderService,
-	type AppointmentDirectoryGateway,
-	type PatientDirectoryGateway,
-	type ReportDirectoryGateway,
-} from "@hospital/domain";
 import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
+import { AppointmentService } from "./modules/appointments";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
 import { PatientService } from "./modules/patients";
-import { AppointmentService } from "./modules/appointments";
-import { ReportService } from "./modules/reports";
 import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
 } from "./modules/payments";
+import { ReportService } from "./modules/reports";
 
 async function flushAfterResponseHooks(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
@@ -866,6 +867,115 @@ test("report directory resolves internal patient ownership before provider looku
 		},
 	});
 	expect(directoryInput).toBeUndefined();
+});
+
+test("appointment records resolve internal patient ownership and return only summaries", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const patientRepository = createInMemoryPatientRepository();
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+	let recordsInput: { providerPatientId: string } | undefined;
+	const records: AppointmentRecordDirectoryGateway = {
+		listRecords: async (input, context) => {
+			recordsInput = { providerPatientId: input.providerPatientId };
+			return {
+				records: [
+					{
+						departmentName: "心内科",
+						doctorName: "李医生",
+						workDate: "2026-08-20",
+						status: "scheduled",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: context.traceId,
+				},
+			};
+		},
+	};
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(patientRepository),
+			appointments: new AppointmentService({
+				directory: createNotConfiguredGateways().appointmentDirectory,
+				repository: patientRepository,
+				records,
+			}),
+			reports: unusedReportService(),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			sessions,
+		},
+	});
+
+	const loginResponse = await app.handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-request-id": "appointment-record-login",
+				"idempotency-key": "appointment-record-login-key",
+			},
+			body: JSON.stringify({ code: "fixture-code" }),
+		}),
+	);
+	const loginBody = (await loginResponse.json()) as {
+		data: { accessToken: string };
+	};
+	const response = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/records?patientId=internal-patient-001&startDate=2026-08-01&endDate=2026-08-31",
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+				},
+			},
+		),
+	);
+
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					departmentName: "心内科",
+					doctorName: "李医生",
+					workDate: "2026-08-20",
+					status: "scheduled",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(recordsInput).toEqual({ providerPatientId: "provider-patient-001" });
 });
 
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {

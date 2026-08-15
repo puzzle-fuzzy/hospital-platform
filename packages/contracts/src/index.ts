@@ -1,4 +1,4 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 
 /** 存活检查只证明 API 进程能响应，不代表数据库或外部 provider 可用。 */
 export const HealthResponse = Type.Object({
@@ -104,6 +104,34 @@ export const AppointmentScheduleListResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
 		items: Type.Array(AppointmentScheduleSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+/** 预约历史只返回服务端规范化状态，不暴露 provider 的数字状态码。 */
+export const AppointmentRecordStatusSchema = Type.Union([
+	Type.Literal("scheduled"),
+	Type.Literal("cancelled"),
+	Type.Literal("completed"),
+	Type.Literal("missed"),
+	Type.Literal("unknown"),
+]);
+
+/** 预约记录摘要不包含 provider appointmentInfoId、费用、支付或患者身份字段。 */
+export const AppointmentRecordSchema = Type.Object({
+	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+	workTime: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	location: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+	serialNumber: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	status: AppointmentRecordStatusSchema,
+});
+
+export const AppointmentRecordListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(AppointmentRecordSchema),
 		total: Type.Integer({ minimum: 0 }),
 	}),
 });
@@ -263,6 +291,10 @@ export type AppointmentSchedulePayload = Static<
 >;
 export type AppointmentScheduleListPayload = Static<
 	typeof AppointmentScheduleListResponse
+>;
+export type AppointmentRecordPayload = Static<typeof AppointmentRecordSchema>;
+export type AppointmentRecordListPayload = Static<
+	typeof AppointmentRecordListResponse
 >;
 export type ReportPayload = Static<typeof ReportSchema>;
 export type ReportListPayload = Static<typeof ReportListResponse>;

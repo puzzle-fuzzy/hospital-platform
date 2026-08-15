@@ -8,9 +8,25 @@
 		<button class="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">微信登录并加载就诊人</button>
 		<button class="secondary" loading="{{syncingPatients}}" disabled="{{syncingPatients}}" bindtap="onSyncPatients">从医院同步就诊人</button>
 		<button class="secondary" loading="{{loadingAppointments}}" disabled="{{loadingAppointments}}" bindtap="onLoadAppointments">查看预约科室与排班</button>
+		<button class="secondary" loading="{{loadingAppointmentRecords}}" disabled="{{loadingAppointmentRecords}}" bindtap="onLoadAppointmentRecords">查看近 90 天预约记录</button>
 		<button class="secondary" loading="{{loadingReports}}" disabled="{{loadingReports}}" bindtap="onLoadReports">查看近 30 天报告</button>
 		<button class="secondary" bindtap="onRefresh">刷新</button>
 		<text wx:if="{{error}}" class="error">{{error}}</text>
+	</view>
+
+	<view class="card appointment-card">
+		<view class="section-header">
+			<text class="section-title">预约记录</text>
+			<text class="section-hint">脱敏只读</text>
+		</view>
+		<view wx:if="{{!hasAppointmentRecords}}" class="empty">点击上方按钮读取当前首位就诊人近 90 天记录</view>
+		<view wx:for="{{appointmentRecords}}" wx:key="index" class="appointment-row">
+			<view>
+				<text class="patient-name">{{item.workDate}} · {{item.status}}</text>
+				<text class="patient-meta">{{item.departmentName || "未提供科室"}} · {{item.doctorName || "未提供医生"}}</text>
+			</view>
+			<text class="patient-source">{{item.serialNumber || ""}}</text>
+		</view>
 	</view>
 
 	<view class="card patient-card">

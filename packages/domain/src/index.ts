@@ -1,3 +1,14 @@
+export type {
+	AppointmentDepartment,
+	AppointmentDirectoryGateway,
+	AppointmentRecord,
+	AppointmentRecordDirectoryGateway,
+	AppointmentRecordDirectoryInput,
+	AppointmentRecordQuery,
+	AppointmentRecordStatus,
+	AppointmentSchedule,
+	AppointmentScheduleQuery,
+} from "./appointments";
 export { DependencyNotConfiguredError } from "./errors";
 export type {
 	OutboxEvent,
@@ -10,26 +21,13 @@ export type {
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
 	PatientDirectoryUpsertInput,
-	PatientRecord,
 	PatientProviderReference,
+	PatientRecord,
 	PatientRelationship,
 	PatientRepository,
 	UserIdentityRepository,
 	WechatIdentityGateway,
 } from "./patients";
-export type {
-	AppointmentDepartment,
-	AppointmentDirectoryGateway,
-	AppointmentSchedule,
-	AppointmentScheduleQuery,
-} from "./appointments";
-export type {
-	ReportDirectoryGateway,
-	ReportDirectoryInput,
-	ReportDirectoryQuery,
-	ReportKind,
-	ReportSummary,
-} from "./reports";
 export type {
 	CreatePaymentOrderInput,
 	PaymentAmounts,
@@ -45,21 +43,12 @@ export type {
 	WechatPaymentReconciliationResult,
 } from "./payment-order";
 export {
-	createWechatPaymentNotificationEvent,
-	PaymentNotificationConflictError,
-} from "./payment-provider";
-export type {
-	WechatPaymentNotification,
-	WechatPaymentNotificationRecordResult,
-	WechatPaymentNotificationRepository,
-} from "./payment-provider";
-export {
 	assertValidPaymentAmounts,
 	InvalidPaymentAmountsError,
+	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderInputError,
 	PaymentOrderNotFoundError,
-	PaymentCashPrepayNotAllowedError,
 	PaymentOrderService,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptInProgressError,
@@ -68,6 +57,15 @@ export {
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
 } from "./payment-order";
+export type {
+	WechatPaymentNotification,
+	WechatPaymentNotificationRecordResult,
+	WechatPaymentNotificationRepository,
+} from "./payment-provider";
+export {
+	createWechatPaymentNotificationEvent,
+	PaymentNotificationConflictError,
+} from "./payment-provider";
 export {
 	allowedPaymentTransitions,
 	canTransitionPayment,
@@ -84,3 +82,10 @@ export type {
 	WechatPaymentGateway,
 	WechatPaymentQueryState,
 } from "./ports";
+export type {
+	ReportDirectoryGateway,
+	ReportDirectoryInput,
+	ReportDirectoryQuery,
+	ReportKind,
+	ReportSummary,
+} from "./reports";

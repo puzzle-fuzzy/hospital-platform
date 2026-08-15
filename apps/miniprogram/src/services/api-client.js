@@ -244,6 +244,23 @@ export function requestAppointmentSchedules(options) {
 }
 
 /**
+ * 读取指定内部 patientId 的预约历史；服务端负责 owner 校验和 provider lookup。
+ * 小程序不接收 provider appointmentInfoId、费用或支付字段。
+ * @param {{patientId: string, startDate: string, endDate: string}} options
+ */
+export function requestAppointmentRecords(options) {
+	const query = [
+		`patientId=${encodeURIComponent(options.patientId)}`,
+		`startDate=${encodeURIComponent(options.startDate)}`,
+		`endDate=${encodeURIComponent(options.endDate)}`,
+	].join("&");
+	return requestWithSession({
+		url: `/api/v1/appointments/records?${query}`,
+		method: "GET",
+	});
+}
+
+/**
  * 读取指定内部 patientId 的报告目录；服务端会按当前会话重新解析 provider 患者号。
  * 小程序只传平台 id 和有限日期筛选，不接收或拼接众阳报告接口参数。
  * @param {{patientId: string, startDate: string, endDate: string, kind?: 'laboratory'|'imaging'|'ecg'}} options

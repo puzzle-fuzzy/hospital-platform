@@ -2,18 +2,25 @@ import type {
 	AdapterCallContext,
 	AppointmentDepartment,
 	AppointmentDirectoryGateway,
+	AppointmentRecord,
+	AppointmentRecordDirectoryGateway,
+	AppointmentRecordQuery,
 	AppointmentSchedule,
 	AppointmentScheduleQuery,
 	ExternalTrace,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
-import { requestJson, type ProviderFetcher } from "./http";
+import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
 const REQUEST_CHANNEL = "4";
+/** 旧 provider 记录接口把微信端渠道编码定义为 3；仅在 adapter 内固定。 */
+const RECORD_REQUEST_CHANNEL = "3";
 const DEPARTMENT_PATH =
 	"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts";
 const SCHEDULE_PATH = "/msun-middle-business-amc-server/v1/schedulings";
+const RECORD_PATH =
+	"/msun-middle-business-appointment-server/v1/appointment-infos/";
 
 type ProviderObject = Record<string, unknown>;
 
@@ -137,6 +144,85 @@ function timeGroup(value: unknown): AppointmentSchedule["timeGroup"] {
 	return "unknown";
 }
 
+function recordStatus(value: unknown): AppointmentRecord["status"] {
+	const normalized =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && value.trim()
+				? Number(value)
+				: Number.NaN;
+	if (normalized === 0) return "scheduled";
+	if (normalized === 1) return "cancelled";
+	if (normalized === 3) return "completed";
+	if (normalized === 4) return "missed";
+	return "unknown";
+}
+
+function mapRecord(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): AppointmentRecord {
+	const workDate = requiredText(
+		value.workDate,
+		"workDate",
+		operation,
+		requestId,
+		32,
+	);
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment record workDate is invalid",
+			requestId,
+		);
+	}
+	const departmentName = optionalText(
+		value.deptName,
+		"deptName",
+		operation,
+		requestId,
+		128,
+	);
+	const doctorName = optionalText(
+		value.docName,
+		"docName",
+		operation,
+		requestId,
+		128,
+	);
+	const workTime = optionalText(
+		value.workTime,
+		"workTime",
+		operation,
+		requestId,
+		64,
+	);
+	const location = optionalText(
+		value.deptAddr,
+		"deptAddr",
+		operation,
+		requestId,
+		256,
+	);
+	const serialNumber = optionalText(
+		value.serialNumber,
+		"serialNumber",
+		operation,
+		requestId,
+		64,
+	);
+	return {
+		...(departmentName ? { departmentName } : {}),
+		...(doctorName ? { doctorName } : {}),
+		workDate,
+		...(workTime ? { workTime } : {}),
+		...(location ? { location } : {}),
+		...(serialNumber ? { serialNumber } : {}),
+		status: recordStatus(value.status),
+	};
+}
+
 function mapDepartment(
 	value: ProviderObject,
 	operation: string,
@@ -257,7 +343,7 @@ function trace(operation: string, requestId: string): ExternalTrace {
  * contract 阶段，避免把旧页面的 provider 参数直接暴露成新 API。
  */
 export class ZhongyangAppointmentApiGateway
-	implements AppointmentDirectoryGateway
+	implements AppointmentDirectoryGateway, AppointmentRecordDirectoryGateway
 {
 	private readonly baseUrl: string;
 	private readonly authorizationToken: string | undefined;
@@ -329,12 +415,50 @@ export class ZhongyangAppointmentApiGateway
 		).map((item) => mapSchedule(item, operation, response.requestId));
 		return { schedules, trace: trace(operation, response.requestId) };
 	}
+
+	async listRecords(
+		input: {
+			providerPatientId: string;
+			query: AppointmentRecordQuery;
+		},
+		context: AdapterCallContext,
+	) {
+		const operation = "appointment-records";
+		const providerPatientId = requiredConfig(input.providerPatientId);
+		const url = new URL(
+			`${RECORD_PATH}${encodeURIComponent(providerPatientId)}`,
+			this.baseUrl,
+		);
+		url.searchParams.set("requestChannel", RECORD_REQUEST_CHANNEL);
+		url.searchParams.set("startDate", input.query.startDate);
+		url.searchParams.set("endDate", input.query.endDate);
+		url.searchParams.set("isMzFlag", "1");
+		url.searchParams.set("dateFlag", "1");
+		const headers = this.headers();
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation,
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(headers ? { headers } : {}),
+			},
+			this.fetcher,
+		);
+		const records = responseItems(
+			response.data,
+			operation,
+			response.requestId,
+		).map((item) => mapRecord(item, operation, response.requestId));
+		return { records, trace: trace(operation, response.requestId) };
+	}
 }
 
 export type ZhongyangAppointmentGatewayOptions = ZhongyangGatewayOptions;
 
 export function createZhongyangAppointmentGateway(
 	options: ZhongyangGatewayOptions,
-): AppointmentDirectoryGateway {
+): AppointmentDirectoryGateway & AppointmentRecordDirectoryGateway {
 	return new ZhongyangAppointmentApiGateway(options);
 }

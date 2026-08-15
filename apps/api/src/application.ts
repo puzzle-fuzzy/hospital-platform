@@ -1,6 +1,7 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
 import type {
 	AppointmentDirectoryGateway,
+	AppointmentRecordDirectoryGateway,
 	PatientDirectoryGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
@@ -15,6 +16,7 @@ import type {
 	RedisSessionStore,
 } from "@hospital/persistence";
 import { createNotConfiguredRepositories } from "@hospital/persistence";
+import { AppointmentService } from "./modules/appointments";
 import {
 	AuthService,
 	createNotConfiguredSessionTokenService,
@@ -22,13 +24,12 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { PatientService } from "./modules/patients";
-import { AppointmentService } from "./modules/appointments";
-import { ReportService } from "./modules/reports";
 import { WechatPrepayService } from "./modules/payments";
 import {
-	WechatPaymentNotificationService,
 	type WechatPaymentNotificationDecoder,
+	WechatPaymentNotificationService,
 } from "./modules/payments/notification-service";
+import { ReportService } from "./modules/reports";
 
 export type ApplicationServices = {
 	auth: AuthService;
@@ -54,6 +55,8 @@ export type ApplicationServiceOptions = {
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
+	/** 预约历史使用独立 endpoint，必须独立完成合同和真实环境验收。 */
+	appointmentRecordDirectoryGateway?: AppointmentRecordDirectoryGateway;
 	/** 只有完成众阳 LIS/PACS/ECG 只读合同和真实环境验收后才打开。 */
 	reportDirectoryGateway?: ReportDirectoryGateway;
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
@@ -89,6 +92,10 @@ export function createDefaultApplicationServices(
 		appointments: new AppointmentService({
 			directory:
 				options.appointmentDirectoryGateway ?? gateways.appointmentDirectory,
+			repository: repositories.patients,
+			records:
+				options.appointmentRecordDirectoryGateway ??
+				gateways.appointmentRecords,
 		}),
 		reports: new ReportService({
 			repository: repositories.patients,

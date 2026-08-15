@@ -1,13 +1,14 @@
-import type { AdapterName } from "./context";
 import type {
-	HospitalSettlementGateway,
 	AppointmentDirectoryGateway,
+	AppointmentRecordDirectoryGateway,
+	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
 	PatientDirectoryGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
+import type { AdapterName } from "./context";
 import { AdapterNotConfiguredError } from "./errors";
 
 function unavailable(adapter: AdapterName): never {
@@ -20,6 +21,7 @@ export type NotConfiguredGateways = {
 	patientDirectory: PatientDirectoryGateway;
 	reportDirectory: ReportDirectoryGateway;
 	appointmentDirectory: AppointmentDirectoryGateway;
+	appointmentRecords: AppointmentRecordDirectoryGateway;
 	wechatPayment: WechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
 };
@@ -41,6 +43,9 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		listDepartments: async (_context) => unavailable("zhongyang"),
 		listSchedules: async (_input, _context) => unavailable("zhongyang"),
 	};
+	const appointmentRecords: AppointmentRecordDirectoryGateway = {
+		listRecords: async (_input, _context) => unavailable("zhongyang"),
+	};
 	const reportDirectory: ReportDirectoryGateway = {
 		listReports: async (_input, _context) => unavailable("zhongyang"),
 	};
@@ -58,6 +63,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		patientDirectory,
 		reportDirectory,
 		appointmentDirectory,
+		appointmentRecords,
 		wechatPayment,
 		hospitalSettlement,
 	};

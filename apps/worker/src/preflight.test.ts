@@ -31,6 +31,7 @@ test("runtime preflight fails closed without configuration and does not need inf
 			"wechat-payment:disabled",
 			"zhongyang-patient-directory:disabled",
 			"zhongyang-appointment-directory:disabled",
+			"zhongyang-appointment-records:disabled",
 			"zhongyang-report-directory:disabled",
 		],
 	});
@@ -53,6 +54,7 @@ test("runtime preflight fails an explicitly opened but incomplete provider gate"
 			"wechat-payment:disabled",
 			"zhongyang-patient-directory:disabled",
 			"zhongyang-appointment-directory:disabled",
+			"zhongyang-appointment-records:disabled",
 			"zhongyang-report-directory:incomplete",
 			"zhongyang-report-directory:missing=ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)",
 		],

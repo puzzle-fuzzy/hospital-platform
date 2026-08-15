@@ -1,26 +1,30 @@
-import { Elysia } from "elysia";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
+	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
+	PaymentNotificationConflictError,
 	PaymentOrderInputError,
 	PaymentOrderNotFoundError,
 	PaymentOrderVersionConflictError,
-	PaymentCashPrepayNotAllowedError,
-	PaymentNotificationConflictError,
 	PaymentPrepayAttemptInProgressError,
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
 } from "@hospital/domain";
+import { Elysia } from "elysia";
 import { HttpError } from "../errors";
+import {
+	AppointmentRecordPatientNotFoundError,
+	AppointmentRecordQueryError,
+	AppointmentScheduleQueryError,
+} from "../modules/appointments/service";
+import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
-import { AppointmentScheduleQueryError } from "../modules/appointments/service";
 import {
 	ReportPatientNotFoundError,
 	ReportQueryError,
 } from "../modules/reports/service";
-import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 
 function normalizeCode(code: string | number): string {
 	return typeof code === "string" ? code : "UNKNOWN";
@@ -88,6 +92,28 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "appointment-query-invalid",
 						message: error.message,
+					},
+				};
+			}
+
+			if (error instanceof AppointmentRecordQueryError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "appointment-record-query-invalid",
+						message: error.message,
+					},
+				};
+			}
+
+			if (error instanceof AppointmentRecordPatientNotFoundError) {
+				set.status = 404;
+				return {
+					success: false,
+					error: {
+						code: "appointment-record-patient-not-found",
+						message: "Appointment record patient not found",
 					},
 				};
 			}

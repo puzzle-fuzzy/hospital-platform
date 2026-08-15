@@ -13,7 +13,7 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 7C：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
+当前仓库进入 Phase 7D：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
 的 provider 审计、微信身份 adapter 之上，已完成微信支付 APIv3 的请求签名、响应验签、
 JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界，并开始固化医保 6201/6202/6203/6301/6401
 的路由、金额和退款 contract。微信支付 adapter 已有“完整配置 + 显式闸门”的组合根注入
@@ -24,7 +24,7 @@ provider 继续 fail-closed。
 独立幂等记录和受控密文存储，6D 又加入同一幂等键下的服务端状态读模型，6E-1 又加入
 微信支付通知的 APIv3 验签、解密、白名单映射、通知去重和入站 outbox；6E-2 又加入
 预支付尝试的持久化查单调度、金额二次校验、版本化订单状态迁移、通知 outbox handler 和可注入查单 worker；
-API/worker 现已共用 `@hospital/config` 并具备完整配置才启动的 worker 组合根；预约目录和 LIS/PACS/ECG 报告摘要也已建立独立 gate，但
+API/worker 现已共用 `@hospital/config` 并具备完整配置才启动的 worker 组合根；预约目录、预约历史和 LIS/PACS/ECG 报告摘要也已建立独立 gate，但
 `WECHAT_PAYMENT_READY` 默认关闭，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
 
 ```text
@@ -82,6 +82,7 @@ API 默认运行在 `http://localhost:3000`：
 - `POST /api/v1/payments/wechat/notifications`：接收已验签的微信支付成功通知并返回 provider ack
 - `GET /api/v1/appointments/departments`：读取服务端白名单后的预约科室目录
 - `GET /api/v1/appointments/schedules`：按最多 31 天范围读取服务端白名单后的排班目录
+- `GET /api/v1/appointments/records`：按内部 `patientId` 和最多 366 天范围读取脱敏预约历史摘要
 - `GET /api/v1/reports`：按内部 `patientId` 和最多 366 天范围读取 LIS/PACS/ECG 报告摘要目录
 - `GET /openapi`：OpenAPI 文档
 

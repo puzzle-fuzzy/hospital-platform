@@ -1,11 +1,12 @@
-import { Elysia, t } from "elysia";
 import {
 	AppointmentDepartmentListResponse,
+	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
 	success,
 } from "@hospital/contracts";
-import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import { Elysia, t } from "elysia";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
+import { requirePrincipal, type SessionTokenService } from "../auth/service";
 import type { AppointmentService } from "./service";
 
 const AppointmentHeaders = t.Object({
@@ -22,6 +23,13 @@ const AppointmentScheduleQuery = t.Object({
 	endDate: t.String({ pattern: DatePattern }),
 	departmentId: t.Optional(t.String({ minLength: 1, maxLength: 128 })),
 	doctorId: t.Optional(t.String({ minLength: 1, maxLength: 128 })),
+});
+
+/** 记录查询只接受内部 patientId 和有限日期范围，不能透传 provider 参数。 */
+const AppointmentRecordQuery = t.Object({
+	patientId: t.String({ minLength: 1, maxLength: 128 }),
+	startDate: t.String({ pattern: DatePattern }),
+	endDate: t.String({ pattern: DatePattern }),
 });
 
 /** 预约目录必须经过平台会话，provider 授权只存在服务端组合根。 */
@@ -63,10 +71,36 @@ export function appointmentsModule(
 				response: { 200: AppointmentScheduleListResponse },
 				tags: ["appointments"],
 			},
+		)
+		.get(
+			"/appointments/records",
+			async ({ headers, query }) => {
+				const principal = await requirePrincipal(
+					headers.authorization,
+					sessions,
+				);
+				const { patientId, ...recordQuery } = query;
+				return success(
+					await appointmentService.listRecords(
+						principal.userId,
+						patientId,
+						recordQuery,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: AppointmentHeaders,
+				query: AppointmentRecordQuery,
+				response: { 200: AppointmentRecordListResponse },
+				tags: ["appointments"],
+			},
 		);
 }
 
 export {
+	AppointmentRecordPatientNotFoundError,
+	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 	AppointmentService,
 } from "./service";

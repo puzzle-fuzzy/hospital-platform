@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { expect, test } from "bun:test";
+import { join } from "node:path";
 import {
 	isAllowedApiBaseUrl,
 	toWechatPaymentParams,
@@ -52,6 +52,18 @@ test("native client reads appointment directories only through the Hospital API"
 	expect(client).toContain("/api/v1/appointments/schedules?");
 	expect(page).toContain("onLoadAppointments");
 	expect(page).not.toContain("msun-middle-business-amc-server");
+});
+
+test("native client reads appointment records by internal patient id through the Hospital API", async () => {
+	const client = await source("services/api-client.js");
+	const page = await source("pages/index/index.js");
+
+	expect(client).toContain("requestAppointmentRecords");
+	expect(client).toContain("/api/v1/appointments/records?");
+	expect(client).toContain("patientId=");
+	expect(page).toContain("onLoadAppointmentRecords");
+	expect(page).not.toContain("msun-middle-business-appointment-server");
+	expect(page).not.toContain("providerPatientId");
 });
 
 test("native client reads report directories by internal patient id through the Hospital API", async () => {

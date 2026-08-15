@@ -35,6 +35,8 @@ export type RuntimeConfig = {
 	patientDirectoryReady: boolean;
 	/** 预约 AMC 只读目录独立验收，不能随患者目录一起隐式打开。 */
 	appointmentDirectoryReady: boolean;
+	/** 预约历史使用 appointment-server 独立 endpoint，必须单独验收。 */
+	appointmentRecordsReady: boolean;
 	/** LIS/PACS/ECG 报告目录独立验收，不能随患者目录一起隐式打开。 */
 	reportDirectoryReady: boolean;
 	patientDirectoryBaseUrl: string | undefined;
@@ -62,6 +64,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "wechat-payment"
 		| "zhongyang-patient-directory"
 		| "zhongyang-appointment-directory"
+		| "zhongyang-appointment-records"
 		| "zhongyang-report-directory";
 	status: ProviderConfigurationStatus;
 	missingFields: readonly string[];
@@ -235,6 +238,25 @@ export function appointmentDirectoryConfigurationStatus(
 		: "incomplete";
 }
 
+export function appointmentRecordsConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.appointmentRecordsReady,
+	);
+}
+
+export function appointmentRecordsConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.appointmentRecordsReady) return "disabled";
+	return appointmentRecordsConfigurationMissingFields(runtimeConfig).length ===
+		0
+		? "configured"
+		: "incomplete";
+}
+
 export function reportDirectoryConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
@@ -281,6 +303,12 @@ export function providerConfigurationDiagnostics(
 			status: appointmentDirectoryConfigurationStatus(runtimeConfig),
 			missingFields:
 				appointmentDirectoryConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-appointment-records" as const,
+			status: appointmentRecordsConfigurationStatus(runtimeConfig),
+			missingFields:
+				appointmentRecordsConfigurationMissingFields(runtimeConfig),
 		},
 		{
 			name: "zhongyang-report-directory" as const,
@@ -400,6 +428,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		appointmentDirectoryReady: boolean(
 			env.ZHONGYANG_APPOINTMENT_DIRECTORY_READY,
+			false,
+		),
+		appointmentRecordsReady: boolean(
+			env.ZHONGYANG_APPOINTMENT_RECORDS_READY,
 			false,
 		),
 		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),

@@ -1,18 +1,20 @@
 import {
-	createZhongyangPatientGateway,
-	createZhongyangAppointmentGateway,
-	createZhongyangReportGateway,
-	createWechatPaymentNotificationDecoder,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
+	createWechatPaymentNotificationDecoder,
+	createZhongyangAppointmentGateway,
+	createZhongyangPatientGateway,
+	createZhongyangReportGateway,
 } from "@hospital/adapters";
 import {
 	appointmentDirectoryConfigurationMissingFields,
 	appointmentDirectoryConfigurationStatus,
-	reportDirectoryConfigurationMissingFields,
-	reportDirectoryConfigurationStatus,
+	appointmentRecordsConfigurationMissingFields,
+	appointmentRecordsConfigurationStatus,
 	patientDirectoryConfigurationMissingFields,
 	patientDirectoryConfigurationStatus,
+	reportDirectoryConfigurationMissingFields,
+	reportDirectoryConfigurationStatus,
 	wechatIdentityConfigurationMissingFields,
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
@@ -41,6 +43,9 @@ const appointmentDirectoryStatus =
 	appointmentDirectoryConfigurationStatus(config);
 const appointmentDirectoryMissing =
 	appointmentDirectoryConfigurationMissingFields(config);
+const appointmentRecordsStatus = appointmentRecordsConfigurationStatus(config);
+const appointmentRecordsMissing =
+	appointmentRecordsConfigurationMissingFields(config);
 const reportDirectoryStatus = reportDirectoryConfigurationStatus(config);
 const reportDirectoryMissing =
 	reportDirectoryConfigurationMissingFields(config);
@@ -87,8 +92,10 @@ const patientDirectoryGateway =
 					: {}),
 			})
 		: undefined;
-const appointmentDirectoryGateway =
-	appointmentDirectoryStatus === "configured" && config.patientDirectoryBaseUrl
+const appointmentGateway =
+	(appointmentDirectoryStatus === "configured" ||
+		appointmentRecordsStatus === "configured") &&
+	config.patientDirectoryBaseUrl
 		? createZhongyangAppointmentGateway({
 				baseUrl: config.patientDirectoryBaseUrl,
 				...(config.patientDirectoryAuthorizationToken
@@ -98,6 +105,10 @@ const appointmentDirectoryGateway =
 					: {}),
 			})
 		: undefined;
+const appointmentDirectoryGateway =
+	appointmentDirectoryStatus === "configured" ? appointmentGateway : undefined;
+const appointmentRecordDirectoryGateway =
+	appointmentRecordsStatus === "configured" ? appointmentGateway : undefined;
 const reportDirectoryGateway =
 	reportDirectoryStatus === "configured" && config.patientDirectoryBaseUrl
 		? createZhongyangReportGateway({
@@ -143,6 +154,9 @@ const app = createApp({
 		...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
 		...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
 		...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
+		...(appointmentRecordDirectoryGateway
+			? { appointmentRecordDirectoryGateway }
+			: {}),
 		...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
 		...(wechatPaymentNotificationDecoder
 			? { wechatPaymentNotificationDecoder }
@@ -173,12 +187,16 @@ logger.info(
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		patientDirectoryConfiguration: patientDirectoryStatus,
 		appointmentDirectoryConfiguration: appointmentDirectoryStatus,
+		appointmentRecordsConfiguration: appointmentRecordsStatus,
 		reportDirectoryConfiguration: reportDirectoryStatus,
 		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
 		...(wechatPaymentMissing.length > 0 ? { wechatPaymentMissing } : {}),
 		...(patientDirectoryMissing.length > 0 ? { patientDirectoryMissing } : {}),
 		...(appointmentDirectoryMissing.length > 0
 			? { appointmentDirectoryMissing }
+			: {}),
+		...(appointmentRecordsMissing.length > 0
+			? { appointmentRecordsMissing }
 			: {}),
 		...(reportDirectoryMissing.length > 0 ? { reportDirectoryMissing } : {}),
 	},

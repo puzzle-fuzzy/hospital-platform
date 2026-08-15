@@ -143,3 +143,63 @@ test("众阳预约目录拒绝无法形成安全读模型的响应", async () =>
 		retryable: false,
 	});
 });
+
+test("众阳预约记录只固定微信查询参数并移除患者和支付字段", async () => {
+	let requestUrl = "";
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrl = String(input);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							appointmentInfoId: "provider-record-001",
+							patId: "provider-patient-001",
+							patName: "张三",
+							telephone: "13800000000",
+							deptName: "心内科",
+							deptAddr: "门诊楼二层",
+							docName: "李医生",
+							workDate: "2026-08-20",
+							workTime: "08:00",
+							serialNumber: 12,
+							status: 0,
+							registFree: 99,
+							isPay: "0",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "provider-record-request" } },
+			);
+		},
+	});
+
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-patient-001",
+			query: { startDate: "2026-08-01", endDate: "2026-08-31" },
+		},
+		context,
+	);
+
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-middle-business-appointment-server/v1/appointment-infos/provider-patient-001?requestChannel=3&startDate=2026-08-01&endDate=2026-08-31&isMzFlag=1&dateFlag=1",
+	);
+	expect(result.records).toEqual([
+		{
+			departmentName: "心内科",
+			location: "门诊楼二层",
+			doctorName: "李医生",
+			workDate: "2026-08-20",
+			workTime: "08:00",
+			serialNumber: "12",
+			status: "scheduled",
+		},
+	]);
+	expect(JSON.stringify(result)).not.toContain("provider-record-001");
+	expect(JSON.stringify(result)).not.toContain("provider-patient-001");
+	expect(JSON.stringify(result)).not.toContain("13800000000");
+	expect(JSON.stringify(result)).not.toContain("registFree");
+});
