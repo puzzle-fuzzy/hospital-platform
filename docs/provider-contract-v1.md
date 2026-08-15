@@ -9,10 +9,10 @@
 | --- | --- | --- | --- |
 | 小程序登录 | `G:\\fuck\\hospital\\app\\api\\v1\\module_common\\...` 与 `wechat_util.py` | `WechatIdentityGateway.exchangeCode` | 本批已实现真实 HTTP adapter |
 | 微信自费 JSAPI | `wechat_medical.py::_build_jsapi_order` | `WechatPaymentGateway.createJsapiOrder` | APIv3 adapter 已实现，默认未接入 |
-| 医保费用上传 | `MbsFsiService.forward_6201` | `MedicalInsuranceGateway.uploadFees` | 依赖旧项目加密/解密协议，待实现 |
-| 医保支付下单 | `MbsFsiService.forward_6202` | `MedicalInsuranceGateway.settle` | 金额必须以后端 6202 结果为权威，待实现 |
-| 医保结算查询 | `MbsFsiService.forward_6301` | `MedicalInsuranceGateway.query` | 待实现 |
-| 医保退款/撤销 | `forward_6203` / `forward_6401` | 后续补充退款/撤销 port | 当前 domain 尚未完整表达退款状态 |
+| 医保费用上传 | `MbsFsiService.forward_6201` | `MedicalInsuranceGateway.uploadFees` | contract/金额校验已实现，密码 adapter 待实现 |
+| 医保支付下单 | `MbsFsiService.forward_6202` | `MedicalInsuranceGateway.settle` | contract/金额校验已实现，密码 adapter 待实现 |
+| 医保结算查询 | `MbsFsiService.forward_6301` | `MedicalInsuranceGateway.query` | contract/金额校验已实现，密码 adapter 待实现 |
+| 医保退款/撤销 | `forward_6203` / `forward_6401` | `legacy-fsi-contract.ts` validators | contract 已拆分，退款状态 port 待补充 |
 | HIS 回写 | 旧项目订单服务的回写调用 | `HospitalSettlementGateway.writeBack` | 待实现 |
 
 ## 设计不变量
@@ -44,5 +44,10 @@ Phase 5B-2 已实现 `packages/adapters/src/wechat-pay.ts`：
 - 查单路径为 `/v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={mchid}`，只把已验签的明确交易状态映射成内部状态，未知状态 fail-closed；
 - 通知入口提供 APIv3 验签和 `AEAD_AES_256_GCM` 解密函数，解密后的 provider payload 仍需 callback mapper 白名单映射，不能直接迁移订单状态；
 - 单元测试使用进程内生成的 RSA/AES 材料，证明协议实现和失败分支，不证明商户号、证书、微信产品权限或公网回调已经可用。
+
+医保 5B-3 当前只实现 `legacy-fsi-contract.ts` 的纯规则层：固定五个专用 path、有限层级
+响应展开、元转分、6201 明细守恒、6202/6301 结算金额守恒、6203 退款边界和 6401 明确成功。
+SM2/SM3/SM4 尚未发送真实请求；正式实现必须先取得 golden vectors，并通过 sidecar 或验证过的
+Bun/Node 实现完成双向兼容测试。
 
 参考：[微信支付 JSAPI/小程序下单](https://pay.wechatpay.cn/doc/v3/merchant/4012791856)、[APIv3 请求签名规则](https://pay.wechatpay.cn/doc/v3/merchant/4012365336)。

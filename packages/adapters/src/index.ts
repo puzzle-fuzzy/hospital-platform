@@ -32,3 +32,21 @@ export {
 	type WechatPaymentNotification,
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
+export {
+	LEGACY_FSI_ROUTES,
+	LegacyFsiContractError,
+	validate6201FeeUpload,
+	validate6201Response,
+	validate6202Settlement,
+	validate6203Refund,
+	validate6203Response,
+	validate6301Settlement,
+	validate6401Response,
+	unwrapLegacyFsiData,
+	yuanToFen,
+	type LegacyFsiAmountBreakdown,
+	type LegacyFsiFeeUploadCredential,
+	type LegacyFsiInfno,
+	type LegacyFsiRefundAmounts,
+	type LegacyFsiSettlement,
+} from "./legacy-fsi-contract";
