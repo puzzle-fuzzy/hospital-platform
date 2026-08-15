@@ -92,10 +92,18 @@ export function wechatIdentityConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
 	if (!runtimeConfig.wechatIdentityReady) return [];
-	return missingRuntimeFields([
+	const missing = missingRuntimeFields([
 		{ name: "WECHAT_APPID", value: runtimeConfig.wechatAppId },
 		{ name: "WECHAT_APP_SECRET", value: runtimeConfig.wechatAppSecret },
 	]);
+	if (
+		runtimeConfig.wechatIdentityBaseUrl &&
+		!isHttpsUrl(runtimeConfig.wechatIdentityBaseUrl) &&
+		!missing.includes("WECHAT_IDENTITY_BASE_URL(https)")
+	) {
+		missing.push("WECHAT_IDENTITY_BASE_URL(https)");
+	}
+	return missing;
 }
 
 export function wechatIdentityConfigurationStatus(
@@ -144,6 +152,13 @@ export function wechatPaymentConfigurationMissingFields(
 		!missing.includes("WECHAT_PAY_NOTIFY_URL")
 	) {
 		missing.push("WECHAT_PAY_NOTIFY_URL(https)");
+	}
+	if (
+		runtimeConfig.wechatPayBaseUrl &&
+		!isHttpsUrl(runtimeConfig.wechatPayBaseUrl) &&
+		!missing.includes("WECHAT_PAY_BASE_URL(https)")
+	) {
+		missing.push("WECHAT_PAY_BASE_URL(https)");
 	}
 	return missing;
 }

@@ -3,6 +3,7 @@ import {
 	appointmentDirectoryConfigurationMissingFields,
 	appointmentDirectoryConfigurationStatus,
 	loadRuntimeConfig,
+	wechatIdentityConfigurationMissingFields,
 	patientDirectoryConfigurationMissingFields,
 	patientDirectoryConfigurationStatus,
 	reportDirectoryConfigurationMissingFields,
@@ -49,6 +50,34 @@ test("runtime config trims secrets and parses explicit worker settings", () => {
 test("runtime config rejects an unsafe worker interval", () => {
 	expect(() => loadRuntimeConfig({ WORKER_POLL_INTERVAL_MS: "10" })).toThrow(
 		"WORKER_POLL_INTERVAL_MS",
+	);
+});
+
+test("provider base URL overrides must remain HTTPS when a gate is open", () => {
+	const runtimeConfig = loadRuntimeConfig({
+		WECHAT_IDENTITY_READY: "true",
+		WECHAT_APPID: "wx-test-app",
+		WECHAT_APP_SECRET: "identity-secret",
+		WECHAT_IDENTITY_BASE_URL: "http://wechat.internal",
+		WECHAT_PAYMENT_READY: "true",
+		WECHAT_PAY_APP_ID: "wx-test-app",
+		WECHAT_PAY_MCH_ID: "mch-test",
+		WECHAT_PAY_MERCHANT_CERTIFICATE_SERIAL: "merchant-serial",
+		WECHAT_PAY_MERCHANT_PRIVATE_KEY: "merchant-private-key",
+		WECHAT_PAY_PLATFORM_CERTIFICATE_SERIAL: "platform-serial",
+		WECHAT_PAY_PLATFORM_PUBLIC_KEY: "platform-public-key",
+		WECHAT_PAY_API_V3_KEY: "api-v3-key",
+		WECHAT_PAY_NOTIFY_URL: "https://hospital.example.test/payment-notify",
+		WECHAT_PAY_BASE_URL: "http://wechat-pay.internal",
+	});
+
+	expect(wechatIdentityConfigurationStatus(runtimeConfig)).toBe("incomplete");
+	expect(wechatPaymentConfigurationStatus(runtimeConfig)).toBe("incomplete");
+	expect(wechatIdentityConfigurationMissingFields(runtimeConfig)).toContain(
+		"WECHAT_IDENTITY_BASE_URL(https)",
+	);
+	expect(wechatPaymentConfigurationMissingFields(runtimeConfig)).toContain(
+		"WECHAT_PAY_BASE_URL(https)",
 	);
 });
 
