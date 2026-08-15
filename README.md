@@ -13,8 +13,8 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 7D：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
-的 provider 审计、微信身份 adapter 之上，已完成微信支付 APIv3 的请求签名、响应验签、
+当前仓库进入 Phase 7D：已建立 Phase 5A-2 的 MySQL/Redis 真实持久化验收脚本，并在其上完成
+Phase 5B-1 的 provider 审计、微信身份 adapter，以及微信支付 APIv3 的请求签名、响应验签、
 JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界，并开始固化医保 6201/6202/6203/6301/6401
 的路由、金额和退款 contract。微信支付 adapter 已有“完整配置 + 显式闸门”的组合根注入
 路径，但默认关闭且缺配置时 fail-closed；医保 crypto 已有严格 port 但尚无真实实现，HIS

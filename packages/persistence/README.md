@@ -27,8 +27,9 @@ pnpm infra:down
 访问持久化，不直接依赖 ORM。正式接入前仍要对旧库表、迁移版本、订单幂等键和历史
 回调数据做盘点。
 
-订单仓储已经具备“订单写入 + outbox 事件”同事务实现，并完成本地真实 MySQL/Redis
-集成验收；API 仍默认由 `PERSISTENCE_SCHEMA_READY=false` 保护，未完成目标环境
+订单仓储已经具备“订单写入 + outbox 事件”同事务实现，`db:integration` 已覆盖本地真实
+MySQL/Redis 验收路径；实际执行仍需在 Docker 依赖可用的隔离环境完成。API 仍默认由
+`PERSISTENCE_SCHEMA_READY=false` 保护，未完成目标环境
 migration、staging 脱敏验证和 provider 配置前，不接入真实支付副作用。
 
 预支付尝试使用 `hp_payment_prepay_attempts` 独立记录幂等键、版本和 provider 证据；

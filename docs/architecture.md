@@ -109,7 +109,8 @@ WechatPaymentNotificationHandler（outbox）
 
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
 MySQL/Redis 真实探针、连接关闭生命周期、目标 schema、订单-outbox 同事务 repository、
-Redis session store 和本地真实集成验收。Phase 5B-1 已加入旧 provider 调用链审计、
+Redis session store 和本地集成验收脚本；本次审计环境尚未完成 Docker 依赖下的实际执行。
+Phase 5B-1 已加入旧 provider 调用链审计、
 contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支付 APIv3 的
 请求签名、平台响应验签、JSAPI 下单、查单和通知解密 adapter。Phase 5B-3 已开始固化
 医保 6201/6202/6203/6301/6401 的专用路由、整数分金额守恒、订单关联和退款边界，
