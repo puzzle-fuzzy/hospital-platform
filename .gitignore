@@ -10,3 +10,5 @@ coverage/
 .idea/
 .vscode/
 apps/miniprogram/dist/
+# 微信开发者工具的个人设置可能包含本机路径和开发者状态，不进入版本库。
+apps/miniprogram/src/project.private.config.json

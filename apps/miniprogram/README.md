@@ -4,6 +4,8 @@
 
 页面只能通过 `src/services/api-client.js` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
+微信开发者工具的 `src/project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
+
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 页面只负责状态和交互事件；会话生命周期集中在 `src/services/session-service.js`，日期窗口和患者/预约/报告
 读模型编排集中在 `src/services/dashboard-service.js`。新增页面应优先复用领域服务，不要在 WXML 页面里直接拼接 provider 参数。
