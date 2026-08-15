@@ -1,5 +1,9 @@
 # API 迁移矩阵
 
+旧小程序实际调用过的 provider endpoint 逐项快照见
+[`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。本矩阵负责按业务域
+记录迁移策略和新 API 状态；逐项快照负责防止接口遗漏，二者都不把旧 endpoint 当作新公共 API。
+
 > 旧路径来自 `G:\\fuck\\hospital` 的 FastAPI 路由和 `hospital-app/src/api` 调用。目标路径是设计方向，不代表已经实现。
 
 当前新 Elysia 已实际注册的患者端公共接口，以 [`docs/api-v2-public.md`](../api-v2-public.md) 和

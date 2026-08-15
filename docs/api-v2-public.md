@@ -219,7 +219,9 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 
 以下内容在旧服务中存在，但当前没有注册为新患者端公共路由：医保 FSI、医保身份授权、云
 健康结算/HIS 回写、文件上传、健康知识、健康自测、报告解读、AI 导诊、管理端 RBAC、监控
-和任务管理。完整前置条件见 [`migration/api-matrix.md`](migration/api-matrix.md)。
+和任务管理。旧接口逐项来源和状态见
+[`migration/legacy-api-endpoint-inventory.md`](migration/legacy-api-endpoint-inventory.md)，
+完整前置条件见 [`migration/api-matrix.md`](migration/api-matrix.md)。
 
 特别是：
 
