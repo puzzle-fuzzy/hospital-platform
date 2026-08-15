@@ -262,14 +262,19 @@ export async function runProviderDirectorySmoke(
 		path: string,
 	): Promise<{ data: unknown; traceId: string }> {
 		const traceId = traceIdFactory();
+		const headers = new Headers({
+			accept: "application/json",
+			"x-request-id": traceId,
+		});
+		// 健康探针不需要身份；只给业务 API 加 Bearer，避免 token 进入
+		// 反向代理或基础设施的健康检查日志。
+		if (!path.startsWith("/health/")) {
+			headers.set("Authorization", `Bearer ${options.accessToken}`);
+		}
 		const response = await fetcher(`${baseUrl}${path}`, {
 			method: "GET",
 			signal: AbortSignal.timeout(SMOKE_REQUEST_TIMEOUT_MS),
-			headers: {
-				accept: "application/json",
-				Authorization: `Bearer ${options.accessToken}`,
-				"x-request-id": traceId,
-			},
+			headers,
 		});
 		let body: unknown;
 		try {

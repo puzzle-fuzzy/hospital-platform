@@ -68,11 +68,9 @@ test("provider directory smoke only uses the platform API and verifies safe resp
 		"https://hospital.example.test/health/ready",
 		"https://hospital.example.test/api/v1/patients",
 	]);
-	expect(
-		requests.every(
-			(request) => request.authorization === "Bearer platform-access-token",
-		),
-	).toBe(true);
+	expect(requests[0]?.authorization).toBeNull();
+	expect(requests[1]?.authorization).toBeNull();
+	expect(requests[2]?.authorization).toBe("Bearer platform-access-token");
 });
 
 test("provider smoke accepts only the platform opaque report id and can verify LIS detail", async () => {
