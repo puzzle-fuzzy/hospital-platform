@@ -61,7 +61,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 
 禁止记录以下内容：
 
-- `Authorization`、Cookie、access token、refresh token、密码、密钥、openid、unionid；
+- `Authorization`、Cookie、access token、refresh token、密码、密钥、openid、unionid、provider subject；
 - 请求 body、医保/HIS 凭证、签名原文和第三方 provider 原始响应；
 - 患者身份证号、完整就诊卡号、完整手机号等可直接识别个人的信息。
 - provider 患者号；它只能在服务端 lookup 与 adapter 调用的短生命周期内存在。

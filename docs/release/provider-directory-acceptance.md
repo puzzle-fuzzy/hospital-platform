@@ -30,7 +30,7 @@ pnpm check
 - 预约记录测试证明服务端固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`，并丢弃预约号、患者身份、电话、费用和支付字段；
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
 - 原生小程序 acceptance test 证明只调用 Hospital API，不包含众阳 provider URL；
-- Pino 日志测试证明 `providerPatientId` 和 `provider_patient_id` 会被脱敏；
+- Pino 日志测试证明 `providerPatientId`、`provider_patient_id` 和 `providerSubject` 会被脱敏；
 - 报告测试不把 provider 报告号、患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
 
 ## B. API 层只读 smoke
