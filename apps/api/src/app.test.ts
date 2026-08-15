@@ -80,6 +80,18 @@ function publicPathForDocumentation(internalPath: string): string {
 	return internalPath;
 }
 
+/** OpenAPI path item 中允许出现的 HTTP 操作；`parameters` 等元数据不是公共接口。 */
+const OPENAPI_HTTP_METHODS = [
+	"get",
+	"post",
+	"put",
+	"patch",
+	"delete",
+	"options",
+	"head",
+	"trace",
+] as const;
+
 test("liveness endpoint returns a contract response", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/health/live"),
@@ -142,21 +154,24 @@ test("OpenAPI route inventory matches the current public application surface", a
 	expect(Object.keys(document.paths).sort()).toEqual(expectedPaths);
 });
 
-test("public API documentation covers every registered OpenAPI path", async () => {
+test("public API documentation covers every registered OpenAPI method and path", async () => {
 	const [openApiResponse, documentation] = await Promise.all([
 		createApp().handle(new Request("http://localhost/openapi/json")),
 		Bun.file(join(import.meta.dir, "../../../docs/api-v2-public.md")).text(),
 	]);
 	const document = (await openApiResponse.json()) as {
-		paths: Record<string, unknown>;
+		paths: Record<string, Record<string, unknown>>;
 	};
 
-	// OpenAPI 只描述实际注册的患者端路由；每条内部路径都必须能在公网
-	// `/api/v2` 文档中找到，防止实现、Nginx 路径和维护文档逐渐漂移。
-	for (const internalPath of Object.keys(document.paths)) {
-		expect(documentation).toContain(
-			`\`${publicPathForDocumentation(internalPath)}\``,
-		);
+	// OpenAPI 只描述实际注册的患者端路由；每个 method/path 成对项都必须能在公网
+	// `/api/v2` 文档表格中找到，防止同一路径新增 POST 后只补了 GET 说明。
+	for (const [internalPath, pathItem] of Object.entries(document.paths)) {
+		for (const method of OPENAPI_HTTP_METHODS) {
+			if (!(method in pathItem)) continue;
+			expect(documentation).toContain(
+				`| \`${method.toUpperCase()}\` | \`${publicPathForDocumentation(internalPath)}\` |`,
+			);
+		}
 	}
 });
 

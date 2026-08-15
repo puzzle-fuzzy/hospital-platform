@@ -16,7 +16,7 @@
 | Elysia 健康检查 | `/health/*` | 进程内部路径；公网由 Nginx 映射为 `/api/v2/health/*` |
 | OpenAPI | `/openapi`、`/openapi/json` | 开发/测试默认开启；生产默认关闭，不作为患者端业务依赖 |
 
-当前 OpenAPI 路径清单已经由 `apps/api/src/app.test.ts` 做自动门禁。路由增加、删除或
+当前 OpenAPI 的 method/path 清单已经由 `apps/api/src/app.test.ts` 做自动门禁。路由增加、删除或
 改变输入输出时，必须同时更新该测试、本文和 [`migration/api-matrix.md`](migration/api-matrix.md)。
 
 ## 2. 通用请求规则
