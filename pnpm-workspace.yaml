@@ -9,6 +9,8 @@ catalog:
   '@sinclair/typebox': 0.34.52
   '@types/bun': 1.3.14
   '@types/wechat-miniprogram': 3.4.10
+  # Elysia 1.4.x passes TypeCompiler to this compatible mirror implementation.
+  exact-mirror: 0.2.7
   elysia: 1.4.29
   turbo: 2.10.10
   typescript: 7.0.2

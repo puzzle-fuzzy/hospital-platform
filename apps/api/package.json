@@ -19,6 +19,7 @@
 		"@hospital/observability": "workspace:*",
 		"@hospital/persistence": "workspace:*",
 		"@sinclair/typebox": "catalog:",
+		"exact-mirror": "catalog:",
 		"elysia": "catalog:"
 	},
 	"devDependencies": {
