@@ -1,0 +1,138 @@
+# 支付发布验收手册
+
+本手册把“代码正确”“服务可运行”“provider 已授权”和“真机支付可用”分成四层。上一层通过不代表下一层通过；没有对应证据时，支付功能必须继续保持 fail-closed。
+
+## 验收层级
+
+| 层级 | 目标 | 必须证据 | 当前原则 |
+| --- | --- | --- | --- |
+| A. 代码 | 契约、状态机、签名、日志和失败分支正确 | `pnpm check` 全绿，测试输出无无效运行时告警 | 可在本地完成 |
+| B. 运行 | MySQL、Redis、migration 和进程就绪 | `db:integration`、`runtime:preflight`、`/health/ready` | 不调用真实 provider |
+| C. provider | 微信商户配置、APIv3、通知公网链路真实可用 | provider request/response、通知验签解密、去重和查单日志 | 需要授权、证书和 HTTPS |
+| D. 设备 | 原生小程序登录、调起支付和状态回读可用 | 开发者工具/真机记录、订单号、服务端日志 | 不能用 fixture 代替 |
+
+## A. 代码层
+
+在提交对应 commit 后执行：
+
+```powershell
+pnpm check
+```
+
+必须确认：
+
+- Biome format/lint、9 个 workspace 的 typecheck、test 和 build 全部通过；
+- API 测试不再出现 `exact-mirror`、schema 或 TypeBox 运行时告警；
+- 微信通知测试覆盖原文 APIv3 验签、AES-256-GCM 解密、appid/mchid 归属和白名单映射；
+- `wx.requestPayment` 的返回结果没有被实现为业务支付成功，订单成功只能来自通知或已验签查单；
+- 测试日志不包含 `openid`、`Authorization`、APIv3 key、prepay 参数、签名原文或 provider 原始报文。
+
+## B. 本地持久化与启动层
+
+只使用本地 Compose 的隔离数据：
+
+```powershell
+pnpm infra:up
+$env:DATABASE_URL = "mysql://hospital:hospital_dev_password@127.0.0.1:3307/hospital_platform"
+$env:REDIS_URL = "redis://127.0.0.1:6380"
+pnpm db:migrate
+pnpm db:integration
+pnpm runtime:preflight
+pnpm infra:down
+```
+
+`runtime:preflight` 是只读检查，不执行 migration，也不发送微信、医保或 HIS 请求。它失败时必须区分：
+
+- `schema` 未打开：目标 migration 尚未在当前环境经过人工确认；
+- provider `disabled`：功能闸门关闭，属于安全默认值；
+- provider `incomplete`：只记录缺失的环境变量名，不记录密钥值；
+- MySQL/Redis 不可用：先修复基础设施，不能通过修改 readiness 响应伪装 ready。
+
+真实环境启动后，必须同时确认：
+
+```text
+GET /health/live  -> 200，只证明进程能响应
+GET /health/ready -> 200 且 data.status=ready，才证明 DB/Redis/schema gate 均通过
+```
+
+存活检查不能作为支付可用性证据。
+
+## C. 微信 provider 层
+
+### 配置闸门
+
+只有以下条件全部满足，才允许打开 `WECHAT_PAYMENT_READY=true`：
+
+- 商户号、小程序 AppID、商户证书序列号和私钥已由部署密钥系统注入；
+- 微信支付平台证书序列号和公钥已配置，并与 provider 返回头严格匹配；
+- APIv3 key 已配置，且没有复用 `PAYMENT_DATA_ENCRYPTION_KEY`；
+- `WECHAT_PAY_NOTIFY_URL` 是公网可达的 HTTPS 地址，反向代理会把原始请求 body 和 `Wechatpay-*` headers 完整转发；
+- provider 产品权限、商户模式、回调地址和测试账号已由业务负责人确认；
+- staging schema、API、worker 和 outbox 已在同一 release 上通过 B 层验收。
+
+“环境变量齐全”只代表 `configured`，不代表 provider 已授权或支付链路已通过。
+
+### 真实回调验收
+
+使用已授权的非生产/小额测试订单，按以下顺序留证：
+
+1. API 申请 JSAPI 预支付参数，记录内部 `orderId`、`traceId` 和 provider request id；
+2. provider 返回 `prepay_id` 后，确认数据库只保存摘要和加密后的短期调起参数；
+3. provider 向通知地址发送通知，确认服务端先验签，再解密，再做 appid/mchid、事件类型、金额和订单归属校验；
+4. 首次通知得到 provider 要求的成功 ack，通知事实和 outbox 在同一事务落库；
+5. 重复发送同一 `notification_id`，确认返回成功 ack 但不会重复推进订单；
+6. worker 消费 outbox 后，确认金额匹配才迁移到 `cash_paid`；金额不匹配必须进入人工确认，不得自动成功；
+7. 用查单接口复核 provider 状态，确认未知状态和网络错误保持可恢复，不被猜测为成功。
+
+服务端日志至少需要出现以下事件，并能用 `traceId`、`orderId`、`notificationId` 或 `eventId` 串联：
+
+```text
+payment.wechat_prepay.requested
+payment.wechat_prepay.created
+payment.wechat_notification.recorded
+worker.payment.wechat_notification.reconciled
+worker.payment.wechat_query.reconciled
+```
+
+日志只提供诊断线索，不替代订单、通知表和 outbox 中的持久化事实。
+
+## D. 原生小程序与真机层
+
+开发者工具和真机分别验收：
+
+- `wx.login` 只把 code 发给 Hospital API，小程序不请求微信 `code2session`；
+- API 返回的 access token 只用于会话，患者列表由服务端按当前用户归属查询；
+- 预支付参数来自服务端，小程序不拼接 `paySign`、`prepay_id` 或金额；
+- `wx.requestPayment` 成功、取消和失败都只更新页面提示；页面重新读取订单状态，不能把调起回调当作业务成功；
+- 非 HTTPS 的生产 API 地址被客户端拒绝；本机开发只允许 localhost/127.0.0.1；
+- 真机支付后同时留存微信侧结果和服务端 `cash_paid` 迁移证据；只看到支付弹窗成功不算通过。
+
+## 证据记录模板
+
+每次 staging/provider/device 验收都应记录：
+
+```text
+release commit:
+environment:
+started at:
+API notify URL:
+orderId:
+traceId:
+provider request id:
+notificationId / eventId:
+commands:
+result:
+log events:
+screenshots or provider console evidence:
+remaining gaps:
+```
+
+## 当前未完成项
+
+在获得真实商户授权、部署 HTTPS、schema staging 证据和开发者工具/真机证据前，以下状态必须保持未验收：
+
+- 真实微信支付下单和公网回调；
+- 真实 provider 证书、APIv3 key 和商户权限；
+- 小程序开发者工具及真机支付；
+- 医保 FSI 的 SM2/SM3/SM4 golden vectors、真实实现和 HIS 写回；
+- 生产部署、密钥托管、告警和日志保留策略。
