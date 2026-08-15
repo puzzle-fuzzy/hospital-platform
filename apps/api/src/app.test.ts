@@ -97,6 +97,39 @@ test("versioned ping endpoint is available", async () => {
 	expect((await response.json()).success).toBe(true);
 });
 
+test("OpenAPI route inventory matches the current public application surface", async () => {
+	const response = await createApp().handle(
+		new Request("http://localhost/openapi/json"),
+	);
+	const document = (await response.json()) as {
+		paths: Record<string, unknown>;
+	};
+
+	// 这份白名单用于发现“代码加了路由但契约文档未更新”或误开放写入接口。
+	const expectedPaths = [
+		"/api/v1/appointments/departments",
+		"/api/v1/appointments/records",
+		"/api/v1/appointments/schedules",
+		"/api/v1/auth/wechat",
+		"/api/v1/me",
+		"/api/v1/patients",
+		"/api/v1/patients/sync",
+		"/api/v1/payments/orders",
+		"/api/v1/payments/orders/{orderId}",
+		"/api/v1/payments/orders/{orderId}/wechat-prepay",
+		"/api/v1/payments/outpatient/records",
+		"/api/v1/payments/wechat/notifications",
+		"/api/v1/reports",
+		"/api/v1/reports/{reportId}",
+		"/api/v1/system/ping",
+		"/health/live",
+		"/health/ready",
+	].sort();
+
+	expect(response.status).toBe(200);
+	expect(Object.keys(document.paths).sort()).toEqual(expectedPaths);
+});
+
 test("appointment write routes remain absent while provider contract is blocked", async () => {
 	const writeRequests = [
 		{ method: "POST", path: "/api/v1/appointments/holds" },

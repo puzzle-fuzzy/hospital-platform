@@ -2,6 +2,10 @@
 
 > 旧路径来自 `G:\\fuck\\hospital` 的 FastAPI 路由和 `hospital-app/src/api` 调用。目标路径是设计方向，不代表已经实现。
 
+当前新 Elysia 已实际注册的患者端公共接口，以 [`docs/api-v2-public.md`](../api-v2-public.md) 和
+源码中的 OpenAPI 路径门禁为准；本文继续负责记录旧接口的迁移状态、未注册接口组和 provider 前置，
+不把“目标路径”误写成“已经可调用”。
+
 ## 状态说明
 
 - `代码已实现`：新仓库有 contract、service/adapter、测试或小程序页面证据。
