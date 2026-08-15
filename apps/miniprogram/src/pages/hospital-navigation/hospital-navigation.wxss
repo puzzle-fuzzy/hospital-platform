@@ -1,0 +1,20 @@
+page {
+	background: #e8f2da;
+}
+
+.navigation-page {
+	box-sizing: border-box;
+	width: 100vw;
+	height: 100vh;
+	background: #e8f2da;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* 与旧端 image aspectFit 对齐，完整展示地图，不裁剪医院楼层信息。 */
+.navigation-map {
+	display: block;
+	width: 100vw;
+	height: 100vh;
+}

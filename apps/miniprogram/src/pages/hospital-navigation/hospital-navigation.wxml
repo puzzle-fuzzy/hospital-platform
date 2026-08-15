@@ -1,0 +1,10 @@
+<view class="navigation-page">
+	<!-- 旧端只提供医院静态导览图，不伪造实时路径或科室接口。 -->
+	<image
+		class="navigation-map"
+		src="/assets/hospital-navigation/map.jpg"
+		mode="aspectFit"
+		bindtap="onPreviewMap"
+		binderror="onMapError"
+	/>
+</view>

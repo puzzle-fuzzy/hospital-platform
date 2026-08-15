@@ -31,6 +31,9 @@ const requiredStaticFiles = [
 	"pages/outpatient-payment/outpatient-payment.json",
 	"pages/outpatient-payment/outpatient-payment.wxml",
 	"pages/outpatient-payment/outpatient-payment.wxss",
+	"pages/hospital-navigation/hospital-navigation.json",
+	"pages/hospital-navigation/hospital-navigation.wxml",
+	"pages/hospital-navigation/hospital-navigation.wxss",
 	"pages/my/my.json",
 	"pages/my/my.wxml",
 	"pages/my/my.wxss",
@@ -48,6 +51,7 @@ const requiredTypeScriptFiles = [
 	"pages/index/index.ts",
 	"pages/report-detail/report-detail.ts",
 	"pages/outpatient-payment/outpatient-payment.ts",
+	"pages/hospital-navigation/hospital-navigation.ts",
 	"pages/my/my.ts",
 ];
 const requiredAssetDirectories = ["assets"];
@@ -134,5 +138,5 @@ for (const file of requiredTypeScriptFiles) {
 }
 
 console.log(
-	`Native mini program runtime generated at ${runtime}; report-directory.js is present`,
+	`Native mini program runtime generated at ${runtime}; required page scripts are present`,
 );

@@ -1,0 +1,7 @@
+{
+	"navigationBarTitleText": "院内导航",
+	"navigationBarBackgroundColor": "#e8f2da",
+	"navigationBarTextStyle": "black",
+	"backgroundColor": "#e8f2da",
+	"enablePullDownRefresh": false
+}

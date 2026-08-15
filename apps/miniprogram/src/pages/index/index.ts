@@ -152,6 +152,7 @@ const SERVICE_TABS = Object.freeze([
 		title: "便民",
 		items: [
 			{
+				action: "hospital-navigation",
 				icon: "/assets/legacy-home/service-navigation.svg",
 				title: "院内导航",
 			},
@@ -367,6 +368,11 @@ Page<IndexPageData, IndexPageMethods>({
 				break;
 			case "reports":
 				this.onLoadReports();
+				break;
+			case "hospital-navigation":
+				wx.navigateTo({
+					url: "/pages/hospital-navigation/hospital-navigation",
+				});
 				break;
 			default:
 				wx.showToast({ title: "该服务正在建设中", icon: "none" });

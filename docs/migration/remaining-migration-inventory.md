@@ -51,7 +51,8 @@
 | `pagesB/health/outpatient_pay_detail`、`electronic_bill` | 费用明细和可支付金额展示 | 费用详情 contract、金额单位和患者归属规则 |
 | `pagesB/health/report_query`、`report_detail` 的真实能力 | LIS/PACS/ECG/体检真实数据、附件和详情授权 | provider 文档、资源 URL/短期授权、数据脱敏规则 |
 | `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段 | HIS/EMR 只读 contract、资源授权和脱敏清单 |
-| `pagesB/hospital/hospitalList`、`navigation` | 医院列表、院内地图和科室定位 | 医院/地图数据来源、版本和静态资源验收 |
+| `pagesB/hospital/hospitalList` | 医院列表 | 医院列表数据来源、机构选择语义和版本 contract |
+| `pagesB/hospital/navigation` | 静态院内地图已迁移；实时楼层/科室定位未迁移 | 原始 `map.jpg`、`aspectFit`、点击预览已完成；动态地图数据、定位和路线 contract 待确认 |
 | `pagesB/hospital/bloodAppointment` | 采血预约 | 采血服务 contract、号源状态和取消规则 |
 
 ### P2：内容和便民服务逐域迁移
@@ -116,7 +117,7 @@
 
 1. 先完成 P0 的真实只读验收和患者上下文竞态审计，不扩大功能面。
 2. 接收新的 provider 文档后，冻结预约写入、门诊费用详情、病历和报告资源的 contract 差异表。
-3. 选择一个低风险只读域（优先病历目录或院内导航，取决于文档是否完整）完成 contract → adapter → API → 小程序 → 测试 → 验收手册闭环。
+3. 选择一个低风险只读域（优先病历目录或医院列表）完成 contract → adapter → API → 小程序 → 测试 → 验收手册闭环；院内导航的静态地图页已完成迁移，动态定位仍等待文档。
 4. 健康知识必须先做内容审核和版本化导入，再挂载患者 GET 路由；自测、AI 和报告解读继续分开。
 5. 最后按“现金支付 → 医保授权/结算 → 查单/退款 → HIS 回写”推进，任何未知状态都进入人工/补偿队列，不在前端显示成功。
 

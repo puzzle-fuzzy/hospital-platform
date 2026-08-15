@@ -195,6 +195,33 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).not.toContain("outTradeOrderId");
 });
 
+test("native mini program migrates the legacy static indoor navigation page", async () => {
+	const app = await source("app.json");
+	const home = await source("pages/index/index.ts");
+	const page = await source("pages/hospital-navigation/hospital-navigation.ts");
+	const template = await source(
+		"pages/hospital-navigation/hospital-navigation.wxml",
+	);
+	const style = await source(
+		"pages/hospital-navigation/hospital-navigation.wxss",
+	);
+	const asset = Bun.file(
+		join(sourceRoot, "assets", "hospital-navigation", "map.jpg"),
+	);
+
+	expect(app).toContain('"pages/hospital-navigation/hospital-navigation"');
+	expect(home).toContain('action: "hospital-navigation"');
+	expect(home).toContain(
+		'url: "/pages/hospital-navigation/hospital-navigation"',
+	);
+	expect(page).toContain("wx.previewImage");
+	expect(page).toContain("地图加载失败");
+	expect(template).toContain('mode="aspectFit"');
+	expect(template).toContain("/assets/hospital-navigation/map.jpg");
+	expect(style).toContain("#e8f2da");
+	expect(await asset.exists()).toBe(true);
+});
+
 test("native client reads appointment directories only through the Hospital API", async () => {
 	const client = await source("services/api-client.ts");
 	const page = await source("pages/index/index.ts");
