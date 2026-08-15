@@ -23,6 +23,8 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 			authorization: "Bearer secret-token",
 			idempotencyKey: "payment-key",
 			nested: { token: "nested-secret", count: 1 },
+			providerPatientId: "provider-patient-001",
+			provider: { provider_patient_id: "provider-patient-002" },
 		},
 		"request completed",
 	);
@@ -37,6 +39,8 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 		authorization: "[REDACTED]",
 		idempotencyKey: "[REDACTED]",
 		nested: { token: "[REDACTED]", count: 1 },
+		providerPatientId: "[REDACTED]",
+		provider: { provider_patient_id: "[REDACTED]" },
 		msg: "request completed",
 	});
 });

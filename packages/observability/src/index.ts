@@ -24,6 +24,8 @@ export const LOG_REDACT_PATHS = [
 	"sessionKey",
 	"openid",
 	"unionid",
+	"providerPatientId",
+	"provider_patient_id",
 	"idempotencyKey",
 	"*.authorization",
 	"*.cookie",
@@ -36,6 +38,8 @@ export const LOG_REDACT_PATHS = [
 	"*.sessionKey",
 	"*.openid",
 	"*.unionid",
+	"*.providerPatientId",
+	"*.provider_patient_id",
 	"*.idempotencyKey",
 ] as const;
 
