@@ -45,5 +45,6 @@ export type {
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
 	PaymentOrderSnapshot,
+	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
 } from "./ports";

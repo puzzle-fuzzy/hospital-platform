@@ -26,6 +26,21 @@ export type PaymentOrderSnapshot = {
 	trace: ExternalTrace[];
 };
 
+/**
+ * 微信小程序调起支付所需的服务端签名结果。
+ *
+ * 这些字段只允许从后端 adapter 返回给受控的 API response；小程序不应
+ * 自己生成 paySign，也不应接触商户私钥、APIv3 密钥或平台证书。
+ */
+export type WechatMiniProgramPayParams = {
+	appId: string;
+	timeStamp: string;
+	nonceStr: string;
+	package: string;
+	signType: "RSA";
+	paySign: string;
+};
+
 export interface MedicalInsuranceGateway {
 	authorize(
 		input: {
@@ -87,6 +102,7 @@ export interface WechatPaymentGateway {
 		context: AdapterCallContext,
 	): Promise<{
 		prepayId: string;
+		payParams: WechatMiniProgramPayParams;
 		trace: ExternalTrace;
 	}>;
 	query(

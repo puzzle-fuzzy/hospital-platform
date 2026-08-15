@@ -77,8 +77,17 @@ GET /api/v1/payments/orders/:orderId
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
 MySQL/Redis 真实探针、连接关闭生命周期、目标 schema、订单-outbox 同事务 repository、
 Redis session store 和本地真实集成验收。Phase 5B-1 已加入旧 provider 调用链审计、
-contract v1 和微信身份 code2session adapter，但 `WECHAT_IDENTITY_READY` 默认关闭，
-微信支付、医保和 HIS handler 尚未接入；因此当前不会产生真实支付副作用。
+contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支付 APIv3 的
+请求签名、平台响应验签、JSAPI 下单、查单和通知解密 adapter。支付 adapter 仍未接入
+默认组合根，`WECHAT_IDENTITY_READY` 也默认关闭，医保和 HIS handler 尚未接入；因此
+当前不会产生真实支付副作用。
+
+微信支付 adapter 的安全边界如下：
+
+- APIv3 私钥、平台公钥和 APIv3 密钥只通过服务端组合根注入，不允许进入 contracts、日志、outbox 或小程序。
+- APIv3 请求签名使用发送前的原始 JSON 字节；响应必须校验证书序列号、时间窗口、nonce 和 RSA-SHA256 签名。
+- 通知必须先校验 APIv3 签名，再解密 `AEAD_AES_256_GCM` resource；解密结果还需要由 callback mapper 做业务字段白名单校验。
+- `prepay_id` 只代表微信预支付凭证；小程序调起成功、查单成功和业务订单完成仍是不同事实，最终状态必须由回调/查单/HIS 回写编排。
 
 Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider-contract-v1.md)，
 避免把身份、支付、医保加密和 HIS 回写混成一个不可审计的“大 adapter”。

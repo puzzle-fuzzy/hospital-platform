@@ -13,10 +13,11 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 5B-1：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收之上，已完成
-旧 provider 调用链审计、Provider Contract v1 和微信身份 code2session adapter；
-真实身份 adapter 仍由 `WECHAT_IDENTITY_READY` 闸门控制，微信支付、医保和 HIS
-provider 继续 fail-closed，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
+当前仓库进入 Phase 5B-2：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收和 Phase 5B-1
+的 provider 审计、微信身份 adapter 之上，已完成微信支付 APIv3 的请求签名、响应验签、
+JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界。支付 adapter 尚未接入默认组合根，
+因此不会产生真实支付副作用；医保和 HIS provider 继续 fail-closed，不复制旧项目的
+前端医保参数拼装、估算金额或 mock 成功状态。
 
 ```text
 apps/

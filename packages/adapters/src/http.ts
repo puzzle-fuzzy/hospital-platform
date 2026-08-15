@@ -13,6 +13,15 @@ export type ProviderRequest = {
 	context: AdapterContext;
 	headers?: Record<string, string>;
 	body?: unknown;
+	/** 已完成签名的 JSON；与 body 互斥，保证签名报文和线上 body 字节一致。 */
+	bodyText?: string;
+	/** provider-specific response verifier；只在 HTTP 2xx 且解析 JSON 前执行。 */
+	verifyResponse?: (input: {
+		rawBody: Uint8Array;
+		headers: Headers;
+		statusCode: number;
+		requestId: string;
+	}) => void | Promise<void>;
 };
 
 export type ProviderResponse<T> = {
@@ -36,6 +45,15 @@ export async function requestJson<T>(
 	input: ProviderRequest,
 	fetcher: ProviderFetcher = fetch,
 ): Promise<ProviderResponse<T>> {
+	if (input.body !== undefined && input.bodyText !== undefined) {
+		throw new ProviderRequestError({
+			provider: input.provider,
+			operation: input.operation,
+			message: "Provider request cannot define both body and bodyText",
+			retryable: false,
+		});
+	}
+
 	const controller = new AbortController();
 	const timeoutId = setTimeout(
 		() => controller.abort(),
@@ -58,9 +76,9 @@ export async function requestJson<T>(
 		headers,
 		signal: controller.signal,
 	};
-	if (input.body !== undefined) {
+	if (input.body !== undefined || input.bodyText !== undefined) {
 		headers.set("content-type", "application/json");
-		init.body = JSON.stringify(input.body);
+		init.body = input.bodyText ?? JSON.stringify(input.body);
 	}
 
 	try {
@@ -69,9 +87,12 @@ export async function requestJson<T>(
 		}
 
 		const response = await fetcher(input.url, init);
-		const raw = await response.text();
+		const rawBody = new Uint8Array(await response.arrayBuffer());
+		const raw = new TextDecoder().decode(rawBody);
 		const requestId =
-			response.headers.get("x-request-id") ?? input.context.traceId;
+			response.headers.get("x-request-id") ??
+			response.headers.get("Wechatpay-Request-Id") ??
+			input.context.traceId;
 
 		if (!response.ok) {
 			throw new ProviderRequestError({
@@ -82,6 +103,28 @@ export async function requestJson<T>(
 				statusCode: response.status,
 				retryable: response.status === 429 || response.status >= 500,
 			});
+		}
+
+		if (input.verifyResponse) {
+			try {
+				await input.verifyResponse({
+					rawBody,
+					headers: response.headers,
+					statusCode: response.status,
+					requestId,
+				});
+			} catch (cause) {
+				if (cause instanceof ProviderRequestError) throw cause;
+
+				throw new ProviderRequestError({
+					provider: input.provider,
+					operation: input.operation,
+					message: "Provider response verification failed",
+					requestId,
+					retryable: false,
+					cause,
+				});
+			}
 		}
 
 		if (!raw) {

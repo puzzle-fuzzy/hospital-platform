@@ -166,7 +166,8 @@ export class PaymentOrderService {
 	constructor(private readonly dependencies: PaymentOrderServiceDependencies) {
 		this.now = dependencies.now ?? (() => new Date());
 		this.createOrderId =
-			dependencies.createOrderId ?? (() => crypto.randomUUID());
+			dependencies.createOrderId ??
+			(() => crypto.randomUUID().replaceAll("-", ""));
 	}
 
 	async create(input: CreatePaymentOrderInput): Promise<PaymentOrder> {

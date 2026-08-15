@@ -8,7 +8,7 @@
 | 能力 | 旧项目证据 | 新仓库边界 | 当前状态 |
 | --- | --- | --- | --- |
 | 小程序登录 | `G:\\fuck\\hospital\\app\\api\\v1\\module_common\\...` 与 `wechat_util.py` | `WechatIdentityGateway.exchangeCode` | 本批已实现真实 HTTP adapter |
-| 微信自费 JSAPI | `wechat_medical.py::_build_jsapi_order` | `WechatPaymentGateway.createJsapiOrder` | contract 已确认，adapter 待实现 |
+| 微信自费 JSAPI | `wechat_medical.py::_build_jsapi_order` | `WechatPaymentGateway.createJsapiOrder` | APIv3 adapter 已实现，默认未接入 |
 | 医保费用上传 | `MbsFsiService.forward_6201` | `MedicalInsuranceGateway.uploadFees` | 依赖旧项目加密/解密协议，待实现 |
 | 医保支付下单 | `MbsFsiService.forward_6202` | `MedicalInsuranceGateway.settle` | 金额必须以后端 6202 结果为权威，待实现 |
 | 医保结算查询 | `MbsFsiService.forward_6301` | `MedicalInsuranceGateway.query` | 待实现 |
@@ -34,6 +34,15 @@
 - 缺少 `openid` 或配置不完整时 fail-closed；
 - API 组合根只有在 `WECHAT_IDENTITY_READY=true` 时才注入它，默认仍使用 not-configured gateway。
 
-微信支付 APIv3 的 JSAPI 下单路径、请求签名和响应验签将单独提交，避免把身份、支付、回调和医保加密混成一个不可审计的 adapter。
+微信支付 APIv3 的 JSAPI 下单路径、请求签名和响应验签已单独实现，避免把身份、支付、回调和医保加密混成一个不可审计的 adapter。
+
+Phase 5B-2 已实现 `packages/adapters/src/wechat-pay.ts`：
+
+- `POST /v3/pay/transactions/jsapi` 使用 APIv3 RSA-SHA256 请求签名，body 通过 `bodyText` 保证签名字节与发送字节一致；
+- 成功响应必须校验 `Wechatpay-Serial`、`Wechatpay-Timestamp`、`Wechatpay-Nonce` 和 `Wechatpay-Signature`，再读取 `prepay_id`；
+- 后端用商户私钥生成小程序 `payParams`，小程序只负责调用支付 API，不自行拼装签名；
+- 查单路径为 `/v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={mchid}`，只把已验签的明确交易状态映射成内部状态，未知状态 fail-closed；
+- 通知入口提供 APIv3 验签和 `AEAD_AES_256_GCM` 解密函数，解密后的 provider payload 仍需 callback mapper 白名单映射，不能直接迁移订单状态；
+- 单元测试使用进程内生成的 RSA/AES 材料，证明协议实现和失败分支，不证明商户号、证书、微信产品权限或公网回调已经可用。
 
 参考：[微信支付 JSAPI/小程序下单](https://pay.wechatpay.cn/doc/v3/merchant/4012791856)、[APIv3 请求签名规则](https://pay.wechatpay.cn/doc/v3/merchant/4012365336)。

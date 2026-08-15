@@ -111,6 +111,20 @@ describe("payment order domain", () => {
 		).rejects.toBeInstanceOf(PaymentIdempotencyConflictError);
 	});
 
+	test("default order ids stay within the external payment trade number limit", async () => {
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(),
+		});
+		const order = await service.create({
+			ownerUserId: "user-default-id",
+			patientId: "patient-default-id",
+			idempotencyKey: "pay-key-default-id",
+			amounts,
+		});
+
+		expect(order.orderId).toMatch(/^[0-9a-f]{32}$/);
+	});
+
 	test("allows only explicit state transitions and keeps version", async () => {
 		const service = new PaymentOrderService({
 			orders: createMemoryOrders(),

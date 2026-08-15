@@ -24,3 +24,11 @@ export {
 	WechatIdentityApiGateway,
 	type WechatIdentityGatewayOptions,
 } from "./wechat-identity";
+export {
+	createWechatPaymentGateway,
+	verifyAndDecryptWechatPaymentNotification,
+	WechatPaymentApiGateway,
+	type WechatPaymentGatewayOptions,
+	type WechatPaymentNotification,
+	type WechatPaymentNotificationVerifierOptions,
+} from "./wechat-pay";

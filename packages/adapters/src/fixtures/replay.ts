@@ -88,6 +88,14 @@ export function createFixtureWechatPaymentGateway(): WechatPaymentGateway {
 	return {
 		createJsapiOrder: async (_input, context) => ({
 			prepayId: "fixture-prepay-001",
+			payParams: {
+				appId: "fixture-app-id",
+				timeStamp: "1700000000",
+				nonceStr: "fixture-nonce-001",
+				package: "prepay_id=fixture-prepay-001",
+				signType: "RSA",
+				paySign: "fixture-pay-sign-001",
+			},
 			trace: trace(
 				"fixture-wechat-pay",
 				"jsapi-prepay",
