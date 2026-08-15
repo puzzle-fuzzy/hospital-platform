@@ -163,6 +163,19 @@ function responseRequestId(
 }
 
 /**
+ * 所有公网请求都必须经过版本化前缀，包括健康检查。
+ * Nginx 通过 /api/v2 做新旧服务隔离，再把内部路径转发给 Elysia；
+ * 如果健康检查绕过前缀，就会落到旧服务的根路径并返回 404。
+ */
+export function buildApiRequestUrl(
+	apiBaseUrl: string,
+	apiPrefix: string,
+	path: string,
+): string {
+	return `${apiBaseUrl}${apiPrefix}${path}`;
+}
+
+/**
  * 通过 Hospital API 访问后端；返回类型由调用方显式声明，禁止业务层退回 any。
  */
 export function request<TResponse = unknown>(
@@ -196,10 +209,7 @@ export function request<TResponse = unknown>(
 		);
 	}
 
-	// 健康检查位于 API 根路径；业务接口统一经过可切换的版本前缀。
-	const requestUrl = url.startsWith("/health/")
-		? `${apiBaseUrl}${url}`
-		: `${apiBaseUrl}${apiPrefix}${url}`;
+	const requestUrl = buildApiRequestUrl(apiBaseUrl, apiPrefix, url);
 
 	return new Promise<TResponse>((resolve, reject) => {
 		const requestId = createRequestId();

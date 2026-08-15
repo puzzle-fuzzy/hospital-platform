@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
 	isAllowedApiBaseUrl,
 	isAllowedApiPrefix,
+	buildApiRequestUrl,
 	normalizeApiBaseUrl,
 	toWechatPaymentParams,
 } from "../src/services/api-client";
@@ -47,6 +48,16 @@ test("native client sends request ids for Pino HTTP correlation", async () => {
 	expect(client).toContain('"x-request-id": requestId');
 	expect(client).toContain("responseRequestId(response)");
 	expect(client).not.toContain('"authorization": requestId');
+});
+
+test("native client keeps health checks behind the versioned public prefix", () => {
+	expect(
+		buildApiRequestUrl(
+			"https://test-hp.meiyi.pro",
+			"/api/v2",
+			"/health/live",
+		),
+	).toBe("https://test-hp.meiyi.pro/api/v2/health/live");
 });
 
 test("native client requests server-generated prepay parameters", async () => {
