@@ -41,7 +41,7 @@ test("runtime preflight fails an explicitly opened but incomplete provider gate"
 	const result = await runWorkerPreflight({
 		runtimeConfig: loadRuntimeConfig({
 			ZHONGYANG_REPORT_DIRECTORY_READY: "true",
-			ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://provider.internal",
+			ZHONGYANG_BASE_URL: "http://provider.internal",
 		}),
 	});
 
@@ -56,7 +56,7 @@ test("runtime preflight fails an explicitly opened but incomplete provider gate"
 			"zhongyang-appointment-directory:disabled",
 			"zhongyang-appointment-records:disabled",
 			"zhongyang-report-directory:incomplete",
-			"zhongyang-report-directory:missing=ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)",
+			"zhongyang-report-directory:missing=ZHONGYANG_BASE_URL(https)",
 		],
 	});
 });

@@ -68,9 +68,9 @@ $env:ZHONGYANG_PATIENT_DIRECTORY_READY = "true"
 $env:ZHONGYANG_APPOINTMENT_DIRECTORY_READY = "true"
 $env:ZHONGYANG_APPOINTMENT_RECORDS_READY = "true"
 $env:ZHONGYANG_REPORT_DIRECTORY_READY = "true"
-$env:ZHONGYANG_PATIENT_DIRECTORY_BASE_URL = "https://<provider-host>"
+$env:ZHONGYANG_BASE_URL = "https://<provider-host>"
 # 如 provider 合同要求，再注入服务端 token
-$env:ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN = "<secret-from-secret-store>"
+$env:ZHONGYANG_AUTHORIZATION_TOKEN = "<secret-from-secret-store>"
 pnpm runtime:preflight
 ```
 

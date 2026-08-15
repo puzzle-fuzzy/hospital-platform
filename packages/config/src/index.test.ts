@@ -67,6 +67,16 @@ test("runtime config rejects an unsafe worker interval", () => {
 	);
 });
 
+test("runtime config reads legacy Zhongyang variable names during migration", () => {
+	const config = loadRuntimeConfig({
+		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "https://legacy.example.test",
+		ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN: "legacy-token",
+	});
+
+	expect(config.zhongyangBaseUrl).toBe("https://legacy.example.test");
+	expect(config.zhongyangAuthorizationToken).toBe("legacy-token");
+});
+
 test("provider base URL overrides must remain HTTPS when a gate is open", () => {
 	const runtimeConfig = loadRuntimeConfig({
 		WECHAT_IDENTITY_READY: "true",
@@ -114,17 +124,17 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	);
 	const patientDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
-		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
+		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
 	});
 	expect(patientDirectoryConfigurationStatus(patientDirectoryIncomplete)).toBe(
 		"incomplete",
 	);
 	expect(
 		patientDirectoryConfigurationMissingFields(patientDirectoryIncomplete),
-	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
+	).toContain("ZHONGYANG_BASE_URL(https)");
 	const appointmentDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
-		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
+		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
 	});
 	expect(
 		appointmentDirectoryConfigurationStatus(appointmentDirectoryIncomplete),
@@ -133,27 +143,27 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		appointmentDirectoryConfigurationMissingFields(
 			appointmentDirectoryIncomplete,
 		),
-	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
+	).toContain("ZHONGYANG_BASE_URL(https)");
 	const reportDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
-		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
+		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
 	});
 	const appointmentRecordsIncomplete = loadRuntimeConfig({
 		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
-		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
+		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
 	});
 	expect(
 		appointmentRecordsConfigurationStatus(appointmentRecordsIncomplete),
 	).toBe("incomplete");
 	expect(
 		appointmentRecordsConfigurationMissingFields(appointmentRecordsIncomplete),
-	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
+	).toContain("ZHONGYANG_BASE_URL(https)");
 	expect(reportDirectoryConfigurationStatus(reportDirectoryIncomplete)).toBe(
 		"incomplete",
 	);
 	expect(
 		reportDirectoryConfigurationMissingFields(reportDirectoryIncomplete),
-	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
+	).toContain("ZHONGYANG_BASE_URL(https)");
 	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
 		"WECHAT_PAY_NOTIFY_URL(https)",
 	);
@@ -179,8 +189,8 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
-		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "https://zhongyang.example.test",
-		ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN: "provider-token",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+		ZHONGYANG_AUTHORIZATION_TOKEN: "provider-token",
 	});
 	expect(patientDirectoryConfigurationStatus(configuredPatientDirectory)).toBe(
 		"configured",

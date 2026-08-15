@@ -85,12 +85,12 @@ const wechatPaymentGateway =
 			})
 		: undefined;
 const patientDirectoryGateway =
-	patientDirectoryStatus === "configured" && config.patientDirectoryBaseUrl
+	patientDirectoryStatus === "configured" && config.zhongyangBaseUrl
 		? createZhongyangPatientGateway({
-				baseUrl: config.patientDirectoryBaseUrl,
-				...(config.patientDirectoryAuthorizationToken
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
 					? {
-							authorizationToken: config.patientDirectoryAuthorizationToken,
+							authorizationToken: config.zhongyangAuthorizationToken,
 						}
 					: {}),
 			})
@@ -98,12 +98,12 @@ const patientDirectoryGateway =
 const appointmentGateway =
 	(appointmentDirectoryStatus === "configured" ||
 		appointmentRecordsStatus === "configured") &&
-	config.patientDirectoryBaseUrl
+	config.zhongyangBaseUrl
 		? createZhongyangAppointmentGateway({
-				baseUrl: config.patientDirectoryBaseUrl,
-				...(config.patientDirectoryAuthorizationToken
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
 					? {
-							authorizationToken: config.patientDirectoryAuthorizationToken,
+							authorizationToken: config.zhongyangAuthorizationToken,
 						}
 					: {}),
 			})
@@ -113,12 +113,12 @@ const appointmentDirectoryGateway =
 const appointmentRecordDirectoryGateway =
 	appointmentRecordsStatus === "configured" ? appointmentGateway : undefined;
 const reportDirectoryGateway =
-	reportDirectoryStatus === "configured" && config.patientDirectoryBaseUrl
+	reportDirectoryStatus === "configured" && config.zhongyangBaseUrl
 		? createZhongyangReportGateway({
-				baseUrl: config.patientDirectoryBaseUrl,
-				...(config.patientDirectoryAuthorizationToken
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
 					? {
-							authorizationToken: config.patientDirectoryAuthorizationToken,
+							authorizationToken: config.zhongyangAuthorizationToken,
 						}
 					: {}),
 			})
