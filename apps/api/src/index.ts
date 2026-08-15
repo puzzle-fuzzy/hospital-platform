@@ -172,6 +172,9 @@ const app = createApp({
 	}),
 });
 
+// 启动日志同时记录人工 gate 与实际 schema probe，避免把配置意图误报成运行事实。
+const startupSchemaProbe = await persistence.schema.check();
+
 app.onStop(async () => {
 	await persistence.close();
 });
@@ -214,7 +217,8 @@ logger.info(
 		event: "service.started",
 		host: config.host,
 		port: config.port,
-		schemaReady: config.persistenceSchemaReady,
+		persistenceSchemaGate: config.persistenceSchemaReady,
+		persistenceSchemaProbe: startupSchemaProbe,
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		patientDirectoryConfiguration: patientDirectoryStatus,
