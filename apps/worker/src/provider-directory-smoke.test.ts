@@ -107,6 +107,37 @@ test("provider directory smoke fails when a platform response contains a forbidd
 	});
 });
 
+test("provider directory smoke does not treat not-ready as a successful health check", async () => {
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: [],
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					status: "not_ready",
+					dependencies: { database: "unavailable" },
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks).toEqual([
+		{ name: "health-live", status: "passed", traceId: expect.any(String) },
+		{
+			name: "health-ready",
+			status: "failed",
+			errorType: "ProviderSmokeRequestError",
+		},
+	]);
+});
+
 test("provider directory smoke rejects public HTTP unless local opt-in is explicit", async () => {
 	await expect(
 		runProviderDirectorySmoke({

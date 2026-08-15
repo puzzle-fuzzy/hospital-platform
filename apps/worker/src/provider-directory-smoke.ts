@@ -170,6 +170,13 @@ function responseItemCount(data: unknown): number | undefined {
 	return Array.isArray(items) ? items.length : undefined;
 }
 
+function responseStatus(data: unknown): unknown {
+	if (typeof data !== "object" || data === null || Array.isArray(data)) {
+		return undefined;
+	}
+	return (data as { status?: unknown }).status;
+}
+
 function requireSafeData(data: unknown): number | undefined {
 	const forbiddenPath = forbiddenResponseKey(data);
 	if (forbiddenPath) {
@@ -214,9 +221,9 @@ export async function runProviderDirectorySmoke(
 	const reportStartDate = dateOnly(addDays(now, -30));
 	const today = dateOnly(now);
 	const patientId = options.patientId?.trim();
-	const capabilities = options.capabilities.length
-		? options.capabilities
-		: DEFAULT_CAPABILITIES;
+	// 调用方显式传入 [] 时只验证 API 健康状态；CLI 入口通过
+	// parseCapabilities 自己提供默认能力，避免库函数隐式扩大验收范围。
+	const capabilities = options.capabilities;
 	const checks: ProviderSmokeCheck[] = [];
 
 	async function getJson(
@@ -315,8 +322,55 @@ export async function runProviderDirectorySmoke(
 		};
 	}
 
-	await check("health-live", () => readSafe("/health/live"));
-	await check("health-ready", () => readSafe("/health/ready"));
+	async function readLive(): Promise<SmokeObservation> {
+		const result = await getJson("/health/live");
+		if (responseStatus(result.data) !== "ok") {
+			throw new ProviderSmokeRequestError(
+				"Hospital API liveness status is not ok",
+				200,
+			);
+		}
+		return { traceId: result.traceId };
+	}
+
+	async function readReady(): Promise<SmokeObservation> {
+		const result = await getJson("/health/ready");
+		if (responseStatus(result.data) !== "ready") {
+			throw new ProviderSmokeRequestError(
+				"Hospital API readiness status is not ready",
+				200,
+			);
+		}
+		return { traceId: result.traceId };
+	}
+
+	function complete(): ProviderSmokeResult {
+		const passed = checks.every((check) => check.status === "passed");
+		logger[passed ? "info" : "error"](
+			{
+				event: passed ? "provider.smoke.completed" : "provider.smoke.failed",
+				checks,
+			},
+			passed
+				? "Provider directory smoke completed"
+				: "Provider directory smoke failed",
+		);
+		return { passed, checks };
+	}
+
+	await check("health-live", readLive);
+	await check("health-ready", readReady);
+	// 平台健康检查未通过时不触碰任何业务 provider，避免把基础设施故障
+	// 放大成一串无意义的 provider 请求和错误日志。
+	if (
+		checks.some(
+			(check) =>
+				(check.name === "health-live" || check.name === "health-ready") &&
+				check.status === "failed",
+		)
+	) {
+		return complete();
+	}
 
 	for (const capability of capabilities) {
 		if (capability === "patients") {
@@ -361,17 +415,7 @@ export async function runProviderDirectorySmoke(
 		});
 	}
 
-	const passed = checks.every((check) => check.status === "passed");
-	logger[passed ? "info" : "error"](
-		{
-			event: passed ? "provider.smoke.completed" : "provider.smoke.failed",
-			checks,
-		},
-		passed
-			? "Provider directory smoke completed"
-			: "Provider directory smoke failed",
-	);
-	return { passed, checks };
+	return complete();
 }
 
 function parseCapabilities(

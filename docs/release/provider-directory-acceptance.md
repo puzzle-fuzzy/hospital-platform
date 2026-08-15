@@ -55,6 +55,8 @@ provider.smoke.capability.passed / failed
 provider.smoke.completed / failed
 ```
 
+smoke 会先验证 `health/live.data.status=ok` 和 `health/ready.data.status=ready`；任一健康检查失败时立即停止，不再请求患者、预约或报告 provider 能力。
+
 ## C. 运行层证据
 
 先在部署密钥系统或受控 staging 环境注入配置，不把 token 写入 shell 历史、仓库或日志：
