@@ -233,6 +233,8 @@ process.on("SIGTERM", () => void stop("SIGTERM"));
 logger.info(
 	{
 		event: "service.started",
+		// 运行模式必须出现在启动日志中，便于通过 journald/Pino 快速确认当前实例是否为生产进程。
+		runtimeMode: config.environment,
 		host: config.host,
 		port: config.port,
 		persistenceSchemaGate: config.persistenceSchemaReady,
@@ -257,5 +259,5 @@ logger.info(
 		...(reportDirectoryMissing.length > 0 ? { reportDirectoryMissing } : {}),
 		...(reportDetailMissing.length > 0 ? { reportDetailMissing } : {}),
 	},
-	"Hospital API listening",
+	`Hospital API listening in ${config.environment} mode`,
 );

@@ -233,8 +233,11 @@ export async function runWorkerLoop(
 	options: {
 		intervalMs: number;
 		logger: AppLogger;
+		/** 显式传入入口解析出的运行模式，避免测试/生产日志互相误判。 */
+		environment?: RuntimeConfig["environment"];
 	},
 ): Promise<void> {
+	const runtimeEnvironment = options.environment ?? defaultConfig.environment;
 	const initialization = await runtime.initialize();
 	if (initialization.status !== "ready") {
 		const configured = initialization.status !== "not_configured";
@@ -263,8 +266,13 @@ export async function runWorkerLoop(
 	process.on("SIGINT", stop);
 	process.on("SIGTERM", stop);
 	options.logger.info(
-		{ event: "service.started", status: runtime.status },
-		"Hospital worker started",
+		{
+			event: "service.started",
+			// worker 不监听 HTTP 端口，但仍必须打印运行模式，便于区分开发轮询与生产轮询。
+			runtimeMode: runtimeEnvironment,
+			status: runtime.status,
+		},
+		`Hospital worker started in ${runtimeEnvironment} mode`,
 	);
 	try {
 		while (!stopping) {

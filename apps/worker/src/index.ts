@@ -61,12 +61,14 @@ export async function workerStatus(): Promise<WorkerStatus> {
 if (import.meta.main) {
 	const logger = createLogger({
 		service: "hospital-worker",
-		environment: Bun.env.NODE_ENV ?? "development",
+		// 与 API 共享同一份解析后的配置，避免 worker 日志与 API 日志出现模式漂移。
+		environment: config.environment,
 		level: (Bun.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") ?? "info",
 	});
 	const runtime = createWorkerRuntime({ logger });
 	await runWorkerLoop(runtime, {
 		intervalMs: config.workerPollIntervalMs,
 		logger,
+		environment: config.environment,
 	});
 }
