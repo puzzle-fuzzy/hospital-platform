@@ -3,6 +3,7 @@ import { PaymentOrderService } from "@hospital/domain";
 import { strict as assert } from "node:assert";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
 import { createMySqlRepositories } from "./mysql-repositories";
+import { readCoreSchemaStateFromPool } from "./migrate";
 import { createPersistenceRuntime } from "./runtime";
 
 const logger = createLogger({
@@ -83,6 +84,23 @@ export async function runPersistenceIntegration() {
 			dateStrings: true,
 			waitForConnections: true,
 		});
+		// 在写入任何集成数据前先确认全部目标 migration 已登记；否则
+		// 后续外键/列错误会掩盖真正的 schema readiness 问题。
+		const schemaState = await readCoreSchemaStateFromPool(pool);
+		logger.info(
+			{
+				event: "persistence.integration.schema_probe",
+				status: schemaState.status,
+				expectedMigrationId: schemaState.expectedMigrationId,
+				missingMigrationIds: schemaState.missingMigrationIds,
+			},
+			"Persistence integration schema probe completed",
+		);
+		assert.equal(
+			schemaState.status,
+			"ready",
+			`Persistence schema is not ready; missing migrations: ${schemaState.missingMigrationIds.join(", ")}`,
+		);
 		const repositories = createMySqlRepositories(pool, {
 			// 短 lease 只用于证明 crash recovery；生产默认仍为 60 秒。
 			outboxClaimLeaseMs: 100,
