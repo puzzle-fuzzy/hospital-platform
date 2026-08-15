@@ -130,6 +130,19 @@ importers:
         specifier: 'catalog:'
         version: 7.0.2
 
+  packages/persistence:
+    dependencies:
+      '@hospital/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
 packages:
 
   '@biomejs/biome@2.5.8':

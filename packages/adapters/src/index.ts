@@ -1,6 +1,8 @@
 export type AdapterName =
 	| "zhongyang"
+	| "hospital-his"
 	| "medical-insurance"
+	| "legacy-fsi"
 	| "wechat-pay"
 	| "yunhealth"
 	| "ai";

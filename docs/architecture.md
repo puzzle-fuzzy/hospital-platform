@@ -25,6 +25,26 @@ Elysia API / contracts
 - API 只负责鉴权、输入校验、调用 domain、返回契约化结果。
 - 回调、查单、重试和 HIS 回写必须支持幂等；未知状态不能自动判定失败。
 
+## 目标代码布局
+
+```text
+apps/
+  api/
+    src/
+      modules/       # 按患者、支付、管理等业务域拆分的 Elysia controller
+      infrastructure/ # readiness、日志、数据库和缓存组合
+      plugins/       # request context、auth、错误、OpenAPI 等横切能力
+  worker/            # outbox、回调、查单和补偿任务
+  miniprogram/       # 原生小程序，不承载 provider 凭证
+packages/
+  contracts/         # TypeBox schema、响应和跨端契约
+  domain/            # 状态机、金额规则和业务 service
+  adapters/          # 外部协议实现，不让 provider 污染 domain
+  persistence/       # MySQL/Redis port 与实现
+```
+
+Elysia 实例之间显式声明依赖：业务模块通过工厂函数接收 service/port，不能从路由文件直接创建数据库连接或读取 provider secret。HTTP controller 只做路由、校验、鉴权和响应映射，状态迁移放在 domain service。
+
 ## 支付状态机
 
 ```text

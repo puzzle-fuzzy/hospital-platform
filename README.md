@@ -24,6 +24,7 @@ packages/
   contracts/           HTTP/API 契约与 TypeBox schema
   domain/              与框架无关的领域状态机和端口
   adapters/            外部医院/支付/AI 适配器（骨架）
+  persistence/         MySQL/Redis 端口与健康检查边界
 ```
 
 ## 开发
@@ -37,7 +38,7 @@ pnpm check
 API 默认运行在 `http://localhost:3000`：
 
 - `GET /health/live`：存活检查
-- `GET /health/ready`：依赖就绪检查（当前基础骨架默认未就绪）
+- `GET /health/ready`：依赖就绪检查（`not_configured` 或 `unavailable` 不会伪装成 ready）
 - `GET /api/v1/system/ping`：API 版本检查
 - `GET /openapi`：OpenAPI 文档
 

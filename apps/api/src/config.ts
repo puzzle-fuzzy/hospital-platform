@@ -1,18 +1,58 @@
 export type RuntimeConfig = {
+	environment: "development" | "test" | "production";
 	host: string;
 	port: number;
 	apiVersion: string;
 	docsEnabled: boolean;
+	corsOrigins: string[];
+	databaseUrl: string | undefined;
+	redisUrl: string | undefined;
 };
 
 function positivePort(value: string | undefined): number {
-	const port = Number(value ?? 3000);
-	return Number.isInteger(port) && port > 0 && port < 65_536 ? port : 3000;
+	if (!value) return 3000;
+
+	const port = Number(value);
+	if (Number.isInteger(port) && port > 0 && port < 65_536) return port;
+
+	throw new Error("PORT must be an integer between 1 and 65535");
 }
 
+function environment(value: string | undefined): RuntimeConfig["environment"] {
+	if (value === "production" || value === "test") return value;
+	return "development";
+}
+
+function boolean(value: string | undefined, fallback: boolean): boolean {
+	if (!value) return fallback;
+	return value === "true" || value === "1";
+}
+
+function optional(value: string | undefined): string | undefined {
+	const normalized = value?.trim();
+	return normalized ? normalized : undefined;
+}
+
+function origins(value: string | undefined): string[] {
+	if (!value) return ["http://localhost:5173", "http://127.0.0.1:5173"];
+	return value
+		.split(",")
+		.map((origin) => origin.trim())
+		.filter(Boolean);
+}
+
+const runtimeEnvironment = environment(Bun.env.NODE_ENV);
+
 export const config: RuntimeConfig = {
+	environment: runtimeEnvironment,
 	host: Bun.env.HOST ?? "127.0.0.1",
 	port: positivePort(Bun.env.PORT),
 	apiVersion: Bun.env.API_VERSION ?? "0.1.0",
-	docsEnabled: Bun.env.DOCS_ENABLED !== "false",
+	docsEnabled: boolean(
+		Bun.env.DOCS_ENABLED,
+		runtimeEnvironment !== "production",
+	),
+	corsOrigins: origins(Bun.env.CORS_ORIGINS),
+	databaseUrl: optional(Bun.env.DATABASE_URL),
+	redisUrl: optional(Bun.env.REDIS_URL),
 };
