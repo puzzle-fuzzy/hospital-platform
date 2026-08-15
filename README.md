@@ -51,6 +51,10 @@ pnpm dev
 pnpm check
 ```
 
+`pnpm architecture:audit` 会在完整校验前检查不可妥协的架构边界：Pino 日志入口、schema
+gate、fail-closed 组合根、预约只读路线以及原生小程序 provider 隔离。它是静态漂移检查，
+不能替代 `db:integration`、provider smoke、开发者工具或真机验收。
+
 本地真实持久化验收：
 
 ```powershell

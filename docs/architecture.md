@@ -46,6 +46,10 @@ packages/
 
 Elysia 实例之间显式声明依赖：业务模块通过工厂函数接收 service/port，不能从路由文件直接创建数据库连接或读取 provider secret。HTTP controller 只做路由、校验、鉴权和响应映射，状态迁移放在 domain service。
 
+仓库级不可妥协边界由 `pnpm architecture:audit` 做静态漂移检查，当前覆盖 Pino 入口、
+schema gate、fail-closed repository、预约只读路由和原生小程序 provider 隔离。该检查
+只证明源代码仍符合约束，不把静态通过误报为真实数据库、provider 或设备验收。
+
 当前已完成的患者端纵向切片：
 
 ```text
