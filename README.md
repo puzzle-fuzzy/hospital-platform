@@ -68,6 +68,10 @@ pnpm infra:down
 [`docs/release/payment-acceptance.md`](docs/release/payment-acceptance.md)；本地单测和
 `runtime:preflight` 不等于真实微信支付已上线。
 
+众阳患者/预约/报告目录的四层验收请阅读
+[`docs/release/provider-directory-acceptance.md`](docs/release/provider-directory-acceptance.md)；
+provider gate 配置完整不等于真实 provider 已授权或真机可用。
+
 API 默认运行在 `http://localhost:3000`：
 
 - `GET /health/live`：存活检查

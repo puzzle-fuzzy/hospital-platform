@@ -1,0 +1,118 @@
+# 众阳目录发布验收手册
+
+本手册适用于患者目录、预约目录和 LIS/PACS/ECG 报告摘要目录。它把“代码通过”“服务可运行”“provider 真实可读”和“小程序设备链路可用”分开记录；任何一层没有对应证据，都不能把对应 gate 标记为 ready。
+
+## 当前能力边界
+
+| 能力 | API | 当前允许的 provider 操作 | 明确不在本阶段 |
+| --- | --- | --- | --- |
+| 患者目录 | `POST /api/v1/patients/sync`、`GET /api/v1/patients` | 服务端使用已绑定身份读取目录，并保存内部 patientId 与 provider 患者号映射 | 建档、绑卡、修改患者、把 unionId/provider 患者号交给小程序 |
+| 预约目录 | `GET /api/v1/appointments/departments`、`GET /api/v1/appointments/schedules` | 读取科室、排班和号源数量 | 锁号、预约写入、取消、挂号费和支付 |
+| 报告目录 | `GET /api/v1/reports` | 读取 LIS/PACS/ECG 摘要 | 体检报告、报告详情、诊断全文、解读、文件下载、门诊病历 |
+
+`ZHONGYANG_PATIENT_DIRECTORY_READY`、`ZHONGYANG_APPOINTMENT_DIRECTORY_READY` 和
+`ZHONGYANG_REPORT_DIRECTORY_READY` 是三个独立 gate。共享连接地址不代表共享验收结果。
+
+## A. 代码层证据
+
+在提交目标 release 后执行：
+
+```powershell
+pnpm check
+```
+
+必须确认：
+
+- Biome format/lint、所有 workspace typecheck、test 和 build 全部通过；
+- adapter 测试覆盖数组/包装响应、业务失败、字段白名单、日期参数和 provider 请求 id；
+- API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
+- 原生小程序 acceptance test 证明只调用 Hospital API，不包含众阳 provider URL；
+- Pino 日志测试证明 `providerPatientId` 和 `provider_patient_id` 会被脱敏；
+- 报告测试不把患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
+
+## B. 运行层证据
+
+先在部署密钥系统或受控 staging 环境注入配置，不把 token 写入 shell 历史、仓库或日志：
+
+```powershell
+$env:ZHONGYANG_PATIENT_DIRECTORY_READY = "true"
+$env:ZHONGYANG_APPOINTMENT_DIRECTORY_READY = "true"
+$env:ZHONGYANG_REPORT_DIRECTORY_READY = "true"
+$env:ZHONGYANG_PATIENT_DIRECTORY_BASE_URL = "https://<provider-host>"
+# 如 provider 合同要求，再注入服务端 token
+$env:ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN = "<secret-from-secret-store>"
+pnpm runtime:preflight
+```
+
+preflight 必须显示：
+
+- `provider-configuration` 中三个众阳 gate 为 `configured`；
+- MySQL、Redis 和目标 migration 通过；
+- `PERSISTENCE_SCHEMA_READY` 已由部署流程显式确认；
+- 输出只包含 `configured/disabled/incomplete`、环境变量名和错误类型，不包含 URL 实际值、token 或 provider 原始报文。
+
+运行后再确认：
+
+```text
+GET /health/live  -> 200：只证明进程能响应
+GET /health/ready -> 200 且 data.status=ready：证明基础设施和 schema gate 通过
+```
+
+HTTPS 是硬条件：三个众阳 gate、微信身份和微信支付的自定义 provider base URL 都必须是 HTTPS；HTTP 不能通过配置状态检查。真实 provider 请求前，不得为了“先试一下”关闭 gate 或把 URL 写入小程序配置。
+
+## C. provider 只读证据
+
+使用 provider 书面授权的 staging/测试身份和测试患者，按以下顺序留证：
+
+1. 登录和患者同步：确认 unionId 只来自服务端身份表；记录内部 `userId`、内部 `patientId`、traceId 和 provider request id，不记录 provider 患者号。
+2. 患者列表：确认响应只有内部 id、脱敏姓名/关系/卡号和 source。
+3. 预约科室和排班：确认服务端固定 `requestChannel=4`，日期范围和筛选字段只来自平台 query 白名单。
+4. 报告目录：确认服务端以内部 patientId 查映射后分别读取 LIS/PACS/ECG；确认响应只有来源、标题、时间、状态和附件存在性。
+5. provider 业务失败、超时和 malformed response：确认 API 返回统一安全错误，日志保留 trace、provider request id 和错误类型，不保留 provider 原始错误内容。
+6. 使用错误 owner 的内部 patientId：确认服务端在 provider 请求前返回 `report-patient-not-found` 或等价 owner 隔离错误。
+
+必须出现的结构化日志事件：
+
+```text
+patient.directory.requested / synced / failed
+appointment.directory.departments.requested / synced / failed
+appointment.directory.schedules.requested / synced / failed
+report.directory.requested / synced / failed
+```
+
+这些日志只用于诊断，不替代数据库患者映射、订单状态或 provider 侧证据。
+
+## D. 原生小程序与设备证据
+
+在微信开发者工具和真机分别执行：
+
+- `wx.login` 只向 Hospital API 发送临时 code；网络列表中不出现众阳 host；
+- 登录后同步患者，页面只显示平台脱敏模型；
+- 读取预约目录，页面只显示科室/排班安全字段；
+- 选择内部 patientId 读取近 30 天报告，页面只显示摘要，不显示 provider 患者号或原始 JSON；
+- 将 API base URL 改为公网 HTTP，客户端必须拒绝请求；本机 HTTP 只允许 localhost/127.0.0.1；
+- 记录开发者工具/真机网络、页面截图和服务端 traceId，不能只凭页面“加载成功”判断 provider 通过。
+
+## 证据记录模板
+
+```text
+release commit:
+environment:
+provider contract/version:
+started at:
+API base URL scheme: HTTPS / rejected HTTP
+internal userId:
+internal patientId:
+traceId:
+provider request ids:
+commands:
+result by capability:
+log events:
+provider console or response evidence:
+mini-program screenshots/network evidence:
+remaining gaps:
+```
+
+## 未完成项
+
+在上述四层证据完成前，以下状态保持未验收：真实 provider 生产权限、生产 HTTPS/反向代理、真机网络和页面验收、预约写入/锁号/取消、报告详情/解读/下载、体检身份证链路、医保 FSI crypto 和 HIS 写回。
