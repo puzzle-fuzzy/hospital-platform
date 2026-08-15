@@ -65,6 +65,8 @@ export async function runPersistenceIntegration() {
 	let pool: Pool | undefined;
 	let userId: string | undefined;
 	let otherUserId: string | undefined;
+	let integrationOperationFailed = false;
+	let integrationOperationError: unknown;
 	try {
 		// 并行采集两个依赖状态，失败时一次日志就能定位基础设施边界。
 		const [database, redis] = await Promise.all([
@@ -406,7 +408,13 @@ export async function runPersistenceIntegration() {
 			},
 			"Persistence integration checks passed",
 		);
-	} finally {
+	} catch (error) {
+		integrationOperationFailed = true;
+		integrationOperationError = error;
+	}
+
+	let cleanupError: unknown;
+	try {
 		if (pool && userId) {
 			// 该脚本只允许在本地隔离库运行；清理顺序遵循外键依赖。
 			await pool.execute(
@@ -444,8 +452,24 @@ export async function runPersistenceIntegration() {
 				userId,
 			]);
 		}
+	} catch (error) {
+		cleanupError = error;
+		logger.error(
+			{
+				event: "persistence.integration.cleanup_failed",
+				errorType: error instanceof Error ? error.name : "UnknownError",
+				originalOperationFailed: integrationOperationFailed,
+			},
+			"Persistence integration cleanup failed",
+		);
+	} finally {
+		// 无论主体或清理是否失败，都必须释放 MySQL 连接池。
 		await pool?.end();
 	}
+
+	// 主体验收优先；只有清理本身是唯一失败时才抛出清理异常。
+	if (integrationOperationFailed) throw integrationOperationError;
+	if (cleanupError !== undefined) throw cleanupError;
 }
 
 if (import.meta.main) {
