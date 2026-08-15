@@ -1,4 +1,9 @@
 {
 	"desc": "Hospital Platform native mini program sitemap",
-	"rules": []
+	"rules": [
+		{
+			"action": "allow",
+			"page": "*"
+		}
+	]
 }
