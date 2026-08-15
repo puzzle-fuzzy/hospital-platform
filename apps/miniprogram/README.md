@@ -8,6 +8,8 @@
 同步按钮只调用 `POST /api/v1/patients/sync`；unionId 从服务端会话解析，provider 患者号只在服务端映射表内使用。
 首页的预约目录入口只调用 `GET /api/v1/appointments/departments` 和
 `GET /api/v1/appointments/schedules`，日期范围由客户端限制为未来 7 天展示，预约写入和支付尚未开放。
+报告入口只调用 `GET /api/v1/reports`，传入平台内部 `patientId` 和有限日期范围；服务端负责解析众阳患者号。
+本期只读 LIS/PACS/ECG 摘要，体检报告因旧 provider 要求完整身份证号而未开放，报告详情和文件下载也未开放。
 `api-client.js` 已封装 `requestWechatPrepay(orderId, idempotencyKey)`，只接收服务端生成的
 `payParams`；`launchWechatPayment` 只把白名单字段交给 `wx.requestPayment`，调起成功和取消都不会直接更新业务状态。
 页面仍需在订单状态为 `cash_pending` 时调用它，支付最终结果必须重新读取服务端订单状态。

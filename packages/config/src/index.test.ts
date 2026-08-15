@@ -5,6 +5,8 @@ import {
 	loadRuntimeConfig,
 	patientDirectoryConfigurationMissingFields,
 	patientDirectoryConfigurationStatus,
+	reportDirectoryConfigurationMissingFields,
+	reportDirectoryConfigurationStatus,
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
@@ -56,6 +58,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(wechatPaymentConfigurationStatus(disabled)).toBe("disabled");
 	expect(patientDirectoryConfigurationStatus(disabled)).toBe("disabled");
 	expect(appointmentDirectoryConfigurationStatus(disabled)).toBe("disabled");
+	expect(reportDirectoryConfigurationStatus(disabled)).toBe("disabled");
 
 	const incomplete = loadRuntimeConfig({
 		WECHAT_PAYMENT_READY: "true",
@@ -87,6 +90,16 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 			appointmentDirectoryIncomplete,
 		),
 	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
+	const reportDirectoryIncomplete = loadRuntimeConfig({
+		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
+		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
+	});
+	expect(reportDirectoryConfigurationStatus(reportDirectoryIncomplete)).toBe(
+		"incomplete",
+	);
+	expect(
+		reportDirectoryConfigurationMissingFields(reportDirectoryIncomplete),
+	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
 	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
 		"WECHAT_PAY_NOTIFY_URL(https)",
 	);
@@ -110,6 +123,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	const configuredPatientDirectory = loadRuntimeConfig({
 		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
+		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
 		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "https://zhongyang.example.test",
 		ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN: "provider-token",
 	});
@@ -119,4 +133,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(
 		appointmentDirectoryConfigurationStatus(configuredPatientDirectory),
 	).toBe("configured");
+	expect(reportDirectoryConfigurationStatus(configuredPatientDirectory)).toBe(
+		"configured",
+	);
 });

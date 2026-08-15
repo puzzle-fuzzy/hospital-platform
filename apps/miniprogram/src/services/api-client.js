@@ -244,6 +244,24 @@ export function requestAppointmentSchedules(options) {
 }
 
 /**
+ * 读取指定内部 patientId 的报告目录；服务端会按当前会话重新解析 provider 患者号。
+ * 小程序只传平台 id 和有限日期筛选，不接收或拼接众阳报告接口参数。
+ * @param {{patientId: string, startDate: string, endDate: string, kind?: 'laboratory'|'imaging'|'ecg'}} options
+ */
+export function requestReports(options) {
+	const query = [
+		`patientId=${encodeURIComponent(options.patientId)}`,
+		`startDate=${encodeURIComponent(options.startDate)}`,
+		`endDate=${encodeURIComponent(options.endDate)}`,
+		...(options.kind ? [`kind=${encodeURIComponent(options.kind)}`] : []),
+	].join("&");
+	return requestWithSession({
+		url: `/api/v1/reports?${query}`,
+		method: "GET",
+	});
+}
+
+/**
  * 读取服务端生成的微信调起参数；小程序不构造 paySign，也不把调起成功当作业务成功。
  * @param {string} orderId
  * @param {string} idempotencyKey

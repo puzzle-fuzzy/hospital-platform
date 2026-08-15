@@ -108,6 +108,30 @@ export const AppointmentScheduleListResponse = Type.Object({
 	}),
 });
 
+/** 报告目录的来源枚举；详情字段和 provider 原始数据不在本期公开 contract。 */
+export const ReportKindSchema = Type.Union([
+	Type.Literal("laboratory"),
+	Type.Literal("imaging"),
+	Type.Literal("ecg"),
+]);
+
+export const ReportSchema = Type.Object({
+	reportId: Type.String({ minLength: 1, maxLength: 256 }),
+	kind: ReportKindSchema,
+	title: Type.String({ minLength: 1, maxLength: 256 }),
+	reportedAt: Type.String({ minLength: 1, maxLength: 64 }),
+	status: Type.Union([Type.Literal("available"), Type.Literal("abnormal")]),
+	hasAttachment: Type.Boolean(),
+});
+
+export const ReportListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(ReportSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
 /** 创建订单只引用服务端报价，客户端不能提交医保金额或现金金额。 */
 export const PaymentOrderCreateRequest = Type.Object({
 	patientId: Type.String({ minLength: 1, maxLength: 128 }),
@@ -240,6 +264,8 @@ export type AppointmentSchedulePayload = Static<
 export type AppointmentScheduleListPayload = Static<
 	typeof AppointmentScheduleListResponse
 >;
+export type ReportPayload = Static<typeof ReportSchema>;
+export type ReportListPayload = Static<typeof ReportListResponse>;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest
 >;

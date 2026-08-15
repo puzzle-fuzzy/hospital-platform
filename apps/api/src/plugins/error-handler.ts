@@ -16,6 +16,10 @@ import {
 import { HttpError } from "../errors";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import { AppointmentScheduleQueryError } from "../modules/appointments/service";
+import {
+	ReportPatientNotFoundError,
+	ReportQueryError,
+} from "../modules/reports/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 
 function normalizeCode(code: string | number): string {
@@ -84,6 +88,25 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "appointment-query-invalid",
 						message: error.message,
+					},
+				};
+			}
+
+			if (error instanceof ReportQueryError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: { code: "report-query-invalid", message: error.message },
+				};
+			}
+
+			if (error instanceof ReportPatientNotFoundError) {
+				set.status = 404;
+				return {
+					success: false,
+					error: {
+						code: "report-patient-not-found",
+						message: "Report patient not found",
 					},
 				};
 			}

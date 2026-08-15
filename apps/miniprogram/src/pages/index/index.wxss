@@ -66,6 +66,10 @@ button {
 	padding-top: 28rpx;
 }
 
+.report-card {
+	padding-top: 28rpx;
+}
+
 .appointment-row {
 	display: flex;
 	justify-content: space-between;

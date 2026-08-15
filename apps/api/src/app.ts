@@ -15,6 +15,7 @@ import { authModule } from "./modules/auth";
 import { appointmentsModule } from "./modules/appointments";
 import { healthModule } from "./modules/health";
 import { patientsModule } from "./modules/patients";
+import { reportsModule } from "./modules/reports";
 import { paymentsModule } from "./modules/payments";
 import { systemModule } from "./modules/system";
 import { errorHandlerPlugin } from "./plugins/error-handler";
@@ -44,6 +45,7 @@ function openApiPlugin() {
 				{ name: "auth", description: "患者端身份认证" },
 				{ name: "patients", description: "患者档案" },
 				{ name: "appointments", description: "预约目录" },
+				{ name: "reports", description: "检查检验报告目录" },
 				{ name: "payments", description: "支付订单" },
 			],
 		},
@@ -82,6 +84,7 @@ export function createApp(options: AppOptions = {}) {
 				.use(authModule(services.auth))
 				.use(patientsModule(services.patients, services.sessions))
 				.use(appointmentsModule(services.appointments, services.sessions))
+				.use(reportsModule(services.reports, services.sessions))
 				.use(
 					paymentsModule(
 						services.paymentOrders,

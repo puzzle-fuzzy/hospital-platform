@@ -2,6 +2,7 @@ import { createNotConfiguredGateways } from "@hospital/adapters";
 import type {
 	AppointmentDirectoryGateway,
 	PatientDirectoryGateway,
+	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
@@ -22,6 +23,7 @@ import {
 } from "./modules/auth";
 import { PatientService } from "./modules/patients";
 import { AppointmentService } from "./modules/appointments";
+import { ReportService } from "./modules/reports";
 import { WechatPrepayService } from "./modules/payments";
 import {
 	WechatPaymentNotificationService,
@@ -32,6 +34,7 @@ export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
 	appointments: AppointmentService;
+	reports: ReportService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
 	wechatPaymentNotifications: WechatPaymentNotificationService;
@@ -51,6 +54,8 @@ export type ApplicationServiceOptions = {
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
+	/** 只有完成众阳 LIS/PACS/ECG 只读合同和真实环境验收后才打开。 */
+	reportDirectoryGateway?: ReportDirectoryGateway;
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 };
@@ -84,6 +89,10 @@ export function createDefaultApplicationServices(
 		appointments: new AppointmentService({
 			directory:
 				options.appointmentDirectoryGateway ?? gateways.appointmentDirectory,
+		}),
+		reports: new ReportService({
+			repository: repositories.patients,
+			directory: options.reportDirectoryGateway ?? gateways.reportDirectory,
 		}),
 		paymentOrders,
 		wechatPrepay: new WechatPrepayService({

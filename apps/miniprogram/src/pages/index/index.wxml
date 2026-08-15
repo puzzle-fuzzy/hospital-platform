@@ -8,6 +8,7 @@
 		<button class="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">微信登录并加载就诊人</button>
 		<button class="secondary" loading="{{syncingPatients}}" disabled="{{syncingPatients}}" bindtap="onSyncPatients">从医院同步就诊人</button>
 		<button class="secondary" loading="{{loadingAppointments}}" disabled="{{loadingAppointments}}" bindtap="onLoadAppointments">查看预约科室与排班</button>
+		<button class="secondary" loading="{{loadingReports}}" disabled="{{loadingReports}}" bindtap="onLoadReports">查看近 30 天报告</button>
 		<button class="secondary" bindtap="onRefresh">刷新</button>
 		<text wx:if="{{error}}" class="error">{{error}}</text>
 	</view>
@@ -43,6 +44,21 @@
 				<text class="patient-meta">{{item.departmentName}} · {{item.doctorName}}</text>
 			</view>
 			<text class="patient-source">余 {{item.availableSlots}}</text>
+		</view>
+	</view>
+
+	<view class="card report-card">
+		<view class="section-header">
+			<text class="section-title">报告目录</text>
+			<text class="section-hint">服务端只读</text>
+		</view>
+		<view wx:if="{{!hasReports}}" class="empty">点击上方按钮读取当前首位就诊人近 30 天报告</view>
+		<view wx:for="{{reports}}" wx:key="reportId" class="appointment-row">
+			<view>
+				<text class="patient-name">{{item.title}}</text>
+				<text class="patient-meta">{{item.kind}} · {{item.reportedAt}}</text>
+			</view>
+			<text class="patient-source">{{item.status}}</text>
 		</view>
 	</view>
 </view>

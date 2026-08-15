@@ -5,11 +5,12 @@ import {
 	requestWithSession,
 	requestAppointmentDepartments,
 	requestAppointmentSchedules,
+	requestReports,
 	syncPatients,
 } from "../../services/api-client";
 
 Page({
-	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, error: string}} */
+	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, reports: Array<Record<string, unknown>>, hasReports: boolean, loadingReports: boolean, error: string}} */
 	data: {
 		status: "加载中",
 		service: "",
@@ -22,6 +23,9 @@ Page({
 		appointmentSchedules: [],
 		hasAppointmentData: false,
 		loadingAppointments: false,
+		reports: [],
+		hasReports: false,
+		loadingReports: false,
 		error: "",
 	},
 
@@ -111,6 +115,36 @@ Page({
 	onRefresh() {
 		this.checkHealth();
 		if (getApp().globalData.accessToken) this.loadPatients();
+	},
+
+	onLoadReports() {
+		const patient = this.data.patients[0];
+		if (!patient || typeof patient.id !== "string" || !patient.id) {
+			this.showError(new ApiError("请先登录并同步就诊人"), "报告加载失败");
+			return;
+		}
+		this.setData({ loadingReports: true, error: "" });
+		const end = new Date();
+		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+		/** @param {Date} value */
+		const date = (value) => {
+			const year = value.getFullYear();
+			const month = String(value.getMonth() + 1).padStart(2, "0");
+			const day = String(value.getDate()).padStart(2, "0");
+			return `${year}-${month}-${day}`;
+		};
+
+		requestReports({
+			patientId: patient.id,
+			startDate: date(start),
+			endDate: date(end),
+		})
+			.then((payload) => {
+				const reports = payload?.data?.items || [];
+				this.setData({ reports, hasReports: reports.length > 0, error: "" });
+			})
+			.catch((error) => this.showError(error, "报告目录加载失败"))
+			.finally(() => this.setData({ loadingReports: false }));
 	},
 
 	/** @param {unknown} error @param {string} fallback */

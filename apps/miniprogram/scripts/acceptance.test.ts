@@ -54,6 +54,18 @@ test("native client reads appointment directories only through the Hospital API"
 	expect(page).not.toContain("msun-middle-business-amc-server");
 });
 
+test("native client reads report directories by internal patient id through the Hospital API", async () => {
+	const client = await source("services/api-client.js");
+	const page = await source("pages/index/index.js");
+
+	expect(client).toContain("requestReports");
+	expect(client).toContain("/api/v1/reports?");
+	expect(client).toContain("patientId=");
+	expect(page).toContain("onLoadReports");
+	expect(page).not.toContain("msun-middle-business-lis");
+	expect(page).not.toContain("providerPatientId");
+});
+
 test("native client only permits local HTTP or HTTPS API addresses", () => {
 	expect(isAllowedApiBaseUrl("http://127.0.0.1:3000")).toBe(true);
 	expect(isAllowedApiBaseUrl("http://localhost:3000/api")).toBe(true);

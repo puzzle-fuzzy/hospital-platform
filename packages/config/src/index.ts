@@ -35,6 +35,8 @@ export type RuntimeConfig = {
 	patientDirectoryReady: boolean;
 	/** 预约 AMC 只读目录独立验收，不能随患者目录一起隐式打开。 */
 	appointmentDirectoryReady: boolean;
+	/** LIS/PACS/ECG 报告目录独立验收，不能随患者目录一起隐式打开。 */
+	reportDirectoryReady: boolean;
 	patientDirectoryBaseUrl: string | undefined;
 	/** 可选的服务端 provider token；不能下发小程序或写入日志。 */
 	patientDirectoryAuthorizationToken: string | undefined;
@@ -206,6 +208,24 @@ export function appointmentDirectoryConfigurationStatus(
 		: "incomplete";
 }
 
+export function reportDirectoryConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.reportDirectoryReady,
+	);
+}
+
+export function reportDirectoryConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.reportDirectoryReady) return "disabled";
+	return reportDirectoryConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
 type RuntimeEnv = Record<string, string | undefined>;
 
 function positivePort(value: string | undefined): number {
@@ -317,6 +337,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.ZHONGYANG_APPOINTMENT_DIRECTORY_READY,
 			false,
 		),
+		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),
 		patientDirectoryBaseUrl: optional(env.ZHONGYANG_PATIENT_DIRECTORY_BASE_URL),
 		patientDirectoryAuthorizationToken: optional(
 			env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,

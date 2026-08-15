@@ -23,6 +23,14 @@ Phase 7A 已建立众阳患者目录 adapter：
 - provider 患者号已经通过 `hp_patients.provider_name/provider_patient_id` 做内部映射，生产组合根仍默认保持 not-configured；只有 `ZHONGYANG_PATIENT_DIRECTORY_READY=true`、服务端 HTTPS 地址完整且 provider 合同确认后才会注入患者 adapter。
 - `ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN` 是可选的服务端 secret，是否需要以及具体授权格式必须以众阳/HIS 合同确认；配置状态 configured 只代表字段完整，不代表真实请求成功。
 
+报告 Phase 7C 只实现众阳 LIS/PACS/ECG 的只读目录摘要：
+
+- LIS 使用 `/msun-middle-business-lis/v1/lis-reports-filter`，影像使用 `/msun-middle-business-pacs/v1/exclude-privacy-patient-reports`，心电使用 `/msun-middle-business-ecg/v2/ecg-reports`；三者都由服务端从内部 `patientId` 解析 provider 患者号后调用；
+- 新 contract 只返回来源、报告摘要标题、报告时间、状态和是否有附件，不返回患者姓名、报告明细、诊断全文、文件 URL 或 provider 原始字段；
+- 旧体检接口 `/msun-peis-app-peis-new/v1/find-report-list-for-wechat` 依赖完整身份证号和院方 hospitalId，新患者模型不保存完整身份证，因此本阶段不迁移该接口；
+- 报告详情、解读、下载、门诊病历和体检报告需要单独的 provider 合同、资源授权和审计边界，不能由目录接口顺手开放；
+- 报告目录使用独立的 `ZHONGYANG_REPORT_DIRECTORY_READY` gate，和患者/预约目录共享连接配置但分别验收；configured 只表示配置字段完整，不代表真实 provider 已联调。
+
 预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
 
 - `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts` 映射为科室读模型；

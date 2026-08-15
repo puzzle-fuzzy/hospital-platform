@@ -18,12 +18,14 @@ import {
 	PaymentOrderService,
 	type AppointmentDirectoryGateway,
 	type PatientDirectoryGateway,
+	type ReportDirectoryGateway,
 } from "@hospital/domain";
 import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
 import { PatientService } from "./modules/patients";
 import { AppointmentService } from "./modules/appointments";
+import { ReportService } from "./modules/reports";
 import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
@@ -47,6 +49,15 @@ function unusedWechatNotificationService(): WechatPaymentNotificationService {
 function unusedAppointmentService(): AppointmentService {
 	return new AppointmentService({
 		directory: createNotConfiguredGateways().appointmentDirectory,
+	});
+}
+
+/** 报告目录组合测试不应隐式访问真实 LIS/PACS/ECG provider。 */
+function unusedReportService(): ReportService {
+	const gateways = createNotConfiguredGateways();
+	return new ReportService({
+		repository: createInMemoryPatientRepository(),
+		directory: gateways.reportDirectory,
 	});
 }
 
@@ -267,6 +278,7 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 		}),
 		wechatPaymentNotifications: unusedWechatNotificationService(),
 		appointments: unusedAppointmentService(),
+		reports: unusedReportService(),
 		sessions,
 	};
 	const app = createApp({ services });
@@ -460,6 +472,7 @@ test("patient sync resolves provider identity on the server and returns only int
 		}),
 		wechatPaymentNotifications: unusedWechatNotificationService(),
 		appointments: unusedAppointmentService(),
+		reports: unusedReportService(),
 		sessions,
 	};
 	const app = createApp({ services, logger });
@@ -604,6 +617,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 			auth: new AuthService({ identityGateway, identityUsers, sessions }),
 			patients: new PatientService(createInMemoryPatientRepository()),
 			appointments: new AppointmentService({ directory }),
+			reports: unusedReportService(),
 			paymentOrders,
 			wechatPrepay: new WechatPrepayService({
 				orders: paymentOrders,
@@ -730,6 +744,130 @@ test("appointment directory keeps provider fields behind a server read model", a
 	});
 });
 
+test("report directory resolves internal patient ownership before provider lookup", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const identityGateway = createFixtureWechatIdentityGateway();
+	const patientRepository = createInMemoryPatientRepository();
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+	let directoryInput: { providerPatientId: string } | undefined;
+	const directory: ReportDirectoryGateway = {
+		listReports: async (input, context) => {
+			directoryInput = { providerPatientId: input.providerPatientId };
+			return {
+				reports: [
+					{
+						reportId: "laboratory:lis-001",
+						kind: "laboratory",
+						title: "血常规",
+						reportedAt: "2026-08-15 10:00:00",
+						status: "abnormal",
+						hasAttachment: true,
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: context.traceId,
+				},
+			};
+		},
+	};
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({ identityGateway, identityUsers, sessions }),
+			patients: new PatientService(patientRepository),
+			appointments: unusedAppointmentService(),
+			reports: new ReportService({ repository: patientRepository, directory }),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			sessions,
+		},
+	});
+
+	const loginResponse = await app.handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-request-id": "report-login-trace",
+				"idempotency-key": "report-login-key",
+			},
+			body: JSON.stringify({ code: "fixture-code" }),
+		}),
+	);
+	const loginBody = (await loginResponse.json()) as {
+		data: { accessToken: string };
+	};
+	const response = await app.handle(
+		new Request(
+			"http://localhost/api/v1/reports?patientId=internal-patient-001&startDate=2026-08-01&endDate=2026-08-15",
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+					"x-request-id": "report-query-trace",
+				},
+			},
+		),
+	);
+
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					reportId: "laboratory:lis-001",
+					kind: "laboratory",
+					title: "血常规",
+					reportedAt: "2026-08-15 10:00:00",
+					status: "abnormal",
+					hasAttachment: true,
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(directoryInput).toEqual({ providerPatientId: "provider-patient-001" });
+
+	directoryInput = undefined;
+	const missingResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/reports?patientId=other-patient&startDate=2026-08-01&endDate=2026-08-15",
+			{ headers: { authorization: `Bearer ${loginBody.data.accessToken}` } },
+		),
+	);
+	expect(missingResponse.status).toBe(404);
+	expect(await missingResponse.json()).toEqual({
+		success: false,
+		error: {
+			code: "report-patient-not-found",
+			message: "Report patient not found",
+		},
+	});
+	expect(directoryInput).toBeUndefined();
+});
+
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const identityUsers = createInMemoryIdentityUserRepository([
@@ -772,6 +910,7 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 			}),
 			wechatPaymentNotifications: unusedWechatNotificationService(),
 			appointments: unusedAppointmentService(),
+			reports: unusedReportService(),
 			sessions,
 		},
 	});
@@ -839,6 +978,7 @@ test("wechat payment notification route preserves the raw body and returns provi
 			}),
 			wechatPaymentNotifications: notification,
 			appointments: unusedAppointmentService(),
+			reports: unusedReportService(),
 			sessions,
 		},
 	});

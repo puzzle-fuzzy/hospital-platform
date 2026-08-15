@@ -44,6 +44,9 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox 
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |
 | `appointment.directory.schedules.synced` | 预约排班目录读取 | 记录 provider request id 和排班数量 |
 | `appointment.directory.departments.failed` / `appointment.directory.schedules.failed` | 预约目录读取 | 记录错误类型，不记录 provider 原始错误报文 |
+| `report.directory.requested` | 报告目录读取 | 记录内部 patientId、日期范围、来源筛选和 trace，不记录 provider 患者号 |
+| `report.directory.synced` | 报告目录读取 | 记录 provider request id 和摘要数量，不记录 provider 患者号或原始报告 |
+| `report.directory.failed` | 报告目录读取 | 记录错误类型和内部 patientId，不记录 provider 患者号或原始报告 |
 
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
 
@@ -54,6 +57,7 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox 
 - `Authorization`、Cookie、access token、refresh token、密码、密钥、openid、unionid；
 - 请求 body、医保/HIS 凭证、签名原文和第三方 provider 原始响应；
 - 患者身份证号、完整就诊卡号、完整手机号等可直接识别个人的信息。
+- provider 患者号；它只能在服务端 lookup 与 adapter 调用的短生命周期内存在。
 
 请求日志只记录 `idempotencyKeyPresent`，不记录幂等键本身。需要关联支付或医保排障时，记录内部 `orderId`、`eventId`、`providerRequestId` 等不可直接还原凭证的标识。Pino 的 `redact` 是最终兜底，不是业务代码记录敏感数据的许可。
 

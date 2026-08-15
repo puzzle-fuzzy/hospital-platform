@@ -4,6 +4,7 @@ import type {
 	AppointmentDirectoryGateway,
 	MedicalInsuranceGateway,
 	PatientDirectoryGateway,
+	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
@@ -17,6 +18,7 @@ export type NotConfiguredGateways = {
 	wechatIdentity: WechatIdentityGateway;
 	medicalInsurance: MedicalInsuranceGateway;
 	patientDirectory: PatientDirectoryGateway;
+	reportDirectory: ReportDirectoryGateway;
 	appointmentDirectory: AppointmentDirectoryGateway;
 	wechatPayment: WechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
@@ -39,6 +41,9 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		listDepartments: async (_context) => unavailable("zhongyang"),
 		listSchedules: async (_input, _context) => unavailable("zhongyang"),
 	};
+	const reportDirectory: ReportDirectoryGateway = {
+		listReports: async (_input, _context) => unavailable("zhongyang"),
+	};
 	const wechatPayment: WechatPaymentGateway = {
 		createJsapiOrder: async (_input, _context) => unavailable("wechat-pay"),
 		query: async (_input, _context) => unavailable("wechat-pay"),
@@ -51,6 +56,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		wechatIdentity,
 		medicalInsurance,
 		patientDirectory,
+		reportDirectory,
 		appointmentDirectory,
 		wechatPayment,
 		hospitalSettlement,

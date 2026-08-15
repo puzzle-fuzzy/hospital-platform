@@ -24,6 +24,13 @@ export type {
 	AppointmentScheduleQuery,
 } from "./appointments";
 export type {
+	ReportDirectoryGateway,
+	ReportDirectoryInput,
+	ReportDirectoryQuery,
+	ReportKind,
+	ReportSummary,
+} from "./reports";
+export type {
 	CreatePaymentOrderInput,
 	PaymentAmounts,
 	PaymentOrder,

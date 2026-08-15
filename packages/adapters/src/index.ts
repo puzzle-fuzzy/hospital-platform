@@ -47,6 +47,11 @@ export {
 	type ZhongyangAppointmentGatewayOptions,
 } from "./zhongyang-appointments";
 export {
+	createZhongyangReportGateway,
+	ZhongyangReportApiGateway,
+	type ZhongyangReportGatewayOptions,
+} from "./zhongyang-reports";
+export {
 	LEGACY_FSI_ROUTES,
 	LegacyFsiContractError,
 	validate6201FeeUpload,
