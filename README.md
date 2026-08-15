@@ -26,8 +26,9 @@ provider 继续 fail-closed。
 预支付尝试的持久化查单调度、金额二次校验、版本化订单状态迁移、通知 outbox handler 和可注入查单 worker；
 API/worker 现已共用 `@hospital/config`，worker 还会在进入循环前核对 MySQL 与目标 schema；预约目录、预约历史和 LIS/PACS/ECG 报告摘要也已建立独立 gate，但
 `WECHAT_PAYMENT_READY` 默认关闭，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
-预约只读排班现在会写入带 provider request id、观察时间和 TTL 的服务端快照，作为未来锁号/预约
-写入前的必要事实；这不等于已经取得 provider 写入合同，也没有注册任何预约写入 API。
+预约只读排班现在由 API 生成 opaque 平台 `scheduleId`，并写入带 provider request id、观察时间
+和 TTL 的服务端快照，作为未来锁号/预约写入前的必要事实；这不等于已经取得 provider 写入
+合同，也没有注册任何预约写入 API。
 
 ```text
 apps/

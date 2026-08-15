@@ -8,14 +8,8 @@ export type AppointmentDepartment = {
 	location?: string;
 };
 
-/**
- * 患者端可展示的排班最小读模型。
- *
- * 挂号费暂不进入该模型：旧 provider 的金额单位和最终结算语义尚未取得
- * 新合同确认，不能把一个未验证的数字误当成人民币分或支付权威。
- */
-export type AppointmentSchedule = {
-	scheduleId: string;
+/** 患者端可展示的排班详情；不包含 provider 标识或费用事实。 */
+export type AppointmentScheduleDetails = {
 	departmentId: string;
 	departmentName: string;
 	doctorId: string;
@@ -27,6 +21,21 @@ export type AppointmentSchedule = {
 	totalSlots: number;
 	availableSlots: number;
 	timeGroup: "point" | "range" | "unknown";
+};
+
+/**
+ * 患者端公共排班读模型。
+ *
+ * `scheduleId` 是 API 生成的 opaque 平台引用；adapter 收到的 provider
+ * schedule id 必须在 API 组合边界前被替换，不能作为客户端写入指令。
+ */
+export type AppointmentSchedule = AppointmentScheduleDetails & {
+	scheduleId: string;
+};
+
+/** adapter 内部使用的排班事实；providerScheduleId 不得进入 contracts。 */
+export type AppointmentProviderSchedule = AppointmentScheduleDetails & {
+	providerScheduleId: string;
 };
 
 export type AppointmentScheduleQuery = {
@@ -117,7 +126,7 @@ export interface AppointmentDirectoryGateway {
 		input: AppointmentScheduleQuery,
 		context: AdapterCallContext,
 	): Promise<{
-		schedules: readonly AppointmentSchedule[];
+		schedules: readonly AppointmentProviderSchedule[];
 		trace: ExternalTrace;
 	}>;
 }

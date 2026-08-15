@@ -104,7 +104,7 @@ test("众阳排班目录固定请求渠道并只返回已验证的号源读模�
 	);
 	expect(result.schedules).toEqual([
 		{
-			scheduleId: "1001",
+			providerScheduleId: "1001",
 			departmentId: "10",
 			departmentName: "心内科",
 			doctorId: "20",

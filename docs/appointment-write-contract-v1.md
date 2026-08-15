@@ -69,10 +69,11 @@ Idempotency-Key: <client-generated-key>
 服务端必须在每次写入前校验：当前会话拥有 `patientId`、排班/号源引用来自服务端可验证的
 目录快照、锁定未过期、幂等键没有 payload 冲突，并且写入目标仍允许当前状态迁移。
 
-当前只读排班 adapter 将 provider 的 `hisScheduleId`、`deptId` 和 `docId` 映射成读模型
-引用，这些值目前只允许用于展示和查询筛选，不能直接成为写入授权。真正开放写入前，必须
+当前只读排班 adapter 将 provider 的 `hisScheduleId` 保留为内部
+`providerScheduleId`，API 再生成 opaque 平台 `scheduleId` 返回给小程序；`deptId` 和
+`docId` 只作为白名单后的读模型字段使用，不能直接成为写入授权。真正开放写入前，必须
 补上服务端排班快照/引用映射（或经过密钥保护的不可伪造引用）以及过期校验；不能因为读接口
-返回了一个 `scheduleId` 就把它当成可信的预约指令。
+返回了一个平台 `scheduleId` 就把它当成可信的预约指令。
 
 当前实现已建立 `hp_appointment_schedule_snapshots` 只读快照：每次排班目录成功读取后，
 服务端保存 provider request id、观察时间、过期时间和受限 provider 排班引用。快照过期后

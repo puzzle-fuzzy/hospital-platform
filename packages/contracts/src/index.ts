@@ -88,7 +88,7 @@ export const AppointmentDepartmentListResponse = Type.Object({
 	}),
 });
 
-/** 排班读模型只返回号源数量和时间，不返回 provider 原始字段或挂号金额。 */
+/** 排班读模型使用 opaque 平台 scheduleId，不返回 provider 原始标识或挂号金额。 */
 export const AppointmentScheduleSchema = Type.Object({
 	scheduleId: Type.String({ minLength: 1 }),
 	departmentId: Type.String({ minLength: 1 }),

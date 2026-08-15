@@ -2,6 +2,7 @@ import type {
 	AdapterCallContext,
 	AppointmentDepartment,
 	AppointmentDirectoryGateway,
+	AppointmentProviderSchedule,
 	AppointmentRecord,
 	AppointmentRecordDirectoryGateway,
 	AppointmentRecordQuery,
@@ -252,7 +253,7 @@ function mapSchedule(
 	value: ProviderObject,
 	operation: string,
 	requestId: string,
-): AppointmentSchedule {
+): AppointmentProviderSchedule {
 	const availableValue = value.remainingNumber ?? value.usableNum;
 	const totalSlots = requiredInteger(
 		value.totalNum,
@@ -302,7 +303,7 @@ function mapSchedule(
 		32,
 	);
 	return {
-		scheduleId: requiredText(
+		providerScheduleId: requiredText(
 			value.hisScheduleId,
 			"hisScheduleId",
 			operation,
@@ -340,7 +341,8 @@ function trace(operation: string, requestId: string): ExternalTrace {
  * 众阳 AMC 只读预约目录 adapter。
  *
  * 这里仅迁移科室和排班查询；锁号、预约写入、取消和挂号费都留在后续
- * contract 阶段，避免把旧页面的 provider 参数直接暴露成新 API。
+ * contract 阶段。排班 provider id 只作为内部 adapter 事实返回，由 API
+ * 组合边界替换为 opaque 平台 scheduleId 后才进入公共 response。
  */
 export class ZhongyangAppointmentApiGateway
 	implements AppointmentDirectoryGateway, AppointmentRecordDirectoryGateway

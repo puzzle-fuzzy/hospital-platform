@@ -6,6 +6,7 @@ import type {
 import {
 	type AdapterCallContext,
 	type AppointmentDirectoryGateway,
+	type AppointmentProviderSchedule,
 	type AppointmentRecordDirectoryGateway,
 	type AppointmentRecordQuery,
 	type AppointmentSchedule,
@@ -25,6 +26,8 @@ export type AppointmentServiceDependencies = {
 	snapshots?: AppointmentScheduleSnapshotRepository;
 	logger?: AppLogger;
 	now?: () => Date;
+	/** 测试可注入；生产使用不可预测的 UUID 作为平台排班引用。 */
+	createScheduleId?: () => string;
 };
 
 /** 防止小程序把 provider 排班接口当作无限范围的数据导出端点。 */
@@ -93,10 +96,13 @@ function validateRecordQuery(input: AppointmentRecordQuery): void {
 export class AppointmentService {
 	private readonly logger: AppLogger;
 	private readonly now: () => Date;
+	private readonly createScheduleId: () => string;
 
 	constructor(private readonly dependencies: AppointmentServiceDependencies) {
 		this.logger = dependencies.logger ?? createNoopLogger();
 		this.now = dependencies.now ?? (() => new Date());
+		this.createScheduleId =
+			dependencies.createScheduleId ?? (() => crypto.randomUUID());
 	}
 
 	async listDepartments(
@@ -152,20 +158,32 @@ export class AppointmentService {
 				input,
 				context,
 			);
-			await this.persistScheduleSnapshots(result.schedules, result.trace);
+			const observedSchedules = result.schedules.map(
+				(providerSchedule: AppointmentProviderSchedule) => {
+					const { providerScheduleId, ...details } = providerSchedule;
+					return {
+						providerScheduleId,
+						schedule: {
+							...details,
+							scheduleId: this.createScheduleId(),
+						},
+					};
+				},
+			);
+			await this.persistScheduleSnapshots(observedSchedules, result.trace);
 			this.logger.info(
 				{
 					event: "appointment.directory.schedules.synced",
 					traceId: context.traceId,
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
-					itemCount: result.schedules.length,
+					itemCount: observedSchedules.length,
 				},
 				"Appointment schedule directory loaded",
 			);
 			return {
-				items: [...result.schedules],
-				total: result.schedules.length,
+				items: observedSchedules.map(({ schedule }) => schedule),
+				total: observedSchedules.length,
 			};
 		} catch (error) {
 			this.logFailure(context, error, "schedules");
@@ -179,7 +197,10 @@ export class AppointmentService {
 	 * 成功的前置条件；真正开放写入时必须把该策略升级为严格 precondition。
 	 */
 	private async persistScheduleSnapshots(
-		schedules: readonly AppointmentSchedule[],
+		schedules: readonly {
+			schedule: AppointmentSchedule;
+			providerScheduleId: string;
+		}[],
 		trace: { provider: string; requestId: string },
 	): Promise<void> {
 		if (!this.dependencies.snapshots || schedules.length === 0) return;
@@ -189,13 +210,13 @@ export class AppointmentService {
 		).toISOString();
 		try {
 			await Promise.all(
-				schedules.map((schedule) =>
+				schedules.map(({ schedule, providerScheduleId }) =>
 					this.dependencies.snapshots?.upsert({
 						schedule,
 						provider: "zhongyang",
-						// 当前只读 contract 只验证了 hisScheduleId；它仍是
-						// 服务端内部 provider 引用，不能被当作写入授权。
-						providerScheduleId: schedule.scheduleId,
+						// 该引用来自 adapter 的内部事实，不能被客户端提交或
+						// 当作已取得 provider 写入授权。
+						providerScheduleId,
 						providerRequestId: trace.requestId,
 						observedAt,
 						expiresAt,

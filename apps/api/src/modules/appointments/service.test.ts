@@ -16,7 +16,7 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 		listSchedules: async () => ({
 			schedules: [
 				{
-					scheduleId: "schedule-001",
+					providerScheduleId: "provider-schedule-001",
 					departmentId: "dept-001",
 					departmentName: "心内科",
 					doctorId: "doctor-001",
@@ -40,6 +40,7 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 		directory,
 		snapshots,
 		now: () => new Date("2026-08-15T00:00:00.000Z"),
+		createScheduleId: () => "platform-schedule-001",
 	});
 
 	await service.listSchedules(
@@ -48,10 +49,13 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 	);
 
 	expect(
-		await snapshots.findActive("schedule-001", "2026-08-15T00:00:30.000Z"),
+		await snapshots.findActive(
+			"platform-schedule-001",
+			"2026-08-15T00:00:30.000Z",
+		),
 	).toMatchObject({
 		provider: "zhongyang",
-		providerScheduleId: "schedule-001",
+		providerScheduleId: "provider-schedule-001",
 		providerRequestId: "provider-request-001",
 		expiresAt: "2026-08-15T00:01:00.000Z",
 	});
@@ -59,7 +63,6 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 
 test("snapshot persistence failure does not turn a read directory into fake success", async () => {
 	const schedule = {
-		scheduleId: "schedule-002",
 		departmentId: "dept-001",
 		departmentName: "心内科",
 		doctorId: "doctor-001",
@@ -69,6 +72,10 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 		totalSlots: 30,
 		availableSlots: 12,
 		timeGroup: "range" as const,
+	};
+	const providerSchedule = {
+		...schedule,
+		providerScheduleId: "provider-schedule-002",
 	};
 	const service = new AppointmentService({
 		directory: {
@@ -81,7 +88,7 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 				},
 			}),
 			listSchedules: async () => ({
-				schedules: [schedule],
+				schedules: [providerSchedule],
 				trace: {
 					provider: "zhongyang",
 					operation: "appointment-schedules",
@@ -95,6 +102,7 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 			},
 			findActive: async () => undefined,
 		},
+		createScheduleId: () => "platform-schedule-002",
 	});
 
 	await expect(
@@ -102,5 +110,8 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 			{ startDate: "2026-08-20", endDate: "2026-08-21" },
 			{ traceId: "trace-002", idempotencyKey: "key-002" },
 		),
-	).resolves.toEqual({ items: [schedule], total: 1 });
+	).resolves.toEqual({
+		items: [{ ...schedule, scheduleId: "platform-schedule-002" }],
+		total: 1,
+	});
 });

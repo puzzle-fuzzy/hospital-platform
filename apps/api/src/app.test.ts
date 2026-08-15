@@ -676,7 +676,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 			return {
 				schedules: [
 					{
-						scheduleId: "schedule-001",
+						providerScheduleId: "schedule-001",
 						departmentId: "dept-001",
 						departmentName: "心内科",
 						doctorId: "doctor-001",
@@ -706,7 +706,10 @@ test("appointment directory keeps provider fields behind a server read model", a
 		services: {
 			auth: new AuthService({ identityGateway, identityUsers, sessions }),
 			patients: new PatientService(createInMemoryPatientRepository()),
-			appointments: new AppointmentService({ directory }),
+			appointments: new AppointmentService({
+				directory,
+				createScheduleId: () => "platform-schedule-001",
+			}),
 			reports: unusedReportService(),
 			paymentOrders,
 			wechatPrepay: new WechatPrepayService({
@@ -778,7 +781,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 		data: {
 			items: [
 				{
-					scheduleId: "schedule-001",
+					scheduleId: "platform-schedule-001",
 					departmentId: "dept-001",
 					departmentName: "心内科",
 					doctorId: "doctor-001",
