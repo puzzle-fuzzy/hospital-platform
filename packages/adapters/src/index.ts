@@ -36,6 +36,11 @@ export {
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
 export {
+	createZhongyangPatientGateway,
+	ZhongyangPatientApiGateway,
+	type ZhongyangPatientGatewayOptions,
+} from "./zhongyang-patients";
+export {
 	LEGACY_FSI_ROUTES,
 	LegacyFsiContractError,
 	validate6201FeeUpload,

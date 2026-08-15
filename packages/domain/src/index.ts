@@ -7,6 +7,8 @@ export type {
 } from "./outbox";
 export type {
 	IdentityUser,
+	PatientDirectoryGateway,
+	PatientDirectoryProfile,
 	PatientRecord,
 	PatientRelationship,
 	PatientRepository,

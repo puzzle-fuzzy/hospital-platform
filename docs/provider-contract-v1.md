@@ -15,6 +15,13 @@
 | 医保退款/撤销 | `forward_6203` / `forward_6401` | `legacy-fsi-contract.ts` validators | contract 已拆分，退款状态 port 待补充 |
 | HIS 回写 | 旧项目订单服务的回写调用 | `HospitalSettlementGateway.writeBack` | 待实现 |
 
+Phase 7A 已建立众阳患者目录 adapter：
+
+- 服务端调用旧小程序使用的 `/api/public/patientInfoByUnionId`，unionId 只能来自已落库的服务端身份；
+- provider 响应只允许映射为 `providerPatientId`、脱敏姓名、规范化关系和脱敏卡号；手机号、身份证号、完整卡号和原始响应不会进入 domain；
+- adapter 会统一注入 trace/idempotency headers，并把 provider 业务失败转换为不可伪装的 `ProviderRequestError`；
+- 当前尚未把 provider 患者号直接当作平台患者 id，生产组合根仍保持 not-configured，下一阶段先完成本地 provider 映射和同步事务。
+
 ## 设计不变量
 
 1. 小程序只提交 `wx.login()` 产生的临时 `code`；`openid`、`session_key`、AppSecret 和商户私钥不能由客户端提交或接收。

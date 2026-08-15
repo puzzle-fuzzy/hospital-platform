@@ -1,20 +1,21 @@
+import type { AdapterName } from "./context";
 import type {
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
+	PatientDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError } from "./errors";
 
-function unavailable(
-	adapter: "medical-insurance" | "wechat-pay" | "wechat-identity" | "yunhealth",
-): never {
+function unavailable(adapter: AdapterName): never {
 	throw new AdapterNotConfiguredError(adapter);
 }
 
 export type NotConfiguredGateways = {
 	wechatIdentity: WechatIdentityGateway;
 	medicalInsurance: MedicalInsuranceGateway;
+	patientDirectory: PatientDirectoryGateway;
 	wechatPayment: WechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
 };
@@ -29,6 +30,9 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		settle: async (_input, _context) => unavailable("medical-insurance"),
 		query: async (_input, _context) => unavailable("medical-insurance"),
 	};
+	const patientDirectory: PatientDirectoryGateway = {
+		listByIdentity: async (_input, _context) => unavailable("zhongyang"),
+	};
 	const wechatPayment: WechatPaymentGateway = {
 		createJsapiOrder: async (_input, _context) => unavailable("wechat-pay"),
 		query: async (_input, _context) => unavailable("wechat-pay"),
@@ -40,6 +44,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	return {
 		wechatIdentity,
 		medicalInsurance,
+		patientDirectory,
 		wechatPayment,
 		hospitalSettlement,
 	};
