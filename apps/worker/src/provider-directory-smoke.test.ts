@@ -166,6 +166,36 @@ test("provider directory smoke fails when a platform response contains a forbidd
 	});
 });
 
+test("provider directory smoke rejects leaked identity credentials", async () => {
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["patients"],
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					items: [{ id: "internal-patient-001", openid: "must-not-leak" }],
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-1)).toEqual({
+		name: "patients",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+	});
+});
+
 test("provider directory smoke rejects leaked schedule provider references", async () => {
 	const result = await runProviderDirectorySmoke({
 		baseUrl: "https://hospital.example.test",
