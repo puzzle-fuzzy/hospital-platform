@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { cp, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
@@ -27,5 +27,11 @@ for (const file of files) {
 	await mkdir(join(destination, ".."), { recursive: true });
 	await Bun.write(destination, Bun.file(join(source, file)));
 }
+
+// 小程序页面使用的本地图片不经过网络请求；构建产物必须完整复制 assets，避免开发者工具或真机出现 404。
+await cp(join(source, "assets"), join(output, "assets"), {
+	recursive: true,
+	force: true,
+});
 
 console.log(`Native mini program copied to ${output}`);

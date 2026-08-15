@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
 	isAllowedApiBaseUrl,
 	isAllowedApiPrefix,
+	normalizeApiBaseUrl,
 	toWechatPaymentParams,
 } from "../src/services/api-client.js";
 import {
@@ -127,6 +128,12 @@ test("native client only permits local HTTP or HTTPS API addresses", () => {
 	expect(isAllowedApiBaseUrl("http://hospital.example.test/api")).toBe(false);
 	expect(isAllowedApiBaseUrl("ftp://hospital.example.test")).toBe(false);
 	expect(isAllowedApiBaseUrl("")).toBe(false);
+	expect(normalizeApiBaseUrl("https://hospital.example.test/api/v1")).toBe(
+		"https://hospital.example.test",
+	);
+	expect(normalizeApiBaseUrl("http://127.0.0.1:3000/api/v1")).toBe(
+		"http://127.0.0.1:3000",
+	);
 	expect(isAllowedApiPrefix("/api/v1")).toBe(true);
 	expect(isAllowedApiPrefix("/api/v2")).toBe(true);
 	expect(isAllowedApiPrefix("/api/v1/auth")).toBe(false);
@@ -156,6 +163,10 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 		homeTemplate.indexOf('class="con-main patient-area"'),
 	);
 	expect(homeStyle).toContain("box-sizing: content-box");
+	expect(homeStyle).not.toContain("background-image: url(");
+	expect(homeTemplate).toContain(
+		'src="/assets/legacy-home/patient-background.png"',
+	);
 	expect(homeStyle).toContain("padding: 25rpx 30rpx");
 	expect(homeStyle).toContain("position: fixed");
 	expect(homeStyle).toContain("bottom: 0");

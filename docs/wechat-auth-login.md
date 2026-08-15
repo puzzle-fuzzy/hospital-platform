@@ -228,6 +228,8 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `provider-temporarily-unavailable` | 微信接口超时、限流或 5xx | 使用 requestId 排查，按 retryable 处理 |
 | `Invalid or expired session` | Redis 中 token 不存在或已过期 | 重新登录，检查 Redis TTL 和实例连通性 |
 | 登录成功但 `/me` 401 | token 没有保存、域名/前缀错误或 Redis 不同实例 | 对比小程序 `apiBaseUrl/apiPrefix`、requestId 和 Redis 配置 |
+| `/api/v2/...` 返回 404 | 开发者工具使用旧缓存前缀、旧构建产物或公网 v2 路由未加载 | 重新构建小程序，确认请求地址只有一个 `/api/v2`，再检查 Nginx 精确路由 |
+| 首页图片 404 或 WXSS 本地资源报错 | 构建产物未复制 `assets`，或把本地图片写进 WXSS `url()` | 使用 `pnpm --filter @hospital/miniprogram build`，并在 WXML 使用 `<image>` 加载本地图片 |
 
 ## 回滚
 

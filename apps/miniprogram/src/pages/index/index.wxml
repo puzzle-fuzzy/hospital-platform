@@ -5,6 +5,12 @@
 	<!-- 顶部卡片：尺寸、层级和内容顺序与旧端首页保持一致。 -->
 	<view class="con-main patient-area">
 		<view class="patient-card bg1">
+			<!-- 微信渲染层不支持 WXSS 的本地 background-image，改用原生 image 作为卡片背景。 -->
+			<image
+				class="patient-card-background"
+				src="/assets/legacy-home/patient-background.png"
+				mode="aspectFill"
+			/>
 			<image
 				src="/assets/legacy-home/patient-qr.svg"
 				mode="aspectFill"

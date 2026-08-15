@@ -37,3 +37,8 @@
 客户端只允许本机 `localhost/127.0.0.1` 使用 HTTP，其他地址必须使用 HTTPS。完整登录启用、日志检索和真机验收
 请阅读 [`docs/wechat-auth-login.md`](../docs/wechat-auth-login.md)。
 小程序始终只接收平台会话，不接收 openid、session_key、医保凭证或商户配置。
+
+构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，构建脚本会把 `src/assets/` 完整复制到
+`dist/assets/`。开发者工具应打开 `src/` 或完整的 `dist/` 小程序根目录，不能打开不包含 `app.json` 和 `assets/`
+的上层目录。若刷新后仍请求旧地址，先重新编译，再确认 `app.js` 中的 `apiBaseUrl/apiPrefix`；代码配置优先于旧的本地缓存，
+不会再拼出 `/api/v1/api/v2/...`。

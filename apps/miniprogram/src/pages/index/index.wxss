@@ -34,19 +34,32 @@
 
 .bg1 {
 	background-color: #3d6df6;
-	background-image: url("/assets/legacy-home/patient-background.png");
-	background-position: center;
-	background-repeat: no-repeat;
-	background-size: cover;
+	overflow: hidden;
+}
+
+/* 本地图片必须通过 WXML image 加载，避免渲染层拒绝 WXSS url()。 */
+.patient-card-background {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 0;
+	display: block;
+	border-radius: 30rpx;
 }
 
 .patient-qr {
+	position: relative;
+	z-index: 1;
 	flex-shrink: 0;
 	width: 70rpx;
 	height: 70rpx;
 }
 
 .patient-card-copy {
+	position: relative;
+	z-index: 1;
 	color: #ffffff;
 	font-size: 28rpx;
 }
@@ -61,6 +74,7 @@
 
 .patient-change {
 	position: absolute;
+	z-index: 1;
 	right: 0;
 	display: flex;
 	align-items: center;

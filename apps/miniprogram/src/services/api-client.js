@@ -27,17 +27,31 @@ function getAppConfig() {
 	const storedBaseUrl = wx.getStorageSync(API_BASE_URL_KEY);
 	const storedApiPrefix = wx.getStorageSync(API_PREFIX_KEY);
 	return {
-		apiBaseUrl: String(storedBaseUrl || globalData.apiBaseUrl || "").replace(
-			/\/$/,
-			"",
+		// 以 app.js 的版本化配置为准，旧缓存只在没有代码配置时兜底，避免刷新后回到旧 API。
+		apiBaseUrl: normalizeApiBaseUrl(
+			globalData.apiBaseUrl || storedBaseUrl || "",
 		),
 		apiPrefix: String(
-			storedApiPrefix || globalData.apiPrefix || DEFAULT_API_PREFIX,
+			globalData.apiPrefix || storedApiPrefix || DEFAULT_API_PREFIX,
 		).replace(/\/$/, ""),
 		accessToken: String(
 			globalData.accessToken || wx.getStorageSync(ACCESS_TOKEN_KEY) || "",
 		),
 	};
+}
+
+/**
+ * API base URL 只表示域名和端口，不携带 /api/v1 或 /api/v2 路径。
+ * 清理旧缓存可避免请求被拼成 /api/v1/api/v2/... 导致公网 404。
+ * @param {unknown} value
+ */
+export function normalizeApiBaseUrl(value) {
+	if (!isAllowedApiBaseUrl(value)) return "";
+	const match = String(value)
+		.trim()
+		.match(/^(https?:\/\/[^/?#]+)/i);
+	const origin = match?.[1];
+	return origin ? origin.replace(/\/$/, "") : "";
 }
 
 /**
