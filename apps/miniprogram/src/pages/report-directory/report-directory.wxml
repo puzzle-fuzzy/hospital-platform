@@ -1,0 +1,55 @@
+<view class="page">
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+	<view wx:if="{{selectedPatient}}" class="patient-strip" bindtap="onChangePatient">
+		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
+		<view class="patient-copy">
+			<text class="patient-name">{{selectedPatient.displayName}}</text>
+			<text class="patient-card">{{selectedPatient.cardNumberMasked}}</text>
+		</view>
+		<text class="patient-change">更换就诊人</text>
+	</view>
+
+	<view class="notice">仅展示已接入的检验、影像和心电报告摘要；详情需由服务端生成安全引用后开放。</view>
+
+	<view class="page-header">
+		<view class="page-title">报告查询</view>
+		<view wx:if="{{reportCount > 0}}" class="page-description">近 30 天共 {{reportCount}} 份报告</view>
+	</view>
+
+	<view wx:if="{{loading}}" class="state-card">
+		<text>正在加载报告目录...</text>
+	</view>
+
+	<view wx:elif="{{visibleReports.length}}" class="report-list">
+		<view
+			wx:for="{{visibleReports}}"
+			wx:key="index"
+			class="report-card {{item.reportId ? 'report-card-clickable' : ''}}"
+			bindtap="onReportTap"
+			data-report-id="{{item.reportId}}"
+		>
+			<view class="report-card-header">
+				<view class="report-title-wrap">
+					<text class="report-title">{{item.title}}</text>
+					<text class="report-kind">{{item.kindLabel}}</text>
+				</view>
+				<text class="report-status report-status-{{item.status}}">{{item.statusLabel}}</text>
+			</view>
+			<view class="report-meta">
+				<text>报告时间：{{item.reportedAt}}</text>
+				<text wx:if="{{item.hasAttachment}}">含附件</text>
+			</view>
+			<view wx:if="{{item.reportId}}" class="report-hint">查看安全详情</view>
+			<view wx:else class="report-hint">详情引用暂未开放</view>
+		</view>
+
+		<view wx:if="{{hasMoreReports}}" class="load-more" bindtap="onLoadMore">加载更多报告</view>
+	</view>
+
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>未查询到相关报告</text>
+		<text class="state-hint">如需查询其他就诊人，请点击上方更换</text>
+	</view>
+</view>

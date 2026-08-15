@@ -6,7 +6,10 @@ import type {
 import { OutpatientPaymentService } from "./index";
 
 test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务端窗口", async () => {
-	let gatewayInput: Parameters<OutpatientPaymentGateway["listRecords"]>[0];
+	// 只有 provider 被真实调用后才会赋值，先显式标记未赋值状态以通过严格类型检查。
+	let gatewayInput:
+		| Parameters<OutpatientPaymentGateway["listRecords"]>[0]
+		| undefined;
 	const repository: PatientRepository = {
 		listByOwner: async () => [],
 		upsertFromDirectory: async () => {

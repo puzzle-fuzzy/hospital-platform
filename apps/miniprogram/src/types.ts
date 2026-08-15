@@ -67,6 +67,11 @@ export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
 	amountLabel: string;
 };
 export type Report = ReportListResponse["data"]["items"][number];
+/** 报告目录的页面显示模型；服务端英文枚举只在页面边界翻译为中文。 */
+export type ReportDirectoryView = Report & {
+	kindLabel: string;
+	statusLabel: string;
+};
 export type ReportDetail = ReportDetailResponse["data"];
 export type LaboratoryReportItem = ReportDetail["items"][number];
 export type WechatPrepayData = WechatPrepayResponse["data"];
@@ -100,7 +105,6 @@ export type DatasetEvent<T extends Record<string, unknown>> = {
 export type ActionEvent = DatasetEvent<{ action?: string }>;
 export type IndexEvent = DatasetEvent<{ index?: string | number }>;
 export type PatientEvent = DatasetEvent<{ patientId?: string }>;
-export type ReportEvent = DatasetEvent<{ reportId?: string }>;
 export type ReportTabEvent = DatasetEvent<{ tab?: string }>;
 
 export type SessionLabel = "未登录" | "验证会话中" | "已恢复会话" | "已登录";
@@ -151,11 +155,6 @@ export type IndexPageData = {
 	hasPatients: boolean;
 	loading: boolean;
 	syncingPatients: boolean;
-	reports: Array<Report>;
-	/** 报告数量来自服务端报告目录的 total；没有加载目录时保持 0。 */
-	reportCount: number;
-	hasReports: boolean;
-	loadingReports: boolean;
 	error: string;
 };
 
@@ -209,6 +208,18 @@ export type ReportDetailPageData = {
 	items: Array<LaboratoryReportItem>;
 	hasItems: boolean;
 	hasAttachment: boolean;
+	error: string;
+};
+
+/** 报告目录页的渲染状态；大列表只在页面边界分批展示，不改变服务端查询窗口。 */
+export type ReportDirectoryPageData = {
+	selectedPatient: Patient | null;
+	reports: Array<ReportDirectoryView>;
+	visibleReports: Array<ReportDirectoryView>;
+	reportCount: number;
+	hasMoreReports: boolean;
+	visibleReportCount: number;
+	loading: boolean;
 	error: string;
 };
 

@@ -18,9 +18,10 @@
 				bindtap="onPatientQr"
 			/>
 			<view class="patient-card-copy">
-				<!-- wx.login 不读取头像昵称；无就诊人时明确显示平台会话已建立，避免误认为扫码无效。 -->
+				<!-- wx.login 不读取头像昵称；无就诊人时明确显示平台会话已建立，避免误认为登录无效。 -->
 				<view class="patient-name">{{selectedPatient.displayName || (sessionStatus === "已登录" || sessionStatus === "已恢复会话" ? "微信已登录" : "匿名")}}</view>
-				<view class="patient-id">ID:{{selectedPatient.id || "----"}}</view>
+				<!-- 只展示服务端生成的脱敏卡号，绝不把内部 opaque patientId 放到可见 UI。 -->
+				<view class="patient-id">就诊卡：{{selectedPatient.cardNumberMasked || "----"}}</view>
 			</view>
 			<view class="patient-change" bindtap="onHeroAction">
 				{{selectedPatient.displayName ? "更换就诊人" : "新增就诊人"}}

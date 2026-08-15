@@ -2,7 +2,6 @@ import { ApiError } from "../../services/api-client";
 import {
 	loadHealth,
 	loadPatients,
-	loadReports,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
 import {
@@ -21,7 +20,6 @@ import type {
 	IndexPageData,
 	Patient,
 	PatientEvent,
-	ReportEvent,
 	ServiceTab,
 	SessionLabel,
 	TabBarItem,
@@ -107,7 +105,7 @@ const SERVICE_TABS = Object.freeze([
 				title: "我的挂号",
 			},
 			{
-				action: "sync",
+				action: "patient-select",
 				icon: "/assets/legacy-home/service-patient.svg",
 				title: "就诊人绑定",
 			},
@@ -197,15 +195,12 @@ type IndexPageMethods = {
 	onPullDownRefresh(): void;
 	onLoadReports(): void;
 	onLoadAppointmentRecords(): void;
-	onSelectReport(event: ReportEvent): void;
 	onSelectPatient(event: PatientEvent): void;
 	showError(error: unknown, fallback: string): void;
 	setPatientsFromPayload(patients: Array<Patient>): void;
-	getSelectedPatient(): Patient | undefined;
 };
 
 Page<IndexPageData, IndexPageMethods>({
-	/** @type {{status: string, service: string, sessionStatus: string, topTabList: ReadonlyArray<Record<string, unknown>>, bannerList: ReadonlyArray<Record<string, string>>, rightList: ReadonlyArray<Record<string, string>>, tabBarItems: ReadonlyArray<Record<string, string>>, serviceTabs: ReadonlyArray<Record<string, unknown>>, activeServiceTab: number, activeServiceItems: ReadonlyArray<Record<string, unknown>>, patients: Array<Record<string, unknown>>, selectedPatient: Record<string, unknown> | null, selectedPatientId: string, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, appointmentRecords: Array<Record<string, unknown>>, hasAppointmentRecords: boolean, loadingAppointmentRecords: boolean, reports: Array<Record<string, unknown>>, hasReports: boolean, loadingReports: boolean, error: string}} */
 	data: {
 		status: "加载中",
 		service: "",
@@ -225,11 +220,6 @@ Page<IndexPageData, IndexPageMethods>({
 		hasPatients: false,
 		loading: false,
 		syncingPatients: false,
-		reports: [],
-		// 报告目录尚未加载时不展示数量，避免使用虚假的默认值。
-		reportCount: 0,
-		hasReports: false,
-		loadingReports: false,
 		error: "",
 	},
 
@@ -318,11 +308,17 @@ Page<IndexPageData, IndexPageMethods>({
 		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
 	},
 
-	/** 原首页二维码入口保留位置；二维码生成能力未接入时不伪造外部 QR 地址。 */
+	/**
+	 * 旧端二维码依赖完整医疗卡号和第三方二维码服务，当前没有医院扫码协议，
+	 * 因此只给出明确迁移状态，不生成伪二维码，也不把医疗标识发送给第三方。
+	 */
 	onPatientQr() {
-		wx.showToast({
-			title: this.data.selectedPatientId ? "二维码功能迁移中" : "暂无就诊人",
-			icon: "none",
+		wx.showModal({
+			title: this.data.selectedPatientId ? "二维码暂未开放" : "暂无就诊人",
+			content: this.data.selectedPatientId
+				? "医院扫码字段和有效期协议确认后开放，请先使用实体就诊卡或窗口服务。"
+				: "请先登录并选择就诊人。",
+			showCancel: false,
 		});
 	},
 
@@ -350,6 +346,9 @@ Page<IndexPageData, IndexPageMethods>({
 
 	executeQuickAction(action?: string): void {
 		switch (action) {
+			case "patient-select":
+				this.openPatientSelector();
+				break;
 			case "sync":
 				this.onSyncPatients();
 				break;
@@ -444,23 +443,8 @@ Page<IndexPageData, IndexPageMethods>({
 			this.onLogin();
 			return;
 		}
-		const patient = this.getSelectedPatient();
-		if (!patient || typeof patient.id !== "string" || !patient.id) {
-			this.showError(new ApiError("请先登录并选择就诊人"), "报告加载失败");
-			return;
-		}
-		this.setData({ loadingReports: true, error: "" });
-		loadReports(patient.id)
-			.then((reports) =>
-				this.setData({
-					reports: reports.items,
-					reportCount: reports.total,
-					hasReports: reports.items.length > 0,
-					error: "",
-				}),
-			)
-			.catch((error) => this.showError(error, "报告目录加载失败"))
-			.finally(() => this.setData({ loadingReports: false }));
+		// 报告查询拥有独立的患者上下文和空态，不能在首页后台请求后丢失展示结果。
+		wx.navigateTo({ url: "/pages/report-directory/report-directory" });
 	},
 
 	onLoadAppointmentRecords() {
@@ -473,25 +457,7 @@ Page<IndexPageData, IndexPageMethods>({
 		});
 	},
 
-	/** 只有服务端生成的 opaque reportId 才能进入详情页。 */
-	onSelectReport(event: ReportEvent): void {
-		const reportId = event.currentTarget?.dataset?.reportId;
-		if (typeof reportId !== "string" || !reportId) {
-			this.showError(
-				new ApiError("该报告详情暂未开放", {
-					code: "report-detail-not-ready",
-				}),
-				"报告详情加载失败",
-			);
-			return;
-		}
-
-		wx.navigateTo({
-			url: `/pages/report-detail/report-detail?reportId=${encodeURIComponent(reportId)}&reportCount=${this.data.reportCount}`,
-		});
-	},
-
-	/** 切换患者时清空旧患者的报告和预约记录。 */
+	/** 切换患者时清空首页不再持有的报告状态，选择页负责新的患者上下文。 */
 	onSelectPatient(event: PatientEvent): void {
 		const patientId = event.currentTarget?.dataset?.patientId;
 		if (typeof patientId !== "string" || !patientId) return;
@@ -503,9 +469,6 @@ Page<IndexPageData, IndexPageMethods>({
 		this.setData({
 			selectedPatientId: patientId,
 			selectedPatient,
-			reports: [],
-			reportCount: 0,
-			hasReports: false,
 			error: "",
 		});
 		setSelectedPatientId(patientId);
@@ -548,23 +511,5 @@ Page<IndexPageData, IndexPageMethods>({
 			hasPatients: patients.length > 0,
 			error: "",
 		});
-	},
-
-	/** 读取当前选择的患者；旧选择失效时自动回退到服务端列表首项。 */
-	getSelectedPatient(): Patient | undefined {
-		const selected = this.data.patients.find(
-			(patient) => patient.id === this.data.selectedPatientId,
-		);
-		if (selected) return selected;
-
-		const fallback = this.data.patients[0];
-		if (fallback && typeof fallback.id === "string") {
-			setSelectedPatientId(fallback.id);
-			this.setData({
-				selectedPatientId: fallback.id,
-				selectedPatient: fallback,
-			});
-		}
-		return fallback;
 	},
 });

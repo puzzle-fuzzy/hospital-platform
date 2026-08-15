@@ -235,14 +235,46 @@ test("native client reads report directories by internal patient id through the 
 
 test("native report count comes from the report directory total", async () => {
 	const service = await source("services/dashboard-service.ts");
-	const page = await source("pages/index/index.ts");
+	const page = await source("pages/report-directory/report-directory.ts");
 	const detail = await source("pages/report-detail/report-detail.ts");
 
 	expect(service).toContain('Promise<ReportListResponse["data"]>');
-	expect(page).toContain("reportCount: reports.total");
+	expect(page).toContain("reportCount: payload.total");
 	expect(page).not.toContain("reportCount: 1");
 	expect(detail).toContain("parseReportCount");
 	expect(detail).not.toContain("reportCount: 1");
+});
+
+test("native homepage keeps patient identity and QR data within the safe boundary", async () => {
+	const home = await source("pages/index/index.ts");
+	const template = await source("pages/index/index.wxml");
+
+	// 首页只能显示服务端脱敏卡号，内部 patientId 只作为后续 API 的 opaque 输入。
+	expect(template).toContain("selectedPatient.cardNumberMasked");
+	expect(template).not.toContain("ID:{{selectedPatient.id");
+	expect(home).toContain("二维码暂未开放");
+	expect(home).not.toContain("api.qrserver.com");
+	expect(home).not.toContain("medicalCardNo");
+});
+
+test("native homepage routes patient binding and report query to real pages", async () => {
+	const app = await source("app.json");
+	const home = await source("pages/index/index.ts");
+	const reportPage = await source("pages/report-directory/report-directory.ts");
+	const reportTemplate = await source(
+		"pages/report-directory/report-directory.wxml",
+	);
+
+	expect(app).toContain('"pages/report-directory/report-directory"');
+	expect(home).toContain('action: "patient-select"');
+	expect(home).toContain('url: "/pages/report-directory/report-directory"');
+	expect(reportPage).toContain("loadReports");
+	expect(reportPage).toContain("onLoadMore");
+	expect(reportPage).toContain("setSelectedPatientId");
+	expect(reportTemplate).toContain("报告查询");
+	expect(reportTemplate).toContain("加载更多报告");
+	// 报告详情只接受服务端生成的 opaque reportId，目录不透传 provider 报告号。
+	expect(reportPage).not.toContain("providerReportId");
 });
 
 test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
