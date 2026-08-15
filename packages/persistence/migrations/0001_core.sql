@@ -1,6 +1,15 @@
 -- Hospital Platform target schema.
 -- This is a new target schema; it must be applied to a staging copy first.
 
+-- Migration CLI uses this table to make an explicitly applied migration
+-- observable and idempotent. Business tables remain independently guarded by
+-- IF NOT EXISTS so a partially initialized local database can be repaired.
+CREATE TABLE IF NOT EXISTS hp_schema_migrations (
+	migration_id VARCHAR(128) NOT NULL,
+	applied_at DATETIME(3) NOT NULL,
+	PRIMARY KEY (migration_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS hp_identity_users (
 	user_id VARCHAR(64) NOT NULL,
 	provider_subject VARCHAR(128) NOT NULL,

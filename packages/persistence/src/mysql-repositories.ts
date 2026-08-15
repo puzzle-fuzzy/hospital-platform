@@ -23,7 +23,7 @@ import type {
 } from "mysql2/promise";
 
 /** MySQL claim lease，防止 worker 崩溃后事件永久停留在 claimed 状态。 */
-const OUTBOX_CLAIM_LEASE_MS = 60_000;
+const DEFAULT_OUTBOX_CLAIM_LEASE_MS = 60_000;
 
 /** 将 mysql2 的多重 overload 收窄为 repository 需要的参数形状。 */
 type QueryExecutor = {
@@ -135,6 +135,20 @@ function safeFen(value: number | string): number {
 		throw new Error("Persistence returned an invalid amount");
 	}
 	return parsed;
+}
+
+/**
+ * MySQL DATETIME(3) 没有时区标记；领域层统一使用 ISO UTC，落库时在
+ * persistence 边界转换成 UTC 的 DATETIME 字符串，避免把 `T`/`Z` 原样
+ * 交给 MySQL 导致真实数据库拒绝写入。
+ */
+function mysqlDateTime(value: string | Date): string {
+	const date = value instanceof Date ? value : new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		throw new Error("Persistence received an invalid timestamp");
+	}
+	const pad = (part: number, length = 2) => String(part).padStart(length, "0");
+	return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}.${pad(date.getUTCMilliseconds(), 3)}`;
 }
 
 const PAYMENT_STATES: readonly PaymentState[] = [
@@ -273,10 +287,10 @@ function insertOutboxSql(event: OutboxEvent): {
 			event.eventName,
 			event.aggregateId,
 			JSON.stringify(event.payload),
-			event.occurredAt,
-			event.availableAt,
+			mysqlDateTime(event.occurredAt),
+			mysqlDateTime(event.availableAt),
 			event.attempts,
-			event.occurredAt,
+			mysqlDateTime(event.occurredAt),
 		],
 	};
 }
@@ -287,7 +301,16 @@ function insertOutboxSql(event: OutboxEvent): {
  * 订单写入和对应 outbox 事件在同一事务；并发幂等依赖数据库唯一键，
  * 版本更新依赖 affectedRows，不能退化成先读后写覆盖。
  */
-export function createMySqlRepositories(pool: Pool): MySqlRepositories {
+export function createMySqlRepositories(
+	pool: Pool,
+	options: { outboxClaimLeaseMs?: number } = {},
+): MySqlRepositories {
+	const outboxClaimLeaseMs =
+		options.outboxClaimLeaseMs ?? DEFAULT_OUTBOX_CLAIM_LEASE_MS;
+	if (!Number.isSafeInteger(outboxClaimLeaseMs) || outboxClaimLeaseMs <= 0) {
+		throw new Error("outboxClaimLeaseMs must be a positive safe integer");
+	}
+
 	const identityUsers: UserIdentityRepository = {
 		async findOrCreateByWechat(input) {
 			const existingRows = await execute<IdentityUserRow[]>(
@@ -311,8 +334,8 @@ export function createMySqlRepositories(pool: Pool): MySqlRepositories {
 						created.userId,
 						created.providerSubject,
 						created.unionId ?? null,
-						timestamp,
-						timestamp,
+						mysqlDateTime(timestamp),
+						mysqlDateTime(timestamp),
 					],
 				);
 				return created;
@@ -384,8 +407,8 @@ export function createMySqlRepositories(pool: Pool): MySqlRepositories {
 							order.amounts.cashFen,
 							order.state,
 							order.version,
-							order.createdAt,
-							order.updatedAt,
+							mysqlDateTime(order.createdAt),
+							mysqlDateTime(order.updatedAt),
 						],
 					);
 					const outbox = insertOutboxSql(event);
@@ -413,7 +436,7 @@ export function createMySqlRepositories(pool: Pool): MySqlRepositories {
 					[
 						order.state,
 						order.version,
-						order.updatedAt,
+						mysqlDateTime(order.updatedAt),
 						order.orderId,
 						order.ownerUserId,
 						expectedVersion,
@@ -451,11 +474,11 @@ export function createMySqlRepositories(pool: Pool): MySqlRepositories {
 				const row = rows[0];
 				if (!row) return undefined;
 
-				const claimedUntil = new Date(now.getTime() + OUTBOX_CLAIM_LEASE_MS);
+				const claimedUntil = new Date(now.getTime() + outboxClaimLeaseMs);
 				const result = await execute<ResultSetHeader>(
 					connection,
 					"UPDATE hp_outbox_events SET claimed_until = ? WHERE event_id = ? AND processed_at IS NULL",
-					[claimedUntil, row.event_id],
+					[mysqlDateTime(claimedUntil), row.event_id],
 				);
 				if (result.affectedRows !== 1) return undefined;
 
@@ -469,14 +492,14 @@ export function createMySqlRepositories(pool: Pool): MySqlRepositories {
 			await execute<ResultSetHeader>(
 				pool,
 				"UPDATE hp_outbox_events SET processed_at = ?, claimed_until = NULL WHERE event_id = ? AND processed_at IS NULL",
-				[processedAt, eventId],
+				[mysqlDateTime(processedAt), eventId],
 			);
 		},
 		async markRetry(eventId, nextAvailableAt, reason) {
 			await execute<ResultSetHeader>(
 				pool,
 				"UPDATE hp_outbox_events SET available_at = ?, attempts = attempts + 1, claimed_until = NULL, last_error = ? WHERE event_id = ? AND processed_at IS NULL",
-				[nextAvailableAt, reason.slice(0, 512), eventId],
+				[mysqlDateTime(nextAvailableAt), reason.slice(0, 512), eventId],
 			);
 		},
 	};

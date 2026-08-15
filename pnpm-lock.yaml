@@ -173,6 +173,9 @@ importers:
       '@hospital/domain':
         specifier: workspace:*
         version: link:../domain
+      '@hospital/observability':
+        specifier: workspace:*
+        version: link:../observability
       ioredis:
         specifier: 6.0.0
         version: 6.0.0

@@ -11,9 +11,13 @@
 	"scripts": {
 		"build": "turbo run build",
 		"check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+		"db:integration": "pnpm --filter @hospital/persistence integration",
+		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"dev": "turbo run dev --parallel",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
+		"infra:down": "docker compose -f infra/docker-compose.yml stop",
+		"infra:up": "docker compose -f infra/docker-compose.yml up -d",
 		"lint": "biome lint .",
 		"test": "turbo run test",
 		"typecheck": "turbo run typecheck"

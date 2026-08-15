@@ -5,6 +5,7 @@ import { createMySqlRepositories } from "./mysql-repositories";
 
 type FakeConnectionState = {
 	statements: string[];
+	values: unknown[][];
 	committed: boolean;
 	rolledBack: boolean;
 	responses: unknown[];
@@ -16,6 +17,7 @@ function createFakePool(responses: unknown[] = []): {
 } {
 	const state: FakeConnectionState = {
 		statements: [],
+		values: [],
 		committed: false,
 		rolledBack: false,
 		responses: [...responses],
@@ -29,8 +31,9 @@ function createFakePool(responses: unknown[] = []): {
 			state.rolledBack = true;
 		},
 		release() {},
-		async execute(sql: string) {
+		async execute(sql: string, values: readonly unknown[] = []) {
 			state.statements.push(sql);
+			state.values.push([...values]);
 			return [state.responses.shift() ?? { affectedRows: 1 }, []];
 		},
 	};
@@ -38,8 +41,9 @@ function createFakePool(responses: unknown[] = []): {
 		async getConnection() {
 			return connection;
 		},
-		async execute(sql: string) {
+		async execute(sql: string, values: readonly unknown[] = []) {
 			state.statements.push(sql);
+			state.values.push([...values]);
 			return [state.responses.shift() ?? [], []];
 		},
 	} as unknown as Pool;
@@ -55,8 +59,8 @@ const order: PaymentOrder = {
 	amounts: { totalFen: 1000, insuranceFen: 700, cashFen: 300 },
 	state: "created",
 	version: 1,
-	createdAt: "2026-08-15 00:00:00.000",
-	updatedAt: "2026-08-15 00:00:00.000",
+	createdAt: "2026-08-15T00:00:00.000Z",
+	updatedAt: "2026-08-15T00:00:00.000Z",
 };
 
 const createdEvent: OutboxEvent = {
@@ -81,6 +85,8 @@ test("MySQL order insert commits order and outbox in one transaction", async () 
 	expect(state.statements).toHaveLength(2);
 	expect(state.statements[0]).toContain("INSERT INTO hp_payment_orders");
 	expect(state.statements[1]).toContain("INSERT INTO hp_outbox_events");
+	expect(state.values[0]?.[9]).toBe("2026-08-15 00:00:00.000");
+	expect(state.values[1]?.[4]).toBe("2026-08-15 00:00:00.000");
 });
 
 test("MySQL order update requires the expected version before writing its event", async () => {

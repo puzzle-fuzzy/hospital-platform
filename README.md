@@ -13,7 +13,10 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 5A：已建立 MySQL/Redis 真实探针、连接生命周期、目标 schema migration 和订单-outbox 事务 repository；真实 repository 仍由 `PERSISTENCE_SCHEMA_READY` 闸门控制，provider 继续 fail-closed，不复制旧项目的直连外部接口、前端医保参数拼装、估算金额或 mock 成功状态。
+当前仓库进入 Phase 5A-2：已建立 MySQL/Redis 真实探针、连接生命周期、显式幂等
+migration、订单-outbox 事务 repository、Redis session store 和本地真实集成验收；
+真实 repository 仍由 `PERSISTENCE_SCHEMA_READY` 闸门控制，provider 继续 fail-closed，
+不复制旧项目的直连外部接口、前端医保参数拼装、估算金额或 mock 成功状态。
 
 ```text
 apps/
@@ -24,7 +27,7 @@ packages/
   contracts/           HTTP/API 契约与 TypeBox schema
   domain/              与框架无关的领域状态机和端口
   adapters/            外部医院/支付/AI 适配器（骨架）
-  persistence/         MySQL/Redis 端口、探针与目标 schema 边界
+  persistence/         MySQL/Redis 端口、migration、事务 repository 与集成验收
 ```
 
 ## 开发
@@ -34,6 +37,20 @@ pnpm install
 pnpm dev
 pnpm check
 ```
+
+本地真实持久化验收：
+
+```powershell
+pnpm infra:up
+$env:DATABASE_URL = "mysql://hospital:hospital_dev_password@127.0.0.1:3307/hospital_platform"
+$env:REDIS_URL = "redis://127.0.0.1:6380"
+pnpm db:migrate
+pnpm db:integration
+pnpm infra:down
+```
+
+`db:integration` 只允许 localhost，且会清理随机前缀的本地验收数据；它不替代 staging、
+微信、医保、HIS、支付回调或真实设备验收。
 
 API 默认运行在 `http://localhost:3000`：
 

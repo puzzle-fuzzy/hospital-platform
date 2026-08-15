@@ -10,6 +10,7 @@ export {
 } from "./repositories";
 export { createInMemoryOutboxRepository } from "./outbox";
 export { createPersistenceRuntime, type PersistenceRuntime } from "./runtime";
+export { runCoreMigration } from "./migrate";
 export {
 	createMySqlRepositories,
 	type MySqlRepositories,

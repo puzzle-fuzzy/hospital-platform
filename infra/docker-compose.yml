@@ -1,0 +1,41 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: hospital-platform-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: hospital_platform
+      MYSQL_USER: hospital
+      MYSQL_PASSWORD: hospital_dev_password
+      MYSQL_ROOT_PASSWORD: root_dev_password
+      TZ: Asia/Shanghai
+    volumes:
+      - hospital-platform-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u hospital -phospital_dev_password --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: hospital-platform-redis
+    ports:
+      - "6380:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - hospital-platform-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  hospital-platform-mysql-data:
+    name: hospital-platform-mysql-data
+  hospital-platform-redis-data:
+    name: hospital-platform-redis-data

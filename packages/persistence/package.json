@@ -5,6 +5,8 @@
 	"type": "module",
 	"scripts": {
 		"build": "tsc --noEmit false --declaration --emitDeclarationOnly --outDir dist -p tsconfig.json",
+		"integration": "bun run src/integration.ts",
+		"migrate": "bun run src/migrate.ts",
 		"test": "bun test",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
@@ -17,6 +19,7 @@
 	"dependencies": {
 		"@hospital/contracts": "workspace:*",
 		"@hospital/domain": "workspace:*",
+		"@hospital/observability": "workspace:*",
 		"ioredis": "6.0.0",
 		"mysql2": "3.23.3"
 	},
