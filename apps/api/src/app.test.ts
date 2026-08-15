@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { join } from "node:path";
 import {
 	createFixtureWechatIdentityGateway,
 	createFixtureWechatPaymentGateway,
@@ -128,6 +129,46 @@ test("OpenAPI route inventory matches the current public application surface", a
 
 	expect(response.status).toBe(200);
 	expect(Object.keys(document.paths).sort()).toEqual(expectedPaths);
+});
+
+test("public API documentation lists every stable public error code", async () => {
+	const documentation = await Bun.file(
+		join(import.meta.dir, "../../../docs/api-v2-public.md"),
+	).text();
+	const publicErrorCodes = [
+		"validation",
+		"parse",
+		"not-found",
+		"unknown",
+		"unauthorized",
+		"appointment-query-invalid",
+		"appointment-record-query-invalid",
+		"appointment-record-patient-not-found",
+		"report-query-invalid",
+		"report-patient-not-found",
+		"report-not-found",
+		"outpatient-payment-patient-not-found",
+		"provider-request-rejected",
+		"provider-temporarily-unavailable",
+		"dependency-not-configured",
+		"persistence-temporarily-unavailable",
+		"payment-order-invalid",
+		"payment-order-not-found",
+		"payment-quote-not-found",
+		"payment-quote-expired",
+		"payment-idempotency-conflict",
+		"payment-order-conflict",
+		"payment-notification-rejected",
+		"payment-notification-conflict",
+		"payment-cash-prepay-not-allowed",
+		"payment-identity-not-found",
+		"payment-prepay-in-progress",
+		"payment-prepay-unknown",
+	] as const;
+
+	for (const code of publicErrorCodes) {
+		expect(documentation).toContain(`\`${code}\``);
+	}
 });
 
 test("appointment write routes remain absent while provider contract is blocked", async () => {

@@ -196,6 +196,7 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | 400 | `payment-order-invalid` | 创建订单输入不合法 |
 | 400 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |
 | 401 | `unauthorized` | 会话缺失、无效或已过期 |
+| 404 | `not-found` | 请求路径未注册，不能据此推断业务资源不存在 |
 | 404 | `appointment-record-patient-not-found` | 当前用户不拥有该预约查询患者 |
 | 404 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
@@ -214,6 +215,7 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | 503 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |
 | 503 | `persistence-temporarily-unavailable` | 数据库、Redis 或 schema 暂时不可用 |
 | 503 | `provider-temporarily-unavailable` | provider 暂时不可用，可按策略重试 |
+| 500 | `unknown` | 未分类服务异常；页面不得根据此码推断业务结果 |
 
 ## 5. 当前实现边界
 
