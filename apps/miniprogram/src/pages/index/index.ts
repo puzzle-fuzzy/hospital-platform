@@ -6,21 +6,21 @@ import {
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
 import {
-	hasPlatformSession,
-	restorePlatformSession,
-	signInPlatformSession,
-} from "../../services/session-service";
-import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import {
+	hasPlatformSession,
+	restorePlatformSession,
+	signInPlatformSession,
+} from "../../services/session-service";
 import type {
 	ActionEvent,
 	IndexEvent,
 	IndexPageData,
-	PatientEvent,
 	Patient,
+	PatientEvent,
 	ReportEvent,
 	ServiceTab,
 	SessionLabel,
@@ -44,6 +44,7 @@ const TOP_TAB_LIST = Object.freeze([
 		text: "预约挂号",
 	},
 	{
+		action: "outpatient-payment",
 		icon: "/assets/legacy-home/top-payment.svg",
 		text: "门诊缴费",
 	},
@@ -336,6 +337,10 @@ Page<IndexPageData, IndexPageMethods>({
 	onTabBarAction(event: IndexEvent): void {
 		const index = Number(event.currentTarget?.dataset?.index);
 		if (index === 0) return;
+		if (index === 3) {
+			wx.navigateTo({ url: "/pages/my/my" });
+			return;
+		}
 		wx.showToast({ title: "该页面正在迁移中", icon: "none" });
 	},
 
@@ -350,6 +355,9 @@ Page<IndexPageData, IndexPageMethods>({
 				break;
 			case "appointments":
 				this.onLoadAppointments();
+				break;
+			case "outpatient-payment":
+				wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
 				break;
 			case "appointment-records":
 				this.onLoadAppointmentRecords();

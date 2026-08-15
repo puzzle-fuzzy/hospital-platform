@@ -37,6 +37,10 @@ export type RuntimeConfig = {
 	appointmentDirectoryReady: boolean;
 	/** 预约历史使用 appointment-server 独立 endpoint，必须单独验收。 */
 	appointmentRecordsReady: boolean;
+	/** 门诊费用只读目录独立验收；支付和医保结算仍使用其他闸门。 */
+	outpatientPaymentReady: boolean;
+	/** 众阳 2.6.33 所需的服务端工作站标识，不接受小程序传入。 */
+	outpatientPaymentAuthSysCode: string;
 	/** LIS/PACS/ECG 报告目录独立验收，不能随患者目录一起隐式打开。 */
 	reportDirectoryReady: boolean;
 	/** LIS 详情独立验收；不会因为目录 gate 打开而自动暴露 provider 资源。 */
@@ -68,6 +72,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-patient-directory"
 		| "zhongyang-appointment-directory"
 		| "zhongyang-appointment-records"
+		| "zhongyang-outpatient-payments"
 		| "zhongyang-report-directory"
 		| "zhongyang-report-detail";
 	status: ProviderConfigurationStatus;
@@ -261,6 +266,24 @@ export function appointmentRecordsConfigurationStatus(
 		: "incomplete";
 }
 
+export function outpatientPaymentConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.outpatientPaymentReady,
+	);
+}
+
+export function outpatientPaymentConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.outpatientPaymentReady) return "disabled";
+	return outpatientPaymentConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
 export function reportDirectoryConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
@@ -331,6 +354,11 @@ export function providerConfigurationDiagnostics(
 			status: appointmentRecordsConfigurationStatus(runtimeConfig),
 			missingFields:
 				appointmentRecordsConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-outpatient-payments" as const,
+			status: outpatientPaymentConfigurationStatus(runtimeConfig),
+			missingFields: outpatientPaymentConfigurationMissingFields(runtimeConfig),
 		},
 		{
 			name: "zhongyang-report-directory" as const,
@@ -472,6 +500,12 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.ZHONGYANG_APPOINTMENT_RECORDS_READY,
 			false,
 		),
+		outpatientPaymentReady: boolean(
+			env.ZHONGYANG_OUTPATIENT_PAYMENT_READY,
+			false,
+		),
+		outpatientPaymentAuthSysCode:
+			env.OUTPATIENT_PAYMENT_AUTH_SYS_CODE ?? "thirdSelfMachine",
 		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),
 		reportDetailReady: boolean(env.ZHONGYANG_REPORT_DETAIL_READY, false),
 		// 兼容早期草稿变量；新部署统一使用 ZHONGYANG_BASE_URL 与

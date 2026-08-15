@@ -1,52 +1,95 @@
 <view class="page">
+	<!-- 错误提示置于页面首部，避免用户先看到不可用的业务内容。 -->
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
 	<view class="page-header">
 		<view class="page-title">预约挂号</view>
-		<view class="page-description">展示未来 7 天已同步的科室与排班信息</view>
+		<view class="page-description">未来 7 天可预约科室与排班</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card">
-		<text>正在加载预约目录...</text>
+	<view wx:if="{{loading && !departments.length}}" class="state-card">
+		<text>正在加载预约科室...</text>
 	</view>
 
-	<view wx:elif="{{departments.length || schedules.length}}">
-		<view wx:if="{{departments.length}}" class="section">
-			<view class="section-title">可预约科室（{{departments.length}}）</view>
-			<scroll-view class="department-scroll" scroll-x>
-				<view class="department-list">
-					<view wx:for="{{departments}}" wx:key="departmentId" class="department-chip">
-						<text class="department-name">{{item.displayName}}</text>
-						<text wx:if="{{item.location}}" class="department-location">{{item.location}}</text>
+	<view wx:elif="{{departments.length}}" class="cascade-shell">
+		<!-- 左栏：旧版一级科室导航；只负责改变右栏上下文。 -->
+		<scroll-view class="department-panel" scroll-y>
+			<view
+				wx:for="{{departments}}"
+				wx:key="departmentId"
+				class="department-item {{item.departmentId === selectedDepartmentId ? 'department-item-active' : ''}}"
+				bindtap="onDepartmentTap"
+				data-department-id="{{item.departmentId}}"
+			>
+				<view class="department-active-line"></view>
+				<text class="department-name">{{item.displayName}}</text>
+			</view>
+		</scroll-view>
+
+		<!-- 右栏：当前科室的日期级联和号源；不把所有科室排班同时绘制。 -->
+		<view class="schedule-panel">
+			<view class="schedule-panel-header">
+				<text class="schedule-panel-title">{{selectedDepartmentName || '选择科室'}}</text>
+				<text class="schedule-panel-count">{{schedules.length}} 个排班</text>
+			</view>
+
+			<scroll-view class="schedule-scroll" scroll-y>
+				<view wx:if="{{loading}}" class="panel-loading">
+					<text>正在加载排班...</text>
+				</view>
+
+				<block wx:elif="{{dateGroups.length}}">
+					<scroll-view class="date-scroll" scroll-x>
+						<view class="date-list">
+							<view
+								wx:for="{{dateGroups}}"
+								wx:key="workDate"
+								class="date-item {{item.workDate === selectedDate ? 'date-item-active' : ''}}"
+								bindtap="onDateTap"
+								data-date="{{item.workDate}}"
+							>
+								<text class="date-label">{{item.label}}</text>
+								<text class="date-count">{{item.count}} 个号源</text>
+							</view>
+						</view>
+					</scroll-view>
+
+					<view class="schedule-list">
+						<view
+							wx:for="{{visibleSchedules}}"
+							wx:key="scheduleId"
+							class="schedule-item"
+							bindtap="onScheduleTap"
+							data-schedule-id="{{item.scheduleId}}"
+						>
+							<view class="schedule-item-main">
+								<text class="schedule-doctor">{{item.doctorName}}</text>
+								<text class="schedule-shift">{{item.shiftName}}</text>
+							</view>
+							<view class="schedule-item-meta">
+								<text wx:if="{{item.startTime && item.endTime}}">{{item.startTime}} - {{item.endTime}}</text>
+								<text wx:else>时间待确认</text>
+								<text class="schedule-slots">余 {{item.availableSlots}} 号</text>
+							</view>
+						</view>
 					</view>
+
+					<button
+						wx:if="{{hasMoreSchedules}}"
+						class="load-more-button"
+						bindtap="onLoadMore"
+					>
+						加载更多号源
+					</button>
+				</block>
+
+				<view wx:elif="{{!loading}}" class="panel-empty">
+					<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+					<text>当前科室暂无排班</text>
+					<text class="state-hint">请切换其他科室或稍后刷新</text>
 				</view>
 			</scroll-view>
 		</view>
-
-		<view wx:if="{{schedules.length}}" class="section">
-			<view class="section-title">未来排班（{{schedules.length}}）</view>
-			<view wx:for="{{schedules}}" wx:key="scheduleId" class="schedule-card">
-				<view class="schedule-header">
-					<view class="schedule-date">{{item.workDate}}</view>
-					<view class="schedule-slots">余 {{item.availableSlots}} 号</view>
-				</view>
-				<view class="schedule-main">
-					<view class="schedule-department">{{item.departmentName}}</view>
-					<view class="schedule-doctor">{{item.doctorName}}</view>
-				</view>
-				<view class="schedule-footer">
-					<text>{{item.shiftName}}</text>
-					<text wx:if="{{item.startTime && item.endTime}}">{{item.startTime}} - {{item.endTime}}</text>
-					<text wx:else>时间待医院确认</text>
-				</view>
-			</view>
-		</view>
-	</view>
-
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-		<text>未来 7 天暂无可展示的预约排班</text>
-		<text class="state-hint">请稍后刷新，或以医院实际放号为准</text>
 	</view>
 
 	<view class="readonly-note">

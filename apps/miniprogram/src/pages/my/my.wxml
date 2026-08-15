@@ -1,0 +1,84 @@
+<view class="page">
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+	<view class="profile-card" bindtap="onHeaderTap">
+		<image class="profile-background" src="/assets/legacy-home/patient-background.png" mode="aspectFill" />
+		<image class="profile-icon" src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
+		<view class="profile-copy">
+			<text class="profile-name">{{userLabel}}</text>
+			<text class="profile-hint">点击管理家庭成员</text>
+		</view>
+		<text class="profile-arrow">›</text>
+	</view>
+
+	<view class="family-card" bindtap="onHeaderTap">
+		<view>
+			<text class="family-title">家庭成员管理</text>
+			<text class="family-subtitle">已绑定 {{patientCount}} 位就诊人</text>
+		</view>
+		<text class="family-arrow">›</text>
+	</view>
+
+	<view class="section">
+		<text class="section-title">我的就诊</text>
+		<view class="menu-grid">
+			<view class="menu-item" bindtap="onAction" data-action="appointment-records">
+				<image src="/assets/legacy-home/service-registration.svg" mode="aspectFit" />
+				<text>我的挂号</text>
+			</view>
+			<view class="menu-item" bindtap="onAction" data-action="outpatient-payment">
+				<image src="/assets/legacy-home/top-payment.svg" mode="aspectFit" />
+				<text>门诊缴费</text>
+			</view>
+			<view class="menu-item" bindtap="onAction" data-action="patient-select">
+				<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
+				<text>就诊人绑定</text>
+			</view>
+			<view class="menu-item" bindtap="onAction" data-action="reports">
+				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
+				<text>门诊病历</text>
+			</view>
+		</view>
+	</view>
+
+	<view class="section">
+		<text class="section-title">其他服务</text>
+		<view class="menu-grid">
+			<view class="menu-item" bindtap="onAction" data-action="consultation">
+				<image src="/assets/legacy-home/service-consultation.svg" mode="aspectFit" />
+				<text>我的问诊</text>
+			</view>
+			<view class="menu-item" bindtap="onAction" data-action="doctor">
+				<image src="/assets/legacy-home/service-consultation-form.svg" mode="aspectFit" />
+				<text>我的医生</text>
+			</view>
+			<view class="menu-item" bindtap="onAction" data-action="feedback">
+				<image src="/assets/legacy-home/service-praise.svg" mode="aspectFit" />
+				<text>意见反馈</text>
+			</view>
+			<view class="menu-item" bindtap="onAction" data-action="insurance">
+				<image src="/assets/legacy-home/service-inpatient-payment.svg" mode="aspectFit" />
+				<text>医保电子凭证</text>
+			</view>
+		</view>
+	</view>
+
+	<view class="legacy-tabbar">
+		<view class="legacy-tabbar-item" bindtap="onTabTap" data-index="0">
+			<image src="/assets/legacy-home/tab-01.png" mode="aspectFit" />
+			<text>医疗服务</text>
+		</view>
+		<view class="legacy-tabbar-item" bindtap="onTabTap" data-index="1">
+			<image src="/assets/legacy-home/tab-02.png" mode="aspectFit" />
+			<text>就诊</text>
+		</view>
+		<view class="legacy-tabbar-item" bindtap="onTabTap" data-index="2">
+			<image src="/assets/legacy-home/tab-03.png" mode="aspectFit" />
+			<text>互联网医院</text>
+		</view>
+		<view class="legacy-tabbar-item legacy-tabbar-item-current" bindtap="onTabTap" data-index="3">
+			<image src="/assets/legacy-home/tab-04-active.png" mode="aspectFit" />
+			<text>我的</text>
+		</view>
+	</view>
+</view>

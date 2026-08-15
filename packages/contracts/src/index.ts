@@ -309,6 +309,31 @@ export const PaymentOrderCreateRequest = Type.Object({
 	quoteId: Type.String({ minLength: 1, maxLength: 128 }),
 });
 
+/** 门诊费用状态由服务端根据 provider 合同映射，小程序不得自行推导。 */
+export const OutpatientPaymentStatusSchema = Type.Union([
+	Type.Literal("unpaid"),
+	Type.Literal("paid"),
+]);
+
+/** 门诊费用只返回展示所需字段；订单号、患者卡号和医保字段留在服务端。 */
+export const OutpatientPaymentRecordSchema = Type.Object({
+	recordId: Type.String({ minLength: 1, maxLength: 128 }),
+	status: OutpatientPaymentStatusSchema,
+	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	billDate: Type.String({ minLength: 1, maxLength: 64 }),
+	amountFen: Type.Integer({ minimum: 0 }),
+});
+
+export const OutpatientPaymentListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		status: OutpatientPaymentStatusSchema,
+		items: Type.Array(OutpatientPaymentRecordSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
 export const ReadyResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
@@ -469,6 +494,15 @@ export type HealthKnowledgeDrugDetailResponsePayload = Static<
 >;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest
+>;
+export type OutpatientPaymentStatusPayload = Static<
+	typeof OutpatientPaymentStatusSchema
+>;
+export type OutpatientPaymentRecordPayload = Static<
+	typeof OutpatientPaymentRecordSchema
+>;
+export type OutpatientPaymentListPayload = Static<
+	typeof OutpatientPaymentListResponse
 >;
 export type PaymentAmountsPayload = Static<typeof PaymentAmountsSchema>;
 export type PaymentOrderPayload = Static<typeof PaymentOrderResponse>;

@@ -5,6 +5,7 @@ import type {
 	AuthSessionPayload,
 	CurrentUserPayload,
 	HealthPayload,
+	OutpatientPaymentListPayload,
 	PatientListPayload,
 	ReportDetailPayload,
 	ReportListPayload,
@@ -41,6 +42,7 @@ export type AppointmentDepartmentListResponse =
 	AppointmentDepartmentListPayload;
 export type AppointmentScheduleListResponse = AppointmentScheduleListPayload;
 export type AppointmentRecordListResponse = AppointmentRecordListPayload;
+export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
 export type ReportListResponse = ReportListPayload;
 export type ReportDetailResponse = ReportDetailPayload;
 export type WechatPrepayResponse = WechatPrepayPayload;
@@ -59,6 +61,11 @@ export type AppointmentSchedule =
 	AppointmentScheduleListResponse["data"]["items"][number];
 export type AppointmentRecord =
 	AppointmentRecordListResponse["data"]["items"][number];
+export type OutpatientPaymentRecord =
+	OutpatientPaymentListResponse["data"]["items"][number];
+export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
+	amountLabel: string;
+};
 export type Report = ReportListResponse["data"]["items"][number];
 export type ReportDetail = ReportDetailResponse["data"];
 export type LaboratoryReportItem = ReportDetail["items"][number];
@@ -165,6 +172,17 @@ export type PatientSelectionPageData = {
 export type AppointmentDirectoryPageData = {
 	departments: Array<AppointmentDepartment>;
 	schedules: Array<AppointmentSchedule>;
+	selectedDepartmentId: string;
+	selectedDepartmentName: string;
+	dateGroups: Array<{
+		workDate: string;
+		label: string;
+		count: number;
+	}>;
+	selectedDate: string;
+	visibleSchedules: Array<AppointmentSchedule>;
+	hasMoreSchedules: boolean;
+	visibleScheduleCount: number;
 	loading: boolean;
 	error: string;
 };
@@ -191,5 +209,23 @@ export type ReportDetailPageData = {
 	items: Array<LaboratoryReportItem>;
 	hasItems: boolean;
 	hasAttachment: boolean;
+	error: string;
+};
+
+/** 门诊缴费页只读状态；支付写入仍需独立医保/微信结算契约。 */
+export type OutpatientPaymentPageData = {
+	selectedPatient: Patient | null;
+	activeStatus: "unpaid" | "paid";
+	items: Array<OutpatientPaymentRecordView>;
+	loading: boolean;
+	error: string;
+};
+
+/** “我的”页只展示平台会话和已迁移的安全入口。 */
+export type MyPageData = {
+	userLabel: string;
+	selectedPatient: Patient | null;
+	patientCount: number;
+	loading: boolean;
 	error: string;
 };

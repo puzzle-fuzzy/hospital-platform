@@ -23,6 +23,7 @@ import {
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
+import { OutpatientPaymentPatientNotFoundError } from "../modules/outpatient-payments";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import {
@@ -130,6 +131,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "persistence-temporarily-unavailable",
 						message: "数据服务暂时不可用，请稍后重试",
+					},
+				};
+			}
+
+			if (error instanceof OutpatientPaymentPatientNotFoundError) {
+				set.status = 404;
+				return {
+					success: false,
+					error: {
+						code: "outpatient-payment-patient-not-found",
+						message: "当前就诊人暂未建立门诊缴费映射",
 					},
 				};
 			}

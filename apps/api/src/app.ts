@@ -14,6 +14,7 @@ import {
 import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
+import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
 import { reportsModule } from "./modules/reports";
@@ -86,6 +87,14 @@ export function createApp(options: AppOptions = {}) {
 				.use(patientsModule(services.patients, services.sessions))
 				.use(appointmentsModule(services.appointments, services.sessions))
 				.use(reportsModule(services.reports, services.sessions))
+				.use(
+					services.outpatientPayments
+						? outpatientPaymentsModule(
+								services.outpatientPayments,
+								services.sessions,
+							)
+						: new Elysia({ name: "outpatient-payments-not-configured" }),
+				)
 				.use(
 					paymentsModule(
 						services.paymentOrders,

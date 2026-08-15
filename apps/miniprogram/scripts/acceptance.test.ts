@@ -144,10 +144,13 @@ test("native mini program exposes read-only appointment directory and records pa
 		'url: "/pages/appointment-records/appointment-records"',
 	);
 	expect(home).not.toContain("预约下单功能仍在迁移中");
-	expect(directory).toContain("loadAppointmentDirectory");
+	expect(directory).toContain("loadAppointmentDepartments");
+	expect(directory).toContain("loadDepartmentSchedules");
 	expect(records).toContain("loadAppointmentRecords");
 	expect(records).toContain("getSelectedPatientId");
 	expect(directoryTemplate).toContain("未来 7 天");
+	expect(directoryTemplate).toContain("cascade-shell");
+	expect(directoryTemplate).toContain("加载更多号源");
 	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
 	expect(recordsTemplate).toContain("更换就诊人");
 	expect(recordsTemplate).toContain("取消、退号和支付状态处理");
@@ -155,6 +158,39 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directory).not.toContain("providerPatientId");
 	expect(records).not.toContain("providerPatientId");
 	expect(records).not.toContain("wx.requestPayment");
+});
+
+test("native mini program exposes outpatient payment and my pages through platform APIs", async () => {
+	const app = await source("app.json");
+	const client = await source("services/api-client.ts");
+	const home = await source("pages/index/index.ts");
+	const outpatient = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const outpatientTemplate = await source(
+		"pages/outpatient-payment/outpatient-payment.wxml",
+	);
+	const my = await source("pages/my/my.ts");
+	const myTemplate = await source("pages/my/my.wxml");
+
+	expect(app).toContain('"pages/outpatient-payment/outpatient-payment"');
+	expect(app).toContain('"pages/my/my"');
+	expect(client).toContain("requestOutpatientPaymentRecords");
+	expect(client).toContain("/payments/outpatient/records?");
+	expect(home).toContain('url: "/pages/outpatient-payment/outpatient-payment"');
+	expect(home).toContain('url: "/pages/my/my"');
+	expect(outpatient).toContain("loadOutpatientPaymentRecords");
+	expect(outpatientTemplate).toContain("待缴费");
+	expect(outpatientTemplate).toContain(
+		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
+	);
+	expect(my).toContain('url: "/pages/patient-select/patient-select"');
+	expect(my).toContain('url: "/pages/appointment-records/appointment-records"');
+	expect(myTemplate).toContain("家庭成员管理");
+	expect(myTemplate).toContain("legacy-tabbar");
+	// 小程序不能把 provider patId、provider 订单号或旧直连地址交给页面。
+	expect(outpatient).not.toContain("providerPatientId");
+	expect(outpatient).not.toContain("outTradeOrderId");
 });
 
 test("native client reads appointment directories only through the Hospital API", async () => {

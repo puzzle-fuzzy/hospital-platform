@@ -1,0 +1,45 @@
+<view class="page">
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+	<view wx:if="{{selectedPatient}}" class="patient-strip" bindtap="onChangePatient">
+		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
+		<view class="patient-copy">
+			<text class="patient-name">{{selectedPatient.displayName}}</text>
+			<text class="patient-card">{{selectedPatient.cardNumberMasked}}</text>
+		</view>
+		<text class="patient-change">更换就诊人</text>
+	</view>
+
+	<view class="notice">缴费后如需退费需至窗口办理，请谨慎操作。</view>
+
+	<view class="tabs">
+		<view class="tab {{activeStatus === 'unpaid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="unpaid">待缴费</view>
+		<view class="tab {{activeStatus === 'paid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="paid">已缴费</view>
+	</view>
+
+	<view wx:if="{{loading}}" class="state-card">
+		<text>正在加载门诊缴费记录...</text>
+	</view>
+
+	<view wx:elif="{{items.length}}" class="record-list">
+		<view wx:for="{{items}}" wx:key="recordId" class="record-card" bindtap="onRecordTap">
+			<view class="record-header">
+				<text class="record-department">{{item.departmentName || '门诊费用'}}</text>
+				<text class="record-status">{{item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
+			</view>
+			<view wx:if="{{item.doctorName}}" class="record-line">医生：{{item.doctorName}}</view>
+			<view class="record-footer">
+				<text>{{item.billDate}}</text>
+				<text class="record-amount">{{item.amountLabel}}</text>
+			</view>
+		</view>
+	</view>
+
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>{{activeStatus === 'unpaid' ? '未查询到待缴费记录' : '未查询到已缴费记录'}}</text>
+		<text class="state-hint">如需查询其他就诊人，请点击上方更换</text>
+	</view>
+
+	<view class="readonly-note">当前已接入门诊费用查询。支付调起、医保授权和结算回写将在独立业务契约验收后开放。</view>
+</view>

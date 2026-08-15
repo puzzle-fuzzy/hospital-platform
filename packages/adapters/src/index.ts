@@ -3,6 +3,12 @@ export {
 	AdapterNotConfiguredError,
 	ProviderRequestError,
 } from "./errors";
+export {
+	createFixtureHospitalSettlementGateway,
+	createFixtureMedicalInsuranceGateway,
+	createFixtureWechatIdentityGateway,
+	createFixtureWechatPaymentGateway,
+} from "./fixtures/replay";
 export type {
 	ProviderFetcher,
 	ProviderRequest,
@@ -10,23 +16,43 @@ export type {
 } from "./http";
 export { requestJson } from "./http";
 export {
+	LEGACY_FSI_ROUTES,
+	type LegacyFsiAmountBreakdown,
+	LegacyFsiContractError,
+	type LegacyFsiFeeUploadCredential,
+	type LegacyFsiInfno,
+	type LegacyFsiRefundAmounts,
+	type LegacyFsiSettlement,
+	unwrapLegacyFsiData,
+	validate6201FeeUpload,
+	validate6201Response,
+	validate6202Settlement,
+	validate6203Refund,
+	validate6203Response,
+	validate6301Settlement,
+	validate6401Response,
+	yuanToFen,
+} from "./legacy-fsi-contract";
+export {
+	createNotConfiguredLegacyFsiCrypto,
+	type LegacyFsiCryptoGateway,
+	type LegacyFsiOpenedPayload,
+	type LegacyFsiSealedEnvelope,
+	validateLegacyFsiOpenedPayload,
+	validateLegacyFsiSealedEnvelope,
+} from "./legacy-fsi-crypto";
+export {
 	createNotConfiguredGateways,
 	type NotConfiguredGateways,
 } from "./not-configured";
-export {
-	createFixtureHospitalSettlementGateway,
-	createFixtureMedicalInsuranceGateway,
-	createFixtureWechatIdentityGateway,
-	createFixtureWechatPaymentGateway,
-} from "./fixtures/replay";
 export {
 	createWechatIdentityGateway,
 	WechatIdentityApiGateway,
 	type WechatIdentityGatewayOptions,
 } from "./wechat-identity";
 export {
-	createWechatPaymentNotificationDecoder,
 	createWechatPaymentGateway,
+	createWechatPaymentNotificationDecoder,
 	mapWechatPaymentNotification,
 	verifyAndDecryptWechatPaymentNotification,
 	WechatPaymentApiGateway,
@@ -36,45 +62,23 @@ export {
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
 export {
-	createZhongyangPatientGateway,
-	ZhongyangPatientApiGateway,
-	type ZhongyangGatewayOptions,
-	type ZhongyangPatientGatewayOptions,
-} from "./zhongyang-patients";
-export {
 	createZhongyangAppointmentGateway,
 	ZhongyangAppointmentApiGateway,
 	type ZhongyangAppointmentGatewayOptions,
 } from "./zhongyang-appointments";
+export {
+	createZhongyangOutpatientPaymentGateway,
+	ZhongyangOutpatientPaymentApiGateway,
+} from "./zhongyang-outpatient-payments";
+export {
+	createZhongyangPatientGateway,
+	type ZhongyangGatewayOptions,
+	ZhongyangPatientApiGateway,
+	type ZhongyangPatientGatewayOptions,
+} from "./zhongyang-patients";
 export {
 	createZhongyangReportGateway,
 	ZhongyangReportApiGateway,
 	type ZhongyangReportGateway,
 	type ZhongyangReportGatewayOptions,
 } from "./zhongyang-reports";
-export {
-	LEGACY_FSI_ROUTES,
-	LegacyFsiContractError,
-	validate6201FeeUpload,
-	validate6201Response,
-	validate6202Settlement,
-	validate6203Refund,
-	validate6203Response,
-	validate6301Settlement,
-	validate6401Response,
-	unwrapLegacyFsiData,
-	yuanToFen,
-	type LegacyFsiAmountBreakdown,
-	type LegacyFsiFeeUploadCredential,
-	type LegacyFsiInfno,
-	type LegacyFsiRefundAmounts,
-	type LegacyFsiSettlement,
-} from "./legacy-fsi-contract";
-export {
-	createNotConfiguredLegacyFsiCrypto,
-	validateLegacyFsiOpenedPayload,
-	validateLegacyFsiSealedEnvelope,
-	type LegacyFsiCryptoGateway,
-	type LegacyFsiOpenedPayload,
-	type LegacyFsiSealedEnvelope,
-} from "./legacy-fsi-crypto";

@@ -3,6 +3,7 @@ import type { DependencyState } from "@hospital/contracts";
 import type {
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
+	OutpatientPaymentGateway,
 	PatientDirectoryGateway,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
@@ -26,6 +27,7 @@ import {
 	createRedisSessionTokenService,
 	type SessionTokenService,
 } from "./modules/auth";
+import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
 import { WechatPrepayService } from "./modules/payments";
 import {
@@ -38,6 +40,7 @@ export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
 	appointments: AppointmentService;
+	outpatientPayments?: OutpatientPaymentService;
 	reports: ReportService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
@@ -62,6 +65,9 @@ export type ApplicationServiceOptions = {
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
 	/** 预约历史使用独立 endpoint，必须独立完成合同和真实环境验收。 */
 	appointmentRecordDirectoryGateway?: AppointmentRecordDirectoryGateway;
+	/** 门诊费用只读目录；支付和医保结算不由该网关隐式开启。 */
+	outpatientPaymentGateway?: OutpatientPaymentGateway;
+	outpatientPaymentAuthSysCode?: string;
 	/** 只有完成众阳 LIS/PACS/ECG 只读合同和真实环境验收后才打开。 */
 	reportDirectoryGateway?: ReportDirectoryGateway;
 	/** LIS 详情必须单独完成资源授权、引用落库和真实环境验收后才打开。 */
@@ -126,6 +132,12 @@ export function createDefaultApplicationServices(
 			...(options.reportDetailGateway
 				? { detail: options.reportDetailGateway }
 				: {}),
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		outpatientPayments: new OutpatientPaymentService({
+			repository: repositories.patients,
+			gateway: options.outpatientPaymentGateway ?? gateways.outpatientPayments,
+			authSysCode: options.outpatientPaymentAuthSysCode ?? "thirdSelfMachine",
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		paymentOrders,

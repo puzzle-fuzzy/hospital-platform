@@ -1,0 +1,215 @@
+page {
+	background: #f8f8f8;
+}
+
+.page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 24rpx 20rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.error-message,
+.patient-strip,
+.notice,
+.tabs,
+.record-list,
+.state-card,
+.readonly-note {
+	box-sizing: border-box;
+	width: 710rpx;
+	margin-right: auto;
+	margin-left: auto;
+}
+
+.error-message {
+	margin-bottom: 18rpx;
+	padding: 20rpx;
+	border-radius: 12rpx;
+	background: #fff1f1;
+	color: #ff4444;
+	font-size: 26rpx;
+	line-height: 1.5;
+	text-align: center;
+}
+
+.patient-strip {
+	display: flex;
+	align-items: center;
+	padding: 18rpx 22rpx;
+	border: 1rpx solid #dbe5ff;
+	border-radius: 18rpx;
+	background: #f2f6ff;
+}
+
+.patient-strip image {
+	flex-shrink: 0;
+	width: 56rpx;
+	height: 56rpx;
+}
+
+.patient-copy {
+	display: flex;
+	min-width: 0;
+	margin-left: 18rpx;
+	flex-direction: column;
+}
+
+.patient-name {
+	overflow: hidden;
+	color: #222222;
+	font-size: 30rpx;
+	font-weight: 700;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.patient-card {
+	margin-top: 5rpx;
+	color: #777777;
+	font-size: 23rpx;
+}
+
+.patient-change {
+	margin-left: auto;
+	padding-left: 20rpx;
+	color: #3d6df6;
+	font-size: 25rpx;
+	white-space: nowrap;
+}
+
+.notice {
+	margin-top: 18rpx;
+	padding: 18rpx 20rpx;
+	border-radius: 14rpx;
+	background: #fff3e9;
+	color: #fe7527;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.tabs {
+	display: flex;
+	margin-top: 18rpx;
+	background: #ffffff;
+	border-bottom: 1rpx solid #f0f0f0;
+}
+
+.tab {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 50%;
+	height: 88rpx;
+	color: #666666;
+	font-size: 29rpx;
+}
+
+.tab-active {
+	color: #3d6df6;
+	font-weight: 700;
+}
+
+.tab-active::after {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	width: 120rpx;
+	height: 6rpx;
+	border-radius: 6rpx;
+	background: #3d6df6;
+	content: "";
+	transform: translateX(-50%);
+}
+
+.record-list {
+	padding-top: 20rpx;
+}
+
+.record-card {
+	box-sizing: border-box;
+	margin-bottom: 16rpx;
+	padding: 24rpx;
+	border-radius: 16rpx;
+	background: #ffffff;
+}
+
+.record-header,
+.record-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-width: 0;
+}
+
+.record-department {
+	overflow: hidden;
+	color: #222222;
+	font-size: 29rpx;
+	font-weight: 700;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.record-status {
+	flex-shrink: 0;
+	margin-left: 16rpx;
+	padding: 6rpx 12rpx;
+	border-radius: 8rpx;
+	background: #f2f6ff;
+	color: #3d6df6;
+	font-size: 23rpx;
+}
+
+.record-line,
+.record-footer {
+	margin-top: 16rpx;
+	color: #777777;
+	font-size: 25rpx;
+}
+
+.record-amount {
+	color: #ee875e;
+	font-size: 29rpx;
+	font-weight: 700;
+}
+
+.state-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 220rpx;
+	margin-top: 60rpx;
+	padding: 44rpx 30rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	color: #777777;
+	font-size: 28rpx;
+}
+
+.state-card-empty {
+	flex-direction: column;
+}
+
+.state-card-empty image {
+	display: block;
+	width: 200rpx;
+	margin-bottom: 16rpx;
+}
+
+.state-hint {
+	margin-top: 12rpx;
+	color: #aaaaaa;
+	font-size: 23rpx;
+}
+
+.readonly-note {
+	margin-top: 24rpx;
+	padding: 20rpx;
+	border-radius: 12rpx;
+	background: #fff7ee;
+	color: #d56d2a;
+	font-size: 24rpx;
+	line-height: 1.6;
+}

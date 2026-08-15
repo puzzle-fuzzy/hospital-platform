@@ -1,23 +1,25 @@
-import {
-	ApiError,
-	request,
-	requestAppointmentDepartments,
-	requestAppointmentRecords,
-	requestAppointmentSchedules,
-	requestReports,
-	requestWithSession,
-	syncPatients,
-} from "./api-client";
 import type {
 	AppointmentDepartment,
 	AppointmentRecord,
 	AppointmentSchedule,
 	AppointmentScheduleQuery,
 	HealthResponse,
+	OutpatientPaymentRecord,
 	Patient,
 	ReportListResponse,
 	ReportQuery,
 } from "../types";
+import {
+	ApiError,
+	request,
+	requestAppointmentDepartments,
+	requestAppointmentRecords,
+	requestAppointmentSchedules,
+	requestOutpatientPaymentRecords,
+	requestReports,
+	requestWithSession,
+	syncPatients,
+} from "./api-client";
 
 /**
  * 首页只读工作台使用的时间窗口。
@@ -115,6 +117,49 @@ export function loadAppointmentDirectory(now = new Date()): Promise<{
 		departments: departmentPayload.data.items,
 		schedules: schedulePayload.data.items,
 	}));
+}
+
+/**
+ * 只读取预约一级科室。
+ *
+ * 预约页采用“两列级联”布局后，排班必须在选中科室后再请求；不能为了
+ * 绘制左侧菜单把未来窗口内的全部排班一次性搬到小程序内存和渲染树。
+ */
+export function loadAppointmentDepartments(): Promise<
+	Array<AppointmentDepartment>
+> {
+	return requestAppointmentDepartments().then((payload) => payload.data.items);
+}
+
+/** 只读取当前科室的排班；服务端仍会校验日期窗口和科室参数。 */
+export function loadAppointmentSchedules(
+	departmentId: string,
+	now = new Date(),
+): Promise<Array<AppointmentSchedule>> {
+	if (!departmentId) {
+		return Promise.reject(
+			new ApiError("预约科室不能为空", {
+				code: "appointment-department-missing",
+			}),
+		);
+	}
+	return requestAppointmentSchedules({
+		departmentId,
+		...createUpcomingDateRange(
+			DASHBOARD_DATE_RANGE_DAYS.appointmentDirectory,
+			now,
+		),
+	}).then((payload) => payload.data.items);
+}
+
+/** 读取门诊费用读模型，日期窗口由服务端统一限制。 */
+export function loadOutpatientPaymentRecords(
+	patientId: string,
+	status: "unpaid" | "paid",
+): Promise<Array<OutpatientPaymentRecord>> {
+	return requestOutpatientPaymentRecords({ patientId, status }).then(
+		(payload) => payload.data.items,
+	);
 }
 
 /** 读取当前内部患者的脱敏预约历史摘要。 */

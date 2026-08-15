@@ -1,16 +1,17 @@
 import type {
 	ApiRequestOptions,
-	AuthSessionResponse,
 	AppointmentDepartmentListResponse,
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
+	AuthSessionResponse,
 	CurrentUserResponse,
+	OutpatientPaymentListResponse,
 	PatientListResponse,
 	ReportDetailResponse,
 	ReportListResponse,
+	WechatPrepayData,
 	WechatPrepayResponse,
 	WechatPrepayStatusResponse,
-	WechatPrepayData,
 } from "../types";
 
 const ACCESS_TOKEN_KEY = "access_token";
@@ -366,6 +367,20 @@ export function requestAppointmentRecords(options: {
 	].join("&");
 	return requestWithSession<AppointmentRecordListResponse>({
 		url: `/appointments/records?${query}`,
+	});
+}
+
+/** 读取当前用户所选就诊人的门诊费用摘要；provider patId 不进入小程序请求。 */
+export function requestOutpatientPaymentRecords(options: {
+	patientId: string;
+	status: "unpaid" | "paid";
+}): Promise<OutpatientPaymentListResponse> {
+	const query = [
+		`patientId=${encodeURIComponent(options.patientId)}`,
+		`status=${encodeURIComponent(options.status)}`,
+	].join("&");
+	return requestWithSession<OutpatientPaymentListResponse>({
+		url: `/payments/outpatient/records?${query}`,
 	});
 }
 

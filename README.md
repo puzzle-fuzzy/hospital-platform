@@ -131,6 +131,7 @@ API 默认运行在 `http://localhost:3000`：
 - `GET /api/v1/appointments/departments`：读取服务端白名单后的预约科室目录
 - `GET /api/v1/appointments/schedules`：按最多 31 天范围读取服务端白名单后的排班目录
 - `GET /api/v1/appointments/records`：按内部 `patientId` 和最多 366 天范围读取脱敏预约历史摘要
+- `GET /api/v1/payments/outpatient/records`：按内部 `patientId` 读取门诊待缴/已缴费用摘要；当前只读，不启动支付或医保结算
 - `GET /api/v1/reports`：按内部 `patientId` 和最多 366 天范围读取 LIS/PACS/ECG 报告摘要目录
 - `GET /api/v1/reports/:reportId`：读取服务端短期引用对应的 LIS 白名单详情；独立 gate 默认关闭
 - `GET /openapi`：OpenAPI 文档

@@ -3,6 +3,7 @@ import type {
 	AppointmentRecordDirectoryGateway,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
+	OutpatientPaymentGateway,
 	PatientDirectoryGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
@@ -22,6 +23,7 @@ export type NotConfiguredGateways = {
 	reportDirectory: ReportDirectoryGateway;
 	appointmentDirectory: AppointmentDirectoryGateway;
 	appointmentRecords: AppointmentRecordDirectoryGateway;
+	outpatientPayments: OutpatientPaymentGateway;
 	wechatPayment: WechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
 };
@@ -46,6 +48,9 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const appointmentRecords: AppointmentRecordDirectoryGateway = {
 		listRecords: async (_input, _context) => unavailable("zhongyang"),
 	};
+	const outpatientPayments: OutpatientPaymentGateway = {
+		listRecords: async (_input, _context) => unavailable("zhongyang"),
+	};
 	const reportDirectory: ReportDirectoryGateway = {
 		listReports: async (_input, _context) => unavailable("zhongyang"),
 	};
@@ -64,6 +69,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		reportDirectory,
 		appointmentDirectory,
 		appointmentRecords,
+		outpatientPayments,
 		wechatPayment,
 		hospitalSettlement,
 	};

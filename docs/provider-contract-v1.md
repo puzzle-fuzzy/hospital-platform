@@ -55,6 +55,14 @@ Phase 7A 已建立众阳患者目录 adapter：
 金额单位、幂等/锁号生命周期和支付/HIS 回写顺序确认前，不注册写入 route，也不增加
 `ZHONGYANG_APPOINTMENT_WRITE_READY` 配置开关。
 
+门诊缴费 Phase 7E 当前只实现“费用目录查询”，不等同于已经接通支付：
+
+- 使用 `/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records`，服务端从 owner-scoped 的内部 `patientId` 解析众阳患者映射；`patId`、provider 订单号和完整原始字段不会进入小程序请求或公开 contract；
+- 服务端固定最近 30 天查询窗口，并固定 `authSysCode` 配置；小程序只能选择 `unpaid` 或 `paid`，不能提交金额、渠道、患者 provider 标识或结算状态；
+- adapter 把 provider 元金额转换为整数分，并只返回科室、医生、账单日期、状态和金额等展示白名单；费用列表不是支付订单，也不能据此推导医保结算成功；
+- `ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是独立只读 gate。打开它只允许查询门诊费用，不会隐式注册微信支付、医保 1101/6201/6202/6301、退款或 HIS 回写；这些能力必须分别完成 contract、幂等、查单、授权和真机验收；
+- 原生小程序已加入门诊缴费页和“我的”页面入口；没有支付/医保合同前，点击费用记录只展示迁移边界，不伪造支付成功或调用旧 provider URL。
+
 ## 设计不变量
 
 1. 小程序只提交 `wx.login()` 产生的临时 `code`；`openid`、`session_key`、AppSecret 和商户私钥不能由客户端提交或接收。

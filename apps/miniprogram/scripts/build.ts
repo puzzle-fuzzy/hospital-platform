@@ -23,6 +23,12 @@ const requiredStaticFiles = [
 	"pages/report-detail/report-detail.json",
 	"pages/report-detail/report-detail.wxml",
 	"pages/report-detail/report-detail.wxss",
+	"pages/outpatient-payment/outpatient-payment.json",
+	"pages/outpatient-payment/outpatient-payment.wxml",
+	"pages/outpatient-payment/outpatient-payment.wxss",
+	"pages/my/my.json",
+	"pages/my/my.wxml",
+	"pages/my/my.wxss",
 ];
 const requiredTypeScriptFiles = [
 	"app.ts",
@@ -35,6 +41,8 @@ const requiredTypeScriptFiles = [
 	"pages/appointment-records/appointment-records.ts",
 	"pages/index/index.ts",
 	"pages/report-detail/report-detail.ts",
+	"pages/outpatient-payment/outpatient-payment.ts",
+	"pages/my/my.ts",
 ];
 const requiredAssetDirectories = ["assets"];
 

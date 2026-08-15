@@ -10,6 +10,7 @@
 | `GET /system/user/current/info` | 公网 `GET /api/v2/me`（内部 `/api/v1/me`） | 验证平台会话并返回内部用户 ID；provider subject 不出端 | 已实现最小会话视图；患者关系通过服务端 owner-scoped `/api/v1/patients` 返回内部 patientId |
 | 小程序 `VITE_ZHONGYI_BASE_API` 直连患者档案、绑卡 | `GET/POST /api/v1/patients` | 服务端调用 Zhongyang adapter，小程序不再直连外部域名 | 目录 adapter、内部映射和同步 API 已实现；真实 provider 配置与验收待实现 |
 | 小程序预约/科室/报告接口 | `/api/v1/appointments`、`/api/v1/reports`、`GET /api/v1/reports/:reportId` | 以患者端业务模型重组，不按旧 provider URL 透传 | 科室/排班已完成服务器到真实 provider 的只读回归；预约历史仍被 provider 患者标识映射阻塞；真机完整链路、报告 gate、预约写入、锁号、支付和体检报告仍待验收/迁移 |
+| 小程序门诊缴费列表 | `GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records` | 新 API 按 owner-scoped 内部 `patientId` 查询，服务端固定日期窗口和渠道，只返回费用展示读模型 | 只读查询 adapter、API 和原生页面已实现；支付调起、医保授权、结算回写和退费仍未开放 |
 | `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | ADR 0004、contract/domain port、0010 schema、fail-closed repository 和未挂载 service 已完成；旧内容脱敏导入、真实 schema 执行、内容审核和 API 挂载待实现 |
 | `POST /intelligent/*` | `/api/v1/assistant/*` | 后续迁移 AI 导诊和报告解读 | 后续 |
 

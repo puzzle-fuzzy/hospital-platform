@@ -67,6 +67,11 @@ export type {
 	OutboxRepository,
 } from "./outbox";
 export type {
+	OutpatientPaymentGateway,
+	OutpatientPaymentRecord,
+	OutpatientPaymentStatus,
+} from "./outpatient-payments";
+export type {
 	IdentityUser,
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
