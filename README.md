@@ -95,6 +95,10 @@ smoke 只执行 GET、默认要求 HTTPS，并使用 Pino 输出结构化验收�
 [`docs/release/provider-directory-acceptance.md`](docs/release/provider-directory-acceptance.md)；
 provider gate 配置完整不等于真实 provider 已授权或真机可用。
 
+预约写入、锁号、取消和挂号费仍处于合同冻结状态，目标边界见
+[`docs/appointment-write-contract-v1.md`](docs/appointment-write-contract-v1.md)；当前不会
+把旧小程序的 provider 身份、金额或支付字段重新包装成新 API。
+
 API 默认运行在 `http://localhost:3000`：
 
 - `GET /health/live`：存活检查

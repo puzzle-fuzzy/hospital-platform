@@ -45,6 +45,11 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 旧项目的预约写入/取消请求仍未作为新 contract 依据，因为它们把 provider 患者号、完整身份信息、挂号费、结算方式和支付状态混在小程序 payload 中，且缺少当前 provider 的金额单位、幂等和状态回写证据；
 - 记录使用独立的 `ZHONGYANG_APPOINTMENT_RECORDS_READY` gate，不会因 AMC 排班目录 gate 打开而隐式启用；默认组合根仍注入 fail-closed gateway。
 
+预约写入、锁号、取消和挂号费的目标入口与证据门槛见
+[appointment-write-contract-v1.md](appointment-write-contract-v1.md)。在 provider 合同、
+金额单位、幂等/锁号生命周期和支付/HIS 回写顺序确认前，不注册写入 route，也不增加
+`ZHONGYANG_APPOINTMENT_WRITE_READY` 配置开关。
+
 ## 设计不变量
 
 1. 小程序只提交 `wx.login()` 产生的临时 `code`；`openid`、`session_key`、AppSecret 和商户私钥不能由客户端提交或接收。
