@@ -1,4 +1,5 @@
 import { createWechatPaymentGateway } from "@hospital/adapters";
+import type { DependencyState } from "@hospital/contracts";
 import {
 	type RuntimeConfig,
 	config as defaultConfig,
@@ -6,7 +7,10 @@ import {
 } from "@hospital/config";
 import { PaymentOrderService } from "@hospital/domain";
 import { createNoopLogger, type AppLogger } from "@hospital/observability";
-import { createPersistenceRuntime } from "@hospital/persistence";
+import {
+	createPersistenceRuntime,
+	type PersistenceRuntime,
+} from "@hospital/persistence";
 import { OutboxWorker, type OutboxWorkerResult } from "./outbox-worker";
 import {
 	PaymentReconciliationWorker,
@@ -14,10 +18,21 @@ import {
 } from "./payment-reconciliation-worker";
 import { createWechatPaymentNotificationHandler } from "./wechat-payment-notification-handler";
 
-export type WorkerRuntimeStatus = "not_configured" | "ready";
+export type WorkerRuntimeStatus = "not_configured" | "not_ready" | "ready";
+
+export type WorkerRuntimeInitialization = {
+	status: WorkerRuntimeStatus;
+	dependencies?: {
+		database: DependencyState;
+		schema: DependencyState;
+	};
+	missingConfiguration?: readonly string[];
+};
 
 export type WorkerRuntime = {
 	status: WorkerRuntimeStatus;
+	/** 启动前执行真实依赖探针；未通过时不会进入 provider 循环。 */
+	initialize(): Promise<WorkerRuntimeInitialization>;
 	runOnce(): Promise<{
 		outbox: OutboxWorkerResult;
 		reconciliation: PaymentReconciliationWorkerResult;
@@ -63,9 +78,17 @@ function hasWorkerConfiguration(
 	return workerConfigurationMissingFields(runtimeConfig).length === 0;
 }
 
-function createNotConfiguredRuntime(): WorkerRuntime {
+function createNotConfiguredRuntime(
+	missingConfiguration: readonly string[],
+): WorkerRuntime {
 	return {
 		status: "not_configured",
+		async initialize() {
+			return {
+				status: "not_configured",
+				missingConfiguration,
+			};
+		},
 		async runOnce() {
 			return { outbox: "idle", reconciliation: "idle" };
 		},
@@ -80,23 +103,31 @@ function createNotConfiguredRuntime(): WorkerRuntime {
  * outbox handler 与查单 worker 本身保持依赖注入，因此单元测试不需要网络或数据库。
  */
 export function createWorkerRuntime(
-	options: { runtimeConfig?: RuntimeConfig; logger?: AppLogger } = {},
+	options: {
+		runtimeConfig?: RuntimeConfig;
+		logger?: AppLogger;
+		/** 测试可注入探针和 repository；生产始终由组合根创建真实 runtime。 */
+		persistence?: PersistenceRuntime;
+	} = {},
 ): WorkerRuntime {
 	const runtimeConfig = options.runtimeConfig ?? defaultConfig;
+	const missingConfiguration = workerConfigurationMissingFields(runtimeConfig);
 	if (!hasWorkerConfiguration(runtimeConfig))
-		return createNotConfiguredRuntime();
+		return createNotConfiguredRuntime(missingConfiguration);
 
 	const logger = options.logger ?? createNoopLogger();
-	const persistence = createPersistenceRuntime({
-		databaseUrl: runtimeConfig.databaseUrl,
-		redisUrl: runtimeConfig.redisUrl,
-		paymentDataEncryptionKey: runtimeConfig.paymentDataEncryptionKey,
-		useRepositories: true,
-	});
+	const persistence =
+		options.persistence ??
+		createPersistenceRuntime({
+			databaseUrl: runtimeConfig.databaseUrl,
+			redisUrl: runtimeConfig.redisUrl,
+			paymentDataEncryptionKey: runtimeConfig.paymentDataEncryptionKey,
+			useRepositories: true,
+		});
 	const repositories = persistence.repositories;
 	if (!repositories) {
 		void persistence.close();
-		return createNotConfiguredRuntime();
+		return createNotConfiguredRuntime(["PERSISTENCE_REPOSITORIES"]);
 	}
 
 	const wechatPayment = createWechatPaymentGateway({
@@ -128,17 +159,62 @@ export function createWorkerRuntime(
 		logger,
 	});
 
+	let status: WorkerRuntimeStatus = "not_ready";
+	let closed = false;
+	let initialization: Promise<WorkerRuntimeInitialization> | undefined;
+	const close = async () => {
+		if (closed) return;
+		closed = true;
+		await persistence.close();
+	};
+	const initialize = (): Promise<WorkerRuntimeInitialization> => {
+		if (initialization) return initialization;
+		initialization = (async () => {
+			const [database, schema] = await Promise.all([
+				safeDependencyCheck(persistence.database),
+				safeDependencyCheck(persistence.schema),
+			]);
+			const dependencies = { database, schema };
+			if (database === "ok" && schema === "ok") {
+				status = "ready";
+				return { status, dependencies };
+			}
+
+			status = "not_ready";
+			await close();
+			return { status, dependencies };
+		})();
+		return initialization;
+	};
+
 	return {
-		status: "ready",
+		get status() {
+			return status;
+		},
+		initialize,
 		async runOnce() {
+			if (status !== "ready" || closed) {
+				return { outbox: "idle", reconciliation: "idle" };
+			}
 			const now = new Date();
 			return {
 				outbox: await outbox.runOnce(now),
 				reconciliation: await reconciliation.runOnce(now),
 			};
 		},
-		close: persistence.close,
+		close,
 	};
+}
+
+/** 依赖端口本身也必须 fail-closed，避免探针异常冒泡成假 ready。 */
+async function safeDependencyCheck(port: {
+	check(): Promise<DependencyState>;
+}): Promise<DependencyState> {
+	try {
+		return await port.check();
+	} catch {
+		return "unavailable";
+	}
 }
 
 /** 只计算状态，不打开连接；适合启动探针和单元测试。 */
@@ -159,7 +235,27 @@ export async function runWorkerLoop(
 		logger: AppLogger;
 	},
 ): Promise<void> {
-	if (runtime.status !== "ready") return;
+	const initialization = await runtime.initialize();
+	if (initialization.status !== "ready") {
+		const configured = initialization.status !== "not_configured";
+		options.logger[configured ? "error" : "warn"](
+			{
+				event: configured ? "service.start.failed" : "service.start.skipped",
+				status: initialization.status,
+				...(initialization.dependencies
+					? { dependencies: initialization.dependencies }
+					: {}),
+				...(initialization.missingConfiguration
+					? { missingConfiguration: initialization.missingConfiguration }
+					: {}),
+			},
+			configured
+				? "Hospital worker persistence is not ready; no provider work will run"
+				: "Hospital worker configuration is incomplete; no provider work will run",
+		);
+		await runtime.close();
+		return;
+	}
 	let stopping = false;
 	const stop = () => {
 		stopping = true;

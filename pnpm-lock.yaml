@@ -114,6 +114,9 @@ importers:
       '@hospital/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@hospital/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@hospital/domain':
         specifier: workspace:*
         version: link:../../packages/domain

@@ -103,7 +103,7 @@ Phase 6E-2/6E-3 已加入持久化驱动的查单补偿和通知消费核心：
 - 查单 adapter 必须返回已验签的 provider 状态和 `amount.total`；应用层再次校验该金额等于订单 `cashFen`。
 - `SUCCESS` 只有在金额一致且订单仍处于可迁移状态时才进入 `cash_paid`；金额不一致进入 `awaiting_confirmation`，不能自动成功。
 - `PaymentReconciliationWorker` 只依赖 repository、domain service、gateway 和 Pino logger；通知 handler 只消费白名单事实并复用 domain reconciliation。
-- `apps/worker` 的组合根和共享配置已实现完整配置才启动的 fail-closed 规则；真实商户配置运行、provider 回调联调和真机验收仍未完成。
+- `apps/worker` 的组合根和共享配置已实现“完整配置 + MySQL/schema 启动探针”才进入 provider 循环的 fail-closed 规则；真实商户配置运行、provider 回调联调和真机验收仍未完成。
 - API/worker 启动日志只输出配置状态和缺失的环境变量名，不输出密钥、证书内容或签名材料；`configured` 仅表示字段完整，不代表 provider 已完成真实联调。
 - 通知 outbox handler 只消费上述白名单事实，并复用同一订单 reconciliation service；它不重新解密、不读取原始 resource，也不把 HTTP ack 当成订单成功。
 
