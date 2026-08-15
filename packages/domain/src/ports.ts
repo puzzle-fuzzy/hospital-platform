@@ -16,6 +16,9 @@ export type ExternalTrace = {
 	providerOrderId?: string;
 };
 
+/** 微信查单 adapter 只允许返回三种可编排状态，其他 provider 状态必须 fail-closed。 */
+export type WechatPaymentQueryState = "cash_pending" | "cash_paid" | "failed";
+
 /** 支付订单的内部快照，金额统一使用整数分。 */
 export type PaymentOrderSnapshot = {
 	orderId: string;
@@ -111,7 +114,8 @@ export interface WechatPaymentGateway {
 		},
 		context: AdapterCallContext,
 	): Promise<{
-		state: PaymentState;
+		state: WechatPaymentQueryState;
+		totalFen: number;
 		trace: ExternalTrace;
 	}>;
 }

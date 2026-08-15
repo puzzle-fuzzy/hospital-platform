@@ -61,6 +61,13 @@ Phase 6E-1 已加入 `POST /api/v1/payments/wechat/notifications`：
 - `hp_wechat_payment_notifications` 以 `notification_id` 和 `provider_transaction_id` 去重，并与 `payment.wechat-notification.received` outbox 同事务写入。
 - webhook ack 只表示“通知事实已接收/已去重”，不表示订单已进入 `cash_paid`；订单状态迁移属于后续 worker，仍需校验订单金额和版本。
 
+Phase 6E-2 已加入持久化驱动的查单补偿核心：
+
+- 预支付尝试记录 `queryAttempts`、`lastQueriedAt` 和 `nextQueryAt`，进程重启不会丢失查单计划。
+- 查单 adapter 必须返回已验签的 provider 状态和 `amount.total`；应用层再次校验该金额等于订单 `cashFen`。
+- `SUCCESS` 只有在金额一致且订单仍处于可迁移状态时才进入 `cash_paid`；金额不一致进入 `awaiting_confirmation`，不能自动成功。
+- `PaymentReconciliationWorker` 只依赖 repository、domain service、gateway 和 Pino logger；真实进程组合、通知 outbox 消费和 provider 回调联调仍是后续工作。
+
 医保 5B-3 当前只实现 `legacy-fsi-contract.ts` 的纯规则层：固定五个专用 path、有限层级
 响应展开、元转分、6201 明细守恒、6202/6301 结算金额守恒、6203 退款边界和 6401 明确成功。
 5B-4 又增加了 `legacy-fsi-crypto.ts` 的严格 envelope port 和 fail-closed 默认实现，但

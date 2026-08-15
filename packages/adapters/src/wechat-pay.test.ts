@@ -175,6 +175,7 @@ test("微信订单查询只把已验签的 SUCCESS 映射为 cash_paid", async (
 	const body = JSON.stringify({
 		trade_state: "SUCCESS",
 		transaction_id: "4200000000000001",
+		amount: { total: 300 },
 	});
 	const gateway = createGateway(
 		async (_input, init) => {
@@ -196,6 +197,7 @@ test("微信订单查询只把已验签的 SUCCESS 映射为 cash_paid", async (
 		gateway.query({ orderId: "order-003" }, context),
 	).resolves.toEqual({
 		state: "cash_paid",
+		totalFen: 300,
 		trace: {
 			provider: "wechat-pay",
 			operation: "order-query",

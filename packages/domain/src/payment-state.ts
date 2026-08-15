@@ -16,6 +16,7 @@ const transitions: Record<PaymentState, readonly PaymentState[]> = {
 	awaiting_confirmation: [
 		"insurance_settled",
 		"cash_pending",
+		"cash_paid",
 		"his_written_back",
 		"completed",
 		"failed",

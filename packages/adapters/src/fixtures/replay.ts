@@ -104,7 +104,8 @@ export function createFixtureWechatPaymentGateway(): WechatPaymentGateway {
 			),
 		}),
 		query: async (_input, context) => ({
-			state: "cash_paid" as PaymentState,
+			state: "cash_paid" as const,
+			totalFen: 300,
 			trace: trace(
 				"fixture-wechat-pay",
 				"order-query",

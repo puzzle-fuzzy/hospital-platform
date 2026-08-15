@@ -34,3 +34,7 @@ migration、staging 脱敏验证和 provider 配置前，不接入真实支付�
 微信通知使用 `hp_wechat_payment_notifications` 保存已验签解密后的白名单事实；
 `notification_id` 与微信交易号都参与去重，通知事实和入站 outbox 必须在同一 MySQL
 事务中提交，原始 provider resource 不落库。
+
+预支付尝试同时保存 `query_attempts`、`last_queried_at` 和 `next_query_at`，并建立
+`(status, next_query_at)` 索引。查单 worker 只领取已到期记录，终态或待确认状态会清除
+调度时间；这保证进程重启后可以从 MySQL 恢复查单计划，而不是依赖进程内定时器。

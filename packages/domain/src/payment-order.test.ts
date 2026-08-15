@@ -25,6 +25,9 @@ function createMemoryOrders(
 ): PaymentOrderRepository {
 	const orders = new Map<string, PaymentOrder>();
 	return {
+		async findById(orderId) {
+			return orders.get(orderId);
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return [...orders.values()].find(
 				(order) =>
@@ -197,5 +200,153 @@ describe("payment order domain", () => {
 				idempotencyKey: "pay-key-004",
 			}),
 		).rejects.toBeInstanceOf(PaymentQuoteExpiredError);
+	});
+
+	test("reconciles a verified matching WeChat amount with provider evidence", async () => {
+		const events: OutboxEvent[] = [];
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(events),
+			createOrderId: () => "order-reconcile-001",
+		});
+		const created = await service.create({
+			ownerUserId: "user-reconcile-001",
+			patientId: "patient-reconcile-001",
+			idempotencyKey: "pay-reconcile-001",
+			amounts,
+		});
+		await service.transition(
+			created.ownerUserId,
+			created.orderId,
+			"authorized",
+		);
+		await service.transition(
+			created.ownerUserId,
+			created.orderId,
+			"pre_settled",
+		);
+		await service.transition(
+			created.ownerUserId,
+			created.orderId,
+			"insurance_submitted",
+		);
+		await service.transition(
+			created.ownerUserId,
+			created.orderId,
+			"insurance_settled",
+		);
+		await service.transition(
+			created.ownerUserId,
+			created.orderId,
+			"cash_pending",
+		);
+
+		const result = await service.reconcileWechatPayment({
+			orderId: created.orderId,
+			state: "cash_paid",
+			totalFen: 300,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-reconcile-001",
+			},
+		});
+
+		expect(result).toMatchObject({
+			outcome: "cash_paid",
+			order: { state: "cash_paid" },
+		});
+		expect(events.at(-1)?.payload).toMatchObject({
+			providerEvidence: {
+				reportedState: "cash_paid",
+				totalFen: 300,
+				requestId: "provider-query-reconcile-001",
+			},
+		});
+	});
+
+	test("moves a verified amount mismatch to awaiting confirmation", async () => {
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(),
+			createOrderId: () => "order-reconcile-002",
+		});
+		const created = await service.create({
+			ownerUserId: "user-reconcile-002",
+			patientId: "patient-reconcile-002",
+			idempotencyKey: "pay-reconcile-002",
+			amounts,
+		});
+		for (const state of [
+			"authorized",
+			"pre_settled",
+			"insurance_submitted",
+			"insurance_settled",
+			"cash_pending",
+		] as const) {
+			await service.transition(created.ownerUserId, created.orderId, state);
+		}
+
+		const result = await service.reconcileWechatPayment({
+			orderId: created.orderId,
+			state: "cash_paid",
+			totalFen: 301,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-reconcile-002",
+			},
+		});
+
+		expect(result).toMatchObject({
+			outcome: "awaiting_confirmation",
+			order: { state: "awaiting_confirmation" },
+		});
+	});
+
+	test("resolves awaiting confirmation after a later matching provider result", async () => {
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(),
+			createOrderId: () => "order-reconcile-003",
+		});
+		const created = await service.create({
+			ownerUserId: "user-reconcile-003",
+			patientId: "patient-reconcile-003",
+			idempotencyKey: "pay-reconcile-003",
+			amounts,
+		});
+		for (const state of [
+			"authorized",
+			"pre_settled",
+			"insurance_submitted",
+			"insurance_settled",
+			"cash_pending",
+		] as const) {
+			await service.transition(created.ownerUserId, created.orderId, state);
+		}
+		await service.reconcileWechatPayment({
+			orderId: created.orderId,
+			state: "cash_paid",
+			totalFen: 301,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-reconcile-003-mismatch",
+			},
+		});
+
+		const result = await service.reconcileWechatPayment({
+			orderId: created.orderId,
+			state: "cash_paid",
+			totalFen: 300,
+			trace: {
+				provider: "wechat-pay",
+				operation: "order-query",
+				requestId: "provider-query-reconcile-003-match",
+			},
+		});
+
+		expect(result).toMatchObject({
+			outcome: "cash_paid",
+			order: { state: "cash_paid" },
+		});
 	});
 });

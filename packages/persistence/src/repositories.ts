@@ -69,6 +69,9 @@ export function createInMemoryPaymentOrderRepository(
 	const orders = new Map(seed.map((order) => [order.orderId, order]));
 
 	return {
+		async findById(orderId) {
+			return orders.get(orderId);
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return [...orders.values()].find(
 				(order) =>
@@ -155,6 +158,24 @@ export function createInMemoryPaymentPrepayAttemptRepository(
 			attempts.set(attempt.attemptId, attempt);
 			return attempt;
 		},
+		async listDueForQuery(now, limit) {
+			if (!Number.isSafeInteger(limit) || limit <= 0) return [];
+			const nowMs = now.getTime();
+			return [...attempts.values()]
+				.filter((attempt) => {
+					if (!attempt.nextQueryAt) return false;
+					const nextQueryMs = new Date(attempt.nextQueryAt).getTime();
+					return Number.isFinite(nextQueryMs) && nextQueryMs <= nowMs;
+				})
+				.sort((left, right) => {
+					const leftMs = new Date(left.nextQueryAt ?? 0).getTime();
+					const rightMs = new Date(right.nextQueryAt ?? 0).getTime();
+					return (
+						leftMs - rightMs || left.attemptId.localeCompare(right.attemptId)
+					);
+				})
+				.slice(0, limit);
+		},
 	};
 }
 
@@ -206,6 +227,9 @@ export function createNotConfiguredRepositories(): {
 			},
 		},
 		paymentOrders: {
+			findById: async () => {
+				throw new PersistenceNotConfiguredError("payment-orders");
+			},
 			findByOwnerAndIdempotencyKey: async () => {
 				throw new PersistenceNotConfiguredError("payment-orders");
 			},
@@ -232,6 +256,9 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 			},
 			update: async () => {
+				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
+			},
+			listDueForQuery: async () => {
 				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 			},
 		},

@@ -93,6 +93,9 @@ type PaymentPrepayAttemptRow = RowDataPacket & {
 	idempotency_key: string;
 	status: string;
 	version: number;
+	query_attempts: number;
+	last_queried_at: string | null;
+	next_query_at: string | null;
 	prepay_id_hash: string | null;
 	pay_params_ciphertext: string | null;
 	provider_request_id: string | null;
@@ -341,6 +344,9 @@ function paymentPrepayAttempt(
 		idempotencyKey: row.idempotency_key,
 		status: paymentPrepayAttemptStatus(row.status),
 		version: row.version,
+		queryAttempts: row.query_attempts,
+		...(row.last_queried_at ? { lastQueriedAt: row.last_queried_at } : {}),
+		...(row.next_query_at ? { nextQueryAt: row.next_query_at } : {}),
 		...(storedPayParams ? { payParams: storedPayParams } : {}),
 		...(row.provider_request_id
 			? { providerRequestId: row.provider_request_id }
@@ -531,6 +537,14 @@ export function createMySqlRepositories(
 	};
 
 	const paymentOrders: PaymentOrderRepository = {
+		async findById(orderId) {
+			const rows = await execute<PaymentOrderRow[]>(
+				pool,
+				"SELECT order_id, owner_user_id, patient_id, idempotency_key, total_fen, insurance_fen, cash_fen, state, version, created_at, updated_at FROM hp_payment_orders WHERE order_id = ? LIMIT 1",
+				[orderId],
+			);
+			return rows[0] ? paymentOrder(rows[0]) : undefined;
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			const rows = await execute<PaymentOrderRow[]>(
 				pool,
@@ -617,7 +631,7 @@ export function createMySqlRepositories(
 			const cipher = requiredPrepayCipher();
 			const rows = await execute<PaymentPrepayAttemptRow[]>(
 				pool,
-				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? AND idempotency_key = ? LIMIT 1",
+				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? AND idempotency_key = ? LIMIT 1",
 				[ownerUserId, orderId, idempotencyKey],
 			);
 			return rows[0] ? paymentPrepayAttempt(rows[0], cipher) : undefined;
@@ -627,7 +641,7 @@ export function createMySqlRepositories(
 			try {
 				await execute<ResultSetHeader>(
 					pool,
-					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 					[
 						attempt.attemptId,
 						attempt.ownerUserId,
@@ -636,6 +650,9 @@ export function createMySqlRepositories(
 						attempt.idempotencyKey,
 						attempt.status,
 						attempt.version,
+						attempt.queryAttempts,
+						attempt.lastQueriedAt ? mysqlDateTime(attempt.lastQueriedAt) : null,
+						attempt.nextQueryAt ? mysqlDateTime(attempt.nextQueryAt) : null,
 						attempt.prepayId
 							? createHash("sha256")
 									.update(attempt.prepayId, "utf8")
@@ -667,10 +684,13 @@ export function createMySqlRepositories(
 			const cipher = requiredPrepayCipher();
 			const result = await execute<ResultSetHeader>(
 				pool,
-				"UPDATE hp_payment_prepay_attempts SET status = ?, version = ?, prepay_id_hash = ?, pay_params_ciphertext = ?, provider_request_id = ?, last_error_code = ?, updated_at = ? WHERE attempt_id = ? AND owner_user_id = ? AND version = ?",
+				"UPDATE hp_payment_prepay_attempts SET status = ?, version = ?, query_attempts = ?, last_queried_at = ?, next_query_at = ?, prepay_id_hash = ?, pay_params_ciphertext = ?, provider_request_id = ?, last_error_code = ?, updated_at = ? WHERE attempt_id = ? AND owner_user_id = ? AND version = ?",
 				[
 					attempt.status,
 					attempt.version,
+					attempt.queryAttempts,
+					attempt.lastQueriedAt ? mysqlDateTime(attempt.lastQueriedAt) : null,
+					attempt.nextQueryAt ? mysqlDateTime(attempt.nextQueryAt) : null,
 					attempt.prepayId
 						? createHash("sha256")
 								.update(attempt.prepayId, "utf8")
@@ -691,6 +711,16 @@ export function createMySqlRepositories(
 				throw new PaymentPrepayAttemptVersionConflictError();
 			}
 			return attempt;
+		},
+		async listDueForQuery(now, limit) {
+			const cipher = requiredPrepayCipher();
+			if (!Number.isSafeInteger(limit) || limit <= 0) return [];
+			const rows = await execute<PaymentPrepayAttemptRow[]>(
+				pool,
+				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE next_query_at IS NOT NULL AND next_query_at <= ? AND status IN (?, ?, ?) ORDER BY next_query_at, attempt_id LIMIT ?",
+				[now, "pending", "succeeded", "unknown", limit],
+			);
+			return rows.map((row) => paymentPrepayAttempt(row, cipher));
 		},
 	};
 

@@ -161,6 +161,7 @@ test("MySQL prepay repository encrypts pay params and stores only prepay hash", 
 		idempotencyKey: "prepay-001",
 		status: "pending",
 		version: 1,
+		queryAttempts: 0,
 		createdAt: order.createdAt,
 		updatedAt: order.updatedAt,
 	};
@@ -216,4 +217,45 @@ test("MySQL notification repository commits the safe fact and outbox together", 
 		"INSERT INTO hp_wechat_payment_notifications",
 	);
 	expect(state.statements[1]).toContain("INSERT INTO hp_outbox_events");
+});
+
+test("MySQL prepay repository returns only due query schedules", async () => {
+	const row = {
+		attempt_id: "attempt-due-001",
+		owner_user_id: "user-001",
+		order_id: "order-001",
+		provider: "wechat-pay",
+		idempotency_key: "prepay-due-001",
+		status: "succeeded",
+		version: 3,
+		query_attempts: 2,
+		last_queried_at: "2026-08-15 00:00:15.000",
+		next_query_at: "2026-08-15 00:01:00.000",
+		prepay_id_hash: null,
+		pay_params_ciphertext: null,
+		provider_request_id: "request-001",
+		last_error_code: null,
+		created_at: "2026-08-15 00:00:00.000",
+		updated_at: "2026-08-15 00:00:15.000",
+	};
+	const { pool } = createFakePool([[row]]);
+	const repositories = createMySqlRepositories(pool, {
+		prepayCipher: createAesGcmSecretValueCipher(
+			Buffer.alloc(32, 7).toString("base64"),
+		),
+	});
+
+	await expect(
+		repositories.paymentPrepayAttempts.listDueForQuery(
+			new Date("2026-08-15T00:01:00.000Z"),
+			1,
+		),
+	).resolves.toMatchObject([
+		{
+			attemptId: "attempt-due-001",
+			queryAttempts: 2,
+			lastQueriedAt: "2026-08-15 00:00:15.000",
+			nextQueryAt: "2026-08-15 00:01:00.000",
+		},
+	]);
 });

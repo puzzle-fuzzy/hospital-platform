@@ -10,8 +10,8 @@ import type {
 	WechatPaymentNotification as WechatPaymentNotificationRecord,
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
+	WechatPaymentQueryState,
 } from "@hospital/domain";
-import type { PaymentState } from "@hospital/contracts";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { requestJson, type ProviderFetcher } from "./http";
 
@@ -28,6 +28,7 @@ type WechatJsapiOrderResponse = {
 type WechatOrderQueryResponse = {
 	trade_state?: unknown;
 	transaction_id?: unknown;
+	amount?: unknown;
 };
 
 type WechatPaymentNotificationEnvelope = {
@@ -288,7 +289,7 @@ function payParams(input: {
 	};
 }
 
-function mapTradeState(value: unknown): PaymentState {
+function mapTradeState(value: unknown): WechatPaymentQueryState {
 	if (value === "SUCCESS") return "cash_paid";
 	if (value === "NOTPAY" || value === "USERPAYING") return "cash_pending";
 	if (value === "CLOSED" || value === "REVOKED" || value === "PAYERROR") {
@@ -298,6 +299,16 @@ function mapTradeState(value: unknown): PaymentState {
 		operation: "order-query",
 		message: "Wechat order returned an unsupported trade state",
 	});
+}
+
+function queryTotalFen(value: unknown): number {
+	if (!Number.isSafeInteger(value) || (value as number) <= 0) {
+		throw providerError({
+			operation: "order-query",
+			message: "Wechat order query amount.total was invalid",
+		});
+	}
+	return value as number;
 }
 
 function notificationText(value: unknown, field: string): string {
@@ -531,7 +542,11 @@ export class WechatPaymentApiGateway implements WechatPaymentGateway {
 	async query(
 		input: { orderId: string },
 		context: AdapterCallContext,
-	): Promise<{ state: PaymentState; trace: ExternalTrace }> {
+	): Promise<{
+		state: WechatPaymentQueryState;
+		totalFen: number;
+		trace: ExternalTrace;
+	}> {
 		const orderId = requiredInput(input.orderId, "orderId", 32);
 		const path = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(orderId)}?mchid=${encodeURIComponent(this.mchId)}`;
 		const nonce = this.nonce();
@@ -567,12 +582,25 @@ export class WechatPaymentApiGateway implements WechatPaymentGateway {
 			this.fetcher,
 		);
 		const state = mapTradeState(response.data.trade_state);
+		const amount = response.data.amount;
+		if (
+			typeof amount !== "object" ||
+			amount === null ||
+			Array.isArray(amount)
+		) {
+			throw providerError({
+				operation: "order-query",
+				message: "Wechat order query amount was invalid",
+			});
+		}
+		const totalFen = queryTotalFen((amount as { total?: unknown }).total);
 		const providerOrderId =
 			typeof response.data.transaction_id === "string"
 				? response.data.transaction_id.trim()
 				: undefined;
 		return {
 			state,
+			totalFen,
 			trace: paymentTrace("order-query", response.requestId, providerOrderId),
 		};
 	}

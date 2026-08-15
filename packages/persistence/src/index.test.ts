@@ -86,6 +86,7 @@ test("in-memory prepay attempts replay by owner, order and idempotency key", asy
 			idempotencyKey: "prepay-001",
 			status: "succeeded",
 			version: 2,
+			queryAttempts: 0,
 			prepayId: "prepay-001",
 			payParams: {
 				appId: "app-001",

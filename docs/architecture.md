@@ -89,6 +89,12 @@ POST /api/v1/payments/wechat/notifications
   -> callback mapper 只允许 TRANSACTION.SUCCESS + orderId + totalFen + transactionId
   -> hp_wechat_payment_notifications 与 payment.wechat-notification.received outbox 同事务去重
   -> HTTP 只返回微信 provider ack；订单状态由后续 worker 依据金额和版本迁移
+
+PaymentReconciliationWorker（持久化驱动）
+  -> listDueForQuery(nextQueryAt <= now)
+  -> WechatPaymentGateway.query（查单响应必须包含已验签金额）
+  -> PaymentOrderService.reconcileWechatPayment（金额 + version 条件迁移）
+  -> 终态清除 nextQueryAt；未知/待确认按 queryAttempts 指数退避
 ```
 
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
@@ -101,8 +107,11 @@ contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支
 vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会话恢复和服务端归属患者
 列表接入现有 API contract。Phase 6B 又加入微信预支付应用服务和原生端调用封装；Phase 6C 已落库
 预支付尝试、版本和加密调起参数，Phase 6D 又加入同一幂等键下的服务端状态读模型，Phase 6E-1
-又加入通知入站事实与去重 outbox；微信支付 adapter 只在完整配置和显式 `WECHAT_PAYMENT_READY`
+又加入通知入站事实与去重 outbox，Phase 6E-2 又加入 `nextQueryAt`、`queryAttempts`、查单金额校验
+和版本化订单迁移；微信支付 adapter 只在完整配置和显式 `WECHAT_PAYMENT_READY`
 下由组合根注入，`WECHAT_IDENTITY_READY` 也默认关闭，医保和 HIS handler 尚未接入；因此默认运行不会产生真实支付副作用。
+当前 `apps/worker` 仍只导出可测试的查单 worker 核心，真实数据库/provider 组合根和进程循环留待下一阶段，
+避免把“可测试编排”误报为“已运行的异步服务”。
 
 原生小程序的功能边界：
 
@@ -120,6 +129,8 @@ vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会�
 - `POST .../wechat-prepay` 只在完整支付配置显式打开后调用微信下单；默认组合根使用 fail-closed gateway，未配置时返回 503。
 - `hp_payment_prepay_attempts` 不把 `prepay_id` 明文写入数据库；`payParams` 使用部署注入的 AES-256-GCM 密钥保护，没有 `PAYMENT_DATA_ENCRYPTION_KEY` 时 repository fail-closed。
 - `hp_wechat_payment_notifications` 只保存验签解密后的白名单摘要；同一 `notification_id` 或微信交易号不会重复制造 outbox 事件。
+- 查单响应中的 provider `amount.total` 必须与订单 `cashFen` 一致；不一致只能进入 `awaiting_confirmation`，不能标记为已支付。
+- 订单状态迁移和查单尝试调度都使用版本条件更新；worker 重试不会在内存中维护唯一队列，进程重启后仍以数据库 `nextQueryAt` 为准。
 
 Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider-contract-v1.md)，
 避免把身份、支付、医保加密和 HIS 回写混成一个不可审计的“大 adapter”。

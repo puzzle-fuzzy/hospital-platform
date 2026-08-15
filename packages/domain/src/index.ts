@@ -24,6 +24,8 @@ export type {
 	PaymentPrepayAttemptStatus,
 	PaymentQuote,
 	PaymentQuoteRepository,
+	WechatPaymentReconciliationOutcome,
+	WechatPaymentReconciliationResult,
 } from "./payment-order";
 export {
 	createWechatPaymentNotificationEvent,
@@ -63,4 +65,5 @@ export type {
 	PaymentOrderSnapshot,
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
+	WechatPaymentQueryState,
 } from "./ports";

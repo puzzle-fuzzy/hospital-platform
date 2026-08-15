@@ -11,6 +11,10 @@ const MIGRATIONS = [
 		id: "0003_wechat_payment_notifications",
 		file: "../migrations/0003_wechat_payment_notifications.sql",
 	},
+	{
+		id: "0004_payment_query_schedule",
+		file: "../migrations/0004_payment_query_schedule.sql",
+	},
 ] as const;
 
 const logger = createLogger({

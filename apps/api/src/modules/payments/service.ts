@@ -15,6 +15,11 @@ import {
 } from "@hospital/domain";
 import { createNoopLogger, type AppLogger } from "@hospital/observability";
 
+/** API 请求崩溃后给 worker 留出的最小恢复窗口，避免和前一个请求并发查单。 */
+const INITIAL_QUERY_DELAY_MS = 5_000;
+/** provider 结果未确定时的下一次查单间隔；后续可按 provider SLA 配置化。 */
+const DEFAULT_QUERY_DELAY_MS = 15_000;
+
 export class PaymentIdentityNotFoundError extends Error {
 	constructor() {
 		super("Payment identity was not found for the current user");
@@ -54,6 +59,10 @@ export class WechatPrepayService {
 			(() => crypto.randomUUID().replaceAll("-", ""));
 	}
 
+	private nextQueryAt(delayMs = DEFAULT_QUERY_DELAY_MS): string {
+		return new Date(this.now().getTime() + delayMs).toISOString();
+	}
+
 	async create(input: {
 		ownerUserId: string;
 		orderId: string;
@@ -79,7 +88,8 @@ export class WechatPrepayService {
 			input.ownerUserId,
 		);
 		if (!identity) throw new PaymentIdentityNotFoundError();
-		const timestamp = this.now().toISOString();
+		const now = this.now();
+		const timestamp = now.toISOString();
 		const pending: PaymentPrepayAttempt = {
 			attemptId: this.createAttemptId(),
 			ownerUserId: input.ownerUserId,
@@ -88,6 +98,10 @@ export class WechatPrepayService {
 			idempotencyKey: input.context.idempotencyKey,
 			status: "pending",
 			version: 1,
+			queryAttempts: 0,
+			nextQueryAt: new Date(
+				now.getTime() + INITIAL_QUERY_DELAY_MS,
+			).toISOString(),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		};
@@ -122,6 +136,7 @@ export class WechatPrepayService {
 				prepayId: result.prepayId,
 				payParams: result.payParams,
 				providerRequestId: result.trace.requestId,
+				nextQueryAt: this.nextQueryAt(),
 				updatedAt: this.now().toISOString(),
 			};
 			await this.dependencies.attempts.update(succeeded, pending.version);
@@ -148,6 +163,7 @@ export class WechatPrepayService {
 					status: "unknown",
 					version: pending.version + 1,
 					lastErrorCode: error instanceof Error ? error.name : "UnknownError",
+					nextQueryAt: this.nextQueryAt(),
 					updatedAt: this.now().toISOString(),
 				};
 				await this.dependencies.attempts

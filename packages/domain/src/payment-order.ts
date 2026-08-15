@@ -1,7 +1,7 @@
 import type { PaymentState } from "@hospital/contracts";
 import { transitionPayment } from "./payment-state";
 import type { OutboxEvent } from "./outbox";
-import type { WechatMiniProgramPayParams } from "./ports";
+import type { ExternalTrace, WechatMiniProgramPayParams } from "./ports";
 
 /** 幂等键长度上限，防止客户端把无限长字符串写入订单索引。 */
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -86,6 +86,10 @@ export type PaymentPrepayAttempt = {
 	idempotencyKey: string;
 	status: PaymentPrepayAttemptStatus;
 	version: number;
+	/** provider 查单次数和时间都要持久化，worker 重启后不能退化成内存计数。 */
+	queryAttempts: number;
+	lastQueriedAt?: string;
+	nextQueryAt?: string;
 	prepayId?: string;
 	payParams?: WechatMiniProgramPayParams;
 	providerRequestId?: string;
@@ -106,6 +110,11 @@ export interface PaymentPrepayAttemptRepository {
 		attempt: PaymentPrepayAttempt,
 		expectedVersion: number,
 	): Promise<PaymentPrepayAttempt>;
+	/** 只返回已经到达 nextQueryAt 的记录，避免 worker 频繁扫描全表。 */
+	listDueForQuery(
+		now: Date,
+		limit: number,
+	): Promise<readonly PaymentPrepayAttempt[]>;
 }
 
 /** 报价仓储负责提供已归属当前用户且尚未过期的后端金额。 */
@@ -118,6 +127,8 @@ export interface PaymentQuoteRepository {
 
 /** 支付订单持久化端口；生产实现必须对 ownerUserId + idempotencyKey 建唯一约束。 */
 export interface PaymentOrderRepository {
+	/** 后台 worker 不持有用户会话，必须使用只读内部订单 id 查询。 */
+	findById(orderId: string): Promise<PaymentOrder | undefined>;
 	findByOwnerAndIdempotencyKey(
 		ownerUserId: string,
 		idempotencyKey: string,
@@ -206,6 +217,18 @@ export class PaymentCashPrepayNotAllowedError extends Error {
 		this.name = "PaymentCashPrepayNotAllowedError";
 	}
 }
+
+export type WechatPaymentReconciliationOutcome =
+	| "cash_paid"
+	| "failed"
+	| "awaiting_confirmation"
+	| "unchanged"
+	| "ignored";
+
+export type WechatPaymentReconciliationResult = {
+	outcome: WechatPaymentReconciliationOutcome;
+	order: PaymentOrder;
+};
 
 export type CreatePaymentOrderInput = {
 	ownerUserId: string;
@@ -322,6 +345,86 @@ export class PaymentOrderService {
 		return order;
 	}
 
+	/**
+	 * 将已验签的微信查单结果应用到订单。
+	 *
+	 * 只有明确的 provider 状态、匹配的现金金额和合法的内部状态边才允许
+	 * 迁移；金额不一致进入 awaiting_confirmation，绝不自动判定支付成功。
+	 */
+	async reconcileWechatPayment(input: {
+		orderId: string;
+		state: Extract<PaymentState, "cash_pending" | "cash_paid" | "failed">;
+		totalFen: number;
+		trace: ExternalTrace;
+	}): Promise<WechatPaymentReconciliationResult> {
+		const current = await this.dependencies.orders.findById(input.orderId);
+		if (!current) throw new PaymentOrderNotFoundError();
+
+		const evidence = {
+			provider: "wechat-pay" as const,
+			operation: input.trace.operation,
+			requestId: input.trace.requestId,
+			...(input.trace.providerOrderId
+				? { providerOrderId: input.trace.providerOrderId }
+				: {}),
+			reportedState: input.state,
+			totalFen: input.totalFen,
+		};
+
+		const update = async (
+			nextState: PaymentState,
+			outcome: WechatPaymentReconciliationOutcome,
+		): Promise<WechatPaymentReconciliationResult> => {
+			const updated: PaymentOrder = {
+				...current,
+				state: transitionPayment(current.state, nextState),
+				version: current.version + 1,
+				updatedAt: this.now().toISOString(),
+			};
+			return {
+				outcome,
+				order: await this.dependencies.orders.update(
+					updated,
+					current.version,
+					createPaymentOrderEvent(
+						"payment-order.state-changed",
+						updated,
+						evidence,
+					),
+				),
+			};
+		};
+
+		if (input.totalFen !== current.amounts.cashFen) {
+			if (current.state === "cash_pending") {
+				return update("awaiting_confirmation", "awaiting_confirmation");
+			}
+			return { outcome: "ignored", order: current };
+		}
+
+		if (input.state === "cash_paid") {
+			if (
+				current.state === "cash_pending" ||
+				current.state === "awaiting_confirmation"
+			) {
+				return update("cash_paid", "cash_paid");
+			}
+			return { outcome: "ignored", order: current };
+		}
+
+		if (input.state === "failed") {
+			if (
+				current.state === "cash_pending" ||
+				current.state === "awaiting_confirmation"
+			) {
+				return update("failed", "failed");
+			}
+			return { outcome: "ignored", order: current };
+		}
+
+		return { outcome: "unchanged", order: current };
+	}
+
 	async transition(
 		ownerUserId: string,
 		orderId: string,
@@ -354,6 +457,17 @@ export class PaymentOrderService {
 function createPaymentOrderEvent(
 	eventName: "payment-order.created" | "payment-order.state-changed",
 	order: PaymentOrder,
+	evidence?: {
+		provider: "wechat-pay";
+		operation: string;
+		requestId: string;
+		providerOrderId?: string;
+		reportedState: Extract<
+			PaymentState,
+			"cash_pending" | "cash_paid" | "failed"
+		>;
+		totalFen: number;
+	},
 ): OutboxEvent {
 	const suffix =
 		eventName === "payment-order.created" ? "created" : order.version;
@@ -367,6 +481,7 @@ function createPaymentOrderEvent(
 			amounts: order.amounts,
 			state: order.state,
 			version: order.version,
+			...(evidence ? { providerEvidence: evidence } : {}),
 		},
 		occurredAt: order.updatedAt,
 		availableAt: order.updatedAt,

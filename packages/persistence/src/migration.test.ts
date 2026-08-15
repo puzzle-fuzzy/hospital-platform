@@ -13,6 +13,9 @@ test("core migration contains the transaction-critical constraints", async () =>
 			import.meta.url,
 		),
 	).text();
+	const queryScheduleSql = await Bun.file(
+		new URL("../migrations/0004_payment_query_schedule.sql", import.meta.url),
+	).text();
 
 	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_payment_orders");
 	expect(prepaySql).toContain(
@@ -27,4 +30,7 @@ test("core migration contains the transaction-critical constraints", async () =>
 	);
 	expect(notificationSql).toContain("uq_hp_wechat_notification_transaction");
 	expect(notificationSql).toContain("fk_hp_wechat_notification_order");
+	expect(queryScheduleSql).toContain("ADD COLUMN query_attempts");
+	expect(queryScheduleSql).toContain("ADD COLUMN next_query_at");
+	expect(queryScheduleSql).toContain("ix_hp_prepay_query_due");
 });
