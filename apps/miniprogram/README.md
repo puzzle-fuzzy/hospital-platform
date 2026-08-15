@@ -28,8 +28,10 @@
 登录后如果本地没有患者映射，页面会主动执行一次服务端患者目录同步；同步失败必须按配置或 provider 错误提示，不能展示假患者。
 同步按钮只调用平台 API 的 `POST /patients/sync`；生产前缀由 `app.ts` 的 `apiPrefix=/api/v2` 注入，
 本地 API 使用默认 `/api/v1`。unionId 从服务端会话解析，provider 患者号只在服务端映射表内使用。
-首页的预约目录入口只调用平台 API 的 `GET /appointments/departments` 和
-`GET /appointments/schedules`，日期范围由客户端限制为未来 7 天展示，预约写入和支付尚未开放。
+首页的“预约挂号”入口会进入 `pages/appointment-directory/appointment-directory`，只调用平台 API 的
+`GET /appointments/departments` 和 `GET /appointments/schedules`，日期范围由客户端限制为未来 7 天展示；
+“我的挂号”进入 `pages/appointment-records/appointment-records`，按当前选择的内部 `patientId` 查询近 90 天记录。
+两页只读展示服务端规范化结果，预约写入、锁号、取消和支付尚未开放。
 报告入口只调用平台 API 的 `GET /reports`，传入平台内部 `patientId` 和有限日期范围；服务端负责解析众阳患者号。
 本期只读 LIS/PACS/ECG 摘要；服务端已准备 gated LIS 详情的 opaque 引用客户端方法，
 报告目录现在只在存在服务端 `reportId` 时进入原生详情页，详情页只展示白名单检测项；默认 gate 关闭时保持摘要只读，真实 provider 详情、文件下载和体检报告仍未开放。

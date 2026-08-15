@@ -140,13 +140,6 @@ export type IndexPageData = {
 	hasPatients: boolean;
 	loading: boolean;
 	syncingPatients: boolean;
-	appointmentDepartments: Array<AppointmentDepartment>;
-	appointmentSchedules: Array<AppointmentSchedule>;
-	hasAppointmentData: boolean;
-	loadingAppointments: boolean;
-	appointmentRecords: Array<AppointmentRecord>;
-	hasAppointmentRecords: boolean;
-	loadingAppointmentRecords: boolean;
 	reports: Array<Report>;
 	/** 报告数量来自服务端报告目录的 total；没有加载目录时保持 0。 */
 	reportCount: number;
@@ -161,6 +154,27 @@ export type PatientSelectionPageData = {
 	selectedPatientId: string;
 	loading: boolean;
 	syncing: boolean;
+	error: string;
+};
+
+/** 预约目录页只展示服务端已校验的科室和排班，不承载下单状态。 */
+export type AppointmentDirectoryPageData = {
+	departments: Array<AppointmentDepartment>;
+	schedules: Array<AppointmentSchedule>;
+	loading: boolean;
+	error: string;
+};
+
+/** 挂号记录页使用服务端规范化状态，避免在小程序解析 provider 状态码。 */
+export type AppointmentRecordView = AppointmentRecord & {
+	statusLabel: string;
+	statusClass: string;
+};
+
+export type AppointmentRecordsPageData = {
+	selectedPatient: Patient | null;
+	records: Array<AppointmentRecordView>;
+	loading: boolean;
 	error: string;
 };
 

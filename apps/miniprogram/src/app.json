@@ -2,6 +2,8 @@
 	"pages": [
 		"pages/index/index",
 		"pages/patient-select/patient-select",
+		"pages/appointment-directory/appointment-directory",
+		"pages/appointment-records/appointment-records",
 		"pages/report-detail/report-detail"
 	],
 	"window": {

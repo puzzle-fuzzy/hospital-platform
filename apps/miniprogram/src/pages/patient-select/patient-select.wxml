@@ -6,6 +6,12 @@
 		<view class="page-description">请选择要进行预约、查询报告或查看挂号记录的就诊人</view>
 	</view>
 
+	<!-- 保留旧端“添加就诊人”入口位置；真实绑定接口接入前只展示迁移提示。 -->
+	<view class="add-patient-bar" bindtap="onAddPatient">
+		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
+		<text>添加就诊人</text>
+	</view>
+
 	<view wx:if="{{loading}}" class="state-card">
 		<text>正在加载就诊人...</text>
 	</view>

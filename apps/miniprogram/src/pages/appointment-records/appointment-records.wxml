@@ -1,0 +1,45 @@
+<view class="page">
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+	<view wx:if="{{selectedPatient}}" class="patient-strip" bindtap="onChangePatient">
+		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
+		<view class="patient-strip-copy">
+			<text class="patient-strip-name">{{selectedPatient.displayName}}</text>
+			<text class="patient-strip-card">{{selectedPatient.cardNumberMasked}}</text>
+		</view>
+		<text class="patient-strip-change">更换就诊人</text>
+	</view>
+
+	<view class="page-header">
+		<view class="page-title">我的挂号</view>
+		<view class="page-description">展示当前就诊人近 90 天的挂号记录</view>
+	</view>
+
+	<view wx:if="{{loading}}" class="state-card">
+		<text>正在加载挂号记录...</text>
+	</view>
+
+	<view wx:elif="{{records.length}}" class="record-list">
+		<view wx:for="{{records}}" wx:key="serialNumber" class="record-card">
+			<view class="record-header">
+				<text class="record-date">{{item.workDate}}</text>
+				<text class="record-status {{item.statusClass}}">{{item.statusLabel}}</text>
+			</view>
+			<view class="record-department">{{item.departmentName || "门诊挂号"}}</view>
+			<view wx:if="{{item.doctorName}}" class="record-line">医生：{{item.doctorName}}</view>
+			<view wx:if="{{item.workTime}}" class="record-line">时间：{{item.workTime}}</view>
+			<view wx:if="{{item.location}}" class="record-line">地点：{{item.location}}</view>
+			<view wx:if="{{item.serialNumber}}" class="record-number">流水号：{{item.serialNumber}}</view>
+		</view>
+	</view>
+
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>近 90 天暂无挂号记录</text>
+		<text class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
+	</view>
+
+	<view class="readonly-note">
+		当前仅展示挂号记录。取消、退号和支付状态处理将在对应业务契约完成后开放。
+	</view>
+</view>

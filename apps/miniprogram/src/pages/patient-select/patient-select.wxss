@@ -12,7 +12,8 @@ page {
 .error-message,
 .patient-list,
 .state-card,
-.page-actions {
+.page-actions,
+.add-patient-bar {
 	box-sizing: border-box;
 	margin-right: auto;
 	margin-left: auto;
@@ -35,6 +36,24 @@ page {
 	color: #888888;
 	font-size: 26rpx;
 	line-height: 1.6;
+}
+
+.add-patient-bar {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 16rpx;
+	margin-bottom: 20rpx;
+	height: 96rpx;
+	border-radius: 4rpx;
+	background: #ffffff;
+	color: #333333;
+	font-size: 30rpx;
+}
+
+.add-patient-bar image {
+	width: 48rpx;
+	height: 48rpx;
 }
 
 .error-message {

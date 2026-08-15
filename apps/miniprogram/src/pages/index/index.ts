@@ -1,7 +1,5 @@
 import { ApiError } from "../../services/api-client";
 import {
-	loadAppointmentDirectory,
-	loadAppointmentRecords,
 	loadHealth,
 	loadPatients,
 	loadReports,
@@ -20,8 +18,8 @@ import type {
 	ActionEvent,
 	IndexEvent,
 	IndexPageData,
-	Patient,
 	PatientEvent,
+	Patient,
 	ReportEvent,
 	ServiceTab,
 	SessionLabel,
@@ -197,7 +195,6 @@ type IndexPageMethods = {
 	onPullDownRefresh(): void;
 	onLoadReports(): void;
 	onLoadAppointmentRecords(): void;
-	loadAppointmentRecordsForPatient(patientId: string): void;
 	onSelectReport(event: ReportEvent): void;
 	onSelectPatient(event: PatientEvent): void;
 	showError(error: unknown, fallback: string): void;
@@ -226,13 +223,6 @@ Page<IndexPageData, IndexPageMethods>({
 		hasPatients: false,
 		loading: false,
 		syncingPatients: false,
-		appointmentDepartments: [],
-		appointmentSchedules: [],
-		hasAppointmentData: false,
-		loadingAppointments: false,
-		appointmentRecords: [],
-		hasAppointmentRecords: false,
-		loadingAppointmentRecords: false,
 		reports: [],
 		// 报告目录尚未加载时不展示数量，避免使用虚假的默认值。
 		reportCount: 0,
@@ -421,26 +411,9 @@ Page<IndexPageData, IndexPageMethods>({
 			this.onLogin();
 			return;
 		}
-		this.setData({ loadingAppointments: true, error: "" });
-		loadAppointmentDirectory()
-			.then(({ departments, schedules }) => {
-				this.setData({
-					appointmentDepartments: departments,
-					appointmentSchedules: schedules,
-					hasAppointmentData: departments.length > 0 || schedules.length > 0,
-					error: "",
-				});
-				wx.showModal({
-					title: "预约目录",
-					content:
-						departments.length || schedules.length
-							? `已读取 ${departments.length} 个科室、${schedules.length} 个排班。预约下单功能仍在迁移中。`
-							: "当前暂无可预约的科室或排班。",
-					showCancel: false,
-				});
-			})
-			.catch((error) => this.showError(error, "预约目录加载失败"))
-			.finally(() => this.setData({ loadingAppointments: false }));
+		wx.navigateTo({
+			url: "/pages/appointment-directory/appointment-directory",
+		});
 	},
 
 	onRefresh() {
@@ -486,34 +459,9 @@ Page<IndexPageData, IndexPageMethods>({
 			this.onLogin();
 			return;
 		}
-		const patient = this.getSelectedPatient();
-		if (!patient || typeof patient.id !== "string" || !patient.id) {
-			// 当前会话存在但页面尚未拿到患者时，先同步一次服务端目录，
-			// 避免把“已登录但未加载患者”误报成“未登录”。
-			this.onSyncPatients().then((patients) => {
-				const firstPatient = patients[0];
-				if (typeof firstPatient?.id === "string" && firstPatient.id) {
-					this.loadAppointmentRecordsForPatient(firstPatient.id);
-				}
-			});
-			return;
-		}
-		this.loadAppointmentRecordsForPatient(patient.id);
-	},
-
-	/** 预约历史只接受服务端内部 patientId，并集中处理加载状态和空结果。 */
-	loadAppointmentRecordsForPatient(patientId: string): void {
-		this.setData({ loadingAppointmentRecords: true, error: "" });
-		loadAppointmentRecords(patientId)
-			.then((appointmentRecords) =>
-				this.setData({
-					appointmentRecords,
-					hasAppointmentRecords: appointmentRecords.length > 0,
-					error: "",
-				}),
-			)
-			.catch((error) => this.showError(error, "预约记录加载失败"))
-			.finally(() => this.setData({ loadingAppointmentRecords: false }));
+		wx.navigateTo({
+			url: "/pages/appointment-records/appointment-records",
+		});
 	},
 
 	/** 只有服务端生成的 opaque reportId 才能进入详情页。 */
@@ -546,8 +494,6 @@ Page<IndexPageData, IndexPageMethods>({
 		this.setData({
 			selectedPatientId: patientId,
 			selectedPatient,
-			appointmentRecords: [],
-			hasAppointmentRecords: false,
 			reports: [],
 			reportCount: 0,
 			hasReports: false,

@@ -104,6 +104,44 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).not.toContain("unionId");
 });
 
+test("native mini program exposes read-only appointment directory and records pages", async () => {
+	const app = await source("app.json");
+	const home = await source("pages/index/index.ts");
+	const directory = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const records = await source(
+		"pages/appointment-records/appointment-records.ts",
+	);
+	const directoryTemplate = await source(
+		"pages/appointment-directory/appointment-directory.wxml",
+	);
+	const recordsTemplate = await source(
+		"pages/appointment-records/appointment-records.wxml",
+	);
+
+	expect(app).toContain('"pages/appointment-directory/appointment-directory"');
+	expect(app).toContain('"pages/appointment-records/appointment-records"');
+	expect(home).toContain(
+		'url: "/pages/appointment-directory/appointment-directory"',
+	);
+	expect(home).toContain(
+		'url: "/pages/appointment-records/appointment-records"',
+	);
+	expect(home).not.toContain("预约下单功能仍在迁移中");
+	expect(directory).toContain("loadAppointmentDirectory");
+	expect(records).toContain("loadAppointmentRecords");
+	expect(records).toContain("getSelectedPatientId");
+	expect(directoryTemplate).toContain("未来 7 天");
+	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
+	expect(recordsTemplate).toContain("更换就诊人");
+	expect(recordsTemplate).toContain("取消、退号和支付状态处理");
+	// 预约写入、provider 患者标识和支付字段均不得进入小程序页面。
+	expect(directory).not.toContain("providerPatientId");
+	expect(records).not.toContain("providerPatientId");
+	expect(records).not.toContain("wx.requestPayment");
+});
+
 test("native client reads appointment directories only through the Hospital API", async () => {
 	const client = await source("services/api-client.ts");
 	const page = await source("pages/index/index.ts");

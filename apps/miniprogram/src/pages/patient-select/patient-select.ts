@@ -16,6 +16,7 @@ import type {
 type PatientSelectionPageMethods = {
 	loadPatientList(): Promise<void>;
 	onPatientTap(event: PatientEvent): void;
+	onAddPatient(): void;
 	onSyncPatients(): void;
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
@@ -67,6 +68,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		setSelectedPatientId(patient.id);
 		wx.showToast({ title: "已切换就诊人", icon: "success" });
 		setTimeout(() => wx.navigateBack(), 350);
+	},
+
+	/** 绑定写入接口尚未通过真实医院契约验收，先明确提示而不是伪造成功。 */
+	onAddPatient(): void {
+		wx.showModal({
+			title: "添加就诊人",
+			content: "医院绑定接口正在迁移中，请先在医院侧完成绑定后刷新目录。",
+			showCancel: false,
+		});
 	},
 
 	/** 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。 */
