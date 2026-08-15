@@ -49,6 +49,10 @@ export type WechatPrepayStatusResponse = WechatPrepayStatusPayload;
 export type AuthSessionData = AuthSessionResponse["data"];
 export type CurrentUserData = CurrentUserResponse["data"];
 export type Patient = PatientListResponse["data"]["items"][number];
+/** 选择页的显示模型；关系中文案只属于客户端展示层，不进入 API contract。 */
+export type PatientSelectionView = Patient & {
+	relationshipLabel: string;
+};
 export type AppointmentDepartment =
 	AppointmentDepartmentListResponse["data"]["items"][number];
 export type AppointmentSchedule =
@@ -150,7 +154,7 @@ export type IndexPageData = {
 
 /** 就诊人选择页的渲染状态；列表数据始终来自平台脱敏患者目录。 */
 export type PatientSelectionPageData = {
-	patients: Array<Patient>;
+	patients: Array<PatientSelectionView>;
 	selectedPatientId: string;
 	loading: boolean;
 	syncing: boolean;

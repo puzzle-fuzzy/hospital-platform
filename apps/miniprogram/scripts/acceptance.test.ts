@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import {
+	buildApiRequestUrl,
 	isAllowedApiBaseUrl,
 	isAllowedApiPrefix,
-	buildApiRequestUrl,
 	normalizeApiBaseUrl,
 	toWechatPaymentParams,
 } from "../src/services/api-client";
@@ -241,6 +241,12 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	const globalStyle = await source("app.wxss");
 	const homeTemplate = await source("pages/index/index.wxml");
 	const homeStyle = await source("pages/index/index.wxss");
+	const patientSelectTemplate = await source(
+		"pages/patient-select/patient-select.wxml",
+	);
+	const patientSelectStyle = await source(
+		"pages/patient-select/patient-select.wxss",
+	);
 	const reportTemplate = await source("pages/report-detail/report-detail.wxml");
 	const reportStyle = await source("pages/report-detail/report-detail.wxss");
 
@@ -270,6 +276,10 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(homeStyle).toContain("position: fixed");
 	expect(homeStyle).toContain("bottom: 0");
 	expect(homeStyle).toContain("env(safe-area-inset-bottom)");
+	expect(homeStyle).toContain("justify-content: center");
+	expect(patientSelectTemplate).toContain("relationshipLabel");
+	expect(patientSelectTemplate).toContain("电子就诊卡（脱敏）");
+	expect(patientSelectStyle).toContain("height: 80rpx");
 	expect(homeStyle).toContain("width: 350rpx");
 	expect(reportTemplate).toContain("report-actions");
 	expect(reportTemplate).toContain("report-tabs-wrap");

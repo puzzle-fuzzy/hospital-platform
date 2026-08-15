@@ -27,14 +27,14 @@
 			<view class="patient-card-header">
 				<view class="patient-main">
 					<text class="patient-name">{{item.displayName}}</text>
-					<text wx:if="{{item.relationship}}" class="patient-relationship">{{item.relationship}}</text>
+					<text wx:if="{{item.relationshipLabel}}" class="patient-relationship">{{item.relationshipLabel}}</text>
 				</view>
 				<view wx:if="{{item.id === selectedPatientId}}" class="selected-badge">当前</view>
 			</view>
 			<view class="patient-card-detail">
 				<image class="patient-card-icon" src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
 				<view class="patient-card-detail-copy">
-					<text class="patient-card-detail-label">电子就诊卡</text>
+					<text class="patient-card-detail-label">电子就诊卡（脱敏）</text>
 					<text class="patient-card-detail-value">{{item.cardNumberMasked}}</text>
 				</view>
 			</view>

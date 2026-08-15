@@ -256,7 +256,10 @@ function mapSchedule(
 	operation: string,
 	requestId: string,
 ): AppointmentProviderSchedule {
-	const availableValue = value.remainingNumber ?? value.usableNum;
+	// 真实 AMC 排班响应中 remainingNumber 会稳定返回 null；usableSourceNum
+	// 才是当前有效号源数。保留旧别名作为兼容输入，但优先使用真实字段。
+	const availableValue =
+		value.remainingNumber ?? value.usableNum ?? value.usableSourceNum;
 	const totalSlots = requiredInteger(
 		value.totalNum,
 		"totalNum",

@@ -51,7 +51,7 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 				providerPatientId: "1001",
 				displayName: "张三",
 				relationship: "self",
-				cardNumberMasked: "******7890",
+				cardNumberMasked: "12345*7890",
 			},
 		],
 		trace: {

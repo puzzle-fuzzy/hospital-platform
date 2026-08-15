@@ -282,11 +282,11 @@
 	left: 0;
 	z-index: 20;
 	display: flex;
-	align-items: flex-start;
+	align-items: stretch;
 	justify-content: space-around;
 	box-sizing: border-box;
 	height: calc(130rpx + env(safe-area-inset-bottom));
-	padding-top: 6rpx;
+	padding-top: 0;
 	padding-bottom: env(safe-area-inset-bottom);
 	border-top: 1rpx solid #eeeeee;
 	background: #ffffff;
@@ -295,9 +295,11 @@
 .legacy-tabbar-item {
 	display: flex;
 	align-items: center;
-	justify-content: flex-start;
+	justify-content: center;
 	flex-direction: column;
+	box-sizing: border-box;
 	width: 25%;
+	height: 100%;
 	gap: 6rpx;
 	color: #2c2c2c;
 	font-size: 20rpx;

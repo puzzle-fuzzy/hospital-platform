@@ -6,7 +6,7 @@ import type {
 	PatientRelationship,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
-import { requestJson, type ProviderFetcher } from "./http";
+import { type ProviderFetcher, requestJson } from "./http";
 
 const PATIENT_INFO_BY_UNION_ID_PATH = "/api/public/patientInfoByUnionId";
 
@@ -74,7 +74,14 @@ function maskCardNumber(value: unknown): string {
 	const normalized = String(value).trim();
 	if (!normalized || normalized.length > 64) return "未绑定";
 	if (normalized.length <= 4) return "*".repeat(normalized.length);
-	return `${"*".repeat(Math.min(8, normalized.length - 4))}${normalized.slice(-4)}`;
+	// 患者选择页需要可核对卡号，但不能暴露完整卡号：最多展示前五位和后四位。
+	const suffixLength = Math.min(4, normalized.length);
+	const prefixLength = Math.min(
+		5,
+		Math.max(0, normalized.length - suffixLength - 1),
+	);
+	const maskLength = normalized.length - prefixLength - suffixLength;
+	return `${normalized.slice(0, prefixLength)}${"*".repeat(maskLength)}${normalized.slice(-suffixLength)}`;
 }
 
 function relationship(value: unknown): PatientRelationship {

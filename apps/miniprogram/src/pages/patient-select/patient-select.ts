@@ -12,6 +12,7 @@ import type {
 	Patient,
 	PatientEvent,
 	PatientSelectionPageData,
+	PatientSelectionView,
 } from "../../types";
 
 type PatientSelectionPageMethods = {
@@ -23,6 +24,23 @@ type PatientSelectionPageMethods = {
 	showError(error: unknown, fallback: string): void;
 	setPatientList(patients: Array<Patient>): void;
 };
+
+/** provider 关系值是稳定枚举，中文文案由小程序展示层维护。 */
+const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
+	self: "本人",
+	spouse: "配偶",
+	child: "子女",
+	parent: "父母",
+	/** provider 未声明可识别关系时显示“其他”，不代表患者信息异常。 */
+	other: "其他",
+};
+
+function toPatientSelectionView(patient: Patient): PatientSelectionView {
+	return {
+		...patient,
+		relationshipLabel: PATIENT_RELATIONSHIP_LABELS[patient.relationship],
+	};
+}
 
 Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	data: {
@@ -57,7 +75,11 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		if (selectedPatientId && selectedPatientId !== storedPatientId) {
 			setSelectedPatientId(selectedPatientId);
 		}
-		this.setData({ patients, selectedPatientId, error: "" });
+		this.setData({
+			patients: patients.map(toPatientSelectionView),
+			selectedPatientId,
+			error: "",
+		});
 	},
 
 	/** 选择完成后只写入 opaque patientId，再返回调用页触发 onShow 刷新。 */
