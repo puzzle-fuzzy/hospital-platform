@@ -213,8 +213,38 @@ test("request logger records sanitized failure metadata", async () => {
 		traceId: "failure-trace-001",
 		path: "/api/v1/auth/wechat",
 		statusCode: 503,
+		errorName: "AdapterNotConfiguredError",
 	});
 	expect(record.authorization).toBeUndefined();
+});
+
+test("request logger classifies client errors as failed warn events", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const response = await createApp({ logger }).handle(
+		new Request("http://localhost/route-does-not-exist", {
+			headers: { "x-request-id": "not-found-trace-001" },
+		}),
+	);
+	await flushAfterResponseHooks();
+
+	const record = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+	expect(response.status).toBe(404);
+	expect(record).toMatchObject({
+		event: "http.request.failed",
+		level: 40,
+		requestId: "not-found-trace-001",
+		statusCode: 404,
+	});
 });
 
 test("default auth dependency fails closed instead of issuing a fake token", async () => {

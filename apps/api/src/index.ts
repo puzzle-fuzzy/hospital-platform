@@ -177,6 +177,37 @@ app.onStop(async () => {
 
 app.listen({ hostname: config.host, port: config.port });
 
+/**
+ * API 进程必须先停止接收新请求，再触发 Elysia onStop 关闭数据库/Redis。
+ * 不直接调用 process.exit，给正在处理的请求和持久化连接留下收尾时间。
+ */
+let stopping = false;
+const stop = async (signal: "SIGINT" | "SIGTERM") => {
+	if (stopping) return;
+	stopping = true;
+	logger.info(
+		{ event: "service.stop.requested", signal },
+		"Hospital API shutdown requested",
+	);
+	try {
+		await app.stop();
+		logger.info({ event: "service.stopped", signal }, "Hospital API stopped");
+	} catch (error) {
+		logger.error(
+			{
+				event: "service.stop.failed",
+				signal,
+				errorName: error instanceof Error ? error.name : "UnknownError",
+			},
+			"Hospital API shutdown failed",
+		);
+		process.exitCode = 1;
+	}
+};
+
+process.on("SIGINT", () => void stop("SIGINT"));
+process.on("SIGTERM", () => void stop("SIGTERM"));
+
 logger.info(
 	{
 		event: "service.started",

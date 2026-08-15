@@ -14,13 +14,17 @@
 - `traceId` / `requestId`：请求链路标识；没有上游标识时由 API 生成。
 - `msg`：面向人阅读的简短说明，不承载唯一业务数据。
 
-API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts`。这些字段用于按请求、订单或异步事件还原一条完整故障链。
+API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`；失败请求额外记录
+低敏的 `errorName`，必要时记录 Elysia 生命周期 `errorCode`，但不记录错误消息。
+Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts`。这些字段用于按请求、订单或异步事件还原一条完整故障链。
 
 ## 当前事件名
 
 | 事件名 | 产生位置 | 用途 |
 | --- | --- | --- |
 | `service.started` | API / worker 入口 | 确认进程已启动、schema gate 和 provider 配置状态；缺失项只记录环境变量名 |
+| `service.stop.requested` / `service.stopped` | API / worker 进程生命周期 | 记录收到停机信号和依赖关闭完成 |
+| `service.stop.failed` | API 进程生命周期 | 记录优雅停机失败的错误类型，触发部署侧人工关注 |
 | `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
 | `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
 | `worker.outbox.claimed` | Outbox worker | 确认事件被领取及当前重试次数 |

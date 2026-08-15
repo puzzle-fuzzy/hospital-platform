@@ -2,6 +2,12 @@ import { Elysia } from "elysia";
 import type { AppLogger } from "@hospital/observability";
 
 const requestStartTimes = new WeakMap<Request, number>();
+const requestErrors = new WeakMap<Request, ErrorMetadata>();
+
+type ErrorMetadata = {
+	errorName: string;
+	errorCode?: string;
+};
 
 function statusCode(value: number | string | undefined): number {
 	return typeof value === "number" ? value : 200;
@@ -15,7 +21,7 @@ function requestFields(
 	request: Request,
 	status: number,
 	durationMs: number,
-	event = status >= 500 ? "http.request.failed" : "http.request.completed",
+	event = status >= 400 ? "http.request.failed" : "http.request.completed",
 ) {
 	const requestId = request.headers.get("x-request-id") ?? "unknown";
 	return {
@@ -35,6 +41,10 @@ function durationFor(request: Request): number {
 	return Math.round((performance.now() - startedAt) * 100) / 100;
 }
 
+function errorMetadataFor(request: Request): ErrorMetadata | undefined {
+	return requestErrors.get(request);
+}
+
 /**
  * API 请求日志只记录元数据，不记录 body、Authorization 或 provider 报文。
  * 具体敏感字段的最终兜底由 Pino redact 配置负责。
@@ -47,20 +57,40 @@ export function requestLoggingPlugin(logger: AppLogger) {
 			.on({ as: "global" }, "request", (({ request }: { request: Request }) => {
 				requestStartTimes.set(request, performance.now());
 			}) as never)
+			// 只保留异常类型与 Elysia 生命周期码；不把 message、body 或 provider
+			// 原始响应写入日志，避免维护便利性反过来扩大敏感数据暴露面。
+			.onError({ as: "global" }, (({
+				request,
+				code,
+				error,
+			}: {
+				request: Request;
+				code: unknown;
+				error: unknown;
+			}) => {
+				requestErrors.set(request, {
+					errorName: error instanceof Error ? error.name : "UnknownError",
+					...(typeof code === "string" ? { errorCode: code } : {}),
+				});
+			}) as never)
 			// afterResponse 能看到错误处理器最终写入的状态码，避免把 503 等错误
 			// 错记成异常抛出时的默认 500；它本身只做观测，不改变响应。
 			.onAfterResponse({ as: "global" }, ({ request, set }) => {
 				const status = statusCode(set.status);
-				logger[status >= 500 ? "error" : "info"](
+				const errorMetadata = errorMetadataFor(request);
+				const failed = status >= 400;
+				const level = status >= 500 ? "error" : failed ? "warn" : "info";
+				logger[level](
 					{
 						...requestFields(
 							request,
 							status,
 							durationFor(request),
-							status >= 500 ? "http.request.failed" : "http.request.completed",
+							failed ? "http.request.failed" : "http.request.completed",
 						),
+						...(errorMetadata ?? {}),
 					},
-					status >= 500 ? "HTTP request failed" : "HTTP request completed",
+					failed ? "HTTP request failed" : "HTTP request completed",
 				);
 			})
 	);

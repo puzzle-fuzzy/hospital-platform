@@ -73,9 +73,10 @@ export function createApp(options: AppOptions = {}) {
 			}),
 		)
 		.use(requestContextPlugin())
-		.use(errorHandlerPlugin())
-		// 先让统一错误处理器确定最终 HTTP 状态，再由日志插件记录可检索结果。
+		// 先捕获错误生命周期的低敏元数据，再由统一错误处理器映射最终响应。
 		.use(requestLoggingPlugin(logger))
+		// afterResponse 仍会读取错误处理器最终写入的状态码，保持日志与响应一致。
+		.use(errorHandlerPlugin())
 		.use(openApiPlugin())
 		.use(healthModule(readiness))
 		.group("/api/v1", (api) =>
