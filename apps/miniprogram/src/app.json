@@ -1,5 +1,5 @@
 {
-	"pages": ["pages/index/index"],
+	"pages": ["pages/index/index", "pages/report-detail/report-detail"],
 	"window": {
 		"navigationBarTitleText": "医院服务",
 		"navigationBarBackgroundColor": "#ffffff",

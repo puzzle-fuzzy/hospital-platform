@@ -16,6 +16,10 @@ const files = [
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
+	"pages/report-detail/report-detail.js",
+	"pages/report-detail/report-detail.json",
+	"pages/report-detail/report-detail.wxml",
+	"pages/report-detail/report-detail.wxss",
 ];
 
 for (const file of files) {

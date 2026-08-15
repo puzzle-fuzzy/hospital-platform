@@ -188,3 +188,17 @@ test("native page delegates token state to the session service", async () => {
 	expect(session).toContain("getCurrentUser");
 	expect(session).toContain("login");
 });
+
+test("native report detail page consumes only the opaque platform reference", async () => {
+	const client = await source("services/api-client.js");
+	const page = await source("pages/report-detail/report-detail.js");
+	const template = await source("pages/report-detail/report-detail.wxml");
+
+	expect(client).toContain("requestReportDetail");
+	expect(page).toContain("requestReportDetail(reportId)");
+	expect(page).toContain("report-detail-id-missing");
+	expect(template).toContain("服务端白名单");
+	expect(page).not.toContain("providerReportId");
+	expect(page).not.toContain("fileUrl");
+	expect(template).not.toContain("providerReportId");
+});

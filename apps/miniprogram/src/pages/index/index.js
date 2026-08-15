@@ -152,6 +152,27 @@ Page({
 	},
 
 	/**
+	 * 只有服务端生成的 opaque reportId 才能进入详情页；没有引用时保持摘要只读。
+	 * @param {{currentTarget?: {dataset?: {reportId?: string}}}} event
+	 */
+	onSelectReport(event) {
+		const reportId = event.currentTarget?.dataset?.reportId;
+		if (typeof reportId !== "string" || !reportId) {
+			this.showError(
+				new ApiError("该报告详情暂未开放", {
+					code: "report-detail-not-ready",
+				}),
+				"报告详情加载失败",
+			);
+			return;
+		}
+
+		wx.navigateTo({
+			url: `/pages/report-detail/report-detail?reportId=${encodeURIComponent(reportId)}`,
+		});
+	},
+
+	/**
 	 * 切换当前业务患者时清空旧患者的报告和预约记录，避免页面把旧数据
 	 * 误显示到新选择的 patientId 下。
 	 * @param {{currentTarget?: {dataset?: {patientId?: string}}}} event

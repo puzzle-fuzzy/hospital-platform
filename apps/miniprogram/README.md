@@ -12,7 +12,7 @@
 `GET /api/v1/appointments/schedules`，日期范围由客户端限制为未来 7 天展示，预约写入和支付尚未开放。
 报告入口只调用 `GET /api/v1/reports`，传入平台内部 `patientId` 和有限日期范围；服务端负责解析众阳患者号。
 本期只读 LIS/PACS/ECG 摘要；服务端已准备 gated LIS 详情的 opaque 引用客户端方法，
-但默认 gate 关闭，真实 provider 详情和详情页面仍未验收，体检报告及文件下载未开放。
+报告目录现在只在存在服务端 `reportId` 时进入原生详情页，详情页只展示白名单检测项；默认 gate 关闭时保持摘要只读，真实 provider 详情、文件下载和体检报告仍未开放。
 `api-client.js` 已封装 `requestWechatPrepay(orderId, idempotencyKey)`，只接收服务端生成的
 `payParams`；`launchWechatPayment` 只把白名单字段交给 `wx.requestPayment`，调起成功和取消都不会直接更新业务状态。
 页面仍需在订单状态为 `cash_pending` 时调用它，支付最终结果必须重新读取服务端订单状态。

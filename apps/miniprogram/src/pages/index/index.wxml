@@ -72,12 +72,12 @@
 			<text class="section-hint">服务端只读</text>
 		</view>
 		<view wx:if="{{!hasReports}}" class="empty">点击上方按钮读取当前选择的就诊人近 30 天报告</view>
-		<view wx:for="{{reports}}" wx:key="index" class="appointment-row">
+		<view wx:for="{{reports}}" wx:key="index" class="appointment-row" bindtap="onSelectReport" data-report-id="{{item.reportId}}">
 			<view>
 				<text class="patient-name">{{item.title}}</text>
 				<text class="patient-meta">{{item.kind}} · {{item.reportedAt}}</text>
 			</view>
-			<text class="patient-source">{{item.status}}</text>
+			<text class="patient-source">{{item.reportId ? "查看详情" : item.status}}</text>
 		</view>
 	</view>
 </view>
