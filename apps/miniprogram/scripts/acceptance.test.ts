@@ -127,7 +127,9 @@ test("native client only permits local HTTP or HTTPS API addresses", () => {
 test("native mini program keeps the legacy hospital visual system", async () => {
 	const globalStyle = await source("app.wxss");
 	const homeTemplate = await source("pages/index/index.wxml");
+	const homeStyle = await source("pages/index/index.wxss");
 	const reportTemplate = await source("pages/report-detail/report-detail.wxml");
+	const reportStyle = await source("pages/report-detail/report-detail.wxss");
 
 	expect(globalStyle).toContain("--hospital-primary: #3d6df6");
 	expect(globalStyle).toContain("--hospital-primary-strong: #4b8eff");
@@ -139,10 +141,17 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(homeTemplate).toContain("service-tabs-shell");
 	expect(homeTemplate).toContain("legacy-tabbar");
 	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");
+	expect(homeStyle).toContain("position: fixed");
+	expect(homeStyle).toContain("bottom: 0");
+	expect(homeStyle).toContain("env(safe-area-inset-bottom)");
+	expect(homeStyle).toContain("width: 350rpx");
 	expect(reportTemplate).toContain("report-actions");
 	expect(reportTemplate).toContain("report-tabs-wrap");
 	expect(reportTemplate).toContain("report-content");
 	expect(reportTemplate).toContain("/assets/legacy-home/report-download.svg");
+	expect(reportStyle).toContain(".bottom-action-wrap");
+	expect(reportStyle).toContain("z-index: 30");
+	expect(reportStyle).toContain("padding-bottom: env(safe-area-inset-bottom)");
 });
 
 test("native client maps only the server payment fields", () => {

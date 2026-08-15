@@ -248,8 +248,10 @@
 	right: 0;
 	bottom: 0;
 	left: 0;
+	z-index: 30;
 	box-sizing: border-box;
 	padding: 0 20rpx;
+	padding-bottom: env(safe-area-inset-bottom);
 }
 
 .bottom-action {
@@ -285,5 +287,5 @@
 }
 
 .bottom-spacer {
-	height: 140rpx;
+	height: calc(140rpx + env(safe-area-inset-bottom));
 }

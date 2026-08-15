@@ -1,7 +1,7 @@
 .page {
 	box-sizing: border-box;
 	min-height: 100vh;
-	padding-bottom: 150rpx;
+	padding-bottom: calc(150rpx + env(safe-area-inset-bottom));
 	background: #ffffff;
 }
 
@@ -149,18 +149,18 @@
 
 .quick-entry-right {
 	display: flex;
-	flex: 1;
+	flex: 0 0 350rpx;
 	align-items: flex-start;
 	flex-direction: column;
 	gap: 20rpx;
+	width: 350rpx;
 	height: 306rpx;
-	overflow: hidden;
 }
 
 .quick-right-image {
 	display: block;
-	width: 330rpx;
-	height: 88rpx;
+	width: 350rpx;
+	height: 94rpx;
 }
 
 .service-con {
@@ -271,6 +271,7 @@
 	z-index: 10;
 	display: block;
 	width: 150rpx;
+	transform: translateY(-50%);
 }
 
 .legacy-tabbar {
@@ -283,7 +284,7 @@
 	align-items: flex-start;
 	justify-content: space-around;
 	box-sizing: border-box;
-	height: 130rpx;
+	height: calc(130rpx + env(safe-area-inset-bottom));
 	padding-top: 6rpx;
 	padding-bottom: env(safe-area-inset-bottom);
 	border-top: 1rpx solid #eeeeee;
