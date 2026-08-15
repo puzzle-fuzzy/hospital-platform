@@ -174,6 +174,7 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 			provider: "zhongyang",
 			profile: {
 				providerPatientId: "provider-patient-001",
+				providerReferences: { "his-patient": "his-patient-001" },
 				displayName: "张三",
 				relationship: "self",
 				cardNumberMasked: "******7890",
@@ -190,6 +191,10 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 	expect(state.statements[0]).toContain("provider_patient_id = ?");
 	expect(state.statements[1]).toContain("INSERT INTO hp_patients");
 	expect(state.values[1]).toContain("provider-patient-001");
+	expect(state.statements[2]).toContain(
+		"INSERT INTO hp_patient_provider_references",
+	);
+	expect(state.values[2]).toContain("his-patient-001");
 });
 
 test("MySQL patient provider lookup is owner-scoped and server-only", async () => {
@@ -221,6 +226,40 @@ test("MySQL patient provider lookup is owner-scoped and server-only", async () =
 		"user-001",
 		"internal-patient-001",
 		"zhongyang",
+	]);
+});
+
+test("MySQL clinical provider lookup uses the purpose-specific HIS mapping", async () => {
+	const { pool, state } = createFakePool([
+		[
+			{
+				patient_id: "internal-patient-001",
+				provider_name: "zhongyang",
+				reference_kind: "his-patient",
+				provider_patient_id: "his-patient-001",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.resolveProviderReference({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+			referenceKind: "his-patient",
+		}),
+	).resolves.toEqual({
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		providerPatientId: "his-patient-001",
+	});
+	expect(state.statements[0]).toContain("FROM hp_patient_provider_references");
+	expect(state.values[0]).toEqual([
+		"user-001",
+		"internal-patient-001",
+		"zhongyang",
+		"his-patient",
 	]);
 });
 

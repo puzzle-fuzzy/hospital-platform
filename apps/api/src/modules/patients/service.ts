@@ -85,7 +85,11 @@ export class PatientService {
 				{ unionId: identity.unionId },
 				context,
 			);
+			let hisPatientReferenceCount = 0;
 			for (const profile of result.patients) {
+				if (profile.providerReferences?.["his-patient"]) {
+					hisPatientReferenceCount += 1;
+				}
 				await this.repository.upsertFromDirectory({
 					ownerUserId,
 					patientId: this.createPatientId(),
@@ -101,6 +105,7 @@ export class PatientService {
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
 					patientCount: result.patients.length,
+					hisPatientReferenceCount,
 				},
 				"Patient directory synchronized",
 			);

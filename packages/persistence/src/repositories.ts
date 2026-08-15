@@ -79,7 +79,9 @@ export function createInMemoryPatientRepository(
 		ownerUserId: string;
 		provider: "zhongyang";
 		patientId: string;
-	}) => `${input.ownerUserId}:${input.provider}:${input.patientId}`;
+		referenceKind: "directory" | "his-patient";
+	}) =>
+		`${input.ownerUserId}:${input.provider}:${input.referenceKind}:${input.patientId}`;
 
 	return {
 		async listByOwner(ownerUserId) {
@@ -105,20 +107,40 @@ export function createInMemoryPatientRepository(
 			if (existingIndex >= 0) patients[existingIndex] = next;
 			else patients.push(next);
 			directoryIndex.set(key, next.id);
+			// 目录 ID 保留在旧的默认映射中；档案 patId 等专用引用单独存放，
+			// 让预约、报告和门诊费用可以显式声明自己需要哪一种外部身份。
 			providerIndex.set(
 				providerReferenceKey({
 					ownerUserId: input.ownerUserId,
 					provider: input.provider,
+					referenceKind: "directory",
 					patientId: next.id,
 				}),
 				input.profile.providerPatientId,
 			);
+			for (const [referenceKind, providerPatientId] of Object.entries(
+				input.profile.providerReferences ?? {},
+			)) {
+				if (!providerPatientId) continue;
+				providerIndex.set(
+					providerReferenceKey({
+						ownerUserId: input.ownerUserId,
+						provider: input.provider,
+						referenceKind: referenceKind as "directory" | "his-patient",
+						patientId: next.id,
+					}),
+					providerPatientId,
+				);
+			}
 			return next;
 		},
 		async resolveProviderReference(
 			input,
 		): Promise<PatientProviderReference | undefined> {
-			const providerPatientId = providerIndex.get(providerReferenceKey(input));
+			const referenceKind = input.referenceKind ?? "directory";
+			const providerPatientId = providerIndex.get(
+				providerReferenceKey({ ...input, referenceKind }),
+			);
 			return providerPatientId
 				? {
 						patientId: input.patientId,

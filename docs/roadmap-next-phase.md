@@ -23,7 +23,7 @@
 - 从同一服务器直接请求众阳科室和排班地址可得到 HTTP 200，说明不能继续把问题归因于“上游不可达”。
 - 新 API 旧日志只记录 `ProviderRequestError/UNKNOWN`，缺少上游状态码和操作名，已经补充低敏 provider 诊断字段。
 - 2026-08-16 已定位并修复预约科室/排班目录错误：科室接口需要日期窗口，排班响应中的 `remainingNumber` 可能为 `null`，服务端现使用真实的 `usableSourceNum` 映射可用号源；线上新版本已直接回归科室和排班 provider。
-- 预约历史仍未完成真实验收：当前映射调用上游返回 `smcAppointment@1301 / 患者信息不存在`，说明患者目录的 `thirdPatientId` 不能直接当作预约历史接口的患者标识，需要补齐预约专用患者身份映射或确认 provider 合同。
+- 预约历史的标识根因已经确认：患者目录的 `thirdPatientId` 不能直接当作预约历史接口的患者标识；新代码已增加 `patInfosFind` 档案查询和 `his-patient` 独立映射，但仍需应用 migration、重新同步真实账号并完成公网/真机验收。
 - 预约写号、锁号、取消、实际挂号费、医保和微信支付不能仅凭旧页面字段直接开放；仍需 provider 合同和脱敏 fixture。
 
 ## 业务实施顺序
@@ -40,7 +40,7 @@
 
 1. 修复众阳请求差异：对比 URL、请求头、超时、TLS、代理出口和响应状态。
 2. 科室和排班：只展示平台白名单字段，失败时显示可重试的服务状态。
-3. 预约记录：服务端根据 owner 解析 provider 患者映射，返回脱敏摘要。
+3. 预约记录：服务端根据 owner 解析 `his-patient` 临床映射，返回脱敏摘要；禁止回退到目录 `thirdPatientId`。
 4. 排班快照：只作为服务端观察事实，带 TTL；不把客户端 `scheduleId` 当成锁号授权。
 
 验收标准：真实 provider 只读请求在服务器、公网 API 和真机三层均有证据；日志能按 `traceId` 找到 provider 操作、请求号、HTTP 状态和重试判断。
@@ -123,7 +123,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片、切换就诊人和报告目录，确认页面只显示脱敏卡号与平台摘要；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 取得预约历史接口要求的患者标识映射，补做 owner-scoped 记录查询验收；
+3. 应用 `0012_patient_provider_references`，重新同步真实账号的患者目录，补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 再处理报告真实 provider 只读验收、病历和便民服务逐域迁移；

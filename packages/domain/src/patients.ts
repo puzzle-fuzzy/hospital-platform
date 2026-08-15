@@ -29,7 +29,18 @@ export type PatientDirectoryProfile = {
 	displayName: string;
 	relationship: PatientRelationship;
 	cardNumberMasked: string;
+	/**
+	 * 同一患者在不同 provider 能力中的外部引用。
+	 *
+	 * `thirdPatientId` 只适合患者目录接口；预约、报告和门诊费用接口
+	 * 使用的是档案接口返回的 HIS `patId`。两者必须分开持久化，禁止
+	 * 用一个字段“碰巧兼容”多个上游接口。
+	 */
+	providerReferences?: Partial<Record<PatientProviderReferenceKind, string>>;
 };
+
+/** 众阳目录 ID 与临床档案 patId 的用途边界。 */
+export type PatientProviderReferenceKind = "directory" | "his-patient";
 
 /** 患者目录同步写入所需的内部 id；provider id 永远只停留在持久化映射边界。 */
 export type PatientDirectoryUpsertInput = {
@@ -79,6 +90,8 @@ export interface PatientRepository {
 		ownerUserId: string;
 		patientId: string;
 		provider: "zhongyang";
+		/** 未指定时读取旧的目录引用；临床接口必须显式请求 his-patient。 */
+		referenceKind?: PatientProviderReferenceKind;
 	}): Promise<PatientProviderReference | undefined>;
 }
 

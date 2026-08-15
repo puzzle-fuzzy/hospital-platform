@@ -125,6 +125,8 @@ export class ReportService {
 					ownerUserId,
 					patientId,
 					provider: "zhongyang",
+					// 报告 provider 与旧端一致，使用 patInfosFind 返回的 HIS patId。
+					referenceKind: "his-patient",
 				});
 			if (!reference) throw new ReportPatientNotFoundError();
 

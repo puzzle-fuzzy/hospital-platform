@@ -887,6 +887,7 @@ test("report directory resolves internal patient ownership before provider looku
 		provider: "zhongyang",
 		profile: {
 			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
 			displayName: "张三",
 			relationship: "self",
 			cardNumberMasked: "******0001",
@@ -1016,7 +1017,7 @@ test("report directory resolves internal patient ownership before provider looku
 			hasAttachment: true,
 		},
 	});
-	expect(directoryInput).toEqual({ providerPatientId: "provider-patient-001" });
+	expect(directoryInput).toEqual({ providerPatientId: "his-patient-001" });
 
 	directoryInput = undefined;
 	const missingResponse = await app.handle(
@@ -1046,6 +1047,7 @@ test("appointment records resolve internal patient ownership and return only sum
 		provider: "zhongyang",
 		profile: {
 			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
 			displayName: "张三",
 			relationship: "self",
 			cardNumberMasked: "******0001",
@@ -1142,7 +1144,7 @@ test("appointment records resolve internal patient ownership and return only sum
 			total: 1,
 		},
 	});
-	expect(recordsInput).toEqual({ providerPatientId: "provider-patient-001" });
+	expect(recordsInput).toEqual({ providerPatientId: "his-patient-001" });
 });
 
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {

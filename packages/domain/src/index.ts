@@ -76,6 +76,7 @@ export type {
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
 	PatientDirectoryUpsertInput,
+	PatientProviderReferenceKind,
 	PatientProviderReference,
 	PatientRecord,
 	PatientRelationship,

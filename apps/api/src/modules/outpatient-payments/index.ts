@@ -66,6 +66,8 @@ export class OutpatientPaymentService {
 				ownerUserId,
 				patientId,
 				provider: "zhongyang",
+				// 门诊费用接口的 patId 与预约/报告共用档案身份，不是目录 thirdPatientId。
+				referenceKind: "his-patient",
 			});
 		if (!reference) throw new OutpatientPaymentPatientNotFoundError();
 

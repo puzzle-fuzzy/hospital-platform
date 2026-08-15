@@ -60,7 +60,13 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	loadPatientList(): Promise<void> {
 		this.setData({ loading: true, error: "" });
 		return loadPatients()
-			.then((patients) => this.setPatientList(patients))
+			.then((patients) => {
+				this.setPatientList(patients);
+				// 选择页也可能被历史路径直接打开，不能依赖首页先完成临床映射；
+				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到 HIS patId。
+				this.setData({ loading: false });
+				this.onSyncPatients();
+			})
 			.catch((error) => this.showError(error, "就诊人加载失败"))
 			.finally(() => this.setData({ loading: false }));
 	},

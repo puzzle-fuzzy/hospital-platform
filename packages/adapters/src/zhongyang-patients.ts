@@ -9,6 +9,7 @@ import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 
 const PATIENT_INFO_BY_UNION_ID_PATH = "/api/public/patientInfoByUnionId";
+const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
 
 type ZhongyangPatientResponse = {
 	thirdPatientId?: unknown;
@@ -44,10 +45,11 @@ function requiredConfig(value: string): string {
 function providerError(
 	message: string,
 	requestId?: string,
+	operation = "patient-list",
 ): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "zhongyang",
-		operation: "patient-list",
+		operation,
 		message,
 		retryable: false,
 		...(requestId ? { requestId } : {}),
@@ -58,13 +60,23 @@ function requiredText(
 	value: unknown,
 	field: string,
 	maxLength: number,
+	operation = "patient-list",
+	requestId?: string,
 ): string {
 	if (typeof value !== "string" && typeof value !== "number") {
-		throw providerError(`Zhongyang patient field ${field} is invalid`);
+		throw providerError(
+			`Zhongyang patient field ${field} is invalid`,
+			requestId,
+			operation,
+		);
 	}
 	const normalized = String(value).trim();
 	if (!normalized || normalized.length > maxLength) {
-		throw providerError(`Zhongyang patient field ${field} is invalid`);
+		throw providerError(
+			`Zhongyang patient field ${field} is invalid`,
+			requestId,
+			operation,
+		);
 	}
 	return normalized;
 }
@@ -134,13 +146,91 @@ function mapPatient(value: ZhongyangPatientResponse): PatientDirectoryProfile {
 		128,
 	);
 	const displayName = requiredText(value.patientName, "patientName", 128);
-	const card = value.cardNo ?? value.medicalCardNo;
+	// 旧端患者选择流程明确优先 medicalCardNo；cardNo 只作为旧数据兜底。
+	const card = value.medicalCardNo ?? value.cardNo;
 	return {
 		providerPatientId,
 		displayName,
 		relationship: relationship(value.relation),
 		cardNumberMasked: maskCardNumber(card),
 	};
+}
+
+/**
+ * 使用旧端已经验证过的档案查询契约取得临床业务所需的 HIS patId。
+ *
+ * patientInfoByUnionId 返回的 thirdPatientId 是患者目录引用，不能直接
+ * 拼到 appointment-infos、报告或门诊费用接口。这里通过卡号+姓名查询
+ * patInfosFind，只把返回的 patId 留在服务端映射层，不进入小程序响应。
+ */
+async function resolveHisPatientId(
+	value: ZhongyangPatientResponse,
+	context: AdapterCallContext,
+	fetcher: ProviderFetcher,
+	baseUrl: string,
+	authorizationToken: string | undefined,
+): Promise<string> {
+	const operation = "patient-archive";
+	const card = requiredText(
+		value.medicalCardNo ?? value.cardNo,
+		"medicalCardNo",
+		128,
+	);
+	const displayName = requiredText(value.patientName, "patientName", 128);
+	const url = new URL(PATIENT_ARCHIVE_PATH, baseUrl);
+	url.searchParams.set("type", "3");
+	url.searchParams.set("cardNo", card);
+	url.searchParams.set("patName", displayName);
+	const response = await requestJson<unknown>(
+		{
+			provider: "zhongyang",
+			operation,
+			url: url.toString(),
+			method: "GET",
+			context,
+			...(authorizationToken
+				? { headers: { Authorization: `Bearer ${authorizationToken}` } }
+				: {}),
+		},
+		fetcher,
+	);
+	if (
+		typeof response.data !== "object" ||
+		response.data === null ||
+		Array.isArray(response.data)
+	) {
+		throw providerError(
+			"Zhongyang patient archive response was invalid",
+			response.requestId,
+			operation,
+		);
+	}
+	const envelope = response.data as ZhongyangPatientEnvelope;
+	if (envelope.success === false) {
+		throw providerError(
+			"Zhongyang patient archive provider rejected the request",
+			response.requestId,
+			operation,
+		);
+	}
+	if (
+		typeof envelope.data !== "object" ||
+		envelope.data === null ||
+		Array.isArray(envelope.data)
+	) {
+		throw providerError(
+			"Zhongyang patient archive data was invalid",
+			response.requestId,
+			operation,
+		);
+	}
+	return requiredText(
+		(envelope.data as Record<string, unknown>).patId,
+		"patId",
+		128,
+		operation,
+		response.requestId,
+	);
 }
 
 function trace(requestId: string): ExternalTrace {
@@ -192,8 +282,26 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 			this.fetcher,
 		);
 		const items = responseItems(response.data, response.requestId);
+		// 患者数量通常很少，按患者并行解析一次临床档案身份，避免把
+		// thirdPatientId 错当成预约、报告和门诊费用接口的 patId。
+		const patients = await Promise.all(
+			items.map(async (item) => {
+				const patient = mapPatient(item);
+				const hisPatientId = await resolveHisPatientId(
+					item,
+					context,
+					this.fetcher,
+					this.baseUrl,
+					this.authorizationToken,
+				);
+				return {
+					...patient,
+					providerReferences: { "his-patient": hisPatientId },
+				};
+			}),
+		);
 		return {
-			patients: items.map(mapPatient),
+			patients,
 			trace: trace(response.requestId),
 		};
 	}

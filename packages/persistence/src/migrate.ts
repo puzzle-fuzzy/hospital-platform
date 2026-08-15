@@ -74,6 +74,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0011_health_knowledge_versioned_keys.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0012_patient_provider_references",
+		file: "../migrations/0012_patient_provider_references.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -86,6 +91,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_schema_migration_runs",
 	"hp_identity_users",
 	"hp_patients",
+	"hp_patient_provider_references",
 	"hp_payment_quotes",
 	"hp_payment_orders",
 	"hp_outbox_events",
@@ -124,6 +130,18 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"source",
 			"provider_name",
 			"provider_patient_id",
+		],
+	},
+	{
+		table: "hp_patient_provider_references",
+		columns: [
+			"owner_user_id",
+			"patient_id",
+			"provider_name",
+			"reference_kind",
+			"provider_patient_id",
+			"created_at",
+			"updated_at",
 		],
 	},
 	{
@@ -297,6 +315,16 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		columns: ["owner_user_id", "patient_id"],
 	},
 	{
+		table: "hp_patient_provider_references",
+		name: "uq_hp_patient_provider_refs_owner_provider_reference",
+		columns: [
+			"owner_user_id",
+			"provider_name",
+			"reference_kind",
+			"provider_patient_id",
+		],
+	},
+	{
 		table: "hp_patients",
 		name: "uq_hp_patients_owner_provider_patient",
 		columns: ["owner_user_id", "provider_name", "provider_patient_id"],
@@ -425,6 +453,13 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 	{
 		table: "hp_report_references",
 		name: "fk_hp_report_references_owner_patient",
+		columns: ["owner_user_id", "patient_id"],
+		referencedTable: "hp_patients",
+		referencedColumns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_patient_provider_references",
+		name: "fk_hp_patient_provider_refs_owner_patient",
 		columns: ["owner_user_id", "patient_id"],
 		referencedTable: "hp_patients",
 		referencedColumns: ["owner_user_id", "patient_id"],

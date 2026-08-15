@@ -88,6 +88,7 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 		provider: "zhongyang",
 		profile: {
 			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
 			displayName: "张三",
 			relationship: "self",
 			cardNumberMasked: "******7890",
@@ -99,6 +100,7 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 		provider: "zhongyang",
 		profile: {
 			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-002" },
 			displayName: "张三（更新）",
 			relationship: "self",
 			cardNumberMasked: "******0000",
@@ -123,6 +125,18 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 		patientId: "internal-patient-001",
 		provider: "zhongyang",
 		providerPatientId: "provider-patient-001",
+	});
+	expect(
+		await patients.resolveProviderReference({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+			referenceKind: "his-patient",
+		}),
+	).toEqual({
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		providerPatientId: "his-patient-002",
 	});
 	expect(
 		await patients.resolveProviderReference({

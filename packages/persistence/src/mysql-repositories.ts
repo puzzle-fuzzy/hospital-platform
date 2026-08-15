@@ -5,6 +5,7 @@ import type {
 	AppointmentScheduleSnapshotRepository,
 	HealthKnowledgeRepository,
 	IdentityUser,
+	PatientDirectoryUpsertInput,
 	OutboxEvent,
 	OutboxRepository,
 	PatientProviderReference,
@@ -114,6 +115,13 @@ type PatientRow = RowDataPacket & {
 	source: string;
 	provider_name: string | null;
 	provider_patient_id: string | null;
+};
+
+type PatientProviderReferenceRow = RowDataPacket & {
+	patient_id: string;
+	provider_name: string;
+	reference_kind: "directory" | "his-patient";
+	provider_patient_id: string;
 };
 
 type AppointmentScheduleSnapshotRow = RowDataPacket & {
@@ -378,6 +386,42 @@ function patient(row: PatientRow): PatientRecord {
 		cardNumberMasked: row.card_number_masked,
 		source: row.source,
 	};
+}
+
+/**
+ * 写入患者的能力专用 provider 引用。
+ *
+ * 患者目录返回的 thirdPatientId 仍保存在 hp_patients；临床档案 patId
+ * 写入独立表，避免更新一次目录数据时覆盖其他业务能力的外部身份。
+ */
+async function persistPatientProviderReferences(
+	pool: Pool,
+	input: PatientDirectoryUpsertInput,
+	patientId: string,
+): Promise<void> {
+	const references = Object.entries(
+		input.profile.providerReferences ?? {},
+	).filter(
+		([referenceKind, providerPatientId]) =>
+			(referenceKind === "directory" || referenceKind === "his-patient") &&
+			Boolean(providerPatientId),
+	);
+	for (const [referenceKind, providerPatientId] of references) {
+		const now = mysqlDateTime(new Date());
+		await execute<ResultSetHeader>(
+			pool,
+			"INSERT INTO hp_patient_provider_references (owner_user_id, patient_id, provider_name, reference_kind, provider_patient_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE provider_patient_id = VALUES(provider_patient_id), updated_at = VALUES(updated_at)",
+			[
+				input.ownerUserId,
+				patientId,
+				input.provider,
+				referenceKind,
+				providerPatientId,
+				now,
+				now,
+			],
+		);
+	}
 }
 
 function appointmentScheduleSnapshot(
@@ -773,13 +817,15 @@ export function createMySqlRepositories(
 						input.ownerUserId,
 					],
 				);
-				return patient({
+				const updatedPatient = patient({
 					...existing,
 					display_name: input.profile.displayName,
 					relationship: input.profile.relationship,
 					card_number_masked: input.profile.cardNumberMasked,
 					updated_at: mysqlDateTime(updatedAt),
 				});
+				await persistPatientProviderReferences(pool, input, updatedPatient.id);
+				return updatedPatient;
 			}
 
 			const now = new Date();
@@ -800,7 +846,7 @@ export function createMySqlRepositories(
 						mysqlDateTime(now),
 					],
 				);
-				return {
+				const insertedPatient: PatientRecord = {
 					id: input.patientId,
 					ownerUserId: input.ownerUserId,
 					displayName: input.profile.displayName,
@@ -808,6 +854,8 @@ export function createMySqlRepositories(
 					cardNumberMasked: input.profile.cardNumberMasked,
 					source: "hospital-his",
 				};
+				await persistPatientProviderReferences(pool, input, insertedPatient.id);
+				return insertedPatient;
 			} catch (error) {
 				if (!isDuplicateEntry(error)) throw error;
 				const racedRows = await execute<PatientRow[]>(pool, selectByProvider, [
@@ -816,12 +864,31 @@ export function createMySqlRepositories(
 					input.profile.providerPatientId,
 				]);
 				if (!racedRows[0]) throw error;
-				return patient(racedRows[0]);
+				const racedPatient = patient(racedRows[0]);
+				await persistPatientProviderReferences(pool, input, racedPatient.id);
+				return racedPatient;
 			}
 		},
 		async resolveProviderReference(
 			input,
 		): Promise<PatientProviderReference | undefined> {
+			const referenceKind = input.referenceKind ?? "directory";
+			if (referenceKind === "his-patient") {
+				const rows = await execute<PatientProviderReferenceRow[]>(
+					pool,
+					"SELECT patient_id, provider_name, reference_kind, provider_patient_id FROM hp_patient_provider_references WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND reference_kind = ? LIMIT 1",
+					[input.ownerUserId, input.patientId, input.provider, referenceKind],
+				);
+				const row = rows[0];
+				return row?.provider_patient_id
+					? {
+							patientId: row.patient_id,
+							provider: input.provider,
+							providerPatientId: row.provider_patient_id,
+						}
+					: undefined;
+			}
+
 			const rows = await execute<PatientRow[]>(
 				pool,
 				"SELECT patient_id, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND provider_patient_id IS NOT NULL LIMIT 1",

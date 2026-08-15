@@ -8,13 +8,23 @@ const context = {
 };
 
 test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
-	let requestUrl = "";
+	const requestUrls: string[] = [];
 	let requestHeaders: Headers | undefined;
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",
 		fetcher: async (input, init) => {
-			requestUrl = String(input);
+			const requestUrl = String(input);
+			requestUrls.push(requestUrl);
 			requestHeaders = new Headers(init?.headers);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: { patId: "his-patient-001" },
+					}),
+					{ status: 200, headers: { "x-request-id": "archive-request-001" } },
+				);
+			}
 			return new Response(
 				JSON.stringify({
 					success: true,
@@ -22,8 +32,8 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 						{
 							thirdPatientId: 1001,
 							patientName: "张三",
-							cardNo: "1234567890",
-							medicalCardNo: "medical-should-not-win",
+							cardNo: "card-no-ignored",
+							medicalCardNo: "1234567890",
 							relation: "本人",
 							mobile: "13800000000",
 							idCardNo: "sensitive-id-card",
@@ -40,9 +50,10 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 		context,
 	);
 
-	expect(requestUrl).toBe(
+	expect(requestUrls).toEqual([
 		"https://zhongyang.example.test/api/public/patientInfoByUnionId?unionId=union-001",
-	);
+		"https://zhongyang.example.test/msun-middle-aggregate-patient/v1/patInfosFind?type=3&cardNo=1234567890&patName=%E5%BC%A0%E4%B8%89",
+	]);
 	expect(requestHeaders?.get("x-request-id")).toBe(context.traceId);
 	expect(requestHeaders?.get("idempotency-key")).toBe(context.idempotencyKey);
 	expect(result).toEqual({
@@ -52,6 +63,7 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 				displayName: "张三",
 				relationship: "self",
 				cardNumberMasked: "12345*7890",
+				providerReferences: { "his-patient": "his-patient-001" },
 			},
 		],
 		trace: {

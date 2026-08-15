@@ -235,6 +235,11 @@ Page<IndexPageData, IndexPageMethods>({
 				this.setData({ sessionStatus: SESSION_LABELS.restored });
 				return this.loadPatients();
 			})
+			.then(() => {
+				// 恢复旧会话后也要重建一次临床 patId 映射；仅读取旧目录数据会让预约、报告
+				// 和门诊费用继续拿 thirdPatientId 调用上游，导致“患者信息不存在”。
+				return this.onSyncPatients();
+			})
 			.catch((error) => this.showError(error, "会话恢复失败"));
 	},
 
@@ -281,10 +286,9 @@ Page<IndexPageData, IndexPageMethods>({
 				wx.showToast({ title: "微信登录成功", icon: "success" });
 				return this.loadPatients();
 			})
-			.then((patients) => {
-				// 登录后如果服务端还没有本地患者映射，主动执行一次只读同步，
-				// 避免用户必须重复点击“新增就诊人”才能触发 provider 查询。
-				return patients.length > 0 ? patients : this.onSyncPatients();
+			.then(() => {
+				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床 patId。
+				return this.onSyncPatients();
 			})
 			.catch((error) => this.showError(error, "登录失败"))
 			.finally(() => this.setData({ loading: false }));

@@ -327,6 +327,8 @@ export class AppointmentService {
 					ownerUserId,
 					patientId,
 					provider: "zhongyang",
+					// 预约接口需要档案查询返回的 HIS patId，不能使用目录 thirdPatientId。
+					referenceKind: "his-patient",
 				});
 			if (!reference) throw new AppointmentRecordPatientNotFoundError();
 
