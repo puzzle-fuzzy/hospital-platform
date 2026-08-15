@@ -7,6 +7,7 @@ import {
 	PERSISTENCE_SCHEMA_TABLES,
 	assertMigrationTargetAllowed,
 	readCoreSchemaStateFromPool,
+	readCoreSchemaStateAndClose,
 } from "./migrate";
 
 test("schema probe reports incomplete migration state without writing", async () => {
@@ -31,6 +32,27 @@ test("schema probe reports incomplete migration state without writing", async ()
 		schemaStatus: "not_checked",
 		missingSchemaObjects: [],
 	});
+});
+
+test("schema probe waits for the read to finish before closing its pool", async () => {
+	let closed = false;
+	let queried = false;
+	const pool = {
+		execute: async () => {
+			if (closed) throw new Error("Pool is closed");
+			queried = true;
+			return [[{ migration_id: "0001_core" }], []];
+		},
+		end: async () => {
+			closed = true;
+		},
+	} as never;
+
+	const state = await readCoreSchemaStateAndClose(pool);
+
+	expect(queried).toBe(true);
+	expect(closed).toBe(true);
+	expect(state.missingMigrationIds).toContain("0009_report_references");
 });
 
 test("migration target safety allows local compose and rejects remote targets by default", () => {

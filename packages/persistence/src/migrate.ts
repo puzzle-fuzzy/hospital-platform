@@ -402,8 +402,20 @@ export async function readCoreSchemaState(
 		dateStrings: true,
 		waitForConnections: true,
 	});
+	return readCoreSchemaStateAndClose(pool);
+}
+
+/**
+ * 在关闭连接池前等待完整 schema probe。
+ *
+ * 这个顺序很重要：如果直接在 try/finally 中 return 未 await 的 Promise，
+ * finally 会先关闭 pool，真实环境会把只读 probe 变成 `Pool is closed`。
+ */
+export async function readCoreSchemaStateAndClose(
+	pool: Pick<Pool, "execute" | "end">,
+): Promise<CoreSchemaState> {
 	try {
-		return readCoreSchemaStateFromPool(pool);
+		return await readCoreSchemaStateFromPool(pool);
 	} finally {
 		await pool.end();
 	}
