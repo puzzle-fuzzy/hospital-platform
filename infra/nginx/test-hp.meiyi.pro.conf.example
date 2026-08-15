@@ -1,0 +1,103 @@
+# Public edge template for the legacy service plus the isolated API v2 canary.
+# Replace only the certificate paths for the target host; keep provider secrets
+# and runtime env files on the internal server, never in this repository.
+
+server {
+    listen 80;
+    server_name test-hp.meiyi.pro;
+
+    # New API v2 health probes are isolated from the legacy root proxy.
+    location = /api/v2/health/live {
+        proxy_pass http://10.0.0.3:18081/health/live;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    location = /api/v2/health/ready {
+        proxy_pass http://10.0.0.3:18081/health/ready;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    # Other v2 calls map to the new service's versioned API namespace.
+    location ^~ /api/v2/ {
+        proxy_pass http://10.0.0.3:18081/api/v1/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    # Legacy production route: do not change during the v2 canary.
+    location / {
+        proxy_pass http://localhost:8001;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name test-hp.meiyi.pro;
+
+    ssl_certificate /etc/nginx/ssl/test-hp.meiyi.pro.pem;
+    ssl_certificate_key /etc/nginx/ssl/test-hp.meiyi.pro.key;
+
+    # Keep the same isolated v2 routes on HTTPS, which is the WeChat path.
+    location = /api/v2/health/live {
+        proxy_pass http://10.0.0.3:18081/health/live;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    location = /api/v2/health/ready {
+        proxy_pass http://10.0.0.3:18081/health/ready;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    location ^~ /api/v2/ {
+        proxy_pass http://10.0.0.3:18081/api/v1/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+    }
+
+    # Legacy production route: do not change during the v2 canary.
+    location / {
+        proxy_pass http://localhost:8001;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
