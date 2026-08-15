@@ -2,7 +2,13 @@ import type {
 	IdentityUser,
 	PatientRecord,
 	PatientRepository,
+	PaymentOrder,
+	PaymentOrderRepository,
 	UserIdentityRepository,
+} from "@hospital/domain";
+import {
+	PaymentIdempotencyConflictError,
+	PaymentOrderVersionConflictError,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 
@@ -46,9 +52,51 @@ export function createInMemoryPatientRepository(
 	};
 }
 
+/** 仅用于订单状态机测试；生产实现需要数据库事务和版本号条件更新。 */
+export function createInMemoryPaymentOrderRepository(
+	seed: readonly PaymentOrder[] = [],
+): PaymentOrderRepository {
+	const orders = new Map(seed.map((order) => [order.orderId, order]));
+
+	return {
+		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
+			return [...orders.values()].find(
+				(order) =>
+					order.ownerUserId === ownerUserId &&
+					order.idempotencyKey === idempotencyKey,
+			);
+		},
+		async findByOwnerAndId(ownerUserId, orderId) {
+			const order = orders.get(orderId);
+			return order?.ownerUserId === ownerUserId ? order : undefined;
+		},
+		async insert(order) {
+			const existing = [...orders.values()].find(
+				(current) =>
+					current.ownerUserId === order.ownerUserId &&
+					current.idempotencyKey === order.idempotencyKey,
+			);
+			if (existing && existing.orderId !== order.orderId) {
+				throw new PaymentIdempotencyConflictError();
+			}
+			orders.set(order.orderId, order);
+			return order;
+		},
+		async update(order, expectedVersion) {
+			const current = orders.get(order.orderId);
+			if (!current || current.version !== expectedVersion) {
+				throw new PaymentOrderVersionConflictError();
+			}
+			orders.set(order.orderId, order);
+			return order;
+		},
+	};
+}
+
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
 	patients: PatientRepository;
+	paymentOrders: PaymentOrderRepository;
 } {
 	return {
 		identityUsers: {
@@ -59,6 +107,20 @@ export function createNotConfiguredRepositories(): {
 		patients: {
 			listByOwner: async () => {
 				throw new PersistenceNotConfiguredError("patients");
+			},
+		},
+		paymentOrders: {
+			findByOwnerAndIdempotencyKey: async () => {
+				throw new PersistenceNotConfiguredError("payment-orders");
+			},
+			findByOwnerAndId: async () => {
+				throw new PersistenceNotConfiguredError("payment-orders");
+			},
+			insert: async () => {
+				throw new PersistenceNotConfiguredError("payment-orders");
+			},
+			update: async () => {
+				throw new PersistenceNotConfiguredError("payment-orders");
 			},
 		},
 	};

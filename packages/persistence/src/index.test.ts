@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
+	createInMemoryPaymentOrderRepository,
+	createNotConfiguredRepositories,
 	createUnconfiguredPersistence,
 } from "./index";
 
@@ -41,4 +43,33 @@ test("in-memory repositories preserve owner isolation", async () => {
 
 	expect(same.userId).toBe(first.userId);
 	expect(await patients.listByOwner(first.userId)).toHaveLength(1);
+});
+
+test("in-memory payment repository enforces owner lookup", async () => {
+	const orders = createInMemoryPaymentOrderRepository([
+		{
+			orderId: "order-001",
+			ownerUserId: "user-001",
+			patientId: "patient-001",
+			idempotencyKey: "key-001",
+			amounts: { totalFen: 100, insuranceFen: 70, cashFen: 30 },
+			state: "created",
+			version: 1,
+			createdAt: "2026-08-15T00:00:00.000Z",
+			updatedAt: "2026-08-15T00:00:00.000Z",
+		},
+	]);
+
+	expect(await orders.findByOwnerAndId("user-001", "order-001")).toBeDefined();
+	expect(
+		await orders.findByOwnerAndId("user-002", "order-001"),
+	).toBeUndefined();
+});
+
+test("not-configured payment persistence fails closed", async () => {
+	const repositories = createNotConfiguredRepositories();
+
+	expect(
+		repositories.paymentOrders.findByOwnerAndId("user-001", "order-001"),
+	).rejects.toThrow("Dependency is not configured");
 });

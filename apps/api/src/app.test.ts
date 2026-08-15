@@ -3,7 +3,9 @@ import { createFixtureWechatIdentityGateway } from "@hospital/adapters";
 import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
+	createInMemoryPaymentOrderRepository,
 } from "@hospital/persistence";
+import { PaymentOrderService } from "@hospital/domain";
 import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
@@ -106,6 +108,9 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 	const services = {
 		auth: new AuthService({ identityGateway, identityUsers, sessions }),
 		patients: new PatientService(patientRepository),
+		paymentOrders: new PaymentOrderService({
+			orders: createInMemoryPaymentOrderRepository(),
+		}),
 		sessions,
 	};
 	const app = createApp({ services });

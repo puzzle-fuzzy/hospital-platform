@@ -1,4 +1,5 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
+import { PaymentOrderService } from "@hospital/domain";
 import { createNotConfiguredRepositories } from "@hospital/persistence";
 import {
 	AuthService,
@@ -10,6 +11,7 @@ import { PatientService } from "./modules/patients";
 export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
+	paymentOrders: PaymentOrderService;
 	sessions: SessionTokenService;
 };
 
@@ -26,6 +28,9 @@ export function createDefaultApplicationServices(): ApplicationServices {
 			sessions,
 		}),
 		patients: new PatientService(repositories.patients),
+		paymentOrders: new PaymentOrderService({
+			orders: repositories.paymentOrders,
+		}),
 		sessions,
 	};
 }

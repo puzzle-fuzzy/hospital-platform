@@ -61,6 +61,8 @@ GET /api/v1/patients
 
 默认组合根使用 fail-closed adapter/repository；只有显式注入 fixture 或真实实现时才允许登录和患者数据链路返回业务成功。这样本地演示可以独立测试，生产环境也不会因为缺少 provider 配置而生成假 token 或假患者数据。
 
+支付订单的第一阶段只建立内部事实，不提前连接 provider：金额以分为单位并校验 `totalFen = insuranceFen + cashFen`；创建使用 `ownerUserId + idempotencyKey` 重放；每次状态变更递增 `version`，持久层需用条件更新避免并发覆盖。下一步才是把它接成 API 命令，再由 worker 驱动医保、微信支付和 HIS 的可追踪调用。
+
 ## 支付状态机
 
 ```text

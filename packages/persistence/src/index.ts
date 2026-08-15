@@ -4,6 +4,7 @@ export { PersistenceNotConfiguredError } from "./errors";
 export {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
+	createInMemoryPaymentOrderRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";
 

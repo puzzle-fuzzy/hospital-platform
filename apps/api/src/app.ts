@@ -2,18 +2,18 @@ import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
 import { Elysia } from "elysia";
 import {
-	createDefaultApplicationServices,
 	type ApplicationServices,
+	createDefaultApplicationServices,
 } from "./application";
 import { config } from "./config";
 import {
 	createReadinessService,
 	type ReadinessService,
 } from "./infrastructure/readiness";
-import { healthModule } from "./modules/health";
-import { systemModule } from "./modules/system";
 import { authModule } from "./modules/auth";
+import { healthModule } from "./modules/health";
 import { patientsModule } from "./modules/patients";
+import { systemModule } from "./modules/system";
 import { errorHandlerPlugin } from "./plugins/error-handler";
 import { requestContextPlugin } from "./plugins/request-context";
 
