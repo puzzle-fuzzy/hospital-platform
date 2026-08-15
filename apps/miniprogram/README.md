@@ -6,7 +6,8 @@
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复和服务端归属的就诊人列表。
 `api-client.js` 已封装 `requestWechatPrepay(orderId, idempotencyKey)`，只接收服务端生成的
-`payParams`；页面仍需在订单状态为 `cash_pending` 时调用 `wx.requestPayment`，支付回调不能直接更新业务状态。
+`payParams`；`launchWechatPayment` 只把白名单字段交给 `wx.requestPayment`，调起成功和取消都不会直接更新业务状态。
+页面仍需在订单状态为 `cash_pending` 时调用它，支付最终结果必须重新读取服务端订单状态。
 同时可用 `getWechatPrepay(orderId, idempotencyKey)` 读取 `not_started/pending/ready/unknown`，避免网络重试时把未知结果误报为失败。
 后续按领域迁移：登录/就诊人 → 挂号 → 支付状态页 → 报告 → 健康服务 → AI。
 

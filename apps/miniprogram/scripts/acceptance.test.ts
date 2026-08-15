@@ -1,6 +1,9 @@
 import { join } from "node:path";
 import { expect, test } from "bun:test";
-import { isAllowedApiBaseUrl } from "../src/services/api-client.js";
+import {
+	isAllowedApiBaseUrl,
+	toWechatPaymentParams,
+} from "../src/services/api-client.js";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
 
@@ -23,6 +26,8 @@ test("native client requests server-generated prepay parameters", async () => {
 	expect(client).toContain("requestWechatPrepay");
 	expect(client).toContain("/wechat-prepay");
 	expect(client).toContain("getWechatPrepay");
+	expect(client).toContain("launchWechatPayment");
+	expect(client).toContain("wx.requestPayment");
 	expect(client).not.toContain("paySign =");
 });
 
@@ -34,4 +39,32 @@ test("native client only permits local HTTP or HTTPS API addresses", () => {
 	expect(isAllowedApiBaseUrl("http://hospital.example.test/api")).toBe(false);
 	expect(isAllowedApiBaseUrl("ftp://hospital.example.test")).toBe(false);
 	expect(isAllowedApiBaseUrl("")).toBe(false);
+});
+
+test("native client maps only the server payment fields", () => {
+	const params = toWechatPaymentParams({
+		data: {
+			payParams: {
+				appId: "wx-app",
+				timeStamp: "1700000000",
+				nonceStr: "nonce",
+				package: "prepay_id=server-value",
+				signType: "RSA",
+				paySign: "server-signature",
+				unexpected: "must-not-forward",
+			},
+		},
+	});
+
+	expect(params).toEqual({
+		appId: "wx-app",
+		timeStamp: "1700000000",
+		nonceStr: "nonce",
+		package: "prepay_id=server-value",
+		signType: "RSA",
+		paySign: "server-signature",
+	});
+	expect(
+		toWechatPaymentParams({ data: { payParams: { signType: "RSA" } } }),
+	).toBe(null);
 });

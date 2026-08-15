@@ -214,6 +214,74 @@ export function requestWechatPrepay(orderId, idempotencyKey) {
 }
 
 /**
+ * 从服务端响应中显式提取微信原生调起字段，避免把未知字段透传给微信 API。
+ * @param {unknown} payload
+ * @returns {{appId: string, timeStamp: string, nonceStr: string, package: string, signType: 'RSA', paySign: string} | null}
+ */
+export function toWechatPaymentParams(payload) {
+	const payloadRecord =
+		typeof payload === "object" && payload !== null
+			? /** @type {{data?: {payParams?: unknown}}} */ (payload)
+			: {};
+	const params = payloadRecord.data?.payParams;
+	if (typeof params !== "object" || params === null) return null;
+	const paramsRecord = /** @type {Record<string, unknown>} */ (params);
+	const fields = ["appId", "timeStamp", "nonceStr", "package", "paySign"];
+	if (
+		fields.some(
+			(field) =>
+				typeof paramsRecord[field] !== "string" || !paramsRecord[field],
+		) ||
+		paramsRecord.signType !== "RSA"
+	) {
+		return null;
+	}
+	return {
+		appId: /** @type {string} */ (paramsRecord.appId),
+		timeStamp: /** @type {string} */ (paramsRecord.timeStamp),
+		nonceStr: /** @type {string} */ (paramsRecord.nonceStr),
+		package: /** @type {string} */ (paramsRecord.package),
+		signType: "RSA",
+		paySign: /** @type {string} */ (paramsRecord.paySign),
+	};
+}
+
+/**
+ * 调起微信支付；成功只表示 wx.requestPayment 被接受，业务订单状态仍以
+ * 服务端通知/查单为准。取消和调起失败都不修改本地订单状态。
+ * @param {string} orderId
+ * @param {string} idempotencyKey
+ * @returns {Promise<{status: 'launched', prepay: any}>}
+ */
+export async function launchWechatPayment(orderId, idempotencyKey) {
+	const prepay = await requestWechatPrepay(orderId, idempotencyKey);
+	const paymentParams = toWechatPaymentParams(prepay);
+	if (!paymentParams) {
+		throw new ApiError("服务端支付参数不可用", {
+			code: "wechat-pay-params-missing",
+		});
+	}
+
+	return new Promise((resolve, reject) => {
+		wx.requestPayment({
+			...paymentParams,
+			success: () => resolve({ status: "launched", prepay }),
+			fail: (error) => {
+				const errMsg = typeof error?.errMsg === "string" ? error.errMsg : "";
+				const cancelled = /cancel/i.test(errMsg);
+				reject(
+					new ApiError(cancelled ? "用户已取消支付" : "微信支付调起失败", {
+						code: cancelled
+							? "wechat-payment-cancelled"
+							: "wechat-payment-launch-failed",
+					}),
+				);
+			},
+		});
+	});
+}
+
+/**
  * 读取服务端预支付尝试状态；pending/unknown 都不能被页面当作支付失败。
  * @param {string} orderId
  * @param {string} idempotencyKey
