@@ -67,11 +67,15 @@ test("native client reads appointment directories only through the Hospital API"
 test("native client reads appointment records by internal patient id through the Hospital API", async () => {
 	const client = await source("services/api-client.js");
 	const page = await source("pages/index/index.js");
+	const template = await source("pages/index/index.wxml");
 
 	expect(client).toContain("requestAppointmentRecords");
 	expect(client).toContain("/api/v1/appointments/records?");
 	expect(client).toContain("patientId=");
 	expect(page).toContain("onLoadAppointmentRecords");
+	expect(page).toContain("getSelectedPatient");
+	expect(template).toContain("onSelectPatient");
+	expect(template).toContain("data-patient-id");
 	expect(page).not.toContain("msun-middle-business-appointment-server");
 	expect(page).not.toContain("providerPatientId");
 });

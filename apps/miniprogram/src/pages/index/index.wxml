@@ -19,7 +19,7 @@
 			<text class="section-title">预约记录</text>
 			<text class="section-hint">脱敏只读</text>
 		</view>
-		<view wx:if="{{!hasAppointmentRecords}}" class="empty">点击上方按钮读取当前首位就诊人近 90 天记录</view>
+		<view wx:if="{{!hasAppointmentRecords}}" class="empty">点击上方按钮读取当前选择的就诊人近 90 天记录</view>
 		<view wx:for="{{appointmentRecords}}" wx:key="index" class="appointment-row">
 			<view>
 				<text class="patient-name">{{item.workDate}} · {{item.status}}</text>
@@ -35,12 +35,15 @@
 			<text class="section-hint">服务端归属</text>
 		</view>
 		<view wx:if="{{!hasPatients}}" class="empty">登录后显示已绑定的就诊人</view>
-		<view wx:for="{{patients}}" wx:key="id" class="patient-row">
+		<view wx:for="{{patients}}" wx:key="id" class="patient-row {{selectedPatientId === item.id ? 'patient-row-selected' : ''}}" bindtap="onSelectPatient" data-patient-id="{{item.id}}">
 			<view>
 				<text class="patient-name">{{item.displayName}}</text>
 				<text class="patient-meta">{{item.relationship}} · {{item.cardNumberMasked}}</text>
 			</view>
-			<text class="patient-source">{{item.source}}</text>
+			<view class="patient-source-wrap">
+				<text wx:if="{{selectedPatientId === item.id}}" class="patient-selected">当前选择</text>
+				<text class="patient-source">{{item.source}}</text>
+			</view>
 		</view>
 	</view>
 
@@ -68,7 +71,7 @@
 			<text class="section-title">报告目录</text>
 			<text class="section-hint">服务端只读</text>
 		</view>
-		<view wx:if="{{!hasReports}}" class="empty">点击上方按钮读取当前首位就诊人近 30 天报告</view>
+		<view wx:if="{{!hasReports}}" class="empty">点击上方按钮读取当前选择的就诊人近 30 天报告</view>
 		<view wx:for="{{reports}}" wx:key="index" class="appointment-row">
 			<view>
 				<text class="patient-name">{{item.title}}</text>

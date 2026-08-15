@@ -12,12 +12,14 @@ import {
 } from "../../services/api-client";
 
 Page({
-	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, appointmentRecords: Array<Record<string, unknown>>, hasAppointmentRecords: boolean, loadingAppointmentRecords: boolean, reports: Array<Record<string, unknown>>, hasReports: boolean, loadingReports: boolean, error: string}} */
+	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, selectedPatientId: string, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, appointmentRecords: Array<Record<string, unknown>>, hasAppointmentRecords: boolean, loadingAppointmentRecords: boolean, reports: Array<Record<string, unknown>>, hasReports: boolean, loadingReports: boolean, error: string}} */
 	data: {
 		status: "加载中",
 		service: "",
 		sessionStatus: "未登录",
 		patients: [],
+		// 只保存服务端返回的内部 patientId，后续查询均以它作为业务输入。
+		selectedPatientId: "",
 		hasPatients: false,
 		loading: false,
 		syncingPatients: false,
@@ -128,9 +130,9 @@ Page({
 	},
 
 	onLoadReports() {
-		const patient = this.data.patients[0];
+		const patient = this.getSelectedPatient();
 		if (!patient || typeof patient.id !== "string" || !patient.id) {
-			this.showError(new ApiError("请先登录并同步就诊人"), "报告加载失败");
+			this.showError(new ApiError("请先登录并选择就诊人"), "报告加载失败");
 			return;
 		}
 		this.setData({ loadingReports: true, error: "" });
@@ -158,9 +160,9 @@ Page({
 	},
 
 	onLoadAppointmentRecords() {
-		const patient = this.data.patients[0];
+		const patient = this.getSelectedPatient();
 		if (!patient || typeof patient.id !== "string" || !patient.id) {
-			this.showError(new ApiError("请先登录并同步就诊人"), "预约记录加载失败");
+			this.showError(new ApiError("请先登录并选择就诊人"), "预约记录加载失败");
 			return;
 		}
 		this.setData({ loadingAppointmentRecords: true, error: "" });
@@ -191,6 +193,26 @@ Page({
 			.finally(() => this.setData({ loadingAppointmentRecords: false }));
 	},
 
+	/**
+	 * 切换当前业务患者时清空旧患者的报告和预约记录，避免页面把旧数据
+	 * 误显示到新选择的 patientId 下。
+	 * @param {{currentTarget?: {dataset?: {patientId?: string}}}} event
+	 */
+	onSelectPatient(event) {
+		const patientId = event.currentTarget?.dataset?.patientId;
+		if (typeof patientId !== "string" || !patientId) return;
+		if (!this.data.patients.some((patient) => patient.id === patientId)) return;
+
+		this.setData({
+			selectedPatientId: patientId,
+			appointmentRecords: [],
+			hasAppointmentRecords: false,
+			reports: [],
+			hasReports: false,
+			error: "",
+		});
+	},
+
 	/** @param {unknown} error @param {string} fallback */
 	showError(error, fallback) {
 		const message = error instanceof ApiError ? error.message : fallback;
@@ -203,6 +225,32 @@ Page({
 	 */
 	setPatientsFromPayload(payload) {
 		const patients = payload?.data?.items || [];
-		this.setData({ patients, hasPatients: patients.length > 0, error: "" });
+		const selectedPatientId = patients.some(
+			(patient) => patient.id === this.data.selectedPatientId,
+		)
+			? this.data.selectedPatientId
+			: typeof patients[0]?.id === "string"
+				? patients[0].id
+				: "";
+		this.setData({
+			patients,
+			selectedPatientId,
+			hasPatients: patients.length > 0,
+			error: "",
+		});
+	},
+
+	/** 读取当前选择的患者；旧选择失效时自动回退到服务端列表首项。 */
+	getSelectedPatient() {
+		const selected = this.data.patients.find(
+			(patient) => patient.id === this.data.selectedPatientId,
+		);
+		if (selected) return selected;
+
+		const fallback = this.data.patients[0];
+		if (fallback && typeof fallback.id === "string") {
+			this.setData({ selectedPatientId: fallback.id });
+		}
+		return fallback;
 	},
 });

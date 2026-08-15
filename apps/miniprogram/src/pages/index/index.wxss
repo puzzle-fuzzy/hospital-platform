@@ -116,6 +116,13 @@ button {
 	border-bottom: 0;
 }
 
+.patient-row-selected {
+	background: #f9fafb;
+	box-shadow: inset 4rpx 0 #111827;
+	padding-left: 16rpx;
+	padding-right: 16rpx;
+}
+
 .patient-name, .patient-meta {
 	display: block;
 }
@@ -128,4 +135,17 @@ button {
 .patient-meta {
 	margin-top: 8rpx;
 	font-size: 24rpx;
+}
+
+.patient-source-wrap {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 6rpx;
+}
+
+.patient-selected {
+	color: #111827;
+	font-size: 22rpx;
+	font-weight: 600;
 }
