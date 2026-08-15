@@ -6,7 +6,13 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!**/dist", "!**/node_modules", "!**/.turbo"]
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/node_modules",
+			"!**/.turbo",
+			"!**/apps/miniprogram/src/assets/legacy-home/*.svg"
+		]
 	},
 	"formatter": {
 		"enabled": true,

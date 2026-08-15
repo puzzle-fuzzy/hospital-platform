@@ -1,5 +1,31 @@
+/*
+ * 旧端的视觉基线集中在这里：医疗蓝、浅灰画布、白色内容卡片。
+ * 页面样式只能消费这些 token，避免原生小程序逐页出现新的蓝色和灰色。
+ */
 page {
-	background: #f6f7f9;
-	color: #1f2937;
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--hospital-primary: #3d6df6;
+	--hospital-primary-strong: #4b8eff;
+	--hospital-primary-soft: #f2f6ff;
+	--hospital-primary-border: #85aeff;
+	--hospital-canvas: #f5f5f5;
+	--hospital-nav: #f8f8f8;
+	--hospital-surface: #ffffff;
+	--hospital-text: #333333;
+	--hospital-muted: #999999;
+	--hospital-subtle: #666666;
+	--hospital-border: #eeeeee;
+	--hospital-danger: #ff4444;
+	--hospital-success: #16a34a;
+	background: var(--hospital-surface);
+	color: var(--hospital-text);
+	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
+}
+
+button::after {
+	border: 0;
+}
+
+swiper,
+scroll-view {
+	box-sizing: border-box;
 }

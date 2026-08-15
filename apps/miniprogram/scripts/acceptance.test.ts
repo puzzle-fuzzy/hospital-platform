@@ -87,8 +87,8 @@ test("native client reads appointment records by internal patient id through the
 	expect(client).toContain("patientId=");
 	expect(page).toContain("onLoadAppointmentRecords");
 	expect(page).toContain("getSelectedPatient");
-	expect(template).toContain("onSelectPatient");
-	expect(template).toContain("data-patient-id");
+	expect(template).toContain("selectedPatient.displayName");
+	expect(template).toContain("onHeroAction");
 	expect(page).not.toContain("msun-middle-business-appointment-server");
 	expect(page).not.toContain("providerPatientId");
 });
@@ -122,6 +122,27 @@ test("native client only permits local HTTP or HTTPS API addresses", () => {
 	expect(isAllowedApiBaseUrl("http://hospital.example.test/api")).toBe(false);
 	expect(isAllowedApiBaseUrl("ftp://hospital.example.test")).toBe(false);
 	expect(isAllowedApiBaseUrl("")).toBe(false);
+});
+
+test("native mini program keeps the legacy hospital visual system", async () => {
+	const globalStyle = await source("app.wxss");
+	const homeTemplate = await source("pages/index/index.wxml");
+	const reportTemplate = await source("pages/report-detail/report-detail.wxml");
+
+	expect(globalStyle).toContain("--hospital-primary: #3d6df6");
+	expect(globalStyle).toContain("--hospital-primary-strong: #4b8eff");
+	expect(globalStyle).toContain("--hospital-canvas: #f5f5f5");
+	expect(globalStyle).toContain("--hospital-nav: #f8f8f8");
+	expect(homeTemplate).toContain("patient-card");
+	expect(homeTemplate).toContain("top-grid");
+	expect(homeTemplate).toContain("quick-banner");
+	expect(homeTemplate).toContain("service-tabs-shell");
+	expect(homeTemplate).toContain("legacy-tabbar");
+	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");
+	expect(reportTemplate).toContain("report-actions");
+	expect(reportTemplate).toContain("report-tabs-wrap");
+	expect(reportTemplate).toContain("report-content");
+	expect(reportTemplate).toContain("/assets/legacy-home/report-download.svg");
 });
 
 test("native client maps only the server payment fields", () => {
@@ -197,7 +218,7 @@ test("native report detail page consumes only the opaque platform reference", as
 	expect(client).toContain("requestReportDetail");
 	expect(page).toContain("requestReportDetail(reportId)");
 	expect(page).toContain("report-detail-id-missing");
-	expect(template).toContain("服务端白名单");
+	expect(template).toContain("report-actions");
 	expect(page).not.toContain("providerReportId");
 	expect(page).not.toContain("fileUrl");
 	expect(template).not.toContain("providerReportId");

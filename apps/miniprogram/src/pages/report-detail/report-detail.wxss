@@ -1,142 +1,289 @@
 .page {
-	padding: 40rpx 32rpx 64rpx;
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding-top: 20rpx;
+	background: #f5f5f5;
 }
 
-.card {
-	background: #ffffff;
-	border: 1rpx solid #e5e7eb;
-	border-radius: 16rpx;
-	padding: 32rpx;
-	margin-bottom: 24rpx;
-}
-
-.eyebrow,
-.title,
-.error,
-.empty,
-.attachment-hint {
-	display: block;
-}
-
-.eyebrow {
-	color: #6b7280;
-	font-size: 22rpx;
-	letter-spacing: 2rpx;
-}
-
-.title {
-	margin-top: 16rpx;
-	font-size: 40rpx;
-	font-weight: 600;
-}
-
-.line {
+.loading-state {
 	display: flex;
-	justify-content: space-between;
-	margin-top: 20rpx;
-	color: #64748b;
+	align-items: center;
+	justify-content: center;
+	padding: 80rpx 0;
+	color: #666666;
 	font-size: 28rpx;
 }
 
-.label,
-.section-hint,
-.result-meta,
-.attachment-hint {
-	color: #9ca3af;
+.report-head {
+	width: 710rpx;
+	margin-right: auto;
+	margin-left: auto;
 }
 
-.error {
-	margin-top: 24rpx;
-	color: #b91c1c;
-	font-size: 26rpx;
+.report-count {
+	margin-bottom: 20rpx;
+	color: #333333;
+	font-size: 28rpx;
 }
 
-.empty {
-	padding: 44rpx 0 20rpx;
-	color: #9ca3af;
-	font-size: 26rpx;
-	text-align: center;
+.report-card {
+	overflow: hidden;
+	border-radius: 16rpx;
 }
 
-.section-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-
-.section-title {
-	font-size: 32rpx;
+.report-title {
+	box-sizing: border-box;
+	padding: 30rpx;
+	background: #4d90ff;
+	color: #ffffff;
+	font-size: 40rpx;
 	font-weight: 600;
+	line-height: 1.35;
 }
 
-.section-hint {
-	font-size: 22rpx;
-}
-
-.result-row {
+.report-actions {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	padding: 24rpx 0;
-	border-bottom: 1rpx solid #f3f4f6;
+	justify-content: space-between;
+	background: #3a68cc;
+	color: #ffffff;
 }
 
-.result-row:last-child {
+.report-action {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 50%;
+	gap: 20rpx;
+	padding: 16rpx 0;
+	font-size: 24rpx;
+}
+
+.report-download-icon {
+	display: block;
+	height: 30rpx;
+}
+
+.report-share-icon {
+	display: block;
+	height: 23rpx;
+}
+
+.report-tabs-wrap {
+	box-sizing: border-box;
+	margin-top: 40rpx;
+	margin-bottom: 40rpx;
+	padding: 20rpx 0;
+	background: #ffffff;
+}
+
+.report-tabs {
+	display: flex;
+	align-items: center;
+	width: 710rpx;
+	margin-right: auto;
+	margin-left: auto;
+}
+
+.report-tab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 50%;
+	padding: 16rpx 0;
+	border-radius: 12rpx;
+	flex-direction: column;
+	gap: 20rpx;
+	color: #333333;
+	font-size: 28rpx;
+}
+
+.report-tab-icon {
+	display: block;
+	height: 77rpx;
+}
+
+.report-content,
+.cloud-empty {
+	box-sizing: border-box;
+	border-radius: 16rpx;
+	background: #ffffff;
+}
+
+.report-content {
+	padding: 24rpx;
+}
+
+.report-items {
+	display: flex;
+	flex-direction: column;
+	gap: 16rpx;
+}
+
+.report-item {
+	padding-bottom: 16rpx;
+	border-bottom: 1rpx solid #f5f5f5;
+}
+
+.report-item:last-child {
+	padding-bottom: 0;
 	border-bottom: 0;
 }
 
-.result-main {
-	min-width: 0;
-	padding-right: 20rpx;
+.report-item-heading,
+.report-item-result {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 
-.result-name,
-.result-meta {
-	display: block;
+.report-item-heading {
+	margin-bottom: 12rpx;
 }
 
-.result-name {
-	font-size: 30rpx;
-	font-weight: 500;
+.report-item-name {
+	color: #333333;
+	font-size: 28rpx;
+	font-weight: 600;
 }
 
-.result-meta {
-	margin-top: 8rpx;
+.report-item-flag {
+	padding: 4rpx 12rpx;
+	border-radius: 6rpx;
 	font-size: 24rpx;
 }
 
-.result-value {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	flex-shrink: 0;
+.report-item-flag-high,
+.report-item-flag-critical {
+	background: #ffe5e5;
+	color: #ff4444;
 }
 
-.result-number {
+.report-item-flag-low {
+	background: #e5f3ff;
+	color: #0066ff;
+}
+
+.report-item-flag-normal,
+.report-item-flag-unknown {
+	background: #f5f5f5;
+	color: #666666;
+}
+
+.report-item-result {
+	justify-content: flex-start;
+	gap: 24rpx;
+	color: #666666;
+	font-size: 24rpx;
+}
+
+.report-item-range {
+	display: block;
+	margin-top: 8rpx;
+	color: #999999;
+	font-size: 24rpx;
+}
+
+.report-empty,
+.cloud-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	min-height: 360rpx;
+	color: #999999;
+	font-size: 28rpx;
+}
+
+.report-empty-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 120rpx;
+	height: 120rpx;
+	margin-bottom: 24rpx;
+	border-radius: 50%;
+	background: #f2f6ff;
+	color: #3d6df6;
+	font-size: 64rpx;
+}
+
+.cloud-empty-icon {
+	margin-bottom: 24rpx;
+	font-size: 120rpx;
+	line-height: 1;
+}
+
+.error-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	box-sizing: border-box;
+	margin: 20rpx;
+	padding: 48rpx 28rpx;
+	border: 1rpx solid #ffd8d8;
+	border-radius: 16rpx;
+	background: #fff7f7;
+}
+
+.error-title {
+	color: #333333;
 	font-size: 30rpx;
 	font-weight: 600;
 }
 
-.result-flag {
-	margin-top: 8rpx;
-	font-size: 22rpx;
-}
-
-.result-flag-normal {
-	color: #15803d;
-}
-
-.result-flag-high,
-.result-flag-low,
-.result-flag-critical {
-	color: #b91c1c;
-}
-
-.result-flag-unknown {
-	color: #9ca3af;
-}
-
-.attachment-hint {
-	margin-top: 12rpx;
+.error-message {
+	display: block;
+	margin-top: 10rpx;
+	color: #ff4444;
 	font-size: 24rpx;
+	text-align: center;
+}
+
+.bottom-action-wrap {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	box-sizing: border-box;
+	padding: 0 20rpx;
+}
+
+.bottom-action {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	width: 710rpx;
+	height: 100rpx;
+	margin-right: auto;
+	margin-left: auto;
+	padding: 0 30rpx;
+	overflow: hidden;
+	border-radius: 18rpx;
+	background: rgb(0 0 0 / 80%);
+}
+
+.bottom-action-hint {
+	padding: 24rpx 0;
+	border-radius: 12rpx;
+	color: rgb(255 255 255 / 60%);
+	font-size: 28rpx;
+}
+
+.bottom-action-button {
+	box-sizing: border-box;
+	padding: 16rpx 20rpx;
+	border-radius: 12rpx;
+	background: #3d6df6;
+	color: #ffffff;
+	font-size: 28rpx;
+	white-space: nowrap;
+}
+
+.bottom-spacer {
+	height: 140rpx;
 }

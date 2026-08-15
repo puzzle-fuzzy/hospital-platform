@@ -5,6 +5,8 @@ Page({
 	data: {
 		loading: true,
 		title: "报告详情",
+		reportCount: 1,
+		activeTab: "report",
 		reportedAt: "",
 		items: [],
 		hasItems: false,
@@ -33,6 +35,8 @@ Page({
 				const items = report.items || [];
 				this.setData({
 					title: report.title,
+					reportCount:
+						typeof report.reportCount === "number" ? report.reportCount : 1,
 					reportedAt: report.reportedAt,
 					items,
 					hasItems: items.length > 0,
@@ -42,6 +46,25 @@ Page({
 			})
 			.catch((error) => this.showError(error))
 			.finally(() => this.setData({ loading: false }));
+	},
+
+	/** @param {{currentTarget?: {dataset?: {tab?: string}}}} event */
+	onTabChange(event) {
+		const tab = event.currentTarget?.dataset?.tab;
+		if (tab !== "report" && tab !== "image") return;
+		this.setData({ activeTab: tab });
+	},
+
+	onDownloadCloudImage() {
+		wx.showToast({ title: "云影像功能迁移中", icon: "none" });
+	},
+
+	onShareReport() {
+		wx.showToast({ title: "分享功能迁移中", icon: "none" });
+	},
+
+	onGotoConsultation() {
+		wx.showToast({ title: "复诊功能迁移中", icon: "none" });
 	},
 
 	/** @param {unknown} error */

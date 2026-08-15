@@ -1,10 +1,10 @@
 {
 	"pages": ["pages/index/index", "pages/report-detail/report-detail"],
 	"window": {
-		"navigationBarTitleText": "医院服务",
-		"navigationBarBackgroundColor": "#ffffff",
+		"navigationBarTitleText": "高平医院",
+		"navigationBarBackgroundColor": "#f8f8f8",
 		"navigationBarTextStyle": "black",
-		"backgroundColor": "#f6f7f9"
+		"backgroundColor": "#ffffff"
 	},
 	"style": "v2",
 	"sitemapLocation": "sitemap.json"

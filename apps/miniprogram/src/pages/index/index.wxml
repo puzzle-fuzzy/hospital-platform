@@ -1,83 +1,129 @@
 <view class="page">
-	<view class="card">
-		<text class="eyebrow">HOSPITAL PLATFORM</text>
-		<text class="title">医院服务平台</text>
-		<view class="line"><text class="label">API</text><text>{{status}}</text></view>
-		<view wx:if="{{service}}" class="line"><text class="label">服务</text><text>{{service}}</text></view>
-		<view class="line"><text class="label">会话</text><text>{{sessionStatus}}</text></view>
-		<button class="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">微信登录并加载就诊人</button>
-		<button class="secondary" loading="{{syncingPatients}}" disabled="{{syncingPatients}}" bindtap="onSyncPatients">从医院同步就诊人</button>
-		<button class="secondary" loading="{{loadingAppointments}}" disabled="{{loadingAppointments}}" bindtap="onLoadAppointments">查看预约科室与排班</button>
-		<button class="secondary" loading="{{loadingAppointmentRecords}}" disabled="{{loadingAppointmentRecords}}" bindtap="onLoadAppointmentRecords">查看近 90 天预约记录</button>
-		<button class="secondary" loading="{{loadingReports}}" disabled="{{loadingReports}}" bindtap="onLoadReports">查看近 30 天报告</button>
-		<button class="secondary" bindtap="onRefresh">刷新</button>
-		<text wx:if="{{error}}" class="error">{{error}}</text>
-	</view>
-
-	<view class="card appointment-card">
-		<view class="section-header">
-			<text class="section-title">预约记录</text>
-			<text class="section-hint">脱敏只读</text>
-		</view>
-		<view wx:if="{{!hasAppointmentRecords}}" class="empty">点击上方按钮读取当前选择的就诊人近 90 天记录</view>
-		<view wx:for="{{appointmentRecords}}" wx:key="index" class="appointment-row">
-			<view>
-				<text class="patient-name">{{item.workDate}} · {{item.status}}</text>
-				<text class="patient-meta">{{item.departmentName || "未提供科室"}} · {{item.doctorName || "未提供医生"}}</text>
+	<!-- 顶部卡片：尺寸、层级和内容顺序与旧端首页保持一致。 -->
+	<view class="con-main patient-area">
+		<view class="patient-card bg1">
+			<image
+				src="/assets/legacy-home/patient-qr.svg"
+				mode="aspectFill"
+				class="patient-qr"
+				bindtap="onPatientQr"
+			/>
+			<view class="patient-card-copy">
+				<text class="patient-name">{{selectedPatient.displayName || "匿名"}}</text>
+				<text class="patient-id">ID:{{selectedPatient.id || "----"}}</text>
 			</view>
-			<text class="patient-source">{{item.serialNumber || ""}}</text>
-		</view>
-	</view>
-
-	<view class="card patient-card">
-		<view class="section-header">
-			<text class="section-title">我的就诊人</text>
-			<text class="section-hint">服务端归属</text>
-		</view>
-		<view wx:if="{{!hasPatients}}" class="empty">登录后显示已绑定的就诊人</view>
-		<view wx:for="{{patients}}" wx:key="id" class="patient-row {{selectedPatientId === item.id ? 'patient-row-selected' : ''}}" bindtap="onSelectPatient" data-patient-id="{{item.id}}">
-			<view>
-				<text class="patient-name">{{item.displayName}}</text>
-				<text class="patient-meta">{{item.relationship}} · {{item.cardNumberMasked}}</text>
+			<view class="patient-change" bindtap="onHeroAction">
+				{{selectedPatient.displayName ? "更换就诊人" : "新增就诊人"}}
 			</view>
-			<view class="patient-source-wrap">
-				<text wx:if="{{selectedPatientId === item.id}}" class="patient-selected">当前选择</text>
-				<text class="patient-source">{{item.source}}</text>
+		</view>
+
+		<view class="top-grid">
+			<view
+				wx:for="{{topTabList}}"
+				wx:key="text"
+				class="top-grid-item"
+				bindtap="onTopAction"
+				data-action="{{item.action}}"
+			>
+				<image class="top-grid-icon" src="{{item.icon}}" mode="heightFix" />
+				<text class="top-grid-label">{{item.text}}</text>
 			</view>
 		</view>
 	</view>
 
-	<view class="card appointment-card">
-		<view class="section-header">
-			<text class="section-title">预约目录</text>
-			<text class="section-hint">服务端只读</text>
-		</view>
-		<view wx:if="{{!hasAppointmentData}}" class="empty">点击上方按钮读取科室和未来 7 天排班</view>
-		<view wx:for="{{appointmentDepartments}}" wx:key="departmentId" class="appointment-row">
-			<text>{{item.displayName}}</text>
-			<text class="patient-meta">{{item.location || "院内"}}</text>
-		</view>
-		<view wx:for="{{appointmentSchedules}}" wx:key="scheduleId" class="appointment-row">
-			<view>
-				<text class="patient-name">{{item.workDate}} · {{item.shiftName}}</text>
-				<text class="patient-meta">{{item.departmentName}} · {{item.doctorName}}</text>
+	<!-- 快捷入口：左侧 340rpx 轮播，右侧三张原始快捷图。 -->
+	<view class="con-main quick-entry">
+		<view class="quick-entry-row">
+			<swiper
+				class="quick-banner"
+				indicator-dots
+				autoplay
+				circular
+				indicator-active-color="#3D6DF6"
+			>
+				<swiper-item wx:for="{{bannerList}}" wx:key="index">
+					<image
+						class="quick-banner-image"
+						src="{{item.image}}"
+						mode="aspectFill"
+						bindtap="onRightAction"
+						data-action="{{item.action}}"
+					/>
+				</swiper-item>
+			</swiper>
+			<view class="quick-entry-right">
+				<image
+					wx:for="{{rightList}}"
+					wx:key="image"
+					class="quick-right-image"
+					src="{{item.image}}"
+					mode="heightFix"
+					bindtap="onRightAction"
+					data-action="{{item.action}}"
+				/>
 			</view>
-			<text class="patient-source">余 {{item.availableSlots}}</text>
 		</view>
 	</view>
 
-	<view class="card report-card">
-		<view class="section-header">
-			<text class="section-title">报告目录</text>
-			<text class="section-hint">服务端只读</text>
-		</view>
-		<view wx:if="{{!hasReports}}" class="empty">点击上方按钮读取当前选择的就诊人近 30 天报告</view>
-		<view wx:for="{{reports}}" wx:key="index" class="appointment-row" bindtap="onSelectReport" data-report-id="{{item.reportId}}">
-			<view>
-				<text class="patient-name">{{item.title}}</text>
-				<text class="patient-meta">{{item.kind}} · {{item.reportedAt}}</text>
+	<!-- 首页服务选项卡：保留旧端 190rpx 标签和四列图标布局。 -->
+	<view class="service-con">
+		<view class="service-tabs-shell">
+			<view class="service-tabbar">
+				<view
+					wx:for="{{serviceTabs}}"
+					wx:key="title"
+					class="service-tab {{activeServiceTab === index ? 'service-tab-active' : ''}}"
+					bindtap="onServiceTabChange"
+					data-index="{{index}}"
+				>
+					{{item.title}}
+				</view>
 			</view>
-			<text class="patient-source">{{item.reportId ? "查看详情" : item.status}}</text>
+			<view class="service-body">
+				<view wx:if="{{activeServiceItems.length}}" class="service-grid">
+					<view
+						wx:for="{{activeServiceItems}}"
+						wx:key="title"
+						class="service-grid-item"
+						bindtap="onServiceItemTap"
+						data-action="{{item.action}}"
+					>
+						<image class="service-grid-icon" src="{{item.icon}}" mode="heightFix" />
+						<text class="service-grid-label">{{item.title}}</text>
+					</view>
+				</view>
+				<view wx:else class="service-empty">
+					<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+					<text>暂无相关服务</text>
+				</view>
+			</view>
+		</view>
+	</view>
+
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+	<image
+		class="floating-guide"
+		src="/assets/legacy-home/floating-guide.png"
+		mode="widthFix"
+		bindtap="onFloatingGuide"
+	/>
+
+	<!-- 旧端四 Tab 底栏；用原生 WXML 保持视觉资产一致，未迁移页面不伪造跳转。 -->
+	<view class="legacy-tabbar">
+		<view
+			wx:for="{{tabBarItems}}"
+			wx:key="text"
+			class="legacy-tabbar-item {{index === 0 ? 'legacy-tabbar-item-active' : ''}}"
+			bindtap="onTabBarAction"
+			data-index="{{index}}"
+		>
+			<image
+				class="legacy-tabbar-icon"
+				src="{{index === 0 ? item.activeIcon : item.icon}}"
+				mode="aspectFit"
+			/>
+			<text>{{item.text}}</text>
 		</view>
 	</view>
 </view>
