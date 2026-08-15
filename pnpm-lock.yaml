@@ -95,6 +95,10 @@ importers:
         version: 7.0.2
 
   apps/miniprogram:
+    dependencies:
+      '@hospital/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
     devDependencies:
       '@types/bun':
         specifier: 'catalog:'

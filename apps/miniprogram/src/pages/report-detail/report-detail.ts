@@ -1,7 +1,16 @@
 import { ApiError, requestReportDetail } from "../../services/api-client";
+import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
-Page({
+type ReportDetailPageMethods = {
+	onTabChange(event: ReportTabEvent): void;
+	onDownloadCloudImage(): void;
+	onShareReport(): void;
+	onGotoConsultation(): void;
+	showError(error: unknown): void;
+};
+
+Page<ReportDetailPageData, ReportDetailPageMethods>({
 	data: {
 		loading: true,
 		title: "报告详情",
@@ -14,8 +23,7 @@ Page({
 		error: "",
 	},
 
-	/** @param {{reportId?: string}} options */
-	onLoad(options) {
+	onLoad(options: Record<string, string | undefined>): void {
 		const reportId = options?.reportId;
 		if (typeof reportId !== "string" || !reportId) {
 			this.showError(
@@ -35,8 +43,7 @@ Page({
 				const items = report.items || [];
 				this.setData({
 					title: report.title,
-					reportCount:
-						typeof report.reportCount === "number" ? report.reportCount : 1,
+					reportCount: 1,
 					reportedAt: report.reportedAt,
 					items,
 					hasItems: items.length > 0,
@@ -48,8 +55,7 @@ Page({
 			.finally(() => this.setData({ loading: false }));
 	},
 
-	/** @param {{currentTarget?: {dataset?: {tab?: string}}}} event */
-	onTabChange(event) {
+	onTabChange(event: ReportTabEvent): void {
 		const tab = event.currentTarget?.dataset?.tab;
 		if (tab !== "report" && tab !== "image") return;
 		this.setData({ activeTab: tab });
@@ -67,8 +73,7 @@ Page({
 		wx.showToast({ title: "复诊功能迁移中", icon: "none" });
 	},
 
-	/** @param {unknown} error */
-	showError(error) {
+	showError(error: unknown): void {
 		const message =
 			error instanceof ApiError ? error.message : "报告详情加载失败";
 		this.setData({ error: message, loading: false, title: "报告详情不可用" });

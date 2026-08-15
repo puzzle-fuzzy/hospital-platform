@@ -154,8 +154,9 @@ migration 的持久化边界。
 - `wx.login()` 只把临时 code 发给公网 `/api/v2/auth/wechat`，服务端内部才调用 `/api/v1/auth/wechat`，小程序不接触 openid、session_key 或 AppSecret；
 - access token 只用于 Hospital API，会话失效时最多重新登录一次，避免无限重试；
 - 患者列表的 owner 由服务端会话解析，小程序不提交 ownerUserId，也不接受 provider 原始身份字段；
-- 原生端页面只负责交互和状态；会话生命周期由 `session-service.js` 管理，预约/报告日期窗口和读模型由
-  `dashboard-service.js` 编排，避免页面直接拼接 provider 参数；
+- 原生端页面只负责交互和状态；会话生命周期由 `session-service.ts` 管理，预约/报告日期窗口和读模型由
+  `dashboard-service.ts` 编排，避免页面直接拼接 provider 参数；
+- 原生小程序业务源文件统一使用 TypeScript，`scripts/build.ts` 逐入口调用 Bun 构建器输出微信兼容的 CommonJS JavaScript 到 `apps/miniprogram/dist/`；微信开发者工具和真机只加载编译后的原生 JavaScript，`tsc --noEmit` 负责类型门禁；
 - 报告详情只接受服务端生成的 opaque `reportId`，只展示 LIS 白名单检测项；没有详情引用时保持摘要只读；
 - 当前首页只证明代码路径和 API contract 可用，不证明真实微信账号、HTTPS 域名、开发者工具或真机网络已验收。
 

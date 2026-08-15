@@ -251,7 +251,9 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `packages/adapters/src/wechat-identity.ts` | 微信 code2session HTTP adapter |
 | `packages/persistence/src/mysql-repositories.ts` | `hp_identity_users` 幂等身份仓储 |
 | `packages/persistence/src/redis-session.ts` | Bearer token TTL 存储 |
-| `apps/miniprogram/src/services/api-client.js` | wx.login、版本前缀、token 保存和 requestId |
-| `apps/miniprogram/src/services/session-service.js` | 会话恢复和登录状态 |
+| `apps/miniprogram/src/types.ts` | 小程序 API、会话、就诊人、预约、报告和支付类型 |
+| `apps/miniprogram/src/services/api-client.ts` | wx.login、版本前缀、token 保存和 requestId |
+| `apps/miniprogram/src/services/session-service.ts` | 会话恢复和登录状态 |
+| `apps/miniprogram/scripts/build.ts` | 逐入口调用 Bun 构建器，输出开发者工具使用的 CommonJS 原生 JavaScript |
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |

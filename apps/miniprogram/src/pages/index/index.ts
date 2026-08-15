@@ -12,6 +12,18 @@ import {
 	restorePlatformSession,
 	signInPlatformSession,
 } from "../../services/session-service";
+import type {
+	ActionEvent,
+	IndexEvent,
+	IndexPageData,
+	Patient,
+	PatientEvent,
+	ReportEvent,
+	ServiceTab,
+	SessionLabel,
+	TabBarItem,
+	TopTabItem,
+} from "../../types";
 
 /** 页面显示状态集中定义，避免业务代码散落中文状态常量。 */
 const SESSION_LABELS = Object.freeze({
@@ -19,7 +31,7 @@ const SESSION_LABELS = Object.freeze({
 	restoring: "验证会话中",
 	restored: "已恢复会话",
 	signedIn: "已登录",
-});
+} as const satisfies Record<string, SessionLabel>);
 
 /** 顶部四项沿用旧端的顺序、图标尺寸和文案；动作仅接入当前已开放的安全读接口。 */
 const TOP_TAB_LIST = Object.freeze([
@@ -40,21 +52,21 @@ const TOP_TAB_LIST = Object.freeze([
 		icon: "/assets/legacy-home/top-record.svg",
 		text: "门诊病历",
 	},
-]);
+] satisfies ReadonlyArray<TopTabItem>);
 
 /** 旧端轮播图当前只有同一张关注公众号宣传图，保留原三页轮播节奏。 */
 const BANNER_LIST = Object.freeze([
 	{ action: "follow", image: "/assets/legacy-home/banner-follow.png" },
 	{ action: "follow", image: "/assets/legacy-home/banner-follow.png" },
 	{ action: "follow", image: "/assets/legacy-home/banner-follow.png" },
-]);
+] satisfies ReadonlyArray<{ action: string; image: string }>);
 
 /** 右侧快捷图直接复用旧端图片；报告查询是当前原生端唯一已接入的入口。 */
 const RIGHT_LIST = Object.freeze([
 	{ action: "guide", image: "/assets/legacy-home/right-guide.png" },
 	{ action: "companion", image: "/assets/legacy-home/right-companion.png" },
 	{ action: "reports", image: "/assets/legacy-home/report.png" },
-]);
+] satisfies ReadonlyArray<{ action: string; image: string }>);
 
 /** 旧端底部四 Tab 的图标与文案；其它 Tab 等待对应页面迁移后再开放跳转。 */
 const TAB_BAR_ITEMS = Object.freeze([
@@ -78,7 +90,7 @@ const TAB_BAR_ITEMS = Object.freeze([
 		icon: "/assets/legacy-home/tab-04.png",
 		text: "我的",
 	},
-]);
+] satisfies ReadonlyArray<TabBarItem>);
 
 /** 门诊/住院/便民服务清单按旧端原始顺序和图标复刻，未开放动作保持空值。 */
 const SERVICE_TABS = Object.freeze([
@@ -159,10 +171,35 @@ const SERVICE_TABS = Object.freeze([
 			},
 		],
 	},
-]);
+] satisfies ReadonlyArray<ServiceTab>);
 
-/** @type {WechatMiniprogram.Page.Instance<WechatMiniprogram.IAnyObject, Record<string, unknown>>} */
-Page({
+type IndexPageMethods = {
+	checkHealth(): void;
+	onLogin(): void;
+	onHeroAction(): void;
+	onPatientQr(): void;
+	onTopAction(event: ActionEvent): void;
+	onRightAction(event: ActionEvent): void;
+	onTabBarAction(event: IndexEvent): void;
+	onFloatingGuide(): void;
+	executeQuickAction(action?: string): void;
+	onServiceTabChange(event: IndexEvent): void;
+	onServiceItemTap(event: ActionEvent): void;
+	loadPatients(): Promise<void>;
+	onSyncPatients(): void;
+	onLoadAppointments(): void;
+	onRefresh(): void;
+	onPullDownRefresh(): void;
+	onLoadReports(): void;
+	onLoadAppointmentRecords(): void;
+	onSelectReport(event: ReportEvent): void;
+	onSelectPatient(event: PatientEvent): void;
+	showError(error: unknown, fallback: string): void;
+	setPatientsFromPayload(patients: Array<Patient>): void;
+	getSelectedPatient(): Patient | undefined;
+};
+
+Page<IndexPageData, IndexPageMethods>({
 	/** @type {{status: string, service: string, sessionStatus: string, topTabList: ReadonlyArray<Record<string, unknown>>, bannerList: ReadonlyArray<Record<string, string>>, rightList: ReadonlyArray<Record<string, string>>, tabBarItems: ReadonlyArray<Record<string, string>>, serviceTabs: ReadonlyArray<Record<string, unknown>>, activeServiceTab: number, activeServiceItems: ReadonlyArray<Record<string, unknown>>, patients: Array<Record<string, unknown>>, selectedPatient: Record<string, unknown> | null, selectedPatientId: string, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, appointmentRecords: Array<Record<string, unknown>>, hasAppointmentRecords: boolean, loadingAppointmentRecords: boolean, reports: Array<Record<string, unknown>>, hasReports: boolean, loadingReports: boolean, error: string}} */
 	data: {
 		status: "加载中",
@@ -264,18 +301,15 @@ Page({
 		});
 	},
 
-	/** @param {{currentTarget?: {dataset?: {action?: string}}}} event */
-	onTopAction(event) {
+	onTopAction(event: ActionEvent): void {
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
-	/** @param {{currentTarget?: {dataset?: {action?: string}}}} event */
-	onRightAction(event) {
+	onRightAction(event: ActionEvent): void {
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
-	/** @param {{currentTarget?: {dataset?: {index?: string | number}}}} event */
-	onTabBarAction(event) {
+	onTabBarAction(event: IndexEvent): void {
 		const index = Number(event.currentTarget?.dataset?.index);
 		if (index === 0) return;
 		wx.showToast({ title: "该页面正在迁移中", icon: "none" });
@@ -285,8 +319,7 @@ Page({
 		wx.showToast({ title: "智能客服功能迁移中", icon: "none" });
 	},
 
-	/** @param {string | undefined} action */
-	executeQuickAction(action) {
+	executeQuickAction(action?: string): void {
 		switch (action) {
 			case "sync":
 				this.onSyncPatients();
@@ -305,8 +338,7 @@ Page({
 		}
 	},
 
-	/** @param {{currentTarget?: {dataset?: {index?: string | number}}}} event */
-	onServiceTabChange(event) {
+	onServiceTabChange(event: IndexEvent): void {
 		const index = Number(event.currentTarget?.dataset?.index);
 		if (!Number.isInteger(index) || index < 0 || index >= SERVICE_TABS.length)
 			return;
@@ -318,12 +350,11 @@ Page({
 		});
 	},
 
-	/** @param {{currentTarget?: {dataset?: {action?: string}}}} event */
-	onServiceItemTap(event) {
+	onServiceItemTap(event: ActionEvent): void {
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
-	loadPatients() {
+	loadPatients(): Promise<void> {
 		return loadPatients()
 			.then((patients) => this.setPatientsFromPayload(patients))
 			.catch((error) => this.showError(error, "就诊人加载失败"));
@@ -396,11 +427,8 @@ Page({
 			.finally(() => this.setData({ loadingAppointmentRecords: false }));
 	},
 
-	/**
-	 * 只有服务端生成的 opaque reportId 才能进入详情页；没有引用时保持摘要只读。
-	 * @param {{currentTarget?: {dataset?: {reportId?: string}}}} event
-	 */
-	onSelectReport(event) {
+	/** 只有服务端生成的 opaque reportId 才能进入详情页。 */
+	onSelectReport(event: ReportEvent): void {
 		const reportId = event.currentTarget?.dataset?.reportId;
 		if (typeof reportId !== "string" || !reportId) {
 			this.showError(
@@ -417,12 +445,8 @@ Page({
 		});
 	},
 
-	/**
-	 * 切换当前业务患者时清空旧患者的报告和预约记录，避免页面把旧数据
-	 * 误显示到新选择的 patientId 下。
-	 * @param {{currentTarget?: {dataset?: {patientId?: string}}}} event
-	 */
-	onSelectPatient(event) {
+	/** 切换患者时清空旧患者的报告和预约记录。 */
+	onSelectPatient(event: PatientEvent): void {
 		const patientId = event.currentTarget?.dataset?.patientId;
 		if (typeof patientId !== "string" || !patientId) return;
 		const selectedPatient = this.data.patients.find(
@@ -441,17 +465,13 @@ Page({
 		});
 	},
 
-	/** @param {unknown} error @param {string} fallback */
-	showError(error, fallback) {
+	showError(error: unknown, fallback: string): void {
 		const message = error instanceof ApiError ? error.message : fallback;
 		this.setData({ error: message });
 	},
 
-	/**
-	 * 统一接收服务端脱敏读模型；页面不保存 provider 患者号。
-	 * @param {Array<Record<string, unknown>>} patients
-	 */
-	setPatientsFromPayload(patients) {
+	/** 统一接收服务端脱敏读模型；页面不保存 provider 患者号。 */
+	setPatientsFromPayload(patients: Array<Patient>): void {
 		const selectedPatient =
 			patients.find((patient) => patient.id === this.data.selectedPatientId) ||
 			patients[0] ||
@@ -468,7 +488,7 @@ Page({
 	},
 
 	/** 读取当前选择的患者；旧选择失效时自动回退到服务端列表首项。 */
-	getSelectedPatient() {
+	getSelectedPatient(): Patient | undefined {
 		const selected = this.data.patients.find(
 			(patient) => patient.id === this.data.selectedPatientId,
 		);

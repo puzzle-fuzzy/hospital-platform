@@ -23,7 +23,7 @@ const sources = Object.fromEntries(
 			"apps/api/src/modules/payments/index.ts",
 			"apps/worker/src/runtime.ts",
 			"apps/worker/src/index.ts",
-			"apps/miniprogram/src/services/api-client.js",
+			"apps/miniprogram/src/services/api-client.ts",
 			"packages/observability/src/index.ts",
 			"packages/persistence/src/runtime.ts",
 			"packages/persistence/src/migrate.ts",
@@ -137,7 +137,7 @@ check(
 );
 
 const miniprogramClient =
-	sources["apps/miniprogram/src/services/api-client.js"];
+	sources["apps/miniprogram/src/services/api-client.ts"];
 for (const forbidden of [
 	"api.weixin.qq.com",
 	"httpZy",

@@ -5,12 +5,12 @@ import {
 	isAllowedApiPrefix,
 	normalizeApiBaseUrl,
 	toWechatPaymentParams,
-} from "../src/services/api-client.js";
+} from "../src/services/api-client";
 import {
 	createPastDateRange,
 	createUpcomingDateRange,
 	formatPlatformDate,
-} from "../src/services/dashboard-service.js";
+} from "../src/services/dashboard-service";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
 
@@ -19,8 +19,8 @@ async function source(file: string): Promise<string> {
 }
 
 test("native client keeps WeChat identity exchange on the Hospital API", async () => {
-	const client = await source("services/api-client.js");
-	const app = await source("app.js");
+	const client = await source("services/api-client.ts");
+	const app = await source("app.ts");
 
 	expect(client).toContain("wx.login");
 	expect(client).toContain('url: "/auth/wechat"');
@@ -32,8 +32,8 @@ test("native client keeps WeChat identity exchange on the Hospital API", async (
 });
 
 test("native client restores a platform session through the current-user endpoint", async () => {
-	const client = await source("services/api-client.js");
-	const page = await source("pages/index/index.js");
+	const client = await source("services/api-client.ts");
+	const page = await source("pages/index/index.ts");
 
 	expect(client).toContain("getCurrentUser");
 	expect(client).toContain('url: "/me"');
@@ -42,7 +42,7 @@ test("native client restores a platform session through the current-user endpoin
 });
 
 test("native client sends request ids for Pino HTTP correlation", async () => {
-	const client = await source("services/api-client.js");
+	const client = await source("services/api-client.ts");
 
 	expect(client).toContain('"x-request-id": requestId');
 	expect(client).toContain("responseRequestId(response)");
@@ -50,19 +50,21 @@ test("native client sends request ids for Pino HTTP correlation", async () => {
 });
 
 test("native client requests server-generated prepay parameters", async () => {
-	const client = await source("services/api-client.js");
+	const client = await source("services/api-client.ts");
 
 	expect(client).toContain("requestWechatPrepay");
 	expect(client).toContain("/wechat-prepay");
 	expect(client).toContain("getWechatPrepay");
 	expect(client).toContain("launchWechatPayment");
 	expect(client).toContain("wx.requestPayment");
-	expect(client).not.toContain("paySign =");
+	// 支付签名必须原样使用服务端返回值，避免小程序端自行生成或重签名。
+	expect(client).toContain("const paySign = params.paySign");
+	expect(client).not.toContain("paySign = sign");
 });
 
 test("native client requests patient synchronization through the Hospital API", async () => {
-	const client = await source("services/api-client.js");
-	const page = await source("pages/index/index.js");
+	const client = await source("services/api-client.ts");
+	const page = await source("pages/index/index.ts");
 
 	expect(client).toContain("syncPatients");
 	expect(client).toContain('url: "/patients/sync"');
@@ -72,8 +74,8 @@ test("native client requests patient synchronization through the Hospital API", 
 });
 
 test("native client reads appointment directories only through the Hospital API", async () => {
-	const client = await source("services/api-client.js");
-	const page = await source("pages/index/index.js");
+	const client = await source("services/api-client.ts");
+	const page = await source("pages/index/index.ts");
 
 	expect(client).toContain("requestAppointmentDepartments");
 	expect(client).toContain('url: "/appointments/departments"');
@@ -84,8 +86,8 @@ test("native client reads appointment directories only through the Hospital API"
 });
 
 test("native client reads appointment records by internal patient id through the Hospital API", async () => {
-	const client = await source("services/api-client.js");
-	const page = await source("pages/index/index.js");
+	const client = await source("services/api-client.ts");
+	const page = await source("pages/index/index.ts");
 	const template = await source("pages/index/index.wxml");
 
 	expect(client).toContain("requestAppointmentRecords");
@@ -100,8 +102,8 @@ test("native client reads appointment records by internal patient id through the
 });
 
 test("native client reads report directories by internal patient id through the Hospital API", async () => {
-	const client = await source("services/api-client.js");
-	const page = await source("pages/index/index.js");
+	const client = await source("services/api-client.ts");
+	const page = await source("pages/index/index.ts");
 
 	expect(client).toContain("requestReports");
 	expect(client).toContain("/reports?");
@@ -112,7 +114,7 @@ test("native client reads report directories by internal patient id through the 
 });
 
 test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
-	const client = await source("services/api-client.js");
+	const client = await source("services/api-client.ts");
 
 	expect(client).toContain("requestReportDetail");
 	expect(client).toContain(`/reports/\${encodeURIComponent(reportId)}`);
@@ -210,7 +212,7 @@ test("native client maps only the server payment fields", () => {
 });
 
 test("dashboard service owns bounded date windows and internal patient inputs", async () => {
-	const service = await source("services/dashboard-service.js");
+	const service = await source("services/dashboard-service.ts");
 
 	expect(service).toContain("DASHBOARD_DATE_RANGE_DAYS");
 	expect(service).toContain("appointmentDirectory: 7");
@@ -236,8 +238,8 @@ test("dashboard service calculates local platform date windows", () => {
 });
 
 test("native page delegates token state to the session service", async () => {
-	const page = await source("pages/index/index.js");
-	const session = await source("services/session-service.js");
+	const page = await source("pages/index/index.ts");
+	const session = await source("services/session-service.ts");
 
 	expect(page).toContain("hasPlatformSession");
 	expect(page).not.toContain("globalData.accessToken");
@@ -247,8 +249,8 @@ test("native page delegates token state to the session service", async () => {
 });
 
 test("native report detail page consumes only the opaque platform reference", async () => {
-	const client = await source("services/api-client.js");
-	const page = await source("pages/report-detail/report-detail.js");
+	const client = await source("services/api-client.ts");
+	const page = await source("pages/report-detail/report-detail.ts");
 	const template = await source("pages/report-detail/report-detail.wxml");
 
 	expect(client).toContain("requestReportDetail");
