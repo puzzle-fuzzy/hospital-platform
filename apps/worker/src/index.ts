@@ -29,6 +29,13 @@ export {
 	runProviderDirectorySmoke,
 } from "./provider-directory-smoke";
 export {
+	type RuntimeSmokeCheck,
+	type RuntimeSmokeFetcher,
+	type RuntimeSmokeOptions,
+	type RuntimeSmokeResult,
+	runApiRuntimeSmoke,
+} from "./api-runtime-smoke";
+export {
 	createWorkerRuntime,
 	runWorkerLoop,
 	type WorkerRuntime,

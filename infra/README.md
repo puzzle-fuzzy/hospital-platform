@@ -26,6 +26,18 @@ pnpm runtime:preflight
 preflight 返回非零并不代表代码故障：在真实商户配置、schema staging 验收和公网
 HTTPS 回调尚未完成时，`PERSISTENCE_SCHEMA_READY` 或 provider 配置检查应当保持失败。
 
+API 进程可响应性可以单独检查，不需要 provider 凭证：
+
+```powershell
+$env:HOSPITAL_API_BASE_URL = "http://127.0.0.1:3000"
+$env:HOSPITAL_ALLOW_LOCAL_HTTP = "true"
+pnpm runtime:smoke
+```
+
+发布或 staging 验收必须额外设置 `$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"`，让
+`health/ready.data.status=not_ready` 使命令失败。该 smoke 只请求平台自身的 live、ready 和
+ping，不执行 migration，也不调用 provider。
+
 PowerShell 中运行 migration 和 integration 时，需要为当前进程提供本地连接串：
 
 ```powershell

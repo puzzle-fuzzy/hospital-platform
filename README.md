@@ -64,6 +64,18 @@ pnpm infra:down
 `runtime:preflight` 是发布前只读检查，验证运行配置、基础设施连接和 migration manifest；它不会
 执行 migration 或发起真实 provider 请求。
 
+API 进程自身的最小运行 smoke：
+
+```powershell
+$env:HOSPITAL_API_BASE_URL = "http://127.0.0.1:3000"
+$env:HOSPITAL_ALLOW_LOCAL_HTTP = "true"
+pnpm runtime:smoke
+```
+
+它只访问 `health/live`、`health/ready` 和 `system/ping`，不需要平台 token，也不触碰业务写入。
+开发观察模式下 `ready=not_ready` 会记录 warning；发布验收设置
+`$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"`，此时未 ready 会返回失败。
+
 真实 provider 只读验收通过平台 API smoke 执行：
 
 ```powershell

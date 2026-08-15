@@ -20,6 +20,7 @@
 		"infra:up": "docker compose -f infra/docker-compose.yml up -d",
 		"lint": "biome lint .",
 		"runtime:preflight": "pnpm --filter @hospital/worker preflight",
+		"runtime:smoke": "pnpm --filter @hospital/worker runtime-smoke",
 		"provider:smoke": "pnpm --filter @hospital/worker provider-smoke",
 		"test": "turbo run test",
 		"typecheck": "turbo run typecheck"
