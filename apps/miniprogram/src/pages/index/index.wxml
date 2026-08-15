@@ -1,8 +1,27 @@
 <view class="page">
-  <view class="card">
-    <text class="eyebrow">HOSPITAL PLATFORM</text>
-    <text class="title">医院服务平台</text>
-    <text class="status">API：{{status}}</text>
-    <text wx:if="{{service}}" class="service">服务：{{service}}</text>
-  </view>
+	<view class="card">
+		<text class="eyebrow">HOSPITAL PLATFORM</text>
+		<text class="title">医院服务平台</text>
+		<view class="line"><text class="label">API</text><text>{{status}}</text></view>
+		<view wx:if="{{service}}" class="line"><text class="label">服务</text><text>{{service}}</text></view>
+		<view class="line"><text class="label">会话</text><text>{{sessionStatus}}</text></view>
+		<button class="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">微信登录并加载就诊人</button>
+		<button class="secondary" bindtap="onRefresh">刷新</button>
+		<text wx:if="{{error}}" class="error">{{error}}</text>
+	</view>
+
+	<view class="card patient-card">
+		<view class="section-header">
+			<text class="section-title">我的就诊人</text>
+			<text class="section-hint">服务端归属</text>
+		</view>
+		<view wx:if="{{!hasPatients}}" class="empty">登录后显示已绑定的就诊人</view>
+		<view wx:for="{{patients}}" wx:key="id" class="patient-row">
+			<view>
+				<text class="patient-name">{{item.displayName}}</text>
+				<text class="patient-meta">{{item.relationship}} · {{item.cardNumberMasked}}</text>
+			</view>
+			<text class="patient-source">{{item.source}}</text>
+		</view>
+	</view>
 </view>

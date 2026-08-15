@@ -1,29 +1,172 @@
-/** @returns {{apiBaseUrl: string, accessToken: string}} */
+const ACCESS_TOKEN_KEY = "access_token";
+const API_BASE_URL_KEY = "api_base_url";
+
+/** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
+export class ApiError extends Error {
+	/** @param {string} message @param {{statusCode?: number, code?: string}} [details] */
+	constructor(message, { statusCode = 0, code = "api-request-failed" } = {}) {
+		super(message);
+		this.name = "ApiError";
+		this.statusCode = statusCode;
+		this.code = code;
+	}
+}
+
+/** 读取会话和地址；小程序不保存或读取任何 provider 密钥。 */
 function getAppConfig() {
-	return getApp().globalData;
+	const globalData = getApp().globalData;
+	const storedBaseUrl = wx.getStorageSync(API_BASE_URL_KEY);
+	return {
+		apiBaseUrl: String(storedBaseUrl || globalData.apiBaseUrl || "").replace(
+			/\/$/,
+			"",
+		),
+		accessToken: String(
+			globalData.accessToken || wx.getStorageSync(ACCESS_TOKEN_KEY) || "",
+		),
+	};
+}
+
+/** @param {string} accessToken */
+function setAccessToken(accessToken) {
+	getApp().globalData.accessToken = accessToken;
+	if (accessToken) {
+		wx.setStorageSync(ACCESS_TOKEN_KEY, accessToken);
+	} else {
+		wx.removeStorageSync(ACCESS_TOKEN_KEY);
+	}
+}
+
+/** @param {unknown} data @param {number} statusCode */
+function parseErrorMessage(data, statusCode) {
+	let message;
+	if (typeof data === "object" && data !== null && "error" in data) {
+		const error = data.error;
+		if (typeof error === "object" && error !== null && "message" in error) {
+			message = error.message;
+		}
+	}
+	return typeof message === "string" && message
+		? message
+		: `API 请求失败（${statusCode}）`;
+}
+
+/** @param {unknown} data */
+function parseErrorCode(data) {
+	if (typeof data !== "object" || data === null || !("error" in data)) {
+		return "api-request-failed";
+	}
+	const error = data.error;
+	if (typeof error !== "object" || error === null || !("code" in error)) {
+		return "api-request-failed";
+	}
+	return typeof error.code === "string" && error.code
+		? error.code
+		: "api-request-failed";
 }
 
 /**
- * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: any}} options
+ * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: WechatMiniprogram.IAnyObject, authenticated?: boolean}} options
  * @returns {Promise<any>}
  */
-export function request({ url, method = "GET", data }) {
+export function request({ url, method = "GET", data, authenticated = false }) {
 	const { apiBaseUrl, accessToken } = getAppConfig();
+	if (!apiBaseUrl) {
+		return Promise.reject(
+			new ApiError("API 地址尚未配置", { code: "api-base-url-missing" }),
+		);
+	}
 
 	return new Promise((resolve, reject) => {
 		wx.request({
 			url: `${apiBaseUrl}${url}`,
 			method,
-			data,
-			header: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+			...(data === undefined ? {} : { data }),
+			header: {
+				"content-type": "application/json",
+				...(authenticated && accessToken
+					? { Authorization: `Bearer ${accessToken}` }
+					: {}),
+			},
 			success: (response) => {
 				if (response.statusCode >= 200 && response.statusCode < 300) {
 					resolve(response.data);
 					return;
 				}
-				reject(new Error(`API request failed: ${response.statusCode}`));
+				const errorData = response.data || {};
+				reject(
+					new ApiError(parseErrorMessage(errorData, response.statusCode), {
+						statusCode: response.statusCode,
+						code: parseErrorCode(errorData),
+					}),
+				);
 			},
-			fail: reject,
+			fail: (_error) =>
+				reject(
+					new ApiError("网络请求失败，请检查网络或服务地址", {
+						code: "network-failed",
+					}),
+				),
 		});
 	});
+}
+
+/** 使用 wx.login 的临时 code 换取平台会话；openid/session_key 不进入小程序。 */
+export function login() {
+	return new Promise((resolve, reject) => {
+		wx.login({
+			success: ({ code }) => {
+				if (!code) {
+					reject(
+						new ApiError("微信登录未返回临时凭证", {
+							code: "wechat-code-missing",
+						}),
+					);
+					return;
+				}
+				request({
+					url: "/api/v1/auth/wechat",
+					method: "POST",
+					data: { code },
+					authenticated: false,
+				})
+					.then((payload) => {
+						const accessToken = payload?.data?.accessToken;
+						if (typeof accessToken !== "string" || !accessToken) {
+							reject(
+								new ApiError("登录响应缺少平台会话", {
+									code: "session-missing",
+								}),
+							);
+							return;
+						}
+						setAccessToken(accessToken);
+						resolve(payload);
+					})
+					.catch(reject);
+			},
+			fail: () =>
+				reject(new ApiError("微信登录失败", { code: "wechat-login-failed" })),
+		});
+	});
+}
+
+/**
+ * 需要会话的请求只在 401 时重新登录一次，避免失效 token 造成无限重试。
+ * 业务响应仍由服务端状态和权限决定，小程序不自行推导支付成功。
+ * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: WechatMiniprogram.IAnyObject}} options
+ * @returns {Promise<any>}
+ */
+export async function requestWithSession(options) {
+	const { accessToken } = getAppConfig();
+	if (!accessToken) await login();
+
+	try {
+		return await request({ ...options, authenticated: true });
+	} catch (error) {
+		if (!(error instanceof ApiError) || error.statusCode !== 401) throw error;
+		setAccessToken("");
+		await login();
+		return request({ ...options, authenticated: true });
+	}
 }

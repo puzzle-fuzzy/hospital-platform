@@ -13,12 +13,13 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 5B-4：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
+当前仓库进入 Phase 6A：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
 的 provider 审计、微信身份 adapter 之上，已完成微信支付 APIv3 的请求签名、响应验签、
 JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界，并开始固化医保 6201/6202/6203/6301/6401
 的路由、金额和退款 contract。支付和医保 adapter 尚未接入默认组合根，因此不会产生真实
-支付副作用；医保 crypto 已有严格 port 但尚无真实实现，HIS provider 继续 fail-closed，
-不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
+支付副作用；医保 crypto 已有严格 port 但尚无真实实现，HIS provider 继续 fail-closed。
+原生小程序首页已经完成健康检查、微信登录、会话恢复和服务端归属患者列表切片，真实
+微信开发者工具/真机验收仍未完成，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
 
 ```text
 apps/

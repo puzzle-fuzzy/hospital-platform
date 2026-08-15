@@ -81,8 +81,16 @@ contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支
 请求签名、平台响应验签、JSAPI 下单、查单和通知解密 adapter。Phase 5B-3 已开始固化
 医保 6201/6202/6203/6301/6401 的专用路由、整数分金额守恒、订单关联和退款边界，
 但 SM2/SM3/SM4 crypto adapter 只有严格 port 和 fail-closed 默认实现，仍等待 golden
-vectors。支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY` 也默认关闭，
-医保和 HIS handler 尚未接入；因此当前不会产生真实支付副作用。
+vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会话恢复和服务端归属患者
+列表接入现有 API contract。支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY`
+也默认关闭，医保和 HIS handler 尚未接入；因此当前不会产生真实支付副作用。
+
+原生小程序的功能边界：
+
+- `wx.login()` 只把临时 code 发给 `/api/v1/auth/wechat`，小程序不接触 openid、session_key 或 AppSecret；
+- access token 只用于 Hospital API，会话失效时最多重新登录一次，避免无限重试；
+- 患者列表的 owner 由服务端会话解析，小程序不提交 ownerUserId，也不接受 provider 原始身份字段；
+- 当前首页只证明代码路径和 API contract 可用，不证明真实微信账号、HTTPS 域名、开发者工具或真机网络已验收。
 
 微信支付 adapter 的安全边界如下：
 

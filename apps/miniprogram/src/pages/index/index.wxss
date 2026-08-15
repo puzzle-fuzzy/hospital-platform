@@ -1,23 +1,21 @@
 .page {
-	padding: 48rpx 32rpx;
+	padding: 40rpx 32rpx 64rpx;
 }
 
 .card {
 	background: #ffffff;
-	border-radius: 24rpx;
-	padding: 40rpx;
-	box-shadow: 0 12rpx 32rpx rgba(15, 23, 42, 0.06);
+	border: 1rpx solid #e5e7eb;
+	border-radius: 16rpx;
+	padding: 32rpx;
+	margin-bottom: 24rpx;
 }
 
-.eyebrow,
-.title,
-.status,
-.service {
+.eyebrow, .title, .line, .error, .empty, .patient-row {
 	display: block;
 }
 
 .eyebrow {
-	color: #2563eb;
+	color: #6b7280;
 	font-size: 22rpx;
 	letter-spacing: 2rpx;
 }
@@ -28,9 +26,86 @@
 	font-weight: 600;
 }
 
-.status,
-.service {
-	margin-top: 24rpx;
+.line {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 20rpx;
 	color: #64748b;
 	font-size: 28rpx;
+}
+
+.label, .section-hint, .patient-meta, .patient-source {
+	color: #9ca3af;
+}
+
+button {
+	margin-top: 28rpx;
+}
+
+.primary {
+	background: #111827;
+	color: #ffffff;
+}
+
+.secondary {
+	background: #f3f4f6;
+	color: #374151;
+}
+
+.error {
+	margin-top: 24rpx;
+	color: #b91c1c;
+	font-size: 26rpx;
+}
+
+.patient-card {
+	padding-top: 28rpx;
+}
+
+.section-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.section-title {
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.section-hint, .patient-source {
+	font-size: 22rpx;
+}
+
+.empty {
+	padding: 44rpx 0 20rpx;
+	color: #9ca3af;
+	font-size: 26rpx;
+	text-align: center;
+}
+
+.patient-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 24rpx 0;
+	border-bottom: 1rpx solid #f3f4f6;
+}
+
+.patient-row:last-child {
+	border-bottom: 0;
+}
+
+.patient-name, .patient-meta {
+	display: block;
+}
+
+.patient-name {
+	font-size: 30rpx;
+	font-weight: 500;
+}
+
+.patient-meta {
+	margin-top: 8rpx;
+	font-size: 24rpx;
 }

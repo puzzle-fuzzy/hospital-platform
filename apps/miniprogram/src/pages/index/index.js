@@ -1,21 +1,70 @@
-import { request } from "../../services/api-client";
+import {
+	ApiError,
+	login,
+	request,
+	requestWithSession,
+} from "../../services/api-client";
 
 Page({
 	data: {
 		status: "加载中",
 		service: "",
+		sessionStatus: "未登录",
+		patients: [],
+		hasPatients: false,
+		loading: false,
+		error: "",
 	},
 
 	onLoad() {
+		this.checkHealth();
+		if (getApp().globalData.accessToken) {
+			this.setData({ sessionStatus: "已恢复会话" });
+			this.loadPatients();
+		}
+	},
+
+	checkHealth() {
 		request({ url: "/health/live" })
-			.then((payload) => {
+			.then((payload) =>
 				this.setData({
 					status: payload.data.status,
 					service: payload.data.service,
-				});
+					error: "",
+				}),
+			)
+			.catch((error) => this.showError(error, "服务不可用"));
+	},
+
+	onLogin() {
+		this.setData({ loading: true, error: "" });
+		login()
+			.then(() => {
+				getApp().globalData.sessionStatus = "signed_in";
+				this.setData({ sessionStatus: "已登录" });
+				return this.loadPatients();
 			})
-			.catch(() => {
-				this.setData({ status: "服务不可用" });
-			});
+			.catch((error) => this.showError(error, "登录失败"))
+			.finally(() => this.setData({ loading: false }));
+	},
+
+	loadPatients() {
+		return requestWithSession({ url: "/api/v1/patients" })
+			.then((payload) => {
+				const patients = payload.data.items || [];
+				this.setData({ patients, hasPatients: patients.length > 0, error: "" });
+			})
+			.catch((error) => this.showError(error, "就诊人加载失败"));
+	},
+
+	onRefresh() {
+		this.checkHealth();
+		if (getApp().globalData.accessToken) this.loadPatients();
+	},
+
+	/** @param {unknown} error @param {string} fallback */
+	showError(error, fallback) {
+		const message = error instanceof ApiError ? error.message : fallback;
+		this.setData({ error: message });
 	},
 });
