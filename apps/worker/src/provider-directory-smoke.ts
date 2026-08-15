@@ -1,0 +1,423 @@
+import {
+	type AppLogger,
+	createLogger,
+	createNoopLogger,
+} from "@hospital/observability";
+
+/** 只读 smoke 支持的能力；这里不包含预约写入、取消、锁号或支付。 */
+export type ProviderSmokeCapability =
+	| "patients"
+	| "appointment-directory"
+	| "appointment-records"
+	| "reports";
+
+export type ProviderSmokeFetcher = (
+	input: RequestInfo | URL,
+	init?: RequestInit,
+) => Promise<Response>;
+
+export type ProviderSmokeCheck = {
+	name: string;
+	status: "passed" | "failed";
+	itemCount?: number;
+	errorType?: string;
+	traceId?: string;
+};
+
+export type ProviderSmokeResult = {
+	passed: boolean;
+	checks: readonly ProviderSmokeCheck[];
+};
+
+export type ProviderSmokeOptions = {
+	baseUrl: string;
+	accessToken: string;
+	patientId?: string;
+	capabilities: readonly ProviderSmokeCapability[];
+	allowLocalHttp?: boolean;
+	fetcher?: ProviderSmokeFetcher;
+	logger?: AppLogger;
+	traceIdFactory?: () => string;
+	date?: Date;
+};
+
+const DEFAULT_CAPABILITIES: readonly ProviderSmokeCapability[] = [
+	"patients",
+	"appointment-directory",
+	"appointment-records",
+	"reports",
+];
+
+/** smoke 不是后台重试器；单次平台请求超时后应把证据标记为失败并退出。 */
+const SMOKE_REQUEST_TIMEOUT_MS = 15_000;
+
+/** 响应安全审计的禁止字段；匹配大小写不敏感并忽略下划线/短横线。 */
+const FORBIDDEN_RESPONSE_KEYS = new Set([
+	"providerpatientid",
+	"providerreportid",
+	"appointmentinfoid",
+	"reportid",
+	"ecgreportid",
+	"patid",
+	"patname",
+	"patcardno",
+	"idcardno",
+	"telephone",
+	"registrationfee",
+	"registfree",
+	"ispay",
+	"payorderno",
+	"hisregisterid",
+	"registerid",
+	"pdfurl",
+	"pdfurllist",
+	"raw",
+]);
+
+class ProviderSmokeConfigurationError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "ProviderSmokeConfigurationError";
+	}
+}
+
+class ProviderSmokeRequestError extends Error {
+	readonly statusCode: number;
+
+	constructor(message: string, statusCode: number) {
+		super(message);
+		this.name = "ProviderSmokeRequestError";
+		this.statusCode = statusCode;
+	}
+}
+
+function normalizedResponseKey(key: string): string {
+	return key.toLowerCase().replaceAll("_", "").replaceAll("-", "");
+}
+
+function forbiddenResponseKey(
+	value: unknown,
+	path = "response",
+): string | undefined {
+	if (Array.isArray(value)) {
+		for (const [index, item] of value.entries()) {
+			const result = forbiddenResponseKey(item, `${path}[${index}]`);
+			if (result) return result;
+		}
+		return undefined;
+	}
+	if (typeof value !== "object" || value === null) return undefined;
+
+	for (const [key, child] of Object.entries(value)) {
+		if (FORBIDDEN_RESPONSE_KEYS.has(normalizedResponseKey(key))) {
+			return `${path}.${key}`;
+		}
+		const result = forbiddenResponseKey(child, `${path}.${key}`);
+		if (result) return result;
+	}
+	return undefined;
+}
+
+function requireBaseUrl(value: string, allowLocalHttp: boolean): string {
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new ProviderSmokeConfigurationError(
+			"HOSPITAL_API_BASE_URL is invalid",
+		);
+	}
+	if (url.username || url.password || url.search || url.hash) {
+		throw new ProviderSmokeConfigurationError(
+			"HOSPITAL_API_BASE_URL must not contain credentials or query data",
+		);
+	}
+	const isLocalHttp =
+		url.protocol === "http:" &&
+		(url.hostname === "localhost" || url.hostname === "127.0.0.1");
+	if (url.protocol !== "https:" && !(allowLocalHttp && isLocalHttp)) {
+		throw new ProviderSmokeConfigurationError(
+			"HOSPITAL_API_BASE_URL must use HTTPS; local HTTP requires explicit opt-in",
+		);
+	}
+	return url.toString().replace(/\/$/, "");
+}
+
+function dateOnly(value: Date): string {
+	return value.toISOString().slice(0, 10);
+}
+
+function addDays(value: Date, days: number): Date {
+	const result = new Date(value);
+	result.setUTCDate(result.getUTCDate() + days);
+	return result;
+}
+
+function requirePatientId(patientId: string | undefined): string {
+	if (!patientId?.trim()) {
+		throw new ProviderSmokeConfigurationError(
+			"HOSPITAL_PATIENT_ID is required for patient-scoped smoke checks",
+		);
+	}
+	return patientId.trim();
+}
+
+function responseItemCount(data: unknown): number | undefined {
+	if (typeof data !== "object" || data === null || Array.isArray(data)) {
+		return undefined;
+	}
+	const items = (data as { items?: unknown }).items;
+	return Array.isArray(items) ? items.length : undefined;
+}
+
+function requireSafeData(data: unknown): number | undefined {
+	const forbiddenPath = forbiddenResponseKey(data);
+	if (forbiddenPath) {
+		throw new ProviderSmokeRequestError(
+			`Response contains a forbidden field at ${forbiddenPath}`,
+			200,
+		);
+	}
+	return responseItemCount(data);
+}
+
+type SmokeObservation = {
+	traceId: string;
+	itemCount?: number;
+};
+
+/**
+ * 只读 API smoke runner。
+ *
+ * 它不构造 provider 请求、不接收 provider 患者号，也不执行任何写操作；
+ * 通过平台 API 验证真实部署的会话、owner mapping、provider adapter 和公开 contract。
+ */
+export async function runProviderDirectorySmoke(
+	options: ProviderSmokeOptions,
+): Promise<ProviderSmokeResult> {
+	if (!options.accessToken.trim()) {
+		throw new ProviderSmokeConfigurationError(
+			"HOSPITAL_ACCESS_TOKEN is required",
+		);
+	}
+	const baseUrl = requireBaseUrl(
+		options.baseUrl.trim(),
+		options.allowLocalHttp === true,
+	);
+	const fetcher = options.fetcher ?? fetch;
+	const logger = options.logger ?? createNoopLogger();
+	const traceIdFactory = options.traceIdFactory ?? (() => crypto.randomUUID());
+	const now = options.date ?? new Date();
+	const startDate = dateOnly(addDays(now, -7));
+	const scheduleEndDate = dateOnly(addDays(now, 7));
+	const recordStartDate = dateOnly(addDays(now, -90));
+	const reportStartDate = dateOnly(addDays(now, -30));
+	const today = dateOnly(now);
+	const patientId = options.patientId?.trim();
+	const capabilities = options.capabilities.length
+		? options.capabilities
+		: DEFAULT_CAPABILITIES;
+	const checks: ProviderSmokeCheck[] = [];
+
+	async function getJson(
+		path: string,
+	): Promise<{ data: unknown; traceId: string }> {
+		const traceId = traceIdFactory();
+		const response = await fetcher(`${baseUrl}${path}`, {
+			method: "GET",
+			signal: AbortSignal.timeout(SMOKE_REQUEST_TIMEOUT_MS),
+			headers: {
+				accept: "application/json",
+				Authorization: `Bearer ${options.accessToken}`,
+				"x-request-id": traceId,
+			},
+		});
+		let body: unknown;
+		try {
+			body = await response.json();
+		} catch {
+			throw new ProviderSmokeRequestError(
+				"Hospital API returned invalid JSON",
+				response.status,
+			);
+		}
+		if (!response.ok) {
+			throw new ProviderSmokeRequestError(
+				`Hospital API returned HTTP ${response.status}`,
+				response.status,
+			);
+		}
+		if (
+			typeof body !== "object" ||
+			body === null ||
+			(body as { success?: unknown }).success !== true
+		) {
+			throw new ProviderSmokeRequestError(
+				"Hospital API returned an unsuccessful response",
+				response.status,
+			);
+		}
+		const data = (body as { data?: unknown }).data;
+		if (data === undefined) {
+			throw new ProviderSmokeRequestError(
+				"Hospital API response did not contain data",
+				response.status,
+			);
+		}
+		return { data, traceId };
+	}
+
+	async function check(
+		name: string,
+		operation: () => Promise<SmokeObservation>,
+	): Promise<void> {
+		try {
+			const observation = await operation();
+			checks.push({
+				name,
+				status: "passed",
+				traceId: observation.traceId,
+				...(observation.itemCount === undefined
+					? {}
+					: { itemCount: observation.itemCount }),
+			});
+			logger.info(
+				{
+					event: "provider.smoke.capability.passed",
+					capability: name,
+					traceId: observation.traceId,
+					...(observation.itemCount === undefined
+						? {}
+						: { itemCount: observation.itemCount }),
+				},
+				"Provider directory smoke capability passed",
+			);
+		} catch (error) {
+			const errorType = error instanceof Error ? error.name : "UnknownError";
+			checks.push({ name, status: "failed", errorType });
+			logger.error(
+				{
+					event: "provider.smoke.capability.failed",
+					capability: name,
+					errorType,
+				},
+				"Provider directory smoke capability failed",
+			);
+		}
+	}
+
+	async function readSafe(path: string): Promise<SmokeObservation> {
+		const result = await getJson(path);
+		const itemCount = requireSafeData(result.data);
+		return {
+			traceId: result.traceId,
+			...(itemCount === undefined ? {} : { itemCount }),
+		};
+	}
+
+	await check("health-live", () => readSafe("/health/live"));
+	await check("health-ready", () => readSafe("/health/ready"));
+
+	for (const capability of capabilities) {
+		if (capability === "patients") {
+			await check("patients", () => readSafe("/api/v1/patients"));
+			continue;
+		}
+
+		if (capability === "appointment-directory") {
+			await check("appointment-departments", () =>
+				readSafe("/api/v1/appointments/departments"),
+			);
+			await check("appointment-schedules", async () => {
+				const query = new URLSearchParams({
+					startDate,
+					endDate: scheduleEndDate,
+				});
+				return readSafe(`/api/v1/appointments/schedules?${query}`);
+			});
+			continue;
+		}
+
+		const scopedPatientId = requirePatientId(patientId);
+		if (capability === "appointment-records") {
+			await check("appointment-records", async () => {
+				const query = new URLSearchParams({
+					patientId: scopedPatientId,
+					startDate: recordStartDate,
+					endDate: today,
+				});
+				return readSafe(`/api/v1/appointments/records?${query}`);
+			});
+			continue;
+		}
+
+		await check("reports", async () => {
+			const query = new URLSearchParams({
+				patientId: scopedPatientId,
+				startDate: reportStartDate,
+				endDate: today,
+			});
+			return readSafe(`/api/v1/reports?${query}`);
+		});
+	}
+
+	const passed = checks.every((check) => check.status === "passed");
+	logger[passed ? "info" : "error"](
+		{
+			event: passed ? "provider.smoke.completed" : "provider.smoke.failed",
+			checks,
+		},
+		passed
+			? "Provider directory smoke completed"
+			: "Provider directory smoke failed",
+	);
+	return { passed, checks };
+}
+
+function parseCapabilities(
+	value: string | undefined,
+): ProviderSmokeCapability[] {
+	if (!value?.trim()) return [...DEFAULT_CAPABILITIES];
+	const capabilities = value.split(",").map((item) => item.trim());
+	const allowed = new Set<ProviderSmokeCapability>(DEFAULT_CAPABILITIES);
+	if (
+		capabilities.some(
+			(capability) => !allowed.has(capability as ProviderSmokeCapability),
+		)
+	) {
+		throw new ProviderSmokeConfigurationError(
+			"HOSPITAL_SMOKE_CAPABILITIES contains an unsupported capability",
+		);
+	}
+	return capabilities as ProviderSmokeCapability[];
+}
+
+if (import.meta.main) {
+	const logger = createLogger({
+		service: "hospital-provider-directory-smoke",
+		environment: Bun.env.NODE_ENV ?? "development",
+		level: (Bun.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") ?? "info",
+	});
+	try {
+		const result = await runProviderDirectorySmoke({
+			baseUrl: Bun.env.HOSPITAL_API_BASE_URL ?? "",
+			accessToken: Bun.env.HOSPITAL_ACCESS_TOKEN ?? "",
+			capabilities: parseCapabilities(Bun.env.HOSPITAL_SMOKE_CAPABILITIES),
+			allowLocalHttp: Bun.env.HOSPITAL_ALLOW_LOCAL_HTTP === "true",
+			logger,
+			...(Bun.env.HOSPITAL_PATIENT_ID
+				? { patientId: Bun.env.HOSPITAL_PATIENT_ID }
+				: {}),
+		});
+		if (!result.passed) process.exitCode = 1;
+	} catch (error) {
+		logger.error(
+			{
+				event: "provider.smoke.configuration.failed",
+				errorType: error instanceof Error ? error.name : "UnknownError",
+			},
+			"Provider directory smoke could not start",
+		);
+		process.exitCode = 1;
+	}
+}

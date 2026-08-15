@@ -3,33 +3,40 @@ import { createLogger } from "@hospital/observability";
 import {
 	createWorkerRuntime,
 	runWorkerLoop,
+	type WorkerRuntimeStatus,
 	workerConfigurationMissingFields,
 	workerConfigurationStatus,
-	type WorkerRuntimeStatus,
 } from "./runtime";
 
 export type WorkerStatus = WorkerRuntimeStatus;
 
-export { OutboxWorker } from "./outbox-worker";
 export type { OutboxWorkerResult } from "./outbox-worker";
+export { OutboxWorker } from "./outbox-worker";
 export {
 	PaymentReconciliationWorker,
 	type PaymentReconciliationWorkerResult,
 } from "./payment-reconciliation-worker";
-export { createWechatPaymentNotificationHandler } from "./wechat-payment-notification-handler";
 export {
-	runWorkerPreflight,
 	type PreflightCheck,
+	runWorkerPreflight,
 	type WorkerPreflightResult,
 } from "./preflight";
 export {
+	type ProviderSmokeCapability,
+	type ProviderSmokeCheck,
+	type ProviderSmokeOptions,
+	type ProviderSmokeResult,
+	runProviderDirectorySmoke,
+} from "./provider-directory-smoke";
+export {
 	createWorkerRuntime,
 	runWorkerLoop,
-	workerConfigurationMissingFields,
-	workerConfigurationStatus,
 	type WorkerRuntime,
 	type WorkerRuntimeStatus,
+	workerConfigurationMissingFields,
+	workerConfigurationStatus,
 } from "./runtime";
+export { createWechatPaymentNotificationHandler } from "./wechat-payment-notification-handler";
 
 export function workerStatus(): WorkerStatus {
 	return workerConfigurationStatus(config);

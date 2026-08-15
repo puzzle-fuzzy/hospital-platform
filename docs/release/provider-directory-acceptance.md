@@ -31,9 +31,31 @@ pnpm check
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
 - 原生小程序 acceptance test 证明只调用 Hospital API，不包含众阳 provider URL；
 - Pino 日志测试证明 `providerPatientId` 和 `provider_patient_id` 会被脱敏；
-- 报告测试不把患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
+- 报告测试不把 provider 报告号、患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
 
-## B. 运行层证据
+## B. API 层只读 smoke
+
+真实环境验收使用平台 API smoke，不允许验收脚本绕过 API 直接请求众阳。脚本只执行
+`GET`，默认要求 HTTPS，并检查平台响应不能包含 provider 患者号、预约号、报告号、费用、支付或原始字段：
+
+```powershell
+$env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
+$env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
+$env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
+$env:HOSPITAL_SMOKE_CAPABILITIES = "patients,appointment-directory,appointment-records,reports"
+pnpm provider:smoke
+```
+
+`HOSPITAL_ACCESS_TOKEN` 和 `HOSPITAL_PATIENT_ID` 只从受控环境注入，命令输出不会打印其值。
+本地 HTTP 仅可在明确设置 `HOSPITAL_ALLOW_LOCAL_HTTP=true` 后用于本机调试；公网 smoke
+仍必须使用 HTTPS。工具输出使用 Pino 结构化事件：
+
+```text
+provider.smoke.capability.passed / failed
+provider.smoke.completed / failed
+```
+
+## C. 运行层证据
 
 先在部署密钥系统或受控 staging 环境注入配置，不把 token 写入 shell 历史、仓库或日志：
 
@@ -64,7 +86,7 @@ GET /health/ready -> 200 且 data.status=ready：证明基础设施和 schema ga
 
 HTTPS 是硬条件：三个众阳 gate、微信身份和微信支付的自定义 provider base URL 都必须是 HTTPS；HTTP 不能通过配置状态检查。真实 provider 请求前，不得为了“先试一下”关闭 gate 或把 URL 写入小程序配置。
 
-## C. provider 只读证据
+## D. provider 只读证据
 
 使用 provider 书面授权的 staging/测试身份和测试患者，按以下顺序留证：
 
@@ -88,7 +110,7 @@ report.directory.requested / synced / failed
 
 这些日志只用于诊断，不替代数据库患者映射、订单状态或 provider 侧证据。
 
-## D. 原生小程序与设备证据
+## E. 原生小程序与设备证据
 
 在微信开发者工具和真机分别执行：
 

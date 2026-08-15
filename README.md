@@ -64,6 +64,17 @@ pnpm infra:down
 `runtime:preflight` 是发布前只读检查，验证运行配置、基础设施连接和 migration manifest；它不会
 执行 migration 或发起真实 provider 请求。
 
+真实 provider 只读验收通过平台 API smoke 执行：
+
+```powershell
+$env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
+$env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
+$env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
+pnpm provider:smoke
+```
+
+smoke 只执行 GET、默认要求 HTTPS，并使用 Pino 输出结构化验收日志。
+
 支付发布验收按代码、运行、provider 和设备四层区分，执行前请阅读
 [`docs/release/payment-acceptance.md`](docs/release/payment-acceptance.md)；本地单测和
 `runtime:preflight` 不等于真实微信支付已上线。

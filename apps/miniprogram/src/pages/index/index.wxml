@@ -69,7 +69,7 @@
 			<text class="section-hint">服务端只读</text>
 		</view>
 		<view wx:if="{{!hasReports}}" class="empty">点击上方按钮读取当前首位就诊人近 30 天报告</view>
-		<view wx:for="{{reports}}" wx:key="reportId" class="appointment-row">
+		<view wx:for="{{reports}}" wx:key="index" class="appointment-row">
 			<view>
 				<text class="patient-name">{{item.title}}</text>
 				<text class="patient-meta">{{item.kind}} · {{item.reportedAt}}</text>

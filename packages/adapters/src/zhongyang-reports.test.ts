@@ -19,7 +19,6 @@ test("众阳报告目录按来源查询并映射为安全摘要", async () => {
 					data: url.includes("lis-reports")
 						? [
 								{
-									reportId: "lis-001",
 									testList: "血常规",
 									reportTime: "2026-08-15 10:00:00",
 									criticalFlag: "1",
@@ -53,7 +52,6 @@ test("众阳报告目录按来源查询并映射为安全摘要", async () => {
 	expect(result).toEqual({
 		reports: [
 			{
-				reportId: "laboratory:lis-001",
 				kind: "laboratory",
 				title: "血常规",
 				reportedAt: "2026-08-15 10:00:00",
@@ -80,7 +78,6 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 			const data = url.includes("lis-reports")
 				? [
 						{
-							reportId: "lis-001",
 							reportTypeName: "检验",
 							reportTime: "2026-08-10",
 						},
@@ -88,14 +85,12 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 				: url.includes("pacs")
 					? [
 							{
-								reportId: "pacs-001",
 								modality: "CT",
 								reportAuditTime: "2026-08-11",
 							},
 						]
 					: [
 							{
-								ecgReportId: "ecg-001",
 								diagnosis: "窦性心律",
 								diagnoseTime: "2026-08-12",
 							},

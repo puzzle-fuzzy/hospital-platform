@@ -768,7 +768,6 @@ test("report directory resolves internal patient ownership before provider looku
 			return {
 				reports: [
 					{
-						reportId: "laboratory:lis-001",
 						kind: "laboratory",
 						title: "血常规",
 						reportedAt: "2026-08-15 10:00:00",
@@ -838,7 +837,6 @@ test("report directory resolves internal patient ownership before provider looku
 		data: {
 			items: [
 				{
-					reportId: "laboratory:lis-001",
 					kind: "laboratory",
 					title: "血常规",
 					reportedAt: "2026-08-15 10:00:00",

@@ -144,7 +144,6 @@ export const ReportKindSchema = Type.Union([
 ]);
 
 export const ReportSchema = Type.Object({
-	reportId: Type.String({ minLength: 1, maxLength: 256 }),
 	kind: ReportKindSchema,
 	title: Type.String({ minLength: 1, maxLength: 256 }),
 	reportedAt: Type.String({ minLength: 1, maxLength: 64 }),

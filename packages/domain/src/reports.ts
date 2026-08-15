@@ -5,7 +5,6 @@ export type ReportKind = "laboratory" | "imaging" | "ecg";
 
 /** 报告目录只返回患者端需要的最小摘要，不把 provider 原始报文带出 adapter。 */
 export type ReportSummary = {
-	reportId: string;
 	kind: ReportKind;
 	title: string;
 	reportedAt: string;

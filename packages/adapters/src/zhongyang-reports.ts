@@ -7,7 +7,7 @@ import type {
 	ReportSummary,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
-import { requestJson, type ProviderFetcher } from "./http";
+import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
 const LABORATORY_PATH = "/msun-middle-business-lis/v1/lis-reports-filter";
@@ -120,11 +120,6 @@ function flag(value: unknown): boolean {
 	return typeof value === "string" && value.trim().toLowerCase() === "true";
 }
 
-function publicReportId(kind: ReportKind, providerReportId: string): string {
-	// 详情接口尚未开放；先使用带来源前缀的 opaque reference，避免不同 provider id 碰撞。
-	return `${kind}:${providerReportId}`;
-}
-
 function reportStatus(abnormal: boolean): ReportSummary["status"] {
 	return abnormal ? "abnormal" : "available";
 }
@@ -134,12 +129,6 @@ function mapLaboratory(
 	operation: string,
 	requestId: string,
 ): ReportSummary {
-	const reportId = requiredText(
-		value.reportId,
-		"reportId",
-		operation,
-		requestId,
-	);
 	const title =
 		optionalText(value.testList, "testList", operation, requestId) ??
 		optionalText(
@@ -163,7 +152,6 @@ function mapLaboratory(
 		64,
 	);
 	return {
-		reportId: publicReportId("laboratory", reportId),
 		kind: "laboratory",
 		title,
 		reportedAt,
@@ -178,19 +166,12 @@ function mapImaging(
 	operation: string,
 	requestId: string,
 ): ReportSummary {
-	const reportId = requiredText(
-		value.reportId,
-		"reportId",
-		operation,
-		requestId,
-	);
 	const title =
 		optionalText(value.reportDocName, "reportDocName", operation, requestId) ??
 		optionalText(value.stuBodypart, "stuBodypart", operation, requestId) ??
 		optionalText(value.modality, "modality", operation, requestId) ??
 		"影像检查报告";
 	return {
-		reportId: publicReportId("imaging", reportId),
 		kind: "imaging",
 		title,
 		reportedAt: requiredText(
@@ -210,18 +191,11 @@ function mapEcg(
 	operation: string,
 	requestId: string,
 ): ReportSummary {
-	const reportId = requiredText(
-		value.ecgReportId,
-		"ecgReportId",
-		operation,
-		requestId,
-	);
 	const title =
 		optionalText(value.diagnosis, "diagnosis", operation, requestId) ??
 		optionalText(value.reportDocName, "reportDocName", operation, requestId) ??
 		"心电报告";
 	return {
-		reportId: publicReportId("ecg", reportId),
 		kind: "ecg",
 		title,
 		reportedAt: requiredText(
@@ -328,7 +302,8 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 			.sort(
 				(left, right) =>
 					right.reportedAt.localeCompare(left.reportedAt) ||
-					left.reportId.localeCompare(right.reportId),
+					left.kind.localeCompare(right.kind) ||
+					left.title.localeCompare(right.title),
 			);
 		return {
 			reports,
