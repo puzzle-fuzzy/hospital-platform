@@ -18,6 +18,11 @@ export {
 } from "./payment-reconciliation-worker";
 export { createWechatPaymentNotificationHandler } from "./wechat-payment-notification-handler";
 export {
+	runWorkerPreflight,
+	type PreflightCheck,
+	type WorkerPreflightResult,
+} from "./preflight";
+export {
 	createWorkerRuntime,
 	runWorkerLoop,
 	workerConfigurationMissingFields,

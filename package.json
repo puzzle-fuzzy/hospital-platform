@@ -19,6 +19,7 @@
 		"infra:down": "docker compose -f infra/docker-compose.yml stop",
 		"infra:up": "docker compose -f infra/docker-compose.yml up -d",
 		"lint": "biome lint .",
+		"runtime:preflight": "pnpm --filter @hospital/worker preflight",
 		"test": "turbo run test",
 		"typecheck": "turbo run typecheck"
 	},

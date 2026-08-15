@@ -16,7 +16,12 @@ export {
 	type SecretValueCipher,
 } from "./prepay-cipher";
 export { createPersistenceRuntime, type PersistenceRuntime } from "./runtime";
-export { runCoreMigration } from "./migrate";
+export {
+	PERSISTENCE_MIGRATIONS,
+	readCoreSchemaState,
+	runCoreMigration,
+	type CoreSchemaState,
+} from "./migrate";
 export {
 	createMySqlRepositories,
 	type MySqlRepositories,

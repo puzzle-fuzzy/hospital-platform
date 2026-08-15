@@ -61,6 +61,9 @@ pnpm infra:down
 `db:integration` 只允许 localhost，且会清理随机前缀的本地验收数据；它不替代 staging、
 微信、医保、HIS、支付回调或真实设备验收。
 
+`runtime:preflight` 是发布前只读检查，验证运行配置、基础设施连接和 migration manifest；它不会
+执行 migration 或发起真实 provider 请求。
+
 API 默认运行在 `http://localhost:3000`：
 
 - `GET /health/live`：存活检查

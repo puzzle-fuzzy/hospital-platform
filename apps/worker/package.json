@@ -6,6 +6,7 @@
 	"scripts": {
 		"build": "bun build src/index.ts --outdir dist --target bun",
 		"dev": "bun --watch run src/index.ts",
+		"preflight": "bun run src/preflight.ts",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},

@@ -1,7 +1,11 @@
 import { createLogger } from "@hospital/observability";
-import { createPool, type PoolConnection } from "mysql2/promise";
+import {
+	createPool,
+	type PoolConnection,
+	type RowDataPacket,
+} from "mysql2/promise";
 
-const MIGRATIONS = [
+export const PERSISTENCE_MIGRATIONS = [
 	{ id: "0001_core", file: "../migrations/0001_core.sql" },
 	{
 		id: "0002_payment_prepay_attempts",
@@ -21,11 +25,65 @@ const MIGRATIONS = [
 	},
 ] as const;
 
+export type CoreSchemaState = {
+	status: "ready" | "incomplete";
+	expectedMigrationId: string;
+	appliedMigrationIds: string[];
+	missingMigrationIds: string[];
+};
+
 const logger = createLogger({
 	service: "hospital-persistence-migrate",
 	environment: Bun.env.NODE_ENV ?? "development",
 	level: (Bun.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") ?? "info",
 });
+
+/**
+ * 只读检查目标库是否已经包含仓库声明的全部 migration。
+ *
+ * 它不执行迁移、不写入数据库，也不把 schema gate 自动改成 true；
+ * 发布 preflight 可以据此区分“连接可用”和“目标 schema 已验收”。
+ */
+export async function readCoreSchemaState(
+	databaseUrl = Bun.env.DATABASE_URL,
+): Promise<CoreSchemaState> {
+	if (!databaseUrl) {
+		throw new Error("DATABASE_URL is required to inspect persistence schema");
+	}
+
+	const pool = createPool({
+		uri: databaseUrl,
+		connectionLimit: 1,
+		connectTimeout: 3_000,
+		dateStrings: true,
+		waitForConnections: true,
+	});
+	try {
+		const placeholders = PERSISTENCE_MIGRATIONS.map(() => "?").join(", ");
+		const [rows] = await pool.execute<
+			(RowDataPacket & { migration_id: string })[]
+		>(
+			"SELECT migration_id FROM hp_schema_migrations WHERE migration_id IN (" +
+				placeholders +
+				")",
+			PERSISTENCE_MIGRATIONS.map(({ id }) => id),
+		);
+		const applied = new Set(rows.map((row) => row.migration_id));
+		const expectedMigrationIds = PERSISTENCE_MIGRATIONS.map(({ id }) => id);
+		const missingMigrationIds = expectedMigrationIds.filter(
+			(id) => !applied.has(id),
+		);
+		return {
+			status: missingMigrationIds.length === 0 ? "ready" : "incomplete",
+			expectedMigrationId:
+				expectedMigrationIds.at(-1) ?? "no-migrations-configured",
+			appliedMigrationIds: expectedMigrationIds.filter((id) => applied.has(id)),
+			missingMigrationIds,
+		};
+	} finally {
+		await pool.end();
+	}
+}
 
 /**
  * 显式执行目标库 migration；API 启动时不会隐式改表。
@@ -62,7 +120,7 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 			) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
 		`);
 		let appliedAny = false;
-		for (const migration of MIGRATIONS) {
+		for (const migration of PERSISTENCE_MIGRATIONS) {
 			const [appliedRows] = await connection.execute(
 				"SELECT migration_id FROM hp_schema_migrations WHERE migration_id = ? LIMIT 1",
 				[migration.id],
@@ -103,7 +161,7 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 			);
 		}
 
-		const latestMigration = MIGRATIONS.at(-1);
+		const latestMigration = PERSISTENCE_MIGRATIONS.at(-1);
 		if (!latestMigration)
 			throw new Error("No persistence migrations configured");
 		return {

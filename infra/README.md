@@ -16,6 +16,16 @@ pnpm db:integration
 pnpm infra:down
 ```
 
+发布前可以运行只读 preflight；它检查运行配置、MySQL/Redis 探针和全部目标
+migration，不执行 migration，也不会调用微信支付或其他 provider：
+
+```powershell
+pnpm runtime:preflight
+```
+
+preflight 返回非零并不代表代码故障：在真实商户配置、schema staging 验收和公网
+HTTPS 回调尚未完成时，`PERSISTENCE_SCHEMA_READY` 或 provider 配置检查应当保持失败。
+
 PowerShell 中运行 migration 和 integration 时，需要为当前进程提供本地连接串：
 
 ```powershell
