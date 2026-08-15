@@ -148,6 +148,9 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(home).not.toContain("预约下单功能仍在迁移中");
 	expect(directory).toContain("loadAppointmentDepartments");
 	expect(directory).toContain("loadDepartmentSchedules");
+	expect(directory).toContain("scheduleGuard");
+	expect(directory).toContain("directoryGuard");
+	expect(directory).toContain("旧科室的排班覆盖当前选择");
 	expect(records).toContain("loadAppointmentRecords");
 	expect(records).toContain("getSelectedPatientId");
 	expect(directoryTemplate).toContain("未来 7 天");
@@ -459,8 +462,17 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 		"pages/outpatient-payment/outpatient-payment.ts",
 	);
 	const selection = await source("pages/patient-select/patient-select.ts");
+	const appointmentDirectory = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
 
-	for (const page of [records, reports, payments, selection]) {
+	for (const page of [
+		records,
+		reports,
+		payments,
+		selection,
+		appointmentDirectory,
+	]) {
 		expect(page).toContain("createLatestRequestGuard");
 		expect(page).toContain("isCurrent");
 	}

@@ -43,6 +43,7 @@
 
 - 患者目录重新同步后，确认每个患者都有正确的 `his-patient` 映射；没有映射时预约历史、报告、门诊费用必须在 provider 请求前失败。
 - 首页、患者选择页、预约历史、报告目录、门诊费用切换患者后，确认不会沿用上一个患者的异步响应或列表。
+- 预约目录切换左侧科室或下拉刷新时，确认旧科室排班不会覆盖当前科室，旧请求也不会恢复旧的日期分组和号源列表。
 - 预约目录、预约历史、报告、门诊费用分别完成 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；仍需完成 0013 生产 schema probe、真实失效/恢复验收，不能直接删除 `hp_patients`。

@@ -3,6 +3,7 @@ import {
 	loadAppointmentDepartments,
 	loadAppointmentSchedules,
 } from "../../services/dashboard-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	AppointmentDirectoryPageData,
 	AppointmentSchedule,
@@ -23,6 +24,14 @@ type AppointmentDirectoryPageMethods = {
 };
 
 const WEEKDAY_LABELS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+/**
+ * 预约目录有两层异步读取：左栏科室和右栏排班。
+ * 用户快速切换科室或下拉刷新时，旧 provider 响应可能晚于新响应到达；
+ * 两层分别设守卫，防止旧科室的排班覆盖当前选择，也防止旧刷新恢复旧状态。
+ */
+const directoryGuard = createLatestRequestGuard();
+const scheduleGuard = createLatestRequestGuard();
 
 /** 把服务端日期转换成旧端右栏可快速扫描的短标签。 */
 function dateLabel(value: string): string {
@@ -76,9 +85,13 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 
 	/** 首屏只读取科室，再按左栏当前选择读取排班。 */
 	loadDirectory(): Promise<void> {
+		const directoryToken = directoryGuard.begin();
+		// 新一轮科室目录会使上一轮右栏排班失效，避免刷新完成后旧排班回写。
+		scheduleGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return loadAppointmentDepartments()
 			.then((departments) => {
+				if (!directoryGuard.isCurrent(directoryToken)) return undefined;
 				const selected = departments[0];
 				this.setData({
 					departments,
@@ -96,12 +109,21 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 					? this.loadDepartmentSchedules(selected.departmentId)
 					: undefined;
 			})
-			.catch((error) => this.showError(error, "预约目录加载失败"))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (directoryGuard.isCurrent(directoryToken)) {
+					this.showError(error, "预约目录加载失败");
+				}
+			})
+			.finally(() => {
+				if (directoryGuard.isCurrent(directoryToken)) {
+					this.setData({ loading: false });
+				}
+			});
 	},
 
 	/** 切换左栏科室时只替换右栏数据，保留级联页面的稳定空间。 */
 	loadDepartmentSchedules(departmentId: string): Promise<void> {
+		const scheduleToken = scheduleGuard.begin();
 		const department = this.data.departments.find(
 			(item) => item.departmentId === departmentId,
 		);
@@ -122,6 +144,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 
 		return loadAppointmentSchedules(departmentId)
 			.then((schedules) => {
+				if (!scheduleGuard.isCurrent(scheduleToken)) return;
 				const groups = dateGroups(schedules);
 				const selectedDate = groups[0]?.workDate ?? "";
 				const visibleCount = SCHEDULE_PAGE_SIZE;
@@ -139,8 +162,16 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 					error: "",
 				});
 			})
-			.catch((error) => this.showError(error, "预约排班加载失败"))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (scheduleGuard.isCurrent(scheduleToken)) {
+					this.showError(error, "预约排班加载失败");
+				}
+			})
+			.finally(() => {
+				if (scheduleGuard.isCurrent(scheduleToken)) {
+					this.setData({ loading: false });
+				}
+			});
 	},
 
 	onDepartmentTap(event): void {
