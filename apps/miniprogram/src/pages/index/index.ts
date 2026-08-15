@@ -11,6 +11,7 @@ import {
 	signInPlatformSession,
 } from "../../services/session-service";
 import {
+	clearSelectedPatientId,
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
@@ -524,6 +525,7 @@ Page<IndexPageData, IndexPageMethods>({
 
 	/** 统一接收服务端脱敏读模型；页面不保存 provider 患者号。 */
 	setPatientsFromPayload(patients: Array<Patient>): void {
+		if (patients.length === 0) clearSelectedPatientId();
 		const selectedPatient =
 			patients.find((patient) => patient.id === this.data.selectedPatientId) ||
 			patients[0] ||

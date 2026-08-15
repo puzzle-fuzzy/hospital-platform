@@ -24,7 +24,7 @@ export function setSelectedPatientId(patientId: string): void {
 	wx.removeStorageSync(SELECTED_PATIENT_ID_KEY);
 }
 
-/** 清理当前就诊人选择，供退出登录和会话失效流程复用。 */
+/** 清理当前就诊人选择，供退出登录、会话失效和空目录流程复用。 */
 export function clearSelectedPatientId(): void {
 	setSelectedPatientId("");
 }

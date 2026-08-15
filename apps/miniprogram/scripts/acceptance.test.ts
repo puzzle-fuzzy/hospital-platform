@@ -99,6 +99,9 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(template).toContain("刷新就诊人");
 	expect(service).toContain('SELECTED_PATIENT_ID_KEY = "selected_patient_id"');
 	expect(service).toContain("wx.setStorageSync");
+	expect(service).toContain("clearSelectedPatientId");
+	expect(home).toContain("clearSelectedPatientId");
+	expect(selection).toContain("clearSelectedPatientId");
 	// 选择页只能处理平台 opaque patientId，不得出现 provider 患者字段。
 	expect(selection).not.toContain("providerPatientId");
 	expect(selection).not.toContain("unionId");

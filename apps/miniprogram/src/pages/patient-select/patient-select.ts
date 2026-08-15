@@ -4,6 +4,7 @@ import {
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
 import {
+	clearSelectedPatientId,
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
@@ -48,6 +49,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 将服务端列表与本地选择合并；失效的本地选择回退到列表第一项。 */
 	setPatientList(patients: Array<Patient>): void {
+		if (patients.length === 0) clearSelectedPatientId();
 		const storedPatientId = getSelectedPatientId();
 		const selectedPatient =
 			patients.find((patient) => patient.id === storedPatientId) ?? patients[0];
