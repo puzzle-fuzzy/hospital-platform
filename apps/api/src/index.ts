@@ -23,7 +23,10 @@ import {
 import { createLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
 import { createApp } from "./app";
-import { createDefaultApplicationServices } from "./application";
+import {
+	createDefaultApplicationServices,
+	selectReadyRepositories,
+} from "./application";
 import { config } from "./config";
 import { createReadinessService } from "./infrastructure/readiness";
 
@@ -143,12 +146,18 @@ const wechatPaymentNotificationDecoder:
 					: {}),
 			})
 		: undefined;
+
+// 先执行一次真实 schema probe，再决定是否把 MySQL repository 交给业务组合根。
+// probe 失败时 API 仍可监听 health/readiness，但业务持久化保持 fail-closed。
+const startupSchemaProbe = await persistence.schema.check();
+const readyRepositories = selectReadyRepositories(
+	persistence.repositories,
+	startupSchemaProbe,
+);
 const app = createApp({
 	logger,
 	services: createDefaultApplicationServices({
-		...(persistence.repositories
-			? { repositories: persistence.repositories }
-			: {}),
+		...(readyRepositories ? { repositories: readyRepositories } : {}),
 		...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
 		...(identityGateway ? { identityGateway } : {}),
 		...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
@@ -171,9 +180,6 @@ const app = createApp({
 		schemaProbe: () => persistence.schema.check(),
 	}),
 });
-
-// 启动日志同时记录人工 gate 与实际 schema probe，避免把配置意图误报成运行事实。
-const startupSchemaProbe = await persistence.schema.check();
 
 app.onStop(async () => {
 	await persistence.close();
@@ -219,6 +225,7 @@ logger.info(
 		port: config.port,
 		persistenceSchemaGate: config.persistenceSchemaReady,
 		persistenceSchemaProbe: startupSchemaProbe,
+		persistenceRepositories: readyRepositories ? "enabled" : "fail_closed",
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		patientDirectoryConfiguration: patientDirectoryStatus,

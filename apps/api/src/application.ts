@@ -1,4 +1,5 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
+import type { DependencyState } from "@hospital/contracts";
 import type {
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
@@ -62,6 +63,17 @@ export type ApplicationServiceOptions = {
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 };
+
+/**
+ * 人工 schema gate 只是部署意图；只有实际只读 probe 为 ok 才能安装生产 repository。
+ * 这样 API 在 migration 不完整时仍可提供 health/readiness，但不会运行半成品业务写入。
+ */
+export function selectReadyRepositories(
+	repositories: MySqlRepositories | undefined,
+	schemaProbe: DependencyState,
+): MySqlRepositories | undefined {
+	return schemaProbe === "ok" ? repositories : undefined;
+}
 
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
 export function createDefaultApplicationServices(

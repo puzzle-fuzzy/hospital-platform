@@ -122,10 +122,13 @@ vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会�
 和版本化订单迁移；微信支付 adapter 只在完整配置和显式 `WECHAT_PAYMENT_READY`
 下由组合根注入，`WECHAT_IDENTITY_READY` 也默认关闭，医保和 HIS handler 尚未接入；因此默认运行不会产生真实支付副作用。
 Phase 6E-3 又加入通知 outbox handler、共享 `@hospital/config` 和 worker 真实组合根；worker 只有在
-持久化 schema、数据库密钥和完整微信支付 APIv3 配置齐备时才进入 `ready`，否则保持 `not_configured`。
+持久化 schema、数据库密钥、完整微信支付 APIv3 配置以及 MySQL/schema 启动探针都通过时才进入 `ready`；
+配置不完整为 `not_configured`，依赖探针失败为 `not_ready`。
 这证明了组合边界和 fail-closed 行为，但不等于已经用真实商户配置运行过 provider。
 API `/health/ready` 同时检查 MySQL、Redis、`PERSISTENCE_SCHEMA_READY` 和目标 migration
 只读探针；配置闸门关闭或 migration 实际不完整时，即使基础设施连接可用也不会对发布平台报告 `ready`。
+API 组合根也只有在启动时 schema probe 为 `ok` 才注入 MySQL repositories，避免业务路由使用未完成
+migration 的持久化边界。
 
 原生小程序的功能边界：
 
