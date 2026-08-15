@@ -14,6 +14,7 @@ import {
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
 } from "@hospital/domain";
+import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
 import { HttpError } from "../errors";
 import {
@@ -118,6 +119,17 @@ export function errorHandlerPlugin() {
 						message: error.retryable
 							? "External service is temporarily unavailable"
 							: "External service rejected the request",
+					},
+				};
+			}
+
+			if (error instanceof PersistenceUnavailableError) {
+				set.status = 503;
+				return {
+					success: false,
+					error: {
+						code: "persistence-temporarily-unavailable",
+						message: "数据服务暂时不可用，请稍后重试",
 					},
 				};
 			}

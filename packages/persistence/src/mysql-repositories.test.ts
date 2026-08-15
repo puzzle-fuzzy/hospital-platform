@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import type { Pool } from "mysql2/promise";
 import type {
 	OutboxEvent,
 	PaymentOrder,
@@ -7,6 +6,8 @@ import type {
 	WechatPaymentNotification,
 } from "@hospital/domain";
 import { createWechatPaymentNotificationEvent } from "@hospital/domain";
+import type { Pool } from "mysql2/promise";
+import { PersistenceUnavailableError } from "./errors";
 import { createMySqlRepositories } from "./mysql-repositories";
 import { createAesGcmSecretValueCipher } from "./prepay-cipher";
 
@@ -79,6 +80,72 @@ const createdEvent: OutboxEvent = {
 	availableAt: order.updatedAt,
 	attempts: 0,
 };
+
+function protocolConnectionLostError(): Error & { code: string } {
+	const error = new Error("socket closed") as Error & { code: string };
+	error.code = "PROTOCOL_CONNECTION_LOST";
+	return error;
+}
+
+test("MySQL idempotent reads retry once on a lost pooled connection", async () => {
+	let attempts = 0;
+	const pool = {
+		async getConnection() {
+			throw new Error("transaction connection is not used");
+		},
+		async execute() {
+			attempts += 1;
+			if (attempts === 1) throw protocolConnectionLostError();
+			return [
+				[
+					{
+						patient_id: "patient-001",
+						owner_user_id: "user-001",
+						display_name: "张三",
+						relationship: "self",
+						card_number_masked: "******7890",
+						source: "hospital-his",
+						provider_name: "zhongyang",
+						provider_patient_id: "provider-patient-001",
+					},
+				],
+				[],
+			];
+		},
+	} as unknown as Pool;
+
+	const repositories = createMySqlRepositories(pool);
+	await expect(
+		repositories.patients.listByOwner("user-001"),
+	).resolves.toHaveLength(1);
+	expect(attempts).toBe(2);
+});
+
+test("MySQL transient write failures become a safe persistence error", async () => {
+	const pool = {
+		async getConnection() {
+			throw new Error("transaction connection is not used");
+		},
+		async execute() {
+			throw protocolConnectionLostError();
+		},
+	} as unknown as Pool;
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.upsertFromDirectory({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+			profile: {
+				providerPatientId: "provider-patient-001",
+				displayName: "张三",
+				relationship: "self",
+				cardNumberMasked: "******7890",
+			},
+		}),
+	).rejects.toBeInstanceOf(PersistenceUnavailableError);
+});
 
 test("MySQL order insert commits order and outbox in one transaction", async () => {
 	const { pool, state } = createFakePool();

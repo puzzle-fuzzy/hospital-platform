@@ -36,7 +36,10 @@ import type {
 	ResultSetHeader,
 	RowDataPacket,
 } from "mysql2/promise";
-import { PersistenceNotConfiguredError } from "./errors";
+import {
+	PersistenceNotConfiguredError,
+	PersistenceUnavailableError,
+} from "./errors";
 import { createMySqlHealthKnowledgeRepository } from "./mysql-health-knowledge-repository";
 import {
 	createAesGcmSecretValueCipher,
@@ -53,6 +56,48 @@ type QueryExecutor = {
 		values?: readonly unknown[],
 	): Promise<[unknown, readonly unknown[]]>;
 };
+
+/**
+ * MySQL 连接断开类错误。只把明确属于连接/传输层的错误列入重连边界，
+ * 账号错误、SQL 错误和业务约束错误必须原样失败，避免错误地重试业务请求。
+ */
+const TRANSIENT_MYSQL_ERROR_CODES = new Set([
+	"PROTOCOL_CONNECTION_LOST",
+	"ECONNRESET",
+	"ECONNREFUSED",
+	"ETIMEDOUT",
+	"EPIPE",
+	"ENETUNREACH",
+	"EHOSTUNREACH",
+]);
+
+function errorCodeOf(error: unknown): string | undefined {
+	if (typeof error !== "object" || error === null || !("code" in error)) {
+		return undefined;
+	}
+	const code = (error as { code?: unknown }).code;
+	return typeof code === "string" ? code : undefined;
+}
+
+function isTransientMySqlError(error: unknown): boolean {
+	return Boolean(
+		errorCodeOf(error) &&
+			TRANSIENT_MYSQL_ERROR_CODES.has(errorCodeOf(error) as string),
+	);
+}
+
+function isReadStatement(sql: string): boolean {
+	return /^\s*(SELECT|SHOW|DESCRIBE|EXPLAIN|WITH)\b/i.test(sql);
+}
+
+function isPoolClient(client: Pool | PoolConnection): client is Pool {
+	return typeof (client as Pool).getConnection === "function";
+}
+
+/** 短暂等待让 mysql2 完成坏连接清理，再从连接池申请新连接。 */
+async function yieldForConnectionRecovery(): Promise<void> {
+	await new Promise<void>((resolve) => setTimeout(resolve, 25));
+}
 
 type IdentityUserRow = RowDataPacket & {
 	user_id: string;
@@ -187,8 +232,30 @@ async function execute<T extends RowDataPacket[] | ResultSetHeader>(
 	values: readonly unknown[] = [],
 ): Promise<T> {
 	const executor = client as unknown as QueryExecutor;
-	const [rows] = await executor.execute(sql, values);
-	return rows as T;
+	try {
+		const [rows] = await executor.execute(sql, values);
+		return rows as T;
+	} catch (error) {
+		if (!isTransientMySqlError(error)) throw error;
+
+		// 只有连接池上的幂等读允许自动重试；事务连接和所有写语句
+		// 都不能在“不确定服务端是否已执行”的状态下盲目再次执行。
+		if (isPoolClient(client) && isReadStatement(sql)) {
+			await yieldForConnectionRecovery();
+			try {
+				const [rows] = await executor.execute(sql, values);
+				return rows as T;
+			} catch (retryError) {
+				if (!isTransientMySqlError(retryError)) throw retryError;
+				throw new PersistenceUnavailableError("read", retryError);
+			}
+		}
+
+		throw new PersistenceUnavailableError(
+			isPoolClient(client) ? "write" : "transaction",
+			error,
+		);
+	}
 }
 
 async function withTransaction<T>(
@@ -202,7 +269,13 @@ async function withTransaction<T>(
 		await connection.commit();
 		return result;
 	} catch (error) {
-		await connection.rollback();
+		// 断连时 rollback 也可能失败，但不能覆盖原始业务/持久化错误；
+		// 连接最终会在 finally 中释放，池会丢弃已失效的连接。
+		try {
+			await connection.rollback();
+		} catch {
+			// rollback 失败不应把底层错误重新包装成无上下文的异常。
+		}
 		throw error;
 	} finally {
 		connection.release();

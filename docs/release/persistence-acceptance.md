@@ -115,6 +115,7 @@ $env:PERSISTENCE_SCHEMA_READY = "true"
 | 现象 | 结论 | 处理 |
 | --- | --- | --- |
 | MySQL/Redis unavailable | 基础设施证据不足 | 恢复服务、端口和凭据，不修改业务 gate |
+| `persistence-temporarily-unavailable` | 请求期间 MySQL 连接/传输层暂时断开 | 幂等读由连接池自动重试一次；写入/事务先核对持久化事实，禁止盲目重复提交；同时检查数据库和网络日志 |
 | migration failed/started | 可能存在部分 DDL | 停止依赖进程，按 recovery runbook 做人工 schema 审核 |
 | schema probe failed | 目标 schema 未证明完整 | 检查 migration history、`information_schema` 和外键，不补写假 history |
 | integration cleanup failed | 本地可能残留验收数据 | 记录随机前缀，人工确认并清理，禁止直接复用前缀 |
