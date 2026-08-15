@@ -4,6 +4,12 @@ import {
 	createWechatPaymentGateway,
 	verifyAndDecryptWechatPaymentNotification,
 } from "@hospital/adapters";
+import {
+	wechatIdentityConfigurationMissingFields,
+	wechatIdentityConfigurationStatus,
+	wechatPaymentConfigurationMissingFields,
+	wechatPaymentConfigurationStatus,
+} from "@hospital/config";
 import { createLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
 import { createApp } from "./app";
@@ -17,6 +23,10 @@ const logger = createLogger({
 	environment: config.environment,
 	level: config.logLevel,
 });
+const wechatIdentityStatus = wechatIdentityConfigurationStatus(config);
+const wechatPaymentStatus = wechatPaymentConfigurationStatus(config);
+const wechatIdentityMissing = wechatIdentityConfigurationMissingFields(config);
+const wechatPaymentMissing = wechatPaymentConfigurationMissingFields(config);
 const persistence = createPersistenceRuntime({
 	databaseUrl: config.databaseUrl,
 	redisUrl: config.redisUrl,
@@ -25,28 +35,30 @@ const persistence = createPersistenceRuntime({
 		: {}),
 	useRepositories: config.persistenceSchemaReady,
 });
-const identityGateway = config.wechatIdentityReady
-	? createWechatIdentityGateway({
-			appId: config.wechatAppId ?? "",
-			appSecret: config.wechatAppSecret ?? "",
-			baseUrl: config.wechatIdentityBaseUrl,
-		})
-	: undefined;
-const wechatPaymentGateway = config.wechatPaymentReady
-	? createWechatPaymentGateway({
-			appId: config.wechatPayAppId ?? "",
-			mchId: config.wechatPayMchId ?? "",
-			merchantCertificateSerial:
-				config.wechatPayMerchantCertificateSerial ?? "",
-			merchantPrivateKey: config.wechatPayMerchantPrivateKey ?? "",
-			platformCertificateSerial:
-				config.wechatPayPlatformCertificateSerial ?? "",
-			platformPublicKey: config.wechatPayPlatformPublicKey ?? "",
-			apiV3Key: config.wechatPayApiV3Key ?? "",
-			notifyUrl: config.wechatPayNotifyUrl ?? "",
-			baseUrl: config.wechatPayBaseUrl,
-		})
-	: undefined;
+const identityGateway =
+	wechatIdentityStatus === "configured"
+		? createWechatIdentityGateway({
+				appId: config.wechatAppId ?? "",
+				appSecret: config.wechatAppSecret ?? "",
+				baseUrl: config.wechatIdentityBaseUrl,
+			})
+		: undefined;
+const wechatPaymentGateway =
+	wechatPaymentStatus === "configured"
+		? createWechatPaymentGateway({
+				appId: config.wechatPayAppId ?? "",
+				mchId: config.wechatPayMchId ?? "",
+				merchantCertificateSerial:
+					config.wechatPayMerchantCertificateSerial ?? "",
+				merchantPrivateKey: config.wechatPayMerchantPrivateKey ?? "",
+				platformCertificateSerial:
+					config.wechatPayPlatformCertificateSerial ?? "",
+				platformPublicKey: config.wechatPayPlatformPublicKey ?? "",
+				apiV3Key: config.wechatPayApiV3Key ?? "",
+				notifyUrl: config.wechatPayNotifyUrl ?? "",
+				baseUrl: config.wechatPayBaseUrl,
+			})
+		: undefined;
 const apiV3Key = config.wechatPayApiV3Key;
 const platformCertificateSerial = config.wechatPayPlatformCertificateSerial;
 const platformPublicKey = config.wechatPayPlatformPublicKey;
@@ -54,6 +66,7 @@ const wechatPaymentNotificationDecoder:
 	| WechatPaymentNotificationDecoder
 	| undefined =
 	config.wechatPaymentReady &&
+	wechatPaymentStatus === "configured" &&
 	apiV3Key &&
 	platformCertificateSerial &&
 	platformPublicKey
@@ -97,6 +110,7 @@ const app = createApp({
 	readiness: createReadinessService({
 		databaseConfigured: Boolean(config.databaseUrl),
 		redisConfigured: Boolean(config.redisUrl),
+		schemaReady: config.persistenceSchemaReady,
 		databaseProbe: () => persistence.database.check(),
 		redisProbe: () => persistence.redis.check(),
 	}),
@@ -113,6 +127,11 @@ logger.info(
 		event: "service.started",
 		host: config.host,
 		port: config.port,
+		schemaReady: config.persistenceSchemaReady,
+		wechatIdentityConfiguration: wechatIdentityStatus,
+		wechatPaymentConfiguration: wechatPaymentStatus,
+		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
+		...(wechatPaymentMissing.length > 0 ? { wechatPaymentMissing } : {}),
 	},
 	"Hospital API listening",
 );

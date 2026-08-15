@@ -77,6 +77,8 @@ export const ReadyResponse = Type.Object({
 		dependencies: Type.Object({
 			database: DependencyStateSchema,
 			redis: DependencyStateSchema,
+			/** schema gate 关闭时禁止发布系统误报为 ready。 */
+			schema: DependencyStateSchema,
 		}),
 	}),
 });

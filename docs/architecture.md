@@ -119,6 +119,8 @@ vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会�
 Phase 6E-3 又加入通知 outbox handler、共享 `@hospital/config` 和 worker 真实组合根；worker 只有在
 持久化 schema、数据库密钥和完整微信支付 APIv3 配置齐备时才进入 `ready`，否则保持 `not_configured`。
 这证明了组合边界和 fail-closed 行为，但不等于已经用真实商户配置运行过 provider。
+API `/health/ready` 同时检查 MySQL、Redis 和 `PERSISTENCE_SCHEMA_READY`；配置闸门关闭时，
+即使基础设施连接可用也不会对发布平台报告 `ready`。
 
 原生小程序的功能边界：
 

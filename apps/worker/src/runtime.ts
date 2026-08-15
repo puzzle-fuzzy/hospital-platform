@@ -1,5 +1,9 @@
 import { createWechatPaymentGateway } from "@hospital/adapters";
-import { type RuntimeConfig, config as defaultConfig } from "@hospital/config";
+import {
+	type RuntimeConfig,
+	config as defaultConfig,
+	wechatPaymentConfigurationMissingFields,
+} from "@hospital/config";
 import { PaymentOrderService } from "@hospital/domain";
 import { createNoopLogger, type AppLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
@@ -21,43 +25,42 @@ export type WorkerRuntime = {
 	close(): Promise<void>;
 };
 
-type WorkerRequiredField =
-	| "databaseUrl"
-	| "paymentDataEncryptionKey"
-	| "wechatPayAppId"
-	| "wechatPayMchId"
-	| "wechatPayMerchantCertificateSerial"
-	| "wechatPayMerchantPrivateKey"
-	| "wechatPayPlatformCertificateSerial"
-	| "wechatPayPlatformPublicKey"
-	| "wechatPayApiV3Key"
-	| "wechatPayNotifyUrl";
-
 type ReadyRuntimeConfig = RuntimeConfig & {
-	[Key in WorkerRequiredField]-?: NonNullable<RuntimeConfig[Key]>;
+	databaseUrl: string;
+	paymentDataEncryptionKey: string;
+	wechatPayAppId: string;
+	wechatPayMchId: string;
+	wechatPayMerchantCertificateSerial: string;
+	wechatPayMerchantPrivateKey: string;
+	wechatPayPlatformCertificateSerial: string;
+	wechatPayPlatformPublicKey: string;
+	wechatPayApiV3Key: string;
+	wechatPayNotifyUrl: string;
 };
 
 /**
  * worker 必须同时具备持久化密钥和完整微信支付 APIv3 配置。
  * 任意一项缺失都返回 not_configured，不启动半可用的 provider 进程。
  */
+export function workerConfigurationMissingFields(runtimeConfig: RuntimeConfig) {
+	const missing: string[] = [];
+	if (!runtimeConfig.persistenceSchemaReady)
+		missing.push("PERSISTENCE_SCHEMA_READY");
+	if (!runtimeConfig.databaseUrl) missing.push("DATABASE_URL");
+	if (!runtimeConfig.paymentDataEncryptionKey)
+		missing.push("PAYMENT_DATA_ENCRYPTION_KEY");
+	if (!runtimeConfig.wechatPaymentReady) {
+		missing.push("WECHAT_PAYMENT_READY");
+	} else {
+		missing.push(...wechatPaymentConfigurationMissingFields(runtimeConfig));
+	}
+	return missing;
+}
+
 function hasWorkerConfiguration(
 	runtimeConfig: RuntimeConfig,
 ): runtimeConfig is ReadyRuntimeConfig {
-	return Boolean(
-		runtimeConfig.persistenceSchemaReady &&
-			runtimeConfig.databaseUrl &&
-			runtimeConfig.paymentDataEncryptionKey &&
-			runtimeConfig.wechatPaymentReady &&
-			runtimeConfig.wechatPayAppId &&
-			runtimeConfig.wechatPayMchId &&
-			runtimeConfig.wechatPayMerchantCertificateSerial &&
-			runtimeConfig.wechatPayMerchantPrivateKey &&
-			runtimeConfig.wechatPayPlatformCertificateSerial &&
-			runtimeConfig.wechatPayPlatformPublicKey &&
-			runtimeConfig.wechatPayApiV3Key &&
-			runtimeConfig.wechatPayNotifyUrl,
-	);
+	return workerConfigurationMissingFields(runtimeConfig).length === 0;
 }
 
 function createNotConfiguredRuntime(): WorkerRuntime {

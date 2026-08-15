@@ -37,6 +37,105 @@ export type RuntimeConfig = {
 	workerPollIntervalMs: number;
 };
 
+/**
+ * 配置状态只描述“开关与必填字段是否齐全”，不代表 provider 沙箱或生产
+ * 联调已经通过；把 configured 和真实可用性分开，避免日志给出过度承诺。
+ */
+export type ProviderConfigurationStatus =
+	| "disabled"
+	| "configured"
+	| "incomplete";
+
+type RequiredRuntimeField = {
+	name: string;
+	value: string | undefined;
+};
+
+function missingRuntimeFields(
+	fields: readonly RequiredRuntimeField[],
+): string[] {
+	return fields.filter(({ value }) => !value).map(({ name }) => name);
+}
+
+function isHttpsUrl(value: string | undefined): boolean {
+	if (!value) return false;
+	try {
+		return new URL(value).protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
+/** 只返回环境变量名，绝不返回密钥、证书或 URL 的实际值。 */
+export function wechatIdentityConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.wechatIdentityReady) return [];
+	return missingRuntimeFields([
+		{ name: "WECHAT_APPID", value: runtimeConfig.wechatAppId },
+		{ name: "WECHAT_APP_SECRET", value: runtimeConfig.wechatAppSecret },
+	]);
+}
+
+export function wechatIdentityConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.wechatIdentityReady) return "disabled";
+	return wechatIdentityConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
+/**
+ * 微信支付 adapter 的组合根只依赖这一份字段检查；闸门打开但字段不完整
+ * 时必须保持 fail-closed。通知 URL 还必须是 HTTPS，避免把 provider 回调
+ * 配置成仅本机或明文 HTTP 地址。
+ */
+export function wechatPaymentConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.wechatPaymentReady) return [];
+	const missing = missingRuntimeFields([
+		{ name: "WECHAT_PAY_APP_ID", value: runtimeConfig.wechatPayAppId },
+		{ name: "WECHAT_PAY_MCH_ID", value: runtimeConfig.wechatPayMchId },
+		{
+			name: "WECHAT_PAY_MERCHANT_CERTIFICATE_SERIAL",
+			value: runtimeConfig.wechatPayMerchantCertificateSerial,
+		},
+		{
+			name: "WECHAT_PAY_MERCHANT_PRIVATE_KEY",
+			value: runtimeConfig.wechatPayMerchantPrivateKey,
+		},
+		{
+			name: "WECHAT_PAY_PLATFORM_CERTIFICATE_SERIAL",
+			value: runtimeConfig.wechatPayPlatformCertificateSerial,
+		},
+		{
+			name: "WECHAT_PAY_PLATFORM_PUBLIC_KEY",
+			value: runtimeConfig.wechatPayPlatformPublicKey,
+		},
+		{ name: "WECHAT_PAY_API_V3_KEY", value: runtimeConfig.wechatPayApiV3Key },
+		{ name: "WECHAT_PAY_NOTIFY_URL", value: runtimeConfig.wechatPayNotifyUrl },
+	]);
+	if (
+		runtimeConfig.wechatPayNotifyUrl &&
+		!isHttpsUrl(runtimeConfig.wechatPayNotifyUrl) &&
+		!missing.includes("WECHAT_PAY_NOTIFY_URL")
+	) {
+		missing.push("WECHAT_PAY_NOTIFY_URL(https)");
+	}
+	return missing;
+}
+
+export function wechatPaymentConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.wechatPaymentReady) return "disabled";
+	return wechatPaymentConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
 type RuntimeEnv = Record<string, string | undefined>;
 
 function positivePort(value: string | undefined): number {

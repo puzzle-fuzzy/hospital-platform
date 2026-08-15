@@ -3,6 +3,7 @@ import { createLogger } from "@hospital/observability";
 import {
 	createWorkerRuntime,
 	runWorkerLoop,
+	workerConfigurationMissingFields,
 	workerConfigurationStatus,
 	type WorkerRuntimeStatus,
 } from "./runtime";
@@ -19,6 +20,7 @@ export { createWechatPaymentNotificationHandler } from "./wechat-payment-notific
 export {
 	createWorkerRuntime,
 	runWorkerLoop,
+	workerConfigurationMissingFields,
 	workerConfigurationStatus,
 	type WorkerRuntime,
 	type WorkerRuntimeStatus,
@@ -37,7 +39,11 @@ if (import.meta.main) {
 	const runtime = createWorkerRuntime({ logger });
 	if (runtime.status !== "ready") {
 		logger.warn(
-			{ event: "service.started", status: runtime.status },
+			{
+				event: "service.started",
+				status: runtime.status,
+				missingConfiguration: workerConfigurationMissingFields(config),
+			},
 			"Hospital worker is not configured; no provider work will run",
 		);
 	} else {

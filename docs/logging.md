@@ -20,7 +20,7 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox 
 
 | 事件名 | 产生位置 | 用途 |
 | --- | --- | --- |
-| `service.started` | API / worker 入口 | 确认进程已启动及监听配置 |
+| `service.started` | API / worker 入口 | 确认进程已启动、schema gate 和 provider 配置状态；缺失项只记录环境变量名 |
 | `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
 | `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
 | `worker.outbox.claimed` | Outbox worker | 确认事件被领取及当前重试次数 |

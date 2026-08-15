@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { loadRuntimeConfig } from "./index";
+import {
+	loadRuntimeConfig,
+	wechatIdentityConfigurationStatus,
+	wechatPaymentConfigurationMissingFields,
+	wechatPaymentConfigurationStatus,
+} from "./index";
 
 test("runtime config defaults to safe development gates", () => {
 	const config = loadRuntimeConfig({});
@@ -39,4 +44,39 @@ test("runtime config rejects an unsafe worker interval", () => {
 	expect(() => loadRuntimeConfig({ WORKER_POLL_INTERVAL_MS: "10" })).toThrow(
 		"WORKER_POLL_INTERVAL_MS",
 	);
+});
+
+test("provider configuration diagnostics distinguish disabled, incomplete and configured", () => {
+	const disabled = loadRuntimeConfig({});
+	expect(wechatIdentityConfigurationStatus(disabled)).toBe("disabled");
+	expect(wechatPaymentConfigurationStatus(disabled)).toBe("disabled");
+
+	const incomplete = loadRuntimeConfig({
+		WECHAT_PAYMENT_READY: "true",
+		WECHAT_PAY_NOTIFY_URL: "http://localhost/payment-notify",
+	});
+	expect(wechatPaymentConfigurationStatus(incomplete)).toBe("incomplete");
+	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
+		"WECHAT_PAY_APP_ID",
+	);
+	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
+		"WECHAT_PAY_NOTIFY_URL(https)",
+	);
+
+	const configured = loadRuntimeConfig({
+		WECHAT_IDENTITY_READY: "true",
+		WECHAT_APPID: "wx-test-app",
+		WECHAT_APP_SECRET: "identity-secret",
+		WECHAT_PAYMENT_READY: "true",
+		WECHAT_PAY_APP_ID: "wx-test-app",
+		WECHAT_PAY_MCH_ID: "mch-test",
+		WECHAT_PAY_MERCHANT_CERTIFICATE_SERIAL: "merchant-serial",
+		WECHAT_PAY_MERCHANT_PRIVATE_KEY: "merchant-private-key",
+		WECHAT_PAY_PLATFORM_CERTIFICATE_SERIAL: "platform-serial",
+		WECHAT_PAY_PLATFORM_PUBLIC_KEY: "platform-public-key",
+		WECHAT_PAY_API_V3_KEY: "api-v3-key",
+		WECHAT_PAY_NOTIFY_URL: "https://hospital.example.test/payment-notify",
+	});
+	expect(wechatIdentityConfigurationStatus(configured)).toBe("configured");
+	expect(wechatPaymentConfigurationStatus(configured)).toBe("configured");
 });

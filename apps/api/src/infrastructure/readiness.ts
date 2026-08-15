@@ -9,6 +9,8 @@ export type ReadinessService = {
 type ReadinessOptions = {
 	databaseConfigured: boolean;
 	redisConfigured: boolean;
+	/** 只有完成 staging 验证后才允许业务 repository 参与就绪判定。 */
+	schemaReady: boolean;
 	databaseProbe?: DependencyProbe;
 	redisProbe?: DependencyProbe;
 };
@@ -26,18 +28,21 @@ export function createReadinessService(
 	const redisProbe =
 		options.redisProbe ??
 		(async () => unconfiguredOrUnavailable(options.redisConfigured));
+	const schemaProbe = async (): Promise<DependencyState> =>
+		options.schemaReady ? "ok" : "not_configured";
 
 	return {
 		async snapshot() {
-			const [database, redis] = await Promise.all([
+			const [database, redis, schema] = await Promise.all([
 				databaseProbe(),
 				redisProbe(),
+				schemaProbe(),
 			]);
-			const ready = database === "ok" && redis === "ok";
+			const ready = database === "ok" && redis === "ok" && schema === "ok";
 
 			return {
 				status: ready ? "ready" : "not_ready",
-				dependencies: { database, redis },
+				dependencies: { database, redis, schema },
 			};
 		},
 	};

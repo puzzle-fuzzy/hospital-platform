@@ -70,6 +70,7 @@ test("readiness reports configured dependencies as unavailable until probes pass
 	const readiness = createReadinessService({
 		databaseConfigured: true,
 		redisConfigured: false,
+		schemaReady: false,
 	});
 	const response = await createApp({ readiness }).handle(
 		new Request("http://localhost/health/ready"),
@@ -83,7 +84,27 @@ test("readiness reports configured dependencies as unavailable until probes pass
 			dependencies: {
 				database: "unavailable",
 				redis: "not_configured",
+				schema: "not_configured",
 			},
+		},
+	});
+});
+
+test("readiness becomes ready only after the schema gate opens", async () => {
+	const readiness = createReadinessService({
+		databaseConfigured: true,
+		redisConfigured: true,
+		schemaReady: true,
+		databaseProbe: async () => "ok",
+		redisProbe: async () => "ok",
+	});
+
+	expect(await readiness.snapshot()).toEqual({
+		status: "ready",
+		dependencies: {
+			database: "ok",
+			redis: "ok",
+			schema: "ok",
 		},
 	});
 });

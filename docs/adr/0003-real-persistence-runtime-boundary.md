@@ -25,5 +25,5 @@
 ## 下一步
 
 1. 在脱敏 staging 复核目标 schema、索引、字符集、历史数据映射和 migration 记录。
-2. 将 `PERSISTENCE_SCHEMA_READY` 作为部署闸门接入 readiness/release 流程，而不是由应用自动开启。
+2. 已将 `PERSISTENCE_SCHEMA_READY` 作为部署闸门接入 `/health/ready` 和生产组合根；它仍必须由 staging 验收后的部署配置显式开启，而不是由应用自动开启。
 3. 只有持久化事实闭环并完成环境验收后，才接入微信身份、医保 6201/6202、微信支付和 HIS 回写 adapter。

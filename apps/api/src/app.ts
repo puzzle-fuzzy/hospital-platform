@@ -54,6 +54,7 @@ export function createApp(options: AppOptions = {}) {
 		createReadinessService({
 			databaseConfigured: Boolean(config.databaseUrl),
 			redisConfigured: Boolean(config.redisUrl),
+			schemaReady: config.persistenceSchemaReady,
 		});
 	const services = options.services ?? createDefaultApplicationServices();
 	const logger = options.logger ?? createNoopLogger();
