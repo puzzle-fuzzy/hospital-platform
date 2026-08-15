@@ -42,8 +42,9 @@ probe、staging 审批或备份流程。
 停止并要求人工检查目标 schema，禁止盲目重放可能已经部分执行的 DDL。相关恢复步骤见
 [`docs/runbooks/persistence-migration-recovery.md`](../../docs/runbooks/persistence-migration-recovery.md)。
 
-订单仓储已经具备“订单写入 + outbox 事件”同事务实现，`db:integration` 覆盖本地真实
-MySQL/Redis 验收路径；实际执行仍需在 Docker 依赖可用的隔离环境完成。API 仍默认由
+订单仓储已经具备“订单写入 + outbox 事件”同事务实现，`db:integration` 现在还覆盖排班
+快照的 provider 映射、TTL 和旧观察保护；实际执行仍需在 Docker 依赖可用的隔离环境完成。
+API 仍默认由
 `PERSISTENCE_SCHEMA_READY=false` 保护，未完成目标环境
 migration、staging 脱敏验证和 provider 配置前，不接入真实支付副作用。
 

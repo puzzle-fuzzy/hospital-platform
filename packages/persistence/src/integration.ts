@@ -39,8 +39,8 @@ function wait(milliseconds: number): Promise<void> {
  * 只针对隔离的本地数据库执行真实依赖 smoke；不会被默认单元测试自动运行。
  *
  * 覆盖范围刻意围绕当前 Phase 5A-2 的边界：运行时探针、Redis TTL、
- * MySQL 外键写入、订单幂等竞争、订单-outbox 同事务、outbox lease 恢复和
- * 预支付查单 claim lease 恢复。
+ * MySQL 外键写入、订单幂等竞争、订单-outbox 同事务、outbox lease 恢复、
+ * 预支付查单 claim lease 恢复和排班快照 TTL/旧观察保护。
  * provider、医保、HIS 和真实微信回调不在本脚本的证明范围内。
  */
 export async function runPersistenceIntegration() {
@@ -51,6 +51,7 @@ export async function runPersistenceIntegration() {
 	const patientId = `integration-patient-${suffix}`;
 	const quoteId = `integration-quote-${suffix}`;
 	const invalidQuoteId = `integration-invalid-quote-${suffix}`;
+	const scheduleId = `integration-platform-schedule-${suffix}`;
 	const sessionToken = `integration-session-${suffix}`;
 	const orderIdPrefix = `integration-order-${suffix}`;
 	const attemptId = `integration-attempt-${suffix}`;
@@ -140,6 +141,59 @@ export async function runPersistenceIntegration() {
 				"fixture",
 				now,
 			],
+		);
+
+		const snapshotObservedAt = new Date(now.getTime() + 1_000);
+		const snapshotExpiresAt = new Date(now.getTime() + 61_000);
+		const providerScheduleId = `integration-provider-schedule-${suffix}`;
+		const schedule = {
+			scheduleId,
+			departmentId: "integration-department",
+			departmentName: "集成验收科室",
+			doctorId: "integration-doctor",
+			doctorName: "集成验收医生",
+			workDate: "2026-08-20",
+			shiftName: "上午",
+			startTime: "08:00",
+			endTime: "12:00",
+			totalSlots: 30,
+			availableSlots: 12,
+			timeGroup: "range" as const,
+		};
+		const storedSnapshot =
+			await repositories.appointmentScheduleSnapshots.upsert({
+				schedule,
+				provider: "zhongyang",
+				providerScheduleId,
+				providerRequestId: `integration-provider-request-${suffix}`,
+				observedAt: snapshotObservedAt.toISOString(),
+				expiresAt: snapshotExpiresAt.toISOString(),
+			});
+		assert.equal(storedSnapshot.providerScheduleId, providerScheduleId);
+		const staleSnapshot =
+			await repositories.appointmentScheduleSnapshots.upsert({
+				schedule: { ...schedule, availableSlots: 1 },
+				provider: "zhongyang",
+				providerScheduleId: `${providerScheduleId}-stale`,
+				providerRequestId: `integration-provider-request-${suffix}-stale`,
+				observedAt: new Date(
+					snapshotObservedAt.getTime() - 1_000,
+				).toISOString(),
+				expiresAt: new Date(snapshotExpiresAt.getTime() - 1_000).toISOString(),
+			});
+		assert.equal(staleSnapshot.providerScheduleId, providerScheduleId);
+		const activeSnapshot =
+			await repositories.appointmentScheduleSnapshots.findActive(
+				scheduleId,
+				snapshotObservedAt.toISOString(),
+			);
+		assert.equal(activeSnapshot?.providerScheduleId, providerScheduleId);
+		assert.equal(
+			await repositories.appointmentScheduleSnapshots.findActive(
+				scheduleId,
+				snapshotExpiresAt.toISOString(),
+			),
+			undefined,
 		);
 
 		const otherUser = await repositories.identityUsers.findOrCreateByWechat({
@@ -282,6 +336,7 @@ export async function runPersistenceIntegration() {
 					"redis-session-ttl-write",
 					"mysql-owner-foreign-key",
 					"owner-scoped-composite-foreign-key",
+					"appointment-schedule-snapshot-ttl-and-stale-guard",
 					"concurrent-idempotency",
 					"prepay-query-claim-lease-recovery",
 					"order-outbox-transaction",
@@ -308,6 +363,10 @@ export async function runPersistenceIntegration() {
 			await pool.execute("DELETE FROM hp_payment_quotes WHERE quote_id = ?", [
 				quoteId,
 			]);
+			await pool.execute(
+				"DELETE FROM hp_appointment_schedule_snapshots WHERE schedule_id = ?",
+				[scheduleId],
+			);
 			await pool.execute("DELETE FROM hp_patients WHERE patient_id = ?", [
 				patientId,
 			]);
