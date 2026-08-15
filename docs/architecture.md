@@ -74,7 +74,7 @@ GET /api/v1/payments/orders/:orderId
   -> 只允许当前会话 owner 读取
 ```
 
-outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试，但尚未与订单写入做数据库事务绑定，也尚未安装真实 provider handler；这部分必须等持久化事务边界确定后再接通。
+outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入 MySQL/Redis 真实探针、连接关闭生命周期和目标 schema，但订单写入仍未与 outbox 做数据库事务绑定，也尚未安装真实 provider handler。持久化事务端口完成前不能接通真实支付副作用。
 
 ## 支付状态机
 

@@ -8,6 +8,8 @@ export type RuntimeConfig = {
 	apiVersion: string;
 	/** 生产默认 info；测试可设 silent，开发默认 debug。 */
 	logLevel: LogLevel;
+	/** 目标 schema 完成 staging 验证后才允许注入真实 repository。 */
+	persistenceSchemaReady: boolean;
 	docsEnabled: boolean;
 	corsOrigins: string[];
 	databaseUrl: string | undefined;
@@ -71,6 +73,7 @@ export const config: RuntimeConfig = {
 	port: positivePort(Bun.env.PORT),
 	apiVersion: Bun.env.API_VERSION ?? "0.1.0",
 	logLevel: logLevel(Bun.env.LOG_LEVEL, runtimeEnvironment),
+	persistenceSchemaReady: boolean(Bun.env.PERSISTENCE_SCHEMA_READY, false),
 	docsEnabled: boolean(
 		Bun.env.DOCS_ENABLED,
 		runtimeEnvironment !== "production",

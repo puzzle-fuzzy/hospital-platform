@@ -1,5 +1,6 @@
 import type { PaymentState } from "@hospital/contracts";
 import { transitionPayment } from "./payment-state";
+import type { OutboxEvent } from "./outbox";
 
 /** 幂等键长度上限，防止客户端把无限长字符串写入订单索引。 */
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -88,8 +89,14 @@ export interface PaymentOrderRepository {
 		ownerUserId: string,
 		orderId: string,
 	): Promise<PaymentOrder | undefined>;
-	insert(order: PaymentOrder): Promise<PaymentOrder>;
-	update(order: PaymentOrder, expectedVersion: number): Promise<PaymentOrder>;
+	/** 必须与 payment-order.created 在同一持久化事务中提交。 */
+	insert(order: PaymentOrder, event: OutboxEvent): Promise<PaymentOrder>;
+	/** 必须与 payment-order.state-changed 在同一持久化事务中提交。 */
+	update(
+		order: PaymentOrder,
+		expectedVersion: number,
+		event: OutboxEvent,
+	): Promise<PaymentOrder>;
 }
 
 export class PaymentOrderInputError extends Error {
@@ -192,7 +199,7 @@ export class PaymentOrderService {
 		}
 
 		const timestamp = this.now().toISOString();
-		return this.dependencies.orders.insert({
+		const order: PaymentOrder = {
 			orderId: this.createOrderId(),
 			ownerUserId: input.ownerUserId,
 			patientId: input.patientId,
@@ -202,7 +209,11 @@ export class PaymentOrderService {
 			version: 1,
 			createdAt: timestamp,
 			updatedAt: timestamp,
-		});
+		};
+		return this.dependencies.orders.insert(
+			order,
+			createPaymentOrderEvent("payment-order.created", order),
+		);
 	}
 
 	/** 通过服务端 quote 创建订单，防止客户端伪造医保和现金金额。 */
@@ -261,6 +272,37 @@ export class PaymentOrderService {
 			version: current.version + 1,
 			updatedAt: this.now().toISOString(),
 		};
-		return this.dependencies.orders.update(updated, current.version);
+		return this.dependencies.orders.update(
+			updated,
+			current.version,
+			createPaymentOrderEvent("payment-order.state-changed", updated),
+		);
 	}
+}
+
+/**
+ * 订单事件只携带 worker 恢复所需的内部摘要，不携带凭证、原始 provider 报文或患者敏感信息。
+ * eventId 按订单和版本确定，数据库重试时不会重复制造逻辑事件。
+ */
+function createPaymentOrderEvent(
+	eventName: "payment-order.created" | "payment-order.state-changed",
+	order: PaymentOrder,
+): OutboxEvent {
+	const suffix =
+		eventName === "payment-order.created" ? "created" : order.version;
+	return {
+		eventId: `payment-order:${order.orderId}:${suffix}`,
+		eventName,
+		aggregateId: order.orderId,
+		payload: {
+			orderId: order.orderId,
+			patientId: order.patientId,
+			amounts: order.amounts,
+			state: order.state,
+			version: order.version,
+		},
+		occurredAt: order.updatedAt,
+		availableAt: order.updatedAt,
+		attempts: 0,
+	};
 }

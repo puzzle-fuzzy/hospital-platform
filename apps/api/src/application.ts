@@ -1,9 +1,14 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
 import { PaymentOrderService } from "@hospital/domain";
+import type {
+	MySqlRepositories,
+	RedisSessionStore,
+} from "@hospital/persistence";
 import { createNotConfiguredRepositories } from "@hospital/persistence";
 import {
 	AuthService,
 	createNotConfiguredSessionTokenService,
+	createRedisSessionTokenService,
 	type SessionTokenService,
 } from "./modules/auth";
 import { PatientService } from "./modules/patients";
@@ -15,11 +20,23 @@ export type ApplicationServices = {
 	sessions: SessionTokenService;
 };
 
+export type ApplicationServiceOptions = {
+	/** 只有完成 schema migration 后才从 persistence runtime 注入。 */
+	repositories?: MySqlRepositories;
+	/** Redis 未配置时必须保持 fail-closed。 */
+	sessionStore?: RedisSessionStore;
+};
+
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
-export function createDefaultApplicationServices(): ApplicationServices {
+export function createDefaultApplicationServices(
+	options: ApplicationServiceOptions = {},
+): ApplicationServices {
 	const gateways = createNotConfiguredGateways();
-	const repositories = createNotConfiguredRepositories();
-	const sessions = createNotConfiguredSessionTokenService();
+	const repositories =
+		options.repositories ?? createNotConfiguredRepositories();
+	const sessions = options.sessionStore
+		? createRedisSessionTokenService(options.sessionStore)
+		: createNotConfiguredSessionTokenService();
 
 	return {
 		auth: new AuthService({

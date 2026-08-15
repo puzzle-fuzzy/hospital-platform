@@ -11,6 +11,9 @@ function createMemoryOutbox(seed: OutboxEvent): {
 	const state = { processed: [] as string[], retries: [] as string[] };
 	return {
 		repository: {
+			async append(nextEvent) {
+				event = nextEvent;
+			},
 			async claimAvailable(now) {
 				if (!event || new Date(event.availableAt) > now) return undefined;
 				const claimed = event;

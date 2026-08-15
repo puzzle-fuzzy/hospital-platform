@@ -27,6 +27,7 @@ export {
 	AuthService,
 	createInMemorySessionTokenService,
 	createNotConfiguredSessionTokenService,
+	createRedisSessionTokenService,
 	requirePrincipal,
 } from "./service";
 export type { SessionPrincipal, SessionTokenService } from "./service";

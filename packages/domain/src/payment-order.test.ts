@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { OutboxEvent } from "./outbox";
 import type {
 	PaymentOrder,
 	PaymentOrderRepository,
@@ -19,7 +20,9 @@ const amounts = {
 	cashFen: 300,
 };
 
-function createMemoryOrders(): PaymentOrderRepository {
+function createMemoryOrders(
+	events: OutboxEvent[] = [],
+): PaymentOrderRepository {
 	const orders = new Map<string, PaymentOrder>();
 	return {
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
@@ -33,15 +36,17 @@ function createMemoryOrders(): PaymentOrderRepository {
 			const order = orders.get(orderId);
 			return order?.ownerUserId === ownerUserId ? order : undefined;
 		},
-		async insert(order) {
+		async insert(order, event) {
+			events.push(event);
 			orders.set(order.orderId, order);
 			return order;
 		},
-		async update(order, expectedVersion) {
+		async update(order, expectedVersion, event) {
 			const current = orders.get(order.orderId);
 			if (!current || current.version !== expectedVersion) {
 				throw new Error("Payment order version conflict");
 			}
+			events.push(event);
 			orders.set(order.orderId, order);
 			return order;
 		},
@@ -71,8 +76,9 @@ describe("payment order domain", () => {
 	});
 
 	test("reuses an idempotent order and rejects changed payload", async () => {
+		const events: OutboxEvent[] = [];
 		const service = new PaymentOrderService({
-			orders: createMemoryOrders(),
+			orders: createMemoryOrders(events),
 			now: () => new Date("2026-08-15T00:00:00.000Z"),
 			createOrderId: () => "order-001",
 		});
@@ -81,6 +87,11 @@ describe("payment order domain", () => {
 			patientId: "patient-001",
 			idempotencyKey: "pay-key-001",
 			amounts,
+		});
+		expect(events[0]).toMatchObject({
+			eventId: "payment-order:order-001:created",
+			eventName: "payment-order.created",
+			aggregateId: "order-001",
 		});
 		const replay = await service.create({
 			ownerUserId: "user-001",

@@ -1,0 +1,12 @@
+import { expect, test } from "bun:test";
+
+test("core migration contains the transaction-critical constraints", async () => {
+	const sql = await Bun.file(
+		new URL("../migrations/0001_core.sql", import.meta.url),
+	).text();
+
+	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_payment_orders");
+	expect(sql).toContain("uq_hp_orders_owner_idempotency");
+	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_outbox_events");
+	expect(sql).toContain("claimed_until DATETIME(3) NULL");
+});

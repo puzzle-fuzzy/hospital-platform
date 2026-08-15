@@ -72,7 +72,7 @@ export function createInMemoryPaymentOrderRepository(
 			const order = orders.get(orderId);
 			return order?.ownerUserId === ownerUserId ? order : undefined;
 		},
-		async insert(order) {
+		async insert(order, _event) {
 			const existing = [...orders.values()].find(
 				(current) =>
 					current.ownerUserId === order.ownerUserId &&
@@ -84,7 +84,7 @@ export function createInMemoryPaymentOrderRepository(
 			orders.set(order.orderId, order);
 			return order;
 		},
-		async update(order, expectedVersion) {
+		async update(order, expectedVersion, _event) {
 			const current = orders.get(order.orderId);
 			if (!current || current.version !== expectedVersion) {
 				throw new PaymentOrderVersionConflictError();

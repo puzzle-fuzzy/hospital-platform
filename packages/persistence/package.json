@@ -16,7 +16,9 @@
 	},
 	"dependencies": {
 		"@hospital/contracts": "workspace:*",
-		"@hospital/domain": "workspace:*"
+		"@hospital/domain": "workspace:*",
+		"ioredis": "6.0.0",
+		"mysql2": "3.23.3"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",

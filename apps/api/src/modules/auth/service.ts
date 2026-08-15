@@ -7,6 +7,7 @@ import type {
 	AuthSessionPayload,
 	WechatLoginPayload,
 } from "@hospital/contracts";
+import type { RedisSessionStore } from "@hospital/persistence";
 import { DependencyNotConfiguredError } from "@hospital/domain";
 import { HttpError } from "../../errors";
 
@@ -101,6 +102,36 @@ export function createNotConfiguredSessionTokenService(): SessionTokenService {
 		},
 		async verify() {
 			throw new DependencyNotConfiguredError("session-token");
+		},
+	};
+}
+
+/** 生产会话只保存到 Redis 并带 TTL；Redis 故障必须保留为 503，不伪装成 401。 */
+export function createRedisSessionTokenService(
+	store: RedisSessionStore,
+	expiresInSeconds = 3600,
+): SessionTokenService {
+	return {
+		async issue(userId) {
+			const accessToken = crypto.randomUUID();
+			try {
+				await store.save(accessToken, userId, expiresInSeconds);
+			} catch {
+				throw new DependencyNotConfiguredError("session-token");
+			}
+			return { accessToken, expiresInSeconds };
+		},
+		async verify(accessToken) {
+			try {
+				const userId = await store.findUserId(accessToken);
+				if (!userId) {
+					throw new HttpError(401, "unauthorized", "Invalid session");
+				}
+				return { userId };
+			} catch (error) {
+				if (error instanceof HttpError) throw error;
+				throw new DependencyNotConfiguredError("session-token");
+			}
 		},
 	};
 }

@@ -9,6 +9,10 @@ export function createInMemoryOutboxRepository(
 	const lastReasons = new Map<string, string>();
 
 	return {
+		async append(event) {
+			events.set(event.eventId, event);
+			claimed.delete(event.eventId);
+		},
 		async claimAvailable(now) {
 			for (const event of events.values()) {
 				if (

@@ -14,8 +14,9 @@ export type OutboxEvent = {
 	attempts: number;
 };
 
-/** outbox 端口要求 claim、成功确认和失败重试分开，便于数据库事务实现。 */
+/** outbox 端口要求写入、claim、成功确认和失败重试分开，便于数据库事务实现。 */
 export interface OutboxRepository {
+	append(event: OutboxEvent): Promise<void>;
 	claimAvailable(now: Date): Promise<OutboxEvent | undefined>;
 	markProcessed(eventId: string, processedAt: Date): Promise<void>;
 	markRetry(
