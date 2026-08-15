@@ -1,9 +1,12 @@
 import {
+	createZhongyangPatientGateway,
 	createWechatPaymentNotificationDecoder,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
 } from "@hospital/adapters";
 import {
+	patientDirectoryConfigurationMissingFields,
+	patientDirectoryConfigurationStatus,
 	wechatIdentityConfigurationMissingFields,
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
@@ -25,6 +28,9 @@ const wechatIdentityStatus = wechatIdentityConfigurationStatus(config);
 const wechatPaymentStatus = wechatPaymentConfigurationStatus(config);
 const wechatIdentityMissing = wechatIdentityConfigurationMissingFields(config);
 const wechatPaymentMissing = wechatPaymentConfigurationMissingFields(config);
+const patientDirectoryStatus = patientDirectoryConfigurationStatus(config);
+const patientDirectoryMissing =
+	patientDirectoryConfigurationMissingFields(config);
 const persistence = createPersistenceRuntime({
 	databaseUrl: config.databaseUrl,
 	redisUrl: config.redisUrl,
@@ -55,6 +61,17 @@ const wechatPaymentGateway =
 				apiV3Key: config.wechatPayApiV3Key ?? "",
 				notifyUrl: config.wechatPayNotifyUrl ?? "",
 				baseUrl: config.wechatPayBaseUrl,
+			})
+		: undefined;
+const patientDirectoryGateway =
+	patientDirectoryStatus === "configured" && config.patientDirectoryBaseUrl
+		? createZhongyangPatientGateway({
+				baseUrl: config.patientDirectoryBaseUrl,
+				...(config.patientDirectoryAuthorizationToken
+					? {
+							authorizationToken: config.patientDirectoryAuthorizationToken,
+						}
+					: {}),
 			})
 		: undefined;
 const apiV3Key = config.wechatPayApiV3Key;
@@ -89,6 +106,7 @@ const app = createApp({
 		...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
 		...(identityGateway ? { identityGateway } : {}),
 		...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
+		...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
 		...(wechatPaymentNotificationDecoder
 			? { wechatPaymentNotificationDecoder }
 			: {}),
@@ -116,8 +134,10 @@ logger.info(
 		schemaReady: config.persistenceSchemaReady,
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
+		patientDirectoryConfiguration: patientDirectoryStatus,
 		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
 		...(wechatPaymentMissing.length > 0 ? { wechatPaymentMissing } : {}),
+		...(patientDirectoryMissing.length > 0 ? { patientDirectoryMissing } : {}),
 	},
 	"Hospital API listening",
 );

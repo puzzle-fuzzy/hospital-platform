@@ -31,6 +31,11 @@ export type RuntimeConfig = {
 	wechatPayApiV3Key: string | undefined;
 	wechatPayNotifyUrl: string | undefined;
 	wechatPayBaseUrl: string;
+	/** 众阳患者目录默认关闭；配置完整也不代表 provider 已联调。 */
+	patientDirectoryReady: boolean;
+	patientDirectoryBaseUrl: string | undefined;
+	/** 可选的服务端 provider token；不能下发小程序或写入日志。 */
+	patientDirectoryAuthorizationToken: string | undefined;
 	/** 仅保护数据库中的短期支付调起参数，不是 APIv3 key。 */
 	paymentDataEncryptionKey: string | undefined;
 	/** worker 轮询持久化 outbox/查单计划的间隔，避免在进程内维护业务队列。 */
@@ -132,6 +137,40 @@ export function wechatPaymentConfigurationStatus(
 ): ProviderConfigurationStatus {
 	if (!runtimeConfig.wechatPaymentReady) return "disabled";
 	return wechatPaymentConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
+/**
+ * 众阳患者目录只允许从服务端配置地址；生产环境禁止明文 HTTP，避免
+ * unionId 和患者目录响应在 provider 链路上裸奔。授权方式仍以 provider
+ * 合同为准，因此 token 是可选配置，不能把“有 token”误当作联调成功。
+ */
+export function patientDirectoryConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.patientDirectoryReady) return [];
+	const missing = missingRuntimeFields([
+		{
+			name: "ZHONGYANG_PATIENT_DIRECTORY_BASE_URL",
+			value: runtimeConfig.patientDirectoryBaseUrl,
+		},
+	]);
+	if (
+		runtimeConfig.patientDirectoryBaseUrl &&
+		!isHttpsUrl(runtimeConfig.patientDirectoryBaseUrl) &&
+		!missing.includes("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL")
+	) {
+		missing.push("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
+	}
+	return missing;
+}
+
+export function patientDirectoryConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.patientDirectoryReady) return "disabled";
+	return patientDirectoryConfigurationMissingFields(runtimeConfig).length === 0
 		? "configured"
 		: "incomplete";
 }
@@ -239,6 +278,14 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		wechatPayNotifyUrl: optional(env.WECHAT_PAY_NOTIFY_URL),
 		wechatPayBaseUrl:
 			env.WECHAT_PAY_BASE_URL ?? "https://api.mch.weixin.qq.com",
+		patientDirectoryReady: boolean(
+			env.ZHONGYANG_PATIENT_DIRECTORY_READY,
+			false,
+		),
+		patientDirectoryBaseUrl: optional(env.ZHONGYANG_PATIENT_DIRECTORY_BASE_URL),
+		patientDirectoryAuthorizationToken: optional(
+			env.ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN,
+		),
 		paymentDataEncryptionKey: optional(env.PAYMENT_DATA_ENCRYPTION_KEY),
 		workerPollIntervalMs: positiveWorkerInterval(env.WORKER_POLL_INTERVAL_MS),
 	};

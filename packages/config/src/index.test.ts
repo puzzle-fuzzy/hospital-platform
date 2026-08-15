@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import {
 	loadRuntimeConfig,
+	patientDirectoryConfigurationMissingFields,
+	patientDirectoryConfigurationStatus,
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
@@ -50,6 +52,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	const disabled = loadRuntimeConfig({});
 	expect(wechatIdentityConfigurationStatus(disabled)).toBe("disabled");
 	expect(wechatPaymentConfigurationStatus(disabled)).toBe("disabled");
+	expect(patientDirectoryConfigurationStatus(disabled)).toBe("disabled");
 
 	const incomplete = loadRuntimeConfig({
 		WECHAT_PAYMENT_READY: "true",
@@ -59,6 +62,16 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
 		"WECHAT_PAY_APP_ID",
 	);
+	const patientDirectoryIncomplete = loadRuntimeConfig({
+		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
+		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://zhongyang.internal",
+	});
+	expect(patientDirectoryConfigurationStatus(patientDirectoryIncomplete)).toBe(
+		"incomplete",
+	);
+	expect(
+		patientDirectoryConfigurationMissingFields(patientDirectoryIncomplete),
+	).toContain("ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)");
 	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
 		"WECHAT_PAY_NOTIFY_URL(https)",
 	);
@@ -79,4 +92,12 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	});
 	expect(wechatIdentityConfigurationStatus(configured)).toBe("configured");
 	expect(wechatPaymentConfigurationStatus(configured)).toBe("configured");
+	const configuredPatientDirectory = loadRuntimeConfig({
+		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
+		ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "https://zhongyang.example.test",
+		ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN: "provider-token",
+	});
+	expect(patientDirectoryConfigurationStatus(configuredPatientDirectory)).toBe(
+		"configured",
+	);
 });
