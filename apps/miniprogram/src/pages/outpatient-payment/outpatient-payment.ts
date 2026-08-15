@@ -17,7 +17,11 @@ import type {
 
 type OutpatientPaymentPageMethods = {
 	loadPage(): Promise<void>;
-	loadRecords(patient: Patient, requestToken?: number): Promise<void>;
+	loadRecords(
+		patient: Patient,
+		status: "unpaid" | "paid",
+		requestToken?: number,
+	): Promise<void>;
 	onStatusTap(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
 	onRecordTap(): void;
@@ -74,7 +78,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				}
 				setSelectedPatientId(patient.id);
 				this.setData({ selectedPatient: patient });
-				return this.loadRecords(patient, requestToken);
+				return this.loadRecords(patient, this.data.activeStatus, requestToken);
 			})
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
@@ -88,12 +92,11 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 
 	loadRecords(
 		patient: Patient,
+		status: "unpaid" | "paid",
 		requestToken = loadGuard.begin(),
 	): Promise<void> {
-		return loadOutpatientPaymentRecords(
-			patient.id,
-			this.data.activeStatus,
-		).then((items) => {
+		// 查询状态必须来自本次操作的快照，不能依赖 setData 后的异步页面状态。
+		return loadOutpatientPaymentRecords(patient.id, status).then((items) => {
 			if (!loadGuard.isCurrent(requestToken)) return;
 			this.setData({
 				items: items.map((item) => this.toView(item)),
@@ -113,7 +116,8 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			this.setData({ loading: false });
 			return;
 		}
-		this.loadRecords(this.data.selectedPatient, requestToken)
+		// 显式传入用户刚点击的状态，避免微信 setData 尚未完成时仍查询旧 tab。
+		this.loadRecords(this.data.selectedPatient, status, requestToken)
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
 					this.showError(error, "门诊缴费记录加载失败");

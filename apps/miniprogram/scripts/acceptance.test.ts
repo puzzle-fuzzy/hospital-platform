@@ -185,6 +185,13 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(home).toContain('url: "/pages/outpatient-payment/outpatient-payment"');
 	expect(home).toContain('url: "/pages/my/my"');
 	expect(outpatient).toContain("loadOutpatientPaymentRecords");
+	// tab 切换必须把用户本次点击的状态作为查询快照传入，不能依赖 setData 的异步回写。
+	expect(outpatient).toContain(
+		"loadRecords(this.data.selectedPatient, status, requestToken)",
+	);
+	expect(outpatient).toContain(
+		"loadOutpatientPaymentRecords(patient.id, status)",
+	);
 	expect(outpatientTemplate).toContain("待缴费");
 	expect(outpatientTemplate).toContain(
 		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
