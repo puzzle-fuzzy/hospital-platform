@@ -24,7 +24,28 @@
 | `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | ADR 0004、contract/domain port、0010 schema、fail-closed repository 和未挂载 service 已完成；旧内容脱敏导入、真实 schema 执行、内容审核和 API 挂载待实现 |
 | `POST /intelligent/*` | `/api/v1/assistant/*` | 后续迁移 AI 导诊和报告解读 | 后续 |
 
-## 2. 支付与医保 API
+## 2. 旧服务仍存在、但新 API 尚未注册的接口组
+
+旧 FastAPI 在 `app/api/v1/__init__.py` 中还注册了以下路由组。它们不应因为旧服务仍能返回响应，
+就被新小程序直接调用或通过“万能转发”接入；每组都必须有自己的 contract、权限、日志和验收证据。
+
+| 旧路由组 | 旧职责 | 新端当前状态 | 正确迁移前置 |
+| --- | --- | --- | --- |
+| `/common/file/*` | 文件上传、文件资源处理 | 未注册 | 对象存储、内容安全、病毒扫描、owner/TTL 下载授权和审计 |
+| `/common/mbs-fsi/*` | 医保 FSI、微信医保混合支付 | 仅有服务端规则/adapter port，患者 API 未开放 | 当前 provider 文档、SM2/SM3/SM4 golden vector、授权、查单、回调和 HIS 状态机 |
+| `/common/mip-user-query/*` | 医保身份/授权查询 | 未注册 | 授权码生命周期、参保人归属、敏感字段和撤销语义 |
+| `/common/yunhealth/*` | 云健康挂号结算与 HIS 回写 | 未注册为患者端 API | 内部回调鉴权、最终结算状态、幂等和失败补偿；不能开放给小程序 |
+| `/convenience/*` | 锦旗、表扬信、风险评估、我的医生、出院随访、入院预问诊 | 未注册 | 各业务独立 contract；文件审核、临床复核、患者授权、医护侧权限和审计 |
+| `/knowledge/tips/*` | 指标解读 | 新端 knowledge 领域骨架存在，患者路由未挂载 | 审核后的版本化内容、发布/下线记录和内容审计 |
+| `/knowledge/health/*` | 健康百科、疾病和药品内容 | 新端 knowledge 领域骨架存在，患者路由未挂载 | 临床审核、内容版本、药品关联、搜索和脱敏导入 |
+| `/knowledge/selftest/*` | 健康自测题目与结果 | 未注册 | 题库版本、评分算法、临床复核、免责声明、授权和结果保留规则 |
+| `/knowledge/report/*` | 报告解读 | 未注册 | 报告资源授权、解读模型/知识版本、免责声明和审计；不能从报告目录顺手开放 |
+| `/intelligent/*` | AI 导诊、客服、文本/音频会话和 RAG 文档 | 未注册 | 会话 owner、模型/知识版本、内容安全、免责声明、音频存储和限流 |
+| `/monitor/*` | Redis、在线用户、服务器资源、缓存和监控 | 患者 API 不迁移 | 独立运维身份、RBAC、审计、网络隔离和告警策略 |
+| `/application/job/*` | 定时任务管理 | API 未迁移；新端由 worker 承担运行基础 | 管理端权限、任务状态、租约、并发和审计；不能让患者 token 管理任务 |
+| `/system/user|role|menu|dept|position|dict|param|notice|log/*` | 管理端 RBAC、字典、参数、通知和操作日志 | 患者 API 不迁移 | 独立 Admin API、权限模型、审计和管理端验收；不能与患者会话混用 |
+
+## 3. 支付与医保 API
 
 | 旧路径 | 目标边界 | 关键规则 | 状态 |
 | --- | --- | --- | --- |
@@ -38,7 +59,7 @@
 | `POST /common/mbs-fsi/wechat-med-ins/*` | `WechatPaymentGateway` | 微信医保混合支付只暴露启动/查询结果视图 | 待实现 |
 | `POST /common/yunhealth/registration/medical-settlement-complete` | 内部 `HospitalSettlementGateway.writeBack` | 2.27.2.32 成功后才允许 2.6.65.5；未知状态不自动撤销 | 待实现 |
 
-## 3. 管理端 API
+## 4. 管理端 API
 
 | 旧路由组 | 目标应用 | 处理方式 |
 | --- | --- | --- |
@@ -47,7 +68,7 @@
 | `/application/job` | Worker/Operations API | 调度执行从 API 进程拆出，API 只管理任务 |
 | `/system/log`、字典、参数、通知 | Admin API | 后续迁移，先完成权限模型和审计契约 |
 
-## 4. 不允许的迁移方式
+## 5. 不允许的迁移方式
 
 - 不把 `/common/mbs-fsi/call` 直接开放给小程序作为万能代理。
 - 不让小程序提交最终支付金额、医保基金金额或 HIS 完成状态作为权威。
