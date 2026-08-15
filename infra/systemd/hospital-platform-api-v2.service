@@ -1,0 +1,33 @@
+[Unit]
+Description=Hospital Platform API v2 (Bun + Elysia)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ps
+Group=ps
+WorkingDirectory=/home/ps/code/hospital-platform/current
+EnvironmentFile=/home/ps/code/hospital-platform/shared/api.env
+
+# Bun 直接执行已构建的 API bundle；不会复用旧 Python 服务的端口或进程。
+ExecStart=/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/api/dist/index.js
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+
+# 仅通过 journald 接收 Pino 单行 JSON，避免应用自行写入未受控日志文件。
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hospital-api-v2
+
+# API 运行时不需要提升权限，也不应修改系统目录。
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ps/code/hospital-platform
+
+[Install]
+WantedBy=multi-user.target

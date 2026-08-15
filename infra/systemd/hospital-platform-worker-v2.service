@@ -1,0 +1,31 @@
+[Unit]
+Description=Hospital Platform Worker v2 (Bun)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ps
+Group=ps
+WorkingDirectory=/home/ps/code/hospital-platform/current
+EnvironmentFile=/home/ps/code/hospital-platform/shared/worker.env
+
+# worker 不监听 HTTP 端口，只负责 outbox、支付通知和查单补偿循环。
+ExecStart=/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/worker/dist/index.js
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hospital-worker-v2
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ps/code/hospital-platform
+
+[Install]
+WantedBy=multi-user.target
