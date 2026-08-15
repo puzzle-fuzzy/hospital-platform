@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createFixtureWechatIdentityGateway } from "@hospital/adapters";
+import {
+	createFixtureWechatIdentityGateway,
+	createFixtureWechatPaymentGateway,
+	createNotConfiguredGateways,
+} from "@hospital/adapters";
 import { createLogger } from "@hospital/observability";
 import {
 	createInMemoryIdentityUserRepository,
@@ -12,6 +16,7 @@ import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
 import { PatientService } from "./modules/patients";
+import { WechatPrepayService } from "./modules/payments";
 
 async function flushAfterResponseHooks(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
@@ -184,25 +189,31 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			source: "legacy-record",
 		},
 	]);
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository([
+			{
+				quoteId: "quote-001",
+				ownerUserId: "fixture-user-0001",
+				patientId: "patient-001",
+				amounts: {
+					totalFen: 1000,
+					insuranceFen: 700,
+					cashFen: 300,
+				},
+				expiresAt: "2099-08-15T00:00:00.000Z",
+				source: "fixture",
+			},
+		]),
+	});
 	const services = {
 		auth: new AuthService({ identityGateway, identityUsers, sessions }),
 		patients: new PatientService(patientRepository),
-		paymentOrders: new PaymentOrderService({
-			orders: createInMemoryPaymentOrderRepository(),
-			quotes: createInMemoryPaymentQuoteRepository([
-				{
-					quoteId: "quote-001",
-					ownerUserId: "fixture-user-0001",
-					patientId: "patient-001",
-					amounts: {
-						totalFen: 1000,
-						insuranceFen: 700,
-						cashFen: 300,
-					},
-					expiresAt: "2099-08-15T00:00:00.000Z",
-					source: "fixture",
-				},
-			]),
+		paymentOrders,
+		wechatPrepay: new WechatPrepayService({
+			orders: paymentOrders,
+			identityUsers,
+			wechatPayment: createFixtureWechatPaymentGateway(),
 		}),
 		sessions,
 	};
@@ -315,4 +326,70 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 	expect(replayResponse.status).toBe(200);
 	expect(replayBody.data.orderId).toBe(orderBody.data.orderId);
 	expect(orderQueryResponse.status).toBe(200);
+});
+
+test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository([
+		{
+			userId: "fixture-user-0001",
+			providerSubject: "fixture-openid-001",
+		},
+	]);
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository([
+			{
+				orderId: "order-cash-001",
+				ownerUserId: "fixture-user-0001",
+				patientId: "patient-001",
+				idempotencyKey: "order-key-001",
+				amounts: { totalFen: 1000, insuranceFen: 700, cashFen: 300 },
+				state: "cash_pending",
+				version: 4,
+				createdAt: "2026-08-15T00:00:00.000Z",
+				updatedAt: "2026-08-15T00:00:00.000Z",
+			},
+		]),
+	});
+	const issued = await sessions.issue("fixture-user-0001");
+	const notConfigured = createNotConfiguredGateways();
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(createInMemoryPatientRepository()),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				wechatPayment: notConfigured.wechatPayment,
+			}),
+			sessions,
+		},
+	});
+
+	const response = await app.handle(
+		new Request(
+			"http://localhost/api/v1/payments/orders/order-cash-001/wechat-prepay",
+			{
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${issued.accessToken}`,
+					"idempotency-key": "prepay-key-001",
+				},
+			},
+		),
+	);
+
+	expect(response.status).toBe(503);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "dependency-not-configured",
+			message: "Required service dependency is not configured",
+		},
+	});
 });

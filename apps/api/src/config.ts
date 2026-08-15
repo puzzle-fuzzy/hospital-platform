@@ -19,6 +19,16 @@ export type RuntimeConfig = {
 	wechatAppId: string | undefined;
 	wechatAppSecret: string | undefined;
 	wechatIdentityBaseUrl: string;
+	/** 微信支付 APIv3 仅在完整商户配置和人工验收后打开。 */
+	wechatPaymentReady: boolean;
+	wechatPayAppId: string | undefined;
+	wechatPayMchId: string | undefined;
+	wechatPayMerchantCertificateSerial: string | undefined;
+	wechatPayMerchantPrivateKey: string | undefined;
+	wechatPayPlatformCertificateSerial: string | undefined;
+	wechatPayPlatformPublicKey: string | undefined;
+	wechatPayNotifyUrl: string | undefined;
+	wechatPayBaseUrl: string;
 };
 
 function positivePort(value: string | undefined): number {
@@ -91,4 +101,20 @@ export const config: RuntimeConfig = {
 	wechatAppSecret: optional(Bun.env.WECHAT_APP_SECRET),
 	wechatIdentityBaseUrl:
 		Bun.env.WECHAT_IDENTITY_BASE_URL ?? "https://api.weixin.qq.com",
+	wechatPaymentReady: boolean(Bun.env.WECHAT_PAYMENT_READY, false),
+	wechatPayAppId: optional(Bun.env.WECHAT_PAY_APP_ID),
+	wechatPayMchId: optional(Bun.env.WECHAT_PAY_MCH_ID),
+	wechatPayMerchantCertificateSerial: optional(
+		Bun.env.WECHAT_PAY_MERCHANT_CERTIFICATE_SERIAL,
+	),
+	wechatPayMerchantPrivateKey: optional(
+		Bun.env.WECHAT_PAY_MERCHANT_PRIVATE_KEY,
+	),
+	wechatPayPlatformCertificateSerial: optional(
+		Bun.env.WECHAT_PAY_PLATFORM_CERTIFICATE_SERIAL,
+	),
+	wechatPayPlatformPublicKey: optional(Bun.env.WECHAT_PAY_PLATFORM_PUBLIC_KEY),
+	wechatPayNotifyUrl: optional(Bun.env.WECHAT_PAY_NOTIFY_URL),
+	wechatPayBaseUrl:
+		Bun.env.WECHAT_PAY_BASE_URL ?? "https://api.mch.weixin.qq.com",
 };

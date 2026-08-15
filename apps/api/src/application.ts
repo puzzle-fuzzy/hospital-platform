@@ -1,5 +1,8 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
-import type { WechatIdentityGateway } from "@hospital/domain";
+import type {
+	WechatIdentityGateway,
+	WechatPaymentGateway,
+} from "@hospital/domain";
 import { PaymentOrderService } from "@hospital/domain";
 import type {
 	MySqlRepositories,
@@ -13,11 +16,13 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { PatientService } from "./modules/patients";
+import { WechatPrepayService } from "./modules/payments";
 
 export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
 	paymentOrders: PaymentOrderService;
+	wechatPrepay: WechatPrepayService;
 	sessions: SessionTokenService;
 };
 
@@ -28,6 +33,8 @@ export type ApplicationServiceOptions = {
 	sessionStore?: RedisSessionStore;
 	/** 只有配置闸门打开时才允许注入真实微信身份 adapter。 */
 	identityGateway?: WechatIdentityGateway;
+	/** 只有完成微信支付商户配置和回调验收后才打开。 */
+	wechatPaymentGateway?: WechatPaymentGateway;
 };
 
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
@@ -41,6 +48,10 @@ export function createDefaultApplicationServices(
 	const sessions = options.sessionStore
 		? createRedisSessionTokenService(options.sessionStore)
 		: createNotConfiguredSessionTokenService();
+	const paymentOrders = new PaymentOrderService({
+		orders: repositories.paymentOrders,
+		quotes: repositories.paymentQuotes,
+	});
 
 	return {
 		auth: new AuthService({
@@ -49,9 +60,11 @@ export function createDefaultApplicationServices(
 			sessions,
 		}),
 		patients: new PatientService(repositories.patients),
-		paymentOrders: new PaymentOrderService({
-			orders: repositories.paymentOrders,
-			quotes: repositories.paymentQuotes,
+		paymentOrders,
+		wechatPrepay: new WechatPrepayService({
+			orders: paymentOrders,
+			identityUsers: repositories.identityUsers,
+			wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
 		}),
 		sessions,
 	};

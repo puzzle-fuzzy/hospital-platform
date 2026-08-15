@@ -66,10 +66,16 @@ function parseErrorCode(data) {
 }
 
 /**
- * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: WechatMiniprogram.IAnyObject, authenticated?: boolean}} options
+ * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: WechatMiniprogram.IAnyObject, authenticated?: boolean, idempotencyKey?: string}} options
  * @returns {Promise<any>}
  */
-export function request({ url, method = "GET", data, authenticated = false }) {
+export function request({
+	url,
+	method = "GET",
+	data,
+	authenticated = false,
+	idempotencyKey,
+}) {
 	const { apiBaseUrl, accessToken } = getAppConfig();
 	if (!apiBaseUrl) {
 		return Promise.reject(
@@ -84,6 +90,7 @@ export function request({ url, method = "GET", data, authenticated = false }) {
 			...(data === undefined ? {} : { data }),
 			header: {
 				"content-type": "application/json",
+				...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
 				...(authenticated && accessToken
 					? { Authorization: `Bearer ${accessToken}` }
 					: {}),
@@ -154,7 +161,7 @@ export function login() {
 /**
  * 需要会话的请求只在 401 时重新登录一次，避免失效 token 造成无限重试。
  * 业务响应仍由服务端状态和权限决定，小程序不自行推导支付成功。
- * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: WechatMiniprogram.IAnyObject}} options
+ * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: WechatMiniprogram.IAnyObject, idempotencyKey?: string}} options
  * @returns {Promise<any>}
  */
 export async function requestWithSession(options) {
@@ -169,4 +176,18 @@ export async function requestWithSession(options) {
 		await login();
 		return request({ ...options, authenticated: true });
 	}
+}
+
+/**
+ * 读取服务端生成的微信调起参数；小程序不构造 paySign，也不把调起成功当作业务成功。
+ * @param {string} orderId
+ * @param {string} idempotencyKey
+ */
+export function requestWechatPrepay(orderId, idempotencyKey) {
+	return requestWithSession({
+		url: `/api/v1/payments/orders/${encodeURIComponent(orderId)}/wechat-prepay`,
+		method: "POST",
+		data: {},
+		idempotencyKey,
+	});
 }

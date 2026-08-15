@@ -3,10 +3,13 @@ import {
 	PaymentOrderCreateRequest,
 	PaymentOrderResponse,
 	success,
+	WechatPrepayResponse,
 } from "@hospital/contracts";
 import type { PaymentOrderPayload } from "@hospital/contracts";
 import type { PaymentOrder, PaymentOrderService } from "@hospital/domain";
+import { adapterContextFromHeaders } from "../../plugins/request-context";
 import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import type { WechatPrepayService } from "./service";
 
 /** 读取订单时只需要会话，不需要客户端重复提交幂等键。 */
 const AuthenticatedHeaders = t.Object({
@@ -15,6 +18,12 @@ const AuthenticatedHeaders = t.Object({
 
 /** 创建订单必须携带幂等键，服务端用它防止重复下单。 */
 const CreateOrderHeaders = t.Object({
+	authorization: t.Optional(t.String({ maxLength: 512 })),
+	"idempotency-key": t.String({ minLength: 1, maxLength: 128 }),
+});
+
+/** 预支付请求使用独立幂等键，避免网络重试时丢失 provider 调用上下文。 */
+const CreateWechatPrepayHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
 	"idempotency-key": t.String({ minLength: 1, maxLength: 128 }),
 });
@@ -40,6 +49,7 @@ function paymentOrderView(order: PaymentOrder): PaymentOrderPayload["data"] {
 /** 支付订单 HTTP 模块只负责鉴权、输入校验和读模型映射。 */
 export function paymentsModule(
 	paymentOrders: PaymentOrderService,
+	wechatPrepay: WechatPrepayService,
 	sessions: SessionTokenService,
 ) {
 	return new Elysia({ name: "payments-module" })
@@ -65,6 +75,28 @@ export function paymentsModule(
 				tags: ["payments"],
 			},
 		)
+		.post(
+			"/payments/orders/:orderId/wechat-prepay",
+			async ({ headers, params }) => {
+				const principal = await requirePrincipal(
+					headers.authorization,
+					sessions,
+				);
+				return success(
+					await wechatPrepay.create({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: CreateWechatPrepayHeaders,
+				params: PaymentOrderParams,
+				response: { 200: WechatPrepayResponse },
+				tags: ["payments"],
+			},
+		)
 		.get(
 			"/payments/orders/:orderId",
 			async ({ headers, params }) => {
@@ -83,3 +115,9 @@ export function paymentsModule(
 			},
 		);
 }
+
+export {
+	PaymentIdentityNotFoundError,
+	WechatPrepayService,
+	type WechatPrepayServiceDependencies,
+} from "./service";

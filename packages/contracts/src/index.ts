@@ -136,6 +136,26 @@ export const PaymentOrderResponse = Type.Object({
 	data: PaymentOrderSchema,
 });
 
+/** 服务端生成的微信小程序调起参数；不包含订单 owner 或 provider 原始报文。 */
+export const WechatMiniProgramPayParamsSchema = Type.Object({
+	appId: Type.String({ minLength: 1 }),
+	timeStamp: Type.String({ minLength: 1 }),
+	nonceStr: Type.String({ minLength: 1 }),
+	package: Type.String({ minLength: 1 }),
+	signType: Type.Literal("RSA"),
+	paySign: Type.String({ minLength: 1 }),
+});
+
+/** 预支付接口只表示参数已生成，不表示微信支付成功或业务订单完成。 */
+export const WechatPrepayResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1 }),
+		state: PaymentStateSchema,
+		payParams: WechatMiniProgramPayParamsSchema,
+	}),
+});
+
 export type PaymentState = Static<typeof PaymentStateSchema>;
 
 export type HealthPayload = Static<typeof HealthResponse>;
@@ -151,6 +171,7 @@ export type PaymentOrderCreatePayload = Static<
 >;
 export type PaymentAmountsPayload = Static<typeof PaymentAmountsSchema>;
 export type PaymentOrderPayload = Static<typeof PaymentOrderResponse>;
+export type WechatPrepayPayload = Static<typeof WechatPrepayResponse>;
 
 export function success<const T>(data: T): { success: true; data: T } {
 	return { success: true, data };

@@ -78,7 +78,13 @@ export function createApp(options: AppOptions = {}) {
 				.use(systemModule())
 				.use(authModule(services.auth))
 				.use(patientsModule(services.patients, services.sessions))
-				.use(paymentsModule(services.paymentOrders, services.sessions)),
+				.use(
+					paymentsModule(
+						services.paymentOrders,
+						services.wechatPrepay,
+						services.sessions,
+					),
+				),
 		);
 
 	return app;

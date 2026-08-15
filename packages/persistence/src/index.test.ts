@@ -42,6 +42,7 @@ test("in-memory repositories preserve owner isolation", async () => {
 	]);
 
 	expect(same.userId).toBe(first.userId);
+	expect(await users.findByUserId(first.userId)).toEqual(first);
 	expect(await patients.listByOwner(first.userId)).toHaveLength(1);
 });
 

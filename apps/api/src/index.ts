@@ -1,4 +1,7 @@
-import { createWechatIdentityGateway } from "@hospital/adapters";
+import {
+	createWechatIdentityGateway,
+	createWechatPaymentGateway,
+} from "@hospital/adapters";
 import { createLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
 import { createApp } from "./app";
@@ -23,6 +26,20 @@ const identityGateway = config.wechatIdentityReady
 			baseUrl: config.wechatIdentityBaseUrl,
 		})
 	: undefined;
+const wechatPaymentGateway = config.wechatPaymentReady
+	? createWechatPaymentGateway({
+			appId: config.wechatPayAppId ?? "",
+			mchId: config.wechatPayMchId ?? "",
+			merchantCertificateSerial:
+				config.wechatPayMerchantCertificateSerial ?? "",
+			merchantPrivateKey: config.wechatPayMerchantPrivateKey ?? "",
+			platformCertificateSerial:
+				config.wechatPayPlatformCertificateSerial ?? "",
+			platformPublicKey: config.wechatPayPlatformPublicKey ?? "",
+			notifyUrl: config.wechatPayNotifyUrl ?? "",
+			baseUrl: config.wechatPayBaseUrl,
+		})
+	: undefined;
 const app = createApp({
 	logger,
 	services: createDefaultApplicationServices({
@@ -31,6 +48,7 @@ const app = createApp({
 			: {}),
 		...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
 		...(identityGateway ? { identityGateway } : {}),
+		...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
 	}),
 	readiness: createReadinessService({
 		databaseConfigured: Boolean(config.databaseUrl),

@@ -31,6 +31,8 @@ export interface UserIdentityRepository {
 		providerSubject: string;
 		unionId?: string;
 	}): Promise<IdentityUser>;
+	/** 仅供服务端向 provider 发起受控操作；provider subject 不得进入 API 响应或日志。 */
+	findByUserId(userId: string): Promise<IdentityUser | undefined>;
 }
 
 /** 患者仓储必须按 ownerUserId 过滤，禁止由客户端传入归属条件。 */

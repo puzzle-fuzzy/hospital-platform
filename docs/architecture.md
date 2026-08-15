@@ -61,7 +61,7 @@ GET /api/v1/patients
 
 默认组合根使用 fail-closed adapter/repository；只有显式注入 fixture 或真实实现时才允许登录和患者数据链路返回业务成功。这样本地演示可以独立测试，生产环境也不会因为缺少 provider 配置而生成假 token 或假患者数据。
 
-支付订单的第一阶段只建立内部事实，不提前连接 provider：金额以分为单位并校验 `totalFen = insuranceFen + cashFen`；创建使用 `ownerUserId + idempotencyKey` 重放；每次状态变更递增 `version`，持久层需用条件更新避免并发覆盖。下一步才是把它接成 API 命令，再由 worker 驱动医保、微信支付和 HIS 的可追踪调用。
+支付订单的第一阶段只建立内部事实，不提前连接 provider：金额以分为单位并校验 `totalFen = insuranceFen + cashFen`；创建使用 `ownerUserId + idempotencyKey` 重放；每次状态变更递增 `version`，持久层需用条件更新避免并发覆盖。医保、查单、通知和 HIS 回写仍由 worker 驱动；微信 JSAPI 预支付是一个受控的同步例外，因为小程序必须即时拿到服务端签名参数，但它只能读取 `cash_pending` 订单、使用独立幂等键、受 provider 闸门保护，绝不把调起成功写成业务成功。
 
 当前已开放的内部订单 API：
 
@@ -72,6 +72,11 @@ POST /api/v1/payments/orders
 
 GET /api/v1/payments/orders/:orderId
   -> 只允许当前会话 owner 读取
+
+POST /api/v1/payments/orders/:orderId/wechat-prepay
+  -> 服务端读取当前用户的 provider subject
+  -> 只把 cashFen 交给 WechatPaymentGateway
+  -> 返回 payParams；不推进订单状态
 ```
 
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
@@ -82,8 +87,8 @@ contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支
 医保 6201/6202/6203/6301/6401 的专用路由、整数分金额守恒、订单关联和退款边界，
 但 SM2/SM3/SM4 crypto adapter 只有严格 port 和 fail-closed 默认实现，仍等待 golden
 vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会话恢复和服务端归属患者
-列表接入现有 API contract。支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY`
-也默认关闭，医保和 HIS handler 尚未接入；因此当前不会产生真实支付副作用。
+列表接入现有 API contract。Phase 6B 又加入微信预支付应用服务和原生端调用封装；支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY`
+也默认关闭，`WECHAT_PAYMENT_READY` 默认关闭，医保和 HIS handler 尚未接入；因此默认运行不会产生真实支付副作用。
 
 原生小程序的功能边界：
 
@@ -98,6 +103,7 @@ vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会�
 - APIv3 请求签名使用发送前的原始 JSON 字节；响应必须校验证书序列号、时间窗口、nonce 和 RSA-SHA256 签名。
 - 通知必须先校验 APIv3 签名，再解密 `AEAD_AES_256_GCM` resource；解密结果还需要由 callback mapper 做业务字段白名单校验。
 - `prepay_id` 只代表微信预支付凭证；小程序调起成功、查单成功和业务订单完成仍是不同事实，最终状态必须由回调/查单/HIS 回写编排。
+- `POST .../wechat-prepay` 只在完整支付配置显式打开后调用微信下单；默认组合根使用 fail-closed gateway，未配置时返回 503。
 
 Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider-contract-v1.md)，
 避免把身份、支付、医保加密和 HIS 回写混成一个不可审计的“大 adapter”。

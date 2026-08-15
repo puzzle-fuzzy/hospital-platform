@@ -5,10 +5,12 @@ import {
 	PaymentOrderInputError,
 	PaymentOrderNotFoundError,
 	PaymentOrderVersionConflictError,
+	PaymentCashPrepayNotAllowedError,
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
 } from "@hospital/domain";
 import { HttpError } from "../errors";
+import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 
 function normalizeCode(code: string | number): string {
 	return typeof code === "string" ? code : "UNKNOWN";
@@ -113,6 +115,28 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "payment-order-conflict",
 						message: "Payment order changed",
+					},
+				};
+			}
+
+			if (error instanceof PaymentCashPrepayNotAllowedError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "payment-cash-prepay-not-allowed",
+						message: "Cash prepay is not available for this order",
+					},
+				};
+			}
+
+			if (error instanceof PaymentIdentityNotFoundError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "payment-identity-not-found",
+						message: "Payment identity is not available",
 					},
 				};
 			}

@@ -38,6 +38,9 @@ export function createInMemoryIdentityUserRepository(
 			users.set(input.providerSubject, user);
 			return user;
 		},
+		async findByUserId(userId) {
+			return [...users.values()].find((user) => user.userId === userId);
+		},
 	};
 }
 
@@ -118,6 +121,9 @@ export function createNotConfiguredRepositories(): {
 	return {
 		identityUsers: {
 			findOrCreateByWechat: async () => {
+				throw new PersistenceNotConfiguredError("identity-users");
+			},
+			findByUserId: async () => {
 				throw new PersistenceNotConfiguredError("identity-users");
 			},
 		},

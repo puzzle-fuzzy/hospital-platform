@@ -350,6 +350,14 @@ export function createMySqlRepositories(
 				return identityUser(racedRows[0]);
 			}
 		},
+		async findByUserId(userId) {
+			const rows = await execute<IdentityUserRow[]>(
+				pool,
+				"SELECT user_id, provider_subject, union_id FROM hp_identity_users WHERE user_id = ? LIMIT 1",
+				[userId],
+			);
+			return rows[0] ? identityUser(rows[0]) : undefined;
+		},
 	};
 
 	const patients: PatientRepository = {

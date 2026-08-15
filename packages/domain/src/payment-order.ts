@@ -141,6 +141,14 @@ export class PaymentOrderVersionConflictError extends Error {
 	}
 }
 
+/** 只有医保结算明确留下现金应付时，才允许申请微信预支付参数。 */
+export class PaymentCashPrepayNotAllowedError extends Error {
+	constructor() {
+		super("Wechat cash prepay is not allowed for the current payment order");
+		this.name = "PaymentCashPrepayNotAllowedError";
+	}
+}
+
 export type CreatePaymentOrderInput = {
 	ownerUserId: string;
 	patientId: string;

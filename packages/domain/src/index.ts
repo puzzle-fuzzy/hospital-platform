@@ -28,6 +28,7 @@ export {
 	PaymentIdempotencyConflictError,
 	PaymentOrderInputError,
 	PaymentOrderNotFoundError,
+	PaymentCashPrepayNotAllowedError,
 	PaymentOrderService,
 	PaymentOrderVersionConflictError,
 	PaymentQuoteExpiredError,

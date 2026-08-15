@@ -26,6 +26,9 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox 
 | `worker.outbox.claimed` | Outbox worker | 确认事件被领取及当前重试次数 |
 | `worker.outbox.processed` | Outbox worker | 确认事件处理完成 |
 | `worker.outbox.retry_scheduled` | Outbox worker | 查询重试原因和下一次尝试前的状态 |
+| `payment.wechat_prepay.requested` | 微信预支付应用服务 | 确认某个内部订单开始申请服务端调起参数 |
+| `payment.wechat_prepay.created` | 微信预支付应用服务 | 确认参数生成成功及 provider request id |
+| `payment.wechat_prepay.failed` | 微信预支付应用服务 | 记录失败类型，便于区分配置、网络和 provider 错误 |
 
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
 
