@@ -6,11 +6,12 @@
 
 ## 1. 盘点结论
 
-旧端当前有 64 个 Vue 页面，新原生小程序有 8 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
+旧端当前有 64 个 Vue 页面，新原生小程序有 9 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
 但还不是旧端的功能等价替换：
 
 ```text
 已形成闭环：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询
+已迁移静态能力：院内导航静态地图（不含实时定位和路线）
 仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码
 仍缺真实证据：众阳患者/预约历史/报告/门诊费用、公网 API、微信真机和生产回归
 ```
@@ -25,6 +26,7 @@
 | 预约历史 | `appointments/records` | contract、映射边界和只读页面已实现 | 真实账号重新同步、公网和真机证据仍缺 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
 | 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai` | 费用详情、支付、医保、结算回写和退费未开放 |
+| 院内导航 | `pages/hospital-navigation/hospital-navigation` | 旧端静态地图、背景色、`aspectFit` 和点击预览已迁移 | 医院列表、楼层/科室定位、实时路线和地图服务未迁移 |
 | 微信支付 | 订单、预支付、通知、查单基础设施 | 代码基础和 gate 已具备 | 商户、回调、公网和真机支付未验收；gate 必须关闭 |
 | 医保/HIS | domain/规则层部分存在 | 规则边界和文档基础存在 | 真实加密、授权、6201/6202/6301/6203/6401、HIS 回写均未迁移 |
 | 健康知识 | contract/domain/repository 骨架存在 | 明确 fail-closed，路由未挂载 | 未完成内容导入、审核、schema 和患者端页面 |
@@ -41,6 +43,18 @@
 - 预约目录、预约历史、报告、门诊费用分别完成 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 患者目录失效回收使用“active/inactive + 事务快照”设计；在该设计完成前不直接删除 `hp_patients`。
+
+### 旧端顶层页面的重分类
+
+旧端 `src/pages` 另外包含 5 个页面，它们不能因为不在 `pagesB` 清单中而被遗漏：
+
+| 旧页面 | 当前状态 | 迁移边界 |
+| --- | --- | --- |
+| `pages/index/index.vue` | 已被原生首页替换 | 保留首页患者上下文、服务入口和底部导航；不保留旧端 provider 直连 |
+| `pages/user/user.vue` | 已被原生“我的”页部分替换 | 患者选择、挂号记录等已接入；个人资料、反馈、订阅消息等扩展入口仍未迁移 |
+| `pages/consult/consult.vue` | 未迁移 | 智能陪诊/导诊需要独立会话、免责声明、内容审计和外部服务 contract |
+| `pages/hospital/hospital.vue` | 未迁移 | 互联网医院入口需要外部小程序/医院服务协议，不能伪造站内页面 |
+| `pages/setting/setData.vue` | 开发辅助页，不纳入生产迁移 | 不进入生产 `app.json`，保留在旧端作为测试工具即可 |
 
 ### P1：取得新的 provider 文档后迁移
 
