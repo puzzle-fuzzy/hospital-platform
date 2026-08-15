@@ -103,6 +103,17 @@ export class HealthKnowledgeValidationError extends Error {
 	}
 }
 
+/**
+ * 没有可公开的已发布版本时，患者端必须明确失败，不能回退到草稿或示例数据。
+ * API 层可以将它映射为服务不可用/内容暂不可用，而不是伪装成空结果。
+ */
+export class HealthKnowledgeContentUnavailableError extends Error {
+	constructor() {
+		super("No published health knowledge content is available");
+		this.name = "HealthKnowledgeContentUnavailableError";
+	}
+}
+
 function assertBoundedText(
 	value: string,
 	maxLength: number,

@@ -3,6 +3,28 @@ import type { DependencyState } from "@hospital/contracts";
 export { PersistenceNotConfiguredError } from "./errors";
 export { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 export {
+	type CoreSchemaState,
+	PERSISTENCE_MIGRATIONS,
+	readCoreSchemaState,
+	readCoreSchemaStateFromPool,
+	runCoreMigration,
+} from "./migrate";
+export { createMySqlHealthKnowledgeRepository } from "./mysql-health-knowledge-repository";
+export {
+	createMySqlRepositories,
+	type MySqlRepositories,
+} from "./mysql-repositories";
+export { createInMemoryOutboxRepository } from "./outbox";
+export {
+	createAesGcmSecretValueCipher,
+	type SecretValueCipher,
+} from "./prepay-cipher";
+export {
+	createRedisSessionStore,
+	type RedisSessionClient,
+	type RedisSessionStore,
+} from "./redis-session";
+export {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
@@ -13,28 +35,7 @@ export {
 	createInMemoryWechatPaymentNotificationRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";
-export { createInMemoryOutboxRepository } from "./outbox";
-export {
-	createAesGcmSecretValueCipher,
-	type SecretValueCipher,
-} from "./prepay-cipher";
 export { createPersistenceRuntime, type PersistenceRuntime } from "./runtime";
-export {
-	PERSISTENCE_MIGRATIONS,
-	readCoreSchemaState,
-	readCoreSchemaStateFromPool,
-	runCoreMigration,
-	type CoreSchemaState,
-} from "./migrate";
-export {
-	createMySqlRepositories,
-	type MySqlRepositories,
-} from "./mysql-repositories";
-export {
-	createRedisSessionStore,
-	type RedisSessionClient,
-	type RedisSessionStore,
-} from "./redis-session";
 
 export type DependencyPort = {
 	check(): Promise<DependencyState>;

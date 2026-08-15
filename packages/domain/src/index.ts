@@ -38,6 +38,7 @@ export type {
 export {
 	groupHealthKnowledgeByInitialLetter,
 	HEALTH_KNOWLEDGE_DISCLAIMER,
+	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeValidationError,
 	validateHealthKnowledgeIdentifier,
 	validateHealthKnowledgeLetter,
@@ -123,8 +124,8 @@ export type {
 	LaboratoryReportDetailItem,
 	ReportDetailFlag,
 	ReportDetailGateway,
-	ReportDirectoryGateway,
 	ReportDirectoryEntry,
+	ReportDirectoryGateway,
 	ReportDirectoryInput,
 	ReportDirectoryQuery,
 	ReportKind,

@@ -168,9 +168,10 @@ Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider
 避免把身份、支付、医保加密和 HIS 回写混成一个不可审计的“大 adapter”。
 
 健康百科、自测和指标解读的内容安全边界见
-[ADR 0004](adr/0004-health-knowledge-content-boundary.md)。当前只完成设计，尚未把旧内容
-直接复制到新库，也未注册患者端健康知识路由；内容版本、审核、撤回和真实 schema 证据
-完成前，不能用内存 fixture 或 AI 输出冒充已上线知识。
+[ADR 0004](adr/0004-health-knowledge-content-boundary.md)。当前已完成 contract、domain port、
+`0010_health_knowledge` schema 和 MySQL fail-closed repository；尚未把旧内容直接复制到新库，
+也未注册患者端健康知识路由。内容导入、审核、撤回和真实 schema/数据证据完成前，不能用
+内存 fixture 或 AI 输出冒充已上线知识。
 
 ## 支付状态机
 

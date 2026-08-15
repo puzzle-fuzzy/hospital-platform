@@ -253,6 +253,40 @@ test("report reference migration keeps the owner and expiry boundary explicit", 
 	);
 });
 
+test("health knowledge migration keeps version and publication boundaries explicit", async () => {
+	const sql = await Bun.file(
+		new URL("../migrations/0010_health_knowledge.sql", import.meta.url),
+	).text();
+	const normalizedSql = sql.replace(/\s+/g, " ");
+
+	expect(normalizedSql).toContain(
+		"CREATE TABLE IF NOT EXISTS hp_health_knowledge_publications",
+	);
+	expect(normalizedSql).toContain(
+		"CREATE TABLE IF NOT EXISTS hp_health_knowledge_items",
+	);
+	expect(normalizedSql).toContain(
+		"CREATE TABLE IF NOT EXISTS hp_health_knowledge_disease_relations",
+	);
+	expect(normalizedSql).toContain(
+		"CREATE TABLE IF NOT EXISTS hp_health_knowledge_disease_drugs",
+	);
+	expect(normalizedSql).toContain(
+		"KEY ix_hp_health_knowledge_publications_published",
+	);
+	expect(normalizedSql).toContain(
+		"UNIQUE KEY uq_hp_health_knowledge_items_version_id (content_version, item_id)",
+	);
+	expect(normalizedSql).toContain(
+		"FOREIGN KEY (content_version) REFERENCES hp_health_knowledge_publications (content_version)",
+	);
+	expect(normalizedSql).toContain(
+		"FOREIGN KEY (content_version, disease_id) REFERENCES hp_health_knowledge_items (content_version, item_id)",
+	);
+	expect(normalizedSql).toContain("drug_id VARCHAR(128) NULL");
+	expect(normalizedSql).toContain("is_clickable BOOLEAN NOT NULL");
+});
+
 test("persistence failure logs keep raw error objects out of Pino", async () => {
 	const sources = await Promise.all([
 		Bun.file(new URL("./migrate.ts", import.meta.url)).text(),

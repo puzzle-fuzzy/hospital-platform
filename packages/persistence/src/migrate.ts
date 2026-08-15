@@ -64,6 +64,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0009_report_references.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0010_health_knowledge",
+		file: "../migrations/0010_health_knowledge.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -83,6 +88,14 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_wechat_payment_notifications",
 	"hp_appointment_schedule_snapshots",
 	"hp_report_references",
+	"hp_health_knowledge_publications",
+	"hp_health_knowledge_items",
+	"hp_health_knowledge_disease_details",
+	"hp_health_knowledge_drug_details",
+	"hp_health_knowledge_disease_relations",
+	"hp_health_knowledge_part_symptoms",
+	"hp_health_knowledge_symptom_diseases",
+	"hp_health_knowledge_disease_drugs",
 ] as const;
 
 export const PERSISTENCE_SCHEMA_COLUMNS = [
@@ -202,6 +215,73 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"updated_at",
 		],
 	},
+	{
+		table: "hp_health_knowledge_publications",
+		columns: [
+			"content_version",
+			"status",
+			"source_label",
+			"reviewed_at",
+			"disclaimer",
+			"effective_from",
+			"effective_to",
+		],
+	},
+	{
+		table: "hp_health_knowledge_items",
+		columns: [
+			"item_id",
+			"content_version",
+			"item_kind",
+			"name",
+			"initial_letter",
+		],
+	},
+	{
+		table: "hp_health_knowledge_disease_details",
+		columns: [
+			"disease_id",
+			"content_version",
+			"disease_alias",
+			"treatment_department",
+			"cause",
+			"symptoms",
+			"treatment",
+		],
+	},
+	{
+		table: "hp_health_knowledge_drug_details",
+		columns: [
+			"drug_id",
+			"content_version",
+			"manufacturer",
+			"indications",
+			"usage_dosage",
+			"precautions",
+		],
+	},
+	{
+		table: "hp_health_knowledge_disease_relations",
+		columns: ["content_version", "relation_kind", "relation_id", "disease_id"],
+	},
+	{
+		table: "hp_health_knowledge_part_symptoms",
+		columns: ["content_version", "part_id", "symptom_id"],
+	},
+	{
+		table: "hp_health_knowledge_symptom_diseases",
+		columns: ["content_version", "symptom_id", "disease_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_drugs",
+		columns: [
+			"content_version",
+			"disease_id",
+			"drug_id",
+			"drug_name",
+			"is_clickable",
+		],
+	},
 ] as const;
 
 /** Security-critical indexes and their column order for owner-scoped lookups and leases. */
@@ -267,6 +347,41 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		name: "ix_hp_report_references_owner_expiry",
 		columns: ["owner_user_id", "expires_at"],
 	},
+	{
+		table: "hp_health_knowledge_publications",
+		name: "ix_hp_health_knowledge_publications_published",
+		columns: ["status", "effective_from", "effective_to", "reviewed_at"],
+	},
+	{
+		table: "hp_health_knowledge_items",
+		name: "ix_hp_health_knowledge_items_catalog",
+		columns: ["content_version", "item_kind", "initial_letter", "name"],
+	},
+	{
+		table: "hp_health_knowledge_items",
+		name: "uq_hp_health_knowledge_items_version_id",
+		columns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_relations",
+		name: "ix_hp_health_knowledge_disease_relations_relation",
+		columns: ["content_version", "relation_kind", "relation_id"],
+	},
+	{
+		table: "hp_health_knowledge_part_symptoms",
+		name: "ix_hp_health_knowledge_part_symptoms_part",
+		columns: ["content_version", "part_id"],
+	},
+	{
+		table: "hp_health_knowledge_symptom_diseases",
+		name: "ix_hp_health_knowledge_symptom_diseases_symptom",
+		columns: ["content_version", "symptom_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_drugs",
+		name: "ix_hp_health_knowledge_disease_drugs_disease",
+		columns: ["content_version", "disease_id"],
+	},
 ] as const;
 
 /** Composite foreign keys prevent a patient/order from crossing user owners. */
@@ -298,6 +413,125 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 		columns: ["owner_user_id", "patient_id"],
 		referencedTable: "hp_patients",
 		referencedColumns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_health_knowledge_items",
+		name: "fk_hp_health_knowledge_items_publication",
+		columns: ["content_version"],
+		referencedTable: "hp_health_knowledge_publications",
+		referencedColumns: ["content_version"],
+	},
+	{
+		table: "hp_health_knowledge_disease_details",
+		name: "fk_hp_health_knowledge_disease_item_version",
+		columns: ["content_version", "disease_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_details",
+		name: "fk_hp_health_knowledge_disease_publication",
+		columns: ["content_version"],
+		referencedTable: "hp_health_knowledge_publications",
+		referencedColumns: ["content_version"],
+	},
+	{
+		table: "hp_health_knowledge_drug_details",
+		name: "fk_hp_health_knowledge_drug_item_version",
+		columns: ["content_version", "drug_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_drug_details",
+		name: "fk_hp_health_knowledge_drug_publication",
+		columns: ["content_version"],
+		referencedTable: "hp_health_knowledge_publications",
+		referencedColumns: ["content_version"],
+	},
+	{
+		table: "hp_health_knowledge_disease_relations",
+		name: "fk_hp_health_knowledge_disease_relations_publication",
+		columns: ["content_version"],
+		referencedTable: "hp_health_knowledge_publications",
+		referencedColumns: ["content_version"],
+	},
+	{
+		table: "hp_health_knowledge_disease_relations",
+		name: "fk_hp_health_knowledge_disease_relations_relation_version",
+		columns: ["content_version", "relation_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_relations",
+		name: "fk_hp_health_knowledge_disease_relations_disease_version",
+		columns: ["content_version", "disease_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_part_symptoms",
+		name: "fk_hp_health_knowledge_part_symptoms_publication",
+		columns: ["content_version"],
+		referencedTable: "hp_health_knowledge_publications",
+		referencedColumns: ["content_version"],
+	},
+	{
+		table: "hp_health_knowledge_part_symptoms",
+		name: "fk_hp_health_knowledge_part_symptoms_part_version",
+		columns: ["content_version", "part_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_part_symptoms",
+		name: "fk_hp_health_knowledge_part_symptoms_symptom_version",
+		columns: ["content_version", "symptom_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_symptom_diseases",
+		name: "fk_hp_health_knowledge_symptom_diseases_publication",
+		columns: ["content_version"],
+		referencedTable: "hp_health_knowledge_publications",
+		referencedColumns: ["content_version"],
+	},
+	{
+		table: "hp_health_knowledge_symptom_diseases",
+		name: "fk_hp_health_knowledge_symptom_diseases_symptom_version",
+		columns: ["content_version", "symptom_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_symptom_diseases",
+		name: "fk_hp_health_knowledge_symptom_diseases_disease_version",
+		columns: ["content_version", "disease_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_drugs",
+		name: "fk_hp_health_knowledge_disease_drugs_publication",
+		columns: ["content_version"],
+		referencedTable: "hp_health_knowledge_publications",
+		referencedColumns: ["content_version"],
+	},
+	{
+		table: "hp_health_knowledge_disease_drugs",
+		name: "fk_hp_health_knowledge_disease_drugs_disease_version",
+		columns: ["content_version", "disease_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_drugs",
+		name: "fk_hp_health_knowledge_disease_drugs_drug_version",
+		columns: ["content_version", "drug_id"],
+		referencedTable: "hp_health_knowledge_items",
+		referencedColumns: ["content_version", "item_id"],
 	},
 ] as const;
 

@@ -15,6 +15,11 @@
 MySQL 查询同时要求 owner 和 `expires_at`，provider 报告号不会进入 API response 或日志；
 该表只支持已取得详情合同的 LIS 读模型，不代表报告下载、解读或其他报告来源已开放。
 
+`0010_health_knowledge` 为已审核健康百科建立发布版本、目录项、疾病/药品详情和关系表。
+MySQL repository 每次读取先选择当前有效的 `published content_version`，随后所有查询都携带同一版本；
+没有发布内容、免责声明不匹配或领域字段不符合约束时 fail-closed。当前尚未导入旧百科内容，
+也尚未注册患者端健康知识 API，因此该 repository 接入不代表内容已经上线。
+
 基础连接探针的 `ok` 只证明 MySQL `SELECT 1` 与 Redis `PING` 可用；schema readiness 还必须通过 migration history 以及关键表、列、索引和 owner 外键的只读结构检查，不代表微信、医保、HIS 或支付 provider 已接通。
 
 API 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才注入 MySQL repository；该变量不是自动迁移开关，必须在目标 migration 完成并通过脱敏 staging 验证后由部署配置显式开启。

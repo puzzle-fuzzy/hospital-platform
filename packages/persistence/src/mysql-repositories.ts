@@ -1,22 +1,25 @@
 import { createHash } from "node:crypto";
+import type { PaymentState } from "@hospital/contracts";
 import type {
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotRepository,
+	HealthKnowledgeRepository,
+	IdentityUser,
 	OutboxEvent,
 	OutboxRepository,
+	PatientProviderReference,
 	PatientRecord,
 	PatientRelationship,
-	PatientProviderReference,
 	PatientRepository,
-	ReportReference,
-	ReportReferenceRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
 	PaymentQuoteRepository,
+	ReportReference,
+	ReportReferenceRepository,
 	UserIdentityRepository,
-	IdentityUser,
+	WechatMiniProgramPayParams,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
@@ -27,19 +30,18 @@ import {
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
 } from "@hospital/domain";
-import type { PaymentState } from "@hospital/contracts";
-import type { WechatMiniProgramPayParams } from "@hospital/domain";
-import { PersistenceNotConfiguredError } from "./errors";
-import {
-	createAesGcmSecretValueCipher,
-	type SecretValueCipher,
-} from "./prepay-cipher";
 import type {
 	Pool,
 	PoolConnection,
 	ResultSetHeader,
 	RowDataPacket,
 } from "mysql2/promise";
+import { PersistenceNotConfiguredError } from "./errors";
+import { createMySqlHealthKnowledgeRepository } from "./mysql-health-knowledge-repository";
+import {
+	createAesGcmSecretValueCipher,
+	type SecretValueCipher,
+} from "./prepay-cipher";
 
 /** MySQL claim lease，防止 worker 崩溃后事件永久停留在 claimed 状态。 */
 const DEFAULT_OUTBOX_CLAIM_LEASE_MS = 60_000;
@@ -176,6 +178,7 @@ export type MySqlRepositories = {
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	reportReferences: ReportReferenceRepository;
 	outbox: OutboxRepository;
+	healthKnowledge: HealthKnowledgeRepository;
 };
 
 async function execute<T extends RowDataPacket[] | ResultSetHeader>(
@@ -1224,5 +1227,6 @@ export function createMySqlRepositories(
 		appointmentScheduleSnapshots,
 		reportReferences,
 		outbox,
+		healthKnowledge: createMySqlHealthKnowledgeRepository(pool),
 	};
 }
