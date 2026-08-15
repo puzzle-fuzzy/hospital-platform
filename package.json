@@ -1,0 +1,26 @@
+{
+	"name": "hospital-platform",
+	"private": true,
+	"version": "0.1.0",
+	"description": "Hospital mini-program platform rebuild",
+	"packageManager": "pnpm@11.9.0",
+	"engines": {
+		"bun": ">=1.4.0",
+		"node": ">=24"
+	},
+	"scripts": {
+		"build": "turbo run build",
+		"check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+		"dev": "turbo run dev --parallel",
+		"format": "biome format --write .",
+		"format:check": "biome format .",
+		"lint": "biome lint .",
+		"test": "turbo run test",
+		"typecheck": "turbo run typecheck"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "catalog:",
+		"turbo": "catalog:",
+		"typescript": "catalog:"
+	}
+}

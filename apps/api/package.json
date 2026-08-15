@@ -1,0 +1,23 @@
+{
+	"name": "@hospital/api",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"build": "bun build src/index.ts --outdir dist --target bun",
+		"dev": "bun --watch run src/index.ts",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@elysiajs/cors": "catalog:",
+		"@elysiajs/openapi": "catalog:",
+		"@hospital/contracts": "workspace:*",
+		"@hospital/domain": "workspace:*",
+		"elysia": "catalog:"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"typescript": "catalog:"
+	}
+}

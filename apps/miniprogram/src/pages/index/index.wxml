@@ -1,0 +1,8 @@
+<view class="page">
+  <view class="card">
+    <text class="eyebrow">HOSPITAL PLATFORM</text>
+    <text class="title">医院服务平台</text>
+    <text class="status">API：{{status}}</text>
+    <text wx:if="{{service}}" class="service">服务：{{service}}</text>
+  </view>
+</view>

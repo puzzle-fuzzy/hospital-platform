@@ -1,0 +1,36 @@
+.page {
+	padding: 48rpx 32rpx;
+}
+
+.card {
+	background: #ffffff;
+	border-radius: 24rpx;
+	padding: 40rpx;
+	box-shadow: 0 12rpx 32rpx rgba(15, 23, 42, 0.06);
+}
+
+.eyebrow,
+.title,
+.status,
+.service {
+	display: block;
+}
+
+.eyebrow {
+	color: #2563eb;
+	font-size: 22rpx;
+	letter-spacing: 2rpx;
+}
+
+.title {
+	margin-top: 16rpx;
+	font-size: 44rpx;
+	font-weight: 600;
+}
+
+.status,
+.service {
+	margin-top: 24rpx;
+	color: #64748b;
+	font-size: 28rpx;
+}

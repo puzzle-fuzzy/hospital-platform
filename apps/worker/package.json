@@ -1,0 +1,16 @@
+{
+	"name": "@hospital/worker",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"build": "bun build src/index.ts --outdir dist --target bun",
+		"dev": "bun --watch run src/index.ts",
+		"test": "bun -e \"console.log('No tests yet for worker')\"",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"typescript": "catalog:"
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"name": "@hospital/miniprogram",
+	"private": true,
+	"version": "0.1.0",
+	"scripts": {
+		"build": "bun run scripts/build.ts",
+		"dev": "bun run scripts/build.ts",
+		"test": "bun -e \"console.log('No tests yet for miniprogram')\"",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"@types/wechat-miniprogram": "catalog:",
+		"typescript": "catalog:"
+	}
+}
