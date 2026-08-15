@@ -22,6 +22,7 @@ import {
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
+	validateAppointmentScheduleSnapshot,
 } from "@hospital/domain";
 import type { PaymentState } from "@hospital/contracts";
 import type { WechatMiniProgramPayParams } from "@hospital/domain";
@@ -308,9 +309,12 @@ function appointmentScheduleSnapshot(
 			"Persistence returned inconsistent appointment slot counts",
 		);
 	}
-	return {
+	const provider: AppointmentScheduleSnapshot["provider"] = row.provider;
+	const timeGroup: AppointmentScheduleSnapshot["schedule"]["timeGroup"] =
+		row.time_group;
+	const snapshot: AppointmentScheduleSnapshot = {
 		scheduleId: row.schedule_id,
-		provider: "zhongyang",
+		provider,
 		providerScheduleId: row.provider_schedule_id,
 		schedule: {
 			scheduleId: row.schedule_id,
@@ -324,12 +328,21 @@ function appointmentScheduleSnapshot(
 			...(row.end_time ? { endTime: row.end_time } : {}),
 			totalSlots,
 			availableSlots,
-			timeGroup: row.time_group,
+			timeGroup,
 		},
 		providerRequestId: row.provider_request_id,
 		observedAt: row.observed_at,
 		expiresAt: row.expires_at,
 	};
+	validateAppointmentScheduleSnapshot({
+		schedule: snapshot.schedule,
+		provider: snapshot.provider,
+		providerScheduleId: snapshot.providerScheduleId,
+		providerRequestId: snapshot.providerRequestId,
+		observedAt: snapshot.observedAt,
+		expiresAt: snapshot.expiresAt,
+	});
+	return snapshot;
 }
 
 function paymentQuote(row: PaymentQuoteRow) {
@@ -991,6 +1004,7 @@ export function createMySqlRepositories(
 
 	const appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository = {
 		async upsert(input) {
+			validateAppointmentScheduleSnapshot(input);
 			await execute<ResultSetHeader>(
 				pool,
 				`INSERT INTO hp_appointment_schedule_snapshots

@@ -11,7 +11,12 @@ export type {
 	AppointmentScheduleDetails,
 	AppointmentScheduleQuery,
 	AppointmentScheduleSnapshot,
+	AppointmentScheduleSnapshotInput,
 	AppointmentScheduleSnapshotRepository,
+} from "./appointments";
+export {
+	AppointmentScheduleSnapshotValidationError,
+	validateAppointmentScheduleSnapshot,
 } from "./appointments";
 export { parseIsoCalendarDate } from "./date-range";
 export { DependencyNotConfiguredError } from "./errors";

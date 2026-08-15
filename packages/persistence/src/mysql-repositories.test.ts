@@ -390,3 +390,35 @@ test("MySQL appointment schedule snapshots persist provider evidence and enforce
 	expect(state.statements[0]).toContain("ON DUPLICATE KEY UPDATE");
 	expect(state.statements[2]).toContain("expires_at > ?");
 });
+
+test("MySQL appointment snapshot validation fails before SQL execution", async () => {
+	const { pool, state } = createFakePool();
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.appointmentScheduleSnapshots.upsert({
+			schedule: {
+				scheduleId: "schedule-invalid-mysql",
+				departmentId: "dept-001",
+				departmentName: "心内科",
+				doctorId: "doctor-001",
+				doctorName: "李医生",
+				workDate: "2026-08-20",
+				shiftName: "上午",
+				totalSlots: 1,
+				availableSlots: 2,
+				timeGroup: "range",
+			},
+			provider: "zhongyang",
+			providerScheduleId: "provider-schedule-invalid",
+			providerRequestId: "provider-request-invalid",
+			observedAt: "2026-08-15T00:00:10.000Z",
+			expiresAt: "2026-08-15T00:01:10.000Z",
+		}),
+	).rejects.toMatchObject({
+		name: "AppointmentScheduleSnapshotValidationError",
+		reason: "invalid_slot_counts",
+	});
+
+	expect(state.statements).toHaveLength(0);
+});

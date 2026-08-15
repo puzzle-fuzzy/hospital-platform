@@ -20,6 +20,7 @@ import {
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
+	validateAppointmentScheduleSnapshot,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 
@@ -293,6 +294,7 @@ export function createInMemoryAppointmentScheduleSnapshotRepository(
 
 	return {
 		async upsert(input) {
+			validateAppointmentScheduleSnapshot(input);
 			const existing = snapshots.get(input.schedule.scheduleId);
 			const existingObservedAt = existing
 				? Date.parse(existing.observedAt)

@@ -1,4 +1,5 @@
 import type { AdapterCallContext, ExternalTrace } from "./ports";
+import { parseIsoCalendarDate } from "./date-range";
 
 /** 患者端可展示的科室最小读模型；provider 机构字段不直接透传。 */
 export type AppointmentDepartment = {
@@ -64,16 +65,85 @@ export type AppointmentScheduleSnapshot = {
 	expiresAt: string;
 };
 
+/** 排班快照写入端口的明确输入，供内存和 MySQL 实现共享同一校验。 */
+export type AppointmentScheduleSnapshotInput = {
+	schedule: AppointmentSchedule;
+	provider: "zhongyang";
+	providerScheduleId: string;
+	providerRequestId: string;
+	observedAt: string;
+	expiresAt: string;
+};
+
+export type AppointmentScheduleSnapshotValidationReason =
+	| "invalid_reference"
+	| "invalid_work_date"
+	| "invalid_slot_counts"
+	| "invalid_observation_window";
+
+export class AppointmentScheduleSnapshotValidationError extends Error {
+	readonly reason: AppointmentScheduleSnapshotValidationReason;
+
+	constructor(reason: AppointmentScheduleSnapshotValidationReason) {
+		super(`Invalid appointment schedule snapshot: ${reason}`);
+		this.name = "AppointmentScheduleSnapshotValidationError";
+		this.reason = reason;
+	}
+}
+
+/**
+ * 快照是未来写入链路的安全前置事实，不能只依赖 MySQL 列类型保护。
+ * 这里统一校验 opaque/provider 引用、provider 请求追踪号、工作日、号源
+ * 数量和 TTL；任何失败都在 persistence 边界前 fail-closed。
+ */
+export function validateAppointmentScheduleSnapshot(
+	input: AppointmentScheduleSnapshotInput,
+): void {
+	const references = [
+		{ value: input.schedule.scheduleId, maxLength: 128 },
+		{ value: input.providerScheduleId, maxLength: 128 },
+		{ value: input.providerRequestId, maxLength: 256 },
+	];
+	if (
+		references.some(
+			({ value, maxLength }) =>
+				typeof value !== "string" ||
+				value.trim().length === 0 ||
+				value.length > maxLength,
+		)
+	) {
+		throw new AppointmentScheduleSnapshotValidationError("invalid_reference");
+	}
+	if (parseIsoCalendarDate(input.schedule.workDate) === undefined) {
+		throw new AppointmentScheduleSnapshotValidationError("invalid_work_date");
+	}
+	if (
+		!Number.isSafeInteger(input.schedule.totalSlots) ||
+		!Number.isSafeInteger(input.schedule.availableSlots) ||
+		input.schedule.totalSlots < 0 ||
+		input.schedule.availableSlots < 0 ||
+		input.schedule.availableSlots > input.schedule.totalSlots
+	) {
+		throw new AppointmentScheduleSnapshotValidationError("invalid_slot_counts");
+	}
+	const observedAt = Date.parse(input.observedAt);
+	const expiresAt = Date.parse(input.expiresAt);
+	if (
+		!Number.isFinite(observedAt) ||
+		!Number.isFinite(expiresAt) ||
+		expiresAt <= observedAt
+	) {
+		throw new AppointmentScheduleSnapshotValidationError(
+			"invalid_observation_window",
+		);
+	}
+}
+
 /** 只读排班目录将已验证结果写入快照仓储，供未来写入前做服务端复核。 */
 export interface AppointmentScheduleSnapshotRepository {
-	upsert(input: {
-		schedule: AppointmentSchedule;
-		provider: "zhongyang";
-		providerScheduleId: string;
-		providerRequestId: string;
-		observedAt: string;
-		expiresAt: string;
-	}): Promise<AppointmentScheduleSnapshot>;
+	upsert(
+		input: AppointmentScheduleSnapshotInput,
+	): Promise<AppointmentScheduleSnapshot>;
 	findActive(
 		scheduleId: string,
 		now: string,

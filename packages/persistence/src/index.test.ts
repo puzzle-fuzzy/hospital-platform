@@ -143,6 +143,57 @@ test("appointment schedule snapshots reject stale observations and expire", asyn
 	).toBeUndefined();
 });
 
+test("appointment schedule snapshots reject invalid provider facts before storage", async () => {
+	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
+	const schedule = {
+		scheduleId: "schedule-invalid-001",
+		departmentId: "dept-001",
+		departmentName: "心内科",
+		doctorId: "doctor-001",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		totalSlots: 30,
+		availableSlots: 12,
+		timeGroup: "range" as const,
+	};
+
+	await expect(
+		snapshots.upsert({
+			schedule,
+			provider: "zhongyang",
+			providerScheduleId: "provider-schedule-001",
+			providerRequestId: "provider-request-001",
+			observedAt: "2026-08-15T00:00:10.000Z",
+			expiresAt: "2026-08-15T00:00:10.000Z",
+		}),
+	).rejects.toMatchObject({
+		name: "AppointmentScheduleSnapshotValidationError",
+		reason: "invalid_observation_window",
+	});
+
+	await expect(
+		snapshots.upsert({
+			schedule: { ...schedule, workDate: "2026-02-30" },
+			provider: "zhongyang",
+			providerScheduleId: "provider-schedule-001",
+			providerRequestId: "provider-request-001",
+			observedAt: "2026-08-15T00:00:10.000Z",
+			expiresAt: "2026-08-15T00:01:10.000Z",
+		}),
+	).rejects.toMatchObject({
+		name: "AppointmentScheduleSnapshotValidationError",
+		reason: "invalid_work_date",
+	});
+
+	expect(
+		await snapshots.findActive(
+			"schedule-invalid-001",
+			"2026-08-15T00:00:30.000Z",
+		),
+	).toBeUndefined();
+});
+
 test("in-memory payment repository enforces owner lookup", async () => {
 	const orders = createInMemoryPaymentOrderRepository([
 		{
