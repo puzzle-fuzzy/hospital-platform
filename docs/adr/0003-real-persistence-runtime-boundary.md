@@ -14,7 +14,7 @@
 - schema 先以可审阅的 SQL migration 固化目标字段、索引、唯一键和 outbox lease 字段；
 - migration runner 明确将当前 DDL 标记为 `non_transactional_ddl`，在每次执行前写入
   `hp_schema_migration_runs`；失败或中断后要求人工检查，不把 MySQL DDL 错误地包装成可回滚事务；
-- 业务 repository 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才接入生产组合根；缺少 schema 确认、实际 migration 或 provider 配置时仍 fail-closed。
+- 业务 repository 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才接入生产组合根；该 probe 同时核对 migration history、关键表/列、owner-scoped 索引和复合外键；缺少 schema 确认、实际 migration 或 provider 配置时仍 fail-closed。
 
 ## 原因
 

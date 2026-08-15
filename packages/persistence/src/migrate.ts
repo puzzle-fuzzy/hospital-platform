@@ -56,6 +56,176 @@ export const PERSISTENCE_MIGRATIONS = [
 	},
 ] as const satisfies readonly PersistenceMigration[];
 
+/**
+ * Schema objects required by the current repository boundary. Migration
+ * history alone is not proof that these objects still exist, so readiness
+ * probes the MySQL data dictionary as well as hp_schema_migrations.
+ */
+export const PERSISTENCE_SCHEMA_TABLES = [
+	"hp_schema_migrations",
+	"hp_schema_migration_runs",
+	"hp_identity_users",
+	"hp_patients",
+	"hp_payment_quotes",
+	"hp_payment_orders",
+	"hp_outbox_events",
+	"hp_payment_prepay_attempts",
+	"hp_wechat_payment_notifications",
+] as const;
+
+const PERSISTENCE_SCHEMA_COLUMNS = [
+	{ table: "hp_schema_migrations", columns: ["migration_id", "applied_at"] },
+	{
+		table: "hp_schema_migration_runs",
+		columns: ["migration_id", "execution_mode", "status", "started_at"],
+	},
+	{
+		table: "hp_identity_users",
+		columns: ["user_id", "provider_subject"],
+	},
+	{
+		table: "hp_patients",
+		columns: [
+			"patient_id",
+			"owner_user_id",
+			"display_name",
+			"relationship",
+			"card_number_masked",
+			"source",
+			"provider_name",
+			"provider_patient_id",
+		],
+	},
+	{
+		table: "hp_payment_quotes",
+		columns: [
+			"quote_id",
+			"owner_user_id",
+			"patient_id",
+			"total_fen",
+			"insurance_fen",
+			"cash_fen",
+			"expires_at",
+		],
+	},
+	{
+		table: "hp_payment_orders",
+		columns: [
+			"order_id",
+			"owner_user_id",
+			"patient_id",
+			"idempotency_key",
+			"total_fen",
+			"insurance_fen",
+			"cash_fen",
+			"state",
+			"version",
+		],
+	},
+	{
+		table: "hp_outbox_events",
+		columns: [
+			"event_id",
+			"event_name",
+			"aggregate_id",
+			"payload",
+			"available_at",
+			"claimed_until",
+			"processed_at",
+		],
+	},
+	{
+		table: "hp_payment_prepay_attempts",
+		columns: [
+			"attempt_id",
+			"owner_user_id",
+			"order_id",
+			"idempotency_key",
+			"status",
+			"version",
+			"prepay_id_hash",
+			"pay_params_ciphertext",
+			"query_attempts",
+			"last_queried_at",
+			"next_query_at",
+			"query_claimed_until",
+		],
+	},
+	{
+		table: "hp_wechat_payment_notifications",
+		columns: [
+			"notification_id",
+			"order_id",
+			"total_fen",
+			"provider_transaction_id",
+		],
+	},
+] as const;
+
+/** Security-critical indexes and their column order for owner-scoped lookups and leases. */
+const PERSISTENCE_SCHEMA_INDEXES = [
+	{
+		table: "hp_patients",
+		name: "uq_hp_patients_owner_patient",
+		columns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_patients",
+		name: "uq_hp_patients_owner_provider_patient",
+		columns: ["owner_user_id", "provider_name", "provider_patient_id"],
+	},
+	{
+		table: "hp_payment_orders",
+		name: "uq_hp_orders_owner_order",
+		columns: ["owner_user_id", "order_id"],
+	},
+	{
+		table: "hp_payment_prepay_attempts",
+		name: "uq_hp_prepay_owner_order_idempotency",
+		columns: ["owner_user_id", "order_id", "idempotency_key"],
+	},
+	{
+		table: "hp_payment_prepay_attempts",
+		name: "ix_hp_prepay_query_due",
+		columns: ["status", "next_query_at"],
+	},
+	{
+		table: "hp_payment_prepay_attempts",
+		name: "ix_hp_prepay_query_claim",
+		columns: ["status", "next_query_at", "query_claimed_until"],
+	},
+	{
+		table: "hp_wechat_payment_notifications",
+		name: "uq_hp_wechat_notification_transaction",
+		columns: ["provider_transaction_id"],
+	},
+] as const;
+
+/** Composite foreign keys prevent a patient/order from crossing user owners. */
+const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
+	{
+		table: "hp_payment_orders",
+		name: "fk_hp_orders_owner_patient",
+		columns: ["owner_user_id", "patient_id"],
+		referencedTable: "hp_patients",
+		referencedColumns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_payment_quotes",
+		name: "fk_hp_quotes_owner_patient",
+		columns: ["owner_user_id", "patient_id"],
+		referencedTable: "hp_patients",
+		referencedColumns: ["owner_user_id", "patient_id"],
+	},
+	{
+		table: "hp_payment_prepay_attempts",
+		name: "fk_hp_prepay_owner_order",
+		columns: ["owner_user_id", "order_id"],
+		referencedTable: "hp_payment_orders",
+		referencedColumns: ["owner_user_id", "order_id"],
+	},
+] as const;
+
 type MigrationRunStatus = "started" | "failed" | "succeeded";
 
 /**
@@ -80,6 +250,9 @@ export type CoreSchemaState = {
 	expectedMigrationId: string;
 	appliedMigrationIds: string[];
 	missingMigrationIds: string[];
+	/** 迁移记录未齐全时不会执行结构查询，避免把半成品误判为完整。 */
+	schemaStatus: "verified" | "incomplete" | "not_checked";
+	missingSchemaObjects: string[];
 };
 
 const logger = createLogger({
@@ -115,6 +288,142 @@ export async function readCoreSchemaState(
 	}
 }
 
+type SchemaTableRow = RowDataPacket & { table_name: string };
+type SchemaColumnRow = RowDataPacket & {
+	table_name: string;
+	column_name: string;
+};
+type SchemaIndexRow = RowDataPacket & {
+	table_name: string;
+	index_name: string;
+	sequence_in_index: number;
+	column_name: string;
+};
+type SchemaForeignKeyRow = RowDataPacket & {
+	table_name: string;
+	constraint_name: string;
+	ordinal_position: number;
+	column_name: string;
+	referenced_table_name: string | null;
+	referenced_column_name: string | null;
+};
+
+function placeholders(count: number): string {
+	return Array.from({ length: count }, () => "?").join(", ");
+}
+
+/**
+ * Verify the static schema objects that protect repository correctness.
+ * INFORMATION_SCHEMA is read-only; this probe never repairs or mutates the
+ * target database. The returned names are safe diagnostics, not raw SQL.
+ */
+async function readMissingSchemaObjects(
+	pool: Pick<Pool, "execute">,
+): Promise<string[]> {
+	const missing: string[] = [];
+	const [tableRows] = await pool.execute<SchemaTableRow[]>(
+		`SELECT TABLE_NAME AS table_name
+		 FROM INFORMATION_SCHEMA.TABLES
+		 WHERE TABLE_SCHEMA = DATABASE()
+		   AND TABLE_TYPE = 'BASE TABLE'
+		   AND TABLE_NAME IN (${placeholders(PERSISTENCE_SCHEMA_TABLES.length)})`,
+		[...PERSISTENCE_SCHEMA_TABLES],
+	);
+	const existingTables = new Set(tableRows.map((row) => row.table_name));
+	for (const table of PERSISTENCE_SCHEMA_TABLES) {
+		if (!existingTables.has(table)) missing.push(`table:${table}`);
+	}
+
+	const expectedColumns = PERSISTENCE_SCHEMA_COLUMNS.flatMap(
+		({ table, columns }) => columns.map((column) => ({ table, column })),
+	);
+	const [columnRows] = await pool.execute<SchemaColumnRow[]>(
+		`SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
+		 FROM INFORMATION_SCHEMA.COLUMNS
+		 WHERE TABLE_SCHEMA = DATABASE()
+		   AND TABLE_NAME IN (${placeholders(PERSISTENCE_SCHEMA_TABLES.length)})`,
+		[...PERSISTENCE_SCHEMA_TABLES],
+	);
+	const existingColumns = new Set(
+		columnRows.map((row) => `${row.table_name}.${row.column_name}`),
+	);
+	for (const { table, column } of expectedColumns) {
+		if (!existingColumns.has(`${table}.${column}`)) {
+			missing.push(`column:${table}.${column}`);
+		}
+	}
+
+	const [indexRows] = await pool.execute<SchemaIndexRow[]>(
+		`SELECT TABLE_NAME AS table_name,
+				INDEX_NAME AS index_name,
+				SEQ_IN_INDEX AS sequence_in_index,
+				COLUMN_NAME AS column_name
+		 FROM INFORMATION_SCHEMA.STATISTICS
+		 WHERE TABLE_SCHEMA = DATABASE()
+		   AND TABLE_NAME IN (${placeholders(PERSISTENCE_SCHEMA_TABLES.length)})`,
+		[...PERSISTENCE_SCHEMA_TABLES],
+	);
+	const existingIndexColumns = new Map<string, string[]>();
+	for (const row of indexRows) {
+		const key = `${row.table_name}.${row.index_name}`;
+		const columns = existingIndexColumns.get(key) ?? [];
+		columns[row.sequence_in_index - 1] = row.column_name;
+		existingIndexColumns.set(key, columns);
+	}
+	for (const { table, name, columns } of PERSISTENCE_SCHEMA_INDEXES) {
+		const key = `${table}.${name}`;
+		if (
+			JSON.stringify(existingIndexColumns.get(key) ?? []) !==
+			JSON.stringify(columns)
+		) {
+			missing.push(`index:${key}`);
+		}
+	}
+
+	const [foreignKeyRows] = await pool.execute<SchemaForeignKeyRow[]>(
+		`SELECT TABLE_NAME AS table_name,
+				CONSTRAINT_NAME AS constraint_name,
+				ORDINAL_POSITION AS ordinal_position,
+				COLUMN_NAME AS column_name,
+				REFERENCED_TABLE_NAME AS referenced_table_name,
+				REFERENCED_COLUMN_NAME AS referenced_column_name
+		 FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+		 WHERE CONSTRAINT_SCHEMA = DATABASE()
+		   AND TABLE_NAME IN (${placeholders(PERSISTENCE_SCHEMA_TABLES.length)})`,
+		[...PERSISTENCE_SCHEMA_TABLES],
+	);
+	const existingForeignKeyColumns = new Map<string, string[]>();
+	for (const row of foreignKeyRows) {
+		if (!row.referenced_table_name || !row.referenced_column_name) continue;
+		const key = `${row.table_name}.${row.constraint_name}`;
+		const columns = existingForeignKeyColumns.get(key) ?? [];
+		columns[row.ordinal_position - 1] =
+			`${row.column_name}->${row.referenced_table_name}.${row.referenced_column_name}`;
+		existingForeignKeyColumns.set(key, columns);
+	}
+	for (const {
+		table,
+		name,
+		columns,
+		referencedTable,
+		referencedColumns,
+	} of PERSISTENCE_SCHEMA_FOREIGN_KEYS) {
+		const key = `${table}.${name}`;
+		const expected = columns.map(
+			(column, index) =>
+				`${column}->${referencedTable}.${referencedColumns[index]}`,
+		);
+		if (
+			JSON.stringify(existingForeignKeyColumns.get(key) ?? []) !==
+			JSON.stringify(expected)
+		) {
+			missing.push(`foreign-key:${key}`);
+		}
+	}
+
+	return missing;
+}
+
 /**
  * 使用已有连接池只读检查 migration，避免每次 readiness 请求新建连接池。
  * migration 表不存在或查询失败时由调用方映射为 unavailable，绝不自动建表。
@@ -136,12 +445,27 @@ export async function readCoreSchemaStateFromPool(
 	const missingMigrationIds = expectedMigrationIds.filter(
 		(id) => !applied.has(id),
 	);
-	return {
-		status: missingMigrationIds.length === 0 ? "ready" : "incomplete",
+	const baseState = {
 		expectedMigrationId:
 			expectedMigrationIds.at(-1) ?? "no-migrations-configured",
 		appliedMigrationIds: expectedMigrationIds.filter((id) => applied.has(id)),
 		missingMigrationIds,
+	};
+	if (missingMigrationIds.length > 0) {
+		return {
+			status: "incomplete",
+			...baseState,
+			schemaStatus: "not_checked",
+			missingSchemaObjects: [],
+		};
+	}
+
+	const missingSchemaObjects = await readMissingSchemaObjects(pool);
+	return {
+		status: missingSchemaObjects.length === 0 ? "ready" : "incomplete",
+		...baseState,
+		schemaStatus: missingSchemaObjects.length === 0 ? "verified" : "incomplete",
+		missingSchemaObjects,
 	};
 }
 

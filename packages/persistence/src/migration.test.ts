@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { PERSISTENCE_MIGRATIONS, readCoreSchemaStateFromPool } from "./migrate";
+import {
+	PERSISTENCE_MIGRATIONS,
+	PERSISTENCE_SCHEMA_TABLES,
+	readCoreSchemaStateFromPool,
+} from "./migrate";
 
 test("schema probe reports incomplete migration state without writing", async () => {
 	let queryCount = 0;
@@ -20,7 +24,39 @@ test("schema probe reports incomplete migration state without writing", async ()
 		expectedMigrationId: latestMigration.id,
 		appliedMigrationIds: ["0001_core"],
 		missingMigrationIds: PERSISTENCE_MIGRATIONS.slice(1).map(({ id }) => id),
+		schemaStatus: "not_checked",
+		missingSchemaObjects: [],
 	});
+});
+
+test("schema probe rejects complete migration history when required objects are missing", async () => {
+	const calls: string[] = [];
+	const pool = {
+		execute: async (sql: string) => {
+			calls.push(sql);
+			if (sql.includes("SELECT migration_id FROM hp_schema_migrations")) {
+				return [
+					PERSISTENCE_MIGRATIONS.map(({ id }) => ({ migration_id: id })),
+					[],
+				];
+			}
+			if (sql.includes("INFORMATION_SCHEMA.TABLES")) {
+				return [[{ table_name: PERSISTENCE_SCHEMA_TABLES[0] }], []];
+			}
+			return [[], []];
+		},
+	} as never;
+
+	const state = await readCoreSchemaStateFromPool(pool);
+
+	expect(calls).toHaveLength(5);
+	expect(state.status).toBe("incomplete");
+	expect(state.schemaStatus).toBe("incomplete");
+	expect(state.missingMigrationIds).toEqual([]);
+	expect(state.missingSchemaObjects).toContain("table:hp_patients");
+	expect(state.missingSchemaObjects).toContain(
+		"foreign-key:hp_payment_orders.fk_hp_orders_owner_patient",
+	);
 });
 
 test("every migration declares the non-transactional DDL recovery policy", () => {

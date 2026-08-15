@@ -31,6 +31,10 @@ ORDER BY migration_id;
 列、索引、唯一键和外键。需要注意：`hp_schema_migrations` 没有记录某个 migration，
 不等于该 migration 的所有 DDL 都没有执行。
 
+API 和集成验收的 schema probe 还会读取 MySQL `INFORMATION_SCHEMA`，核对关键表、列、索引
+列顺序，以及患者/订单 owner 复合外键的本地列和引用列；因此不能只补写 migration history
+或只恢复约束名称。
+
 ## 修复完成后的要求
 
 1. 形成可审阅的 repair SQL，并在隔离 staging 先执行；

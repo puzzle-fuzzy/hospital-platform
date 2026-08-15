@@ -91,8 +91,10 @@ export async function runPersistenceIntegration() {
 			{
 				event: "persistence.integration.schema_probe",
 				status: schemaState.status,
+				schemaStatus: schemaState.schemaStatus,
 				expectedMigrationId: schemaState.expectedMigrationId,
 				missingMigrationIds: schemaState.missingMigrationIds,
+				missingSchemaObjects: schemaState.missingSchemaObjects,
 			},
 			"Persistence integration schema probe completed",
 		);

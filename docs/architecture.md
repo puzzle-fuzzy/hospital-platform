@@ -126,7 +126,8 @@ Phase 6E-3 又加入通知 outbox handler、共享 `@hospital/config` 和 worker
 配置不完整为 `not_configured`，依赖探针失败为 `not_ready`。
 这证明了组合边界和 fail-closed 行为，但不等于已经用真实商户配置运行过 provider。
 API `/health/ready` 同时检查 MySQL、Redis、`PERSISTENCE_SCHEMA_READY` 和目标 migration
-只读探针；配置闸门关闭或 migration 实际不完整时，即使基础设施连接可用也不会对发布平台报告 `ready`。
+只读探针；schema probe 除 migration history 外还核对关键表、列、owner-scoped 索引和复合外键。
+配置闸门关闭、migration 实际不完整或关键结构缺失时，即使基础设施连接可用也不会对发布平台报告 `ready`。
 API 组合根也只有在启动时 schema probe 为 `ok` 才注入 MySQL repositories，避免业务路由使用未完成
 migration 的持久化边界。
 
