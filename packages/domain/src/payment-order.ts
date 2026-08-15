@@ -60,6 +60,24 @@ export type PaymentOrder = {
 	updatedAt: string;
 };
 
+/** 服务端生成的费用报价；客户端只能引用 quoteId，不能提交金额拆分。 */
+export type PaymentQuote = {
+	quoteId: string;
+	ownerUserId: string;
+	patientId: string;
+	amounts: PaymentAmounts;
+	expiresAt: string;
+	source: "hospital-his" | "fixture";
+};
+
+/** 报价仓储负责提供已归属当前用户且尚未过期的后端金额。 */
+export interface PaymentQuoteRepository {
+	findByOwnerAndId(
+		ownerUserId: string,
+		quoteId: string,
+	): Promise<PaymentQuote | undefined>;
+}
+
 /** 支付订单持久化端口；生产实现必须对 ownerUserId + idempotencyKey 建唯一约束。 */
 export interface PaymentOrderRepository {
 	findByOwnerAndIdempotencyKey(
@@ -95,6 +113,20 @@ export class PaymentOrderNotFoundError extends Error {
 	}
 }
 
+export class PaymentQuoteNotFoundError extends Error {
+	constructor() {
+		super("Payment quote is not available");
+		this.name = "PaymentQuoteNotFoundError";
+	}
+}
+
+export class PaymentQuoteExpiredError extends Error {
+	constructor() {
+		super("Payment quote has expired");
+		this.name = "PaymentQuoteExpiredError";
+	}
+}
+
 export class PaymentOrderVersionConflictError extends Error {
 	constructor() {
 		super("Payment order was changed by another request");
@@ -111,6 +143,7 @@ export type CreatePaymentOrderInput = {
 
 export type PaymentOrderServiceDependencies = {
 	orders: PaymentOrderRepository;
+	quotes?: PaymentQuoteRepository;
 	now?: () => Date;
 	createOrderId?: () => string;
 };
@@ -170,6 +203,45 @@ export class PaymentOrderService {
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		});
+	}
+
+	/** 通过服务端 quote 创建订单，防止客户端伪造医保和现金金额。 */
+	async createFromQuote(input: {
+		ownerUserId: string;
+		patientId: string;
+		quoteId: string;
+		idempotencyKey: string;
+	}): Promise<PaymentOrder> {
+		if (!this.dependencies.quotes) {
+			throw new PaymentOrderInputError("Payment quote repository is required");
+		}
+		const quote = await this.dependencies.quotes.findByOwnerAndId(
+			input.ownerUserId,
+			input.quoteId,
+		);
+		if (!quote || quote.patientId !== input.patientId) {
+			throw new PaymentQuoteNotFoundError();
+		}
+		const expiresAt = new Date(quote.expiresAt).getTime();
+		if (!Number.isFinite(expiresAt) || expiresAt <= this.now().getTime()) {
+			throw new PaymentQuoteExpiredError();
+		}
+
+		return this.create({
+			ownerUserId: input.ownerUserId,
+			patientId: input.patientId,
+			idempotencyKey: input.idempotencyKey,
+			amounts: assertValidPaymentAmounts(quote.amounts),
+		});
+	}
+
+	async get(ownerUserId: string, orderId: string): Promise<PaymentOrder> {
+		const order = await this.dependencies.orders.findByOwnerAndId(
+			ownerUserId,
+			orderId,
+		);
+		if (!order) throw new PaymentOrderNotFoundError();
+		return order;
 	}
 
 	async transition(

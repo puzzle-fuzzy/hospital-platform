@@ -13,6 +13,7 @@ import {
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
 import { patientsModule } from "./modules/patients";
+import { paymentsModule } from "./modules/payments";
 import { systemModule } from "./modules/system";
 import { errorHandlerPlugin } from "./plugins/error-handler";
 import { requestContextPlugin } from "./plugins/request-context";
@@ -35,6 +36,9 @@ function openApiPlugin() {
 			tags: [
 				{ name: "health", description: "运行状态" },
 				{ name: "system", description: "系统基础接口" },
+				{ name: "auth", description: "患者端身份认证" },
+				{ name: "patients", description: "患者档案" },
+				{ name: "payments", description: "支付订单" },
 			],
 		},
 	});
@@ -66,7 +70,8 @@ export function createApp(options: AppOptions = {}) {
 			api
 				.use(systemModule())
 				.use(authModule(services.auth))
-				.use(patientsModule(services.patients, services.sessions)),
+				.use(patientsModule(services.patients, services.sessions))
+				.use(paymentsModule(services.paymentOrders, services.sessions)),
 		);
 
 	return app;

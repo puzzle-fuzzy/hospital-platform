@@ -1,10 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import type { PaymentOrder, PaymentOrderRepository } from "./payment-order";
+import type {
+	PaymentOrder,
+	PaymentOrderRepository,
+	PaymentQuote,
+	PaymentQuoteRepository,
+} from "./payment-order";
 import {
 	assertValidPaymentAmounts,
 	InvalidPaymentAmountsError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderService,
+	PaymentQuoteExpiredError,
 } from "./payment-order";
 
 const amounts = {
@@ -38,6 +44,16 @@ function createMemoryOrders(): PaymentOrderRepository {
 			}
 			orders.set(order.orderId, order);
 			return order;
+		},
+	};
+}
+
+function createMemoryQuotes(seed: PaymentQuote): PaymentQuoteRepository {
+	return {
+		async findByOwnerAndId(ownerUserId, quoteId) {
+			return seed.ownerUserId === ownerUserId && seed.quoteId === quoteId
+				? seed
+				: undefined;
 		},
 	};
 }
@@ -106,5 +122,55 @@ describe("payment order domain", () => {
 		expect(
 			service.transition("user-002", created.orderId, "completed"),
 		).rejects.toThrow("Invalid payment transition");
+	});
+
+	test("creates from an unexpired server quote", async () => {
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(),
+			quotes: createMemoryQuotes({
+				quoteId: "quote-001",
+				ownerUserId: "user-003",
+				patientId: "patient-003",
+				amounts,
+				expiresAt: "2026-08-15T00:10:00.000Z",
+				source: "fixture",
+			}),
+			now: () => new Date("2026-08-15T00:00:00.000Z"),
+			createOrderId: () => "order-003",
+		});
+
+		const order = await service.createFromQuote({
+			ownerUserId: "user-003",
+			patientId: "patient-003",
+			quoteId: "quote-001",
+			idempotencyKey: "pay-key-003",
+		});
+
+		expect(order.amounts).toEqual(amounts);
+		expect(order.state).toBe("created");
+	});
+
+	test("rejects an expired server quote", async () => {
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(),
+			quotes: createMemoryQuotes({
+				quoteId: "quote-002",
+				ownerUserId: "user-004",
+				patientId: "patient-004",
+				amounts,
+				expiresAt: "2026-08-14T23:59:00.000Z",
+				source: "fixture",
+			}),
+			now: () => new Date("2026-08-15T00:00:00.000Z"),
+		});
+
+		expect(
+			service.createFromQuote({
+				ownerUserId: "user-004",
+				patientId: "patient-004",
+				quoteId: "quote-002",
+				idempotencyKey: "pay-key-004",
+			}),
+		).rejects.toBeInstanceOf(PaymentQuoteExpiredError);
 	});
 });

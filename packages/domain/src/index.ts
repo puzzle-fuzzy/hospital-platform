@@ -1,26 +1,10 @@
-export {
-	allowedPaymentTransitions,
-	canTransitionPayment,
-	InvalidPaymentTransitionError,
-	transitionPayment,
-} from "./payment-state";
-export {
-	assertValidPaymentAmounts,
-	InvalidPaymentAmountsError,
-	PaymentIdempotencyConflictError,
-	PaymentOrderInputError,
-	PaymentOrderNotFoundError,
-	PaymentOrderService,
-	PaymentOrderVersionConflictError,
-} from "./payment-order";
 export { DependencyNotConfiguredError } from "./errors";
 export type {
-	CreatePaymentOrderInput,
-	PaymentAmounts,
-	PaymentOrder,
-	PaymentOrderRepository,
-	PaymentOrderServiceDependencies,
-} from "./payment-order";
+	OutboxEvent,
+	OutboxEventName,
+	OutboxHandler,
+	OutboxRepository,
+} from "./outbox";
 export type {
 	IdentityUser,
 	PatientRecord,
@@ -29,6 +13,32 @@ export type {
 	UserIdentityRepository,
 	WechatIdentityGateway,
 } from "./patients";
+export type {
+	CreatePaymentOrderInput,
+	PaymentAmounts,
+	PaymentOrder,
+	PaymentOrderRepository,
+	PaymentOrderServiceDependencies,
+	PaymentQuote,
+	PaymentQuoteRepository,
+} from "./payment-order";
+export {
+	assertValidPaymentAmounts,
+	InvalidPaymentAmountsError,
+	PaymentIdempotencyConflictError,
+	PaymentOrderInputError,
+	PaymentOrderNotFoundError,
+	PaymentOrderService,
+	PaymentOrderVersionConflictError,
+	PaymentQuoteExpiredError,
+	PaymentQuoteNotFoundError,
+} from "./payment-order";
+export {
+	allowedPaymentTransitions,
+	canTransitionPayment,
+	InvalidPaymentTransitionError,
+	transitionPayment,
+} from "./payment-state";
 export type {
 	AdapterCallContext,
 	ExternalTrace,

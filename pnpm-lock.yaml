@@ -95,6 +95,10 @@ importers:
         version: 7.0.2
 
   apps/worker:
+    dependencies:
+      '@hospital/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
     devDependencies:
       '@types/bun':
         specifier: 'catalog:'

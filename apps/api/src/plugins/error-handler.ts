@@ -1,5 +1,13 @@
 import { Elysia } from "elysia";
-import { DependencyNotConfiguredError } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	PaymentIdempotencyConflictError,
+	PaymentOrderInputError,
+	PaymentOrderNotFoundError,
+	PaymentOrderVersionConflictError,
+	PaymentQuoteExpiredError,
+	PaymentQuoteNotFoundError,
+} from "@hospital/domain";
 import { HttpError } from "../errors";
 
 function normalizeCode(code: string | number): string {
@@ -42,6 +50,69 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "dependency-not-configured",
 						message: "Required service dependency is not configured",
+					},
+				};
+			}
+
+			if (error instanceof PaymentOrderInputError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: { code: "payment-order-invalid", message: error.message },
+				};
+			}
+
+			if (error instanceof PaymentOrderNotFoundError) {
+				set.status = 404;
+				return {
+					success: false,
+					error: {
+						code: "payment-order-not-found",
+						message: "Payment order not found",
+					},
+				};
+			}
+
+			if (error instanceof PaymentQuoteNotFoundError) {
+				set.status = 404;
+				return {
+					success: false,
+					error: {
+						code: "payment-quote-not-found",
+						message: "Payment quote not available",
+					},
+				};
+			}
+
+			if (error instanceof PaymentQuoteExpiredError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "payment-quote-expired",
+						message: "Payment quote expired",
+					},
+				};
+			}
+
+			if (error instanceof PaymentIdempotencyConflictError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "payment-idempotency-conflict",
+						message: "Idempotency key conflicts with an existing order",
+					},
+				};
+			}
+
+			if (error instanceof PaymentOrderVersionConflictError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "payment-order-conflict",
+						message: "Payment order changed",
 					},
 				};
 			}

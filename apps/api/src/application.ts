@@ -30,6 +30,7 @@ export function createDefaultApplicationServices(): ApplicationServices {
 		patients: new PatientService(repositories.patients),
 		paymentOrders: new PaymentOrderService({
 			orders: repositories.paymentOrders,
+			quotes: repositories.paymentQuotes,
 		}),
 		sessions,
 	};

@@ -6,8 +6,11 @@
 	"scripts": {
 		"build": "bun build src/index.ts --outdir dist --target bun",
 		"dev": "bun --watch run src/index.ts",
-		"test": "bun -e \"console.log('No tests yet for worker')\"",
+		"test": "bun test",
 		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@hospital/domain": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",

@@ -4,6 +4,8 @@ import type {
 	PatientRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
+	PaymentQuote,
+	PaymentQuoteRepository,
 	UserIdentityRepository,
 } from "@hospital/domain";
 import {
@@ -93,10 +95,25 @@ export function createInMemoryPaymentOrderRepository(
 	};
 }
 
+/** 仅用于 API 集成测试；生产实现应读取 HIS/结算服务生成的短期报价。 */
+export function createInMemoryPaymentQuoteRepository(
+	seed: readonly PaymentQuote[] = [],
+): PaymentQuoteRepository {
+	const quotes = new Map(seed.map((quote) => [quote.quoteId, quote]));
+
+	return {
+		async findByOwnerAndId(ownerUserId, quoteId) {
+			const quote = quotes.get(quoteId);
+			return quote?.ownerUserId === ownerUserId ? quote : undefined;
+		},
+	};
+}
+
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
+	paymentQuotes: PaymentQuoteRepository;
 } {
 	return {
 		identityUsers: {
@@ -121,6 +138,11 @@ export function createNotConfiguredRepositories(): {
 			},
 			update: async () => {
 				throw new PersistenceNotConfiguredError("payment-orders");
+			},
+		},
+		paymentQuotes: {
+			findByOwnerAndId: async () => {
+				throw new PersistenceNotConfiguredError("payment-quotes");
 			},
 		},
 	};

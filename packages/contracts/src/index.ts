@@ -64,6 +64,12 @@ export const PatientListResponse = Type.Object({
 	}),
 });
 
+/** 创建订单只引用服务端报价，客户端不能提交医保金额或现金金额。 */
+export const PaymentOrderCreateRequest = Type.Object({
+	patientId: Type.String({ minLength: 1, maxLength: 128 }),
+	quoteId: Type.String({ minLength: 1, maxLength: 128 }),
+});
+
 export const ReadyResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
@@ -107,6 +113,29 @@ export const PaymentStateSchema = Type.Union([
 	Type.Literal("cancelled"),
 ]);
 
+/** 支付订单金额为后端 quote 的脱敏读模型，单位始终是人民币分。 */
+export const PaymentAmountsSchema = Type.Object({
+	totalFen: Type.Integer({ minimum: 1 }),
+	insuranceFen: Type.Integer({ minimum: 0 }),
+	cashFen: Type.Integer({ minimum: 0 }),
+});
+
+export const PaymentOrderSchema = Type.Object({
+	orderId: Type.String({ minLength: 1 }),
+	patientId: Type.String({ minLength: 1 }),
+	amounts: PaymentAmountsSchema,
+	state: PaymentStateSchema,
+	version: Type.Integer({ minimum: 1 }),
+	createdAt: Type.String({ minLength: 1 }),
+	updatedAt: Type.String({ minLength: 1 }),
+});
+
+/** 订单响应不暴露 ownerUserId、idempotencyKey 或 provider 原始字段。 */
+export const PaymentOrderResponse = Type.Object({
+	success: Type.Literal(true),
+	data: PaymentOrderSchema,
+});
+
 export type PaymentState = Static<typeof PaymentStateSchema>;
 
 export type HealthPayload = Static<typeof HealthResponse>;
@@ -117,6 +146,11 @@ export type WechatLoginPayload = Static<typeof WechatLoginRequest>;
 export type AuthSessionPayload = Static<typeof AuthSessionResponse>;
 export type PatientPayload = Static<typeof PatientSchema>;
 export type PatientListPayload = Static<typeof PatientListResponse>;
+export type PaymentOrderCreatePayload = Static<
+	typeof PaymentOrderCreateRequest
+>;
+export type PaymentAmountsPayload = Static<typeof PaymentAmountsSchema>;
+export type PaymentOrderPayload = Static<typeof PaymentOrderResponse>;
 
 export function success<const T>(data: T): { success: true; data: T } {
 	return { success: true, data };

@@ -5,8 +5,10 @@ export {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
+	createInMemoryPaymentQuoteRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";
+export { createInMemoryOutboxRepository } from "./outbox";
 
 export type DependencyPort = {
 	check(): Promise<DependencyState>;

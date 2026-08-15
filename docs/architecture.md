@@ -63,6 +63,19 @@ GET /api/v1/patients
 
 支付订单的第一阶段只建立内部事实，不提前连接 provider：金额以分为单位并校验 `totalFen = insuranceFen + cashFen`；创建使用 `ownerUserId + idempotencyKey` 重放；每次状态变更递增 `version`，持久层需用条件更新避免并发覆盖。下一步才是把它接成 API 命令，再由 worker 驱动医保、微信支付和 HIS 的可追踪调用。
 
+当前已开放的内部订单 API：
+
+```text
+POST /api/v1/payments/orders
+  body: { patientId, quoteId }
+  header: Authorization + Idempotency-Key
+
+GET /api/v1/payments/orders/:orderId
+  -> 只允许当前会话 owner 读取
+```
+
+outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试，但尚未与订单写入做数据库事务绑定，也尚未安装真实 provider handler；这部分必须等持久化事务边界确定后再接通。
+
 ## 支付状态机
 
 ```text

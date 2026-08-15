@@ -4,6 +4,7 @@ import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
+	createInMemoryPaymentQuoteRepository,
 } from "@hospital/persistence";
 import { PaymentOrderService } from "@hospital/domain";
 import { createApp } from "./app";
@@ -110,6 +111,20 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 		patients: new PatientService(patientRepository),
 		paymentOrders: new PaymentOrderService({
 			orders: createInMemoryPaymentOrderRepository(),
+			quotes: createInMemoryPaymentQuoteRepository([
+				{
+					quoteId: "quote-001",
+					ownerUserId: "fixture-user-0001",
+					patientId: "patient-001",
+					amounts: {
+						totalFen: 1000,
+						insuranceFen: 700,
+						cashFen: 300,
+					},
+					expiresAt: "2099-08-15T00:00:00.000Z",
+					source: "fixture",
+				},
+			]),
 		}),
 		sessions,
 	};
@@ -136,6 +151,56 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			headers: { authorization: `Bearer ${loginBody.data.accessToken}` },
 		}),
 	);
+	const orderResponse = await app.handle(
+		new Request("http://localhost/api/v1/payments/orders", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				authorization: `Bearer ${loginBody.data.accessToken}`,
+				"idempotency-key": "fixture-payment-order-001",
+			},
+			body: JSON.stringify({
+				patientId: "patient-001",
+				quoteId: "quote-001",
+			}),
+		}),
+	);
+	const orderBody = (await orderResponse.json()) as {
+		success: boolean;
+		data: {
+			orderId: string;
+			state: string;
+			amounts: {
+				totalFen: number;
+				insuranceFen: number;
+				cashFen: number;
+			};
+		};
+	};
+	const replayResponse = await app.handle(
+		new Request("http://localhost/api/v1/payments/orders", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				authorization: `Bearer ${loginBody.data.accessToken}`,
+				"idempotency-key": "fixture-payment-order-001",
+			},
+			body: JSON.stringify({
+				patientId: "patient-001",
+				quoteId: "quote-001",
+			}),
+		}),
+	);
+	const replayBody = (await replayResponse.json()) as {
+		success: boolean;
+		data: { orderId: string };
+	};
+	const orderQueryResponse = await app.handle(
+		new Request(
+			`http://localhost/api/v1/payments/orders/${orderBody.data.orderId}`,
+			{ headers: { authorization: `Bearer ${loginBody.data.accessToken}` } },
+		),
+	);
 
 	expect(loginResponse.status).toBe(200);
 	expect(loginBody).toMatchObject({
@@ -161,4 +226,15 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			total: 1,
 		},
 	});
+	expect(orderResponse.status).toBe(200);
+	expect(orderBody).toMatchObject({
+		success: true,
+		data: {
+			state: "created",
+			amounts: { totalFen: 1000, insuranceFen: 700, cashFen: 300 },
+		},
+	});
+	expect(replayResponse.status).toBe(200);
+	expect(replayBody.data.orderId).toBe(orderBody.data.orderId);
+	expect(orderQueryResponse.status).toBe(200);
 });
