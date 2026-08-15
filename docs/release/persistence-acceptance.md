@@ -1,0 +1,179 @@
+# 持久化发布验收与证据记录
+
+本手册定义 MySQL、Redis、migration、目标 schema 和 repository 集成验收的固定顺序。
+它只负责记录证据，不增加业务逻辑，也不会自动打开 `PERSISTENCE_SCHEMA_READY`。
+
+## 验收边界
+
+| 层级 | 证明内容 | 必须证据 | 不包含 |
+| --- | --- | --- | --- |
+| A. 代码 | migration、schema probe、repository 和日志契约可编译并通过测试 | `pnpm check` | 真实数据库连接 |
+| B. 依赖 | 当前环境能访问 MySQL 和 Redis | `persistence.integration.dependencies` | schema 已完整 |
+| C. schema | migration history、表/列/索引/外键满足当前 manifest | `db:schema` 和 `persistence.schema.checked` | provider 授权 |
+| D. 集成 | Redis TTL、MySQL 外键、订单/outbox、快照和报告引用闭环可用 | `db:integration` 和 `persistence.integration.succeeded` | 微信、医保、HIS、真机 |
+| E. 发布 gate | API/worker 只在人工确认后使用真实 repository | `runtime:preflight`、`/health/ready` | 自动替代 DBA 审核 |
+
+日志是诊断线索，不是业务状态存储。订单、通知、outbox、migration run 和 schema
+history 中的持久化事实才是后续恢复与审计依据。日志由 Pino 统一输出 JSON，不能为了
+“方便排查”记录连接串、原始请求体、provider 原始响应、token 或支付密文。
+
+## 固定执行顺序
+
+### 1. 代码层
+
+在目标 commit 上先执行：
+
+```powershell
+pnpm check
+```
+
+只有代码层通过，才进入真实依赖验收。单元测试中的内存 repository 只能证明领域和
+控制器行为，不能替代本节的 MySQL/Redis 证据。
+
+### 2. 本地隔离依赖层
+
+使用仓库提供的 Compose，不要把 staging 或生产 URL 传给本地集成脚本：
+
+```powershell
+pnpm infra:up
+$env:DATABASE_URL = "mysql://hospital:hospital_dev_password@127.0.0.1:3307/hospital_platform"
+$env:REDIS_URL = "redis://127.0.0.1:6380"
+```
+
+如果 Docker daemon、3307 或 6380 不可用，验收在这里停止。不要改成 SQLite、内存
+替身或手工伪造 `ready`；应保留失败输出并先恢复基础设施。
+
+### 3. migration 层
+
+```powershell
+pnpm db:migrate
+```
+
+重点记录以下 Pino 事件：
+
+- `persistence.migration.started`：开始执行某个 migration；
+- `persistence.migration.succeeded`：该 migration 的 post-condition 已由 runner 完成；
+- `persistence.migration.skipped`：目标 migration 已登记且合法跳过；
+- `persistence.migration.failed`：失败，必须转入 [migration recovery runbook](../runbooks/persistence-migration-recovery.md)。
+
+出现 `started` 或 `failed` 后，不要直接重跑。MySQL DDL 可能隐式提交，必须先根据
+runbook 检查 `hp_schema_migration_runs`、`hp_schema_migrations` 和
+`information_schema`，完成逐项 post-condition 审核后才能修复状态。
+
+### 4. 只读 schema 层
+
+```powershell
+pnpm db:schema
+```
+
+这个命令只读核对：
+
+- 目标 migration 是否全部登记；
+- 关键表、列、索引和索引列顺序；
+- 患者与订单 owner 复合外键的本地列和引用列；
+- 当前 schema 是否存在未完成的 migration run。
+
+成功应出现 `persistence.schema.checked`；失败应出现
+`persistence.schema.failed`。schema probe 不会执行 DDL，也不会修改
+`PERSISTENCE_SCHEMA_READY`。
+
+### 5. repository 集成层
+
+```powershell
+pnpm db:integration
+```
+
+脚本只接受 localhost 数据库，并使用随机前缀隔离测试数据。成功需要记录：
+
+- `persistence.integration.dependencies` 中 MySQL、Redis 均为 `ok`；
+- `persistence.integration.schema_probe` 的状态为 `ready`；
+- `persistence.integration.succeeded`；
+- 若发生失败，`persistence.integration.cleanup_failed` 不得存在，或必须单独登记残留前缀并人工清理。
+
+集成脚本完成后必须检查其真实退出码。PowerShell 外层包装可能掩盖内部 pnpm
+失败，发布记录以直接执行的 `pnpm` 命令和进程退出码为准。
+
+### 6. 发布前只读 gate
+
+```powershell
+pnpm runtime:preflight
+```
+
+preflight 会检查运行配置、MySQL/Redis 探针、migration manifest 和 schema invariants，
+但不会执行 migration、调用 provider 或改变 gate。只有在 DBA/发布负责人确认 B-D 层
+证据后，才可以在目标部署配置中显式设置：
+
+```powershell
+$env:PERSISTENCE_SCHEMA_READY = "true"
+```
+
+随后重新运行 preflight，并确认 API/worker 的 `/health/ready` 返回 ready。变量本身
+不是 schema 证据；组合根仍会再次执行只读 probe，未通过时必须保持 fail-closed。
+
+## 失败处理矩阵
+
+| 现象 | 结论 | 处理 |
+| --- | --- | --- |
+| MySQL/Redis unavailable | 基础设施证据不足 | 恢复服务、端口和凭据，不修改业务 gate |
+| migration failed/started | 可能存在部分 DDL | 停止依赖进程，按 recovery runbook 做人工 schema 审核 |
+| schema probe failed | 目标 schema 未证明完整 | 检查 migration history、`information_schema` 和外键，不补写假 history |
+| integration cleanup failed | 本地可能残留验收数据 | 记录随机前缀，人工确认并清理，禁止直接复用前缀 |
+| preflight failed | 不具备发布就绪条件 | 修复具体 check 后从对应层级重新验收 |
+| `/health/ready` not ready | 运行时拒绝使用真实依赖 | 保持 gate 关闭，不用 `/health/live` 冒充 ready |
+
+## 证据记录模板
+
+每次本地、staging 或生产候选发布都应保存一份记录。敏感值只写变量名和脱敏摘要，
+不要把连接串、密钥、token、患者标识或支付参数写进记录。
+
+```text
+release commit:
+operator:
+environment:
+started at:
+finished at:
+
+A. code
+- pnpm check:
+- result:
+
+B. dependencies
+- pnpm infra:up or deployment reference:
+- mysql probe:
+- redis probe:
+
+C. schema
+- migration target:
+- migration events:
+- db:schema result:
+- schema gate before review:
+
+D. integration
+- db:integration result:
+- integration prefix:
+- cleanup result:
+
+E. runtime gate
+- runtime:preflight result:
+- /health/live:
+- /health/ready:
+- PERSISTENCE_SCHEMA_READY approval:
+
+remaining gaps:
+rollback or recovery reference:
+```
+
+## 清理与结束
+
+本地验收结束后执行：
+
+```powershell
+pnpm infra:down
+Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:REDIS_URL -ErrorAction SilentlyContinue
+Remove-Item Env:PERSISTENCE_SCHEMA_READY -ErrorAction SilentlyContinue
+```
+
+`infra:down` 只停止本项目 Compose 服务，不代表 staging 或生产数据已清理。任何
+生产 migration、真实 provider、微信支付、医保和真机验收都必须使用各自的发布手册
+和授权流程，不能由本地集成脚本代替。

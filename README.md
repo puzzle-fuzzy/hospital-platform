@@ -63,6 +63,9 @@ pnpm db:integration
 pnpm infra:down
 ```
 
+完整的层级边界、结构化日志事件、失败恢复和证据记录模板见
+[`docs/release/persistence-acceptance.md`](docs/release/persistence-acceptance.md)。
+
 `db:integration` 只允许 localhost，且会清理随机前缀的本地验收数据；它不替代 staging、
 微信、医保、HIS、支付回调或真实设备验收。
 
