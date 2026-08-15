@@ -20,6 +20,16 @@ test("native client keeps WeChat identity exchange on the Hospital API", async (
 	expect(client).not.toContain("api.weixin.qq.com");
 });
 
+test("native client restores a platform session through the current-user endpoint", async () => {
+	const client = await source("services/api-client.js");
+	const page = await source("pages/index/index.js");
+
+	expect(client).toContain("getCurrentUser");
+	expect(client).toContain('url: "/api/v1/me"');
+	expect(page).toContain("验证会话中");
+	expect(client).not.toContain("providerSubject");
+});
+
 test("native client requests server-generated prepay parameters", async () => {
 	const client = await source("services/api-client.js");
 

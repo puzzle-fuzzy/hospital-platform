@@ -35,6 +35,14 @@ export const AuthSessionResponse = Type.Object({
 	}),
 });
 
+/** 会话恢复只返回平台内部用户引用，不读取或暴露 provider subject。 */
+export const CurrentUserResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		user: Type.Object({ id: Type.String({ minLength: 1 }) }),
+	}),
+});
+
 /** 关系值是跨 provider 的内部规范，页面显示文案由小程序决定。 */
 export const PatientRelationshipSchema = Type.Union([
 	Type.Literal("self"),
@@ -277,6 +285,7 @@ export type PingPayload = Static<typeof PingResponse>;
 export type ErrorPayload = Static<typeof ErrorResponse>;
 export type WechatLoginPayload = Static<typeof WechatLoginRequest>;
 export type AuthSessionPayload = Static<typeof AuthSessionResponse>;
+export type CurrentUserPayload = Static<typeof CurrentUserResponse>;
 export type PatientPayload = Static<typeof PatientSchema>;
 export type PatientListPayload = Static<typeof PatientListResponse>;
 export type AppointmentDepartmentPayload = Static<

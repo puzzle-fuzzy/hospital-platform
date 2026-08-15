@@ -104,6 +104,7 @@ API 默认运行在 `http://localhost:3000`：
 - `GET /health/live`：存活检查
 - `GET /health/ready`：依赖与 schema gate 就绪检查（`not_configured` 或 `unavailable` 不会伪装成 ready）
 - `GET /api/v1/system/ping`：API 版本检查
+- `GET /api/v1/me`：验证当前平台会话，只返回内部用户 ID
 - `POST /api/v1/payments/orders/:orderId/wechat-prepay`：仅在订单为 `cash_pending` 且微信支付闸门打开时返回服务端签名参数
 - `GET /api/v1/payments/orders/:orderId/wechat-prepay`：读取 `not_started/pending/ready/unknown` 预支付尝试状态
 - `POST /api/v1/payments/wechat/notifications`：接收已验签的微信支付成功通知并返回 provider ack

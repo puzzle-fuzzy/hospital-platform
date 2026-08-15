@@ -7,7 +7,7 @@
 | 旧路径/来源 | 目标边界 | 迁移策略 | 状态 |
 | --- | --- | --- | --- |
 | `POST /system/auth/login/wechat` | `POST /api/v1/auth/wechat` | 后端接收 `wx.login` code，服务端换取身份并签发会话 | 设计中 |
-| `GET /system/user/current/info` | `GET /api/v1/me` | 返回脱敏后的当前用户和患者关系 | 设计中 |
+| `GET /system/user/current/info` | `GET /api/v1/me` | 验证平台会话并返回内部用户 ID；provider subject 不出端 | 已实现最小会话视图，患者关系后续补充 |
 | 小程序 `VITE_ZHONGYI_BASE_API` 直连患者档案、绑卡 | `GET/POST /api/v1/patients` | 服务端调用 Zhongyang adapter，小程序不再直连外部域名 | 目录 adapter、内部映射和同步 API 已实现；真实 provider 配置与验收待实现 |
 | 小程序预约/科室/报告接口 | `/api/v1/appointments`、`/api/v1/reports` | 以患者端业务模型重组，不按旧 provider URL 透传 | 科室/排班、预约历史与 LIS/PACS/ECG 报告摘要只读目录已实现；预约写入、锁号、支付、报告详情和体检报告待迁移 |
 | `GET /knowledge/*` | `/api/v1/knowledge/*` | 后续迁移健康知识和自测 | 后续 |

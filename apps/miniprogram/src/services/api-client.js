@@ -199,6 +199,14 @@ export async function requestWithSession(options) {
 	}
 }
 
+/** 验证当前平台会话仍有效；响应只包含内部用户 id，不包含 provider subject。 */
+export function getCurrentUser() {
+	return requestWithSession({
+		url: "/api/v1/me",
+		method: "GET",
+	});
+}
+
 /**
  * 请求服务端从已认证的 provider 身份同步就诊人。
  * unionId、provider 患者号和 provider 原始响应都不进入小程序请求或响应边界。

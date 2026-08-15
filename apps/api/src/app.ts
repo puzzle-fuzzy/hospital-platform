@@ -82,7 +82,7 @@ export function createApp(options: AppOptions = {}) {
 		.group("/api/v1", (api) =>
 			api
 				.use(systemModule())
-				.use(authModule(services.auth))
+				.use(authModule(services.auth, services.sessions))
 				.use(patientsModule(services.patients, services.sessions))
 				.use(appointmentsModule(services.appointments, services.sessions))
 				.use(reportsModule(services.reports, services.sessions))

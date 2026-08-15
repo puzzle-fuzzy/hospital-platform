@@ -24,7 +24,11 @@ import {
 import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AppointmentService } from "./modules/appointments";
-import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
+import {
+	AuthService,
+	authModule,
+	createInMemorySessionTokenService,
+} from "./modules/auth";
 import { PatientService } from "./modules/patients";
 import {
 	WechatPaymentNotificationService,
@@ -89,6 +93,31 @@ test("versioned ping endpoint is available", async () => {
 
 	expect(response.status).toBe(200);
 	expect((await response.json()).success).toBe(true);
+});
+
+test("current user endpoint only returns the platform session user id", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	const auth = authModule(
+		new AuthService({
+			identityGateway: createFixtureWechatIdentityGateway(),
+			identityUsers: createInMemoryIdentityUserRepository(),
+			sessions,
+		}),
+		sessions,
+	);
+
+	const response = await auth.handle(
+		new Request("http://localhost/me", {
+			headers: { authorization: `Bearer ${issued.accessToken}` },
+		}),
+	);
+
+	expect(response.status).toBe(200);
+	expect(await response.json()).toEqual({
+		success: true,
+		data: { user: { id: "fixture-user-0001" } },
+	});
 });
 
 test("readiness reports configured dependencies as unavailable until probes pass", async () => {
@@ -329,6 +358,11 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 		success: boolean;
 		data: { accessToken: string; user: { id: string } };
 	};
+	const currentUserResponse = await app.handle(
+		new Request("http://localhost/api/v1/me", {
+			headers: { authorization: `Bearer ${loginBody.data.accessToken}` },
+		}),
+	);
 
 	const patientsResponse = await app.handle(
 		new Request("http://localhost/api/v1/patients", {
@@ -404,6 +438,11 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			accessToken: "fixture-session-0001",
 			user: { id: "fixture-user-0001" },
 		},
+	});
+	expect(currentUserResponse.status).toBe(200);
+	expect(await currentUserResponse.json()).toEqual({
+		success: true,
+		data: { user: { id: "fixture-user-0001" } },
 	});
 	expect(patientsResponse.status).toBe(200);
 	expect(await patientsResponse.json()).toEqual({

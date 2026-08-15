@@ -1,5 +1,6 @@
 import {
 	ApiError,
+	getCurrentUser,
 	login,
 	request,
 	requestAppointmentDepartments,
@@ -36,8 +37,13 @@ Page({
 	onLoad() {
 		this.checkHealth();
 		if (getApp().globalData.accessToken) {
-			this.setData({ sessionStatus: "已恢复会话" });
-			this.loadPatients();
+			this.setData({ sessionStatus: "验证会话中" });
+			getCurrentUser()
+				.then(() => {
+					this.setData({ sessionStatus: "已恢复会话" });
+					return this.loadPatients();
+				})
+				.catch((error) => this.showError(error, "会话恢复失败"));
 		}
 	},
 
