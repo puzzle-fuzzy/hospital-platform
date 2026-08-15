@@ -98,8 +98,14 @@ export async function runWorkerPreflight(
 			try {
 				const schema = await readCoreSchemaState(runtimeConfig.databaseUrl);
 				const schemaDetails = [
+					`schemaStatus:${schema.schemaStatus}`,
 					`expected:${schema.expectedMigrationId}`,
-					...schema.missingMigrationIds,
+					...schema.missingMigrationIds.map(
+						(migrationId) => `missing-migration:${migrationId}`,
+					),
+					...schema.missingSchemaObjects.map(
+						(object) => `missing-schema:${object}`,
+					),
 					...(runtimeConfig.persistenceSchemaReady
 						? []
 						: ["PERSISTENCE_SCHEMA_READY"]),
