@@ -327,3 +327,66 @@ test("MySQL prepay repository atomically claims due query schedules", async () =
 	expect(state.statements[0]).toContain("FOR UPDATE SKIP LOCKED");
 	expect(state.statements[1]).toContain("query_claimed_until = ?");
 });
+
+test("MySQL appointment schedule snapshots persist provider evidence and enforce expiry reads", async () => {
+	const row = {
+		schedule_id: "schedule-001",
+		provider: "zhongyang",
+		provider_schedule_id: "provider-schedule-001",
+		department_id: "dept-001",
+		department_name: "心内科",
+		doctor_id: "doctor-001",
+		doctor_name: "李医生",
+		work_date: "2026-08-20",
+		shift_name: "上午",
+		start_time: "08:00",
+		end_time: "12:00",
+		total_slots: 30,
+		available_slots: 12,
+		time_group: "range",
+		provider_request_id: "provider-request-001",
+		observed_at: "2026-08-15 00:00:10.000",
+		expires_at: "2026-08-15 00:01:10.000",
+	};
+	const { pool, state } = createFakePool([{ affectedRows: 1 }, [row], [row]]);
+	const repositories = createMySqlRepositories(pool);
+	const schedule = {
+		scheduleId: "schedule-001",
+		departmentId: "dept-001",
+		departmentName: "心内科",
+		doctorId: "doctor-001",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		startTime: "08:00",
+		endTime: "12:00",
+		totalSlots: 30,
+		availableSlots: 12,
+		timeGroup: "range" as const,
+	};
+
+	await expect(
+		repositories.appointmentScheduleSnapshots.upsert({
+			schedule,
+			provider: "zhongyang",
+			providerScheduleId: "provider-schedule-001",
+			providerRequestId: "provider-request-001",
+			observedAt: "2026-08-15T00:00:10.000Z",
+			expiresAt: "2026-08-15T00:01:10.000Z",
+		}),
+	).resolves.toMatchObject({
+		scheduleId: "schedule-001",
+		providerScheduleId: "provider-schedule-001",
+	});
+	await expect(
+		repositories.appointmentScheduleSnapshots.findActive(
+			"schedule-001",
+			"2026-08-15T00:00:30.000Z",
+		),
+	).resolves.toMatchObject({ providerRequestId: "provider-request-001" });
+	expect(state.statements[0]).toContain(
+		"INSERT INTO hp_appointment_schedule_snapshots",
+	);
+	expect(state.statements[0]).toContain("ON DUPLICATE KEY UPDATE");
+	expect(state.statements[2]).toContain("expires_at > ?");
+});

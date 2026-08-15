@@ -27,6 +27,7 @@ pnpm check
 
 - Biome format/lint、所有 workspace typecheck、test 和 build 全部通过；
 - adapter 测试覆盖数组/包装响应、业务失败、字段白名单、日期参数和 provider 请求 id；
+- 排班服务测试证明只读结果会写入带 `providerRequestId` 和 `expiresAt` 的短期服务端快照；快照不会自动开放预约写入；
 - 预约记录测试证明服务端固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`，并丢弃预约号、患者身份、电话、费用和支付字段；
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
 - 原生小程序 acceptance test 证明只调用 Hospital API，不包含众阳 provider URL；

@@ -37,6 +37,41 @@ export type AppointmentScheduleQuery = {
 };
 
 /**
+ * 服务端观察到的排班快照。
+ *
+ * 这个事实把“provider 曾经返回过一个排班”与“客户端提交了一个
+ * scheduleId”区分开来。当前它只支撑只读目录和后续合同审计，不能单独
+ * 授权锁号、预约或支付；写入开放前仍必须补齐 sourceId、TTL 和 provider
+ * 写入合同的完整校验。
+ */
+export type AppointmentScheduleSnapshot = {
+	scheduleId: string;
+	provider: "zhongyang";
+	/** provider 引用只存在服务端持久化边界，不进入 API response。 */
+	providerScheduleId: string;
+	schedule: AppointmentSchedule;
+	providerRequestId: string;
+	observedAt: string;
+	expiresAt: string;
+};
+
+/** 只读排班目录将已验证结果写入快照仓储，供未来写入前做服务端复核。 */
+export interface AppointmentScheduleSnapshotRepository {
+	upsert(input: {
+		schedule: AppointmentSchedule;
+		provider: "zhongyang";
+		providerScheduleId: string;
+		providerRequestId: string;
+		observedAt: string;
+		expiresAt: string;
+	}): Promise<AppointmentScheduleSnapshot>;
+	findActive(
+		scheduleId: string,
+		now: string,
+	): Promise<AppointmentScheduleSnapshot | undefined>;
+}
+
+/**
  * 预约记录只读状态。
  *
  * provider 的数字状态只在 adapter 内映射到这里；未知值保留为 unknown，

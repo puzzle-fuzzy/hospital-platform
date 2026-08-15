@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
@@ -97,6 +98,48 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 			patientId: "internal-patient-001",
 			provider: "zhongyang",
 		}),
+	).toBeUndefined();
+});
+
+test("appointment schedule snapshots reject stale observations and expire", async () => {
+	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
+	const schedule = {
+		scheduleId: "schedule-001",
+		departmentId: "dept-001",
+		departmentName: "心内科",
+		doctorId: "doctor-001",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		startTime: "08:00",
+		endTime: "12:00",
+		totalSlots: 30,
+		availableSlots: 12,
+		timeGroup: "range" as const,
+	};
+	const stored = await snapshots.upsert({
+		schedule,
+		provider: "zhongyang",
+		providerScheduleId: "provider-schedule-001",
+		providerRequestId: "provider-request-001",
+		observedAt: "2026-08-15T00:00:10.000Z",
+		expiresAt: "2026-08-15T00:01:10.000Z",
+	});
+
+	await snapshots.upsert({
+		schedule: { ...schedule, availableSlots: 1 },
+		provider: "zhongyang",
+		providerScheduleId: "provider-schedule-stale",
+		providerRequestId: "provider-request-stale",
+		observedAt: "2026-08-15T00:00:09.000Z",
+		expiresAt: "2026-08-15T00:01:09.000Z",
+	});
+
+	expect(
+		await snapshots.findActive("schedule-001", "2026-08-15T00:00:30.000Z"),
+	).toEqual(stored);
+	expect(
+		await snapshots.findActive("schedule-001", "2026-08-15T00:01:10.000Z"),
 	).toBeUndefined();
 });
 

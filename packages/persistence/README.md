@@ -7,6 +7,10 @@
 `owner_user_id + patient_id/order_id` 的一致性；应用层 owner 校验和数据库复合外键
 必须同时存在，不能只依赖 API 路由不接收 owner 参数。
 
+`0008_appointment_schedule_snapshots` 保存预约目录读取形成的短期服务端快照。它只保存
+受限 provider 排班引用、provider request id、观察时间和 `expires_at`，用于未来写入前
+复核；快照不授权锁号，也不代表 provider 已接受预约写入。
+
 基础连接探针的 `ok` 只证明 MySQL `SELECT 1` 与 Redis `PING` 可用；schema readiness 还必须通过 migration history 以及关键表、列、索引和 owner 外键的只读结构检查，不代表微信、医保、HIS 或支付 provider 已接通。
 
 API 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才注入 MySQL repository；该变量不是自动迁移开关，必须在目标 migration 完成并通过脱敏 staging 验证后由部署配置显式开启。

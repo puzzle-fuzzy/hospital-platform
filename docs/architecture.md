@@ -24,6 +24,7 @@ Elysia API / contracts
 - domain 不依赖 Elysia、数据库或具体供应商，便于用状态机测试。
 - API 只负责鉴权、输入校验、调用 domain、返回契约化结果。
 - 回调、查单、重试和 HIS 回写必须支持幂等；未知状态不能自动判定失败。
+- 只读 provider 结果若将来参与写入前置校验，必须先落成带 TTL 的服务端快照；快照本身不等于写入授权。
 
 ## 目标代码布局
 
@@ -130,6 +131,12 @@ API `/health/ready` 同时检查 MySQL、Redis、`PERSISTENCE_SCHEMA_READY` 和�
 配置闸门关闭、migration 实际不完整或关键结构缺失时，即使基础设施连接可用也不会对发布平台报告 `ready`。
 API 组合根也只有在启动时 schema probe 为 `ok` 才注入 MySQL repositories，避免业务路由使用未完成
 migration 的持久化边界。
+
+预约排班只读链路还会把 provider 返回的排班快照写入
+`hp_appointment_schedule_snapshots`，保存受限的 provider 引用、provider request id、
+观察时间和过期时间。当前快照只用于后续合同审计和写入前复核，不能由小程序直接提交来
+授权锁号；真正开放预约写入前仍必须补齐 sourceId、锁号 TTL、费用、幂等、超时查询和取消
+状态矩阵，并新增独立 gate。
 
 原生小程序的功能边界：
 

@@ -8,7 +8,9 @@ import {
 	type AppointmentDirectoryGateway,
 	type AppointmentRecordDirectoryGateway,
 	type AppointmentRecordQuery,
+	type AppointmentSchedule,
 	type AppointmentScheduleQuery,
+	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
 	type PatientRepository,
 } from "@hospital/domain";
@@ -19,12 +21,17 @@ export type AppointmentServiceDependencies = {
 	/** 记录查询需要 owner-scoped provider mapping；目录查询不依赖该 repository。 */
 	repository?: PatientRepository;
 	records?: AppointmentRecordDirectoryGateway;
+	/** 只读排班观察事实；不会因此开放预约写入。 */
+	snapshots?: AppointmentScheduleSnapshotRepository;
 	logger?: AppLogger;
+	now?: () => Date;
 };
 
 /** 防止小程序把 provider 排班接口当作无限范围的数据导出端点。 */
 const MAX_SCHEDULE_RANGE_DAYS = 31;
 const MAX_RECORD_RANGE_DAYS = 366;
+/** 排班快照只作为短期服务端观察事实，过期后不能授权后续写入。 */
+const SCHEDULE_SNAPSHOT_TTL_MS = 60_000;
 
 export class AppointmentScheduleQueryError extends Error {
 	constructor(message: string) {
@@ -85,9 +92,11 @@ function validateRecordQuery(input: AppointmentRecordQuery): void {
  */
 export class AppointmentService {
 	private readonly logger: AppLogger;
+	private readonly now: () => Date;
 
 	constructor(private readonly dependencies: AppointmentServiceDependencies) {
 		this.logger = dependencies.logger ?? createNoopLogger();
+		this.now = dependencies.now ?? (() => new Date());
 	}
 
 	async listDepartments(
@@ -143,6 +152,7 @@ export class AppointmentService {
 				input,
 				context,
 			);
+			await this.persistScheduleSnapshots(result.schedules, result.trace);
 			this.logger.info(
 				{
 					event: "appointment.directory.schedules.synced",
@@ -160,6 +170,58 @@ export class AppointmentService {
 		} catch (error) {
 			this.logFailure(context, error, "schedules");
 			throw error;
+		}
+	}
+
+	/**
+	 * 将 provider 只读结果落成短期快照，供未来预约写入前进行服务端复核。
+	 * 快照失败不阻断当前只读目录：在 provider 写入合同完成前，快照不是患者端
+	 * 成功的前置条件；真正开放写入时必须把该策略升级为严格 precondition。
+	 */
+	private async persistScheduleSnapshots(
+		schedules: readonly AppointmentSchedule[],
+		trace: { provider: string; requestId: string },
+	): Promise<void> {
+		if (!this.dependencies.snapshots || schedules.length === 0) return;
+		const observedAt = this.now().toISOString();
+		const expiresAt = new Date(
+			this.now().getTime() + SCHEDULE_SNAPSHOT_TTL_MS,
+		).toISOString();
+		try {
+			await Promise.all(
+				schedules.map((schedule) =>
+					this.dependencies.snapshots?.upsert({
+						schedule,
+						provider: "zhongyang",
+						// 当前只读 contract 只验证了 hisScheduleId；它仍是
+						// 服务端内部 provider 引用，不能被当作写入授权。
+						providerScheduleId: schedule.scheduleId,
+						providerRequestId: trace.requestId,
+						observedAt,
+						expiresAt,
+					}),
+				),
+			);
+			this.logger.info(
+				{
+					event: "appointment.schedule_snapshots.persisted",
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
+					itemCount: schedules.length,
+					expiresAt,
+				},
+				"Appointment schedule snapshots persisted",
+			);
+		} catch (error) {
+			this.logger.warn(
+				{
+					event: "appointment.schedule_snapshots.failed",
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
+					errorType: error instanceof Error ? error.name : "unknown",
+				},
+				"Appointment schedule snapshots were not persisted",
+			);
 		}
 	}
 

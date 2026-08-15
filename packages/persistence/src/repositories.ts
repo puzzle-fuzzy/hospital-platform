@@ -1,4 +1,6 @@
 import type {
+	AppointmentScheduleSnapshot,
+	AppointmentScheduleSnapshotRepository,
 	IdentityUser,
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
@@ -278,6 +280,54 @@ export function createInMemoryWechatPaymentNotificationRepository(
 	};
 }
 
+/**
+ * 仅用于目录组合测试；真实实现把快照写入 MySQL，并由 expiresAt 限制未来
+ * 写入流程只能使用最近观察到的排班事实。
+ */
+export function createInMemoryAppointmentScheduleSnapshotRepository(
+	seed: readonly AppointmentScheduleSnapshot[] = [],
+): AppointmentScheduleSnapshotRepository {
+	const snapshots = new Map(
+		seed.map((snapshot) => [snapshot.scheduleId, snapshot]),
+	);
+
+	return {
+		async upsert(input) {
+			const existing = snapshots.get(input.schedule.scheduleId);
+			const existingObservedAt = existing
+				? Date.parse(existing.observedAt)
+				: Number.NEGATIVE_INFINITY;
+			const observedAt = Date.parse(input.observedAt);
+			if (!Number.isFinite(observedAt)) {
+				throw new Error("Appointment schedule snapshot observedAt is invalid");
+			}
+			if (observedAt < existingObservedAt && existing) return existing;
+			const snapshot: AppointmentScheduleSnapshot = {
+				scheduleId: input.schedule.scheduleId,
+				provider: input.provider,
+				providerScheduleId: input.providerScheduleId,
+				schedule: input.schedule,
+				providerRequestId: input.providerRequestId,
+				observedAt: input.observedAt,
+				expiresAt: input.expiresAt,
+			};
+			snapshots.set(snapshot.scheduleId, snapshot);
+			return snapshot;
+		},
+		async findActive(scheduleId, now) {
+			const snapshot = snapshots.get(scheduleId);
+			if (!snapshot) return undefined;
+			const expiresAt = Date.parse(snapshot.expiresAt);
+			const nowAt = Date.parse(now);
+			return Number.isFinite(expiresAt) &&
+				Number.isFinite(nowAt) &&
+				expiresAt > nowAt
+				? snapshot
+				: undefined;
+		},
+	};
+}
+
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
 	patients: PatientRepository;
@@ -285,6 +335,7 @@ export function createNotConfiguredRepositories(): {
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
+	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 } {
 	return {
 		identityUsers: {
@@ -345,6 +396,18 @@ export function createNotConfiguredRepositories(): {
 		wechatPaymentNotifications: {
 			record: async () => {
 				throw new PersistenceNotConfiguredError("wechat-payment-notifications");
+			},
+		},
+		appointmentScheduleSnapshots: {
+			upsert: async () => {
+				throw new PersistenceNotConfiguredError(
+					"appointment-schedule-snapshots",
+				);
+			},
+			findActive: async () => {
+				throw new PersistenceNotConfiguredError(
+					"appointment-schedule-snapshots",
+				);
 			},
 		},
 	};

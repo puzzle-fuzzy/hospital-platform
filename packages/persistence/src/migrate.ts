@@ -54,6 +54,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0007_owner_scoped_payment_foreign_keys.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0008_appointment_schedule_snapshots",
+		file: "../migrations/0008_appointment_schedule_snapshots.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -71,6 +76,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_outbox_events",
 	"hp_payment_prepay_attempts",
 	"hp_wechat_payment_notifications",
+	"hp_appointment_schedule_snapshots",
 ] as const;
 
 export const PERSISTENCE_SCHEMA_COLUMNS = [
@@ -160,6 +166,22 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"provider_transaction_id",
 		],
 	},
+	{
+		table: "hp_appointment_schedule_snapshots",
+		columns: [
+			"schedule_id",
+			"provider",
+			"provider_schedule_id",
+			"department_id",
+			"doctor_id",
+			"work_date",
+			"total_slots",
+			"available_slots",
+			"provider_request_id",
+			"observed_at",
+			"expires_at",
+		],
+	},
 ] as const;
 
 /** Security-critical indexes and their column order for owner-scoped lookups and leases. */
@@ -198,6 +220,16 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		table: "hp_wechat_payment_notifications",
 		name: "uq_hp_wechat_notification_transaction",
 		columns: ["provider_transaction_id"],
+	},
+	{
+		table: "hp_appointment_schedule_snapshots",
+		name: "ix_hp_appointment_snapshots_expiry",
+		columns: ["provider", "expires_at"],
+	},
+	{
+		table: "hp_appointment_schedule_snapshots",
+		name: "ix_hp_appointment_snapshots_provider_schedule",
+		columns: ["provider", "provider_schedule_id"],
 	},
 ] as const;
 

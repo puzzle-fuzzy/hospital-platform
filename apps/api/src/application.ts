@@ -108,6 +108,7 @@ export function createDefaultApplicationServices(
 			records:
 				options.appointmentRecordDirectoryGateway ??
 				gateways.appointmentRecords,
+			snapshots: repositories.appointmentScheduleSnapshots,
 		}),
 		reports: new ReportService({
 			repository: repositories.patients,

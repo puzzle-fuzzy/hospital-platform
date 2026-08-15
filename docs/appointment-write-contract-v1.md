@@ -74,6 +74,11 @@ Idempotency-Key: <client-generated-key>
 补上服务端排班快照/引用映射（或经过密钥保护的不可伪造引用）以及过期校验；不能因为读接口
 返回了一个 `scheduleId` 就把它当成可信的预约指令。
 
+当前实现已建立 `hp_appointment_schedule_snapshots` 只读快照：每次排班目录成功读取后，
+服务端保存 provider request id、观察时间、过期时间和受限 provider 排班引用。快照过期后
+不会被 `findActive` 返回，旧观察也不能覆盖较新的观察。这个仓储事实仍不包含锁号成功、
+sourceId、实际挂号费或预约写入结果，因此不会打开本节提案中的任何 POST API。
+
 ## 明确禁止从小程序提交的字段
 
 ```text

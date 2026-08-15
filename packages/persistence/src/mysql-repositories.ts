@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
+	AppointmentScheduleSnapshot,
+	AppointmentScheduleSnapshotRepository,
 	OutboxEvent,
 	OutboxRepository,
 	PatientRecord,
@@ -61,6 +63,26 @@ type PatientRow = RowDataPacket & {
 	source: string;
 	provider_name: string | null;
 	provider_patient_id: string | null;
+};
+
+type AppointmentScheduleSnapshotRow = RowDataPacket & {
+	schedule_id: string;
+	provider: string;
+	provider_schedule_id: string;
+	department_id: string;
+	department_name: string;
+	doctor_id: string;
+	doctor_name: string;
+	work_date: string;
+	shift_name: string;
+	start_time: string | null;
+	end_time: string | null;
+	total_slots: number | string;
+	available_slots: number | string;
+	time_group: string;
+	provider_request_id: string;
+	observed_at: string;
+	expires_at: string;
 };
 
 type PaymentQuoteRow = RowDataPacket & {
@@ -136,6 +158,7 @@ export type MySqlRepositories = {
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
+	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	outbox: OutboxRepository;
 };
 
@@ -180,6 +203,14 @@ function safeFen(value: number | string): number {
 	const parsed = Number(value);
 	if (!Number.isSafeInteger(parsed) || parsed < 0) {
 		throw new Error("Persistence returned an invalid amount");
+	}
+	return parsed;
+}
+
+function safeSlotCount(value: number | string): number {
+	const parsed = Number(value);
+	if (!Number.isSafeInteger(parsed) || parsed < 0) {
+		throw new Error("Persistence returned an invalid appointment slot count");
 	}
 	return parsed;
 }
@@ -254,6 +285,50 @@ function patient(row: PatientRow): PatientRecord {
 		relationship: patientRelationship(row.relationship),
 		cardNumberMasked: row.card_number_masked,
 		source: row.source,
+	};
+}
+
+function appointmentScheduleSnapshot(
+	row: AppointmentScheduleSnapshotRow,
+): AppointmentScheduleSnapshot {
+	if (row.provider !== "zhongyang") {
+		throw new Error("Persistence returned an unknown appointment provider");
+	}
+	if (
+		row.time_group !== "point" &&
+		row.time_group !== "range" &&
+		row.time_group !== "unknown"
+	) {
+		throw new Error("Persistence returned an unknown appointment time group");
+	}
+	const totalSlots = safeSlotCount(row.total_slots);
+	const availableSlots = safeSlotCount(row.available_slots);
+	if (availableSlots > totalSlots) {
+		throw new Error(
+			"Persistence returned inconsistent appointment slot counts",
+		);
+	}
+	return {
+		scheduleId: row.schedule_id,
+		provider: "zhongyang",
+		providerScheduleId: row.provider_schedule_id,
+		schedule: {
+			scheduleId: row.schedule_id,
+			departmentId: row.department_id,
+			departmentName: row.department_name,
+			doctorId: row.doctor_id,
+			doctorName: row.doctor_name,
+			workDate: row.work_date,
+			shiftName: row.shift_name,
+			...(row.start_time ? { startTime: row.start_time } : {}),
+			...(row.end_time ? { endTime: row.end_time } : {}),
+			totalSlots,
+			availableSlots,
+			timeGroup: row.time_group,
+		},
+		providerRequestId: row.provider_request_id,
+		observedAt: row.observed_at,
+		expiresAt: row.expires_at,
 	};
 }
 
@@ -914,6 +989,83 @@ export function createMySqlRepositories(
 		},
 	};
 
+	const appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository = {
+		async upsert(input) {
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_appointment_schedule_snapshots
+					(schedule_id, provider, provider_schedule_id, department_id, department_name,
+					 doctor_id, doctor_name, work_date, shift_name, start_time, end_time,
+					 total_slots, available_slots, time_group, provider_request_id,
+					 observed_at, expires_at, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE
+					provider_schedule_id = IF(observed_at <= VALUES(observed_at), VALUES(provider_schedule_id), provider_schedule_id),
+					department_id = IF(observed_at <= VALUES(observed_at), VALUES(department_id), department_id),
+					department_name = IF(observed_at <= VALUES(observed_at), VALUES(department_name), department_name),
+					doctor_id = IF(observed_at <= VALUES(observed_at), VALUES(doctor_id), doctor_id),
+					doctor_name = IF(observed_at <= VALUES(observed_at), VALUES(doctor_name), doctor_name),
+					work_date = IF(observed_at <= VALUES(observed_at), VALUES(work_date), work_date),
+					shift_name = IF(observed_at <= VALUES(observed_at), VALUES(shift_name), shift_name),
+					start_time = IF(observed_at <= VALUES(observed_at), VALUES(start_time), start_time),
+					end_time = IF(observed_at <= VALUES(observed_at), VALUES(end_time), end_time),
+					total_slots = IF(observed_at <= VALUES(observed_at), VALUES(total_slots), total_slots),
+					available_slots = IF(observed_at <= VALUES(observed_at), VALUES(available_slots), available_slots),
+					time_group = IF(observed_at <= VALUES(observed_at), VALUES(time_group), time_group),
+					provider_request_id = IF(observed_at <= VALUES(observed_at), VALUES(provider_request_id), provider_request_id),
+					observed_at = GREATEST(observed_at, VALUES(observed_at)),
+					expires_at = IF(observed_at <= VALUES(observed_at), VALUES(expires_at), expires_at),
+					updated_at = VALUES(updated_at)`,
+				[
+					input.schedule.scheduleId,
+					input.provider,
+					input.providerScheduleId,
+					input.schedule.departmentId,
+					input.schedule.departmentName,
+					input.schedule.doctorId,
+					input.schedule.doctorName,
+					input.schedule.workDate,
+					input.schedule.shiftName,
+					input.schedule.startTime ?? null,
+					input.schedule.endTime ?? null,
+					input.schedule.totalSlots,
+					input.schedule.availableSlots,
+					input.schedule.timeGroup,
+					input.providerRequestId,
+					mysqlDateTime(input.observedAt),
+					mysqlDateTime(input.expiresAt),
+					mysqlDateTime(input.observedAt),
+					mysqlDateTime(input.observedAt),
+				],
+			);
+			const rows = await execute<AppointmentScheduleSnapshotRow[]>(
+				pool,
+				`SELECT schedule_id, provider, provider_schedule_id, department_id,
+					department_name, doctor_id, doctor_name, work_date, shift_name,
+					start_time, end_time, total_slots, available_slots, time_group,
+					provider_request_id, observed_at, expires_at
+				 FROM hp_appointment_schedule_snapshots WHERE schedule_id = ? LIMIT 1`,
+				[input.schedule.scheduleId],
+			);
+			if (!rows[0])
+				throw new Error("Appointment schedule snapshot was not stored");
+			return appointmentScheduleSnapshot(rows[0]);
+		},
+		async findActive(scheduleId, now) {
+			const rows = await execute<AppointmentScheduleSnapshotRow[]>(
+				pool,
+				`SELECT schedule_id, provider, provider_schedule_id, department_id,
+					department_name, doctor_id, doctor_name, work_date, shift_name,
+					start_time, end_time, total_slots, available_slots, time_group,
+					provider_request_id, observed_at, expires_at
+				 FROM hp_appointment_schedule_snapshots
+				 WHERE schedule_id = ? AND expires_at > ? LIMIT 1`,
+				[scheduleId, mysqlDateTime(now)],
+			);
+			return rows[0] ? appointmentScheduleSnapshot(rows[0]) : undefined;
+		},
+	};
+
 	const outbox: OutboxRepository = {
 		async append(event) {
 			const statement = insertOutboxSql(event);
@@ -973,6 +1125,7 @@ export function createMySqlRepositories(
 		paymentQuotes,
 		paymentPrepayAttempts,
 		wechatPaymentNotifications,
+		appointmentScheduleSnapshots,
 		outbox,
 	};
 }

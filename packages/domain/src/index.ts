@@ -8,6 +8,8 @@ export type {
 	AppointmentRecordStatus,
 	AppointmentSchedule,
 	AppointmentScheduleQuery,
+	AppointmentScheduleSnapshot,
+	AppointmentScheduleSnapshotRepository,
 } from "./appointments";
 export { DependencyNotConfiguredError } from "./errors";
 export type {
