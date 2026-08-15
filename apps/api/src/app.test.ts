@@ -3,6 +3,7 @@ import {
 	createFixtureWechatIdentityGateway,
 	createFixtureWechatPaymentGateway,
 	createNotConfiguredGateways,
+	ProviderRequestError,
 } from "@hospital/adapters";
 import { createLogger } from "@hospital/observability";
 import {
@@ -15,12 +16,14 @@ import {
 } from "@hospital/persistence";
 import {
 	PaymentOrderService,
+	type AppointmentDirectoryGateway,
 	type PatientDirectoryGateway,
 } from "@hospital/domain";
 import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
 import { PatientService } from "./modules/patients";
+import { AppointmentService } from "./modules/appointments";
 import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
@@ -37,6 +40,13 @@ function unusedWechatNotificationService(): WechatPaymentNotificationService {
 		decoder: () => {
 			throw new Error("notification decoder is not used in this test");
 		},
+	});
+}
+
+/** 患者端组合测试不应隐式访问真实预约 provider。 */
+function unusedAppointmentService(): AppointmentService {
+	return new AppointmentService({
+		directory: createNotConfiguredGateways().appointmentDirectory,
 	});
 }
 
@@ -256,6 +266,7 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			wechatPayment: createFixtureWechatPaymentGateway(),
 		}),
 		wechatPaymentNotifications: unusedWechatNotificationService(),
+		appointments: unusedAppointmentService(),
 		sessions,
 	};
 	const app = createApp({ services });
@@ -448,6 +459,7 @@ test("patient sync resolves provider identity on the server and returns only int
 			wechatPayment: createFixtureWechatPaymentGateway(),
 		}),
 		wechatPaymentNotifications: unusedWechatNotificationService(),
+		appointments: unusedAppointmentService(),
 		sessions,
 	};
 	const app = createApp({ services, logger });
@@ -524,6 +536,200 @@ test("patient sync resolves provider identity on the server and returns only int
 	expect(syncLog?.unionId).toBeUndefined();
 });
 
+test("appointment directory keeps provider fields behind a server read model", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const identityGateway = createFixtureWechatIdentityGateway();
+	let scheduleInput: Record<string, string | undefined> | undefined;
+	let failDepartments = false;
+	const directory: AppointmentDirectoryGateway = {
+		listDepartments: async (context) => {
+			if (failDepartments) {
+				throw new ProviderRequestError({
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					message: "fixture provider failure",
+					retryable: false,
+				});
+			}
+			return {
+				departments: [
+					{
+						departmentId: "dept-001",
+						departmentCode: "cardiology",
+						displayName: "心内科",
+						location: "门诊楼二层",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: context.traceId,
+				},
+			};
+		},
+		listSchedules: async (input, context) => {
+			scheduleInput = input;
+			return {
+				schedules: [
+					{
+						scheduleId: "schedule-001",
+						departmentId: "dept-001",
+						departmentName: "心内科",
+						doctorId: "doctor-001",
+						doctorName: "李医生",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						startTime: "08:00",
+						endTime: "12:00",
+						totalSlots: 30,
+						availableSlots: 12,
+						timeGroup: "range",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: context.traceId,
+				},
+			};
+		},
+	};
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({ identityGateway, identityUsers, sessions }),
+			patients: new PatientService(createInMemoryPatientRepository()),
+			appointments: new AppointmentService({ directory }),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			sessions,
+		},
+	});
+
+	const loginResponse = await app.handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-request-id": "appointment-login-trace",
+				"idempotency-key": "appointment-login-key",
+			},
+			body: JSON.stringify({ code: "fixture-code" }),
+		}),
+	);
+	const loginBody = (await loginResponse.json()) as {
+		data: { accessToken: string };
+	};
+	const authorization = `Bearer ${loginBody.data.accessToken}`;
+
+	const departmentsResponse = await app.handle(
+		new Request("http://localhost/api/v1/appointments/departments", {
+			headers: {
+				authorization,
+				"x-request-id": "appointment-departments-trace",
+			},
+		}),
+	);
+	const schedulesResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/schedules?startDate=2026-08-20&endDate=2026-08-21&departmentId=dept-001&doctorId=doctor-001",
+			{
+				headers: {
+					authorization,
+					"x-request-id": "appointment-schedules-trace",
+				},
+			},
+		),
+	);
+
+	expect(loginResponse.status).toBe(200);
+	expect(departmentsResponse.status).toBe(200);
+	expect(await departmentsResponse.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					departmentId: "dept-001",
+					departmentCode: "cardiology",
+					displayName: "心内科",
+					location: "门诊楼二层",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(schedulesResponse.status).toBe(200);
+	expect(await schedulesResponse.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					scheduleId: "schedule-001",
+					departmentId: "dept-001",
+					departmentName: "心内科",
+					doctorId: "doctor-001",
+					doctorName: "李医生",
+					workDate: "2026-08-20",
+					shiftName: "上午",
+					startTime: "08:00",
+					endTime: "12:00",
+					totalSlots: 30,
+					availableSlots: 12,
+					timeGroup: "range",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(scheduleInput).toEqual({
+		startDate: "2026-08-20",
+		endDate: "2026-08-21",
+		departmentId: "dept-001",
+		doctorId: "doctor-001",
+	});
+	scheduleInput = undefined;
+	const invalidRangeResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/schedules?startDate=2026-08-20&endDate=2026-09-30",
+			{ headers: { authorization } },
+		),
+	);
+	expect(invalidRangeResponse.status).toBe(400);
+	expect(await invalidRangeResponse.json()).toEqual({
+		success: false,
+		error: {
+			code: "appointment-query-invalid",
+			message: "Schedule date range cannot exceed 31 days",
+		},
+	});
+	expect(scheduleInput).toBeUndefined();
+
+	failDepartments = true;
+	const failedDepartmentsResponse = await app.handle(
+		new Request("http://localhost/api/v1/appointments/departments", {
+			headers: { authorization },
+		}),
+	);
+	expect(failedDepartmentsResponse.status).toBe(502);
+	expect(await failedDepartmentsResponse.json()).toEqual({
+		success: false,
+		error: {
+			code: "provider-request-rejected",
+			message: "External service rejected the request",
+		},
+	});
+});
+
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const identityUsers = createInMemoryIdentityUserRepository([
@@ -565,6 +771,7 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 				wechatPayment: notConfigured.wechatPayment,
 			}),
 			wechatPaymentNotifications: unusedWechatNotificationService(),
+			appointments: unusedAppointmentService(),
 			sessions,
 		},
 	});
@@ -631,6 +838,7 @@ test("wechat payment notification route preserves the raw body and returns provi
 				wechatPayment: createFixtureWechatPaymentGateway(),
 			}),
 			wechatPaymentNotifications: notification,
+			appointments: unusedAppointmentService(),
 			sessions,
 		},
 	});

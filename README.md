@@ -76,6 +76,8 @@ API 默认运行在 `http://localhost:3000`：
 - `POST /api/v1/payments/orders/:orderId/wechat-prepay`：仅在订单为 `cash_pending` 且微信支付闸门打开时返回服务端签名参数
 - `GET /api/v1/payments/orders/:orderId/wechat-prepay`：读取 `not_started/pending/ready/unknown` 预支付尝试状态
 - `POST /api/v1/payments/wechat/notifications`：接收已验签的微信支付成功通知并返回 provider ack
+- `GET /api/v1/appointments/departments`：读取服务端白名单后的预约科室目录
+- `GET /api/v1/appointments/schedules`：按最多 31 天范围读取服务端白名单后的排班目录
 - `GET /openapi`：OpenAPI 文档
 
 worker 进程组合和通知 outbox 消费核心已经接入，但真实数据库/provider 配置运行、微信开发者工具/公网

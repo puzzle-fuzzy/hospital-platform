@@ -38,8 +38,14 @@ export {
 export {
 	createZhongyangPatientGateway,
 	ZhongyangPatientApiGateway,
+	type ZhongyangGatewayOptions,
 	type ZhongyangPatientGatewayOptions,
 } from "./zhongyang-patients";
+export {
+	createZhongyangAppointmentGateway,
+	ZhongyangAppointmentApiGateway,
+	type ZhongyangAppointmentGatewayOptions,
+} from "./zhongyang-appointments";
 export {
 	LEGACY_FSI_ROUTES,
 	LegacyFsiContractError,

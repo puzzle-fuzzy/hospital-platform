@@ -24,13 +24,16 @@ type ZhongyangPatientEnvelope = {
 	message?: unknown;
 };
 
-export type ZhongyangPatientGatewayOptions = {
+/** 众阳各服务共用的服务端连接配置；业务 adapter 不共享彼此的模型。 */
+export type ZhongyangGatewayOptions = {
 	/** 众阳服务端地址；不能来自小程序请求参数。 */
 	baseUrl: string;
 	/** 只有 provider 明确要求时才注入服务端 token，绝不从客户端透传。 */
 	authorizationToken?: string;
 	fetcher?: ProviderFetcher;
 };
+
+export type ZhongyangPatientGatewayOptions = ZhongyangGatewayOptions;
 
 function requiredConfig(value: string): string {
 	const normalized = value.trim();

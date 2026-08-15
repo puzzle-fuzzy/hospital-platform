@@ -39,6 +39,11 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox 
 | `patient.directory.requested` | 患者目录同步应用服务 | 记录同步开始、provider 和 trace，不记录身份或请求内容 |
 | `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id 和同步数量，不记录 unionId 或 provider 患者号 |
 | `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider 和 trace，不记录第三方原始错误报文 |
+| `appointment.directory.departments.requested` | 预约科室目录读取 | 记录读取开始、provider 和 trace |
+| `appointment.directory.departments.synced` | 预约科室目录读取 | 记录 provider request id 和科室数量 |
+| `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |
+| `appointment.directory.schedules.synced` | 预约排班目录读取 | 记录 provider request id 和排班数量 |
+| `appointment.directory.departments.failed` / `appointment.directory.schedules.failed` | 预约目录读取 | 记录错误类型，不记录 provider 原始错误报文 |
 
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
 

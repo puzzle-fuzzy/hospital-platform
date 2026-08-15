@@ -20,8 +20,15 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 服务端调用旧小程序使用的 `/api/public/patientInfoByUnionId`，unionId 只能来自已落库的服务端身份；
 - provider 响应只允许映射为 `providerPatientId`、脱敏姓名、规范化关系和脱敏卡号；手机号、身份证号、完整卡号和原始响应不会进入 domain；
 - adapter 会统一注入 trace/idempotency headers，并把 provider 业务失败转换为不可伪装的 `ProviderRequestError`；
-- provider 患者号已经通过 `hp_patients.provider_name/provider_patient_id` 做内部映射，生产组合根仍默认保持 not-configured；只有 `ZHONGYANG_PATIENT_DIRECTORY_READY=true`、服务端 HTTPS 地址完整且 provider 合同确认后才会注入 adapter。
+- provider 患者号已经通过 `hp_patients.provider_name/provider_patient_id` 做内部映射，生产组合根仍默认保持 not-configured；只有 `ZHONGYANG_PATIENT_DIRECTORY_READY=true`、服务端 HTTPS 地址完整且 provider 合同确认后才会注入患者 adapter。
 - `ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN` 是可选的服务端 secret，是否需要以及具体授权格式必须以众阳/HIS 合同确认；配置状态 configured 只代表字段完整，不代表真实请求成功。
+
+预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
+
+- `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts` 映射为科室读模型；
+- `/msun-middle-business-amc-server/v1/schedulings` 映射为排班、时间和号源数量读模型，服务端固定 `requestChannel=4`；
+- 新 API 不返回挂号费、医生电话/照片、provider 原始字段，也不允许小程序透传任意 query；预约写入、锁号、取消和支付仍等待完整 contract。
+- 预约目录使用独立的 `ZHONGYANG_APPOINTMENT_DIRECTORY_READY` gate；患者目录和预约目录共享连接配置，但必须分别完成合同与真实验收。
 
 ## 设计不变量
 

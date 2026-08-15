@@ -12,6 +12,7 @@ import {
 	type ReadinessService,
 } from "./infrastructure/readiness";
 import { authModule } from "./modules/auth";
+import { appointmentsModule } from "./modules/appointments";
 import { healthModule } from "./modules/health";
 import { patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
@@ -42,6 +43,7 @@ function openApiPlugin() {
 				{ name: "system", description: "系统基础接口" },
 				{ name: "auth", description: "患者端身份认证" },
 				{ name: "patients", description: "患者档案" },
+				{ name: "appointments", description: "预约目录" },
 				{ name: "payments", description: "支付订单" },
 			],
 		},
@@ -79,6 +81,7 @@ export function createApp(options: AppOptions = {}) {
 				.use(systemModule())
 				.use(authModule(services.auth))
 				.use(patientsModule(services.patients, services.sessions))
+				.use(appointmentsModule(services.appointments, services.sessions))
 				.use(
 					paymentsModule(
 						services.paymentOrders,

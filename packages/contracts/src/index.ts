@@ -64,6 +64,50 @@ export const PatientListResponse = Type.Object({
 	}),
 });
 
+/** 预约目录科室是 provider 白名单后的公开读模型。 */
+export const AppointmentDepartmentSchema = Type.Object({
+	departmentId: Type.String({ minLength: 1 }),
+	departmentCode: Type.Optional(Type.String({ minLength: 1 })),
+	displayName: Type.String({ minLength: 1 }),
+	location: Type.Optional(Type.String({ minLength: 1 })),
+});
+
+export const AppointmentDepartmentListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(AppointmentDepartmentSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+/** 排班读模型只返回号源数量和时间，不返回 provider 原始字段或挂号金额。 */
+export const AppointmentScheduleSchema = Type.Object({
+	scheduleId: Type.String({ minLength: 1 }),
+	departmentId: Type.String({ minLength: 1 }),
+	departmentName: Type.String({ minLength: 1 }),
+	doctorId: Type.String({ minLength: 1 }),
+	doctorName: Type.String({ minLength: 1 }),
+	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+	shiftName: Type.String({ minLength: 1 }),
+	startTime: Type.Optional(Type.String({ minLength: 1 })),
+	endTime: Type.Optional(Type.String({ minLength: 1 })),
+	totalSlots: Type.Integer({ minimum: 0 }),
+	availableSlots: Type.Integer({ minimum: 0 }),
+	timeGroup: Type.Union([
+		Type.Literal("point"),
+		Type.Literal("range"),
+		Type.Literal("unknown"),
+	]),
+});
+
+export const AppointmentScheduleListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(AppointmentScheduleSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
 /** 创建订单只引用服务端报价，客户端不能提交医保金额或现金金额。 */
 export const PaymentOrderCreateRequest = Type.Object({
 	patientId: Type.String({ minLength: 1, maxLength: 128 }),
@@ -184,6 +228,18 @@ export type WechatLoginPayload = Static<typeof WechatLoginRequest>;
 export type AuthSessionPayload = Static<typeof AuthSessionResponse>;
 export type PatientPayload = Static<typeof PatientSchema>;
 export type PatientListPayload = Static<typeof PatientListResponse>;
+export type AppointmentDepartmentPayload = Static<
+	typeof AppointmentDepartmentSchema
+>;
+export type AppointmentDepartmentListPayload = Static<
+	typeof AppointmentDepartmentListResponse
+>;
+export type AppointmentSchedulePayload = Static<
+	typeof AppointmentScheduleSchema
+>;
+export type AppointmentScheduleListPayload = Static<
+	typeof AppointmentScheduleListResponse
+>;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest
 >;

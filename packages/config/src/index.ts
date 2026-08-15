@@ -33,6 +33,8 @@ export type RuntimeConfig = {
 	wechatPayBaseUrl: string;
 	/** 众阳患者目录默认关闭；配置完整也不代表 provider 已联调。 */
 	patientDirectoryReady: boolean;
+	/** 预约 AMC 只读目录独立验收，不能随患者目录一起隐式打开。 */
+	appointmentDirectoryReady: boolean;
 	patientDirectoryBaseUrl: string | undefined;
 	/** 可选的服务端 provider token；不能下发小程序或写入日志。 */
 	patientDirectoryAuthorizationToken: string | undefined;
@@ -149,7 +151,17 @@ export function wechatPaymentConfigurationStatus(
 export function patientDirectoryConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
-	if (!runtimeConfig.patientDirectoryReady) return [];
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.patientDirectoryReady,
+	);
+}
+
+function zhongyangDirectoryConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+	ready: boolean,
+): string[] {
+	if (!ready) return [];
 	const missing = missingRuntimeFields([
 		{
 			name: "ZHONGYANG_PATIENT_DIRECTORY_BASE_URL",
@@ -171,6 +183,25 @@ export function patientDirectoryConfigurationStatus(
 ): ProviderConfigurationStatus {
 	if (!runtimeConfig.patientDirectoryReady) return "disabled";
 	return patientDirectoryConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
+export function appointmentDirectoryConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.appointmentDirectoryReady,
+	);
+}
+
+export function appointmentDirectoryConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.appointmentDirectoryReady) return "disabled";
+	return appointmentDirectoryConfigurationMissingFields(runtimeConfig)
+		.length === 0
 		? "configured"
 		: "incomplete";
 }
@@ -280,6 +311,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.WECHAT_PAY_BASE_URL ?? "https://api.mch.weixin.qq.com",
 		patientDirectoryReady: boolean(
 			env.ZHONGYANG_PATIENT_DIRECTORY_READY,
+			false,
+		),
+		appointmentDirectoryReady: boolean(
+			env.ZHONGYANG_APPOINTMENT_DIRECTORY_READY,
 			false,
 		),
 		patientDirectoryBaseUrl: optional(env.ZHONGYANG_PATIENT_DIRECTORY_BASE_URL),

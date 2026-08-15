@@ -17,6 +17,12 @@ export type {
 	WechatIdentityGateway,
 } from "./patients";
 export type {
+	AppointmentDepartment,
+	AppointmentDirectoryGateway,
+	AppointmentSchedule,
+	AppointmentScheduleQuery,
+} from "./appointments";
+export type {
 	CreatePaymentOrderInput,
 	PaymentAmounts,
 	PaymentOrder,

@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
 	PaymentIdempotencyConflictError,
@@ -14,6 +15,7 @@ import {
 } from "@hospital/domain";
 import { HttpError } from "../errors";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
+import { AppointmentScheduleQueryError } from "../modules/appointments/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 
 function normalizeCode(code: string | number): string {
@@ -56,6 +58,32 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "dependency-not-configured",
 						message: "Required service dependency is not configured",
+					},
+				};
+			}
+
+			if (error instanceof ProviderRequestError) {
+				set.status = error.retryable ? 503 : 502;
+				return {
+					success: false,
+					error: {
+						code: error.retryable
+							? "provider-temporarily-unavailable"
+							: "provider-request-rejected",
+						message: error.retryable
+							? "External service is temporarily unavailable"
+							: "External service rejected the request",
+					},
+				};
+			}
+
+			if (error instanceof AppointmentScheduleQueryError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "appointment-query-invalid",
+						message: error.message,
 					},
 				};
 			}

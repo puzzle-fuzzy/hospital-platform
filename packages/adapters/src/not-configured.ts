@@ -1,6 +1,7 @@
 import type { AdapterName } from "./context";
 import type {
 	HospitalSettlementGateway,
+	AppointmentDirectoryGateway,
 	MedicalInsuranceGateway,
 	PatientDirectoryGateway,
 	WechatIdentityGateway,
@@ -16,6 +17,7 @@ export type NotConfiguredGateways = {
 	wechatIdentity: WechatIdentityGateway;
 	medicalInsurance: MedicalInsuranceGateway;
 	patientDirectory: PatientDirectoryGateway;
+	appointmentDirectory: AppointmentDirectoryGateway;
 	wechatPayment: WechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
 };
@@ -33,6 +35,10 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const patientDirectory: PatientDirectoryGateway = {
 		listByIdentity: async (_input, _context) => unavailable("zhongyang"),
 	};
+	const appointmentDirectory: AppointmentDirectoryGateway = {
+		listDepartments: async (_context) => unavailable("zhongyang"),
+		listSchedules: async (_input, _context) => unavailable("zhongyang"),
+	};
 	const wechatPayment: WechatPaymentGateway = {
 		createJsapiOrder: async (_input, _context) => unavailable("wechat-pay"),
 		query: async (_input, _context) => unavailable("wechat-pay"),
@@ -45,6 +51,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		wechatIdentity,
 		medicalInsurance,
 		patientDirectory,
+		appointmentDirectory,
 		wechatPayment,
 		hospitalSettlement,
 	};
