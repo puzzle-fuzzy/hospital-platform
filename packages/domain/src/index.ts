@@ -11,6 +11,7 @@ export type {
 	PatientDirectoryProfile,
 	PatientDirectoryUpsertInput,
 	PatientRecord,
+	PatientProviderReference,
 	PatientRelationship,
 	PatientRepository,
 	UserIdentityRepository,

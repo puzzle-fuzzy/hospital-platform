@@ -125,6 +125,38 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 	expect(state.values[1]).toContain("provider-patient-001");
 });
 
+test("MySQL patient provider lookup is owner-scoped and server-only", async () => {
+	const { pool, state } = createFakePool([
+		[
+			{
+				patient_id: "internal-patient-001",
+				provider_name: "zhongyang",
+				provider_patient_id: "provider-patient-001",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.resolveProviderReference({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+		}),
+	).resolves.toEqual({
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		providerPatientId: "provider-patient-001",
+	});
+	expect(state.statements[0]).toContain("owner_user_id = ?");
+	expect(state.statements[0]).toContain("provider_patient_id IS NOT NULL");
+	expect(state.values[0]).toEqual([
+		"user-001",
+		"internal-patient-001",
+		"zhongyang",
+	]);
+});
+
 test("MySQL order update requires the expected version before writing its event", async () => {
 	const { pool, state } = createFakePool();
 	const repositories = createMySqlRepositories(pool);

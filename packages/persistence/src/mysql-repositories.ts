@@ -4,6 +4,7 @@ import type {
 	OutboxRepository,
 	PatientRecord,
 	PatientRelationship,
+	PatientProviderReference,
 	PatientRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
@@ -597,6 +598,28 @@ export function createMySqlRepositories(
 				if (!racedRows[0]) throw error;
 				return patient(racedRows[0]);
 			}
+		},
+		async resolveProviderReference(
+			input,
+		): Promise<PatientProviderReference | undefined> {
+			const rows = await execute<PatientRow[]>(
+				pool,
+				"SELECT patient_id, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND provider_patient_id IS NOT NULL LIMIT 1",
+				[input.ownerUserId, input.patientId, input.provider],
+			);
+			const row = rows[0];
+			if (
+				!row ||
+				row.provider_name !== input.provider ||
+				!row.provider_patient_id
+			) {
+				return undefined;
+			}
+			return {
+				patientId: row.patient_id,
+				provider: input.provider,
+				providerPatientId: row.provider_patient_id,
+			};
 		},
 	};
 

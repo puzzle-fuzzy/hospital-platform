@@ -39,6 +39,18 @@ export type PatientDirectoryUpsertInput = {
 	profile: PatientDirectoryProfile;
 };
 
+/**
+ * 服务端下游 provider adapter 使用的内部引用。
+ *
+ * 该类型故意不包含在 PatientRecord 中，避免 provider 患者号被 API read
+ * model、日志或小程序响应意外暴露；只有已完成 owner 校验的服务端流程才能取得它。
+ */
+export type PatientProviderReference = {
+	patientId: string;
+	provider: "zhongyang";
+	providerPatientId: string;
+};
+
 /** 与微信 provider 的 subject 解耦的内部用户身份；业务表只引用 userId。 */
 export type IdentityUser = {
 	userId: string;
@@ -62,6 +74,12 @@ export interface PatientRepository {
 	upsertFromDirectory(
 		input: PatientDirectoryUpsertInput,
 	): Promise<PatientRecord>;
+	/** 按 owner 隔离解析 provider 引用；provider 患者号不得进入公共响应。 */
+	resolveProviderReference(input: {
+		ownerUserId: string;
+		patientId: string;
+		provider: "zhongyang";
+	}): Promise<PatientProviderReference | undefined>;
 }
 
 /** 众阳/HIS 患者目录只通过服务端身份查询，禁止小程序直接携带 unionId。 */

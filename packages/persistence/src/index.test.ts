@@ -80,6 +80,24 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 		source: "hospital-his",
 	});
 	expect(await patients.listByOwner("user-001")).toHaveLength(1);
+	expect(
+		await patients.resolveProviderReference({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+		}),
+	).toEqual({
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		providerPatientId: "provider-patient-001",
+	});
+	expect(
+		await patients.resolveProviderReference({
+			ownerUserId: "other-user",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+		}),
+	).toBeUndefined();
 });
 
 test("in-memory payment repository enforces owner lookup", async () => {

@@ -1,6 +1,7 @@
 import type {
 	IdentityUser,
 	PatientDirectoryUpsertInput,
+	PatientProviderReference,
 	PatientRecord,
 	PatientRepository,
 	PaymentOrder,
@@ -56,8 +57,14 @@ export function createInMemoryPatientRepository(
 ): PatientRepository {
 	const patients = [...seed];
 	const directoryIndex = new Map<string, string>();
+	const providerIndex = new Map<string, string>();
 	const directoryKey = (input: PatientDirectoryUpsertInput) =>
 		`${input.ownerUserId}:${input.provider}:${input.profile.providerPatientId}`;
+	const providerReferenceKey = (input: {
+		ownerUserId: string;
+		provider: "zhongyang";
+		patientId: string;
+	}) => `${input.ownerUserId}:${input.provider}:${input.patientId}`;
 
 	return {
 		async listByOwner(ownerUserId) {
@@ -83,7 +90,27 @@ export function createInMemoryPatientRepository(
 			if (existingIndex >= 0) patients[existingIndex] = next;
 			else patients.push(next);
 			directoryIndex.set(key, next.id);
+			providerIndex.set(
+				providerReferenceKey({
+					ownerUserId: input.ownerUserId,
+					provider: input.provider,
+					patientId: next.id,
+				}),
+				input.profile.providerPatientId,
+			);
 			return next;
+		},
+		async resolveProviderReference(
+			input,
+		): Promise<PatientProviderReference | undefined> {
+			const providerPatientId = providerIndex.get(providerReferenceKey(input));
+			return providerPatientId
+				? {
+						patientId: input.patientId,
+						provider: input.provider,
+						providerPatientId,
+					}
+				: undefined;
 		},
 	};
 }
@@ -273,6 +300,9 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("patients");
 			},
 			upsertFromDirectory: async () => {
+				throw new PersistenceNotConfiguredError("patients");
+			},
+			resolveProviderReference: async () => {
 				throw new PersistenceNotConfiguredError("patients");
 			},
 		},
