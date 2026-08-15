@@ -19,6 +19,9 @@ export type {
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentOrderServiceDependencies,
+	PaymentPrepayAttempt,
+	PaymentPrepayAttemptRepository,
+	PaymentPrepayAttemptStatus,
 	PaymentQuote,
 	PaymentQuoteRepository,
 } from "./payment-order";
@@ -31,6 +34,9 @@ export {
 	PaymentCashPrepayNotAllowedError,
 	PaymentOrderService,
 	PaymentOrderVersionConflictError,
+	PaymentPrepayAttemptInProgressError,
+	PaymentPrepayAttemptUnknownError,
+	PaymentPrepayAttemptVersionConflictError,
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
 } from "./payment-order";

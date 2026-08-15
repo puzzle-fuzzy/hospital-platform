@@ -17,6 +17,9 @@ const logger = createLogger({
 const persistence = createPersistenceRuntime({
 	databaseUrl: config.databaseUrl,
 	redisUrl: config.redisUrl,
+	...(config.paymentDataEncryptionKey
+		? { paymentDataEncryptionKey: config.paymentDataEncryptionKey }
+		: {}),
 	useRepositories: config.persistenceSchemaReady,
 });
 const identityGateway = config.wechatIdentityReady

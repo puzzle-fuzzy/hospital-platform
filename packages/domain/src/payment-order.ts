@@ -1,6 +1,7 @@
 import type { PaymentState } from "@hospital/contracts";
 import { transitionPayment } from "./payment-state";
 import type { OutboxEvent } from "./outbox";
+import type { WechatMiniProgramPayParams } from "./ports";
 
 /** 幂等键长度上限，防止客户端把无限长字符串写入订单索引。 */
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -71,6 +72,42 @@ export type PaymentQuote = {
 	source: "hospital-his" | "fixture";
 };
 
+export type PaymentPrepayAttemptStatus = "pending" | "succeeded" | "unknown";
+
+/**
+ * 微信预支付尝试是独立的 provider 证据，不与订单状态混为一谈。
+ * payParams 只允许进入受控的支付读模型，禁止进入日志、outbox payload 或领域事件。
+ */
+export type PaymentPrepayAttempt = {
+	attemptId: string;
+	ownerUserId: string;
+	orderId: string;
+	provider: "wechat-pay";
+	idempotencyKey: string;
+	status: PaymentPrepayAttemptStatus;
+	version: number;
+	prepayId?: string;
+	payParams?: WechatMiniProgramPayParams;
+	providerRequestId?: string;
+	lastErrorCode?: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+/** 预支付尝试的持久化端口；生产实现必须以 owner/order/idempotency 建唯一键。 */
+export interface PaymentPrepayAttemptRepository {
+	findByOwnerOrderAndIdempotencyKey(
+		ownerUserId: string,
+		orderId: string,
+		idempotencyKey: string,
+	): Promise<PaymentPrepayAttempt | undefined>;
+	insert(attempt: PaymentPrepayAttempt): Promise<PaymentPrepayAttempt>;
+	update(
+		attempt: PaymentPrepayAttempt,
+		expectedVersion: number,
+	): Promise<PaymentPrepayAttempt>;
+}
+
 /** 报价仓储负责提供已归属当前用户且尚未过期的后端金额。 */
 export interface PaymentQuoteRepository {
 	findByOwnerAndId(
@@ -138,6 +175,27 @@ export class PaymentOrderVersionConflictError extends Error {
 	constructor() {
 		super("Payment order was changed by another request");
 		this.name = "PaymentOrderVersionConflictError";
+	}
+}
+
+export class PaymentPrepayAttemptVersionConflictError extends Error {
+	constructor() {
+		super("Payment prepay attempt was changed by another request");
+		this.name = "PaymentPrepayAttemptVersionConflictError";
+	}
+}
+
+export class PaymentPrepayAttemptInProgressError extends Error {
+	constructor() {
+		super("Payment prepay attempt is still in progress");
+		this.name = "PaymentPrepayAttemptInProgressError";
+	}
+}
+
+export class PaymentPrepayAttemptUnknownError extends Error {
+	constructor() {
+		super("Payment prepay result requires provider confirmation");
+		this.name = "PaymentPrepayAttemptUnknownError";
 	}
 }
 

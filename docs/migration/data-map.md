@@ -17,6 +17,12 @@
 - `mbs_medical_orders`
 - `mbs_payment_events`
 
+新项目当前对应的目标事实包括：
+
+- `hp_payment_orders`
+- `hp_payment_prepay_attempts`
+- `hp_outbox_events`
+
 已看到的字段类别包括：
 
 - 内部订单状态、机构编码、医院订单号、微信商户订单号、混合订单号
@@ -46,5 +52,6 @@
 - 导出线上 schema、索引、约束和字符集的只读快照。
 - 对照全部 Alembic revision，确认当前 head、分支和手工变更。
 - 为患者、订单、支付尝试、provider 事件、outbox、审计事件建立目标字段表。
+- 支付调起参数只允许受控密文落库，`prepay_id` 只保存摘要；密钥轮换需要独立的版本和回滚策略。
 - 设计旧 ID 到新 ID 的映射和回滚策略。
 - 在 staging 使用脱敏数据验证迁移，不直接在生产库试验。

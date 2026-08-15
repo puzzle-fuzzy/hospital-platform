@@ -66,6 +66,8 @@ function createRedisPort(client: Redis): DependencyPort {
 export function createPersistenceRuntime(options: {
 	databaseUrl: string | undefined;
 	redisUrl: string | undefined;
+	/** 支付调起参数落库前的 AES-GCM 密钥；未配置时预支付 repository fail-closed。 */
+	paymentDataEncryptionKey?: string;
 	/** 只有显式确认目标 migration 已完成，才暴露真实 repository。 */
 	useRepositories: boolean;
 }): PersistenceRuntime {
@@ -97,7 +99,11 @@ export function createPersistenceRuntime(options: {
 		redis: redisClient ? createRedisPort(redisClient) : notConfiguredPort(),
 		repositories:
 			databasePool && options.useRepositories
-				? createMySqlRepositories(databasePool)
+				? createMySqlRepositories(databasePool, {
+						...(options.paymentDataEncryptionKey
+							? { paymentDataEncryptionKey: options.paymentDataEncryptionKey }
+							: {}),
+					})
 				: undefined,
 		sessions: redisClient ? createRedisSessionStore(redisClient) : undefined,
 		async close() {

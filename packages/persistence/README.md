@@ -26,3 +26,7 @@ pnpm infra:down
 订单仓储已经具备“订单写入 + outbox 事件”同事务实现，并完成本地真实 MySQL/Redis
 集成验收；API 仍默认由 `PERSISTENCE_SCHEMA_READY=false` 保护，未完成目标环境
 migration、staging 脱敏验证和 provider 配置前，不接入真实支付副作用。
+
+预支付尝试使用 `hp_payment_prepay_attempts` 独立记录幂等键、版本和 provider 证据；
+`prepay_id` 只保存 SHA-256 摘要，`pay_params_ciphertext` 使用部署注入的 AES-256-GCM
+密钥保护。缺少 `PAYMENT_DATA_ENCRYPTION_KEY` 时，该 repository 保持 fail-closed。

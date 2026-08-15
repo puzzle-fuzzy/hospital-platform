@@ -6,6 +6,8 @@ import {
 	PaymentOrderNotFoundError,
 	PaymentOrderVersionConflictError,
 	PaymentCashPrepayNotAllowedError,
+	PaymentPrepayAttemptInProgressError,
+	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
 } from "@hospital/domain";
@@ -137,6 +139,26 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "payment-identity-not-found",
 						message: "Payment identity is not available",
+					},
+				};
+			}
+
+			if (
+				error instanceof PaymentPrepayAttemptInProgressError ||
+				error instanceof PaymentPrepayAttemptUnknownError
+			) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code:
+							error instanceof PaymentPrepayAttemptInProgressError
+								? "payment-prepay-in-progress"
+								: "payment-prepay-unknown",
+						message:
+							error instanceof PaymentPrepayAttemptInProgressError
+								? "Payment prepay is still being processed"
+								: "Payment prepay requires provider confirmation",
 					},
 				};
 			}

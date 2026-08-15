@@ -1,6 +1,11 @@
 import type { WechatPrepayPayload } from "@hospital/contracts";
 import {
+	DependencyNotConfiguredError,
 	PaymentCashPrepayNotAllowedError,
+	PaymentPrepayAttemptInProgressError,
+	PaymentPrepayAttemptUnknownError,
+	type PaymentPrepayAttempt,
+	type PaymentPrepayAttemptRepository,
 	type PaymentOrderService,
 	type UserIdentityRepository,
 	type WechatPaymentGateway,
@@ -17,8 +22,11 @@ export class PaymentIdentityNotFoundError extends Error {
 export type WechatPrepayServiceDependencies = {
 	orders: PaymentOrderService;
 	identityUsers: UserIdentityRepository;
+	attempts: PaymentPrepayAttemptRepository;
 	wechatPayment: WechatPaymentGateway;
 	logger?: AppLogger;
+	now?: () => Date;
+	createAttemptId?: () => string;
 };
 
 /**
@@ -27,13 +35,20 @@ export type WechatPrepayServiceDependencies = {
  * - openid 只从服务端身份仓储读取，不接受客户端提交；
  * - 只允许对医保结算后明确留下的 cash_pending 订单申请现金预支付；
  * - 返回 payParams 只是“可调起支付”，不迁移订单到 cash_paid 或 completed；
+ * - 预支付尝试先落库，重试会复用已成功的参数或明确进入待确认，不重复猜测 provider 结果；
  * - 日志只记录内部订单、trace 和 provider request id，不记录 openid、prepay_id 或签名。
  */
 export class WechatPrepayService {
 	private readonly logger: AppLogger;
+	private readonly now: () => Date;
+	private readonly createAttemptId: () => string;
 
 	constructor(private readonly dependencies: WechatPrepayServiceDependencies) {
 		this.logger = dependencies.logger ?? createNoopLogger();
+		this.now = dependencies.now ?? (() => new Date());
+		this.createAttemptId =
+			dependencies.createAttemptId ??
+			(() => crypto.randomUUID().replaceAll("-", ""));
 	}
 
 	async create(input: {
@@ -49,10 +64,34 @@ export class WechatPrepayService {
 			throw new PaymentCashPrepayNotAllowedError();
 		}
 
+		const existing =
+			await this.dependencies.attempts.findByOwnerOrderAndIdempotencyKey(
+				input.ownerUserId,
+				order.orderId,
+				input.context.idempotencyKey,
+			);
+		if (existing) return this.replayAttempt(existing, order.state);
+
 		const identity = await this.dependencies.identityUsers.findByUserId(
 			input.ownerUserId,
 		);
 		if (!identity) throw new PaymentIdentityNotFoundError();
+		const timestamp = this.now().toISOString();
+		const pending: PaymentPrepayAttempt = {
+			attemptId: this.createAttemptId(),
+			ownerUserId: input.ownerUserId,
+			orderId: order.orderId,
+			provider: "wechat-pay",
+			idempotencyKey: input.context.idempotencyKey,
+			status: "pending",
+			version: 1,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		};
+		const stored = await this.dependencies.attempts.insert(pending);
+		if (stored.attemptId !== pending.attemptId) {
+			return this.replayAttempt(stored, order.state);
+		}
 
 		this.logger.info(
 			{
@@ -73,6 +112,16 @@ export class WechatPrepayService {
 				},
 				input.context,
 			);
+			const succeeded: PaymentPrepayAttempt = {
+				...pending,
+				status: "succeeded",
+				version: pending.version + 1,
+				prepayId: result.prepayId,
+				payParams: result.payParams,
+				providerRequestId: result.trace.requestId,
+				updatedAt: this.now().toISOString(),
+			};
+			await this.dependencies.attempts.update(succeeded, pending.version);
 			this.logger.info(
 				{
 					event: "payment.wechat_prepay.created",
@@ -90,6 +139,18 @@ export class WechatPrepayService {
 				payParams: result.payParams,
 			};
 		} catch (error) {
+			if (!(error instanceof DependencyNotConfiguredError)) {
+				const unknown: PaymentPrepayAttempt = {
+					...pending,
+					status: "unknown",
+					version: pending.version + 1,
+					lastErrorCode: error instanceof Error ? error.name : "UnknownError",
+					updatedAt: this.now().toISOString(),
+				};
+				await this.dependencies.attempts
+					.update(unknown, pending.version)
+					.catch(() => undefined);
+			}
 			this.logger.warn(
 				{
 					event: "payment.wechat_prepay.failed",
@@ -101,5 +162,36 @@ export class WechatPrepayService {
 			);
 			throw error;
 		}
+	}
+
+	private replayAttempt(
+		attempt: PaymentPrepayAttempt,
+		state: WechatPrepayPayload["data"]["state"],
+	): WechatPrepayPayload["data"] {
+		if (attempt.status === "pending") {
+			throw new PaymentPrepayAttemptInProgressError();
+		}
+		if (attempt.status === "unknown") {
+			if (attempt.lastErrorCode === "AdapterNotConfiguredError") {
+				throw new DependencyNotConfiguredError("wechat-pay");
+			}
+			throw new PaymentPrepayAttemptUnknownError();
+		}
+		if (!attempt.payParams) {
+			throw new PaymentPrepayAttemptUnknownError();
+		}
+		this.logger.info(
+			{
+				event: "payment.wechat_prepay.replayed",
+				orderId: attempt.orderId,
+				attemptId: attempt.attemptId,
+			},
+			"Wechat prepay parameters replayed",
+		);
+		return {
+			orderId: attempt.orderId,
+			state,
+			payParams: attempt.payParams,
+		};
 	}
 }

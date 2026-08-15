@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import type { Pool } from "mysql2/promise";
-import type { OutboxEvent, PaymentOrder } from "@hospital/domain";
+import type {
+	OutboxEvent,
+	PaymentOrder,
+	PaymentPrepayAttempt,
+} from "@hospital/domain";
 import { createMySqlRepositories } from "./mysql-repositories";
+import { createAesGcmSecretValueCipher } from "./prepay-cipher";
 
 type FakeConnectionState = {
 	statements: string[];
@@ -134,4 +139,53 @@ test("MySQL outbox claim returns an event and commits its lease", async () => {
 	expect(state.committed).toBe(true);
 	expect(state.statements[0]).toContain("FOR UPDATE SKIP LOCKED");
 	expect(state.statements[1]).toContain("SET claimed_until");
+});
+
+test("MySQL prepay repository encrypts pay params and stores only prepay hash", async () => {
+	const { pool, state } = createFakePool([
+		{ affectedRows: 1 },
+		{ affectedRows: 1 },
+	]);
+	const repositories = createMySqlRepositories(pool, {
+		prepayCipher: createAesGcmSecretValueCipher(
+			Buffer.alloc(32, 7).toString("base64"),
+		),
+	});
+	const pending: PaymentPrepayAttempt = {
+		attemptId: "attempt-001",
+		ownerUserId: "user-001",
+		orderId: "order-001",
+		provider: "wechat-pay",
+		idempotencyKey: "prepay-001",
+		status: "pending",
+		version: 1,
+		createdAt: order.createdAt,
+		updatedAt: order.updatedAt,
+	};
+	const succeeded: PaymentPrepayAttempt = {
+		...pending,
+		status: "succeeded",
+		version: 2,
+		prepayId: "prepay-credential-001",
+		payParams: {
+			appId: "app-001",
+			timeStamp: "1700000000",
+			nonceStr: "nonce-001",
+			package: "prepay_id=prepay-credential-001",
+			signType: "RSA",
+			paySign: "sensitive-sign-001",
+		},
+		providerRequestId: "request-001",
+		updatedAt: "2026-08-15T00:00:01.000Z",
+	};
+
+	await repositories.paymentPrepayAttempts.insert(pending);
+	await repositories.paymentPrepayAttempts.update(succeeded, pending.version);
+
+	const updateValues = state.values[1] ?? [];
+	const serialized = updateValues[3];
+	expect(state.statements[0]).toContain("prepay_id_hash");
+	expect(state.statements[1]).toContain("pay_params_ciphertext");
+	expect(String(updateValues[2])).not.toBe("prepay-credential-001");
+	expect(String(serialized)).not.toContain("sensitive-sign-001");
 });

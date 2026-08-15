@@ -3,6 +3,7 @@ import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
+	createInMemoryPaymentPrepayAttemptRepository,
 	createNotConfiguredRepositories,
 	createUnconfiguredPersistence,
 } from "./index";
@@ -73,4 +74,44 @@ test("not-configured payment persistence fails closed", async () => {
 	expect(
 		repositories.paymentOrders.findByOwnerAndId("user-001", "order-001"),
 	).rejects.toThrow("Dependency is not configured");
+});
+
+test("in-memory prepay attempts replay by owner, order and idempotency key", async () => {
+	const attempts = createInMemoryPaymentPrepayAttemptRepository([
+		{
+			attemptId: "attempt-001",
+			ownerUserId: "user-001",
+			orderId: "order-001",
+			provider: "wechat-pay",
+			idempotencyKey: "prepay-001",
+			status: "succeeded",
+			version: 2,
+			prepayId: "prepay-001",
+			payParams: {
+				appId: "app-001",
+				timeStamp: "1700000000",
+				nonceStr: "nonce-001",
+				package: "prepay_id=prepay-001",
+				signType: "RSA",
+				paySign: "sign-001",
+			},
+			createdAt: "2026-08-15T00:00:00.000Z",
+			updatedAt: "2026-08-15T00:00:01.000Z",
+		},
+	]);
+
+	expect(
+		await attempts.findByOwnerOrderAndIdempotencyKey(
+			"user-001",
+			"order-001",
+			"prepay-001",
+		),
+	).toMatchObject({ attemptId: "attempt-001", status: "succeeded" });
+	expect(
+		await attempts.findByOwnerOrderAndIdempotencyKey(
+			"user-002",
+			"order-001",
+			"prepay-001",
+		),
+	).toBeUndefined();
 });

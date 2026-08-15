@@ -29,6 +29,8 @@ export type RuntimeConfig = {
 	wechatPayPlatformPublicKey: string | undefined;
 	wechatPayNotifyUrl: string | undefined;
 	wechatPayBaseUrl: string;
+	/** 仅保护数据库中的短期支付调起参数，不是 APIv3 key。 */
+	paymentDataEncryptionKey: string | undefined;
 };
 
 function positivePort(value: string | undefined): number {
@@ -117,4 +119,5 @@ export const config: RuntimeConfig = {
 	wechatPayNotifyUrl: optional(Bun.env.WECHAT_PAY_NOTIFY_URL),
 	wechatPayBaseUrl:
 		Bun.env.WECHAT_PAY_BASE_URL ?? "https://api.mch.weixin.qq.com",
+	paymentDataEncryptionKey: optional(Bun.env.PAYMENT_DATA_ENCRYPTION_KEY),
 };

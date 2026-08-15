@@ -3,6 +3,7 @@ import { createFixtureWechatPaymentGateway } from "@hospital/adapters";
 import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPaymentOrderRepository,
+	createInMemoryPaymentPrepayAttemptRepository,
 } from "@hospital/persistence";
 import { PaymentOrderService } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -32,7 +33,9 @@ test("wechat prepay reads server identity and returns only server pay params", a
 			orders: createInMemoryPaymentOrderRepository([order]),
 		}),
 		identityUsers,
+		attempts: createInMemoryPaymentPrepayAttemptRepository(),
 		wechatPayment: createFixtureWechatPaymentGateway(),
+		createAttemptId: () => "attempt-001",
 	});
 
 	const result = await service.create({
@@ -63,6 +66,7 @@ test("wechat prepay refuses an order before cash_pending", async () => {
 			]),
 		}),
 		identityUsers: createInMemoryIdentityUserRepository(),
+		attempts: createInMemoryPaymentPrepayAttemptRepository(),
 		wechatPayment: createFixtureWechatPaymentGateway(),
 	});
 
@@ -78,12 +82,53 @@ test("wechat prepay refuses an order before cash_pending", async () => {
 	).rejects.toThrow("not allowed");
 });
 
+test("wechat prepay replays a durable success without a second provider call", async () => {
+	const attempts = createInMemoryPaymentPrepayAttemptRepository();
+	const identityUsers = createInMemoryIdentityUserRepository([
+		{
+			userId: order.ownerUserId,
+			providerSubject: "fixture-openid-001",
+		},
+	]);
+	let providerCalls = 0;
+	const fixture = createFixtureWechatPaymentGateway();
+	const service = new WechatPrepayService({
+		orders: new PaymentOrderService({
+			orders: createInMemoryPaymentOrderRepository([order]),
+		}),
+		identityUsers,
+		attempts,
+		wechatPayment: {
+			...fixture,
+			createJsapiOrder: async (...args) => {
+				providerCalls += 1;
+				return fixture.createJsapiOrder(...args);
+			},
+		},
+	});
+	const input = {
+		ownerUserId: order.ownerUserId,
+		orderId: order.orderId,
+		context: {
+			traceId: "trace-prepay-replay",
+			idempotencyKey: "prepay-replay",
+		},
+	};
+
+	const first = await service.create(input);
+	const second = await service.create(input);
+
+	expect(providerCalls).toBe(1);
+	expect(second).toEqual(first);
+});
+
 test("wechat prepay fails before provider call when identity is missing", async () => {
 	const service = new WechatPrepayService({
 		orders: new PaymentOrderService({
 			orders: createInMemoryPaymentOrderRepository([order]),
 		}),
 		identityUsers: createInMemoryIdentityUserRepository(),
+		attempts: createInMemoryPaymentPrepayAttemptRepository(),
 		wechatPayment: createFixtureWechatPaymentGateway(),
 	});
 
@@ -111,6 +156,7 @@ test("wechat prepay logs contain no provider subject or pay credential", async (
 				providerSubject: "fixture-openid-001",
 			},
 		]),
+		attempts: createInMemoryPaymentPrepayAttemptRepository(),
 		wechatPayment: createFixtureWechatPaymentGateway(),
 		logger: createLogger({
 			service: "hospital-api-test",

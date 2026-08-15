@@ -50,6 +50,7 @@ Phase 6B 已加入 `WechatPrepayService` 和 `POST /api/v1/payments/orders/:orde
 - 只有 `cash_pending` 且 `cashFen > 0` 的订单可以申请 JSAPI 预支付，金额来自已落库订单，不来自页面；
 - 返回值只包含服务端生成的 `payParams`，不返回 provider 原始报文，不改变订单状态；
 - 预支付闸门由 `WECHAT_PAYMENT_READY` 控制，默认关闭；真实环境还需要补齐预支付尝试持久化、通知入站和查单补偿后，才能宣称支付链路完成。
+- 预支付成功后，`prepay_id` 只保存摘要，`payParams` 只以 AES-256-GCM 密文保存；`PAYMENT_DATA_ENCRYPTION_KEY` 缺失时不得调用 provider。
 - 单元测试使用进程内生成的 RSA/AES 材料，证明协议实现和失败分支，不证明商户号、证书、微信产品权限或公网回调已经可用。
 
 医保 5B-3 当前只实现 `legacy-fsi-contract.ts` 的纯规则层：固定五个专用 path、有限层级

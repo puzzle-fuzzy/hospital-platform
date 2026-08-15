@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
 	OutboxEvent,
 	OutboxRepository,
@@ -6,6 +7,8 @@ import type {
 	PatientRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
+	PaymentPrepayAttempt,
+	PaymentPrepayAttemptRepository,
 	PaymentQuoteRepository,
 	UserIdentityRepository,
 	IdentityUser,
@@ -13,8 +16,15 @@ import type {
 import {
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
+	PaymentPrepayAttemptVersionConflictError,
 } from "@hospital/domain";
 import type { PaymentState } from "@hospital/contracts";
+import type { WechatMiniProgramPayParams } from "@hospital/domain";
+import { PersistenceNotConfiguredError } from "./errors";
+import {
+	createAesGcmSecretValueCipher,
+	type SecretValueCipher,
+} from "./prepay-cipher";
 import type {
 	Pool,
 	PoolConnection,
@@ -73,6 +83,22 @@ type PaymentOrderRow = RowDataPacket & {
 	updated_at: string;
 };
 
+type PaymentPrepayAttemptRow = RowDataPacket & {
+	attempt_id: string;
+	owner_user_id: string;
+	order_id: string;
+	provider: string;
+	idempotency_key: string;
+	status: string;
+	version: number;
+	prepay_id_hash: string | null;
+	pay_params_ciphertext: string | null;
+	provider_request_id: string | null;
+	last_error_code: string | null;
+	created_at: string;
+	updated_at: string;
+};
+
 type OutboxEventRow = RowDataPacket & {
 	event_id: string;
 	event_name: OutboxEvent["eventName"];
@@ -89,6 +115,7 @@ export type MySqlRepositories = {
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
 	paymentQuotes: PaymentQuoteRepository;
+	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	outbox: OutboxRepository;
 };
 
@@ -246,6 +273,71 @@ function paymentOrder(row: PaymentOrderRow): PaymentOrder {
 	};
 }
 
+const PREPAY_ATTEMPT_STATUSES: readonly PaymentPrepayAttempt["status"][] = [
+	"pending",
+	"succeeded",
+	"unknown",
+];
+
+function paymentPrepayAttemptStatus(
+	value: string,
+): PaymentPrepayAttempt["status"] {
+	if (
+		PREPAY_ATTEMPT_STATUSES.includes(value as PaymentPrepayAttempt["status"])
+	) {
+		return value as PaymentPrepayAttempt["status"];
+	}
+	throw new Error("Persistence returned an unknown prepay attempt status");
+}
+
+function payParams(
+	value: PaymentPrepayAttemptRow["pay_params_ciphertext"],
+	cipher: SecretValueCipher,
+): WechatMiniProgramPayParams | undefined {
+	if (value === null) return undefined;
+	const parsed = JSON.parse(cipher.open(value)) as unknown;
+	if (
+		typeof parsed !== "object" ||
+		parsed === null ||
+		Array.isArray(parsed) ||
+		typeof (parsed as { appId?: unknown }).appId !== "string" ||
+		typeof (parsed as { timeStamp?: unknown }).timeStamp !== "string" ||
+		typeof (parsed as { nonceStr?: unknown }).nonceStr !== "string" ||
+		typeof (parsed as { package?: unknown }).package !== "string" ||
+		(parsed as { signType?: unknown }).signType !== "RSA" ||
+		typeof (parsed as { paySign?: unknown }).paySign !== "string"
+	) {
+		throw new Error("Persistence returned invalid Wechat pay params");
+	}
+	return parsed as WechatMiniProgramPayParams;
+}
+
+function paymentPrepayAttempt(
+	row: PaymentPrepayAttemptRow,
+	cipher: SecretValueCipher,
+): PaymentPrepayAttempt {
+	if (row.provider !== "wechat-pay") {
+		throw new Error("Persistence returned an unknown prepay provider");
+	}
+	const storedPayParams = payParams(row.pay_params_ciphertext, cipher);
+	return {
+		attemptId: row.attempt_id,
+		ownerUserId: row.owner_user_id,
+		orderId: row.order_id,
+		provider: "wechat-pay",
+		idempotencyKey: row.idempotency_key,
+		status: paymentPrepayAttemptStatus(row.status),
+		version: row.version,
+		...(storedPayParams ? { payParams: storedPayParams } : {}),
+		...(row.provider_request_id
+			? { providerRequestId: row.provider_request_id }
+			: {}),
+		...(row.last_error_code ? { lastErrorCode: row.last_error_code } : {}),
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
+
 function outboxEvent(row: OutboxEventRow): OutboxEvent {
 	const payload =
 		typeof row.payload === "string"
@@ -303,13 +395,29 @@ function insertOutboxSql(event: OutboxEvent): {
  */
 export function createMySqlRepositories(
 	pool: Pool,
-	options: { outboxClaimLeaseMs?: number } = {},
+	options: {
+		outboxClaimLeaseMs?: number;
+		/** 支付调起参数必须使用部署注入的 AES-GCM 密钥保护后再落库。 */
+		prepayCipher?: SecretValueCipher;
+		paymentDataEncryptionKey?: string;
+	} = {},
 ): MySqlRepositories {
 	const outboxClaimLeaseMs =
 		options.outboxClaimLeaseMs ?? DEFAULT_OUTBOX_CLAIM_LEASE_MS;
 	if (!Number.isSafeInteger(outboxClaimLeaseMs) || outboxClaimLeaseMs <= 0) {
 		throw new Error("outboxClaimLeaseMs must be a positive safe integer");
 	}
+	const prepayCipher =
+		options.prepayCipher ??
+		(options.paymentDataEncryptionKey
+			? createAesGcmSecretValueCipher(options.paymentDataEncryptionKey)
+			: undefined);
+	const requiredPrepayCipher = (): SecretValueCipher => {
+		if (!prepayCipher) {
+			throw new PersistenceNotConfiguredError("payment-prepay-attempts");
+		}
+		return prepayCipher;
+	};
 
 	const identityUsers: UserIdentityRepository = {
 		async findOrCreateByWechat(input) {
@@ -460,6 +568,92 @@ export function createMySqlRepositories(
 		},
 	};
 
+	const paymentPrepayAttempts: PaymentPrepayAttemptRepository = {
+		async findByOwnerOrderAndIdempotencyKey(
+			ownerUserId,
+			orderId,
+			idempotencyKey,
+		) {
+			const cipher = requiredPrepayCipher();
+			const rows = await execute<PaymentPrepayAttemptRow[]>(
+				pool,
+				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? AND idempotency_key = ? LIMIT 1",
+				[ownerUserId, orderId, idempotencyKey],
+			);
+			return rows[0] ? paymentPrepayAttempt(rows[0], cipher) : undefined;
+		},
+		async insert(attempt) {
+			const cipher = requiredPrepayCipher();
+			try {
+				await execute<ResultSetHeader>(
+					pool,
+					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					[
+						attempt.attemptId,
+						attempt.ownerUserId,
+						attempt.orderId,
+						attempt.provider,
+						attempt.idempotencyKey,
+						attempt.status,
+						attempt.version,
+						attempt.prepayId
+							? createHash("sha256")
+									.update(attempt.prepayId, "utf8")
+									.digest("hex")
+							: null,
+						attempt.payParams
+							? cipher.seal(JSON.stringify(attempt.payParams))
+							: null,
+						attempt.providerRequestId ?? null,
+						attempt.lastErrorCode ?? null,
+						mysqlDateTime(attempt.createdAt),
+						mysqlDateTime(attempt.updatedAt),
+					],
+				);
+				return attempt;
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const existing =
+					await paymentPrepayAttempts.findByOwnerOrderAndIdempotencyKey(
+						attempt.ownerUserId,
+						attempt.orderId,
+						attempt.idempotencyKey,
+					);
+				if (!existing) throw error;
+				return existing;
+			}
+		},
+		async update(attempt, expectedVersion) {
+			const cipher = requiredPrepayCipher();
+			const result = await execute<ResultSetHeader>(
+				pool,
+				"UPDATE hp_payment_prepay_attempts SET status = ?, version = ?, prepay_id_hash = ?, pay_params_ciphertext = ?, provider_request_id = ?, last_error_code = ?, updated_at = ? WHERE attempt_id = ? AND owner_user_id = ? AND version = ?",
+				[
+					attempt.status,
+					attempt.version,
+					attempt.prepayId
+						? createHash("sha256")
+								.update(attempt.prepayId, "utf8")
+								.digest("hex")
+						: null,
+					attempt.payParams
+						? cipher.seal(JSON.stringify(attempt.payParams))
+						: null,
+					attempt.providerRequestId ?? null,
+					attempt.lastErrorCode ?? null,
+					mysqlDateTime(attempt.updatedAt),
+					attempt.attemptId,
+					attempt.ownerUserId,
+					expectedVersion,
+				],
+			);
+			if (result.affectedRows !== 1) {
+				throw new PaymentPrepayAttemptVersionConflictError();
+			}
+			return attempt;
+		},
+	};
+
 	const outbox: OutboxRepository = {
 		async append(event) {
 			const statement = insertOutboxSql(event);
@@ -512,5 +706,12 @@ export function createMySqlRepositories(
 		},
 	};
 
-	return { identityUsers, patients, paymentOrders, paymentQuotes, outbox };
+	return {
+		identityUsers,
+		patients,
+		paymentOrders,
+		paymentQuotes,
+		paymentPrepayAttempts,
+		outbox,
+	};
 }

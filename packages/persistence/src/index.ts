@@ -5,10 +5,15 @@ export {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
+	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";
 export { createInMemoryOutboxRepository } from "./outbox";
+export {
+	createAesGcmSecretValueCipher,
+	type SecretValueCipher,
+} from "./prepay-cipher";
 export { createPersistenceRuntime, type PersistenceRuntime } from "./runtime";
 export { runCoreMigration } from "./migrate";
 export {

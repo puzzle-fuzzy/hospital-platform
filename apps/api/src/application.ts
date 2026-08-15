@@ -64,6 +64,7 @@ export function createDefaultApplicationServices(
 		wechatPrepay: new WechatPrepayService({
 			orders: paymentOrders,
 			identityUsers: repositories.identityUsers,
+			attempts: repositories.paymentPrepayAttempts,
 			wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
 		}),
 		sessions,

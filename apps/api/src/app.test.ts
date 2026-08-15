@@ -9,6 +9,7 @@ import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
+	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
 } from "@hospital/persistence";
 import { PaymentOrderService } from "@hospital/domain";
@@ -213,6 +214,7 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 		wechatPrepay: new WechatPrepayService({
 			orders: paymentOrders,
 			identityUsers,
+			attempts: createInMemoryPaymentPrepayAttemptRepository(),
 			wechatPayment: createFixtureWechatPaymentGateway(),
 		}),
 		sessions,
@@ -365,6 +367,7 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 			wechatPrepay: new WechatPrepayService({
 				orders: paymentOrders,
 				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
 				wechatPayment: notConfigured.wechatPayment,
 			}),
 			sessions,

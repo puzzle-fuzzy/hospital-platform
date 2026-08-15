@@ -4,6 +4,8 @@ import type {
 	PatientRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
+	PaymentPrepayAttempt,
+	PaymentPrepayAttemptRepository,
 	PaymentQuote,
 	PaymentQuoteRepository,
 	UserIdentityRepository,
@@ -11,6 +13,7 @@ import type {
 import {
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
+	PaymentPrepayAttemptVersionConflictError,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 
@@ -112,11 +115,53 @@ export function createInMemoryPaymentQuoteRepository(
 	};
 }
 
+/** 仅用于应用层和并发语义测试；生产实现必须使用数据库唯一键和版本更新。 */
+export function createInMemoryPaymentPrepayAttemptRepository(
+	seed: readonly PaymentPrepayAttempt[] = [],
+): PaymentPrepayAttemptRepository {
+	const attempts = new Map(seed.map((attempt) => [attempt.attemptId, attempt]));
+
+	return {
+		async findByOwnerOrderAndIdempotencyKey(
+			ownerUserId,
+			orderId,
+			idempotencyKey,
+		) {
+			return [...attempts.values()].find(
+				(attempt) =>
+					attempt.ownerUserId === ownerUserId &&
+					attempt.orderId === orderId &&
+					attempt.idempotencyKey === idempotencyKey,
+			);
+		},
+		async insert(attempt) {
+			const existing = [...attempts.values()].find(
+				(current) =>
+					current.ownerUserId === attempt.ownerUserId &&
+					current.orderId === attempt.orderId &&
+					current.idempotencyKey === attempt.idempotencyKey,
+			);
+			if (existing) return existing;
+			attempts.set(attempt.attemptId, attempt);
+			return attempt;
+		},
+		async update(attempt, expectedVersion) {
+			const current = attempts.get(attempt.attemptId);
+			if (!current || current.version !== expectedVersion) {
+				throw new PaymentPrepayAttemptVersionConflictError();
+			}
+			attempts.set(attempt.attemptId, attempt);
+			return attempt;
+		},
+	};
+}
+
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
 	paymentQuotes: PaymentQuoteRepository;
+	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 } {
 	return {
 		identityUsers: {
@@ -149,6 +194,17 @@ export function createNotConfiguredRepositories(): {
 		paymentQuotes: {
 			findByOwnerAndId: async () => {
 				throw new PersistenceNotConfiguredError("payment-quotes");
+			},
+		},
+		paymentPrepayAttempts: {
+			findByOwnerOrderAndIdempotencyKey: async () => {
+				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
+			},
+			insert: async () => {
+				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
+			},
+			update: async () => {
+				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 			},
 		},
 	};

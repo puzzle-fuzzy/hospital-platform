@@ -1,7 +1,13 @@
 import { createLogger } from "@hospital/observability";
 import { createPool, type PoolConnection } from "mysql2/promise";
 
-const MIGRATION_ID = "0001_core";
+const MIGRATIONS = [
+	{ id: "0001_core", file: "../migrations/0001_core.sql" },
+	{
+		id: "0002_payment_prepay_attempts",
+		file: "../migrations/0002_payment_prepay_attempts.sql",
+	},
+] as const;
 
 const logger = createLogger({
 	service: "hospital-persistence-migrate",
@@ -20,9 +26,6 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 		throw new Error("DATABASE_URL is required to run persistence migrations");
 	}
 
-	const migrationSql = await Bun.file(
-		new URL("../migrations/0001_core.sql", import.meta.url),
-	).text();
 	const pool = createPool({
 		uri: databaseUrl,
 		connectionLimit: 1,
@@ -33,6 +36,8 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 	});
 
 	let connection: PoolConnection | undefined;
+	let transactionStarted = false;
+	let currentMigrationId: string | undefined;
 	try {
 		connection = await pool.getConnection();
 		// 首次运行时 migration history 表本身还不存在，因此先建立这个
@@ -44,40 +49,61 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 				PRIMARY KEY (migration_id)
 			) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
 		`);
-		const [appliedRows] = await connection.execute(
-			"SELECT migration_id FROM hp_schema_migrations WHERE migration_id = ? LIMIT 1",
-			[MIGRATION_ID],
-		);
-		if (Array.isArray(appliedRows) && appliedRows.length > 0) {
-			logger.info(
-				{ event: "persistence.migration.skipped", migrationId: MIGRATION_ID },
-				"Persistence migration is already applied",
+		let appliedAny = false;
+		for (const migration of MIGRATIONS) {
+			const [appliedRows] = await connection.execute(
+				"SELECT migration_id FROM hp_schema_migrations WHERE migration_id = ? LIMIT 1",
+				[migration.id],
 			);
-			return { migrationId: MIGRATION_ID, status: "already_applied" as const };
+			if (Array.isArray(appliedRows) && appliedRows.length > 0) {
+				logger.info(
+					{
+						event: "persistence.migration.skipped",
+						migrationId: migration.id,
+					},
+					"Persistence migration is already applied",
+				);
+				continue;
+			}
+
+			const migrationSql = await Bun.file(
+				new URL(migration.file, import.meta.url),
+			).text();
+			currentMigrationId = migration.id;
+			logger.info(
+				{ event: "persistence.migration.started", migrationId: migration.id },
+				"Applying persistence migration",
+			);
+			await connection.beginTransaction();
+			transactionStarted = true;
+			await connection.query(migrationSql);
+			await connection.execute(
+				"INSERT INTO hp_schema_migrations (migration_id, applied_at) VALUES (?, ?)",
+				[migration.id, new Date()],
+			);
+			await connection.commit();
+			transactionStarted = false;
+			currentMigrationId = undefined;
+			appliedAny = true;
+			logger.info(
+				{ event: "persistence.migration.succeeded", migrationId: migration.id },
+				"Persistence migration applied",
+			);
 		}
 
-		logger.info(
-			{ event: "persistence.migration.started", migrationId: MIGRATION_ID },
-			"Applying persistence migration",
-		);
-		await connection.beginTransaction();
-		await connection.query(migrationSql);
-		await connection.execute(
-			"INSERT INTO hp_schema_migrations (migration_id, applied_at) VALUES (?, ?)",
-			[MIGRATION_ID, new Date()],
-		);
-		await connection.commit();
-		logger.info(
-			{ event: "persistence.migration.succeeded", migrationId: MIGRATION_ID },
-			"Persistence migration applied",
-		);
-		return { migrationId: MIGRATION_ID, status: "applied" as const };
+		const latestMigration = MIGRATIONS.at(-1);
+		if (!latestMigration)
+			throw new Error("No persistence migrations configured");
+		return {
+			migrationId: latestMigration.id,
+			status: appliedAny ? ("applied" as const) : ("already_applied" as const),
+		};
 	} catch (error) {
-		await connection?.rollback().catch(() => undefined);
+		if (transactionStarted) await connection?.rollback().catch(() => undefined);
 		logger.error(
 			{
 				event: "persistence.migration.failed",
-				migrationId: MIGRATION_ID,
+				...(currentMigrationId ? { migrationId: currentMigrationId } : {}),
 				err: error,
 			},
 			"Persistence migration failed",

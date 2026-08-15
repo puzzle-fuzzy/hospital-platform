@@ -5,14 +5,16 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 		| "identity-users"
 		| "patients"
 		| "payment-orders"
-		| "payment-quotes";
+		| "payment-quotes"
+		| "payment-prepay-attempts";
 
 	constructor(
 		resource:
 			| "identity-users"
 			| "patients"
 			| "payment-orders"
-			| "payment-quotes",
+			| "payment-quotes"
+			| "payment-prepay-attempts",
 	) {
 		super(`persistence:${resource}`);
 		this.name = "PersistenceNotConfiguredError";
