@@ -19,8 +19,19 @@
 
 截至 2026-08-16，服务器到真实 provider 的预约科室/排班只读回归已通过；线上实测确认目录
 `thirdPatientId` 调用记录接口会返回 `smcAppointment@1301 / 患者信息不存在`，而旧端的
-`patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。新代码已实现用途隔离映射，
-但在 `0012_patient_provider_references` 应用、真实账号重新同步和公网/真机证据完成前，预约历史仍不得标记为完整验收。
+`patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
+`b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用，schema probe 已验证通过。
+真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据仍未完成，因此预约历史不得标记为完整验收。
+
+### 2026-08-16 线上发布证据
+
+- 新 release：`b1b84d7`；`hospital-platform-api-v2.service` 已切换到该 release 并重启。
+- 生产 schema：`0012_patient_provider_references` 迁移成功；schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
+- 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网
+  `https://test-hp.meiyi.pro/api/v2/health/live`、`/api/v2/health/ready` 均返回 200。
+- 启动日志：`runtimeMode=production`，数据库、Redis、schema 探针均为 `ok`；患者目录、预约目录、预约记录和门诊缴费配置为 `configured`；报告 gate 继续关闭。
+- 旧服务隔离：`8001` 仍在监听，未重启、未切换旧 Python 服务。
+- 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、预约历史真实响应、真机截图/网络记录和对应 traceId。
 
 ## A. 代码层证据
 
@@ -103,7 +114,7 @@ HTTPS 是硬条件：三个众阳 gate、微信身份和微信支付的自定义
 
 使用 provider 书面授权的 staging/测试身份和测试患者，按以下顺序留证：
 
-1. 登录和患者同步：确认 unionId 只来自服务端身份表；记录内部 `userId`、内部 `patientId`、traceId 和 provider request id，不记录 provider 患者号；确认同步日志的 `hisPatientReferenceCount` 与测试账号患者数一致。
+1. 登录和患者同步：确认 unionId 只来自服务端身份表；记录内部 `userId`、内部 `patientId`、traceId 和 provider request id，不记录 provider 患者号；确认同步日志的 `hisPatientReferenceCount` 与测试账号患者数一致。生产 migration 已完成，当前只等待真实账号重新同步。
 2. 患者列表：确认响应只有内部 id、脱敏姓名/关系/卡号和 source。
 3. 预约科室和排班：确认服务端固定 `requestChannel=4`；科室请求由服务端补齐未来 7 天日期窗口，排班日期范围和筛选字段只来自平台 query 白名单。
 4. 预约历史：确认服务端以内部 patientId 查询 `his-patient` 映射，固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`；确认响应没有 `appointmentInfoId`、患者身份、电话、费用、支付和 HIS 字段；用只有目录映射的测试患者确认不会错误调用 provider。

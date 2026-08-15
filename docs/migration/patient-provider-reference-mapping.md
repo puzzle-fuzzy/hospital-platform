@@ -41,6 +41,9 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 4. 新小程序执行 `POST /api/v1/patients/sync`。同步会再次调用目录和档案接口，为当前账号写入 `his-patient` 映射。
 5. 在 provider、公网 API 和真机三层验证预约历史、报告和门诊费用；没有临床映射时必须 fail-closed，不能用目录 ID 兜底。
 
+截至 2026-08-16，生产已完成第 1～3 步：release `b1b84d7` 已上线，`0012_patient_provider_references`
+已成功应用，schema probe 为 `ready`，旧服务 `8001` 保持监听。第 4～5 步仍需当前微信账号重新同步并完成公网业务/真机证据。
+
 已有 `hp_patients` 记录不能仅凭脱敏卡号自动回填临床引用。没有重新经过 provider 档案查询前，旧记录只能继续展示患者目录，临床查询保持“映射不可用”。
 
 ## 观测与故障处理
