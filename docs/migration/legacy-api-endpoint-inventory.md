@@ -67,6 +67,7 @@
 | `GET /msun-middle-business-ecg/v2/ecg-reports` | `api/modules/ZY.ts` | 部分迁移 | 已进入报告目录 adapter；详情和原始报告资源仍关闭。 |
 | `GET /msun-middle-business-lis/v1/lis-reports/details` | `api/modules/ZY.ts` | 部分迁移 | 只有 LIS 白名单详情可在独立 gate 下开放；不返回原始 JSON、患者字段或文件 URL。 |
 | `POST /msun-peis-app-peis-new/v1/find-report-list-for-wechat` | `api/modules/ZY.ts` | 待 provider contract | 旧接口依赖完整身份证号和 hospitalId；新患者模型不保存完整身份证，当前不迁移。 |
+| `GET /msun-middle-aggregate-clinic/v1/out-emrs` | `api/modules/medicalRecord.ts` | 待 provider contract | 门诊电子病历目录需要单独确认患者归属、就诊记录 ID、分页/排序和可公开字段，不能由预约历史或报告目录代替。 |
 | `POST /msun-middle-aggregate-clinic/v1/out-visit-records` | `api/modules/ZY.ts`、`medicalRecord.ts` | 待 provider contract | 门诊病历/就诊记录需要区分目录、内容和结构化数据的授权与脱敏，不与预约历史混用。 |
 | `POST /msun-middle-aggregate-zyemr/v1/m-records/mr-menus` | `api/modules/medicalRecord.ts` | 待 provider contract | 住院病历目录字段含病历内容、签名和内部 ID，不能直接透传。 |
 | `GET /msun-middle-aggregate-zyemr/v1/m-records/mr-contents` | `api/modules/medicalRecord.ts` | 待 provider contract | 病历正文需要资源权限、审计、下载/预览策略和敏感字段白名单。 |
@@ -88,6 +89,8 @@
 | `POST /msun-middle-open-settlepay/api/v2/open/settle/cancel-settle` | `api/modules/payment.ts` | 最后处理 | 取消结算必须绑定平台订单和当前可迁移状态，不能依据页面返回直接取消。 |
 | `GET /msun-yb-app-miop/v1/out-insur-settle-infos` | `api/modules/payment.ts` | 最后处理 | 医保结算信息只能由服务端读取并校验订单归属和金额。 |
 | `POST /msun-yb-app-miop/outSettle/v2/settle-info/notify` | `api/modules/payment.ts` | 最后处理 | 这是医保结果写回 HIS 的边界，不作为小程序直连接口。 |
+| `POST /common/yunhealth/registration/medical-settlement-notify` | `api/modules/payment.ts`、旧 Python `module_common/yunhealth_settle` | 最后处理 | 只允许内部结算编排接收已验证的医保结果；必须绑定平台订单、幂等键和回写审计，不能由小程序直接调用。 |
+| `POST /common/yunhealth/registration/medical-settlement-complete` | `api/modules/payment.ts`、旧 Python `module_common/yunhealth_settle` | 最后处理 | 只有权威医保回写成功后才允许完成挂号结算；未知状态不得自动完成或撤销。 |
 
 ### 2.5 医保授权、FSI 和微信医保混合支付
 
@@ -125,6 +128,9 @@
 | `POST /msun-hzzn-app-config/v1/saveBeforeVisitRecord` | `api/modules/health.ts` | 待 provider contract | 预问诊保存需要把预约/挂号映射、问卷版本和临床读取权限绑定，不能从旧页面直接透传。 |
 | `GET/POST /convenience/commendatory-letter/list|create` | `api/modules/commendatoryLetter.ts` | 待 provider contract | 内容安全、公开范围、患者归属和审核记录需要完整 contract。 |
 | `GET/POST /convenience/silk-banner/list|create` | `api/modules/silkBanner.ts` | 待 provider contract | 内容审核、公开范围和撤回规则未确认。 |
+| `GET /convenience/my-doctor/list` | `api/modules/user.ts` | 待 provider contract | 我的医生关系需要患者归属、医生来源、取消关注和数据保留规则；不能把旧用户字段直接迁移。 |
+| `POST /convenience/my-doctor/create` | `api/modules/user.ts` | 待 provider contract | 关注写入必须使用服务端患者/医生映射、幂等键和重复关系处理。 |
+| `GET /convenience/my-doctor/delete?doctor_id=xxx` | `api/modules/user.ts` | 待 provider contract | 旧端使用 GET 执行删除；新 contract 必须重新定义命令语义、鉴权、幂等和审计，不能照搬破坏性 GET。 |
 | `GET /intelligent/treatment_companion/history` | `api/modules/companion.ts` | 待 provider contract | 新端预约历史不能直接当作 AI 陪诊历史；需要会话和数据来源边界。 |
 | `GET /shift-scheduling/queue-position/{deptId}/{patId}` | `api/modules/companion.ts` | 待 provider contract | 旧端根据环境变量拼接直连路径；新端必须确认队列数据来源、患者归属、实时性和隐私边界。 |
 | `GET /intelligent/treatment_companion/appointment` | 旧 `controller.py` | 待 provider contract | 未来就诊需独立会话 owner 和当前患者上下文。 |
