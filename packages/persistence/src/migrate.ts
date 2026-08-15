@@ -73,7 +73,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_wechat_payment_notifications",
 ] as const;
 
-const PERSISTENCE_SCHEMA_COLUMNS = [
+export const PERSISTENCE_SCHEMA_COLUMNS = [
 	{ table: "hp_schema_migrations", columns: ["migration_id", "applied_at"] },
 	{
 		table: "hp_schema_migration_runs",
@@ -163,7 +163,7 @@ const PERSISTENCE_SCHEMA_COLUMNS = [
 ] as const;
 
 /** Security-critical indexes and their column order for owner-scoped lookups and leases. */
-const PERSISTENCE_SCHEMA_INDEXES = [
+export const PERSISTENCE_SCHEMA_INDEXES = [
 	{
 		table: "hp_patients",
 		name: "uq_hp_patients_owner_patient",
@@ -202,7 +202,7 @@ const PERSISTENCE_SCHEMA_INDEXES = [
 ] as const;
 
 /** Composite foreign keys prevent a patient/order from crossing user owners. */
-const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
+export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 	{
 		table: "hp_payment_orders",
 		name: "fk_hp_orders_owner_patient",

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import {
 	PERSISTENCE_MIGRATIONS,
+	PERSISTENCE_SCHEMA_COLUMNS,
+	PERSISTENCE_SCHEMA_FOREIGN_KEYS,
+	PERSISTENCE_SCHEMA_INDEXES,
 	PERSISTENCE_SCHEMA_TABLES,
 	readCoreSchemaStateFromPool,
 } from "./migrate";
@@ -66,6 +69,43 @@ test("every migration declares the non-transactional DDL recovery policy", () =>
 			(migration) => migration.executionMode === "non_transactional_ddl",
 		),
 	).toBe(true);
+});
+
+test("schema probe manifest stays synchronized with migration sources", async () => {
+	const migrationSources = await Promise.all(
+		PERSISTENCE_MIGRATIONS.map(({ file }) =>
+			Bun.file(new URL(file, import.meta.url)).text(),
+		),
+	);
+	const normalizedSql = migrationSources.join("\n").replace(/\s+/g, " ");
+
+	// hp_schema_migration_runs is the runner's bootstrap control table, created
+	// before migration 0001 so an interrupted DDL run can be recorded safely.
+	for (const table of PERSISTENCE_SCHEMA_TABLES) {
+		if (table === "hp_schema_migration_runs") continue;
+		expect(normalizedSql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
+	}
+	for (const { table, columns } of PERSISTENCE_SCHEMA_COLUMNS) {
+		for (const column of columns) {
+			if (table === "hp_schema_migration_runs") continue;
+			expect(normalizedSql).toContain(column);
+		}
+	}
+	for (const { name } of PERSISTENCE_SCHEMA_INDEXES) {
+		expect(normalizedSql).toContain(name);
+	}
+	for (const {
+		name,
+		columns,
+		referencedTable,
+		referencedColumns,
+	} of PERSISTENCE_SCHEMA_FOREIGN_KEYS) {
+		expect(normalizedSql).toContain(`CONSTRAINT ${name}`);
+		expect(normalizedSql).toContain(`FOREIGN KEY (${columns.join(", ")})`);
+		expect(normalizedSql).toContain(
+			`REFERENCES ${referencedTable} (${referencedColumns.join(", ")})`,
+		);
+	}
 });
 
 test("core migration contains the transaction-critical constraints", async () => {
