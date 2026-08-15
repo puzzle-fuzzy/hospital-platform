@@ -163,6 +163,26 @@ test("readiness becomes ready only after the schema gate opens", async () => {
 	});
 });
 
+test("readiness does not trust an open schema gate when the migration probe is incomplete", async () => {
+	const readiness = createReadinessService({
+		databaseConfigured: true,
+		redisConfigured: true,
+		schemaReady: true,
+		databaseProbe: async () => "ok",
+		redisProbe: async () => "ok",
+		schemaProbe: async () => "unavailable",
+	});
+
+	expect(await readiness.snapshot()).toEqual({
+		status: "not_ready",
+		dependencies: {
+			database: "ok",
+			redis: "ok",
+			schema: "unavailable",
+		},
+	});
+});
+
 test("request context preserves a safe incoming request id", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/health/live", {

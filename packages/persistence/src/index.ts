@@ -19,6 +19,7 @@ export { createPersistenceRuntime, type PersistenceRuntime } from "./runtime";
 export {
 	PERSISTENCE_MIGRATIONS,
 	readCoreSchemaState,
+	readCoreSchemaStateFromPool,
 	runCoreMigration,
 	type CoreSchemaState,
 } from "./migrate";
@@ -39,6 +40,8 @@ export type DependencyPort = {
 export type PersistencePorts = {
 	database: DependencyPort;
 	redis: DependencyPort;
+	/** 真实 migration 状态；不会因为 gate 打开而跳过只读核对。 */
+	schema: DependencyPort;
 };
 
 export function createUnconfiguredPersistence(): PersistencePorts {
@@ -48,5 +51,5 @@ export function createUnconfiguredPersistence(): PersistencePorts {
 		},
 	};
 
-	return { database: port, redis: port };
+	return { database: port, redis: port, schema: port };
 }

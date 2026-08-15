@@ -1,4 +1,27 @@
 import { expect, test } from "bun:test";
+import { PERSISTENCE_MIGRATIONS, readCoreSchemaStateFromPool } from "./migrate";
+
+test("schema probe reports incomplete migration state without writing", async () => {
+	let queryCount = 0;
+	const pool = {
+		execute: async () => {
+			queryCount += 1;
+			return [[{ migration_id: "0001_core" }], []];
+		},
+	} as never;
+
+	const state = await readCoreSchemaStateFromPool(pool);
+	const latestMigration = PERSISTENCE_MIGRATIONS.at(-1);
+	if (!latestMigration) throw new Error("Migration fixture is empty");
+
+	expect(queryCount).toBe(1);
+	expect(state).toEqual({
+		status: "incomplete",
+		expectedMigrationId: latestMigration.id,
+		appliedMigrationIds: ["0001_core"],
+		missingMigrationIds: PERSISTENCE_MIGRATIONS.slice(1).map(({ id }) => id),
+	});
+});
 
 test("core migration contains the transaction-critical constraints", async () => {
 	const sql = await Bun.file(

@@ -168,6 +168,7 @@ const app = createApp({
 		schemaReady: config.persistenceSchemaReady,
 		databaseProbe: () => persistence.database.check(),
 		redisProbe: () => persistence.redis.check(),
+		schemaProbe: () => persistence.schema.check(),
 	}),
 });
 

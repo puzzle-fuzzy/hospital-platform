@@ -13,6 +13,8 @@ type ReadinessOptions = {
 	schemaReady: boolean;
 	databaseProbe?: DependencyProbe;
 	redisProbe?: DependencyProbe;
+	/** 生产组合根可注入真实 migration 只读探针；默认仍支持纯单元测试。 */
+	schemaProbe?: DependencyProbe;
 };
 
 function unconfiguredOrUnavailable(configured: boolean): DependencyState {
@@ -28,8 +30,10 @@ export function createReadinessService(
 	const redisProbe =
 		options.redisProbe ??
 		(async () => unconfiguredOrUnavailable(options.redisConfigured));
-	const schemaProbe = async (): Promise<DependencyState> =>
-		options.schemaReady ? "ok" : "not_configured";
+	const schemaProbe =
+		options.schemaProbe ??
+		(async (): Promise<DependencyState> =>
+			options.schemaReady ? "ok" : "not_configured");
 
 	return {
 		async snapshot() {

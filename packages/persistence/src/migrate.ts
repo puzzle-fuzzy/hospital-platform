@@ -1,6 +1,7 @@
 import { createLogger } from "@hospital/observability";
 import {
 	createPool,
+	type Pool,
 	type PoolConnection,
 	type RowDataPacket,
 } from "mysql2/promise";
@@ -63,30 +64,40 @@ export async function readCoreSchemaState(
 		waitForConnections: true,
 	});
 	try {
-		const placeholders = PERSISTENCE_MIGRATIONS.map(() => "?").join(", ");
-		const [rows] = await pool.execute<
-			(RowDataPacket & { migration_id: string })[]
-		>(
-			"SELECT migration_id FROM hp_schema_migrations WHERE migration_id IN (" +
-				placeholders +
-				")",
-			PERSISTENCE_MIGRATIONS.map(({ id }) => id),
-		);
-		const applied = new Set(rows.map((row) => row.migration_id));
-		const expectedMigrationIds = PERSISTENCE_MIGRATIONS.map(({ id }) => id);
-		const missingMigrationIds = expectedMigrationIds.filter(
-			(id) => !applied.has(id),
-		);
-		return {
-			status: missingMigrationIds.length === 0 ? "ready" : "incomplete",
-			expectedMigrationId:
-				expectedMigrationIds.at(-1) ?? "no-migrations-configured",
-			appliedMigrationIds: expectedMigrationIds.filter((id) => applied.has(id)),
-			missingMigrationIds,
-		};
+		return readCoreSchemaStateFromPool(pool);
 	} finally {
 		await pool.end();
 	}
+}
+
+/**
+ * 使用已有连接池只读检查 migration，避免每次 readiness 请求新建连接池。
+ * migration 表不存在或查询失败时由调用方映射为 unavailable，绝不自动建表。
+ */
+export async function readCoreSchemaStateFromPool(
+	pool: Pick<Pool, "execute">,
+): Promise<CoreSchemaState> {
+	const placeholders = PERSISTENCE_MIGRATIONS.map(() => "?").join(", ");
+	const [rows] = await pool.execute<
+		(RowDataPacket & { migration_id: string })[]
+	>(
+		"SELECT migration_id FROM hp_schema_migrations WHERE migration_id IN (" +
+			placeholders +
+			")",
+		PERSISTENCE_MIGRATIONS.map(({ id }) => id),
+	);
+	const applied = new Set(rows.map((row) => row.migration_id));
+	const expectedMigrationIds = PERSISTENCE_MIGRATIONS.map(({ id }) => id);
+	const missingMigrationIds = expectedMigrationIds.filter(
+		(id) => !applied.has(id),
+	);
+	return {
+		status: missingMigrationIds.length === 0 ? "ready" : "incomplete",
+		expectedMigrationId:
+			expectedMigrationIds.at(-1) ?? "no-migrations-configured",
+		appliedMigrationIds: expectedMigrationIds.filter((id) => applied.has(id)),
+		missingMigrationIds,
+	};
 }
 
 /**

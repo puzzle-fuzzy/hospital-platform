@@ -6,6 +6,7 @@ import {
 	createMySqlRepositories,
 	type MySqlRepositories,
 } from "./mysql-repositories";
+import { readCoreSchemaStateFromPool } from "./migrate";
 import {
 	createRedisSessionStore,
 	type RedisSessionStore,
@@ -57,6 +58,21 @@ function createRedisPort(client: Redis): DependencyPort {
 	};
 }
 
+/** gate 未打开时不查询 schema；gate 打开后必须由目标 migration 记录证明 ready。 */
+function createSchemaPort(pool: Pool): DependencyPort {
+	return {
+		async check(): Promise<"ok" | "unavailable" | "not_configured"> {
+			try {
+				const state = await readCoreSchemaStateFromPool(pool);
+				return state.status === "ready" ? "ok" : "unavailable";
+			} catch {
+				// 表不存在、连接异常或 schema 不完整都不能进入 ready。
+				return "unavailable";
+			}
+		},
+	};
+}
+
 /**
  * 创建真实基础设施的最小运行边界。
  *
@@ -97,6 +113,10 @@ export function createPersistenceRuntime(options: {
 			? createMySqlPort(databasePool)
 			: notConfiguredPort(),
 		redis: redisClient ? createRedisPort(redisClient) : notConfiguredPort(),
+		schema:
+			databasePool && options.useRepositories
+				? createSchemaPort(databasePool)
+				: notConfiguredPort(),
 		repositories:
 			databasePool && options.useRepositories
 				? createMySqlRepositories(databasePool, {
