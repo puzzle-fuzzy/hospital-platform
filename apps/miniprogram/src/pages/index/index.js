@@ -3,11 +3,13 @@ import {
 	login,
 	request,
 	requestWithSession,
+	requestAppointmentDepartments,
+	requestAppointmentSchedules,
 	syncPatients,
 } from "../../services/api-client";
 
 Page({
-	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, hasPatients: boolean, loading: boolean, syncingPatients: boolean, error: string}} */
+	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, error: string}} */
 	data: {
 		status: "加载中",
 		service: "",
@@ -16,6 +18,10 @@ Page({
 		hasPatients: false,
 		loading: false,
 		syncingPatients: false,
+		appointmentDepartments: [],
+		appointmentSchedules: [],
+		hasAppointmentData: false,
+		loadingAppointments: false,
 		error: "",
 	},
 
@@ -65,6 +71,41 @@ Page({
 			.then((payload) => this.setPatientsFromPayload(payload))
 			.catch((error) => this.showError(error, "就诊人同步失败"))
 			.finally(() => this.setData({ syncingPatients: false }));
+	},
+
+	onLoadAppointments() {
+		this.setData({ loadingAppointments: true, error: "" });
+		const start = new Date();
+		const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+		/** @param {Date} value */
+		const date = (value) => {
+			const year = value.getFullYear();
+			const month = String(value.getMonth() + 1).padStart(2, "0");
+			const day = String(value.getDate()).padStart(2, "0");
+			return `${year}-${month}-${day}`;
+		};
+
+		Promise.all([
+			requestAppointmentDepartments(),
+			requestAppointmentSchedules({
+				startDate: date(start),
+				endDate: date(end),
+			}),
+		])
+			.then(([departmentPayload, schedulePayload]) => {
+				const appointmentDepartments = departmentPayload?.data?.items || [];
+				const appointmentSchedules = schedulePayload?.data?.items || [];
+				this.setData({
+					appointmentDepartments,
+					appointmentSchedules,
+					hasAppointmentData:
+						appointmentDepartments.length > 0 ||
+						appointmentSchedules.length > 0,
+					error: "",
+				});
+			})
+			.catch((error) => this.showError(error, "预约目录加载失败"))
+			.finally(() => this.setData({ loadingAppointments: false }));
 	},
 
 	onRefresh() {

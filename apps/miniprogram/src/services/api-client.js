@@ -213,6 +213,36 @@ export function syncPatients(idempotencyKey) {
 	});
 }
 
+/** 读取服务端白名单后的预约科室目录；小程序不直连众阳 AMC。 */
+export function requestAppointmentDepartments() {
+	return requestWithSession({
+		url: "/api/v1/appointments/departments",
+		method: "GET",
+	});
+}
+
+/**
+ * 读取服务端白名单后的排班目录。
+ * 只拼接平台定义的四个过滤字段，避免把任意 query 透传给 provider。
+ * @param {{startDate: string, endDate: string, departmentId?: string, doctorId?: string}} options
+ */
+export function requestAppointmentSchedules(options) {
+	const query = [
+		`startDate=${encodeURIComponent(options.startDate)}`,
+		`endDate=${encodeURIComponent(options.endDate)}`,
+		...(options.departmentId
+			? [`departmentId=${encodeURIComponent(options.departmentId)}`]
+			: []),
+		...(options.doctorId
+			? [`doctorId=${encodeURIComponent(options.doctorId)}`]
+			: []),
+	].join("&");
+	return requestWithSession({
+		url: `/api/v1/appointments/schedules?${query}`,
+		method: "GET",
+	});
+}
+
 /**
  * 读取服务端生成的微信调起参数；小程序不构造 paySign，也不把调起成功当作业务成功。
  * @param {string} orderId

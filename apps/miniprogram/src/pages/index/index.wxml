@@ -7,6 +7,7 @@
 		<view class="line"><text class="label">会话</text><text>{{sessionStatus}}</text></view>
 		<button class="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">微信登录并加载就诊人</button>
 		<button class="secondary" loading="{{syncingPatients}}" disabled="{{syncingPatients}}" bindtap="onSyncPatients">从医院同步就诊人</button>
+		<button class="secondary" loading="{{loadingAppointments}}" disabled="{{loadingAppointments}}" bindtap="onLoadAppointments">查看预约科室与排班</button>
 		<button class="secondary" bindtap="onRefresh">刷新</button>
 		<text wx:if="{{error}}" class="error">{{error}}</text>
 	</view>
@@ -23,6 +24,25 @@
 				<text class="patient-meta">{{item.relationship}} · {{item.cardNumberMasked}}</text>
 			</view>
 			<text class="patient-source">{{item.source}}</text>
+		</view>
+	</view>
+
+	<view class="card appointment-card">
+		<view class="section-header">
+			<text class="section-title">预约目录</text>
+			<text class="section-hint">服务端只读</text>
+		</view>
+		<view wx:if="{{!hasAppointmentData}}" class="empty">点击上方按钮读取科室和未来 7 天排班</view>
+		<view wx:for="{{appointmentDepartments}}" wx:key="departmentId" class="appointment-row">
+			<text>{{item.displayName}}</text>
+			<text class="patient-meta">{{item.location || "院内"}}</text>
+		</view>
+		<view wx:for="{{appointmentSchedules}}" wx:key="scheduleId" class="appointment-row">
+			<view>
+				<text class="patient-name">{{item.workDate}} · {{item.shiftName}}</text>
+				<text class="patient-meta">{{item.departmentName}} · {{item.doctorName}}</text>
+			</view>
+			<text class="patient-source">余 {{item.availableSlots}}</text>
 		</view>
 	</view>
 </view>
