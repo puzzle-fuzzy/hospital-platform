@@ -78,6 +78,7 @@ export async function requestJson<T>(
 				provider: input.provider,
 				operation: input.operation,
 				message: `Provider request failed with status ${response.status}`,
+				requestId,
 				statusCode: response.status,
 				retryable: response.status === 429 || response.status >= 500,
 			});
@@ -98,6 +99,7 @@ export async function requestJson<T>(
 				provider: input.provider,
 				operation: input.operation,
 				message: "Provider response was not valid JSON",
+				requestId,
 				retryable: false,
 				cause,
 			});

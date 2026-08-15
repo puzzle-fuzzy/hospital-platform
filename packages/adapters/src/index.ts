@@ -19,3 +19,8 @@ export {
 	createFixtureWechatIdentityGateway,
 	createFixtureWechatPaymentGateway,
 } from "./fixtures/replay";
+export {
+	createWechatIdentityGateway,
+	WechatIdentityApiGateway,
+	type WechatIdentityGatewayOptions,
+} from "./wechat-identity";

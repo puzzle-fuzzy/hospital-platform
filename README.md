@@ -13,10 +13,10 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 5A-2：已建立 MySQL/Redis 真实探针、连接生命周期、显式幂等
-migration、订单-outbox 事务 repository、Redis session store 和本地真实集成验收；
-真实 repository 仍由 `PERSISTENCE_SCHEMA_READY` 闸门控制，provider 继续 fail-closed，
-不复制旧项目的直连外部接口、前端医保参数拼装、估算金额或 mock 成功状态。
+当前仓库进入 Phase 5B-1：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收之上，已完成
+旧 provider 调用链审计、Provider Contract v1 和微信身份 code2session adapter；
+真实身份 adapter 仍由 `WECHAT_IDENTITY_READY` 闸门控制，微信支付、医保和 HIS
+provider 继续 fail-closed，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
 
 ```text
 apps/
@@ -26,7 +26,7 @@ apps/
 packages/
   contracts/           HTTP/API 契约与 TypeBox schema
   domain/              与框架无关的领域状态机和端口
-  adapters/            外部医院/支付/AI 适配器（骨架）
+  adapters/            provider contract、HTTP 边界与可替换外部适配器
   persistence/         MySQL/Redis 端口、migration、事务 repository 与集成验收
 ```
 

@@ -14,6 +14,11 @@ export type RuntimeConfig = {
 	corsOrigins: string[];
 	databaseUrl: string | undefined;
 	redisUrl: string | undefined;
+	/** 只有显式打开并提供密钥时才接入真实微信 code2session。 */
+	wechatIdentityReady: boolean;
+	wechatAppId: string | undefined;
+	wechatAppSecret: string | undefined;
+	wechatIdentityBaseUrl: string;
 };
 
 function positivePort(value: string | undefined): number {
@@ -81,4 +86,9 @@ export const config: RuntimeConfig = {
 	corsOrigins: origins(Bun.env.CORS_ORIGINS),
 	databaseUrl: optional(Bun.env.DATABASE_URL),
 	redisUrl: optional(Bun.env.REDIS_URL),
+	wechatIdentityReady: boolean(Bun.env.WECHAT_IDENTITY_READY, false),
+	wechatAppId: optional(Bun.env.WECHAT_APPID),
+	wechatAppSecret: optional(Bun.env.WECHAT_APP_SECRET),
+	wechatIdentityBaseUrl:
+		Bun.env.WECHAT_IDENTITY_BASE_URL ?? "https://api.weixin.qq.com",
 };

@@ -1,3 +1,4 @@
+import { createWechatIdentityGateway } from "@hospital/adapters";
 import { createLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
 import { createApp } from "./app";
@@ -15,6 +16,13 @@ const persistence = createPersistenceRuntime({
 	redisUrl: config.redisUrl,
 	useRepositories: config.persistenceSchemaReady,
 });
+const identityGateway = config.wechatIdentityReady
+	? createWechatIdentityGateway({
+			appId: config.wechatAppId ?? "",
+			appSecret: config.wechatAppSecret ?? "",
+			baseUrl: config.wechatIdentityBaseUrl,
+		})
+	: undefined;
 const app = createApp({
 	logger,
 	services: createDefaultApplicationServices({
@@ -22,6 +30,7 @@ const app = createApp({
 			? { repositories: persistence.repositories }
 			: {}),
 		...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
+		...(identityGateway ? { identityGateway } : {}),
 	}),
 	readiness: createReadinessService({
 		databaseConfigured: Boolean(config.databaseUrl),

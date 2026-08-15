@@ -76,8 +76,12 @@ GET /api/v1/payments/orders/:orderId
 
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
 MySQL/Redis 真实探针、连接关闭生命周期、目标 schema、订单-outbox 同事务 repository、
-Redis session store 和本地真实集成验收。真实 provider handler 尚未安装，
-`PERSISTENCE_SCHEMA_READY` 仍保持关闭，因此当前不会产生真实支付副作用。
+Redis session store 和本地真实集成验收。Phase 5B-1 已加入旧 provider 调用链审计、
+contract v1 和微信身份 code2session adapter，但 `WECHAT_IDENTITY_READY` 默认关闭，
+微信支付、医保和 HIS handler 尚未接入；因此当前不会产生真实支付副作用。
+
+Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider-contract-v1.md)，
+避免把身份、支付、医保加密和 HIS 回写混成一个不可审计的“大 adapter”。
 
 ## 支付状态机
 

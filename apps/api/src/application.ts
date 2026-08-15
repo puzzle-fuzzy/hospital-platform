@@ -1,4 +1,5 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
+import type { WechatIdentityGateway } from "@hospital/domain";
 import { PaymentOrderService } from "@hospital/domain";
 import type {
 	MySqlRepositories,
@@ -25,6 +26,8 @@ export type ApplicationServiceOptions = {
 	repositories?: MySqlRepositories;
 	/** Redis 未配置时必须保持 fail-closed。 */
 	sessionStore?: RedisSessionStore;
+	/** 只有配置闸门打开时才允许注入真实微信身份 adapter。 */
+	identityGateway?: WechatIdentityGateway;
 };
 
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
@@ -32,6 +35,7 @@ export function createDefaultApplicationServices(
 	options: ApplicationServiceOptions = {},
 ): ApplicationServices {
 	const gateways = createNotConfiguredGateways();
+	const identityGateway = options.identityGateway ?? gateways.wechatIdentity;
 	const repositories =
 		options.repositories ?? createNotConfiguredRepositories();
 	const sessions = options.sessionStore
@@ -40,7 +44,7 @@ export function createDefaultApplicationServices(
 
 	return {
 		auth: new AuthService({
-			identityGateway: gateways.wechatIdentity,
+			identityGateway,
 			identityUsers: repositories.identityUsers,
 			sessions,
 		}),

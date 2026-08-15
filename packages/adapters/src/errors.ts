@@ -14,6 +14,7 @@ export class AdapterNotConfiguredError extends DependencyNotConfiguredError {
 export class ProviderRequestError extends Error {
 	readonly provider: AdapterName;
 	readonly operation: string;
+	readonly requestId: string | undefined;
 	readonly statusCode: number | undefined;
 	readonly retryable: boolean;
 
@@ -21,6 +22,7 @@ export class ProviderRequestError extends Error {
 		provider: AdapterName;
 		operation: string;
 		message: string;
+		requestId?: string;
 		statusCode?: number;
 		retryable: boolean;
 		cause?: unknown;
@@ -29,6 +31,7 @@ export class ProviderRequestError extends Error {
 		this.name = "ProviderRequestError";
 		this.provider = input.provider;
 		this.operation = input.operation;
+		this.requestId = input.requestId;
 		this.statusCode = input.statusCode;
 		this.retryable = input.retryable;
 	}
