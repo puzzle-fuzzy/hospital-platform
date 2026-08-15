@@ -19,17 +19,16 @@
 
 .patient-card {
 	position: relative;
-	box-sizing: border-box;
+	/* 旧端的 w-580rpx 与 px-30rpx 都使用 content-box，外框实际宽度为 640rpx。 */
+	box-sizing: content-box;
 	z-index: 4;
 	display: flex;
 	align-items: center;
 	gap: 20rpx;
 	width: 580rpx;
-	min-height: 120rpx;
 	margin-right: auto;
 	margin-left: auto;
 	padding: 25rpx 30rpx;
-	overflow: hidden;
 	border-radius: 30rpx;
 }
 
@@ -48,32 +47,20 @@
 }
 
 .patient-card-copy {
-	min-width: 0;
 	color: #ffffff;
-}
-
-.patient-name,
-.patient-id {
-	display: block;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	font-size: 28rpx;
 }
 
 .patient-name {
 	font-size: 32rpx;
-	line-height: 1.35;
 }
 
 .patient-id {
-	margin-top: 4rpx;
 	font-size: 28rpx;
-	line-height: 1.35;
 }
 
 .patient-change {
 	position: absolute;
-	top: 50%;
 	right: 0;
 	display: flex;
 	align-items: center;
@@ -81,7 +68,6 @@
 	box-sizing: border-box;
 	width: 180rpx;
 	height: 66rpx;
-	transform: translateY(-50%);
 	border-radius: 33rpx 0 0 33rpx;
 	background: radial-gradient(0% 0% at 0% 0%, #a1c0ff 16%, #e4ecff 100%), #ffffff;
 	color: #3d6df6;
@@ -255,7 +241,8 @@
 
 .error-message {
 	box-sizing: border-box;
-	margin: 20rpx;
+	/* 提示位于首页首部；底部留白交给后面的 patient-area 控制。 */
+	margin: 20rpx 20rpx 0;
 	padding: 20rpx;
 	border-radius: 12rpx;
 	background: #fff1f1;

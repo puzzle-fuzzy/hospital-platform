@@ -1,4 +1,7 @@
 <view class="page">
+	<!-- 网络异常必须出现在页面首部，避免用户先看到不可用的业务入口。 -->
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
 	<!-- 顶部卡片：尺寸、层级和内容顺序与旧端首页保持一致。 -->
 	<view class="con-main patient-area">
 		<view class="patient-card bg1">
@@ -9,8 +12,8 @@
 				bindtap="onPatientQr"
 			/>
 			<view class="patient-card-copy">
-				<text class="patient-name">{{selectedPatient.displayName || "匿名"}}</text>
-				<text class="patient-id">ID:{{selectedPatient.id || "----"}}</text>
+				<view class="patient-name">{{selectedPatient.displayName || "匿名"}}</view>
+				<view class="patient-id">ID:{{selectedPatient.id || "----"}}</view>
 			</view>
 			<view class="patient-change" bindtap="onHeroAction">
 				{{selectedPatient.displayName ? "更换就诊人" : "新增就诊人"}}
@@ -99,8 +102,6 @@
 			</view>
 		</view>
 	</view>
-
-	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
 	<image
 		class="floating-guide"

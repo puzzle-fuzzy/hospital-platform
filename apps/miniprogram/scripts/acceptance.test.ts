@@ -141,6 +141,14 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(homeTemplate).toContain("service-tabs-shell");
 	expect(homeTemplate).toContain("legacy-tabbar");
 	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");
+	expect(homeTemplate.indexOf('class="error-message"')).toBeGreaterThanOrEqual(
+		0,
+	);
+	expect(homeTemplate.indexOf('class="error-message"')).toBeLessThan(
+		homeTemplate.indexOf('class="con-main patient-area"'),
+	);
+	expect(homeStyle).toContain("box-sizing: content-box");
+	expect(homeStyle).toContain("padding: 25rpx 30rpx");
 	expect(homeStyle).toContain("position: fixed");
 	expect(homeStyle).toContain("bottom: 0");
 	expect(homeStyle).toContain("env(safe-area-inset-bottom)");
