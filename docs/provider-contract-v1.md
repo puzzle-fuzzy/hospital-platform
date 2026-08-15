@@ -44,13 +44,14 @@ Phase 5B-2 已实现 `packages/adapters/src/wechat-pay.ts`：
 - 查单路径为 `/v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={mchid}`，只把已验签的明确交易状态映射成内部状态，未知状态 fail-closed；
 - 通知入口提供 APIv3 验签和 `AEAD_AES_256_GCM` 解密函数，解密后的 provider payload 仍需 callback mapper 白名单映射，不能直接迁移订单状态；
 
-Phase 6B 已加入 `WechatPrepayService` 和 `POST /api/v1/payments/orders/:orderId/wechat-prepay`：
+Phase 6B 已加入 `WechatPrepayService` 和 `POST /api/v1/payments/orders/:orderId/wechat-prepay`，Phase 6D 又加入对应的 GET 状态读模型：
 
 - 服务端通过 `UserIdentityRepository.findByUserId` 读取当前会话对应的 provider subject，小程序不能提交 openid；
 - 只有 `cash_pending` 且 `cashFen > 0` 的订单可以申请 JSAPI 预支付，金额来自已落库订单，不来自页面；
 - 返回值只包含服务端生成的 `payParams`，不返回 provider 原始报文，不改变订单状态；
-- 预支付闸门由 `WECHAT_PAYMENT_READY` 控制，默认关闭；真实环境还需要补齐预支付尝试持久化、通知入站和查单补偿后，才能宣称支付链路完成。
+- 预支付闸门由 `WECHAT_PAYMENT_READY` 控制，默认关闭；真实环境还需要补齐通知入站、查单补偿和设备验收后，才能宣称支付链路完成。
 - 预支付成功后，`prepay_id` 只保存摘要，`payParams` 只以 AES-256-GCM 密文保存；`PAYMENT_DATA_ENCRYPTION_KEY` 缺失时不得调用 provider。
+- 同一幂等键可以通过 GET 读出 `not_started`、`pending`、`ready` 或 `unknown`；`unknown` 必须等待查单/人工对账，不能被小程序回调改写成支付成功。
 - 单元测试使用进程内生成的 RSA/AES 材料，证明协议实现和失败分支，不证明商户号、证书、微信产品权限或公网回调已经可用。
 
 医保 5B-3 当前只实现 `legacy-fsi-contract.ts` 的纯规则层：固定五个专用 path、有限层级

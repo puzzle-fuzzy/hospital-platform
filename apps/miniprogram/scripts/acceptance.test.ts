@@ -21,5 +21,6 @@ test("native client requests server-generated prepay parameters", async () => {
 
 	expect(client).toContain("requestWechatPrepay");
 	expect(client).toContain("/wechat-prepay");
+	expect(client).toContain("getWechatPrepay");
 	expect(client).not.toContain("paySign =");
 });

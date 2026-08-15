@@ -13,14 +13,14 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 6C：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
+当前仓库进入 Phase 6D：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
 的 provider 审计、微信身份 adapter 之上，已完成微信支付 APIv3 的请求签名、响应验签、
 JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界，并开始固化医保 6201/6202/6203/6301/6401
 的路由、金额和退款 contract。支付和医保 adapter 尚未接入默认组合根，因此不会产生真实
 支付副作用；医保 crypto 已有严格 port 但尚无真实实现，HIS provider 继续 fail-closed。
 原生小程序首页已经完成健康检查、微信登录、会话恢复和服务端归属患者列表切片，真实
-微信开发者工具/真机验收仍未完成。6B 已建立服务端微信预支付参数边界，6C 开始为预支付尝试建立
-独立幂等记录和受控密文存储，但
+微信开发者工具/真机验收仍未完成。6B 已建立服务端微信预支付参数边界，6C 已为预支付尝试建立
+独立幂等记录和受控密文存储，6D 又加入同一幂等键下的服务端状态读模型，但
 `WECHAT_PAYMENT_READY` 默认关闭，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
 
 ```text
@@ -63,6 +63,7 @@ API 默认运行在 `http://localhost:3000`：
 - `GET /health/ready`：依赖就绪检查（`not_configured` 或 `unavailable` 不会伪装成 ready）
 - `GET /api/v1/system/ping`：API 版本检查
 - `POST /api/v1/payments/orders/:orderId/wechat-prepay`：仅在订单为 `cash_pending` 且微信支付闸门打开时返回服务端签名参数
+- `GET /api/v1/payments/orders/:orderId/wechat-prepay`：读取 `not_started/pending/ready/unknown` 预支付尝试状态
 - `GET /openapi`：OpenAPI 文档
 
 ## 重构边界

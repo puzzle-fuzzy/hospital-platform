@@ -43,6 +43,11 @@ test("wechat prepay reads server identity and returns only server pay params", a
 		orderId: order.orderId,
 		context: { traceId: "trace-prepay-001", idempotencyKey: "prepay-key-001" },
 	});
+	const status = await service.read({
+		ownerUserId: "fixture-user-0001",
+		orderId: order.orderId,
+		idempotencyKey: "prepay-key-001",
+	});
 
 	expect(result).toEqual({
 		orderId: order.orderId,
@@ -55,6 +60,11 @@ test("wechat prepay reads server identity and returns only server pay params", a
 			signType: "RSA",
 			paySign: "fixture-pay-sign-001",
 		},
+	});
+	expect(status).toMatchObject({
+		orderId: order.orderId,
+		state: "cash_pending",
+		status: "ready",
 	});
 });
 

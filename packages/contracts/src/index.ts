@@ -156,6 +156,22 @@ export const WechatPrepayResponse = Type.Object({
 	}),
 });
 
+/** 预支付尝试状态是持久化读模型，不代表订单已经完成支付。 */
+export const WechatPrepayStatusResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1 }),
+		state: PaymentStateSchema,
+		status: Type.Union([
+			Type.Literal("not_started"),
+			Type.Literal("pending"),
+			Type.Literal("ready"),
+			Type.Literal("unknown"),
+		]),
+		payParams: Type.Optional(WechatMiniProgramPayParamsSchema),
+	}),
+});
+
 export type PaymentState = Static<typeof PaymentStateSchema>;
 
 export type HealthPayload = Static<typeof HealthResponse>;
@@ -172,6 +188,9 @@ export type PaymentOrderCreatePayload = Static<
 export type PaymentAmountsPayload = Static<typeof PaymentAmountsSchema>;
 export type PaymentOrderPayload = Static<typeof PaymentOrderResponse>;
 export type WechatPrepayPayload = Static<typeof WechatPrepayResponse>;
+export type WechatPrepayStatusPayload = Static<
+	typeof WechatPrepayStatusResponse
+>;
 
 export function success<const T>(data: T): { success: true; data: T } {
 	return { success: true, data };

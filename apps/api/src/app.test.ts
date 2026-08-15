@@ -292,6 +292,17 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			{ headers: { authorization: `Bearer ${loginBody.data.accessToken}` } },
 		),
 	);
+	const prepayStatusResponse = await app.handle(
+		new Request(
+			`http://localhost/api/v1/payments/orders/${orderBody.data.orderId}/wechat-prepay`,
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+					"idempotency-key": "fixture-prepay-key-001",
+				},
+			},
+		),
+	);
 
 	expect(loginResponse.status).toBe(200);
 	expect(loginBody).toMatchObject({
@@ -328,6 +339,15 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 	expect(replayResponse.status).toBe(200);
 	expect(replayBody.data.orderId).toBe(orderBody.data.orderId);
 	expect(orderQueryResponse.status).toBe(200);
+	expect(prepayStatusResponse.status).toBe(200);
+	expect(await prepayStatusResponse.json()).toEqual({
+		success: true,
+		data: {
+			orderId: orderBody.data.orderId,
+			state: "created",
+			status: "not_started",
+		},
+	});
 });
 
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {

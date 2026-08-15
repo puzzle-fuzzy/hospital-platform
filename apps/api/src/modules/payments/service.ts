@@ -1,4 +1,7 @@
-import type { WechatPrepayPayload } from "@hospital/contracts";
+import type {
+	WechatPrepayPayload,
+	WechatPrepayStatusPayload,
+} from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
 	PaymentCashPrepayNotAllowedError,
@@ -162,6 +165,57 @@ export class WechatPrepayService {
 			);
 			throw error;
 		}
+	}
+
+	/** 只读取当前用户的尝试事实；查询不会调用微信或改变订单状态。 */
+	async read(input: {
+		ownerUserId: string;
+		orderId: string;
+		idempotencyKey: string;
+	}): Promise<WechatPrepayStatusPayload["data"]> {
+		const order = await this.dependencies.orders.get(
+			input.ownerUserId,
+			input.orderId,
+		);
+		const attempt =
+			await this.dependencies.attempts.findByOwnerOrderAndIdempotencyKey(
+				input.ownerUserId,
+				input.orderId,
+				input.idempotencyKey,
+			);
+		if (!attempt) {
+			return {
+				orderId: order.orderId,
+				state: order.state,
+				status: "not_started",
+			};
+		}
+
+		const status: WechatPrepayStatusPayload["data"]["status"] =
+			attempt.status === "pending"
+				? "pending"
+				: attempt.status === "unknown"
+					? "unknown"
+					: attempt.payParams
+						? "ready"
+						: "unknown";
+		this.logger.debug(
+			{
+				event: "payment.wechat_prepay.read",
+				orderId: order.orderId,
+				attemptId: attempt.attemptId,
+				status,
+			},
+			"Wechat prepay status read",
+		);
+		return {
+			orderId: order.orderId,
+			state: order.state,
+			status,
+			...(status === "ready" && attempt.payParams
+				? { payParams: attempt.payParams }
+				: {}),
+		};
 	}
 
 	private replayAttempt(

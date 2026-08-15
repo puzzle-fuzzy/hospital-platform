@@ -4,6 +4,7 @@ import {
 	PaymentOrderResponse,
 	success,
 	WechatPrepayResponse,
+	WechatPrepayStatusResponse,
 } from "@hospital/contracts";
 import type { PaymentOrderPayload } from "@hospital/contracts";
 import type { PaymentOrder, PaymentOrderService } from "@hospital/domain";
@@ -72,6 +73,28 @@ export function paymentsModule(
 				body: PaymentOrderCreateRequest,
 				headers: CreateOrderHeaders,
 				response: { 200: PaymentOrderResponse },
+				tags: ["payments"],
+			},
+		)
+		.get(
+			"/payments/orders/:orderId/wechat-prepay",
+			async ({ headers, params }) => {
+				const principal = await requirePrincipal(
+					headers.authorization,
+					sessions,
+				);
+				return success(
+					await wechatPrepay.read({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						idempotencyKey: headers["idempotency-key"],
+					}),
+				);
+			},
+			{
+				headers: CreateWechatPrepayHeaders,
+				params: PaymentOrderParams,
+				response: { 200: WechatPrepayStatusResponse },
 				tags: ["payments"],
 			},
 		)

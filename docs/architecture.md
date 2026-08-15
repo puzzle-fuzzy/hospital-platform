@@ -78,6 +78,11 @@ POST /api/v1/payments/orders/:orderId/wechat-prepay
   -> 先写入 hp_payment_prepay_attempts 的 pending 事实
   -> 只把 cashFen 交给 WechatPaymentGateway
   -> 成功后保存加密 payParams 和 prepay_id 摘要，再返回 payParams；不推进订单状态
+
+GET /api/v1/payments/orders/:orderId/wechat-prepay
+  -> 以同一 idempotency-key 读取尝试状态
+  -> 返回 not_started / pending / ready / unknown
+  -> 不调用 provider，不把 unknown 推导成 failed
 ```
 
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
@@ -88,8 +93,8 @@ contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支
 医保 6201/6202/6203/6301/6401 的专用路由、整数分金额守恒、订单关联和退款边界，
 但 SM2/SM3/SM4 crypto adapter 只有严格 port 和 fail-closed 默认实现，仍等待 golden
 vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会话恢复和服务端归属患者
-列表接入现有 API contract。Phase 6B 又加入微信预支付应用服务和原生端调用封装；Phase 6C 开始落库
-预支付尝试、版本和加密调起参数；支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY`
+列表接入现有 API contract。Phase 6B 又加入微信预支付应用服务和原生端调用封装；Phase 6C 已落库
+预支付尝试、版本和加密调起参数，Phase 6D 又加入同一幂等键下的服务端状态读模型；支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY`
 也默认关闭，`WECHAT_PAYMENT_READY` 默认关闭，医保和 HIS handler 尚未接入；因此默认运行不会产生真实支付副作用。
 
 原生小程序的功能边界：

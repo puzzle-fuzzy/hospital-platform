@@ -191,3 +191,16 @@ export function requestWechatPrepay(orderId, idempotencyKey) {
 		idempotencyKey,
 	});
 }
+
+/**
+ * 读取服务端预支付尝试状态；pending/unknown 都不能被页面当作支付失败。
+ * @param {string} orderId
+ * @param {string} idempotencyKey
+ */
+export function getWechatPrepay(orderId, idempotencyKey) {
+	return requestWithSession({
+		url: `/api/v1/payments/orders/${encodeURIComponent(orderId)}/wechat-prepay`,
+		method: "GET",
+		idempotencyKey,
+	});
+}

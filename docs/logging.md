@@ -29,6 +29,7 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox 
 | `payment.wechat_prepay.requested` | 微信预支付应用服务 | 确认某个内部订单开始申请服务端调起参数 |
 | `payment.wechat_prepay.created` | 微信预支付应用服务 | 确认参数生成成功及 provider request id |
 | `payment.wechat_prepay.replayed` | 微信预支付应用服务 | 确认幂等重试复用已持久化的参数 |
+| `payment.wechat_prepay.read` | 微信预支付读模型 | 查询 pending/ready/unknown 等可恢复状态 |
 | `payment.wechat_prepay.failed` | 微信预支付应用服务 | 记录失败类型，便于区分配置、网络和 provider 错误 |
 
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
