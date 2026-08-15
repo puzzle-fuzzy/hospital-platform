@@ -25,8 +25,15 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 			nested: { token: "nested-secret", count: 1 },
 			providerSubject: "openid-001",
 			identity: { provider_subject: "openid-002" },
+			unionId: "unionid-001",
 			providerPatientId: "provider-patient-001",
 			provider: { provider_patient_id: "provider-patient-002" },
+			payment: {
+				prepayId: "wx-prepay-001",
+				payParams: { paySign: "payment-signature", nonceStr: "nonce-001" },
+				providerTransactionId: "transaction-001",
+			},
+			credentials: { appSecret: "app-secret", privateKey: "private-key" },
 		},
 		"request completed",
 	);
@@ -43,8 +50,15 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 		nested: { token: "[REDACTED]", count: 1 },
 		providerSubject: "[REDACTED]",
 		identity: { provider_subject: "[REDACTED]" },
+		unionId: "[REDACTED]",
 		providerPatientId: "[REDACTED]",
 		provider: { provider_patient_id: "[REDACTED]" },
+		payment: {
+			prepayId: "[REDACTED]",
+			payParams: "[REDACTED]",
+			providerTransactionId: "transaction-001",
+		},
+		credentials: { appSecret: "[REDACTED]", privateKey: "[REDACTED]" },
 		msg: "request completed",
 	});
 });

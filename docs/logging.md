@@ -66,6 +66,8 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 - 患者身份证号、完整就诊卡号、完整手机号等可直接识别个人的信息。
 - provider 患者号；它只能在服务端 lookup 与 adapter 调用的短生命周期内存在。
 
+Pino 还会集中脱敏 `unionId`、`prepayId`、`payParams`、`paySign`、`nonceStr`、APIv3 key、商户私钥和其他常见密钥字段的大小写变体；`providerTransactionId` 保留用于通知排障关联，但不能据此放宽业务代码对原始支付报文的禁止。
+
 请求日志只记录 `idempotencyKeyPresent`，不记录幂等键本身。需要关联支付或医保排障时，记录内部 `orderId`、`eventId`、`providerRequestId` 等不可直接还原凭证的标识。Pino 的 `redact` 是最终兜底，不是业务代码记录敏感数据的许可。
 
 查单日志可以记录 `attemptId`、`queryAttempts`、`providerState`、`outcome` 和 `shouldContinue`；通知消费日志可以记录 `eventId`、`notificationId`、`providerTransactionId`、`outcome` 和 `orderState`，但不得记录微信原始响应、签名头、APIv3 key、prepay 参数或完整 provider payload。
