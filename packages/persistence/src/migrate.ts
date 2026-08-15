@@ -769,7 +769,9 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 							failureRecorded,
 						}
 					: {}),
-				err: error,
+				// 迁移错误可能包含 SQL/驱动上下文；日志只保留类型，具体
+				// 错误事实已经通过 migration run 状态和人工 recovery 流程处理。
+				errorType: error instanceof Error ? error.name : "UnknownError",
 			},
 			"Persistence migration failed",
 		);

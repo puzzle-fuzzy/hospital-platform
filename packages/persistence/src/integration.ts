@@ -475,7 +475,12 @@ export async function runPersistenceIntegration() {
 if (import.meta.main) {
 	await runPersistenceIntegration().catch((error) => {
 		logger.error(
-			{ event: "persistence.integration.failed", err: error },
+			{
+				event: "persistence.integration.failed",
+				// 集成错误可能包含驱动上下文；Pino 日志只保留错误类型，
+				// 不把原始异常对象或连接信息写入标准输出。
+				errorType: error instanceof Error ? error.name : "UnknownError",
+			},
 			"Persistence integration checks failed",
 		);
 		process.exitCode = 1;

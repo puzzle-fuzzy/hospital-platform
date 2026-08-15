@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import {
+	assertMigrationTargetAllowed,
 	PERSISTENCE_MIGRATIONS,
 	PERSISTENCE_SCHEMA_COLUMNS,
 	PERSISTENCE_SCHEMA_FOREIGN_KEYS,
 	PERSISTENCE_SCHEMA_INDEXES,
 	PERSISTENCE_SCHEMA_TABLES,
-	assertMigrationTargetAllowed,
-	readCoreSchemaStateFromPool,
 	readCoreSchemaStateAndClose,
+	readCoreSchemaStateFromPool,
 } from "./migrate";
 
 test("schema probe reports incomplete migration state without writing", async () => {
@@ -250,5 +250,20 @@ test("report reference migration keeps the owner and expiry boundary explicit", 
 	);
 	expect(normalizedSql).toContain(
 		"CONSTRAINT fk_hp_report_references_owner_patient FOREIGN KEY (owner_user_id, patient_id) REFERENCES hp_patients (owner_user_id, patient_id)",
+	);
+});
+
+test("persistence failure logs keep raw error objects out of Pino", async () => {
+	const sources = await Promise.all([
+		Bun.file(new URL("./migrate.ts", import.meta.url)).text(),
+		Bun.file(new URL("./integration.ts", import.meta.url)).text(),
+	]);
+	const combinedSource = sources.join("\n");
+
+	expect(combinedSource).not.toContain("err: error");
+	expect(combinedSource).toContain("persistence.migration.failed");
+	expect(combinedSource).toContain("persistence.integration.failed");
+	expect(combinedSource).toContain(
+		'errorType: error instanceof Error ? error.name : "UnknownError"',
 	);
 });
