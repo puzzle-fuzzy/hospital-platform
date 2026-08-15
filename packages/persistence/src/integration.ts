@@ -66,8 +66,21 @@ export async function runPersistenceIntegration() {
 	let userId: string | undefined;
 	let otherUserId: string | undefined;
 	try {
-		assert.equal(await runtime.database.check(), "ok");
-		assert.equal(await runtime.redis.check(), "ok");
+		// 并行采集两个依赖状态，失败时一次日志就能定位基础设施边界。
+		const [database, redis] = await Promise.all([
+			runtime.database.check(),
+			runtime.redis.check(),
+		]);
+		logger.info(
+			{
+				event: "persistence.integration.dependencies",
+				database,
+				redis,
+			},
+			"Persistence integration dependency probes completed",
+		);
+		assert.equal(database, "ok", "MySQL dependency probe did not pass");
+		assert.equal(redis, "ok", "Redis dependency probe did not pass");
 		assert.ok(runtime.sessions);
 		const sessionTtlSeconds = 1;
 		await runtime.sessions.save(
