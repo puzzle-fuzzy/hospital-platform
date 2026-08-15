@@ -107,6 +107,18 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).not.toContain("unionId");
 });
 
+test("native mini program build guards the DevTools TypeScript configuration", async () => {
+	const config = await source("../project.config.json");
+	const build = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "build.ts"),
+	).text();
+
+	expect(config).toContain('"miniprogramRoot": "src/"');
+	expect(config).toContain('"useCompilerPlugins": ["typescript"]');
+	expect(build).toContain("nestedProjectConfigPath");
+	expect(build).toContain("does not enable the TypeScript compiler plugin");
+});
+
 test("native mini program exposes read-only appointment directory and records pages", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");

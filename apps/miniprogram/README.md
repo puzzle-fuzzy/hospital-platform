@@ -17,6 +17,11 @@
 
 微信开发者工具的 `src/project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
 
+打开项目时请选择 `apps/miniprogram/`，不要直接把 `apps/miniprogram/src/` 作为微信项目根目录。
+公共配置中的 `miniprogramRoot` 已经指向 `src/` 并开启 `useCompilerPlugins: ["typescript"]`。
+如果开发者工具曾经直接打开过 `src/`，它可能生成被忽略的 `src/project.config.json`；该副本也必须保持
+`useCompilerPlugins: ["typescript"]`，否则工具会按纯 JavaScript 查找页面 `.js` 文件并报“找不到对应文件”。
+
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的
 `pages/patient-select/patient-select` 页面；选择页把当前选择的 opaque `patientId` 写入

@@ -11,6 +11,15 @@ const requiredStaticFiles = [
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
+	"pages/patient-select/patient-select.json",
+	"pages/patient-select/patient-select.wxml",
+	"pages/patient-select/patient-select.wxss",
+	"pages/appointment-directory/appointment-directory.json",
+	"pages/appointment-directory/appointment-directory.wxml",
+	"pages/appointment-directory/appointment-directory.wxss",
+	"pages/appointment-records/appointment-records.json",
+	"pages/appointment-records/appointment-records.wxml",
+	"pages/appointment-records/appointment-records.wxss",
 	"pages/report-detail/report-detail.json",
 	"pages/report-detail/report-detail.wxml",
 	"pages/report-detail/report-detail.wxss",
@@ -20,6 +29,10 @@ const requiredTypeScriptFiles = [
 	"services/api-client.ts",
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
+	"services/patient-selection-service.ts",
+	"pages/patient-select/patient-select.ts",
+	"pages/appointment-directory/appointment-directory.ts",
+	"pages/appointment-records/appointment-records.ts",
 	"pages/index/index.ts",
 	"pages/report-detail/report-detail.ts",
 ];
@@ -48,6 +61,34 @@ if (
 	throw new Error(
 		"Mini program project.config.json must enable the TypeScript compiler plugin",
 	);
+}
+
+/**
+ * 开发者工具有时会在 src/ 下生成一个本机项目配置副本。
+ * 如果用户直接把 src/ 当作项目根目录打开，这个副本会覆盖上层配置；
+ * 因此存在时也必须开启 TypeScript 插件，否则真机会按纯 JS 查找 .js 文件。
+ */
+const nestedProjectConfigPath = join(source, "project.config.json");
+let nestedProjectConfigExists = false;
+try {
+	await access(nestedProjectConfigPath);
+	nestedProjectConfigExists = true;
+} catch {
+	// 没有本机配置副本时，直接使用仓库公共配置即可。
+}
+
+if (nestedProjectConfigExists) {
+	const nestedProjectConfig = JSON.parse(
+		await Bun.file(nestedProjectConfigPath).text(),
+	) as { setting?: { useCompilerPlugins?: unknown } };
+	if (
+		!Array.isArray(nestedProjectConfig.setting?.useCompilerPlugins) ||
+		!nestedProjectConfig.setting.useCompilerPlugins.includes("typescript")
+	) {
+		throw new Error(
+			"src/project.config.json exists but does not enable the TypeScript compiler plugin; reload the DevTools project configuration",
+		);
+	}
 }
 
 for (const file of [...requiredStaticFiles, ...requiredTypeScriptFiles]) {
