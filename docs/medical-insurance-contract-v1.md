@@ -38,8 +38,9 @@
 3. crypto adapter 必须先验签再解密/映射，严格模式下验签失败不得放行；
 4. 生产 adapter 接入前要做双向向量测试、脱敏审计日志、超时/重试/idempotency 和真实 staging 回放。
 
-因此当前 `MedicalInsuranceGateway` 仍使用 fail-closed gateway；本批 `legacy-fsi-contract.ts`
-只负责路由、金额、订单关联和结果字段的可测试约束，不发送真实医保请求。
+因此当前 `MedicalInsuranceGateway` 仍使用 fail-closed gateway；`legacy-fsi-contract.ts`
+负责路由、金额、订单关联和结果字段的可测试约束，`legacy-fsi-crypto.ts` 负责严格的
+SM4/SM2 envelope port 和验签成功门槛，两者都不发送真实医保请求。
 
 ## 日志边界
 

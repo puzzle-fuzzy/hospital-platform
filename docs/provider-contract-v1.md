@@ -47,6 +47,7 @@ Phase 5B-2 已实现 `packages/adapters/src/wechat-pay.ts`：
 
 医保 5B-3 当前只实现 `legacy-fsi-contract.ts` 的纯规则层：固定五个专用 path、有限层级
 响应展开、元转分、6201 明细守恒、6202/6301 结算金额守恒、6203 退款边界和 6401 明确成功。
+5B-4 又增加了 `legacy-fsi-crypto.ts` 的严格 envelope port 和 fail-closed 默认实现，但
 SM2/SM3/SM4 尚未发送真实请求；正式实现必须先取得 golden vectors，并通过 sidecar 或验证过的
 Bun/Node 实现完成双向兼容测试。
 

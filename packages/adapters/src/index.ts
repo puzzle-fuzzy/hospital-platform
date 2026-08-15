@@ -50,3 +50,11 @@ export {
 	type LegacyFsiRefundAmounts,
 	type LegacyFsiSettlement,
 } from "./legacy-fsi-contract";
+export {
+	createNotConfiguredLegacyFsiCrypto,
+	validateLegacyFsiOpenedPayload,
+	validateLegacyFsiSealedEnvelope,
+	type LegacyFsiCryptoGateway,
+	type LegacyFsiOpenedPayload,
+	type LegacyFsiSealedEnvelope,
+} from "./legacy-fsi-crypto";

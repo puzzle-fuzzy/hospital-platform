@@ -80,9 +80,9 @@ Redis session store 和本地真实集成验收。Phase 5B-1 已加入旧 provid
 contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支付 APIv3 的
 请求签名、平台响应验签、JSAPI 下单、查单和通知解密 adapter。Phase 5B-3 已开始固化
 医保 6201/6202/6203/6301/6401 的专用路由、整数分金额守恒、订单关联和退款边界，
-但 SM2/SM3/SM4 crypto adapter 仍等待 golden vectors。支付和医保 adapter 仍未接入默认
-组合根，`WECHAT_IDENTITY_READY` 也默认关闭，医保和 HIS handler 尚未接入；因此当前
-不会产生真实支付副作用。
+但 SM2/SM3/SM4 crypto adapter 只有严格 port 和 fail-closed 默认实现，仍等待 golden
+vectors。支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY` 也默认关闭，
+医保和 HIS handler 尚未接入；因此当前不会产生真实支付副作用。
 
 微信支付 adapter 的安全边界如下：
 
