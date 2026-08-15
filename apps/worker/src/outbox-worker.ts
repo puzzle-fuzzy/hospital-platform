@@ -4,6 +4,7 @@ import type {
 	OutboxHandler,
 	OutboxRepository,
 } from "@hospital/domain";
+import { createNoopLogger, type AppLogger } from "@hospital/observability";
 
 /** 指数退避上限，避免 provider 故障时 worker 持续高频重试。 */
 const MAX_RETRY_DELAY_MS = 15 * 60 * 1000;
@@ -27,24 +28,64 @@ export class OutboxWorker {
 	constructor(
 		private readonly repository: OutboxRepository,
 		private readonly handlers: Partial<Record<OutboxEventName, OutboxHandler>>,
+		private readonly logger: AppLogger = createNoopLogger(),
 	) {}
 
 	async runOnce(now = new Date()): Promise<OutboxWorkerResult> {
 		const event = await this.repository.claimAvailable(now);
 		if (!event) return "idle";
+		this.logger.debug(
+			{
+				event: "worker.outbox.claimed",
+				eventId: event.eventId,
+				eventName: event.eventName,
+				aggregateId: event.aggregateId,
+				attempts: event.attempts,
+			},
+			"Outbox event claimed",
+		);
 
 		const handler = this.handlers[event.eventName];
 		if (!handler) {
 			await this.scheduleRetry(event, now, "handler-not-configured");
+			this.logger.warn(
+				{
+					event: "worker.outbox.retry_scheduled",
+					eventId: event.eventId,
+					eventName: event.eventName,
+					aggregateId: event.aggregateId,
+					reason: "handler-not-configured",
+				},
+				"Outbox handler is not configured",
+			);
 			return "retry_scheduled";
 		}
 
 		try {
 			await handler(event);
 			await this.repository.markProcessed(event.eventId, now);
+			this.logger.info(
+				{
+					event: "worker.outbox.processed",
+					eventId: event.eventId,
+					eventName: event.eventName,
+					aggregateId: event.aggregateId,
+				},
+				"Outbox event processed",
+			);
 			return "processed";
 		} catch {
 			await this.scheduleRetry(event, now, "handler-failed");
+			this.logger.warn(
+				{
+					event: "worker.outbox.retry_scheduled",
+					eventId: event.eventId,
+					eventName: event.eventName,
+					aggregateId: event.aggregateId,
+					reason: "handler-failed",
+				},
+				"Outbox handler failed",
+			);
 			return "retry_scheduled";
 		}
 	}

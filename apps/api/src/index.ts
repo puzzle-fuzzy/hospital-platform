@@ -1,8 +1,21 @@
+import { createLogger } from "@hospital/observability";
 import { createApp } from "./app";
 import { config } from "./config";
 
-const app = createApp();
+const logger = createLogger({
+	service: "hospital-api",
+	environment: config.environment,
+	level: config.logLevel,
+});
+const app = createApp({ logger });
 
 app.listen({ hostname: config.host, port: config.port });
 
-console.log(`Hospital API listening on http://${config.host}:${config.port}`);
+logger.info(
+	{
+		event: "service.started",
+		host: config.host,
+		port: config.port,
+	},
+	"Hospital API listening",
+);

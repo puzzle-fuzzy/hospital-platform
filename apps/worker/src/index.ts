@@ -1,3 +1,5 @@
+import { createLogger } from "@hospital/observability";
+
 export type WorkerStatus = "not_configured";
 
 export { OutboxWorker } from "./outbox-worker";
@@ -8,5 +10,13 @@ export function workerStatus(): WorkerStatus {
 }
 
 if (import.meta.main) {
-	console.log("Hospital worker is not configured yet");
+	const logger = createLogger({
+		service: "hospital-worker",
+		environment: Bun.env.NODE_ENV ?? "development",
+		level: (Bun.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") ?? "info",
+	});
+	logger.info(
+		{ event: "service.started", status: workerStatus() },
+		"Hospital worker is not configured yet",
+	);
 }

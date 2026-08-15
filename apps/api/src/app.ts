@@ -6,6 +6,7 @@ import {
 	createDefaultApplicationServices,
 } from "./application";
 import { config } from "./config";
+import { createNoopLogger, type AppLogger } from "@hospital/observability";
 import {
 	createReadinessService,
 	type ReadinessService,
@@ -17,10 +18,13 @@ import { paymentsModule } from "./modules/payments";
 import { systemModule } from "./modules/system";
 import { errorHandlerPlugin } from "./plugins/error-handler";
 import { requestContextPlugin } from "./plugins/request-context";
+import { requestLoggingPlugin } from "./plugins/request-logging";
 
 export type AppOptions = {
 	readiness?: ReadinessService;
 	services?: ApplicationServices;
+	/** 运行入口注入 Pino；测试默认使用 silent logger。 */
+	logger?: AppLogger;
 };
 
 function openApiPlugin() {
@@ -52,6 +56,7 @@ export function createApp(options: AppOptions = {}) {
 			redisConfigured: Boolean(config.redisUrl),
 		});
 	const services = options.services ?? createDefaultApplicationServices();
+	const logger = options.logger ?? createNoopLogger();
 
 	const app = new Elysia({ name: "hospital-api" })
 		.use(
@@ -64,6 +69,8 @@ export function createApp(options: AppOptions = {}) {
 		)
 		.use(requestContextPlugin())
 		.use(errorHandlerPlugin())
+		// 先让统一错误处理器确定最终 HTTP 状态，再由日志插件记录可检索结果。
+		.use(requestLoggingPlugin(logger))
 		.use(openApiPlugin())
 		.use(healthModule(readiness))
 		.group("/api/v1", (api) =>

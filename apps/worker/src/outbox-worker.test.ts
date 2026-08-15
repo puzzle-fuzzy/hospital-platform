@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { OutboxEvent, OutboxRepository } from "@hospital/domain";
+import { createLogger } from "@hospital/observability";
 import { OutboxWorker } from "./outbox-worker";
 
 function createMemoryOutbox(seed: OutboxEvent): {
@@ -79,4 +80,40 @@ test("outbox worker does not report success without a handler", async () => {
 	);
 	expect(memory.state.processed).toHaveLength(0);
 	expect(memory.state.retries).toEqual(["event-001:handler-not-configured"]);
+});
+
+test("outbox worker logs searchable event metadata", async () => {
+	const memory = createMemoryOutbox(event);
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-worker-test",
+		environment: "test",
+		level: "debug",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const worker = new OutboxWorker(
+		memory.repository,
+		{
+			"payment-order.created": async () => {},
+		},
+		logger,
+	);
+
+	await worker.runOnce(new Date("2026-08-15T00:00:00.000Z"));
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"worker.outbox.claimed",
+		"worker.outbox.processed",
+	]);
+	expect(records[0]).toMatchObject({
+		eventName: "payment-order.created",
+		aggregateId: "order-001",
+	});
 });

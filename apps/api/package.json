@@ -15,6 +15,7 @@
 		"@elysiajs/openapi": "catalog:",
 		"@hospital/contracts": "workspace:*",
 		"@hospital/domain": "workspace:*",
+		"@hospital/observability": "workspace:*",
 		"@hospital/persistence": "workspace:*",
 		"@sinclair/typebox": "catalog:",
 		"elysia": "catalog:"

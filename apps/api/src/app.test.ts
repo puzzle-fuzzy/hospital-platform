@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createFixtureWechatIdentityGateway } from "@hospital/adapters";
+import { createLogger } from "@hospital/observability";
 import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
@@ -11,6 +12,10 @@ import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
 import { PatientService } from "./modules/patients";
+
+async function flushAfterResponseHooks(): Promise<void> {
+	await new Promise<void>((resolve) => setImmediate(resolve));
+}
 
 test("liveness endpoint returns a contract response", async () => {
 	const response = await createApp().handle(
@@ -71,6 +76,79 @@ test("request context preserves a safe incoming request id", async () => {
 	);
 
 	expect(response.headers.get("x-request-id")).toBe("test-trace-001");
+});
+
+test("request logger records trace, route, status and duration without headers", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const response = await createApp({ logger }).handle(
+		new Request("http://localhost/health/live", {
+			headers: {
+				"x-request-id": "log-trace-001",
+				authorization: "Bearer should-not-be-logged",
+			},
+		}),
+	);
+	await flushAfterResponseHooks();
+
+	const record = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+	expect(response.status).toBe(200);
+	expect(record).toMatchObject({
+		event: "http.request.completed",
+		requestId: "log-trace-001",
+		traceId: "log-trace-001",
+		method: "GET",
+		path: "/health/live",
+		statusCode: 200,
+	});
+	expect(record.authorization).toBeUndefined();
+	expect(typeof record.durationMs).toBe("number");
+});
+
+test("request logger records sanitized failure metadata", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const response = await createApp({ logger }).handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-request-id": "failure-trace-001",
+				authorization: "Bearer should-not-be-logged",
+			},
+			body: JSON.stringify({ code: "real-wechat-code" }),
+		}),
+	);
+	await flushAfterResponseHooks();
+
+	const record = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+	expect(response.status).toBe(503);
+	expect(record).toMatchObject({
+		event: "http.request.failed",
+		requestId: "failure-trace-001",
+		traceId: "failure-trace-001",
+		path: "/api/v1/auth/wechat",
+		statusCode: 503,
+	});
+	expect(record.authorization).toBeUndefined();
 });
 
 test("default auth dependency fails closed instead of issuing a fake token", async () => {

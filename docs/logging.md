@@ -1,0 +1,54 @@
+# 日志规范
+
+本项目使用 [Pino](https://github.com/pinojs/pino) 作为唯一日志实现。业务代码不自行拼接文本日志，也不直接输出请求体、令牌或第三方原始报文。Pino 负责 JSONL 输出、日志级别、时间戳、子 logger 和敏感字段脱敏；项目只负责补充业务事件字段。
+
+## 输出协议
+
+所有服务默认向标准输出写入一条一行的 JSON 记录，交由容器、进程管理器或云日志采集器收集。每条可检索日志应尽量包含以下字段：
+
+- `time`：Pino 生成的 ISO 时间戳。
+- `level`：Pino 数值级别。
+- `service`：服务名，例如 `hospital-api`、`hospital-worker`。
+- `environment`：运行环境，例如 `development`、`test`、`production`。
+- `event`：稳定的机器可检索事件名，使用 `资源.动作` 命名。
+- `traceId` / `requestId`：请求链路标识；没有上游标识时由 API 生成。
+- `msg`：面向人阅读的简短说明，不承载唯一业务数据。
+
+API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts`。这些字段用于按请求、订单或异步事件还原一条完整故障链。
+
+## 当前事件名
+
+| 事件名 | 产生位置 | 用途 |
+| --- | --- | --- |
+| `service.started` | API / worker 入口 | 确认进程已启动及监听配置 |
+| `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
+| `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
+| `worker.outbox.claimed` | Outbox worker | 确认事件被领取及当前重试次数 |
+| `worker.outbox.processed` | Outbox worker | 确认事件处理完成 |
+| `worker.outbox.retry_scheduled` | Outbox worker | 查询重试原因和下一次尝试前的状态 |
+
+新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
+
+## 脱敏边界
+
+禁止记录以下内容：
+
+- `Authorization`、Cookie、access token、refresh token、密码、密钥、openid、unionid；
+- 请求 body、医保/HIS 凭证、签名原文和第三方 provider 原始响应；
+- 患者身份证号、完整就诊卡号、完整手机号等可直接识别个人的信息。
+
+请求日志只记录 `idempotencyKeyPresent`，不记录幂等键本身。需要关联支付或医保排障时，记录内部 `orderId`、`eventId`、`providerRequestId` 等不可直接还原凭证的标识。Pino 的 `redact` 是最终兜底，不是业务代码记录敏感数据的许可。
+
+## 级别与运行配置
+
+- `debug`：本地开发和短时诊断，允许记录更细的状态元数据，但仍必须遵守脱敏边界。
+- `info`：生产默认级别，记录正常生命周期和重要状态转换。
+- `warn`：可恢复异常、重试、降级或配置风险。
+- `error`：请求失败、任务失败或需要人工介入的异常。
+- `silent`：测试默认值，避免测试输出污染；捕获日志的测试显式注入 `info` 或 `debug` logger。
+
+通过 `LOG_LEVEL` 调整级别。生产环境优先保持标准输出采集和集中检索，不在应用层自行实现文件轮转；文件生命周期、保留周期和告警由部署平台负责。
+
+## 维护要求
+
+日志不是审计数据库，也不是业务状态存储。关键业务结果必须落库或进入 outbox，日志只提供可检索的诊断线索。新增支付、医保、HIS 适配器时，至少补充：开始、成功、失败/重试三个阶段的事件，并使用请求链路标识和内部业务 ID 串联；外部请求内容只记录经过筛选的摘要。

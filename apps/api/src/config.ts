@@ -1,9 +1,13 @@
+import type { LogLevel } from "@hospital/observability";
+
 export type RuntimeConfig = {
 	/** 生产环境默认关闭 OpenAPI，避免无意暴露内部接口描述。 */
 	environment: "development" | "test" | "production";
 	host: string;
 	port: number;
 	apiVersion: string;
+	/** 生产默认 info；测试可设 silent，开发默认 debug。 */
+	logLevel: LogLevel;
 	docsEnabled: boolean;
 	corsOrigins: string[];
 	databaseUrl: string | undefined;
@@ -42,6 +46,23 @@ function origins(value: string | undefined): string[] {
 		.filter(Boolean);
 }
 
+function logLevel(
+	value: string | undefined,
+	environment: RuntimeConfig["environment"],
+): LogLevel {
+	if (
+		value === "debug" ||
+		value === "info" ||
+		value === "warn" ||
+		value === "error" ||
+		value === "silent"
+	) {
+		return value;
+	}
+	if (environment === "test") return "silent";
+	return environment === "production" ? "info" : "debug";
+}
+
 const runtimeEnvironment = environment(Bun.env.NODE_ENV);
 
 export const config: RuntimeConfig = {
@@ -49,6 +70,7 @@ export const config: RuntimeConfig = {
 	host: Bun.env.HOST ?? "127.0.0.1",
 	port: positivePort(Bun.env.PORT),
 	apiVersion: Bun.env.API_VERSION ?? "0.1.0",
+	logLevel: logLevel(Bun.env.LOG_LEVEL, runtimeEnvironment),
 	docsEnabled: boolean(
 		Bun.env.DOCS_ENABLED,
 		runtimeEnvironment !== "production",
