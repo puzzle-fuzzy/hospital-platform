@@ -1,9 +1,9 @@
-import { createLogger } from "@hospital/observability";
-import { PaymentOrderService } from "@hospital/domain";
 import { strict as assert } from "node:assert";
+import { PaymentOrderService } from "@hospital/domain";
+import { createLogger } from "@hospital/observability";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
-import { createMySqlRepositories } from "./mysql-repositories";
 import { readCoreSchemaStateFromPool } from "./migrate";
+import { createMySqlRepositories } from "./mysql-repositories";
 import { createPersistenceRuntime } from "./runtime";
 
 const logger = createLogger({
@@ -69,11 +69,19 @@ export async function runPersistenceIntegration() {
 		assert.equal(await runtime.database.check(), "ok");
 		assert.equal(await runtime.redis.check(), "ok");
 		assert.ok(runtime.sessions);
-		await runtime.sessions.save(sessionToken, "integration-user", 2);
+		const sessionTtlSeconds = 1;
+		await runtime.sessions.save(
+			sessionToken,
+			"integration-user",
+			sessionTtlSeconds,
+		);
 		assert.equal(
 			await runtime.sessions.findUserId(sessionToken),
 			"integration-user",
 		);
+		// Redis EX 使用整秒 TTL；多等待一秒，避免在过期边界读取造成偶发假阴性。
+		await wait((sessionTtlSeconds + 1) * 1_000);
+		assert.equal(await runtime.sessions.findUserId(sessionToken), undefined);
 	} finally {
 		await runtime.close();
 	}
@@ -372,7 +380,7 @@ export async function runPersistenceIntegration() {
 				checks: [
 					"mysql-probe",
 					"redis-probe",
-					"redis-session-ttl-write",
+					"redis-session-ttl-expiry",
 					"mysql-owner-foreign-key",
 					"owner-scoped-composite-foreign-key",
 					"appointment-schedule-snapshot-ttl-and-stale-guard",
