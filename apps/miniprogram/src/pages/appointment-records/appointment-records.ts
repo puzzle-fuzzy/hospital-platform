@@ -7,6 +7,7 @@ import {
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	AppointmentRecord,
 	AppointmentRecordView,
@@ -30,6 +31,7 @@ const STATUS_LABELS = Object.freeze({
 } as const);
 
 let isFirstShow = true;
+const loadGuard = createLatestRequestGuard();
 
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
@@ -55,9 +57,11 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/** 先从平台目录确认当前患者，再以内部 patientId 请求记录。 */
 	loadRecords(): Promise<void> {
+		const requestToken = loadGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return loadPatients()
 			.then((patients) => {
+				if (!loadGuard.isCurrent(requestToken)) return;
 				const storedPatientId = getSelectedPatientId();
 				const patient =
 					patients.find((item) => item.id === storedPatientId) ?? patients[0];
@@ -67,16 +71,23 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					});
 				}
 				setSelectedPatientId(patient.id);
-				return loadAppointmentRecords(patient.id).then((records) =>
+				return loadAppointmentRecords(patient.id).then((records) => {
+					if (!loadGuard.isCurrent(requestToken)) return;
 					this.setData({
 						selectedPatient: patient,
 						records: records.map((record) => this.toRecordView(record)),
 						error: "",
-					}),
-				);
+					});
+				});
 			})
-			.catch((error) => this.showError(error, "挂号记录加载失败"))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (loadGuard.isCurrent(requestToken)) {
+					this.showError(error, "挂号记录加载失败");
+				}
+			})
+			.finally(() => {
+				if (loadGuard.isCurrent(requestToken)) this.setData({ loading: false });
+			});
 	},
 
 	/** 记录状态在页面边界翻译，服务端 contract 仍保持稳定英文枚举。 */

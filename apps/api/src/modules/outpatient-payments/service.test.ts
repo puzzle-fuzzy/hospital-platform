@@ -70,8 +70,9 @@ test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务�
 
 	expect(gatewayInput).toEqual({
 		providerPatientId: "provider-patient-001",
-		startTime: "2026-07-17 10:20:30",
-		endTime: "2026-08-16 10:20:30",
+		// 输入时间是 UTC；provider 请求必须按 Asia/Shanghai 输出，不能随测试机时区变化。
+		startTime: "2026-07-17 18:20:30",
+		endTime: "2026-08-16 18:20:30",
 		status: "unpaid",
 		authSysCode: "thirdSelfMachine",
 	});

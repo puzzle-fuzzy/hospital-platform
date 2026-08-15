@@ -8,6 +8,7 @@ import {
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	Patient,
 	PatientEvent,
@@ -35,6 +36,14 @@ const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
 	other: "其他",
 };
 
+/**
+ * 目录数据和 loading 展示分别维护序号：刷新必须淘汰旧目录响应，
+ * 但旧读取不能阻止当前刷新正确结束 loading 状态。
+ */
+const directoryDataGuard = createLatestRequestGuard();
+const loadingGuard = createLatestRequestGuard();
+const syncGuard = createLatestRequestGuard();
+
 function toPatientSelectionView(patient: Patient): PatientSelectionView {
 	return {
 		...patient,
@@ -58,17 +67,31 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 进入页面后只读取平台患者目录；首次没有目录时再由用户明确触发同步。 */
 	loadPatientList(): Promise<void> {
+		const dataToken = directoryDataGuard.begin();
+		const loadingToken = loadingGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return loadPatients()
 			.then((patients) => {
+				if (!directoryDataGuard.isCurrent(dataToken)) return;
 				this.setPatientList(patients);
 				// 选择页也可能被历史路径直接打开，不能依赖首页先完成临床映射；
 				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到 HIS patId。
 				this.setData({ loading: false });
 				this.onSyncPatients();
 			})
-			.catch((error) => this.showError(error, "就诊人加载失败"))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (
+					directoryDataGuard.isCurrent(dataToken) &&
+					loadingGuard.isCurrent(loadingToken)
+				) {
+					this.showError(error, "就诊人加载失败");
+				}
+			})
+			.finally(() => {
+				if (loadingGuard.isCurrent(loadingToken)) {
+					this.setData({ loading: false });
+				}
+			});
 	},
 
 	/** 将服务端列表与本地选择合并；失效的本地选择回退到列表第一项。 */
@@ -111,9 +134,17 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。 */
 	onSyncPatients(): void {
+		const dataToken = directoryDataGuard.begin();
+		const syncToken = syncGuard.begin();
 		this.setData({ syncing: true, error: "" });
 		syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
 			.then((patients) => {
+				if (
+					!directoryDataGuard.isCurrent(dataToken) ||
+					!syncGuard.isCurrent(syncToken)
+				) {
+					return;
+				}
 				this.setPatientList(patients);
 				if (patients.length === 0) {
 					this.showError(
@@ -124,8 +155,16 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 					);
 				}
 			})
-			.catch((error) => this.showError(error, "就诊人同步失败"))
-			.finally(() => this.setData({ syncing: false }));
+			.catch((error) => {
+				if (syncGuard.isCurrent(syncToken)) {
+					this.showError(error, "就诊人同步失败");
+				}
+			})
+			.finally(() => {
+				if (syncGuard.isCurrent(syncToken)) {
+					this.setData({ syncing: false });
+				}
+			});
 	},
 
 	onPullDownRefresh(): void {

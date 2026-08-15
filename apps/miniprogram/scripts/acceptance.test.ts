@@ -12,6 +12,7 @@ import {
 	createUpcomingDateRange,
 	formatPlatformDate,
 } from "../src/services/dashboard-service";
+import { createLatestRequestGuard } from "../src/services/latest-request-guard";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
 
@@ -411,6 +412,31 @@ test("dashboard service calculates local platform date windows", () => {
 		startDate: "2026-08-15",
 		endDate: "2026-08-22",
 	});
+});
+
+test("page request guard only permits the latest patient read to update state", () => {
+	const guard = createLatestRequestGuard();
+	const first = guard.begin();
+	const second = guard.begin();
+
+	expect(guard.isCurrent(first)).toBe(false);
+	expect(guard.isCurrent(second)).toBe(true);
+});
+
+test("patient-scoped pages guard stale asynchronous responses", async () => {
+	const records = await source(
+		"pages/appointment-records/appointment-records.ts",
+	);
+	const reports = await source("pages/report-directory/report-directory.ts");
+	const payments = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const selection = await source("pages/patient-select/patient-select.ts");
+
+	for (const page of [records, reports, payments, selection]) {
+		expect(page).toContain("createLatestRequestGuard");
+		expect(page).toContain("isCurrent");
+	}
 });
 
 test("native page delegates token state to the session service", async () => {

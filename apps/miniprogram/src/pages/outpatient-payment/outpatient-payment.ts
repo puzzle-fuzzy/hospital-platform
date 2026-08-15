@@ -7,6 +7,7 @@ import {
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -16,7 +17,7 @@ import type {
 
 type OutpatientPaymentPageMethods = {
 	loadPage(): Promise<void>;
-	loadRecords(patient: Patient): Promise<void>;
+	loadRecords(patient: Patient, requestToken?: number): Promise<void>;
 	onStatusTap(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
 	onRecordTap(): void;
@@ -26,6 +27,7 @@ type OutpatientPaymentPageMethods = {
 };
 
 let isFirstShow = true;
+const loadGuard = createLatestRequestGuard();
 
 Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	data: {
@@ -51,9 +53,17 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 
 	/** 先确认当前患者归属，再读取门诊费用，避免把 provider patId 交给页面。 */
 	loadPage(): Promise<void> {
-		this.setData({ loading: true, error: "" });
+		const requestToken = loadGuard.begin();
+		// 患者切换期间不展示上一位患者的费用，避免身份和金额短暂错配。
+		this.setData({
+			loading: true,
+			error: "",
+			selectedPatient: null,
+			items: [],
+		});
 		return loadPatients()
 			.then((patients) => {
+				if (!loadGuard.isCurrent(requestToken)) return;
 				const selectedId = getSelectedPatientId();
 				const patient =
 					patients.find((item) => item.id === selectedId) ?? patients[0];
@@ -64,22 +74,32 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				}
 				setSelectedPatientId(patient.id);
 				this.setData({ selectedPatient: patient });
-				return this.loadRecords(patient);
+				return this.loadRecords(patient, requestToken);
 			})
-			.catch((error) => this.showError(error, "门诊缴费记录加载失败"))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (loadGuard.isCurrent(requestToken)) {
+					this.showError(error, "门诊缴费记录加载失败");
+				}
+			})
+			.finally(() => {
+				if (loadGuard.isCurrent(requestToken)) this.setData({ loading: false });
+			});
 	},
 
-	loadRecords(patient: Patient): Promise<void> {
+	loadRecords(
+		patient: Patient,
+		requestToken = loadGuard.begin(),
+	): Promise<void> {
 		return loadOutpatientPaymentRecords(
 			patient.id,
 			this.data.activeStatus,
-		).then((items) =>
+		).then((items) => {
+			if (!loadGuard.isCurrent(requestToken)) return;
 			this.setData({
 				items: items.map((item) => this.toView(item)),
 				error: "",
-			}),
-		);
+			});
+		});
 	},
 
 	/** 切换待缴费/已缴费时只请求当前患者和当前状态。 */
@@ -87,14 +107,21 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		const status = event.currentTarget?.dataset?.status;
 		if (status !== "unpaid" && status !== "paid") return;
 		if (status === this.data.activeStatus) return;
+		const requestToken = loadGuard.begin();
 		this.setData({ activeStatus: status, loading: true, error: "", items: [] });
 		if (!this.data.selectedPatient) {
 			this.setData({ loading: false });
 			return;
 		}
-		this.loadRecords(this.data.selectedPatient).finally(() =>
-			this.setData({ loading: false }),
-		);
+		this.loadRecords(this.data.selectedPatient, requestToken)
+			.catch((error) => {
+				if (loadGuard.isCurrent(requestToken)) {
+					this.showError(error, "门诊缴费记录加载失败");
+				}
+			})
+			.finally(() => {
+				if (loadGuard.isCurrent(requestToken)) this.setData({ loading: false });
+			});
 	},
 
 	onChangePatient(): void {

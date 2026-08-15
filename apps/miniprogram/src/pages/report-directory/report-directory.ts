@@ -4,6 +4,7 @@ import {
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	Report,
 	ReportDirectoryPageData,
@@ -35,6 +36,7 @@ type ReportDirectoryPageMethods = {
 };
 
 let isFirstShow = true;
+const loadGuard = createLatestRequestGuard();
 
 Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	data: {
@@ -64,9 +66,21 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 
 	/** 先确认 owner-scoped 患者，再读取平台报告目录；页面不接触 provider 患者号。 */
 	loadPage(): Promise<void> {
-		this.setData({ loading: true, error: "" });
+		const requestToken = loadGuard.begin();
+		// 切换患者后先清掉旧患者的结果，避免新请求期间出现患者和列表不一致。
+		this.setData({
+			loading: true,
+			error: "",
+			selectedPatient: null,
+			reports: [],
+			visibleReports: [],
+			reportCount: 0,
+			visibleReportCount: 0,
+			hasMoreReports: false,
+		});
 		return loadPatients()
 			.then((patients) => {
+				if (!loadGuard.isCurrent(requestToken)) return undefined;
 				const selectedId = getSelectedPatientId();
 				const patient =
 					patients.find((item) => item.id === selectedId) ?? patients[0];
@@ -80,6 +94,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				return loadReports(patient.id);
 			})
 			.then((payload) => {
+				if (!payload || !loadGuard.isCurrent(requestToken)) return;
 				const reports = payload.items.map((report) => this.toView(report));
 				const visibleReportCount = Math.min(REPORT_PAGE_SIZE, reports.length);
 				this.setData({
@@ -91,8 +106,14 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 					error: "",
 				});
 			})
-			.catch((error) => this.showError(error, "报告目录加载失败"))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (loadGuard.isCurrent(requestToken)) {
+					this.showError(error, "报告目录加载失败");
+				}
+			})
+			.finally(() => {
+				if (loadGuard.isCurrent(requestToken)) this.setData({ loading: false });
+			});
 	},
 
 	onChangePatient(): void {

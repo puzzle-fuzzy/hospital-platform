@@ -29,17 +29,101 @@ export type OutpatientPaymentServiceDependencies = {
 	now?: () => Date;
 };
 
-function providerDateTime(value: Date): string {
+/** 众阳门诊接口使用中国标准时间，不得继承 systemd 进程的本地时区。 */
+const OUTPATIENT_PROVIDER_TIME_ZONE = "Asia/Shanghai";
+const CALENDAR_DAY_MS = 24 * 60 * 60 * 1000;
+
+type ProviderDateTimeParts = {
+	year: number;
+	month: number;
+	day: number;
+	hour: number;
+	minute: number;
+	second: number;
+};
+
+/**
+ * 将绝对时间读取为 provider 的本地日历字段。
+ *
+ * 不能使用 `getFullYear()` / `getHours()`：它们读取的是服务器进程时区。
+ * 生产机时区改成 UTC 后，门诊最近 30 天窗口会整体偏移，跨日时直接造成
+ * 漏单或多查。这里把 provider 时区写成业务常量，让部署环境不会改变请求语义。
+ */
+function providerDateTimeParts(value: Date): ProviderDateTimeParts {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: OUTPATIENT_PROVIDER_TIME_ZONE,
+		calendar: "gregory",
+		numberingSystem: "latn",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hourCycle: "h23",
+	}).formatToParts(value);
+	const values = Object.fromEntries(
+		parts
+			.filter(({ type }) => type !== "literal")
+			.map(({ type, value: partValue }) => [type, Number(partValue)]),
+	);
+	const requiredPart = (name: keyof ProviderDateTimeParts): number => {
+		const value = values[name];
+		if (typeof value !== "number" || !Number.isInteger(value)) {
+			throw new Error(`Unable to format outpatient provider ${name}`);
+		}
+		return value;
+	};
+	const result: ProviderDateTimeParts = {
+		year: requiredPart("year"),
+		month: requiredPart("month"),
+		day: requiredPart("day"),
+		hour: requiredPart("hour"),
+		minute: requiredPart("minute"),
+		second: requiredPart("second"),
+	};
+	return result;
+}
+
+function formatProviderDateTime(parts: ProviderDateTimeParts): string {
 	const pad = (part: number) => String(part).padStart(2, "0");
-	return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+	return `${parts.year}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
+}
+
+/**
+ * 按 provider 的“日历天”回退，而不是按服务器本地时区调用 setDate。
+ * Asia/Shanghai 没有夏令时，使用 UTC 伪时间轴只做日期算术，最后仍输出
+ * 已经解析好的中国标准时间字段，避免 Date 的隐式时区转换重新污染结果。
+ */
+function subtractProviderCalendarDays(
+	parts: ProviderDateTimeParts,
+	days: number,
+): ProviderDateTimeParts {
+	const pseudoUtc = Date.UTC(
+		parts.year,
+		parts.month - 1,
+		parts.day,
+		parts.hour,
+		parts.minute,
+		parts.second,
+	);
+	const shifted = new Date(pseudoUtc - days * CALENDAR_DAY_MS);
+	return {
+		year: shifted.getUTCFullYear(),
+		month: shifted.getUTCMonth() + 1,
+		day: shifted.getUTCDate(),
+		hour: shifted.getUTCHours(),
+		minute: shifted.getUTCMinutes(),
+		second: shifted.getUTCSeconds(),
+	};
 }
 
 function queryWindow(now: Date): { startTime: string; endTime: string } {
-	const start = new Date(now);
-	start.setDate(start.getDate() - 30);
+	const end = providerDateTimeParts(now);
+	const start = subtractProviderCalendarDays(end, 30);
 	return {
-		startTime: providerDateTime(start),
-		endTime: providerDateTime(now),
+		startTime: formatProviderDateTime(start),
+		endTime: formatProviderDateTime(end),
 	};
 }
 
