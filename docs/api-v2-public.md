@@ -68,7 +68,8 @@ Content-Type: application/json
 同步，不代表新增或绑定了患者。同步成功后，服务端在事务中恢复本次出现的患者为 active，
 并将同一 owner/provider 目录中本次未出现的患者标记为 inactive；历史业务引用保留，内部
 `patientId` 不更换。只有 provider adapter 确认返回完整目录时才允许这一步，分页结果必须先
-在 adapter 内合并。订单创建和微信预支付的幂等键分别独立，不能混用。
+在 adapter 内合并。`observedAt` 在 provider 请求发起前采样，较早请求晚返回时不能覆盖
+较新的患者资料、临床引用或 active 状态。订单创建和微信预支付的幂等键分别独立，不能混用。
 
 ### 2.3 日期、金额和标识
 

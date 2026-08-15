@@ -69,6 +69,17 @@ function unusedReportService(): ReportService {
 	});
 }
 
+/** 将 Elysia 内部路径映射为文档中的公网版本路径，避免接口新增后漏改文档。 */
+function publicPathForDocumentation(internalPath: string): string {
+	if (internalPath.startsWith("/api/v1")) {
+		return `/api/v2${internalPath.slice("/api/v1".length)}`;
+	}
+	if (internalPath.startsWith("/health/")) {
+		return `/api/v2${internalPath}`;
+	}
+	return internalPath;
+}
+
 test("liveness endpoint returns a contract response", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/health/live"),
@@ -129,6 +140,24 @@ test("OpenAPI route inventory matches the current public application surface", a
 
 	expect(response.status).toBe(200);
 	expect(Object.keys(document.paths).sort()).toEqual(expectedPaths);
+});
+
+test("public API documentation covers every registered OpenAPI path", async () => {
+	const [openApiResponse, documentation] = await Promise.all([
+		createApp().handle(new Request("http://localhost/openapi/json")),
+		Bun.file(join(import.meta.dir, "../../../docs/api-v2-public.md")).text(),
+	]);
+	const document = (await openApiResponse.json()) as {
+		paths: Record<string, unknown>;
+	};
+
+	// OpenAPI 只描述实际注册的患者端路由；每条内部路径都必须能在公网
+	// `/api/v2` 文档中找到，防止实现、Nginx 路径和维护文档逐渐漂移。
+	for (const internalPath of Object.keys(document.paths)) {
+		expect(documentation).toContain(
+			`\`${publicPathForDocumentation(internalPath)}\``,
+		);
+	}
 });
 
 test("public API documentation lists every stable public error code", async () => {
