@@ -55,6 +55,18 @@ export type ProviderConfigurationStatus =
 	| "configured"
 	| "incomplete";
 
+/** 供启动 preflight 展示的 provider 配置诊断；missingFields 只包含环境变量名。 */
+export type ProviderConfigurationDiagnostic = {
+	name:
+		| "wechat-identity"
+		| "wechat-payment"
+		| "zhongyang-patient-directory"
+		| "zhongyang-appointment-directory"
+		| "zhongyang-report-directory";
+	status: ProviderConfigurationStatus;
+	missingFields: readonly string[];
+};
+
 type RequiredRuntimeField = {
 	name: string;
 	value: string | undefined;
@@ -224,6 +236,44 @@ export function reportDirectoryConfigurationStatus(
 	return reportDirectoryConfigurationMissingFields(runtimeConfig).length === 0
 		? "configured"
 		: "incomplete";
+}
+
+/**
+ * 汇总所有已建配置闸门，供 API/worker preflight 复用同一套规则。
+ * configured 只代表字段齐全；真实 provider 权限和联调仍必须单独验收。
+ */
+export function providerConfigurationDiagnostics(
+	runtimeConfig: RuntimeConfig,
+): readonly ProviderConfigurationDiagnostic[] {
+	const entries = [
+		{
+			name: "wechat-identity" as const,
+			status: wechatIdentityConfigurationStatus(runtimeConfig),
+			missingFields: wechatIdentityConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "wechat-payment" as const,
+			status: wechatPaymentConfigurationStatus(runtimeConfig),
+			missingFields: wechatPaymentConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-patient-directory" as const,
+			status: patientDirectoryConfigurationStatus(runtimeConfig),
+			missingFields: patientDirectoryConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-appointment-directory" as const,
+			status: appointmentDirectoryConfigurationStatus(runtimeConfig),
+			missingFields:
+				appointmentDirectoryConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-report-directory" as const,
+			status: reportDirectoryConfigurationStatus(runtimeConfig),
+			missingFields: reportDirectoryConfigurationMissingFields(runtimeConfig),
+		},
+	] satisfies readonly ProviderConfigurationDiagnostic[];
+	return entries;
 }
 
 type RuntimeEnv = Record<string, string | undefined>;

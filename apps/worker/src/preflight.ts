@@ -1,4 +1,8 @@
-import { config as defaultConfig, type RuntimeConfig } from "@hospital/config";
+import {
+	config as defaultConfig,
+	providerConfigurationDiagnostics,
+	type RuntimeConfig,
+} from "@hospital/config";
 import {
 	createLogger,
 	createNoopLogger,
@@ -46,6 +50,21 @@ export async function runWorkerPreflight(
 		...(missingConfiguration.length > 0
 			? { details: missingConfiguration }
 			: {}),
+	});
+
+	const providerDiagnostics = providerConfigurationDiagnostics(runtimeConfig);
+	const incompleteProviders = providerDiagnostics.filter(
+		(provider) => provider.status === "incomplete",
+	);
+	checks.push({
+		name: "provider-configuration",
+		status: incompleteProviders.length === 0 ? "passed" : "failed",
+		details: providerDiagnostics.flatMap((provider) => [
+			`${provider.name}:${provider.status}`,
+			...provider.missingFields.map(
+				(field) => `${provider.name}:missing=${field}`,
+			),
+		]),
 	});
 
 	const persistence = createPersistenceRuntime({

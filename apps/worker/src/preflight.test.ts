@@ -23,4 +23,38 @@ test("runtime preflight fails closed without configuration and does not need inf
 		status: "skipped",
 		details: ["mysql-not-ready"],
 	});
+	expect(result.checks).toContainEqual({
+		name: "provider-configuration",
+		status: "passed",
+		details: [
+			"wechat-identity:disabled",
+			"wechat-payment:disabled",
+			"zhongyang-patient-directory:disabled",
+			"zhongyang-appointment-directory:disabled",
+			"zhongyang-report-directory:disabled",
+		],
+	});
+});
+
+test("runtime preflight fails an explicitly opened but incomplete provider gate", async () => {
+	const result = await runWorkerPreflight({
+		runtimeConfig: loadRuntimeConfig({
+			ZHONGYANG_REPORT_DIRECTORY_READY: "true",
+			ZHONGYANG_PATIENT_DIRECTORY_BASE_URL: "http://provider.internal",
+		}),
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks).toContainEqual({
+		name: "provider-configuration",
+		status: "failed",
+		details: [
+			"wechat-identity:disabled",
+			"wechat-payment:disabled",
+			"zhongyang-patient-directory:disabled",
+			"zhongyang-appointment-directory:disabled",
+			"zhongyang-report-directory:incomplete",
+			"zhongyang-report-directory:missing=ZHONGYANG_PATIENT_DIRECTORY_BASE_URL(https)",
+		],
+	});
 });
