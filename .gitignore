@@ -11,4 +11,7 @@ coverage/
 .vscode/
 apps/miniprogram/dist/
 # 微信开发者工具的个人设置可能包含本机路径和开发者状态，不进入版本库。
+apps/miniprogram/project.private.config.json
 apps/miniprogram/src/project.private.config.json
+# 开发者工具可能在小程序根目录下生成旧版配置副本，公共配置以根目录 project.config.json 为准。
+apps/miniprogram/src/project.config.json

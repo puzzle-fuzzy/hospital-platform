@@ -52,11 +52,7 @@ test("native client sends request ids for Pino HTTP correlation", async () => {
 
 test("native client keeps health checks behind the versioned public prefix", () => {
 	expect(
-		buildApiRequestUrl(
-			"https://test-hp.meiyi.pro",
-			"/api/v2",
-			"/health/live",
-		),
+		buildApiRequestUrl("https://test-hp.meiyi.pro", "/api/v2", "/health/live"),
 	).toBe("https://test-hp.meiyi.pro/api/v2/health/live");
 });
 
@@ -180,6 +176,7 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(homeTemplate).toContain("quick-banner");
 	expect(homeTemplate).toContain("service-tabs-shell");
 	expect(homeTemplate).toContain("legacy-tabbar");
+	expect(homeTemplate).toContain("微信已登录");
 	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");
 	expect(homeTemplate.indexOf('class="error-message"')).toBeGreaterThanOrEqual(
 		0,

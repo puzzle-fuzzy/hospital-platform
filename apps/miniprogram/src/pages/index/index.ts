@@ -185,13 +185,14 @@ type IndexPageMethods = {
 	executeQuickAction(action?: string): void;
 	onServiceTabChange(event: IndexEvent): void;
 	onServiceItemTap(event: ActionEvent): void;
-	loadPatients(): Promise<void>;
-	onSyncPatients(): void;
+	loadPatients(): Promise<Array<Patient>>;
+	onSyncPatients(): Promise<Array<Patient>>;
 	onLoadAppointments(): void;
 	onRefresh(): void;
 	onPullDownRefresh(): void;
 	onLoadReports(): void;
 	onLoadAppointmentRecords(): void;
+	loadAppointmentRecordsForPatient(patientId: string): void;
 	onSelectReport(event: ReportEvent): void;
 	onSelectPatient(event: PatientEvent): void;
 	showError(error: unknown, fallback: string): void;
@@ -265,7 +266,15 @@ Page<IndexPageData, IndexPageMethods>({
 		signInPlatformSession()
 			.then(() => {
 				this.setData({ sessionStatus: SESSION_LABELS.signedIn });
+				// wx.login 是静默的 code 交换；用成功提示让用户知道平台会话已建立，
+				// 不额外索取与医疗业务无关的头像和昵称权限。
+				wx.showToast({ title: "微信登录成功", icon: "success" });
 				return this.loadPatients();
+			})
+			.then((patients) => {
+				// 登录后如果服务端还没有本地患者映射，主动执行一次只读同步，
+				// 避免用户必须重复点击“新增就诊人”才能触发 provider 查询。
+				return patients.length > 0 ? patients : this.onSyncPatients();
 			})
 			.catch((error) => this.showError(error, "登录失败"))
 			.finally(() => this.setData({ loading: false }));
@@ -274,7 +283,11 @@ Page<IndexPageData, IndexPageMethods>({
 	/** 顶部就诊人卡片的主动作：未登录先登录，已有患者则执行服务端同步。 */
 	onHeroAction() {
 		if (!this.data.hasPatients) {
-			this.onLogin();
+			if (hasPlatformSession()) {
+				this.onSyncPatients();
+			} else {
+				this.onLogin();
+			}
 			return;
 		}
 		if (this.data.patients.length < 2) {
@@ -356,21 +369,40 @@ Page<IndexPageData, IndexPageMethods>({
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
-	loadPatients(): Promise<void> {
-		return loadPatients()
-			.then((patients) => this.setPatientsFromPayload(patients))
-			.catch((error) => this.showError(error, "就诊人加载失败"));
+	loadPatients(): Promise<Array<Patient>> {
+		return loadPatients().then((patients) => {
+			this.setPatientsFromPayload(patients);
+			return patients;
+		});
 	},
 
-	onSyncPatients() {
+	onSyncPatients(): Promise<Array<Patient>> {
 		this.setData({ syncingPatients: true, error: "" });
-		syncPatientsFromHospital(`patient-sync-${Date.now()}`)
-			.then((patients) => this.setPatientsFromPayload(patients))
-			.catch((error) => this.showError(error, "就诊人同步失败"))
+		return syncPatientsFromHospital(`patient-sync-${Date.now()}`)
+			.then((patients) => {
+				this.setPatientsFromPayload(patients);
+				if (patients.length === 0) {
+					this.showError(
+						new ApiError("当前微信账号暂无绑定的就诊人", {
+							code: "patient-not-bound",
+						}),
+						"就诊人同步失败",
+					);
+				}
+				return patients;
+			})
+			.catch((error) => {
+				this.showError(error, "就诊人同步失败");
+				return [];
+			})
 			.finally(() => this.setData({ syncingPatients: false }));
 	},
 
 	onLoadAppointments() {
+		if (!hasPlatformSession()) {
+			this.onLogin();
+			return;
+		}
 		this.setData({ loadingAppointments: true, error: "" });
 		loadAppointmentDirectory()
 			.then(({ departments, schedules }) => {
@@ -380,6 +412,14 @@ Page<IndexPageData, IndexPageMethods>({
 					hasAppointmentData: departments.length > 0 || schedules.length > 0,
 					error: "",
 				});
+				wx.showModal({
+					title: "预约目录",
+					content:
+						departments.length || schedules.length
+							? `已读取 ${departments.length} 个科室、${schedules.length} 个排班。预约下单功能仍在迁移中。`
+							: "当前暂无可预约的科室或排班。",
+					showCancel: false,
+				});
 			})
 			.catch((error) => this.showError(error, "预约目录加载失败"))
 			.finally(() => this.setData({ loadingAppointments: false }));
@@ -387,7 +427,11 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onRefresh() {
 		this.checkHealth();
-		if (hasPlatformSession()) this.loadPatients();
+		if (hasPlatformSession()) {
+			this.loadPatients().catch((error) =>
+				this.showError(error, "就诊人刷新失败"),
+			);
+		}
 	},
 
 	onPullDownRefresh() {
@@ -396,6 +440,10 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onLoadReports() {
+		if (!hasPlatformSession()) {
+			this.onLogin();
+			return;
+		}
 		const patient = this.getSelectedPatient();
 		if (!patient || typeof patient.id !== "string" || !patient.id) {
 			this.showError(new ApiError("请先登录并选择就诊人"), "报告加载失败");
@@ -416,13 +464,29 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onLoadAppointmentRecords() {
-		const patient = this.getSelectedPatient();
-		if (!patient || typeof patient.id !== "string" || !patient.id) {
-			this.showError(new ApiError("请先登录并选择就诊人"), "预约记录加载失败");
+		if (!hasPlatformSession()) {
+			this.onLogin();
 			return;
 		}
+		const patient = this.getSelectedPatient();
+		if (!patient || typeof patient.id !== "string" || !patient.id) {
+			// 当前会话存在但页面尚未拿到患者时，先同步一次服务端目录，
+			// 避免把“已登录但未加载患者”误报成“未登录”。
+			this.onSyncPatients().then((patients) => {
+				const firstPatient = patients[0];
+				if (typeof firstPatient?.id === "string" && firstPatient.id) {
+					this.loadAppointmentRecordsForPatient(firstPatient.id);
+				}
+			});
+			return;
+		}
+		this.loadAppointmentRecordsForPatient(patient.id);
+	},
+
+	/** 预约历史只接受服务端内部 patientId，并集中处理加载状态和空结果。 */
+	loadAppointmentRecordsForPatient(patientId: string): void {
 		this.setData({ loadingAppointmentRecords: true, error: "" });
-		loadAppointmentRecords(patient.id)
+		loadAppointmentRecords(patientId)
 			.then((appointmentRecords) =>
 				this.setData({
 					appointmentRecords,
@@ -474,7 +538,22 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	showError(error: unknown, fallback: string): void {
-		const message = error instanceof ApiError ? error.message : fallback;
+		let message = fallback;
+		if (error instanceof ApiError) {
+			if (error.code === "dependency-not-configured") {
+				message = fallback.includes("预约")
+					? "预约服务暂未配置完成，请联系管理员"
+					: fallback.includes("就诊人")
+						? "就诊人服务暂未配置完成，请联系管理员"
+						: "服务暂未配置完成，请联系管理员";
+			} else if (error.code === "patient-selection-required") {
+				message = "当前微信账号暂无已选择的就诊人，请先点击“新增就诊人”";
+			} else if (error.code === "patient-not-bound") {
+				message = "当前微信账号暂无绑定的就诊人";
+			} else {
+				message = error.message;
+			}
+		}
 		this.setData({ error: message });
 	},
 
