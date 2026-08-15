@@ -206,3 +206,27 @@ test("core migration contains the transaction-critical constraints", async () =>
 	expect(ownerScopeSql).toContain("fk_hp_quotes_owner_patient");
 	expect(ownerScopeSql).toContain("fk_hp_prepay_owner_order");
 });
+
+test("report reference migration keeps the owner and expiry boundary explicit", async () => {
+	const sql = await Bun.file(
+		new URL("../migrations/0009_report_references.sql", import.meta.url),
+	).text();
+	const normalizedSql = sql.replace(/\s+/g, " ");
+
+	// 0009 is deliberately checked separately because reportId is a client-visible
+	// opaque reference, while providerReportId must remain an owner-scoped server fact.
+	expect(normalizedSql).toContain(
+		"CREATE TABLE IF NOT EXISTS hp_report_references",
+	);
+	expect(normalizedSql).toContain("report_id VARCHAR(128) NOT NULL");
+	expect(normalizedSql).toContain("provider_report_id VARCHAR(256) NOT NULL");
+	expect(normalizedSql).toContain(
+		"UNIQUE KEY uq_hp_report_references_provider ( owner_user_id, patient_id, provider, kind, provider_report_id )",
+	);
+	expect(normalizedSql).toContain(
+		"KEY ix_hp_report_references_owner_expiry (owner_user_id, expires_at)",
+	);
+	expect(normalizedSql).toContain(
+		"CONSTRAINT fk_hp_report_references_owner_patient FOREIGN KEY (owner_user_id, patient_id) REFERENCES hp_patients (owner_user_id, patient_id)",
+	);
+});
