@@ -1,6 +1,7 @@
 import type {
 	AdapterCallContext,
 	AppointmentDepartment,
+	AppointmentDepartmentQuery,
 	AppointmentDirectoryGateway,
 	AppointmentProviderSchedule,
 	AppointmentRecord,
@@ -364,10 +365,17 @@ export class ZhongyangAppointmentApiGateway
 			: undefined;
 	}
 
-	async listDepartments(context: AdapterCallContext) {
+	async listDepartments(
+		input: AppointmentDepartmentQuery,
+		context: AdapterCallContext,
+	) {
 		const operation = "appointment-departments";
 		const url = new URL(DEPARTMENT_PATH, this.baseUrl);
 		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
+		// 众阳 AMC 的科室接口虽然返回科室列表，但仍要求带上有效的日期窗口；
+		// 日期由 API 服务端生成，不能让小程序拼接 provider 查询参数。
+		url.searchParams.set("startDate", input.startDate);
+		url.searchParams.set("endDate", input.endDate);
 		const headers = this.headers();
 		const response = await requestJson<unknown>(
 			{

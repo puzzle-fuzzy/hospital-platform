@@ -28,7 +28,7 @@ pnpm check
 必须确认：
 
 - Biome format/lint、所有 workspace typecheck、test 和 build 全部通过；
-- adapter 测试覆盖数组/包装响应、业务失败、字段白名单、日期参数和 provider 请求 id；
+- adapter 测试覆盖数组/包装响应、业务失败、科室与排班日期参数、字段白名单和 provider 请求 id；
 - 排班服务测试证明只读结果会写入带 `providerRequestId` 和 `expiresAt` 的短期服务端快照；快照不会自动开放预约写入；
 - API 测试证明公共 `scheduleId` 是平台 opaque 引用，provider `hisScheduleId` 不进入 response；
 - 预约记录测试证明服务端固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`，并丢弃预约号、患者身份、电话、费用和支付字段；
@@ -100,7 +100,7 @@ HTTPS 是硬条件：三个众阳 gate、微信身份和微信支付的自定义
 
 1. 登录和患者同步：确认 unionId 只来自服务端身份表；记录内部 `userId`、内部 `patientId`、traceId 和 provider request id，不记录 provider 患者号。
 2. 患者列表：确认响应只有内部 id、脱敏姓名/关系/卡号和 source。
-3. 预约科室和排班：确认服务端固定 `requestChannel=4`，日期范围和筛选字段只来自平台 query 白名单。
+3. 预约科室和排班：确认服务端固定 `requestChannel=4`；科室请求由服务端补齐未来 7 天日期窗口，排班日期范围和筛选字段只来自平台 query 白名单。
 4. 预约历史：确认服务端以内部 patientId 查映射，固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`；确认响应没有 `appointmentInfoId`、患者身份、电话、费用、支付和 HIS 字段。
 5. 报告目录：确认服务端以内部 patientId 查映射后分别读取 LIS/PACS/ECG；确认响应只有来源、标题、时间、状态和附件存在性。
 6. LIS 报告详情：先从报告目录取得 opaque `reportId`，再请求 `GET /api/v1/reports/:reportId`；确认服务端按 owner 和 TTL 查询，响应没有 provider 报告号、患者字段、文件 URL 或原始 JSON。

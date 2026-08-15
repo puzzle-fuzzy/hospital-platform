@@ -65,6 +65,45 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 	});
 });
 
+test("appointment department reads add the provider date window on the server", async () => {
+	let departmentInput: { startDate: string; endDate: string } | undefined;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async (input) => {
+				departmentInput = input;
+				return {
+					departments: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-departments",
+						requestId: "department-request-001",
+					},
+				};
+			},
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		now: () => new Date("2026-08-15T16:00:00.000Z"),
+	});
+
+	await expect(
+		service.listDepartments({
+			traceId: "department-trace-001",
+			idempotencyKey: "department-key-001",
+		}),
+	).resolves.toEqual({ items: [], total: 0 });
+	expect(departmentInput).toEqual({
+		startDate: "2026-08-16",
+		endDate: "2026-08-23",
+	});
+});
+
 test("snapshot persistence failure does not turn a read directory into fake success", async () => {
 	const schedule = {
 		departmentId: "dept-001",

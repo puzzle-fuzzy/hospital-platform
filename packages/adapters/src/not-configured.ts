@@ -40,7 +40,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		listByIdentity: async (_input, _context) => unavailable("zhongyang"),
 	};
 	const appointmentDirectory: AppointmentDirectoryGateway = {
-		listDepartments: async (_context) => unavailable("zhongyang"),
+		listDepartments: async (_input, _context) => unavailable("zhongyang"),
 		listSchedules: async (_input, _context) => unavailable("zhongyang"),
 	};
 	const appointmentRecords: AppointmentRecordDirectoryGateway = {

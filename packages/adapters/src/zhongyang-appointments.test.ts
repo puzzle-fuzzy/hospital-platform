@@ -33,10 +33,13 @@ test("众阳预约目录只返回科室白名单并固定服务端渠道", async
 		},
 	});
 
-	const result = await gateway.listDepartments(context);
+	const result = await gateway.listDepartments(
+		{ startDate: "2026-08-15", endDate: "2026-08-22" },
+		context,
+	);
 
 	expect(requestUrl).toBe(
-		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings/scheduling-depts?requestChannel=4",
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings/scheduling-depts?requestChannel=4&startDate=2026-08-15&endDate=2026-08-22",
 	);
 	expect(requestHeaders?.get("authorization")).toBe("Bearer server-token");
 	expect(requestHeaders?.get("x-request-id")).toBe(context.traceId);
@@ -135,7 +138,12 @@ test("众阳预约目录拒绝无法形成安全读模型的响应", async () =>
 			),
 	});
 
-	await expect(gateway.listDepartments(context)).rejects.toMatchObject({
+	await expect(
+		gateway.listDepartments(
+			{ startDate: "2026-08-15", endDate: "2026-08-22" },
+			context,
+		),
+	).rejects.toMatchObject({
 		name: "ProviderRequestError",
 		provider: "zhongyang",
 		operation: "appointment-departments",

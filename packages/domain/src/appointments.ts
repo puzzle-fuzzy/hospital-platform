@@ -1,5 +1,5 @@
-import type { AdapterCallContext, ExternalTrace } from "./ports";
 import { parseIsoCalendarDate } from "./date-range";
+import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 患者端可展示的科室最小读模型；provider 机构字段不直接透传。 */
 export type AppointmentDepartment = {
@@ -45,6 +45,12 @@ export type AppointmentScheduleQuery = {
 	departmentId?: string;
 	doctorId?: string;
 };
+
+/** 科室目录同样需要日期窗口，但不允许客户端直接透传 provider 参数。 */
+export type AppointmentDepartmentQuery = Pick<
+	AppointmentScheduleQuery,
+	"startDate" | "endDate"
+>;
 
 /**
  * 服务端观察到的排班快照。
@@ -188,7 +194,10 @@ export type AppointmentRecordDirectoryInput = {
 
 /** 预约读目录只允许通过服务端 provider adapter 访问。 */
 export interface AppointmentDirectoryGateway {
-	listDepartments(context: AdapterCallContext): Promise<{
+	listDepartments(
+		input: AppointmentDepartmentQuery,
+		context: AdapterCallContext,
+	): Promise<{
 		departments: readonly AppointmentDepartment[];
 		trace: ExternalTrace;
 	}>;

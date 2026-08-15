@@ -675,10 +675,12 @@ test("appointment directory keeps provider fields behind a server read model", a
 	const sessions = createInMemorySessionTokenService();
 	const identityUsers = createInMemoryIdentityUserRepository();
 	const identityGateway = createFixtureWechatIdentityGateway();
+	let departmentInput: Record<string, string | undefined> | undefined;
 	let scheduleInput: Record<string, string | undefined> | undefined;
 	let failDepartments = false;
 	const directory: AppointmentDirectoryGateway = {
-		listDepartments: async (context) => {
+		listDepartments: async (input, context) => {
+			departmentInput = input;
 			if (failDepartments) {
 				throw new ProviderRequestError({
 					provider: "zhongyang",
@@ -740,6 +742,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 			patients: new PatientService(createInMemoryPatientRepository()),
 			appointments: new AppointmentService({
 				directory,
+				now: () => new Date("2026-08-15T00:00:00.000Z"),
 				createScheduleId: () => "platform-schedule-001",
 			}),
 			reports: unusedReportService(),
@@ -793,6 +796,10 @@ test("appointment directory keeps provider fields behind a server read model", a
 
 	expect(loginResponse.status).toBe(200);
 	expect(departmentsResponse.status).toBe(200);
+	expect(departmentInput).toEqual({
+		startDate: "2026-08-15",
+		endDate: "2026-08-22",
+	});
 	expect(await departmentsResponse.json()).toEqual({
 		success: true,
 		data: {

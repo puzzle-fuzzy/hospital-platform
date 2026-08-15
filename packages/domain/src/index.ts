@@ -1,5 +1,6 @@
 export type {
 	AppointmentDepartment,
+	AppointmentDepartmentQuery,
 	AppointmentDirectoryGateway,
 	AppointmentProviderSchedule,
 	AppointmentRecord,

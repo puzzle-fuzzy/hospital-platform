@@ -5,6 +5,7 @@ import type {
 } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
+	type AppointmentDepartmentQuery,
 	type AppointmentDirectoryGateway,
 	type AppointmentProviderSchedule,
 	type AppointmentRecordDirectoryGateway,
@@ -13,8 +14,8 @@ import {
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
-	parseIsoCalendarDate,
 	type PatientRepository,
+	parseIsoCalendarDate,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
@@ -34,6 +35,10 @@ export type AppointmentServiceDependencies = {
 /** 防止小程序把 provider 排班接口当作无限范围的数据导出端点。 */
 const MAX_SCHEDULE_RANGE_DAYS = 31;
 const MAX_RECORD_RANGE_DAYS = 366;
+/** 众阳科室目录也要求日期窗口；平台固定为未来 7 天，避免无限查询。 */
+const APPOINTMENT_DIRECTORY_RANGE_DAYS = 7;
+/** 医院排班按中国标准时间计算，不能依赖服务器系统时区。 */
+const APPOINTMENT_PROVIDER_TIME_ZONE = "Asia/Shanghai";
 /** 排班快照只作为短期服务端观察事实，过期后不能授权后续写入。 */
 const SCHEDULE_SNAPSHOT_TTL_MS = 60_000;
 
@@ -89,6 +94,39 @@ function validateRecordQuery(input: AppointmentRecordQuery): void {
 }
 
 /**
+ * 生成 provider 所需的科室查询日期。
+ *
+ * 小程序只表达“打开预约目录”的意图，日期窗口由服务端统一生成；这样
+ * provider 合同变化时只修改业务服务，不让客户端携带内部查询约定。
+ */
+function createDepartmentQuery(now: Date): AppointmentDepartmentQuery {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: APPOINTMENT_PROVIDER_TIME_ZONE,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	}).formatToParts(now);
+	const values = Object.fromEntries(
+		parts
+			.filter(({ type }) => type !== "literal")
+			.map(({ type, value }) => [type, value]),
+	);
+	const startDate = `${values.year}-${values.month}-${values.day}`;
+	const startTimestamp = parseIsoCalendarDate(startDate);
+	if (startTimestamp === undefined) {
+		throw new AppointmentScheduleQueryError(
+			"Appointment directory date is invalid",
+		);
+	}
+	const endDate = new Date(
+		startTimestamp + APPOINTMENT_DIRECTORY_RANGE_DAYS * 24 * 60 * 60 * 1000,
+	)
+		.toISOString()
+		.slice(0, 10);
+	return { startDate, endDate };
+}
+
+/**
  * 预约目录应用服务。
  *
  * 这里只读 provider 的科室/排班目录，不接收 patientId、挂号费或支付状态；
@@ -109,16 +147,22 @@ export class AppointmentService {
 	async listDepartments(
 		context: AdapterCallContext,
 	): Promise<AppointmentDepartmentListPayload["data"]> {
+		const query = createDepartmentQuery(this.now());
 		this.logger.info(
 			{
 				event: "appointment.directory.departments.requested",
 				traceId: context.traceId,
 				provider: "zhongyang",
+				startDate: query.startDate,
+				endDate: query.endDate,
 			},
 			"Appointment department directory requested",
 		);
 		try {
-			const result = await this.dependencies.directory.listDepartments(context);
+			const result = await this.dependencies.directory.listDepartments(
+				query,
+				context,
+			);
 			this.logger.info(
 				{
 					event: "appointment.directory.departments.synced",

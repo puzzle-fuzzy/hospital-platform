@@ -35,7 +35,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 
 预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
 
-- `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts` 映射为科室读模型；
+- `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts` 映射为科室读模型；该接口虽然返回科室列表，仍要求 `requestChannel=4`、`startDate` 和 `endDate`，日期窗口由服务端固定为未来 7 天，不由小程序透传；
 - `/msun-middle-business-amc-server/v1/schedulings` 映射为排班、时间和号源数量读模型，服务端固定 `requestChannel=4`；
 - 新 API 不返回挂号费、医生电话/照片、provider 原始字段，也不允许小程序透传任意 query；预约写入、锁号、取消和支付仍等待完整 contract。
 - 预约目录使用独立的 `ZHONGYANG_APPOINTMENT_DIRECTORY_READY` gate；患者目录和预约目录共享连接配置，但必须分别完成合同与真实验收。
