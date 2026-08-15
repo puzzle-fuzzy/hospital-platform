@@ -113,6 +113,18 @@ test("native client reads report directories by internal patient id through the 
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native report count comes from the report directory total", async () => {
+	const service = await source("services/dashboard-service.ts");
+	const page = await source("pages/index/index.ts");
+	const detail = await source("pages/report-detail/report-detail.ts");
+
+	expect(service).toContain('Promise<ReportListResponse["data"]>');
+	expect(page).toContain("reportCount: reports.total");
+	expect(page).not.toContain("reportCount: 1");
+	expect(detail).toContain("parseReportCount");
+	expect(detail).not.toContain("reportCount: 1");
+});
+
 test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
 	const client = await source("services/api-client.ts");
 

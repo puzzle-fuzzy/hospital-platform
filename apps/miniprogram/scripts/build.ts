@@ -1,10 +1,10 @@
-import { cp, mkdir, rm } from "node:fs/promises";
+import { access } from "node:fs/promises";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
 const source = join(root, "src");
-const output = join(root, "dist");
-const staticFiles = [
+const projectConfigPath = join(root, "project.config.json");
+const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
@@ -15,7 +15,7 @@ const staticFiles = [
 	"pages/report-detail/report-detail.wxml",
 	"pages/report-detail/report-detail.wxss",
 ];
-const runtimeTypescriptFiles = [
+const requiredTypeScriptFiles = [
 	"app.ts",
 	"services/api-client.ts",
 	"services/dashboard-service.ts",
@@ -23,42 +23,41 @@ const runtimeTypescriptFiles = [
 	"pages/index/index.ts",
 	"pages/report-detail/report-detail.ts",
 ];
+const requiredAssetDirectories = ["assets"];
 
-// 每次构建先清理上次生成的 JS，防止 JS 改名为 TS 后残留旧入口，造成开发者工具加载到过期代码。
-await rm(output, { recursive: true, force: true });
-await mkdir(output, { recursive: true });
+/**
+ * 原生小程序不再生成第二套 dist 运行目录。
+ *
+ * 微信开发者工具通过仓库内公共 project.config.json 直接打开 src/，
+ * TypeScript 由官方编译插件处理，Bun 只负责仓库级类型检查与测试。
+ * 这样可以避免源码、Bun bundle 和开发者工具之间出现三套运行语义。
+ */
+const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
+	miniprogramRoot?: unknown;
+	setting?: { useCompilerPlugins?: unknown };
+};
 
-for (const file of staticFiles) {
-	const destination = join(output, file);
-	await mkdir(join(destination, ".."), { recursive: true });
-	await Bun.write(destination, Bun.file(join(source, file)));
+if (projectConfig.miniprogramRoot !== "src/") {
+	throw new Error("Mini program project.config.json must point to src/");
 }
 
-// 类型检查由 package 的 typecheck 脚本负责；Bun 构建器只做逐入口的 TypeScript
-// 转换和 CommonJS 输出，保留微信页面之间的原生模块边界，不把页面打成运行时框架。
-for (const file of runtimeTypescriptFiles) {
-	const destination = join(output, file.replace(/\.ts$/, ".js"));
-	await mkdir(join(destination, ".."), { recursive: true });
-	const result = await Bun.build({
-		entrypoints: [join(source, file)],
-		outdir: output,
-		naming: file.replace(/\.ts$/, ".js"),
-		target: "browser",
-		format: "cjs",
-		minify: false,
-		sourcemap: "none",
-	});
-	if (!result.success) {
-		throw new Error(`Mini program build failed for ${file}`);
-	}
+if (
+	!Array.isArray(projectConfig.setting?.useCompilerPlugins) ||
+	!projectConfig.setting.useCompilerPlugins.includes("typescript")
+) {
+	throw new Error(
+		"Mini program project.config.json must enable the TypeScript compiler plugin",
+	);
 }
 
-// 小程序页面使用的本地图片不经过网络请求；构建产物必须完整复制 assets，避免开发者工具或真机出现 404。
-await cp(join(source, "assets"), join(output, "assets"), {
-	recursive: true,
-	force: true,
-});
+for (const file of [...requiredStaticFiles, ...requiredTypeScriptFiles]) {
+	await access(join(source, file));
+}
+
+for (const directory of requiredAssetDirectories) {
+	await access(join(source, directory));
+}
 
 console.log(
-	`Native mini program built from TypeScript to CommonJS at ${output}`,
+	`Native mini program source is ready at ${source}; WeChat TypeScript compiler plugin is enabled`,
 );

@@ -10,8 +10,8 @@
 视觉复刻不等于开放业务能力：未完成的住院、便民、健康百科、支付、二维码、云影像和分享能力
 只保留原位置并给出迁移提示，不新增虚假成功路径或 provider 直连。
 
-这里保留原生微信小程序边界：WXML、WXSS、TypeScript 源码和微信原生 API；发布到开发者工具前由
-TypeScript 由构建脚本编译为微信兼容的 CommonJS 原生 JavaScript，不引入运行时框架。
+这里保留原生微信小程序边界：WXML、WXSS、TypeScript 源码和微信原生 API；微信开发者工具通过
+公共 `project.config.json` 启用官方 TypeScript 编译插件，不引入运行时框架或自定义运行时适配层。
 
 页面只能通过 `src/services/api-client.ts` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
@@ -39,8 +39,8 @@ TypeScript 由构建脚本编译为微信兼容的 CommonJS 原生 JavaScript，
 请阅读 [`docs/wechat-auth-login.md`](../docs/wechat-auth-login.md)。
 小程序始终只接收平台会话，不接收 openid、session_key、医保凭证或商户配置。
 
-构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，该命令先复制 WXML/WXSS/JSON 和
-`src/assets/`，再由 Bun 构建器把运行时 `src/**/*.ts` 逐入口转换为 `dist/**/*.js`。微信开发者工具必须打开完整的 `dist/` 小程序根目录；
-`src/` 是 TypeScript 源码目录，不作为真机运行目录，不能打开不包含 `app.json` 和 `assets/` 的上层目录。
-若刷新后仍请求旧地址，先重新构建并重新导入 `dist/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
+构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，该命令执行 TypeScript 类型检查并验证
+WXML/WXSS/JSON、`src/assets/` 和官方编译插件配置完整。微信开发者工具必须打开
+`apps/miniprogram/`，由公共 `project.config.json` 将 `src/` 作为唯一小程序根目录；不要打开历史的 `dist/` 目录。
+若刷新后仍请求旧地址，先重新执行构建并重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。

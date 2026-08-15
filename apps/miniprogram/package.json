@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "0.1.0",
 	"scripts": {
-		"build": "bun run scripts/build.ts",
+		"build": "bun run typecheck && bun run scripts/build.ts",
 		"dev": "pnpm build",
 		"test": "bun test scripts/acceptance.test.ts",
 		"typecheck": "tsc --noEmit"

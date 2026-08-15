@@ -156,7 +156,7 @@ migration 的持久化边界。
 - 患者列表的 owner 由服务端会话解析，小程序不提交 ownerUserId，也不接受 provider 原始身份字段；
 - 原生端页面只负责交互和状态；会话生命周期由 `session-service.ts` 管理，预约/报告日期窗口和读模型由
   `dashboard-service.ts` 编排，避免页面直接拼接 provider 参数；
-- 原生小程序业务源文件统一使用 TypeScript，`scripts/build.ts` 逐入口调用 Bun 构建器输出微信兼容的 CommonJS JavaScript 到 `apps/miniprogram/dist/`；微信开发者工具和真机只加载编译后的原生 JavaScript，`tsc --noEmit` 负责类型门禁；
+- 原生小程序业务源文件统一使用 TypeScript，`apps/miniprogram/project.config.json` 启用微信官方 TypeScript 编译插件并以 `src/` 为唯一运行根目录；Bun 只负责 `tsc --noEmit` 类型门禁和构建前静态资源完整性检查，不再生成第二套 CJS 运行目录；
 - 报告详情只接受服务端生成的 opaque `reportId`，只展示 LIS 白名单检测项；没有详情引用时保持摘要只读；
 - 当前首页只证明代码路径和 API contract 可用，不证明真实微信账号、HTTPS 域名、开发者工具或真机网络已验收。
 

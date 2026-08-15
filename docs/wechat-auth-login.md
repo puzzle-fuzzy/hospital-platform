@@ -103,7 +103,8 @@ GET /api/v2/health/ready
 
 ## 服务端环境变量
 
-环境文件只通过 SSH 写入：
+环境文件只通过 SSH 写入；推荐以仓库内 [`infra/systemd/api.env.example`](../infra/systemd/api.env.example)
+作为字段和中文注释模板，不把真实值写回仓库：
 
 ```text
 /home/ps/code/hospital-platform/shared/api.env
@@ -254,6 +255,7 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `apps/miniprogram/src/types.ts` | 小程序 API、会话、就诊人、预约、报告和支付类型 |
 | `apps/miniprogram/src/services/api-client.ts` | wx.login、版本前缀、token 保存和 requestId |
 | `apps/miniprogram/src/services/session-service.ts` | 会话恢复和登录状态 |
-| `apps/miniprogram/scripts/build.ts` | 逐入口调用 Bun 构建器，输出开发者工具使用的 CommonJS 原生 JavaScript |
+| `apps/miniprogram/project.config.json` | 指定 `src/` 为唯一小程序根目录并启用微信官方 TypeScript 编译插件 |
+| `apps/miniprogram/scripts/build.ts` | 构建前验证 TypeScript、页面静态资源和官方编译插件配置 |
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |

@@ -10,11 +10,20 @@ type ReportDetailPageMethods = {
 	showError(error: unknown): void;
 };
 
+/**
+ * 详情页的报告数量来自上一页已完成的目录查询；直接打开详情时不显示数量，
+ * 绝不使用一个看似正常但没有服务端依据的默认值。
+ */
+function parseReportCount(value: string | undefined): number {
+	const count = Number(value);
+	return Number.isSafeInteger(count) && count > 0 ? count : 0;
+}
+
 Page<ReportDetailPageData, ReportDetailPageMethods>({
 	data: {
 		loading: true,
 		title: "报告详情",
-		reportCount: 1,
+		reportCount: 0,
 		activeTab: "report",
 		reportedAt: "",
 		items: [],
@@ -25,6 +34,8 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 
 	onLoad(options: Record<string, string | undefined>): void {
 		const reportId = options?.reportId;
+		const reportCount = parseReportCount(options?.reportCount);
+		this.setData({ reportCount });
 		if (typeof reportId !== "string" || !reportId) {
 			this.showError(
 				new ApiError("报告详情引用无效", { code: "report-detail-id-missing" }),
@@ -43,7 +54,6 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 				const items = report.items || [];
 				this.setData({
 					title: report.title,
-					reportCount: 1,
 					reportedAt: report.reportedAt,
 					items,
 					hasItems: items.length > 0,

@@ -1,0 +1,22 @@
+{
+	"description": "高平医院原生微信小程序项目配置",
+	"compileType": "miniprogram",
+	"miniprogramRoot": "src/",
+	"projectname": "hospital-platform",
+	"appid": "wx4bc833cb3358c8d8",
+	"setting": {
+		"urlCheck": true,
+		"es6": true,
+		"enhance": true,
+		"postcss": true,
+		"minified": true,
+		"minifyWXML": true,
+		"minifyWXSS": true,
+		"uploadWithSourceMap": true,
+		"useCompilerPlugins": ["typescript"]
+	},
+	"packOptions": {
+		"ignore": [],
+		"include": []
+	}
+}

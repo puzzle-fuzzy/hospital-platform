@@ -15,7 +15,7 @@ import type {
 	AppointmentScheduleQuery,
 	HealthResponse,
 	Patient,
-	Report,
+	ReportListResponse,
 	ReportQuery,
 } from "../types";
 
@@ -136,10 +136,10 @@ export function loadAppointmentRecords(
 export function loadReports(
 	patientId: string,
 	now = new Date(),
-): Promise<Array<Report>> {
+): Promise<ReportListResponse["data"]> {
 	const range: ReportQuery = {
 		patientId: requirePatientId(patientId),
 		...createPastDateRange(DASHBOARD_DATE_RANGE_DAYS.reports, now),
 	};
-	return requestReports(range).then((payload) => payload.data.items);
+	return requestReports(range).then((payload) => payload.data);
 }

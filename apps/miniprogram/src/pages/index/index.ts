@@ -228,6 +228,8 @@ Page<IndexPageData, IndexPageMethods>({
 		hasAppointmentRecords: false,
 		loadingAppointmentRecords: false,
 		reports: [],
+		// 报告目录尚未加载时不展示数量，避免使用虚假的默认值。
+		reportCount: 0,
 		hasReports: false,
 		loadingReports: false,
 		error: "",
@@ -402,7 +404,12 @@ Page<IndexPageData, IndexPageMethods>({
 		this.setData({ loadingReports: true, error: "" });
 		loadReports(patient.id)
 			.then((reports) =>
-				this.setData({ reports, hasReports: reports.length > 0, error: "" }),
+				this.setData({
+					reports: reports.items,
+					reportCount: reports.total,
+					hasReports: reports.items.length > 0,
+					error: "",
+				}),
 			)
 			.catch((error) => this.showError(error, "报告目录加载失败"))
 			.finally(() => this.setData({ loadingReports: false }));
@@ -441,7 +448,7 @@ Page<IndexPageData, IndexPageMethods>({
 		}
 
 		wx.navigateTo({
-			url: `/pages/report-detail/report-detail?reportId=${encodeURIComponent(reportId)}`,
+			url: `/pages/report-detail/report-detail?reportId=${encodeURIComponent(reportId)}&reportCount=${this.data.reportCount}`,
 		});
 	},
 
@@ -460,6 +467,7 @@ Page<IndexPageData, IndexPageMethods>({
 			appointmentRecords: [],
 			hasAppointmentRecords: false,
 			reports: [],
+			reportCount: 0,
 			hasReports: false,
 			error: "",
 		});

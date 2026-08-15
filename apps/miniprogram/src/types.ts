@@ -148,6 +148,8 @@ export type IndexPageData = {
 	hasAppointmentRecords: boolean;
 	loadingAppointmentRecords: boolean;
 	reports: Array<Report>;
+	/** 报告数量来自服务端报告目录的 total；没有加载目录时保持 0。 */
+	reportCount: number;
 	hasReports: boolean;
 	loadingReports: boolean;
 	error: string;
