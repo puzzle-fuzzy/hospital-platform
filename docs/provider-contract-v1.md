@@ -113,6 +113,9 @@ Phase 6E-2/6E-3 已加入持久化驱动的查单补偿和通知消费核心：
 响应展开、元转分、6201 明细守恒、6202/6301 结算金额守恒、6203 退款边界和 6401 明确成功。
 5B-4 又增加了 `legacy-fsi-crypto.ts` 的严格 envelope port 和 fail-closed 默认实现，但
 SM2/SM3/SM4 尚未发送真实请求；正式实现必须先取得 golden vectors，并通过 sidecar 或验证过的
-Bun/Node 实现完成双向兼容测试。
+Bun/Node 实现完成双向兼容测试。`MedicalInsuranceGateway.settle/query` 的 port 现在都要求
+返回受限医保阶段、整数分金额和 trace；查单不能只返回状态，也不能把 6202/6301 的金额
+权威性留给调用方猜测。6201 的 payToken 只能由 adapter/服务端内部安全边界持有，不能伪装成
+客户端可用的 `feeUploadId`。
 
 参考：[微信支付 JSAPI/小程序下单](https://pay.wechatpay.cn/doc/v3/merchant/4012791856)、[APIv3 请求签名规则](https://pay.wechatpay.cn/doc/v3/merchant/4012365336)。

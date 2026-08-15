@@ -87,6 +87,8 @@ export type {
 	ExternalTrace,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
+	MedicalInsuranceSettlementEvidence,
+	MedicalInsuranceSettlementState,
 	PaymentOrderSnapshot,
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,

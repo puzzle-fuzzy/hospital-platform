@@ -6,7 +6,6 @@ import type {
 	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
-import type { PaymentState } from "@hospital/contracts";
 
 function trace(
 	provider: string,
@@ -61,10 +60,8 @@ export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway 
 			),
 		}),
 		settle: async (_input, context) => ({
-			state: "insurance_settled" as PaymentState,
-			totalFen: 10_000,
-			insuranceFen: 8_000,
-			cashFen: 2_000,
+			state: "insurance_settled",
+			amounts: { totalFen: 10_000, insuranceFen: 8_000, cashFen: 2_000 },
 			trace: trace(
 				"fixture-medical-insurance",
 				"6202",
@@ -73,7 +70,8 @@ export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway 
 			),
 		}),
 		query: async (_input, context) => ({
-			state: "insurance_settled" as PaymentState,
+			state: "insurance_settled",
+			amounts: { totalFen: 10_000, insuranceFen: 8_000, cashFen: 2_000 },
 			trace: trace(
 				"fixture-medical-insurance",
 				"6301",

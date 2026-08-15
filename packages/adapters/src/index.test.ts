@@ -33,13 +33,19 @@ test("fixture gateway exposes traceable synthetic responses", async () => {
 	);
 
 	expect(result.state).toBe("insurance_settled");
-	expect(result.totalFen).toBe(result.insuranceFen + result.cashFen);
+	expect(result.amounts.totalFen).toBe(
+		result.amounts.insuranceFen + result.amounts.cashFen,
+	);
 	expect(result.trace).toEqual({
 		provider: "fixture-medical-insurance",
 		operation: "6202",
 		requestId: "test-trace-001",
 		providerOrderId: "fixture-pay-001",
 	});
+
+	const queried = await gateway.query({ orderId: "order-001" }, context);
+	expect(queried.state).toBe("insurance_settled");
+	expect(queried.amounts).toEqual(result.amounts);
 });
 
 test("provider HTTP boundary adds trace and idempotency headers", async () => {
