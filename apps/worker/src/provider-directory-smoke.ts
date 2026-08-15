@@ -53,8 +53,14 @@ const SMOKE_REQUEST_TIMEOUT_MS = 15_000;
 
 /** 响应安全审计的禁止字段；匹配大小写不敏感并忽略下划线/短横线。 */
 const FORBIDDEN_RESPONSE_KEYS = new Set([
+	"provider",
+	"providerid",
 	"providerpatientid",
+	"providerscheduleid",
+	"providerrequestid",
 	"providerreportid",
+	"hisscheduleid",
+	"sourceid",
 	"appointmentinfoid",
 	"reportid",
 	"ecgreportid",

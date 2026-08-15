@@ -38,7 +38,7 @@ pnpm check
 ## B. API 层只读 smoke
 
 真实环境验收使用平台 API smoke，不允许验收脚本绕过 API 直接请求众阳。脚本只执行
-`GET`，默认要求 HTTPS，并检查平台响应不能包含 provider 患者号、预约号、报告号、费用、支付或原始字段：
+`GET`，默认要求 HTTPS，并检查平台响应不能包含 provider 患者号、排班/预约/报告引用、费用、支付或原始字段：
 
 ```powershell
 $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"

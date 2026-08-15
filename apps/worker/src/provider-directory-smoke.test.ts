@@ -107,6 +107,45 @@ test("provider directory smoke fails when a platform response contains a forbidd
 	});
 });
 
+test("provider directory smoke rejects leaked schedule provider references", async () => {
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["appointment-directory"],
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.includes("/appointments/departments")) {
+				return jsonResponse({ success: true, data: { items: [], total: 0 } });
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					items: [
+						{
+							scheduleId: "platform-schedule-001",
+							providerScheduleId: "provider-schedule-001",
+						},
+					],
+					total: 1,
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-1)).toEqual({
+		name: "appointment-schedules",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+	});
+});
+
 test("provider directory smoke does not treat not-ready as a successful health check", async () => {
 	const result = await runProviderDirectorySmoke({
 		baseUrl: "https://hospital.example.test",
