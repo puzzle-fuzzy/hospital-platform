@@ -1,5 +1,6 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
 import type {
+	PatientDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
@@ -43,6 +44,8 @@ export type ApplicationServiceOptions = {
 	identityGateway?: WechatIdentityGateway;
 	/** 只有完成微信支付商户配置和回调验收后才打开。 */
 	wechatPaymentGateway?: WechatPaymentGateway;
+	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
+	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 };
@@ -69,7 +72,10 @@ export function createDefaultApplicationServices(
 			identityUsers: repositories.identityUsers,
 			sessions,
 		}),
-		patients: new PatientService(repositories.patients),
+		patients: new PatientService(repositories.patients, {
+			identityUsers: repositories.identityUsers,
+			directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
+		}),
 		paymentOrders,
 		wechatPrepay: new WechatPrepayService({
 			orders: paymentOrders,

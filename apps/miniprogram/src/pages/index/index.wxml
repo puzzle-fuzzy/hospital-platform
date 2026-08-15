@@ -6,6 +6,7 @@
 		<view wx:if="{{service}}" class="line"><text class="label">服务</text><text>{{service}}</text></view>
 		<view class="line"><text class="label">会话</text><text>{{sessionStatus}}</text></view>
 		<button class="primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onLogin">微信登录并加载就诊人</button>
+		<button class="secondary" loading="{{syncingPatients}}" disabled="{{syncingPatients}}" bindtap="onSyncPatients">从医院同步就诊人</button>
 		<button class="secondary" bindtap="onRefresh">刷新</button>
 		<text wx:if="{{error}}" class="error">{{error}}</text>
 	</view>

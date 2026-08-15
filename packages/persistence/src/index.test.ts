@@ -47,6 +47,41 @@ test("in-memory repositories preserve owner isolation", async () => {
 	expect(await patients.listByOwner(first.userId)).toHaveLength(1);
 });
 
+test("in-memory patient directory upsert keeps a stable internal id", async () => {
+	const patients = createInMemoryPatientRepository();
+	const first = await patients.upsertFromDirectory({
+		ownerUserId: "user-001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******7890",
+		},
+	});
+	const refreshed = await patients.upsertFromDirectory({
+		ownerUserId: "user-001",
+		patientId: "must-not-replace-internal-id",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			displayName: "张三（更新）",
+			relationship: "self",
+			cardNumberMasked: "******0000",
+		},
+	});
+
+	expect(first.id).toBe("internal-patient-001");
+	expect(refreshed).toMatchObject({
+		id: "internal-patient-001",
+		displayName: "张三（更新）",
+		cardNumberMasked: "******0000",
+		source: "hospital-his",
+	});
+	expect(await patients.listByOwner("user-001")).toHaveLength(1);
+});
+
 test("in-memory payment repository enforces owner lookup", async () => {
 	const orders = createInMemoryPaymentOrderRepository([
 		{

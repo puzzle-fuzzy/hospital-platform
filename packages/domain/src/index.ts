@@ -9,6 +9,7 @@ export type {
 	IdentityUser,
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
+	PatientDirectoryUpsertInput,
 	PatientRecord,
 	PatientRelationship,
 	PatientRepository,

@@ -96,6 +96,35 @@ test("MySQL order insert commits order and outbox in one transaction", async () 
 	expect(state.values[1]?.[4]).toBe("2026-08-15 00:00:00.000");
 });
 
+test("MySQL patient directory upsert stores provider mapping but returns internal id", async () => {
+	const { pool, state } = createFakePool([[], { affectedRows: 1 }]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.upsertFromDirectory({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+			profile: {
+				providerPatientId: "provider-patient-001",
+				displayName: "张三",
+				relationship: "self",
+				cardNumberMasked: "******7890",
+			},
+		}),
+	).resolves.toEqual({
+		id: "internal-patient-001",
+		ownerUserId: "user-001",
+		displayName: "张三",
+		relationship: "self",
+		cardNumberMasked: "******7890",
+		source: "hospital-his",
+	});
+	expect(state.statements[0]).toContain("provider_patient_id = ?");
+	expect(state.statements[1]).toContain("INSERT INTO hp_patients");
+	expect(state.values[1]).toContain("provider-patient-001");
+});
+
 test("MySQL order update requires the expected version before writing its event", async () => {
 	const { pool, state } = createFakePool();
 	const repositories = createMySqlRepositories(pool);

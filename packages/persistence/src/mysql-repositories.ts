@@ -58,6 +58,8 @@ type PatientRow = RowDataPacket & {
 	relationship: string;
 	card_number_masked: string;
 	source: string;
+	provider_name: string | null;
+	provider_patient_id: string | null;
 };
 
 type PaymentQuoteRow = RowDataPacket & {
@@ -522,10 +524,79 @@ export function createMySqlRepositories(
 		async listByOwner(ownerUserId) {
 			const rows = await execute<PatientRow[]>(
 				pool,
-				"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source FROM hp_patients WHERE owner_user_id = ? ORDER BY patient_id",
+				"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? ORDER BY patient_id",
 				[ownerUserId],
 			);
 			return rows.map(patient);
+		},
+		async upsertFromDirectory(input) {
+			const selectByProvider =
+				"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND provider_name = ? AND provider_patient_id = ? LIMIT 1";
+			const existingRows = await execute<PatientRow[]>(pool, selectByProvider, [
+				input.ownerUserId,
+				input.provider,
+				input.profile.providerPatientId,
+			]);
+			if (existingRows[0]) {
+				const existing = existingRows[0];
+				const updatedAt = new Date();
+				await execute<ResultSetHeader>(
+					pool,
+					"UPDATE hp_patients SET display_name = ?, relationship = ?, card_number_masked = ?, updated_at = ? WHERE patient_id = ? AND owner_user_id = ?",
+					[
+						input.profile.displayName,
+						input.profile.relationship,
+						input.profile.cardNumberMasked,
+						mysqlDateTime(updatedAt),
+						existing.patient_id,
+						input.ownerUserId,
+					],
+				);
+				return patient({
+					...existing,
+					display_name: input.profile.displayName,
+					relationship: input.profile.relationship,
+					card_number_masked: input.profile.cardNumberMasked,
+					updated_at: mysqlDateTime(updatedAt),
+				});
+			}
+
+			const now = new Date();
+			try {
+				await execute<ResultSetHeader>(
+					pool,
+					"INSERT INTO hp_patients (patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					[
+						input.patientId,
+						input.ownerUserId,
+						input.profile.displayName,
+						input.profile.relationship,
+						input.profile.cardNumberMasked,
+						"hospital-his",
+						input.provider,
+						input.profile.providerPatientId,
+						mysqlDateTime(now),
+						mysqlDateTime(now),
+					],
+				);
+				return {
+					id: input.patientId,
+					ownerUserId: input.ownerUserId,
+					displayName: input.profile.displayName,
+					relationship: input.profile.relationship,
+					cardNumberMasked: input.profile.cardNumberMasked,
+					source: "hospital-his",
+				};
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const racedRows = await execute<PatientRow[]>(pool, selectByProvider, [
+					input.ownerUserId,
+					input.provider,
+					input.profile.providerPatientId,
+				]);
+				if (!racedRows[0]) throw error;
+				return patient(racedRows[0]);
+			}
 		},
 	};
 

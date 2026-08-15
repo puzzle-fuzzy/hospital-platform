@@ -13,7 +13,10 @@ import {
 	createInMemoryPaymentQuoteRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 } from "@hospital/persistence";
-import { PaymentOrderService } from "@hospital/domain";
+import {
+	PaymentOrderService,
+	type PatientDirectoryGateway,
+} from "@hospital/domain";
 import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
@@ -384,6 +387,141 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			status: "not_started",
 		},
 	});
+});
+
+test("patient sync resolves provider identity on the server and returns only internal fields", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const patientRepository = createInMemoryPatientRepository();
+	const identityGateway = createFixtureWechatIdentityGateway();
+	let directoryInput: { unionId: string } | undefined;
+	let directoryContext: { traceId: string; idempotencyKey: string } | undefined;
+	const directory: PatientDirectoryGateway = {
+		listByIdentity: async (input, context) => {
+			directoryInput = input;
+			directoryContext = context;
+			return {
+				patients: [
+					{
+						providerPatientId: "provider-patient-001",
+						displayName: "服务端同步患者",
+						relationship: "self",
+						cardNumberMasked: "******0001",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "provider-request-001",
+				},
+			};
+		},
+	};
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const services = {
+		auth: new AuthService({ identityGateway, identityUsers, sessions }),
+		patients: new PatientService(patientRepository, {
+			identityUsers,
+			directory,
+			logger,
+			createPatientId: () => "internal-patient-001",
+		}),
+		paymentOrders,
+		wechatPrepay: new WechatPrepayService({
+			orders: paymentOrders,
+			identityUsers,
+			attempts: createInMemoryPaymentPrepayAttemptRepository(),
+			wechatPayment: createFixtureWechatPaymentGateway(),
+		}),
+		wechatPaymentNotifications: unusedWechatNotificationService(),
+		sessions,
+	};
+	const app = createApp({ services, logger });
+
+	const loginResponse = await app.handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-request-id": "patient-login-trace",
+				"idempotency-key": "patient-login-key",
+			},
+			body: JSON.stringify({ code: "fixture-code" }),
+		}),
+	);
+	const loginBody = (await loginResponse.json()) as {
+		data: { accessToken: string };
+	};
+
+	const syncResponse = await app.handle(
+		new Request("http://localhost/api/v1/patients/sync", {
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${loginBody.data.accessToken}`,
+				"x-request-id": "patient-sync-trace",
+				"idempotency-key": "patient-sync-key",
+				"x-union-id": "attacker-controlled-union-id",
+			},
+		}),
+	);
+	const syncBody = (await syncResponse.json()) as {
+		success: boolean;
+		data: {
+			items: Array<Record<string, unknown>>;
+			total: number;
+		};
+	};
+	await flushAfterResponseHooks();
+
+	const syncLog = lines
+		.map((line) => JSON.parse(line) as Record<string, unknown>)
+		.find((record) => record.event === "patient.directory.synced");
+
+	expect(loginResponse.status).toBe(200);
+	expect(syncResponse.status).toBe(200);
+	expect(directoryInput).toEqual({ unionId: "fixture-unionid-001" });
+	expect(directoryContext).toEqual({
+		traceId: "patient-sync-trace",
+		idempotencyKey: "patient-sync-key",
+	});
+	expect(syncBody).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					id: "internal-patient-001",
+					displayName: "服务端同步患者",
+					relationship: "self",
+					cardNumberMasked: "******0001",
+					source: "hospital-his",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(JSON.stringify(syncBody)).not.toContain("provider-patient-001");
+	expect(syncLog).toMatchObject({
+		event: "patient.directory.synced",
+		traceId: "patient-sync-trace",
+		provider: "zhongyang",
+		providerRequestId: "provider-request-001",
+		patientCount: 1,
+	});
+	expect(syncLog?.unionId).toBeUndefined();
 });
 
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {

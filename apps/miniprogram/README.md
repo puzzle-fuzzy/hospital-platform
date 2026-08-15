@@ -4,7 +4,8 @@
 
 页面只能通过 `src/services/api-client.js` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
-当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复和服务端归属的就诊人列表。
+当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
+同步按钮只调用 `POST /api/v1/patients/sync`；unionId 从服务端会话解析，provider 患者号只在服务端映射表内使用。
 `api-client.js` 已封装 `requestWechatPrepay(orderId, idempotencyKey)`，只接收服务端生成的
 `payParams`；`launchWechatPayment` 只把白名单字段交给 `wx.requestPayment`，调起成功和取消都不会直接更新业务状态。
 页面仍需在订单状态为 `cash_pending` 时调用它，支付最终结果必须重新读取服务端订单状态。

@@ -31,6 +31,17 @@ test("native client requests server-generated prepay parameters", async () => {
 	expect(client).not.toContain("paySign =");
 });
 
+test("native client requests patient synchronization through the Hospital API", async () => {
+	const client = await source("services/api-client.js");
+	const page = await source("pages/index/index.js");
+
+	expect(client).toContain("syncPatients");
+	expect(client).toContain("/api/v1/patients/sync");
+	expect(page).toContain("onSyncPatients");
+	expect(page).not.toContain("unionId");
+	expect(page).not.toContain("providerPatientId");
+});
+
 test("native client only permits local HTTP or HTTPS API addresses", () => {
 	expect(isAllowedApiBaseUrl("http://127.0.0.1:3000")).toBe(true);
 	expect(isAllowedApiBaseUrl("http://localhost:3000/api")).toBe(true);

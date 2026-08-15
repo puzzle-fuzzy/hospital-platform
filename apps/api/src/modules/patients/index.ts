@@ -2,9 +2,17 @@ import { Elysia, t } from "elysia";
 import { PatientListResponse, success } from "@hospital/contracts";
 import type { PatientService } from "./service";
 import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import { adapterContextFromHeaders } from "../../plugins/request-context";
 
 const AuthorizationHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
+});
+
+/** 同步操作需要显式幂等上下文；unionId 不允许由小程序提交。 */
+const SyncPatientsHeaders = t.Object({
+	authorization: t.Optional(t.String({ maxLength: 512 })),
+	"idempotency-key": t.String({ minLength: 1, maxLength: 128 }),
+	"x-request-id": t.Optional(t.String({ maxLength: 128 })),
 });
 
 /** 患者档案读取入口；患者归属从 token 解析，路由不接受 ownerUserId 参数。 */
@@ -12,18 +20,42 @@ export function patientsModule(
 	patientService: PatientService,
 	sessions: SessionTokenService,
 ) {
-	return new Elysia({ name: "patients-module" }).get(
-		"/patients",
-		async ({ headers }) => {
-			const principal = await requirePrincipal(headers.authorization, sessions);
-			return success(await patientService.list(principal.userId));
-		},
-		{
-			headers: AuthorizationHeaders,
-			response: { 200: PatientListResponse },
-			tags: ["patients"],
-		},
-	);
+	return new Elysia({ name: "patients-module" })
+		.post(
+			"/patients/sync",
+			async ({ headers }) => {
+				const principal = await requirePrincipal(
+					headers.authorization,
+					sessions,
+				);
+				return success(
+					await patientService.sync(
+						principal.userId,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: SyncPatientsHeaders,
+				response: { 200: PatientListResponse },
+				tags: ["patients"],
+			},
+		)
+		.get(
+			"/patients",
+			async ({ headers }) => {
+				const principal = await requirePrincipal(
+					headers.authorization,
+					sessions,
+				);
+				return success(await patientService.list(principal.userId));
+			},
+			{
+				headers: AuthorizationHeaders,
+				response: { 200: PatientListResponse },
+				tags: ["patients"],
+			},
+		);
 }
 
 export { PatientService } from "./service";

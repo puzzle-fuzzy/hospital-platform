@@ -1,5 +1,6 @@
 import type {
 	IdentityUser,
+	PatientDirectoryUpsertInput,
 	PatientRecord,
 	PatientRepository,
 	PaymentOrder,
@@ -54,10 +55,35 @@ export function createInMemoryPatientRepository(
 	seed: readonly PatientRecord[] = [],
 ): PatientRepository {
 	const patients = [...seed];
+	const directoryIndex = new Map<string, string>();
+	const directoryKey = (input: PatientDirectoryUpsertInput) =>
+		`${input.ownerUserId}:${input.provider}:${input.profile.providerPatientId}`;
 
 	return {
 		async listByOwner(ownerUserId) {
 			return patients.filter((patient) => patient.ownerUserId === ownerUserId);
+		},
+		async upsertFromDirectory(input) {
+			const key = directoryKey(input);
+			const existingId = directoryIndex.get(key);
+			const existingIndex = existingId
+				? patients.findIndex((patient) => patient.id === existingId)
+				: -1;
+			const next: PatientRecord = {
+				id:
+					existingIndex >= 0
+						? (patients[existingIndex]?.id ?? input.patientId)
+						: input.patientId,
+				ownerUserId: input.ownerUserId,
+				displayName: input.profile.displayName,
+				relationship: input.profile.relationship,
+				cardNumberMasked: input.profile.cardNumberMasked,
+				source: "hospital-his",
+			};
+			if (existingIndex >= 0) patients[existingIndex] = next;
+			else patients.push(next);
+			directoryIndex.set(key, next.id);
+			return next;
 		},
 	};
 }
@@ -244,6 +270,9 @@ export function createNotConfiguredRepositories(): {
 		},
 		patients: {
 			listByOwner: async () => {
+				throw new PersistenceNotConfiguredError("patients");
+			},
+			upsertFromDirectory: async () => {
 				throw new PersistenceNotConfiguredError("patients");
 			},
 		},

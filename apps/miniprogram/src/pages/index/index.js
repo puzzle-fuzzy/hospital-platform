@@ -3,9 +3,11 @@ import {
 	login,
 	request,
 	requestWithSession,
+	syncPatients,
 } from "../../services/api-client";
 
 Page({
+	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, hasPatients: boolean, loading: boolean, syncingPatients: boolean, error: string}} */
 	data: {
 		status: "加载中",
 		service: "",
@@ -13,6 +15,7 @@ Page({
 		patients: [],
 		hasPatients: false,
 		loading: false,
+		syncingPatients: false,
 		error: "",
 	},
 
@@ -51,10 +54,17 @@ Page({
 	loadPatients() {
 		return requestWithSession({ url: "/api/v1/patients" })
 			.then((payload) => {
-				const patients = payload.data.items || [];
-				this.setData({ patients, hasPatients: patients.length > 0, error: "" });
+				this.setPatientsFromPayload(payload);
 			})
 			.catch((error) => this.showError(error, "就诊人加载失败"));
+	},
+
+	onSyncPatients() {
+		this.setData({ syncingPatients: true, error: "" });
+		syncPatients(`patient-sync-${Date.now()}`)
+			.then((payload) => this.setPatientsFromPayload(payload))
+			.catch((error) => this.showError(error, "就诊人同步失败"))
+			.finally(() => this.setData({ syncingPatients: false }));
 	},
 
 	onRefresh() {
@@ -66,5 +76,14 @@ Page({
 	showError(error, fallback) {
 		const message = error instanceof ApiError ? error.message : fallback;
 		this.setData({ error: message });
+	},
+
+	/**
+	 * 统一接收服务端脱敏读模型；页面不保存 provider 患者号。
+	 * @param {{data?: {items?: Array<Record<string, unknown>>}}} payload
+	 */
+	setPatientsFromPayload(payload) {
+		const patients = payload?.data?.items || [];
+		this.setData({ patients, hasPatients: patients.length > 0, error: "" });
 	},
 });

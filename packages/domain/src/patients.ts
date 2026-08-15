@@ -31,6 +31,14 @@ export type PatientDirectoryProfile = {
 	cardNumberMasked: string;
 };
 
+/** 患者目录同步写入所需的内部 id；provider id 永远只停留在持久化映射边界。 */
+export type PatientDirectoryUpsertInput = {
+	ownerUserId: string;
+	patientId: string;
+	provider: "zhongyang";
+	profile: PatientDirectoryProfile;
+};
+
 /** 与微信 provider 的 subject 解耦的内部用户身份；业务表只引用 userId。 */
 export type IdentityUser = {
 	userId: string;
@@ -51,6 +59,9 @@ export interface UserIdentityRepository {
 /** 患者仓储必须按 ownerUserId 过滤，禁止由客户端传入归属条件。 */
 export interface PatientRepository {
 	listByOwner(ownerUserId: string): Promise<readonly PatientRecord[]>;
+	upsertFromDirectory(
+		input: PatientDirectoryUpsertInput,
+	): Promise<PatientRecord>;
 }
 
 /** 众阳/HIS 患者目录只通过服务端身份查询，禁止小程序直接携带 unionId。 */

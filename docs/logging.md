@@ -36,6 +36,9 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`。Outbox 
 | `worker.payment.wechat_query.reconciled` | 微信支付查单 worker | 记录已验签的 provider 状态、金额校验结果和是否继续查单 |
 | `worker.payment.wechat_query.retry_scheduled` | 微信支付查单 worker | 记录可恢复查单错误和下一次调度元数据 |
 | `worker.payment.wechat_notification.reconciled` | 微信支付通知 outbox handler | 记录安全通知事实经过金额和版本校验后的订单结果 |
+| `patient.directory.requested` | 患者目录同步应用服务 | 记录同步开始、provider 和 trace，不记录身份或请求内容 |
+| `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id 和同步数量，不记录 unionId 或 provider 患者号 |
+| `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider 和 trace，不记录第三方原始错误报文 |
 
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
 

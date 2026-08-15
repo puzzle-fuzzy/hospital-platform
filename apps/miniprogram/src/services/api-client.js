@@ -200,6 +200,20 @@ export async function requestWithSession(options) {
 }
 
 /**
+ * 请求服务端从已认证的 provider 身份同步就诊人。
+ * unionId、provider 患者号和 provider 原始响应都不进入小程序请求或响应边界。
+ * @param {string} idempotencyKey
+ */
+export function syncPatients(idempotencyKey) {
+	return requestWithSession({
+		url: "/api/v1/patients/sync",
+		method: "POST",
+		data: {},
+		idempotencyKey,
+	});
+}
+
+/**
  * 读取服务端生成的微信调起参数；小程序不构造 paySign，也不把调起成功当作业务成功。
  * @param {string} orderId
  * @param {string} idempotencyKey
