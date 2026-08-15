@@ -95,6 +95,28 @@ test("versioned ping endpoint is available", async () => {
 	expect((await response.json()).success).toBe(true);
 });
 
+test("appointment write routes remain absent while provider contract is blocked", async () => {
+	const writeRequests = [
+		{ method: "POST", path: "/api/v1/appointments/holds" },
+		{ method: "POST", path: "/api/v1/appointments" },
+		{ method: "POST", path: "/api/v1/appointments/appointment-001/cancel" },
+	] as const;
+
+	for (const request of writeRequests) {
+		const requestInit: RequestInit = {
+			method: request.method,
+			headers: { "content-type": "application/json" },
+		};
+		if (!request.path.endsWith("/cancel")) requestInit.body = "{}";
+
+		const response = await createApp().handle(
+			new Request(`http://localhost${request.path}`, requestInit),
+		);
+
+		expect(response.status).toBe(404);
+	}
+});
+
 test("current user endpoint only returns the platform session user id", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const issued = await sessions.issue("fixture-user-0001");
