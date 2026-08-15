@@ -158,16 +158,32 @@ const wechatPaymentNotificationDecoder:
 			})
 		: undefined;
 
-// 先执行一次真实 schema probe，再决定是否把 MySQL repository 交给业务组合根。
-// probe 失败时 API 仍可监听 health/readiness，但业务持久化保持 fail-closed。
-const startupSchemaProbe = await persistence.schema.check();
+// 启动时只执行只读探针，确认数据库、Redis 和 schema 的真实状态；这些探针不会写业务数据。
+// 任一探针失败时 API 仍可监听 health/readiness，但登录和业务持久化保持 fail-closed。
+const [startupDatabaseProbe, startupRedisProbe, startupSchemaProbe] =
+	await Promise.all([
+		persistence.database.check(),
+		persistence.redis.check(),
+		persistence.schema.check(),
+	]);
 const readyRepositories = selectReadyRepositories(
 	persistence.repositories,
 	startupSchemaProbe,
 );
+// 登录能力必须同时具备微信身份 adapter、MySQL 身份仓储和 Redis 会话存储；
+// 任意一项缺失都记录为 fail-closed，避免启动日志把“配置完整”误报成“可登录”。
+const authRuntimeStatus =
+	identityGateway &&
+	readyRepositories &&
+	persistence.sessions &&
+	startupDatabaseProbe === "ok" &&
+	startupRedisProbe === "ok"
+		? "ready"
+		: "fail_closed";
 const app = createApp({
 	logger,
 	services: createDefaultApplicationServices({
+		logger,
 		...(readyRepositories ? { repositories: readyRepositories } : {}),
 		...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
 		...(identityGateway ? { identityGateway } : {}),
@@ -238,8 +254,13 @@ logger.info(
 		host: config.host,
 		port: config.port,
 		persistenceSchemaGate: config.persistenceSchemaReady,
+		persistenceDatabaseProbe: startupDatabaseProbe,
+		persistenceRedisProbe: startupRedisProbe,
 		persistenceSchemaProbe: startupSchemaProbe,
 		persistenceRepositories: readyRepositories ? "enabled" : "fail_closed",
+		authRuntimeStatus,
+		authIdentityGateway: identityGateway ? "injected" : "fail_closed",
+		authSessionStore: persistence.sessions ? "injected" : "fail_closed",
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		patientDirectoryConfiguration: patientDirectoryStatus,

@@ -53,20 +53,27 @@ schema gate、fail-closed repository、预约只读路由和原生小程序 prov
 当前已完成的患者端纵向切片：
 
 ```text
-POST /api/v1/auth/wechat
+公网 POST /api/v2/auth/wechat
+内部 POST /api/v1/auth/wechat
   -> WechatIdentityGateway
   -> UserIdentityRepository
   -> SessionTokenService
 
-GET /api/v1/patients
+公网 GET /api/v2/patients
+内部 GET /api/v1/patients
   -> Bearer session
   -> PatientRepository.listByOwner(serverUserId)
   -> 脱敏 PatientListResponse
 
-GET /api/v1/me
+公网 GET /api/v2/me
+内部 GET /api/v1/me
   -> Bearer session
   -> 只返回平台内部 userId，不返回 provider subject
 ```
+
+公网 v2 由阿里云 Nginx 映射到新 API 的内部 v1；本地 Elysia 进程只注册一套 `/api/v1` 路由，避免
+旧服务和新服务在同一域名下直接争抢同一路径。登录启用、真实凭据、schema、Redis 和真机证据见
+[`docs/wechat-auth-login.md`](wechat-auth-login.md)。
 
 默认组合根使用 fail-closed adapter/repository；只有显式注入 fixture 或真实实现时才允许登录和患者数据链路返回业务成功。这样本地演示可以独立测试，生产环境也不会因为缺少 provider 配置而生成假 token 或假患者数据。
 
@@ -144,7 +151,7 @@ migration 的持久化边界。
 
 原生小程序的功能边界：
 
-- `wx.login()` 只把临时 code 发给 `/api/v1/auth/wechat`，小程序不接触 openid、session_key 或 AppSecret；
+- `wx.login()` 只把临时 code 发给公网 `/api/v2/auth/wechat`，服务端内部才调用 `/api/v1/auth/wechat`，小程序不接触 openid、session_key 或 AppSecret；
 - access token 只用于 Hospital API，会话失效时最多重新登录一次，避免无限重试；
 - 患者列表的 owner 由服务端会话解析，小程序不提交 ownerUserId，也不接受 provider 原始身份字段；
 - 原生端页面只负责交互和状态；会话生命周期由 `session-service.js` 管理，预约/报告日期窗口和读模型由

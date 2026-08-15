@@ -59,6 +59,27 @@ test("in-memory repositories preserve owner isolation", async () => {
 	expect(await patients.listByOwner(first.userId)).toHaveLength(1);
 });
 
+test("内存身份仓储补齐延迟返回的 unionId 但不覆盖既有绑定", async () => {
+	const users = createInMemoryIdentityUserRepository();
+	const first = await users.findOrCreateByWechat({
+		providerSubject: "fixture-openid-union-001",
+	});
+	const enriched = await users.findOrCreateByWechat({
+		providerSubject: "fixture-openid-union-001",
+		unionId: "fixture-union-001",
+	});
+	const unchanged = await users.findOrCreateByWechat({
+		providerSubject: "fixture-openid-union-001",
+		unionId: "fixture-union-002",
+	});
+
+	expect(enriched).toMatchObject({
+		userId: first.userId,
+		unionId: "fixture-union-001",
+	});
+	expect(unchanged.unionId).toBe("fixture-union-001");
+});
+
 test("in-memory patient directory upsert keeps a stable internal id", async () => {
 	const patients = createInMemoryPatientRepository();
 	const first = await patients.upsertFromDirectory({

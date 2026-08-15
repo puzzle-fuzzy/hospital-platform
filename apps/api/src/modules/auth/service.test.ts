@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "@hospital/adapters";
 import { DependencyNotConfiguredError } from "@hospital/domain";
-import { createRedisSessionTokenService } from "./service";
+import { createLogger } from "@hospital/observability";
+import { AuthService, createRedisSessionTokenService } from "./service";
 
 test("Redis session service issues and verifies a TTL-backed token", async () => {
 	const sessions = new Map<string, string>();
@@ -35,4 +37,128 @@ test("Redis session service fails closed when Redis is unavailable", async () =>
 	expect(service.verify("token-001")).rejects.toBeInstanceOf(
 		DependencyNotConfiguredError,
 	);
+});
+
+test("微信登录业务日志只记录可关联元数据，不记录身份凭证", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const service = new AuthService({
+		identityGateway: {
+			async exchangeCode() {
+				return {
+					providerSubject: "openid-must-not-be-logged",
+					unionId: "unionid-must-not-be-logged",
+					trace: {
+						provider: "wechat-identity",
+						operation: "code2session",
+						requestId: "wechat-provider-request-001",
+					},
+				};
+			},
+		},
+		identityUsers: {
+			async findOrCreateByWechat() {
+				return {
+					userId: "user-001",
+					providerSubject: "openid-must-not-be-logged",
+				};
+			},
+			async findByUserId() {
+				return undefined;
+			},
+		},
+		sessions: {
+			async issue() {
+				return {
+					accessToken: "access-token-must-not-be-logged",
+					expiresInSeconds: 3600,
+				};
+			},
+			async verify() {
+				return { userId: "user-001" };
+			},
+		},
+		logger,
+	});
+
+	await service.login(
+		{ code: "temporary-code-must-not-be-logged" },
+		{ traceId: "auth-trace-001", idempotencyKey: "auth-idempotency-001" },
+	);
+
+	const output = lines.join("");
+	expect(output).toContain("auth.wechat.login.requested");
+	expect(output).toContain("auth.wechat.login.succeeded");
+	expect(output).toContain("wechat-provider-request-001");
+	expect(output).toContain("user-001");
+	expect(output).not.toContain("temporary-code-must-not-be-logged");
+	expect(output).not.toContain("openid-must-not-be-logged");
+	expect(output).not.toContain("unionid-must-not-be-logged");
+	expect(output).not.toContain("access-token-must-not-be-logged");
+});
+
+test("微信 provider 失败日志不记录 provider message 或临时 code", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const service = new AuthService({
+		identityGateway: {
+			async exchangeCode() {
+				throw new ProviderRequestError({
+					provider: "wechat-identity",
+					operation: "code2session",
+					message: "provider code 40029 with secret text",
+					retryable: false,
+				});
+			},
+		},
+		identityUsers: {
+			async findOrCreateByWechat() {
+				throw new Error("must not be called");
+			},
+			async findByUserId() {
+				return undefined;
+			},
+		},
+		sessions: {
+			async issue() {
+				throw new Error("must not be called");
+			},
+			async verify() {
+				return { userId: "user-001" };
+			},
+		},
+		logger,
+	});
+
+	await expect(
+		service.login(
+			{ code: "temporary-code-must-not-be-logged" },
+			{ traceId: "auth-trace-failed-001", idempotencyKey: "idempotency-001" },
+		),
+	).rejects.toBeInstanceOf(ProviderRequestError);
+
+	const output = lines.join("");
+	expect(output).toContain("auth.wechat.login.failed");
+	expect(output).toContain('"retryable":false');
+	expect(output).not.toContain("40029");
+	expect(output).not.toContain("secret text");
+	expect(output).not.toContain("temporary-code-must-not-be-logged");
 });

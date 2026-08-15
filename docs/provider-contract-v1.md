@@ -7,7 +7,7 @@
 
 | 能力 | 旧项目证据 | 新仓库边界 | 当前状态 |
 | --- | --- | --- | --- |
-| 小程序登录 | `G:\\fuck\\hospital\\app\\api\\v1\\module_common\\...` 与 `wechat_util.py` | `WechatIdentityGateway.exchangeCode` | 本批已实现真实 HTTP adapter |
+| 小程序登录 | `G:\\fuck\\hospital\\app\\api\\v1\\module_common\\...` 与 `wechat_util.py` | 公网 `/api/v2/auth/wechat` → 内部 `WechatIdentityGateway.exchangeCode` | adapter、平台会话和 v2 路由已实现；真实凭据、schema 和真机验收待完成 |
 | 微信自费 JSAPI | `wechat_medical.py::_build_jsapi_order` | `WechatPaymentGateway.createJsapiOrder` | APIv3 adapter 已实现，默认未接入 |
 | 医保费用上传 | `MbsFsiService.forward_6201` | `MedicalInsuranceGateway.uploadFees` | contract/金额校验已实现，密码 adapter 待实现 |
 | 医保支付下单 | `MbsFsiService.forward_6202` | `MedicalInsuranceGateway.settle` | contract/金额校验已实现，密码 adapter 待实现 |
@@ -70,6 +70,8 @@ Phase 7A 已建立众阳患者目录 adapter：
 - `40029` 等无效 code 不重试，`-1`/`45011` 分类为可重试；
 - 缺少 `openid` 或配置不完整时 fail-closed；
 - API 组合根只有在 `WECHAT_IDENTITY_READY=true` 时才注入它，默认仍使用 not-configured gateway。
+- API 只有同时注入真实 MySQL identity repository 和 Redis session store 才把启动日志标记为
+  `authRuntimeStatus=ready`；缺任一依赖时登录保持 503 fail-closed。
 
 微信支付 APIv3 的 JSAPI 下单路径、请求签名和响应验签已单独实现，避免把身份、支付、回调和医保加密混成一个不可审计的 adapter。
 

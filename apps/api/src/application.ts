@@ -13,6 +13,7 @@ import {
 	DependencyNotConfiguredError,
 	PaymentOrderService,
 } from "@hospital/domain";
+import type { AppLogger } from "@hospital/observability";
 import type {
 	MySqlRepositories,
 	RedisSessionStore,
@@ -45,6 +46,8 @@ export type ApplicationServices = {
 };
 
 export type ApplicationServiceOptions = {
+	/** 生产入口注入同一个 Pino logger，保证业务事件进入 journald/集中采集。 */
+	logger?: AppLogger;
 	/** 只有完成 schema migration 后才从 persistence runtime 注入。 */
 	repositories?: MySqlRepositories;
 	/** Redis 未配置时必须保持 fail-closed。 */
@@ -99,10 +102,12 @@ export function createDefaultApplicationServices(
 			identityGateway,
 			identityUsers: repositories.identityUsers,
 			sessions,
+			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		patients: new PatientService(repositories.patients, {
 			identityUsers: repositories.identityUsers,
 			directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
+			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		appointments: new AppointmentService({
 			directory:
@@ -112,6 +117,7 @@ export function createDefaultApplicationServices(
 				options.appointmentRecordDirectoryGateway ??
 				gateways.appointmentRecords,
 			snapshots: repositories.appointmentScheduleSnapshots,
+			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		reports: new ReportService({
 			repository: repositories.patients,
@@ -120,6 +126,7 @@ export function createDefaultApplicationServices(
 			...(options.reportDetailGateway
 				? { detail: options.reportDetailGateway }
 				: {}),
+			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		paymentOrders,
 		wechatPrepay: new WechatPrepayService({
@@ -127,6 +134,7 @@ export function createDefaultApplicationServices(
 			identityUsers: repositories.identityUsers,
 			attempts: repositories.paymentPrepayAttempts,
 			wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
+			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		wechatPaymentNotifications: new WechatPaymentNotificationService({
 			notifications: repositories.wechatPaymentNotifications,
@@ -137,6 +145,7 @@ export function createDefaultApplicationServices(
 						"wechat-payment-notifications",
 					);
 				}) as WechatPaymentNotificationDecoder),
+			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		sessions,
 	};

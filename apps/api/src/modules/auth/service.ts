@@ -3,12 +3,14 @@ import type {
 	UserIdentityRepository,
 	WechatIdentityGateway,
 } from "@hospital/domain";
+import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	AuthSessionPayload,
 	WechatLoginPayload,
 } from "@hospital/contracts";
 import type { RedisSessionStore } from "@hospital/persistence";
 import { DependencyNotConfiguredError } from "@hospital/domain";
+import { createNoopLogger, type AppLogger } from "@hospital/observability";
 import { HttpError } from "../../errors";
 
 export type SessionPrincipal = {
@@ -28,32 +30,78 @@ export type AuthServiceDependencies = {
 	identityGateway: WechatIdentityGateway;
 	identityUsers: UserIdentityRepository;
 	sessions: SessionTokenService;
+	/** 生产组合根注入 Pino；测试默认使用静默 logger。 */
+	logger?: AppLogger;
 };
 
 /** 患者端认证编排：兑换 provider code、幂等建用户、签发平台会话。 */
 export class AuthService {
-	constructor(private readonly dependencies: AuthServiceDependencies) {}
+	private readonly logger: AppLogger;
+
+	constructor(private readonly dependencies: AuthServiceDependencies) {
+		this.logger = dependencies.logger ?? createNoopLogger();
+	}
 
 	async login(
 		input: WechatLoginPayload,
 		context: AdapterCallContext,
 	): Promise<AuthSessionPayload["data"]> {
-		const identity = await this.dependencies.identityGateway.exchangeCode(
-			{ code: input.code },
-			context,
+		// 只记录链路和结果元数据，绝不把临时 code、openid 或 session_key 写入日志。
+		this.logger.info(
+			{
+				event: "auth.wechat.login.requested",
+				traceId: context.traceId,
+				provider: "wechat-identity",
+				idempotencyKeyPresent: Boolean(context.idempotencyKey),
+			},
+			"Wechat login requested",
 		);
-		const user = await this.dependencies.identityUsers.findOrCreateByWechat({
-			providerSubject: identity.providerSubject,
-			...(identity.unionId ? { unionId: identity.unionId } : {}),
-		});
-		const session = await this.dependencies.sessions.issue(user.userId);
 
-		return {
-			accessToken: session.accessToken,
-			tokenType: "Bearer",
-			expiresInSeconds: session.expiresInSeconds,
-			user: { id: user.userId },
-		};
+		try {
+			const identity = await this.dependencies.identityGateway.exchangeCode(
+				{ code: input.code },
+				context,
+			);
+			const user = await this.dependencies.identityUsers.findOrCreateByWechat({
+				providerSubject: identity.providerSubject,
+				...(identity.unionId ? { unionId: identity.unionId } : {}),
+			});
+			const session = await this.dependencies.sessions.issue(user.userId);
+
+			this.logger.info(
+				{
+					event: "auth.wechat.login.succeeded",
+					traceId: context.traceId,
+					provider: "wechat-identity",
+					providerRequestId: identity.trace.requestId,
+					userId: user.userId,
+					expiresInSeconds: session.expiresInSeconds,
+				},
+				"Wechat login succeeded",
+			);
+
+			return {
+				accessToken: session.accessToken,
+				tokenType: "Bearer",
+				expiresInSeconds: session.expiresInSeconds,
+				user: { id: user.userId },
+			};
+		} catch (error) {
+			// ProviderRequestError 的 message 可能包含 provider 状态，日志只保留分类。
+			this.logger.error(
+				{
+					event: "auth.wechat.login.failed",
+					traceId: context.traceId,
+					provider: "wechat-identity",
+					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof ProviderRequestError
+						? { retryable: error.retryable }
+						: {}),
+				},
+				"Wechat login failed",
+			);
+			throw error;
+		}
 	}
 }
 

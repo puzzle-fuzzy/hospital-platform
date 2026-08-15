@@ -50,3 +50,6 @@ pnpm db:integration
 Compose 使用的是显式开发凭据，只允许绑定到本机端口。不要把这些凭据或这个 Compose 配置当成生产部署模板；生产环境必须使用密钥管理、独立账号和独立数据库。
 
 `pnpm db:migrate` 是唯一的 schema 变更入口。API 启动不会自动迁移，也不会因为 migration 命令成功就自动设置 `PERSISTENCE_SCHEMA_READY`。
+
+微信授权登录的 staging/生产启用顺序、MySQL 身份表、Redis 会话 TTL、合法域名、日志检索和回滚见
+[`docs/wechat-auth-login.md`](../docs/wechat-auth-login.md)。不要为了登录验收直接复用旧服务数据库或旧服务 env。

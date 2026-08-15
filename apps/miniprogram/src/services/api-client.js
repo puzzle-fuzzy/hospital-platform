@@ -1,5 +1,7 @@
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
+const API_PREFIX_KEY = "api_prefix";
+const DEFAULT_API_PREFIX = "/api/v1";
 
 /** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
 export class ApiError extends Error {
@@ -16,19 +18,34 @@ export class ApiError extends Error {
 	}
 }
 
-/** 读取会话和地址；小程序不保存或读取任何 provider 密钥。 */
+/**
+ * 读取平台地址、版本前缀和会话；小程序不保存或读取任何 provider 密钥。
+ * 生产环境使用 /api/v2，开发环境默认兼容 API 进程的 /api/v1。
+ */
 function getAppConfig() {
 	const globalData = getApp().globalData;
 	const storedBaseUrl = wx.getStorageSync(API_BASE_URL_KEY);
+	const storedApiPrefix = wx.getStorageSync(API_PREFIX_KEY);
 	return {
 		apiBaseUrl: String(storedBaseUrl || globalData.apiBaseUrl || "").replace(
 			/\/$/,
 			"",
 		),
+		apiPrefix: String(
+			storedApiPrefix || globalData.apiPrefix || DEFAULT_API_PREFIX,
+		).replace(/\/$/, ""),
 		accessToken: String(
 			globalData.accessToken || wx.getStorageSync(ACCESS_TOKEN_KEY) || "",
 		),
 	};
+}
+
+/**
+ * 只允许平台 API 的版本前缀，避免把本地存储中的任意路径拼进请求地址。
+ * @param {unknown} value
+ */
+export function isAllowedApiPrefix(value) {
+	return typeof value === "string" && /^\/api\/v\d+$/.test(value.trim());
 }
 
 /** @param {string} accessToken */
@@ -108,7 +125,7 @@ export function request({
 	authenticated = false,
 	idempotencyKey,
 }) {
-	const { apiBaseUrl, accessToken } = getAppConfig();
+	const { apiBaseUrl, apiPrefix, accessToken } = getAppConfig();
 	if (!apiBaseUrl) {
 		return Promise.reject(
 			new ApiError("API 地址尚未配置", { code: "api-base-url-missing" }),
@@ -121,11 +138,22 @@ export function request({
 			}),
 		);
 	}
+	if (!isAllowedApiPrefix(apiPrefix)) {
+		return Promise.reject(
+			new ApiError("API 版本前缀尚未配置", {
+				code: "api-prefix-invalid",
+			}),
+		);
+	}
+	// 健康检查位于 API 根路径；业务接口统一经过可切换的版本前缀。
+	const requestUrl = url.startsWith("/health/")
+		? `${apiBaseUrl}${url}`
+		: `${apiBaseUrl}${apiPrefix}${url}`;
 
 	return new Promise((resolve, reject) => {
 		const requestId = createRequestId();
 		wx.request({
-			url: `${apiBaseUrl}${url}`,
+			url: requestUrl,
 			method,
 			...(data === undefined ? {} : { data }),
 			header: {
@@ -175,7 +203,7 @@ export function login() {
 					return;
 				}
 				request({
-					url: "/api/v1/auth/wechat",
+					url: "/auth/wechat",
 					method: "POST",
 					data: { code },
 					authenticated: false,
@@ -224,7 +252,7 @@ export async function requestWithSession(options) {
 /** 验证当前平台会话仍有效；响应只包含内部用户 id，不包含 provider subject。 */
 export function getCurrentUser() {
 	return requestWithSession({
-		url: "/api/v1/me",
+		url: "/me",
 		method: "GET",
 	});
 }
@@ -236,7 +264,7 @@ export function getCurrentUser() {
  */
 export function syncPatients(idempotencyKey) {
 	return requestWithSession({
-		url: "/api/v1/patients/sync",
+		url: "/patients/sync",
 		method: "POST",
 		data: {},
 		idempotencyKey,
@@ -246,7 +274,7 @@ export function syncPatients(idempotencyKey) {
 /** 读取服务端白名单后的预约科室目录；小程序不直连众阳 AMC。 */
 export function requestAppointmentDepartments() {
 	return requestWithSession({
-		url: "/api/v1/appointments/departments",
+		url: "/appointments/departments",
 		method: "GET",
 	});
 }
@@ -268,7 +296,7 @@ export function requestAppointmentSchedules(options) {
 			: []),
 	].join("&");
 	return requestWithSession({
-		url: `/api/v1/appointments/schedules?${query}`,
+		url: `/appointments/schedules?${query}`,
 		method: "GET",
 	});
 }
@@ -285,7 +313,7 @@ export function requestAppointmentRecords(options) {
 		`endDate=${encodeURIComponent(options.endDate)}`,
 	].join("&");
 	return requestWithSession({
-		url: `/api/v1/appointments/records?${query}`,
+		url: `/appointments/records?${query}`,
 		method: "GET",
 	});
 }
@@ -303,7 +331,7 @@ export function requestReports(options) {
 		...(options.kind ? [`kind=${encodeURIComponent(options.kind)}`] : []),
 	].join("&");
 	return requestWithSession({
-		url: `/api/v1/reports?${query}`,
+		url: `/reports?${query}`,
 		method: "GET",
 	});
 }
@@ -315,7 +343,7 @@ export function requestReports(options) {
  */
 export function requestReportDetail(reportId) {
 	return requestWithSession({
-		url: `/api/v1/reports/${encodeURIComponent(reportId)}`,
+		url: `/reports/${encodeURIComponent(reportId)}`,
 		method: "GET",
 	});
 }
@@ -327,7 +355,7 @@ export function requestReportDetail(reportId) {
  */
 export function requestWechatPrepay(orderId, idempotencyKey) {
 	return requestWithSession({
-		url: `/api/v1/payments/orders/${encodeURIComponent(orderId)}/wechat-prepay`,
+		url: `/payments/orders/${encodeURIComponent(orderId)}/wechat-prepay`,
 		method: "POST",
 		data: {},
 		idempotencyKey,
@@ -409,7 +437,7 @@ export async function launchWechatPayment(orderId, idempotencyKey) {
  */
 export function getWechatPrepay(orderId, idempotencyKey) {
 	return requestWithSession({
-		url: `/api/v1/payments/orders/${encodeURIComponent(orderId)}/wechat-prepay`,
+		url: `/payments/orders/${encodeURIComponent(orderId)}/wechat-prepay`,
 		method: "GET",
 		idempotencyKey,
 	});

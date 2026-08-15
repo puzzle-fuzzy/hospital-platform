@@ -38,7 +38,15 @@ export function createInMemoryIdentityUserRepository(
 	return {
 		async findOrCreateByWechat(input) {
 			const existing = users.get(input.providerSubject);
-			if (existing) return existing;
+			if (existing) {
+				// 与 MySQL 实现保持一致：只补齐延迟出现的 unionId，不覆盖已有绑定。
+				if (input.unionId && !existing.unionId) {
+					const updated = { ...existing, unionId: input.unionId };
+					users.set(input.providerSubject, updated);
+					return updated;
+				}
+				return existing;
+			}
 
 			sequence += 1;
 			const userId = `fixture-user-${String(sequence).padStart(4, "0")}`;

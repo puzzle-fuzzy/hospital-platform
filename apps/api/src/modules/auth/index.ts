@@ -17,33 +17,37 @@ export function authModule(
 	authService: AuthService,
 	sessions: SessionTokenService,
 ) {
-	return new Elysia({ name: "auth-module" })
-		.post(
-			"/auth/wechat",
-			async ({ body, headers }) =>
-				success(
-					await authService.login(body, adapterContextFromHeaders(headers)),
-				),
-			{
-				body: WechatLoginRequest,
-				response: { 200: AuthSessionResponse },
-				tags: ["auth"],
-			},
-		)
-		.get(
-			"/me",
-			async ({ headers }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
-				return success({ user: { id: principal.userId } });
-			},
-			{
-				response: { 200: CurrentUserResponse },
-				tags: ["auth"],
-			},
-		);
+	return (
+		new Elysia({ name: "auth-module" })
+			// 小程序只提交 wx.login 产生的一次性 code，身份兑换始终发生在服务端。
+			.post(
+				"/auth/wechat",
+				async ({ body, headers }) =>
+					success(
+						await authService.login(body, adapterContextFromHeaders(headers)),
+					),
+				{
+					body: WechatLoginRequest,
+					response: { 200: AuthSessionResponse },
+					tags: ["auth"],
+				},
+			)
+			// 会话恢复只验证平台 Bearer token，不把 provider subject 返回给客户端。
+			.get(
+				"/me",
+				async ({ headers }) => {
+					const principal = await requirePrincipal(
+						headers.authorization,
+						sessions,
+					);
+					return success({ user: { id: principal.userId } });
+				},
+				{
+					response: { 200: CurrentUserResponse },
+					tags: ["auth"],
+				},
+			)
+	);
 }
 
 export {

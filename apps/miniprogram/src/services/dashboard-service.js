@@ -91,7 +91,7 @@ export function loadHealth() {
 
 /** 读取当前会话归属的脱敏患者读模型。 */
 export function loadPatients() {
-	return requestWithSession({ url: "/api/v1/patients" }).then(
+	return requestWithSession({ url: "/patients" }).then(
 		(payload) => payload?.data?.items || [],
 	);
 }

@@ -1,0 +1,43 @@
+# 项目文档导航
+
+新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
+真实微信、医保、HIS、支付 provider 或真机已经验收。
+
+## 首先阅读
+
+| 文档 | 用途 |
+| --- | --- |
+| [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
+| [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
+| [`logging.md`](logging.md) | Pino 事件、脱敏字段、requestId/traceId 和 journald 检索 |
+| [`../README.md`](../README.md) | 项目状态、开发命令和公开 API 概览 |
+
+## 发布与运行
+
+| 文档 | 用途 |
+| --- | --- |
+| [`../infra/README.md`](../infra/README.md) | 本地 MySQL/Redis、migration、schema probe 和 runtime smoke |
+| [`../infra/systemd/README.md`](../infra/systemd/README.md) | 新 API/worker 的 systemd 目录、env 权限和启动检查 |
+| [`release/persistence-acceptance.md`](release/persistence-acceptance.md) | MySQL/Redis/schema 的分层验收 |
+| [`runbooks/persistence-migration-recovery.md`](runbooks/persistence-migration-recovery.md) | migration 失败和恢复边界 |
+| [`release/provider-directory-acceptance.md`](release/provider-directory-acceptance.md) | 众阳患者、预约和报告 provider 验收 |
+| [`release/payment-acceptance.md`](release/payment-acceptance.md) | 微信支付、回调、查单和真机验收 |
+
+## 契约与迁移
+
+| 文档 | 用途 |
+| --- | --- |
+| [`provider-contract-v1.md`](provider-contract-v1.md) | 微信、众阳和支付 adapter 边界 |
+| [`medical-insurance-contract-v1.md`](medical-insurance-contract-v1.md) | 医保金额、状态和回写契约 |
+| [`appointment-write-contract-v1.md`](appointment-write-contract-v1.md) | 预约写入/锁号/取消的冻结边界 |
+| [`migration/api-matrix.md`](migration/api-matrix.md) | 旧接口到新接口的迁移矩阵 |
+| [`migration/data-map.md`](migration/data-map.md) | 旧数据和新表/领域字段的映射 |
+| [`migration/legacy-inventory.md`](migration/legacy-inventory.md) | 旧项目能力清单和未迁移风险 |
+
+## 维护规则
+
+1. 新增业务能力时，先更新 API contract、架构文档、日志事件和验收手册，再写实现。
+2. 新增环境变量时，只在 `.env.example` 和对应运行手册记录变量名/用途，真实值通过 SSH 或密钥管理传输。
+3. 新增日志事件时，必须说明可记录字段和禁止字段；Pino redact 只是兜底，不是记录敏感数据的许可。
+4. 真实 provider、生产 schema、公网 Nginx 和真机验收必须分别保存证据，不能用单元测试代替。
+5. 旧服务仍由原项目和 `8001` 管理；新服务只使用 `api-v2` systemd、`18081` 和 `/api/v2` 公网路由。

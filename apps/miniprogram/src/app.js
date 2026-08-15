@@ -1,7 +1,8 @@
 App({
 	globalData: {
-		// 开发默认值只适合微信开发者工具；真机请写入可访问的 HTTPS/LAN 地址。
-		apiBaseUrl: "http://127.0.0.1:3000",
+		// 线上小程序固定访问已备案的 HTTPS 域名，真实业务路由由 apiPrefix 隔离。
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
 		accessToken: "",
 		sessionStatus: "signed_out",
 	},

@@ -13,6 +13,10 @@
 
 环境文件必须通过受控 SSH 传输，权限设置为 `0600`，不能提交到 Git。
 
+微信登录启用前，`api.env` 必须完成 `WECHAT_IDENTITY_READY`、AppID/AppSecret、MySQL、Redis 和 schema
+的分阶段验收；详细步骤见 [`docs/wechat-auth-login.md`](../../docs/wechat-auth-login.md)。没有真实凭据时保持
+fail-closed，不允许为了验证页面而写入假的 AppID、openid 或 token。
+
 启动 API 前必须先验证：
 
 ```bash
@@ -34,3 +38,6 @@ sudo systemctl enable --now hospital-platform-worker-v2.service
 journalctl -u hospital-platform-api-v2.service -n 100 --no-pager
 journalctl -u hospital-platform-worker-v2.service -n 100 --no-pager
 ```
+
+API 启动日志必须包含 `runtimeMode`、`authRuntimeStatus`、`authIdentityGateway`、`authSessionStore` 和
+`persistenceSchemaProbe`；业务登录日志使用 `auth.wechat.login.*` 事件，禁止通过原始请求体排障。

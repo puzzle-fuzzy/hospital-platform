@@ -21,7 +21,10 @@ JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界，并开始固化�
 provider 继续 fail-closed。
 原生小程序已经完成健康检查、微信登录、会话恢复、服务端归属患者列表、预约/报告只读工作台，
 并将会话生命周期和日期/读模型编排拆到独立 service；gated LIS opaque report detail 页面也已接入。
-真实微信开发者工具/真机验收仍未完成。6B 已建立服务端微信预支付参数边界，6C 已为预支付尝试建立
+微信授权登录现在已经形成可部署的首个业务闭环：小程序只提交 `wx.login` code，服务端完成 code2session、
+内部用户幂等映射和 Redis TTL 会话；生产是否可登录仍需真实 AppID/AppSecret、schema、Redis、合法域名和真机证据。
+详细启用、日志和回滚步骤见 [`docs/wechat-auth-login.md`](docs/wechat-auth-login.md)。真实微信开发者工具/真机验收仍未完成。
+6B 已建立服务端微信预支付参数边界，6C 已为预支付尝试建立
 独立幂等记录和受控密文存储，6D 又加入同一幂等键下的服务端状态读模型，6E-1 又加入
 微信支付通知的 APIv3 验签、解密、白名单映射、通知去重和入站 outbox；6E-2 又加入
 预支付尝试的持久化查单调度、金额二次校验、版本化订单状态迁移、通知 outbox handler 和可注入查单 worker；
@@ -132,8 +135,18 @@ API 默认运行在 `http://localhost:3000`：
 - `GET /api/v1/reports/:reportId`：读取服务端短期引用对应的 LIS 白名单详情；独立 gate 默认关闭
 - `GET /openapi`：OpenAPI 文档
 
+本地 API 直接使用 `/api/v1`；公网新服务通过阿里云 Nginx 使用 `/api/v2`，并映射到新 API 的 `/api/v1`。
+原生小程序生产配置使用 `apiBaseUrl=https://test-hp.meiyi.pro` 和 `apiPrefix=/api/v2`，不要把两个前缀重复拼接。
+
 worker 进程组合和通知 outbox 消费核心已经接入，但真实数据库/provider 配置运行、微信开发者工具/公网
 回调和真机支付验收仍未完成；这些边界在没有真实证据前不会标记为 ready。
+
+部署、日志和回滚入口：
+
+- [`docs/wechat-auth-login.md`](docs/wechat-auth-login.md)：微信授权登录唯一实施与验收手册
+- [`docs/logging.md`](docs/logging.md)：Pino 事件、脱敏和 journald 检索规范
+- [`infra/systemd/README.md`](infra/systemd/README.md)：新服务 systemd 部署边界
+- [`infra/nginx/test-hp.meiyi.pro.conf.example`](infra/nginx/test-hp.meiyi.pro.conf.example)：公网 v2 路由模板
 
 ## 重构边界
 

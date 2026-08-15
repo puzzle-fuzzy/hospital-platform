@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import {
 	isAllowedApiBaseUrl,
+	isAllowedApiPrefix,
 	toWechatPaymentParams,
 } from "../src/services/api-client.js";
 import {
@@ -18,9 +19,13 @@ async function source(file: string): Promise<string> {
 
 test("native client keeps WeChat identity exchange on the Hospital API", async () => {
 	const client = await source("services/api-client.js");
+	const app = await source("app.js");
 
 	expect(client).toContain("wx.login");
-	expect(client).toContain("/api/v1/auth/wechat");
+	expect(client).toContain('url: "/auth/wechat"');
+	expect(client).toContain("apiPrefix");
+	expect(app).toContain('apiBaseUrl: "https://test-hp.meiyi.pro"');
+	expect(app).toContain('apiPrefix: "/api/v2"');
 	expect(client).not.toContain("/sns/jscode2session");
 	expect(client).not.toContain("api.weixin.qq.com");
 });
@@ -30,7 +35,7 @@ test("native client restores a platform session through the current-user endpoin
 	const page = await source("pages/index/index.js");
 
 	expect(client).toContain("getCurrentUser");
-	expect(client).toContain('url: "/api/v1/me"');
+	expect(client).toContain('url: "/me"');
 	expect(page).toContain("验证会话中");
 	expect(client).not.toContain("providerSubject");
 });
@@ -59,7 +64,7 @@ test("native client requests patient synchronization through the Hospital API", 
 	const page = await source("pages/index/index.js");
 
 	expect(client).toContain("syncPatients");
-	expect(client).toContain("/api/v1/patients/sync");
+	expect(client).toContain('url: "/patients/sync"');
 	expect(page).toContain("onSyncPatients");
 	expect(page).not.toContain("unionId");
 	expect(page).not.toContain("providerPatientId");
@@ -70,9 +75,9 @@ test("native client reads appointment directories only through the Hospital API"
 	const page = await source("pages/index/index.js");
 
 	expect(client).toContain("requestAppointmentDepartments");
-	expect(client).toContain("/api/v1/appointments/departments");
+	expect(client).toContain('url: "/appointments/departments"');
 	expect(client).toContain("requestAppointmentSchedules");
-	expect(client).toContain("/api/v1/appointments/schedules?");
+	expect(client).toContain("/appointments/schedules?");
 	expect(page).toContain("onLoadAppointments");
 	expect(page).not.toContain("msun-middle-business-amc-server");
 });
@@ -83,7 +88,7 @@ test("native client reads appointment records by internal patient id through the
 	const template = await source("pages/index/index.wxml");
 
 	expect(client).toContain("requestAppointmentRecords");
-	expect(client).toContain("/api/v1/appointments/records?");
+	expect(client).toContain("/appointments/records?");
 	expect(client).toContain("patientId=");
 	expect(page).toContain("onLoadAppointmentRecords");
 	expect(page).toContain("getSelectedPatient");
@@ -98,7 +103,7 @@ test("native client reads report directories by internal patient id through the 
 	const page = await source("pages/index/index.js");
 
 	expect(client).toContain("requestReports");
-	expect(client).toContain("/api/v1/reports?");
+	expect(client).toContain("/reports?");
 	expect(client).toContain("patientId=");
 	expect(page).toContain("onLoadReports");
 	expect(page).not.toContain("msun-middle-business-lis");
@@ -109,7 +114,7 @@ test("native client reads LIS detail only through the opaque Hospital API refere
 	const client = await source("services/api-client.js");
 
 	expect(client).toContain("requestReportDetail");
-	expect(client).toContain(`/api/v1/reports/\${encodeURIComponent(reportId)}`);
+	expect(client).toContain(`/reports/\${encodeURIComponent(reportId)}`);
 	expect(client).not.toContain("lis-reports/details");
 	expect(client).not.toContain("providerReportId");
 });
@@ -122,6 +127,9 @@ test("native client only permits local HTTP or HTTPS API addresses", () => {
 	expect(isAllowedApiBaseUrl("http://hospital.example.test/api")).toBe(false);
 	expect(isAllowedApiBaseUrl("ftp://hospital.example.test")).toBe(false);
 	expect(isAllowedApiBaseUrl("")).toBe(false);
+	expect(isAllowedApiPrefix("/api/v1")).toBe(true);
+	expect(isAllowedApiPrefix("/api/v2")).toBe(true);
+	expect(isAllowedApiPrefix("/api/v1/auth")).toBe(false);
 });
 
 test("native mini program keeps the legacy hospital visual system", async () => {

@@ -603,7 +603,30 @@ export function createMySqlRepositories(
 				"SELECT user_id, provider_subject, union_id FROM hp_identity_users WHERE provider_subject = ? LIMIT 1",
 				[input.providerSubject],
 			);
-			if (existingRows[0]) return identityUser(existingRows[0]);
+			if (existingRows[0]) {
+				const existing = identityUser(existingRows[0]);
+				// unionId 可能因微信主体配置变化而延迟返回；只补齐空值，绝不覆盖
+				// 已绑定的 unionId，避免把同一 provider subject 错绑到另一主体。
+				if (input.unionId && !existing.unionId) {
+					const updateResult = await execute<ResultSetHeader>(
+						pool,
+						"UPDATE hp_identity_users SET union_id = ?, updated_at = ? WHERE user_id = ? AND union_id IS NULL",
+						[input.unionId, mysqlDateTime(new Date()), existing.userId],
+					);
+					if (updateResult.affectedRows === 1) {
+						return { ...existing, unionId: input.unionId };
+					}
+					// 并发登录可能已经补齐了 unionId；重新读取权威行，不能把本次
+					// 未生效的候选值返回给上层，避免身份绑定在竞争条件下漂移。
+					const refreshedRows = await execute<IdentityUserRow[]>(
+						pool,
+						"SELECT user_id, provider_subject, union_id FROM hp_identity_users WHERE user_id = ? LIMIT 1",
+						[existing.userId],
+					);
+					return refreshedRows[0] ? identityUser(refreshedRows[0]) : existing;
+				}
+				return existing;
+			}
 
 			const timestamp = new Date();
 			const created: IdentityUser = {

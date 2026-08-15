@@ -35,6 +35,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `persistence.integration.dependencies` / `persistence.integration.schema_probe` / `persistence.integration.succeeded` / `persistence.integration.failed` / `persistence.integration.cleanup_failed` | 本地真实 MySQL/Redis 集成验收 | 记录依赖状态、schema 缺失、验收检查名和清理错误类型；不记录连接串、token 或 provider 原始报文 |
 | `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
 | `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
+| `auth.wechat.login.requested` | 微信授权登录应用服务 | 记录登录开始、traceId、provider 和是否携带幂等键；不记录 code |
+| `auth.wechat.login.succeeded` | 微信授权登录应用服务 | 记录内部 userId、provider request id 和会话 TTL；不记录 openid、unionId 或 access token |
+| `auth.wechat.login.failed` | 微信授权登录应用服务 | 记录错误类型和是否可重试；不记录 provider message、code 或原始响应 |
 | `worker.outbox.claimed` | Outbox worker | 确认事件被领取及当前重试次数 |
 | `worker.outbox.processed` | Outbox worker | 确认事件处理完成 |
 | `worker.outbox.retry_scheduled` | Outbox worker | 查询重试原因和下一次尝试前的状态 |
@@ -79,6 +82,10 @@ Pino 还会集中脱敏 `unionId`、`prepayId`、`payParams`、`paySign`、`nonc
 
 请求日志只记录 `idempotencyKeyPresent`，不记录幂等键本身。需要关联支付或医保排障时，记录内部 `orderId`、`eventId`、`providerRequestId` 等不可直接还原凭证的标识。Pino 的 `redact` 是最终兜底，不是业务代码记录敏感数据的许可。
 
+微信授权登录的排障顺序固定为：先用同一个 `traceId/requestId` 查 `http.request.*`，再查对应的
+`auth.wechat.login.*` 事件，最后结合 `providerRequestId` 查询 provider 侧记录。禁止用临时 code、openid、
+unionId、session_key 或 access token 作为日志检索条件；这些值不应出现在日志中。
+
 查单日志可以记录 `attemptId`、`queryAttempts`、`providerState`、`outcome` 和 `shouldContinue`；通知消费日志可以记录 `eventId`、`notificationId`、`providerTransactionId`、`outcome` 和 `orderState`，但不得记录微信原始响应、签名头、APIv3 key、prepay 参数或完整 provider payload。
 
 ## 级别与运行配置
@@ -90,6 +97,10 @@ Pino 还会集中脱敏 `unionId`、`prepayId`、`payParams`、`paySign`、`nonc
 - `silent`：测试默认值，避免测试输出污染；捕获日志的测试显式注入 `info` 或 `debug` logger。
 
 通过 `LOG_LEVEL` 调整级别。生产环境优先保持标准输出采集和集中检索，不在应用层自行实现文件轮转；文件生命周期、保留周期和告警由部署平台负责。
+
+API 生产组合根会把同一个 Pino logger 注入认证、患者、预约、报告和支付应用服务；应用服务不得自行创建
+第二个 logger。systemd 使用 journald 收集标准输出和标准错误，检索时优先使用 `event`、`traceId`、
+`requestId`、`providerRequestId` 和内部业务 ID，不读取包含患者隐私的原始请求日志。
 
 ## 维护要求
 
