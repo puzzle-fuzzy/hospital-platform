@@ -75,7 +75,7 @@ pnpm runtime:preflight
 preflight 必须显示：
 
 - `provider-configuration` 中四个众阳 gate 为 `configured`；
-- MySQL、Redis 和目标 migration 通过；
+- MySQL、Redis、目标 migration 和关键 schema invariants 通过；
 - `PERSISTENCE_SCHEMA_READY` 已由部署流程显式确认；
 - 输出只包含 `configured/disabled/incomplete`、环境变量名和错误类型，不包含 URL 实际值、token 或 provider 原始报文。
 
@@ -83,7 +83,7 @@ preflight 必须显示：
 
 ```text
 GET /health/live  -> 200：只证明进程能响应
-GET /health/ready -> 200 且 data.status=ready：证明基础设施和 schema gate 通过
+GET /health/ready -> 200 且 data.status=ready：证明基础设施、schema gate 和关键 schema invariants 通过
 ```
 
 HTTPS 是硬条件：三个众阳 gate、微信身份和微信支付的自定义 provider base URL 都必须是 HTTPS；HTTP 不能通过配置状态检查。真实 provider 请求前，不得为了“先试一下”关闭 gate 或把 URL 写入小程序配置。

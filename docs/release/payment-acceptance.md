@@ -43,7 +43,7 @@ pnpm infra:down
 
 `runtime:preflight` 是只读检查，不执行 migration，也不发送微信、医保或 HIS 请求。它失败时必须区分：
 
-- `schema` 未打开：目标 migration 尚未在当前环境经过人工确认；
+- `schema` 未打开：目标 migration 或关键 schema invariants 尚未在当前环境经过人工确认；
 - provider `disabled`：功能闸门关闭，属于安全默认值；
 - provider `incomplete`：只记录缺失的环境变量名，不记录密钥值；
 - MySQL/Redis 不可用：先修复基础设施，不能通过修改 readiness 响应伪装 ready。
@@ -52,7 +52,7 @@ pnpm infra:down
 
 ```text
 GET /health/live  -> 200，只证明进程能响应
-GET /health/ready -> 200 且 data.status=ready，才证明 DB/Redis/schema gate 均通过
+GET /health/ready -> 200 且 data.status=ready，才证明 DB/Redis/schema gate 及关键 schema invariants 均通过
 ```
 
 存活检查不能作为支付可用性证据。
