@@ -26,6 +26,7 @@ export {
 } from "./wechat-identity";
 export {
 	createWechatPaymentGateway,
+	mapWechatPaymentNotification,
 	verifyAndDecryptWechatPaymentNotification,
 	WechatPaymentApiGateway,
 	type WechatPaymentGatewayOptions,

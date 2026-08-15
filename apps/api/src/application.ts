@@ -3,7 +3,10 @@ import type {
 	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
-import { PaymentOrderService } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	PaymentOrderService,
+} from "@hospital/domain";
 import type {
 	MySqlRepositories,
 	RedisSessionStore,
@@ -17,12 +20,17 @@ import {
 } from "./modules/auth";
 import { PatientService } from "./modules/patients";
 import { WechatPrepayService } from "./modules/payments";
+import {
+	WechatPaymentNotificationService,
+	type WechatPaymentNotificationDecoder,
+} from "./modules/payments/notification-service";
 
 export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
+	wechatPaymentNotifications: WechatPaymentNotificationService;
 	sessions: SessionTokenService;
 };
 
@@ -35,6 +43,8 @@ export type ApplicationServiceOptions = {
 	identityGateway?: WechatIdentityGateway;
 	/** 只有完成微信支付商户配置和回调验收后才打开。 */
 	wechatPaymentGateway?: WechatPaymentGateway;
+	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
+	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 };
 
 /** 默认组合根只安装 fail-closed 依赖，避免开发环境误连真实 provider。 */
@@ -66,6 +76,16 @@ export function createDefaultApplicationServices(
 			identityUsers: repositories.identityUsers,
 			attempts: repositories.paymentPrepayAttempts,
 			wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
+		}),
+		wechatPaymentNotifications: new WechatPaymentNotificationService({
+			notifications: repositories.wechatPaymentNotifications,
+			decoder:
+				options.wechatPaymentNotificationDecoder ??
+				((() => {
+					throw new DependencyNotConfiguredError(
+						"wechat-payment-notifications",
+					);
+				}) as WechatPaymentNotificationDecoder),
 		}),
 		sessions,
 	};

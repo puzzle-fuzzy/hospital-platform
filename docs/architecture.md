@@ -83,6 +83,12 @@ GET /api/v1/payments/orders/:orderId/wechat-prepay
   -> 以同一 idempotency-key 读取尝试状态
   -> 返回 not_started / pending / ready / unknown
   -> 不调用 provider，不把 unknown 推导成 failed
+
+POST /api/v1/payments/wechat/notifications
+  -> 读取原始 body，先校验 APIv3 签名，再解密 AES-256-GCM
+  -> callback mapper 只允许 TRANSACTION.SUCCESS + orderId + totalFen + transactionId
+  -> hp_wechat_payment_notifications 与 payment.wechat-notification.received outbox 同事务去重
+  -> HTTP 只返回微信 provider ack；订单状态由后续 worker 依据金额和版本迁移
 ```
 
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
@@ -94,8 +100,9 @@ contract v1 和微信身份 code2session adapter；Phase 5B-2 又加入微信支
 但 SM2/SM3/SM4 crypto adapter 只有严格 port 和 fail-closed 默认实现，仍等待 golden
 vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会话恢复和服务端归属患者
 列表接入现有 API contract。Phase 6B 又加入微信预支付应用服务和原生端调用封装；Phase 6C 已落库
-预支付尝试、版本和加密调起参数，Phase 6D 又加入同一幂等键下的服务端状态读模型；支付和医保 adapter 仍未接入默认组合根，`WECHAT_IDENTITY_READY`
-也默认关闭，`WECHAT_PAYMENT_READY` 默认关闭，医保和 HIS handler 尚未接入；因此默认运行不会产生真实支付副作用。
+预支付尝试、版本和加密调起参数，Phase 6D 又加入同一幂等键下的服务端状态读模型，Phase 6E-1
+又加入通知入站事实与去重 outbox；微信支付 adapter 只在完整配置和显式 `WECHAT_PAYMENT_READY`
+下由组合根注入，`WECHAT_IDENTITY_READY` 也默认关闭，医保和 HIS handler 尚未接入；因此默认运行不会产生真实支付副作用。
 
 原生小程序的功能边界：
 
@@ -112,6 +119,7 @@ vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会�
 - `prepay_id` 只代表微信预支付凭证；小程序调起成功、查单成功和业务订单完成仍是不同事实，最终状态必须由回调/查单/HIS 回写编排。
 - `POST .../wechat-prepay` 只在完整支付配置显式打开后调用微信下单；默认组合根使用 fail-closed gateway，未配置时返回 503。
 - `hp_payment_prepay_attempts` 不把 `prepay_id` 明文写入数据库；`payParams` 使用部署注入的 AES-256-GCM 密钥保护，没有 `PAYMENT_DATA_ENCRYPTION_KEY` 时 repository fail-closed。
+- `hp_wechat_payment_notifications` 只保存验签解密后的白名单摘要；同一 `notification_id` 或微信交易号不会重复制造 outbox 事件。
 
 Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider-contract-v1.md)，
 避免把身份、支付、医保加密和 HIS 回写混成一个不可审计的“大 adapter”。

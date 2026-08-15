@@ -54,6 +54,13 @@ Phase 6B 已加入 `WechatPrepayService` 和 `POST /api/v1/payments/orders/:orde
 - 同一幂等键可以通过 GET 读出 `not_started`、`pending`、`ready` 或 `unknown`；`unknown` 必须等待查单/人工对账，不能被小程序回调改写成支付成功。
 - 单元测试使用进程内生成的 RSA/AES 材料，证明协议实现和失败分支，不证明商户号、证书、微信产品权限或公网回调已经可用。
 
+Phase 6E-1 已加入 `POST /api/v1/payments/wechat/notifications`：
+
+- 入站读取原始请求字节，先校验 `Wechatpay-*` 签名，再使用 APIv3 key 解密 `AEAD_AES_256_GCM`；APIv3 key 不得复用数据库 `PAYMENT_DATA_ENCRYPTION_KEY`。
+- mapper 当前只接受 `TRANSACTION.SUCCESS`，并白名单提取 `out_trade_no`、`amount.total`、`transaction_id`；`appid/mchid` 配置存在时也必须匹配。
+- `hp_wechat_payment_notifications` 以 `notification_id` 和 `provider_transaction_id` 去重，并与 `payment.wechat-notification.received` outbox 同事务写入。
+- webhook ack 只表示“通知事实已接收/已去重”，不表示订单已进入 `cash_paid`；订单状态迁移属于后续 worker，仍需校验订单金额和版本。
+
 医保 5B-3 当前只实现 `legacy-fsi-contract.ts` 的纯规则层：固定五个专用 path、有限层级
 响应展开、元转分、6201 明细守恒、6202/6301 结算金额守恒、6203 退款边界和 6401 明确成功。
 5B-4 又增加了 `legacy-fsi-crypto.ts` 的严格 envelope port 和 fail-closed 默认实现，但

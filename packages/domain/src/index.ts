@@ -26,6 +26,15 @@ export type {
 	PaymentQuoteRepository,
 } from "./payment-order";
 export {
+	createWechatPaymentNotificationEvent,
+	PaymentNotificationConflictError,
+} from "./payment-provider";
+export type {
+	WechatPaymentNotification,
+	WechatPaymentNotificationRecordResult,
+	WechatPaymentNotificationRepository,
+} from "./payment-provider";
+export {
 	assertValidPaymentAmounts,
 	InvalidPaymentAmountsError,
 	PaymentIdempotencyConflictError,

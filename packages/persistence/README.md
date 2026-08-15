@@ -30,3 +30,7 @@ migration、staging 脱敏验证和 provider 配置前，不接入真实支付�
 预支付尝试使用 `hp_payment_prepay_attempts` 独立记录幂等键、版本和 provider 证据；
 `prepay_id` 只保存 SHA-256 摘要，`pay_params_ciphertext` 使用部署注入的 AES-256-GCM
 密钥保护。缺少 `PAYMENT_DATA_ENCRYPTION_KEY` 时，该 repository 保持 fail-closed。
+
+微信通知使用 `hp_wechat_payment_notifications` 保存已验签解密后的白名单事实；
+`notification_id` 与微信交易号都参与去重，通知事实和入站 outbox 必须在同一 MySQL
+事务中提交，原始 provider resource 不落库。

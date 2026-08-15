@@ -27,6 +27,8 @@ export type RuntimeConfig = {
 	wechatPayMerchantPrivateKey: string | undefined;
 	wechatPayPlatformCertificateSerial: string | undefined;
 	wechatPayPlatformPublicKey: string | undefined;
+	/** 微信 APIv3 密钥只用于通知解密，不得复用数据库密文密钥。 */
+	wechatPayApiV3Key: string | undefined;
 	wechatPayNotifyUrl: string | undefined;
 	wechatPayBaseUrl: string;
 	/** 仅保护数据库中的短期支付调起参数，不是 APIv3 key。 */
@@ -116,6 +118,7 @@ export const config: RuntimeConfig = {
 		Bun.env.WECHAT_PAY_PLATFORM_CERTIFICATE_SERIAL,
 	),
 	wechatPayPlatformPublicKey: optional(Bun.env.WECHAT_PAY_PLATFORM_PUBLIC_KEY),
+	wechatPayApiV3Key: optional(Bun.env.WECHAT_PAY_API_V3_KEY),
 	wechatPayNotifyUrl: optional(Bun.env.WECHAT_PAY_NOTIFY_URL),
 	wechatPayBaseUrl:
 		Bun.env.WECHAT_PAY_BASE_URL ?? "https://api.mch.weixin.qq.com",

@@ -12,6 +12,8 @@ import type {
 	PaymentQuoteRepository,
 	UserIdentityRepository,
 	IdentityUser,
+	WechatPaymentNotification,
+	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
 	PaymentIdempotencyConflictError,
@@ -99,6 +101,16 @@ type PaymentPrepayAttemptRow = RowDataPacket & {
 	updated_at: string;
 };
 
+type WechatPaymentNotificationRow = RowDataPacket & {
+	notification_id: string;
+	event_type: string;
+	order_id: string;
+	trade_state: string;
+	total_fen: number | string;
+	provider_transaction_id: string;
+	received_at: string;
+};
+
 type OutboxEventRow = RowDataPacket & {
 	event_id: string;
 	event_name: OutboxEvent["eventName"];
@@ -116,6 +128,7 @@ export type MySqlRepositories = {
 	paymentOrders: PaymentOrderRepository;
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
+	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	outbox: OutboxRepository;
 };
 
@@ -335,6 +348,33 @@ function paymentPrepayAttempt(
 		...(row.last_error_code ? { lastErrorCode: row.last_error_code } : {}),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
+	};
+}
+
+function wechatPaymentNotification(
+	row: WechatPaymentNotificationRow,
+): WechatPaymentNotification {
+	if (
+		row.event_type !== "TRANSACTION.SUCCESS" ||
+		row.trade_state !== "SUCCESS" ||
+		!row.provider_transaction_id
+	) {
+		throw new Error("Persistence returned an invalid Wechat notification");
+	}
+	const totalFen = safeFen(row.total_fen);
+	if (totalFen <= 0) {
+		throw new Error(
+			"Persistence returned an invalid Wechat notification amount",
+		);
+	}
+	return {
+		notificationId: row.notification_id,
+		eventType: "TRANSACTION.SUCCESS",
+		orderId: row.order_id,
+		tradeState: "SUCCESS",
+		totalFen,
+		providerTransactionId: row.provider_transaction_id,
+		receivedAt: row.received_at,
 	};
 }
 
@@ -654,6 +694,45 @@ export function createMySqlRepositories(
 		},
 	};
 
+	const wechatPaymentNotifications: WechatPaymentNotificationRepository = {
+		async record(notification, event) {
+			try {
+				return await withTransaction(pool, async (connection) => {
+					await execute<ResultSetHeader>(
+						connection,
+						"INSERT INTO hp_wechat_payment_notifications (notification_id, event_type, order_id, trade_state, total_fen, provider_transaction_id, received_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+						[
+							notification.notificationId,
+							notification.eventType,
+							notification.orderId,
+							notification.tradeState,
+							notification.totalFen,
+							notification.providerTransactionId,
+							mysqlDateTime(notification.receivedAt),
+							mysqlDateTime(notification.receivedAt),
+						],
+					);
+					const outbox = insertOutboxSql(event);
+					await execute<ResultSetHeader>(connection, outbox.sql, outbox.values);
+					return { status: "inserted" as const, notification };
+				});
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const rows = await execute<WechatPaymentNotificationRow[]>(
+					pool,
+					"SELECT notification_id, event_type, order_id, trade_state, total_fen, provider_transaction_id, received_at FROM hp_wechat_payment_notifications WHERE notification_id = ? OR provider_transaction_id = ? LIMIT 1",
+					[notification.notificationId, notification.providerTransactionId],
+				);
+				const existing = rows[0];
+				if (!existing) throw error;
+				return {
+					status: "duplicate" as const,
+					notification: wechatPaymentNotification(existing),
+				};
+			}
+		},
+	};
+
 	const outbox: OutboxRepository = {
 		async append(event) {
 			const statement = insertOutboxSql(event);
@@ -712,6 +791,7 @@ export function createMySqlRepositories(
 		paymentOrders,
 		paymentQuotes,
 		paymentPrepayAttempts,
+		wechatPaymentNotifications,
 		outbox,
 	};
 }

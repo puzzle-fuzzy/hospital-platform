@@ -4,7 +4,9 @@ import type {
 	OutboxEvent,
 	PaymentOrder,
 	PaymentPrepayAttempt,
+	WechatPaymentNotification,
 } from "@hospital/domain";
+import { createWechatPaymentNotificationEvent } from "@hospital/domain";
 import { createMySqlRepositories } from "./mysql-repositories";
 import { createAesGcmSecretValueCipher } from "./prepay-cipher";
 
@@ -188,4 +190,30 @@ test("MySQL prepay repository encrypts pay params and stores only prepay hash", 
 	expect(state.statements[1]).toContain("pay_params_ciphertext");
 	expect(String(updateValues[2])).not.toBe("prepay-credential-001");
 	expect(String(serialized)).not.toContain("sensitive-sign-001");
+});
+
+test("MySQL notification repository commits the safe fact and outbox together", async () => {
+	const { pool, state } = createFakePool();
+	const repositories = createMySqlRepositories(pool);
+	const notification: WechatPaymentNotification = {
+		notificationId: "notification-mysql-001",
+		eventType: "TRANSACTION.SUCCESS",
+		orderId: "order-001",
+		tradeState: "SUCCESS",
+		totalFen: 300,
+		providerTransactionId: "4200000000000300",
+		receivedAt: "2026-08-15T00:00:01.000Z",
+	};
+
+	await expect(
+		repositories.wechatPaymentNotifications.record(
+			notification,
+			createWechatPaymentNotificationEvent(notification),
+		),
+	).resolves.toMatchObject({ status: "inserted", notification });
+	expect(state.committed).toBe(true);
+	expect(state.statements[0]).toContain(
+		"INSERT INTO hp_wechat_payment_notifications",
+	);
+	expect(state.statements[1]).toContain("INSERT INTO hp_outbox_events");
 });

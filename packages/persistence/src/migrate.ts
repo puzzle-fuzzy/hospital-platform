@@ -7,6 +7,10 @@ const MIGRATIONS = [
 		id: "0002_payment_prepay_attempts",
 		file: "../migrations/0002_payment_prepay_attempts.sql",
 	},
+	{
+		id: "0003_wechat_payment_notifications",
+		file: "../migrations/0003_wechat_payment_notifications.sql",
+	},
 ] as const;
 
 const logger = createLogger({

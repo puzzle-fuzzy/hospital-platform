@@ -82,6 +82,7 @@ export function createApp(options: AppOptions = {}) {
 					paymentsModule(
 						services.paymentOrders,
 						services.wechatPrepay,
+						services.wechatPaymentNotifications,
 						services.sessions,
 					),
 				),

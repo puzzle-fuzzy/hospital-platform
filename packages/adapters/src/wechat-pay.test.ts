@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 import { expect, test } from "bun:test";
 import {
+	mapWechatPaymentNotification,
 	ProviderRequestError,
 	verifyAndDecryptWechatPaymentNotification,
 	WechatPaymentApiGateway,
@@ -91,6 +92,7 @@ function createGateway(
 		merchantPrivateKey,
 		platformCertificateSerial: "platform-serial-001",
 		platformPublicKey,
+		apiV3Key: "0123456789abcdef0123456789abcdef",
 		notifyUrl: "https://hospital.example.test/api/v1/payments/wechat/notify",
 		baseUrl: "https://pay.example.test",
 		now: () => fixedNow,
@@ -256,6 +258,58 @@ test("微信支付通知先验签，再解密 AES-256-GCM resource", () => {
 			amount: { total: 6202 },
 		},
 	});
+});
+
+test("微信支付通知 mapper 只保留可校验的白名单事实", () => {
+	const mapped = mapWechatPaymentNotification({
+		notification: {
+			notificationId: "notification-map-001",
+			eventType: "TRANSACTION.SUCCESS",
+			resource: {
+				appid: "wx-app-001",
+				mchid: "mch-001",
+				out_trade_no: "order-map-001",
+				transaction_id: "4200000000000099",
+				trade_state: "SUCCESS",
+				amount: { total: 300 },
+				payer: { openid: "must-not-cross-adapter-boundary" },
+			},
+		},
+		receivedAt: "2026-08-15T00:00:01.000Z",
+		expectedAppId: "wx-app-001",
+		expectedMchId: "mch-001",
+	});
+
+	expect(mapped).toEqual({
+		notificationId: "notification-map-001",
+		eventType: "TRANSACTION.SUCCESS",
+		orderId: "order-map-001",
+		tradeState: "SUCCESS",
+		totalFen: 300,
+		providerTransactionId: "4200000000000099",
+		receivedAt: "2026-08-15T00:00:01.000Z",
+	});
+	expect(JSON.stringify(mapped)).not.toContain(
+		"must-not-cross-adapter-boundary",
+	);
+});
+
+test("微信支付通知 mapper rejects a success event with an invalid amount", () => {
+	expect(() =>
+		mapWechatPaymentNotification({
+			notification: {
+				notificationId: "notification-map-002",
+				eventType: "TRANSACTION.SUCCESS",
+				resource: {
+					out_trade_no: "order-map-002",
+					transaction_id: "4200000000000100",
+					trade_state: "SUCCESS",
+					amount: { total: 0 },
+				},
+			},
+			receivedAt: "2026-08-15T00:00:01.000Z",
+		}),
+	).toThrow(ProviderRequestError);
 });
 
 test("微信支付通知签名被篡改时不进入解密流程", () => {

@@ -11,6 +11,12 @@ import type { PaymentOrder, PaymentOrderService } from "@hospital/domain";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import { requirePrincipal, type SessionTokenService } from "../auth/service";
 import type { WechatPrepayService } from "./service";
+import type { WechatPaymentNotificationService } from "./notification-service";
+
+const WechatPaymentNotificationAckResponse = t.Object({
+	code: t.Literal("SUCCESS"),
+	message: t.Literal("成功"),
+});
 
 /** 读取订单时只需要会话，不需要客户端重复提交幂等键。 */
 const AuthenticatedHeaders = t.Object({
@@ -51,9 +57,28 @@ function paymentOrderView(order: PaymentOrder): PaymentOrderPayload["data"] {
 export function paymentsModule(
 	paymentOrders: PaymentOrderService,
 	wechatPrepay: WechatPrepayService,
+	wechatPaymentNotifications: WechatPaymentNotificationService,
 	sessions: SessionTokenService,
 ) {
 	return new Elysia({ name: "payments-module" })
+		.post(
+			"/payments/wechat/notifications",
+			async ({ request, headers }) => {
+				await wechatPaymentNotifications.receive({
+					rawBody: new Uint8Array(await request.arrayBuffer()),
+					headers: request.headers,
+					...(headers["x-request-id"]
+						? { traceId: headers["x-request-id"] }
+						: {}),
+				});
+				// 微信通知成功响应使用 provider contract，而不是患者端 success/data 包装。
+				return { code: "SUCCESS" as const, message: "成功" as const };
+			},
+			{
+				response: { 200: WechatPaymentNotificationAckResponse },
+				tags: ["payments"],
+			},
+		)
 		.post(
 			"/payments/orders",
 			async ({ body, headers }) => {
@@ -144,3 +169,8 @@ export {
 	WechatPrepayService,
 	type WechatPrepayServiceDependencies,
 } from "./service";
+export {
+	WechatPaymentNotificationRejectedError,
+	WechatPaymentNotificationService,
+	type WechatPaymentNotificationDecoder,
+} from "./notification-service";

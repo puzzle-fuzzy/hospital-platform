@@ -8,6 +8,8 @@ import type {
 	PaymentPrepayAttemptRepository,
 	PaymentQuote,
 	PaymentQuoteRepository,
+	WechatPaymentNotification,
+	WechatPaymentNotificationRepository,
 	UserIdentityRepository,
 } from "@hospital/domain";
 import {
@@ -156,12 +158,38 @@ export function createInMemoryPaymentPrepayAttemptRepository(
 	};
 }
 
+/** 仅用于 webhook 幂等和应用层测试；生产实现必须与 outbox 同事务。 */
+export function createInMemoryWechatPaymentNotificationRepository(
+	seed: readonly WechatPaymentNotification[] = [],
+): WechatPaymentNotificationRepository {
+	const notifications = new Map(
+		seed.map((notification) => [notification.notificationId, notification]),
+	);
+
+	return {
+		async record(notification) {
+			const existingById = notifications.get(notification.notificationId);
+			const existingByTransaction = [...notifications.values()].find(
+				(current) =>
+					current.providerTransactionId === notification.providerTransactionId,
+			);
+			const existing = existingById ?? existingByTransaction;
+			if (existing) {
+				return { status: "duplicate", notification: existing };
+			}
+			notifications.set(notification.notificationId, notification);
+			return { status: "inserted", notification };
+		},
+	};
+}
+
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
+	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 } {
 	return {
 		identityUsers: {
@@ -205,6 +233,11 @@ export function createNotConfiguredRepositories(): {
 			},
 			update: async () => {
 				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
+			},
+		},
+		wechatPaymentNotifications: {
+			record: async () => {
+				throw new PersistenceNotConfiguredError("wechat-payment-notifications");
 			},
 		},
 	};

@@ -6,6 +6,7 @@ import {
 	PaymentOrderNotFoundError,
 	PaymentOrderVersionConflictError,
 	PaymentCashPrepayNotAllowedError,
+	PaymentNotificationConflictError,
 	PaymentPrepayAttemptInProgressError,
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
@@ -13,6 +14,7 @@ import {
 } from "@hospital/domain";
 import { HttpError } from "../errors";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
+import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 
 function normalizeCode(code: string | number): string {
 	return typeof code === "string" ? code : "UNKNOWN";
@@ -117,6 +119,28 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "payment-order-conflict",
 						message: "Payment order changed",
+					},
+				};
+			}
+
+			if (error instanceof PaymentNotificationConflictError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "payment-notification-conflict",
+						message: "Payment notification conflicts with an existing event",
+					},
+				};
+			}
+
+			if (error instanceof WechatPaymentNotificationRejectedError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "payment-notification-rejected",
+						message: "Wechat payment notification was rejected",
 					},
 				};
 			}

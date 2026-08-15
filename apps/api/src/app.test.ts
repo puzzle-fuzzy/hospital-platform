@@ -11,16 +11,30 @@ import {
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
+	createInMemoryWechatPaymentNotificationRepository,
 } from "@hospital/persistence";
 import { PaymentOrderService } from "@hospital/domain";
 import { createApp } from "./app";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AuthService, createInMemorySessionTokenService } from "./modules/auth";
 import { PatientService } from "./modules/patients";
-import { WechatPrepayService } from "./modules/payments";
+import {
+	WechatPaymentNotificationService,
+	WechatPrepayService,
+} from "./modules/payments";
 
 async function flushAfterResponseHooks(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+/** 该测试只覆盖登录/订单路径；通知服务用 fail-closed decoder 占位。 */
+function unusedWechatNotificationService(): WechatPaymentNotificationService {
+	return new WechatPaymentNotificationService({
+		notifications: createInMemoryWechatPaymentNotificationRepository(),
+		decoder: () => {
+			throw new Error("notification decoder is not used in this test");
+		},
+	});
 }
 
 test("liveness endpoint returns a contract response", async () => {
@@ -217,6 +231,7 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			attempts: createInMemoryPaymentPrepayAttemptRepository(),
 			wechatPayment: createFixtureWechatPaymentGateway(),
 		}),
+		wechatPaymentNotifications: unusedWechatNotificationService(),
 		sessions,
 	};
 	const app = createApp({ services });
@@ -390,6 +405,7 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 				attempts: createInMemoryPaymentPrepayAttemptRepository(),
 				wechatPayment: notConfigured.wechatPayment,
 			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
 			sessions,
 		},
 	});
@@ -415,4 +431,68 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 			message: "Required service dependency is not configured",
 		},
 	});
+});
+
+test("wechat payment notification route preserves the raw body and returns provider ack", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+	});
+	const receivedBodies: string[] = [];
+	const notification = new WechatPaymentNotificationService({
+		notifications: createInMemoryWechatPaymentNotificationRepository(),
+		decoder: ({ rawBody, headers, receivedAt }) => {
+			receivedBodies.push(new TextDecoder().decode(rawBody));
+			expect(headers.get("Wechatpay-Signature")).toBe("fixture-signature");
+			return {
+				notificationId: "fixture-notification-001",
+				eventType: "TRANSACTION.SUCCESS",
+				orderId: "fixture-order-001",
+				tradeState: "SUCCESS",
+				totalFen: 300,
+				providerTransactionId: "fixture-transaction-001",
+				receivedAt,
+			};
+		},
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(createInMemoryPatientRepository()),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: notification,
+			sessions,
+		},
+	});
+	const request = () =>
+		new Request("http://localhost/api/v1/payments/wechat/notifications", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"Wechatpay-Signature": "fixture-signature",
+			},
+			body: JSON.stringify({ id: "raw-notification-body" }),
+		});
+
+	const first = await app.handle(request());
+	const replay = await app.handle(request());
+
+	expect(first.status).toBe(200);
+	expect(await first.json()).toEqual({ code: "SUCCESS", message: "成功" });
+	expect(replay.status).toBe(200);
+	expect(receivedBodies).toEqual([
+		'{"id":"raw-notification-body"}',
+		'{"id":"raw-notification-body"}',
+	]);
 });

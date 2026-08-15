@@ -7,6 +7,7 @@ import {
 import type {
 	AdapterCallContext,
 	ExternalTrace,
+	WechatPaymentNotification as WechatPaymentNotificationRecord,
 	WechatMiniProgramPayParams,
 	WechatPaymentGateway,
 } from "@hospital/domain";
@@ -55,6 +56,8 @@ export type WechatPaymentGatewayOptions = {
 	platformCertificateSerial: string;
 	/** 微信支付平台公钥 PEM；只保存在 adapter 内存边界。 */
 	platformPublicKey: string;
+	/** APIv3 密钥；用于支付通知解密，完整支付配置必须同时提供。 */
+	apiV3Key: string;
 	/** 微信支付通知地址；必须由服务端配置，不能由订单请求覆盖。 */
 	notifyUrl: string;
 	baseUrl?: string;
@@ -69,6 +72,9 @@ export type WechatPaymentNotificationVerifierOptions = {
 	platformCertificateSerial: string;
 	platformPublicKey: string;
 	apiV3Key: string;
+	/** 解密后再次校验商户归属，防止把其他商户的合法通知写入本库。 */
+	expectedAppId?: string;
+	expectedMchId?: string;
 	now?: () => Date;
 	maxClockSkewSeconds?: number;
 };
@@ -314,6 +320,37 @@ function recordValue(value: unknown, field: string): Record<string, unknown> {
 	return value as Record<string, unknown>;
 }
 
+function mappedNotificationText(
+	value: unknown,
+	field: string,
+	maxLength = 128,
+): string {
+	if (typeof value !== "string") {
+		throw providerError({
+			operation: "notification-map",
+			message: `Wechat notification field ${field} is invalid`,
+		});
+	}
+	const normalized = value.trim();
+	if (!normalized || normalized.length > maxLength) {
+		throw providerError({
+			operation: "notification-map",
+			message: `Wechat notification field ${field} is invalid`,
+		});
+	}
+	return normalized;
+}
+
+function notificationFen(value: unknown): number {
+	if (!Number.isSafeInteger(value) || (value as number) <= 0) {
+		throw providerError({
+			operation: "notification-map",
+			message: "Wechat notification amount.total is invalid",
+		});
+	}
+	return value as number;
+}
+
 function decryptNotificationResource(input: {
 	resource: WechatPaymentNotificationResource;
 	apiV3Key: string;
@@ -405,6 +442,7 @@ export class WechatPaymentApiGateway implements WechatPaymentGateway {
 			options.platformPublicKey,
 			"wechat-pay",
 		);
+		requiredConfig(options.apiV3Key, "wechat-pay");
 		this.notifyUrl = requiredConfig(options.notifyUrl, "wechat-pay");
 		this.baseUrl = options.baseUrl ?? DEFAULT_WECHAT_PAY_BASE_URL;
 		this.fetcher = options.fetcher ?? fetch;
@@ -599,6 +637,74 @@ export function verifyAndDecryptWechatPaymentNotification(input: {
 			resource,
 			apiV3Key: input.options.apiV3Key,
 		}),
+	};
+}
+
+/**
+ * 将已验签、已解密的微信通知收窄成内部白名单事实。
+ *
+ * 该 mapper 不向上层暴露 payer、appid、mchid 或 provider 原始 resource；
+ * 金额也必须是成功通知中的整数分，后续应用服务还要和订单 cashFen 比对。
+ */
+export function mapWechatPaymentNotification(input: {
+	notification: WechatPaymentNotification;
+	receivedAt: string;
+	expectedAppId?: string;
+	expectedMchId?: string;
+}): WechatPaymentNotificationRecord {
+	if (input.notification.eventType !== "TRANSACTION.SUCCESS") {
+		throw providerError({
+			operation: "notification-map",
+			message: "Wechat notification event type is unsupported",
+		});
+	}
+
+	const resource = input.notification.resource;
+	if (
+		input.expectedAppId !== undefined &&
+		mappedNotificationText(resource.appid, "appid") !== input.expectedAppId
+	) {
+		throw providerError({
+			operation: "notification-map",
+			message: "Wechat notification appid did not match",
+		});
+	}
+	if (
+		input.expectedMchId !== undefined &&
+		mappedNotificationText(resource.mchid, "mchid") !== input.expectedMchId
+	) {
+		throw providerError({
+			operation: "notification-map",
+			message: "Wechat notification mchid did not match",
+		});
+	}
+
+	const tradeState = mappedNotificationText(
+		resource.trade_state,
+		"trade_state",
+	);
+	if (tradeState !== "SUCCESS") {
+		throw providerError({
+			operation: "notification-map",
+			message: "Wechat success notification did not contain SUCCESS state",
+		});
+	}
+	const amount = recordValue(resource.amount, "amount");
+	return {
+		notificationId: mappedNotificationText(
+			input.notification.notificationId,
+			"notificationId",
+			64,
+		),
+		eventType: "TRANSACTION.SUCCESS",
+		orderId: mappedNotificationText(resource.out_trade_no, "out_trade_no", 64),
+		tradeState: "SUCCESS",
+		totalFen: notificationFen(amount.total),
+		providerTransactionId: mappedNotificationText(
+			resource.transaction_id,
+			"transaction_id",
+		),
+		receivedAt: input.receivedAt,
 	};
 }
 

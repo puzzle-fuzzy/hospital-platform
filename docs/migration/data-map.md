@@ -21,6 +21,7 @@
 
 - `hp_payment_orders`
 - `hp_payment_prepay_attempts`
+- `hp_wechat_payment_notifications`
 - `hp_outbox_events`
 
 已看到的字段类别包括：

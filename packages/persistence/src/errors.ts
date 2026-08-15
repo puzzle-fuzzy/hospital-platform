@@ -6,7 +6,8 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 		| "patients"
 		| "payment-orders"
 		| "payment-quotes"
-		| "payment-prepay-attempts";
+		| "payment-prepay-attempts"
+		| "wechat-payment-notifications";
 
 	constructor(
 		resource:
@@ -14,7 +15,8 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 			| "patients"
 			| "payment-orders"
 			| "payment-quotes"
-			| "payment-prepay-attempts",
+			| "payment-prepay-attempts"
+			| "wechat-payment-notifications",
 	) {
 		super(`persistence:${resource}`);
 		this.name = "PersistenceNotConfiguredError";
