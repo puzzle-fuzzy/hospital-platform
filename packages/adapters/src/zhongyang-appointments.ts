@@ -10,6 +10,7 @@ import type {
 	AppointmentScheduleQuery,
 	ExternalTrace,
 } from "@hospital/domain";
+import { parseIsoCalendarDate } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
@@ -171,7 +172,7 @@ function mapRecord(
 		requestId,
 		32,
 	);
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) {
+	if (parseIsoCalendarDate(workDate) === undefined) {
 		throw providerError(
 			operation,
 			"Zhongyang appointment record workDate is invalid",
@@ -274,7 +275,7 @@ function mapSchedule(
 		requestId,
 		32,
 	);
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) {
+	if (parseIsoCalendarDate(workDate) === undefined) {
 		throw providerError(
 			operation,
 			"Zhongyang appointment workDate is invalid",

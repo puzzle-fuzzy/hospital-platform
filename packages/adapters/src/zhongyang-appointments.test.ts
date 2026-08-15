@@ -144,6 +144,69 @@ test("众阳预约目录拒绝无法形成安全读模型的响应", async () =>
 	});
 });
 
+test("众阳预约 adapter 拒绝不存在的日历日期", async () => {
+	const scheduleGateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-invalid-date",
+						deptId: "dept-001",
+						deptName: "心内科",
+						docId: "doctor-001",
+						docName: "李医生",
+						workDate: "2026-02-30",
+						shiftName: "上午",
+						totalNum: 10,
+						remainingNumber: 5,
+					},
+				]),
+				{ status: 200, headers: { "x-request-id": "invalid-date-schedule" } },
+			),
+	});
+
+	await expect(
+		scheduleGateway.listSchedules(
+			{ startDate: "2026-02-20", endDate: "2026-02-21" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-schedules",
+	});
+
+	const recordsGateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							workDate: "2026-02-30",
+							status: 0,
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "invalid-date-record" } },
+			),
+	});
+
+	await expect(
+		recordsGateway.listRecords(
+			{
+				providerPatientId: "provider-patient-001",
+				query: { startDate: "2026-02-20", endDate: "2026-02-21" },
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-records",
+	});
+});
+
 test("众阳预约记录只固定微信查询参数并移除患者和支付字段", async () => {
 	let requestUrl = "";
 	const gateway = createZhongyangAppointmentGateway({
