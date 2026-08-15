@@ -64,8 +64,11 @@ Content-Type: application/json
 | `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 必须为 1～128 个字符；同一个业务动作重试必须复用原值，换值会产生新动作 |
 | `Authorization` | 受保护接口 | 只接受平台 Bearer 会话，不接受 provider token |
 
-患者同步使用 `POST /api/v2/patients/sync`，没有请求体；它的幂等键只保护一次目录
-同步，不代表新增或绑定了患者。订单创建和微信预支付的幂等键分别独立，不能混用。
+患者同步使用 `POST /api/v2/patients/sync`，没有请求体；它的幂等键只保护一次完整目录
+同步，不代表新增或绑定了患者。同步成功后，服务端在事务中恢复本次出现的患者为 active，
+并将同一 owner/provider 目录中本次未出现的患者标记为 inactive；历史业务引用保留，内部
+`patientId` 不更换。只有 provider adapter 确认返回完整目录时才允许这一步，分页结果必须先
+在 adapter 内合并。订单创建和微信预支付的幂等键分别独立，不能混用。
 
 ### 2.3 日期、金额和标识
 

@@ -57,6 +57,7 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(requestHeaders?.get("x-request-id")).toBe(context.traceId);
 	expect(requestHeaders?.get("idempotency-key")).toBe(context.idempotencyKey);
 	expect(result).toEqual({
+		complete: true,
 		patients: [
 			{
 				providerPatientId: "1001",

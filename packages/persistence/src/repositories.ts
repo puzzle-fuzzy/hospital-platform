@@ -2,6 +2,8 @@ import type {
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotRepository,
 	IdentityUser,
+	PatientDirectorySnapshotInput,
+	PatientDirectorySnapshotResult,
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientRecord,
@@ -71,6 +73,7 @@ export function createInMemoryPatientRepository(
 	seed: readonly PatientRecord[] = [],
 ): PatientRepository {
 	const patients = [...seed];
+	const inactivePatientIds = new Set<string>();
 	const directoryIndex = new Map<string, string>();
 	const providerIndex = new Map<string, string>();
 	const directoryKey = (input: PatientDirectoryUpsertInput) =>
@@ -85,7 +88,11 @@ export function createInMemoryPatientRepository(
 
 	return {
 		async listByOwner(ownerUserId) {
-			return patients.filter((patient) => patient.ownerUserId === ownerUserId);
+			return patients.filter(
+				(patient) =>
+					patient.ownerUserId === ownerUserId &&
+					!inactivePatientIds.has(patient.id),
+			);
 		},
 		async upsertFromDirectory(input) {
 			const key = directoryKey(input);
@@ -106,6 +113,7 @@ export function createInMemoryPatientRepository(
 			};
 			if (existingIndex >= 0) patients[existingIndex] = next;
 			else patients.push(next);
+			inactivePatientIds.delete(next.id);
 			directoryIndex.set(key, next.id);
 			// 目录 ID 保留在旧的默认映射中；档案 patId 等专用引用单独存放，
 			// 让预约、报告和门诊费用可以显式声明自己需要哪一种外部身份。
@@ -134,9 +142,47 @@ export function createInMemoryPatientRepository(
 			}
 			return next;
 		},
+		async replaceDirectorySnapshot(
+			input: PatientDirectorySnapshotInput,
+		): Promise<PatientDirectorySnapshotResult> {
+			const seenPatientIds = new Set<string>();
+			for (const patient of input.patients) {
+				const record = await this.upsertFromDirectory({
+					ownerUserId: input.ownerUserId,
+					patientId: patient.patientId,
+					provider: input.provider,
+					profile: patient.profile,
+				});
+				seenPatientIds.add(record.id);
+			}
+
+			let deactivatedPatientCount = 0;
+			for (const patient of patients) {
+				if (
+					patient.ownerUserId === input.ownerUserId &&
+					patient.source === "hospital-his" &&
+					!seenPatientIds.has(patient.id) &&
+					!inactivePatientIds.has(patient.id)
+				) {
+					inactivePatientIds.add(patient.id);
+					deactivatedPatientCount += 1;
+				}
+			}
+
+			return {
+				activePatients: await this.listByOwner(input.ownerUserId),
+				deactivatedPatientCount,
+			};
+		},
 		async resolveProviderReference(
 			input,
 		): Promise<PatientProviderReference | undefined> {
+			const patient = patients.find(
+				(candidate) =>
+					candidate.id === input.patientId &&
+					candidate.ownerUserId === input.ownerUserId,
+			);
+			if (!patient || inactivePatientIds.has(patient.id)) return undefined;
 			const referenceKind = input.referenceKind ?? "directory";
 			const providerPatientId = providerIndex.get(
 				providerReferenceKey({ ...input, referenceKind }),

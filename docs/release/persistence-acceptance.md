@@ -72,6 +72,9 @@ pnpm db:schema
 - 关键表、列、索引和索引列顺序；
 - 患者与订单 owner 复合外键的本地列和引用列；
 - 当前 schema 是否存在未完成的 migration run。
+- `0013_patient_directory_snapshot` 的 `directory_active`、`directory_last_seen_at` 和
+  `ix_hp_patients_owner_directory_status` 是否存在；这些字段是患者失效回收的前置，缺失时
+  不能打开真实患者目录 repository。
 
 成功应出现 `persistence.schema.checked`；失败应出现
 `persistence.schema.failed`。schema probe 不会执行 DDL，也不会修改
@@ -87,6 +90,7 @@ pnpm db:integration
 
 - `persistence.integration.dependencies` 中 MySQL、Redis 均为 `ok`；
 - `persistence.integration.schema_probe` 的状态为 `ready`；
+- 患者目录快照返回当前 active 患者，且失效数量为 0；
 - `persistence.integration.succeeded`；
 - 若发生失败，`persistence.integration.cleanup_failed` 不得存在，或必须单独登记残留前缀并人工清理。
 

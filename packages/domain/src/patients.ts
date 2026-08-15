@@ -51,6 +51,29 @@ export type PatientDirectoryUpsertInput = {
 };
 
 /**
+ * 一次完整患者目录同步的输入。
+ *
+ * `observedAt` 是本次 provider 快照的统一时间点。持久化层必须在同一个
+ * 事务中先 upsert 本次出现的患者，再把同一 owner/provider 下更早且未出现
+ * 的患者标记为 inactive；不能逐条写入后再异步清理，否则中途失败会把
+ * “本次目录不完整”误写成“患者已经失效”。
+ */
+export type PatientDirectorySnapshotInput = {
+	ownerUserId: string;
+	provider: "zhongyang";
+	observedAt: string;
+	patients: ReadonlyArray<
+		Pick<PatientDirectoryUpsertInput, "patientId" | "profile">
+	>;
+};
+
+/** 患者目录快照的持久化结果；失效数量只用于安全日志，不进入小程序响应。 */
+export type PatientDirectorySnapshotResult = {
+	activePatients: readonly PatientRecord[];
+	deactivatedPatientCount: number;
+};
+
+/**
  * 服务端下游 provider adapter 使用的内部引用。
  *
  * 该类型故意不包含在 PatientRecord 中，避免 provider 患者号被 API read
@@ -85,6 +108,15 @@ export interface PatientRepository {
 	upsertFromDirectory(
 		input: PatientDirectoryUpsertInput,
 	): Promise<PatientRecord>;
+	/**
+	 * 用完整 provider 目录替换当前 owner/provider 快照。
+	 *
+	 * 这是生产同步的必选能力；保留为可选是为了让只读业务测试仓储不被迫
+	 * 实现目录写入。PatientService 在同步时会 fail-closed 检查该能力。
+	 */
+	replaceDirectorySnapshot?(
+		input: PatientDirectorySnapshotInput,
+	): Promise<PatientDirectorySnapshotResult>;
 	/** 按 owner 隔离解析 provider 引用；provider 患者号不得进入公共响应。 */
 	resolveProviderReference(input: {
 		ownerUserId: string;
@@ -101,6 +133,8 @@ export interface PatientDirectoryGateway {
 		input: { unionId: string },
 		context: AdapterCallContext,
 	): Promise<{
+		/** 只有 provider 响应确定是完整目录时才允许执行失效回收。 */
+		complete: true;
 		patients: readonly PatientDirectoryProfile[];
 		trace: ExternalTrace;
 	}>;

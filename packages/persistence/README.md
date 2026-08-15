@@ -15,6 +15,11 @@
 MySQL 查询同时要求 owner 和 `expires_at`，provider 报告号不会进入 API response 或日志；
 该表只支持已取得详情合同的 LIS 读模型，不代表报告下载、解读或其他报告来源已开放。
 
+`0013_patient_directory_snapshot` 为 `hp_patients` 增加目录 active 状态和最后一次完整快照时间。
+患者同步在同一事务中 upsert 当前目录、标记缺失 provider 患者为 inactive，并保留原记录供历史
+报告/费用/订单引用；恢复出现的患者沿用原内部 `patient_id`。缺少完整目录标记、迁移记录或
+schema probe 时，服务端不得执行失效回收。
+
 `0010_health_knowledge` 为已审核健康百科建立发布版本、目录项、疾病/药品详情和关系表；
 `0011_health_knowledge_versioned_keys` 将业务 ID 的主键升级为 `content_version` 复合主键，
 允许新版本复用稳定疾病/药品 ID，同时保留旧版本用于审计和回滚。

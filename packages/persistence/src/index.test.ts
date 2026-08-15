@@ -147,6 +147,97 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 	).toBeUndefined();
 });
 
+test("患者目录完整快照只停用缺失患者并保留原内部 id", async () => {
+	const patients = createInMemoryPatientRepository();
+	if (!patients.replaceDirectorySnapshot)
+		throw new Error("snapshot unavailable");
+
+	const first = await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T00:00:00.000Z",
+		patients: [
+			{
+				patientId: "internal-patient-001",
+				profile: {
+					providerPatientId: "provider-patient-001",
+					displayName: "张三",
+					relationship: "self",
+					cardNumberMasked: "******7890",
+				},
+			},
+			{
+				patientId: "internal-patient-002",
+				profile: {
+					providerPatientId: "provider-patient-002",
+					displayName: "李四",
+					relationship: "spouse",
+					cardNumberMasked: "******0001",
+				},
+			},
+		],
+	});
+	const second = await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T01:00:00.000Z",
+		patients: [
+			{
+				patientId: "must-not-replace-001",
+				profile: {
+					providerPatientId: "provider-patient-001",
+					displayName: "张三（更新）",
+					relationship: "self",
+					cardNumberMasked: "******1111",
+				},
+			},
+		],
+	});
+
+	expect(first.activePatients).toHaveLength(2);
+	expect(second.deactivatedPatientCount).toBe(1);
+	expect(second.activePatients).toEqual([
+		{
+			id: "internal-patient-001",
+			ownerUserId: "user-001",
+			displayName: "张三（更新）",
+			relationship: "self",
+			cardNumberMasked: "******1111",
+			source: "hospital-his",
+		},
+	]);
+	expect(
+		await patients.resolveProviderReference({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-002",
+			provider: "zhongyang",
+		}),
+	).toBeUndefined();
+
+	const restored = await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T02:00:00.000Z",
+		patients: [
+			{
+				patientId: "must-not-replace-002",
+				profile: {
+					providerPatientId: "provider-patient-002",
+					displayName: "李四（恢复）",
+					relationship: "spouse",
+					cardNumberMasked: "******2222",
+				},
+			},
+		],
+	});
+
+	expect(restored.deactivatedPatientCount).toBe(1);
+	expect(restored.activePatients[0]).toMatchObject({
+		id: "internal-patient-002",
+		displayName: "李四（恢复）",
+	});
+});
+
 test("appointment schedule snapshots reject stale observations and expire", async () => {
 	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
 	const schedule = {

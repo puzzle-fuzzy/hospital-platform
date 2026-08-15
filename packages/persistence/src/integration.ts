@@ -139,19 +139,30 @@ export async function runPersistenceIntegration() {
 		});
 		userId = user.userId;
 		const now = new Date();
-		await pool.execute(
-			"INSERT INTO hp_patients (patient_id, owner_user_id, display_name, relationship, card_number_masked, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-			[
-				patientId,
-				user.userId,
-				"集成验收患者",
-				"self",
-				"****0000",
-				"legacy-record",
-				now,
-				now,
-			],
+		const replaceDirectorySnapshot =
+			repositories.patients.replaceDirectorySnapshot;
+		assert.ok(
+			replaceDirectorySnapshot,
+			"patient snapshot repository is required",
 		);
+		const patientSnapshot = await replaceDirectorySnapshot({
+			ownerUserId: user.userId,
+			provider: "zhongyang",
+			observedAt: now.toISOString(),
+			patients: [
+				{
+					patientId,
+					profile: {
+						providerPatientId: `integration-provider-patient-${suffix}`,
+						displayName: "集成验收患者",
+						relationship: "self",
+						cardNumberMasked: "****0000",
+					},
+				},
+			],
+		});
+		assert.equal(patientSnapshot.activePatients[0]?.id, patientId);
+		assert.equal(patientSnapshot.deactivatedPatientCount, 0);
 		await pool.execute(
 			"INSERT INTO hp_payment_quotes (quote_id, owner_user_id, patient_id, total_fen, insurance_fen, cash_fen, expires_at, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			[

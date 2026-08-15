@@ -21,6 +21,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - provider 响应只允许映射为 `providerPatientId`、脱敏姓名、规范化关系和脱敏卡号；手机号、身份证号、完整卡号和原始响应不会进入 domain；
 - adapter 会统一注入 trace/idempotency headers，并把 provider 业务失败转换为不可伪装的 `ProviderRequestError`；
 - provider 患者号已经通过 `hp_patients.provider_name/provider_patient_id` 做内部映射，生产组合根仍默认保持 not-configured；只有 `ZHONGYANG_PATIENT_DIRECTORY_READY=true`、服务端 HTTPS 地址完整且 provider 合同确认后才会注入患者 adapter。
+- 当前患者目录响应在 adapter 内标记为 `complete: true`，因为 `patientInfoByUnionId` 当前返回的是完整数组而不是分页游标；该标记才允许 0013 快照事务回收未出现患者。若 provider 改为分页，必须先合并全部分页，不能用单页结果标记 complete。
 - `ZHONGYANG_AUTHORIZATION_TOKEN` 是可选的服务端 secret，是否需要以及具体授权格式必须以众阳/HIS 合同确认；配置状态 configured 只代表字段完整，不代表真实请求成功。旧的 `ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN` 仅作为迁移兼容变量读取。
 
 报告 Phase 7C/7C-1 实现众阳 LIS/PACS/ECG 只读目录，以及独立 gate 下的 LIS 详情读模型：

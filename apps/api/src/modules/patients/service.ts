@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { PatientListPayload } from "@hospital/contracts";
 import {
-	DependencyNotConfiguredError,
 	type AdapterCallContext,
+	DependencyNotConfiguredError,
 	type PatientDirectoryGateway,
 	type PatientRepository,
 	type UserIdentityRepository,
 } from "@hospital/domain";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
+import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
 export type PatientServiceDependencies = {
 	/** 由服务端会话解析出的 userId 映射到 provider unionId。 */
@@ -85,18 +85,32 @@ export class PatientService {
 				{ unionId: identity.unionId },
 				context,
 			);
+			if (result.complete !== true) {
+				// 不完整目录不能触发失效回收；provider contract 若未来引入分页，
+				// 必须先在 adapter 层合并完全部分页再返回 complete=true。
+				throw new DependencyNotConfiguredError("patient-directory-snapshot");
+			}
+			const replaceDirectorySnapshot = this.repository.replaceDirectorySnapshot;
+			if (!replaceDirectorySnapshot) {
+				// 生产仓储必须具备事务快照能力；逐条 upsert 会留下半套目录。
+				throw new DependencyNotConfiguredError("patient-directory-snapshot");
+			}
 			let hisPatientReferenceCount = 0;
-			for (const profile of result.patients) {
+			const snapshotPatients = result.patients.map((profile) => ({
+				patientId: this.createPatientId(),
+				profile,
+			}));
+			for (const { profile } of snapshotPatients) {
 				if (profile.providerReferences?.["his-patient"]) {
 					hisPatientReferenceCount += 1;
 				}
-				await this.repository.upsertFromDirectory({
-					ownerUserId,
-					patientId: this.createPatientId(),
-					provider: "zhongyang",
-					profile,
-				});
 			}
+			const snapshot = await replaceDirectorySnapshot.call(this.repository, {
+				ownerUserId,
+				provider: "zhongyang",
+				observedAt: new Date().toISOString(),
+				patients: snapshotPatients,
+			});
 
 			this.logger.info(
 				{
@@ -105,6 +119,8 @@ export class PatientService {
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
 					patientCount: result.patients.length,
+					activePatientCount: snapshot.activePatients.length,
+					deactivatedPatientCount: snapshot.deactivatedPatientCount,
 					hisPatientReferenceCount,
 				},
 				"Patient directory synchronized",

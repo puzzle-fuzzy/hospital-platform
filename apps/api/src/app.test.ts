@@ -579,6 +579,7 @@ test("patient sync resolves provider identity on the server and returns only int
 			directoryInput = input;
 			directoryContext = context;
 			return {
+				complete: true,
 				patients: [
 					{
 						providerPatientId: "provider-patient-001",

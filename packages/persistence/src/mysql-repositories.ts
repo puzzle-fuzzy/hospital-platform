@@ -5,9 +5,11 @@ import type {
 	AppointmentScheduleSnapshotRepository,
 	HealthKnowledgeRepository,
 	IdentityUser,
-	PatientDirectoryUpsertInput,
 	OutboxEvent,
 	OutboxRepository,
+	PatientDirectorySnapshotInput,
+	PatientDirectorySnapshotResult,
+	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientRecord,
 	PatientRelationship,
@@ -395,7 +397,7 @@ function patient(row: PatientRow): PatientRecord {
  * 写入独立表，避免更新一次目录数据时覆盖其他业务能力的外部身份。
  */
 async function persistPatientProviderReferences(
-	pool: Pool,
+	pool: Pool | PoolConnection,
 	input: PatientDirectoryUpsertInput,
 	patientId: string,
 ): Promise<void> {
@@ -421,6 +423,117 @@ async function persistPatientProviderReferences(
 				now,
 			],
 		);
+	}
+}
+
+const PATIENT_BY_PROVIDER_SQL =
+	"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND provider_name = ? AND provider_patient_id = ? LIMIT 1";
+
+/**
+ * 在指定连接上 upsert 一个目录患者，并恢复它的 active 状态。
+ *
+ * 该 helper 同时被单条测试入口和目录快照事务使用；快照调用方必须把
+ * 多个患者及失效回收放在同一个 connection/transaction 中，不能拆成多次
+ * pool 写入，否则 provider 半响应会留下不可解释的目录中间态。
+ */
+async function upsertPatientFromDirectory(
+	client: Pool | PoolConnection,
+	input: PatientDirectoryUpsertInput,
+	observedAt: string,
+): Promise<PatientRecord> {
+	const existingRows = await execute<PatientRow[]>(
+		client,
+		PATIENT_BY_PROVIDER_SQL,
+		[input.ownerUserId, input.provider, input.profile.providerPatientId],
+	);
+	const timestamp = mysqlDateTime(observedAt);
+	if (existingRows[0]) {
+		const existing = existingRows[0];
+		await execute<ResultSetHeader>(
+			client,
+			"UPDATE hp_patients SET display_name = ?, relationship = ?, card_number_masked = ?, source = ?, directory_active = 1, directory_last_seen_at = ?, updated_at = ? WHERE patient_id = ? AND owner_user_id = ?",
+			[
+				input.profile.displayName,
+				input.profile.relationship,
+				input.profile.cardNumberMasked,
+				"hospital-his",
+				timestamp,
+				timestamp,
+				existing.patient_id,
+				input.ownerUserId,
+			],
+		);
+		const updatedPatient = patient({
+			...existing,
+			display_name: input.profile.displayName,
+			relationship: input.profile.relationship,
+			card_number_masked: input.profile.cardNumberMasked,
+			source: "hospital-his",
+		});
+		await persistPatientProviderReferences(client, input, updatedPatient.id);
+		return updatedPatient;
+	}
+
+	try {
+		await execute<ResultSetHeader>(
+			client,
+			"INSERT INTO hp_patients (patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id, directory_active, directory_last_seen_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			[
+				input.patientId,
+				input.ownerUserId,
+				input.profile.displayName,
+				input.profile.relationship,
+				input.profile.cardNumberMasked,
+				"hospital-his",
+				input.provider,
+				input.profile.providerPatientId,
+				1,
+				timestamp,
+				timestamp,
+				timestamp,
+			],
+		);
+		const insertedPatient: PatientRecord = {
+			id: input.patientId,
+			ownerUserId: input.ownerUserId,
+			displayName: input.profile.displayName,
+			relationship: input.profile.relationship,
+			cardNumberMasked: input.profile.cardNumberMasked,
+			source: "hospital-his",
+		};
+		await persistPatientProviderReferences(client, input, insertedPatient.id);
+		return insertedPatient;
+	} catch (error) {
+		if (!isDuplicateEntry(error)) throw error;
+		const racedRows = await execute<PatientRow[]>(
+			client,
+			PATIENT_BY_PROVIDER_SQL,
+			[input.ownerUserId, input.provider, input.profile.providerPatientId],
+		);
+		if (!racedRows[0]) throw error;
+		await execute<ResultSetHeader>(
+			client,
+			"UPDATE hp_patients SET display_name = ?, relationship = ?, card_number_masked = ?, source = ?, directory_active = 1, directory_last_seen_at = ?, updated_at = ? WHERE patient_id = ? AND owner_user_id = ?",
+			[
+				input.profile.displayName,
+				input.profile.relationship,
+				input.profile.cardNumberMasked,
+				"hospital-his",
+				timestamp,
+				timestamp,
+				racedRows[0].patient_id,
+				input.ownerUserId,
+			],
+		);
+		const racedPatient = patient({
+			...racedRows[0],
+			display_name: input.profile.displayName,
+			relationship: input.profile.relationship,
+			card_number_masked: input.profile.cardNumberMasked,
+			source: "hospital-his",
+		});
+		await persistPatientProviderReferences(client, input, racedPatient.id);
+		return racedPatient;
 	}
 }
 
@@ -789,85 +902,48 @@ export function createMySqlRepositories(
 		async listByOwner(ownerUserId) {
 			const rows = await execute<PatientRow[]>(
 				pool,
-				"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? ORDER BY patient_id",
+				"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND (provider_name IS NULL OR directory_active = 1) ORDER BY patient_id",
 				[ownerUserId],
 			);
 			return rows.map(patient);
 		},
 		async upsertFromDirectory(input) {
-			const selectByProvider =
-				"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND provider_name = ? AND provider_patient_id = ? LIMIT 1";
-			const existingRows = await execute<PatientRow[]>(pool, selectByProvider, [
-				input.ownerUserId,
-				input.provider,
-				input.profile.providerPatientId,
-			]);
-			if (existingRows[0]) {
-				const existing = existingRows[0];
-				const updatedAt = new Date();
-				await execute<ResultSetHeader>(
-					pool,
-					"UPDATE hp_patients SET display_name = ?, relationship = ?, card_number_masked = ?, updated_at = ? WHERE patient_id = ? AND owner_user_id = ?",
-					[
-						input.profile.displayName,
-						input.profile.relationship,
-						input.profile.cardNumberMasked,
-						mysqlDateTime(updatedAt),
-						existing.patient_id,
-						input.ownerUserId,
-					],
-				);
-				const updatedPatient = patient({
-					...existing,
-					display_name: input.profile.displayName,
-					relationship: input.profile.relationship,
-					card_number_masked: input.profile.cardNumberMasked,
-					updated_at: mysqlDateTime(updatedAt),
-				});
-				await persistPatientProviderReferences(pool, input, updatedPatient.id);
-				return updatedPatient;
-			}
+			return upsertPatientFromDirectory(pool, input, new Date().toISOString());
+		},
+		async replaceDirectorySnapshot(
+			input: PatientDirectorySnapshotInput,
+		): Promise<PatientDirectorySnapshotResult> {
+			return withTransaction(pool, async (connection) => {
+				for (const snapshotPatient of input.patients) {
+					await upsertPatientFromDirectory(
+						connection,
+						{
+							ownerUserId: input.ownerUserId,
+							provider: input.provider,
+							patientId: snapshotPatient.patientId,
+							profile: snapshotPatient.profile,
+						},
+						input.observedAt,
+					);
+				}
 
-			const now = new Date();
-			try {
-				await execute<ResultSetHeader>(
-					pool,
-					"INSERT INTO hp_patients (patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-					[
-						input.patientId,
-						input.ownerUserId,
-						input.profile.displayName,
-						input.profile.relationship,
-						input.profile.cardNumberMasked,
-						"hospital-his",
-						input.provider,
-						input.profile.providerPatientId,
-						mysqlDateTime(now),
-						mysqlDateTime(now),
-					],
+				const observedAt = mysqlDateTime(input.observedAt);
+				const deactivated = await execute<ResultSetHeader>(
+					connection,
+					"UPDATE hp_patients SET directory_active = 0, updated_at = ? WHERE owner_user_id = ? AND provider_name = ? AND directory_active = 1 AND (directory_last_seen_at IS NULL OR directory_last_seen_at < ?)",
+					[observedAt, input.ownerUserId, input.provider, observedAt],
 				);
-				const insertedPatient: PatientRecord = {
-					id: input.patientId,
-					ownerUserId: input.ownerUserId,
-					displayName: input.profile.displayName,
-					relationship: input.profile.relationship,
-					cardNumberMasked: input.profile.cardNumberMasked,
-					source: "hospital-his",
+				const currentRows = await execute<PatientRow[]>(
+					connection,
+					"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND (provider_name IS NULL OR directory_active = 1) ORDER BY patient_id",
+					[input.ownerUserId],
+				);
+
+				return {
+					activePatients: currentRows.map(patient),
+					deactivatedPatientCount: deactivated.affectedRows,
 				};
-				await persistPatientProviderReferences(pool, input, insertedPatient.id);
-				return insertedPatient;
-			} catch (error) {
-				if (!isDuplicateEntry(error)) throw error;
-				const racedRows = await execute<PatientRow[]>(pool, selectByProvider, [
-					input.ownerUserId,
-					input.provider,
-					input.profile.providerPatientId,
-				]);
-				if (!racedRows[0]) throw error;
-				const racedPatient = patient(racedRows[0]);
-				await persistPatientProviderReferences(pool, input, racedPatient.id);
-				return racedPatient;
-			}
+			});
 		},
 		async resolveProviderReference(
 			input,
@@ -876,7 +952,7 @@ export function createMySqlRepositories(
 			if (referenceKind === "his-patient") {
 				const rows = await execute<PatientProviderReferenceRow[]>(
 					pool,
-					"SELECT patient_id, provider_name, reference_kind, provider_patient_id FROM hp_patient_provider_references WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND reference_kind = ? LIMIT 1",
+					"SELECT provider_refs.patient_id, provider_refs.provider_name, provider_refs.reference_kind, provider_refs.provider_patient_id FROM hp_patient_provider_references AS provider_refs INNER JOIN hp_patients AS patients ON patients.owner_user_id = provider_refs.owner_user_id AND patients.patient_id = provider_refs.patient_id WHERE provider_refs.owner_user_id = ? AND provider_refs.patient_id = ? AND provider_refs.provider_name = ? AND provider_refs.reference_kind = ? AND patients.directory_active = 1 LIMIT 1",
 					[input.ownerUserId, input.patientId, input.provider, referenceKind],
 				);
 				const row = rows[0];
@@ -891,7 +967,7 @@ export function createMySqlRepositories(
 
 			const rows = await execute<PatientRow[]>(
 				pool,
-				"SELECT patient_id, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND provider_patient_id IS NOT NULL LIMIT 1",
+				"SELECT patient_id, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND provider_patient_id IS NOT NULL AND directory_active = 1 LIMIT 1",
 				[input.ownerUserId, input.patientId, input.provider],
 			);
 			const row = rows[0];

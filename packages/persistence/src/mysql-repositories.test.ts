@@ -197,6 +197,46 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 	expect(state.values[2]).toContain("his-patient-001");
 });
 
+test("MySQL patient directory snapshot deactivates missing rows in one transaction", async () => {
+	const { pool, state } = createFakePool([
+		[],
+		{ affectedRows: 1 },
+		{ affectedRows: 1 },
+		[],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	const snapshot = repositories.patients.replaceDirectorySnapshot;
+	if (!snapshot) throw new Error("snapshot unavailable");
+	await expect(
+		snapshot({
+			ownerUserId: "user-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T00:00:00.000Z",
+			patients: [
+				{
+					patientId: "internal-patient-001",
+					profile: {
+						providerPatientId: "provider-patient-001",
+						displayName: "张三",
+						relationship: "self",
+						cardNumberMasked: "******7890",
+					},
+				},
+			],
+		}),
+	).resolves.toEqual({ activePatients: [], deactivatedPatientCount: 1 });
+
+	expect(state.committed).toBe(true);
+	expect(state.rolledBack).toBe(false);
+	expect(
+		state.statements.some((statement) =>
+			statement.includes("SET directory_active = 0"),
+		),
+	).toBe(true);
+	expect(state.values.some((values) => values.includes("user-001"))).toBe(true);
+});
+
 test("MySQL patient provider lookup is owner-scoped and server-only", async () => {
 	const { pool, state } = createFakePool([
 		[

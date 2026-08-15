@@ -262,6 +262,7 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 		input: { unionId: string },
 		context: AdapterCallContext,
 	): Promise<{
+		complete: true;
 		patients: readonly PatientDirectoryProfile[];
 		trace: ExternalTrace;
 	}> {
@@ -301,6 +302,8 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 			}),
 		);
 		return {
+			// 当前 provider 响应没有分页游标；只有完整数组才可驱动目录失效回收。
+			complete: true,
 			patients,
 			trace: trace(response.requestId),
 		};
