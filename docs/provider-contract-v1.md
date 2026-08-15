@@ -46,6 +46,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 
 - 使用旧项目记录查询对应的 `/msun-middle-business-appointment-server/v1/appointment-infos/{pat-id}`，服务端固定 `requestChannel=3`、`isMzFlag=1` 和 `dateFlag=1`，日期范围由平台限制；provider 患者号只能来自服务端 mapping；
 - 新 contract 只返回科室、医生、就诊日期/时间、地点、序号和规范化状态；`appointmentInfoId`、患者身份字段、电话、挂号费、支付状态、HIS 挂号号和 provider 原始字段全部丢弃；
+- 线上只读审计发现患者目录返回的 `thirdPatientId` 直接用于该接口时会得到 `smcAppointment@1301 / 患者信息不存在`；预约历史不能沿用患者目录的单一 provider id，必须先确认预约专用 `pat-id` 来源并建立独立映射；
 - 旧项目的预约写入/取消请求仍未作为新 contract 依据，因为它们把 provider 患者号、完整身份信息、挂号费、结算方式和支付状态混在小程序 payload 中，且缺少当前 provider 的金额单位、幂等和状态回写证据；
 - 记录使用独立的 `ZHONGYANG_APPOINTMENT_RECORDS_READY` gate，不会因 AMC 排班目录 gate 打开而隐式启用；默认组合根仍注入 fail-closed gateway。
 
