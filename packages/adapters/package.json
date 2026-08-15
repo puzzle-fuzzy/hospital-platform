@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "tsc --noEmit false --declaration --emitDeclarationOnly --outDir dist",
-		"test": "bun -e \"console.log('No tests yet for adapters')\"",
+		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
 	"exports": {
@@ -15,6 +15,7 @@
 		}
 	},
 	"dependencies": {
+		"@hospital/contracts": "workspace:*",
 		"@hospital/domain": "workspace:*"
 	},
 	"devDependencies": {

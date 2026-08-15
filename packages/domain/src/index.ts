@@ -5,6 +5,7 @@ export {
 	transitionPayment,
 } from "./payment-state";
 export type {
+	AdapterCallContext,
 	ExternalTrace,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,

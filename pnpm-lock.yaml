@@ -96,6 +96,9 @@ importers:
 
   packages/adapters:
     dependencies:
+      '@hospital/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@hospital/domain':
         specifier: workspace:*
         version: link:../domain
