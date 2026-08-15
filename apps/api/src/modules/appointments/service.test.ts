@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import type { AppointmentDirectoryGateway } from "@hospital/domain";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
-import { AppointmentService } from "./service";
+import {
+	AppointmentRecordQueryError,
+	AppointmentScheduleQueryError,
+	AppointmentService,
+} from "./service";
 
 test("appointment schedule reads persist a short-lived server snapshot", async () => {
 	const directory: AppointmentDirectoryGateway = {
@@ -114,4 +118,49 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 		items: [{ ...schedule, scheduleId: "platform-schedule-002" }],
 		total: 1,
 	});
+});
+
+test("appointment queries reject impossible calendar dates before provider access", async () => {
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+	});
+
+	await expect(
+		service.listSchedules(
+			{ startDate: "2026-02-30", endDate: "2026-03-01" },
+			{
+				traceId: "trace-invalid-schedule",
+				idempotencyKey: "key-invalid-schedule",
+			},
+		),
+	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
+
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-02-28", endDate: "2026-02-31" },
+			{
+				traceId: "trace-invalid-record",
+				idempotencyKey: "key-invalid-record",
+			},
+		),
+	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
 });

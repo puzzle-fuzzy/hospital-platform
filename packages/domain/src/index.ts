@@ -13,6 +13,7 @@ export type {
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotRepository,
 } from "./appointments";
+export { parseIsoCalendarDate } from "./date-range";
 export { DependencyNotConfiguredError } from "./errors";
 export type {
 	OutboxEvent,

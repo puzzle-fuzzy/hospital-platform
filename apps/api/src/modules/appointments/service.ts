@@ -13,6 +13,7 @@ import {
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
+	parseIsoCalendarDate,
 	type PatientRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -58,10 +59,10 @@ export class AppointmentRecordPatientNotFoundError extends Error {
 }
 
 function validateScheduleQuery(input: AppointmentScheduleQuery): void {
-	const start = Date.parse(`${input.startDate}T00:00:00.000Z`);
-	const end = Date.parse(`${input.endDate}T00:00:00.000Z`);
+	const start = parseIsoCalendarDate(input.startDate);
+	const end = parseIsoCalendarDate(input.endDate);
 	const maxRangeMs = MAX_SCHEDULE_RANGE_DAYS * 24 * 60 * 60 * 1000;
-	if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+	if (start === undefined || end === undefined || end < start) {
 		throw new AppointmentScheduleQueryError("Schedule date range is invalid");
 	}
 	if (end - start > maxRangeMs) {
@@ -72,10 +73,10 @@ function validateScheduleQuery(input: AppointmentScheduleQuery): void {
 }
 
 function validateRecordQuery(input: AppointmentRecordQuery): void {
-	const start = Date.parse(`${input.startDate}T00:00:00.000Z`);
-	const end = Date.parse(`${input.endDate}T00:00:00.000Z`);
+	const start = parseIsoCalendarDate(input.startDate);
+	const end = parseIsoCalendarDate(input.endDate);
 	const maxRangeMs = MAX_RECORD_RANGE_DAYS * 24 * 60 * 60 * 1000;
-	if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+	if (start === undefined || end === undefined || end < start) {
 		throw new AppointmentRecordQueryError(
 			"Appointment record date range is invalid",
 		);

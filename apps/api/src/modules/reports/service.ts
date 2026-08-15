@@ -5,6 +5,7 @@ import type {
 	ReportDirectoryGateway,
 	ReportDirectoryQuery,
 } from "@hospital/domain";
+import { parseIsoCalendarDate } from "@hospital/domain";
 import { createNoopLogger, type AppLogger } from "@hospital/observability";
 
 export type ReportServiceDependencies = {
@@ -30,16 +31,10 @@ export class ReportPatientNotFoundError extends Error {
 const MAX_REPORT_RANGE_DAYS = 366;
 
 function validateQuery(input: ReportDirectoryQuery): void {
-	if (
-		!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(input.startDate) ||
-		!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(input.endDate)
-	) {
-		throw new ReportQueryError("Report date range is invalid");
-	}
-	const start = Date.parse(`${input.startDate}T00:00:00.000Z`);
-	const end = Date.parse(`${input.endDate}T00:00:00.000Z`);
+	const start = parseIsoCalendarDate(input.startDate);
+	const end = parseIsoCalendarDate(input.endDate);
 	const maxRangeMs = MAX_REPORT_RANGE_DAYS * 24 * 60 * 60 * 1000;
-	if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+	if (start === undefined || end === undefined || end < start) {
 		throw new ReportQueryError("Report date range is invalid");
 	}
 	if (end - start > maxRangeMs) {
