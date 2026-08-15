@@ -20,12 +20,24 @@ test("runtime config defaults to safe development gates", () => {
 
 	expect(config).toMatchObject({
 		environment: "development",
+		host: "127.0.0.1",
 		logLevel: "debug",
 		persistenceSchemaReady: false,
 		wechatIdentityReady: false,
 		wechatPaymentReady: false,
 		workerPollIntervalMs: 1000,
 	});
+});
+
+test("production runtime listens on container interfaces by default", () => {
+	const production = loadRuntimeConfig({ NODE_ENV: "production" });
+	const explicit = loadRuntimeConfig({
+		NODE_ENV: "production",
+		HOST: "10.0.0.8",
+	});
+
+	expect(production.host).toBe("0.0.0.0");
+	expect(explicit.host).toBe("10.0.0.8");
 });
 
 test("runtime config trims secrets and parses explicit worker settings", () => {

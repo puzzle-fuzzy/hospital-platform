@@ -343,6 +343,17 @@ function positiveWorkerInterval(value: string | undefined): number {
 	);
 }
 
+/** 开发环境默认只监听本机；生产容器默认监听所有容器网卡，显式 HOST 优先。 */
+function host(
+	value: string | undefined,
+	environmentValue: RuntimeConfig["environment"],
+): string {
+	return (
+		optional(value) ??
+		(environmentValue === "production" ? "0.0.0.0" : "127.0.0.1")
+	);
+}
+
 function environment(value: string | undefined): RuntimeConfig["environment"] {
 	if (value === "production" || value === "test") return value;
 	return "development";
@@ -393,7 +404,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 	const runtimeEnvironment = environment(env.NODE_ENV);
 	return {
 		environment: runtimeEnvironment,
-		host: env.HOST ?? "127.0.0.1",
+		host: host(env.HOST, runtimeEnvironment),
 		port: positivePort(env.PORT),
 		apiVersion: env.API_VERSION ?? "0.1.0",
 		logLevel: logLevel(env.LOG_LEVEL, runtimeEnvironment),
