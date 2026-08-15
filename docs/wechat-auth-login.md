@@ -269,7 +269,7 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `apps/miniprogram/src/types.ts` | 小程序 API、会话、就诊人、预约、报告和支付类型 |
 | `apps/miniprogram/src/services/api-client.ts` | wx.login、版本前缀、token 保存和 requestId |
 | `apps/miniprogram/src/services/session-service.ts` | 会话恢复和登录状态 |
-| `apps/miniprogram/project.config.json` | 指定 `src/` 为唯一小程序根目录并启用微信官方 TypeScript 编译插件 |
-| `apps/miniprogram/scripts/build.ts` | 构建前验证 TypeScript、页面静态资源和官方编译插件配置 |
+| `apps/miniprogram/project.config.json` | 指定构建后的 `dist/` 为小程序运行根目录，并保留 TypeScript 编译插件配置 |
+| `apps/miniprogram/scripts/build.ts` | 编译 TypeScript 页面、复制静态资源并验证真实 `.js` 页面文件 |
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |

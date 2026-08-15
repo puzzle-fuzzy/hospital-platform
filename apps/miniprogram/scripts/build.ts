@@ -1,9 +1,11 @@
-import { access } from "node:fs/promises";
-import { join } from "node:path";
+import { access, cp, mkdir, readdir, rm } from "node:fs/promises";
+import { dirname, extname, join, relative } from "node:path";
 
 const root = join(import.meta.dir, "..");
 const source = join(root, "src");
+const runtime = join(root, "dist");
 const projectConfigPath = join(root, "project.config.json");
+const buildConfigPath = join(root, "tsconfig.build.json");
 const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
@@ -51,19 +53,19 @@ const requiredTypeScriptFiles = [
 const requiredAssetDirectories = ["assets"];
 
 /**
- * 原生小程序不再生成第二套 dist 运行目录。
- *
- * 微信开发者工具通过仓库内公共 project.config.json 直接打开 src/，
- * TypeScript 由官方编译插件处理，Bun 只负责仓库级类型检查与测试。
- * 这样可以避免源码、Bun bundle 和开发者工具之间出现三套运行语义。
+ * 原生小程序的业务源代码仍然全部使用 TypeScript，但运行目录必须提供真实的
+ * JavaScript 页面文件。这样真机上传不依赖开发者工具是否成功执行隐式 TS 插件，
+ * 也不会再因为缺少 `pages/report-directory/report-directory.js` 而在运行时失败。
  */
 const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
 	miniprogramRoot?: unknown;
 	setting?: { useCompilerPlugins?: unknown };
 };
 
-if (projectConfig.miniprogramRoot !== "src/") {
-	throw new Error("Mini program project.config.json must point to src/");
+if (projectConfig.miniprogramRoot !== "dist/") {
+	throw new Error(
+		"Mini program project.config.json must point to the generated dist/ runtime",
+	);
 }
 
 if (
@@ -71,36 +73,8 @@ if (
 	!projectConfig.setting.useCompilerPlugins.includes("typescript")
 ) {
 	throw new Error(
-		"Mini program project.config.json must enable the TypeScript compiler plugin",
+		"Mini program project.config.json must keep the TypeScript compiler plugin enabled",
 	);
-}
-
-/**
- * 开发者工具有时会在 src/ 下生成一个本机项目配置副本。
- * 如果用户直接把 src/ 当作项目根目录打开，这个副本会覆盖上层配置；
- * 因此存在时也必须开启 TypeScript 插件，否则真机会按纯 JS 查找 .js 文件。
- */
-const nestedProjectConfigPath = join(source, "project.config.json");
-let nestedProjectConfigExists = false;
-try {
-	await access(nestedProjectConfigPath);
-	nestedProjectConfigExists = true;
-} catch {
-	// 没有本机配置副本时，直接使用仓库公共配置即可。
-}
-
-if (nestedProjectConfigExists) {
-	const nestedProjectConfig = JSON.parse(
-		await Bun.file(nestedProjectConfigPath).text(),
-	) as { setting?: { useCompilerPlugins?: unknown } };
-	if (
-		!Array.isArray(nestedProjectConfig.setting?.useCompilerPlugins) ||
-		!nestedProjectConfig.setting.useCompilerPlugins.includes("typescript")
-	) {
-		throw new Error(
-			"src/project.config.json exists but does not enable the TypeScript compiler plugin; reload the DevTools project configuration",
-		);
-	}
 }
 
 for (const file of [...requiredStaticFiles, ...requiredTypeScriptFiles]) {
@@ -111,6 +85,54 @@ for (const directory of requiredAssetDirectories) {
 	await access(join(source, directory));
 }
 
+/** 只把非 TypeScript 资源复制到运行目录，避免把源码配置副本带入上传包。 */
+async function copyStaticFiles(currentSource: string): Promise<void> {
+	const entries = await readdir(currentSource, { withFileTypes: true });
+	for (const entry of entries) {
+		if (
+			entry.name === "project.config.json" ||
+			entry.name === "project.private.config.json"
+		)
+			continue;
+
+		const sourcePath = join(currentSource, entry.name);
+		const relativePath = relative(source, sourcePath);
+		const targetPath = join(runtime, relativePath);
+		if (entry.isDirectory()) {
+			await copyStaticFiles(sourcePath);
+			continue;
+		}
+		if (extname(entry.name) === ".ts") continue;
+		await mkdir(dirname(targetPath), { recursive: true });
+		await cp(sourcePath, targetPath);
+	}
+}
+
+/**
+ * 使用项目锁定的 TypeScript 编译器输出 CommonJS 页面脚本；小程序只消费 dist，
+ * src 仍是唯一业务源码，删除页面时不会留下旧的运行时 JavaScript 文件。
+ */
+await rm(runtime, { recursive: true, force: true });
+await mkdir(runtime, { recursive: true });
+const compile = Bun.spawnSync(["pnpm", "exec", "tsc", "-p", buildConfigPath], {
+	cwd: root,
+	stdout: "inherit",
+	stderr: "inherit",
+});
+if (!compile.success) {
+	throw new Error(
+		`Mini program TypeScript emit failed with code ${compile.exitCode}`,
+	);
+}
+await copyStaticFiles(source);
+
+for (const file of requiredStaticFiles) {
+	await access(join(runtime, file));
+}
+for (const file of requiredTypeScriptFiles) {
+	await access(join(runtime, file.replace(/\.ts$/, ".js")));
+}
+
 console.log(
-	`Native mini program source is ready at ${source}; WeChat TypeScript compiler plugin is enabled`,
+	`Native mini program runtime generated at ${runtime}; report-directory.js is present`,
 );

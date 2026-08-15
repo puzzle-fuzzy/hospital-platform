@@ -10,17 +10,17 @@
 视觉复刻不等于开放业务能力：未完成的住院、便民、健康百科、支付、二维码、云影像和分享能力
 只保留原位置并给出迁移提示，不新增虚假成功路径或 provider 直连。
 
-这里保留原生微信小程序边界：WXML、WXSS、TypeScript 源码和微信原生 API；微信开发者工具通过
-公共 `project.config.json` 启用官方 TypeScript 编译插件，不引入运行时框架或自定义运行时适配层。
+这里保留原生微信小程序边界：WXML、WXSS、TypeScript 源码和微信原生 API；TypeScript 源码
+通过仓库构建脚本编译为微信运行所需的 JavaScript，不引入运行时框架或自定义运行时适配层。
 
 页面只能通过 `src/services/api-client.ts` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
 微信开发者工具的 `src/project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
 
 打开项目时请选择 `apps/miniprogram/`，不要直接把 `apps/miniprogram/src/` 作为微信项目根目录。
-公共配置中的 `miniprogramRoot` 已经指向 `src/` 并开启 `useCompilerPlugins: ["typescript"]`。
-如果开发者工具曾经直接打开过 `src/`，它可能生成被忽略的 `src/project.config.json`；该副本也必须保持
-`useCompilerPlugins: ["typescript"]`，否则工具会按纯 JavaScript 查找页面 `.js` 文件并报“找不到对应文件”。
+公共配置中的 `miniprogramRoot` 指向构建生成的 `dist/`，源码仍位于 `src/`；这样开发者工具和真机
+始终读取真实存在的 `.js` 页面文件，不依赖工具隐式编译 TypeScript。不要直接打开 `src/`，否则本机配置副本
+可能覆盖公共配置并再次按纯 JavaScript 查找错误的源码目录。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的
@@ -63,8 +63,8 @@
 因此不新增无依据的忽略规则。若开发者工具在本机生成同名诊断文件，应保留在工具本地目录，不复制到 `src/`、`dist/`
 或 Git 提交中；真正需要忽略的本机配置仍由 `project.private.config.json` 负责。
 
-构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，该命令执行 TypeScript 类型检查并验证
-WXML/WXSS/JSON、`src/assets/` 和官方编译插件配置完整。微信开发者工具必须打开
-`apps/miniprogram/`，由公共 `project.config.json` 将 `src/` 作为唯一小程序根目录；不要打开历史的 `dist/` 目录。
-若刷新后仍请求旧地址，先重新执行构建并重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
+构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，该命令执行 TypeScript 类型检查、CommonJS
+JavaScript 生成并验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须打开
+`apps/miniprogram/`，由公共 `project.config.json` 将 `dist/` 作为运行根目录；不要直接打开 `src/`。
+若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。

@@ -113,10 +113,11 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 		join(import.meta.dir, "..", "scripts", "build.ts"),
 	).text();
 
-	expect(config).toContain('"miniprogramRoot": "src/"');
+	expect(config).toContain('"miniprogramRoot": "dist/"');
 	expect(config).toContain('"useCompilerPlugins": ["typescript"]');
-	expect(build).toContain("nestedProjectConfigPath");
-	expect(build).toContain("does not enable the TypeScript compiler plugin");
+	expect(build).toContain("tsconfig.build.json");
+	expect(build).toContain("report-directory/report-directory.js");
+	expect(build).toContain("src 仍是唯一业务源码");
 });
 
 test("native mini program exposes read-only appointment directory and records pages", async () => {
