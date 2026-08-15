@@ -95,6 +95,12 @@ PaymentReconciliationWorker（持久化驱动）
   -> WechatPaymentGateway.query（查单响应必须包含已验签金额）
   -> PaymentOrderService.reconcileWechatPayment（金额 + version 条件迁移）
   -> 终态清除 nextQueryAt；未知/待确认按 queryAttempts 指数退避
+
+WechatPaymentNotificationHandler（outbox）
+  -> 只读取 API 层已验签解密后的白名单事实
+  -> 使用 notificationId/providerTransactionId 作为安全证据索引
+  -> 复用 PaymentOrderService 做金额 + version 条件迁移
+  -> handler 成功后才标记 outbox processed；失败由通用 outbox lease/退避机制重试
 ```
 
 outbox 与 worker 目前已经有独立端口、内存实现和指数退避测试；Phase 5A 已加入
@@ -110,8 +116,9 @@ vectors。Phase 6A 已把原生小程序健康检查、微信登录、平台会�
 又加入通知入站事实与去重 outbox，Phase 6E-2 又加入 `nextQueryAt`、`queryAttempts`、查单金额校验
 和版本化订单迁移；微信支付 adapter 只在完整配置和显式 `WECHAT_PAYMENT_READY`
 下由组合根注入，`WECHAT_IDENTITY_READY` 也默认关闭，医保和 HIS handler 尚未接入；因此默认运行不会产生真实支付副作用。
-当前 `apps/worker` 仍只导出可测试的查单 worker 核心，真实数据库/provider 组合根和进程循环留待下一阶段，
-避免把“可测试编排”误报为“已运行的异步服务”。
+Phase 6E-3 又加入通知 outbox handler、共享 `@hospital/config` 和 worker 真实组合根；worker 只有在
+持久化 schema、数据库密钥和完整微信支付 APIv3 配置齐备时才进入 `ready`，否则保持 `not_configured`。
+这证明了组合边界和 fail-closed 行为，但不等于已经用真实商户配置运行过 provider。
 
 原生小程序的功能边界：
 

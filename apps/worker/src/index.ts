@@ -1,6 +1,13 @@
+import { config } from "@hospital/config";
 import { createLogger } from "@hospital/observability";
+import {
+	createWorkerRuntime,
+	runWorkerLoop,
+	workerConfigurationStatus,
+	type WorkerRuntimeStatus,
+} from "./runtime";
 
-export type WorkerStatus = "not_configured";
+export type WorkerStatus = WorkerRuntimeStatus;
 
 export { OutboxWorker } from "./outbox-worker";
 export type { OutboxWorkerResult } from "./outbox-worker";
@@ -8,9 +15,17 @@ export {
 	PaymentReconciliationWorker,
 	type PaymentReconciliationWorkerResult,
 } from "./payment-reconciliation-worker";
+export { createWechatPaymentNotificationHandler } from "./wechat-payment-notification-handler";
+export {
+	createWorkerRuntime,
+	runWorkerLoop,
+	workerConfigurationStatus,
+	type WorkerRuntime,
+	type WorkerRuntimeStatus,
+} from "./runtime";
 
 export function workerStatus(): WorkerStatus {
-	return "not_configured";
+	return workerConfigurationStatus(config);
 }
 
 if (import.meta.main) {
@@ -19,8 +34,16 @@ if (import.meta.main) {
 		environment: Bun.env.NODE_ENV ?? "development",
 		level: (Bun.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") ?? "info",
 	});
-	logger.info(
-		{ event: "service.started", status: workerStatus() },
-		"Hospital worker is not configured yet",
-	);
+	const runtime = createWorkerRuntime({ logger });
+	if (runtime.status !== "ready") {
+		logger.warn(
+			{ event: "service.started", status: runtime.status },
+			"Hospital worker is not configured; no provider work will run",
+		);
+	} else {
+		await runWorkerLoop(runtime, {
+			intervalMs: config.workerPollIntervalMs,
+			logger,
+		});
+	}
 }

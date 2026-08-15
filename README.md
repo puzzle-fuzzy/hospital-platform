@@ -13,7 +13,7 @@
 
 ## 当前阶段
 
-当前仓库进入 Phase 6E-2：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
+当前仓库进入 Phase 6E-3：在 Phase 5A-2 的 MySQL/Redis 真实持久化验收、Phase 5B-1
 的 provider 审计、微信身份 adapter 之上，已完成微信支付 APIv3 的请求签名、响应验签、
 JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界，并开始固化医保 6201/6202/6203/6301/6401
 的路由、金额和退款 contract。微信支付 adapter 已有“完整配置 + 显式闸门”的组合根注入
@@ -23,7 +23,8 @@ provider 继续 fail-closed。
 微信开发者工具/真机验收仍未完成。6B 已建立服务端微信预支付参数边界，6C 已为预支付尝试建立
 独立幂等记录和受控密文存储，6D 又加入同一幂等键下的服务端状态读模型，6E-1 又加入
 微信支付通知的 APIv3 验签、解密、白名单映射、通知去重和入站 outbox；6E-2 又加入
-预支付尝试的持久化查单调度、金额二次校验、版本化订单状态迁移和可注入查单 worker，但
+预支付尝试的持久化查单调度、金额二次校验、版本化订单状态迁移、通知 outbox handler 和可注入查单 worker；
+API/worker 现已共用 `@hospital/config` 并具备完整配置才启动的 worker 组合根，但
 `WECHAT_PAYMENT_READY` 默认关闭，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
 
 ```text
@@ -70,8 +71,8 @@ API 默认运行在 `http://localhost:3000`：
 - `POST /api/v1/payments/wechat/notifications`：接收已验签的微信支付成功通知并返回 provider ack
 - `GET /openapi`：OpenAPI 文档
 
-查单 worker 当前已完成领域编排和持久化调度核心，但真实 worker 进程组合、通知 outbox 消费、微信
-开发者工具/公网回调和真机支付验收仍未完成；这些边界在没有真实证据前不会标记为 ready。
+worker 进程组合和通知 outbox 消费核心已经接入，但真实数据库/provider 配置运行、微信开发者工具/公网
+回调和真机支付验收仍未完成；这些边界在没有真实证据前不会标记为 ready。
 
 ## 重构边界
 

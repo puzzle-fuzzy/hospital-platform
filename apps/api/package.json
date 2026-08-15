@@ -11,6 +11,7 @@
 	},
 	"dependencies": {
 		"@hospital/adapters": "workspace:*",
+		"@hospital/config": "workspace:*",
 		"@elysiajs/cors": "catalog:",
 		"@elysiajs/openapi": "catalog:",
 		"@hospital/contracts": "workspace:*",

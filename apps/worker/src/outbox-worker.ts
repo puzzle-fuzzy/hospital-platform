@@ -22,7 +22,7 @@ function retryDelayMs(attempts: number): number {
 
 /**
  * worker 只消费 outbox 事件并调度 handler；它不把 provider 成功写成订单成功。
- * 具体医保、微信支付和 HIS handler 会在后续阶段按 adapter 证据实现。
+ * 具体医保、微信支付和 HIS handler 仍按 adapter 证据逐个接入；当前只接入安全的微信通知事实 handler。
  */
 export class OutboxWorker {
 	constructor(

@@ -10,8 +10,11 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@hospital/adapters": "workspace:*",
+		"@hospital/config": "workspace:*",
 		"@hospital/domain": "workspace:*",
-		"@hospital/observability": "workspace:*"
+		"@hospital/observability": "workspace:*",
+		"@hospital/persistence": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",
