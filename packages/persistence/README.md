@@ -3,6 +3,10 @@
 当前阶段已建立 MySQL/Redis 的真实连接探针、关闭生命周期、目标 schema、
 订单事务 repository、Redis session store 和 outbox lease 恢复边界。
 
+目标 schema 还通过 `0007_owner_scoped_payment_foreign_keys` 在数据库层约束
+`owner_user_id + patient_id/order_id` 的一致性；应用层 owner 校验和数据库复合外键
+必须同时存在，不能只依赖 API 路由不接收 owner 参数。
+
 readiness 的 `ok` 只证明 MySQL `SELECT 1` 与 Redis `PING` 可用，不代表 schema、微信、医保、HIS 或支付 provider 已接通。
 
 API 只有在 `PERSISTENCE_SCHEMA_READY=true` 时才注入 MySQL repository；该变量不是自动迁移开关，必须在目标 migration 完成并通过脱敏 staging 验证后由部署配置显式开启。

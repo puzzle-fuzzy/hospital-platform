@@ -49,6 +49,7 @@ export async function runPersistenceIntegration() {
 	const providerSubject = `integration-provider-${suffix}`;
 	const patientId = `integration-patient-${suffix}`;
 	const quoteId = `integration-quote-${suffix}`;
+	const invalidQuoteId = `integration-invalid-quote-${suffix}`;
 	const sessionToken = `integration-session-${suffix}`;
 	const orderIdPrefix = `integration-order-${suffix}`;
 	const attemptId = `integration-attempt-${suffix}`;
@@ -60,6 +61,7 @@ export async function runPersistenceIntegration() {
 	});
 	let pool: Pool | undefined;
 	let userId: string | undefined;
+	let otherUserId: string | undefined;
 	try {
 		assert.equal(await runtime.database.check(), "ok");
 		assert.equal(await runtime.redis.check(), "ok");
@@ -118,6 +120,32 @@ export async function runPersistenceIntegration() {
 				"fixture",
 				now,
 			],
+		);
+
+		const otherUser = await repositories.identityUsers.findOrCreateByWechat({
+			providerSubject: `integration-other-provider-${suffix}`,
+		});
+		otherUserId = otherUser.userId;
+		await assert.rejects(
+			pool.execute(
+				"INSERT INTO hp_payment_quotes (quote_id, owner_user_id, patient_id, total_fen, insurance_fen, cash_fen, expires_at, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				[
+					invalidQuoteId,
+					otherUser.userId,
+					patientId,
+					1000,
+					600,
+					400,
+					new Date(Date.now() + 60_000),
+					"fixture",
+					now,
+				],
+			),
+			(error: unknown) =>
+				typeof error === "object" &&
+				error !== null &&
+				"code" in error &&
+				(error as { code?: unknown }).code === "ER_NO_REFERENCED_ROW_2",
 		);
 
 		const orderIds = [`${orderIdPrefix}-a`, `${orderIdPrefix}-b`];
@@ -233,6 +261,7 @@ export async function runPersistenceIntegration() {
 					"redis-probe",
 					"redis-session-ttl-write",
 					"mysql-owner-foreign-key",
+					"owner-scoped-composite-foreign-key",
 					"concurrent-idempotency",
 					"prepay-query-claim-lease-recovery",
 					"order-outbox-transaction",
@@ -262,6 +291,11 @@ export async function runPersistenceIntegration() {
 			await pool.execute("DELETE FROM hp_patients WHERE patient_id = ?", [
 				patientId,
 			]);
+			if (otherUserId) {
+				await pool.execute("DELETE FROM hp_identity_users WHERE user_id = ?", [
+					otherUserId,
+				]);
+			}
 			await pool.execute("DELETE FROM hp_identity_users WHERE user_id = ?", [
 				userId,
 			]);

@@ -45,6 +45,12 @@ test("core migration contains the transaction-critical constraints", async () =>
 	const patientMappingSql = await Bun.file(
 		new URL("../migrations/0006_patient_provider_mapping.sql", import.meta.url),
 	).text();
+	const ownerScopeSql = await Bun.file(
+		new URL(
+			"../migrations/0007_owner_scoped_payment_foreign_keys.sql",
+			import.meta.url,
+		),
+	).text();
 
 	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_payment_orders");
 	expect(prepaySql).toContain(
@@ -66,4 +72,8 @@ test("core migration contains the transaction-critical constraints", async () =>
 	expect(queryClaimSql).toContain("ix_hp_prepay_query_claim");
 	expect(patientMappingSql).toContain("provider_patient_id VARCHAR(128)");
 	expect(patientMappingSql).toContain("uq_hp_patients_owner_provider_patient");
+	expect(ownerScopeSql).toContain("uq_hp_patients_owner_patient");
+	expect(ownerScopeSql).toContain("fk_hp_orders_owner_patient");
+	expect(ownerScopeSql).toContain("fk_hp_quotes_owner_patient");
+	expect(ownerScopeSql).toContain("fk_hp_prepay_owner_order");
 });

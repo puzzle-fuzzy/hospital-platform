@@ -28,6 +28,10 @@ export const PERSISTENCE_MIGRATIONS = [
 		id: "0006_patient_provider_mapping",
 		file: "../migrations/0006_patient_provider_mapping.sql",
 	},
+	{
+		id: "0007_owner_scoped_payment_foreign_keys",
+		file: "../migrations/0007_owner_scoped_payment_foreign_keys.sql",
+	},
 ] as const;
 
 export type CoreSchemaState = {
