@@ -2,7 +2,7 @@
 
 ## 状态
 
-已接受，Phase 8A contract/domain 阶段；健康知识 API 尚未注册，也尚未把旧库内容迁入新 schema。
+已接受，Phase 8A contract/domain/persistence 预注册阶段；健康知识 API 尚未挂载，也尚未把旧库内容迁入新 schema。
 
 ## 背景
 
@@ -81,7 +81,7 @@ AI assistant 只能通过独立的 gateway 读取已发布知识片段，并保�
 1. 在脱敏数据副本中盘点旧表、字段、内容来源和实际使用页面；
 2. 由业务/临床负责人确认正文、药品信息、自测规则和免责声明的责任边界；
 3. 设计并审核 MySQL migration、发布状态、版本和审计字段；
-4. 先实现 domain port、TypeBox response contract 和只读 service，默认 repository fail-closed；
+4. 先实现 domain port、TypeBox response contract、未挂载的只读 service 和 fail-closed repository；
 5. 完成真实 schema migration、内容导入校验和 owner/权限测试；
 6. 在 staging 验证内容版本、撤回、缓存失效和 API response 后，才注册患者端 GET route；
 7. 自测与 AI 分别走独立 contract、gate、日志和人工验收，不与百科目录共用成功状态。
@@ -98,6 +98,6 @@ AI assistant 只能通过独立的 gateway 读取已发布知识片段，并保�
 | 运行 | `db:schema`、`db:integration`、`runtime:preflight` 和接口 response 校验 |
 | 产品 | 小程序阅读、免责声明、过期/撤回内容不再展示 |
 
-当前状态：已完成边界设计、TypeBox contract、domain port、固定免责声明校验和
-fail-closed persistence adapter；Docker、真实 schema、MySQL repository、内容导入、
-健康知识 API 和小程序页面均未因本 ADR 标记为 ready。
+当前状态：已完成边界设计、TypeBox contract、domain port、固定免责声明校验、只读 service、
+bundle validator 和 fail-closed MySQL repository/事务导入器；Docker、真实 schema、真实内容导入、staging 审核证据、
+患者端健康知识 API 挂载和小程序页面均未因本 ADR 标记为 ready。

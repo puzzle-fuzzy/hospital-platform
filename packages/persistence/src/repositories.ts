@@ -6,17 +6,17 @@ import type {
 	PatientProviderReference,
 	PatientRecord,
 	PatientRepository,
-	ReportReference,
-	ReportReferenceRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
 	PaymentQuote,
 	PaymentQuoteRepository,
+	ReportReference,
+	ReportReferenceRepository,
+	UserIdentityRepository,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
-	UserIdentityRepository,
 } from "@hospital/domain";
 import {
 	PaymentIdempotencyConflictError,
@@ -26,6 +26,7 @@ import {
 	validateReportReference,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
+import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 
 /** 仅用于单元测试和本地组合测试；它不提供生产持久化保证。 */
 export function createInMemoryIdentityUserRepository(
@@ -380,6 +381,9 @@ export function createNotConfiguredRepositories(): {
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	reportReferences: ReportReferenceRepository;
+	healthKnowledge: ReturnType<
+		typeof createNotConfiguredHealthKnowledgeRepository
+	>;
 } {
 	return {
 		identityUsers: {
@@ -462,5 +466,6 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("report-references");
 			},
 		},
+		healthKnowledge: createNotConfiguredHealthKnowledgeRepository(),
 	};
 }

@@ -46,6 +46,20 @@ export {
 	validateHealthKnowledgeSymptomIds,
 } from "./knowledge";
 export type {
+	HealthKnowledgeImportBundle,
+	HealthKnowledgeImportDisease,
+	HealthKnowledgeImportDiseaseRelation,
+	HealthKnowledgeImportItem,
+	HealthKnowledgeImportItemKind,
+	HealthKnowledgeImportPublication,
+	HealthKnowledgeImportStatus,
+	HealthKnowledgeImportSummary,
+} from "./knowledge-import";
+export {
+	HealthKnowledgeImportValidationError,
+	validateHealthKnowledgeImportBundle,
+} from "./knowledge-import";
+export type {
 	OutboxEvent,
 	OutboxEventName,
 	OutboxHandler,

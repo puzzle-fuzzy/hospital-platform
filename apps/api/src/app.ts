@@ -1,22 +1,22 @@
 import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
+import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import { Elysia } from "elysia";
 import {
 	type ApplicationServices,
 	createDefaultApplicationServices,
 } from "./application";
 import { config } from "./config";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
 import {
 	createReadinessService,
 	type ReadinessService,
 } from "./infrastructure/readiness";
-import { authModule } from "./modules/auth";
 import { appointmentsModule } from "./modules/appointments";
+import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
 import { patientsModule } from "./modules/patients";
-import { reportsModule } from "./modules/reports";
 import { paymentsModule } from "./modules/payments";
+import { reportsModule } from "./modules/reports";
 import { systemModule } from "./modules/system";
 import { errorHandlerPlugin } from "./plugins/error-handler";
 import { requestContextPlugin } from "./plugins/request-context";

@@ -20,6 +20,10 @@ MySQL repository 每次读取先选择当前有效的 `published content_version
 没有发布内容、免责声明不匹配或领域字段不符合约束时 fail-closed。当前尚未导入旧百科内容，
 也尚未注册患者端健康知识 API，因此该 repository 接入不代表内容已经上线。
 
+健康知识导入必须先经过 domain bundle validator，再由事务导入器一次性写入 publication、items、
+详情和关系表；导入器不提供默认 fixture、不 upsert 重复版本，任何 SQL 失败都会回滚。当前只有
+导入代码和测试，尚无旧库脱敏数据、临床审核记录或真实 MySQL 执行证据。
+
 基础连接探针的 `ok` 只证明 MySQL `SELECT 1` 与 Redis `PING` 可用；schema readiness 还必须通过 migration history 以及关键表、列、索引和 owner 外键的只读结构检查，不代表微信、医保、HIS 或支付 provider 已接通。
 
 API 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才注入 MySQL repository；该变量不是自动迁移开关，必须在目标 migration 完成并通过脱敏 staging 验证后由部署配置显式开启。

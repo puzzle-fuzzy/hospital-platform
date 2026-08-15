@@ -119,6 +119,14 @@ test("appointment write routes remain absent while provider contract is blocked"
 	}
 });
 
+test("health knowledge routes remain unregistered until reviewed content is ready", async () => {
+	const response = await createApp().handle(
+		new Request("http://localhost/api/v1/knowledge/health/part/list"),
+	);
+
+	expect(response.status).toBe(404);
+});
+
 test("current user endpoint only returns the platform session user id", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const issued = await sessions.issue("fixture-user-0001");

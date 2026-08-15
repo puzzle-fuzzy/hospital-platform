@@ -1,6 +1,8 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
+	HealthKnowledgeContentUnavailableError,
+	HealthKnowledgeValidationError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
 	PaymentNotificationConflictError,
@@ -19,11 +21,12 @@ import {
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
+import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import {
-	ReportPatientNotFoundError,
 	ReportNotFoundError,
+	ReportPatientNotFoundError,
 	ReportQueryError,
 } from "../modules/reports/service";
 
@@ -67,6 +70,39 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "dependency-not-configured",
 						message: "Required service dependency is not configured",
+					},
+				};
+			}
+
+			if (error instanceof HealthKnowledgeContentUnavailableError) {
+				set.status = 503;
+				return {
+					success: false,
+					error: {
+						code: "health-knowledge-unavailable",
+						message: "Health knowledge content is temporarily unavailable",
+					},
+				};
+			}
+
+			if (error instanceof HealthKnowledgeValidationError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "health-knowledge-query-invalid",
+						message: "Health knowledge query is invalid",
+					},
+				};
+			}
+
+			if (error instanceof HealthKnowledgeNotFoundError) {
+				set.status = 404;
+				return {
+					success: false,
+					error: {
+						code: "health-knowledge-not-found",
+						message: "Health knowledge item not found",
 					},
 				};
 			}

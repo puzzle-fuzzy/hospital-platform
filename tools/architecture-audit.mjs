@@ -27,6 +27,8 @@ const sources = Object.fromEntries(
 			"packages/observability/src/index.ts",
 			"packages/persistence/src/runtime.ts",
 			"packages/persistence/src/migrate.ts",
+			"packages/domain/src/knowledge-import.ts",
+			"packages/persistence/src/health-knowledge-import.ts",
 		].map(async (relativePath) => [
 			relativePath,
 			await readSource(relativePath),
@@ -103,6 +105,26 @@ contains(
 	"packages/persistence/src/migrate.ts",
 	"PERSISTENCE_MIGRATIONS",
 	"migration 必须有可审计的显式 manifest。",
+);
+
+/** 健康内容尚未完成真实 schema/审核导入前，患者端 route 必须保持未挂载。 */
+excludes(
+	"knowledge.route-not-registered",
+	"apps/api/src/app.ts",
+	"healthKnowledgeModule(",
+	"健康知识路由必须等待真实内容审核与 staging 证据后再注册。",
+);
+contains(
+	"knowledge.import-domain-validation",
+	"packages/domain/src/knowledge-import.ts",
+	"validateHealthKnowledgeImportBundle",
+	"健康内容写入前必须通过 domain bundle validator。",
+);
+contains(
+	"knowledge.import-transaction",
+	"packages/persistence/src/health-knowledge-import.ts",
+	"await connection.rollback()",
+	"健康内容导入失败必须回滚，不能留下部分版本。",
 );
 
 /** 预约写入合同未完成前，路由文件只能注册 GET 目录/历史读取。 */

@@ -1,6 +1,7 @@
 import type { DependencyState } from "@hospital/contracts";
 
 export { PersistenceNotConfiguredError } from "./errors";
+export { importHealthKnowledgeBundle } from "./health-knowledge-import";
 export { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 export {
 	type CoreSchemaState,
