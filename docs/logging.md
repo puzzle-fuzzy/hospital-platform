@@ -16,6 +16,9 @@
 
 API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`；失败请求额外记录
 低敏的 `errorName`，必要时记录 Elysia 生命周期 `errorCode`，但不记录错误消息。
+原生小程序为每个 `wx.request` 生成一次性的 `x-request-id`，服务端会校验后写入响应头
+和 Pino HTTP 日志；服务端错误返回的 request id 会保留在 `ApiError` 中，便于用户反馈
+“请求失败”时从日志平台反查链路。该 id 只用于关联，不是 token、幂等键或患者标识。
 Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts`。这些字段用于按请求、订单或异步事件还原一条完整故障链。
 
 ## 当前事件名

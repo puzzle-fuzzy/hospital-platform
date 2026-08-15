@@ -30,6 +30,14 @@ test("native client restores a platform session through the current-user endpoin
 	expect(client).not.toContain("providerSubject");
 });
 
+test("native client sends request ids for Pino HTTP correlation", async () => {
+	const client = await source("services/api-client.js");
+
+	expect(client).toContain('"x-request-id": requestId');
+	expect(client).toContain("responseRequestId(response)");
+	expect(client).not.toContain('"authorization": requestId');
+});
+
 test("native client requests server-generated prepay parameters", async () => {
 	const client = await source("services/api-client.js");
 

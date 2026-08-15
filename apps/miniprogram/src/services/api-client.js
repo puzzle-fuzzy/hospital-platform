@@ -3,12 +3,16 @@ const API_BASE_URL_KEY = "api_base_url";
 
 /** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
 export class ApiError extends Error {
-	/** @param {string} message @param {{statusCode?: number, code?: string}} [details] */
-	constructor(message, { statusCode = 0, code = "api-request-failed" } = {}) {
+	/** @param {string} message @param {{statusCode?: number, code?: string, requestId?: string}} [details] */
+	constructor(
+		message,
+		{ statusCode = 0, code = "api-request-failed", requestId = "" } = {},
+	) {
 		super(message);
 		this.name = "ApiError";
 		this.statusCode = statusCode;
 		this.code = code;
+		this.requestId = requestId;
 	}
 }
 
@@ -80,6 +84,20 @@ function parseErrorCode(data) {
 }
 
 /**
+ * 生成仅用于链路关联的客户端 request id；它不是认证凭证，也不进入业务数据。
+ * 服务端会校验格式并把它写入 Pino HTTP 日志和响应头。
+ */
+function createRequestId() {
+	return `mp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** @param {WechatMiniprogram.RequestSuccessCallbackResult} response */
+function responseRequestId(response) {
+	const headers = response.header || {};
+	return String(headers["x-request-id"] || headers["X-Request-Id"] || "");
+}
+
+/**
  * @param {{url: string, method?: 'GET'|'POST'|'PUT'|'DELETE', data?: WechatMiniprogram.IAnyObject, authenticated?: boolean, idempotencyKey?: string}} options
  * @returns {Promise<any>}
  */
@@ -105,12 +123,14 @@ export function request({
 	}
 
 	return new Promise((resolve, reject) => {
+		const requestId = createRequestId();
 		wx.request({
 			url: `${apiBaseUrl}${url}`,
 			method,
 			...(data === undefined ? {} : { data }),
 			header: {
 				"content-type": "application/json",
+				"x-request-id": requestId,
 				...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
 				...(authenticated && accessToken
 					? { Authorization: `Bearer ${accessToken}` }
@@ -126,6 +146,7 @@ export function request({
 					new ApiError(parseErrorMessage(errorData, response.statusCode), {
 						statusCode: response.statusCode,
 						code: parseErrorCode(errorData),
+						requestId: responseRequestId(response) || requestId,
 					}),
 				);
 			},
@@ -133,6 +154,7 @@ export function request({
 				reject(
 					new ApiError("网络请求失败，请检查网络或服务地址", {
 						code: "network-failed",
+						requestId,
 					}),
 				),
 		});
