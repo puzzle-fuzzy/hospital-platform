@@ -15,7 +15,9 @@
 MySQL 查询同时要求 owner 和 `expires_at`，provider 报告号不会进入 API response 或日志；
 该表只支持已取得详情合同的 LIS 读模型，不代表报告下载、解读或其他报告来源已开放。
 
-`0010_health_knowledge` 为已审核健康百科建立发布版本、目录项、疾病/药品详情和关系表。
+`0010_health_knowledge` 为已审核健康百科建立发布版本、目录项、疾病/药品详情和关系表；
+`0011_health_knowledge_versioned_keys` 将业务 ID 的主键升级为 `content_version` 复合主键，
+允许新版本复用稳定疾病/药品 ID，同时保留旧版本用于审计和回滚。
 MySQL repository 每次读取先选择当前有效的 `published content_version`，随后所有查询都携带同一版本；
 没有发布内容、免责声明不匹配或领域字段不符合约束时 fail-closed。当前尚未导入旧百科内容，
 也尚未注册患者端健康知识 API，因此该 repository 接入不代表内容已经上线。

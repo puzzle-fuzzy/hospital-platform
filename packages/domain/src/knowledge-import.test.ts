@@ -79,6 +79,19 @@ test("health knowledge import validator returns an auditable bundle summary", ()
 	});
 });
 
+test("stable item ids remain valid when a new content version is prepared", () => {
+	const nextVersion = validBundle();
+	nextVersion.publication = {
+		...nextVersion.publication,
+		contentVersion: "health-2026-08-16",
+		reviewedAt: "2026-08-16T00:00:00.000Z",
+	};
+
+	expect(validateHealthKnowledgeImportBundle(nextVersion).contentVersion).toBe(
+		"health-2026-08-16",
+	);
+});
+
 test("health knowledge import validator rejects cross-kind references before SQL", () => {
 	const bundle = validBundle();
 	bundle.partSymptoms = [{ partId: "crowd-adult", symptomId: "symptom-cough" }];

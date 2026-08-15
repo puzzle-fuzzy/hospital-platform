@@ -69,6 +69,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0010_health_knowledge.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0011_health_knowledge_versioned_keys",
+		file: "../migrations/0011_health_knowledge_versioned_keys.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -359,8 +364,18 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 	},
 	{
 		table: "hp_health_knowledge_items",
-		name: "uq_hp_health_knowledge_items_version_id",
+		name: "PRIMARY",
 		columns: ["content_version", "item_id"],
+	},
+	{
+		table: "hp_health_knowledge_disease_details",
+		name: "PRIMARY",
+		columns: ["content_version", "disease_id"],
+	},
+	{
+		table: "hp_health_knowledge_drug_details",
+		name: "PRIMARY",
+		columns: ["content_version", "drug_id"],
 	},
 	{
 		table: "hp_health_knowledge_disease_relations",

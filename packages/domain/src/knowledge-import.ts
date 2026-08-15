@@ -20,7 +20,7 @@ export type HealthKnowledgeImportItemKind =
 	| "disease"
 	| "drug";
 
-/** 单个 item 是跨版本全局 opaque id；同一 bundle 内不得重复。 */
+/** item 是版本内稳定的 opaque id；同一 bundle 内不得重复。 */
 export type HealthKnowledgeImportItem = {
 	id: string;
 	kind: HealthKnowledgeImportItemKind;
