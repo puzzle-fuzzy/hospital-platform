@@ -237,6 +237,64 @@ test("MySQL patient directory snapshot deactivates missing rows in one transacti
 	expect(state.values.some((values) => values.includes("user-001"))).toBe(true);
 });
 
+test("MySQL patient directory ignores a stale snapshot without reactivating or overwriting", async () => {
+	const currentRow = {
+		patient_id: "patient-order-001",
+		owner_user_id: "user-order-001",
+		display_name: "新资料",
+		relationship: "self",
+		card_number_masked: "******2001",
+		source: "hospital-his",
+		provider_name: "zhongyang",
+		provider_patient_id: "provider-order-001",
+		directory_last_seen_at: "2026-08-16 02:00:00.000",
+	};
+	const { pool, state } = createFakePool([
+		[currentRow],
+		{ affectedRows: 0 },
+		[currentRow],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	const snapshot = repositories.patients.replaceDirectorySnapshot;
+	if (!snapshot) throw new Error("snapshot unavailable");
+	await expect(
+		snapshot({
+			ownerUserId: "user-order-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T01:00:00.000Z",
+			patients: [
+				{
+					patientId: "must-not-replace-order-id",
+					profile: {
+						providerPatientId: "provider-order-001",
+						displayName: "旧资料",
+						relationship: "self",
+						cardNumberMasked: "******1001",
+					},
+				},
+			],
+		}),
+	).resolves.toEqual({
+		activePatients: [
+			{
+				id: "patient-order-001",
+				ownerUserId: "user-order-001",
+				displayName: "新资料",
+				relationship: "self",
+				cardNumberMasked: "******2001",
+				source: "hospital-his",
+			},
+		],
+		deactivatedPatientCount: 0,
+	});
+	expect(
+		state.statements.some((statement) =>
+			statement.includes("SET display_name = ?"),
+		),
+	).toBe(false);
+});
+
 test("MySQL patient provider lookup is owner-scoped and server-only", async () => {
 	const { pool, state } = createFakePool([
 		[

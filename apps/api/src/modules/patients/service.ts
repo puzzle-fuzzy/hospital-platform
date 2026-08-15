@@ -18,11 +18,14 @@ export type PatientServiceDependencies = {
 	logger?: AppLogger;
 	/** 测试可注入稳定 id；生产默认使用 Bun/Node 的 UUID。 */
 	createPatientId?: () => string;
+	/** 记录快照发起时间；生产使用服务端时钟，测试可注入固定时间。 */
+	now?: () => Date;
 };
 
 export class PatientService {
 	private readonly logger: AppLogger;
 	private readonly createPatientId: () => string;
+	private readonly now: () => Date;
 
 	constructor(
 		private readonly repository: PatientRepository,
@@ -30,6 +33,7 @@ export class PatientService {
 	) {
 		this.logger = dependencies.logger ?? createNoopLogger();
 		this.createPatientId = dependencies.createPatientId ?? randomUUID;
+		this.now = dependencies.now ?? (() => new Date());
 	}
 
 	/** 只按服务端解析出的 ownerUserId 查询，避免客户端传 userId 越权。 */
@@ -81,6 +85,10 @@ export class PatientService {
 				throw new DependencyNotConfiguredError("patient-directory-identity");
 			}
 
+			// 快照时间必须在 provider 请求发出前记录。若用户连续刷新，较早发起
+			// 但较晚返回的旧响应只能作为旧快照处理，不能凭“返回得更晚”覆盖
+			// 已经落库的新目录状态或重新激活已失效患者。
+			const observedAt = this.now().toISOString();
 			const result = await directory.listByIdentity(
 				{ unionId: identity.unionId },
 				context,
@@ -108,7 +116,7 @@ export class PatientService {
 			const snapshot = await replaceDirectorySnapshot.call(this.repository, {
 				ownerUserId,
 				provider: "zhongyang",
-				observedAt: new Date().toISOString(),
+				observedAt,
 				patients: snapshotPatients,
 			});
 

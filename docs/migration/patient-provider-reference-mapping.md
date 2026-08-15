@@ -32,6 +32,8 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 - 预约历史、报告、门诊费用服务必须显式传入 `referenceKind: "his-patient"`；不得恢复为默认目录映射。
 - provider 患者号只在一次服务端调用栈中交给 adapter，不进入日志、API contract 或小程序缓存。
 - 首页恢复已有微信会话、重新登录或直接打开就诊人选择页时，会主动触发一次患者目录同步，兼容迁移前已经落库但尚未拥有 `his-patient` 引用的旧患者记录。
+- 同一账号连续发起同步时，快照时间在 provider 请求发出前记录；旧请求晚返回也不能覆盖更新的 `his-patient` 映射，
+  或把更新快照已经停用的患者重新激活。
 
 ## 发布与回填顺序
 

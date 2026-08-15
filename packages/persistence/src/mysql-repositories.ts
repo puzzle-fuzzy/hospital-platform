@@ -117,6 +117,7 @@ type PatientRow = RowDataPacket & {
 	source: string;
 	provider_name: string | null;
 	provider_patient_id: string | null;
+	directory_last_seen_at: string | null;
 };
 
 type PatientProviderReferenceRow = RowDataPacket & {
@@ -427,7 +428,96 @@ async function persistPatientProviderReferences(
 }
 
 const PATIENT_BY_PROVIDER_SQL =
-	"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND provider_name = ? AND provider_patient_id = ? LIMIT 1";
+	"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id, directory_last_seen_at FROM hp_patients WHERE owner_user_id = ? AND provider_name = ? AND provider_patient_id = ? LIMIT 1";
+
+/**
+ * 把 MySQL DATETIME(3) 和领域层 ISO 时间统一转换为毫秒。
+ *
+ * mysql2 运行时配置了 `dateStrings: true`，数据库返回值没有时区后缀；
+ * 这里明确按 UTC 解释，不能让 API 进程所在机器的本地时区参与快照顺序判断。
+ */
+function timestampMilliseconds(
+	value: string | Date | null | undefined,
+): number | undefined {
+	if (value === null || value === undefined) return undefined;
+	const text = value instanceof Date ? value.toISOString() : value;
+	const normalized = text.includes(" ") ? text.replace(" ", "T") : text;
+	const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized)
+		? normalized
+		: `${normalized}Z`;
+	const milliseconds = Date.parse(withZone);
+	return Number.isFinite(milliseconds) ? milliseconds : undefined;
+}
+
+/** 只有新快照才能更新患者资料；旧快照不能重新激活或覆盖临床引用。 */
+function isNewerDirectoryObservation(
+	existing: string | null | undefined,
+	incoming: string,
+): boolean {
+	const existingMilliseconds = timestampMilliseconds(existing);
+	const incomingMilliseconds = timestampMilliseconds(incoming);
+	return (
+		existingMilliseconds !== undefined &&
+		incomingMilliseconds !== undefined &&
+		existingMilliseconds > incomingMilliseconds
+	);
+}
+
+/** 在数据库条件更新后再处理引用，避免并发旧快照覆盖新快照。 */
+async function refreshExistingPatientFromDirectory(
+	client: Pool | PoolConnection,
+	input: PatientDirectoryUpsertInput,
+	existing: PatientRow,
+	timestamp: string,
+): Promise<PatientRecord> {
+	if (isNewerDirectoryObservation(existing.directory_last_seen_at, timestamp)) {
+		return patient(existing);
+	}
+
+	const updated = await execute<ResultSetHeader>(
+		client,
+		"UPDATE hp_patients SET display_name = ?, relationship = ?, card_number_masked = ?, source = ?, directory_active = 1, directory_last_seen_at = ?, updated_at = ? WHERE patient_id = ? AND owner_user_id = ? AND (directory_last_seen_at IS NULL OR directory_last_seen_at <= ?)",
+		[
+			input.profile.displayName,
+			input.profile.relationship,
+			input.profile.cardNumberMasked,
+			"hospital-his",
+			timestamp,
+			timestamp,
+			existing.patient_id,
+			input.ownerUserId,
+			timestamp,
+		],
+	);
+	if (updated.affectedRows === 0) {
+		// SELECT 与 UPDATE 之间可能有另一条更快的同步已经写入新快照。
+		// 只有确认数据库中的时间确实更新，才跳过本次旧引用写入；否则
+		// 继续写入当前资料，兼容 MySQL “值未变化时 affectedRows=0”的行为。
+		const currentRows = await execute<PatientRow[]>(
+			client,
+			PATIENT_BY_PROVIDER_SQL,
+			[input.ownerUserId, input.provider, input.profile.providerPatientId],
+		);
+		const current = currentRows[0];
+		if (!current)
+			throw new Error("Patient disappeared during directory refresh");
+		if (
+			isNewerDirectoryObservation(current.directory_last_seen_at, timestamp)
+		) {
+			return patient(current);
+		}
+	}
+
+	const updatedPatient = patient({
+		...existing,
+		display_name: input.profile.displayName,
+		relationship: input.profile.relationship,
+		card_number_masked: input.profile.cardNumberMasked,
+		source: "hospital-his",
+	});
+	await persistPatientProviderReferences(client, input, updatedPatient.id);
+	return updatedPatient;
+}
 
 /**
  * 在指定连接上 upsert 一个目录患者，并恢复它的 active 状态。
@@ -448,30 +538,12 @@ async function upsertPatientFromDirectory(
 	);
 	const timestamp = mysqlDateTime(observedAt);
 	if (existingRows[0]) {
-		const existing = existingRows[0];
-		await execute<ResultSetHeader>(
+		return refreshExistingPatientFromDirectory(
 			client,
-			"UPDATE hp_patients SET display_name = ?, relationship = ?, card_number_masked = ?, source = ?, directory_active = 1, directory_last_seen_at = ?, updated_at = ? WHERE patient_id = ? AND owner_user_id = ?",
-			[
-				input.profile.displayName,
-				input.profile.relationship,
-				input.profile.cardNumberMasked,
-				"hospital-his",
-				timestamp,
-				timestamp,
-				existing.patient_id,
-				input.ownerUserId,
-			],
+			input,
+			existingRows[0],
+			timestamp,
 		);
-		const updatedPatient = patient({
-			...existing,
-			display_name: input.profile.displayName,
-			relationship: input.profile.relationship,
-			card_number_masked: input.profile.cardNumberMasked,
-			source: "hospital-his",
-		});
-		await persistPatientProviderReferences(client, input, updatedPatient.id);
-		return updatedPatient;
 	}
 
 	try {
@@ -511,29 +583,12 @@ async function upsertPatientFromDirectory(
 			[input.ownerUserId, input.provider, input.profile.providerPatientId],
 		);
 		if (!racedRows[0]) throw error;
-		await execute<ResultSetHeader>(
+		return refreshExistingPatientFromDirectory(
 			client,
-			"UPDATE hp_patients SET display_name = ?, relationship = ?, card_number_masked = ?, source = ?, directory_active = 1, directory_last_seen_at = ?, updated_at = ? WHERE patient_id = ? AND owner_user_id = ?",
-			[
-				input.profile.displayName,
-				input.profile.relationship,
-				input.profile.cardNumberMasked,
-				"hospital-his",
-				timestamp,
-				timestamp,
-				racedRows[0].patient_id,
-				input.ownerUserId,
-			],
+			input,
+			racedRows[0],
+			timestamp,
 		);
-		const racedPatient = patient({
-			...racedRows[0],
-			display_name: input.profile.displayName,
-			relationship: input.profile.relationship,
-			card_number_masked: input.profile.cardNumberMasked,
-			source: "hospital-his",
-		});
-		await persistPatientProviderReferences(client, input, racedPatient.id);
-		return racedPatient;
 	}
 }
 

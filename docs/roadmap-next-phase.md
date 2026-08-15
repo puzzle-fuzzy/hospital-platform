@@ -136,3 +136,4 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 - 2026-08-16：修复门诊费用窗口依赖服务器本地时区的问题，并用 UTC 输入验证仍输出中国标准时间；该修复只影响只读查询，不会打开支付、医保或结算写入。
 - 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；下一步是完成目标环境 migration、schema probe、失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
+- 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。

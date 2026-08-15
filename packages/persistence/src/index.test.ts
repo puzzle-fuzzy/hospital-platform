@@ -238,6 +238,85 @@ test("患者目录完整快照只停用缺失患者并保留原内部 id", async
 	});
 });
 
+test("患者目录旧快照返回较晚时不能覆盖新资料或重新激活患者", async () => {
+	const patients = createInMemoryPatientRepository();
+	if (!patients.replaceDirectorySnapshot)
+		throw new Error("snapshot unavailable");
+
+	await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-order-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T02:00:00.000Z",
+		patients: [
+			{
+				patientId: "patient-order-001",
+				profile: {
+					providerPatientId: "provider-order-001",
+					providerReferences: { "his-patient": "his-order-new" },
+					displayName: "新资料",
+					relationship: "self",
+					cardNumberMasked: "******2001",
+				},
+			},
+			{
+				patientId: "patient-order-002",
+				profile: {
+					providerPatientId: "provider-order-002",
+					displayName: "不会被旧快照停用",
+					relationship: "spouse",
+					cardNumberMasked: "******2002",
+				},
+			},
+		],
+	});
+
+	const stale = await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-order-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T01:00:00.000Z",
+		patients: [
+			{
+				patientId: "must-not-replace-order-id",
+				profile: {
+					providerPatientId: "provider-order-001",
+					providerReferences: { "his-patient": "his-order-old" },
+					displayName: "旧资料",
+					relationship: "self",
+					cardNumberMasked: "******1001",
+				},
+			},
+		],
+	});
+
+	expect(stale.deactivatedPatientCount).toBe(0);
+	expect(stale.activePatients).toEqual([
+		{
+			id: "patient-order-001",
+			ownerUserId: "user-order-001",
+			displayName: "新资料",
+			relationship: "self",
+			cardNumberMasked: "******2001",
+			source: "hospital-his",
+		},
+		{
+			id: "patient-order-002",
+			ownerUserId: "user-order-001",
+			displayName: "不会被旧快照停用",
+			relationship: "spouse",
+			cardNumberMasked: "******2002",
+			source: "hospital-his",
+		},
+	]);
+	expect(
+		await patients.resolveProviderReference({
+			ownerUserId: "user-order-001",
+			patientId: "patient-order-001",
+			provider: "zhongyang",
+			referenceKind: "his-patient",
+		}),
+	).toMatchObject({ providerPatientId: "his-order-new" });
+});
+
 test("appointment schedule snapshots reject stale observations and expire", async () => {
 	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
 	const schedule = {

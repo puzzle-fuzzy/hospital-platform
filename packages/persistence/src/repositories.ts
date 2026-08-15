@@ -74,6 +74,8 @@ export function createInMemoryPatientRepository(
 ): PatientRepository {
 	const patients = [...seed];
 	const inactivePatientIds = new Set<string>();
+	/** 记录完整目录快照的发起时间，模拟 MySQL 的 directory_last_seen_at。 */
+	const directoryLastSeenAt = new Map<string, string>();
 	const directoryIndex = new Map<string, string>();
 	const providerIndex = new Map<string, string>();
 	const directoryKey = (input: PatientDirectoryUpsertInput) =>
@@ -86,6 +88,73 @@ export function createInMemoryPatientRepository(
 	}) =>
 		`${input.ownerUserId}:${input.provider}:${input.referenceKind}:${input.patientId}`;
 
+	const upsertDirectoryAt = async (
+		input: PatientDirectoryUpsertInput,
+		observedAt: string,
+	): Promise<PatientRecord> => {
+		const key = directoryKey(input);
+		const existingId = directoryIndex.get(key);
+		const existingIndex = existingId
+			? patients.findIndex((patient) => patient.id === existingId)
+			: -1;
+		const existingPatient =
+			existingIndex >= 0 ? patients[existingIndex] : undefined;
+		const existingObservedAt = existingPatient
+			? directoryLastSeenAt.get(existingPatient.id)
+			: undefined;
+		if (
+			existingPatient &&
+			existingObservedAt &&
+			Date.parse(existingObservedAt) > Date.parse(observedAt)
+		) {
+			// 旧快照即使后返回，也不能覆盖更新的患者资料或临床引用。
+			return existingPatient;
+		}
+
+		const next: PatientRecord = {
+			id:
+				existingIndex >= 0
+					? (patients[existingIndex]?.id ?? input.patientId)
+					: input.patientId,
+			ownerUserId: input.ownerUserId,
+			displayName: input.profile.displayName,
+			relationship: input.profile.relationship,
+			cardNumberMasked: input.profile.cardNumberMasked,
+			source: "hospital-his",
+		};
+		if (existingIndex >= 0) patients[existingIndex] = next;
+		else patients.push(next);
+		inactivePatientIds.delete(next.id);
+		directoryLastSeenAt.set(next.id, observedAt);
+		directoryIndex.set(key, next.id);
+		// 目录 ID 保留在旧的默认映射中；档案 patId 等专用引用单独存放，
+		// 让预约、报告和门诊费用可以显式声明自己需要哪一种外部身份。
+		providerIndex.set(
+			providerReferenceKey({
+				ownerUserId: input.ownerUserId,
+				provider: input.provider,
+				referenceKind: "directory",
+				patientId: next.id,
+			}),
+			input.profile.providerPatientId,
+		);
+		for (const [referenceKind, providerPatientId] of Object.entries(
+			input.profile.providerReferences ?? {},
+		)) {
+			if (!providerPatientId) continue;
+			providerIndex.set(
+				providerReferenceKey({
+					ownerUserId: input.ownerUserId,
+					provider: input.provider,
+					referenceKind: referenceKind as "directory" | "his-patient",
+					patientId: next.id,
+				}),
+				providerPatientId,
+			);
+		}
+		return next;
+	};
+
 	return {
 		async listByOwner(ownerUserId) {
 			return patients.filter(
@@ -95,64 +164,22 @@ export function createInMemoryPatientRepository(
 			);
 		},
 		async upsertFromDirectory(input) {
-			const key = directoryKey(input);
-			const existingId = directoryIndex.get(key);
-			const existingIndex = existingId
-				? patients.findIndex((patient) => patient.id === existingId)
-				: -1;
-			const next: PatientRecord = {
-				id:
-					existingIndex >= 0
-						? (patients[existingIndex]?.id ?? input.patientId)
-						: input.patientId,
-				ownerUserId: input.ownerUserId,
-				displayName: input.profile.displayName,
-				relationship: input.profile.relationship,
-				cardNumberMasked: input.profile.cardNumberMasked,
-				source: "hospital-his",
-			};
-			if (existingIndex >= 0) patients[existingIndex] = next;
-			else patients.push(next);
-			inactivePatientIds.delete(next.id);
-			directoryIndex.set(key, next.id);
-			// 目录 ID 保留在旧的默认映射中；档案 patId 等专用引用单独存放，
-			// 让预约、报告和门诊费用可以显式声明自己需要哪一种外部身份。
-			providerIndex.set(
-				providerReferenceKey({
-					ownerUserId: input.ownerUserId,
-					provider: input.provider,
-					referenceKind: "directory",
-					patientId: next.id,
-				}),
-				input.profile.providerPatientId,
-			);
-			for (const [referenceKind, providerPatientId] of Object.entries(
-				input.profile.providerReferences ?? {},
-			)) {
-				if (!providerPatientId) continue;
-				providerIndex.set(
-					providerReferenceKey({
-						ownerUserId: input.ownerUserId,
-						provider: input.provider,
-						referenceKind: referenceKind as "directory" | "his-patient",
-						patientId: next.id,
-					}),
-					providerPatientId,
-				);
-			}
-			return next;
+			return upsertDirectoryAt(input, new Date().toISOString());
 		},
 		async replaceDirectorySnapshot(
 			input: PatientDirectorySnapshotInput,
 		): Promise<PatientDirectorySnapshotResult> {
 			const seenPatientIds = new Set<string>();
 			for (const patient of input.patients) {
-				const record = await this.upsertFromDirectory({
-					ownerUserId: input.ownerUserId,
-					patientId: patient.patientId,
-					provider: input.provider,
-					profile: patient.profile,
-				});
+				const record = await upsertDirectoryAt(
+					{
+						ownerUserId: input.ownerUserId,
+						patientId: patient.patientId,
+						provider: input.provider,
+						profile: patient.profile,
+					},
+					input.observedAt,
+				);
 				seenPatientIds.add(record.id);
 			}
 
@@ -164,6 +191,14 @@ export function createInMemoryPatientRepository(
 					!seenPatientIds.has(patient.id) &&
 					!inactivePatientIds.has(patient.id)
 				) {
+					const lastSeenAt = directoryLastSeenAt.get(patient.id);
+					if (
+						lastSeenAt &&
+						Date.parse(lastSeenAt) > Date.parse(input.observedAt)
+					) {
+						// 该患者属于更新的快照；旧快照缺少它时也不能把它停用。
+						continue;
+					}
 					inactivePatientIds.add(patient.id);
 					deactivatedPatientCount += 1;
 				}
