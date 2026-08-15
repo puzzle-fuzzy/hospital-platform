@@ -59,6 +59,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0008_appointment_schedule_snapshots.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0009_report_references",
+		file: "../migrations/0009_report_references.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -77,6 +82,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_payment_prepay_attempts",
 	"hp_wechat_payment_notifications",
 	"hp_appointment_schedule_snapshots",
+	"hp_report_references",
 ] as const;
 
 export const PERSISTENCE_SCHEMA_COLUMNS = [
@@ -182,6 +188,20 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"expires_at",
 		],
 	},
+	{
+		table: "hp_report_references",
+		columns: [
+			"report_id",
+			"owner_user_id",
+			"patient_id",
+			"provider",
+			"kind",
+			"provider_report_id",
+			"expires_at",
+			"created_at",
+			"updated_at",
+		],
+	},
 ] as const;
 
 /** Security-critical indexes and their column order for owner-scoped lookups and leases. */
@@ -231,6 +251,22 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		name: "ix_hp_appointment_snapshots_provider_schedule",
 		columns: ["provider", "provider_schedule_id"],
 	},
+	{
+		table: "hp_report_references",
+		name: "uq_hp_report_references_provider",
+		columns: [
+			"owner_user_id",
+			"patient_id",
+			"provider",
+			"kind",
+			"provider_report_id",
+		],
+	},
+	{
+		table: "hp_report_references",
+		name: "ix_hp_report_references_owner_expiry",
+		columns: ["owner_user_id", "expires_at"],
+	},
 ] as const;
 
 /** Composite foreign keys prevent a patient/order from crossing user owners. */
@@ -255,6 +291,13 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 		columns: ["owner_user_id", "order_id"],
 		referencedTable: "hp_payment_orders",
 		referencedColumns: ["owner_user_id", "order_id"],
+	},
+	{
+		table: "hp_report_references",
+		name: "fk_hp_report_references_owner_patient",
+		columns: ["owner_user_id", "patient_id"],
+		referencedTable: "hp_patients",
+		referencedColumns: ["owner_user_id", "patient_id"],
 	},
 ] as const;
 

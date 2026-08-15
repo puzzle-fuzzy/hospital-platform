@@ -1,16 +1,30 @@
-import type { ReportListPayload } from "@hospital/contracts";
+import type {
+	ReportDetailPayload,
+	ReportListPayload,
+} from "@hospital/contracts";
 import type {
 	AdapterCallContext,
 	PatientRepository,
+	ReportDetailGateway,
 	ReportDirectoryGateway,
+	ReportReferenceRepository,
 	ReportDirectoryQuery,
 } from "@hospital/domain";
-import { parseIsoCalendarDate } from "@hospital/domain";
+import { createHash } from "node:crypto";
+import {
+	DependencyNotConfiguredError,
+	parseIsoCalendarDate,
+	REPORT_REFERENCE_MAX_TTL_MS,
+} from "@hospital/domain";
 import { createNoopLogger, type AppLogger } from "@hospital/observability";
 
 export type ReportServiceDependencies = {
 	repository: PatientRepository;
 	directory: ReportDirectoryGateway;
+	/** 详情 gate 打开时才由组合根提供短期引用仓储。 */
+	references?: ReportReferenceRepository;
+	/** 当前只实现 LIS 详情；PACS/ECG 仍不通过此端口。 */
+	detail?: ReportDetailGateway;
 	logger?: AppLogger;
 };
 
@@ -28,7 +42,33 @@ export class ReportPatientNotFoundError extends Error {
 	}
 }
 
+export class ReportNotFoundError extends Error {
+	constructor() {
+		super("Report reference is not available");
+		this.name = "ReportNotFoundError";
+	}
+}
+
 const MAX_REPORT_RANGE_DAYS = 366;
+/** 报告详情引用是短期能力，避免 provider 资源引用长期留在平台库中。 */
+const REPORT_REFERENCE_TTL_MS = Math.min(
+	10 * 60 * 1000,
+	REPORT_REFERENCE_MAX_TTL_MS,
+);
+
+/** reportId 只用于定位服务端记录，不是 bearer token，也不替代 owner 查询。 */
+function reportReferenceId(
+	ownerUserId: string,
+	patientId: string,
+	providerReportId: string,
+): string {
+	return `report_${createHash("sha256")
+		.update(
+			`${ownerUserId}\0${patientId}\0zhongyang\0laboratory\0${providerReportId}`,
+		)
+		.digest("hex")
+		.slice(0, 48)}`;
+}
 
 function validateQuery(input: ReportDirectoryQuery): void {
 	const start = parseIsoCalendarDate(input.startDate);
@@ -96,6 +136,37 @@ export class ReportService {
 				},
 				context,
 			);
+			const items = await Promise.all(
+				result.reports.map(async (entry) => {
+					if (
+						!this.dependencies.detail ||
+						entry.summary.kind !== "laboratory"
+					) {
+						return entry.summary;
+					}
+					if (!entry.providerReportId || !this.dependencies.references) {
+						throw new DependencyNotConfiguredError("report-references");
+					}
+					const now = new Date();
+					const reference = await this.dependencies.references.upsert({
+						reportId: reportReferenceId(
+							ownerUserId,
+							patientId,
+							entry.providerReportId,
+						),
+						ownerUserId,
+						patientId,
+						provider: "zhongyang",
+						kind: "laboratory",
+						providerReportId: entry.providerReportId,
+						expiresAt: new Date(
+							now.getTime() + REPORT_REFERENCE_TTL_MS,
+						).toISOString(),
+						createdAt: now.toISOString(),
+					});
+					return { reportId: reference.reportId, ...entry.summary };
+				}),
+			);
 			this.logger.info(
 				{
 					event: "report.directory.synced",
@@ -103,11 +174,11 @@ export class ReportService {
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
 					patientId,
-					itemCount: result.reports.length,
+					itemCount: items.length,
 				},
 				"Report directory loaded",
 			);
-			return { items: [...result.reports], total: result.reports.length };
+			return { items, total: items.length };
 		} catch (error) {
 			this.logger.error(
 				{
@@ -118,6 +189,60 @@ export class ReportService {
 					errorType: error instanceof Error ? error.name : "unknown",
 				},
 				"Report directory request failed",
+			);
+			throw error;
+		}
+	}
+
+	async detail(
+		ownerUserId: string,
+		reportId: string,
+		context: AdapterCallContext,
+	): Promise<ReportDetailPayload["data"]> {
+		if (!this.dependencies.detail || !this.dependencies.references) {
+			throw new DependencyNotConfiguredError("report-detail");
+		}
+		this.logger.info(
+			{
+				event: "report.detail.requested",
+				traceId: context.traceId,
+				reportId,
+			},
+			"Report detail requested",
+		);
+		try {
+			const reference = await this.dependencies.references.findByOwnerAndId(
+				ownerUserId,
+				reportId,
+				new Date().toISOString(),
+			);
+			if (reference?.kind !== "laboratory") {
+				throw new ReportNotFoundError();
+			}
+			const result = await this.dependencies.detail.getLaboratoryDetail(
+				{ providerReportId: reference.providerReportId },
+				context,
+			);
+			this.logger.info(
+				{
+					event: "report.detail.synced",
+					traceId: context.traceId,
+					reportId,
+					providerRequestId: result.trace.requestId,
+					itemCount: result.detail.items.length,
+				},
+				"Report detail loaded",
+			);
+			return { reportId, ...result.detail, items: [...result.detail.items] };
+		} catch (error) {
+			this.logger.error(
+				{
+					event: "report.detail.failed",
+					traceId: context.traceId,
+					reportId,
+					errorType: error instanceof Error ? error.name : "unknown",
+				},
+				"Report detail request failed",
 			);
 			throw error;
 		}

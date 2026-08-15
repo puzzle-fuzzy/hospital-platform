@@ -1,5 +1,9 @@
 import { Elysia, t } from "elysia";
-import { ReportListResponse, success } from "@hospital/contracts";
+import {
+	ReportDetailResponse,
+	ReportListResponse,
+	success,
+} from "@hospital/contracts";
 import { requirePrincipal, type SessionTokenService } from "../auth/service";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { ReportService } from "./service";
@@ -23,31 +27,60 @@ export function reportsModule(
 	reportService: ReportService,
 	sessions: SessionTokenService,
 ) {
-	return new Elysia({ name: "reports-module" }).get(
-		"/reports",
-		async ({ headers, query }) => {
-			const principal = await requirePrincipal(headers.authorization, sessions);
-			const { patientId, ...reportQuery } = query;
-			return success(
-				await reportService.list(
-					principal.userId,
-					patientId,
-					reportQuery,
-					adapterContextFromHeaders(headers),
-				),
-			);
-		},
-		{
-			headers: ReportHeaders,
-			query: ReportQuery,
-			response: { 200: ReportListResponse },
-			tags: ["reports"],
-		},
-	);
+	return new Elysia({ name: "reports-module" })
+		.get(
+			"/reports/:reportId",
+			async ({ headers, params }) => {
+				const principal = await requirePrincipal(
+					headers.authorization,
+					sessions,
+				);
+				return success(
+					await reportService.detail(
+						principal.userId,
+						params.reportId,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				params: t.Object({
+					reportId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				headers: ReportHeaders,
+				response: { 200: ReportDetailResponse },
+				tags: ["reports"],
+			},
+		)
+		.get(
+			"/reports",
+			async ({ headers, query }) => {
+				const principal = await requirePrincipal(
+					headers.authorization,
+					sessions,
+				);
+				const { patientId, ...reportQuery } = query;
+				return success(
+					await reportService.list(
+						principal.userId,
+						patientId,
+						reportQuery,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: ReportHeaders,
+				query: ReportQuery,
+				response: { 200: ReportListResponse },
+				tags: ["reports"],
+			},
+		);
 }
 
 export {
 	ReportPatientNotFoundError,
+	ReportNotFoundError,
 	ReportQueryError,
 	ReportService,
 } from "./service";

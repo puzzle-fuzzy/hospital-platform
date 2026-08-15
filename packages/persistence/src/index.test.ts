@@ -5,6 +5,7 @@ import {
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
+	createInMemoryReportReferenceRepository,
 	createNotConfiguredRepositories,
 	createUnconfiguredPersistence,
 } from "./index";
@@ -192,6 +193,57 @@ test("appointment schedule snapshots reject invalid provider facts before storag
 			"2026-08-15T00:00:30.000Z",
 		),
 	).toBeUndefined();
+});
+
+test("report references enforce owner isolation and expiry", async () => {
+	const references = createInMemoryReportReferenceRepository();
+	await references.upsert({
+		reportId: "report-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		provider: "zhongyang",
+		kind: "laboratory",
+		providerReportId: "provider-report-001",
+		createdAt: "2026-08-15T00:00:00.000Z",
+		expiresAt: "2026-08-15T00:10:00.000Z",
+	});
+
+	expect(
+		await references.findByOwnerAndId(
+			"user-001",
+			"report-001",
+			"2026-08-15T00:05:00.000Z",
+		),
+	).toMatchObject({ providerReportId: "provider-report-001" });
+	expect(
+		await references.findByOwnerAndId(
+			"user-002",
+			"report-001",
+			"2026-08-15T00:05:00.000Z",
+		),
+	).toBeUndefined();
+	expect(
+		await references.findByOwnerAndId(
+			"user-001",
+			"report-001",
+			"2026-08-15T00:10:00.000Z",
+		),
+	).toBeUndefined();
+	await expect(
+		references.upsert({
+			reportId: "report-too-long-ttl",
+			ownerUserId: "user-001",
+			patientId: "patient-001",
+			provider: "zhongyang",
+			kind: "laboratory",
+			providerReportId: "provider-report-too-long-ttl",
+			createdAt: "2026-08-15T00:00:00.000Z",
+			expiresAt: "2026-08-15T00:16:00.000Z",
+		}),
+	).rejects.toMatchObject({
+		name: "ReportReferenceValidationError",
+		reason: "invalid_window",
+	});
 });
 
 test("in-memory payment repository enforces owner lookup", async () => {

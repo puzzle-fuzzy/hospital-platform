@@ -19,6 +19,7 @@ test("众阳报告目录按来源查询并映射为安全摘要", async () => {
 					data: url.includes("lis-reports")
 						? [
 								{
+									reportId: "provider-report-001-lis",
 									testList: "血常规",
 									reportTime: "2026-08-15 10:00:00",
 									criticalFlag: "1",
@@ -52,11 +53,14 @@ test("众阳报告目录按来源查询并映射为安全摘要", async () => {
 	expect(result).toEqual({
 		reports: [
 			{
-				kind: "laboratory",
-				title: "血常规",
-				reportedAt: "2026-08-15 10:00:00",
-				status: "abnormal",
-				hasAttachment: true,
+				summary: {
+					kind: "laboratory",
+					title: "血常规",
+					reportedAt: "2026-08-15 10:00:00",
+					status: "abnormal",
+					hasAttachment: true,
+				},
+				providerReportId: "provider-report-001-lis",
 			},
 		],
 		trace: {
@@ -111,12 +115,78 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 	);
 
 	expect(requestUrls).toHaveLength(3);
-	expect(result.reports.map((report) => report.kind).sort()).toEqual([
+	expect(result.reports.map((report) => report.summary.kind).sort()).toEqual([
 		"ecg",
 		"imaging",
 		"laboratory",
 	]);
 	expect(result.trace.requestId).toBe("request-1,request-2,request-3");
+});
+
+test("众阳 LIS 详情只映射白名单检测项并保留 provider 引用在请求内", async () => {
+	let requestUrl = "";
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrl = String(input);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						reportId: "provider-report-detail-001",
+						testList: "血常规",
+						reportTime: "2026-08-15 10:00:00",
+						patName: "不应返回的姓名",
+						pdfUrlList: ["https://provider.invalid/private.pdf"],
+						details: [
+							{
+								itemName: "白细胞计数",
+								itemResult: "10.2",
+								unit: "10^9/L",
+								itemRange: "3.5-9.5",
+								mark: "H",
+							},
+							{
+								itemName: "血红蛋白",
+								itemResult: "120",
+								flagCritical: "1",
+							},
+						],
+					},
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "provider-report-detail-001" },
+				},
+			);
+		},
+	});
+
+	const result = await gateway.getLaboratoryDetail(
+		{ providerReportId: "provider-report-detail-001" },
+		context,
+	);
+
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-middle-business-lis/v1/lis-reports/details?reportId=provider-report-detail-001",
+	);
+	expect(result.detail).toEqual({
+		kind: "laboratory",
+		title: "血常规",
+		reportedAt: "2026-08-15 10:00:00",
+		items: [
+			{
+				name: "白细胞计数",
+				result: "10.2",
+				unit: "10^9/L",
+				referenceRange: "3.5-9.5",
+				flag: "high",
+			},
+			{ name: "血红蛋白", result: "120", flag: "critical" },
+		],
+		hasAttachment: true,
+	});
+	expect(JSON.stringify(result)).not.toContain("不应返回");
 });
 
 test("众阳报告目录拒绝业务失败或无法映射的响应", async () => {

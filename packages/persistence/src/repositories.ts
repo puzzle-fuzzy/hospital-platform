@@ -6,6 +6,8 @@ import type {
 	PatientProviderReference,
 	PatientRecord,
 	PatientRepository,
+	ReportReference,
+	ReportReferenceRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentPrepayAttempt,
@@ -21,6 +23,7 @@ import {
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
 	validateAppointmentScheduleSnapshot,
+	validateReportReference,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 
@@ -330,6 +333,44 @@ export function createInMemoryAppointmentScheduleSnapshotRepository(
 	};
 }
 
+/**
+ * 仅用于报告详情组合测试；生产实现必须把 provider 引用放在 MySQL，
+ * 并通过 owner + 过期时间查询，不能依赖进程内 Map。
+ */
+export function createInMemoryReportReferenceRepository(
+	seed: readonly ReportReference[] = [],
+): ReportReferenceRepository {
+	for (const reference of seed) validateReportReference(reference);
+	const references = new Map(
+		seed.map((reference) => [reference.reportId, reference]),
+	);
+
+	return {
+		async upsert(input) {
+			const existing = references.get(input.reportId);
+			const reference: ReportReference = {
+				...input,
+				createdAt:
+					input.createdAt ?? existing?.createdAt ?? new Date().toISOString(),
+			};
+			validateReportReference(reference);
+			references.set(reference.reportId, reference);
+			return reference;
+		},
+		async findByOwnerAndId(ownerUserId, reportId, now) {
+			const reference = references.get(reportId);
+			if (!reference || reference.ownerUserId !== ownerUserId) return undefined;
+			const expiresAt = Date.parse(reference.expiresAt);
+			const nowAt = Date.parse(now);
+			return Number.isFinite(expiresAt) &&
+				Number.isFinite(nowAt) &&
+				expiresAt > nowAt
+				? reference
+				: undefined;
+		},
+	};
+}
+
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
 	patients: PatientRepository;
@@ -338,6 +379,7 @@ export function createNotConfiguredRepositories(): {
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
+	reportReferences: ReportReferenceRepository;
 } {
 	return {
 		identityUsers: {
@@ -410,6 +452,14 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError(
 					"appointment-schedule-snapshots",
 				);
+			},
+		},
+		reportReferences: {
+			upsert: async () => {
+				throw new PersistenceNotConfiguredError("report-references");
+			},
+			findByOwnerAndId: async () => {
+				throw new PersistenceNotConfiguredError("report-references");
 			},
 		},
 	};

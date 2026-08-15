@@ -100,6 +100,15 @@ test("native client reads report directories by internal patient id through the 
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
+	const client = await source("services/api-client.js");
+
+	expect(client).toContain("requestReportDetail");
+	expect(client).toContain(`/api/v1/reports/\${encodeURIComponent(reportId)}`);
+	expect(client).not.toContain("lis-reports/details");
+	expect(client).not.toContain("providerReportId");
+});
+
 test("native client only permits local HTTP or HTTPS API addresses", () => {
 	expect(isAllowedApiBaseUrl("http://127.0.0.1:3000")).toBe(true);
 	expect(isAllowedApiBaseUrl("http://localhost:3000/api")).toBe(true);

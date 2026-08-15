@@ -85,6 +85,8 @@ pnpm runtime:smoke
 $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
+# 可选：报告详情验收会先读取目录，再使用返回的 opaque reportId 读取 LIS 详情。
+# $env:HOSPITAL_SMOKE_CAPABILITIES = "reports,report-detail"
 pnpm provider:smoke
 ```
 
@@ -115,6 +117,7 @@ API 默认运行在 `http://localhost:3000`：
 - `GET /api/v1/appointments/schedules`：按最多 31 天范围读取服务端白名单后的排班目录
 - `GET /api/v1/appointments/records`：按内部 `patientId` 和最多 366 天范围读取脱敏预约历史摘要
 - `GET /api/v1/reports`：按内部 `patientId` 和最多 366 天范围读取 LIS/PACS/ECG 报告摘要目录
+- `GET /api/v1/reports/:reportId`：读取服务端短期引用对应的 LIS 白名单详情；独立 gate 默认关闭
 - `GET /openapi`：OpenAPI 文档
 
 worker 进程组合和通知 outbox 消费核心已经接入，但真实数据库/provider 配置运行、微信开发者工具/公网

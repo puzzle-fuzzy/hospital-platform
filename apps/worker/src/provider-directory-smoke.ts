@@ -9,7 +9,8 @@ export type ProviderSmokeCapability =
 	| "patients"
 	| "appointment-directory"
 	| "appointment-records"
-	| "reports";
+	| "reports"
+	| "report-detail";
 
 export type ProviderSmokeFetcher = (
 	input: RequestInfo | URL,
@@ -62,7 +63,6 @@ const FORBIDDEN_RESPONSE_KEYS = new Set([
 	"hisscheduleid",
 	"sourceid",
 	"appointmentinfoid",
-	"reportid",
 	"ecgreportid",
 	"patid",
 	"patname",
@@ -115,7 +115,14 @@ function forbiddenResponseKey(
 	if (typeof value !== "object" || value === null) return undefined;
 
 	for (const [key, child] of Object.entries(value)) {
-		if (FORBIDDEN_RESPONSE_KEYS.has(normalizedResponseKey(key))) {
+		const normalizedKey = normalizedResponseKey(key);
+		if (normalizedKey === "reportid") {
+			if (typeof child !== "string" || !/^report_[a-f0-9]{48}$/.test(child)) {
+				return `${path}.${key}`;
+			}
+			continue;
+		}
+		if (FORBIDDEN_RESPONSE_KEYS.has(normalizedKey)) {
 			return `${path}.${key}`;
 		}
 		const result = forbiddenResponseKey(child, `${path}.${key}`);
@@ -174,6 +181,25 @@ function responseItemCount(data: unknown): number | undefined {
 	}
 	const items = (data as { items?: unknown }).items;
 	return Array.isArray(items) ? items.length : undefined;
+}
+
+function firstOpaqueReportId(data: unknown): string | undefined {
+	if (typeof data !== "object" || data === null || Array.isArray(data)) {
+		return undefined;
+	}
+	const items = (data as { items?: unknown }).items;
+	if (!Array.isArray(items)) return undefined;
+	const report = items.find(
+		(item) =>
+			typeof item === "object" &&
+			item !== null &&
+			(item as { kind?: unknown }).kind === "laboratory",
+	);
+	const reportId =
+		typeof report === "object" && report !== null
+			? (report as { reportId?: unknown }).reportId
+			: undefined;
+	return typeof reportId === "string" ? reportId : undefined;
 }
 
 function responseStatus(data: unknown): unknown {
@@ -411,13 +437,41 @@ export async function runProviderDirectorySmoke(
 			continue;
 		}
 
+		if (capability === "reports") {
+			await check("reports", async () => {
+				const query = new URLSearchParams({
+					patientId: scopedPatientId,
+					startDate: reportStartDate,
+					endDate: today,
+				});
+				return readSafe(`/api/v1/reports?${query}`);
+			});
+			continue;
+		}
+
+		let reportId: string | undefined;
 		await check("reports", async () => {
 			const query = new URLSearchParams({
 				patientId: scopedPatientId,
 				startDate: reportStartDate,
 				endDate: today,
 			});
-			return readSafe(`/api/v1/reports?${query}`);
+			const result = await getJson(`/api/v1/reports?${query}`);
+			const itemCount = requireSafeData(result.data);
+			reportId = firstOpaqueReportId(result.data);
+			return {
+				traceId: result.traceId,
+				...(itemCount === undefined ? {} : { itemCount }),
+			};
+		});
+		await check("report-detail", async () => {
+			if (!reportId) {
+				throw new ProviderSmokeRequestError(
+					"Report directory did not return an opaque laboratory reportId",
+					200,
+				);
+			}
+			return readSafe(`/api/v1/reports/${encodeURIComponent(reportId)}`);
 		});
 	}
 
@@ -429,7 +483,10 @@ function parseCapabilities(
 ): ProviderSmokeCapability[] {
 	if (!value?.trim()) return [...DEFAULT_CAPABILITIES];
 	const capabilities = value.split(",").map((item) => item.trim());
-	const allowed = new Set<ProviderSmokeCapability>(DEFAULT_CAPABILITIES);
+	const allowed = new Set<ProviderSmokeCapability>([
+		...DEFAULT_CAPABILITIES,
+		"report-detail",
+	]);
 	if (
 		capabilities.some(
 			(capability) => !allowed.has(capability as ProviderSmokeCapability),

@@ -309,6 +309,18 @@ export function requestReports(options) {
 }
 
 /**
+ * 读取服务端为当前会话生成的短期 LIS 详情引用。
+ * 小程序只传 opaque reportId，不接触 provider 报告号、患者号或文件 URL。
+ * @param {string} reportId
+ */
+export function requestReportDetail(reportId) {
+	return requestWithSession({
+		url: `/api/v1/reports/${encodeURIComponent(reportId)}`,
+		method: "GET",
+	});
+}
+
+/**
  * 读取服务端生成的微信调起参数；小程序不构造 paySign，也不把调起成功当作业务成功。
  * @param {string} orderId
  * @param {string} idempotencyKey

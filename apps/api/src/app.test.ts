@@ -10,6 +10,7 @@ import {
 	type AppointmentRecordDirectoryGateway,
 	type PatientDirectoryGateway,
 	PaymentOrderService,
+	type ReportDetailGateway,
 	type ReportDirectoryGateway,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -19,6 +20,7 @@ import {
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
+	createInMemoryReportReferenceRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 } from "@hospital/persistence";
 import { createApp } from "./app";
@@ -882,11 +884,14 @@ test("report directory resolves internal patient ownership before provider looku
 			return {
 				reports: [
 					{
-						kind: "laboratory",
-						title: "血常规",
-						reportedAt: "2026-08-15 10:00:00",
-						status: "abnormal",
-						hasAttachment: true,
+						summary: {
+							kind: "laboratory",
+							title: "血常规",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "abnormal",
+							hasAttachment: true,
+						},
+						providerReportId: "provider-report-001",
 					},
 				],
 				trace: {
@@ -897,6 +902,22 @@ test("report directory resolves internal patient ownership before provider looku
 			};
 		},
 	};
+	const detail: ReportDetailGateway = {
+		getLaboratoryDetail: async () => ({
+			detail: {
+				kind: "laboratory",
+				title: "血常规",
+				reportedAt: "2026-08-15 10:00:00",
+				items: [{ name: "白细胞", result: "10.2", flag: "high" }],
+				hasAttachment: true,
+			},
+			trace: {
+				provider: "zhongyang",
+				operation: "reports-laboratory-detail",
+				requestId: "report-detail-trace",
+			},
+		}),
+	};
 	const paymentOrders = new PaymentOrderService({
 		orders: createInMemoryPaymentOrderRepository(),
 		quotes: createInMemoryPaymentQuoteRepository(),
@@ -906,7 +927,12 @@ test("report directory resolves internal patient ownership before provider looku
 			auth: new AuthService({ identityGateway, identityUsers, sessions }),
 			patients: new PatientService(patientRepository),
 			appointments: unusedAppointmentService(),
-			reports: new ReportService({ repository: patientRepository, directory }),
+			reports: new ReportService({
+				repository: patientRepository,
+				directory,
+				detail,
+				references: createInMemoryReportReferenceRepository(),
+			}),
 			paymentOrders,
 			wechatPrepay: new WechatPrepayService({
 				orders: paymentOrders,
@@ -946,19 +972,33 @@ test("report directory resolves internal patient ownership before provider looku
 	);
 
 	expect(response.status).toBe(200);
-	expect(await response.json()).toEqual({
+	const reportListBody = (await response.json()) as {
+		data: { items: Array<{ reportId?: string; title: string }>; total: number };
+	};
+	expect(reportListBody.data.total).toBe(1);
+	expect(reportListBody.data.items[0]).toMatchObject({ title: "血常规" });
+	const reportId = reportListBody.data.items[0]?.reportId;
+	expect(reportId).toMatch(/^report_[a-f0-9]{48}$/);
+	expect(JSON.stringify(reportListBody)).not.toContain("provider-report-001");
+
+	const detailResponse = await app.handle(
+		new Request(`http://localhost/api/v1/reports/${reportId}`, {
+			headers: {
+				authorization: `Bearer ${loginBody.data.accessToken}`,
+				"x-request-id": "report-detail-query-trace",
+			},
+		}),
+	);
+	expect(detailResponse.status).toBe(200);
+	expect(await detailResponse.json()).toEqual({
 		success: true,
 		data: {
-			items: [
-				{
-					kind: "laboratory",
-					title: "血常规",
-					reportedAt: "2026-08-15 10:00:00",
-					status: "abnormal",
-					hasAttachment: true,
-				},
-			],
-			total: 1,
+			reportId,
+			kind: "laboratory",
+			title: "血常规",
+			reportedAt: "2026-08-15 10:00:00",
+			items: [{ name: "白细胞", result: "10.2", flag: "high" }],
+			hasAttachment: true,
 		},
 	});
 	expect(directoryInput).toEqual({ providerPatientId: "provider-patient-001" });

@@ -49,6 +49,7 @@ export {
 export {
 	createZhongyangReportGateway,
 	ZhongyangReportApiGateway,
+	type ZhongyangReportGateway,
 	type ZhongyangReportGatewayOptions,
 } from "./zhongyang-reports";
 export {

@@ -75,6 +75,67 @@ test("provider directory smoke only uses the platform API and verifies safe resp
 	).toBe(true);
 });
 
+test("provider smoke accepts only the platform opaque report id and can verify LIS detail", async () => {
+	const requests: string[] = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		patientId: "internal-patient-001",
+		capabilities: ["report-detail"],
+		fetcher: async (input) => {
+			const url = String(input);
+			requests.push(url);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.includes("/reports?")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						items: [
+							{
+								reportId:
+									"report_0123456789abcdef0123456789abcdef0123456789abcdef",
+								kind: "laboratory",
+								title: "血常规",
+								reportedAt: "2026-08-15 10:00:00",
+								status: "available",
+								hasAttachment: false,
+							},
+						],
+						total: 1,
+					},
+				});
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					reportId: "report_0123456789abcdef0123456789abcdef0123456789abcdef",
+					kind: "laboratory",
+					title: "血常规",
+					reportedAt: "2026-08-15 10:00:00",
+					items: [{ name: "白细胞", result: "10.2", flag: "high" }],
+					hasAttachment: false,
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(result.checks.map((check) => check.name)).toEqual([
+		"health-live",
+		"health-ready",
+		"reports",
+		"report-detail",
+	]);
+	expect(requests.some((url) => url.includes("/api/v1/reports/report_"))).toBe(
+		true,
+	);
+});
+
 test("provider directory smoke fails when a platform response contains a forbidden provider field", async () => {
 	const result = await runProviderDirectorySmoke({
 		baseUrl: "https://hospital.example.test",

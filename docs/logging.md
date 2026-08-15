@@ -58,6 +58,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `report.directory.requested` | 报告目录读取 | 记录内部 patientId、日期范围、来源筛选和 trace，不记录 provider 患者号 |
 | `report.directory.synced` | 报告目录读取 | 记录 provider request id 和摘要数量，不记录 provider 患者号或原始报告 |
 | `report.directory.failed` | 报告目录读取 | 记录错误类型和内部 patientId，不记录 provider 患者号或原始报告 |
+| `report.detail.requested` | LIS 报告详情读取 | 记录 opaque reportId 和 trace，不记录 provider 报告号 |
+| `report.detail.synced` | LIS 报告详情读取 | 记录 provider request id 和检测项数量，不记录详情原文 |
+| `report.detail.failed` | LIS 报告详情读取 | 记录 opaque reportId 和错误类型，不记录 provider 原始错误 |
 
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
 

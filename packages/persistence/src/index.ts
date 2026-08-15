@@ -8,6 +8,7 @@ export {
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
+	createInMemoryReportReferenceRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";

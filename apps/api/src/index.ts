@@ -15,6 +15,8 @@ import {
 	patientDirectoryConfigurationStatus,
 	reportDirectoryConfigurationMissingFields,
 	reportDirectoryConfigurationStatus,
+	reportDetailConfigurationMissingFields,
+	reportDetailConfigurationStatus,
 	wechatIdentityConfigurationMissingFields,
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
@@ -52,6 +54,8 @@ const appointmentRecordsMissing =
 const reportDirectoryStatus = reportDirectoryConfigurationStatus(config);
 const reportDirectoryMissing =
 	reportDirectoryConfigurationMissingFields(config);
+const reportDetailStatus = reportDetailConfigurationStatus(config);
+const reportDetailMissing = reportDetailConfigurationMissingFields(config);
 const persistence = createPersistenceRuntime({
 	databaseUrl: config.databaseUrl,
 	redisUrl: config.redisUrl,
@@ -112,8 +116,11 @@ const appointmentDirectoryGateway =
 	appointmentDirectoryStatus === "configured" ? appointmentGateway : undefined;
 const appointmentRecordDirectoryGateway =
 	appointmentRecordsStatus === "configured" ? appointmentGateway : undefined;
-const reportDirectoryGateway =
-	reportDirectoryStatus === "configured" && config.zhongyangBaseUrl
+
+const reportGateway =
+	(reportDirectoryStatus === "configured" ||
+		reportDetailStatus === "configured") &&
+	config.zhongyangBaseUrl
 		? createZhongyangReportGateway({
 				baseUrl: config.zhongyangBaseUrl,
 				...(config.zhongyangAuthorizationToken
@@ -123,6 +130,10 @@ const reportDirectoryGateway =
 					: {}),
 			})
 		: undefined;
+const reportDirectoryGateway =
+	reportDirectoryStatus === "configured" ? reportGateway : undefined;
+const reportDetailGateway =
+	reportDetailStatus === "configured" ? reportGateway : undefined;
 const apiV3Key = config.wechatPayApiV3Key;
 const platformCertificateSerial = config.wechatPayPlatformCertificateSerial;
 const platformPublicKey = config.wechatPayPlatformPublicKey;
@@ -167,6 +178,7 @@ const app = createApp({
 			? { appointmentRecordDirectoryGateway }
 			: {}),
 		...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
+		...(reportDetailGateway ? { reportDetailGateway } : {}),
 		...(wechatPaymentNotificationDecoder
 			? { wechatPaymentNotificationDecoder }
 			: {}),
@@ -232,6 +244,7 @@ logger.info(
 		appointmentDirectoryConfiguration: appointmentDirectoryStatus,
 		appointmentRecordsConfiguration: appointmentRecordsStatus,
 		reportDirectoryConfiguration: reportDirectoryStatus,
+		reportDetailConfiguration: reportDetailStatus,
 		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
 		...(wechatPaymentMissing.length > 0 ? { wechatPaymentMissing } : {}),
 		...(patientDirectoryMissing.length > 0 ? { patientDirectoryMissing } : {}),
@@ -242,6 +255,7 @@ logger.info(
 			? { appointmentRecordsMissing }
 			: {}),
 		...(reportDirectoryMissing.length > 0 ? { reportDirectoryMissing } : {}),
+		...(reportDetailMissing.length > 0 ? { reportDetailMissing } : {}),
 	},
 	"Hospital API listening",
 );

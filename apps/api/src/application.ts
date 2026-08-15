@@ -4,6 +4,7 @@ import type {
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
 	PatientDirectoryGateway,
+	ReportDetailGateway,
 	ReportDirectoryGateway,
 	WechatIdentityGateway,
 	WechatPaymentGateway,
@@ -60,6 +61,8 @@ export type ApplicationServiceOptions = {
 	appointmentRecordDirectoryGateway?: AppointmentRecordDirectoryGateway;
 	/** 只有完成众阳 LIS/PACS/ECG 只读合同和真实环境验收后才打开。 */
 	reportDirectoryGateway?: ReportDirectoryGateway;
+	/** LIS 详情必须单独完成资源授权、引用落库和真实环境验收后才打开。 */
+	reportDetailGateway?: ReportDetailGateway;
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 };
@@ -113,6 +116,10 @@ export function createDefaultApplicationServices(
 		reports: new ReportService({
 			repository: repositories.patients,
 			directory: options.reportDirectoryGateway ?? gateways.reportDirectory,
+			references: repositories.reportReferences,
+			...(options.reportDetailGateway
+				? { detail: options.reportDetailGateway }
+				: {}),
 		}),
 		paymentOrders,
 		wechatPrepay: new WechatPrepayService({

@@ -144,7 +144,7 @@ export const AppointmentRecordListResponse = Type.Object({
 	}),
 });
 
-/** 报告目录的来源枚举；详情字段和 provider 原始数据不在本期公开 contract。 */
+/** 报告目录的来源枚举；provider 原始数据和资源 URL 不在公开 contract。 */
 export const ReportKindSchema = Type.Union([
 	Type.Literal("laboratory"),
 	Type.Literal("imaging"),
@@ -152,6 +152,8 @@ export const ReportKindSchema = Type.Union([
 ]);
 
 export const ReportSchema = Type.Object({
+	/** 仅当服务端详情 gate 打开且已建立短期引用时返回的 opaque id。 */
+	reportId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	kind: ReportKindSchema,
 	title: Type.String({ minLength: 1, maxLength: 256 }),
 	reportedAt: Type.String({ minLength: 1, maxLength: 64 }),
@@ -164,6 +166,33 @@ export const ReportListResponse = Type.Object({
 	data: Type.Object({
 		items: Type.Array(ReportSchema),
 		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+/** LIS 详情只返回白名单检测项，不返回 provider 报告号、患者字段或文件 URL。 */
+export const LaboratoryReportDetailItemSchema = Type.Object({
+	name: Type.String({ minLength: 1, maxLength: 256 }),
+	result: Type.String({ minLength: 1, maxLength: 256 }),
+	unit: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	referenceRange: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+	flag: Type.Union([
+		Type.Literal("normal"),
+		Type.Literal("high"),
+		Type.Literal("low"),
+		Type.Literal("critical"),
+		Type.Literal("unknown"),
+	]),
+});
+
+export const ReportDetailResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		reportId: Type.String({ minLength: 1, maxLength: 128 }),
+		kind: Type.Literal("laboratory"),
+		title: Type.String({ minLength: 1, maxLength: 256 }),
+		reportedAt: Type.String({ minLength: 1, maxLength: 64 }),
+		items: Type.Array(LaboratoryReportDetailItemSchema),
+		hasAttachment: Type.Boolean(),
 	}),
 });
 
@@ -306,6 +335,7 @@ export type AppointmentRecordListPayload = Static<
 >;
 export type ReportPayload = Static<typeof ReportSchema>;
 export type ReportListPayload = Static<typeof ReportListResponse>;
+export type ReportDetailPayload = Static<typeof ReportDetailResponse>;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest
 >;

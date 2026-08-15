@@ -93,9 +93,23 @@ export type {
 	WechatPaymentQueryState,
 } from "./ports";
 export type {
+	LaboratoryReportDetail,
+	LaboratoryReportDetailItem,
+	ReportDetailFlag,
+	ReportDetailGateway,
 	ReportDirectoryGateway,
+	ReportDirectoryEntry,
 	ReportDirectoryInput,
 	ReportDirectoryQuery,
 	ReportKind,
+	ReportReference,
+	ReportReferenceInput,
+	ReportReferenceRepository,
+	ReportReferenceValidationReason,
 	ReportSummary,
+} from "./reports";
+export {
+	REPORT_REFERENCE_MAX_TTL_MS,
+	ReportReferenceValidationError,
+	validateReportReference,
 } from "./reports";

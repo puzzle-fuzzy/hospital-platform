@@ -8,6 +8,8 @@ import type {
 	PatientRelationship,
 	PatientProviderReference,
 	PatientRepository,
+	ReportReference,
+	ReportReferenceRepository,
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentPrepayAttempt,
@@ -23,6 +25,7 @@ import {
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
 	validateAppointmentScheduleSnapshot,
+	validateReportReference,
 } from "@hospital/domain";
 import type { PaymentState } from "@hospital/contracts";
 import type { WechatMiniProgramPayParams } from "@hospital/domain";
@@ -84,6 +87,17 @@ type AppointmentScheduleSnapshotRow = RowDataPacket & {
 	provider_request_id: string;
 	observed_at: string;
 	expires_at: string;
+};
+
+type ReportReferenceRow = RowDataPacket & {
+	report_id: string;
+	owner_user_id: string;
+	patient_id: string;
+	provider: string;
+	kind: string;
+	provider_report_id: string;
+	expires_at: string;
+	created_at: string;
 };
 
 type PaymentQuoteRow = RowDataPacket & {
@@ -160,6 +174,7 @@ export type MySqlRepositories = {
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
+	reportReferences: ReportReferenceRepository;
 	outbox: OutboxRepository;
 };
 
@@ -343,6 +358,24 @@ function appointmentScheduleSnapshot(
 		expiresAt: snapshot.expiresAt,
 	});
 	return snapshot;
+}
+
+function reportReference(row: ReportReferenceRow): ReportReference {
+	if (row.provider !== "zhongyang" || row.kind !== "laboratory") {
+		throw new Error("Persistence returned an unknown report reference kind");
+	}
+	const reference: ReportReference = {
+		reportId: row.report_id,
+		ownerUserId: row.owner_user_id,
+		patientId: row.patient_id,
+		provider: "zhongyang",
+		kind: "laboratory",
+		providerReportId: row.provider_report_id,
+		expiresAt: row.expires_at,
+		createdAt: row.created_at,
+	};
+	validateReportReference(reference);
+	return reference;
 }
 
 function paymentQuote(row: PaymentQuoteRow) {
@@ -1002,6 +1035,55 @@ export function createMySqlRepositories(
 		},
 	};
 
+	const reportReferences: ReportReferenceRepository = {
+		async upsert(input) {
+			validateReportReference(input);
+			const createdAt = input.createdAt ?? new Date().toISOString();
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_report_references
+					(report_id, owner_user_id, patient_id, provider, kind,
+					 provider_report_id, expires_at, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE
+					owner_user_id = VALUES(owner_user_id),
+					patient_id = VALUES(patient_id),
+					provider = VALUES(provider),
+					kind = VALUES(kind),
+					provider_report_id = VALUES(provider_report_id),
+					expires_at = VALUES(expires_at),
+					created_at = VALUES(created_at),
+					updated_at = VALUES(updated_at)`,
+				[
+					input.reportId,
+					input.ownerUserId,
+					input.patientId,
+					input.provider,
+					input.kind,
+					input.providerReportId,
+					mysqlDateTime(input.expiresAt),
+					mysqlDateTime(createdAt),
+					mysqlDateTime(new Date()),
+				],
+			);
+			return {
+				...input,
+				createdAt,
+			};
+		},
+		async findByOwnerAndId(ownerUserId, reportId, now) {
+			const rows = await execute<ReportReferenceRow[]>(
+				pool,
+				`SELECT report_id, owner_user_id, patient_id, provider, kind,
+					provider_report_id, expires_at, created_at
+				 FROM hp_report_references
+				 WHERE owner_user_id = ? AND report_id = ? AND expires_at > ? LIMIT 1`,
+				[ownerUserId, reportId, mysqlDateTime(now)],
+			);
+			return rows[0] ? reportReference(rows[0]) : undefined;
+		},
+	};
+
 	const appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository = {
 		async upsert(input) {
 			validateAppointmentScheduleSnapshot(input);
@@ -1140,6 +1222,7 @@ export function createMySqlRepositories(
 		paymentPrepayAttempts,
 		wechatPaymentNotifications,
 		appointmentScheduleSnapshots,
+		reportReferences,
 		outbox,
 	};
 }

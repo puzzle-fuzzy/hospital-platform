@@ -11,6 +11,10 @@
 受限 provider 排班引用、provider request id、观察时间和 `expires_at`，用于未来写入前
 复核；快照不授权锁号，也不代表 provider 已接受预约写入。
 
+`0009_report_references` 保存短期 LIS 详情引用。客户端只接收 opaque `reportId`，
+MySQL 查询同时要求 owner 和 `expires_at`，provider 报告号不会进入 API response 或日志；
+该表只支持已取得详情合同的 LIS 读模型，不代表报告下载、解读或其他报告来源已开放。
+
 基础连接探针的 `ok` 只证明 MySQL `SELECT 1` 与 Redis `PING` 可用；schema readiness 还必须通过 migration history 以及关键表、列、索引和 owner 外键的只读结构检查，不代表微信、医保、HIS 或支付 provider 已接通。
 
 API 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才注入 MySQL repository；该变量不是自动迁移开关，必须在目标 migration 完成并通过脱敏 staging 验证后由部署配置显式开启。

@@ -1,9 +1,15 @@
 import { expect, test } from "bun:test";
 import type {
 	PatientRepository,
+	ReportDetailGateway,
 	ReportDirectoryGateway,
 } from "@hospital/domain";
-import { ReportQueryError, ReportService } from "./service";
+import { createInMemoryReportReferenceRepository } from "@hospital/persistence";
+import {
+	ReportNotFoundError,
+	ReportQueryError,
+	ReportService,
+} from "./service";
 
 test("report queries reject impossible calendar dates before provider access", async () => {
 	let providerCalls = 0;
@@ -34,4 +40,89 @@ test("report queries reject impossible calendar dates before provider access", a
 		),
 	).rejects.toBeInstanceOf(ReportQueryError);
 	expect(providerCalls).toBe(0);
+});
+
+test("report details use a short-lived opaque reference and owner-scoped lookup", async () => {
+	const directory: ReportDirectoryGateway = {
+		listReports: async () => ({
+			reports: [
+				{
+					summary: {
+						kind: "laboratory",
+						title: "血常规",
+						reportedAt: "2026-08-15 10:00:00",
+						status: "abnormal",
+						hasAttachment: true,
+					},
+					providerReportId: "provider-report-secret-001",
+				},
+			],
+			trace: {
+				provider: "zhongyang",
+				operation: "reports-directory",
+				requestId: "directory-request-001",
+			},
+		}),
+	};
+	const detail: ReportDetailGateway = {
+		getLaboratoryDetail: async ({ providerReportId }) => {
+			expect(providerReportId).toBe("provider-report-secret-001");
+			return {
+				detail: {
+					kind: "laboratory",
+					title: "血常规",
+					reportedAt: "2026-08-15 10:00:00",
+					items: [{ name: "白细胞", result: "10.2", flag: "high" }],
+					hasAttachment: true,
+				},
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-laboratory-detail",
+					requestId: "detail-request-001",
+				},
+			};
+		},
+	};
+	const repository = {
+		resolveProviderReference: async () => ({
+			patientId: "patient-001",
+			provider: "zhongyang" as const,
+			providerPatientId: "provider-patient-001",
+		}),
+	} as unknown as PatientRepository;
+	const references = createInMemoryReportReferenceRepository();
+	const service = new ReportService({
+		repository,
+		directory,
+		detail,
+		references,
+	});
+	const context = {
+		traceId: "trace-report-detail",
+		idempotencyKey: "key-report-detail",
+	};
+
+	const list = await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		context,
+	);
+	const reportId = list.items[0]?.reportId;
+	expect(reportId).toBeDefined();
+	if (!reportId) throw new Error("report reference was not created");
+	expect(reportId).toMatch(/^report_[a-f0-9]{48}$/);
+	expect(JSON.stringify(list)).not.toContain("provider-report-secret-001");
+
+	expect(await service.detail("user-001", reportId, context)).toEqual({
+		reportId,
+		kind: "laboratory",
+		title: "血常规",
+		reportedAt: "2026-08-15 10:00:00",
+		items: [{ name: "白细胞", result: "10.2", flag: "high" }],
+		hasAttachment: true,
+	});
+	await expect(
+		service.detail("user-002", reportId, context),
+	).rejects.toBeInstanceOf(ReportNotFoundError);
 });

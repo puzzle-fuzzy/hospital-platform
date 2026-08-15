@@ -23,6 +23,7 @@ import { WechatPaymentNotificationRejectedError } from "../modules/payments/noti
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import {
 	ReportPatientNotFoundError,
+	ReportNotFoundError,
 	ReportQueryError,
 } from "../modules/reports/service";
 
@@ -133,6 +134,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "report-patient-not-found",
 						message: "Report patient not found",
+					},
+				};
+			}
+
+			if (error instanceof ReportNotFoundError) {
+				set.status = 404;
+				return {
+					success: false,
+					error: {
+						code: "report-not-found",
+						message: "Report detail is not available",
 					},
 				};
 			}

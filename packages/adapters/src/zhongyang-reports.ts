@@ -1,8 +1,11 @@
 import type {
 	AdapterCallContext,
 	ExternalTrace,
+	ReportDetailGateway,
 	ReportDirectoryGateway,
+	ReportDirectoryEntry,
 	ReportDirectoryInput,
+	LaboratoryReportDetail,
 	ReportKind,
 	ReportSummary,
 } from "@hospital/domain";
@@ -11,6 +14,8 @@ import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
 const LABORATORY_PATH = "/msun-middle-business-lis/v1/lis-reports-filter";
+const LABORATORY_DETAIL_PATH =
+	"/msun-middle-business-lis/v1/lis-reports/details";
 const IMAGING_PATH =
 	"/msun-middle-business-pacs/v1/exclude-privacy-patient-reports";
 const ECG_PATH = "/msun-middle-business-ecg/v2/ecg-reports";
@@ -79,6 +84,26 @@ function responseItems(
 	return envelope.data.map((item) => objectValue(item, operation, requestId));
 }
 
+/** 详情接口返回单个对象；只接受明确的 object/envelope，不透传原始响应。 */
+function responseObject(
+	value: unknown,
+	operation: string,
+	requestId: string,
+): ProviderObject {
+	const envelope = objectValue(value, operation, requestId);
+	if (envelope.success === false) {
+		throw providerError(
+			operation,
+			"Zhongyang report provider rejected the request",
+			requestId,
+		);
+	}
+	if ("data" in envelope && envelope.data !== undefined) {
+		return objectValue(envelope.data, operation, requestId);
+	}
+	return envelope;
+}
+
 function requiredText(
 	value: unknown,
 	field: string,
@@ -128,7 +153,7 @@ function mapLaboratory(
 	value: ProviderObject,
 	operation: string,
 	requestId: string,
-): ReportSummary {
+): ReportDirectoryEntry {
 	const title =
 		optionalText(value.testList, "testList", operation, requestId) ??
 		optionalText(
@@ -151,13 +176,23 @@ function mapLaboratory(
 		requestId,
 		64,
 	);
+	const providerReportId = optionalText(
+		value.reportId,
+		"reportId",
+		operation,
+		requestId,
+		256,
+	);
 	return {
-		kind: "laboratory",
-		title,
-		reportedAt,
-		status: reportStatus(flag(value.criticalFlag) || flag(value.flagGerm)),
-		hasAttachment:
-			Array.isArray(value.pdfUrlList) && value.pdfUrlList.length > 0,
+		summary: {
+			kind: "laboratory",
+			title,
+			reportedAt,
+			status: reportStatus(flag(value.criticalFlag) || flag(value.flagGerm)),
+			hasAttachment:
+				Array.isArray(value.pdfUrlList) && value.pdfUrlList.length > 0,
+		},
+		...(providerReportId ? { providerReportId } : {}),
 	};
 }
 
@@ -165,24 +200,34 @@ function mapImaging(
 	value: ProviderObject,
 	operation: string,
 	requestId: string,
-): ReportSummary {
+): ReportDirectoryEntry {
 	const title =
 		optionalText(value.reportDocName, "reportDocName", operation, requestId) ??
 		optionalText(value.stuBodypart, "stuBodypart", operation, requestId) ??
 		optionalText(value.modality, "modality", operation, requestId) ??
 		"影像检查报告";
+	const providerReportId = optionalText(
+		value.reportId,
+		"reportId",
+		operation,
+		requestId,
+		256,
+	);
 	return {
-		kind: "imaging",
-		title,
-		reportedAt: requiredText(
-			value.reportAuditTime,
-			"reportAuditTime",
-			operation,
-			requestId,
-			64,
-		),
-		status: "available",
-		hasAttachment: Boolean(value.reportPdfPath || value.reportImgPath),
+		summary: {
+			kind: "imaging",
+			title,
+			reportedAt: requiredText(
+				value.reportAuditTime,
+				"reportAuditTime",
+				operation,
+				requestId,
+				64,
+			),
+			status: "available",
+			hasAttachment: Boolean(value.reportPdfPath || value.reportImgPath),
+		},
+		...(providerReportId ? { providerReportId } : {}),
 	};
 }
 
@@ -190,23 +235,115 @@ function mapEcg(
 	value: ProviderObject,
 	operation: string,
 	requestId: string,
-): ReportSummary {
+): ReportDirectoryEntry {
 	const title =
 		optionalText(value.diagnosis, "diagnosis", operation, requestId) ??
 		optionalText(value.reportDocName, "reportDocName", operation, requestId) ??
 		"心电报告";
+	const providerReportId = optionalText(
+		value.ecgReportId ?? value.reportId,
+		"ecgReportId",
+		operation,
+		requestId,
+		256,
+	);
 	return {
-		kind: "ecg",
-		title,
-		reportedAt: requiredText(
-			value.auditDocTime ?? value.diagnoseTime,
-			"auditDocTime",
+		summary: {
+			kind: "ecg",
+			title,
+			reportedAt: requiredText(
+				value.auditDocTime ?? value.diagnoseTime,
+				"auditDocTime",
+				operation,
+				requestId,
+				64,
+			),
+			status: "available",
+			hasAttachment: Boolean(value.pdfPath),
+		},
+		...(providerReportId ? { providerReportId } : {}),
+	};
+}
+
+function detailFlag(
+	value: ProviderObject,
+): LaboratoryReportDetail["items"][number]["flag"] {
+	if (flag(value.flagCritical)) return "critical";
+	const mark =
+		typeof value.mark === "string" ? value.mark.trim().toLowerCase() : "";
+	if (["h", "high", "↑", "up"].includes(mark)) return "high";
+	if (["l", "low", "↓", "down"].includes(mark)) return "low";
+	if (["n", "normal", "正常"].includes(mark)) return "normal";
+	return "unknown";
+}
+
+function mapLaboratoryDetail(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): LaboratoryReportDetail {
+	const title =
+		optionalText(value.testList, "testList", operation, requestId) ??
+		optionalText(
+			value.reportTypeName,
+			"reportTypeName",
 			operation,
 			requestId,
-			64,
-		),
-		status: "available",
-		hasAttachment: Boolean(value.pdfPath),
+		) ??
+		optionalText(
+			value.sampleClassName,
+			"sampleClassName",
+			operation,
+			requestId,
+		) ??
+		"检验报告";
+	const reportedAt = requiredText(
+		value.reportTime ?? value.collectTime ?? value.regTime,
+		"reportTime",
+		operation,
+		requestId,
+		64,
+	);
+	if (!Array.isArray(value.details)) {
+		throw providerError(
+			operation,
+			"Zhongyang laboratory detail items were invalid",
+			requestId,
+		);
+	}
+	return {
+		kind: "laboratory",
+		title,
+		reportedAt,
+		items: value.details.map((item) => {
+			const detail = objectValue(item, operation, requestId);
+			const unit = optionalText(detail.unit, "unit", operation, requestId);
+			const referenceRange = optionalText(
+				detail.itemRange,
+				"itemRange",
+				operation,
+				requestId,
+			);
+			return {
+				name: requiredText(
+					detail.itemName ?? detail.itemEname,
+					"itemName",
+					operation,
+					requestId,
+				),
+				result: requiredText(
+					detail.itemResult ?? detail.qualitativeResult ?? detail.germResult,
+					"itemResult",
+					operation,
+					requestId,
+				),
+				...(unit !== undefined ? { unit } : {}),
+				...(referenceRange !== undefined ? { referenceRange } : {}),
+				flag: detailFlag(detail),
+			};
+		}),
+		hasAttachment:
+			Array.isArray(value.pdfUrlList) && value.pdfUrlList.length > 0,
 	};
 }
 
@@ -234,7 +371,7 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		kind: ReportKind,
 		input: ReportDirectoryInput,
 		context: AdapterCallContext,
-	): Promise<{ reports: ReportSummary[]; requestId: string }> {
+	): Promise<{ reports: ReportDirectoryEntry[]; requestId: string }> {
 		const operation = `reports-${kind}`;
 		const url = new URL(
 			kind === "laboratory"
@@ -284,11 +421,48 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		};
 	}
 
+	async getLaboratoryDetail(
+		input: { providerReportId: string },
+		context: AdapterCallContext,
+	): Promise<{
+		detail: LaboratoryReportDetail;
+		trace: ExternalTrace;
+	}> {
+		const operation = "reports-laboratory-detail";
+		const url = new URL(LABORATORY_DETAIL_PATH, this.baseUrl);
+		url.searchParams.set("reportId", requiredConfig(input.providerReportId));
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation,
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(this.authorizationToken
+					? { headers: { Authorization: `Bearer ${this.authorizationToken}` } }
+					: {}),
+			},
+			this.fetcher,
+		);
+		return {
+			detail: mapLaboratoryDetail(
+				responseObject(response.data, operation, response.requestId),
+				operation,
+				response.requestId,
+			),
+			trace: {
+				provider: "zhongyang",
+				operation,
+				requestId: response.requestId,
+			},
+		};
+	}
+
 	async listReports(
 		input: ReportDirectoryInput,
 		context: AdapterCallContext,
 	): Promise<{
-		reports: readonly ReportSummary[];
+		reports: readonly ReportDirectoryEntry[];
 		trace: ExternalTrace;
 	}> {
 		const kinds: readonly ReportKind[] = input.query.kind
@@ -301,9 +475,9 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 			.flatMap((result) => result.reports)
 			.sort(
 				(left, right) =>
-					right.reportedAt.localeCompare(left.reportedAt) ||
-					left.kind.localeCompare(right.kind) ||
-					left.title.localeCompare(right.title),
+					right.summary.reportedAt.localeCompare(left.summary.reportedAt) ||
+					left.summary.kind.localeCompare(right.summary.kind) ||
+					left.summary.title.localeCompare(right.summary.title),
 			);
 		return {
 			reports,
@@ -316,10 +490,12 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 	}
 }
 
+export type ZhongyangReportGateway = ReportDirectoryGateway &
+	ReportDetailGateway;
 export type ZhongyangReportGatewayOptions = ZhongyangGatewayOptions;
 
 export function createZhongyangReportGateway(
 	options: ZhongyangGatewayOptions,
-): ReportDirectoryGateway {
+): ZhongyangReportGateway {
 	return new ZhongyangReportApiGateway(options);
 }

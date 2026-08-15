@@ -9,6 +9,8 @@ import {
 	patientDirectoryConfigurationStatus,
 	reportDirectoryConfigurationMissingFields,
 	reportDirectoryConfigurationStatus,
+	reportDetailConfigurationMissingFields,
+	reportDetailConfigurationStatus,
 	wechatIdentityConfigurationMissingFields,
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
@@ -113,6 +115,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(appointmentDirectoryConfigurationStatus(disabled)).toBe("disabled");
 	expect(appointmentRecordsConfigurationStatus(disabled)).toBe("disabled");
 	expect(reportDirectoryConfigurationStatus(disabled)).toBe("disabled");
+	expect(reportDetailConfigurationStatus(disabled)).toBe("disabled");
 
 	const incomplete = loadRuntimeConfig({
 		WECHAT_PAYMENT_READY: "true",
@@ -148,6 +151,10 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
 		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
 	});
+	const reportDetailIncomplete = loadRuntimeConfig({
+		ZHONGYANG_REPORT_DETAIL_READY: "true",
+		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
+	});
 	const appointmentRecordsIncomplete = loadRuntimeConfig({
 		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
 		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
@@ -161,8 +168,14 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(reportDirectoryConfigurationStatus(reportDirectoryIncomplete)).toBe(
 		"incomplete",
 	);
+	expect(reportDetailConfigurationStatus(reportDetailIncomplete)).toBe(
+		"incomplete",
+	);
 	expect(
 		reportDirectoryConfigurationMissingFields(reportDirectoryIncomplete),
+	).toContain("ZHONGYANG_BASE_URL(https)");
+	expect(
+		reportDetailConfigurationMissingFields(reportDetailIncomplete),
 	).toContain("ZHONGYANG_BASE_URL(https)");
 	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
 		"WECHAT_PAY_NOTIFY_URL(https)",
@@ -189,6 +202,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
+		ZHONGYANG_REPORT_DETAIL_READY: "true",
 		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
 		ZHONGYANG_AUTHORIZATION_TOKEN: "provider-token",
 	});
@@ -202,6 +216,9 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		appointmentRecordsConfigurationStatus(configuredPatientDirectory),
 	).toBe("configured");
 	expect(reportDirectoryConfigurationStatus(configuredPatientDirectory)).toBe(
+		"configured",
+	);
+	expect(reportDetailConfigurationStatus(configuredPatientDirectory)).toBe(
 		"configured",
 	);
 });

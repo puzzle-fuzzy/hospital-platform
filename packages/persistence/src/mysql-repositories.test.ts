@@ -422,3 +422,41 @@ test("MySQL appointment snapshot validation fails before SQL execution", async (
 
 	expect(state.statements).toHaveLength(0);
 });
+
+test("MySQL report references persist provider ids but read them owner-scoped", async () => {
+	const row = {
+		report_id: "report-001",
+		owner_user_id: "user-001",
+		patient_id: "patient-001",
+		provider: "zhongyang",
+		kind: "laboratory",
+		provider_report_id: "provider-report-001",
+		expires_at: "2026-08-15 00:10:00.000",
+		created_at: "2026-08-15 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([{ affectedRows: 1 }, [row]]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.reportReferences.upsert({
+			reportId: "report-001",
+			ownerUserId: "user-001",
+			patientId: "patient-001",
+			provider: "zhongyang",
+			kind: "laboratory",
+			providerReportId: "provider-report-001",
+			createdAt: "2026-08-15T00:00:00.000Z",
+			expiresAt: "2026-08-15T00:10:00.000Z",
+		}),
+	).resolves.toMatchObject({ reportId: "report-001" });
+	await expect(
+		repositories.reportReferences.findByOwnerAndId(
+			"user-001",
+			"report-001",
+			"2026-08-15T00:05:00.000Z",
+		),
+	).resolves.toMatchObject({ providerReportId: "provider-report-001" });
+	expect(state.statements[0]).toContain("INSERT INTO hp_report_references");
+	expect(state.statements[0]).toContain("created_at = VALUES(created_at)");
+	expect(state.statements[1]).toContain("owner_user_id = ? AND report_id = ?");
+});

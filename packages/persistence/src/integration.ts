@@ -40,7 +40,7 @@ function wait(milliseconds: number): Promise<void> {
  *
  * 覆盖范围刻意围绕当前 Phase 5A-2 的边界：运行时探针、Redis TTL、
  * MySQL 外键写入、订单幂等竞争、订单-outbox 同事务、outbox lease 恢复、
- * 预支付查单 claim lease 恢复和排班快照 TTL/旧观察保护。
+ * 预支付查单 claim lease 恢复、排班快照 TTL/旧观察保护和 LIS 报告引用 owner/TTL 保护。
  * provider、医保、HIS 和真实微信回调不在本脚本的证明范围内。
  */
 export async function runPersistenceIntegration() {
@@ -52,6 +52,7 @@ export async function runPersistenceIntegration() {
 	const quoteId = `integration-quote-${suffix}`;
 	const invalidQuoteId = `integration-invalid-quote-${suffix}`;
 	const scheduleId = `integration-platform-schedule-${suffix}`;
+	const reportId = `integration-report-${suffix}`;
 	const sessionToken = `integration-session-${suffix}`;
 	const orderIdPrefix = `integration-order-${suffix}`;
 	const attemptId = `integration-attempt-${suffix}`;
@@ -192,6 +193,44 @@ export async function runPersistenceIntegration() {
 			await repositories.appointmentScheduleSnapshots.findActive(
 				scheduleId,
 				snapshotExpiresAt.toISOString(),
+			),
+			undefined,
+		);
+
+		const reportReference = await repositories.reportReferences.upsert({
+			reportId,
+			ownerUserId: user.userId,
+			patientId,
+			provider: "zhongyang",
+			kind: "laboratory",
+			providerReportId: `integration-provider-report-${suffix}`,
+			createdAt: now.toISOString(),
+			expiresAt: new Date(now.getTime() + 60_000).toISOString(),
+		});
+		assert.equal(reportReference.reportId, reportId);
+		assert.equal(
+			(
+				await repositories.reportReferences.findByOwnerAndId(
+					user.userId,
+					reportId,
+					new Date(now.getTime() + 30_000).toISOString(),
+				)
+			)?.providerReportId,
+			reportReference.providerReportId,
+		);
+		assert.equal(
+			await repositories.reportReferences.findByOwnerAndId(
+				"integration-other-user-not-owner",
+				reportId,
+				new Date(now.getTime() + 30_000).toISOString(),
+			),
+			undefined,
+		);
+		assert.equal(
+			await repositories.reportReferences.findByOwnerAndId(
+				user.userId,
+				reportId,
+				new Date(now.getTime() + 60_000).toISOString(),
 			),
 			undefined,
 		);
@@ -337,6 +376,7 @@ export async function runPersistenceIntegration() {
 					"mysql-owner-foreign-key",
 					"owner-scoped-composite-foreign-key",
 					"appointment-schedule-snapshot-ttl-and-stale-guard",
+					"report-reference-owner-and-ttl-guard",
 					"concurrent-idempotency",
 					"prepay-query-claim-lease-recovery",
 					"order-outbox-transaction",
@@ -366,6 +406,10 @@ export async function runPersistenceIntegration() {
 			await pool.execute(
 				"DELETE FROM hp_appointment_schedule_snapshots WHERE schedule_id = ?",
 				[scheduleId],
+			);
+			await pool.execute(
+				"DELETE FROM hp_report_references WHERE report_id = ?",
+				[reportId],
 			);
 			await pool.execute("DELETE FROM hp_patients WHERE patient_id = ?", [
 				patientId,

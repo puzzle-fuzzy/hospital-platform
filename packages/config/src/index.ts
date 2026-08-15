@@ -39,6 +39,8 @@ export type RuntimeConfig = {
 	appointmentRecordsReady: boolean;
 	/** LIS/PACS/ECG 报告目录独立验收，不能随患者目录一起隐式打开。 */
 	reportDirectoryReady: boolean;
+	/** LIS 详情独立验收；不会因为目录 gate 打开而自动暴露 provider 资源。 */
+	reportDetailReady: boolean;
 	/** 众阳共享上游地址；患者、预约和报告 gate 只控制能力，不复制连接配置。 */
 	zhongyangBaseUrl: string | undefined;
 	/** 可选的众阳服务端 token；不能下发小程序或写入日志。 */
@@ -66,7 +68,8 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-patient-directory"
 		| "zhongyang-appointment-directory"
 		| "zhongyang-appointment-records"
-		| "zhongyang-report-directory";
+		| "zhongyang-report-directory"
+		| "zhongyang-report-detail";
 	status: ProviderConfigurationStatus;
 	missingFields: readonly string[];
 };
@@ -276,6 +279,24 @@ export function reportDirectoryConfigurationStatus(
 		: "incomplete";
 }
 
+export function reportDetailConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.reportDetailReady,
+	);
+}
+
+export function reportDetailConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.reportDetailReady) return "disabled";
+	return reportDetailConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
 /**
  * 汇总所有已建配置闸门，供 API/worker preflight 复用同一套规则。
  * configured 只代表字段齐全；真实 provider 权限和联调仍必须单独验收。
@@ -315,6 +336,11 @@ export function providerConfigurationDiagnostics(
 			name: "zhongyang-report-directory" as const,
 			status: reportDirectoryConfigurationStatus(runtimeConfig),
 			missingFields: reportDirectoryConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-report-detail" as const,
+			status: reportDetailConfigurationStatus(runtimeConfig),
+			missingFields: reportDetailConfigurationMissingFields(runtimeConfig),
 		},
 	] satisfies readonly ProviderConfigurationDiagnostic[];
 	return entries;
@@ -447,6 +473,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			false,
 		),
 		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),
+		reportDetailReady: boolean(env.ZHONGYANG_REPORT_DETAIL_READY, false),
 		// 兼容早期草稿变量；新部署统一使用 ZHONGYANG_BASE_URL 与
 		// ZHONGYANG_AUTHORIZATION_TOKEN，避免把共享上游误命名为患者目录。
 		zhongyangBaseUrl: optional(

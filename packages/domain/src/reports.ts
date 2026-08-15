@@ -12,6 +12,17 @@ export type ReportSummary = {
 	hasAttachment: boolean;
 };
 
+/**
+ * provider 目录项的服务端内部形态。
+ *
+ * providerReportId 只允许在 API 服务端完成引用落库时短暂存在，不能直接
+ * 复用 ReportSummary 作为 HTTP response，避免报告详情凭证意外泄漏到小程序。
+ */
+export type ReportDirectoryEntry = {
+	summary: ReportSummary;
+	providerReportId?: string;
+};
+
 export type ReportDirectoryQuery = {
 	startDate: string;
 	endDate: string;
@@ -24,13 +35,134 @@ export type ReportDirectoryInput = {
 	query: ReportDirectoryQuery;
 };
 
-/** 报告目录只读端口；详情、解读和下载必须另行取得 provider 合同。 */
+/** 服务端短期报告引用；provider id 永远不进入客户端，也不是授权凭证。 */
+export type ReportReference = {
+	reportId: string;
+	ownerUserId: string;
+	patientId: string;
+	provider: "zhongyang";
+	kind: "laboratory";
+	providerReportId: string;
+	expiresAt: string;
+	createdAt: string;
+};
+
+export type ReportReferenceInput = Omit<ReportReference, "createdAt"> & {
+	createdAt?: string;
+};
+
+/** 报告 provider 引用的持久化硬上限；业务服务使用更短的 10 分钟 TTL。 */
+export const REPORT_REFERENCE_MAX_TTL_MS = 15 * 60 * 1000;
+
+export type ReportReferenceValidationReason =
+	| "invalid_reference"
+	| "invalid_owner"
+	| "invalid_window";
+
+export class ReportReferenceValidationError extends Error {
+	readonly reason: ReportReferenceValidationReason;
+
+	constructor(reason: ReportReferenceValidationReason) {
+		super(`Invalid report reference: ${reason}`);
+		this.name = "ReportReferenceValidationError";
+		this.reason = reason;
+	}
+}
+
+/**
+ * 报告引用是跨请求的安全边界，不能只依赖 MySQL VARCHAR/FOREIGN KEY。
+ * 该校验同时被内存和 MySQL repository 调用，保证 fixture 不会放宽生产语义。
+ */
+export function validateReportReference(input: ReportReferenceInput): void {
+	const references = [
+		{ value: input.reportId, maxLength: 128 },
+		{ value: input.patientId, maxLength: 64 },
+		{ value: input.providerReportId, maxLength: 256 },
+	];
+	if (
+		references.some(
+			({ value, maxLength }) =>
+				typeof value !== "string" ||
+				value.trim().length === 0 ||
+				value.length > maxLength,
+		)
+	) {
+		throw new ReportReferenceValidationError("invalid_reference");
+	}
+	if (
+		input.provider !== "zhongyang" ||
+		input.kind !== "laboratory" ||
+		typeof input.ownerUserId !== "string" ||
+		input.ownerUserId.trim().length === 0 ||
+		input.ownerUserId.length > 64
+	) {
+		throw new ReportReferenceValidationError("invalid_owner");
+	}
+	const createdAt = Date.parse(input.createdAt ?? new Date().toISOString());
+	const expiresAt = Date.parse(input.expiresAt);
+	if (
+		!Number.isFinite(createdAt) ||
+		!Number.isFinite(expiresAt) ||
+		expiresAt <= createdAt ||
+		expiresAt - createdAt > REPORT_REFERENCE_MAX_TTL_MS
+	) {
+		throw new ReportReferenceValidationError("invalid_window");
+	}
+}
+
+/** 报告引用必须按 owner 查询，并在过期后视为不存在。 */
+export interface ReportReferenceRepository {
+	upsert(input: ReportReferenceInput): Promise<ReportReference>;
+	findByOwnerAndId(
+		ownerUserId: string,
+		reportId: string,
+		now: string,
+	): Promise<ReportReference | undefined>;
+}
+
+export type ReportDetailFlag =
+	| "normal"
+	| "high"
+	| "low"
+	| "critical"
+	| "unknown";
+
+/** LIS 详情白名单；不包含姓名、身份证、provider URL 或原始字段。 */
+export type LaboratoryReportDetailItem = {
+	name: string;
+	result: string;
+	unit?: string;
+	referenceRange?: string;
+	flag: ReportDetailFlag;
+};
+
+/** 当前只对 LIS 取得了可审计的详情字段合同，PACS/ECG 仍保持目录级别。 */
+export type LaboratoryReportDetail = {
+	kind: "laboratory";
+	title: string;
+	reportedAt: string;
+	items: readonly LaboratoryReportDetailItem[];
+	hasAttachment: boolean;
+};
+
+/** 报告详情 provider 端口只接受服务端已 owner 校验的受限引用。 */
+export interface ReportDetailGateway {
+	getLaboratoryDetail(
+		input: { providerReportId: string },
+		context: AdapterCallContext,
+	): Promise<{
+		detail: LaboratoryReportDetail;
+		trace: ExternalTrace;
+	}>;
+}
+
+/** 报告目录、详情、解读和下载分别建端口，避免目录接口顺手扩大权限。 */
 export interface ReportDirectoryGateway {
 	listReports(
 		input: ReportDirectoryInput,
 		context: AdapterCallContext,
 	): Promise<{
-		reports: readonly ReportSummary[];
+		reports: readonly ReportDirectoryEntry[];
 		trace: ExternalTrace;
 	}>;
 }
