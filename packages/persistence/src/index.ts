@@ -1,6 +1,7 @@
 import type { DependencyState } from "@hospital/contracts";
 
 export { PersistenceNotConfiguredError } from "./errors";
+export { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
 export {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,

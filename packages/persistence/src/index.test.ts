@@ -6,6 +6,7 @@ import {
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryReportReferenceRepository,
+	createNotConfiguredHealthKnowledgeRepository,
 	createNotConfiguredRepositories,
 	createUnconfiguredPersistence,
 } from "./index";
@@ -15,6 +16,15 @@ test("unconfigured persistence never reports a dependency as ready", async () =>
 
 	expect(await ports.database.check()).toBe("not_configured");
 	expect(await ports.redis.check()).toBe("not_configured");
+});
+
+test("health knowledge repository stays fail-closed before reviewed content is persisted", async () => {
+	const repository = createNotConfiguredHealthKnowledgeRepository();
+
+	await expect(repository.listCatalog("part")).rejects.toMatchObject({
+		name: "PersistenceNotConfiguredError",
+		resource: "health-knowledge",
+	});
 });
 
 test("in-memory repositories preserve owner isolation", async () => {

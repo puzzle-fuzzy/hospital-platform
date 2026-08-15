@@ -196,6 +196,113 @@ export const ReportDetailResponse = Type.Object({
 	}),
 });
 
+/** 健康知识发布元数据；患者端只看到来源和审核时间，不看到后台审核人。 */
+export const HealthKnowledgePublicationSchema = Type.Object({
+	contentVersion: Type.String({ minLength: 1, maxLength: 64 }),
+	reviewedAt: Type.String({ minLength: 1, maxLength: 64 }),
+	sourceLabel: Type.String({ minLength: 1, maxLength: 128 }),
+	disclaimer: Type.String({ minLength: 1, maxLength: 512 }),
+});
+
+export const HealthKnowledgeCatalogItemSchema = Type.Object({
+	id: Type.String({ minLength: 1, maxLength: 128 }),
+	name: Type.String({ minLength: 1, maxLength: 256 }),
+});
+
+export const HealthKnowledgeLetterItemSchema = Type.Intersect([
+	HealthKnowledgeCatalogItemSchema,
+	Type.Object({ initialLetter: Type.String({ minLength: 1, maxLength: 8 }) }),
+]);
+
+export const HealthKnowledgeDiseaseSummarySchema = Type.Intersect([
+	HealthKnowledgeLetterItemSchema,
+	Type.Object({
+		treatmentDepartment: Type.Optional(Type.String({ maxLength: 500 })),
+		symptoms: Type.Optional(Type.String({ maxLength: 10_000 })),
+	}),
+]);
+
+export const HealthKnowledgeDrugReferenceSchema = Type.Object({
+	drugId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	drugName: Type.String({ minLength: 1, maxLength: 256 }),
+	isClickable: Type.Boolean(),
+});
+
+/** 疾病正文是审核内容，不代表平台对用户作出诊断或处方。 */
+export const HealthKnowledgeDiseaseDetailSchema = Type.Object({
+	id: Type.String({ minLength: 1, maxLength: 128 }),
+	diseaseName: Type.String({ minLength: 1, maxLength: 256 }),
+	diseaseAlias: Type.Optional(Type.String({ maxLength: 500 })),
+	affectedPart: Type.Optional(Type.String({ maxLength: 500 })),
+	treatmentDepartment: Type.Optional(Type.String({ maxLength: 500 })),
+	susceptibleCrowd: Type.Optional(Type.String({ maxLength: 500 })),
+	availableDrugs: Type.Array(HealthKnowledgeDrugReferenceSchema),
+	cause: Type.Optional(Type.String({ maxLength: 100_000 })),
+	symptoms: Type.Optional(Type.String({ maxLength: 100_000 })),
+	examination: Type.Optional(Type.String({ maxLength: 100_000 })),
+	prevention: Type.Optional(Type.String({ maxLength: 100_000 })),
+	treatment: Type.Optional(Type.String({ maxLength: 100_000 })),
+});
+
+export const HealthKnowledgeDrugDetailSchema = Type.Object({
+	id: Type.String({ minLength: 1, maxLength: 128 }),
+	drugName: Type.String({ minLength: 1, maxLength: 256 }),
+	manufacturer: Type.Optional(Type.String({ maxLength: 256 })),
+	chineseName: Type.Optional(Type.String({ maxLength: 256 })),
+	specifications: Type.Optional(Type.String({ maxLength: 256 })),
+	treatableDiseases: Type.Optional(Type.String({ maxLength: 500 })),
+	indications: Type.Optional(Type.String({ maxLength: 100_000 })),
+	usageDosage: Type.Optional(Type.String({ maxLength: 100_000 })),
+	adverseReactions: Type.Optional(Type.String({ maxLength: 100_000 })),
+	contraindications: Type.Optional(Type.String({ maxLength: 100_000 })),
+	interactions: Type.Optional(Type.String({ maxLength: 100_000 })),
+	precautions: Type.Optional(Type.String({ maxLength: 100_000 })),
+});
+
+/** 列表 contract 统一携带 publication，避免缓存只按正文 id 判断新旧。 */
+export const HealthKnowledgeCatalogResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		publication: HealthKnowledgePublicationSchema,
+		items: Type.Array(HealthKnowledgeCatalogItemSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+export const HealthKnowledgeDiseaseListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		publication: HealthKnowledgePublicationSchema,
+		items: Type.Array(HealthKnowledgeDiseaseSummarySchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+export const HealthKnowledgeSymptomListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		publication: HealthKnowledgePublicationSchema,
+		items: Type.Array(HealthKnowledgeLetterItemSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+export const HealthKnowledgeDiseaseDetailResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		publication: HealthKnowledgePublicationSchema,
+		item: HealthKnowledgeDiseaseDetailSchema,
+	}),
+});
+
+export const HealthKnowledgeDrugDetailResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		publication: HealthKnowledgePublicationSchema,
+		item: HealthKnowledgeDrugDetailSchema,
+	}),
+});
+
 /** 创建订单只引用服务端报价，客户端不能提交医保金额或现金金额。 */
 export const PaymentOrderCreateRequest = Type.Object({
 	patientId: Type.String({ minLength: 1, maxLength: 128 }),
@@ -336,6 +443,30 @@ export type AppointmentRecordListPayload = Static<
 export type ReportPayload = Static<typeof ReportSchema>;
 export type ReportListPayload = Static<typeof ReportListResponse>;
 export type ReportDetailPayload = Static<typeof ReportDetailResponse>;
+export type HealthKnowledgePublicationPayload = Static<
+	typeof HealthKnowledgePublicationSchema
+>;
+export type HealthKnowledgeCatalogItemPayload = Static<
+	typeof HealthKnowledgeCatalogItemSchema
+>;
+export type HealthKnowledgeDiseaseSummaryPayload = Static<
+	typeof HealthKnowledgeDiseaseSummarySchema
+>;
+export type HealthKnowledgeCatalogResponsePayload = Static<
+	typeof HealthKnowledgeCatalogResponse
+>;
+export type HealthKnowledgeDiseaseListResponsePayload = Static<
+	typeof HealthKnowledgeDiseaseListResponse
+>;
+export type HealthKnowledgeSymptomListResponsePayload = Static<
+	typeof HealthKnowledgeSymptomListResponse
+>;
+export type HealthKnowledgeDiseaseDetailResponsePayload = Static<
+	typeof HealthKnowledgeDiseaseDetailResponse
+>;
+export type HealthKnowledgeDrugDetailResponsePayload = Static<
+	typeof HealthKnowledgeDrugDetailResponse
+>;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest
 >;

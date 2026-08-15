@@ -21,6 +21,30 @@ export {
 export { parseIsoCalendarDate } from "./date-range";
 export { DependencyNotConfiguredError } from "./errors";
 export type {
+	HealthKnowledgeCatalogItem,
+	HealthKnowledgeCatalogKind,
+	HealthKnowledgeDiseaseDetail,
+	HealthKnowledgeDiseaseRelation,
+	HealthKnowledgeDiseaseSummary,
+	HealthKnowledgeDocument,
+	HealthKnowledgeDrugDetail,
+	HealthKnowledgeDrugReference,
+	HealthKnowledgeLetterItem,
+	HealthKnowledgeListSnapshot,
+	HealthKnowledgePublication,
+	HealthKnowledgeRepository,
+	HealthKnowledgeValidationReason,
+} from "./knowledge";
+export {
+	groupHealthKnowledgeByInitialLetter,
+	HEALTH_KNOWLEDGE_DISCLAIMER,
+	HealthKnowledgeValidationError,
+	validateHealthKnowledgeIdentifier,
+	validateHealthKnowledgeLetter,
+	validateHealthKnowledgePublication,
+	validateHealthKnowledgeSymptomIds,
+} from "./knowledge";
+export type {
 	OutboxEvent,
 	OutboxEventName,
 	OutboxHandler,
