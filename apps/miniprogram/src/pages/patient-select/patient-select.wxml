@@ -1,0 +1,50 @@
+<view class="page">
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+	<view class="page-header">
+		<view class="page-title">选择就诊人</view>
+		<view class="page-description">请选择要进行预约、查询报告或查看挂号记录的就诊人</view>
+	</view>
+
+	<view wx:if="{{loading}}" class="state-card">
+		<text>正在加载就诊人...</text>
+	</view>
+
+	<view wx:elif="{{patients.length}}" class="patient-list">
+		<view
+			wx:for="{{patients}}"
+			wx:key="id"
+			class="patient-card {{item.id === selectedPatientId ? 'patient-card-selected' : ''}}"
+			bindtap="onPatientTap"
+			data-patient-id="{{item.id}}"
+		>
+			<view class="patient-card-header">
+				<view class="patient-main">
+					<text class="patient-name">{{item.displayName}}</text>
+					<text wx:if="{{item.relationship}}" class="patient-relationship">{{item.relationship}}</text>
+				</view>
+				<view wx:if="{{item.id === selectedPatientId}}" class="selected-badge">当前</view>
+			</view>
+			<view class="patient-card-detail">
+				<image class="patient-card-icon" src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
+				<view class="patient-card-detail-copy">
+					<text class="patient-card-detail-label">电子就诊卡</text>
+					<text class="patient-card-detail-value">{{item.cardNumberMasked}}</text>
+				</view>
+			</view>
+		</view>
+	</view>
+
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>当前微信账号暂无已绑定的就诊人</text>
+		<text class="state-hint">请先完成医院侧就诊人绑定，再点击下方刷新</text>
+	</view>
+
+	<view class="page-actions">
+		<button class="refresh-button" loading="{{syncing}}" disabled="{{syncing}}" bindtap="onSyncPatients">
+			{{syncing ? "正在刷新" : "刷新就诊人"}}
+		</button>
+		<text class="action-hint">新增或绑定就诊人功能将在后续接入医院真实接口</text>
+	</view>
+</view>

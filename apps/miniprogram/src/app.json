@@ -1,5 +1,9 @@
 {
-	"pages": ["pages/index/index", "pages/report-detail/report-detail"],
+	"pages": [
+		"pages/index/index",
+		"pages/patient-select/patient-select",
+		"pages/report-detail/report-detail"
+	],
 	"window": {
 		"navigationBarTitleText": "高平医院",
 		"navigationBarBackgroundColor": "#f8f8f8",

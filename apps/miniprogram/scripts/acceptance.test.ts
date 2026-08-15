@@ -80,6 +80,30 @@ test("native client requests patient synchronization through the Hospital API", 
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native mini program exposes a real patient selection page", async () => {
+	const app = await source("app.json");
+	const home = await source("pages/index/index.ts");
+	const selection = await source("pages/patient-select/patient-select.ts");
+	const template = await source("pages/patient-select/patient-select.wxml");
+	const service = await source("services/patient-selection-service.ts");
+
+	expect(app).toContain('"pages/patient-select/patient-select"');
+	expect(home).toContain("openPatientSelector");
+	expect(home).toContain('url: "/pages/patient-select/patient-select"');
+	expect(home).not.toContain("wx.showActionSheet");
+	expect(home).toContain("onShow()");
+	expect(selection).toContain("loadPatients");
+	expect(selection).toContain("onPatientTap");
+	expect(selection).toContain("setSelectedPatientId");
+	expect(template).toContain("patient-card-selected");
+	expect(template).toContain("刷新就诊人");
+	expect(service).toContain('SELECTED_PATIENT_ID_KEY = "selected_patient_id"');
+	expect(service).toContain("wx.setStorageSync");
+	// 选择页只能处理平台 opaque patientId，不得出现 provider 患者字段。
+	expect(selection).not.toContain("providerPatientId");
+	expect(selection).not.toContain("unionId");
+});
+
 test("native client reads appointment directories only through the Hospital API", async () => {
 	const client = await source("services/api-client.ts");
 	const page = await source("pages/index/index.ts");

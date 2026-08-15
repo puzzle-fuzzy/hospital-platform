@@ -12,6 +12,10 @@ import {
 	restorePlatformSession,
 	signInPlatformSession,
 } from "../../services/session-service";
+import {
+	getSelectedPatientId,
+	setSelectedPatientId,
+} from "../../services/patient-selection-service";
 import type {
 	ActionEvent,
 	IndexEvent,
@@ -177,6 +181,7 @@ type IndexPageMethods = {
 	checkHealth(): void;
 	onLogin(): void;
 	onHeroAction(): void;
+	openPatientSelector(): void;
 	onPatientQr(): void;
 	onTopAction(event: ActionEvent): void;
 	onRightAction(event: ActionEvent): void;
@@ -238,6 +243,8 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onLoad() {
 		this.checkHealth();
+		const selectedPatientId = getSelectedPatientId();
+		if (selectedPatientId) this.setData({ selectedPatientId });
 		if (!hasPlatformSession()) return;
 
 		this.setData({ sessionStatus: SESSION_LABELS.restoring });
@@ -247,6 +254,27 @@ Page<IndexPageData, IndexPageMethods>({
 				return this.loadPatients();
 			})
 			.catch((error) => this.showError(error, "会话恢复失败"));
+	},
+
+	/** 从选择页返回时读取持久化选择，确保首页业务使用最新就诊人。 */
+	onShow() {
+		const selectedPatientId = getSelectedPatientId();
+		if (!selectedPatientId || selectedPatientId === this.data.selectedPatientId)
+			return;
+		const selectedPatient = this.data.patients.find(
+			(patient) => patient.id === selectedPatientId,
+		);
+		if (selectedPatient) {
+			this.onSelectPatient({
+				currentTarget: { dataset: { patientId: selectedPatientId } },
+			});
+			return;
+		}
+		if (hasPlatformSession() && !this.data.loading) {
+			this.loadPatients().catch((error) =>
+				this.showError(error, "就诊人刷新失败"),
+			);
+		}
 	},
 
 	checkHealth() {
@@ -280,7 +308,7 @@ Page<IndexPageData, IndexPageMethods>({
 			.finally(() => this.setData({ loading: false }));
 	},
 
-	/** 顶部就诊人卡片的主动作：未登录先登录，已有患者则执行服务端同步。 */
+	/** 顶部就诊人卡片的主动作：未登录先登录，已有患者进入独立选择页。 */
 	onHeroAction() {
 		if (!this.data.hasPatients) {
 			if (hasPlatformSession()) {
@@ -290,22 +318,12 @@ Page<IndexPageData, IndexPageMethods>({
 			}
 			return;
 		}
-		if (this.data.patients.length < 2) {
-			this.onSyncPatients();
-			return;
-		}
-		wx.showActionSheet({
-			itemList: this.data.patients.map((patient) =>
-				String(patient.displayName || "就诊人"),
-			),
-			success: ({ tapIndex }) => {
-				const patient = this.data.patients[tapIndex];
-				if (typeof patient?.id !== "string") return;
-				this.onSelectPatient({
-					currentTarget: { dataset: { patientId: patient.id } },
-				});
-			},
-		});
+		this.openPatientSelector();
+	},
+
+	/** 统一通过页面路由进入患者管理，恢复旧端可浏览、可返回的交互。 */
+	openPatientSelector(): void {
+		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
 	},
 
 	/** 原首页二维码入口保留位置；二维码生成能力未接入时不伪造外部 QR 地址。 */
@@ -535,6 +553,7 @@ Page<IndexPageData, IndexPageMethods>({
 			hasReports: false,
 			error: "",
 		});
+		setSelectedPatientId(patientId);
 	},
 
 	showError(error: unknown, fallback: string): void {
@@ -565,6 +584,7 @@ Page<IndexPageData, IndexPageMethods>({
 			null;
 		const selectedPatientId =
 			typeof selectedPatient?.id === "string" ? selectedPatient.id : "";
+		if (selectedPatientId) setSelectedPatientId(selectedPatientId);
 		this.setData({
 			patients,
 			selectedPatientId,
@@ -583,6 +603,7 @@ Page<IndexPageData, IndexPageMethods>({
 
 		const fallback = this.data.patients[0];
 		if (fallback && typeof fallback.id === "string") {
+			setSelectedPatientId(fallback.id);
 			this.setData({
 				selectedPatientId: fallback.id,
 				selectedPatient: fallback,

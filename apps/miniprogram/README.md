@@ -18,6 +18,10 @@
 微信开发者工具的 `src/project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
+首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的
+`pages/patient-select/patient-select` 页面；选择页把当前选择的 opaque `patientId` 写入
+`selected_patient_id`，返回首页后由 `onShow` 恢复，并清空上一位患者的报告和挂号记录状态。
+新增/绑定就诊人仍未开放，因为当前平台只具备真实的目录同步契约，不能在小程序侧伪造绑定成功。
 页面只负责状态和交互事件；会话生命周期集中在 `src/services/session-service.ts`，日期窗口和患者/预约/报告
 读模型编排集中在 `src/services/dashboard-service.ts`。新增页面应优先复用领域服务，不要在 WXML 页面里直接拼接 provider 参数。
 `wx.login()` 不会弹出头像/昵称授权框；登录成功后首页会显示“微信已登录”，头像昵称不属于当前医疗登录契约。
@@ -33,7 +37,7 @@
 `payParams`；`launchWechatPayment` 只把白名单字段交给 `wx.requestPayment`，调起成功和取消都不会直接更新业务状态。
 页面仍需在订单状态为 `cash_pending` 时调用它，支付最终结果必须重新读取服务端订单状态。
 同时可用 `getWechatPrepay(orderId, idempotencyKey)` 读取 `not_started/pending/ready/unknown`，避免网络重试时把未知结果误报为失败。
-后续按领域迁移：登录/就诊人 → 挂号 → 支付状态页 → 报告 → 健康服务 → AI。
+后续按领域迁移：登录/就诊人选择 → 预约目录与挂号记录页面 → 挂号写入契约 → 支付状态页 → 报告 → 健康服务 → AI。
 
 线上默认请求 `https://test-hp.meiyi.pro`，业务前缀为 `/api/v2`。本地开发时把 `app.ts` 的 `apiBaseUrl`
 改为 `http://127.0.0.1:3000`，把 `apiPrefix` 改为 `/api/v1`；健康检查同样必须经过版本前缀，线上地址是

@@ -155,6 +155,15 @@ export type IndexPageData = {
 	error: string;
 };
 
+/** 就诊人选择页的渲染状态；列表数据始终来自平台脱敏患者目录。 */
+export type PatientSelectionPageData = {
+	patients: Array<Patient>;
+	selectedPatientId: string;
+	loading: boolean;
+	syncing: boolean;
+	error: string;
+};
+
 export type ReportDetailPageData = {
 	loading: boolean;
 	title: string;
