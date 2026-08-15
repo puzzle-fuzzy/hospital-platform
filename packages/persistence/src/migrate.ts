@@ -261,6 +261,52 @@ const logger = createLogger({
 	level: (Bun.env.LOG_LEVEL as "debug" | "info" | "warn" | "error") ?? "info",
 });
 
+type MigrationEnvironment = {
+	NODE_ENV?: string;
+	PERSISTENCE_MIGRATION_ALLOW_REMOTE?: string;
+	PERSISTENCE_MIGRATION_ALLOW_PRODUCTION?: string;
+};
+
+function isLocalDatabaseHost(hostname: string): boolean {
+	const normalized = hostname.replace(/^\[|\]$/g, "");
+	return (
+		normalized === "localhost" ||
+		normalized === "127.0.0.1" ||
+		normalized === "::1"
+	);
+}
+
+/**
+ * Protect the explicit migration command from an accidental remote/production
+ * target. Local Compose remains frictionless; remote and production targets
+ * require separate, visible deployment intent instead of a silent URL typo.
+ */
+export function assertMigrationTargetAllowed(
+	databaseUrl: string,
+	environment: MigrationEnvironment = Bun.env,
+): void {
+	let hostname: string;
+	try {
+		hostname = new URL(databaseUrl).hostname;
+	} catch {
+		throw new Error("DATABASE_URL must be a valid MySQL connection URL");
+	}
+
+	const allowRemote = environment.PERSISTENCE_MIGRATION_ALLOW_REMOTE === "true";
+	const allowProduction =
+		environment.PERSISTENCE_MIGRATION_ALLOW_PRODUCTION === "true";
+	if (!isLocalDatabaseHost(hostname) && !allowRemote) {
+		throw new Error(
+			"Remote persistence migration requires PERSISTENCE_MIGRATION_ALLOW_REMOTE=true",
+		);
+	}
+	if (environment.NODE_ENV === "production" && !allowProduction) {
+		throw new Error(
+			"Production persistence migration requires PERSISTENCE_MIGRATION_ALLOW_PRODUCTION=true",
+		);
+	}
+}
+
 /**
  * 只读检查目标库是否已经包含仓库声明的全部 migration。
  *
@@ -478,6 +524,18 @@ export async function readCoreSchemaStateFromPool(
 export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 	if (!databaseUrl) {
 		throw new Error("DATABASE_URL is required to run persistence migrations");
+	}
+	try {
+		assertMigrationTargetAllowed(databaseUrl, Bun.env);
+	} catch (error) {
+		logger.error(
+			{
+				event: "persistence.migration.target_rejected",
+				errorType: error instanceof Error ? error.name : "UnknownError",
+			},
+			"Persistence migration target rejected by safety gate",
+		);
+		throw error;
 	}
 
 	const pool = createPool({

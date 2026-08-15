@@ -14,6 +14,10 @@
 先保持 `PERSISTENCE_SCHEMA_READY=false`，并停止会依赖目标 schema 的 API/worker。不要直接
 再次执行 `pnpm db:migrate`；runner 会拒绝重放，这是预期的 fail-closed 行为。
 
+迁移命令默认只允许本地数据库。远程 staging 需要显式设置
+`PERSISTENCE_MIGRATION_ALLOW_REMOTE=true`；生产环境还需要额外设置
+`PERSISTENCE_MIGRATION_ALLOW_PRODUCTION=true`。这些变量不会打开 API schema gate。
+
 使用只读 SQL 确认执行记录：
 
 ```sql

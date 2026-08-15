@@ -27,6 +27,11 @@ pnpm infra:down
 访问持久化，不直接依赖 ORM。正式接入前仍要对旧库表、迁移版本、订单幂等键和历史
 回调数据做盘点。
 
+`db:migrate` 默认只允许 localhost/127.0.0.1/::1。远程 staging 迁移必须显式设置
+`PERSISTENCE_MIGRATION_ALLOW_REMOTE=true`；生产迁移还必须额外设置
+`PERSISTENCE_MIGRATION_ALLOW_PRODUCTION=true`。两个变量只表达执行意图，不替代 schema
+probe、staging 审批或备份流程。
+
 迁移文件包含 MySQL DDL。MySQL DDL 可能触发隐式提交，因此 migration runner 明确使用
 `non_transactional_ddl` 执行模式，不再把 `beginTransaction/rollback` 当作 DDL 的原子性保证。
 每个 migration 开始前会写入 `hp_schema_migration_runs`；失败或进程中断后，下一次执行会

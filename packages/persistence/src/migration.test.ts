@@ -5,6 +5,7 @@ import {
 	PERSISTENCE_SCHEMA_FOREIGN_KEYS,
 	PERSISTENCE_SCHEMA_INDEXES,
 	PERSISTENCE_SCHEMA_TABLES,
+	assertMigrationTargetAllowed,
 	readCoreSchemaStateFromPool,
 } from "./migrate";
 
@@ -30,6 +31,49 @@ test("schema probe reports incomplete migration state without writing", async ()
 		schemaStatus: "not_checked",
 		missingSchemaObjects: [],
 	});
+});
+
+test("migration target safety allows local compose and rejects remote targets by default", () => {
+	expect(() =>
+		assertMigrationTargetAllowed(
+			"mysql://hospital:secret@127.0.0.1:3307/hospital",
+		),
+	).not.toThrow();
+	expect(() =>
+		assertMigrationTargetAllowed(
+			"mysql://hospital:secret@db.internal/hospital",
+		),
+	).toThrow("PERSISTENCE_MIGRATION_ALLOW_REMOTE=true");
+	expect(() =>
+		assertMigrationTargetAllowed(
+			"mysql://hospital:secret@db.internal/hospital",
+			{
+				PERSISTENCE_MIGRATION_ALLOW_REMOTE: "true",
+			},
+		),
+	).not.toThrow();
+});
+
+test("production migration requires a second explicit confirmation", () => {
+	expect(() =>
+		assertMigrationTargetAllowed(
+			"mysql://hospital:secret@db.internal/hospital",
+			{
+				NODE_ENV: "production",
+				PERSISTENCE_MIGRATION_ALLOW_REMOTE: "true",
+			},
+		),
+	).toThrow("PERSISTENCE_MIGRATION_ALLOW_PRODUCTION=true");
+	expect(() =>
+		assertMigrationTargetAllowed(
+			"mysql://hospital:secret@db.internal/hospital",
+			{
+				NODE_ENV: "production",
+				PERSISTENCE_MIGRATION_ALLOW_REMOTE: "true",
+				PERSISTENCE_MIGRATION_ALLOW_PRODUCTION: "true",
+			},
+		),
+	).not.toThrow();
 });
 
 test("schema probe rejects complete migration history when required objects are missing", async () => {
