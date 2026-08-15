@@ -63,7 +63,8 @@ Phase 6E-1 已加入 `POST /api/v1/payments/wechat/notifications`：
 
 Phase 6E-2/6E-3 已加入持久化驱动的查单补偿和通知消费核心：
 
-- 预支付尝试记录 `queryAttempts`、`lastQueriedAt` 和 `nextQueryAt`，进程重启不会丢失查单计划。
+- 预支付尝试记录 `queryAttempts`、`lastQueriedAt`、`nextQueryAt` 和数据库 claim lease；`FOR UPDATE SKIP LOCKED` 防止多副本重复领取，进程重启或 lease 过期后仍可恢复查单计划。
+- 每次 claim 递增 attempt `version`，过期 worker 的结果会被版本条件更新拒绝，不能覆盖接管后的新结果。
 - 查单 adapter 必须返回已验签的 provider 状态和 `amount.total`；应用层再次校验该金额等于订单 `cashFen`。
 - `SUCCESS` 只有在金额一致且订单仍处于可迁移状态时才进入 `cash_paid`；金额不一致进入 `awaiting_confirmation`，不能自动成功。
 - `PaymentReconciliationWorker` 只依赖 repository、domain service、gateway 和 Pino logger；通知 handler 只消费白名单事实并复用 domain reconciliation。

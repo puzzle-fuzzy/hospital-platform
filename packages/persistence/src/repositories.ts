@@ -158,14 +158,27 @@ export function createInMemoryPaymentPrepayAttemptRepository(
 			attempts.set(attempt.attemptId, attempt);
 			return attempt;
 		},
-		async listDueForQuery(now, limit) {
-			if (!Number.isSafeInteger(limit) || limit <= 0) return [];
+		async claimDueForQuery(now, limit, leaseMs) {
+			if (
+				!Number.isSafeInteger(limit) ||
+				limit <= 0 ||
+				!Number.isSafeInteger(leaseMs) ||
+				leaseMs <= 0
+			) {
+				return [];
+			}
 			const nowMs = now.getTime();
-			return [...attempts.values()]
+			const claimedUntil = new Date(nowMs + leaseMs).toISOString();
+			const due = [...attempts.values()]
 				.filter((attempt) => {
 					if (!attempt.nextQueryAt) return false;
 					const nextQueryMs = new Date(attempt.nextQueryAt).getTime();
-					return Number.isFinite(nextQueryMs) && nextQueryMs <= nowMs;
+					if (!Number.isFinite(nextQueryMs) || nextQueryMs > nowMs) {
+						return false;
+					}
+					if (!attempt.queryClaimedUntil) return true;
+					const claimedUntilMs = new Date(attempt.queryClaimedUntil).getTime();
+					return !Number.isFinite(claimedUntilMs) || claimedUntilMs <= nowMs;
 				})
 				.sort((left, right) => {
 					const leftMs = new Date(left.nextQueryAt ?? 0).getTime();
@@ -174,7 +187,15 @@ export function createInMemoryPaymentPrepayAttemptRepository(
 						leftMs - rightMs || left.attemptId.localeCompare(right.attemptId)
 					);
 				})
-				.slice(0, limit);
+				.slice(0, limit)
+				.map((attempt) => ({
+					...attempt,
+					version: attempt.version + 1,
+					queryClaimedUntil: claimedUntil,
+					updatedAt: now.toISOString(),
+				}));
+			for (const attempt of due) attempts.set(attempt.attemptId, attempt);
+			return due;
 		},
 	};
 }
@@ -258,7 +279,7 @@ export function createNotConfiguredRepositories(): {
 			update: async () => {
 				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 			},
-			listDueForQuery: async () => {
+			claimDueForQuery: async () => {
 				throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 			},
 		},

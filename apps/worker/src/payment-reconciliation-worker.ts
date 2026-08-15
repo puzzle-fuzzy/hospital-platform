@@ -12,6 +12,8 @@ const BASE_QUERY_DELAY_MS = 15_000;
 const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
 /** 每次 worker tick 只领取一条，保证数据库版本和 provider 请求边界清晰。 */
 const QUERY_BATCH_SIZE = 1;
+/** provider 查询异常或进程崩溃后的 claim 接管窗口。 */
+const QUERY_CLAIM_LEASE_MS = 60_000;
 
 export type PaymentReconciliationWorkerResult =
 	| "idle"
@@ -32,13 +34,17 @@ function updateAttemptSchedule(
 ): PaymentPrepayAttempt {
 	// exactOptionalPropertyTypes 下不能把 undefined 写回可选字段；删除旧计划
 	// 后只在确实需要继续查单时重新加入 nextQueryAt。
-	const { nextQueryAt: _previousNextQueryAt, ...withoutNextQueryAt } = attempt;
+	const {
+		nextQueryAt: _previousNextQueryAt,
+		queryClaimedUntil: _previousQueryClaimedUntil,
+		...withoutQuerySchedule
+	} = attempt;
 	const queryAttempts = Math.min(
 		Number.MAX_SAFE_INTEGER,
 		attempt.queryAttempts + 1,
 	);
 	return {
-		...withoutNextQueryAt,
+		...withoutQuerySchedule,
 		queryAttempts,
 		lastQueriedAt: now.toISOString(),
 		version: attempt.version + 1,
@@ -56,8 +62,9 @@ function updateAttemptSchedule(
 /**
  * 查单补偿 worker。
  *
- * 它只读取持久化的 nextQueryAt，不维护进程内队列；每次 provider 查询后
- * 先用订单版本和金额校验应用结果，再版本化更新下一次调度时间。
+ * 它只领取持久化的 nextQueryAt，不维护进程内队列；每次 provider 查询后
+ * 先用订单版本和金额校验应用结果，再版本化更新下一次调度时间。claim lease
+ * 防止多副本同时领取同一条记录，进程崩溃后由数据库按过期时间恢复。
  */
 export class PaymentReconciliationWorker {
 	private readonly logger: AppLogger;
@@ -74,9 +81,10 @@ export class PaymentReconciliationWorker {
 	}
 
 	async runOnce(now = new Date()): Promise<PaymentReconciliationWorkerResult> {
-		const due = await this.dependencies.attempts.listDueForQuery(
+		const due = await this.dependencies.attempts.claimDueForQuery(
 			now,
 			QUERY_BATCH_SIZE,
+			QUERY_CLAIM_LEASE_MS,
 		);
 		const attempt = due[0];
 		if (!attempt) return "idle";

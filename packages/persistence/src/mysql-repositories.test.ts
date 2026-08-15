@@ -219,7 +219,7 @@ test("MySQL notification repository commits the safe fact and outbox together", 
 	expect(state.statements[1]).toContain("INSERT INTO hp_outbox_events");
 });
 
-test("MySQL prepay repository returns only due query schedules", async () => {
+test("MySQL prepay repository atomically claims due query schedules", async () => {
 	const row = {
 		attempt_id: "attempt-due-001",
 		owner_user_id: "user-001",
@@ -231,6 +231,7 @@ test("MySQL prepay repository returns only due query schedules", async () => {
 		query_attempts: 2,
 		last_queried_at: "2026-08-15 00:00:15.000",
 		next_query_at: "2026-08-15 00:01:00.000",
+		query_claimed_until: null,
 		prepay_id_hash: null,
 		pay_params_ciphertext: null,
 		provider_request_id: "request-001",
@@ -238,7 +239,7 @@ test("MySQL prepay repository returns only due query schedules", async () => {
 		created_at: "2026-08-15 00:00:00.000",
 		updated_at: "2026-08-15 00:00:15.000",
 	};
-	const { pool } = createFakePool([[row]]);
+	const { pool, state } = createFakePool([[row], { affectedRows: 1 }]);
 	const repositories = createMySqlRepositories(pool, {
 		prepayCipher: createAesGcmSecretValueCipher(
 			Buffer.alloc(32, 7).toString("base64"),
@@ -246,16 +247,22 @@ test("MySQL prepay repository returns only due query schedules", async () => {
 	});
 
 	await expect(
-		repositories.paymentPrepayAttempts.listDueForQuery(
+		repositories.paymentPrepayAttempts.claimDueForQuery(
 			new Date("2026-08-15T00:01:00.000Z"),
 			1,
+			60_000,
 		),
 	).resolves.toMatchObject([
 		{
 			attemptId: "attempt-due-001",
 			queryAttempts: 2,
+			version: 4,
 			lastQueriedAt: "2026-08-15 00:00:15.000",
 			nextQueryAt: "2026-08-15 00:01:00.000",
+			queryClaimedUntil: "2026-08-15 00:02:00.000",
 		},
 	]);
+	expect(state.committed).toBe(true);
+	expect(state.statements[0]).toContain("FOR UPDATE SKIP LOCKED");
+	expect(state.statements[1]).toContain("query_claimed_until = ?");
 });

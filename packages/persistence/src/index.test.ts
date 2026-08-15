@@ -116,3 +116,45 @@ test("in-memory prepay attempts replay by owner, order and idempotency key", asy
 		),
 	).toBeUndefined();
 });
+
+test("in-memory prepay attempts claim due work once until the lease expires", async () => {
+	const attempts = createInMemoryPaymentPrepayAttemptRepository([
+		{
+			attemptId: "attempt-claim-001",
+			ownerUserId: "user-claim-001",
+			orderId: "order-claim-001",
+			provider: "wechat-pay",
+			idempotencyKey: "prepay-claim-001",
+			status: "succeeded",
+			version: 2,
+			queryAttempts: 1,
+			nextQueryAt: "2026-08-15T00:00:00.000Z",
+			createdAt: "2026-08-15T00:00:00.000Z",
+			updatedAt: "2026-08-15T00:00:00.000Z",
+		},
+	]);
+	const claimAt = new Date("2026-08-15T00:00:00.000Z");
+	const staleAttempt = await attempts.findByOwnerOrderAndIdempotencyKey(
+		"user-claim-001",
+		"order-claim-001",
+		"prepay-claim-001",
+	);
+	if (!staleAttempt) throw new Error("Claim test seed was not found");
+
+	expect(await attempts.claimDueForQuery(claimAt, 1, 60_000)).toMatchObject([
+		{ version: 3, queryClaimedUntil: "2026-08-15T00:01:00.000Z" },
+	]);
+	await expect(
+		attempts.update(staleAttempt, staleAttempt.version),
+	).rejects.toThrow("Payment prepay attempt was changed by another request");
+	expect(await attempts.claimDueForQuery(claimAt, 1, 60_000)).toEqual([]);
+	expect(
+		await attempts.claimDueForQuery(
+			new Date("2026-08-15T00:01:00.000Z"),
+			1,
+			60_000,
+		),
+	).toMatchObject([
+		{ version: 4, queryClaimedUntil: "2026-08-15T00:02:00.000Z" },
+	]);
+});

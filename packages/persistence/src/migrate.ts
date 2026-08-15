@@ -15,6 +15,10 @@ const MIGRATIONS = [
 		id: "0004_payment_query_schedule",
 		file: "../migrations/0004_payment_query_schedule.sql",
 	},
+	{
+		id: "0005_payment_query_claims",
+		file: "../migrations/0005_payment_query_claims.sql",
+	},
 ] as const;
 
 const logger = createLogger({

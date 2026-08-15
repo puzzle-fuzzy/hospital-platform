@@ -90,6 +90,8 @@ export type PaymentPrepayAttempt = {
 	queryAttempts: number;
 	lastQueriedAt?: string;
 	nextQueryAt?: string;
+	/** 数据库 claim lease；进程崩溃后过期，其他 worker 才能接管查单。 */
+	queryClaimedUntil?: string;
 	prepayId?: string;
 	payParams?: WechatMiniProgramPayParams;
 	providerRequestId?: string;
@@ -110,10 +112,11 @@ export interface PaymentPrepayAttemptRepository {
 		attempt: PaymentPrepayAttempt,
 		expectedVersion: number,
 	): Promise<PaymentPrepayAttempt>;
-	/** 只返回已经到达 nextQueryAt 的记录，避免 worker 频繁扫描全表。 */
-	listDueForQuery(
+	/** 原子领取已经到达 nextQueryAt 的记录；claim 本身递增 version，隔离过期 worker。 */
+	claimDueForQuery(
 		now: Date,
 		limit: number,
+		leaseMs: number,
 	): Promise<readonly PaymentPrepayAttempt[]>;
 }
 

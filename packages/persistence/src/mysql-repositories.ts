@@ -96,6 +96,7 @@ type PaymentPrepayAttemptRow = RowDataPacket & {
 	query_attempts: number;
 	last_queried_at: string | null;
 	next_query_at: string | null;
+	query_claimed_until: string | null;
 	prepay_id_hash: string | null;
 	pay_params_ciphertext: string | null;
 	provider_request_id: string | null;
@@ -347,6 +348,9 @@ function paymentPrepayAttempt(
 		queryAttempts: row.query_attempts,
 		...(row.last_queried_at ? { lastQueriedAt: row.last_queried_at } : {}),
 		...(row.next_query_at ? { nextQueryAt: row.next_query_at } : {}),
+		...(row.query_claimed_until
+			? { queryClaimedUntil: row.query_claimed_until }
+			: {}),
 		...(storedPayParams ? { payParams: storedPayParams } : {}),
 		...(row.provider_request_id
 			? { providerRequestId: row.provider_request_id }
@@ -631,7 +635,7 @@ export function createMySqlRepositories(
 			const cipher = requiredPrepayCipher();
 			const rows = await execute<PaymentPrepayAttemptRow[]>(
 				pool,
-				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? AND idempotency_key = ? LIMIT 1",
+				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? AND idempotency_key = ? LIMIT 1",
 				[ownerUserId, orderId, idempotencyKey],
 			);
 			return rows[0] ? paymentPrepayAttempt(rows[0], cipher) : undefined;
@@ -641,7 +645,7 @@ export function createMySqlRepositories(
 			try {
 				await execute<ResultSetHeader>(
 					pool,
-					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 					[
 						attempt.attemptId,
 						attempt.ownerUserId,
@@ -653,6 +657,9 @@ export function createMySqlRepositories(
 						attempt.queryAttempts,
 						attempt.lastQueriedAt ? mysqlDateTime(attempt.lastQueriedAt) : null,
 						attempt.nextQueryAt ? mysqlDateTime(attempt.nextQueryAt) : null,
+						attempt.queryClaimedUntil
+							? mysqlDateTime(attempt.queryClaimedUntil)
+							: null,
 						attempt.prepayId
 							? createHash("sha256")
 									.update(attempt.prepayId, "utf8")
@@ -684,13 +691,16 @@ export function createMySqlRepositories(
 			const cipher = requiredPrepayCipher();
 			const result = await execute<ResultSetHeader>(
 				pool,
-				"UPDATE hp_payment_prepay_attempts SET status = ?, version = ?, query_attempts = ?, last_queried_at = ?, next_query_at = ?, prepay_id_hash = ?, pay_params_ciphertext = ?, provider_request_id = ?, last_error_code = ?, updated_at = ? WHERE attempt_id = ? AND owner_user_id = ? AND version = ?",
+				"UPDATE hp_payment_prepay_attempts SET status = ?, version = ?, query_attempts = ?, last_queried_at = ?, next_query_at = ?, query_claimed_until = ?, prepay_id_hash = ?, pay_params_ciphertext = ?, provider_request_id = ?, last_error_code = ?, updated_at = ? WHERE attempt_id = ? AND owner_user_id = ? AND version = ?",
 				[
 					attempt.status,
 					attempt.version,
 					attempt.queryAttempts,
 					attempt.lastQueriedAt ? mysqlDateTime(attempt.lastQueriedAt) : null,
 					attempt.nextQueryAt ? mysqlDateTime(attempt.nextQueryAt) : null,
+					attempt.queryClaimedUntil
+						? mysqlDateTime(attempt.queryClaimedUntil)
+						: null,
 					attempt.prepayId
 						? createHash("sha256")
 								.update(attempt.prepayId, "utf8")
@@ -712,15 +722,62 @@ export function createMySqlRepositories(
 			}
 			return attempt;
 		},
-		async listDueForQuery(now, limit) {
+		async claimDueForQuery(now, limit, leaseMs) {
 			const cipher = requiredPrepayCipher();
-			if (!Number.isSafeInteger(limit) || limit <= 0) return [];
-			const rows = await execute<PaymentPrepayAttemptRow[]>(
-				pool,
-				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE next_query_at IS NOT NULL AND next_query_at <= ? AND status IN (?, ?, ?) ORDER BY next_query_at, attempt_id LIMIT ?",
-				[now, "pending", "succeeded", "unknown", limit],
-			);
-			return rows.map((row) => paymentPrepayAttempt(row, cipher));
+			if (
+				!Number.isSafeInteger(limit) ||
+				limit <= 0 ||
+				!Number.isSafeInteger(leaseMs) ||
+				leaseMs <= 0
+			) {
+				return [];
+			}
+			// mysql2/MySQL 对 `LIMIT ? FOR UPDATE SKIP LOCKED` 的 prepared
+			// 参数组合不兼容；这里先把 limit 收窄为安全整数，再作为 SQL
+			// 结构常量插入，其他值仍全部通过参数绑定传递。
+			const queryLimit = Math.min(limit, 1_000);
+			const claimedUntil = new Date(now.getTime() + leaseMs);
+			return withTransaction(pool, async (connection) => {
+				const rows = await execute<PaymentPrepayAttemptRow[]>(
+					connection,
+					`SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE next_query_at IS NOT NULL AND next_query_at <= ? AND (query_claimed_until IS NULL OR query_claimed_until <= ?) AND status IN (?, ?, ?) ORDER BY next_query_at, attempt_id LIMIT ${queryLimit} FOR UPDATE SKIP LOCKED`,
+					[
+						mysqlDateTime(now),
+						mysqlDateTime(now),
+						"pending",
+						"succeeded",
+						"unknown",
+					],
+				);
+				for (const row of rows) {
+					const result = await execute<ResultSetHeader>(
+						connection,
+						"UPDATE hp_payment_prepay_attempts SET query_claimed_until = ?, version = version + 1, updated_at = ? WHERE attempt_id = ? AND version = ?",
+						[
+							mysqlDateTime(claimedUntil),
+							mysqlDateTime(now),
+							row.attempt_id,
+							row.version,
+						],
+					);
+					// 行已被 FOR UPDATE 锁定，正常情况下这里必须恰好更新一行；
+					// 若约束被未来改动破坏，直接回滚而不是返回一个未真正 claim 的任务。
+					if (result.affectedRows !== 1) {
+						throw new PaymentPrepayAttemptVersionConflictError();
+					}
+				}
+				return rows.map((row) =>
+					paymentPrepayAttempt(
+						{
+							...row,
+							version: row.version + 1,
+							query_claimed_until: mysqlDateTime(claimedUntil),
+							updated_at: mysqlDateTime(now),
+						},
+						cipher,
+					),
+				);
+			});
 		},
 	};
 
@@ -780,7 +837,7 @@ export function createMySqlRepositories(
 					 ORDER BY available_at, event_id
 					 LIMIT 1
 					 FOR UPDATE SKIP LOCKED`,
-					[now, now],
+					[mysqlDateTime(now), mysqlDateTime(now)],
 				);
 				const row = rows[0];
 				if (!row) return undefined;

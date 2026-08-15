@@ -91,7 +91,7 @@ POST /api/v1/payments/wechat/notifications
   -> HTTP 只返回微信 provider ack；订单状态由后续 worker 依据金额和版本迁移
 
 PaymentReconciliationWorker（持久化驱动）
-  -> listDueForQuery(nextQueryAt <= now)
+  -> claimDueForQuery(nextQueryAt <= now, lease)
   -> WechatPaymentGateway.query（查单响应必须包含已验签金额）
   -> PaymentOrderService.reconcileWechatPayment（金额 + version 条件迁移）
   -> 终态清除 nextQueryAt；未知/待确认按 queryAttempts 指数退避
@@ -137,7 +137,7 @@ Phase 6E-3 又加入通知 outbox handler、共享 `@hospital/config` 和 worker
 - `hp_payment_prepay_attempts` 不把 `prepay_id` 明文写入数据库；`payParams` 使用部署注入的 AES-256-GCM 密钥保护，没有 `PAYMENT_DATA_ENCRYPTION_KEY` 时 repository fail-closed。
 - `hp_wechat_payment_notifications` 只保存验签解密后的白名单摘要；同一 `notification_id` 或微信交易号不会重复制造 outbox 事件。
 - 查单响应中的 provider `amount.total` 必须与订单 `cashFen` 一致；不一致只能进入 `awaiting_confirmation`，不能标记为已支付。
-- 订单状态迁移和查单尝试调度都使用版本条件更新；worker 重试不会在内存中维护唯一队列，进程重启后仍以数据库 `nextQueryAt` 为准。
+- 订单状态迁移和查单尝试调度都使用版本条件更新；claim lease 通过数据库 transaction + `SKIP LOCKED` 防止多副本重复领取，并递增 attempt version 隔离过期 worker，进程重启后仍以数据库 `nextQueryAt` 和过期 lease 为准。
 
 Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider-contract-v1.md)，
 避免把身份、支付、医保加密和 HIS 回写混成一个不可审计的“大 adapter”。

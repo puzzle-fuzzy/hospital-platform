@@ -1,7 +1,7 @@
 import { createLogger } from "@hospital/observability";
 import { PaymentOrderService } from "@hospital/domain";
 import { strict as assert } from "node:assert";
-import { createPool, type Pool } from "mysql2/promise";
+import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
 import { createMySqlRepositories } from "./mysql-repositories";
 import { createPersistenceRuntime } from "./runtime";
 
@@ -38,7 +38,8 @@ function wait(milliseconds: number): Promise<void> {
  * 只针对隔离的本地数据库执行真实依赖 smoke；不会被默认单元测试自动运行。
  *
  * 覆盖范围刻意围绕当前 Phase 5A-2 的边界：运行时探针、Redis TTL、
- * MySQL 外键写入、订单幂等竞争、订单-outbox 同事务以及 lease 恢复。
+ * MySQL 外键写入、订单幂等竞争、订单-outbox 同事务、outbox lease 恢复和
+ * 预支付查单 claim lease 恢复。
  * provider、医保、HIS 和真实微信回调不在本脚本的证明范围内。
  */
 export async function runPersistenceIntegration() {
@@ -50,6 +51,7 @@ export async function runPersistenceIntegration() {
 	const quoteId = `integration-quote-${suffix}`;
 	const sessionToken = `integration-session-${suffix}`;
 	const orderIdPrefix = `integration-order-${suffix}`;
+	const attemptId = `integration-attempt-${suffix}`;
 
 	const runtime = createPersistenceRuntime({
 		databaseUrl,
@@ -82,6 +84,7 @@ export async function runPersistenceIntegration() {
 		const repositories = createMySqlRepositories(pool, {
 			// 短 lease 只用于证明 crash recovery；生产默认仍为 60 秒。
 			outboxClaimLeaseMs: 100,
+			paymentDataEncryptionKey: Buffer.alloc(32, 9).toString("base64"),
 		});
 
 		const user = await repositories.identityUsers.findOrCreateByWechat({
@@ -138,6 +141,64 @@ export async function runPersistenceIntegration() {
 		assert.equal(first.orderId, replay.orderId);
 		assert.equal(first.amounts.totalFen, 1000);
 
+		await repositories.paymentPrepayAttempts.insert({
+			attemptId,
+			ownerUserId: user.userId,
+			orderId: first.orderId,
+			provider: "wechat-pay",
+			idempotencyKey: `integration-prepay-${suffix}`,
+			status: "succeeded",
+			version: 1,
+			queryAttempts: 0,
+			nextQueryAt: now.toISOString(),
+			createdAt: now.toISOString(),
+			updatedAt: now.toISOString(),
+		});
+		const claimNow = new Date();
+		const firstClaim =
+			await repositories.paymentPrepayAttempts.claimDueForQuery(
+				claimNow,
+				1,
+				100,
+			);
+		assert.equal(firstClaim.length, 1);
+		assert.ok(firstClaim[0]?.queryClaimedUntil);
+		const [claimRows] = await pool.execute<
+			(RowDataPacket & {
+				attempt_id: string;
+				query_claimed_until: string | null;
+			})[]
+		>(
+			"SELECT attempt_id, query_claimed_until FROM hp_payment_prepay_attempts WHERE attempt_id = ?",
+			[attemptId],
+		);
+		assert.equal(claimRows[0]?.attempt_id, attemptId);
+		assert.ok(claimRows[0]?.query_claimed_until);
+		const secondClaim =
+			await repositories.paymentPrepayAttempts.claimDueForQuery(
+				claimNow,
+				1,
+				100,
+			);
+		assert.equal(
+			secondClaim.length,
+			0,
+			`Unexpected second claim: ${JSON.stringify(
+				secondClaim.map((attempt) => ({
+					attemptId: attempt.attemptId,
+					queryClaimedUntil: attempt.queryClaimedUntil,
+				})),
+			)}`,
+		);
+		await wait(180);
+		const reclaimedAttempt =
+			await repositories.paymentPrepayAttempts.claimDueForQuery(
+				new Date(),
+				1,
+				100,
+			);
+		assert.equal(reclaimedAttempt.length, 1);
+
 		const authorized = await service.transition(
 			user.userId,
 			first.orderId,
@@ -173,6 +234,7 @@ export async function runPersistenceIntegration() {
 					"redis-session-ttl-write",
 					"mysql-owner-foreign-key",
 					"concurrent-idempotency",
+					"prepay-query-claim-lease-recovery",
 					"order-outbox-transaction",
 					"outbox-lease-recovery",
 				],
@@ -182,6 +244,10 @@ export async function runPersistenceIntegration() {
 	} finally {
 		if (pool && userId) {
 			// 该脚本只允许在本地隔离库运行；清理顺序遵循外键依赖。
+			await pool.execute(
+				"DELETE FROM hp_payment_prepay_attempts WHERE attempt_id = ?",
+				[attemptId],
+			);
 			await pool.execute(
 				"DELETE FROM hp_outbox_events WHERE aggregate_id LIKE ?",
 				[`${orderIdPrefix}%`],

@@ -16,6 +16,9 @@ test("core migration contains the transaction-critical constraints", async () =>
 	const queryScheduleSql = await Bun.file(
 		new URL("../migrations/0004_payment_query_schedule.sql", import.meta.url),
 	).text();
+	const queryClaimSql = await Bun.file(
+		new URL("../migrations/0005_payment_query_claims.sql", import.meta.url),
+	).text();
 
 	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_payment_orders");
 	expect(prepaySql).toContain(
@@ -33,4 +36,6 @@ test("core migration contains the transaction-critical constraints", async () =>
 	expect(queryScheduleSql).toContain("ADD COLUMN query_attempts");
 	expect(queryScheduleSql).toContain("ADD COLUMN next_query_at");
 	expect(queryScheduleSql).toContain("ix_hp_prepay_query_due");
+	expect(queryClaimSql).toContain("ADD COLUMN query_claimed_until");
+	expect(queryClaimSql).toContain("ix_hp_prepay_query_claim");
 });

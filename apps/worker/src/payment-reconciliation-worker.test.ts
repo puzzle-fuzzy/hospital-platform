@@ -77,14 +77,25 @@ function createAttemptRepository(seed: PaymentPrepayAttempt): {
 			current = attempt;
 			return current;
 		},
-		async listDueForQuery(queryNow, limit) {
+		async claimDueForQuery(queryNow, limit, leaseMs) {
 			if (
 				limit <= 0 ||
+				leaseMs <= 0 ||
 				!current.nextQueryAt ||
-				new Date(current.nextQueryAt).getTime() > queryNow.getTime()
+				new Date(current.nextQueryAt).getTime() > queryNow.getTime() ||
+				(current.queryClaimedUntil &&
+					new Date(current.queryClaimedUntil).getTime() > queryNow.getTime())
 			) {
 				return [];
 			}
+			current = {
+				...current,
+				queryClaimedUntil: new Date(queryNow.getTime() + leaseMs).toISOString(),
+				// 测试替身也要模拟数据库 claim 的版本递增，否则无法覆盖
+				// worker 使用新版本更新、旧 worker 被版本栅栏拒绝的约束。
+				version: current.version + 1,
+				updatedAt: queryNow.toISOString(),
+			};
 			return [current];
 		},
 	};

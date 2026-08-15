@@ -35,6 +35,8 @@ migration、staging 脱敏验证和 provider 配置前，不接入真实支付�
 `notification_id` 与微信交易号都参与去重，通知事实和入站 outbox 必须在同一 MySQL
 事务中提交，原始 provider resource 不落库。
 
-预支付尝试同时保存 `query_attempts`、`last_queried_at` 和 `next_query_at`，并建立
-`(status, next_query_at)` 索引。查单 worker 只领取已到期记录，终态或待确认状态会清除
-调度时间；这保证进程重启后可以从 MySQL 恢复查单计划，而不是依赖进程内定时器。
+预支付尝试同时保存 `query_attempts`、`last_queried_at`、`next_query_at` 和
+`query_claimed_until`，并建立查单索引。查单 worker 通过 MySQL transaction + `FOR UPDATE
+SKIP LOCKED` 原子领取已到期记录；终态或待确认状态会清除调度和 claim，崩溃后 lease
+过期即可由其他 worker 接管。每次 claim 递增 attempt `version`，旧 worker 即使在 lease
+过期后返回，也不能覆盖新 worker 的结果。这保证进程重启和多副本运行都不依赖进程内队列。
