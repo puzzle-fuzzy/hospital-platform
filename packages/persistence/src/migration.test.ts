@@ -23,6 +23,15 @@ test("schema probe reports incomplete migration state without writing", async ()
 	});
 });
 
+test("every migration declares the non-transactional DDL recovery policy", () => {
+	expect(PERSISTENCE_MIGRATIONS.length).toBeGreaterThan(0);
+	expect(
+		PERSISTENCE_MIGRATIONS.every(
+			(migration) => migration.executionMode === "non_transactional_ddl",
+		),
+	).toBe(true);
+});
+
 test("core migration contains the transaction-critical constraints", async () => {
 	const sql = await Bun.file(
 		new URL("../migrations/0001_core.sql", import.meta.url),

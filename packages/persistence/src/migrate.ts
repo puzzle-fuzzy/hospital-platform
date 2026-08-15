@@ -6,33 +6,74 @@ import {
 	type RowDataPacket,
 } from "mysql2/promise";
 
+/**
+ * MySQL migration files currently contain DDL. MySQL DDL can implicitly
+ * commit, so these migrations must never pretend to be transactionally
+ * rollbackable. The runner records a durable execution marker before DDL and
+ * requires manual inspection after an interrupted or failed run.
+ */
+export type PersistenceMigration = {
+	readonly id: string;
+	readonly file: string;
+	readonly executionMode: "non_transactional_ddl";
+};
+
 export const PERSISTENCE_MIGRATIONS = [
-	{ id: "0001_core", file: "../migrations/0001_core.sql" },
+	{
+		id: "0001_core",
+		file: "../migrations/0001_core.sql",
+		executionMode: "non_transactional_ddl",
+	},
 	{
 		id: "0002_payment_prepay_attempts",
 		file: "../migrations/0002_payment_prepay_attempts.sql",
+		executionMode: "non_transactional_ddl",
 	},
 	{
 		id: "0003_wechat_payment_notifications",
 		file: "../migrations/0003_wechat_payment_notifications.sql",
+		executionMode: "non_transactional_ddl",
 	},
 	{
 		id: "0004_payment_query_schedule",
 		file: "../migrations/0004_payment_query_schedule.sql",
+		executionMode: "non_transactional_ddl",
 	},
 	{
 		id: "0005_payment_query_claims",
 		file: "../migrations/0005_payment_query_claims.sql",
+		executionMode: "non_transactional_ddl",
 	},
 	{
 		id: "0006_patient_provider_mapping",
 		file: "../migrations/0006_patient_provider_mapping.sql",
+		executionMode: "non_transactional_ddl",
 	},
 	{
 		id: "0007_owner_scoped_payment_foreign_keys",
 		file: "../migrations/0007_owner_scoped_payment_foreign_keys.sql",
+		executionMode: "non_transactional_ddl",
 	},
-] as const;
+] as const satisfies readonly PersistenceMigration[];
+
+type MigrationRunStatus = "started" | "failed" | "succeeded";
+
+/**
+ * Separate control table for migration execution state. It is intentionally
+ * not the schema gate: a `started`/`failed` row means the next run must stop
+ * for manual inspection instead of blindly replaying potentially partial DDL.
+ */
+const MIGRATION_RUNS_TABLE_SQL = `
+	CREATE TABLE IF NOT EXISTS hp_schema_migration_runs (
+		migration_id VARCHAR(128) NOT NULL,
+		execution_mode VARCHAR(32) NOT NULL,
+		status VARCHAR(16) NOT NULL,
+		started_at DATETIME(3) NOT NULL,
+		completed_at DATETIME(3) NULL,
+		error_message VARCHAR(1024) NULL,
+		PRIMARY KEY (migration_id)
+	) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
+`;
 
 export type CoreSchemaState = {
 	status: "ready" | "incomplete";
@@ -125,8 +166,11 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 	});
 
 	let connection: PoolConnection | undefined;
-	let transactionStarted = false;
 	let currentMigrationId: string | undefined;
+	let currentMigrationExecutionMode:
+		| PersistenceMigration["executionMode"]
+		| undefined;
+	let migrationRunStarted = false;
 	try {
 		connection = await pool.getConnection();
 		// 首次运行时 migration history 表本身还不存在，因此先建立这个
@@ -138,41 +182,80 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 				PRIMARY KEY (migration_id)
 			) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
 		`);
+		// DDL is not transactionally rollbackable in MySQL. Persisting this marker
+		// before each migration gives operators durable evidence after a crash.
+		await connection.query(MIGRATION_RUNS_TABLE_SQL);
 		let appliedAny = false;
 		for (const migration of PERSISTENCE_MIGRATIONS) {
+			currentMigrationId = migration.id;
+			currentMigrationExecutionMode = migration.executionMode;
+			migrationRunStarted = false;
 			const [appliedRows] = await connection.execute(
 				"SELECT migration_id FROM hp_schema_migrations WHERE migration_id = ? LIMIT 1",
 				[migration.id],
 			);
 			if (Array.isArray(appliedRows) && appliedRows.length > 0) {
+				// If the process died after recording schema history but before
+				// recording success, history is authoritative and can be reconciled.
+				await connection.execute(
+					"UPDATE hp_schema_migration_runs SET status = 'succeeded', completed_at = COALESCE(completed_at, ?), error_message = NULL WHERE migration_id = ? AND status <> 'succeeded'",
+					[new Date(), migration.id],
+				);
 				logger.info(
 					{
 						event: "persistence.migration.skipped",
 						migrationId: migration.id,
+						reconciledRun: true,
 					},
 					"Persistence migration is already applied",
 				);
 				continue;
 			}
 
+			const [runRows] = await connection.execute<
+				(RowDataPacket & { status: MigrationRunStatus })[]
+			>(
+				"SELECT status FROM hp_schema_migration_runs WHERE migration_id = ? LIMIT 1",
+				[migration.id],
+			);
+			const previousRun = Array.isArray(runRows) ? runRows[0] : undefined;
+			if (previousRun) {
+				throw new Error(
+					`Migration ${migration.id} has a previous ${previousRun.status} run; inspect the target schema before retrying`,
+				);
+			}
+
 			const migrationSql = await Bun.file(
 				new URL(migration.file, import.meta.url),
 			).text();
-			currentMigrationId = migration.id;
 			logger.info(
-				{ event: "persistence.migration.started", migrationId: migration.id },
+				{
+					event: "persistence.migration.started",
+					migrationId: migration.id,
+					executionMode: migration.executionMode,
+					recovery: "manual_inspection_if_failed",
+				},
 				"Applying persistence migration",
 			);
-			await connection.beginTransaction();
-			transactionStarted = true;
+			await connection.execute(
+				"INSERT INTO hp_schema_migration_runs (migration_id, execution_mode, status, started_at) VALUES (?, ?, 'started', ?)",
+				[migration.id, migration.executionMode, new Date()],
+			);
+			migrationRunStarted = true;
+			// Do not wrap this in beginTransaction/rollback. MySQL DDL can commit
+			// implicitly, so an apparent rollback would provide false safety.
 			await connection.query(migrationSql);
 			await connection.execute(
 				"INSERT INTO hp_schema_migrations (migration_id, applied_at) VALUES (?, ?)",
 				[migration.id, new Date()],
 			);
-			await connection.commit();
-			transactionStarted = false;
+			await connection.execute(
+				"UPDATE hp_schema_migration_runs SET status = 'succeeded', completed_at = ?, error_message = NULL WHERE migration_id = ?",
+				[new Date(), migration.id],
+			);
+			migrationRunStarted = false;
 			currentMigrationId = undefined;
+			currentMigrationExecutionMode = undefined;
 			appliedAny = true;
 			logger.info(
 				{ event: "persistence.migration.succeeded", migrationId: migration.id },
@@ -188,11 +271,35 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 			status: appliedAny ? ("applied" as const) : ("already_applied" as const),
 		};
 	} catch (error) {
-		if (transactionStarted) await connection?.rollback().catch(() => undefined);
+		let failureRecorded = false;
+		if (connection && currentMigrationId && migrationRunStarted) {
+			failureRecorded = await connection
+				.execute(
+					"UPDATE hp_schema_migration_runs SET status = 'failed', completed_at = ?, error_message = ? WHERE migration_id = ? AND status = 'started'",
+					[
+						new Date(),
+						error instanceof Error
+							? error.message.slice(0, 1024)
+							: "unknown error",
+						currentMigrationId,
+					],
+				)
+				.then(() => true)
+				.catch(() => false);
+		}
 		logger.error(
 			{
 				event: "persistence.migration.failed",
 				...(currentMigrationId ? { migrationId: currentMigrationId } : {}),
+				...(currentMigrationExecutionMode
+					? { executionMode: currentMigrationExecutionMode }
+					: {}),
+				...(migrationRunStarted
+					? {
+							manualRecoveryRequired: true,
+							failureRecorded,
+						}
+					: {}),
 				err: error,
 			},
 			"Persistence migration failed",

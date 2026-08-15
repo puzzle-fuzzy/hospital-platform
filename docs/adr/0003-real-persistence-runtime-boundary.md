@@ -12,7 +12,9 @@
 - Redis 通过惰性连接和 `PING` 提供缓存探针；
 - API 入口负责创建运行时并在 Elysia stop 生命周期关闭连接；
 - schema 先以可审阅的 SQL migration 固化目标字段、索引、唯一键和 outbox lease 字段；
-- 业务 repository 只有在 `PERSISTENCE_SCHEMA_READY=true` 时才接入生产组合根；缺少 schema 确认或 provider 配置时仍 fail-closed。
+- migration runner 明确将当前 DDL 标记为 `non_transactional_ddl`，在每次执行前写入
+  `hp_schema_migration_runs`；失败或中断后要求人工检查，不把 MySQL DDL 错误地包装成可回滚事务；
+- 业务 repository 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才接入生产组合根；缺少 schema 确认、实际 migration 或 provider 配置时仍 fail-closed。
 
 ## 原因
 
@@ -25,5 +27,6 @@
 ## 下一步
 
 1. 在脱敏 staging 复核目标 schema、索引、字符集、历史数据映射和 migration 记录。
-2. 已将 `PERSISTENCE_SCHEMA_READY` 作为部署闸门接入 `/health/ready` 和生产组合根；它仍必须由 staging 验收后的部署配置显式开启，而不是由应用自动开启。
-3. 只有持久化事实闭环并完成环境验收后，才接入微信身份、医保 6201/6202、微信支付和 HIS 回写 adapter。
+2. 已将 `PERSISTENCE_SCHEMA_READY` 作为部署闸门接入 `/health/ready` 和生产组合根；它仍必须由 staging 验收后的部署配置显式开启，而不是由应用自动开启，且组合根会再次执行只读 schema probe。
+3. 如果 migration 运行记录为 `started` 或 `failed`，先按 migration recovery runbook 完成人工 schema 检查和修复，禁止直接重跑。
+4. 只有持久化事实闭环并完成环境验收后，才接入微信身份、医保 6201/6202、微信支付和 HIS 回写 adapter。

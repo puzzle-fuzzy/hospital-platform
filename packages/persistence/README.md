@@ -9,7 +9,7 @@
 
 readiness 的 `ok` 只证明 MySQL `SELECT 1` 与 Redis `PING` 可用，不代表 schema、微信、医保、HIS 或支付 provider 已接通。
 
-API 只有在 `PERSISTENCE_SCHEMA_READY=true` 时才注入 MySQL repository；该变量不是自动迁移开关，必须在目标 migration 完成并通过脱敏 staging 验证后由部署配置显式开启。
+API 只有在 `PERSISTENCE_SCHEMA_READY=true` 且启动时实际 schema probe 为 `ok` 时才注入 MySQL repository；该变量不是自动迁移开关，必须在目标 migration 完成并通过脱敏 staging 验证后由部署配置显式开启。
 
 显式命令：
 
@@ -27,7 +27,13 @@ pnpm infra:down
 访问持久化，不直接依赖 ORM。正式接入前仍要对旧库表、迁移版本、订单幂等键和历史
 回调数据做盘点。
 
-订单仓储已经具备“订单写入 + outbox 事件”同事务实现，`db:integration` 已覆盖本地真实
+迁移文件包含 MySQL DDL。MySQL DDL 可能触发隐式提交，因此 migration runner 明确使用
+`non_transactional_ddl` 执行模式，不再把 `beginTransaction/rollback` 当作 DDL 的原子性保证。
+每个 migration 开始前会写入 `hp_schema_migration_runs`；失败或进程中断后，下一次执行会
+停止并要求人工检查目标 schema，禁止盲目重放可能已经部分执行的 DDL。相关恢复步骤见
+[`docs/runbooks/persistence-migration-recovery.md`](../../docs/runbooks/persistence-migration-recovery.md)。
+
+订单仓储已经具备“订单写入 + outbox 事件”同事务实现，`db:integration` 覆盖本地真实
 MySQL/Redis 验收路径；实际执行仍需在 Docker 依赖可用的隔离环境完成。API 仍默认由
 `PERSISTENCE_SCHEMA_READY=false` 保护，未完成目标环境
 migration、staging 脱敏验证和 provider 配置前，不接入真实支付副作用。
