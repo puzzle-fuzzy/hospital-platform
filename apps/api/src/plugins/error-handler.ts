@@ -1,4 +1,6 @@
 import { Elysia } from "elysia";
+import { DependencyNotConfiguredError } from "@hospital/domain";
+import { HttpError } from "../errors";
 
 function normalizeCode(code: string | number): string {
 	return typeof code === "string" ? code : "UNKNOWN";
@@ -22,15 +24,37 @@ function messageFor(code: string): string {
 }
 
 export function errorHandlerPlugin() {
-	return new Elysia({ name: "error-handler" }).onError(({ code, set }) => {
-		const normalizedCode = normalizeCode(code);
-		set.status = statusFor(normalizedCode);
-		return {
-			success: false,
-			error: {
-				code: errorCode(normalizedCode),
-				message: messageFor(normalizedCode),
-			},
-		};
-	});
+	return new Elysia({ name: "error-handler" }).onError(
+		{ as: "global" },
+		({ code, error, set }) => {
+			if (error instanceof HttpError) {
+				set.status = error.statusCode;
+				return {
+					success: false,
+					error: { code: error.code, message: error.message },
+				};
+			}
+
+			if (error instanceof DependencyNotConfiguredError) {
+				set.status = 503;
+				return {
+					success: false,
+					error: {
+						code: "dependency-not-configured",
+						message: "Required service dependency is not configured",
+					},
+				};
+			}
+
+			const normalizedCode = normalizeCode(code);
+			set.status = statusFor(normalizedCode);
+			return {
+				success: false,
+				error: {
+					code: errorCode(normalizedCode),
+					message: messageFor(normalizedCode),
+				},
+			};
+		},
+	);
 }

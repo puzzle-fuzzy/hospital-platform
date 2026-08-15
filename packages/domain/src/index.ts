@@ -4,6 +4,15 @@ export {
 	InvalidPaymentTransitionError,
 	transitionPayment,
 } from "./payment-state";
+export { DependencyNotConfiguredError } from "./errors";
+export type {
+	IdentityUser,
+	PatientRecord,
+	PatientRelationship,
+	PatientRepository,
+	UserIdentityRepository,
+	WechatIdentityGateway,
+} from "./patients";
 export type {
 	AdapterCallContext,
 	ExternalTrace,

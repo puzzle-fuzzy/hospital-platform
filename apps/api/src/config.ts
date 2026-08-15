@@ -1,4 +1,5 @@
 export type RuntimeConfig = {
+	/** 生产环境默认关闭 OpenAPI，避免无意暴露内部接口描述。 */
 	environment: "development" | "test" | "production";
 	host: string;
 	port: number;

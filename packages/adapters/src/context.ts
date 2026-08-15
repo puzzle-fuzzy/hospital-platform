@@ -5,6 +5,7 @@ export type AdapterName =
 	| "hospital-his"
 	| "medical-insurance"
 	| "legacy-fsi"
+	| "wechat-identity"
 	| "wechat-pay"
 	| "yunhealth"
 	| "ai";

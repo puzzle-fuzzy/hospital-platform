@@ -1,6 +1,10 @@
 import type { AdapterContext, AdapterName } from "./context";
 import { ProviderRequestError } from "./errors";
 
+/** provider 默认超时；具体 adapter 可以按官方协议覆盖，但不得无限等待。 */
+const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
+
+/** 统一的 provider 请求输入，禁止让业务层自行拼接认证和幂等请求头。 */
 export type ProviderRequest = {
 	provider: AdapterName;
 	operation: string;
@@ -25,7 +29,7 @@ export type ProviderFetcher = (
 function timeoutFor(context: AdapterContext): number {
 	return context.timeoutMs && context.timeoutMs > 0
 		? context.timeoutMs
-		: 15_000;
+		: DEFAULT_PROVIDER_TIMEOUT_MS;
 }
 
 export async function requestJson<T>(

@@ -1,10 +1,11 @@
 import type { AdapterName } from "./context";
+import { DependencyNotConfiguredError } from "@hospital/domain";
 
-export class AdapterNotConfiguredError extends Error {
+export class AdapterNotConfiguredError extends DependencyNotConfiguredError {
 	readonly adapter: AdapterName;
 
 	constructor(adapter: AdapterName) {
-		super(`Adapter is not configured: ${adapter}`);
+		super(`adapter:${adapter}`);
 		this.name = "AdapterNotConfiguredError";
 		this.adapter = adapter;
 	}

@@ -1,5 +1,6 @@
 import type { PaymentState } from "@hospital/contracts";
 
+/** 每次 provider 调用都必须携带的链路和幂等上下文。 */
 export type AdapterCallContext = {
 	traceId: string;
 	idempotencyKey: string;
@@ -7,6 +8,7 @@ export type AdapterCallContext = {
 	timeoutMs?: number;
 };
 
+/** 外部系统证据索引；只保存可关联的标识，不保存密钥或完整敏感报文。 */
 export type ExternalTrace = {
 	provider: string;
 	operation: string;
@@ -14,6 +16,7 @@ export type ExternalTrace = {
 	providerOrderId?: string;
 };
 
+/** 支付订单的内部快照，金额统一使用整数分。 */
 export type PaymentOrderSnapshot = {
 	orderId: string;
 	state: PaymentState;

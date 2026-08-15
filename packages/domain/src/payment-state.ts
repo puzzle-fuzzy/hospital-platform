@@ -1,5 +1,9 @@
 import type { PaymentState } from "@hospital/contracts";
 
+/**
+ * 支付状态只允许沿显式边迁移；未知 provider 结果必须先进入待确认，
+ * 不能因为页面或单次请求失败就直接推导 completed/failed。
+ */
 const transitions: Record<PaymentState, readonly PaymentState[]> = {
 	created: ["authorized", "cancelled"],
 	authorized: ["pre_settled", "cancelled"],

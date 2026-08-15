@@ -3,6 +3,7 @@ import type {
 	ExternalTrace,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
+	WechatIdentityGateway,
 	WechatPaymentGateway,
 } from "@hospital/domain";
 import type { PaymentState } from "@hospital/contracts";
@@ -18,6 +19,22 @@ function trace(
 		operation,
 		requestId: context.traceId,
 		...(providerOrderId ? { providerOrderId } : {}),
+	};
+}
+
+/** 测试专用的确定性微信身份响应；不能注册到生产组合根。 */
+export function createFixtureWechatIdentityGateway(): WechatIdentityGateway {
+	return {
+		exchangeCode: async (_input, context) => ({
+			providerSubject: "fixture-openid-001",
+			unionId: "fixture-unionid-001",
+			trace: trace(
+				"fixture-wechat-identity",
+				"code2session",
+				context,
+				"fixture-openid-001",
+			),
+		}),
 	};
 }
 

@@ -45,6 +45,22 @@ packages/
 
 Elysia 实例之间显式声明依赖：业务模块通过工厂函数接收 service/port，不能从路由文件直接创建数据库连接或读取 provider secret。HTTP controller 只做路由、校验、鉴权和响应映射，状态迁移放在 domain service。
 
+当前已完成的患者端纵向切片：
+
+```text
+POST /api/v1/auth/wechat
+  -> WechatIdentityGateway
+  -> UserIdentityRepository
+  -> SessionTokenService
+
+GET /api/v1/patients
+  -> Bearer session
+  -> PatientRepository.listByOwner(serverUserId)
+  -> 脱敏 PatientListResponse
+```
+
+默认组合根使用 fail-closed adapter/repository；只有显式注入 fixture 或真实实现时才允许登录和患者数据链路返回业务成功。这样本地演示可以独立测试，生产环境也不会因为缺少 provider 配置而生成假 token 或假患者数据。
+
 ## 支付状态机
 
 ```text

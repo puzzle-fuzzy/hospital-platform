@@ -10,10 +10,13 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@hospital/adapters": "workspace:*",
 		"@elysiajs/cors": "catalog:",
 		"@elysiajs/openapi": "catalog:",
 		"@hospital/contracts": "workspace:*",
 		"@hospital/domain": "workspace:*",
+		"@hospital/persistence": "workspace:*",
+		"@sinclair/typebox": "catalog:",
 		"elysia": "catalog:"
 	},
 	"devDependencies": {

@@ -1,5 +1,12 @@
 import type { DependencyState } from "@hospital/contracts";
 
+export { PersistenceNotConfiguredError } from "./errors";
+export {
+	createInMemoryIdentityUserRepository,
+	createInMemoryPatientRepository,
+	createNotConfiguredRepositories,
+} from "./repositories";
+
 export type DependencyPort = {
 	check(): Promise<DependencyState>;
 };

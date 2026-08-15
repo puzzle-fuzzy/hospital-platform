@@ -1,6 +1,10 @@
 import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
 import { Elysia } from "elysia";
+import {
+	createDefaultApplicationServices,
+	type ApplicationServices,
+} from "./application";
 import { config } from "./config";
 import {
 	createReadinessService,
@@ -8,11 +12,14 @@ import {
 } from "./infrastructure/readiness";
 import { healthModule } from "./modules/health";
 import { systemModule } from "./modules/system";
+import { authModule } from "./modules/auth";
+import { patientsModule } from "./modules/patients";
 import { errorHandlerPlugin } from "./plugins/error-handler";
 import { requestContextPlugin } from "./plugins/request-context";
 
 export type AppOptions = {
 	readiness?: ReadinessService;
+	services?: ApplicationServices;
 };
 
 function openApiPlugin() {
@@ -40,6 +47,7 @@ export function createApp(options: AppOptions = {}) {
 			databaseConfigured: Boolean(config.databaseUrl),
 			redisConfigured: Boolean(config.redisUrl),
 		});
+	const services = options.services ?? createDefaultApplicationServices();
 
 	const app = new Elysia({ name: "hospital-api" })
 		.use(
@@ -54,7 +62,12 @@ export function createApp(options: AppOptions = {}) {
 		.use(errorHandlerPlugin())
 		.use(openApiPlugin())
 		.use(healthModule(readiness))
-		.group("/api/v1", (api) => api.use(systemModule()));
+		.group("/api/v1", (api) =>
+			api
+				.use(systemModule())
+				.use(authModule(services.auth))
+				.use(patientsModule(services.patients, services.sessions)),
+		);
 
 	return app;
 }

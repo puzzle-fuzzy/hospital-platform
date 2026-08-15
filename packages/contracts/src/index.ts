@@ -1,5 +1,6 @@
 import { Type, type Static } from "@sinclair/typebox";
 
+/** 存活检查只证明 API 进程能响应，不代表数据库或外部 provider 可用。 */
 export const HealthResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
@@ -9,6 +10,7 @@ export const HealthResponse = Type.Object({
 	}),
 });
 
+/** 依赖状态必须显式区分“未配置”和“已配置但不可用”，禁止误报 ready。 */
 export const DependencyStateSchema = Type.Union([
 	Type.Literal("ok"),
 	Type.Literal("not_configured"),
@@ -16,6 +18,51 @@ export const DependencyStateSchema = Type.Union([
 ]);
 
 export type DependencyState = Static<typeof DependencyStateSchema>;
+
+/** 微信登录 code 只在服务端兑换，前端不得提交 openid、session_key 或 AppSecret。 */
+export const WechatLoginRequest = Type.Object({
+	code: Type.String({ minLength: 1, maxLength: 256 }),
+});
+
+/** 登录成功只返回平台会话和内部用户 id，不暴露 provider session_key。 */
+export const AuthSessionResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		accessToken: Type.String({ minLength: 1 }),
+		tokenType: Type.Literal("Bearer"),
+		expiresInSeconds: Type.Integer({ minimum: 1 }),
+		user: Type.Object({ id: Type.String({ minLength: 1 }) }),
+	}),
+});
+
+/** 关系值是跨 provider 的内部规范，页面显示文案由小程序决定。 */
+export const PatientRelationshipSchema = Type.Union([
+	Type.Literal("self"),
+	Type.Literal("spouse"),
+	Type.Literal("child"),
+	Type.Literal("parent"),
+	Type.Literal("other"),
+]);
+
+export const PatientSchema = Type.Object({
+	id: Type.String({ minLength: 1 }),
+	displayName: Type.String({ minLength: 1 }),
+	relationship: PatientRelationshipSchema,
+	cardNumberMasked: Type.String({ minLength: 1 }),
+	source: Type.Union([
+		Type.Literal("hospital-his"),
+		Type.Literal("legacy-record"),
+	]),
+});
+
+/** 患者列表是脱敏后的读模型，不允许把领域层 ownerUserId 透传到客户端。 */
+export const PatientListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(PatientSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
 
 export const ReadyResponse = Type.Object({
 	success: Type.Literal(true),
@@ -44,6 +91,7 @@ export const PingResponse = Type.Object({
 	}),
 });
 
+/** 支付状态是后端事实模型；小程序不得自行推导或跳过状态。 */
 export const PaymentStateSchema = Type.Union([
 	Type.Literal("created"),
 	Type.Literal("authorized"),
@@ -65,6 +113,10 @@ export type HealthPayload = Static<typeof HealthResponse>;
 export type ReadyPayload = Static<typeof ReadyResponse>;
 export type PingPayload = Static<typeof PingResponse>;
 export type ErrorPayload = Static<typeof ErrorResponse>;
+export type WechatLoginPayload = Static<typeof WechatLoginRequest>;
+export type AuthSessionPayload = Static<typeof AuthSessionResponse>;
+export type PatientPayload = Static<typeof PatientSchema>;
+export type PatientListPayload = Static<typeof PatientListResponse>;
 
 export function success<const T>(data: T): { success: true; data: T } {
 	return { success: true, data };

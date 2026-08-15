@@ -8,8 +8,15 @@
 		"test": "bun test",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"import": "./src/index.ts"
+		}
+	},
 	"dependencies": {
-		"@hospital/contracts": "workspace:*"
+		"@hospital/contracts": "workspace:*",
+		"@hospital/domain": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",

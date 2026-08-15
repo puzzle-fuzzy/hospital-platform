@@ -16,5 +16,6 @@ export {
 export {
 	createFixtureHospitalSettlementGateway,
 	createFixtureMedicalInsuranceGateway,
+	createFixtureWechatIdentityGateway,
 	createFixtureWechatPaymentGateway,
 } from "./fixtures/replay";
