@@ -37,6 +37,20 @@ function setAccessToken(accessToken) {
 	}
 }
 
+/**
+ * 微信开发者工具允许本机 HTTP；除此之外，API 地址必须是 HTTPS。
+ * 这样即使误把公网 HTTP 地址写进本地存储，也不会把 Bearer token 发出去。
+ * @param {unknown} value
+ */
+export function isAllowedApiBaseUrl(value) {
+	if (typeof value !== "string") return false;
+	const normalized = value.trim();
+	if (/^https:\/\/[^/\s@?#]+(?:[/?#].*)?$/i.test(normalized)) return true;
+	return /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:[/?#].*)?$/i.test(
+		normalized,
+	);
+}
+
 /** @param {unknown} data @param {number} statusCode */
 function parseErrorMessage(data, statusCode) {
 	let message;
@@ -80,6 +94,13 @@ export function request({
 	if (!apiBaseUrl) {
 		return Promise.reject(
 			new ApiError("API 地址尚未配置", { code: "api-base-url-missing" }),
+		);
+	}
+	if (!isAllowedApiBaseUrl(apiBaseUrl)) {
+		return Promise.reject(
+			new ApiError("API 地址必须使用 HTTPS", {
+				code: "api-base-url-insecure",
+			}),
 		);
 	}
 

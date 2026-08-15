@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { expect, test } from "bun:test";
+import { isAllowedApiBaseUrl } from "../src/services/api-client.js";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
 
@@ -23,4 +24,14 @@ test("native client requests server-generated prepay parameters", async () => {
 	expect(client).toContain("/wechat-prepay");
 	expect(client).toContain("getWechatPrepay");
 	expect(client).not.toContain("paySign =");
+});
+
+test("native client only permits local HTTP or HTTPS API addresses", () => {
+	expect(isAllowedApiBaseUrl("http://127.0.0.1:3000")).toBe(true);
+	expect(isAllowedApiBaseUrl("http://localhost:3000/api")).toBe(true);
+	expect(isAllowedApiBaseUrl("https://hospital.example.test/api")).toBe(true);
+	expect(isAllowedApiBaseUrl("https://")).toBe(false);
+	expect(isAllowedApiBaseUrl("http://hospital.example.test/api")).toBe(false);
+	expect(isAllowedApiBaseUrl("ftp://hospital.example.test")).toBe(false);
+	expect(isAllowedApiBaseUrl("")).toBe(false);
 });
