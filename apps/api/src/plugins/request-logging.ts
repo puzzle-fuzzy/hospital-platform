@@ -1,5 +1,7 @@
-import { Elysia } from "elysia";
+import { ProviderRequestError } from "@hospital/adapters";
+import { DependencyNotConfiguredError } from "@hospital/domain";
 import type { AppLogger } from "@hospital/observability";
+import { Elysia } from "elysia";
 
 const requestStartTimes = new WeakMap<Request, number>();
 const requestErrors = new WeakMap<Request, ErrorMetadata>();
@@ -7,6 +9,13 @@ const requestErrors = new WeakMap<Request, ErrorMetadata>();
 type ErrorMetadata = {
 	errorName: string;
 	errorCode?: string;
+	/** 仅记录 provider 的低敏诊断字段，不记录 URL、请求体或响应体。 */
+	provider?: string;
+	providerOperation?: string;
+	providerRequestId?: string;
+	providerStatusCode?: number;
+	providerRetryable?: boolean;
+	dependency?: string;
 };
 
 function statusCode(value: number | string | undefined): number {
@@ -46,6 +55,38 @@ function errorMetadataFor(request: Request): ErrorMetadata | undefined {
 }
 
 /**
+ * 把可用于排障的错误元数据提取到请求日志。
+ *
+ * provider 原始报文可能包含患者、费用或凭证信息，不能为了“方便排查”直接
+ * 写入日志；这里只保留操作名、HTTP 状态码、请求号和重试判断。
+ */
+export function safeErrorMetadata(
+	error: unknown,
+	code: unknown,
+): ErrorMetadata {
+	const metadata: ErrorMetadata = {
+		errorName: error instanceof Error ? error.name : "UnknownError",
+		...(typeof code === "string" ? { errorCode: code } : {}),
+	};
+	if (error instanceof ProviderRequestError) {
+		return {
+			...metadata,
+			provider: error.provider,
+			providerOperation: error.operation,
+			...(error.requestId ? { providerRequestId: error.requestId } : {}),
+			...(error.statusCode !== undefined
+				? { providerStatusCode: error.statusCode }
+				: {}),
+			providerRetryable: error.retryable,
+		};
+	}
+	if (error instanceof DependencyNotConfiguredError) {
+		return { ...metadata, dependency: error.dependency };
+	}
+	return metadata;
+}
+
+/**
  * API 请求日志只记录元数据，不记录 body、Authorization 或 provider 报文。
  * 具体敏感字段的最终兜底由 Pino redact 配置负责。
  */
@@ -57,8 +98,8 @@ export function requestLoggingPlugin(logger: AppLogger) {
 			.on({ as: "global" }, "request", (({ request }: { request: Request }) => {
 				requestStartTimes.set(request, performance.now());
 			}) as never)
-			// 只保留异常类型与 Elysia 生命周期码；不把 message、body 或 provider
-			// 原始响应写入日志，避免维护便利性反过来扩大敏感数据暴露面。
+			// 只保留错误类型、依赖名称和 provider 低敏状态字段；不把 message、body
+			// 或 provider 原始响应写入日志，避免维护便利性反过来扩大敏感数据暴露面。
 			.onError({ as: "global" }, (({
 				request,
 				code,
@@ -68,10 +109,7 @@ export function requestLoggingPlugin(logger: AppLogger) {
 				code: unknown;
 				error: unknown;
 			}) => {
-				requestErrors.set(request, {
-					errorName: error instanceof Error ? error.name : "UnknownError",
-					...(typeof code === "string" ? { errorCode: code } : {}),
-				});
+				requestErrors.set(request, safeErrorMetadata(error, code));
 			}) as never)
 			// afterResponse 能看到错误处理器最终写入的状态码，避免把 503 等错误
 			// 错记成异常抛出时的默认 500；它本身只做观测，不改变响应。
