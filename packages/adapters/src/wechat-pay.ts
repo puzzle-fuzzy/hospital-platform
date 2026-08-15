@@ -86,6 +86,12 @@ export type WechatPaymentNotification = {
 	resource: Record<string, unknown>;
 };
 
+export type WechatPaymentNotificationDecoderInput = {
+	rawBody: Uint8Array;
+	headers: Headers;
+	receivedAt: string;
+};
+
 function requiredConfig(value: string, adapter: "wechat-pay"): string {
 	const normalized = value.trim();
 	if (!normalized) throw new AdapterNotConfiguredError(adapter);
@@ -733,6 +739,36 @@ export function mapWechatPaymentNotification(input: {
 			"transaction_id",
 		),
 		receivedAt: input.receivedAt,
+	};
+}
+
+/**
+ * 创建微信支付通知 decoder，固定执行“原文验签 → resource 解密 → 白名单映射”。
+ *
+ * 组合根只需要注入这一份函数，避免 API 入口自行拼接安全步骤；任何一步失败
+ * 都会在进入领域事实和 outbox 之前终止。该 decoder 不记录或返回 provider 原始报文。
+ */
+export function createWechatPaymentNotificationDecoder(
+	options: WechatPaymentNotificationVerifierOptions,
+): (
+	input: WechatPaymentNotificationDecoderInput,
+) => WechatPaymentNotificationRecord {
+	return ({ rawBody, headers, receivedAt }) => {
+		const notification = verifyAndDecryptWechatPaymentNotification({
+			rawBody,
+			headers,
+			options,
+		});
+		return mapWechatPaymentNotification({
+			notification,
+			receivedAt,
+			...(options.expectedAppId === undefined
+				? {}
+				: { expectedAppId: options.expectedAppId }),
+			...(options.expectedMchId === undefined
+				? {}
+				: { expectedMchId: options.expectedMchId }),
+		});
 	};
 }
 

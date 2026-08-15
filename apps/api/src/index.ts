@@ -1,8 +1,7 @@
 import {
-	mapWechatPaymentNotification,
+	createWechatPaymentNotificationDecoder,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
-	verifyAndDecryptWechatPaymentNotification,
 } from "@hospital/adapters";
 import {
 	wechatIdentityConfigurationMissingFields,
@@ -16,7 +15,6 @@ import { createApp } from "./app";
 import { createDefaultApplicationServices } from "./application";
 import { config } from "./config";
 import { createReadinessService } from "./infrastructure/readiness";
-import type { WechatPaymentNotificationDecoder } from "./modules/payments";
 
 const logger = createLogger({
 	service: "hospital-api",
@@ -63,36 +61,24 @@ const apiV3Key = config.wechatPayApiV3Key;
 const platformCertificateSerial = config.wechatPayPlatformCertificateSerial;
 const platformPublicKey = config.wechatPayPlatformPublicKey;
 const wechatPaymentNotificationDecoder:
-	| WechatPaymentNotificationDecoder
+	| ReturnType<typeof createWechatPaymentNotificationDecoder>
 	| undefined =
 	config.wechatPaymentReady &&
 	wechatPaymentStatus === "configured" &&
 	apiV3Key &&
 	platformCertificateSerial &&
 	platformPublicKey
-		? ({
-				rawBody,
-				headers,
-				receivedAt,
-			}: Parameters<WechatPaymentNotificationDecoder>[0]) =>
-				mapWechatPaymentNotification({
-					notification: verifyAndDecryptWechatPaymentNotification({
-						rawBody,
-						headers,
-						options: {
-							platformCertificateSerial,
-							platformPublicKey,
-							apiV3Key,
-							...(config.wechatPayAppId
-								? { expectedAppId: config.wechatPayAppId }
-								: {}),
-							...(config.wechatPayMchId
-								? { expectedMchId: config.wechatPayMchId }
-								: {}),
-						},
-					}),
-					receivedAt,
-				})
+		? createWechatPaymentNotificationDecoder({
+				platformCertificateSerial,
+				platformPublicKey,
+				apiV3Key,
+				...(config.wechatPayAppId
+					? { expectedAppId: config.wechatPayAppId }
+					: {}),
+				...(config.wechatPayMchId
+					? { expectedMchId: config.wechatPayMchId }
+					: {}),
+			})
 		: undefined;
 const app = createApp({
 	logger,

@@ -6,6 +6,7 @@ import {
 } from "node:crypto";
 import { expect, test } from "bun:test";
 import {
+	createWechatPaymentNotificationDecoder,
 	mapWechatPaymentNotification,
 	ProviderRequestError,
 	verifyAndDecryptWechatPaymentNotification,
@@ -312,6 +313,68 @@ test("微信支付通知 mapper rejects a success event with an invalid amount",
 			receivedAt: "2026-08-15T00:00:01.000Z",
 		}),
 	).toThrow(ProviderRequestError);
+});
+
+test("微信支付通知 decoder 固定执行验签、解密和白名单映射", () => {
+	const apiV3Key = "0123456789abcdef0123456789abcdef";
+	const resourceNonce = "123456789012";
+	const associatedData = "transaction";
+	const plaintext = JSON.stringify({
+		appid: "wx-app-001",
+		mchid: "mch-001",
+		out_trade_no: "order-decoder-001",
+		transaction_id: "4200000000000101",
+		trade_state: "SUCCESS",
+		amount: { total: 300 },
+		payer: { openid: "must-not-leave-adapter" },
+	});
+	const cipher = createCipheriv(
+		"aes-256-gcm",
+		Buffer.from(apiV3Key, "utf8"),
+		Buffer.from(resourceNonce, "utf8"),
+	);
+	cipher.setAAD(Buffer.from(associatedData, "utf8"));
+	const encrypted = Buffer.concat([
+		cipher.update(plaintext, "utf8"),
+		cipher.final(),
+		cipher.getAuthTag(),
+	]).toString("base64");
+	const body = JSON.stringify({
+		id: "notification-decoder-001",
+		event_type: "TRANSACTION.SUCCESS",
+		resource: {
+			algorithm: "AEAD_AES_256_GCM",
+			ciphertext: encrypted,
+			nonce: resourceNonce,
+			associated_data: associatedData,
+		},
+	});
+	const headers = providerResponseHeaders(body);
+	const decoder = createWechatPaymentNotificationDecoder({
+		platformCertificateSerial: "platform-serial-001",
+		platformPublicKey,
+		apiV3Key,
+		now: () => fixedNow,
+		expectedAppId: "wx-app-001",
+		expectedMchId: "mch-001",
+	});
+
+	const mapped = decoder({
+		rawBody: new TextEncoder().encode(body),
+		headers,
+		receivedAt: "2026-08-15T00:00:01.000Z",
+	});
+
+	expect(mapped).toEqual({
+		notificationId: "notification-decoder-001",
+		eventType: "TRANSACTION.SUCCESS",
+		orderId: "order-decoder-001",
+		tradeState: "SUCCESS",
+		totalFen: 300,
+		providerTransactionId: "4200000000000101",
+		receivedAt: "2026-08-15T00:00:01.000Z",
+	});
+	expect(JSON.stringify(mapped)).not.toContain("must-not-leave-adapter");
 });
 
 test("微信支付通知签名被篡改时不进入解密流程", () => {

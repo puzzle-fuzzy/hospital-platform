@@ -25,12 +25,14 @@ export {
 	type WechatIdentityGatewayOptions,
 } from "./wechat-identity";
 export {
+	createWechatPaymentNotificationDecoder,
 	createWechatPaymentGateway,
 	mapWechatPaymentNotification,
 	verifyAndDecryptWechatPaymentNotification,
 	WechatPaymentApiGateway,
 	type WechatPaymentGatewayOptions,
 	type WechatPaymentNotification,
+	type WechatPaymentNotificationDecoderInput,
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
 export {
