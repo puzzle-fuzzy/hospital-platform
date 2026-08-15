@@ -5,6 +5,8 @@
 页面只能通过 `src/services/api-client.js` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
+页面只负责状态和交互事件；会话生命周期集中在 `src/services/session-service.js`，日期窗口和患者/预约/报告
+读模型编排集中在 `src/services/dashboard-service.js`。新增页面应优先复用领域服务，不要在 WXML 页面里直接拼接 provider 参数。
 同步按钮只调用 `POST /api/v1/patients/sync`；unionId 从服务端会话解析，provider 患者号只在服务端映射表内使用。
 首页的预约目录入口只调用 `GET /api/v1/appointments/departments` 和
 `GET /api/v1/appointments/schedules`，日期范围由客户端限制为未来 7 天展示，预约写入和支付尚未开放。

@@ -1,22 +1,33 @@
+import { ApiError } from "../../services/api-client";
 import {
-	ApiError,
-	getCurrentUser,
-	login,
-	request,
-	requestAppointmentDepartments,
-	requestAppointmentRecords,
-	requestAppointmentSchedules,
-	requestReports,
-	requestWithSession,
-	syncPatients,
-} from "../../services/api-client";
+	loadAppointmentDirectory,
+	loadAppointmentRecords,
+	loadHealth,
+	loadPatients,
+	loadReports,
+	syncPatientsFromHospital,
+} from "../../services/dashboard-service";
+import {
+	hasPlatformSession,
+	restorePlatformSession,
+	signInPlatformSession,
+} from "../../services/session-service";
 
+/** 页面显示状态集中定义，避免业务代码散落中文状态常量。 */
+const SESSION_LABELS = Object.freeze({
+	signedOut: "未登录",
+	restoring: "验证会话中",
+	restored: "已恢复会话",
+	signedIn: "已登录",
+});
+
+/** @type {WechatMiniprogram.Page.Instance<WechatMiniprogram.IAnyObject, Record<string, unknown>>} */
 Page({
 	/** @type {{status: string, service: string, sessionStatus: string, patients: Array<Record<string, unknown>>, selectedPatientId: string, hasPatients: boolean, loading: boolean, syncingPatients: boolean, appointmentDepartments: Array<Record<string, unknown>>, appointmentSchedules: Array<Record<string, unknown>>, hasAppointmentData: boolean, loadingAppointments: boolean, appointmentRecords: Array<Record<string, unknown>>, hasAppointmentRecords: boolean, loadingAppointmentRecords: boolean, reports: Array<Record<string, unknown>>, hasReports: boolean, loadingReports: boolean, error: string}} */
 	data: {
 		status: "加载中",
 		service: "",
-		sessionStatus: "未登录",
+		sessionStatus: SESSION_LABELS.signedOut,
 		patients: [],
 		// 只保存服务端返回的内部 patientId，后续查询均以它作为业务输入。
 		selectedPatientId: "",
@@ -38,19 +49,19 @@ Page({
 
 	onLoad() {
 		this.checkHealth();
-		if (getApp().globalData.accessToken) {
-			this.setData({ sessionStatus: "验证会话中" });
-			getCurrentUser()
-				.then(() => {
-					this.setData({ sessionStatus: "已恢复会话" });
-					return this.loadPatients();
-				})
-				.catch((error) => this.showError(error, "会话恢复失败"));
-		}
+		if (!hasPlatformSession()) return;
+
+		this.setData({ sessionStatus: SESSION_LABELS.restoring });
+		restorePlatformSession()
+			.then(() => {
+				this.setData({ sessionStatus: SESSION_LABELS.restored });
+				return this.loadPatients();
+			})
+			.catch((error) => this.showError(error, "会话恢复失败"));
 	},
 
 	checkHealth() {
-		request({ url: "/health/live" })
+		loadHealth()
 			.then((payload) =>
 				this.setData({
 					status: payload.data.status,
@@ -63,10 +74,9 @@ Page({
 
 	onLogin() {
 		this.setData({ loading: true, error: "" });
-		login()
+		signInPlatformSession()
 			.then(() => {
-				getApp().globalData.sessionStatus = "signed_in";
-				this.setData({ sessionStatus: "已登录" });
+				this.setData({ sessionStatus: SESSION_LABELS.signedIn });
 				return this.loadPatients();
 			})
 			.catch((error) => this.showError(error, "登录失败"))
@@ -74,49 +84,27 @@ Page({
 	},
 
 	loadPatients() {
-		return requestWithSession({ url: "/api/v1/patients" })
-			.then((payload) => {
-				this.setPatientsFromPayload(payload);
-			})
+		return loadPatients()
+			.then((patients) => this.setPatientsFromPayload(patients))
 			.catch((error) => this.showError(error, "就诊人加载失败"));
 	},
 
 	onSyncPatients() {
 		this.setData({ syncingPatients: true, error: "" });
-		syncPatients(`patient-sync-${Date.now()}`)
-			.then((payload) => this.setPatientsFromPayload(payload))
+		syncPatientsFromHospital(`patient-sync-${Date.now()}`)
+			.then((patients) => this.setPatientsFromPayload(patients))
 			.catch((error) => this.showError(error, "就诊人同步失败"))
 			.finally(() => this.setData({ syncingPatients: false }));
 	},
 
 	onLoadAppointments() {
 		this.setData({ loadingAppointments: true, error: "" });
-		const start = new Date();
-		const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
-		/** @param {Date} value */
-		const date = (value) => {
-			const year = value.getFullYear();
-			const month = String(value.getMonth() + 1).padStart(2, "0");
-			const day = String(value.getDate()).padStart(2, "0");
-			return `${year}-${month}-${day}`;
-		};
-
-		Promise.all([
-			requestAppointmentDepartments(),
-			requestAppointmentSchedules({
-				startDate: date(start),
-				endDate: date(end),
-			}),
-		])
-			.then(([departmentPayload, schedulePayload]) => {
-				const appointmentDepartments = departmentPayload?.data?.items || [];
-				const appointmentSchedules = schedulePayload?.data?.items || [];
+		loadAppointmentDirectory()
+			.then(({ departments, schedules }) => {
 				this.setData({
-					appointmentDepartments,
-					appointmentSchedules,
-					hasAppointmentData:
-						appointmentDepartments.length > 0 ||
-						appointmentSchedules.length > 0,
+					appointmentDepartments: departments,
+					appointmentSchedules: schedules,
+					hasAppointmentData: departments.length > 0 || schedules.length > 0,
 					error: "",
 				});
 			})
@@ -126,7 +114,7 @@ Page({
 
 	onRefresh() {
 		this.checkHealth();
-		if (getApp().globalData.accessToken) this.loadPatients();
+		if (hasPlatformSession()) this.loadPatients();
 	},
 
 	onLoadReports() {
@@ -136,25 +124,10 @@ Page({
 			return;
 		}
 		this.setData({ loadingReports: true, error: "" });
-		const end = new Date();
-		const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
-		/** @param {Date} value */
-		const date = (value) => {
-			const year = value.getFullYear();
-			const month = String(value.getMonth() + 1).padStart(2, "0");
-			const day = String(value.getDate()).padStart(2, "0");
-			return `${year}-${month}-${day}`;
-		};
-
-		requestReports({
-			patientId: patient.id,
-			startDate: date(start),
-			endDate: date(end),
-		})
-			.then((payload) => {
-				const reports = payload?.data?.items || [];
-				this.setData({ reports, hasReports: reports.length > 0, error: "" });
-			})
+		loadReports(patient.id)
+			.then((reports) =>
+				this.setData({ reports, hasReports: reports.length > 0, error: "" }),
+			)
 			.catch((error) => this.showError(error, "报告目录加载失败"))
 			.finally(() => this.setData({ loadingReports: false }));
 	},
@@ -166,29 +139,14 @@ Page({
 			return;
 		}
 		this.setData({ loadingAppointmentRecords: true, error: "" });
-		const end = new Date();
-		const start = new Date(end.getTime() - 90 * 24 * 60 * 60 * 1000);
-		/** @param {Date} value */
-		const date = (value) => {
-			const year = value.getFullYear();
-			const month = String(value.getMonth() + 1).padStart(2, "0");
-			const day = String(value.getDate()).padStart(2, "0");
-			return `${year}-${month}-${day}`;
-		};
-
-		requestAppointmentRecords({
-			patientId: patient.id,
-			startDate: date(start),
-			endDate: date(end),
-		})
-			.then((payload) => {
-				const appointmentRecords = payload?.data?.items || [];
+		loadAppointmentRecords(patient.id)
+			.then((appointmentRecords) =>
 				this.setData({
 					appointmentRecords,
 					hasAppointmentRecords: appointmentRecords.length > 0,
 					error: "",
-				});
-			})
+				}),
+			)
 			.catch((error) => this.showError(error, "预约记录加载失败"))
 			.finally(() => this.setData({ loadingAppointmentRecords: false }));
 	},
@@ -221,10 +179,9 @@ Page({
 
 	/**
 	 * 统一接收服务端脱敏读模型；页面不保存 provider 患者号。
-	 * @param {{data?: {items?: Array<Record<string, unknown>>}}} payload
+	 * @param {Array<Record<string, unknown>>} patients
 	 */
-	setPatientsFromPayload(payload) {
-		const patients = payload?.data?.items || [];
+	setPatientsFromPayload(patients) {
 		const selectedPatientId = patients.some(
 			(patient) => patient.id === this.data.selectedPatientId,
 		)

@@ -4,6 +4,11 @@ import {
 	isAllowedApiBaseUrl,
 	toWechatPaymentParams,
 } from "../src/services/api-client.js";
+import {
+	createPastDateRange,
+	createUpcomingDateRange,
+	formatPlatformDate,
+} from "../src/services/dashboard-service.js";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
 
@@ -145,4 +150,41 @@ test("native client maps only the server payment fields", () => {
 	expect(
 		toWechatPaymentParams({ data: { payParams: { signType: "RSA" } } }),
 	).toBe(null);
+});
+
+test("dashboard service owns bounded date windows and internal patient inputs", async () => {
+	const service = await source("services/dashboard-service.js");
+
+	expect(service).toContain("DASHBOARD_DATE_RANGE_DAYS");
+	expect(service).toContain("appointmentDirectory: 7");
+	expect(service).toContain("appointmentRecords: 90");
+	expect(service).toContain("reports: 30");
+	expect(service).toContain("requirePatientId");
+	expect(service).not.toContain("providerPatientId");
+	expect(service).not.toContain("msun-middle-business");
+});
+
+test("dashboard service calculates local platform date windows", () => {
+	const now = new Date(2026, 7, 15, 23, 59, 59);
+
+	expect(formatPlatformDate(now)).toBe("2026-08-15");
+	expect(createPastDateRange(90, now)).toEqual({
+		startDate: "2026-05-17",
+		endDate: "2026-08-15",
+	});
+	expect(createUpcomingDateRange(7, now)).toEqual({
+		startDate: "2026-08-15",
+		endDate: "2026-08-22",
+	});
+});
+
+test("native page delegates token state to the session service", async () => {
+	const page = await source("pages/index/index.js");
+	const session = await source("services/session-service.js");
+
+	expect(page).toContain("hasPlatformSession");
+	expect(page).not.toContain("globalData.accessToken");
+	expect(page).not.toContain("globalData.sessionStatus");
+	expect(session).toContain("getCurrentUser");
+	expect(session).toContain("login");
 });

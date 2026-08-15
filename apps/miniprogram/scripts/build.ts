@@ -10,6 +10,8 @@ const files = [
 	"app.wxss",
 	"sitemap.json",
 	"services/api-client.js",
+	"services/dashboard-service.js",
+	"services/session-service.js",
 	"pages/index/index.js",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
