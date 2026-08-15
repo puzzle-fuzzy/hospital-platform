@@ -57,12 +57,16 @@ pnpm infra:up
 $env:DATABASE_URL = "mysql://hospital:hospital_dev_password@127.0.0.1:3307/hospital_platform"
 $env:REDIS_URL = "redis://127.0.0.1:6380"
 pnpm db:migrate
+pnpm db:schema
 pnpm db:integration
 pnpm infra:down
 ```
 
 `db:integration` 只允许 localhost，且会清理随机前缀的本地验收数据；它不替代 staging、
 微信、医保、HIS、支付回调或真实设备验收。
+
+`db:schema` 是只读 schema probe，只核对 migration history、关键表/列/索引和 owner 外键；
+它不执行 migration、不修改 schema gate，也不检查 provider 配置。
 
 `runtime:preflight` 是发布前只读检查，验证运行配置、基础设施连接、migration manifest 和关键 schema invariants；它不会
 执行 migration 或发起真实 provider 请求。
