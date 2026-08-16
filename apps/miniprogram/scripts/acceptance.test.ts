@@ -363,6 +363,18 @@ test("native patient center does not mislabel reports as outpatient medical reco
 	expect(myPage).toContain('case "medical-record"');
 });
 
+test("native homepage and my page reject stale patient directory responses", async () => {
+	const home = await source("pages/index/index.ts");
+	const my = await source("pages/my/my.ts");
+
+	expect(home).toContain("patientDataGuard");
+	expect(home).toContain("healthGuard");
+	expect(home).toContain("patientDataGuard.isCurrent(requestToken)");
+	expect(home).toContain("onSyncPatients");
+	expect(my).toContain("pageLoadGuard");
+	expect(my).toContain("pageLoadGuard.isCurrent(requestToken)");
+});
+
 test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
 	const client = await source("services/api-client.ts");
 
@@ -527,6 +539,8 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 	const missedAppointments = await source(
 		"pages/missed-appointments/missed-appointments.ts",
 	);
+	const home = await source("pages/index/index.ts");
+	const my = await source("pages/my/my.ts");
 
 	for (const page of [
 		records,
@@ -535,6 +549,8 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 		selection,
 		appointmentDirectory,
 		missedAppointments,
+		home,
+		my,
 	]) {
 		expect(page).toContain("createLatestRequestGuard");
 		expect(page).toContain("isCurrent");

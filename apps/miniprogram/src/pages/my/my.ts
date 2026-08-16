@@ -4,6 +4,7 @@ import {
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -14,6 +15,12 @@ type MyPageMethods = {
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
 };
+
+/**
+ * “我的”页同时读取会话用户和患者目录；从选择页返回或下拉刷新时，
+ * 较早的 Promise.all 不能再覆盖当前用户和就诊人数量。
+ */
+const pageLoadGuard = createLatestRequestGuard();
 
 Page<MyPageData, MyPageMethods>({
 	data: {
@@ -34,9 +41,11 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	loadPage(): Promise<void> {
+		const requestToken = pageLoadGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return Promise.all([getCurrentUser(), loadPatients()])
 			.then(([userPayload, patients]) => {
+				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const selectedId = getSelectedPatientId();
 				const selectedPatient =
 					patients.find((patient) => patient.id === selectedId) ??
@@ -52,8 +61,16 @@ Page<MyPageData, MyPageMethods>({
 					error: "",
 				});
 			})
-			.catch((error) => this.showError(error, "我的页面加载失败"))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (pageLoadGuard.isCurrent(requestToken)) {
+					this.showError(error, "我的页面加载失败");
+				}
+			})
+			.finally(() => {
+				if (pageLoadGuard.isCurrent(requestToken)) {
+					this.setData({ loading: false });
+				}
+			});
 	},
 
 	onHeaderTap(): void {

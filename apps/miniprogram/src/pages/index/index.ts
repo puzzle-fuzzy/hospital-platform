@@ -14,6 +14,7 @@ import {
 	restorePlatformSession,
 	signInPlatformSession,
 } from "../../services/session-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	ActionEvent,
 	IndexEvent,
@@ -202,6 +203,15 @@ type IndexPageMethods = {
 	setPatientsFromPayload(patients: Array<Patient>): void;
 };
 
+/**
+ * 首页可能同时发生会话恢复、下拉刷新和目录同步。
+ * 所有患者目录请求共用一个序号，后发的同步会自动淘汰仍在途的旧读取，
+ * 防止旧响应把当前患者或 active/inactive 目录状态覆盖回去。
+ */
+const patientDataGuard = createLatestRequestGuard();
+const healthGuard = createLatestRequestGuard();
+const syncLoadingGuard = createLatestRequestGuard();
+
 Page<IndexPageData, IndexPageMethods>({
 	data: {
 		status: "加载中",
@@ -267,15 +277,21 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	checkHealth() {
+		const requestToken = healthGuard.begin();
 		loadHealth()
-			.then((payload) =>
+			.then((payload) => {
+				if (!healthGuard.isCurrent(requestToken)) return;
 				this.setData({
 					status: payload.data.status,
 					service: payload.data.service,
 					error: "",
-				}),
-			)
-			.catch((error) => this.showError(error, "服务不可用"));
+				});
+			})
+			.catch((error) => {
+				if (healthGuard.isCurrent(requestToken)) {
+					this.showError(error, "服务不可用");
+				}
+			});
 	},
 
 	onLogin() {
@@ -401,16 +417,22 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	loadPatients(): Promise<Array<Patient>> {
+		const requestToken = patientDataGuard.begin();
 		return loadPatients().then((patients) => {
-			this.setPatientsFromPayload(patients);
+			if (patientDataGuard.isCurrent(requestToken)) {
+				this.setPatientsFromPayload(patients);
+			}
 			return patients;
 		});
 	},
 
 	onSyncPatients(): Promise<Array<Patient>> {
+		const requestToken = patientDataGuard.begin();
+		const loadingToken = syncLoadingGuard.begin();
 		this.setData({ syncingPatients: true, error: "" });
 		return syncPatientsFromHospital(`patient-sync-${Date.now()}`)
 			.then((patients) => {
+				if (!patientDataGuard.isCurrent(requestToken)) return patients;
 				this.setPatientsFromPayload(patients);
 				if (patients.length === 0) {
 					this.showError(
@@ -423,10 +445,16 @@ Page<IndexPageData, IndexPageMethods>({
 				return patients;
 			})
 			.catch((error) => {
-				this.showError(error, "就诊人同步失败");
+				if (patientDataGuard.isCurrent(requestToken)) {
+					this.showError(error, "就诊人同步失败");
+				}
 				return [];
 			})
-			.finally(() => this.setData({ syncingPatients: false }));
+			.finally(() => {
+				if (syncLoadingGuard.isCurrent(loadingToken)) {
+					this.setData({ syncingPatients: false });
+				}
+			});
 	},
 
 	onLoadAppointments() {
