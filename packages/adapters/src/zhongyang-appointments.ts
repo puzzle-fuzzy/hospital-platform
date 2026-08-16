@@ -141,6 +141,32 @@ function requiredInteger(
 	return parsed;
 }
 
+/**
+ * provider 排班号必须在一次完整响应中唯一。
+ *
+ * API 层会为每条排班生成 opaque `scheduleId`；如果 provider 自己的
+ * `hisScheduleId` 重复，平台就会为同一个号源生成多个外部引用，页面看似
+ * 出现两条排班，未来写入时却无法判断哪一条是同一个锁号事实。因此先在
+ * adapter 边界拒绝整个响应，不让重复号源进入快照或公共读模型。
+ */
+function ensureUniqueScheduleIds(
+	schedules: readonly AppointmentProviderSchedule[],
+	operation: string,
+	requestId: string,
+): void {
+	const seen = new Set<string>();
+	for (const schedule of schedules) {
+		if (seen.has(schedule.providerScheduleId)) {
+			throw providerError(
+				operation,
+				"Zhongyang appointment response contained duplicate schedule ids",
+				requestId,
+			);
+		}
+		seen.add(schedule.providerScheduleId);
+	}
+}
+
 function timeGroup(value: unknown): AppointmentSchedule["timeGroup"] {
 	if (value === 1 || value === "1") return "range";
 	if (value === 0 || value === "0") return "point";
@@ -259,7 +285,7 @@ function mapSchedule(
 	// 真实 AMC 排班响应中 remainingNumber 会稳定返回 null；usableSourceNum
 	// 才是当前有效号源数。保留旧别名作为兼容输入，但优先使用真实字段。
 	const availableValue =
-		value.remainingNumber ?? value.usableNum ?? value.usableSourceNum;
+		value.usableSourceNum ?? value.usableNum ?? value.remainingNumber;
 	const totalSlots = requiredInteger(
 		value.totalNum,
 		"totalNum",
@@ -427,6 +453,7 @@ export class ZhongyangAppointmentApiGateway
 			operation,
 			response.requestId,
 		).map((item) => mapSchedule(item, operation, response.requestId));
+		ensureUniqueScheduleIds(schedules, operation, response.requestId);
 		return { schedules, trace: trace(operation, response.requestId) };
 	}
 
