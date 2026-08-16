@@ -219,6 +219,22 @@ Smoke 现在默认验收内网 `/api/v1`，只有显式 `HOSPITAL_API_PREFIX=/ap
 
 本次证据进一步确认：线上运行状态没有改变，下一步仍必须先获得窄权限、固定当前 `main` 的候选 SHA、构建并在临时端口验证，再执行原子切换；患者、预约、报告、费用的 provider/真机业务验收不能提前使用当前公网旧版本结果替代。
 
+### 3.11 18:55 CST 公网只读复测
+
+本次只通过公网 HTTPS 进行复测，没有重启服务、切换 `current`、修改配置、执行 migration 或写入业务数据。
+本地仓库 `main=08ad3cb`，本次没有将该提交部署到服务器，因此以下结果只证明当前公网路径的即时状态，不能证明
+`08ad3cb` 已在线。
+
+| 请求 | 当前结果 | 证据判断 |
+| --- | --- | --- |
+| `GET /api/v2/health/live` | HTTP `200`，`status=ok`，requestId `97d864a2-6321-47da-b5e9-ffd30606a4ed` | 公网路径可达，但响应没有 `Cache-Control: no-store` |
+| `GET /api/v2/health/ready` | HTTP `200`，`database/redis/schema=ok`，requestId `c6fe8385-c2a2-4524-8f1b-f7ce7311fe4f` | 当前公网依赖探针为 ready，但仍未通过 no-store 发布门禁 |
+| `GET /api/v2/system/ping` | HTTP `200`，`apiVersion=0.1.0`，requestId `6ce5f370-4110-4bb1-b1ad-f8ea8990bb98` | `/api/v2` 基础路由和 requestId 透传正常 |
+| `GET /api/v2/patients`（无认证） | HTTP `401`，`unauthorized`，requestId `3a426273-402e-4133-9853-c2d934d67b9f` | 未登录认证边界正常，不代表患者业务/provider 已完成验收 |
+
+本次结果与 3.10 的发布判断一致：公网基础路径和认证边界正常，但当前线上仍不能作为仓库最新提交的业务验收环境；
+下一步必须继续完成候选 bundle 的临时端口验证、`no-store` 修复和 release provenance 关联。
+
 ## 4. 当前不可宣称的内容
 
 - 不能宣称整个 Redis 实例已完成隔离；新 API 会话已经迁移到 DB3/`hospital_v2`，但旧服务仍在 DB1 使用全权限 `admin`；
