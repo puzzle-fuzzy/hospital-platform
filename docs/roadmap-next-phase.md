@@ -190,4 +190,5 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：复核旧端病历源码后明确拆分住院病历 `2.12.4/2.12.5/2.12.6` 与门诊 `out-visit-records`；住院 `patInHosId`、`babyId`、`noteId`、`mrTypeId` 不能复用为门诊记录字段，门诊目录仍等待独立 Provider/HIS contract，详见 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md)。
 - 2026-08-16：门诊费用服务补齐空白 `patientId` 的服务层拒绝，并让 owner 映射、持久化和 provider 失败统一进入 `outpatient.payment.records.failed`；失败不能被误记为成功空列表，也不能绕过低敏日志链路。
 - 2026-08-16：微信预支付在依赖未配置时也会把已记录的尝试从 `pending` 收敛为 `unknown`，返回 `dependency-not-configured`；同一幂等键不会永久卡在“处理中”，配置完成后必须用新的幂等键重新申请，提交 `b8086d1`。
+- 2026-08-16：provider 目录 smoke 补齐门诊费用 `unpaid`/`paid` 两个只读状态，并要求服务端回显状态与请求状态一致；继续拦截金额、订单、医保、患者身份和 provider 原始字段，未触发支付、医保或结算写入。
 - 2026-08-16 16:57 CST：首次观测到公网与内网 readiness 短时不同；17:02 CST 通过唯一 requestId 和 Bun journald 证明两者实际来自同一个 `55fce6c` 进程，差异属于依赖探针恢复，不是另一 upstream。当前 release 仍缺少候选代码的 `Cache-Control: no-store`，仓库 `main` 的待发布版本尚未部署，仍禁止用公网 `200` 推导业务已验收。

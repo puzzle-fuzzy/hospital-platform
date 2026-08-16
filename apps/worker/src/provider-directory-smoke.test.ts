@@ -191,6 +191,87 @@ test("provider directory smoke can explicitly verify idempotent patient synchron
 	});
 });
 
+test("provider directory smoke verifies both outpatient payment read statuses", async () => {
+	const requests: Array<{ url: string; authorization: string | null }> = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		patientId: "patient-001",
+		capabilities: ["outpatient-payments"],
+		fetcher: async (input, init) => {
+			const url = String(input);
+			requests.push({
+				url,
+				authorization: new Headers(init?.headers).get("authorization"),
+			});
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					status: url.includes("status=paid") ? "paid" : "unpaid",
+					items: [],
+					total: 0,
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(result.checks.map((check) => check.name)).toEqual([
+		"health-live",
+		"health-ready",
+		"outpatient-payments-unpaid",
+		"outpatient-payments-paid",
+	]);
+	expect(requests.map((request) => request.url)).toEqual([
+		"https://hospital.example.test/health/live",
+		"https://hospital.example.test/health/ready",
+		"https://hospital.example.test/api/v1/payments/outpatient/records?patientId=patient-001&status=unpaid",
+		"https://hospital.example.test/api/v1/payments/outpatient/records?patientId=patient-001&status=paid",
+	]);
+	expect(
+		requests
+			.slice(2)
+			.every(
+				(request) => request.authorization === "Bearer platform-access-token",
+			),
+	).toBe(true);
+});
+
+test("provider directory smoke rejects an outpatient status mismatch", async () => {
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		patientId: "patient-001",
+		capabilities: ["outpatient-payments"],
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			return jsonResponse({
+				success: true,
+				data: { status: "paid", items: [], total: 0 },
+			});
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-2)).toEqual({
+		name: "outpatient-payments-unpaid",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+	});
+});
+
 test("provider smoke accepts only the platform opaque report id and can verify LIS detail", async () => {
 	const requests: string[] = [];
 	const result = await runProviderDirectorySmoke({

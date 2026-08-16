@@ -92,9 +92,12 @@ $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
 $env:HOSPITAL_API_PREFIX = "/api/v2"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
-$env:HOSPITAL_SMOKE_CAPABILITIES = "patient-sync,patients,appointment-directory,appointment-records,reports"
+$env:HOSPITAL_SMOKE_CAPABILITIES = "patient-sync,patients,appointment-directory,appointment-records,reports,outpatient-payments"
 pnpm provider:smoke
 ```
+
+`outpatient-payments` 只读取 `/payments/outpatient/records` 的 `status=unpaid` 和 `status=paid` 两种目录，
+用于验证门诊费用 owner 映射、金额脱敏和空列表语义；它不会创建支付订单、调起微信、请求医保或执行结算回写。
 
 `HOSPITAL_ACCESS_TOKEN` 和 `HOSPITAL_PATIENT_ID` 只从受控环境注入，命令输出不会打印其值。
 `patient-sync` 会让服务端重新读取当前微信身份对应的患者目录；它不会接受 provider 患者号，

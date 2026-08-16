@@ -105,8 +105,9 @@ $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
 $env:HOSPITAL_API_PREFIX = "/api/v2"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
+# 默认还会读取门诊费用的 unpaid/paid 两种只读状态；支付调起、医保和结算不会被调用。
 # 可选：报告详情验收会先读取目录，再使用返回的 opaque reportId 读取 LIS 详情。
-# $env:HOSPITAL_SMOKE_CAPABILITIES = "reports,report-detail"
+# $env:HOSPITAL_SMOKE_CAPABILITIES = "reports,report-detail,outpatient-payments"
 pnpm provider:smoke
 ```
 

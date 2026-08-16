@@ -19,6 +19,7 @@ export type ProviderSmokeCapability =
 	| "patients"
 	| "appointment-directory"
 	| "appointment-records"
+	| "outpatient-payments"
 	| "reports"
 	| "report-detail";
 
@@ -58,6 +59,7 @@ const DEFAULT_CAPABILITIES: readonly ProviderSmokeCapability[] = [
 	"patients",
 	"appointment-directory",
 	"appointment-records",
+	"outpatient-payments",
 	"reports",
 ];
 
@@ -524,6 +526,38 @@ export async function runProviderDirectorySmoke(
 					`${apiRoute(apiPrefix, "/appointments/records")}?${query}`,
 				);
 			});
+			continue;
+		}
+
+		/**
+		 * 门诊费用的 `unpaid`/`paid` 是两个独立的只读查询状态，不代表发起支付或完成结算。
+		 * Smoke 必须分别验证请求状态和服务端回显状态，防止 provider/代理返回了另一状态的
+		 * 快照却被当成当前 tab 的正确数据；金额、订单和医保字段仍由安全响应审计统一拦截。
+		 */
+		if (capability === "outpatient-payments") {
+			const paymentPatientId = requirePatientId(patientId);
+			for (const status of ["unpaid", "paid"] as const) {
+				await check(`outpatient-payments-${status}`, async () => {
+					const query = new URLSearchParams({
+						patientId: paymentPatientId,
+						status,
+					});
+					const result = await getJson(
+						`${apiRoute(apiPrefix, "/payments/outpatient/records")}?${query}`,
+					);
+					if (responseStatus(result.data) !== status) {
+						throw new ProviderSmokeRequestError(
+							`Outpatient payment response status does not match ${status}`,
+							200,
+						);
+					}
+					const itemCount = requireSafeData(result.data);
+					return {
+						traceId: result.traceId,
+						...(itemCount === undefined ? {} : { itemCount }),
+					};
+				});
+			}
 			continue;
 		}
 
