@@ -25,6 +25,23 @@
 仍缺真实证据：众阳患者/预约历史/报告/门诊费用、公网 API、微信真机和生产回归
 ```
 
+### 2026-08-16 二次盘点证据
+
+- 旧端 `hospital-app/src/pages` 与 `src/pagesB` 共扫描到 64 个 Vue/页面源文件；新端
+  `apps/miniprogram/src/pages` 共 14 个 TypeScript 页面源文件，`src/app.json` 也注册 14 个页面，
+  本次没有发现漏登记页面。
+- 新端构建会检查页面脚本是否生成；API 测试会检查 OpenAPI 的每个 method/path 是否出现在
+  [`api-v2-public.md`](../api-v2-public.md)，因此“页面存在但构建找不到 JS”和“路由存在但接口文档漏写”
+  已有自动门禁。门禁通过只证明清单一致，不证明 provider、生产或真机业务完成。
+- 当前生产只读复核仍为：`current=55fce6c`、新 API `18081` active、旧 Python `8001` 监听、Worker
+  `inactive/disabled`；公网和内网 readiness 均为 `200`，数据库/Redis/schema 为 `ok`。
+- 当前生产 capability 日志显示微信身份、患者目录、预约目录、预约记录和门诊费用为 `configured`；
+  报告目录、报告详情和微信支付为 `disabled`。因此报告页面只能保留 fail-closed 迁移提示，不能把页面
+  注册或 readiness 200 写成报告已迁移。
+- 服务器目前仍没有 `ps` 的免密窄权限 systemd 操作；候选切换与回滚步骤已独立记录在
+  [`../../infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)，
+  不需要也不允许触碰旧 Python unit。
+
 ### 当前新端能力的准确状态
 
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
