@@ -71,6 +71,9 @@
 生产验收必须保存 Redis endpoint/database/ACL 的脱敏配置摘要、只读 key 盘点结果和隔离验证结果，
 不能只保存 `PING=ok`。
 
+2026-08-16 的生产只读快照已证明旧/新服务当前共用 Redis DB1，具体快照和未完成门禁见
+[`../release/production-coexistence-readonly-audit-2026-08-16.md`](../release/production-coexistence-readonly-audit-2026-08-16.md)。
+
 ## 3. MongoDB：先证明数据，再决定是否迁移
 
 旧服务启动时会创建 `AsyncIOMotorClient`、`app.state.mongo_client` 和 `app.state.mongo`，并提供通用

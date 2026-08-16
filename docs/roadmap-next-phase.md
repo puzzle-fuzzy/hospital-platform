@@ -24,6 +24,7 @@
 - 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院、医院列表和采血预约已完成旧页面副作用审计；新端仍保持未注册，票据和患者写入必须按独立 contract 重做。
 - 旧端非页面逻辑（直连 provider、WebSocket、身份/患者持久化、临床问卷组件和静态入口配置）已完成单独审计；新端不得把这些旧 helper 当作可兼容迁移，边界见 [`migration/legacy-client-infrastructure-boundaries.md`](migration/legacy-client-infrastructure-boundaries.md)。
 - 旧服务基础设施与运维边界已完成单独审计：旧 Redis 多 namespace、Mongo 连接、APScheduler/任务管理、本地文件资源、AI/WebSocket 和 Admin/RBAC 均未被新患者 API 全量替代；共存门禁见 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md)。
+- 2026-08-16 生产只读审计已确认旧/新服务共用 Redis DB1；新 API 已由 systemd 运行且公网 v2 健康检查可达，但新 Worker 未启动、报告 gate 关闭、旧 Python 仍由手工进程运行；证据见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
 
 ### 当前已验证的问题
 
@@ -139,7 +140,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 6. 再处理报告真实 provider 只读验收、医院列表/病历和便民服务逐域迁移；个人中心扩展和外部入口先完成 contract/allowlist/旧数据隔离，非页面逻辑按新审计文档逐项清除直连和敏感缓存，院内导航动态能力必须先取得地图数据与路线 contract；
 7. provider 只读稳定后，才进入预约写入合同和锁号设计；
 8. 最后按现金支付 → 医保结算 → HIS 回写顺序做专项验收。
-9. 在下一次 provider 文档接入前，先完成 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md) 中的 Redis、Mongo、任务和文件只读盘点，避免新旧服务在共享基础设施上发生误删、越权或重复执行。
+9. 旧生产 env 文件权限已收紧到 `0700/0600` 且旧进程存活；下一步完成历史读取风险/秘密轮换判断和 Redis DB/ACL 隔离验证，再继续报告、病历和文件资源 contract。共享基础设施未隔离前，不新增 Redis 语义、不启动新 worker，也不把公网 health 200 当作业务迁移完成。
 
 ## 业务正确性加固记录
 
