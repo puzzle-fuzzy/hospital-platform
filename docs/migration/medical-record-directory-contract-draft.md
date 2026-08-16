@@ -1,0 +1,174 @@
+# 门诊就诊记录目录 Contract 草案
+
+> 状态：`draft`，尚未获得 provider/HIS 确认，不得据此注册生产路由、打开 gate 或宣称业务迁移完成。
+> 盘点日期：2026-08-16。
+>
+> 本文用于把旧端观察事实与新端待确认设计分开。provider 文档、脱敏响应样例和失败样例到达后，
+> 必须逐项填写确认结果和内容指纹，再把确认后的事实迁移到版本化 contract；未确认字段不得直接复制到
+> `packages/contracts`、adapter 或小程序页面。
+
+## 1. 业务范围
+
+本草案只覆盖“门诊就诊记录目录”，不覆盖：
+
+- 门诊病历正文、XML/JSON 内容、结构化病历和附件；
+- 住院 episode、住院病历、住院费用和结算状态；
+- 诊断全文、处方、检验/影像原始报告和 AI 解读；
+- 预约历史、爽约记录、门诊缴费或支付订单。
+
+旧页面标题虽然叫“门诊病历”，实际只展示门诊就诊记录摘要。目录完成后仍不能把页面标记为“病历正文已迁移”。
+
+## 2. 旧端观察事实（不是新 Contract）
+
+### 2.1 请求事实
+
+旧页面 `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\health\\electronic_record.vue`
+调用旧 provider 请求：
+
+```text
+POST /msun-middle-aggregate-clinic/v1/out-visit-records
+startDate = 最近 30 天的 00:00:00
+endDate   = 当前日期的 23:59:59
+type      = "5"
+patId     = 旧患者选择器返回的 provider 患者号
+```
+
+旧页面使用设备/运行时本地时间计算日期，也没有记录服务端分页、排序、快照或最终一致性语义。`patId` 不能进入新端
+小程序请求；新端必须从当前平台会话和内部 `patientId` 服务端解析用途专用的 provider 映射。
+
+### 2.2 页面读取事实
+
+旧页面读取过下列 provider 字段：
+
+| 旧字段 | 旧页面用途 | 新端处理意见 |
+| --- | --- | --- |
+| `regId` | 列表 key/就诊记录标识 | 不能直接公开；需要确认是否能转换成短期 opaque `visitRecordId` |
+| `deptName` | 科室名称 | 候选展示字段；需确认来源、脱敏和空值语义 |
+| `doctorName` / `docName` | 医生名称 | 候选展示字段；需确认是否允许患者端展示 |
+| `visitTime` / `visitDate` | 就诊时间 | 候选展示字段；必须确认时区、格式、排序和优先字段 |
+| `hospitalName` | 医院名称 | 需确认机构来源；不能从旧静态配置补齐动态数据 |
+| `clinicTypeName` | 就诊类型 | 需确认枚举和展示白名单 |
+| `chargeClassName` | 收费类别 | 不能与费用/支付状态混用，需确认是否真的属于目录 |
+| `patName` | 页面显示姓名 | 默认不进入记录项；患者上下文使用已脱敏的当前患者读模型 |
+| `sexName` / `patAge` | 页面显示身份摘要 | 默认不进入公共 contract，除非 provider 明确确认用途和脱敏规则 |
+| `maritalStatusName` | 页面显示身份字段 | 默认不迁移；与就诊目录无关且属于敏感个人资料 |
+| `diagnosisName` / `diagnosis` | 页面显示诊断结果 | 默认不迁移；需要独立临床授权、敏感字段清单和审计 |
+
+以上表格是差异线索，不是允许 adapter 透传的字段白名单。
+
+## 3. 候选新端边界（待确认）
+
+### 3.1 候选公共输入
+
+候选内部接口可以采用以下语义，但在 provider 文档确认前不注册：
+
+```text
+GET /api/v2/medical-records
+Authorization: Bearer <platform-session>
+patientId=<platform-opaque-patient-id>
+startDate=YYYY-MM-DD
+endDate=YYYY-MM-DD
+```
+
+候选规则：
+
+1. `patientId` 只能是当前会话 owner 下的内部 opaque ID；不能接受 `patId`、`thirdPatientId`、身份证、卡号或住院号。
+2. 日期窗口由服务端限制，候选默认沿用平台中国标准时间日历边界和最多 30 天；旧端本地时间行为不能直接视为新 contract。
+3. 不接受任意 provider query、医院 ID、机构 ID、查询类型或患者姓名检索条件。
+4. 查询目录不等于病历正文授权；不能因目录返回记录就自动开放 `out-emrs`。
+
+### 3.2 候选公共输出
+
+只有 provider 明确确认来源、含义、权限和空值规则后，才允许从以下候选字段选择进入公共 contract：
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [{
+      "visitRecordId": "短期 opaque 引用或平台内部稳定引用",
+      "departmentName": "科室名称",
+      "doctorName": "医生名称（可选）",
+      "visitedAt": "平台约定时区的日期时间",
+      "hospitalName": "机构名称（可选）",
+      "visitType": "平台确认后的有限枚举（可选）"
+    }],
+    "page": 1,
+    "pageSize": 20,
+    "hasMore": false
+  }
+}
+```
+
+这里的 `visitRecordId` 只是设计占位名，不代表旧 `regId` 可以直接暴露。若详情需要 provider 记录号，必须落库为
+owner-scoped、带 TTL 的服务端引用，小程序只能提交平台 opaque 引用。
+
+诊断、性别、年龄、婚姻、身份证、卡号、手机号、原始医院 ID、provider 记录号和正文内容默认不进入输出。
+
+## 4. Provider 必须确认的事实
+
+新文档到达后，逐项填写来源、版本、示例和确认人；任何一项未确认，状态保持 `draft`：
+
+| 编号 | 必须确认的问题 | 未确认时的风险 |
+| --- | --- | --- |
+| MR-01 | endpoint 当前 path、method、环境和认证 header 是否仍有效 | 旧地址可能已变更，不能直接联调 |
+| MR-02 | `type="5"` 的准确语义、允许值和是否必须固定 | 客户端可能查询到错误范围 |
+| MR-03 | provider 患者标识的来源及预约/门诊专用映射 | 患者目录 ID 误用于临床记录 |
+| MR-04 | 请求 envelope、业务成功字段、空列表和业务失败响应 | HTTP 200 可能被误判为成功 |
+| MR-05 | 日期是否含时区、边界是否闭开、最大窗口和历史保留期 | 跨日重复或漏记记录 |
+| MR-06 | 分页/游标、默认排序、重复记录和快照一致性 | 大列表截断或重复渲染 |
+| MR-07 | `regId` 是否稳定、是否敏感、是否允许换取详情 | 暴露内部记录号或无法安全查详情 |
+| MR-08 | 科室、医生、机构和就诊类型字段的展示授权 | 把内部或不完整字段公开 |
+| MR-09 | 诊断及身份字段是否属于目录，是否需要更高权限 | 敏感医疗信息越权泄露 |
+| MR-10 | 超时、限流、provider request id、可重试错误和最终查询方式 | 重试造成重复请求或假空列表 |
+| MR-11 | 记录撤回、更正、删除和历史数据更新时间语义 | 页面继续展示失效医疗事实 |
+| MR-12 | 是否存在附件/正文引用及其 TTL、下载授权和审计要求 | 目录接口越权扩展为文件接口 |
+
+## 5. 实现门禁
+
+### 5.1 允许开始实现的条件
+
+- 文档记录已按 [`../provider-document-intake.md`](../provider-document-intake.md) 登记，包含版本、环境和内容指纹；
+- MR-01 至 MR-06 至少有 provider 确认和成功/空列表/业务失败/超时样例；
+- 患者映射用途已经确认，且服务端能 owner-scoped 取得映射；
+- 公共输出字段白名单、脱敏规则和日志禁止字段已经确认；
+- 已有脱敏 golden fixture，能证明 provider 字段不会泄漏到 API、小程序和日志。
+
+### 5.2 实现顺序
+
+```text
+provider 文档记录
+  -> 差异表确认
+  -> packages/contracts 目录 schema
+  -> domain 只读模型与日期/分页不变量
+  -> adapter + 成功/空/失败 fixture
+  -> API owner/auth/日期窗口门禁
+  -> Pino requested/loaded/failed 事件
+  -> 原生页面与竞态/分页测试
+  -> provider、内网、公网、真机四层验收
+```
+
+### 5.3 明确禁止
+
+- 不把旧 `getOutVisitRecordsApi` 的返回类型直接复制到新 contract；
+- 不把 `patId`、`regId` 或 `out-visit-record-id` 放到小程序请求或本地缓存；
+- 不用预约历史、报告目录或门诊费用记录代替门诊就诊记录；
+- 不因 provider 返回空数组就显示“没有病历”，必须区分真实空列表、未配置、权限不足和暂时失败；
+- 不在未取得正文授权前实现 `out-emrs`、下载、诊断全文或 AI 解读；
+- 不因接口返回 HTTP 200 或页面能渲染就标记真实业务完成。
+
+## 6. 验收证据模板
+
+完成后必须补齐：
+
+| 层级 | 证据 |
+| --- | --- |
+| Provider | 请求/响应/空列表/业务失败/超时样例、provider request id 和字段确认记录 |
+| 服务端 | contract 测试、owner 越权测试、日期/分页测试、adapter 脱敏测试 |
+| 数据库 | 如需要引用或缓存，migration、TTL、owner 复合约束和 schema probe |
+| 日志 | `medical-record.directory.requested/loaded/failed`，可按 trace/request/providerRequestId 定位且无原始 body |
+| 公网 | `/api/v2` 实际反向代理路径、401/403/503/空列表行为 |
+| 小程序 | 页面注册、切换就诊人、分页、重试、空态、错误置顶和旧响应淘汰 |
+| 真机 | 登录、真实患者、真实记录、切换患者和退出/恢复会话证据 |
+
+在上述证据全部完成前，页面状态只能是“代码已实现/待验收”，不能写成“病历已迁移”。

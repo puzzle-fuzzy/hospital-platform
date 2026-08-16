@@ -79,7 +79,7 @@
 | `pagesB/hospital/confirm_registration`、`registration_detail` | 预约确认、预约详情和状态刷新 | 锁号、预约写入、最终状态查询、幂等与取消矩阵 |
 | `pagesB/health/outpatient_pay_detail`、`electronic_bill` | 费用明细和可支付金额展示 | 费用详情 contract、金额单位和患者归属规则 |
 | `pagesB/health/report_query`、`report_detail` 的真实能力 | LIS/PACS/ECG/体检真实数据、附件和详情授权 | provider 文档、资源 URL/短期授权、数据脱敏规则 |
-| `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段；旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | HIS/EMR 只读 contract、资源授权和脱敏清单；详见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
+| `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段；旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | HIS/EMR 只读 contract、资源授权和脱敏清单；目录差异草案见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)，整体边界见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
 | `pagesB/hospital/hospitalList` | 医院列表 | 医院列表数据来源、机构选择语义和版本 contract |
 | `pagesB/hospital/navigation` | 静态院内地图已迁移；实时楼层/科室定位未迁移 | 原始 `map.jpg`、`aspectFit`、点击预览已完成；动态地图数据、定位和路线 contract 待确认 |
 | `pagesB/hospital/bloodAppointment` | 采血预约 | 采血服务 contract、号源状态和取消规则 |

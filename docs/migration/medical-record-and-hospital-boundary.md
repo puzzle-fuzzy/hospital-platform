@@ -9,6 +9,8 @@
 当前新端已经有报告目录，但报告不是门诊病历；二者不能因为页面都叫“查询”就共用一个路由或数据模型。
 本次已修正新小程序“我的”页和首页顶部入口：`门诊病历` 使用明确的 `medical-record` 动作，
 在 provider/HIS contract 完成前展示迁移提示，不再误用 `reports` 或通用建设中分支。
+门诊就诊记录目录的字段差异和待确认问题另见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)；
+该草案不是可调用接口文档。
 
 | 旧能力 | 旧代码证据 | 新端状态 | 当前结论 |
 | --- | --- | --- | --- |
@@ -86,7 +88,7 @@ patId     = 选择器返回的 provider 患者号
 
 ## 4. 下一步顺序
 
-1. 先取得新 provider 文档，按 [`provider-document-intake.md`](../provider-document-intake.md) 登记来源、版本、请求/响应/错误/权限/脱敏和真实证据；旧代码只作为差异线索。
+1. 先取得新 provider 文档，按 [`provider-document-intake.md`](../provider-document-intake.md) 登记来源、版本、请求/响应/错误/权限/脱敏和真实证据，再逐项填写 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)；旧代码只作为差异线索。
 2. 优先做“门诊就诊记录目录”只读闭环：contract → owner-scoped patient mapping → adapter → API → 原生页面 → 分页/竞态测试 → 公网和真机验收。
 3. 目录真实证据稳定后，再做 `out-emrs` 病历内容短期引用；正文下载、结构化内容和报告解读分别设计。
 4. 住院信息与住院费用另开阶段，先确认住院 episode 的权威来源和金额/结算边界，再实现页面。
