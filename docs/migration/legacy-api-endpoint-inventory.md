@@ -67,7 +67,7 @@
 | `GET /msun-middle-business-ecg/v2/ecg-reports` | `api/modules/ZY.ts` | 部分迁移 | 已进入报告目录 adapter；详情和原始报告资源仍关闭。 |
 | `GET /msun-middle-business-lis/v1/lis-reports/details` | `api/modules/ZY.ts` | 部分迁移 | 只有 LIS 白名单详情可在独立 gate 下开放；不返回原始 JSON、患者字段或文件 URL。 |
 | `POST /msun-peis-app-peis-new/v1/find-report-list-for-wechat` | `api/modules/ZY.ts` | 待 provider contract | 旧接口依赖完整身份证号和 hospitalId；新患者模型不保存完整身份证，当前不迁移。 |
-| `GET /msun-middle-aggregate-clinic/v1/out-emrs` | `api/modules/medicalRecord.ts` | 待 provider contract | 门诊电子病历目录需要单独确认患者归属、就诊记录 ID、分页/排序和可公开字段，不能由预约历史或报告目录代替。 |
+| `GET /msun-middle-aggregate-clinic/v1/out-emrs` | `api/modules/medicalRecord.ts` | 待 provider contract | 门诊电子病历目录需要单独确认患者归属、就诊记录 ID、分页/排序和可公开字段，不能由预约历史或报告目录代替；边界审计见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md)。 |
 | `POST /msun-middle-aggregate-clinic/v1/out-visit-records` | `api/modules/ZY.ts`、`medicalRecord.ts` | 待 provider contract | 门诊病历/就诊记录需要区分目录、内容和结构化数据的授权与脱敏，不与预约历史混用。 |
 | `POST /msun-middle-aggregate-zyemr/v1/m-records/mr-menus` | `api/modules/medicalRecord.ts` | 待 provider contract | 住院病历目录字段含病历内容、签名和内部 ID，不能直接透传。 |
 | `GET /msun-middle-aggregate-zyemr/v1/m-records/mr-contents` | `api/modules/medicalRecord.ts` | 待 provider contract | 病历正文需要资源权限、审计、下载/预览策略和敏感字段白名单。 |

@@ -51,6 +51,7 @@ const TOP_TAB_LIST = Object.freeze([
 		text: "互联网医院",
 	},
 	{
+		action: "medical-record",
 		icon: "/assets/legacy-home/top-record.svg",
 		text: "门诊病历",
 	},
@@ -368,6 +369,10 @@ Page<IndexPageData, IndexPageMethods>({
 				break;
 			case "reports":
 				this.onLoadReports();
+				break;
+			case "medical-record":
+				// 报告目录不能冒充门诊病历；病历 contract 完成前明确提示迁移状态。
+				wx.showToast({ title: "门诊病历正在迁移中", icon: "none" });
 				break;
 			case "hospital-navigation":
 				wx.navigateTo({

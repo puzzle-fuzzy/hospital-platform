@@ -316,6 +316,18 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(reportPage).not.toContain("providerReportId");
 });
 
+test("native patient center does not mislabel reports as outpatient medical records", async () => {
+	const home = await source("pages/index/index.ts");
+	const myTemplate = await source("pages/my/my.wxml");
+	const myPage = await source("pages/my/my.ts");
+
+	expect(home).toContain('action: "medical-record"');
+	expect(home).toContain("门诊病历正在迁移中");
+	expect(myTemplate).toContain('data-action="medical-record"');
+	expect(myTemplate).not.toContain('data-action="reports"');
+	expect(myPage).toContain('case "medical-record"');
+});
+
 test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
 	const client = await source("services/api-client.ts");
 

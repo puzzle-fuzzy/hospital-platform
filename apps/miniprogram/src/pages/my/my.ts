@@ -74,6 +74,10 @@ Page<MyPageData, MyPageMethods>({
 			case "outpatient-payment":
 				wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
 				break;
+			case "medical-record":
+				// 报告目录与门诊病历是两类不同医疗事实，不能复用 reports 路由。
+				wx.showToast({ title: "门诊病历正在迁移中", icon: "none" });
+				break;
 			default:
 				wx.showToast({ title: "该服务正在迁移中", icon: "none" });
 		}

@@ -34,7 +34,7 @@
 				<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
 				<text>就诊人绑定</text>
 			</view>
-			<view class="menu-item" bindtap="onAction" data-action="reports">
+			<view class="menu-item" bindtap="onAction" data-action="medical-record">
 				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
 				<text>门诊病历</text>
 			</view>
