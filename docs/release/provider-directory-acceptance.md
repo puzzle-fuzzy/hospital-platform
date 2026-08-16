@@ -249,7 +249,7 @@ report.detail.requested / synced / failed
 - `wx.login` 只向 Hospital API 发送临时 code；网络列表中不出现众阳 host；
 - 登录后同步患者，页面只显示平台脱敏模型；
 - 读取预约目录，页面只显示科室/排班安全字段；
-- 读取近 90 天预约历史，页面只显示脱敏摘要，不出现 provider 预约号、患者号、电话、费用或支付字段；
+- 读取当前日前后各 90 天预约历史，页面只显示脱敏摘要，不出现 provider 预约号、患者号、电话、费用或支付字段；爽约记录另只读取过去 90 天并筛选服务端 `status=missed`；
 - 选择内部 patientId 读取近 30 天报告，页面只显示摘要，不显示 provider 患者号或原始 JSON；
 - 若详情 gate 已通过，从目录返回的 opaque reportId 打开 LIS 详情，页面只显示白名单检测项，不显示 provider 报告号、患者字段或文件 URL；
 - 将 API base URL 改为公网 HTTP，客户端必须拒绝请求；本机 HTTP 只允许 localhost/127.0.0.1；

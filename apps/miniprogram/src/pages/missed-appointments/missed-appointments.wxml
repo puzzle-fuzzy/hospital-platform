@@ -18,7 +18,7 @@
 
 	<view class="page-header">
 		<view class="page-title">爽约记录</view>
-		<view class="page-description">展示当前就诊人近 90 天的爽约记录</view>
+		<view class="page-description">展示当前就诊人过去 90 天的爽约记录</view>
 	</view>
 
 	<view wx:if="{{loading}}" class="state-card">
@@ -47,6 +47,6 @@
 	</view>
 
 	<view class="readonly-note">
-		本页面仅展示服务端预约记录中已确认的爽约状态，查询范围为近 90 天；状态未知或服务异常时不会推断为爽约。
+		本页面仅展示服务端预约记录中已确认的爽约状态，查询范围为过去 90 天；状态未知或服务异常时不会推断为爽约。
 	</view>
 </view>
