@@ -41,7 +41,18 @@
 
 公网 health 响应保留 `Cache-Control: no-store` 的发布门禁要求；readiness 本次只证明当前依赖探针在验收时可用，不代表 Provider 或业务数据稳定。
 
-### 2.3 启动日志
+### 2.3 未登录认证边界
+
+切换后再次从公网请求受保护路由，确认新 release 没有把患者数据或当前用户信息误设为公开：
+
+| 请求 | 结果 |
+| --- | --- |
+| `GET https://test-hp.meiyi.pro/api/v2/patients` | 401，`error.code=unauthorized` |
+| `GET https://test-hp.meiyi.pro/api/v2/me` | 401，`error.code=unauthorized`，稳定中文提示“请先登录后再继续操作” |
+
+这只是认证边界验收，不代表微信 code 兑换、Redis session 恢复或 owner 映射已经完成。
+
+### 2.4 启动日志
 
 切换后 systemd 主进程 PID 为 `1073515`。启动事件记录了以下低敏状态：
 
