@@ -251,6 +251,8 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"右栏每次最多渲染 12 条；这是本地渲染分页",
 		"每次渲染 10 条；这是本地渲染分页",
 		"adapter 按 `reportedAt` 倒序",
+		"目录摘要与详情引用是两个独立能力",
+		"不能因为单条详情引用不可用而把整批报告目录当成服务不可用",
 		"不能被验收记录写成“服务端已支持分页”",
 		"当前日期范围按 `endDate - startDate` 的 UTC 日历零点差值校验",
 		"provider 的 `endDate` 是否包含当天仍待合同确认",

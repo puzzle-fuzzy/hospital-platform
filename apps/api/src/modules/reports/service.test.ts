@@ -176,3 +176,50 @@ test("report details use a short-lived opaque reference and owner-scoped lookup"
 		service.detail("user-002", reportId, context),
 	).rejects.toBeInstanceOf(ReportNotFoundError);
 });
+
+test("report directory keeps a summary when a provider detail reference is missing", async () => {
+	const summary = {
+		kind: "laboratory" as const,
+		title: "血常规",
+		reportedAt: "2026-08-15 10:00:00",
+		status: "available" as const,
+		hasAttachment: false,
+	};
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [{ summary }],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "directory-without-detail-reference",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => {
+				throw new Error("详情不应在缺少 provider 报告号时被调用");
+			},
+		} as ReportDetailGateway,
+		references: createInMemoryReportReferenceRepository(),
+	});
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-15" },
+			{
+				traceId: "trace-report-summary-only",
+				idempotencyKey: "key-report-summary-only",
+			},
+		),
+	).resolves.toEqual({ items: [summary], total: 1 });
+});

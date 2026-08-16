@@ -144,12 +144,14 @@ export class ReportService {
 				result.reports.map(async (entry) => {
 					if (
 						!this.dependencies.detail ||
-						entry.summary.kind !== "laboratory"
+						entry.summary.kind !== "laboratory" ||
+						!entry.providerReportId ||
+						!this.dependencies.references
 					) {
+						// 目录摘要和详情引用是两个独立能力：provider 没有稳定报告号、
+						// 详情 gate 未开启或引用仓储未注入时，仍应保留安全摘要，
+						// 不能把“详情不可用”扩大成“整批报告不可用”。
 						return entry.summary;
-					}
-					if (!entry.providerReportId || !this.dependencies.references) {
-						throw new DependencyNotConfiguredError("report-references");
 					}
 					const now = new Date();
 					const reference = await this.dependencies.references.upsert({

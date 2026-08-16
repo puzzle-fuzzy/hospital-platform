@@ -181,6 +181,9 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange`
 和 `flag`；`flag` 为 `normal`、`high`、`low`、`critical` 或 `unknown`。
 
+目录摘要与详情引用是两个独立能力：provider 没有稳定报告号、详情 gate 未开启或无法建立
+短期引用时，目录仍可返回安全摘要并省略 `reportId`，客户端只能隐藏详情入口；不能因为单条详情引用不可用而把整批报告目录当成服务不可用。
+
 影像附件、体检报告、原始报告号、患者字段和文件下载 URL 尚未开放。详情返回 404 不等于
 患者没有报告，也可能表示该报告类型尚未通过详情 gate。
 
