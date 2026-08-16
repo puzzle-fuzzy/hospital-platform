@@ -42,7 +42,7 @@
 
 ### 2.2 新增就诊人的状态机必须可恢复
 
-详细候选状态机和 PB-01 至 PB-12 provider 问题见
+详细候选状态机和 PB-01 至 PB-16 provider 问题见
 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。这里保留安全原则：
 
 旧页面的“查询档案失败后继续建档”会把网络异常、provider 暂时不可用和“确实没有档案”混成同一个分支，
