@@ -20,7 +20,10 @@
 ### 已经具备
 
 - 新旧服务共存：旧 Python 服务继续使用 `8001`，新 Elysia 服务使用 `18081`，公网通过 `/api/v2` 隔离。
-- 新旧服务共用 MySQL 数据库 `hospital-dev`，新服务只使用 `hp_*` 表，旧服务继续使用 legacy 表。
+- 新 API 当前脱敏目标为远端 MySQL `8.130.127.184:3306/hospital-dev`，新服务只使用 `hp_*` 表；旧服务当前
+  进程快照没有暴露可核对的 MySQL 目标，因此“新旧服务共用同一个 MySQL 实例/数据库”暂不能作为当前事实，
+  必须完成旧服务配置和 schema 的脱敏比对后再确认。旧 Redis 使用 DB1、新 API 使用 DB3 的隔离边界仍按既有
+  生产证据维护。
 - 新服务已具备生产模式启动日志、MySQL/Redis/schema 探针、Pino 结构化日志和 fail-closed 依赖注入。
 - 微信登录、平台会话、就诊人列表、就诊人独立选择页面已经形成患者端纵向切片；服务端真实登录和单患者同步已有生产日志证据，患者切换与真机完整验收仍未完成。
 - 普通个人资料已形成独立纵向切片：`GET/PUT /api/v2/me/profile` 只处理昵称、性别、年龄、邮箱，使用 `version` 乐观锁；0014、生产 schema、API 重启、ready 和未登录公网 401 已验收，真实微信读写/409 与真机证据仍待完成；头像、实名、手机号和微信身份继续关闭。证据见 [`release/user-profile-production-acceptance-2026-08-16.md`](release/user-profile-production-acceptance-2026-08-16.md)。
