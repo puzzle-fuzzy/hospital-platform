@@ -50,3 +50,6 @@ API 启动日志必须包含 `runtimeMode`、`authRuntimeStatus`、`authIdentity
 2026-08-16 的生产只读快照见 [`docs/release/production-coexistence-readonly-audit-2026-08-16.md`](../../docs/release/production-coexistence-readonly-audit-2026-08-16.md)。
 该快照先确认新旧服务共用 Redis DB1，随后记录了新 API 会话隔离和只重启新 API 的结果；新 worker 仍为
 disabled/inactive，旧 Python 服务仍由手工进程运行，因此不能把新 API 的 active 或公网 health 200 解释为全量迁移完成。
+
+候选 release 的原子切换、最小 sudoers 权限、切换后验收和只重启新 API 的回滚步骤见
+[`api-v2-release-runbook.md`](api-v2-release-runbook.md)。当前服务器尚未配置该窄权限，不能直接执行公网切换。
