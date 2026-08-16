@@ -53,8 +53,11 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `worker.payment.wechat_query.retry_scheduled` | 微信支付查单 worker | 记录可恢复查单错误和下一次调度元数据 |
 | `worker.payment.wechat_notification.reconciled` | 微信支付通知 outbox handler | 记录安全通知事实经过金额和版本校验后的订单结果 |
 | `patient.directory.requested` | 患者目录同步应用服务 | 记录同步开始、provider 和 trace，不记录身份或请求内容 |
-| `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
-| `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider 和 trace，不记录第三方原始错误报文 |
+| `patient.directory.operation.started` / `patient.directory.operation.lease_taken_over` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、provider 和 trace；不记录幂等键原文 |
+| `patient.directory.operation.replayed` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount 和 trace，确认没有再次访问 provider |
+| `patient.directory.operation.in_progress` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount 和 trace，表示返回 409；不记录租约原文 |
+| `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
+| `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider、trace 和内部 operationId，不记录第三方原始错误报文 |
 | `appointment.directory.departments.requested` | 预约科室目录读取 | 记录读取开始、provider 和 trace |
 | `appointment.directory.departments.synced` | 预约科室目录读取 | 记录 provider request id 和科室数量 |
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |

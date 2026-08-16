@@ -4,6 +4,8 @@ import type {
 	IdentityUser,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
+	PatientDirectorySyncStartInput,
+	PatientDirectorySyncStart,
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientRecord,
@@ -114,6 +116,21 @@ export function createInMemoryPatientRepository(
 	const directoryLastSeenAt = new Map<string, string>();
 	const directoryIndex = new Map<string, string>();
 	const providerIndex = new Map<string, string>();
+	/**
+	 * 模拟生产 operation ledger；真实跨进程并发由 MySQL 唯一键和行锁保证，
+	 * 这里只用于验证服务层的 replay、处理中冲突和租约接管语义。
+	 */
+	const syncOperations = new Map<
+		string,
+		{
+			operationId: string;
+			status: "in_progress" | "succeeded";
+			attemptCount: number;
+			leaseUntil: string;
+		}
+	>();
+	const syncOperationKey = (input: PatientDirectorySyncStartInput) =>
+		`${input.ownerUserId}:${input.provider}:${input.idempotencyKey}`;
 	const directoryKey = (input: PatientDirectoryUpsertInput) =>
 		`${input.ownerUserId}:${input.provider}:${input.profile.providerPatientId}`;
 	const providerReferenceKey = (input: {
@@ -199,12 +216,50 @@ export function createInMemoryPatientRepository(
 					!inactivePatientIds.has(patient.id),
 			);
 		},
+		async beginDirectorySync(input): Promise<PatientDirectorySyncStart> {
+			const key = syncOperationKey(input);
+			const existing = syncOperations.get(key);
+			if (!existing) {
+				const operationId = `fixture-sync-operation-${syncOperations.size + 1}`;
+				const operation = {
+					operationId,
+					status: "in_progress" as const,
+					attemptCount: 1,
+					leaseUntil: input.leaseUntil,
+				};
+				syncOperations.set(key, operation);
+				return { outcome: "started", ...operation };
+			}
+
+			if (existing.status === "succeeded") {
+				return { outcome: "replay", ...existing };
+			}
+			if (Date.parse(existing.leaseUntil) > Date.parse(input.now)) {
+				return { outcome: "in_progress", ...existing };
+			}
+
+			existing.attemptCount += 1;
+			existing.leaseUntil = input.leaseUntil;
+			return { outcome: "started", ...existing };
+		},
 		async upsertFromDirectory(input) {
 			return upsertDirectoryAt(input, new Date().toISOString());
 		},
 		async replaceDirectorySnapshot(
 			input: PatientDirectorySnapshotInput,
 		): Promise<PatientDirectorySnapshotResult> {
+			const operation = input.operationId
+				? [...syncOperations.values()].find(
+						(candidate) => candidate.operationId === input.operationId,
+					)
+				: undefined;
+			if (
+				input.operationId &&
+				(operation?.status !== "in_progress" ||
+					operation.attemptCount !== input.operationAttemptCount)
+			) {
+				throw new Error("Patient directory sync operation is not active");
+			}
 			const seenPatientIds = new Set<string>();
 			for (const patient of input.patients) {
 				const record = await upsertDirectoryAt(
@@ -240,10 +295,24 @@ export function createInMemoryPatientRepository(
 				}
 			}
 
-			return {
+			const result = {
 				activePatients: await this.listByOwner(input.ownerUserId),
 				deactivatedPatientCount,
 			};
+			if (input.operationId) {
+				const activeOperation = operation;
+				if (
+					activeOperation === undefined ||
+					activeOperation.status !== "in_progress" ||
+					activeOperation.attemptCount !== input.operationAttemptCount
+				) {
+					throw new Error("Patient directory sync operation is not active");
+				}
+				// 生产 MySQL 会在同一事务中完成这一步；内存实现只需保持
+				// 相同的领域状态，供 service 测试验证 replay 分支。
+				activeOperation.status = "succeeded";
+			}
+			return result;
 		},
 		async resolveProviderReference(
 			input,

@@ -20,7 +20,10 @@ export {
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
 export { parseIsoCalendarDate } from "./date-range";
-export { DependencyNotConfiguredError } from "./errors";
+export {
+	DependencyNotConfiguredError,
+	PatientDirectorySyncInProgressError,
+} from "./errors";
 export type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeCatalogKind,
@@ -77,6 +80,10 @@ export type {
 	PatientDirectoryProfile,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
+	PatientDirectorySyncOperation,
+	PatientDirectorySyncOperationStatus,
+	PatientDirectorySyncStart,
+	PatientDirectorySyncStartInput,
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientProviderReferenceKind,

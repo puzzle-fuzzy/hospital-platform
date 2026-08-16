@@ -211,6 +211,7 @@ test("public API documentation lists every stable public error code", async () =
 		"payment-identity-not-found",
 		"payment-prepay-in-progress",
 		"payment-prepay-unknown",
+		"patient-sync-in-progress",
 		"user-profile-invalid",
 		"user-profile-conflict",
 	] as const;

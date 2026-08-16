@@ -89,6 +89,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0014_user_profiles.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0015_patient_directory_sync_operations",
+		file: "../migrations/0015_patient_directory_sync_operations.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -102,6 +107,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_identity_users",
 	"hp_user_profiles",
 	"hp_patients",
+	"hp_patient_directory_sync_operations",
 	"hp_patient_provider_references",
 	"hp_payment_quotes",
 	"hp_payment_orders",
@@ -156,6 +162,23 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"provider_patient_id",
 			"directory_active",
 			"directory_last_seen_at",
+		],
+	},
+	{
+		table: "hp_patient_directory_sync_operations",
+		columns: [
+			"operation_id",
+			"owner_user_id",
+			"provider_name",
+			"idempotency_key",
+			"status",
+			"attempt_count",
+			"observed_at",
+			"lease_until",
+			"completed_at",
+			"result_digest",
+			"created_at",
+			"updated_at",
 		],
 	},
 	{
@@ -366,6 +389,16 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		],
 	},
 	{
+		table: "hp_patient_directory_sync_operations",
+		name: "uq_hp_patient_sync_owner_provider_key",
+		columns: ["owner_user_id", "provider_name", "idempotency_key"],
+	},
+	{
+		table: "hp_patient_directory_sync_operations",
+		name: "ix_hp_patient_sync_status_lease",
+		columns: ["status", "lease_until"],
+	},
+	{
 		table: "hp_payment_orders",
 		name: "uq_hp_orders_owner_order",
 		columns: ["owner_user_id", "order_id"],
@@ -469,6 +502,13 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 		table: "hp_user_profiles",
 		name: "fk_hp_user_profiles_user",
 		columns: ["user_id"],
+		referencedTable: "hp_identity_users",
+		referencedColumns: ["user_id"],
+	},
+	{
+		table: "hp_patient_directory_sync_operations",
+		name: "fk_hp_patient_sync_owner",
+		columns: ["owner_user_id"],
 		referencedTable: "hp_identity_users",
 		referencedColumns: ["user_id"],
 	},

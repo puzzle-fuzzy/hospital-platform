@@ -197,6 +197,104 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 	expect(state.values[2]).toContain("his-patient-001");
 });
 
+test("MySQL patient sync operation uses owner-scoped lease and replay states", async () => {
+	const { pool, state } = createFakePool([
+		{ affectedRows: 0 },
+		[
+			{
+				operation_id: "operation-001",
+				status: "in_progress",
+				attempt_count: 1,
+				lease_until: "2026-08-15 23:59:00.000",
+			},
+		],
+		{ affectedRows: 1 },
+		{ affectedRows: 0 },
+		[
+			{
+				operation_id: "operation-001",
+				status: "succeeded",
+				attempt_count: 2,
+				lease_until: "2026-08-16 00:01:00.000",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+	const input = {
+		ownerUserId: "user-001",
+		provider: "zhongyang" as const,
+		idempotencyKey: "patient-sync-key",
+		now: "2026-08-16T00:00:00.000Z",
+		leaseUntil: "2026-08-16T00:01:00.000Z",
+	};
+
+	await expect(
+		repositories.patients.beginDirectorySync?.(input),
+	).resolves.toEqual({
+		outcome: "started",
+		operationId: "operation-001",
+		attemptCount: 2,
+	});
+	await expect(
+		repositories.patients.beginDirectorySync?.(input),
+	).resolves.toEqual({
+		outcome: "replay",
+		operationId: "operation-001",
+		attemptCount: 2,
+	});
+	expect(state.statements[0]).toContain("hp_patient_directory_sync_operations");
+	expect(state.values[0]).toContain("patient-sync-key");
+	expect(state.statements[1]).toContain("FOR UPDATE");
+});
+
+test("MySQL patient snapshot marks sync operation succeeded in the same transaction", async () => {
+	const currentRow = {
+		patient_id: "patient-sync-001",
+		owner_user_id: "user-001",
+		display_name: "张三",
+		relationship: "self",
+		card_number_masked: "******7890",
+		source: "hospital-his",
+		provider_name: "zhongyang",
+		provider_patient_id: "provider-patient-001",
+		directory_last_seen_at: "2026-08-16 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([
+		[],
+		{ affectedRows: 1 },
+		{ affectedRows: 0 },
+		[currentRow],
+		{ affectedRows: 1 },
+	]);
+	const repositories = createMySqlRepositories(pool);
+	const snapshot = repositories.patients.replaceDirectorySnapshot;
+	if (!snapshot) throw new Error("snapshot unavailable");
+
+	await expect(
+		snapshot({
+			ownerUserId: "user-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T00:00:00.000Z",
+			operationId: "operation-001",
+			operationAttemptCount: 1,
+			patients: [
+				{
+					patientId: "patient-sync-001",
+					profile: {
+						providerPatientId: "provider-patient-001",
+						displayName: "张三",
+						relationship: "self",
+						cardNumberMasked: "******7890",
+					},
+				},
+			],
+		}),
+	).resolves.toMatchObject({ deactivatedPatientCount: 0 });
+
+	expect(state.committed).toBe(true);
+	expect(state.statements.at(-1)).toContain("SET status = 'succeeded'");
+});
+
 test("MySQL ordinary profile uses insert-once and conditional version updates", async () => {
 	const firstRow = {
 		user_id: "user-profile-001",

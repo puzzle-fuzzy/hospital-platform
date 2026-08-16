@@ -235,6 +235,7 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | 409 | `payment-identity-not-found` | 支付身份映射不可用 |
 | 409 | `payment-prepay-in-progress` | 预支付仍在处理，不能并发创建 |
 | 409 | `payment-prepay-unknown` | 预支付结果需向 provider 确认，不能直接重建 |
+| 409 | `patient-sync-in-progress` | 当前用户的患者目录仍在同步，不能并发访问 provider |
 | 409 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
 | 502 | `provider-request-rejected` | provider 明确拒绝请求，不能盲目重试 |
 | 503 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |

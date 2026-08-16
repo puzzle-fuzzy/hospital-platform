@@ -99,6 +99,8 @@ pnpm provider:smoke
 也不会把同步结果中的临床引用返回给脚本。同步完成后，从平台 `GET /patients` 响应中取得内部
 `patientId`，再通过环境变量运行预约历史/报告 smoke；同时用同步请求的 `traceId` 检索服务端
 `patient.directory.synced` 日志，确认 `hisPatientReferenceCount`，不能只看脚本的 HTTP 200。
+如请求被重复提交，还应看到同一内部 `operationId` 的
+`patient.directory.operation.replayed`，并确认 provider 没有第二次请求。
 本地 HTTP 仅可在明确设置 `HOSPITAL_ALLOW_LOCAL_HTTP=true` 后用于本机调试；公网 smoke
 仍必须使用 HTTPS。工具输出使用 Pino 结构化事件：
 

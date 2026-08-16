@@ -3,6 +3,7 @@ import {
 	DependencyNotConfiguredError,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeValidationError,
+	PatientDirectorySyncInProgressError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
 	PaymentNotificationConflictError,
@@ -74,6 +75,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "dependency-not-configured",
 						message: "Required service dependency is not configured",
+					},
+				};
+			}
+
+			if (error instanceof PatientDirectorySyncInProgressError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "patient-sync-in-progress",
+						message: "患者目录正在同步，请稍后刷新",
 					},
 				};
 			}

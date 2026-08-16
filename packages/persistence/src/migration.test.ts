@@ -208,6 +208,12 @@ test("core migration contains the transaction-critical constraints", async () =>
 			import.meta.url,
 		),
 	).text();
+	const patientSyncSql = await Bun.file(
+		new URL(
+			"../migrations/0015_patient_directory_sync_operations.sql",
+			import.meta.url,
+		),
+	).text();
 
 	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_payment_orders");
 	expect(prepaySql).toContain(
@@ -236,6 +242,12 @@ test("core migration contains the transaction-critical constraints", async () =>
 	expect(patientSnapshotSql).toContain("directory_active TINYINT(1)");
 	expect(patientSnapshotSql).toContain("directory_last_seen_at DATETIME(3)");
 	expect(patientSnapshotSql).toContain("ix_hp_patients_owner_directory_status");
+	expect(patientSyncSql).toContain(
+		"CREATE TABLE IF NOT EXISTS hp_patient_directory_sync_operations",
+	);
+	expect(patientSyncSql).toContain("uq_hp_patient_sync_owner_provider_key");
+	expect(patientSyncSql).toContain("ix_hp_patient_sync_status_lease");
+	expect(patientSyncSql).toContain("fk_hp_patient_sync_owner");
 });
 
 test("report reference migration keeps the owner and expiry boundary explicit", async () => {

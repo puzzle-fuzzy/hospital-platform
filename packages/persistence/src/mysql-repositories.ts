@@ -9,6 +9,8 @@ import type {
 	OutboxRepository,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
+	PatientDirectorySyncStartInput,
+	PatientDirectorySyncStart,
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientRecord,
@@ -138,6 +140,13 @@ type PatientProviderReferenceRow = RowDataPacket & {
 	provider_name: string;
 	reference_kind: "directory" | "his-patient";
 	provider_patient_id: string;
+};
+
+type PatientDirectorySyncOperationRow = RowDataPacket & {
+	operation_id: string;
+	status: "in_progress" | "succeeded";
+	attempt_count: number | string;
+	lease_until: string;
 };
 
 type AppointmentScheduleSnapshotRow = RowDataPacket & {
@@ -429,6 +438,25 @@ function patient(row: PatientRow): PatientRecord {
 		cardNumberMasked: row.card_number_masked,
 		source: row.source,
 	};
+}
+
+/** 将当前脱敏读模型压缩成低敏摘要；原始患者资料和幂等键不进入操作表摘要。 */
+function patientDirectoryResultDigest(rows: readonly PatientRow[]): string {
+	return createHash("sha256")
+		.update(
+			rows
+				.map((row) =>
+					[
+						row.patient_id,
+						row.display_name,
+						row.relationship,
+						row.card_number_masked,
+						row.source,
+					].join("\u001f"),
+				)
+				.join("\u001e"),
+		)
+		.digest("hex");
 }
 
 /**
@@ -1064,12 +1092,101 @@ export function createMySqlRepositories(
 			);
 			return rows.map(patient);
 		},
+		async beginDirectorySync(
+			input: PatientDirectorySyncStartInput,
+		): Promise<PatientDirectorySyncStart> {
+			return withTransaction(pool, async (connection) => {
+				const operationId = crypto.randomUUID();
+				const now = mysqlDateTime(input.now);
+				const leaseUntil = mysqlDateTime(input.leaseUntil);
+				// ON DUPLICATE KEY UPDATE 只用于处理“两个进程首次同时创建同一 key”
+				// 的唯一键竞争；不使用 INSERT IGNORE，避免吞掉外键或字段校验错误；
+				// 真正的状态判断仍通过后面的 FOR UPDATE 完成。
+				await execute<ResultSetHeader>(
+					connection,
+					"INSERT INTO hp_patient_directory_sync_operations (operation_id, owner_user_id, provider_name, idempotency_key, status, attempt_count, lease_until, created_at, updated_at) VALUES (?, ?, ?, ?, 'in_progress', 1, ?, ?, ?) ON DUPLICATE KEY UPDATE operation_id = operation_id",
+					[
+						operationId,
+						input.ownerUserId,
+						input.provider,
+						input.idempotencyKey,
+						leaseUntil,
+						now,
+						now,
+					],
+				);
+				const rows = await execute<PatientDirectorySyncOperationRow[]>(
+					connection,
+					"SELECT operation_id, status, attempt_count, lease_until FROM hp_patient_directory_sync_operations WHERE owner_user_id = ? AND provider_name = ? AND idempotency_key = ? LIMIT 1 FOR UPDATE",
+					[input.ownerUserId, input.provider, input.idempotencyKey],
+				);
+				const row = rows[0];
+				if (!row)
+					throw new Error("Patient sync operation disappeared after insert");
+				const attemptCount = Number(row.attempt_count);
+				if (!Number.isSafeInteger(attemptCount) || attemptCount < 1) {
+					throw new Error(
+						"Persistence returned an invalid patient sync attempt count",
+					);
+				}
+				// 不依赖 mysql2 对 ON DUPLICATE KEY 的 affectedRows 约定；
+				// 新生成的 operationId 只有在本事务确实插入时才会被查询回来。
+				if (row.operation_id === operationId) {
+					return {
+						outcome: "started",
+						operationId: row.operation_id,
+						attemptCount,
+					};
+				}
+				if (row.status === "succeeded") {
+					return {
+						outcome: "replay",
+						operationId: row.operation_id,
+						attemptCount,
+					};
+				}
+				const leaseMilliseconds = timestampMilliseconds(row.lease_until);
+				const nowMilliseconds = timestampMilliseconds(input.now);
+				if (leaseMilliseconds === undefined || nowMilliseconds === undefined) {
+					throw new Error("Persistence returned an invalid patient sync lease");
+				}
+				if (leaseMilliseconds > nowMilliseconds) {
+					return {
+						outcome: "in_progress",
+						operationId: row.operation_id,
+						attemptCount,
+						leaseUntil: new Date(leaseMilliseconds).toISOString(),
+					};
+				}
+
+				const updated = await execute<ResultSetHeader>(
+					connection,
+					"UPDATE hp_patient_directory_sync_operations SET status = 'in_progress', attempt_count = attempt_count + 1, lease_until = ?, updated_at = ? WHERE operation_id = ? AND status = 'in_progress'",
+					[leaseUntil, now, row.operation_id],
+				);
+				if (updated.affectedRows !== 1) {
+					throw new Error("Patient sync operation lease takeover failed");
+				}
+				return {
+					outcome: "started",
+					operationId: row.operation_id,
+					attemptCount: attemptCount + 1,
+				};
+			});
+		},
 		async upsertFromDirectory(input) {
 			return upsertPatientFromDirectory(pool, input, new Date().toISOString());
 		},
 		async replaceDirectorySnapshot(
 			input: PatientDirectorySnapshotInput,
 		): Promise<PatientDirectorySnapshotResult> {
+			if (
+				input.operationId &&
+				(!Number.isSafeInteger(input.operationAttemptCount) ||
+					(input.operationAttemptCount ?? 0) < 1)
+			) {
+				throw new Error("Patient sync operation attempt is required");
+			}
 			return withTransaction(pool, async (connection) => {
 				for (const snapshotPatient of input.patients) {
 					await upsertPatientFromDirectory(
@@ -1095,6 +1212,26 @@ export function createMySqlRepositories(
 					"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND (provider_name IS NULL OR directory_active = 1) ORDER BY patient_id",
 					[input.ownerUserId],
 				);
+				if (input.operationId) {
+					const completedAt = mysqlDateTime(new Date());
+					const completed = await execute<ResultSetHeader>(
+						connection,
+						"UPDATE hp_patient_directory_sync_operations SET status = 'succeeded', observed_at = ?, completed_at = ?, result_digest = ?, updated_at = ? WHERE operation_id = ? AND owner_user_id = ? AND provider_name = ? AND attempt_count = ? AND status = 'in_progress'",
+						[
+							observedAt,
+							completedAt,
+							patientDirectoryResultDigest(currentRows),
+							completedAt,
+							input.operationId,
+							input.ownerUserId,
+							input.provider,
+							input.operationAttemptCount,
+						],
+					);
+					if (completed.affectedRows !== 1) {
+						throw new Error("Patient sync operation completion failed");
+					}
+				}
 
 				return {
 					activePatients: currentRows.map(patient),

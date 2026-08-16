@@ -11,7 +11,12 @@ const AuthorizationHeaders = t.Object({
 /** 同步操作需要显式幂等上下文；unionId 不允许由小程序提交。 */
 const SyncPatientsHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
-	"idempotency-key": t.String({ minLength: 1, maxLength: 128 }),
+	/** 只允许可进入请求上下文的安全 token 字符，拒绝换行和敏感资料伪装成幂等键。 */
+	"idempotency-key": t.String({
+		minLength: 1,
+		maxLength: 128,
+		pattern: "^[A-Za-z0-9._:-]+$",
+	}),
 	"x-request-id": t.Optional(t.String({ maxLength: 128 })),
 });
 

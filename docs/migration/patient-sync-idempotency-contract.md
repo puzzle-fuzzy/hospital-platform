@@ -29,7 +29,7 @@ MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快�
 ```
 
 `ownerUserId` 只能从 Bearer 会话解析；`provider` 由服务端路由固定为 `zhongyang`；小程序不能提交
-这两个归属字段。`Idempotency-Key` 只接受长度 1 至 128 的可打印 ASCII 字符，不能进入 URL、日志正文
+这两个归属字段。`Idempotency-Key` 只接受长度 1 至 128 的安全 token 字符（`A-Z`、`a-z`、`0-9`、`.`、`_`、`:`、`-`），不能进入 URL、日志正文
 或 provider 患者查询参数。
 
 ### 2.2 当前请求没有 body，因此不增加客户端指纹
@@ -86,16 +86,16 @@ MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快�
 
 ### 4.2 完成同步
 
-`replaceDirectorySnapshot` 接受本次 operation 的内部标识，并在**同一个 MySQL 事务**中完成：
+`replaceDirectorySnapshot` 接受本次 operation 的内部标识和租约代次，并在**同一个 MySQL 事务**中完成：
 
 1. 按 provider 患者号 upsert 本次完整目录；
 2. 仅将同 owner/provider 下、`directory_last_seen_at` 早于本次 `observedAt` 且未出现的患者标记 inactive；
 3. 查询本次 owner 的 active 读模型；
-4. 把操作状态从 `in_progress` 更新为 `succeeded`，写入 `observed_at`、`completed_at` 和结果摘要；
+4. 仅当 `operation_id`、owner、provider 和 `attempt_count` 都仍然匹配时，把操作状态从 `in_progress` 更新为 `succeeded`，写入 `observed_at`、`completed_at` 和结果摘要；
 5. 任意一步失败都回滚患者状态和操作状态，不能留下“目录已更新但操作仍显示成功”或相反的半套事实。
 
-`observedAt` 仍然在 provider 请求发出前采样。租约接管并不改变乱序保护：较早的 provider 快照即使
-晚返回，也不能覆盖已经提交的更新快照。
+`observedAt` 仍然在 provider 请求发出前采样。租约接管会递增 `attempt_count`，因此较早的 provider
+快照即使晚返回，也不能完成新一轮 operation；它的目录事务必须回滚，且不能覆盖已经提交的更新快照。
 
 ### 4.3 进程崩溃和租约
 
@@ -150,7 +150,7 @@ MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快�
 - `patient.directory.operation.replayed`
 - `patient.directory.operation.in_progress`
 - `patient.directory.operation.lease_taken_over`
-- `patient.directory.operation.succeeded`
+- `patient.directory.synced`（operation 成功提交后的结果事件）
 
 事件字段只允许 `traceId`、`operationId`、owner 的不可逆短摘要、provider、attempt、耗时、
 患者数量、失效数量和 `providerRequestId`。禁止记录 `Idempotency-Key` 原文、unionId、openid、

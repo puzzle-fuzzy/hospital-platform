@@ -349,6 +349,42 @@ test("患者目录旧快照返回较晚时不能覆盖新资料或重新激活�
 	).toMatchObject({ providerPatientId: "his-order-new" });
 });
 
+test("患者目录旧租约在新代次接管后不能提交同步结果", async () => {
+	const patients = createInMemoryPatientRepository();
+	const begin = patients.beginDirectorySync;
+	const snapshot = patients.replaceDirectorySnapshot;
+	if (!begin || !snapshot)
+		throw new Error("patient sync repository unavailable");
+
+	const first = await begin({
+		ownerUserId: "user-lease-001",
+		provider: "zhongyang",
+		idempotencyKey: "lease-key",
+		now: "2026-08-16T00:00:00.000Z",
+		leaseUntil: "2026-08-16T00:00:01.000Z",
+	});
+	const takeover = await begin({
+		ownerUserId: "user-lease-001",
+		provider: "zhongyang",
+		idempotencyKey: "lease-key",
+		now: "2026-08-16T00:00:01.001Z",
+		leaseUntil: "2026-08-16T00:00:02.001Z",
+	});
+
+	expect(first).toMatchObject({ outcome: "started", attemptCount: 1 });
+	expect(takeover).toMatchObject({ outcome: "started", attemptCount: 2 });
+	await expect(
+		snapshot({
+			ownerUserId: "user-lease-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T00:00:00.000Z",
+			operationId: first.operationId,
+			operationAttemptCount: first.attemptCount,
+			patients: [],
+		}),
+	).rejects.toThrow("operation is not active");
+});
+
 test("appointment schedule snapshots reject stale observations and expire", async () => {
 	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
 	const schedule = {

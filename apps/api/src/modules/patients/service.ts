@@ -5,6 +5,7 @@ import {
 	DependencyNotConfiguredError,
 	type PatientDirectoryGateway,
 	type PatientRepository,
+	PatientDirectorySyncInProgressError,
 	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -20,12 +21,18 @@ export type PatientServiceDependencies = {
 	createPatientId?: () => string;
 	/** 记录快照发起时间；生产使用服务端时钟，测试可注入固定时间。 */
 	now?: () => Date;
+	/**
+	 * 同步 operation 的租约时长；必须大于 provider 请求超时，不能由小程序提交。
+	 * 默认 60 秒，测试可缩短以覆盖租约接管。
+	 */
+	syncLeaseMs?: number;
 };
 
 export class PatientService {
 	private readonly logger: AppLogger;
 	private readonly createPatientId: () => string;
 	private readonly now: () => Date;
+	private readonly syncLeaseMs: number;
 
 	constructor(
 		private readonly repository: PatientRepository,
@@ -34,6 +41,10 @@ export class PatientService {
 		this.logger = dependencies.logger ?? createNoopLogger();
 		this.createPatientId = dependencies.createPatientId ?? randomUUID;
 		this.now = dependencies.now ?? (() => new Date());
+		this.syncLeaseMs = dependencies.syncLeaseMs ?? 60_000;
+		if (!Number.isSafeInteger(this.syncLeaseMs) || this.syncLeaseMs < 1_000) {
+			throw new Error("Patient directory sync lease must be at least 1000ms");
+		}
 	}
 
 	/** 只按服务端解析出的 ownerUserId 查询，避免客户端传 userId 越权。 */
@@ -63,6 +74,8 @@ export class PatientService {
 		ownerUserId: string,
 		context: AdapterCallContext,
 	): Promise<PatientListPayload["data"]> {
+		let operationId: string | undefined;
+		let operationAttemptCount: number | undefined;
 		this.logger.info(
 			{
 				event: "patient.directory.requested",
@@ -75,7 +88,8 @@ export class PatientService {
 		try {
 			const identityUsers = this.dependencies.identityUsers;
 			const directory = this.dependencies.directory;
-			if (!identityUsers || !directory) {
+			const beginDirectorySync = this.repository.beginDirectorySync;
+			if (!identityUsers || !directory || !beginDirectorySync) {
 				throw new DependencyNotConfiguredError("patient-directory");
 			}
 
@@ -89,6 +103,58 @@ export class PatientService {
 			// 但较晚返回的旧响应只能作为旧快照处理，不能凭“返回得更晚”覆盖
 			// 已经落库的新目录状态或重新激活已失效患者。
 			const observedAt = this.now().toISOString();
+			const leaseUntil = new Date(
+				Date.parse(observedAt) + this.syncLeaseMs,
+			).toISOString();
+			const operation = await beginDirectorySync.call(this.repository, {
+				ownerUserId,
+				provider: "zhongyang",
+				idempotencyKey: context.idempotencyKey,
+				now: observedAt,
+				leaseUntil,
+			});
+			operationId = operation.operationId;
+			operationAttemptCount = operation.attemptCount;
+			if (operation.outcome === "replay") {
+				this.logger.info(
+					{
+						event: "patient.directory.operation.replayed",
+						traceId: context.traceId,
+						operationId: operation.operationId,
+						provider: "zhongyang",
+						attemptCount: operation.attemptCount,
+					},
+					"Patient directory synchronization replayed from durable state",
+				);
+				return this.list(ownerUserId);
+			}
+			if (operation.outcome === "in_progress") {
+				this.logger.warn(
+					{
+						event: "patient.directory.operation.in_progress",
+						traceId: context.traceId,
+						operationId: operation.operationId,
+						provider: "zhongyang",
+						attemptCount: operation.attemptCount,
+					},
+					"Patient directory synchronization is already in progress",
+				);
+				throw new PatientDirectorySyncInProgressError();
+			}
+
+			this.logger.info(
+				{
+					event:
+						operation.attemptCount > 1
+							? "patient.directory.operation.lease_taken_over"
+							: "patient.directory.operation.started",
+					traceId: context.traceId,
+					operationId: operation.operationId,
+					provider: "zhongyang",
+					attemptCount: operation.attemptCount,
+				},
+				"Patient directory synchronization operation started",
+			);
 			const result = await directory.listByIdentity(
 				{ unionId: identity.unionId },
 				context,
@@ -117,6 +183,8 @@ export class PatientService {
 				ownerUserId,
 				provider: "zhongyang",
 				observedAt,
+				operationId: operation.operationId,
+				operationAttemptCount: operation.attemptCount,
 				patients: snapshotPatients,
 			});
 
@@ -130,6 +198,8 @@ export class PatientService {
 					activePatientCount: snapshot.activePatients.length,
 					deactivatedPatientCount: snapshot.deactivatedPatientCount,
 					hisPatientReferenceCount,
+					operationId,
+					attemptCount: operationAttemptCount,
 				},
 				"Patient directory synchronized",
 			);
@@ -141,6 +211,7 @@ export class PatientService {
 					event: "patient.directory.failed",
 					traceId: context.traceId,
 					provider: "zhongyang",
+					operationId,
 					errorType: error instanceof Error ? error.name : "unknown",
 				},
 				"Patient directory synchronization failed",
