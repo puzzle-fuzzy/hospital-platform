@@ -35,9 +35,19 @@ const scheduleGuard = createLatestRequestGuard();
 
 /** 把服务端日期转换成旧端右栏可快速扫描的短标签。 */
 function dateLabel(value: string): string {
-	const date = new Date(`${value}T00:00:00`);
-	if (Number.isNaN(date.getTime())) return value;
-	return `${date.getMonth() + 1}月${date.getDate()}日 ${WEEKDAY_LABELS[date.getDay()]}`;
+	// `workDate` 是医院业务日历，而不是用户设备所在时区的瞬时时间。
+	// 固定用 UTC 解析纯日期并读取 UTC 字段，把 UTC 当作不会发生偏移的
+	// 日历容器；否则海外设备可能把医院日期显示成前一天或后一天。
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+	const date = new Date(`${value}T00:00:00.000Z`);
+	if (
+		Number.isNaN(date.getTime()) ||
+		date.toISOString().slice(0, 10) !== value
+	) {
+		return value;
+	}
+	const weekday = WEEKDAY_LABELS[date.getUTCDay()] ?? "";
+	return `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${weekday}`;
 }
 
 function dateGroups(schedules: readonly { workDate: string }[]) {

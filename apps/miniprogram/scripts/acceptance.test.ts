@@ -659,6 +659,21 @@ test("dashboard service calculates China Standard Time calendar windows", () => 
 	expect(formatPlatformDate(afterChinaMidnight)).toBe("2026-08-16");
 });
 
+test("appointment directory labels provider calendar dates without device timezone drift", async () => {
+	const page = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
+
+	// workDate 是医院日历值，页面不能用设备本地 getMonth/getDate/getDay 推导星期。
+	expect(page).toContain("T00:00:00.000Z");
+	expect(page).toContain("getUTCMonth()");
+	expect(page).toContain("getUTCDate()");
+	expect(page).toContain("getUTCDay()");
+	expect(page).not.toContain("getMonth()");
+	expect(page).not.toContain("getDate()");
+	expect(page).not.toContain("getDay()");
+});
+
 test("page request guard only permits the latest patient read to update state", () => {
 	const guard = createLatestRequestGuard();
 	const first = guard.begin();

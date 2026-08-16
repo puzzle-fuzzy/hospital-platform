@@ -65,7 +65,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		this.loadPatientList();
 	},
 
-	/** 进入页面后只读取平台患者目录；首次没有目录时再由用户明确触发同步。 */
+	/** 进入页面先读取平台目录，再主动同步一次临床映射，保证直接打开选择页也可用。 */
 	loadPatientList(): Promise<void> {
 		const dataToken = directoryDataGuard.begin();
 		const loadingToken = loadingGuard.begin();
