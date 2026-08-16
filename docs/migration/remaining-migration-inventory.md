@@ -24,7 +24,7 @@
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
 | --- | --- | --- | --- |
 | 微信登录与平台会话 | `auth`、Redis session | 代码和生产运行边界已具备 | 未完成当前微信账号的真机完整证据时，不能宣称正式验收 |
-| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离和代码级完整快照状态模型已实现；生产当前只确认到 `0012` | `0013` 生产 migration、真实失效/恢复数据和新增/绑定家属仍未完成 |
+| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | 只读 provider adapter 和两列级联页面已实现 | 不能锁号、不能把 `scheduleId` 当成写入授权 |
 | 预约历史 | `appointments/records` | contract、映射边界和只读页面已实现 | 真实账号重新同步、公网和真机证据仍缺 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
@@ -49,7 +49,7 @@
   也不能重新激活已被新快照标记为 inactive 的患者。
 - 预约目录、预约历史、报告、门诊费用分别完成 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
-- 患者目录失效回收已使用“active/inactive + 事务快照”实现；生产当前 release 的 schema probe 只验证到 `0012`，仍需完成 `0013` 生产 schema probe、真实失效/恢复验收，不能直接删除 `hp_patients`。
+- 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
 
 ### 旧端顶层页面的重分类
 

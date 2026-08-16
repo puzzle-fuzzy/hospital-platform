@@ -25,7 +25,7 @@
 - 从同一服务器直接请求众阳科室和排班地址可得到 HTTP 200，说明不能继续把问题归因于“上游不可达”。
 - 新 API 旧日志只记录 `ProviderRequestError/UNKNOWN`，缺少上游状态码和操作名，已经补充低敏 provider 诊断字段。
 - 2026-08-16 已定位并修复预约科室/排班目录错误：科室接口需要日期窗口，排班响应中的 `remainingNumber` 可能为 `null`，服务端现使用真实的 `usableSourceNum` 映射可用号源；线上新版本已直接回归科室和排班 provider。
-- 预约历史的标识根因已经确认：患者目录的 `thirdPatientId` 不能直接当作预约历史接口的患者标识；新代码已增加 `patInfosFind` 档案查询和 `his-patient` 独立映射，release `b1b84d7` 已上线且 `0012_patient_provider_references` 已通过生产 schema probe，仍需重新同步真实账号并完成公网业务 smoke/真机验收。
+- 预约历史的标识根因已经确认：患者目录的 `thirdPatientId` 不能直接当作预约历史接口的患者标识；新代码已增加 `patInfosFind` 档案查询和 `his-patient` 独立映射，release `b1b84d7` 与 `ca3a877` 已上线，`0012_patient_provider_references`、`0013_patient_directory_snapshot` 均通过生产 schema probe，仍需重新同步真实账号并完成公网业务 smoke/真机验收。
 - 预约写号、锁号、取消、实际挂号费、医保和微信支付不能仅凭旧页面字段直接开放；仍需 provider 合同和脱敏 fixture。
 
 ## 业务实施顺序
@@ -135,5 +135,5 @@ available -> hold_pending -> held -> booking_pending -> booked
 ## 业务正确性加固记录
 
 - 2026-08-16：修复门诊费用窗口依赖服务器本地时区的问题，并用 UTC 输入验证仍输出中国标准时间；该修复只影响只读查询，不会打开支付、医保或结算写入。
-- 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；下一步是完成目标环境 migration、schema probe、失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
+- 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；目标环境 migration 和 schema probe 已完成，下一步是失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
 - 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。
