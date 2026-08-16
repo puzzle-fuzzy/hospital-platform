@@ -23,8 +23,9 @@ migration，不执行 migration，也不会调用微信支付或其他 provider�
 pnpm runtime:preflight
 ```
 
-preflight 返回非零并不代表代码故障：在真实商户配置、schema staging 验收和公网
-HTTPS 回调尚未完成时，`PERSISTENCE_SCHEMA_READY` 或 provider 配置检查应当保持失败。
+preflight 返回非零并不代表代码故障：在 schema staging 验收或持久化配置缺失时，
+`PERSISTENCE_SCHEMA_READY`、MySQL 或 Redis 检查应当失败；支付 gate 保持关闭时不要求支付密钥，
+但支付 gate 一旦打开，支付密钥和商户配置必须完整。preflight 通过也不代表允许启动支付 Worker。
 
 API 进程可响应性可以单独检查，不需要 provider 凭证：
 

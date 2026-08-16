@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { loadRuntimeConfig } from "@hospital/config";
-import { runWorkerPreflight } from "./preflight";
+import {
+	preflightConfigurationMissingFields,
+	runWorkerPreflight,
+} from "./preflight";
 
 test("runtime preflight fails closed without configuration and does not need infrastructure", async () => {
 	const result = await runWorkerPreflight({
@@ -11,12 +14,7 @@ test("runtime preflight fails closed without configuration and does not need inf
 	expect(result.checks).toContainEqual({
 		name: "runtime-configuration",
 		status: "failed",
-		details: [
-			"PERSISTENCE_SCHEMA_READY",
-			"DATABASE_URL",
-			"PAYMENT_DATA_ENCRYPTION_KEY",
-			"WECHAT_PAYMENT_READY",
-		],
+		details: ["PERSISTENCE_SCHEMA_READY", "DATABASE_URL", "REDIS_URL"],
 	});
 	expect(result.checks).toContainEqual({
 		name: "persistence-schema",
@@ -37,6 +35,30 @@ test("runtime preflight fails closed without configuration and does not need inf
 			"zhongyang-report-detail:disabled",
 		],
 	});
+});
+
+test("preflight allows the payment gate to remain disabled", () => {
+	const runtimeConfig = loadRuntimeConfig({
+		PERSISTENCE_SCHEMA_READY: "true",
+		DATABASE_URL: "mysql://hospital:test@127.0.0.1:3307/hospital_platform",
+		REDIS_URL: "redis://127.0.0.1:6380/3",
+		WECHAT_PAYMENT_READY: "false",
+	});
+
+	expect(preflightConfigurationMissingFields(runtimeConfig)).toEqual([]);
+});
+
+test("preflight requires payment storage only after the payment gate opens", () => {
+	const runtimeConfig = loadRuntimeConfig({
+		PERSISTENCE_SCHEMA_READY: "true",
+		DATABASE_URL: "mysql://hospital:test@127.0.0.1:3307/hospital_platform",
+		REDIS_URL: "redis://127.0.0.1:6380/3",
+		WECHAT_PAYMENT_READY: "true",
+	});
+
+	expect(preflightConfigurationMissingFields(runtimeConfig)).toEqual([
+		"PAYMENT_DATA_ENCRYPTION_KEY",
+	]);
 });
 
 test("runtime preflight fails an explicitly opened but incomplete provider gate", async () => {

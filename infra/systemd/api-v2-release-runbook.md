@@ -73,13 +73,15 @@ sha256sum \
 ```bash
 cd /home/ps/code/hospital-platform
 set -a
-. shared/worker.env
+. shared/api.env
 set +a
 /home/ps/.bun/bin/bun "releases/${new_sha}/apps/worker/dist/preflight.js"
 ```
 
-该命令只读取 MySQL、Redis、schema 和配置 gate；`worker.env` 中的支付配置仍必须保持关闭，preflight
-通过不等于允许启动 worker。需要真实患者只读证据时，再在受控环境注入临时平台 access token 和内部
+该命令只读取 MySQL、Redis、schema 和配置 gate；这里必须使用 API 的生产 env，因为候选 API 的持久化
+连接和 schema gate 在 `shared/api.env`，`shared/worker.env` 只用于尚未启用的 Worker。支付 gate 保持关闭
+是当前合法状态，preflight 通过不等于允许启动 worker；Worker 自己仍必须使用严格的支付配置检查并保持
+disabled/inactive。需要真实患者只读证据时，再在受控环境注入临时平台 access token 和内部
 `patientId`，执行 `provider-directory-smoke.js`，不得把 token 写入 release、shell 历史或日志。
 
 ## 3. 原子切换与新 API 重启

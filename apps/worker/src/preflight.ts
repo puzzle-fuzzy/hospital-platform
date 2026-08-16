@@ -12,7 +12,6 @@ import {
 	createPersistenceRuntime,
 	readCoreSchemaState,
 } from "@hospital/persistence";
-import { workerConfigurationMissingFields } from "./runtime";
 
 export type PreflightCheck = {
 	name: string;
@@ -30,6 +29,31 @@ function errorName(error: unknown): string {
 }
 
 /**
+ * 候选 release 的 preflight 与支付 Worker 启动是两个不同的门禁：
+ * - preflight 只验证 API/只读业务所需的持久化基础设施；支付关闭是当前合法状态；
+ * - Worker 启动仍由 `workerConfigurationMissingFields` 严格要求支付密钥和完整商户配置。
+ *
+ * 如果这里复用 Worker 的严格检查，支付尚未迁移完成时所有候选 release 都会被错误判定为
+ * 不可发布；如果反过来放宽 Worker 检查，则可能启动没有密钥的支付补偿进程。两个边界必须分开。
+ */
+export function preflightConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	const missing: string[] = [];
+	if (!runtimeConfig.persistenceSchemaReady)
+		missing.push("PERSISTENCE_SCHEMA_READY");
+	if (!runtimeConfig.databaseUrl) missing.push("DATABASE_URL");
+	if (!runtimeConfig.redisUrl) missing.push("REDIS_URL");
+	if (
+		runtimeConfig.wechatPaymentReady &&
+		!runtimeConfig.paymentDataEncryptionKey
+	) {
+		missing.push("PAYMENT_DATA_ENCRYPTION_KEY");
+	}
+	return missing;
+}
+
+/**
  * 发布前只读验收：
  *
  * - 检查完整运行配置、MySQL/Redis 探针和目标 migration；
@@ -42,7 +66,8 @@ export async function runWorkerPreflight(
 	const runtimeConfig = options.runtimeConfig ?? defaultConfig;
 	const logger = options.logger ?? createNoopLogger();
 	const checks: PreflightCheck[] = [];
-	const missingConfiguration = workerConfigurationMissingFields(runtimeConfig);
+	const missingConfiguration =
+		preflightConfigurationMissingFields(runtimeConfig);
 
 	checks.push({
 		name: "runtime-configuration",
