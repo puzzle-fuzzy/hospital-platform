@@ -9,7 +9,7 @@
 
 ## 1. 盘点结论
 
-旧端当前有 64 个 Vue 页面，新原生小程序有 10 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
+旧端当前有 64 个 Vue 页面，新原生小程序有 11 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
 但还不是旧端的功能等价替换：
 
 页面之外的旧端请求封装、WebSocket、状态仓储、问卷/随访组件和静态业务配置，不能按“公共工具”视为已迁移；
@@ -20,8 +20,8 @@
 
 ```text
 已形成代码闭环（真实 provider、公网 API、微信真机和生产业务证据仍待）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
-已迁移静态能力：院内导航静态地图（不含实时定位和路线）
-仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码；医院列表仍缺机构/院区 contract
+已迁移静态能力：医院列表单院区卡片、院内导航静态地图（均不含动态机构/路线能力）
+仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码；医院列表仍缺动态机构/院区/路线 contract
 仍缺真实证据：众阳患者/预约历史/报告/门诊费用、公网 API、微信真机和生产回归
 ```
 
@@ -35,7 +35,8 @@
 | 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；查询窗口固定为近 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
 | 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai` | 费用详情、支付、医保、结算回写和退费未开放 |
-| 院内导航 | `pages/hospital-navigation/hospital-navigation` | 旧端静态地图、背景色、`aspectFit` 和点击预览已迁移 | 医院列表、楼层/科室定位、实时路线和地图服务未迁移 |
+| 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
+| 院内导航 | `pages/hospital-navigation/hospital-navigation` | 旧端静态地图、背景色、`aspectFit` 和点击预览已迁移 | 楼层/科室定位、实时路线和地图服务未迁移 |
 | 微信支付 | 订单、预支付、通知、查单基础设施 | 代码基础和 gate 已具备 | 商户、回调、公网和真机支付未验收；gate 必须关闭 |
 | 医保/HIS | domain/规则层部分存在 | 规则边界和文档基础存在 | 真实加密、授权、6201/6202/6301/6203/6401、HIS 回写均未迁移 |
 | 健康知识 | contract/domain/repository、版本化 schema、导入校验和旧表映射文档已具备 | 明确 fail-closed，患者路由未挂载；真实内容未导入 | 内容来源/临床审核、staging 发布撤回、患者端页面和真机证据仍未完成 |
@@ -80,7 +81,7 @@
 | `pagesB/health/outpatient_pay_detail`、`electronic_bill` | 费用明细和可支付金额展示 | 费用详情 contract、金额单位和患者归属规则 |
 | `pagesB/health/report_query`、`report_detail` 的真实能力 | LIS/PACS/ECG/体检真实数据、附件和详情授权 | provider 文档、资源 URL/短期授权、数据脱敏规则 |
 | `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段；旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | HIS/EMR 只读 contract、资源授权和脱敏清单；目录差异草案见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)，整体边界见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
-| `pagesB/hospital/hospitalList` | 医院列表 | 医院列表数据来源、机构选择语义和版本 contract |
+| `pagesB/hospital/hospitalList` | 医院列表 | 静态单院区入口已迁移至 `pages/hospital-list/hospital-list`；医院列表数据来源、机构选择语义和版本 contract 仍缺 |
 | `pagesB/hospital/navigation` | 静态院内地图已迁移；实时楼层/科室定位未迁移 | 原始 `map.jpg`、`aspectFit`、点击预览已完成；动态地图数据、定位和路线 contract 待确认 |
 | `pagesB/hospital/bloodAppointment` | 采血预约 | 采血服务 contract、号源状态和取消规则 |
 
@@ -154,7 +155,7 @@
 
 1. 先完成 P0 的真实只读验收和患者上下文竞态审计，不扩大功能面。
 2. 接收新的 provider 文档后，冻结预约写入、门诊费用详情、病历和报告资源的 contract 差异表。
-3. 爽约记录安全筛选子页已完成代码闭环，但不替代真实验收；取得新的 provider 文档后，优先选择病历目录等低风险只读域完成 contract → adapter → API → 小程序 → 测试 → 验收手册闭环。医院列表仍等待机构/院区/路线 contract，不能把旧静态卡片扩展成动态业务。
+3. 爽约记录安全筛选子页已完成代码闭环，但不替代真实验收；静态医院列表已恢复预约前置流程，取得新的 provider 文档后，优先选择病历目录等低风险只读域完成 contract → adapter → API → 小程序 → 测试 → 验收手册闭环。医院列表不能把静态卡片扩展成动态业务，仍等待机构/院区/路线 contract。
 4. 健康知识已经完成旧表/接口映射和导入前置校验；仍必须先做内容审核和版本化导入，再挂载患者 GET 路由；自测、AI 和报告解读继续分开。
 5. 便民服务先按 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) 完成 contract 和旧数据隔离，再按“医生关系只读 → 患者反馈 → 临床问卷 → 预约后预问诊/出院随访”推进；provider/临床资料不足时不注册患者 API。
 6. 最后按“现金支付 → 医保授权/结算 → 查单/退款 → HIS 回写”推进，任何未知状态都进入人工/补偿队列，不在前端显示成功。

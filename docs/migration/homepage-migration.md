@@ -45,7 +45,7 @@
 
 | 旧入口 | 新端入口/页面 | 当前状态 |
 | --- | --- | --- |
-| 预约挂号 | `pages/appointment-directory/appointment-directory` | 已接入科室/排班只读；写号、锁号、费用和支付未开放 |
+| 预约挂号 | `pages/hospital-list/hospital-list` → `pages/appointment-directory/appointment-directory` | 已恢复旧端医院卡片前置；科室/排班只读已接入，写号、锁号、费用和支付未开放 |
 | 门诊缴费 | `pages/outpatient-payment/outpatient-payment` | 已接入费用只读；真实支付、医保授权、结算回写按用户要求最后处理 |
 | 互联网医院 | 首页原位置保留 | 未迁移；需要外部小程序/医院服务合同，当前不伪造跳转 |
 | 门诊病历 | 首页原位置保留 | 未迁移；需要病历资源授权和脱敏 contract |
@@ -54,11 +54,11 @@
 | 陪诊/报告右侧快捷图 | 陪诊保留迁移提示；报告进入报告目录页 | 报告目录已补齐；陪诊未迁移 |
 | 我的挂号 | `pages/appointment-records/appointment-records` | 已接入只读页面；预约历史仍依赖 provider 患者标识映射验收 |
 | 就诊人绑定 | `pages/patient-select/patient-select` | 已接入目录、选择、刷新；真实新增/家属绑定未开放 |
-| 住院、便民、健康服务 | 首页三组服务保留原位置；院内导航进入 `pages/hospital-navigation/hospital-navigation` | 静态院内地图已迁移；医院列表、实时楼层/科室定位、健康内容和住院服务仍待逐域取得 contract |
+| 住院、便民、健康服务 | 首页三组服务保留原位置；院内导航进入 `pages/hospital-navigation/hospital-navigation` | 静态医院卡片和静态院内地图已迁移；动态医院/院区、实时楼层/科室定位、健康内容和住院服务仍待逐域取得 contract |
 
 ## 4. 后续顺序
 
 1. 先完成患者目录、切换患者、报告目录和预约只读的真机验收；
 2. 取得二维码扫码协议后，再设计短期 token、审计和医院设备验收；
-3. 逐项迁移门诊病历、医院列表、院内导航动态能力、健康百科/自测、住院服务和互联网医院，不共享旧 provider 万能代理；
+3. 逐项迁移门诊病历、医院列表动态能力、院内导航动态能力、健康百科/自测、住院服务和互联网医院，不共享旧 provider 万能代理；
 4. 最后按现金支付 → 医保授权/结算 → HIS 回写处理费用链路。

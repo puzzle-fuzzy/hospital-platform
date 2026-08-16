@@ -462,9 +462,9 @@ Page<IndexPageData, IndexPageMethods>({
 			this.onLogin();
 			return;
 		}
-		wx.navigateTo({
-			url: "/pages/appointment-directory/appointment-directory",
-		});
+		// 旧端预约流程先确认医院/院区，再进入科室与排班目录。医院列表目前是
+		// 单院区静态配置页，不把未确认的机构接口或路线字段混入新的预约 contract。
+		wx.navigateTo({ url: "/pages/hospital-list/hospital-list" });
 	},
 
 	onRefresh() {

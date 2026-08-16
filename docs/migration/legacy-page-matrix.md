@@ -1,6 +1,6 @@
 # 旧端逐页迁移矩阵
 
-> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 10 个 TypeScript 页面源文件。
+> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 11 个 TypeScript 页面源文件。
 > 本矩阵用于防止页面遗漏，不把“有旧代码”或“新端有占位入口”当作业务完成证据。
 
 ## 状态定义
@@ -29,7 +29,7 @@
 | `pagesB/hospital/` | `department_select.vue`、`doctor_card.vue`、`timeslot_source.vue` | 部分迁移 | 新端统一预约目录已覆盖科室/排班只读；医生详情、分时段字段白名单和写入前确认仍待 provider contract |
 | `pagesB/hospital/` | `registration_medical_pay.vue` | 待 provider contract | 归入挂号支付专项，必须等待医保/微信支付状态机、金额和查单证据；不能由只读排班页面跳转伪造支付 |
 | `pagesB/hospital/` | `selectPatient.vue` | 已替换 | 统一使用原生 `pages/patient-select/patient-select`，只持久化内部 opaque `patientId` |
-| `pagesB/hospital/` | `hospitalList.vue` | 待 provider contract | 旧页只有静态单院区卡片且“查看路线/去挂号”语义混杂；需确认医院/院区模型后再决定是否作为预约前置页 |
+| `pagesB/hospital/` | `hospitalList.vue` | 部分迁移 | 原生端已迁移旧静态单院区卡片、受控本地图片和“医院卡片 → 预约目录”前置流程；动态机构/院区目录、真实路线和多院区选择仍待独立 contract |
 | `pagesB/hospital/` | `navigation.vue` | 部分迁移 | 静态地图已迁移；实时楼层、科室定位、路线和地图数据版本未迁移 |
 | `pagesB/health/` | `outpatient_pay.vue` | 部分迁移 | 新端已接入门诊费用只读目录；费用详情、支付、医保授权、结算回写和退费未开放 |
 | `pagesB/health/` | `outpatient_pay_detail.vue`、`electronic_bill.vue` | 待 provider contract | 需费用明细白名单、金额单位、账单归属、分页/状态和短期资源授权 |
@@ -56,6 +56,6 @@
 
 ## 盘点结论
 
-- 64 个旧页面中，当前可宣称“已替换或已形成安全子集”的是：首页、我的/患者选择部分、预约只读部分、报告目录骨架、门诊费用目录、院内静态地图。
+- 64 个旧页面中，当前可宣称“已替换或已形成安全子集”的是：首页、我的/患者选择部分、预约前置静态医院卡片、预约只读部分、报告目录骨架、门诊费用目录、院内静态地图。
 - 预约写入、费用/支付/医保、住院、健康内容/自测、风险评估、随访、便民投稿、AI、外部 web-view 和个人中心扩展都不能因为旧页面存在而直接迁移。
 - 新 provider 文档到达后，应先从本矩阵选择一个状态为“待 provider contract”的域，完成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 验收闭环；文档缺失的字段不得进入公共 contract。

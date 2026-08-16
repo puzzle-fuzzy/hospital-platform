@@ -139,9 +139,7 @@ test("native mini program exposes read-only appointment directory and records pa
 
 	expect(app).toContain('"pages/appointment-directory/appointment-directory"');
 	expect(app).toContain('"pages/appointment-records/appointment-records"');
-	expect(home).toContain(
-		'url: "/pages/appointment-directory/appointment-directory"',
-	);
+	expect(home).toContain('url: "/pages/hospital-list/hospital-list"');
 	expect(home).toContain(
 		'url: "/pages/appointment-records/appointment-records"',
 	);
@@ -163,6 +161,34 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directory).not.toContain("providerPatientId");
 	expect(records).not.toContain("providerPatientId");
 	expect(records).not.toContain("wx.requestPayment");
+});
+
+test("native mini program preserves the legacy static hospital entry boundary", async () => {
+	const app = await source("app.json");
+	const home = await source("pages/index/index.ts");
+	const page = await source("pages/hospital-list/hospital-list.ts");
+	const template = await source("pages/hospital-list/hospital-list.wxml");
+	const style = await source("pages/hospital-list/hospital-list.wxss");
+	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
+	const asset = Bun.file(
+		join(sourceRoot, "assets", "hospital-list", "gaoping-hospital.jpg"),
+	);
+
+	expect(app).toContain('"pages/hospital-list/hospital-list"');
+	expect(home).toContain('url: "/pages/hospital-list/hospital-list"');
+	expect(page).toContain("STATIC_HOSPITAL");
+	expect(page).toContain(
+		'url: "/pages/appointment-directory/appointment-directory"',
+	);
+	expect(page).toContain("/assets/hospital-list/gaoping-hospital.jpg");
+	expect(page).toContain("路线服务暂未开放");
+	expect(page).not.toContain("openLocation");
+	expect(template).toContain("请确认就诊院区，选择对应的院区就诊！");
+	expect(template).toContain('catchtap="onRouteTap"');
+	expect(template).toContain('src="{{hospital.image}}"');
+	expect(style).toContain("height: 380rpx");
+	expect(build).toContain("hospital-list/hospital-list.js");
+	expect(await asset.exists()).toBe(true);
 });
 
 test("native mini program derives missed appointments from the normalized record status", async () => {

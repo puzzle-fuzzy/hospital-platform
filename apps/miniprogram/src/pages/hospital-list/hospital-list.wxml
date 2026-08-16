@@ -1,0 +1,23 @@
+<view class="hospital-list-page">
+	<!-- 旧页面的全宽红色提示，必须位于医院卡片之前。 -->
+	<view class="campus-warning">请确认就诊院区，选择对应的院区就诊！</view>
+
+	<view class="hospital-list-content">
+		<!-- 卡片点击只进入预约目录；路线按钮用 catchtap 阻断卡片点击，避免语义串线。 -->
+		<view class="hospital-card" bindtap="onRegisterTap">
+			<image
+				class="hospital-image"
+				src="{{hospital.image}}"
+				mode="aspectFill"
+			/>
+			<view class="hospital-overlay">
+				<view class="hospital-summary">
+					<view class="hospital-name">{{hospital.name}}</view>
+					<view class="route-button" catchtap="onRouteTap">查看路线</view>
+				</view>
+				<view class="hospital-address">{{hospital.address}}</view>
+			</view>
+			<view class="register-button">去挂号</view>
+		</view>
+	</view>
+</view>

@@ -1,0 +1,7 @@
+{
+	"navigationBarTitleText": "医院列表",
+	"navigationBarBackgroundColor": "#f8f8f8",
+	"navigationBarTextStyle": "black",
+	"backgroundColor": "#ffffff",
+	"enablePullDownRefresh": false
+}

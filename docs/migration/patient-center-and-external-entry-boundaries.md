@@ -18,7 +18,7 @@
 | `pagesB/patient/agreement.vue` | 展示静态条款；同意只 Toast 后跳首页，不记录版本/主体/时间 | 无同意记录接口 | 必须有版本化法律文本、同意事实、撤回和重新同意策略 |
 | `pagesB/patient/patient_signature.vue` | 使用本地/缓存患者列表，携带患者 ID/姓名跳转固定签名小程序 | `navigateToMiniProgram`，固定目标 AppID `wx0b76c9904392518f` | 需要目标小程序、字段、受众、回跳和签名结果回调 contract；不能透传内部或 provider 患者标识 |
 | `pagesB/account/follow.vue` | 展示关注公众号的静态宣传页 | 图片为外部 OSS 资源 | 仅可作为静态内容；公众号二维码/关注状态需要单独确认，不把静态页面当授权事实 |
-| `pagesB/hospital/hospitalList.vue` | 页面硬编码一个医院和地址，点击卡片进入挂号；“查看路线”没有真实路线逻辑 | 无医院列表 API | 医院列表、机构选择和路线必须独立 contract；当前只迁移静态院内地图，不迁移此动态能力 |
+| `pagesB/hospital/hospitalList.vue` | 页面硬编码一个医院和地址，点击卡片进入挂号；“查看路线”没有真实路线逻辑 | 无医院列表 API；新端已迁移为静态 `pages/hospital-list` | 静态卡片只作为预约前置展示；动态医院列表、机构选择和路线必须独立 contract，不能把静态配置扩展成动态能力 |
 | `pagesB/hospital/bloodAppointment.vue` | 患者姓名/年龄和院区均为硬编码，始终展示“无可预约项目” | 无采血 API；空态图片来自外部 OSS | 不能展示硬编码患者；等待采血服务 contract、院区和号源状态 |
 | `pagesB/health/webview.vue`、`pages/hospital/hospital.vue` | 根据 `path` 或完整 URL 打开外部 WebView | `POST /system/auth/ticket`；外部 AI/互联网医院 URL | 必须使用固定 audience/allowlist/短期会话；不能接受任意完整 URL 或把平台 token 交给外部页面 |
 
@@ -121,7 +121,7 @@ TTL 60 秒；`/system/auth/ticket/verify` 读取后删除票据并把 `access_to
 
 ### 互联网医院、医院列表和采血预约
 
-- 医院列表不是静态一条卡片；必须有机构 ID、可用服务、院区、地址、路线来源和版本；
+- 当前已迁移的医院列表只是核对过的单院区静态配置，不产生 server event，也不代表机构服务已完成；若扩展为动态医院列表，必须有机构 ID、可用服务、院区、地址、路线来源和版本；
 - 采血预约必须区分项目、院区、号源、预约状态、取消规则和患者上下文；不能保留硬编码“张三/18”；
 - 互联网医院 WebView 必须独立外部服务协议、域名 allowlist、登录态隔离和失败回退；
 - 静态院内地图和实时院内导航是两种能力，不能用前者掩盖后者未迁移。
