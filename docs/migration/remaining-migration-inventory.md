@@ -67,6 +67,11 @@
   或 HIS 回写。同期发现的 `PatientHospitalSelector.md` 是内部 UI 组件说明，已在登记文档中明确排除，不计入 Provider
   文档数量，避免把 UI 资料误判为接口契约。
 
+- 2026-08-17 已完成 `2.1.9` 科室基础目录和 `2.1.13` 院内用户资料的 contract diff，详见
+  [`directory-contract-diff-2026-08-17.md`](directory-contract-diff-2026-08-17.md)。这两个 `base-common` 接口不能
+  替代当前预约使用的 AMC 科室/排班接口，也不能替代平台用户资料、患者目录或“我的医生”关系；Provider 用户/机构
+  标识、证件、医保、签名、角色和图片字段继续留在服务端待确认边界，不新增通用公共目录路由。
+
 - 2026-08-16 23:19-23:20 CST 当前公网只读观察确认 `/api/v2/health/live`、`/api/v2/health/ready`、
   `/api/v2/system/ping` 均正常，ready 的 database/redis/schema 均为 `ok`；未登录患者目录仍返回 401，
   刻意冻结的 `/api/v2/medical-records` 返回 404。该证据只覆盖公网运行时和关闭边界，不能替代真实微信、
@@ -157,7 +162,7 @@
 
 | 旧页面/入口 | 缺失内容 | 必要前置 |
 | --- | --- | --- |
-| `pagesB/hospital/department_select`、`doctor_card`、`timeslot_source` | 科室/医生/号源详情、分时段号源和写入前确认 | 新 AMC 目录/号源 contract、字段白名单和 TTL |
+| `pagesB/hospital/department_select`、`doctor_card`、`timeslot_source` | 科室/医生/号源详情、分时段号源和写入前确认 | 新 AMC 目录/号源 contract、字段白名单和 TTL；`2.1.9` 基础科室目录不能直接替代 AMC |
 | `pagesB/hospital/confirm_registration`、`registration_detail` | 预约确认、预约详情和状态刷新 | 锁号、预约写入、最终状态查询、幂等与取消矩阵 |
 | `pagesB/health/outpatient_pay_detail`、`electronic_bill` | 费用明细和可支付金额展示 | 费用详情 contract、金额单位和患者归属规则 |
 | `pagesB/health/report_query`、`report_detail` 的真实能力 | LIS/PACS/ECG/体检真实数据、附件和详情授权 | provider 文档、资源 URL/短期授权、数据脱敏规则 |
