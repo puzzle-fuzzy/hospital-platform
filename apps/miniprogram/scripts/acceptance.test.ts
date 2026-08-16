@@ -369,6 +369,7 @@ test("native homepage and my page reject stale patient directory responses", asy
 
 	expect(home).toContain("patientDataGuard");
 	expect(home).toContain("healthGuard");
+	expect(home).toContain("syncLoadingGuard");
 	expect(home).toContain("patientDataGuard.isCurrent(requestToken)");
 	expect(home).toContain("onSyncPatients");
 	expect(my).toContain("pageLoadGuard");
