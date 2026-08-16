@@ -216,7 +216,8 @@ provider、Pinia 患者状态和健康问卷组件；它们的迁移边界单独
 
 旧服务还包括 `/system`、`/monitor` 和 `/application/job` 管理/运维 API。它们属于独立
 Admin/Operations 边界，当前不计入患者端迁移完成度；新端若建设管理后台，必须单独设计 RBAC、
-审计、网络隔离和管理员验收。
+审计、网络隔离和管理员验收。Redis、MongoDB、文件、调度器、AI/WebSocket 的运行边界见
+[`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)。
 
 ## 4. 与新公共 API 的对应关系
 

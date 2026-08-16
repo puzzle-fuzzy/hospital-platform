@@ -5,10 +5,12 @@
 | 能力 | 旧项目证据 | 新项目策略 |
 | --- | --- | --- |
 | 主数据库 | `app/core/database.py`、SQLAlchemy Async、MySQL 配置 | 第一阶段保留 MySQL；先建立 persistence port，再决定 Drizzle schema 迁移方式 |
-| 缓存/锁 | `app/core/database.py`、Redis 配置及业务服务 | 第一阶段保留 Redis；明确 key、TTL、锁和幂等用途 |
-| 文档/非结构化数据 | MongoDB 配置和连接生命周期 | 暂不迁移；先确认真实使用的集合与读写量 |
-| 定时任务 | APScheduler、`/application/job` | API 与 Worker 分离；任务只通过可重试 command 触发业务服务 |
-| 文件/报告 | `static/`、上传接口、报告解读 | 先定义文件存储 port，禁止把本地目录作为生产事实 |
+| 缓存/锁 | `app/core/database.py`、旧 Redis key 配置及业务服务 | 新服务目前只使用 `hospital:session:` 会话前缀；旧 token、验证码、系统缓存、AI 历史和管理端扫描语义不迁移，必须先完成实例/DB/ACL 隔离 |
+| 文档/非结构化数据 | MongoDB 配置、`mongo_getter`、`MongoCURD` | 暂不迁移；当前源码未证明业务 collection 消费者，但必须先做线上集合、读写和备份只读盘点 |
+| 定时任务 | APScheduler、RedisJobStore、`/application/job` | 新 worker 只承载 outbox/支付查单；通用任务定义、管理权限、运行日志和租约仍未迁移 |
+| 文件/报告 | `static/`、上传接口、资源管理和报告详情 | 新服务没有文件 API；先定义 resource/owner/TTL/私有存储/签名 URL/内容安全，禁止本地路径成为生产事实 |
+
+上述能力的逐项证据、共存发布门禁和回滚边界见 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)。
 
 ## 2. 已看到的支付相关表候选
 

@@ -15,6 +15,9 @@
 页面之外的旧端请求封装、WebSocket、状态仓储、问卷/随访组件和静态业务配置，不能按“公共工具”视为已迁移；
 它们的实际行为和禁止兼容方式见 [`legacy-client-infrastructure-boundaries.md`](legacy-client-infrastructure-boundaries.md)。
 
+旧服务 Redis/MongoDB、APScheduler、文件资源、AI/WebSocket 和 Admin/RBAC 的运行边界另见
+[`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)；连接探针通过不等于这些能力已替代。
+
 ```text
 已形成闭环：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询
 已迁移静态能力：院内导航静态地图（不含实时定位和路线）
@@ -36,7 +39,7 @@
 | 微信支付 | 订单、预支付、通知、查单基础设施 | 代码基础和 gate 已具备 | 商户、回调、公网和真机支付未验收；gate 必须关闭 |
 | 医保/HIS | domain/规则层部分存在 | 规则边界和文档基础存在 | 真实加密、授权、6201/6202/6301/6203/6401、HIS 回写均未迁移 |
 | 健康知识 | contract/domain/repository、版本化 schema、导入校验和旧表映射文档已具备 | 明确 fail-closed，患者路由未挂载；真实内容未导入 | 内容来源/临床审核、staging 发布撤回、患者端页面和真机证据仍未完成 |
-| 管理端/Worker | Worker 与持久化基础部分存在 | 运维边界和支付补偿基础存在 | RBAC 管理端、监控、任务管理、日志管理未迁移为新 API |
+| 管理端/Worker | Worker 与持久化基础部分存在 | 运维边界和支付补偿基础存在 | RBAC 管理端、监控、通用任务管理、文件管理和后台日志查询未迁移为新 API；详见 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md) |
 
 ## 2. 按旧端页面的剩余清单
 

@@ -23,6 +23,7 @@
 - 便民服务已完成旧 13 个路由、旧表覆盖逻辑和患者/医生字段风险审计；新端仍未注册，边界已拆为反馈、临床问卷、医生关系和预约后预问诊四个领域。
 - 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院、医院列表和采血预约已完成旧页面副作用审计；新端仍保持未注册，票据和患者写入必须按独立 contract 重做。
 - 旧端非页面逻辑（直连 provider、WebSocket、身份/患者持久化、临床问卷组件和静态入口配置）已完成单独审计；新端不得把这些旧 helper 当作可兼容迁移，边界见 [`migration/legacy-client-infrastructure-boundaries.md`](migration/legacy-client-infrastructure-boundaries.md)。
+- 旧服务基础设施与运维边界已完成单独审计：旧 Redis 多 namespace、Mongo 连接、APScheduler/任务管理、本地文件资源、AI/WebSocket 和 Admin/RBAC 均未被新患者 API 全量替代；共存门禁见 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md)。
 
 ### 当前已验证的问题
 
@@ -97,6 +98,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 管理端使用独立权限模型和独立路由，不能复用患者端 token 语义。
 - 个人中心和外部入口按 [`migration/patient-center-and-external-entry-boundaries.md`](migration/patient-center-and-external-entry-boundaries.md) 拆分；先普通资料，再患者绑定/协议，最后跨小程序、WebView、订阅和外部服务。
 - 增加指标、告警、备份恢复演练、发布回滚和旧服务下线检查。
+- 基础设施迁移按独立边界推进：先完成 Redis 实例/DB/ACL 和旧 key 只读盘点，再确认 Mongo/本地文件资产，最后分别设计通用任务、文件资源、AI/WebSocket 和 Admin/RBAC；不能用新 worker 或连接探针代替这些能力。
 
 ## 工程与运行治理
 
@@ -137,6 +139,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 6. 再处理报告真实 provider 只读验收、医院列表/病历和便民服务逐域迁移；个人中心扩展和外部入口先完成 contract/allowlist/旧数据隔离，非页面逻辑按新审计文档逐项清除直连和敏感缓存，院内导航动态能力必须先取得地图数据与路线 contract；
 7. provider 只读稳定后，才进入预约写入合同和锁号设计；
 8. 最后按现金支付 → 医保结算 → HIS 回写顺序做专项验收。
+9. 在下一次 provider 文档接入前，先完成 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md) 中的 Redis、Mongo、任务和文件只读盘点，避免新旧服务在共享基础设施上发生误删、越权或重复执行。
 
 ## 业务正确性加固记录
 

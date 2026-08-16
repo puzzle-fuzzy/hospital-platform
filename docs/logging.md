@@ -72,6 +72,20 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `report.detail.synced` | LIS 报告详情读取 | 记录 provider request id 和检测项数量，不记录详情原文 |
 | `report.detail.failed` | LIS 报告详情读取 | 记录 opaque reportId 和错误类型，不记录 provider 原始错误 |
 
+基础设施与运维能力迁移时，日志事件还必须区分以下事实：
+
+| 事件范围 | 最小可检索字段 | 禁止字段与原因 |
+| --- | --- | --- |
+| Redis 会话 | `namespace`、`operation`、`ttlSeconds`、`outcome`、`traceId` | token、完整 Redis key、旧服务 token 值；避免凭证和跨服务 key 泄露 |
+| outbox/任务租约 | `eventId`/`jobId`、`attempts`、`leaseState`、`outcome`、`nextRunAt` | job args、患者号、provider 原文；任务参数可能包含敏感信息 |
+| 文件资源 | `resourceId`、`resourceType`、`ownerScope`、`sizeBytes`、`outcome` | 本地绝对路径、永久 URL、文件正文、原始文件名中的身份信息 |
+| WebSocket/AI | `sessionId`、`messageId`、`protocolVersion`、`ownerScope`、`outcome` | access token、provider 患者号、对话正文、音频内容和 prompt |
+| Admin/RBAC | `adminRequestId`、`permission`、`resourceType`、`outcome` | 管理员 token、完整权限载荷、患者数据和批量导出正文 |
+
+这些事件只有在对应能力正式迁移并开放时才实现；当前“未迁移”能力不应通过日志伪造运行成功。
+Redis 的 namespace 记录应使用经过允许列表的逻辑名称（例如 `new-session`、`legacy-readonly-audit`），
+不要把完整 key 或连接配置写入日志。
+
 便民服务的日志事件已提前冻结在 [`migration/convenience-service-boundaries.md`](migration/convenience-service-boundaries.md)。
 实现时至少覆盖 `convenience.feedback.*`、`convenience.questionnaire.*`、`convenience.doctor_relation.*`
 和 `convenience.idempotency.replayed` 的 requested/succeeded/failed 或 replayed 阶段；当前这些事件只有规范，
