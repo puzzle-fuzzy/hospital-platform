@@ -269,6 +269,7 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 		"if (patientSyncInFlight) return patientSyncInFlight;",
 	);
 	expect(home).toContain("patientSyncInFlight = syncRequest;");
+	expect(home).toContain("patientSyncInFlight = undefined;");
 	expect(selection).toContain(
 		"let patientSyncInFlight: Promise<void> | undefined;",
 	);
@@ -276,6 +277,7 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 		"if (patientSyncInFlight) return patientSyncInFlight;",
 	);
 	expect(selection).toContain("patientSyncInFlight = syncRequest;");
+	expect(selection).toContain("patientSyncInFlight = undefined;");
 });
 
 test("native my page separates ordinary profile from family patient selection", async () => {

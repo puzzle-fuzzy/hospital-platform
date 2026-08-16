@@ -179,6 +179,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				if (syncGuard.isCurrent(syncToken)) {
 					this.setData({ syncing: false });
 				}
+				// 释放本次同步的单飞锁，允许用户下一次主动刷新真实读取最新目录。
+				patientSyncInFlight = undefined;
 			});
 		patientSyncInFlight = syncRequest;
 		return syncRequest;

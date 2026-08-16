@@ -488,6 +488,8 @@ Page<IndexPageData, IndexPageMethods>({
 				if (syncLoadingGuard.isCurrent(loadingToken)) {
 					this.setData({ syncingPatients: false });
 				}
+				// 本次同步完成后必须释放单飞锁，否则后续下拉刷新会永久复用旧 Promise。
+				patientSyncInFlight = undefined;
 			});
 		patientSyncInFlight = syncRequest;
 		return syncRequest;
