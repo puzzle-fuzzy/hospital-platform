@@ -122,6 +122,7 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 | 新 Worker | 未发现 `hospital-platform-worker-v2` 运行进程；systemd 仍为 disabled/inactive | outbox、支付查单和通知补偿仍不能宣称线上运行；支付 gate 关闭期间不启动 |
 | MongoDB | 本机无 `mongod` 进程、无 `27017/27018` 监听；旧生产配置此前为 `MONGO_DB_ENABLE=False` | 只能证明当前主机未运行本地 Mongo，不能证明外部 Mongo、备份或历史集合没有业务数据 |
 | 旧文件资产 | `Hospital-Backend/static` 约 `16M`；`static/upload` 约 `300K`，包含 `9` 个文件、`4` 个目录；本次只读了数量/大小/时间，不读取内容 | 至少存在需保留/分类的旧资源；必须先做脱敏分类、哈希和恢复策略，不能删除或直接挂新公网 URL |
+| 微信登录运行观察 | journald 在 13:40 CST 记录一次 `POST /api/v1/auth/wechat` 返回 `503`，错误类型为 `PersistenceUnavailableError`；13:54 CST 的 `/health/ready` 随后返回 200 | 不能把 readiness 200 当成登录链路已稳定；需要用真实 `wx.login` code 和 requestId 复现，并核对 MySQL/Redis 瞬时故障、连接池和重试边界 |
 
 以上证据只更新“当前运行事实”，不扩大新服务权限，也不替代 provider、公网业务和真机验收。
 
