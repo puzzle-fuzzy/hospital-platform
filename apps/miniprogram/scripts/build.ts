@@ -97,6 +97,37 @@ if (
 	);
 }
 
+const appConfig = JSON.parse(
+	await Bun.file(join(source, "app.json")).text(),
+) as { pages?: unknown };
+if (
+	!Array.isArray(appConfig.pages) ||
+	appConfig.pages.length === 0 ||
+	appConfig.pages.some(
+		(page) =>
+			typeof page !== "string" ||
+			page.trim().length === 0 ||
+			page.startsWith("/") ||
+			page.includes(".."),
+	)
+) {
+	throw new Error(
+		"Mini program app.json pages must be non-empty, relative paths without parent traversal",
+	);
+}
+
+/**
+ * app.json 是小程序真正的页面入口，不能只依赖下面手工维护的“重点文件”列表。
+ * 每个入口必须同时拥有页面配置、模板、样式和 TypeScript 源码，构建完成后还
+ * 必须拥有同名 JavaScript 运行文件，从源代码到真机上传包形成闭环门禁。
+ */
+const appPagePaths = appConfig.pages as string[];
+for (const pagePath of appPagePaths) {
+	for (const extension of [".json", ".wxml", ".wxss", ".ts"]) {
+		await access(join(source, `${pagePath}${extension}`));
+	}
+}
+
 for (const file of [...requiredStaticFiles, ...requiredTypeScriptFiles]) {
 	await access(join(source, file));
 }
@@ -152,7 +183,10 @@ for (const file of requiredStaticFiles) {
 for (const file of requiredTypeScriptFiles) {
 	await access(join(runtime, file.replace(/\.ts$/, ".js")));
 }
+for (const pagePath of appPagePaths) {
+	await access(join(runtime, `${pagePath}.js`));
+}
 
 console.log(
-	`Native mini program runtime generated at ${runtime}; required page scripts are present`,
+	`Native mini program runtime generated at ${runtime}; ${appPagePaths.length} app.json page scripts are present`,
 );

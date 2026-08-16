@@ -64,7 +64,8 @@
 或 Git 提交中；真正需要忽略的本机配置仍由 `project.private.config.json` 负责。
 
 构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，该命令执行 TypeScript 类型检查、CommonJS
-JavaScript 生成并验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须打开
+JavaScript 生成，并动态校验 `app.json` 的每个页面同时存在 `.json/.wxml/.wxss/.ts` 以及最终的 `.js`；
+同时验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须打开
 `apps/miniprogram/`，由公共 `project.config.json` 将 `dist/` 作为运行根目录；不要直接打开 `src/`。
 若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。

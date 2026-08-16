@@ -50,6 +50,10 @@ Elysia 实例之间显式声明依赖：业务模块通过工厂函数接收 ser
 schema gate、fail-closed repository、预约只读路由和原生小程序 provider 隔离。该检查
 只证明源代码仍符合约束，不把静态通过误报为真实数据库、provider 或设备验收。
 
+原生小程序构建还会动态读取 `apps/miniprogram/src/app.json`：每个注册页面必须同时存在
+`.json`、`.wxml`、`.wxss` 和 `.ts` 源文件，并在 `dist/` 生成同名 `.js`。因此页面注册、源码
+和真机运行包之间不会依赖手工维护的部分清单，能在构建阶段直接阻止页面 `.js` 缺失造成的 404。
+
 当前已完成的患者端纵向切片：
 
 ```text

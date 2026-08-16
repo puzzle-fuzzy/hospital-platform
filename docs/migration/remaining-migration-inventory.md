@@ -30,9 +30,9 @@
 - 旧端 `hospital-app/src/pages` 与 `src/pagesB` 共扫描到 64 个 Vue/页面源文件；新端
   `apps/miniprogram/src/pages` 共 14 个 TypeScript 页面源文件，`src/app.json` 也注册 14 个页面，
   本次没有发现漏登记页面。
-- 新端构建会检查页面脚本是否生成；API 测试会检查 OpenAPI 的每个 method/path 是否出现在
-  [`api-v2-public.md`](../api-v2-public.md)，因此“页面存在但构建找不到 JS”和“路由存在但接口文档漏写”
-  已有自动门禁。门禁通过只证明清单一致，不证明 provider、生产或真机业务完成。
+- 新端构建会动态读取 `app.json`，检查每个注册页面的 `.json/.wxml/.wxss/.ts` 源文件和 `dist/*.js` 是否生成；
+  API 测试会检查 OpenAPI 的每个 method/path 是否出现在 [`api-v2-public.md`](../api-v2-public.md)，因此“页面存在但
+  构建找不到 JS”和“路由存在但接口文档漏写”已有自动门禁。门禁通过只证明清单一致，不证明 provider、生产或真机业务完成。
 - 当前架构边界审计为 24 条规则，并扫描 `apps/miniprogram/src` 全部生产文本源码；它会阻止 provider
   地址、旧请求封装、旧患者标识、WebSocket 配置和万能转发残留重新进入原生小程序。历史发布证据中的
   19/19 是当时的审计快照，不代表当前规则数量。

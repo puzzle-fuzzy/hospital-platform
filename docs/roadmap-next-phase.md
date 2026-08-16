@@ -33,6 +33,7 @@
 - `f2c6d99` 和 `cb11bc8` 已通过本地完整门禁，并在生产 env 隔离的临时端口 `18082` 完成候选 release smoke：中文稳定错误契约、认证失败边界和 persistence 探针状态日志均已验证；当前生产 `current` 仍为 `55fce6c`，候选版本尚未切换公网。证据见 [`release/observability-error-contract-smoke-2026-08-16.md`](release/observability-error-contract-smoke-2026-08-16.md)。
 - `3a37e7e` 已通过本地完整门禁，并在生产 env 隔离的临时端口 `18082` 完成最新候选 smoke：预约排班、预约记录和报告查询错误契约统一为稳定中文文案；当前生产 `current` 仍为 `55fce6c`，公网、provider 和真机验收仍未完成。证据见 [`release/query-error-contract-smoke-2026-08-16.md`](release/query-error-contract-smoke-2026-08-16.md)。
 - 当前架构边界审计已从单一 API 客户端检查扩展为扫描原生小程序全部生产源码的 24 条规则；它只证明旧 provider/敏感标识边界没有回流，不替代 provider、公网和真机业务验收。
+- 原生小程序构建已增加动态页面一致性门禁：从 `app.json` 读取全部页面，逐项检查 `.json/.wxml/.wxss/.ts` 源文件和 `dist/*.js` 运行文件，避免新增页面再次出现真机找不到 `.js` 的构建回归。
 - 当前服务器没有免密的窄权限 systemd 管理能力：`sudo -n -l` 仍需要密码。本阶段不重复尝试密码、不修改旧服务、不强行切换生产；候选 release 的上线动作保留为“取得明确 systemd 权限后执行”的独立运行任务，具体授权与回滚步骤见 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md)。
 
 ### 当前已验证的问题

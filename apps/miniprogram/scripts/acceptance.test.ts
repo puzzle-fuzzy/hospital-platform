@@ -167,6 +167,8 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(config).toContain('"miniprogramRoot": "dist/"');
 	expect(config).toContain('"useCompilerPlugins": ["typescript"]');
 	expect(build).toContain("tsconfig.build.json");
+	expect(build).toContain("appPagePaths");
+	expect(build).toContain("app.json page scripts are present");
 	expect(build).toContain("report-directory/report-directory.js");
 	expect(build).toContain("src 仍是唯一业务源码");
 });
