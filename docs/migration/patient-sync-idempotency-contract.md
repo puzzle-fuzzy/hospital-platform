@@ -1,7 +1,7 @@
 # 患者目录同步幂等契约
 
-> 状态：代码已实现，生产 schema/运行验收待完成。本文件是实现和发布的冻结边界；
-> `0015` migration、仓储和 API 测试已经通过，尚未应用 migration 的线上实例仍不具备 durable 幂等。
+> 状态：代码和生产 schema 已实现，公网 release/真实业务验收待完成。本文件是实现和发布的冻结边界；
+> `0015` migration、仓储和 API 测试已经通过，尚未切换新 release 的线上实例仍不具备本契约的运行语义。
 >
 > 适用接口：`POST /api/v2/patients/sync`。本契约只处理“从 provider 读取完整患者目录并
 > 替换当前 owner 快照”的同步命令，不延伸到患者建档、绑卡、预约写入或支付。
@@ -170,5 +170,5 @@ MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快�
 8. 验收：本地并发测试 → 隔离 MySQL/Redis → staging provider → 公网 API → 微信真机；
 9. 生产：先 migration/schema probe，再灰度启用新同步语义；旧服务仍保持原端口和数据库边界。
 
-代码和测试完成后，`POST /patients/sync` 的当前代码语义已不再只是请求/provider 上下文；但在生产
-`0015` migration、schema probe、真实并发和公网验收完成前，发布文档必须继续标记为“线上证据待完成”。
+代码和生产 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；
+在新 release 切换、真实并发、公网和真机验收完成前，发布文档必须继续标记为“线上业务证据待完成”。
