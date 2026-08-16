@@ -205,7 +205,7 @@
 | `/common/mbs-fsi/wechat-med-ins` | 自费/混合下单、查单、关单、退款和支付通知 | 最后处理；回调验签、去重、查单和订单状态机必须先落库 |
 | `/common/mip-user-query` | `POST /` | 最后处理；只允许服务端使用授权上下文调用 |
 | `/common/yunhealth/registration` | `POST /medical-settlement-notify`、`POST /medical-settlement-complete` | 最后处理；只允许内部结算编排调用 |
-| `/convenience` | 表扬信、锦旗、风险评估、我的医生、出院随访、入院预问诊的 list/create/submit/delete | 待各业务 contract、内容审核和权限确认 |
+| `/convenience` | 13 个表扬信、锦旗、风险评估、我的医生、出院随访、入院预问诊的 list/create/submit/delete 路由 | 待各业务 contract、内容审核和权限确认；旧字段风险、覆盖逻辑、幂等和日志门禁见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | `/knowledge` | tips、health、selftest、report interpretation/stream | 待版本化内容、临床复核和资源授权 |
 | `/intelligent` | 陪诊、导诊、客服、WebSocket | 待会话、模型、知识版本、免责声明和审计 |
 

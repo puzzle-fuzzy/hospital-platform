@@ -42,6 +42,7 @@
 | [`migration/legacy-inventory.md`](migration/legacy-inventory.md) | 旧项目能力清单和未迁移风险 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
 | [`migration/medical-record-and-hospital-boundary.md`](migration/medical-record-and-hospital-boundary.md) | 门诊病历、住院、医院列表和院内导航的旧接口审计与 contract 边界 |
+| [`migration/convenience-service-boundaries.md`](migration/convenience-service-boundaries.md) | 便民服务 13 个旧路由、旧表风险、新领域边界、幂等、日志和验收门禁 |
 
 ## 维护规则
 

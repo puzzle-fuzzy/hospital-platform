@@ -82,9 +82,10 @@
 | --- | --- | --- | --- |
 | 健康百科/药品 | `health_encyclopedia`、`disease_detail`、`drug_detail`、`search_result` | 新端未挂载患者路由 | 只迁移审核后的版本化内容；不能直接复制旧数据库正文 |
 | 健康自测 | `health_test`、`self_test_question`、`self_test_result`、BMI/血压计算 | 未迁移 | 题目、分值和结果必须版本化并经临床复核；先不开放自动风险判断 |
-| 风险评估 | `risk_self_evaluation`、`risk_form_*` | 未迁移 | 需确认问卷版本、患者授权、结果保存和免责声明 |
-| 预问诊/随访 | `pre_visit`、`admission_preconsultation`、`discharge_followup*` | 未迁移 | 需明确问卷数据、病区归属、提交幂等和医护侧读取权限 |
-| 电子锦旗/表扬信 | `list_*`、`gift_*`、`record_*` | 未迁移 | 需文件上传、审核、内容安全和订单/退款边界 |
+| 风险评估 | `risk_self_evaluation`、`risk_form_*` | 未迁移 | 题目、分值、风险分级和建议必须版本化并经临床复核；未知版本拒绝写入，不能把客户端风险结论当权威；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
+| 预问诊/随访 | `pre_visit`、`admission_preconsultation`、`discharge_followup*` | 未迁移 | 旧端按原始 `pat_id` 和 JSON 数组保存，且不同表单可能按 `(user_id, pat_id)` 互相覆盖；必须先绑定预约/住院/随访任务、问卷版本、患者授权、幂等和医护读取权限；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
+| 电子锦旗/表扬信 | `list_*`、`gift_*`、`record_*` | 未迁移 | 旧端可提交伪造的患者/医生/就诊字段，且 `display_type=1` 不等于已审核公开；必须完成内容安全、审核、脱敏展示、撤回和幂等；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
+| 我的医生 | `pagesB/patient/doctor.vue` | 未迁移 | 旧端保存客户端医生快照，重复关注非幂等且使用 GET 删除；必须依赖受控医生目录、owner 关系、命令语义、唯一约束和审计；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 智能陪诊/导诊 | `consult`、`webview`、`my_consultation` | 未迁移 | 独立 AI/会话 contract、免责声明、模型和知识版本审计 |
 
 ### P3：患者个人中心与低风险账户能力
@@ -140,7 +141,8 @@
 2. 接收新的 provider 文档后，冻结预约写入、门诊费用详情、病历和报告资源的 contract 差异表。
 3. 选择一个低风险只读域（优先病历目录或医院列表）完成 contract → adapter → API → 小程序 → 测试 → 验收手册闭环；院内导航的静态地图页已完成迁移，动态定位仍等待文档。
 4. 健康知识已经完成旧表/接口映射和导入前置校验；仍必须先做内容审核和版本化导入，再挂载患者 GET 路由；自测、AI 和报告解读继续分开。
-5. 最后按“现金支付 → 医保授权/结算 → 查单/退款 → HIS 回写”推进，任何未知状态都进入人工/补偿队列，不在前端显示成功。
+5. 便民服务先按 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) 完成 contract 和旧数据隔离，再按“医生关系只读 → 患者反馈 → 临床问卷 → 预约后预问诊/出院随访”推进；provider/临床资料不足时不注册患者 API。
+6. 最后按“现金支付 → 医保授权/结算 → 查单/退款 → HIS 回写”推进，任何未知状态都进入人工/补偿队列，不在前端显示成功。
 
 ## 6. 当前不做的事情
 

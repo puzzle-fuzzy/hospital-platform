@@ -72,6 +72,11 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `report.detail.synced` | LIS 报告详情读取 | 记录 provider request id 和检测项数量，不记录详情原文 |
 | `report.detail.failed` | LIS 报告详情读取 | 记录 opaque reportId 和错误类型，不记录 provider 原始错误 |
 
+便民服务的日志事件已提前冻结在 [`migration/convenience-service-boundaries.md`](migration/convenience-service-boundaries.md)。
+实现时至少覆盖 `convenience.feedback.*`、`convenience.questionnaire.*`、`convenience.doctor_relation.*`
+和 `convenience.idempotency.replayed` 的 requested/succeeded/failed 或 replayed 阶段；当前这些事件只有规范，
+不代表运行时代码已经开放。问卷答案、表扬信正文、患者姓名、原始 `pat_id`、医生联系方式和 provider 原始报文仍禁止写入日志。
+
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
 
 院内导航当前只加载随小程序发布的静态地图资源，不调用 Hospital API、众阳接口或地图路线服务，
