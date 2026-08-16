@@ -16,6 +16,9 @@
 
 API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`；失败请求额外记录
 低敏的 `errorName`，必要时记录 Elysia 生命周期 `errorCode`，但不记录错误消息。
+如果失败类型是 `PersistenceUnavailableError`，还可记录 `persistenceOperation`
+和允许列表中的 `persistenceErrorCode`，用于判断连接丢失、重置或超时；这两个字段
+不包含 SQL、连接串、账号、参数或原始错误消息。
 原生小程序为每个 `wx.request` 生成一次性的 `x-request-id`，服务端会校验后写入响应头
 和 Pino HTTP 日志；服务端错误返回的 request id 会保留在 `ApiError` 中，便于用户反馈
 “请求失败”时从日志平台反查链路。该 id 只用于关联，不是 token、幂等键或患者标识。
@@ -38,7 +41,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `persistence.integration.dependencies` / `persistence.integration.schema_probe` / `persistence.integration.succeeded` / `persistence.integration.failed` / `persistence.integration.cleanup_failed` | 本地真实 MySQL/Redis 集成验收 | 记录依赖状态、schema 缺失、验收检查名和清理错误类型；不记录连接串、token 或 provider 原始报文 |
 | `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
 | `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
-| `persistence-temporarily-unavailable` | API 持久化错误响应 | MySQL 连接/传输层短暂异常；幂等读会在连接池内重试一次，写入和事务不会盲目重试；响应只返回 503 安全错误码，原始协议错误仅用于服务端诊断 |
+| `persistence-temporarily-unavailable` | API 持久化错误响应 | MySQL 连接/传输层短暂异常；幂等读会在连接池内重试一次，写入和事务不会盲目重试；响应只返回 503 安全错误码，日志最多增加 `persistenceOperation` 和允许列表中的 `persistenceErrorCode`，不记录原始协议报文 |
 | `auth.wechat.login.requested` | 微信授权登录应用服务 | 记录登录开始、traceId、provider 和是否携带幂等键；不记录 code |
 | `auth.wechat.login.succeeded` | 微信授权登录应用服务 | 记录内部 userId、provider request id 和会话 TTL；不记录 openid、unionId 或 access token |
 | `auth.wechat.login.failed` | 微信授权登录应用服务 | 记录错误类型和是否可重试；不记录 provider message、code 或原始响应 |
@@ -133,8 +136,9 @@ smoke 批次号：网络错误、非法 JSON、HTTP/业务失败和 readiness �
 状态或错误码不符合预期，则仍保留该路收到响应的 traceId。`statusCode=0` 只表示没有收到
 HTTP 响应，不是服务端返回的业务状态码。
 
-MySQL 出现连接断开时，优先按 `requestId` 检索 `http.request.failed`，结合 `errorName`、HTTP 503
-和时间窗口核对数据库服务、网络和连接池状态。幂等查询可以自动恢复一次；支付、预约等写入或事务
+MySQL 出现连接断开时，优先按 `requestId` 检索 `http.request.failed`，结合 `errorName`、HTTP 503、
+`persistenceOperation` 和 `persistenceErrorCode`，再与时间窗口内的数据库服务、网络和连接池状态核对。
+幂等查询可以自动恢复一次；支付、预约等写入或事务
 遇到断连不会自动重复提交，必须先根据持久化事实确认服务端是否已经执行，再决定补偿或重试。
 
 `persistence.probe.unavailable` 和 `persistence.probe.recovered` 的 `attempts` 只表示本次只读

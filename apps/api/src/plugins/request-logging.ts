@@ -1,6 +1,7 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import { DependencyNotConfiguredError } from "@hospital/domain";
 import type { AppLogger } from "@hospital/observability";
+import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
 
 const requestStartTimes = new WeakMap<Request, number>();
@@ -15,6 +16,10 @@ type ErrorMetadata = {
 	providerRequestId?: string;
 	providerStatusCode?: number;
 	providerRetryable?: boolean;
+	/** 持久化内部操作分类，不包含 SQL、连接串或原始错误消息。 */
+	persistenceOperation?: PersistenceUnavailableError["operation"];
+	/** 仅允许列表中的连接/传输层错误码。 */
+	persistenceErrorCode?: string;
 	dependency?: string;
 };
 
@@ -78,6 +83,13 @@ export function safeErrorMetadata(
 				? { providerStatusCode: error.statusCode }
 				: {}),
 			providerRetryable: error.retryable,
+		};
+	}
+	if (error instanceof PersistenceUnavailableError) {
+		return {
+			...metadata,
+			persistenceOperation: error.operation,
+			...(error.errorCode ? { persistenceErrorCode: error.errorCode } : {}),
 		};
 	}
 	if (error instanceof DependencyNotConfiguredError) {
