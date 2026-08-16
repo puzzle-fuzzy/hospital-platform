@@ -17,6 +17,12 @@
 `POST /msun-middle-aggregate-clinic/v1/out-visit-records` 仍只能作为迁移线索。故本草案继续保持 `draft`，
 `GET /api/v2/medical-records`、详情、诊断和附件能力继续保持 404/未注册，不通过旧 `httpZy` 或万能转发补齐功能。
 
+需要特别区分：旧源码 `src/api/modules/medicalRecord.ts` 中虽然声明了 `2.12.4` 的
+`getMrMenusApi`，但它请求的是住院病历目录 `/msun-middle-aggregate-zyemr/v1/m-records/mr-menus`，
+输入是 `patInHosId`、`babyId`、`menuCode` 和 `isProcess`；它不是门诊 `out-visit-records` 的说明，
+也不能因为同属“病历”就复用门诊的 `patientId` 或 `his-patient` 映射。当前文档目录也没有发现
+这条住院病历接口的正式 Provider contract，因此住院病历与门诊就诊记录都保持独立未开放状态。
+
 ## 1. 业务范围
 
 本草案只覆盖“门诊就诊记录目录”，不覆盖：
@@ -45,6 +51,10 @@ patId     = 旧患者选择器返回的 provider 患者号
 
 旧页面使用设备/运行时本地时间计算日期，也没有记录服务端分页、排序、快照或最终一致性语义。`patId` 不能进入新端
 小程序请求；新端必须从当前平台会话和内部 `patientId` 服务端解析用途专用的 provider 映射。
+
+旧源码另外声明了住院病历接口 `2.12.4/2.12.5/2.12.6`，其输入围绕住院登记号、婴儿号、病历类型和
+病历节点展开；门诊页面没有调用这些接口。实现门诊目录时，不得把住院 `patInHosId`、`noteId`、`mrTypeId`
+或 `noteContent` 当作门诊记录字段，也不得把门诊目录成功解释成住院病历正文可读。
 
 ### 2.2 页面读取事实
 
