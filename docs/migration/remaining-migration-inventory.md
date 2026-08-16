@@ -19,10 +19,10 @@
 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)；连接探针通过不等于这些能力已替代。
 
 ```text
-已形成代码闭环（真实 provider、公网 API、微信真机和生产业务证据仍待）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
+已形成代码闭环（服务端真实微信登录与单患者同步已有生产证据，但真实 provider 读业务、公网分域和真机证据仍待）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
 已迁移旧端静态能力：医院列表单院区卡片、公众号通知说明、意见反馈帮助页、院内导航静态地图（均不含动态机构/路线或授权能力）；旧端意见反馈没有真实提交接口，消息订阅只有本地假保存，因此不复制假业务
 仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码、公众号关注/订阅；医院列表仍缺动态机构/院区/路线 contract
-仍缺真实证据：众阳患者/预约历史/报告/门诊费用、公网 API、微信真机和生产回归
+仍缺真实证据：Redis 实际 TTL、多就诊人切换/失效恢复、众阳预约历史/报告/门诊费用、公网分域真机页面和生产回归
 ```
 
 ### 2026-08-16 二次盘点证据
@@ -72,7 +72,7 @@
 
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
 | --- | --- | --- | --- |
-| 微信登录与平台会话 | `auth`、Redis session | 代码和生产运行边界已具备 | 未完成当前微信账号的真机完整证据时，不能宣称正式验收 |
+| 微信登录与平台会话 | `auth`、Redis session | 服务端真实登录、`/me` 会话恢复和单患者同步已有 `a11f117` journald 证据 | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成 |
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页和生产未登录 401 已验证 | 真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | 只读 provider adapter 和两列级联页面已实现 | 不能锁号、不能把 `scheduleId` 当成写入授权 |
@@ -111,7 +111,7 @@
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
-- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；当前 `18081` 已运行 `a11f117`，仍缺真实微信账号的并发、provider、公网业务和真机验收，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md) 和 [`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md)。
+- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；`a11f117` 已取得单患者真实同步成功证据，但真实并发、第二条患者记录、失效/恢复、公网真机和切换业务验收仍待完成，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md)、[`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md) 和 [`../release/wechat-patient-sync-production-acceptance-2026-08-16.md`](../release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
 
 ### 旧端顶层页面的重分类
 

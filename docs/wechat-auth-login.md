@@ -35,6 +35,18 @@ Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收�
 MySQL、Redis 或公网域名的真实可用性。线上验收仍必须按本文件的“真机验收”清单逐项保存请求号、
 服务端事件和 Redis TTL 证据。
 
+### 服务器真实链路证据（2026-08-16）
+
+当前 `a11f117` 生产进程已取得一组真实账号的服务端链路证据：23:08:55 的一次登录因
+`PersistenceUnavailableError` 返回 503；23:09:08 下一次登录出现
+`auth.wechat.login.succeeded` 并返回 200，随后 `/patients` 返回 200，完整患者同步返回 200，
+服务端记录 1 条 active 患者和 1 条 `his-patient` 映射。23:17 又通过 `/me` 完成会话恢复并重复同步成功。
+
+因此当前状态应准确表述为“服务端真实微信登录与单患者目录同步部分验收通过”，而不是“全部真机业务已完成”。
+本次仍缺 Redis 实际 TTL 读取证据、多就诊人切换、预约/报告/门诊费用 Provider 结果和完整真机页面网络对齐。
+requestId、traceId 和低敏事件明细见
+[`release/wechat-patient-sync-production-acceptance-2026-08-16.md`](release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
+
 ### `wx.login` 与用户资料授权不是一回事
 
 `wx.login()` 是静默获取一次性登录 `code` 的接口，本身不会弹出“获取头像/昵称”的用户资料授权框。新小程序只用

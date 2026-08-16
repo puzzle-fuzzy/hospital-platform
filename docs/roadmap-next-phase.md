@@ -5,19 +5,19 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-16 22:53:25 CST）
+### 线上实时状态（2026-08-16 23:18:00 CST）
 
 - 新 API `current=a11f117`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。
 - 旧 Python API 仍监听 `0.0.0.0:8001`，未停止；Worker 仍 inactive。支付、医保、HIS、报告 gate 仍关闭。
-- 真实微信 session、患者同步/切换、预约/费用 provider 读操作和真机业务尚未验收；本次只完成运行时和共存边界，以下“已完成”不能替代这些证据。详见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
-- 22:53:25 CST 通过 SSH 只读复核确认 `current -> releases/a11f117`、新 API 为 `active`、新 Worker 为 `inactive`；从 22:24:52 起按低敏业务事件关键词筛选 journald，没有发现微信兑换、患者同步、预约、报告、门诊费用或 Provider 业务事件。当前仍没有真实微信会话业务证据，不能把健康检查或未登录 401 当作真机验收。
+- 23:08:55 CST 的一次真实微信登录因 `PersistenceUnavailableError` 返回 503；23:09:08 下一次登录成功，随后 `/patients` 和完整患者同步均返回 200，记录 1 条 active 患者和 1 条 `his-patient` 映射；23:17 又完成 `/me` 会话恢复和重复同步。服务端真实微信登录与单患者目录同步现标记为“部分验收通过”。
+- Redis 实际 TTL、多就诊人切换/失效恢复、预约/报告/门诊费用 Provider 读操作、真机页面网络对齐和普通资料真实读写仍未完成；不能把本次成功链路扩大解释为全部患者业务验收。完整证据见 [`release/wechat-patient-sync-production-acceptance-2026-08-16.md`](release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
 
 ### 已经具备
 
 - 新旧服务共存：旧 Python 服务继续使用 `8001`，新 Elysia 服务使用 `18081`，公网通过 `/api/v2` 隔离。
 - 新旧服务共用 MySQL 数据库 `hospital-dev`，新服务只使用 `hp_*` 表，旧服务继续使用 legacy 表。
 - 新服务已具备生产模式启动日志、MySQL/Redis/schema 探针、Pino 结构化日志和 fail-closed 依赖注入。
-- 微信登录、平台会话、就诊人列表、就诊人独立选择页面已经形成患者端纵向切片。
+- 微信登录、平台会话、就诊人列表、就诊人独立选择页面已经形成患者端纵向切片；服务端真实登录和单患者同步已有生产日志证据，患者切换与真机完整验收仍未完成。
 - 普通个人资料已形成独立纵向切片：`GET/PUT /api/v2/me/profile` 只处理昵称、性别、年龄、邮箱，使用 `version` 乐观锁；0014、生产 schema、API 重启、ready 和未登录公网 401 已验收，真实微信读写/409 与真机证据仍待完成；头像、实名、手机号和微信身份继续关闭。证据见 [`release/user-profile-production-acceptance-2026-08-16.md`](release/user-profile-production-acceptance-2026-08-16.md)。
 - 预约科室、排班、预约历史的只读 contract、adapter、服务端脱敏和排班短期快照已经实现。
 - 爽约记录已实现为预约历史 `status=missed` 的安全派生子视图，固定近 90 天并支持切换就诊人；未知状态不推断为爽约，真实 provider、公网和真机证据仍待完成。
