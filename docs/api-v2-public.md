@@ -73,6 +73,8 @@ adapter 请求上下文，但 API 尚未持久化同步操作 ledger 或原始�
 在 adapter 内合并。`observedAt` 在 provider 请求发起前采样，较早请求晚返回时不能覆盖
 较新的患者资料、临床引用或 active 状态。患者同步的 durable operation ledger 和结果重放必须在
 未来预约写入、患者绑定等命令开放前单独完成；订单创建和微信预支付的幂等键分别独立，不能混用。
+下一步的状态机、租约、事务和 409 语义见
+[`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)。
 
 ### 2.3 日期、金额和标识
 

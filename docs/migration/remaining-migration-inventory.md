@@ -63,7 +63,7 @@
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
-- 患者同步的 `Idempotency-Key` 当前只是 API/provider 关联上下文，尚未落库 operation ledger 和可重放结果；在预约写入、患者绑定等命令开放前，必须补齐跨重启的 durable 幂等、处理中状态和冲突语义。
+- 患者同步的 `Idempotency-Key` 当前只是 API/provider 关联上下文，尚未落库 operation ledger 和可重放结果；在预约写入、患者绑定等命令开放前，必须补齐跨重启的 durable 幂等、处理中状态和冲突语义，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md)。
 
 ### 旧端顶层页面的重分类
 

@@ -35,6 +35,8 @@
 当前同步接口要求 `Idempotency-Key`，但该值仍只是请求/provider 关联上下文，尚未形成跨进程、跨重启的
 operation ledger 和结果重放能力。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付
 命令的幂等实现；高风险命令开放前必须先补齐持久化操作状态、处理中结果和 key 冲突规则。
+具体实现边界、租约接管和“患者快照与操作成功同事务”要求见
+[`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)。
 
 “provider 当前目录中已不存在的患者”不能直接物理删除。报告引用、费用记录和未来支付订单可能仍然依赖该内部患者，
 因此同步事务只更新状态并保留内部 ID：
