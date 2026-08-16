@@ -17,6 +17,11 @@
 代码和测试完成不等于真实微信登录已经上线。真实登录还必须同时满足：微信 AppID/AppSecret、MySQL 目标 schema、
 Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收全部通过。
 
+当前线上 API release 为 `bab0ce2`。该版本已经完成生产模式启动、MySQL/Redis/schema 探针、公网
+`/api/v2` 健康检查、未登录认证边界和旧 Python 服务共存验收；发布后的观测窗口尚未出现新的真实
+微信登录业务请求，所以本文件后面的历史登录证据不能替代当前版本的真机验收。完整发布边界见
+[`release/bab0ce2-production-acceptance-2026-08-17.md`](release/bab0ce2-production-acceptance-2026-08-17.md)。
+
 ### 当前开发者工具观测（2026-08-16）
 
 本次真机调试曾观测到 `POST /api/v2/auth/wechat` 返回 `503`，同一开发者工具窗口的
@@ -42,9 +47,9 @@ MySQL、Redis 或公网域名的真实可用性。线上验收仍必须按本文
 `auth.wechat.login.succeeded` 并返回 200，随后 `/patients` 返回 200，完整患者同步返回 200，
 服务端记录 1 条 active 患者和 1 条 `his-patient` 映射。23:17 又通过 `/me` 完成会话恢复并重复同步成功。
 
-随后 `41c9c18` 已完成生产切换，预约科室/排班真实只读请求返回 200，排班快照出现
+随后历史版本 `41c9c18` 已完成生产切换，预约科室/排班真实只读请求返回 200，排班快照出现
 `snapshotPersistenceStatus=persisted`；这只证明当前 release 的预约只读与快照观察事实可用，
-不代表患者切换、预约写入、支付或真机完整验收通过。发布与预约证据见
+不代表 `bab0ce2` 的患者切换、预约写入、支付或真机完整验收通过。该历史发布与预约证据见
 [`release/41c9c18-production-acceptance-2026-08-16.md`](release/41c9c18-production-acceptance-2026-08-16.md)。
 
 因此当前状态应准确表述为“服务端真实微信登录与单患者目录同步部分验收通过”，而不是“全部真机业务已完成”。
@@ -80,10 +85,11 @@ opaque `patientId`；返回首页时重新匹配当前目录，报告和挂号�
 新小程序的 `apiBaseUrl` 是域名，`apiPrefix` 是 `/api/v2`。小程序代码中的业务路径不再重复写 `/api/v1`，由
 客户端前缀和 Nginx 路由共同完成版本隔离。
 
-2026-08-16 20:37-20:42 CST 已将 `d177991` 原子切换到新 API，公网 `/api/v2` 的 live/ready（含
-`Cache-Control: no-store`）、system-ping 和未登录认证边界已通过；这只证明平台运行时与路由正确，
-真实微信 `wx.login()`、Redis TTL、`/me`、患者同步和真机业务仍必须按下文单独验收。完整切换证据见
-[`release/candidate-d177991-production-acceptance-2026-08-16.md`](release/candidate-d177991-production-acceptance-2026-08-16.md)。
+2026-08-17 已将 `bab0ce2` 原子切换到新 API，公网 `/api/v2` 的 live/ready（含
+`Cache-Control: no-store`）、system-ping、未登录认证边界和旧服务共存已通过；这只证明平台运行时
+与路由正确，真实微信 `wx.login()`、Redis TTL、`/me`、患者同步和真机业务仍必须按下文单独验收。
+旧版本 `d177991` 的切换证据仅作为历史记录保留，当前发布证据见
+[`release/bab0ce2-production-acceptance-2026-08-17.md`](release/bab0ce2-production-acceptance-2026-08-17.md)。
 
 ```mermaid
 sequenceDiagram

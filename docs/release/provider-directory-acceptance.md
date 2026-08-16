@@ -18,10 +18,16 @@
 `ZHONGYANG_REPORT_DETAIL_READY`、`ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是六个独立 gate。
 共享连接地址不代表共享验收结果。
 
-当前 release 的业务证据必须按进程启动时间隔离：2026-08-16 22:24:52 CST 之后的
-`a11f117` 日志窗口已经出现微信登录、患者同步和预约目录只读事件；此前同一 unit 的历史事件
-不能回填当前 release 的真实验收。期间 MySQL/Schema 探针曾瞬态不可用，当前仍需持续观察，详见
-[`current-d177991-observability-acceptance-2026-08-16.md`](current-d177991-observability-acceptance-2026-08-16.md)。
+### 当前线上基线（2026-08-17）
+
+当前生产 `current` 为 `bab0ce2`，对应新 API `hospital-platform-api-v2.service`；旧 Python
+服务仍由原端口独立提供，未被本次发布替换。`bab0ce2` 发布后的 SSH、候选启动、公网健康检查、
+认证边界和旧服务共存证据，统一见 [`bab0ce2-production-acceptance-2026-08-17.md`](bab0ce2-production-acceptance-2026-08-17.md)。
+
+截至该验收窗口结束，`bab0ce2` 之后只观察到服务启动、健康探针、system-ping 和未登录边界请求，
+没有新的微信登录、患者目录、预约、报告或门诊费用业务请求。因此下面以 `a11f117`、`41c9c18`、
+`b186098` 等版本记录的真实业务日志全部属于历史证据，不能直接标记当前 `bab0ce2` 的业务 gate。
+后续真机或公网业务验收必须重新记录当前 release、`traceId`、`requestId` 和脱敏响应摘要。
 
 所有患者作用域能力都必须经过同一条 owner 目录门禁：smoke 先用当前平台 Bearer
 读取 `GET /patients`，只接受响应 `data.items[].id` 中的内部患者 ID；只有
@@ -33,9 +39,9 @@
 `thirdPatientId` 调用记录接口会返回 `smcAppointment@1301 / 患者信息不存在`，而旧端的
 `patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
-`ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe，当前公网运行 release
-为 `b186098`。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
-仍未完成，因此预约历史不得标记为完整验收。
+`ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe；这些版本的业务日志是
+历史回归证据。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据仍未在
+当前 `bab0ce2` 验收窗口重新完成，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 真实账号与预约目录只读证据
 
@@ -44,10 +50,11 @@
 - 23:50:17-23:50:18 在 `41c9c18` 上重新打开预约目录，科室 62 条、排班 1 条返回 200，并出现 `appointment.schedule_snapshots.persisted` 与 `snapshotPersistenceStatus=persisted`；本次没有点击锁号、预约、取消或支付动作。该证据见 [`41c9c18-production-acceptance-2026-08-16.md`](41c9c18-production-acceptance-2026-08-16.md)。
 - 尚未完成 Redis 实际 TTL、多患者切换/失效恢复、预约历史、报告、门诊费用、公网页面网络和真机完整证据；支付、医保、退款与 HIS 回写继续关闭。
 
-### 2026-08-16 线上发布证据
+### 2026-08-16 线上发布证据（历史记录）
 
-- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`b186098`。SSH 复核确认
-  `current=/home/ps/code/hospital-platform/releases/b186098`，`hospital-platform-api-v2.service=active`。
+- 迁移阶段 release：`b1b84d7`、`ca3a877`；当日历史生产 release：`b186098`。该段记录用于解释
+  当日迁移过程，不代表当前生产版本；当前版本请以本文件“当前线上基线”和
+  [`bab0ce2-production-acceptance-2026-08-17.md`](bab0ce2-production-acceptance-2026-08-17.md)为准。
 - 生产 schema：`0012_patient_provider_references`、`0013_patient_directory_snapshot`、`0014_user_profiles` 和
   `0015_patient_directory_sync_operations` 均已迁移；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
 - 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网
