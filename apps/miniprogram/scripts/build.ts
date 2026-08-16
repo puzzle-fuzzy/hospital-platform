@@ -122,11 +122,88 @@ if (
  * 必须拥有同名 JavaScript 运行文件，从源代码到真机上传包形成闭环门禁。
  */
 const appPagePaths = appConfig.pages as string[];
+
+/** 对正则字面量中的页面方法名做最小转义，避免特殊字符影响门禁表达式。 */
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 检查原生页面的模板、样式和跳转边界。
+ *
+ * 微信开发者工具对 WXML 事件、页面路径和本地资源的校验并不总是在构建阶段
+ * 给出阻断错误：页面可能成功编译，但真机点击后才发现方法不存在、目标页面
+ * 未注册，或 WXSS 尝试读取本地图片。把这些检查放在源码到 dist 的必经构建
+ * 阶段，可以让“能上传”与“运行时入口完整”保持同一条证据链。
+ */
+async function validatePageRuntimeBoundaries(
+	pagePaths: readonly string[],
+): Promise<void> {
+	const registeredPages = new Set(pagePaths);
+	const bindingPattern = /(?:bind|catch)[a-z]+="([A-Za-z_$][\w$]*)"/g;
+	const localAssetPattern = /\/assets\/[A-Za-z0-9._/-]+/g;
+	const pageNavigationPattern = /url:\s*["'](\/pages\/[^"']+)["']/g;
+
+	for (const pagePath of pagePaths) {
+		const templatePath = join(source, `${pagePath}.wxml`);
+		const stylePath = join(source, `${pagePath}.wxss`);
+		const scriptPath = join(source, `${pagePath}.ts`);
+		const [template, style, script] = await Promise.all([
+			Bun.file(templatePath).text(),
+			Bun.file(stylePath).text(),
+			Bun.file(scriptPath).text(),
+		]);
+
+		if (/url\s*\(\s*["']?\/assets\//.test(style)) {
+			throw new Error(
+				`${pagePath}.wxss cannot load local assets with background-image; use WXML image or base64`,
+			);
+		}
+
+		const assetReferences = new Set([
+			...(template.match(localAssetPattern) ?? []),
+			...(style.match(localAssetPattern) ?? []),
+		]);
+		for (const assetReference of assetReferences) {
+			await access(join(source, assetReference.replace(/^\//, "")));
+		}
+
+		const pageEntryIndex = script.indexOf("Page<");
+		if (pageEntryIndex < 0) {
+			throw new Error(`${pagePath}.ts must contain a Page implementation`);
+		}
+		const pageImplementation = script.slice(pageEntryIndex);
+		for (const match of template.matchAll(bindingPattern)) {
+			const handler = match[1];
+			if (!handler) continue;
+			const handlerPattern = new RegExp(
+				`(?:^|\\n)\\s*${escapeRegExp(handler)}\\s*(?::\\s*)?\\(`,
+			);
+			if (!handlerPattern.test(pageImplementation)) {
+				throw new Error(
+					`${pagePath}.wxml binds ${handler}, but the Page implementation does not define it`,
+				);
+			}
+		}
+
+		for (const match of script.matchAll(pageNavigationPattern)) {
+			const target = match[1]?.replace(/^\//, "");
+			if (target && !registeredPages.has(target)) {
+				throw new Error(
+					`${pagePath}.ts navigates to unregistered mini-program page ${target}`,
+				);
+			}
+		}
+	}
+}
+
 for (const pagePath of appPagePaths) {
 	for (const extension of [".json", ".wxml", ".wxss", ".ts"]) {
 		await access(join(source, `${pagePath}${extension}`));
 	}
 }
+
+await validatePageRuntimeBoundaries(appPagePaths);
 
 for (const file of [...requiredStaticFiles, ...requiredTypeScriptFiles]) {
 	await access(join(source, file));

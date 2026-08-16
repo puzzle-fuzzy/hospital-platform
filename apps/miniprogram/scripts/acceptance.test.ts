@@ -271,6 +271,22 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("src 仍是唯一业务源码");
 });
 
+test("native mini program build guards runtime page boundaries", async () => {
+	const build = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "build.ts"),
+	).text();
+
+	// 真机运行时最容易把“源码能编译”误认为“页面能正常工作”。构建脚本必须
+	// 同时检查 WXML 方法、已注册跳转和本地资源，避免 404 或 WXSS 图片错误
+	// 只能在开发者工具点击后才暴露。
+	expect(build).toContain("validatePageRuntimeBoundaries");
+	expect(build).toContain("bindingPattern");
+	expect(build).toContain("pageNavigationPattern");
+	expect(build).toContain("localAssetPattern");
+	expect(build).toContain("cannot load local assets with background-image");
+	expect(build).toContain("navigates to unregistered mini-program page");
+});
+
 test("native mini program exposes read-only appointment directory and records pages", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
