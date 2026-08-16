@@ -21,6 +21,13 @@
 但 `health-live` 和 `health-ready` 虽返回 200，仍因缺少 `Cache-Control: no-store` 被门禁拒绝。
 这再次证明候选修复尚未形成线上证据，不能把公网 200 当作发布完成。
 
+### 18:35 CST 更新后的公网 Smoke
+
+使用当前仓库新增的认证边界检查访问公网 `/api/v2`：`system-ping` 和 `auth-boundary` 通过，后者的六个
+合法输入保护路由均返回 HTTP 401；`health-live` 和 `health-ready` 仍因响应缺少
+`Cache-Control: no-store` 被拒绝。因此当前公网已能证明基础路由和未登录保护边界，但仍不能通过发布
+缓存门禁，也不能据此证明患者、provider 或真机业务已经迁移。
+
 ## 2. 当前服务边界
 
 只读 SSH 复核得到：
