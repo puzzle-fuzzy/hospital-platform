@@ -6,15 +6,11 @@
 ## 1. 一次性配置窄权限
 
 `current`、`releases` 和 `shared` 目录由 `ps` 自己管理，因此不需要为文件上传和软链接切换授予 root 权限。
-管理员只需要使用 `visudo` 安装下面的最小 sudoers 规则：
+仓库已经提供可审计的规则文件 [`hospital-platform-api-v2.sudoers`](hospital-platform-api-v2.sudoers)。
+管理员只需要使用 `visudo` 安装这个文件，内容如下：
 
 ```sudoers
-Cmnd_Alias HOSPITAL_API_V2_RELEASE = \
-    /usr/bin/systemctl restart hospital-platform-api-v2.service, \
-    /usr/bin/systemctl is-active hospital-platform-api-v2.service, \
-    /usr/bin/systemctl status hospital-platform-api-v2.service
-
-ps ALL=(root) NOPASSWD: HOSPITAL_API_V2_RELEASE
+# 文件内容见 infra/systemd/hospital-platform-api-v2.sudoers
 ```
 
 安装后由管理员执行：
@@ -22,7 +18,11 @@ ps ALL=(root) NOPASSWD: HOSPITAL_API_V2_RELEASE
 ```bash
 visudo -cf /etc/sudoers.d/hospital-platform-api-v2
 chmod 0440 /etc/sudoers.d/hospital-platform-api-v2
+sudo -n -l -U ps
 ```
+
+验证结果必须同时满足：`ps` 对上述三个新 API 命令显示 `NOPASSWD`，且不包含旧 Python
+unit、worker 或任意通配符命令。若规则校验失败，必须删除未生效的临时文件并停止发布流程。
 
 不要授予 `systemctl *`、任意命令执行、旧 Python unit 的 stop/restart 权限，也不要把环境文件内容放入
 sudoers、仓库、聊天记录或日志。当前主机尚未安装这条规则，`sudo -n -l` 仍会要求密码，因此不能把本手册

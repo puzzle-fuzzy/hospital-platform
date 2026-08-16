@@ -1,0 +1,10 @@
+# 新 API 候选 release 的最小 systemd 管理权限。
+#
+# current 软链接、release 文件和 shared 环境文件由 ps 自己管理，不需要 root 权限。
+# 这里只允许重启和观察新 API unit，禁止触碰旧 Python 服务、worker 或任意其他命令。
+Cmnd_Alias HOSPITAL_API_V2_RELEASE = \
+    /usr/bin/systemctl restart hospital-platform-api-v2.service, \
+    /usr/bin/systemctl is-active hospital-platform-api-v2.service, \
+    /usr/bin/systemctl status hospital-platform-api-v2.service
+
+ps ALL=(root) NOPASSWD: HOSPITAL_API_V2_RELEASE
