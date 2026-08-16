@@ -148,7 +148,7 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 构建、上传或部署，不能沿用 `86cae9a` 的候选产物作为当前 HEAD。生产 `current` 仍为 `55fce6c`，`18081` 和旧 `8001` 均保持运行，
 候选端口已释放；发布前仍必须重新执行 `git rev-parse HEAD` 固定当前候选，并按本手册复核完整 release。详细证据见
 [`candidate-86cae9a-production-smoke-2026-08-16.md`](../../docs/release/candidate-86cae9a-production-smoke-2026-08-16.md)。
-由于窄权限尚未配置，尚不能执行本手册的公网切换步骤。前一候选证据见
+上述段落是窄权限配置前的历史记录；当前规则已安装并验证，最新候选切换证据见
 [`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
 
 2026-08-16 19:05-19:07 CST：候选 `e660ccb` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
