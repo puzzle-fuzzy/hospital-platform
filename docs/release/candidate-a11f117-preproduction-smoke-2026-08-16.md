@@ -77,4 +77,3 @@ preflight 只验证依赖和配置，不启动 Worker，也不代表真实患者
 1. 观察现网 `d177991` 的 MySQL/Schema 稳定性，不因候选 smoke 通过而切换；
 2. 稳定后再做当前 release 的真实微信登录、患者同步/切换、预约只读和门诊费用只读验收；
 3. 新 Provider 文档到达后，继续按 contract → adapter → API → 小程序 → 真实验收推进病历、报告详情、预约写入和支付相关能力。
-
