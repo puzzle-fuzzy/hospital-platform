@@ -106,6 +106,14 @@
 | `POST /common/mbs-fsi/wechat-med-ins/self-pay-order` | `api/modules/medical-insurance.ts` | 最后处理 | 微信 APIv3 参数、openid、商户密钥和回调全部收回服务端。 |
 | `POST /common/mbs-fsi/wechat-med-ins/mix-order` | `api/modules/medical-insurance.ts` | 最后处理 | 混合支付金额必须来自 6201/6202 和平台订单，不接受前端金额覆盖。 |
 | `GET /common/mbs-fsi/wechat-med-ins/mix-order/{mix-trade-no}` | `api/modules/medical-insurance.ts` | 最后处理 | 查询必须按平台订单映射 provider 订单，不能接受任意外部订单号。 |
+| `GET /common/mbs-fsi/wechat-med-ins/mix-order/by-out-trade-no/{out-trade-no}` | `api/modules/medical-insurance.ts`、旧 Python `mbs_fsi/controller.py` | 最后处理 | 按商户订单号查单只能由服务端通过平台订单映射调用；不能接受小程序任意外部订单号。 |
+| `GET /common/mbs-fsi/wechat-med-ins/self-pay-order/{out-trade-no}` | `api/modules/medical-insurance.ts`、旧 Python `mbs_fsi/controller.py` | 最后处理 | 自费订单查单必须绑定内部支付订单、openid 归属和 provider 最终状态。 |
+| `POST /common/mbs-fsi/wechat-med-ins/close/{out-trade-no}` | `api/modules/medical-insurance.ts`、旧 Python `mbs_fsi/controller.py` | 最后处理 | 关单不能替代查单；未知状态或已支付订单不得直接关闭。 |
+| `POST /common/mbs-fsi/wechat-med-ins/refund` | `api/modules/medical-insurance.ts`、旧 Python `mbs_fsi/controller.py` | 最后处理 | 退款金额必须绑定已落库订单和可退款状态，不能接受页面自行计算的金额。 |
+| `POST /common/mbs-fsi/wechat-med-ins/medical-refund-notify` | 旧 Python `mbs_fsi/controller.py` | 最后处理 | 医保退款结果通知必须验签、去重并进入事件/补偿流程，不能直接修改患者端状态。 |
+| `POST /common/mbs-fsi/wechat-med-ins/self-pay-notify` | 旧 Python `mbs_fsi/controller.py` | 最后处理 | 自费支付通知必须验签解密、按商户订单映射落库，并通过查单确认最终状态。 |
+| `POST /common/mbs-fsi/wechat-med-ins/notify` | 旧 Python `mbs_fsi/controller.py` | 最后处理 | 混合支付通知不得作为前端成功回调；必须校验金额、订单归属和重复通知。 |
+| `POST /common/mbs-fsi/wechat-med-ins/refund-notify` | 旧 Python `mbs_fsi/controller.py` | 最后处理 | 退款通知必须与原支付订单及退款金额关联，失败进入人工/补偿队列。 |
 
 医保小程序跳转授权还使用国家医保小程序 appId 和回跳 `authCode`。这不是普通 HTTP API：
 后续必须同时冻结目标小程序版本、`bizType`、城市/机构参数、回跳字段、授权码 TTL、一次性
@@ -115,19 +123,29 @@
 
 | 旧 endpoint | 旧来源 | 新端状态 | 业务边界 |
 | --- | --- | --- | --- |
-| `GET /knowledge/health/part/list`、`/crowd/list`、`/department/list` | `api/modules/health.ts` | 待 provider contract | 内容必须有版本、来源、审核人、生效/下线时间；不能直接复制旧库正文。 |
-| `GET /knowledge/health/symptoms/list/part/{id}` | `api/modules/health.ts` | 待 provider contract | 症状/疾病关联属于医疗内容，需内容审核和查询版本。 |
-| `GET /knowledge/health/disease/list/{crowd|department|part}/{id}` | `api/modules/health.ts` | 待 provider contract | 只允许审核后的疾病目录，不能把旧 ID 作为新公共 ID。 |
+| `GET /knowledge/health/part/list` | `api/modules/health.ts` | 待 provider contract | 内容必须有版本、来源、审核人、生效/下线时间；不能直接复制旧库正文。 |
+| `GET /knowledge/health/crowd/list` | `api/modules/health.ts` | 待 provider contract | 人群分类属于医疗内容导航，必须有版本和审核来源。 |
+| `GET /knowledge/health/department/list` | `api/modules/health.ts` | 待 provider contract | 科室分类必须有版本和审核来源，不能把旧科室 ID 当作新公共 ID。 |
+| `GET /knowledge/health/symptoms/list/part/{part_id}` | `api/modules/health.ts` | 待 provider contract | 症状/疾病关联属于医疗内容，需内容审核和查询版本。 |
+| `GET /knowledge/health/disease/list/part/{part_id}` | `api/modules/health.ts` | 待 provider contract | 只允许审核后的疾病目录，不能把旧 ID 作为新公共 ID。 |
+| `GET /knowledge/health/disease/list/crowd/{crowd_id}` | `api/modules/health.ts` | 待 provider contract | 只允许审核后的疾病目录，不能把旧 ID 作为新公共 ID。 |
+| `GET /knowledge/health/disease/list/department/{department_id}` | `api/modules/health.ts` | 待 provider contract | 只允许审核后的疾病目录，不能把旧 ID 作为新公共 ID。 |
 | `GET /knowledge/health/disease/list/symptoms` | `api/modules/health.ts` | 待 provider contract | 多值查询和排序语义需在新 contract 中固定。 |
-| `GET /knowledge/health/disease/detail/{id}`、`/drug/detail/{id}` | `api/modules/health.ts` | 待 provider contract | 详情需免责声明、版本和紧急下线；不能作为诊断或用药建议。 |
+| `GET /knowledge/health/disease/detail/{disease_id}` | `api/modules/health.ts` | 待 provider contract | 详情需免责声明、版本和紧急下线；不能作为诊断或用药建议。 |
+| `GET /knowledge/health/drug/detail/{drug_id}` | `api/modules/health.ts` | 待 provider contract | 药品详情需免责声明、版本和紧急下线；不能作为个体化用药建议。 |
 | `GET /knowledge/selftest/questions/{id}`、`POST /knowledge/selftest/assessment` | `api/modules/selfTest.ts` | 待 provider contract | 题库、评分、结果区间和临床复核必须版本化。 |
 | `POST /knowledge/report/interpretation` | `api/modules/ZY.ts` | 待 provider contract | AI 解读必须关联报告版本、模型/知识版本、免责声明和审计；不从报告目录顺手开放。 |
-| `GET/POST /convenience/risk-assessment/list|create` | `api/modules/health.ts` | 待 provider contract | 患者授权、问卷版本、结果保存和医疗免责声明缺一不可。 |
-| `GET/POST /convenience/discharge-follow-up/list|create` | `api/modules/health.ts` | 待 provider contract | 需要病区/患者归属和医护侧读取权限，不能只复制表单 JSON。 |
-| `GET/POST /convenience/admission-preconsultation/list|submit` | `api/modules/health.ts` | 待 provider contract | 提交幂等、问卷版本、临床读取权限和敏感字段需单独冻结。 |
+| `GET /convenience/risk-assessment/list` | `api/modules/health.ts` | 待 provider contract | 患者授权、问卷版本、结果保存和医疗免责声明缺一不可。 |
+| `POST /convenience/risk-assessment/create` | `api/modules/health.ts` | 待 provider contract | 提交必须绑定问卷版本、患者归属、幂等键和结果审计。 |
+| `GET /convenience/discharge-follow-up/list` | `api/modules/health.ts` | 待 provider contract | 需要病区/患者归属和医护侧读取权限，不能只复制表单 JSON。 |
+| `POST /convenience/discharge-follow-up/create` | `api/modules/health.ts` | 待 provider contract | 提交必须绑定出院事件、随访任务、幂等键和结果审计。 |
+| `GET /convenience/admission-preconsultation/list` | `api/modules/health.ts` | 待 provider contract | 问卷版本、临床读取权限和敏感字段需单独冻结。 |
+| `POST /convenience/admission-preconsultation/submit` | `api/modules/health.ts` | 待 provider contract | 提交必须绑定患者上下文、问卷版本、幂等键和临床读取权限。 |
 | `POST /msun-hzzn-app-config/v1/saveBeforeVisitRecord` | `api/modules/health.ts` | 待 provider contract | 预问诊保存需要把预约/挂号映射、问卷版本和临床读取权限绑定，不能从旧页面直接透传。 |
-| `GET/POST /convenience/commendatory-letter/list|create` | `api/modules/commendatoryLetter.ts` | 待 provider contract | 内容安全、公开范围、患者归属和审核记录需要完整 contract。 |
-| `GET/POST /convenience/silk-banner/list|create` | `api/modules/silkBanner.ts` | 待 provider contract | 内容审核、公开范围和撤回规则未确认。 |
+| `GET /convenience/commendatory-letter/list` | `api/modules/commendatoryLetter.ts` | 待 provider contract | 内容安全、公开范围、患者归属和审核记录需要完整 contract。 |
+| `POST /convenience/commendatory-letter/create` | `api/modules/commendatoryLetter.ts` | 待 provider contract | 提交必须绑定患者归属、幂等键、内容审核和公开范围。 |
+| `GET /convenience/silk-banner/list` | `api/modules/silkBanner.ts` | 待 provider contract | 内容审核、公开范围和撤回规则未确认。 |
+| `POST /convenience/silk-banner/create` | `api/modules/silkBanner.ts` | 待 provider contract | 提交必须绑定患者归属、文件安全检查、幂等键和审核记录。 |
 | `GET /convenience/my-doctor/list` | `api/modules/user.ts` | 待 provider contract | 我的医生关系需要患者归属、医生来源、取消关注和数据保留规则；不能把旧用户字段直接迁移。 |
 | `POST /convenience/my-doctor/create` | `api/modules/user.ts` | 待 provider contract | 关注写入必须使用服务端患者/医生映射、幂等键和重复关系处理。 |
 | `GET /convenience/my-doctor/delete?doctor_id=xxx` | `api/modules/user.ts` | 待 provider contract | 旧端使用 GET 执行删除；新 contract 必须重新定义命令语义、鉴权、幂等和审计，不能照搬破坏性 GET。 |
