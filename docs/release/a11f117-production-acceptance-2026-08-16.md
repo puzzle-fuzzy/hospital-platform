@@ -64,6 +64,16 @@
 - 报告目录、报告详情和微信支付配置仍为 `disabled`；
 - 日志事件为 `service.started`，未打印 AppSecret、session、openid、患者证件或支付密钥。
 
+### 2.5 切换后短时稳定性观察
+
+2026-08-16 22:37:19-22:37:40 CST 通过内网 `10.0.0.3:18081/health/ready` 连续检查 10 次，
+每次均返回 `status=ready`，`database=ok`、`redis=ok`、`schema=ok`。同一进程启动后的日志筛选
+没有出现新的 `persistence.probe.unavailable` 或 `persistence.probe.recovered`，也没有出现微信、患者、
+预约、报告或门诊费用业务事件。
+
+该结果只证明当前依赖在短观察窗口内稳定，并允许进入真实业务验收；它不能证明 Provider 数据、微信会话、
+患者映射或真机页面已经成功。
+
 ## 3. 新旧服务共存结论
 
 本次共存验收通过：
