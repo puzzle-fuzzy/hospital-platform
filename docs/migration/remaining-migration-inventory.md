@@ -98,6 +98,7 @@
 - 患者目录同步使用 provider 请求发起时间做快照版本；较早请求晚返回时，不能覆盖较新的患者资料、临床映射，
   也不能重新激活已被新快照标记为 inactive 的患者。
 - 预约目录、预约历史、报告、门诊费用分别完成 provider、内网 API、公网 HTTPS 和真机四层证据。
+- 排班只读快照的 `observedAt` 与 `expiresAt` 必须使用同一次服务端时钟采样；快照有效只表示近期观察事实，不能单独授权锁号、预约或支付。
 - 预约只读目录的 adapter 会拒绝重复科室/排班主键；预约历史摘要没有稳定公开记录 ID，原生页面使用独立的渲染 key，不能把流水号当作可写入或详情引用。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。

@@ -253,9 +253,13 @@ export class AppointmentService {
 		trace: { provider: string; requestId: string },
 	): Promise<void> {
 		if (!this.dependencies.snapshots || schedules.length === 0) return;
-		const observedAt = this.now().toISOString();
+		// observedAt 和 expiresAt 必须来自同一次时钟采样。若分别读取 now，
+		// 请求跨过时间边界时 TTL 会被悄悄拉长，未来写入流程可能使用一条
+		// 与 provider 观察时刻不一致的快照；所有过期判断都以这个基准计算。
+		const observedNow = this.now();
+		const observedAt = observedNow.toISOString();
 		const expiresAt = new Date(
-			this.now().getTime() + SCHEDULE_SNAPSHOT_TTL_MS,
+			observedNow.getTime() + SCHEDULE_SNAPSHOT_TTL_MS,
 		).toISOString();
 		try {
 			await Promise.all(

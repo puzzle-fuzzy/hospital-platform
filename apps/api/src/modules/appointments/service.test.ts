@@ -68,6 +68,68 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 	});
 });
 
+test("appointment snapshot expiry uses the same observed clock sample", async () => {
+	let nowCalls = 0;
+	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [
+					{
+						providerScheduleId: "provider-schedule-clock",
+						departmentId: "dept-clock",
+						departmentName: "心内科",
+						doctorId: "doctor-clock",
+						doctorName: "李医生",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalSlots: 10,
+						availableSlots: 5,
+						timeGroup: "range" as const,
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "provider-request-clock",
+				},
+			}),
+		},
+		snapshots,
+		now: () => {
+			nowCalls += 1;
+			return new Date(
+				`2026-08-15T00:00:${String(nowCalls * 5).padStart(2, "0")}.000Z`,
+			);
+		},
+		createScheduleId: () => "platform-schedule-clock",
+	});
+
+	await service.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		{ traceId: "trace-clock", idempotencyKey: "key-clock" },
+	);
+
+	expect(nowCalls).toBe(1);
+	expect(
+		await snapshots.findActive(
+			"platform-schedule-clock",
+			"2026-08-15T00:00:59.999Z",
+		),
+	).toMatchObject({
+		observedAt: "2026-08-15T00:00:05.000Z",
+		expiresAt: "2026-08-15T00:01:05.000Z",
+	});
+});
+
 test("appointment department reads add the provider date window on the server", async () => {
 	let departmentInput: { startDate: string; endDate: string } | undefined;
 	const service = new AppointmentService({
