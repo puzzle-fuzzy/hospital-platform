@@ -56,6 +56,28 @@ patId     = 旧患者选择器返回的 provider 患者号
 
 以上表格是差异线索，不是允许 adapter 透传的字段白名单。
 
+### 2.3 旧端患者标识转换链（已确认的差异事实）
+
+旧端页面传给 `out-visit-records` 的 `patId` 不是患者目录接口返回值的简单重命名，实际经过了两段转换：
+
+```text
+当前用户 unionId
+  -> patientInfoByUnionId
+  -> thirdPatientId / medicalCardNo / patientName
+  -> patInfosFind(type=3, cardNo, patName)
+  -> HIS patId
+  -> out-visit-records.patId
+```
+
+这里的 `thirdPatientId` 只属于患者目录引用，不能因为它看起来像数字就直接拼进门诊记录请求。旧选择器还把查询到的
+`patId`、卡号和身份证字段写入本地 `SelCard`，这属于旧实现的副作用，不能作为新端缓存设计；新端应当只保存平台
+`patientId` 和必要的脱敏读模型，provider 患者号只在服务端当前调用帧或受 owner 约束的映射表中使用。
+
+当前新端已经为预约历史、报告目录和门诊费用建立了 `his-patient` 引用，但这只能证明这些能力自己的 provider
+映射已经存在，不能证明 `out-visit-records` 使用同一个 HIS 患者号、同一个机构上下文或同一个权限范围。病历目录
+必须在 provider 文档确认后决定是复用 `his-patient`，还是新增独立的 `medical-record-directory` 引用类型；在确认前
+不得让病历 service 直接读取或猜测其他能力的引用。
+
 ## 3. 候选新端边界（待确认）
 
 ### 3.1 候选公共输入
@@ -105,6 +127,21 @@ owner-scoped、带 TTL 的服务端引用，小程序只能提交平台 opaque �
 
 诊断、性别、年龄、婚姻、身份证、卡号、手机号、原始医院 ID、provider 记录号和正文内容默认不进入输出。
 
+### 3.3 候选结果语义
+
+目录 service 必须把“没有记录”和“没有资格查询”分开，不能把所有异常折叠为空数组：
+
+| 情况 | 候选新端语义 | 是否允许展示“未查询到记录” |
+| --- | --- | --- |
+| provider 明确返回成功且结果为空 | 成功的空目录 | 允许 |
+| 当前患者不存在病历目录专用映射 | `patient-provider-reference-missing` | 不允许，提示暂不可查询 |
+| provider 未配置或 contract gate 关闭 | `service-not-configured` | 不允许，显示迁移/服务未开放 |
+| provider 权限不足或患者无权访问 | `provider-forbidden` | 不允许，不能伪装为空 |
+| provider 超时、限流或网络错误 | 可重试的暂时失败 | 不允许，保留重试入口 |
+| provider HTTP 成功但业务 envelope 失败 | provider 业务失败 | 不允许，按业务错误提示 |
+
+空数组只代表 provider 已完成一次有权限的查询且确认没有记录；它不能用来掩盖映射缺失、权限拒绝或暂时不可用。
+
 ## 4. Provider 必须确认的事实
 
 新文档到达后，逐项填写来源、版本、示例和确认人；任何一项未确认，状态保持 `draft`：
@@ -123,6 +160,9 @@ owner-scoped、带 TTL 的服务端引用，小程序只能提交平台 opaque �
 | MR-10 | 超时、限流、provider request id、可重试错误和最终查询方式 | 重试造成重复请求或假空列表 |
 | MR-11 | 记录撤回、更正、删除和历史数据更新时间语义 | 页面继续展示失效医疗事实 |
 | MR-12 | 是否存在附件/正文引用及其 TTL、下载授权和审计要求 | 目录接口越权扩展为文件接口 |
+| MR-13 | `out-visit-records.patId` 是否可以使用现有 `his-patient` 引用，还是必须建立病历专用引用 | 把其他业务的患者映射误用于临床记录，产生错患者或越权查询 |
+| MR-14 | 医院/机构上下文是否参与患者映射和记录查询，是否允许跨院区查询 | 同一患者在不同机构下记录串读或漏读 |
+| MR-15 | provider 空列表、权限拒绝、映射缺失、未配置和暂时失败的业务码/重试语义 | 页面把错误显示成“没有病历”，无法区分数据事实和服务故障 |
 
 ## 5. 实现门禁
 

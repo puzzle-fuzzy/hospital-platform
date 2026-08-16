@@ -85,7 +85,7 @@
 | `pagesB/hospital/confirm_registration`、`registration_detail` | 预约确认、预约详情和状态刷新 | 锁号、预约写入、最终状态查询、幂等与取消矩阵 |
 | `pagesB/health/outpatient_pay_detail`、`electronic_bill` | 费用明细和可支付金额展示 | 费用详情 contract、金额单位和患者归属规则 |
 | `pagesB/health/report_query`、`report_detail` 的真实能力 | LIS/PACS/ECG/体检真实数据、附件和详情授权 | provider 文档、资源 URL/短期授权、数据脱敏规则 |
-| `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段；旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | HIS/EMR 只读 contract、资源授权和脱敏清单；目录差异草案见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)，整体边界见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
+| `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段；旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | HIS/EMR 只读 contract、资源授权和脱敏清单；必须先确认 `thirdPatientId` 经 `patInfosFind(type=3)` 得到的 HIS `patId` 是否能复用现有 `his-patient` 引用；目录差异草案见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)，整体边界见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
 | `pagesB/account/follow` | 公众号说明 | 静态说明已迁移至 `pages/official-account/official-account`；二维码、关注状态、订阅消息和外部主体 contract 仍缺 |
 | `pagesB/user/feedback` | 意见反馈 | 静态帮助页已迁移至 `pages/feedback/feedback`；真实反馈写入、客服工单和受控配置仍缺 |
 | `pagesB/hospital/hospitalList` | 医院列表 | 静态单院区入口已迁移至 `pages/hospital-list/hospital-list`；医院列表数据来源、机构选择语义和版本 contract 仍缺 |
