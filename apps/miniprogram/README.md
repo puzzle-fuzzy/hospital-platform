@@ -22,6 +22,11 @@
 始终读取真实存在的 `.js` 页面文件，不依赖工具隐式编译 TypeScript。不要直接打开 `src/`，否则本机配置副本
 可能覆盖公共配置并再次按纯 JavaScript 查找错误的源码目录。
 
+本机 `project.private.config.json` 必须保持 `ignoreDevUnusedFiles=false`。运行目录使用
+TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文件”分析可能无法识别页面脚本的间接
+`require` 依赖；开启该选项会把实际存在的 `services/*.js` 从调试模块图排除，造成
+`module ... is not defined`。修改源码后先执行构建，再在开发者工具中执行一次普通编译。
+
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的
 `pages/patient-select/patient-select` 页面；选择页把当前选择的 opaque `patientId` 写入

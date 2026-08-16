@@ -5,6 +5,7 @@ const root = join(import.meta.dir, "..");
 const source = join(root, "src");
 const runtime = join(root, "dist");
 const projectConfigPath = join(root, "project.config.json");
+const privateProjectConfigPath = join(root, "project.private.config.json");
 const buildConfigPath = join(root, "tsconfig.build.json");
 const requiredStaticFiles = [
 	"app.json",
@@ -81,6 +82,29 @@ const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
 	miniprogramRoot?: unknown;
 	setting?: { useCompilerPlugins?: unknown };
 };
+
+/**
+ * CommonJS 页面脚本的间接依赖不能交给开发者工具的“未使用文件”推断。
+ * private 配置不纳入 Git，但只要本机存在，就必须关闭该优化，否则真实存在的
+ * `services/*.js` 可能不会进入调试模块图，最终在模拟器/真机报模块未定义。
+ */
+let privateProjectConfigExists = true;
+try {
+	await access(privateProjectConfigPath);
+} catch {
+	// CI 或新机器可能还没有开发者工具生成的 private 配置，此时不阻断构建。
+	privateProjectConfigExists = false;
+}
+if (privateProjectConfigExists) {
+	const privateProjectConfig = JSON.parse(
+		await Bun.file(privateProjectConfigPath).text(),
+	) as { setting?: { ignoreDevUnusedFiles?: unknown } };
+	if (privateProjectConfig.setting?.ignoreDevUnusedFiles !== false) {
+		throw new Error(
+			"Mini program project.private.config.json must keep setting.ignoreDevUnusedFiles=false",
+		);
+	}
+}
 
 if (projectConfig.miniprogramRoot !== "dist/") {
 	throw new Error(

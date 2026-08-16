@@ -331,6 +331,8 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("appPagePaths");
 	expect(build).toContain("app.json page scripts are present");
 	expect(build).toContain("report-directory/report-directory.js");
+	expect(build).toContain("project.private.config.json");
+	expect(build).toContain("ignoreDevUnusedFiles");
 	expect(build).toContain("src 仍是唯一业务源码");
 });
 

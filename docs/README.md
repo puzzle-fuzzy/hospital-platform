@@ -45,6 +45,7 @@
 | [`release/miniprogram-static-hospital-list-acceptance.md`](release/miniprogram-static-hospital-list-acceptance.md) | 原生小程序静态医院卡片、预约前置和路线未开放边界验收 |
 | [`release/miniprogram-static-official-account-acceptance.md`](release/miniprogram-static-official-account-acceptance.md) | 原生小程序静态公众号说明页和关注事实边界验收 |
 | [`release/miniprogram-static-feedback-acceptance.md`](release/miniprogram-static-feedback-acceptance.md) | 原生小程序反馈帮助、客服电话和真实提交边界验收 |
+| [`release/miniprogram-devtools-runtime-acceptance-2026-08-16.md`](release/miniprogram-devtools-runtime-acceptance-2026-08-16.md) | 原生小程序 `dist/` 模块缺失、开发者工具配置修复和模拟器复核证据 |
 | [`release/payment-acceptance.md`](release/payment-acceptance.md) | 微信支付、回调、查单和真机验收 |
 
 ## 契约与迁移
