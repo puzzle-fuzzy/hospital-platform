@@ -41,6 +41,12 @@
 - 当前生产 capability 日志显示微信身份、患者目录、预约目录、预约记录和门诊费用为 `configured`；
   报告目录、报告详情和微信支付为 `disabled`。因此报告页面只能保留 fail-closed 迁移提示，不能把页面
   注册或 readiness 200 写成报告已迁移。
+- 本轮非页面逻辑复核覆盖了旧端 `src/api`、`src/stores`、`src/utils`、健康业务复用组件和静态配置，
+  重点核对 `httpZy.ts` provider 直连、`ws.ts` token/patId query、患者状态仓储、unionId 查询、
+  `navigateToMiniProgram`/`web-view` 外部入口、文件下载和微信支付调起。新端生产源码只通过
+  Hospital API client 访问平台接口，没有发现新的 provider 直连、WebSocket、万能转发或文件/二维码
+  业务遗漏；这些边界仍保持“未迁移/待契约”，详细证据见
+  [`legacy-client-infrastructure-boundaries.md`](legacy-client-infrastructure-boundaries.md)。
 - 服务器目前仍没有 `ps` 的免密窄权限 systemd 操作；候选切换与回滚步骤已独立记录在
   [`../../infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)，
   不需要也不允许触碰旧 Python unit。

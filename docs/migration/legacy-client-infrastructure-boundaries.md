@@ -21,6 +21,25 @@ WebSocket -> 通过 URL/query 携带 token 与 patId，并自行重连
 `patientId` 和已注册的 Hospital API；provider 标识、身份证、openid/unionid、金额和临床结论
 必须由服务端或版本化业务域掌握。
 
+### 2026-08-16 非页面逻辑二次复核
+
+本次复核同时对照旧端源代码与新端生产源码，结论是“边界已登记，未发现可直接落地的新业务域”，不是“旧端全部迁移完成”：
+
+- 旧端 `src/api` 的 `http.ts`、`httpZy.ts`、`ws.ts` 以及各业务 module 仍分别承载平台请求、provider 直连、
+  WebSocket、报告/费用/医保/AI 等接口行为；这些接口清单已登记在
+  [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)，不能因为不在页面文件中就视为已迁移。
+- 旧端 `src/stores/user.ts`、`src/stores/patient.ts` 和 `src/utils/index.ts` 仍混合持久化登录态、患者选择、
+  卡号/身份证、`patId`/`thirdPatientId` 和 unionId 查询；新端只保留平台会话与当前 owner 下的 opaque `patientId`，
+  患者映射必须由服务端按用途解析。
+- 旧端还存在 `navigateToMiniProgram`、`web-view`、文件下载和 `requestPayment` 等非 HTTP 入口，另外有静态
+  二维码/公众号/院区配置。它们分别受外部入口、文件资源、支付、二维码和机构目录契约约束，不能被页面路由数量覆盖。
+- 新端 `apps/miniprogram/src` 的本次生产源码扫描只发现平台 API client、受控的微信支付调起占位和本地静态资源，
+  未发现 provider URL、旧请求封装、token query、WebSocket、万能转发或 provider 患者标识残留；这只能证明架构
+  边界没有回退，不能替代 provider、公网、生产和真机业务证据。
+
+因此，下一项业务实现仍必须从 provider 文档 intake 和 contract freeze 开始；在文档到达前，不新增病历正文、
+报告文件、预约写入、患者绑定、二维码、WebSocket、医保或支付接口。
+
 ## 2. 请求与实时通道
 
 | 旧来源 | 实际行为 | 新端状态 | 正确迁移边界 |
