@@ -204,6 +204,21 @@ systemd 状态、requestId 关联和回滚路径。完成这些证据前，不�
 Smoke 现在默认验收内网 `/api/v1`，只有显式 `HOSPITAL_API_PREFIX=/api/v2` 才验收公网转发。
 在 Nginx 或当前 release 补齐 no-store 并重新完成临时端口/公网复核前，不得推进下一次线上业务验收。
 
+### 3.10 18:44 CST 当前线上只读复测
+
+本次仍未重启、切换 `current`、修改 Nginx/环境变量、执行 migration 或写入业务数据。SSH 复核结果为：
+
+| 检查项 | 当前结果 | 迁移判断 |
+| --- | --- | --- |
+| 新 API release | `current=/home/ps/code/hospital-platform/releases/55fce6c`，systemd `active` | 线上仍是旧候选，不能作为仓库当前 `main=a4bdb46` 的证据 |
+| 端口共存 | 新 API `10.0.0.3:18081`，旧 Python `0.0.0.0:8001` 均监听 | 新旧服务仍共存，未发生端口抢占 |
+| 发布权限 | `sudo -n -l` 返回“需要密码” | 不能执行原子切换、重启或回滚；不修改旧服务 |
+| 公网 live | HTTP `200`，body `status=ok`，requestId `12645245-5279-4abc-b5bf-638534abb7b1` | 公网路由可达，但响应缺少 `Cache-Control: no-store` |
+| 公网 ready | HTTP `200`，body `database/redis/schema=ok`，requestId `a6024114-5636-470e-bee1-64311b0300f6` | 当前 release 探针可用，但不满足候选发布缓存门禁 |
+| 公网 system ping | HTTP `200`，body `apiVersion=0.1.0`，requestId `aa15d8b8-8f00-41c8-a6a5-a31cdf13ae29` | 只证明 `/api/v2` 基础路由和 requestId 透传 |
+
+本次证据进一步确认：线上运行状态没有改变，下一步仍必须先获得窄权限、固定当前 `main` 的候选 SHA、构建并在临时端口验证，再执行原子切换；患者、预约、报告、费用的 provider/真机业务验收不能提前使用当前公网旧版本结果替代。
+
 ## 4. 当前不可宣称的内容
 
 - 不能宣称整个 Redis 实例已完成隔离；新 API 会话已经迁移到 DB3/`hospital_v2`，但旧服务仍在 DB1 使用全权限 `admin`；
