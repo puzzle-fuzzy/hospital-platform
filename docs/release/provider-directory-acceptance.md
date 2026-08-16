@@ -21,7 +21,9 @@
 `thirdPatientId` 调用记录接口会返回 `smcAppointment@1301 / 患者信息不存在`，而旧端的
 `patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用，schema probe 已验证通过。
-真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据仍未完成，因此预约历史不得标记为完整验收。
+这里的 probe 只代表 `b1b84d7` 发布包声明的目标是 `0012`，不能推断本地当前代码的
+`0013_patient_directory_snapshot` 已经进入生产。真实账号重新同步、预约历史 provider 只读、公网业务
+smoke 和真机证据仍未完成，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 线上发布证据
 
@@ -32,6 +34,22 @@
 - 启动日志：`runtimeMode=production`，数据库、Redis、schema 探针均为 `ok`；患者目录、预约目录、预约记录和门诊缴费配置为 `configured`；报告 gate 继续关闭。患者目录验收还必须确认 0013 的 active/inactive 字段和索引已通过 schema probe。
 - 旧服务隔离：`8001` 仍在监听，未重启、未切换旧 Python 服务。
 - 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、预约历史真实响应、真机截图/网络记录和对应 traceId。
+
+### 2026-08-16 只读数据层复核
+
+通过 SSH 在服务器执行了只读检查，未修改 env、数据库、systemd 或进程：
+
+- `current` 仍指向 `/home/ps/code/hospital-platform/releases/b1b84d7`，API unit 为 `active`；
+- `GET http://10.0.0.3:18081/health/ready` 返回 `200`，database、Redis 和 schema 均为 `ok`；
+- 使用生产 `api.env` 执行该 release 自带的 `runtime:preflight`，MySQL/Redis 检查通过，schema 结果为
+  `schemaStatus:verified`、`expected:0012_patient_provider_references`；整体退出码为 1 的原因是支付仍缺少
+  `PAYMENT_DATA_ENCRYPTION_KEY` 和 `WECHAT_PAYMENT_READY`，这与本阶段关闭真实支付的边界一致，不是 0013 失败证据；
+- 启动日志明确为 `runtimeMode=production`、`persistenceSchemaProbe=ok`、支付和报告 gate 关闭；
+- `10.0.0.3:18081` 与旧服务 `0.0.0.0:8001` 同时监听，旧服务未被切换。
+
+因此当前数据层状态应记录为：生产最后确认到 `0012`；本地代码目标为 `0013`；
+`0013` 的生产 migration、schema probe、失效/恢复业务数据验收和真机证据全部仍待执行。
+在受控发布前，不能仅把 `PERSISTENCE_SCHEMA_READY=true` 或 `/health/ready=200` 当作 0013 已完成。
 
 ## A. 代码层证据
 
