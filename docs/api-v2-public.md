@@ -249,6 +249,9 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | 503 | `provider-temporarily-unavailable` | provider 暂时不可用，可按策略重试 |
 | 500 | `unknown` | 未分类服务异常；页面不得根据此码推断业务结果 |
 
+小程序端统一在 [`apps/miniprogram/src/services/api-client.ts`](../apps/miniprogram/src/services/api-client.ts)
+按上述稳定错误码映射中文文案；新增公共错误码时必须同步更新该映射和验收测试，不能直接展示 provider 或内部错误文本。
+
 ## 5. 当前实现边界
 
 以下内容在旧服务中存在，但当前没有注册为新患者端公共路由：医保 FSI、医保身份授权、云

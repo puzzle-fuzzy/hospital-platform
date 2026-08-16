@@ -4,6 +4,7 @@ import {
 	buildApiRequestUrl,
 	isAllowedApiBaseUrl,
 	isAllowedApiPrefix,
+	localizedApiErrorMessage,
 	normalizeApiBaseUrl,
 	toWechatPaymentParams,
 } from "../src/services/api-client";
@@ -65,6 +66,30 @@ test("native client sends request ids for Pino HTTP correlation", async () => {
 	expect(client).toContain('"x-request-id": requestId');
 	expect(client).toContain("responseRequestId(response)");
 	expect(client).not.toContain('"authorization": requestId');
+});
+
+test("native client localizes every public query and session error boundary", () => {
+	expect(localizedApiErrorMessage("patient-sync-in-progress", "fallback")).toBe(
+		"患者目录正在同步，请稍后刷新",
+	);
+	expect(localizedApiErrorMessage("user-profile-conflict", "fallback")).toBe(
+		"个人资料已被其他设备修改，请刷新后重试",
+	);
+	expect(
+		localizedApiErrorMessage(
+			"appointment-record-patient-not-found",
+			"fallback",
+		),
+	).toBe("当前就诊人暂无可查询的预约记录");
+	expect(localizedApiErrorMessage("report-not-found", "fallback")).toBe(
+		"报告详情暂不可用",
+	);
+	expect(
+		localizedApiErrorMessage("provider-request-rejected", "英文 provider 文案"),
+	).toBe("外部服务拒绝了本次请求，请稍后重试");
+	expect(localizedApiErrorMessage("unrecognized-code", "安全兜底")).toBe(
+		"安全兜底",
+	);
 });
 
 test("native client keeps health checks behind the versioned public prefix", () => {

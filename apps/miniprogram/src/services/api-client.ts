@@ -47,14 +47,24 @@ type PaymentParams = WechatPrepayData["payParams"];
  * 未列出的业务错误仍可使用服务端安全 message 作为兜底，但禁止把 provider 原始报文透传到页面。
  */
 const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
+	validation: "请求参数校验失败",
+	parse: "请求体无法解析",
+	"not-found": "请求路径不存在",
 	unauthorized: "登录状态已失效，请重新登录",
 	"dependency-not-configured": "该服务暂未配置完成，请稍后重试",
+	"patient-sync-in-progress": "患者目录正在同步，请稍后刷新",
 	"provider-request-rejected": "外部服务拒绝了本次请求，请稍后重试",
 	"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",
 	"persistence-temporarily-unavailable": "数据服务暂时不可用，请稍后重试",
+	"user-profile-invalid": "个人资料字段不合法",
+	"user-profile-conflict": "个人资料已被其他设备修改，请刷新后重试",
 	"appointment-query-invalid": "预约排班查询条件不合法",
 	"appointment-record-query-invalid": "预约记录查询条件不合法",
+	"appointment-record-patient-not-found": "当前就诊人暂无可查询的预约记录",
 	"report-query-invalid": "报告查询条件不合法",
+	"report-patient-not-found": "当前就诊人暂无可查询的报告",
+	"report-not-found": "报告详情暂不可用",
+	"outpatient-payment-patient-not-found": "当前就诊人暂未建立门诊缴费映射",
 	"payment-order-invalid": "创建订单输入不合法",
 	"payment-order-not-found": "未找到对应的支付订单",
 	"payment-quote-not-found": "服务端报价不存在",
@@ -67,6 +77,7 @@ const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
 	"payment-identity-not-found": "支付身份映射不可用",
 	"payment-prepay-in-progress": "预支付仍在处理，不能并发创建",
 	"payment-prepay-unknown": "预支付结果需向外部服务确认，不能直接重建",
+	unknown: "服务暂时不可用，请稍后重试",
 });
 
 /** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
@@ -165,18 +176,24 @@ function setAccessToken(accessToken: string): void {
 	}
 }
 
+/** 将公共错误码映射为小程序稳定中文文案；未知码才使用服务端安全兜底。 */
+export function localizedApiErrorMessage(
+	code: string,
+	fallback: string,
+): string {
+	return CLIENT_ERROR_MESSAGES[code] ?? fallback;
+}
+
 function parseErrorMessage(data: unknown, statusCode: number): string {
 	const code = parseErrorCode(data);
-	const localizedMessage = CLIENT_ERROR_MESSAGES[code];
-	if (localizedMessage) return localizedMessage;
 	if (
 		isRecord(data) &&
 		isRecord(data.error) &&
 		typeof data.error.message === "string"
 	) {
-		return data.error.message;
+		return localizedApiErrorMessage(code, data.error.message);
 	}
-	return `API 请求失败（${statusCode}）`;
+	return localizedApiErrorMessage(code, `API 请求失败（${statusCode}）`);
 }
 
 function parseErrorCode(data: unknown): string {
