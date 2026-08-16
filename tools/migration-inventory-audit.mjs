@@ -263,5 +263,93 @@ if (!(await Bun.file(legacyApiSentinel).exists())) {
 	}
 }
 
+/**
+ * 旧小程序的非页面文件也属于迁移范围事实：请求封装、状态仓储、复用组件、
+ * 静态配置和资源一旦漏盘，页面台账仍可能“通过”但业务行为已经偏移。这里
+ * 只核对文件数量，不把文件存在解释成逻辑已迁移；具体安全边界和业务状态仍
+ * 由 legacy-client-infrastructure-boundaries.md 维护。
+ */
+const legacyClientSentinel = join(legacySourceRoot, "api", "http.ts");
+if (!(await Bun.file(legacyClientSentinel).exists())) {
+	console.log(
+		`Legacy client infrastructure inventory skipped: old client is not available at ${legacySourceRoot}`,
+	);
+} else {
+	const legacyClientInventory = await readText(
+		"docs/migration/legacy-client-infrastructure-boundaries.md",
+	);
+	const expectedCategories = [
+		"api",
+		"stores",
+		"utils",
+		"components",
+		"jsonData",
+		"static",
+	];
+	const expectedCounts = new Map();
+	for (const match of legacyClientInventory.matchAll(
+		/<!-- migration-audit: legacy-client-category=([^\s]+) files=(\d+) -->/gu,
+	)) {
+		expectedCounts.set(match[1], Number(match[2]));
+	}
+	const missingCategories = expectedCategories.filter(
+		(category) => !expectedCounts.has(category),
+	);
+	if (missingCategories.length > 0) {
+		console.error("Legacy client infrastructure inventory is incomplete:");
+		for (const category of missingCategories) {
+			console.error(`- missing category count: ${category}`);
+		}
+		process.exitCode = 1;
+	} else {
+		const sourceExtensions = new Set([
+			".ts",
+			".js",
+			".vue",
+			".json",
+			".scss",
+			".css",
+			".png",
+			".jpg",
+			".jpeg",
+			".svg",
+			".gif",
+			".webp",
+		]);
+		const actualCounts = new Map();
+		for (const category of expectedCategories) {
+			let count = 0;
+			const glob = new Bun.Glob(`${category}/**/*`);
+			for await (const relativePath of glob.scan({
+				cwd: legacySourceRoot,
+				onlyFiles: true,
+			})) {
+				const extension = relativePath.slice(relativePath.lastIndexOf("."));
+				if (sourceExtensions.has(extension.toLowerCase())) count += 1;
+			}
+			actualCounts.set(category, count);
+		}
+
+		const mismatches = expectedCategories
+			.filter(
+				(category) =>
+					actualCounts.get(category) !== expectedCounts.get(category),
+			)
+			.map(
+				(category) =>
+					`${category}: expected ${expectedCounts.get(category)}, actual ${actualCounts.get(category)}`,
+			);
+		if (mismatches.length > 0) {
+			console.error("Legacy client infrastructure inventory mismatch:");
+			for (const mismatch of mismatches) console.error(`- ${mismatch}`);
+			process.exitCode = 1;
+		} else {
+			console.log(
+				`Legacy client infrastructure inventory passed: ${expectedCategories.map((category) => `${category}=${actualCounts.get(category)}`).join(", ")}`,
+			);
+		}
+	}
+}
+
 // 保留仓库根目录引用，避免从仓库外运行时被当前工作目录影响。
 void fileURLToPath(repositoryRoot);

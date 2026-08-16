@@ -5,6 +5,13 @@
 > 本文专门记录页面清单之外的请求封装、状态仓储、WebSocket、复用组件和静态业务配置。
 > 页面数量完整不等于这些逻辑已经迁移。
 
+<!-- migration-audit: legacy-client-category=api files=14 -->
+<!-- migration-audit: legacy-client-category=stores files=2 -->
+<!-- migration-audit: legacy-client-category=utils files=3 -->
+<!-- migration-audit: legacy-client-category=components files=12 -->
+<!-- migration-audit: legacy-client-category=jsonData files=5 -->
+<!-- migration-audit: legacy-client-category=static files=30 -->
+
 ## 1. 盘点结论
 
 旧端有 64 个生产页面文件，但业务行为还分散在以下非页面层：
@@ -20,6 +27,18 @@ WebSocket -> 通过 URL/query 携带 token 与 patId，并自行重连
 这些内容不能按“前端工具代码”直接复制到原生小程序。新端只保留平台会话、内部 opaque
 `patientId` 和已注册的 Hospital API；provider 标识、身份证、openid/unionid、金额和临床结论
 必须由服务端或版本化业务域掌握。
+
+旧端非页面文件范围快照如下；数量由 `pnpm migration:audit` 在旧仓库可用时自动核对，
+只表示迁移盘点范围，不表示对应能力已经完成迁移：
+
+| 目录 | 文件数 | 主要边界 |
+| --- | ---: | --- |
+| `src/api` | 14 | 平台请求、provider 直连、WebSocket 和业务模块封装 |
+| `src/stores` | 2 | 用户会话、患者选择和敏感标识缓存 |
+| `src/utils` | 3 | unionId 查询、缓存选择和平台工具 |
+| `src/components` | 12 | 患者/院区选择、医疗问卷、随访表单和公众号提示 |
+| `src/jsonData` | 5 | 首页入口、院内映射和自测题目配置 |
+| `src/static` | 30 | Tab、地图、头像、报告和小程序图标资源 |
 
 ### 2026-08-16 非页面逻辑二次复核
 
