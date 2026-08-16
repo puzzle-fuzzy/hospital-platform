@@ -72,6 +72,12 @@ GET /health/ready -> 200 且 data.status=ready，才证明 DB/Redis/schema gate 
 
 “环境变量齐全”只代表 `configured`，不代表 provider 已授权或支付链路已通过。
 
+未打开配置闸门时，API 仍可被调用用于验证错误边界，但不得产生真实支付副作用。预支付请求会先
+记录尝试事实；如果依赖在调用前就被识别为未配置，服务端必须把尝试从 `pending` 收敛为 `unknown`，
+返回 `503 dependency-not-configured`，并且同一个幂等键不能永久表现为“处理中”。配置完成后使用
+新的幂等键重新申请；若已经调用 provider 但结果不确定，则保持 `unknown`，必须先查单或回调确认，
+不能直接重建订单。
+
 ### 真实回调验收
 
 使用已授权的非生产/小额测试订单，按以下顺序留证：

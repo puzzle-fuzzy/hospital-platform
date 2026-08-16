@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createFixtureWechatPaymentGateway } from "@hospital/adapters";
+import {
+	createFixtureWechatPaymentGateway,
+	createNotConfiguredGateways,
+} from "@hospital/adapters";
 import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPaymentOrderRepository,
@@ -152,6 +155,47 @@ test("wechat prepay fails before provider call when identity is missing", async 
 			},
 		}),
 	).rejects.toBeInstanceOf(PaymentIdentityNotFoundError);
+});
+
+test("wechat prepay does not leave a not-configured dependency permanently pending", async () => {
+	const attempts = createInMemoryPaymentPrepayAttemptRepository();
+	const service = new WechatPrepayService({
+		orders: new PaymentOrderService({
+			orders: createInMemoryPaymentOrderRepository([order]),
+		}),
+		identityUsers: createInMemoryIdentityUserRepository([
+			{
+				userId: order.ownerUserId,
+				providerSubject: "fixture-openid-001",
+			},
+		]),
+		attempts,
+		wechatPayment: createNotConfiguredGateways().wechatPayment,
+	});
+	const input = {
+		ownerUserId: order.ownerUserId,
+		orderId: order.orderId,
+		context: {
+			traceId: "trace-prepay-not-configured",
+			idempotencyKey: "prepay-not-configured",
+		},
+	};
+
+	await expect(service.create(input)).rejects.toThrow(
+		"Dependency is not configured: adapter:wechat-pay",
+	);
+	await expect(
+		service.read({
+			ownerUserId: input.ownerUserId,
+			orderId: input.orderId,
+			idempotencyKey: input.context.idempotencyKey,
+		}),
+	).resolves.toMatchObject({ status: "unknown" });
+
+	// 重试同一幂等键时仍返回配置错误，不能伪装成永久的并发处理中。
+	await expect(service.create(input)).rejects.toThrow(
+		"Dependency is not configured: wechat-pay",
+	);
 });
 
 test("wechat prepay logs contain no provider subject or pay credential", async () => {

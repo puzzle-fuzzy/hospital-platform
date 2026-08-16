@@ -157,19 +157,20 @@ export class WechatPrepayService {
 				payParams: result.payParams,
 			};
 		} catch (error) {
-			if (!(error instanceof DependencyNotConfiguredError)) {
-				const unknown: PaymentPrepayAttempt = {
-					...pending,
-					status: "unknown",
-					version: pending.version + 1,
-					lastErrorCode: error instanceof Error ? error.name : "UnknownError",
-					nextQueryAt: this.nextQueryAt(),
-					updatedAt: this.now().toISOString(),
-				};
-				await this.dependencies.attempts
-					.update(unknown, pending.version)
-					.catch(() => undefined);
-			}
+			// 配置闸门未打开时也必须把 pending 收敛为 unknown。
+			// 如果把这类失败留在 pending，同一幂等键后续会永久得到“处理中”，
+			// 既掩盖真实配置问题，也会让补齐配置后的重试无法进入明确的恢复路径。
+			const unknown: PaymentPrepayAttempt = {
+				...pending,
+				status: "unknown",
+				version: pending.version + 1,
+				lastErrorCode: error instanceof Error ? error.name : "UnknownError",
+				nextQueryAt: this.nextQueryAt(),
+				updatedAt: this.now().toISOString(),
+			};
+			await this.dependencies.attempts
+				.update(unknown, pending.version)
+				.catch(() => undefined);
 			this.logger.warn(
 				{
 					event: "payment.wechat_prepay.failed",
