@@ -49,11 +49,13 @@
 | 门诊缴费 | `pages/outpatient-payment/outpatient-payment` | 已接入费用只读；真实支付、医保授权、结算回写按用户要求最后处理 |
 | 互联网医院 | 首页原位置保留 | 未迁移；需要外部小程序/医院服务合同，当前不伪造跳转 |
 | 门诊病历 | 首页原位置保留 | 未迁移；需要病历资源授权和脱敏 contract |
+| 公众号轮播 | `pages/official-account/official-account` | 静态公众号通知说明已接入；二维码、关注状态和订阅消息授权未开放 |
 | 报告查询 | `pages/report-directory/report-directory` | 已接入 30 天 LIS/PACS/ECG 摘要目录；详情只接受服务端 opaque 引用 |
 | 智能导诊 | 首页原位置保留 | 未迁移；需要 AI 导诊服务、免责声明、审计和内容版本 |
 | 陪诊/报告右侧快捷图 | 陪诊保留迁移提示；报告进入报告目录页 | 报告目录已补齐；陪诊未迁移 |
 | 我的挂号 | `pages/appointment-records/appointment-records` | 已接入只读页面；预约历史仍依赖 provider 患者标识映射验收 |
 | 就诊人绑定 | `pages/patient-select/patient-select` | 已接入目录、选择、刷新；真实新增/家属绑定未开放 |
+| 意见反馈 | `pages/feedback/feedback` | 热点问题、客服电话和迁移提示已接入；真实反馈提交和客服工单未开放 |
 | 住院、便民、健康服务 | 首页三组服务保留原位置；院内导航进入 `pages/hospital-navigation/hospital-navigation` | 静态医院卡片和静态院内地图已迁移；动态医院/院区、实时楼层/科室定位、健康内容和住院服务仍待逐域取得 contract |
 
 ## 4. 后续顺序

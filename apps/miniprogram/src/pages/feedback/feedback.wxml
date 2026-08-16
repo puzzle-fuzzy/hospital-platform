@@ -1,0 +1,43 @@
+<view class="feedback-page">
+	<view class="contact-grid">
+		<view class="contact-card" bindtap="onFeedbackTap">
+			<view class="contact-card-inner">
+				<view class="contact-icon feedback-icon">
+					<image src="/assets/legacy-home/service-praise.svg" mode="aspectFit" />
+				</view>
+				<text class="contact-title">意见反馈</text>
+				<text class="contact-description">我们将及时给予回复</text>
+			</view>
+		</view>
+		<view class="contact-card" bindtap="onConsultTap">
+			<view class="contact-card-inner">
+				<view class="contact-icon consult-icon">
+					<image src="/assets/legacy-home/service-consultation.svg" mode="aspectFit" />
+				</view>
+				<text class="contact-title">咨询电话</text>
+				<text class="contact-description">工作日：08:00-17:00</text>
+			</view>
+		</view>
+	</view>
+
+	<view class="hot-issues">
+		<view class="hot-issues-title">热点问题</view>
+		<view
+			wx:for="{{hotIssues}}"
+			wx:key="id"
+			class="issue-item"
+			bindtap="onIssueTap"
+			data-issue-id="{{item.id}}"
+		>
+			<view class="issue-header">
+				<text class="issue-title">{{item.title}}</text>
+				<text class="issue-arrow">{{expandedIssueId === item.id ? "⌃" : "⌄"}}</text>
+			</view>
+			<view wx:if="{{expandedIssueId === item.id}}" class="issue-content">
+				{{item.content}}
+			</view>
+		</view>
+	</view>
+
+	<view class="bottom-space" />
+</view>

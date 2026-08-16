@@ -1,6 +1,8 @@
 {
 	"pages": [
 		"pages/index/index",
+		"pages/official-account/official-account",
+		"pages/feedback/feedback",
 		"pages/patient-select/patient-select",
 		"pages/hospital-list/hospital-list",
 		"pages/appointment-directory/appointment-directory",

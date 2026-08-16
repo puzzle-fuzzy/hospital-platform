@@ -380,6 +380,10 @@ Page<IndexPageData, IndexPageMethods>({
 			case "outpatient-payment":
 				wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
 				break;
+			case "follow":
+				// 旧轮播图只进入公众号静态说明页，不把“已关注”误判成微信授权事实。
+				wx.navigateTo({ url: "/pages/official-account/official-account" });
+				break;
 			case "appointment-records":
 				this.onLoadAppointmentRecords();
 				break;

@@ -1,0 +1,121 @@
+page {
+	background: #f7f7f7;
+}
+
+.feedback-page {
+	min-height: 100vh;
+	background: #f7f7f7;
+}
+
+.contact-grid {
+	box-sizing: border-box;
+	width: 100%;
+	display: flex;
+	gap: 30rpx;
+	padding: 16rpx 30rpx 0;
+}
+
+.contact-card {
+	box-sizing: border-box;
+	flex: 1;
+	min-width: 0;
+	background: #ffffff;
+	box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.contact-card-inner {
+	box-sizing: border-box;
+	min-height: 270rpx;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	padding: 64rpx 24rpx 48rpx;
+}
+
+.contact-icon {
+	box-sizing: border-box;
+	width: 128rpx;
+	height: 128rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 24rpx;
+	border-radius: 50%;
+	background: #fff1f1;
+}
+
+.contact-icon image {
+	display: block;
+	width: 52rpx;
+	height: 52rpx;
+}
+
+.contact-title {
+	color: #111827;
+	font-size: 30rpx;
+	font-weight: 500;
+}
+
+.contact-description {
+	margin-top: 8rpx;
+	color: #6b7280;
+	font-size: 24rpx;
+	line-height: 1.4;
+	text-align: center;
+}
+
+.hot-issues {
+	box-sizing: border-box;
+	margin: 40rpx 32rpx 0;
+	background: #ffffff;
+	box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.hot-issues-title {
+	padding: 32rpx;
+	border-bottom: 1rpx solid #f0f1f3;
+	color: #111827;
+	font-size: 30rpx;
+	font-weight: 500;
+}
+
+.issue-item {
+	border-bottom: 1rpx solid #f0f1f3;
+}
+
+.issue-item:last-child {
+	border-bottom: 0;
+}
+
+.issue-header {
+	box-sizing: border-box;
+	min-height: 84rpx;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 22rpx 32rpx;
+}
+
+.issue-title {
+	color: #374151;
+	font-size: 27rpx;
+	line-height: 1.4;
+}
+
+.issue-arrow {
+	flex-shrink: 0;
+	margin-left: 20rpx;
+	color: #9ca3af;
+	font-size: 30rpx;
+}
+
+.issue-content {
+	padding: 0 32rpx 28rpx;
+	color: #4b5563;
+	font-size: 26rpx;
+	line-height: 1.7;
+}
+
+.bottom-space {
+	height: 64rpx;
+}

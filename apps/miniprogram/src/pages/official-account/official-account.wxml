@@ -1,0 +1,21 @@
+<view class="official-account-page">
+	<view class="official-account-background" />
+
+	<view class="official-account-content">
+		<view class="official-account-heading">欢迎关注</view>
+		<view class="official-account-name">高平医院公众号</view>
+
+		<!-- 保留旧端通知说明的图标、间距和文案；这里不是关注结果回执。 -->
+		<view class="notification-introduction">
+			<image
+				class="notification-icon"
+				src="/assets/official-account/notice.svg"
+				mode="widthFix"
+			/>
+			<view class="notification-copy">
+				<view class="notification-title">医院就诊通知</view>
+				<view class="notification-description">预约挂号、门诊缴费、住院信息、报 告提醒等第一时间通知</view>
+			</view>
+		</view>
+	</view>
+</view>

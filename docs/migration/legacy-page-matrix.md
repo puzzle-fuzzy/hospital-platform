@@ -1,6 +1,6 @@
 # 旧端逐页迁移矩阵
 
-> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 11 个 TypeScript 页面源文件。
+> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 13 个 TypeScript 页面源文件。
 > 本矩阵用于防止页面遗漏，不把“有旧代码”或“新端有占位入口”当作业务完成证据。
 
 ## 状态定义
@@ -22,7 +22,7 @@
 | `pages/` | `consult/consult.vue` | 待 provider contract | 需要独立会话、患者上下文、免责声明、AI/导诊服务和审计日志 |
 | `pages/` | `hospital/hospital.vue` | 待 provider contract | 这是 web-view/互联网医院入口，必须确认外部小程序或 HTTPS 域名白名单，不能伪造站内页面 |
 | `pages/` | `setting/setData.vue` | 不纳入生产 | 仅旧端测试数据工具，不进入新端 `app.json` |
-| `pagesB/account/` | `follow.vue` | 待 provider contract | 需确认公众号/外部内容的来源、二维码/跳转地址和微信域名配置 |
+| `pagesB/account/` | `follow.vue` | 部分迁移 | 原生端已迁移静态公众号通知说明和受控本地图标；真实二维码、关注状态、模板消息授权和外部跳转仍待独立 contract |
 | `pagesB/patient/` | `agreement.vue`、`doctor.vue`、`express.vue`、`patient_signature.vue`、`patientAdd.vue`、`patientChange.vue` | `patientChange` 已被安全的患者选择页替换；其余待 contract | 新增/绑定、签名、地址、我的医生和法律文本必须分别确认 owner、授权、审计和撤回规则；我的医生旧表/接口风险见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md)，绑卡/协议/签名边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
 | `pagesB/hospital/` | `bloodAppointment.vue` | 待 provider contract | 需要采血号源、预约写入、取消和患者映射规则 |
 | `pagesB/hospital/` | `confirm_registration.vue`、`registration.vue`、`registration_detail.vue` | 部分迁移 | 目录/历史只读页面已存在；锁号、预约写入、最终状态查询、取消、费用和 HIS 回写未开放 |
@@ -48,7 +48,8 @@
 | `pagesB/health/` | `webview.vue` | 待 provider contract | 外部导诊/客服 web-view 必须有固定 HTTPS allowlist、来源参数白名单、登录态隔离和失败回退 |
 | `pagesB/health/` | `gift_electronic_banner.vue`、`list_electronic_banner.vue`、`record_electronic_banner.vue` | 待 provider contract | 旧端提交患者/医生/就诊快照，必须改为服务端就诊引用；文字/文件审核、内容安全、脱敏公开展示、撤回和管理端读取权限未确认 |
 | `pagesB/health/` | `gift_health_praise.vue`、`list_health_praise.vue`、`record_health_praise.vue` | 待 provider contract | 表扬信提交、审核、脱敏公开展示、幂等、撤回、文件上传和管理端权限未确认 |
-| `pagesB/user/` | `edit_profile.vue`、`feedback.vue` | 待 provider contract | 个人资料必须与实名/微信身份拆分；旧意见反馈页面没有真实提交接口，需字段白名单、审计、限流及客服/管理端闭环；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
+| `pagesB/user/` | `edit_profile.vue` | 待 provider contract | 个人资料必须与实名/微信身份拆分；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
+| `pagesB/user/` | `feedback.vue` | 部分迁移 | 原生端已迁移热点问题、咨询电话和安全的迁移提示；真实意见提交、客服工单和受控配置仍未开放 |
 | `pagesB/user/` | `miss_appointment.vue` | 部分迁移 | 新端以预约历史读模型的 `status=missed` 派生只读页面，当前固定展示近 90 天并支持切换就诊人；真实 provider 状态、公网和真机证据仍待完成，不能使用客户端 `status=4` 或把未知状态推断为爽约 |
 | `pagesB/user/` | `my_consultation.vue` | 待 provider contract | 需要 AI/陪诊会话索引、患者归属、内容保留和脱敏策略；账单/病历/住院预约/就诊码按钮当前只是 Toast |
 | `pagesB/user/` | `my_registration.vue` | 部分迁移 | 新端已接入预约历史只读；取消、退号、支付状态和 provider 患者用途映射仍待验收 |
@@ -56,6 +57,6 @@
 
 ## 盘点结论
 
-- 64 个旧页面中，当前可宣称“已替换或已形成安全子集”的是：首页、我的/患者选择部分、预约前置静态医院卡片、预约只读部分、报告目录骨架、门诊费用目录、院内静态地图。
+- 64 个旧页面中，当前可宣称“已替换或已形成安全子集”的是：首页、我的/患者选择部分、预约前置静态医院卡片、公众号说明、反馈帮助、预约只读部分、报告目录骨架、门诊费用目录、院内静态地图。
 - 预约写入、费用/支付/医保、住院、健康内容/自测、风险评估、随访、便民投稿、AI、外部 web-view 和个人中心扩展都不能因为旧页面存在而直接迁移。
 - 新 provider 文档到达后，应先从本矩阵选择一个状态为“待 provider contract”的域，完成 contract → adapter → domain → persistence → API → 小程序 → 日志 → 验收闭环；文档缺失的字段不得进入公共 contract。

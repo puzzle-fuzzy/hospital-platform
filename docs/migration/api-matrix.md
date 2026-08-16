@@ -29,11 +29,12 @@
 | 小程序门诊缴费列表 | `GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records` | 新 API 按 owner-scoped 内部 `patientId` 查询，服务端固定日期窗口和渠道，只返回费用展示读模型 | 只读查询 adapter、API 和原生页面已实现；支付调起、医保授权、结算回写和退费仍未开放 |
 | 旧首页就诊人卡片、就诊人绑定和二维码 | `GET /api/v1/patients`、`POST /api/v1/patients/sync`、后续独立二维码 contract | 首页只消费服务端脱敏患者读模型；选择页只保存 opaque `patientId`；二维码必须由服务端按医院扫码协议生成短期 token | 就诊人卡片、独立选择页和同步已实现；内部/众阳患者号不展示；二维码等待扫码字段、签名、TTL 和真机设备验收 |
 | 旧首页报告查询 | `GET /api/v1/reports`、`GET /api/v1/reports/:reportId` | 新端独立报告目录页承载患者上下文和分批渲染；详情只接受服务端 opaque `reportId` | 报告目录页、有限日期窗口和 gated LIS 详情入口已实现；真实 provider 详情、附件下载、体检报告仍待验收 |
+| 旧端 `pagesB/account/follow` | 无服务端 API；原生页面 `pages/official-account/official-account` | 只迁移静态公众号通知说明和本地图标；不把打开页面解释为已关注，不生成伪二维码 | 静态页面已实现并纳入构建/源代码验收；二维码、关注状态、模板消息授权和外部主体仍待独立 contract |
 | 旧端 `pagesB/hospital/hospitalList` | 无服务端 API；原生页面 `pages/hospital-list/hospital-list` | 迁移已核对的单院区静态卡片，图片使用本地受控资源；“去挂号”进入预约只读目录，“查看路线”不猜坐标、不调用外部地图 | 静态入口已实现并纳入构建/源代码验收；动态机构/院区目录、多院区选择和真实路线仍待独立 contract |
 | 旧端 `pagesB/hospital/navigation` | 无服务端 API；原生页面 `pages/hospital-navigation/hospital-navigation` | 只迁移旧端静态 `map.jpg`、背景色、`aspectFit` 和点击预览；不把静态地图伪装成实时路线服务 | 静态页面已实现并纳入构建验收；动态医院列表、楼层/科室定位和实时路线待取得独立 contract |
 | `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | ADR 0004、contract/domain port、0010 schema、fail-closed repository 和未挂载 service 已完成；旧内容脱敏导入、真实 schema 执行、内容审核和 API 挂载待实现 |
 | `POST /intelligent/*` | `/api/v1/assistant/*` | 后续迁移 AI 导诊和报告解读 | 后续 |
-| 旧个人中心扩展、外部 WebView、公众号、签名、订阅和采血 | 独立的 profile/consent/external-entry/notification contract | 不复用患者目录或预约目录的字段和 token；外部入口使用 audience/allowlist/一次性引用 | 未注册；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
+| 旧个人中心扩展、外部 WebView、公众号、签名、订阅和采血 | 独立的 profile/consent/external-entry/notification contract | 公众号说明和反馈帮助页只有静态页面，不复用患者目录或预约目录的字段和 token；外部入口使用 audience/allowlist/一次性引用 | 真实 profile、反馈写入、关注/订阅、签名、WebView 和采血能力未注册；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
 
 ## 2. 旧服务仍存在、但新 API 尚未注册的接口组
 

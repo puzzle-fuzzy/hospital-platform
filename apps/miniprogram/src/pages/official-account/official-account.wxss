@@ -1,0 +1,77 @@
+page {
+	background: #ffffff;
+}
+
+.official-account-page {
+	position: relative;
+	min-height: 100vh;
+	background: #ffffff;
+}
+
+/* 旧端顶部渐变高 200rpx；独立层级避免影响页面内容点击。 */
+.official-account-background {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 0;
+	height: 200rpx;
+	background: linear-gradient(180deg, #dae4fc 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.official-account-content {
+	position: relative;
+	z-index: 1;
+	box-sizing: border-box;
+	width: 710rpx;
+	margin: 0 auto;
+	padding-top: 113rpx;
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	gap: 44rpx;
+	text-align: center;
+}
+
+.official-account-heading {
+	color: #000000;
+	font-size: 48rpx;
+}
+
+.official-account-name {
+	color: #1b65ff;
+	font-size: 42rpx;
+}
+
+.notification-introduction {
+	box-sizing: border-box;
+	width: 507rpx;
+	display: flex;
+	align-items: flex-start;
+	gap: 20rpx;
+	text-align: left;
+}
+
+.notification-icon {
+	position: relative;
+	top: 10rpx;
+	flex: 0 0 41rpx;
+	width: 41rpx;
+	height: 41rpx;
+}
+
+.notification-copy {
+	width: 446rpx;
+	line-height: 1.5;
+}
+
+.notification-title {
+	color: #242424;
+	font-size: 35rpx;
+	font-weight: 700;
+}
+
+.notification-description {
+	color: #242424;
+	font-size: 28rpx;
+}

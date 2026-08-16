@@ -9,7 +9,7 @@
 
 ## 1. 盘点结论
 
-旧端当前有 64 个 Vue 页面，新原生小程序有 11 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
+旧端当前有 64 个 Vue 页面，新原生小程序有 13 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
 但还不是旧端的功能等价替换：
 
 页面之外的旧端请求封装、WebSocket、状态仓储、问卷/随访组件和静态业务配置，不能按“公共工具”视为已迁移；
@@ -20,8 +20,8 @@
 
 ```text
 已形成代码闭环（真实 provider、公网 API、微信真机和生产业务证据仍待）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
-已迁移静态能力：医院列表单院区卡片、院内导航静态地图（均不含动态机构/路线能力）
-仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码；医院列表仍缺动态机构/院区/路线 contract
+已迁移静态能力：医院列表单院区卡片、公众号通知说明、意见反馈帮助页、院内导航静态地图（均不含动态机构/路线或授权能力）
+仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码、公众号关注/订阅；医院列表仍缺动态机构/院区/路线 contract
 仍缺真实证据：众阳患者/预约历史/报告/门诊费用、公网 API、微信真机和生产回归
 ```
 
@@ -36,6 +36,8 @@
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
 | 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai` | 费用详情、支付、医保、结算回写和退费未开放 |
 | 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
+| 公众号说明 | `pages/official-account/official-account` | 静态通知说明、旧端本地图标和首页轮播跳转已迁移 | 二维码、关注状态、订阅消息授权和真实发送结果未迁移 |
+| 意见反馈帮助 | `pages/feedback/feedback` | 热点问题、客服电话和在线反馈迁移提示已迁移；拨号需用户确认 | 真实反馈写入、客服工单、电话/工作时间受控配置未迁移 |
 | 院内导航 | `pages/hospital-navigation/hospital-navigation` | 旧端静态地图、背景色、`aspectFit` 和点击预览已迁移 | 楼层/科室定位、实时路线和地图服务未迁移 |
 | 微信支付 | 订单、预支付、通知、查单基础设施 | 代码基础和 gate 已具备 | 商户、回调、公网和真机支付未验收；gate 必须关闭 |
 | 医保/HIS | domain/规则层部分存在 | 规则边界和文档基础存在 | 真实加密、授权、6201/6202/6301/6203/6401、HIS 回写均未迁移 |
@@ -81,6 +83,8 @@
 | `pagesB/health/outpatient_pay_detail`、`electronic_bill` | 费用明细和可支付金额展示 | 费用详情 contract、金额单位和患者归属规则 |
 | `pagesB/health/report_query`、`report_detail` 的真实能力 | LIS/PACS/ECG/体检真实数据、附件和详情授权 | provider 文档、资源 URL/短期授权、数据脱敏规则 |
 | `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段；旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | HIS/EMR 只读 contract、资源授权和脱敏清单；目录差异草案见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)，整体边界见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
+| `pagesB/account/follow` | 公众号说明 | 静态说明已迁移至 `pages/official-account/official-account`；二维码、关注状态、订阅消息和外部主体 contract 仍缺 |
+| `pagesB/user/feedback` | 意见反馈 | 静态帮助页已迁移至 `pages/feedback/feedback`；真实反馈写入、客服工单和受控配置仍缺 |
 | `pagesB/hospital/hospitalList` | 医院列表 | 静态单院区入口已迁移至 `pages/hospital-list/hospital-list`；医院列表数据来源、机构选择语义和版本 contract 仍缺 |
 | `pagesB/hospital/navigation` | 静态院内地图已迁移；实时楼层/科室定位未迁移 | 原始 `map.jpg`、`aspectFit`、点击预览已完成；动态地图数据、定位和路线 contract 待确认 |
 | `pagesB/hospital/bloodAppointment` | 采血预约 | 采血服务 contract、号源状态和取消规则 |
@@ -99,7 +103,7 @@
 
 ### P3：患者个人中心与低风险账户能力
 
-- `user/user.vue` 目前只有新端基础“我的”页；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；个人资料、头像、意见反馈、订阅消息、咨询历史、公众号关注、我的医生和患者签名尚未迁移。旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
+- `user/user.vue` 目前只有新端基础“我的”页；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；个人资料、头像、真实意见反馈提交、订阅消息、咨询历史、公众号真实关注、我的医生和患者签名尚未迁移。公众号静态通知说明和反馈帮助页已经迁移，但不代表关注、工单或反馈提交事实；旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 - `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。
 - `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 

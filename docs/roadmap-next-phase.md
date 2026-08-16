@@ -19,12 +19,12 @@
 - 小程序预约历史、报告和门诊费用窗口已同步采用中国标准时间日历算法；跨中国标准时间零点时不会继续使用设备本地自然日。
 - 首页就诊人卡片已改为展示服务端脱敏卡号，绑定入口进入独立选择页；报告查询已从首页后台状态改为独立报告目录页，并按 10 条分批展示。
 - 首页和“我的”页的患者目录读取已补齐最后一次请求获胜守卫，避免会话恢复、同步、下拉刷新或返回选择页时旧响应覆盖当前就诊人；真机并发操作证据仍待补齐。
-- 医院列表的旧端静态单院区卡片已按原始图片、提示栏、卡片布局和预约前置语义迁移；院内导航的旧端静态地图页也已按原始图片、背景色、`aspectFit` 和点击预览行为迁移；动态医院/院区、楼层定位和实时路线仍未开放。
+- 医院列表的旧端静态单院区卡片已按原始图片、提示栏、卡片布局和预约前置语义迁移；公众号静态通知说明页、意见反馈帮助页已按旧端文案和静态交互迁移；院内导航的旧端静态地图页也已按原始图片、背景色、`aspectFit` 和点击预览行为迁移；动态医院/院区、楼层定位和实时路线仍未开放。
 - 微信支付订单、预支付尝试、回调去重、查单补偿的领域和持久化基础已经实现，但支付 gate 仍关闭。
 - 健康知识已完成旧端接口/表结构到新版本化 schema 的静态映射和导入时间边界；真实内容与临床审核未到位前，患者 GET 路由继续不挂载。
 - 门诊就诊记录目录已完成旧端字段差异和候选 contract 草案；provider 文档确认前不注册 `medical-records` 路由，不开放病历正文或诊断字段。
 - 便民服务已完成旧 13 个路由、旧表覆盖逻辑和患者/医生字段风险审计；新端仍未注册，边界已拆为反馈、临床问卷、医生关系和预约后预问诊四个领域。
-- 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院和采血预约已完成旧页面副作用审计；医院列表静态入口已迁移，但动态机构/院区、路线和票据仍必须按独立 contract 重做。
+- 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院和采血预约已完成旧页面副作用审计；医院列表、公众号和反馈帮助静态入口已迁移，但真实反馈写入、动态机构/院区、路线、关注状态和票据仍必须按独立 contract 重做。
 - 旧端非页面逻辑（直连 provider、WebSocket、身份/患者持久化、临床问卷组件和静态入口配置）已完成单独审计；新端不得把这些旧 helper 当作可兼容迁移，边界见 [`migration/legacy-client-infrastructure-boundaries.md`](migration/legacy-client-infrastructure-boundaries.md)。
 - 旧服务基础设施与运维边界已完成单独审计：旧 Redis 多 namespace、Mongo 连接、APScheduler/任务管理、本地文件资源、AI/WebSocket 和 Admin/RBAC 均未被新患者 API 全量替代；共存门禁见 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md)。
 - 2026-08-16 生产 Redis 会话隔离已完成：新 API 使用独立 DB3/`hospital_v2` ACL，旧 Python 仍使用 DB1/旧全权限账号；新 API 已由 systemd 运行且公网 v2 健康检查可达，但新 Worker 未启动、报告 gate 关闭、旧 Python 仍由手工进程运行；证据见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。

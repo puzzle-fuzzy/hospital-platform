@@ -100,6 +100,10 @@ Page<MyPageData, MyPageMethods>({
 				// 报告目录与门诊病历是两类不同医疗事实，不能复用 reports 路由。
 				wx.showToast({ title: "门诊病历正在迁移中", icon: "none" });
 				break;
+			case "feedback":
+				// 旧端反馈页目前也是静态问答和客服电话，在线反馈提交仍未开放。
+				wx.navigateTo({ url: "/pages/feedback/feedback" });
+				break;
 			default:
 				wx.showToast({ title: "该服务正在迁移中", icon: "none" });
 		}

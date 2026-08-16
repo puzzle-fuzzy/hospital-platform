@@ -9,7 +9,7 @@
 | 旧页面/入口 | 旧端实际行为 | 旧接口/外部依赖 | 新端结论 |
 | --- | --- | --- | --- |
 | `pagesB/user/edit_profile.vue` | 读取并修改昵称、性别、年龄、邮箱、头像 | `GET /system/user/current/info`、`PUT /system/user/current/info/update`、`POST /system/user/current/avatar/upload` | 个人资料必须拆分普通资料、实名资料和头像资源；旧请求允许 `openid`、`unionid`、身份证等字段，不能原样迁移 |
-| `pagesB/user/feedback.vue` | 展示热点问题和客服电话；点击“意见反馈”只弹 Toast，未提交反馈 | 无真实反馈写入接口；页面硬编码客服电话 | 不能标记为“意见反馈已迁移”；电话号码和工作时间应由受控配置提供 |
+| `pagesB/user/feedback.vue` | 展示热点问题和客服电话；点击“意见反馈”只弹 Toast，未提交反馈 | 新端已迁移为静态帮助页；无真实反馈写入接口，旧页面硬编码客服电话 | 只能标记为“反馈帮助页部分迁移”；真实意见写入、客服工单、电话号码和工作时间应由受控配置提供 |
 | `pagesB/user/miss_appointment.vue` | 查询预约记录后只过滤 `status === 4` | 预约记录 provider 查询 | 只能作为预约记录的筛选视图；不能把列表过滤结果当独立爽约事实 |
 | `pagesB/user/my_consultation.vue` | 查询陪诊历史；账单、病历、住院预约、就诊码按钮均只弹 Toast | `GET /intelligent/treatment_companion/history`；旧代码另有直连队列位置接口 | 需要独立 AI/陪诊会话、患者上下文和二维码 contract；当前不迁移 |
 | `pagesB/user/subscription_message.vue` | 本地维护开关、搜索和折叠状态，点击确定直接显示“设置已保存” | 没有 `wx.requestSubscribeMessage`，没有服务端保存 | 当前不是微信订阅能力；必须取得模板、授权时机、业务事件和撤回规则后重做 |
@@ -17,7 +17,7 @@
 | `pagesB/patient/patientChange.vue` | 读取旧患者列表，切换时再查档案并把旧 `patId` 写入缓存 | 旧患者查询与 `patInfosFind` | 新端安全选择页已替换；新增/绑卡仍未开放，不能让客户端保存 provider 患者号 |
 | `pagesB/patient/agreement.vue` | 展示静态条款；同意只 Toast 后跳首页，不记录版本/主体/时间 | 无同意记录接口 | 必须有版本化法律文本、同意事实、撤回和重新同意策略 |
 | `pagesB/patient/patient_signature.vue` | 使用本地/缓存患者列表，携带患者 ID/姓名跳转固定签名小程序 | `navigateToMiniProgram`，固定目标 AppID `wx0b76c9904392518f` | 需要目标小程序、字段、受众、回跳和签名结果回调 contract；不能透传内部或 provider 患者标识 |
-| `pagesB/account/follow.vue` | 展示关注公众号的静态宣传页 | 图片为外部 OSS 资源 | 仅可作为静态内容；公众号二维码/关注状态需要单独确认，不把静态页面当授权事实 |
+| `pagesB/account/follow.vue` | 展示关注公众号的静态宣传页 | 新端已迁移为 `pages/official-account`，图标改为本地受控资源 | 仅可作为静态内容；公众号二维码/关注状态/订阅消息需要单独确认，不把静态页面当授权事实 |
 | `pagesB/hospital/hospitalList.vue` | 页面硬编码一个医院和地址，点击卡片进入挂号；“查看路线”没有真实路线逻辑 | 无医院列表 API；新端已迁移为静态 `pages/hospital-list` | 静态卡片只作为预约前置展示；动态医院列表、机构选择和路线必须独立 contract，不能把静态配置扩展成动态能力 |
 | `pagesB/hospital/bloodAppointment.vue` | 患者姓名/年龄和院区均为硬编码，始终展示“无可预约项目” | 无采血 API；空态图片来自外部 OSS | 不能展示硬编码患者；等待采血服务 contract、院区和号源状态 |
 | `pagesB/health/webview.vue`、`pages/hospital/hospital.vue` | 根据 `path` 或完整 URL 打开外部 WebView | `POST /system/auth/ticket`；外部 AI/互联网医院 URL | 必须使用固定 audience/allowlist/短期会话；不能接受任意完整 URL 或把平台 token 交给外部页面 |

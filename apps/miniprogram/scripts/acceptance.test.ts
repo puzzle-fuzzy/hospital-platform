@@ -191,6 +191,56 @@ test("native mini program preserves the legacy static hospital entry boundary", 
 	expect(await asset.exists()).toBe(true);
 });
 
+test("native mini program migrates the legacy static official-account explanation", async () => {
+	const app = await source("app.json");
+	const home = await source("pages/index/index.ts");
+	const page = await source("pages/official-account/official-account.ts");
+	const template = await source("pages/official-account/official-account.wxml");
+	const style = await source("pages/official-account/official-account.wxss");
+	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
+	const asset = Bun.file(
+		join(sourceRoot, "assets", "official-account", "notice.svg"),
+	);
+
+	expect(app).toContain('"pages/official-account/official-account"');
+	expect(home).toContain('action: "follow"');
+	expect(home).toContain('url: "/pages/official-account/official-account"');
+	expect(page).toContain("静态展示");
+	expect(page).not.toContain("request");
+	expect(template).toContain("欢迎关注");
+	expect(template).toContain("高平医院公众号");
+	expect(template).toContain("医院就诊通知");
+	expect(template).toContain("/assets/official-account/notice.svg");
+	expect(style).toContain("height: 200rpx");
+	expect(style).toContain("padding-top: 113rpx");
+	expect(build).toContain("official-account/official-account.js");
+	expect(await asset.exists()).toBe(true);
+});
+
+test("native mini program exposes feedback as a safe static help page", async () => {
+	const app = await source("app.json");
+	const my = await source("pages/my/my.ts");
+	const page = await source("pages/feedback/feedback.ts");
+	const template = await source("pages/feedback/feedback.wxml");
+	const style = await source("pages/feedback/feedback.wxss");
+	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
+
+	expect(app).toContain('"pages/feedback/feedback"');
+	expect(my).toContain('case "feedback"');
+	expect(my).toContain('url: "/pages/feedback/feedback"');
+	expect(page).toContain("在线意见反馈功能正在迁移中");
+	expect(page).toContain("wx.makePhoneCall");
+	expect(page).toContain("SERVICE_PHONE");
+	expect(template).toContain("热点问题");
+	expect(template).toContain("onIssueTap");
+	expect(template).toContain("意见反馈");
+	expect(style).toContain("background: #f7f7f7");
+	expect(build).toContain("feedback/feedback.js");
+	// 不得把旧端的任意 provider URL 或反馈万能接口带入原生页。
+	expect(page).not.toContain("http");
+	expect(page).not.toContain("providerPatientId");
+});
+
 test("native mini program derives missed appointments from the normalized record status", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");
