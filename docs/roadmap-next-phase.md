@@ -154,5 +154,6 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；目标环境 migration 和 schema probe 已完成，下一步是失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
 - 普通个人资料已在 0014 建立独立 `hp_user_profiles` 表；MySQL 首次写入和条件版本更新均有回归测试，下一步必须先做 schema probe、默认值/冲突公网验收，再允许真机使用资料编辑入口。
 - 2026-08-16：0014 已在生产受控应用，schema probe 返回 `ready`，55fce6c 已切换新 API；未登录 profile 401 已验证，真实微信资料默认值、首次更新、409 冲突和真机仍未完成。
+- 2026-08-16：修复首页与患者选择页下拉刷新提前结束的问题；刷新指示器现在等待健康检查、患者目录读取和医院目录同步完成，避免临床映射尚未落库时进入预约、报告或费用查询。
 - 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。
 - 2026-08-16：完成生产 Redis 会话隔离：新 API 使用 DB3/`hospital_v2`，ACL 只允许 `PING/SELECT/GET/SET` 与 `hospital:session:*`，通过 TTL 和跨前缀拒绝探针；旧 Python DB1 继续运行，未迁移旧 namespace。

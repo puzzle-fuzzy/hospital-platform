@@ -179,7 +179,7 @@ const SERVICE_TABS = Object.freeze([
 ] satisfies ReadonlyArray<ServiceTab>);
 
 type IndexPageMethods = {
-	checkHealth(): void;
+	checkHealth(): Promise<void>;
 	onLogin(): void;
 	onHeroAction(): void;
 	openPatientSelector(): void;
@@ -194,7 +194,7 @@ type IndexPageMethods = {
 	loadPatients(): Promise<Array<Patient>>;
 	onSyncPatients(): Promise<Array<Patient>>;
 	onLoadAppointments(): void;
-	onRefresh(): void;
+	onRefresh(): Promise<void>;
 	onPullDownRefresh(): void;
 	onLoadReports(): void;
 	onLoadAppointmentRecords(): void;
@@ -276,9 +276,9 @@ Page<IndexPageData, IndexPageMethods>({
 		}
 	},
 
-	checkHealth() {
+	checkHealth(): Promise<void> {
 		const requestToken = healthGuard.begin();
-		loadHealth()
+		return loadHealth()
 			.then((payload) => {
 				if (!healthGuard.isCurrent(requestToken)) return;
 				this.setData({
@@ -471,18 +471,21 @@ Page<IndexPageData, IndexPageMethods>({
 		wx.navigateTo({ url: "/pages/hospital-list/hospital-list" });
 	},
 
-	onRefresh() {
-		this.checkHealth();
-		if (hasPlatformSession()) {
-			this.loadPatients().catch((error) =>
-				this.showError(error, "就诊人刷新失败"),
-			);
-		}
+	onRefresh(): Promise<void> {
+		// 下拉刷新结束必须等待健康检查和患者目录读取都完成；否则用户看到的
+		// “刷新完成”并不代表当前患者上下文已经更新，后续业务页可能读到旧映射。
+		const patientRefresh = hasPlatformSession()
+			? this.loadPatients().catch((error) => {
+					this.showError(error, "就诊人刷新失败");
+				})
+			: Promise.resolve();
+		return Promise.all([this.checkHealth(), patientRefresh]).then(
+			() => undefined,
+		);
 	},
 
 	onPullDownRefresh() {
-		this.onRefresh();
-		wx.stopPullDownRefresh();
+		this.onRefresh().finally(() => wx.stopPullDownRefresh());
 	},
 
 	onLoadReports() {

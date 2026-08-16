@@ -502,6 +502,23 @@ test("native homepage and my page reject stale patient directory responses", asy
 	expect(my).toContain("pageLoadGuard.isCurrent(requestToken)");
 });
 
+test("patient context pull-to-refresh waits for the complete directory lifecycle", async () => {
+	const home = await source("pages/index/index.ts");
+	const selection = await source("pages/patient-select/patient-select.ts");
+
+	// 刷新指示器必须覆盖健康检查、目录读取和临床映射同步，不能只等待第一段请求。
+	expect(home).toContain(
+		"return Promise.all([this.checkHealth(), patientRefresh])",
+	);
+	expect(home).toContain(
+		"this.onRefresh().finally(() => wx.stopPullDownRefresh())",
+	);
+	expect(selection).toContain("return this.onSyncPatients();");
+	expect(selection).toContain(
+		"this.loadPatientList().finally(() => wx.stopPullDownRefresh())",
+	);
+});
+
 test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
 	const client = await source("services/api-client.ts");
 

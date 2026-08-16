@@ -20,7 +20,7 @@ type PatientSelectionPageMethods = {
 	loadPatientList(): Promise<void>;
 	onPatientTap(event: PatientEvent): void;
 	onAddPatient(): void;
-	onSyncPatients(): void;
+	onSyncPatients(): Promise<void>;
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
 	setPatientList(patients: Array<Patient>): void;
@@ -77,7 +77,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				// 选择页也可能被历史路径直接打开，不能依赖首页先完成临床映射；
 				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到 HIS patId。
 				this.setData({ loading: false });
-				this.onSyncPatients();
+				// 选择页的目录读取完成后还必须等待一次完整同步；否则下拉刷新会
+				// 提前结束，调用页可能在 HIS 映射尚未落库时开始预约/报告查询。
+				return this.onSyncPatients();
 			})
 			.catch((error) => {
 				if (
@@ -133,11 +135,11 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	/** 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。 */
-	onSyncPatients(): void {
+	onSyncPatients(): Promise<void> {
 		const dataToken = directoryDataGuard.begin();
 		const syncToken = syncGuard.begin();
 		this.setData({ syncing: true, error: "" });
-		syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
+		return syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
 			.then((patients) => {
 				if (
 					!directoryDataGuard.isCurrent(dataToken) ||
