@@ -3,6 +3,7 @@ import { createLogger } from "@hospital/observability";
 import {
 	createPersistenceProbeStateTracker,
 	createPersistenceRuntime,
+	probeMySqlReadOnly,
 	safeErrorMetadata,
 } from "./runtime";
 
@@ -75,4 +76,32 @@ test("persistence probe keeps only a safe infrastructure error code", () => {
 		errorCode: "PROTOCOL_CONNECTION_LOST",
 	});
 	expect(safeErrorMetadata(unsafeError)).toEqual({ errorType: "Error" });
+});
+
+test("MySQL read-only probes retry once without replaying a business operation", async () => {
+	let calls = 0;
+	const attempts = await probeMySqlReadOnly(
+		async () => {
+			calls += 1;
+			if (calls === 1) throw new Error("stale pooled connection");
+		},
+		{ attempts: 2, delayMs: 0 },
+	);
+
+	expect(attempts).toBe(2);
+	expect(calls).toBe(2);
+});
+
+test("MySQL read-only probes remain failed after the bounded retry", async () => {
+	let calls = 0;
+	await expect(
+		probeMySqlReadOnly(
+			async () => {
+				calls += 1;
+				throw new Error("database unavailable");
+			},
+			{ attempts: 2, delayMs: 0 },
+		),
+	).rejects.toThrow("database unavailable");
+	expect(calls).toBe(2);
 });

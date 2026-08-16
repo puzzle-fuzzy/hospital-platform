@@ -7,7 +7,7 @@ import {
 	createMySqlRepositories,
 	type MySqlRepositories,
 } from "./mysql-repositories";
-import { readCoreSchemaStateFromPool } from "./migrate";
+import { readCoreSchemaStateFromPool, type CoreSchemaState } from "./migrate";
 import {
 	createRedisSessionStore,
 	type RedisSessionStore,
@@ -36,10 +36,47 @@ type PersistenceProbeMetadata = {
 	errorType?: string;
 	errorCode?: string;
 	operation?: string;
+	attempts?: number;
 	schemaStatus?: string;
 	missingMigrationCount?: number;
 	missingSchemaObjectCount?: number;
 };
+
+/**
+ * MySQL 连接池探针只执行幂等的只读查询；第一次失败时最多再尝试一次。
+ * 这个重试边界不能复用到业务 repository：业务写入的最终执行状态可能未知，
+ * 不能因为网络异常而盲目重放。探针最终失败仍然返回 unavailable，保持 fail-closed。
+ */
+export async function probeMySqlReadOnly(
+	query: () => Promise<unknown>,
+	options: { attempts?: number; delayMs?: number } = {},
+): Promise<number> {
+	const maxAttempts = options.attempts ?? 2;
+	const delayMs = options.delayMs ?? 25;
+	if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1) {
+		throw new Error("MySQL probe attempts must be a positive integer");
+	}
+	if (!Number.isFinite(delayMs) || delayMs < 0) {
+		throw new Error("MySQL probe delay must be a non-negative number");
+	}
+
+	let lastError: unknown;
+	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+		try {
+			await query();
+			return attempt;
+		} catch (error) {
+			lastError = error;
+			if (attempt < maxAttempts && delayMs > 0) {
+				await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+			}
+		}
+	}
+
+	throw lastError instanceof Error
+		? lastError
+		: new Error("MySQL read-only probe failed");
+}
 
 function safeErrorType(error: unknown): string {
 	return error instanceof Error ? error.name : "UnknownError";
@@ -126,14 +163,18 @@ function createMySqlPort(pool: Pool, logger?: AppLogger): DependencyPort {
 
 	return {
 		async check(): Promise<DependencyState> {
+			let attempts = 0;
 			try {
-				await pool.query("SELECT 1 AS health_check");
+				attempts = await probeMySqlReadOnly(() =>
+					pool.query("SELECT 1 AS health_check"),
+				);
 				trackProbeState("ok");
 				return "ok";
 			} catch (error) {
 				trackProbeState("unavailable", {
 					...safeErrorMetadata(error),
 					operation: "mysql.health_check",
+					attempts: attempts || 2,
 				});
 				return "unavailable";
 			}
@@ -168,10 +209,18 @@ function createSchemaPort(pool: Pool, logger?: AppLogger): DependencyPort {
 
 	return {
 		async check(): Promise<"ok" | "unavailable" | "not_configured"> {
+			let attempts = 0;
 			try {
-				const state = await readCoreSchemaStateFromPool(pool);
+				let state: CoreSchemaState | undefined;
+				attempts = await probeMySqlReadOnly(async () => {
+					state = await readCoreSchemaStateFromPool(pool);
+				});
+				if (!state) {
+					throw new Error("MySQL schema probe returned no state");
+				}
 				const probeState = state.status === "ready" ? "ok" : "unavailable";
 				trackProbeState(probeState, {
+					attempts,
 					schemaStatus: state.schemaStatus,
 					missingMigrationCount: state.missingMigrationIds.length,
 					missingSchemaObjectCount: state.missingSchemaObjects.length,
@@ -182,6 +231,7 @@ function createSchemaPort(pool: Pool, logger?: AppLogger): DependencyPort {
 				trackProbeState("unavailable", {
 					...safeErrorMetadata(error),
 					operation: "mysql.schema_check",
+					attempts: attempts || 2,
 				});
 				return "unavailable";
 			}
