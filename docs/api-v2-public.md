@@ -91,6 +91,8 @@ Content-Type: application/json
 | `GET` | `/api/v2/system/ping` | 无 | 返回服务名和 API 版本，不执行业务依赖探测 |
 | `POST` | `/api/v2/auth/wechat` | 无 | body 只有 `code`；服务端完成微信身份兑换并签发平台会话 |
 | `GET` | `/api/v2/me` | Bearer | 恢复当前平台用户，只返回内部 `user.id` |
+| `GET` | `/api/v2/me/profile` | Bearer | 读取当前用户的普通展示资料；不存在时返回安全默认值，不隐式创建记录 |
+| `PUT` | `/api/v2/me/profile` | Bearer | 使用 `version` 更新昵称、性别、年龄、邮箱；不接收实名/微信/患者/头像字段 |
 | `POST` | `/api/v2/patients/sync` | Bearer + 必填幂等键 | 从 provider 刷新当前用户的患者目录；不接受 body |
 | `GET` | `/api/v2/patients` | Bearer | 返回当前用户 owner-scoped 的脱敏患者目录 |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
@@ -129,7 +131,18 @@ Content-Type: application/json
 平台内部来源分类；页面不能把 `other` 当作 provider 错误或直接展示给用户。卡号是服务端
 脱敏读模型，不允许小程序自行拼接明文卡号。
 
-### 3.2 预约目录和预约历史
+### 3.2 普通个人资料
+
+`GET /me/profile` 和 `PUT /me/profile` 只处理 `displayName`、`gender`、`age`、`email`。
+当前会话决定 owner，客户端不能提交 `userId`；头像、手机号、身份证、实名姓名、微信
+`openid`/`unionid` 和患者字段不属于该 API。详细字段、默认值、版本冲突和 migration 见
+[`migration/user-profile-contract.md`](migration/user-profile-contract.md)。
+
+资料不存在时返回 `version=0` 的默认值；首次更新必须使用 `version=0`，保存后版本变为 1。
+后续更新必须带当前版本，冲突返回 `409 user-profile-conflict`，客户端应刷新后重试，不能
+自动覆盖其他设备的修改。
+
+### 3.3 预约目录和预约历史
 
 预约目录返回规范化的 `departmentId`、`doctorId`、`workDate`、`shiftName`、
 `totalSlots`、`availableSlots` 和 `timeGroup`。`timeGroup` 只允许 `point`、`range`、
@@ -200,6 +213,7 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | 400 | `report-query-invalid` | 报告查询条件不合法 |
 | 400 | `payment-order-invalid` | 创建订单输入不合法 |
 | 400 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |
+| 400 | `user-profile-invalid` | 普通个人资料字段不合法或没有可更新字段 |
 | 401 | `unauthorized` | 会话缺失、无效或已过期 |
 | 404 | `not-found` | 请求路径未注册，不能据此推断业务资源不存在 |
 | 404 | `appointment-record-patient-not-found` | 当前用户不拥有该预约查询患者 |
@@ -216,6 +230,7 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | 409 | `payment-identity-not-found` | 支付身份映射不可用 |
 | 409 | `payment-prepay-in-progress` | 预支付仍在处理，不能并发创建 |
 | 409 | `payment-prepay-unknown` | 预支付结果需向 provider 确认，不能直接重建 |
+| 409 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
 | 502 | `provider-request-rejected` | provider 明确拒绝请求，不能盲目重试 |
 | 503 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |
 | 503 | `persistence-temporarily-unavailable` | 数据库、Redis 或 schema 暂时不可用 |

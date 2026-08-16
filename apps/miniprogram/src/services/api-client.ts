@@ -9,6 +9,8 @@ import type {
 	PatientListResponse,
 	ReportDetailResponse,
 	ReportListResponse,
+	UserProfileResponse,
+	UserProfileUpdateRequest,
 	WechatPrepayData,
 	WechatPrepayResponse,
 	WechatPrepayStatusResponse,
@@ -311,6 +313,22 @@ export async function requestWithSession<TResponse>(
 /** 验证当前平台会话；响应只包含内部用户 id。 */
 export function getCurrentUser(): Promise<CurrentUserResponse> {
 	return requestWithSession<CurrentUserResponse>({ url: "/me" });
+}
+
+/** 读取普通个人资料；响应不包含微信身份、实名或患者字段。 */
+export function getUserProfile(): Promise<UserProfileResponse> {
+	return requestWithSession<UserProfileResponse>({ url: "/me/profile" });
+}
+
+/** 使用服务端版本号更新普通个人资料，避免多设备静默互相覆盖。 */
+export function updateUserProfile(
+	input: UserProfileUpdateRequest,
+): Promise<UserProfileResponse> {
+	return requestWithSession<UserProfileResponse>({
+		url: "/me/profile",
+		method: "PUT",
+		data: input,
+	});
 }
 
 /** 请求服务端从已认证身份同步患者，不在小程序侧拼 provider 字段。 */

@@ -13,6 +13,8 @@ import {
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
+	UserProfileInputError,
+	UserProfileVersionConflictError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
@@ -120,6 +122,28 @@ export function errorHandlerPlugin() {
 						message: error.retryable
 							? "External service is temporarily unavailable"
 							: "External service rejected the request",
+					},
+				};
+			}
+
+			if (error instanceof UserProfileInputError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "user-profile-invalid",
+						message: "个人资料字段不合法",
+					},
+				};
+			}
+
+			if (error instanceof UserProfileVersionConflictError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "user-profile-conflict",
+						message: "个人资料已被其他设备修改，请刷新后重试",
 					},
 				};
 			}

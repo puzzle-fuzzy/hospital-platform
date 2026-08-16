@@ -169,7 +169,7 @@
 | `GET /system/user/current/info` | `api/modules/user.ts` | 代码已迁移（只读） | 新端改为 `GET /api/v2/me`，只返回内部用户 ID。个人资料扩展、实名资料、头像和患者绑定不能由此接口顺带开放。 |
 | `POST /system/auth/ticket` | `pagesB/health/webview.vue` | 待 provider contract | 旧实现把原始 access token 存入 Redis 并由 verify 返回；新端必须改为固定 audience、最小 scope、一次性引用和后端校验，不能继续把 JWT/平台 token 交给外部页面。 |
 | `GET /system/auth/ticket/verify` | 旧 FastAPI `module_system/auth/controller.py` | 待 provider contract | 需要明确票据一次性消费、受众、TTL、资源 owner、回调和重放处理；当前不在新患者端公共 API 中。 |
-| `PUT /system/user/current/info/update` | `api/modules/user.ts` | 待 provider contract | 个人资料、实名资料和微信身份字段必须拆分；不能接收旧端的 `openid`/`unionid`/身份证字段作为客户端输入；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。 |
+| `PUT /system/user/current/info/update` | `api/modules/user.ts` | 普通资料子集已迁移 | 新端 `PUT /api/v2/me/profile` 只接收昵称、性别、年龄、邮箱和 version；实名资料、微信身份和患者字段仍关闭，不能接收旧端的 `openid`/`unionid`/身份证字段；详见 [`user-profile-contract.md`](user-profile-contract.md)。 |
 | `POST /system/user/current/avatar/upload` | `api/modules/user.ts` | 待 provider contract | 需要对象存储、文件检查、owner/TTL 下载和内容安全；不能直接信任/公开 `file_url`，当前不迁移。 |
 
 ## 3. 旧 Python 服务自身的患者相关路由

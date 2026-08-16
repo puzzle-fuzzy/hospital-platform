@@ -11,6 +11,7 @@
 - 新旧服务共用 MySQL 数据库 `hospital-dev`，新服务只使用 `hp_*` 表，旧服务继续使用 legacy 表。
 - 新服务已具备生产模式启动日志、MySQL/Redis/schema 探针、Pino 结构化日志和 fail-closed 依赖注入。
 - 微信登录、平台会话、就诊人列表、就诊人独立选择页面已经形成患者端纵向切片。
+- 普通个人资料已形成独立纵向切片：`GET/PUT /api/v2/me/profile` 只处理昵称、性别、年龄、邮箱，使用 `version` 乐观锁；头像、实名、手机号和微信身份仍保持关闭，生产 schema、公网和真机证据待验收。
 - 预约科室、排班、预约历史的只读 contract、adapter、服务端脱敏和排班短期快照已经实现。
 - 爽约记录已实现为预约历史 `status=missed` 的安全派生子视图，固定近 90 天并支持切换就诊人；未知状态不推断为爽约，真实 provider、公网和真机证据仍待完成。
 - 预约挂号页面已恢复旧版“两列级联”交互：左侧科室独立滚动，右侧按日期和 12 条分批展示号源，避免一次性渲染全部 provider 排班。
@@ -151,5 +152,6 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 - 2026-08-16：修复服务端与小程序只读窗口依赖运行时本地时区的问题，并用 UTC 输入验证仍输出中国标准时间；提交 `4c0d255` 只涉及客户端和文档，不需要重启 API，也不会打开支付、医保或结算写入。
 - 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；目标环境 migration 和 schema probe 已完成，下一步是失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
+- 普通个人资料已在 0014 建立独立 `hp_user_profiles` 表；MySQL 首次写入和条件版本更新均有回归测试，下一步必须先做 schema probe、默认值/冲突公网验收，再允许真机使用资料编辑入口。
 - 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。
 - 2026-08-16：完成生产 Redis 会话隔离：新 API 使用 DB3/`hospital_v2`，ACL 只允许 `PING/SELECT/GET/SET` 与 `hospital:session:*`，通过 TTL 和跨前缀拒绝探针；旧 Python DB1 继续运行，未迁移旧 namespace。

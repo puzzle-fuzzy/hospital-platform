@@ -1,7 +1,7 @@
 # 个人中心与外部入口迁移边界审计
 
 > 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app`，旧服务来源为
-> `G:\\fuck\\hospital`。本文记录旧页面真实行为和新端迁移门禁；不代表个人资料、绑卡、签名、WebView、
+> `G:\\fuck\\hospital`。本文记录旧页面真实行为和新端迁移门禁；普通资料子集已单独实现，但不代表头像、实名、绑卡、签名、WebView、
 > 互联网医院或消息订阅已经迁移。
 
 患者新增/查档/建档/绑卡的字段、状态机、幂等和 provider 问题单独维护在
@@ -12,7 +12,7 @@
 
 | 旧页面/入口 | 旧端实际行为 | 旧接口/外部依赖 | 新端结论 |
 | --- | --- | --- | --- |
-| `pagesB/user/edit_profile.vue` | 读取并修改昵称、性别、年龄、邮箱、头像 | `GET /system/user/current/info`、`PUT /system/user/current/info/update`、`POST /system/user/current/avatar/upload` | 个人资料必须拆分普通资料、实名资料和头像资源；旧请求允许 `openid`、`unionid`、身份证等字段，不能原样迁移 |
+| `pagesB/user/edit_profile.vue` | 读取并修改昵称、性别、年龄、邮箱、头像 | `GET /system/user/current/info`、`PUT /system/user/current/info/update`、`POST /system/user/current/avatar/upload` | 普通资料已拆为 `/me/profile`；头像、实名资料和微信身份仍分离；旧请求允许 `openid`、`unionid`、身份证等字段，不能原样迁移 |
 | `pagesB/user/feedback.vue` | 展示热点问题和客服电话；点击“意见反馈”只弹 Toast，未提交反馈 | 新端已迁移为静态帮助页；无真实反馈写入接口，旧页面硬编码客服电话 | 只能标记为“反馈帮助页部分迁移”；真实意见写入、客服工单、电话号码和工作时间应由受控配置提供 |
 | `pagesB/user/miss_appointment.vue` | 查询预约记录后只过滤 `status === 4` | 预约记录 provider 查询 | 只能作为预约记录的筛选视图；不能把列表过滤结果当独立爽约事实 |
 | `pagesB/user/my_consultation.vue` | 查询陪诊历史；账单、病历、住院预约、就诊码按钮均只弹 Toast | `GET /intelligent/treatment_companion/history`；旧代码另有直连队列位置接口 | 需要独立 AI/陪诊会话、患者上下文和二维码 contract；当前不迁移 |
@@ -139,7 +139,7 @@ TTL 60 秒；`/system/auth/ticket/verify` 读取后删除票据并把 `access_to
 ## 6. 迁移顺序与验收门禁
 
 1. 先把当前新端“我的”页面未开放入口标记为迁移提示，避免出现空页面或伪成功。
-2. 先做普通个人资料只读，再做普通字段更新；实名资料、头像、患者绑定、签名分别使用独立 contract。
+2. 普通个人资料的只读和版本化更新已完成代码切片；生产 schema、公网和真机证据完成后再认定为可用；实名资料、头像、患者绑定、签名分别使用独立 contract。
 3. 患者新增/绑卡必须先完成 owner、重复、超时查询和协议同意事实，再开放真实写入；不能直接复用旧 `patients`/`patCards`。
 4. 爽约记录只能在预约历史读模型完成真实状态映射后作为筛选视图开放；当前实现仍不得扩展为独立爽约写入、申诉或统计事实。
 5. 意见反馈、消息订阅、跨小程序签名、互联网医院和 AI WebView 分别完成 audience、allowlist、回调和审计后再开放。

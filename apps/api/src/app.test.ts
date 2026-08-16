@@ -22,6 +22,7 @@ import {
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
 	createInMemoryReportReferenceRepository,
+	createInMemoryUserProfileRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 } from "@hospital/persistence";
 import { createApp } from "./app";
@@ -38,6 +39,7 @@ import {
 	WechatPrepayService,
 } from "./modules/payments";
 import { ReportService } from "./modules/reports";
+import { UserProfileService } from "./modules/profile";
 
 async function flushAfterResponseHooks(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
@@ -136,6 +138,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/appointments/schedules",
 		"/api/v1/auth/wechat",
 		"/api/v1/me",
+		"/api/v1/me/profile",
 		"/api/v1/patients",
 		"/api/v1/patients/sync",
 		"/api/v1/payments/orders",
@@ -208,6 +211,8 @@ test("public API documentation lists every stable public error code", async () =
 		"payment-identity-not-found",
 		"payment-prepay-in-progress",
 		"payment-prepay-unknown",
+		"user-profile-invalid",
+		"user-profile-conflict",
 	] as const;
 
 	for (const code of publicErrorCodes) {
@@ -267,6 +272,105 @@ test("current user endpoint only returns the platform session user id", async ()
 	expect(await response.json()).toEqual({
 		success: true,
 		data: { user: { id: "fixture-user-0001" } },
+	});
+});
+
+test("profile endpoint is owner-scoped and rejects stale versions", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(createInMemoryPatientRepository()),
+			appointments: unusedAppointmentService(),
+			reports: unusedReportService(),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			profile: new UserProfileService(createInMemoryUserProfileRepository()),
+			sessions,
+		},
+	});
+	const authorization = `Bearer ${issued.accessToken}`;
+
+	const initialResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			headers: { authorization },
+		}),
+	);
+	const initialBody = await initialResponse.json();
+	expect(initialResponse.status).toBe(200);
+	expect(initialBody).toEqual({
+		success: true,
+		data: {
+			displayName: "微信用户",
+			gender: "unknown",
+			age: null,
+			email: null,
+			version: 0,
+		},
+	});
+
+	const updateResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			method: "PUT",
+			headers: {
+				authorization,
+				"content-type": "application/json",
+				"x-request-id": "profile-update-test",
+			},
+			body: JSON.stringify({
+				version: 0,
+				displayName: "  测试用户  ",
+				gender: "female",
+				age: 32,
+				email: "test@example.com",
+			}),
+		}),
+	);
+	expect(updateResponse.status).toBe(200);
+	expect(await updateResponse.json()).toEqual({
+		success: true,
+		data: {
+			displayName: "测试用户",
+			gender: "female",
+			age: 32,
+			email: "test@example.com",
+			version: 1,
+		},
+	});
+
+	const staleResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			method: "PUT",
+			headers: {
+				authorization,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ version: 0, displayName: "旧设备" }),
+		}),
+	);
+	expect(staleResponse.status).toBe(409);
+	expect(await staleResponse.json()).toEqual({
+		success: false,
+		error: {
+			code: "user-profile-conflict",
+			message: "个人资料已被其他设备修改，请刷新后重试",
+		},
 	});
 });
 

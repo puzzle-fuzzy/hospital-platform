@@ -9,6 +9,8 @@ import type {
 	PatientListPayload,
 	ReportDetailPayload,
 	ReportListPayload,
+	UserProfilePayload,
+	UserProfileUpdatePayload,
 	WechatPrepayPayload,
 	WechatPrepayStatusPayload,
 } from "@hospital/contracts";
@@ -50,6 +52,11 @@ export type WechatPrepayStatusResponse = WechatPrepayStatusPayload;
 
 export type AuthSessionData = AuthSessionResponse["data"];
 export type CurrentUserData = CurrentUserResponse["data"];
+export type UserProfileResponse = {
+	success: true;
+	data: UserProfilePayload["data"];
+};
+export type UserProfileUpdateRequest = UserProfileUpdatePayload;
 export type Patient = PatientListResponse["data"]["items"][number];
 /** 选择页的显示模型；关系中文案只属于客户端展示层，不进入 API contract。 */
 export type PatientSelectionView = Patient & {
@@ -249,5 +256,19 @@ export type MyPageData = {
 	selectedPatient: Patient | null;
 	patientCount: number;
 	loading: boolean;
+	error: string;
+};
+
+/** 普通资料页只编辑平台展示资料；实名、微信身份和头像资源另有边界。 */
+export type ProfilePageData = {
+	displayName: string;
+	gender: "male" | "female" | "unknown";
+	age: string;
+	email: string;
+	version: number;
+	loading: boolean;
+	/** 只有读取成功后才允许提交，避免加载失败时用默认值覆盖线上资料。 */
+	loaded: boolean;
+	saving: boolean;
 	error: string;
 };

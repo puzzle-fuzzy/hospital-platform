@@ -12,6 +12,18 @@
 
 上述能力的逐项证据、共存发布门禁和回滚边界见 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)。
 
+## 1.1 新端已建立的患者基础表
+
+| 新表 | 事实来源 | 当前用途和边界 |
+| --- | --- | --- |
+| `hp_identity_users` | 新微信登录的内部身份映射 | 保存平台用户与服务端 provider subject 的关系；openid/unionid 不返回小程序 |
+| `hp_patients`、`hp_patient_provider_references` | 患者目录同步和用途映射 | 保存 owner-scoped 患者读模型及预约/报告等用途的服务端引用；不开放客户端 provider 患者号 |
+| `hp_user_profiles` | 普通个人资料契约，migration 0014 | 只保存昵称、性别、年龄、邮箱和版本；头像、实名、手机号、医保和微信身份不进入本表 |
+
+`hp_user_profiles` 的完整字段、首次写入和并发更新规则见 [`user-profile-contract.md`](user-profile-contract.md)。
+新表应用前必须通过 migration 和 schema probe；不能因为新旧服务共用数据库就把该表当成旧
+Python 服务可以读取或修改的兼容表。
+
 ## 2. 已看到的支付相关表候选
 
 旧 Alembic 迁移 `9f5c4e2d1a7b_新增医保支付订单与回调事件表.py` 明确创建：

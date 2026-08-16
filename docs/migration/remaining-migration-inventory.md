@@ -9,7 +9,7 @@
 
 ## 1. 盘点结论
 
-旧端当前有 64 个 Vue 页面，新原生小程序有 13 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
+旧端当前有 64 个 Vue 页面，新原生小程序有 14 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
 但还不是旧端的功能等价替换：
 
 页面之外的旧端请求封装、WebSocket、状态仓储、问卷/随访组件和静态业务配置，不能按“公共工具”视为已迁移；
@@ -69,7 +69,7 @@
 | 旧页面 | 当前状态 | 迁移边界 |
 | --- | --- | --- |
 | `pages/index/index.vue` | 已被原生首页替换 | 保留首页患者上下文、服务入口和底部导航；不保留旧端 provider 直连 |
-| `pages/user/user.vue` | 已被原生“我的”页部分替换 | 患者选择、挂号记录等已接入；个人资料、反馈、订阅消息等扩展入口仍未迁移 |
+| `pages/user/user.vue` | 已被原生“我的”页部分替换 | 患者选择、挂号记录和普通个人资料已接入；头像、实名、反馈、订阅消息等扩展入口仍未迁移 |
 | `pages/consult/consult.vue` | 未迁移 | 智能陪诊/导诊需要独立会话、免责声明、内容审计和外部服务 contract |
 | `pages/hospital/hospital.vue` | 未迁移 | 互联网医院入口需要外部小程序/医院服务协议，不能伪造站内页面 |
 | `pages/setting/setData.vue` | 开发辅助页，不纳入生产迁移 | 不进入生产 `app.json`，保留在旧端作为测试工具即可 |
@@ -103,7 +103,7 @@
 
 ### P3：患者个人中心与低风险账户能力
 
-- `user/user.vue` 目前只有新端基础“我的”页；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；个人资料、头像、真实意见反馈提交、订阅消息、咨询历史、公众号真实关注、我的医生和患者签名尚未迁移。公众号静态通知说明和反馈帮助页已经迁移，但不代表关注、工单或反馈提交事实；旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
+- `user/user.vue` 目前已由新端“我的”页、普通个人资料页和就诊人选择页组成安全子集；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；头像、实名资料、真实意见反馈提交、订阅消息、咨询历史、公众号真实关注、我的医生和患者签名尚未迁移。公众号静态通知说明和反馈帮助页已经迁移，但不代表关注、工单或反馈提交事实；旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；普通资料契约见 [`user-profile-contract.md`](user-profile-contract.md)，总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 - `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。候选状态机、字段白名单、幂等和待 provider 确认问题见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。
 - `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 

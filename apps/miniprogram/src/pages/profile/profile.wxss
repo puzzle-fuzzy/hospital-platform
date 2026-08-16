@@ -1,0 +1,116 @@
+page {
+	background: #f8f8f8;
+}
+
+.page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 28rpx 20rpx 60rpx;
+	background: #f8f8f8;
+}
+
+.error-message,
+.state-card,
+.form-card,
+.boundary-card {
+	box-sizing: border-box;
+	width: 710rpx;
+	margin-right: auto;
+	margin-left: auto;
+}
+
+.error-message {
+	margin-bottom: 18rpx;
+	padding: 20rpx;
+	border-radius: 12rpx;
+	background: #fff1f1;
+	color: #ff4444;
+	font-size: 26rpx;
+	line-height: 1.5;
+	text-align: center;
+}
+
+.state-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 180rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	color: #777777;
+	font-size: 28rpx;
+}
+
+.form-card {
+	border-radius: 20rpx;
+	background: #ffffff;
+	overflow: hidden;
+}
+
+.form-row {
+	display: flex;
+	align-items: center;
+	min-height: 104rpx;
+	padding: 0 30rpx;
+	border-bottom: 1rpx solid #f0f0f0;
+	box-sizing: border-box;
+}
+
+.form-row:last-child {
+	border-bottom: 0;
+}
+
+.form-label {
+	width: 130rpx;
+	color: #555555;
+	font-size: 28rpx;
+}
+
+.form-input,
+.picker-value {
+	flex: 1;
+	color: #222222;
+	font-size: 28rpx;
+	text-align: right;
+}
+
+.picker-value {
+	padding: 30rpx 0;
+}
+
+.picker-arrow {
+	margin-left: 12rpx;
+	color: #aaaaaa;
+	font-size: 40rpx;
+	line-height: 1;
+}
+
+.boundary-card {
+	display: flex;
+	margin-top: 24rpx;
+	padding: 24rpx 28rpx;
+	border-radius: 18rpx;
+	background: #eef4ff;
+	color: #5570a8;
+	flex-direction: column;
+}
+
+.boundary-title {
+	font-size: 27rpx;
+	font-weight: 700;
+}
+
+.boundary-copy {
+	margin-top: 10rpx;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.save-button {
+	width: 710rpx;
+	margin: 50rpx auto 0;
+	border-radius: 44rpx;
+	background: #4b8eff;
+	color: #ffffff;
+	font-size: 32rpx;
+}

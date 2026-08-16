@@ -87,6 +87,17 @@ export type {
 	WechatIdentityGateway,
 } from "./patients";
 export type {
+	UserGender,
+	UserProfile,
+	UserProfileRepository,
+	UserProfileUpdate,
+} from "./user-profile";
+export {
+	emptyUserProfile,
+	UserProfileInputError,
+	UserProfileVersionConflictError,
+} from "./user-profile";
+export type {
 	CreatePaymentOrderInput,
 	PaymentAmounts,
 	PaymentOrder,

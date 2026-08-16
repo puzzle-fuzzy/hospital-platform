@@ -131,6 +131,33 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	expect(bindingContract).toContain("PB-01");
 });
 
+test("native my page separates ordinary profile from family patient selection", async () => {
+	const app = await source("app.json");
+	const my = await source("pages/my/my.ts");
+	const template = await source("pages/my/my.wxml");
+	const profile = await source("pages/profile/profile.ts");
+	const profileTemplate = await source("pages/profile/profile.wxml");
+	const client = await source("services/api-client.ts");
+	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
+
+	expect(app).toContain('"pages/profile/profile"');
+	expect(my).toContain('url: "/pages/profile/profile"');
+	expect(my).toContain('url: "/pages/patient-select/patient-select"');
+	expect(template).toContain('bindtap="onFamilyTap"');
+	expect(template).toContain('bindtap="onHeaderTap"');
+	expect(profile).toContain("getUserProfile");
+	expect(profile).toContain("updateUserProfile");
+	expect(profile).toContain("this.data.version");
+	expect(profile).toContain("尚未加载完成");
+	expect(profile).not.toContain("openid");
+	expect(profile).not.toContain("unionid");
+	expect(profile).not.toContain("idCard");
+	expect(profile).not.toContain("avatar");
+	expect(profileTemplate).toContain("头像、手机号、真实姓名和身份证");
+	expect(client).toContain('url: "/me/profile"');
+	expect(build).toContain("profile/profile.js");
+});
+
 test("native mini program build guards the DevTools TypeScript configuration", async () => {
 	const config = await source("../project.config.json");
 	const build = await Bun.file(

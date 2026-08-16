@@ -17,6 +17,9 @@ import type {
 	ReportReference,
 	ReportReferenceRepository,
 	UserIdentityRepository,
+	UserProfile,
+	UserProfileRepository,
+	UserProfileUpdate,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
@@ -24,6 +27,7 @@ import {
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
+	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
 } from "@hospital/domain";
@@ -64,6 +68,38 @@ export function createInMemoryIdentityUserRepository(
 		},
 		async findByUserId(userId) {
 			return [...users.values()].find((user) => user.userId === userId);
+		},
+	};
+}
+
+/** 普通个人资料的内存仓储；只用于测试，生产必须使用带版本条件的 MySQL 实现。 */
+export function createInMemoryUserProfileRepository(
+	seed: readonly UserProfile[] = [],
+): UserProfileRepository {
+	const profiles = new Map(seed.map((profile) => [profile.userId, profile]));
+
+	return {
+		async findByUserId(userId) {
+			return profiles.get(userId);
+		},
+		async update(input: UserProfileUpdate) {
+			const existing = profiles.get(input.userId);
+			const currentVersion = existing?.version ?? 0;
+			if (currentVersion !== input.expectedVersion) {
+				throw new UserProfileVersionConflictError();
+			}
+
+			const next: UserProfile = {
+				userId: input.userId,
+				displayName: input.displayName ?? existing?.displayName ?? "微信用户",
+				gender: input.gender ?? existing?.gender ?? "unknown",
+				age: input.age !== undefined ? input.age : (existing?.age ?? null),
+				email:
+					input.email !== undefined ? input.email : (existing?.email ?? null),
+				version: currentVersion + 1,
+			};
+			profiles.set(input.userId, next);
+			return next;
 		},
 	};
 }
@@ -485,6 +521,7 @@ export function createInMemoryReportReferenceRepository(
 
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
+	userProfiles: UserProfileRepository;
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
 	paymentQuotes: PaymentQuoteRepository;
@@ -503,6 +540,14 @@ export function createNotConfiguredRepositories(): {
 			},
 			findByUserId: async () => {
 				throw new PersistenceNotConfiguredError("identity-users");
+			},
+		},
+		userProfiles: {
+			findByUserId: async () => {
+				throw new PersistenceNotConfiguredError("user-profiles");
+			},
+			update: async () => {
+				throw new PersistenceNotConfiguredError("user-profiles");
 			},
 		},
 		patients: {

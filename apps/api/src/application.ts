@@ -35,6 +35,7 @@ import {
 	WechatPaymentNotificationService,
 } from "./modules/payments/notification-service";
 import { ReportService } from "./modules/reports";
+import { UserProfileService } from "./modules/profile";
 
 export type ApplicationServices = {
 	auth: AuthService;
@@ -45,6 +46,8 @@ export type ApplicationServices = {
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
 	wechatPaymentNotifications: WechatPaymentNotificationService;
+	/** 普通资料模块在默认组合根启用；自定义测试组合根可省略以保持 fail-closed。 */
+	profile?: UserProfileService;
 	sessions: SessionTokenService;
 };
 
@@ -157,6 +160,9 @@ export function createDefaultApplicationServices(
 						"wechat-payment-notifications",
 					);
 				}) as WechatPaymentNotificationDecoder),
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		profile: new UserProfileService(repositories.userProfiles, {
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		sessions,

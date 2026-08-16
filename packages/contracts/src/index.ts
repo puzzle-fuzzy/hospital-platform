@@ -43,6 +43,44 @@ export const CurrentUserResponse = Type.Object({
 	}),
 });
 
+/** 普通资料性别枚举；实名性别和医院患者性别不复用此字段。 */
+export const UserGenderSchema = Type.Union([
+	Type.Literal("male"),
+	Type.Literal("female"),
+	Type.Literal("unknown"),
+]);
+
+/** 个人资料只返回平台展示字段，不返回微信身份、实名或患者字段。 */
+export const UserProfileSchema = Type.Object({
+	displayName: Type.String({ minLength: 1, maxLength: 64 }),
+	gender: UserGenderSchema,
+	age: Type.Union([Type.Integer({ minimum: 0, maximum: 150 }), Type.Null()]),
+	email: Type.Union([
+		Type.String({ maxLength: 320, format: "email" }),
+		Type.Null(),
+	]),
+	/** 0 表示尚未持久化，正整数表示已落库版本。 */
+	version: Type.Integer({ minimum: 0 }),
+});
+
+export const UserProfileResponse = Type.Object({
+	success: Type.Literal(true),
+	data: UserProfileSchema,
+});
+
+/** 普通资料使用版本条件更新；不接受 avatar/openid/unionid/身份证等旧字段。 */
+export const UserProfileUpdateRequest = Type.Object({
+	version: Type.Integer({ minimum: 0 }),
+	displayName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	gender: Type.Optional(UserGenderSchema),
+	age: Type.Optional(
+		Type.Union([Type.Integer({ minimum: 0, maximum: 150 }), Type.Null()]),
+	),
+	email: Type.Optional(
+		Type.Union([Type.String({ maxLength: 320, format: "email" }), Type.Null()]),
+	),
+});
+
 /** 关系值是跨 provider 的内部规范，页面显示文案由小程序决定。 */
 export const PatientRelationshipSchema = Type.Union([
 	Type.Literal("self"),
@@ -447,6 +485,8 @@ export type ErrorPayload = Static<typeof ErrorResponse>;
 export type WechatLoginPayload = Static<typeof WechatLoginRequest>;
 export type AuthSessionPayload = Static<typeof AuthSessionResponse>;
 export type CurrentUserPayload = Static<typeof CurrentUserResponse>;
+export type UserProfilePayload = Static<typeof UserProfileResponse>;
+export type UserProfileUpdatePayload = Static<typeof UserProfileUpdateRequest>;
 export type PatientPayload = Static<typeof PatientSchema>;
 export type PatientListPayload = Static<typeof PatientListResponse>;
 export type AppointmentDepartmentPayload = Static<

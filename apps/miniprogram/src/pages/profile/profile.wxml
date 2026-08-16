@@ -1,0 +1,57 @@
+<view class="page">
+	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+	<view wx:if="{{loading}}" class="state-card">
+		<text>正在加载个人资料...</text>
+	</view>
+
+	<view wx:elif="{{!loading && loaded}}" class="form-card">
+		<view class="form-row">
+			<text class="form-label">昵称</text>
+			<input
+				class="form-input"
+				value="{{displayName}}"
+				bindinput="onDisplayNameInput"
+				maxlength="64"
+				placeholder="请输入昵称"
+			/>
+		</view>
+		<view class="form-row">
+			<text class="form-label">性别</text>
+			<picker mode="selector" range="{{genderLabels}}" value="{{genderIndex}}" bindchange="onGenderChange">
+				<view class="picker-value">{{genderLabel}} <text class="picker-arrow">›</text></view>
+			</picker>
+		</view>
+		<view class="form-row">
+			<text class="form-label">年龄</text>
+			<input
+				class="form-input"
+				type="number"
+				value="{{age}}"
+				bindinput="onAgeInput"
+				maxlength="3"
+				placeholder="请输入年龄"
+			/>
+		</view>
+		<view class="form-row">
+			<text class="form-label">邮箱</text>
+			<input
+				class="form-input"
+				type="text"
+				value="{{email}}"
+				bindinput="onEmailInput"
+				maxlength="320"
+				placeholder="请输入邮箱"
+			/>
+		</view>
+	</view>
+
+	<view class="boundary-card">
+		<text class="boundary-title">资料边界</text>
+		<text class="boundary-copy">头像、手机号、真实姓名和身份证信息需要独立的安全契约，当前不会通过普通资料接口修改。</text>
+	</view>
+
+	<button wx:if="{{loaded}}" class="save-button" loading="{{saving}}" disabled="{{saving}}" bindtap="onSave">
+		{{saving ? "保存中" : "保存"}}
+	</button>
+</view>

@@ -84,6 +84,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0013_patient_directory_snapshot.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0014_user_profiles",
+		file: "../migrations/0014_user_profiles.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -95,6 +100,7 @@ export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_schema_migrations",
 	"hp_schema_migration_runs",
 	"hp_identity_users",
+	"hp_user_profiles",
 	"hp_patients",
 	"hp_patient_provider_references",
 	"hp_payment_quotes",
@@ -123,6 +129,19 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 	{
 		table: "hp_identity_users",
 		columns: ["user_id", "provider_subject"],
+	},
+	{
+		table: "hp_user_profiles",
+		columns: [
+			"user_id",
+			"display_name",
+			"gender",
+			"age",
+			"email",
+			"version",
+			"created_at",
+			"updated_at",
+		],
 	},
 	{
 		table: "hp_patients",
@@ -446,6 +465,13 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 
 /** Composite foreign keys prevent a patient/order from crossing user owners. */
 export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
+	{
+		table: "hp_user_profiles",
+		name: "fk_hp_user_profiles_user",
+		columns: ["user_id"],
+		referencedTable: "hp_identity_users",
+		referencedColumns: ["user_id"],
+	},
 	{
 		table: "hp_payment_orders",
 		name: "fk_hp_orders_owner_patient",

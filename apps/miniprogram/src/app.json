@@ -11,6 +11,7 @@
 		"pages/report-directory/report-directory",
 		"pages/report-detail/report-detail",
 		"pages/outpatient-payment/outpatient-payment",
+		"pages/profile/profile",
 		"pages/my/my",
 		"pages/hospital-navigation/hospital-navigation"
 	],

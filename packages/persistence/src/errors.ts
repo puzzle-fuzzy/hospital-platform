@@ -20,6 +20,7 @@ export class PersistenceUnavailableError extends Error {
 export class PersistenceNotConfiguredError extends DependencyNotConfiguredError {
 	readonly resource:
 		| "identity-users"
+		| "user-profiles"
 		| "patients"
 		| "payment-orders"
 		| "payment-quotes"
@@ -32,6 +33,7 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 	constructor(
 		resource:
 			| "identity-users"
+			| "user-profiles"
 			| "patients"
 			| "payment-orders"
 			| "payment-quotes"

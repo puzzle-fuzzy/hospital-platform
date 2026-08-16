@@ -18,6 +18,7 @@ import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
 import { reportsModule } from "./modules/reports";
+import { profileModule } from "./modules/profile";
 import { systemModule } from "./modules/system";
 import { errorHandlerPlugin } from "./plugins/error-handler";
 import { requestContextPlugin } from "./plugins/request-context";
@@ -44,6 +45,7 @@ function openApiPlugin() {
 				{ name: "health", description: "运行状态" },
 				{ name: "system", description: "系统基础接口" },
 				{ name: "auth", description: "患者端身份认证" },
+				{ name: "profile", description: "普通个人资料" },
 				{ name: "patients", description: "患者档案" },
 				{ name: "appointments", description: "预约目录" },
 				{ name: "reports", description: "检查检验报告目录" },
@@ -84,6 +86,11 @@ export function createApp(options: AppOptions = {}) {
 			api
 				.use(systemModule())
 				.use(authModule(services.auth, services.sessions))
+				.use(
+					services.profile
+						? profileModule(services.profile, services.sessions)
+						: new Elysia({ name: "profile-not-configured" }),
+				)
 				.use(patientsModule(services.patients, services.sessions))
 				.use(appointmentsModule(services.appointments, services.sessions))
 				.use(reportsModule(services.reports, services.sessions))

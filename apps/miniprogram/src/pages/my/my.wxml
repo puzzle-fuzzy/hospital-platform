@@ -11,7 +11,7 @@
 		<text class="profile-arrow">›</text>
 	</view>
 
-	<view class="family-card" bindtap="onHeaderTap">
+	<view class="family-card" bindtap="onFamilyTap">
 		<view>
 			<text class="family-title">家庭成员管理</text>
 			<text class="family-subtitle">已绑定 {{patientCount}} 位就诊人</text>

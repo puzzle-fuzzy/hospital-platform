@@ -22,6 +22,9 @@ import type {
 	ReportReference,
 	ReportReferenceRepository,
 	UserIdentityRepository,
+	UserProfile,
+	UserProfileRepository,
+	UserProfileUpdate,
 	WechatMiniProgramPayParams,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
@@ -30,6 +33,7 @@ import {
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
+	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
 } from "@hospital/domain";
@@ -106,6 +110,15 @@ type IdentityUserRow = RowDataPacket & {
 	user_id: string;
 	provider_subject: string;
 	union_id: string | null;
+};
+
+type UserProfileRow = RowDataPacket & {
+	user_id: string;
+	display_name: string;
+	gender: string;
+	age: number | string | null;
+	email: string | null;
+	version: number | string;
 };
 
 type PatientRow = RowDataPacket & {
@@ -226,6 +239,7 @@ type OutboxEventRow = RowDataPacket & {
 
 export type MySqlRepositories = {
 	identityUsers: UserIdentityRepository;
+	userProfiles: UserProfileRepository;
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
 	paymentQuotes: PaymentQuoteRepository;
@@ -374,6 +388,32 @@ function identityUser(row: IdentityUserRow): IdentityUser {
 		userId: row.user_id,
 		providerSubject: row.provider_subject,
 		...(row.union_id ? { unionId: row.union_id } : {}),
+	};
+}
+
+function userGender(value: string): UserProfile["gender"] {
+	if (value === "male" || value === "female" || value === "unknown") {
+		return value;
+	}
+	throw new Error("Persistence returned an unknown user profile gender");
+}
+
+function userProfile(row: UserProfileRow): UserProfile {
+	const version = Number(row.version);
+	const age = row.age === null ? null : Number(row.age);
+	if (!Number.isSafeInteger(version) || version < 1) {
+		throw new Error("Persistence returned an invalid user profile version");
+	}
+	if (age !== null && (!Number.isSafeInteger(age) || age < 0 || age > 150)) {
+		throw new Error("Persistence returned an invalid user profile age");
+	}
+	return {
+		userId: row.user_id,
+		displayName: row.display_name,
+		gender: userGender(row.gender),
+		age,
+		email: row.email,
+		version,
 	};
 }
 
@@ -953,6 +993,68 @@ export function createMySqlRepositories(
 		},
 	};
 
+	const userProfiles: UserProfileRepository = {
+		async findByUserId(userId) {
+			const rows = await execute<UserProfileRow[]>(
+				pool,
+				"SELECT user_id, display_name, gender, age, email, version FROM hp_user_profiles WHERE user_id = ? LIMIT 1",
+				[userId],
+			);
+			return rows[0] ? userProfile(rows[0]) : undefined;
+		},
+		async update(input: UserProfileUpdate) {
+			const now = mysqlDateTime(new Date());
+			if (input.expectedVersion === 0) {
+				try {
+					await execute<ResultSetHeader>(
+						pool,
+						"INSERT INTO hp_user_profiles (user_id, display_name, gender, age, email, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+						[
+							input.userId,
+							input.displayName ?? "微信用户",
+							input.gender ?? "unknown",
+							input.age ?? null,
+							input.email ?? null,
+							1,
+							now,
+							now,
+						],
+					);
+				} catch (error) {
+					if (!isDuplicateEntry(error)) throw error;
+					// 两个设备都拿到 version=0 时，只有一个可以完成首次插入；
+					// 另一个必须收到冲突，不能覆盖已经保存的资料。
+					throw new UserProfileVersionConflictError();
+				}
+			} else {
+				const current = await userProfiles.findByUserId(input.userId);
+				if (!current || current.version !== input.expectedVersion) {
+					throw new UserProfileVersionConflictError();
+				}
+				const result = await execute<ResultSetHeader>(
+					pool,
+					"UPDATE hp_user_profiles SET display_name = ?, gender = ?, age = ?, email = ?, version = version + 1, updated_at = ? WHERE user_id = ? AND version = ?",
+					[
+						input.displayName ?? current.displayName,
+						input.gender ?? current.gender,
+						input.age !== undefined ? input.age : current.age,
+						input.email !== undefined ? input.email : current.email,
+						now,
+						input.userId,
+						input.expectedVersion,
+					],
+				);
+				if (result.affectedRows !== 1) {
+					throw new UserProfileVersionConflictError();
+				}
+			}
+
+			const updated = await userProfiles.findByUserId(input.userId);
+			if (!updated) throw new Error("User profile was not stored");
+			return updated;
+		},
+	};
+
 	const patients: PatientRepository = {
 		async listByOwner(ownerUserId) {
 			const rows = await execute<PatientRow[]>(
@@ -1513,6 +1615,7 @@ export function createMySqlRepositories(
 
 	return {
 		identityUsers,
+		userProfiles,
 		patients,
 		paymentOrders,
 		paymentQuotes,

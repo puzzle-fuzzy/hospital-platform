@@ -1,6 +1,6 @@
 # 旧端逐页迁移矩阵
 
-> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 13 个 TypeScript 页面源文件。
+> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 14 个 TypeScript 页面源文件。
 > 本矩阵用于防止页面遗漏，不把“有旧代码”或“新端有占位入口”当作业务完成证据。
 
 ## 状态定义
@@ -48,7 +48,7 @@
 | `pagesB/health/` | `webview.vue` | 待 provider contract | 外部导诊/客服 web-view 必须有固定 HTTPS allowlist、来源参数白名单、登录态隔离和失败回退 |
 | `pagesB/health/` | `gift_electronic_banner.vue`、`list_electronic_banner.vue`、`record_electronic_banner.vue` | 待 provider contract | 旧端提交患者/医生/就诊快照，必须改为服务端就诊引用；文字/文件审核、内容安全、脱敏公开展示、撤回和管理端读取权限未确认 |
 | `pagesB/health/` | `gift_health_praise.vue`、`list_health_praise.vue`、`record_health_praise.vue` | 待 provider contract | 表扬信提交、审核、脱敏公开展示、幂等、撤回、文件上传和管理端权限未确认 |
-| `pagesB/user/` | `edit_profile.vue` | 待 provider contract | 个人资料必须与实名/微信身份拆分；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
+| `pagesB/user/` | `edit_profile.vue` | 普通资料子集已迁移 | 原生 `pages/profile` 已迁移昵称、性别、年龄、邮箱并使用版本并发；头像、实名、微信身份和患者绑定仍关闭；详见 [`user-profile-contract.md`](user-profile-contract.md) |
 | `pagesB/user/` | `feedback.vue` | 部分迁移 | 原生端已迁移热点问题、咨询电话和安全的迁移提示；真实意见提交、客服工单和受控配置仍未开放 |
 | `pagesB/user/` | `miss_appointment.vue` | 部分迁移 | 新端以预约历史读模型的 `status=missed` 派生只读页面，当前固定展示近 90 天并支持切换就诊人；真实 provider 状态、公网和真机证据仍待完成，不能使用客户端 `status=4` 或把未知状态推断为爽约 |
 | `pagesB/user/` | `my_consultation.vue` | 待 provider contract | 需要 AI/陪诊会话索引、患者归属、内容保留和脱敏策略；账单/病历/住院预约/就诊码按钮当前只是 Toast |

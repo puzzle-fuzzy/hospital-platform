@@ -197,6 +197,50 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 	expect(state.values[2]).toContain("his-patient-001");
 });
 
+test("MySQL ordinary profile uses insert-once and conditional version updates", async () => {
+	const firstRow = {
+		user_id: "user-profile-001",
+		display_name: "测试用户",
+		gender: "female",
+		age: 32,
+		email: "test@example.com",
+		version: 1,
+	};
+	const secondRow = { ...firstRow, display_name: "测试用户2", version: 2 };
+	const { pool, state } = createFakePool([
+		{ affectedRows: 1 },
+		[firstRow],
+		[firstRow],
+		{ affectedRows: 1 },
+		[secondRow],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.userProfiles.update({
+			userId: "user-profile-001",
+			expectedVersion: 0,
+			displayName: "测试用户",
+			gender: "female",
+			age: 32,
+			email: "test@example.com",
+		}),
+	).resolves.toMatchObject({ version: 1, displayName: "测试用户" });
+	await expect(
+		repositories.userProfiles.update({
+			userId: "user-profile-001",
+			expectedVersion: 1,
+			displayName: "测试用户2",
+		}),
+	).resolves.toMatchObject({ version: 2, displayName: "测试用户2" });
+
+	expect(state.statements[0]).toContain("INSERT INTO hp_user_profiles");
+	expect(state.statements[2]).toContain("FROM hp_user_profiles");
+	expect(state.statements[3]).toContain("version = version + 1");
+	expect(state.statements[3]).toContain("AND version = ?");
+	expect(state.values[3]?.at(-1)).toBe(1);
+});
+
 test("MySQL patient directory snapshot deactivates missing rows in one transaction", async () => {
 	const { pool, state } = createFakePool([
 		[],

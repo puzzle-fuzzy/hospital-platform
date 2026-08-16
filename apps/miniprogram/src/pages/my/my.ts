@@ -10,6 +10,7 @@ import type { ActionEvent, MyPageData } from "../../types";
 type MyPageMethods = {
 	loadPage(): Promise<void>;
 	onHeaderTap(): void;
+	onFamilyTap(): void;
 	onAction(event: ActionEvent): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
@@ -74,6 +75,10 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	onHeaderTap(): void {
+		wx.navigateTo({ url: "/pages/profile/profile" });
+	},
+
+	onFamilyTap(): void {
 		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
 	},
 

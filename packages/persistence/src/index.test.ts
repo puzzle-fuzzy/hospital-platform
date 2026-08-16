@@ -6,6 +6,7 @@ import {
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryReportReferenceRepository,
+	createInMemoryUserProfileRepository,
 	createNotConfiguredHealthKnowledgeRepository,
 	createNotConfiguredRepositories,
 	createUnconfiguredPersistence,
@@ -78,6 +79,37 @@ test("内存身份仓储补齐延迟返回的 unionId 但不覆盖既有绑定",
 		unionId: "fixture-union-001",
 	});
 	expect(unchanged.unionId).toBe("fixture-union-001");
+});
+
+test("内存普通资料仓储使用版本号拒绝并发覆盖", async () => {
+	const profiles = createInMemoryUserProfileRepository();
+
+	await expect(
+		profiles.update({
+			userId: "user-profile-001",
+			expectedVersion: 0,
+			displayName: "测试用户",
+		}),
+	).resolves.toMatchObject({
+		userId: "user-profile-001",
+		displayName: "测试用户",
+		version: 1,
+	});
+
+	await expect(
+		profiles.update({
+			userId: "user-profile-001",
+			expectedVersion: 0,
+			displayName: "旧设备覆盖",
+		}),
+	).rejects.toMatchObject({ code: "user-profile-conflict" });
+
+	await expect(
+		profiles.findByUserId("user-profile-001"),
+	).resolves.toMatchObject({
+		displayName: "测试用户",
+		version: 1,
+	});
 });
 
 test("in-memory patient directory upsert keeps a stable internal id", async () => {

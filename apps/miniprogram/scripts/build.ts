@@ -40,6 +40,9 @@ const requiredStaticFiles = [
 	"pages/outpatient-payment/outpatient-payment.json",
 	"pages/outpatient-payment/outpatient-payment.wxml",
 	"pages/outpatient-payment/outpatient-payment.wxss",
+	"pages/profile/profile.json",
+	"pages/profile/profile.wxml",
+	"pages/profile/profile.wxss",
 	"pages/hospital-navigation/hospital-navigation.json",
 	"pages/hospital-navigation/hospital-navigation.wxml",
 	"pages/hospital-navigation/hospital-navigation.wxss",
@@ -63,6 +66,7 @@ const requiredTypeScriptFiles = [
 	"pages/index/index.ts",
 	"pages/report-detail/report-detail.ts",
 	"pages/outpatient-payment/outpatient-payment.ts",
+	"pages/profile/profile.ts",
 	"pages/hospital-navigation/hospital-navigation.ts",
 	"pages/my/my.ts",
 ];
