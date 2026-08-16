@@ -174,6 +174,27 @@
 
 ## 3. 旧 Python 服务自身的患者相关路由
 
+### 3.1 旧 FastAPI 路由基线
+
+按旧仓库 `app/api/v1/__init__.py` 的 include 关系和 controller 路由装饰器做静态扫描，旧服务的
+路由规模如下。这里的数量是迁移盘点证据，不代表这些路由都应该进入新患者端 API：
+
+| 旧模块 | 静态路由数量 | 新端边界 |
+| --- | ---: | --- |
+| `module_system` | 88 | Admin API；患者端只单独迁移微信登录和最小当前用户视图 |
+| `module_monitor` | 20 | Operations API；不进入患者端 |
+| `module_application` | 14 | Worker/Operations API；不让患者会话管理任务 |
+| `module_common` | 33 | 文件、医保、支付和内部结算；按独立 contract 最后迁移 |
+| `module_convenience` | 13 | 便民业务逐域迁移；需要患者授权、内容/临床审核和医护侧权限 |
+| `module_intelligent` | 8 | AI/实时会话逐域迁移；需要 WebSocket、模型、知识版本和审计 contract |
+| `module_knowledge` | 15 | 健康内容、报告解读、自测；需要版本化导入和临床审核 |
+| **已挂载静态合计** | **191** | 不得用万能转发代替迁移 |
+
+静态扫描另发现 `module_intelligent/urls_rag.py` 的 `POST /document/create-by-file` 1 个装饰器，
+但它没有被 `module_intelligent/__init__.py` 挂载，因此不计入上面的 191 个实际挂载路由；未来若开放，
+必须作为管理端文件导入能力重新设计权限、对象存储、内容安全和审计。旧服务的 8001 端口继续保留，
+新 Elysia 不复用这些 Admin/Operations controller。
+
 以下路径是旧 FastAPI controller 的实际注册事实。它们继续由旧服务承担，不能直接成为新
 小程序的兼容转发：
 

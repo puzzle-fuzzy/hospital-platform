@@ -36,6 +36,8 @@
 
 旧 FastAPI 在 `app/api/v1/__init__.py` 中还注册了以下路由组。它们不应因为旧服务仍能返回响应，
 就被新小程序直接调用或通过“万能转发”接入；每组都必须有自己的 contract、权限、日志和验收证据。
+旧 FastAPI 各模块的静态路由数量、挂载关系以及 `urls_rag.py` 的未挂载孤立路由，见
+[`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md) 的“旧 FastAPI 路由基线”小节。
 
 | 旧路由组 | 旧职责 | 新端当前状态 | 正确迁移前置 |
 | --- | --- | --- | --- |
