@@ -527,6 +527,8 @@ test("native mini program derives missed appointments from the normalized record
 	expect(page).not.toContain("providerPatientId");
 	expect(page).not.toContain("thirdPatientId");
 	expect(template).toContain("暂无爽约记录");
+	expect(template).toContain("展示当前就诊人过去 90 天的爽约记录");
+	expect(template).toContain("查询范围为过去 90 天");
 	expect(template).toContain("更换就诊人");
 	expect(template).toContain("状态未知或服务异常时不会推断为爽约");
 	expect(template.indexOf('class="error-message"')).toBeGreaterThanOrEqual(0);
