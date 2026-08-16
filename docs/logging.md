@@ -17,7 +17,8 @@
 API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`；失败请求额外记录
 低敏的 `errorName`，必要时记录 Elysia 生命周期 `errorCode`，但不记录错误消息。
 如果失败类型是 `PersistenceUnavailableError`，还可记录 `persistenceOperation`
-和允许列表中的 `persistenceErrorCode`，用于判断连接丢失、重置或超时；这两个字段
+和允许列表中的规范化 `persistenceErrorCode`，用于判断连接丢失、重置或超时；
+驱动或包装层返回的小写、短横线形式会先统一为固定的大写下划线码；这两个字段
 不包含 SQL、连接串、账号、参数或原始错误消息。
 原生小程序为每个 `wx.request` 生成一次性的 `x-request-id`，服务端会校验后写入响应头
 和 Pino HTTP 日志；服务端错误返回的 request id 会保留在 `ApiError` 中，便于用户反馈
