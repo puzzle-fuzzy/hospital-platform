@@ -23,12 +23,12 @@
 | 新 Elysia API | `10.0.0.3:18081`，进程为 `bun`，PID `1431434` |
 | 旧 Python API | `0.0.0.0:8001`，进程为 `python`，PID `636918` |
 | 新 API systemd | `hospital-platform-api-v2.service`：`loaded active running` |
-| 切换前 release | `/home/ps/code/hospital-platform/current -> releases/41c9c18` |
+| 历史切换前 release 快照 | `/home/ps/code/hospital-platform/current -> releases/41c9c18`（非当前线上版本） |
 
 ## 3. 结论
 
 - 新 Bun/Elysia API 和旧 Python API 当前同时监听，满足“新旧服务共存、不停旧服务”的运行边界。
-- 新服务当前 release 指针仍是 `41c9c18`，不等于仓库 `main` 的最新提交已经部署；本次仓库后续文档提交没有发布到服务器。
+- 该历史快照中的 release 指针为 `41c9c18`，不等于当前线上版本；当前线上 release 已切换为 `131fb5a`，以对应的当前生产验收文档为准。
 - 本核对没有证明旧 Python 服务的 systemd unit 名称、Worker 状态、env 内容或数据库 schema 细节；这些必须引用对应的专门证据。
 - 端口和进程共存只证明运行层，不证明微信登录、患者映射、预约历史、报告、门诊费用、Provider、支付、医保或真机业务完成。
 

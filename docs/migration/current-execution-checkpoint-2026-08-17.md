@@ -3,6 +3,9 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
+> 当前线上 release 是 `131fb5a`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)；本文后面的历史证据段落保留原时间线，不能当作当前 release 的新业务证据。
+
 ## 1. 当前事实
 
 | 项目 | 当前状态 | 证据 |
@@ -60,6 +63,9 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 
 用户在开发者工具或真机执行 `wx.login`，进入患者选择页并完成一次刷新/切换；服务端保存低敏
 `traceId`、会话 TTL、患者数量、active/inactive 数量和映射数量，不保存 code、openid、身份证或 token。
+
+具体操作、日志事件和 Redis TTL 的脱敏读取方式以
+[`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md) 为准。
 
 验收必须覆盖：
 
