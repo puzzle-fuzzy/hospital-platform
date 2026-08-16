@@ -59,6 +59,14 @@
   登记 SHA-256、字段和状态；它们当前只能标记为 `normalized`。文档引用的执行预约、排班/号源、患者档案、
   支付登记和退款查单依赖尚未齐全，故没有打开预约写入、支付挂号或退款 route/gate。
 
+- 2026-08-17 只读复核旧项目 `hospital-app/docs` 时发现 7 份此前未进入 Provider intake 台账的材料：门诊待支付列表、
+  科室基础信息、用户信息、门诊结算信息、山西医保规范和微信医保支付订单材料；已按
+  [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md)
+  登记文件大小、更新时间、SHA-256、风险分类和冻结边界。`2.6.33` 仅用于核对现有门诊费用只读 adapter；科室/用户
+  信息仍是潜在目录依赖；2.27.2.27、医保规范和微信医保材料属于高风险 contract，不能直接打开费用详情、支付、医保
+  或 HIS 回写。同期发现的 `PatientHospitalSelector.md` 是内部 UI 组件说明，已在登记文档中明确排除，不计入 Provider
+  文档数量，避免把 UI 资料误判为接口契约。
+
 - 2026-08-16 23:19-23:20 CST 当前公网只读观察确认 `/api/v2/health/live`、`/api/v2/health/ready`、
   `/api/v2/system/ping` 均正常，ready 的 database/redis/schema 均为 `ok`；未登录患者目录仍返回 401，
   刻意冻结的 `/api/v2/medical-records` 返回 404。该证据只覆盖公网运行时和关闭边界，不能替代真实微信、

@@ -15,6 +15,11 @@
 [`provider-intake/2026-08-16-outpatient-settlement-insurance.md`](provider-intake/2026-08-16-outpatient-settlement-insurance.md)。
 它们只补充流程事实和内容指纹；支付、医保、退款和 HIS 回写仍按最后阶段处理，不能因为材料齐全就打开 gate。
 
+2026-08-17 旧项目文档目录复核又发现一批此前未登记的材料，见
+[`provider-intake/2026-08-17-legacy-document-discovery.md`](provider-intake/2026-08-17-legacy-document-discovery.md)。
+这批材料已经完成来源指纹和业务风险分类，但不改变当前 Provider 权限、生产配置或任何 route 的开放状态；其中
+门诊待支付列表只用于核对现有只读 adapter，门诊结算、医保规范和微信医保订单材料继续保持最后阶段冻结。
+
 ## 1. 接收阶段
 
 文档可以来自文件、网页、OpenAPI、接口导出、请求/响应样例、抓包、录屏或 provider 工程师确认；无论来源形式如何，
