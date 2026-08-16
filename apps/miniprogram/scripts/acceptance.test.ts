@@ -43,6 +43,22 @@ test("native client restores a platform session through the current-user endpoin
 	expect(client).not.toContain("providerSubject");
 });
 
+test("native client single-flights login and preserves a newer concurrent token", async () => {
+	const client = await source("services/api-client.ts");
+
+	// 首页恢复、患者同步和业务页面可能同时触发会话请求；一次性 wx.login code
+	// 只能由一个请求消费，旧 401 也不能清理并发请求刚换得的新 token。
+	expect(client).toContain("loginInFlight");
+	expect(client).toContain("const promise = performLogin()");
+	expect(client).toContain("currentToken !== accessToken");
+	expect(client).toContain(
+		"return request<TResponse>({ ...options, authenticated: true })",
+	);
+	expect(client).toContain(
+		'appData.sessionStatus = accessToken ? "signed_in" : "signed_out"',
+	);
+});
+
 test("native client sends request ids for Pino HTTP correlation", async () => {
 	const client = await source("services/api-client.ts");
 

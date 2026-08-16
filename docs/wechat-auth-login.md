@@ -103,8 +103,9 @@ GET /api/v2/me
 Authorization: Bearer <accessToken>
 ```
 
-服务端从 Redis 验证 token；小程序不得解析 token、猜测用户身份或把本地 token 当作永久登录证明。收到 401 后最多
-重新执行一次 `wx.login()`，不能无限重试。
+服务端从 Redis 验证 token；小程序不得解析 token、猜测用户身份或把本地 token 当作永久登录证明。小程序进程内的
+并发会话恢复共享同一个 `wx.login()` 请求，避免首页、患者同步和业务页面同时消耗多个一次性 code。收到 401 后最多
+重新执行一次 `wx.login()`；如果其他并发请求已经换得新 token，旧请求只能复用新 token，不能把它清除，不能无限重试。
 
 ### 健康检查
 

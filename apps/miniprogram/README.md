@@ -28,7 +28,8 @@
 `selected_patient_id`，返回首页后由 `onShow` 恢复，并清空上一位患者的报告和挂号记录状态。
 首页卡片只显示 `displayName` 和服务端生成的 `cardNumberMasked`，不会把内部 `patientId`、众阳患者号或完整医疗卡号作为用户可见 ID。
 新增/绑定就诊人仍未开放，因为当前平台只具备真实的目录同步契约，不能在小程序侧伪造绑定成功。
-页面只负责状态和交互事件；会话生命周期集中在 `src/services/session-service.ts`，日期窗口和患者/预约/报告
+页面只负责状态和交互事件；会话生命周期集中在 `src/services/session-service.ts` 和 `src/services/api-client.ts`，
+其中并发登录请求使用单飞机制，日期窗口和患者/预约/报告
 读模型编排集中在 `src/services/dashboard-service.ts`。新增页面应优先复用领域服务，不要在 WXML 页面里直接拼接 provider 参数。
 `wx.login()` 不会弹出头像/昵称授权框；登录成功后首页会显示“微信已登录”，头像昵称不属于当前医疗登录契约。
 登录后如果本地没有患者映射，页面会主动执行一次服务端患者目录同步；同步失败必须按配置或 provider 错误提示，不能展示假患者。

@@ -154,7 +154,10 @@ export function isAllowedApiBaseUrl(value: unknown): value is string {
 }
 
 function setAccessToken(accessToken: string): void {
-	globalData().accessToken = accessToken;
+	const appData = globalData();
+	appData.accessToken = accessToken;
+	// token 与全局展示状态必须原子地同步；401 清理 token 时不能继续显示“已登录”。
+	appData.sessionStatus = accessToken ? "signed_in" : "signed_out";
 	if (accessToken) {
 		wx.setStorageSync(ACCESS_TOKEN_KEY, accessToken);
 	} else {
@@ -283,8 +286,11 @@ export function request<TResponse = unknown>(
 	});
 }
 
+/** 当前小程序进程内的登录请求；并发页面共享同一个一次性 code 兑换结果。 */
+let loginInFlight: Promise<AuthSessionResponse> | null = null;
+
 /** 使用 wx.login 的临时 code 换取平台会话；openid/session_key 不进入小程序。 */
-export function login(): Promise<AuthSessionResponse> {
+function performLogin(): Promise<AuthSessionResponse> {
 	return new Promise<AuthSessionResponse>((resolve, reject) => {
 		wx.login({
 			success: ({ code }) => {
@@ -323,17 +329,47 @@ export function login(): Promise<AuthSessionResponse> {
 	});
 }
 
-/** 需要会话的请求只在 401 时重新登录一次，避免无限重试。 */
+/**
+ * 进程内登录请求单飞，避免首页、患者同步和业务页并发消耗多个一次性 code。
+ * 失败后立即清空引用，下一次请求仍可重新发起登录。
+ */
+export function login(): Promise<AuthSessionResponse> {
+	if (loginInFlight) return loginInFlight;
+
+	const promise = performLogin();
+	loginInFlight = promise;
+	void promise.then(
+		() => {
+			if (loginInFlight === promise) loginInFlight = null;
+		},
+		() => {
+			if (loginInFlight === promise) loginInFlight = null;
+		},
+	);
+	return promise;
+}
+
+/**
+ * 需要会话的请求只在 401 时重新登录一次，避免无限重试。
+ * 如果其他并发请求已经换得新 token，本请求不能清除新 token，直接复用它重试。
+ */
 export async function requestWithSession<TResponse>(
 	options: ApiRequestOptions,
 ): Promise<TResponse> {
-	const { accessToken } = getAppConfig();
-	if (!accessToken) await login();
+	let accessToken = getAppConfig().accessToken;
+	if (!accessToken) {
+		await login();
+		accessToken = getAppConfig().accessToken;
+	}
 
 	try {
 		return await request<TResponse>({ ...options, authenticated: true });
 	} catch (error) {
 		if (!(error instanceof ApiError) || error.statusCode !== 401) throw error;
+		const currentToken = getAppConfig().accessToken;
+		if (currentToken && currentToken !== accessToken) {
+			return request<TResponse>({ ...options, authenticated: true });
+		}
 		setAccessToken("");
 		await login();
 		return request<TResponse>({ ...options, authenticated: true });
