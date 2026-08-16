@@ -170,7 +170,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；目标环境 migration 和 schema probe 已完成，下一步是失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
 - 普通个人资料已在 0014 建立独立 `hp_user_profiles` 表；MySQL 首次写入和条件版本更新均有回归测试，下一步必须先做 schema probe、默认值/冲突公网验收，再允许真机使用资料编辑入口。
 - 2026-08-16：0014 已在生产受控应用，schema probe 返回 `ready`，55fce6c 已切换新 API；未登录 profile 401 已验证，真实微信资料默认值、首次更新、409 冲突和真机仍未完成。
-- 2026-08-16：修复首页与患者选择页下拉刷新提前结束的问题；首页等待健康检查和服务端目录读取，患者选择页继续等待医院目录同步，避免临床映射尚未落库时进入预约、报告或费用查询，也不让首页普通刷新隐式放大为 provider 同步。
+- 2026-08-16：修复首页与患者选择页下拉刷新提前结束的问题；首页等待健康检查和服务端目录读取，患者选择页继续等待医院目录同步，并移除目录读取完成后提前关闭 `loading` 的时序漏洞，避免临床映射尚未落库时进入预约、报告或费用查询，也不让首页普通刷新隐式放大为 provider 同步。
 - 2026-08-16：修复预约目录日期标签使用设备本地时区的问题；`workDate` 现在按固定日历解析，跨时区不会改变医院日期或星期。
 - 2026-08-16：患者同步 durable operation ledger、租约代次、同事务快照提交和 409 处理中语义已完成代码、测试和 `0015` migration，生产 schema probe 已通过；当前公网 18081 仍运行旧 release，切换后的并发、公网和真机证据仍待完成，契约与证据见 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) 和 [`release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](release/patient-sync-idempotency-production-acceptance-2026-08-16.md)。预约写入、患者绑定前必须完成这些线上验收。
 - 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。

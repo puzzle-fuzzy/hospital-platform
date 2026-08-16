@@ -666,6 +666,15 @@ test("patient context pull-to-refresh waits for the complete directory lifecycle
 	expect(selection).toContain(
 		"this.loadPatientList().finally(() => wx.stopPullDownRefresh())",
 	);
+	const syncCallIndex = selection.indexOf("return this.onSyncPatients();");
+	const loadPatientListBody = selection.slice(
+		selection.indexOf("loadPatientList(): Promise<void>"),
+		syncCallIndex,
+	);
+	// 目录读取完成不等于临床映射同步完成；同步期间必须继续阻止页面进入业务。
+	expect(loadPatientListBody).not.toContain(
+		"this.setData({ loading: false });",
+	);
 });
 
 test("native client reads LIS detail only through the opaque Hospital API reference", async () => {
