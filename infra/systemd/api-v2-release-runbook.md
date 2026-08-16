@@ -143,3 +143,9 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 MySQL/Redis/schema、no-store、`/api/v1/system/ping` 和未登录 `401` smoke，随后已停止临时进程。
 `current=55fce6c`、新 API `18081` 和旧 Python `8001` 全程未改变。完整证据见
 [`../../docs/release/candidate-e660ccb-production-smoke-2026-08-16.md`](../../docs/release/candidate-e660ccb-production-smoke-2026-08-16.md)。
+
+2026-08-16 20:08-20:11 CST：候选 `b4dc33b` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
+使用 `shared/api.env` 的真实生产 env preflight 通过，候选 API 在 `18082` 和 loopback `18083` 完成
+production mode、MySQL/Redis/schema、no-store、system ping 和未登录认证边界 smoke，随后已停止临时进程。
+`current=55fce6c`、新 API `18081` 和旧 Python `8001` 全程未改变。完整证据见
+[`../../docs/release/candidate-b4dc33b-production-smoke-2026-08-16.md`](../../docs/release/candidate-b4dc33b-production-smoke-2026-08-16.md)。
