@@ -39,9 +39,9 @@
 - 当前架构边界审计为 26 条规则，并扫描 `apps/miniprogram/src` 全部生产文本源码；它会阻止 provider
   地址、旧请求封装、旧患者标识、WebSocket 配置和万能转发残留重新进入原生小程序。历史发布证据中的
   19/19 是当时的审计快照，不代表当前规则数量。
-- 最近一次生产切换证据为：`current=527d163`、新 API `18081` active、旧 Python `8001` 继续监听、Worker
+- 最近一次生产切换证据为：`current=131fb5a`、新 API `18081` active、旧 Python `8001` 继续监听、Worker
   `inactive/disabled`；公网和内网 readiness 均为 `200`，数据库/Redis/schema 为 `ok`，公网保留
-  `Cache-Control: no-store`。完整证据见 [`../release/527d163-production-acceptance-2026-08-17.md`](../release/527d163-production-acceptance-2026-08-17.md)。
+  `Cache-Control: no-store`。完整证据见 [`../release/131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md)。
 - 文档记录的最近一次生产 capability 复核（证据快照，不代表当前 `main` 或当前线上状态；同为历史复核）显示微信身份、患者目录、预约目录、预约记录和门诊费用为 `configured`；
   报告目录、报告详情和微信支付为 `disabled`。因此报告页面只能保留 fail-closed 迁移提示，不能把页面
   注册或 readiness 200 写成报告已迁移。
@@ -90,7 +90,7 @@
 
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
 | --- | --- | --- | --- |
-| 微信登录与平台会话 | `auth`、Redis session | 服务端真实登录、`/me` 会话恢复和单患者同步已有历史 journald 证据，当前 API 已切换到 `527d163` | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成 |
+| 微信登录与平台会话 | `auth`、Redis session | 服务端真实登录、`/me` 会话恢复和单患者同步已有历史 journald 证据，当前 API 已切换到 `131fb5a` | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成 |
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页和生产未登录 401 已验证 | 真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；不能锁号、不能把 `scheduleId` 当成写入授权 |
@@ -129,7 +129,7 @@
   但不会为缺少预约号的摘要伪造稳定公开记录 ID，原生页面的渲染 key 不能作为可写入或详情引用。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖过去 90 天窗口；“我的挂号”仍使用当前日前后各 90 天。停诊、替诊和已登记必须保留为独立状态，不能误显示为未知。
-- 受保护 API 已在 Elysia 的 route schema 校验前建立模块级认证边界：缺少或失效 Bearer 时统一返回 `401 unauthorized`，只有认证通过后才进入 query/body/params 的 `400 validation`；微信登录和微信支付回调仍保留明确公开入口。该行为已有 API 集成测试、候选 smoke 和 `527d163` 公网回归证据；这只证明认证错误边界，不代表真实微信会话或业务 Provider 已完成。
+- 受保护 API 已在 Elysia 的 route schema 校验前建立模块级认证边界：缺少或失效 Bearer 时统一返回 `401 unauthorized`，只有认证通过后才进入 query/body/params 的 `400 validation`；微信登录和微信支付回调仍保留明确公开入口。该行为已有 API 集成测试、候选 smoke 和 `131fb5a` 公网回归证据；这只证明认证错误边界，不代表真实微信会话或业务 Provider 已完成。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
 - 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；`a11f117` 已取得单患者真实同步成功证据，但真实并发、第二条患者记录、失效/恢复、公网真机和切换业务验收仍待完成，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md)、[`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md) 和 [`../release/wechat-patient-sync-production-acceptance-2026-08-16.md`](../release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
 

@@ -7,7 +7,7 @@
 
 ### 线上实时状态（2026-08-17 02:30 CST）
 
-- 新 API `current=527d163`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。本次只增强持久化瞬态故障日志，不改变业务 response 或写入重试边界，证据见 [`release/527d163-production-acceptance-2026-08-17.md`](release/527d163-production-acceptance-2026-08-17.md)。
+- 新 API `current=131fb5a`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。本次只标准化持久化瞬态错误码日志，不改变业务 response 或写入重试边界，证据见 [`release/131fb5a-production-acceptance-2026-08-17.md`](release/131fb5a-production-acceptance-2026-08-17.md)。
 - 旧 Python API 仍监听 `0.0.0.0:8001`，未停止；Worker 仍 inactive。支付、医保、HIS、报告 gate 仍关闭。
 - 02:18:26 CST 的一次真实微信登录因 `PersistenceUnavailableError` 返回 503；约 3 秒后下一次登录成功，随后 `/patients` 和完整患者同步均返回 200，记录 1 条 active 患者和 1 条 `his-patient` 映射，并读取到预约科室 62 条、排班 1 条。该组真实微信登录与单患者目录同步事件发生在 `527d163` 切换前，只能作为 `ca5a372` 的部分验收证据；当时没有安全底层错误码，不能断言具体网络/数据库根因。
 - 23:50:17-23:50:18 的预约科室/排班只读证据来自前一 release `41c9c18`；02:18 CST 的科室/排班读取来自 `ca5a372`，科室 62 条、排班 1 条均返回 200，且 `snapshotPersistenceStatus=persisted`；Redis 实际 TTL、多就诊人切换/失效恢复、预约历史/报告/门诊费用 Provider 读操作、真机页面网络对齐和普通资料真实读写仍未完成。当前 release 的运行证据见 [`release/527d163-production-acceptance-2026-08-17.md`](release/527d163-production-acceptance-2026-08-17.md)。
@@ -18,7 +18,7 @@
 - 本轮修复门诊费用 adapter 的金额边界：缺失金额不再降级为 `0` 分，显式零元仍可通过；这条规则已加入 adapter 测试和迁移差距审计。完整分层、证据等级和新文档接收门禁见 [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md)。
 - 本轮为 runtime/provider smoke 增加有界 readiness 连续采样：库调用默认保持单次兼容语义，命令行默认 3 次，正式生产验收建议显式使用 6 次、间隔 2000 毫秒；任意中间 `not_ready` 都不能被最后一次恢复掩盖。该门禁只证明运行前置稳定，仍不替代真实微信、患者、Provider、真机或支付验收，规则见 [`release/readiness-stability-gate.md`](release/readiness-stability-gate.md)。
 - `ed250ec` 的本地 runtime smoke 已对公网 `/api/v2` 完成 6/6 readiness、no-store、system-ping 和未登录 401 连续复核；该证据仍不代表 `ed250ec` 已部署，也不替代服务器 bundle provenance、journald、微信会话或真机业务验收。详见 [`release/current-public-readiness-stability-2026-08-17.md`](release/current-public-readiness-stability-2026-08-17.md)。
-- 当前 `527d163` 已完成服务器 bundle checksum、真实生产 preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网 6/6 readiness；旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。此次只增强持久化瞬态故障的安全诊断日志；认证边界不改变 P0 真实微信、多患者和 Provider 业务验收顺序，完整证据见 [`release/527d163-production-acceptance-2026-08-17.md`](release/527d163-production-acceptance-2026-08-17.md)。
+- 当前 `131fb5a` 已完成服务器 bundle checksum、真实生产 preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网 6/6 readiness；旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。此次只标准化持久化瞬态错误码的安全诊断日志；认证边界不改变 P0 真实微信、多患者和 Provider 业务验收顺序，完整证据见 [`release/131fb5a-production-acceptance-2026-08-17.md`](release/131fb5a-production-acceptance-2026-08-17.md)。
 
 ### 已经具备
 
