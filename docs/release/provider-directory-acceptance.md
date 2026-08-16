@@ -98,6 +98,22 @@ $env:HOSPITAL_SMOKE_CAPABILITIES = "patient-sync,patients,appointment-directory,
 pnpm provider:smoke
 ```
 
+候选 release 已将该 smoke 独立打包为 `apps/worker/dist/provider-directory-smoke.js`，服务器没有
+workspace `@hospital/*` 链接时也必须使用这个 bundle，而不是直接执行 `src/provider-directory-smoke.ts`：
+
+```bash
+set -a
+. /home/ps/code/hospital-platform/shared/worker.env
+set +a
+HOSPITAL_API_BASE_URL="https://test-hp.meiyi.pro" \
+HOSPITAL_API_PREFIX="/api/v2" \
+HOSPITAL_SMOKE_CAPABILITIES="patients,appointment-directory,appointment-records,outpatient-payments" \
+/home/ps/.bun/bin/bun "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/provider-directory-smoke.js"
+```
+
+真实 `HOSPITAL_ACCESS_TOKEN` 和 `HOSPITAL_PATIENT_ID` 只能由受控验收环境临时注入；上面的 bundle 仍只
+访问平台只读 API，`patient-sync` 是唯一允许的幂等目录同步 POST，不会触发预约、支付、医保、退款或 HIS 回写。
+
 `outpatient-payments` 只读取 `/payments/outpatient/records` 的 `status=unpaid` 和 `status=paid` 两种目录，
 用于验证门诊费用 owner 映射、金额脱敏和空列表语义；它不会创建支付订单、调起微信、请求医保或执行结算回写。
 

@@ -38,10 +38,19 @@ cd /home/ps/code/hospital-platform
 old_sha="$(readlink -f current | sed 's#.*/##')"
 new_sha="<sha>"
 test -f "releases/${new_sha}/apps/api/dist/index.js"
+test -f "releases/${new_sha}/apps/worker/dist/index.js"
+test -f "releases/${new_sha}/apps/worker/dist/preflight.js"
+test -f "releases/${new_sha}/apps/worker/dist/provider-directory-smoke.js"
+test -f "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js"
 test -f shared/api.env
 test "$(stat -c '%a' shared/api.env)" = 600
 # release 中的 dist 必须来自已通过本地门禁的构建产物；先在本地保存 checksum，上传后再复核。
-sha256sum "releases/${new_sha}/apps/api/dist/index.js" "releases/${new_sha}/apps/worker/dist/index.js"
+sha256sum \
+    "releases/${new_sha}/apps/api/dist/index.js" \
+    "releases/${new_sha}/apps/worker/dist/index.js" \
+    "releases/${new_sha}/apps/worker/dist/preflight.js" \
+    "releases/${new_sha}/apps/worker/dist/provider-directory-smoke.js" \
+    "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js"
 ```
 
 切换前必须保存以下证据：
@@ -54,7 +63,24 @@ sha256sum "releases/${new_sha}/apps/api/dist/index.js" "releases/${new_sha}/apps
 
 生产 release 的依赖目录可能没有 workspace `@hospital/*` 开发链接，不能在服务器 release 目录直接执行
 `bun build` 或临时 `bun install` 作为发布步骤；必须使用本地构建 bundle，并通过 checksum 证明上传内容
-与候选产物一致。候选临时 smoke 只验证运行时，不替代本地代码门禁。
+与候选产物一致。worker release 除常驻 `index.js` 外，还必须包含独立的 `preflight.js`、
+`provider-directory-smoke.js` 和 `api-runtime-smoke.js`，这样服务器可以在没有 workspace 链接时复现
+发布前只读验收；这些脚本不会启动 worker，也不会执行 migration 或支付/医保/HIS 写入。候选临时 smoke
+只验证运行时，不替代本地代码门禁。
+
+候选 release 上传后，可在不切换 `current` 的情况下执行生产环境 preflight：
+
+```bash
+cd /home/ps/code/hospital-platform
+set -a
+. shared/worker.env
+set +a
+/home/ps/.bun/bin/bun "releases/${new_sha}/apps/worker/dist/preflight.js"
+```
+
+该命令只读取 MySQL、Redis、schema 和配置 gate；`worker.env` 中的支付配置仍必须保持关闭，preflight
+通过不等于允许启动 worker。需要真实患者只读证据时，再在受控环境注入临时平台 access token 和内部
+`patientId`，执行 `provider-directory-smoke.js`，不得把 token 写入 release、shell 历史或日志。
 
 ## 3. 原子切换与新 API 重启
 
