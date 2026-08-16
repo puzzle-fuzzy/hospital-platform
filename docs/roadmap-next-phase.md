@@ -55,6 +55,7 @@
 - 候选 `a11f117` 已完成 MySQL/Schema 只读探针一次有界重试的本地完整门禁、真实生产 env preflight、`127.0.0.1:18088` 隔离 smoke，并于 22:24 CST 原子切换为当前 `current`；该修复降低坏连接造成的瞬态 readiness 误报，但不替代数据库稳定性观察或真实业务验收，证据见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
 - 2026-08-16 22:24-22:25 CST：`a11f117` 在依赖探针恢复后原子切换到生产 `current`，只重启新 API；内网 `10.0.0.3:18081`、公网 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 全部通过，旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。启动日志确认 production mode、MySQL/Redis/schema `ok`；本次没有业务 Provider 请求或业务写入，真实微信/患者/预约/费用/真机仍待分层验收。证据见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
 - 2026-08-16 22:37 CST：`a11f117` 切换后连续 10 次、约 21 秒 readiness 均为 `ready`，切换后日志没有新的 persistence 探针抖动或业务事件；运行时前置已稳定，可以进入真实微信会话验收，但不能把这段观察当作患者、Provider 或真机业务成功。
+- 2026-08-16：公网冻结检查确认带完整查询参数的报告、预约排班和门诊费用入口在未登录时均返回 401；病历、医保授权、预约写入等未注册入口返回 404。完全缺少报告参数时仅返回通用 400 `validation`，不包含 schema 细节、患者数据或 Provider 错误；该行为作为当前 Elysia 协议校验顺序记录，不改变业务 route 的 fail-closed 边界。
 
 ### 当前已验证的问题
 
