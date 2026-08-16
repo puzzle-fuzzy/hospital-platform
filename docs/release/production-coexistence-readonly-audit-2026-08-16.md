@@ -9,7 +9,7 @@
 
 | 项目 | 只读观察结果 | 迁移判断 |
 | --- | --- | --- |
-| 新 API | `hospital-platform-api-v2.service` active；生产模式；监听 `10.0.0.3:18081`；当前 release 为 `3fd069d`（初始只读快照时为 `ca3a877`） | 新 API 进程本身已由 systemd 管理 |
+| 新 API | `hospital-platform-api-v2.service` active；生产模式；监听 `10.0.0.3:18081`；初始只读快照为 `ca3a877`，后续曾观察到 `3fd069d`；本次 14:01 CST 复核的 current symlink 为 `55fce6c` | 新 API 进程本身已由 systemd 管理，但患者同步 `0015` 版本尚未切换为当前 release |
 | 旧 Python API | `python main.py run --env prod` 监听 `8001`；未发现对应 systemd unit；当前由 `nohup` 手工进程维持 | 旧服务仍是线上事实来源，不能因为新 API active 就停止 |
 | 新 Worker | `hospital-platform-worker-v2.service` 已安装但 disabled/inactive；未观察到新 worker 进程 | outbox、支付查单和通知补偿当前不能宣称在生产运行 |
 | 公网 v2 | `https://test-hp.meiyi.pro/api/v2/health/live`、`health/ready`、`system/ping` 均返回 200 | `/api/v2` 公网路由和 HTTPS 当前可达 |
@@ -110,6 +110,20 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 旧 Python/Celery 相关进程仍存在，新 Bun worker 未启动。新 worker 的 outbox 与查单代码不能被视为线上补偿
 已经执行；支付 gate 当前关闭，所以本次不启动 worker。未来启动前必须先单独验收 worker env、schema、lease、
 日志和回滚，不得通过患者 API 进程内循环替代。
+
+### 3.5 14:01 CST 生产复核补充
+
+本次只读 SSH 复核未修改服务、文件、数据库或 Redis：
+
+| 项目 | 当前证据 | 迁移判断 |
+| --- | --- | --- |
+| 新 API current | `/home/ps/code/hospital-platform/current -> releases/55fce6c`；systemd 主进程 cwd 也指向该 release | `1447a2e` 的 `0015` 患者同步实现仍未进入公网 current；不能宣称 durable sync 已完成线上业务验收 |
+| 旧 Python | `python main.py run --env prod`，PID `636918`，监听 `0.0.0.0:8001`；父进程是手工 shell/nohup 链路 | 旧服务仍承担原业务；重启或切换新 API 不等于旧服务已具备可恢复发布管理 |
+| 新 Worker | 未发现 `hospital-platform-worker-v2` 运行进程；systemd 仍为 disabled/inactive | outbox、支付查单和通知补偿仍不能宣称线上运行；支付 gate 关闭期间不启动 |
+| MongoDB | 本机无 `mongod` 进程、无 `27017/27018` 监听；旧生产配置此前为 `MONGO_DB_ENABLE=False` | 只能证明当前主机未运行本地 Mongo，不能证明外部 Mongo、备份或历史集合没有业务数据 |
+| 旧文件资产 | `Hospital-Backend/static` 约 `16M`；`static/upload` 约 `300K`，包含 `9` 个文件、`4` 个目录；本次只读了数量/大小/时间，不读取内容 | 至少存在需保留/分类的旧资源；必须先做脱敏分类、哈希和恢复策略，不能删除或直接挂新公网 URL |
+
+以上证据只更新“当前运行事实”，不扩大新服务权限，也不替代 provider、公网业务和真机验收。
 
 ## 4. 当前不可宣称的内容
 
