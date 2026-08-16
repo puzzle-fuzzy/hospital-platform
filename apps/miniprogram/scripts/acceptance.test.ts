@@ -256,6 +256,28 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	expect(bindingContract).toContain("PB-01");
 });
 
+test("native patient synchronization is single-flight at both entry pages", async () => {
+	const home = await source("pages/index/index.ts");
+	const selection = await source("pages/patient-select/patient-select.ts");
+
+	// WXML disabled 只能降低重复点击概率，不能约束生命周期回调或真机重复事件。
+	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
+	expect(home).toContain(
+		"let patientSyncInFlight: Promise<Array<Patient>> | undefined;",
+	);
+	expect(home).toContain(
+		"if (patientSyncInFlight) return patientSyncInFlight;",
+	);
+	expect(home).toContain("patientSyncInFlight = syncRequest;");
+	expect(selection).toContain(
+		"let patientSyncInFlight: Promise<void> | undefined;",
+	);
+	expect(selection).toContain(
+		"if (patientSyncInFlight) return patientSyncInFlight;",
+	);
+	expect(selection).toContain("patientSyncInFlight = syncRequest;");
+});
+
 test("native my page separates ordinary profile from family patient selection", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");

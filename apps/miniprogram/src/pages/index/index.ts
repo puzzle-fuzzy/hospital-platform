@@ -217,6 +217,12 @@ const healthGuard = createLatestRequestGuard();
 const syncLoadingGuard = createLatestRequestGuard();
 /** 首次 onShow 紧跟 onLoad，不重复读取；从患者选择页返回时必须重新读取目录。 */
 let isFirstShow = true;
+/**
+ * 同一首页实例内的患者同步采用单飞语义：自动恢复、用户点击和下拉刷新
+ * 可能在同一时间到达，但只能让一个同步请求进入 provider。这个客户端锁
+ * 只减少重复请求和无意义的 409，真正的跨进程幂等仍由服务端 operation ledger 保证。
+ */
+let patientSyncInFlight: Promise<Array<Patient>> | undefined;
 
 Page<IndexPageData, IndexPageMethods>({
 	data: {
@@ -453,10 +459,12 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onSyncPatients(): Promise<Array<Patient>> {
+		if (patientSyncInFlight) return patientSyncInFlight;
+
 		const requestToken = patientDataGuard.begin();
 		const loadingToken = syncLoadingGuard.begin();
 		this.setData({ syncingPatients: true, error: "" });
-		return syncPatientsFromHospital(`patient-sync-${Date.now()}`)
+		const syncRequest = syncPatientsFromHospital(`patient-sync-${Date.now()}`)
 			.then((patients) => {
 				if (!patientDataGuard.isCurrent(requestToken)) return patients;
 				this.setPatientsFromPayload(patients);
@@ -481,6 +489,8 @@ Page<IndexPageData, IndexPageMethods>({
 					this.setData({ syncingPatients: false });
 				}
 			});
+		patientSyncInFlight = syncRequest;
+		return syncRequest;
 	},
 
 	onLoadAppointments() {

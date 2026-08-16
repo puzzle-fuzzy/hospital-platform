@@ -3,13 +3,13 @@ import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	Patient,
 	PatientEvent,
@@ -44,6 +44,11 @@ const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
 const directoryDataGuard = createLatestRequestGuard();
 const loadingGuard = createLatestRequestGuard();
 const syncGuard = createLatestRequestGuard();
+/**
+ * 自动同步和用户手动刷新可能同时触发；同一页面只允许一个同步请求进入 provider。
+ * 服务端仍以 owner + Idempotency-Key 做最终幂等，这里是防止真机重复事件的第一层保护。
+ */
+let patientSyncInFlight: Promise<void> | undefined;
 
 function toPatientSelectionView(patient: Patient): PatientSelectionView {
 	return {
@@ -140,10 +145,14 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。 */
 	onSyncPatients(): Promise<void> {
+		if (patientSyncInFlight) return patientSyncInFlight;
+
 		const dataToken = directoryDataGuard.begin();
 		const syncToken = syncGuard.begin();
 		this.setData({ syncing: true, error: "" });
-		return syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
+		const syncRequest = syncPatientsFromHospital(
+			`patient-selection-sync-${Date.now()}`,
+		)
 			.then((patients) => {
 				if (
 					!directoryDataGuard.isCurrent(dataToken) ||
@@ -171,6 +180,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 					this.setData({ syncing: false });
 				}
 			});
+		patientSyncInFlight = syncRequest;
+		return syncRequest;
 	},
 
 	onPullDownRefresh(): void {
