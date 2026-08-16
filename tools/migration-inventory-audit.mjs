@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 /**
  * 原生小程序迁移台账审计。
@@ -60,6 +61,68 @@ if (missingPages.length === 0 && stalePages.length === 0) {
 	console.log(
 		"Native page migration ledger has no stale registered-page entries",
 	);
+}
+
+/**
+ * 旧端页面清单是迁移范围的事实输入。旧仓库通常与新仓库并列存在，
+ * 但不会被提交到新仓库，因此这里使用可选的外部根目录做交叉核对：
+ * - 当前机器存在旧仓库时，实际 `.vue` 文件必须全部出现在迁移矩阵；
+ * - CI 或新会话没有旧仓库时，只跳过这项外部检查，不伪造“已核对”。
+ */
+const legacyRoot =
+	process.env.LEGACY_HOSPITAL_ROOT?.trim() || "G:\\fuck\\hospital";
+const legacySourceRoot = join(legacyRoot, "hospital-app", "src");
+const legacySentinel = join(legacySourceRoot, "pages", "index", "index.vue");
+
+if (!(await Bun.file(legacySentinel).exists())) {
+	console.log(
+		`Legacy page inventory skipped: old repository is not available at ${legacyRoot}`,
+	);
+} else {
+	const legacyMatrix = await readText("docs/migration/legacy-page-matrix.md");
+	const documentedLegacyPages = new Set();
+	for (const line of legacyMatrix.split("\n")) {
+		const row = line.match(/^\| `([^`]+\/)` \| (.+?) \|/u);
+		if (!row) continue;
+		for (const pageMatch of row[2].matchAll(/`([^`]+\.vue)`/gu)) {
+			documentedLegacyPages.add(`${row[1]}${pageMatch[1]}`);
+		}
+	}
+
+	const actualLegacyPages = new Set();
+	for (const pattern of ["pages/**/*.vue", "pagesB/**/*.vue"]) {
+		const glob = new Bun.Glob(pattern);
+		for await (const pagePath of glob.scan({
+			cwd: legacySourceRoot,
+			onlyFiles: true,
+		})) {
+			actualLegacyPages.add(pagePath.replaceAll("\\", "/"));
+		}
+	}
+
+	const undocumentedLegacyPages = [...actualLegacyPages]
+		.filter((pagePath) => !documentedLegacyPages.has(pagePath))
+		.sort();
+	const staleLegacyPages = [...documentedLegacyPages]
+		.filter((pagePath) => !actualLegacyPages.has(pagePath))
+		.sort();
+
+	if (undocumentedLegacyPages.length > 0 || staleLegacyPages.length > 0) {
+		if (undocumentedLegacyPages.length > 0) {
+			console.error("Legacy page matrix is missing actual page(s):");
+			for (const pagePath of undocumentedLegacyPages)
+				console.error(`- ${pagePath}`);
+		}
+		if (staleLegacyPages.length > 0) {
+			console.error("Legacy page matrix contains stale page(s):");
+			for (const pagePath of staleLegacyPages) console.error(`- ${pagePath}`);
+		}
+		process.exitCode = 1;
+	} else {
+		console.log(
+			`Legacy page inventory passed: ${actualLegacyPages.size} old page(s) match the migration matrix`,
+		);
+	}
 }
 
 // 保留仓库根目录引用，避免从仓库外运行时被当前工作目录影响。
