@@ -84,6 +84,21 @@ reportDetailConfiguration=disabled
 本候选具备进入下一层验收的运行时条件，但尚未获得真实 session、患者 owner 映射、Provider 业务响应和
 真机页面证据，因此不能切换公网 `current`，也不能把 runtime smoke 当作业务迁移完成证明。
 
+### 6.1 当前公网基础运行时复测
+
+2026-08-16 21:20 CST 使用候选里的 runtime smoke bundle 访问仍在运行的公网
+`https://test-hp.meiyi.pro/api/v2`，结果为：
+
+| 检查 | 结果 | HTTP 状态 | traceId |
+| --- | --- | ---: | --- |
+| `health-live` | passed | 200 | `51ce7ead-8dab-41a7-b711-079d0a299779` |
+| `health-ready` | passed | 200 | `8f1ea30e-f86a-4e64-8fa1-871de2ab1f6a` |
+| `system-ping` | passed | 200 | `cf81d7d3-3d76-4c5e-a9d3-2327e48a70f2` |
+| `auth-boundary` | passed | 401 | `ab9dc812-9cc0-4146-b931-6e119ca7ab63` |
+
+该复测只验证公网代理、当前 API 基础运行时、认证边界和 no-store 相关门禁；没有携带平台会话，
+没有读取患者、预约、报告或门诊费用，也没有调用 Provider。它不能替代真机登录和真实业务证据。
+
 下一步顺序保持不变：
 
 1. 使用真机微信登录产生受控 session，并记录平台 API 的 `requestId/traceId`，不索取或记录用户凭证；
