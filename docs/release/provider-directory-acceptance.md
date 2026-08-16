@@ -107,7 +107,7 @@ $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
 $env:HOSPITAL_API_PREFIX = "/api/v2"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
-$env:HOSPITAL_SMOKE_CAPABILITIES = "patient-sync,patients,appointment-directory,appointment-records,reports,outpatient-payments"
+$env:HOSPITAL_SMOKE_CAPABILITIES = "session,patient-sync,patients,appointment-directory,appointment-records,reports,outpatient-payments"
 pnpm provider:smoke
 ```
 
@@ -120,7 +120,7 @@ set -a
 set +a
 HOSPITAL_API_BASE_URL="https://test-hp.meiyi.pro" \
 HOSPITAL_API_PREFIX="/api/v2" \
-HOSPITAL_SMOKE_CAPABILITIES="patients,appointment-directory,appointment-records,outpatient-payments" \
+HOSPITAL_SMOKE_CAPABILITIES="session,patients,appointment-directory,appointment-records,outpatient-payments" \
 /home/ps/.bun/bin/bun "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/provider-directory-smoke.js"
 ```
 
@@ -148,6 +148,10 @@ provider.smoke.completed / failed
 ```
 
 smoke 会先验证 `health/live.data.status=ok` 和 `health/ready.data.status=ready`；任一健康检查失败时立即停止，不再请求患者、预约或报告 provider 能力。
+如果能力列表包含 `session`（默认 CLI 配置已包含），健康检查通过后会先调用带 Bearer 的
+`GET /me`，确认返回的是当前平台内部用户结构；会话无效或响应字段不符合 contract 时立即停止，
+不会继续访问患者、预约、报告或门诊费用接口。`session` 检查不把内部 userId 写入 smoke 结果，
+只保留 traceId 供服务端日志关联。
 
 ## C. 运行层证据
 

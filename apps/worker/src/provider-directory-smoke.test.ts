@@ -248,6 +248,92 @@ test("provider directory smoke can explicitly verify idempotent patient synchron
 	});
 });
 
+test("provider directory smoke verifies the platform session before patient reads", async () => {
+	const requests: string[] = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["session", "patients"],
+		fetcher: async (input) => {
+			const url = String(input);
+			requests.push(url);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.endsWith("/me")) {
+				return jsonResponse({
+					success: true,
+					data: { user: { id: "internal-user-001" } },
+				});
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					items: [
+						{
+							id: "internal-patient-001",
+							displayName: "张三",
+							relationship: "self",
+							cardNumberMasked: "******0001",
+						},
+					],
+					total: 1,
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(result.checks.map((check) => check.name)).toEqual([
+		"health-live",
+		"health-ready",
+		"session",
+		"patients",
+	]);
+	expect(requests).toEqual([
+		"https://hospital.example.test/health/live",
+		"https://hospital.example.test/health/ready",
+		"https://hospital.example.test/api/v1/me",
+		"https://hospital.example.test/api/v1/patients",
+	]);
+});
+
+test("provider directory smoke stops before provider reads when the platform session is invalid", async () => {
+	const requests: string[] = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["session", "patients"],
+		fetcher: async (input) => {
+			const url = String(input);
+			requests.push(url);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			return jsonResponse({ success: true, data: { user: {} } });
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-1)).toEqual({
+		name: "session",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+		traceId: expect.any(String),
+	});
+	expect(requests).toEqual([
+		"https://hospital.example.test/health/live",
+		"https://hospital.example.test/health/ready",
+		"https://hospital.example.test/api/v1/me",
+	]);
+});
+
 test("provider directory smoke verifies both outpatient payment read statuses", async () => {
 	const requests: Array<{ url: string; authorization: string | null }> = [];
 	const result = await runProviderDirectorySmoke({

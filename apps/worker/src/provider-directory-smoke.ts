@@ -15,6 +15,7 @@ import {
  * 这里不包含预约写入、取消、锁号或支付。
  */
 export type ProviderSmokeCapability =
+	| "session"
 	| "patient-sync"
 	| "patients"
 	| "appointment-directory"
@@ -56,6 +57,7 @@ export type ProviderSmokeOptions = {
 };
 
 const DEFAULT_CAPABILITIES: readonly ProviderSmokeCapability[] = [
+	"session",
 	"patients",
 	"appointment-directory",
 	"appointment-records",
@@ -237,6 +239,19 @@ function responseStatus(data: unknown): unknown {
 		return undefined;
 	}
 	return (data as { status?: unknown }).status;
+}
+
+/** `/me` 只允许返回当前平台内部用户 id；provider subject 和身份凭证不能出现在响应中。 */
+function currentUserId(data: unknown): string | undefined {
+	if (typeof data !== "object" || data === null || Array.isArray(data)) {
+		return undefined;
+	}
+	const user = (data as { user?: unknown }).user;
+	if (typeof user !== "object" || user === null || Array.isArray(user)) {
+		return undefined;
+	}
+	const id = (user as { id?: unknown }).id;
+	return typeof id === "string" && id.trim() ? id.trim() : undefined;
 }
 
 function requireSafeData(data: unknown, traceId?: string): number | undefined {
@@ -484,6 +499,23 @@ export async function runProviderDirectorySmoke(
 		return { traceId: result.traceId };
 	}
 
+	/**
+	 * 先验证 Bearer 会话对应的平台用户，再允许 smoke 访问患者或 Provider 只读目录。
+	 * 这一步不把 userId 写入 smoke 结果，只用结构存在性证明会话边界，避免把身份信息扩散到验收文件。
+	 */
+	async function readSession(): Promise<SmokeObservation> {
+		const result = await getJson(apiRoute(apiPrefix, "/me"));
+		requireSafeData(result.data, result.traceId);
+		if (!currentUserId(result.data)) {
+			throw new ProviderSmokeRequestError(
+				"Current platform session response is invalid",
+				200,
+				result.traceId,
+			);
+		}
+		return { traceId: result.traceId };
+	}
+
 	function complete(): ProviderSmokeResult {
 		const passed = checks.every((check) => check.status === "passed");
 		logger[passed ? "info" : "error"](
@@ -512,7 +544,20 @@ export async function runProviderDirectorySmoke(
 		return complete();
 	}
 
+	// session 是业务 smoke 的第二道门；会话无效时不得继续触碰患者或 provider。
+	if (capabilities.includes("session")) {
+		await check("session", readSession);
+		if (
+			checks.some(
+				(check) => check.name === "session" && check.status === "failed",
+			)
+		) {
+			return complete();
+		}
+	}
+
 	for (const capability of capabilities) {
+		if (capability === "session") continue;
 		if (capability === "patient-sync") {
 			const firstTraceId = traceIdFactory();
 			const idempotencyKey = `provider-smoke-${firstTraceId}`;
@@ -679,6 +724,7 @@ function parseCapabilities(
 	if (!value?.trim()) return [...DEFAULT_CAPABILITIES];
 	const capabilities = value.split(",").map((item) => item.trim());
 	const allowed = new Set<ProviderSmokeCapability>([
+		"session",
 		"patient-sync",
 		...DEFAULT_CAPABILITIES,
 		"report-detail",
