@@ -3,6 +3,7 @@ import type {
 	OutpatientPaymentGateway,
 	PatientRepository,
 } from "@hospital/domain";
+import { createLogger } from "@hospital/observability";
 import { OutpatientPaymentService } from "./index";
 
 test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务端窗口", async () => {
@@ -106,4 +107,63 @@ test("门诊费用查询在没有 owner 映射时拒绝调用 provider", async (
 		name: "OutpatientPaymentPatientNotFoundError",
 	});
 	expect(gatewayCalled).toBe(false);
+});
+
+test("门诊费用输入和 owner 映射失败都会留下可检索的低敏日志", async () => {
+	const lines: string[] = [];
+	let repositoryCalls = 0;
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => {
+				repositoryCalls += 1;
+				throw new Error("mysql connection failed");
+			},
+		},
+		gateway: {
+			listRecords: async () => {
+				throw new Error("provider must not be called");
+			},
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "   ", "unpaid", {
+			traceId: "trace-empty-patient",
+			idempotencyKey: "key-empty-patient",
+		}),
+	).rejects.toMatchObject({ name: "OutpatientPaymentPatientNotFoundError" });
+	expect(repositoryCalls).toBe(0);
+
+	await expect(
+		service.list("user-001", "patient-001", "paid", {
+			traceId: "trace-repository-failure",
+			idempotencyKey: "key-repository-failure",
+		}),
+	).rejects.toThrow("mysql connection failed");
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"outpatient.payment.records.failed",
+		"outpatient.payment.records.requested",
+		"outpatient.payment.records.failed",
+	]);
+	expect(JSON.stringify(records)).not.toContain("mysql connection failed");
+	expect(records[2]).toMatchObject({
+		traceId: "trace-repository-failure",
+		status: "paid",
+		errorType: "Error",
+	});
 });

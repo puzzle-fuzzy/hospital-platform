@@ -105,6 +105,9 @@ release，切换后的并发、公网和真机证据仍缺，不能把临时 smo
 
 日志允许记录内部资源 ID、状态、provider 操作名、provider request id、HTTP 状态和可重试判断；禁止记录 token、openid、unionid、session_key、完整患者身份、provider 患者号、原始报文、支付签名和密钥。
 
+门诊费用服务在调用 owner-scoped 患者映射前拒绝空白 `patientId`；映射、持久化或 provider 失败都必须留下
+`outpatient.payment.records.failed`，不能只返回错误而没有业务事件，也不能把失败伪装成空费用列表。
+
 ## 7. 当前未完成验证
 
 代码和单元测试通过不等于真实业务完成。当前仍需在受控测试身份上分别完成：

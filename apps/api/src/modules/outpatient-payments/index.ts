@@ -145,31 +145,37 @@ export class OutpatientPaymentService {
 		status: OutpatientPaymentStatus,
 		context: AdapterCallContext,
 	) {
-		const reference =
-			await this.dependencies.repository.resolveProviderReference({
-				ownerUserId,
-				patientId,
-				provider: "zhongyang",
-				// 门诊费用接口的 patId 与预约/报告共用档案身份，不是目录 thirdPatientId。
-				referenceKind: "his-patient",
-			});
-		if (!reference) throw new OutpatientPaymentPatientNotFoundError();
-
-		const window = queryWindow(this.now());
-		this.logger.info(
-			{
-				event: "outpatient.payment.records.requested",
-				traceId: context.traceId,
-				provider: "zhongyang",
-				status,
-				patientId,
-				startTime: window.startTime,
-				endTime: window.endTime,
-			},
-			"Outpatient payment records requested",
-		);
-
 		try {
+			if (!patientId.trim()) {
+				// 不能让空白 patientId 进入 repository；否则调用方会把输入错误
+				// 误看成“没有门诊映射”，也会丢失统一的失败日志事件。
+				throw new OutpatientPaymentPatientNotFoundError();
+			}
+
+			const window = queryWindow(this.now());
+			this.logger.info(
+				{
+					event: "outpatient.payment.records.requested",
+					traceId: context.traceId,
+					provider: "zhongyang",
+					status,
+					patientId,
+					startTime: window.startTime,
+					endTime: window.endTime,
+				},
+				"Outpatient payment records requested",
+			);
+
+			const reference =
+				await this.dependencies.repository.resolveProviderReference({
+					ownerUserId,
+					patientId,
+					provider: "zhongyang",
+					// 门诊费用接口的 patId 与预约/报告共用档案身份，不是目录 thirdPatientId。
+					referenceKind: "his-patient",
+				});
+			if (!reference) throw new OutpatientPaymentPatientNotFoundError();
+
 			const result = await this.dependencies.gateway.listRecords(
 				{
 					providerPatientId: reference.providerPatientId,

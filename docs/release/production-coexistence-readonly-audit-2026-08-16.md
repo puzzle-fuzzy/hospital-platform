@@ -133,7 +133,7 @@ Bun 进程不一致：
 
 | 检查位置 | 结果 | 结论 |
 | --- | --- | --- |
-| SSH 主机进程 | Bun PID `2935571`，命令为 `/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/api/dist/index.js` | 当前 `current` 指向 `releases/55fce6c`，不是当前仓库 `main` 的 `9b70d3f` |
+| SSH 主机进程 | Bun PID `2935571`，命令为 `/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/api/dist/index.js` | 当前 `current` 指向 `releases/55fce6c`，不是当前仓库 `main` 的 `1ae969f` |
 | SSH 主机监听 | `10.0.0.3:18081`；旧 Python `0.0.0.0:8001` 仍在监听 | 新旧服务端口没有互相抢占；`127.0.0.1:18081` 被拒绝是因为新 API 只绑定 `10.0.0.3`，不是服务停止 |
 | SSH 主机 `GET http://10.0.0.3:18081/health/live` | HTTP `200`，`status=ok` | 该进程可以响应存活检查 |
 | SSH 主机 `GET http://10.0.0.3:18081/health/ready` | HTTP `200`，`database=unavailable`、`redis=ok`、`schema=unavailable` | 该进程当前没有达到可用状态 |
@@ -165,7 +165,7 @@ journald 同时记录了完全相同的 requestId、路径 `/health/ready` 和 `
 
 1. `health/ready` 的 HTTP `200` 只是探针请求完成，必须读取 body 中的依赖状态；
 2. 真实 release provenance 已通过 requestId 关联确认，但当前运行版本仍是旧的 `55fce6c`；
-3. 当前仓库 `main=9b70d3f` 尚未部署，候选切换后仍需重新验证 no-store、依赖恢复日志、公网路径和旧 `8001`。
+3. 当前仓库 `main=1ae969f` 尚未部署，候选切换后仍需重新验证 no-store、依赖恢复日志、公网路径和旧 `8001`。
 
 ## 4. 当前不可宣称的内容
 

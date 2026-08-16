@@ -189,8 +189,10 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 
 ### 3.4 门诊缴费和支付
 
-门诊缴费列表只返回 `recordId`、状态、科室/医生、账单时间和 `amountFen`。当前仍是只读
-查询；支付调起、医保授权、医保结算、HIS 回写和退费必须走独立 contract。
+门诊缴费列表只返回 `recordId`、状态、科室/医生、账单时间和 `amountFen`。服务端会先校验
+`patientId` 并按当前用户解析 `his-patient` 映射，再调用 provider；空白标识、owner 映射缺失、
+持久化失败或 provider 失败都不能变成成功的空列表。当前仍是只读查询；支付调起、医保授权、医保结算、
+HIS 回写和退费必须走独立 contract。
 
 平台支付订单的状态是服务端事实模型：
 
