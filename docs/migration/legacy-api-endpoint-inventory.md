@@ -219,6 +219,21 @@ Admin/Operations 边界，当前不计入患者端迁移完成度；新端若建
 审计、网络隔离和管理员验收。Redis、MongoDB、文件、调度器、AI/WebSocket 的运行边界见
 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)。
 
+### 3.1 新收到但未计入旧端调用快照的 Provider endpoint
+
+以下路径来自 2026-08-16 接收的 Provider 文档，不是旧小程序已经验证过的调用事实；它们单独登记，避免把“文档存在”
+误认为“旧端已成功调用”或“新端可以直接复用”。完整字段、内容指纹、依赖缺口和冻结决策见
+[`../provider-intake/2026-08-16-appointment-registration-payment-refund.md`](../provider-intake/2026-08-16-appointment-registration-payment-refund.md)。
+
+| Provider endpoint | 文档 | 当前状态 | 不能据此推断的事实 |
+| --- | --- | --- | --- |
+| `POST /msun-middle-open-settlepay/v1/registers` | 2.6.7 挂号登记 | `normalized`，未注册 | 不能推断锁号、执行预约、挂号状态枚举、金额单位或幂等已确认 |
+| `POST /msun-middle-business-appointment-server/v1/appointment-infos/registrations` | 2.10.4.2 支付挂号 | `normalized`，未注册 | 不能推断 2.10.4.1、院内最终状态查询、微信预支付或医保结算已经接通 |
+| `POST /ReFund/Api/MYDService/ThirdpartyCardRefund` | 2.6.65.7 外部退款 | `normalized`，方向未确认 | 不能推断新服务应主动调用还是接收调用，也不能推断 `result=2` 的最终退款结果 |
+
+在前置文档、鉴权、成功/失败/超时样例和状态确认到达前，这 3 个 endpoint 不能进入旧端 fallback、
+新端公共 API、真实 adapter、migration 或小程序页面。
+
 ## 4. 与新公共 API 的对应关系
 
 当前已经注册的新公共 API 只覆盖以下安全读模型和基础设施：
