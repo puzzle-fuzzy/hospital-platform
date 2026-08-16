@@ -20,6 +20,7 @@ const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
 const API_PREFIX_KEY = "api_prefix";
 const DEFAULT_API_PREFIX = "/api/v1";
+const SAFE_UNKNOWN_ERROR_MESSAGE = "服务暂时不可用，请稍后重试";
 
 type ApiErrorDetails = {
 	statusCode?: number;
@@ -44,7 +45,7 @@ type PaymentParams = WechatPrepayData["payParams"];
 
 /**
  * 服务端错误码是稳定 contract，用户文案不能依赖 provider 或旧服务返回的英文 message。
- * 未列出的业务错误仍可使用服务端安全 message 作为兜底，但禁止把 provider 原始报文透传到页面。
+ * 未列出的错误码统一使用安全兜底，禁止把未知服务端 message 当作用户文案。
  */
 /**
  * 当前公共 API 错误码的唯一客户端文案表；接口文档验收会检查每个公开 code
@@ -52,6 +53,7 @@ type PaymentParams = WechatPrepayData["payParams"];
  */
 export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 	Object.freeze({
+		"api-request-failed": "请求失败，请稍后重试",
 		validation: "请求参数校验失败",
 		parse: "请求体无法解析",
 		"not-found": "请求路径不存在",
@@ -82,7 +84,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"payment-identity-not-found": "支付身份映射不可用",
 		"payment-prepay-in-progress": "预支付仍在处理，不能并发创建",
 		"payment-prepay-unknown": "预支付结果需向外部服务确认，不能直接重建",
-		unknown: "服务暂时不可用，请稍后重试",
+		unknown: SAFE_UNKNOWN_ERROR_MESSAGE,
 	});
 
 /** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
@@ -189,16 +191,9 @@ export function localizedApiErrorMessage(
 	return CLIENT_ERROR_MESSAGES[code] ?? fallback;
 }
 
-function parseErrorMessage(data: unknown, statusCode: number): string {
+function parseErrorMessage(data: unknown): string {
 	const code = parseErrorCode(data);
-	if (
-		isRecord(data) &&
-		isRecord(data.error) &&
-		typeof data.error.message === "string"
-	) {
-		return localizedApiErrorMessage(code, data.error.message);
-	}
-	return localizedApiErrorMessage(code, `API 请求失败（${statusCode}）`);
+	return localizedApiErrorMessage(code, SAFE_UNKNOWN_ERROR_MESSAGE);
 }
 
 function parseErrorCode(data: unknown): string {
@@ -290,7 +285,7 @@ export function request<TResponse = unknown>(
 				}
 				const errorData = response.data || {};
 				reject(
-					new ApiError(parseErrorMessage(errorData, response.statusCode), {
+					new ApiError(parseErrorMessage(errorData), {
 						statusCode: response.statusCode,
 						code: parseErrorCode(errorData),
 						requestId: responseRequestId(response) || requestId,

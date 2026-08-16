@@ -91,6 +91,9 @@ test("native client localizes every public query and session error boundary", ()
 	expect(localizedApiErrorMessage("unrecognized-code", "安全兜底")).toBe(
 		"安全兜底",
 	);
+	expect(localizedApiErrorMessage("api-request-failed", "服务端原始错误")).toBe(
+		"请求失败，请稍后重试",
+	);
 });
 
 test("native client error messages cover every code documented by the public API", async () => {

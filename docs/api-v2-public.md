@@ -250,7 +250,8 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | 500 | `unknown` | 未分类服务异常；页面不得根据此码推断业务结果 |
 
 小程序端统一在 [`apps/miniprogram/src/services/api-client.ts`](../apps/miniprogram/src/services/api-client.ts)
-按上述稳定错误码映射中文文案；新增公共错误码时必须同步更新该映射和验收测试，不能直接展示 provider 或内部错误文本。
+按上述稳定错误码映射中文文案；新增公共错误码时必须同步更新该映射和验收测试。未知错误码只展示安全兜底，
+不能直接展示 provider 或内部错误文本；`statusCode`、`code` 和 `requestId` 仅用于客户端排障关联。
 
 ## 5. 当前实现边界
 
