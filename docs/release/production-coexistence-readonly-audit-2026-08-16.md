@@ -1,9 +1,9 @@
 # 生产新旧服务共存只读审计（2026-08-16）
 
-本文是 2026-08-16 对生产主机进行 SSH 只读检查后形成的快照。检查使用已经授权的 `ps` 账号，
-未向用户、仓库或日志输出/提交任何环境变量秘密值，只提取了连接目标和开关元数据；未删除 Redis key，
-未执行 Redis flush、数据库 migration、写入业务数据、修改 Redis ACL 或重启服务。key 数量、进程号、连接状态会变化，
-不能当作永久配置。
+本文第一部分是 2026-08-16 对生产主机进行 SSH 只读检查后形成的快照。检查使用已经授权的 `ps` 账号，
+未向用户、仓库或日志输出/提交任何环境变量秘密值，只提取了连接目标和开关元数据；初始快照阶段未删除 Redis key、
+未执行 Redis flush、数据库 migration、写入业务数据、修改 Redis ACL 或重启服务。随后在本文件第 2.3 节记录了
+经授权执行的 Redis 会话隔离和新 API 单服务重启。key 数量、进程号、连接状态会变化，不能当作永久配置。
 
 ## 1. 当前运行拓扑
 
@@ -31,8 +31,8 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 
 ### 2.2 Redis
 
-运行连接表显示旧 Python 进程和新 Bun API 都连接到同一个 Redis host/port。旧生产配置的 Redis DB 是 `1`，
-新 API `REDIS_URL` 的数据库路径也是 `/1`；因此当前不是“仅仅共用 Redis 产品”，而是“共用同一个 Redis DB”。
+初始只读快照显示旧 Python 进程和新 Bun API 都连接到同一个 Redis host/port。旧生产配置的 Redis DB 是 `1`，
+当时新 API `REDIS_URL` 的数据库路径也是 `/1`；因此快照当时不是“仅仅共用 Redis 产品”，而是“共用同一个 Redis DB”。
 
 在该快照时刻，使用 `SCAN MATCH` 只统计 key，不输出 key 名和值，结果如下：
 
@@ -55,7 +55,27 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 - 新平台会话不从旧 JWT/旧 Redis token 直接换发，旧用户重新微信登录；
 - 回滚只能处理新前缀，不能执行 `FLUSHDB`、`FLUSHALL` 或全库清理。
 
-当前最优先的发布前动作不是迁移 key，而是完成 Redis ACL/DB 隔离验证，并保存脱敏配置摘要和回滚演练证据。
+初始快照时最优先的发布前动作不是迁移 key，而是完成 Redis ACL/DB 隔离验证，并保存脱敏配置摘要和回滚演练证据。
+
+### 2.3 后续 Redis 会话隔离实施（2026-08-16）
+
+在完成上述只读盘点后，已在不触碰旧 key 的前提下完成新 API 会话边界切换：
+
+| 项目 | 已验证结果 | 影响范围 |
+| --- | --- | --- |
+| 新 API Redis 用户 | 专用用户 `hospital_v2`，ACL 仅保留 `PING`、`SELECT`、`GET`、`SET` | 只授予新 API |
+| 新 API Redis DB | 独立 DB3；目标库切换前为空，切换后探针 key 已自动过期，DB3 回到 0 key | 不读取旧 DB1 |
+| key 约束 | ACL key pattern 为 `hospital:session:*` | 非所属 key 访问返回 `NOPERM` |
+| 配置保护 | `shared/api.env` 和服务器端带时间戳回滚备份均为 `0600` | 秘密不进入仓库、日志或本文 |
+| 新旧服务重启 | 只重启新 API；旧 Python PID `636918` 仍监听 `8001` | 旧公网服务未被停用 |
+
+隔离探针验证了 `SET EX` 的 TTL 行为、过期后不可读以及跨 key pattern 拒绝。新 API 本机 `/health/ready`
+和公网 `/api/v2/health/ready` 均为 200，database、redis、schema 均为 `ok`；旧服务本机 8001 仍可响应，
+旧公网 `/api/v1/system/ping` 仍返回旧 FastAPI 风格 404。新 worker 没有切换 `worker.env`，仍保持 disabled/inactive。
+
+这表示“新 API 会话已隔离”，不表示“整个 Redis 实例已完成隔离”：旧服务仍使用 DB1 的 `admin` 全权限账号，
+旧 `access_token:*`、`refresh_token:*`、管理端缓存及其他历史 namespace 仍由旧服务负责。后续仍需在旧服务
+下线或独立凭据轮换阶段收紧旧账号权限，并先完成旧任务、文件、Mongo 和管理端能力的替代证据。
 
 ## 3. 其他基础设施观察
 
@@ -93,7 +113,7 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 
 ## 4. 当前不可宣称的内容
 
-- 不能宣称新旧 Redis 已隔离；当前证据证明它们共用 DB1；
+- 不能宣称整个 Redis 实例已完成隔离；新 API 会话已经迁移到 DB3/`hospital_v2`，但旧服务仍在 DB1 使用全权限 `admin`；
 - 不能宣称新 worker 已接管旧 scheduler 或正在处理 outbox；
 - 不能宣称报告目录/详情已迁移；当前 provider gate 仍关闭；
 - 不能宣称支付、医保、HIS 已开放；支付配置和业务 gate 仍关闭；
@@ -103,7 +123,7 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 ## 5. 下一步执行顺序
 
 1. 已完成旧 env 文件权限收紧；下一步检查历史读取风险并决定是否轮换秘密。
-2. 由运维侧确认 Redis ACL/DB 隔离方案；在隔离前禁止新服务新增 Redis 语义。
+2. 新 API Redis DB/ACL 隔离已经完成；保留旧 DB1 只读盘点，后续在旧服务替代和秘密轮换窗口再收紧旧 `admin` 权限。
 3. 为旧 Python 服务补一个不影响现有端口的 systemd/回滚运行手册，先记录，不直接替换当前进程。
 4. 保持新 API 只读能力，继续按患者目录 → 预约历史 → 报告目录 → 门诊费用完成公网与真机证据。
 5. 等新的 provider 文档输入后，再冻结报告/病历/文件资源 contract；不根据旧页面猜字段开放写入。

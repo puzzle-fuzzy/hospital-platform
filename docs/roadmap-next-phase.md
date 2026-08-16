@@ -24,7 +24,7 @@
 - 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院、医院列表和采血预约已完成旧页面副作用审计；新端仍保持未注册，票据和患者写入必须按独立 contract 重做。
 - 旧端非页面逻辑（直连 provider、WebSocket、身份/患者持久化、临床问卷组件和静态入口配置）已完成单独审计；新端不得把这些旧 helper 当作可兼容迁移，边界见 [`migration/legacy-client-infrastructure-boundaries.md`](migration/legacy-client-infrastructure-boundaries.md)。
 - 旧服务基础设施与运维边界已完成单独审计：旧 Redis 多 namespace、Mongo 连接、APScheduler/任务管理、本地文件资源、AI/WebSocket 和 Admin/RBAC 均未被新患者 API 全量替代；共存门禁见 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md)。
-- 2026-08-16 生产只读审计已确认旧/新服务共用 Redis DB1；新 API 已由 systemd 运行且公网 v2 健康检查可达，但新 Worker 未启动、报告 gate 关闭、旧 Python 仍由手工进程运行；证据见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
+- 2026-08-16 生产 Redis 会话隔离已完成：新 API 使用独立 DB3/`hospital_v2` ACL，旧 Python 仍使用 DB1/旧全权限账号；新 API 已由 systemd 运行且公网 v2 健康检查可达，但新 Worker 未启动、报告 gate 关闭、旧 Python 仍由手工进程运行；证据见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
 
 ### 当前已验证的问题
 
@@ -99,7 +99,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 管理端使用独立权限模型和独立路由，不能复用患者端 token 语义。
 - 个人中心和外部入口按 [`migration/patient-center-and-external-entry-boundaries.md`](migration/patient-center-and-external-entry-boundaries.md) 拆分；先普通资料，再患者绑定/协议，最后跨小程序、WebView、订阅和外部服务。
 - 增加指标、告警、备份恢复演练、发布回滚和旧服务下线检查。
-- 基础设施迁移按独立边界推进：先完成 Redis 实例/DB/ACL 和旧 key 只读盘点，再确认 Mongo/本地文件资产，最后分别设计通用任务、文件资源、AI/WebSocket 和 Admin/RBAC；不能用新 worker 或连接探针代替这些能力。
+- 基础设施迁移按独立边界推进：新 API Redis DB/ACL 隔离已完成，但旧 DB1 namespace、Mongo/本地文件资产仍需确认，随后分别设计通用任务、文件资源、AI/WebSocket 和 Admin/RBAC；不能用新 worker 或连接探针代替这些能力。
 
 ## 工程与运行治理
 
@@ -140,10 +140,11 @@ available -> hold_pending -> held -> booking_pending -> booked
 6. 再处理报告真实 provider 只读验收、医院列表/病历和便民服务逐域迁移；个人中心扩展和外部入口先完成 contract/allowlist/旧数据隔离，非页面逻辑按新审计文档逐项清除直连和敏感缓存，院内导航动态能力必须先取得地图数据与路线 contract；
 7. provider 只读稳定后，才进入预约写入合同和锁号设计；
 8. 最后按现金支付 → 医保结算 → HIS 回写顺序做专项验收。
-9. 旧生产 env 文件权限已收紧到 `0700/0600` 且旧进程存活；下一步完成历史读取风险/秘密轮换判断和 Redis DB/ACL 隔离验证，再继续报告、病历和文件资源 contract。共享基础设施未隔离前，不新增 Redis 语义、不启动新 worker，也不把公网 health 200 当作业务迁移完成。
+9. 旧生产 env 文件权限已收紧到 `0700/0600` 且旧进程存活；新 API Redis 会话已切换至 DB3/`hospital_v2` 最小 ACL 并完成公网 readiness 验收。下一步完成历史读取风险/秘密轮换判断，再继续报告、病历和文件资源 contract；旧 DB1 全权限账号、旧任务和其他基础设施仍不得视为已迁移。
 
 ## 业务正确性加固记录
 
 - 2026-08-16：修复服务端与小程序只读窗口依赖运行时本地时区的问题，并用 UTC 输入验证仍输出中国标准时间；提交 `4c0d255` 只涉及客户端和文档，不需要重启 API，也不会打开支付、医保或结算写入。
 - 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；目标环境 migration 和 schema probe 已完成，下一步是失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
 - 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。
+- 2026-08-16：完成生产 Redis 会话隔离：新 API 使用 DB3/`hospital_v2`，ACL 只允许 `PING/SELECT/GET/SET` 与 `hospital:session:*`，通过 TTL 和跨前缀拒绝探针；旧 Python DB1 继续运行，未迁移旧 namespace。

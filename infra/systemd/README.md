@@ -42,6 +42,11 @@ journalctl -u hospital-platform-worker-v2.service -n 100 --no-pager
 API 启动日志必须包含 `runtimeMode`、`authRuntimeStatus`、`authIdentityGateway`、`authSessionStore` 和
 `persistenceSchemaProbe`；业务登录日志使用 `auth.wechat.login.*` 事件，禁止通过原始请求体排障。
 
+生产 API 的 `REDIS_URL` 必须使用新服务专用 Redis 用户和独立 DB，不得复用旧 Python 服务的全权限账号。
+当前生产已验证 `hospital_v2`/DB3，只允许 `PING`、`SELECT`、`GET`、`SET`，并由 ACL 强制限制到
+`hospital:session:*`；新 API 代码中的 key 前缀只是第二道保护，不能替代 Redis ACL。`worker.env` 不得
+因为 API 会话隔离完成而自动切换，worker 仍需单独通过支付、schema、lease、日志和回滚 gate。
+
 2026-08-16 的生产只读快照见 [`docs/release/production-coexistence-readonly-audit-2026-08-16.md`](../../docs/release/production-coexistence-readonly-audit-2026-08-16.md)。
-该快照确认新旧服务当前共用 Redis DB1，新 worker 仍为 disabled/inactive，旧 Python 服务仍由手工进程运行；
-因此不能把新 API 的 active 或公网 health 200 解释为全量迁移完成。
+该快照先确认新旧服务共用 Redis DB1，随后记录了新 API 会话隔离和只重启新 API 的结果；新 worker 仍为
+disabled/inactive，旧 Python 服务仍由手工进程运行，因此不能把新 API 的 active 或公网 health 200 解释为全量迁移完成。

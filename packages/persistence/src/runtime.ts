@@ -102,6 +102,9 @@ export function createPersistenceRuntime(options: {
 				lazyConnect: true,
 				maxRetriesPerRequest: 1,
 				enableOfflineQueue: false,
+				// 生产 ACL 只开放 PING/SELECT/GET/SET；应用自己的 ping 探针已经覆盖 ready 语义，
+				// 不再让 ioredis 为 INFO 命令申请额外权限并在 journald 输出误导性 warning。
+				enableReadyCheck: false,
 			})
 		: undefined;
 

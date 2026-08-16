@@ -4,7 +4,7 @@
 以及它们在新 Bun/Elysia 项目中的真实迁移状态。本文的目标是防止把“连接探针通过”、
 “有一个替代实现”误判为“旧能力已经兼容迁移”。
 
-本文只描述已经从源码、目标项目代码或本地门禁中确认的事实。生产 Redis 是否与旧服务共用实例、
+本文只描述已经从源码、目标项目代码、部署配置或运行门禁中确认的事实。生产 Redis 是否与旧服务共用实例、
 旧 MongoDB 是否有历史集合数据、旧任务是否仍在运行，必须通过部署配置和只读运行证据确认，不能从源码推断。
 
 ## 1. 审计范围与结论
@@ -27,7 +27,7 @@
 在文件、实时 AI、管理端、通用任务和 MongoDB 的来源/消费关系没有冻结前，不开放对应新路由，
 也不删除旧服务、旧 Redis key、旧静态目录或旧表。
 
-## 2. Redis：前缀隔离不是迁移完成
+## 2. Redis：前缀、DB 和 ACL 必须共同形成边界
 
 ### 2.1 旧 Redis key 语义
 
@@ -51,7 +51,7 @@
 新 `packages/persistence/src/redis-session.ts` 当前只定义：
 
 - `hospital:session:{accessToken}`：保存内部 `userId`，使用 Redis TTL；
-- 业务层只依赖 `get`、`setEx`、`delete` 等最小端口；
+- 业务层只依赖 `get` 和带 `EX` 参数的 `set` 最小端口；当前会话存储没有全库扫描、删除或管理命令；
 - 不记录 token/用户身份日志，不读取旧 `access_token:*`；
 - Redis 未配置或探针失败时，登录和依赖 Redis 的能力必须 fail-closed；不能退回内存会话冒充生产可用。
 
@@ -71,7 +71,10 @@
 生产验收必须保存 Redis endpoint/database/ACL 的脱敏配置摘要、只读 key 盘点结果和隔离验证结果，
 不能只保存 `PING=ok`。
 
-2026-08-16 的生产只读快照已证明旧/新服务当前共用 Redis DB1，具体快照和未完成门禁见
+2026-08-16 的生产只读快照先证明旧/新服务共用 Redis DB1；随后已完成新 API 的生产会话隔离：
+新 API 使用独立 DB3、专用用户 `hospital_v2`，ACL 命令白名单为 `PING/SELECT/GET/SET`，key pattern 为
+`hospital:session:*`，TTL 探针和跨前缀 `NOPERM` 探针均通过。旧 Python 服务继续使用 DB1 的 `admin` 全权限账号，
+因此当前是“新 API 会话隔离完成、旧基础设施仍未完成整体隔离”，而不是整个 Redis 实例迁移完成。详细证据见
 [`../release/production-coexistence-readonly-audit-2026-08-16.md`](../release/production-coexistence-readonly-audit-2026-08-16.md)。
 
 ## 3. MongoDB：先证明数据，再决定是否迁移
@@ -201,7 +204,7 @@ Admin API、RBAC、在线用户管理、服务器资源管理或后台日志查�
 
 ## 9. 下一步优先级
 
-1. 先完成生产 Redis endpoint/database/ACL、旧 key 前缀/TTL 和旧任务实例的只读盘点；这是新旧服务共存的前置条件。
+1. 保留生产 Redis endpoint/database/ACL、旧 key 前缀/TTL 和旧任务实例的只读盘点；新 API 会话隔离已完成，后续只在旧服务替代/秘密轮换窗口收紧 DB1 的 `admin` 权限。
 2. 对 MongoDB 和 `static/upload` 做只读资产清点，先得到“迁移、归档还是确认无业务使用”的结论。
 3. 将新 worker 的 outbox/查单验收与通用任务管理明确分开，补齐 lease、重试、死信/人工处理和运行日志的运维手册。
 4. 获取 AI/WebSocket、文件资源和管理端的正式 provider/产品 contract 后，再按独立领域设计，不从旧实现推断安全协议。
