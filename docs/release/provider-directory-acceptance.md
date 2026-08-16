@@ -53,6 +53,9 @@
 - 最新候选 `411cd31` 在 `127.0.0.1:18084` 使用真实生产依赖完成 production mode、live/ready 和正常停止验收；
   该候选仍未切换 `current`，持久化探针低敏错误码增强和候选证据见
   [`candidate-411cd31-preproduction-smoke-2026-08-16.md`](candidate-411cd31-preproduction-smoke-2026-08-16.md)。
+- 最新候选 `d8f14f1` 在 `127.0.0.1:18087` 完成患者归属门禁代码验收、真实生产 env preflight、
+  production mode、live/ready、system-ping、未登录认证边界和正常停止验收；该候选仍未切换
+  `current`，详见 [`candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](candidate-d8f14f1-preproduction-smoke-2026-08-16.md)。
 
 ### 2026-08-16 数据层迁移与复核
 
