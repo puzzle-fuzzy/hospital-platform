@@ -73,6 +73,67 @@ test("provider directory smoke only uses the platform API and verifies safe resp
 	expect(requests[2]?.authorization).toBe("Bearer platform-access-token");
 });
 
+test("provider directory smoke uses the public v2 prefix without auth on health probes", async () => {
+	const requests: Array<{
+		url: string;
+		authorization: string | null;
+		method: string;
+		idempotencyKey: string | null;
+	}> = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		apiPrefix: "/api/v2",
+		accessToken: "platform-access-token",
+		capabilities: ["patients", "patient-sync"],
+		fetcher: async (input, init) => {
+			const url = String(input);
+			const headers = new Headers(init?.headers);
+			requests.push({
+				url,
+				authorization: headers.get("authorization"),
+				method: init?.method ?? "GET",
+				idempotencyKey: headers.get("idempotency-key"),
+			});
+			if (url.endsWith("/api/v2/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/api/v2/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					items: [
+						{
+							id: "internal-patient-001",
+							displayName: "张三",
+							relationship: "self",
+							cardNumberMasked: "******0001",
+						},
+					],
+					total: 1,
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(requests.map((request) => request.url)).toEqual([
+		"https://hospital.example.test/api/v2/health/live",
+		"https://hospital.example.test/api/v2/health/ready",
+		"https://hospital.example.test/api/v2/patients",
+		"https://hospital.example.test/api/v2/patients/sync",
+	]);
+	expect(requests[0]?.authorization).toBeNull();
+	expect(requests[1]?.authorization).toBeNull();
+	expect(requests[2]?.authorization).toBe("Bearer platform-access-token");
+	expect(requests[3]).toMatchObject({
+		method: "POST",
+		authorization: "Bearer platform-access-token",
+		idempotencyKey: expect.stringMatching(/^provider-smoke-/),
+	});
+});
+
 test("provider directory smoke can explicitly verify idempotent patient synchronization", async () => {
 	const requests: Array<{
 		url: string;

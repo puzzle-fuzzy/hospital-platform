@@ -87,6 +87,8 @@ API 进程自身的最小运行 smoke：
 ```powershell
 $env:HOSPITAL_API_BASE_URL = "http://127.0.0.1:3000"
 $env:HOSPITAL_ALLOW_LOCAL_HTTP = "true"
+# 内网直连默认使用应用内部的 /api/v1；不设置也会采用该默认值。
+$env:HOSPITAL_API_PREFIX = "/api/v1"
 pnpm runtime:smoke
 ```
 
@@ -99,6 +101,8 @@ pnpm runtime:smoke
 
 ```powershell
 $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
+# 公网域名经阿里云 Nginx 转发时必须验收真实的 /api/v2 路径。
+$env:HOSPITAL_API_PREFIX = "/api/v2"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
 # 可选：报告详情验收会先读取目录，再使用返回的 opaque reportId 读取 LIS 详情。

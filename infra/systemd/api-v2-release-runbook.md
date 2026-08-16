@@ -95,6 +95,8 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
-2026-08-16：最新候选 `3a37e7e` 已在生产 env 和临时 `18082` 完成隔离 smoke，生产 `current` 仍为
-`55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放；由于窄权限尚未配置，尚未执行本手册的公网切换步骤。
-详细证据见 [`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
+2026-08-16：前一候选 `3a37e7e` 已在生产 env 和临时 `18082` 完成隔离 smoke，生产 `current` 仍为
+`55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放。仓库当前 `main=3c8c01b`，其中包含
+已通过代码门禁的候选实现和最新审计文档；`3c8c01b` 尚未在生产临时端口重新 smoke，也未执行公网切换。
+由于窄权限尚未配置，尚不能执行本手册的公网切换步骤。前一候选证据见
+[`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。

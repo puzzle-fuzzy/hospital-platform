@@ -3,6 +3,12 @@ import {
 	createLogger,
 	createNoopLogger,
 } from "@hospital/observability";
+import {
+	apiRoute,
+	healthRoute,
+	resolveApiPrefix,
+	type ApiPrefix,
+} from "./api-route-prefix";
 
 /**
  * 目录 smoke 支持的能力；`patient-sync` 是显式开启的幂等 POST，除此之外只读。
@@ -36,6 +42,8 @@ export type ProviderSmokeResult = {
 
 export type ProviderSmokeOptions = {
 	baseUrl: string;
+	/** `/api/v1` 用于内网直连，`/api/v2` 用于公网转发验收。 */
+	apiPrefix?: ApiPrefix;
 	accessToken: string;
 	patientId?: string;
 	capabilities: readonly ProviderSmokeCapability[];
@@ -260,6 +268,14 @@ export async function runProviderDirectorySmoke(
 		options.baseUrl.trim(),
 		options.allowLocalHttp === true,
 	);
+	let apiPrefix: ApiPrefix;
+	try {
+		apiPrefix = resolveApiPrefix(options.apiPrefix);
+	} catch {
+		throw new ProviderSmokeConfigurationError(
+			"HOSPITAL_API_PREFIX must be /api/v1 or /api/v2",
+		);
+	}
 	const fetcher = options.fetcher ?? fetch;
 	const logger = options.logger ?? createNoopLogger();
 	const traceIdFactory = options.traceIdFactory ?? (() => crypto.randomUUID());
@@ -280,6 +296,7 @@ export async function runProviderDirectorySmoke(
 		method: "GET" | "POST",
 		additionalHeaders: Record<string, string> = {},
 		requestTraceId?: string,
+		isHealth = false,
 	): Promise<{ data: unknown; traceId: string }> {
 		// POST 同步需要让幂等键、x-request-id 和返回证据使用同一个 traceId。
 		const traceId = requestTraceId ?? traceIdFactory();
@@ -290,7 +307,7 @@ export async function runProviderDirectorySmoke(
 		});
 		// 健康探针不需要身份；只给业务 API 加 Bearer，避免 token 进入
 		// 反向代理或基础设施的健康检查日志。
-		if (!path.startsWith("/health/")) {
+		if (!isHealth) {
 			headers.set("Authorization", `Bearer ${options.accessToken}`);
 		}
 		const response = await fetcher(`${baseUrl}${path}`, {
@@ -335,8 +352,9 @@ export async function runProviderDirectorySmoke(
 
 	async function getJson(
 		path: string,
+		isHealth = false,
 	): Promise<{ data: unknown; traceId: string }> {
-		return requestJson(path, "GET");
+		return requestJson(path, "GET", {}, undefined, isHealth);
 	}
 
 	/**
@@ -349,7 +367,7 @@ export async function runProviderDirectorySmoke(
 	}> {
 		const traceId = traceIdFactory();
 		return requestJson(
-			"/api/v1/patients/sync",
+			apiRoute(apiPrefix, "/patients/sync"),
 			"POST",
 			{
 				"idempotency-key": `provider-smoke-${traceId}`,
@@ -386,12 +404,15 @@ export async function runProviderDirectorySmoke(
 			);
 		} catch (error) {
 			const errorType = error instanceof Error ? error.name : "UnknownError";
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown provider smoke error";
 			checks.push({ name, status: "failed", errorType });
 			logger.error(
 				{
 					event: "provider.smoke.capability.failed",
 					capability: name,
 					errorType,
+					errorMessage,
 				},
 				"Provider directory smoke capability failed",
 			);
@@ -408,7 +429,7 @@ export async function runProviderDirectorySmoke(
 	}
 
 	async function readLive(): Promise<SmokeObservation> {
-		const result = await getJson("/health/live");
+		const result = await getJson(healthRoute(apiPrefix, "/health/live"), true);
 		if (responseStatus(result.data) !== "ok") {
 			throw new ProviderSmokeRequestError(
 				"Hospital API liveness status is not ok",
@@ -419,7 +440,7 @@ export async function runProviderDirectorySmoke(
 	}
 
 	async function readReady(): Promise<SmokeObservation> {
-		const result = await getJson("/health/ready");
+		const result = await getJson(healthRoute(apiPrefix, "/health/ready"), true);
 		if (responseStatus(result.data) !== "ready") {
 			throw new ProviderSmokeRequestError(
 				"Hospital API readiness status is not ready",
@@ -471,20 +492,22 @@ export async function runProviderDirectorySmoke(
 		}
 
 		if (capability === "patients") {
-			await check("patients", () => readSafe("/api/v1/patients"));
+			await check("patients", () => readSafe(apiRoute(apiPrefix, "/patients")));
 			continue;
 		}
 
 		if (capability === "appointment-directory") {
 			await check("appointment-departments", () =>
-				readSafe("/api/v1/appointments/departments"),
+				readSafe(apiRoute(apiPrefix, "/appointments/departments")),
 			);
 			await check("appointment-schedules", async () => {
 				const query = new URLSearchParams({
 					startDate,
 					endDate: scheduleEndDate,
 				});
-				return readSafe(`/api/v1/appointments/schedules?${query}`);
+				return readSafe(
+					`${apiRoute(apiPrefix, "/appointments/schedules")}?${query}`,
+				);
 			});
 			continue;
 		}
@@ -497,7 +520,9 @@ export async function runProviderDirectorySmoke(
 					startDate: recordStartDate,
 					endDate: today,
 				});
-				return readSafe(`/api/v1/appointments/records?${query}`);
+				return readSafe(
+					`${apiRoute(apiPrefix, "/appointments/records")}?${query}`,
+				);
 			});
 			continue;
 		}
@@ -509,7 +534,7 @@ export async function runProviderDirectorySmoke(
 					startDate: reportStartDate,
 					endDate: today,
 				});
-				return readSafe(`/api/v1/reports?${query}`);
+				return readSafe(`${apiRoute(apiPrefix, "/reports")}?${query}`);
 			});
 			continue;
 		}
@@ -521,7 +546,9 @@ export async function runProviderDirectorySmoke(
 				startDate: reportStartDate,
 				endDate: today,
 			});
-			const result = await getJson(`/api/v1/reports?${query}`);
+			const result = await getJson(
+				`${apiRoute(apiPrefix, "/reports")}?${query}`,
+			);
 			const itemCount = requireSafeData(result.data);
 			reportId = firstOpaqueReportId(result.data);
 			return {
@@ -536,7 +563,9 @@ export async function runProviderDirectorySmoke(
 					200,
 				);
 			}
-			return readSafe(`/api/v1/reports/${encodeURIComponent(reportId)}`);
+			return readSafe(
+				apiRoute(apiPrefix, `/reports/${encodeURIComponent(reportId)}`),
+			);
 		});
 	}
 
@@ -574,6 +603,7 @@ if (import.meta.main) {
 	try {
 		const result = await runProviderDirectorySmoke({
 			baseUrl: Bun.env.HOSPITAL_API_BASE_URL ?? "",
+			apiPrefix: resolveApiPrefix(Bun.env.HOSPITAL_API_PREFIX),
 			accessToken: Bun.env.HOSPITAL_ACCESS_TOKEN ?? "",
 			capabilities: parseCapabilities(Bun.env.HOSPITAL_SMOKE_CAPABILITIES),
 			allowLocalHttp: Bun.env.HOSPITAL_ALLOW_LOCAL_HTTP === "true",

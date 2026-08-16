@@ -88,6 +88,8 @@ pnpm check
 
 ```powershell
 $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
+# 公网代理入口是 /api/v2；内网直接访问 Elysia 端口时才使用 /api/v1。
+$env:HOSPITAL_API_PREFIX = "/api/v2"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
 $env:HOSPITAL_SMOKE_CAPABILITIES = "patient-sync,patients,appointment-directory,appointment-records,reports"

@@ -3,6 +3,12 @@ import {
 	createNoopLogger,
 	type AppLogger,
 } from "@hospital/observability";
+import {
+	apiRoute,
+	healthRoute,
+	resolveApiPrefix,
+	type ApiPrefix,
+} from "./api-route-prefix";
 
 export type RuntimeSmokeFetcher = (
 	input: RequestInfo | URL,
@@ -24,6 +30,8 @@ export type RuntimeSmokeResult = {
 
 export type RuntimeSmokeOptions = {
 	baseUrl: string;
+	/** `/api/v1` 用于内网直连，`/api/v2` 用于公网转发验收。 */
+	apiPrefix?: ApiPrefix;
 	/** 本机 HTTP 只允许显式打开，公网/部署地址仍必须使用 HTTPS。 */
 	allowLocalHttp?: boolean;
 	/** 开发环境可以只观察 readiness；发布验收必须要求 ready。 */
@@ -116,19 +124,33 @@ export async function runApiRuntimeSmoke(
 		options.baseUrl.trim(),
 		options.allowLocalHttp === true,
 	);
+	let apiPrefix: ApiPrefix;
+	try {
+		apiPrefix = resolveApiPrefix(options.apiPrefix);
+	} catch {
+		throw new RuntimeSmokeConfigurationError(
+			"HOSPITAL_API_PREFIX must be /api/v1 or /api/v2",
+		);
+	}
 	const fetcher = options.fetcher ?? fetch;
 	const logger = options.logger ?? createNoopLogger();
 	const traceIdFactory = options.traceIdFactory ?? (() => crypto.randomUUID());
 	const checks: RuntimeSmokeCheck[] = [];
 
-	async function getJson(path: string): Promise<{
+	async function getJson(
+		path: string,
+		isHealth = false,
+	): Promise<{
 		data: unknown;
 		statusCode: number;
 		traceId: string;
 		cacheControl: string | null;
 	}> {
 		const traceId = traceIdFactory();
-		const response = await fetcher(`${baseUrl}${path}`, {
+		const route = isHealth
+			? healthRoute(apiPrefix, path)
+			: apiRoute(apiPrefix, path);
+		const response = await fetcher(`${baseUrl}${route}`, {
 			method: "GET",
 			signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
 			headers: {
@@ -194,6 +216,8 @@ export async function runApiRuntimeSmoke(
 			);
 		} catch (error) {
 			const errorType = error instanceof Error ? error.name : "UnknownError";
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown runtime smoke error";
 			const statusCode =
 				error instanceof RuntimeSmokeRequestError
 					? error.statusCode
@@ -210,6 +234,7 @@ export async function runApiRuntimeSmoke(
 					event: "runtime.smoke.check.failed",
 					check: name,
 					errorType,
+					errorMessage,
 					...(statusCode === undefined ? {} : { statusCode }),
 				},
 				`Runtime smoke failed: ${name}`,
@@ -218,7 +243,7 @@ export async function runApiRuntimeSmoke(
 	}
 
 	await check("health-live", async () => {
-		const result = await getJson("/health/live");
+		const result = await getJson("/health/live", true);
 		if (!hasNoStoreDirective(result.cacheControl)) {
 			throw new RuntimeSmokeRequestError(
 				"Hospital API liveness response must include Cache-Control: no-store",
@@ -240,7 +265,7 @@ export async function runApiRuntimeSmoke(
 	});
 
 	await check("health-ready", async () => {
-		const result = await getJson("/health/ready");
+		const result = await getJson("/health/ready", true);
 		if (!hasNoStoreDirective(result.cacheControl)) {
 			throw new RuntimeSmokeRequestError(
 				"Hospital API readiness response must include Cache-Control: no-store",
@@ -272,7 +297,7 @@ export async function runApiRuntimeSmoke(
 	});
 
 	await check("system-ping", async () => {
-		const result = await getJson("/api/v1/system/ping");
+		const result = await getJson("/system/ping");
 		if (responseService(result.data) !== "hospital-api") {
 			throw new RuntimeSmokeRequestError(
 				"Hospital API system identity is invalid",
@@ -307,6 +332,7 @@ if (import.meta.main) {
 	try {
 		const result = await runApiRuntimeSmoke({
 			baseUrl: Bun.env.HOSPITAL_API_BASE_URL ?? "",
+			apiPrefix: resolveApiPrefix(Bun.env.HOSPITAL_API_PREFIX),
 			allowLocalHttp: Bun.env.HOSPITAL_ALLOW_LOCAL_HTTP === "true",
 			requireReady: Bun.env.HOSPITAL_RUNTIME_REQUIRE_READY === "true",
 			logger,

@@ -72,6 +72,52 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 	]);
 });
 
+test("runtime smoke uses the public v2 prefix when explicitly requested", async () => {
+	const requests: Array<{ url: string; authorization: string | null }> = [];
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		apiPrefix: "/api/v2",
+		traceIdFactory: () => "public-runtime-trace-001",
+		fetcher: async (input, init) => {
+			const url = String(input);
+			requests.push({
+				url,
+				authorization: new Headers(init?.headers).get("authorization"),
+			});
+			if (url.endsWith("/api/v2/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/api/v2/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			return jsonResponse({
+				success: true,
+				data: { service: "hospital-api", apiVersion: "0.1.0" },
+			});
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(requests).toEqual([
+		{
+			url: "https://hospital.example.test/api/v2/health/live",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/health/ready",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/system/ping",
+			authorization: null,
+		},
+	]);
+});
+
 test("runtime smoke fails when a public health path loses no-store", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",

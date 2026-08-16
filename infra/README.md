@@ -31,6 +31,8 @@ API 进程可响应性可以单独检查，不需要 provider 凭证：
 ```powershell
 $env:HOSPITAL_API_BASE_URL = "http://127.0.0.1:3000"
 $env:HOSPITAL_ALLOW_LOCAL_HTTP = "true"
+# 直连 Elysia 使用 /api/v1；公网 Nginx 验收需改为 /api/v2。
+$env:HOSPITAL_API_PREFIX = "/api/v1"
 pnpm runtime:smoke
 ```
 

@@ -170,8 +170,8 @@ journald 同时记录了完全相同的 requestId、路径 `/health/ready` 和 `
 ### 3.8 17:59-18:00 CST 当前 release 与公网认证边界复核
 
 本次仍只做只读检查，SSH 使用已授权的 `ps` 账号；没有重启、切换 `current`、修改配置、执行 migration
-或写入业务数据。仓库当前 `main` 为 `8071feb`，服务器 `/home/ps/code/hospital-platform/current`
-仍解析到 `releases/55fce6c`，因此当前公网不能作为 `8071feb` 的业务验收证据。
+或写入业务数据。仓库当前 `main` 为 `3c8c01b`，服务器 `/home/ps/code/hospital-platform/current`
+仍解析到 `releases/55fce6c`，因此当前公网不能作为 `3c8c01b` 的业务验收证据。
 
 | 检查项 | 结果 | 迁移判断 |
 | --- | --- | --- |
@@ -186,6 +186,23 @@ journald 同时记录了完全相同的 requestId、路径 `/health/ready` 和 `
 下一步发布门禁固定为：先在服务器保存仓库 `main` 的确切 commit，构建候选 release 并在临时端口验证
 live/ready/no-store 和依赖恢复，再原子切换 `current`；切换后同时复测公网 `/api/v2`、旧 `8001`、
 systemd 状态、requestId 关联和回滚路径。完成这些证据前，不打开患者同步真实验收、报告 gate 或任何支付 gate。
+
+### 3.9 18:06-18:07 CST 公网 `/api/v2` Smoke 路径与缓存门禁复核
+
+本轮只读执行仓库 `main=3c8c01b` 中刚补齐的运行 Smoke，显式设置
+`HOSPITAL_API_BASE_URL=https://test-hp.meiyi.pro`、`HOSPITAL_API_PREFIX=/api/v2` 和
+`HOSPITAL_RUNTIME_REQUIRE_READY=true`。Smoke 结果为：
+
+| 请求 | 结果 | 证据判断 |
+| --- | --- | --- |
+| `GET /api/v2/health/live` | HTTP 200，但失败 | 公网路径正确命中；响应缺少 `Cache-Control: no-store` |
+| `GET /api/v2/health/ready` | HTTP 200，但失败 | 公网路径正确命中；响应缺少 `Cache-Control: no-store` |
+| `GET /api/v2/system/ping` | HTTP 200，通过 | `/api/v2` 公网前缀和基础路由可用，响应带唯一 requestId |
+
+同一时段用 `curl` 复核，Nginx 响应头包含 `Server: nginx/1.18.0 (Ubuntu)`、`x-request-id`，但没有
+`Cache-Control`。因此这次失败是有效的发布门禁证据，不是 Smoke 误把内部 `/api/v1` 拼到公网域名；
+Smoke 现在默认验收内网 `/api/v1`，只有显式 `HOSPITAL_API_PREFIX=/api/v2` 才验收公网转发。
+在 Nginx 或当前 release 补齐 no-store 并重新完成临时端口/公网复核前，不得推进下一次线上业务验收。
 
 ## 4. 当前不可宣称的内容
 
