@@ -37,10 +37,20 @@ type PersistenceProbeMetadata = {
 	errorCode?: string;
 	operation?: string;
 	attempts?: number;
+	/** 本次只读探针从开始到结束的耗时，不代表业务请求耗时。 */
+	durationMs?: number;
 	schemaStatus?: string;
 	missingMigrationCount?: number;
 	missingSchemaObjectCount?: number;
 };
+
+/**
+ * 统一计算探针耗时，避免把高精度时间戳或系统时间写入日志。
+ * 运维只需要知道本次检查花了多久，且该字段始终是非负整数毫秒。
+ */
+function elapsedProbeMilliseconds(startedAt: number): number {
+	return Math.max(0, Math.round(Date.now() - startedAt));
+}
 
 /**
  * MySQL 连接池探针只执行幂等的只读查询；第一次失败时最多再尝试一次。
@@ -148,6 +158,7 @@ export function createPersistenceProbeStateTracker(
 				{
 					event: "persistence.probe.recovered",
 					dependency,
+					...metadata,
 				},
 				"Persistence dependency probe recovered",
 			);
@@ -164,17 +175,22 @@ function createMySqlPort(pool: Pool, logger?: AppLogger): DependencyPort {
 	return {
 		async check(): Promise<DependencyState> {
 			let attempts = 0;
+			const startedAt = Date.now();
 			try {
 				attempts = await probeMySqlReadOnly(() =>
 					pool.query("SELECT 1 AS health_check"),
 				);
-				trackProbeState("ok");
+				trackProbeState("ok", {
+					attempts,
+					durationMs: elapsedProbeMilliseconds(startedAt),
+				});
 				return "ok";
 			} catch (error) {
 				trackProbeState("unavailable", {
 					...safeErrorMetadata(error),
 					operation: "mysql.health_check",
 					attempts: attempts || 2,
+					durationMs: elapsedProbeMilliseconds(startedAt),
 				});
 				return "unavailable";
 			}
@@ -187,15 +203,21 @@ function createRedisPort(client: Redis, logger?: AppLogger): DependencyPort {
 
 	return {
 		async check(): Promise<DependencyState> {
+			const startedAt = Date.now();
 			try {
 				if (client.status !== "ready") await client.connect();
 				await client.ping();
-				trackProbeState("ok");
+				trackProbeState("ok", {
+					attempts: 1,
+					durationMs: elapsedProbeMilliseconds(startedAt),
+				});
 				return "ok";
 			} catch (error) {
 				trackProbeState("unavailable", {
 					...safeErrorMetadata(error),
 					operation: "redis.health_check",
+					attempts: 1,
+					durationMs: elapsedProbeMilliseconds(startedAt),
 				});
 				return "unavailable";
 			}
@@ -210,6 +232,7 @@ function createSchemaPort(pool: Pool, logger?: AppLogger): DependencyPort {
 	return {
 		async check(): Promise<"ok" | "unavailable" | "not_configured"> {
 			let attempts = 0;
+			const startedAt = Date.now();
 			try {
 				let state: CoreSchemaState | undefined;
 				attempts = await probeMySqlReadOnly(async () => {
@@ -221,6 +244,7 @@ function createSchemaPort(pool: Pool, logger?: AppLogger): DependencyPort {
 				const probeState = state.status === "ready" ? "ok" : "unavailable";
 				trackProbeState(probeState, {
 					attempts,
+					durationMs: elapsedProbeMilliseconds(startedAt),
 					schemaStatus: state.schemaStatus,
 					missingMigrationCount: state.missingMigrationIds.length,
 					missingSchemaObjectCount: state.missingSchemaObjects.length,
@@ -232,6 +256,7 @@ function createSchemaPort(pool: Pool, logger?: AppLogger): DependencyPort {
 					...safeErrorMetadata(error),
 					operation: "mysql.schema_check",
 					attempts: attempts || 2,
+					durationMs: elapsedProbeMilliseconds(startedAt),
 				});
 				return "unavailable";
 			}

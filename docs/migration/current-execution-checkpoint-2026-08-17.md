@@ -125,3 +125,14 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 当前不能宣称：完整微信真机登录验收、多患者/TTL/失效恢复、预约历史/门诊费用/报告真实 Provider
 验收、病历/费用详情/患者绑定/动态医院/二维码/便民服务完成，以及任何预约写入、支付、医保、退款或
 HIS 回写完成。
+
+## 7. 本轮基础设施观测增强
+
+本轮补齐了 MySQL、Redis 和 schema 只读 readiness 探针的安全诊断字段：不可用与恢复事件均可记录
+`attempts` 和 `durationMs`，schema 额外记录 `schemaStatus`、缺失 migration 数量和缺失结构数量。
+其中 `attempts` 只表示探针自身的有限重试，不能解释为预约、支付或其他业务写入被重放；恢复日志的
+字段仍然不包含连接串、SQL、原始异常消息、参数或第三方报文。详细字段约束见 [`日志规范`](../logging.md)。
+
+本轮本地门禁已通过：`architecture:audit`、`migration:audit`、`provider:audit`、格式检查、lint、
+9 个 workspace 的 typecheck/test 和 build。该结果只证明代码与日志契约一致；线上 release、公开网络
+readiness 以及真实微信/Provider 业务证据仍需单独记录，不能由本地门禁替代。

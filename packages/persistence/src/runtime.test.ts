@@ -43,6 +43,10 @@ test("persistence probe logs only unavailable and recovery transitions", () => {
 		errorType: "LeakedError",
 		operation: "mysql.health_check",
 	});
+	trackProbeState("ok", {
+		attempts: 2,
+		durationMs: 31,
+	});
 	trackProbeState("ok");
 	trackProbeState("ok");
 
@@ -59,8 +63,53 @@ test("persistence probe logs only unavailable and recovery transitions", () => {
 	expect(records[1]).toMatchObject({
 		event: "persistence.probe.recovered",
 		dependency: "database",
+		attempts: 2,
+		durationMs: 31,
 	});
 	expect(JSON.stringify(records)).not.toContain("LeakedError");
+});
+
+test("persistence probe recovery keeps schema diagnostics without raw errors", () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "persistence-test",
+		environment: "test",
+		level: "info",
+		destination: { write: (chunk: string) => lines.push(chunk) },
+	});
+	const trackProbeState = createPersistenceProbeStateTracker(logger, "schema");
+
+	trackProbeState("unavailable", {
+		errorType: "Error",
+		errorCode: "ER_NO_SUCH_TABLE",
+		operation: "mysql.schema_check",
+		attempts: 2,
+		durationMs: 56,
+		schemaStatus: "behind",
+		missingMigrationCount: 1,
+		missingSchemaObjectCount: 2,
+	});
+	trackProbeState("ok", {
+		attempts: 1,
+		durationMs: 8,
+		schemaStatus: "verified",
+		missingMigrationCount: 0,
+		missingSchemaObjectCount: 0,
+	});
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records[1]).toMatchObject({
+		event: "persistence.probe.recovered",
+		dependency: "schema",
+		attempts: 1,
+		durationMs: 8,
+		schemaStatus: "verified",
+		missingMigrationCount: 0,
+		missingSchemaObjectCount: 0,
+	});
+	expect(JSON.stringify(records)).not.toContain("password");
 });
 
 test("persistence probe keeps only a safe infrastructure error code", () => {

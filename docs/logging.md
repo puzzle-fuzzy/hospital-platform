@@ -33,7 +33,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `runtime.smoke.check.passed` / `runtime.smoke.check.warning` / `runtime.smoke.check.failed` | API runtime smoke 单项检查 | 记录检查名、HTTP 状态码（没有收到 HTTP 响应时为 `0`）、错误类型和请求 `traceId`；不记录 URL、请求头、请求体或原始响应 |
 | `runtime.smoke.completed` / `runtime.smoke.failed` | API runtime smoke 汇总 | 记录所有检查的安全摘要；每个失败项必须能通过其 `traceId` 关联反向代理和 API 日志，不能用重试次数掩盖 readiness 瞬态故障 |
 | `persistence.schema.checked` / `persistence.schema.failed` | 独立 `db:schema` 只读检查 | 只记录 schema 状态、migration/结构缺失和错误类型；不执行 migration、不记录连接串 |
-| `persistence.probe.unavailable` / `persistence.probe.recovered` | API/worker persistence readiness 探针 | 仅在数据库、Redis 或 Schema 从正常变为不可用、或从不可用恢复时记录依赖名、有限操作名、错误类型；不可用事件额外记录只读探针尝试次数和 Schema 缺失数量；不记录连接串、原始异常、SQL、参数或第三方报文 |
+| `persistence.probe.unavailable` / `persistence.probe.recovered` | API/worker persistence readiness 探针 | 仅在数据库、Redis 或 Schema 从正常变为不可用、或从不可用恢复时记录依赖名、有限操作名、错误类型；两类事件都可记录本次只读探针的 `attempts`、`durationMs`，Schema 还记录状态和缺失数量；不记录连接串、原始异常、SQL、参数或第三方报文 |
 | `persistence.migration.target_rejected` | migration CLI 安全闸门 | 记录远程/生产目标未通过显式确认；不记录 DATABASE_URL |
 | `persistence.integration.dependencies` / `persistence.integration.schema_probe` / `persistence.integration.succeeded` / `persistence.integration.failed` / `persistence.integration.cleanup_failed` | 本地真实 MySQL/Redis 集成验收 | 记录依赖状态、schema 缺失、验收检查名和清理错误类型；不记录连接串、token 或 provider 原始报文 |
 | `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
@@ -136,6 +136,12 @@ HTTP 响应，不是服务端返回的业务状态码。
 MySQL 出现连接断开时，优先按 `requestId` 检索 `http.request.failed`，结合 `errorName`、HTTP 503
 和时间窗口核对数据库服务、网络和连接池状态。幂等查询可以自动恢复一次；支付、预约等写入或事务
 遇到断连不会自动重复提交，必须先根据持久化事实确认服务端是否已经执行，再决定补偿或重试。
+
+`persistence.probe.unavailable` 和 `persistence.probe.recovered` 的 `attempts` 只表示本次只读
+基础设施探针的尝试次数，不表示业务操作被重放；`durationMs` 是探针从开始到结束的整数毫秒耗时，
+用于识别连接池、Redis 握手或 schema 查询的慢故障。它们不能作为预约、支付、医保或其他写入操作
+已经执行的证据。恢复事件会带上恢复时最新一轮探针的安全元数据，排障时应与同一时间窗口的
+`service.started`、`http.request.*` 和数据库/Redis 平台日志交叉核对。
 
 查单日志可以记录 `attemptId`、`queryAttempts`、`providerState`、`outcome` 和 `shouldContinue`；通知消费日志可以记录 `eventId`、`notificationId`、`providerTransactionId`、`outcome` 和 `orderState`，但不得记录微信原始响应、签名头、APIv3 key、prepay 参数或完整 provider payload。
 
