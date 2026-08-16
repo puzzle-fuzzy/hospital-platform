@@ -61,15 +61,18 @@ Content-Type: application/json
 | Header | 使用范围 | 规则 |
 | --- | --- | --- |
 | `X-Request-Id` | 业务请求可选 | 用于贯穿小程序、Nginx、API、adapter 和日志；服务端缺失时生成安全 requestId |
-| `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 必须为 1～128 个字符；同一个业务动作重试必须复用原值，换值会产生新动作 |
+| `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步当前要求携带该值作为请求/provider 关联上下文，但完整 durable replay 仍未开放 |
 | `Authorization` | 受保护接口 | 只接受平台 Bearer 会话，不接受 provider token |
 
-患者同步使用 `POST /api/v2/patients/sync`，没有请求体；它的幂等键只保护一次完整目录
-同步，不代表新增或绑定了患者。同步成功后，服务端在事务中恢复本次出现的患者为 active，
+患者同步使用 `POST /api/v2/patients/sync`，没有请求体；当前 `Idempotency-Key` 会进入
+adapter 请求上下文，但 API 尚未持久化同步操作 ledger 或原始响应重放记录，因此同一 key 在
+进程重启后可能触发一次新的 provider 读取，不能把它当作完整的服务端幂等保证。它不代表新增或
+绑定了患者。同步成功后，服务端在事务中恢复本次出现的患者为 active，
 并将同一 owner/provider 目录中本次未出现的患者标记为 inactive；历史业务引用保留，内部
 `patientId` 不更换。只有 provider adapter 确认返回完整目录时才允许这一步，分页结果必须先
 在 adapter 内合并。`observedAt` 在 provider 请求发起前采样，较早请求晚返回时不能覆盖
-较新的患者资料、临床引用或 active 状态。订单创建和微信预支付的幂等键分别独立，不能混用。
+较新的患者资料、临床引用或 active 状态。患者同步的 durable operation ledger 和结果重放必须在
+未来预约写入、患者绑定等命令开放前单独完成；订单创建和微信预支付的幂等键分别独立，不能混用。
 
 ### 2.3 日期、金额和标识
 
