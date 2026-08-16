@@ -75,6 +75,11 @@
   新旧服务共存，不证明仓库最新提交已部署，也不证明任何患者端 Provider、支付或真机业务完成；完整限制见
   [`../release/production-coexistence-readonly-audit-2026-08-17.md`](../release/production-coexistence-readonly-audit-2026-08-17.md)。
 
+- 同次 journald 复核发现 MySQL/schema 探针存在多次 unavailable/recovered 抖动，并出现过微信登录
+  `PersistenceUnavailableError`/503；虽然随后有一次登录和单患者同步成功，但当前不具备多患者、TTL、失效恢复
+  和只读业务稳定验收证据。P0 顺序已调整为先定位依赖抖动并取得连续稳定观察，再进入预约历史、门诊费用和报告验收；
+  详见 [`../release/current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md)。
+
 日期窗口的服务端跨度、客户端窗口和 provider 待确认项已单独记录在
 [`date-window-boundary-audit.md`](date-window-boundary-audit.md)；这部分不能用页面数量或列表 `total` 推断为已完成 provider 分页。
 

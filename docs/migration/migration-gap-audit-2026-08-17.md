@@ -35,6 +35,10 @@
   `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `41c9c18`。这补强运行层共存证据，
   但不能证明当前仓库 `main` 已部署，也不能替代业务和真机证据；完整记录见
   [`../release/production-coexistence-readonly-audit-2026-08-17.md`](../release/production-coexistence-readonly-audit-2026-08-17.md)。
+- 同次 journald 复核发现 database/schema 探针多次 unavailable/recovered，且微信登录曾因
+  `PersistenceUnavailableError` 返回 503；一次后续成功同步仍只有 1 位患者。该运行稳定性问题在未定位前阻断
+  P0 真实业务验收；事件、脱敏证据和下一步见
+  [`../release/current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md)。
 
 ### 2.1 本轮业务审计修正
 
