@@ -52,6 +52,7 @@
 - 2026-08-16 收到 2.6.7 挂号登记、2.10.4.2 支付挂号和 2.6.65.7 外部退款 Provider 文档，已完成脱敏元数据、字段、状态和依赖标准化，记录见 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。由于执行预约、排班/号源、患者档案、支付登记和退款查单文档缺失，当前状态保持 `normalized`，没有把预约写入、支付挂号或退款误标为已迁移。
 - 候选 `d8f14f1` 已完成患者归属门禁的代码测试、真实生产 env preflight 和临时 production runtime smoke，但没有切换公网 `current`；真实 session、Provider 只读业务和真机证据仍待完成。证据见 [`release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md)。
 - 2026-08-16 21:00-22:06 CST 复核当前 `d177991` 启动后的真实日志：没有出现当前 release 的微信、患者、预约、报告或门诊费用业务事件；MySQL 与 Schema 探针发生四次同步瞬态不可用后恢复，Redis 始终正常。该证据不能替代真实业务验收，详见 [`release/current-d177991-observability-acceptance-2026-08-16.md`](release/current-d177991-observability-acceptance-2026-08-16.md)。
+- 候选 `a11f117` 已完成 MySQL/Schema 只读探针一次有界重试的本地完整门禁、真实生产 env preflight 和 `127.0.0.1:18088` 隔离 smoke；候选未切换，`current` 仍为 `d177991`。该修复降低坏连接造成的瞬态 readiness 误报，但不替代数据库稳定性观察或真实业务验收，证据见 [`release/candidate-a11f117-preproduction-smoke-2026-08-16.md`](release/candidate-a11f117-preproduction-smoke-2026-08-16.md)。
 
 ### 当前已验证的问题
 

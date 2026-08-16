@@ -36,6 +36,7 @@
 | [`release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md) | `d8f14f1` 患者归属门禁、真实依赖 preflight、临时端口 runtime smoke 和旧服务共存证据 |
 | [`release/candidate-d177991-production-acceptance-2026-08-16.md`](release/candidate-d177991-production-acceptance-2026-08-16.md) | `d177991` 候选 checksum、生产 env、原子切换、公网 `/api/v2` 和旧服务共存验收 |
 | [`release/current-d177991-observability-acceptance-2026-08-16.md`](release/current-d177991-observability-acceptance-2026-08-16.md) | 当前 `d177991` 启动后的真实业务日志边界、MySQL/Schema 瞬态故障和后续验收门禁 |
+| [`release/candidate-a11f117-preproduction-smoke-2026-08-16.md`](release/candidate-a11f117-preproduction-smoke-2026-08-16.md) | `a11f117` 持久化只读探针有界重试、真实生产 env preflight、临时 API smoke 和现网隔离证据 |
 | [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md) | 2026-08-16 生产新旧服务、MySQL/Redis、Worker、权限和公网 v2 的只读快照 |
 | [`release/systemd-narrow-permission-acceptance-2026-08-16.md`](release/systemd-narrow-permission-acceptance-2026-08-16.md) | 新 API 最小 systemd NOPASSWD 规则的安装、校验和旧服务共存证据 |
 | [`release/observability-error-contract-smoke-2026-08-16.md`](release/observability-error-contract-smoke-2026-08-16.md) | `f2c6d99` 候选 release 的 production env 隔离 smoke、中文错误契约和清理证据；不代表公网切换 |

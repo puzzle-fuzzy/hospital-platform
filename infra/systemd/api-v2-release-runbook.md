@@ -197,3 +197,9 @@ live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。Provi
 要求目标内部 patientId 出现在当前 session 的 `/patients` 目录中，未归属时不请求 Provider；候选未切换公网，
 `current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
 [`../../docs/release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md)。
+
+2026-08-16 22:16-22:19 CST：候选 `a11f117` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
+真实生产 env preflight 通过，并在 `127.0.0.1:18088` 完成 production mode、真实 MySQL/Redis/schema、
+live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。本候选只增加 MySQL/Schema 只读探针一次有界重试，
+未切换公网；`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
+[`../../docs/release/candidate-a11f117-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-a11f117-preproduction-smoke-2026-08-16.md)。
