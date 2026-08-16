@@ -27,6 +27,16 @@ type ProviderPaymentItem = {
 	visitRecordId?: unknown;
 };
 
+function objectValue(value: unknown, requestId: string): ProviderPaymentItem {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw providerError(
+			"Zhongyang outpatient response item was invalid",
+			requestId,
+		);
+	}
+	return value as ProviderPaymentItem;
+}
+
 function requiredConfig(value: string): string {
 	const normalized = value.trim();
 	if (!normalized) throw new AdapterNotConfiguredError("zhongyang");
@@ -103,7 +113,9 @@ function responseItems(
 	value: unknown,
 	requestId: string,
 ): ProviderPaymentItem[] {
-	if (Array.isArray(value)) return value as ProviderPaymentItem[];
+	if (Array.isArray(value)) {
+		return value.map((item) => objectValue(item, requestId));
+	}
 	if (typeof value !== "object" || value === null) {
 		throw providerError(
 			"Zhongyang outpatient response data was invalid",
@@ -118,7 +130,7 @@ function responseItems(
 		);
 	}
 	if (Array.isArray(envelope.data)) {
-		return envelope.data as ProviderPaymentItem[];
+		return envelope.data.map((item) => objectValue(item, requestId));
 	}
 	throw providerError(
 		"Zhongyang outpatient response data was invalid",
