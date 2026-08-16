@@ -235,6 +235,27 @@ Smoke 现在默认验收内网 `/api/v1`，只有显式 `HOSPITAL_API_PREFIX=/ap
 本次结果与 3.10 的发布判断一致：公网基础路径和认证边界正常，但当前线上仍不能作为仓库最新提交的业务验收环境；
 下一步必须继续完成候选 bundle 的临时端口验证、`no-store` 修复和 release provenance 关联。
 
+### 3.12 约 19:17-19:19 CST 公网 readiness 短时抖动复核
+
+本轮仍只做只读检查，没有重启服务、切换 `current`、修改 Nginx/环境变量、执行 migration 或写入业务数据。
+本地第一次请求公网 `GET /api/v2/health/ready` 返回 HTTP `200`，但 body 为
+`status=not_ready`、`database=unavailable`、`redis=ok`、`schema=unavailable`。随后从服务器自身发起的
+公网请求和内网 `http://10.0.0.3:18081/health/ready` 都返回 `status=ready`，三项依赖均为 `ok`；本地随后
+连续 5 次公网请求也全部返回 `200/ready`。
+
+| 检查 | 结果 | 证据判断 |
+| --- | --- | --- |
+| 公网第一次探针 | `200/not_ready`，数据库和 schema 暂时 unavailable | 证明探针曾观察到依赖瞬态不可用；不能把 HTTP 200 当作 ready |
+| 服务器内网复核 | `200/ready`，database、redis、schema 均 `ok` | 当前 Bun 进程已恢复可用，未发现持续性故障 |
+| 服务器发起的公网复核 | `200/ready`，requestId `1b8c3f86-83df-40af-8afd-35f6c0f55cbe` | 公网域名当前仍能回到可用 API 路径 |
+| 本地连续公网复核 | 5/5 为 `200/ready` | 瞬态未再次复现，但仍需把依赖抖动纳入告警和发布观察窗口 |
+| 当前 release | `current -> releases/55fce6c` | 线上仍不是仓库当前 `main=66b6b2d`，不能用于新提交业务验收 |
+| 公网缓存头 | live/ready 仍未返回 `Cache-Control: no-store` | 当前 release 仍未通过候选 no-store 发布门禁 |
+
+本次没有足够证据把瞬态归因于 MySQL、连接池、Nginx 或阿里云转发中的某一层；后续应通过同一个
+`X-Request-Id` 关联 API 请求日志和依赖探针日志，并在切换候选前保留连续 readiness 观察记录。该现象不扩大
+任何 provider 或支付 gate，也不改变旧 Python `8001` 继续保留的共存结论。
+
 ## 4. 当前不可宣称的内容
 
 - 不能宣称整个 Redis 实例已完成隔离；新 API 会话已经迁移到 DB3/`hospital_v2`，但旧服务仍在 DB1 使用全权限 `admin`；
