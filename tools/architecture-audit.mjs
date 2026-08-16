@@ -36,6 +36,24 @@ const sources = Object.fromEntries(
 	),
 );
 
+/**
+ * 小程序边界必须覆盖全部生产源码，而不能只抽查请求客户端；否则新页面可能绕过集中客户端重新引入旧直连。
+ * 这里只读取文本源文件，不扫描构建产物和测试脚本，避免把验收中的禁止样例误判为生产代码。
+ */
+const miniprogramGlob = new Bun.Glob(
+	"apps/miniprogram/src/**/*.{ts,js,wxml,wxss,json,jsonc}",
+);
+const miniprogramSourceFiles = [];
+for await (const file of miniprogramGlob.scan({
+	cwd: process.cwd(),
+	onlyFiles: true,
+})) {
+	miniprogramSourceFiles.push(file);
+}
+const miniprogramSource = (
+	await Promise.all(miniprogramSourceFiles.map((file) => Bun.file(file).text()))
+).join("\n");
+
 /** 每条规则都有稳定名称，方便 CI 失败后按规则定位，而不是只看总分。 */
 const checks = [];
 
@@ -136,24 +154,29 @@ check(
 	"预约写入、锁号、取消和挂号费仍保持未注册。",
 );
 
-const miniprogramClient =
-	sources["apps/miniprogram/src/services/api-client.ts"];
 for (const forbidden of [
 	"api.weixin.qq.com",
 	"httpZy",
 	"VITE_ZHONGYI_BASE_API",
+	"VITE_APP_WS_API",
 	"providerPatientId",
 	"providerReportId",
+	"thirdPatientId",
+	"patId",
+	"proxyForward",
+	"proxy/forward",
 ]) {
 	check(
 		`miniprogram.no-${forbidden}`,
-		!miniprogramClient.includes(forbidden),
-		"原生小程序只能访问 Hospital API，不能持有 provider 地址或内部引用。",
+		!miniprogramSource.includes(forbidden),
+		"原生小程序全部生产源码只能访问 Hospital API，不能持有 provider 地址或内部引用。",
 	);
 }
 check(
 	"miniprogram.payment-entry",
-	miniprogramClient.includes("wx.requestPayment"),
+	sources["apps/miniprogram/src/services/api-client.ts"].includes(
+		"wx.requestPayment",
+	),
 	"支付调起只能消费服务端白名单参数，且不等于业务成功。",
 );
 

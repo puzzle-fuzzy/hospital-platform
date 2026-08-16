@@ -418,7 +418,7 @@ export function requestAppointmentRecords(options: {
 	});
 }
 
-/** 读取当前用户所选就诊人的门诊费用摘要；provider patId 不进入小程序请求。 */
+/** 读取当前用户所选就诊人的门诊费用摘要；临床患者映射只在服务端解析。 */
 export function requestOutpatientPaymentRecords(options: {
 	patientId: string;
 	status: "unpaid" | "paid";

@@ -248,8 +248,8 @@ Page<IndexPageData, IndexPageMethods>({
 				return this.loadPatients();
 			})
 			.then(() => {
-				// 恢复旧会话后也要重建一次临床 patId 映射；仅读取旧目录数据会让预约、报告
-				// 和门诊费用继续拿 thirdPatientId 调用上游，导致“患者信息不存在”。
+				// 恢复旧会话后也要重建一次临床患者映射；仅读取旧目录数据会让预约、报告
+				// 和门诊费用继续使用过期的上游映射，导致“患者信息不存在”。
 				return this.onSyncPatients();
 			})
 			.catch((error) => this.showError(error, "会话恢复失败"));
@@ -305,7 +305,7 @@ Page<IndexPageData, IndexPageMethods>({
 				return this.loadPatients();
 			})
 			.then(() => {
-				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床 patId。
+				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床映射。
 				return this.onSyncPatients();
 			})
 			.catch((error) => this.showError(error, "登录失败"))

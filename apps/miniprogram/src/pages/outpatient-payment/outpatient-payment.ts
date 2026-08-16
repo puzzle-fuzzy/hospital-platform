@@ -55,7 +55,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		this.loadPage();
 	},
 
-	/** 先确认当前患者归属，再读取门诊费用，避免把 provider patId 交给页面。 */
+	/** 先确认当前患者归属，再读取门诊费用，避免把临床患者映射交给页面。 */
 	loadPage(): Promise<void> {
 		const requestToken = loadGuard.begin();
 		// 患者切换期间不展示上一位患者的费用，避免身份和金额短暂错配。

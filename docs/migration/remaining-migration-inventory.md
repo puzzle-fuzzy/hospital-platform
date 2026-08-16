@@ -33,6 +33,9 @@
 - 新端构建会检查页面脚本是否生成；API 测试会检查 OpenAPI 的每个 method/path 是否出现在
   [`api-v2-public.md`](../api-v2-public.md)，因此“页面存在但构建找不到 JS”和“路由存在但接口文档漏写”
   已有自动门禁。门禁通过只证明清单一致，不证明 provider、生产或真机业务完成。
+- 当前架构边界审计为 24 条规则，并扫描 `apps/miniprogram/src` 全部生产文本源码；它会阻止 provider
+  地址、旧请求封装、旧患者标识、WebSocket 配置和万能转发残留重新进入原生小程序。历史发布证据中的
+  19/19 是当时的审计快照，不代表当前规则数量。
 - 当前生产只读复核仍为：`current=55fce6c`、新 API `18081` active、旧 Python `8001` 监听、Worker
   `inactive/disabled`；公网和内网 readiness 均为 `200`，数据库/Redis/schema 为 `ok`。
 - 当前生产 capability 日志显示微信身份、患者目录、预约目录、预约记录和门诊费用为 `configured`；

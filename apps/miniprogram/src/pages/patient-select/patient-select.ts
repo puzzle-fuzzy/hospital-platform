@@ -75,7 +75,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				if (!directoryDataGuard.isCurrent(dataToken)) return;
 				this.setPatientList(patients);
 				// 选择页也可能被历史路径直接打开，不能依赖首页先完成临床映射；
-				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到 HIS patId。
+				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到临床映射。
 				this.setData({ loading: false });
 				// 选择页的目录读取完成后还必须等待一次完整同步；否则下拉刷新会
 				// 提前结束，调用页可能在 HIS 映射尚未落库时开始预约/报告查询。
