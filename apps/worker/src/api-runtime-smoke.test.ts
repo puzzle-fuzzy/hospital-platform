@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
 import { runApiRuntimeSmoke } from "./api-runtime-smoke";
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(
+	body: unknown,
+	status = 200,
+	extraHeaders: HeadersInit = {},
+): Response {
 	return new Response(JSON.stringify(body), {
 		status,
-		headers: { "content-type": "application/json" },
+		headers: { "content-type": "application/json", ...extraHeaders },
 	});
 }
 
@@ -25,10 +29,14 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 				authorization: new Headers(init?.headers).get("authorization"),
 			});
 			if (url.endsWith("/health/live")) {
-				return jsonResponse({ success: true, data: { status: "ok" } });
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
 			}
 			if (url.endsWith("/health/ready")) {
-				return jsonResponse({ success: true, data: { status: "ready" } });
+				return jsonResponse({ success: true, data: { status: "ready" } }, 200, {
+					"cache-control": "no-store",
+				});
 			}
 			return jsonResponse({
 				success: true,
@@ -64,7 +72,7 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 	]);
 });
 
-test("runtime smoke reports not-ready as a warning in observation mode", async () => {
+test("runtime smoke fails when a public health path loses no-store", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
 		fetcher: async (input) => {
@@ -73,7 +81,41 @@ test("runtime smoke reports not-ready as a warning in observation mode", async (
 				return jsonResponse({ success: true, data: { status: "ok" } });
 			}
 			if (url.endsWith("/health/ready")) {
-				return jsonResponse({ success: true, data: { status: "not_ready" } });
+				return jsonResponse({ success: true, data: { status: "ready" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			return jsonResponse({
+				success: true,
+				data: { service: "hospital-api", apiVersion: "0.1.0" },
+			});
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks[0]).toMatchObject({
+		name: "health-live",
+		status: "failed",
+		details: ["RuntimeSmokeRequestError"],
+	});
+});
+
+test("runtime smoke reports not-ready as a warning in observation mode", async () => {
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse(
+					{ success: true, data: { status: "not_ready" } },
+					200,
+					{ "cache-control": "no-store" },
+				);
 			}
 			return jsonResponse({
 				success: true,
@@ -97,10 +139,16 @@ test("runtime smoke requires ready for release acceptance", async () => {
 		fetcher: async (input) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
-				return jsonResponse({ success: true, data: { status: "ok" } });
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
 			}
 			if (url.endsWith("/health/ready")) {
-				return jsonResponse({ success: true, data: { status: "not_ready" } });
+				return jsonResponse(
+					{ success: true, data: { status: "not_ready" } },
+					200,
+					{ "cache-control": "no-store" },
+				);
 			}
 			return jsonResponse({
 				success: true,

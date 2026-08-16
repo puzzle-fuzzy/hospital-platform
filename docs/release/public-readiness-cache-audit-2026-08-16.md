@@ -25,6 +25,7 @@
 ## 3. 候选代码修复
 
 候选代码已为 `/health/live` 和 `/health/ready` 设置 `Cache-Control: no-store`，并补充 API 测试，防止代理或 CDN 使用过期 readiness 结果。
+发布 runtime smoke 现在也会检查公网返回的两个健康接口是否保留该指令；即使 JSON 状态正确，响应头缺失也会阻止发布验收。
 
 该修复尚未进入生产 `current=55fce6c`，所以公网响应是否带 `Cache-Control: no-store` 必须在取得窄权限 systemd 发布权限、完成候选切换后重新验收；当前不能把代码门禁写成线上证据。
 

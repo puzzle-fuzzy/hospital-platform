@@ -35,8 +35,9 @@ pnpm runtime:smoke
 ```
 
 发布或 staging 验收必须额外设置 `$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"`，让
-`health/ready.data.status=not_ready` 使命令失败。该 smoke 只请求平台自身的 live、ready 和
-ping，不执行 migration，也不调用 provider。
+`health/ready.data.status=not_ready` 使命令失败。该 smoke 还会检查 live/ready 的
+`Cache-Control: no-store` 没有被反向代理移除；它只请求平台自身的 live、ready 和 ping，
+不执行 migration，也不调用 provider。
 
 PowerShell 中运行 migration 和 integration 时，需要为当前进程提供本地连接串：
 

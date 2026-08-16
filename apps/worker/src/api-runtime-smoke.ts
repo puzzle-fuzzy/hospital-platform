@@ -92,6 +92,19 @@ function responseService(data: unknown): unknown {
 }
 
 /**
+ * 健康接口是瞬时探针，发布 smoke 必须确认反向代理没有移除 no-store。
+ * 只按 Cache-Control 指令解析，不把其他缓存参数误判为等价的禁止缓存。
+ */
+function hasNoStoreDirective(value: string | null): boolean {
+	return (
+		value
+			?.split(",")
+			.some((directive) => directive.trim().toLowerCase() === "no-store") ??
+		false
+	);
+}
+
+/**
  * 运行时 smoke 只验证平台 API 的最小可观测面：不会登录、读患者或调用
  * provider。ready 的 not_ready 在开发观察模式下是 warning，发布模式通过
  * HOSPITAL_RUNTIME_REQUIRE_READY=true 将其升级为失败。
@@ -112,6 +125,7 @@ export async function runApiRuntimeSmoke(
 		data: unknown;
 		statusCode: number;
 		traceId: string;
+		cacheControl: string | null;
 	}> {
 		const traceId = traceIdFactory();
 		const response = await fetcher(`${baseUrl}${path}`, {
@@ -151,6 +165,7 @@ export async function runApiRuntimeSmoke(
 			data: (body as { data?: unknown }).data,
 			statusCode: response.status,
 			traceId,
+			cacheControl: response.headers.get("cache-control"),
 		};
 	}
 
@@ -204,6 +219,12 @@ export async function runApiRuntimeSmoke(
 
 	await check("health-live", async () => {
 		const result = await getJson("/health/live");
+		if (!hasNoStoreDirective(result.cacheControl)) {
+			throw new RuntimeSmokeRequestError(
+				"Hospital API liveness response must include Cache-Control: no-store",
+				result.statusCode,
+			);
+		}
 		if (responseStatus(result.data) !== "ok") {
 			throw new RuntimeSmokeRequestError(
 				"Hospital API liveness status is not ok",
@@ -220,6 +241,12 @@ export async function runApiRuntimeSmoke(
 
 	await check("health-ready", async () => {
 		const result = await getJson("/health/ready");
+		if (!hasNoStoreDirective(result.cacheControl)) {
+			throw new RuntimeSmokeRequestError(
+				"Hospital API readiness response must include Cache-Control: no-store",
+				result.statusCode,
+			);
+		}
 		const status = responseStatus(result.data);
 		if (status === "ready") {
 			return {

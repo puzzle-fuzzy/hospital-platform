@@ -90,7 +90,8 @@ $env:HOSPITAL_ALLOW_LOCAL_HTTP = "true"
 pnpm runtime:smoke
 ```
 
-它只访问 `health/live`、`health/ready` 和 `system/ping`，不需要平台 token，也不触碰业务写入。
+它只访问 `health/live`、`health/ready` 和 `system/ping`，不需要平台 token，也不触碰业务写入；
+同时会确认两个健康接口的 `Cache-Control` 保留 `no-store`，防止公网代理缓存 readiness 状态。
 开发观察模式下 `ready=not_ready` 会记录 warning；发布验收设置
 `$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"`，此时未 ready 会返回失败。
 
