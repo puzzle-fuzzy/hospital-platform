@@ -370,6 +370,10 @@ test("native mini program preserves the legacy static hospital entry boundary", 
 
 	expect(app).toContain('"pages/hospital-list/hospital-list"');
 	expect(home).toContain('url: "/pages/hospital-list/hospital-list"');
+	// 旧首页顶部“互联网医院”实际指向 pagesB/hospital/hospitalList，
+	// 不能因为标签名称而误判为必须恢复外部 web-view。
+	expect(home).toContain('action: "hospital-list"');
+	expect(home).toContain('case "hospital-list"');
 	expect(page).toContain("STATIC_HOSPITAL");
 	expect(page).toContain(
 		'url: "/pages/appointment-directory/appointment-directory"',

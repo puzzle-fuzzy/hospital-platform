@@ -4,6 +4,7 @@ import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
@@ -15,7 +16,6 @@ import {
 	restorePlatformSession,
 	signInPlatformSession,
 } from "../../services/session-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	ActionEvent,
 	IndexEvent,
@@ -36,7 +36,7 @@ const SESSION_LABELS = Object.freeze({
 	signedIn: "已登录",
 } as const satisfies Record<string, SessionLabel>);
 
-/** 顶部四项沿用旧端的顺序、图标尺寸和文案；动作仅接入当前已开放的安全读接口。 */
+/** 顶部四项沿用旧端的顺序、图标尺寸和文案；动作仅接入当前已开放的安全入口。 */
 const TOP_TAB_LIST = Object.freeze([
 	{
 		action: "appointments",
@@ -49,6 +49,9 @@ const TOP_TAB_LIST = Object.freeze([
 		text: "门诊缴费",
 	},
 	{
+		// 旧首页虽然把入口命名为“互联网医院”，实际 URL 是静态 hospitalList；
+		// 外部互联网医院 web-view 是另一个旧顶层页面，不能与此入口混为一谈。
+		action: "hospital-list",
 		icon: "/assets/legacy-home/top-internet.svg",
 		text: "互联网医院",
 	},
@@ -380,6 +383,10 @@ Page<IndexPageData, IndexPageMethods>({
 				break;
 			case "outpatient-payment":
 				wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
+				break;
+			case "hospital-list":
+				// 保留旧首页实际跳转的 hospitalList；动态机构和外部互联网医院仍未开放。
+				wx.navigateTo({ url: "/pages/hospital-list/hospital-list" });
 				break;
 			case "follow":
 				// 旧轮播图只进入公众号静态说明页，不把“已关注”误判成微信授权事实。

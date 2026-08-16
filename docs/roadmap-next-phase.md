@@ -26,7 +26,7 @@
 - 健康知识已完成旧端接口/表结构到新版本化 schema 的静态映射和导入时间边界；真实内容与临床审核未到位前，患者 GET 路由继续不挂载。
 - 门诊就诊记录目录已完成旧端字段差异和候选 contract 草案；provider 文档确认前不注册 `medical-records` 路由，不开放病历正文或诊断字段。
 - 便民服务已完成旧 13 个路由、旧表覆盖逻辑和患者/医生字段风险审计；新端仍未注册，边界已拆为反馈、临床问卷、医生关系和预约后预问诊四个领域。
-- 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院和采血预约已完成旧页面副作用审计；医院列表、公众号和反馈帮助静态入口已迁移，但真实反馈写入、动态机构/院区、路线、关注状态和票据仍必须按独立 contract 重做。
+- 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院和采血预约已完成旧页面副作用审计；旧首页顶部实际跳转的静态医院列表入口已恢复，但旧顶层互联网医院 web-view、真实反馈写入、动态机构/院区、路线、关注状态和票据仍必须按独立 contract 重做。
 - 患者新增/绑卡已进一步形成独立契约草案：明确旧端“查询异常即继续建档”的禁止迁移行为、服务端状态机、owner/协议/幂等/超时恢复不变量和 PB-01 至 PB-16 provider 问题；在新 provider 文档冻结前，写入路由继续关闭。
 - 旧端非页面逻辑（直连 provider、WebSocket、身份/患者持久化、临床问卷组件和静态入口配置）已完成单独审计；新端不得把这些旧 helper 当作可兼容迁移，边界见 [`migration/legacy-client-infrastructure-boundaries.md`](migration/legacy-client-infrastructure-boundaries.md)。
 - 旧服务基础设施与运维边界已完成单独审计：旧 Redis 多 namespace、Mongo 连接、APScheduler/任务管理、本地文件资源、AI/WebSocket 和 Admin/RBAC 均未被新患者 API 全量替代；共存门禁见 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md)。

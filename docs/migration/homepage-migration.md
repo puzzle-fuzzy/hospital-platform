@@ -49,7 +49,7 @@
 | --- | --- | --- |
 | 预约挂号 | `pages/hospital-list/hospital-list` → `pages/appointment-directory/appointment-directory` | 已恢复旧端医院卡片前置；科室/排班只读已接入，写号、锁号、费用和支付未开放 |
 | 门诊缴费 | `pages/outpatient-payment/outpatient-payment` | 已接入费用只读；真实支付、医保授权、结算回写按用户要求最后处理 |
-| 互联网医院 | 首页原位置保留 | 未迁移；需要外部小程序/医院服务合同，当前不伪造跳转 |
+| 旧首页顶部“互联网医院”（旧代码实际跳转 `pagesB/hospital/hospitalList`） | `pages/hospital-list/hospital-list` → `pages/appointment-directory/appointment-directory` | 已恢复旧首页实际静态入口；这不等于外部互联网医院 web-view 已迁移，动态机构/院区仍未开放 |
 | 门诊病历 | 首页原位置保留 | 未迁移；需要病历资源授权和脱敏 contract |
 | 公众号轮播 | `pages/official-account/official-account` | 静态公众号通知说明已接入；二维码、关注状态和订阅消息授权未开放 |
 | 报告查询 | `pages/report-directory/report-directory` | 已接入 30 天 LIS/PACS/ECG 摘要目录；详情只接受服务端 opaque 引用 |
@@ -64,5 +64,5 @@
 
 1. 先完成患者目录、切换患者、报告目录和预约只读的真机验收；
 2. 取得二维码扫码协议后，再设计短期 token、审计和医院设备验收；
-3. 逐项迁移门诊病历、医院列表动态能力、院内导航动态能力、健康百科/自测、住院服务和互联网医院，不共享旧 provider 万能代理；
+3. 逐项迁移门诊病历、医院列表动态能力、院内导航动态能力、健康百科/自测、住院服务和旧顶层 `pages/hospital/hospital.vue` 外部互联网医院，不共享旧 provider 万能代理；
 4. 最后按现金支付 → 医保授权/结算 → HIS 回写处理费用链路。
