@@ -46,6 +46,11 @@ GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-
 Provider 返回可用数据，或患者端门诊缴费已经完成。下一步必须补充脱敏请求/响应 fixture、业务失败和超时样例，
 再进行受控内网只读联调。
 
+当前差异必须单独记录：旧端 `payment.ts` 和旧门诊缴费页面还使用过 `waitPayAmount`、`registerDept`、
+`registerDoctor`，但本批 2.6.33 输出字段表没有冻结这些字段。新 adapter 暂时只在 adapter 内部读取这些候选字段，
+并且只输出 `amountFen`、`departmentName`、`doctorName` 等公共白名单；这些候选字段不能进入 domain、日志、数据库或
+支付编排。Provider fixture 未确认前，不能把 `waitPayAmount` 视为已确认的最终支付金额，也不能把旧端字段名当成新 contract。
+
 ### 3.2 科室与用户资料：可能是动态目录依赖，不直接开放
 
 材料分别指向 Provider 的科室基础信息和用户信息接口。它们可能影响医院/科室/用户映射，但当前迁移目标仍然是

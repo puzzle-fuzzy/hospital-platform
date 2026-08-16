@@ -14,6 +14,11 @@ const OUTPATIENT_PAYMENT_PATH =
 	"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records";
 const OPERATION = "outpatient-payment-records";
 
+/**
+ * 2.6.33 文档明确冻结了 amount、billDeptName、billDocName、billDate 和费用标识等字段。
+ * waitPayAmount、registerDept、registerDoctor 只来自旧端类型/调用线索，当前不是新的公共 contract；
+ * 因此它们只能在 adapter 内部作为待 Provider fixture 确认的候选字段使用，不能进入 domain、API、日志或支付编排。
+ */
 type ProviderPaymentItem = {
 	amount?: unknown;
 	waitPayAmount?: unknown;
