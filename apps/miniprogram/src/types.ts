@@ -195,6 +195,8 @@ export type AppointmentDirectoryPageData = {
 
 /** 挂号记录页使用服务端规范化状态，避免在小程序解析 provider 状态码。 */
 export type AppointmentRecordView = AppointmentRecord & {
+	/** 仅用于原生列表 diff；不是预约号、provider ID 或可写入业务引用。 */
+	viewKey: string;
 	statusLabel: string;
 	statusClass: string;
 };

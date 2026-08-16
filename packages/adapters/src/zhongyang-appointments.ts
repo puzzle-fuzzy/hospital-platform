@@ -167,6 +167,29 @@ function ensureUniqueScheduleIds(
 	}
 }
 
+/**
+ * 科室 ID 是客户端级联选择和后续排班筛选的关联键，不能允许同一次
+ * provider 响应中出现重复值。否则客户端看到的可能是两个同名/不同名
+ * 科室，但点击后实际请求会落到同一个内部筛选条件，造成选择状态漂移。
+ */
+function ensureUniqueDepartmentIds(
+	departments: readonly AppointmentDepartment[],
+	operation: string,
+	requestId: string,
+): void {
+	const seen = new Set<string>();
+	for (const department of departments) {
+		if (seen.has(department.departmentId)) {
+			throw providerError(
+				operation,
+				"Zhongyang appointment response contained duplicate department ids",
+				requestId,
+			);
+		}
+		seen.add(department.departmentId);
+	}
+}
+
 function timeGroup(value: unknown): AppointmentSchedule["timeGroup"] {
 	if (value === 1 || value === "1") return "range";
 	if (value === 0 || value === "0") return "point";
@@ -422,6 +445,7 @@ export class ZhongyangAppointmentApiGateway
 			operation,
 			response.requestId,
 		).map((item) => mapDepartment(item, operation, response.requestId));
+		ensureUniqueDepartmentIds(departments, operation, response.requestId);
 		return { departments, trace: trace(operation, response.requestId) };
 	}
 

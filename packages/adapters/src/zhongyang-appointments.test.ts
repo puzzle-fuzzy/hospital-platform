@@ -326,3 +326,29 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 	expect(JSON.stringify(result)).not.toContain("13800000000");
 	expect(JSON.stringify(result)).not.toContain("registFree");
 });
+
+test("众阳预约科室 adapter 拒绝重复的科室主键", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{ deptId: "dept-duplicate", deptName: "心内科" },
+					{ deptId: "dept-duplicate", deptName: "心内科（重复）" },
+				]),
+				{ status: 200, headers: { "x-request-id": "duplicate-department" } },
+			),
+	});
+
+	await expect(
+		gateway.listDepartments(
+			{ startDate: "2026-08-20", endDate: "2026-08-27" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-departments",
+		requestId: "duplicate-department",
+		retryable: false,
+	});
+});

@@ -200,6 +200,7 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directory).toContain("directoryGuard");
 	expect(directory).toContain("旧科室的排班覆盖当前选择");
 	expect(records).toContain("loadAppointmentRecords");
+	expect(recordsTemplate).toContain('wx:key="viewKey"');
 	expect(records).toContain("getSelectedPatientId");
 	expect(directoryTemplate).toContain("未来 7 天");
 	expect(directoryTemplate).toContain("cascade-shell");
@@ -309,6 +310,7 @@ test("native mini program derives missed appointments from the normalized record
 	expect(myTemplate).toContain('data-action="missed-appointments"');
 	expect(page).toContain("loadAppointmentRecords");
 	expect(page).toContain('record.status === "missed"');
+	expect(template).toContain('wx:key="viewKey"');
 	expect(page).toContain("createLatestRequestGuard");
 	expect(page).toContain("中国标准时间近 90 天");
 	expect(page).not.toContain("status === 4");

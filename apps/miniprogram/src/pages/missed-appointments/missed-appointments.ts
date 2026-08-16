@@ -3,11 +3,11 @@ import {
 	loadAppointmentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import {
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	AppointmentRecord,
 	AppointmentRecordView,
@@ -19,7 +19,7 @@ type MissedAppointmentsPageMethods = {
 	onChangePatient(): void;
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
-	toRecordView(record: AppointmentRecord): AppointmentRecordView;
+	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
 };
 
 const STATUS_LABELS = Object.freeze({
@@ -93,7 +93,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				// 只筛选服务端标准化后的 missed，不能使用客户端 provider 数字状态。
 				const missedRecords = records
 					.filter((record) => record.status === "missed")
-					.map((record) => this.toRecordView(record));
+					.map((record, index) => this.toRecordView(record, index));
 				this.setData({ records: missedRecords, error: "" });
 			})
 			.catch((error) => {
@@ -109,9 +109,14 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	},
 
 	/** 页面边界只负责把稳定状态枚举翻译成中文显示文案。 */
-	toRecordView(record: AppointmentRecord): AppointmentRecordView {
+	toRecordView(
+		record: AppointmentRecord,
+		index: number,
+	): AppointmentRecordView {
 		return {
 			...record,
+			// 爽约页同样只拿到只读摘要；serialNumber 不是可靠的列表主键。
+			viewKey: `missed-appointment-record-${index}`,
 			statusLabel: STATUS_LABELS[record.status],
 			statusClass: `record-status-${record.status}`,
 		};

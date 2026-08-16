@@ -20,7 +20,7 @@
 	</view>
 
 	<view wx:elif="{{records.length}}" class="record-list">
-		<view wx:for="{{records}}" wx:key="serialNumber" class="record-card">
+		<view wx:for="{{records}}" wx:key="viewKey" class="record-card">
 			<view class="record-header">
 				<text class="record-date">{{item.workDate}}</text>
 				<text class="record-status {{item.statusClass}}">{{item.statusLabel}}</text>

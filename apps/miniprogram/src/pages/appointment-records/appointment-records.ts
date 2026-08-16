@@ -3,15 +3,15 @@ import {
 	loadAppointmentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import {
 	getSelectedPatientId,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	AppointmentRecord,
-	AppointmentRecordView,
 	AppointmentRecordsPageData,
+	AppointmentRecordView,
 } from "../../types";
 
 type AppointmentRecordsPageMethods = {
@@ -19,7 +19,7 @@ type AppointmentRecordsPageMethods = {
 	onChangePatient(): void;
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
-	toRecordView(record: AppointmentRecord): AppointmentRecordView;
+	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
 };
 
 const STATUS_LABELS = Object.freeze({
@@ -75,7 +75,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					if (!loadGuard.isCurrent(requestToken)) return;
 					this.setData({
 						selectedPatient: patient,
-						records: records.map((record) => this.toRecordView(record)),
+						records: records.map((record, index) =>
+							this.toRecordView(record, index),
+						),
 						error: "",
 					});
 				});
@@ -91,10 +93,16 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/** 记录状态在页面边界翻译，服务端 contract 仍保持稳定英文枚举。 */
-	toRecordView(record: AppointmentRecord): AppointmentRecordView {
+	toRecordView(
+		record: AppointmentRecord,
+		index: number,
+	): AppointmentRecordView {
 		const statusLabel = STATUS_LABELS[record.status];
 		return {
 			...record,
+			// provider 只读摘要没有稳定公开记录 ID，流水号也可能缺失或重复；
+			// 这里用本次完整响应内的索引保证 WXML key 唯一，不把它当业务标识。
+			viewKey: `appointment-record-${index}`,
 			statusLabel,
 			statusClass: `record-status-${record.status}`,
 		};
