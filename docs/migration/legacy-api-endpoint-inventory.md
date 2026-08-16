@@ -157,6 +157,8 @@
 | `GET /intelligent/outpatient_recommend/document_list` | 旧 `controller.py` | 待 provider contract | 返回的知识来源和科室目录必须版本化。 |
 | `POST /intelligent/customer_service/chat_text|chat_audio` | 旧 `controller.py` | 待 provider contract | 客服和导诊不能共用未经审计的 prompt、模型或会话存储。 |
 
+<!-- migration-audit: unmounted-route-file=module_intelligent/urls_rag.py routes=1 -->
+
 旧 `module_intelligent/urls_rag.py` 中的 `POST /document/create-by-file` 没有被当前
 `module_intelligent/__init__.py` 挂载，属于源码中存在但未注册的孤立实现，不计入旧患者端
 可用接口；未来如要开放，必须走独立管理端权限和文件安全审核。
@@ -176,8 +178,9 @@
 
 ### 3.1 旧 FastAPI 路由基线
 
-按旧仓库 `app/api/v1/__init__.py` 的 include 关系和 controller 路由装饰器做静态扫描，旧服务的
-路由规模如下。这里的数量是迁移盘点证据，不代表这些路由都应该进入新患者端 API：
+按旧仓库 `app/api/v1/__init__.py` 的 include 关系和路由装饰器做静态扫描，并排除上方明确标记的
+未挂载源码文件，旧服务实际挂载路由的静态规模如下。这里的数量是迁移盘点证据，不代表这些
+路由都应该进入新患者端 API：
 
 | 旧模块 | 静态路由数量 | 新端边界 |
 | --- | ---: | --- |
@@ -186,14 +189,18 @@
 | `module_application` | 14 | Worker/Operations API；不让患者会话管理任务 |
 | `module_common` | 33 | 文件、医保、支付和内部结算；按独立 contract 最后迁移 |
 | `module_convenience` | 13 | 便民业务逐域迁移；需要患者授权、内容/临床审核和医护侧权限 |
-| `module_intelligent` | 8 | AI/实时会话逐域迁移；需要 WebSocket、模型、知识版本和审计 contract |
+| `module_intelligent` | 7 | AI/实时会话逐域迁移；需要 WebSocket、模型、知识版本和审计 contract |
 | `module_knowledge` | 15 | 健康内容、报告解读、自测；需要版本化导入和临床审核 |
-| **已挂载静态合计** | **191** | 不得用万能转发代替迁移 |
+| **已挂载静态合计** | **190** | 不得用万能转发代替迁移 |
 
 静态扫描另发现 `module_intelligent/urls_rag.py` 的 `POST /document/create-by-file` 1 个装饰器，
-但它没有被 `module_intelligent/__init__.py` 挂载，因此不计入上面的 191 个实际挂载路由；未来若开放，
+但它没有被 `module_intelligent/__init__.py` 挂载，因此不计入上面的 190 个实际挂载路由；未来若开放，
 必须作为管理端文件导入能力重新设计权限、对象存储、内容安全和审计。旧服务的 8001 端口继续保留，
 新 Elysia 不复用这些 Admin/Operations controller。
+
+当旧仓库位于默认路径 `G:\\fuck\\hospital`，或通过 `LEGACY_HOSPITAL_ROOT` 指定时，
+`pnpm migration:audit` 会自动核对各模块数量、已挂载总数和这个未挂载文件。旧仓库不可用时，
+审计会明确跳过外部扫描，不会把跳过当成已验证。
 
 旧小程序的非 HTTP 行为不在上述路由数量中，包括 `src/api/ws.ts` 的 WebSocket、`httpZy.ts` 的直连
 provider、Pinia 患者状态和健康问卷组件；它们的迁移边界单独记录在

@@ -1,5 +1,5 @@
-import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * 原生小程序迁移台账审计。
@@ -122,6 +122,144 @@ if (!(await Bun.file(legacySentinel).exists())) {
 		console.log(
 			`Legacy page inventory passed: ${actualLegacyPages.size} old page(s) match the migration matrix`,
 		);
+	}
+}
+
+/**
+ * 旧 Python 接口数量审计只用于锁定“迁移范围”，不是路由语义验收。
+ *
+ * 旧服务中存在少量源码文件，但它们没有被 include_router 挂载；如果把源码扫描总数
+ * 直接当成线上可用路由数量，就会把孤立实现误判成患者端迁移目标。接口台账通过机器可读
+ * 注释声明这些未挂载文件，审计再用相同规则计算各模块的已挂载静态数量。
+ */
+const legacyApiRoot = join(legacyRoot, "app", "api", "v1");
+const legacyApiSentinel = join(legacyApiRoot, "__init__.py");
+if (!(await Bun.file(legacyApiSentinel).exists())) {
+	console.log(
+		`Legacy API inventory skipped: old API repository is not available at ${legacyApiRoot}`,
+	);
+} else {
+	const legacyApiInventory = await readText(
+		"docs/migration/legacy-api-endpoint-inventory.md",
+	);
+	const expectedModuleCounts = new Map();
+	for (const match of legacyApiInventory.matchAll(
+		/^\| `(module_[^`]+)` \| (\d+) \|/gmu,
+	)) {
+		expectedModuleCounts.set(match[1], Number(match[2]));
+	}
+	const expectedMountedTotal = Number(
+		legacyApiInventory.match(
+			/^\| \*\*已挂载静态合计\*\* \| \*\*(\d+)\*\*/mu,
+		)?.[1],
+	);
+	const unmountedRouteFiles = [];
+	for (const match of legacyApiInventory.matchAll(
+		/<!-- migration-audit: unmounted-route-file=([^\s]+) routes=(\d+) -->/gu,
+	)) {
+		unmountedRouteFiles.push({
+			path: match[1],
+			routes: Number(match[2]),
+		});
+	}
+
+	const expectedModules = [
+		"module_system",
+		"module_monitor",
+		"module_application",
+		"module_common",
+		"module_convenience",
+		"module_intelligent",
+		"module_knowledge",
+	];
+	const missingExpectedModules = expectedModules.filter(
+		(moduleName) => !expectedModuleCounts.has(moduleName),
+	);
+	if (
+		missingExpectedModules.length > 0 ||
+		!Number.isInteger(expectedMountedTotal) ||
+		unmountedRouteFiles.length === 0
+	) {
+		console.error(
+			"Legacy API inventory document is missing machine-readable scope metadata",
+		);
+		for (const moduleName of missingExpectedModules) {
+			console.error(`- missing module count: ${moduleName}`);
+		}
+		if (!Number.isInteger(expectedMountedTotal))
+			console.error("- missing mounted route total");
+		if (unmountedRouteFiles.length === 0)
+			console.error("- missing unmounted route file declaration");
+		process.exitCode = 1;
+	} else {
+		const routePattern =
+			/@[A-Za-z_][A-Za-z0-9_]*\.(?:get|post|put|delete|patch)\(/gu;
+		const unmountedByPath = new Map(
+			unmountedRouteFiles.map((entry) => [entry.path, entry.routes]),
+		);
+		const actualModuleCounts = new Map(
+			expectedModules.map((moduleName) => [moduleName, 0]),
+		);
+		const actualUnmountedCounts = new Map();
+
+		for (const moduleName of expectedModules) {
+			const glob = new Bun.Glob(`${moduleName}/**/*.py`);
+			for await (const relativePath of glob.scan({
+				cwd: legacyApiRoot,
+				onlyFiles: true,
+			})) {
+				const normalizedPath = relativePath.replaceAll("\\", "/");
+				const source = await Bun.file(join(legacyApiRoot, relativePath)).text();
+				const routeCount = [...source.matchAll(routePattern)].length;
+				const declaredUnmountedCount = unmountedByPath.get(normalizedPath);
+				if (declaredUnmountedCount !== undefined) {
+					actualUnmountedCounts.set(normalizedPath, routeCount);
+					continue;
+				}
+				actualModuleCounts.set(
+					moduleName,
+					(actualModuleCounts.get(moduleName) ?? 0) + routeCount,
+				);
+			}
+		}
+
+		const mismatches = [];
+		for (const moduleName of expectedModules) {
+			const actual = actualModuleCounts.get(moduleName);
+			const expected = expectedModuleCounts.get(moduleName);
+			if (actual !== expected)
+				mismatches.push(
+					`${moduleName}: expected ${expected}, actual ${actual}`,
+				);
+		}
+		const actualMountedTotal = [...actualModuleCounts.values()].reduce(
+			(total, count) => total + count,
+			0,
+		);
+		if (actualMountedTotal !== expectedMountedTotal) {
+			mismatches.push(
+				`mounted total: expected ${expectedMountedTotal}, actual ${actualMountedTotal}`,
+			);
+		}
+		for (const [relativePath, expected] of unmountedByPath) {
+			const actual = actualUnmountedCounts.get(relativePath);
+			if (actual === undefined)
+				mismatches.push(`unmounted file is missing: ${relativePath}`);
+			else if (actual !== expected)
+				mismatches.push(
+					`${relativePath}: expected ${expected} route(s), actual ${actual}`,
+				);
+		}
+
+		if (mismatches.length > 0) {
+			console.error("Legacy API inventory mismatch:");
+			for (const mismatch of mismatches) console.error(`- ${mismatch}`);
+			process.exitCode = 1;
+		} else {
+			console.log(
+				`Legacy API inventory passed: ${actualMountedTotal} mounted route(s), ${unmountedRouteFiles.length} unmounted route file(s) documented`,
+			);
+		}
 	}
 }
 
