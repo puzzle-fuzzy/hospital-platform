@@ -178,3 +178,9 @@ live、ready、system ping 和未登录认证边界全部通过。`current=d1779
 真实生产 env preflight 通过，并在 `127.0.0.1:18084` 完成 production mode、真实 MySQL/Redis/schema、live/ready
 和 SIGTERM 停止验收。`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
 [`../../docs/release/candidate-411cd31-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-411cd31-preproduction-smoke-2026-08-16.md)。
+
+2026-08-16 21:16-21:18 CST：候选 `3dc6f5f` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
+真实生产 env preflight 通过，并在 `127.0.0.1:18085` 完成 production mode、真实 MySQL/Redis/schema、
+live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。候选 runtime smoke 已补齐失败请求 traceId
+关联；`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
+[`../../docs/release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md)。
