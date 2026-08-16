@@ -34,20 +34,20 @@
 `patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
 `ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe，当前公网运行 release
-为 `a11f117`。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
+为 `41c9c18`。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
 仍未完成，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 真实账号与预约目录只读证据
 
 - 23:08:55 的微信登录一次性因持久化暂时不可用返回 503；23:09:08 重试成功，随后 `/me`、患者目录和完整同步均返回 200；单患者结果、会话恢复和同步证据详见 [`wechat-patient-sync-production-acceptance-2026-08-16.md`](wechat-patient-sync-production-acceptance-2026-08-16.md)。
-- 23:37:56-23:37:57 在微信开发者工具中打开预约目录，服务端 journald 记录科室请求返回 62 条、排班请求返回 1 条，页面显示“两列级联”科室和排班结果；本次没有点击锁号、预约、取消或支付动作。
-- 同一排班请求出现 `appointment.schedule_snapshots.failed`，错误类型为 `PersistenceUnavailableError`，但 Provider 只读响应和 API 仍为 200。该行为符合当前阶段边界：只读目录可展示实时 Provider 结果，快照不可用时禁止未来写入；`appointment.directory.schedules.synced` 已增加 `snapshotPersistenceStatus`，维护时不能把它解释为写入前置已通过。
+- 23:37:56-23:37:57 在 `a11f117` 上首次观察到微信开发者工具预约目录读取，科室 62 条、排班 1 条返回 200，但排班快照暂时不可用；该情况已记录在 [`wechat-patient-sync-production-acceptance-2026-08-16.md`](wechat-patient-sync-production-acceptance-2026-08-16.md)。
+- 23:50:17-23:50:18 在 `41c9c18` 上重新打开预约目录，科室 62 条、排班 1 条返回 200，并出现 `appointment.schedule_snapshots.persisted` 与 `snapshotPersistenceStatus=persisted`；本次没有点击锁号、预约、取消或支付动作。该证据见 [`41c9c18-production-acceptance-2026-08-16.md`](41c9c18-production-acceptance-2026-08-16.md)。
 - 尚未完成 Redis 实际 TTL、多患者切换/失效恢复、预约历史、报告、门诊费用、公网页面网络和真机完整证据；支付、医保、退款与 HIS 回写继续关闭。
 
 ### 2026-08-16 线上发布证据
 
-- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`a11f117`。SSH 只读复核确认
-  `current=/home/ps/code/hospital-platform/releases/a11f117`，`hospital-platform-api-v2.service=active`。
+- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`41c9c18`。SSH 只读复核确认
+  `current=/home/ps/code/hospital-platform/releases/41c9c18`，`hospital-platform-api-v2.service=active`。
 - 生产 schema：`0012_patient_provider_references`、`0013_patient_directory_snapshot`、`0014_user_profiles` 和
   `0015_patient_directory_sync_operations` 均已迁移；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
 - 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网
