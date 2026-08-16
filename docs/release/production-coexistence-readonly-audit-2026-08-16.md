@@ -126,6 +126,29 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 
 以上证据只更新“当前运行事实”，不扩大新服务权限，也不替代 provider、公网业务和真机验收。
 
+### 3.6 16:57 CST 公网与 SSH 主机 readiness 来源不一致
+
+在未修改服务、配置、数据库或 Redis 的前提下再次做了只读复核，发现公网响应与 SSH 主机上实际运行的
+Bun 进程不一致：
+
+| 检查位置 | 结果 | 结论 |
+| --- | --- | --- |
+| SSH 主机进程 | Bun PID `2935571`，命令为 `/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/api/dist/index.js` | 当前 `current` 指向 `releases/55fce6c`，不是当前仓库 `main` 的 `15f1a13` |
+| SSH 主机监听 | `10.0.0.3:18081`；旧 Python `0.0.0.0:8001` 仍在监听 | 新旧服务端口没有互相抢占；`127.0.0.1:18081` 被拒绝是因为新 API 只绑定 `10.0.0.3`，不是服务停止 |
+| SSH 主机 `GET http://10.0.0.3:18081/health/live` | HTTP `200`，`status=ok` | 该进程可以响应存活检查 |
+| SSH 主机 `GET http://10.0.0.3:18081/health/ready` | HTTP `200`，`database=unavailable`、`redis=ok`、`schema=unavailable` | 该进程当前没有达到可用状态 |
+| 公网 `GET https://test-hp.meiyi.pro/api/v2/health/ready` | HTTP `200`，`database=ok`、`redis=ok`、`schema=ok` | 公网确实到达某个新 API，但不能证明它来自上述 `55fce6c` 进程 |
+| 公网随机 query + `Cache-Control: no-cache` | 仍返回 `ready`，且响应没有 `Cache-Control: no-store` | 不能用普通缓存解释差异；仍需核对公网 upstream、外层转发或另一份 release |
+| 公网 `GET /api/v2/patients` 无认证 | HTTP `401 unauthorized` | 只能证明公网路由存在和认证边界生效，不能证明患者业务实例与 SSH 主机一致 |
+
+SSH 用户可见的 `/etc/nginx` 配置中没有找到 `api/v2`、`18081` 或 `proxy_pass` 的对应文本，因此当前无法从该主机
+证明最外层阿里云转发的 upstream。随机 query 仍然返回不同的 readiness 状态后，公网、内网和 release provenance
+必须重新对齐；在对齐前，不得把公网 `200`、provider 请求或真机业务结果记为当前 `main`/当前 release 的验收证据。
+
+本次检查没有重启、切换 `current`、修改 Nginx、修改环境变量、运行 migration 或写入业务数据。后续需要取得外层
+转发配置或窄权限运维权限后，使用同一个 `X-Request-Id` 同时核对公网响应、Nginx access log、Bun 请求日志和进程
+release；若无法完成关联，应先按另一 upstream/旧 release 处理，而不是继续扩大业务 gate。
+
 ## 4. 当前不可宣称的内容
 
 - 不能宣称整个 Redis 实例已完成隔离；新 API 会话已经迁移到 DB3/`hospital_v2`，但旧服务仍在 DB1 使用全权限 `admin`；
