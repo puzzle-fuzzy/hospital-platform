@@ -199,6 +199,17 @@ export type AppointmentRecordsPageData = {
 	error: string;
 };
 
+/**
+ * 爽约记录是预约历史读模型的派生页面，不是另一套 provider 数据源。
+ * 单独声明页面状态，避免把“全部挂号记录”和“只看爽约记录”混成一个模板语义。
+ */
+export type MissedAppointmentsPageData = {
+	selectedPatient: Patient | null;
+	records: Array<AppointmentRecordView>;
+	loading: boolean;
+	error: string;
+};
+
 export type ReportDetailPageData = {
 	loading: boolean;
 	title: string;

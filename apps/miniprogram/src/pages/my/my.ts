@@ -71,6 +71,11 @@ Page<MyPageData, MyPageMethods>({
 					url: "/pages/appointment-records/appointment-records",
 				});
 				break;
+			case "missed-appointments":
+				wx.navigateTo({
+					url: "/pages/missed-appointments/missed-appointments",
+				});
+				break;
 			case "outpatient-payment":
 				wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
 				break;

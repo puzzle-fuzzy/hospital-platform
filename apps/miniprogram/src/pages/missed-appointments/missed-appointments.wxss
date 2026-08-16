@@ -1,0 +1,49 @@
+@import "../appointment-records/appointment-records.wxss";
+
+.trust-notice {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	margin: 0 auto 20rpx;
+	padding: 18rpx 22rpx;
+	width: 710rpx;
+	border: 1rpx solid #ffe1b8;
+	border-radius: 14rpx;
+	background: #fff8ee;
+	color: #b96924;
+	font-size: 25rpx;
+	line-height: 1.5;
+}
+
+.trust-notice-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 12rpx;
+	width: 32rpx;
+	height: 32rpx;
+	border-radius: 50%;
+	background: #f39a3d;
+	color: #ffffff;
+	font-size: 23rpx;
+	font-weight: 700;
+}
+
+.missed-record-card {
+	position: relative;
+	overflow: hidden;
+}
+
+.missed-stamp {
+	position: absolute;
+	right: -48rpx;
+	bottom: 30rpx;
+	padding: 8rpx 58rpx;
+	transform: rotate(-18deg);
+	border: 3rpx solid #e88980;
+	border-radius: 8rpx;
+	color: #d2443c;
+	font-size: 24rpx;
+	font-weight: 700;
+	opacity: 0.72;
+}

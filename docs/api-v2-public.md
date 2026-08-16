@@ -139,6 +139,10 @@ Content-Type: application/json
 `serialNumber` 及 `status`。状态只允许 `scheduled`、`cancelled`、`completed`、`missed`、
 `unknown`，不能由小程序根据文字猜测最终状态。
 
+小程序的“爽约记录”不是独立公共 endpoint，而是对上述预约历史读模型做安全筛选：只展示服务端
+返回的 `status=missed`，当前查询窗口为中国标准时间近 90 天；`unknown`、空列表或 provider
+未返回不能被客户端推断为爽约。
+
 当前没有以下写入路由：
 
 - `POST /api/v2/appointments/holds`

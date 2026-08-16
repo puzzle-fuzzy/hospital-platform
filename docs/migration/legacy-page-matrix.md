@@ -1,6 +1,6 @@
 # 旧端逐页迁移矩阵
 
-> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 9 个 TypeScript 页面源文件。
+> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 10 个 TypeScript 页面源文件。
 > 本矩阵用于防止页面遗漏，不把“有旧代码”或“新端有占位入口”当作业务完成证据。
 
 ## 状态定义
@@ -49,7 +49,7 @@
 | `pagesB/health/` | `gift_electronic_banner.vue`、`list_electronic_banner.vue`、`record_electronic_banner.vue` | 待 provider contract | 旧端提交患者/医生/就诊快照，必须改为服务端就诊引用；文字/文件审核、内容安全、脱敏公开展示、撤回和管理端读取权限未确认 |
 | `pagesB/health/` | `gift_health_praise.vue`、`list_health_praise.vue`、`record_health_praise.vue` | 待 provider contract | 表扬信提交、审核、脱敏公开展示、幂等、撤回、文件上传和管理端权限未确认 |
 | `pagesB/user/` | `edit_profile.vue`、`feedback.vue` | 待 provider contract | 个人资料必须与实名/微信身份拆分；旧意见反馈页面没有真实提交接口，需字段白名单、审计、限流及客服/管理端闭环；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
-| `pagesB/user/` | `miss_appointment.vue` | 待 provider contract | 旧端只是本地过滤预约 `status=4`，需要服务端爽约状态来源、状态定义、患者归属、时区和展示时效；不能用预约记录列表推导独立事实 |
+| `pagesB/user/` | `miss_appointment.vue` | 部分迁移 | 新端以预约历史读模型的 `status=missed` 派生只读页面，当前固定展示近 90 天并支持切换就诊人；真实 provider 状态、公网和真机证据仍待完成，不能使用客户端 `status=4` 或把未知状态推断为爽约 |
 | `pagesB/user/` | `my_consultation.vue` | 待 provider contract | 需要 AI/陪诊会话索引、患者归属、内容保留和脱敏策略；账单/病历/住院预约/就诊码按钮当前只是 Toast |
 | `pagesB/user/` | `my_registration.vue` | 部分迁移 | 新端已接入预约历史只读；取消、退号、支付状态和 provider 患者用途映射仍待验收 |
 | `pagesB/user/` | `subscription_message.vue` | 待 provider contract | 旧端只维护本地开关且未调用微信授权 API；需确认模板 ID、用户授权时机、业务事件、发送结果和撤销状态 |

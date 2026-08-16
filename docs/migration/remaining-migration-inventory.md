@@ -9,7 +9,7 @@
 
 ## 1. 盘点结论
 
-旧端当前有 64 个 Vue 页面，新原生小程序有 9 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
+旧端当前有 64 个 Vue 页面，新原生小程序有 10 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
 但还不是旧端的功能等价替换：
 
 页面之外的旧端请求封装、WebSocket、状态仓储、问卷/随访组件和静态业务配置，不能按“公共工具”视为已迁移；
@@ -19,9 +19,9 @@
 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)；连接探针通过不等于这些能力已替代。
 
 ```text
-已形成闭环：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询
+已形成代码闭环（真实 provider、公网 API、微信真机和生产业务证据仍待）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
 已迁移静态能力：院内导航静态地图（不含实时定位和路线）
-仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码
+仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码；医院列表仍缺机构/院区 contract
 仍缺真实证据：众阳患者/预约历史/报告/门诊费用、公网 API、微信真机和生产回归
 ```
 
@@ -32,7 +32,7 @@
 | 微信登录与平台会话 | `auth`、Redis session | 代码和生产运行边界已具备 | 未完成当前微信账号的真机完整证据时，不能宣称正式验收 |
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | 只读 provider adapter 和两列级联页面已实现 | 不能锁号、不能把 `scheduleId` 当成写入授权 |
-| 预约历史 | `appointments/records` | contract、映射边界和只读页面已实现 | 真实账号重新同步、公网和真机证据仍缺 |
+| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；查询窗口固定为近 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
 | 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai` | 费用详情、支付、医保、结算回写和退费未开放 |
 | 院内导航 | `pages/hospital-navigation/hospital-navigation` | 旧端静态地图、背景色、`aspectFit` 和点击预览已迁移 | 医院列表、楼层/科室定位、实时路线和地图服务未迁移 |
@@ -55,6 +55,7 @@
   也不能重新激活已被新快照标记为 inactive 的患者。
 - 预约目录、预约历史、报告、门诊费用分别完成 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
+- 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
 
 ### 旧端顶层页面的重分类
@@ -96,7 +97,7 @@
 
 ### P3：患者个人中心与低风险账户能力
 
-- `user/user.vue` 目前只有新端基础“我的”页；以下入口尚未迁移为真实页面：个人资料、头像、意见反馈、爽约记录、订阅消息、咨询历史、公众号关注、我的医生和患者签名。旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
+- `user/user.vue` 目前只有新端基础“我的”页；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；个人资料、头像、意见反馈、订阅消息、咨询历史、公众号关注、我的医生和患者签名尚未迁移。旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 - `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。
 - `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 
@@ -152,7 +153,7 @@
 
 1. 先完成 P0 的真实只读验收和患者上下文竞态审计，不扩大功能面。
 2. 接收新的 provider 文档后，冻结预约写入、门诊费用详情、病历和报告资源的 contract 差异表。
-3. 选择一个低风险只读域（优先病历目录或医院列表）完成 contract → adapter → API → 小程序 → 测试 → 验收手册闭环；院内导航的静态地图页已完成迁移，动态定位仍等待文档。
+3. 爽约记录安全筛选子页已完成代码闭环，但不替代真实验收；取得新的 provider 文档后，优先选择病历目录等低风险只读域完成 contract → adapter → API → 小程序 → 测试 → 验收手册闭环。医院列表仍等待机构/院区/路线 contract，不能把旧静态卡片扩展成动态业务。
 4. 健康知识已经完成旧表/接口映射和导入前置校验；仍必须先做内容审核和版本化导入，再挂载患者 GET 路由；自测、AI 和报告解读继续分开。
 5. 便民服务先按 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) 完成 contract 和旧数据隔离，再按“医生关系只读 → 患者反馈 → 临床问卷 → 预约后预问诊/出院随访”推进；provider/临床资料不足时不注册患者 API。
 6. 最后按“现金支付 → 医保授权/结算 → 查单/退款 → HIS 回写”推进，任何未知状态都进入人工/补偿队列，不在前端显示成功。

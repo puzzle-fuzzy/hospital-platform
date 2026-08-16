@@ -4,6 +4,7 @@
 		"pages/patient-select/patient-select",
 		"pages/appointment-directory/appointment-directory",
 		"pages/appointment-records/appointment-records",
+		"pages/missed-appointments/missed-appointments",
 		"pages/report-directory/report-directory",
 		"pages/report-detail/report-detail",
 		"pages/outpatient-payment/outpatient-payment",

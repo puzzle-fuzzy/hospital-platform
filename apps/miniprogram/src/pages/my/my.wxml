@@ -38,6 +38,10 @@
 				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
 				<text>门诊病历</text>
 			</view>
+			<view class="menu-item" bindtap="onAction" data-action="missed-appointments">
+				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
+				<text>爽约记录</text>
+			</view>
 		</view>
 	</view>
 

@@ -165,6 +165,41 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(records).not.toContain("wx.requestPayment");
 });
 
+test("native mini program derives missed appointments from the normalized record status", async () => {
+	const app = await source("app.json");
+	const my = await source("pages/my/my.ts");
+	const myTemplate = await source("pages/my/my.wxml");
+	const page = await source("pages/missed-appointments/missed-appointments.ts");
+	const template = await source(
+		"pages/missed-appointments/missed-appointments.wxml",
+	);
+	const style = await source(
+		"pages/missed-appointments/missed-appointments.wxss",
+	);
+
+	expect(app).toContain('"pages/missed-appointments/missed-appointments"');
+	expect(my).toContain('case "missed-appointments"');
+	expect(my).toContain('url: "/pages/missed-appointments/missed-appointments"');
+	expect(myTemplate).toContain('data-action="missed-appointments"');
+	expect(page).toContain("loadAppointmentRecords");
+	expect(page).toContain('record.status === "missed"');
+	expect(page).toContain("createLatestRequestGuard");
+	expect(page).toContain("中国标准时间近 90 天");
+	expect(page).not.toContain("status === 4");
+	expect(page).not.toContain("providerPatientId");
+	expect(page).not.toContain("thirdPatientId");
+	expect(template).toContain("暂无爽约记录");
+	expect(template).toContain("更换就诊人");
+	expect(template).toContain("状态未知或服务异常时不会推断为爽约");
+	expect(template.indexOf('class="error-message"')).toBeGreaterThanOrEqual(0);
+	expect(template.indexOf('class="error-message"')).toBeLessThan(
+		template.indexOf('class="trust-notice"'),
+	);
+	expect(style).toContain(
+		'@import "../appointment-records/appointment-records.wxss"',
+	);
+});
+
 test("native mini program exposes outpatient payment and my pages through platform APIs", async () => {
 	const app = await source("app.json");
 	const client = await source("services/api-client.ts");
@@ -489,6 +524,9 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 	const appointmentDirectory = await source(
 		"pages/appointment-directory/appointment-directory.ts",
 	);
+	const missedAppointments = await source(
+		"pages/missed-appointments/missed-appointments.ts",
+	);
 
 	for (const page of [
 		records,
@@ -496,6 +534,7 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 		payments,
 		selection,
 		appointmentDirectory,
+		missedAppointments,
 	]) {
 		expect(page).toContain("createLatestRequestGuard");
 		expect(page).toContain("isCurrent");
