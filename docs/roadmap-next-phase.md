@@ -22,6 +22,7 @@
 - 健康知识已完成旧端接口/表结构到新版本化 schema 的静态映射和导入时间边界；真实内容与临床审核未到位前，患者 GET 路由继续不挂载。
 - 便民服务已完成旧 13 个路由、旧表覆盖逻辑和患者/医生字段风险审计；新端仍未注册，边界已拆为反馈、临床问卷、医生关系和预约后预问诊四个领域。
 - 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院、医院列表和采血预约已完成旧页面副作用审计；新端仍保持未注册，票据和患者写入必须按独立 contract 重做。
+- 旧端非页面逻辑（直连 provider、WebSocket、身份/患者持久化、临床问卷组件和静态入口配置）已完成单独审计；新端不得把这些旧 helper 当作可兼容迁移，边界见 [`migration/legacy-client-infrastructure-boundaries.md`](migration/legacy-client-infrastructure-boundaries.md)。
 
 ### 当前已验证的问题
 
@@ -133,7 +134,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 3. 使用已上线的 `ca3a877` 重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
-6. 再处理报告真实 provider 只读验收、医院列表/病历和便民服务逐域迁移；个人中心扩展和外部入口先完成 contract/allowlist/旧数据隔离，院内导航动态能力必须先取得地图数据与路线 contract；
+6. 再处理报告真实 provider 只读验收、医院列表/病历和便民服务逐域迁移；个人中心扩展和外部入口先完成 contract/allowlist/旧数据隔离，非页面逻辑按新审计文档逐项清除直连和敏感缓存，院内导航动态能力必须先取得地图数据与路线 contract；
 7. provider 只读稳定后，才进入预约写入合同和锁号设计；
 8. 最后按现金支付 → 医保结算 → HIS 回写顺序做专项验收。
 

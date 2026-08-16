@@ -195,6 +195,11 @@
 必须作为管理端文件导入能力重新设计权限、对象存储、内容安全和审计。旧服务的 8001 端口继续保留，
 新 Elysia 不复用这些 Admin/Operations controller。
 
+旧小程序的非 HTTP 行为不在上述路由数量中，包括 `src/api/ws.ts` 的 WebSocket、`httpZy.ts` 的直连
+provider、Pinia 患者状态和健康问卷组件；它们的迁移边界单独记录在
+[`legacy-client-infrastructure-boundaries.md`](legacy-client-infrastructure-boundaries.md)，不能因未出现在
+本表的 endpoint 列表中而视为遗漏或已完成。
+
 以下路径是旧 FastAPI controller 的实际注册事实。它们继续由旧服务承担，不能直接成为新
 小程序的兼容转发：
 

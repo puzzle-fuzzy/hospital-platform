@@ -12,6 +12,9 @@
 旧端当前有 64 个 Vue 页面，新原生小程序有 9 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
 但还不是旧端的功能等价替换：
 
+页面之外的旧端请求封装、WebSocket、状态仓储、问卷/随访组件和静态业务配置，不能按“公共工具”视为已迁移；
+它们的实际行为和禁止兼容方式见 [`legacy-client-infrastructure-boundaries.md`](legacy-client-infrastructure-boundaries.md)。
+
 ```text
 已形成闭环：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询
 已迁移静态能力：院内导航静态地图（不含实时定位和路线）
@@ -93,6 +96,13 @@
 - `user/user.vue` 目前只有新端基础“我的”页；以下入口尚未迁移为真实页面：个人资料、头像、意见反馈、爽约记录、订阅消息、咨询历史、公众号关注、我的医生和患者签名。旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 - `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。
 - `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
+
+### P3：旧端非页面逻辑
+
+- `httpZy`、`ws.ts` 和 `utils/index.ts` 仍包含直连 provider、token/patId 传递、unionId 查询和万能 URL 代理等旧边界；新端不得复制，必须由服务端 adapter、短期会话引用或专用实时 contract 替代。
+- Pinia 用户/患者 store 仍会持久化旧身份、provider 患者号、卡号和身份证字段；新端只能持久化平台会话和 opaque `patientId`，并以当前 owner 的服务端读模型为准。
+- `SelfTestEngine`、`selfTestConfig`、出院随访组件和院区选择器承载医疗/患者上下文逻辑；它们不是普通 UI 组件，需先完成临床审核、版本、授权、任务绑定和回滚规则。
+- 首页/我的页 JSON 导航和旧底部 Tab 包含未注册页面与外部资源；新端只能跳转 `app.json` 已注册且完成 contract 的页面。详见 [`legacy-client-infrastructure-boundaries.md`](legacy-client-infrastructure-boundaries.md)。
 
 ### P4：费用、医保和外部回写（按用户要求最后处理）
 
