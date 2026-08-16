@@ -40,6 +40,8 @@ new_sha="<sha>"
 test -f "releases/${new_sha}/apps/api/dist/index.js"
 test -f shared/api.env
 test "$(stat -c '%a' shared/api.env)" = 600
+# release 中的 dist 必须来自已通过本地门禁的构建产物；先在本地保存 checksum，上传后再复核。
+sha256sum "releases/${new_sha}/apps/api/dist/index.js" "releases/${new_sha}/apps/worker/dist/index.js"
 ```
 
 切换前必须保存以下证据：
@@ -49,6 +51,10 @@ test "$(stat -c '%a' shared/api.env)" = 600
 - 当前公网 `/api/v2/health/ready` 响应；
 - 旧 Python 进程仍由原启动方式运行；
 - 候选 release 的本地 `pnpm check`、临时端口 smoke 和日志文件。
+
+生产 release 的依赖目录可能没有 workspace `@hospital/*` 开发链接，不能在服务器 release 目录直接执行
+`bun build` 或临时 `bun install` 作为发布步骤；必须使用本地构建 bundle，并通过 checksum 证明上传内容
+与候选产物一致。候选临时 smoke 只验证运行时，不替代本地代码门禁。
 
 ## 3. 原子切换与新 API 重启
 
@@ -95,10 +101,10 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
-2026-08-16：前一候选 `3a37e7e` 已在生产 env 和临时 `18082` 完成隔离 smoke，生产 `current` 仍为
-`55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放。本手册上一轮记录的候选为 `9afe94d`，其中包含
-已通过代码门禁的候选实现、正确的公网 `/api/v2` Smoke 路径、门诊费用双状态只读验收和最新审计文档；
-发布前必须重新执行 `git rev-parse HEAD` 固定当前候选，`9afe94d` 尚未在生产临时
-端口重新 smoke，也未执行公网切换。该提交不改变 API 业务路由，但发布前仍需按本手册固定并验证完整 release。
+2026-08-16：前一候选 `3a37e7e` 已在生产 env 和临时 `18082` 完成隔离 smoke；本轮候选 `a8174f1` 也已在
+生产 env 和临时 `18082` 完成隔离 smoke，且 live/ready 均带 `Cache-Control: no-store`。生产 `current` 仍为
+`55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放。`a8174f1` 尚未执行公网切换；发布前仍必须
+重新执行 `git rev-parse HEAD` 固定当前候选，并按本手册复核完整 release。详细证据见
+[`candidate-a8174f1-production-smoke-2026-08-16.md`](../../docs/release/candidate-a8174f1-production-smoke-2026-08-16.md)。
 由于窄权限尚未配置，尚不能执行本手册的公网切换步骤。前一候选证据见
 [`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
