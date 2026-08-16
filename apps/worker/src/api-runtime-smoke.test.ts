@@ -259,9 +259,16 @@ test("runtime smoke reports not-ready as a warning in observation mode", async (
 });
 
 test("runtime smoke requires ready for release acceptance", async () => {
+	const traceIds = [
+		"live-trace-001",
+		"ready-trace-001",
+		"ping-trace-001",
+		"auth-trace-001",
+	];
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
 		requireReady: true,
+		traceIdFactory: () => traceIds.shift() ?? "fallback-trace",
 		fetcher: async (input) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
@@ -291,6 +298,41 @@ test("runtime smoke requires ready for release acceptance", async () => {
 		name: "health-ready",
 		status: "failed",
 		details: ["RuntimeSmokeRequestError"],
+		traceId: "ready-trace-001",
+	});
+});
+
+test("runtime smoke keeps traceId when a platform request fails", async () => {
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		traceIdFactory: () => "transport-trace-001",
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				throw new Error("connection reset by peer");
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks[0]).toMatchObject({
+		name: "health-live",
+		status: "failed",
+		details: ["RuntimeSmokeRequestError"],
+		statusCode: 0,
+		traceId: "transport-trace-001",
 	});
 });
 

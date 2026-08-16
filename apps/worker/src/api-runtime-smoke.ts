@@ -52,11 +52,13 @@ class RuntimeSmokeConfigurationError extends Error {
 
 class RuntimeSmokeRequestError extends Error {
 	readonly statusCode: number;
+	readonly traceId: string | undefined;
 
-	constructor(message: string, statusCode: number) {
+	constructor(message: string, statusCode: number, traceId?: string) {
 		super(message);
 		this.name = "RuntimeSmokeRequestError";
 		this.statusCode = statusCode;
+		this.traceId = traceId;
 	}
 }
 
@@ -184,14 +186,26 @@ export async function runApiRuntimeSmoke(
 		const route = isHealth
 			? healthRoute(apiPrefix, path)
 			: apiRoute(apiPrefix, path);
-		const response = await fetcher(`${baseUrl}${route}`, {
-			method: "GET",
-			signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
-			headers: {
-				accept: "application/json",
-				"x-request-id": traceId,
-			},
-		});
+		let response: Response;
+		try {
+			response = await fetcher(`${baseUrl}${route}`, {
+				method: "GET",
+				signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
+				headers: {
+					accept: "application/json",
+					"x-request-id": traceId,
+				},
+			});
+		} catch (error) {
+			// 网络错误不能暴露 URL、请求头或底层连接串；只保留错误类型，并保留
+			// 本次请求的 traceId，便于和服务端反向代理及应用日志进行关联。
+			const errorType = error instanceof Error ? error.name : "UnknownError";
+			throw new RuntimeSmokeRequestError(
+				`Hospital API request failed (${errorType})`,
+				0,
+				traceId,
+			);
+		}
 		let body: unknown;
 		try {
 			body = await response.json();
@@ -199,12 +213,14 @@ export async function runApiRuntimeSmoke(
 			throw new RuntimeSmokeRequestError(
 				"Hospital API returned invalid JSON",
 				response.status,
+				traceId,
 			);
 		}
 		if (!response.ok) {
 			throw new RuntimeSmokeRequestError(
 				`Hospital API returned HTTP ${response.status}`,
 				response.status,
+				traceId,
 			);
 		}
 		if (
@@ -215,6 +231,7 @@ export async function runApiRuntimeSmoke(
 			throw new RuntimeSmokeRequestError(
 				"Hospital API returned an unsuccessful response",
 				response.status,
+				traceId,
 			);
 		}
 		return {
@@ -232,14 +249,25 @@ export async function runApiRuntimeSmoke(
 	}> {
 		const traceId = traceIdFactory();
 		const route = apiRoute(apiPrefix, path);
-		const response = await fetcher(`${baseUrl}${route}`, {
-			method: "GET",
-			signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
-			headers: {
-				accept: "application/json",
-				"x-request-id": traceId,
-			},
-		});
+		let response: Response;
+		try {
+			response = await fetcher(`${baseUrl}${route}`, {
+				method: "GET",
+				signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
+				headers: {
+					accept: "application/json",
+					"x-request-id": traceId,
+				},
+			});
+		} catch (error) {
+			// 认证边界的网络失败也必须携带 traceId，否则无法区分具体失败路由。
+			const errorType = error instanceof Error ? error.name : "UnknownError";
+			throw new RuntimeSmokeRequestError(
+				`Hospital API request failed (${errorType})`,
+				0,
+				traceId,
+			);
+		}
 		let body: unknown;
 		try {
 			body = await response.json();
@@ -247,6 +275,7 @@ export async function runApiRuntimeSmoke(
 			throw new RuntimeSmokeRequestError(
 				`Protected route ${path} returned invalid JSON`,
 				response.status,
+				traceId,
 			);
 		}
 		return { body, statusCode: response.status, traceId };
@@ -283,11 +312,14 @@ export async function runApiRuntimeSmoke(
 				error instanceof RuntimeSmokeRequestError
 					? error.statusCode
 					: undefined;
+			const traceId =
+				error instanceof RuntimeSmokeRequestError ? error.traceId : undefined;
 			const result: RuntimeSmokeCheck = {
 				name,
 				status: "failed",
 				details: [errorType],
 				...(statusCode === undefined ? {} : { statusCode }),
+				...(traceId ? { traceId } : {}),
 			};
 			checks.push(result);
 			logger.error(
@@ -297,6 +329,7 @@ export async function runApiRuntimeSmoke(
 					errorType,
 					errorMessage,
 					...(statusCode === undefined ? {} : { statusCode }),
+					...(traceId ? { traceId } : {}),
 				},
 				`Runtime smoke failed: ${name}`,
 			);
@@ -309,12 +342,14 @@ export async function runApiRuntimeSmoke(
 			throw new RuntimeSmokeRequestError(
 				"Hospital API liveness response must include Cache-Control: no-store",
 				result.statusCode,
+				result.traceId,
 			);
 		}
 		if (responseStatus(result.data) !== "ok") {
 			throw new RuntimeSmokeRequestError(
 				"Hospital API liveness status is not ok",
 				result.statusCode,
+				result.traceId,
 			);
 		}
 		return {
@@ -331,6 +366,7 @@ export async function runApiRuntimeSmoke(
 			throw new RuntimeSmokeRequestError(
 				"Hospital API readiness response must include Cache-Control: no-store",
 				result.statusCode,
+				result.traceId,
 			);
 		}
 		const status = responseStatus(result.data);
@@ -354,6 +390,7 @@ export async function runApiRuntimeSmoke(
 		throw new RuntimeSmokeRequestError(
 			"Hospital API readiness status is not ready",
 			result.statusCode,
+			result.traceId,
 		);
 	});
 
@@ -363,6 +400,7 @@ export async function runApiRuntimeSmoke(
 			throw new RuntimeSmokeRequestError(
 				"Hospital API system identity is invalid",
 				result.statusCode,
+				result.traceId,
 			);
 		}
 		return {
@@ -377,6 +415,7 @@ export async function runApiRuntimeSmoke(
 		const failures: string[] = [];
 		let statusCode: number | undefined;
 		let traceId: string | undefined;
+		let failureTraceId: string | undefined;
 
 		for (const route of AUTH_BOUNDARY_ROUTES) {
 			try {
@@ -391,18 +430,22 @@ export async function runApiRuntimeSmoke(
 					failures.push(`${route.name}:error-code`);
 				}
 			} catch (error) {
+				if (error instanceof RuntimeSmokeRequestError && error.traceId) {
+					failureTraceId = error.traceId;
+				}
 				failures.push(
 					`${route.name}:${error instanceof Error ? error.name : "UnknownError"}`,
 				);
 			}
 		}
+		const finalTraceId = failureTraceId ?? traceId;
 
 		return {
 			name: "auth-boundary",
 			status: failures.length > 0 ? "failed" : "passed",
 			...(failures.length > 0 ? { details: failures } : {}),
 			...(statusCode === undefined ? {} : { statusCode }),
-			...(traceId ? { traceId } : {}),
+			...(finalTraceId ? { traceId: finalTraceId } : {}),
 		};
 	});
 
