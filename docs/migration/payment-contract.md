@@ -37,6 +37,20 @@
 
 两条流程可以共享 provider adapter，但不能共享未经区分的入口参数、金额来源或业务编码。
 
+## 1.1 挂号支付状态接口不是微信预支付
+
+Provider 文档中的 2.10.4.2 “支付挂号接口”是院内预约记录的支付状态更新接口，依赖 2.10.4.1 执行预约产生的
+`appointmentInfoId`。它与平台微信订单的“创建预支付参数”、微信支付通知和医保结算不是同一个事实：
+
+1. 平台先保存自己的订单、金额快照和幂等事实，再决定是否调用 Provider 的支付状态更新；
+2. `payState=3` 代表“支付成功、院内处理中”，只能进入院内确认中的状态，不能直接映射为 `cash_paid`、`completed` 或 `booked`；
+3. `payState=5` 代表 Provider 文档中的已退款，但仍必须关联平台订单、退款事实和权威查单，不能由小程序自行提交或推断；
+4. Provider 响应返回 `hisRegisterId`、`outSettleMainId`、`outInvoiceMainId` 等院内标识时，只能作为服务端内部映射，不能进入公共 response、URL 或日志。
+
+这条边界必须与 [`../appointment-write-contract-v1.md`](../appointment-write-contract-v1.md) 和
+[`../provider-intake/2026-08-16-appointment-registration-payment-refund.md`](../provider-intake/2026-08-16-appointment-registration-payment-refund.md)
+一起维护；缺少执行预约、状态查询、金额单位和失败样例前，不开放支付挂号 adapter。
+
 ## 2. 目标内部状态
 
 ```text

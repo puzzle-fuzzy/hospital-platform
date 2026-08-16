@@ -8,6 +8,10 @@
 旧项目源码只能证明某些请求曾经被页面发起，不能证明当前医院环境仍接受这些字段，
 也不能证明金额、幂等、锁号、取消或支付回写语义已经稳定。
 
+2026-08-16 收到的 2.6.7 挂号登记和 2.10.4.2 支付挂号文档已经完成字段级标准化，但仍是
+`normalized`，不是可执行的 Provider contract。它们引用的执行预约、排班/号源、患者档案和支付登记前置文档尚未齐全，
+具体证据、SHA-256 和未决问题见 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。
+
 ## 已观察到的旧调用事实
 
 | 能力 | 旧项目 endpoint | 旧页面/模块传递的关键事实 | 新项目结论 |
@@ -123,3 +127,13 @@ available
 只有上述证据完成后，才新增 `ZHONGYANG_APPOINTMENT_WRITE_READY` gate、domain command、
 持久化预约事实、outbox 事件和真实 adapter。当前仓库继续保持写入、锁号、取消和挂号费
 接口未注册，避免把旧页面 payload 重新包装成看似安全但无法维护的 API。
+
+## Provider 文档新增事实的边界
+
+- 2.6.7 `POST /msun-middle-open-settlepay/v1/registers` 是挂号登记写入，不等于锁号、执行预约、支付或退款最终成功。
+- 2.10.4.2 `POST /msun-middle-business-appointment-server/v1/appointment-infos/registrations` 需要
+  2.10.4.1 返回的 `appointmentInfoId`，作用是更新院内预约记录的支付状态；它不是微信预支付下单，也不能替代平台支付订单、
+  微信回调验签或医保结算查单。
+- Provider 的 `payState=3` 只表示“支付成功、院内处理中”。即使 HTTP 和业务响应成功，新平台也必须保留独立的
+  `awaiting_confirmation`/院内处理中事实，不能直接迁移为 `booked`、`cash_paid` 或向小程序显示“预约成功”。
+- Provider `registerStatus`、`chargeStatus` 和金额字段的枚举/单位/终态尚未确认；在确认前不能新增数据库字段、金额转换或状态映射。
