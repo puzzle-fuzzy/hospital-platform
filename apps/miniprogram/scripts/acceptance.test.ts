@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import {
 	buildApiRequestUrl,
+	CLIENT_ERROR_MESSAGES,
 	isAllowedApiBaseUrl,
 	isAllowedApiPrefix,
 	localizedApiErrorMessage,
@@ -90,6 +91,26 @@ test("native client localizes every public query and session error boundary", ()
 	expect(localizedApiErrorMessage("unrecognized-code", "安全兜底")).toBe(
 		"安全兜底",
 	);
+});
+
+test("native client error messages cover every code documented by the public API", async () => {
+	const markdown = await Bun.file(
+		join(import.meta.dir, "../../../docs/api-v2-public.md"),
+	).text();
+	const errorTable = markdown.split("## 5. 当前实现边界")[0] ?? "";
+	const documentedCodes = new Set<string>();
+	for (const line of errorTable.split("\n")) {
+		if (!/^\| \d+ \|/.test(line)) continue;
+		for (const match of line.matchAll(/`([a-z0-9-]+)`/g)) {
+			const code = match[1];
+			if (code) documentedCodes.add(code);
+		}
+	}
+
+	expect(documentedCodes.size).toBeGreaterThan(0);
+	for (const code of documentedCodes) {
+		expect(CLIENT_ERROR_MESSAGES[code]).toBeString();
+	}
 });
 
 test("native client keeps health checks behind the versioned public prefix", () => {

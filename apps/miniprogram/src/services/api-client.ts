@@ -46,39 +46,44 @@ type PaymentParams = WechatPrepayData["payParams"];
  * 服务端错误码是稳定 contract，用户文案不能依赖 provider 或旧服务返回的英文 message。
  * 未列出的业务错误仍可使用服务端安全 message 作为兜底，但禁止把 provider 原始报文透传到页面。
  */
-const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
-	validation: "请求参数校验失败",
-	parse: "请求体无法解析",
-	"not-found": "请求路径不存在",
-	unauthorized: "登录状态已失效，请重新登录",
-	"dependency-not-configured": "该服务暂未配置完成，请稍后重试",
-	"patient-sync-in-progress": "患者目录正在同步，请稍后刷新",
-	"provider-request-rejected": "外部服务拒绝了本次请求，请稍后重试",
-	"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",
-	"persistence-temporarily-unavailable": "数据服务暂时不可用，请稍后重试",
-	"user-profile-invalid": "个人资料字段不合法",
-	"user-profile-conflict": "个人资料已被其他设备修改，请刷新后重试",
-	"appointment-query-invalid": "预约排班查询条件不合法",
-	"appointment-record-query-invalid": "预约记录查询条件不合法",
-	"appointment-record-patient-not-found": "当前就诊人暂无可查询的预约记录",
-	"report-query-invalid": "报告查询条件不合法",
-	"report-patient-not-found": "当前就诊人暂无可查询的报告",
-	"report-not-found": "报告详情暂不可用",
-	"outpatient-payment-patient-not-found": "当前就诊人暂未建立门诊缴费映射",
-	"payment-order-invalid": "创建订单输入不合法",
-	"payment-order-not-found": "未找到对应的支付订单",
-	"payment-quote-not-found": "服务端报价不存在",
-	"payment-quote-expired": "服务端报价已过期，请重新获取报价",
-	"payment-idempotency-conflict": "幂等键与已有订单的请求内容冲突",
-	"payment-order-conflict": "订单版本已被其他流程更新",
-	"payment-notification-rejected": "微信支付通知验签或内容校验失败",
-	"payment-notification-conflict": "重复通知与已落库事件冲突",
-	"payment-cash-prepay-not-allowed": "当前订单不允许现金预支付",
-	"payment-identity-not-found": "支付身份映射不可用",
-	"payment-prepay-in-progress": "预支付仍在处理，不能并发创建",
-	"payment-prepay-unknown": "预支付结果需向外部服务确认，不能直接重建",
-	unknown: "服务暂时不可用，请稍后重试",
-});
+/**
+ * 当前公共 API 错误码的唯一客户端文案表；接口文档验收会检查每个公开 code
+ * 都在这里有映射，避免服务端新增错误后小程序回退到内部英文文本。
+ */
+export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
+	Object.freeze({
+		validation: "请求参数校验失败",
+		parse: "请求体无法解析",
+		"not-found": "请求路径不存在",
+		unauthorized: "登录状态已失效，请重新登录",
+		"dependency-not-configured": "该服务暂未配置完成，请稍后重试",
+		"patient-sync-in-progress": "患者目录正在同步，请稍后刷新",
+		"provider-request-rejected": "外部服务拒绝了本次请求，请稍后重试",
+		"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",
+		"persistence-temporarily-unavailable": "数据服务暂时不可用，请稍后重试",
+		"user-profile-invalid": "个人资料字段不合法",
+		"user-profile-conflict": "个人资料已被其他设备修改，请刷新后重试",
+		"appointment-query-invalid": "预约排班查询条件不合法",
+		"appointment-record-query-invalid": "预约记录查询条件不合法",
+		"appointment-record-patient-not-found": "当前就诊人暂无可查询的预约记录",
+		"report-query-invalid": "报告查询条件不合法",
+		"report-patient-not-found": "当前就诊人暂无可查询的报告",
+		"report-not-found": "报告详情暂不可用",
+		"outpatient-payment-patient-not-found": "当前就诊人暂未建立门诊缴费映射",
+		"payment-order-invalid": "创建订单输入不合法",
+		"payment-order-not-found": "未找到对应的支付订单",
+		"payment-quote-not-found": "服务端报价不存在",
+		"payment-quote-expired": "服务端报价已过期，请重新获取报价",
+		"payment-idempotency-conflict": "幂等键与已有订单的请求内容冲突",
+		"payment-order-conflict": "订单版本已被其他流程更新",
+		"payment-notification-rejected": "微信支付通知验签或内容校验失败",
+		"payment-notification-conflict": "重复通知与已落库事件冲突",
+		"payment-cash-prepay-not-allowed": "当前订单不允许现金预支付",
+		"payment-identity-not-found": "支付身份映射不可用",
+		"payment-prepay-in-progress": "预支付仍在处理，不能并发创建",
+		"payment-prepay-unknown": "预支付结果需向外部服务确认，不能直接重建",
+		unknown: "服务暂时不可用，请稍后重试",
+	});
 
 /** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
 export class ApiError extends Error {
