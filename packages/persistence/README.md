@@ -20,6 +20,11 @@ MySQL 查询同时要求 owner 和 `expires_at`，provider 报告号不会进入
 报告/费用/订单引用；恢复出现的患者沿用原内部 `patient_id`。缺少完整目录标记、迁移记录或
 schema probe 时，服务端不得执行失效回收。
 
+完整快照对临床引用同样是权威边界：本次患者资料没有 `his-patient` 时，MySQL repository
+会在同一事务内删除旧的 `hp_patient_provider_references` 映射，防止预约、报告和门诊费用继续
+复用已经失去当前目录证据的 HIS `patId`。该清理只发生在完整快照路径；旧快照因观察时间更早
+时不会删除新快照的映射，普通单条 upsert 也不会把局部资料当成完整快照。
+
 `0010_health_knowledge` 为已审核健康百科建立发布版本、目录项、疾病/药品详情和关系表；
 `0011_health_knowledge_versioned_keys` 将业务 ID 的主键升级为 `content_version` 复合主键，
 允许新版本复用稳定疾病/药品 ID，同时保留旧版本用于审计和回滚。

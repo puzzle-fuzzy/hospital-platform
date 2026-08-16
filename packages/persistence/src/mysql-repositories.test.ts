@@ -263,6 +263,7 @@ test("MySQL patient snapshot marks sync operation succeeded in the same transact
 		[],
 		{ affectedRows: 1 },
 		{ affectedRows: 0 },
+		{ affectedRows: 0 },
 		[currentRow],
 		{ affectedRows: 1 },
 	]);
@@ -343,6 +344,7 @@ test("MySQL patient directory snapshot deactivates missing rows in one transacti
 	const { pool, state } = createFakePool([
 		[],
 		{ affectedRows: 1 },
+		{ affectedRows: 0 },
 		{ affectedRows: 1 },
 		[],
 	]);
@@ -379,6 +381,59 @@ test("MySQL patient directory snapshot deactivates missing rows in one transacti
 	expect(state.values.some((values) => values.includes("user-001"))).toBe(true);
 });
 
+test("MySQL complete patient snapshot removes a missing clinical reference", async () => {
+	const currentRow = {
+		patient_id: "patient-reference-001",
+		owner_user_id: "user-reference-001",
+		display_name: "张三",
+		relationship: "self",
+		card_number_masked: "******7890",
+		source: "hospital-his",
+		provider_name: "zhongyang",
+		provider_patient_id: "provider-patient-001",
+		directory_last_seen_at: "2026-08-16 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([
+		[currentRow],
+		{ affectedRows: 1 },
+		{ affectedRows: 1 },
+		{ affectedRows: 0 },
+		[currentRow],
+	]);
+	const repositories = createMySqlRepositories(pool);
+	const snapshot = repositories.patients.replaceDirectorySnapshot;
+	if (!snapshot) throw new Error("snapshot unavailable");
+
+	await expect(
+		snapshot({
+			ownerUserId: "user-reference-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T01:00:00.000Z",
+			patients: [
+				{
+					patientId: "patient-reference-001",
+					profile: {
+						providerPatientId: "provider-patient-001",
+						displayName: "张三",
+						relationship: "self",
+						cardNumberMasked: "******7890",
+					},
+				},
+			],
+		}),
+	).resolves.toMatchObject({ deactivatedPatientCount: 0 });
+
+	const deleteStatement = state.statements.find((statement) =>
+		statement.includes("DELETE FROM hp_patient_provider_references"),
+	);
+	expect(deleteStatement).toContain("reference_kind IN (?)");
+	expect(deleteStatement).toContain("directory_last_seen_at <= ?");
+	expect(state.values.some((values) => values.includes("his-patient"))).toBe(
+		true,
+	);
+	expect(state.committed).toBe(true);
+});
+
 test("MySQL patient directory ignores a stale snapshot without reactivating or overwriting", async () => {
 	const currentRow = {
 		patient_id: "patient-order-001",
@@ -393,6 +448,7 @@ test("MySQL patient directory ignores a stale snapshot without reactivating or o
 	};
 	const { pool, state } = createFakePool([
 		[currentRow],
+		{ affectedRows: 0 },
 		{ affectedRows: 0 },
 		[currentRow],
 	]);

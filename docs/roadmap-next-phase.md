@@ -167,6 +167,9 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 ## 业务正确性加固记录
 
+- 2026-08-16：补齐患者临床映射生命周期：完整快照缺少 `his-patient` 时在同一事务内清理旧 `patId`，旧快照和普通单条 upsert 不会误触发清理；新增内存/MySQL 回归测试和中文业务规则文档。
+- 2026-08-16：修正报告目录批量短期引用的观察时钟：同一次 provider 响应的所有 `reportId` 共享同一 `createdAt`/`expiresAt`，避免批量处理跨时钟边界产生不一致 TTL。
+
 - 2026-08-16：患者目录 adapter 现在先拒绝同一完整快照中的重复 `thirdPatientId`，并在临床档案查询完成后拒绝重复的 HIS `patId`；避免持久化 upsert 把两条 provider 记录静默合并，或让切换就诊人后读取同一份临床数据。空医疗卡号会按旧端约定回退到有效 `cardNo`。
 - 2026-08-16：预约排班 adapter 修正号源字段优先级，使用真实 `usableSourceNum` 覆盖旧别名，并拒绝同一响应中的重复 `hisScheduleId`；避免生成多个 opaque 排班引用指向同一 provider 号源。
 - 2026-08-16：报告 adapter 按来源拒绝重复 `reportId`；无 provider 报告号的摘要继续只展示摘要，不根据标题和时间伪造详情唯一引用。

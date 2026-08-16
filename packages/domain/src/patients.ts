@@ -69,6 +69,11 @@ export type PatientDirectorySnapshotInput = {
 	operationId?: string;
 	/** 租约代次；防止旧请求在 lease takeover 后完成新一轮 operation。 */
 	operationAttemptCount?: number;
+	/**
+	 * `complete=true` 时，profile.providerReferences 的存在与缺失都是本次
+	 * 快照事实：缺少临床引用就必须清理旧的 `his-patient` 映射，不能把上次
+	 * 同步的 patId 当成当前有效身份继续使用。
+	 */
 	patients: ReadonlyArray<
 		Pick<PatientDirectoryUpsertInput, "patientId" | "profile">
 	>;

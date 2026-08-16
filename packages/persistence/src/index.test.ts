@@ -193,6 +193,7 @@ test("患者目录完整快照只停用缺失患者并保留原内部 id", async
 				patientId: "internal-patient-001",
 				profile: {
 					providerPatientId: "provider-patient-001",
+					providerReferences: { "his-patient": "his-patient-001" },
 					displayName: "张三",
 					relationship: "self",
 					cardNumberMasked: "******7890",
@@ -243,6 +244,14 @@ test("患者目录完整快照只停用缺失患者并保留原内部 id", async
 			ownerUserId: "user-001",
 			patientId: "internal-patient-002",
 			provider: "zhongyang",
+		}),
+	).toBeUndefined();
+	expect(
+		await patients.resolveProviderReference({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+			referenceKind: "his-patient",
 		}),
 	).toBeUndefined();
 

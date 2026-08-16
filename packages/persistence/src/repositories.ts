@@ -271,6 +271,27 @@ export function createInMemoryPatientRepository(
 					},
 					input.observedAt,
 				);
+				// 完整快照对临床引用同样具有权威性：如果本次患者资料没有
+				// `his-patient`，旧引用必须失效，不能继续被预约、报告或费用
+				// 查询复用。目录引用由上面的 providerPatientId 单独维护，不能
+				// 因为临床引用缺失而一并删除。
+				const directoryLastSeen = directoryLastSeenAt.get(record.id);
+				const snapshotWasAccepted =
+					directoryLastSeen !== undefined &&
+					Date.parse(directoryLastSeen) <= Date.parse(input.observedAt);
+				if (
+					snapshotWasAccepted &&
+					!patient.profile.providerReferences?.["his-patient"]
+				) {
+					providerIndex.delete(
+						providerReferenceKey({
+							ownerUserId: input.ownerUserId,
+							provider: input.provider,
+							patientId: record.id,
+							referenceKind: "his-patient",
+						}),
+					);
+				}
 				seenPatientIds.add(record.id);
 			}
 

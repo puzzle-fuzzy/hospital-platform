@@ -660,6 +660,42 @@ async function upsertPatientFromDirectory(
 	}
 }
 
+/**
+ * 清理完整快照中不再出现的能力专用引用。
+ *
+ * `hp_patients.provider_patient_id` 是目录引用，不能替代临床档案引用；
+ * 本次完整快照若没有返回 `his-patient`，旧 patId 就已经失去当前目录证据，
+ * 必须在同一事务内删除，避免后续预约、报告或费用查询继续读到过期患者身份。
+ * 该操作只在完整快照路径调用，普通单条 upsert 不会误删尚未加载的引用。
+ */
+async function clearMissingPatientProviderReferences(
+	client: Pool | PoolConnection,
+	input: PatientDirectoryUpsertInput,
+	patientId: string,
+	observedAt: string,
+): Promise<void> {
+	const references = input.profile.providerReferences ?? {};
+	// 目录引用已经由 hp_patients.provider_patient_id 维护；这里仅处理
+	// 独立保存的临床 patId，避免把“没有额外目录引用字段”误当成目录失效。
+	const missingKinds = references["his-patient"] ? [] : ["his-patient"];
+	if (missingKinds.length === 0) return;
+
+	const placeholders = missingKinds.map(() => "?").join(", ");
+	await execute<ResultSetHeader>(
+		client,
+		`DELETE FROM hp_patient_provider_references WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND reference_kind IN (${placeholders}) AND EXISTS (SELECT 1 FROM hp_patients AS patients WHERE patients.owner_user_id = ? AND patients.patient_id = ? AND (patients.directory_last_seen_at IS NULL OR patients.directory_last_seen_at <= ?))`,
+		[
+			input.ownerUserId,
+			patientId,
+			input.provider,
+			...missingKinds,
+			input.ownerUserId,
+			patientId,
+			mysqlDateTime(observedAt),
+		],
+	);
+}
+
 function appointmentScheduleSnapshot(
 	row: AppointmentScheduleSnapshotRow,
 ): AppointmentScheduleSnapshot {
@@ -1189,7 +1225,7 @@ export function createMySqlRepositories(
 			}
 			return withTransaction(pool, async (connection) => {
 				for (const snapshotPatient of input.patients) {
-					await upsertPatientFromDirectory(
+					const patient = await upsertPatientFromDirectory(
 						connection,
 						{
 							ownerUserId: input.ownerUserId,
@@ -1197,6 +1233,17 @@ export function createMySqlRepositories(
 							patientId: snapshotPatient.patientId,
 							profile: snapshotPatient.profile,
 						},
+						input.observedAt,
+					);
+					await clearMissingPatientProviderReferences(
+						connection,
+						{
+							ownerUserId: input.ownerUserId,
+							provider: input.provider,
+							patientId: snapshotPatient.patientId,
+							profile: snapshotPatient.profile,
+						},
+						patient.id,
 						input.observedAt,
 					);
 				}

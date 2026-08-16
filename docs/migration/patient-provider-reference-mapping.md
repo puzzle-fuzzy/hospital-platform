@@ -34,6 +34,8 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 - 首页恢复已有微信会话、重新登录或直接打开就诊人选择页时，会主动触发一次患者目录同步，兼容迁移前已经落库但尚未拥有 `his-patient` 引用的旧患者记录。
 - 同一账号连续发起同步时，快照时间在 provider 请求发出前记录；旧请求晚返回也不能覆盖更新的 `his-patient` 映射，
   或把更新快照已经停用的患者重新激活。
+- 完整目录快照中若当前患者没有返回 `his-patient`，持久化事务会删除该患者旧的临床映射；
+  目录 `thirdPatientId` 仍保留为目录引用。观察时间更早的旧快照不能执行这次清理。
 
 ## 发布与回填顺序
 
@@ -57,6 +59,8 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 - `patient-archive` 请求失败：同步失败并保留 `traceId`、provider request id 和错误类型；不写入不完整的成功映射。
 - 临床业务没有映射：在调用 provider 前返回对应的患者不可用错误；不得发送目录 `thirdPatientId`。
 - 档案 ID 发生变化：下一次同步按同一内部患者更新 `hp_patient_provider_references`，不更换平台 `patientId`。
+- 完整快照缺少档案 ID：清除旧临床映射并让预约、报告、门诊费用在 provider 请求前 fail-closed，
+  不能继续沿用上一次同步的 `patId`。
 - 新 migration 失败：保持 `PERSISTENCE_SCHEMA_READY=false`，不得让新 API 使用半成品仓储；旧 Python 服务不受影响。
 
 ## 验收证据
