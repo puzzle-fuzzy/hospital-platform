@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createPersistenceRuntime } from "./runtime";
+import { createLogger } from "@hospital/observability";
+import {
+	createPersistenceProbeStateTracker,
+	createPersistenceRuntime,
+} from "./runtime";
 
 test("persistence runtime stays explicit when URLs are not configured", async () => {
 	const runtime = createPersistenceRuntime({
@@ -12,4 +16,47 @@ test("persistence runtime stays explicit when URLs are not configured", async ()
 	expect(await runtime.redis.check()).toBe("not_configured");
 	expect(await runtime.schema.check()).toBe("not_configured");
 	await runtime.close();
+});
+
+test("persistence probe logs only unavailable and recovery transitions", () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "persistence-test",
+		environment: "test",
+		level: "info",
+		destination: { write: (chunk: string) => lines.push(chunk) },
+	});
+	const trackProbeState = createPersistenceProbeStateTracker(
+		logger,
+		"database",
+	);
+
+	trackProbeState("ok");
+	trackProbeState("ok");
+	trackProbeState("unavailable", {
+		errorType: "Error",
+		operation: "mysql.health_check",
+	});
+	trackProbeState("unavailable", {
+		errorType: "LeakedError",
+		operation: "mysql.health_check",
+	});
+	trackProbeState("ok");
+	trackProbeState("ok");
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toHaveLength(2);
+	expect(records[0]).toMatchObject({
+		event: "persistence.probe.unavailable",
+		dependency: "database",
+		errorType: "Error",
+		operation: "mysql.health_check",
+	});
+	expect(records[1]).toMatchObject({
+		event: "persistence.probe.recovered",
+		dependency: "database",
+	});
+	expect(JSON.stringify(records)).not.toContain("LeakedError");
 });

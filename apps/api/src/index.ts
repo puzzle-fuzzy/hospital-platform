@@ -65,6 +65,7 @@ const reportDetailMissing = reportDetailConfigurationMissingFields(config);
 const persistence = createPersistenceRuntime({
 	databaseUrl: config.databaseUrl,
 	redisUrl: config.redisUrl,
+	logger,
 	...(config.paymentDataEncryptionKey
 		? { paymentDataEncryptionKey: config.paymentDataEncryptionKey }
 		: {}),

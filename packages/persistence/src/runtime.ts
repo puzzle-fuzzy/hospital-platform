@@ -1,6 +1,7 @@
 import { createPool, type Pool } from "mysql2/promise";
 import Redis from "ioredis";
 import type { DependencyState } from "@hospital/contracts";
+import type { AppLogger } from "@hospital/observability";
 import type { DependencyPort, PersistencePorts } from "./index";
 import {
 	createMySqlRepositories,
@@ -29,29 +30,108 @@ function notConfiguredPort(): DependencyPort {
 	};
 }
 
-function createMySqlPort(pool: Pool): DependencyPort {
+type PersistenceProbeDependency = "database" | "redis" | "schema";
+
+type PersistenceProbeMetadata = {
+	errorType?: string;
+	operation?: string;
+	schemaStatus?: string;
+	missingMigrationCount?: number;
+	missingSchemaObjectCount?: number;
+};
+
+function safeErrorType(error: unknown): string {
+	return error instanceof Error ? error.name : "UnknownError";
+}
+
+/**
+ * 只在探针状态发生变化时输出日志，避免 readiness 被频繁访问时刷屏。
+ *
+ * 这里刻意不记录原始 error：数据库错误可能携带连接串、SQL 片段或参数，
+ * 而状态变化日志的职责只是告诉运维“哪个依赖何时失效/恢复”，详细协议错误
+ * 仍由请求错误日志、数据库日志和部署平台日志分别保留。
+ */
+export function createPersistenceProbeStateTracker(
+	logger: AppLogger | undefined,
+	dependency: PersistenceProbeDependency,
+) {
+	let previousState: DependencyState | undefined;
+
+	return (state: DependencyState, metadata: PersistenceProbeMetadata = {}) => {
+		const wasInitialState = previousState === undefined;
+		const stateChanged = !wasInitialState && previousState !== state;
+		const recovered = previousState === "unavailable" && state === "ok";
+		previousState = state;
+
+		if (
+			!logger ||
+			(!stateChanged && !(state === "unavailable" && wasInitialState))
+		) {
+			return;
+		}
+
+		if (state === "unavailable") {
+			logger.warn(
+				{
+					event: "persistence.probe.unavailable",
+					dependency,
+					...metadata,
+				},
+				"Persistence dependency probe became unavailable",
+			);
+			return;
+		}
+
+		if (recovered) {
+			logger.info(
+				{
+					event: "persistence.probe.recovered",
+					dependency,
+				},
+				"Persistence dependency probe recovered",
+			);
+		}
+	};
+}
+
+function createMySqlPort(pool: Pool, logger?: AppLogger): DependencyPort {
+	const trackProbeState = createPersistenceProbeStateTracker(
+		logger,
+		"database",
+	);
+
 	return {
 		async check(): Promise<DependencyState> {
 			try {
 				await pool.query("SELECT 1 AS health_check");
+				trackProbeState("ok");
 				return "ok";
-			} catch {
-				// Readiness 只返回分类状态；连接错误细节由启动日志和基础设施侧采集。
+			} catch (error) {
+				trackProbeState("unavailable", {
+					errorType: safeErrorType(error),
+					operation: "mysql.health_check",
+				});
 				return "unavailable";
 			}
 		},
 	};
 }
 
-function createRedisPort(client: Redis): DependencyPort {
+function createRedisPort(client: Redis, logger?: AppLogger): DependencyPort {
+	const trackProbeState = createPersistenceProbeStateTracker(logger, "redis");
+
 	return {
 		async check(): Promise<DependencyState> {
 			try {
 				if (client.status !== "ready") await client.connect();
 				await client.ping();
+				trackProbeState("ok");
 				return "ok";
-			} catch {
-				// 禁止把 Redis 连接异常误报成 ready；下一次探针仍可重新连接。
+			} catch (error) {
+				trackProbeState("unavailable", {
+					errorType: safeErrorType(error),
+					operation: "redis.health_check",
+				});
 				return "unavailable";
 			}
 		},
@@ -59,14 +139,26 @@ function createRedisPort(client: Redis): DependencyPort {
 }
 
 /** gate 未打开时不查询 schema；gate 打开后必须由目标 migration 记录证明 ready。 */
-function createSchemaPort(pool: Pool): DependencyPort {
+function createSchemaPort(pool: Pool, logger?: AppLogger): DependencyPort {
+	const trackProbeState = createPersistenceProbeStateTracker(logger, "schema");
+
 	return {
 		async check(): Promise<"ok" | "unavailable" | "not_configured"> {
 			try {
 				const state = await readCoreSchemaStateFromPool(pool);
-				return state.status === "ready" ? "ok" : "unavailable";
-			} catch {
+				const probeState = state.status === "ready" ? "ok" : "unavailable";
+				trackProbeState(probeState, {
+					schemaStatus: state.schemaStatus,
+					missingMigrationCount: state.missingMigrationIds.length,
+					missingSchemaObjectCount: state.missingSchemaObjects.length,
+				});
+				return probeState;
+			} catch (error) {
 				// 表不存在、连接异常或 schema 不完整都不能进入 ready。
+				trackProbeState("unavailable", {
+					errorType: safeErrorType(error),
+					operation: "mysql.schema_check",
+				});
 				return "unavailable";
 			}
 		},
@@ -82,6 +174,8 @@ function createSchemaPort(pool: Pool): DependencyPort {
 export function createPersistenceRuntime(options: {
 	databaseUrl: string | undefined;
 	redisUrl: string | undefined;
+	/** API/worker 统一注入的 Pino logger；未传入时保持库级调用静默。 */
+	logger?: AppLogger;
 	/** 支付调起参数落库前的 AES-GCM 密钥；未配置时预支付 repository fail-closed。 */
 	paymentDataEncryptionKey?: string;
 	/** 只有显式确认目标 migration 已完成，才暴露真实 repository。 */
@@ -113,12 +207,14 @@ export function createPersistenceRuntime(options: {
 
 	return {
 		database: databasePool
-			? createMySqlPort(databasePool)
+			? createMySqlPort(databasePool, options.logger)
 			: notConfiguredPort(),
-		redis: redisClient ? createRedisPort(redisClient) : notConfiguredPort(),
+		redis: redisClient
+			? createRedisPort(redisClient, options.logger)
+			: notConfiguredPort(),
 		schema:
 			databasePool && options.useRepositories
-				? createSchemaPort(databasePool)
+				? createSchemaPort(databasePool, options.logger)
 				: notConfiguredPort(),
 		repositories:
 			databasePool && options.useRepositories
