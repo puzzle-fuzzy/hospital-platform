@@ -43,7 +43,7 @@
 | `pagesB/health/` | `discharge_followup.vue`、`discharge_followup_detail.vue` | 待 provider contract | 需要出院事件、随访任务、版本化答案、提交幂等、医护读取和敏感健康数据审计；不能按 `(user_id, pat_id)` 覆盖不同随访表 |
 | `pagesB/health/` | `risk_self_evaluation.vue`、`risk_form_fall.vue`、`risk_form_pain.vue`、`risk_form_pressure.vue` | 待临床审核 | 题目、评分、分级、建议、版本和免责声明必须由临床确认；未知问卷版本拒绝写入，结果是否落库还需授权 contract |
 | `pagesB/health/` | `health_test.vue`、`self_test_question.vue`、`self_test_result.vue` | 待临床审核 | 旧端题库和分值不能直接当作医疗结论；先做版本化内容、临床复核和结果审计 |
-| `pagesB/health/` | `bmi_calc.vue`、`blood_pressure_calc.vue` | 待临床审核 | 虽是本地计算，但旧端包含“示例”数据和历史血压标准；迁移前必须确认阈值、适用人群和免责声明 |
+| `pagesB/health/` | `bmi_calc.vue`、`blood_pressure_calc.vue` | 待临床审核 | 虽是本地计算，但旧端 BMI 分类与参考表存在版本差异、血压页仍写 1998 年标准且缺少完整输入边界；迁移前必须确认阈值、适用人群、规则版本和免责声明，详见 [`health-calculator-contract-draft.md`](health-calculator-contract-draft.md) |
 | `pagesB/health/` | `health_encyclopedia.vue`、`disease_detail.vue`、`drug_detail.vue`、`search_result.vue` | 待临床审核 | 只导入审核后的版本化内容；药品/疾病关联、搜索、发布时间和内容下线必须可审计 |
 | `pagesB/health/` | `webview.vue` | 待 provider contract | 外部导诊/客服 web-view 必须有固定 HTTPS allowlist、来源参数白名单、登录态隔离和失败回退 |
 | `pagesB/health/` | `gift_electronic_banner.vue`、`list_electronic_banner.vue`、`record_electronic_banner.vue` | 待 provider contract | 旧端提交患者/医生/就诊快照，必须改为服务端就诊引用；文字/文件审核、内容安全、脱敏公开展示、撤回和管理端读取权限未确认 |

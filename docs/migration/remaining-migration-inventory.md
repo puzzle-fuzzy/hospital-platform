@@ -97,7 +97,7 @@
 | 旧页面组 | 页面范围 | 当前状态 | 迁移方式 |
 | --- | --- | --- | --- |
 | 健康百科/药品 | `health_encyclopedia`、`disease_detail`、`drug_detail`、`search_result` | 新端未挂载患者路由 | 只迁移审核后的版本化内容；不能直接复制旧数据库正文 |
-| 健康自测 | `health_test`、`self_test_question`、`self_test_result`、BMI/血压计算 | 未迁移 | 题目、分值和结果必须版本化并经临床复核；先不开放自动风险判断 |
+| 健康自测 | `health_test`、`self_test_question`、`self_test_result`、BMI/血压计算 | 未迁移 | 题目、分值和结果必须版本化并经临床复核；BMI/血压计算还需确认适用人群、阈值、输入边界和免责声明；先不开放自动风险判断，详见 [`health-calculator-contract-draft.md`](health-calculator-contract-draft.md) |
 | 风险评估 | `risk_self_evaluation`、`risk_form_*` | 未迁移 | 题目、分值、风险分级和建议必须版本化并经临床复核；未知版本拒绝写入，不能把客户端风险结论当权威；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 预问诊/随访 | `pre_visit`、`admission_preconsultation`、`discharge_followup*` | 未迁移 | 旧端按原始 `pat_id` 和 JSON 数组保存，且不同表单可能按 `(user_id, pat_id)` 互相覆盖；必须先绑定预约/住院/随访任务、问卷版本、患者授权、幂等和医护读取权限；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 电子锦旗/表扬信 | `list_*`、`gift_*`、`record_*` | 未迁移 | 旧端可提交伪造的患者/医生/就诊字段，且 `display_type=1` 不等于已审核公开；必须完成内容安全、审核、脱敏展示、撤回和幂等；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
