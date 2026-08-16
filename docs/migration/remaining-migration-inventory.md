@@ -78,7 +78,7 @@
 | 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；不能锁号、不能把 `scheduleId` 当成写入授权 |
 | 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；查询窗口固定为近 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
-| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；缺失金额会在 adapter 边界 fail-closed | 真实 Provider/公网/真机证据、费用详情、支付、医保、结算回写和退费未开放 |
+| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；缺失金额、缺失稳定费用标识或重复费用会在 adapter 边界 fail-closed | 真实 Provider/公网/真机证据、费用详情、支付、医保、结算回写和退费未开放 |
 | 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
 | 公众号说明 | `pages/official-account/official-account` | 旧端运行时静态通知说明已迁移；旧端二维码区域本身是注释代码，未有关注 API | 二维码、关注状态、订阅消息授权和真实发送结果属于未来新增能力 |
 | 意见反馈帮助 | `pages/feedback/feedback` | 旧端实际只有热点问题、客服电话和 Toast；新端保留静态内容并明确提示未开放，拨号需用户确认 | 真实反馈写入、客服工单、电话/工作时间受控配置属于未来新增能力 |

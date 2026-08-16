@@ -127,3 +127,107 @@ test("众阳门诊费用 adapter 拒绝缺失金额而不是降级为零元", as
 		retryable: false,
 	});
 });
+
+test("众阳门诊费用 recordId 不依赖返回顺序", async () => {
+	let callCount = 0;
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			callCount += 1;
+			const records = [
+				{
+					outTradeOrderId: "provider-order-a",
+					amount: "1.00",
+					billDate: "2026-08-16 09:00:00",
+				},
+				{
+					outTradeOrderId: "provider-order-b",
+					amount: "2.00",
+					billDate: "2026-08-16 10:00:00",
+				},
+			];
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: callCount === 1 ? records : [...records].reverse(),
+				}),
+				{ status: 200, headers: { "x-request-id": `stable-id-${callCount}` } },
+			);
+		},
+	});
+	const input = {
+		providerPatientId: "provider-patient-secret",
+		startTime: "2026-08-16 00:00:00",
+		endTime: "2026-08-16 23:59:59",
+		status: "unpaid" as const,
+		authSysCode: "thirdSelfMachine",
+	};
+
+	const first = await gateway.listRecords(input, context);
+	const second = await gateway.listRecords(input, context);
+	const firstByDate = new Map(
+		first.records.map((record) => [record.billDate, record.recordId]),
+	);
+	for (const record of second.records) {
+		const expectedId = firstByDate.get(record.billDate);
+		if (!expectedId) throw new Error("stable fee fixture was not found");
+		expect(record.recordId).toBe(expectedId);
+	}
+});
+
+test("众阳门诊费用 adapter 拒绝缺少稳定标识或重复费用", async () => {
+	const createGateway = (data: unknown[], requestId: string) =>
+		createZhongyangOutpatientPaymentGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(JSON.stringify({ success: true, data }), {
+					status: 200,
+					headers: { "x-request-id": requestId },
+				}),
+		});
+	const input = {
+		providerPatientId: "provider-patient-secret",
+		startTime: "2026-08-16 00:00:00",
+		endTime: "2026-08-16 23:59:59",
+		status: "unpaid" as const,
+		authSysCode: "thirdSelfMachine",
+	};
+
+	await expect(
+		createGateway(
+			[
+				{ amount: "1.00", billDate: "2026-08-16 09:00:00" },
+				{ amount: "2.00", billDate: "2026-08-16 09:00:00" },
+			],
+			"missing-fee-identity",
+		).listRecords(input, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "outpatient-payment-records",
+		requestId: "missing-fee-identity",
+		retryable: false,
+	});
+
+	await expect(
+		createGateway(
+			[
+				{
+					outTradeOrderId: "duplicate-order",
+					amount: "1.00",
+					billDate: "2026-08-16 09:00:00",
+				},
+				{
+					outTradeOrderId: "duplicate-order",
+					amount: "2.00",
+					billDate: "2026-08-16 09:00:00",
+				},
+			],
+			"duplicate-fee-identity",
+		).listRecords(input, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "outpatient-payment-records",
+		requestId: "duplicate-fee-identity",
+		retryable: false,
+	});
+});

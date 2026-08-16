@@ -17,6 +17,12 @@ const OPERATION = "outpatient-payment-records";
 type ProviderPaymentItem = {
 	amount?: unknown;
 	waitPayAmount?: unknown;
+	/** 以下字段只用于服务端内部建立稳定费用引用，不进入公共读模型。 */
+	mainId?: unknown;
+	chargeId?: unknown;
+	chargeCode?: unknown;
+	itemName?: unknown;
+	presCode?: unknown;
 	billDeptName?: unknown;
 	registerDept?: unknown;
 	registerDoctor?: unknown;
@@ -100,17 +106,50 @@ function amountFen(value: unknown, requestId: string): number {
 	return fen;
 }
 
-function opaqueRecordId(item: ProviderPaymentItem, index: number): string {
-	const identity = [
-		item.outTradeOrderId,
-		item.registerId,
-		item.visitRecordId,
-		item.billDate,
-		index,
+function identityText(value: unknown): string | undefined {
+	if (value === undefined || value === null || value === "") return undefined;
+	if (typeof value !== "string" && typeof value !== "number") return undefined;
+	const normalized = String(value).trim();
+	return normalized || undefined;
+}
+
+/**
+ * 费用记录 ID 必须在不同查询排序和待缴/已缴状态之间保持稳定。
+ *
+ * 数组下标只能作为渲染辅助，不能进入业务引用：Provider 对同一账单的
+ * 返回顺序可能变化，支付后 `tradeStatus` 也会改变。这里使用单据、就诊
+ * 和项目标识组成内部哈希；缺少全部稳定标识时拒绝响应，避免把不可定位
+ * 的费用伪装成可供后续详情/支付使用的 recordId。
+ */
+function opaqueRecordId(item: ProviderPaymentItem, requestId: string): string {
+	const identityParts = [
+		["outTradeOrderId", identityText(item.outTradeOrderId)],
+		["registerId", identityText(item.registerId)],
+		["visitRecordId", identityText(item.visitRecordId)],
+		["mainId", identityText(item.mainId)],
+		["chargeId", identityText(item.chargeId)],
+		["chargeCode", identityText(item.chargeCode)],
+		["presCode", identityText(item.presCode)],
+		["itemName", identityText(item.itemName)],
 	]
-		.map((value) => String(value ?? ""))
-		.join("|");
-	return createHash("sha256").update(identity).digest("hex").slice(0, 32);
+		.filter((entry): entry is [string, string] => entry[1] !== undefined)
+		.map(([field, value]) => `${field}=${value}`);
+	if (identityParts.length === 0) {
+		throw providerError(
+			"Zhongyang outpatient fee identity is missing",
+			requestId,
+		);
+	}
+	const canonicalIdentity = [
+		identityParts,
+		// 账单时间用于区分同一项目在不同开单时刻产生的记录；金额故意不参与，
+		// 防止待缴金额与结算后金额变化造成同一业务记录换 ID。
+		identityText(item.billDate) ?? "",
+	];
+	return createHash("sha256")
+		.update(JSON.stringify(canonicalIdentity))
+		.digest("hex")
+		.slice(0, 32);
 }
 
 function responseItems(
@@ -146,7 +185,6 @@ function mapRecord(
 	item: ProviderPaymentItem,
 	status: OutpatientPaymentStatus,
 	requestId: string,
-	index: number,
 ): OutpatientPaymentRecord {
 	const billDate = textField(item.billDate, "billDate", requestId);
 	if (!billDate) {
@@ -163,7 +201,7 @@ function mapRecord(
 		requestId,
 	);
 	return {
-		recordId: opaqueRecordId(item, index),
+		recordId: opaqueRecordId(item, requestId),
 		status,
 		...(departmentName ? { departmentName } : {}),
 		...(doctorName ? { doctorName } : {}),
@@ -175,6 +213,23 @@ function mapRecord(
 			requestId,
 		),
 	};
+}
+
+/** 同一响应中的重复费用必须整批拒绝，不能让页面或未来支付选错项目。 */
+function ensureUniqueRecordIds(
+	records: readonly OutpatientPaymentRecord[],
+	requestId: string,
+): void {
+	const seen = new Set<string>();
+	for (const record of records) {
+		if (seen.has(record.recordId)) {
+			throw providerError(
+				"Zhongyang outpatient response contained duplicate record ids",
+				requestId,
+			);
+		}
+		seen.add(record.recordId);
+	}
 }
 
 function trace(requestId: string): ExternalTrace {
@@ -231,10 +286,12 @@ export class ZhongyangOutpatientPaymentApiGateway
 			this.fetcher,
 		);
 		const items = responseItems(response.data, response.requestId);
+		const records = items.map((item) =>
+			mapRecord(item, input.status, response.requestId),
+		);
+		ensureUniqueRecordIds(records, response.requestId);
 		return {
-			records: items.map((item, index) =>
-				mapRecord(item, input.status, response.requestId, index),
-			),
+			records,
 			trace: trace(response.requestId),
 		};
 	}
