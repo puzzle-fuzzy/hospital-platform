@@ -12,6 +12,7 @@ import {
 	toWechatPaymentParams,
 } from "../src/services/api-client";
 import {
+	createAppointmentRecordDateRange,
 	createPastDateRange,
 	createUpcomingDateRange,
 	formatPlatformDate,
@@ -521,7 +522,7 @@ test("native mini program derives missed appointments from the normalized record
 	expect(page).toContain('record.status === "missed"');
 	expect(template).toContain('wx:key="viewKey"');
 	expect(page).toContain("getPageLatestRequestGuard");
-	expect(page).toContain("中国标准时间近 90 天");
+	expect(page).toContain("中国标准时间过去 90 天");
 	expect(page).not.toContain("status === 4");
 	expect(page).not.toContain("providerPatientId");
 	expect(page).not.toContain("thirdPatientId");
@@ -880,7 +881,9 @@ test("dashboard service owns bounded date windows and internal patient inputs", 
 
 	expect(service).toContain("DASHBOARD_DATE_RANGE_DAYS");
 	expect(service).toContain("appointmentDirectory: 7");
-	expect(service).toContain("appointmentRecords: 90");
+	expect(service).toContain("appointmentRecordsPast: 90");
+	expect(service).toContain("appointmentRecordsFuture: 90");
+	expect(service).toContain('window: "history" | "missed"');
 	expect(service).toContain("reports: 30");
 	expect(service).toContain("requirePatientId");
 	expect(service).not.toContain("providerPatientId");
@@ -895,6 +898,10 @@ test("dashboard service calculates China Standard Time calendar windows", () => 
 	expect(createPastDateRange(90, now)).toEqual({
 		startDate: "2026-05-17",
 		endDate: "2026-08-15",
+	});
+	expect(createAppointmentRecordDateRange(now)).toEqual({
+		startDate: "2026-05-17",
+		endDate: "2026-11-13",
 	});
 	expect(createUpcomingDateRange(7, now)).toEqual({
 		startDate: "2026-08-15",

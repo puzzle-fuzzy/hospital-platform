@@ -27,7 +27,11 @@ import {
  */
 export const DASHBOARD_DATE_RANGE_DAYS = Object.freeze({
 	appointmentDirectory: 7,
-	appointmentRecords: 90,
+	/** 我的挂号需要同时覆盖近期历史和即将到来的预约。 */
+	appointmentRecordsPast: 90,
+	appointmentRecordsFuture: 90,
+	/** 爽约只能从已经发生的日期中派生，不能把未来预约误算成爽约。 */
+	missedAppointmentsPast: 90,
 	reports: 30,
 });
 
@@ -90,6 +94,34 @@ export function createPastDateRange(
 	return {
 		startDate: formatCalendarDate(start),
 		endDate: formatCalendarDate(end),
+	};
+}
+
+/**
+ * 创建“我的挂号”查询窗口：当前中国标准时间日前后各覆盖 90 天。
+ *
+ * 预约历史既包含已完成/已爽约的过去记录，也包含患者尚未就诊的未来
+ * 预约。过去窗口和未来窗口必须在服务层明确表达，不能复用只适用于报告
+ * 或爽约派生页的 past-only 查询，否则未来预约会在页面上静默消失。
+ */
+export function createAppointmentRecordDateRange(now = new Date()): {
+	startDate: string;
+	endDate: string;
+} {
+	const today = platformCalendarDate(now);
+	return {
+		startDate: formatCalendarDate(
+			shiftCalendarDate(
+				today,
+				-DASHBOARD_DATE_RANGE_DAYS.appointmentRecordsPast,
+			),
+		),
+		endDate: formatCalendarDate(
+			shiftCalendarDate(
+				today,
+				DASHBOARD_DATE_RANGE_DAYS.appointmentRecordsFuture,
+			),
+		),
 	};
 }
 
@@ -200,11 +232,17 @@ export function loadOutpatientPaymentRecords(
 export function loadAppointmentRecords(
 	patientId: string,
 	now = new Date(),
+	window: "history" | "missed" = "history",
 ): Promise<Array<AppointmentRecord>> {
-	const range = createPastDateRange(
-		DASHBOARD_DATE_RANGE_DAYS.appointmentRecords,
-		now,
-	);
+	// “我的挂号”和“爽约记录”共享 provider 查询，但业务时间窗口不同：
+	// 前者不能漏掉未来预约，后者不能查询未来日期并把未知事实误当爽约。
+	const range =
+		window === "missed"
+			? createPastDateRange(
+					DASHBOARD_DATE_RANGE_DAYS.missedAppointmentsPast,
+					now,
+				)
+			: createAppointmentRecordDateRange(now);
 	return requestAppointmentRecords({
 		patientId: requirePatientId(patientId),
 		...range,

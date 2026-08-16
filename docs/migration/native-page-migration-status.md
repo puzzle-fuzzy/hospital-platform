@@ -22,8 +22,8 @@
 | `pages/patient-select/patient-select` | `只读已实现` | owner-scoped 患者列表、选择、刷新和失效选择处理。 | 页面只保存内部 `patientId`；关系/证件号文案来自服务端规范化读模型；新增家属和绑卡仍关闭。 | 真实账号同步、失效/恢复、真机切换患者证据；新增绑定 provider contract。 |
 | `pages/hospital-list/hospital-list` | `静态已迁移` | 旧端单院区卡片、预约前置和受控本地图片。 | 静态单院区不能冒充动态机构目录；路线按钮不能猜坐标；互联网医院 web-view 不从这里伪造。 | 机构/院区目录、坐标路线和外部入口 allowlist。 |
 | `pages/appointment-directory/appointment-directory` | `只读已实现` | 科室、日期级联和排班只读目录；本地分批渲染。 | 排班快照只是短期观察事实；点击号源不能创建预约、锁号、收费或显示成功。 | provider 排班/锁号/写入/取消完整 contract，公网和真机只读证据。 |
-| `pages/appointment-records/appointment-records` | `只读已实现` | 按当前就诊人读取预约历史并翻译服务端状态。 | `missed` 只能来自服务端明确状态；页面不自行推断爽约，不展示 provider 订单或支付事实。 | 真实 provider 患者映射、公网/真机证据；取消/退号另立命令 contract。 |
-| `pages/missed-appointments/missed-appointments` | `部分迁移` | 从预约历史 `status=missed` 派生的近 90 天只读筛选页。 | 空列表不等于没有历史；未知状态不能变成爽约；不得通过客户端传入状态制造记录。 | provider 状态映射和真实账号证据。 |
+| `pages/appointment-records/appointment-records` | `只读已实现` | 按当前就诊人读取前后各 90 天预约历史，并翻译服务端的预约、取消、完成、爽约、停诊、替诊和已登记状态。 | `missed` 只能来自服务端明确状态；页面不自行推断爽约，不展示 provider 订单或支付事实。 | 真实 provider 患者映射、公网/真机证据；取消/退号另立命令 contract。 |
+| `pages/missed-appointments/missed-appointments` | `部分迁移` | 从预约历史 `status=missed` 派生的过去 90 天只读筛选页。 | 空列表不等于没有历史；未知状态不能变成爽约；不得通过客户端传入状态制造记录。 | provider 状态映射和真实账号证据。 |
 | `pages/report-directory/report-directory` | `只读已实现` | 近 30 天报告摘要、患者切换和本地分批渲染。 | `reportId` 是服务端 opaque 引用；报告目录不能冒充门诊病历；列表存在不等于详情/附件已授权。 | LIS/PACS/ECG 真实目录、详情、附件短期授权和真机证据。 |
 | `pages/report-detail/report-detail` | `部分迁移` | 仅保留已开放的报告详情入口和空态/错误态。 | 只接受服务端生成的 `reportId`；不能把 provider 报告号、文件 URL 或患者字段放进小程序。 | 真实详情字段白名单、资源 TTL、下载审计和 provider 文档。 |
 | `pages/outpatient-payment/outpatient-payment` | `部分迁移` | 按患者读取待缴/已缴门诊费用只读目录，金额仅由服务端展示模型转换。 | 当前点击费用只提示迁移中；不调起微信支付，不做医保授权，不把列表状态当作最终结算。 | 费用详情、微信/医保状态机、回调、查单、退费和 HIS 回写 contract。 |

@@ -24,6 +24,9 @@ const STATUS_LABELS = Object.freeze({
 	cancelled: "已取消",
 	completed: "已完成",
 	missed: "未就诊",
+	stopped: "停诊",
+	substituted: "替诊",
+	registered: "已登记",
 	unknown: "状态未知",
 } as const);
 

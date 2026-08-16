@@ -160,11 +160,17 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 
 预约历史返回 `departmentName`、`doctorName`、`workDate`、可选 `workTime`/`location`/
 `serialNumber` 及 `status`。状态只允许 `scheduled`、`cancelled`、`completed`、`missed`、
-`unknown`，不能由小程序根据文字猜测最终状态。
+`stopped`、`substituted`、`registered`、`unknown`；其中 `stopped` 表示停诊、
+`substituted` 表示替诊、`registered` 表示已登记。Provider 已确认的数字状态在 adapter
+边界完成映射，不能由小程序根据文字猜测最终状态。
 
 小程序的“爽约记录”不是独立公共 endpoint，而是对上述预约历史读模型做安全筛选：只展示服务端
 返回的 `status=missed`，当前查询窗口为中国标准时间近 90 天；`unknown`、空列表或 provider
 未返回不能被客户端推断为爽约。
+
+原生“我的挂号”调用该接口时使用当前中国标准时间日前后各 90 天，保证未来已预约记录
+不会因为只查询过去而静默消失；原生“爽约记录”调用同一接口时只使用过去 90 天，并且只筛选
+服务端明确返回的 `status=missed`。
 
 当前没有以下写入路由：
 

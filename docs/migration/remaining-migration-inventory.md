@@ -76,7 +76,7 @@
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页和生产未登录 401 已验证 | 真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；不能锁号、不能把 `scheduleId` 当成写入授权 |
-| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；查询窗口固定为近 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
+| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；已确认保留预约、取消、完成、爽约、停诊、替诊、已登记七类状态；我的挂号使用前后各 90 天，爽约筛选使用过去 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
 | 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；缺失金额、缺失稳定费用标识或重复费用会在 adapter 边界 fail-closed | 真实 Provider/公网/真机证据、费用详情、支付、医保、结算回写和退费未开放 |
 | 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
@@ -109,7 +109,7 @@
 - 排班只读快照的 `observedAt` 与 `expiresAt` 必须使用同一次服务端时钟采样；快照有效只表示近期观察事实，不能单独授权锁号、预约或支付。
 - 预约只读目录的 adapter 会拒绝重复科室/排班主键；预约历史摘要没有稳定公开记录 ID，原生页面使用独立的渲染 key，不能把流水号当作可写入或详情引用。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
-- 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。
+- 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。停诊、替诊和已登记必须保留为独立状态，不能误显示为未知。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
 - 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；`a11f117` 已取得单患者真实同步成功证据，但真实并发、第二条患者记录、失效/恢复、公网真机和切换业务验收仍待完成，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md)、[`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md) 和 [`../release/wechat-patient-sync-production-acceptance-2026-08-16.md`](../release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
 

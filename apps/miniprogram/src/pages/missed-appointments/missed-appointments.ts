@@ -24,6 +24,9 @@ const STATUS_LABELS = Object.freeze({
 	cancelled: "已取消",
 	completed: "已完成",
 	missed: "已爽约",
+	stopped: "停诊",
+	substituted: "替诊",
+	registered: "已登记",
 	unknown: "状态未知",
 } as const);
 
@@ -58,7 +61,8 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	 * 患者标识和业务判断一起泄漏到客户端。新端只接受服务端已经完成归一化
 	 * 的 `missed` 枚举；`unknown` 永远不会被猜测成爽约，空列表也不代表
 	 * provider 已经完整返回了历史数据。查询窗口由 dashboard service 固定为
-	 * 中国标准时间近 90 天，避免页面自行扩大查询范围。
+	 * 中国标准时间过去 90 天，避免页面自行扩大查询范围或把未来预约
+	 * 混入爽约筛选。
 	 */
 	loadRecords(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "missed-appointments");
@@ -80,7 +84,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				}
 
 				this.setData({ selectedPatient: patient });
-				return loadAppointmentRecords(patient.id);
+				return loadAppointmentRecords(patient.id, new Date(), "missed");
 			})
 			.then((records) => {
 				if (!records || !loadGuard.isCurrent(requestToken)) return;

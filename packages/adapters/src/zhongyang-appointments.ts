@@ -207,6 +207,12 @@ function recordStatus(value: unknown): AppointmentRecord["status"] {
 	if (normalized === 1) return "cancelled";
 	if (normalized === 3) return "completed";
 	if (normalized === 4) return "missed";
+	// 5/6/7 是旧预约接口仍在使用的确定状态：停诊、替诊、已登记。
+	// 这些状态不能折叠为 unknown，否则患者会看到“状态未知”，而运营人员
+	// 也无法区分医院停诊与患者爽约。只有未在 Provider 合同中确认的数字才保留 unknown。
+	if (normalized === 5) return "stopped";
+	if (normalized === 6) return "substituted";
+	if (normalized === 7) return "registered";
 	return "unknown";
 }
 

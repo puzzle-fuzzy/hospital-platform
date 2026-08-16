@@ -160,6 +160,9 @@ export const AppointmentRecordStatusSchema = Type.Union([
 	Type.Literal("cancelled"),
 	Type.Literal("completed"),
 	Type.Literal("missed"),
+	Type.Literal("stopped"),
+	Type.Literal("substituted"),
+	Type.Literal("registered"),
 	Type.Literal("unknown"),
 ]);
 

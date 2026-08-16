@@ -167,6 +167,9 @@ export type AppointmentRecordStatus =
 	| "cancelled"
 	| "completed"
 	| "missed"
+	| "stopped"
+	| "substituted"
+	| "registered"
 	| "unknown";
 
 /** 患者端可展示的预约记录摘要，不含 provider 记录 id、支付字段或身份字段。 */

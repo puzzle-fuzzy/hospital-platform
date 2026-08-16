@@ -12,7 +12,7 @@
 
 	<view class="page-header">
 		<view class="page-title">我的挂号</view>
-		<view class="page-description">展示当前就诊人近 90 天的挂号记录</view>
+		<view class="page-description">展示当前就诊人前后 90 天的挂号记录</view>
 	</view>
 
 	<view wx:if="{{loading}}" class="state-card">
@@ -35,7 +35,7 @@
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
 		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-		<text>近 90 天暂无挂号记录</text>
+		<text>前后 90 天暂无挂号记录</text>
 		<text class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
 	</view>
 

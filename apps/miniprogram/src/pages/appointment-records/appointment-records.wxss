@@ -138,6 +138,17 @@ page {
 	color: #d2443c;
 }
 
+.record-status-stopped {
+	background: #fff7ee;
+	color: #d56d2a;
+}
+
+.record-status-substituted,
+.record-status-registered {
+	background: #f2f6ff;
+	color: #3d6df6;
+}
+
 .record-status-unknown {
 	background: #f5f5f5;
 	color: #888888;
