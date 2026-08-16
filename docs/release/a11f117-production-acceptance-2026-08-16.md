@@ -80,6 +80,17 @@ Provider 错误。这是当前协议校验顺序，不改变带完整参数的�
 该结果只证明当前依赖在短观察窗口内稳定，并允许进入真实业务验收；它不能证明 Provider 数据、微信会话、
 患者映射或真机页面已经成功。
 
+### 2.6 22:53 CST 补充只读观察
+
+2026-08-16 22:53:25 CST 通过 SSH 只读复核确认：
+
+- `/home/ps/code/hospital-platform/current` 仍指向 `releases/a11f117`；
+- `hospital-platform-api-v2.service` 为 `active`，`hospital-platform-worker-v2.service` 为 `inactive`；
+- 从 22:24:52 CST 启动窗口开始，按 `auth.wechat`、患者、预约、报告、门诊费用和 Provider 低敏事件关键词筛选 API journald，没有发现真实业务事件；
+- 现有日志仅能证明健康探针、认证边界和未注册路由检查，不能证明真实微信会话、患者目录同步或 Provider 只读请求已经发生。
+
+这次观察没有修改服务、数据库、Redis、Nginx 或旧 Python API；它只是把“尚未进行真实业务验收”固定为当前证据结论。
+
 ## 3. 新旧服务共存结论
 
 本次共存验收通过：

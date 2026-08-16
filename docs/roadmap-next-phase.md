@@ -5,11 +5,12 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-16 22:24:52 CST）
+### 线上实时状态（2026-08-16 22:53:25 CST）
 
 - 新 API `current=a11f117`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。
 - 旧 Python API 仍监听 `0.0.0.0:8001`，未停止；Worker 仍 inactive。支付、医保、HIS、报告 gate 仍关闭。
 - 真实微信 session、患者同步/切换、预约/费用 provider 读操作和真机业务尚未验收；本次只完成运行时和共存边界，以下“已完成”不能替代这些证据。详见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
+- 22:53:25 CST 通过 SSH 只读复核确认 `current -> releases/a11f117`、新 API 为 `active`、新 Worker 为 `inactive`；从 22:24:52 起按低敏业务事件关键词筛选 journald，没有发现微信兑换、患者同步、预约、报告、门诊费用或 Provider 业务事件。当前仍没有真实微信会话业务证据，不能把健康检查或未登录 401 当作真机验收。
 
 ### 已经具备
 
