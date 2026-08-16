@@ -8,7 +8,6 @@ import {
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
-	clearSelectedPatientId,
 	getSelectedPatientId,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
@@ -112,7 +111,10 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 * 状态，要求用户明确点击新的就诊人。
 	 */
 	setPatientList(patients: Array<Patient>): void {
-		if (patients.length === 0) clearSelectedPatientId();
+		// 空目录不等于用户主动清除了选择：可能是 provider 暂时没有返回数据，
+		// 也可能是当前账号暂时没有绑定患者。保留本地 opaque patientId，避免
+		// 目录恢复后被误判为“从未选择”并静默切换到第一位患者；真正的清理只
+		// 在会话失效或用户明确退出/清除上下文时发生。
 		const resolution = resolveStoredPatientSelection(patients);
 		const selectedPatientId = resolution.patient?.id ?? "";
 		this.setData({

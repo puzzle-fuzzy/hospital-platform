@@ -196,7 +196,9 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(service).toContain("wx.setStorageSync");
 	expect(service).toContain("clearSelectedPatientId");
 	expect(home).toContain("clearSelectedPatientId");
-	expect(selection).toContain("clearSelectedPatientId");
+	// 空目录不能清掉历史选择，否则恢复后会静默默认第一位；选择页只在
+	// 用户明确点击患者时写入新 ID，会话失效由首页上下文清理负责。
+	expect(selection).not.toContain("clearSelectedPatientId");
 	// 选择页只能处理平台 opaque patientId，不得出现 provider 患者字段。
 	expect(selection).not.toContain("providerPatientId");
 	expect(selection).not.toContain("unionId");
@@ -230,6 +232,11 @@ test("patient selection never silently switches a stale patient to another patie
 	expect(resolvePatientSelection(patients, "patient-removed")).toEqual({
 		state: "stale",
 		storedPatientId: "patient-removed",
+	});
+	// 空目录也不能把已有选择改写成“从未选择”；目录恢复后必须进入 stale，
+	// 而不是自动选择恢复列表的第一位。
+	expect(resolvePatientSelection([], "patient-removed")).toEqual({
+		state: "empty",
 	});
 });
 

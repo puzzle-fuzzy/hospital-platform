@@ -614,7 +614,9 @@ Page<IndexPageData, IndexPageMethods>({
 
 	/** 统一接收服务端脱敏读模型；页面不保存 provider 患者号。 */
 	setPatientsFromPayload(patients: Array<Patient>): void {
-		if (patients.length === 0) clearSelectedPatientId();
+		// 空目录只清空当前页面的展示上下文，不删除本地已选 ID。否则 provider
+		// 短暂空响应恢复后，解析器会把用户误当作“从未选择”，自动切换到第一位。
+		// 会话失效和明确清理仍由 clearPatientContext 负责。
 		const resolution = resolveStoredPatientSelection(patients);
 		const selectedPatient = resolution.patient ?? null;
 		const selectedPatientId =
