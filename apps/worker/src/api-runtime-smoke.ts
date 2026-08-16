@@ -16,7 +16,7 @@ export type RuntimeSmokeFetcher = (
 ) => Promise<Response>;
 
 export type RuntimeSmokeCheck = {
-	name: "health-live" | "health-ready" | "system-ping";
+	name: "health-live" | "health-ready" | "system-ping" | "auth-boundary";
 	status: "passed" | "warning" | "failed";
 	statusCode?: number;
 	details?: readonly string[];
@@ -98,6 +98,40 @@ function responseService(data: unknown): unknown {
 	}
 	return (data as { service?: unknown }).service;
 }
+
+function responseErrorCode(body: unknown): unknown {
+	if (typeof body !== "object" || body === null || Array.isArray(body)) {
+		return undefined;
+	}
+	const error = (body as { error?: unknown }).error;
+	if (typeof error !== "object" || error === null || Array.isArray(error)) {
+		return undefined;
+	}
+	return (error as { code?: unknown }).code;
+}
+
+/**
+ * 这些路径使用合法的最小查询参数，但不携带会话，专门验证认证边界。
+ * 如果省略查询参数，Elysia 会先返回 validation；那只能证明输入校验，
+ * 不能证明未登录请求被认证层拒绝，所以这里不能用空 query 做验收。
+ */
+const AUTH_BOUNDARY_ROUTES = [
+	{ name: "me", path: "/me" },
+	{ name: "patients", path: "/patients" },
+	{ name: "appointment-departments", path: "/appointments/departments" },
+	{
+		name: "appointment-records",
+		path: "/appointments/records?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
+	},
+	{
+		name: "reports",
+		path: "/reports?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
+	},
+	{
+		name: "outpatient-payments",
+		path: "/payments/outpatient/records?patientId=runtime-smoke-patient&status=unpaid",
+	},
+] as const;
 
 /**
  * 健康接口是瞬时探针，发布 smoke 必须确认反向代理没有移除 no-store。
@@ -189,6 +223,33 @@ export async function runApiRuntimeSmoke(
 			traceId,
 			cacheControl: response.headers.get("cache-control"),
 		};
+	}
+
+	async function getUnauthorized(path: string): Promise<{
+		body: unknown;
+		statusCode: number;
+		traceId: string;
+	}> {
+		const traceId = traceIdFactory();
+		const route = apiRoute(apiPrefix, path);
+		const response = await fetcher(`${baseUrl}${route}`, {
+			method: "GET",
+			signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
+			headers: {
+				accept: "application/json",
+				"x-request-id": traceId,
+			},
+		});
+		let body: unknown;
+		try {
+			body = await response.json();
+		} catch {
+			throw new RuntimeSmokeRequestError(
+				`Protected route ${path} returned invalid JSON`,
+				response.status,
+			);
+		}
+		return { body, statusCode: response.status, traceId };
 	}
 
 	async function check(
@@ -309,6 +370,39 @@ export async function runApiRuntimeSmoke(
 			status: "passed",
 			statusCode: result.statusCode,
 			traceId: result.traceId,
+		};
+	});
+
+	await check("auth-boundary", async () => {
+		const failures: string[] = [];
+		let statusCode: number | undefined;
+		let traceId: string | undefined;
+
+		for (const route of AUTH_BOUNDARY_ROUTES) {
+			try {
+				const result = await getUnauthorized(route.path);
+				statusCode ??= result.statusCode;
+				traceId = result.traceId;
+				if (result.statusCode !== 401) {
+					failures.push(`${route.name}:http-${result.statusCode}`);
+					continue;
+				}
+				if (responseErrorCode(result.body) !== "unauthorized") {
+					failures.push(`${route.name}:error-code`);
+				}
+			} catch (error) {
+				failures.push(
+					`${route.name}:${error instanceof Error ? error.name : "UnknownError"}`,
+				);
+			}
+		}
+
+		return {
+			name: "auth-boundary",
+			status: failures.length > 0 ? "failed" : "passed",
+			...(failures.length > 0 ? { details: failures } : {}),
+			...(statusCode === undefined ? {} : { statusCode }),
+			...(traceId ? { traceId } : {}),
 		};
 	});
 

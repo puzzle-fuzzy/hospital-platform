@@ -12,6 +12,19 @@ function jsonResponse(
 	});
 }
 
+function unauthorizedResponse(): Response {
+	return jsonResponse(
+		{
+			success: false,
+			error: {
+				code: "unauthorized",
+				message: "请先登录后再继续操作",
+			},
+		},
+		401,
+	);
+}
+
 test("runtime smoke verifies platform health without auth or provider calls", async () => {
 	const requests: Array<{
 		url: string;
@@ -38,10 +51,13 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 					"cache-control": "no-store",
 				});
 			}
-			return jsonResponse({
-				success: true,
-				data: { service: "hospital-api", apiVersion: "0.1.0" },
-			});
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
 		},
 	});
 
@@ -51,6 +67,7 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 			{ name: "health-live", status: "passed" },
 			{ name: "health-ready", status: "passed" },
 			{ name: "system-ping", status: "passed" },
+			{ name: "auth-boundary", status: "passed" },
 		],
 	});
 	expect(requests).toEqual([
@@ -66,6 +83,36 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 		},
 		{
 			url: "https://hospital.example.test/api/v1/system/ping",
+			method: "GET",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/me",
+			method: "GET",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/patients",
+			method: "GET",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/appointments/departments",
+			method: "GET",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/appointments/records?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
+			method: "GET",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/reports?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
+			method: "GET",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/payments/outpatient/records?patientId=runtime-smoke-patient&status=unpaid",
 			method: "GET",
 			authorization: null,
 		},
@@ -94,10 +141,13 @@ test("runtime smoke uses the public v2 prefix when explicitly requested", async 
 					"cache-control": "no-store",
 				});
 			}
-			return jsonResponse({
-				success: true,
-				data: { service: "hospital-api", apiVersion: "0.1.0" },
-			});
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
 		},
 	});
 
@@ -113,6 +163,30 @@ test("runtime smoke uses the public v2 prefix when explicitly requested", async 
 		},
 		{
 			url: "https://hospital.example.test/api/v2/system/ping",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/me",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/patients",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/appointments/departments",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/appointments/records?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/reports?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/payments/outpatient/records?patientId=runtime-smoke-patient&status=unpaid",
 			authorization: null,
 		},
 	]);
@@ -131,10 +205,13 @@ test("runtime smoke fails when a public health path loses no-store", async () =>
 					"cache-control": "no-store",
 				});
 			}
-			return jsonResponse({
-				success: true,
-				data: { service: "hospital-api", apiVersion: "0.1.0" },
-			});
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
 		},
 	});
 
@@ -163,10 +240,13 @@ test("runtime smoke reports not-ready as a warning in observation mode", async (
 					{ "cache-control": "no-store" },
 				);
 			}
-			return jsonResponse({
-				success: true,
-				data: { service: "hospital-api", apiVersion: "0.1.0" },
-			});
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
 		},
 	});
 
@@ -196,10 +276,13 @@ test("runtime smoke requires ready for release acceptance", async () => {
 					{ "cache-control": "no-store" },
 				);
 			}
-			return jsonResponse({
-				success: true,
-				data: { service: "hospital-api", apiVersion: "0.1.0" },
-			});
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
 		},
 	});
 
@@ -208,6 +291,45 @@ test("runtime smoke requires ready for release acceptance", async () => {
 		name: "health-ready",
 		status: "failed",
 		details: ["RuntimeSmokeRequestError"],
+	});
+});
+
+test("runtime smoke fails when a protected route is not rejected by authentication", async () => {
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			if (url.endsWith("/me")) {
+				return jsonResponse({
+					success: true,
+					data: { items: [], total: 0 },
+				});
+			}
+			return unauthorizedResponse();
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-1)).toMatchObject({
+		name: "auth-boundary",
+		status: "failed",
+		details: ["me:http-200"],
 	});
 });
 
