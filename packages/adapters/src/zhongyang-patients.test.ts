@@ -148,6 +148,61 @@ test("众阳患者目录拒绝重复 provider 患者号且不继续查询档案"
 	]);
 });
 
+test("众阳患者目录拒绝重复 HIS 患者引用", async () => {
+	const requestUrls: string[] = [];
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			requestUrls.push(requestUrl);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: { patId: "his-patient-duplicate" },
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "archive-request-duplicate" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-001",
+							patientName: "张三",
+							medicalCardNo: "",
+							cardNo: "fallback-card-001",
+						},
+						{
+							thirdPatientId: "directory-patient-002",
+							patientName: "李四",
+							medicalCardNo: "card-002",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "duplicate-his-request" } },
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "zhongyang",
+		operation: "patient-list",
+		requestId: "duplicate-his-request",
+		retryable: false,
+	});
+	// 空的 medicalCardNo 必须允许旧端约定的 cardNo 兜底；本用例同时确认
+	// 该目录在映射冲突时不会进入成功响应或持久化层。
+	expect(requestUrls).toHaveLength(3);
+});
+
 test("众阳患者目录缺少服务端身份时不会调用 provider", async () => {
 	let called = false;
 	const gateway = createZhongyangPatientGateway({

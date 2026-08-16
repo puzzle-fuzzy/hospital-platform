@@ -96,6 +96,15 @@ function maskCardNumber(value: unknown): string {
 	return `${normalized.slice(0, prefixLength)}${"*".repeat(maskLength)}${normalized.slice(-suffixLength)}`;
 }
 
+/** 按 provider 旧端约定选择第一个非空卡号，空字符串不能遮蔽有效兜底值。 */
+function firstNonBlank(...values: unknown[]): unknown {
+	return values.find(
+		(value) =>
+			(typeof value === "string" || typeof value === "number") &&
+			String(value).trim().length > 0,
+	);
+}
+
 function relationship(value: unknown): PatientRelationship {
 	const normalized =
 		typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -170,6 +179,37 @@ function ensureUniqueProviderPatientIds(
 	}
 }
 
+/**
+ * 拒绝不同目录患者共享同一个临床档案引用。
+ *
+ * 目录患者和 HIS 档案是两层标识，正常情况下应当是一对一映射；如果两个
+ * 目录对象共用一个 `patId`，后续预约、报告或费用查询可能在用户切换患者后
+ * 读取同一份临床数据。无法确认 provider 的真实归并语义时，宁可整次同步失败，
+ * 也不能把潜在的错患者数据当成可用映射写入平台。
+ */
+function ensureUniqueHisPatientIds(
+	patients: readonly PatientDirectoryProfile[],
+	requestId: string,
+): void {
+	const seen = new Set<string>();
+	for (const patient of patients) {
+		const hisPatientId = patient.providerReferences?.["his-patient"];
+		if (!hisPatientId) {
+			throw providerError(
+				"Zhongyang patient response did not contain a HIS patient reference",
+				requestId,
+			);
+		}
+		if (seen.has(hisPatientId)) {
+			throw providerError(
+				"Zhongyang patient response contained duplicate HIS patient references",
+				requestId,
+			);
+		}
+		seen.add(hisPatientId);
+	}
+}
+
 function mapPatient(value: ZhongyangPatientResponse): PatientDirectoryProfile {
 	const providerPatientId = requiredText(
 		value.thirdPatientId,
@@ -178,7 +218,7 @@ function mapPatient(value: ZhongyangPatientResponse): PatientDirectoryProfile {
 	);
 	const displayName = requiredText(value.patientName, "patientName", 128);
 	// 旧端患者选择流程明确优先 medicalCardNo；cardNo 只作为旧数据兜底。
-	const card = value.medicalCardNo ?? value.cardNo;
+	const card = firstNonBlank(value.medicalCardNo, value.cardNo);
 	return {
 		providerPatientId,
 		displayName,
@@ -203,7 +243,7 @@ async function resolveHisPatientId(
 ): Promise<string> {
 	const operation = "patient-archive";
 	const card = requiredText(
-		value.medicalCardNo ?? value.cardNo,
+		firstNonBlank(value.medicalCardNo, value.cardNo),
 		"medicalCardNo",
 		128,
 	);
@@ -335,6 +375,9 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 				};
 			}),
 		);
+		// provider 档案查询完成后再校验第二层标识的一对一关系；只有两层
+		// 标识都没有重复，才允许把完整快照交给 service 和持久化层。
+		ensureUniqueHisPatientIds(patients, response.requestId);
 		return {
 			// 当前 provider 响应没有分页游标；只有完整数组才可驱动目录失效回收。
 			complete: true,
