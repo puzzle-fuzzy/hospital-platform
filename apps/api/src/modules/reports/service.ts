@@ -149,6 +149,11 @@ export class ReportService {
 				},
 				context,
 			);
+			// 一次目录响应代表同一个 provider 观察快照；所有短期详情引用必须
+			// 使用同一个服务端时间样本计算 TTL。若在每条报告上分别读取时钟，
+			// 批量处理跨过时间边界时会产生不同的 expiresAt，甚至让同一批刚返回
+			// 的报告出现“一个可点、一个已过期”的不可解释结果。
+			const observedNow = this.now();
 			const items = await Promise.all(
 				result.reports.map(async (entry) => {
 					if (
@@ -162,9 +167,6 @@ export class ReportService {
 						// 不能把“详情不可用”扩大成“整批报告不可用”。
 						return entry.summary;
 					}
-					// 目录返回的每条报告引用都使用应用服务同一时钟，避免批量处理
-					// 时跨越边界或测试时钟漂移，造成 TTL 计算不一致。
-					const now = this.now();
 					const reference = await this.dependencies.references.upsert({
 						reportId: reportReferenceId(
 							ownerUserId,
@@ -177,9 +179,9 @@ export class ReportService {
 						kind: "laboratory",
 						providerReportId: entry.providerReportId,
 						expiresAt: new Date(
-							now.getTime() + REPORT_REFERENCE_TTL_MS,
+							observedNow.getTime() + REPORT_REFERENCE_TTL_MS,
 						).toISOString(),
-						createdAt: now.toISOString(),
+						createdAt: observedNow.toISOString(),
 					});
 					return { reportId: reference.reportId, ...entry.summary };
 				}),

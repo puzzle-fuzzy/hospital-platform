@@ -263,6 +263,93 @@ test("报告详情引用的 TTL 使用注入的服务端时间基准", async () 
 	expect(captured.lookupAt).toBe(fixedNow.toISOString());
 });
 
+test("报告目录批量引用共享同一次观察时钟", async () => {
+	let nowCalls = 0;
+	const captured: Array<{ createdAt: string; expiresAt: string }> = [];
+	const fixedNow = new Date("2026-08-16T00:00:00.000Z");
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory" as const,
+							title: "血常规",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available" as const,
+							hasAttachment: false,
+						},
+						providerReportId: "provider-report-001",
+					},
+					{
+						summary: {
+							kind: "laboratory" as const,
+							title: "肝功能",
+							reportedAt: "2026-08-15 10:01:00",
+							status: "available" as const,
+							hasAttachment: false,
+						},
+						providerReportId: "provider-report-002",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "directory-clock-shared",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => {
+				throw new Error("详情不应在本测试中调用");
+			},
+		},
+		references: {
+			upsert: async (input) => {
+				captured.push({
+					createdAt: input.createdAt ?? "",
+					expiresAt: input.expiresAt,
+				});
+				return {
+					...input,
+					createdAt: input.createdAt ?? fixedNow.toISOString(),
+				};
+			},
+			findByOwnerAndId: async () => undefined,
+		},
+		now: () => {
+			nowCalls += 1;
+			return new Date(fixedNow);
+		},
+	});
+
+	await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-clock-shared",
+			idempotencyKey: "key-report-clock-shared",
+		},
+	);
+
+	expect(nowCalls).toBe(1);
+	expect(captured).toHaveLength(2);
+	expect(new Set(captured.map(({ createdAt }) => createdAt))).toEqual(
+		new Set([fixedNow.toISOString()]),
+	);
+	expect(new Set(captured.map(({ expiresAt }) => expiresAt))).toEqual(
+		new Set([new Date(fixedNow.getTime() + 10 * 60 * 1000).toISOString()]),
+	);
+});
+
 test("report directory keeps a summary when a provider detail reference is missing", async () => {
 	const summary = {
 		kind: "laboratory" as const,
