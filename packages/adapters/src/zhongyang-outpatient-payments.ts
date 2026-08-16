@@ -71,6 +71,7 @@ function textField(
 	value: unknown,
 	field: string,
 	requestId: string,
+	maxLength: number,
 ): string | undefined {
 	if (value === undefined || value === null) return undefined;
 	if (typeof value !== "string" && typeof value !== "number") {
@@ -80,7 +81,7 @@ function textField(
 		);
 	}
 	const normalized = String(value).trim();
-	if (!normalized || normalized.length > 256) {
+	if (!normalized || normalized.length > maxLength) {
 		throw providerError(
 			`Zhongyang outpatient field ${field} is invalid`,
 			requestId,
@@ -191,7 +192,9 @@ function mapRecord(
 	status: OutpatientPaymentStatus,
 	requestId: string,
 ): OutpatientPaymentRecord {
-	const billDate = textField(item.billDate, "billDate", requestId);
+	// 这里直接复用公开 contract 的上限：异常 provider 文本必须在 adapter
+	// 边界被拒绝，不能等到 Elysia 响应校验阶段才变成难定位的 500。
+	const billDate = textField(item.billDate, "billDate", requestId, 64);
 	if (!billDate) {
 		throw providerError("Zhongyang outpatient billDate is missing", requestId);
 	}
@@ -199,11 +202,13 @@ function mapRecord(
 		item.billDeptName ?? item.registerDept,
 		"departmentName",
 		requestId,
+		128,
 	);
 	const doctorName = textField(
 		item.registerDoctor ?? item.billDocName,
 		"doctorName",
 		requestId,
+		128,
 	);
 	return {
 		recordId: opaqueRecordId(item, requestId),
