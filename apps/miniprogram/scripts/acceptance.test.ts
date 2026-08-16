@@ -263,21 +263,13 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	// WXML disabled 只能降低重复点击概率，不能约束生命周期回调或真机重复事件。
 	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
 	expect(home).toContain(
-		"let patientSyncInFlight: Promise<Array<Patient>> | undefined;",
+		"const patientSyncFlight = createSingleFlight<Array<Patient>>();",
 	);
-	expect(home).toContain(
-		"if (patientSyncInFlight) return patientSyncInFlight;",
-	);
-	expect(home).toContain("patientSyncInFlight = syncRequest;");
-	expect(home).toContain("patientSyncInFlight = undefined;");
+	expect(home).toContain("return patientSyncFlight.run(() => {");
 	expect(selection).toContain(
-		"let patientSyncInFlight: Promise<void> | undefined;",
+		"const patientSyncFlight = createSingleFlight<void>();",
 	);
-	expect(selection).toContain(
-		"if (patientSyncInFlight) return patientSyncInFlight;",
-	);
-	expect(selection).toContain("patientSyncInFlight = syncRequest;");
-	expect(selection).toContain("patientSyncInFlight = undefined;");
+	expect(selection).toContain("return patientSyncFlight.run(() => {");
 });
 
 test("native my page separates ordinary profile from family patient selection", async () => {

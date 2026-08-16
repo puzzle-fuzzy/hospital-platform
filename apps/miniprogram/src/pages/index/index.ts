@@ -16,6 +16,7 @@ import {
 	restorePlatformSession,
 	signInPlatformSession,
 } from "../../services/session-service";
+import { createSingleFlight } from "../../services/single-flight";
 import type {
 	ActionEvent,
 	IndexEvent,
@@ -222,7 +223,7 @@ let isFirstShow = true;
  * 可能在同一时间到达，但只能让一个同步请求进入 provider。这个客户端锁
  * 只减少重复请求和无意义的 409，真正的跨进程幂等仍由服务端 operation ledger 保证。
  */
-let patientSyncInFlight: Promise<Array<Patient>> | undefined;
+const patientSyncFlight = createSingleFlight<Array<Patient>>();
 
 Page<IndexPageData, IndexPageMethods>({
 	data: {
@@ -459,40 +460,36 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onSyncPatients(): Promise<Array<Patient>> {
-		if (patientSyncInFlight) return patientSyncInFlight;
-
-		const requestToken = patientDataGuard.begin();
-		const loadingToken = syncLoadingGuard.begin();
-		this.setData({ syncingPatients: true, error: "" });
-		const syncRequest = syncPatientsFromHospital(`patient-sync-${Date.now()}`)
-			.then((patients) => {
-				if (!patientDataGuard.isCurrent(requestToken)) return patients;
-				this.setPatientsFromPayload(patients);
-				if (patients.length === 0) {
-					this.showError(
-						new ApiError("当前微信账号暂无绑定的就诊人", {
-							code: "patient-not-bound",
-						}),
-						"就诊人同步失败",
-					);
-				}
-				return patients;
-			})
-			.catch((error) => {
-				if (patientDataGuard.isCurrent(requestToken)) {
-					this.showError(error, "就诊人同步失败");
-				}
-				return [];
-			})
-			.finally(() => {
-				if (syncLoadingGuard.isCurrent(loadingToken)) {
-					this.setData({ syncingPatients: false });
-				}
-				// 本次同步完成后必须释放单飞锁，否则后续下拉刷新会永久复用旧 Promise。
-				patientSyncInFlight = undefined;
-			});
-		patientSyncInFlight = syncRequest;
-		return syncRequest;
+		return patientSyncFlight.run(() => {
+			const requestToken = patientDataGuard.begin();
+			const loadingToken = syncLoadingGuard.begin();
+			this.setData({ syncingPatients: true, error: "" });
+			return syncPatientsFromHospital(`patient-sync-${Date.now()}`)
+				.then((patients) => {
+					if (!patientDataGuard.isCurrent(requestToken)) return patients;
+					this.setPatientsFromPayload(patients);
+					if (patients.length === 0) {
+						this.showError(
+							new ApiError("当前微信账号暂无绑定的就诊人", {
+								code: "patient-not-bound",
+							}),
+							"就诊人同步失败",
+						);
+					}
+					return patients;
+				})
+				.catch((error) => {
+					if (patientDataGuard.isCurrent(requestToken)) {
+						this.showError(error, "就诊人同步失败");
+					}
+					return [];
+				})
+				.finally(() => {
+					if (syncLoadingGuard.isCurrent(loadingToken)) {
+						this.setData({ syncingPatients: false });
+					}
+				});
+		});
 	},
 
 	onLoadAppointments() {

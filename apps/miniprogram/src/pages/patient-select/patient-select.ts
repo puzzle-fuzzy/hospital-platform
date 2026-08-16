@@ -10,6 +10,7 @@ import {
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { createSingleFlight } from "../../services/single-flight";
 import type {
 	Patient,
 	PatientEvent,
@@ -48,7 +49,7 @@ const syncGuard = createLatestRequestGuard();
  * 自动同步和用户手动刷新可能同时触发；同一页面只允许一个同步请求进入 provider。
  * 服务端仍以 owner + Idempotency-Key 做最终幂等，这里是防止真机重复事件的第一层保护。
  */
-let patientSyncInFlight: Promise<void> | undefined;
+const patientSyncFlight = createSingleFlight<void>();
 
 function toPatientSelectionView(patient: Patient): PatientSelectionView {
 	return {
@@ -145,45 +146,39 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。 */
 	onSyncPatients(): Promise<void> {
-		if (patientSyncInFlight) return patientSyncInFlight;
-
-		const dataToken = directoryDataGuard.begin();
-		const syncToken = syncGuard.begin();
-		this.setData({ syncing: true, error: "" });
-		const syncRequest = syncPatientsFromHospital(
-			`patient-selection-sync-${Date.now()}`,
-		)
-			.then((patients) => {
-				if (
-					!directoryDataGuard.isCurrent(dataToken) ||
-					!syncGuard.isCurrent(syncToken)
-				) {
-					return;
-				}
-				this.setPatientList(patients);
-				if (patients.length === 0) {
-					this.showError(
-						new ApiError("当前微信账号暂无绑定的就诊人", {
-							code: "patient-not-bound",
-						}),
-						"就诊人同步失败",
-					);
-				}
-			})
-			.catch((error) => {
-				if (syncGuard.isCurrent(syncToken)) {
-					this.showError(error, "就诊人同步失败");
-				}
-			})
-			.finally(() => {
-				if (syncGuard.isCurrent(syncToken)) {
-					this.setData({ syncing: false });
-				}
-				// 释放本次同步的单飞锁，允许用户下一次主动刷新真实读取最新目录。
-				patientSyncInFlight = undefined;
-			});
-		patientSyncInFlight = syncRequest;
-		return syncRequest;
+		return patientSyncFlight.run(() => {
+			const dataToken = directoryDataGuard.begin();
+			const syncToken = syncGuard.begin();
+			this.setData({ syncing: true, error: "" });
+			return syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
+				.then((patients) => {
+					if (
+						!directoryDataGuard.isCurrent(dataToken) ||
+						!syncGuard.isCurrent(syncToken)
+					) {
+						return;
+					}
+					this.setPatientList(patients);
+					if (patients.length === 0) {
+						this.showError(
+							new ApiError("当前微信账号暂无绑定的就诊人", {
+								code: "patient-not-bound",
+							}),
+							"就诊人同步失败",
+						);
+					}
+				})
+				.catch((error) => {
+					if (syncGuard.isCurrent(syncToken)) {
+						this.showError(error, "就诊人同步失败");
+					}
+				})
+				.finally(() => {
+					if (syncGuard.isCurrent(syncToken)) {
+						this.setData({ syncing: false });
+					}
+				});
+		});
 	},
 
 	onPullDownRefresh(): void {
