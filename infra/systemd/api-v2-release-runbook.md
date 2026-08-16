@@ -137,3 +137,9 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 [`candidate-86cae9a-production-smoke-2026-08-16.md`](../../docs/release/candidate-86cae9a-production-smoke-2026-08-16.md)。
 由于窄权限尚未配置，尚不能执行本手册的公网切换步骤。前一候选证据见
 [`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
+
+2026-08-16 19:05-19:07 CST：候选 `e660ccb` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
+使用 `shared/api.env` 的真实生产 env preflight 通过，候选 API 在 `18082` 完成 production mode、
+MySQL/Redis/schema、no-store、`/api/v1/system/ping` 和未登录 `401` smoke，随后已停止临时进程。
+`current=55fce6c`、新 API `18081` 和旧 Python `8001` 全程未改变。完整证据见
+[`../../docs/release/candidate-e660ccb-production-smoke-2026-08-16.md`](../../docs/release/candidate-e660ccb-production-smoke-2026-08-16.md)。
