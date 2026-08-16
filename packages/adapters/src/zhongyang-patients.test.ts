@@ -103,6 +103,51 @@ test("众阳患者目录拒绝业务失败响应", async () => {
 	});
 });
 
+test("众阳患者目录拒绝重复 provider 患者号且不继续查询档案", async () => {
+	const requestUrls: string[] = [];
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			requestUrls.push(requestUrl);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "patient-duplicate",
+							patientName: "张三",
+							medicalCardNo: "card-001",
+						},
+						{
+							thirdPatientId: "patient-duplicate",
+							patientName: "李四",
+							medicalCardNo: "card-002",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "duplicate-patient-request" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "zhongyang",
+		operation: "patient-list",
+		requestId: "duplicate-patient-request",
+		retryable: false,
+	});
+	expect(requestUrls).toEqual([
+		"https://zhongyang.example.test/api/public/patientInfoByUnionId?unionId=union-001",
+	]);
+});
+
 test("众阳患者目录缺少服务端身份时不会调用 provider", async () => {
 	let called = false;
 	const gateway = createZhongyangPatientGateway({

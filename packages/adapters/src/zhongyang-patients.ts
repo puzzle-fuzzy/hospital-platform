@@ -139,6 +139,37 @@ function responseItems(
 	return envelope.data as ZhongyangPatientResponse[];
 }
 
+/**
+ * 拒绝同一完整目录中的重复 provider 患者号。
+ *
+ * 后续持久化以 providerPatientId 作为 owner/provider 下的稳定匹配键；如果
+ * 这里放过重复值，多个 provider 对象会在 upsert 时合并成一条记录，最后一条
+ * 资料可能静默覆盖姓名、关系、卡号或 HIS 映射。这个结果既无法判断哪一条
+ * 是权威事实，也不能安全触发目录失效回收，所以必须把整个快照判为非法。
+ */
+function ensureUniqueProviderPatientIds(
+	items: readonly ZhongyangPatientResponse[],
+	requestId: string,
+): void {
+	const seen = new Set<string>();
+	for (const item of items) {
+		const providerPatientId = requiredText(
+			item.thirdPatientId,
+			"thirdPatientId",
+			128,
+			"patient-list",
+			requestId,
+		);
+		if (seen.has(providerPatientId)) {
+			throw providerError(
+				"Zhongyang patient response contained duplicate patient ids",
+				requestId,
+			);
+		}
+		seen.add(providerPatientId);
+	}
+}
+
 function mapPatient(value: ZhongyangPatientResponse): PatientDirectoryProfile {
 	const providerPatientId = requiredText(
 		value.thirdPatientId,
@@ -283,6 +314,9 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 			this.fetcher,
 		);
 		const items = responseItems(response.data, response.requestId);
+		// 先验证整个目录的主键唯一性，再访问每个患者的档案接口；否则
+		// 重复数据会造成额外 provider 请求，并在持久化层发生不确定覆盖。
+		ensureUniqueProviderPatientIds(items, response.requestId);
 		// 患者数量通常很少，按患者并行解析一次临床档案身份，避免把
 		// thirdPatientId 错当成预约、报告和门诊费用接口的 patId。
 		const patients = await Promise.all(
