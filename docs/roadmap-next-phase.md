@@ -51,6 +51,7 @@
 - 2026-08-16 已为 `ps` 安装新 API 的窄权限 systemd NOPASSWD 规则，并验证 API `is-active` 可无密码执行、worker 不在授权范围；随后候选 `d177991` 已完成固定、临时 smoke、原子切换和公网 no-store 验收，旧 Python `8001` 保持运行。权限证据见 [`release/systemd-narrow-permission-acceptance-2026-08-16.md`](release/systemd-narrow-permission-acceptance-2026-08-16.md)，切换证据见 [`release/candidate-d177991-production-acceptance-2026-08-16.md`](release/candidate-d177991-production-acceptance-2026-08-16.md)。
 - 2026-08-16 收到 2.6.7 挂号登记、2.10.4.2 支付挂号和 2.6.65.7 外部退款 Provider 文档，已完成脱敏元数据、字段、状态和依赖标准化，记录见 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。由于执行预约、排班/号源、患者档案、支付登记和退款查单文档缺失，当前状态保持 `normalized`，没有把预约写入、支付挂号或退款误标为已迁移。
 - 候选 `d8f14f1` 已完成患者归属门禁的代码测试、真实生产 env preflight 和临时 production runtime smoke，但没有切换公网 `current`；真实 session、Provider 只读业务和真机证据仍待完成。证据见 [`release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md)。
+- 2026-08-16 21:00-22:00 CST 复核当前 `d177991` 启动后的真实日志：没有出现当前 release 的微信、患者、预约、报告或门诊费用业务事件；MySQL 与 Schema 探针发生三次同步瞬态不可用后恢复，Redis 始终正常。该证据不能替代真实业务验收，详见 [`release/current-d177991-observability-acceptance-2026-08-16.md`](release/current-d177991-observability-acceptance-2026-08-16.md)。
 
 ### 当前已验证的问题
 
@@ -61,6 +62,7 @@
 - 2026-08-16 已定位并修复预约科室/排班目录错误：科室接口需要日期窗口，排班响应中的 `remainingNumber` 可能为 `null`，服务端现使用真实的 `usableSourceNum` 映射可用号源；线上新版本已直接回归科室和排班 provider。
 - 预约历史的标识根因已经确认：患者目录的 `thirdPatientId` 不能直接当作预约历史接口的患者标识；新代码已增加 `patInfosFind` 档案查询和 `his-patient` 独立映射，release `b1b84d7` 与 `ca3a877` 已上线，`0012_patient_provider_references`、`0013_patient_directory_snapshot` 均通过生产 schema probe，仍需重新同步真实账号并完成公网业务 smoke/真机验收。
 - 预约写号、锁号、取消、实际挂号费、医保和微信支付不能仅凭旧页面字段直接开放；仍需 provider 合同和脱敏 fixture。
+- 当前优先级上调为“持久化稳定性观察 → 当前 release 真实只读业务验收”：readiness 只能在 `database/redis/schema` 连续稳定后作为验收前置，不能把历史 release 的业务日志或一次 preflight 通过当成当前版本成功。
 
 ## 业务实施顺序
 

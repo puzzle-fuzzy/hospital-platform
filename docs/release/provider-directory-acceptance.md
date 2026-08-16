@@ -18,6 +18,11 @@
 `ZHONGYANG_REPORT_DETAIL_READY`、`ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是六个独立 gate。
 共享连接地址不代表共享验收结果。
 
+当前 release 的业务证据必须按进程启动时间隔离：2026-08-16 20:41:28 CST 之后的
+`d177991` 日志窗口尚未出现上述业务事件；此前同一 unit 的历史事件不能回填当前 release
+的真实验收。期间 MySQL/Schema 探针曾瞬态不可用，当前已恢复，详见
+[`current-d177991-observability-acceptance-2026-08-16.md`](current-d177991-observability-acceptance-2026-08-16.md)。
+
 所有患者作用域能力都必须经过同一条 owner 目录门禁：smoke 先用当前平台 Bearer
 读取 `GET /patients`，只接受响应 `data.items[].id` 中的内部患者 ID；只有
 `HOSPITAL_PATIENT_ID` 出现在这次会话目录中，才允许继续请求预约记录、门诊费用或报告。
