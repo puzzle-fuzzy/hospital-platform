@@ -64,6 +64,7 @@
 - `/health/ready` 正确返回 `database=unavailable、redis=ok、schema=unavailable`，服务保持 fail-closed；
 - readiness 恢复后再次检查返回 `database=ok、redis=ok、schema=ok`；
 - 使用真实生产环境变量运行只读 preflight，MySQL、Redis 和 `0015_patient_directory_sync_operations` schema probe 均通过；22:05:35 CST 的新建连接池 preflight 先于 API 连接池在 22:05:59 CST 恢复。
+- 22:07:39 至 22:08:31 CST 的 6 次、每 10 秒一次的短时 readiness 观察均为 `ready`；这只证明恢复后的短窗口，不足以替代更长时间的稳定性观察。
 
 日志只保留了低敏的依赖名、操作名和通用错误类型 `Error`，没有输出连接串、SQL、账号、密码或 provider 原始错误。因而当前证据只能确认“数据库/Schema 依赖发生瞬态不可用”，不能把根因武断归类为账号错误、网络 ACL、远端数据库重启或连接池问题。
 
@@ -85,7 +86,7 @@
 | 新旧服务共存 | 已验证 | 新 API `18081` 与旧 API `8001` 同时监听 |
 | 当前 release 进程 | 已验证 | `d177991`，production，API active |
 | Redis | 当前窗口已验证 | readiness 和 preflight 均为 `ok` |
-| MySQL/Schema | 瞬态恢复 | 发生四次不可用，最近一次已恢复，仍需稳定性观察 |
+| MySQL/Schema | 瞬态恢复 | 发生四次不可用，最近一次已恢复；短时 6 次探针通过，仍需更长稳定性观察 |
 | 当前 release 微信业务 | 未验收 | 启动后没有 `auth.wechat.*` 事件 |
 | 当前 release 患者/预约/费用业务 | 未验收 | 启动后没有对应业务事件 |
 | 报告/支付/医保/HIS | 保持关闭 | 没有借助健康检查或历史日志提前放开 |
