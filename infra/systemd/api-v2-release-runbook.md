@@ -18,15 +18,28 @@
 ```bash
 visudo -cf /etc/sudoers.d/hospital-platform-api-v2
 chmod 0440 /etc/sudoers.d/hospital-platform-api-v2
-sudo -n -l -U ps
+# -l 需要管理员已有的 sudo 认证，用于人工检查 NOPASSWD 列表
+sudo -S -l -U ps
 ```
 
-验证结果必须同时满足：`ps` 对上述三个新 API 命令显示 `NOPASSWD`，且不包含旧 Python
-unit、worker 或任意通配符命令。若规则校验失败，必须删除未生效的临时文件并停止发布流程。
+验证时只检查 `NOPASSWD` 列表：`ps` 对上述三个新 API 命令显示 `NOPASSWD`，不能出现旧 Python
+unit、worker 或任意通配符命令。账号原有的“输入密码后全权限 sudo”属于既有系统管理权限，不作为本规则
+的发布权限；如果需要收紧该既有权限，必须由服务器管理员另行评估，不能在发布过程中顺手修改。
+
+安装后的无密码 smoke：
+
+```bash
+sudo -n systemctl is-active hospital-platform-api-v2.service
+# 必须返回 active
+sudo -n systemctl is-active hospital-platform-worker-v2.service
+# 必须因未被 NOPASSWD 授权而失败并要求密码；不得执行 worker
+```
 
 不要授予 `systemctl *`、任意命令执行、旧 Python unit 的 stop/restart 权限，也不要把环境文件内容放入
-sudoers、仓库、聊天记录或日志。当前主机尚未安装这条规则，`sudo -n -l` 仍会要求密码，因此不能把本手册
-视为已完成授权。
+sudoers、仓库、聊天记录或日志。若 `visudo` 校验失败，必须删除未生效的临时文件并停止发布流程。
+
+2026-08-16 已在目标主机安装并验证该规则；安装、校验和无密码 smoke 的证据见
+[`docs/release/systemd-narrow-permission-acceptance-2026-08-16.md`](../../docs/release/systemd-narrow-permission-acceptance-2026-08-16.md)。
 
 ## 2. 切换前检查
 
