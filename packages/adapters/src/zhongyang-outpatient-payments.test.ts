@@ -6,7 +6,7 @@ const context = {
 	idempotencyKey: "outpatient-payment-key-001",
 };
 
-test("众阳门诊费用 adapter 只返回脱敏读模型并把元转换为分", async () => {
+test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分", async () => {
 	let requestUrl = "";
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
@@ -23,8 +23,11 @@ test("众阳门诊费用 adapter 只返回脱敏读模型并把元转换为分",
 						{
 							outTradeOrderId: "provider-order-secret",
 							amount: "12.30",
+							// 旧端候选字段即使存在，也不能覆盖 2.6.33 已确认的 amount。
 							waitPayAmount: "3.50",
 							billDeptName: "心内科",
+							registerDept: "未经确认的科室",
+							billDocName: "李医生",
 							registerDoctor: "李医生",
 							billDate: "2026-08-16 09:00:00",
 						},
@@ -58,7 +61,7 @@ test("众阳门诊费用 adapter 只返回脱敏读模型并把元转换为分",
 			departmentName: "心内科",
 			doctorName: "李医生",
 			billDate: "2026-08-16 09:00:00",
-			amountFen: 350,
+			amountFen: 1230,
 		},
 	]);
 	expect(JSON.stringify(result)).not.toContain("provider-order-secret");
@@ -100,7 +103,13 @@ test("众阳门诊费用 adapter 拒绝缺失金额而不是降级为零元", as
 			new Response(
 				JSON.stringify({
 					success: true,
-					data: [{ billDate: "2026-08-16 09:00:00" }],
+					data: [
+						{
+							billDate: "2026-08-16 09:00:00",
+							// 未确认的旧端金额字段不能成为 amount 的 fallback。
+							waitPayAmount: "3.50",
+						},
+					],
 				}),
 				{
 					status: 200,

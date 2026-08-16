@@ -47,9 +47,9 @@ Provider 返回可用数据，或患者端门诊缴费已经完成。下一步�
 再进行受控内网只读联调。
 
 当前差异必须单独记录：旧端 `payment.ts` 和旧门诊缴费页面还使用过 `waitPayAmount`、`registerDept`、
-`registerDoctor`，但本批 2.6.33 输出字段表没有冻结这些字段。新 adapter 暂时只在 adapter 内部读取这些候选字段，
-并且只输出 `amountFen`、`departmentName`、`doctorName` 等公共白名单；这些候选字段不能进入 domain、日志、数据库或
-支付编排。Provider fixture 未确认前，不能把 `waitPayAmount` 视为已确认的最终支付金额，也不能把旧端字段名当成新 contract。
+`registerDoctor`，但本批 2.6.33 输出字段表没有冻结这些字段。新 adapter 不读取这些候选字段，只使用文档确认的
+`amount`、`billDeptName`、`billDocName` 等字段输出公共白名单；Provider fixture 未确认前，不能把旧端字段名当成新
+contract，也不能把候选金额带入支付编排。
 
 ### 3.2 科室与用户资料：可能是动态目录依赖，不直接开放
 

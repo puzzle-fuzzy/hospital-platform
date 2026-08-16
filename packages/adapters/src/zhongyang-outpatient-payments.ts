@@ -16,12 +16,11 @@ const OPERATION = "outpatient-payment-records";
 
 /**
  * 2.6.33 文档明确冻结了 amount、billDeptName、billDocName、billDate 和费用标识等字段。
- * waitPayAmount、registerDept、registerDoctor 只来自旧端类型/调用线索，当前不是新的公共 contract；
- * 因此它们只能在 adapter 内部作为待 Provider fixture 确认的候选字段使用，不能进入 domain、API、日志或支付编排。
+ * waitPayAmount、registerDept、registerDoctor 只来自旧端类型/调用线索，当前不是新的 contract，
+ * 因此故意不读取它们：未确认字段不能参与金额计算、公共展示、日志或未来支付编排。
  */
 type ProviderPaymentItem = {
 	amount?: unknown;
-	waitPayAmount?: unknown;
 	/** 以下字段只用于服务端内部建立稳定费用引用，不进入公共读模型。 */
 	mainId?: unknown;
 	chargeId?: unknown;
@@ -29,8 +28,6 @@ type ProviderPaymentItem = {
 	itemName?: unknown;
 	presCode?: unknown;
 	billDeptName?: unknown;
-	registerDept?: unknown;
-	registerDoctor?: unknown;
 	billDocName?: unknown;
 	billDate?: unknown;
 	outTradeOrderId?: unknown;
@@ -199,29 +196,21 @@ function mapRecord(
 		throw providerError("Zhongyang outpatient billDate is missing", requestId);
 	}
 	const departmentName = textField(
-		item.billDeptName ?? item.registerDept,
+		item.billDeptName,
 		"departmentName",
 		requestId,
 		128,
 	);
-	const doctorName = textField(
-		item.registerDoctor ?? item.billDocName,
-		"doctorName",
-		requestId,
-		128,
-	);
+	const doctorName = textField(item.billDocName, "doctorName", requestId, 128);
 	return {
 		recordId: opaqueRecordId(item, requestId),
 		status,
 		...(departmentName ? { departmentName } : {}),
 		...(doctorName ? { doctorName } : {}),
 		billDate,
-		amountFen: amountFen(
-			status === "unpaid"
-				? (item.waitPayAmount ?? item.amount)
-				: (item.amount ?? item.waitPayAmount),
-			requestId,
-		),
+		// 2.6.33 只确认 amount 为应收金额；不能根据旧端候选字段
+		// waitPayAmount 推导待支付金额，避免将未经 Provider 确认的数值带入公共读模型。
+		amountFen: amountFen(item.amount, requestId),
 	};
 }
 
