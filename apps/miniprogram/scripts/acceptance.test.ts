@@ -272,6 +272,26 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	expect(selection).toContain("return patientSyncFlight.run(() => {");
 });
 
+test("native data pages keep first-show state on the page instance", async () => {
+	const pageFiles = [
+		"pages/index/index.ts",
+		"pages/appointment-records/appointment-records.ts",
+		"pages/missed-appointments/missed-appointments.ts",
+		"pages/report-directory/report-directory.ts",
+		"pages/outpatient-payment/outpatient-payment.ts",
+	] as const;
+
+	for (const file of pageFiles) {
+		const page = await source(file);
+		// 模块级首次展示变量会被多个页面实例共享；这会让页面栈返回时
+		// 漏掉必要刷新或额外刷新。每个页面必须在 data 中保存自己的状态。
+		expect(page).toContain("hasShown: false");
+		expect(page).toContain("if (!this.data.hasShown)");
+		expect(page).toContain("this.setData({ hasShown: true })");
+		expect(page).not.toContain("let isFirstShow");
+	}
+});
+
 test("native my page separates ordinary profile from family patient selection", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");
@@ -676,8 +696,8 @@ test("native homepage reloads the owner directory after returning from patient s
 
 	// 选择页同步后可能让旧患者失效，但本地缓存中的旧 ID 仍会保留到
 	// 用户显式重选；首页不能用“ID 没变化”误判为仍可展示旧患者。
-	expect(home).toContain("let isFirstShow = true");
-	expect(home).toContain("if (isFirstShow)");
+	expect(home).toContain("hasShown: false");
+	expect(home).toContain("if (!this.data.hasShown)");
 	expect(home).toContain("if (!hasPlatformSession())");
 	expect(home).toContain("clearSelectedPatientId();");
 	expect(home).toContain("this.loadPatients().catch((error) =>");

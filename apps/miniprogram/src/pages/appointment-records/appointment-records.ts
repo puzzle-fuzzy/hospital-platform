@@ -27,11 +27,11 @@ const STATUS_LABELS = Object.freeze({
 	unknown: "状态未知",
 } as const);
 
-let isFirstShow = true;
 const loadGuard = createLatestRequestGuard();
 
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
+		hasShown: false,
 		selectedPatient: null,
 		records: [],
 		loading: true,
@@ -39,14 +39,15 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	onLoad() {
-		isFirstShow = true;
+		// 首次展示标记必须绑定当前页面实例，不能让不同页面栈共享状态。
+		this.setData({ hasShown: false });
 		this.loadRecords();
 	},
 
 	/** 从选择页返回后重新读取当前患者的记录；首次 onShow 不重复请求。 */
 	onShow() {
-		if (isFirstShow) {
-			isFirstShow = false;
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
 			return;
 		}
 		this.loadRecords();

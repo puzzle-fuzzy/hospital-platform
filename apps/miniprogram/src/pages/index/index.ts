@@ -216,8 +216,6 @@ type IndexPageMethods = {
 const patientDataGuard = createLatestRequestGuard();
 const healthGuard = createLatestRequestGuard();
 const syncLoadingGuard = createLatestRequestGuard();
-/** 首次 onShow 紧跟 onLoad，不重复读取；从患者选择页返回时必须重新读取目录。 */
-let isFirstShow = true;
 /**
  * 同一首页实例内的患者同步采用单飞语义：自动恢复、用户点击和下拉刷新
  * 可能在同一时间到达，但只能让一个同步请求进入 provider。这个客户端锁
@@ -227,6 +225,7 @@ const patientSyncFlight = createSingleFlight<Array<Patient>>();
 
 Page<IndexPageData, IndexPageMethods>({
 	data: {
+		hasShown: false,
 		status: "加载中",
 		service: "",
 		sessionStatus: SESSION_LABELS.signedOut,
@@ -249,7 +248,9 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onLoad() {
-		isFirstShow = true;
+		// 生命周期状态必须保存在页面实例 data 内；模块热复用或多层页面栈
+		// 不能共享“是否首次展示”的标记。
+		this.setData({ hasShown: false });
 		this.checkHealth();
 		const selectedPatientId = getSelectedPatientId();
 		if (selectedPatientId) this.setData({ selectedPatientId });
@@ -279,8 +280,8 @@ Page<IndexPageData, IndexPageMethods>({
 	 * 之后每次返回都读取最新目录，确保首页不会保留过期的患者上下文。
 	 */
 	onShow() {
-		if (isFirstShow) {
-			isFirstShow = false;
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
 			return;
 		}
 

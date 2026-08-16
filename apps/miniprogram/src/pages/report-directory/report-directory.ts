@@ -1,7 +1,7 @@
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import { loadPatients, loadReports } from "../../services/dashboard-service";
-import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	Report,
 	ReportDirectoryPageData,
@@ -37,11 +37,11 @@ type ReportDirectoryPageMethods = {
 	toView(report: Report): ReportDirectoryView;
 };
 
-let isFirstShow = true;
 const loadGuard = createLatestRequestGuard();
 
 Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	data: {
+		hasShown: false,
 		selectedPatient: null,
 		reports: [],
 		visibleReports: [],
@@ -53,14 +53,15 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	},
 
 	onLoad() {
-		isFirstShow = true;
+		// 首次展示标记必须绑定当前页面实例，避免报告页栈叠加时互相影响。
+		this.setData({ hasShown: false });
 		this.loadPage();
 	},
 
 	/** 从选择页返回后重新加载当前就诊人的报告，避免沿用旧患者结果。 */
 	onShow() {
-		if (isFirstShow) {
-			isFirstShow = false;
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
 			return;
 		}
 		this.loadPage();

@@ -41,9 +41,30 @@ function getStatus(content) {
 	return match?.[1] ?? null;
 }
 
+/**
+ * 每一份原始材料都必须有稳定 documentId；同一份接收记录可以包含多个原始文件，
+ * 但每个 ID 只能在仓库中出现一次。只从同时包含完整 SHA-256 的来源表格行提取，
+ * 避免把接口参数或错误码中的反引号误判成来源 ID。
+ */
+function getDocumentIds(content) {
+	return content.split("\n").flatMap((line) => {
+		const match = line.match(/^\|\s*`([^`]+)`\s*\|/u);
+		return match && /`[a-f0-9]{64}`/iu.test(line) ? [match[1]] : [];
+	});
+}
+
+/** 来源指纹必须是完整 SHA-256，不能用短 hash 或文件大小替代内容指纹。 */
+function getSha256Fingerprints(content) {
+	return [...content.matchAll(/`([a-f0-9]{64})`/giu)].map((match) =>
+		match[1].toLowerCase(),
+	);
+}
+
 function validateDocument(fileName, content, docsReadme) {
 	const errors = [];
 	const status = getStatus(content);
+	const documentIds = getDocumentIds(content);
+	const fingerprints = getSha256Fingerprints(content);
 
 	if (!status) {
 		errors.push("缺少 `> 当前状态：` 状态声明");
@@ -56,6 +77,28 @@ function validateDocument(fileName, content, docsReadme) {
 			errors.push(`缺少${section.label}`);
 		}
 	}
+
+	if (documentIds.length === 0) {
+		errors.push("缺少来源表格中的稳定 `documentId`");
+	} else {
+		for (const documentId of documentIds) {
+			if (!/^[a-z][a-z0-9.]*(?:-[a-z0-9.]+){2,}$/iu.test(documentId)) {
+				errors.push(`documentId 格式不稳定：${JSON.stringify(documentId)}`);
+			}
+		}
+		if (new Set(documentIds).size !== documentIds.length) {
+			errors.push("同一接收记录内存在重复 documentId");
+		}
+	}
+
+	if (fingerprints.length < documentIds.length) {
+		errors.push(
+			`SHA-256 指纹数量不足：documentId=${documentIds.length}，指纹=${fingerprints.length}`,
+		);
+	}
+	if (!/版本|更新时间|发布日期|version/iu.test(content))
+		errors.push("缺少版本、更新时间或发布日期字段");
+	if (!/环境|environment/iu.test(content)) errors.push("缺少适用环境字段");
 
 	// `confirmed` 只能表示有真实证据，不允许仅凭文档解析结果升级。
 	if (status === "confirmed") {
@@ -76,12 +119,13 @@ function validateDocument(fileName, content, docsReadme) {
 		errors.push("未在 docs/README.md 登记入口");
 	}
 
-	return errors;
+	return { errors, documentIds };
 }
 
 const fileNames = await readIntakeDocuments();
 const docsReadme = await readFile(docsReadmePath, "utf8");
 const failures = [];
+const documentOwners = new Map();
 
 if (fileNames.length === 0) {
 	failures.push("docs/provider-intake 目录没有可审计的 Markdown 文档");
@@ -89,8 +133,19 @@ if (fileNames.length === 0) {
 
 for (const fileName of fileNames) {
 	const content = await readFile(join(intakeDirectory, fileName), "utf8");
-	const errors = validateDocument(fileName, content, docsReadme);
-	if (errors.length > 0) failures.push(`${fileName}: ${errors.join("；")}`);
+	const result = validateDocument(fileName, content, docsReadme);
+	if (result.errors.length > 0)
+		failures.push(`${fileName}: ${result.errors.join("；")}`);
+	for (const documentId of result.documentIds) {
+		const previousOwner = documentOwners.get(documentId);
+		if (previousOwner) {
+			failures.push(
+				`${fileName}: documentId ${JSON.stringify(documentId)} 已在 ${previousOwner} 登记`,
+			);
+		} else {
+			documentOwners.set(documentId, fileName);
+		}
+	}
 }
 
 if (failures.length > 0) {
@@ -100,5 +155,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-	`Provider 文档接收审计通过：${fileNames.length} 份文档，状态、来源指纹、冻结边界、脱敏规则和证据入口均已登记`,
+	`Provider 文档接收审计通过：${fileNames.length} 份接收记录、${documentOwners.size} 个 documentId，状态、版本环境、来源指纹、冻结边界、脱敏规则和证据入口均已登记`,
 );

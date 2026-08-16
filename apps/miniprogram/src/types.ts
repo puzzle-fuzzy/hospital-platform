@@ -146,6 +146,8 @@ export type TabBarItem = {
 
 /** 首页所有可渲染状态集中定义，避免 setData 写入未声明字段。 */
 export type IndexPageData = {
+	/** 只属于当前首页实例；首次 onShow 不重复 onLoad 已发起的读取。 */
+	hasShown: boolean;
 	status: string;
 	service: string;
 	sessionStatus: SessionLabel;
@@ -202,6 +204,8 @@ export type AppointmentRecordView = AppointmentRecord & {
 };
 
 export type AppointmentRecordsPageData = {
+	/** 只属于当前页面实例，不能使用模块级变量跨实例共享生命周期状态。 */
+	hasShown: boolean;
 	selectedPatient: Patient | null;
 	records: Array<AppointmentRecordView>;
 	loading: boolean;
@@ -213,6 +217,8 @@ export type AppointmentRecordsPageData = {
  * 单独声明页面状态，避免把“全部挂号记录”和“只看爽约记录”混成一个模板语义。
  */
 export type MissedAppointmentsPageData = {
+	/** 只属于当前页面实例，避免多层页面返回时互相消费首次 onShow 状态。 */
+	hasShown: boolean;
 	selectedPatient: Patient | null;
 	records: Array<AppointmentRecordView>;
 	loading: boolean;
@@ -233,6 +239,8 @@ export type ReportDetailPageData = {
 
 /** 报告目录页的渲染状态；大列表只在页面边界分批展示，不改变服务端查询窗口。 */
 export type ReportDirectoryPageData = {
+	/** 只属于当前页面实例，首次 onShow 不重复 onLoad 已发起的目录读取。 */
+	hasShown: boolean;
 	selectedPatient: Patient | null;
 	reports: Array<ReportDirectoryView>;
 	visibleReports: Array<ReportDirectoryView>;
@@ -245,6 +253,8 @@ export type ReportDirectoryPageData = {
 
 /** 门诊缴费页只读状态；支付写入仍需独立医保/微信结算契约。 */
 export type OutpatientPaymentPageData = {
+	/** 只属于当前页面实例，避免费用页面之间共享首次展示标记。 */
+	hasShown: boolean;
 	selectedPatient: Patient | null;
 	activeStatus: "unpaid" | "paid";
 	items: Array<OutpatientPaymentRecordView>;

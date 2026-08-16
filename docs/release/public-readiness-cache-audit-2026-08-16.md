@@ -28,6 +28,35 @@
 `Cache-Control: no-store` 被拒绝。因此当前公网已能证明基础路由和未登录保护边界，但仍不能通过发布
 缓存门禁，也不能据此证明患者、provider 或真机业务已经迁移。
 
+### 19:59 CST 请求 ID 闭环复核
+
+本轮使用固定请求 ID `codex-ready-20260816-1959` 从公网请求：
+
+```text
+GET https://test-hp.meiyi.pro/api/v2/health/ready
+HTTP 200
+x-request-id: codex-ready-20260816-1959
+```
+
+响应体为：
+
+```json
+{"success":true,"data":{"status":"ready","dependencies":{"database":"ok","redis":"ok","schema":"ok"}}}
+```
+
+随后通过 SSH 直连当前新 API `http://10.0.0.3:18081/health/ready`，得到同样的
+`database=ok`、`redis=ok`、`schema=ok`；systemd journal 中的 Bun 进程 PID `2935571` 同时记录了
+公网请求的 `requestId` 和内网复核的 `requestId`，事件字段包含
+`environment=production`、`path=/health/ready`、`statusCode=200`。因此本次可以确认公网 `/api/v2`
+确实落到当前新 API，而不是仅凭响应内容推断上游。
+
+需要保留两个边界：
+
+1. 19:58 左右曾观察到一次 `HTTP 200 + not_ready(database/schema unavailable)`，一分钟后恢复；这只能记录为
+   readiness 瞬时波动，不能当作稳定性已经证明。
+2. 本次公网响应仍未返回 `Cache-Control: no-store`，所以候选健康探针修复尚未形成生产证据；本轮没有重启、
+   切换 release、修改 Nginx 或修改旧 Python 服务。
+
 ## 2. 当前服务边界
 
 只读 SSH 复核得到：

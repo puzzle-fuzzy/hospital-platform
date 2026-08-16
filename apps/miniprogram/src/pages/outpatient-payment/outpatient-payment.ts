@@ -3,8 +3,8 @@ import {
 	loadOutpatientPaymentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
-import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -27,11 +27,11 @@ type OutpatientPaymentPageMethods = {
 	toView(record: OutpatientPaymentRecord): OutpatientPaymentRecordView;
 };
 
-let isFirstShow = true;
 const loadGuard = createLatestRequestGuard();
 
 Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	data: {
+		hasShown: false,
 		selectedPatient: null,
 		activeStatus: "unpaid",
 		items: [],
@@ -40,13 +40,14 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	},
 
 	onLoad() {
-		isFirstShow = true;
+		// 首次展示标记必须绑定当前页面实例，不能在多层页面栈之间共享。
+		this.setData({ hasShown: false });
 		this.loadPage();
 	},
 
 	onShow() {
-		if (isFirstShow) {
-			isFirstShow = false;
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
 			return;
 		}
 		this.loadPage();

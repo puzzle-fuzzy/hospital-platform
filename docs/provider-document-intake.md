@@ -3,8 +3,9 @@
 本文是新 provider 文档到达后的统一入口。它适用于众阳、HIS、云健康、医保、微信支付、外部小程序和 web-view 服务。
 旧端代码、旧网络请求或某次成功响应只能作为线索，不能单独作为新 contract 的依据。
 
-仓库级结构门禁为 `pnpm provider:audit`，并已纳入 `pnpm check`。它只检查文档是否登记状态、来源指纹、
-脱敏边界、冻结/未开放边界、下一步证据和 `docs/README.md` 入口；不会替代 Provider/院方对业务事实的确认。
+仓库级结构门禁为 `pnpm provider:audit`，并已纳入 `pnpm check`。它检查文档是否登记稳定 `documentId`、版本/适用环境、
+逐文件 SHA-256 指纹、状态、脱敏边界、冻结/未开放边界、下一步证据和 `docs/README.md` 入口，并拒绝跨接收记录重复
+`documentId`；它不会替代 Provider/院方对业务事实的确认。
 
 截至 2026-08-16，最近一批挂号/支付/退款材料的接收记录见
 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。
@@ -29,6 +30,10 @@
 | 范围 | 业务域、接口列表、是否包含回调/状态查询/错误码 |
 | 敏感内容 | 是否含 token、证书、身份证号、卡号、签名原文；敏感值必须先脱敏 |
 | 当前状态 | `received`、`normalized`、`confirmed`、`rejected` 或 `expired` |
+
+`documentId` 是来源材料的稳定主键，不是接口路径、患者号或订单号。一个接收记录可以登记多个原始文件，
+但每个文件必须对应一条唯一 ID 和一个完整 SHA-256；后续重新收到同名文件时，应新建版本化 ID 或先更新
+原记录的来源版本，不得静默覆盖旧指纹。
 
 真实密钥、AppSecret、私钥、证书和完整患者数据不进入 Git；通过受控的环境变量/密钥传输进入运行环境。
 抓包只保留脱敏后的 method、path、必要 header 名、请求字段结构、响应字段结构和状态码。
