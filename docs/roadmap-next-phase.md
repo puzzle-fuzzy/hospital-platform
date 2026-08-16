@@ -126,7 +126,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片、切换就诊人和报告目录，确认页面只显示脱敏卡号与平台摘要；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用已上线的 `b1b84d7` 重新同步真实账号的患者目录，补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用已上线的 `ca3a877` 重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 再处理报告真实 provider 只读验收、医院列表/病历和便民服务逐域迁移；院内导航动态能力必须先取得地图数据与路线 contract；

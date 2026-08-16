@@ -73,6 +73,63 @@ test("provider directory smoke only uses the platform API and verifies safe resp
 	expect(requests[2]?.authorization).toBe("Bearer platform-access-token");
 });
 
+test("provider directory smoke can explicitly verify idempotent patient synchronization", async () => {
+	const requests: Array<{
+		url: string;
+		method: string;
+		idempotencyKey: string | null;
+	}> = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["patient-sync"],
+		traceIdFactory: () => "sync-trace-001",
+		fetcher: async (input, init) => {
+			const headers = new Headers(init?.headers);
+			const url = String(input);
+			requests.push({
+				url,
+				method: init?.method ?? "GET",
+				idempotencyKey: headers.get("idempotency-key"),
+			});
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			return jsonResponse({
+				success: true,
+				data: {
+					items: [
+						{
+							id: "internal-patient-001",
+							displayName: "张三",
+							relationship: "self",
+							cardNumberMasked: "******0001",
+							source: "hospital-his",
+						},
+					],
+					total: 1,
+				},
+			});
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(result.checks.at(-1)).toEqual({
+		name: "patient-sync",
+		status: "passed",
+		itemCount: 1,
+		traceId: "sync-trace-001",
+	});
+	expect(requests.at(-1)).toEqual({
+		url: "https://hospital.example.test/api/v1/patients/sync",
+		method: "POST",
+		idempotencyKey: "provider-smoke-sync-trace-001",
+	});
+});
+
 test("provider smoke accepts only the platform opaque report id and can verify LIS detail", async () => {
 	const requests: string[] = [];
 	const result = await runProviderDirectorySmoke({

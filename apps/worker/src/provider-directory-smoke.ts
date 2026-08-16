@@ -4,8 +4,12 @@ import {
 	createNoopLogger,
 } from "@hospital/observability";
 
-/** 只读 smoke 支持的能力；这里不包含预约写入、取消、锁号或支付。 */
+/**
+ * 目录 smoke 支持的能力；`patient-sync` 是显式开启的幂等 POST，除此之外只读。
+ * 这里不包含预约写入、取消、锁号或支付。
+ */
 export type ProviderSmokeCapability =
+	| "patient-sync"
 	| "patients"
 	| "appointment-directory"
 	| "appointment-records"
@@ -271,13 +275,18 @@ export async function runProviderDirectorySmoke(
 	const capabilities = options.capabilities;
 	const checks: ProviderSmokeCheck[] = [];
 
-	async function getJson(
+	async function requestJson(
 		path: string,
+		method: "GET" | "POST",
+		additionalHeaders: Record<string, string> = {},
+		requestTraceId?: string,
 	): Promise<{ data: unknown; traceId: string }> {
-		const traceId = traceIdFactory();
+		// POST 同步需要让幂等键、x-request-id 和返回证据使用同一个 traceId。
+		const traceId = requestTraceId ?? traceIdFactory();
 		const headers = new Headers({
 			accept: "application/json",
 			"x-request-id": traceId,
+			...additionalHeaders,
 		});
 		// 健康探针不需要身份；只给业务 API 加 Bearer，避免 token 进入
 		// 反向代理或基础设施的健康检查日志。
@@ -285,7 +294,7 @@ export async function runProviderDirectorySmoke(
 			headers.set("Authorization", `Bearer ${options.accessToken}`);
 		}
 		const response = await fetcher(`${baseUrl}${path}`, {
-			method: "GET",
+			method,
 			signal: AbortSignal.timeout(SMOKE_REQUEST_TIMEOUT_MS),
 			headers,
 		});
@@ -322,6 +331,32 @@ export async function runProviderDirectorySmoke(
 			);
 		}
 		return { data, traceId };
+	}
+
+	async function getJson(
+		path: string,
+	): Promise<{ data: unknown; traceId: string }> {
+		return requestJson(path, "GET");
+	}
+
+	/**
+	 * 患者同步是唯一被 smoke 显式允许的 POST：它只触发服务端重新读取目录，
+	 * 不接受患者号或正文，且使用 traceId 生成幂等键，避免验收脚本重复创建业务事实。
+	 */
+	async function syncPatients(): Promise<{
+		data: unknown;
+		traceId: string;
+	}> {
+		const traceId = traceIdFactory();
+		return requestJson(
+			"/api/v1/patients/sync",
+			"POST",
+			{
+				"idempotency-key": `provider-smoke-${traceId}`,
+				"x-request-id": traceId,
+			},
+			traceId,
+		);
 	}
 
 	async function check(
@@ -423,6 +458,18 @@ export async function runProviderDirectorySmoke(
 	}
 
 	for (const capability of capabilities) {
+		if (capability === "patient-sync") {
+			await check("patient-sync", async () => {
+				const result = await syncPatients();
+				const itemCount = requireSafeData(result.data);
+				return {
+					traceId: result.traceId,
+					...(itemCount === undefined ? {} : { itemCount }),
+				};
+			});
+			continue;
+		}
+
 		if (capability === "patients") {
 			await check("patients", () => readSafe("/api/v1/patients"));
 			continue;
@@ -502,6 +549,7 @@ function parseCapabilities(
 	if (!value?.trim()) return [...DEFAULT_CAPABILITIES];
 	const capabilities = value.split(",").map((item) => item.trim());
 	const allowed = new Set<ProviderSmokeCapability>([
+		"patient-sync",
 		...DEFAULT_CAPABILITIES,
 		"report-detail",
 	]);

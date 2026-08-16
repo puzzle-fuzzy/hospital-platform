@@ -79,18 +79,23 @@ pnpm check
 
 ## B. API 层只读 smoke
 
-真实环境验收使用平台 API smoke，不允许验收脚本绕过 API 直接请求众阳。脚本只执行
-`GET`，默认要求 HTTPS，并检查平台响应不能包含 provider 患者号、排班/预约/provider 报告引用、费用、支付或原始字段；服务端生成的 opaque reportId 允许存在：
+真实环境验收使用平台 API smoke，不允许验收脚本绕过 API 直接请求众阳。默认能力只执行
+`GET`；只有显式加入 `patient-sync` 能力时才执行一次带幂等键的 `POST /patients/sync`。
+所有请求默认要求 HTTPS，并检查平台响应不能包含 provider 患者号、排班/预约/provider 报告引用、费用、支付或原始字段；服务端生成的 opaque reportId 允许存在：
 
 ```powershell
 $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
-$env:HOSPITAL_SMOKE_CAPABILITIES = "patients,appointment-directory,appointment-records,reports"
+$env:HOSPITAL_SMOKE_CAPABILITIES = "patient-sync,patients,appointment-directory,appointment-records,reports"
 pnpm provider:smoke
 ```
 
 `HOSPITAL_ACCESS_TOKEN` 和 `HOSPITAL_PATIENT_ID` 只从受控环境注入，命令输出不会打印其值。
+`patient-sync` 会让服务端重新读取当前微信身份对应的患者目录；它不会接受 provider 患者号，
+也不会把同步结果中的临床引用返回给脚本。同步完成后，从平台 `GET /patients` 响应中取得内部
+`patientId`，再通过环境变量运行预约历史/报告 smoke；同时用同步请求的 `traceId` 检索服务端
+`patient.directory.synced` 日志，确认 `hisPatientReferenceCount`，不能只看脚本的 HTTP 200。
 本地 HTTP 仅可在明确设置 `HOSPITAL_ALLOW_LOCAL_HTTP=true` 后用于本机调试；公网 smoke
 仍必须使用 HTTPS。工具输出使用 Pino 结构化事件：
 
@@ -157,7 +162,8 @@ report.directory.requested / synced / failed
 report.detail.requested / synced / failed
 ```
 
-这些日志只用于诊断，不替代数据库患者映射、订单状态或 provider 侧证据。
+这些日志只用于诊断，不替代数据库患者映射、订单状态或 provider 侧证据。`patient-sync` 的 POST
+只用于受控验收，不代表已经开放患者建档、绑卡或修改接口。
 
 ## E. 原生小程序与设备证据
 
