@@ -34,7 +34,7 @@
 `patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
 `ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe，当前公网运行 release
-为 `41c9c18`。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
+为 `b186098`。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
 仍未完成，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 真实账号与预约目录只读证据
@@ -46,8 +46,8 @@
 
 ### 2026-08-16 线上发布证据
 
-- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`41c9c18`。SSH 只读复核确认
-  `current=/home/ps/code/hospital-platform/releases/41c9c18`，`hospital-platform-api-v2.service=active`。
+- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`b186098`。SSH 复核确认
+  `current=/home/ps/code/hospital-platform/releases/b186098`，`hospital-platform-api-v2.service=active`。
 - 生产 schema：`0012_patient_provider_references`、`0013_patient_directory_snapshot`、`0014_user_profiles` 和
   `0015_patient_directory_sync_operations` 均已迁移；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
 - 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网

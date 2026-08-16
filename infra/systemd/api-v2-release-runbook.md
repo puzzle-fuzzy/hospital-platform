@@ -151,6 +151,12 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 上述段落是窄权限配置前的历史记录；当前规则已安装并验证，最新候选切换证据见
 [`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
 
+2026-08-17 01:11-01:17 CST：候选 `b186098` 已完成五个 bundle checksum、真实生产 env preflight、
+`127.0.0.1:18082` production smoke、SIGTERM 回收和原子 `current` 切换。切换后 `current=b186098`、
+新 API `18081` active、旧 Python `8001` 保持 PID/监听、Worker inactive；公网 runtime smoke 完成
+6/6 readiness、no-store、system ping 和未登录认证边界。支付、医保、HIS、报告 gate 和真实微信/Provider
+业务仍关闭或待验收，完整证据见 [`b186098-production-acceptance-2026-08-17.md`](../../docs/release/b186098-production-acceptance-2026-08-17.md)。
+
 2026-08-16 19:05-19:07 CST：候选 `e660ccb` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 使用 `shared/api.env` 的真实生产 env preflight 通过，候选 API 在 `18082` 完成 production mode、
 MySQL/Redis/schema、no-store、`/api/v1/system/ping` 和未登录 `401` smoke，随后已停止临时进程。

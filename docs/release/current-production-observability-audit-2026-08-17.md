@@ -83,6 +83,17 @@
 数据库目标（不把值写入 Git）、API 到 MySQL 的瞬时连接、连接池、网络路径或探针重试时序。没有更直接
 证据前，不修改连接超时、不放宽 readiness，也不清理缓存。
 
+### 2.7 `b186098` 切换后运行证据
+
+本节记录前述只读复核之后的正式切换结果；切换动作只重启新 API unit，旧 Python `8001`、Worker 和业务数据未触碰。
+
+- `current` 已从 `41c9c18` 原子切换到 `b186098`，新 API PID `1803489`，unit 为 `active`；
+- 2026-08-17 01:16:21 CST 的 `service.started` 确认 `runtimeMode=production`、`10.0.0.3:18081`、
+  database/Redis/schema `ok`，患者/预约/记录/门诊费用 configured，支付/报告 disabled；
+- 切换后使用 release bundle 对公网 `/api/v2` 完成 6/6 readiness、no-store、system ping 和未登录 401；
+- 该证据解除候选运行前置阻断，但不证明真实微信、多患者、Provider 或真机业务完成。完整 release 证据见
+  [`b186098-production-acceptance-2026-08-17.md`](b186098-production-acceptance-2026-08-17.md)。
+
 ### 2.6 API 实际连接目标
 
 通过 `ss -ntp` 只读查看进程当前已建立的 TCP 连接，并对新 API env 只输出脱敏目标（不输出用户名、密码、

@@ -1,4 +1,4 @@
-# 2026-08-17 生产新旧服务共存只读核对
+# 2026-08-17 生产新旧服务共存只读基线与后续切换结果
 
 > 本文记录通过 SSH 对中转服务器进行的只读核对。未读取 env、数据库数据或会话，未执行发布、重启、停止、
 > migration、缓存清理或任何业务写入。服务器密码和密钥不进入文档或 Git。
@@ -20,7 +20,7 @@
 | 新 Elysia API | `10.0.0.3:18081`，进程为 `bun`，PID `1431434` |
 | 旧 Python API | `0.0.0.0:8001`，进程为 `python`，PID `636918` |
 | 新 API systemd | `hospital-platform-api-v2.service`：`loaded active running` |
-| 当前 release | `/home/ps/code/hospital-platform/current -> releases/41c9c18` |
+| 切换前 release | `/home/ps/code/hospital-platform/current -> releases/41c9c18` |
 
 ## 3. 结论
 
@@ -42,3 +42,10 @@
    providerRequestId（如有）和真机网络结果。
 3. 新 Provider 文档到达后按 intake → contract → domain → adapter → persistence → API → 小程序 → 日志 → 验收顺序推进，
    不因端口共存或 readiness 通过提前开放写入和支付。
+
+## 6. 后续生产切换结果
+
+本文件第 1-5 节是切换前的只读基线；随后 `b186098` 已按独立发布手册完成候选 checksum、真实生产
+preflight、`127.0.0.1:18082` 临时 smoke 和原子切换。切换后 `current=b186098`、新 API PID 为
+`1803489`，旧 Python PID `636918` 和 `8001` 监听保持不变，Worker 仍 inactive。完整时间线、
+公网 6/6 readiness 和回滚边界见 [`b186098-production-acceptance-2026-08-17.md`](b186098-production-acceptance-2026-08-17.md)。
