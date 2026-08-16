@@ -4,6 +4,10 @@
 > `G:\\fuck\\hospital`。本文记录旧页面真实行为和新端迁移门禁；不代表个人资料、绑卡、签名、WebView、
 > 互联网医院或消息订阅已经迁移。
 
+患者新增/查档/建档/绑卡的字段、状态机、幂等和 provider 问题单独维护在
+[`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。本文负责总边界，
+不重复定义写入 API；两份文档冲突时，以“写入路由保持关闭、provider 文档冻结前不猜字段”为准。
+
 ## 1. 旧页面和真实接口
 
 | 旧页面/入口 | 旧端实际行为 | 旧接口/外部依赖 | 新端结论 |
@@ -38,6 +42,9 @@
 
 ### 2.2 新增就诊人的状态机必须可恢复
 
+详细候选状态机和 PB-01 至 PB-12 provider 问题见
+[`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。这里保留安全原则：
+
 旧页面的“查询档案失败后继续建档”会把网络异常、provider 暂时不可用和“确实没有档案”混成同一个分支，
 可能产生重复档案。新端应将命令拆成服务端状态机：
 
@@ -63,6 +70,9 @@ requested -> identity_verified -> archive_lookup
 1. “使用条款和隐私政策”复选框默认是 `true`，提交函数没有强制检查，未同意也可能继续提交；
 2. 编辑模式只修改标题，实际回填和更新患者数据是 TODO；
 3. 查询档案成功后只要得到 `patId` 就直接绑卡，没有公开的 owner、姓名/证件一致性和重复关系验证。
+
+因此当前新端的“添加就诊人”继续是迁移提示；`/patients/sync` 只同步已经存在的
+目录，不承担新增、绑卡或解绑。
 
 ## 3. 法律文本、签名和跨小程序
 

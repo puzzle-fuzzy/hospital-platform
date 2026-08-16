@@ -23,7 +23,7 @@
 | `pages/` | `hospital/hospital.vue` | 待 provider contract | 这是 web-view/互联网医院入口，必须确认外部小程序或 HTTPS 域名白名单，不能伪造站内页面 |
 | `pages/` | `setting/setData.vue` | 不纳入生产 | 仅旧端测试数据工具，不进入新端 `app.json` |
 | `pagesB/account/` | `follow.vue` | 部分迁移 | 原生端已迁移静态公众号通知说明和受控本地图标；真实二维码、关注状态、模板消息授权和外部跳转仍待独立 contract |
-| `pagesB/patient/` | `agreement.vue`、`doctor.vue`、`express.vue`、`patient_signature.vue`、`patientAdd.vue`、`patientChange.vue` | `patientChange` 已被安全的患者选择页替换；其余待 contract | 新增/绑定、签名、地址、我的医生和法律文本必须分别确认 owner、授权、审计和撤回规则；我的医生旧表/接口风险见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md)，绑卡/协议/签名边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
+| `pagesB/patient/` | `agreement.vue`、`doctor.vue`、`express.vue`、`patient_signature.vue`、`patientAdd.vue`、`patientChange.vue` | `patientChange` 已被安全的患者选择页替换；其余待 contract | 新增/绑定、签名、地址、我的医生和法律文本必须分别确认 owner、授权、审计和撤回规则；我的医生旧表/接口风险见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md)，患者绑定见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)，绑卡/协议/签名总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
 | `pagesB/hospital/` | `bloodAppointment.vue` | 待 provider contract | 需要采血号源、预约写入、取消和患者映射规则 |
 | `pagesB/hospital/` | `confirm_registration.vue`、`registration.vue`、`registration_detail.vue` | 部分迁移 | 目录/历史只读页面已存在；锁号、预约写入、最终状态查询、取消、费用和 HIS 回写未开放 |
 | `pagesB/hospital/` | `department_select.vue`、`doctor_card.vue`、`timeslot_source.vue` | 部分迁移 | 新端统一预约目录已覆盖科室/排班只读；医生详情、分时段字段白名单和写入前确认仍待 provider contract |

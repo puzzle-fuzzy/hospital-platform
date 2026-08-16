@@ -30,7 +30,7 @@
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
 | --- | --- | --- | --- |
 | 微信登录与平台会话 | `auth`、Redis session | 代码和生产运行边界已具备 | 未完成当前微信账号的真机完整证据时，不能宣称正式验收 |
-| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成 |
+| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 预约科室/排班 | `appointments/departments`、`schedules` | 只读 provider adapter 和两列级联页面已实现 | 不能锁号、不能把 `scheduleId` 当成写入授权 |
 | 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；查询窗口固定为近 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
@@ -104,7 +104,7 @@
 ### P3：患者个人中心与低风险账户能力
 
 - `user/user.vue` 目前只有新端基础“我的”页；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；个人资料、头像、真实意见反馈提交、订阅消息、咨询历史、公众号真实关注、我的医生和患者签名尚未迁移。公众号静态通知说明和反馈帮助页已经迁移，但不代表关注、工单或反馈提交事实；旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
-- `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。
+- `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。候选状态机、字段白名单、幂等和待 provider 确认问题见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。
 - `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 
 ### P3：旧端非页面逻辑
