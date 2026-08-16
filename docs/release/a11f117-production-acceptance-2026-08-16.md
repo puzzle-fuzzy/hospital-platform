@@ -49,8 +49,14 @@
 | --- | --- |
 | `GET https://test-hp.meiyi.pro/api/v2/patients` | 401，`error.code=unauthorized` |
 | `GET https://test-hp.meiyi.pro/api/v2/me` | 401，`error.code=unauthorized`，稳定中文提示“请先登录后再继续操作” |
+| `GET /api/v2/reports?patientId=probe&startDate=2026-08-01&endDate=2026-08-02` | 401，`error.code=unauthorized` |
+| `GET /api/v2/appointments/schedules?startDate=2026-08-01&endDate=2026-08-02` | 401，未进入 Provider |
+| `GET /api/v2/payments/outpatient/records?patientId=probe&status=unpaid` | 401，未进入 Provider |
 
 这只是认证边界验收，不代表微信 code 兑换、Redis session 恢复或 owner 映射已经完成。
+
+补充：完全缺少 `/reports` 必填 query 时，Elysia 请求 schema 会在 handler 之前返回通用 `400 validation`；响应不包含字段详情、患者数据或
+Provider 错误。这是当前协议校验顺序，不改变带完整参数的受保护请求必须先经过认证的业务边界；若未来统一要求所有未登录请求优先返回 401，需作为跨模块路由规范单独改造并补齐回归测试。
 
 ### 2.4 启动日志
 
