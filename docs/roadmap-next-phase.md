@@ -39,6 +39,7 @@
 - 候选代码已为健康探针响应明确设置 `Cache-Control: no-store`；公网一次瞬时 `not_ready` 后连续复核恢复 `ready`，但当前生产 `current=55fce6c` 尚未切换该候选版本，公网 no-store 仍待发布后验收。后续发布判断必须以未缓存的 `/api/v2/health/ready` 和服务端日志为准。
 - 2026-08-16 17:02 CST 只读复核修正了 16:57 的临时判断：唯一公网 `X-Request-Id` 已在 SSH 主机 PID `2935571`（`current=55fce6c`）的 journald 中关联到同一个 `/health/ready` 请求，随后内网探针也恢复 `database/redis/schema=ok`；此前差异属于瞬时 readiness 恢复，不是另一 upstream。当前 `55fce6c` 内外层响应仍缺少候选代码要求的 `Cache-Control: no-store`，且尚未部署仓库 `main` 的待发布最新提交；发布前必须以 `git rev-parse HEAD` 固定候选版本。详见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
 - 当前服务器没有免密的窄权限 systemd 管理能力：`sudo -n -l` 仍需要密码。本阶段不重复尝试密码、不修改旧服务、不强行切换生产；候选 release 的上线动作保留为“取得明确 systemd 权限后执行”的独立运行任务，具体授权与回滚步骤见 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md)。
+- 2026-08-16 收到 2.6.7 挂号登记、2.10.4.2 支付挂号和 2.6.65.7 外部退款 Provider 文档，已完成脱敏元数据、字段、状态和依赖标准化，记录见 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。由于执行预约、排班/号源、患者档案、支付登记和退款查单文档缺失，当前状态保持 `normalized`，没有把预约写入、支付挂号或退款误标为已迁移。
 
 ### 当前已验证的问题
 

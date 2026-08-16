@@ -54,6 +54,10 @@
 - 服务器目前仍没有 `ps` 的免密窄权限 systemd 操作；候选切换与回滚步骤已独立记录在
   [`../../infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)，
   不需要也不允许触碰旧 Python unit。
+- 本轮收到 2.6.7 挂号登记、2.10.4.2 支付挂号和 2.6.65.7 外部退款 3 份 Provider HTML 文档，
+  已按 [`../provider-intake/2026-08-16-appointment-registration-payment-refund.md`](../provider-intake/2026-08-16-appointment-registration-payment-refund.md)
+  登记 SHA-256、字段和状态；它们当前只能标记为 `normalized`。文档引用的执行预约、排班/号源、患者档案、
+  支付登记和退款查单依赖尚未齐全，故没有打开预约写入、支付挂号或退款 route/gate。
 
 日期窗口的服务端跨度、客户端窗口和 provider 待确认项已单独记录在
 [`date-window-boundary-audit.md`](date-window-boundary-audit.md)；这部分不能用页面数量或列表 `total` 推断为已完成 provider 分页。
