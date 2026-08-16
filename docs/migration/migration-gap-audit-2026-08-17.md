@@ -38,6 +38,8 @@
 - 进程 TCP 连接和脱敏 env 进一步确认 Bun API 当前使用远端 `8.130.127.184:3306/hospital-dev`、Redis DB3，
   而不是服务器本机可达的 `127.0.0.1:3306/6379`；旧 Python 当前也连接同一远端 Redis，但其 MySQL 目标仍未
   从当前进程快照证实。新旧数据库是否完全共用仍需旧服务配置和 schema 的脱敏比对，不能凭端口或服务名推断。
+- 2026-08-17 00:52:49-00:52:59 CST 公网 readiness 连续 6/6 为 `ready` 且三项依赖为 `ok`；该窗口约 10 秒，
+  仅作为恢复后的短观察，不足以替代长稳定窗口或远端 MySQL 错误证据。
 - 同次 journald 复核发现 database/schema 探针多次 unavailable/recovered，且微信登录曾因
   `PersistenceUnavailableError` 返回 503；一次后续成功同步仍只有 1 位患者。该运行稳定性问题在未定位前阻断
   P0 真实业务验收；事件、脱敏证据和下一步见
