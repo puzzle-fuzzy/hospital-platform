@@ -25,15 +25,15 @@
 | `pages/` | `consult/consult.vue` | 待 provider contract | 需要独立会话、患者上下文、免责声明、AI/导诊服务和审计日志 |
 | `pages/` | `hospital/hospital.vue` | 待 provider contract | 这是 web-view/互联网医院入口，必须确认外部小程序或 HTTPS 域名白名单，不能伪造站内页面 |
 | `pages/` | `setting/setData.vue` | 不纳入生产 | 仅旧端测试数据工具，不进入新端 `app.json` |
-| `pagesB/account/` | `follow.vue` | 部分迁移 | 原生端已迁移静态公众号通知说明和受控本地图标；真实二维码、关注状态、模板消息授权和外部跳转仍待独立 contract |
+| `pagesB/account/` | `follow.vue` | 静态行为已迁移 | 旧端运行时只有静态公众号通知说明，二维码区域为注释代码；真实二维码、关注状态、模板消息授权和外部跳转属于未来独立 contract |
 | `pagesB/patient/` | `agreement.vue`、`doctor.vue`、`express.vue`、`patient_signature.vue`、`patientAdd.vue`、`patientChange.vue` | `patientChange` 已被安全的患者选择页替换；其余待 contract | 新增/绑定、签名、地址、我的医生和法律文本必须分别确认 owner、授权、审计和撤回规则；我的医生旧表/接口风险见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md)，患者绑定见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)，绑卡/协议/签名总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
 | `pagesB/hospital/` | `bloodAppointment.vue` | 待 provider contract | 需要采血号源、预约写入、取消和患者映射规则 |
 | `pagesB/hospital/` | `confirm_registration.vue`、`registration.vue`、`registration_detail.vue` | 部分迁移 | 目录/历史只读页面已存在；锁号、预约写入、最终状态查询、取消、费用和 HIS 回写未开放 |
 | `pagesB/hospital/` | `department_select.vue`、`doctor_card.vue`、`timeslot_source.vue` | 部分迁移 | 新端统一预约目录已覆盖科室/排班只读；医生详情、分时段字段白名单和写入前确认仍待 provider contract |
 | `pagesB/hospital/` | `registration_medical_pay.vue` | 待 provider contract | 归入挂号支付专项，必须等待医保/微信支付状态机、金额和查单证据；不能由只读排班页面跳转伪造支付 |
 | `pagesB/hospital/` | `selectPatient.vue` | 已替换 | 统一使用原生 `pages/patient-select/patient-select`，只持久化内部 opaque `patientId` |
-| `pagesB/hospital/` | `hospitalList.vue` | 部分迁移 | 原生端已迁移旧静态单院区卡片、受控本地图片和“医院卡片 → 预约目录”前置流程；动态机构/院区目录、真实路线和多院区选择仍待独立 contract |
-| `pagesB/hospital/` | `navigation.vue` | 部分迁移 | 静态地图已迁移；实时楼层、科室定位、路线和地图数据版本未迁移 |
+| `pagesB/hospital/` | `hospitalList.vue` | 静态行为已迁移 | 原生端已迁移旧静态单院区卡片、受控本地图片和“医院卡片 → 预约目录”前置流程；动态机构/院区目录、真实路线和多院区选择仍待独立 contract |
+| `pagesB/hospital/` | `navigation.vue` | 静态行为已迁移 | 旧端只有本地静态地图、`aspectFit` 和预览；实时楼层、科室定位、路线和地图数据版本仍待独立 contract |
 | `pagesB/health/` | `outpatient_pay.vue` | 部分迁移 | 新端已接入门诊费用只读目录；费用详情、支付、医保授权、结算回写和退费未开放 |
 | `pagesB/health/` | `outpatient_pay_detail.vue`、`electronic_bill.vue` | 待 provider contract | 需费用明细白名单、金额单位、账单归属、分页/状态和短期资源授权 |
 | `pagesB/health/` | `payment_cashier.vue` | 待 provider contract | web-view 收银台必须固定 HTTPS allowlist、订单 owner、回调/查单和返回状态，不能接任意 URL |
@@ -52,7 +52,7 @@
 | `pagesB/health/` | `gift_electronic_banner.vue`、`list_electronic_banner.vue`、`record_electronic_banner.vue` | 待 provider contract | 旧端提交患者/医生/就诊快照，必须改为服务端就诊引用；文字/文件审核、内容安全、脱敏公开展示、撤回和管理端读取权限未确认 |
 | `pagesB/health/` | `gift_health_praise.vue`、`list_health_praise.vue`、`record_health_praise.vue` | 待 provider contract | 表扬信提交、审核、脱敏公开展示、幂等、撤回、文件上传和管理端权限未确认 |
 | `pagesB/user/` | `edit_profile.vue` | 普通资料子集已迁移 | 原生 `pages/profile` 已迁移昵称、性别、年龄、邮箱并使用版本并发；头像、实名、微信身份和患者绑定仍关闭；详见 [`user-profile-contract.md`](user-profile-contract.md) |
-| `pagesB/user/` | `feedback.vue` | 部分迁移 | 原生端已迁移热点问题、咨询电话和安全的迁移提示；真实意见提交、客服工单和受控配置仍未开放 |
+| `pagesB/user/` | `feedback.vue` | 静态行为已迁移 | 旧端只有热点问题、咨询电话和 Toast，没有真实提交 API；原生端已迁移安全提示和拨号。真实意见提交、客服工单和受控配置属于未来新增 contract |
 | `pagesB/user/` | `miss_appointment.vue` | 部分迁移 | 新端以预约历史读模型的 `status=missed` 派生只读页面，当前固定展示近 90 天并支持切换就诊人；真实 provider 状态、公网和真机证据仍待完成，不能使用客户端 `status=4` 或把未知状态推断为爽约 |
 | `pagesB/user/` | `my_consultation.vue` | 待 provider contract | 需要 AI/陪诊会话索引、患者归属、内容保留和脱敏策略；账单/病历/住院预约/就诊码按钮当前只是 Toast |
 | `pagesB/user/` | `my_registration.vue` | 部分迁移 | 新端已接入预约历史只读；取消、退号、支付状态和 provider 患者用途映射仍待验收 |

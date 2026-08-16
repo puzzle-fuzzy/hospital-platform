@@ -475,6 +475,23 @@ test("native mini program exposes feedback as a safe static help page", async ()
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native mini program does not turn legacy static or fake settings into business success", async () => {
+	const feedback = await source("pages/feedback/feedback.ts");
+	const officialAccount = await source(
+		"pages/official-account/official-account.ts",
+	);
+	const app = await source("app.json");
+
+	// 旧反馈页没有真实提交接口，旧订阅页也只有内存开关；迁移时必须保留事实边界，
+	// 不能把 Toast、打开静态说明页或本地状态当成工单/微信授权成功。
+	expect(feedback).toContain("在线意见反馈功能正在迁移中");
+	expect(feedback).not.toContain("提交成功");
+	expect(feedback).not.toContain("设置已保存");
+	expect(officialAccount).toContain("只维护静态展示");
+	expect(officialAccount).not.toContain("requestSubscribeMessage");
+	expect(app).not.toContain("subscription-message");
+});
+
 test("native mini program derives missed appointments from the normalized record status", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");

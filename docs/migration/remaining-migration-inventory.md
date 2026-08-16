@@ -20,7 +20,7 @@
 
 ```text
 已形成代码闭环（真实 provider、公网 API、微信真机和生产业务证据仍待）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
-已迁移静态能力：医院列表单院区卡片、公众号通知说明、意见反馈帮助页、院内导航静态地图（均不含动态机构/路线或授权能力）
+已迁移旧端静态能力：医院列表单院区卡片、公众号通知说明、意见反馈帮助页、院内导航静态地图（均不含动态机构/路线或授权能力）；旧端意见反馈没有真实提交接口，消息订阅只有本地假保存，因此不复制假业务
 仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码、公众号关注/订阅；医院列表仍缺动态机构/院区/路线 contract
 仍缺真实证据：众阳患者/预约历史/报告/门诊费用、公网 API、微信真机和生产回归
 ```
@@ -74,8 +74,8 @@
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
 | 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai` | 费用详情、支付、医保、结算回写和退费未开放 |
 | 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
-| 公众号说明 | `pages/official-account/official-account` | 静态通知说明、旧端本地图标和首页轮播跳转已迁移 | 二维码、关注状态、订阅消息授权和真实发送结果未迁移 |
-| 意见反馈帮助 | `pages/feedback/feedback` | 热点问题、客服电话和在线反馈迁移提示已迁移；拨号需用户确认 | 真实反馈写入、客服工单、电话/工作时间受控配置未迁移 |
+| 公众号说明 | `pages/official-account/official-account` | 旧端运行时静态通知说明已迁移；旧端二维码区域本身是注释代码，未有关注 API | 二维码、关注状态、订阅消息授权和真实发送结果属于未来新增能力 |
+| 意见反馈帮助 | `pages/feedback/feedback` | 旧端实际只有热点问题、客服电话和 Toast；新端保留静态内容并明确提示未开放，拨号需用户确认 | 真实反馈写入、客服工单、电话/工作时间受控配置属于未来新增能力 |
 | 院内导航 | `pages/hospital-navigation/hospital-navigation` | 旧端静态地图、背景色、`aspectFit` 和点击预览已迁移 | 楼层/科室定位、实时路线和地图服务未迁移 |
 | 微信支付 | 订单、预支付、通知、查单基础设施 | 代码基础和 gate 已具备 | 商户、回调、公网和真机支付未验收；gate 必须关闭 |
 | 医保/HIS | domain/规则层部分存在 | 规则边界和文档基础存在 | 真实加密、授权、6201/6202/6301/6203/6401、HIS 回写均未迁移 |
@@ -148,7 +148,7 @@
 
 ### P3：患者个人中心与低风险账户能力
 
-- `user/user.vue` 目前已由新端“我的”页、普通个人资料页和就诊人选择页组成安全子集；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；头像、实名资料、真实意见反馈提交、订阅消息、咨询历史、公众号真实关注、我的医生和患者签名尚未迁移。公众号静态通知说明和反馈帮助页已经迁移，但不代表关注、工单或反馈提交事实；旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；普通资料契约见 [`user-profile-contract.md`](user-profile-contract.md)，总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
+- `user/user.vue` 目前已由新端“我的”页、普通个人资料页和就诊人选择页组成安全子集；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；头像、实名资料、真实意见反馈提交、订阅消息、咨询历史、公众号真实关注、我的医生和患者签名尚未迁移。公众号静态通知说明和反馈帮助页的旧端静态行为已经迁移，但不代表未来关注、工单或反馈提交能力已开放；旧端反馈和订阅当前没有真实后端事实，不能复制假保存；详见 [`static-and-closed-feature-parity.md`](static-and-closed-feature-parity.md)，普通资料契约见 [`user-profile-contract.md`](user-profile-contract.md)，总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 - `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。候选状态机、字段白名单、幂等和待 provider 确认问题见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。
 - `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 
