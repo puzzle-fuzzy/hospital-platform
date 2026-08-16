@@ -272,6 +272,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(template).toContain('bindtap="onHeaderTap"');
 	expect(profile).toContain("getUserProfile");
 	expect(profile).toContain("updateUserProfile");
+	expect(profile).toContain("createLatestRequestGuard");
+	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
 	expect(profile).toContain("尚未加载完成");
 	expect(profile).not.toContain("openid");
@@ -279,6 +281,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).not.toContain("idCard");
 	expect(profile).not.toContain("avatar");
 	expect(profileTemplate).toContain("头像、手机号、真实姓名和身份证");
+	expect(profileTemplate).toContain('disabled="{{saving || loading}}"');
 	expect(client).toContain('url: "/me/profile"');
 	expect(build).toContain("profile/profile.js");
 });

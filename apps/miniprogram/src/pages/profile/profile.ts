@@ -4,6 +4,7 @@ import {
 	safeApiErrorMessage,
 	updateUserProfile,
 } from "../../services/api-client";
+import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type { ProfilePageData } from "../../types";
 
 type ProfilePageMethods = {
@@ -19,6 +20,12 @@ type ProfilePageMethods = {
 
 const GENDER_LABELS = ["男", "女", "未知"] as const;
 const GENDER_VALUES = ["male", "female", "unknown"] as const;
+
+/**
+ * 资料页允许下拉刷新；较早的 GET 不能覆盖较新的资料版本，
+ * 否则用户看到旧版本后保存会产生不必要的 409 冲突。
+ */
+const profileLoadGuard = createLatestRequestGuard();
 
 function genderIndex(gender: ProfilePageData["gender"]): number {
 	return GENDER_VALUES.indexOf(gender);
@@ -52,9 +59,11 @@ Page<
 	},
 
 	loadProfile(): Promise<void> {
+		const requestToken = profileLoadGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return getUserProfile()
 			.then((response) => {
+				if (!profileLoadGuard.isCurrent(requestToken)) return;
 				const profile = response.data;
 				const index = genderIndex(profile.gender);
 				this.setData({
@@ -70,10 +79,15 @@ Page<
 				});
 			})
 			.catch((error) => {
+				if (!profileLoadGuard.isCurrent(requestToken)) return;
 				this.showError(error, "个人资料加载失败");
 				this.setData({ loaded: false });
 			})
-			.finally(() => this.setData({ loading: false }));
+			.finally(() => {
+				if (profileLoadGuard.isCurrent(requestToken)) {
+					this.setData({ loading: false });
+				}
+			});
 	},
 
 	onDisplayNameInput(event): void {
@@ -100,6 +114,10 @@ Page<
 
 	/** 保存时只提交页面声明的普通资料字段，不携带旧端身份/实名字段。 */
 	onSave(): Promise<void> {
+		if (this.data.loading) {
+			this.setData({ error: "个人资料正在加载，请稍后保存" });
+			return Promise.resolve();
+		}
 		if (!this.data.loaded) {
 			this.setData({ error: "个人资料尚未加载完成，请稍后重试" });
 			return Promise.resolve();
@@ -136,6 +154,10 @@ Page<
 	},
 
 	onPullDownRefresh(): void {
+		if (this.data.saving) {
+			wx.stopPullDownRefresh();
+			return;
+		}
 		this.loadProfile().finally(() => wx.stopPullDownRefresh());
 	},
 
