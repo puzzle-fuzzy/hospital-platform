@@ -69,13 +69,19 @@
 
 ### 2.5 基础设施进程只读核对
 
+- API unit 的 `ExecStart` 为 `/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/api/dist/index.js`，
+  当前 `EnvironmentFiles` 只确认使用 `/home/ps/code/hospital-platform/shared/api.env`，没有读取文件内容；unit
+  配置为 `Restart=on-failure`、`RestartUSec=5s`。
 - `mysql.service` 为 `active/running`，`0.0.0.0:3306` 正在监听；
 - `redis-server.service` 为 `active/running`，`127.0.0.1:6379` 和 `[::1]:6379` 正在监听；
 - 本次服务器上没有发现 Docker 容器承载这两个依赖；
-- 抽查 MySQL/Redis 最近 300 条 systemd 日志，没有筛到重启、OOM、崩溃或明显错误摘要。
+- 抽查 MySQL/Redis 最近 300 条 systemd 日志，没有筛到重启、OOM、崩溃或明显错误摘要；当前
+  `/var/log/mysql/error.log` 和 `/var/log/redis/redis-server.log` 文件大小为 0，历史日志已轮转，
+  因此不能把“当前日志为空”解释成“历史没有错误”。
 
-因此当前证据不能把 API 探针抖动归因于数据库/Redis 进程停止；更可能需要继续检查 API 到 MySQL 的瞬时
-连接、连接池、网络路径或探针重试时序。没有更直接证据前，不修改连接超时、不放宽 readiness，也不清理缓存。
+因此当前证据不能把 API 探针抖动归因于数据库/Redis 进程停止；更可能需要继续检查 API shared env 中的
+数据库目标（不把值写入 Git）、API 到 MySQL 的瞬时连接、连接池、网络路径或探针重试时序。没有更直接
+证据前，不修改连接超时、不放宽 readiness，也不清理缓存。
 
 ## 3. P0 决策
 
