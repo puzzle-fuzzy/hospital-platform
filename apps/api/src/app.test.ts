@@ -179,6 +179,39 @@ test("public API documentation covers every registered OpenAPI method and path",
 	}
 });
 
+test("public API route table contains no unregistered method or path", async () => {
+	const [openApiResponse, documentation] = await Promise.all([
+		createApp().handle(new Request("http://localhost/openapi/json")),
+		Bun.file(join(import.meta.dir, "../../../docs/api-v2-public.md")).text(),
+	]);
+	const document = (await openApiResponse.json()) as {
+		paths: Record<string, Record<string, unknown>>;
+	};
+
+	const expectedRoutes = Object.entries(document.paths).flatMap(
+		([internalPath, pathItem]) =>
+			OPENAPI_HTTP_METHODS.flatMap((method) =>
+				method in pathItem
+					? [
+							`${method.toUpperCase()} ${publicPathForDocumentation(internalPath)}`,
+						]
+					: [],
+			),
+	);
+
+	// 只解析“当前公共接口”表格，故意不把后文列出的 404 冻结候选路径当作已注册路由。
+	// 双向比较同时防止：代码新增路由漏写文档，以及文档残留已删除/尚未注册的接口。
+	const currentRouteTable =
+		documentation.split("### 3.1 患者目录响应", 1)[0] ?? "";
+	const documentedRoutes = [
+		...currentRouteTable.matchAll(
+			/^\| `(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD|TRACE)` \| `([^`]+)` \|/gmu,
+		),
+	].map((match) => `${match[1]} ${match[2]}`);
+
+	expect(documentedRoutes.sort()).toEqual(expectedRoutes.sort());
+});
+
 test("migration inventory labels production observations as evidence snapshots", async () => {
 	const inventory = await Bun.file(
 		join(
