@@ -215,6 +215,8 @@ type IndexPageMethods = {
 const patientDataGuard = createLatestRequestGuard();
 const healthGuard = createLatestRequestGuard();
 const syncLoadingGuard = createLatestRequestGuard();
+/** 首次 onShow 紧跟 onLoad，不重复读取；从患者选择页返回时必须重新读取目录。 */
+let isFirstShow = true;
 
 Page<IndexPageData, IndexPageMethods>({
 	data: {
@@ -240,6 +242,7 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onLoad() {
+		isFirstShow = true;
 		this.checkHealth();
 		const selectedPatientId = getSelectedPatientId();
 		if (selectedPatientId) this.setData({ selectedPatientId });
@@ -259,25 +262,36 @@ Page<IndexPageData, IndexPageMethods>({
 			.catch((error) => this.showError(error, "会话恢复失败"));
 	},
 
-	/** 从选择页返回时读取持久化选择，确保首页业务使用最新就诊人。 */
+	/**
+	 * 从子页面返回时重新读取 owner-scoped 目录，而不是只比较本地 patientId。
+	 *
+	 * 患者选择页可能刚完成一次完整同步：旧患者会变成 inactive，或者目录
+	 * 直接变为空。此时本地缓存中的旧 ID 可能仍然存在（stale 分支故意保留，
+	 * 等待用户显式重选），所以“ID 没变化”不能证明首页仍然可以展示旧患者。
+	 * 首次 onShow 由 onLoad 发起的读取负责，避免微信生命周期造成重复请求；
+	 * 之后每次返回都读取最新目录，确保首页不会保留过期的患者上下文。
+	 */
 	onShow() {
-		const selectedPatientId = getSelectedPatientId();
-		if (!selectedPatientId || selectedPatientId === this.data.selectedPatientId)
+		if (isFirstShow) {
+			isFirstShow = false;
 			return;
-		const selectedPatient = this.data.patients.find(
-			(patient) => patient.id === selectedPatientId,
-		);
-		if (selectedPatient) {
-			this.onSelectPatient({
-				currentTarget: { dataset: { patientId: selectedPatientId } },
+		}
+
+		if (!hasPlatformSession()) {
+			// 会话失效时不继续展示上一位患者；重新登录后由目录读取恢复。
+			clearSelectedPatientId();
+			this.setData({
+				patients: [],
+				selectedPatient: null,
+				selectedPatientId: "",
+				hasPatients: false,
 			});
 			return;
 		}
-		if (hasPlatformSession() && !this.data.loading) {
-			this.loadPatients().catch((error) =>
-				this.showError(error, "就诊人刷新失败"),
-			);
-		}
+
+		this.loadPatients().catch((error) =>
+			this.showError(error, "就诊人刷新失败"),
+		);
 	},
 
 	checkHealth(): Promise<void> {

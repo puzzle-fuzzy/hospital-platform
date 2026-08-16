@@ -654,6 +654,21 @@ test("native homepage and my page reject stale patient directory responses", asy
 	expect(my).toContain("pageLoadGuard.isCurrent(requestToken)");
 });
 
+test("native homepage reloads the owner directory after returning from patient selection", async () => {
+	const home = await source("pages/index/index.ts");
+
+	// 选择页同步后可能让旧患者失效，但本地缓存中的旧 ID 仍会保留到
+	// 用户显式重选；首页不能用“ID 没变化”误判为仍可展示旧患者。
+	expect(home).toContain("let isFirstShow = true");
+	expect(home).toContain("if (isFirstShow)");
+	expect(home).toContain("if (!hasPlatformSession())");
+	expect(home).toContain("clearSelectedPatientId();");
+	expect(home).toContain("this.loadPatients().catch((error) =>");
+	expect(home).not.toContain(
+		"selectedPatientId === this.data.selectedPatientId",
+	);
+});
+
 test("patient context pull-to-refresh waits for the complete directory lifecycle", async () => {
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");
