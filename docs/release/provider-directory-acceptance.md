@@ -30,6 +30,9 @@ provider 只读、公网业务 smoke 和真机证据仍未完成，因此预约�
 - 生产 schema：`0012_patient_provider_references` 与 `0013_patient_directory_snapshot` 均迁移成功；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
 - 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网
   `https://test-hp.meiyi.pro/api/v2/health/live`、`/api/v2/health/ready` 均返回 200。
+- 本轮只读复核中公网 `ready` 曾短暂返回 `database/schema unavailable`；直连
+  `10.0.0.3:18081` 立即返回 `ready/database=ok/redis=ok/schema=ok`，随后公网复测恢复为同样结果。
+  当前没有据此重启或修改服务；后续应继续观察 ready 探针和数据库连接池日志，避免把瞬态依赖抖动误报为业务迁移完成。
 - 启动日志：`runtimeMode=production`，数据库、Redis、schema 探针均为 `ok`；患者目录、预约目录、预约记录和门诊缴费配置为 `configured`；报告 gate 继续关闭。患者目录现在可以进入真实 active/inactive 失效与恢复数据验收。
 - 旧服务隔离：`8001` 仍在监听，未重启、未切换旧 Python 服务。
 - 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、预约历史真实响应、真机截图/网络记录和对应 traceId。
