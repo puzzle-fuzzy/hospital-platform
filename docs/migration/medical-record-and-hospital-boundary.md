@@ -56,6 +56,16 @@ patId     = 选择器返回的 provider 患者号
 查询日费用。返回数据包含住院号、床位、病区、入出院状态、医生/护士、诊断、婴儿信息、身份证和卡号等
 大量敏感字段；旧页面还使用选择器传来的医院、日期区间和 provider 患者号。
 
+页面真实顺序是：选择器变更后调用 `GET /msun-middle-aggregate-hsz/v1/patients?patId=...`；
+切换到“费用”页签时，取第一条住院患者结果的 `patInHosId`，再调用
+`GET /msun-middle-open-settlepay/v1/inpatient-settle-singles/inpatient-in-day-singles`，并把页面选择的时间范围
+格式化为 `startTime/endTime`。旧页面还把 `patInHosId` 的第一条结果当作当前住院 episode，没有定义多次住院、多个 episode、
+空结果和并发切换时的最终一致性。这些行为不能直接复制到新端。
+
+住院费用响应同时包含明细、诊断、医生、住院号和总额等字段；金额单位、时间窗口、总额是否含医保以及结算状态在旧页面
+没有形成可审计的公共 contract。新端必须先确认 episode 的权威性和 owner 关系，再允许查询费用；不能因为患者有一条住院
+记录就默认允许读取第一条费用，也不能把 provider 返回的敏感字段原样写入日志或小程序缓存。
+
 新端不能接受 `patId`、`patInHosId`、住院号或医院内部 ID 作为小程序输入。正确顺序应是：
 
 ```text

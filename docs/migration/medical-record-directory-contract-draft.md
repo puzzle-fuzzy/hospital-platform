@@ -76,7 +76,27 @@ patId     = 旧患者选择器返回的 provider 患者号
 
 以上表格是差异线索，不是允许 adapter 透传的字段白名单。
 
-### 2.3 旧端患者标识转换链（已确认的差异事实）
+### 2.3 旧源码交叉核对与异常语义
+
+本节固定本次审计时的源码证据，避免后续会话把“接口声明”误认为“页面真实使用”。旧文件在审计时的
+SHA-256 指纹如下；文件发生变化后，应重新核对请求和字段，不能只沿用本节的行号：
+
+| 文件 | 审计时 SHA-256 | 本次确认的事实 |
+| --- | --- | --- |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\health\\electronic_record.vue` | `7e9842d10fce9e954a059c9dba9827fda66cb0ce629360e89a9333df4b10f669` | 页面真实导入 `@/api/modules/ZY`，最近 30 天请求 `type="5"` 和 `patId`，并直接渲染摘要字段 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\ZY.ts` | `659408140db42dd1705a143850dd568d8f286285cf31b58dfa7ae865607bfe38` | 页面使用的 `getOutVisitRecordsApi` 返回 `OUT_VISIT_RECORD[]`，实际仅声明少量摘要字段，其余字段为 `any` |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\medicalRecord.ts` | `1a0db15d194e468ec2ef8b8502f9687322d07007b1c8a447d9a53d3cf61ef801` | 另有同路径的接口声明、`out-emrs` 和住院病历接口，但不能证明当前页面调用过这些能力 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\components\\health\\patient-hospital-selector.vue` | `e45e4d911f1d29eb86637857df20e2984663d7fd382db0a472c3ebc83d1ce02` | 旧选择器先按卡号/姓名查档案，再把 provider `patId` 写入 `SelCard`，这是旧端副作用，不是新端输入合同 |
+
+旧门诊页面还有三处必须在新端显式修正的异常语义：
+
+1. 日期由设备本地时间计算，开始边界是 30 天前当天 `00:00:00`，结束边界是当前日期 `23:59:59`；没有服务端时区、闭开区间、最大窗口或分页说明。
+2. 响应只要不是数组就被替换为空数组；请求异常也会清空列表并继续显示“未查询到您的记录”。这会把 provider 暂时故障、业务拒绝和真实空目录混成同一个医疗事实，属于不可迁移的错误语义。
+3. 页面只调用 `out-visit-records`，没有调用 `out-emrs`；因此旧页面最多是门诊就诊记录摘要列表，不能据此开放病历正文、诊断详情或附件。
+
+新端必须保留以下不变量：日期由服务端按固定时区和合同窗口校验；provider 响应 envelope、业务成功标记和数组类型必须分别校验；失败、权限拒绝、映射缺失和真实空列表必须使用不同状态码和页面态；任何记录标识只能转换为 owner-scoped 的平台引用，不能把 `regId` 或 `patId` 返回给小程序。
+
+### 2.4 旧端患者标识转换链（已确认的差异事实）
 
 旧端页面传给 `out-visit-records` 的 `patId` 不是患者目录接口返回值的简单重命名，实际经过了两段转换：
 

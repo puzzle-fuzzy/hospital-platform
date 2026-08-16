@@ -193,6 +193,30 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });
 
+test("medical record draft preserves source evidence and fail-closed semantics", async () => {
+	const draft = await Bun.file(
+		join(
+			import.meta.dir,
+			"../../../docs/migration/medical-record-directory-contract-draft.md",
+		),
+	).text();
+
+	// 病历是最容易把“旧端声明过接口”误认为“新端可以直接复用”的业务域。
+	// 这里把源码真实调用入口、旧端异常折叠方式和新端禁止事项固定成文档门禁；
+	// 后续若旧源码或迁移边界变化，必须先更新证据和 contract 草案，再改路由。
+	const requiredEvidence = [
+		"状态：`draft`",
+		"页面真实导入 `@/api/modules/ZY`",
+		"响应只要不是数组就被替换为空数组",
+		"页面只调用 `out-visit-records`，没有调用 `out-emrs`",
+		"失败、权限拒绝、映射缺失和真实空列表必须使用不同状态码和页面态",
+		"不能把 `regId` 或 `patId` 返回给小程序",
+		"住院病历与门诊就诊记录都保持独立未开放状态",
+	] as const;
+
+	for (const evidence of requiredEvidence) expect(draft).toContain(evidence);
+});
+
 test("public API documentation lists every stable public error code", async () => {
 	const documentation = await Bun.file(
 		join(import.meta.dir, "../../../docs/api-v2-public.md"),

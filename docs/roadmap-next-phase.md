@@ -196,6 +196,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：修正报告目录与详情 gate 的边界；provider 缺少稳定报告号时保留安全摘要并省略详情引用，不再把单条详情不可用扩大成整批目录失败；公共文档和回归测试同步固定该不变量。
 - 2026-08-16：为患者新增、门诊就诊记录目录/详情和医保授权候选路径增加 404 冻结门禁；在 provider/HIS contract、owner 映射、幂等和真实验收完成前，不允许以旧接口转发或空响应伪造迁移完成。
 - 2026-08-16：复核旧端病历源码后明确拆分住院病历 `2.12.4/2.12.5/2.12.6` 与门诊 `out-visit-records`；住院 `patInHosId`、`babyId`、`noteId`、`mrTypeId` 不能复用为门诊记录字段，门诊目录仍等待独立 Provider/HIS contract，详见 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md)。
+- 2026-08-16：进一步固定病历异常语义和住院 episode 链：旧门诊页实际使用 `ZY.ts` 的窄响应类型，非数组、请求异常都会被折叠为空列表；旧住院页则按 `patId → patInHosId → 日费用` 串联并默认取第一条 episode。新端不得复制这两个错误边界，必须区分真实空目录、映射缺失、权限拒绝和暂时失败，并在 provider contract 确认多 episode、金额单位和时间窗口前继续保持病历/住院路由关闭。
 - 2026-08-16：门诊费用服务补齐空白 `patientId` 的服务层拒绝，并让 owner 映射、持久化和 provider 失败统一进入 `outpatient.payment.records.failed`；失败不能被误记为成功空列表，也不能绕过低敏日志链路。
 - 2026-08-16：微信预支付在依赖未配置时也会把已记录的尝试从 `pending` 收敛为 `unknown`，返回 `dependency-not-configured`；同一幂等键不会永久卡在“处理中”，配置完成后必须用新的幂等键重新申请，提交 `b8086d1`。
 - 2026-08-16：provider 目录 smoke 补齐门诊费用 `unpaid`/`paid` 两个只读状态，并要求服务端回显状态与请求状态一致；继续拦截金额、订单、医保、患者身份和 provider 原始字段，未触发支付、医保或结算写入。
