@@ -344,7 +344,9 @@ function mapLaboratoryDetail(
 		reportedAt,
 		items: value.details.map((item) => {
 			const detail = objectValue(item, operation, requestId);
-			const unit = optionalText(detail.unit, "unit", operation, requestId);
+			// 公开 contract 将单位限制为 64 个字符；在 adapter 边界拒绝异常
+			// Provider 文本，避免响应序列化阶段才产生不可定位的错误。
+			const unit = optionalText(detail.unit, "unit", operation, requestId, 64);
 			const referenceRange = optionalText(
 				detail.itemRange,
 				"itemRange",

@@ -189,6 +189,45 @@ test("众阳 LIS 详情只映射白名单检测项并保留 provider 引用在�
 	expect(JSON.stringify(result)).not.toContain("不应返回");
 });
 
+test("众阳 LIS 详情在公开 contract 边界拒绝超长单位", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						testList: "血常规",
+						reportTime: "2026-08-15 10:00:00",
+						details: [
+							{
+								itemName: "白细胞计数",
+								itemResult: "10.2",
+								unit: "单位".repeat(33),
+							},
+						],
+					},
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "oversized-report-unit" },
+				},
+			),
+	});
+
+	await expect(
+		gateway.getLaboratoryDetail(
+			{ providerReportId: "provider-report-detail-oversized-unit" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory-detail",
+		requestId: "oversized-report-unit",
+		retryable: false,
+	});
+});
+
 test("众阳报告目录拒绝业务失败或无法映射的响应", async () => {
 	const gateway = createZhongyangReportGateway({
 		baseUrl: "https://zhongyang.example.test",
