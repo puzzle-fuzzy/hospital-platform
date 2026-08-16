@@ -61,7 +61,7 @@ Content-Type: application/json
 | Header | 使用范围 | 规则 |
 | --- | --- | --- |
 | `X-Request-Id` | 业务请求可选 | 用于贯穿小程序、Nginx、API、adapter 和日志；服务端缺失时生成安全 requestId |
-| `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` schema gate 通过后使用 owner-scoped operation ledger，生产验收仍待完成 |
+| `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` schema gate 通过后使用 owner-scoped operation ledger，线上新 release、并发、公网和真机验收仍待完成 |
 | `Authorization` | 受保护接口 | 只接受平台 Bearer 会话，不接受 provider token |
 
 患者同步使用 `POST /api/v2/patients/sync`，没有请求体；当前 `Idempotency-Key` 会进入
@@ -73,7 +73,7 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 `patientId` 不更换。只有 provider adapter 确认返回完整目录时才允许这一步，分页结果必须先
 在 adapter 内合并。`observedAt` 在 provider 请求发起前采样，较早请求晚返回时不能覆盖
 较新的患者资料、临床引用或 active 状态。患者同步的 durable operation ledger 和结果重放仍需完成
-生产 schema、并发和真实网络验收，才能作为线上证据；预约写入、患者绑定等命令开放前还必须分别
+新 release 切换、真实并发、公网和真机验收，才能作为线上业务证据；预约写入、患者绑定等命令开放前还必须分别
 冻结各自的幂等和最终状态规则。订单创建和微信预支付的幂等键分别独立，不能混用。
 下一步的状态机、租约、事务和 409 语义见
 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)。

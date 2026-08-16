@@ -8,7 +8,7 @@
 - `Turbo` 编排 workspace 任务
 - `Bun + Elysia` 承载 API 服务
 - `Biome` 负责格式化与静态检查
-- 原生微信小程序：WXML、WXSS、JavaScript
+- 原生微信小程序：WXML、WXSS、TypeScript 源码（构建后生成微信运行所需的 JavaScript）
 - MySQL、Redis 和医保/HIS/微信支付适配层保持独立边界
 
 ## 当前阶段
