@@ -105,7 +105,7 @@
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
-- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；当前仍缺新 release 切换后的真实并发、公网和真机验收，当前 18081 仍运行旧 release，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md) 和 [`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md)。
+- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；当前 `18081` 已运行 `d177991`，仍缺真实微信账号的并发、provider、公网业务和真机验收，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md) 和 [`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md)。
 
 ### 旧端顶层页面的重分类
 

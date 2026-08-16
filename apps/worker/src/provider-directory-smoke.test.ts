@@ -85,6 +85,10 @@ test("provider directory smoke uses the public v2 prefix without auth on health 
 		apiPrefix: "/api/v2",
 		accessToken: "platform-access-token",
 		capabilities: ["patients", "patient-sync"],
+		traceIdFactory: (() => {
+			const traceIds = ["sync-first", "sync-replay"];
+			return () => traceIds.shift() ?? "sync-replay";
+		})(),
 		fetcher: async (input, init) => {
 			const url = String(input);
 			const headers = new Headers(init?.headers);
@@ -123,6 +127,7 @@ test("provider directory smoke uses the public v2 prefix without auth on health 
 		"https://hospital.example.test/api/v2/health/ready",
 		"https://hospital.example.test/api/v2/patients",
 		"https://hospital.example.test/api/v2/patients/sync",
+		"https://hospital.example.test/api/v2/patients/sync",
 	]);
 	expect(requests[0]?.authorization).toBeNull();
 	expect(requests[1]?.authorization).toBeNull();
@@ -132,6 +137,12 @@ test("provider directory smoke uses the public v2 prefix without auth on health 
 		authorization: "Bearer platform-access-token",
 		idempotencyKey: expect.stringMatching(/^provider-smoke-/),
 	});
+	expect(requests[4]).toMatchObject({
+		method: "POST",
+		authorization: "Bearer platform-access-token",
+		idempotencyKey: requests[3]?.idempotencyKey,
+	});
+	expect(requests[4]?.idempotencyKey).toBe(requests[3]?.idempotencyKey);
 });
 
 test("provider directory smoke can explicitly verify idempotent patient synchronization", async () => {
@@ -144,7 +155,15 @@ test("provider directory smoke can explicitly verify idempotent patient synchron
 		baseUrl: "https://hospital.example.test",
 		accessToken: "platform-access-token",
 		capabilities: ["patient-sync"],
-		traceIdFactory: () => "sync-trace-001",
+		traceIdFactory: (() => {
+			const traceIds = [
+				"health-live-trace",
+				"health-ready-trace",
+				"sync-trace-001",
+				"sync-trace-002",
+			];
+			return () => traceIds.shift() ?? "sync-trace-002";
+		})(),
 		fetcher: async (input, init) => {
 			const headers = new Headers(init?.headers);
 			const url = String(input);
@@ -178,12 +197,50 @@ test("provider directory smoke can explicitly verify idempotent patient synchron
 	});
 
 	expect(result.passed).toBe(true);
+	expect(result.checks).toEqual([
+		{ name: "health-live", status: "passed", traceId: "health-live-trace" },
+		{ name: "health-ready", status: "passed", traceId: "health-ready-trace" },
+		{
+			name: "patient-sync",
+			status: "passed",
+			itemCount: 1,
+			traceId: "sync-trace-001",
+		},
+		{
+			name: "patient-sync-replay",
+			status: "passed",
+			itemCount: 1,
+			traceId: "sync-trace-002",
+		},
+	]);
 	expect(result.checks.at(-1)).toEqual({
-		name: "patient-sync",
+		name: "patient-sync-replay",
 		status: "passed",
 		itemCount: 1,
-		traceId: "sync-trace-001",
+		traceId: "sync-trace-002",
 	});
+	expect(requests).toEqual([
+		{
+			url: "https://hospital.example.test/health/live",
+			method: "GET",
+			idempotencyKey: null,
+		},
+		{
+			url: "https://hospital.example.test/health/ready",
+			method: "GET",
+			idempotencyKey: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/patients/sync",
+			method: "POST",
+			idempotencyKey: "provider-smoke-sync-trace-001",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/patients/sync",
+			method: "POST",
+			idempotencyKey: "provider-smoke-sync-trace-001",
+		},
+	]);
 	expect(requests.at(-1)).toEqual({
 		url: "https://hospital.example.test/api/v1/patients/sync",
 		method: "POST",

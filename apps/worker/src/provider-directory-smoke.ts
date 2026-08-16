@@ -363,16 +363,18 @@ export async function runProviderDirectorySmoke(
 	 * 患者同步是唯一被 smoke 显式允许的 POST：它只触发服务端重新读取目录，
 	 * 不接受患者号或正文，且使用 traceId 生成幂等键，避免验收脚本重复创建业务事实。
 	 */
-	async function syncPatients(): Promise<{
+	async function syncPatients(
+		idempotencyKey: string,
+		traceId: string,
+	): Promise<{
 		data: unknown;
 		traceId: string;
 	}> {
-		const traceId = traceIdFactory();
 		return requestJson(
 			apiRoute(apiPrefix, "/patients/sync"),
 			"POST",
 			{
-				"idempotency-key": `provider-smoke-${traceId}`,
+				"idempotency-key": idempotencyKey,
 				"x-request-id": traceId,
 			},
 			traceId,
@@ -482,14 +484,44 @@ export async function runProviderDirectorySmoke(
 
 	for (const capability of capabilities) {
 		if (capability === "patient-sync") {
+			const firstTraceId = traceIdFactory();
+			const idempotencyKey = `provider-smoke-${firstTraceId}`;
+			let firstSyncData: unknown;
+			let firstSyncPassed = false;
+
 			await check("patient-sync", async () => {
-				const result = await syncPatients();
+				const result = await syncPatients(idempotencyKey, firstTraceId);
 				const itemCount = requireSafeData(result.data);
+				// 只有首轮响应完成安全字段审计后，才允许用它作为重放比较基线。
+				firstSyncData = result.data;
+				firstSyncPassed = true;
 				return {
 					traceId: result.traceId,
 					...(itemCount === undefined ? {} : { itemCount }),
 				};
 			});
+
+			/**
+			 * 第二次请求必须复用同一个 owner-scoped 幂等键，验证服务端从 durable
+			 * operation ledger 重放当前平台读模型，而不是再次访问 provider 或生成
+			 * 第二套患者 ID。traceId 刻意不同，确保不是客户端重复发送同一请求的假测试。
+			 */
+			if (firstSyncPassed) {
+				await check("patient-sync-replay", async () => {
+					const result = await syncPatients(idempotencyKey, traceIdFactory());
+					const itemCount = requireSafeData(result.data);
+					if (JSON.stringify(result.data) !== JSON.stringify(firstSyncData)) {
+						throw new ProviderSmokeRequestError(
+							"Patient sync replay did not return the same platform read model",
+							200,
+						);
+					}
+					return {
+						traceId: result.traceId,
+						...(itemCount === undefined ? {} : { itemCount }),
+					};
+				});
+			}
 			continue;
 		}
 

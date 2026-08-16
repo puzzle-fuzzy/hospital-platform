@@ -3,6 +3,10 @@
 > 本记录只证明 `0015` schema 和新代码的受控运行边界，不代表真实微信账号、真实患者同步、
 > 公网新 release 或真机验收已经完成。敏感连接串、token、openid、unionId 和患者标识不写入本文。
 
+> 状态更新：后续候选 `d177991` 已完成公网切换、旧 `8001` 共存和基础 runtime 验收；本记录中的
+> 历史 release/切换前结论不能覆盖最新证据。真实 session 下的患者同步首轮、同 key replay、owner 映射和真机
+> 页面验收仍未完成，最新发布证据见 [`candidate-d177991-production-acceptance-2026-08-16.md`](candidate-d177991-production-acceptance-2026-08-16.md)。
+
 ## 1. 本次范围
 
 本次处理的是患者目录同步的 durable operation ledger：
@@ -79,13 +83,12 @@ missingSchemaObjects=[]
 
 ## 5. 当前未完成和下一步
 
-当前公网 `18081` 仍未切换到 `69c0f20`，所以公网患者同步仍不应宣称已经使用新 operation ledger。
-切换新 release 还需要具备 systemd 管理权限，然后按以下顺序执行：
+当时公网 `18081` 尚未切换到 `69c0f20`，因此该历史记录本身不能证明公网患者同步使用了 operation ledger。
+当前 `d177991` 已具备公网运行条件，下一步按以下顺序执行真实业务验收：
 
-1. 只切换 `hospital-platform-api-v2.service` 的 `current` release，不修改旧 Python service；
-2. `systemd-analyze verify`、重启新 API，确认 production mode、`persistenceSchemaProbe=ok`；
-3. 复测内网和公网 `/health/ready`，确认 `8001` 仍监听；
-4. 用受控平台 access token 做一次患者同步和同 key replay，保存 trace、operationId、provider request 次数和安全响应摘要；
-5. 再进行微信开发者工具/真机的患者选择、刷新和预约只读回归。
+1. 用受控平台 access token 做一次患者同步和同 key replay，保存 trace、operationId、provider request 次数和安全响应摘要；
+2. 检查两次响应的平台读模型一致，且第二次没有生成新的内部患者 ID；
+3. 再进行微信开发者工具/真机的患者选择、刷新和预约只读回归；
+4. 真实业务失败时只回滚新 API，不修改旧 Python service。
 
 目前 SSH 用户可以运行 Bun 和读取受控 env，但没有可用的 systemd `sudo` 密码；因此本次没有擅自重启线上服务。
