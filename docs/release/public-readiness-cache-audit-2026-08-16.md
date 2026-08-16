@@ -13,6 +13,14 @@
 
 因此只能确认本轮存在一次瞬时的公网 readiness 差异，不能在没有 Nginx/网络层请求日志的情况下断言根因是缓存、上游切换或探针瞬时失败。后续发布判断必须保存完整响应头、`x-request-id` 和服务端对应日志。
 
+### 18:20-18:21 CST 复测
+
+通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`，生产 `current=55fce6c`，新 API
+仍监听 `10.0.0.3:18081`，旧 Python 服务仍监听 `8001`；`sudo -n` 仍因需要密码而不可用，未执行
+重启、切换或 Nginx reload。随后使用仓库当前 Smoke 访问公网 `/api/v2`：`system-ping` 返回 200，
+但 `health-live` 和 `health-ready` 虽返回 200，仍因缺少 `Cache-Control: no-store` 被门禁拒绝。
+这再次证明候选修复尚未形成线上证据，不能把公网 200 当作发布完成。
+
 ## 2. 当前服务边界
 
 只读 SSH 复核得到：
