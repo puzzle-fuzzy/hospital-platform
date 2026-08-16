@@ -162,3 +162,8 @@ MySQL/Redis/schema、no-store、`/api/v1/system/ping` 和未登录 `401` smoke�
 production mode、MySQL/Redis/schema、no-store、system ping 和未登录认证边界 smoke，随后已停止临时进程。
 `current=55fce6c`、新 API `18081` 和旧 Python `8001` 全程未改变。完整证据见
 [`../../docs/release/candidate-b4dc33b-production-smoke-2026-08-16.md`](../../docs/release/candidate-b4dc33b-production-smoke-2026-08-16.md)。
+
+2026-08-16 20:37-20:42 CST：候选 `d177991` 已完成 checksum、真实生产 env preflight、`18082/18083`
+隔离 runtime smoke，并按本手册原子切换 `current` 后只重启新 API。公网 `/api/v2` 的 live、ready、system-ping
+和未登录认证边界全部通过，旧 Python `8001` 与 Worker 状态未改变。完整证据见
+[`../../docs/release/candidate-d177991-production-acceptance-2026-08-16.md`](../../docs/release/candidate-d177991-production-acceptance-2026-08-16.md)。
