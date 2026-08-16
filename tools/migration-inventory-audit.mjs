@@ -402,5 +402,113 @@ if (!(await Bun.file(legacyClientApiModulesSentinel).exists())) {
 	}
 }
 
+/**
+ * 页面和普通 endpoint 台账不能覆盖微信平台级入口：WebSocket、跳转其他小程序、
+ * web-view、支付调起、二维码和医保回跳都可能没有独立的 HTTP route。这里按源码文件
+ * 级别登记行为指示，防止后续新增/删除旧入口时台账静默漂移；注释或 manifest 命中也
+ * 只表示“需要人工确认”，绝不表示该业务已经迁移或已经真实验收。
+ */
+const legacyBehaviorSentinel = join(legacySourceRoot, "api", "ws.ts");
+if (!(await Bun.file(legacyBehaviorSentinel).exists())) {
+	console.log(
+		"Legacy client behavior inventory skipped: old client is not available at " +
+			legacySourceRoot,
+	);
+} else {
+	const legacyBehaviorInventory = await readText(
+		"docs/migration/legacy-client-infrastructure-boundaries.md",
+	);
+	const behaviorRules = [
+		{
+			name: "websocket",
+			pattern: /uni\.connectSocket|wx\.connectSocket|new\s+WebSocket/u,
+		},
+		{
+			name: "mini-program-navigation",
+			pattern: /navigateToMiniProgram/u,
+		},
+		{
+			name: "web-view",
+			pattern: /<web-view|<webview|webViewUrl/u,
+		},
+		{
+			name: "payment-invocation",
+			pattern: /(?:uni|wx)\.requestPayment|requestPayment\s*\(/u,
+		},
+		{
+			name: "qr-and-official-account",
+			pattern: /二维码|QRCode|qrCode|canvasToTempFilePath|scanCode/u,
+		},
+		{
+			name: "insurance-callback",
+			pattern: /authCode|referrerInfo|insuranceAuth/u,
+		},
+	];
+	const expectedBehaviorCounts = new Map();
+	for (const match of legacyBehaviorInventory.matchAll(
+		/<!-- migration-audit: legacy-client-behavior=([^\s]+) files=(\d+) -->/gu,
+	)) {
+		expectedBehaviorCounts.set(match[1], Number(match[2]));
+	}
+	const missingBehaviors = behaviorRules
+		.map(({ name }) => name)
+		.filter((name) => !expectedBehaviorCounts.has(name));
+	if (missingBehaviors.length > 0) {
+		console.error("Legacy client behavior inventory is incomplete:");
+		for (const name of missingBehaviors)
+			console.error(`- missing behavior count: ${name}`);
+		process.exitCode = 1;
+	} else {
+		const sourceExtensions = new Set([".ts", ".js", ".vue", ".json"]);
+		const actualBehaviorFiles = new Map(
+			behaviorRules.map(({ name }) => [name, 0]),
+		);
+		for await (const relativePath of new Bun.Glob("**/*").scan({
+			cwd: legacySourceRoot,
+			onlyFiles: true,
+		})) {
+			const extension = relativePath.slice(relativePath.lastIndexOf("."));
+			if (!sourceExtensions.has(extension.toLowerCase())) continue;
+			const source = await Bun.file(
+				join(legacySourceRoot, relativePath),
+			).text();
+			for (const { name, pattern } of behaviorRules) {
+				if (pattern.test(source)) {
+					actualBehaviorFiles.set(
+						name,
+						(actualBehaviorFiles.get(name) ?? 0) + 1,
+					);
+				}
+			}
+		}
+		const mismatches = behaviorRules
+			.map(({ name }) => name)
+			.filter(
+				(name) =>
+					actualBehaviorFiles.get(name) !== expectedBehaviorCounts.get(name),
+			)
+			.map(
+				(name) =>
+					name +
+					": expected " +
+					expectedBehaviorCounts.get(name) +
+					", actual " +
+					actualBehaviorFiles.get(name),
+			);
+		if (mismatches.length > 0) {
+			console.error("Legacy client behavior inventory mismatch:");
+			for (const mismatch of mismatches) console.error(`- ${mismatch}`);
+			process.exitCode = 1;
+		} else {
+			console.log(
+				"Legacy client behavior inventory passed: " +
+					behaviorRules
+						.map(({ name }) => `${name}=${actualBehaviorFiles.get(name)}`)
+						.join(", "),
+			);
+		}
+	}
+}
+
 // 保留仓库根目录引用，避免从仓库外运行时被当前工作目录影响。
 void fileURLToPath(repositoryRoot);

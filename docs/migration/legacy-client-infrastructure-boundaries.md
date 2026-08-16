@@ -11,6 +11,12 @@
 <!-- migration-audit: legacy-client-category=components files=12 -->
 <!-- migration-audit: legacy-client-category=jsonData files=5 -->
 <!-- migration-audit: legacy-client-category=static files=30 -->
+<!-- migration-audit: legacy-client-behavior=websocket files=1 -->
+<!-- migration-audit: legacy-client-behavior=mini-program-navigation files=6 -->
+<!-- migration-audit: legacy-client-behavior=web-view files=3 -->
+<!-- migration-audit: legacy-client-behavior=payment-invocation files=2 -->
+<!-- migration-audit: legacy-client-behavior=qr-and-official-account files=6 -->
+<!-- migration-audit: legacy-client-behavior=insurance-callback files=4 -->
 
 ## 1. 盘点结论
 
@@ -39,6 +45,18 @@ WebSocket -> 通过 URL/query 携带 token 与 patId，并自行重连
 | `src/components` | 12 | 患者/院区选择、医疗问卷、随访表单和公众号提示 |
 | `src/jsonData` | 5 | 首页入口、院内映射和自测题目配置 |
 | `src/static` | 30 | Tab、地图、头像、报告和小程序图标资源 |
+
+旧端非 HTTP 行为指示文件的静态范围如下。数量是“至少包含一次该类行为标记的源码文件数”，
+可能包含 manifest、注释或同一文件中的多个入口，只用于迁移范围盘点，不代表行为已经可用或已完成真实验收：
+
+| 行为边界 | 文件数 | 迁移状态 |
+| --- | ---: | --- |
+| WebSocket / 实时消息 | 1 | 未迁移；等待握手、短期会话、消息和断线补偿 contract |
+| 跳转其他小程序 | 6 | 未迁移；等待目标 appId、白名单、回跳字段和 owner 语义 |
+| `web-view` / 外部收银台 | 3 | 未迁移；等待 HTTPS 域名、资源授权和返回状态 contract |
+| 微信支付调起 | 2 | 仅新端保留服务端白名单参数入口；旧端流程未作为新支付事实依据 |
+| 二维码 / 公众号入口 | 6 | 未迁移；等待内容、签名、TTL、防重放和主体归属 contract |
+| 医保授权回跳 | 4 | 未迁移；等待授权码生命周期、绑定当前用户和最终结算状态 contract |
 
 ### 2026-08-16 非页面逻辑二次复核
 
