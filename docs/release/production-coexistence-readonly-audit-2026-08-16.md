@@ -9,7 +9,7 @@
 
 | 项目 | 只读观察结果 | 迁移判断 |
 | --- | --- | --- |
-| 新 API | `hospital-platform-api-v2.service` active；生产模式；监听 `10.0.0.3:18081`；当前 release 为 `ca3a877` | 新 API 进程本身已由 systemd 管理 |
+| 新 API | `hospital-platform-api-v2.service` active；生产模式；监听 `10.0.0.3:18081`；当前 release 为 `3fd069d`（初始只读快照时为 `ca3a877`） | 新 API 进程本身已由 systemd 管理 |
 | 旧 Python API | `python main.py run --env prod` 监听 `8001`；未发现对应 systemd unit；当前由 `nohup` 手工进程维持 | 旧服务仍是线上事实来源，不能因为新 API active 就停止 |
 | 新 Worker | `hospital-platform-worker-v2.service` 已安装但 disabled/inactive；未观察到新 worker 进程 | outbox、支付查单和通知补偿当前不能宣称在生产运行 |
 | 公网 v2 | `https://test-hp.meiyi.pro/api/v2/health/live`、`health/ready`、`system/ping` 均返回 200 | `/api/v2` 公网路由和 HTTPS 当前可达 |
