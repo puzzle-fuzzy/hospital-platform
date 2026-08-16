@@ -216,6 +216,40 @@ function recordStatus(value: unknown): AppointmentRecord["status"] {
 	return "unknown";
 }
 
+/**
+ * 同一预约历史响应中如果带有重复 `appointmentInfoId`，必须拒绝整批结果。
+ *
+ * 这个 ID 只用于 adapter 内部判断，不进入公共读模型；但如果忽略重复值，
+ * 原生页面虽然可以用数组下标渲染两行，后续详情、取消或状态刷新却无法
+ * 判断它们是否是同一条预约。Provider 没有返回预约号时不人为生成 ID，
+ * 继续保持只读摘要，避免把标题、日期和流水号拼成伪业务主键。
+ */
+function ensureUniqueAppointmentIds(
+	items: readonly ProviderObject[],
+	operation: string,
+	requestId: string,
+): void {
+	const seen = new Set<string>();
+	for (const item of items) {
+		const appointmentId = optionalText(
+			item.appointmentInfoId,
+			"appointmentInfoId",
+			operation,
+			requestId,
+			128,
+		);
+		if (!appointmentId) continue;
+		if (seen.has(appointmentId)) {
+			throw providerError(
+				operation,
+				"Zhongyang appointment response contained duplicate appointment ids",
+				requestId,
+			);
+		}
+		seen.add(appointmentId);
+	}
+}
+
 function mapRecord(
 	value: ProviderObject,
 	operation: string,
@@ -517,12 +551,15 @@ export class ZhongyangAppointmentApiGateway
 			},
 			this.fetcher,
 		);
-		const records = responseItems(
-			response.data,
-			operation,
-			response.requestId,
-		).map((item) => mapRecord(item, operation, response.requestId));
-		return { records, trace: trace(operation, response.requestId) };
+		const records = responseItems(response.data, operation, response.requestId);
+		ensureUniqueAppointmentIds(records, operation, response.requestId);
+		const mappedRecords = records.map((item) =>
+			mapRecord(item, operation, response.requestId),
+		);
+		return {
+			records: mappedRecords,
+			trace: trace(operation, response.requestId),
+		};
 	}
 }
 

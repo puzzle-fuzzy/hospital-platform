@@ -162,7 +162,8 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 `serialNumber` 及 `status`。状态只允许 `scheduled`、`cancelled`、`completed`、`missed`、
 `stopped`、`substituted`、`registered`、`unknown`；其中 `stopped` 表示停诊、
 `substituted` 表示替诊、`registered` 表示已登记。Provider 已确认的数字状态在 adapter
-边界完成映射，不能由小程序根据文字猜测最终状态。
+边界完成映射，不能由小程序根据文字猜测最终状态。Provider 返回重复 `appointmentInfoId` 时，
+服务端拒绝整批结果；没有预约号的摘要不会被服务端根据数组位置伪造业务 ID。
 
 小程序的“爽约记录”不是独立公共 endpoint，而是对上述预约历史读模型做安全筛选：只展示服务端
 返回的 `status=missed`，当前查询窗口为中国标准时间近 90 天；`unknown`、空列表或 provider

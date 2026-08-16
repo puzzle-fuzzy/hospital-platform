@@ -359,6 +359,46 @@ test("众阳预约记录保留已确认的停诊、替诊和已登记状态", as
 	]);
 });
 
+test("众阳预约记录拒绝重复的 provider 预约号", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							appointmentInfoId: "appointment-duplicate",
+							workDate: "2026-08-20",
+							status: 0,
+						},
+						{
+							appointmentInfoId: "appointment-duplicate",
+							workDate: "2026-08-21",
+							status: 3,
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "duplicate-record" } },
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-001",
+				query: { startDate: "2026-08-20", endDate: "2026-08-21" },
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-records",
+		requestId: "duplicate-record",
+		retryable: false,
+	});
+});
+
 test("众阳预约科室 adapter 拒绝重复的科室主键", async () => {
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",

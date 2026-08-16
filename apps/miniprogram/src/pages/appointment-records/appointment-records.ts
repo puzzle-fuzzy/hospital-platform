@@ -23,7 +23,7 @@ const STATUS_LABELS = Object.freeze({
 	scheduled: "已预约",
 	cancelled: "已取消",
 	completed: "已完成",
-	missed: "未就诊",
+	missed: "已爽约",
 	stopped: "停诊",
 	substituted: "替诊",
 	registered: "已登记",

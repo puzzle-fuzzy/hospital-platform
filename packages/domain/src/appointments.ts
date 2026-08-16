@@ -172,7 +172,11 @@ export type AppointmentRecordStatus =
 	| "registered"
 	| "unknown";
 
-/** 患者端可展示的预约记录摘要，不含 provider 记录 id、支付字段或身份字段。 */
+/**
+ * 患者端可展示的预约记录摘要，不含 provider 记录 id、支付字段或身份字段。
+ * adapter 会在保留摘要前拒绝同一响应中的重复 provider 预约号，但不会为
+ * 缺少预约号的摘要伪造公共业务 ID。
+ */
 export type AppointmentRecord = {
 	departmentName?: string;
 	doctorName?: string;
