@@ -101,10 +101,10 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
-2026-08-16：前一候选 `3a37e7e` 已在生产 env 和临时 `18082` 完成隔离 smoke；本轮候选 `a8174f1` 也已在
-生产 env 和临时 `18082` 完成隔离 smoke，且 live/ready 均带 `Cache-Control: no-store`。生产 `current` 仍为
-`55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放。`a8174f1` 尚未执行公网切换；发布前仍必须
-重新执行 `git rev-parse HEAD` 固定当前候选，并按本手册复核完整 release。详细证据见
-[`candidate-a8174f1-production-smoke-2026-08-16.md`](../../docs/release/candidate-a8174f1-production-smoke-2026-08-16.md)。
+2026-08-16：前一候选 `3a37e7e` 和候选 `a8174f1` 已在生产 env 和临时 `18082` 完成隔离 smoke；最新候选
+`86cae9a` 进一步完成 live/ready no-store、system ping 和六个受保护路由的 401 认证边界验收。生产
+`current` 仍为 `55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放。`86cae9a` 尚未执行公网
+切换；发布前仍必须重新执行 `git rev-parse HEAD` 固定当前候选，并按本手册复核完整 release。详细证据见
+[`candidate-86cae9a-production-smoke-2026-08-16.md`](../../docs/release/candidate-86cae9a-production-smoke-2026-08-16.md)。
 由于窄权限尚未配置，尚不能执行本手册的公网切换步骤。前一候选证据见
 [`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
