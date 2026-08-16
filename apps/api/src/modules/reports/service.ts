@@ -26,6 +26,13 @@ export type ReportServiceDependencies = {
 	/** 当前只实现 LIS 详情；PACS/ECG 仍不通过此端口。 */
 	detail?: ReportDetailGateway;
 	logger?: AppLogger;
+	/**
+	 * 统一报告引用的观察时间；生产使用服务端时钟，测试注入固定时间。
+	 *
+	 * 报告目录和详情查询必须使用同一时间基准，否则目录刚生成的引用
+	 * 可能在详情查询时被另一台机器的本地时钟提前判定为过期。
+	 */
+	now?: () => Date;
 };
 
 export class ReportQueryError extends Error {
@@ -94,9 +101,11 @@ function validateQuery(input: ReportDirectoryQuery): void {
  */
 export class ReportService {
 	private readonly logger: AppLogger;
+	private readonly now: () => Date;
 
 	constructor(private readonly dependencies: ReportServiceDependencies) {
 		this.logger = dependencies.logger ?? createNoopLogger();
+		this.now = dependencies.now ?? (() => new Date());
 	}
 
 	async list(
@@ -153,7 +162,9 @@ export class ReportService {
 						// 不能把“详情不可用”扩大成“整批报告不可用”。
 						return entry.summary;
 					}
-					const now = new Date();
+					// 目录返回的每条报告引用都使用应用服务同一时钟，避免批量处理
+					// 时跨越边界或测试时钟漂移，造成 TTL 计算不一致。
+					const now = this.now();
 					const reference = await this.dependencies.references.upsert({
 						reportId: reportReferenceId(
 							ownerUserId,
@@ -220,7 +231,7 @@ export class ReportService {
 			const reference = await this.dependencies.references.findByOwnerAndId(
 				ownerUserId,
 				reportId,
-				new Date().toISOString(),
+				this.now().toISOString(),
 			);
 			if (reference?.kind !== "laboratory") {
 				throw new ReportNotFoundError();

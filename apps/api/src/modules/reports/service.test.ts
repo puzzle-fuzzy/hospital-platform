@@ -3,6 +3,7 @@ import type {
 	PatientRepository,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
+	ReportReferenceRepository,
 } from "@hospital/domain";
 import { createInMemoryReportReferenceRepository } from "@hospital/persistence";
 import {
@@ -141,11 +142,13 @@ test("report details use a short-lived opaque reference and owner-scoped lookup"
 		}),
 	} as unknown as PatientRepository;
 	const references = createInMemoryReportReferenceRepository();
+	const now = new Date("2026-08-16T00:00:00.000Z");
 	const service = new ReportService({
 		repository,
 		directory,
 		detail,
 		references,
+		now: () => now,
 	});
 	const context = {
 		traceId: "trace-report-detail",
@@ -175,6 +178,89 @@ test("report details use a short-lived opaque reference and owner-scoped lookup"
 	await expect(
 		service.detail("user-002", reportId, context),
 	).rejects.toBeInstanceOf(ReportNotFoundError);
+});
+
+test("报告详情引用的 TTL 使用注入的服务端时间基准", async () => {
+	const captured: {
+		createdAt?: string;
+		expiresAt?: string;
+		lookupAt?: string;
+	} = {};
+	const references: ReportReferenceRepository = {
+		upsert: async (input) => {
+			if (input.createdAt !== undefined) captured.createdAt = input.createdAt;
+			captured.expiresAt = input.expiresAt;
+			return {
+				...input,
+				createdAt: input.createdAt ?? "2026-08-16T00:00:00.000Z",
+			};
+		},
+		findByOwnerAndId: async (
+			_ownerUserId: string,
+			_reportId: string,
+			now: string,
+		) => {
+			captured.lookupAt = now;
+			return undefined;
+		},
+	};
+	const fixedNow = new Date("2026-08-16T00:00:00.000Z");
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory",
+							title: "血常规",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available",
+							hasAttachment: false,
+						},
+						providerReportId: "provider-report-001",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "directory-request-001",
+				},
+			}),
+		},
+		references,
+		detail: {
+			getLaboratoryDetail: async () => {
+				throw new Error("详情不应在本测试中调用");
+			},
+		},
+		now: () => fixedNow,
+	});
+
+	await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{ traceId: "trace-report-clock", idempotencyKey: "key-report-clock" },
+	);
+	await expect(
+		service.detail("user-001", "report_missing", {
+			traceId: "trace-report-clock-detail",
+			idempotencyKey: "key-report-clock-detail",
+		}),
+	).rejects.toBeInstanceOf(ReportNotFoundError);
+
+	expect(captured.createdAt).toBe(fixedNow.toISOString());
+	expect(captured.expiresAt).toBe(
+		new Date(fixedNow.getTime() + 10 * 60 * 1000).toISOString(),
+	);
+	expect(captured.lookupAt).toBe(fixedNow.toISOString());
 });
 
 test("report directory keeps a summary when a provider detail reference is missing", async () => {

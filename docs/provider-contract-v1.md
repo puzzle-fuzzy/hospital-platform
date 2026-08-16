@@ -34,6 +34,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 报告目录使用独立的 `ZHONGYANG_REPORT_DIRECTORY_READY` gate，和患者/预约目录共享连接配置但分别验收；configured 只表示配置字段完整，不代表真实 provider 已联调。
 - 报告目录的日期参数目前由平台校验为起止日期差值最多 366 天；provider `endDate` 的包含规则、同日查询和分页一致性仍未冻结，不能把平台近 30 天窗口写成 provider 的条目数量语义。
 - LIS 详情使用独立的 `ZHONGYANG_REPORT_DETAIL_READY` gate，并额外依赖 `0009_report_references`、owner 复合外键和 TTL 查询；configured 不代表真实 provider 资源授权或真机可用。
+- 报告引用的创建、过期和 owner 查询统一使用服务端应用时钟；不能让不同机器的本地时区或时钟漂移改变短期引用的有效性，测试必须注入固定时间覆盖 TTL 边界。
 
 预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
 
