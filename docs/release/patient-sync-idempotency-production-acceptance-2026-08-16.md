@@ -5,9 +5,10 @@
 
 > 状态更新：后续候选 `d177991` 已完成公网切换、旧 `8001` 共存和基础 runtime 验收；本记录中的
 > 历史 release/切换前结论不能覆盖最新证据。真实 session 下的患者同步首轮、同 key replay、owner 映射和真机
-> 页面验收仍未完成；后续 `71f2d62` 又加强了 smoke 的不同 traceId replay 和读模型一致性检查，候选 `93373d9`
-> 已完成上传与真实依赖 preflight。最新发布证据见
-> [`candidate-d177991-production-acceptance-2026-08-16.md`](candidate-d177991-production-acceptance-2026-08-16.md)。
+> 页面验收仍未完成；后续 `71f2d62` 又加强了 smoke 的不同 traceId replay 和读模型一致性检查，候选 `93373d9`、
+> `411cd31` 已完成上传与真实依赖 preflight；生产切换证据见
+> [`candidate-d177991-production-acceptance-2026-08-16.md`](candidate-d177991-production-acceptance-2026-08-16.md)，最新候选证据见
+> [`candidate-411cd31-preproduction-smoke-2026-08-16.md`](candidate-411cd31-preproduction-smoke-2026-08-16.md)。
 
 ## 1. 本次范围
 
@@ -87,7 +88,7 @@ missingSchemaObjects=[]
 
 当时公网 `18081` 尚未切换到 `69c0f20`，因此该历史记录本身不能证明公网患者同步使用了 operation ledger。
 当前 `d177991` 已具备公网运行条件，下一步按以下顺序执行真实业务验收；最新 smoke 工具应使用
-`93373d9` 的候选 bundle，不应把生产 `d177991` 中旧 bundle 的输出当作 replay 门禁证据：
+`411cd31` 的候选 bundle，不应把生产 `d177991` 中旧 bundle 的输出当作 replay 门禁证据：
 
 1. 用受控平台 access token 做一次患者同步和同 key replay，保存 trace、operationId、provider request 次数和安全响应摘要；
 2. 检查两次响应的平台读模型一致，且第二次没有生成新的内部患者 ID；

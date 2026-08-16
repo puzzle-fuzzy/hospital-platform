@@ -44,6 +44,9 @@
 - 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、同 key replay 的 operation 日志、预约历史真实响应、真机截图/网络记录和对应 traceId。
 - `93373d9` 仅作为未切换候选完成了 bundle checksum、真实生产 env preflight 和公网 runtime 复测；其中一次
   readiness 瞬态探针失败后恢复，详见 [`candidate-93373d9-preproduction-smoke-2026-08-16.md`](candidate-93373d9-preproduction-smoke-2026-08-16.md)。
+- 最新候选 `411cd31` 在 `127.0.0.1:18084` 使用真实生产依赖完成 production mode、live/ready 和正常停止验收；
+  该候选仍未切换 `current`，持久化探针低敏错误码增强和候选证据见
+  [`candidate-411cd31-preproduction-smoke-2026-08-16.md`](candidate-411cd31-preproduction-smoke-2026-08-16.md)。
 
 ### 2026-08-16 数据层迁移与复核
 
