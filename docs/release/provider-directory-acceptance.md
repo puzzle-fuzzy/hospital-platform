@@ -22,13 +22,16 @@
 `thirdPatientId` 调用记录接口会返回 `smcAppointment@1301 / 患者信息不存在`，而旧端的
 `patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
-`ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe。真实账号重新同步、预约历史
-provider 只读、公网业务 smoke 和真机证据仍未完成，因此预约历史不得标记为完整验收。
+`ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe，后续 `d177991`
+才是当前公网运行 release。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
+仍未完成，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 线上发布证据
 
-- 旧一阶段 release：`b1b84d7`；随后新 release：`ca3a877`。`hospital-platform-api-v2.service` 已切换到 `ca3a877` 并重启。
-- 生产 schema：`0012_patient_provider_references` 与 `0013_patient_directory_snapshot` 均迁移成功；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
+- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`d177991`。SSH 只读复核确认
+  `current=/home/ps/code/hospital-platform/releases/d177991`，`hospital-platform-api-v2.service=active`。
+- 生产 schema：`0012_patient_provider_references`、`0013_patient_directory_snapshot`、`0014_user_profiles` 和
+  `0015_patient_directory_sync_operations` 均已迁移；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
 - 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网
   `https://test-hp.meiyi.pro/api/v2/health/live`、`/api/v2/health/ready` 均返回 200。
 - 本轮只读复核中公网 `ready` 曾短暂返回 `database/schema unavailable`；直连
@@ -36,7 +39,9 @@ provider 只读、公网业务 smoke 和真机证据仍未完成，因此预约�
   当前没有据此重启或修改服务；后续应继续观察 ready 探针和数据库连接池日志，避免把瞬态依赖抖动误报为业务迁移完成。
 - 启动日志：`runtimeMode=production`，数据库、Redis、schema 探针均为 `ok`；患者目录、预约目录、预约记录和门诊缴费配置为 `configured`；报告 gate 继续关闭。患者目录现在可以进入真实 active/inactive 失效与恢复数据验收。
 - 旧服务隔离：`8001` 仍在监听，未重启、未切换旧 Python 服务。
-- 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、预约历史真实响应、真机截图/网络记录和对应 traceId。
+- SSH 在 2026-08-16 20:54 CST 的只读日志复核中，在切换后的筛选窗口只看到健康探针和未登录边界请求，未发现
+  `auth.wechat.*`、`patient.directory.*`、预约、报告或门诊费用业务事件；这表示真实业务验收尚未开始，不能把“没有失败日志”当成成功证据。
+- 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、同 key replay 的 operation 日志、预约历史真实响应、真机截图/网络记录和对应 traceId。
 
 ### 2026-08-16 数据层迁移与复核
 
@@ -46,11 +51,13 @@ provider 只读、公网业务 smoke 和真机证据仍未完成，因此预约�
   `expected:0012_patient_provider_references`，MySQL/Redis 通过，整体退出码为 1 的原因是支付仍缺少
   `PAYMENT_DATA_ENCRYPTION_KEY` 和 `WECHAT_PAYMENT_READY`；
 - 迁移前只读 SQL 确认 `hp_schema_migrations` 最后为 `0012_patient_provider_references`，`hp_patients` 只有 1 条记录；
-- 新 release `ca3a877` 独立安装并构建成功；显式启用生产 migration 安全开关后，仅执行
+- 迁移候选 `ca3a877` 独立安装并构建成功；显式启用生产 migration 安全开关后，仅执行
   `0013_patient_directory_snapshot`，日志出现 `persistence.migration.started` 和 `persistence.migration.succeeded`；
-- 迁移后的 `db:schema` 返回 `status=ready`、`schemaStatus=verified`、`expectedMigrationId=0013_patient_directory_snapshot`、
+- 迁移阶段 `db:schema` 曾返回 `status=ready`、`schemaStatus=verified`、`expectedMigrationId=0013_patient_directory_snapshot`；
+  后续 `0014` 与 `0015` 已由生产候选完成，当前目标 migration 为 `0015_patient_directory_sync_operations`，
   `missingMigrationIds=[]`、`missingSchemaObjects=[]`；
-- `current` 已原子切换到 `ca3a877`，API unit 重启后为 `active`；`GET http://10.0.0.3:18081/health/ready` 和公网
+- 迁移阶段 `current` 曾原子切换到 `ca3a877`，API unit 重启后为 `active`；随后 `d177991` 又完成了
+  当前 release 切换；`GET http://10.0.0.3:18081/health/ready` 和公网
   `https://test-hp.meiyi.pro/api/v2/health/ready` 均返回 `200`，database、Redis 和 schema 均为 `ok`；
 - 启动日志明确为 `runtimeMode=production`、`persistenceSchemaProbe=ok`、支付和报告 gate 关闭；
 - `10.0.0.3:18081` 与旧服务 `0.0.0.0:8001` 同时监听，旧服务未被切换。

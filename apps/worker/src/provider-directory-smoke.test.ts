@@ -326,6 +326,7 @@ test("provider directory smoke rejects an outpatient status mismatch", async () 
 		name: "outpatient-payments-unpaid",
 		status: "failed",
 		errorType: "ProviderSmokeRequestError",
+		traceId: expect.any(String),
 	});
 });
 
@@ -419,6 +420,7 @@ test("provider directory smoke fails when a platform response contains a forbidd
 		name: "patients",
 		status: "failed",
 		errorType: "ProviderSmokeRequestError",
+		traceId: expect.any(String),
 	});
 });
 
@@ -449,6 +451,7 @@ test("provider directory smoke rejects leaked identity credentials", async () =>
 		name: "patients",
 		status: "failed",
 		errorType: "ProviderSmokeRequestError",
+		traceId: expect.any(String),
 	});
 });
 
@@ -488,6 +491,7 @@ test("provider directory smoke rejects leaked schedule provider references", asy
 		name: "appointment-schedules",
 		status: "failed",
 		errorType: "ProviderSmokeRequestError",
+		traceId: expect.any(String),
 	});
 });
 
@@ -518,6 +522,7 @@ test("provider directory smoke does not treat not-ready as a successful health c
 			name: "health-ready",
 			status: "failed",
 			errorType: "ProviderSmokeRequestError",
+			traceId: expect.any(String),
 		},
 	]);
 });
@@ -530,4 +535,36 @@ test("provider directory smoke rejects public HTTP unless local opt-in is explic
 			capabilities: [],
 		}),
 	).rejects.toMatchObject({ name: "ProviderSmokeConfigurationError" });
+});
+
+test("provider directory smoke keeps traceId when the platform request fails", async () => {
+	const traceIds = [
+		"health-live-trace",
+		"health-ready-trace",
+		"patients-trace",
+	];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["patients"],
+		traceIdFactory: () => traceIds.shift() ?? "patients-trace",
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			throw new Error("simulated network failure");
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-1)).toEqual({
+		name: "patients",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+		traceId: "patients-trace",
+	});
 });

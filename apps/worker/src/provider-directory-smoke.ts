@@ -116,11 +116,14 @@ class ProviderSmokeConfigurationError extends Error {
 
 class ProviderSmokeRequestError extends Error {
 	readonly statusCode: number;
+	/** 失败请求仍要保留 traceId，便于和 API/反向代理日志进行一一关联。 */
+	readonly traceId: string | undefined;
 
-	constructor(message: string, statusCode: number) {
+	constructor(message: string, statusCode: number, traceId?: string) {
 		super(message);
 		this.name = "ProviderSmokeRequestError";
 		this.statusCode = statusCode;
+		this.traceId = traceId;
 	}
 }
 
@@ -236,12 +239,13 @@ function responseStatus(data: unknown): unknown {
 	return (data as { status?: unknown }).status;
 }
 
-function requireSafeData(data: unknown): number | undefined {
+function requireSafeData(data: unknown, traceId?: string): number | undefined {
 	const forbiddenPath = forbiddenResponseKey(data);
 	if (forbiddenPath) {
 		throw new ProviderSmokeRequestError(
 			`Response contains a forbidden field at ${forbiddenPath}`,
 			200,
+			traceId,
 		);
 	}
 	return responseItemCount(data);
@@ -312,11 +316,23 @@ export async function runProviderDirectorySmoke(
 		if (!isHealth) {
 			headers.set("Authorization", `Bearer ${options.accessToken}`);
 		}
-		const response = await fetcher(`${baseUrl}${path}`, {
-			method,
-			signal: AbortSignal.timeout(SMOKE_REQUEST_TIMEOUT_MS),
-			headers,
-		});
+		let response: Response;
+		try {
+			response = await fetcher(`${baseUrl}${path}`, {
+				method,
+				signal: AbortSignal.timeout(SMOKE_REQUEST_TIMEOUT_MS),
+				headers,
+			});
+		} catch (error) {
+			// 网络失败也必须携带本次请求的 traceId；只保留错误类型，避免把
+			// URL、响应正文或其他可能包含敏感信息的异常内容写入 smoke 证据。
+			const errorType = error instanceof Error ? error.name : "UnknownError";
+			throw new ProviderSmokeRequestError(
+				`Hospital API request failed (${errorType})`,
+				0,
+				traceId,
+			);
+		}
 		let body: unknown;
 		try {
 			body = await response.json();
@@ -324,12 +340,14 @@ export async function runProviderDirectorySmoke(
 			throw new ProviderSmokeRequestError(
 				"Hospital API returned invalid JSON",
 				response.status,
+				traceId,
 			);
 		}
 		if (!response.ok) {
 			throw new ProviderSmokeRequestError(
 				`Hospital API returned HTTP ${response.status}`,
 				response.status,
+				traceId,
 			);
 		}
 		if (
@@ -340,6 +358,7 @@ export async function runProviderDirectorySmoke(
 			throw new ProviderSmokeRequestError(
 				"Hospital API returned an unsuccessful response",
 				response.status,
+				traceId,
 			);
 		}
 		const data = (body as { data?: unknown }).data;
@@ -347,6 +366,7 @@ export async function runProviderDirectorySmoke(
 			throw new ProviderSmokeRequestError(
 				"Hospital API response did not contain data",
 				response.status,
+				traceId,
 			);
 		}
 		return { data, traceId };
@@ -410,13 +430,21 @@ export async function runProviderDirectorySmoke(
 			const errorType = error instanceof Error ? error.name : "UnknownError";
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown provider smoke error";
-			checks.push({ name, status: "failed", errorType });
+			const traceId =
+				error instanceof ProviderSmokeRequestError ? error.traceId : undefined;
+			checks.push({
+				name,
+				status: "failed",
+				errorType,
+				...(traceId ? { traceId } : {}),
+			});
 			logger.error(
 				{
 					event: "provider.smoke.capability.failed",
 					capability: name,
 					errorType,
 					errorMessage,
+					...(traceId ? { traceId } : {}),
 				},
 				"Provider directory smoke capability failed",
 			);
@@ -425,7 +453,7 @@ export async function runProviderDirectorySmoke(
 
 	async function readSafe(path: string): Promise<SmokeObservation> {
 		const result = await getJson(path);
-		const itemCount = requireSafeData(result.data);
+		const itemCount = requireSafeData(result.data, result.traceId);
 		return {
 			traceId: result.traceId,
 			...(itemCount === undefined ? {} : { itemCount }),
@@ -438,6 +466,7 @@ export async function runProviderDirectorySmoke(
 			throw new ProviderSmokeRequestError(
 				"Hospital API liveness status is not ok",
 				200,
+				result.traceId,
 			);
 		}
 		return { traceId: result.traceId };
@@ -449,6 +478,7 @@ export async function runProviderDirectorySmoke(
 			throw new ProviderSmokeRequestError(
 				"Hospital API readiness status is not ready",
 				200,
+				result.traceId,
 			);
 		}
 		return { traceId: result.traceId };
@@ -491,7 +521,7 @@ export async function runProviderDirectorySmoke(
 
 			await check("patient-sync", async () => {
 				const result = await syncPatients(idempotencyKey, firstTraceId);
-				const itemCount = requireSafeData(result.data);
+				const itemCount = requireSafeData(result.data, result.traceId);
 				// 只有首轮响应完成安全字段审计后，才允许用它作为重放比较基线。
 				firstSyncData = result.data;
 				firstSyncPassed = true;
@@ -509,11 +539,12 @@ export async function runProviderDirectorySmoke(
 			if (firstSyncPassed) {
 				await check("patient-sync-replay", async () => {
 					const result = await syncPatients(idempotencyKey, traceIdFactory());
-					const itemCount = requireSafeData(result.data);
+					const itemCount = requireSafeData(result.data, result.traceId);
 					if (JSON.stringify(result.data) !== JSON.stringify(firstSyncData)) {
 						throw new ProviderSmokeRequestError(
 							"Patient sync replay did not return the same platform read model",
 							200,
+							result.traceId,
 						);
 					}
 					return {
@@ -581,9 +612,10 @@ export async function runProviderDirectorySmoke(
 						throw new ProviderSmokeRequestError(
 							`Outpatient payment response status does not match ${status}`,
 							200,
+							result.traceId,
 						);
 					}
-					const itemCount = requireSafeData(result.data);
+					const itemCount = requireSafeData(result.data, result.traceId);
 					return {
 						traceId: result.traceId,
 						...(itemCount === undefined ? {} : { itemCount }),
@@ -606,6 +638,7 @@ export async function runProviderDirectorySmoke(
 		}
 
 		let reportId: string | undefined;
+		let reportDirectoryTraceId: string | undefined;
 		await check("reports", async () => {
 			const query = new URLSearchParams({
 				patientId: scopedPatientId,
@@ -615,8 +648,9 @@ export async function runProviderDirectorySmoke(
 			const result = await getJson(
 				`${apiRoute(apiPrefix, "/reports")}?${query}`,
 			);
-			const itemCount = requireSafeData(result.data);
+			const itemCount = requireSafeData(result.data, result.traceId);
 			reportId = firstOpaqueReportId(result.data);
+			reportDirectoryTraceId = result.traceId;
 			return {
 				traceId: result.traceId,
 				...(itemCount === undefined ? {} : { itemCount }),
@@ -627,6 +661,7 @@ export async function runProviderDirectorySmoke(
 				throw new ProviderSmokeRequestError(
 					"Report directory did not return an opaque laboratory reportId",
 					200,
+					reportDirectoryTraceId,
 				);
 			}
 			return readSafe(
