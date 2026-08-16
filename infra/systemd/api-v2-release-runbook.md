@@ -103,8 +103,8 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 2026-08-16：前一候选 `3a37e7e` 和候选 `a8174f1` 已在生产 env 和临时 `18082` 完成隔离 smoke；历史候选
 `86cae9a` 进一步完成 live/ready no-store、system ping 和六个受保护路由的 401 认证边界验收。之后
-`main` 新增 `0dc39aa`（原生页面迁移台账和静态门禁），该提交尚未构建、上传或部署，不能沿用
-`86cae9a` 的候选产物作为当前 HEAD。生产 `current` 仍为 `55fce6c`，`18081` 和旧 `8001` 均保持运行，
+`main` 先后新增 `0dc39aa`（原生页面迁移台账和静态门禁）及 `09c88b1`（发布文档时序校正），这些提交尚未
+构建、上传或部署，不能沿用 `86cae9a` 的候选产物作为当前 HEAD。生产 `current` 仍为 `55fce6c`，`18081` 和旧 `8001` 均保持运行，
 候选端口已释放；发布前仍必须重新执行 `git rev-parse HEAD` 固定当前候选，并按本手册复核完整 release。详细证据见
 [`candidate-86cae9a-production-smoke-2026-08-16.md`](../../docs/release/candidate-86cae9a-production-smoke-2026-08-16.md)。
 由于窄权限尚未配置，尚不能执行本手册的公网切换步骤。前一候选证据见
