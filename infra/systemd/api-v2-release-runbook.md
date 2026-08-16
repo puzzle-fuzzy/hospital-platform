@@ -96,9 +96,9 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 ## 6. 当前状态
 
 2026-08-16：前一候选 `3a37e7e` 已在生产 env 和临时 `18082` 完成隔离 smoke，生产 `current` 仍为
-`55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放。仓库当前 `main=1df002f`，其中包含
+`55fce6c`，`18081` 和旧 `8001` 均保持运行，候选端口已释放。仓库当前 `main=9afe94d`，其中包含
 已通过代码门禁的候选实现、正确的公网 `/api/v2` Smoke 路径、门诊费用双状态只读验收和最新审计文档；
-`1df002f` 尚未在生产临时
+`9afe94d` 尚未在生产临时
 端口重新 smoke，也未执行公网切换。该提交不改变 API 业务路由，但发布前仍需按本手册固定并验证完整 release。
 由于窄权限尚未配置，尚不能执行本手册的公网切换步骤。前一候选证据见
 [`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
