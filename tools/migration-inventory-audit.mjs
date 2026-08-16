@@ -351,5 +351,56 @@ if (!(await Bun.file(legacyClientSentinel).exists())) {
 	}
 }
 
+/**
+ * 旧业务模块中的 endpoint 字面量必须在旧接口台账中有出处。动态 path 参数和
+ * query 参数在比对时统一成占位符，只检查“这条调用事实是否被登记”，不把它
+ * 直接变成新端可调用接口；新端是否迁移仍以 contract、adapter 和真实证据为准。
+ */
+const legacyClientApiModulesRoot = join(legacySourceRoot, "api", "modules");
+const legacyClientApiModulesSentinel = join(
+	legacyClientApiModulesRoot,
+	"ZY.ts",
+);
+if (!(await Bun.file(legacyClientApiModulesSentinel).exists())) {
+	console.log(
+		`Legacy client endpoint inventory skipped: old API modules are not available at ${legacyClientApiModulesRoot}`,
+	);
+} else {
+	const endpointPattern =
+		/["'`](\/(?:api|common|convenience|intelligent|knowledge|msun|system|shift-scheduling|monitor|application|webSocket)[^"'`\s]*)["'`]/gu;
+	const normalizeEndpoint = (value) =>
+		value.replace(/\$\{[^}]+\}/gu, "{param}").replace(/\?.*$/u, "");
+	const inventoryText = await readText(
+		"docs/migration/legacy-api-endpoint-inventory.md",
+	);
+	const normalizedInventoryText = inventoryText
+		.replace(/\{[^}\r\n]+\}/gu, "{param}")
+		.replace(/\?[A-Za-z0-9_=&{}.-]+/gu, "?{query}");
+	const actualEndpoints = new Set();
+	const glob = new Bun.Glob("api/modules/*.ts");
+	for await (const relativePath of glob.scan({
+		cwd: legacySourceRoot,
+		onlyFiles: true,
+	})) {
+		const source = await Bun.file(join(legacySourceRoot, relativePath)).text();
+		for (const match of source.matchAll(endpointPattern)) {
+			actualEndpoints.add(normalizeEndpoint(match[1]));
+		}
+	}
+	const undocumentedEndpoints = [...actualEndpoints]
+		.filter((endpoint) => !normalizedInventoryText.includes(endpoint))
+		.sort();
+	if (undocumentedEndpoints.length > 0) {
+		console.error("Legacy client endpoint inventory is missing endpoint(s):");
+		for (const endpoint of undocumentedEndpoints)
+			console.error(`- ${endpoint}`);
+		process.exitCode = 1;
+	} else {
+		console.log(
+			`Legacy client endpoint inventory passed: ${actualEndpoints.size} endpoint literal(s) documented`,
+		);
+	}
+}
+
 // 保留仓库根目录引用，避免从仓库外运行时被当前工作目录影响。
 void fileURLToPath(repositoryRoot);

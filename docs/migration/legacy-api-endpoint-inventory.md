@@ -207,6 +207,10 @@ provider、Pinia 患者状态和健康问卷组件；它们的迁移边界单独
 [`legacy-client-infrastructure-boundaries.md`](legacy-client-infrastructure-boundaries.md)，不能因未出现在
 本表的 endpoint 列表中而视为遗漏或已完成。
 
+当旧客户端源码可用时，`pnpm migration:audit` 还会扫描 `hospital-app/src/api/modules/*.ts` 中的
+endpoint 字面量；动态路径参数和 query 会归一化后与本文比对。该检查只证明旧调用事实已经登记，
+不会把旧路径自动注册到新 Elysia，也不会把 Provider 文档状态提升为已验收。
+
 以下路径是旧 FastAPI controller 的实际注册事实。它们继续由旧服务承担，不能直接成为新
 小程序的兼容转发：
 
