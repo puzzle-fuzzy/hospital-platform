@@ -92,15 +92,16 @@ token 或完整连接串）得到：
   `8.130.127.184:6379` 一条 Redis 连接；
 - 新 API 脱敏 env 目标为 MySQL `8.130.127.184:3306/hospital-dev`、Redis `8.130.127.184:6379/3`；
 - 旧 Python PID `636918` 当前连接同一远端 `8.130.127.184:6379` 两条 Redis 连接；本次快照没有看到
-  旧 Python 的 MySQL 活跃连接，且其进程环境没有暴露可识别的 `DATABASE_URL/REDIS_URL` 或相关变量名，
-  这不能证明旧服务完全不使用 MySQL，也不能证明它使用 `hospital-dev`；
+- 旧 Python 的生产配置文件 `/home/ps/code/Hospital-Backend/env/.env.prod` 经严格脱敏后确认：
+  MySQL `8.130.127.184:3306/hospital-dev`、Redis `8.130.127.184:6379/1`、MongoDB
+  `127.0.0.1:27017/admin`；密码、用户和其他敏感字段未输出；
 - `127.0.0.1:3306` 和 `127.0.0.1:6379` 虽然可建立 TCP 连接，但当前没有证据表明 Bun API 使用本机这两项服务；
 - 远端 MySQL/Redis TCP 端口在本次核对时均可达。
 
 这条边界很重要：不能因为服务器本机也有 MySQL/Redis 就把新 API 的连接目标改成本机，除非先确认数据库
 实例、schema、Redis DB/ACL、旧服务依赖和数据一致性；否则可能把新服务切到另一套数据，破坏旧服务共存。
-当前只能确认新 API 的 MySQL/Redis 目标和新 Redis DB3 隔离，旧 Python 与新 API 是否共用同一个 MySQL
-数据库仍是未证实项。
+当前可以确认新旧服务共用同一个 MySQL `hospital-dev`，新 API 使用 `hp_*` 表、旧服务继续使用 legacy
+表；Redis 则通过 DB3/DB1 分离。MongoDB、旧 Redis namespace、旧任务和其他基础设施仍未迁移。
 
 ### 2.7 恢复后的公网短观察
 

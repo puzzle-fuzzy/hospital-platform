@@ -74,10 +74,9 @@
   监听，`hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `41c9c18`。这证明运行层
   新旧服务共存，不证明仓库最新提交已部署，也不证明任何患者端 Provider、支付或真机业务完成；完整限制见
   [`../release/production-coexistence-readonly-audit-2026-08-17.md`](../release/production-coexistence-readonly-audit-2026-08-17.md)。
-- 同次进程连接核对确认 Bun API 当前连接远端 `8.130.127.184:3306/hospital-dev` 和 Redis DB3，旧 Python
-  当前也连接该远端 Redis；本机 `127.0.0.1:3306/6379` 虽可达但不是 Bun 当前连接目标。旧 Python 的 MySQL
-  目标仍未从当前进程快照证实，不能仅凭本机服务存在就切换新 API 数据库，必须先完成实例、schema、Redis
-  DB/ACL 和旧服务依赖的脱敏比对。
+- 同次进程和生产配置脱敏核对确认 Bun API 与旧 Python 共用远端 MySQL `8.130.127.184:3306/hospital-dev`，
+  新 API 使用 `hp_*` 表、旧服务继续使用 legacy 表；Redis 则分别使用 DB3 和 DB1。本机 `127.0.0.1:3306/6379`
+  虽可达但不是 Bun 当前连接目标，MongoDB/旧 Redis namespace/旧任务仍不属于已迁移能力。
 
 - 同次 journald 复核发现 MySQL/schema 探针存在多次 unavailable/recovered 抖动，并出现过微信登录
   `PersistenceUnavailableError`/503；虽然随后有一次登录和单患者同步成功，但当前不具备多患者、TTL、失效恢复
