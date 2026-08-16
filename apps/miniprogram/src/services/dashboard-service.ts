@@ -31,44 +31,78 @@ export const DASHBOARD_DATE_RANGE_DAYS = Object.freeze({
 	reports: 30,
 });
 
-function padDatePart(value: number): string {
-	return String(value).padStart(2, "0");
+/**
+ * 医院业务日历固定使用中国标准时间，不使用用户设备或 API 进程的时区。
+ *
+ * 这里不依赖小程序运行时是否完整支持 `Intl` 的 `timeZone` 参数，而是把
+ * 绝对时间平移到 UTC+08:00 的伪时间轴，再用 UTC 字段读取自然日。中国
+ * 标准时间没有夏令时，这种写法在真机、开发者工具和服务端的日期语义一致。
+ */
+const PLATFORM_TIME_ZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
+const CALENDAR_DAY_MS = 24 * 60 * 60 * 1000;
+
+type PlatformCalendarDate = {
+	year: number;
+	month: number;
+	day: number;
+};
+
+function platformCalendarDate(value: Date): PlatformCalendarDate {
+	const shifted = new Date(value.getTime() + PLATFORM_TIME_ZONE_OFFSET_MS);
+	return {
+		year: shifted.getUTCFullYear(),
+		month: shifted.getUTCMonth() + 1,
+		day: shifted.getUTCDate(),
+	};
 }
 
-/** 将本地日期格式化为平台公开 contract 使用的 YYYY-MM-DD。 */
+function shiftCalendarDate(
+	value: PlatformCalendarDate,
+	days: number,
+): PlatformCalendarDate {
+	const shifted = new Date(
+		Date.UTC(value.year, value.month - 1, value.day) + days * CALENDAR_DAY_MS,
+	);
+	return {
+		year: shifted.getUTCFullYear(),
+		month: shifted.getUTCMonth() + 1,
+		day: shifted.getUTCDate(),
+	};
+}
+
+function formatCalendarDate(value: PlatformCalendarDate): string {
+	const padDatePart = (part: number) => String(part).padStart(2, "0");
+	return `${value.year}-${padDatePart(value.month)}-${padDatePart(value.day)}`;
+}
+
+/** 将绝对时间按中国标准时间格式化为平台公开 contract 使用的 YYYY-MM-DD。 */
 export function formatPlatformDate(value: Date): string {
-	return [
-		value.getFullYear(),
-		padDatePart(value.getMonth() + 1),
-		padDatePart(value.getDate()),
-	].join("-");
+	return formatCalendarDate(platformCalendarDate(value));
 }
 
-/** 创建以今天为结束日的查询窗口。 */
+/** 创建以中国标准时间“今天”为结束日的查询窗口。 */
 export function createPastDateRange(
 	days: number,
 	now = new Date(),
 ): { startDate: string; endDate: string } {
-	const end = new Date(now);
-	const start = new Date(now);
-	start.setDate(start.getDate() - days);
+	const end = platformCalendarDate(now);
+	const start = shiftCalendarDate(end, -days);
 	return {
-		startDate: formatPlatformDate(start),
-		endDate: formatPlatformDate(end),
+		startDate: formatCalendarDate(start),
+		endDate: formatCalendarDate(end),
 	};
 }
 
-/** 创建从今天开始的未来查询窗口。 */
+/** 创建从中国标准时间“今天”开始的未来查询窗口。 */
 export function createUpcomingDateRange(
 	days: number,
 	now = new Date(),
 ): { startDate: string; endDate: string } {
-	const start = new Date(now);
-	const end = new Date(now);
-	end.setDate(end.getDate() + days);
+	const start = platformCalendarDate(now);
+	const end = shiftCalendarDate(start, days);
 	return {
-		startDate: formatPlatformDate(start),
-		endDate: formatPlatformDate(end),
+		startDate: formatCalendarDate(start),
+		endDate: formatCalendarDate(end),
 	};
 }
 

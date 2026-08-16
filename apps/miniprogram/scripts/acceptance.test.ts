@@ -437,8 +437,9 @@ test("dashboard service owns bounded date windows and internal patient inputs", 
 	expect(service).not.toContain("msun-middle-business");
 });
 
-test("dashboard service calculates local platform date windows", () => {
-	const now = new Date(2026, 7, 15, 23, 59, 59);
+test("dashboard service calculates China Standard Time calendar windows", () => {
+	// 这是中国标准时间 2026-08-15 23:59:59；不依赖测试机的本地时区。
+	const now = new Date("2026-08-15T15:59:59.000Z");
 
 	expect(formatPlatformDate(now)).toBe("2026-08-15");
 	expect(createPastDateRange(90, now)).toEqual({
@@ -449,6 +450,10 @@ test("dashboard service calculates local platform date windows", () => {
 		startDate: "2026-08-15",
 		endDate: "2026-08-22",
 	});
+
+	// 到达中国标准时间零点后必须切换自然日，验证不能按设备本地日期读取。
+	const afterChinaMidnight = new Date("2026-08-15T16:00:00.000Z");
+	expect(formatPlatformDate(afterChinaMidnight)).toBe("2026-08-16");
 });
 
 test("page request guard only permits the latest patient read to update state", () => {
