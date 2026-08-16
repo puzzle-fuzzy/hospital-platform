@@ -8,7 +8,12 @@ import type {
 	ReportDirectoryView,
 } from "../../types";
 
-/** 报告目录只读阶段的页面批次大小，避免报告过多时一次性渲染整棵列表。 */
+/**
+ * 报告目录只读阶段的本地渲染批次大小，避免报告过多时一次性渲染整棵列表。
+ *
+ * 当前 API 没有服务端 cursor/page；这里的分批只控制 WXML 渲染成本，不能
+ * 被描述为已经完成 provider 分页，也不能改变 `payload.total` 的服务端语义。
+ */
 const REPORT_PAGE_SIZE = 10;
 
 const REPORT_KIND_LABELS = Object.freeze({

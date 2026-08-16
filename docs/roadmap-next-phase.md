@@ -34,6 +34,7 @@
 - `3a37e7e` 已通过本地完整门禁，并在生产 env 隔离的临时端口 `18082` 完成最新候选 smoke：预约排班、预约记录和报告查询错误契约统一为稳定中文文案；当前生产 `current` 仍为 `55fce6c`，公网、provider 和真机验收仍未完成。证据见 [`release/query-error-contract-smoke-2026-08-16.md`](release/query-error-contract-smoke-2026-08-16.md)。
 - 当前架构边界审计已从单一 API 客户端检查扩展为扫描原生小程序全部生产源码的 24 条规则；它只证明旧 provider/敏感标识边界没有回流，不替代 provider、公网和真机业务验收。
 - 原生小程序构建已增加动态页面一致性门禁：从 `app.json` 读取全部页面，逐项检查 `.json/.wxml/.wxss/.ts` 源文件和 `dist/*.js` 运行文件，并校验 WXML 事件方法、页面跳转目标、本地资源和 WXSS 图片边界，避免新增页面再次出现真机找不到 `.js`、跳转 404 或 WXSS 本地资源错误。
+- 当前公共 API 文档已增加列表语义门禁：明确 `total = items.length`、空列表与依赖失败的区别、各只读接口的排序/日期窗口，以及预约排班和报告页的本地渲染分批不等于服务端分页；后续取得 provider 分页文档后必须先更新 contract 再改代码。
 - 候选代码已为健康探针响应明确设置 `Cache-Control: no-store`；公网一次瞬时 `not_ready` 后连续复核恢复 `ready`，但当前生产 `current=55fce6c` 尚未切换该候选版本，公网 no-store 仍待发布后验收。后续发布判断必须以未缓存的 `/api/v2/health/ready` 和服务端日志为准。
 - 当前服务器没有免密的窄权限 systemd 管理能力：`sudo -n -l` 仍需要密码。本阶段不重复尝试密码、不修改旧服务、不强行切换生产；候选 release 的上线动作保留为“取得明确 systemd 权限后执行”的独立运行任务，具体授权与回滚步骤见 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md)。
 
@@ -176,3 +177,4 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：完成 `f2c6d99` 候选 release 的错误契约和 `cb11bc8` persistence 探针状态日志隔离 smoke；HTTP 401、生产模式启动、MySQL/Redis/schema 探针均符合预期，临时端口已清理，生产 `current=55fce6c`、`18081` 和旧 `8001` 保持不变。由于 systemd 管理权限尚未就绪，公网错误文案、患者同步 `0015` 和真机业务仍不能计为已验收。
 - 2026-08-16：剩余迁移重新收敛为“文档驱动的 provider 业务”和“已有代码的分层验收”两条线：病历、患者绑定、预约写入、支付/医保/HIS、二维码不允许根据旧端页面猜测实现；每块业务必须先冻结 provider contract、状态机、owner/幂等/超时语义和日志字段，再进入代码和真机验收。
 - 2026-08-16：小程序页面错误展示统一经过稳定错误码映射，页面不再直接读取 `Error.message`；未知/未来错误码回退到安全文案，避免 provider 或内部异常文本进入患者界面。
+- 2026-08-16：补齐患者端列表的数量、空结果、排序、日期窗口和大结果集语义门禁；修正文档中“失效就诊人自动回退第一项”的错误描述，明确只有首次无选择才默认第一项，已有选择失效必须显式重新选择。

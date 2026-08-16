@@ -195,6 +195,29 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 最终结算成功，也不能提交 `totalFen`、`insuranceFen`、`cashFen` 或 HIS 完成状态。支付接口
 当前仅完成平台编排边界，真实微信支付、医保、HIS 和真机验收仍未完成。
 
+### 3.5 列表、空结果和大结果集语义
+
+当前患者端所有列表接口都使用同一个最小响应形状：`data.items` 是本次服务端实际返回的数组，
+`data.total` 必须等于 `items.length`。当前没有公开 `page`、`pageSize`、`cursor` 或 `hasMore` 字段，
+因此 `total` 不是 provider 的隐藏总数，也不是“还有多少页”的估计值。
+
+| 接口 | 服务端数据窗口 | 返回顺序 | 小程序的分批行为 |
+| --- | --- | --- | --- |
+| `GET /api/v2/patients`、`POST /api/v2/patients/sync` | 当前 owner 的有效目录；同步必须是完整快照 | 使用服务端读模型顺序；第一项只能作为“从未选择过时的展示默认值”，不能解释为本人关系 | 选择页展示完整目录 |
+| `GET /api/v2/appointments/departments` | 服务端生成的预约目录日期窗口 | 保留 adapter 返回的 provider 顺序；顺序不是科室优先级事实 | 左栏直接展示目录 |
+| `GET /api/v2/appointments/schedules` | API 最多 31 个日历日；当前小程序请求未来 7 天 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
+| `GET /api/v2/appointments/records` | API 最多 366 个日历日；当前小程序请求近 90 天 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取后展示 |
+| `GET /api/v2/reports` | API 最多 366 个日历日；当前小程序请求近 30 天 | adapter 按 `reportedAt` 倒序，再按 `kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
+| `GET /api/v2/payments/outpatient/records` | 服务端固定最近 30 个中国标准时间日 | 保留 provider adapter 返回顺序；金额和状态已在服务端映射 | 当前完整读取后展示，不代表支付分页 |
+
+服务端返回已确认的空结果时，接口仍返回 HTTP `200`、`items: []` 和 `total: 0`；空列表不能被
+客户端改写成“provider 暂时不可用”。反过来，身份映射缺失、依赖未配置、权限拒绝、超时或 provider
+返回结构不合法必须走稳定错误码，不能伪装成空列表。
+
+小程序的“加载更多”目前只控制已经取得的数据如何分批渲染，不能被验收记录写成“服务端已支持分页”。
+未来要开放真正分页、游标或大结果集查询，必须先在 provider contract 中冻结游标一致性、排序键、重复项、
+快照时间、`total` 语义和失败后的续取方式，再同步修改公共 contract、adapter、页面和验收文档。
+
 ## 4. 统一响应和错误
 
 患者端成功响应统一为：

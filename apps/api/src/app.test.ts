@@ -222,6 +222,29 @@ test("public API documentation lists every stable public error code", async () =
 	}
 });
 
+test("public API documentation freezes list and rendering semantics", async () => {
+	const documentation = await Bun.file(
+		join(import.meta.dir, "../../../docs/api-v2-public.md"),
+	).text();
+
+	// 路由存在门禁只能发现“有没有写接口”，这里额外固定列表的数量、空态、
+	// 排序和本地分批边界，避免后续把小程序的渲染优化误写成 provider 分页。
+	const requiredDocumentation = [
+		"### 3.5 列表、空结果和大结果集语义",
+		"`data.total` 必须等于 `items.length`",
+		"当前没有公开 `page`、`pageSize`、`cursor` 或 `hasMore` 字段",
+		"HTTP `200`、`items: []` 和 `total: 0`",
+		"右栏每次最多渲染 12 条；这是本地渲染分页",
+		"每次渲染 10 条；这是本地渲染分页",
+		"adapter 按 `reportedAt` 倒序",
+		"不能被验收记录写成“服务端已支持分页”",
+	] as const;
+
+	for (const statement of requiredDocumentation) {
+		expect(documentation).toContain(statement);
+	}
+});
+
 test("appointment write routes remain absent while provider contract is blocked", async () => {
 	const writeRequests = [
 		{ method: "POST", path: "/api/v1/appointments/holds" },

@@ -9,7 +9,12 @@ import type {
 	AppointmentSchedule,
 } from "../../types";
 
-/** 当前右侧最多绘制的号源数量，继续加载由用户明确触发。 */
+/**
+ * 当前右侧最多绘制的号源数量，继续加载由用户明确触发。
+ *
+ * 这是小程序本地渲染批次，不是服务端分页：网络请求仍按服务端日期窗口
+ * 取得完整结果，不能把 `hasMoreSchedules` 当作 provider 还有未读取数据的证明。
+ */
 const SCHEDULE_PAGE_SIZE = 12;
 
 type AppointmentDirectoryPageMethods = {
