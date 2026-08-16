@@ -1,7 +1,7 @@
 # `b186098` 生产切换与新旧服务共存验收
 
 > 历史记录：本文只描述 `b186098` 在 2026-08-17 约 01:16 CST 的生产切换窗口。
-> 当前线上 release 已进一步切换为 `527d163`，请以 [`527d163-production-acceptance-2026-08-17.md`](527d163-production-acceptance-2026-08-17.md)
+> 当前线上 release 已进一步切换为 `131fb5a`，请以 [`131fb5a-production-acceptance-2026-08-17.md`](131fb5a-production-acceptance-2026-08-17.md)
 > 和当前迁移检查点为准；本文中的健康、进程和 release 指针不能回填当前版本的业务验收。
 
 ## 1. 发布边界
