@@ -31,6 +31,10 @@
   均返回 200，ready 的 database/redis/schema 均为 `ok`；`/api/v2/medical-records` 仍返回 404。
   这只证明公网运行和关闭边界，不证明会话、Provider 业务、真机或新旧服务共存；完整 requestId 与限制见
   [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)。
+- 同日 SSH 只读核对确认新 Bun API 监听 `10.0.0.3:18081`、旧 Python API 监听 `0.0.0.0:8001`，
+  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `41c9c18`。这补强运行层共存证据，
+  但不能证明当前仓库 `main` 已部署，也不能替代业务和真机证据；完整记录见
+  [`../release/production-coexistence-readonly-audit-2026-08-17.md`](../release/production-coexistence-readonly-audit-2026-08-17.md)。
 
 ### 2.1 本轮业务审计修正
 
