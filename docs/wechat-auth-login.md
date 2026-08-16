@@ -17,10 +17,11 @@
 代码和测试完成不等于真实微信登录已经上线。真实登录还必须同时满足：微信 AppID/AppSecret、MySQL 目标 schema、
 Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收全部通过。
 
-当前线上 API release 为 `ca5a372`。该版本已经完成生产模式启动、MySQL/Redis/schema 探针、公网
-`/api/v2` 健康检查、未登录认证边界和旧 Python 服务共存验收；发布后的观测窗口尚未出现新的真实
-微信登录业务请求，所以本文件后面的历史登录证据不能替代当前版本的真机验收。完整发布边界见
-[`release/ca5a372-production-acceptance-2026-08-17.md`](release/ca5a372-production-acceptance-2026-08-17.md)。
+当前线上 API release 为 `527d163`。该版本已经完成生产模式启动、MySQL/Redis/schema 探针、公网
+`/api/v2` 健康检查、未登录认证边界和旧 Python 服务共存验收；`ca5a372` 切换后的真实微信登录、
+单患者同步、预约科室和排班读取证据发生在 `527d163` 之前，不能直接当作当前版本真机验收。`527d163`
+只新增持久化瞬态故障的安全诊断字段，尚无新的失败样本证明根因已解决。完整发布边界见
+[`release/527d163-production-acceptance-2026-08-17.md`](release/527d163-production-acceptance-2026-08-17.md)。
 
 ### 当前开发者工具观测（2026-08-16）
 

@@ -3,8 +3,8 @@
 > 本文记录通过 SSH 对中转服务器进行的只读核对。未读取 env、数据库数据或会话，未执行发布、重启、停止、
 > migration、缓存清理或任何业务写入。服务器密码和密钥不进入文档或 Git。
 >
-> 本文第 1-6 节是历史核对与 `b186098` 切换结果；当前 release 已进一步切换为 `ca5a372`，请以
-> [`ca5a372-production-acceptance-2026-08-17.md`](ca5a372-production-acceptance-2026-08-17.md) 的当前运行证据为准。
+> 本文第 1-6 节是历史核对与 `b186098` 切换结果；当前 release 已进一步切换为 `527d163`，请以
+> [`527d163-production-acceptance-2026-08-17.md`](527d163-production-acceptance-2026-08-17.md) 的当前运行证据为准。
 
 ## 1. 服务器与核对范围
 

@@ -20,13 +20,14 @@
 
 ### 当前线上基线（2026-08-17）
 
-当前生产 `current` 为 `ca5a372`，对应新 API `hospital-platform-api-v2.service`；旧 Python
-服务仍由原端口独立提供，未被本次发布替换。`ca5a372` 发布后的 SSH、候选启动、公网健康检查、
-认证边界和旧服务共存证据，统一见 [`ca5a372-production-acceptance-2026-08-17.md`](ca5a372-production-acceptance-2026-08-17.md)。
+当前生产 `current` 为 `527d163`，对应新 API `hospital-platform-api-v2.service`；旧 Python
+服务仍由原端口独立提供，未被本次发布替换。`527d163` 发布后的 SSH、候选启动、公网健康检查、
+认证边界和旧服务共存证据，统一见 [`527d163-production-acceptance-2026-08-17.md`](527d163-production-acceptance-2026-08-17.md)。
 
-截至该验收窗口结束，`ca5a372` 之后只观察到服务启动、健康探针、system-ping 和未登录边界请求，
-没有新的微信登录、患者目录、预约、报告或门诊费用业务请求。因此下面以 `a11f117`、`41c9c18`、
-`b186098` 等版本记录的真实业务日志全部属于历史证据，不能直接标记当前 `ca5a372` 的业务 gate。
+截至 `527d163` 验收窗口结束，当前 release 只观察到服务启动、健康探针、system-ping 和未登录边界请求，
+没有新的微信登录、患者目录、预约、报告或门诊费用业务请求。`ca5a372` 的真实微信登录、患者同步、
+预约科室和排班读取属于前一 release 的历史证据，不能直接标记当前 `527d163` 的业务 gate；更早的
+`a11f117`、`41c9c18`、`b186098` 业务日志同样不能替代当前 release 的证据。
 后续真机或公网业务验收必须重新记录当前 release、`traceId`、`requestId` 和脱敏响应摘要。
 
 所有患者作用域能力都必须经过同一条 owner 目录门禁：smoke 先用当前平台 Bearer
@@ -41,7 +42,7 @@
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
 `ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe；这些版本的业务日志是
 历史回归证据。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据仍未在
-当前 `ca5a372` 验收窗口重新完成，因此预约历史不得标记为完整验收。
+当前 `527d163` 验收窗口重新完成，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 真实账号与预约目录只读证据
 
