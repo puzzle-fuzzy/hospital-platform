@@ -27,6 +27,10 @@
 - 微信登录与单患者同步的真实服务端证据来自此前 release；当前 release 尚未取得 Redis 实际 TTL、
   第二位患者和完整真机链路证据。
 - 预约写入、锁号、取消、支付、医保、退款和 HIS 回写继续关闭；Worker 不因只读验收而启动。
+- 2026-08-17 公网只读复核再次确认 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping`
+  均返回 200，ready 的 database/redis/schema 均为 `ok`；`/api/v2/medical-records` 仍返回 404。
+  这只证明公网运行和关闭边界，不证明会话、Provider 业务、真机或新旧服务共存；完整 requestId 与限制见
+  [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)。
 
 ### 2.1 本轮业务审计修正
 

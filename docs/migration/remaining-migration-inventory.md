@@ -65,6 +65,11 @@
   患者 Provider、预约/报告/费用只读或真机验收；完整 requestId 见
   [`../release/current-public-readonly-smoke-2026-08-16.md`](../release/current-public-readonly-smoke-2026-08-16.md)。
 
+- 2026-08-17 公网只读复核再次确认 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping`
+  返回 200，ready 的 database/redis/schema 均为 `ok`；刻意关闭的 `/api/v2/medical-records` 仍返回 404。
+  本次未携带会话，也未查询服务器进程，因此不能替代真实微信、患者 Provider、预约/报告/费用只读、真机或
+  新旧服务共存证据；requestId 和限制见 [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)。
+
 日期窗口的服务端跨度、客户端窗口和 provider 待确认项已单独记录在
 [`date-window-boundary-audit.md`](date-window-boundary-audit.md)；这部分不能用页面数量或列表 `total` 推断为已完成 provider 分页。
 
