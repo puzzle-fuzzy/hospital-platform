@@ -9,6 +9,9 @@ server {
     # New API v2 health probes are isolated from the legacy root proxy.
     location = /api/v2/health/live {
         proxy_pass http://10.0.0.3:18081/health/live;
+        # 健康探针不能被浏览器、CDN 或代理缓存；隐藏上游值后由边缘统一补齐。
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -18,6 +21,9 @@ server {
 
     location = /api/v2/health/ready {
         proxy_pass http://10.0.0.3:18081/health/ready;
+        # readiness 是瞬时状态，禁止边缘复用旧结果。
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -61,6 +67,9 @@ server {
     # Keep the same isolated v2 routes on HTTPS, which is the WeChat path.
     location = /api/v2/health/live {
         proxy_pass http://10.0.0.3:18081/health/live;
+        # 健康探针不能被浏览器、CDN 或代理缓存；隐藏上游值后由边缘统一补齐。
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -70,6 +79,9 @@ server {
 
     location = /api/v2/health/ready {
         proxy_pass http://10.0.0.3:18081/health/ready;
+        # readiness 是瞬时状态，禁止边缘复用旧结果。
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
