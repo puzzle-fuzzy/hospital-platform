@@ -54,6 +54,9 @@
   [`../../infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)，
   不需要也不允许触碰旧 Python unit。
 
+日期窗口的服务端跨度、客户端窗口和 provider 待确认项已单独记录在
+[`date-window-boundary-audit.md`](date-window-boundary-audit.md)；这部分不能用页面数量或列表 `total` 推断为已完成 provider 分页。
+
 ### 当前新端能力的准确状态
 
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |

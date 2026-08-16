@@ -11,6 +11,56 @@ import {
 	ReportService,
 } from "./service";
 
+test("report date ranges accept the configured span and reject anything wider", async () => {
+	let providerCalls = 0;
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => {
+				providerCalls += 1;
+				return {
+					reports: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "reports",
+						requestId: "report-boundary",
+					},
+				};
+			},
+		},
+	});
+	const context = {
+		traceId: "trace-report-boundary",
+		idempotencyKey: "key-report-boundary",
+	};
+
+	// 报告接口当前同样按起止日期差值限制跨度，不把首尾日期数量当作上限。
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-01-01", endDate: "2027-01-02" },
+			context,
+		),
+	).resolves.toEqual({ items: [], total: 0 });
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-01-01", endDate: "2027-01-03" },
+			context,
+		),
+	).rejects.toBeInstanceOf(ReportQueryError);
+
+	expect(providerCalls).toBe(1);
+});
+
 test("report queries reject impossible calendar dates before provider access", async () => {
 	let providerCalls = 0;
 	const directory: ReportDirectoryGateway = {

@@ -66,6 +66,8 @@ export class AppointmentRecordPatientNotFoundError extends Error {
 function validateScheduleQuery(input: AppointmentScheduleQuery): void {
 	const start = parseIsoCalendarDate(input.startDate);
 	const end = parseIsoCalendarDate(input.endDate);
+	// 这里限制的是两个 UTC 日历零点之间的“跨度”，不是把首尾都计入后的日期条目数。
+	// provider 对 endDate 是否包含当天仍属于外部合同，不能在这一层擅自推断。
 	const maxRangeMs = MAX_SCHEDULE_RANGE_DAYS * 24 * 60 * 60 * 1000;
 	if (start === undefined || end === undefined || end < start) {
 		throw new AppointmentScheduleQueryError("Schedule date range is invalid");
@@ -80,6 +82,8 @@ function validateScheduleQuery(input: AppointmentScheduleQuery): void {
 function validateRecordQuery(input: AppointmentRecordQuery): void {
 	const start = parseIsoCalendarDate(input.startDate);
 	const end = parseIsoCalendarDate(input.endDate);
+	// 保持与排班查询一致：按起止日期差值限制查询跨度，避免不同只读接口
+	// 对“最大日期范围”的理解不一致。provider 的端点包含规则由合同冻结。
 	const maxRangeMs = MAX_RECORD_RANGE_DAYS * 24 * 60 * 60 * 1000;
 	if (start === undefined || end === undefined || end < start) {
 		throw new AppointmentRecordQueryError(

@@ -81,6 +81,9 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 ### 2.3 日期、金额和标识
 
 - 日期查询参数统一为 `YYYY-MM-DD`，由服务端校验；不能透传任意 provider query 参数。
+- 当前日期范围按 `endDate - startDate` 的 UTC 日历零点差值校验：预约排班最多 31 天，预约历史和报告目录最多 366 天。
+  这是起止日期的跨度上限，不是把首尾都计入后的日期条目数量；provider 的 `endDate` 是否包含当天仍待合同确认，
+  不能由小程序自行推断。详细边界见 [`migration/date-window-boundary-audit.md`](migration/date-window-boundary-audit.md)。
 - 金额字段使用人民币分的非负整数，例如 `amountFen: 100` 表示 1.00 元。
 - `patientId`、`reportId`、`orderId`、`scheduleId`、`quoteId` 都是平台 opaque 标识。
   小程序不能把它们解释为 HIS 号、provider 号或卡号。
@@ -205,9 +208,9 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 | --- | --- | --- | --- |
 | `GET /api/v2/patients`、`POST /api/v2/patients/sync` | 当前 owner 的有效目录；同步必须是完整快照 | 使用服务端读模型顺序；第一项只能作为“从未选择过时的展示默认值”，不能解释为本人关系 | 选择页展示完整目录 |
 | `GET /api/v2/appointments/departments` | 服务端生成的预约目录日期窗口 | 保留 adapter 返回的 provider 顺序；顺序不是科室优先级事实 | 左栏直接展示目录 |
-| `GET /api/v2/appointments/schedules` | API 最多 31 个日历日；当前小程序请求未来 7 天 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
-| `GET /api/v2/appointments/records` | API 最多 366 个日历日；当前小程序请求近 90 天 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取后展示 |
-| `GET /api/v2/reports` | API 最多 366 个日历日；当前小程序请求近 30 天 | adapter 按 `reportedAt` 倒序，再按 `kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
+| `GET /api/v2/appointments/schedules` | 起止日期差值最多 31 天；当前小程序请求未来 7 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
+| `GET /api/v2/appointments/records` | 起止日期差值最多 366 天；当前小程序请求近 90 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取后展示 |
+| `GET /api/v2/reports` | 起止日期差值最多 366 天；当前小程序请求近 30 天；provider `endDate` 包含规则待确认 | adapter 按 `reportedAt` 倒序，再按 `kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
 | `GET /api/v2/payments/outpatient/records` | 服务端固定最近 30 个中国标准时间日 | 保留 provider adapter 返回顺序；金额和状态已在服务端映射 | 当前完整读取后展示，不代表支付分页 |
 
 服务端返回已确认的空结果时，接口仍返回 HTTP `200`、`items: []` 和 `total: 0`；空列表不能被

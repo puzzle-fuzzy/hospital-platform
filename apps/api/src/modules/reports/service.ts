@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
 	ReportDetailPayload,
 	ReportListPayload,
@@ -7,16 +8,15 @@ import type {
 	PatientRepository,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
-	ReportReferenceRepository,
 	ReportDirectoryQuery,
+	ReportReferenceRepository,
 } from "@hospital/domain";
-import { createHash } from "node:crypto";
 import {
 	DependencyNotConfiguredError,
 	parseIsoCalendarDate,
 	REPORT_REFERENCE_MAX_TTL_MS,
 } from "@hospital/domain";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
+import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
 export type ReportServiceDependencies = {
 	repository: PatientRepository;
@@ -73,6 +73,8 @@ function reportReferenceId(
 function validateQuery(input: ReportDirectoryQuery): void {
 	const start = parseIsoCalendarDate(input.startDate);
 	const end = parseIsoCalendarDate(input.endDate);
+	// 当前 API 限制的是起止日期 UTC 零点的时间跨度，而不是“首尾都计入的
+	// 日期数量”。provider 对 endDate 的包含规则必须等拿到合同后再冻结。
 	const maxRangeMs = MAX_REPORT_RANGE_DAYS * 24 * 60 * 60 * 1000;
 	if (start === undefined || end === undefined || end < start) {
 		throw new ReportQueryError("Report date range is invalid");

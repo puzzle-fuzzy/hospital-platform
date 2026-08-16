@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import type { AppointmentDirectoryGateway } from "@hospital/domain";
+import type {
+	AppointmentDirectoryGateway,
+	PatientRepository,
+} from "@hospital/domain";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
 import {
 	AppointmentRecordQueryError,
@@ -102,6 +105,92 @@ test("appointment department reads add the provider date window on the server", 
 		startDate: "2026-08-16",
 		endDate: "2026-08-23",
 	});
+});
+
+test("appointment date ranges accept the configured span and reject anything wider", async () => {
+	let scheduleProviderCalls = 0;
+	let recordProviderCalls = 0;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => {
+				scheduleProviderCalls += 1;
+				return {
+					schedules: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-schedules",
+						requestId: "schedule-boundary",
+					},
+				};
+			},
+		},
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => {
+				recordProviderCalls += 1;
+				return {
+					records: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-records",
+						requestId: "record-boundary",
+					},
+				};
+			},
+		},
+	});
+	const context = {
+		traceId: "trace-date-boundary",
+		idempotencyKey: "key-date-boundary",
+	};
+
+	// 当前校验的是起止日期差值，因此差值等于上限仍然属于合法请求。
+	await expect(
+		service.listSchedules(
+			{ startDate: "2026-01-01", endDate: "2026-02-01" },
+			context,
+		),
+	).resolves.toEqual({ items: [], total: 0 });
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-01-01", endDate: "2027-01-02" },
+			context,
+		),
+	).resolves.toEqual({ items: [], total: 0 });
+
+	await expect(
+		service.listSchedules(
+			{ startDate: "2026-01-01", endDate: "2026-02-02" },
+			context,
+		),
+	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-01-01", endDate: "2027-01-03" },
+			context,
+		),
+	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
+
+	expect(scheduleProviderCalls).toBe(1);
+	expect(recordProviderCalls).toBe(1);
 });
 
 test("snapshot persistence failure does not turn a read directory into fake success", async () => {

@@ -38,8 +38,8 @@ import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
 } from "./modules/payments";
-import { ReportService } from "./modules/reports";
 import { UserProfileService } from "./modules/profile";
+import { ReportService } from "./modules/reports";
 
 async function flushAfterResponseHooks(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
@@ -238,6 +238,9 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"每次渲染 10 条；这是本地渲染分页",
 		"adapter 按 `reportedAt` 倒序",
 		"不能被验收记录写成“服务端已支持分页”",
+		"当前日期范围按 `endDate - startDate` 的 UTC 日历零点差值校验",
+		"provider 的 `endDate` 是否包含当天仍待合同确认",
+		"migration/date-window-boundary-audit.md",
 	] as const;
 
 	for (const statement of requiredDocumentation) {
