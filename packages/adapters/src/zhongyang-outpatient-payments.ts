@@ -80,7 +80,11 @@ function textField(
 
 /** provider 金额单位为元；在 adapter 边界无损转换成服务端统一的分。 */
 function amountFen(value: unknown, requestId: string): number {
-	if (value === undefined || value === null || value === "") return 0;
+	// 显式的 0 元是合法金额；缺失金额不是 0，不能把未知金额伪装成零元，
+	// 否则患者端会看到错误费用，未来还可能把错误读模型带入支付编排。
+	if (value === undefined || value === null || value === "") {
+		throw providerError("Zhongyang outpatient amount is missing", requestId);
+	}
 	const normalized = String(value).trim();
 	if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
 		throw providerError("Zhongyang outpatient amount is invalid", requestId);

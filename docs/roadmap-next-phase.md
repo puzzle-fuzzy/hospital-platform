@@ -12,6 +12,11 @@
 - 23:08:55 CST 的一次真实微信登录因 `PersistenceUnavailableError` 返回 503；23:09:08 下一次登录成功，随后 `/patients` 和完整患者同步均返回 200，记录 1 条 active 患者和 1 条 `his-patient` 映射；23:17 又完成 `/me` 会话恢复和重复同步。服务端真实微信登录与单患者目录同步现标记为“部分验收通过”。
 - 23:50:17-23:50:18 已在 `41c9c18` 微信开发者工具完成预约科室/排班只读页面验证：科室 62 条、排班 1 条均返回 200，且 `snapshotPersistenceStatus=persisted`；Redis 实际 TTL、多就诊人切换/失效恢复、预约历史/报告/门诊费用 Provider 读操作、真机页面网络对齐和普通资料真实读写仍未完成。完整证据见 [`release/41c9c18-production-acceptance-2026-08-16.md`](release/41c9c18-production-acceptance-2026-08-16.md)。
 
+### 2026-08-17 迁移差距审计
+
+- 当前下一块不是继续增加静态页面，而是完成已有只读纵向切片的真实证据：患者 TTL/多患者、预约历史、门诊费用列表和普通资料；报告详情、病历、绑定、动态医院和外部入口仍等待新的 Provider 文档及脱敏样例。
+- 本轮修复门诊费用 adapter 的金额边界：缺失金额不再降级为 `0` 分，显式零元仍可通过；这条规则已加入 adapter 测试和迁移差距审计。完整分层、证据等级和新文档接收门禁见 [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md)。
+
 ### 已经具备
 
 - 新旧服务共存：旧 Python 服务继续使用 `8001`，新 Elysia 服务使用 `18081`，公网通过 `/api/v2` 隔离。
