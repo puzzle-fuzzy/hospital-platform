@@ -45,6 +45,11 @@ opaque `patientId`；返回首页时重新匹配当前目录，报告和挂号�
 新小程序的 `apiBaseUrl` 是域名，`apiPrefix` 是 `/api/v2`。小程序代码中的业务路径不再重复写 `/api/v1`，由
 客户端前缀和 Nginx 路由共同完成版本隔离。
 
+2026-08-16 20:37-20:42 CST 已将 `d177991` 原子切换到新 API，公网 `/api/v2` 的 live/ready（含
+`Cache-Control: no-store`）、system-ping 和未登录认证边界已通过；这只证明平台运行时与路由正确，
+真实微信 `wx.login()`、Redis TTL、`/me`、患者同步和真机业务仍必须按下文单独验收。完整切换证据见
+[`release/candidate-d177991-production-acceptance-2026-08-16.md`](release/candidate-d177991-production-acceptance-2026-08-16.md)。
+
 ```mermaid
 sequenceDiagram
     participant MP as 原生微信小程序

@@ -39,8 +39,8 @@
     `hasShown` 状态，首次展示只消费 `onLoad` 已发起的请求，后续返回才重新读取 owner-scoped 患者目录。
 
 当前代码已经通过 `0015_patient_directory_sync_operations` 形成跨进程、跨重启的 operation ledger、
-租约代次和当前读模型重放能力，生产 migration/schema probe 已通过；但当前公网 18081 仍运行旧
-release，切换后的并发、公网和真机证据仍缺，不能把临时 smoke 当作线上业务验收。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付命令的
+租约代次和当前读模型重放能力，生产 migration/schema probe 已通过，公网 `18081` 已运行
+`d177991`；但真实患者并发、provider 和真机证据仍缺，不能把基础 runtime smoke 当作线上业务验收。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付命令的
 幂等实现；高风险命令开放前仍必须分别冻结各自的持久化操作状态、处理中结果和 key 冲突规则。
 具体实现边界、租约接管和“患者快照与操作成功同事务”要求见
 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)。
