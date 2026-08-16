@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 /**
  * Hospital Platform 架构边界审计。
  *
@@ -45,13 +47,18 @@ const miniprogramGlob = new Bun.Glob(
 );
 const miniprogramSourceFiles = [];
 for await (const file of miniprogramGlob.scan({
-	cwd: process.cwd(),
+	// 不能依赖调用者的当前目录，否则从仓库外执行可能扫描到空目录并产生假通过。
+	cwd: fileURLToPath(repositoryRoot),
 	onlyFiles: true,
 })) {
 	miniprogramSourceFiles.push(file);
 }
 const miniprogramSource = (
-	await Promise.all(miniprogramSourceFiles.map((file) => Bun.file(file).text()))
+	await Promise.all(
+		miniprogramSourceFiles.map((file) =>
+			Bun.file(new URL(file.replaceAll("\\", "/"), repositoryRoot)).text(),
+		),
+	)
 ).join("\n");
 
 /** 每条规则都有稳定名称，方便 CI 失败后按规则定位，而不是只看总分。 */
