@@ -32,9 +32,10 @@
 本次目录出现的患者恢复 `active`，本次完整目录中没有出现的 provider 患者标记为 `inactive`。数据库唯一键和 repository
 负责最终并发保护。
 
-当前同步接口要求 `Idempotency-Key`，但该值仍只是请求/provider 关联上下文，尚未形成跨进程、跨重启的
-operation ledger 和结果重放能力。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付
-命令的幂等实现；高风险命令开放前必须先补齐持久化操作状态、处理中结果和 key 冲突规则。
+当前代码已经通过 `0015_patient_directory_sync_operations` 形成跨进程、跨重启的 operation ledger、
+租约代次和当前读模型重放能力；线上实例必须先完成 migration/schema probe 和并发回归，未完成前不能
+把代码证据当作生产证据。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付命令的
+幂等实现；高风险命令开放前仍必须分别冻结各自的持久化操作状态、处理中结果和 key 冲突规则。
 具体实现边界、租约接管和“患者快照与操作成功同事务”要求见
 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)。
 

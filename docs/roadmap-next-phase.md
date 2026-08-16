@@ -156,6 +156,6 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：0014 已在生产受控应用，schema probe 返回 `ready`，55fce6c 已切换新 API；未登录 profile 401 已验证，真实微信资料默认值、首次更新、409 冲突和真机仍未完成。
 - 2026-08-16：修复首页与患者选择页下拉刷新提前结束的问题；首页等待健康检查和服务端目录读取，患者选择页继续等待医院目录同步，避免临床映射尚未落库时进入预约、报告或费用查询，也不让首页普通刷新隐式放大为 provider 同步。
 - 2026-08-16：修复预约目录日期标签使用设备本地时区的问题；`workDate` 现在按固定日历解析，跨时区不会改变医院日期或星期。
-- 2026-08-16：审计确认患者同步的 `Idempotency-Key` 目前只进入请求/provider 上下文，尚无跨重启 operation ledger 和结果重放；已冻结下一步状态机、租约和同事务提交契约，见 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)；预约写入、患者绑定前必须完成代码和生产 schema 验收。
+- 2026-08-16：患者同步 durable operation ledger、租约代次、同事务快照提交和 409 处理中语义已完成代码、测试和 `0015` migration；生产 schema、并发、公网和真机证据仍待完成，契约见 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)；预约写入、患者绑定前必须完成这些线上验收。
 - 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。
 - 2026-08-16：完成生产 Redis 会话隔离：新 API 使用 DB3/`hospital_v2`，ACL 只允许 `PING/SELECT/GET/SET` 与 `hospital:session:*`，通过 TTL 和跨前缀拒绝探针；旧 Python DB1 继续运行，未迁移旧 namespace。
