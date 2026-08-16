@@ -40,6 +40,23 @@
 这次复核支持“公网运行边界仍正常”的结论，但不能证明 `bab0ce2` 的真实微信会话、患者目录、预约历史、
 门诊费用、报告 Provider 或真机页面业务已经完成；当前仍缺少认证会话和患者作用域请求证据。
 
+## 2.2 最新公网 runtime smoke（2026-08-17 03:26:24-03:26:27 CST）
+
+本次使用仓库内 `runtime:smoke` 入口，从开发机对同一公网 `/api/v2` 发起只读请求，运行环境为 `production`，
+连续 readiness 采样 3 次，间隔 250ms。没有携带 access token、患者号或 Provider 凭证，也没有执行登录、同步、
+预约、报告、费用、支付或任何写入。该 smoke 证明当前公网边界在本次观察窗口通过，不证明本地 `main` 或某个
+指定 commit 已部署到公网；release provenance 仍以服务器侧发布证据为准。
+
+| 检查 | 结果 | trace/request 证据 |
+| --- | --- | --- |
+| `health-live` | 200，`status=passed` | `7de0709a-f62b-4190-9e98-1227357f5528` |
+| `health-ready` | 200，`status=passed`，连续 3/3 | `1c135557-cf88-4d1f-8215-05aa7752d102`、`e12994b9-8b4a-49a2-ac05-94fd291b389d`、`9b2dedcc-0e5b-48cb-9e7b-5ab119687dff` |
+| `system-ping` | 200，`status=passed` | `04810a32-d9f9-4967-8f1a-045bc2d458b0` |
+| `auth-boundary` | 401，`status=passed` | `e61ee25c-df2b-46c5-a80c-8d9b650af6d1` |
+
+本次 smoke 只更新公网基础运行证据，不更新任何 P0 业务领域的验收状态；真实微信会话、Redis TTL、患者切换/失效
+恢复、预约历史、报告和门诊费用仍必须按 P0 手册分别取得 Provider、平台公网、真机和服务端日志证据。
+
 ## 3. 结论与限制
 
 - 当前公网 API 进程可响应，数据库、Redis 和 schema readiness gate 均通过。
