@@ -36,6 +36,7 @@
 - 个人中心扩展、患者新增/绑卡、法律协议、签名、订阅、外部 WebView、互联网医院和采血预约已完成旧页面副作用审计；旧首页顶部实际跳转的静态医院列表入口已恢复，但旧顶层互联网医院 web-view、真实反馈写入、动态机构/院区、路线、关注状态和票据仍必须按独立 contract 重做。
 - 患者新增/绑卡已进一步形成独立契约草案：明确旧端“查询异常即继续建档”的禁止迁移行为、服务端状态机、owner/协议/幂等/超时恢复不变量和 PB-01 至 PB-16 provider 问题；在新 provider 文档冻结前，写入路由继续关闭。
 - 旧端非页面逻辑（直连 provider、WebSocket、身份/患者持久化、临床问卷组件和静态入口配置）已完成单独审计；新端不得把这些旧 helper 当作可兼容迁移，边界见 [`migration/legacy-client-infrastructure-boundaries.md`](migration/legacy-client-infrastructure-boundaries.md)。
+- 静态页面与关闭能力已完成真值审计：意见反馈旧端没有真实提交接口，公众号二维码是注释代码，订阅开关只是内存假保存；静态医院卡片、公众号说明、反馈帮助和院内地图按旧端真实行为迁移，未来工单/二维码/订阅授权继续作为独立 contract，不复制假成功。详见 [`migration/static-and-closed-feature-parity.md`](migration/static-and-closed-feature-parity.md)。
 - 旧服务基础设施与运维边界已完成单独审计：旧 Redis 多 namespace、Mongo 连接、APScheduler/任务管理、本地文件资源、AI/WebSocket 和 Admin/RBAC 均未被新患者 API 全量替代；共存门禁见 [`migration/infrastructure-and-operations-boundaries.md`](migration/infrastructure-and-operations-boundaries.md)。
 - 2026-08-16 生产 Redis 会话隔离已完成：新 API 使用独立 DB3/`hospital_v2` ACL，旧 Python 仍使用 DB1/旧全权限账号；新 API 已由 systemd 运行且公网 v2 健康检查可达，但新 Worker 未启动、报告 gate 关闭、旧 Python 仍由手工进程运行；证据见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
 - `f2c6d99` 和 `cb11bc8` 已通过本地完整门禁，并在生产 env 隔离的临时端口 `18082` 完成候选 release smoke：中文稳定错误契约、认证失败边界和 persistence 探针状态日志均已验证；当前生产 `current` 仍为 `55fce6c`，候选版本尚未切换公网。证据见 [`release/observability-error-contract-smoke-2026-08-16.md`](release/observability-error-contract-smoke-2026-08-16.md)。
@@ -49,6 +50,7 @@
 - 2026-08-16 18:06-18:07 CST 使用修正后的 Smoke 显式验收公网 `/api/v2`：system-ping 通过，live/ready 均因公网响应缺少 `Cache-Control: no-store` 被门禁拒绝；同时确认 Nginx 透传 `x-request-id`。这证明公网 Smoke 已不再错误地把 `/api/v1` 当作公网路径，但 no-store 仍是线上发布阻断项，证据见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
 - 2026-08-16 已为 `ps` 安装新 API 的窄权限 systemd NOPASSWD 规则，并验证 API `is-active` 可无密码执行、worker 不在授权范围；随后候选 `d177991` 已完成固定、临时 smoke、原子切换和公网 no-store 验收，旧 Python `8001` 保持运行。权限证据见 [`release/systemd-narrow-permission-acceptance-2026-08-16.md`](release/systemd-narrow-permission-acceptance-2026-08-16.md)，切换证据见 [`release/candidate-d177991-production-acceptance-2026-08-16.md`](release/candidate-d177991-production-acceptance-2026-08-16.md)。
 - 2026-08-16 收到 2.6.7 挂号登记、2.10.4.2 支付挂号和 2.6.65.7 外部退款 Provider 文档，已完成脱敏元数据、字段、状态和依赖标准化，记录见 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。由于执行预约、排班/号源、患者档案、支付登记和退款查单文档缺失，当前状态保持 `normalized`，没有把预约写入、支付挂号或退款误标为已迁移。
+- 候选 `d8f14f1` 已完成患者归属门禁的代码测试、真实生产 env preflight 和临时 production runtime smoke，但没有切换公网 `current`；真实 session、Provider 只读业务和真机证据仍待完成。证据见 [`release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md)。
 
 ### 当前已验证的问题
 
