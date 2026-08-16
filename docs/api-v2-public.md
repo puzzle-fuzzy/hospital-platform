@@ -93,8 +93,8 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 
 | 方法 | 公共路径 | 认证/幂等 | 用途和关键输入 |
 | --- | --- | --- | --- |
-| `GET` | `/api/v2/health/live` | 无 | 只证明 API 进程可响应，返回 `status: ok` |
-| `GET` | `/api/v2/health/ready` | 无 | 返回 database、redis、schema 的 `ok`/`not_configured`/`unavailable`；不是 provider 验收 |
+| `GET` | `/api/v2/health/live` | 无 | 只证明 API 进程可响应，返回 `status: ok`；响应带 `Cache-Control: no-store` |
+| `GET` | `/api/v2/health/ready` | 无 | 返回 database、redis、schema 的 `ok`/`not_configured`/`unavailable`；响应带 `Cache-Control: no-store`，不是 provider 验收 |
 | `GET` | `/api/v2/system/ping` | 无 | 返回服务名和 API 版本，不执行业务依赖探测 |
 | `POST` | `/api/v2/auth/wechat` | 无 | body 只有 `code`；服务端完成微信身份兑换并签发平台会话 |
 | `GET` | `/api/v2/me` | Bearer | 恢复当前平台用户，只返回内部 `user.id` |

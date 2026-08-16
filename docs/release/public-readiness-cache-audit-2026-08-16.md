@@ -1,0 +1,36 @@
+# 公网 readiness 与健康探针缓存复核（2026-08-16）
+
+> 本文是只读复核证据，不代表候选代码已经切换生产，也不代表微信、众阳或真机业务已经验收。
+
+## 1. 复核结论
+
+本轮通过公网 `https://test-hp.meiyi.pro/api/v2/health/ready` 观察到一次
+`200 + not_ready(database/schema unavailable)`，随后再次请求连续返回：
+
+```json
+{"success":true,"data":{"status":"ready","dependencies":{"database":"ok","redis":"ok","schema":"ok"}}}
+```
+
+因此只能确认本轮存在一次瞬时的公网 readiness 差异，不能在没有 Nginx/网络层请求日志的情况下断言根因是缓存、上游切换或探针瞬时失败。后续发布判断必须保存完整响应头、`x-request-id` 和服务端对应日志。
+
+## 2. 当前服务边界
+
+只读 SSH 复核得到：
+
+- 新 API `hospital-platform-api-v2.service` 仍为 active，当前目录为生产 `current=55fce6c`。
+- 新 API 监听 `10.0.0.3:18081`；直接访问 `127.0.0.1:18081` 被拒绝是预期的绑定地址差异，不应据此判断进程停止。
+- 旧 Python 服务仍监听 `8001`；本轮没有重启、修改或切换旧服务。
+- 新 API 内网 `10.0.0.3:18081/health/ready` 返回 database、Redis、schema 全部 `ok`。
+
+## 3. 候选代码修复
+
+候选代码已为 `/health/live` 和 `/health/ready` 设置 `Cache-Control: no-store`，并补充 API 测试，防止代理或 CDN 使用过期 readiness 结果。
+
+该修复尚未进入生产 `current=55fce6c`，所以公网响应是否带 `Cache-Control: no-store` 必须在取得窄权限 systemd 发布权限、完成候选切换后重新验收；当前不能把代码门禁写成线上证据。
+
+## 4. 发布后验收步骤
+
+1. 先在候选 release 的临时端口验证 `/health/live`、`/health/ready` 和 `Cache-Control: no-store`。
+2. 在不停止旧 Python `8001` 的前提下切换新 API，保存切换前后 `current`、systemd 状态和端口监听证据。
+3. 从公网连续请求 `/api/v2/health/ready`，保存 HTTP 状态、响应头、响应体和 `x-request-id`。
+4. 用 `x-request-id` 在新 API 日志中确认请求落到新 release，随后再做微信开发者工具和真机只读业务验收。

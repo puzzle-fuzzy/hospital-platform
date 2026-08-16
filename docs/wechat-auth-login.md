@@ -114,6 +114,7 @@ GET /api/v2/health/ready
 ```
 
 `live=ok` 只证明 API 进程响应；`ready=not_ready` 可能表示数据库、Redis 或 schema 尚未完成，不代表代码崩溃。
+两个健康接口均使用 `Cache-Control: no-store`，避免 Nginx、CDN 或中间缓存把过期的 readiness 状态用于发布判断。
 
 ## 服务端环境变量
 
