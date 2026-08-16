@@ -18,8 +18,8 @@
 `ZHONGYANG_REPORT_DETAIL_READY`、`ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是六个独立 gate。
 共享连接地址不代表共享验收结果。
 
-当前 release 的业务证据必须按进程启动时间隔离：2026-08-16 20:41:28 CST 之后的
-`d177991` 日志窗口尚未出现上述业务事件；此前同一 unit 的历史事件不能回填当前 release
+当前 release 的业务证据必须按进程启动时间隔离：2026-08-16 22:24:52 CST 之后的
+`a11f117` 日志窗口尚未出现上述业务事件；此前同一 unit 的历史事件不能回填当前 release
 的真实验收。期间 MySQL/Schema 探针曾瞬态不可用，当前已恢复，详见
 [`current-d177991-observability-acceptance-2026-08-16.md`](current-d177991-observability-acceptance-2026-08-16.md)。
 
@@ -33,14 +33,14 @@
 `thirdPatientId` 调用记录接口会返回 `smcAppointment@1301 / 患者信息不存在`，而旧端的
 `patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
-`ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe，后续 `d177991`
-才是当前公网运行 release。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
+`ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe，当前公网运行 release
+为 `a11f117`。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
 仍未完成，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 线上发布证据
 
-- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`d177991`。SSH 只读复核确认
-  `current=/home/ps/code/hospital-platform/releases/d177991`，`hospital-platform-api-v2.service=active`。
+- 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`a11f117`。SSH 只读复核确认
+  `current=/home/ps/code/hospital-platform/releases/a11f117`，`hospital-platform-api-v2.service=active`。
 - 生产 schema：`0012_patient_provider_references`、`0013_patient_directory_snapshot`、`0014_user_profiles` 和
   `0015_patient_directory_sync_operations` 均已迁移；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
 - 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网
@@ -50,7 +50,7 @@
   当前没有据此重启或修改服务；后续应继续观察 ready 探针和数据库连接池日志，避免把瞬态依赖抖动误报为业务迁移完成。
 - 启动日志：`runtimeMode=production`，数据库、Redis、schema 探针均为 `ok`；患者目录、预约目录、预约记录和门诊缴费配置为 `configured`；报告 gate 继续关闭。患者目录现在可以进入真实 active/inactive 失效与恢复数据验收。
 - 旧服务隔离：`8001` 仍在监听，未重启、未切换旧 Python 服务。
-- SSH 在 2026-08-16 20:54 CST 的只读日志复核中，在切换后的筛选窗口只看到健康探针和未登录边界请求，未发现
+- SSH 在 2026-08-16 22:31 CST 的只读日志复核中，在 `a11f117` 切换后的筛选窗口只看到健康探针和未登录边界请求，未发现
   `auth.wechat.*`、`patient.directory.*`、预约、报告或门诊费用业务事件；这表示真实业务验收尚未开始，不能把“没有失败日志”当成成功证据。
 - 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、同 key replay 的 operation 日志、预约历史真实响应、真机截图/网络记录和对应 traceId。
 - `93373d9` 仅作为未切换候选完成了 bundle checksum、真实生产 env preflight 和公网 runtime 复测；其中一次

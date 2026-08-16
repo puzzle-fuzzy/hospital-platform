@@ -35,7 +35,7 @@
 | [`release/candidate-3129148-preproduction-smoke-2026-08-16.md`](release/candidate-3129148-preproduction-smoke-2026-08-16.md) | `3129148` Provider smoke 会话边界、真实依赖 preflight、临时端口 runtime smoke 和旧服务共存证据 |
 | [`release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md) | `d8f14f1` 患者归属门禁、真实依赖 preflight、临时端口 runtime smoke 和旧服务共存证据 |
 | [`release/candidate-d177991-production-acceptance-2026-08-16.md`](release/candidate-d177991-production-acceptance-2026-08-16.md) | `d177991` 候选 checksum、生产 env、原子切换、公网 `/api/v2` 和旧服务共存验收 |
-| [`release/current-d177991-observability-acceptance-2026-08-16.md`](release/current-d177991-observability-acceptance-2026-08-16.md) | 当前 `d177991` 启动后的真实业务日志边界、MySQL/Schema 瞬态故障和后续验收门禁 |
+| [`release/current-d177991-observability-acceptance-2026-08-16.md`](release/current-d177991-observability-acceptance-2026-08-16.md) | `d177991` 切换窗口的历史业务日志边界、MySQL/Schema 瞬态故障和后续验收门禁 |
 | [`release/candidate-a11f117-preproduction-smoke-2026-08-16.md`](release/candidate-a11f117-preproduction-smoke-2026-08-16.md) | `a11f117` 持久化只读探针有界重试、真实生产 env preflight、临时 API smoke 和现网隔离证据 |
 | [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md) | `a11f117` 实际生产切换、内外网 health、启动日志、新旧服务共存和业务验收限制 |
 | [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md) | 2026-08-16 生产新旧服务、MySQL/Redis、Worker、权限和公网 v2 的只读快照 |

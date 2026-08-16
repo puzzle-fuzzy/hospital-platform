@@ -3,7 +3,7 @@
 > 本记录只证明 `0015` schema 和新代码的受控运行边界，不代表真实微信账号、真实患者同步、
 > 公网新 release 或真机验收已经完成。敏感连接串、token、openid、unionId 和患者标识不写入本文。
 
-> 状态更新：后续候选 `d177991` 已完成公网切换、旧 `8001` 共存和基础 runtime 验收；本记录中的
+> 状态更新：后续候选 `a11f117` 已完成公网切换、旧 `8001` 共存和基础 runtime 验收；本记录中的
 > 历史 release/切换前结论不能覆盖最新证据。真实 session 下的患者同步首轮、同 key replay、owner 映射和真机
 > 页面验收仍未完成；后续 `71f2d62` 又加强了 smoke 的不同 traceId replay 和读模型一致性检查，候选 `93373d9`、
 > `411cd31` 已完成上传与真实依赖 preflight；生产切换证据见
@@ -77,7 +77,7 @@ missingSchemaObjects=[]
 | 检查 | 结果 |
 | --- | --- |
 | 旧 Python 端口 | `0.0.0.0:8001` 仍监听，旧进程未停止 |
-| 当前新 API systemd | `hospital-platform-api-v2.service=active`，当前运行 release `d177991` |
+| 当前新 API systemd | `hospital-platform-api-v2.service=active`，当前运行 release `a11f117` |
 | 当前新 API 端口 | `10.0.0.3:18081` 仍监听 |
 | 内网 readiness | `http://10.0.0.3:18081/health/ready` 返回 database/redis/schema 全部 `ok` |
 | 公网 readiness | `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 database/redis/schema 全部 `ok` |
@@ -87,7 +87,7 @@ missingSchemaObjects=[]
 ## 5. 当前未完成和下一步
 
 当时公网 `18081` 尚未切换到 `69c0f20`，因此该历史记录本身不能证明公网患者同步使用了 operation ledger。
-当前 `d177991` 已具备公网运行条件，下一步按以下顺序执行真实业务验收；最新 smoke 工具应使用
+当前 `a11f117` 已具备公网运行条件，下一步按以下顺序执行真实业务验收；最新 smoke 工具应使用
 `411cd31` 的候选 bundle，不应把生产 `d177991` 中旧 bundle 的输出当作 replay 门禁证据：
 
 1. 用受控平台 access token 做一次患者同步和同 key replay，保存 trace、operationId、provider request 次数和安全响应摘要；

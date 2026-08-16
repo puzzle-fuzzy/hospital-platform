@@ -39,9 +39,9 @@
 - 当前架构边界审计为 24 条规则，并扫描 `apps/miniprogram/src` 全部生产文本源码；它会阻止 provider
   地址、旧请求封装、旧患者标识、WebSocket 配置和万能转发残留重新进入原生小程序。历史发布证据中的
   19/19 是当时的审计快照，不代表当前规则数量。
-- 最近一次生产切换证据为：`current=d177991`、新 API `18081` active、旧 Python `8001` 继续监听、Worker
+- 最近一次生产切换证据为：`current=a11f117`、新 API `18081` active、旧 Python `8001` 继续监听、Worker
   `inactive/disabled`；公网和内网 readiness 均为 `200`，数据库/Redis/schema 为 `ok`，公网保留
-  `Cache-Control: no-store`。完整证据见 [`../release/candidate-d177991-production-acceptance-2026-08-16.md`](../release/candidate-d177991-production-acceptance-2026-08-16.md)。
+  `Cache-Control: no-store`。完整证据见 [`../release/a11f117-production-acceptance-2026-08-16.md`](../release/a11f117-production-acceptance-2026-08-16.md)。
 - 文档记录的最近一次生产 capability 复核（证据快照，不代表当前 `main` 或当前线上状态；同为历史复核）显示微信身份、患者目录、预约目录、预约记录和门诊费用为 `configured`；
   报告目录、报告详情和微信支付为 `disabled`。因此报告页面只能保留 fail-closed 迁移提示，不能把页面
   注册或 readiness 200 写成报告已迁移。
@@ -105,7 +105,7 @@
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖预约历史近 90 天窗口。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
-- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；当前 `18081` 已运行 `d177991`，仍缺真实微信账号的并发、provider、公网业务和真机验收，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md) 和 [`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md)。
+- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；当前 `18081` 已运行 `a11f117`，仍缺真实微信账号的并发、provider、公网业务和真机验收，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md) 和 [`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md)。
 
 ### 旧端顶层页面的重分类
 
