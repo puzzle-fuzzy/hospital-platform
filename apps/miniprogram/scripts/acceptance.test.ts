@@ -275,6 +275,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).toContain("createLatestRequestGuard");
 	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
+	expect(profile).toContain("if (this.data.saving) return Promise.resolve();");
 	expect(profile).toContain("尚未加载完成");
 	expect(profile).not.toContain("openid");
 	expect(profile).not.toContain("unionid");

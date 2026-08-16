@@ -114,6 +114,10 @@ Page<
 
 	/** 保存时只提交页面声明的普通资料字段，不携带旧端身份/实名字段。 */
 	onSave(): Promise<void> {
+		// WXML 已经禁用按钮，但事件层仍必须自守：真机快速连点或重复事件
+		// 不能用同一个 version 发起第二次 PUT，否则会把一次成功更新制造成
+		// 一个无意义的 409，并让用户误以为保存失败。
+		if (this.data.saving) return Promise.resolve();
 		if (this.data.loading) {
 			this.setData({ error: "个人资料正在加载，请稍后保存" });
 			return Promise.resolve();
