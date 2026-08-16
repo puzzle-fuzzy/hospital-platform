@@ -9,6 +9,12 @@ import {
 	resolveApiPrefix,
 	type ApiPrefix,
 } from "./api-route-prefix";
+import {
+	parseReadinessEnvironmentNumber,
+	ReadinessStabilityProbeError,
+	runReadinessStabilityProbe,
+	resolveReadinessStability,
+} from "./readiness-stability";
 
 /**
  * 目录 smoke 支持的能力；`patient-sync` 是显式开启的幂等 POST，除此之外只读。
@@ -33,8 +39,11 @@ export type ProviderSmokeCheck = {
 	name: string;
 	status: "passed" | "failed";
 	itemCount?: number;
+	details?: readonly string[];
 	errorType?: string;
 	traceId?: string;
+	/** 连续 readiness 采样的全部 traceId；单次检查只保留 traceId。 */
+	traceIds?: readonly string[];
 };
 
 export type ProviderSmokeResult = {
@@ -54,6 +63,10 @@ export type ProviderSmokeOptions = {
 	logger?: AppLogger;
 	traceIdFactory?: () => string;
 	date?: Date;
+	/** Provider 只读验收的连续 readiness 采样；库调用默认保持单次兼容行为。 */
+	readinessSamples?: number;
+	/** Provider readiness 连续采样间隔，单位为毫秒。 */
+	readinessIntervalMs?: number;
 };
 
 const DEFAULT_CAPABILITIES: readonly ProviderSmokeCapability[] = [
@@ -308,6 +321,8 @@ function requireSafeData(data: unknown, traceId?: string): number | undefined {
 type SmokeObservation = {
 	traceId: string;
 	itemCount?: number;
+	details?: readonly string[];
+	traceIds?: readonly string[];
 };
 
 /**
@@ -339,6 +354,7 @@ export async function runProviderDirectorySmoke(
 	const fetcher = options.fetcher ?? fetch;
 	const logger = options.logger ?? createNoopLogger();
 	const traceIdFactory = options.traceIdFactory ?? (() => crypto.randomUUID());
+	const readinessStability = resolveReadinessStability(options);
 	const now = options.date ?? new Date();
 	const startDate = dateOnly(addDays(now, -7));
 	const scheduleEndDate = dateOnly(addDays(now, 7));
@@ -488,6 +504,12 @@ export async function runProviderDirectorySmoke(
 				name,
 				status: "passed",
 				traceId: observation.traceId,
+				...(observation.details === undefined
+					? {}
+					: { details: observation.details }),
+				...(observation.traceIds === undefined
+					? {}
+					: { traceIds: observation.traceIds }),
 				...(observation.itemCount === undefined
 					? {}
 					: { itemCount: observation.itemCount }),
@@ -504,15 +526,25 @@ export async function runProviderDirectorySmoke(
 				"Provider directory smoke capability passed",
 			);
 		} catch (error) {
-			const errorType = error instanceof Error ? error.name : "UnknownError";
+			const cause =
+				error instanceof ReadinessStabilityProbeError ? error.cause : error;
+			const errorType = cause instanceof Error ? cause.name : "UnknownError";
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown provider smoke error";
 			const traceId =
-				error instanceof ProviderSmokeRequestError ? error.traceId : undefined;
+				cause instanceof ProviderSmokeRequestError ? cause.traceId : undefined;
 			checks.push({
 				name,
 				status: "failed",
 				errorType,
+				...(error instanceof ReadinessStabilityProbeError &&
+				error.sampleCount > 1
+					? {
+							details: [
+								`readiness-sample-${error.sampleNumber}/${error.sampleCount}`,
+							],
+						}
+					: {}),
 				...(traceId ? { traceId } : {}),
 			});
 			logger.error(
@@ -581,15 +613,38 @@ export async function runProviderDirectorySmoke(
 	}
 
 	async function readReady(): Promise<SmokeObservation> {
-		const result = await getJson(healthRoute(apiPrefix, "/health/ready"), true);
-		if (responseStatus(result.data) !== "ready") {
+		const observations = await runReadinessStabilityProbe(async () => {
+			const result = await getJson(
+				healthRoute(apiPrefix, "/health/ready"),
+				true,
+			);
+			if (responseStatus(result.data) !== "ready") {
+				throw new ProviderSmokeRequestError(
+					"Hospital API readiness status is not ready",
+					200,
+					result.traceId,
+				);
+			}
+			return result;
+		}, readinessStability);
+		const last = observations.values.at(-1);
+		if (!last) {
 			throw new ProviderSmokeRequestError(
-				"Hospital API readiness status is not ready",
-				200,
-				result.traceId,
+				"Hospital API readiness returned no samples",
+				0,
 			);
 		}
-		return { traceId: result.traceId };
+		return {
+			traceId: last.traceId,
+			...(observations.readinessSamples > 1
+				? {
+						details: [`samples=${observations.readinessSamples}`],
+						traceIds: observations.values.map(
+							(observation) => observation.traceId,
+						),
+					}
+				: {}),
+		};
 	}
 
 	/**
@@ -882,6 +937,14 @@ if (import.meta.main) {
 			accessToken: Bun.env.HOSPITAL_ACCESS_TOKEN ?? "",
 			capabilities: parseCapabilities(Bun.env.HOSPITAL_SMOKE_CAPABILITIES),
 			allowLocalHttp: Bun.env.HOSPITAL_ALLOW_LOCAL_HTTP === "true",
+			readinessSamples: parseReadinessEnvironmentNumber(
+				Bun.env.HOSPITAL_PROVIDER_READINESS_SAMPLES,
+				3,
+			),
+			readinessIntervalMs: parseReadinessEnvironmentNumber(
+				Bun.env.HOSPITAL_PROVIDER_READINESS_INTERVAL_MS,
+				1_000,
+			),
 			logger,
 			...(Bun.env.HOSPITAL_PATIENT_ID
 				? { patientId: Bun.env.HOSPITAL_PATIENT_ID }

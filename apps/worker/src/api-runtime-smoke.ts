@@ -9,6 +9,12 @@ import {
 	resolveApiPrefix,
 	type ApiPrefix,
 } from "./api-route-prefix";
+import {
+	parseReadinessEnvironmentNumber,
+	ReadinessStabilityProbeError,
+	runReadinessStabilityProbe,
+	resolveReadinessStability,
+} from "./readiness-stability";
 
 export type RuntimeSmokeFetcher = (
 	input: RequestInfo | URL,
@@ -21,6 +27,8 @@ export type RuntimeSmokeCheck = {
 	statusCode?: number;
 	details?: readonly string[];
 	traceId?: string;
+	/** 连续 readiness 采样的全部 traceId；单次检查只保留 traceId。 */
+	traceIds?: readonly string[];
 };
 
 export type RuntimeSmokeResult = {
@@ -36,6 +44,10 @@ export type RuntimeSmokeOptions = {
 	allowLocalHttp?: boolean;
 	/** 开发环境可以只观察 readiness；发布验收必须要求 ready。 */
 	requireReady?: boolean;
+	/** 发布验收可用连续采样识别依赖抖动；库调用默认保持单次兼容行为。 */
+	readinessSamples?: number;
+	/** 连续 readiness 采样间隔，单位为毫秒。 */
+	readinessIntervalMs?: number;
 	fetcher?: RuntimeSmokeFetcher;
 	logger?: AppLogger;
 	traceIdFactory?: () => string;
@@ -171,6 +183,7 @@ export async function runApiRuntimeSmoke(
 	const fetcher = options.fetcher ?? fetch;
 	const logger = options.logger ?? createNoopLogger();
 	const traceIdFactory = options.traceIdFactory ?? (() => crypto.randomUUID());
+	const readinessStability = resolveReadinessStability(options);
 	const checks: RuntimeSmokeCheck[] = [];
 
 	async function getJson(
@@ -305,19 +318,27 @@ export async function runApiRuntimeSmoke(
 				`Runtime smoke ${result.status}: ${name}`,
 			);
 		} catch (error) {
-			const errorType = error instanceof Error ? error.name : "UnknownError";
+			const cause =
+				error instanceof ReadinessStabilityProbeError ? error.cause : error;
+			const errorType = cause instanceof Error ? cause.name : "UnknownError";
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown runtime smoke error";
 			const statusCode =
-				error instanceof RuntimeSmokeRequestError
-					? error.statusCode
+				cause instanceof RuntimeSmokeRequestError
+					? cause.statusCode
 					: undefined;
 			const traceId =
-				error instanceof RuntimeSmokeRequestError ? error.traceId : undefined;
+				cause instanceof RuntimeSmokeRequestError ? cause.traceId : undefined;
 			const result: RuntimeSmokeCheck = {
 				name,
 				status: "failed",
-				details: [errorType],
+				details: [
+					errorType,
+					...(error instanceof ReadinessStabilityProbeError &&
+					error.sampleCount > 1
+						? [`readiness-sample-${error.sampleNumber}/${error.sampleCount}`]
+						: []),
+				],
 				...(statusCode === undefined ? {} : { statusCode }),
 				...(traceId ? { traceId } : {}),
 			};
@@ -361,37 +382,63 @@ export async function runApiRuntimeSmoke(
 	});
 
 	await check("health-ready", async () => {
-		const result = await getJson("/health/ready", true);
-		if (!hasNoStoreDirective(result.cacheControl)) {
+		const observations = await runReadinessStabilityProbe(async () => {
+			const result = await getJson("/health/ready", true);
+			if (!hasNoStoreDirective(result.cacheControl)) {
+				throw new RuntimeSmokeRequestError(
+					"Hospital API readiness response must include Cache-Control: no-store",
+					result.statusCode,
+					result.traceId,
+				);
+			}
+			const status = responseStatus(result.data);
+			if (status === "ready") return { result, status: "ready" as const };
+			if (status === "not_ready" && options.requireReady !== true) {
+				return { result, status: "not_ready" as const };
+			}
 			throw new RuntimeSmokeRequestError(
-				"Hospital API readiness response must include Cache-Control: no-store",
+				"Hospital API readiness status is not ready",
 				result.statusCode,
 				result.traceId,
 			);
+		}, readinessStability);
+		const notReadySamples = observations.values.filter(
+			(observation) => observation.status === "not_ready",
+		).length;
+		const last = observations.values.at(-1);
+		if (!last) {
+			throw new RuntimeSmokeRequestError(
+				"Hospital API readiness returned no samples",
+				0,
+			);
 		}
-		const status = responseStatus(result.data);
-		if (status === "ready") {
-			return {
-				name: "health-ready",
-				status: "passed",
-				statusCode: result.statusCode,
-				traceId: result.traceId,
-			};
-		}
-		if (status === "not_ready" && options.requireReady !== true) {
-			return {
-				name: "health-ready",
-				status: "warning",
-				details: ["not_ready"],
-				statusCode: result.statusCode,
-				traceId: result.traceId,
-			};
-		}
-		throw new RuntimeSmokeRequestError(
-			"Hospital API readiness status is not ready",
-			result.statusCode,
-			result.traceId,
-		);
+		return {
+			name: "health-ready",
+			status: notReadySamples > 0 ? "warning" : "passed",
+			...(notReadySamples > 0
+				? {
+						details:
+							observations.readinessSamples > 1
+								? [
+										"not_ready",
+										`samples=${observations.readinessSamples}`,
+										`not_ready_samples=${notReadySamples}`,
+									]
+								: ["not_ready"],
+					}
+				: observations.readinessSamples > 1
+					? { details: [`samples=${observations.readinessSamples}`] }
+					: {}),
+			statusCode: last.result.statusCode,
+			traceId: last.result.traceId,
+			...(observations.readinessSamples > 1
+				? {
+						traceIds: observations.values.map(
+							(observation) => observation.result.traceId,
+						),
+					}
+				: {}),
+		};
 	});
 
 	await check("system-ping", async () => {
@@ -472,6 +519,14 @@ if (import.meta.main) {
 			apiPrefix: resolveApiPrefix(Bun.env.HOSPITAL_API_PREFIX),
 			allowLocalHttp: Bun.env.HOSPITAL_ALLOW_LOCAL_HTTP === "true",
 			requireReady: Bun.env.HOSPITAL_RUNTIME_REQUIRE_READY === "true",
+			readinessSamples: parseReadinessEnvironmentNumber(
+				Bun.env.HOSPITAL_RUNTIME_READINESS_SAMPLES,
+				3,
+			),
+			readinessIntervalMs: parseReadinessEnvironmentNumber(
+				Bun.env.HOSPITAL_RUNTIME_READINESS_INTERVAL_MS,
+				1_000,
+			),
 			logger,
 		});
 		if (!result.passed) process.exitCode = 1;

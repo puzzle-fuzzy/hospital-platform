@@ -1,0 +1,83 @@
+# Readiness 连续稳定性验收门禁
+
+## 1. 为什么需要连续采样
+
+`GET /health/ready` 是瞬时探针。它可以证明某一个请求返回时 database、Redis 和
+schema 可用，但不能证明远端依赖在业务验收窗口内没有抖动。当前生产曾出现
+`persistence.probe.unavailable` 随后恢复，以及微信登录先返回 503、稍后成功的证据，
+因此一次 `200 + ready` 不足以打开患者或 Provider 业务验收。
+
+连续采样只解决“运行前置是否稳定”这一层问题，不能替代微信会话、就诊人切换、Provider
+字段、页面真机或支付/医保/HIS 最终状态的证据。
+
+## 2. 工具语义
+
+`apps/worker/src/readiness-stability.ts` 提供共享的有界采样工具：
+
+- `readinessSamples`：采样次数，允许 `1..60`；
+- `readinessIntervalMs`：采样间隔，允许 `0..60000` 毫秒；
+- 任意一次采样失败都会让本轮 release smoke 失败，不会因为最后一次恢复而掩盖中间抖动；
+- 原始请求的低敏 `statusCode`、`traceId` 仍由 runtime/provider smoke 保留；采样错误只增加
+  `readiness-sample-N/M`，不记录 URL、响应正文、token 或连接串；
+- 这是一次性验收工具，不是后台监控，也不会无限重试。
+
+库函数默认 `1` 次且间隔 `0` 毫秒，以保持已有单元测试和调用方的兼容语义。命令行
+`runtime:smoke` 与 `provider:smoke` 默认使用 `3` 次、每次间隔 `1000` 毫秒；生产验收应
+显式写出参数，不依赖默认值。
+
+## 3. API 运行时验收
+
+PowerShell：
+
+```powershell
+$env:HOSPITAL_API_BASE_URL = "https://test-hp.meiyi.pro"
+$env:HOSPITAL_API_PREFIX = "/api/v2"
+$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"
+$env:HOSPITAL_RUNTIME_READINESS_SAMPLES = "6"
+$env:HOSPITAL_RUNTIME_READINESS_INTERVAL_MS = "2000"
+pnpm runtime:smoke
+```
+
+这会在约 10 秒窗口内连续检查 readiness，并同时检查 live、system ping、未登录认证边界
+和健康响应的 `Cache-Control: no-store`。`health-ready` 必须每次都是 `ready`；如果设置为
+观察模式且 `requireReady=false`，`not_ready` 只能生成 warning，不能把本轮结果当作发布稳定通过。
+
+Linux 服务器上的 bundle 运行方式：
+
+```bash
+HOSPITAL_API_BASE_URL="https://test-hp.meiyi.pro" \
+HOSPITAL_API_PREFIX="/api/v2" \
+HOSPITAL_RUNTIME_REQUIRE_READY="true" \
+HOSPITAL_RUNTIME_READINESS_SAMPLES="6" \
+HOSPITAL_RUNTIME_READINESS_INTERVAL_MS="2000" \
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/api-runtime-smoke.js"
+```
+
+## 4. Provider 只读验收前置
+
+Provider smoke 也会先完成同样的 readiness 连续采样，任何一次不为 `ready` 都会停止，
+不会继续请求患者、预约、报告或费用 Provider：
+
+```powershell
+$env:HOSPITAL_PROVIDER_READINESS_SAMPLES = "6"
+$env:HOSPITAL_PROVIDER_READINESS_INTERVAL_MS = "2000"
+pnpm provider:smoke
+```
+
+连续 readiness 通过后，仍必须按 [`provider-directory-acceptance.md`](provider-directory-acceptance.md)
+完成 session、owner、患者同步 replay、真实 Provider 只读结果和日志关联。不得把 readiness
+窗口的通过结果写成“微信登录成功”或“业务迁移完成”。
+
+## 5. 证据记录要求
+
+每次生产验收至少记录：候选 release SHA、API 前缀、采样次数、采样间隔、开始/结束时间、
+每次请求的低敏 traceId、结果以及服务端同期 `persistence.probe.*` 日志。token、openid、
+provider 患者号、身份证、支付字段和数据库连接串禁止进入文档、终端截图或日志。
+
+如果 readiness 窗口失败：
+
+1. 停止患者、Provider、预约和费用验收；
+2. 按 traceId 对照 API journald、反向代理和依赖探针日志；
+3. 先确认稳定窗口重新通过，再继续最近一次未完成的业务验收；
+4. 不重启旧 Python 服务，不清理患者或业务数据，不用一次恢复的 200 覆盖失败证据。

@@ -131,6 +131,8 @@ $env:HOSPITAL_API_PREFIX = "/api/v2"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
 $env:HOSPITAL_SMOKE_CAPABILITIES = "session,patient-sync,patients,appointment-directory,appointment-records,reports,outpatient-payments"
+$env:HOSPITAL_PROVIDER_READINESS_SAMPLES = "6"
+$env:HOSPITAL_PROVIDER_READINESS_INTERVAL_MS = "2000"
 pnpm provider:smoke
 ```
 
@@ -170,7 +172,11 @@ provider.smoke.capability.passed / failed
 provider.smoke.completed / failed
 ```
 
-smoke 会先验证 `health/live.data.status=ok` 和 `health/ready.data.status=ready`；任一健康检查失败时立即停止，不再请求患者、预约或报告 provider 能力。
+smoke 会先验证 `health/live.data.status=ok`，再按
+`HOSPITAL_PROVIDER_READINESS_SAMPLES` 和 `HOSPITAL_PROVIDER_READINESS_INTERVAL_MS` 连续验证
+`health/ready.data.status=ready`；任一采样失败时立即停止，不再请求患者、预约或报告 provider 能力。
+正式验收不要只做一次 ready 请求，具体上限和证据规则见
+[`readiness-stability-gate.md`](readiness-stability-gate.md)。
 如果能力列表包含 `session`（默认 CLI 配置已包含），健康检查通过后会先调用带 Bearer 的
 `GET /me`，确认返回的是当前平台内部用户结构；会话无效或响应字段不符合 contract 时立即停止，
 不会继续访问患者、预约、报告或门诊费用接口。`session` 检查不把内部 userId 写入 smoke 结果，

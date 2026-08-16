@@ -302,6 +302,92 @@ test("runtime smoke requires ready for release acceptance", async () => {
 	});
 });
 
+test("runtime smoke fails when readiness becomes unavailable inside the stability window", async () => {
+	let readinessCalls = 0;
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		requireReady: true,
+		readinessSamples: 3,
+		readinessIntervalMs: 0,
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/health/ready")) {
+				readinessCalls += 1;
+				return jsonResponse(
+					{
+						success: true,
+						data: { status: readinessCalls === 2 ? "not_ready" : "ready" },
+					},
+					200,
+					{ "cache-control": "no-store" },
+				);
+			}
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(readinessCalls).toBe(2);
+	expect(result.checks[1]).toMatchObject({
+		name: "health-ready",
+		status: "failed",
+		details: ["RuntimeSmokeRequestError", "readiness-sample-2/3"],
+	});
+});
+
+test("runtime smoke reports an intermittent not-ready sample instead of hiding it", async () => {
+	let readinessCalls = 0;
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		readinessSamples: 2,
+		readinessIntervalMs: 0,
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/health/ready")) {
+				readinessCalls += 1;
+				return jsonResponse(
+					{
+						success: true,
+						data: { status: readinessCalls === 1 ? "not_ready" : "ready" },
+					},
+					200,
+					{ "cache-control": "no-store" },
+				);
+			}
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(result.checks[1]).toMatchObject({
+		name: "health-ready",
+		status: "warning",
+		details: ["not_ready", "samples=2", "not_ready_samples=1"],
+	});
+});
+
 test("runtime smoke keeps traceId when a platform request fails", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",

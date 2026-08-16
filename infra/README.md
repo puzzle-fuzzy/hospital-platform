@@ -38,9 +38,14 @@ pnpm runtime:smoke
 ```
 
 发布或 staging 验收必须额外设置 `$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"`，让
-`health/ready.data.status=not_ready` 使命令失败。该 smoke 还会检查 live/ready 的
+`health/ready.data.status=not_ready` 使命令失败。正式验收还应设置
+`HOSPITAL_RUNTIME_READINESS_SAMPLES` 和 `HOSPITAL_RUNTIME_READINESS_INTERVAL_MS` 做连续采样，
+避免一次依赖恢复掩盖 MySQL/schema 抖动。该 smoke 还会检查 live/ready 的
 `Cache-Control: no-store` 没有被反向代理移除，并用合法的最小查询参数验证患者、预约、报告和门诊
 费用路由在无 token 时返回稳定 `401 unauthorized`；它不执行 migration，也不调用 provider。
+
+连续 readiness 门禁的采样范围、生产命令和失败后的证据处理见
+[`docs/release/readiness-stability-gate.md`](../docs/release/readiness-stability-gate.md)。
 
 PowerShell 中运行 migration 和 integration 时，需要为当前进程提供本地连接串：
 

@@ -734,6 +734,41 @@ test("provider directory smoke does not treat not-ready as a successful health c
 	]);
 });
 
+test("provider directory smoke identifies readiness failure in a later sample", async () => {
+	let readinessCalls = 0;
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: [],
+		readinessSamples: 3,
+		readinessIntervalMs: 0,
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				readinessCalls += 1;
+				return jsonResponse({
+					success: true,
+					data: { status: readinessCalls === 2 ? "not_ready" : "ready" },
+				});
+			}
+			throw new Error("provider route must not be called");
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(readinessCalls).toBe(2);
+	expect(result.checks.at(-1)).toEqual({
+		name: "health-ready",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+		details: ["readiness-sample-2/3"],
+		traceId: expect.any(String),
+	});
+});
+
 test("provider directory smoke rejects public HTTP unless local opt-in is explicit", async () => {
 	await expect(
 		runProviderDirectorySmoke({
