@@ -13,9 +13,14 @@ import {
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
 import {
+	AppointmentRecordQueryError,
+	AppointmentScheduleQueryError,
+} from "../modules/appointments/service";
+import {
 	PaymentIdentityNotFoundError,
 	WechatPaymentNotificationRejectedError,
 } from "../modules/payments";
+import { ReportQueryError } from "../modules/reports/service";
 import { errorHandlerPlugin } from "./error-handler";
 
 test("persistence connection failures return a safe 503 contract", async () => {
@@ -112,6 +117,39 @@ test("支付领域内部错误统一映射为稳定中文公共契约", async ()
 		const response = await app.handle(new Request("http://localhost/probe"));
 
 		expect(response.status).toBe(scenario.status);
+		expect(await response.json()).toEqual({
+			success: false,
+			error: { code: scenario.code, message: scenario.message },
+		});
+	}
+});
+
+test("查询边界错误统一映射为稳定中文公共契约", async () => {
+	const cases = [
+		{
+			error: new AppointmentScheduleQueryError("internal schedule detail"),
+			code: "appointment-query-invalid",
+			message: "预约排班查询条件不合法",
+		},
+		{
+			error: new AppointmentRecordQueryError("internal record detail"),
+			code: "appointment-record-query-invalid",
+			message: "预约记录查询条件不合法",
+		},
+		{
+			error: new ReportQueryError("internal report detail"),
+			code: "report-query-invalid",
+			message: "报告查询条件不合法",
+		},
+	] as const;
+
+	for (const scenario of cases) {
+		const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+			throw scenario.error;
+		});
+		const response = await app.handle(new Request("http://localhost/probe"));
+
+		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual({
 			success: false,
 			error: { code: scenario.code, message: scenario.message },

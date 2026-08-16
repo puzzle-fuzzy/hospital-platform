@@ -188,7 +188,8 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "appointment-query-invalid",
-						message: error.message,
+						// 查询边界的内部细节只用于日志，公共接口返回稳定中文文案。
+						message: "预约排班查询条件不合法",
 					},
 				};
 			}
@@ -199,7 +200,8 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "appointment-record-query-invalid",
-						message: error.message,
+						// 不把日期范围上限等实现细节暴露给小程序页面。
+						message: "预约记录查询条件不合法",
 					},
 				};
 			}
@@ -219,7 +221,11 @@ export function errorHandlerPlugin() {
 				set.status = 400;
 				return {
 					success: false,
-					error: { code: "report-query-invalid", message: error.message },
+					// provider 查询窗口和字段校验不属于公共错误契约。
+					error: {
+						code: "report-query-invalid",
+						message: "报告查询条件不合法",
+					},
 				};
 			}
 

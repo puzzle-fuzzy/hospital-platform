@@ -1079,7 +1079,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 		success: false,
 		error: {
 			code: "appointment-query-invalid",
-			message: "Schedule date range cannot exceed 31 days",
+			message: "预约排班查询条件不合法",
 		},
 	});
 	expect(scheduleInput).toBeUndefined();
