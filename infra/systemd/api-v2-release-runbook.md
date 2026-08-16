@@ -167,3 +167,9 @@ production mode、MySQL/Redis/schema、no-store、system ping 和未登录认证
 隔离 runtime smoke，并按本手册原子切换 `current` 后只重启新 API。公网 `/api/v2` 的 live、ready、system-ping
 和未登录认证边界全部通过，旧 Python `8001` 与 Worker 状态未改变。完整证据见
 [`../../docs/release/candidate-d177991-production-acceptance-2026-08-16.md`](../../docs/release/candidate-d177991-production-acceptance-2026-08-16.md)。
+
+2026-08-16 20:58-21:00 CST：候选 `93373d9` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
+真实生产 env preflight 通过，公网 runtime smoke 首次观察到 database/schema 探针瞬态不可用后恢复，随后复测
+live、ready、system ping 和未登录认证边界全部通过。`current=d177991`、新 API `18081`、旧 Python `8001`
+和 Worker 状态全程未改变。完整证据见
+[`../../docs/release/candidate-93373d9-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-93373d9-preproduction-smoke-2026-08-16.md)。

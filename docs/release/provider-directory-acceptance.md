@@ -42,6 +42,8 @@
 - SSH 在 2026-08-16 20:54 CST 的只读日志复核中，在切换后的筛选窗口只看到健康探针和未登录边界请求，未发现
   `auth.wechat.*`、`patient.directory.*`、预约、报告或门诊费用业务事件；这表示真实业务验收尚未开始，不能把“没有失败日志”当成成功证据。
 - 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、同 key replay 的 operation 日志、预约历史真实响应、真机截图/网络记录和对应 traceId。
+- `93373d9` 仅作为未切换候选完成了 bundle checksum、真实生产 env preflight 和公网 runtime 复测；其中一次
+  readiness 瞬态探针失败后恢复，详见 [`candidate-93373d9-preproduction-smoke-2026-08-16.md`](candidate-93373d9-preproduction-smoke-2026-08-16.md)。
 
 ### 2026-08-16 数据层迁移与复核
 
