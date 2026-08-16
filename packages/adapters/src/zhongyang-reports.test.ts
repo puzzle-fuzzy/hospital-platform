@@ -221,3 +221,51 @@ test("众阳报告目录拒绝业务失败或无法映射的响应", async () =>
 		retryable: false,
 	});
 });
+
+test("众阳报告目录拒绝同一来源中的重复报告号", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("lis-reports-filter")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: [
+							{
+								reportId: "duplicate-report",
+								testList: "血常规",
+								reportTime: "2026-08-16 10:00:00",
+							},
+							{
+								reportId: "duplicate-report",
+								testList: "血常规复核",
+								reportTime: "2026-08-16 10:01:00",
+							},
+						],
+					}),
+					{ status: 200, headers: { "x-request-id": "duplicate-report" } },
+				);
+			}
+			return new Response(JSON.stringify({ success: true, data: [] }), {
+				status: 200,
+				headers: { "x-request-id": `empty-${requestUrl}` },
+			});
+		},
+	});
+
+	await expect(
+		gateway.listReports(
+			{
+				providerPatientId: "his-patient-001",
+				query: { startDate: "2026-08-01", endDate: "2026-08-16" },
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory",
+		requestId: "duplicate-report",
+		retryable: false,
+	});
+});

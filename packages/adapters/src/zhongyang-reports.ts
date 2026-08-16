@@ -140,6 +140,33 @@ function optionalText(
 	return requiredText(value, field, operation, requestId, maxLength);
 }
 
+/**
+ * 同一报告来源内的 provider 报告号必须唯一。
+ *
+ * API 会依据 providerReportId 生成 owner-scoped opaque 引用；重复报告号
+ * 会让两条摘要共享同一个详情引用，后写入的 TTL 或 provider 元数据可能
+ * 覆盖前一条。没有报告号的摘要不能凭标题和时间猜测唯一性，只能保持
+ * 摘要展示并暂不开放详情。
+ */
+function ensureUniqueReportIds(
+	entries: readonly ReportDirectoryEntry[],
+	operation: string,
+	requestId: string,
+): void {
+	const seen = new Set<string>();
+	for (const entry of entries) {
+		if (!entry.providerReportId) continue;
+		if (seen.has(entry.providerReportId)) {
+			throw providerError(
+				operation,
+				"Zhongyang report response contained duplicate report ids",
+				requestId,
+			);
+		}
+		seen.add(entry.providerReportId);
+	}
+}
+
 function flag(value: unknown): boolean {
 	if (value === true || value === 1 || value === "1") return true;
 	return typeof value === "string" && value.trim().toLowerCase() === "true";
@@ -415,8 +442,12 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 				: kind === "imaging"
 					? mapImaging
 					: mapEcg;
+		const reports = items.map((item) =>
+			map(item, operation, response.requestId),
+		);
+		ensureUniqueReportIds(reports, operation, response.requestId);
 		return {
-			reports: items.map((item) => map(item, operation, response.requestId)),
+			reports,
 			requestId: response.requestId,
 		};
 	}
