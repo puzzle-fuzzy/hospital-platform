@@ -34,6 +34,7 @@ type PersistenceProbeDependency = "database" | "redis" | "schema";
 
 type PersistenceProbeMetadata = {
 	errorType?: string;
+	errorCode?: string;
 	operation?: string;
 	schemaStatus?: string;
 	missingMigrationCount?: number;
@@ -42,6 +43,29 @@ type PersistenceProbeMetadata = {
 
 function safeErrorType(error: unknown): string {
 	return error instanceof Error ? error.name : "UnknownError";
+}
+
+/**
+ * 提取可用于排障的基础设施错误码；只接受固定格式的机器错误码，拒绝
+ * 连接串、SQL、参数或 provider 原始消息进入日志。mysql2 常见的
+ * `ECONNRESET`、`ETIMEDOUT`、`PROTOCOL_CONNECTION_LOST` 等错误码都符合该格式。
+ */
+export function safeErrorMetadata(
+	error: unknown,
+): Pick<PersistenceProbeMetadata, "errorType" | "errorCode"> {
+	const errorType = safeErrorType(error);
+	const rawCode =
+		typeof error === "object" && error !== null
+			? (error as { code?: unknown }).code
+			: undefined;
+	const errorCode =
+		typeof rawCode === "string" && /^[A-Z][A-Z0-9_:-]{0,63}$/.test(rawCode)
+			? rawCode
+			: undefined;
+	return {
+		errorType,
+		...(errorCode ? { errorCode } : {}),
+	};
 }
 
 /**
@@ -108,7 +132,7 @@ function createMySqlPort(pool: Pool, logger?: AppLogger): DependencyPort {
 				return "ok";
 			} catch (error) {
 				trackProbeState("unavailable", {
-					errorType: safeErrorType(error),
+					...safeErrorMetadata(error),
 					operation: "mysql.health_check",
 				});
 				return "unavailable";
@@ -129,7 +153,7 @@ function createRedisPort(client: Redis, logger?: AppLogger): DependencyPort {
 				return "ok";
 			} catch (error) {
 				trackProbeState("unavailable", {
-					errorType: safeErrorType(error),
+					...safeErrorMetadata(error),
 					operation: "redis.health_check",
 				});
 				return "unavailable";
@@ -156,7 +180,7 @@ function createSchemaPort(pool: Pool, logger?: AppLogger): DependencyPort {
 			} catch (error) {
 				// 表不存在、连接异常或 schema 不完整都不能进入 ready。
 				trackProbeState("unavailable", {
-					errorType: safeErrorType(error),
+					...safeErrorMetadata(error),
 					operation: "mysql.schema_check",
 				});
 				return "unavailable";

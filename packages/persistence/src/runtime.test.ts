@@ -3,6 +3,7 @@ import { createLogger } from "@hospital/observability";
 import {
 	createPersistenceProbeStateTracker,
 	createPersistenceRuntime,
+	safeErrorMetadata,
 } from "./runtime";
 
 test("persistence runtime stays explicit when URLs are not configured", async () => {
@@ -59,4 +60,19 @@ test("persistence probe logs only unavailable and recovery transitions", () => {
 		dependency: "database",
 	});
 	expect(JSON.stringify(records)).not.toContain("LeakedError");
+});
+
+test("persistence probe keeps only a safe infrastructure error code", () => {
+	const transientError = Object.assign(new Error("connection details"), {
+		code: "PROTOCOL_CONNECTION_LOST",
+	});
+	const unsafeError = Object.assign(new Error("password=must-not-log"), {
+		code: "password=must-not-log",
+	});
+
+	expect(safeErrorMetadata(transientError)).toEqual({
+		errorType: "Error",
+		errorCode: "PROTOCOL_CONNECTION_LOST",
+	});
+	expect(safeErrorMetadata(unsafeError)).toEqual({ errorType: "Error" });
 });
