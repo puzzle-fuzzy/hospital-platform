@@ -18,6 +18,12 @@
 `ZHONGYANG_REPORT_DETAIL_READY`、`ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是六个独立 gate。
 共享连接地址不代表共享验收结果。
 
+所有患者作用域能力都必须经过同一条 owner 目录门禁：smoke 先用当前平台 Bearer
+读取 `GET /patients`，只接受响应 `data.items[].id` 中的内部患者 ID；只有
+`HOSPITAL_PATIENT_ID` 出现在这次会话目录中，才允许继续请求预约记录、门诊费用或报告。
+若同时启用 `patient-sync`，必须先完成同步和同 key replay，再重新读取患者目录。目录归属
+失败会在平台 API 层短路，不会把未归属患者 ID 发送给众阳或其他 provider。
+
 截至 2026-08-16，服务器到真实 provider 的预约科室/排班只读回归已通过；线上实测确认目录
 `thirdPatientId` 调用记录接口会返回 `smcAppointment@1301 / 患者信息不存在`，而旧端的
 `patInfosFind(type=3, cardNo, patName)` 可以返回临床 `patId`。用途隔离代码已随 release
@@ -87,6 +93,8 @@ pnpm check
 - API 测试证明公共 `scheduleId` 是平台 opaque 引用，provider `hisScheduleId` 不进入 response；
 - 预约记录测试证明服务端先读取用途为 `his-patient` 的 owner-scoped 映射，再固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`，并丢弃预约号、患者身份、电话、费用和支付字段；
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
+- Provider smoke 测试证明患者同步后会重新读取当前会话目录，未归属的内部 patientId 会在
+  `patient-owner` 检查失败并停止，provider 不会收到后续患者作用域请求；
 - 原生小程序 acceptance test 证明只调用 Hospital API，不包含众阳 provider URL；
 - Pino 日志测试证明 `providerPatientId`、`provider_patient_id` 和 `providerSubject` 会被脱敏；
 - 报告测试不把 provider 报告号、患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
@@ -153,6 +161,11 @@ smoke 会先验证 `health/live.data.status=ok` 和 `health/ready.data.status=re
 不会继续访问患者、预约、报告或门诊费用接口。`session` 检查不把内部 userId 写入 smoke 结果，
 只保留 traceId 供服务端日志关联。
 
+当能力列表包含任一患者作用域能力时，工具会自动补充一次 `patients` 和一次
+`patient-owner` 检查，即使调用方没有显式写入 `patients`。`patient-owner` 使用当前会话目录
+中刚读取的内部 ID 集合做精确匹配；它不是对患者号格式的校验，也不是 provider 的可用性探测。
+因此“患者 ID 看起来合法”不能替代“患者属于当前登录用户”的证明。
+
 ## C. 运行层证据
 
 先在部署密钥系统或受控 staging 环境注入配置，不把 token 写入 shell 历史、仓库或日志：
@@ -172,7 +185,7 @@ pnpm runtime:preflight
 
 preflight 必须显示：
 
-- `provider-configuration` 中五个众阳 gate 为 `configured`；
+- `provider-configuration` 中六个众阳 gate 为 `configured`；
 - MySQL、Redis、目标 migration 和关键 schema invariants 通过；
 - `PERSISTENCE_SCHEMA_READY` 已由部署流程显式确认；
 - 输出只包含 `configured/disabled/incomplete`、环境变量名和错误类型，不包含 URL 实际值、token 或 provider 原始报文。
@@ -193,11 +206,12 @@ HTTPS 是硬条件：三个众阳 gate、微信身份和微信支付的自定义
 1. 登录和患者同步：确认 unionId 只来自服务端身份表；记录内部 `userId`、内部 `patientId`、traceId 和 provider request id，不记录 provider 患者号；确认同步日志的 `hisPatientReferenceCount` 与测试账号患者数一致。生产 migration 已完成，当前只等待真实账号重新同步。
 2. 患者列表：确认响应只有内部 id、脱敏姓名/关系/卡号和 source。
 3. 预约科室和排班：确认服务端固定 `requestChannel=4`；科室请求由服务端补齐未来 7 天日期窗口，排班日期范围和筛选字段只来自平台 query 白名单。
-4. 预约历史：确认服务端以内部 patientId 查询 `his-patient` 映射，固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`；确认响应没有 `appointmentInfoId`、患者身份、电话、费用、支付和 HIS 字段；用只有目录映射的测试患者确认不会错误调用 provider。
-5. 报告目录：确认服务端以内部 patientId 查映射后分别读取 LIS/PACS/ECG；确认响应只有来源、标题、时间、状态和附件存在性。
-6. LIS 报告详情：先从报告目录取得 opaque `reportId`，再请求 `GET /api/v1/reports/:reportId`；确认服务端按 owner 和 TTL 查询，响应没有 provider 报告号、患者字段、文件 URL 或原始 JSON。
-7. provider 业务失败、超时和 malformed response：确认 API 返回统一安全错误，日志保留 trace、provider request id 和错误类型，不保留 provider 原始错误内容。
-8. 使用错误 owner 的内部 patientId/reportId：确认服务端在 provider 请求前返回预约记录或报告的 owner 隔离错误。
+4. 患者归属：使用另一个账号的内部 patientId 做 smoke，确认 `patient-owner` 失败且请求列表中没有预约、报告或费用 provider 请求；不能只验证 ID 格式。
+5. 预约历史：确认服务端以内部 patientId 查询 `his-patient` 映射，固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`；确认响应没有 `appointmentInfoId`、患者身份、电话、费用、支付和 HIS 字段；用只有目录映射的测试患者确认不会错误调用 provider。
+6. 报告目录：确认服务端以内部 patientId 查映射后分别读取 LIS/PACS/ECG；确认响应只有来源、标题、时间、状态和附件存在性。
+7. LIS 报告详情：先从报告目录取得 opaque `reportId`，再请求 `GET /api/v1/reports/:reportId`；确认服务端按 owner 和 TTL 查询，响应没有 provider 报告号、患者字段、文件 URL 或原始 JSON。
+8. provider 业务失败、超时和 malformed response：确认 API 返回统一安全错误，日志保留 trace、provider request id 和错误类型，不保留 provider 原始错误内容。
+9. 使用错误 owner 的内部 patientId/reportId：确认服务端在 provider 请求前返回预约记录或报告的 owner 隔离错误。
 
 必须出现的结构化日志事件：
 

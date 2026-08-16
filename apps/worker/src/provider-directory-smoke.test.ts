@@ -125,9 +125,9 @@ test("provider directory smoke uses the public v2 prefix without auth on health 
 	expect(requests.map((request) => request.url)).toEqual([
 		"https://hospital.example.test/api/v2/health/live",
 		"https://hospital.example.test/api/v2/health/ready",
+		"https://hospital.example.test/api/v2/patients/sync",
+		"https://hospital.example.test/api/v2/patients/sync",
 		"https://hospital.example.test/api/v2/patients",
-		"https://hospital.example.test/api/v2/patients/sync",
-		"https://hospital.example.test/api/v2/patients/sync",
 	]);
 	expect(requests[0]?.authorization).toBeNull();
 	expect(requests[1]?.authorization).toBeNull();
@@ -138,11 +138,12 @@ test("provider directory smoke uses the public v2 prefix without auth on health 
 		idempotencyKey: expect.stringMatching(/^provider-smoke-/),
 	});
 	expect(requests[4]).toMatchObject({
-		method: "POST",
+		method: "GET",
 		authorization: "Bearer platform-access-token",
-		idempotencyKey: requests[3]?.idempotencyKey,
+		url: "https://hospital.example.test/api/v2/patients",
 	});
-	expect(requests[4]?.idempotencyKey).toBe(requests[3]?.idempotencyKey);
+	// Bun 当前版本对两个同值 Header 字符串的 `toBe` 报告不稳定，这里验证值相等即可。
+	expect(requests[3]?.idempotencyKey).toEqual(requests[2]?.idempotencyKey);
 });
 
 test("provider directory smoke can explicitly verify idempotent patient synchronization", async () => {
@@ -177,6 +178,22 @@ test("provider directory smoke can explicitly verify idempotent patient synchron
 			}
 			if (url.endsWith("/health/ready")) {
 				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.endsWith("/api/v1/patients")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						items: [
+							{
+								id: "patient-001",
+								displayName: "张三",
+								relationship: "self",
+								cardNumberMasked: "******0001",
+							},
+						],
+						total: 1,
+					},
+				});
 			}
 			return jsonResponse({
 				success: true,
@@ -353,6 +370,22 @@ test("provider directory smoke verifies both outpatient payment read statuses", 
 			if (url.endsWith("/health/ready")) {
 				return jsonResponse({ success: true, data: { status: "ready" } });
 			}
+			if (url.endsWith("/api/v1/patients")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						items: [
+							{
+								id: "patient-001",
+								displayName: "张三",
+								relationship: "self",
+								cardNumberMasked: "******0001",
+							},
+						],
+						total: 1,
+					},
+				});
+			}
 			return jsonResponse({
 				success: true,
 				data: {
@@ -368,12 +401,15 @@ test("provider directory smoke verifies both outpatient payment read statuses", 
 	expect(result.checks.map((check) => check.name)).toEqual([
 		"health-live",
 		"health-ready",
+		"patients",
+		"patient-owner",
 		"outpatient-payments-unpaid",
 		"outpatient-payments-paid",
 	]);
 	expect(requests.map((request) => request.url)).toEqual([
 		"https://hospital.example.test/health/live",
 		"https://hospital.example.test/health/ready",
+		"https://hospital.example.test/api/v1/patients",
 		"https://hospital.example.test/api/v1/payments/outpatient/records?patientId=patient-001&status=unpaid",
 		"https://hospital.example.test/api/v1/payments/outpatient/records?patientId=patient-001&status=paid",
 	]);
@@ -400,6 +436,22 @@ test("provider directory smoke rejects an outpatient status mismatch", async () 
 			if (url.endsWith("/health/ready")) {
 				return jsonResponse({ success: true, data: { status: "ready" } });
 			}
+			if (url.endsWith("/api/v1/patients")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						items: [
+							{
+								id: "patient-001",
+								displayName: "张三",
+								relationship: "self",
+								cardNumberMasked: "******0001",
+							},
+						],
+						total: 1,
+					},
+				});
+			}
 			return jsonResponse({
 				success: true,
 				data: { status: "paid", items: [], total: 0 },
@@ -414,6 +466,57 @@ test("provider directory smoke rejects an outpatient status mismatch", async () 
 		errorType: "ProviderSmokeRequestError",
 		traceId: expect.any(String),
 	});
+});
+
+test("provider directory smoke refuses a patient outside the current session directory", async () => {
+	const requests: string[] = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		patientId: "patient-not-owned",
+		capabilities: ["outpatient-payments"],
+		fetcher: async (input) => {
+			const url = String(input);
+			requests.push(url);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.endsWith("/api/v1/patients")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						items: [
+							{
+								id: "patient-owned",
+								displayName: "张三",
+								relationship: "self",
+								cardNumberMasked: "******0001",
+							},
+						],
+						total: 1,
+					},
+				});
+			}
+			throw new Error("provider endpoint must not be called");
+		},
+	});
+
+	// 归属校验失败后必须短路，不能把未归属患者号继续传给门诊缴费 Provider。
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-1)).toEqual({
+		name: "patient-owner",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+		traceId: expect.any(String),
+	});
+	expect(requests).toEqual([
+		"https://hospital.example.test/health/live",
+		"https://hospital.example.test/health/ready",
+		"https://hospital.example.test/api/v1/patients",
+	]);
 });
 
 test("provider smoke accepts only the platform opaque report id and can verify LIS detail", async () => {
@@ -431,6 +534,22 @@ test("provider smoke accepts only the platform opaque report id and can verify L
 			}
 			if (url.endsWith("/health/ready")) {
 				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.endsWith("/api/v1/patients")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						items: [
+							{
+								id: "internal-patient-001",
+								displayName: "张三",
+								relationship: "self",
+								cardNumberMasked: "******0001",
+							},
+						],
+						total: 1,
+					},
+				});
 			}
 			if (url.includes("/reports?")) {
 				return jsonResponse({
@@ -469,6 +588,8 @@ test("provider smoke accepts only the platform opaque report id and can verify L
 	expect(result.checks.map((check) => check.name)).toEqual([
 		"health-live",
 		"health-ready",
+		"patients",
+		"patient-owner",
 		"reports",
 		"report-detail",
 	]);

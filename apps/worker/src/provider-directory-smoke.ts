@@ -215,6 +215,45 @@ function responseItemCount(data: unknown): number | undefined {
 	return Array.isArray(items) ? items.length : undefined;
 }
 
+/** 提取当前 session 的内部患者 ID；只接受平台读模型中的 `items[].id`。 */
+function patientIds(data: unknown, traceId?: string): readonly string[] {
+	if (typeof data !== "object" || data === null || Array.isArray(data)) {
+		throw new ProviderSmokeRequestError(
+			"Patient directory response is not an object",
+			200,
+			traceId,
+		);
+	}
+	const items = (data as { items?: unknown }).items;
+	if (!Array.isArray(items)) {
+		throw new ProviderSmokeRequestError(
+			"Patient directory response does not contain items",
+			200,
+			traceId,
+		);
+	}
+	const ids: string[] = [];
+	for (const [index, item] of items.entries()) {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			throw new ProviderSmokeRequestError(
+				`Patient directory item ${index} is invalid`,
+				200,
+				traceId,
+			);
+		}
+		const id = (item as { id?: unknown }).id;
+		if (typeof id !== "string" || !id.trim()) {
+			throw new ProviderSmokeRequestError(
+				`Patient directory item ${index} has no internal id`,
+				200,
+				traceId,
+			);
+		}
+		ids.push(id.trim());
+	}
+	return ids;
+}
+
 function firstOpaqueReportId(data: unknown): string | undefined {
 	if (typeof data !== "object" || data === null || Array.isArray(data)) {
 		return undefined;
@@ -307,9 +346,32 @@ export async function runProviderDirectorySmoke(
 	const reportStartDate = dateOnly(addDays(now, -30));
 	const today = dateOnly(now);
 	const patientId = options.patientId?.trim();
+	const scopedCapabilities = new Set<ProviderSmokeCapability>([
+		"appointment-records",
+		"outpatient-payments",
+		"reports",
+		"report-detail",
+	]);
+	let ownerPatientIds = new Set<string>();
+	let patientDirectoryTraceId: string | undefined;
+	let patientDirectoryLoaded = false;
+	let patientOwnerVerified = false;
 	// 调用方显式传入 [] 时只验证 API 健康状态；CLI 入口通过
 	// parseCapabilities 自己提供默认能力，避免库函数隐式扩大验收范围。
-	const capabilities = options.capabilities;
+	const capabilityOrder: readonly ProviderSmokeCapability[] = [
+		"session",
+		"patient-sync",
+		"patients",
+		"appointment-directory",
+		"appointment-records",
+		"outpatient-payments",
+		"reports",
+		"report-detail",
+	];
+	// 固定执行顺序，保证患者同步完成后才读取最新 owner 目录，再进行患者作用域查询。
+	const capabilities = capabilityOrder.filter((capability) =>
+		options.capabilities.includes(capability),
+	);
 	const checks: ProviderSmokeCheck[] = [];
 
 	async function requestJson(
@@ -475,6 +537,37 @@ export async function runProviderDirectorySmoke(
 		};
 	}
 
+	async function readPatients(): Promise<SmokeObservation> {
+		const result = await getJson(apiRoute(apiPrefix, "/patients"));
+		const itemCount = requireSafeData(result.data, result.traceId);
+		ownerPatientIds = new Set(patientIds(result.data, result.traceId));
+		patientDirectoryTraceId = result.traceId;
+		return {
+			traceId: result.traceId,
+			...(itemCount === undefined ? {} : { itemCount }),
+		};
+	}
+
+	/** 患者作用域业务必须使用刚读取的 owner 目录中的内部 ID，禁止拿外部或其他用户 ID 试探 Provider。 */
+	async function verifyPatientOwner(): Promise<SmokeObservation> {
+		const requestedPatientId = requirePatientId(patientId);
+		const traceId = patientDirectoryTraceId;
+		if (!traceId) {
+			throw new ProviderSmokeRequestError(
+				"Patient directory trace is missing",
+				0,
+			);
+		}
+		if (!ownerPatientIds.has(requestedPatientId)) {
+			throw new ProviderSmokeRequestError(
+				"Requested patient is not in the current session directory",
+				200,
+				traceId,
+			);
+		}
+		return { traceId };
+	}
+
 	async function readLive(): Promise<SmokeObservation> {
 		const result = await getJson(healthRoute(apiPrefix, "/health/live"), true);
 		if (responseStatus(result.data) !== "ok") {
@@ -602,7 +695,17 @@ export async function runProviderDirectorySmoke(
 		}
 
 		if (capability === "patients") {
-			await check("patients", () => readSafe(apiRoute(apiPrefix, "/patients")));
+			if (!patientDirectoryLoaded) {
+				await check("patients", readPatients);
+				if (
+					checks.some(
+						(check) => check.name === "patients" && check.status === "failed",
+					)
+				) {
+					return complete();
+				}
+				patientDirectoryLoaded = true;
+			}
 			continue;
 		}
 
@@ -622,6 +725,31 @@ export async function runProviderDirectorySmoke(
 			continue;
 		}
 
+		if (scopedCapabilities.has(capability)) {
+			if (!patientDirectoryLoaded) {
+				await check("patients", readPatients);
+				if (
+					checks.some(
+						(check) => check.name === "patients" && check.status === "failed",
+					)
+				) {
+					return complete();
+				}
+				patientDirectoryLoaded = true;
+			}
+			if (!patientOwnerVerified) {
+				await check("patient-owner", verifyPatientOwner);
+				if (
+					checks.some(
+						(check) =>
+							check.name === "patient-owner" && check.status === "failed",
+					)
+				) {
+					return complete();
+				}
+				patientOwnerVerified = true;
+			}
+		}
 		const scopedPatientId = requirePatientId(patientId);
 		if (capability === "appointment-records") {
 			await check("appointment-records", async () => {
