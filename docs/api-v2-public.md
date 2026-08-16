@@ -299,6 +299,15 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 4. 真实 provider 文档到达后，先进入 [`provider-document-intake.md`](provider-document-intake.md)
    做版本、来源、hash、字段和错误码冻结，再实现写入/支付/医保能力。
 
+以下候选路径当前刻意保持 `404`，不是兼容入口，也不是“暂时返回空数据”：
+
+- `POST /api/v2/patients`：患者新增/建档；
+- `GET /api/v2/medical-records`、`GET /api/v2/medical-records/{visitRecordId}`：门诊就诊记录目录与详情；
+- `POST /api/v2/payments/insurance/authorization`：医保授权。
+
+它们必须先完成 provider/HIS contract、owner 映射、状态/幂等、脱敏和真实验收，才允许进入公共
+OpenAPI；旧服务存在对应能力不改变这一关闭状态。
+
 ## 6. 源码证据与维护入口
 
 - 路由组合：[apps/api/src/app.ts](../apps/api/src/app.ts)

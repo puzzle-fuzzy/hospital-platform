@@ -257,6 +257,10 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"当前日期范围按 `endDate - startDate` 的 UTC 日历零点差值校验",
 		"provider 的 `endDate` 是否包含当天仍待合同确认",
 		"migration/date-window-boundary-audit.md",
+		"以下候选路径当前刻意保持 `404`",
+		"POST /api/v2/patients",
+		"GET /api/v2/medical-records",
+		"POST /api/v2/payments/insurance/authorization",
 	] as const;
 
 	for (const statement of requiredDocumentation) {
@@ -292,6 +296,29 @@ test("health knowledge routes remain unregistered until reviewed content is read
 	);
 
 	expect(response.status).toBe(404);
+});
+
+test("provider-contract-dependent patient routes remain unregistered", async () => {
+	const blockedRequests = [
+		{ method: "POST", path: "/api/v1/patients" },
+		{ method: "GET", path: "/api/v1/medical-records" },
+		{ method: "GET", path: "/api/v1/medical-records/visit-001" },
+		{ method: "POST", path: "/api/v1/payments/insurance/authorization" },
+	] as const;
+
+	// 这些路径代表仍在草案或最后处理阶段的业务；没有 provider/HIS 文档时，
+	// 404 是刻意的 fail-closed 结果，不允许以旧接口转发或空实现伪造迁移完成。
+	for (const request of blockedRequests) {
+		const response = await createApp().handle(
+			new Request(`http://localhost${request.path}`, {
+				method: request.method,
+				headers: { "content-type": "application/json" },
+				...(request.method === "POST" ? { body: "{}" } : {}),
+			}),
+		);
+
+		expect(response.status).toBe(404);
+	}
 });
 
 test("current user endpoint only returns the platform session user id", async () => {
