@@ -190,6 +190,11 @@ available -> hold_pending -> held -> booking_pending -> booked
   仅在本地 token 已被判失效时进入无会话态，避免把 Redis/网络暂时故障误处理成永久退出；真实登录仍需
   `auth.wechat.login.succeeded`、`/me`、患者同步和 Redis TTL 的同链路证据。
 
+- 2026-08-16 23:19-23:20 CST：当前公网只读观察确认新 API 的 live/ready/system-ping、数据库/Redis/schema
+  readiness、未登录患者 401 和病历 404 冻结边界均符合预期；没有触发微信登录、患者同步、预约、支付、医保或 HIS
+  写入。该观察不能替代真实 session、Provider 和真机证据，详见
+  [`release/current-public-readonly-smoke-2026-08-16.md`](release/current-public-readonly-smoke-2026-08-16.md)。
+
 - 2026-08-16：将旧端 WebSocket、跳转其他小程序、web-view、支付调起、二维码/公众号和医保回跳纳入文件级迁移审计；这些入口仍保持“待契约/未迁移”，不因普通 HTTP endpoint 台账通过而提前开放。
 
 - 2026-08-16：补齐患者临床映射生命周期：完整快照缺少 `his-patient` 时在同一事务内清理旧 `patId`，旧快照和普通单条 upsert 不会误触发清理；新增内存/MySQL 回归测试和中文业务规则文档。

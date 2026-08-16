@@ -59,6 +59,12 @@
   登记 SHA-256、字段和状态；它们当前只能标记为 `normalized`。文档引用的执行预约、排班/号源、患者档案、
   支付登记和退款查单依赖尚未齐全，故没有打开预约写入、支付挂号或退款 route/gate。
 
+- 2026-08-16 23:19-23:20 CST 当前公网只读观察确认 `/api/v2/health/live`、`/api/v2/health/ready`、
+  `/api/v2/system/ping` 均正常，ready 的 database/redis/schema 均为 `ok`；未登录患者目录仍返回 401，
+  刻意冻结的 `/api/v2/medical-records` 返回 404。该证据只覆盖公网运行时和关闭边界，不能替代真实微信、
+  患者 Provider、预约/报告/费用只读或真机验收；完整 requestId 见
+  [`../release/current-public-readonly-smoke-2026-08-16.md`](../release/current-public-readonly-smoke-2026-08-16.md)。
+
 日期窗口的服务端跨度、客户端窗口和 provider 待确认项已单独记录在
 [`date-window-boundary-audit.md`](date-window-boundary-audit.md)；这部分不能用页面数量或列表 `total` 推断为已完成 provider 分页。
 
