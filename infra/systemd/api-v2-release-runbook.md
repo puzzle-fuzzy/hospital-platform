@@ -203,3 +203,11 @@ live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。Provi
 live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。本候选只增加 MySQL/Schema 只读探针一次有界重试，
 未切换公网；`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
 [`../../docs/release/candidate-a11f117-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-a11f117-preproduction-smoke-2026-08-16.md)。
+
+2026-08-16 22:24-22:25 CST：在 MySQL/Schema readiness 恢复后，候选 `a11f117` 已按本手册完成
+`current.next -> current` 原子切换，只重启 `hospital-platform-api-v2.service`。切换后内网
+`10.0.0.3:18081` 与公网 `/api/v2` 的 live、ready、system-ping 全部通过，ready 的
+`database/redis/schema` 均为 `ok`；旧 Python `8001` 保持运行，Worker 仍 inactive。注意公网业务
+ping 是 `/api/v2/system/ping`，内部直连才是 `/api/v1/system/ping`，不能重复拼接两个前缀。
+真实微信、患者、预约、费用、Provider 和真机业务仍未在本次切换中调用。完整证据见
+[`../../docs/release/a11f117-production-acceptance-2026-08-16.md`](../../docs/release/a11f117-production-acceptance-2026-08-16.md)。

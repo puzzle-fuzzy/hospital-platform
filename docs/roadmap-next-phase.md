@@ -5,11 +5,11 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-16 20:42 CST）
+### 线上实时状态（2026-08-16 22:24:52 CST）
 
-- 新 API `current=d177991`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；live/ready、no-store、system-ping 和未登录认证边界已通过。
+- 新 API `current=a11f117`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。
 - 旧 Python API 仍监听 `0.0.0.0:8001`，未停止；Worker 仍 inactive。支付、医保、HIS、报告 gate 仍关闭。
-- 真实微信 session、患者同步/切换、预约/费用 provider 读操作和真机业务尚未验收；以下“已完成”不能替代这些证据。
+- 真实微信 session、患者同步/切换、预约/费用 provider 读操作和真机业务尚未验收；本次只完成运行时和共存边界，以下“已完成”不能替代这些证据。详见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
 
 ### 已经具备
 
@@ -53,6 +53,7 @@
 - 候选 `d8f14f1` 已完成患者归属门禁的代码测试、真实生产 env preflight 和临时 production runtime smoke，但没有切换公网 `current`；真实 session、Provider 只读业务和真机证据仍待完成。证据见 [`release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md)。
 - 2026-08-16 21:00-22:06 CST 复核当前 `d177991` 启动后的真实日志：没有出现当前 release 的微信、患者、预约、报告或门诊费用业务事件；MySQL 与 Schema 探针发生四次同步瞬态不可用后恢复，Redis 始终正常。该证据不能替代真实业务验收，详见 [`release/current-d177991-observability-acceptance-2026-08-16.md`](release/current-d177991-observability-acceptance-2026-08-16.md)。
 - 候选 `a11f117` 已完成 MySQL/Schema 只读探针一次有界重试的本地完整门禁、真实生产 env preflight 和 `127.0.0.1:18088` 隔离 smoke；候选未切换，`current` 仍为 `d177991`。该修复降低坏连接造成的瞬态 readiness 误报，但不替代数据库稳定性观察或真实业务验收，证据见 [`release/candidate-a11f117-preproduction-smoke-2026-08-16.md`](release/candidate-a11f117-preproduction-smoke-2026-08-16.md)。
+- 2026-08-16 22:24-22:25 CST：`a11f117` 在依赖探针恢复后原子切换到生产 `current`，只重启新 API；内网 `10.0.0.3:18081`、公网 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 全部通过，旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。启动日志确认 production mode、MySQL/Redis/schema `ok`；本次没有业务 Provider 请求或业务写入，真实微信/患者/预约/费用/真机仍待分层验收。证据见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
 
 ### 当前已验证的问题
 
