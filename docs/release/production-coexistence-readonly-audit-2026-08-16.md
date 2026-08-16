@@ -126,14 +126,14 @@ MySQL 数据库 `hospital-dev`。新 API 启动日志和 `/health/ready` 均显�
 
 以上证据只更新“当前运行事实”，不扩大新服务权限，也不替代 provider、公网业务和真机验收。
 
-### 3.6 16:57 CST 公网与 SSH 主机 readiness 来源不一致
+### 3.6 16:57 CST 公网与 SSH 主机 readiness 短时观测差异（历史观测，已由 3.7 修正）
 
 在未修改服务、配置、数据库或 Redis 的前提下再次做了只读复核，发现公网响应与 SSH 主机上实际运行的
 Bun 进程不一致：
 
 | 检查位置 | 结果 | 结论 |
 | --- | --- | --- |
-| SSH 主机进程 | Bun PID `2935571`，命令为 `/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/api/dist/index.js` | 当前 `current` 指向 `releases/55fce6c`，不是当前仓库 `main` 的 `15f1a13` |
+| SSH 主机进程 | Bun PID `2935571`，命令为 `/home/ps/.bun/bin/bun /home/ps/code/hospital-platform/current/apps/api/dist/index.js` | 当前 `current` 指向 `releases/55fce6c`，不是当前仓库 `main` 的 `9b70d3f` |
 | SSH 主机监听 | `10.0.0.3:18081`；旧 Python `0.0.0.0:8001` 仍在监听 | 新旧服务端口没有互相抢占；`127.0.0.1:18081` 被拒绝是因为新 API 只绑定 `10.0.0.3`，不是服务停止 |
 | SSH 主机 `GET http://10.0.0.3:18081/health/live` | HTTP `200`，`status=ok` | 该进程可以响应存活检查 |
 | SSH 主机 `GET http://10.0.0.3:18081/health/ready` | HTTP `200`，`database=unavailable`、`redis=ok`、`schema=unavailable` | 该进程当前没有达到可用状态 |
@@ -141,13 +141,31 @@ Bun 进程不一致：
 | 公网随机 query + `Cache-Control: no-cache` | 仍返回 `ready`，且响应没有 `Cache-Control: no-store` | 不能用普通缓存解释差异；仍需核对公网 upstream、外层转发或另一份 release |
 | 公网 `GET /api/v2/patients` 无认证 | HTTP `401 unauthorized` | 只能证明公网路由存在和认证边界生效，不能证明患者业务实例与 SSH 主机一致 |
 
-SSH 用户可见的 `/etc/nginx` 配置中没有找到 `api/v2`、`18081` 或 `proxy_pass` 的对应文本，因此当前无法从该主机
-证明最外层阿里云转发的 upstream。随机 query 仍然返回不同的 readiness 状态后，公网、内网和 release provenance
-必须重新对齐；在对齐前，不得把公网 `200`、provider 请求或真机业务结果记为当前 `main`/当前 release 的验收证据。
+SSH 用户可见的 `/etc/nginx` 配置中没有找到 `api/v2`、`18081` 或 `proxy_pass` 的对应文本，因此当时无法仅从该主机
+配置证明最外层阿里云转发的 upstream。16:57 CST 的差异需要通过 requestId 继续关联，结果见下一节；在关联完成前，
+不得把公网 `200`、provider 请求或真机业务结果记为当前 `main`/当前 release 的验收证据。
 
-本次检查没有重启、切换 `current`、修改 Nginx、修改环境变量、运行 migration 或写入业务数据。后续需要取得外层
-转发配置或窄权限运维权限后，使用同一个 `X-Request-Id` 同时核对公网响应、Nginx access log、Bun 请求日志和进程
-release；若无法完成关联，应先按另一 upstream/旧 release 处理，而不是继续扩大业务 gate。
+本次检查没有重启、切换 `current`、修改 Nginx、修改环境变量、运行 migration 或写入业务数据。后续通过同一个
+`X-Request-Id` 核对公网响应、Bun 请求日志和进程 release；在关联完成前，应先按另一 upstream/旧 release 处理，
+而不是继续扩大业务 gate。
+
+### 3.7 17:02 CST requestId 关联复核修正
+
+随后使用公网唯一请求号 `provenance-1786870899294` 访问
+`https://test-hp.meiyi.pro/api/v2/health/ready?audit=...`，公网返回 `ready`；SSH 主机 PID `2935571` 的
+journald 同时记录了完全相同的 requestId、路径 `/health/ready` 和 `statusCode=200`。17:02 CST 再从 SSH 主机
+直接请求 `http://10.0.0.3:18081/health/ready`，也返回 `database=ok`、`redis=ok`、`schema=ok`。
+
+因此，3.6 节的“来源不一致”只能作为 16:57 CST 的瞬时观测，当前已修正为：**公网和 SSH 主机指向同一个
+`55fce6c` Bun 进程，16:57 的 `database/schema=unavailable` 在后续探针中恢复，并非另一 upstream 的证据**。
+这次关联也证明公网路由可以把 `X-Request-Id` 传入新 API；但当前 `55fce6c` 的内外层 readiness 响应都缺少
+候选代码要求的 `Cache-Control: no-store`，所以仍不能把当前 release 当作包含最新健康探针修复的代码。
+
+后续发布判断应区分三件事：
+
+1. `health/ready` 的 HTTP `200` 只是探针请求完成，必须读取 body 中的依赖状态；
+2. 真实 release provenance 已通过 requestId 关联确认，但当前运行版本仍是旧的 `55fce6c`；
+3. 当前仓库 `main=9b70d3f` 尚未部署，候选切换后仍需重新验证 no-store、依赖恢复日志、公网路径和旧 `8001`。
 
 ## 4. 当前不可宣称的内容
 
