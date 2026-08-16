@@ -7,6 +7,16 @@
 > 必须逐项填写确认结果和内容指纹，再把确认后的事实迁移到版本化 contract；未确认字段不得直接复制到
 > `packages/contracts`、adapter 或小程序页面。
 
+## 0. 2026-08-16 文档到达复核
+
+本次旧项目文档目录实际新增并已登记的材料是挂号登记、支付挂号和外部退款 3 份文档，接收记录见
+[`../provider-intake/2026-08-16-appointment-registration-payment-refund.md`](../provider-intake/2026-08-16-appointment-registration-payment-refund.md)。
+它们没有定义 `out-visit-records` 的请求/响应、患者映射或临床记录权限，也没有提供本目录所需的四类脱敏样例。
+
+本次复核没有发现 2.12.4 病历目录或 `out-visit-records` 的 Provider contract 文件；旧端的
+`POST /msun-middle-aggregate-clinic/v1/out-visit-records` 仍只能作为迁移线索。故本草案继续保持 `draft`，
+`GET /api/v2/medical-records`、详情、诊断和附件能力继续保持 404/未注册，不通过旧 `httpZy` 或万能转发补齐功能。
+
 ## 1. 业务范围
 
 本草案只覆盖“门诊就诊记录目录”，不覆盖：
