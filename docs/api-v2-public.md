@@ -206,8 +206,12 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 错误响应统一为：
 
 ```json
-{"success":false,"error":{"code":"unauthorized","message":"登录状态已失效，请重新登录"}}
+{"success":false,"error":{"code":"unauthorized","message":"请先登录后再继续操作"}}
 ```
+
+缺少 `Authorization` 时返回“请先登录后再继续操作”；Bearer 会话无法在 Redis 中找到或已经过期时，
+返回“登录状态已失效，请重新登录”。两种情况的稳定错误码都是 `unauthorized`，小程序必须按错误码处理，
+不能根据 message 文案分支。
 
 当前已注册公共路由会使用以下稳定错误码。`message` 是可记录和排障文本，页面展示应由
 小程序按错误码映射，不能依赖英文 message 做业务判断。
