@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	loadPatients,
 	syncPatientsFromHospital,
@@ -185,7 +185,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			} else if (error.code === "patient-not-bound") {
 				message = "当前微信账号暂无绑定的就诊人";
 			} else {
-				message = error.message;
+				message = safeApiErrorMessage(error, fallback);
 			}
 		}
 		this.setData({ error: message });

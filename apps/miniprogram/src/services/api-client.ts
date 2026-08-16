@@ -84,6 +84,21 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"payment-identity-not-found": "支付身份映射不可用",
 		"payment-prepay-in-progress": "预支付仍在处理，不能并发创建",
 		"payment-prepay-unknown": "预支付结果需向外部服务确认，不能直接重建",
+		"api-base-url-missing": "API 地址尚未配置",
+		"api-base-url-insecure": "API 地址必须使用 HTTPS",
+		"api-prefix-invalid": "API 版本前缀尚未配置",
+		"network-failed": "网络请求失败，请检查网络或服务地址",
+		"wechat-code-missing": "微信登录未返回临时凭证",
+		"session-missing": "登录响应缺少平台会话",
+		"wechat-login-failed": "微信登录失败",
+		"patient-selection-required": "请先登录并选择就诊人",
+		"patient-not-bound": "当前微信账号暂无绑定的就诊人",
+		"appointment-department-missing": "预约科室不能为空",
+		"report-detail-id-missing": "报告详情引用无效",
+		"report-detail-response-missing": "服务端未返回报告详情",
+		"wechat-pay-params-missing": "服务端支付参数不可用",
+		"wechat-payment-cancelled": "用户已取消支付",
+		"wechat-payment-launch-failed": "微信支付调起失败",
 		unknown: SAFE_UNKNOWN_ERROR_MESSAGE,
 	});
 
@@ -189,6 +204,18 @@ export function localizedApiErrorMessage(
 	fallback: string,
 ): string {
 	return CLIENT_ERROR_MESSAGES[code] ?? fallback;
+}
+
+/**
+ * 页面只能展示稳定错误码对应的文案，不能直接读取 Error.message。
+ *
+ * API 响应中的 message 可能来自 provider 或内部异常；即使当前 request 层
+ * 已经做过一次映射，页面仍统一经过这里，避免未来新增错误构造点时绕过
+ * 脱敏边界。页面自己的业务分支可以先处理特殊 code，再把本函数作为兜底。
+ */
+export function safeApiErrorMessage(error: unknown, fallback: string): string {
+	if (!(error instanceof ApiError)) return fallback;
+	return localizedApiErrorMessage(error.code, fallback);
 }
 
 function parseErrorMessage(data: unknown): string {

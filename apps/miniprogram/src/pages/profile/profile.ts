@@ -1,6 +1,7 @@
 import {
 	ApiError,
 	getUserProfile,
+	safeApiErrorMessage,
 	updateUserProfile,
 } from "../../services/api-client";
 import type { ProfilePageData } from "../../types";
@@ -142,9 +143,7 @@ Page<
 		const message =
 			error instanceof ApiError && error.code === "user-profile-conflict"
 				? "个人资料已被其他设备修改，请下拉刷新后重试"
-				: error instanceof ApiError
-					? error.message
-					: fallback;
+				: safeApiErrorMessage(error, fallback);
 		this.setData({ error: message });
 	},
 });

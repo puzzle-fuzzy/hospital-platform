@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import { loadPatients, loadReports } from "../../services/dashboard-service";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
@@ -158,7 +158,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			} else if (error.code === "patient-selection-required") {
 				message = "请先选择就诊人，再查看报告";
 			} else {
-				message = error.message;
+				message = safeApiErrorMessage(error, fallback);
 			}
 		}
 		this.setData({

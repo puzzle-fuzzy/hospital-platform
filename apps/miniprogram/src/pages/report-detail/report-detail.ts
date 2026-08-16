@@ -1,4 +1,8 @@
-import { ApiError, requestReportDetail } from "../../services/api-client";
+import {
+	ApiError,
+	requestReportDetail,
+	safeApiErrorMessage,
+} from "../../services/api-client";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
@@ -84,8 +88,7 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 	},
 
 	showError(error: unknown): void {
-		const message =
-			error instanceof ApiError ? error.message : "报告详情加载失败";
+		const message = safeApiErrorMessage(error, "报告详情加载失败");
 		this.setData({ error: message, loading: false, title: "报告详情不可用" });
 		wx.showToast({ title: message, icon: "none" });
 	},

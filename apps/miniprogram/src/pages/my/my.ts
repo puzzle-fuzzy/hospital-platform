@@ -1,4 +1,4 @@
-import { ApiError, getCurrentUser } from "../../services/api-client";
+import { getCurrentUser, safeApiErrorMessage } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
@@ -123,8 +123,6 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	showError(error: unknown, fallback: string): void {
-		this.setData({
-			error: error instanceof ApiError ? error.message : fallback,
-		});
+		this.setData({ error: safeApiErrorMessage(error, fallback) });
 	},
 });

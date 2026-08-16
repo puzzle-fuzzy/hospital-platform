@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	loadAppointmentDepartments,
 	loadAppointmentSchedules,
@@ -242,7 +242,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			message =
 				error.code === "dependency-not-configured"
 					? "预约服务暂未配置完成，请联系管理员"
-					: error.message;
+					: safeApiErrorMessage(error, fallback);
 		}
 		this.setData({ error: message });
 	},

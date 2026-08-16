@@ -1,12 +1,14 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import {
+	ApiError,
 	buildApiRequestUrl,
 	CLIENT_ERROR_MESSAGES,
 	isAllowedApiBaseUrl,
 	isAllowedApiPrefix,
 	localizedApiErrorMessage,
 	normalizeApiBaseUrl,
+	safeApiErrorMessage,
 	toWechatPaymentParams,
 } from "../src/services/api-client";
 import {
@@ -96,6 +98,31 @@ test("native client localizes every public query and session error boundary", ()
 	expect(localizedApiErrorMessage("api-request-failed", "服务端原始错误")).toBe(
 		"请求失败，请稍后重试",
 	);
+});
+
+test("native pages never display an unmapped ApiError message", async () => {
+	// 页面展示必须按 code 取稳定文案；即使调用方误把 provider 原始文本放进
+	// ApiError.message，也只能回退到安全的页面文案，不能把原文显示给患者。
+	expect(
+		safeApiErrorMessage(
+			new ApiError("provider raw detail", {
+				code: "provider-request-rejected",
+			}),
+			"页面兜底",
+		),
+	).toBe("外部服务拒绝了本次请求，请稍后重试");
+	expect(
+		safeApiErrorMessage(
+			new ApiError("unknown internal detail", { code: "future-private-code" }),
+			"页面兜底",
+		),
+	).toBe("页面兜底");
+
+	const pagePaths = JSON.parse(await source("app.json")) as { pages: string[] };
+	for (const pagePath of pagePaths.pages) {
+		const page = await source(`${pagePath}.ts`);
+		expect(page).not.toContain("error.message");
+	}
 });
 
 test("native client error messages cover every code documented by the public API", async () => {

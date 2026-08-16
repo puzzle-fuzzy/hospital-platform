@@ -84,7 +84,9 @@ release，切换后的并发、公网和真机证据仍缺，不能把临时 smo
 
 ## 5. 错误和日志
 
-业务失败必须保留安全错误码和 `traceId`，页面给出可重试或明确迁移状态；不能把 provider 原始错误报文直接展示给患者。
+业务失败必须保留安全错误码和 `traceId`，页面给出可重试或明确迁移状态；页面只能通过稳定错误码映射
+用户文案，不能直接读取 `Error.message`，也不能把 provider 原始错误报文展示给患者。未知错误码必须回退
+到页面安全文案，同时保留 `requestId/traceId` 供日志排障。
 
 日志允许记录内部资源 ID、状态、provider 操作名、provider request id、HTTP 状态和可重试判断；禁止记录 token、openid、unionid、session_key、完整患者身份、provider 患者号、原始报文、支付签名和密钥。
 

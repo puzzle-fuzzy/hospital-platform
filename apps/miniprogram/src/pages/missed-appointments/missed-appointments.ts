@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	loadAppointmentRecords,
 	loadPatients,
@@ -132,7 +132,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			} else if (error.code === "patient-selection-required") {
 				message = "请先选择就诊人，再查看爽约记录";
 			} else {
-				message = error.message;
+				message = safeApiErrorMessage(error, fallback);
 			}
 		}
 		this.setData({ error: message, selectedPatient: null, records: [] });

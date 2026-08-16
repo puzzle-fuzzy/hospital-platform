@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	loadOutpatientPaymentRecords,
 	loadPatients,
@@ -152,7 +152,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			} else if (error.code === "outpatient-payment-patient-not-found") {
 				message = "当前就诊人暂未建立门诊缴费映射";
 			} else {
-				message = error.message;
+				message = safeApiErrorMessage(error, fallback);
 			}
 		}
 		this.setData({ error: message, items: [] });
