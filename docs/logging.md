@@ -77,6 +77,11 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 和 `convenience.idempotency.replayed` 的 requested/succeeded/failed 或 replayed 阶段；当前这些事件只有规范，
 不代表运行时代码已经开放。问卷答案、表扬信正文、患者姓名、原始 `pat_id`、医生联系方式和 provider 原始报文仍禁止写入日志。
 
+个人中心和外部入口的票据、患者绑定、协议和跨小程序事件规范见
+[`migration/patient-center-and-external-entry-boundaries.md`](migration/patient-center-and-external-entry-boundaries.md)。
+实现时应记录命令 ID、内部资源引用、audience、scope、结果状态和 request/trace 标识，不记录身份证、openid、
+unionid、access token、签名小程序 extraData、外部 URL 原文或 WebView 页面正文。
+
 新增事件前先确认它是否能帮助定位状态转换、外部依赖或数据一致性问题。事件名一旦进入监控或告警规则，后续应保持稳定；字段扩展优先于改名。
 
 院内导航当前只加载随小程序发布的静态地图资源，不调用 Hospital API、众阳接口或地图路线服务，

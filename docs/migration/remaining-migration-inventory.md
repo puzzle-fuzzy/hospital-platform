@@ -90,9 +90,9 @@
 
 ### P3：患者个人中心与低风险账户能力
 
-- `user/user.vue` 目前只有新端基础“我的”页；以下入口尚未迁移为真实页面：个人资料、头像、意见反馈、漏约记录、订阅消息、咨询历史、公众号关注、我的医生和患者签名。
-- `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；当前“添加就诊人”只能显示迁移边界，不得伪造成功。
-- `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面。
+- `user/user.vue` 目前只有新端基础“我的”页；以下入口尚未迁移为真实页面：个人资料、头像、意见反馈、爽约记录、订阅消息、咨询历史、公众号关注、我的医生和患者签名。旧端反馈和订阅当前只是本地/静态交互，不能按真实业务完成计算；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
+- `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。
+- `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 
 ### P4：费用、医保和外部回写（按用户要求最后处理）
 

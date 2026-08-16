@@ -166,11 +166,11 @@
 | 旧 endpoint | 旧来源 | 新端状态 | 业务边界 |
 | --- | --- | --- | --- |
 | `POST /system/auth/login/wechat` | `api/modules/user.ts` | 代码已迁移（只读） | 新端改为 `POST /api/v2/auth/wechat`；只接收一次性 wx.login code，不返回 provider 身份凭据。 |
-| `GET /system/user/current/info` | `api/modules/user.ts` | 代码已迁移（只读） | 新端改为 `GET /api/v2/me`，只返回内部用户 ID。 |
-| `POST /system/auth/ticket` | `pagesB/health/webview.vue` | 待 provider contract | 短期票据只能服务于已确认的站内 WebView 资源；不能继续把 JWT 放进 URL。 |
-| `GET /system/auth/ticket/verify` | 旧 FastAPI `module_system/auth/controller.py` | 待 provider contract | 需要明确票据一次性消费、受众、TTL 和资源 owner；当前不在新患者端公共 API 中。 |
-| `PUT /system/user/current/info/update` | `api/modules/user.ts` | 待 provider contract | 个人资料字段、微信资料授权、撤回和审计未冻结；不能接收旧端的 openid/unionid 字段。 |
-| `POST /system/user/current/avatar/upload` | `api/modules/user.ts` | 待 provider contract | 需要对象存储、文件检查、owner/TTL 下载和内容安全；当前不迁移。 |
+| `GET /system/user/current/info` | `api/modules/user.ts` | 代码已迁移（只读） | 新端改为 `GET /api/v2/me`，只返回内部用户 ID。个人资料扩展、实名资料、头像和患者绑定不能由此接口顺带开放。 |
+| `POST /system/auth/ticket` | `pagesB/health/webview.vue` | 待 provider contract | 旧实现把原始 access token 存入 Redis 并由 verify 返回；新端必须改为固定 audience、最小 scope、一次性引用和后端校验，不能继续把 JWT/平台 token 交给外部页面。 |
+| `GET /system/auth/ticket/verify` | 旧 FastAPI `module_system/auth/controller.py` | 待 provider contract | 需要明确票据一次性消费、受众、TTL、资源 owner、回调和重放处理；当前不在新患者端公共 API 中。 |
+| `PUT /system/user/current/info/update` | `api/modules/user.ts` | 待 provider contract | 个人资料、实名资料和微信身份字段必须拆分；不能接收旧端的 `openid`/`unionid`/身份证字段作为客户端输入；详见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。 |
+| `POST /system/user/current/avatar/upload` | `api/modules/user.ts` | 待 provider contract | 需要对象存储、文件检查、owner/TTL 下载和内容安全；不能直接信任/公开 `file_url`，当前不迁移。 |
 
 ## 3. 旧 Python 服务自身的患者相关路由
 
