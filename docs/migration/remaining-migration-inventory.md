@@ -51,9 +51,9 @@
   Hospital API client 访问平台接口，没有发现新的 provider 直连、WebSocket、万能转发或文件/二维码
   业务遗漏；这些边界仍保持“未迁移/待契约”，详细证据见
   [`legacy-client-infrastructure-boundaries.md`](legacy-client-infrastructure-boundaries.md)。
-- 服务器目前仍没有 `ps` 的免密窄权限 systemd 操作；候选切换与回滚步骤已独立记录在
-  [`../../infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)，
-  不需要也不允许触碰旧 Python unit。
+- 服务器已为新 API 安装并验证 `ps` 的窄权限 systemd 操作；权限只覆盖新 API 的状态/重启，不覆盖旧 Python
+  unit、Worker 或任意通配符命令。候选切换与回滚步骤仍以 [`../../infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)
+  为准，不需要也不允许触碰旧 Python unit。
 - 本轮收到 2.6.7 挂号登记、2.10.4.2 支付挂号和 2.6.65.7 外部退款 3 份 Provider HTML 文档，
   已按 [`../provider-intake/2026-08-16-appointment-registration-payment-refund.md`](../provider-intake/2026-08-16-appointment-registration-payment-refund.md)
   登记 SHA-256、字段和状态；它们当前只能标记为 `normalized`。文档引用的执行预约、排班/号源、患者档案、
