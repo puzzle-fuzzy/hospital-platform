@@ -7,10 +7,10 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 线上新 API | `ca5a372`，`18081`，production mode | [`ca5a372-production-acceptance-2026-08-17.md`](../release/ca5a372-production-acceptance-2026-08-17.md) |
+| 线上新 API | `527d163`，`18081`，production mode | [`527d163-production-acceptance-2026-08-17.md`](../release/527d163-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
-| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`ca5a372-production-acceptance-2026-08-17.md`](../release/ca5a372-production-acceptance-2026-08-17.md) |
+| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`527d163-production-acceptance-2026-08-17.md`](../release/527d163-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 2 份接收记录、19 个 documentId；挂号/支付/退款材料仍是 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-16-appointment-registration-payment-refund.md`](../provider-intake/2026-08-16-appointment-registration-payment-refund.md) |
 
@@ -18,7 +18,7 @@
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `ca5a372` 完成真实链路：
+这些不是继续加页面，而是用当前 `527d163` 完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；
@@ -116,11 +116,12 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
   Provider 业务证据。
 - 服务器日志显示 `2026-08-17 00:13 CST` 曾有一次 `auth.wechat` 失败，错误为旧 release
   `41c9c18` 的持久化不可用；该请求发生在 `b186098` 切换前，不能归因于当前 release。
-- `b186098` 在约 `01:16 CST` 切换后，`bab0ce2` 曾于约 `01:38 CST` 运行；本轮又于约 `02:11 CST`
-  原子切换到 `ca5a372`。`ca5a372` 切换后的日志只有服务启动、readiness、live、system ping 和未登录
-  认证边界请求，没有新的真实微信登录、患者同步、预约历史或门诊费用请求。因此当前仍没有真实
-  session、Redis TTL 或患者业务证据，完整发布证据见
-  [`../release/ca5a372-production-acceptance-2026-08-17.md`](../release/ca5a372-production-acceptance-2026-08-17.md)。
+- `b186098` 在约 `01:16 CST` 切换后，`bab0ce2` 曾于约 `01:38 CST` 运行；本轮于约 `02:11 CST`
+  原子切换到 `ca5a372`，并于约 `02:30 CST` 原子切换到当前 `527d163`。`ca5a372` 切换后曾出现一次
+  真实微信登录持久化 503，约 3 秒后重试成功，随后完成单患者同步、预约科室和排班读取；该证据发生在
+  `527d163` 切换前，且第一次失败没有底层安全错误码。当前仍没有 Redis TTL、多患者切换、预约历史
+  或门诊费用完整业务证据，完整发布证据见
+  [`../release/527d163-production-acceptance-2026-08-17.md`](../release/527d163-production-acceptance-2026-08-17.md)。
 
 ## 6. 当前明确不宣称
 
@@ -142,9 +143,13 @@ readiness 以及真实微信/Provider 业务证据仍需单独记录，不能由
 本轮还修正了受保护 API 的认证顺序：Elysia 在 query/body/params schema 校验前验证 Bearer，
 未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
 回调仍是明确公开入口。该修正已由 API 集成测试、候选临时端口 smoke 和当前公网无会话回归验证，
-当前线上 `ca5a372` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
+当前线上 `527d163` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
 
-随后 `ca5a372` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
-6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。切换后的 journald 只有服务启动、
-健康检查和未登录认证边界请求，没有新的真实微信、患者同步、预约历史或门诊费用请求，因此 P0 业务
-证据仍未完成。完整发布边界见 [`../release/ca5a372-production-acceptance-2026-08-17.md`](../release/ca5a372-production-acceptance-2026-08-17.md)。
+随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
+6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
+的安全诊断字段，不增加写入重试；尚无新的真实登录失败样本，不能宣称瞬态故障已根治。完整发布边界
+见 [`../release/527d163-production-acceptance-2026-08-17.md`](../release/527d163-production-acceptance-2026-08-17.md)。
+
+本轮还补齐了 `PersistenceUnavailableError` 的安全诊断字段：只记录持久化操作分类和固定允许列表
+中的连接/传输错误码；原始 SQL、连接串、参数和错误消息仍不会进入 HTTP 或结构化日志，且写入/事务
+不增加盲目重试。详细规则见 [日志规范](../logging.md)。
