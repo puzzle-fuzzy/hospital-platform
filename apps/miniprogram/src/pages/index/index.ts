@@ -7,6 +7,7 @@ import {
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
+	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
 import {
@@ -547,19 +548,19 @@ Page<IndexPageData, IndexPageMethods>({
 	/** 统一接收服务端脱敏读模型；页面不保存 provider 患者号。 */
 	setPatientsFromPayload(patients: Array<Patient>): void {
 		if (patients.length === 0) clearSelectedPatientId();
-		const selectedPatient =
-			patients.find((patient) => patient.id === this.data.selectedPatientId) ||
-			patients[0] ||
-			null;
+		const resolution = resolveStoredPatientSelection(patients);
+		const selectedPatient = resolution.patient ?? null;
 		const selectedPatientId =
 			typeof selectedPatient?.id === "string" ? selectedPatient.id : "";
-		if (selectedPatientId) setSelectedPatientId(selectedPatientId);
 		this.setData({
 			patients,
 			selectedPatientId,
 			selectedPatient,
 			hasPatients: patients.length > 0,
-			error: "",
+			error:
+				resolution.state === "stale"
+					? "上次选择的就诊人已不可用，请重新选择就诊人"
+					: "",
 		});
 	},
 });

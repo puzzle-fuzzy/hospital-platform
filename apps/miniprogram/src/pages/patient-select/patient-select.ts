@@ -6,6 +6,7 @@ import {
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
+	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
@@ -96,20 +97,23 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			});
 	},
 
-	/** 将服务端列表与本地选择合并；失效的本地选择回退到列表第一项。 */
+	/**
+	 * 将服务端列表与本地选择合并。
+	 *
+	 * 首次没有历史选择时默认第一位；已有选择失效时不自动换人，页面保持无选中
+	 * 状态，要求用户明确点击新的就诊人。
+	 */
 	setPatientList(patients: Array<Patient>): void {
 		if (patients.length === 0) clearSelectedPatientId();
-		const storedPatientId = getSelectedPatientId();
-		const selectedPatient =
-			patients.find((patient) => patient.id === storedPatientId) ?? patients[0];
-		const selectedPatientId = selectedPatient?.id ?? "";
-		if (selectedPatientId && selectedPatientId !== storedPatientId) {
-			setSelectedPatientId(selectedPatientId);
-		}
+		const resolution = resolveStoredPatientSelection(patients);
+		const selectedPatientId = resolution.patient?.id ?? "";
 		this.setData({
 			patients: patients.map(toPatientSelectionView),
 			selectedPatientId,
-			error: "",
+			error:
+				resolution.state === "stale"
+					? "上次选择的就诊人已失效，请重新选择"
+					: "",
 		});
 	},
 

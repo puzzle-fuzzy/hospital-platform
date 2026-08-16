@@ -4,10 +4,7 @@ import {
 	loadPatients,
 } from "../../services/dashboard-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
-import {
-	getSelectedPatientId,
-	setSelectedPatientId,
-} from "../../services/patient-selection-service";
+import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -62,15 +59,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		return loadPatients()
 			.then((patients) => {
 				if (!loadGuard.isCurrent(requestToken)) return;
-				const storedPatientId = getSelectedPatientId();
-				const patient =
-					patients.find((item) => item.id === storedPatientId) ?? patients[0];
+				const patient = resolveStoredPatientSelection(patients).patient;
 				if (!patient) {
 					throw new ApiError("请先登录并选择就诊人", {
 						code: "patient-selection-required",
 					});
 				}
-				setSelectedPatientId(patient.id);
 				return loadAppointmentRecords(patient.id).then((records) => {
 					if (!loadGuard.isCurrent(requestToken)) return;
 					this.setData({

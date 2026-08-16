@@ -1,9 +1,6 @@
 import { ApiError } from "../../services/api-client";
 import { loadPatients, loadReports } from "../../services/dashboard-service";
-import {
-	getSelectedPatientId,
-	setSelectedPatientId,
-} from "../../services/patient-selection-service";
+import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type {
 	Report,
@@ -81,15 +78,12 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		return loadPatients()
 			.then((patients) => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
-				const selectedId = getSelectedPatientId();
-				const patient =
-					patients.find((item) => item.id === selectedId) ?? patients[0];
+				const patient = resolveStoredPatientSelection(patients).patient;
 				if (!patient) {
 					throw new ApiError("请先登录并选择就诊人", {
 						code: "patient-selection-required",
 					});
 				}
-				setSelectedPatientId(patient.id);
 				this.setData({ selectedPatient: patient });
 				return loadReports(patient.id);
 			})

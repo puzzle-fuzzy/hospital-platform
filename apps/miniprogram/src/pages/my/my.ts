@@ -1,9 +1,6 @@
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
-import {
-	getSelectedPatientId,
-	setSelectedPatientId,
-} from "../../services/patient-selection-service";
+import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { createLatestRequestGuard } from "../../services/latest-request-guard";
 import type { ActionEvent, MyPageData } from "../../types";
 
@@ -47,19 +44,16 @@ Page<MyPageData, MyPageMethods>({
 		return Promise.all([getCurrentUser(), loadPatients()])
 			.then(([userPayload, patients]) => {
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
-				const selectedId = getSelectedPatientId();
-				const selectedPatient =
-					patients.find((patient) => patient.id === selectedId) ??
-					patients[0] ??
-					null;
-				if (selectedPatient && selectedPatient.id !== selectedId) {
-					setSelectedPatientId(selectedPatient.id);
-				}
+				const resolution = resolveStoredPatientSelection(patients);
+				const selectedPatient = resolution.patient ?? null;
 				this.setData({
 					userLabel: userPayload.data.user.id ? "微信用户" : "未登录",
 					selectedPatient,
 					patientCount: patients.length,
-					error: "",
+					error:
+						resolution.state === "stale"
+							? "上次选择的就诊人已不可用，请重新选择就诊人"
+							: "",
 				});
 			})
 			.catch((error) => {

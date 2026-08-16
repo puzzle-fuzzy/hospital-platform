@@ -15,6 +15,8 @@ import {
 	formatPlatformDate,
 } from "../src/services/dashboard-service";
 import { createLatestRequestGuard } from "../src/services/latest-request-guard";
+import { resolvePatientSelection } from "../src/services/patient-selection-service";
+import type { Patient } from "../src/types";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
 
@@ -173,6 +175,37 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).not.toContain("unionId");
 });
 
+test("patient selection never silently switches a stale patient to another patient", () => {
+	const patientA = {
+		id: "patient-a",
+		displayName: "患者甲",
+		relationship: "self",
+		cardNumberMasked: "******0001",
+		source: "hospital-his",
+	} satisfies Patient;
+	const patientB = {
+		id: "patient-b",
+		displayName: "患者乙",
+		relationship: "child",
+		cardNumberMasked: "******0002",
+		source: "hospital-his",
+	} satisfies Patient;
+	const patients = [patientA, patientB];
+
+	expect(resolvePatientSelection(patients, "")).toEqual({
+		state: "defaulted",
+		patient: patientA,
+	});
+	expect(resolvePatientSelection(patients, "patient-b")).toEqual({
+		state: "selected",
+		patient: patientB,
+	});
+	expect(resolvePatientSelection(patients, "patient-removed")).toEqual({
+		state: "stale",
+		storedPatientId: "patient-removed",
+	});
+});
+
 test("native patient selection keeps unverified patient binding fail-closed", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
@@ -268,7 +301,7 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directory).toContain("旧科室的排班覆盖当前选择");
 	expect(records).toContain("loadAppointmentRecords");
 	expect(recordsTemplate).toContain('wx:key="viewKey"');
-	expect(records).toContain("getSelectedPatientId");
+	expect(records).toContain("resolveStoredPatientSelection");
 	expect(directoryTemplate).toContain("未来 7 天");
 	expect(directoryTemplate).toContain("cascade-shell");
 	expect(directoryTemplate).toContain("加载更多号源");
@@ -539,7 +572,7 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(home).toContain('url: "/pages/report-directory/report-directory"');
 	expect(reportPage).toContain("loadReports");
 	expect(reportPage).toContain("onLoadMore");
-	expect(reportPage).toContain("setSelectedPatientId");
+	expect(reportPage).toContain("resolveStoredPatientSelection");
 	expect(reportTemplate).toContain("报告查询");
 	expect(reportTemplate).toContain("加载更多报告");
 	// 报告详情只接受服务端生成的 opaque reportId，目录不透传 provider 报告号。
