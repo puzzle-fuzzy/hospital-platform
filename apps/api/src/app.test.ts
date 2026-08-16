@@ -179,6 +179,20 @@ test("public API documentation covers every registered OpenAPI method and path",
 	}
 });
 
+test("migration inventory labels production observations as evidence snapshots", async () => {
+	const inventory = await Bun.file(
+		join(
+			import.meta.dir,
+			"../../../docs/migration/remaining-migration-inventory.md",
+		),
+	).text();
+
+	// 生产复核记录属于带版本的历史证据；如果不标明边界，新会话很容易把旧快照
+	// 当作当前 main 或线上实时状态，进而错误地跳过发布、回滚和真机验收。
+	expect(inventory).toContain("证据快照，不代表当前 `main` 或当前线上状态");
+	expect(inventory).not.toContain("当前生产只读复核仍为");
+});
+
 test("public API documentation lists every stable public error code", async () => {
 	const documentation = await Bun.file(
 		join(import.meta.dir, "../../../docs/api-v2-public.md"),
