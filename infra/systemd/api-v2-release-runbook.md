@@ -217,3 +217,11 @@ live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。本�
 ping 是 `/api/v2/system/ping`，内部直连才是 `/api/v1/system/ping`，不能重复拼接两个前缀。
 真实微信、患者、预约、费用、Provider 和真机业务仍未在本次切换中调用。完整证据见
 [`../../docs/release/a11f117-production-acceptance-2026-08-16.md`](../../docs/release/a11f117-production-acceptance-2026-08-16.md)。
+
+2026-08-17 02:09-02:12 CST：候选 `ca5a372` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
+使用 `shared/api.env` 的真实生产 env preflight 通过，候选 API 在 `127.0.0.1:18082` 完成 production
+mode、MySQL/Redis/schema、live/ready、system-ping 和认证边界 smoke 后正常停止。随后执行
+`current.next -> current` 原子切换并只重启新 API。公网 `/api/v2` 连续 6/6 readiness、live、system-ping
+和四条“不登录且缺少业务参数”的受保护路径均通过，返回 401/`unauthorized`；旧 Python `8001`、PID
+`636918` 和 Worker inactive 状态保持不变。完整证据见
+[`../../docs/release/ca5a372-production-acceptance-2026-08-17.md`](../../docs/release/ca5a372-production-acceptance-2026-08-17.md)。

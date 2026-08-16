@@ -53,6 +53,6 @@ disabled/inactive，旧 Python 服务仍由手工进程运行，因此不能把�
 
 候选 release 的原子切换、最小 sudoers 权限、切换后验收和只重启新 API 的回滚步骤见
 [`api-v2-release-runbook.md`](api-v2-release-runbook.md)。目标服务器已配置该窄权限，当前
-`current=a11f117` 已完成候选 smoke、生产切换和公网验收；后续每次发布仍必须重新固定 commit、完成候选
+`current=ca5a372` 已完成候选 smoke、生产切换和公网验收；后续每次发布仍必须重新固定 commit、完成候选
 smoke 和公网验收，不能复用旧 release 证据。当前切换证据见
-[`../../docs/release/a11f117-production-acceptance-2026-08-16.md`](../../docs/release/a11f117-production-acceptance-2026-08-16.md)。
+[`../../docs/release/ca5a372-production-acceptance-2026-08-17.md`](../../docs/release/ca5a372-production-acceptance-2026-08-17.md)。
