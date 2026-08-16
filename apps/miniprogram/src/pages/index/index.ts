@@ -207,6 +207,7 @@ type IndexPageMethods = {
 	onLoadAppointmentRecords(): void;
 	onSelectPatient(event: PatientEvent): void;
 	showError(error: unknown, fallback: string): void;
+	clearPatientContext(): void;
 	setPatientsFromPayload(patients: Array<Patient>): void;
 };
 
@@ -263,7 +264,13 @@ Page<IndexPageData, IndexPageMethods>({
 				// 和门诊费用继续使用过期的上游映射，导致“患者信息不存在”。
 				return this.onSyncPatients();
 			})
-			.catch((error) => this.showError(error, "会话恢复失败"));
+			.catch((error) => {
+				// 恢复失败时没有拿到当前 principal 的证明，旧患者卡片不能继续
+				// 作为新业务页的上下文；这里只清理页面派生数据，不删除 token，
+				// 让 Redis/网络恢复后仍可重新验证原会话。
+				this.clearPatientContext();
+				this.showError(error, "会话恢复失败");
+			});
 	},
 
 	/**
@@ -318,6 +325,9 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onLogin() {
+		// 主动重新登录前若已没有可验证会话，先清掉旧页面实例中的患者数据。
+		// 否则 auth/wechat 返回 503 时，用户可能看到旧患者而误以为登录成功。
+		if (!hasPlatformSession()) this.clearPatientContext();
 		this.setData({ loading: true, error: "" });
 		signInPlatformSession()
 			.then(() => {
@@ -331,7 +341,12 @@ Page<IndexPageData, IndexPageMethods>({
 				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床映射。
 				return this.onSyncPatients();
 			})
-			.catch((error) => this.showError(error, "登录失败"))
+			.catch((error) => {
+				// 登录失败不能留下“有患者但无会话”的半登录状态；只有确认
+				// 没有本地 token 才清除，避免 Redis 短暂故障时误删仍可重试的会话。
+				if (!hasPlatformSession()) this.clearPatientContext();
+				this.showError(error, "登录失败");
+			})
 			.finally(() => this.setData({ loading: false }));
 	},
 
@@ -578,6 +593,23 @@ Page<IndexPageData, IndexPageMethods>({
 			}
 		}
 		this.setData({ error: message });
+	},
+
+	/**
+	 * 清理当前首页实例的患者上下文，不清理服务端数据或其他页面实例。
+	 *
+	 * 患者卡片属于已认证会话的派生读模型；当本地 token 已经失效且新一轮
+	 * 微信 code 兑换失败时，宁可展示登录/错误态，也不能继续展示上一位患者。
+	 * 这也是从“登录失败”进入“重新登录”的唯一安全收敛点。
+	 */
+	clearPatientContext(): void {
+		clearSelectedPatientId();
+		this.setData({
+			patients: [],
+			selectedPatient: null,
+			selectedPatientId: "",
+			hasPatients: false,
+		});
 	},
 
 	/** 统一接收服务端脱敏读模型；页面不保存 provider 患者号。 */

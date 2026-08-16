@@ -721,6 +721,18 @@ test("native homepage reloads the owner directory after returning from patient s
 	);
 });
 
+test("native homepage fails closed when session recovery cannot be completed", async () => {
+	const home = await source("pages/index/index.ts");
+
+	// 401 清除 token 后，微信登录又遇到 503 时，旧页面实例不能继续展示
+	// 上一位患者；依赖暂时不可用但 token 尚存时则不能误删可重试会话。
+	expect(home).toContain(
+		"if (!hasPlatformSession()) this.clearPatientContext();",
+	);
+	expect(home).toContain("clearPatientContext(): void");
+	expect(home).toContain("auth/wechat");
+});
+
 test("patient context pull-to-refresh waits for the complete directory lifecycle", async () => {
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");
