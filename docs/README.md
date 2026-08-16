@@ -73,3 +73,4 @@
 3. 新增日志事件时，必须说明可记录字段和禁止字段；Pino redact 只是兜底，不是记录敏感数据的许可。
 4. 真实 provider、生产 schema、公网 Nginx 和真机验收必须分别保存证据，不能用单元测试代替。
 5. 旧服务仍由原项目和 `8001` 管理；新服务只使用 `api-v2` systemd、`18081` 和 `/api/v2` 公网路由。
+6. 新增或删除原生页面后必须运行 `pnpm migration:audit`；页面注册、TypeScript 源码、构建生成的 JavaScript 和迁移台账必须同步。
