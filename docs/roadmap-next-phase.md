@@ -41,7 +41,7 @@
 - 2026-08-16 生产 Redis 会话隔离已完成：新 API 使用独立 DB3/`hospital_v2` ACL，旧 Python 仍使用 DB1/旧全权限账号；新 API 已由 systemd 运行且公网 v2 健康检查可达，但新 Worker 未启动、报告 gate 关闭、旧 Python 仍由手工进程运行；证据见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
 - `f2c6d99` 和 `cb11bc8` 已通过本地完整门禁，并在生产 env 隔离的临时端口 `18082` 完成候选 release smoke：中文稳定错误契约、认证失败边界和 persistence 探针状态日志均已验证；当前生产 `current` 仍为 `55fce6c`，候选版本尚未切换公网。证据见 [`release/observability-error-contract-smoke-2026-08-16.md`](release/observability-error-contract-smoke-2026-08-16.md)。
 - `3a37e7e` 已通过本地完整门禁，并在生产 env 隔离的临时端口 `18082` 完成最新候选 smoke：预约排班、预约记录和报告查询错误契约统一为稳定中文文案；当前生产 `current` 仍为 `55fce6c`，公网、provider 和真机验收仍未完成。证据见 [`release/query-error-contract-smoke-2026-08-16.md`](release/query-error-contract-smoke-2026-08-16.md)。
-- 当前架构边界审计已从单一 API 客户端检查扩展为扫描原生小程序全部生产源码的 24 条规则；它只证明旧 provider/敏感标识边界没有回流，不替代 provider、公网和真机业务验收。
+- 当前架构边界审计已从单一 API 客户端检查扩展为扫描原生小程序全部生产源码的 26 条规则；新增未验证外部入口和旧端假患者标记的回流保护。它只证明旧 provider/敏感标识边界没有回流，不替代 provider、公网和真机业务验收。
 - 原生小程序构建已增加动态页面一致性门禁：从 `app.json` 读取全部页面，逐项检查 `.json/.wxml/.wxss/.ts` 源文件和 `dist/*.js` 运行文件，并校验 WXML 事件方法、页面跳转目标、本地资源和 WXSS 图片边界，避免新增页面再次出现真机找不到 `.js`、跳转 404 或 WXSS 本地资源错误。
 - 当前公共 API 文档已增加列表语义门禁：明确 `total = items.length`、空列表与依赖失败的区别、各只读接口的排序/日期窗口，以及预约排班和报告页的本地渲染分批不等于服务端分页；后续取得 provider 分页文档后必须先更新 contract 再改代码。
 - 候选代码已为健康探针响应明确设置 `Cache-Control: no-store`；公网切换到 `d177991` 后 live/ready 已确认保留该指令。后续发布判断仍必须以未缓存的 `/api/v2/health/ready` 和服务端日志为准，不能用单次 200 推导业务验收完成。

@@ -36,7 +36,7 @@
 - 原生小程序构建还会逐页检查 WXML 事件绑定确实存在于 `Page` 实现、`wx.navigateTo` 的页面目标已经在
   `app.json` 注册、WXML 本地 `/assets` 引用真实存在，并拒绝 WXSS 通过 `background-image` 读取本地图片；
   这把此前真机才暴露的页面 JS 缺失、跳转 404 和 WXSS 本地资源错误提前到构建阶段。
-- 当前架构边界审计为 24 条规则，并扫描 `apps/miniprogram/src` 全部生产文本源码；它会阻止 provider
+- 当前架构边界审计为 26 条规则，并扫描 `apps/miniprogram/src` 全部生产文本源码；它会阻止 provider
   地址、旧请求封装、旧患者标识、WebSocket 配置和万能转发残留重新进入原生小程序。历史发布证据中的
   19/19 是当时的审计快照，不代表当前规则数量。
 - 最近一次生产切换证据为：`current=a11f117`、新 API `18081` active、旧 Python `8001` 继续监听、Worker

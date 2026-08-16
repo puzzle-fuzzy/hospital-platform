@@ -137,7 +137,7 @@ provider 映射校验。
 - 旧 `/system`、`/common`、`/knowledge`、`/intelligent`、`/convenience` 路径的直连调用；
 - 将题目分值、风险分级、支付状态或 HIS 状态写死在小程序常量中。
 
-现有 24 条架构审计规则会扫描 `apps/miniprogram/src` 的全部生产文本源码，覆盖 provider URL、旧请求
+现有 26 条架构审计规则会扫描 `apps/miniprogram/src` 的全部生产文本源码，覆盖 provider URL、旧请求
 封装、provider 患者 ID、报告 ID、WebSocket 配置、万能转发和支付入口；新增实时通道、临床内容或静态
 入口时，必须同步增加同类规则和回归测试。历史 release 文档中的 19/19 只表示旧规则集的当时快照。
 

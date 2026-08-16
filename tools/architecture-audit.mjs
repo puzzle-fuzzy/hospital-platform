@@ -179,6 +179,36 @@ for (const forbidden of [
 		"原生小程序全部生产源码只能访问 Hospital API，不能持有 provider 地址或内部引用。",
 	);
 }
+
+/**
+ * 外部小程序和 WebView 不是普通页面跳转：它们需要主体、受众、短期票据、回调校验和撤销策略。
+ * 在这些 contract 与 Provider 文档冻结前，生产源码必须保持无入口，避免“先跳起来再补安全”的不可逆迁移。
+ */
+check(
+	"miniprogram.no-unverified-external-entry",
+	!["navigateToMiniProgram", "openEmbeddedMiniProgram", "<web-view"].some(
+		(fragment) => miniprogramSource.includes(fragment),
+	),
+	"跨小程序和 WebView 入口必须等待独立安全 contract、allowlist 与回调验收后再开放。",
+);
+
+/**
+ * 旧端曾在患者中心使用本地假患者和固定外部小程序标识；这些值一旦回流，
+ * 就会绕过当前服务端 owner 校验，造成展示身份与真实业务身份分离。
+ */
+check(
+	"miniprogram.no-legacy-patient-seed",
+	![
+		"931333214",
+		"宋怀波",
+		"张三",
+		"BOUND_PATIENTS",
+		"CURRENT_PATIENT",
+		"wx0b76c9904392518f",
+	].some((fragment) => miniprogramSource.includes(fragment)),
+	"生产小程序不能携带旧端假患者、固定外部 AppID 或本地患者缓存标记。",
+);
+
 check(
 	"miniprogram.payment-entry",
 	sources["apps/miniprogram/src/services/api-client.ts"].includes(
