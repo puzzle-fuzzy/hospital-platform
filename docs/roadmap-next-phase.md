@@ -37,7 +37,7 @@
 - 原生小程序构建已增加动态页面一致性门禁：从 `app.json` 读取全部页面，逐项检查 `.json/.wxml/.wxss/.ts` 源文件和 `dist/*.js` 运行文件，并校验 WXML 事件方法、页面跳转目标、本地资源和 WXSS 图片边界，避免新增页面再次出现真机找不到 `.js`、跳转 404 或 WXSS 本地资源错误。
 - 当前公共 API 文档已增加列表语义门禁：明确 `total = items.length`、空列表与依赖失败的区别、各只读接口的排序/日期窗口，以及预约排班和报告页的本地渲染分批不等于服务端分页；后续取得 provider 分页文档后必须先更新 contract 再改代码。
 - 候选代码已为健康探针响应明确设置 `Cache-Control: no-store`；公网一次瞬时 `not_ready` 后连续复核恢复 `ready`，但当前生产 `current=55fce6c` 尚未切换该候选版本，公网 no-store 仍待发布后验收。后续发布判断必须以未缓存的 `/api/v2/health/ready` 和服务端日志为准。
-- 2026-08-16 17:02 CST 只读复核修正了 16:57 的临时判断：唯一公网 `X-Request-Id` 已在 SSH 主机 PID `2935571`（`current=55fce6c`）的 journald 中关联到同一个 `/health/ready` 请求，随后内网探针也恢复 `database/redis/schema=ok`；此前差异属于瞬时 readiness 恢复，不是另一 upstream。当前 `55fce6c` 内外层响应仍缺少候选代码要求的 `Cache-Control: no-store`，且尚未部署当前 `main=1ae969f`。详见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
+- 2026-08-16 17:02 CST 只读复核修正了 16:57 的临时判断：唯一公网 `X-Request-Id` 已在 SSH 主机 PID `2935571`（`current=55fce6c`）的 journald 中关联到同一个 `/health/ready` 请求，随后内网探针也恢复 `database/redis/schema=ok`；此前差异属于瞬时 readiness 恢复，不是另一 upstream。当前 `55fce6c` 内外层响应仍缺少候选代码要求的 `Cache-Control: no-store`，且尚未部署当前 `main=4039f33`。详见 [`release/production-coexistence-readonly-audit-2026-08-16.md`](release/production-coexistence-readonly-audit-2026-08-16.md)。
 - 当前服务器没有免密的窄权限 systemd 管理能力：`sudo -n -l` 仍需要密码。本阶段不重复尝试密码、不修改旧服务、不强行切换生产；候选 release 的上线动作保留为“取得明确 systemd 权限后执行”的独立运行任务，具体授权与回滚步骤见 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md)。
 
 ### 当前已验证的问题
@@ -160,7 +160,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 候选 release 获得 systemd 权限后，按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 只做原子 `current` 切换和新 API 单元重启；复测 `18081`、公网 `/api/v2`、旧 `8001`，然后再进行真实微信登录、患者切换、预约只读、报告和门诊费用的分层验收。任何一层失败都回滚新 API，不触碰旧 Python 服务。
-14. 已用同一个 `X-Request-Id` 证明公网 `/api/v2` 与 SSH 主机 `55fce6c` 进程关联；下一步取得发布权限后先原子切换当前 `main=1ae969f`，再复测 no-store、readiness 依赖恢复日志、公网 `/api/v2` 和旧 `8001`，之后才能继续 provider/真机业务验收。
+14. 已用同一个 `X-Request-Id` 证明公网 `/api/v2` 与 SSH 主机 `55fce6c` 进程关联；下一步取得发布权限后先原子切换当前 `main=4039f33`，再复测 no-store、readiness 依赖恢复日志、公网 `/api/v2` 和旧 `8001`，之后才能继续 provider/真机业务验收。
 
 ## 业务正确性加固记录
 
@@ -185,4 +185,4 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：修正报告目录与详情 gate 的边界；provider 缺少稳定报告号时保留安全摘要并省略详情引用，不再把单条详情不可用扩大成整批目录失败；公共文档和回归测试同步固定该不变量。
 - 2026-08-16：为患者新增、门诊就诊记录目录/详情和医保授权候选路径增加 404 冻结门禁；在 provider/HIS contract、owner 映射、幂等和真实验收完成前，不允许以旧接口转发或空响应伪造迁移完成。
 - 2026-08-16：门诊费用服务补齐空白 `patientId` 的服务层拒绝，并让 owner 映射、持久化和 provider 失败统一进入 `outpatient.payment.records.failed`；失败不能被误记为成功空列表，也不能绕过低敏日志链路。
-- 2026-08-16 16:57 CST：首次观测到公网与内网 readiness 短时不同；17:02 CST 通过唯一 requestId 和 Bun journald 证明两者实际来自同一个 `55fce6c` 进程，差异属于依赖探针恢复，不是另一 upstream。当前 release 仍缺少候选代码的 `Cache-Control: no-store`，当前 `main=1ae969f` 尚未部署，仍禁止用公网 `200` 推导业务已验收。
+- 2026-08-16 16:57 CST：首次观测到公网与内网 readiness 短时不同；17:02 CST 通过唯一 requestId 和 Bun journald 证明两者实际来自同一个 `55fce6c` 进程，差异属于依赖探针恢复，不是另一 upstream。当前 release 仍缺少候选代码的 `Cache-Control: no-store`，当前 `main=4039f33` 尚未部署，仍禁止用公网 `200` 推导业务已验收。

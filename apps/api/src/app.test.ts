@@ -244,7 +244,7 @@ test("public API documentation freezes list and rendering semantics", async () =
 	// 路由存在门禁只能发现“有没有写接口”，这里额外固定列表的数量、空态、
 	// 排序和本地分批边界，避免后续把小程序的渲染优化误写成 provider 分页。
 	const requiredDocumentation = [
-		"### 3.5 列表、空结果和大结果集语义",
+		"### 3.6 列表、空结果和大结果集语义",
 		"`data.total` 必须等于 `items.length`",
 		"当前没有公开 `page`、`pageSize`、`cursor` 或 `hasMore` 字段",
 		"HTTP `200`、`items: []` 和 `total: 0`",

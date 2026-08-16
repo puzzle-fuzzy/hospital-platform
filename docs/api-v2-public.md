@@ -175,7 +175,7 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 在 provider 文档、锁号/取消幂等、身份映射、失败补偿和真实验收完成前，旧服务的预约写入
 接口不能被转发成新端接口。
 
-### 3.3 报告
+### 3.4 报告
 
 报告目录只返回 `kind`、标题、时间、`available`/`abnormal`、`hasAttachment` 和可选的
 opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange`
@@ -187,7 +187,7 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 影像附件、体检报告、原始报告号、患者字段和文件下载 URL 尚未开放。详情返回 404 不等于
 患者没有报告，也可能表示该报告类型尚未通过详情 gate。
 
-### 3.4 门诊缴费和支付
+### 3.5 门诊缴费和支付
 
 门诊缴费列表只返回 `recordId`、状态、科室/医生、账单时间和 `amountFen`。服务端会先校验
 `patientId` 并按当前用户解析 `his-patient` 映射，再调用 provider；空白标识、owner 映射缺失、
@@ -203,7 +203,7 @@ HIS 回写和退费必须走独立 contract。
 最终结算成功，也不能提交 `totalFen`、`insuranceFen`、`cashFen` 或 HIS 完成状态。支付接口
 当前仅完成平台编排边界，真实微信支付、医保、HIS 和真机验收仍未完成。
 
-### 3.5 列表、空结果和大结果集语义
+### 3.6 列表、空结果和大结果集语义
 
 当前患者端所有列表接口都使用同一个最小响应形状：`data.items` 是本次服务端实际返回的数组，
 `data.total` 必须等于 `items.length`。当前没有公开 `page`、`pageSize`、`cursor` 或 `hasMore` 字段，
