@@ -20,7 +20,7 @@
 
 - 旧端扫描基线为 64 个页面，原生小程序当前注册 14 个 TypeScript 页面；旧 FastAPI 与旧小程序
   的接口快照仍由 `legacy-api-endpoint-inventory.md` 维护。
-- 当前线上新 API release 为 `b186098`，监听 `18081`；旧 Python 服务继续监听 `8001`，旧服务、
+- 当前线上新 API release 为 `bab0ce2`，监听 `18081`；旧 Python 服务继续监听 `8001`，旧服务、
   旧 Redis namespace 和旧端口不能因为新端验收而停止。
 - `41c9c18` 已取得预约科室 62 条、排班 1 条的真实只读结果，并确认
   `snapshotPersistenceStatus=persisted`。这只为未来写入评估提供近期观察事实，仍不是锁号或预约授权。
@@ -32,9 +32,9 @@
   这只证明公网运行和关闭边界，不证明会话、Provider 业务、真机或新旧服务共存；完整 requestId 与限制见
   [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)。
 - 同日切换后 SSH 核对确认新 Bun API 监听 `10.0.0.3:18081`、旧 Python API 监听 `0.0.0.0:8001`，
-  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `b186098`，Worker 仍 inactive。这补强运行层共存证据，
-  但不能证明当前仓库 `main` 已部署，也不能替代业务和真机证据；完整记录见
-  [`../release/production-coexistence-readonly-audit-2026-08-17.md`](../release/production-coexistence-readonly-audit-2026-08-17.md)。
+  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `bab0ce2`，Worker 仍 inactive。这补强运行层共存证据，
+  但不能替代业务和真机证据；当前 release 的完整记录见
+  [`../release/bab0ce2-production-acceptance-2026-08-17.md`](../release/bab0ce2-production-acceptance-2026-08-17.md)。
 - 进程 TCP 连接和两侧配置的脱敏比对确认 Bun API 与旧 Python 共用远端 MySQL
   `8.130.127.184:3306/hospital-dev`，新 API 使用 Redis DB3、旧 Python 使用 Redis DB1；新服务只使用
   `hp_*` 表，旧服务继续使用 legacy 表。该事实不代表 MongoDB、旧 Redis namespace、旧任务或管理端能力已迁移。
@@ -44,7 +44,7 @@
   `PersistenceUnavailableError` 返回 503；一次后续成功同步仍只有 1 位患者。该运行稳定性问题在未定位前阻断
   P0 真实业务验收；事件、脱敏证据和下一步见
   [`../release/current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md)。
-- `b186098` 切换前完成了真实生产 preflight 和临时端口候选 smoke，切换后公网 runtime smoke 完成 6/6 readiness、no-store、system ping 和未登录 401；该稳定性证据已解除“候选运行前置未验证”阻断，但不解除真实微信、多患者、Provider 或真机业务门禁，详见 [`../release/b186098-production-acceptance-2026-08-17.md`](../release/b186098-production-acceptance-2026-08-17.md)。
+- `bab0ce2` 已完成真实生产 preflight、临时端口候选 smoke、原子切换和公网 runtime smoke；公网 readiness 连续 6/6、no-store、system ping 和未登录 401 均通过。该稳定性证据已解除“候选运行前置未验证”阻断，但不解除真实微信、多患者、Provider 或真机业务门禁，详见 [`../release/bab0ce2-production-acceptance-2026-08-17.md`](../release/bab0ce2-production-acceptance-2026-08-17.md)。
 
 ### 2.1 本轮业务审计修正
 

@@ -3,6 +3,10 @@
 > 本文只记录通过 SSH 读取 `hospital-platform-api-v2.service` journald 的结果，未读取 env、数据库数据或会话，
 > 未执行重启、发布、migration、缓存清理或业务写入。日志中的用户身份字段不进入本文；只保留可关联的低敏
 > trace/provider request 标识和状态事实。
+>
+> 证据窗口截止于 `b186098` 切换后的历史日志。当前线上 release 已切换为 `bab0ce2`，其发布和切换后
+> smoke 结果以 [`bab0ce2-production-acceptance-2026-08-17.md`](bab0ce2-production-acceptance-2026-08-17.md)
+> 为准；本文件中的抖动和登录事件不能直接归因于 `bab0ce2`。
 
 ## 1. 复核范围
 
