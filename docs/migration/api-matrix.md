@@ -47,7 +47,7 @@
 | `/common/yunhealth/*` | 云健康挂号结算与 HIS 回写 | 未注册为患者端 API | 内部回调鉴权、最终结算状态、幂等和失败补偿；不能开放给小程序 |
 | `/convenience/*` | 锦旗、表扬信、风险评估、我的医生、出院随访、入院预问诊 | 未注册 | 各业务独立 contract；文件审核、临床复核、患者授权、医护侧权限和审计 |
 | `/knowledge/tips/*` | 指标解读 | 新端 knowledge 领域骨架存在，患者路由未挂载 | 审核后的版本化内容、发布/下线记录和内容审计 |
-| `/knowledge/health/*` | 健康百科、疾病和药品内容 | 新端 knowledge 领域骨架存在，患者路由未挂载 | 临床审核、内容版本、药品关联、搜索和脱敏导入 |
+| `/knowledge/health/*` | 健康百科、疾病和药品内容 | 新端 knowledge 领域骨架存在，患者路由未挂载；映射见 [`health-knowledge-content-mapping.md`](health-knowledge-content-mapping.md) | 临床审核、内容版本、药品关联、搜索和脱敏导入 |
 | `/knowledge/selftest/*` | 健康自测题目与结果 | 未注册 | 题库版本、评分算法、临床复核、免责声明、授权和结果保留规则 |
 | `/knowledge/report/*` | 报告解读 | 未注册 | 报告资源授权、解读模型/知识版本、免责声明和审计；不能从报告目录顺手开放 |
 | `/intelligent/*` | AI 导诊、客服、文本/音频会话和 RAG 文档 | 未注册 | 会话 owner、模型/知识版本、内容安全、免责声明、音频存储和限流 |

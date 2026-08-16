@@ -100,8 +100,22 @@ function assertId(value: string, path: string): void {
 	}
 }
 
-function assertDate(value: string | undefined, path: string): void {
-	if (value !== undefined && !Number.isFinite(Date.parse(value))) fail(path);
+/**
+ * 内容版本的时间必须携带时区。
+ *
+ * 如果接受 `2026-08-16T00:00:00` 这类无时区字符串，Node/Bun 会按运行环境
+ * 的本地时区解释它；同一份内容在开发机、staging 和生产机上就可能得到不同的
+ * `reviewed_at` 或生效窗口。导入边界因此只接受带 `Z` 或显式偏移的 RFC3339
+ * 时间，避免把部署机器时区偷偷变成业务规则。
+ */
+function assertTimestamp(value: string | undefined, path: string): void {
+	if (value === undefined) return;
+	assertText(value, path, 64);
+	const hasTimezone =
+		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/u.test(
+			value,
+		);
+	if (!hasTimezone || !Number.isFinite(Date.parse(value))) fail(path);
 }
 
 function assertUnique(values: readonly string[], path: string): void {
@@ -126,6 +140,8 @@ function validatePublication(
 	} catch {
 		fail("publication");
 	}
+	// 基础 publication 校验只负责结构；导入还要拒绝无时区时间，保证跨环境一致。
+	assertTimestamp(publication.reviewedAt, "publication.reviewedAt");
 	if (!["draft", "published", "withdrawn"].includes(publication.status)) {
 		fail("publication.status");
 	}
@@ -139,8 +155,8 @@ function validatePublication(
 	if (publication.reviewerRef !== undefined) {
 		assertText(publication.reviewerRef, "publication.reviewerRef", 128);
 	}
-	assertDate(publication.effectiveFrom, "publication.effectiveFrom");
-	assertDate(publication.effectiveTo, "publication.effectiveTo");
+	assertTimestamp(publication.effectiveFrom, "publication.effectiveFrom");
+	assertTimestamp(publication.effectiveTo, "publication.effectiveTo");
 	if (
 		publication.effectiveFrom !== undefined &&
 		publication.effectiveTo !== undefined &&

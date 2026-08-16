@@ -2,7 +2,7 @@
 
 ## 状态
 
-已接受，Phase 8A contract/domain/persistence 预注册阶段；健康知识 API 尚未挂载，也尚未把旧库内容迁入新 schema。
+已接受，Phase 8A contract/domain/persistence 预注册阶段；版本化 schema 已部署，但健康知识 API 尚未挂载，旧库正文也尚未导入新 schema。
 
 ## 背景
 
@@ -99,5 +99,5 @@ AI assistant 只能通过独立的 gateway 读取已发布知识片段，并保�
 | 产品 | 小程序阅读、免责声明、过期/撤回内容不再展示 |
 
 当前状态：已完成边界设计、TypeBox contract、domain port、固定免责声明校验、只读 service、
-bundle validator 和 fail-closed MySQL repository/事务导入器；Docker、真实 schema、真实内容导入、staging 审核证据、
-患者端健康知识 API 挂载和小程序页面均未因本 ADR 标记为 ready。
+bundle validator、带时区的导入时间校验、版本化 schema 和 fail-closed MySQL repository/事务导入器；
+真实内容导入、staging 审核/撤回证据、患者端健康知识 API 挂载和小程序页面均未因本 ADR 标记为 ready。

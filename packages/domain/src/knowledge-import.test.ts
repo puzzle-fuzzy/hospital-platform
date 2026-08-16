@@ -117,3 +117,26 @@ test("published health knowledge requires a reviewer reference and clickable dru
 		"diseaseDetails[0].availableDrugs[0].isClickable",
 	);
 });
+
+test("health knowledge publication timestamps must carry an explicit timezone", () => {
+	const reviewedAtWithoutTimezone = validBundle();
+	reviewedAtWithoutTimezone.publication.reviewedAt = "2026-08-15T00:00:00.000";
+	expect(() =>
+		validateHealthKnowledgeImportBundle(reviewedAtWithoutTimezone),
+	).toThrow("publication.reviewedAt");
+
+	const effectiveWindowWithoutTimezone = validBundle();
+	effectiveWindowWithoutTimezone.publication.effectiveFrom =
+		"2026-08-15T00:00:00";
+	expect(() =>
+		validateHealthKnowledgeImportBundle(effectiveWindowWithoutTimezone),
+	).toThrow("publication.effectiveFrom");
+
+	const explicitOffset = validBundle();
+	explicitOffset.publication.reviewedAt = "2026-08-15T08:00:00+08:00";
+	explicitOffset.publication.effectiveFrom = "2026-08-15T00:00:00Z";
+	explicitOffset.publication.effectiveTo = "2026-08-16T00:00:00Z";
+	expect(
+		validateHealthKnowledgeImportBundle(explicitOffset).contentVersion,
+	).toBe("health-2026-08-15");
+});
