@@ -262,13 +262,9 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 
 	// WXML disabled 只能降低重复点击概率，不能约束生命周期回调或真机重复事件。
 	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
-	expect(home).toContain(
-		"const patientSyncFlight = createSingleFlight<Array<Patient>>();",
-	);
+	expect(home).toContain("getPageSingleFlight<Array<Patient>>");
 	expect(home).toContain("return patientSyncFlight.run(() => {");
-	expect(selection).toContain(
-		"const patientSyncFlight = createSingleFlight<void>();",
-	);
+	expect(selection).toContain("getPageSingleFlight<void>");
 	expect(selection).toContain("return patientSyncFlight.run(() => {");
 });
 
@@ -308,7 +304,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(template).toContain('bindtap="onHeaderTap"');
 	expect(profile).toContain("getUserProfile");
 	expect(profile).toContain("updateUserProfile");
-	expect(profile).toContain("createLatestRequestGuard");
+	expect(profile).toContain("getPageLatestRequestGuard");
 	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
 	expect(profile).toContain("if (this.data.saving) return Promise.resolve();");
@@ -498,7 +494,7 @@ test("native mini program derives missed appointments from the normalized record
 	expect(page).toContain("loadAppointmentRecords");
 	expect(page).toContain('record.status === "missed"');
 	expect(template).toContain('wx:key="viewKey"');
-	expect(page).toContain("createLatestRequestGuard");
+	expect(page).toContain("getPageLatestRequestGuard");
 	expect(page).toContain("中国标准时间近 90 天");
 	expect(page).not.toContain("status === 4");
 	expect(page).not.toContain("providerPatientId");
@@ -924,8 +920,12 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 		home,
 		my,
 	]) {
-		expect(page).toContain("createLatestRequestGuard");
+		expect(page).toContain("getPageLatestRequestGuard");
 		expect(page).toContain("isCurrent");
+		// 页面文件不能直接在模块顶层创建共享 guard；实例状态必须由
+		// page-instance-state 的 WeakMap 按当前 this 隔离。
+		expect(page).not.toContain("createLatestRequestGuard()");
+		expect(page).not.toContain("createSingleFlight<");
 	}
 });
 

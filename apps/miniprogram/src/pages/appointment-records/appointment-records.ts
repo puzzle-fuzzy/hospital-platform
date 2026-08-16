@@ -3,7 +3,7 @@ import {
 	loadAppointmentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
@@ -26,8 +26,6 @@ const STATUS_LABELS = Object.freeze({
 	missed: "未就诊",
 	unknown: "状态未知",
 } as const);
-
-const loadGuard = createLatestRequestGuard();
 
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
@@ -55,6 +53,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/** 先从平台目录确认当前患者，再以内部 patientId 请求记录。 */
 	loadRecords(): Promise<void> {
+		const loadGuard = getPageLatestRequestGuard(this, "appointment-records");
 		const requestToken = loadGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return loadPatients()

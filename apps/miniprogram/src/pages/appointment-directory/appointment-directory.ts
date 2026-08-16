@@ -3,7 +3,7 @@ import {
 	loadAppointmentDepartments,
 	loadAppointmentSchedules,
 } from "../../services/dashboard-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import type {
 	AppointmentDirectoryPageData,
 	AppointmentSchedule,
@@ -35,9 +35,6 @@ const WEEKDAY_LABELS = ["周日", "周一", "周二", "周三", "周四", "周�
  * 用户快速切换科室或下拉刷新时，旧 provider 响应可能晚于新响应到达；
  * 两层分别设守卫，防止旧科室的排班覆盖当前选择，也防止旧刷新恢复旧状态。
  */
-const directoryGuard = createLatestRequestGuard();
-const scheduleGuard = createLatestRequestGuard();
-
 /** 把服务端日期转换成旧端右栏可快速扫描的短标签。 */
 function dateLabel(value: string): string {
 	// `workDate` 是医院业务日历，而不是用户设备所在时区的瞬时时间。
@@ -100,6 +97,8 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 
 	/** 首屏只读取科室，再按左栏当前选择读取排班。 */
 	loadDirectory(): Promise<void> {
+		const directoryGuard = getPageLatestRequestGuard(this, "directory");
+		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
 		const directoryToken = directoryGuard.begin();
 		// 新一轮科室目录会使上一轮右栏排班失效，避免刷新完成后旧排班回写。
 		scheduleGuard.begin();
@@ -138,6 +137,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 
 	/** 切换左栏科室时只替换右栏数据，保留级联页面的稳定空间。 */
 	loadDepartmentSchedules(departmentId: string): Promise<void> {
+		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
 		const scheduleToken = scheduleGuard.begin();
 		const department = this.data.departments.find(
 			(item) => item.departmentId === departmentId,

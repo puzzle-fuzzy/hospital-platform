@@ -187,6 +187,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：修复患者目录完整快照的乱序并发：`observedAt` 在 provider 请求前采样，内存仓储和 MySQL 条件更新都拒绝旧快照覆盖新状态；新增服务层、内存仓储和 MySQL 回归测试。
 - 2026-08-16：收紧普通个人资料页的并发边界；下拉刷新使用最后一次请求获胜守卫，加载/保存期间由 UI 和方法层双重禁止保存，避免旧 GET 覆盖新 `version` 或快速连点制造不必要的 409。首页和患者选择页的患者同步统一使用 `services/single-flight.ts`，自动恢复、生命周期回调和手动刷新在同一页面实例内复用等待中的 Promise，并在成功/失败后释放锁；跨页面/跨进程仍以服务端 operation ledger 为最终幂等事实。真实微信资料读写和真机验收仍未完成。
 - 2026-08-16：修正首页、预约记录、爽约记录、报告目录和门诊费用页的首次 `onShow` 生命周期状态：移除模块级 `isFirstShow`，改为页面实例内的 `hasShown`，避免页面栈叠加时不同实例互相消费首次展示标记，造成患者上下文漏刷新或重复请求；新增原生 acceptance 断言和中文业务不变量说明。
+- 2026-08-16：继续修正页面栈并发边界：原生页面曾将 `createLatestRequestGuard` 和患者同步 `createSingleFlight` 直接放在模块级，导致同一路径多个实例共享请求状态；现统一使用页面对象作为 `WeakMap` owner，页面实例间不再互相取消患者、预约、报告、费用或资料请求，新增 guard/单飞隔离测试和构建门禁。
 - 2026-08-16：完成生产 Redis 会话隔离：新 API 使用 DB3/`hospital_v2`，ACL 只允许 `PING/SELECT/GET/SET` 与 `hospital:session:*`，通过 TTL 和跨前缀拒绝探针；旧 Python DB1 继续运行，未迁移旧 namespace。
 - 2026-08-16 20:08-20:11 CST：`b4dc33b` 已在真实生产 env 完成独立 release checksum、preflight、production mode、MySQL/Redis/schema、no-store、system ping 和未登录认证边界 smoke；候选 `18082/18083` 已停止，`current=55fce6c`、新 API `18081` 和旧 Python `8001` 未改变。真实微信、患者同步、预约/报告/门诊费用和真机仍待切换后验收，证据见 [`release/candidate-b4dc33b-production-smoke-2026-08-16.md`](release/candidate-b4dc33b-production-smoke-2026-08-16.md)。
 - 2026-08-16：完成 `f2c6d99` 候选 release 的错误契约和 `cb11bc8` persistence 探针状态日志隔离 smoke；HTTP 401、生产模式启动、MySQL/Redis/schema 探针均符合预期，临时端口已清理，生产 `current=55fce6c`、`18081` 和旧 `8001` 保持不变。由于 systemd 管理权限尚未就绪，公网错误文案、患者同步 `0015` 和真机业务仍不能计为已验收。

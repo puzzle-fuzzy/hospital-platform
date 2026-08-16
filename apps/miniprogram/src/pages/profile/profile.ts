@@ -4,7 +4,7 @@ import {
 	safeApiErrorMessage,
 	updateUserProfile,
 } from "../../services/api-client";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import type { ProfilePageData } from "../../types";
 
 type ProfilePageMethods = {
@@ -25,8 +25,6 @@ const GENDER_VALUES = ["male", "female", "unknown"] as const;
  * 资料页允许下拉刷新；较早的 GET 不能覆盖较新的资料版本，
  * 否则用户看到旧版本后保存会产生不必要的 409 冲突。
  */
-const profileLoadGuard = createLatestRequestGuard();
-
 function genderIndex(gender: ProfilePageData["gender"]): number {
 	return GENDER_VALUES.indexOf(gender);
 }
@@ -59,6 +57,7 @@ Page<
 	},
 
 	loadProfile(): Promise<void> {
+		const profileLoadGuard = getPageLatestRequestGuard(this, "profile");
 		const requestToken = profileLoadGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return getUserProfile()

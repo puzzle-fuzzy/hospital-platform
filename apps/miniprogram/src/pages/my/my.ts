@@ -1,7 +1,7 @@
 import { getCurrentUser, safeApiErrorMessage } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -18,8 +18,6 @@ type MyPageMethods = {
  * “我的”页同时读取会话用户和患者目录；从选择页返回或下拉刷新时，
  * 较早的 Promise.all 不能再覆盖当前用户和就诊人数量。
  */
-const pageLoadGuard = createLatestRequestGuard();
-
 Page<MyPageData, MyPageMethods>({
 	data: {
 		userLabel: "微信用户",
@@ -39,6 +37,7 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	loadPage(): Promise<void> {
+		const pageLoadGuard = getPageLatestRequestGuard(this, "my-page");
 		const requestToken = pageLoadGuard.begin();
 		this.setData({ loading: true, error: "" });
 		return Promise.all([getCurrentUser(), loadPatients()])

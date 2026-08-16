@@ -5,7 +5,7 @@
 	"scripts": {
 		"build": "bun run typecheck && bun run scripts/build.ts",
 		"dev": "pnpm build",
-		"test": "bun test scripts/acceptance.test.ts src/services/single-flight.test.ts",
+		"test": "bun test scripts/acceptance.test.ts src/services/single-flight.test.ts src/services/page-instance-state.test.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

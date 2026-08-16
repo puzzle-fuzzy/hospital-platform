@@ -4,7 +4,10 @@ import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import {
+	getPageLatestRequestGuard,
+	getPageSingleFlight,
+} from "../../services/page-instance-state";
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
@@ -16,7 +19,6 @@ import {
 	restorePlatformSession,
 	signInPlatformSession,
 } from "../../services/session-service";
-import { createSingleFlight } from "../../services/single-flight";
 import type {
 	ActionEvent,
 	IndexEvent,
@@ -209,20 +211,14 @@ type IndexPageMethods = {
 };
 
 /**
- * 首页可能同时发生会话恢复、下拉刷新和目录同步。
- * 所有患者目录请求共用一个序号，后发的同步会自动淘汰仍在途的旧读取，
- * 防止旧响应把当前患者或 active/inactive 目录状态覆盖回去。
- */
-const patientDataGuard = createLatestRequestGuard();
-const healthGuard = createLatestRequestGuard();
-const syncLoadingGuard = createLatestRequestGuard();
-/**
+ * 首页可能同时发生会话恢复、下拉刷新和目录同步。各类 guard 使用固定
+ * key 存在页面实例的 WeakMap 中：同一首页实例内后发的同步会淘汰旧读取，
+ * 但不会影响页面栈中的另一个首页实例。
+ *
  * 同一首页实例内的患者同步采用单飞语义：自动恢复、用户点击和下拉刷新
  * 可能在同一时间到达，但只能让一个同步请求进入 provider。这个客户端锁
  * 只减少重复请求和无意义的 409，真正的跨进程幂等仍由服务端 operation ledger 保证。
  */
-const patientSyncFlight = createSingleFlight<Array<Patient>>();
-
 Page<IndexPageData, IndexPageMethods>({
 	data: {
 		hasShown: false,
@@ -303,6 +299,7 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	checkHealth(): Promise<void> {
+		const healthGuard = getPageLatestRequestGuard(this, "health");
 		const requestToken = healthGuard.begin();
 		return loadHealth()
 			.then((payload) => {
@@ -451,6 +448,7 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	loadPatients(): Promise<Array<Patient>> {
+		const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 		const requestToken = patientDataGuard.begin();
 		return loadPatients().then((patients) => {
 			if (patientDataGuard.isCurrent(requestToken)) {
@@ -461,7 +459,13 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onSyncPatients(): Promise<Array<Patient>> {
+		const patientSyncFlight = getPageSingleFlight<Array<Patient>>(
+			this,
+			"patient-sync",
+		);
 		return patientSyncFlight.run(() => {
+			const patientDataGuard = getPageLatestRequestGuard(this, "patients");
+			const syncLoadingGuard = getPageLatestRequestGuard(this, "sync-loading");
 			const requestToken = patientDataGuard.begin();
 			const loadingToken = syncLoadingGuard.begin();
 			this.setData({ syncingPatients: true, error: "" });

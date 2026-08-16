@@ -3,7 +3,7 @@ import {
 	loadAppointmentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
@@ -26,8 +26,6 @@ const STATUS_LABELS = Object.freeze({
 	missed: "已爽约",
 	unknown: "状态未知",
 } as const);
-
-const loadGuard = createLatestRequestGuard();
 
 Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	data: {
@@ -63,6 +61,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	 * 中国标准时间近 90 天，避免页面自行扩大查询范围。
 	 */
 	loadRecords(): Promise<void> {
+		const loadGuard = getPageLatestRequestGuard(this, "missed-appointments");
 		const requestToken = loadGuard.begin();
 		this.setData({
 			loading: true,

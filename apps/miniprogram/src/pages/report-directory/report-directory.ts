@@ -1,6 +1,6 @@
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import { loadPatients, loadReports } from "../../services/dashboard-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	Report,
@@ -37,8 +37,6 @@ type ReportDirectoryPageMethods = {
 	toView(report: Report): ReportDirectoryView;
 };
 
-const loadGuard = createLatestRequestGuard();
-
 Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	data: {
 		hasShown: false,
@@ -69,6 +67,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 
 	/** 先确认 owner-scoped 患者，再读取平台报告目录；页面不接触 provider 患者号。 */
 	loadPage(): Promise<void> {
+		const loadGuard = getPageLatestRequestGuard(this, "reports");
 		const requestToken = loadGuard.begin();
 		// 切换患者后先清掉旧患者的结果，避免新请求期间出现患者和列表不一致。
 		this.setData({

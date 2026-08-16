@@ -3,7 +3,7 @@ import {
 	loadOutpatientPaymentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	OutpatientPaymentPageData,
@@ -26,8 +26,6 @@ type OutpatientPaymentPageMethods = {
 	showError(error: unknown, fallback: string): void;
 	toView(record: OutpatientPaymentRecord): OutpatientPaymentRecordView;
 };
-
-const loadGuard = createLatestRequestGuard();
 
 Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	data: {
@@ -55,6 +53,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 
 	/** 先确认当前患者归属，再读取门诊费用，避免把临床患者映射交给页面。 */
 	loadPage(): Promise<void> {
+		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
 		// 患者切换期间不展示上一位患者的费用，避免身份和金额短暂错配。
 		this.setData({
@@ -88,11 +87,13 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	loadRecords(
 		patient: Patient,
 		status: "unpaid" | "paid",
-		requestToken = loadGuard.begin(),
+		requestToken?: number,
 	): Promise<void> {
+		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
+		const effectiveRequestToken = requestToken ?? loadGuard.begin();
 		// 查询状态必须来自本次操作的快照，不能依赖 setData 后的异步页面状态。
 		return loadOutpatientPaymentRecords(patient.id, status).then((items) => {
-			if (!loadGuard.isCurrent(requestToken)) return;
+			if (!loadGuard.isCurrent(effectiveRequestToken)) return;
 			this.setData({
 				items: items.map((item) => this.toView(item)),
 				error: "",
@@ -105,6 +106,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		const status = event.currentTarget?.dataset?.status;
 		if (status !== "unpaid" && status !== "paid") return;
 		if (status === this.data.activeStatus) return;
+		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
 		this.setData({ activeStatus: status, loading: true, error: "", items: [] });
 		if (!this.data.selectedPatient) {

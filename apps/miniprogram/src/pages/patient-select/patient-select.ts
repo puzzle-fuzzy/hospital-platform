@@ -3,14 +3,16 @@ import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
-import { createLatestRequestGuard } from "../../services/latest-request-guard";
+import {
+	getPageLatestRequestGuard,
+	getPageSingleFlight,
+} from "../../services/page-instance-state";
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
-import { createSingleFlight } from "../../services/single-flight";
 import type {
 	Patient,
 	PatientEvent,
@@ -40,17 +42,12 @@ const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
 
 /**
  * 目录数据和 loading 展示分别维护序号：刷新必须淘汰旧目录响应，
- * 但旧读取不能阻止当前刷新正确结束 loading 状态。
- */
-const directoryDataGuard = createLatestRequestGuard();
-const loadingGuard = createLatestRequestGuard();
-const syncGuard = createLatestRequestGuard();
-/**
+ * 但旧读取不能阻止当前刷新正确结束 loading 状态。三个 guard 和同步
+ * 单飞对象都按当前页面实例隔离，避免页面栈中的选择页互相取消状态。
+ *
  * 自动同步和用户手动刷新可能同时触发；同一页面只允许一个同步请求进入 provider。
  * 服务端仍以 owner + Idempotency-Key 做最终幂等，这里是防止真机重复事件的第一层保护。
  */
-const patientSyncFlight = createSingleFlight<void>();
-
 function toPatientSelectionView(patient: Patient): PatientSelectionView {
 	return {
 		...patient,
@@ -74,6 +71,11 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 进入页面先读取平台目录，再主动同步一次临床映射，保证直接打开选择页也可用。 */
 	loadPatientList(): Promise<void> {
+		const directoryDataGuard = getPageLatestRequestGuard(
+			this,
+			"directory-data",
+		);
+		const loadingGuard = getPageLatestRequestGuard(this, "loading");
 		const dataToken = directoryDataGuard.begin();
 		const loadingToken = loadingGuard.begin();
 		this.setData({ loading: true, error: "" });
@@ -146,7 +148,13 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。 */
 	onSyncPatients(): Promise<void> {
+		const patientSyncFlight = getPageSingleFlight<void>(this, "patient-sync");
 		return patientSyncFlight.run(() => {
+			const directoryDataGuard = getPageLatestRequestGuard(
+				this,
+				"directory-data",
+			);
+			const syncGuard = getPageLatestRequestGuard(this, "sync");
 			const dataToken = directoryDataGuard.begin();
 			const syncToken = syncGuard.begin();
 			this.setData({ syncing: true, error: "" });
