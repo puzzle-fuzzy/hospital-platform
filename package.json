@@ -11,7 +11,7 @@
 	"scripts": {
 		"architecture:audit": "bun tools/architecture-audit.mjs",
 		"build": "turbo run build",
-		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm provider:audit && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
 		"db:integration": "pnpm --filter @hospital/persistence integration",
 		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"db:schema": "pnpm --filter @hospital/persistence schema",
@@ -22,6 +22,7 @@
 		"infra:up": "docker compose -f infra/docker-compose.yml up -d",
 		"lint": "biome lint .",
 		"migration:audit": "bun tools/migration-inventory-audit.mjs",
+		"provider:audit": "bun tools/provider-intake-audit.mjs",
 		"runtime:preflight": "pnpm --filter @hospital/worker preflight",
 		"runtime:smoke": "pnpm --filter @hospital/worker runtime-smoke",
 		"provider:smoke": "pnpm --filter @hospital/worker provider-smoke",

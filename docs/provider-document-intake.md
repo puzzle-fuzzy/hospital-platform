@@ -3,6 +3,9 @@
 本文是新 provider 文档到达后的统一入口。它适用于众阳、HIS、云健康、医保、微信支付、外部小程序和 web-view 服务。
 旧端代码、旧网络请求或某次成功响应只能作为线索，不能单独作为新 contract 的依据。
 
+仓库级结构门禁为 `pnpm provider:audit`，并已纳入 `pnpm check`。它只检查文档是否登记状态、来源指纹、
+脱敏边界、冻结/未开放边界、下一步证据和 `docs/README.md` 入口；不会替代 Provider/院方对业务事实的确认。
+
 截至 2026-08-16，最近一批挂号/支付/退款材料的接收记录见
 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。
 该记录当前为 `normalized`，用于说明“已经解析过哪些事实、还缺哪些前置依赖”，不代表已获得生产权限或允许注册接口。
