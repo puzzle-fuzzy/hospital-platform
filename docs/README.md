@@ -46,6 +46,7 @@
 | [`provider-document-intake.md`](provider-document-intake.md) | 新 provider 文档的接收、标准化、冻结和验收流程 |
 | [`provider-contract-template.md`](provider-contract-template.md) | 收到新文档后逐 endpoint 填写请求、响应、错误、状态、权限和验收证据的模板 |
 | [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md) | 本轮挂号登记、支付挂号和外部退款文档的 SHA-256、字段、状态、依赖缺口和冻结决策；当前为 `normalized` |
+| [`provider-intake/2026-08-16-outpatient-settlement-insurance.md`](provider-intake/2026-08-16-outpatient-settlement-insurance.md) | 门诊结算、支付查单、关单、取消结算和医保回写材料的指纹、流程顺序和 SET-01 至 SET-08 实现缺口；当前为 `normalized` |
 | [`medical-insurance-contract-v1.md`](medical-insurance-contract-v1.md) | 医保金额、状态和回写契约 |
 | [`appointment-write-contract-v1.md`](appointment-write-contract-v1.md) | 预约写入/锁号/取消的冻结边界 |
 | [`migration/payment-contract.md`](migration/payment-contract.md) | 门诊支付、挂号医保支付、微信预支付和 Provider 支付挂号状态的边界 |

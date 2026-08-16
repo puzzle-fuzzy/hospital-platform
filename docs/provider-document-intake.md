@@ -7,6 +7,10 @@
 [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md)。
 该记录当前为 `normalized`，用于说明“已经解析过哪些事实、还缺哪些前置依赖”，不代表已获得生产权限或允许注册接口。
 
+同日补充复核的门诊结算、支付状态和医保回写材料见
+[`provider-intake/2026-08-16-outpatient-settlement-insurance.md`](provider-intake/2026-08-16-outpatient-settlement-insurance.md)。
+它们只补充流程事实和内容指纹；支付、医保、退款和 HIS 回写仍按最后阶段处理，不能因为材料齐全就打开 gate。
+
 ## 1. 接收阶段
 
 文档可以来自文件、网页、OpenAPI、接口导出、请求/响应样例、抓包、录屏或 provider 工程师确认；无论来源形式如何，
