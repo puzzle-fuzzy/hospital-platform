@@ -565,7 +565,7 @@ test("default auth dependency fails closed instead of issuing a fake token", asy
 		success: false,
 		error: {
 			code: "dependency-not-configured",
-			message: "Required service dependency is not configured",
+			message: "该服务暂未配置完成，请稍后重试",
 		},
 	});
 });
@@ -1095,7 +1095,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 		success: false,
 		error: {
 			code: "provider-request-rejected",
-			message: "External service rejected the request",
+			message: "外部服务拒绝了本次请求，请稍后重试",
 		},
 	});
 });
@@ -1255,7 +1255,7 @@ test("report directory resolves internal patient ownership before provider looku
 		success: false,
 		error: {
 			code: "report-patient-not-found",
-			message: "Report patient not found",
+			message: "当前就诊人暂无可查询的报告",
 		},
 	});
 	expect(directoryInput).toBeUndefined();
@@ -1436,7 +1436,7 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 		success: false,
 		error: {
 			code: "dependency-not-configured",
-			message: "Required service dependency is not configured",
+			message: "该服务暂未配置完成，请稍后重试",
 		},
 	});
 });

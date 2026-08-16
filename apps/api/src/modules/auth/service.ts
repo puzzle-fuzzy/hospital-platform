@@ -112,14 +112,14 @@ export async function requirePrincipal(
 ): Promise<SessionPrincipal> {
 	const match = /^Bearer\s+(.+)$/i.exec(authorization?.trim() ?? "");
 	if (!match?.[1]) {
-		throw new HttpError(401, "unauthorized", "Authentication required");
+		throw new HttpError(401, "unauthorized", "请先登录后再继续操作");
 	}
 
 	try {
 		return await sessions.verify(match[1]);
 	} catch (error) {
 		if (error instanceof DependencyNotConfiguredError) throw error;
-		throw new HttpError(401, "unauthorized", "Invalid or expired session");
+		throw new HttpError(401, "unauthorized", "登录状态已失效，请重新登录");
 	}
 }
 
@@ -137,7 +137,8 @@ export function createInMemorySessionTokenService(): SessionTokenService {
 		},
 		async verify(accessToken) {
 			const userId = sessions.get(accessToken);
-			if (!userId) throw new HttpError(401, "unauthorized", "Invalid session");
+			if (!userId)
+				throw new HttpError(401, "unauthorized", "登录状态已失效，请重新登录");
 			return { userId };
 		},
 	};
@@ -173,7 +174,11 @@ export function createRedisSessionTokenService(
 			try {
 				const userId = await store.findUserId(accessToken);
 				if (!userId) {
-					throw new HttpError(401, "unauthorized", "Invalid session");
+					throw new HttpError(
+						401,
+						"unauthorized",
+						"登录状态已失效，请重新登录",
+					);
 				}
 				return { userId };
 			} catch (error) {

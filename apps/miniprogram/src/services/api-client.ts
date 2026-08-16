@@ -42,6 +42,18 @@ type ApiConfig = {
 
 type PaymentParams = WechatPrepayData["payParams"];
 
+/**
+ * 服务端错误码是稳定 contract，用户文案不能依赖 provider 或旧服务返回的英文 message。
+ * 未列出的业务错误仍可使用服务端安全 message 作为兜底，但禁止把 provider 原始报文透传到页面。
+ */
+const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
+	unauthorized: "登录状态已失效，请重新登录",
+	"dependency-not-configured": "该服务暂未配置完成，请稍后重试",
+	"provider-request-rejected": "外部服务拒绝了本次请求，请稍后重试",
+	"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",
+	"persistence-temporarily-unavailable": "数据服务暂时不可用，请稍后重试",
+});
+
 /** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
 export class ApiError extends Error {
 	readonly statusCode: number;
@@ -136,6 +148,9 @@ function setAccessToken(accessToken: string): void {
 }
 
 function parseErrorMessage(data: unknown, statusCode: number): string {
+	const code = parseErrorCode(data);
+	const localizedMessage = CLIENT_ERROR_MESSAGES[code];
+	if (localizedMessage) return localizedMessage;
 	if (
 		isRecord(data) &&
 		isRecord(data.error) &&

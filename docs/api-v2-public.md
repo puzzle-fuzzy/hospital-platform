@@ -206,7 +206,7 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 错误响应统一为：
 
 ```json
-{"success":false,"error":{"code":"unauthorized","message":"Invalid or expired session"}}
+{"success":false,"error":{"code":"unauthorized","message":"登录状态已失效，请重新登录"}}
 ```
 
 当前已注册公共路由会使用以下稳定错误码。`message` 是可记录和排障文本，页面展示应由

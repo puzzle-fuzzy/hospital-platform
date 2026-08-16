@@ -50,10 +50,10 @@ function statusFor(code: string): number {
 }
 
 function messageFor(code: string): string {
-	if (code === "NOT_FOUND") return "Route not found";
-	if (code === "VALIDATION") return "Request validation failed";
-	if (code === "PARSE") return "Request body could not be parsed";
-	return "Internal Server Error";
+	if (code === "NOT_FOUND") return "请求路径不存在";
+	if (code === "VALIDATION") return "请求参数校验失败";
+	if (code === "PARSE") return "请求体无法解析";
+	return "服务器内部错误";
 }
 
 export function errorHandlerPlugin() {
@@ -74,7 +74,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "dependency-not-configured",
-						message: "Required service dependency is not configured",
+						message: "该服务暂未配置完成，请稍后重试",
 					},
 				};
 			}
@@ -96,7 +96,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "health-knowledge-unavailable",
-						message: "Health knowledge content is temporarily unavailable",
+						message: "健康知识内容暂时不可用，请稍后重试",
 					},
 				};
 			}
@@ -107,7 +107,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "health-knowledge-query-invalid",
-						message: "Health knowledge query is invalid",
+						message: "健康知识查询条件不合法",
 					},
 				};
 			}
@@ -118,7 +118,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "health-knowledge-not-found",
-						message: "Health knowledge item not found",
+						message: "未找到对应的健康知识内容",
 					},
 				};
 			}
@@ -132,8 +132,8 @@ export function errorHandlerPlugin() {
 							? "provider-temporarily-unavailable"
 							: "provider-request-rejected",
 						message: error.retryable
-							? "External service is temporarily unavailable"
-							: "External service rejected the request",
+							? "外部服务暂时不可用，请稍后重试"
+							: "外部服务拒绝了本次请求，请稍后重试",
 					},
 				};
 			}
@@ -210,7 +210,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "appointment-record-patient-not-found",
-						message: "Appointment record patient not found",
+						message: "当前就诊人暂无可查询的预约记录",
 					},
 				};
 			}
@@ -229,7 +229,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "report-patient-not-found",
-						message: "Report patient not found",
+						message: "当前就诊人暂无可查询的报告",
 					},
 				};
 			}
@@ -240,7 +240,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "report-not-found",
-						message: "Report detail is not available",
+						message: "报告详情暂不可用",
 					},
 				};
 			}
@@ -259,7 +259,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-order-not-found",
-						message: "Payment order not found",
+						message: "未找到对应的支付订单",
 					},
 				};
 			}
