@@ -52,6 +52,18 @@ const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
 	"provider-request-rejected": "外部服务拒绝了本次请求，请稍后重试",
 	"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",
 	"persistence-temporarily-unavailable": "数据服务暂时不可用，请稍后重试",
+	"payment-order-invalid": "创建订单输入不合法",
+	"payment-order-not-found": "未找到对应的支付订单",
+	"payment-quote-not-found": "服务端报价不存在",
+	"payment-quote-expired": "服务端报价已过期，请重新获取报价",
+	"payment-idempotency-conflict": "幂等键与已有订单的请求内容冲突",
+	"payment-order-conflict": "订单版本已被其他流程更新",
+	"payment-notification-rejected": "微信支付通知验签或内容校验失败",
+	"payment-notification-conflict": "重复通知与已落库事件冲突",
+	"payment-cash-prepay-not-allowed": "当前订单不允许现金预支付",
+	"payment-identity-not-found": "支付身份映射不可用",
+	"payment-prepay-in-progress": "预支付仍在处理，不能并发创建",
+	"payment-prepay-unknown": "预支付结果需向外部服务确认，不能直接重建",
 });
 
 /** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */

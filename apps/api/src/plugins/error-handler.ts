@@ -249,7 +249,11 @@ export function errorHandlerPlugin() {
 				set.status = 400;
 				return {
 					success: false,
-					error: { code: "payment-order-invalid", message: error.message },
+					// 输入错误可能来自领域层内部校验，公共 API 只返回稳定的安全文案。
+					error: {
+						code: "payment-order-invalid",
+						message: "创建订单输入不合法",
+					},
 				};
 			}
 
@@ -270,7 +274,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-quote-not-found",
-						message: "Payment quote not available",
+						message: "服务端报价不存在",
 					},
 				};
 			}
@@ -281,7 +285,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-quote-expired",
-						message: "Payment quote expired",
+						message: "服务端报价已过期，请重新获取报价",
 					},
 				};
 			}
@@ -292,7 +296,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-idempotency-conflict",
-						message: "Idempotency key conflicts with an existing order",
+						message: "幂等键与已有订单的请求内容冲突",
 					},
 				};
 			}
@@ -303,7 +307,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-order-conflict",
-						message: "Payment order changed",
+						message: "订单版本已被其他流程更新",
 					},
 				};
 			}
@@ -314,7 +318,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-notification-conflict",
-						message: "Payment notification conflicts with an existing event",
+						message: "重复通知与已落库事件冲突",
 					},
 				};
 			}
@@ -325,7 +329,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-notification-rejected",
-						message: "Wechat payment notification was rejected",
+						message: "微信支付通知验签或内容校验失败",
 					},
 				};
 			}
@@ -336,7 +340,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-cash-prepay-not-allowed",
-						message: "Cash prepay is not available for this order",
+						message: "当前订单不允许现金预支付",
 					},
 				};
 			}
@@ -347,7 +351,7 @@ export function errorHandlerPlugin() {
 					success: false,
 					error: {
 						code: "payment-identity-not-found",
-						message: "Payment identity is not available",
+						message: "支付身份映射不可用",
 					},
 				};
 			}
@@ -366,8 +370,8 @@ export function errorHandlerPlugin() {
 								: "payment-prepay-unknown",
 						message:
 							error instanceof PaymentPrepayAttemptInProgressError
-								? "Payment prepay is still being processed"
-								: "Payment prepay requires provider confirmation",
+								? "预支付仍在处理，不能并发创建"
+								: "预支付结果需向外部服务确认，不能直接重建",
 					},
 				};
 			}
