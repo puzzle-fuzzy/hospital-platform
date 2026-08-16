@@ -167,6 +167,26 @@ journald 同时记录了完全相同的 requestId、路径 `/health/ready` 和 `
 2. 真实 release provenance 已通过 requestId 关联确认，但当前运行版本仍是旧的 `55fce6c`；
 3. 仓库 `main` 的待发布最新提交尚未部署；候选切换前必须固定 `git rev-parse HEAD`，切换后仍需重新验证 no-store、依赖恢复日志、公网路径和旧 `8001`。
 
+### 3.8 17:59-18:00 CST 当前 release 与公网认证边界复核
+
+本次仍只做只读检查，SSH 使用已授权的 `ps` 账号；没有重启、切换 `current`、修改配置、执行 migration
+或写入业务数据。仓库当前 `main` 为 `8071feb`，服务器 `/home/ps/code/hospital-platform/current`
+仍解析到 `releases/55fce6c`，因此当前公网不能作为 `8071feb` 的业务验收证据。
+
+| 检查项 | 结果 | 迁移判断 |
+| --- | --- | --- |
+| 新 API systemd | `hospital-platform-api-v2.service=active`，Bun PID `2935571`，监听 `10.0.0.3:18081` | 新 API 进程仍在运行，但版本落后于仓库 `main` |
+| 旧 Python API | PID `636918` 仍监听 `0.0.0.0:8001` | 旧服务仍在，未发生端口抢占或停机 |
+| 新 Worker | `hospital-platform-worker-v2.service=inactive` | outbox、支付查单和通知补偿不能宣称在线运行 |
+| 公网健康检查 | `/api/v2/health/live`、`/api/v2/health/ready` 返回 200，ready body 为 database/redis/schema=`ok` | 只证明当前 release 的基础探针可用 |
+| 公网缓存控制 | live/ready 响应未返回 `Cache-Control: no-store` | 当前 release 未包含候选健康探针修复，不能作为发布完成证据 |
+| 公网系统探针 | `/api/v2/system/ping` 返回 200，并透传唯一 `X-Request-Id` | 公网 `/api/v2` 到新 API 的基础路由可关联 |
+| 未登录患者端路由 | `/api/v2/patients`、`/appointments/departments`、`/reports`、`/payments/outpatient/records` 均返回 401 `unauthorized` | 路由注册和认证边界存在；不代表 provider、患者映射或真机业务成功 |
+
+下一步发布门禁固定为：先在服务器保存仓库 `main` 的确切 commit，构建候选 release 并在临时端口验证
+live/ready/no-store 和依赖恢复，再原子切换 `current`；切换后同时复测公网 `/api/v2`、旧 `8001`、
+systemd 状态、requestId 关联和回滚路径。完成这些证据前，不打开患者同步真实验收、报告 gate 或任何支付 gate。
+
 ## 4. 当前不可宣称的内容
 
 - 不能宣称整个 Redis 实例已完成隔离；新 API 会话已经迁移到 DB3/`hospital_v2`，但旧服务仍在 DB1 使用全权限 `admin`；
