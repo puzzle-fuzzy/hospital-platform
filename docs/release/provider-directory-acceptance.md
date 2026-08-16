@@ -11,10 +11,11 @@
 | 预约历史 | `GET /api/v1/appointments/records` | 按内部 patientId 读取有限日期范围内的脱敏记录摘要 | 详情、取消、重试写入、挂号费、支付状态和 HIS 回写 |
 | 报告目录 | `GET /api/v1/reports` | 读取 LIS/PACS/ECG 摘要 | 体检报告、LIS 详情、诊断全文、解读、文件下载、门诊病历 |
 | LIS 报告详情 | `GET /api/v1/reports/:reportId` | 通过服务端短期 opaque 引用读取白名单检测项 | 真实详情资源授权、文件下载、解读、PACS/ECG/体检详情 |
+| 门诊费用目录 | `GET /api/v1/payments/outpatient/records` | 按内部 patientId 分别读取 `unpaid`/`paid` 费用展示目录 | 创建支付订单、微信调起、医保授权/结算、退款和 HIS 回写 |
 
 `ZHONGYANG_PATIENT_DIRECTORY_READY`、`ZHONGYANG_APPOINTMENT_DIRECTORY_READY`、
 `ZHONGYANG_APPOINTMENT_RECORDS_READY`、`ZHONGYANG_REPORT_DIRECTORY_READY` 和
-`ZHONGYANG_REPORT_DETAIL_READY` 是五个独立 gate。
+`ZHONGYANG_REPORT_DETAIL_READY`、`ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是六个独立 gate。
 共享连接地址不代表共享验收结果。
 
 截至 2026-08-16，服务器到真实 provider 的预约科室/排班只读回归已通过；线上实测确认目录
@@ -79,6 +80,7 @@ pnpm check
 - 报告测试不把 provider 报告号、患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
 - LIS 详情测试证明 provider 报告号只用于 adapter 请求，响应只包含白名单检测项；报告引用测试证明 owner/TTL 失败时不会读取详情。
 - 门诊费用服务测试必须使用带时区含义的固定 `Date`，证明最近 30 个 `Asia/Shanghai` 日历日不会随部署机器本地时区变化。
+- 门诊费用 smoke 必须分别读取 `unpaid` 和 `paid`，验证响应状态与请求状态一致，并确认不会触发支付、医保或结算写入。
 
 ## B. API 层只读 smoke
 
@@ -126,6 +128,7 @@ $env:ZHONGYANG_APPOINTMENT_DIRECTORY_READY = "true"
 $env:ZHONGYANG_APPOINTMENT_RECORDS_READY = "true"
 $env:ZHONGYANG_REPORT_DIRECTORY_READY = "true"
 $env:ZHONGYANG_REPORT_DETAIL_READY = "true"
+$env:ZHONGYANG_OUTPATIENT_PAYMENT_READY = "true"
 $env:ZHONGYANG_BASE_URL = "https://<provider-host>"
 # 如 provider 合同要求，再注入服务端 token
 $env:ZHONGYANG_AUTHORIZATION_TOKEN = "<secret-from-secret-store>"
