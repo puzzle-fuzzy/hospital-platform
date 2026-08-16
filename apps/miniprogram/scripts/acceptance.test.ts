@@ -929,6 +929,23 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 	}
 });
 
+test("every registered native page keeps async state instance-scoped", async () => {
+	const app = JSON.parse(await source("app.json")) as {
+		pages: string[];
+	};
+
+	for (const pagePath of app.pages) {
+		const page = await source(`${pagePath}.ts`);
+		// app.json 是微信运行时的页面事实源；按注册表反向扫描，避免新页面
+		// 绕过人工维护的固定数组，把 guard 或单飞对象重新放回模块顶层。
+		expect(page).not.toContain("createLatestRequestGuard(");
+		expect(page).not.toContain("createSingleFlight<");
+		if (page.includes("isCurrent(")) {
+			expect(page).toContain("getPageLatestRequestGuard");
+		}
+	}
+});
+
 test("native page delegates token state to the session service", async () => {
 	const page = await source("pages/index/index.ts");
 	const session = await source("services/session-service.ts");
