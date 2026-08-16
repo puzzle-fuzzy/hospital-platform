@@ -9,7 +9,8 @@ import {
 import type { PaymentOrderPayload } from "@hospital/contracts";
 import type { PaymentOrder, PaymentOrderService } from "@hospital/domain";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
-import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import type { SessionTokenService } from "../auth/service";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import type { WechatPrepayService } from "./service";
 import type { WechatPaymentNotificationService } from "./notification-service";
 
@@ -60,7 +61,11 @@ export function paymentsModule(
 	wechatPaymentNotifications: WechatPaymentNotificationService,
 	sessions: SessionTokenService,
 ) {
+	const authentication = createRequestPrincipalResolver(sessions, [
+		"/payments/wechat/notifications",
+	]);
 	return new Elysia({ name: "payments-module" })
+		.onTransform({ as: "local" }, authentication.authenticate)
 		.post(
 			"/payments/wechat/notifications",
 			async ({ request, headers }) => {
@@ -81,11 +86,8 @@ export function paymentsModule(
 		)
 		.post(
 			"/payments/orders",
-			async ({ body, headers }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ body, headers, request }) => {
+				const principal = await authentication.get(request);
 				const order = await paymentOrders.createFromQuote({
 					ownerUserId: principal.userId,
 					patientId: body.patientId,
@@ -103,11 +105,8 @@ export function paymentsModule(
 		)
 		.get(
 			"/payments/orders/:orderId/wechat-prepay",
-			async ({ headers, params }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ headers, params, request }) => {
+				const principal = await authentication.get(request);
 				return success(
 					await wechatPrepay.read({
 						ownerUserId: principal.userId,
@@ -125,11 +124,8 @@ export function paymentsModule(
 		)
 		.post(
 			"/payments/orders/:orderId/wechat-prepay",
-			async ({ headers, params }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ headers, params, request }) => {
+				const principal = await authentication.get(request);
 				return success(
 					await wechatPrepay.create({
 						ownerUserId: principal.userId,
@@ -147,11 +143,8 @@ export function paymentsModule(
 		)
 		.get(
 			"/payments/orders/:orderId",
-			async ({ headers, params }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ params, request }) => {
+				const principal = await authentication.get(request);
 				const order = await paymentOrders.get(principal.userId, params.orderId);
 				return success(paymentOrderView(order));
 			},

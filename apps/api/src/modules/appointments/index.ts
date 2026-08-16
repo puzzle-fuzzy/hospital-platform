@@ -6,7 +6,8 @@ import {
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
-import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import type { SessionTokenService } from "../auth/service";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import type { AppointmentService } from "./service";
 
 const AppointmentHeaders = t.Object({
@@ -37,11 +38,13 @@ export function appointmentsModule(
 	appointmentService: AppointmentService,
 	sessions: SessionTokenService,
 ) {
+	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "appointments-module" })
+		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/appointments/departments",
-			async ({ headers }) => {
-				await requirePrincipal(headers.authorization, sessions);
+			async ({ request, headers }) => {
+				await authentication.get(request);
 				return success(
 					await appointmentService.listDepartments(
 						adapterContextFromHeaders(headers),
@@ -56,8 +59,8 @@ export function appointmentsModule(
 		)
 		.get(
 			"/appointments/schedules",
-			async ({ headers, query }) => {
-				await requirePrincipal(headers.authorization, sessions);
+			async ({ request, headers, query }) => {
+				await authentication.get(request);
 				return success(
 					await appointmentService.listSchedules(
 						query,
@@ -74,11 +77,8 @@ export function appointmentsModule(
 		)
 		.get(
 			"/appointments/records",
-			async ({ headers, query }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ request, headers, query }) => {
+				const principal = await authentication.get(request);
 				const { patientId, ...recordQuery } = query;
 				return success(
 					await appointmentService.listRecords(

@@ -12,7 +12,8 @@ import type {
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import { Elysia, t } from "elysia";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
-import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import type { SessionTokenService } from "../auth/service";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 
 export class OutpatientPaymentPatientNotFoundError extends Error {
 	constructor() {
@@ -233,24 +234,27 @@ export function outpatientPaymentsModule(
 	service: OutpatientPaymentService,
 	sessions: SessionTokenService,
 ) {
-	return new Elysia({ name: "outpatient-payments-module" }).get(
-		"/payments/outpatient/records",
-		async ({ headers, query }) => {
-			const principal = await requirePrincipal(headers.authorization, sessions);
-			return success(
-				await service.list(
-					principal.userId,
-					query.patientId,
-					query.status,
-					adapterContextFromHeaders(headers),
-				),
-			);
-		},
-		{
-			headers: AuthorizationHeaders,
-			query: OutpatientPaymentQuery,
-			response: { 200: OutpatientPaymentListResponse },
-			tags: ["payments"],
-		},
-	);
+	const authentication = createRequestPrincipalResolver(sessions);
+	return new Elysia({ name: "outpatient-payments-module" })
+		.onTransform({ as: "local" }, authentication.authenticate)
+		.get(
+			"/payments/outpatient/records",
+			async ({ request, headers, query }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await service.list(
+						principal.userId,
+						query.patientId,
+						query.status,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: AuthorizationHeaders,
+				query: OutpatientPaymentQuery,
+				response: { 200: OutpatientPaymentListResponse },
+				tags: ["payments"],
+			},
+		);
 }

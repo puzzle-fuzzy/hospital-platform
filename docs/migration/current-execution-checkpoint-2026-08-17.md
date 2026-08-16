@@ -138,6 +138,11 @@ HIS 回写完成。
 9 个 workspace 的 typecheck/test 和 build。该结果只证明代码与日志契约一致；线上 release、公开网络
 readiness 以及真实微信/Provider 业务证据仍需单独记录，不能由本地门禁替代。
 
+本轮还修正了受保护 API 的认证顺序：Elysia 在 query/body/params schema 校验前验证 Bearer，
+未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
+回调仍是明确公开入口。该修正已由 API 集成测试覆盖，但尚未形成新的候选 release，当前线上 `bab0ce2`
+不能据此宣称已经具备该行为；发布前必须重新完成候选 bundle、生产 preflight、公网认证边界和旧服务共存核对。
+
 随后 `bab0ce2` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。切换后的 journald 只有服务启动、
 健康检查和未登录认证边界请求，没有新的真实微信、患者同步、预约历史或门诊费用请求，因此 P0 业务

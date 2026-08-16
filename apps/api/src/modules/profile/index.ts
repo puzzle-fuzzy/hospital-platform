@@ -5,7 +5,8 @@ import {
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
-import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import type { SessionTokenService } from "../auth/service";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import type { UserProfileService } from "./service";
 
 const ProfileHeaders = t.Object({
@@ -18,14 +19,13 @@ export function profileModule(
 	profileService: UserProfileService,
 	sessions: SessionTokenService,
 ) {
+	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "profile-module" })
+		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/me/profile",
-			async ({ headers }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ request }) => {
+				const principal = await authentication.get(request);
 				return success(await profileService.get(principal.userId));
 			},
 			{
@@ -36,11 +36,8 @@ export function profileModule(
 		)
 		.put(
 			"/me/profile",
-			async ({ body, headers }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ body, headers, request }) => {
+				const principal = await authentication.get(request);
 				return success(
 					await profileService.update(
 						principal.userId,

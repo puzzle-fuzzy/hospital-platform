@@ -378,6 +378,30 @@ test("provider-contract-dependent patient routes remain unregistered", async () 
 	}
 });
 
+test("protected routes authenticate before query validation", async () => {
+	const protectedRequests = [
+		"/api/v1/appointments/records",
+		"/api/v1/payments/outpatient/records?status=unpaid",
+		"/api/v1/reports",
+		"/api/v1/me/profile",
+	] as const;
+
+	for (const path of protectedRequests) {
+		const response = await createApp().handle(
+			new Request(`http://localhost${path}`),
+		);
+
+		expect(response.status).toBe(401);
+		expect(await response.json()).toEqual({
+			success: false,
+			error: {
+				code: "unauthorized",
+				message: "请先登录后再继续操作",
+			},
+		});
+	}
+});
+
 test("current user endpoint only returns the platform session user id", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const issued = await sessions.issue("fixture-user-0001");

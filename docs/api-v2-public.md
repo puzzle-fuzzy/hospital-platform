@@ -32,6 +32,10 @@ Authorization: Bearer <accessToken>
 `accessToken` 是平台 opaque 会话，不应由小程序解析、拼接用户身份或永久缓存。收到
 `401 unauthorized` 后只能重新执行一次 `wx.login()` 并重试，不能无限循环重试。
 
+受保护路由会在 TypeBox 校验 query、body 和 params 之前验证 Bearer 会话；因此未登录或会话失效时，
+即使缺少业务参数也必须返回稳定的 `401 unauthorized`。只有认证通过后，才会返回 `400 validation`，
+用于表示业务输入本身不完整或不合法；小程序不能把这两类错误混为一谈。
+
 微信登录只接收一次性 `wx.login()` code：
 
 ```http

@@ -1,8 +1,9 @@
 import { Elysia, t } from "elysia";
 import { PatientListResponse, success } from "@hospital/contracts";
 import type { PatientService } from "./service";
-import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import type { SessionTokenService } from "../auth/service";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 
 const AuthorizationHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
@@ -25,14 +26,13 @@ export function patientsModule(
 	patientService: PatientService,
 	sessions: SessionTokenService,
 ) {
+	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "patients-module" })
+		.onTransform({ as: "local" }, authentication.authenticate)
 		.post(
 			"/patients/sync",
-			async ({ headers }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ request, headers }) => {
+				const principal = await authentication.get(request);
 				return success(
 					await patientService.sync(
 						principal.userId,
@@ -48,11 +48,8 @@ export function patientsModule(
 		)
 		.get(
 			"/patients",
-			async ({ headers }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ request }) => {
+				const principal = await authentication.get(request);
 				return success(await patientService.list(principal.userId));
 			},
 			{

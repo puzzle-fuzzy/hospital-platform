@@ -4,8 +4,9 @@ import {
 	ReportListResponse,
 	success,
 } from "@hospital/contracts";
-import { requirePrincipal, type SessionTokenService } from "../auth/service";
+import type { SessionTokenService } from "../auth/service";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import type { ReportService } from "./service";
 
 const ReportHeaders = t.Object({
@@ -27,14 +28,13 @@ export function reportsModule(
 	reportService: ReportService,
 	sessions: SessionTokenService,
 ) {
+	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "reports-module" })
+		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/reports/:reportId",
-			async ({ headers, params }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
 				return success(
 					await reportService.detail(
 						principal.userId,
@@ -54,11 +54,8 @@ export function reportsModule(
 		)
 		.get(
 			"/reports",
-			async ({ headers, query }) => {
-				const principal = await requirePrincipal(
-					headers.authorization,
-					sessions,
-				);
+			async ({ request, headers, query }) => {
+				const principal = await authentication.get(request);
 				const { patientId, ...reportQuery } = query;
 				return success(
 					await reportService.list(

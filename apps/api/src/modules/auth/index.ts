@@ -6,19 +6,20 @@ import {
 	WechatLoginRequest,
 } from "@hospital/contracts";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
-import {
-	requirePrincipal,
-	type AuthService,
-	type SessionTokenService,
-} from "./service";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
+import type { AuthService, SessionTokenService } from "./service";
 
 /** 患者端登录入口：只接收微信临时 code，不接收或返回 provider secret。 */
 export function authModule(
 	authService: AuthService,
 	sessions: SessionTokenService,
 ) {
+	const authentication = createRequestPrincipalResolver(sessions, [
+		"/auth/wechat",
+	]);
 	return (
 		new Elysia({ name: "auth-module" })
+			.onTransform({ as: "local" }, authentication.authenticate)
 			// 小程序只提交 wx.login 产生的一次性 code，身份兑换始终发生在服务端。
 			.post(
 				"/auth/wechat",
@@ -35,11 +36,8 @@ export function authModule(
 			// 会话恢复只验证平台 Bearer token，不把 provider subject 返回给客户端。
 			.get(
 				"/me",
-				async ({ headers }) => {
-					const principal = await requirePrincipal(
-						headers.authorization,
-						sessions,
-					);
+				async ({ request }) => {
+					const principal = await authentication.get(request);
 					return success({ user: { id: principal.userId } });
 				},
 				{
