@@ -48,7 +48,7 @@ MySQL、Redis 或公网域名的真实可用性。线上验收仍必须按本文
 服务端记录 1 条 active 患者和 1 条 `his-patient` 映射。23:17 又通过 `/me` 完成会话恢复并重复同步成功。
 
 随后历史版本 `41c9c18` 已完成生产切换，预约科室/排班真实只读请求返回 200，排班快照出现
-`snapshotPersistenceStatus=persisted`；这只证明当前 release 的预约只读与快照观察事实可用，
+`snapshotPersistenceStatus=persisted`；这只证明当时 release 的预约只读与快照观察事实可用，
 不代表 `bab0ce2` 的患者切换、预约写入、支付或真机完整验收通过。该历史发布与预约证据见
 [`release/41c9c18-production-acceptance-2026-08-16.md`](release/41c9c18-production-acceptance-2026-08-16.md)。
 
