@@ -64,7 +64,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `appointment.directory.departments.requested` | 预约科室目录读取 | 记录读取开始、provider 和 trace |
 | `appointment.directory.departments.synced` | 预约科室目录读取 | 记录 provider request id 和科室数量 |
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |
-| `appointment.directory.schedules.synced` | 预约排班目录读取 | 记录 provider request id 和排班数量 |
+| `appointment.directory.schedules.synced` | 预约排班目录读取 | 记录 provider request id、排班数量和 `snapshotPersistenceStatus`；该字段区分只读 Provider 结果与未来写入前的快照事实 |
 | `appointment.directory.departments.failed` / `appointment.directory.schedules.failed` | 预约目录读取 | 记录错误类型，不记录 provider 原始错误报文 |
 | `outpatient.payment.records.requested` | 门诊费用只读查询 | 仅在 patientId 通过服务层非空校验后记录内部 patientId、查询状态和 trace；不记录 provider 患者号、订单号或原始报文 |
 | `outpatient.payment.records.loaded` | 门诊费用只读查询 | 记录 provider request id、状态和返回数量；金额只保留服务端读模型，不记录完整费用明细 |

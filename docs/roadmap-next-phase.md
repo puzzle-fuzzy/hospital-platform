@@ -5,12 +5,12 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-16 23:18:00 CST）
+### 线上实时状态（2026-08-16 23:38:37 CST）
 
 - 新 API `current=a11f117`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。
 - 旧 Python API 仍监听 `0.0.0.0:8001`，未停止；Worker 仍 inactive。支付、医保、HIS、报告 gate 仍关闭。
 - 23:08:55 CST 的一次真实微信登录因 `PersistenceUnavailableError` 返回 503；23:09:08 下一次登录成功，随后 `/patients` 和完整患者同步均返回 200，记录 1 条 active 患者和 1 条 `his-patient` 映射；23:17 又完成 `/me` 会话恢复和重复同步。服务端真实微信登录与单患者目录同步现标记为“部分验收通过”。
-- Redis 实际 TTL、多就诊人切换/失效恢复、预约/报告/门诊费用 Provider 读操作、真机页面网络对齐和普通资料真实读写仍未完成；不能把本次成功链路扩大解释为全部患者业务验收。完整证据见 [`release/wechat-patient-sync-production-acceptance-2026-08-16.md`](release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
+- 23:37:56-23:37:57 已在微信开发者工具完成预约科室/排班只读页面验证：科室 62 条、排班 1 条均返回 200；排班短期快照落库出现 `PersistenceUnavailableError`，因此只读目录可展示，但写入前置仍不可用。Redis 实际 TTL、多就诊人切换/失效恢复、预约历史/报告/门诊费用 Provider 读操作、真机页面网络对齐和普通资料真实读写仍未完成。完整证据见 [`release/wechat-patient-sync-production-acceptance-2026-08-16.md`](release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
 
 ### 已经具备
 
@@ -19,7 +19,7 @@
 - 新服务已具备生产模式启动日志、MySQL/Redis/schema 探针、Pino 结构化日志和 fail-closed 依赖注入。
 - 微信登录、平台会话、就诊人列表、就诊人独立选择页面已经形成患者端纵向切片；服务端真实登录和单患者同步已有生产日志证据，患者切换与真机完整验收仍未完成。
 - 普通个人资料已形成独立纵向切片：`GET/PUT /api/v2/me/profile` 只处理昵称、性别、年龄、邮箱，使用 `version` 乐观锁；0014、生产 schema、API 重启、ready 和未登录公网 401 已验收，真实微信读写/409 与真机证据仍待完成；头像、实名、手机号和微信身份继续关闭。证据见 [`release/user-profile-production-acceptance-2026-08-16.md`](release/user-profile-production-acceptance-2026-08-16.md)。
-- 预约科室、排班、预约历史的只读 contract、adapter、服务端脱敏和排班短期快照已经实现。
+- 预约科室、排班、预约历史的只读 contract、adapter、服务端脱敏和排班短期快照已经实现；当前 release 已取得科室/排班真实 Provider 结果，但快照持久化状态需先恢复稳定，不能把目录 200 当成写入授权。
 - 爽约记录已实现为预约历史 `status=missed` 的安全派生子视图，固定近 90 天并支持切换就诊人；未知状态不推断为爽约，真实 provider、公网和真机证据仍待完成。
 - 预约挂号页面已恢复旧版“两列级联”交互：左侧科室独立滚动，右侧按日期和 12 条分批展示号源，避免一次性渲染全部 provider 排班。
 - 门诊缴费只读目录、原生页面和“我的”页面基础入口已经接入；支付调起、医保授权、结算回写仍保持明确未开放。
@@ -55,6 +55,7 @@
 - 2026-08-16 21:00-22:06 CST 复核 `d177991` 切换窗口的真实日志：没有出现该 release 的微信、患者、预约、报告或门诊费用业务事件；MySQL 与 Schema 探针发生四次同步瞬态不可用后恢复，Redis 始终正常。该历史证据不能替代当前 release 的真实业务验收，详见 [`release/current-d177991-observability-acceptance-2026-08-16.md`](release/current-d177991-observability-acceptance-2026-08-16.md)。
 - 候选 `a11f117` 已完成 MySQL/Schema 只读探针一次有界重试的本地完整门禁、真实生产 env preflight、`127.0.0.1:18088` 隔离 smoke，并于 22:24 CST 原子切换为当前 `current`；该修复降低坏连接造成的瞬态 readiness 误报，但不替代数据库稳定性观察或真实业务验收，证据见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
 - 2026-08-16 22:24-22:25 CST：`a11f117` 在依赖探针恢复后原子切换到生产 `current`，只重启新 API；内网 `10.0.0.3:18081`、公网 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 全部通过，旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。启动日志确认 production mode、MySQL/Redis/schema `ok`；本次没有业务 Provider 请求或业务写入，真实微信/患者/预约/费用/真机仍待分层验收。证据见 [`release/a11f117-production-acceptance-2026-08-16.md`](release/a11f117-production-acceptance-2026-08-16.md)。
+- 2026-08-16 23:37-23:38 CST：`a11f117` 真实账号在开发者工具打开预约目录，科室 Provider 返回 62 条、排班 Provider 返回 1 条并由页面展示；同一排班请求的快照持久化出现 `PersistenceUnavailableError`，API 仍按只读降级策略返回 200。该策略已在服务代码、测试和日志字段中明确，只有 `snapshotPersistenceStatus=persisted` 才能作为未来写入前置观察事实；证据见 [`release/wechat-patient-sync-production-acceptance-2026-08-16.md`](release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
 - 2026-08-16 22:37 CST：`a11f117` 切换后连续 10 次、约 21 秒 readiness 均为 `ready`，切换后日志没有新的 persistence 探针抖动或业务事件；运行时前置已稳定，可以进入真实微信会话验收，但不能把这段观察当作患者、Provider 或真机业务成功。
 - 2026-08-16：公网冻结检查确认带完整查询参数的报告、预约排班和门诊费用入口在未登录时均返回 401；病历、医保授权、预约写入等未注册入口返回 404。完全缺少报告参数时仅返回通用 400 `validation`，不包含 schema 细节、患者数据或 Provider 错误；该行为作为当前 Elysia 协议校验顺序记录，不改变业务 route 的 fail-closed 边界。
 
@@ -67,7 +68,7 @@
 - 2026-08-16 已定位并修复预约科室/排班目录错误：科室接口需要日期窗口，排班响应中的 `remainingNumber` 可能为 `null`，服务端现使用真实的 `usableSourceNum` 映射可用号源；线上新版本已直接回归科室和排班 provider。
 - 预约历史的标识根因已经确认：患者目录的 `thirdPatientId` 不能直接当作预约历史接口的患者标识；新代码已增加 `patInfosFind` 档案查询和 `his-patient` 独立映射，release `b1b84d7` 与 `ca3a877` 已上线，`0012_patient_provider_references`、`0013_patient_directory_snapshot` 均通过生产 schema probe，仍需重新同步真实账号并完成公网业务 smoke/真机验收。
 - 预约写号、锁号、取消、实际挂号费、医保和微信支付不能仅凭旧页面字段直接开放；仍需 provider 合同和脱敏 fixture。
-- 当前优先级上调为“持久化稳定性观察 → 当前 release 真实只读业务验收”：readiness 只能在 `database/redis/schema` 连续稳定后作为验收前置，不能把历史 release 的业务日志或一次 preflight 通过当成当前版本成功。
+- 当前优先级上调为“持久化稳定性观察 → 当前 release 真实只读业务验收”：readiness 只能在 `database/redis/schema` 连续稳定后作为验收前置，且排班快照必须出现 `snapshotPersistenceStatus=persisted`；不能把历史 release 的业务日志或一次 preflight 通过当成当前版本成功。
 
 ## 业务实施顺序
 
@@ -86,7 +87,7 @@
 3. 预约记录：服务端根据 owner 解析 `his-patient` 临床映射，返回脱敏摘要；禁止回退到目录 `thirdPatientId`。
 4. 排班快照：只作为服务端观察事实，带 TTL；不把客户端 `scheduleId` 当成锁号授权。
 
-验收标准：真实 provider 只读请求在服务器、公网 API 和真机三层均有证据；日志能按 `traceId` 找到 provider 操作、请求号、HTTP 状态和重试判断。
+验收标准：真实 provider 只读请求在服务器、公网 API 和真机三层均有证据；日志能按 `traceId` 找到 provider 操作、请求号、HTTP 状态和重试判断；排班快照的 `snapshotPersistenceStatus` 必须明确，只有 `persisted` 才能进入后续写入前置评估。
 
 ### 阶段 C：预约写入
 

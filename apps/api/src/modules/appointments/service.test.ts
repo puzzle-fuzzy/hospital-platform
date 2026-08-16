@@ -3,6 +3,7 @@ import type {
 	AppointmentDirectoryGateway,
 	PatientRepository,
 } from "@hospital/domain";
+import { createLogger } from "@hospital/observability";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
 import {
 	AppointmentRecordQueryError,
@@ -256,6 +257,7 @@ test("appointment date ranges accept the configured span and reject anything wid
 });
 
 test("snapshot persistence failure does not turn a read directory into fake success", async () => {
+	const lines: string[] = [];
 	const schedule = {
 		departmentId: "dept-001",
 		departmentName: "心内科",
@@ -297,6 +299,11 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 			findActive: async () => undefined,
 		},
 		createScheduleId: () => "platform-schedule-002",
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
 	});
 
 	await expect(
@@ -308,6 +315,22 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 		items: [{ ...schedule, scheduleId: "platform-schedule-002" }],
 		total: 1,
 	});
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.schedule_snapshots.failed",
+			errorType: "Error",
+		}),
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.synced",
+			snapshotPersistenceStatus: "unavailable",
+		}),
+	);
 });
 
 test("appointment queries reject impossible calendar dates before provider access", async () => {

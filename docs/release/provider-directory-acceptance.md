@@ -19,8 +19,8 @@
 共享连接地址不代表共享验收结果。
 
 当前 release 的业务证据必须按进程启动时间隔离：2026-08-16 22:24:52 CST 之后的
-`a11f117` 日志窗口尚未出现上述业务事件；此前同一 unit 的历史事件不能回填当前 release
-的真实验收。期间 MySQL/Schema 探针曾瞬态不可用，当前已恢复，详见
+`a11f117` 日志窗口已经出现微信登录、患者同步和预约目录只读事件；此前同一 unit 的历史事件
+不能回填当前 release 的真实验收。期间 MySQL/Schema 探针曾瞬态不可用，当前仍需持续观察，详见
 [`current-d177991-observability-acceptance-2026-08-16.md`](current-d177991-observability-acceptance-2026-08-16.md)。
 
 所有患者作用域能力都必须经过同一条 owner 目录门禁：smoke 先用当前平台 Bearer
@@ -37,6 +37,13 @@
 为 `a11f117`。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据
 仍未完成，因此预约历史不得标记为完整验收。
 
+### 2026-08-16 真实账号与预约目录只读证据
+
+- 23:08:55 的微信登录一次性因持久化暂时不可用返回 503；23:09:08 重试成功，随后 `/me`、患者目录和完整同步均返回 200；单患者结果、会话恢复和同步证据详见 [`wechat-patient-sync-production-acceptance-2026-08-16.md`](wechat-patient-sync-production-acceptance-2026-08-16.md)。
+- 23:37:56-23:37:57 在微信开发者工具中打开预约目录，服务端 journald 记录科室请求返回 62 条、排班请求返回 1 条，页面显示“两列级联”科室和排班结果；本次没有点击锁号、预约、取消或支付动作。
+- 同一排班请求出现 `appointment.schedule_snapshots.failed`，错误类型为 `PersistenceUnavailableError`，但 Provider 只读响应和 API 仍为 200。该行为符合当前阶段边界：只读目录可展示实时 Provider 结果，快照不可用时禁止未来写入；`appointment.directory.schedules.synced` 已增加 `snapshotPersistenceStatus`，维护时不能把它解释为写入前置已通过。
+- 尚未完成 Redis 实际 TTL、多患者切换/失效恢复、预约历史、报告、门诊费用、公网页面网络和真机完整证据；支付、医保、退款与 HIS 回写继续关闭。
+
 ### 2026-08-16 线上发布证据
 
 - 迁移阶段 release：`b1b84d7`、`ca3a877`；当前生产 release：`a11f117`。SSH 只读复核确认
@@ -51,9 +58,8 @@
 - 启动日志：`runtimeMode=production`，数据库、Redis、schema 探针均为 `ok`；患者目录、预约目录、预约记录和门诊缴费配置为 `configured`；报告 gate 继续关闭。患者目录现在可以进入真实 active/inactive 失效与恢复数据验收。
 - `a11f117` 切换后 22:37:19-22:37:40 CST 连续 10 次 readiness 均为 `ready`，没有新的 persistence 探针抖动；这只解除真实业务验收的运行时前置，不代表任何患者/预约/费用 Provider 业务已经通过。
 - 旧服务隔离：`8001` 仍在监听，未重启、未切换旧 Python 服务。
-- SSH 在 2026-08-16 22:31 CST 的只读日志复核中，在 `a11f117` 切换后的筛选窗口只看到健康探针和未登录边界请求，未发现
-  `auth.wechat.*`、`patient.directory.*`、预约、报告或门诊费用业务事件；这表示真实业务验收尚未开始，不能把“没有失败日志”当成成功证据。
-- 尚缺证据：当前微信账号重新同步后的 `hisPatientReferenceCount`、同 key replay 的 operation 日志、预约历史真实响应、真机截图/网络记录和对应 traceId。
+- SSH 在 2026-08-16 22:31 CST 的早期只读复核确实只看到健康探针和未登录边界请求；该历史快照已被后续真实业务证据补充，不能继续用它代表当前 release 的全部状态。
+- 尚缺证据：Redis 实际 TTL、同 key replay 的 operation 日志、多患者切换/失效恢复、预约历史真实响应、报告和门诊费用真实响应、真机截图/网络记录和对应 traceId。
 - `93373d9` 仅作为未切换候选完成了 bundle checksum、真实生产 env preflight 和公网 runtime 复测；其中一次
   readiness 瞬态探针失败后恢复，详见 [`candidate-93373d9-preproduction-smoke-2026-08-16.md`](candidate-93373d9-preproduction-smoke-2026-08-16.md)。
 - 最新候选 `411cd31` 在 `127.0.0.1:18084` 使用真实生产依赖完成 production mode、live/ready 和正常停止验收；

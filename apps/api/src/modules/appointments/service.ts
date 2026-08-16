@@ -41,6 +41,16 @@ const APPOINTMENT_DIRECTORY_RANGE_DAYS = 7;
 const APPOINTMENT_PROVIDER_TIME_ZONE = "Asia/Shanghai";
 /** 排班快照只作为短期服务端观察事实，过期后不能授权后续写入。 */
 const SCHEDULE_SNAPSHOT_TTL_MS = 60_000;
+/**
+ * 只读目录的 Provider 结果和写入前观察快照是两条不同事实链。
+ *
+ * `unavailable` 只表示快照没有落库，不表示 Provider 目录失败；在预约写入
+ * 尚未开放时可以继续展示真实只读结果，但任何未来写入都必须拒绝使用该状态。
+ */
+type ScheduleSnapshotPersistenceStatus =
+	| "persisted"
+	| "unavailable"
+	| "not-required";
 
 export class AppointmentScheduleQueryError extends Error {
 	constructor(message: string) {
@@ -219,7 +229,10 @@ export class AppointmentService {
 					};
 				},
 			);
-			await this.persistScheduleSnapshots(observedSchedules, result.trace);
+			const snapshotPersistenceStatus = await this.persistScheduleSnapshots(
+				observedSchedules,
+				result.trace,
+			);
 			this.logger.info(
 				{
 					event: "appointment.directory.schedules.synced",
@@ -227,6 +240,9 @@ export class AppointmentService {
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
 					itemCount: observedSchedules.length,
+					// 这个字段明确区分“Provider 只读结果成功”和“写入前快照可用”，
+					// 避免后续维护把一条 200 响应误当成已经具备锁号授权。
+					snapshotPersistenceStatus,
 				},
 				"Appointment schedule directory loaded",
 			);
@@ -251,8 +267,9 @@ export class AppointmentService {
 			providerScheduleId: string;
 		}[],
 		trace: { provider: string; requestId: string },
-	): Promise<void> {
-		if (!this.dependencies.snapshots || schedules.length === 0) return;
+	): Promise<ScheduleSnapshotPersistenceStatus> {
+		if (!this.dependencies.snapshots || schedules.length === 0)
+			return "not-required";
 		// observedAt 和 expiresAt 必须来自同一次时钟采样。若分别读取 now，
 		// 请求跨过时间边界时 TTL 会被悄悄拉长，未来写入流程可能使用一条
 		// 与 provider 观察时刻不一致的快照；所有过期判断都以这个基准计算。
@@ -286,6 +303,7 @@ export class AppointmentService {
 				},
 				"Appointment schedule snapshots persisted",
 			);
+			return "persisted";
 		} catch (error) {
 			this.logger.warn(
 				{
@@ -296,6 +314,7 @@ export class AppointmentService {
 				},
 				"Appointment schedule snapshots were not persisted",
 			);
+			return "unavailable";
 		}
 	}
 
