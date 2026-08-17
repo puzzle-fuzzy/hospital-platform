@@ -23,6 +23,9 @@
 - 本轮又将首页、我的和患者选择页的目录状态错误码收敛到
   `patientSelectionResolutionError` / `patientSelectionResolutionMessage`，稳定中文文案继续由公共 API 错误表维护，
   页面不再复制 stale、未绑定和临床映射不可用的分支。该修正只改变客户端错误解释，不改变患者目录、Provider 或支付/医保边界。
+- 本轮继续修正预约目录的级联加载权：初始科室排班被用户切换淘汰后，外层目录请求不能提前关闭新科室的
+  `loading`；只有仍持有对应 schedule token 的请求才能结束加载。该修正只改变小程序状态机，不改变预约目录
+  Provider 请求、号源字段或预约写入边界。
 - 2026-08-17 21:29 CST：再次只读复核当前 `bf67b96`。新 API `18081` 与旧 Python `8001` 仍共存，公网 `health/ready` 返回 `200`、`no-store`，database/redis/schema 均为 `ok`；当前 release 自 `20:30:25` 启动后，日志聚合 `parseErrors=0`，有微信登录 1/1、患者同步 9/9、患者目录读取 18/18，但 `appointment.*`、`outpatient.payment.*`、`report.*` 和 `user.profile.*` 均为 0。该结果只推进运行时、认证和患者目录证据，不能标记“我的挂号”、门诊费用、报告或真机业务已验收。详见 [`release/current-release-p0-observation-2026-08-17-2129.md`](release/current-release-p0-observation-2026-08-17-2129.md)。
 - 当前 `bf67b96` 仍在生产运行，新 API `10.0.0.3:18081` 与旧 Python `8001` 共存；公网 live/ready/system-ping 为 `200/200/200`，live/ready 返回 `Cache-Control: no-store`。
 - 以 `service.started=2026-08-17 20:30:25 CST` 为边界的当前 release 日志聚合 `parseErrors=0`，观察到患者同步成功链 3 次、患者目录读取成功 6 次；没有新的 `auth.wechat.*`、`appointment.records.*` 或 `outpatient.payment.*` 事件。

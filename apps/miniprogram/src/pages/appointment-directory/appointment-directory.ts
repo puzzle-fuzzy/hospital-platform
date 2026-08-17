@@ -101,7 +101,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
 		const directoryToken = directoryGuard.begin();
 		// 新一轮科室目录会使上一轮右栏排班失效，避免刷新完成后旧排班回写。
-		scheduleGuard.begin();
+		const directoryScheduleToken = scheduleGuard.begin();
 		// 刷新开始后，上一轮科室和排班都不再代表当前读取；只让请求守卫失效
 		// 还不够，因为请求等待期间 WXML 仍可能展示旧号源。先清空整个级联
 		// 读模型，等新科室和对应排班都成功后再恢复页面内容。
@@ -144,7 +144,12 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 				}
 			})
 			.finally(() => {
-				if (directoryGuard.isCurrent(directoryToken)) {
+				// 目录请求启动的排班读取可能已经被用户切换科室淘汰；此时
+				// loading 的结束权属于新的科室请求，外层不能提前结束它的加载态。
+				if (
+					directoryGuard.isCurrent(directoryToken) &&
+					scheduleGuard.isCurrent(directoryScheduleToken)
+				) {
 					this.setData({ loading: false });
 				}
 			});
@@ -152,12 +157,13 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 
 	/** 切换左栏科室时只替换右栏数据，保留级联页面的稳定空间。 */
 	loadDepartmentSchedules(departmentId: string): Promise<void> {
-		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
-		const scheduleToken = scheduleGuard.begin();
 		const department = this.data.departments.find(
 			(item) => item.departmentId === departmentId,
 		);
 		if (!department) return Promise.resolve();
+
+		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
+		const scheduleToken = scheduleGuard.begin();
 
 		this.setData({
 			loading: true,

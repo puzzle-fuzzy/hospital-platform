@@ -590,6 +590,10 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directory).toContain("loadDepartmentSchedules");
 	expect(directory).toContain("scheduleGuard");
 	expect(directory).toContain("directoryGuard");
+	expect(directory).toContain("directoryScheduleToken");
+	expect(directory).toContain(
+		"scheduleGuard.isCurrent(directoryScheduleToken)",
+	);
 	expect(directory).toContain("旧科室的排班覆盖当前选择");
 	// 目录刷新失败时不能继续展示上一轮科室和号源；请求守卫只阻止旧响应，
 	// 页面状态仍必须在新请求开始时主动清空。
