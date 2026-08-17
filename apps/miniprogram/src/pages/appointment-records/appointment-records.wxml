@@ -46,7 +46,13 @@
 	</view>
 
 	<view wx:elif="{{visibleRecords.length}}" class="record-list">
-		<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="record-card">
+		<view
+			wx:for="{{visibleRecords}}"
+			wx:key="viewKey"
+			class="record-card"
+			bindtap="onRecordTap"
+			data-index="{{index}}"
+		>
 			<view class="record-status-badge {{item.statusClass}}">
 				<!-- 原版已预约状态使用蓝色业务图标，其余状态继续显示服务端归一化文案。 -->
 				<image
@@ -76,7 +82,11 @@
 			</view>
 
 			<!-- 未取消记录保留旧端操作区；未迁移的预问诊只显示安全提示。 -->
-			<view wx:if="{{item.status !== 'cancelled'}}" class="record-actions">
+			<view
+				wx:if="{{item.status !== 'cancelled'}}"
+				class="record-actions"
+				catchtap="stopRecordActionPropagation"
+			>
 				<button
 					class="record-action-button"
 					bindtap="onPreVisit"
@@ -101,9 +111,11 @@
 		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
 	</view>
 
-	<view class="readonly-note">
-		当前仅展示挂号记录。取消、退号和支付状态处理将在对应业务契约完成后开放。
-	</view>
+	<!--
+		旧端挂号卡点击后会进入详情；当前公开 contract 只有安全摘要，没有稳定的
+		预约详情引用，因此点击时由 onRecordTap 明确提示“详情暂未开放”。取消、
+		退号和支付仍保持关闭，不能把卡片索引当作业务主键。
+	-->
 
 	<!-- 旧端院内导航弹窗：只展示静态科室位置，不伪造实时路线。 -->
 	<view wx:if="{{showLocationModal}}" class="location-mask" catchtap="closeLocationModal">

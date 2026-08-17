@@ -563,7 +563,10 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directoryTemplate).toContain("当前暂无可预约科室");
 	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
 	expect(recordsTemplate).toContain('bindtap="onChangePatient"');
-	expect(recordsTemplate).toContain("取消、退号和支付状态处理");
+	// 卡片详情还没有稳定公开引用时，点击必须给出明确的迁移状态，
+	// 不能把列表索引误当成预约详情或取消/支付业务主键。
+	expect(recordsTemplate).toContain('bindtap="onRecordTap"');
+	expect(records).toContain("挂号详情暂未开放");
 	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
 	expect(recordsTemplate).toContain("当前院区");
 	// 单院区静态配置不能保留没有实现目标的动态选择箭头，避免用户误以为可以切换院区。

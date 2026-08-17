@@ -35,6 +35,8 @@ type AppointmentRecordsPageMethods = {
 	onLoadMore(): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
+	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
+	stopRecordActionPropagation(): void;
 	onPreVisit(event: WechatMiniprogram.TouchEvent): void;
 	onHospitalGuide(event: WechatMiniprogram.TouchEvent): void;
 	closeLocationModal(): void;
@@ -222,6 +224,21 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector();
+	},
+
+	/**
+	 * 旧端卡片点击会打开挂号详情；新 contract 没有稳定的详情引用，
+	 * 所以这里必须给出明确的迁移状态，不能把 WXML 的列表索引拼成详情 URL。
+	 */
+	onRecordTap(event: WechatMiniprogram.TouchEvent): void {
+		const index = Number(event.currentTarget?.dataset?.index);
+		if (!Number.isInteger(index) || !this.data.visibleRecords[index]) return;
+		wx.showToast({ title: "挂号详情暂未开放", icon: "none" });
+	},
+
+	/** 操作按钮只执行自身动作，不能继续冒泡触发卡片详情提示。 */
+	stopRecordActionPropagation(): void {
+		// `catchtap` 已经完成阻止冒泡；保留方法让 WXML 的交互边界可审计。
 	},
 
 	/** 旧端预问诊目标页尚未完成独立 contract，保留入口位置但不伪造跳转。 */

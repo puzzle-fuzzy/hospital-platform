@@ -13,8 +13,7 @@ page {
 .selector-card,
 .status-tabs,
 .record-list,
-.state-card,
-.readonly-note {
+.state-card {
 	box-sizing: border-box;
 	margin-right: auto;
 	margin-left: auto;
@@ -117,7 +116,8 @@ page {
 }
 
 .record-list {
-	padding: 32rpx 32rpx calc(160rpx + env(safe-area-inset-bottom));
+	/* 旧端使用 pb-20；挂号页没有底部导航，不能沿用首页 160rpx 的预留空间。 */
+	padding: 32rpx 32rpx calc(80rpx + env(safe-area-inset-bottom));
 	background: #f5f5f5;
 }
 
@@ -152,39 +152,23 @@ page {
 	background: transparent;
 }
 
-.record-status-scheduled,
+/* 旧端除“已预约”图标外，其他状态统一使用灰色小标签。 */
 .record-status-registered,
-.record-status-substituted {
-	background: #f2f6ff;
-	color: #3d6df6;
-}
-
-.record-status-completed {
-	background: #effaf1;
-	color: #16a34a;
-}
-
+.record-status-substituted,
+.record-status-completed,
 .record-status-cancelled,
-.record-status-missed {
-	background: #fff1f1;
-	color: #d2443c;
-}
-
-.record-status-stopped {
-	background: #fff7ee;
-	color: #d56d2a;
-}
-
+.record-status-missed,
+.record-status-stopped,
 .record-status-unknown {
 	background: #f5f5f5;
-	color: #888888;
+	color: #666666;
 }
 
 .record-department {
-	padding-right: 180rpx;
-	color: #333333;
-	font-size: 34rpx;
-	font-weight: 600;
+	padding-right: 96rpx;
+	color: #1f2937;
+	font-size: 32rpx;
+	font-weight: 700;
 	line-height: 1.45;
 }
 
@@ -192,39 +176,39 @@ page {
 	display: flex;
 	flex-wrap: wrap;
 	margin-top: 14rpx;
-	color: #4c4c4c;
-	font-size: 25rpx;
+	color: #4b5563;
+	font-size: 24rpx;
 	line-height: 1.6;
 }
 
 .record-meta text + text {
-	margin-left: 28rpx;
+	margin-left: 16rpx;
 }
 
 .record-date {
 	margin-top: 22rpx;
-	color: #333333;
-	font-size: 27rpx;
+	color: #1f2937;
+	font-size: 24rpx;
 	line-height: 1.5;
 }
 
 .record-number {
 	margin-top: 18rpx;
-	color: #4c4c4c;
-	font-size: 25rpx;
+	color: #4b5563;
+	font-size: 24rpx;
 	line-height: 1.5;
 }
 
 .record-number-emphasis {
 	color: #ee875e;
-	font-size: 30rpx;
+	font-size: 28rpx;
 	font-weight: 600;
 }
 
 .record-actions {
 	display: flex;
 	justify-content: flex-end;
-	margin-top: 28rpx;
+	margin-top: 16rpx;
 }
 
 .record-action-button {
@@ -232,7 +216,7 @@ page {
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
-	margin: 0 0 0 24rpx;
+	margin: 0 0 0 12rpx;
 	padding: 0;
 	width: 120rpx;
 	height: 60rpx;
@@ -266,7 +250,7 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	margin-top: 0;
-	padding: 80rpx 32rpx 180rpx;
+	padding: 80rpx 32rpx;
 	border-radius: 0;
 	background: #f5f5f5;
 	color: #777777;
@@ -293,16 +277,6 @@ page {
 .state-hint-action {
 	color: #3d6df6;
 	text-decoration: underline;
-}
-
-.readonly-note {
-	margin-top: 30rpx;
-	padding: 20rpx;
-	border-radius: 12rpx;
-	background: #fff7ee;
-	color: #d56d2a;
-	font-size: 24rpx;
-	line-height: 1.6;
 }
 
 /* 复刻旧端居中弹窗，并限制滚动区域避免科室资料过多撑满页面。 */
