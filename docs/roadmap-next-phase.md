@@ -21,6 +21,9 @@
   `createAppointmentRecordQuery`，集中生成 history 前后各 90 天和 missed 过去 90 天窗口，并在发请求前
   校验内部 `patientId`；新增北京时间自然日、窗口差异和空标识回归测试，小程序测试达到 83 项通过。
   该修正未部署、不改变 API/Provider 请求契约，也未新增真实微信、Provider 或真机证据。
+- 本轮继续按旧端源码复核“我的/我的挂号”的视觉契约：确认背景、头像、家庭成员箭头、9 个功能图标均与旧资源一致，
+  收紧图标填充模式、挂号卡触摸反馈和长患者名布局，并新增 [`migration/personal-center-visual-contract.md`](migration/personal-center-visual-contract.md)。
+  详情、预问诊、动态院区、预约写入、支付和医保仍按业务 contract 保持关闭；本轮只改变展示层和文档/验收门禁，未部署且未新增真机视觉证据。
 
 ### 线上实时状态（2026-08-17 17:55 CST）
 

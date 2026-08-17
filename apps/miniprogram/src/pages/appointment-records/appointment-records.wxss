@@ -60,10 +60,22 @@ page {
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
+	flex: 1;
 	min-width: 0;
 	color: #333333;
 	font-size: 30rpx;
 	text-align: right;
+}
+
+/*
+	旧端选择器把患者资料压在右侧单行区域内；新端展示的是脱敏卡号，
+	仍必须为长姓名保留箭头和卡号的可见空间，不能让医疗上下文把布局撑破。
+*/
+.selector-name {
+	overflow: hidden;
+	min-width: 0;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .selector-card-number {
@@ -129,6 +141,12 @@ page {
 	border-radius: 16rpx;
 	background: #ffffff;
 	box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.03);
+	transition: transform 0.3s ease;
+}
+
+/* 旧端卡片点击会短暂缩小；只反馈触摸，不代表详情或任何写入操作成功。 */
+.record-card:active {
+	transform: scale(0.98);
 }
 
 .record-status-badge {

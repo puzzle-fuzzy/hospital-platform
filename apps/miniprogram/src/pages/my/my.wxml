@@ -26,7 +26,7 @@
 			<image
 				class="family-arrow"
 				src="/assets/legacy-user/arrow-right.svg"
-				mode="aspectFit"
+				mode="aspectFill"
 			/>
 		</view>
 
@@ -45,7 +45,8 @@
 					bindtap="onAction"
 					data-action="{{item.action}}"
 				>
-					<image src="{{item.icon}}" mode="aspectFit" />
+					<!-- 旧端使用 aspectFill；这些 SVG 都是方形 viewBox，保留模式可避免后续资源替换时布局漂移。 -->
+					<image src="{{item.icon}}" mode="aspectFill" />
 					<text>{{item.title}}</text>
 				</view>
 			</view>

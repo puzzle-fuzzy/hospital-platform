@@ -417,6 +417,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(await source("pages/my/my.wxss")).toContain("height: 566rpx");
 	expect(template).toContain("/assets/legacy-user/default-avatar.svg");
 	expect(template).toContain("{{section.title}}");
+	expect(template).toContain('src="{{item.icon}}" mode="aspectFill"');
 	expect(my).toContain('title: "我的订单"');
 	expect(template).toContain('data-action="{{item.action}}"');
 	// 原版菜单的顺序、标题和图标属于可见业务契约；这里只允许使用仓库内
@@ -579,12 +580,15 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain("全部挂号");
 	expect(recordsTemplate).toContain("预问诊");
 	expect(recordsTemplate).toContain("院内导航");
+	expect(recordsTemplate).toContain('class="selector-name"');
 	expect(recordsTemplate).toContain(
 		'class="location-close" bindtap="closeLocationModal"',
 	);
 	// 旧端挂号页是全宽 selector/tabs/list，不能回退成新端 710rpx 居中卡片。
 	expect(recordsStyle).toContain("width: 100%;");
 	expect(recordsStyle).toContain("background: #f5f5f5;");
+	expect(recordsStyle).toContain("transition: transform 0.3s ease;");
+	expect(recordsStyle).toContain("transform: scale(0.98);");
 	expect(recordsTemplate).toContain(
 		"/assets/legacy-user/appointment-status.svg",
 	);
