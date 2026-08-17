@@ -49,6 +49,7 @@ export type OutpatientPaymentResultViolation =
 	| "record-id-invalid"
 	| "record-id-duplicate"
 	| "bill-date-invalid"
+	| "bill-date-outside-query"
 	| "amount-invalid"
 	| "display-text-invalid";
 
@@ -92,6 +93,59 @@ function invalidResult(violation: OutpatientPaymentResultViolation): never {
 }
 
 /**
+ * 严格解析众阳门诊费用使用的中国标准时间文本。
+ *
+ * `Date.parse` 会把部分非法日期自动进位，例如把 2 月 31 日解释成 3 月的
+ * 某一天，因此不能用它直接判断 Provider 事实。这里先校验自然日和时分秒，
+ * 再将没有时区后缀的 Provider 文本放到 UTC 伪时间轴上；调用方只用返回值
+ * 做窗口比较，不会把这个值当作患者端日期展示。
+ */
+export function parseOutpatientBillDateTime(value: string): number | undefined {
+	const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value);
+	if (!match) return undefined;
+	const [, yearText, monthText, dayText, hourText, minuteText, secondText] =
+		match;
+	const year = Number(yearText);
+	const month = Number(monthText);
+	const day = Number(dayText);
+	const hour = Number(hourText);
+	const minute = Number(minuteText);
+	const second = Number(secondText);
+	const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+	const daysInMonth = [
+		31,
+		leapYear ? 29 : 28,
+		31,
+		30,
+		31,
+		30,
+		31,
+		31,
+		30,
+		31,
+		30,
+		31,
+	][month - 1];
+	if (
+		year < 1 ||
+		month < 1 ||
+		month > 12 ||
+		day < 1 ||
+		day > (daysInMonth ?? 0) ||
+		hour > 23 ||
+		minute > 59 ||
+		second > 59
+	) {
+		return undefined;
+	}
+
+	const pseudoUtc = new Date(0);
+	pseudoUtc.setUTCHours(hour, minute, second, 0);
+	pseudoUtc.setUTCFullYear(year, month - 1, day);
+	return pseudoUtc.getTime();
+}
+
+/**
  * 在 API service 输出 `loaded` 日志和响应前，重新验证网关给出的公共读模型。
  *
  * 这里不重复解释 Provider 数字状态，只验证已经归一化后的公开状态必须与
@@ -124,7 +178,10 @@ export function validateOutpatientPaymentRecords(
 			invalidResult("record-id-duplicate");
 		}
 		recordIds.add(record.recordId);
-		if (!hasSafeDisplayText(record.billDate, 64)) {
+		if (
+			!hasSafeDisplayText(record.billDate, 64) ||
+			parseOutpatientBillDateTime(record.billDate) === undefined
+		) {
 			invalidResult("bill-date-invalid");
 		}
 		if (

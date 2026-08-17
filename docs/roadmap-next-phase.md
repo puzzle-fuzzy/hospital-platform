@@ -31,6 +31,10 @@
   请求的闭区间 `[startDate, endDate]`；发现窗口外记录时整批 fail-closed，不过滤坏行伪装成功，
   并只记录 `work-date-outside-query` 等稳定低敏原因。详细规则见
   [`release/appointment-record-window-validation-2026-08-18.md`](release/appointment-record-window-validation-2026-08-18.md)。
+- 2026-08-18：门诊费用服务层补齐账单时间二次校验。`billDate` 必须是严格有效的中国标准时间，
+  且落在服务端生成的最近 30 个中国标准时间日闭区间；发现窗口外账单时整批 fail-closed，
+  不过滤坏行伪装成功，并记录 `bill-date-outside-query` 等稳定低敏原因。详细规则见
+  [`release/outpatient-payment-bill-window-validation-2026-08-18.md`](release/outpatient-payment-bill-window-validation-2026-08-18.md)。
 
 ### 上一轮生产切换与公网复核（2026-08-18 00:04-00:06 CST）
 

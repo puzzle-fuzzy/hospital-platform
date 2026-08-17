@@ -88,6 +88,7 @@ export {
 	InvalidOutpatientPaymentStatusError,
 	OutpatientPaymentResultValidationError,
 	isOutpatientPaymentStatus,
+	parseOutpatientBillDateTime,
 	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
 export type {

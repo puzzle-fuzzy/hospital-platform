@@ -15,6 +15,7 @@ import {
 	OutpatientPaymentResultValidationError,
 	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
+	parseOutpatientBillDateTime,
 	validateOutpatientPaymentRecords,
 } from "@hospital/domain";
 import {
@@ -149,6 +150,35 @@ function queryWindow(now: Date): { startTime: string; endTime: string } {
 	};
 }
 
+/**
+ * Provider 可能忽略 startTime/endTime，服务层不能把窗口外账单直接展示。
+ *
+ * 费用列表不是可无限扩大的历史账本：本次请求只代表固定的最近 30 个中国
+ * 标准时间日。发现任何一条窗口外账单时整批拒绝，而不是过滤异常行；过滤
+ * 会把上游返回不完整伪装成成功，患者无法知道列表缺失。起止秒均属于本次
+ * 查询窗口，因为 Provider 请求本身发送的是完整的 startTime/endTime。
+ */
+function validateOutpatientPaymentRecordWindow(
+	records: readonly { billDate: string }[],
+	window: { startTime: string; endTime: string },
+): void {
+	const start = parseOutpatientBillDateTime(window.startTime);
+	const end = parseOutpatientBillDateTime(window.endTime);
+	if (start === undefined || end === undefined || end < start) {
+		// `queryWindow` 由服务端生成；这里保留防御性分支，避免未来修改
+		// 时间格式后将无效窗口误当成有效费用事实。
+		throw new OutpatientPaymentResultValidationError("bill-date-invalid");
+	}
+	if (
+		records.some((record) => {
+			const billDate = parseOutpatientBillDateTime(record.billDate);
+			return billDate === undefined || billDate < start || billDate > end;
+		})
+	) {
+		throw new OutpatientPaymentResultValidationError("bill-date-outside-query");
+	}
+}
+
 /** 门诊缴费只读编排；provider 患者号只在 repository 与 adapter 之间流转。 */
 export class OutpatientPaymentService {
 	private readonly logger: AppLogger;
@@ -228,6 +258,7 @@ export class OutpatientPaymentService {
 				// 允许未来的回放实现或错误网关把错状态、重复 ID、非法金额带到
 				// API 响应。
 				validateOutpatientPaymentRecords(result?.records, status);
+				validateOutpatientPaymentRecordWindow(result.records, window);
 			} catch (error) {
 				if (error instanceof OutpatientPaymentResultValidationError) {
 					resultViolation = error.violation;

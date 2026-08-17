@@ -458,3 +458,79 @@ test("门诊费用 service 拒绝网关返回的重复费用引用", async () =>
 		resultViolation: "record-id-duplicate",
 	});
 });
+
+test("门诊费用 service 拒绝查询窗口外账单且不筛掉坏行伪装成功", async () => {
+	const lines: string[] = [];
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				// 混入一条窗口内、一条窗口外的记录；必须整批拒绝，
+				// 不能只留下窗口内记录后伪装为完整账单列表。
+				records: [
+					{
+						recordId: "record-in-window",
+						status: "unpaid" as const,
+						billDate: "2026-08-16 08:00:00",
+						amountFen: 100,
+					},
+					{
+						recordId: "record-outside-window",
+						status: "unpaid" as const,
+						billDate: "2026-07-17 07:59:59",
+						amountFen: 200,
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "provider-request-outside-window",
+				},
+			}),
+		},
+		authSysCode: "thirdSelfMachine",
+		now: () => new Date("2026-08-16T00:00:00.000Z"),
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unpaid", {
+			traceId: "trace-payment-outside-window",
+			idempotencyKey: "key-payment-outside-window",
+		}),
+	).rejects.toMatchObject({
+		name: "OutpatientPaymentResultValidationError",
+		violation: "bill-date-outside-query",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "outpatient.payment.records.failed",
+			traceId: "trace-payment-outside-window",
+			resultViolation: "bill-date-outside-query",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({
+			event: "outpatient.payment.records.loaded",
+		}),
+	);
+});
