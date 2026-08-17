@@ -175,6 +175,12 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-18 01:26-01:32 CST：候选 `52e9624` 已完成 7 个 artifact checksum、真实生产 env preflight、
+`127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从 `b3c9a99` 原子切换到
+`52e9624`，只重启新 API。切换后内网与公网 ready 通过，新 API `18081` 与旧 Python `8001` 保持共存，
+Worker 未启动。当前窗口日志只有运行时与未登录认证事件，不能替代真实微信、患者、预约历史或门诊费用业务证据；
+完整记录见 [`52e9624-production-acceptance-2026-08-18.md`](../../docs/release/52e9624-production-acceptance-2026-08-18.md)。
+
 2026-08-16：前一候选 `3a37e7e` 和候选 `a8174f1` 已在生产 env 和临时 `18082` 完成隔离 smoke；历史候选
 `86cae9a` 进一步完成 live/ready no-store、system ping 和六个受保护路由的 401 认证边界验收。之后
 `main` 先后新增 `0dc39aa`（原生页面迁移台账和静态门禁）及 `09c88b1`（发布文档时序校正），这些提交尚未
