@@ -22,6 +22,7 @@ import {
 	syncPatients,
 } from "./api-client";
 import { runPatientSync } from "./patient-sync-coordinator";
+import { requireStoredPatientSelection } from "./patient-selection-service";
 
 /**
  * 首页只读工作台使用的时间窗口。
@@ -160,6 +161,26 @@ export function loadPatients(): Promise<Array<Patient>> {
 	return requestWithSession<{ data: { items: Array<Patient> } }>({
 		url: "/patients",
 	}).then((payload) => payload.data.items);
+}
+
+/**
+ * 读取患者端业务页当前可用的就诊人。
+ *
+ * 这里故意只重读最新的 owner-scoped 平台目录，不隐式调用
+ * `syncPatientsFromHospital`：登录恢复和独立选择页负责完成医院目录同步，
+ * 预约记录、爽约记录、报告和门诊费用页只需要在发起各自查询前确认最新目录
+ * 与本地显式选择仍然一致。若每次打开业务页都同步 Provider，页面栈返回、
+ * 下拉刷新和多个只读页并发打开就会互相制造同步租约冲突，也会把“页面读取”
+ * 错误地升级成一次外部业务操作。
+ *
+ * `requireStoredPatientSelection` 同时检查首次默认、stale 和临床映射状态，
+ * 因此调用方拿到的患者一定是可以进入只读临床查询的 ready 记录；页面不再
+ * 各自复制这段容易漏条件的解析逻辑。
+ */
+export function loadCurrentPatient(): Promise<Patient> {
+	return loadPatients().then((patients) =>
+		requireStoredPatientSelection(patients),
+	);
 }
 
 /**

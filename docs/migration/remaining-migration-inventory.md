@@ -145,6 +145,7 @@
 - 排班号源只接受当前 contract 已确认的 `usableSourceNum`；旧端不同接口的 `usableNum` 和 `remainingNumber` 不作为
   fallback，字段缺失时拒绝整批响应，避免把错误号源数量展示给患者或误作锁号前置事实。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
+- 预约记录、爽约记录、报告目录和门诊费用页现在统一通过 `loadCurrentPatient` 读取最新 owner-scoped 患者目录并解析 ready 患者；该读取门禁不会隐式触发 Provider 同步，避免只读页面并发制造同步租约冲突。详见 [`patient-context-read-contract.md`](patient-context-read-contract.md)。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖过去 90 天窗口；“我的挂号”仍使用当前日前后各 90 天。停诊、替诊和已登记必须保留为独立状态，不能误显示为未知。
 - 受保护 API 已在 Elysia 的 route schema 校验前建立模块级认证边界：缺少或失效 Bearer 时统一返回 `401 unauthorized`，只有认证通过后才进入 query/body/params 的 `400 validation`；微信登录和微信支付回调仍保留明确公开入口。该行为已有 API 集成测试、候选 smoke 和 `131fb5a` 公网回归证据；这只证明认证错误边界，不代表真实微信会话或业务 Provider 已完成。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。

@@ -25,6 +25,10 @@
 - 本轮继续按旧端源码复核“我的/我的挂号”的视觉契约：确认背景、头像、家庭成员箭头、9 个功能图标均与旧资源一致，
   收紧图标填充模式、挂号卡触摸反馈和长患者名布局，并新增 [`migration/personal-center-visual-contract.md`](migration/personal-center-visual-contract.md)。
   详情、预问诊、动态院区、预约写入、支付和医保仍按业务 contract 保持关闭；本轮只改变展示层和文档/验收门禁，未部署且未新增真机视觉证据。
+- 当前主分支 `0d1978c` 继续收敛患者上下文业务边界：预约记录、爽约记录、报告目录和门诊费用页统一使用
+  `loadCurrentPatient`，只重读最新 owner-scoped 目录并复用同一套 ready/stale/unavailable 解析；页面读取不会隐式触发 Provider 同步。
+  该修正只改变客户端边界复用和静态门禁，未部署、未扩大 Provider 请求，也未打开支付、医保或预约写入；详见
+  [`migration/patient-context-read-contract.md`](migration/patient-context-read-contract.md)。
 - 本轮门诊费用业务语义复核发现旧端顶部“缴费后如需退费”提示会误导用户认为新页面已开放支付；现改为明确的只读查询提示，并在验收测试与业务正确性文档中锁定该边界。
   本轮不改费用 API、Provider、支付、医保或结算状态机，未部署且未新增真实业务证据。
 

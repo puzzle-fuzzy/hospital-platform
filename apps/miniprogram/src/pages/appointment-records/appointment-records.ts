@@ -6,11 +6,10 @@ import {
 } from "../../services/appointment-record-view";
 import {
 	loadAppointmentRecords,
-	loadPatients,
+	loadCurrentPatient,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -151,10 +150,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			showLocationModal: false,
 			locationResults: [],
 		});
-		return loadPatients()
-			.then((patients) => {
+		return loadCurrentPatient()
+			.then((patient) => {
 				if (!loadGuard.isCurrent(requestToken)) return;
-				const patient = requireStoredPatientSelection(patients);
 				return loadAppointmentRecords(patient.id).then((records) => {
 					if (!loadGuard.isCurrent(requestToken)) return;
 					const mappedRecords = records.map((record, index) =>

@@ -5,11 +5,10 @@ import {
 } from "../../services/appointment-record-view";
 import {
 	loadAppointmentRecords,
-	loadPatients,
+	loadCurrentPatient,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordView,
@@ -80,10 +79,9 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			hasMoreRecords: false,
 		});
 
-		return loadPatients()
-			.then((patients) => {
+		return loadCurrentPatient()
+			.then((patient) => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
-				const patient = requireStoredPatientSelection(patients);
 
 				this.setData({ selectedPatient: patient });
 				return loadAppointmentRecords(patient.id, new Date(), "missed");

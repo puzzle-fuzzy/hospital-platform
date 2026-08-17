@@ -1,8 +1,10 @@
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
-import { loadPatients, loadReports } from "../../services/dashboard-service";
+import {
+	loadCurrentPatient,
+	loadReports,
+} from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	Report,
 	ReportDirectoryPageData,
@@ -81,10 +83,9 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			visibleReportCount: 0,
 			hasMoreReports: false,
 		});
-		return loadPatients()
-			.then((patients) => {
+		return loadCurrentPatient()
+			.then((patient) => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
-				const patient = requireStoredPatientSelection(patients);
 				this.setData({ selectedPatient: patient });
 				return loadReports(patient.id);
 			})

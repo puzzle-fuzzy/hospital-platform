@@ -1,11 +1,10 @@
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	loadOutpatientPaymentRecords,
-	loadPatients,
+	loadCurrentPatient,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -79,10 +78,9 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			visibleItemCount: 0,
 			hasMoreItems: false,
 		});
-		return loadPatients()
-			.then((patients) => {
+		return loadCurrentPatient()
+			.then((patient) => {
 				if (!loadGuard.isCurrent(requestToken)) return;
-				const patient = requireStoredPatientSelection(patients);
 				this.setData({ selectedPatient: patient });
 				return this.loadRecords(patient, this.data.activeStatus, requestToken);
 			})

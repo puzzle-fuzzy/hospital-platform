@@ -390,6 +390,55 @@ test("native data pages keep first-show state on the page instance", async () =>
 	}
 });
 
+test("patient-scoped read pages share one current-patient gate", async () => {
+	const dashboard = await source("services/dashboard-service.ts");
+	const pages = [
+		{
+			file: "pages/appointment-records/appointment-records.ts",
+			call: "loadAppointmentRecords(patient.id",
+			method: "loadRecords(): Promise<void>",
+		},
+		{
+			file: "pages/missed-appointments/missed-appointments.ts",
+			call: "loadAppointmentRecords(patient.id",
+			method: "loadRecords(): Promise<void>",
+		},
+		{
+			file: "pages/report-directory/report-directory.ts",
+			call: "loadReports(patient.id",
+			method: "loadPage(): Promise<void>",
+		},
+		{
+			file: "pages/outpatient-payment/outpatient-payment.ts",
+			call: "loadOutpatientPaymentRecords(patient.id",
+			method: "loadPage(): Promise<void>",
+		},
+	] as const;
+
+	// 这四个页面都属于患者上下文业务页：只能读取最新 owner 目录并解析
+	// ready 患者，不能各自复制默认/stale/unavailable 分支或偷偷触发同步。
+	expect(dashboard).toContain("export function loadCurrentPatient");
+	expect(dashboard).toContain("requireStoredPatientSelection(patients)");
+	expect(dashboard).toContain("不隐式调用");
+	for (const item of pages) {
+		const page = await source(item.file);
+		const pageImplementationStart = page.indexOf("Page<");
+		const loadStart = page.indexOf(item.method, pageImplementationStart);
+		// 从方法起点截取到文件末尾即可：业务加载调用只会出现在该方法后，
+		// 不依赖具体缩进和对象结束符，避免格式化后静态断言失效。
+		const loadBody = page.slice(loadStart);
+		const patientGateIndex = loadBody.indexOf("loadCurrentPatient()");
+		const businessLoaderIndex = loadBody.indexOf(item.call);
+
+		expect(page).toContain("loadCurrentPatient");
+		expect(page).not.toContain("loadPatients");
+		expect(page).not.toContain("requireStoredPatientSelection");
+		expect(page).toContain("navigateToPatientSelector");
+		expect(patientGateIndex).toBeGreaterThanOrEqual(0);
+		expect(businessLoaderIndex).toBeGreaterThan(patientGateIndex);
+	}
+});
+
 test("native my page separates ordinary profile from family patient selection", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");
@@ -558,7 +607,7 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain('wx:key="viewKey"');
 	expect(recordsTemplate).toContain("visibleRecords");
 	expect(recordsTemplate).toContain("加载更多挂号记录");
-	expect(records).toContain("requireStoredPatientSelection");
+	expect(records).toContain("loadCurrentPatient");
 	expect(directoryTemplate).toContain("未来 7 天");
 	expect(directoryTemplate).toContain("cascade-shell");
 	expect(directoryTemplate).toContain("加载更多号源");
@@ -958,7 +1007,7 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(home).toContain('url: "/pages/report-directory/report-directory"');
 	expect(reportPage).toContain("loadReports");
 	expect(reportPage).toContain("onLoadMore");
-	expect(reportPage).toContain("requireStoredPatientSelection");
+	expect(reportPage).toContain("loadCurrentPatient");
 	expect(reportTemplate).toContain("报告查询");
 	expect(reportTemplate).toContain("加载更多报告");
 	// 报告详情只接受服务端生成的 opaque reportId，目录不透传 provider 报告号。
