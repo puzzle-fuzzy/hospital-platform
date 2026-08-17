@@ -323,3 +323,138 @@ test("门诊费用 Provider 失败日志保留关联字段但不记录原文", a
 	});
 	expect(JSON.stringify(record)).not.toContain("provider raw payment response");
 });
+
+test("门诊费用 service 拒绝网关返回的错状态，并记录低敏原因", async () => {
+	const lines: string[] = [];
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				// 网关绕过 adapter 时，不能把 paid 记录伪装成 unpaid 响应。
+				records: [
+					{
+						recordId: "opaque-record-001",
+						status: "paid",
+						billDate: "2026-08-16 09:00:00",
+						amountFen: 350,
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "provider-request-invalid-status",
+				},
+			}),
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unpaid", {
+			traceId: "trace-result-status-mismatch",
+			idempotencyKey: "key-result-status-mismatch",
+		}),
+	).rejects.toMatchObject({
+		name: "OutpatientPaymentResultValidationError",
+		violation: "status-mismatch",
+	});
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"outpatient.payment.records.requested",
+		"outpatient.payment.records.failed",
+	]);
+	expect(records[1]).toMatchObject({
+		traceId: "trace-result-status-mismatch",
+		errorType: "OutpatientPaymentResultValidationError",
+		resultViolation: "status-mismatch",
+	});
+	expect(
+		records.some(
+			(record) => record.event === "outpatient.payment.records.loaded",
+		),
+	).toBe(false);
+});
+
+test("门诊费用 service 拒绝网关返回的重复费用引用", async () => {
+	const lines: string[] = [];
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				records: [
+					{
+						recordId: "opaque-record-duplicate",
+						status: "paid" as const,
+						billDate: "2026-08-16 09:00:00",
+						amountFen: 350,
+					},
+					{
+						recordId: "opaque-record-duplicate",
+						status: "paid" as const,
+						billDate: "2026-08-16 09:00:00",
+						amountFen: 350,
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "provider-request-duplicate-id",
+				},
+			}),
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "paid", {
+			traceId: "trace-result-duplicate-id",
+			idempotencyKey: "key-result-duplicate-id",
+		}),
+	).rejects.toMatchObject({
+		name: "OutpatientPaymentResultValidationError",
+		violation: "record-id-duplicate",
+	});
+
+	const failed = lines
+		.map((line) => JSON.parse(line) as Record<string, unknown>)
+		.find((record) => record.event === "outpatient.payment.records.failed");
+	expect(failed).toMatchObject({
+		traceId: "trace-result-duplicate-id",
+		resultViolation: "record-id-duplicate",
+	});
+});

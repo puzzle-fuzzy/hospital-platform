@@ -279,6 +279,7 @@ test("public API documentation lists every stable public error code", async () =
 		"report-not-found",
 		"outpatient-payment-patient-not-found",
 		"provider-request-rejected",
+		"provider-response-invalid",
 		"provider-temporarily-unavailable",
 		"dependency-not-configured",
 		"persistence-temporarily-unavailable",

@@ -200,6 +200,11 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 
 当前患者端只读链路为：患者目录、预约科室/排班、预约历史、报告摘要、门诊费用列表。只读 provider 响应必须先经过 adapter 白名单映射，再进入 API contract。
 
+门诊费用除 adapter 的第一道映射校验外，`OutpatientPaymentService` 还必须对注入网关的公开读模型做第二道
+校验：每条记录的归一化状态必须等于本次查询状态，`recordId` 必须是有界 opaque 标识且在同一响应内唯一，
+账单时间、金额和展示文本必须满足公共 contract。任一项失败都返回 `502 provider-response-invalid`，记录
+低敏的 `resultViolation`，不记录原始响应，不过滤坏记录后继续返回，也不把异常降级成空列表。
+
 门诊费用页即使展示“待缴费”记录，也仍然只是查询结果；页面提示不得沿用会暗示支付、退费或医保已开放的旧端文案，支付入口必须等独立契约验收后再出现。
 
 以下结果不能从 HTTP 200、页面点击成功或支付回调直接推导：
@@ -223,6 +228,8 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 门诊费用服务在调用 owner-scoped 患者映射前拒绝空白 `patientId`；映射、持久化或 provider 失败都必须留下
 `outpatient.payment.records.failed`，不能只返回错误而没有业务事件，也不能把失败伪装成空费用列表。服务层还必须拒绝
 超长、首尾空白或控制字符标识；这些非法值在失败日志中统一记为 `patientId=invalid`，不能原样回写日志。
+网关读模型校验失败同样必须进入该失败事件，日志只保留有限枚举的 `resultViolation`，不能写入费用单号、金额或
+Provider 原始错误文本。
 
 普通个人资料更新也必须 fail-closed：请求体只允许 `version`、`displayName`、`gender`、`age` 和
 `email`。`avatar`、`openid`、`unionid`、`userId` 或其他未知字段必须在 API contract 边界返回

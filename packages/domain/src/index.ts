@@ -78,10 +78,13 @@ export type {
 	OutpatientPaymentGateway,
 	OutpatientPaymentRecord,
 	OutpatientPaymentStatus,
+	OutpatientPaymentResultViolation,
 } from "./outpatient-payments";
 export {
 	InvalidOutpatientPaymentStatusError,
+	OutpatientPaymentResultValidationError,
 	isOutpatientPaymentStatus,
+	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
 export type {
 	IdentityUser,

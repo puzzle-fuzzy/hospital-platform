@@ -12,8 +12,10 @@ import type {
 import {
 	DependencyNotConfiguredError,
 	InvalidOutpatientPaymentStatusError,
+	OutpatientPaymentResultValidationError,
 	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
+	validateOutpatientPaymentRecords,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -165,6 +167,9 @@ export class OutpatientPaymentService {
 		status: OutpatientPaymentStatus,
 		context: AdapterCallContext,
 	) {
+		// 该变量只保存有限枚举，供失败日志关联网关输出；不能把 Provider
+		// 原始响应或金额明细写入日志。
+		let resultViolation: string | undefined;
 		try {
 			if (!isOutpatientPaymentStatus(status)) {
 				// 不能把未知状态交给 adapter；adapter 的历史实现会把非 unpaid
@@ -217,6 +222,18 @@ export class OutpatientPaymentService {
 				},
 				context,
 			);
+			try {
+				// adapter 是第一道 Provider 白名单边界，这里是可注入 gateway
+				// 的第二道 contract 边界。不能因为返回类型写成了 TS 类型，就
+				// 允许未来的回放实现或错误网关把错状态、重复 ID、非法金额带到
+				// API 响应。
+				validateOutpatientPaymentRecords(result?.records, status);
+			} catch (error) {
+				if (error instanceof OutpatientPaymentResultValidationError) {
+					resultViolation = error.violation;
+				}
+				throw error;
+			}
 			this.logger.info(
 				{
 					event: "outpatient.payment.records.loaded",
@@ -248,6 +265,7 @@ export class OutpatientPaymentService {
 					// 避免把任意外部字符串当成合法业务状态继续传播。
 					status: isOutpatientPaymentStatus(status) ? status : "invalid",
 					errorType: error instanceof Error ? error.name : "UnknownError",
+					...(resultViolation ? { resultViolation } : {}),
 					...providerFailureMetadata(error),
 				},
 				"Outpatient payment records failed",

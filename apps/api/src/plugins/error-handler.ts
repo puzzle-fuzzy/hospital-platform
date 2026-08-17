@@ -5,6 +5,7 @@ import {
 	HealthKnowledgeValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
+	OutpatientPaymentResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	PaymentCashPrepayNotAllowedError,
@@ -151,6 +152,19 @@ export function errorHandlerPlugin() {
 						message: error.retryable
 							? "外部服务暂时不可用，请稍后重试"
 							: "外部服务拒绝了本次请求，请稍后重试",
+					},
+				};
+			}
+
+			if (error instanceof OutpatientPaymentResultValidationError) {
+				// Provider 已返回响应，但网关结果违反平台读模型；这不是患者
+				// 查询参数错误，也不能降级为空列表，应明确返回不可重试的 502。
+				set.status = 502;
+				return {
+					success: false,
+					error: {
+						code: "provider-response-invalid",
+						message: "外部服务返回数据异常，请稍后重试",
 					},
 				};
 			}

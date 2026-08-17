@@ -63,6 +63,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"patient-directory-snapshot-unsafe":
 			"外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
 		"provider-request-rejected": "外部服务拒绝了本次请求，请稍后重试",
+		"provider-response-invalid": "外部服务返回数据异常，请稍后重试",
 		"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",
 		"persistence-temporarily-unavailable": "数据服务暂时不可用，请稍后重试",
 		"user-profile-invalid": "个人资料字段不合法",

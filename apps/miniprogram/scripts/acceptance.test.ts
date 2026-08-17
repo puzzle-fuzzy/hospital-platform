@@ -98,6 +98,12 @@ test("native client localizes every public query and session error boundary", ()
 	expect(
 		localizedApiErrorMessage("provider-request-rejected", "英文 provider 文案"),
 	).toBe("外部服务拒绝了本次请求，请稍后重试");
+	expect(
+		localizedApiErrorMessage(
+			"provider-response-invalid",
+			"英文 provider 响应文案",
+		),
+	).toBe("外部服务返回数据异常，请稍后重试");
 	expect(localizedApiErrorMessage("unrecognized-code", "安全兜底")).toBe(
 		"安全兜底",
 	);
