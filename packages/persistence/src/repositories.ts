@@ -267,7 +267,7 @@ export function createInMemoryPatientRepository(
 					attemptCount: 1,
 					leaseUntil: input.leaseUntil,
 				};
-					syncOperations.set(key, operation);
+				syncOperations.set(key, operation);
 				return {
 					outcome: "started",
 					operationId: operation.operationId,
