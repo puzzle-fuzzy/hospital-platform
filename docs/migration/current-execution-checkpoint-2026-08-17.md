@@ -84,6 +84,11 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 [`miniprogram-runtime-package-verification-2026-08-17.md`](../release/miniprogram-runtime-package-verification-2026-08-17.md)：
 14 个注册页面的 `.js/.json/.wxml/.wxss` 均存在；该证据不代表开发者工具或真机已经加载本次本地产物。
 
+个人中心视觉专项的最新运行包复核已记录在
+[`miniprogram-visual-package-verification-2026-08-17.md`](../release/miniprogram-visual-package-verification-2026-08-17.md)：
+它以 `f562d61` 为源码基线，额外核对了“我的/我的挂号”页面、旧端背景、固定底部导航和预约状态图标的产物哈希；
+开发者工具/真机加载证据仍未取得。
+
 2026-08-17 14:37 CST 的最新受控服务器只读观察已记录在
 [`current-server-p0-observation-2026-08-17.md`](../release/current-server-p0-observation-2026-08-17.md)：当前运行包仍为
 `3ab0a6c`，新旧端口同时监听，production、MySQL、Redis 和 schema readiness 均正常；当前进程只观察到患者
