@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `ef6f34c`，包含门诊费用 `tradeStatus` 状态一致性校验、排班字段边界修正、小程序运行包独立验证门禁、匿名“新增就诊人”登录成功后自动进入选择页，以及个人中心未开放入口的逐项关闭边界；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `4576e3a`，在 `ef6f34c` 的门诊费用 `tradeStatus` 状态一致性校验、排班字段边界修正、小程序运行包独立验证门禁、匿名“新增就诊人”登录成功后自动进入选择页和个人中心未开放入口边界基础上，补充普通资料版本冲突的低敏日志事件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -175,6 +175,10 @@ readiness 以及真实微信/Provider 业务证据仍需单独记录，不能由
 `his-patient` 引用；`unpaid`/`paid` 请求分别向 gateway 传递正确状态；Provider 确认的空目录保持
 HTTP 200、`items: []`、`total: 0`，不能被页面解释成异常。该测试使用合成 gateway，只证明 API 组合
 和响应契约，不替代当前线上账号、公网 Provider 或真机费用证据。
+
+随后补充普通资料版本冲突日志：服务端继续返回 `409 user-profile-conflict`，同时记录不含用户 ID、
+版本值和资料正文的 `user.profile.conflict` 事件，便于按 trace 定位多设备并发修改。该实现提交为
+`4576e3a`，尚未发布线上；对应测试、日志规范和全量门禁已通过。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
