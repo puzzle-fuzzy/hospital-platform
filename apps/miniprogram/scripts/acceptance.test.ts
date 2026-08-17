@@ -405,6 +405,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("getUserProfile");
 	expect(my).toContain('status: "rejected" as const');
 	expect(my).toContain("资料读取失败不能让已经成功的患者上下文整页失败");
+	expect(my).toContain("当前就诊人暂未完成医院档案映射，请进入选择页处理");
+	expect(my).toContain("patientContextError || profileError");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(template).toContain('bindtap="onFamilyTap"');

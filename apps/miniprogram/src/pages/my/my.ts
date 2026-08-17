@@ -157,15 +157,20 @@ Page<MyPageData, MyPageMethods>({
 					profile.status === "rejected"
 						? safeApiErrorMessage(profile.error, "个人资料暂时不可用")
 						: "";
+				const patientContextError =
+					resolution.state === "stale"
+						? "上次选择的就诊人已不可用，请重新选择就诊人"
+						: resolution.state === "unavailable"
+							? "当前就诊人暂未完成医院档案映射，请进入选择页处理"
+							: "";
 				this.setData({
 					userLabel:
 						displayName || (userPayload.data.user.id ? "微信用户" : "未登录"),
 					selectedPatient,
 					patientCount: patients.length,
-					error:
-						resolution.state === "stale"
-							? "上次选择的就诊人已不可用，请重新选择就诊人"
-							: profileError,
+					// 患者上下文错误优先于资料增强错误：当前就诊人不可查询是
+					// 影响预约、报告和费用入口的业务事实，不能被普通资料提示覆盖。
+					error: patientContextError || profileError,
 				});
 			})
 			.catch((error) => {
