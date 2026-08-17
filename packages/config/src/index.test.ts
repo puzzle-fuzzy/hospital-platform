@@ -178,6 +178,9 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(
 		outpatientPaymentConfigurationMissingFields(outpatientPaymentIncomplete),
 	).toContain("ZHONGYANG_BASE_URL(https)");
+	expect(
+		outpatientPaymentConfigurationMissingFields(outpatientPaymentIncomplete),
+	).toContain("OUTPATIENT_PAYMENT_AUTH_SYS_CODE");
 	expect(reportDirectoryConfigurationStatus(reportDirectoryIncomplete)).toBe(
 		"incomplete",
 	);
@@ -215,6 +218,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
 		ZHONGYANG_OUTPATIENT_PAYMENT_READY: "true",
+		OUTPATIENT_PAYMENT_AUTH_SYS_CODE: "thirdSelfMachine",
 		ZHONGYANG_REPORT_DIRECTORY_READY: "true",
 		ZHONGYANG_REPORT_DETAIL_READY: "true",
 		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",

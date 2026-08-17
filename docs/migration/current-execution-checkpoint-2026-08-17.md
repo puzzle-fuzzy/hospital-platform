@@ -241,6 +241,12 @@ HIS 回写完成。
 路径，`payment-invocation` 实际 3（基线 2）。本轮没有修改旧工作树、没有刷新基线清单，也没有因为台账
 漂移注册这些高风险路由；支付、医保、退款和 HIS 回写继续最后处理。
 
+本轮对门诊费用渠道配置做了只读核对：服务器现行环境明确存在
+`ZHONGYANG_OUTPATIENT_PAYMENT_READY=true` 和 `OUTPATIENT_PAYMENT_AUTH_SYS_CODE=thirdSelfMachine`；旧小程序源码
+仍可见 `internetHospital`。由于两者代表不同 Provider 渠道语义，本轮没有把旧值覆盖新值，也没有把当前值
+推广为所有环境的默认值；新代码已改为渠道码缺失即 `incomplete`/服务层 fail-closed，并在 Provider contract
+中登记该差异，等待院方/Provider 的正式确认。此次仅读取了非敏感配置名和值，没有读取或修改密钥、服务和数据库。
+
 随后补充了患者同步入口的专门契约测试：未登录的 `POST /patients/sync` 在缺少幂等键时仍先返回
 `401 unauthorized`；已登录但幂等键缺失或包含非法字符时返回 `400 validation`，并确认 provider
 调用次数为 0。该轮只增加测试和文档，不改变已验证实现候选 `ef6f34c`，也没有发布或重启线上服务。

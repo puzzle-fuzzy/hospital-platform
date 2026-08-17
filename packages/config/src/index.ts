@@ -39,7 +39,7 @@ export type RuntimeConfig = {
 	appointmentRecordsReady: boolean;
 	/** 门诊费用只读目录独立验收；支付和医保结算仍使用其他闸门。 */
 	outpatientPaymentReady: boolean;
-	/** 众阳 2.6.33 所需的服务端工作站标识，不接受小程序传入。 */
+	/** 众阳 2.6.33 所需的服务端渠道标识，必须由院方/Provider 显式确认。 */
 	outpatientPaymentAuthSysCode: string;
 	/** LIS/PACS/ECG 报告目录独立验收，不能随患者目录一起隐式打开。 */
 	reportDirectoryReady: boolean;
@@ -269,10 +269,19 @@ export function appointmentRecordsConfigurationStatus(
 export function outpatientPaymentConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
-	return zhongyangDirectoryConfigurationMissingFields(
+	const missing = zhongyangDirectoryConfigurationMissingFields(
 		runtimeConfig,
 		runtimeConfig.outpatientPaymentReady,
 	);
+	// 渠道码会决定 Provider 权限和业务流量归属，不能因为环境变量缺失
+	// 就使用一个看似合理的默认值；只要 gate 打开，就必须显式提供它。
+	if (
+		runtimeConfig.outpatientPaymentReady &&
+		!runtimeConfig.outpatientPaymentAuthSysCode.trim()
+	) {
+		missing.push("OUTPATIENT_PAYMENT_AUTH_SYS_CODE");
+	}
+	return missing;
 }
 
 export function outpatientPaymentConfigurationStatus(
@@ -504,8 +513,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.ZHONGYANG_OUTPATIENT_PAYMENT_READY,
 			false,
 		),
+		// 不提供默认渠道码。旧端曾出现过 internetHospital，新旧值不能凭
+		// 经验互换；缺失时让只读 gate 进入 incomplete，等待院方确认。
 		outpatientPaymentAuthSysCode:
-			env.OUTPATIENT_PAYMENT_AUTH_SYS_CODE ?? "thirdSelfMachine",
+			optional(env.OUTPATIENT_PAYMENT_AUTH_SYS_CODE) ?? "",
 		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),
 		reportDetailReady: boolean(env.ZHONGYANG_REPORT_DETAIL_READY, false),
 		// 兼容早期草稿变量；新部署统一使用 ZHONGYANG_BASE_URL 与

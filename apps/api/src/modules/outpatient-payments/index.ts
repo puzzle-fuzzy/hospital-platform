@@ -10,6 +10,7 @@ import type {
 	PatientRepository,
 } from "@hospital/domain";
 import {
+	DependencyNotConfiguredError,
 	InvalidOutpatientPaymentStatusError,
 	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
@@ -174,6 +175,14 @@ export class OutpatientPaymentService {
 				// 误看成“没有门诊映射”，也会丢失统一的失败日志事件。
 				throw new OutpatientPaymentQueryError();
 			}
+			const authSysCode = this.dependencies.authSysCode.trim();
+			if (!authSysCode) {
+				// Provider 渠道码决定权限和流量归属；缺失时必须停止在服务层，
+				// 不能让任意 gateway 把空值解释成另一个渠道的默认值。
+				throw new DependencyNotConfiguredError(
+					"outpatient-payment-auth-sys-code",
+				);
+			}
 
 			const window = queryWindow(this.now());
 			this.logger.info(
@@ -204,7 +213,7 @@ export class OutpatientPaymentService {
 					providerPatientId: reference.providerPatientId,
 					...window,
 					status,
-					authSysCode: this.dependencies.authSysCode,
+					authSysCode,
 				},
 				context,
 			);

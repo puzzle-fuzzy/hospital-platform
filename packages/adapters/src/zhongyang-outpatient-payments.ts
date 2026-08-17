@@ -343,12 +343,14 @@ export class ZhongyangOutpatientPaymentApiGateway
 
 	constructor(
 		options: ZhongyangGatewayOptions & {
-			authSysCode?: string;
+			authSysCode: string;
 		},
 	) {
 		this.baseUrl = requiredConfig(options.baseUrl);
 		this.authorizationToken = options.authorizationToken?.trim() || undefined;
-		this.authSysCode = options.authSysCode?.trim() || "thirdSelfMachine";
+		// 渠道码会影响 Provider 权限和业务流量归属；adapter 也不能依赖
+		// 任何默认值，避免绕过配置 gate 后把请求发到错误业务渠道。
+		this.authSysCode = requiredConfig(options.authSysCode);
 		this.fetcher = options.fetcher ?? fetch;
 	}
 
@@ -372,7 +374,7 @@ export class ZhongyangOutpatientPaymentApiGateway
 		url.searchParams.set("startTime", input.startTime);
 		url.searchParams.set("endTime", input.endTime);
 		url.searchParams.set("tradeStatus", input.status === "unpaid" ? "1" : "3");
-		url.searchParams.set("authSysCode", input.authSysCode || this.authSysCode);
+		url.searchParams.set("authSysCode", requiredConfig(input.authSysCode));
 		const response = await requestJson<unknown>(
 			{
 				provider: "zhongyang",
@@ -399,7 +401,7 @@ export class ZhongyangOutpatientPaymentApiGateway
 }
 
 export function createZhongyangOutpatientPaymentGateway(
-	options: ZhongyangGatewayOptions & { authSysCode?: string },
+	options: ZhongyangGatewayOptions & { authSysCode: string },
 ): OutpatientPaymentGateway {
 	return new ZhongyangOutpatientPaymentApiGateway(options);
 }

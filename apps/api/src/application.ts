@@ -34,8 +34,8 @@ import {
 	type WechatPaymentNotificationDecoder,
 	WechatPaymentNotificationService,
 } from "./modules/payments/notification-service";
-import { ReportService } from "./modules/reports";
 import { UserProfileService } from "./modules/profile";
+import { ReportService } from "./modules/reports";
 
 export type ApplicationServices = {
 	auth: AuthService;
@@ -140,7 +140,9 @@ export function createDefaultApplicationServices(
 		outpatientPayments: new OutpatientPaymentService({
 			repository: repositories.patients,
 			gateway: options.outpatientPaymentGateway ?? gateways.outpatientPayments,
-			authSysCode: options.outpatientPaymentAuthSysCode ?? "thirdSelfMachine",
+			// 渠道码必须来自已确认的运行配置；缺失时由服务层 fail-closed，
+			// 不能在组合根再次猜测 Provider 渠道。
+			authSysCode: options.outpatientPaymentAuthSysCode ?? "",
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		paymentOrders,

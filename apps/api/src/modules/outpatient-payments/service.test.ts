@@ -4,6 +4,7 @@ import type {
 	OutpatientPaymentGateway,
 	PatientRepository,
 } from "@hospital/domain";
+import { DependencyNotConfiguredError as MissingDependencyError } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import { OutpatientPaymentQueryError, OutpatientPaymentService } from "./index";
 
@@ -107,6 +108,38 @@ test("门诊费用查询在没有 owner 映射时拒绝调用 provider", async (
 	).rejects.toMatchObject({
 		name: "OutpatientPaymentPatientNotFoundError",
 	});
+	expect(gatewayCalled).toBe(false);
+});
+
+test("门诊费用查询缺少已确认渠道码时在 provider 前 fail-closed", async () => {
+	let gatewayCalled = false;
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => {
+				gatewayCalled = true;
+				throw new Error("provider must not be called");
+			},
+		},
+		authSysCode: "   ",
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unpaid", {
+			traceId: "trace-missing-auth-sys-code",
+			idempotencyKey: "key-missing-auth-sys-code",
+		}),
+	).rejects.toBeInstanceOf(MissingDependencyError);
 	expect(gatewayCalled).toBe(false);
 });
 

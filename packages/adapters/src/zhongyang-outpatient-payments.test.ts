@@ -6,10 +6,20 @@ const context = {
 	idempotencyKey: "outpatient-payment-key-001",
 };
 
+test("众阳门诊费用 adapter 缺少已确认渠道码时拒绝构造", () => {
+	expect(() =>
+		createZhongyangOutpatientPaymentGateway({
+			baseUrl: "https://zhongyang.example.test",
+			authSysCode: "   ",
+		}),
+	).toThrow("Dependency is not configured: adapter:zhongyang");
+});
+
 test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分", async () => {
 	let requestUrl = "";
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
 		authorizationToken: "server-token",
 		fetcher: async (input, init) => {
 			requestUrl = String(input);
@@ -71,6 +81,7 @@ test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分
 test("众阳门诊费用 adapter 拒绝非对象费用条目", async () => {
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
 		fetcher: async () =>
 			new Response(JSON.stringify({ success: true, data: [null] }), {
 				status: 200,
@@ -100,6 +111,7 @@ test("众阳门诊费用 adapter 拒绝非对象费用条目", async () => {
 test("众阳门诊费用 adapter 拒绝缺失金额而不是降级为零元", async () => {
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
 		fetcher: async () =>
 			new Response(
 				JSON.stringify({
@@ -142,6 +154,7 @@ test("众阳门诊费用 adapter 拒绝缺失金额而不是降级为零元", as
 test("众阳门诊费用 adapter 在公开 contract 边界拒绝超长展示字段", async () => {
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
 		fetcher: async () =>
 			new Response(
 				JSON.stringify({
@@ -186,6 +199,7 @@ test("众阳门诊费用 adapter 严格校验中国标准时间账单日期", as
 	const createGateway = (billDate: string, requestId: string) =>
 		createZhongyangOutpatientPaymentGateway({
 			baseUrl: "https://zhongyang.example.test",
+			authSysCode: "thirdSelfMachine",
 			fetcher: async () =>
 				new Response(
 					JSON.stringify({
@@ -239,6 +253,7 @@ test("众阳门诊费用 recordId 不依赖返回顺序", async () => {
 	let callCount = 0;
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
 		fetcher: async () => {
 			callCount += 1;
 			const records = [
@@ -288,6 +303,7 @@ test("众阳门诊费用 adapter 拒绝缺少稳定标识或重复费用", async
 	const createGateway = (data: unknown[], requestId: string) =>
 		createZhongyangOutpatientPaymentGateway({
 			baseUrl: "https://zhongyang.example.test",
+			authSysCode: "thirdSelfMachine",
 			fetcher: async () =>
 				new Response(JSON.stringify({ success: true, data }), {
 					status: 200,
@@ -355,6 +371,7 @@ test("众阳门诊费用 adapter 拒绝缺失或错配的 tradeStatus", async ()
 	const createGateway = (item: unknown, requestId: string) =>
 		createZhongyangOutpatientPaymentGateway({
 			baseUrl: "https://zhongyang.example.test",
+			authSysCode: "thirdSelfMachine",
 			fetcher: async () =>
 				new Response(JSON.stringify({ success: true, data: [item] }), {
 					status: 200,
@@ -405,6 +422,7 @@ test("众阳门诊费用 adapter 只把 1/3 映射为公共 unpaid/paid", async 
 	const createGateway = (tradeStatus: string, requestId: string) =>
 		createZhongyangOutpatientPaymentGateway({
 			baseUrl: "https://zhongyang.example.test",
+			authSysCode: "thirdSelfMachine",
 			fetcher: async () =>
 				new Response(
 					JSON.stringify({
@@ -464,6 +482,7 @@ test("众阳门诊费用 adapter 拒绝运行时未知状态且不访问 Provide
 	let fetchCalled = false;
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
 		fetcher: async () => {
 			fetchCalled = true;
 			throw new Error("provider must not be called");
