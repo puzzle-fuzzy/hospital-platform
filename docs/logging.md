@@ -245,6 +245,9 @@ sudo journalctl -u hospital-platform-api-v2.service \
 生产 release 不依赖 workspace 源码；候选发布包必须同时包含
 `apps/worker/dist/p0-log-aggregate.js`，服务器上应使用候选 release 的 bundle 执行同样的 stdin 管道：
 
+仓库根目录的 `turbo.json` 已将两个聚合工具登记为全局构建输入。这样修改工具源文件后，Turbo 不会错误复用旧的
+`apps/worker/dist` 缓存；发布前仍必须检查 bundle 内容和 SHA-256，而不能只看构建命令退出码。
+
 ```bash
 sudo journalctl -u hospital-platform-api-v2.service \
   --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
