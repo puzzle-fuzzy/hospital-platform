@@ -74,7 +74,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 会持久化同步 operation、租约代次并在成功快照后禁止重复访问 provider；同 key replay 返回当前 owner
 读模型，不保存 provider 原始响应；同一 owner/provider 使用不同 key 时，只要前一个租约未到期也会返回
 处理中，不会并发访问 provider。尚未应用 `0016` 的旧实例必须保持 readiness 未就绪，不能把它当作完整
-的服务端幂等保证；当前生产实例 `3ab0a6c` 已应用 `0016` 并通过 schema probe。它不代表新增或绑定了患者。同步成功后，服务端在事务中恢复本次出现的患者为 active，
+的服务端幂等保证；当前生产实例 `9833a01` 已应用 `0016` 并通过 schema probe。它不代表新增或绑定了患者。同步成功后，服务端在事务中恢复本次出现的患者为 active，
 并将同一 owner/provider 目录中本次未出现的患者标记为 inactive；历史业务引用保留，内部
 `patientId` 不更换。只有 provider adapter 确认返回完整目录时才允许这一步，分页结果必须先
 在 adapter 内合并。`observedAt` 在 provider 请求发起前采样，较早请求晚返回时不能覆盖

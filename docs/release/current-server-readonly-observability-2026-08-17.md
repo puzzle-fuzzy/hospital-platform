@@ -5,7 +5,7 @@
 > 也未执行预约、支付、医保、退款和 HIS 写入。文档只保留可维护的低敏运行事实。
 >
 > 这是 `6d58c9c` 切换前的历史快照；切换后的当前 release、0016 migration 和生产运行证据见
-> [`3ab0a6c-production-acceptance-2026-08-17.md`](3ab0a6c-production-acceptance-2026-08-17.md)。
+> [`9833a01-production-acceptance-2026-08-17.md`](9833a01-production-acceptance-2026-08-17.md)。
 
 ## 0. 当前 release 追加复核（2026-08-17 13:18 CST）
 
@@ -14,7 +14,7 @@ Provider、预约、支付、医保、退款和 HIS 写入。服务器当前状�
 
 | 检查项 | 只读结果 |
 | --- | --- |
-| 新 API current（本快照时） | `/home/ps/code/hospital-platform/current -> releases/5c4e7cf`；后续已切换为 `3ab0a6c` |
+| 新 API current（本快照时） | `/home/ps/code/hospital-platform/current -> releases/5c4e7cf`；随后先切换为 `3ab0a6c`，最终切换为 `9833a01` |
 | 新 API 进程 | `hospital-platform-api-v2.service` 为 `active`，Bun/Elysia 监听 `10.0.0.3:18081` |
 | 旧 Python 进程 | 仍监听 `0.0.0.0:8001`；本次未修改、停止或重启 |
 | Worker | `inactive`；本次没有启动后台任务 |

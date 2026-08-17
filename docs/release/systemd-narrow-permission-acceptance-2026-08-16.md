@@ -47,3 +47,10 @@
 
 本次观察没有重启服务。由于线上当前 release 仍为 `55fce6c`，候选切换和公网 `/api/v2` no-store
 验收继续保持为下一步发布任务。
+
+## 5. 2026-08-17 权限复核补充
+
+2026-08-17 15:00 CST 在 `9833a01` 发布前重新执行 `sudo -n systemctl restart hospital-platform-api-v2.service`，
+服务器返回需要密码，说明本次会话不能把 NOPASSWD 规则视为当前有效。为完成只操作新 API 的安全切换，使用交互式 sudo 输入服务器管理员提供的密码；旧 Python unit、Worker 和任意通配符命令均未执行。
+
+服务器管理员应重新检查 `/etc/sudoers.d/hospital-platform-api-v2` 的安装位置、所有者、`0440` 权限、`visudo -cf` 和实际用户匹配规则；在复核完成前，发布脚本必须保留交互式密码路径，不能假设 `sudo -n` 可用。

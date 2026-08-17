@@ -225,3 +225,9 @@ mode、MySQL/Redis/schema、live/ready、system-ping 和认证边界 smoke 后�
 和四条“不登录且缺少业务参数”的受保护路径均通过，返回 401/`unauthorized`；旧 Python `8001`、PID
 `636918` 和 Worker inactive 状态保持不变。完整证据见
 [`../../docs/release/ca5a372-production-acceptance-2026-08-17.md`](../../docs/release/ca5a372-production-acceptance-2026-08-17.md)。
+
+2026-08-17 15:00-15:05 CST：候选 `9833a01` 完成本地 build、真实生产 env preflight、5 个 bundle checksum、
+`127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收；随后从 `3ab0a6c` 原子切换到
+`9833a01`，只重启新 API。公网 `/api/v2` 连续 6/6 readiness、live、system-ping 和未登录认证边界全部通过，
+旧 Python `8001` 保持监听，Worker 未启动。首次 `sudo -n` 重启因服务器要求密码失败，软链接已自动恢复并经核对后使用交互式 sudo 完成切换；后续应重新验证 NOPASSWD 规则。真实微信、患者、预约历史、门诊费用、报告 Provider 和真机业务仍未在本次切换中调用。完整证据见
+[`../../docs/release/9833a01-production-acceptance-2026-08-17.md`](../../docs/release/9833a01-production-acceptance-2026-08-17.md)。
