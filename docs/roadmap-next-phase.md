@@ -10,9 +10,10 @@
 - 当前 `bf67b96` 仍在生产运行，新 API `10.0.0.3:18081` 与旧 Python `8001` 共存；公网 live/ready/system-ping 为 `200/200/200`，live/ready 返回 `Cache-Control: no-store`。
 - 以 `service.started=2026-08-17 20:30:25 CST` 为边界的当前 release 日志聚合 `parseErrors=0`，观察到患者同步成功链 3 次、患者目录读取成功 6 次；没有新的 `auth.wechat.*`、`appointment.records.*` 或 `outpatient.payment.*` 事件。
 - 本次只能推进运行时、共存和患者同步日志证据，不能把“我的挂号”或门诊费用标记为真实线上验收；下一步必须由最新小程序运行包在有效微信会话中逐页触发并保存页面、HTTP、低敏日志三层证据。详见 [`release/current-release-p0-observation-2026-08-17.md`](release/current-release-p0-observation-2026-08-17.md)。
-- 本轮新增 worker 的 `profile-read` 只读 smoke：仅请求 `GET /me/profile` 并校验普通资料字段类型/版本，
-  不执行 `PUT`、不输出资料正文，也不把普通资料读取当作患者归属或真机编辑证据；该能力待随下一候选
-  bundle 发布后再用真实 Bearer 会话验证，当前线上 release 尚未包含本地这次改动。
+- 2026-08-17 21:03-21:04 CST：候选 `23e2faf` 已上传并完成真实生产依赖 preflight、production mode
+  隔离启动、ready 连续 6/6、system-ping 和未登录 401 验收；候选端口已释放，线上 `current=bf67b96`、
+  新 API `18081` 和旧 Python `8001` 均未改变。候选包含 `profile-read` 只读 smoke，但尚未使用真实 Bearer
+  取得资料业务证据，完整记录见 [`release/candidate-23e2faf-preproduction-smoke-2026-08-17.md`](release/candidate-23e2faf-preproduction-smoke-2026-08-17.md)。
 
 ### 线上实时状态（2026-08-17 17:55 CST）
 
