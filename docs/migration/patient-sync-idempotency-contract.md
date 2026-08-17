@@ -178,5 +178,6 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 8. 验收：本地并发测试 → 隔离 MySQL/Redis → staging provider → 公网 API → 微信真机；
 9. 生产：先 migration/schema probe，再灰度启用新同步语义；旧服务仍保持原端口和数据库边界。
 
-代码和生产 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；
+代码和生产 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；当前线上
+release 为 `131fb5a`，仓库中尚未部署的实现候选仍需单独固定版本并取得发布 provenance，
 在新 release 切换、真实并发、公网和真机验收完成前，发布文档必须继续标记为“线上业务证据待完成”。

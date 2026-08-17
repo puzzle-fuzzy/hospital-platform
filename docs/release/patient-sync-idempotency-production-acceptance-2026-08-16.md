@@ -9,6 +9,10 @@
 > [`41c9c18-production-acceptance-2026-08-16.md`](41c9c18-production-acceptance-2026-08-16.md)，本记录对应的历史候选隔离证据见
 > [`candidate-a11f117-preproduction-smoke-2026-08-16.md`](candidate-a11f117-preproduction-smoke-2026-08-16.md)。
 
+> 当前事实更新：后续线上已切换为 `131fb5a`。本文仍是 2026-08-16 的历史 schema/发布窗口记录，不能作为
+> 当前 release 的患者同步、Redis TTL、公网或真机验收证据；当前事实以
+> [`../migration/current-execution-checkpoint-2026-08-17.md`](../migration/current-execution-checkpoint-2026-08-17.md) 为准。
+
 ## 1. 本次范围
 
 本次处理的是患者目录同步的 durable operation ledger：
@@ -76,7 +80,7 @@ missingSchemaObjects=[]
 | 检查 | 结果 |
 | --- | --- |
 | 旧 Python 端口 | `0.0.0.0:8001` 仍监听，旧进程未停止 |
-| 当前新 API systemd | `hospital-platform-api-v2.service=active`，当前运行 release `41c9c18` |
+| 当时新 API systemd | `hospital-platform-api-v2.service=active`，当时运行 release `41c9c18` |
 | 当前新 API 端口 | `10.0.0.3:18081` 仍监听 |
 | 内网 readiness | `http://10.0.0.3:18081/health/ready` 返回 database/redis/schema 全部 `ok` |
 | 公网 readiness | `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 database/redis/schema 全部 `ok` |
@@ -86,9 +90,8 @@ missingSchemaObjects=[]
 ## 5. 当前未完成和下一步
 
 当时公网 `18081` 尚未切换到 `69c0f20`，因此该历史记录本身不能证明公网患者同步使用了 operation ledger。
-当前 `41c9c18` 已具备公网运行条件，下一步按以下顺序执行真实业务验收；如需服务器侧 smoke，
-必须使用 `41c9c18` release 中的 `provider-directory-smoke.js`，不应把历史候选或生产旧版本的输出当作
-当前 replay 门禁证据：
+当时 `41c9c18` 已具备公网运行条件；当前线上已是 `131fb5a`，如需服务器侧 smoke，必须使用当前 release
+中 provenance 已核对的 bundle，不应把本文历史候选或 `41c9c18` 的输出当作当前 replay 门禁证据：
 
 1. 用受控平台 access token 做一次患者同步和同 key replay，保存 trace、operationId、provider request 次数和安全响应摘要；
 2. 检查两次响应的平台读模型一致，且第二次没有生成新的内部患者 ID；
