@@ -5,6 +5,12 @@
 
 ## 当前基线
 
+### 线上实时状态（2026-08-17 20:51 CST）
+
+- 当前 `bf67b96` 仍在生产运行，新 API `10.0.0.3:18081` 与旧 Python `8001` 共存；公网 live/ready/system-ping 为 `200/200/200`，live/ready 返回 `Cache-Control: no-store`。
+- 以 `service.started=2026-08-17 20:30:25 CST` 为边界的当前 release 日志聚合 `parseErrors=0`，观察到患者同步成功链 3 次、患者目录读取成功 6 次；没有新的 `auth.wechat.*`、`appointment.records.*` 或 `outpatient.payment.*` 事件。
+- 本次只能推进运行时、共存和患者同步日志证据，不能把“我的挂号”或门诊费用标记为真实线上验收；下一步必须由最新小程序运行包在有效微信会话中逐页触发并保存页面、HTTP、低敏日志三层证据。详见 [`release/current-release-p0-observation-2026-08-17.md`](release/current-release-p0-observation-2026-08-17.md)。
+
 ### 线上实时状态（2026-08-17 17:55 CST）
 
 - 2026-08-17 17:55 CST 已从 `0b6f38f` 原子切换到 `5f5915e`；候选五个 bundle checksum、真实生产 env preflight、`127.0.0.1:18082` 隔离 smoke 和公网 runtime smoke 均通过。新 API `18081` 仅重启自身，旧 Python `8001` 继续监听，Worker inactive。`5f5915e` 收紧普通资料未知字段 contract，支付、医保、HIS、报告和预约写入仍关闭，完整证据见 [`release/5f5915e-production-acceptance-2026-08-17.md`](release/5f5915e-production-acceptance-2026-08-17.md)。
