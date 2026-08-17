@@ -464,6 +464,28 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(records).not.toContain("wx.requestPayment");
 });
 
+test("outpatient payment tabs cannot cancel the initial patient load", async () => {
+	const payment = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const statusStart = payment.indexOf("onStatusTap(event)");
+	const statusEnd = payment.indexOf("\n\t},", statusStart);
+	const statusBody = payment.slice(statusStart, statusEnd);
+	const patientGuardIndex = statusBody.indexOf(
+		"if (!this.data.selectedPatient)",
+	);
+	const requestGuardIndex = statusBody.indexOf(
+		'getPageLatestRequestGuard(this, "outpatient-payment")',
+	);
+
+	// 初始 loadPage 尚未拿到患者时，切换 tab 只能记录意图，不能先创建
+	// 新 guard 再把 owner-scoped 患者目录请求判为过期。
+	expect(patientGuardIndex).toBeGreaterThanOrEqual(0);
+	expect(requestGuardIndex).toBeGreaterThan(patientGuardIndex);
+	expect(statusBody).toContain("this.data.loading ? {} :");
+	expect(statusBody).toContain("请先登录并选择就诊人");
+});
+
 test("native mini program preserves the legacy static hospital entry boundary", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");

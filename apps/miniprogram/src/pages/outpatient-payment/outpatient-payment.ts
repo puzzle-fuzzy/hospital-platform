@@ -106,13 +106,20 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		const status = event.currentTarget?.dataset?.status;
 		if (status !== "unpaid" && status !== "paid") return;
 		if (status === this.data.activeStatus) return;
+		if (!this.data.selectedPatient) {
+			// 首次患者目录仍在读取时，不能用 tab 切换创建新守卫并取消初始
+			// owner-scoped 请求；这里只记录用户最后点击的状态，loadPage
+			// 确认患者后会读取最新 activeStatus。没有患者且已结束加载时，
+			// 只展示明确提示，不凭空发起费用查询。
+			this.setData({
+				activeStatus: status,
+				...(this.data.loading ? {} : { error: "请先登录并选择就诊人" }),
+			});
+			return;
+		}
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
 		this.setData({ activeStatus: status, loading: true, error: "", items: [] });
-		if (!this.data.selectedPatient) {
-			this.setData({ loading: false });
-			return;
-		}
 		// 显式传入用户刚点击的状态，避免微信 setData 尚未完成时仍查询旧 tab。
 		this.loadRecords(this.data.selectedPatient, status, requestToken)
 			.catch((error) => {
