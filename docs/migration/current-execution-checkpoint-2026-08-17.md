@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `dd8ac8c`，在 `1d6ca5c` 的报告目录/详情失败日志闭环基础上，冻结多来源报告目录的全量成功边界，任一 LIS/PACS/ECG 来源失败都不返回部分成功；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `c660462`，在 `dd8ac8c` 的报告聚合成功边界基础上，修正“我的”页读取失败时残留旧患者上下文的问题；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -237,6 +237,10 @@ owner 身份行，并使用 `0016_patient_directory_sync_owner_index` 查询同�
 随后 `dd8ac8c` 冻结报告目录多来源聚合边界：未指定 `kind` 时 LIS、PACS、ECG 必须全部成功，
 任一来源失败都拒绝整批响应，不使用部分成功或静默丢失报告类型；对应 adapter 测试、公共 API 文档、
 业务正确性文档和 Provider 审计已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
+
+随后 `c660462` 修正“我的”页的失败收敛：`/me` 或患者目录读取失败时清理当前页面的用户标签、
+患者卡片和数量，但保留可重试的本地选择与会话 token，避免旧患者上下文被误显示为当前认证事实。
+小程序验收 56 项、类型检查已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
