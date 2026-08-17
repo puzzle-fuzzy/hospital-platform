@@ -268,6 +268,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-17：修正报告目录详情引用的故障隔离：单条 LIS 短期引用持久化失败时保留安全摘要、隐藏详情入口并记录 `report.detail_reference.failed`；LIS/PACS/ECG Provider 聚合失败仍整批 fail-closed。该修正不打开报告 gate，不改变报告详情、附件和支付/医保/HIS 的关闭边界。
 - 2026-08-17：修正预约历史 Provider smoke 的验收窗口偏差：此前 smoke 只请求过去 90 天到当天，无法证明“我的挂号”不会漏掉未来预约；现在与原生 `dashboard-service` 和公共 contract 统一为当前中国标准时间前后各 90 天，并补固定日期回归测试。该修正只增强验收工具，不改变预约历史 API、预约写入或支付/医保/HIS 边界。
 - 2026-08-17：继续修正 Provider smoke 的日期基准：绝对时间先转换为 UTC+8 自然日再生成查询参数，并用北京时间午夜临界的 UTC 固定时刻回归，避免 smoke 在服务器时区或 UTC 截取下把预约、报告和排班窗口错移一天。该修正仍只影响验收工具，不改变线上 API。
+- 2026-08-17：复核患者完整快照的稳定内部标识边界：MySQL 已按 `(owner, provider, provider_patient_id)` 找回既有患者，并使用数据库稳定的 `hp_patients.patient_id` 清理缺失临床 `his-patient` 引用，不会使用本次 Provider 响应中的候选内部 ID；新增回归测试锁定该语义。本轮不改运行代码、不部署，失效/恢复和真实 Provider 证据仍待验收。
 - 2026-08-17：补齐 Provider 失败的低敏诊断链路。认证、预约、门诊费用和报告业务事件现在与统一 HTTP 失败日志共享 `providerOperation`、`providerRequestId`、`providerStatusCode` 和 `providerRetryable` 白名单；不记录 Provider 原文，也不因“外部服务拒绝”而增加盲目重试或打开预约/支付能力。验收说明见 [`release/provider-failure-observability-2026-08-17.md`](release/provider-failure-observability-2026-08-17.md)。
 - 2026-08-16 18:20-18:21 CST：SSH 只读复核确认 `current=55fce6c`、新 API `18081`、旧 Python `8001` 均存活；公网 `/api/v2` Smoke 的 system-ping 通过，但 live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝，`sudo -n` 仍需密码，未执行任何线上切换或重启。
 - 2026-08-16 18:35 CST：更新后的公网 Smoke 进一步确认 system-ping 与六路未登录 `auth-boundary` 通过；live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝。当前只证明公网路由和认证边界，不能替代候选切换、provider 或真机业务验收。

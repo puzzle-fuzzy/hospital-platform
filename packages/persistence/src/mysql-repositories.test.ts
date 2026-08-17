@@ -399,6 +399,63 @@ test("MySQL ordinary profile uses insert-once and conditional version updates", 
 	expect(state.values[3]?.at(-1)).toBe(1);
 });
 
+test("MySQL patient snapshot clears missing clinical references by stable internal id", async () => {
+	const existingPatient = {
+		patient_id: "stable-internal-patient-001",
+		owner_user_id: "user-001",
+		display_name: "张三",
+		relationship: "self",
+		card_number_masked: "******7890",
+		source: "hospital-his",
+		provider_name: "zhongyang",
+		provider_patient_id: "provider-patient-001",
+		directory_active: 1,
+		directory_last_seen_at: "2026-08-16 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([
+		[existingPatient],
+		{ affectedRows: 1 },
+		{ affectedRows: 1 },
+		{ affectedRows: 0 },
+		[],
+	]);
+	const repositories = createMySqlRepositories(pool);
+	const snapshot = repositories.patients.replaceDirectorySnapshot;
+	if (!snapshot) throw new Error("snapshot unavailable");
+
+	await expect(
+		snapshot({
+			ownerUserId: "user-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-17T00:00:00.000Z",
+			patients: [
+				{
+					// provider 患者号相同但本次返回了不同候选内部 ID；
+					// 持久化层必须沿用数据库中的稳定 ID。
+					patientId: "incoming-patient-id-must-not-be-used",
+					profile: {
+						providerPatientId: "provider-patient-001",
+						displayName: "张三（更新）",
+						relationship: "self",
+						cardNumberMasked: "******0000",
+					},
+				},
+			],
+		}),
+	).resolves.toMatchObject({ deactivatedPatientCount: 0 });
+
+	const clearReferenceIndex = state.statements.findIndex((statement) =>
+		statement.includes("DELETE FROM hp_patient_provider_references"),
+	);
+	expect(clearReferenceIndex).toBeGreaterThanOrEqual(0);
+	expect(state.values[clearReferenceIndex ?? -1]).toContain(
+		"stable-internal-patient-001",
+	);
+	expect(state.values[clearReferenceIndex ?? -1]).not.toContain(
+		"incoming-patient-id-must-not-be-used",
+	);
+});
+
 test("MySQL patient directory snapshot deactivates missing rows in one transaction", async () => {
 	const { pool, state } = createFakePool([
 		[],

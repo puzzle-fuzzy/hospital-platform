@@ -482,3 +482,10 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 认证边界 401，`18082` 已释放。该发布仍没有真实微信、患者、预约历史或门诊费用 Provider 业务事件，
 所以 P0 真实业务验收状态不变；支付、医保、退款和 HIS 回写继续最后处理。完整 bundle 与运行证据见
 [`../release/0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md)。
+
+随后复核患者完整快照在“Provider 患者号不变、候选内部 ID 变化”时的持久化语义：当前 MySQL 实现
+已通过 `upsertPatientFromDirectory` 找回并沿用数据库中的稳定 `hp_patients.patient_id`，清理缺失的
+临床 `his-patient` 引用时传入的也是该内部 ID，而不是本次 Provider 响应携带的候选 ID；失效/恢复、
+owner 隔离和 Provider 映射语义因此保持一致。本轮没有重复修改运行代码，只新增 MySQL 回归测试锁定
+该边界；持久化 69 项测试、typecheck 通过，未部署、未重启服务，真实 inactive/recovery 与 Provider
+证据仍待 P0 业务验收。支付、医保、退款和 HIS 回写继续最后处理。
