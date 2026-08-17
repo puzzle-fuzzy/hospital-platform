@@ -51,6 +51,12 @@ Provider 返回可用数据，或患者端门诊缴费已经完成。下一步�
 `amount`、`billDeptName`、`billDocName` 等字段输出公共白名单；Provider fixture 未确认前，不能把旧端字段名当成新
 contract，也不能把候选金额带入支付编排。
 
+本次 contract diff 还确认了状态不能二值化：文档响应定义 `tradeStatus=1`（待支付）、`2`（已生成结算）、
+`3`（已支付）、`4`（退款中）、`5`（已退款）、`9`（作废），而公共读模型只有 `unpaid`/`paid`。当前 adapter
+只接受请求 `unpaid` 且响应为 `1`，或请求 `paid` 且响应为 `3`；`2/4/5/9` 均拒绝整批结果，不把退款、作废或
+已生成结算误报成已支付。文档还列出 `exeDeptIds`、`mainIds`、`outTradeOrderIdList`、`workStationId` 等
+可选筛选字段，但当前平台没有对应公共查询 contract，因此 adapter 不透传，避免小程序借 Provider 参数改变查询语义。
+
 ### 3.2 科室与用户资料：可能是动态目录依赖，不直接开放
 
 材料分别指向 Provider 的科室基础信息和用户信息接口。它们可能影响医院/科室/用户映射，但当前迁移目标仍然是

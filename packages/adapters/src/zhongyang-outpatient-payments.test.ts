@@ -400,3 +400,62 @@ test("众阳门诊费用 adapter 拒绝缺失或错配的 tradeStatus", async ()
 		});
 	}
 });
+
+test("众阳门诊费用 adapter 只把 1/3 映射为公共 unpaid/paid", async () => {
+	const createGateway = (tradeStatus: string, requestId: string) =>
+		createZhongyangOutpatientPaymentGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(
+					JSON.stringify({
+						success: true,
+						data: [
+							{
+								outTradeOrderId: `order-${requestId}`,
+								amount: "1.00",
+								tradeStatus,
+								billDate: "2026-08-16 09:00:00",
+							},
+						],
+					}),
+					{ status: 200, headers: { "x-request-id": requestId } },
+				),
+		});
+	const baseInput = {
+		providerPatientId: "provider-patient-secret",
+		startTime: "2026-08-16 00:00:00",
+		endTime: "2026-08-16 23:59:59",
+		authSysCode: "thirdSelfMachine",
+	};
+
+	await expect(
+		createGateway("1", "valid-unpaid").listRecords(
+			{ ...baseInput, status: "unpaid" },
+			context,
+		),
+	).resolves.toMatchObject({ records: [{ status: "unpaid" }] });
+	await expect(
+		createGateway("3", "valid-paid").listRecords(
+			{ ...baseInput, status: "paid" },
+			context,
+		),
+	).resolves.toMatchObject({ records: [{ status: "paid" }] });
+
+	for (const [providerStatus, requestedStatus] of [
+		["2", "unpaid"],
+		["2", "paid"],
+		["4", "paid"],
+		["5", "paid"],
+		["9", "paid"],
+	] as const) {
+		await expect(
+			createGateway(
+				providerStatus,
+				`unsupported-${providerStatus}-${requestedStatus}`,
+			).listRecords({ ...baseInput, status: requestedStatus }, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			retryable: false,
+		});
+	}
+});

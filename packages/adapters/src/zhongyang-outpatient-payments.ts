@@ -21,7 +21,11 @@ const OPERATION = "outpatient-payment-records";
  */
 type ProviderPaymentItem = {
 	amount?: unknown;
-	/** 2.6.33 响应中的订单状态：1=待支付，3=已支付。只在 adapter 内校验。 */
+	/**
+	 * 2.6.33 响应中的订单状态：1=待支付、2=已生成结算、3=已支付、
+	 * 4=退款中、5=已退款、9=作废。公共只读模型只能确认 1/3；其余状态
+	 * 没有独立 contract，不能粗暴映射成 paid，只在 adapter 内 fail-closed。
+	 */
 	tradeStatus?: unknown;
 	/** 以下字段只用于服务端内部建立稳定费用引用，不进入公共读模型。 */
 	mainId?: unknown;
