@@ -207,6 +207,7 @@ type IndexPageMethods = {
 	onLoadAppointmentRecords(): void;
 	onSelectPatient(event: PatientEvent): void;
 	showError(error: unknown, fallback: string): void;
+	clearDisplayedPatientContext(): void;
 	clearPatientContext(): void;
 	setPatientsFromPayload(patients: Array<Patient>): void;
 };
@@ -479,12 +480,21 @@ Page<IndexPageData, IndexPageMethods>({
 	loadPatients(): Promise<Array<Patient>> {
 		const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 		const requestToken = patientDataGuard.begin();
-		return loadPatients().then((patients) => {
-			if (patientDataGuard.isCurrent(requestToken)) {
-				this.setPatientsFromPayload(patients);
-			}
-			return patients;
-		});
+		return loadPatients()
+			.then((patients) => {
+				if (patientDataGuard.isCurrent(requestToken)) {
+					this.setPatientsFromPayload(patients);
+				}
+				return patients;
+			})
+			.catch((error) => {
+				if (patientDataGuard.isCurrent(requestToken)) {
+					// 目录读取失败时，当前首页的患者卡片不再具有最新 owner-scoped
+					// 证据；清理展示状态但保留本地 opaque 选择，便于下一次恢复。
+					this.clearDisplayedPatientContext();
+				}
+				throw error;
+			});
 	},
 
 	onSyncPatients(): Promise<Array<Patient>> {
@@ -514,6 +524,9 @@ Page<IndexPageData, IndexPageMethods>({
 				})
 				.catch((error) => {
 					if (patientDataGuard.isCurrent(requestToken)) {
+						// 临床映射同步失败时，旧卡片也不能继续作为可用患者上下文；
+						// 本地选择和会话 token 仍保留，等待用户重试恢复。
+						this.clearDisplayedPatientContext();
 						this.showError(error, "就诊人同步失败");
 					}
 					return [];
@@ -607,6 +620,22 @@ Page<IndexPageData, IndexPageMethods>({
 			}
 		}
 		this.setData({ error: message });
+	},
+
+	/**
+	 * 清理首页当前展示的患者派生数据，但不清理本地显式选择。
+	 *
+	 * 目录或临床映射读取失败时，保留旧 patientId 只用于后续恢复和 stale 判断，
+	 * 不能继续把它放在首页卡片上作为当前已确认的患者事实。会话失效或用户明确
+	 * 清除上下文时，才调用下面会同步删除本地选择的 clearPatientContext。
+	 */
+	clearDisplayedPatientContext(): void {
+		this.setData({
+			patients: [],
+			selectedPatient: null,
+			selectedPatientId: "",
+			hasPatients: false,
+		});
 	},
 
 	/**

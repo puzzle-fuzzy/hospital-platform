@@ -867,6 +867,30 @@ test("native homepage fails closed when session recovery cannot be completed", a
 	expect(home).toContain("auth/wechat");
 });
 
+test("native homepage clears displayed patient context after directory failures", async () => {
+	const home = await source("pages/index/index.ts");
+	const pageStart = home.indexOf("Page<IndexPageData");
+	const loadStart = home.indexOf(
+		"loadPatients(): Promise<Array<Patient>>",
+		pageStart,
+	);
+	const loadEnd = home.indexOf("\n\t},", loadStart);
+	const loadBody = home.slice(loadStart, loadEnd);
+	const syncStart = home.indexOf(
+		"onSyncPatients(): Promise<Array<Patient>>",
+		pageStart,
+	);
+	const syncEnd = home.indexOf("\n\t},", syncStart);
+	const syncBody = home.slice(syncStart, syncEnd);
+
+	// 目录读取和临床映射失败都必须清理首页展示；本地选择仍由独立 service
+	// 保存，不能把“清理展示”误实现成“删除用户选择”。
+	expect(home).toContain("clearDisplayedPatientContext(): void");
+	expect(loadBody).toContain("this.clearDisplayedPatientContext();");
+	expect(syncBody).toContain("this.clearDisplayedPatientContext();");
+	expect(home).toContain("保留本地 opaque 选择");
+});
+
 test("native my page clears stale patient context when owner reads fail", async () => {
 	const my = await source("pages/my/my.ts");
 
