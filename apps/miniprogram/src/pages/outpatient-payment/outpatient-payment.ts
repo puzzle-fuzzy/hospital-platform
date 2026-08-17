@@ -1,10 +1,11 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import { ApiError } from "../../services/api-client";
 import {
 	loadOutpatientPaymentRecords,
 	loadCurrentPatient,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { patientContextErrorMessage } from "../../services/patient-selection-service";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -210,22 +211,13 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	},
 
 	showError(error: unknown, fallback: string): void {
-		let message = fallback;
-		if (error instanceof ApiError) {
-			if (error.code === "dependency-not-configured") {
-				message = "门诊缴费服务暂未配置完成，请联系管理员";
-			} else if (error.code === "patient-selection-stale") {
-				message = "上次选择的就诊人已失效，请重新选择";
-			} else if (error.code === "patient-not-bound") {
-				message = "当前微信账号暂无绑定的就诊人";
-			} else if (error.code === "patient-selection-required") {
-				message = "请先选择就诊人，再查看门诊缴费记录";
-			} else if (error.code === "outpatient-payment-patient-not-found") {
-				message = "当前就诊人暂未建立门诊缴费映射";
-			} else {
-				message = safeApiErrorMessage(error, fallback);
-			}
-		}
+		const message =
+			error instanceof ApiError && error.code === "dependency-not-configured"
+				? "门诊缴费服务暂未配置完成，请联系管理员"
+				: error instanceof ApiError &&
+						error.code === "outpatient-payment-patient-not-found"
+					? "当前就诊人暂未建立门诊缴费映射"
+					: patientContextErrorMessage(error, fallback);
 		this.setData({
 			error: message,
 			items: [],

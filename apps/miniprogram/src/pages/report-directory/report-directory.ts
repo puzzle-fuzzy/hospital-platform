@@ -1,10 +1,11 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import { ApiError } from "../../services/api-client";
 import {
 	loadCurrentPatient,
 	loadReports,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { patientContextErrorMessage } from "../../services/patient-selection-service";
 import type {
 	Report,
 	ReportDirectoryPageData,
@@ -153,20 +154,10 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	},
 
 	showError(error: unknown, fallback: string): void {
-		let message = fallback;
-		if (error instanceof ApiError) {
-			if (error.code === "dependency-not-configured") {
-				message = "报告服务暂未配置完成，请联系管理员";
-			} else if (error.code === "patient-selection-stale") {
-				message = "上次选择的就诊人已失效，请重新选择";
-			} else if (error.code === "patient-not-bound") {
-				message = "当前微信账号暂无绑定的就诊人";
-			} else if (error.code === "patient-selection-required") {
-				message = "请先选择就诊人，再查看报告";
-			} else {
-				message = safeApiErrorMessage(error, fallback);
-			}
-		}
+		const message =
+			error instanceof ApiError && error.code === "dependency-not-configured"
+				? "报告服务暂未配置完成，请联系管理员"
+				: patientContextErrorMessage(error, fallback);
 		this.setData({
 			error: message,
 			selectedPatient: null,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { Patient } from "../types";
 import { ApiError } from "./api-client";
 import {
+	patientContextErrorMessage,
 	requirePatientFromResolution,
 	resolvePatientSelection,
 } from "./patient-selection-service";
@@ -131,4 +132,24 @@ test("业务页面区分没有绑定患者、已失效和临床映射不可用",
 			patient: patient("patient-b"),
 		}),
 	).toEqual(patient("patient-b"));
+});
+
+test("患者范围业务页使用统一的上下文错误文案", () => {
+	expect(
+		patientContextErrorMessage(
+			new ApiError("provider detail must not be shown", {
+				code: "patient-clinical-unavailable",
+			}),
+			"备用错误",
+		),
+	).toBe("该就诊人暂未完成医院档案映射，请选择其他就诊人或刷新");
+	expect(
+		patientContextErrorMessage(
+			new ApiError("stale patient", { code: "patient-selection-stale" }),
+			"备用错误",
+		),
+	).toBe("上次选择的就诊人已失效，请重新选择");
+	expect(
+		patientContextErrorMessage(new Error("内部原文不应展示"), "备用错误"),
+	).toBe("备用错误");
 });

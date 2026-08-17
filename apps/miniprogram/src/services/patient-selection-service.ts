@@ -1,5 +1,5 @@
 import type { Patient } from "../types";
-import { ApiError } from "./api-client";
+import { ApiError, safeApiErrorMessage } from "./api-client";
 
 /**
  * 当前就诊人的本地选择状态。
@@ -8,6 +8,43 @@ import { ApiError } from "./api-client";
  * 医疗隐私字段；患者详情始终以服务端最新目录为准，避免本地缓存过期数据。
  */
 export const SELECTED_PATIENT_ID_KEY = "selected_patient_id";
+
+/**
+ * 患者范围业务页共用的上下文错误文案。
+ *
+ * 这些错误不是某一个页面的展示细节，而是“当前患者能否代表后续医疗查询”
+ * 的业务状态：stale 不能静默换人，未绑定不能伪造空列表，临床映射不可用时
+ * 不能把目录资料当作可查询患者。集中维护后，预约、报告和费用页不会因为
+ * 各自新增分支而出现互相矛盾的提示；领域服务未配置的文案仍由页面保留。
+ */
+const PATIENT_CONTEXT_ERROR_MESSAGES: Readonly<Record<string, string>> =
+	Object.freeze({
+		"patient-selection-required": "请先登录并选择就诊人",
+		"patient-selection-stale": "上次选择的就诊人已失效，请重新选择",
+		"patient-not-bound": "当前微信账号暂无绑定的就诊人",
+		"patient-clinical-unavailable":
+			"该就诊人暂未完成医院档案映射，请选择其他就诊人或刷新",
+	});
+
+/**
+ * 将患者上下文错误翻译为一致的安全文案。
+ *
+ * 页面仍可在调用本函数前处理自己的领域错误（例如报告服务未配置），但
+ * 一旦进入患者状态分支，必须使用本函数，不能把 ApiError.message 或 Provider
+ * 原文直接展示给患者。
+ */
+export function patientContextErrorMessage(
+	error: unknown,
+	fallback: string,
+): string {
+	if (error instanceof ApiError) {
+		return (
+			PATIENT_CONTEXT_ERROR_MESSAGES[error.code] ??
+			safeApiErrorMessage(error, fallback)
+		);
+	}
+	return safeApiErrorMessage(error, fallback);
+}
 
 /**
  * 服务端目录与本地选择合并后的结果。

@@ -431,6 +431,7 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 		const businessLoaderIndex = loadBody.indexOf(item.call);
 
 		expect(page).toContain("loadCurrentPatient");
+		expect(page).toContain("patientContextErrorMessage");
 		expect(page).not.toContain("loadPatients");
 		expect(page).not.toContain("requireStoredPatientSelection");
 		expect(page).toContain("navigateToPatientSelector");

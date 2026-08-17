@@ -14,6 +14,9 @@
 - 本轮新增 `p0-business-evidence-audit`：它消费 `p0-log-aggregate --json` 的安全计数，要求每个选定业务域
   同时出现请求事件和明确成功事件，并在 `parseErrors` 或事件缺失时失败。该工具只证明服务端业务模块确实
   产生过事件，不替代患者归属、HTTP、页面和 trace 交叉核对；支付、医保、预约写入和病历仍未开放。
+- 本轮又将患者范围错误解释收敛到 `patientContextErrorMessage`：预约记录、爽约记录、报告目录和门诊费用页
+  不再各自复制 stale/未绑定/临床映射不可用文案；领域服务未配置和费用映射缺失等专属状态仍由页面先处理。
+  该修正只改变客户端错误语义复用，不改变 API、Provider、数据查询或支付/医保边界。
 - 2026-08-17 21:29 CST：再次只读复核当前 `bf67b96`。新 API `18081` 与旧 Python `8001` 仍共存，公网 `health/ready` 返回 `200`、`no-store`，database/redis/schema 均为 `ok`；当前 release 自 `20:30:25` 启动后，日志聚合 `parseErrors=0`，有微信登录 1/1、患者同步 9/9、患者目录读取 18/18，但 `appointment.*`、`outpatient.payment.*`、`report.*` 和 `user.profile.*` 均为 0。该结果只推进运行时、认证和患者目录证据，不能标记“我的挂号”、门诊费用、报告或真机业务已验收。详见 [`release/current-release-p0-observation-2026-08-17-2129.md`](release/current-release-p0-observation-2026-08-17-2129.md)。
 - 当前 `bf67b96` 仍在生产运行，新 API `10.0.0.3:18081` 与旧 Python `8001` 共存；公网 live/ready/system-ping 为 `200/200/200`，live/ready 返回 `Cache-Control: no-store`。
 - 以 `service.started=2026-08-17 20:30:25 CST` 为边界的当前 release 日志聚合 `parseErrors=0`，观察到患者同步成功链 3 次、患者目录读取成功 6 次；没有新的 `auth.wechat.*`、`appointment.records.*` 或 `outpatient.payment.*` 事件。

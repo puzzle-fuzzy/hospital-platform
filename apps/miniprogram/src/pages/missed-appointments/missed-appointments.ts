@@ -1,4 +1,4 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import { ApiError } from "../../services/api-client";
 import {
 	isMissedAppointment,
 	toAppointmentRecordView,
@@ -9,6 +9,7 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { patientContextErrorMessage } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordView,
@@ -146,20 +147,10 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	},
 
 	showError(error: unknown, fallback: string): void {
-		let message = fallback;
-		if (error instanceof ApiError) {
-			if (error.code === "dependency-not-configured") {
-				message = "爽约记录服务暂未配置完成，请联系管理员";
-			} else if (error.code === "patient-selection-stale") {
-				message = "上次选择的就诊人已失效，请重新选择";
-			} else if (error.code === "patient-not-bound") {
-				message = "当前微信账号暂无绑定的就诊人";
-			} else if (error.code === "patient-selection-required") {
-				message = "请先选择就诊人，再查看爽约记录";
-			} else {
-				message = safeApiErrorMessage(error, fallback);
-			}
-		}
+		const message =
+			error instanceof ApiError && error.code === "dependency-not-configured"
+				? "爽约记录服务暂未配置完成，请联系管理员"
+				: patientContextErrorMessage(error, fallback);
 		this.setData({
 			error: message,
 			selectedPatient: null,
