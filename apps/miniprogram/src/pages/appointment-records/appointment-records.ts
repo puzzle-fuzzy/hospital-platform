@@ -5,6 +5,7 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
+import { navigateToPatientSelector } from "../../services/patient-navigation";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -149,7 +150,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	onChangePatient(): void {
-		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+		navigateToPatientSelector();
 	},
 
 	onPullDownRefresh(): void {

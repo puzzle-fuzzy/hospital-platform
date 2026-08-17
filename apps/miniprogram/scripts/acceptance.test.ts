@@ -194,13 +194,15 @@ test("native client requests server-generated prepay parameters", async () => {
 
 test("native client requests patient synchronization through the Hospital API", async () => {
 	const client = await source("services/api-client.ts");
+	const dashboard = await source("services/dashboard-service.ts");
 	const page = await source("pages/index/index.ts");
 
 	expect(client).toContain("syncPatients");
 	expect(client).toContain('url: "/patients/sync"');
+	expect(dashboard).toContain("runPatientSync");
+	expect(dashboard).toContain("createIdempotencyKey(operationPrefix)");
 	expect(page).toContain("onSyncPatients");
-	expect(page).toContain('createIdempotencyKey("patient-sync")');
-	expect(page).not.toContain(["patient-sync-", "$", "{Date.now()}"].join(""));
+	expect(page).toContain('syncPatientsFromHospital("patient-sync")');
 	expect(page).not.toContain("unionId");
 	expect(page).not.toContain("providerPatientId");
 });
@@ -222,16 +224,19 @@ test("native mini program exposes a real patient selection page", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
 	const service = await source("services/patient-selection-service.ts");
+	const navigation = await source("services/patient-navigation.ts");
 
 	expect(app).toContain('"pages/patient-select/patient-select"');
 	expect(home).toContain("openPatientSelector");
-	expect(home).toContain('url: "/pages/patient-select/patient-select"');
+	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(home).not.toContain("wx.showActionSheet");
 	expect(home).toContain("onShow()");
 	expect(selection).toContain("loadPatients");
 	expect(selection).toContain("onPatientTap");
 	expect(selection).toContain("setSelectedPatientId");
-	expect(selection).toContain('createIdempotencyKey("patient-selection-sync")');
+	expect(selection).toContain(
+		'syncPatientsFromHospital("patient-selection-sync")',
+	);
 	expect(template).toContain("patient-card-selected");
 	expect(template).toContain("刷新就诊人");
 	expect(service).toContain('SELECTED_PATIENT_ID_KEY = "selected_patient_id"');
@@ -385,6 +390,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	const profile = await source("pages/profile/profile.ts");
 	const profileTemplate = await source("pages/profile/profile.wxml");
 	const client = await source("services/api-client.ts");
+	const navigation = await source("services/patient-navigation.ts");
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 
 	expect(app).toContain('"pages/profile/profile"');
@@ -392,7 +398,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("getUserProfile");
 	expect(my).toContain('status: "rejected" as const');
 	expect(my).toContain("资料读取失败不能让已经成功的患者上下文整页失败");
-	expect(my).toContain('url: "/pages/patient-select/patient-select"');
+	expect(my).toContain("navigateToPatientSelector");
+	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(template).toContain('bindtap="onFamilyTap"');
 	expect(template).toContain('bindtap="onHeaderTap"');
 	expect(template).toContain("点击编辑个人资料");
@@ -693,6 +700,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	);
 	const my = await source("pages/my/my.ts");
 	const myTemplate = await source("pages/my/my.wxml");
+	const navigation = await source("services/patient-navigation.ts");
 
 	expect(app).toContain('"pages/outpatient-payment/outpatient-payment"');
 	expect(app).toContain('"pages/my/my"');
@@ -719,7 +727,8 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatientTemplate).toContain(
 		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
 	);
-	expect(my).toContain('url: "/pages/patient-select/patient-select"');
+	expect(my).toContain("navigateToPatientSelector");
+	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(my).toContain('url: "/pages/appointment-records/appointment-records"');
 	expect(myTemplate).toContain("家庭成员管理");
 	expect(myTemplate).toContain("legacy-tabbar");
@@ -864,6 +873,7 @@ test("native homepage sends both add and change patient actions to the selection
 
 test("native homepage blocks patient selection while its sync snapshot is in flight", async () => {
 	const home = await source("pages/index/index.ts");
+	const navigation = await source("services/patient-navigation.ts");
 	const start = home.indexOf(
 		"openPatientSelector(): void {",
 		home.indexOf("Page<"),
@@ -871,13 +881,21 @@ test("native homepage blocks patient selection while its sync snapshot is in fli
 	const end = home.indexOf("\n\t},", start);
 	const selector = home.slice(start, end);
 
-	// 首页和选择页不能各自用不同幂等键并发同步同一 owner/provider；
-	// 路由入口必须先等待当前快照收敛，再让用户进入选择流程。
-	expect(selector).toContain("this.data.syncingPatients");
-	expect(selector).toContain("就诊人正在同步，请稍后");
-	expect(selector).toContain(
-		'wx.navigateTo({ url: "/pages/patient-select/patient-select" })',
-	);
+	// 页面级状态不能覆盖跨页面实例的在途同步；统一导航服务必须检查
+	// 进程级协调器，等待当前快照收敛后再让用户进入选择流程。
+	expect(selector).toContain("navigateToPatientSelector");
+	expect(navigation).toContain("isPatientSyncInFlight");
+	expect(navigation).toContain("就诊人正在同步，请稍后");
+	const patientScopedPages = [
+		"pages/my/my.ts",
+		"pages/appointment-records/appointment-records.ts",
+		"pages/missed-appointments/missed-appointments.ts",
+		"pages/outpatient-payment/outpatient-payment.ts",
+		"pages/report-directory/report-directory.ts",
+	];
+	for (const pagePath of patientScopedPages) {
+		expect(await source(pagePath)).toContain("navigateToPatientSelector");
+	}
 });
 
 test("native patient center does not mislabel reports as outpatient medical records", async () => {

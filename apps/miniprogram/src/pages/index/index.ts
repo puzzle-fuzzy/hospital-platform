@@ -1,8 +1,4 @@
-import {
-	ApiError,
-	createIdempotencyKey,
-	safeApiErrorMessage,
-} from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	loadHealth,
 	loadPatients,
@@ -18,6 +14,7 @@ import {
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	hasPlatformSession,
 	restorePlatformSession,
@@ -228,8 +225,8 @@ type LoginOptions = {
  * key 存在页面实例的 WeakMap 中：同一首页实例内后发的同步会淘汰旧读取，
  * 但不会影响页面栈中的另一个首页实例。
  *
- * 同一首页实例内的患者同步采用单飞语义：自动恢复、用户点击和下拉刷新
- * 可能在同一时间到达，但只能让一个同步请求进入 provider。这个客户端锁
+ * 同一首页实例内的患者同步采用页面级单飞语义；dashboard service 另外使用
+ * 进程级协调器，让首页与选择页等不同页面实例复用同一在途 Promise。客户端锁
  * 只减少重复请求和无意义的 409，真正的跨进程幂等仍由服务端 operation ledger 保证。
  */
 Page<IndexPageData, IndexPageMethods>({
@@ -384,15 +381,10 @@ Page<IndexPageData, IndexPageMethods>({
 
 	/** 统一通过页面路由进入患者管理，恢复旧端可浏览、可返回的交互。 */
 	openPatientSelector(): void {
-		// 首页登录恢复或下拉刷新正在同步患者时，选择页不能再用另一条
-		// 幂等键并发触发 provider 同步；服务端会正确返回 owner/provider
-		// 处理中冲突，但用户只会看到“加载失败”。统一在路由入口拦截，
-		// 等当前快照完成后再允许进入选择页，保持患者上下文只有一条写入链。
-		if (this.data.syncingPatients) {
-			wx.showToast({ title: "就诊人正在同步，请稍后", icon: "none" });
-			return;
-		}
-		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+		// 患者同步可能由首页、我的或其他业务页发起；统一导航服务检查
+		// 进程级在途 Promise，不能只看当前首页的 syncingPatients。这样即使
+		// 首页已经隐藏，选择页也不会带另一条幂等键并发触发 provider 同步。
+		navigateToPatientSelector();
 	},
 
 	/**
@@ -520,7 +512,7 @@ Page<IndexPageData, IndexPageMethods>({
 			const requestToken = patientDataGuard.begin();
 			const loadingToken = syncLoadingGuard.begin();
 			this.setData({ syncingPatients: true, error: "" });
-			return syncPatientsFromHospital(createIdempotencyKey("patient-sync"))
+			return syncPatientsFromHospital("patient-sync")
 				.then((patients) => {
 					if (!patientDataGuard.isCurrent(requestToken)) return patients;
 					this.setPatientsFromPayload(patients);

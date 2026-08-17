@@ -5,6 +5,7 @@ import {
 } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
+import { navigateToPatientSelector } from "../../services/patient-navigation";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import type { ActionEvent, MyPageData } from "../../types";
 
@@ -114,14 +115,14 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	onFamilyTap(): void {
-		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+		navigateToPatientSelector();
 	},
 
 	onAction(event): void {
 		const action = event.currentTarget?.dataset?.action;
 		switch (action) {
 			case "patient-select":
-				wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+				navigateToPatientSelector();
 				break;
 			case "appointment-records":
 				wx.navigateTo({

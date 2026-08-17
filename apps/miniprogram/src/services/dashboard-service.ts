@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import {
 	ApiError,
+	createIdempotencyKey,
 	request,
 	requestAppointmentDepartments,
 	requestAppointmentRecords,
@@ -20,6 +21,7 @@ import {
 	requestWithSession,
 	syncPatients,
 } from "./api-client";
+import { runPatientSync } from "./patient-sync-coordinator";
 
 /**
  * 首页只读工作台使用的时间窗口。
@@ -160,11 +162,18 @@ export function loadPatients(): Promise<Array<Patient>> {
 	}).then((payload) => payload.data.items);
 }
 
-/** 请求服务端从已认证身份同步患者，不在小程序侧拼 provider 字段。 */
+/**
+ * 请求服务端从已认证身份同步患者，不在小程序侧拼 provider 字段。
+ * 同步请求在进程级协调器内生成幂等键，保证不同页面实例复用同一操作。
+ */
 export function syncPatientsFromHospital(
-	idempotencyKey: string,
+	operationPrefix: string,
 ): Promise<Array<Patient>> {
-	return syncPatients(idempotencyKey).then((payload) => payload.data.items);
+	return runPatientSync(() =>
+		syncPatients(createIdempotencyKey(operationPrefix)).then(
+			(payload) => payload.data.items,
+		),
+	);
 }
 
 /** 并行读取预约科室和排班目录。 */

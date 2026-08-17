@@ -2,6 +2,7 @@ import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import { loadPatients, loadReports } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
+import { navigateToPatientSelector } from "../../services/patient-navigation";
 import type {
 	Report,
 	ReportDirectoryPageData,
@@ -116,7 +117,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	},
 
 	onChangePatient(): void {
-		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+		navigateToPatientSelector();
 	},
 
 	/** 详情页只接受服务端生成的短期 opaque reportId，摘要没有引用时保持不可点击。 */

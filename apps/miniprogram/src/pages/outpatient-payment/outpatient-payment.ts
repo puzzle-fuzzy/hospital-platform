@@ -5,6 +5,7 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
+import { navigateToPatientSelector } from "../../services/patient-navigation";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -183,7 +184,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	},
 
 	onChangePatient(): void {
-		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+		navigateToPatientSelector();
 	},
 
 	/** 只读阶段不伪造支付调起；真正支付接入医保/微信订单后再开放。 */
