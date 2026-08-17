@@ -32,7 +32,7 @@ type OutpatientPaymentPageMethods = {
 	onStatusTap(event: WechatMiniprogram.TouchEvent): void;
 	onLoadMore(): void;
 	onChangePatient(): void;
-	onRecordTap(): void;
+	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
 	toView(record: OutpatientPaymentRecord): OutpatientPaymentRecordView;
@@ -187,9 +187,22 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		navigateToPatientSelector();
 	},
 
-	/** 只读阶段不伪造支付调起；真正支付接入医保/微信订单后再开放。 */
-	onRecordTap(): void {
-		wx.showToast({ title: "支付流程正在迁移中", icon: "none" });
+	/**
+	 * 只读阶段不伪造支付调起；真正支付接入医保/微信订单后再开放。
+	 *
+	 * 待缴记录和已缴记录虽然共用同一张卡片，但业务事实不同：前者只能
+	 * 提示支付契约未开放，后者不能再次提示“支付”，避免把已缴状态误导成
+	 * 待支付。两种情况都不调用 `wx.requestPayment`，也不修改服务端状态。
+	 */
+	onRecordTap(event): void {
+		const status = event.currentTarget?.dataset?.status;
+		const title =
+			status === "paid"
+				? "已缴费记录详情正在迁移中"
+				: status === "unpaid"
+					? "支付流程正在迁移中"
+					: "费用记录详情正在迁移中";
+		wx.showToast({ title, icon: "none" });
 	},
 
 	toView(record): OutpatientPaymentRecordView {

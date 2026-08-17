@@ -59,6 +59,12 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 [`miniprogram-runtime-package-verification-2026-08-17.md`](../release/miniprogram-runtime-package-verification-2026-08-17.md)：
 14 个注册页面的 `.js/.json/.wxml/.wxss` 均存在；该证据不代表开发者工具或真机已经加载本次本地产物。
 
+2026-08-17 14:37 CST 的最新受控服务器只读观察已记录在
+[`current-server-p0-observation-2026-08-17.md`](../release/current-server-p0-observation-2026-08-17.md)：当前运行包仍为
+`3ab0a6c`，新旧端口同时监听，production、MySQL、Redis 和 schema readiness 均正常；当前进程只观察到患者
+目录事件，没有预约历史或门诊费用事件。因此门诊费用仍只能称为“代码已实现、真实业务未验收”，不能因为配置状态为
+`configured` 或 API readiness 通过就更新 P0 结论。
+
 ## 2. 剩余范围分层
 
 ### P0：已有代码，但缺真实业务证据

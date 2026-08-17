@@ -22,7 +22,7 @@
 	</view>
 
 	<view wx:elif="{{visibleItems.length}}" class="record-list">
-		<view wx:for="{{visibleItems}}" wx:key="recordId" class="record-card" bindtap="onRecordTap">
+		<view wx:for="{{visibleItems}}" wx:key="recordId" class="record-card" bindtap="onRecordTap" data-status="{{item.status}}">
 			<view class="record-header">
 				<text class="record-department">{{item.departmentName || '门诊费用'}}</text>
 				<text class="record-status">{{item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>

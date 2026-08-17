@@ -722,8 +722,11 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).toContain("visibleItems: mappedItems.slice");
 	expect(outpatient).toContain("onLoadMore(): void");
 	expect(outpatientTemplate).toContain("待缴费");
+	expect(outpatientTemplate).toContain('data-status="{{item.status}}"');
 	expect(outpatientTemplate).toContain("visibleItems");
 	expect(outpatientTemplate).toContain("加载更多缴费记录");
+	expect(outpatient).toContain("已缴费记录详情正在迁移中");
+	expect(outpatient).toContain("支付流程正在迁移中");
 	expect(outpatientTemplate).toContain(
 		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
 	);
