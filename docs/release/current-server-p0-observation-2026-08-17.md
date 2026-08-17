@@ -32,6 +32,14 @@
 
 此前旧进程日志中的患者或登录事件不能与当前进程混合统计；日志筛选必须按当前 release 启动时间切分，否则会把旧版本行为误归因给当前版本。当前没有新的预约历史或门诊费用 HTTP/Provider/真机三层证据，因此这两个域仍是“代码已实现、真实业务未验收”。
 
+### 14:50-14:51 CST 只读复核补充
+
+- 当前 release 仍为 `/home/ps/code/hospital-platform/releases/3ab0a6c`；本地已推送的 `474c15c` 尚未部署，不能把本地报告故障隔离修正写成线上行为。
+- 新 API 仍监听 `10.0.0.3:18081`，旧 Python API 仍监听 `0.0.0.0:8001`，systemd 服务保持 `active (running)`；未执行重启、切换或旧服务操作。
+- 直接访问应用绑定地址的 `/health/ready` 和 `/health/live` 均返回 `200`、`Cache-Control: no-store`，依赖结果为 `database=ok`、`redis=ok`、`schema=ok`。
+- 直接访问应用内部的 `/api/v2/health/*` 返回 `404`；这是预期的路径边界，`/api/v2` 由外层反向代理提供，内部应用路由使用无版本前缀的 `/health/*`。该结果不能作为公网路径验收证据。
+- 以当前进程启动时间为边界筛选最近 60 分钟日志，仍未出现 `appointment.records.*`、`outpatient.payment.records.*` 或 `report.*` 业务事件。
+
 ## 4. 未完成的直接证据
 
 - 没有执行真实患者的预约历史请求；不能证明未来预约、状态映射或爽约筛选。
