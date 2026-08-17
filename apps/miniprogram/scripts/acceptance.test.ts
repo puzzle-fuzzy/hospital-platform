@@ -326,6 +326,9 @@ test("patient selection hides the current badge while directory confirmation is 
 	expect(selection).toContain(
 		'syncing: true,\n\t\t\t\tselectionReady: false,\n\t\t\t\tselectedPatientId: "",',
 	);
+	expect(selection).not.toContain(
+		"this.setData({ selectedPatientId: getSelectedPatientId() });",
+	);
 });
 
 test("native patient synchronization is single-flight at both entry pages", async () => {

@@ -8,7 +8,6 @@ import {
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
-	getSelectedPatientId,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
@@ -65,7 +64,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	onLoad() {
-		this.setData({ selectedPatientId: getSelectedPatientId() });
+		// 不能在 owner-scoped 目录返回前直接把本地缓存画成“当前”患者；
+		// 当前标记只能由本次成功读取并完成临床映射确认的目录恢复。
 		this.loadPatientList();
 	},
 
