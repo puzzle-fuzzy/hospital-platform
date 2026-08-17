@@ -1,4 +1,4 @@
-import departmentLocations from "../../data/department-location.json";
+import departmentLocations from "../../data/department-location";
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	filterAppointmentRecords,
@@ -13,8 +13,8 @@ import { navigateToPatientSelector } from "../../services/patient-navigation";
 import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
-	AppointmentRecordTab,
 	AppointmentRecordsPageData,
+	AppointmentRecordTab,
 	AppointmentRecordView,
 	DepartmentLocationView,
 } from "../../types";
@@ -59,9 +59,7 @@ function searchDepartmentLocation(
 	if (!cleanedDepartment) return [];
 
 	const results: DepartmentLocationView[] = [];
-	for (const [name, location] of Object.entries(
-		departmentLocations as Record<string, string>,
-	)) {
+	for (const [name, location] of Object.entries(departmentLocations)) {
 		const cleanedName = removeOutpatient(name);
 		if (
 			cleanedName === cleanedDepartment ||

@@ -59,6 +59,8 @@ if (projectConfig.miniprogramRoot !== "dist/") {
 await assertFile("app.json");
 await assertFile("app.wxss");
 await assertFile("sitemap.json");
+// 预约历史页面通过 TypeScript 模块读取静态科室位置，运行包必须带上编译后的 JS。
+await assertFile("data/department-location.js");
 
 /**
  * 每个 app.json 入口都必须形成完整的微信页面文件集合。只检查源码会漏掉

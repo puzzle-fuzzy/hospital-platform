@@ -92,7 +92,12 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 个人中心视觉专项的最新运行包复核已记录在
 [`miniprogram-visual-package-verification-2026-08-17.md`](../release/miniprogram-visual-package-verification-2026-08-17.md)：
 它以 `f562d61` 为源码基线，额外核对了“我的/我的挂号”页面、旧端背景、固定底部导航和预约状态图标的产物哈希；
-开发者工具/真机加载证据仍未取得。
+2026-08-17 18:39-18:40 CST 又在微信开发者工具重新打开当前项目，取得了三页 `Errors: 0` 的运行证据。
+这仍然只是开发者工具模拟器证据，不替代真机、公网 API 或 Provider 业务验收。
+
+本次开发者工具复核先暴露了 `appointment-records` 对 JSON 运行时模块的构建缺口：旧引用会落到
+`data/department-location.json.js` 并阻断页面加载。当前已改为 TypeScript 数据模块，构建和运行包核验均
+强制检查 `dist/data/department-location.js`，并在重新打开项目后确认错误消失；该边界已写入视觉核验文档。
 
 2026-08-17 14:37 CST 的最新受控服务器只读观察已记录在
 [`current-server-p0-observation-2026-08-17.md`](../release/current-server-p0-observation-2026-08-17.md)：当前运行包仍为

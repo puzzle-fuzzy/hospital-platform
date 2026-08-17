@@ -53,6 +53,7 @@ const requiredStaticFiles = [
 ];
 const requiredTypeScriptFiles = [
 	"app.ts",
+	"data/department-location.ts",
 	"services/api-client.ts",
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
