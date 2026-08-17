@@ -7,6 +7,23 @@
 > 这是 `6d58c9c` 切换前的历史快照；切换后的当前 release、0016 migration 和生产运行证据见
 > [`5c4e7cf-production-acceptance-2026-08-17.md`](5c4e7cf-production-acceptance-2026-08-17.md)。
 
+## 0. 当前 release 追加复核（2026-08-17 13:18 CST）
+
+本节是对上方历史快照的追加，只读通过 SSH 执行；没有发布候选、重启服务、读取凭证或患者数据，也没有执行
+Provider、预约、支付、医保、退款和 HIS 写入。服务器当前状态如下：
+
+| 检查项 | 只读结果 |
+| --- | --- |
+| 新 API current | `/home/ps/code/hospital-platform/current -> releases/5c4e7cf` |
+| 新 API 进程 | `hospital-platform-api-v2.service` 为 `active`，Bun/Elysia 监听 `10.0.0.3:18081` |
+| 旧 Python 进程 | 仍监听 `0.0.0.0:8001`；本次未修改、停止或重启 |
+| Worker | `inactive`；本次没有启动后台任务 |
+| 启动模式与依赖 | journald 标记 `production`；database、Redis、schema probe 均为 `ok`；微信身份、患者目录、预约目录、预约历史和门诊费用配置为 `configured`，报告和支付 gate 仍关闭 |
+
+同一观察窗口内仅看到未登录 `/me`、`/patients`、预约目录、预约历史、报告和门诊费用请求返回 `401 unauthorized`，
+没有新的 `auth.wechat`、患者同步、预约历史、门诊费用或报告业务事件。该结果只能证明认证关闭边界正常，不能证明
+真实微信账号、Provider 数据或真机业务失败；本地 `main` 的 `158eae7` 也未部署到线上，因为本轮只更新文档和验收工具。
+
 ## 1. 运行版本与新旧服务共存
 
 | 检查项 | 只读结果 |
