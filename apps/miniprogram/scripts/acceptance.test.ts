@@ -468,6 +468,51 @@ test("missed appointments commit the patient card with the filtered result", asy
 	expect(loadBody).toContain("const { patient, records } = result;");
 });
 
+test("report and outpatient pages commit patient cards with read-only results", async () => {
+	const report = await source("pages/report-directory/report-directory.ts");
+	const reportLoad = report.slice(report.indexOf("loadPage(): Promise<void>"));
+	const reportProviderIndex = reportLoad.indexOf("loadReports(patient.id)");
+	const reportGateIndex = reportLoad.indexOf(
+		"isCurrentSelectedPatient(result.patient.id)",
+	);
+	const reportCommitIndex = reportLoad.indexOf("selectedPatient: patient");
+
+	const outpatient = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const outpatientPageStart = outpatient.indexOf("loadPage(): Promise<void>");
+	const outpatientRecordsStart = outpatient.indexOf(
+		"loadRecords(\n",
+		outpatientPageStart,
+	);
+	const outpatientPageLoad = outpatient.slice(
+		outpatientPageStart,
+		outpatientRecordsStart,
+	);
+	const outpatientRecordsLoad = outpatient.slice(outpatientRecordsStart);
+	const outpatientProviderIndex = outpatientRecordsLoad.indexOf(
+		"loadOutpatientPaymentRecords(patient.id, status)",
+	);
+	const outpatientGateIndex = outpatientRecordsLoad.lastIndexOf(
+		"isCurrentSelectedPatient(patient.id)",
+	);
+	const outpatientCommitIndex = outpatientRecordsLoad.indexOf(
+		"selectedPatient: patient",
+	);
+
+	// 这三个页面都属于患者范围只读业务：患者卡片只有和对应业务结果
+	// 一起通过当前请求/当前选择校验后才能提交，避免切换期间上下文错配。
+	expect(reportProviderIndex).toBeGreaterThanOrEqual(0);
+	expect(reportGateIndex).toBeGreaterThan(reportProviderIndex);
+	expect(reportCommitIndex).toBeGreaterThan(reportGateIndex);
+	expect(outpatientPageLoad).not.toContain(
+		"this.setData({ selectedPatient: patient });",
+	);
+	expect(outpatientProviderIndex).toBeGreaterThanOrEqual(0);
+	expect(outpatientGateIndex).toBeGreaterThan(outpatientProviderIndex);
+	expect(outpatientCommitIndex).toBeGreaterThan(outpatientGateIndex);
+});
+
 test("native my page separates ordinary profile from family patient selection", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");

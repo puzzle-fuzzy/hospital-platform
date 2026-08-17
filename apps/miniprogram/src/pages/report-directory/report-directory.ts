@@ -95,20 +95,26 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				) {
 					return undefined;
 				}
-				this.setData({ selectedPatient: patient });
-				return loadReports(patient.id);
+				// 患者卡片必须和同一轮报告目录一起提交；只确认目录患者后就
+				// 先展示卡片，会在切换患者或报告请求失败时形成错误的上下文暗示。
+				return loadReports(patient.id).then((payload) => ({
+					patient,
+					payload,
+				}));
 			})
-			.then((payload) => {
+			.then((result) => {
 				if (
-					!payload ||
+					!result ||
 					!loadGuard.isCurrent(requestToken) ||
-					!isCurrentSelectedPatient(this.data.selectedPatient?.id ?? "")
+					!isCurrentSelectedPatient(result.patient.id)
 				) {
 					return;
 				}
+				const { patient, payload } = result;
 				const reports = payload.items.map((report) => this.toView(report));
 				const visibleReportCount = Math.min(REPORT_PAGE_SIZE, reports.length);
 				this.setData({
+					selectedPatient: patient,
 					reports,
 					visibleReports: reports.slice(0, visibleReportCount),
 					reportCount: payload.total,

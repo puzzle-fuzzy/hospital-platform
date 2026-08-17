@@ -90,7 +90,6 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				) {
 					return;
 				}
-				this.setData({ selectedPatient: patient });
 				return this.loadRecords(patient, this.data.activeStatus, requestToken);
 			})
 			.catch((error) => {
@@ -125,6 +124,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				mappedItems.length,
 			);
 			this.setData({
+				selectedPatient: patient,
 				items: mappedItems,
 				visibleItems: mappedItems.slice(0, visibleItemCount),
 				visibleItemCount,
