@@ -178,6 +178,9 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 边界完成映射，不能由小程序根据文字猜测最终状态。Provider 返回重复 `appointmentInfoId` 时，
 服务端拒绝整批结果；没有预约号的摘要不会被服务端根据数组位置伪造业务 ID。
 
+预约目录的服务层在进入 Provider 前校验日期；非法日期会返回稳定查询错误并记录对应的
+`appointment.directory.*.failed`，不会产生 `requested`，也不会访问 Provider。
+
 小程序的“爽约记录”不是独立公共 endpoint，而是对上述预约历史读模型做安全筛选：只展示服务端
 返回的 `status=missed`，当前查询窗口为中国标准时间过去 90 天；`unknown`、空列表或 provider
 未返回不能被客户端推断为爽约。

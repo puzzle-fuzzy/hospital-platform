@@ -507,6 +507,7 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 });
 
 test("appointment queries reject impossible calendar dates before provider access", async () => {
+	const lines: string[] = [];
 	const service = new AppointmentService({
 		directory: {
 			listDepartments: async () => ({
@@ -526,6 +527,11 @@ test("appointment queries reject impossible calendar dates before provider acces
 				},
 			}),
 		},
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
 	});
 
 	await expect(
@@ -549,4 +555,87 @@ test("appointment queries reject impossible calendar dates before provider acces
 			},
 		),
 	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.failed",
+			traceId: "trace-invalid-schedule",
+			errorType: "AppointmentScheduleQueryError",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.requested",
+			traceId: "trace-invalid-schedule",
+		}),
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.failed",
+			traceId: "trace-invalid-record",
+			errorType: "AppointmentRecordQueryError",
+		}),
+	);
+});
+
+test("appointment department date generation failures are logged before provider access", async () => {
+	const lines: string[] = [];
+	let providerCalls = 0;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => {
+				providerCalls += 1;
+				return {
+					departments: [],
+					trace: {
+						provider: "zhongyang" as const,
+						operation: "appointment-departments",
+						requestId: "must-not-call",
+					},
+				};
+			},
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		now: () => new Date(Number.NaN),
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.listDepartments({
+			traceId: "trace-invalid-department-clock",
+			idempotencyKey: "key-invalid-department-clock",
+		}),
+	).rejects.toThrow();
+
+	expect(providerCalls).toBe(0);
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.departments.failed",
+			traceId: "trace-invalid-department-clock",
+			errorType: "RangeError",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.departments.requested",
+			traceId: "trace-invalid-department-clock",
+		}),
+	);
 });

@@ -161,18 +161,18 @@ export class AppointmentService {
 	async listDepartments(
 		context: AdapterCallContext,
 	): Promise<AppointmentDepartmentListPayload["data"]> {
-		const query = createDepartmentQuery(this.now());
-		this.logger.info(
-			{
-				event: "appointment.directory.departments.requested",
-				traceId: context.traceId,
-				provider: "zhongyang",
-				startDate: query.startDate,
-				endDate: query.endDate,
-			},
-			"Appointment department directory requested",
-		);
 		try {
+			const query = createDepartmentQuery(this.now());
+			this.logger.info(
+				{
+					event: "appointment.directory.departments.requested",
+					traceId: context.traceId,
+					provider: "zhongyang",
+					startDate: query.startDate,
+					endDate: query.endDate,
+				},
+				"Appointment department directory requested",
+			);
 			const result = await this.dependencies.directory.listDepartments(
 				query,
 				context,
@@ -201,18 +201,18 @@ export class AppointmentService {
 		input: AppointmentScheduleQuery,
 		context: AdapterCallContext,
 	): Promise<AppointmentScheduleListPayload["data"]> {
-		validateScheduleQuery(input);
-		this.logger.info(
-			{
-				event: "appointment.directory.schedules.requested",
-				traceId: context.traceId,
-				provider: "zhongyang",
-				startDate: input.startDate,
-				endDate: input.endDate,
-			},
-			"Appointment schedule directory requested",
-		);
 		try {
+			validateScheduleQuery(input);
+			this.logger.info(
+				{
+					event: "appointment.directory.schedules.requested",
+					traceId: context.traceId,
+					provider: "zhongyang",
+					startDate: input.startDate,
+					endDate: input.endDate,
+				},
+				"Appointment schedule directory requested",
+			);
 			const result = await this.dependencies.directory.listSchedules(
 				input,
 				context,
