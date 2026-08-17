@@ -205,6 +205,10 @@ opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`
 持久化失败或 provider 失败都不能变成成功的空列表。当前仍是只读查询；支付调起、医保授权、医保结算、
 HIS 回写和退费必须走独立 contract。
 
+Provider 返回的 `tradeStatus` 也必须与查询状态一致：`unpaid` 只接受 `1`，`paid` 只接受 `3`；
+缺失、无法识别或错配时服务端整批拒绝结果，不把请求 tab 当作 Provider 事实贴到费用记录上。
+该字段只在服务端 adapter 内校验，不进入小程序公共 response，也不代表支付或结算已经开放。
+
 `recordId` 是服务端基于 Provider 单据、就诊或项目稳定标识生成的 opaque 引用，不包含返回数组下标；
 同一费用在待缴/已缴查询或 Provider 排序变化后仍应保持一致。若 Provider 缺少稳定标识或同一响应出现
 重复费用引用，adapter 会拒绝整批结果，避免客户端把不稳定 ID 当作未来支付/详情的业务主键。
