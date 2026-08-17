@@ -1,7 +1,7 @@
 # 患者目录同步幂等契约
 
-> 状态：代码和生产 schema 已实现，前一 release `41c9c18` 曾切换公网；当前公网为 `131fb5a`。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
-> `0015` migration、仓储和 API 测试已经通过，公网请求只有进入当前 `131fb5a` 实例后才具备本契约的运行语义。
+> 状态：代码已实现，`0015` operation ledger 和 `0016` owner/provider 查询索引组成当前候选 schema；前一 release `41c9c18` 曾切换公网，当前公网为 `131fb5a`。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
+> 当前公网尚未应用 `0016`，只有完成 migration、候选切换和业务验收后，公网请求才具备本轮跨幂等键并发保护的运行语义。
 >
 > 适用接口：`POST /api/v2/patients/sync`。本契约只处理“从 provider 读取完整患者目录并
 > 替换当前 owner 快照”的同步命令，不延伸到患者建档、绑卡、预约写入或支付。
@@ -16,7 +16,8 @@
 - 如果没有明确的 owner 绑定，两个用户提交相同 key 可能错误共享结果。
 
 因此，不能沿用支付订单的“查已有结果并返回”口径，也不能只在内存中增加一个 Map。同步幂等必须是
-MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快照的最终提交具有一致的事务边界。
+MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快照的最终提交具有一致的事务边界；
+另外，同一 owner 即使提交不同的 key，也不能在已有租约未到期时再次访问同一个 provider。
 
 ## 2. 幂等键和业务指纹
 
@@ -57,7 +58,7 @@ MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快�
 
 | 状态 | 含义 | 对重复请求的处理 |
 | --- | --- | --- |
-| `in_progress` | 已经有一个同步请求占用 key，尚未完成目录快照事务 | 租约未到期返回 `409 patient-sync-in-progress`，不再次访问 provider；租约到期后原子接管执行权 |
+| `in_progress` | 已经有一个同步请求占用 key，或同一 owner/provider 已经有其他 key 占用同步租约，尚未完成目录快照事务 | 租约未到期返回 `409 patient-sync-in-progress`，不再次访问 provider；租约到期后原子接管执行权 |
 | `succeeded` | provider 完整目录和当前患者快照已经在同一事务中提交 | 不再访问 provider，按 owner 返回当前患者读模型，记录一次低敏 replay 日志 |
 
 失败不作为永久成功缓存。provider 明确失败、响应不完整或数据库事务回滚时，操作保留为可恢复的
@@ -74,12 +75,14 @@ MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快�
 
 仓储在 MySQL 中执行一个短事务：
 
-1. 按 `(owner_user_id, provider_name, idempotency_key)` 唯一索引读取并锁定操作行；
-2. 没有记录时插入 `in_progress` 和 `lease_until`；
-3. 已有 `succeeded` 时返回 `replay`；
-4. 已有未过期 `in_progress` 时返回 `in_progress`；
-5. 已有过期 `in_progress` 时增加 `attempt_count`、刷新租约并返回 `started`；
-6. 事务提交后，只有拿到 `started` 的请求才能访问 provider。
+1. 先按 `owner_user_id` 锁定 `hp_identity_users` 中的 owner 行，把同一 owner 的同步启动阶段串行化；
+2. 按 `(owner_user_id, provider_name, idempotency_key)` 唯一索引读取并锁定操作行；
+3. 没有精确 key 记录时，再按 `(owner_user_id, provider_name, status, lease_until)` 查询并锁定其他未过期同步；
+4. 没有记录时插入 `in_progress` 和 `lease_until`；
+5. 已有 `succeeded` 时返回 `replay`；
+6. 已有未过期 `in_progress` 时返回 `in_progress`；
+7. 已有过期 `in_progress` 且没有其他活跃同步时增加 `attempt_count`、刷新租约并返回 `started`；
+8. 事务提交后，只有拿到 `started` 的请求才能访问 provider。
 
 插入竞争必须依靠数据库唯一约束处理，不能只依赖“先 SELECT 再 INSERT”。唯一键冲突后必须重新
 读取并按状态分支，不能把 SQL duplicate error 直接转换成 500。
@@ -135,7 +138,11 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 
 - `UNIQUE(owner_user_id, provider_name, idempotency_key)`，阻止跨进程重复占用；
 - `INDEX(status, lease_until)`，为过期租约扫描和运维清理服务；
+- `INDEX(owner_user_id, provider_name, status, lease_until)`，支持跨幂等键检查同一 owner/provider 的活跃租约；
 - `FOREIGN KEY(owner_user_id)`，防止孤儿操作记录。
+
+开始同步时使用已有的 owner 身份行作为事务锁，不把客户端 key 当作跨页面互斥锁；因此一次同步完成后，
+新的手动刷新仍可使用新 key，只有重叠的未完成租约会被拒绝。
 
 操作记录需要保留期限和清理策略。清理前不能复用仍在保留期内的 key；若未来要求长期审计，必须另
 行设计加密/脱敏历史快照，不能无限保留患者展示资料。
@@ -171,7 +178,7 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 按以下顺序实现，任何一步失败都不开放新的高风险业务：
 
 1. domain：增加开始/完成/重放结果类型和处理中错误；
-2. migration：创建操作表、外键、唯一键、租约索引，并扩展 schema readiness；
+2. migration：0015 创建操作表、外键、唯一键和基础租约索引，0016 增加 owner/provider 活跃租约索引，并扩展 schema readiness；
 3. 内存仓储：覆盖成功重放、处理中冲突、过期租约接管和 owner 隔离；
 4. MySQL 仓储：覆盖唯一键竞争和“患者快照 + 操作成功”同事务；
 5. service/API：provider 只允许由 `started` 分支调用，增加 409 错误映射；
@@ -180,6 +187,6 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 8. 验收：本地并发测试 → 隔离 MySQL/Redis → staging provider → 公网 API → 微信真机；
 9. 生产：先 migration/schema probe，再灰度启用新同步语义；旧服务仍保持原端口和数据库边界。
 
-代码和生产 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；当前线上
-release 为 `131fb5a`，仓库中尚未部署的实现候选仍需单独固定版本并取得发布 provenance，
+代码和候选 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；当前线上
+release 为 `131fb5a`，仓库中尚未部署的实现候选仍需应用 `0016`、固定版本并取得发布 provenance，
 在新 release 切换、真实并发、公网和真机验收完成前，发布文档必须继续标记为“线上业务证据待完成”。

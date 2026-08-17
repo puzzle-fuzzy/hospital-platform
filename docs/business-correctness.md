@@ -47,9 +47,10 @@
     旧页面的生命周期判断套到新页面上。首页、预约记录、爽约记录、报告目录和门诊费用页统一使用实例内的
     `hasShown` 状态，首次展示只消费 `onLoad` 已发起的请求，后续返回才重新读取 owner-scoped 患者目录。
 
-当前代码已经通过 `0015_patient_directory_sync_operations` 形成跨进程、跨重启的 operation ledger、
-租约代次和当前读模型重放能力，生产 migration/schema probe 已通过；当前公网 `18081` 的线上 release
-是 `131fb5a`，此前 `41c9c18` 的运行记录只作为历史证据保留。真实患者并发、provider 和真机证据仍缺，
+当前代码通过 `0015_patient_directory_sync_operations` 形成跨进程、跨重启的 operation ledger、租约代次和
+当前读模型重放能力，并通过候选 `0016_patient_directory_sync_owner_index` 增加同一 owner/provider 的
+跨幂等键活跃租约索引；当前公网 `18081` 的线上 release 是 `131fb5a`，尚未应用 `0016`，此前 `41c9c18`
+的运行记录只作为历史证据保留。真实患者并发、provider 和真机证据仍缺，
 不能把基础 runtime smoke 当作线上业务验收。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付命令的
 幂等实现；高风险命令开放前仍必须分别冻结各自的持久化操作状态、处理中结果和 key 冲突规则。
 具体实现边界、租约接管和“患者快照与操作成功同事务”要求见

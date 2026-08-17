@@ -65,13 +65,15 @@ Content-Type: application/json
 | Header | 使用范围 | 规则 |
 | --- | --- | --- |
 | `X-Request-Id` | 业务请求可选 | 用于贯穿小程序、Nginx、API、adapter 和日志；服务端缺失时生成安全 requestId |
-| `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` schema gate 通过后使用 owner-scoped operation ledger，线上新 release、并发、公网和真机验收仍待完成 |
+| `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` + `0016` schema gate 通过后使用 owner-scoped operation ledger，线上新 release、并发、公网和真机验收仍待完成 |
 | `Authorization` | 受保护接口 | 只接受平台 Bearer 会话，不接受 provider token |
 
 患者同步使用 `POST /api/v2/patients/sync`，没有请求体；当前 `Idempotency-Key` 会进入
-adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operations` 通过 schema gate 的实例中，
+adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_operations` 和
+`0016_patient_directory_sync_owner_index` 通过 schema gate 的实例中，
 会持久化同步 operation、租约代次并在成功快照后禁止重复访问 provider；同 key replay 返回当前 owner
-读模型，不保存 provider 原始响应。尚未应用 `0015` 的旧实例必须保持 readiness 未就绪，不能把它当作完整
+读模型，不保存 provider 原始响应；同一 owner/provider 使用不同 key 时，只要前一个租约未到期也会返回
+处理中，不会并发访问 provider。尚未应用 `0016` 的旧实例必须保持 readiness 未就绪，不能把它当作完整
 的服务端幂等保证。它不代表新增或绑定了患者。同步成功后，服务端在事务中恢复本次出现的患者为 active，
 并将同一 owner/provider 目录中本次未出现的患者标记为 inactive；历史业务引用保留，内部
 `patientId` 不更换。只有 provider adapter 确认返回完整目录时才允许这一步，分页结果必须先

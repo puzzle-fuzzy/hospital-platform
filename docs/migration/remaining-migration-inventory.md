@@ -146,7 +146,7 @@
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖过去 90 天窗口；“我的挂号”仍使用当前日前后各 90 天。停诊、替诊和已登记必须保留为独立状态，不能误显示为未知。
 - 受保护 API 已在 Elysia 的 route schema 校验前建立模块级认证边界：缺少或失效 Bearer 时统一返回 `401 unauthorized`，只有认证通过后才进入 query/body/params 的 `400 validation`；微信登录和微信支付回调仍保留明确公开入口。该行为已有 API 集成测试、候选 smoke 和 `131fb5a` 公网回归证据；这只证明认证错误边界，不代表真实微信会话或业务 Provider 已完成。
 - 患者目录失效回收已使用“active/inactive + 事务快照”实现；`0013` 已完成生产 migration 和 schema probe，仍需真实失效/恢复验收，不能直接删除 `hp_patients`。
-- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，生产 migration/schema probe 已通过；`a11f117` 已取得单患者真实同步成功证据，但真实并发、第二条患者记录、失效/恢复、公网真机和切换业务验收仍待完成，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md)、[`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md) 和 [`../release/wechat-patient-sync-production-acceptance-2026-08-16.md`](../release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
+- 患者同步的 durable operation ledger、租约代次和重放分支已经在代码与 `0015_patient_directory_sync_operations` 中实现，`0016_patient_directory_sync_owner_index` 为同一 owner/provider 的不同幂等键增加活跃租约查询索引；当前公网 schema 仍是 `0015`，候选 migration 尚未发布。`a11f117` 已取得单患者真实同步成功证据，但真实并发、第二条患者记录、失效/恢复、公网真机和切换业务验收仍待完成，具体状态机见 [`patient-sync-idempotency-contract.md`](patient-sync-idempotency-contract.md)、[`../release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](../release/patient-sync-idempotency-production-acceptance-2026-08-16.md) 和 [`../release/wechat-patient-sync-production-acceptance-2026-08-16.md`](../release/wechat-patient-sync-production-acceptance-2026-08-16.md)。
 
 ### 旧端顶层页面的重分类
 

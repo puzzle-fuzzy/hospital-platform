@@ -19,7 +19,7 @@
 | `hp_identity_users` | 新微信登录的内部身份映射 | 保存平台用户与服务端 provider subject 的关系；openid/unionid 不返回小程序 |
 | `hp_patients`、`hp_patient_provider_references` | 患者目录同步和用途映射 | 保存 owner-scoped 患者读模型及预约/报告等用途的服务端引用；不开放客户端 provider 患者号 |
 | `hp_user_profiles` | 普通个人资料契约，migration 0014 | 只保存昵称、性别、年龄、邮箱和版本；头像、实名、手机号、医保和微信身份不进入本表 |
-| `hp_patient_directory_sync_operations` | 患者目录同步幂等契约，migration 0015 | 保存 owner/provider/key 的操作状态、租约代次和低敏摘要；不保存 provider 原文、unionId、openid 或完整患者对象 |
+| `hp_patient_directory_sync_operations` | 患者目录同步幂等契约，migration 0015；migration 0016 增加 owner/provider 活跃租约查询索引 | 保存 owner/provider/key 的操作状态、租约代次和低敏摘要；不保存 provider 原文、unionId、openid 或完整患者对象 |
 
 `hp_user_profiles` 的完整字段、首次写入和并发更新规则见 [`user-profile-contract.md`](user-profile-contract.md)。
 新表应用前必须通过 migration 和 schema probe；不能因为新旧服务共用数据库就把该表当成旧

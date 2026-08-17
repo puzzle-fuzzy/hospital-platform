@@ -10,10 +10,10 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `108d924`，在 `f5178a4` 的门诊费用账单时间边界基础上，补齐普通个人资料读取的资料域日志、默认值/已落库区分和安全失败事件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `bf71c49`，在 `108d924` 的个人资料读取日志基础上，补齐患者目录跨页面不同幂等键的 owner/provider 并发互斥、`0016` 查询索引和对应测试；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
+| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
 | 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
@@ -202,6 +202,13 @@ HTTP 200、`items: []`、`total: 0`，不能被页面解释成异常。该测试
 `read_failed` 事件，`loaded` 仅标记是否存在持久化资料行，失败事件仅记录错误类型；不记录
 userId、昵称、邮箱或底层异常。对应实现提交为 `108d924`，尚未发布线上；API 81 项测试、
 小程序 55 项验收和完整 `pnpm check` 已通过。
+
+随后修正患者目录的跨页面并发边界：不同页面生成不同 `Idempotency-Key` 时，服务端不能只依赖
+幂等键唯一约束，否则首页和选择页仍可能同时访问 provider。`bf71c49` 在同步开始事务中锁定
+owner 身份行，并使用 `0016_patient_directory_sync_owner_index` 查询同一 owner/provider 的
+活跃租约；内存仓储、MySQL 仓储和 API 测试均确认第二个不同 key 返回 `patient-sync-in-progress`，
+不会产生第二次 provider 请求。该候选尚未部署，生产 schema 仍是 `0015`，完整 `pnpm check` 与
+真实并发、公网、真机证据仍待完成。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
