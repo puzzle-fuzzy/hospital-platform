@@ -20,13 +20,13 @@
 
 ### 当前线上基线（2026-08-17）
 
-当前生产 `current` 为 `5c4e7cf`，对应新 API `hospital-platform-api-v2.service`；旧 Python
-服务仍由原端口独立提供，未被本次发布替换。`5c4e7cf` 发布后的 SSH、migration、候选启动、公网健康检查、
-认证边界和旧服务共存证据，统一见 [`5c4e7cf-production-acceptance-2026-08-17.md`](5c4e7cf-production-acceptance-2026-08-17.md)。
+当前生产 `current` 为 `3ab0a6c`，对应新 API `hospital-platform-api-v2.service`；旧 Python
+服务仍由原端口独立提供，未被本次发布替换。`3ab0a6c` 发布后的 SSH、候选启动、公网健康检查、
+认证边界和旧服务共存证据，统一见 [`3ab0a6c-production-acceptance-2026-08-17.md`](3ab0a6c-production-acceptance-2026-08-17.md)。
 
-截至 `5c4e7cf` 切换窗口结束，当前 release 只取得服务启动、schema migration、健康探针、system-ping 和未登录边界请求，
-没有新的微信登录、患者目录、预约、报告或门诊费用业务请求。`ca5a372` 及更早 release 的真实微信登录、患者同步、
-预约科室和排班读取属于历史证据，不能直接标记当前 `5c4e7cf` 的业务 gate；后续真机或公网业务验收必须重新记录当前 release、`traceId`、`requestId` 和脱敏响应摘要。
+截至 `3ab0a6c` 切换窗口结束，当前 release 取得了服务启动、schema migration、健康探针、system-ping 和未登录边界请求，
+但尚未在该版本取得新的微信登录、患者目录、预约、报告或门诊费用业务请求。`ca5a372` 及更早 release 的真实微信登录、患者同步、
+预约科室和排班读取属于历史证据，不能直接标记当前 `3ab0a6c` 的业务 gate；后续真机或公网业务验收必须重新记录当前 release、`traceId`、`requestId` 和脱敏响应摘要。
 
 所有患者作用域能力都必须经过同一条 owner 目录门禁：smoke 先用当前平台 Bearer
 读取 `GET /patients`，只接受响应 `data.items[].id` 中的内部患者 ID；只有
@@ -40,7 +40,7 @@
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
 `ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe；这些版本的业务日志是
 历史回归证据。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据仍未在
-当前 `5c4e7cf` 验收窗口重新完成，因此预约历史不得标记为完整验收。
+当前 `3ab0a6c` 验收窗口尚未取得预约历史业务请求，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 真实账号与预约目录只读证据
 
@@ -53,7 +53,7 @@
 
 - 迁移阶段 release：`b1b84d7`、`ca3a877`；当日历史生产 release：`b186098`。该段记录用于解释
   当日迁移过程，不代表当前生产版本；当前版本请以本文件“当前线上基线”和
-  [`5c4e7cf-production-acceptance-2026-08-17.md`](5c4e7cf-production-acceptance-2026-08-17.md)为准。
+  [`3ab0a6c-production-acceptance-2026-08-17.md`](3ab0a6c-production-acceptance-2026-08-17.md)为准。
 - 生产 schema：`0012_patient_provider_references`、`0013_patient_directory_snapshot`、`0014_user_profiles` 和
   `0015_patient_directory_sync_operations` 均已迁移；最新 schema probe 返回 `ready`，目标 migration、表/列、索引和 owner 外键均通过。
 - 新 API：`http://10.0.0.3:18081/health/live`、`/health/ready` 均返回 200；公网
