@@ -602,3 +602,9 @@ Redis TTL、PUT/409、公网/真机三层结果。当前窗口没有 503、支�
 `recovered` 命中；关键词次数不是去重请求数或成功数，不能替代真机会话、字段、Provider 和多患者证据。完整记录见
 [`release/current-live-readonly-audit-2026-08-17.md`](../release/current-live-readonly-audit-2026-08-17.md)。
 本轮没有部署、重启、读取业务数据或打开支付、医保、预约写入和 HIS。
+
+2026-08-17 20:24 CST：修复生产日志维护 artifact 缺失问题。此前服务器 release 只包含 API/worker 运行 bundle，
+没有 `tools/p0-log-aggregate.mjs`，导致 P0 手册规定的 JSONL 脱敏聚合在服务器上不可执行；本轮将它纳入 worker
+构建，显式生成 `apps/worker/dist/p0-log-aggregate.js`，并在发布切换手册、日志文档和 P0 验收手册中加入存在性与
+SHA-256 门禁。已通过 worker 构建、聚合工具单测和 bundle stdin smoke；当前线上仍为旧 release，未部署、未重启，
+不改变任何业务能力或支付/医保/HIS gate。

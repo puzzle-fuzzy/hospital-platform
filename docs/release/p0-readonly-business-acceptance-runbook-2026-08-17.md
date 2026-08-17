@@ -117,6 +117,20 @@ sudo journalctl -u hospital-platform-api-v2.service \
   -o cat --no-pager | bun tools/p0-log-aggregate.mjs
 ```
 
+生产 release 必须使用同一候选包中的
+`apps/worker/dist/p0-log-aggregate.js`，不在服务器上依赖 workspace 源码：
+
+```bash
+sudo journalctl -u hospital-platform-api-v2.service \
+  --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
+  -o cat --no-pager | \
+  /home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js"
+```
+
+候选发布前必须对该文件做 SHA-256 校验；`parseErrors` 不为 `0` 时只能在受控服务器环境排查，不能把不完整
+聚合结果当作真机或业务成功证据。
+
 聚合结果只包含事件/业务域/结果计数、HTTP 状态、错误类型和 trace/provider request id 数量；`parseErrors` 必须为
 `0` 才能说明没有未知的非 JSON 行；UTF-8 BOM 会计入 `strippedBomLines`，正常 systemd 启停提示会单独计入
 `ignoredControlLines`。工具不会输出 `msg`、URL、请求体、

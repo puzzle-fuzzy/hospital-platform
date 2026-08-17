@@ -315,3 +315,8 @@ available -> hold_pending -> held -> booking_pending -> booked
   可见性，不代表真实微信登录、多患者切换、Provider 字段、Redis TTL、资料 409 或真机验收；本地最新小程序修正
   仍待上传后验证。支付、医保、预约写入、报告详情和 HIS 继续关闭，详见
   [`release/current-live-readonly-audit-2026-08-17.md`](release/current-live-readonly-audit-2026-08-17.md)。
+- 2026-08-17 20:24 CST：修复线上日志维护工具的发布缺口：worker 构建新增独立的
+  `apps/worker/dist/p0-log-aggregate.js`，未来候选 release 必须检查文件存在并纳入 SHA-256 校验；日志聚合只读
+  journald JSONL，不连接数据库/Redis/Provider，不接收 token、患者标识或原始 Provider 报文。worker 构建、工具单测
+  和 bundle stdin smoke 已通过；当前 `5f5915e` 仍未包含该 artifact，必须随下一次候选发布后再在服务器验证，
+  不打开预约写入、支付、医保、退款或 HIS。

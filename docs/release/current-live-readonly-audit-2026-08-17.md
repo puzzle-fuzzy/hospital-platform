@@ -60,8 +60,9 @@
 已经出现过相关业务域的日志链路；没有从中推断患者数量、金额、Provider 字段或支付状态。
 
 本次服务器 release 没有包含仓库中的 `tools/p0-log-aggregate.mjs`，因此没有把原始 journald 复制到本地再解析；
-采用服务器端关键词计数是为了避免把 token、患者标识、Provider 原文或其他敏感字段带出 SSH 会话。后续发布包应
-考虑把脱敏聚合工具作为独立运维 artifact 提供，但不能把它与业务 bundle 混在一起或在生产日志中输出原文。
+采用服务器端关键词计数是为了避免把 token、患者标识、Provider 原文或其他敏感字段带出 SSH 会话。该缺口已在本地
+后续发布契约中修复：worker 构建现在会生成独立的 `apps/worker/dist/p0-log-aggregate.js`，未来 release 必须
+随候选五个运行 bundle 一并做 SHA-256 校验；当前服务器 release 不会自动获得这项修正，仍需下一次候选发布。
 
 ## 4. 业务结论
 

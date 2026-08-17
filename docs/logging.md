@@ -242,6 +242,20 @@ sudo journalctl -u hospital-platform-api-v2.service \
   -o cat --no-pager | bun tools/p0-log-aggregate.mjs
 ```
 
+生产 release 不依赖 workspace 源码；候选发布包必须同时包含
+`apps/worker/dist/p0-log-aggregate.js`，服务器上应使用候选 release 的 bundle 执行同样的 stdin 管道：
+
+```bash
+sudo journalctl -u hospital-platform-api-v2.service \
+  --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
+  -o cat --no-pager | \
+  /home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js"
+```
+
+发布前必须对该 artifact 做 SHA-256 校验；不能在 release 目录临时安装依赖，也不能把 token、患者标识或
+Provider 原始报文通过参数传给聚合工具。
+
 该工具不是日志采集器，也不会连接数据库、Redis 或 Provider；它只读 stdin（或 `--file` 指定的 JSONL），
 遇到未知的非 JSON 行只增加 `parseErrors`；UTF-8 BOM 会计入 `strippedBomLines` 后再解析，`journalctl -o cat` 产生的空行和
 明确白名单内的 systemd 启停提示分别计入 `ignoredBlankLines`/`ignoredControlLines`，不会回显原文。聚合结果刻意不包含
