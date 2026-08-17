@@ -116,6 +116,7 @@ test("患者目录同步租约未到期时返回处理中冲突且不触发第�
 		unionId: "fixture-union-patient-in-progress",
 	});
 	const repository = createInMemoryPatientRepository();
+	const lines: string[] = [];
 	let providerCalls = 0;
 	let releaseProvider!: () => void;
 	const providerReleased = new Promise<void>((resolve) => {
@@ -139,6 +140,11 @@ test("患者目录同步租约未到期时返回处理中冲突且不触发第�
 	const service = new PatientService(repository, {
 		identityUsers,
 		directory,
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
 		now: () => new Date("2026-08-16T00:00:00.000Z"),
 		syncLeaseMs: 1_000,
 	});
@@ -156,6 +162,16 @@ test("患者目录同步租约未到期时返回处理中冲突且不触发第�
 	expect(providerCalls).toBe(1);
 	releaseProvider();
 	await expect(first).resolves.toMatchObject({ total: 0 });
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	const conflictRecord = records.find(
+		(record) => record.event === "patient.directory.operation.in_progress",
+	);
+	expect(conflictRecord).toMatchObject({ conflictScope: "same-key" });
+	expect(
+		records.some((record) => record.event === "patient.directory.failed"),
+	).toBe(false);
 });
 
 test("患者目录不同幂等键也不能在同一 owner 下并发访问 provider", async () => {
@@ -220,6 +236,9 @@ test("患者目录不同幂等键也不能在同一 owner 下并发访问 provid
 		(record) => record.event === "patient.directory.operation.in_progress",
 	);
 	expect(conflictRecord).toMatchObject({ conflictScope: "owner-provider" });
+	expect(
+		records.some((record) => record.event === "patient.directory.failed"),
+	).toBe(false);
 	expect(JSON.stringify(records)).not.toContain(
 		"patient-cross-page-select-key",
 	);

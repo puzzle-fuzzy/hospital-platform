@@ -210,16 +210,21 @@ export class PatientService {
 
 			return this.list(ownerUserId);
 		} catch (error) {
-			this.logger.error(
-				{
-					event: "patient.directory.failed",
-					traceId: context.traceId,
-					provider: "zhongyang",
-					operationId,
-					errorType: error instanceof Error ? error.name : "unknown",
-				},
-				"Patient directory synchronization failed",
-			);
+			// `in_progress` 是已定义的并发分支，不是 provider/数据库失败。
+			// 上面已经记录了带 conflictScope 的 409 事件；如果这里再记录
+			// `failed`，监控会把正常的重复刷新误报成同步故障。
+			if (!(error instanceof PatientDirectorySyncInProgressError)) {
+				this.logger.error(
+					{
+						event: "patient.directory.failed",
+						traceId: context.traceId,
+						provider: "zhongyang",
+						operationId,
+						errorType: error instanceof Error ? error.name : "unknown",
+					},
+					"Patient directory synchronization failed",
+				);
+			}
 			throw error;
 		}
 	}
