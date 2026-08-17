@@ -225,7 +225,13 @@ function requireBaseUrl(value: string, allowLocalHttp: boolean): string {
 }
 
 function dateOnly(value: Date): string {
-	return value.toISOString().slice(0, 10);
+	// `toISOString()` 是 UTC 日期。直接截取它会在北京时间 00:00-07:59
+	// 把业务“今天”错误地算成前一天，进而漏查/多查一整天的预约或报告。
+	const shifted = new Date(value.getTime() + PLATFORM_TIME_ZONE_OFFSET_MS);
+	const year = shifted.getUTCFullYear();
+	const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+	const day = String(shifted.getUTCDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
 }
 
 function addDays(value: Date, days: number): Date {
@@ -241,6 +247,8 @@ function addDays(value: Date, days: number): Date {
  */
 const APPOINTMENT_RECORDS_PAST_DAYS = 90;
 const APPOINTMENT_RECORDS_FUTURE_DAYS = 90;
+/** 中国标准时间没有夏令时；验收窗口不能依赖运行 smoke 的机器时区。 */
+const PLATFORM_TIME_ZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function requirePatientId(patientId: string | undefined): string {
 	if (!patientId?.trim()) {

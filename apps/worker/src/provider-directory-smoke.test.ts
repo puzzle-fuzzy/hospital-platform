@@ -429,7 +429,8 @@ test("预约历史 smoke 覆盖当前日期前后各 90 天", async () => {
 		accessToken: "platform-access-token",
 		patientId: "patient-001",
 		capabilities: ["appointment-records"],
-		date: new Date("2026-08-15T00:00:00.000Z"),
+		// UTC 16:30 已经是中国标准时间次日 00:30，用它覆盖日期边界。
+		date: new Date("2026-08-14T16:30:00.000Z"),
 		fetcher: async (input) => {
 			const url = String(input);
 			requests.push(url);
