@@ -8,6 +8,7 @@
 ### 线上实时状态（2026-08-17 17:55 CST）
 
 - 2026-08-17 17:55 CST 已从 `0b6f38f` 原子切换到 `5f5915e`；候选五个 bundle checksum、真实生产 env preflight、`127.0.0.1:18082` 隔离 smoke 和公网 runtime smoke 均通过。新 API `18081` 仅重启自身，旧 Python `8001` 继续监听，Worker inactive。`5f5915e` 收紧普通资料未知字段 contract，支付、医保、HIS、报告和预约写入仍关闭，完整证据见 [`release/5f5915e-production-acceptance-2026-08-17.md`](release/5f5915e-production-acceptance-2026-08-17.md)。
+- `f562d61` 继续完成原生“我的/我的挂号”的视觉边界：全宽就诊人/院区区、状态标签、列表背景、预约状态图标、旧端功能分组、背景资源和固定底部导航均已纳入本地运行包；这只改变小程序展示层，不改变 Provider、预约写入、支付、医保或 HIS 边界。75 项小程序测试、TypeScript 构建、Biome 和文档断链审计通过，真实微信/真机视觉仍待取证。
 - 上一 release `0b6f38f` 已从 `daee96d` 原子切换完成；其生产 env preflight、候选临时端口 smoke 和公网 `/api/v2` 运行时 smoke 均通过，旧 Python `8001` 保持监听，Worker inactive。此次固定门诊费用 Provider 渠道码只能在 adapter 构造时注入，不打开支付、医保、报告、预约写入或 HIS 写入，历史证据见 [`release/0b6f38f-production-acceptance-2026-08-17.md`](release/0b6f38f-production-acceptance-2026-08-17.md)。
 - 上一 release `9833a01` 已完成从 `3ab0a6c` 的原子切换和基础运行时验收；本次已继续切换到 `daee96d`，其历史证据见 [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md)。
 - `0016_patient_directory_sync_owner_index` 已由候选 bundle 执行成功，marker、`owner_user_id,provider_name,status,lease_until` 索引列顺序和 schema probe 均通过；错误的跨平台打包在切换前被拦截，未产生 schema 半成品。当前 `5f5915e` 已在目标服务器通过该 schema gate；支付、医保、HIS、报告和 Worker 仍关闭。
