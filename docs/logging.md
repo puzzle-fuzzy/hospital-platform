@@ -94,6 +94,29 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `report.detail.synced` | LIS 报告详情读取 | 记录 provider request id 和检测项数量，不记录详情原文 |
 | `report.detail.failed` | LIS 报告详情读取 | 覆盖详情依赖未配置、owner/TTL 查询和 Provider 失败；记录 opaque reportId 和错误类型，不记录 provider 原始错误 |
 
+### 只读查询事件的生命周期约定
+
+预约历史和门诊费用的 `requested` 不是“收到任意 HTTP 请求”的通用入口日志，而是“已通过基础输入校验，
+即将进入 owner-scoped 映射或 Provider 链路”的业务事件。这样可以把客户端/路由参数错误与真正进入外部依赖
+的请求区分开来：
+
+- `appointment.records.failed`：日期格式、日期范围、空白 `patientId`、依赖未配置、owner 映射失败或 Provider
+  失败都必须记录；这些早期失败可能没有对应的 `appointment.records.requested`。
+- `appointment.records.requested`：只在日期和内部 `patientId` 基础校验通过后记录；它不代表 Provider 已经收到请求，
+  Provider request id 只在后续 `synced` 或统一 `http.request.failed` 中出现。
+- `appointment.records.synced`：只表示 Provider 返回已成功解析的读模型，空数组也必须记录 `itemCount=0`；它不表示
+  患者有预约，也不表示预约可以取消、支付或写回 HIS。
+- `outpatient.payment.records.failed`：空白 `patientId`、owner 映射、依赖、持久化或 Provider 失败都必须记录；
+  空白输入同样可能没有对应的 `outpatient.payment.records.requested`。
+- `outpatient.payment.records.requested`：只在非空内部 `patientId` 和状态值通过服务层校验后记录；它不代表费用已返回、
+  已结算或允许支付。
+- `outpatient.payment.records.loaded`：只表示 Provider 返回已通过 adapter 白名单和状态校验的读模型，`itemCount=0`
+  代表明确的成功空结果；它不表示支付、医保结算或 HIS 回写成功。
+
+以上事件以同一个 `traceId` 关联；失败事件必须保留稳定 `errorType`，成功事件必须保留结果数量或状态。HTTP
+请求日志仍然独立记录请求生命周期，不能用 `http.request.completed` 代替业务 `synced/loaded`，也不能用 HTTP 200
+推导 Provider 业务成功。
+
 基础设施与运维能力迁移时，日志事件还必须区分以下事实：
 
 | 事件范围 | 最小可检索字段 | 禁止字段与原因 |
