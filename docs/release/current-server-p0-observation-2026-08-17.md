@@ -68,6 +68,17 @@ HTTP、页面和服务端事件三层结果。
 仍为 0。该窗口没有改变当前结论：重复同步仍只观察到单账号目录事实，不能推出第二位患者、多患者切换、失效恢复、
 预约状态映射或费用状态切换已经验收；Redis TTL 也仍未取得直接证据。
 
+### 16:31 CST 运行边界复核
+
+- systemd 仍显示 `hospital-platform-api-v2.service` 为 `active (running)`，当前 Bun 主进程为 `1266963`，工作目录解析到
+  `/home/ps/code/hospital-platform/releases/daee96d`；旧 Python 服务仍监听 `0.0.0.0:8001`。
+- 新 API 明确绑定 `10.0.0.3:18081` 而不是 `127.0.0.1:18081`；通过绑定地址访问 `/health/live` 和 `/health/ready` 均为
+  `200`，readiness 返回 `database=ok`、`redis=ok`、`schema=ok`。对回环地址的连接拒绝是监听地址边界，不是依赖故障。
+- 当前进程日志再次看到完整微信登录成功事件；预约科室、预约记录和门诊费用请求均返回 `401 unauthorized`，没有进入
+  appointment/provider 或 outpatient-provider 业务事件。因此这批请求只能证明认证边界，不能证明预约历史或费用 Provider 已联通。
+- 本次仅做 SSH 只读检查：未修改 env、数据库、Redis、systemd、旧 Python 服务或线上 release，也未读取 token、密钥、Redis 原始 key
+  或患者正文。
+
 ### 16:40 CST 当前 release 切换后复核
 
 `0b6f38f` 切换后的新观察窗口以当前 `service.started` 为起点。受控 SSH 读取
@@ -88,17 +99,6 @@ HTTP、页面和服务端事件三层结果。
 `/home/ps/code/hospital-platform/releases/0b6f38f6e50e8c9d47422c9f0ffc44dc9ecbc185`，新 API
 `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 均保持监听。上述日志只证明当前 release 的运行和认证边界，
 不改变微信会话、Redis TTL、患者切换、预约历史、门诊费用和真机三层验收仍未完成的结论。
-
-### 16:31 CST 运行边界复核
-
-- systemd 仍显示 `hospital-platform-api-v2.service` 为 `active (running)`，当前 Bun 主进程为 `1266963`，工作目录解析到
-  `/home/ps/code/hospital-platform/releases/daee96d`；旧 Python 服务仍监听 `0.0.0.0:8001`。
-- 新 API 明确绑定 `10.0.0.3:18081` 而不是 `127.0.0.1:18081`；通过绑定地址访问 `/health/live` 和 `/health/ready` 均为
-  `200`，readiness 返回 `database=ok`、`redis=ok`、`schema=ok`。对回环地址的连接拒绝是监听地址边界，不是依赖故障。
-- 当前进程日志再次看到完整微信登录成功事件；预约科室、预约记录和门诊费用请求均返回 `401 unauthorized`，没有进入
-  appointment/provider 或 outpatient-provider 业务事件。因此这批请求只能证明认证边界，不能证明预约历史或费用 Provider 已联通。
-- 本次仅做 SSH 只读检查：未修改 env、数据库、Redis、systemd、旧 Python 服务或线上 release，也未读取 token、密钥、Redis 原始 key
-  或患者正文。
 
 ## 4. 未完成的直接证据
 
