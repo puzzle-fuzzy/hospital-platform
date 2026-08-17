@@ -5,7 +5,19 @@
 
 ## 当前基线
 
-### 本轮 1a8a898 生产切换与公网复核（2026-08-18 02:04-02:05 CST）
+### 本轮 0995f7c 生产切换与停机边界复核（2026-08-18 02:34 CST）
+
+- `0995f7c` 已完成全量 `pnpm check`、真实生产 env preflight、`127.0.0.1:18082` 隔离 readiness 和
+  约 106ms 的 SIGTERM 回收；生产切换后新 API active，旧 Python `8001` 继续监听，Worker 仍 inactive。
+- 当前 release 为 `/home/ps/code/hospital-platform/releases/0995f7c`，内网/公网 readiness 均返回
+  database/redis/schema `ok`。新停机 deadline 已避免上次 `systemd stop-timeout/SIGKILL`，最近窗口为
+  `parseErrors=0、systemdWarningCount=0`。
+- 本次只修复服务生命周期和日志证据边界，没有打开预约写入、支付、医保、报告或 HIS；最近窗口中的历史业务事件不能替代
+  当前 release 的微信真机、患者切换、我的挂号和门诊费用三层证据。
+- 完整证据见 [`release/0995f7c-production-acceptance-2026-08-18.md`](release/0995f7c-production-acceptance-2026-08-18.md)。
+  下一步仍按“登录 → 刷新/显式切换患者 → 我的挂号 → 门诊费用只读”取证。
+
+### 上一轮 1a8a898 生产切换与公网复核（2026-08-18 02:04-02:05 CST）
 
 - 候选 `1a8a898` 已完成本地 `pnpm check`、服务器真实生产 env preflight、`127.0.0.1:18082` 隔离
   runtime smoke 和 SHA-256 产物校验；随后原子切换为当前 release，只重启新 Bun/Elysia API。
