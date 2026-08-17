@@ -330,25 +330,31 @@ export class AppointmentService {
 		query: AppointmentRecordQuery,
 		context: AdapterCallContext,
 	): Promise<AppointmentRecordListPayload["data"]> {
-		validateRecordQuery(query);
-		if (!patientId.trim()) throw new AppointmentRecordPatientNotFoundError();
-		if (!this.dependencies.repository || !this.dependencies.records) {
-			throw new DependencyNotConfiguredError("appointment-records");
-		}
-
-		this.logger.info(
-			{
-				event: "appointment.records.requested",
-				traceId: context.traceId,
-				provider: "zhongyang",
-				patientId,
-				startDate: query.startDate,
-				endDate: query.endDate,
-			},
-			"Appointment records requested",
-		);
-
 		try {
+			// 输入校验、依赖检查、owner 映射和 Provider 请求必须共用同一个
+			// 失败出口。否则“未配置”或非法日期虽然已经返回错误，业务日志却
+			// 没有 `appointment.records.failed`，排障时会误以为请求从未进入该模块。
+			validateRecordQuery(query);
+			if (!patientId.trim()) throw new AppointmentRecordPatientNotFoundError();
+
+			this.logger.info(
+				{
+					event: "appointment.records.requested",
+					traceId: context.traceId,
+					provider: "zhongyang",
+					patientId,
+					startDate: query.startDate,
+					endDate: query.endDate,
+				},
+				"Appointment records requested",
+			);
+
+			// 依赖未配置必须抛出稳定错误，不能为了让页面显示空态而返回
+			// `items: []`；它也放在 try 内，确保失败日志和 HTTP 错误一致。
+			if (!this.dependencies.repository || !this.dependencies.records) {
+				throw new DependencyNotConfiguredError("appointment-records");
+			}
+
 			const reference =
 				await this.dependencies.repository.resolveProviderReference({
 					ownerUserId,

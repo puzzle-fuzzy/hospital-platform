@@ -3,6 +3,7 @@ import type {
 	AppointmentDirectoryGateway,
 	PatientRepository,
 } from "@hospital/domain";
+import { DependencyNotConfiguredError } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
 import {
@@ -254,6 +255,178 @@ test("appointment date ranges accept the configured span and reject anything wid
 
 	expect(scheduleProviderCalls).toBe(1);
 	expect(recordProviderCalls).toBe(1);
+});
+
+test("appointment record empty results are successful and record failures are logged", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "appointment-test",
+		environment: "test",
+		destination: { write: (chunk: string) => lines.push(chunk) },
+	});
+	let providerCalls = 0;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => {
+				providerCalls += 1;
+				return {
+					records: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-records",
+						requestId: "record-empty",
+					},
+				};
+			},
+		},
+		logger,
+	});
+
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-31" },
+			{ traceId: "trace-record-empty", idempotencyKey: "key-record-empty" },
+		),
+	).resolves.toEqual({ items: [], total: 0 });
+
+	const successEvents = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(successEvents).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.synced",
+			itemCount: 0,
+		}),
+	);
+	expect(successEvents).not.toContainEqual(
+		expect.objectContaining({ event: "appointment.records.failed" }),
+	);
+
+	const failingService = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		logger,
+	});
+	await expect(
+		failingService.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-31" },
+			{
+				traceId: "trace-record-dependency",
+				idempotencyKey: "key-record-dependency",
+			},
+		),
+	).rejects.toBeInstanceOf(DependencyNotConfiguredError);
+	const dependencyFailureEvents = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(dependencyFailureEvents).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.failed",
+			traceId: "trace-record-dependency",
+			errorType: "DependencyNotConfiguredError",
+		}),
+	);
+
+	const failingProviderService = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => {
+				throw new Error("provider unavailable");
+			},
+		},
+		logger,
+	});
+	await expect(
+		failingProviderService.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-31" },
+			{
+				traceId: "trace-record-provider",
+				idempotencyKey: "key-record-provider",
+			},
+		),
+	).rejects.toThrow("provider unavailable");
+	const providerFailureEvents = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(providerFailureEvents).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.failed",
+			traceId: "trace-record-provider",
+			errorType: "Error",
+		}),
+	);
+	expect(providerCalls).toBe(1);
 });
 
 test("snapshot persistence failure does not turn a read directory into fake success", async () => {
