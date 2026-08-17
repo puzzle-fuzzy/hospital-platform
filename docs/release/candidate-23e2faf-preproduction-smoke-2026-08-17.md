@@ -82,6 +82,22 @@ runtime smoke 完成后只向候选 PID 发送 `SIGTERM`，并确认：
 - 旧 Python API `0.0.0.0:8001` 仍监听；
 - 没有执行 `systemctl restart`、软链接切换、数据库迁移或 Worker 启动。
 
+## 候选清理后的公网 current 复核
+
+2026-08-17 21:08:02-21:08:08 CST 从本地对公网 `https://test-hp.meiyi.pro/api/v2` 执行 runtime smoke，
+连续 readiness 采样 6 次，结果全部通过：
+
+- `health-live`：200，`Cache-Control: no-store`；
+- `health-ready`：200，`samples=6`；
+- `system-ping`：200；
+- 未登录认证边界：401，错误码 `unauthorized`。
+
+这次 smoke 的本地日志进程标记为 `environment=development`，但请求目标是已经运行中的公网 current；
+它只证明公网路由、缓存控制、ready 稳定性和认证边界，不代表本地进程是生产服务，也不产生微信、患者、
+预约、费用或资料业务成功证据。随后按同一 `service.started` 时间窗口聚合当前 API journald，`parseErrors=0`，
+HTTP `200/401=43/18`，没有新增 `auth.wechat.*`、`appointment.records.*`、`outpatient.payment.*` 或
+`user.profile.*` 业务事件。
+
 ## 下一步门禁
 
 1. 候选切换前，先由受控环境提供真实 Bearer 和内部患者 ID，单独执行 `profile-read`，只保留字段类型、版本、HTTP 状态和 trace 数量；
