@@ -5,14 +5,22 @@
 
 ## 当前基线
 
-### 本轮最新公网复核（2026-08-17 22:49 CST）
+### 本轮最新生产与公网复核（2026-08-17 22:57-22:58 CST）
 
-- 当前 `https://test-hp.meiyi.pro/api/v2` 的 `health/live`、`health/ready` 和 `system/ping` 均返回 `200`；ready
-  返回 `database=ok`、`redis=ok`、`schema=ok`，健康响应带 `Cache-Control: no-store`。
-- 未携带会话访问预约历史和门诊费用均返回 `401 unauthorized`，证明认证边界仍生效，但没有证明 Provider、患者
-  归属或只读业务成功；本次没有有效微信会话，也没有取得服务器 journald，因此不更新预约历史/门诊费用的真实验收结论。
-- 本次复核没有重启或修改服务器；SSH `ps@192.168.112.172` 仍未取得可用认证。完整低敏记录见
-  [`release/current-public-runtime-observation-2026-08-17-2249.md`](release/current-public-runtime-observation-2026-08-17-2249.md)。
+- 已通过 SSH 对 `192.168.112.172` 完成只读核验：新 Bun/Elysia 服务由 `hospital-platform-api-v2.service`
+  托管，当前 release 目录为 `bf67b9673708a6e5188880eba9a6d29b8e78f0c5`，监听 `10.0.0.3:18081`；旧
+  Python 服务仍在 `8001` 监听，未发生覆盖或停机。
+- 新服务以 production 模式运行，MySQL、Redis、schema 探针均为 `ok`；微信身份、预约目录、预约记录和
+  门诊缴费查询配置已加载，微信支付和报告仍关闭。
+- 当前 release 启动后的低敏日志有微信登录 `2 requested / 2 succeeded`、患者目录同步 `31/31`、患者目录读取
+  `62 requested / 62 loaded`；`appointment.*`、`outpatient.payment.*` 和 `report.*` 均为 `0`，因此不能把
+  “我的挂号”或门诊缴费标记为真实线上业务验收完成。
+- 公网 `/health/live`、`/health/ready`、`/system/ping` 均返回 `200`；无会话预约历史和门诊费用均返回 `401`，
+  认证边界生效。本次没有读取凭据、修改服务器或重启服务。完整低敏记录见
+  [`release/current-server-p0-observation-2026-08-17-2257.md`](release/current-server-p0-observation-2026-08-17-2257.md)。
+- 旧端源码对照确认当前原生“我的/我的挂号”已经保留背景、功能分组、图标、固定底部栏和记录卡结构；需要补的
+  是微信工具/真机三层视觉和业务证据，不是继续臆造 provider 字段。视觉契约见
+  [`migration/personal-center-visual-contract.md`](migration/personal-center-visual-contract.md)。
 
 ### 线上实时状态（2026-08-17 20:51 CST）
 
