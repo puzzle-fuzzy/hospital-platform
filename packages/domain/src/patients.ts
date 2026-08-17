@@ -105,6 +105,8 @@ export type PatientDirectorySyncStart =
 			operationId: string;
 			attemptCount: number;
 			leaseUntil: string;
+			/** 仅供服务端日志区分重试来源，不进入公共响应。 */
+			conflictScope: "same-key" | "owner-provider";
 	  };
 
 /** 开始一次同步所需的 owner-scoped 幂等上下文。 */

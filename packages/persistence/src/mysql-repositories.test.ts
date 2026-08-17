@@ -276,6 +276,7 @@ test("MySQL patient sync blocks a different key while the owner has an active le
 		operationId: "operation-active",
 		attemptCount: 1,
 		leaseUntil: "2026-08-16T00:01:00.000Z",
+		conflictScope: "owner-provider",
 	});
 	expect(state.statements).toHaveLength(3);
 	expect(state.statements[2]).toContain("status = 'in_progress'");

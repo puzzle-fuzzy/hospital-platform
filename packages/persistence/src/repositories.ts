@@ -234,6 +234,7 @@ export function createInMemoryPatientRepository(
 					operationId: existing.operationId,
 					attemptCount: existing.attemptCount,
 					leaseUntil: existing.leaseUntil,
+					conflictScope: "same-key",
 				};
 			}
 
@@ -254,6 +255,7 @@ export function createInMemoryPatientRepository(
 					operationId: activeOperation.operationId,
 					attemptCount: activeOperation.attemptCount,
 					leaseUntil: activeOperation.leaseUntil,
+					conflictScope: "owner-provider",
 				};
 			}
 

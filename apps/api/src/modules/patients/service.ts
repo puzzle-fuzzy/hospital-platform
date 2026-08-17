@@ -139,6 +139,7 @@ export class PatientService {
 						operationId: operation.operationId,
 						provider: "zhongyang",
 						attemptCount: operation.attemptCount,
+						conflictScope: operation.conflictScope,
 					},
 					"Patient directory synchronization is already in progress",
 				);

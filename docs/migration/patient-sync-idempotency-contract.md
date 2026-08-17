@@ -169,9 +169,14 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 - `patient.directory.operation.lease_taken_over`
 - `patient.directory.synced`（operation 成功提交后的结果事件）
 
-事件字段只允许 `traceId`、`operationId`、owner 的不可逆短摘要、provider、attempt、耗时、
+事件字段只允许 `traceId`、`operationId`、owner 的不可逆短摘要、provider、attempt、
+`conflictScope`、耗时、
 患者数量、失效数量和 `providerRequestId`。禁止记录 `Idempotency-Key` 原文、unionId、openid、
 身份证号、手机号、provider 原始响应和完整患者对象。
+
+`conflictScope` 只允许 `same-key` 和 `owner-provider`：前者表示同一幂等键重试，后者表示
+首页、选择页等不同入口提交了不同幂等键，但同一 owner/provider 已有未过期同步租约。它只用于
+服务端排障，不进入小程序响应。
 
 ## 7. 实现顺序和验收门禁
 

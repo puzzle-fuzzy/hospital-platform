@@ -1132,6 +1132,7 @@ export function createMySqlRepositories(
 				const exactRow = exactRows[0];
 				const readExistingOperation = async (
 					row: PatientDirectorySyncOperationRow,
+					conflictScope: "same-key" | "owner-provider" = "same-key",
 				): Promise<PatientDirectorySyncStart> => {
 					const attemptCount = Number(row.attempt_count);
 					if (!Number.isSafeInteger(attemptCount) || attemptCount < 1) {
@@ -1162,6 +1163,7 @@ export function createMySqlRepositories(
 							operationId: row.operation_id,
 							attemptCount,
 							leaseUntil: new Date(leaseMilliseconds).toISOString(),
+							conflictScope,
 						};
 					}
 
@@ -1192,7 +1194,10 @@ export function createMySqlRepositories(
 				);
 				const activeRow = activeRows[0];
 				if (activeRow) {
-					const active = await readExistingOperation(activeRow);
+					const active = await readExistingOperation(
+						activeRow,
+						"owner-provider",
+					);
 					if (active.outcome !== "in_progress") {
 						throw new Error(
 							"Patient sync active-operation query returned an invalid state",
