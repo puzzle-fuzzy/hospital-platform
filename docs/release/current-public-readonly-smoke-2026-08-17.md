@@ -74,6 +74,23 @@
 多患者切换、预约历史、报告或门诊费用的 P0 验收状态；服务器 release provenance 和业务日志仍需通过受控
 SSH 单独取得。
 
+## 2.4 最新公网只读复核（2026-08-17 09:53 CST）
+
+本次从开发机直接发起 4 个无会话 `GET` 请求，只验证公网 HTTPS 路由、健康依赖状态和认证边界；没有携带
+access token、患者标识或 Provider 凭证，也没有执行同步、预约、报告、费用、支付或任何写入。响应中的
+`Date=01:53:32/33 GMT` 已换算为中国标准时间。
+
+| 请求 | HTTP | 关键响应 | `x-request-id` |
+| --- | ---: | --- | --- |
+| `GET /api/v2/health/live` | 200 | `status=ok`、`service=hospital-api`、`Cache-Control: no-store` | `bb553178-9e4d-48e3-a2b2-268d84b881c2` |
+| `GET /api/v2/health/ready` | 200 | `status=ready`；`database=ok`、`redis=ok`、`schema=ok`；`Cache-Control: no-store` | `079228ab-88ee-47cc-a249-a1f36abfb591` |
+| `GET /api/v2/system/ping` | 200 | `service=hospital-api`、`apiVersion=0.1.0` | `c4b78301-8240-48e9-900d-930e1cd06ca1` |
+| `GET /api/v2/patients` | 401 | `error.code=unauthorized`、稳定中文认证提示 | `09f6e057-0e81-4084-b2b9-8c652d370b9e` |
+
+这次结果只更新“公网运行/认证边界”证据，不证明当前公网对应本地 `main` 或任一未部署候选，不能更新
+微信登录、Redis TTL、多患者切换、预约历史、报告、门诊费用或真机 P0 状态；服务器 release provenance
+和业务日志仍需通过受控 SSH 单独取得。
+
 ## 3. 结论与限制
 
 - 当前公网 API 进程可响应，数据库、Redis 和 schema readiness gate 均通过。

@@ -18,7 +18,7 @@
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
-公网基础运行边界的最新只读复核（2026-08-17 09:17 CST）已记录在
+公网基础运行边界的最新只读复核（2026-08-17 09:53 CST）已记录在
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
 3/3、system-ping 和未登录认证边界通过；该证据没有更新任何真实业务验收状态。
 
