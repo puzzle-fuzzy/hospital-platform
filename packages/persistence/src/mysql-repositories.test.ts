@@ -402,6 +402,46 @@ test("MySQL ordinary profile uses insert-once and conditional version updates", 
 	expect(state.values[3]?.at(-1)).toBe(1);
 });
 
+test("MySQL ordinary profile preserves null as the explicit clear value", async () => {
+	const currentRow = {
+		user_id: "user-profile-clear-001",
+		display_name: "需要清空的资料",
+		gender: "unknown",
+		age: 42,
+		email: "clear@example.com",
+		version: 1,
+	};
+	const clearedRow = { ...currentRow, age: null, email: null, version: 2 };
+	const { pool, state } = createFakePool([
+		[currentRow],
+		{ affectedRows: 1 },
+		[clearedRow],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	// null 不是“字段未提供”：它必须沿着 UPDATE 参数进入数据库，才能真正
+	// 清除用户主动删除的年龄和邮箱；使用 `?? current` 会错误地保留旧资料。
+	await expect(
+		repositories.userProfiles.update({
+			userId: "user-profile-clear-001",
+			expectedVersion: 1,
+			age: null,
+			email: null,
+		}),
+	).resolves.toMatchObject({
+		age: null,
+		email: null,
+		version: 2,
+	});
+
+	expect(state.values[1]?.slice(0, 4)).toEqual([
+		"需要清空的资料",
+		"unknown",
+		null,
+		null,
+	]);
+});
+
 test("MySQL patient snapshot clears missing clinical references by stable internal id", async () => {
 	const existingPatient = {
 		patient_id: "stable-internal-patient-001",

@@ -598,6 +598,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	);
 	expect(profile).toContain("onUnload");
 	expect(profile).toContain("navigationPending");
+	expect(profile).toContain("profileNavigationTimers");
+	expect(profile).toContain("clearTimeout(navigationTimer)");
+	expect(profile).toContain("profileNavigationTimers.delete(this)");
 	expect(profile).toContain("Number.isInteger(rawIndex)");
 	expect(profile).toContain("if (!this.data.navigationPending) return;");
 	expect(profile).toContain("尚未加载完成");

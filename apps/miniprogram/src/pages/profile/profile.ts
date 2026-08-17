@@ -19,6 +19,18 @@ type ProfilePageMethods = {
 	showError(error: unknown, fallback: string): void;
 };
 
+/**
+ * 保存成功后的延迟返回定时器必须按页面实例隔离。
+ *
+ * 不能使用模块级单个 timer：开发者工具热重载、页面重复进入或多层页面栈
+ * 可能同时存在多个资料页实例。WeakMap 既不会把页面实例长期留在内存中，
+ * 也能让 onUnload 精确取消当前页面自己的延迟回退。
+ */
+const profileNavigationTimers = new WeakMap<
+	object,
+	ReturnType<typeof setTimeout>
+>();
+
 const GENDER_LABELS = ["男", "女", "未知"] as const;
 const GENDER_VALUES = ["male", "female", "unknown"] as const;
 
@@ -167,13 +179,15 @@ Page<
 					navigationPending: true,
 				});
 				wx.showToast({ title: "保存成功", icon: "success" });
-				setTimeout(() => {
-					// 用户可能在 toast 期间手动返回；页面卸载会撤销这个标志，
+				const navigationTimer = setTimeout(() => {
+					profileNavigationTimers.delete(this);
+					// 用户可能在 toast 期间手动返回；onUnload 会先清理定时器，
 					// 防止旧页面稍后又 navigateBack，误弹出当前页面栈中的新页面。
 					if (!this.data.navigationPending) return;
 					this.setData({ navigationPending: false });
 					wx.navigateBack();
 				}, 500);
+				profileNavigationTimers.set(this, navigationTimer);
 			})
 			.catch((error) => {
 				this.setData({ saving: false });
@@ -190,9 +204,11 @@ Page<
 	},
 
 	onUnload(): void {
-		// 延迟回退只属于当前资料页实例。离开页面后必须撤销它，不能让
-		// 异步回调在页面栈已变化时继续执行 navigateBack。
-		this.setData({ navigationPending: false });
+		// 页面卸载后不能再调用 setData；直接清理当前实例的定时器，
+		// 让延迟回调根本没有机会在新页面栈上继续 navigateBack。
+		const navigationTimer = profileNavigationTimers.get(this);
+		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
+		profileNavigationTimers.delete(this);
 	},
 
 	showError(error: unknown, fallback: string): void {
