@@ -382,6 +382,7 @@ test("native data pages keep first-show state on the page instance", async () =>
 		"pages/missed-appointments/missed-appointments.ts",
 		"pages/report-directory/report-directory.ts",
 		"pages/outpatient-payment/outpatient-payment.ts",
+		"pages/my/my.ts",
 	] as const;
 
 	for (const file of pageFiles) {

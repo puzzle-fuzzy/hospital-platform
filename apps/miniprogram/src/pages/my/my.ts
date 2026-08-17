@@ -121,6 +121,7 @@ function showUnavailableMyAction(action: UnavailableMyAction): void {
  */
 Page<MyPageData, MyPageMethods>({
 	data: {
+		hasShown: false,
 		userLabel: "微信用户",
 		selectedPatient: null,
 		patientCount: 0,
@@ -132,12 +133,19 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	onLoad() {
+		// 首次 onShow 只消费 onLoad 已发起的读取；该状态必须属于当前
+		// 页面实例，不能用 loading 推断，否则快速响应时会重复请求。
+		this.setData({ hasShown: false });
 		this.loadPage();
 	},
 
 	/** 页面恢复时重新读取患者数量和当前选择，避免与患者选择页脱节。 */
 	onShow() {
-		if (!this.data.loading) this.loadPage();
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
+			return;
+		}
+		this.loadPage();
 	},
 
 	loadPage(): Promise<void> {

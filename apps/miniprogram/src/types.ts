@@ -315,6 +315,8 @@ export type MyMenuSection = {
 
 /** “我的”页只展示平台会话和已迁移的安全入口。 */
 export type MyPageData = {
+	/** 只属于当前“我的”页面实例；首次 onShow 不重复 onLoad 已发起的读取。 */
+	hasShown: boolean;
 	userLabel: string;
 	selectedPatient: Patient | null;
 	patientCount: number;
