@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新运行时实现提交为 `9d9e7b1`，文档检查点提交为 `1805081`；在 `c1d10e3` 的患者同步/读模型日志拆分基础上，继续把预约过滤、预约历史、报告目录/详情和门诊费用的 opaque 标识形状校验下沉到 domain/service 层，并对非法标识做固定 `invalid` 日志脱敏；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新运行时实现提交为 `3b248c0`，文档检查点提交为本次后续提交；在 `9d9e7b1` 的 opaque 标识边界基础上，门诊费用页面增加首批 10 条的本地渲染窗口和本地“加载更多”，不改变服务端完整查询结果、金额或状态语义；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -138,8 +138,8 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
   Provider 业务证据。
-- 当前最新运行时实现提交 `9d9e7b1` 尚未发布；该提交在既有患者、预约、报告和门诊费用只读边界基础上，补齐了服务层 opaque 标识形状校验和非法值日志脱敏，没有改变支付、医保、预约写入或旧 Python 服务。
-  文档检查点提交为 `1805081`，同样不代表线上已部署。线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
+- 当前最新运行时实现提交 `3b248c0` 尚未发布；该提交在既有患者、预约、报告和门诊费用只读边界基础上，给门诊费用页面增加本地分批渲染：完整查询结果仍保留在页面状态，首批只把 10 条交给 WXML，后续只展开已取得的同一次 owner-scoped 结果，不新增 Provider 请求，也没有改变支付、医保、预约写入或旧 Python 服务。
+  文档检查点提交为本次后续提交，同样不代表线上已部署。线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
 - 本轮尝试只读连接 `ps@192.168.112.172` 获取当前 release 和业务日志时，SSH 返回
   `Permission denied (publickey,password)`；因此本轮没有新增服务器、公网、真实微信或 Provider 业务证据，
   也没有执行部署、重启、迁移或旧服务操作。恢复可验证 SSH 会话后，必须先重新执行 P0 手册的低敏日志和
@@ -355,3 +355,8 @@ typecheck/test/build、架构/provider/文档/格式/Lint 检查均通过。完�
 仓库 `G:\\fuck\\hospital` 另一会话未提交的医保结算改动阻塞：`module_common` 33→34、挂载合计 190→191，且旧端
 新增两个 endpoint 未登记；本轮不改动该外部工作树和清单。提交未部署，线上继续以 `131fb5a` 和生产 schema `0015`
 为准，支付/医保/HIS、二维码、预约写入仍保持关闭。
+
+随后 `3b248c0` 为门诊费用只读页面增加本地渲染窗口：服务端仍返回本次完整结果，页面首批渲染 10 条，
+“加载更多”只展开当前已取得的 owner-scoped、状态固定结果，不把本地展示窗口描述成 provider 分页，
+也不从列表状态推导支付成功。小程序验收、typecheck、build 和独立架构/provider/文档/格式/Lint/test
+检查均通过；本提交尚未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准，支付、医保、结算与 HIS 继续关闭。
