@@ -65,6 +65,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `patient.directory.operation.in_progress` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount 和 trace，表示返回 409；不记录租约原文 |
 | `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
 | `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider、trace 和内部 operationId，不记录第三方原始错误报文 |
+| `user.profile.updated` | 普通个人资料更新 | 记录 trace、修改字段数量和新版本，不记录 userId、昵称、邮箱或请求正文 |
+| `user.profile.conflict` | 普通个人资料版本冲突 | 记录 trace 和固定错误类型，保留 409 并发事实的可检索性；不记录 userId、版本值、字段值或请求正文 |
+| `user.profile.update_failed` | 普通个人资料更新失败 | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
 | `appointment.directory.departments.requested` | 预约科室目录读取 | 记录读取开始、provider 和 trace |
 | `appointment.directory.departments.synced` | 预约科室目录读取 | 记录 provider request id 和科室数量 |
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |

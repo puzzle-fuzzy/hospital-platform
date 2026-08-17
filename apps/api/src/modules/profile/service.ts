@@ -149,7 +149,21 @@ export class UserProfileService {
 			);
 			return toPayload(profile);
 		} catch (error) {
-			if (error instanceof UserProfileVersionConflictError) throw error;
+			if (error instanceof UserProfileVersionConflictError) {
+				// 409 是可预期的并发事实，不应当伪装成服务异常；但仍需留下
+				// trace 级低敏事件，方便定位多设备覆盖和客户端重试行为。
+				// 这里不记录 userId、version、字段值或请求正文，避免把资料更新
+				// 冲突日志变成另一条个人信息泄露路径。
+				this.logger.warn(
+					{
+						event: "user.profile.conflict",
+						traceId: context.traceId,
+						errorType: error.name,
+					},
+					"User profile update conflicted with a newer version",
+				);
+				throw error;
+			}
 			this.logger.error(
 				{
 					event: "user.profile.update_failed",
