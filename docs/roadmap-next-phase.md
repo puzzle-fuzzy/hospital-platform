@@ -14,6 +14,7 @@
 - `0016_patient_directory_sync_owner_index` 已由候选 bundle 执行成功，marker、`owner_user_id,provider_name,status,lease_until` 索引列顺序和 schema probe 均通过；错误的跨平台打包在切换前被拦截，未产生 schema 半成品。当前 `5f5915e` 已在目标服务器通过该 schema gate；支付、医保、HIS、报告和 Worker 仍关闭。
 - 候选 `0b6f38f` runtime smoke 完成 readiness 连续 6/6、system ping 200、未登录受保护路由 401；这只是运行边界证据，真实微信会话、Redis TTL、多患者切换、普通资料读写/409、预约历史和门诊费用仍待真机三层验收。
 - `0b6f38f` 切换后的最新 journald 窗口只有 1 次 production 启动、13 次 HTTP 200 运行/系统探针和 6 次未登录 401；`auth.wechat.*`、`patient.directory.*`、`appointment.*`、`outpatient.payment.*` 和 `report.*` 均为 0。该结果证明运行和认证边界，不证明任何 Provider 业务成功；新 API `18081` 与旧 Python `8001` 仍同时监听，详见 [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
+- 2026-08-17 18:23 CST 的当前 release `5f5915e` 低敏 SSH 观察确认：1 次微信登录成功、7 次患者同步成功、14 次患者目录读取，观测目录仍为单患者；最近 30 分钟没有预约、门诊费用或报告事件。该证据只推进微信/单患者目录链的运行观察，不替代 Redis TTL、多患者切换、预约历史、门诊费用或真机验收，详见 [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
 
 ### 线上实时状态（历史快照：2026-08-17 02:56 CST）
 

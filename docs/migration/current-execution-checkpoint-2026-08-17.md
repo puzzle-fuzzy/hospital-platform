@@ -84,6 +84,11 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 [`miniprogram-runtime-package-verification-2026-08-17.md`](../release/miniprogram-runtime-package-verification-2026-08-17.md)：
 14 个注册页面的 `.js/.json/.wxml/.wxss` 均存在；该证据不代表开发者工具或真机已经加载本次本地产物。
 
+2026-08-17 18:23 CST 的当前 release 只读观察已确认 `5f5915e`、新 API `18081`、旧 Python `8001` 共存，
+并观察到 1 次微信登录成功、7 次患者同步成功和 14 次患者目录读取；目录仍为单患者，预约历史、门诊费用和
+报告事件在该窗口均为 0。该事实只更新运行观察，不改变 P0 未完成项；详见
+[`../release/current-server-p0-observation-2026-08-17.md`](../release/current-server-p0-observation-2026-08-17.md)。
+
 个人中心视觉专项的最新运行包复核已记录在
 [`miniprogram-visual-package-verification-2026-08-17.md`](../release/miniprogram-visual-package-verification-2026-08-17.md)：
 它以 `f562d61` 为源码基线，额外核对了“我的/我的挂号”页面、旧端背景、固定底部导航和预约状态图标的产物哈希；

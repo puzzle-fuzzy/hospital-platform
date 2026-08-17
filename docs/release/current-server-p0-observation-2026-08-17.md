@@ -154,3 +154,29 @@ journald，并只输出事件名、状态码和数量；没有读取 env、token
 这次观察把预约历史和门诊费用从“当前窗口没有业务事件”推进到“已进入当前 release 的只读业务链”，
 但不改变 P0 未验收结论。下一步必须用重新构建的小程序在有效会话下逐页核对页面数据、请求状态和对应
 trace；如果出现患者上下文错配、Provider 字段不完整或依赖暂不可用，应停止该域验收，不降级为空列表。
+
+### 18:23 CST 当前 release 增量观察
+
+2026-08-17 18:23 CST 通过受控 SSH 对当前线上进程做了再次只读核对。当前目录解析为
+`/home/ps/code/hospital-platform/releases/5f5915e518e3d2de5647f7ddd90f91cd7f1e3d0c`，
+systemd 主进程 PID 为 `1838242`，启动时间为 17:55:17 CST；新 Elysia 仍监听
+`10.0.0.3:18081`，旧 Python 仍监听 `0.0.0.0:8001`。本次没有读取 env、token、Redis 原始 key、
+数据库患者正文或 Provider 原文，也没有执行重启、切换或写入。
+
+从当前 API journald 的最近 30 分钟窗口只输出事件名和有限数量字段，结果如下：
+
+| 聚合项 | 数量 | 结论 |
+| --- | ---: | --- |
+| `service.started` | 1 | 当前进程以 production 模式启动；线上 release 已固定为 `5f5915e` |
+| `auth.wechat.login.requested` / `succeeded` | 各 1 | 出现 1 次完整微信登录链；`expiresInSeconds` 仍不能替代 Redis 实际 TTL |
+| `patient.directory.requested` / `operation.started` / `synced` | 各 7 | 出现 7 次患者目录同步成功链；不能据此推出第二位患者、并发幂等或失效恢复正确 |
+| `patient.directory.read.requested` / `read.loaded` | 各 14 | 患者读模型读取成功；当前观测到的目录数量为 1 |
+| `appointment.*` | 0 | 本窗口没有预约历史/预约目录事件，不能完成页面、Provider 和真机闭环 |
+| `outpatient.payment.*` | 0 | 本窗口没有门诊费用事件，不能证明待缴/已缴、金额或空列表语义 |
+| `report.*` | 0 | 报告 gate 继续关闭 |
+| `http.request.completed` / `http.request.failed` | 40 / 7 | 只能作为 HTTP 事件总量观察；未把失败请求猜成 Provider 失败或具体业务错误 |
+
+本次观察只把当前 release 的“微信登录/单患者目录同步”证据更新到 18:23 CST，不更新预约历史、门诊费用、
+报告、Redis TTL、真机视觉或多患者验收状态。下一步仍应由有效微信会话导入最新小程序运行包，按
+“患者选择 → 我的挂号 → 门诊缴费待缴/已缴”顺序逐页记录页面结果、HTTP 状态和 trace；任何患者上下文错配、
+Provider 字段缺失或依赖暂时不可用都必须停止该业务域，不把异常降级为空列表。
