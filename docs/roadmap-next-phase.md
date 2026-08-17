@@ -5,6 +5,12 @@
 
 ## 当前基线
 
+### 线上实时状态（2026-08-17 12:58 CST）
+
+- 新 API 已从 `131fb5a` 原子切换到 `6d58c9c`，systemd active，公网 `/api/v2` 的 live、ready、system-ping 和未登录认证边界通过；旧 Python `8001` 保持监听。启动日志确认 `runtimeMode=production`、MySQL/Redis/schema 为 `ok`，详细证据见 [`release/6d58c9c-production-acceptance-2026-08-17.md`](release/6d58c9c-production-acceptance-2026-08-17.md)。
+- `0016_patient_directory_sync_owner_index` 已由候选 bundle 执行成功，marker、`owner_user_id,provider_name,status,lease_until` 索引列顺序和 schema probe 均通过；错误的跨平台打包在切换前被拦截，未产生 schema 半成品。支付、医保、HIS、报告和 Worker 仍关闭。
+- 候选 runtime smoke 完成 readiness 连续 6/6、system ping 200、未登录受保护路由 401；这只是运行边界证据，真实微信会话、Redis TTL、多患者切换、普通资料读写/409、预约历史和门诊费用仍待真机三层验收。
+
 ### 线上实时状态（2026-08-17 02:56 CST）
 
 - 新 API `current=131fb5a`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。本次只标准化持久化瞬态错误码日志，不改变业务 response 或写入重试边界，证据见 [`release/131fb5a-production-acceptance-2026-08-17.md`](release/131fb5a-production-acceptance-2026-08-17.md)。

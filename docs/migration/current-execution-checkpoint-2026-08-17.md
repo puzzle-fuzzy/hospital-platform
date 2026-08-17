@@ -3,7 +3,7 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 当前线上 release 是 `131fb5a`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> 当前线上 release 是 `6d58c9c`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
 > [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)；本文后面的历史证据段落保留原时间线，不能当作当前 release 的新业务证据。
 
 ## 1. 当前事实
@@ -11,9 +11,9 @@
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
 | 仓库代码候选 | 最新运行时实现提交为 `a4033b0`；`ffa2f0c` 仅清理测试断言的 lint 警告。在 `9d9e7b1` 的 opaque 标识边界基础上，门诊费用、预约历史和爽约页均增加首批 10 条的本地渲染窗口，并收紧患者同步幂等键生成，不改变服务端完整查询结果、金额或状态语义；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
-| 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
+| 线上新 API | `6d58c9c`，`18081`，production mode | [`6d58c9c-production-acceptance-2026-08-17.md`](../release/6d58c9c-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
+| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过候选 schema probe | [`6d58c9c-production-acceptance-2026-08-17.md`](../release/6d58c9c-production-acceptance-2026-08-17.md) |
 | 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
@@ -36,6 +36,12 @@
 live/ready/system-ping 也通过。该次观察窗口出现 1 次真实微信登录成功和 4 次患者同步完成事件，但没有
 预约历史、门诊费用或资料事件。远端 Redis `PING` 通过，而会话 key 的 `SCAN` 被当前账号拒绝，所以
 Redis TTL 仍未验证。完整低敏快照见 [`../release/current-server-readonly-observability-2026-08-17.md`](../release/current-server-readonly-observability-2026-08-17.md)。
+
+随后于 2026-08-17 12:50-12:58 CST 完成候选 `6d58c9c` 的 production 切换：`0016` migration 成功，marker、
+索引列顺序和 schema probe 均通过；新 API 仅重启自身并恢复 `18081`，旧 Python `8001` 保持监听。启动日志确认
+production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtime smoke 的 ready 连续 6/6、system-ping
+和未登录 401 均通过。错误 ZIP/runner 包在切换前被隔离，未改变数据库；当前线上版本和完整证据见
+[`../release/6d58c9c-production-acceptance-2026-08-17.md`](../release/6d58c9c-production-acceptance-2026-08-17.md)。
 
 本地小程序运行包的最新构建复核（2026-08-17）已记录在
 [`miniprogram-runtime-package-verification-2026-08-17.md`](../release/miniprogram-runtime-package-verification-2026-08-17.md)：
@@ -144,8 +150,7 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
   Provider 业务证据。
-- 当前最新运行时实现提交 `a4033b0` 尚未发布；该提交在既有患者、预约、报告和门诊费用只读边界基础上，给门诊费用、预约历史和爽约派生页增加本地分批渲染，并让首页/选择页使用集中生成的安全幂等键：完整查询结果仍保留在页面状态，首批只把 10 条交给 WXML，后续只展开已取得的同一次 owner-scoped 结果，不新增 Provider 请求，也没有改变支付、医保、预约写入或旧 Python 服务。
-  文档检查点将由本次同步提交更新，同样不代表线上已部署。线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
+- `a4033b0` 及后续 `7807aa8` 的运行时修正已由 `6d58c9c` 候选 bundle 部署：门诊费用、预约历史和爽约派生页继续只做本地分批渲染，首页/选择页使用集中生成的安全幂等键，“我的”页资料失败可降级但不清理已确认患者上下文；完整查询结果、金额、状态和支付/医保/预约写入边界均未改变。线上 bundle provenance 和生产日志以 [`../release/6d58c9c-production-acceptance-2026-08-17.md`](../release/6d58c9c-production-acceptance-2026-08-17.md) 为准。
 - 此前某次只读连接 `ps@192.168.112.172` 曾返回 `Permission denied (publickey,password)`；该条属于历史阻断，
   不能继续作为当前状态。2026-08-17 约 12:25 CST 已恢复受控 SSH 只读会话，并完成当前 release、
   新旧监听、production mode、readiness、公网基础边界和低敏业务日志复核。此次仍没有执行部署、重启、
