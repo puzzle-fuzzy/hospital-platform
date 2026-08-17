@@ -82,6 +82,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			loading: true,
 			syncing: false,
 			selectionReady: false,
+			selectedPatientId: "",
 			error: "",
 		});
 		return loadPatients()
@@ -173,7 +174,14 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			const dataToken = directoryDataGuard.begin();
 			const syncToken = syncGuard.begin();
 			// 每次同步开始都先撤销上一次“可选择”状态；只有完整快照成功返回后才能恢复。
-			this.setData({ syncing: true, selectionReady: false, error: "" });
+			// 临床映射尚未被本轮同步确认前，不展示上一轮“当前”患者；同步成功后
+			// setPatientList 会基于最新 owner-scoped 目录恢复正确的展示标记。
+			this.setData({
+				syncing: true,
+				selectionReady: false,
+				selectedPatientId: "",
+				error: "",
+			});
 			return syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
 				.then((patients) => {
 					if (

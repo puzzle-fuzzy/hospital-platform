@@ -315,6 +315,19 @@ test("patient selection clears the current badge after synchronization failure",
 	expect(selection).toContain("不删除本地");
 });
 
+test("patient selection hides the current badge while directory confirmation is pending", async () => {
+	const selection = await source("pages/patient-select/patient-select.ts");
+
+	// 读取和临床同步期间都不能把上一轮患者展示成已确认；只有最新目录和映射
+	// 同步成功后，setPatientList 才能重新设置 selectedPatientId。
+	expect(selection).toContain(
+		'loading: true,\n\t\t\tsyncing: false,\n\t\t\tselectionReady: false,\n\t\t\tselectedPatientId: "",',
+	);
+	expect(selection).toContain(
+		'syncing: true,\n\t\t\t\tselectionReady: false,\n\t\t\t\tselectedPatientId: "",',
+	);
+});
+
 test("native patient synchronization is single-flight at both entry pages", async () => {
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");
