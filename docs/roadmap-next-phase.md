@@ -77,7 +77,7 @@
 - 从同一服务器直接请求众阳科室和排班地址可得到 HTTP 200，说明不能继续把问题归因于“上游不可达”。
 - 新 API 旧日志只记录 `ProviderRequestError/UNKNOWN`，缺少上游状态码和操作名，已经补充低敏 provider 诊断字段。
 - 认证、依赖未配置、provider 拒绝/暂时不可用和持久化暂时不可用已经统一为稳定错误码与中文安全文案；小程序按错误码兜底，服务端只在探针状态发生变化时记录 persistence unavailable/recovered，避免重复刷屏。`d177991` 的真实进程和公网基础运行时证据已完成，但不能用它替代真实 provider/真机业务证据。
-- 2026-08-16 已定位并修复预约科室/排班目录错误：科室接口需要日期窗口，排班响应中的 `remainingNumber` 可能为 `null`，服务端现使用真实的 `usableSourceNum` 映射可用号源；线上新版本已直接回归科室和排班 provider。
+- 2026-08-16 已定位并修复预约科室/排班目录错误：科室接口需要日期窗口，排班响应中的 `remainingNumber` 可能为 `null`，服务端只使用已确认的 `usableSourceNum` 映射可用号源；线上新版本已直接回归科室和排班 provider。
 - 预约历史的标识根因已经确认：患者目录的 `thirdPatientId` 不能直接当作预约历史接口的患者标识；新代码已增加 `patInfosFind` 档案查询和 `his-patient` 独立映射，release `b1b84d7` 与 `ca3a877` 已上线，`0012_patient_provider_references`、`0013_patient_directory_snapshot` 均通过生产 schema probe，仍需重新同步真实账号并完成公网业务 smoke/真机验收。
 - 预约写号、锁号、取消、实际挂号费、医保和微信支付不能仅凭旧页面字段直接开放；仍需 provider 合同和脱敏 fixture。
 - 当前优先级上调为“持久化稳定性观察 → 当前 release 真实只读业务验收”：readiness 只能在 `database/redis/schema` 连续稳定后作为验收前置，且排班快照必须出现 `snapshotPersistenceStatus=persisted`；不能把历史 release 的业务日志或一次 preflight 通过当成当前版本成功。
@@ -214,7 +214,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：修正报告目录批量短期引用的观察时钟：同一次 provider 响应的所有 `reportId` 共享同一 `createdAt`/`expiresAt`，避免批量处理跨时钟边界产生不一致 TTL。
 
 - 2026-08-16：患者目录 adapter 现在先拒绝同一完整快照中的重复 `thirdPatientId`，并在临床档案查询完成后拒绝重复的 HIS `patId`；避免持久化 upsert 把两条 provider 记录静默合并，或让切换就诊人后读取同一份临床数据。空医疗卡号会按旧端约定回退到有效 `cardNo`。
-- 2026-08-16：预约排班 adapter 修正号源字段优先级，使用真实 `usableSourceNum` 覆盖旧别名，并拒绝同一响应中的重复 `hisScheduleId`；避免生成多个 opaque 排班引用指向同一 provider 号源。
+- 2026-08-16：预约排班 adapter 固定使用已确认的 `usableSourceNum`，不再把旧端别名作为 fallback，并拒绝同一响应中的重复 `hisScheduleId`；避免错误号源数量和多个 opaque 排班引用指向同一 provider 号源。
 - 2026-08-16：报告 adapter 按来源拒绝重复 `reportId`；无 provider 报告号的摘要继续只展示摘要，不根据标题和时间伪造详情唯一引用。
 - 2026-08-16：预约科室 adapter 拒绝同一响应中的重复 `departmentId`；预约历史和爽约页面不再把可缺失/重复的 `serialNumber` 当渲染主键，页面 key 明确仅用于列表 diff，不具备预约或 provider 业务含义。
 - 2026-08-16：修复服务端与小程序只读窗口依赖运行时本地时区的问题，并用 UTC 输入验证仍输出中国标准时间；提交 `4c0d255` 只涉及客户端和文档，不需要重启 API，也不会打开支付、医保或结算写入。

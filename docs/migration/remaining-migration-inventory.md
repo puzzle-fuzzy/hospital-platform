@@ -106,7 +106,7 @@
 | 微信登录与平台会话 | `auth`、Redis session | 服务端真实登录、`/me` 会话恢复和单患者同步已有历史 journald 证据，当前 API 已切换到 `131fb5a` | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成 |
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页和生产未登录 401 已验证 | 真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
-| 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；不能锁号、不能把 `scheduleId` 当成写入授权 |
+| 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；adapter 只接受已确认的 `usableSourceNum`，页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；缺少 `usableSourceNum` 的响应会 fail-closed；不能锁号、不能把 `scheduleId` 当成写入授权 |
 | 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；已确认保留预约、取消、完成、爽约、停诊、替诊、已登记七类状态；我的挂号使用前后各 90 天，爽约筛选使用过去 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
 | 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；缺失金额、缺失稳定费用标识或重复费用会在 adapter 边界 fail-closed | 真实 Provider/公网/真机证据、费用详情、支付、医保、结算回写和退费未开放 |
@@ -140,6 +140,8 @@
 - 排班只读快照的 `observedAt` 与 `expiresAt` 必须使用同一次服务端时钟采样；快照有效只表示近期观察事实，不能单独授权锁号、预约或支付。
 - 预约只读目录的 adapter 会拒绝重复科室/排班主键；预约历史 adapter 也会拒绝重复的 `appointmentInfoId`，
   但不会为缺少预约号的摘要伪造稳定公开记录 ID，原生页面的渲染 key 不能作为可写入或详情引用。
+- 排班号源只接受当前 contract 已确认的 `usableSourceNum`；旧端不同接口的 `usableNum` 和 `remainingNumber` 不作为
+  fallback，字段缺失时拒绝整批响应，避免把错误号源数量展示给患者或误作锁号前置事实。
 - 统一 `unauthorized`、`patient-selection-required`、`dependency-not-configured`、provider 暂时不可用和空列表的用户态文案与日志事件。
 - 爽约记录只允许展示服务端已归一化的 `missed`；`unknown`、空列表和 provider 未返回不能推断爽约，且当前只覆盖过去 90 天窗口；“我的挂号”仍使用当前日前后各 90 天。停诊、替诊和已登记必须保留为独立状态，不能误显示为未知。
 - 受保护 API 已在 Elysia 的 route schema 校验前建立模块级认证边界：缺少或失效 Bearer 时统一返回 `401 unauthorized`，只有认证通过后才进入 query/body/params 的 `400 validation`；微信登录和微信支付回调仍保留明确公开入口。该行为已有 API 集成测试、候选 smoke 和 `131fb5a` 公网回归证据；这只证明认证错误边界，不代表真实微信会话或业务 Provider 已完成。
