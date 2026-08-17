@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新运行时实现提交为 `a4033b0`，文档检查点将由本次同步提交更新；在 `9d9e7b1` 的 opaque 标识边界基础上，门诊费用、预约历史和爽约页均增加首批 10 条的本地渲染窗口，并收紧患者同步幂等键生成，不改变服务端完整查询结果、金额或状态语义；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新运行时实现提交为 `a4033b0`；`ffa2f0c` 仅清理测试断言的 lint 警告。在 `9d9e7b1` 的 opaque 标识边界基础上，门诊费用、预约历史和爽约页均增加首批 10 条的本地渲染窗口，并收紧患者同步幂等键生成，不改变服务端完整查询结果、金额或状态语义；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -30,6 +30,12 @@
 和预约历史请求在业务 query 前返回 `401 unauthorized`，病历、医保授权和预约写入候选路径继续返回
 `404 not-found`。本次没有携带会话、患者或 Provider 凭证，也没有执行任何写入；证据见
 [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md) 的 2.6 节。
+
+随后于 2026-08-17 约 12:25 CST 恢复了受控 SSH 只读会话，确认当前线上仍为 `131fb5a`，新 Elysia
+`10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，生产日志和三项 readiness 均正常；公网
+live/ready/system-ping 也通过。该次观察窗口出现 1 次真实微信登录成功和 4 次患者同步完成事件，但没有
+预约历史、门诊费用或资料事件。远端 Redis `PING` 通过，而会话 key 的 `SCAN` 被当前账号拒绝，所以
+Redis TTL 仍未验证。完整低敏快照见 [`../release/current-server-readonly-observability-2026-08-17.md`](../release/current-server-readonly-observability-2026-08-17.md)。
 
 本地小程序运行包的最新构建复核（2026-08-17）已记录在
 [`miniprogram-runtime-package-verification-2026-08-17.md`](../release/miniprogram-runtime-package-verification-2026-08-17.md)：
@@ -140,10 +146,12 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
   Provider 业务证据。
 - 当前最新运行时实现提交 `a4033b0` 尚未发布；该提交在既有患者、预约、报告和门诊费用只读边界基础上，给门诊费用、预约历史和爽约派生页增加本地分批渲染，并让首页/选择页使用集中生成的安全幂等键：完整查询结果仍保留在页面状态，首批只把 10 条交给 WXML，后续只展开已取得的同一次 owner-scoped 结果，不新增 Provider 请求，也没有改变支付、医保、预约写入或旧 Python 服务。
   文档检查点将由本次同步提交更新，同样不代表线上已部署。线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
-- 本轮尝试只读连接 `ps@192.168.112.172` 获取当前 release 和业务日志时，SSH 返回
-  `Permission denied (publickey,password)`；因此本轮没有新增服务器、公网、真实微信或 Provider 业务证据，
-  也没有执行部署、重启、迁移或旧服务操作。恢复可验证 SSH 会话后，必须先重新执行 P0 手册的低敏日志和
-  Redis TTL 采样，再决定是否发布当前代码候选 `a4033b0`。
+- 此前某次只读连接 `ps@192.168.112.172` 曾返回 `Permission denied (publickey,password)`；该条属于历史阻断，
+  不能继续作为当前状态。2026-08-17 约 12:25 CST 已恢复受控 SSH 只读会话，并完成当前 release、
+  新旧监听、production mode、readiness、公网基础边界和低敏业务日志复核。此次仍没有执行部署、重启、
+  migration 或旧服务操作，也没有因此把 `a4033b0` 宣称为线上版本。
+- 线上 Redis 使用远端 DB3，`PING` 成功但当前账号不具备 `SCAN hospital:session:*` 的可用权限；会话数量和
+  TTL 不能从空结果推导，必须等待运维提供脱敏聚合或受控权限后再更新 P0 验收结论。
 - 服务器日志显示 `2026-08-17 00:13 CST` 曾有一次 `auth.wechat` 失败，错误为旧 release
   `41c9c18` 的持久化不可用；该请求发生在 `b186098` 切换前，不能归因于当前 release。
 - `b186098` 在约 `01:16 CST` 切换后，`bab0ce2` 曾于约 `01:38 CST` 运行；本轮于约 `02:11 CST`

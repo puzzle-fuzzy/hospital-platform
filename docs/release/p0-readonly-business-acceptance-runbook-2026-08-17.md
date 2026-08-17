@@ -113,17 +113,25 @@ ssh ps@192.168.112.172 "sudo journalctl -u hospital-platform-api-v2.service --si
 
 ## 5. Redis TTL 直接证据
 
-会话 TTL 必须在受控 SSH 终端中读取，只输出数量和 TTL 范围，不输出 key、用户 id 或 token。例如：
+会话 TTL 必须针对新 API 实际连接的远端 Redis 读取，只输出数量和 TTL 范围，不输出 key、用户 id 或 token。
+当前线上新 API 使用共享环境中的远端 Redis DB3；不能使用服务器本机 `127.0.0.1:6379` 的 `redis-cli -n 3`
+冒充线上证据，也不能把连接串直接粘贴到聊天、脚本日志或文档。应由运维在受控 shell 中解析已授权的
+`REDIS_URL`，将 ACL 用户名/密码通过进程环境传递给 `redis-cli`，然后只保留聚合结果。例如下面的逻辑要求，
+具体凭证注入方式由服务器的密钥管理方案提供：
 
 ```bash
-redis-cli -n 3 --scan --pattern 'hospital:session:*' |
-while IFS= read -r session_key; do
-  redis-cli -n 3 TTL "$session_key"
-done |
-awk 'BEGIN { count=0; min=""; max="" } $1 ~ /^[0-9]+$/ && $1 >= 0 { count++; if (min == "" || $1 < min) min=$1; if (max == "" || $1 > max) max=$1 } END { print "session_count=" count " ttl_min=" min " ttl_max=" max }'
+# 伪代码：不要把 REDIS_URL、密码、ACL 用户名或 session_key 输出到终端。
+# 1. 从服务器受控环境解析 host、port、db、ACL username/password。
+# 2. 使用 REDISCLI_AUTH 和 --user 调用远端 redis-cli PING。
+# 3. 对 hospital:session:* 做 SCAN，只在进程内计算 TTL，不打印 key。
+# 4. 只输出 session_count、ttl_min、ttl_max 三个聚合字段。
+echo 'session_count=<aggregate> ttl_min=<aggregate> ttl_max=<aggregate>'
 ```
 
-这条命令只能证明当前扫描到的会话 key TTL 范围；它不能证明某一位患者或某一次登录的业务成功。若 Redis ACL 不允许 `SCAN`，应由运维在不暴露 key 的情况下提供等价的聚合结果，不要临时放宽 ACL。
+这条逻辑只能证明当前扫描到的会话 key TTL 范围；它不能证明某一位患者或某一次登录的业务成功。
+2026-08-17 约 12:25 CST 的线上探测结果为远端 Redis `PING=PONG`，但 `SCAN hospital:session:*` 被当前
+SSH 账号拒绝，因此 TTL、会话数量和范围仍为“未验证”。若 Redis ACL 不允许 `SCAN`，应由运维在不暴露 key
+的情况下提供等价聚合结果，不要临时放宽 ACL；在取得结果前，P0 会话 TTL 门禁保持未通过。
 
 ## 6. 验收结果记录模板
 
