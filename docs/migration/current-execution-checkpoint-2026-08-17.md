@@ -22,6 +22,10 @@
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
 3/3、system-ping 和未登录认证边界通过；该证据没有更新任何真实业务验收状态。
 
+随后于 2026-08-17 11:13 CST 进行的公网只读复核已记录在同一证据文档的 2.5 节：live、ready、system-ping
+均成功，`/patients` 未登录返回 `401 unauthorized`，并保留了本次 `x-request-id`；该复核仍不代表本地候选
+已部署，也不更新微信、患者、Provider 或真机业务验收状态。
+
 本地小程序运行包的最新构建复核（2026-08-17）已记录在
 [`miniprogram-runtime-package-verification-2026-08-17.md`](../release/miniprogram-runtime-package-verification-2026-08-17.md)：
 14 个注册页面的 `.js/.json/.wxml/.wxss` 均存在；该证据不代表开发者工具或真机已经加载本次本地产物。
