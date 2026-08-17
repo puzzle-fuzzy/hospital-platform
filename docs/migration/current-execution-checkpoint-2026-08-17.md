@@ -3,22 +3,22 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 当前线上 release 是 `0b6f38f`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> 当前线上 release 是 `5f5915e`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
 > [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)；本文后面的历史证据段落保留原时间线，不能当作当前 release 的新业务证据。
 
 ## 1. 当前事实
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | `0b6f38f` 已包含前序患者边界、本地分批渲染、患者同步幂等键收紧、报告详情引用故障隔离、Provider 失败低敏诊断和门诊费用渠道契约收紧；线上以 bundle provenance 为准，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 见 [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
-| 线上新 API | `0b6f38f`，`18081`，production mode | [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
+| 仓库代码候选 | `5f5915e` 已包含普通资料严格未知字段边界、前序患者边界、本地分批渲染、患者同步幂等键收紧、报告详情引用故障隔离、Provider 失败低敏诊断和门诊费用渠道契约收紧；线上以 bundle provenance 为准，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 见 [`5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md) |
+| 线上新 API | `5f5915e`，`18081`，production mode | [`5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过候选 schema probe | [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
-| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
+| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过当前候选 schema probe | [`5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md) |
+| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
-公网基础运行边界的最新只读复核（2026-08-17 09:53 CST）已记录在
+公网基础运行边界的早期只读复核（2026-08-17 09:53 CST）已记录在
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
 3/3、system-ping 和未登录认证边界通过；该证据没有更新任何真实业务验收状态。
 
@@ -94,7 +94,7 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `0b6f38f` 完成真实链路：
+这些不是继续加页面，而是用当前 `5f5915e` 完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；
@@ -463,8 +463,7 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 
 本轮继续审计普通资料更新边界，发现 Elysia 默认 `normalize` 会把请求体中的未知字段静默删除，导致
 旧端提交 `avatar`/`openid` 时仍返回 200。现已在根应用关闭该行为，并用 API 集成测试锁定未知字段必须返回
-`400 validation`；这只是本地候选修复，尚未重启或切换线上 `0b6f38f`，真实资料读写、409 和真机验收仍待后续
-发布窗口单独完成。
+`400 validation`；该修复已随 `5f5915e` 完成生产切换，但真实资料读写、409 和真机验收仍待后续受控会话完成。
 
 随后完成 `0016_patient_directory_sync_owner_index` 的代码与线上只读审计：线上 `0015` marker 存在，
 `0016` marker 和目标复合索引均不存在；本地 0016 只对新端 operation ledger 增加非唯一查询索引，不影响
@@ -523,3 +522,11 @@ owner 隔离和 Provider 映射语义因此保持一致。本轮没有重复修�
 本轮已通过原生小程序 75 项验收、全仓 typecheck/test/build、架构审计、文档审计、Biome lint/format；
 尚未部署或重启服务，真机视觉验收仍需在开发者工具重新构建后确认。支付、医保、结算、预约写入和 HIS
 回写没有因页面补齐而提前开放。
+
+随后于 2026-08-17 17:55 CST 发布 `5f5915e`：五个 bundle checksum 与本地产物一致，真实生产 env
+preflight 通过，`127.0.0.1:18082` 隔离 smoke 的 live/ready 3/3、system-ping 和未登录 401 通过；
+随后 `current` 从 `0b6f38f` 原子切换到 `5f5915e`，只重启新 API。切换后内网/公网 ready 均为 200，公网
+runtime smoke readiness 6/6、system-ping 200、认证边界 401，旧 Python `8001` 仍监听。启动日志确认
+production mode、MySQL/Redis/schema `ok` 和支付/报告 gate 关闭；该发布仍没有把普通资料真实读写、409、
+患者切换或预约/费用 Provider 事件误记为已验收。完整证据见
+[`../release/5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md)。
