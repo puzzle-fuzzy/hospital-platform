@@ -264,6 +264,32 @@ Provider 原始报文通过参数传给聚合工具。
 医保、退款或 HIS 写回已经成功。若 `parseErrors > 0`，应缩小 journald 格式或保留原始日志在受控环境内排查，
 不能把聚合结果当作完整审计记录。
 
+聚合结果可以继续交给
+[`tools/p0-business-evidence-audit.mjs`](../tools/p0-business-evidence-audit.mjs) 做业务事件链门禁：
+先使用 `p0-log-aggregate` 的 `--json` 输出纯 JSON，再按业务域检查 `requested` 和明确成功事件是否都出现。
+该门禁只证明日志确实进入并完成过某个业务模块，不证明页面字段、患者归属或 Provider 结果正确；仍必须和
+HTTP 响应、真机页面及同一时间窗口的低敏 trace 交叉核对。缺少成功事件、`parseErrors > 0` 或出现未知业务域时，
+门禁必须失败，不能用 readiness、单独的 HTTP 200 或页面存在替代。
+
+示例（只输出安全计数和缺失项）：
+
+```bash
+sudo journalctl -u hospital-platform-api-v2.service \
+  --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
+  -o cat --no-pager | \
+  /home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js" \
+  --json > /tmp/p0-summary.json
+
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js" \
+  --file /tmp/p0-summary.json --domain appointmentRecords
+```
+
+`p0-business-evidence-audit` 不读取原始日志，不输出 trace、requestId、患者标识、金额或 Provider 原文；
+它也不会把失败请求从统计中删除。输出中的 `failureCount` 大于零时，只能说明该域同时出现过失败，
+不能把 `passed=true` 解读成所有请求均成功。
+
 ## 维护要求
 
 日志不是审计数据库，也不是业务状态存储。关键业务结果必须落库或进入 outbox，日志只提供可检索的诊断线索。新增支付、医保、HIS 适配器时，至少补充：开始、成功、失败/重试三个阶段的事件，并使用请求链路标识和内部业务 ID 串联；外部请求内容只记录经过筛选的摘要。

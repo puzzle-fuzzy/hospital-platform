@@ -56,6 +56,7 @@ test -f "releases/${new_sha}/apps/worker/dist/preflight.js"
 test -f "releases/${new_sha}/apps/worker/dist/provider-directory-smoke.js"
 test -f "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js"
 test -f "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js"
+test -f "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js"
 test -f shared/api.env
 test "$(stat -c '%a' shared/api.env)" = 600
 # release 中的 dist 和脱敏日志聚合 artifact 必须来自已通过本地门禁的构建产物；先在本地保存 checksum，上传后再复核。
@@ -65,7 +66,8 @@ sha256sum \
     "releases/${new_sha}/apps/worker/dist/preflight.js" \
     "releases/${new_sha}/apps/worker/dist/provider-directory-smoke.js" \
     "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js" \
-    "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js"
+    "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js" \
+    "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js"
 ```
 
 切换前必须保存以下证据：
@@ -81,7 +83,8 @@ sha256sum \
 与候选产物一致。worker release 除常驻 `index.js` 外，还必须包含独立的 `preflight.js`、
 `provider-directory-smoke.js`、`api-runtime-smoke.js` 和 `p0-log-aggregate.js`，这样服务器可以在没有
 workspace 链接时复现发布前只读验收，并在受控 journald 窗口执行不回显原文的日志聚合；这些脚本不会启动
-worker，也不会执行 migration 或支付/医保/HIS 写入。`p0-log-aggregate.js` 只消费 stdin 的 journald JSONL，
+worker，也不会执行 migration 或支付/医保/HIS 写入。还必须包含 `p0-business-evidence-audit.js`，用于对安全
+聚合结果执行“请求事件 + 明确成功事件”的业务门禁。`p0-log-aggregate.js` 只消费 stdin 的 journald JSONL，
 不得接收 token、患者标识或 Provider 原始报文作为参数。候选临时 smoke 只验证运行时，不替代本地代码门禁。
 
 候选 release 上传后，可在不切换 `current` 的情况下执行生产环境 preflight：
@@ -104,7 +107,22 @@ sudo journalctl -u hospital-platform-api-v2.service \
   /home/ps/.bun/bin/bun "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js"
 ```
 
-命令只输出安全计数；`parseErrors` 不为 `0` 时保留原始日志在受控服务器环境中排查，不能把不完整聚合结果当成审计证据。
+若要执行某一业务域门禁，必须先让聚合工具输出纯 JSON，再交给同一 release 的证据工具；不能把人类提示行
+直接当作 JSON 输入：
+
+```bash
+sudo journalctl -u hospital-platform-api-v2.service \
+  --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
+  -o cat --no-pager | \
+  /home/ps/.bun/bin/bun "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js" \
+  --json > /tmp/p0-summary.json
+/home/ps/.bun/bin/bun \
+  "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js" \
+  --file /tmp/p0-summary.json --domain appointmentRecords
+```
+
+命令只输出安全计数和缺失项；`parseErrors` 不为 `0` 或请求/成功事件不完整时，证据门禁失败。该门禁不替代
+页面、HTTP 和 trace 交叉核对，也不会修改线上状态。
 
 该命令只读取 MySQL、Redis、schema 和配置 gate；这里必须使用 API 的生产 env，因为候选 API 的持久化
 连接和 schema gate 在 `shared/api.env`，`shared/worker.env` 只用于尚未启用的 Worker。支付 gate 保持关闭

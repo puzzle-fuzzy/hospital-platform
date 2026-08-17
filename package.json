@@ -11,7 +11,7 @@
 	"scripts": {
 		"architecture:audit": "bun tools/architecture-audit.mjs",
 		"build": "turbo run build",
-		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm provider:audit && pnpm docs:audit && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm provider:audit && pnpm docs:audit && pnpm format:check && pnpm lint && pnpm test:tools && pnpm typecheck && pnpm test && pnpm build",
 		"db:integration": "pnpm --filter @hospital/persistence integration",
 		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"db:schema": "pnpm --filter @hospital/persistence schema",
@@ -28,6 +28,7 @@
 		"runtime:smoke": "pnpm --filter @hospital/worker runtime-smoke",
 		"provider:smoke": "pnpm --filter @hospital/worker provider-smoke",
 		"test": "turbo run test",
+		"test:tools": "bun test tools",
 		"typecheck": "turbo run typecheck"
 	},
 	"devDependencies": {

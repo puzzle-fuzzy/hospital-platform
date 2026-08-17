@@ -1,0 +1,174 @@
+import { readFile } from "node:fs/promises";
+
+/**
+ * P0 业务证据门禁只消费 p0-log-aggregate 生成的安全计数，不读取或输出原始日志。
+ *
+ * `requested` 证明请求已经进入业务模块，`success` 证明至少有一次明确的业务成功
+ * 事实。两者缺一都不能把“页面能打开”“HTTP 200”或 readiness 当成业务验收；
+ * `failure` 只作为风险提示保留，不会被工具降级成成功。该工具也不会声称请求和
+ * 成功事件属于同一个用户或 trace，跨三层验收仍需按手册人工关联 requestId/traceId。
+ */
+
+const BUSINESS_EVIDENCE_CONTRACTS = Object.freeze({
+	auth: {
+		label: "微信登录",
+		requested: ["auth.wechat.login.requested"],
+		success: ["auth.wechat.login.succeeded"],
+		failure: ["auth.wechat.login.failed"],
+	},
+	patientRead: {
+		label: "患者目录读取",
+		requested: ["patient.directory.read.requested"],
+		success: ["patient.directory.read.loaded"],
+		failure: ["patient.directory.read.failed"],
+	},
+	patientSync: {
+		label: "患者目录同步",
+		requested: ["patient.directory.requested"],
+		// 同一幂等操作的成功重放不应再次访问 Provider，但仍是已持久化的
+		// 患者目录事实；因此 replay 与首次 synced 都属于成功证据。
+		success: [
+			"patient.directory.synced",
+			"patient.directory.operation.replayed",
+		],
+		failure: ["patient.directory.failed"],
+	},
+	appointmentRecords: {
+		label: "预约历史",
+		requested: ["appointment.records.requested"],
+		success: ["appointment.records.synced"],
+		failure: ["appointment.records.failed"],
+	},
+	outpatientPaymentRecords: {
+		label: "门诊费用只读",
+		requested: ["outpatient.payment.records.requested"],
+		success: ["outpatient.payment.records.loaded"],
+		failure: ["outpatient.payment.records.failed"],
+	},
+	reportDirectory: {
+		label: "报告目录",
+		requested: ["report.directory.requested"],
+		success: ["report.directory.synced"],
+		failure: ["report.directory.failed"],
+	},
+	profileRead: {
+		label: "普通资料读取",
+		requested: ["user.profile.requested"],
+		success: ["user.profile.loaded"],
+		failure: ["user.profile.read_failed"],
+	},
+	profileUpdate: {
+		label: "普通资料更新",
+		// 更新接口没有单独的 requested 事件；updated/conflict 都是明确进入
+		// 更新 service 后留下的结果事实，不能把普通资料读取事件当作写入证据。
+		requested: ["user.profile.updated", "user.profile.conflict"],
+		success: ["user.profile.updated"],
+		failure: ["user.profile.update_failed", "user.profile.conflict"],
+	},
+});
+
+function countEvents(eventCounts, events) {
+	return events.reduce((total, event) => {
+		const count = eventCounts[event];
+		return total + (Number.isSafeInteger(count) && count > 0 ? count : 0);
+	}, 0);
+}
+
+function validateSummary(summary) {
+	if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+		throw new Error("输入不是安全的日志聚合对象");
+	}
+	if (
+		!summary.eventCounts ||
+		typeof summary.eventCounts !== "object" ||
+		Array.isArray(summary.eventCounts)
+	) {
+		throw new Error("日志聚合对象缺少 eventCounts");
+	}
+	if (!Number.isSafeInteger(summary.parseErrors) || summary.parseErrors < 0) {
+		throw new Error("日志聚合对象缺少有效的 parseErrors");
+	}
+}
+
+/**
+ * 对一个安全聚合摘要执行指定业务域的证据门禁。
+ *
+ * 返回值只包含业务域名称、事件计数、缺失项和解析错误数量，不复制 trace、
+ * requestId、患者标识、金额或 Provider 原文；调用方可以据此生成验收记录，
+ * 但不能据此跳过页面与 HTTP 结果核对。
+ */
+export function auditBusinessEvidence(
+	summary,
+	domains = Object.keys(BUSINESS_EVIDENCE_CONTRACTS),
+) {
+	validateSummary(summary);
+	if (!Array.isArray(domains) || domains.length === 0) {
+		throw new Error("至少指定一个业务域");
+	}
+
+	const results = {};
+	for (const domain of domains) {
+		const contract = BUSINESS_EVIDENCE_CONTRACTS[domain];
+		if (!contract) throw new Error(`未知的 P0 业务域: ${domain}`);
+
+		const requestedCount = countEvents(summary.eventCounts, contract.requested);
+		const successCount = countEvents(summary.eventCounts, contract.success);
+		const failureCount = countEvents(summary.eventCounts, contract.failure);
+		const missing = [];
+		if (requestedCount === 0) missing.push("requested");
+		if (successCount === 0) missing.push("success");
+		results[domain] = {
+			label: contract.label,
+			requestedCount,
+			successCount,
+			failureCount,
+			missing,
+			passed: summary.parseErrors === 0 && missing.length === 0,
+		};
+	}
+
+	return {
+		passed:
+			summary.parseErrors === 0 &&
+			Object.values(results).every((result) => result.passed),
+		parseErrors: summary.parseErrors,
+		domains: results,
+	};
+}
+
+function flagValue(flag) {
+	const index = process.argv.indexOf(flag);
+	return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+async function readSummary() {
+	const file = flagValue("--file");
+	if (file) {
+		const input = await readFile(file, "utf8");
+		return JSON.parse(input.replace(/^\uFEFF/u, ""));
+	}
+	let input = "";
+	for await (const chunk of process.stdin) input += chunk;
+	// Windows PowerShell 可能在进程管道开头保留 UTF-8 BOM；它不是
+	// 业务日志内容，应该在 JSON 摘要边界剥离，而不是把整次证据判成坏数据。
+	return JSON.parse(input.replace(/^\uFEFF/u, ""));
+}
+
+async function main() {
+	const domain = flagValue("--domain");
+	const domains = domain ? [domain] : undefined;
+	const result = auditBusinessEvidence(await readSummary(), domains);
+	console.log(JSON.stringify(result, null, 2));
+	if (!result.passed) process.exitCode = 1;
+}
+
+if (import.meta.main) {
+	try {
+		await main();
+	} catch (error) {
+		console.error(
+			`P0 业务证据审计失败：${error instanceof Error ? error.message : "未知错误"}`,
+		);
+		process.exitCode = 2;
+	}
+}

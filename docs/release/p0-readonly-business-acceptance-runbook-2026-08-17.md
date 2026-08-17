@@ -141,6 +141,28 @@ sudo journalctl -u hospital-platform-api-v2.service \
 token、openid、患者标识、金额或 Provider 原始报文，
 也不会把 `payment-frozen` 计为支付成功证据。
 
+在需要判断某个业务域是否确实进入并完成过一次只读链路时，先使用聚合工具的 `--json` 输出纯 JSON，再执行同一
+候选 release 中的业务证据门禁：
+
+```bash
+sudo journalctl -u hospital-platform-api-v2.service \
+  --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
+  -o cat --no-pager | \
+  /home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js" \
+  --json > /tmp/p0-summary.json
+
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js" \
+  --file /tmp/p0-summary.json --domain appointmentRecords
+```
+
+可用业务域包括 `auth`、`patientRead`、`patientSync`、`appointmentRecords`、
+`outpatientPaymentRecords`、`reportDirectory`、`profileRead` 和 `profileUpdate`。
+门禁只要求对应的请求事件和明确成功事件同时存在，并报告失败计数；它不能证明事件属于同一用户、
+不能证明页面展示正确，也不能替代 HTTP/真机和 trace 交叉核对。`parseErrors` 不为 `0` 时，无论业务事件
+是否出现，门禁都必须失败。
+
 生产环境只看事件名、状态、traceId、provider request id、数量、状态和错误类型。禁止把下面内容复制到聊天、提交或截图：
 
 - 微信临时 code、openid、unionId、session_key、AppSecret、Bearer token；

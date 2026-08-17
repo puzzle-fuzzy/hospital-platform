@@ -186,6 +186,12 @@ async function readInput() {
 
 async function main() {
 	const summary = aggregateLines(await readInput());
+	if (process.argv.includes("--json")) {
+		// 机器串联时输出纯 JSON，避免下游证据门禁把人类提示行误判成
+		// parseErrors；默认的人类提示仍保留，方便直接在受控终端查看。
+		console.log(JSON.stringify(summary));
+		return;
+	}
 	console.log("P0 日志聚合完成（只输出安全计数，不包含原始日志内容）：");
 	console.log(JSON.stringify(summary, null, 2));
 }
