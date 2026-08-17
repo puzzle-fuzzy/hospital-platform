@@ -156,21 +156,20 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	width: 25%;
-	height: 130rpx;
-	padding-top: 8rpx;
+	height: 100%;
+	gap: 6rpx;
 	color: #2c2c2c;
 	flex-direction: column;
 	font-size: 20rpx;
-	line-height: 1.2;
+	line-height: 1;
 }
 
 .legacy-tabbar-item-current {
 	color: #3d6df6;
 }
 
-.legacy-tabbar-item image {
+.legacy-tabbar-icon {
 	display: block;
-	margin-bottom: 6rpx;
 	width: 48rpx;
 	height: 48rpx;
 }

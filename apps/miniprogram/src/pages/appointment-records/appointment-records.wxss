@@ -193,7 +193,8 @@ page {
 .record-meta {
 	display: flex;
 	flex-wrap: wrap;
-	margin-top: 14rpx;
+	/* 对齐旧端详情区的 mb-3，医生类型和院区不能贴住科室标题。 */
+	margin-top: 24rpx;
 	color: #4b5563;
 	font-size: 24rpx;
 	line-height: 1.6;
@@ -204,14 +205,15 @@ page {
 }
 
 .record-date {
-	margin-top: 22rpx;
+	/* 旧端日期区使用 mb-4 的 32rpx 节奏。 */
+	margin-top: 32rpx;
 	color: #1f2937;
 	font-size: 24rpx;
 	line-height: 1.5;
 }
 
 .record-number {
-	margin-top: 18rpx;
+	margin-top: 32rpx;
 	color: #4b5563;
 	font-size: 24rpx;
 	line-height: 1.5;
@@ -226,7 +228,8 @@ page {
 .record-actions {
 	display: flex;
 	justify-content: flex-end;
-	margin-top: 16rpx;
+	/* 与旧端按钮区域 mt-4 保持一致，避免卡片底部显得拥挤。 */
+	margin-top: 32rpx;
 }
 
 .record-action-button {
@@ -277,6 +280,28 @@ page {
 
 .state-card-empty {
 	flex-direction: column;
+}
+
+.state-card-loading {
+	flex-direction: column;
+}
+
+/* 旧端使用 loading 图标；原生端用纯 WXSS 复刻同样的中性旋转指示器。 */
+.state-loading-icon {
+	box-sizing: border-box;
+	margin-bottom: 24rpx;
+	width: 48rpx;
+	height: 48rpx;
+	border: 6rpx solid #e5e7eb;
+	border-top-color: #9ca3af;
+	border-radius: 50%;
+	animation: appointment-record-loading 900ms linear infinite;
+}
+
+@keyframes appointment-record-loading {
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .state-card-empty image {

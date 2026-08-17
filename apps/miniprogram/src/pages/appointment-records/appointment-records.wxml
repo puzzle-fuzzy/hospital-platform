@@ -41,7 +41,8 @@
 		</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card">
+	<view wx:if="{{loading}}" class="state-card state-card-loading">
+		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>加载中...</text>
 	</view>
 

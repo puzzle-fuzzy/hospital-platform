@@ -55,21 +55,19 @@
 
 	<!-- 自定义底部栏固定在视口底部，并为安全区预留空间。 -->
 	<view class="legacy-tabbar">
-		<view class="legacy-tabbar-item" bindtap="onTabTap" data-index="0">
-			<image src="/assets/legacy-home/tab-01.png" mode="aspectFit" />
-			<text>医疗服务</text>
-		</view>
-		<view class="legacy-tabbar-item" bindtap="onTabTap" data-index="1">
-			<image src="/assets/legacy-home/tab-02.png" mode="aspectFit" />
-			<text>就诊</text>
-		</view>
-		<view class="legacy-tabbar-item" bindtap="onTabTap" data-index="2">
-			<image src="/assets/legacy-home/tab-03.png" mode="aspectFit" />
-			<text>互联网医院</text>
-		</view>
-		<view class="legacy-tabbar-item legacy-tabbar-item-current" bindtap="onTabTap" data-index="3">
-			<image src="/assets/legacy-home/tab-04-active.png" mode="aspectFit" />
-			<text>我的</text>
+		<view
+			wx:for="{{tabBarItems}}"
+			wx:key="text"
+			class="legacy-tabbar-item {{index === 3 ? 'legacy-tabbar-item-current' : ''}}"
+			bindtap="onTabTap"
+			data-index="{{index}}"
+		>
+			<image
+				class="legacy-tabbar-icon"
+				src="{{index === 3 ? item.activeIcon : item.icon}}"
+				mode="aspectFit"
+			/>
+			<text>{{item.text}}</text>
 		</view>
 	</view>
 </view>

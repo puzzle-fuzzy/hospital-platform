@@ -398,6 +398,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	const profileTemplate = await source("pages/profile/profile.wxml");
 	const client = await source("services/api-client.ts");
 	const navigation = await source("services/patient-navigation.ts");
+	const tabbar = await source("constants/legacy-tabbar.ts");
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 
 	expect(app).toContain('"pages/profile/profile"');
@@ -409,6 +410,10 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("patientContextError || profileError");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
+	expect(tabbar).toContain('text: "医疗服务"');
+	expect(tabbar).toContain('text: "就诊"');
+	expect(tabbar).toContain('text: "互联网医院"');
+	expect(tabbar).toContain('text: "我的"');
 	expect(template).toContain('bindtap="onFamilyTap"');
 	expect(template).toContain('bindtap="onHeaderTap"');
 	// 视觉以旧端为准：头像区不再增加新端提示文案，背景和头像使用本地原始资源。
@@ -438,14 +443,10 @@ test("native my page separates ordinary profile from family patient selection", 
 		expect(my).toContain(`icon: "/assets/legacy-user/${icon}"`);
 		expect(my).toContain(`title: "${title}"`);
 	}
-	for (const icon of [
-		"tab-01.png",
-		"tab-02.png",
-		"tab-03.png",
-		"tab-04-active.png",
-	]) {
-		expect(template).toContain(`/assets/legacy-home/${icon}`);
-	}
+	expect(template).toContain('wx:for="{{tabBarItems}}"');
+	expect(template).toContain(
+		'src="{{index === 3 ? item.activeIcon : item.icon}}"',
+	);
 	expect(my).toContain('title: "电子导诊单"');
 	expect(my).toContain('action: "electronic-consultation"');
 	expect(my).toContain('action: "smart-customer"');

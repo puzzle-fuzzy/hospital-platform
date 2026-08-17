@@ -317,6 +317,8 @@ export type MyPageData = {
 	selectedPatient: Patient | null;
 	patientCount: number;
 	menuSections: ReadonlyArray<MyMenuSection>;
+	/** 底部四 Tab 与首页共用同一组旧端图标和文案。 */
+	tabBarItems: ReadonlyArray<TabBarItem>;
 	loading: boolean;
 	error: string;
 };

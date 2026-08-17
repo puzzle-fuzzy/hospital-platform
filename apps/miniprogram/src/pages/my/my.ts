@@ -7,6 +7,7 @@ import { loadPatients } from "../../services/dashboard-service";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -120,6 +121,8 @@ Page<MyPageData, MyPageMethods>({
 		selectedPatient: null,
 		patientCount: 0,
 		menuSections: MY_MENU_SECTIONS,
+		// 底部导航与首页共用旧端资源，确保切换页面时文案和激活态不漂移。
+		tabBarItems: LEGACY_TAB_BAR_ITEMS,
 		loading: true,
 		error: "",
 	},

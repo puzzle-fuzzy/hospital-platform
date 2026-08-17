@@ -15,6 +15,7 @@ import {
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import {
 	hasPlatformSession,
 	restorePlatformSession,
@@ -28,7 +29,6 @@ import type {
 	PatientEvent,
 	ServiceTab,
 	SessionLabel,
-	TabBarItem,
 	TopTabItem,
 } from "../../types";
 
@@ -79,30 +79,6 @@ const RIGHT_LIST = Object.freeze([
 	{ action: "companion", image: "/assets/legacy-home/right-companion.png" },
 	{ action: "reports", image: "/assets/legacy-home/report.png" },
 ] satisfies ReadonlyArray<{ action: string; image: string }>);
-
-/** 旧端底部四 Tab 的图标与文案；其它 Tab 等待对应页面迁移后再开放跳转。 */
-const TAB_BAR_ITEMS = Object.freeze([
-	{
-		activeIcon: "/assets/legacy-home/tab-01-active.png",
-		icon: "/assets/legacy-home/tab-01.png",
-		text: "医疗服务",
-	},
-	{
-		activeIcon: "/assets/legacy-home/tab-02-active.png",
-		icon: "/assets/legacy-home/tab-02.png",
-		text: "就诊",
-	},
-	{
-		activeIcon: "/assets/legacy-home/tab-03-active.png",
-		icon: "/assets/legacy-home/tab-03.png",
-		text: "互联网医院",
-	},
-	{
-		activeIcon: "/assets/legacy-home/tab-04-active.png",
-		icon: "/assets/legacy-home/tab-04.png",
-		text: "我的",
-	},
-] satisfies ReadonlyArray<TabBarItem>);
 
 /** 门诊/住院/便民服务清单按旧端原始顺序和图标复刻，未开放动作保持空值。 */
 const SERVICE_TABS = Object.freeze([
@@ -238,7 +214,7 @@ Page<IndexPageData, IndexPageMethods>({
 		topTabList: TOP_TAB_LIST,
 		bannerList: BANNER_LIST,
 		rightList: RIGHT_LIST,
-		tabBarItems: TAB_BAR_ITEMS,
+		tabBarItems: LEGACY_TAB_BAR_ITEMS,
 		serviceTabs: SERVICE_TABS,
 		activeServiceTab: 0,
 		// 单独维护当前分组，避免 WXML 依赖嵌套数组下标表达式，提升真机兼容性。
