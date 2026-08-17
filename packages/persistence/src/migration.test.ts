@@ -214,6 +214,12 @@ test("core migration contains the transaction-critical constraints", async () =>
 			import.meta.url,
 		),
 	).text();
+	const patientSyncOwnerIndexSql = await Bun.file(
+		new URL(
+			"../migrations/0016_patient_directory_sync_owner_index.sql",
+			import.meta.url,
+		),
+	).text();
 
 	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_payment_orders");
 	expect(prepaySql).toContain(
@@ -248,6 +254,9 @@ test("core migration contains the transaction-critical constraints", async () =>
 	expect(patientSyncSql).toContain("uq_hp_patient_sync_owner_provider_key");
 	expect(patientSyncSql).toContain("ix_hp_patient_sync_status_lease");
 	expect(patientSyncSql).toContain("fk_hp_patient_sync_owner");
+	expect(patientSyncOwnerIndexSql).toContain(
+		"ix_hp_patient_sync_owner_provider_state",
+	);
 });
 
 test("report reference migration keeps the owner and expiry boundary explicit", async () => {

@@ -1107,9 +1107,103 @@ export function createMySqlRepositories(
 				const operationId = crypto.randomUUID();
 				const now = mysqlDateTime(input.now);
 				const leaseUntil = mysqlDateTime(input.leaseUntil);
-				// ON DUPLICATE KEY UPDATE 只用于处理“两个进程首次同时创建同一 key”
-				// 的唯一键竞争；不使用 INSERT IGNORE，避免吞掉外键或字段校验错误；
-				// 真正的状态判断仍通过后面的 FOR UPDATE 完成。
+				// 幂等键可能来自不同页面，所以不能只锁定“owner + key”这一行：
+				// 首页和选择页若分别生成新 key，先查再插入仍会同时访问 provider。
+				// 先锁定身份行，把同一 owner 的同步开始阶段串行化；这也是外键已经
+				// 保证存在的稳定锁行，不需要新增一张容易产生孤儿锁的业务表。
+				const ownerRows = await execute<RowDataPacket[]>(
+					connection,
+					"SELECT user_id FROM hp_identity_users WHERE user_id = ? LIMIT 1 FOR UPDATE",
+					[input.ownerUserId],
+				);
+				if (!ownerRows[0]) {
+					throw new Error(
+						"Patient sync owner disappeared before operation start",
+					);
+				}
+
+				// 先处理精确幂等键：成功记录必须 replay，未过期租约必须返回
+				// in_progress，过期租约才允许同一个 operation 递增代次接管。
+				const exactRows = await execute<PatientDirectorySyncOperationRow[]>(
+					connection,
+					"SELECT operation_id, status, attempt_count, lease_until FROM hp_patient_directory_sync_operations WHERE owner_user_id = ? AND provider_name = ? AND idempotency_key = ? LIMIT 1 FOR UPDATE",
+					[input.ownerUserId, input.provider, input.idempotencyKey],
+				);
+				const exactRow = exactRows[0];
+				const readExistingOperation = async (
+					row: PatientDirectorySyncOperationRow,
+				): Promise<PatientDirectorySyncStart> => {
+					const attemptCount = Number(row.attempt_count);
+					if (!Number.isSafeInteger(attemptCount) || attemptCount < 1) {
+						throw new Error(
+							"Persistence returned an invalid patient sync attempt count",
+						);
+					}
+					if (row.status === "succeeded") {
+						return {
+							outcome: "replay",
+							operationId: row.operation_id,
+							attemptCount,
+						};
+					}
+					const leaseMilliseconds = timestampMilliseconds(row.lease_until);
+					const nowMilliseconds = timestampMilliseconds(input.now);
+					if (
+						leaseMilliseconds === undefined ||
+						nowMilliseconds === undefined
+					) {
+						throw new Error(
+							"Persistence returned an invalid patient sync lease",
+						);
+					}
+					if (leaseMilliseconds > nowMilliseconds) {
+						return {
+							outcome: "in_progress",
+							operationId: row.operation_id,
+							attemptCount,
+							leaseUntil: new Date(leaseMilliseconds).toISOString(),
+						};
+					}
+
+					const updated = await execute<ResultSetHeader>(
+						connection,
+						"UPDATE hp_patient_directory_sync_operations SET status = 'in_progress', attempt_count = attempt_count + 1, lease_until = ?, updated_at = ? WHERE operation_id = ? AND status = 'in_progress'",
+						[leaseUntil, now, row.operation_id],
+					);
+					if (updated.affectedRows !== 1) {
+						throw new Error("Patient sync operation lease takeover failed");
+					}
+					return {
+						outcome: "started",
+						operationId: row.operation_id,
+						attemptCount: attemptCount + 1,
+					};
+				};
+
+				if (exactRow) return readExistingOperation(exactRow);
+
+				// 这是和唯一幂等键不同的第二道并发边界：即使本次 key 从未出现，
+				// 同 owner/provider 仍只能有一个未过期同步。0016 的复合索引让这条
+				// 查询不会随着 operation ledger 增长退化为全表扫描。
+				const activeRows = await execute<PatientDirectorySyncOperationRow[]>(
+					connection,
+					"SELECT operation_id, status, attempt_count, lease_until FROM hp_patient_directory_sync_operations WHERE owner_user_id = ? AND provider_name = ? AND status = 'in_progress' AND lease_until > ? ORDER BY updated_at DESC, operation_id DESC LIMIT 1 FOR UPDATE",
+					[input.ownerUserId, input.provider, now],
+				);
+				const activeRow = activeRows[0];
+				if (activeRow) {
+					const active = await readExistingOperation(activeRow);
+					if (active.outcome !== "in_progress") {
+						throw new Error(
+							"Patient sync active-operation query returned an invalid state",
+						);
+					}
+					return active;
+				}
+
+				// ON DUPLICATE KEY UPDATE 只用于兼容尚未采用 owner 行锁的旧 worker
+				// 在同一幂等键上的竞争；不使用 INSERT IGNORE，避免吞掉外键或字段
+				// 校验错误。当前 worker 之间的不同 key 竞争已由 owner 行锁消除。
 				await execute<ResultSetHeader>(
 					connection,
 					"INSERT INTO hp_patient_directory_sync_operations (operation_id, owner_user_id, provider_name, idempotency_key, status, attempt_count, lease_until, created_at, updated_at) VALUES (?, ?, ?, ?, 'in_progress', 1, ?, ?, ?) ON DUPLICATE KEY UPDATE operation_id = operation_id",
@@ -1131,55 +1225,16 @@ export function createMySqlRepositories(
 				const row = rows[0];
 				if (!row)
 					throw new Error("Patient sync operation disappeared after insert");
-				const attemptCount = Number(row.attempt_count);
-				if (!Number.isSafeInteger(attemptCount) || attemptCount < 1) {
-					throw new Error(
-						"Persistence returned an invalid patient sync attempt count",
-					);
-				}
 				// 不依赖 mysql2 对 ON DUPLICATE KEY 的 affectedRows 约定；
 				// 新生成的 operationId 只有在本事务确实插入时才会被查询回来。
 				if (row.operation_id === operationId) {
 					return {
 						outcome: "started",
 						operationId: row.operation_id,
-						attemptCount,
+						attemptCount: 1,
 					};
 				}
-				if (row.status === "succeeded") {
-					return {
-						outcome: "replay",
-						operationId: row.operation_id,
-						attemptCount,
-					};
-				}
-				const leaseMilliseconds = timestampMilliseconds(row.lease_until);
-				const nowMilliseconds = timestampMilliseconds(input.now);
-				if (leaseMilliseconds === undefined || nowMilliseconds === undefined) {
-					throw new Error("Persistence returned an invalid patient sync lease");
-				}
-				if (leaseMilliseconds > nowMilliseconds) {
-					return {
-						outcome: "in_progress",
-						operationId: row.operation_id,
-						attemptCount,
-						leaseUntil: new Date(leaseMilliseconds).toISOString(),
-					};
-				}
-
-				const updated = await execute<ResultSetHeader>(
-					connection,
-					"UPDATE hp_patient_directory_sync_operations SET status = 'in_progress', attempt_count = attempt_count + 1, lease_until = ?, updated_at = ? WHERE operation_id = ? AND status = 'in_progress'",
-					[leaseUntil, now, row.operation_id],
-				);
-				if (updated.affectedRows !== 1) {
-					throw new Error("Patient sync operation lease takeover failed");
-				}
-				return {
-					outcome: "started",
-					operationId: row.operation_id,
-					attemptCount: attemptCount + 1,
-				};
+				return readExistingOperation(row);
 			});
 		},
 		async upsertFromDirectory(input) {

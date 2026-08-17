@@ -4,8 +4,8 @@ import type {
 	IdentityUser,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
-	PatientDirectorySyncStartInput,
 	PatientDirectorySyncStart,
+	PatientDirectorySyncStartInput,
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientRecord,
@@ -124,6 +124,8 @@ export function createInMemoryPatientRepository(
 		string,
 		{
 			operationId: string;
+			ownerUserId: string;
+			provider: "zhongyang";
 			status: "in_progress" | "succeeded";
 			attemptCount: number;
 			leaseUntil: string;
@@ -219,28 +221,67 @@ export function createInMemoryPatientRepository(
 		async beginDirectorySync(input): Promise<PatientDirectorySyncStart> {
 			const key = syncOperationKey(input);
 			const existing = syncOperations.get(key);
+			if (existing?.status === "succeeded") {
+				return {
+					outcome: "replay",
+					operationId: existing.operationId,
+					attemptCount: existing.attemptCount,
+				};
+			}
+			if (existing && Date.parse(existing.leaseUntil) > Date.parse(input.now)) {
+				return {
+					outcome: "in_progress",
+					operationId: existing.operationId,
+					attemptCount: existing.attemptCount,
+					leaseUntil: existing.leaseUntil,
+				};
+			}
+
+			// 页面会各自生成新的幂等键；幂等键只能防止“同一次请求”重复，
+			// 不能防止首页和选择页用不同 key 同时刷新。因此内存仓储也模拟
+			// 生产 MySQL 的 owner/provider 活跃租约约束，避免测试错误放过跨页并发。
+			const activeOperation = [...syncOperations.values()].find(
+				(candidate) =>
+					candidate.ownerUserId === input.ownerUserId &&
+					candidate.provider === input.provider &&
+					candidate.status === "in_progress" &&
+					Date.parse(candidate.leaseUntil) > Date.parse(input.now) &&
+					candidate.operationId !== existing?.operationId,
+			);
+			if (activeOperation) {
+				return {
+					outcome: "in_progress",
+					operationId: activeOperation.operationId,
+					attemptCount: activeOperation.attemptCount,
+					leaseUntil: activeOperation.leaseUntil,
+				};
+			}
+
 			if (!existing) {
 				const operationId = `fixture-sync-operation-${syncOperations.size + 1}`;
 				const operation = {
 					operationId,
+					ownerUserId: input.ownerUserId,
+					provider: input.provider,
 					status: "in_progress" as const,
 					attemptCount: 1,
 					leaseUntil: input.leaseUntil,
 				};
-				syncOperations.set(key, operation);
-				return { outcome: "started", ...operation };
-			}
-
-			if (existing.status === "succeeded") {
-				return { outcome: "replay", ...existing };
-			}
-			if (Date.parse(existing.leaseUntil) > Date.parse(input.now)) {
-				return { outcome: "in_progress", ...existing };
+					syncOperations.set(key, operation);
+				return {
+					outcome: "started",
+					operationId: operation.operationId,
+					attemptCount: operation.attemptCount,
+				};
 			}
 
 			existing.attemptCount += 1;
 			existing.leaseUntil = input.leaseUntil;
-			return { outcome: "started", ...existing };
+			return {
+				outcome: "started",
+				operationId: existing.operationId,
+				attemptCount: existing.attemptCount,
+			};
 		},
 		async upsertFromDirectory(input) {
 			return upsertDirectoryAt(input, new Date().toISOString());

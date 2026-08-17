@@ -82,7 +82,13 @@ export type PatientDirectorySnapshotInput = {
 /** 患者目录同步只允许这两个持久化状态，失败通过租约到期恢复，不缓存永久失败。 */
 export type PatientDirectorySyncOperationStatus = "in_progress" | "succeeded";
 
-/** 开始同步时仓储返回的并发分支。 */
+/**
+ * 开始同步时仓储返回的并发分支。
+ *
+ * `in_progress` 不只表示相同幂等键正在执行，也表示同一 owner/provider
+ * 已经有另一条幂等键占用未过期租约；这样首页与选择页的并发刷新不会重复访问
+ * provider。这个互斥只存在于同步启动阶段，成功后新的手动刷新仍可使用新 key。
+ */
 export type PatientDirectorySyncStart =
 	| {
 			outcome: "started";

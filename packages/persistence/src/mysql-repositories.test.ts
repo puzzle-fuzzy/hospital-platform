@@ -199,7 +199,7 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 
 test("MySQL patient sync operation uses owner-scoped lease and replay states", async () => {
 	const { pool, state } = createFakePool([
-		{ affectedRows: 0 },
+		[{ user_id: "user-001" }],
 		[
 			{
 				operation_id: "operation-001",
@@ -209,7 +209,7 @@ test("MySQL patient sync operation uses owner-scoped lease and replay states", a
 			},
 		],
 		{ affectedRows: 1 },
-		{ affectedRows: 0 },
+		[{ user_id: "user-001" }],
 		[
 			{
 				operation_id: "operation-001",
@@ -242,9 +242,44 @@ test("MySQL patient sync operation uses owner-scoped lease and replay states", a
 		operationId: "operation-001",
 		attemptCount: 2,
 	});
-	expect(state.statements[0]).toContain("hp_patient_directory_sync_operations");
-	expect(state.values[0]).toContain("patient-sync-key");
+	expect(state.statements[0]).toContain("hp_identity_users");
+	expect(state.statements[1]).toContain("hp_patient_directory_sync_operations");
+	expect(state.values[1]).toContain("patient-sync-key");
 	expect(state.statements[1]).toContain("FOR UPDATE");
+});
+
+test("MySQL patient sync blocks a different key while the owner has an active lease", async () => {
+	const { pool, state } = createFakePool([
+		[{ user_id: "user-001" }],
+		[],
+		[
+			{
+				operation_id: "operation-active",
+				status: "in_progress",
+				attempt_count: 1,
+				lease_until: "2026-08-16 00:01:00.000",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.beginDirectorySync?.({
+			ownerUserId: "user-001",
+			provider: "zhongyang",
+			idempotencyKey: "different-page-key",
+			now: "2026-08-16T00:00:00.000Z",
+			leaseUntil: "2026-08-16T00:01:00.000Z",
+		}),
+	).resolves.toEqual({
+		outcome: "in_progress",
+		operationId: "operation-active",
+		attemptCount: 1,
+		leaseUntil: "2026-08-16T00:01:00.000Z",
+	});
+	expect(state.statements).toHaveLength(3);
+	expect(state.statements[2]).toContain("status = 'in_progress'");
+	expect(state.values[1]).toContain("different-page-key");
 });
 
 test("MySQL patient snapshot marks sync operation succeeded in the same transaction", async () => {

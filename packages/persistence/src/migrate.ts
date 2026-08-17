@@ -94,6 +94,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0015_patient_directory_sync_operations.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0016_patient_directory_sync_owner_index",
+		file: "../migrations/0016_patient_directory_sync_owner_index.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -397,6 +402,11 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		table: "hp_patient_directory_sync_operations",
 		name: "ix_hp_patient_sync_status_lease",
 		columns: ["status", "lease_until"],
+	},
+	{
+		table: "hp_patient_directory_sync_operations",
+		name: "ix_hp_patient_sync_owner_provider_state",
+		columns: ["owner_user_id", "provider_name", "status", "lease_until"],
 	},
 	{
 		table: "hp_payment_orders",

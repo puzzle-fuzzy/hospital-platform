@@ -4,8 +4,8 @@ import {
 	type AdapterCallContext,
 	DependencyNotConfiguredError,
 	type PatientDirectoryGateway,
-	type PatientRepository,
 	PatientDirectorySyncInProgressError,
+	type PatientRepository,
 	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -106,6 +106,9 @@ export class PatientService {
 			const leaseUntil = new Date(
 				Date.parse(observedAt) + this.syncLeaseMs,
 			).toISOString();
+			// 幂等键负责网络重试的 replay；同一 owner/provider 的跨页面并发互斥
+			// 由持久化层的 owner 行锁和活跃租约查询负责。不能把客户端传来的 key
+			// 当成用户级锁，也不能在这里发现冲突后再次盲目调用 provider。
 			const operation = await beginDirectorySync.call(this.repository, {
 				ownerUserId,
 				provider: "zhongyang",
