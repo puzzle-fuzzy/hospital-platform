@@ -320,3 +320,9 @@ available -> hold_pending -> held -> booking_pending -> booked
   journald JSONL，不连接数据库/Redis/Provider，不接收 token、患者标识或原始 Provider 报文。worker 构建、工具单测
   和 bundle stdin smoke 已通过；当前 `5f5915e` 仍未包含该 artifact，必须随下一次候选发布后再在服务器验证，
   不打开预约写入、支付、医保、退款或 HIS。
+- 2026-08-17 20:32 CST：`bf67b96` 已完成六个 artifact checksum、生产 preflight、`18082` 隔离 runtime smoke、
+  原子切换和新 API 单独重启；公网 live/ready/system-ping、ready 连续 6/6 和未登录认证边界通过，旧 Python `8001`
+  及 Worker inactive 边界保持不变。当前 release 的日志聚合 bundle 对切换后 journald 窗口 `parseErrors=0`，但切换后
+  尚未出现真实微信/患者/预约/费用业务事件，因此下一步仍是从本次 service.started 起做真机会话、患者切换和只读业务
+  三层验收；支付、医保、预约写入、报告详情和 HIS 继续关闭，详见
+  [`release/bf67b96-production-acceptance-2026-08-17.md`](release/bf67b96-production-acceptance-2026-08-17.md)。

@@ -608,3 +608,10 @@ Redis TTL、PUT/409、公网/真机三层结果。当前窗口没有 503、支�
 构建，显式生成 `apps/worker/dist/p0-log-aggregate.js`，并在发布切换手册、日志文档和 P0 验收手册中加入存在性与
 SHA-256 门禁。已通过 worker 构建、聚合工具单测和 bundle stdin smoke；当前线上仍为旧 release，未部署、未重启，
 不改变任何业务能力或支付/医保/HIS gate。
+
+2026-08-17 20:32 CST：`bf67b96` 已按无损发布手册完成候选上传、六个 artifact checksum、真实生产 preflight、
+`18082` 隔离 smoke、原子 `current` 切换和新 API 单独重启。新 `18081` ready、公网 live/ready/system-ping 与认证边界
+均通过，旧 Python `8001` 保持监听，Worker inactive；当前 release 内日志聚合 bundle 对切换后 journald 窗口得到
+`parseErrors=0`。这只完成运行时和日志维护 artifact 验收，不能回填真实微信、多患者、资料 PUT/409、预约/费用 Provider、
+Redis TTL 或真机证据；支付、医保、预约写入、报告详情和 HIS 继续关闭，完整记录见
+[`release/bf67b96-production-acceptance-2026-08-17.md`](../release/bf67b96-production-acceptance-2026-08-17.md)。

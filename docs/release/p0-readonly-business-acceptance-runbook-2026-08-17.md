@@ -1,6 +1,6 @@
 # P0 只读业务验收手册（2026-08-17）
 
-> 本手册用于当前 `5f5915e` 生产版本的真实微信小程序验收。它覆盖微信登录、普通资料、患者上下文、预约历史、爽约记录和门诊费用只读查询；不包含预约下单、微信支付、医保结算、退款或 HIS 写入。
+> 本手册用于当前 `bf67b96` 生产版本的真实微信小程序验收。它覆盖微信登录、普通资料、患者上下文、预约历史、爽约记录和门诊费用只读查询；不包含预约下单、微信支付、医保结算、退款或 HIS 写入。
 >
 > `configured` 只表示环境变量和组合根依赖齐全，不表示 Provider 权限、接口字段或真实业务已经验收。每个域必须同时具备真机操作、HTTP 响应和服务端日志三类证据，缺一不可。
 
@@ -8,7 +8,7 @@
 
 | 项目 | 验收基线 |
 | --- | --- |
-| 线上 release | `5f5915e` |
+| 线上 release | `bf67b96` |
 | 新 API | `hospital-platform-api-v2.service`，公网入口 `/api/v2` |
 | 旧 API | Python 服务继续保留在原端口，不能因为本手册重启或修改 |
 | 小程序运行目录 | `apps/miniprogram/dist/`；先执行 `pnpm --filter @hospital/miniprogram build`，开发者工具导入包含 `project.config.json` 的小程序目录，并确认 `miniprogramRoot` 为 `dist/` |
@@ -197,9 +197,9 @@ SSH 账号拒绝，因此 TTL、会话数量和范围仍为“未验证”。若
 
 ## 7. 当前未完成事项
 
-1. `5f5915e` 于 2026-08-17 17:55 CST 启动后，截至本次复核尚未出现新的 `auth.wechat.*`、`user.profile.*`、
-   `appointment.records.*` 或 `outpatient.payment.*` 业务事件；患者目录事件也均早于该版本的 `service.started`，
-   不能归入 `5f5915e`。后续真机操作必须以本次 `service.started` 为起点重新取证，不能沿用旧 release 日志。
+1. `bf67b96` 于 2026-08-17 20:30 CST 前后启动；切换后短窗口只有 runtime smoke 的 HTTP 事件，没有新的
+   `auth.wechat.*`、`user.profile.*`、`appointment.records.*` 或 `outpatient.payment.*` 真实业务事件。后续真机操作
+   必须以本次 `service.started` 为起点重新取证，不能沿用旧 `5f5915e` 日志。
 2. Redis 实际 TTL 尚未保存为本 release 的直接证据。
 3. 多患者切换、inactive/恢复和跨页面患者上下文尚未取得真实 Provider 事实。
 4. Provider 新版文档尚未收到；医疗病历、费用明细/电子票据、患者新增绑定、动态院区路由、二维码、住院、输血和其他高风险写入继续保持待合同状态。

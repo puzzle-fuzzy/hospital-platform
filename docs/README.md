@@ -58,6 +58,7 @@
 | [`release/production-coexistence-readonly-audit-2026-08-17.md`](release/production-coexistence-readonly-audit-2026-08-17.md) | 2026-08-17 SSH 只读核对新 Bun `18081`、旧 Python `8001`、systemd 状态和 release 指针；不包含业务验收 |
 | [`release/current-production-observability-audit-2026-08-17.md`](release/current-production-observability-audit-2026-08-17.md) | 2026-08-17 当前 API 启动 capability、MySQL/schema 探针抖动、微信登录失败/恢复和患者同步日志复核 |
 | [`release/current-live-readonly-audit-2026-08-17.md`](release/current-live-readonly-audit-2026-08-17.md) | 2026-08-17 当前 release、内外网 ready、旧新服务共存和低敏业务日志关键词的只读核对 |
+| [`release/bf67b96-production-acceptance-2026-08-17.md`](release/bf67b96-production-acceptance-2026-08-17.md) | `bf67b96` 六个 release artifact、候选隔离 smoke、原子切换、旧新服务共存和日志聚合验证 |
 | [`release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md`](release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md) | `3ab0a6c` 患者目录空快照安全边界、真实生产 env preflight、隔离端口 runtime smoke 和旧服务共存证据 |
 | [`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md) | `3ab0a6c` 原子切换、内外网运行时、6/6 readiness、旧服务共存和业务未验收边界 |
 | [`release/daee96d-production-acceptance-2026-08-17.md`](release/daee96d-production-acceptance-2026-08-17.md) | `daee96d` 候选 checksum、真实生产 preflight、原子切换、公网 6/6 readiness、旧服务共存与业务未验收边界 |

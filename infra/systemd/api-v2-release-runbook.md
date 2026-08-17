@@ -253,3 +253,10 @@ mode、MySQL/Redis/schema、live/ready、system-ping 和认证边界 smoke 后�
 旧 Python `8001` 保持监听，Worker 仍 inactive。此次只增加 Provider 失败低敏诊断字段，不执行 Provider 业务、
 支付、医保、退款、HIS 写入或 migration。完整证据见
 [`../../docs/release/daee96d-production-acceptance-2026-08-17.md`](../../docs/release/daee96d-production-acceptance-2026-08-17.md)。
+
+2026-08-17 20:29-20:32 CST：候选 `bf67b96` 完成六个 artifact checksum、真实生产 env preflight 和
+`127.0.0.1:18082` 隔离 runtime smoke 后，按本手册原子切换 `current`，只重启新 API。切换后公网 live、ready
+连续 6/6、system-ping 和未登录认证边界全部通过，旧 Python `8001` 保持监听，Worker 仍 inactive；当前 release
+内的 `p0-log-aggregate.js` 对切换后 journald 窗口聚合 `parseErrors=0`。本次没有调用真实微信、患者、预约、费用
+Provider，也没有执行 migration、支付、医保、退款或 HIS 写入。完整证据见
+[`../../docs/release/bf67b96-production-acceptance-2026-08-17.md`](../../docs/release/bf67b96-production-acceptance-2026-08-17.md)。
