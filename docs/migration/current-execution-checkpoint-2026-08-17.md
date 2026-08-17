@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `01ad0eb`，在 `29d4213` 的选择页临床映射门禁基础上，修正挂号记录和爽约记录在患者切换期间残留旧列表的问题；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `2850c17`，在 `01ad0eb` 的患者历史列表隔离基础上，完善普通资料非法输入失败日志和 null 清空字段的修改计数；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -251,6 +251,11 @@ owner 身份行，并使用 `0016_patient_directory_sync_owner_index` 查询同�
 上一位患者的卡片和列表，最新请求守卫继续阻止旧响应回写；这样在等待 Provider 读取期间不会出现患者身份
 与记录内容短暂错配。小程序验收 58 项、类型检查已通过，候选仍未部署，线上继续以 `131fb5a` 和生产
 schema `0015` 为准。
+
+随后 `2850c17` 完善普通资料更新的业务日志边界：输入校验拒绝也记录 `user.profile.update_failed` 的
+固定错误类型，`age: null` 和 `email: null` 的合法清空操作按请求字段计入修改数量；不记录用户身份、资料
+字段或原始请求。API 测试 85 项、类型检查已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema
+`0015` 为准。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
