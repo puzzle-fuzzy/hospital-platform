@@ -17,6 +17,7 @@
 - 当前下一块不是继续增加静态页面，而是完成已有只读纵向切片的真实证据：患者 TTL/多患者、预约历史、门诊费用列表和普通资料；报告详情、病历、绑定、动态医院和外部入口仍等待新的 Provider 文档及脱敏样例。
 - 本轮修复门诊费用 adapter 的金额边界：缺失金额不再降级为 `0` 分，显式零元仍可通过；这条规则已加入 adapter 测试和迁移差距审计。完整分层、证据等级和新文档接收门禁见 [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md)。
 - `d71ecd4`、`3609944` 和 `7a03df7` 继续收紧只读 adapter：门诊费用展示字段按公开 contract 限长，LIS 单位限制为 64 字符；2.6.33 未确认的 `waitPayAmount`、`registerDept`、`registerDoctor` 不再覆盖已确认字段，只有 `amount` 缺失时保持 fail-closed。该修正不改变支付/医保 gate，也未部署线上。
+- 本轮预约排班审计进一步移除 `usableNum`/`remainingNumber` 号源 fallback；当前只接受已确认的 `usableSourceNum`，缺失时 fail-closed，避免旧端不同接口字段被错误合并。该修正仅影响只读 adapter 边界，未打开预约写入或锁号。
 - 本轮为 runtime/provider smoke 增加有界 readiness 连续采样：库调用默认保持单次兼容语义，命令行默认 3 次，正式生产验收建议显式使用 6 次、间隔 2000 毫秒；任意中间 `not_ready` 都不能被最后一次恢复掩盖。该门禁只证明运行前置稳定，仍不替代真实微信、患者、Provider、真机或支付验收，规则见 [`release/readiness-stability-gate.md`](release/readiness-stability-gate.md)。
 - `ed250ec` 的本地 runtime smoke 已对公网 `/api/v2` 完成 6/6 readiness、no-store、system-ping 和未登录 401 连续复核；该证据仍不代表 `ed250ec` 已部署，也不替代服务器 bundle provenance、journald、微信会话或真机业务验收。详见 [`release/current-public-readiness-stability-2026-08-17.md`](release/current-public-readiness-stability-2026-08-17.md)。
 - 当前 `131fb5a` 已完成服务器 bundle checksum、真实生产 preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网 6/6 readiness；旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。此次只标准化持久化瞬态错误码的安全诊断日志；认证边界不改变 P0 真实微信、多患者和 Provider 业务验收顺序，完整证据见 [`release/131fb5a-production-acceptance-2026-08-17.md`](release/131fb5a-production-acceptance-2026-08-17.md)。

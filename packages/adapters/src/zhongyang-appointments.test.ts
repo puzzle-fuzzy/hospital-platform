@@ -177,6 +177,42 @@ test("众阳排班以 usableSourceNum 为真实号源字段并拒绝重复排班
 	});
 });
 
+test("众阳排班缺少 usableSourceNum 时不使用旧号源别名兜底", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-legacy-source-field",
+						deptId: "dept-001",
+						deptName: "心内科",
+						docId: "doctor-001",
+						docName: "李医生",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 10,
+						usableNum: 3,
+						remainingNumber: 3,
+					},
+				]),
+				{ status: 200, headers: { "x-request-id": "missing-usable-source" } },
+			),
+	});
+
+	await expect(
+		gateway.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-schedules",
+		requestId: "missing-usable-source",
+		retryable: false,
+	});
+});
+
 test("众阳预约目录拒绝无法形成安全读模型的响应", async () => {
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",

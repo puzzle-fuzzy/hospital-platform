@@ -345,10 +345,11 @@ function mapSchedule(
 	operation: string,
 	requestId: string,
 ): AppointmentProviderSchedule {
-	// 真实 AMC 排班响应中 remainingNumber 会稳定返回 null；usableSourceNum
-	// 才是当前有效号源数。保留旧别名作为兼容输入，但优先使用真实字段。
-	const availableValue =
-		value.usableSourceNum ?? value.usableNum ?? value.remainingNumber;
+	// 当前 AMC 排班响应中 remainingNumber 可能为 null，平台已确认的可用号源
+	// 字段是 usableSourceNum。旧端不同接口中的 usableNum/remainingNumber 不能
+	// 被当作同一个事实回退使用；缺少 usableSourceNum 时拒绝整条响应，避免把
+	// 未确认的数量带入页面，更不能据此开放未来锁号。
+	const availableValue = value.usableSourceNum;
 	const totalSlots = requiredInteger(
 		value.totalNum,
 		"totalNum",
@@ -357,7 +358,7 @@ function mapSchedule(
 	);
 	const availableSlots = requiredInteger(
 		availableValue,
-		"remainingNumber",
+		"usableSourceNum",
 		operation,
 		requestId,
 	);

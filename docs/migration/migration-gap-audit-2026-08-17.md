@@ -68,6 +68,8 @@
 - `7a03df7` 对照 2.6.33 输出表后移除了门诊费用 `waitPayAmount`、`registerDept`、`registerDoctor` 的 fallback；
   当前只使用已确认的 `amount`、`billDeptName`、`billDocName`、`billDate`，只有旧端候选金额而没有 `amount` 时整批
   fail-closed，避免把未确认金额带入公共读模型或未来支付编排。
+- 本轮继续收紧预约排班号源边界：`usableSourceNum` 是当前唯一接受的可用号源字段；旧端不同接口中的
+  `usableNum`/`remainingNumber` 不再作为 fallback，字段缺失时拒绝整批排班响应，避免显示错误号源或把只读结果误作锁号依据。
 
 ## 3. 剩余内容分层
 
