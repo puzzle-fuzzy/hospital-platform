@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `0610558`，在 `3a596b1` 的门诊待支付列表 contract diff 基础上，补齐 `status` 的领域 service/Provider adapter 运行时白名单；未知值不会降级为 `tradeStatus=3`，也不会访问 Provider；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `0505709`，在 `0610558` 的门诊缴费状态运行时白名单基础上，补齐报告 `kind` 的领域 service/Provider adapter 运行时白名单；未知来源不会降级为 ECG，也不会访问 Provider；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -322,3 +322,9 @@ schema `0015` 为准。
 `tradeStatus=3`，也不会触发 Provider 请求；失败日志只记录 `status=invalid`。API 86 项、原生小程序
 58 项、全量 typecheck/test/build 和文档/迁移审计均通过，候选尚未部署，线上继续以 `131fb5a` 和生产
 schema `0015` 为准，支付/医保/HIS 仍保持关闭。
+
+随后 `0505709` 收紧报告目录的 `kind` 运行时边界：领域 service 和众阳 adapter 共用来源白名单，
+未知值返回已有的 `400 report-query-invalid`，不会被 adapter 默认分支误发为 ECG，也不会触发 Provider
+请求；失败日志只记录 `report.directory.failed` 和稳定错误类型。API 86 项、原生小程序 62 项、adapter
+62 项及全量 typecheck/test/build 和文档/迁移审计均通过，候选尚未部署，线上继续以 `131fb5a` 和生产
+schema `0015` 为准；报告 gate、二维码、支付/医保/HIS 仍保持各自关闭边界。

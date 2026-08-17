@@ -243,6 +243,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：微信预支付在依赖未配置时也会把已记录的尝试从 `pending` 收敛为 `unknown`，返回 `dependency-not-configured`；同一幂等键不会永久卡在“处理中”，配置完成后必须用新的幂等键重新申请，提交 `b8086d1`。
 - 2026-08-16：provider 目录 smoke 补齐门诊费用 `unpaid`/`paid` 两个只读状态，并要求服务端回显状态与请求状态一致；继续拦截金额、订单、医保、患者身份和 provider 原始字段，未触发支付、医保或结算写入。
 - 2026-08-17：`0610558` 继续收紧门诊费用状态边界：领域 service 与众阳 adapter 都拒绝运行时未知状态，避免“非 unpaid 即 paid”误发 `tradeStatus=3`；新增稳定的 `outpatient-payment-query-invalid` 错误码、低敏 `status=invalid` 失败日志和回归测试。该修正未部署，不改变门诊费用只读范围，也未打开支付、医保或 HIS。
+- 2026-08-17：`0505709` 收紧报告目录 `kind` 的运行时边界：领域 service 与众阳 adapter 都拒绝未知来源，避免默认分支把错误查询降级为 ECG；复用 `report-query-invalid` 稳定错误码，补齐失败日志与回归测试。该修正未部署，不改变报告 gate，也未打开二维码、支付、医保或 HIS。
 - 2026-08-16 18:20-18:21 CST：SSH 只读复核确认 `current=55fce6c`、新 API `18081`、旧 Python `8001` 均存活；公网 `/api/v2` Smoke 的 system-ping 通过，但 live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝，`sudo -n` 仍需密码，未执行任何线上切换或重启。
 - 2026-08-16 18:35 CST：更新后的公网 Smoke 进一步确认 system-ping 与六路未登录 `auth-boundary` 通过；live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝。当前只证明公网路由和认证边界，不能替代候选切换、provider 或真机业务验收。
 - 2026-08-16：提交 `0dc39aa` 建立以原生 `app.json` 为事实源的 14 页面迁移台账和 `pnpm migration:audit` 门禁，随后以 `09c88b1` 校正发布文档时序；均为文档/静态检查增强，尚未构建、上传或部署，不能改变生产 `current=55fce6c` 和公网 no-store 未通过的结论。
