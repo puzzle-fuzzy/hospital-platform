@@ -139,28 +139,33 @@ export class UserProfileService {
 		context: AdapterCallContext,
 	): Promise<UserProfilePayload["data"]> {
 		const { version, displayName, gender, age, email } = input;
-		const normalizedVersion = normalizeVersion(version);
-		if (
-			displayName === undefined &&
-			gender === undefined &&
-			age === undefined &&
-			email === undefined
-		) {
-			throw new UserProfileInputError("At least one profile field is required");
-		}
-
-		const normalizedDisplayName = normalizeDisplayName(displayName);
-		const normalizedGender = normalizeGender(gender);
-		const normalizedAge = normalizeAge(age);
-		const normalizedEmail = normalizeEmail(email);
-		const fields = [
-			normalizedDisplayName !== undefined ? "displayName" : undefined,
-			normalizedGender !== undefined ? "gender" : undefined,
-			normalizedAge !== undefined ? "age" : undefined,
-			normalizedEmail !== undefined ? "email" : undefined,
-		].filter((field): field is string => Boolean(field));
 
 		try {
+			const normalizedVersion = normalizeVersion(version);
+			if (
+				displayName === undefined &&
+				gender === undefined &&
+				age === undefined &&
+				email === undefined
+			) {
+				throw new UserProfileInputError(
+					"At least one profile field is required",
+				);
+			}
+
+			const normalizedDisplayName = normalizeDisplayName(displayName);
+			const normalizedGender = normalizeGender(gender);
+			const normalizedAge = normalizeAge(age);
+			const normalizedEmail = normalizeEmail(email);
+			// 字段数量统计请求中明确出现的字段，而不是归一化后的非 undefined 值；
+			// null 是合法的清空语义，不能因为归一化后仍为 null 就被记成 0 个字段。
+			const fields = [
+				displayName !== undefined ? "displayName" : undefined,
+				gender !== undefined ? "gender" : undefined,
+				age !== undefined ? "age" : undefined,
+				email !== undefined ? "email" : undefined,
+			].filter((field): field is string => Boolean(field));
+
 			const profile = await this.repository.update({
 				userId,
 				expectedVersion: normalizedVersion,
@@ -194,6 +199,19 @@ export class UserProfileService {
 						errorType: error.name,
 					},
 					"User profile update conflicted with a newer version",
+				);
+				throw error;
+			}
+			if (error instanceof UserProfileInputError) {
+				// 输入错误同样是资料域失败事实，但不能记录非法字段值、用户身份或
+				// 原始请求；只保留固定错误类型供 trace 检索，避免日志成为泄露路径。
+				this.logger.warn(
+					{
+						event: "user.profile.update_failed",
+						traceId: context.traceId,
+						errorType: error.name,
+					},
+					"User profile update rejected",
 				);
 				throw error;
 			}

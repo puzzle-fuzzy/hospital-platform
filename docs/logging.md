@@ -74,7 +74,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 重复请求和跨页面并发，不是客户端可见的业务数据。
 | `user.profile.updated` | 普通个人资料更新 | 记录 trace、修改字段数量和新版本，不记录 userId、昵称、邮箱或请求正文 |
 | `user.profile.conflict` | 普通个人资料版本冲突 | 记录 trace 和固定错误类型，保留 409 并发事实的可检索性；不记录 userId、版本值、字段值或请求正文 |
-| `user.profile.update_failed` | 普通个人资料更新失败 | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
+| `user.profile.update_failed` | 普通个人资料更新失败（包括输入校验拒绝） | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
 | `appointment.directory.departments.requested` | 预约科室目录读取 | 记录读取开始、provider 和 trace |
 | `appointment.directory.departments.synced` | 预约科室目录读取 | 记录 provider request id 和科室数量 |
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |

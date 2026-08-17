@@ -127,8 +127,18 @@ test("普通资料更新会归一化字段并只记录低敏事件元数据", as
 	expect(line).not.toContain("user@example.com");
 });
 
-test("普通资料服务拒绝空值更新和不合法邮箱", async () => {
-	const service = new UserProfileService(createInMemoryUserProfileRepository());
+test("普通资料服务拒绝非法输入并留下安全失败日志", async () => {
+	const lines: string[] = [];
+	const service = new UserProfileService(
+		createInMemoryUserProfileRepository(),
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
 
 	await expect(
 		service.update(
@@ -151,6 +161,60 @@ test("普通资料服务拒绝空值更新和不合法邮箱", async () => {
 			{ traceId: "profile-trace-004", idempotencyKey: "profile-key-004" },
 		),
 	).rejects.toBeInstanceOf(UserProfileInputError);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"user.profile.update_failed",
+		"user.profile.update_failed",
+		"user.profile.update_failed",
+	]);
+	expect(records[1]).toMatchObject({
+		traceId: "profile-trace-003",
+		errorType: "UserProfileInputError",
+	});
+	expect(JSON.stringify(records)).not.toContain("not-an-email");
+});
+
+test("清空普通资料字段时日志字段数量仍反映实际修改", async () => {
+	const lines: string[] = [];
+	const service = new UserProfileService(
+		createInMemoryUserProfileRepository(),
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
+
+	await service.update(
+		"profile-user-clear-001",
+		{ version: 0, email: "clear@example.com" },
+		{
+			traceId: "profile-clear-trace-001",
+			idempotencyKey: "profile-clear-key-001",
+		},
+	);
+	await service.update(
+		"profile-user-clear-001",
+		{ version: 1, email: null },
+		{
+			traceId: "profile-clear-trace-002",
+			idempotencyKey: "profile-clear-key-002",
+		},
+	);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.at(-1)).toMatchObject({
+		event: "user.profile.updated",
+		traceId: "profile-clear-trace-002",
+		fieldCount: 1,
+	});
 });
 
 test("普通资料版本冲突保留 409 语义并记录低敏 trace 事件", async () => {
