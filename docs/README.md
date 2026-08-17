@@ -37,6 +37,8 @@
 | [`release/user-profile-production-acceptance-2026-08-16.md`](release/user-profile-production-acceptance-2026-08-16.md) | 普通个人资料 0014 migration、生产 API、schema 和公网路由验收；真实微信资料读写仍待完成 |
 | [`release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](release/patient-sync-idempotency-production-acceptance-2026-08-16.md) | 0015 生产证据与 0016 发布前历史边界；真实并发/多患者同步仍待验收 |
 | [`release/patient-sync-0016-readiness-audit-2026-08-17.md`](release/patient-sync-0016-readiness-audit-2026-08-17.md) | 0016 发布前代码、schema gate、线上 marker/index 只读结果和非事务性 DDL 发布/止损顺序；发布后结果见当前 release 验收文档 |
+| [`release/0995f7c-production-acceptance-2026-08-18.md`](release/0995f7c-production-acceptance-2026-08-18.md) | `0995f7c` 生产切换、停机边界、新旧服务共存和真实业务未验收边界 |
+| [`release/0995f7c-current-runtime-observation-2026-08-18-0254.md`](release/0995f7c-current-runtime-observation-2026-08-18-0254.md) | `0995f7c` 当前 release、双服务监听、公网 live/ready 和 MySQL/Redis/schema 的只读运行时快照 |
 | [`release/0b6f38f-production-acceptance-2026-08-17.md`](release/0b6f38f-production-acceptance-2026-08-17.md) | 历史 `0b6f38f` 原子切换、候选 checksum、真实 env preflight、公网 6/6 readiness 和新旧服务共存证据 |
 | [`release/6d58c9c-production-acceptance-2026-08-17.md`](release/6d58c9c-production-acceptance-2026-08-17.md) | `6d58c9c` 生产切换、0016 migration、候选运行边界和未完成真机业务证据 |
 | [`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md) | `5c4e7cf` MySQL 只读连接恢复、候选 checksum、生产切换、公网 6/6 readiness 和旧服务共存证据 |

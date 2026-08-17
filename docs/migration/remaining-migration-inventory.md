@@ -23,6 +23,9 @@
   取页面、HTTP、低敏日志三层证据；预约写入、详情、支付、医保和 HIS 回写继续最后处理。
 
 完整切换与停机证据见 [`../release/0995f7c-production-acceptance-2026-08-18.md`](../release/0995f7c-production-acceptance-2026-08-18.md)。
+2026-08-18 02:54 CST 的最新运行时只读快照见
+[`../release/0995f7c-current-runtime-observation-2026-08-18-0254.md`](../release/0995f7c-current-runtime-observation-2026-08-18-0254.md)；
+该快照只覆盖 release、双服务监听和 health/ready，不包含业务请求或 journald 业务计数。
 
 ## 1. 盘点结论
 
