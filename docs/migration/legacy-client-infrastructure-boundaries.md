@@ -14,7 +14,7 @@
 <!-- migration-audit: legacy-client-behavior=websocket files=1 -->
 <!-- migration-audit: legacy-client-behavior=mini-program-navigation files=6 -->
 <!-- migration-audit: legacy-client-behavior=web-view files=3 -->
-<!-- migration-audit: legacy-client-behavior=payment-invocation files=2 -->
+<!-- migration-audit: legacy-client-behavior=payment-invocation files=3 -->
 <!-- migration-audit: legacy-client-behavior=qr-and-official-account files=6 -->
 <!-- migration-audit: legacy-client-behavior=insurance-callback files=4 -->
 
@@ -54,7 +54,7 @@ WebSocket -> 通过 URL/query 携带 token 与 patId，并自行重连
 | WebSocket / 实时消息 | 1 | 未迁移；等待握手、短期会话、消息和断线补偿 contract |
 | 跳转其他小程序 | 6 | 未迁移；等待目标 appId、白名单、回跳字段和 owner 语义 |
 | `web-view` / 外部收银台 | 3 | 未迁移；等待 HTTPS 域名、资源授权和返回状态 contract |
-| 微信支付调起 | 2 | 仅新端保留服务端白名单参数入口；旧端流程未作为新支付事实依据 |
+| 微信支付调起 | 3 | 旧端 `registration_medical_pay.vue`、`medical_insurance_pay.vue` 和 `outpatient_pay.vue` 均会调用 `uni.requestPayment`；新端仅保留服务端白名单参数入口，旧端流程未作为新支付事实依据 |
 | 二维码 / 公众号入口 | 6 | 未迁移；等待内容、签名、TTL、防重放和主体归属 contract |
 | 医保授权回跳 | 4 | 未迁移；等待授权码生命周期、绑定当前用户和最终结算状态 contract |
 
@@ -70,6 +70,9 @@ WebSocket -> 通过 URL/query 携带 token 与 patId，并自行重连
   患者映射必须由服务端按用途解析。
 - 旧端还存在 `navigateToMiniProgram`、`web-view`、文件下载和 `requestPayment` 等非 HTTP 入口，另外有静态
   二维码/公众号/院区配置。它们分别受外部入口、文件资源、支付、二维码和机构目录契约约束，不能被页面路由数量覆盖。
+- 旧端 `payment.ts` 还登记了挂号插件支付下单、支付完成、退款申请和退款同步 4 条旧 Python 编排入口；它们
+  会串联微信订单、医保 6203、云健康 2.6.65.15/2.6.65.5 和退款补偿状态。新端只记录这些调用事实，
+  不把旧请求体、患者医保字段或前端支付结果转换成公共 API；这些能力仍归入“最后处理”。
 - 新端 `apps/miniprogram/src` 的本次生产源码扫描只发现平台 API client、受控的微信支付调起占位和本地静态资源，
   未发现 provider URL、旧请求封装、token query、WebSocket、万能转发或 provider 患者标识残留；这只能证明架构
   边界没有回退，不能替代 provider、公网、生产和真机业务证据。

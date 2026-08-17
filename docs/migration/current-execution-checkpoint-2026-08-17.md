@@ -262,13 +262,11 @@ HIS 回写完成。
 回调仍是明确公开入口。该修正已由 API 集成测试、候选临时端口 smoke 和当前公网无会话回归验证，
 当前线上 `0b6f38f` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
 
-本轮代码修改后的仓库级 `pnpm check` 已完成其余门禁：架构边界、Provider intake、99 份文档链接、
-格式、lint、9 个 workspace 的 typecheck/test 和 build 均通过；唯一失败仍是 `pnpm migration:audit`。
-该审计读取的旧仓库 `G:\\fuck\\hospital` 被其他会话继续修改，当前观测到 `module_common` 实际 38（基线
-34）、旧服务挂载总数实际 195（基线 191），并新增旧客户端未登记的
-`plugin-payment-complete`、`plugin-payment-order`、`plugin-refund`、`plugin-refund-sync` 四条支付/退款
-路径，`payment-invocation` 实际 3（基线 2）。本轮没有修改旧工作树、没有刷新基线清单，也没有因为台账
-漂移注册这些高风险路由；支付、医保、退款和 HIS 回写继续最后处理。
+本轮先发现旧仓库并行修改造成的迁移台账漂移：旧 `module_common` 实际 38 个挂载路由、旧服务挂载总数
+实际 195 个，旧客户端新增 4 条挂号插件支付/退款编排调用，微信支付调起涉及 3 个页面文件。已按旧源码
+逐项复核并只更新新仓库的事实台账；`pnpm migration:audit` 现已通过，且这些路径全部登记为“最后处理”，
+没有修改旧工作树、没有把它们注册到新 Elysia。支付、医保、退款和 HIS 回写继续保持关闭，等待独立
+Provider contract、终态、幂等和补偿证据。
 
 本轮对门诊费用渠道配置做了只读核对：服务器现行环境明确存在
 `ZHONGYANG_OUTPATIENT_PAYMENT_READY=true` 和 `OUTPATIENT_PAYMENT_AUTH_SYS_CODE=thirdSelfMachine`；旧小程序源码
