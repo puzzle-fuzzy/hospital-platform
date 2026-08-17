@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `3ced434`，在 `4576e3a` 的个人资料并发冲突低敏日志基础上，收紧报告目录类型边界：只有 LIS 检验摘要允许携带服务端短期详情引用，PACS/ECG provider 报告号在 adapter 边界丢弃；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `16b3264`，在 `3ced434` 的报告来源类型边界基础上，补齐小程序报告详情的检验状态中文展示映射；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -183,6 +183,10 @@ HTTP 200、`items: []`、`total: 0`，不能被页面解释成异常。该测试
 随后收紧报告详情来源边界：`ReportDirectoryEntry` 采用按报告类型区分的类型，只有 LIS 可以保留
 `providerReportId` 并建立短期 opaque 详情引用；PACS/ECG 即使 provider 返回原始报告号，也在 adapter
 边界丢弃。对应实现提交为 `3ced434`，尚未发布线上；adapter、领域类型、API 文档和全仓门禁已通过。
+
+随后补齐报告详情页面的状态展示边界：服务端 `normal/high/low/critical/unknown` 枚举仍保持不变，
+小程序只在展示层转换为“正常/偏高/偏低/危急/待确认”，不把患者文案写回 API 事实。对应实现提交为
+`16b3264`，尚未发布线上；小程序 55 项验收、全仓门禁和运行包构建均已通过。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
