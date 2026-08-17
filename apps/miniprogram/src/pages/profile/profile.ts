@@ -4,7 +4,10 @@ import {
 	safeApiErrorMessage,
 	updateUserProfile,
 } from "../../services/api-client";
-import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import type { ProfilePageData } from "../../types";
 
 type ProfilePageMethods = {
@@ -163,6 +166,8 @@ Page<
 			this.setData({ error: "请输入 0 到 150 之间的年龄" });
 			return Promise.resolve();
 		}
+		const saveGuard = getPageLatestRequestGuard(this, "profile-save");
+		const saveToken = saveGuard.begin();
 		const email = this.data.email.trim();
 		this.setData({ saving: true, error: "" });
 		return updateUserProfile({
@@ -173,6 +178,7 @@ Page<
 			email: email || null,
 		})
 			.then((response) => {
+				if (!saveGuard.isCurrent(saveToken)) return;
 				this.setData({
 					version: response.data.version,
 					saving: false,
@@ -190,6 +196,7 @@ Page<
 				profileNavigationTimers.set(this, navigationTimer);
 			})
 			.catch((error) => {
+				if (!saveGuard.isCurrent(saveToken)) return;
 				this.setData({ saving: false });
 				this.showError(error, "个人资料保存失败");
 			});
@@ -209,6 +216,7 @@ Page<
 		const navigationTimer = profileNavigationTimers.get(this);
 		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
 		profileNavigationTimers.delete(this);
+		disposePageInstance(this);
 	},
 
 	showError(error: unknown, fallback: string): void {

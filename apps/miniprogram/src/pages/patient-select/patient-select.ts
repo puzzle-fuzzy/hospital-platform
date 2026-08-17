@@ -4,6 +4,7 @@ import {
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
 import {
+	disposePageInstance,
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
@@ -277,6 +278,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		const navigationTimer = patientNavigationTimers.get(this);
 		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
 		patientNavigationTimers.delete(this);
+		disposePageInstance(this);
 	},
 
 	showError(error: unknown, fallback: string): void {

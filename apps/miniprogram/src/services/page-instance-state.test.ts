@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import {
+	disposePageInstance,
 	getPageLatestRequestGuard,
+	getPageLifecycle,
 	getPageSingleFlight,
 } from "./page-instance-state";
 
@@ -40,4 +42,18 @@ test("page single-flight locks are isolated between page instances", async () =>
 	expect(firstFlight).toBe(
 		getPageSingleFlight<number>(firstPage, "patient-sync"),
 	);
+});
+
+test("disposing a page invalidates its pending request guards", () => {
+	const page = {};
+	const guard = getPageLatestRequestGuard(page, "patients");
+	const token = guard.begin();
+
+	expect(getPageLifecycle(page).isActive()).toBe(true);
+	expect(guard.isCurrent(token)).toBe(true);
+
+	disposePageInstance(page);
+
+	expect(getPageLifecycle(page).isActive()).toBe(false);
+	expect(guard.isCurrent(token)).toBe(false);
 });

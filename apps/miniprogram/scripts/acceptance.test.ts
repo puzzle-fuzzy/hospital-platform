@@ -240,6 +240,7 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("patientNavigationTimers");
 	expect(selection).toContain("clearTimeout(navigationTimer)");
 	expect(selection).toContain("patientNavigationTimers.delete(this)");
+	expect(selection).toContain("disposePageInstance(this)");
 	expect(selection).toContain(
 		'syncPatientsFromHospital("patient-selection-sync")',
 	);
@@ -604,6 +605,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).toContain("profileNavigationTimers");
 	expect(profile).toContain("clearTimeout(navigationTimer)");
 	expect(profile).toContain("profileNavigationTimers.delete(this)");
+	expect(profile).toContain('getPageLatestRequestGuard(this, "profile-save")');
+	expect(profile).toContain("if (!saveGuard.isCurrent(saveToken)) return;");
+	expect(profile).toContain("disposePageInstance(this)");
 	expect(profile).toContain("Number.isInteger(rawIndex)");
 	expect(profile).toContain("if (!this.data.navigationPending) return;");
 	expect(profile).toContain("尚未加载完成");

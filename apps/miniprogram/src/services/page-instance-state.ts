@@ -30,12 +30,52 @@ function getOrCreate<T>(page: object, key: string, factory: () => T): T {
 	return created;
 }
 
+/**
+ * 页面实例的生命周期状态。
+ *
+ * 微信小程序的异步请求不会因为页面 `onUnload` 自动停止；页面卸载后，
+ * Promise 仍可能完成。所有使用页面请求守卫的回调都通过这里确认页面仍然
+ * 存活，避免已销毁实例继续 `setData`。
+ */
+export type PageInstanceLifecycle = {
+	isActive(): boolean;
+	dispose(): void;
+};
+
+/** 获取当前页面实例的生命周期控制器；同一实例始终复用同一个对象。 */
+export function getPageLifecycle(page: object): PageInstanceLifecycle {
+	return getOrCreate(page, "lifecycle", () => {
+		let active = true;
+		return {
+			isActive(): boolean {
+				return active;
+			},
+			dispose(): void {
+				active = false;
+			},
+		};
+	});
+}
+
+/** 在页面 `onUnload` 中标记实例失效，使所有已有请求失去回写资格。 */
+export function disposePageInstance(page: object): void {
+	getPageLifecycle(page).dispose();
+}
+
 /** 获取当前页面实例专属的最后一次请求守卫。 */
 export function getPageLatestRequestGuard(
 	page: object,
 	key: string,
 ): LatestRequestGuard {
-	return getOrCreate(page, `guard:${key}`, createLatestRequestGuard);
+	return getOrCreate(page, `guard:${key}`, () => {
+		const guard = createLatestRequestGuard();
+		const lifecycle = getPageLifecycle(page);
+		return {
+			begin: () => guard.begin(),
+			isCurrent: (token: number) =>
+				lifecycle.isActive() && guard.isCurrent(token),
+		};
+	});
 }
 
 /** 获取当前页面实例专属的单飞执行器。 */
