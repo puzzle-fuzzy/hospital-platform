@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `1d6ca5c`，在 `144fc5a` 的门诊费用失败日志关联基础上，补齐报告目录和详情的失败日志出口，覆盖非法查询、依赖缺失、owner/TTL 查询和 Provider 异常；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `dd8ac8c`，在 `1d6ca5c` 的报告目录/详情失败日志闭环基础上，冻结多来源报告目录的全量成功边界，任一 LIS/PACS/ECG 来源失败都不返回部分成功；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -233,6 +233,10 @@ owner 身份行，并使用 `0016_patient_directory_sync_owner_index` 查询同�
 异常记录 `report.directory.failed`；详情依赖未配置、owner/TTL 查询和 Provider 异常记录
 `report.detail.failed`；Provider 明确空目录仍只记录 `report.directory.synced(itemCount=0)`。
 报告 API 测试 84 项、全仓门禁已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
+
+随后 `dd8ac8c` 冻结报告目录多来源聚合边界：未指定 `kind` 时 LIS、PACS、ECG 必须全部成功，
+任一来源失败都拒绝整批响应，不使用部分成功或静默丢失报告类型；对应 adapter 测试、公共 API 文档、
+业务正确性文档和 Provider 审计已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
