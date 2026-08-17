@@ -1,16 +1,17 @@
 page {
-	background: #f5f5f5;
+	background: #f8f8f8;
 }
 
 .page {
 	box-sizing: border-box;
 	min-height: 100vh;
-	padding: 24rpx 20rpx calc(40rpx + env(safe-area-inset-bottom));
+	padding: 24rpx 0 calc(40rpx + env(safe-area-inset-bottom));
+	background: #f8f8f8;
 }
 
 .error-message,
-.patient-strip,
-.page-header,
+.selector-card,
+.status-tabs,
 .record-list,
 .state-card,
 .readonly-note {
@@ -31,98 +32,118 @@ page {
 	text-align: center;
 }
 
-.patient-strip {
-	display: flex;
-	align-items: center;
-	padding: 18rpx 22rpx;
-	border: 1rpx solid #dbe5ff;
-	border-radius: 18rpx;
-	background: #f2f6ff;
-}
-
-.patient-strip image {
-	flex-shrink: 0;
-	width: 56rpx;
-	height: 56rpx;
-}
-
-.patient-strip-copy {
-	display: flex;
-	flex-direction: column;
-	gap: 5rpx;
-	min-width: 0;
-	margin-left: 18rpx;
-}
-
-.patient-strip-name {
+/* 旧端 PatientHospitalSelector：白色卡片、两行、分割线和右侧箭头。 */
+.selector-card {
 	overflow: hidden;
-	color: #222222;
-	font-size: 30rpx;
-	font-weight: 700;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.patient-strip-card {
-	color: #777777;
-	font-size: 23rpx;
-}
-
-.patient-strip-change {
-	margin-left: auto;
-	padding-left: 20rpx;
-	color: #3d6df6;
-	font-size: 25rpx;
-	white-space: nowrap;
-}
-
-.page-header {
-	margin-top: 26rpx;
-	margin-bottom: 20rpx;
-}
-
-.page-title {
-	color: #222222;
-	font-size: 38rpx;
-	font-weight: 700;
-	line-height: 1.5;
-}
-
-.page-description {
-	margin-top: 8rpx;
-	color: #888888;
-	font-size: 26rpx;
-	line-height: 1.6;
-}
-
-.record-card {
-	box-sizing: border-box;
-	margin-bottom: 18rpx;
-	padding: 26rpx;
 	border-radius: 18rpx;
 	background: #ffffff;
-	box-shadow: 0 8rpx 24rpx rgba(61, 109, 246, 0.06);
 }
 
-.record-header {
+.selector-row {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 92rpx;
+	padding: 26rpx 30rpx;
+	color: #333333;
 }
 
-.record-date {
+.selector-row-border {
+	border-bottom: 1rpx solid #f0f0f0;
+}
+
+.selector-label {
+	flex: 0 0 150rpx;
+	font-size: 28rpx;
+}
+
+.selector-value {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-width: 0;
+	color: #333333;
+	font-size: 30rpx;
+	text-align: right;
+}
+
+.selector-card-number {
+	margin-left: 10rpx;
+	color: #999999;
+	font-size: 23rpx;
+}
+
+.selector-arrow {
+	margin-left: 14rpx;
+	color: #9ca3af;
+	font-size: 42rpx;
+	font-weight: 300;
+	line-height: 0.8;
+}
+
+/* 旧端两个状态标签共用一行，当前项使用医疗蓝和底部短线。 */
+.status-tabs {
+	display: flex;
+	margin-top: 20rpx;
+	background: #ffffff;
+}
+
+.status-tab {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 50%;
+	height: 92rpx;
+	color: #666666;
+	font-size: 30rpx;
+}
+
+.status-tab-active {
 	color: #3d6df6;
-	font-size: 29rpx;
-	font-weight: 700;
+	font-weight: 500;
 }
 
-.record-status {
-	padding: 6rpx 12rpx;
+.status-tab-indicator {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	width: 64rpx;
+	height: 4rpx;
+	transform: translateX(-50%);
+	border-radius: 4rpx;
+	background: #3d6df6;
+}
+
+.record-list {
+	padding-top: 30rpx;
+}
+
+.record-card {
+	position: relative;
+	box-sizing: border-box;
+	margin-bottom: 24rpx;
+	padding: 30rpx;
+	border-radius: 18rpx;
+	background: #ffffff;
+	box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.03);
+}
+
+.record-status-badge {
+	position: absolute;
+	top: 30rpx;
+	right: 30rpx;
+	padding: 8rpx 14rpx;
 	border-radius: 8rpx;
 	font-size: 24rpx;
+	line-height: 1.2;
 }
 
-.record-status-scheduled {
+.record-status-scheduled,
+.record-status-registered,
+.record-status-substituted {
 	background: #f2f6ff;
 	color: #3d6df6;
 }
@@ -143,35 +164,77 @@ page {
 	color: #d56d2a;
 }
 
-.record-status-substituted,
-.record-status-registered {
-	background: #f2f6ff;
-	color: #3d6df6;
-}
-
 .record-status-unknown {
 	background: #f5f5f5;
 	color: #888888;
 }
 
 .record-department {
-	margin-top: 18rpx;
-	color: #222222;
-	font-size: 31rpx;
-	font-weight: 700;
+	padding-right: 180rpx;
+	color: #333333;
+	font-size: 34rpx;
+	font-weight: 600;
+	line-height: 1.45;
 }
 
-.record-line,
-.record-number {
-	margin-top: 12rpx;
-	color: #666666;
-	font-size: 26rpx;
+.record-meta {
+	display: flex;
+	flex-wrap: wrap;
+	margin-top: 14rpx;
+	color: #4c4c4c;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.record-meta text + text {
+	margin-left: 28rpx;
+}
+
+.record-date {
+	margin-top: 22rpx;
+	color: #333333;
+	font-size: 27rpx;
 	line-height: 1.5;
 }
 
 .record-number {
-	color: #999999;
-	font-size: 23rpx;
+	margin-top: 18rpx;
+	color: #4c4c4c;
+	font-size: 25rpx;
+	line-height: 1.5;
+}
+
+.record-number-emphasis {
+	color: #ee875e;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.record-actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 28rpx;
+}
+
+.record-action-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	margin: 0 0 0 24rpx;
+	padding: 0;
+	width: 120rpx;
+	height: 60rpx;
+	border: 1rpx solid #e5e5e5;
+	border-radius: 30rpx;
+	background: #ffffff;
+	color: #000000;
+	font-size: 24rpx;
+	line-height: 60rpx;
+}
+
+.record-action-button:active {
+	background: #f7f8fb;
 }
 
 .load-more {
@@ -229,4 +292,112 @@ page {
 	color: #d56d2a;
 	font-size: 24rpx;
 	line-height: 1.6;
+}
+
+/* 复刻旧端居中弹窗，并限制滚动区域避免科室资料过多撑满页面。 */
+.location-mask {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.location-popup {
+	overflow: hidden;
+	width: 600rpx;
+	max-width: 80vw;
+	border-radius: 24rpx;
+	background: #ffffff;
+	box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1);
+}
+
+.location-popup-header {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	padding: 30rpx 32rpx;
+	border-bottom: 1rpx solid #f0f0f0;
+	background: #f8f9ff;
+	color: #333333;
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.location-close {
+	position: absolute;
+	right: 28rpx;
+	top: 22rpx;
+	color: #666666;
+	font-size: 48rpx;
+	font-weight: 300;
+	line-height: 1;
+}
+
+.location-scroll {
+	box-sizing: border-box;
+	max-height: 60vh;
+}
+
+.location-item {
+	display: flex;
+	align-items: flex-start;
+	box-sizing: border-box;
+	padding: 24rpx 32rpx;
+	border-bottom: 1rpx solid #f5f5f5;
+}
+
+.location-dot {
+	flex: 0 0 8rpx;
+	margin-top: 12rpx;
+	margin-right: 16rpx;
+	width: 8rpx;
+	height: 8rpx;
+	border-radius: 50%;
+	background: #3d6df6;
+}
+
+.location-copy {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.location-department {
+	color: #333333;
+	font-size: 28rpx;
+	font-weight: 600;
+	line-height: 1.6;
+}
+
+.location-text {
+	margin-top: 8rpx;
+	color: #666666;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.location-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	padding: 80rpx 32rpx;
+	color: #999999;
+	flex-direction: column;
+	font-size: 28rpx;
+}
+
+.location-empty-icon {
+	margin-bottom: 24rpx;
+	color: #cccccc;
+	font-size: 80rpx;
+	line-height: 1;
 }

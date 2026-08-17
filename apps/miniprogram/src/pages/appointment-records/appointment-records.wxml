@@ -1,48 +1,114 @@
 <view class="page">
+	<!-- 错误区域固定在页面最上方，网络异常时用户无需滚动查找原因。 -->
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
-	<view wx:if="{{selectedPatient}}" class="patient-strip" bindtap="onChangePatient">
-		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
-		<view class="patient-strip-copy">
-			<text class="patient-strip-name">{{selectedPatient.displayName}}</text>
-			<text class="patient-strip-card">{{selectedPatient.cardNumberMasked}}</text>
+	<!-- 旧端 PatientHospitalSelector 的两行布局；患者切换仍进入平台选择页。 -->
+	<view class="selector-card">
+		<view class="selector-row selector-row-border" bindtap="onChangePatient">
+			<text class="selector-label">就诊人</text>
+			<view class="selector-value">
+				<text>{{selectedPatient ? selectedPatient.displayName : "请先选择就诊人"}}</text>
+				<text wx:if="{{selectedPatient}}" class="selector-card-number">{{selectedPatient.cardNumberMasked}}</text>
+				<text class="selector-arrow">›</text>
+			</view>
 		</view>
-		<text class="patient-strip-change">更换就诊人</text>
+		<view class="selector-row">
+			<text class="selector-label">当前院区</text>
+			<view class="selector-value">
+				<text>{{hospitalName}}</text>
+				<text class="selector-arrow">›</text>
+			</view>
+		</view>
 	</view>
 
-	<view class="page-header">
-		<view class="page-title">我的挂号</view>
-		<view class="page-description">展示当前就诊人前后 90 天的挂号记录</view>
+	<!-- 旧端的在线/全部标签；只过滤当前已取得的服务端读模型。 -->
+	<view class="status-tabs">
+		<view
+			class="status-tab {{activeTab === 'online' ? 'status-tab-active' : ''}}"
+			bindtap="onTabTap"
+			data-tab="online"
+		>
+			<text>在线挂号</text>
+			<view wx:if="{{activeTab === 'online'}}" class="status-tab-indicator"></view>
+		</view>
+		<view
+			class="status-tab {{activeTab === 'all' ? 'status-tab-active' : ''}}"
+			bindtap="onTabTap"
+			data-tab="all"
+		>
+			<text>全部挂号</text>
+			<view wx:if="{{activeTab === 'all'}}" class="status-tab-indicator"></view>
+		</view>
 	</view>
 
 	<view wx:if="{{loading}}" class="state-card">
-		<text>正在加载挂号记录...</text>
+		<text>加载中...</text>
 	</view>
 
 	<view wx:elif="{{visibleRecords.length}}" class="record-list">
 		<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="record-card">
-			<view class="record-header">
-				<text class="record-date">{{item.workDate}}</text>
-				<text class="record-status {{item.statusClass}}">{{item.statusLabel}}</text>
-			</view>
+			<view class="record-status-badge {{item.statusClass}}">{{item.statusLabel}}</view>
+
 			<view class="record-department">{{item.departmentName || "门诊挂号"}}</view>
-			<view wx:if="{{item.doctorName}}" class="record-line">医生：{{item.doctorName}}</view>
-			<view wx:if="{{item.workTime}}" class="record-line">时间：{{item.workTime}}</view>
-			<view wx:if="{{item.location}}" class="record-line">地点：{{item.location}}</view>
-			<view wx:if="{{item.serialNumber}}" class="record-number">流水号：{{item.serialNumber}}</view>
+			<view class="record-meta">
+				<text wx:if="{{item.doctorName}}">{{item.doctorName}}</text>
+				<text wx:if="{{item.location}}">{{item.location}}</text>
+			</view>
+			<view class="record-date">{{item.workDate}}{{item.workTime ? " " + item.workTime : ""}}</view>
+			<view wx:if="{{item.serialNumber}}" class="record-number">
+				<text>第 </text><text class="record-number-emphasis">{{item.serialNumber}}</text><text> 号</text>
+			</view>
+
+			<!-- 未取消记录保留旧端操作区；未迁移的预问诊只显示安全提示。 -->
+			<view wx:if="{{item.status !== 'cancelled'}}" class="record-actions">
+				<button
+					class="record-action-button"
+					bindtap="onPreVisit"
+					data-index="{{index}}"
+					plain="true"
+				>预问诊</button>
+				<button
+					class="record-action-button"
+					bindtap="onHospitalGuide"
+					data-index="{{index}}"
+					plain="true"
+				>院内导航</button>
+			</view>
 		</view>
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多挂号记录</view>
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
 		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-		<text>前后 90 天暂无挂号记录</text>
+		<text>{{selectedPatient ? "暂无挂号记录" : "请先选择就诊人"}}</text>
 		<text wx:if="{{selectedPatient}}" class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
-		<!-- 患者为空时卡片不会渲染，必须保留可点击入口，避免错误态成为死路。 -->
-		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">请先选择就诊人，点击这里选择</view>
+		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
 	</view>
 
 	<view class="readonly-note">
 		当前仅展示挂号记录。取消、退号和支付状态处理将在对应业务契约完成后开放。
+	</view>
+
+	<!-- 旧端院内导航弹窗：只展示静态科室位置，不伪造实时路线。 -->
+	<view wx:if="{{showLocationModal}}" class="location-mask" catchtap="closeLocationModal">
+		<view class="location-popup" catchtap="stopLocationPropagation">
+			<view class="location-popup-header">
+				<text>科室位置信息</text>
+				<text class="location-close">×</text>
+			</view>
+			<scroll-view wx:if="{{locationResults.length}}" class="location-scroll" scroll-y="true">
+				<view wx:for="{{locationResults}}" wx:key="department" class="location-item">
+					<view class="location-dot"></view>
+					<view class="location-copy">
+						<text class="location-department">{{item.department}}</text>
+						<text class="location-text">{{item.location}}</text>
+					</view>
+				</view>
+			</scroll-view>
+			<view wx:else class="location-empty">
+				<text class="location-empty-icon">⌕</text>
+				<text>未找到相关科室位置信息</text>
+			</view>
+		</view>
 	</view>
 </view>

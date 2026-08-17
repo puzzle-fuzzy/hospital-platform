@@ -1,5 +1,9 @@
+import departmentLocations from "../../data/department-location.json";
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
-import { toAppointmentRecordView } from "../../services/appointment-record-view";
+import {
+	filterAppointmentRecords,
+	toAppointmentRecordView,
+} from "../../services/appointment-record-view";
 import {
 	loadAppointmentRecords,
 	loadPatients,
@@ -9,8 +13,10 @@ import { navigateToPatientSelector } from "../../services/patient-navigation";
 import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
+	AppointmentRecordTab,
 	AppointmentRecordsPageData,
 	AppointmentRecordView,
+	DepartmentLocationView,
 } from "../../types";
 
 /**
@@ -21,14 +27,81 @@ import type {
  */
 const APPOINTMENT_RECORD_PAGE_SIZE = 10;
 
+/** 当前原生端仍是单院区静态医院入口，不能凭页面参数猜测其他院区。 */
+const DEFAULT_HOSPITAL_NAME = "高平市人民医院";
+
 type AppointmentRecordsPageMethods = {
 	loadRecords(): Promise<void>;
 	onLoadMore(): void;
+	onTabTap(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
+	onPreVisit(event: WechatMiniprogram.TouchEvent): void;
+	onHospitalGuide(event: WechatMiniprogram.TouchEvent): void;
+	closeLocationModal(): void;
+	stopLocationPropagation(): void;
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
 	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
 };
+
+function removeOutpatient(text: string): string {
+	return text.replace(/门诊/g, "").trim();
+}
+
+/**
+ * 旧端的院内导航是静态科室位置查询，不是实时路线规划。
+ * 继续使用已随旧端审核过的静态资料，匹配不到时明确展示空结果，不能猜楼层。
+ */
+function searchDepartmentLocation(
+	department: string,
+): DepartmentLocationView[] {
+	const cleanedDepartment = removeOutpatient(department);
+	if (!cleanedDepartment) return [];
+
+	const results: DepartmentLocationView[] = [];
+	for (const [name, location] of Object.entries(
+		departmentLocations as Record<string, string>,
+	)) {
+		const cleanedName = removeOutpatient(name);
+		if (
+			cleanedName === cleanedDepartment ||
+			cleanedName.includes(cleanedDepartment) ||
+			cleanedDepartment.includes(cleanedName)
+		) {
+			results.push({ department: name, location });
+		}
+	}
+
+	return results.sort((left, right) => {
+		const leftName = removeOutpatient(left.department);
+		const rightName = removeOutpatient(right.department);
+		if (leftName === cleanedDepartment && rightName !== cleanedDepartment)
+			return -1;
+		if (leftName !== cleanedDepartment && rightName === cleanedDepartment)
+			return 1;
+		return leftName.length - rightName.length;
+	});
+}
+
+function getVisibleRecords(
+	records: readonly AppointmentRecordView[],
+	tab: AppointmentRecordTab,
+): {
+	visibleRecords: AppointmentRecordView[];
+	visibleRecordCount: number;
+	hasMoreRecords: boolean;
+} {
+	const filteredRecords = filterAppointmentRecords(records, tab);
+	const visibleRecordCount = Math.min(
+		APPOINTMENT_RECORD_PAGE_SIZE,
+		filteredRecords.length,
+	);
+	return {
+		visibleRecords: filteredRecords.slice(0, visibleRecordCount),
+		visibleRecordCount,
+		hasMoreRecords: visibleRecordCount < filteredRecords.length,
+	};
+}
 
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
@@ -38,6 +111,10 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		visibleRecords: [],
 		visibleRecordCount: 0,
 		hasMoreRecords: false,
+		activeTab: "online",
+		hospitalName: DEFAULT_HOSPITAL_NAME,
+		showLocationModal: false,
+		locationResults: [],
 		loading: true,
 		error: "",
 	},
@@ -71,6 +148,8 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			visibleRecords: [],
 			visibleRecordCount: 0,
 			hasMoreRecords: false,
+			showLocationModal: false,
+			locationResults: [],
 		});
 		return loadPatients()
 			.then((patients) => {
@@ -81,16 +160,14 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					const mappedRecords = records.map((record, index) =>
 						this.toRecordView(record, index),
 					);
-					const visibleRecordCount = Math.min(
-						APPOINTMENT_RECORD_PAGE_SIZE,
-						mappedRecords.length,
+					const visibleState = getVisibleRecords(
+						mappedRecords,
+						this.data.activeTab,
 					);
 					this.setData({
 						selectedPatient: patient,
 						records: mappedRecords,
-						visibleRecords: mappedRecords.slice(0, visibleRecordCount),
-						visibleRecordCount,
-						hasMoreRecords: visibleRecordCount < mappedRecords.length,
+						...visibleState,
 						error: "",
 					});
 				});
@@ -107,14 +184,33 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/** 只展开当前 owner-scoped 查询已经取得的结果，不重新请求 provider。 */
 	onLoadMore(): void {
+		const filteredRecords = filterAppointmentRecords(
+			this.data.records,
+			this.data.activeTab,
+		);
 		const nextCount = Math.min(
 			this.data.visibleRecordCount + APPOINTMENT_RECORD_PAGE_SIZE,
-			this.data.records.length,
+			filteredRecords.length,
 		);
 		this.setData({
-			visibleRecords: this.data.records.slice(0, nextCount),
+			visibleRecords: filteredRecords.slice(0, nextCount),
 			visibleRecordCount: nextCount,
-			hasMoreRecords: nextCount < this.data.records.length,
+			hasMoreRecords: nextCount < filteredRecords.length,
+		});
+	},
+
+	/**
+	 * 复刻旧端“在线挂号/全部挂号”标签，但只在当前安全读模型上过滤。
+	 * 旧端的 provider 渠道参数不属于新公共 contract，不能为了视觉一致把它
+	 * 重新透传到 API；这样切换标签不会增加 Provider 请求或改变事实总量。
+	 */
+	onTabTap(event: WechatMiniprogram.TouchEvent): void {
+		const tab = event.currentTarget?.dataset?.tab;
+		if (tab !== "online" && tab !== "all") return;
+		const activeTab = tab as AppointmentRecordTab;
+		this.setData({
+			activeTab,
+			...getVisibleRecords(this.data.records, activeTab),
 		});
 	},
 
@@ -128,6 +224,33 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector();
+	},
+
+	/** 旧端预问诊目标页尚未完成独立 contract，保留入口位置但不伪造跳转。 */
+	onPreVisit(): void {
+		wx.showToast({ title: "预问诊功能正在迁移中", icon: "none" });
+	},
+
+	/**
+	 * 院内导航继续使用旧端静态科室位置弹窗；没有匹配时展示空状态，
+	 * 不把科室名称拼接成未经审核的楼层或诊室。
+	 */
+	onHospitalGuide(event: WechatMiniprogram.TouchEvent): void {
+		const index = Number(event.currentTarget?.dataset?.index);
+		const record = this.data.visibleRecords[index];
+		this.setData({
+			showLocationModal: true,
+			locationResults: searchDepartmentLocation(record?.departmentName ?? ""),
+		});
+	},
+
+	closeLocationModal(): void {
+		this.setData({ showLocationModal: false, locationResults: [] });
+	},
+
+	/** 弹窗内容区域阻止遮罩层点击，保持旧端“点击遮罩关闭”的行为。 */
+	stopLocationPropagation(): void {
+		// `catchtap` 已经阻止冒泡；这里保留显式方法让 WXML 绑定可审计。
 	},
 
 	onPullDownRefresh(): void {
@@ -156,6 +279,8 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			visibleRecords: [],
 			visibleRecordCount: 0,
 			hasMoreRecords: false,
+			showLocationModal: false,
+			locationResults: [],
 		});
 	},
 });

@@ -209,6 +209,15 @@ export type AppointmentRecordView = AppointmentRecord & {
 	statusClass: string;
 };
 
+/** “我的挂号”旧端的两个展示标签；切换只过滤当前已取得的安全读模型。 */
+export type AppointmentRecordTab = "online" | "all";
+
+/** 院内导航弹窗只展示旧端静态科室位置资料，不承载实时路线。 */
+export type DepartmentLocationView = {
+	department: string;
+	location: string;
+};
+
 export type AppointmentRecordsPageData = {
 	/** 只属于当前页面实例，不能使用模块级变量跨实例共享生命周期状态。 */
 	hasShown: boolean;
@@ -219,6 +228,10 @@ export type AppointmentRecordsPageData = {
 	visibleRecords: Array<AppointmentRecordView>;
 	visibleRecordCount: number;
 	hasMoreRecords: boolean;
+	activeTab: AppointmentRecordTab;
+	hospitalName: string;
+	showLocationModal: boolean;
+	locationResults: Array<DepartmentLocationView>;
 	loading: boolean;
 	error: string;
 };
@@ -283,11 +296,25 @@ export type OutpatientPaymentPageData = {
 	error: string;
 };
 
+/** “我的”页菜单项；图标与分组顺序保持旧端 userNavData 的事实顺序。 */
+export type MyMenuItem = {
+	action: string;
+	icon: string;
+	title: string;
+};
+
+/** “我的”页的旧端分组；即使同名分组重复，也不能在迁移时擅自重排功能。 */
+export type MyMenuSection = {
+	title: string;
+	items: ReadonlyArray<MyMenuItem>;
+};
+
 /** “我的”页只展示平台会话和已迁移的安全入口。 */
 export type MyPageData = {
 	userLabel: string;
 	selectedPatient: Patient | null;
 	patientCount: number;
+	menuSections: ReadonlyArray<MyMenuSection>;
 	loading: boolean;
 	error: string;
 };

@@ -25,6 +25,24 @@ export function isMissedAppointment(record: AppointmentRecord): boolean {
 }
 
 /**
+ * 旧端“在线挂号”只排除已取消记录；新端不能重新解释 provider 数字状态，
+ * 因此沿用服务端已经归一化的 `cancelled` 枚举作为唯一过滤边界。
+ */
+export function isOnlineAppointmentRecord(record: AppointmentRecord): boolean {
+	return record.status !== "cancelled";
+}
+
+/** 标签切换只影响当前已取得的记录，不改变日期窗口或新增 Provider 请求。 */
+export function filterAppointmentRecords<T extends AppointmentRecord>(
+	records: readonly T[],
+	tab: "online" | "all",
+): T[] {
+	return tab === "all"
+		? [...records]
+		: records.filter(isOnlineAppointmentRecord);
+}
+
+/**
  * 将服务端预约摘要转换为 WXML 渲染模型。
  *
  * `viewKey` 只用于当前响应批次的 WXML diff。由于只读摘要可能没有稳定的

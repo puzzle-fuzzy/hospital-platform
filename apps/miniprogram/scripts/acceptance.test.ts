@@ -402,11 +402,18 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(template).toContain('bindtap="onFamilyTap"');
 	expect(template).toContain('bindtap="onHeaderTap"');
-	expect(template).toContain("点击编辑个人资料");
-	expect(template).toContain('data-action="electronic-consultation"');
-	expect(template).toContain("电子导诊单");
-	expect(template).toContain('data-action="smart-customer"');
-	expect(template).toContain("智能客服");
+	// 视觉以旧端为准：头像区不再增加新端提示文案，背景和头像使用本地原始资源。
+	expect(template).toContain("/assets/legacy-user/legacy-user-background.png");
+	expect(template).toContain('mode="widthFix"');
+	expect(await source("pages/my/my.wxss")).toContain("height: 566rpx");
+	expect(template).toContain("/assets/legacy-user/default-avatar.svg");
+	expect(template).toContain("{{section.title}}");
+	expect(my).toContain('title: "我的订单"');
+	expect(template).toContain('data-action="{{item.action}}"');
+	expect(my).toContain('title: "电子导诊单"');
+	expect(my).toContain('action: "electronic-consultation"');
+	expect(my).toContain('action: "smart-customer"');
+	expect(my).toContain('title: "智能客服"');
 	expect(my).toContain('case "electronic-consultation"');
 	expect(my).toContain('case "smart-customer"');
 	expect(my).toContain("医保电子凭证需要独立授权");
@@ -505,7 +512,8 @@ test("native mini program exposes read-only appointment directory and records pa
 	// 完整预约历史仍保留在页面状态；只有可见窗口交给 WXML，不能把本地分批
 	// 描述成 provider 分页，也不能因为首批少就把 total/状态事实截断。
 	expect(records).toContain("APPOINTMENT_RECORD_PAGE_SIZE");
-	expect(records).toContain("visibleRecords: mappedRecords.slice");
+	expect(records).toContain("getVisibleRecords");
+	expect(records).toContain("visibleRecords: filteredRecords.slice");
 	expect(records).toContain("onLoadMore(): void");
 	expect(recordsTemplate).toContain('wx:key="viewKey"');
 	expect(recordsTemplate).toContain("visibleRecords");
@@ -516,8 +524,16 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directoryTemplate).toContain("加载更多号源");
 	expect(directoryTemplate).toContain("当前暂无可预约科室");
 	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
-	expect(recordsTemplate).toContain("更换就诊人");
+	expect(recordsTemplate).toContain('bindtap="onChangePatient"');
 	expect(recordsTemplate).toContain("取消、退号和支付状态处理");
+	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
+	expect(recordsTemplate).toContain("当前院区");
+	expect(recordsTemplate).toContain("在线挂号");
+	expect(recordsTemplate).toContain("全部挂号");
+	expect(recordsTemplate).toContain("预问诊");
+	expect(recordsTemplate).toContain("院内导航");
+	expect(records).toContain("filterAppointmentRecords");
+	expect(records).toContain("预问诊功能正在迁移中");
 	// 预约写入、provider 患者标识和支付字段均不得进入小程序页面。
 	expect(directory).not.toContain("providerPatientId");
 	expect(records).not.toContain("providerPatientId");
@@ -660,7 +676,8 @@ test("native mini program derives missed appointments from the normalized record
 	expect(app).toContain('"pages/missed-appointments/missed-appointments"');
 	expect(my).toContain('case "missed-appointments"');
 	expect(my).toContain('url: "/pages/missed-appointments/missed-appointments"');
-	expect(myTemplate).toContain('data-action="missed-appointments"');
+	expect(myTemplate).toContain('data-action="{{item.action}}"');
+	expect(my).toContain('action: "missed-appointments"');
 	expect(page).toContain("loadAppointmentRecords");
 	// 爽约判定集中在展示服务，避免页面重新解释 provider 状态码；这里检查
 	// 页面确实使用该服务，而不是绑定某一种实现写法。
@@ -938,7 +955,8 @@ test("native patient center does not mislabel reports as outpatient medical reco
 
 	expect(home).toContain('action: "medical-record"');
 	expect(home).toContain("门诊病历正在迁移中");
-	expect(myTemplate).toContain('data-action="medical-record"');
+	expect(myTemplate).toContain('data-action="{{item.action}}"');
+	expect(myPage).toContain('action: "medical-record"');
 	expect(myTemplate).not.toContain('data-action="reports"');
 	expect(myPage).toContain('case "medical-record"');
 });

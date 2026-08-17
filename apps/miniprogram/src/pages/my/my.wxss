@@ -3,25 +3,35 @@ page {
 }
 
 .page {
+	position: relative;
 	box-sizing: border-box;
 	min-height: 100vh;
-	padding: 28rpx 20rpx calc(160rpx + env(safe-area-inset-bottom));
+	padding: 1rpx 20rpx calc(150rpx + env(safe-area-inset-bottom));
 	background: #f8f8f8;
 }
 
-.error-message,
-.profile-card,
-.family-card,
-.section {
-	box-sizing: border-box;
-	width: 710rpx;
-	margin-right: auto;
-	margin-left: auto;
+/* 旧端 background-size: 100% 的资源尺寸是 750x566，按屏宽等比显示，避免 aspectFill 裁切两侧。 */
+.page-background {
+	position: fixed;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 0;
+	width: 100%;
+	height: 566rpx;
+}
+
+.page-content {
+	position: relative;
+	z-index: 1;
+	padding-bottom: 20rpx;
 }
 
 .error-message {
-	margin-bottom: 18rpx;
+	box-sizing: border-box;
+	margin: 24rpx auto 0;
 	padding: 20rpx;
+	width: 710rpx;
 	border-radius: 12rpx;
 	background: #fff1f1;
 	color: #ff4444;
@@ -30,133 +40,98 @@ page {
 	text-align: center;
 }
 
-.profile-card {
-	position: relative;
+.profile-head {
 	display: flex;
 	align-items: center;
 	box-sizing: border-box;
-	height: 190rpx;
-	padding: 30rpx;
-	border-radius: 28rpx;
-	overflow: hidden;
-	background: #3d6df6;
-	color: #ffffff;
+	margin: 50rpx auto;
+	width: 710rpx;
+	min-height: 130rpx;
 }
 
-.profile-background {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	opacity: 0.72;
-}
-
-.profile-icon,
-.profile-copy,
-.profile-arrow {
-	position: relative;
-	z-index: 1;
-}
-
-.profile-icon {
-	width: 74rpx;
-	height: 74rpx;
-	padding: 14rpx;
+.profile-avatar {
+	flex: 0 0 130rpx;
+	box-sizing: border-box;
+	width: 130rpx;
+	height: 130rpx;
+	border: 8rpx solid #ffffff;
 	border-radius: 50%;
-	background: rgba(255, 255, 255, 0.92);
-}
-
-.profile-copy {
-	display: flex;
-	margin-left: 22rpx;
-	flex-direction: column;
+	background: #ffffff;
 }
 
 .profile-name {
-	font-size: 36rpx;
-	font-weight: 700;
-}
-
-.profile-hint {
-	margin-top: 8rpx;
-	font-size: 24rpx;
-	opacity: 0.85;
-}
-
-.profile-arrow,
-.family-arrow {
-	margin-left: auto;
-	font-size: 54rpx;
-	line-height: 1;
+	margin-left: 20rpx;
+	color: #222222;
+	font-size: 45rpx;
+	line-height: 1.25;
 }
 
 .family-card {
 	display: flex;
 	align-items: center;
 	box-sizing: border-box;
-	min-height: 118rpx;
-	margin-top: 24rpx;
-	padding: 22rpx 30rpx;
-	border-radius: 24rpx;
-	background: linear-gradient(90deg, #2873ff 0%, #2e72ff 100%);
+	margin: 0 auto;
+	padding: 0 20rpx;
+	width: 710rpx;
+	height: 120rpx;
+	border-radius: 30rpx;
+	background: linear-gradient(90deg, rgb(40, 115, 255) 0%, rgb(46, 114, 255) 100%);
 	color: #ffffff;
-}
-
-.family-title,
-.family-subtitle {
-	display: block;
 }
 
 .family-title {
 	font-size: 30rpx;
-	font-weight: 700;
+	line-height: 1.4;
 }
 
-.family-subtitle {
-	margin-top: 8rpx;
-	font-size: 24rpx;
-	opacity: 0.85;
+.family-arrow {
+	margin-left: 20rpx;
+	width: 30rpx;
+	height: 30rpx;
 }
 
-.section {
-	margin-top: 24rpx;
-	padding: 24rpx 0 28rpx;
+.menu-section {
+	box-sizing: border-box;
+	margin: 30rpx auto 0;
+	padding: 20rpx 0;
+	width: 710rpx;
 	border-radius: 20rpx;
 	background: #ffffff;
 }
 
 .section-title {
 	display: block;
-	padding: 0 30rpx 22rpx;
+	margin-bottom: 60rpx;
+	padding: 0 30rpx;
 	color: #222222;
-	font-size: 29rpx;
+	font-size: 28rpx;
 	font-weight: 700;
+	line-height: 1.4;
 }
 
 .menu-grid {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
-	row-gap: 28rpx;
+	row-gap: 20rpx;
+	padding-bottom: 20rpx;
 }
 
 .menu-item {
 	display: flex;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-start;
 	min-width: 0;
 	color: #333333;
 	flex-direction: column;
-	font-size: 24rpx;
-	gap: 12rpx;
+	font-size: 26rpx;
+	line-height: 1.4;
 }
 
 .menu-item image {
 	display: block;
-	width: 58rpx;
-	height: 58rpx;
+	margin-bottom: 20rpx;
+	width: 50rpx;
+	height: 50rpx;
 }
 
 .legacy-tabbar {
@@ -181,11 +156,12 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	width: 25%;
-	height: 100%;
+	height: 130rpx;
+	padding-top: 8rpx;
 	color: #2c2c2c;
 	flex-direction: column;
 	font-size: 20rpx;
-	gap: 6rpx;
+	line-height: 1.2;
 }
 
 .legacy-tabbar-item-current {
@@ -194,6 +170,7 @@ page {
 
 .legacy-tabbar-item image {
 	display: block;
+	margin-bottom: 6rpx;
 	width: 48rpx;
 	height: 48rpx;
 }

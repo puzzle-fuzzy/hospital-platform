@@ -1,80 +1,58 @@
 <view class="page">
-	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+	<!-- 微信 WXSS 不支持可靠地读取本地 background-image；用 image 还原旧端顶部背景。 -->
+	<image
+		class="page-background"
+		src="/assets/legacy-user/legacy-user-background.png"
+		mode="widthFix"
+		aria-hidden="true"
+	/>
 
-	<view class="profile-card" bindtap="onHeaderTap">
-		<image class="profile-background" src="/assets/legacy-home/patient-background.png" mode="aspectFill" />
-		<image class="profile-icon" src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
-		<view class="profile-copy">
+	<view class="page-content">
+		<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+		<!-- 旧端头像区：点击整行进入普通资料编辑，不把头像误当作微信授权结果。 -->
+		<view class="profile-head" bindtap="onHeaderTap">
+			<image
+				class="profile-avatar"
+				src="/assets/legacy-user/default-avatar.svg"
+				mode="aspectFill"
+			/>
 			<text class="profile-name">{{userLabel}}</text>
-			<text class="profile-hint">点击编辑个人资料</text>
 		</view>
-		<text class="profile-arrow">›</text>
-	</view>
 
-	<view class="family-card" bindtap="onFamilyTap">
-		<view>
+		<!-- 旧端家庭成员管理卡片；真实切换仍进入独立患者选择页。 -->
+		<view class="family-card" bindtap="onFamilyTap">
 			<text class="family-title">家庭成员管理</text>
-			<text class="family-subtitle">已绑定 {{patientCount}} 位就诊人</text>
+			<image
+				class="family-arrow"
+				src="/assets/legacy-user/arrow-right.svg"
+				mode="aspectFit"
+			/>
 		</view>
-		<text class="family-arrow">›</text>
-	</view>
 
-	<view class="section">
-		<text class="section-title">我的就诊</text>
-		<view class="menu-grid">
-			<view class="menu-item" bindtap="onAction" data-action="appointment-records">
-				<image src="/assets/legacy-home/service-registration.svg" mode="aspectFit" />
-				<text>我的挂号</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="outpatient-payment">
-				<image src="/assets/legacy-home/top-payment.svg" mode="aspectFit" />
-				<text>门诊缴费</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="patient-select">
-				<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
-				<text>就诊人绑定</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="medical-record">
-				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
-				<text>门诊病历</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="electronic-consultation">
-				<image src="/assets/legacy-home/service-consultation-form.svg" mode="aspectFit" />
-				<text>电子导诊单</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="missed-appointments">
-				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
-				<text>爽约记录</text>
+		<!--
+			分组和图标顺序来自旧端 userNavData。每个入口仍经过 onAction，
+			已迁移能力正常跳转，未完成能力只提示迁移状态，不能伪造成功。
+		-->
+		<view wx:for="{{menuSections}}" wx:for-item="section" wx:key="index" class="menu-section">
+			<text class="section-title">{{section.title}}</text>
+			<view class="menu-grid">
+				<view
+					wx:for="{{section.items}}"
+					wx:for-item="item"
+					wx:key="action"
+					class="menu-item"
+					bindtap="onAction"
+					data-action="{{item.action}}"
+				>
+					<image src="{{item.icon}}" mode="aspectFit" />
+					<text>{{item.title}}</text>
+				</view>
 			</view>
 		</view>
 	</view>
 
-	<view class="section">
-		<text class="section-title">其他服务</text>
-		<view class="menu-grid">
-			<view class="menu-item" bindtap="onAction" data-action="consultation">
-				<image src="/assets/legacy-home/service-consultation.svg" mode="aspectFit" />
-				<text>我的问诊</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="doctor">
-				<image src="/assets/legacy-home/service-consultation-form.svg" mode="aspectFit" />
-				<text>我的医生</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="smart-customer">
-				<image src="/assets/legacy-home/floating-guide.png" mode="aspectFit" />
-				<text>智能客服</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="feedback">
-				<image src="/assets/legacy-home/service-praise.svg" mode="aspectFit" />
-				<text>意见反馈</text>
-			</view>
-			<view class="menu-item" bindtap="onAction" data-action="insurance">
-				<image src="/assets/legacy-home/service-inpatient-payment.svg" mode="aspectFit" />
-				<text>医保电子凭证</text>
-			</view>
-		</view>
-	</view>
-
+	<!-- 自定义底部栏固定在视口底部，并为安全区预留空间。 -->
 	<view class="legacy-tabbar">
 		<view class="legacy-tabbar-item" bindtap="onTabTap" data-index="0">
 			<image src="/assets/legacy-home/tab-01.png" mode="aspectFit" />

@@ -11,7 +11,8 @@
 			"!**/dist",
 			"!**/node_modules",
 			"!**/.turbo",
-			"!**/apps/miniprogram/src/assets/legacy-home/*.svg"
+			"!**/apps/miniprogram/src/assets/legacy-home/*.svg",
+			"!**/apps/miniprogram/src/assets/legacy-user/*.svg"
 		]
 	},
 	"formatter": {

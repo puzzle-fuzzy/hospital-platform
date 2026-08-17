@@ -20,6 +20,75 @@ type MyPageMethods = {
 };
 
 /**
+ * 旧端 `userNavData.json` 的事实顺序和图标资源。
+ *
+ * 这里不把菜单重新整理成“更合理”的新分类，因为视觉迁移首先要保持
+ * 用户已经熟悉的入口位置；每个 action 仍由当前页面统一判断是否已经迁移。
+ */
+const MY_MENU_SECTIONS = Object.freeze([
+	{
+		title: "我的订单",
+		items: [
+			{
+				action: "appointment-records",
+				icon: "/assets/legacy-user/appointment.svg",
+				title: "我的挂号",
+			},
+			{
+				action: "consultation",
+				icon: "/assets/legacy-user/consultation.svg",
+				title: "我的问诊",
+			},
+			{
+				action: "medical-record",
+				icon: "/assets/legacy-user/medical-record.svg",
+				title: "门诊病历",
+			},
+			{
+				action: "electronic-consultation",
+				icon: "/assets/legacy-user/electronic-consultation.svg",
+				title: "电子导诊单",
+			},
+		],
+	},
+	{
+		title: "我的订单",
+		items: [
+			{
+				action: "doctor",
+				icon: "/assets/legacy-user/doctor.svg",
+				title: "我的医生",
+			},
+			{
+				action: "missed-appointments",
+				icon: "/assets/legacy-user/missed.svg",
+				title: "爽约记录",
+			},
+		],
+	},
+	{
+		title: "我的订单",
+		items: [
+			{
+				action: "feedback",
+				icon: "/assets/legacy-user/feedback.svg",
+				title: "意见反馈",
+			},
+			{
+				action: "smart-customer",
+				icon: "/assets/legacy-user/smart-customer.svg",
+				title: "智能客服",
+			},
+			{
+				action: "insurance",
+				icon: "/assets/legacy-user/insurance.svg",
+				title: "医保电子凭证",
+			},
+		],
+	},
+] as const);
+
+/**
  * 个人中心中仍保留旧端入口的可见性，但这些能力没有完成独立 contract。
  * 文案必须按能力说明关闭原因，不能用统一的“点击了某某”或伪造成功，
  * 更不能在这里绕过平台 API 直连旧 WebView、医生关系接口或医保小程序。
@@ -50,6 +119,7 @@ Page<MyPageData, MyPageMethods>({
 		userLabel: "微信用户",
 		selectedPatient: null,
 		patientCount: 0,
+		menuSections: MY_MENU_SECTIONS,
 		loading: true,
 		error: "",
 	},

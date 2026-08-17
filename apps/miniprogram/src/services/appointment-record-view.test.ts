@@ -2,7 +2,9 @@ import { expect, test } from "bun:test";
 import type { AppointmentRecord } from "../types";
 import {
 	APPOINTMENT_RECORD_STATUS_LABELS,
+	filterAppointmentRecords,
 	isMissedAppointment,
+	isOnlineAppointmentRecord,
 	toAppointmentRecordView,
 } from "./appointment-record-view";
 
@@ -30,6 +32,18 @@ test("爽约筛选只接受服务端明确的 missed 枚举", () => {
 	expect(isMissedAppointment(record("missed"))).toBe(true);
 	expect(isMissedAppointment(record("unknown"))).toBe(false);
 	expect(isMissedAppointment(record("scheduled"))).toBe(false);
+});
+
+test("我的挂号在线标签只排除服务端明确的已取消记录", () => {
+	const scheduled = record("scheduled");
+	const completed = record("completed");
+	const cancelled = record("cancelled");
+	const records = [scheduled, completed, cancelled];
+
+	expect(isOnlineAppointmentRecord(scheduled)).toBe(true);
+	expect(isOnlineAppointmentRecord(cancelled)).toBe(false);
+	expect(filterAppointmentRecords(records, "online")).toHaveLength(2);
+	expect(filterAppointmentRecords(records, "all")).toHaveLength(3);
 });
 
 test("预约摘要视图 key 只用于渲染且不改变业务状态", () => {
