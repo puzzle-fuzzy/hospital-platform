@@ -187,7 +187,7 @@ const SERVICE_TABS = Object.freeze([
 
 type IndexPageMethods = {
 	checkHealth(): Promise<void>;
-	onLogin(): void;
+	onLogin(options?: LoginOptions): void;
 	onHeroAction(): void;
 	openPatientSelector(): void;
 	onPatientQr(): void;
@@ -209,6 +209,13 @@ type IndexPageMethods = {
 	showError(error: unknown, fallback: string): void;
 	clearPatientContext(): void;
 	setPatientsFromPayload(patients: Array<Patient>): void;
+};
+
+type LoginOptions = {
+	/** 登录完成并完成必要的首页初始化后，继续用户刚才触发的动作。 */
+	afterSuccess?: () => void;
+	/** 需要跳转到会自行读取目录的页面时，避免首页重复请求患者同步。 */
+	skipPatientBootstrap?: boolean;
 };
 
 /**
@@ -324,7 +331,7 @@ Page<IndexPageData, IndexPageMethods>({
 			});
 	},
 
-	onLogin() {
+	onLogin(options: LoginOptions = {}) {
 		// 主动重新登录前若已没有可验证会话，先清掉旧页面实例中的患者数据。
 		// 否则 auth/wechat 返回 503 时，用户可能看到旧患者而误以为登录成功。
 		if (!hasPlatformSession()) this.clearPatientContext();
@@ -335,12 +342,15 @@ Page<IndexPageData, IndexPageMethods>({
 				// wx.login 是静默的 code 交换；用成功提示让用户知道平台会话已建立，
 				// 不额外索取与医疗业务无关的头像和昵称权限。
 				wx.showToast({ title: "微信登录成功", icon: "success" });
-				return this.loadPatients();
+				if (options.skipPatientBootstrap) return Promise.resolve();
+				return this.loadPatients().then(() => undefined);
 			})
 			.then(() => {
+				if (options.skipPatientBootstrap) return;
 				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床映射。
-				return this.onSyncPatients();
+				return this.onSyncPatients().then(() => undefined);
 			})
+			.then(() => options.afterSuccess?.())
 			.catch((error) => {
 				// 登录失败不能留下“有患者但无会话”的半登录状态；只有确认
 				// 没有本地 token 才清除，避免 Redis 短暂故障时误删仍可重试的会话。
@@ -353,7 +363,12 @@ Page<IndexPageData, IndexPageMethods>({
 	/** 顶部就诊人卡片的主动作：未登录先登录，已有患者进入独立选择页。 */
 	onHeroAction() {
 		if (!hasPlatformSession()) {
-			this.onLogin();
+			// 选择页会再次读取并同步目录；登录阶段只建立平台会话，避免首页与
+			// 选择页同时请求 provider，导致首次进入出现重复同步和竞态提示。
+			this.onLogin({
+				afterSuccess: () => this.openPatientSelector(),
+				skipPatientBootstrap: true,
+			});
 			return;
 		}
 		// “新增就诊人”和“更换就诊人”都必须进入独立选择页；

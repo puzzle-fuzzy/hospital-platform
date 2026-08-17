@@ -698,9 +698,20 @@ test("native homepage sends both add and change patient actions to the selection
 	const heroAction = home.slice(start, end);
 
 	expect(heroAction).toContain("if (!hasPlatformSession())");
-	expect(heroAction).toContain("this.onLogin();");
+	expect(heroAction).toContain(
+		"afterSuccess: () => this.openPatientSelector()",
+	);
+	expect(heroAction).toContain("skipPatientBootstrap: true");
 	expect(heroAction).toContain("this.openPatientSelector();");
 	expect(heroAction).not.toContain("this.onSyncPatients();");
+
+	const loginStart = home.indexOf("onLogin(options: LoginOptions = {})");
+	const loginEnd = home.indexOf("/** 顶部就诊人卡片", loginStart);
+	const login = home.slice(loginStart, loginEnd);
+	expect(login).toContain(
+		"if (options.skipPatientBootstrap) return Promise.resolve();",
+	);
+	expect(login).toContain("options.afterSuccess?.()");
 });
 
 test("native patient center does not mislabel reports as outpatient medical records", async () => {

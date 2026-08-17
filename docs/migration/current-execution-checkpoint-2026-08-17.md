@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `c72232b`，包含门诊费用 `tradeStatus` 状态一致性校验、排班字段边界修正和小程序运行包独立验证门禁；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `9232f06`，包含门诊费用 `tradeStatus` 状态一致性校验、排班字段边界修正、小程序运行包独立验证门禁，以及匿名“新增就诊人”登录成功后自动进入选择页；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -129,13 +129,13 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
   Provider 业务证据。
-- 当前最新已验证实现提交 `c72232b` 尚未发布；该提交在 `f268be0` 的排班 adapter 字段边界和小程序运行包独立只读验证
-  基础上，增加了门诊费用 `tradeStatus` 与查询状态一致性校验，没有改变支付、医保、预约写入或旧 Python 服务。
+- 当前最新已验证实现提交 `9232f06` 尚未发布；该提交在 `c72232b` 的门诊费用状态一致性校验、`f268be0` 的排班 adapter
+  字段边界和小程序运行包独立只读验证基础上，补齐了匿名“新增就诊人”登录成功后的选择页续接，没有改变支付、医保、预约写入或旧 Python 服务。
   线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
 - 本轮尝试只读连接 `ps@192.168.112.172` 获取当前 release 和业务日志时，SSH 返回
   `Permission denied (publickey,password)`；因此本轮没有新增服务器、公网、真实微信或 Provider 业务证据，
   也没有执行部署、重启、迁移或旧服务操作。恢复可验证 SSH 会话后，必须先重新执行 P0 手册的低敏日志和
-  Redis TTL 采样，再决定是否发布当前代码候选 `c72232b`。
+  Redis TTL 采样，再决定是否发布当前代码候选 `9232f06`。
 - 服务器日志显示 `2026-08-17 00:13 CST` 曾有一次 `auth.wechat` 失败，错误为旧 release
   `41c9c18` 的持久化不可用；该请求发生在 `b186098` 切换前，不能归因于当前 release。
 - `b186098` 在约 `01:16 CST` 切换后，`bab0ce2` 曾于约 `01:38 CST` 运行；本轮于约 `02:11 CST`
