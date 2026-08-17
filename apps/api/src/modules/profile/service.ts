@@ -27,10 +27,26 @@ function toPayload(profile: UserProfile): UserProfilePayload["data"] {
 	};
 }
 
+/**
+ * 普通资料会被页面展示、写入数据库并参与日志关联；控制字符即使没有
+ * 超过字段长度，也可能破坏排版、检索和导出边界。这里不静默删除，
+ * 而是在服务端输入边界拒绝，避免绕过小程序页面的调用方写入脏资料。
+ */
+function containsControlCharacter(value: string): boolean {
+	return Array.from(value).some((character) => {
+		const code = character.charCodeAt(0);
+		return code <= 0x1f || code === 0x7f;
+	});
+}
+
 function normalizeDisplayName(value: string | undefined): string | undefined {
 	if (value === undefined) return undefined;
 	const normalized = value.trim();
-	if (!normalized || normalized.length > 64) {
+	if (
+		!normalized ||
+		normalized.length > 64 ||
+		containsControlCharacter(normalized)
+	) {
 		throw new UserProfileInputError("displayName is invalid");
 	}
 	return normalized;
@@ -61,6 +77,7 @@ function normalizeEmail(
 	if (
 		!normalized ||
 		normalized.length > 320 ||
+		containsControlCharacter(normalized) ||
 		!/^\S+@\S+\.\S+$/.test(normalized)
 	) {
 		throw new UserProfileInputError("email is invalid");

@@ -161,11 +161,27 @@ test("普通资料服务拒绝非法输入并留下安全失败日志", async ()
 			{ traceId: "profile-trace-004", idempotencyKey: "profile-key-004" },
 		),
 	).rejects.toBeInstanceOf(UserProfileInputError);
+	await expect(
+		service.update(
+			"profile-user-003",
+			{ version: 0, displayName: "张\n三" },
+			{ traceId: "profile-trace-005", idempotencyKey: "profile-key-005" },
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+	await expect(
+		service.update(
+			"profile-user-003",
+			{ version: 0, email: "user\u0000@example.com" },
+			{ traceId: "profile-trace-006", idempotencyKey: "profile-key-006" },
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
 
 	const records = lines.map(
 		(line) => JSON.parse(line) as Record<string, unknown>,
 	);
 	expect(records.map((record) => record.event)).toEqual([
+		"user.profile.update_failed",
+		"user.profile.update_failed",
 		"user.profile.update_failed",
 		"user.profile.update_failed",
 		"user.profile.update_failed",
