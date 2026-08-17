@@ -5,7 +5,20 @@
 
 ## 当前基线
 
-### 本轮最新生产切换与公网复核（2026-08-18 01:26-01:32 CST）
+### 本轮 1a8a898 生产切换与公网复核（2026-08-18 02:04-02:05 CST）
+
+- 候选 `1a8a898` 已完成本地 `pnpm check`、服务器真实生产 env preflight、`127.0.0.1:18082` 隔离
+  runtime smoke 和 SHA-256 产物校验；随后原子切换为当前 release，只重启新 Bun/Elysia API。
+- 当前 release 为 `/home/ps/code/hospital-platform/releases/1a8a898`，新 API `10.0.0.3:18081` active；旧
+  Python `8001` 继续监听，Worker 未启动。内网和公网 `/api/v2/health/ready` 均返回 database/redis/schema
+  `ok`，启动日志确认 `runtimeMode=production`、微信身份配置已加载，支付保持关闭。
+- 本次切换窗口没有真机业务请求，不能把微信登录、患者切换、我的挂号或门诊费用标记为真实业务验收完成。
+  journald P0 聚合还出现 `parseErrors=5`，日志输入边界需要先治理到 `parseErrors=0`，再用于业务证据门禁。
+- 完整部署证据见 [`release/1a8a898-production-acceptance-2026-08-18.md`](release/1a8a898-production-acceptance-2026-08-18.md)。
+  下一步使用与该 release 匹配的小程序运行包，按“登录 → 刷新/显式切换患者 → 我的挂号 → 门诊费用只读”取得页面、
+  HTTP、低敏日志三层证据；支付、医保和 HIS 写回继续最后处理。
+
+### 上一轮 52e9624 生产切换与公网复核（2026-08-18 01:26-01:32 CST）
 
 - 候选 `52e9624` 已完成本地 `pnpm check`、7 个 bundle checksum、服务器真实生产 env preflight、
   `127.0.0.1:18082` 隔离 production runtime smoke、SIGTERM 回收和原子 `current` 切换；当前 release 为
