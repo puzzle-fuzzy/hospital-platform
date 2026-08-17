@@ -38,6 +38,10 @@
 				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
 				<text>门诊病历</text>
 			</view>
+			<view class="menu-item" bindtap="onAction" data-action="electronic-consultation">
+				<image src="/assets/legacy-home/service-consultation-form.svg" mode="aspectFit" />
+				<text>电子导诊单</text>
+			</view>
 			<view class="menu-item" bindtap="onAction" data-action="missed-appointments">
 				<image src="/assets/legacy-home/service-record.svg" mode="aspectFit" />
 				<text>爽约记录</text>
@@ -55,6 +59,10 @@
 			<view class="menu-item" bindtap="onAction" data-action="doctor">
 				<image src="/assets/legacy-home/service-consultation-form.svg" mode="aspectFit" />
 				<text>我的医生</text>
+			</view>
+			<view class="menu-item" bindtap="onAction" data-action="smart-customer">
+				<image src="/assets/legacy-home/floating-guide.png" mode="aspectFit" />
+				<text>智能客服</text>
 			</view>
 			<view class="menu-item" bindtap="onAction" data-action="feedback">
 				<image src="/assets/legacy-home/service-praise.svg" mode="aspectFit" />

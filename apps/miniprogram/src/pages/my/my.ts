@@ -15,6 +15,28 @@ type MyPageMethods = {
 };
 
 /**
+ * 个人中心中仍保留旧端入口的可见性，但这些能力没有完成独立 contract。
+ * 文案必须按能力说明关闭原因，不能用统一的“点击了某某”或伪造成功，
+ * 更不能在这里绕过平台 API 直连旧 WebView、医生关系接口或医保小程序。
+ */
+const MY_UNAVAILABLE_ACTION_MESSAGES = Object.freeze({
+	consultation: "我的问诊功能正在迁移中",
+	doctor: "我的医生功能正在迁移中",
+	"electronic-consultation": "电子导诊单功能正在迁移中",
+	insurance: "医保电子凭证需要独立授权，当前暂未开放",
+	"smart-customer": "智能客服功能正在迁移中",
+} as const);
+
+type UnavailableMyAction = keyof typeof MY_UNAVAILABLE_ACTION_MESSAGES;
+
+function showUnavailableMyAction(action: UnavailableMyAction): void {
+	wx.showToast({
+		title: MY_UNAVAILABLE_ACTION_MESSAGES[action],
+		icon: "none",
+	});
+}
+
+/**
  * “我的”页同时读取会话用户和患者目录；从选择页返回或下拉刷新时，
  * 较早的 Promise.all 不能再覆盖当前用户和就诊人数量。
  */
@@ -97,6 +119,21 @@ Page<MyPageData, MyPageMethods>({
 			case "medical-record":
 				// 报告目录与门诊病历是两类不同医疗事实，不能复用 reports 路由。
 				wx.showToast({ title: "门诊病历正在迁移中", icon: "none" });
+				break;
+			case "electronic-consultation":
+				showUnavailableMyAction("electronic-consultation");
+				break;
+			case "consultation":
+				showUnavailableMyAction("consultation");
+				break;
+			case "doctor":
+				showUnavailableMyAction("doctor");
+				break;
+			case "smart-customer":
+				showUnavailableMyAction("smart-customer");
+				break;
+			case "insurance":
+				showUnavailableMyAction("insurance");
 				break;
 			case "feedback":
 				// 旧端反馈页目前也是静态问答和客服电话，在线反馈提交仍未开放。

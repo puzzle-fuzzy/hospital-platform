@@ -310,6 +310,13 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('url: "/pages/patient-select/patient-select"');
 	expect(template).toContain('bindtap="onFamilyTap"');
 	expect(template).toContain('bindtap="onHeaderTap"');
+	expect(template).toContain('data-action="electronic-consultation"');
+	expect(template).toContain("电子导诊单");
+	expect(template).toContain('data-action="smart-customer"');
+	expect(template).toContain("智能客服");
+	expect(my).toContain('case "electronic-consultation"');
+	expect(my).toContain('case "smart-customer"');
+	expect(my).toContain("医保电子凭证需要独立授权");
 	expect(profile).toContain("getUserProfile");
 	expect(profile).toContain("updateUserProfile");
 	expect(profile).toContain("getPageLatestRequestGuard");
