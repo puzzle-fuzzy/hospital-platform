@@ -63,6 +63,11 @@
   独立使用过去 90 天窗口，避免把未来日期混入爽约派生逻辑。
 - 预约历史 adapter 现在会拒绝同一响应中的重复 `appointmentInfoId`；没有预约号的记录仍只作为摘要
   返回，不用数组下标或日期字段伪造后续业务引用。
+- `d71ecd4` 与 `3609944` 又收紧了 Provider 读模型的公开边界：门诊费用科室/医生/账单日期分别限制为
+  128/128/64 字符，LIS 详情单位限制为 64 字符，避免异常文本在 Elysia 响应校验阶段才变成不可定位的错误。
+- `7a03df7` 对照 2.6.33 输出表后移除了门诊费用 `waitPayAmount`、`registerDept`、`registerDoctor` 的 fallback；
+  当前只使用已确认的 `amount`、`billDeptName`、`billDocName`、`billDate`，只有旧端候选金额而没有 `amount` 时整批
+  fail-closed，避免把未确认金额带入公共读模型或未来支付编排。
 
 ## 3. 剩余内容分层
 
@@ -126,7 +131,9 @@ amount 缺失/空字符串 -> ProviderRequestError，整个响应 fail-closed
 金额格式/精度非法    -> ProviderRequestError，禁止返回部分成功
 ```
 
-该规则已补充中文核心注释和 adapter 回归测试；当前只读接口仍不会触发支付。
+同时，2.6.33 未确认的旧端候选字段不再作为 fallback：`waitPayAmount` 不能覆盖 `amount`，
+`registerDept`/`registerDoctor` 不能覆盖 `billDeptName`/`billDocName`。这些规则已补充中文核心注释和 adapter
+回归测试；当前只读接口仍不会触发支付。
 
 ## 5. 新文档到达后的固定处理流程
 
