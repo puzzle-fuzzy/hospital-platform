@@ -6,9 +6,9 @@
 ## 1. 观察边界
 
 - 线上 release：`/home/ps/code/hospital-platform/releases/b3c9a99`；当前 API `10.0.0.3:18081`；旧 Python `8001` 仍共存；
-- 观察窗口：2026-08-18 00:12-00:14 CST；
+- 服务日志窗口：2026-08-18 00:05:25-00:17:06 CST；真实微信会话集中发生在 00:12-00:14 CST；
 - 运行状态：`hospital-platform-api-v2.service` active，公网 `/api/v2/health/ready` 返回 200，database/redis/schema 均为 `ok`；
-- 取证方式：服务器 `systemctl status` 暴露的当前服务日志和公网 readiness；当前 ps 会话无法无密码读取完整 journald，未伪造完整 P0 聚合；
+- 取证方式：服务器 `sudo journalctl -o cat` 经当前 release 的 `p0-log-aggregate.js --json` 脱敏聚合，并交叉核对公网 readiness；聚合只输出计数，不输出原始日志；
 - 隐私边界：本文不记录 code、openid、session token、身份证、患者姓名、provider 患者号或完整请求参数。
 
 ## 2. 低敏事件计数
@@ -20,6 +20,13 @@
 | `patient.directory.read.loaded` | 4 | owner-scoped 患者目录读取成功 | 页面是否始终使用最新选择、真机返回竞态和跨页面 trace 对齐 |
 | `appointment.records.requested` / `appointment.records.synced` | 0 / 0 | 无 | “我的挂号” Provider、状态映射和未来预约窗口 |
 | `outpatient.payment.records.loaded` | 0 | 无 | 待缴/已缴目录、金额和状态切换 |
+
+## 2.1 journald 脱敏聚合完整性
+
+- 输入 45 行，解析 44 行，`parseErrors=0`，空行 1 行；
+- HTTP 结果为 `200=20`、`401=7`；这 7 次 401 仍属于认证边界，不是 Provider 业务失败；
+- 去重后的 `providerRequestIdCount=3`，但都属于患者目录同步，不代表预约或费用请求；
+- 当前窗口没有 `appointment.records.requested/synced` 或 `outpatient.payment.records.requested/loaded`。
 
 ## 3. 当前 P0 判断
 

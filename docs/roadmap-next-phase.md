@@ -12,7 +12,7 @@
 - 当前 release 为 `/home/ps/code/hospital-platform/releases/b3c9a99`，新 API 监听 `10.0.0.3:18081`；
   旧 Python 服务继续监听 `8001`，Worker 保持 inactive。内网和公网 live、ready、system-ping 均通过，
   公网认证边界仍返回 `401/unauthorized`。
-- 当前 release 启动窗口只执行了 runtime smoke；随后 00:12-00:14 CST 观察到 1 次微信登录成功、2 次患者同步成功和 4 次患者目录读取成功，但仍没有预约历史或门诊费用加载成功事件。由于当前 ps 会话不能无密码读取完整 journald，未伪造 P0 日志聚合结果；预约历史和门诊费用仍不能标记为真实线上业务验收完成。
+- 当前 release 启动后至 00:17 CST 的 journald 脱敏聚合为 `parseErrors=0`、HTTP `200=20/401=7`；随后 00:12-00:14 CST 观察到 1 次微信登录成功、2 次患者同步成功和 4 次患者目录读取成功，但仍没有 `appointment.records.requested/synced` 或 `outpatient.payment.records.requested/loaded`。预约历史和门诊费用仍不能标记为真实线上业务验收完成。
 - 发布与共存证据见 [`release/b3c9a99-production-acceptance-2026-08-18.md`](release/b3c9a99-production-acceptance-2026-08-18.md)。
   首次真实会话观察见 [`release/b3c9a99-p0-business-observation-2026-08-18.md`](release/b3c9a99-p0-business-observation-2026-08-18.md)。
   下一步是使用有效微信会话完成真机三层业务验收，不是继续用 readiness 或未登录 401 代替业务证据。

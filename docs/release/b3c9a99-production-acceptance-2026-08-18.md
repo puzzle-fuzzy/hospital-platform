@@ -56,14 +56,14 @@
 - 公网 runtime smoke：live 200、ready 连续 3/3、system ping 200、6 个未登录受保护路由均返回 401/`unauthorized`；
 - 当前 release 启动后只执行了健康检查、系统探针和认证边界 smoke，没有真实微信登录、患者同步、预约 Provider 或门诊费用查询，因此不能更新 P0 业务验收状态。
 
-由于当前 `ps` 会话对 `sudo journalctl` 的无密码读取未通过，切换后使用 `systemctl status` 核对了 production 启动事件和 smoke 请求；没有把无法执行的 P0 聚合伪造为成功。后续真实微信会话应继续按 P0 手册取得页面、HTTP 和低敏日志三层证据。
+切换当时 `ps` 会话的 `sudo -n journalctl` 无密码读取未通过，因此切换后先使用 `systemctl status` 核对了 production 启动事件和 smoke 请求；没有把无法执行的 P0 聚合伪造为成功。后续真实会话已通过交互式只读 sudo 执行脱敏聚合，详见下一节。
 
 ## 6. 切换后首次真实会话观察
 
 2026-08-18 00:12-00:14 CST，在 `b3c9a99` 当前服务上观察到 1 次微信登录成功、2 次患者目录同步成功和
 4 次患者目录读取成功；每次同步均为 1 位 active 患者和 1 条临床映射。当前窗口没有预约历史或门诊费用
-加载成功事件，因此不更新这两个 P0 域的验收状态。由于当前 ps 会话不能无密码读取完整 journald，计数来自
-`systemctl status` 暴露的当前服务日志，未把它伪造成完整日志聚合。详细判断和下一步见
+请求或成功事件，因此不更新这两个 P0 域的验收状态。完整 journald 脱敏聚合为 45 行输入、
+`parseErrors=0`、HTTP `200=20/401=7`；详细判断和下一步见
 [`b3c9a99-p0-business-observation-2026-08-18.md`](b3c9a99-p0-business-observation-2026-08-18.md)。
 
 ## 7. 回滚
