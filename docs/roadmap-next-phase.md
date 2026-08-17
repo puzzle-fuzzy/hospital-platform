@@ -5,9 +5,10 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-17 15:05 CST）
+### 线上实时状态（2026-08-17 15:40 CST）
 
-- 新 API 已从 `3ab0a6c` 原子切换到 `9833a01`，systemd active，内网原始路径和公网 `/api/v2` 的 live、ready、system-ping、未登录认证边界通过；公网 ready 连续 6/6 通过且保留 `Cache-Control: no-store`。旧 Python `8001` 监听保持不变，完整切换证据见 [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md)。
+- 新 API 已从 `9833a01` 原子切换到 `daee96d`，新 release 的生产 env preflight、候选临时端口 smoke 和公网 `/api/v2` 运行时 smoke 均通过；旧 Python `8001` 保持监听，Worker inactive。此次只增加 Provider 失败低敏诊断字段，不打开支付、医保、报告、预约写入或 HIS 写入，证据见 [`release/daee96d-production-acceptance-2026-08-17.md`](release/daee96d-production-acceptance-2026-08-17.md)。
+- 上一 release `9833a01` 已完成从 `3ab0a6c` 的原子切换和基础运行时验收；本次已继续切换到 `daee96d`，其历史证据见 [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md)。
 - `0016_patient_directory_sync_owner_index` 已由候选 bundle 执行成功，marker、`owner_user_id,provider_name,status,lease_until` 索引列顺序和 schema probe 均通过；错误的跨平台打包在切换前被拦截，未产生 schema 半成品。支付、医保、HIS、报告和 Worker 仍关闭。
 - 候选 runtime smoke 完成 readiness 连续 6/6、system ping 200、未登录受保护路由 401；这只是运行边界证据，真实微信会话、Redis TTL、多患者切换、普通资料读写/409、预约历史和门诊费用仍待真机三层验收。
 
@@ -29,6 +30,7 @@
 - 本轮为 runtime/provider smoke 增加有界 readiness 连续采样：库调用默认保持单次兼容语义，命令行默认 3 次，正式生产验收建议显式使用 6 次、间隔 2000 毫秒；任意中间 `not_ready` 都不能被最后一次恢复掩盖。该门禁只证明运行前置稳定，仍不替代真实微信、患者、Provider、真机或支付验收，规则见 [`release/readiness-stability-gate.md`](release/readiness-stability-gate.md)。
 - `ed250ec` 的本地 runtime smoke 已对公网 `/api/v2` 完成 6/6 readiness、no-store、system-ping 和未登录 401 连续复核；该证据仍不代表 `ed250ec` 已部署，也不替代服务器 bundle provenance、journald、微信会话或真机业务验收。详见 [`release/current-public-readiness-stability-2026-08-17.md`](release/current-public-readiness-stability-2026-08-17.md)。
 - `9833a01` 已完成真实生产 env preflight、`127.0.0.1:18082` 隔离 runtime smoke、原子切换和切换后公网 6/6 runtime smoke；本次只包含报告详情引用故障隔离和文档修正，不打开支付、医保、报告、预约写入或 HIS 写入。真实微信登录、多患者和 Provider 业务仍待在当前版本重新验收，证据见 [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md)。
+- `daee96d` 已把 Provider 失败诊断统一为低敏白名单字段，并覆盖预约、门诊费用、报告和微信登录失败日志；该版本已通过本地门禁、生产 preflight、隔离 smoke 和公网运行时 smoke。该能力只增强关联性，不替代 Provider contract 或真实业务验收，证据见 [`release/daee96d-production-acceptance-2026-08-17.md`](release/daee96d-production-acceptance-2026-08-17.md)。
 - 原生小程序补齐患者同步期间的进程级协调和统一路由门禁：任意页面在同步快照时，新增或更换就诊人不会再进入选择页并发发起第二条幂等同步；新增跨页面源码验收和协调器测试通过，待下一次真机更新运行包后观察真实提示。
 
 ### 已经具备

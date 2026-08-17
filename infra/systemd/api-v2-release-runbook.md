@@ -231,3 +231,10 @@ mode、MySQL/Redis/schema、live/ready、system-ping 和认证边界 smoke 后�
 `9833a01`，只重启新 API。公网 `/api/v2` 连续 6/6 readiness、live、system-ping 和未登录认证边界全部通过，
 旧 Python `8001` 保持监听，Worker 未启动。首次 `sudo -n` 重启因服务器要求密码失败，软链接已自动恢复并经核对后使用交互式 sudo 完成切换；后续应重新验证 NOPASSWD 规则。真实微信、患者、预约历史、门诊费用、报告 Provider 和真机业务仍未在本次切换中调用。完整证据见
 [`../../docs/release/9833a01-production-acceptance-2026-08-17.md`](../../docs/release/9833a01-production-acceptance-2026-08-17.md)。
+
+2026-08-17 15:38-15:40 CST：候选 `daee96d` 完成本地完整门禁、真实生产 env preflight、5 个 bundle checksum、
+`127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收；随后从 `9833a01` 原子切换到 `daee96d`，
+只重启新 API。切换后公网 `/api/v2` live、ready 连续 6/6、system-ping 和未登录认证边界全部通过，
+旧 Python `8001` 保持监听，Worker 仍 inactive。此次只增加 Provider 失败低敏诊断字段，不执行 Provider 业务、
+支付、医保、退款、HIS 写入或 migration。完整证据见
+[`../../docs/release/daee96d-production-acceptance-2026-08-17.md`](../../docs/release/daee96d-production-acceptance-2026-08-17.md)。
