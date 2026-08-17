@@ -95,6 +95,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"session-missing": "登录响应缺少平台会话",
 		"wechat-login-failed": "微信登录失败",
 		"patient-selection-required": "请先登录并选择就诊人",
+		"patient-selection-stale": "上次选择的就诊人已失效，请重新选择",
 		"patient-not-bound": "当前微信账号暂无绑定的就诊人",
 		"appointment-department-missing": "预约科室不能为空",
 		"report-detail-id-missing": "报告详情引用无效",

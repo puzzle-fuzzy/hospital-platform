@@ -4,8 +4,8 @@ import {
 	loadPatients,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
-import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -82,12 +82,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		return loadPatients()
 			.then((patients) => {
 				if (!loadGuard.isCurrent(requestToken)) return;
-				const patient = resolveStoredPatientSelection(patients).patient;
-				if (!patient) {
-					throw new ApiError("请先登录并选择就诊人", {
-						code: "patient-selection-required",
-					});
-				}
+				const patient = requireStoredPatientSelection(patients);
 				this.setData({ selectedPatient: patient });
 				return this.loadRecords(patient, this.data.activeStatus, requestToken);
 			})
@@ -221,6 +216,10 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		if (error instanceof ApiError) {
 			if (error.code === "dependency-not-configured") {
 				message = "门诊缴费服务暂未配置完成，请联系管理员";
+			} else if (error.code === "patient-selection-stale") {
+				message = "上次选择的就诊人已失效，请重新选择";
+			} else if (error.code === "patient-not-bound") {
+				message = "当前微信账号暂无绑定的就诊人";
 			} else if (error.code === "patient-selection-required") {
 				message = "请先选择就诊人，再查看门诊缴费记录";
 			} else if (error.code === "outpatient-payment-patient-not-found") {

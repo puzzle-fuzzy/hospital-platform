@@ -6,7 +6,7 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
+import { requireStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -75,12 +75,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		return loadPatients()
 			.then((patients) => {
 				if (!loadGuard.isCurrent(requestToken)) return;
-				const patient = resolveStoredPatientSelection(patients).patient;
-				if (!patient) {
-					throw new ApiError("请先登录并选择就诊人", {
-						code: "patient-selection-required",
-					});
-				}
+				const patient = requireStoredPatientSelection(patients);
 				return loadAppointmentRecords(patient.id).then((records) => {
 					if (!loadGuard.isCurrent(requestToken)) return;
 					const mappedRecords = records.map((record, index) =>
@@ -144,6 +139,10 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		if (error instanceof ApiError) {
 			if (error.code === "dependency-not-configured") {
 				message = "预约记录服务暂未配置完成，请联系管理员";
+			} else if (error.code === "patient-selection-stale") {
+				message = "上次选择的就诊人已失效，请重新选择";
+			} else if (error.code === "patient-not-bound") {
+				message = "当前微信账号暂无绑定的就诊人";
 			} else if (error.code === "patient-selection-required") {
 				message = "请先选择就诊人，再查看挂号记录";
 			} else {

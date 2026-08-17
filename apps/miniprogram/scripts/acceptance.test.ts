@@ -510,7 +510,7 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain('wx:key="viewKey"');
 	expect(recordsTemplate).toContain("visibleRecords");
 	expect(recordsTemplate).toContain("加载更多挂号记录");
-	expect(records).toContain("resolveStoredPatientSelection");
+	expect(records).toContain("requireStoredPatientSelection");
 	expect(directoryTemplate).toContain("未来 7 天");
 	expect(directoryTemplate).toContain("cascade-shell");
 	expect(directoryTemplate).toContain("加载更多号源");
@@ -874,7 +874,7 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(home).toContain('url: "/pages/report-directory/report-directory"');
 	expect(reportPage).toContain("loadReports");
 	expect(reportPage).toContain("onLoadMore");
-	expect(reportPage).toContain("resolveStoredPatientSelection");
+	expect(reportPage).toContain("requireStoredPatientSelection");
 	expect(reportTemplate).toContain("报告查询");
 	expect(reportTemplate).toContain("加载更多报告");
 	// 报告详情只接受服务端生成的 opaque reportId，目录不透传 provider 报告号。

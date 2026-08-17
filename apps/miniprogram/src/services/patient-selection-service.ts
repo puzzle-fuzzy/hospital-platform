@@ -1,4 +1,5 @@
 import type { Patient } from "../types";
+import { ApiError } from "./api-client";
 
 /**
  * 当前就诊人的本地选择状态。
@@ -19,6 +20,28 @@ export type PatientSelectionResolution =
 	| { state: "empty"; patient?: undefined }
 	| { state: "defaulted" | "selected"; patient: Patient }
 	| { state: "stale"; patient?: undefined; storedPatientId: string };
+
+/**
+ * 将目录解析结果提升为业务页面可消费的“必须有患者”结果。
+ *
+ * 页面不能把 `empty`、`stale` 和“调用方没有传患者”混成同一个错误：
+ * `empty` 是服务端确认当前 owner 没有目录患者，`stale` 则表示本地曾经
+ * 明确选择过的患者已经不在当前目录。后者必须要求用户重新选择，不能
+ * 静默回退到第一位患者，否则报告、挂号和费用可能落到错误的人身上。
+ */
+export function requirePatientFromResolution(
+	resolution: PatientSelectionResolution,
+): Patient {
+	if (resolution.patient) return resolution.patient;
+	if (resolution.state === "stale") {
+		throw new ApiError("Stored patient selection is stale", {
+			code: "patient-selection-stale",
+		});
+	}
+	throw new ApiError("No patient is bound to the current account", {
+		code: "patient-not-bound",
+	});
+}
 
 /** 读取上一次选择的就诊人 ID；缓存损坏时按未选择处理。 */
 export function getSelectedPatientId(): string {
@@ -68,6 +91,18 @@ export function resolveStoredPatientSelection(
 		setSelectedPatientId(resolution.patient.id);
 	}
 	return resolution;
+}
+
+/**
+ * 业务页面统一取得当前患者。
+ *
+ * 该函数保留首次进入时的“默认第一位”体验，但会把 stale/empty 直接
+ * 转成稳定错误码；调用方不再自行读取 `.patient` 后丢失目录状态原因。
+ */
+export function requireStoredPatientSelection(
+	patients: readonly Patient[],
+): Patient {
+	return requirePatientFromResolution(resolveStoredPatientSelection(patients));
 }
 
 /**

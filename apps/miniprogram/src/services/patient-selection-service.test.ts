@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { Patient } from "../types";
-import { resolvePatientSelection } from "./patient-selection-service";
+import { ApiError } from "./api-client";
+import {
+	requirePatientFromResolution,
+	resolvePatientSelection,
+} from "./patient-selection-service";
 
 function patient(id: string): Patient {
 	return {
@@ -10,6 +14,16 @@ function patient(id: string): Patient {
 		cardNumberMasked: "********1234",
 		source: "hospital-his",
 	};
+}
+
+function thrownApiErrorCode(action: () => unknown): string {
+	try {
+		action();
+	} catch (error) {
+		if (error instanceof ApiError) return error.code;
+		throw error;
+	}
+	throw new Error("Expected the action to throw an ApiError");
 }
 
 test("首次进入选择页时才允许默认目录第一位患者", () => {
@@ -48,4 +62,24 @@ test("已保存的患者仍在当前 owner 目录时保持显式选择", () => {
 		state: "selected",
 		patient: patient("patient-b"),
 	});
+});
+
+test("业务页面区分没有绑定患者与已失效的历史选择", () => {
+	expect(
+		thrownApiErrorCode(() => requirePatientFromResolution({ state: "empty" })),
+	).toBe("patient-not-bound");
+	expect(
+		thrownApiErrorCode(() =>
+			requirePatientFromResolution({
+				state: "stale",
+				storedPatientId: "patient-removed",
+			}),
+		),
+	).toBe("patient-selection-stale");
+	expect(
+		requirePatientFromResolution({
+			state: "selected",
+			patient: patient("patient-b"),
+		}),
+	).toEqual(patient("patient-b"));
 });
