@@ -138,6 +138,11 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 请求日志仍然独立记录请求生命周期，不能用 `http.request.completed` 代替业务 `synced/loaded`，也不能用 HTTP 200
 推导 Provider 业务成功。
 
+服务层会再次校验 `patientId`、`reportId`、科室和医生过滤标识的非空、长度及控制字符边界，不能因为内部任务绕过
+Elysia schema 就把异常标识送入 owner/provider 查询。无效标识不得原样进入业务日志：预约、报告和门诊费用失败事件中
+统一使用固定的 `invalid` 标记；只有通过形状校验后的内部 opaque 标识才允许用于链路关联。该校验不代表 owner、TTL 或
+provider 映射已经成功，后续仍必须记录对应的映射/Provider 失败事实。
+
 基础设施与运维能力迁移时，日志事件还必须区分以下事实：
 
 | 事件范围 | 最小可检索字段 | 禁止字段与原因 |

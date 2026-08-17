@@ -225,7 +225,7 @@ opaque `reportId`；当前只有检验报告可以返回该 `reportId`。影像�
 ### 3.5 门诊缴费和支付
 
 门诊缴费列表只返回 `recordId`、状态、科室/医生、账单时间和 `amountFen`。服务端会先校验
-`patientId` 并按当前用户解析 `his-patient` 映射，再调用 provider；空白标识、owner 映射缺失、
+`patientId` 并按当前用户解析 `his-patient` 映射，再调用 provider；空白、超长或带控制字符的标识、owner 映射缺失、
 持久化失败或 provider 失败都不能变成成功的空列表。当前仍是只读查询；支付调起、医保授权、医保结算、
 HIS 回写和退费必须走独立 contract。
 

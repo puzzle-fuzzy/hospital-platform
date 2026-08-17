@@ -4,7 +4,7 @@ import type {
 	PatientRepository,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
-import { OutpatientPaymentService } from "./index";
+import { OutpatientPaymentQueryError, OutpatientPaymentService } from "./index";
 
 test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务端窗口", async () => {
 	// 只有 provider 被真实调用后才会赋值，先显式标记未赋值状态以通过严格类型检查。
@@ -191,7 +191,14 @@ test("门诊费用输入和 owner 映射失败都会留下可检索的低敏日�
 			traceId: "trace-empty-patient",
 			idempotencyKey: "key-empty-patient",
 		}),
-	).rejects.toMatchObject({ name: "OutpatientPaymentPatientNotFoundError" });
+	).rejects.toMatchObject({ name: "OutpatientPaymentQueryError" });
+	expect(repositoryCalls).toBe(0);
+	await expect(
+		service.list("user-001", "x".repeat(129), "unpaid", {
+			traceId: "trace-oversized-patient",
+			idempotencyKey: "key-oversized-patient",
+		}),
+	).rejects.toBeInstanceOf(OutpatientPaymentQueryError);
 	expect(repositoryCalls).toBe(0);
 
 	await expect(
@@ -206,11 +213,23 @@ test("门诊费用输入和 owner 映射失败都会留下可检索的低敏日�
 	);
 	expect(records.map((record) => record.event)).toEqual([
 		"outpatient.payment.records.failed",
+		"outpatient.payment.records.failed",
 		"outpatient.payment.records.requested",
 		"outpatient.payment.records.failed",
 	]);
+	expect(records[0]).toMatchObject({
+		traceId: "trace-empty-patient",
+		patientId: "invalid",
+		errorType: "OutpatientPaymentQueryError",
+	});
+	expect(records[1]).toMatchObject({
+		traceId: "trace-oversized-patient",
+		patientId: "invalid",
+		errorType: "OutpatientPaymentQueryError",
+	});
+	expect(JSON.stringify(records)).not.toContain("x".repeat(129));
 	expect(JSON.stringify(records)).not.toContain("mysql connection failed");
-	expect(records[2]).toMatchObject({
+	expect(records[3]).toMatchObject({
 		traceId: "trace-repository-failure",
 		patientId: "patient-001",
 		status: "paid",

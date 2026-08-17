@@ -22,6 +22,7 @@ import {
 	PaymentIdentityNotFoundError,
 	WechatPaymentNotificationRejectedError,
 } from "../modules/payments";
+import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
 import { ReportQueryError } from "../modules/reports/service";
 import { errorHandlerPlugin } from "./error-handler";
 
@@ -145,6 +146,11 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 		},
 		{
 			error: new InvalidOutpatientPaymentStatusError(),
+			code: "outpatient-payment-query-invalid",
+			message: "门诊缴费查询条件不合法",
+		},
+		{
+			error: new OutpatientPaymentQueryError(),
 			code: "outpatient-payment-query-invalid",
 			message: "门诊缴费查询条件不合法",
 		},

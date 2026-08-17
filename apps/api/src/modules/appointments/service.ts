@@ -14,6 +14,7 @@ import {
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
+	isBoundedOpaqueIdentifier,
 	type PatientRepository,
 	parseIsoCalendarDate,
 } from "@hospital/domain";
@@ -74,6 +75,15 @@ export class AppointmentRecordPatientNotFoundError extends Error {
 }
 
 function validateScheduleQuery(input: AppointmentScheduleQuery): void {
+	if (
+		(input.departmentId !== undefined &&
+			!isBoundedOpaqueIdentifier(input.departmentId)) ||
+		(input.doctorId !== undefined && !isBoundedOpaqueIdentifier(input.doctorId))
+	) {
+		throw new AppointmentScheduleQueryError(
+			"Schedule filter identifier is invalid",
+		);
+	}
 	const start = parseIsoCalendarDate(input.startDate);
 	const end = parseIsoCalendarDate(input.endDate);
 	// 这里限制的是两个 UTC 日历零点之间的“跨度”，不是把首尾都计入后的日期条目数。
@@ -335,7 +345,11 @@ export class AppointmentService {
 			// 失败出口。否则“未配置”或非法日期虽然已经返回错误，业务日志却
 			// 没有 `appointment.records.failed`，排障时会误以为请求从未进入该模块。
 			validateRecordQuery(query);
-			if (!patientId.trim()) throw new AppointmentRecordPatientNotFoundError();
+			if (!isBoundedOpaqueIdentifier(patientId)) {
+				throw new AppointmentRecordQueryError(
+					"Appointment record patient identifier is invalid",
+				);
+			}
 
 			this.logger.info(
 				{
@@ -391,7 +405,9 @@ export class AppointmentService {
 					event: "appointment.records.failed",
 					traceId: context.traceId,
 					provider: "zhongyang",
-					patientId,
+					patientId: isBoundedOpaqueIdentifier(patientId)
+						? patientId
+						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
 				},
 				"Appointment records request failed",

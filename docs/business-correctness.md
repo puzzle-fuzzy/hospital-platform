@@ -16,6 +16,7 @@
 
 1. 小程序只保存服务端返回的 opaque `patientId`，不保存 `openid`、`unionid`、完整卡号、身份证号或 provider 患者号。
 2. `patientId` 每次都要和当前会话的 `ownerUserId` 联合校验；不能因为客户端传入了一个格式正确的 ID 就直接访问 provider。
+   `patientId`、`reportId` 以及预约过滤标识还必须在服务层复核非空、长度不超过 128、无首尾空白和控制字符；这只是形状校验，不能替代 owner、TTL 或 provider 映射校验。
 3. 患者目录的 `thirdPatientId` 只属于 `directory` 引用；预约历史、报告和门诊费用显式使用 `his-patient` 引用。
 4. 没有 `his-patient` 映射时必须在 provider 请求前失败，不能回退到目录 ID，也不能返回伪造的空成功。
 5. 选择页切换患者后，调用页必须重新读取患者目录并重新请求业务数据，不能沿用上一个患者的报告、挂号记录或缴费列表。
@@ -165,7 +166,8 @@
 日志允许记录内部资源 ID、状态、provider 操作名、provider request id、HTTP 状态和可重试判断；禁止记录 token、openid、unionid、session_key、完整患者身份、provider 患者号、原始报文、支付签名和密钥。
 
 门诊费用服务在调用 owner-scoped 患者映射前拒绝空白 `patientId`；映射、持久化或 provider 失败都必须留下
-`outpatient.payment.records.failed`，不能只返回错误而没有业务事件，也不能把失败伪装成空费用列表。
+`outpatient.payment.records.failed`，不能只返回错误而没有业务事件，也不能把失败伪装成空费用列表。服务层还必须拒绝
+超长、首尾空白或控制字符标识；这些非法值在失败日志中统一记为 `patientId=invalid`，不能原样回写日志。
 
 ## 7. 当前未完成验证
 

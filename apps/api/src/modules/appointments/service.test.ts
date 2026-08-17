@@ -639,3 +639,75 @@ test("appointment department date generation failures are logged before provider
 		}),
 	);
 });
+
+test("预约服务层拒绝越过 HTTP schema 的非法 opaque 标识", async () => {
+	const lines: string[] = [];
+	let providerCalls = 0;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "must-not-call",
+				},
+			}),
+			listSchedules: async () => {
+				providerCalls += 1;
+				throw new Error("provider must not be called");
+			},
+		},
+		repository: {
+			resolveProviderReference: async () => {
+				providerCalls += 1;
+				return undefined;
+			},
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => {
+				providerCalls += 1;
+				throw new Error("provider must not be called");
+			},
+		},
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+	const oversizedPatientId = "x".repeat(129);
+
+	await expect(
+		service.listSchedules(
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-02",
+				departmentId: "   ",
+			},
+			{ traceId: "trace-invalid-department-id", idempotencyKey: "key-1" },
+		),
+	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
+	await expect(
+		service.listRecords(
+			"user-001",
+			oversizedPatientId,
+			{ startDate: "2026-08-01", endDate: "2026-08-02" },
+			{ traceId: "trace-invalid-patient-id", idempotencyKey: "key-2" },
+		),
+	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
+
+	expect(providerCalls).toBe(0);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.failed",
+			traceId: "trace-invalid-patient-id",
+			patientId: "invalid",
+			errorType: "AppointmentRecordQueryError",
+		}),
+	);
+	expect(JSON.stringify(records)).not.toContain(oversizedPatientId);
+});

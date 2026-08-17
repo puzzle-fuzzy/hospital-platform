@@ -11,6 +11,7 @@ import type {
 } from "@hospital/domain";
 import {
 	InvalidOutpatientPaymentStatusError,
+	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -23,6 +24,14 @@ export class OutpatientPaymentPatientNotFoundError extends Error {
 	constructor() {
 		super("Outpatient payment patient is not available");
 		this.name = "OutpatientPaymentPatientNotFoundError";
+	}
+}
+
+/** 服务层输入边界错误；不能把非法 patientId 误报成“暂无门诊映射”。 */
+export class OutpatientPaymentQueryError extends Error {
+	constructor() {
+		super("Outpatient payment query is invalid");
+		this.name = "OutpatientPaymentQueryError";
 	}
 }
 
@@ -156,10 +165,10 @@ export class OutpatientPaymentService {
 				// 值映射成 Provider 的 paid 查询，运行时必须在这里先 fail-closed。
 				throw new InvalidOutpatientPaymentStatusError();
 			}
-			if (!patientId.trim()) {
+			if (!isBoundedOpaqueIdentifier(patientId)) {
 				// 不能让空白 patientId 进入 repository；否则调用方会把输入错误
 				// 误看成“没有门诊映射”，也会丢失统一的失败日志事件。
-				throw new OutpatientPaymentPatientNotFoundError();
+				throw new OutpatientPaymentQueryError();
 			}
 
 			const window = queryWindow(this.now());
@@ -219,7 +228,9 @@ export class OutpatientPaymentService {
 					provider: "zhongyang",
 					// 这是平台内部 opaque patientId，用于把 owner 映射失败与
 					// 页面请求关联；provider 患者号仍只存在于调用帧内。
-					patientId,
+					patientId: isBoundedOpaqueIdentifier(patientId)
+						? patientId
+						: "invalid",
 					// 无效运行时状态不能原样进入日志；这条日志只保留“无效”事实，
 					// 避免把任意外部字符串当成合法业务状态继续传播。
 					status: isOutpatientPaymentStatus(status) ? status : "invalid",

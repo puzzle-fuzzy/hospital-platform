@@ -14,6 +14,7 @@ import type {
 import {
 	DependencyNotConfiguredError,
 	InvalidReportKindError,
+	isBoundedOpaqueIdentifier,
 	isReportKind,
 	parseIsoCalendarDate,
 	REPORT_REFERENCE_MAX_TTL_MS,
@@ -123,7 +124,9 @@ export class ReportService {
 			// 查询校验也必须进入统一失败出口。否则非法日期虽然会正确返回
 			// 400，但没有 `report.directory.failed`，日志链路会缺少业务模块事实。
 			validateQuery(query);
-			if (!patientId.trim()) throw new ReportPatientNotFoundError();
+			if (!isBoundedOpaqueIdentifier(patientId)) {
+				throw new ReportQueryError("Report patient identifier is invalid");
+			}
 
 			this.logger.info(
 				{
@@ -211,7 +214,9 @@ export class ReportService {
 					event: "report.directory.failed",
 					traceId: context.traceId,
 					provider: "zhongyang",
-					patientId,
+					patientId: isBoundedOpaqueIdentifier(patientId)
+						? patientId
+						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
 				},
 				"Report directory request failed",
@@ -226,6 +231,9 @@ export class ReportService {
 		context: AdapterCallContext,
 	): Promise<ReportDetailPayload["data"]> {
 		try {
+			if (!isBoundedOpaqueIdentifier(reportId)) {
+				throw new ReportQueryError("Report reference identifier is invalid");
+			}
 			// 详情依赖缺失也必须留在 `report.detail.failed` 中；否则页面拿到
 			// `dependency-not-configured` 时，服务日志会看起来像没有收到请求。
 			this.logger.info(
@@ -268,7 +276,7 @@ export class ReportService {
 				{
 					event: "report.detail.failed",
 					traceId: context.traceId,
-					reportId,
+					reportId: isBoundedOpaqueIdentifier(reportId) ? reportId : "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
 				},
 				"Report detail request failed",

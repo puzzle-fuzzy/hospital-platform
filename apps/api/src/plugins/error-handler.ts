@@ -28,7 +28,10 @@ import {
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
-import { OutpatientPaymentPatientNotFoundError } from "../modules/outpatient-payments";
+import {
+	OutpatientPaymentPatientNotFoundError,
+	OutpatientPaymentQueryError,
+} from "../modules/outpatient-payments";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import {
@@ -184,7 +187,10 @@ export function errorHandlerPlugin() {
 				};
 			}
 
-			if (error instanceof InvalidOutpatientPaymentStatusError) {
+			if (
+				error instanceof InvalidOutpatientPaymentStatusError ||
+				error instanceof OutpatientPaymentQueryError
+			) {
 				set.status = 400;
 				return {
 					success: false,

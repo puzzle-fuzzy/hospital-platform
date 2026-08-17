@@ -226,6 +226,69 @@ test("report queries reject impossible calendar dates before provider access", a
 	expect(providerCalls).toBe(0);
 });
 
+test("报告服务层拒绝非法 patientId/reportId 且不把原值写入日志", async () => {
+	const lines: string[] = [];
+	let repositoryCalls = 0;
+	let directoryCalls = 0;
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => {
+				repositoryCalls += 1;
+				return undefined;
+			},
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => {
+				directoryCalls += 1;
+				throw new Error("provider must not be called");
+			},
+		},
+		logger: createLogger({
+			service: "report-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+	const oversizedPatientId = "x".repeat(129);
+
+	await expect(
+		service.list(
+			"user-001",
+			oversizedPatientId,
+			{ startDate: "2026-08-01", endDate: "2026-08-02" },
+			{ traceId: "trace-invalid-report-patient", idempotencyKey: "key-1" },
+		),
+	).rejects.toBeInstanceOf(ReportQueryError);
+	await expect(
+		service.detail("user-001", "\nreport-id", {
+			traceId: "trace-invalid-report-reference",
+			idempotencyKey: "key-2",
+		}),
+	).rejects.toBeInstanceOf(ReportQueryError);
+
+	expect(repositoryCalls).toBe(0);
+	expect(directoryCalls).toBe(0);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "report.directory.failed",
+			traceId: "trace-invalid-report-patient",
+			patientId: "invalid",
+		}),
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "report.detail.failed",
+			traceId: "trace-invalid-report-reference",
+			reportId: "invalid",
+		}),
+	);
+	expect(JSON.stringify(records)).not.toContain(oversizedPatientId);
+	expect(JSON.stringify(records)).not.toContain("report-id");
+});
+
 test("report details use a short-lived opaque reference and owner-scoped lookup", async () => {
 	const directory: ReportDirectoryGateway = {
 		listReports: async () => ({

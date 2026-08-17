@@ -21,6 +21,10 @@ export {
 } from "./appointments";
 export { parseIsoCalendarDate } from "./date-range";
 export {
+	isBoundedOpaqueIdentifier,
+	MAX_OPAQUE_IDENTIFIER_LENGTH,
+} from "./opaque-identifier";
+export {
 	DependencyNotConfiguredError,
 	PatientDirectorySyncInProgressError,
 } from "./errors";
