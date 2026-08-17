@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `f5178a4`，在 `d0bc8e1` 的预约历史时间归一化基础上，补齐门诊费用 `billDate` 的中国标准时间格式、自然日及时分秒严格校验；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `108d924`，在 `f5178a4` 的门诊费用账单时间边界基础上，补齐普通个人资料读取的资料域日志、默认值/已落库区分和安全失败事件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -197,6 +197,11 @@ HTTP 200、`items: []`、`total: 0`，不能被页面解释成异常。该测试
 并拒绝不存在的自然日、越界时分秒和带时区的 ISO 文本；这避免页面按设备时区猜测账单时间，
 也保证稳定费用引用使用可验证的日期事实。对应实现提交为 `f5178a4`，尚未发布线上；适配器
 新增日期边界测试，完整 `pnpm check` 已通过。
+
+随后补齐普通个人资料读取日志：`GET /me/profile` 现在记录 `requested`、`loaded` 和
+`read_failed` 事件，`loaded` 仅标记是否存在持久化资料行，失败事件仅记录错误类型；不记录
+userId、昵称、邮箱或底层异常。对应实现提交为 `108d924`，尚未发布线上；API 81 项测试、
+小程序 55 项验收和完整 `pnpm check` 已通过。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
