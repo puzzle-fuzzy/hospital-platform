@@ -108,6 +108,7 @@
   缺少稳定标识或同一响应生成重复 ID 时，adapter 必须拒绝整批结果。待缴与已缴查询的返回顺序或金额变化
   不能让同一费用记录更换平台引用，否则后续详情、订单和支付编排无法安全关联。
 - Provider 费用文本必须在 adapter 边界按公开 contract 的长度拒绝：科室名和医生名最多 128 个字符，账单日期最多 64 个字符；不能让超长 Provider 文本先进入业务读模型，再依赖响应序列化阶段兜底。
+- 门诊费用 `billDate` 不是任意展示文本，必须严格符合 `YYYY-MM-DD HH:mm:ss`，并校验真实自然日及时分秒范围；带时区的 ISO 文本、非法日期和越界时间必须在 adapter 边界整批拒绝，不能交给小程序按设备时区猜测。
 - 门诊费用金额和展示字段只能使用 Provider 已确认的 contract 字段；旧端遗留的 `waitPayAmount`、`registerDept`、`registerDoctor` 未确认前必须忽略，不能作为 `amountFen` 或科室/医生名称的 fallback。
 - 报告详情的单位字段必须在 adapter 边界限制为最多 64 个字符；报告名称、检测结果和参考范围则分别遵循公开 contract 的 256 字符上限。
 - 预约历史如果 Provider 返回 `appointmentInfoId`，adapter 必须拒绝同一响应中的重复预约号；

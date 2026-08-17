@@ -182,6 +182,59 @@ test("众阳门诊费用 adapter 在公开 contract 边界拒绝超长展示字�
 	});
 });
 
+test("众阳门诊费用 adapter 严格校验中国标准时间账单日期", async () => {
+	const createGateway = (billDate: string, requestId: string) =>
+		createZhongyangOutpatientPaymentGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(
+					JSON.stringify({
+						success: true,
+						data: [
+							{
+								outTradeOrderId: `order-${requestId}`,
+								amount: "1.00",
+								tradeStatus: "1",
+								billDate,
+							},
+						],
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": requestId },
+					},
+				),
+		});
+	const input = {
+		providerPatientId: "provider-patient-secret",
+		startTime: "2026-08-16 00:00:00",
+		endTime: "2026-08-16 23:59:59",
+		status: "unpaid" as const,
+		authSysCode: "thirdSelfMachine",
+	};
+
+	const valid = await createGateway(
+		"2024-02-29 23:59:59",
+		"valid-bill-date",
+	).listRecords(input, context);
+	expect(valid.records[0]?.billDate).toBe("2024-02-29 23:59:59");
+
+	for (const [billDate, requestId] of [
+		["2026-02-31 09:00:00", "invalid-calendar-date"],
+		["2026-08-16T09:00:00+08:00", "invalid-time-zone-format"],
+		["2026-08-16 24:00:00", "invalid-hour"],
+	] as const) {
+		await expect(
+			createGateway(billDate, requestId).listRecords(input, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "outpatient-payment-records",
+			requestId,
+			retryable: false,
+		});
+	}
+});
+
 test("众阳门诊费用 recordId 不依赖返回顺序", async () => {
 	let callCount = 0;
 	const gateway = createZhongyangOutpatientPaymentGateway({

@@ -89,6 +89,66 @@ function textField(
 	return normalized;
 }
 
+/**
+ * 校验 2.6.33 的账单时间，并保留 provider 约定的中国标准时间文本。
+ *
+ * 这个字段不是普通备注：页面会按它展示账单发生时间，recordId 也会把它
+ * 纳入稳定身份计算。只做长度校验会让 `2026-02-31`、带时区的 ISO 文本或
+ * 其他自然语言进入公共读模型，导致跨端解释不一致；在 adapter 边界拒绝
+ * 非法日期，才能保证服务层拿到的是可展示、可关联的业务事实。
+ */
+function billDateText(value: unknown, requestId: string): string {
+	const normalized = textField(value, "billDate", requestId, 64);
+	if (!normalized) {
+		throw providerError("Zhongyang outpatient billDate is missing", requestId);
+	}
+
+	const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(
+		normalized,
+	);
+	if (!match) {
+		throw providerError("Zhongyang outpatient billDate is invalid", requestId);
+	}
+
+	const [, yearText, monthText, dayText, hourText, minuteText, secondText] =
+		match;
+	const year = Number(yearText);
+	const month = Number(monthText);
+	const day = Number(dayText);
+	const hour = Number(hourText);
+	const minute = Number(minuteText);
+	const second = Number(secondText);
+	const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+	const daysInMonth = [
+		31,
+		leapYear ? 29 : 28,
+		31,
+		30,
+		31,
+		30,
+		31,
+		31,
+		30,
+		31,
+		30,
+		31,
+	][month - 1];
+	if (
+		year < 1 ||
+		month < 1 ||
+		month > 12 ||
+		day < 1 ||
+		day > (daysInMonth ?? 0) ||
+		hour > 23 ||
+		minute > 59 ||
+		second > 59
+	) {
+		throw providerError("Zhongyang outpatient billDate is invalid", requestId);
+	}
+
+	return normalized;
+}
+
 /** provider 金额单位为元；在 adapter 边界无损转换成服务端统一的分。 */
 function amountFen(value: unknown, requestId: string): number {
 	// 显式的 0 元是合法金额；缺失金额不是 0，不能把未知金额伪装成零元，
@@ -223,10 +283,7 @@ function mapRecord(
 	verifyTradeStatus(item.tradeStatus, status, requestId);
 	// 这里直接复用公开 contract 的上限：异常 provider 文本必须在 adapter
 	// 边界被拒绝，不能等到 Elysia 响应校验阶段才变成难定位的 500。
-	const billDate = textField(item.billDate, "billDate", requestId, 64);
-	if (!billDate) {
-		throw providerError("Zhongyang outpatient billDate is missing", requestId);
-	}
+	const billDate = billDateText(item.billDate, requestId);
 	const departmentName = textField(
 		item.billDeptName,
 		"departmentName",
