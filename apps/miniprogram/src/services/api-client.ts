@@ -236,6 +236,25 @@ function createRequestId(): string {
 	return `mp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * 生成符合患者同步接口约束的客户端幂等键。
+ *
+ * 幂等键不是认证凭证，也不承载患者信息；它只用于区分一次同步操作。
+ * 不能只使用 `Date.now()`，因为首页和选择页可能在同一毫秒发起不同操作，
+ * 而服务端的唯一范围是 owner + provider + key。前缀经过收窄后再叠加时间
+ * 与随机尾部，既满足请求头字符约束，也避免页面实例之间误共享操作事实。
+ */
+export function createIdempotencyKey(prefix: string): string {
+	const normalizedPrefix =
+		prefix
+			.trim()
+			.replace(/[^A-Za-z0-9._:-]/g, "-")
+			.replace(/^-+|-+$/g, "")
+			.slice(0, 32) || "operation";
+	const randomSuffix = Math.random().toString(36).slice(2, 10).padEnd(8, "0");
+	return `${normalizedPrefix}-${Date.now().toString(36)}-${randomSuffix}`;
+}
+
 function responseRequestId(
 	response: WechatMiniprogram.RequestSuccessCallbackResult,
 ): string {

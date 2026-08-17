@@ -1,4 +1,8 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import {
+	ApiError,
+	createIdempotencyKey,
+	safeApiErrorMessage,
+} from "../../services/api-client";
 import {
 	loadPatients,
 	syncPatientsFromHospital,
@@ -182,7 +186,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				selectedPatientId: "",
 				error: "",
 			});
-			return syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
+			return syncPatientsFromHospital(
+				createIdempotencyKey("patient-selection-sync"),
+			)
 				.then((patients) => {
 					if (
 						!directoryDataGuard.isCurrent(dataToken) ||

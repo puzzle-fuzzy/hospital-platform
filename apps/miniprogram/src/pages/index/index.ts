@@ -1,4 +1,8 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import {
+	ApiError,
+	createIdempotencyKey,
+	safeApiErrorMessage,
+} from "../../services/api-client";
 import {
 	loadHealth,
 	loadPatients,
@@ -508,7 +512,7 @@ Page<IndexPageData, IndexPageMethods>({
 			const requestToken = patientDataGuard.begin();
 			const loadingToken = syncLoadingGuard.begin();
 			this.setData({ syncingPatients: true, error: "" });
-			return syncPatientsFromHospital(`patient-sync-${Date.now()}`)
+			return syncPatientsFromHospital(createIdempotencyKey("patient-sync"))
 				.then((patients) => {
 					if (!patientDataGuard.isCurrent(requestToken)) return patients;
 					this.setPatientsFromPayload(patients);

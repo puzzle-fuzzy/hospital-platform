@@ -4,6 +4,7 @@ import {
 	ApiError,
 	buildApiRequestUrl,
 	CLIENT_ERROR_MESSAGES,
+	createIdempotencyKey,
 	isAllowedApiBaseUrl,
 	isAllowedApiPrefix,
 	localizedApiErrorMessage,
@@ -198,8 +199,21 @@ test("native client requests patient synchronization through the Hospital API", 
 	expect(client).toContain("syncPatients");
 	expect(client).toContain('url: "/patients/sync"');
 	expect(page).toContain("onSyncPatients");
+	expect(page).toContain('createIdempotencyKey("patient-sync")');
+	expect(page).not.toContain("patient-sync-${Date.now()}");
 	expect(page).not.toContain("unionId");
 	expect(page).not.toContain("providerPatientId");
+});
+
+test("native client generates bounded non-colliding patient sync idempotency keys", () => {
+	const first = createIdempotencyKey("patient sync");
+	const second = createIdempotencyKey("patient sync");
+
+	// 幂等键只用于区分操作，不是 token；但仍必须满足服务端 header 的字符和长度约束。
+	expect(first).toMatch(/^patient-sync-[a-z0-9]+-[a-z0-9]{8}$/);
+	expect(first.length).toBeLessThanOrEqual(128);
+	expect(second).not.toBe(first);
+	expect(createIdempotencyKey("!!!")).toMatch(/^operation-/);
 });
 
 test("native mini program exposes a real patient selection page", async () => {
@@ -217,6 +231,7 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("loadPatients");
 	expect(selection).toContain("onPatientTap");
 	expect(selection).toContain("setSelectedPatientId");
+	expect(selection).toContain('createIdempotencyKey("patient-selection-sync")');
 	expect(template).toContain("patient-card-selected");
 	expect(template).toContain("刷新就诊人");
 	expect(service).toContain('SELECTED_PATIENT_ID_KEY = "selected_patient_id"');
