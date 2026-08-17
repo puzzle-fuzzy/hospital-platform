@@ -3,18 +3,18 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 当前线上 release 是 `9833a01`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> 当前线上 release 是 `daee96d`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
 > [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)；本文后面的历史证据段落保留原时间线，不能当作当前 release 的新业务证据。
 
 ## 1. 当前事实
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | `9833a01` 已包含前序患者边界、本地分批渲染、患者同步幂等键收紧、报告详情引用故障隔离和文档修正；线上以 bundle provenance 为准，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 见 [`9833a01-production-acceptance-2026-08-17.md`](../release/9833a01-production-acceptance-2026-08-17.md) |
-| 线上新 API | `9833a01`，`18081`，production mode | [`9833a01-production-acceptance-2026-08-17.md`](../release/9833a01-production-acceptance-2026-08-17.md) |
+| 仓库代码候选 | `daee96d` 已包含前序患者边界、本地分批渲染、患者同步幂等键收紧、报告详情引用故障隔离和 Provider 失败低敏诊断；线上以 bundle provenance 为准，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 见 [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
+| 线上新 API | `daee96d`，`18081`，production mode | [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过候选 schema probe | [`9833a01-production-acceptance-2026-08-17.md`](../release/9833a01-production-acceptance-2026-08-17.md) |
-| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`9833a01-production-acceptance-2026-08-17.md`](../release/9833a01-production-acceptance-2026-08-17.md) |
+| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过候选 schema probe | [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
+| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
@@ -22,16 +22,18 @@
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
 3/3、system-ping 和未登录认证边界通过；该证据没有更新任何真实业务验收状态。
 
-本轮完整迁移门禁复核中，`architecture:audit`、`provider:audit` 和 `docs:audit` 通过；`migration:audit`
-没有判绿，原因来自并行会话正在修改的旧仓库 `G:\\fuck\\hospital`，不是新端业务请求失败。当前审计观察到
-`module_common` 为 34（台账期望 33）、旧服务挂载总数为 191（台账期望 190），并发现旧小程序接口台账缺少
-`/common/yunhealth/registration/plugin-settlement-complete` 和 `/msun-yb-app-miop/thirdPartPay/start`。
-本轮不修改旧工作树、不擅自增加旧端期望数量，也不把这两个路径直接注册到新 Elysia；必须等旧端并行修改稳定后，
-由接口来源、挂载关系和业务归属逐项复核，再更新迁移台账。完整 `pnpm check` 在此期间不能宣称全部通过。
+本轮先发现旧仓库并行修改造成的迁移台账漂移：`module_common` 实际为 34、旧服务挂载总数为 191，
+并新增 `/common/yunhealth/registration/plugin-settlement-complete` 和 `/msun-yb-app-miop/thirdPartPay/start`。
+已按旧源码逐项复核来源，并只更新新仓库的事实台账，将两条调用明确标为“最后处理”；没有修改旧工作树，
+也没有把这两个路径注册到新 Elysia。更新后 `pnpm migration:audit` 已通过，支付/医保边界仍保持关闭。
+
+本轮同时把患者选择的核心不变量补成原生小程序独立测试：首次进入且没有已保存患者时才允许默认目录第一人；
+已保存患者不在当前 owner 目录时必须进入 `stale`，不能静默切换到其他患者；仍在目录中的已保存患者必须保持显式选择。
+该测试与现有跨页面同步、过期响应和真机验收边界一起纳入 `pnpm test`，用于防止后续页面迁移时把患者上下文错误地降级成“当前用户”。
 
 本地原生小程序本轮又补齐了进程级患者同步协调器和统一患者选择导航门禁：首页、我的、预约记录、报告、
 爽约和门诊费用页面不能在另一页面实例的同步快照尚未收敛时启动第二条幂等同步；选择页直接打开时也会
-复用当前在途 Promise。该改动只影响尚未重新构建的本地小程序运行包，不改变线上 `9833a01` API、旧 Python
+复用当前在途 Promise。该改动只影响尚未重新构建的本地小程序运行包，不改变线上 `daee96d` API、旧 Python
 服务或数据库；必须在微信开发者工具重新构建后，用真机观察跨页面点击提示和服务端 trace 对齐。
 
 随后于 2026-08-17 11:13 CST 进行的公网只读复核已记录在同一证据文档的 2.5 节：live、ready、system-ping
@@ -69,7 +71,7 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `9833a01` 完成真实链路：
+这些不是继续加页面，而是用当前 `daee96d` 完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；
@@ -206,7 +208,7 @@ HIS 回写完成。
 本轮还修正了受保护 API 的认证顺序：Elysia 在 query/body/params schema 校验前验证 Bearer，
 未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
 回调仍是明确公开入口。该修正已由 API 集成测试、候选临时端口 smoke 和当前公网无会话回归验证，
-当前线上 `9833a01` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
+当前线上 `daee96d` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
 
 随后补充了患者同步入口的专门契约测试：未登录的 `POST /patients/sync` 在缺少幂等键时仍先返回
 `401 unauthorized`；已登录但幂等键缺失或包含非法字符时返回 `400 validation`，并确认 provider

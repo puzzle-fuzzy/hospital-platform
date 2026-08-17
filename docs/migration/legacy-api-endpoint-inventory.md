@@ -91,12 +91,14 @@
 | `POST /msun-yb-app-miop/outSettle/v2/settle-info/notify` | `api/modules/payment.ts` | 最后处理 | 这是医保结果写回 HIS 的边界，不作为小程序直连接口。 |
 | `POST /common/yunhealth/registration/medical-settlement-notify` | `api/modules/payment.ts`、旧 Python `module_common/yunhealth_settle` | 最后处理 | 只允许内部结算编排接收已验证的医保结果；必须绑定平台订单、幂等键和回写审计，不能由小程序直接调用。 |
 | `POST /common/yunhealth/registration/medical-settlement-complete` | `api/modules/payment.ts`、旧 Python `module_common/yunhealth_settle` | 最后处理 | 只有权威医保回写成功后才允许完成挂号结算；未知状态不得自动完成或撤销。 |
+| `POST /common/yunhealth/registration/plugin-settlement-complete` | `api/modules/payment.ts`、旧 Python `module_common/yunhealth_settle` | 最后处理 | 插件/三方支付结果回写后才能调用；必须绑定平台订单、三方支付终态、幂等键和最终结算审计，不能作为小程序“支付成功”回调。 |
 
 ### 2.5 医保授权、FSI 和微信医保混合支付
 
 | 旧 endpoint | 旧来源 | 新端状态 | 业务边界 |
 | --- | --- | --- | --- |
 | `POST /common/mip-user-query` | `api/modules/medical-insurance.ts` | 最后处理 | 授权码只能在服务端兑换；前端不得传 provider token，也不能把授权结果当作结算成功。 |
+| `POST /msun-yb-app-miop/thirdPartPay/start` | `api/modules/payment.ts` | 最后处理 | 旧端注释明确该接口用于插件完成三方支付后的结果登记/回写；请求体含证件、患者、医保人员、金额和结算标识，不能由小程序直接调用，也不能把它当作第二笔支付或虚拟成功。 |
 | `GET /msun-middle-base-common/v1/depts` | `api/modules/medical-insurance.ts` | 待 provider contract | 医保科室编码查询不能让小程序自行决定 6201 的 `caty`；必须由服务端按已确认的科室映射使用。 |
 | `GET /msun-middle-base-common/v1/users` | `api/modules/medical-insurance.ts` | 待 provider contract | 医保医师编码查询属于服务端映射数据，不把 provider 用户编码或原始用户信息返回小程序。 |
 | `POST /common/mbs-fsi/1101` | `api/modules/medical-insurance.ts` | 最后处理 | 参保人信息是敏感医保数据，必须绑定平台患者和授权有效期。 |
@@ -187,11 +189,11 @@
 | `module_system` | 88 | Admin API；患者端只单独迁移微信登录和最小当前用户视图 |
 | `module_monitor` | 20 | Operations API；不进入患者端 |
 | `module_application` | 14 | Worker/Operations API；不让患者会话管理任务 |
-| `module_common` | 33 | 文件、医保、支付和内部结算；按独立 contract 最后迁移 |
+| `module_common` | 34 | 文件、医保、支付和内部结算；按独立 contract 最后迁移 |
 | `module_convenience` | 13 | 便民业务逐域迁移；需要患者授权、内容/临床审核和医护侧权限 |
 | `module_intelligent` | 7 | AI/实时会话逐域迁移；需要 WebSocket、模型、知识版本和审计 contract |
 | `module_knowledge` | 15 | 健康内容、报告解读、自测；需要版本化导入和临床审核 |
-| **已挂载静态合计** | **190** | 不得用万能转发代替迁移 |
+| **已挂载静态合计** | **191** | 不得用万能转发代替迁移 |
 
 静态扫描另发现 `module_intelligent/urls_rag.py` 的 `POST /document/create-by-file` 1 个装饰器，
 但它没有被 `module_intelligent/__init__.py` 挂载，因此不计入上面的 190 个实际挂载路由；未来若开放，

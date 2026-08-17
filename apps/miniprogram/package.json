@@ -6,7 +6,7 @@
 		"build": "bun run typecheck && bun run scripts/build.ts",
 		"dev": "pnpm build",
 		"runtime:verify": "bun run scripts/verify-runtime.ts",
-		"test": "bun test scripts/acceptance.test.ts src/services/single-flight.test.ts src/services/page-instance-state.test.ts src/services/patient-sync-coordinator.test.ts",
+		"test": "bun test scripts/acceptance.test.ts src/services/single-flight.test.ts src/services/page-instance-state.test.ts src/services/patient-sync-coordinator.test.ts src/services/patient-selection-service.test.ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

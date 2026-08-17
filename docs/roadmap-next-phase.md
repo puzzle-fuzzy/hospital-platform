@@ -29,7 +29,7 @@
 - 本轮预约排班审计进一步移除 `usableNum`/`remainingNumber` 号源 fallback；当前只接受已确认的 `usableSourceNum`，缺失时 fail-closed，避免旧端不同接口字段被错误合并。该修正仅影响只读 adapter 边界，未打开预约写入或锁号。
 - 本轮为 runtime/provider smoke 增加有界 readiness 连续采样：库调用默认保持单次兼容语义，命令行默认 3 次，正式生产验收建议显式使用 6 次、间隔 2000 毫秒；任意中间 `not_ready` 都不能被最后一次恢复掩盖。该门禁只证明运行前置稳定，仍不替代真实微信、患者、Provider、真机或支付验收，规则见 [`release/readiness-stability-gate.md`](release/readiness-stability-gate.md)。
 - `ed250ec` 的本地 runtime smoke 已对公网 `/api/v2` 完成 6/6 readiness、no-store、system-ping 和未登录 401 连续复核；该证据仍不代表 `ed250ec` 已部署，也不替代服务器 bundle provenance、journald、微信会话或真机业务验收。详见 [`release/current-public-readiness-stability-2026-08-17.md`](release/current-public-readiness-stability-2026-08-17.md)。
-- `9833a01` 已完成真实生产 env preflight、`127.0.0.1:18082` 隔离 runtime smoke、原子切换和切换后公网 6/6 runtime smoke；本次只包含报告详情引用故障隔离和文档修正，不打开支付、医保、报告、预约写入或 HIS 写入。真实微信登录、多患者和 Provider 业务仍待在当前版本重新验收，证据见 [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md)。
+- 上一 release `9833a01` 已完成真实生产 env preflight、`127.0.0.1:18082` 隔离 runtime smoke、原子切换和切换后公网 6/6 runtime smoke；本次只包含报告详情引用故障隔离和文档修正，不打开支付、医保、报告、预约写入或 HIS 写入。真实微信登录、多患者和 Provider 业务仍待在当前版本重新验收，历史证据见 [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md)。
 - `daee96d` 已把 Provider 失败诊断统一为低敏白名单字段，并覆盖预约、门诊费用、报告和微信登录失败日志；该版本已通过本地门禁、生产 preflight、隔离 smoke 和公网运行时 smoke。该能力只增强关联性，不替代 Provider contract 或真实业务验收，证据见 [`release/daee96d-production-acceptance-2026-08-17.md`](release/daee96d-production-acceptance-2026-08-17.md)。
 - 原生小程序补齐患者同步期间的进程级协调和统一路由门禁：任意页面在同步快照时，新增或更换就诊人不会再进入选择页并发发起第二条幂等同步；新增跨页面源码验收和协调器测试通过，待下一次真机更新运行包后观察真实提示。
 

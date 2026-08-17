@@ -1,6 +1,6 @@
 # 0016 患者同步并发索引发布前审计（2026-08-17）
 
-> 本文记录的是 `6d58c9c` 发布前的只读审计窗口：当时线上仍为 `131fb5a`、schema marker/index 尚未应用。后续 migration、postcondition、候选切换和公网运行结果以当前 [`9833a01-production-acceptance-2026-08-17.md`](9833a01-production-acceptance-2026-08-17.md) 为准；本文中的“尚未应用”均属于发布前历史事实，不代表当前线上状态。
+> 本文记录的是 `6d58c9c` 发布前的只读审计窗口：当时线上仍为 `131fb5a`、schema marker/index 尚未应用。后续 migration、postcondition、候选切换和公网运行结果以当前 [`daee96d-production-acceptance-2026-08-17.md`](daee96d-production-acceptance-2026-08-17.md) 为准；本文中的“尚未应用”均属于发布前历史事实，不代表当前线上状态。
 
 > 本文记录 `0016_patient_directory_sync_owner_index` 的代码、schema 和线上只读审计结果。
 > 本次没有执行 migration、发布、重启、停止服务或患者同步写入。`0016` 是非事务性 MySQL DDL，

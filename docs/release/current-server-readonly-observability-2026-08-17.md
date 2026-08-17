@@ -5,7 +5,7 @@
 > 也未执行预约、支付、医保、退款和 HIS 写入。文档只保留可维护的低敏运行事实。
 >
 > 这是 `6d58c9c` 切换前的历史快照；切换后的当前 release、0016 migration 和生产运行证据见
-> [`9833a01-production-acceptance-2026-08-17.md`](9833a01-production-acceptance-2026-08-17.md)。
+> [`daee96d-production-acceptance-2026-08-17.md`](daee96d-production-acceptance-2026-08-17.md)。
 
 ## 0. 当前 release 追加复核（2026-08-17 13:18 CST）
 

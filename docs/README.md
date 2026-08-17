@@ -9,14 +9,14 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前生产 `9833a01` |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前生产 `daee96d` |
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板 |
-| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前 `9833a01` 线上事实、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
+| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前 `daee96d` 线上事实、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
 | [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序 |
-| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `9833a01` 微信会话、患者上下文、预约历史、爽约和门诊费用的真机/日志验收步骤与业务不变量 |
+| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `daee96d` 微信会话、患者上下文、预约历史、爽约和门诊费用的真机/日志验收步骤与业务不变量 |
 | [`logging.md`](logging.md) | Pino 事件、脱敏字段、requestId/traceId 和 journald 检索 |
 | [`../README.md`](../README.md) | 项目状态、开发命令和公开 API 概览 |
 
@@ -34,7 +34,7 @@
 | [`release/41c9c18-production-acceptance-2026-08-16.md`](release/41c9c18-production-acceptance-2026-08-16.md) | 历史 `41c9c18` 生产切换、预约科室/排班只读和快照持久化验收证据 |
 | [`release/user-profile-production-acceptance-2026-08-16.md`](release/user-profile-production-acceptance-2026-08-16.md) | 普通个人资料 0014 migration、生产 API、schema 和公网路由验收；真实微信资料读写仍待完成 |
 | [`release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](release/patient-sync-idempotency-production-acceptance-2026-08-16.md) | 0015 生产证据与 0016 发布前历史边界；真实并发/多患者同步仍待验收 |
-| [`release/patient-sync-0016-readiness-audit-2026-08-17.md`](release/patient-sync-0016-readiness-audit-2026-08-17.md) | 0016 发布前代码、schema gate、线上 marker/index 只读结果和非事务性 DDL 发布/止损顺序；发布后结果见 9833a01 验收文档 |
+| [`release/patient-sync-0016-readiness-audit-2026-08-17.md`](release/patient-sync-0016-readiness-audit-2026-08-17.md) | 0016 发布前代码、schema gate、线上 marker/index 只读结果和非事务性 DDL 发布/止损顺序；发布后结果见 daee96d 验收文档 |
 | [`release/6d58c9c-production-acceptance-2026-08-17.md`](release/6d58c9c-production-acceptance-2026-08-17.md) | `6d58c9c` 生产切换、0016 migration、候选运行边界和未完成真机业务证据 |
 | [`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md) | `5c4e7cf` MySQL 只读连接恢复、候选 checksum、生产切换、公网 6/6 readiness 和旧服务共存证据 |
 | [`release/bab0ce2-production-acceptance-2026-08-17.md`](release/bab0ce2-production-acceptance-2026-08-17.md) | `bab0ce2` 探针日志增强、候选 checksum、真实生产 preflight、原子切换、公网 6/6 readiness 和旧服务共存证据 |
@@ -58,7 +58,7 @@
 | [`release/current-production-observability-audit-2026-08-17.md`](release/current-production-observability-audit-2026-08-17.md) | 2026-08-17 当前 API 启动 capability、MySQL/schema 探针抖动、微信登录失败/恢复和患者同步日志复核 |
 | [`release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md`](release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md) | `3ab0a6c` 患者目录空快照安全边界、真实生产 env preflight、隔离端口 runtime smoke 和旧服务共存证据 |
 | [`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md) | `3ab0a6c` 原子切换、内外网运行时、6/6 readiness、旧服务共存和业务未验收边界 |
-| [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md) | `9833a01` 候选 checksum、真实生产 preflight、原子切换、公网 6/6 readiness、权限异常与业务未验收边界 |
+| [`release/daee96d-production-acceptance-2026-08-17.md`](release/daee96d-production-acceptance-2026-08-17.md) | `daee96d` 候选 checksum、真实生产 preflight、原子切换、公网 6/6 readiness、旧服务共存与业务未验收边界 |
 | [`release/systemd-narrow-permission-acceptance-2026-08-16.md`](release/systemd-narrow-permission-acceptance-2026-08-16.md) | 新 API 最小 systemd NOPASSWD 规则的安装、校验和旧服务共存证据 |
 | [`release/observability-error-contract-smoke-2026-08-16.md`](release/observability-error-contract-smoke-2026-08-16.md) | `f2c6d99` 候选 release 的 production env 隔离 smoke、中文错误契约和清理证据；不代表公网切换 |
 | [`release/miniprogram-static-navigation-acceptance.md`](release/miniprogram-static-navigation-acceptance.md) | 原生小程序静态院内导航页面验收 |
