@@ -92,17 +92,22 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 					return undefined;
 				}
 
-				this.setData({ selectedPatient: patient });
-				return loadAppointmentRecords(patient.id, new Date(), "missed");
+				// 患者卡片不能先于爽约记录提交。否则患者切换发生在 Provider
+				// 请求期间时，旧响应虽然会被丢弃，旧患者卡片仍可能短暂留在页面，
+				// 形成“卡片属于 A、列表等待 B”的错误业务快照。
+				return loadAppointmentRecords(patient.id, new Date(), "missed").then(
+					(records) => ({ patient, records }),
+				);
 			})
-			.then((records) => {
+			.then((result) => {
 				if (
-					!records ||
+					!result ||
 					!loadGuard.isCurrent(requestToken) ||
-					!isCurrentSelectedPatient(this.data.selectedPatient?.id ?? "")
+					!isCurrentSelectedPatient(result.patient.id)
 				) {
 					return;
 				}
+				const { patient, records } = result;
 				// 只筛选服务端标准化后的 missed，不能使用客户端 provider 数字状态。
 				const missedRecords = records
 					.filter(isMissedAppointment)
@@ -116,6 +121,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 					visibleRecords: missedRecords.slice(0, visibleRecordCount),
 					visibleRecordCount,
 					hasMoreRecords: visibleRecordCount < missedRecords.length,
+					selectedPatient: patient,
 					error: "",
 				});
 			})

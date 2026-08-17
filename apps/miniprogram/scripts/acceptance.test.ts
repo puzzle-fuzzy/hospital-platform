@@ -448,6 +448,26 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 	}
 });
 
+test("missed appointments commit the patient card with the filtered result", async () => {
+	const page = await source("pages/missed-appointments/missed-appointments.ts");
+	const loadStart = page.indexOf("loadRecords(): Promise<void>");
+	const loadBody = page.slice(loadStart);
+	const providerIndex = loadBody.indexOf(
+		'loadAppointmentRecords(patient.id, new Date(), "missed")',
+	);
+	const resultGateIndex = loadBody.indexOf(
+		"isCurrentSelectedPatient(result.patient.id)",
+	);
+	const patientCommitIndex = loadBody.indexOf("selectedPatient: patient");
+
+	// 爽约页必须把患者卡片和同一轮已筛选记录一起提交；不能在 provider
+	// 请求尚未完成时先画卡片，再让旧患者的卡片残留在新患者页面上。
+	expect(providerIndex).toBeGreaterThanOrEqual(0);
+	expect(resultGateIndex).toBeGreaterThan(providerIndex);
+	expect(patientCommitIndex).toBeGreaterThan(resultGateIndex);
+	expect(loadBody).toContain("const { patient, records } = result;");
+});
+
 test("native my page separates ordinary profile from family patient selection", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");
