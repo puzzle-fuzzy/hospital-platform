@@ -410,6 +410,27 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(template).toContain("{{section.title}}");
 	expect(my).toContain('title: "我的订单"');
 	expect(template).toContain('data-action="{{item.action}}"');
+	// 原版菜单的顺序、标题和图标属于可见业务契约；这里只允许使用仓库内
+	// 已核对过的本地图标，避免后续会话只保留文字或重新设计入口顺序。
+	for (const item of [
+		["appointment-records", "appointment.svg", "我的挂号"],
+		["consultation", "consultation.svg", "我的问诊"],
+		["medical-record", "medical-record.svg", "门诊病历"],
+		["electronic-consultation", "electronic-consultation.svg", "电子导诊单"],
+		["doctor", "doctor.svg", "我的医生"],
+		["missed-appointments", "missed.svg", "爽约记录"],
+		["feedback", "feedback.svg", "意见反馈"],
+		["smart-customer", "smart-customer.svg", "智能客服"],
+		["insurance", "insurance.svg", "医保电子凭证"],
+	] as const) {
+		const [action, icon, title] = item;
+		expect(my).toContain(`action: "${action}"`);
+		expect(my).toContain(`icon: "/assets/legacy-user/${icon}"`);
+		expect(my).toContain(`title: "${title}"`);
+	}
+	for (const icon of ["tab-01.png", "tab-02.png", "tab-03.png", "tab-04-active.png"]) {
+		expect(template).toContain(`/assets/legacy-home/${icon}`);
+	}
 	expect(my).toContain('title: "电子导诊单"');
 	expect(my).toContain('action: "electronic-consultation"');
 	expect(my).toContain('action: "smart-customer"');
