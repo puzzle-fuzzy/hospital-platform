@@ -6,7 +6,7 @@
 		<image class="profile-icon" src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
 		<view class="profile-copy">
 			<text class="profile-name">{{userLabel}}</text>
-			<text class="profile-hint">点击管理家庭成员</text>
+			<text class="profile-hint">点击编辑个人资料</text>
 		</view>
 		<text class="profile-arrow">›</text>
 	</view>

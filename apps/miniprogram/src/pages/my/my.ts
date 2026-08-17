@@ -1,4 +1,8 @@
-import { getCurrentUser, safeApiErrorMessage } from "../../services/api-client";
+import {
+	getCurrentUser,
+	getUserProfile,
+	safeApiErrorMessage,
+} from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
 import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
@@ -62,19 +66,35 @@ Page<MyPageData, MyPageMethods>({
 		const pageLoadGuard = getPageLatestRequestGuard(this, "my-page");
 		const requestToken = pageLoadGuard.begin();
 		this.setData({ loading: true, error: "" });
-		return Promise.all([getCurrentUser(), loadPatients()])
-			.then(([userPayload, patients]) => {
+		// `/me` 和患者目录决定“我的”页的核心会话上下文，资料只是头像区域的
+		// 展示增强。资料读取失败不能让已经成功的患者上下文整页失败，但必须
+		// 留下用户可见的可重试提示，避免把“微信用户”误认为资料读取成功。
+		const profileResult = getUserProfile().then(
+			(response) => ({ status: "fulfilled" as const, response }),
+			(error) => ({ status: "rejected" as const, error }),
+		);
+		return Promise.all([getCurrentUser(), loadPatients(), profileResult])
+			.then(([userPayload, patients, profile]) => {
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);
 				const selectedPatient = resolution.patient ?? null;
+				const displayName =
+					profile.status === "fulfilled"
+						? profile.response.data.displayName.trim()
+						: "";
+				const profileError =
+					profile.status === "rejected"
+						? safeApiErrorMessage(profile.error, "个人资料暂时不可用")
+						: "";
 				this.setData({
-					userLabel: userPayload.data.user.id ? "微信用户" : "未登录",
+					userLabel:
+						displayName || (userPayload.data.user.id ? "微信用户" : "未登录"),
 					selectedPatient,
 					patientCount: patients.length,
 					error:
 						resolution.state === "stale"
 							? "上次选择的就诊人已不可用，请重新选择就诊人"
-							: "",
+							: profileError,
 				});
 			})
 			.catch((error) => {

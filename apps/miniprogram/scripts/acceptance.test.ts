@@ -389,9 +389,13 @@ test("native my page separates ordinary profile from family patient selection", 
 
 	expect(app).toContain('"pages/profile/profile"');
 	expect(my).toContain('url: "/pages/profile/profile"');
+	expect(my).toContain("getUserProfile");
+	expect(my).toContain('status: "rejected" as const');
+	expect(my).toContain("资料读取失败不能让已经成功的患者上下文整页失败");
 	expect(my).toContain('url: "/pages/patient-select/patient-select"');
 	expect(template).toContain('bindtap="onFamilyTap"');
 	expect(template).toContain('bindtap="onHeaderTap"');
+	expect(template).toContain("点击编辑个人资料");
 	expect(template).toContain('data-action="electronic-consultation"');
 	expect(template).toContain("电子导诊单");
 	expect(template).toContain('data-action="smart-customer"');
