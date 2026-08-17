@@ -260,11 +260,11 @@
 
 ## 业务实施顺序
 
-### 2026-08-18 原生“我的挂号”底栏一致性修正
+### 2026-08-18 原生“我的”与“我的挂号”布局边界纠正
 
-对照旧端 `my_registration.vue` 的 `default` layout 后确认：旧端“我的挂号”页和“我的”页
-一样继承固定底部导航。原生挂号记录页已补齐四项底栏、复用
-`constants/legacy-tabbar.ts`，并为无记录/加载状态补充底栏安全区留白；筛选、患者 owner
+重新对照旧端 `my_registration.vue` 与 `src/layouts/default.vue` 后确认：旧端“我的挂号”页使用
+`default` 布局，不渲染固定底部导航；固定四项底栏只属于首页和“我的”页。原生挂号记录页已移除
+之前误加的四项底栏及对应安全区留白，恢复旧端 `pb-20` 的 160rpx 底部节奏；筛选、患者 owner
 校验和预约只读边界没有变化。代码和验证记录见
 [`release/miniprogram-personal-center-tabbar-parity-2026-08-18.md`](release/miniprogram-personal-center-tabbar-parity-2026-08-18.md)。
 

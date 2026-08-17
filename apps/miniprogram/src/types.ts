@@ -225,8 +225,6 @@ export type DepartmentLocationView = {
 export type AppointmentRecordsPageData = {
 	/** 只属于当前页面实例，不能使用模块级变量跨实例共享生命周期状态。 */
 	hasShown: boolean;
-	/** 旧端挂号页继承公共布局，因此也必须渲染同一组固定底部 Tab。 */
-	tabBarItems: ReadonlyArray<TabBarItem>;
 	selectedPatient: Patient | null;
 	/** 当前查询得到的完整预约记录；总数和状态事实不能被本地分批改变。 */
 	records: Array<AppointmentRecordView>;

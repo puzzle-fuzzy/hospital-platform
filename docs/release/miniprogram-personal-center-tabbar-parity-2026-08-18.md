@@ -1,11 +1,11 @@
-# 原生小程序个人中心底栏一致性修正（2026-08-18）
+# 原生小程序个人中心与挂号页布局一致性修正（2026-08-18）
 
 ## 结论
 
-已修正原生“我的挂号”页与旧端公共布局之间的视觉差异：旧端
-`pagesB/user/my_registration.vue` 使用 `default` layout，因此除了“我的”页之外，
-挂号记录页也会固定展示四项底部导航。原生页现在直接复用
-`constants/legacy-tabbar.ts`，第 4 项“我的”保持激活态。
+已按旧端源码纠正原生“我的挂号”页的视觉边界：旧端
+`pagesB/user/my_registration.vue` 使用 `default` layout，而
+`src/layouts/default.vue` 不渲染底部导航。因此挂号记录页不应出现首页/“我的”页的四项底栏；
+固定底栏只属于首页和“我的”页。
 
 本次只修正页面结构、固定定位和安全区留白，不改变预约历史 API、状态筛选、患者 owner
 校验、Provider 调用或任何预约写入能力。
@@ -13,26 +13,25 @@
 ## 代码变化
 
 - `apps/miniprogram/src/pages/appointment-records/appointment-records.wxml`
-  - 增加固定底部导航，图标和文案与首页/“我的”页共用同一份常量；
-  - 未迁移的 Tab 继续显示迁移提示，首页仍通过 `reLaunch` 返回。
+  - 移除原生端额外添加的固定底部导航，恢复旧端 `default` 布局边界。
 - `apps/miniprogram/src/pages/appointment-records/appointment-records.wxss`
-  - 增加 130rpx 业务栏和安全区样式；
-  - 无记录/加载状态额外预留底栏空间，避免固定栏覆盖状态内容。
+  - 恢复旧端 `pb-20` 的 160rpx 底部留白；
+  - 无记录状态不再为不存在的固定底栏额外预留安全区空间。
 - `apps/miniprogram/src/pages/appointment-records/appointment-records.ts`
-  - 增加页面级底栏事件，不与“在线挂号/全部挂号”筛选事件混用。
+  - 移除不属于旧端页面的底栏数据、导入和事件。
 - `docs/migration/personal-center-visual-contract.md`
-  - 明确旧端继承公共布局的“我的挂号”页也属于固定底栏契约。
+  - 明确首页/“我的”页与挂号页的布局边界，防止再次把底栏误加到挂号页。
 
 ## 验证证据
 
 在未修改用户已有 `apps/miniprogram/project.config.json` 的前提下：
 
-- 小程序测试：92 项通过，886 个断言通过；
+- 小程序测试：92 项通过，884 个断言通过；
 - 小程序 TypeScript：通过；
 - 小程序构建：通过，14 个 `app.json` 页面脚本均生成；
-- Biome lint：通过；
+- Biome format/lint、文档断链审计和全项目 `pnpm check`：通过；
 - `git diff --check`：通过；
-- 真机视觉：仍需在微信开发者工具/真机确认底栏实际位置、图标垂直居中和安全区表现。
+- 真机视觉：仍需在微信开发者工具/真机确认首页和“我的”页底栏位置，以及挂号页不出现额外底栏。
 
 ## 当前边界
 
