@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	OutpatientPaymentGateway,
 	PatientRepository,
@@ -235,4 +236,58 @@ test("门诊费用输入和 owner 映射失败都会留下可检索的低敏日�
 		status: "paid",
 		errorType: "Error",
 	});
+});
+
+test("门诊费用 Provider 失败日志保留关联字段但不记录原文", async () => {
+	const lines: string[] = [];
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => {
+				throw new ProviderRequestError({
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "provider-payment-failed",
+					statusCode: 429,
+					retryable: true,
+					message: "provider raw payment response",
+				});
+			},
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unpaid", {
+			traceId: "trace-payment-provider-failed",
+			idempotencyKey: "key-payment-provider-failed",
+		}),
+	).rejects.toBeInstanceOf(ProviderRequestError);
+
+	const record = lines
+		.map((line) => JSON.parse(line) as Record<string, unknown>)
+		.find((item) => item.event === "outpatient.payment.records.failed");
+	expect(record).toMatchObject({
+		providerOperation: "outpatient-payment-records",
+		providerRequestId: "provider-payment-failed",
+		providerStatusCode: 429,
+		providerRetryable: true,
+	});
+	expect(JSON.stringify(record)).not.toContain("provider raw payment response");
 });

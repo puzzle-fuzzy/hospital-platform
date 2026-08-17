@@ -1,5 +1,45 @@
 import { expect, test } from "bun:test";
-import { createLogger } from "./index";
+import { createLogger, providerFailureMetadata } from "./index";
+
+test("Provider 失败只提取可关联的低敏诊断字段", () => {
+	const error = Object.assign(
+		new Error("provider raw response contains patient data"),
+		{
+			name: "ProviderRequestError",
+			provider: "zhongyang",
+			operation: "appointment-departments",
+			requestId: "provider-request-001",
+			statusCode: 502,
+			retryable: false,
+		},
+	);
+
+	expect(providerFailureMetadata(error)).toEqual({
+		provider: "zhongyang",
+		providerOperation: "appointment-departments",
+		providerRequestId: "provider-request-001",
+		providerStatusCode: 502,
+		providerRetryable: false,
+	});
+	expect(JSON.stringify(providerFailureMetadata(error))).not.toContain(
+		"patient data",
+	);
+});
+
+test("Provider 失败的异常字段不越过日志白名单", () => {
+	const error = Object.assign(new Error("sensitive"), {
+		name: "ProviderRequestError",
+		provider: "patient\nsecret",
+		operation: "appointment-records",
+		requestId: "x".repeat(129),
+		statusCode: 700,
+		retryable: "false",
+	});
+
+	expect(providerFailureMetadata(error)).toEqual({
+		providerOperation: "appointment-records",
+	});
+});
 
 test("pino emits JSON and redacts configured sensitive paths", () => {
 	const lines: string[] = [];

@@ -85,21 +85,21 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `appointment.directory.departments.synced` | 预约科室目录读取 | 记录 provider request id 和科室数量 |
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |
 | `appointment.directory.schedules.synced` | 预约排班目录读取 | 记录 provider request id、排班数量和 `snapshotPersistenceStatus`；该字段区分只读 Provider 结果与未来写入前的快照事实 |
-| `appointment.directory.departments.failed` / `appointment.directory.schedules.failed` | 预约目录读取 | 覆盖服务端日期生成、输入校验、依赖和 Provider 失败；记录错误类型，不记录 provider 原始错误报文 |
+| `appointment.directory.departments.failed` / `appointment.directory.schedules.failed` | 预约目录读取 | 覆盖服务端日期生成、输入校验、依赖和 Provider 失败；记录错误类型；Provider 失败额外记录低敏 operation/request id/HTTP 状态/retryable，不记录原始错误报文 |
 | `appointment.records.requested` / `appointment.records.synced` | 预约历史只读查询 | 记录内部 patientId、有限日期范围、provider request id 和返回数量；空数组成功必须保留 `synced`，不记录 provider 患者号 |
-| `appointment.records.failed` | 预约历史只读查询 | 覆盖日期校验、依赖未配置、owner 映射和 Provider 失败；记录错误类型和内部 patientId，不记录 provider 原始报文 |
+| `appointment.records.failed` | 预约历史只读查询 | 覆盖日期校验、依赖未配置、owner 映射和 Provider 失败；记录错误类型、内部 patientId 以及 Provider 低敏诊断字段，不记录 provider 原始报文 |
 | `outpatient.payment.records.requested` | 门诊费用只读查询 | 仅在 patientId 通过服务层非空校验后记录内部 patientId、查询状态和 trace；不记录 provider 患者号、订单号或原始报文 |
 | `outpatient.payment.records.loaded` | 门诊费用只读查询 | 记录 provider request id、状态和返回数量；金额只保留服务端读模型，不记录完整费用明细 |
-| `outpatient.payment.records.failed` | 门诊费用只读查询 | 覆盖输入校验、owner 映射、持久化和 provider 失败；记录错误类型和内部 patientId，不记录 provider 原始错误、支付凭证或医保字段 |
+| `outpatient.payment.records.failed` | 门诊费用只读查询 | 覆盖输入校验、owner 映射、持久化和 provider 失败；记录错误类型、内部 patientId 以及 Provider 低敏诊断字段，不记录 provider 原始错误、支付凭证或医保字段 |
 | `http.request.failed`（provider 失败时） | API 请求统一观测 | 额外记录 `provider`、`providerOperation`、`providerRequestId`、`providerStatusCode`、`providerRetryable`；不记录 URL、请求体或响应体 |
 | `appointment.schedule_snapshots.persisted` / `appointment.schedule_snapshots.failed` | 排班只读快照 | 记录 provider request id、数量、过期时间或错误类型；不记录 provider 身份和原始响应 |
 | `report.directory.requested` | 报告目录读取 | 记录内部 patientId、日期范围、来源筛选和 trace，不记录 provider 患者号 |
 | `report.directory.synced` | 报告目录读取 | 记录 provider request id 和摘要数量，不记录 provider 患者号或原始报告 |
-| `report.directory.failed` | 报告目录读取 | 覆盖日期校验、owner 映射、依赖和 Provider 失败；记录错误类型和内部 patientId，不记录 provider 患者号或原始报告 |
+| `report.directory.failed` | 报告目录读取 | 覆盖日期校验、owner 映射、依赖和 Provider 失败；记录错误类型、内部 patientId 以及 Provider 低敏诊断字段，不记录 provider 患者号或原始报告 |
 | `report.detail_reference.failed` | 报告目录中的详情引用建立 | 单条短期引用持久化失败时记录 trace、provider request id、内部 patientId 和错误类型；该事件表示详情入口被隐藏，摘要仍保留，不记录 provider 报告号或原始异常 |
 | `report.detail.requested` | LIS 报告详情读取 | 记录 opaque reportId 和 trace，不记录 provider 报告号 |
 | `report.detail.synced` | LIS 报告详情读取 | 记录 provider request id 和检测项数量，不记录详情原文 |
-| `report.detail.failed` | LIS 报告详情读取 | 覆盖详情依赖未配置、owner/TTL 查询和 Provider 失败；记录 opaque reportId 和错误类型，不记录 provider 原始错误 |
+| `report.detail.failed` | LIS 报告详情读取 | 覆盖详情依赖未配置、owner/TTL 查询和 Provider 失败；记录 opaque reportId、错误类型以及 Provider 低敏诊断字段，不记录 provider 原始错误 |
 
 ### 只读查询事件的生命周期约定
 

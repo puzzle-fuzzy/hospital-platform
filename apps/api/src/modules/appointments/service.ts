@@ -18,7 +18,11 @@ import {
 	type PatientRepository,
 	parseIsoCalendarDate,
 } from "@hospital/domain";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	createNoopLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
 
 export type AppointmentServiceDependencies = {
 	directory: AppointmentDirectoryGateway;
@@ -409,6 +413,7 @@ export class AppointmentService {
 						? patientId
 						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...providerFailureMetadata(error),
 				},
 				"Appointment records request failed",
 			);
@@ -427,6 +432,7 @@ export class AppointmentService {
 				traceId: context.traceId,
 				provider: "zhongyang",
 				errorType: error instanceof Error ? error.name : "unknown",
+				...providerFailureMetadata(error),
 			},
 			"Appointment directory request failed",
 		);

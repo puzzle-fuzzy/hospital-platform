@@ -1,6 +1,9 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import { DependencyNotConfiguredError } from "@hospital/domain";
-import type { AppLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
 
@@ -76,13 +79,7 @@ export function safeErrorMetadata(
 	if (error instanceof ProviderRequestError) {
 		return {
 			...metadata,
-			provider: error.provider,
-			providerOperation: error.operation,
-			...(error.requestId ? { providerRequestId: error.requestId } : {}),
-			...(error.statusCode !== undefined
-				? { providerStatusCode: error.statusCode }
-				: {}),
-			providerRetryable: error.retryable,
+			...providerFailureMetadata(error),
 		};
 	}
 	if (error instanceof PersistenceUnavailableError) {

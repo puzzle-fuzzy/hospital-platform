@@ -19,7 +19,11 @@ import {
 	parseIsoCalendarDate,
 	REPORT_REFERENCE_MAX_TTL_MS,
 } from "@hospital/domain";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	createNoopLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
 
 export type ReportServiceDependencies = {
 	repository: PatientRepository;
@@ -237,6 +241,7 @@ export class ReportService {
 						? patientId
 						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...providerFailureMetadata(error),
 				},
 				"Report directory request failed",
 			);
@@ -297,6 +302,7 @@ export class ReportService {
 					traceId: context.traceId,
 					reportId: isBoundedOpaqueIdentifier(reportId) ? reportId : "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...providerFailureMetadata(error),
 				},
 				"Report detail request failed",
 			);

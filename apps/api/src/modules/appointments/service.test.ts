@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	AppointmentDirectoryGateway,
 	PatientRepository,
@@ -400,7 +401,14 @@ test("appointment record empty results are successful and record failures are lo
 		} as unknown as PatientRepository,
 		records: {
 			listRecords: async () => {
-				throw new Error("provider unavailable");
+				throw new ProviderRequestError({
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: "provider-record-failed",
+					statusCode: 403,
+					retryable: false,
+					message: "provider unavailable",
+				});
 			},
 		},
 		logger,
@@ -423,9 +431,21 @@ test("appointment record empty results are successful and record failures are lo
 		expect.objectContaining({
 			event: "appointment.records.failed",
 			traceId: "trace-record-provider",
-			errorType: "Error",
+			errorType: "ProviderRequestError",
 		}),
 	);
+	const providerFailure = providerFailureEvents.find(
+		(record) =>
+			record.event === "appointment.records.failed" &&
+			record.traceId === "trace-record-provider",
+	);
+	expect(providerFailure).toMatchObject({
+		providerOperation: "appointment-records",
+		providerRequestId: "provider-record-failed",
+		providerStatusCode: 403,
+		providerRetryable: false,
+	});
+	expect(JSON.stringify(providerFailure)).not.toContain("provider unavailable");
 	expect(providerCalls).toBe(1);
 });
 

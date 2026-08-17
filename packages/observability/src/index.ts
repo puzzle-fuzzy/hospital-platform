@@ -5,6 +5,78 @@ export type AppLogger = PinoLogger;
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 
 /**
+ * Provider 失败事件允许记录的低敏诊断字段。
+ *
+ * 这些字段只用于把平台日志与 Provider 网关日志关联起来；Provider 原始
+ * 响应、URL、请求体、患者号和凭证仍然禁止进入日志。业务模块不应自行
+ * 读取 Error.message 来“补充上下文”，统一通过下面的白名单函数提取。
+ */
+export type ProviderFailureMetadata = {
+	provider?: string;
+	providerOperation?: string;
+	providerRequestId?: string;
+	providerStatusCode?: number;
+	providerRetryable?: boolean;
+};
+
+/** Provider 返回的 request id 可能来自外部，先做长度和控制字符边界检查。 */
+function safeProviderText(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	if (
+		[...value].some((character) => {
+			const code = character.charCodeAt(0);
+			return code < 32 || code === 127;
+		})
+	) {
+		return undefined;
+	}
+	const normalized = value.trim();
+	if (!normalized || normalized.length > 128) {
+		return undefined;
+	}
+	return normalized;
+}
+
+/**
+ * 从 ProviderRequestError 提取跨业务模块一致的安全诊断元数据。
+ *
+ * 这里按错误名称和字段形状识别，避免 observability 包反向依赖 adapters；
+ * 只有平台内部的 ProviderRequestError 才会带有这些字段，其他异常返回空对象。
+ */
+export function providerFailureMetadata(
+	error: unknown,
+): ProviderFailureMetadata {
+	if (!(error instanceof Error) || error.name !== "ProviderRequestError") {
+		return {};
+	}
+	const candidate = error as Error & {
+		provider?: unknown;
+		operation?: unknown;
+		requestId?: unknown;
+		statusCode?: unknown;
+		retryable?: unknown;
+	};
+	const provider = safeProviderText(candidate.provider);
+	const providerOperation = safeProviderText(candidate.operation);
+	const providerRequestId = safeProviderText(candidate.requestId);
+	const statusCode = candidate.statusCode;
+	return {
+		...(provider ? { provider } : {}),
+		...(providerOperation ? { providerOperation } : {}),
+		...(providerRequestId ? { providerRequestId } : {}),
+		...(typeof statusCode === "number" &&
+		Number.isInteger(statusCode) &&
+		statusCode >= 100 &&
+		statusCode <= 599
+			? { providerStatusCode: statusCode }
+			: {}),
+		...(typeof candidate.retryable === "boolean"
+			? { providerRetryable: candidate.retryable }
+			: {}),
+	};
+}
+
+/**
  * 统一的敏感路径清单；Pino 会在序列化前替换这些字段，避免凭证进入 JSON 日志。
  * 业务日志仍然不应直接传入完整 request body 或 provider 原始报文。
  */

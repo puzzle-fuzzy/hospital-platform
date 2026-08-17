@@ -14,7 +14,11 @@ import {
 	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
 } from "@hospital/domain";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	createNoopLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
 import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
@@ -235,6 +239,7 @@ export class OutpatientPaymentService {
 					// 避免把任意外部字符串当成合法业务状态继续传播。
 					status: isOutpatientPaymentStatus(status) ? status : "invalid",
 					errorType: error instanceof Error ? error.name : "UnknownError",
+					...providerFailureMetadata(error),
 				},
 				"Outpatient payment records failed",
 			);

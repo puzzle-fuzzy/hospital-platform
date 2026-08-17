@@ -114,6 +114,10 @@
   报告继续使用过去 30 天；服务端仍会再次校验日期范围，客户端不能放宽服务端上限。
 - 预约历史的 Provider smoke 也必须发送与“我的挂号”相同的前后各 90 天窗口；只验证过去到当天
   会漏掉未来预约，不能作为该业务不变量的验收证据。
+- Provider 失败不能只记录一个笼统的 `Error`：认证、预约、门诊费用和报告的失败事件必须在不记录
+  原始报文的前提下保留 `providerOperation`、`providerRequestId`、`providerStatusCode` 和
+  `providerRetryable`（有值时）。这样 `provider-request-rejected` 可以和 Provider 网关请求关联，
+  但不能把 Provider 的患者数据、费用字段、URL 或凭证写入日志。
 - Provider smoke 构造日期时必须把绝对时间转换为 `Asia/Shanghai` 的自然日；UTC 时间在北京时间
   午夜附近不能直接截取 `toISOString()` 的日期部分，否则会让预约、报告和排班验收跨日偏移。
 - 报告详情的短期 opaque 引用在创建、过期计算和 owner 查询时必须使用同一个服务端应用时钟；

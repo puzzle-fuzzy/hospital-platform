@@ -1,16 +1,19 @@
 import type {
+	AuthSessionPayload,
+	WechatLoginPayload,
+} from "@hospital/contracts";
+import type {
 	AdapterCallContext,
 	UserIdentityRepository,
 	WechatIdentityGateway,
 } from "@hospital/domain";
-import { ProviderRequestError } from "@hospital/adapters";
-import type {
-	AuthSessionPayload,
-	WechatLoginPayload,
-} from "@hospital/contracts";
-import type { RedisSessionStore } from "@hospital/persistence";
 import { DependencyNotConfiguredError } from "@hospital/domain";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	createNoopLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
+import type { RedisSessionStore } from "@hospital/persistence";
 import { HttpError } from "../../errors";
 
 export type SessionPrincipal = {
@@ -88,15 +91,19 @@ export class AuthService {
 			};
 		} catch (error) {
 			// ProviderRequestError 的 message 可能包含 provider 状态，日志只保留分类。
+			const providerFailure = providerFailureMetadata(error);
 			this.logger.error(
 				{
 					event: "auth.wechat.login.failed",
 					traceId: context.traceId,
 					provider: "wechat-identity",
 					errorType: error instanceof Error ? error.name : "unknown",
-					...(error instanceof ProviderRequestError
-						? { retryable: error.retryable }
-						: {}),
+					...providerFailure,
+					// 保留旧日志查询使用的 retryable 别名；新业务统一使用
+					// providerRetryable，避免维护时破坏既有告警检索。
+					...(providerFailure.providerRetryable === undefined
+						? {}
+						: { retryable: providerFailure.providerRetryable }),
 				},
 				"Wechat login failed",
 			);
