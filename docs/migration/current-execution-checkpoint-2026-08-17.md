@@ -496,6 +496,13 @@ owner 隔离和 Provider 映射语义因此保持一致。本轮没有重复修�
 当作字段、状态、患者上下文或金额验收。当前 release、新旧服务监听和旧 Python 进程均未改变；详细低敏聚合见
 [`../release/current-server-p0-observation-2026-08-17.md`](../release/current-server-p0-observation-2026-08-17.md)。
 
+随后 17:40 CST 通过受控 SSH 对当前 `0b6f38f` 进程启动后的 journald 做低敏聚合：微信登录请求/成功各 1 次，
+患者目录同步请求/成功各 5 次、患者读模型请求/成功各 13 次，预约历史请求/同步各 1 次，门诊费用请求/加载
+各 1 次，HTTP 200/401 为 37/7，去重 `providerRequestId` 为 8。新 API `18081` 与旧 Python `8001` 仍共存，
+没有执行线上修改。该证据只证明预约历史和门诊费用已进入当前 release 的只读业务链，仍不能证明页面字段、
+患者上下文、待缴/已缴状态、金额、Redis TTL 或真机视觉结果；下一步按 P0 手册进行有效会话下的逐页核对，
+支付、医保、退款和 HIS 回写继续关闭。
+
 随后按旧端 `hospital-app/src/pages/user/user.vue`、`userNavData.json` 和
 `pagesB/user/my_registration.vue` 复核并重制原生小程序的“我的”和“我的挂号”页面：
 背景、头像占位、家庭成员入口、三组功能分类、旧端图标和固定底部导航均改为本地静态资源，避免

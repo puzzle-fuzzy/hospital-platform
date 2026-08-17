@@ -131,3 +131,26 @@ HTTP、页面和服务端事件三层结果。
 ## 5. 下一步
 
 使用当前构建的小程序运行包，由受控微信账号在开发者工具或真机依次执行：患者选择 → 我的挂号 → 门诊缴费待缴 → 门诊缴费已缴；同时记录安全 `traceId`、HTTP 状态和服务端事件。任何 `persistence-temporarily-unavailable`、Provider 字段错误或患者上下文错配都停止该域验收，不降级为空列表，也不提前开放支付。
+
+### 17:40 CST 当前 release 增量观察
+
+2026-08-17 17:40 CST 通过 SSH 再次只读核对：`current` 仍指向
+`0b6f38f6e50e8c9d47422c9f0ffc44dc9ecbc185`，systemd active 时间为 16:40:29 CST，
+新 API `10.0.0.3:18081` 和旧 Python `0.0.0.0:8001` 同时监听。本次从当前 Bun 进程启动后开始读取
+journald，并只输出事件名、状态码和数量；没有读取 env、token、Redis 原始 key、数据库患者正文或 Provider 原文。
+
+| 聚合项 | 数量 | 结论 |
+| --- | ---: | --- |
+| `service.started` | 1 | 当前进程启动事件存在 |
+| `auth.wechat.login.requested` / `succeeded` | 各 1 | 观察到 1 次完整微信登录事件链，Redis TTL 仍未直接验证 |
+| `patient.directory.requested` / `synced` | 各 5 | 观察到患者目录同步事件，但仍不能推出多患者或失效恢复正确 |
+| `patient.directory.read.requested` / `read.loaded` | 各 13 | 观察到患者读模型读取，不能证明页面当前患者没有串读 |
+| `appointment.records.requested` / `synced` | 各 1 | 预约历史已经进入业务链，仍缺页面结果和状态字段核对 |
+| `outpatient.payment.records.requested` / `loaded` | 各 1 | 门诊费用已经进入只读链，仍缺待缴/已缴、金额和空列表核对 |
+| `report.*` | 0 | 报告 gate 继续关闭 |
+| HTTP 200 / HTTP 401 | 37 / 7 | 401 只能证明未登录边界，不能解释为 Provider 失败 |
+| 去重后的 `providerRequestId` 数量 | 8 | 仅证明存在可关联请求号，不证明字段、状态或金额正确 |
+
+这次观察把预约历史和门诊费用从“当前窗口没有业务事件”推进到“已进入当前 release 的只读业务链”，
+但不改变 P0 未验收结论。下一步必须用重新构建的小程序在有效会话下逐页核对页面数据、请求状态和对应
+trace；如果出现患者上下文错配、Provider 字段不完整或依赖暂不可用，应停止该域验收，不降级为空列表。
