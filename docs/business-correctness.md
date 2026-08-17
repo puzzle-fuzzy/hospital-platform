@@ -195,7 +195,7 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 - 门诊费用金额和展示字段只能使用 Provider 已确认的 contract 字段；旧端遗留的 `waitPayAmount`、`registerDept`、`registerDoctor` 未确认前必须忽略，不能作为 `amountFen` 或科室/医生名称的 fallback。
 - 2.6.33 的 `tradeStatus` 不能压扁成二值支付状态：只有 `1=待支付` 映射为公共 `unpaid`、`3=已支付` 映射为公共 `paid`；
   `2=已生成结算`、`4=退款中`、`5=已退款`、`9=作废` 在独立结算/退款 contract 确认前必须整批 fail-closed，不能显示为已支付或可支付。
-- 报告详情的单位字段必须在 adapter 边界限制为最多 64 个字符；报告名称、检测结果和参考范围则分别遵循公开 contract 的 256 字符上限。
+- 报告详情的单位字段必须在 adapter 边界限制为最多 64 个字符；报告名称、检测结果和参考范围则分别遵循公开 contract 的 256 字符上限，且报告 adapter 的所有展示文本都要归一化首尾空白并拒绝控制字符。短期 `reportId`、患者内部 ID 和 provider 报告号落库前也必须拒绝首尾空白和控制字符，不能让内部任务绕过 adapter 后污染引用和日志检索。
 - 预约历史如果 Provider 返回 `appointmentInfoId`，adapter 必须拒绝同一响应中的重复预约号；
   缺少预约号时只保留安全摘要，不根据日期、流水号或数组位置伪造公共业务 ID。页面的渲染 key
   只是列表 diff 辅助值，不能被详情、取消或状态刷新当作预约身份。

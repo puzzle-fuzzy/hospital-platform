@@ -556,6 +556,21 @@ test("report references enforce owner isolation and expiry", async () => {
 		name: "ReportReferenceValidationError",
 		reason: "invalid_window",
 	});
+	await expect(
+		references.upsert({
+			reportId: "report-with-control-character",
+			ownerUserId: "user-001",
+			patientId: "patient-001",
+			provider: "zhongyang",
+			kind: "laboratory",
+			providerReportId: "provider-report-\n-invalid",
+			createdAt: "2026-08-15T00:00:00.000Z",
+			expiresAt: "2026-08-15T00:10:00.000Z",
+		}),
+	).rejects.toMatchObject({
+		name: "ReportReferenceValidationError",
+		reason: "invalid_reference",
+	});
 });
 
 test("in-memory payment repository enforces owner lookup", async () => {

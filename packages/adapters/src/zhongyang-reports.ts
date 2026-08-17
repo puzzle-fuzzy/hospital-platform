@@ -120,7 +120,17 @@ function requiredText(
 		);
 	}
 	const normalized = String(value).trim();
-	if (!normalized || normalized.length > maxLength) {
+	if (
+		!normalized ||
+		normalized.length > maxLength ||
+		Array.from(normalized).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		// Provider 文本会进入患者端摘要、详情和结构化日志；控制字符会破坏
+		// 页面排版、日志检索以及下游请求边界。这里直接拒绝整条 Provider
+		// 响应，而不是静默删除字符，避免把临床原始数据改写成另一种含义。
 		throw providerError(
 			operation,
 			`Zhongyang report field ${field} is invalid`,

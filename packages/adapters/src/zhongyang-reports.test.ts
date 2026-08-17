@@ -232,6 +232,47 @@ test("众阳 LIS 详情在公开 contract 边界拒绝超长单位", async () =>
 	});
 });
 
+test("众阳报告 adapter 拒绝带控制字符的 Provider 文本", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							testList: "血常规\n异常",
+							reportTime: "2026-08-15 10:00:00",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "control-character-report" },
+				},
+			),
+	});
+
+	await expect(
+		gateway.listReports(
+			{
+				providerPatientId: "provider-patient-control-character",
+				query: {
+					startDate: "2026-08-01",
+					endDate: "2026-08-15",
+					kind: "laboratory",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory",
+		requestId: "control-character-report",
+		retryable: false,
+	});
+});
+
 test("众阳报告目录拒绝业务失败或无法映射的响应", async () => {
 	const gateway = createZhongyangReportGateway({
 		baseUrl: "https://zhongyang.example.test",

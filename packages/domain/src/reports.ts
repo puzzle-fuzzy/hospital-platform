@@ -119,9 +119,16 @@ export function validateReportReference(input: ReportReferenceInput): void {
 			({ value, maxLength }) =>
 				typeof value !== "string" ||
 				value.trim().length === 0 ||
-				value.length > maxLength,
+				value.length > maxLength ||
+				value !== value.trim() ||
+				Array.from(value).some((character) => {
+					const code = character.charCodeAt(0);
+					return code <= 0x1f || code === 0x7f;
+				}),
 		)
 	) {
+		// 引用会落库并参与后续 owner-scoped 查询；控制字符会破坏数据库
+		// 检索、日志关联和 provider 请求边界，必须在 persistence 前 fail-closed。
 		throw new ReportReferenceValidationError("invalid_reference");
 	}
 	if (
