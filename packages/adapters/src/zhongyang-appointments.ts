@@ -250,6 +250,30 @@ function ensureUniqueAppointmentIds(
 	}
 }
 
+/**
+ * 从 provider 的完整日期时间中提取患者端需要的 HH:mm。
+ *
+ * 旧端会用 groupStart/groupEnd 展示时间段，但这些字段可能携带完整日期、
+ * 秒或时区信息，不能直接透传到公共读模型。只接受明确的时钟片段；解析
+ * 失败时由调用方回退 workTime，避免一个非关键展示字段让整批历史记录失败。
+ */
+function clockTime(value: unknown): string | undefined {
+	if (typeof value !== "string" || value.trim().length > 128) return undefined;
+	const match = value.match(/(?:^|[T\s])(\d{2}):(\d{2})(?::\d{2})?/);
+	if (!match) return undefined;
+	const hour = Number(match[1]);
+	const minute = Number(match[2]);
+	if (
+		!Number.isInteger(hour) ||
+		!Number.isInteger(minute) ||
+		hour > 23 ||
+		minute > 59
+	) {
+		return undefined;
+	}
+	return `${match[1]}:${match[2]}`;
+}
+
 function mapRecord(
 	value: ProviderObject,
 	operation: string,
@@ -283,13 +307,23 @@ function mapRecord(
 		requestId,
 		128,
 	);
-	const workTime = optionalText(
+	const rawWorkTime = optionalText(
 		value.workTime,
 		"workTime",
 		operation,
 		requestId,
 		64,
 	);
+	const groupStart = clockTime(value.groupStart);
+	const groupEnd = clockTime(value.groupEnd);
+	// 两端都能解析时才组成时间段；只拿到一端不能猜测结束时间，
+	// 继续使用 provider 已给出的 workTime，避免把不完整事实展示成完整时段。
+	const workTime =
+		groupStart && groupEnd
+			? groupStart === groupEnd
+				? groupStart
+				: `${groupStart}-${groupEnd}`
+			: rawWorkTime;
 	const location = optionalText(
 		value.deptAddr,
 		"deptAddr",

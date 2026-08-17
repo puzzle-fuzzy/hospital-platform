@@ -181,6 +181,7 @@ export type AppointmentRecord = {
 	departmentName?: string;
 	doctorName?: string;
 	workDate: string;
+	/** adapter 归一化后的时间点 HH:mm 或时间段 HH:mm-HH:mm。 */
 	workTime?: string;
 	location?: string;
 	serialNumber?: string;

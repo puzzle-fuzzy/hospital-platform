@@ -168,7 +168,9 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 `unknown`。provider 原始数字状态、provider 号和挂号金额不在公共 contract 中。
 
 预约历史返回 `departmentName`、`doctorName`、`workDate`、可选 `workTime`/`location`/
-`serialNumber` 及 `status`。状态只允许 `scheduled`、`cancelled`、`completed`、`missed`、
+`serialNumber` 及 `status`。`workTime` 是 adapter 从已确认的时间点或 `groupStart`/
+`groupEnd` 归一化后的 `HH:mm` 或 `HH:mm-HH:mm`；原始完整日期时间字段不进入公共响应，
+不完整时间段会回退到 provider 的 `workTime`。状态只允许 `scheduled`、`cancelled`、`completed`、`missed`、
 `stopped`、`substituted`、`registered`、`unknown`；其中 `stopped` 表示停诊、
 `substituted` 表示替诊、`registered` 表示已登记。Provider 已确认的数字状态在 adapter
 边界完成映射，不能由小程序根据文字猜测最终状态。Provider 返回重复 `appointmentInfoId` 时，

@@ -363,6 +363,51 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 	expect(JSON.stringify(result)).not.toContain("registFree");
 });
 
+test("众阳预约记录从 group 时间段归一化 workTime，不透传原始日期时间", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							workDate: "2026-08-20",
+							groupStart: "2026-08-20 08:00:00",
+							groupEnd: "2026-08-20 12:00:00",
+							status: 0,
+						},
+						{
+							workDate: "2026-08-20",
+							workTime: "09:30",
+							groupStart: "invalid-time",
+							groupEnd: "2026-08-20 10:00:00",
+							status: 0,
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "record-time-range" } },
+			),
+	});
+
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-patient-001",
+			query: { startDate: "2026-08-20", endDate: "2026-08-21" },
+		},
+		context,
+	);
+
+	expect(result.records[0]).toMatchObject({
+		workDate: "2026-08-20",
+		workTime: "08:00-12:00",
+		status: "scheduled",
+	});
+	expect(result.records[1]).toMatchObject({ workTime: "09:30" });
+	expect(JSON.stringify(result)).not.toContain("groupStart");
+	expect(JSON.stringify(result)).not.toContain("2026-08-20 08:00:00");
+});
+
 test("众阳预约记录保留已确认的停诊、替诊和已登记状态", async () => {
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",
