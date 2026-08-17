@@ -5,12 +5,13 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-17 15:40 CST）
+### 线上实时状态（2026-08-17 16:40 CST）
 
 - 新 API 已从 `daee96d` 原子切换到 `0b6f38f`，新 release 的生产 env preflight、候选临时端口 smoke 和公网 `/api/v2` 运行时 smoke 均通过；旧 Python `8001` 保持监听，Worker inactive。此次固定门诊费用 Provider 渠道码只能在 adapter 构造时注入，不打开支付、医保、报告、预约写入或 HIS 写入，证据见 [`release/0b6f38f-production-acceptance-2026-08-17.md`](release/0b6f38f-production-acceptance-2026-08-17.md)。
 - 上一 release `9833a01` 已完成从 `3ab0a6c` 的原子切换和基础运行时验收；本次已继续切换到 `daee96d`，其历史证据见 [`release/9833a01-production-acceptance-2026-08-17.md`](release/9833a01-production-acceptance-2026-08-17.md)。
 - `0016_patient_directory_sync_owner_index` 已由候选 bundle 执行成功，marker、`owner_user_id,provider_name,status,lease_until` 索引列顺序和 schema probe 均通过；错误的跨平台打包在切换前被拦截，未产生 schema 半成品。当前 `0b6f38f` 已在目标服务器通过该 schema gate；支付、医保、HIS、报告和 Worker 仍关闭。
 - 候选 `0b6f38f` runtime smoke 完成 readiness 连续 6/6、system ping 200、未登录受保护路由 401；这只是运行边界证据，真实微信会话、Redis TTL、多患者切换、普通资料读写/409、预约历史和门诊费用仍待真机三层验收。
+- `0b6f38f` 切换后的最新 journald 窗口只有 1 次 production 启动、13 次 HTTP 200 运行/系统探针和 6 次未登录 401；`auth.wechat.*`、`patient.directory.*`、`appointment.*`、`outpatient.payment.*` 和 `report.*` 均为 0。该结果证明运行和认证边界，不证明任何 Provider 业务成功；新 API `18081` 与旧 Python `8001` 仍同时监听，详见 [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
 
 ### 线上实时状态（历史快照：2026-08-17 02:56 CST）
 
