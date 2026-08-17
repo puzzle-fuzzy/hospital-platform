@@ -45,6 +45,38 @@ ead90a20-210e-48d5-b2b2-79dec995b59e
 system-ping=`2b3acdf0-7f95-438b-8c24-2ac498987715`，
 auth-boundary=`d77b5b84-2350-462e-b118-73055800c531`。
 
+## 2.1 最新公网 runtime smoke（2026-08-17 14:28 CST）
+
+本次继续从开发机对当前公网 `/api/v2` 发起只读请求，要求 readiness 连续 6/6 为 `ready`，间隔 2000ms。
+没有携带 access token、患者标识或 Provider 凭证，也没有执行登录、同步、预约、费用、支付或任何写入。
+本次命令未显式设置 `NODE_ENV`，runtime smoke 自身日志正确打印 `environment=development`；这只表示
+本地 smoke 运行器模式，不能据此推断线上 API 的启动模式或当前 release provenance。
+
+```text
+HOSPITAL_API_BASE_URL=https://test-hp.meiyi.pro
+HOSPITAL_API_PREFIX=/api/v2
+HOSPITAL_RUNTIME_REQUIRE_READY=true
+HOSPITAL_RUNTIME_READINESS_SAMPLES=6
+HOSPITAL_RUNTIME_READINESS_INTERVAL_MS=2000
+```
+
+| 检查 | 结果 | 证据含义 |
+| --- | --- | --- |
+| `health-live` | HTTP 200，`status=passed` | 公网 live 可达并通过 no-store 校验 |
+| `health-ready` | HTTP 200，`status=passed`，连续 6/6 | readiness 在约 12 秒观察窗口内稳定为 ready，并通过 no-store 校验 |
+| `system-ping` | HTTP 200，`status=passed` | 公网版本前缀和服务身份可达 |
+| `auth-boundary` | HTTP 401，`status=passed` | 保护路由继续返回稳定 `unauthorized` 边界 |
+
+本次 traceId 仅用于与公网/API 日志关联：live=`cfb674da-3a1b-4b6c-b94f-d540932782e0`，
+readiness 按采样顺序为 `eb68660c-b3a7-4756-95ac-2594aa4bf596`、
+`3638ecec-a23c-4de1-92a0-7a6ed2f63f49`、`2d5f2417-e0d6-48c5-90f3-8105d58749bb`、
+`94ae7ee0-0e66-4c95-aa48-7ff4dbd7bd15`、`6b915e83-5a4c-4a5a-bdf4-54e40428224e`、
+`1d1523ec-0eb1-4b1b-95a3-acd0dc3169b4`，system-ping=`5dada265-0a63-4ae3-9803-6f37d2f5989f`，
+auth-boundary=`6110e274-6ee0-4ca3-8758-c4035b9d000d`。
+
+这组证据只更新公网运行和认证边界，不证明本地 `f03ff9b` 已部署，不证明微信登录、Redis TTL、
+多患者切换/失效恢复、预约历史、报告、门诊费用或真机页面已验收。
+
 ## 3. 不能从本次结果推出的结论
 
 - 不能推出 `ed250ec` 已部署到生产；当前服务器 release 必须另有 SSH provenance 证据；
