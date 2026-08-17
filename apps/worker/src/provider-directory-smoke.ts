@@ -234,6 +234,14 @@ function addDays(value: Date, days: number): Date {
 	return result;
 }
 
+/**
+ * “我的挂号”与小程序 dashboard-service 共用同一业务窗口：当前中国标准时间
+ * 前后各 90 天。Smoke 也必须覆盖未来预约，否则即使 Provider 查询漏掉未来记录，
+ * 验收仍会错误通过；这里的日期只用于构造平台 API 查询，不是 provider 参数透传。
+ */
+const APPOINTMENT_RECORDS_PAST_DAYS = 90;
+const APPOINTMENT_RECORDS_FUTURE_DAYS = 90;
+
 function requirePatientId(patientId: string | undefined): string {
 	if (!patientId?.trim()) {
 		throw new ProviderSmokeConfigurationError(
@@ -384,7 +392,10 @@ export async function runProviderDirectorySmoke(
 	const now = options.date ?? new Date();
 	const startDate = dateOnly(addDays(now, -7));
 	const scheduleEndDate = dateOnly(addDays(now, 7));
-	const recordStartDate = dateOnly(addDays(now, -90));
+	const recordStartDate = dateOnly(
+		addDays(now, -APPOINTMENT_RECORDS_PAST_DAYS),
+	);
+	const recordEndDate = dateOnly(addDays(now, APPOINTMENT_RECORDS_FUTURE_DAYS));
 	const reportStartDate = dateOnly(addDays(now, -30));
 	const today = dateOnly(now);
 	const patientId = options.patientId?.trim();
@@ -837,7 +848,7 @@ export async function runProviderDirectorySmoke(
 				const query = new URLSearchParams({
 					patientId: scopedPatientId,
 					startDate: recordStartDate,
-					endDate: today,
+					endDate: recordEndDate,
 				});
 				return readSafe(
 					`${apiRoute(apiPrefix, "/appointments/records")}?${query}`,

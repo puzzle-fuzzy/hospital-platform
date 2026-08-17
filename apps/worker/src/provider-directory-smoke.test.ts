@@ -422,6 +422,58 @@ test("provider directory smoke verifies both outpatient payment read statuses", 
 	).toBe(true);
 });
 
+test("预约历史 smoke 覆盖当前日期前后各 90 天", async () => {
+	const requests: string[] = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		patientId: "patient-001",
+		capabilities: ["appointment-records"],
+		date: new Date("2026-08-15T00:00:00.000Z"),
+		fetcher: async (input) => {
+			const url = String(input);
+			requests.push(url);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.endsWith("/api/v1/patients")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						items: [
+							{
+								id: "patient-001",
+								displayName: "张三",
+								relationship: "self",
+								cardNumberMasked: "******0001",
+							},
+						],
+						total: 1,
+					},
+				});
+			}
+			return jsonResponse({
+				success: true,
+				data: { items: [], total: 0 },
+			});
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	const recordsUrl = requests.find((url) =>
+		url.includes("/api/v1/appointments/records?"),
+	);
+	expect(recordsUrl).toBeDefined();
+	const query = new URL(recordsUrl ?? "https://hospital.example.test")
+		.searchParams;
+	expect(query.get("patientId")).toBe("patient-001");
+	expect(query.get("startDate")).toBe("2026-05-17");
+	expect(query.get("endDate")).toBe("2026-11-13");
+});
+
 test("provider directory smoke rejects an outpatient status mismatch", async () => {
 	const result = await runProviderDirectorySmoke({
 		baseUrl: "https://hospital.example.test",

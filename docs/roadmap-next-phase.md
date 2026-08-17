@@ -262,6 +262,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-17：发现 Provider 空患者目录的语义尚未被正式 contract 区分为“确实无绑定患者”或“不完整/权限过滤/临时异常”，因此服务层新增 fail-closed 保护：首次且确实为空的 owner 仍可成功，已有医院目录患者时返回 `patient-directory-snapshot-unsafe` 并保留旧快照，避免一次不确定响应批量停用就诊人。该修正未部署，待 Provider contract 和真机多就诊人验收后再评估是否放宽。
 - 2026-08-17：病历域再次完成只读 contract 审计，仍未发现 `out-visit-records` 的正式 provider/HIS 文档、专用患者映射确认、四类脱敏样例和资源授权定义。旧端门诊记录与住院病案仍是两条不同链路；因此本轮按业务正确性要求停止编码，继续保持 `GET /api/v2/medical-records`、详情、正文、诊断和附件 404/未注册，不以万能转发或空列表伪造迁移完成。后续只有在 MR-01 至 MR-06、MR-13 至 MR-15 和最小交付包完成后才重新评估；当前切换到下一项可取得真实 contract 或可分层验收的只读工作。
 - 2026-08-17：修正报告目录详情引用的故障隔离：单条 LIS 短期引用持久化失败时保留安全摘要、隐藏详情入口并记录 `report.detail_reference.failed`；LIS/PACS/ECG Provider 聚合失败仍整批 fail-closed。该修正不打开报告 gate，不改变报告详情、附件和支付/医保/HIS 的关闭边界。
+- 2026-08-17：修正预约历史 Provider smoke 的验收窗口偏差：此前 smoke 只请求过去 90 天到当天，无法证明“我的挂号”不会漏掉未来预约；现在与原生 `dashboard-service` 和公共 contract 统一为当前中国标准时间前后各 90 天，并补固定日期回归测试。该修正只增强验收工具，不改变预约历史 API、预约写入或支付/医保/HIS 边界。
 - 2026-08-16 18:20-18:21 CST：SSH 只读复核确认 `current=55fce6c`、新 API `18081`、旧 Python `8001` 均存活；公网 `/api/v2` Smoke 的 system-ping 通过，但 live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝，`sudo -n` 仍需密码，未执行任何线上切换或重启。
 - 2026-08-16 18:35 CST：更新后的公网 Smoke 进一步确认 system-ping 与六路未登录 `auth-boundary` 通过；live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝。当前只证明公网路由和认证边界，不能替代候选切换、provider 或真机业务验收。
 - 2026-08-16：提交 `0dc39aa` 建立以原生 `app.json` 为事实源的 14 页面迁移台账和 `pnpm migration:audit` 门禁，随后以 `09c88b1` 校正发布文档时序；均为文档/静态检查增强，尚未构建、上传或部署，不能改变生产 `current=55fce6c` 和公网 no-store 未通过的结论。
