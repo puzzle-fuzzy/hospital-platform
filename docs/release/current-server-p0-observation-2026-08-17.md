@@ -100,6 +100,26 @@ HTTP、页面和服务端事件三层结果。
 `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 均保持监听。上述日志只证明当前 release 的运行和认证边界，
 不改变微信会话、Redis TTL、患者切换、预约历史、门诊费用和真机三层验收仍未完成的结论。
 
+### 16:40 CST 之后的增量业务观察
+
+本次受控 SSH 只读窗口仍从 `journalctl` 读取结构化日志，并只输出安全聚合计数；窗口内没有读取 token、
+患者正文、Provider 原文或 Redis 原始 key：
+
+| 聚合项 | 数量 | 结论 |
+| --- | ---: | --- |
+| `auth.wechat.login.requested` / `auth.wechat.login.succeeded` | 各 1 | 观察到 1 次完整微信登录业务链，但仍未证明 Redis 实际 TTL |
+| `patient.directory.read.requested` / `read.loaded` | 各 3 | 观察到 3 次患者读模型读取成功，不证明多患者切换、失效或恢复 |
+| `appointment.records.requested` / `appointment.records.synced` | 各 1 | 已进入预约历史同步链并产生 Provider 关联证据；仍需页面结果、状态映射和有效会话三层核对 |
+| `outpatient.payment.records.requested` / `loaded` | 各 1 | 已进入门诊费用只读链；仍需核对待缴/已缴、金额、空列表和页面 tab 结果 |
+| `report.*` | 0 | 报告 gate 仍关闭，没有报告 Provider 业务证据 |
+| HTTP 200 / HTTP 401 | 19 / 7 | 7 次仍是未登录认证边界，不能解释为 Provider 失败 |
+| `providerRequestId` | 3 | 仅证明有可关联的 Provider 请求证据，不代表业务字段已完成验收 |
+
+本窗口确认当前 release 仍为 `0b6f38f`，新 Bun API `18081` 与旧 Python API `8001` 同时监听；旧服务保持
+`inactive` 的 systemd 单元状态不等于旧 Python 进程停止，实际监听仍在，未执行重启、切换或旧服务操作。
+当前结论从“完全没有预约/费用业务事件”更新为“已取得预约历史和门诊费用的低敏业务事件”，但 P0 仍不能标记
+为完成：页面结果、患者上下文、Provider 字段/状态映射和真机证据尚未闭环，支付、医保、退款和 HIS 写回继续关闭。
+
 ## 4. 未完成的直接证据
 
 - 没有执行真实患者的预约历史请求；不能证明未来预约、状态映射或爽约筛选。

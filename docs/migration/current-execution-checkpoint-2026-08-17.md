@@ -479,8 +479,8 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 和已开放只读 Provider 配置均通过，smoke 的 live、ready 3/3、system ping 和未登录 401 均通过。
 候选停止后按同目录 `current.next -> current` 原子切换，只重启新 API；旧 Python `8001` 未停止或重启。
 切换后 `0b6f38f` 的内网/公网 readiness 均为 200，公网 runtime smoke ready 连续 6/6，system ping 200、
-认证边界 401，`18082` 已释放。该发布仍没有真实微信、患者、预约历史或门诊费用 Provider 业务事件，
-所以 P0 真实业务验收状态不变；支付、医保、退款和 HIS 回写继续最后处理。完整 bundle 与运行证据见
+认证边界 401，`18082` 已释放。切换时该发布仍没有真实微信、患者、预约历史或门诊费用 Provider 业务事件，
+所以当时 P0 真实业务验收状态不变；支付、医保、退款和 HIS 回写继续最后处理。完整 bundle 与运行证据见
 [`../release/0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md)。
 
 随后复核患者完整快照在“Provider 患者号不变、候选内部 ID 变化”时的持久化语义：当前 MySQL 实现
@@ -489,3 +489,9 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 owner 隔离和 Provider 映射语义因此保持一致。本轮没有重复修改运行代码，只新增 MySQL 回归测试锁定
 该边界；持久化 69 项测试、typecheck 通过，未部署、未重启服务，真实 inactive/recovery 与 Provider
 证据仍待 P0 业务验收。支付、医保、退款和 HIS 回写继续最后处理。
+
+随后 16:40 CST 之后的 SSH 只读日志窗口观察到 1 次完整微信登录、3 次患者读模型读取、1 次预约历史同步
+和 1 次门诊费用只读加载，并有 3 个可关联的 `providerRequestId`；同时仍有 7 次未登录 401。该证据把
+预约历史和门诊费用从“无业务事件”推进到“已进入业务链、待页面/Provider/真机闭环”，但不能把事件计数
+当作字段、状态、患者上下文或金额验收。当前 release、新旧服务监听和旧 Python 进程均未改变；详细低敏聚合见
+[`../release/current-server-p0-observation-2026-08-17.md`](../release/current-server-p0-observation-2026-08-17.md)。
