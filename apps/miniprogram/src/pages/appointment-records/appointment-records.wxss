@@ -84,20 +84,13 @@ page {
 	font-size: 23rpx;
 }
 
-.selector-arrow {
-	margin-left: 14rpx;
-	color: #9ca3af;
-	font-size: 42rpx;
-	font-weight: 300;
-	line-height: 0.8;
-}
-
-/* 旧端院区行使用 arrow-right 图标；与患者行共用右侧对齐和点击热区。 */
+/* 原版患者和院区行都使用灰色 arrow-right 图标；家庭卡片的白色圆形箭头不能复用。 */
 .selector-arrow-image {
 	display: block;
 	margin-left: 14rpx;
-	width: 30rpx;
-	height: 30rpx;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
 }
 
 /* 旧端两个状态标签共用一行，当前项使用医疗蓝和底部短线。 */
@@ -371,12 +364,11 @@ page {
 
 .location-close {
 	position: absolute;
+	top: 24rpx;
 	right: 28rpx;
-	top: 22rpx;
-	color: #666666;
-	font-size: 48rpx;
-	font-weight: 300;
-	line-height: 1;
+	display: block;
+	width: 40rpx;
+	height: 40rpx;
 }
 
 .location-scroll {
@@ -434,10 +426,10 @@ page {
 }
 
 .location-empty-icon {
+	display: block;
 	margin-bottom: 24rpx;
-	color: #cccccc;
-	font-size: 80rpx;
-	line-height: 1;
+	width: 80rpx;
+	height: 80rpx;
 }
 
 /*

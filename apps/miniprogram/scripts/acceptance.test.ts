@@ -736,7 +736,9 @@ test("native mini program exposes read-only appointment directory and records pa
 	// 旧端院区行有右侧箭头和底部选择面板；新端只展示一个受控院区，
 	// 因此保留视觉和单项交互，但不能把未知院区列表伪造出来。
 	expect(recordsTemplate).toContain('bindtap="onHospitalTap"');
-	expect(recordsTemplate).toContain("/assets/legacy-user/arrow-right.svg");
+	expect(recordsTemplate).toContain(
+		"/assets/legacy-user/selector-arrow-right.svg",
+	);
 	expect(recordsTemplate).toContain("showHospitalModal");
 	expect(records).toContain("onHospitalSelect");
 	expect(records).toContain("当前只有一个已经确认的院区");
@@ -745,9 +747,11 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain("预问诊");
 	expect(recordsTemplate).toContain("院内导航");
 	expect(recordsTemplate).toContain('class="selector-name"');
-	expect(recordsTemplate).toContain(
-		'class="location-close" bindtap="closeLocationModal"',
-	);
+	expect(recordsTemplate).toContain('class="location-close"');
+	expect(recordsTemplate).toContain('bindtap="closeLocationModal"');
+	expect(recordsTemplate).toContain("/assets/legacy-user/location-close.svg");
+	expect(recordsTemplate).toContain("/assets/legacy-user/location-search.svg");
+	expect(recordsTemplate).not.toContain('class="selector-arrow"');
 	// 旧端挂号页是全宽 selector/tabs/list，不能回退成新端 710rpx 居中卡片。
 	expect(recordsStyle).toContain("width: 100%;");
 	expect(recordsStyle).toContain("background: #f5f5f5;");

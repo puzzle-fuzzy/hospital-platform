@@ -9,7 +9,12 @@
 			<view class="selector-value">
 				<text class="selector-name">{{selectedPatient ? selectedPatient.displayName : "请先选择就诊人"}}</text>
 				<text wx:if="{{selectedPatient}}" class="selector-card-number">{{selectedPatient.cardNumberMasked}}</text>
-				<text class="selector-arrow">›</text>
+				<!-- 原版使用灰色 arrow-right 图标，不能用字符箭头导致字形和垂直位置漂移。 -->
+				<image
+					class="selector-arrow-image"
+					src="/assets/legacy-user/selector-arrow-right.svg"
+					mode="aspectFit"
+				/>
 			</view>
 		</view>
 		<!--
@@ -22,7 +27,7 @@
 				<text>{{hospitalName}}</text>
 				<image
 					class="selector-arrow-image"
-					src="/assets/legacy-user/arrow-right.svg"
+					src="/assets/legacy-user/selector-arrow-right.svg"
 					mode="aspectFit"
 				/>
 			</view>
@@ -151,7 +156,12 @@
 			<view class="location-popup-header">
 				<text>科室位置信息</text>
 				<!-- 父层需要阻止冒泡，但关闭按钮必须显式绑定，否则 catchtap 会吞掉关闭动作。 -->
-				<text class="location-close" bindtap="closeLocationModal">×</text>
+				<image
+					class="location-close"
+					src="/assets/legacy-user/location-close.svg"
+					mode="aspectFit"
+					bindtap="closeLocationModal"
+				/>
 			</view>
 			<scroll-view wx:if="{{locationResults.length}}" class="location-scroll" scroll-y="true">
 				<view wx:for="{{locationResults}}" wx:key="department" class="location-item">
@@ -163,7 +173,11 @@
 				</view>
 			</scroll-view>
 			<view wx:else class="location-empty">
-				<text class="location-empty-icon">⌕</text>
+				<image
+					class="location-empty-icon"
+					src="/assets/legacy-user/location-search.svg"
+					mode="aspectFit"
+				/>
 				<text>未找到相关科室位置信息</text>
 			</view>
 		</view>

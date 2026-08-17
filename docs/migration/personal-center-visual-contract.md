@@ -46,6 +46,10 @@
 无记录空态继续使用旧端 `wd-icon name="file-text"` 的 48rpx 文件图标；原生端落为本地
 `assets/legacy-user/empty-record.svg`，不复用首页的大型空服务插图，避免两个页面的空态层级发生视觉漂移。
 
+患者/院区行的灰色右箭头、院内导航弹窗的关闭和搜索图标也必须通过 `<image>` 使用本地资源：
+`selector-arrow-right.svg`、`location-close.svg` 和 `location-search.svg`。家庭成员卡片使用的
+`arrow-right.svg` 是白色圆形资源，只能用于蓝色家庭成员卡片，不能误用于挂号页的白色选择行。
+
 双标签的业务语义需要单独说明：旧端“在线挂号/全部挂号”分别向 provider 传过不同的
 `requestChannel` 值，但新端公共预约记录没有渠道字段，且旧端数字渠道的当前含义尚未由
 provider 合同确认。因此原生端只保留标签的视觉和交互位置；“在线挂号”仅排除服务端明确
