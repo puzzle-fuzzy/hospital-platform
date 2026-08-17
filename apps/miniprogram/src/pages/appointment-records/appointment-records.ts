@@ -41,6 +41,10 @@ type AppointmentRecordsPageMethods = {
 	onLoadMore(): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
+	onHospitalTap(): void;
+	onHospitalSelect(): void;
+	closeHospitalModal(): void;
+	stopHospitalPropagation(): void;
 	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
 	stopRecordActionPropagation(): void;
 	onPreVisit(event: WechatMiniprogram.TouchEvent): void;
@@ -120,6 +124,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		hasMoreRecords: false,
 		activeTab: "online",
 		hospitalName: DEFAULT_HOSPITAL_NAME,
+		showHospitalModal: false,
 		showLocationModal: false,
 		locationResults: [],
 		loading: true,
@@ -155,6 +160,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			visibleRecords: [],
 			visibleRecordCount: 0,
 			hasMoreRecords: false,
+			showHospitalModal: false,
 			showLocationModal: false,
 			locationResults: [],
 		});
@@ -240,6 +246,28 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector();
+	},
+
+	/**
+	 * 旧端院区行可点击；当前只有一个已经确认的院区，因此只打开单项面板。
+	 * 这里不从页面参数或 provider 响应猜测院区列表，避免视觉入口越过业务契约。
+	 */
+	onHospitalTap(): void {
+		this.setData({ showHospitalModal: true });
+	},
+
+	/** 单院区面板中的确认项只关闭面板，不发起额外 provider 请求。 */
+	onHospitalSelect(): void {
+		this.setData({ showHospitalModal: false });
+	},
+
+	closeHospitalModal(): void {
+		this.setData({ showHospitalModal: false });
+	},
+
+	/** 面板内容阻止遮罩层关闭，保持旧端底部弹层的点击边界。 */
+	stopHospitalPropagation(): void {
+		// `catchtap` 已经阻止冒泡；保留显式方法让 WXML 交互边界可审计。
 	},
 
 	/**

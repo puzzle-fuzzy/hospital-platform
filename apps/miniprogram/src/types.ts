@@ -234,6 +234,8 @@ export type AppointmentRecordsPageData = {
 	hasMoreRecords: boolean;
 	activeTab: AppointmentRecordTab;
 	hospitalName: string;
+	/** 单院区仍复刻旧端的选择面板，但不会伪造不存在的动态院区数据。 */
+	showHospitalModal: boolean;
 	showLocationModal: boolean;
 	locationResults: Array<DepartmentLocationView>;
 	loading: boolean;

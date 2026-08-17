@@ -92,6 +92,14 @@ page {
 	line-height: 0.8;
 }
 
+/* 旧端院区行使用 arrow-right 图标；与患者行共用右侧对齐和点击热区。 */
+.selector-arrow-image {
+	display: block;
+	margin-left: 14rpx;
+	width: 30rpx;
+	height: 30rpx;
+}
+
 /* 旧端两个状态标签共用一行，当前项使用医疗蓝和底部短线。 */
 .status-tabs {
 	display: flex;
@@ -430,4 +438,59 @@ page {
 	color: #cccccc;
 	font-size: 80rpx;
 	line-height: 1;
+}
+
+/*
+	旧端院区选择使用底部弹层。当前只有一个受控院区，面板仍保留旧端的
+	宽度、圆角和选中反馈；未来接入动态院区时只替换 option 数据。
+*/
+.hospital-mask {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 60;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	padding-bottom: env(safe-area-inset-bottom);
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.hospital-sheet {
+	box-sizing: border-box;
+	margin-bottom: 20rpx;
+	width: 92vw;
+	overflow: hidden;
+	border-radius: 16rpx;
+	background: #ffffff;
+}
+
+.hospital-sheet-title {
+	box-sizing: border-box;
+	padding: 20rpx 24rpx;
+	border-bottom: 1rpx solid #f0f0f0;
+	color: #333333;
+	font-size: 32rpx;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.hospital-option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	padding: 28rpx 24rpx;
+	border-bottom: 1rpx solid #f5f5f5;
+	color: #333333;
+	font-size: 30rpx;
+	line-height: 1.4;
+}
+
+.hospital-option-check {
+	color: #3d6df6;
+	font-size: 36rpx;
+	font-weight: 600;
 }

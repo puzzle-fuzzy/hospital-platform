@@ -727,12 +727,13 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(records).toContain("挂号详情暂未开放");
 	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
 	expect(recordsTemplate).toContain("当前院区");
-	// 单院区静态配置不能保留没有实现目标的动态选择箭头，避免用户误以为可以切换院区。
-	const hospitalRowStart = recordsTemplate.indexOf("当前院区");
-	const hospitalRowEnd = recordsTemplate.indexOf("</view>", hospitalRowStart);
-	expect(recordsTemplate.slice(hospitalRowStart, hospitalRowEnd)).not.toContain(
-		"selector-arrow",
-	);
+	// 旧端院区行有右侧箭头和底部选择面板；新端只展示一个受控院区，
+	// 因此保留视觉和单项交互，但不能把未知院区列表伪造出来。
+	expect(recordsTemplate).toContain('bindtap="onHospitalTap"');
+	expect(recordsTemplate).toContain("/assets/legacy-user/arrow-right.svg");
+	expect(recordsTemplate).toContain("showHospitalModal");
+	expect(records).toContain("onHospitalSelect");
+	expect(records).toContain("当前只有一个已经确认的院区");
 	expect(recordsTemplate).toContain("在线挂号");
 	expect(recordsTemplate).toContain("全部挂号");
 	expect(recordsTemplate).toContain("预问诊");

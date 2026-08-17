@@ -12,11 +12,19 @@
 				<text class="selector-arrow">›</text>
 			</view>
 		</view>
-		<!-- 当前新端只有受控的单院区静态配置；动态院区选择未形成 contract，不能用箭头伪装成可用入口。 -->
-		<view class="selector-row">
+		<!--
+			旧端院区行有右侧箭头并可打开选择面板。当前服务端只确认一个院区，
+			所以保留真实存在的单项面板，不把未知院区或 provider 参数伪造成可选项。
+		-->
+		<view class="selector-row" bindtap="onHospitalTap">
 			<text class="selector-label">当前院区</text>
 			<view class="selector-value">
 				<text>{{hospitalName}}</text>
+				<image
+					class="selector-arrow-image"
+					src="/assets/legacy-user/arrow-right.svg"
+					mode="aspectFit"
+				/>
 			</view>
 		</view>
 	</view>
@@ -38,6 +46,20 @@
 		>
 			<text>全部挂号</text>
 			<view wx:if="{{activeTab === 'all'}}" class="status-tab-indicator"></view>
+		</view>
+	</view>
+
+	<!--
+		旧端使用底部弹层选择院区。新端暂时只有受控的单院区，所以弹层只展示
+		高平市人民医院并允许关闭；未来取得院区 contract 后，只替换这里的数据来源。
+	-->
+	<view wx:if="{{showHospitalModal}}" class="hospital-mask" catchtap="closeHospitalModal">
+		<view class="hospital-sheet" catchtap="stopHospitalPropagation">
+			<view class="hospital-sheet-title">选择院区</view>
+			<view class="hospital-option" bindtap="onHospitalSelect">
+				<text>{{hospitalName}}</text>
+				<text class="hospital-option-check">✓</text>
+			</view>
 		</view>
 	</view>
 
