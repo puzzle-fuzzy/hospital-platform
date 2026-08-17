@@ -79,6 +79,11 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 较新的患者资料、临床引用或 active 状态。患者同步的 durable operation ledger 和结果重放仍需完成
 新 release 切换、真实并发、公网和真机验收，才能作为线上业务证据；预约写入、患者绑定等命令开放前还必须分别
 冻结各自的幂等和最终状态规则。订单创建和微信预支付的幂等键分别独立，不能混用。
+
+`Idempotency-Key` 的公共输入约束是 1 至 128 个字符，只允许 `A-Z`、`a-z`、`0-9`、`.`、`_`、`:`、`-`；
+缺失或不符合格式时，已登录请求在 provider 调用前返回 `400 validation`，不会产生患者目录副作用。
+认证检查先于 header schema：没有 Bearer 会话或会话已失效时，即使同时缺少幂等键，也统一返回
+`401 unauthorized`，不向未认证调用方暴露接口字段校验顺序。
 下一步的状态机、租约、事务和 409 语义见
 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md)。
 

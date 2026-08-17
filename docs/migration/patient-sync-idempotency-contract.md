@@ -146,6 +146,8 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 
 | 场景 | HTTP | 错误码/结果 |
 | --- | --- | --- |
+| 未登录或会话已失效，即使幂等键缺失 | 401 | `unauthorized`；认证先于 header schema |
+| 已登录但幂等键缺失或不符合安全字符约束 | 400 | `validation`；不得访问 provider |
 | 同 key 已成功 | 200 | 返回当前 owner 的患者读模型，不访问 provider |
 | 同 key 正在处理中 | 409 | `patient-sync-in-progress`，小程序提示稍后刷新 |
 | key 与未来扩展的请求指纹冲突 | 409 | `patient-sync-idempotency-conflict` |

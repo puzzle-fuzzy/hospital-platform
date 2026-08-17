@@ -402,6 +402,93 @@ test("protected routes authenticate before query validation", async () => {
 	}
 });
 
+test("patient sync authenticates before validating its idempotency header", async () => {
+	const response = await createApp().handle(
+		new Request("http://localhost/api/v1/patients/sync", { method: "POST" }),
+	);
+
+	// 患者同步同时受 Bearer 和 Idempotency-Key 约束；未登录时必须先返回
+	// 统一认证错误，不能让调用方借 schema 错误判断接口内部字段。
+	expect(response.status).toBe(401);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "unauthorized",
+			message: "请先登录后再继续操作",
+		},
+	});
+});
+
+test("patient sync validates idempotency before calling the provider", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const identityGateway = createFixtureWechatIdentityGateway();
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	let providerCallCount = 0;
+	const directory: PatientDirectoryGateway = {
+		listByIdentity: async () => {
+			providerCallCount += 1;
+			return {
+				complete: true,
+				patients: [],
+				trace: {
+					provider: "fixture",
+					operation: "patient-list",
+					requestId: "provider-request-001",
+				},
+			};
+		},
+	};
+	const app = createApp({
+		services: {
+			auth: new AuthService({ identityGateway, identityUsers, sessions }),
+			patients: new PatientService(createInMemoryPatientRepository(), {
+				identityUsers,
+				directory,
+			}),
+			appointments: unusedAppointmentService(),
+			reports: unusedReportService(),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			sessions,
+		},
+	});
+	const authorization = `Bearer ${issued.accessToken}`;
+
+	const missingKeyResponse = await app.handle(
+		new Request("http://localhost/api/v1/patients/sync", {
+			method: "POST",
+			headers: { authorization },
+		}),
+	);
+	const malformedKeyResponse = await app.handle(
+		new Request("http://localhost/api/v1/patients/sync", {
+			method: "POST",
+			headers: {
+				authorization,
+				"idempotency-key": "patient sync key with spaces",
+			},
+		}),
+	);
+
+	// 认证成功后才进入 schema 校验；两种非法请求都必须在 provider 之前终止。
+	expect(missingKeyResponse.status).toBe(400);
+	expect(malformedKeyResponse.status).toBe(400);
+	expect((await missingKeyResponse.json()).error.code).toBe("validation");
+	expect((await malformedKeyResponse.json()).error.code).toBe("validation");
+	expect(providerCallCount).toBe(0);
+});
+
 test("current user endpoint only returns the platform session user id", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const issued = await sessions.issue("fixture-user-0001");
