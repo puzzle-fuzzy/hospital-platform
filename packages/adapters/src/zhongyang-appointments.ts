@@ -58,6 +58,25 @@ function objectValue(value: unknown, operation: string, requestId: string) {
 	return value as ProviderObject;
 }
 
+/**
+ * 众阳旧接口存在两种已确认成功包络：新 HTTP 封装使用 `success=true` 与
+ * `code=0`，旧预约记录链路也使用 `code="0000"`。只看 HTTP 200 或只看
+ * `data` 会把 `code=5000,data=[]` 误报成“暂无预约”；这里要求至少有一个
+ * 明确成功标志，并拒绝未知业务码。裸数组是已确认的列表响应形态，不带包络，
+ * 由 HTTP 层负责状态码校验后直接进入项目映射。
+ */
+function hasSuccessfulBusinessEnvelope(envelope: ProviderObject): boolean {
+	const hasSuccess = Object.hasOwn(envelope, "success");
+	const hasCode = Object.hasOwn(envelope, "code");
+	const success = envelope.success;
+	const code = envelope.code;
+	const successfulCode = code === 0 || code === "0" || code === "0000";
+
+	if (hasSuccess && success !== true) return false;
+	if (hasCode && !successfulCode) return false;
+	return success === true || successfulCode;
+}
+
 function responseItems(
 	value: unknown,
 	operation: string,
@@ -66,10 +85,10 @@ function responseItems(
 	if (Array.isArray(value))
 		return value.map((item) => objectValue(item, operation, requestId));
 	const envelope = objectValue(value, operation, requestId);
-	if (envelope.success === false) {
+	if (!hasSuccessfulBusinessEnvelope(envelope)) {
 		throw providerError(
 			operation,
-			"Zhongyang appointment provider rejected the request",
+			"Zhongyang appointment provider returned a business failure",
 			requestId,
 		);
 	}

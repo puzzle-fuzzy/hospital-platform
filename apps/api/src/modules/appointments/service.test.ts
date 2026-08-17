@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	AppointmentDirectoryGateway,
+	AppointmentRecord,
 	PatientRepository,
 } from "@hospital/domain";
 import { DependencyNotConfiguredError } from "@hospital/domain";
@@ -730,4 +731,161 @@ test("预约服务层拒绝越过 HTTP schema 的非法 opaque 标识", async ()
 		}),
 	);
 	expect(JSON.stringify(records)).not.toContain(oversizedPatientId);
+});
+
+test("预约记录 service 二次校验并只投影公共字段", async () => {
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => ({
+				records: [
+					{
+						departmentName: "心内科",
+						doctorName: "李医生",
+						workDate: "2026-08-20",
+						workTime: "08:00",
+						location: "门诊楼二层",
+						serialNumber: "12",
+						status: "scheduled",
+						// 模拟错误网关夹带的字段；service 必须重新投影，不能泄露。
+						appointmentInfoId: "provider-record-secret",
+						patId: "provider-patient-secret",
+						registrationFee: 99,
+					} as unknown as AppointmentRecord,
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: "record-projection",
+				},
+			}),
+		},
+	});
+
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-31" },
+			{
+				traceId: "trace-record-projection",
+				idempotencyKey: "key-record-projection",
+			},
+		),
+	).resolves.toEqual({
+		items: [
+			{
+				departmentName: "心内科",
+				doctorName: "李医生",
+				workDate: "2026-08-20",
+				workTime: "08:00",
+				location: "门诊楼二层",
+				serialNumber: "12",
+				status: "scheduled",
+			},
+		],
+		total: 1,
+	});
+});
+
+test("预约记录 service 拒绝非法网关结果并保留低敏失败原因", async () => {
+	const lines: string[] = [];
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => ({
+				records: [
+					{
+						workDate: "2026-02-30",
+						status: "scheduled",
+					} as unknown as AppointmentRecord,
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: "record-invalid-result",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-31" },
+			{ traceId: "trace-invalid-result", idempotencyKey: "key-invalid-result" },
+		),
+	).rejects.toMatchObject({
+		name: "AppointmentRecordResultValidationError",
+		violation: "work-date-invalid",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.failed",
+			traceId: "trace-invalid-result",
+			errorType: "AppointmentRecordResultValidationError",
+			resultViolation: "work-date-invalid",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({ event: "appointment.records.synced" }),
+	);
 });

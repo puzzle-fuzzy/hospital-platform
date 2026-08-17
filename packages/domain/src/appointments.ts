@@ -195,6 +195,126 @@ export type AppointmentRecord = {
 	status: AppointmentRecordStatus;
 };
 
+/**
+ * 预约记录网关结果违反公共读模型时使用的低敏原因。
+ *
+ * adapter 是第一道 Provider 白名单边界，但 `AppointmentRecordDirectoryGateway`
+ * 仍然是可注入端口；真实网关、回放网关或未来任务实现都不能仅凭 TypeScript
+ * 类型被 service 当作可信事实。原因固定为有限枚举，日志可以检索，错误响应
+ * 不需要携带 Provider 原文、患者号或预约号。
+ */
+export type AppointmentRecordResultViolation =
+	| "records-not-array"
+	| "record-not-object"
+	| "work-date-invalid"
+	| "status-invalid"
+	| "display-text-invalid";
+
+/** Provider 结果二次校验错误；它属于上游读模型异常，不是患者输入错误。 */
+export class AppointmentRecordResultValidationError extends Error {
+	readonly violation: AppointmentRecordResultViolation;
+
+	constructor(violation: AppointmentRecordResultViolation) {
+		super("Appointment record provider result is invalid");
+		this.name = "AppointmentRecordResultValidationError";
+		this.violation = violation;
+	}
+}
+
+/** 供 service 在运行时确认已归一化的预约状态，不接受任意字符串。 */
+export function isAppointmentRecordStatus(
+	value: unknown,
+): value is AppointmentRecordStatus {
+	return (
+		value === "scheduled" ||
+		value === "cancelled" ||
+		value === "completed" ||
+		value === "missed" ||
+		value === "stopped" ||
+		value === "substituted" ||
+		value === "registered" ||
+		value === "unknown"
+	);
+}
+
+function hasSafeRecordText(value: unknown, maxLength: number): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function invalidRecordResult(
+	violation: AppointmentRecordResultViolation,
+): never {
+	throw new AppointmentRecordResultValidationError(violation);
+}
+
+function optionalRecordText(
+	record: Record<string, unknown>,
+	field: string,
+	maxLength: number,
+): string | undefined {
+	const value = record[field];
+	if (value === undefined) return undefined;
+	if (!hasSafeRecordText(value, maxLength)) {
+		invalidRecordResult("display-text-invalid");
+	}
+	return value;
+}
+
+/**
+ * 校验并重新投影预约记录读模型。
+ *
+ * 不能只返回 `result.records` 的浅拷贝：网关对象即使被 TypeScript 标注为
+ * `AppointmentRecord`，运行时仍可能携带 `patId`、`appointmentInfoId`、费用
+ * 或支付字段。这里整批校验后只构造公共字段；任何一条坏记录都会拒绝整批，
+ * 不能过滤坏行再把不完整结果伪装成成功。
+ */
+export function normalizeAppointmentRecordResults(
+	value: unknown,
+): AppointmentRecord[] {
+	if (!Array.isArray(value)) invalidRecordResult("records-not-array");
+
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidRecordResult("record-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		if (
+			typeof record.workDate !== "string" ||
+			parseIsoCalendarDate(record.workDate) === undefined
+		) {
+			invalidRecordResult("work-date-invalid");
+		}
+		if (!isAppointmentRecordStatus(record.status)) {
+			invalidRecordResult("status-invalid");
+		}
+
+		const departmentName = optionalRecordText(record, "departmentName", 128);
+		const doctorName = optionalRecordText(record, "doctorName", 128);
+		const workTime = optionalRecordText(record, "workTime", 64);
+		const location = optionalRecordText(record, "location", 256);
+		const serialNumber = optionalRecordText(record, "serialNumber", 64);
+
+		return {
+			...(departmentName ? { departmentName } : {}),
+			...(doctorName ? { doctorName } : {}),
+			workDate: record.workDate,
+			...(workTime ? { workTime } : {}),
+			...(location ? { location } : {}),
+			...(serialNumber ? { serialNumber } : {}),
+			status: record.status,
+		};
+	});
+}
+
 /** 预约记录查询必须有明确日期范围，避免把 provider 历史表当作无限导出接口。 */
 export type AppointmentRecordQuery = {
 	startDate: string;

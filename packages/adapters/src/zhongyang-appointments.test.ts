@@ -240,6 +240,57 @@ test("众阳预约目录拒绝无法形成安全读模型的响应", async () =>
 	});
 });
 
+test("众阳预约记录拒绝 HTTP 200 下的业务失败空列表", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					code: "5000",
+					message: "provider rejected",
+					data: [],
+				}),
+				{ status: 200, headers: { "x-request-id": "record-business-failure" } },
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-001",
+				query: { startDate: "2026-08-20", endDate: "2026-08-21" },
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-records",
+		requestId: "record-business-failure",
+		retryable: false,
+	});
+});
+
+test("众阳预约记录接受已确认的旧 code=0000 空结果", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(JSON.stringify({ code: "0000", data: [] }), {
+				status: 200,
+				headers: { "x-request-id": "record-code-0000" },
+			}),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-001",
+				query: { startDate: "2026-08-20", endDate: "2026-08-21" },
+			},
+			context,
+		),
+	).resolves.toMatchObject({ records: [] });
+});
+
 test("众阳预约 adapter 拒绝不存在的日历日期", async () => {
 	const scheduleGateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",

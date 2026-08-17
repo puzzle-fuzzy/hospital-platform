@@ -10,11 +10,13 @@ import {
 	type AppointmentProviderSchedule,
 	type AppointmentRecordDirectoryGateway,
 	type AppointmentRecordQuery,
+	AppointmentRecordResultValidationError,
 	type AppointmentSchedule,
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
+	normalizeAppointmentRecordResults,
 	type PatientRepository,
 	parseIsoCalendarDate,
 } from "@hospital/domain";
@@ -391,6 +393,12 @@ export class AppointmentService {
 				},
 				context,
 			);
+			// adapter 已经完成 Provider 字段白名单映射，但 service 端口仍可
+			// 被其它实现注入；在 `synced` 日志和 API 响应前再做一次校验并
+			// 重新投影，确保患者身份、预约号、费用和支付字段不会越过边界。
+			const normalizedRecords = normalizeAppointmentRecordResults(
+				(result as { records?: unknown } | undefined)?.records,
+			);
 			this.logger.info(
 				{
 					event: "appointment.records.synced",
@@ -398,11 +406,14 @@ export class AppointmentService {
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
 					patientId,
-					itemCount: result.records.length,
+					itemCount: normalizedRecords.length,
 				},
 				"Appointment records loaded",
 			);
-			return { items: [...result.records], total: result.records.length };
+			return {
+				items: normalizedRecords,
+				total: normalizedRecords.length,
+			};
 		} catch (error) {
 			this.logger.error(
 				{
@@ -413,6 +424,9 @@ export class AppointmentService {
 						? patientId
 						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof AppointmentRecordResultValidationError
+						? { resultViolation: error.violation }
+						: {}),
 					...providerFailureMetadata(error),
 				},
 				"Appointment records request failed",

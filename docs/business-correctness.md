@@ -78,6 +78,12 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 `unknown`；一旦新合同与旧端实现不一致，必须先更新 adapter contract 和测试，不能继续沿用旧数字。停诊、替诊和已登记不能折叠成
 未知，否则患者无法区分医院侧变更与自身未就诊。
 
+预约记录 Provider 的 HTTP 成功和业务成功必须同时成立：旧接口确认的 `success=true` 或 `code=0/0000`
+才允许进入记录映射；`HTTP 200 + data=[]` 不能覆盖业务失败码。adapter 映射后，service 还要再次验证日期、
+状态和展示字段，并只投影公共字段，避免可注入网关把 `appointmentInfoId`、患者号、费用或支付字段带入响应。
+任一条记录不符合 contract 都拒绝整批，记录 `appointment.records.failed` 的有限 `resultViolation`，返回
+`502/provider-response-invalid`；只有明确成功的空数组才能显示“暂无预约”。
+
 “我的挂号”的“在线挂号/全部挂号”标签只在当前安全读模型上工作：旧端虽然观察到
 `requestChannel=3/4` 两个渠道值，但新公共预约记录没有渠道字段，且两值的当前业务含义
 尚未冻结。小程序因此只能让在线标签排除明确的 `cancelled`，让全部标签展示本次完整结果，

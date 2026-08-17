@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	AppointmentRecordResultValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
@@ -195,17 +196,22 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 });
 
 test("Provider 读模型校验错误映射为不可重试的 502", async () => {
-	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
-		throw new OutpatientPaymentResultValidationError("status-mismatch");
-	});
-	const response = await app.handle(new Request("http://localhost/probe"));
+	for (const error of [
+		new OutpatientPaymentResultValidationError("status-mismatch"),
+		new AppointmentRecordResultValidationError("status-invalid"),
+	]) {
+		const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+			throw error;
+		});
+		const response = await app.handle(new Request("http://localhost/probe"));
 
-	expect(response.status).toBe(502);
-	expect(await response.json()).toEqual({
-		success: false,
-		error: {
-			code: "provider-response-invalid",
-			message: "外部服务返回数据异常，请稍后重试",
-		},
-	});
+		expect(response.status).toBe(502);
+		expect(await response.json()).toEqual({
+			success: false,
+			error: {
+				code: "provider-response-invalid",
+				message: "外部服务返回数据异常，请稍后重试",
+			},
+		});
+	}
 });

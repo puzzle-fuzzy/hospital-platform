@@ -7,6 +7,7 @@ export type {
 	AppointmentRecordDirectoryGateway,
 	AppointmentRecordDirectoryInput,
 	AppointmentRecordQuery,
+	AppointmentRecordResultViolation,
 	AppointmentRecordStatus,
 	AppointmentSchedule,
 	AppointmentScheduleDetails,
@@ -16,7 +17,10 @@ export type {
 	AppointmentScheduleSnapshotRepository,
 } from "./appointments";
 export {
+	AppointmentRecordResultValidationError,
 	AppointmentScheduleSnapshotValidationError,
+	isAppointmentRecordStatus,
+	normalizeAppointmentRecordResults,
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
 export { parseIsoCalendarDate } from "./date-range";
