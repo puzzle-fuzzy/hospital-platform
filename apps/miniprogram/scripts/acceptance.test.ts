@@ -727,6 +727,11 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directoryTemplate).toContain("当前暂无可预约科室");
 	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
 	expect(recordsTemplate).toContain('bindtap="onChangePatient"');
+	// 旧端挂号页继承 default layout，原生页也必须保留固定底部导航和“我的”激活态。
+	expect(recordsTemplate).toContain('wx:for="{{tabBarItems}}"');
+	expect(recordsTemplate).toContain('bindtap="onTabBarTap"');
+	expect(records).toContain("LEGACY_TAB_BAR_ITEMS");
+	expect(records).toContain("该页面正在迁移中");
 	// 卡片详情还没有稳定公开引用时，点击必须给出明确的迁移状态，
 	// 不能把列表索引误当成预约详情或取消/支付业务主键。
 	expect(recordsTemplate).toContain('bindtap="onRecordTap"');
@@ -755,6 +760,11 @@ test("native mini program exposes read-only appointment directory and records pa
 	// 旧端挂号页是全宽 selector/tabs/list，不能回退成新端 710rpx 居中卡片。
 	expect(recordsStyle).toContain("width: 100%;");
 	expect(recordsStyle).toContain("background: #f5f5f5;");
+	expect(recordsStyle).toContain(
+		"height: calc(130rpx + env(safe-area-inset-bottom));",
+	);
+	expect(recordsStyle).toContain("height: 130rpx;");
+	expect(recordsStyle).toContain("额外为固定底栏留出安全空间");
 	// 旧端 py-4 的标签高度和 pb-20 的底部节奏必须固定，避免页面视觉逐步漂移。
 	expect(recordsStyle).toContain("height: 112rpx;");
 	expect(recordsStyle).toContain("calc(160rpx + env(safe-area-inset-bottom))");

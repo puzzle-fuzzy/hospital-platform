@@ -1,4 +1,5 @@
 import departmentLocations from "../../data/department-location";
+import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import { ApiError } from "../../services/api-client";
 import {
 	filterAppointmentRecords,
@@ -40,6 +41,7 @@ type AppointmentRecordsPageMethods = {
 	loadRecords(): Promise<void>;
 	onLoadMore(): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
+	onTabBarTap(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
 	onHospitalTap(): void;
 	onHospitalSelect(): void;
@@ -117,6 +119,9 @@ function getVisibleRecords(
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
 		hasShown: false,
+		// “我的挂号”在旧端使用 default layout，自然继承固定底部导航；
+		// 原生页直接渲染同一份资源，避免返回页面后底栏消失或激活态漂移。
+		tabBarItems: LEGACY_TAB_BAR_ITEMS,
 		selectedPatient: null,
 		records: [],
 		visibleRecords: [],
@@ -234,6 +239,20 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			activeTab,
 			...getVisibleRecords(this.data.records, activeTab),
 		});
+	},
+
+	/**
+	 * 挂号记录页的底栏只负责页面级导航；未迁移的 Tab 保留旧端位置，
+	 * 但不能为了“看起来能点”而跳入不存在或未验收的业务页。
+	 */
+	onTabBarTap(event: WechatMiniprogram.TouchEvent): void {
+		const index = Number(event.currentTarget?.dataset?.index);
+		if (index === 0) {
+			wx.reLaunch({ url: "/pages/index/index" });
+			return;
+		}
+		if (index === 3) return;
+		wx.showToast({ title: "该页面正在迁移中", icon: "none" });
 	},
 
 	/** 记录状态在页面边界翻译，服务端 contract 仍保持稳定英文枚举。 */

@@ -217,6 +217,16 @@
 
 ## 业务实施顺序
 
+### 2026-08-18 原生“我的挂号”底栏一致性修正
+
+对照旧端 `my_registration.vue` 的 `default` layout 后确认：旧端“我的挂号”页和“我的”页
+一样继承固定底部导航。原生挂号记录页已补齐四项底栏、复用
+`constants/legacy-tabbar.ts`，并为无记录/加载状态补充底栏安全区留白；筛选、患者 owner
+校验和预约只读边界没有变化。代码和验证记录见
+[`release/miniprogram-personal-center-tabbar-parity-2026-08-18.md`](release/miniprogram-personal-center-tabbar-parity-2026-08-18.md)。
+
+本次只完成源码与构建验证，尚未把新的小程序包上传到微信开发者工具或进行真机视觉验收。
+
 ### 阶段 A：患者基础闭环
 
 1. 微信登录：`wx.login`、服务端 code2session、平台会话和 Redis TTL。

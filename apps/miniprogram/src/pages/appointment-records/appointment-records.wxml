@@ -182,4 +182,25 @@
 			</view>
 		</view>
 	</view>
+
+	<!--
+		旧端 my_registration.vue 继承 default layout，因此挂号页同样有固定底栏。
+		当前页属于“我的”分支，激活第 4 个 Tab；底栏未迁移入口只提示状态。
+	-->
+	<view class="legacy-tabbar">
+		<view
+			wx:for="{{tabBarItems}}"
+			wx:key="text"
+			class="legacy-tabbar-item {{index === 3 ? 'legacy-tabbar-item-active' : ''}}"
+			bindtap="onTabBarTap"
+			data-index="{{index}}"
+		>
+			<image
+				class="legacy-tabbar-icon"
+				src="{{index === 3 ? item.activeIcon : item.icon}}"
+				mode="aspectFit"
+			/>
+			<text>{{item.text}}</text>
+		</view>
+	</view>
 </view>

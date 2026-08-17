@@ -5,7 +5,7 @@ page {
 .page {
 	box-sizing: border-box;
 	min-height: 100vh;
-	padding: 0 0 calc(40rpx + env(safe-area-inset-bottom));
+	padding: 0 0 40rpx;
 	background: #f8f8f8;
 }
 
@@ -273,7 +273,8 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	margin-top: 0;
-	padding: 80rpx 32rpx;
+	/* 空态不在 record-list 容器内，额外为固定底栏留出安全空间。 */
+	padding: 80rpx 32rpx calc(80rpx + 150rpx + env(safe-area-inset-bottom));
 	border-radius: 0;
 	background: #f5f5f5;
 	color: #777777;
@@ -485,4 +486,50 @@ page {
 	color: #3d6df6;
 	font-size: 36rpx;
 	font-weight: 600;
+}
+
+/*
+	旧端公共布局中的底栏在挂号页也固定于视口底部。
+	安全区只增加底部留白，业务内容仍在 130rpx 栏内垂直居中，
+	避免 safe-area-inset-bottom 把图标和文字整体向上或向下推移。
+*/
+.legacy-tabbar {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 20;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-around;
+	box-sizing: border-box;
+	height: calc(130rpx + env(safe-area-inset-bottom));
+	padding-bottom: env(safe-area-inset-bottom);
+	border-top: 1rpx solid #eeeeee;
+	background: #ffffff;
+}
+
+.legacy-tabbar-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	flex: 1 1 0;
+	width: auto;
+	height: 130rpx;
+	gap: 6rpx;
+	color: #2c2c2c;
+	flex-direction: column;
+	font-size: 20rpx;
+	line-height: 1;
+}
+
+.legacy-tabbar-item-active {
+	color: #3d6df6;
+}
+
+.legacy-tabbar-icon {
+	display: block;
+	width: 48rpx;
+	height: 48rpx;
 }
