@@ -177,6 +177,8 @@ export type PatientSelectionPageData = {
 	selectedPatientId: string;
 	loading: boolean;
 	syncing: boolean;
+	/** 只有完整医院目录同步成功后才允许点击患者返回调用页；这不是服务端事实。 */
+	selectionReady: boolean;
 	error: string;
 };
 

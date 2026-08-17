@@ -290,6 +290,21 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	expect(bindingContract).toContain("PB-01");
 });
 
+test("patient selection cannot leave before clinical mapping synchronization completes", async () => {
+	const selection = await source("pages/patient-select/patient-select.ts");
+
+	// 平台目录已经返回时，医院侧 his-patient 映射仍可能在同步中；页面只能在
+	// 完整同步成功后开放选择，失败时不能带着半成品患者上下文返回业务页。
+	expect(selection).toContain("selectionReady: false");
+	expect(selection).toContain(
+		"this.data.loading || this.data.syncing || !this.data.selectionReady",
+	);
+	expect(selection).toContain(
+		"this.setData({ selectionReady: patients.length > 0 });",
+	);
+	expect(selection).toContain("目录读取成功不等于医院侧临床映射已经完成");
+});
+
 test("native patient synchronization is single-flight at both entry pages", async () => {
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");

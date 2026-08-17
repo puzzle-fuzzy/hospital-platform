@@ -60,6 +60,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		selectedPatientId: "",
 		loading: true,
 		syncing: false,
+		selectionReady: false,
 		error: "",
 	},
 
@@ -77,7 +78,12 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		const loadingGuard = getPageLatestRequestGuard(this, "loading");
 		const dataToken = directoryDataGuard.begin();
 		const loadingToken = loadingGuard.begin();
-		this.setData({ loading: true, error: "" });
+		this.setData({
+			loading: true,
+			syncing: false,
+			selectionReady: false,
+			error: "",
+		});
 		return loadPatients()
 			.then((patients) => {
 				if (!directoryDataGuard.isCurrent(dataToken)) return;
@@ -129,6 +135,13 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 选择完成后只写入 opaque patientId，再返回调用页触发 onShow 刷新。 */
 	onPatientTap(event: PatientEvent): void {
+		// 目录读取成功不等于医院侧临床映射已经完成。同步期间即使页面还显示上一轮
+		// 列表，也必须禁止返回调用页，否则调用页可能在 his-patient 尚未落库时发起
+		// 预约、报告或门诊费用查询；失败后保留列表只用于诊断，不能被当作可用上下文。
+		if (this.data.loading || this.data.syncing || !this.data.selectionReady) {
+			wx.showToast({ title: "就诊人正在同步，请稍后", icon: "none" });
+			return;
+		}
 		const patientId = event.currentTarget?.dataset?.patientId;
 		if (typeof patientId !== "string" || !patientId) return;
 		const patient = this.data.patients.find((item) => item.id === patientId);
@@ -159,7 +172,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			const syncGuard = getPageLatestRequestGuard(this, "sync");
 			const dataToken = directoryDataGuard.begin();
 			const syncToken = syncGuard.begin();
-			this.setData({ syncing: true, error: "" });
+			// 每次同步开始都先撤销上一次“可选择”状态；只有完整快照成功返回后才能恢复。
+			this.setData({ syncing: true, selectionReady: false, error: "" });
 			return syncPatientsFromHospital(`patient-selection-sync-${Date.now()}`)
 				.then((patients) => {
 					if (
@@ -169,6 +183,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 						return;
 					}
 					this.setPatientList(patients);
+					this.setData({ selectionReady: patients.length > 0 });
 					if (patients.length === 0) {
 						this.showError(
 							new ApiError("当前微信账号暂无绑定的就诊人", {
