@@ -3,6 +3,10 @@ import {
 	requestReportDetail,
 	safeApiErrorMessage,
 } from "../../services/api-client";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import { toLaboratoryReportItemView } from "../../services/report-presenter";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
@@ -12,6 +16,7 @@ type ReportDetailPageMethods = {
 	onDownloadCloudImage(): void;
 	onShareReport(): void;
 	onGotoConsultation(): void;
+	onUnload(): void;
 	showError(error: unknown): void;
 };
 
@@ -48,8 +53,11 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 			return;
 		}
 
+		const detailGuard = getPageLatestRequestGuard(this, "report-detail");
+		const detailToken = detailGuard.begin();
 		requestReportDetail(reportId)
 			.then((payload) => {
+				if (!detailGuard.isCurrent(detailToken)) return;
 				const report = payload?.data;
 				if (!report) {
 					throw new ApiError("服务端未返回报告详情", {
@@ -68,8 +76,19 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 					error: "",
 				});
 			})
-			.catch((error) => this.showError(error))
-			.finally(() => this.setData({ loading: false }));
+			.catch((error) => {
+				if (detailGuard.isCurrent(detailToken)) this.showError(error);
+			})
+			.finally(() => {
+				if (detailGuard.isCurrent(detailToken)) {
+					this.setData({ loading: false });
+				}
+			});
+	},
+
+	/** 页面卸载后让报告详情请求失去回写资格。 */
+	onUnload(): void {
+		disposePageInstance(this);
 	},
 
 	onTabChange(event: ReportTabEvent): void {

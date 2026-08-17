@@ -3,7 +3,10 @@ import {
 	loadOutpatientPaymentRecords,
 	loadCurrentPatient,
 } from "../../services/dashboard-service";
-import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
@@ -37,6 +40,7 @@ type OutpatientPaymentPageMethods = {
 	onChangePatient(): void;
 	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 	toView(record: OutpatientPaymentRecord): OutpatientPaymentRecordView;
 };
@@ -222,6 +226,11 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 
 	onPullDownRefresh(): void {
 		this.loadPage().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/** 页面卸载后让费用查询失去回写资格，避免旧金额回写到新页面实例。 */
+	onUnload(): void {
+		disposePageInstance(this);
 	},
 
 	showError(error: unknown, fallback: string): void {

@@ -1564,8 +1564,24 @@ test("every registered native page keeps async state instance-scoped", async () 
 		expect(page).not.toContain("createSingleFlight<");
 		if (page.includes("isCurrent(")) {
 			expect(page).toContain("getPageLatestRequestGuard");
+			// 所有使用页面请求守卫的页面都必须在 onUnload 标记实例失效，
+			// 否则微信请求晚返回时仍可能对已销毁页面调用 setData。
+			expect(page).toContain("disposePageInstance");
+			expect(page).toContain("onUnload");
 		}
 	}
+});
+
+test("native session and report detail requests respect page lifetime", async () => {
+	const home = await source("pages/index/index.ts");
+	const detail = await source("pages/report-detail/report-detail.ts");
+
+	expect(home).toContain('getPageLatestRequestGuard(this, "session")');
+	expect(home).toContain("sessionGuard.isCurrent(sessionToken)");
+	expect(home).toContain("disposePageInstance(this)");
+	expect(detail).toContain('getPageLatestRequestGuard(this, "report-detail")');
+	expect(detail).toContain("detailGuard.isCurrent(detailToken)");
+	expect(detail).toContain("disposePageInstance(this)");
 });
 
 test("native page delegates token state to the session service", async () => {

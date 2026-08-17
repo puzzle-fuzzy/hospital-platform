@@ -3,7 +3,10 @@ import {
 	loadAppointmentDepartments,
 	loadAppointmentSchedules,
 } from "../../services/dashboard-service";
-import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import type {
 	AppointmentDirectoryPageData,
 	AppointmentSchedule,
@@ -25,6 +28,7 @@ type AppointmentDirectoryPageMethods = {
 	onLoadMore(): void;
 	onScheduleTap(): void;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 };
 
@@ -260,6 +264,11 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 
 	onPullDownRefresh(): void {
 		this.loadDirectory().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/** 页面卸载后让科室与排班请求失去回写资格。 */
+	onUnload(): void {
+		disposePageInstance(this);
 	},
 
 	showError(error: unknown, fallback: string): void {

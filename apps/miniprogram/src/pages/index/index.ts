@@ -5,6 +5,7 @@ import {
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
 import {
+	disposePageInstance,
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
@@ -182,6 +183,7 @@ type IndexPageMethods = {
 	onLoadAppointments(): void;
 	onRefresh(): Promise<void>;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	onLoadReports(): void;
 	onLoadAppointmentRecords(): void;
 	onSelectPatient(event: PatientEvent): void;
@@ -240,18 +242,23 @@ Page<IndexPageData, IndexPageMethods>({
 		if (selectedPatientId) this.setData({ selectedPatientId });
 		if (!hasPlatformSession()) return;
 
+		const sessionGuard = getPageLatestRequestGuard(this, "session");
+		const sessionToken = sessionGuard.begin();
 		this.setData({ sessionStatus: SESSION_LABELS.restoring });
 		restorePlatformSession()
 			.then(() => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
 				this.setData({ sessionStatus: SESSION_LABELS.restored });
 				return this.loadPatients();
 			})
 			.then(() => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
 				// 恢复旧会话后也要重建一次临床患者映射；仅读取旧目录数据会让预约、报告
 				// 和门诊费用继续使用过期的上游映射，导致“患者信息不存在”。
 				return this.onSyncPatients();
 			})
 			.catch((error) => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
 				// 恢复失败时没有拿到当前 principal 的证明，旧患者卡片不能继续
 				// 作为新业务页的上下文；这里只清理页面派生数据，不删除本地选择，
 				// 让 Redis/网络恢复后仍可重新验证原会话。若此时删除选择，下一次
@@ -316,9 +323,12 @@ Page<IndexPageData, IndexPageMethods>({
 		// 主动重新登录前若已没有可验证会话，先清掉旧页面实例中的患者数据。
 		// 否则 auth/wechat 返回 503 时，用户可能看到旧患者而误以为登录成功。
 		if (!hasPlatformSession()) this.clearPatientContext();
+		const sessionGuard = getPageLatestRequestGuard(this, "session");
+		const sessionToken = sessionGuard.begin();
 		this.setData({ loading: true, error: "" });
 		signInPlatformSession()
 			.then(() => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
 				this.setData({ sessionStatus: SESSION_LABELS.signedIn });
 				// wx.login 是静默的 code 交换；用成功提示让用户知道平台会话已建立，
 				// 不额外索取与医疗业务无关的头像和昵称权限。
@@ -327,18 +337,27 @@ Page<IndexPageData, IndexPageMethods>({
 				return this.loadPatients().then(() => undefined);
 			})
 			.then(() => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
 				if (options.skipPatientBootstrap) return;
 				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床映射。
 				return this.onSyncPatients();
 			})
-			.then(() => options.afterSuccess?.())
+			.then(() => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
+				return options.afterSuccess?.();
+			})
 			.catch((error) => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
 				// 登录失败不能留下“有患者但无会话”的半登录状态；只有确认
 				// 没有本地 token 才清除，避免 Redis 短暂故障时误删仍可重试的会话。
 				if (!hasPlatformSession()) this.clearPatientContext();
 				this.showError(error, "登录失败");
 			})
-			.finally(() => this.setData({ loading: false }));
+			.finally(() => {
+				if (sessionGuard.isCurrent(sessionToken)) {
+					this.setData({ loading: false });
+				}
+			});
 	},
 
 	/** 顶部就诊人卡片的主动作：未登录先登录，已有患者进入独立选择页。 */
@@ -550,6 +569,11 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onPullDownRefresh() {
 		this.onRefresh().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/** 页面卸载后让首页的健康、患者目录和同步请求失去回写资格。 */
+	onUnload(): void {
+		disposePageInstance(this);
 	},
 
 	onLoadReports() {

@@ -7,7 +7,10 @@ import {
 	loadAppointmentRecords,
 	loadCurrentPatient,
 } from "../../services/dashboard-service";
-import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
@@ -27,6 +30,7 @@ type MissedAppointmentsPageMethods = {
 	onLoadMore(): void;
 	onChangePatient(): void;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
 };
@@ -164,6 +168,11 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 
 	onPullDownRefresh(): void {
 		this.loadRecords().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/** 页面卸载后让尚未完成的患者范围请求失去回写资格。 */
+	onUnload(): void {
+		disposePageInstance(this);
 	},
 
 	showError(error: unknown, fallback: string): void {

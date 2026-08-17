@@ -5,7 +5,10 @@ import {
 	safeApiErrorMessage,
 } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
-import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	patientContextErrorMessage,
@@ -21,6 +24,7 @@ type MyPageMethods = {
 	onAction(event: ActionEvent): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 };
 
@@ -263,6 +267,11 @@ Page<MyPageData, MyPageMethods>({
 
 	onPullDownRefresh(): void {
 		this.loadPage().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/** 页面卸载后让会话/患者目录读取失去回写资格。 */
+	onUnload(): void {
+		disposePageInstance(this);
 	},
 
 	showError(error: unknown, fallback: string): void {

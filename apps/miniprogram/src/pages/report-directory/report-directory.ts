@@ -3,7 +3,10 @@ import {
 	loadCurrentPatient,
 	loadReports,
 } from "../../services/dashboard-service";
-import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
@@ -40,6 +43,7 @@ type ReportDirectoryPageMethods = {
 	onReportTap(event: WechatMiniprogram.TouchEvent): void;
 	onLoadMore(): void;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 	toView(report: Report): ReportDirectoryView;
 };
@@ -163,6 +167,11 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 
 	onPullDownRefresh(): void {
 		this.loadPage().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/** 页面卸载后让报告目录请求失去回写资格。 */
+	onUnload(): void {
+		disposePageInstance(this);
 	},
 
 	toView(report: Report): ReportDirectoryView {
