@@ -305,10 +305,11 @@ page {
 	}
 }
 
-.state-card-empty image {
+.state-empty-icon {
 	display: block;
 	margin-bottom: 20rpx;
-	width: 220rpx;
+	width: 48rpx;
+	height: 48rpx;
 }
 
 .state-hint {

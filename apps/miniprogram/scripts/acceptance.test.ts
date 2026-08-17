@@ -742,6 +742,10 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain(
 		"/assets/legacy-user/appointment-status.svg",
 	);
+	expect(recordsTemplate).toContain("/assets/legacy-user/empty-record.svg");
+	expect(recordsTemplate).not.toContain(
+		"/assets/legacy-home/empty-services.png",
+	);
 	expect(records).toContain("filterAppointmentRecords");
 	expect(records).toContain("预问诊功能正在迁移中");
 	// 预约写入、provider 患者标识和支付字段均不得进入小程序页面。

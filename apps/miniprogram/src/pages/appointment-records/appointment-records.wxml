@@ -106,7 +106,12 @@
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<!-- 旧端空列表使用 48rpx 的 file-text 图标，不能套用首页的大型服务插图。 -->
+		<image
+			class="state-empty-icon"
+			src="/assets/legacy-user/empty-record.svg"
+			mode="aspectFit"
+		/>
 		<text>{{selectedPatient ? "暂无挂号记录" : "请先选择就诊人"}}</text>
 		<text wx:if="{{selectedPatient}}" class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
 		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>

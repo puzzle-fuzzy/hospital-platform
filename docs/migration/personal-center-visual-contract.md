@@ -43,6 +43,9 @@
 5. 结果过多时先展示 10 条，再在本地展开更多。这个分批只优化 WXML 首帧，不代表 provider 分页，也不能截断服务端事实；
 6. 当前页面只使用 owner-scoped 内部 `patientId` 和脱敏患者字段。旧端曾把 provider 患者标识拼到详情/预问诊 URL，新端 contract 未冻结前不得恢复这种做法。
 
+无记录空态继续使用旧端 `wd-icon name="file-text"` 的 48rpx 文件图标；原生端落为本地
+`assets/legacy-user/empty-record.svg`，不复用首页的大型空服务插图，避免两个页面的空态层级发生视觉漂移。
+
 双标签的业务语义需要单独说明：旧端“在线挂号/全部挂号”分别向 provider 传过不同的
 `requestChannel` 值，但新端公共预约记录没有渠道字段，且旧端数字渠道的当前含义尚未由
 provider 合同确认。因此原生端只保留标签的视觉和交互位置；“在线挂号”仅排除服务端明确
