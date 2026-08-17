@@ -5,20 +5,18 @@
 
 ## 当前基线
 
-### 本轮最新生产切换与公网复核（2026-08-17 23:13-23:18 CST）
+### 本轮最新生产切换与公网复核（2026-08-18 00:04-00:06 CST）
 
-- 候选 `b823727` 已完成本地构建、7 个 artifact checksum、服务器真实生产 env preflight 和
+- 候选 `b3c9a99` 已完成本地构建、7 个 artifact checksum、服务器真实生产 env preflight 和
   `127.0.0.1:18082` 隔离 runtime smoke；随后原子切换为当前 release，只重启新 Bun/Elysia API。
-- 当前 release 为 `/home/ps/code/hospital-platform/releases/b823727`，新 API 监听 `10.0.0.3:18081`；
+- 当前 release 为 `/home/ps/code/hospital-platform/releases/b3c9a99`，新 API 监听 `10.0.0.3:18081`；
   旧 Python 服务继续监听 `8001`，Worker 保持 inactive。内网和公网 live、ready、system-ping 均通过，
   公网认证边界仍返回 `401/unauthorized`。
-- 当前 release 启动窗口的低敏日志聚合为 `parseErrors=0`，但没有 `appointment.*` 或
-  `outpatient.payment.*` 业务事件；预约历史和门诊费用 P0 证据门禁明确缺少 requested/success，
-  因此它们仍不能标记为真实线上业务验收完成。
-- 发布与共存证据见 [`release/b823727-production-acceptance-2026-08-17.md`](release/b823727-production-acceptance-2026-08-17.md)。
+- 当前 release 启动窗口只执行了 runtime smoke，未触发真实微信、患者、预约或门诊费用业务事件；由于当前 ps 会话不能无密码读取完整 journald，未伪造 P0 日志聚合结果，预约历史和门诊费用仍不能标记为真实线上业务验收完成。
+- 发布与共存证据见 [`release/b3c9a99-production-acceptance-2026-08-18.md`](release/b3c9a99-production-acceptance-2026-08-18.md)。
   下一步是使用有效微信会话完成真机三层业务验收，不是继续用 readiness 或未登录 401 代替业务证据。
 - 本轮继续收紧预约/门诊费用只读边界：Provider 展示文本和预约排班快照引用现在拒绝控制字符、首尾空白及超出长度的值，避免异常文本进入小程序读模型、数据库快照或后续写入前事实。该修正不猜测 Provider 字段、不打开预约写入、支付、医保或 HIS；新增 adapter、domain 和 persistence 回归测试已随全量门禁通过。
-- 登录手册、P0 验收手册、迁移检查点和差距审计已同步当前 `b823727`；旧 release 业务结果明确标记为历史窗口，不能直接替代当前版本的微信、预约或门诊费用三层证据。
+- 登录手册、P0 验收手册、迁移检查点和差距审计已同步当前 `b3c9a99`；旧 release 业务结果明确标记为历史窗口，不能直接替代当前版本的微信、预约或门诊费用三层证据。
 
 ### 切换前生产与公网复核（2026-08-17 22:57-22:58 CST）
 

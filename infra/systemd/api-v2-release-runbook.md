@@ -286,3 +286,12 @@ live、ready、system-ping 通过，公网 runtime smoke 的 ready 连续 3/3，
 Worker 仍 inactive。当前 release 的日志聚合 `parseErrors=0`，但预约历史和门诊费用 P0 证据门禁均因
 本窗口没有有效微信业务请求而缺少 requested/success；这不是业务验收完成。完整证据见
 [`../../docs/release/b823727-production-acceptance-2026-08-17.md`](../../docs/release/b823727-production-acceptance-2026-08-17.md)。
+
+2026-08-18 00:04-00:06 CST：候选 `b3c9a99` 完成 7 个 artifact checksum、真实生产 env preflight、
+`127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从 `b823727` 原子切换到
+`b3c9a99`，只重启新 API。切换后内网与公网 `/api/v2` 的 live、ready、system-ping 通过，公网 runtime
+smoke 的 ready 连续 3/3，旧 Python `8001` 保持监听，Worker 仍 inactive。此次仅验证运行时、依赖、
+认证边界和 release 共存，没有调用真实微信、患者、预约、费用 Provider，也没有执行 migration、支付、
+医保、退款或 HIS 写入；`sudo journalctl` 因服务器要求交互密码未执行聚合，不能把 startup/runtime smoke
+误写成 P0 业务日志验收。完整证据见
+[`../../docs/release/b3c9a99-production-acceptance-2026-08-18.md`](../../docs/release/b3c9a99-production-acceptance-2026-08-18.md)。
