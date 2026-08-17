@@ -594,3 +594,11 @@ Redis TTL、PUT/409、公网/真机三层结果。当前窗口没有 503、支�
 不能进入挂号、报告或费用查询。现在患者上下文错误优先于普通资料增强错误，明确提示进入选择页处理；没有
 改变旧端背景、头像、功能分类、图标或固定底部导航，也没有打开任何未冻结的临床能力。本轮补充小程序验收断言，
 尚未部署或取得新的真机/Provider 证据。
+
+2026-08-17 20:18 CST：对当前服务器做只读复核。新 API 当前仍为 `5f5915e518e3d2de5647f7ddd90f91cd7f1e3d0c`，
+本地 `main` 已到 `efb3d59`；新 Bun `18081` 与旧 Python `8001` 同时监听，内网 ready 的 database/Redis/schema
+均为 `ok`，公网 live/ready/system-ping 均为 200，live/ready 带 `Cache-Control: no-store`。最近 400 条 journald
+中出现微信登录、患者目录、预约记录、门诊费用和普通资料关键词，且没有 `persistence.probe.unavailable` 或
+`recovered` 命中；关键词次数不是去重请求数或成功数，不能替代真机会话、字段、Provider 和多患者证据。完整记录见
+[`release/current-live-readonly-audit-2026-08-17.md`](../release/current-live-readonly-audit-2026-08-17.md)。
+本轮没有部署、重启、读取业务数据或打开支付、医保、预约写入和 HIS。

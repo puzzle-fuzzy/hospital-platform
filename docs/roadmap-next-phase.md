@@ -309,3 +309,9 @@ available -> hold_pending -> held -> booking_pending -> booked
   映射时，页面现在保留家庭成员数量展示，同时明确提示进入选择页处理；患者上下文错误优先于普通资料读取
   的增强提示，避免业务原因被资料提示覆盖。该修正只影响小程序状态展示和验收断言，不打开预约写入、支付、
   医保或 HIS，也尚未部署或取得新的真机/Provider 证据。
+- 2026-08-17 20:18 CST：完成当前线上只读复核：新 API 仍运行 `5f5915e518e3d2de5647f7ddd90f91cd7f1e3d0c`，
+  本地 `main` 为 `efb3d59`；新旧服务 `18081/8001` 共存，内网 ready 和公网 live/ready/system-ping 基础响应
+  正常，最近 400 条日志出现相关只读业务关键词且没有探针 unavailable/recovered 命中。该证据只推进运行时和日志
+  可见性，不代表真实微信登录、多患者切换、Provider 字段、Redis TTL、资料 409 或真机验收；本地最新小程序修正
+  仍待上传后验证。支付、医保、预约写入、报告详情和 HIS 继续关闭，详见
+  [`release/current-live-readonly-audit-2026-08-17.md`](release/current-live-readonly-audit-2026-08-17.md)。
