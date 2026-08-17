@@ -804,6 +804,12 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatientTemplate).toContain('data-status="{{item.status}}"');
 	expect(outpatientTemplate).toContain("visibleItems");
 	expect(outpatientTemplate).toContain("加载更多缴费记录");
+	expect(outpatientTemplate).toContain(
+		"当前仅展示门诊费用查询结果，支付、退费和医保结算请以医院正式渠道为准",
+	);
+	// 旧端文案会暗示支付或医保已经可以在此页面执行；只读页面必须明确拒绝这种语义回流。
+	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
+	expect(outpatientTemplate).not.toContain("目前支付宝支持");
 	expect(outpatient).toContain("已缴费记录详情正在迁移中");
 	expect(outpatient).toContain("支付流程正在迁移中");
 	expect(outpatientTemplate).toContain(

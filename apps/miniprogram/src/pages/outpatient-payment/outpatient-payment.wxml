@@ -10,7 +10,8 @@
 		<text class="patient-change">更换就诊人</text>
 	</view>
 
-	<view class="notice">缴费后如需退费需至窗口办理，请谨慎操作。</view>
+	<!-- 旧端提示包含支付、退费和医保引导；当前页面只开放费用查询，不能复制旧文案造成能力已开放的误导。 -->
+	<view class="notice">当前仅展示门诊费用查询结果，支付、退费和医保结算请以医院正式渠道为准。</view>
 
 	<view class="tabs">
 		<view class="tab {{activeStatus === 'unpaid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="unpaid">待缴费</view>
