@@ -152,6 +152,10 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 平台内部来源分类；页面不能把 `other` 当作 provider 错误或直接展示给用户。卡号是服务端
 脱敏读模型，不允许小程序自行拼接明文卡号。
 
+患者目录同步和读取是两条服务端事实链：同步快照提交成功后，接口还需要读取当前 owner 的
+脱敏读模型才能生成响应；如果这一步暂时失败，服务端返回错误，不会把空数组伪装成同步成功。
+相同幂等键命中 durable replay 时不会再次访问 Provider，但仍会重新读取当前读模型。
+
 ### 3.2 普通个人资料
 
 `GET /me/profile` 和 `PUT /me/profile` 只处理 `displayName`、`gender`、`age`、`email`。

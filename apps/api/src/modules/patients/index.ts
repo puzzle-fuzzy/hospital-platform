@@ -7,6 +7,7 @@ import { createRequestPrincipalResolver } from "../../plugins/request-authentica
 
 const AuthorizationHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
+	"x-request-id": t.Optional(t.String({ maxLength: 128 })),
 });
 
 /** 同步操作需要显式幂等上下文；unionId 不允许由小程序提交。 */
@@ -48,9 +49,14 @@ export function patientsModule(
 		)
 		.get(
 			"/patients",
-			async ({ request }) => {
+			async ({ request, headers }) => {
 				const principal = await authentication.get(request);
-				return success(await patientService.list(principal.userId));
+				return success(
+					await patientService.list(
+						principal.userId,
+						adapterContextFromHeaders(headers),
+					),
+				);
 			},
 			{
 				headers: AuthorizationHeaders,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	type PatientDirectoryGateway,
 	PatientDirectorySyncInProgressError,
+	type PatientRepository,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import {
@@ -9,6 +10,115 @@ import {
 	createInMemoryPatientRepository,
 } from "@hospital/persistence";
 import { PatientService } from "./service";
+
+test("患者目录读取使用独立读模型日志且不泄露 owner 或患者正文", async () => {
+	const lines: string[] = [];
+	const service = new PatientService(
+		createInMemoryPatientRepository([
+			{
+				id: "internal-patient-read-001",
+				ownerUserId: "fixture-owner-read-001",
+				displayName: "读模型患者",
+				relationship: "self",
+				cardNumberMasked: "******0001",
+				source: "hospital-his",
+			},
+		]),
+		{
+			logger: createLogger({
+				service: "hospital-api-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
+
+	await expect(
+		service.list("fixture-owner-read-001", {
+			traceId: "patient-read-trace-001",
+			idempotencyKey: "patient-read-key-001",
+		}),
+	).resolves.toMatchObject({ total: 1 });
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"patient.directory.read.requested",
+		"patient.directory.read.loaded",
+	]);
+	expect(records[1]).toMatchObject({
+		traceId: "patient-read-trace-001",
+		itemCount: 1,
+	});
+	expect(JSON.stringify(records)).not.toContain("fixture-owner-read-001");
+	expect(JSON.stringify(records)).not.toContain("读模型患者");
+});
+
+test("患者快照已提交后读模型失败不再伪造同步失败", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-read-failure",
+		unionId: "fixture-union-patient-read-failure",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const lines: string[] = [];
+	let readModelShouldFail = false;
+	const replaceDirectorySnapshot = baseRepository.replaceDirectorySnapshot;
+	if (!replaceDirectorySnapshot) throw new Error("snapshot unavailable");
+	const repository: PatientRepository = {
+		...baseRepository,
+		async listByOwner(ownerUserId) {
+			if (readModelShouldFail) {
+				throw new Error("fixture read model unavailable");
+			}
+			return baseRepository.listByOwner(ownerUserId);
+		},
+		async replaceDirectorySnapshot(input) {
+			// 让底层快照事务先使用自己的 this 完成提交，再模拟提交后的
+			// 独立读模型连接失败；这样可以验证两条业务事实不会混日志。
+			const snapshot = await replaceDirectorySnapshot.call(
+				baseRepository,
+				input,
+			);
+			readModelShouldFail = true;
+			return snapshot;
+		},
+	};
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "patient-read-failure-provider-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-read-failure-trace",
+			idempotencyKey: "patient-read-failure-key",
+		}),
+	).rejects.toThrow("fixture read model unavailable");
+
+	const events = lines.map(
+		(line) => (JSON.parse(line) as Record<string, unknown>).event,
+	);
+	expect(events).toContain("patient.directory.synced");
+	expect(events).toContain("patient.directory.read.failed");
+	expect(events).not.toContain("patient.directory.failed");
+});
 
 test("患者目录快照使用 provider 请求发起时间，避免乱序响应覆盖新快照", async () => {
 	const identityUsers = createInMemoryIdentityUserRepository();

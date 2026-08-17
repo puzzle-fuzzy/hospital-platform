@@ -48,20 +48,54 @@ export class PatientService {
 	}
 
 	/** 只按服务端解析出的 ownerUserId 查询，避免客户端传 userId 越权。 */
-	async list(ownerUserId: string): Promise<PatientListPayload["data"]> {
-		const items = await this.repository.listByOwner(ownerUserId);
-		return {
-			items: items.map(
-				({ id, displayName, relationship, cardNumberMasked, source }) => ({
-					id,
-					displayName,
-					relationship,
-					cardNumberMasked,
-					source,
-				}),
-			),
-			total: items.length,
-		};
+	async list(
+		ownerUserId: string,
+		context: AdapterCallContext,
+	): Promise<PatientListPayload["data"]> {
+		// 患者目录读取是独立的业务事实：它可能只是读取已有快照，也可能是
+		// 同步成功后返回读模型。不能只依赖 HTTP 200，否则“数据库读取失败”
+		// 会和“没有患者”都表现成没有业务日志。
+		this.logger.info(
+			{
+				event: "patient.directory.read.requested",
+				traceId: context.traceId,
+			},
+			"Patient directory read requested",
+		);
+		try {
+			const items = await this.repository.listByOwner(ownerUserId);
+			const payload = {
+				items: items.map(
+					({ id, displayName, relationship, cardNumberMasked, source }) => ({
+						id,
+						displayName,
+						relationship,
+						cardNumberMasked,
+						source,
+					}),
+				),
+				total: items.length,
+			};
+			this.logger.info(
+				{
+					event: "patient.directory.read.loaded",
+					traceId: context.traceId,
+					itemCount: payload.total,
+				},
+				"Patient directory read loaded",
+			);
+			return payload;
+		} catch (error) {
+			this.logger.error(
+				{
+					event: "patient.directory.read.failed",
+					traceId: context.traceId,
+					errorType: error instanceof Error ? error.name : "unknown",
+				},
+				"Patient directory read failed",
+			);
+			throw error;
+		}
 	}
 
 	/**
@@ -76,6 +110,9 @@ export class PatientService {
 	): Promise<PatientListPayload["data"]> {
 		let operationId: string | undefined;
 		let operationAttemptCount: number | undefined;
+		// 一旦 replay 或快照事务成功，后续 list 失败只能归类为读模型失败，
+		// 不能再追加 `patient.directory.failed` 覆盖已经成立的同步事实。
+		let syncOutcomeCommitted = false;
 		this.logger.info(
 			{
 				event: "patient.directory.requested",
@@ -119,6 +156,7 @@ export class PatientService {
 			operationId = operation.operationId;
 			operationAttemptCount = operation.attemptCount;
 			if (operation.outcome === "replay") {
+				syncOutcomeCommitted = true;
 				this.logger.info(
 					{
 						event: "patient.directory.operation.replayed",
@@ -129,7 +167,7 @@ export class PatientService {
 					},
 					"Patient directory synchronization replayed from durable state",
 				);
-				return this.list(ownerUserId);
+				return this.list(ownerUserId, context);
 			}
 			if (operation.outcome === "in_progress") {
 				this.logger.warn(
@@ -191,6 +229,7 @@ export class PatientService {
 				operationAttemptCount: operation.attemptCount,
 				patients: snapshotPatients,
 			});
+			syncOutcomeCommitted = true;
 
 			this.logger.info(
 				{
@@ -208,12 +247,15 @@ export class PatientService {
 				"Patient directory synchronized",
 			);
 
-			return this.list(ownerUserId);
+			return this.list(ownerUserId, context);
 		} catch (error) {
 			// `in_progress` 是已定义的并发分支，不是 provider/数据库失败。
 			// 上面已经记录了带 conflictScope 的 409 事件；如果这里再记录
 			// `failed`，监控会把正常的重复刷新误报成同步故障。
-			if (!(error instanceof PatientDirectorySyncInProgressError)) {
+			if (
+				!syncOutcomeCommitted &&
+				!(error instanceof PatientDirectorySyncInProgressError)
+			) {
 				this.logger.error(
 					{
 						event: "patient.directory.failed",

@@ -65,6 +65,8 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `patient.directory.operation.in_progress` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、固定的 `conflictScope` 和 trace，表示返回 409；不记录幂等键或租约原文 |
 | `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
 | `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider、trace 和内部 operationId，不记录第三方原始错误报文 |
+| `patient.directory.read.requested` / `patient.directory.read.loaded` | 患者目录读模型读取 | 记录读取开始和有效患者数量；不记录 userId、患者正文或 provider 患者号 |
+| `patient.directory.read.failed` | 患者目录读模型读取 | 记录读取错误类型和 trace；不记录 userId、患者正文或底层错误消息 |
 | `user.profile.requested` | 普通个人资料读取 | 记录 trace 和读取开始，不记录 userId、资料字段或请求正文 |
 | `user.profile.loaded` | 普通个人资料读取 | 记录 trace 和是否存在持久化资料行；默认值与已落库资料可区分，不记录 userId 或资料正文 |
 | `user.profile.read_failed` | 普通个人资料读取 | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
@@ -119,6 +121,18 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 
 报告目录的 `kind` 同样是运行时白名单字段；未知来源只记录 `report.directory.failed` 和稳定错误类型，
 不会产生 `report.directory.requested`，也不会把错误查询降级成 ECG Provider 请求。
+
+患者目录同步和读模型读取必须按提交边界区分：
+
+- `patient.directory.synced` 表示完整目录快照事务已经提交，包含 operation ledger 的成功状态；
+  它不保证随后把当前读模型查询返回给客户端的动作一定成功。
+- `patient.directory.read.loaded` 表示当前 owner 的脱敏读模型已经从仓储读取并完成返回映射，`itemCount=0`
+  是明确的成功空目录，不代表同步过 provider。
+- 如果快照已经提交或请求命中 durable replay，之后的仓储读取失败只能记录
+  `patient.directory.read.failed`，不能再追加 `patient.directory.failed`；否则会把已成立的同步成功事实误报成
+  provider 同步失败。
+- 只有在快照提交前发生身份、租约、完整快照、Provider 或持久化错误时，才记录
+  `patient.directory.failed`。处理中冲突仍只记录 `patient.directory.operation.in_progress`。
 
 以上事件以同一个 `traceId` 关联；失败事件必须保留稳定 `errorType`，成功事件必须保留结果数量或状态。HTTP
 请求日志仍然独立记录请求生命周期，不能用 `http.request.completed` 代替业务 `synced/loaded`，也不能用 HTTP 200
