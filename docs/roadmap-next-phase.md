@@ -15,6 +15,8 @@
 ### 2026-08-17 迁移差距审计
 
 - 当前下一块不是继续增加静态页面，而是完成已有只读纵向切片的真实证据：患者 TTL/多患者、预约历史、门诊费用列表和普通资料；报告详情、病历、绑定、动态医院和外部入口仍等待新的 Provider 文档及脱敏样例。
+- `7807aa8` 修正“我的”页的资料上下文：资料卡现在读取已冻结的普通资料昵称；普通资料读取失败只降级为安全兜底并提示重试，不会清理已经确认的患者上下文；资料卡提示也与实际跳转的个人资料页一致。该修正已通过 63 项小程序验收、typecheck、lint、格式和运行包构建，真实微信资料读写/409 与真机证据仍待完成。
+- 2026-08-17 线上只读复核确认新旧服务共存、production mode、MySQL/Redis/schema readiness 和公网基础边界均正常；远端 Redis `PING` 通过但当前 SSH 账号不具备会话 key `SCAN` 权限，TTL 仍未验证。不得把本机 Redis 空库或 ACL 拒绝解释成“没有会话”，证据见 [`release/current-server-readonly-observability-2026-08-17.md`](release/current-server-readonly-observability-2026-08-17.md)。
 - 本轮修复门诊费用 adapter 的金额边界：缺失金额不再降级为 `0` 分，显式零元仍可通过；这条规则已加入 adapter 测试和迁移差距审计。完整分层、证据等级和新文档接收门禁见 [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md)。
 - `d71ecd4`、`3609944` 和 `7a03df7` 继续收紧只读 adapter：门诊费用展示字段按公开 contract 限长，LIS 单位限制为 64 字符；2.6.33 未确认的 `waitPayAmount`、`registerDept`、`registerDoctor` 不再覆盖已确认字段，只有 `amount` 缺失时保持 fail-closed。该修正不改变支付/医保 gate，也未部署线上。
 - 本轮预约排班审计进一步移除 `usableNum`/`remainingNumber` 号源 fallback；当前只接受已确认的 `usableSourceNum`，缺失时 fail-closed，避免旧端不同接口字段被错误合并。该修正仅影响只读 adapter 边界，未打开预约写入或锁号。
