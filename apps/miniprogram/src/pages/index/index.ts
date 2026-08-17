@@ -384,6 +384,14 @@ Page<IndexPageData, IndexPageMethods>({
 
 	/** 统一通过页面路由进入患者管理，恢复旧端可浏览、可返回的交互。 */
 	openPatientSelector(): void {
+		// 首页登录恢复或下拉刷新正在同步患者时，选择页不能再用另一条
+		// 幂等键并发触发 provider 同步；服务端会正确返回 owner/provider
+		// 处理中冲突，但用户只会看到“加载失败”。统一在路由入口拦截，
+		// 等当前快照完成后再允许进入选择页，保持患者上下文只有一条写入链。
+		if (this.data.syncingPatients) {
+			wx.showToast({ title: "就诊人正在同步，请稍后", icon: "none" });
+			return;
+		}
 		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
 	},
 

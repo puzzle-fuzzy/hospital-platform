@@ -862,6 +862,24 @@ test("native homepage sends both add and change patient actions to the selection
 	expect(login).toContain("options.afterSuccess?.()");
 });
 
+test("native homepage blocks patient selection while its sync snapshot is in flight", async () => {
+	const home = await source("pages/index/index.ts");
+	const start = home.indexOf(
+		"openPatientSelector(): void {",
+		home.indexOf("Page<"),
+	);
+	const end = home.indexOf("\n\t},", start);
+	const selector = home.slice(start, end);
+
+	// 首页和选择页不能各自用不同幂等键并发同步同一 owner/provider；
+	// 路由入口必须先等待当前快照收敛，再让用户进入选择流程。
+	expect(selector).toContain("this.data.syncingPatients");
+	expect(selector).toContain("就诊人正在同步，请稍后");
+	expect(selector).toContain(
+		'wx.navigateTo({ url: "/pages/patient-select/patient-select" })',
+	);
+});
+
 test("native patient center does not mislabel reports as outpatient medical records", async () => {
 	const home = await source("pages/index/index.ts");
 	const myTemplate = await source("pages/my/my.wxml");
