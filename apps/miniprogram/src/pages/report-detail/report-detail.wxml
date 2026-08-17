@@ -39,7 +39,7 @@
 				<view wx:for="{{items}}" wx:key="index" class="report-item">
 					<view class="report-item-heading">
 						<text class="report-item-name">{{item.name}}</text>
-						<text wx:if="{{item.flag}}" class="report-item-flag report-item-flag-{{item.flag}}">{{item.flag}}</text>
+						<text wx:if="{{item.flagLabel}}" class="report-item-flag report-item-flag-{{item.flag}}">{{item.flagLabel}}</text>
 					</view>
 					<view class="report-item-result">
 						<text wx:if="{{item.result}}">结果：{{item.result}}</text>

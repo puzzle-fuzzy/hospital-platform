@@ -81,6 +81,10 @@ export type ReportDirectoryView = Report & {
 };
 export type ReportDetail = ReportDetailResponse["data"];
 export type LaboratoryReportItem = ReportDetail["items"][number];
+/** 检验明细的页面显示模型；服务端枚举只在客户端边界转换为患者可读文案。 */
+export type LaboratoryReportItemView = LaboratoryReportItem & {
+	flagLabel: string;
+};
 export type WechatPrepayData = WechatPrepayResponse["data"];
 export type WechatPrepayStatusData = WechatPrepayStatusResponse["data"];
 
@@ -231,7 +235,7 @@ export type ReportDetailPageData = {
 	reportCount: number;
 	activeTab: "report" | "image";
 	reportedAt: string;
-	items: Array<LaboratoryReportItem>;
+	items: Array<LaboratoryReportItemView>;
 	hasItems: boolean;
 	hasAttachment: boolean;
 	error: string;

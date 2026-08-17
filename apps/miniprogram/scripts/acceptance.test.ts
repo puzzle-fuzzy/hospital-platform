@@ -17,6 +17,10 @@ import {
 	createUpcomingDateRange,
 	formatPlatformDate,
 } from "../src/services/dashboard-service";
+import {
+	LABORATORY_FLAG_LABELS,
+	toLaboratoryReportItemView,
+} from "../src/services/report-presenter";
 import { createLatestRequestGuard } from "../src/services/latest-request-guard";
 import { resolvePatientSelection } from "../src/services/patient-selection-service";
 import type { Patient } from "../src/types";
@@ -99,6 +103,28 @@ test("native client localizes every public query and session error boundary", ()
 	expect(localizedApiErrorMessage("api-request-failed", "服务端原始错误")).toBe(
 		"请求失败，请稍后重试",
 	);
+});
+
+test("native report detail translates clinical flag enums at the display boundary", () => {
+	expect(LABORATORY_FLAG_LABELS).toEqual({
+		normal: "正常",
+		high: "偏高",
+		low: "偏低",
+		critical: "危急",
+		unknown: "待确认",
+	});
+	expect(
+		toLaboratoryReportItemView({
+			name: "白细胞",
+			result: "10.2",
+			flag: "high",
+		}),
+	).toEqual({
+		name: "白细胞",
+		result: "10.2",
+		flag: "high",
+		flagLabel: "偏高",
+	});
 });
 
 test("native pages never display an unmapped ApiError message", async () => {

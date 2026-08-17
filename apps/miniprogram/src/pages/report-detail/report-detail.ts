@@ -3,6 +3,7 @@ import {
 	requestReportDetail,
 	safeApiErrorMessage,
 } from "../../services/api-client";
+import { toLaboratoryReportItemView } from "../../services/report-presenter";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
@@ -55,7 +56,9 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 						code: "report-detail-response-missing",
 					});
 				}
-				const items = report.items || [];
+				// API 只返回稳定枚举；页面在这里转换为患者可读的中文，
+				// 不把展示文案反向写回服务端事实。
+				const items = (report.items || []).map(toLaboratoryReportItemView);
 				this.setData({
 					title: report.title,
 					reportedAt: report.reportedAt,
