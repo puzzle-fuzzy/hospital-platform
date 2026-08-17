@@ -233,13 +233,8 @@ function mapImaging(
 		optionalText(value.stuBodypart, "stuBodypart", operation, requestId) ??
 		optionalText(value.modality, "modality", operation, requestId) ??
 		"影像检查报告";
-	const providerReportId = optionalText(
-		value.reportId,
-		"reportId",
-		operation,
-		requestId,
-		256,
-	);
+	// PACS 当前只有目录摘要合同；provider 报告号不能进入内部目录项，
+	// 否则后续新增详情路由时可能绕过“仅 LIS 可查详情”的业务边界。
 	return {
 		summary: {
 			kind: "imaging",
@@ -254,7 +249,6 @@ function mapImaging(
 			status: "available",
 			hasAttachment: Boolean(value.reportPdfPath || value.reportImgPath),
 		},
-		...(providerReportId ? { providerReportId } : {}),
 	};
 }
 
@@ -267,13 +261,8 @@ function mapEcg(
 		optionalText(value.diagnosis, "diagnosis", operation, requestId) ??
 		optionalText(value.reportDocName, "reportDocName", operation, requestId) ??
 		"心电报告";
-	const providerReportId = optionalText(
-		value.ecgReportId ?? value.reportId,
-		"ecgReportId",
-		operation,
-		requestId,
-		256,
-	);
+	// ECG 当前没有可审计的详情端口；即使 provider 返回 ecgReportId，
+	// 也不能把它保存在目录项中，避免把“有报告号”误判为“可查询详情”。
 	return {
 		summary: {
 			kind: "ecg",
@@ -288,7 +277,6 @@ function mapEcg(
 			status: "available",
 			hasAttachment: Boolean(value.pdfPath),
 		},
-		...(providerReportId ? { providerReportId } : {}),
 	};
 }
 

@@ -194,7 +194,8 @@ adapter 请求上下文。当前代码在 `0015_patient_directory_sync_operation
 ### 3.4 报告
 
 报告目录只返回 `kind`、标题、时间、`available`/`abnormal`、`hasAttachment` 和可选的
-opaque `reportId`。检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange`
+opaque `reportId`；当前只有检验报告可以返回该 `reportId`。影像和心电 provider 即使返回
+原始报告号，也会在 adapter 边界丢弃，因为当前没有对应的可审计详情 contract。检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange`
 和 `flag`；`flag` 为 `normal`、`high`、`low`、`critical` 或 `unknown`。
 
 目录摘要与详情引用是两个独立能力：provider 没有稳定报告号、详情 gate 未开启或无法建立

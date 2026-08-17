@@ -15,13 +15,29 @@ export type ReportSummary = {
 /**
  * provider 目录项的服务端内部形态。
  *
- * providerReportId 只允许在 API 服务端完成引用落库时短暂存在，不能直接
- * 复用 ReportSummary 作为 HTTP response，避免报告详情凭证意外泄漏到小程序。
+ * 只有 LIS 当前取得了详情字段合同，因此只有检验摘要可以携带
+ * providerReportId。影像/心电即使 provider 返回了报告号，也必须在 adapter
+ * 边界丢弃；这样未来新增详情路由时，类型系统不会允许它们被误当成可查详情。
+ * providerReportId 不能直接复用 ReportSummary 作为 HTTP response，避免报告
+ * 详情凭证意外泄漏到小程序。
  */
-export type ReportDirectoryEntry = {
-	summary: ReportSummary;
-	providerReportId?: string;
+type ReportSummaryForKind<K extends ReportKind> = Omit<
+	ReportSummary,
+	"kind"
+> & {
+	kind: K;
 };
+
+export type ReportDirectoryEntry =
+	| {
+			summary: ReportSummaryForKind<"laboratory">;
+			providerReportId?: string;
+	  }
+	| {
+			summary: ReportSummaryForKind<"imaging" | "ecg">;
+			/** 非 LIS 来源禁止携带 provider 报告号。 */
+			providerReportId?: never;
+	  };
 
 export type ReportDirectoryQuery = {
 	startDate: string;

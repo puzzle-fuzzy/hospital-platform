@@ -89,12 +89,14 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 				: url.includes("pacs")
 					? [
 							{
+								reportId: "pacs-provider-secret",
 								modality: "CT",
 								reportAuditTime: "2026-08-11",
 							},
 						]
 					: [
 							{
+								ecgReportId: "ecg-provider-secret",
 								diagnosis: "窦性心律",
 								diagnoseTime: "2026-08-12",
 							},
@@ -121,6 +123,8 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 		"laboratory",
 	]);
 	expect(result.trace.requestId).toBe("request-1,request-2,request-3");
+	expect(JSON.stringify(result)).not.toContain("pacs-provider-secret");
+	expect(JSON.stringify(result)).not.toContain("ecg-provider-secret");
 });
 
 test("众阳 LIS 详情只映射白名单检测项并保留 provider 引用在请求内", async () => {
