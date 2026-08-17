@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `9d258a1`，在 `dc6d63f` 的基础上，补齐选择页同步失败时清除旧“当前”标记并保持 fail-closed；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `34bbb9c`，在 `9d258a1` 的基础上，补齐选择页读取/同步进行中也清除旧“当前”标记，并在最新目录和临床映射成功后恢复；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -282,6 +282,10 @@ schema `0015` 为准。
 展示标记并继续禁止选择，避免把尚未确认的 `his-patient` 映射误显示为有效上下文；本地 opaque `patientId`
 不删除，仍用于目录恢复后的 stale 判断。小程序验收 61 项、类型检查已通过，候选仍未部署，线上继续以
 `131fb5a` 和生产 schema `0015` 为准。
+
+随后 `34bbb9c` 将同一规则前移到读取和同步开始：待确认期间不展示旧“当前”患者，只有最新 owner-scoped
+目录与临床映射同步成功后才恢复标记；本地 opaque `patientId` 仍保留，避免暂时故障导致静默换人。小程序
+验收 62 项、类型检查已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
