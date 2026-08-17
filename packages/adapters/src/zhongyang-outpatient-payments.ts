@@ -21,6 +21,8 @@ const OPERATION = "outpatient-payment-records";
  */
 type ProviderPaymentItem = {
 	amount?: unknown;
+	/** 2.6.33 响应中的订单状态：1=待支付，3=已支付。只在 adapter 内校验。 */
+	tradeStatus?: unknown;
 	/** 以下字段只用于服务端内部建立稳定费用引用，不进入公共读模型。 */
 	mainId?: unknown;
 	chargeId?: unknown;
@@ -109,6 +111,35 @@ function amountFen(value: unknown, requestId: string): number {
 	return fen;
 }
 
+/**
+ * 校验 Provider 返回的订单状态与本次查询条件一致。
+ *
+ * 不能只相信请求参数并给整批记录贴上 `unpaid`/`paid` 标签：Provider
+ * 可能因为数据错配、查询条件失效或上游返回异常而返回另一种状态。
+ * 2.6.33 已明确响应中的 `tradeStatus`，因此缺失或不一致都必须整批
+ * 失败，避免把已支付记录展示成待支付，或把错误读模型带入未来支付编排。
+ */
+function verifyTradeStatus(
+	value: unknown,
+	status: OutpatientPaymentStatus,
+	requestId: string,
+): void {
+	const expected = status === "unpaid" ? "1" : "3";
+	if (typeof value !== "string" && typeof value !== "number") {
+		throw providerError(
+			"Zhongyang outpatient tradeStatus is missing or invalid",
+			requestId,
+		);
+	}
+	const actual = String(value).trim();
+	if (actual !== expected) {
+		throw providerError(
+			"Zhongyang outpatient tradeStatus did not match the requested status",
+			requestId,
+		);
+	}
+}
+
 function identityText(value: unknown): string | undefined {
 	if (value === undefined || value === null || value === "") return undefined;
 	if (typeof value !== "string" && typeof value !== "number") return undefined;
@@ -189,6 +220,7 @@ function mapRecord(
 	status: OutpatientPaymentStatus,
 	requestId: string,
 ): OutpatientPaymentRecord {
+	verifyTradeStatus(item.tradeStatus, status, requestId);
 	// 这里直接复用公开 contract 的上限：异常 provider 文本必须在 adapter
 	// 边界被拒绝，不能等到 Elysia 响应校验阶段才变成难定位的 500。
 	const billDate = textField(item.billDate, "billDate", requestId, 64);
