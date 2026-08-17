@@ -3,18 +3,18 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 当前线上 release 是 `daee96d`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> 当前线上 release 是 `0b6f38f`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
 > [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)；本文后面的历史证据段落保留原时间线，不能当作当前 release 的新业务证据。
 
 ## 1. 当前事实
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | `daee96d` 已包含前序患者边界、本地分批渲染、患者同步幂等键收紧、报告详情引用故障隔离和 Provider 失败低敏诊断；线上以 bundle provenance 为准，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 见 [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
-| 线上新 API | `daee96d`，`18081`，production mode | [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
+| 仓库代码候选 | `0b6f38f` 已包含前序患者边界、本地分批渲染、患者同步幂等键收紧、报告详情引用故障隔离、Provider 失败低敏诊断和门诊费用渠道契约收紧；线上以 bundle provenance 为准，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 见 [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
+| 线上新 API | `0b6f38f`，`18081`，production mode | [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过候选 schema probe | [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
-| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md) |
+| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过候选 schema probe | [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
+| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
@@ -41,7 +41,7 @@
 
 本地原生小程序本轮又补齐了进程级患者同步协调器和统一患者选择导航门禁：首页、我的、预约记录、报告、
 爽约和门诊费用页面不能在另一页面实例的同步快照尚未收敛时启动第二条幂等同步；选择页直接打开时也会
-复用当前在途 Promise。该改动只影响尚未重新构建的本地小程序运行包，不改变线上 `daee96d` API、旧 Python
+复用当前在途 Promise。该改动只影响尚未重新构建的本地小程序运行包，不改变当时线上 `daee96d` API、旧 Python
 服务或数据库；必须在微信开发者工具重新构建后，用真机观察跨页面点击提示和服务端 trace 对齐。
 
 随后以当前服务启动时间 `2026-08-17 15:39:39 CST` 为边界完成一次低敏服务器复核：观察到 1 次完整微信登录成功、
@@ -94,7 +94,7 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `daee96d` 完成真实链路：
+这些不是继续加页面，而是用当前 `0b6f38f` 完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；
@@ -231,7 +231,7 @@ HIS 回写完成。
 本轮还修正了受保护 API 的认证顺序：Elysia 在 query/body/params schema 校验前验证 Bearer，
 未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
 回调仍是明确公开入口。该修正已由 API 集成测试、候选临时端口 smoke 和当前公网无会话回归验证，
-当前线上 `daee96d` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
+当前线上 `0b6f38f` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
 
 本轮代码修改后的仓库级 `pnpm check` 已完成其余门禁：架构边界、Provider intake、99 份文档链接、
 格式、lint、9 个 workspace 的 typecheck/test 和 build 均通过；唯一失败仍是 `pnpm migration:audit`。
@@ -459,3 +459,12 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 也避免 adapter 因空值而自行猜测默认渠道。domain、API、adapter 类型检查通过，API 96 项和 adapter 63 项测试通过；
 全仓 typecheck/test/build、架构/provider/文档/格式/Lint 检查通过，migration audit 仍仅被旧仓库的医保清单漂移阻塞。
 本轮未修改服务器、数据库、旧 Python 服务或线上 release，支付、医保、结算与 HIS 继续留到最后处理。
+
+随后候选 `0b6f38f` 完成五个生产 bundle 的本地/服务器 SHA-256 对照、真实生产 env preflight 和
+`127.0.0.1:18082` 隔离 smoke；preflight 确认 `0016_patient_directory_sync_owner_index`、MySQL、Redis
+和已开放只读 Provider 配置均通过，smoke 的 live、ready 3/3、system ping 和未登录 401 均通过。
+候选停止后按同目录 `current.next -> current` 原子切换，只重启新 API；旧 Python `8001` 未停止或重启。
+切换后 `0b6f38f` 的内网/公网 readiness 均为 200，公网 runtime smoke ready 连续 6/6，system ping 200、
+认证边界 401，`18082` 已释放。该发布仍没有真实微信、患者、预约历史或门诊费用 Provider 业务事件，
+所以 P0 真实业务验收状态不变；支付、医保、退款和 HIS 回写继续最后处理。完整 bundle 与运行证据见
+[`../release/0b6f38f-production-acceptance-2026-08-17.md`](../release/0b6f38f-production-acceptance-2026-08-17.md)。

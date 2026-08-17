@@ -20,13 +20,13 @@
 
 ### 当前线上基线（2026-08-17）
 
-当前生产 `current` 为 `daee96d`，对应新 API `hospital-platform-api-v2.service`；旧 Python
-服务仍由原端口独立提供，未被本次发布替换。`daee96d` 发布后的 SSH、候选启动、公网健康检查、
-认证边界和旧服务共存证据，统一见 [`daee96d-production-acceptance-2026-08-17.md`](daee96d-production-acceptance-2026-08-17.md)。
+当前生产 `current` 为 `0b6f38f`，对应新 API `hospital-platform-api-v2.service`；旧 Python
+服务仍由原端口独立提供，未被本次发布替换。`0b6f38f` 发布后的 SSH、候选启动、公网健康检查、
+认证边界和旧服务共存证据，统一见 [`0b6f38f-production-acceptance-2026-08-17.md`](0b6f38f-production-acceptance-2026-08-17.md)。
 
-截至 `daee96d` 切换窗口结束，当前 release 取得了服务启动、schema migration、健康探针、system-ping 和未登录边界请求，
+截至 `0b6f38f` 切换窗口结束，当前 release 取得了服务启动、schema migration、健康探针、system-ping 和未登录边界请求，
 但尚未在该版本取得新的微信登录、患者目录、预约、报告或门诊费用业务请求。`ca5a372` 及更早 release 的真实微信登录、患者同步、
-预约科室和排班读取属于历史证据，不能直接标记当前 `daee96d` 的业务 gate；后续真机或公网业务验收必须重新记录当前 release、`traceId`、`requestId` 和脱敏响应摘要。
+预约科室和排班读取属于历史证据，不能直接标记当前 `0b6f38f` 的业务 gate；后续真机或公网业务验收必须重新记录当前 release、`traceId`、`requestId` 和脱敏响应摘要。
 
 所有患者作用域能力都必须经过同一条 owner 目录门禁：smoke 先用当前平台 Bearer
 读取 `GET /patients`，只接受响应 `data.items[].id` 中的内部患者 ID；只有
@@ -40,7 +40,7 @@
 `b1b84d7` 发布，生产 migration `0012_patient_provider_references` 已成功应用；随后受控发布
 `ca3a877` 又完成了 `0013_patient_directory_snapshot` 及其 schema probe；这些版本的业务日志是
 历史回归证据。真实账号重新同步、预约历史 provider 只读、公网业务 smoke 和真机证据仍未在
-当前 `daee96d` 验收窗口尚未取得预约历史业务请求，因此预约历史不得标记为完整验收。
+当前 `0b6f38f` 验收窗口尚未取得预约历史业务请求，因此预约历史不得标记为完整验收。
 
 ### 2026-08-16 真实账号与预约目录只读证据
 
