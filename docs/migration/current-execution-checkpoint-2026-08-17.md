@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `3a596b1`，在 `4aa877f` 的基础上，完成门诊待支付列表 2.6.33 的状态 contract diff，仅接受 `1→unpaid` 和 `3→paid`，其余结算/退款/作废状态保持 fail-closed；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `0610558`，在 `3a596b1` 的门诊待支付列表 contract diff 基础上，补齐 `status` 的领域 service/Provider adapter 运行时白名单；未知值不会降级为 `tradeStatus=3`，也不会访问 Provider；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -316,3 +316,9 @@ schema `0015` 为准。
 等固定错误码现在统一兼容大小写、短横线和下划线差异，但只输出规范化的大写下划线值；包含主机、
 连接串或 SQL 片段的自定义 code 仍会被拒绝。这个修正只提升故障关联能力，不改变 503 响应、只读
 连接池有限重试或写入/事务禁止盲目重试的规则，并已补充 persistence 单元测试。
+
+随后 `0610558` 收紧门诊缴费查询状态的运行时边界：领域 service 和众阳 adapter 共用白名单守卫，
+未知状态返回 `400 outpatient-payment-query-invalid`，不会被历史的“非 unpaid 即 paid”分支误发为
+`tradeStatus=3`，也不会触发 Provider 请求；失败日志只记录 `status=invalid`。API 86 项、原生小程序
+58 项、全量 typecheck/test/build 和文档/迁移审计均通过，候选尚未部署，线上继续以 `131fb5a` 和生产
+schema `0015` 为准，支付/医保/HIS 仍保持关闭。
