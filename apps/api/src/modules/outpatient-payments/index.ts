@@ -208,6 +208,9 @@ export class OutpatientPaymentService {
 					event: "outpatient.payment.records.failed",
 					traceId: context.traceId,
 					provider: "zhongyang",
+					// 这是平台内部 opaque patientId，用于把 owner 映射失败与
+					// 页面请求关联；provider 患者号仍只存在于调用帧内。
+					patientId,
 					status,
 					errorType: error instanceof Error ? error.name : "UnknownError",
 				},

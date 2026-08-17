@@ -163,6 +163,7 @@ test("门诊费用输入和 owner 映射失败都会留下可检索的低敏日�
 	expect(JSON.stringify(records)).not.toContain("mysql connection failed");
 	expect(records[2]).toMatchObject({
 		traceId: "trace-repository-failure",
+		patientId: "patient-001",
 		status: "paid",
 		errorType: "Error",
 	});
