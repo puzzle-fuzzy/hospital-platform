@@ -58,7 +58,14 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	loadRecords(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "appointment-records");
 		const requestToken = loadGuard.begin();
-		this.setData({ loading: true, error: "" });
+		// 患者切换或从选择页返回时，旧记录不能继续和新一轮目录读取并存；
+		// 只有当前患者和当前请求都确认成功后，页面才重新展示记录。
+		this.setData({
+			loading: true,
+			error: "",
+			selectedPatient: null,
+			records: [],
+		});
 		return loadPatients()
 			.then((patients) => {
 				if (!loadGuard.isCurrent(requestToken)) return;

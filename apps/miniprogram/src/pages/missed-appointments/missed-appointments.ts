@@ -70,6 +70,9 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		this.setData({
 			loading: true,
 			error: "",
+			// 爽约记录是当前患者预约历史的派生结果；新患者查询开始后不能继续
+			// 展示上一位患者的卡片或记录，避免身份和列表短暂错配。
+			selectedPatient: null,
 			records: [],
 		});
 

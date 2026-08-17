@@ -802,6 +802,23 @@ test("native homepage reloads the owner directory after returning from patient s
 	);
 });
 
+test("native appointment history pages clear old patient data before reload", async () => {
+	for (const file of [
+		"pages/appointment-records/appointment-records.ts",
+		"pages/missed-appointments/missed-appointments.ts",
+	] as const) {
+		const page = await source(file);
+		const loadStart = page.indexOf("loadRecords(): Promise<void>");
+		const loadEnd = page.indexOf("\n\t},", loadStart);
+		const loadBody = page.slice(loadStart, loadEnd);
+
+		// 最新请求守卫只能阻止旧响应回写，不能消除请求等待期间已经展示的旧数据；
+		// 记录页必须在发起新患者读取时先清理身份和列表。
+		expect(loadBody).toContain("selectedPatient: null");
+		expect(loadBody).toContain("records: []");
+	}
+});
+
 test("native homepage fails closed when session recovery cannot be completed", async () => {
 	const home = await source("pages/index/index.ts");
 
