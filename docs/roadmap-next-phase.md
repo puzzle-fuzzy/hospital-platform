@@ -7,7 +7,7 @@
 
 ### 线上实时状态（2026-08-17 20:51 CST）
 
-- 本地仓库当前 `main` 已推进到 `8a73069`；本轮只完成代码、测试和验收工具改进，未部署。对
+- 本轮以本地仓库 `main` 的前序提交 `ff5ea6e` 为代码基线；本轮只完成代码、测试和验收工具改进，未部署。对
   `ps@192.168.112.172` 的 SSH 只读复核被当前环境拒绝（`Permission denied (publickey,password)`），
   因而本文此前记录的 `bf67b96`、`5f5915e` 等线上 release 只能作为历史证据，不能在本轮重新宣称为当前线上状态。
   后续任何生产结论都必须先取得新的 release provenance、低敏日志和公网/真机证据。
@@ -17,6 +17,9 @@
 - 本轮又将患者范围错误解释收敛到 `patientContextErrorMessage`：预约记录、爽约记录、报告目录和门诊费用页
   不再各自复制 stale/未绑定/临床映射不可用文案；领域服务未配置和费用映射缺失等专属状态仍由页面先处理。
   该修正只改变客户端错误语义复用，不改变 API、Provider、数据查询或支付/医保边界。
+- 本轮继续补齐患者切换竞态门禁：上述四个页面在发起查询和落地异步响应前都校验
+  `isCurrentSelectedPatient`；页面实例 request guard 无法识别跨页面换人时，旧患者响应会被丢弃。
+  该修正只改变客户端状态回写边界，不改变 API、Provider、数据查询或支付/医保边界。
 - 2026-08-17 21:29 CST：再次只读复核当前 `bf67b96`。新 API `18081` 与旧 Python `8001` 仍共存，公网 `health/ready` 返回 `200`、`no-store`，database/redis/schema 均为 `ok`；当前 release 自 `20:30:25` 启动后，日志聚合 `parseErrors=0`，有微信登录 1/1、患者同步 9/9、患者目录读取 18/18，但 `appointment.*`、`outpatient.payment.*`、`report.*` 和 `user.profile.*` 均为 0。该结果只推进运行时、认证和患者目录证据，不能标记“我的挂号”、门诊费用、报告或真机业务已验收。详见 [`release/current-release-p0-observation-2026-08-17-2129.md`](release/current-release-p0-observation-2026-08-17-2129.md)。
 - 当前 `bf67b96` 仍在生产运行，新 API `10.0.0.3:18081` 与旧 Python `8001` 共存；公网 live/ready/system-ping 为 `200/200/200`，live/ready 返回 `Cache-Control: no-store`。
 - 以 `service.started=2026-08-17 20:30:25 CST` 为边界的当前 release 日志聚合 `parseErrors=0`，观察到患者同步成功链 3 次、患者目录读取成功 6 次；没有新的 `auth.wechat.*`、`appointment.records.*` 或 `outpatient.payment.*` 事件。
@@ -35,7 +38,7 @@
 - 本轮继续按旧端源码复核“我的/我的挂号”的视觉契约：确认背景、头像、家庭成员箭头、9 个功能图标均与旧资源一致，
   收紧图标填充模式、挂号卡触摸反馈和长患者名布局，并新增 [`migration/personal-center-visual-contract.md`](migration/personal-center-visual-contract.md)。
   详情、预问诊、动态院区、预约写入、支付和医保仍按业务 contract 保持关闭；本轮只改变展示层和文档/验收门禁，未部署且未新增真机视觉证据。
-- 当前主分支 `8a73069` 继续收敛患者上下文业务边界：预约记录、爽约记录、报告目录和门诊费用页统一使用
+- 前序提交 `ff5ea6e` 继续收敛患者上下文业务边界：预约记录、爽约记录、报告目录和门诊费用页统一使用
   `loadCurrentPatient`，只重读最新 owner-scoped 目录并复用同一套 ready/stale/unavailable 解析；页面读取不会隐式触发 Provider 同步。
   该修正只改变客户端边界复用和静态门禁，未部署、未扩大 Provider 请求，也未打开支付、医保或预约写入；详见
   [`migration/patient-context-read-contract.md`](migration/patient-context-read-contract.md)。

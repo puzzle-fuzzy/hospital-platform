@@ -432,6 +432,9 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 
 		expect(page).toContain("loadCurrentPatient");
 		expect(page).toContain("patientContextErrorMessage");
+		// 页面实例守卫只能防同页刷新；跨页面更换就诊人后，旧请求还必须
+		// 通过本地 opaque patientId 快照校验，才能把结果写回当前页面。
+		expect(page).toContain("isCurrentSelectedPatient");
 		expect(page).not.toContain("loadPatients");
 		expect(page).not.toContain("requireStoredPatientSelection");
 		expect(page).toContain("navigateToPatientSelector");

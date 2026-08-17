@@ -10,7 +10,10 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { patientContextErrorMessage } from "../../services/patient-selection-service";
+import {
+	isCurrentSelectedPatient,
+	patientContextErrorMessage,
+} from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -153,9 +156,19 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		});
 		return loadCurrentPatient()
 			.then((patient) => {
-				if (!loadGuard.isCurrent(requestToken)) return;
+				if (
+					!loadGuard.isCurrent(requestToken) ||
+					!isCurrentSelectedPatient(patient.id)
+				) {
+					return;
+				}
 				return loadAppointmentRecords(patient.id).then((records) => {
-					if (!loadGuard.isCurrent(requestToken)) return;
+					if (
+						!loadGuard.isCurrent(requestToken) ||
+						!isCurrentSelectedPatient(patient.id)
+					) {
+						return;
+					}
 					const mappedRecords = records.map((record, index) =>
 						this.toRecordView(record, index),
 					);

@@ -5,7 +5,10 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { patientContextErrorMessage } from "../../services/patient-selection-service";
+import {
+	isCurrentSelectedPatient,
+	patientContextErrorMessage,
+} from "../../services/patient-selection-service";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -81,7 +84,12 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		});
 		return loadCurrentPatient()
 			.then((patient) => {
-				if (!loadGuard.isCurrent(requestToken)) return;
+				if (
+					!loadGuard.isCurrent(requestToken) ||
+					!isCurrentSelectedPatient(patient.id)
+				) {
+					return;
+				}
 				this.setData({ selectedPatient: patient });
 				return this.loadRecords(patient, this.data.activeStatus, requestToken);
 			})
@@ -103,8 +111,14 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const effectiveRequestToken = requestToken ?? loadGuard.begin();
 		// 查询状态必须来自本次操作的快照，不能依赖 setData 后的异步页面状态。
+		if (!isCurrentSelectedPatient(patient.id)) return Promise.resolve();
 		return loadOutpatientPaymentRecords(patient.id, status).then((items) => {
-			if (!loadGuard.isCurrent(effectiveRequestToken)) return;
+			if (
+				!loadGuard.isCurrent(effectiveRequestToken) ||
+				!isCurrentSelectedPatient(patient.id)
+			) {
+				return;
+			}
 			const mappedItems = items.map((item) => this.toView(item));
 			const visibleItemCount = Math.min(
 				OUTPATIENT_PAYMENT_PAGE_SIZE,

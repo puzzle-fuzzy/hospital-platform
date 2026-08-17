@@ -9,7 +9,10 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { patientContextErrorMessage } from "../../services/patient-selection-service";
+import {
+	isCurrentSelectedPatient,
+	patientContextErrorMessage,
+} from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordView,
@@ -82,13 +85,24 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 
 		return loadCurrentPatient()
 			.then((patient) => {
-				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				if (
+					!loadGuard.isCurrent(requestToken) ||
+					!isCurrentSelectedPatient(patient.id)
+				) {
+					return undefined;
+				}
 
 				this.setData({ selectedPatient: patient });
 				return loadAppointmentRecords(patient.id, new Date(), "missed");
 			})
 			.then((records) => {
-				if (!records || !loadGuard.isCurrent(requestToken)) return;
+				if (
+					!records ||
+					!loadGuard.isCurrent(requestToken) ||
+					!isCurrentSelectedPatient(this.data.selectedPatient?.id ?? "")
+				) {
+					return;
+				}
 				// 只筛选服务端标准化后的 missed，不能使用客户端 provider 数字状态。
 				const missedRecords = records
 					.filter(isMissedAppointment)

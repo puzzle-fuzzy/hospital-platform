@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { Patient } from "../types";
 import { ApiError } from "./api-client";
 import {
+	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 	requirePatientFromResolution,
 	resolvePatientSelection,
@@ -152,4 +153,11 @@ test("患者范围业务页使用统一的上下文错误文案", () => {
 	expect(
 		patientContextErrorMessage(new Error("内部原文不应展示"), "备用错误"),
 	).toBe("备用错误");
+});
+
+test("异步患者结果必须匹配当前显式选择", () => {
+	// 页面请求返回时如果本地已经换人，旧 patientId 不能继续写入页面。
+	expect(isCurrentSelectedPatient("patient-a", "patient-a")).toBe(true);
+	expect(isCurrentSelectedPatient("patient-a", "patient-b")).toBe(false);
+	expect(isCurrentSelectedPatient("patient-a", "")).toBe(false);
 });

@@ -3,7 +3,7 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 当前本地仓库 `main` 是 `8a73069`，已包含患者上下文只读门禁和 P0 业务证据工具；本轮未部署。
+> 本轮工作以本地仓库 `main` 的前序提交 `ff5ea6e` 为起点；它已包含患者上下文只读门禁和 P0 业务证据工具，本轮未部署。
 > 对 `ps@192.168.112.172` 的 SSH 只读复核被当前环境拒绝（`Permission denied (publickey,password)`），
 > 因而本文历史段落中的 `5f5915e`、`bf67b96` 等 release 不能在本轮当作当前线上事实。真实微信、患者上下文和
 > P0 只读验收的操作顺序统一见 [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
@@ -12,7 +12,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | `8a73069` 已包含普通资料严格未知字段边界、患者上下文只读门禁、P0 业务事件链证据工具及前序迁移改动；仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 需重新通过受控 provenance 取得 |
+| 仓库代码基线 | 前序提交 `ff5ea6e` 已包含普通资料严格未知字段边界、患者上下文只读门禁、P0 业务事件链证据工具及前序迁移改动；仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 需重新通过受控 provenance 取得 |
 | 线上新 API | 本轮未验证；文档中 `5f5915e`、`bf67b96` 等仅为历史快照 | SSH 只读连接被拒绝，不能据此更新线上状态 |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过当前候选 schema probe | [`5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md) |

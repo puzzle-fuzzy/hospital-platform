@@ -94,6 +94,22 @@ export function getSelectedPatientId(): string {
 }
 
 /**
+ * 判断异步结果是否仍属于设备当前明确选择的患者。
+ *
+ * 页面请求可能在用户进入选择页期间继续完成；仅依赖页面实例请求 token
+ * 不能识别“另一个页面已经换人”的情况。调用方应在发起患者范围请求前和
+ * 响应落地前都调用本函数，旧患者响应就会被安全丢弃，不会短暂覆盖新患者
+ * 的页面状态。第二个参数只为纯单元测试提供显式快照，生产调用默认读取
+ * 本地 opaque patientId。
+ */
+export function isCurrentSelectedPatient(
+	patientId: string,
+	storedPatientId = getSelectedPatientId(),
+): boolean {
+	return Boolean(patientId) && patientId === storedPatientId;
+}
+
+/**
  * 纯函数解析患者目录与已保存选择，供业务页面和测试共用。
  *
  * 传入空的 `storedPatientId` 表示用户尚未做过选择，此时沿用现有产品体验，

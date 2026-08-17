@@ -5,7 +5,10 @@ import {
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { patientContextErrorMessage } from "../../services/patient-selection-service";
+import {
+	isCurrentSelectedPatient,
+	patientContextErrorMessage,
+} from "../../services/patient-selection-service";
 import type {
 	Report,
 	ReportDirectoryPageData,
@@ -86,12 +89,23 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		});
 		return loadCurrentPatient()
 			.then((patient) => {
-				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				if (
+					!loadGuard.isCurrent(requestToken) ||
+					!isCurrentSelectedPatient(patient.id)
+				) {
+					return undefined;
+				}
 				this.setData({ selectedPatient: patient });
 				return loadReports(patient.id);
 			})
 			.then((payload) => {
-				if (!payload || !loadGuard.isCurrent(requestToken)) return;
+				if (
+					!payload ||
+					!loadGuard.isCurrent(requestToken) ||
+					!isCurrentSelectedPatient(this.data.selectedPatient?.id ?? "")
+				) {
+					return;
+				}
 				const reports = payload.items.map((report) => this.toView(report));
 				const visibleReportCount = Math.min(REPORT_PAGE_SIZE, reports.length);
 				this.setData({
