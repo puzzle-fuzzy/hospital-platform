@@ -92,3 +92,19 @@ apps/worker/dist/api-runtime-smoke.js         a724efcd5d73135157cb9a96f9ac3e81ae
 4. 医疗病历、二维码、预约写入、支付、医保、退款和 HIS 回写不因本次切换而开放。
 
 下一步继续使用受控微信账号执行：微信登录 → 患者目录/切换 → 我的挂号 → 门诊缴费待缴/已缴。若出现 Provider 字段错误、`persistence-temporarily-unavailable` 或患者上下文错配，立即停止该域验收并保持 gate，不降级为空列表。
+
+## 7. 切换后业务事件复核（15:02-15:21 CST）
+
+2026-08-17 15:21 CST 通过 SSH 重新核对服务器：`current` 仍指向
+`/home/ps/code/hospital-platform/releases/9833a01`，新 API 为 `active`，`18081` 与旧 Python
+`8001` 同时监听。以切换时间为起点筛选新 API journald，当前只看到服务生命周期和公网运行时 smoke，
+没有出现以下业务事件：
+
+- `auth.wechat.login.*`；
+- `patient.directory.*`；
+- `appointment.records.*`；
+- `outpatient.payment.records.*`。
+
+切换前日志中的微信登录、单患者同步、预约历史和门诊费用只读事件属于旧 release 时间窗口，不能并入
+`9833a01` 的业务 gate。故当前发布仍只能标记为“运行层已验收、P0 真实业务未验收”；下一步必须由受控微信
+账号重新产生当前 release 的 session 和业务请求，再以 trace/request id、Provider request id、脱敏结果和真机操作逐域取证。
