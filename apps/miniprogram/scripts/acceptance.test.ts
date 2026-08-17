@@ -482,6 +482,9 @@ test("native mini program exposes read-only appointment directory and records pa
 	const recordsTemplate = await source(
 		"pages/appointment-records/appointment-records.wxml",
 	);
+	const recordsStyle = await source(
+		"pages/appointment-records/appointment-records.wxss",
+	);
 
 	expect(app).toContain('"pages/appointment-directory/appointment-directory"');
 	expect(app).toContain('"pages/appointment-records/appointment-records"');
@@ -532,6 +535,12 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain("全部挂号");
 	expect(recordsTemplate).toContain("预问诊");
 	expect(recordsTemplate).toContain("院内导航");
+	// 旧端挂号页是全宽 selector/tabs/list，不能回退成新端 710rpx 居中卡片。
+	expect(recordsStyle).toContain("width: 100%;");
+	expect(recordsStyle).toContain("background: #f5f5f5;");
+	expect(recordsTemplate).toContain(
+		"/assets/legacy-user/appointment-status.svg",
+	);
 	expect(records).toContain("filterAppointmentRecords");
 	expect(records).toContain("预问诊功能正在迁移中");
 	// 预约写入、provider 患者标识和支付字段均不得进入小程序页面。

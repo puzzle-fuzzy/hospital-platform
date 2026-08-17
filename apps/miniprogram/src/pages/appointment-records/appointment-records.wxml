@@ -47,7 +47,16 @@
 
 	<view wx:elif="{{visibleRecords.length}}" class="record-list">
 		<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="record-card">
-			<view class="record-status-badge {{item.statusClass}}">{{item.statusLabel}}</view>
+			<view class="record-status-badge {{item.statusClass}}">
+				<!-- 原版已预约状态使用蓝色业务图标，其余状态继续显示服务端归一化文案。 -->
+				<image
+					wx:if="{{item.status === 'scheduled'}}"
+					class="record-status-icon"
+					src="/assets/legacy-user/appointment-status.svg"
+					mode="aspectFit"
+				/>
+				<text wx:else>{{item.statusLabel}}</text>
+			</view>
 
 			<view class="record-department">{{item.departmentName || "门诊挂号"}}</view>
 			<view class="record-meta">
