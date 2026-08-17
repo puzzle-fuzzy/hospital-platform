@@ -68,6 +68,27 @@ HTTP、页面和服务端事件三层结果。
 仍为 0。该窗口没有改变当前结论：重复同步仍只观察到单账号目录事实，不能推出第二位患者、多患者切换、失效恢复、
 预约状态映射或费用状态切换已经验收；Redis TTL 也仍未取得直接证据。
 
+### 16:40 CST 当前 release 切换后复核
+
+`0b6f38f` 切换后的新观察窗口以当前 `service.started` 为起点。受控 SSH 读取
+`journalctl -u hospital-platform-api-v2.service -o cat`，再交给 P0 安全聚合工具，结果如下：
+
+| 聚合项 | 数量 | 结论 |
+| --- | ---: | --- |
+| `service.started` | 1 | 当前进程以 production 模式启动，MySQL/Redis/schema readiness 通过 |
+| `http.request.completed` / HTTP 200 | 13 | 仅包含运行探针和系统探针成功 |
+| `http.request.failed` / HTTP 401 | 6 | 未登录认证边界符合预期，不能视为 Provider 失败 |
+| `auth.wechat.*` | 0 | 当前 release 切换后没有新的微信登录业务请求 |
+| `patient.directory.*` | 0 | 当前窗口没有新的患者目录读取或同步请求 |
+| `appointment.*` | 0 | 当前窗口没有预约历史/预约目录业务请求 |
+| `outpatient.payment.*` | 0 | 当前窗口没有门诊费用业务请求 |
+| `report.*` | 0 | 报告 gate 仍关闭 |
+
+本窗口同时确认 `/home/ps/code/hospital-platform/current` 指向
+`/home/ps/code/hospital-platform/releases/0b6f38f6e50e8c9d47422c9f0ffc44dc9ecbc185`，新 API
+`10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 均保持监听。上述日志只证明当前 release 的运行和认证边界，
+不改变微信会话、Redis TTL、患者切换、预约历史、门诊费用和真机三层验收仍未完成的结论。
+
 ### 16:31 CST 运行边界复核
 
 - systemd 仍显示 `hospital-platform-api-v2.service` 为 `active (running)`，当前 Bun 主进程为 `1266963`，工作目录解析到

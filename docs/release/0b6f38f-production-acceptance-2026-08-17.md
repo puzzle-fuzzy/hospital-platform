@@ -66,6 +66,13 @@ preflight、独立 `18082` smoke，并于 2026-08-17 16:40 CST 左右原子切�
 如果出现 `external service rejected the request`，必须按 `traceId` 查统一 HTTP 失败日志，再用低敏
 `providerRequestId`、状态码和可重试性对照 Provider；不能把异常降级为空列表或增加未经确认的 fallback。
 
+### 切换后观察补充
+
+切换后以当前 `service.started` 为边界的 SSH 日志聚合只出现 1 次启动、13 次 HTTP 200 运行/系统探针和 6 次
+未登录 HTTP 401；`auth.wechat.*`、`patient.directory.*`、`appointment.*`、`outpatient.payment.*` 和 `report.*`
+均未出现。该结果说明当前 release 仍稳定运行且认证边界未放开，不构成微信、患者、预约、费用或报告 Provider 业务成功证据。
+新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，旧服务共存边界保持不变。
+
 ## 6. 回滚边界
 
 若新 API readiness、公网路径或业务错误出现无法解释的异常，只回滚新 API 的 `current` 到前一 release

@@ -243,7 +243,9 @@ sudo journalctl -u hospital-platform-api-v2.service \
 ```
 
 该工具不是日志采集器，也不会连接数据库、Redis 或 Provider；它只读 stdin（或 `--file` 指定的 JSONL），
-遇到非 JSON 行只增加 `parseErrors`，不会回显原文。聚合结果刻意不包含 `msg`、URL、请求体、token、openid、
+遇到未知的非 JSON 行只增加 `parseErrors`；UTF-8 BOM 会计入 `strippedBomLines` 后再解析，`journalctl -o cat` 产生的空行和
+明确白名单内的 systemd 启停提示分别计入 `ignoredBlankLines`/`ignoredControlLines`，不会回显原文。聚合结果刻意不包含
+`msg`、URL、请求体、token、openid、
 患者标识、金额或第三方原始报文。`payment-frozen` 域只用于确认高风险支付日志是否误入观察窗口，不能证明支付、
 医保、退款或 HIS 写回已经成功。若 `parseErrors > 0`，应缩小 journald 格式或保留原始日志在受控环境内排查，
 不能把聚合结果当作完整审计记录。

@@ -7,12 +7,12 @@ import {
 
 test("P0 日志聚合按业务域和结果分类，并且不输出原始敏感字段", () => {
 	const summary = aggregateLines([
-		JSON.stringify({
+		`\uFEFF${JSON.stringify({
 			event: "auth.wechat.login.succeeded",
 			traceId: "trace-auth",
 			openid: "must-not-be-output",
 			msg: "must-not-be-output",
-		}),
+		})}`,
 		JSON.stringify({
 			event: "patient.directory.failed",
 			errorType: "ProviderUnavailableError",
@@ -22,11 +22,14 @@ test("P0 日志聚合按业务域和结果分类，并且不输出原始敏感�
 			event: "http.request.completed",
 			statusCode: 401,
 		}),
+		"Stopping Hospital Platform API v2 (Bun + Elysia)...",
 		"not-json",
 	]);
 
 	expect(summary.parsedRecords).toBe(3);
 	expect(summary.parseErrors).toBe(1);
+	expect(summary.ignoredControlLines).toBe(1);
+	expect(summary.strippedBomLines).toBe(1);
 	expect(summary.domainCounts.auth).toBe(1);
 	expect(summary.domainCounts.patient).toBe(1);
 	expect(summary.domainCounts.infrastructure).toBe(1);

@@ -24,6 +24,17 @@ function sortedCounts(map) {
 	);
 }
 
+/**
+ * `journalctl -o cat` 会把 systemd 自己写入同一 unit 的启动/停止提示混在应用
+ * JSONL 中。这些固定控制行不是业务日志，但也不是解析失败；只忽略明确白名单中的
+ * 文本，其他非 JSON 内容仍然计入 `parseErrors`，避免真正的异常文本被静默吞掉。
+ */
+function isExpectedJournalControlLine(line) {
+	return /^(?:Stopping|Stopped|Started) Hospital Platform API v2 \(Bun \+ Elysia\)(?:\.{3}|\.)?$|^hospital-platform-api-v2\.service: (?:Deactivated successfully\.|Consumed .+ CPU time\.)$/u.test(
+		line,
+	);
+}
+
 /** 将稳定事件名归入业务域，便于一眼判断真机请求是否已经到达目标模块。 */
 export function classifyDomain(event) {
 	if (event.startsWith("auth.wechat.")) return "auth";
@@ -87,15 +98,31 @@ export function aggregateLines(lines) {
 	let inputLines = 0;
 	let parsedRecords = 0;
 	let parseErrors = 0;
+	let ignoredBlankLines = 0;
+	let ignoredControlLines = 0;
+	let strippedBomLines = 0;
 
-	for (const line of lines) {
+	for (const inputLine of lines) {
 		inputLines += 1;
-		if (typeof line !== "string" || line.trim() === "") continue;
+		if (typeof inputLine !== "string") {
+			parseErrors += 1;
+			continue;
+		}
+		let line = inputLine;
+		if (line.startsWith("\uFEFF")) {
+			strippedBomLines += 1;
+			line = line.slice(1);
+		}
+		if (line.trim() === "") {
+			ignoredBlankLines += 1;
+			continue;
+		}
 		let record;
 		try {
 			record = JSON.parse(line);
 		} catch {
-			parseErrors += 1;
+			if (isExpectedJournalControlLine(line.trim())) ignoredControlLines += 1;
+			else parseErrors += 1;
 			continue;
 		}
 		if (!record || typeof record !== "object" || Array.isArray(record)) {
@@ -131,6 +158,9 @@ export function aggregateLines(lines) {
 		inputLines,
 		parsedRecords,
 		parseErrors,
+		ignoredBlankLines,
+		ignoredControlLines,
+		strippedBomLines,
 		eventCounts: sortedCounts(eventCounts),
 		domainCounts: sortedCounts(domainCounts),
 		outcomeCounts: sortedCounts(outcomeCounts),
