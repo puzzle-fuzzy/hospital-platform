@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `d0bc8e1`，在 `16b3264` 的报告详情展示边界基础上，补齐预约历史 `groupStart/groupEnd` 到公共 `workTime` 的严格归一化与异常回退；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `f5178a4`，在 `d0bc8e1` 的预约历史时间归一化基础上，补齐门诊费用 `billDate` 的中国标准时间格式、自然日及时分秒严格校验；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -192,6 +192,11 @@ HTTP 200、`items: []`、`total: 0`，不能被页面解释成异常。该测试
 `HH:mm-HH:mm`，不把完整日期时间字段带入公共响应；时间段不完整或无法解析时回退 provider 的
 `workTime`，不猜测结束时间。对应实现提交为 `d0bc8e1`，尚未发布线上；预约 adapter 57 项测试和
 全仓门禁均已通过。
+
+随后收紧门诊费用账单时间边界：adapter 只接受 `YYYY-MM-DD HH:mm:ss` 的中国标准时间文本，
+并拒绝不存在的自然日、越界时分秒和带时区的 ISO 文本；这避免页面按设备时区猜测账单时间，
+也保证稳定费用引用使用可验证的日期事实。对应实现提交为 `f5178a4`，尚未发布线上；适配器
+新增日期边界测试，完整 `pnpm check` 已通过。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
