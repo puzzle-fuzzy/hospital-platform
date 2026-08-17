@@ -26,6 +26,7 @@ type PatientSelectionPageMethods = {
 	onAddPatient(): void;
 	onSyncPatients(): Promise<void>;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 	setPatientList(patients: Array<Patient>): void;
 };
@@ -67,6 +68,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		loading: true,
 		syncing: false,
 		selectionReady: false,
+		navigationPending: false,
 		error: "",
 	},
 
@@ -146,7 +148,12 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		// 目录读取成功不等于医院侧临床映射已经完成。同步期间即使页面还显示上一轮
 		// 列表，也必须禁止返回调用页，否则调用页可能在 his-patient 尚未落库时发起
 		// 预约、报告或门诊费用查询；失败后保留列表只用于诊断，不能被当作可用上下文。
-		if (this.data.loading || this.data.syncing || !this.data.selectionReady) {
+		if (
+			this.data.loading ||
+			this.data.syncing ||
+			!this.data.selectionReady ||
+			this.data.navigationPending
+		) {
 			wx.showToast({ title: "就诊人正在同步，请稍后", icon: "none" });
 			return;
 		}
@@ -165,8 +172,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		}
 
 		setSelectedPatientId(patient.id);
+		this.setData({ navigationPending: true });
 		wx.showToast({ title: "已切换就诊人", icon: "success" });
-		setTimeout(() => wx.navigateBack(), 350);
+		setTimeout(() => {
+			// 用户可能在 toast 期间手动返回；onUnload 会撤销标志，避免
+			// 旧选择页在页面栈变化后继续弹出当前调用页。
+			if (!this.data.navigationPending) return;
+			this.setData({ navigationPending: false });
+			wx.navigateBack();
+		}, 350);
 	},
 
 	/** 绑定写入接口尚未通过真实医院契约验收，先明确提示而不是伪造成功。 */
@@ -241,6 +255,12 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	onPullDownRefresh(): void {
 		this.loadPatientList().finally(() => wx.stopPullDownRefresh());
+	},
+
+	onUnload(): void {
+		// 延迟返回是当前选择页实例的行为；页面已经离开时必须取消它，
+		// 不能让旧实例的回调误操作新的页面栈。
+		this.setData({ navigationPending: false });
 	},
 
 	showError(error: unknown, fallback: string): void {

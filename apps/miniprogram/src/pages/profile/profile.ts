@@ -15,6 +15,7 @@ type ProfilePageMethods = {
 	onEmailInput(event: WechatMiniprogram.Input): void;
 	onSave(): Promise<void>;
 	onPullDownRefresh(): void;
+	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 };
 
@@ -26,7 +27,8 @@ const GENDER_VALUES = ["male", "female", "unknown"] as const;
  * 否则用户看到旧版本后保存会产生不必要的 409 冲突。
  */
 function genderIndex(gender: ProfilePageData["gender"]): number {
-	return GENDER_VALUES.indexOf(gender);
+	const index = GENDER_VALUES.indexOf(gender);
+	return index >= 0 ? index : GENDER_VALUES.length - 1;
 }
 
 Page<
@@ -49,6 +51,7 @@ Page<
 		loading: true,
 		loaded: false,
 		saving: false,
+		navigationPending: false,
 		error: "",
 	},
 
@@ -94,7 +97,18 @@ Page<
 	},
 
 	onGenderChange(event): void {
-		const index = Number(event.detail.value);
+		const rawIndex = Number(event.detail.value);
+		// Picker 的 value 来自真机事件，不能假设它永远是合法整数；先把边界
+		// 收敛到页面声明的选项，避免出现“性别是未知但 picker 没有对应项”的
+		// 状态，也避免非法索引在后续 setData 中继续传播。
+		const index =
+			Number.isInteger(rawIndex) &&
+			rawIndex >= 0 &&
+			rawIndex < GENDER_VALUES.length
+				? rawIndex
+				: GENDER_VALUES.length - 1;
+		// 上面的边界判断已经保证 index 落在固定三项内；保留安全兜底是为了
+		// 即使未来选项被改动，也不会把 undefined 写入普通资料请求。
 		const value = GENDER_VALUES[index] ?? "unknown";
 		this.setData({
 			gender: value,
@@ -116,7 +130,8 @@ Page<
 		// WXML 已经禁用按钮，但事件层仍必须自守：真机快速连点或重复事件
 		// 不能用同一个 version 发起第二次 PUT，否则会把一次成功更新制造成
 		// 一个无意义的 409，并让用户误以为保存失败。
-		if (this.data.saving) return Promise.resolve();
+		if (this.data.saving || this.data.navigationPending)
+			return Promise.resolve();
 		if (this.data.loading) {
 			this.setData({ error: "个人资料正在加载，请稍后保存" });
 			return Promise.resolve();
@@ -146,9 +161,19 @@ Page<
 			email: email || null,
 		})
 			.then((response) => {
-				this.setData({ version: response.data.version, saving: false });
+				this.setData({
+					version: response.data.version,
+					saving: false,
+					navigationPending: true,
+				});
 				wx.showToast({ title: "保存成功", icon: "success" });
-				setTimeout(() => wx.navigateBack(), 500);
+				setTimeout(() => {
+					// 用户可能在 toast 期间手动返回；页面卸载会撤销这个标志，
+					// 防止旧页面稍后又 navigateBack，误弹出当前页面栈中的新页面。
+					if (!this.data.navigationPending) return;
+					this.setData({ navigationPending: false });
+					wx.navigateBack();
+				}, 500);
 			})
 			.catch((error) => {
 				this.setData({ saving: false });
@@ -162,6 +187,12 @@ Page<
 			return;
 		}
 		this.loadProfile().finally(() => wx.stopPullDownRefresh());
+	},
+
+	onUnload(): void {
+		// 延迟回退只属于当前资料页实例。离开页面后必须撤销它，不能让
+		// 异步回调在页面栈已变化时继续执行 navigateBack。
+		this.setData({ navigationPending: false });
 	},
 
 	showError(error: unknown, fallback: string): void {

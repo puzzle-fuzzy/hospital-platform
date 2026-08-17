@@ -234,6 +234,9 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("loadPatients");
 	expect(selection).toContain("onPatientTap");
 	expect(selection).toContain("setSelectedPatientId");
+	expect(selection).toContain("onUnload");
+	expect(selection).toContain("navigationPending");
+	expect(selection).toContain("if (!this.data.navigationPending) return;");
 	expect(selection).toContain(
 		'syncPatientsFromHospital("patient-selection-sync")',
 	);
@@ -325,9 +328,9 @@ test("patient selection cannot leave before clinical mapping synchronization com
 	// 平台目录已经返回时，医院侧 his-patient 映射仍可能在同步中；页面只能在
 	// 完整同步成功后开放选择，失败时不能带着半成品患者上下文返回业务页。
 	expect(selection).toContain("selectionReady: false");
-	expect(selection).toContain(
-		"this.data.loading || this.data.syncing || !this.data.selectionReady",
-	);
+	expect(selection).toContain("this.data.loading");
+	expect(selection).toContain("this.data.syncing");
+	expect(selection).toContain("!this.data.selectionReady");
 	expect(selection).toContain(
 		"selectionReady: hasClinicallyReadyPatients(patients)",
 	);
@@ -517,14 +520,22 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).toContain("getPageLatestRequestGuard");
 	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
-	expect(profile).toContain("if (this.data.saving) return Promise.resolve();");
+	expect(profile).toContain(
+		"if (this.data.saving || this.data.navigationPending)",
+	);
+	expect(profile).toContain("onUnload");
+	expect(profile).toContain("navigationPending");
+	expect(profile).toContain("Number.isInteger(rawIndex)");
+	expect(profile).toContain("if (!this.data.navigationPending) return;");
 	expect(profile).toContain("尚未加载完成");
 	expect(profile).not.toContain("openid");
 	expect(profile).not.toContain("unionid");
 	expect(profile).not.toContain("idCard");
 	expect(profile).not.toContain("avatar");
 	expect(profileTemplate).toContain("头像、手机号、真实姓名和身份证");
-	expect(profileTemplate).toContain('disabled="{{saving || loading}}"');
+	expect(profileTemplate).toContain(
+		'disabled="{{saving || loading || navigationPending}}"',
+	);
 	expect(client).toContain('url: "/me/profile"');
 	expect(build).toContain("profile/profile.js");
 });

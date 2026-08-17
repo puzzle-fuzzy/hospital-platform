@@ -179,6 +179,8 @@ export type PatientSelectionPageData = {
 	syncing: boolean;
 	/** 只有完整医院目录同步成功后才允许点击患者返回调用页；这不是服务端事实。 */
 	selectionReady: boolean;
+	/** 延迟返回期间锁定当前页面实例，避免快速连点或离开后误操作页面栈。 */
+	navigationPending: boolean;
 	error: string;
 };
 
@@ -334,5 +336,7 @@ export type ProfilePageData = {
 	/** 只有读取成功后才允许提交，避免加载失败时用默认值覆盖线上资料。 */
 	loaded: boolean;
 	saving: boolean;
+	/** 保存成功后的短暂返回窗口；页面卸载时必须使待执行导航失效。 */
+	navigationPending: boolean;
 	error: string;
 };

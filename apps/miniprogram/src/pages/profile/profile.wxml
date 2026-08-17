@@ -51,7 +51,7 @@
 		<text class="boundary-copy">头像、手机号、真实姓名和身份证信息需要独立的安全契约，当前不会通过普通资料接口修改。</text>
 	</view>
 
-	<button wx:if="{{loaded}}" class="save-button" loading="{{saving}}" disabled="{{saving || loading}}" bindtap="onSave">
+	<button wx:if="{{loaded}}" class="save-button" loading="{{saving}}" disabled="{{saving || loading || navigationPending}}" bindtap="onSave">
 		{{saving ? "保存中" : "保存"}}
 	</button>
 </view>
