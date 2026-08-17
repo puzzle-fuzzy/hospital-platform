@@ -18,6 +18,11 @@
 - 2026-08-17 19:00-19:01 CST 的当前 release `5f5915e` 取得真实微信会话的普通资料默认值读取证据：`GET /me/profile` 返回 200，日志完成 `requested → loaded` 且 `persisted=false`，页面展示资料字段和边界说明；读取没有创建资料行。首次 `PUT`、409 版本冲突、真机视觉和敏感身份字段仍未验收，自动化开发者工具控制层日志也不能被记作干净真机证据，详见 [`release/user-profile-readonly-observation-2026-08-17.md`](release/user-profile-readonly-observation-2026-08-17.md)。
 - 2026-08-17：完成首页就诊人二维码契约审计。旧端第三方二维码 URL 只证明页面展示行为，不证明医院扫码事实；新端保持安全关闭态，未新增 API、外部请求或伪 token。正式开放前仍需医院/HIS 扫码字段、签名、短 TTL、防重放、撤销、扫码回执和真机设备证据，详见 [`release/qr-contract-audit-2026-08-17.md`](release/qr-contract-audit-2026-08-17.md)。
 - 2026-08-17 19:17 CST：确认新 API 的真实 Redis 对端为远端 DB3；服务器侧 ioredis 连接成功，但生产 ACL 拒绝 `SCAN hospital:session:*`，因此会话数量、TTL 范围和过期后 401 仍未验收。本机 Redis 空库不再作为证据；不放宽应用 ACL，后续需要独立最小权限审计身份或运维聚合结果，详见 [`release/redis-session-ttl-acl-observation-2026-08-17.md`](release/redis-session-ttl-acl-observation-2026-08-17.md)。
+- 2026-08-17 19:48 CST：重新按当前 `5f5915e` 的 `service.started=17:55:17` 切分 journald，观察到微信登录 2/2、
+  患者同步 22/22、患者读取 57/57、预约历史 3/3、门诊费用 2/2、普通资料读取 11/11，HTTP 200/401 为 137/7，
+  `parseErrors=0`，去重 `providerRequestId=29`。这只证明当前 release 已进入相关只读链路，不能证明多患者、TTL、
+  非空费用、资料 PUT/409、页面字段或真机闭环；支付、医保、退款和 HIS 继续关闭，详见
+  [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
 - 2026-08-17：旧仓库迁移台账复核发现 `module_common` 实际 38 个挂载路由、旧服务总数 195 个，
   并补登记挂号插件支付/退款的 4 条旧编排入口及第 3 个微信支付调起页面；`pnpm migration:audit`
   已恢复通过。它们只作为迁移事实和风险边界记录，仍归入支付/医保/退款/HIS 的“最后处理”，没有注册到

@@ -227,3 +227,30 @@ Provider 字段缺失或依赖暂时不可用都必须停止该业务域，不�
 本次没有读取或输出 Redis URL、用户名、密码、session key 或 token，也没有修改 ACL、重启服务或写入 Redis。
 要取得直接 TTL 证据，应由运维临时提供只允许 `SCAN/TTL` 且限制在 `hospital:session:*` 的独立审计身份，脚本只输出
 数量和 TTL 范围，完成后撤销；详细记录见 [`Redis 会话 TTL 与 ACL 只读观察`](redis-session-ttl-acl-observation-2026-08-17.md)。
+
+### 19:48 CST 当前 release 只读增量观察
+
+2026-08-17 19:48 CST 通过受控 SSH 重新核对当前服务：`current` 仍解析到
+`/home/ps/code/hospital-platform/releases/5f5915e518e3d2de5647f7ddd90f91cd7f1e3d0c`，
+systemd 主进程 PID 为 `1838242`，启动时间为 17:55:17 CST；新 Elysia 监听
+`10.0.0.3:18081`，旧 Python 监听 `0.0.0.0:8001`。本次没有读取 env、token、Redis 原始 key、
+数据库患者正文或 Provider 原文，也没有执行重启、切换或写入。
+
+从当前服务启动时间起读取 journald，并交由本地安全聚合工具处理，结果如下：
+
+| 聚合项 | 数量 | 结论 |
+| --- | ---: | --- |
+| `service.started` | 1 | 当前 release 仍在 production 模式运行 |
+| 微信登录 `requested` / `succeeded` | 2 / 2 | 出现两次完整登录链；不能替代 Redis 实际 TTL 或真机授权证据 |
+| 患者同步 `requested` / `synced` | 22 / 22 | 当前 release 有 22 次同步成功事件；仍只有单患者观察事实，不能推出多患者切换或失效恢复 |
+| 患者读模型 `requested` / `loaded` | 57 / 57 | 目录读取链完整；不能证明页面未发生旧患者上下文串读 |
+| 预约历史 `requested` / `synced` | 3 / 3 | 已进入当前 release 的预约历史只读链，仍缺页面状态映射和真机结果 |
+| 门诊费用 `requested` / `loaded` | 2 / 2 | 已进入当前 release 的费用只读链，仍缺非空金额、待缴/已缴页面和状态切换证据 |
+| 普通资料 `requested` / `loaded` | 11 / 11 | 只证明资料读取链被调用，不能推导 PUT、409 或跨 owner 证据 |
+| HTTP 200 / HTTP 401 | 137 / 7 | 失败请求均为当前聚合中的 401；不能把认证失败解释为 Provider 故障 |
+| `parseErrors` | 0 | 日志 JSONL 聚合没有解析错误，低敏事件统计可复核 |
+| 去重后的 `providerRequestId` | 29 | 仅证明存在可关联 Provider 请求号，不代表字段、状态或金额已验收 |
+
+本次窗口没有出现 HTTP 503、支付、医保、退款或 HIS 回写事件；这只能说明本窗口未观察到这些事件，
+不能把支付能力标记为完成。当前 P0 仍未退出：Redis TTL、多患者/失效恢复、非空费用记录、预约状态字段、
+普通资料写入/409、公网请求与真机页面三层对齐均待补证。支付、医保、退款和 HIS 继续保持关闭。
