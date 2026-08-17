@@ -799,6 +799,18 @@ test("native homepage fails closed when session recovery cannot be completed", a
 	expect(home).toContain("auth/wechat");
 });
 
+test("native my page clears stale patient context when owner reads fail", async () => {
+	const my = await source("pages/my/my.ts");
+
+	// 依赖暂时不可用时不能继续展示上一轮患者卡片；同时不删除本地选择，
+	// 让下一次成功的 owner-scoped 目录读取仍有机会恢复用户的显式选择。
+	expect(my).toContain('userLabel: "微信用户"');
+	expect(my).toContain("selectedPatient: null");
+	expect(my).toContain("patientCount: 0");
+	expect(my).toContain("不删除本地 selectedPatientId");
+	expect(my).toContain("safeApiErrorMessage(error, fallback)");
+});
+
 test("patient context pull-to-refresh waits for the complete directory lifecycle", async () => {
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");

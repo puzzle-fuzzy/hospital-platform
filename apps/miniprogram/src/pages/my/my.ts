@@ -159,6 +159,15 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	showError(error: unknown, fallback: string): void {
-		this.setData({ error: safeApiErrorMessage(error, fallback) });
+		// `/me` 或患者目录失败时，旧卡片不能继续充当当前会话证据。
+		// 这里只清理本页面的派生展示状态，不删除本地 selectedPatientId，
+		// 也不清理仍可重试的 token；下一次成功读取目录后仍可恢复原选择，
+		// 但在恢复前不会把旧患者数量或资料标签展示给用户。
+		this.setData({
+			error: safeApiErrorMessage(error, fallback),
+			userLabel: "微信用户",
+			selectedPatient: null,
+			patientCount: 0,
+		});
 	},
 });
