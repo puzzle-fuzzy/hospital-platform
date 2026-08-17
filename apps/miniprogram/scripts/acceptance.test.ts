@@ -751,6 +751,11 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain("预问诊");
 	expect(recordsTemplate).toContain("院内导航");
 	expect(recordsTemplate).toContain('class="selector-name"');
+	// 旧端患者行是“姓名（编号）”的紧凑视觉结构；编号在原生端必须仍是
+	// 平台脱敏卡号，避免为追求视觉一致而把 Provider 患者号重新带回小程序。
+	expect(recordsTemplate).toContain(
+		'class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>',
+	);
 	expect(recordsTemplate).toContain('class="location-close"');
 	expect(recordsTemplate).toContain('bindtap="closeLocationModal"');
 	expect(recordsTemplate).toContain("/assets/legacy-user/location-close.svg");
