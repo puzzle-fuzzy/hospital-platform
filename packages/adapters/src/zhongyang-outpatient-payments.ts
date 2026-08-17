@@ -88,7 +88,16 @@ function textField(
 		);
 	}
 	const normalized = String(value).trim();
-	if (!normalized || normalized.length > maxLength) {
+	if (
+		!normalized ||
+		normalized.length > maxLength ||
+		Array.from(normalized).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		// 费用科室、医生和账单时间会直接进入患者端读模型；控制字符
+		// 不能被当作普通 Provider 文本展示或持久化。
 		throw providerError(
 			`Zhongyang outpatient field ${field} is invalid`,
 			requestId,

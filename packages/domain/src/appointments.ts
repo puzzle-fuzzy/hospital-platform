@@ -115,9 +115,16 @@ export function validateAppointmentScheduleSnapshot(
 			({ value, maxLength }) =>
 				typeof value !== "string" ||
 				value.trim().length === 0 ||
-				value.length > maxLength,
+				value.length > maxLength ||
+				value !== value.trim() ||
+				Array.from(value).some((character) => {
+					const code = character.charCodeAt(0);
+					return code <= 0x1f || code === 0x7f;
+				}),
 		)
 	) {
+		// 快照会在未来写入前作为服务端事实复用；控制字符会破坏数据库
+		// 检索、日志关联和下游请求边界，不能只依赖列长度把它保存下来。
 		throw new AppointmentScheduleSnapshotValidationError("invalid_reference");
 	}
 	if (parseIsoCalendarDate(input.schedule.workDate) === undefined) {

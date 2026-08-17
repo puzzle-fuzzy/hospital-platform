@@ -480,6 +480,34 @@ test("众阳预约记录拒绝重复的 provider 预约号", async () => {
 	});
 });
 
+test("众阳预约 adapter 拒绝带控制字符的展示文本", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						deptId: "dept-control",
+						deptName: "心\n内科",
+					},
+				]),
+				{ status: 200, headers: { "x-request-id": "control-department" } },
+			),
+	});
+
+	await expect(
+		gateway.listDepartments(
+			{ startDate: "2026-08-20", endDate: "2026-08-27" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-departments",
+		requestId: "control-department",
+		retryable: false,
+	});
+});
+
 test("众阳预约科室 adapter 拒绝重复的科室主键", async () => {
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",

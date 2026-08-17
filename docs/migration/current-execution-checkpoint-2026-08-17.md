@@ -3,20 +3,20 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 本轮工作以本地仓库 `main` 的前序提交 `ff5ea6e` 为起点；它已包含患者上下文只读门禁和 P0 业务证据工具，本轮未部署。
-> 对 `ps@192.168.112.172` 的 SSH 只读复核被当前环境拒绝（`Permission denied (publickey,password)`），
-> 因而本文历史段落中的 `5f5915e`、`bf67b96` 等 release 不能在本轮当作当前线上事实。真实微信、患者上下文和
-> P0 只读验收的操作顺序统一见 [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
+> 截至 2026-08-17 23:18 CST，本地仓库 `main` 已推进到 `c495fa3`，当前线上 release 为 `b823727`；新 Bun/Elysia API
+> 监听 `10.0.0.3:18081`，旧 Python API 继续监听 `8001`。此前因 SSH 被拒绝而形成的 `5f5915e`、`bf67b96` 等内容均为历史段落，
+> 不能继续当作当前线上事实。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
 
 ## 1. 当前事实
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码基线 | 前序提交 `ff5ea6e` 已包含普通资料严格未知字段边界、患者上下文只读门禁、P0 业务事件链证据工具及前序迁移改动；仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle 需重新通过受控 provenance 取得 |
-| 线上新 API | 本轮未验证；文档中 `5f5915e`、`bf67b96` 等仅为历史快照 | SSH 只读连接被拒绝，不能据此更新线上状态 |
+| 仓库代码基线 | `c495fa3`；包含普通资料严格未知字段边界、患者上下文只读门禁、P0 业务事件链工具和前序迁移改动；仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
+| 线上新 API | `b823727`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/b823727-production-acceptance-2026-08-17.md`](../release/b823727-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过当前候选 schema probe | [`5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md) |
-| 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md) |
+| 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/b823727-production-acceptance-2026-08-17.md`](../release/b823727-production-acceptance-2026-08-17.md) |
+| 运行前置 | 公网 live、ready、system ping 通过，未登录受保护路由返回 `401/unauthorized`；切换后日志解析无错误 | [`../release/b823727-production-acceptance-2026-08-17.md`](../release/b823727-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
@@ -111,7 +111,7 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `5f5915e` 完成真实链路：
+这些不是继续加页面，而是用当前 `b823727` 完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；

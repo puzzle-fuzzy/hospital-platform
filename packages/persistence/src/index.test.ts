@@ -485,6 +485,20 @@ test("appointment schedule snapshots reject invalid provider facts before storag
 		reason: "invalid_work_date",
 	});
 
+	await expect(
+		snapshots.upsert({
+			schedule,
+			provider: "zhongyang",
+			providerScheduleId: "provider-schedule-\n-invalid",
+			providerRequestId: "provider-request-invalid",
+			observedAt: "2026-08-15T00:00:10.000Z",
+			expiresAt: "2026-08-15T00:01:10.000Z",
+		}),
+	).rejects.toMatchObject({
+		name: "AppointmentScheduleSnapshotValidationError",
+		reason: "invalid_reference",
+	});
+
 	expect(
 		await snapshots.findActive(
 			"schedule-invalid-001",

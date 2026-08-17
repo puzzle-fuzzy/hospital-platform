@@ -191,6 +191,49 @@ test("众阳门诊费用 adapter 在公开 contract 边界拒绝超长展示字�
 	});
 });
 
+test("众阳门诊费用 adapter 拒绝带控制字符的展示文本", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							outTradeOrderId: "control-payment",
+							amount: "1.00",
+							tradeStatus: "1",
+							billDeptName: "心\n内科",
+							billDate: "2026-08-16 09:00:00",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "control-payment-field" },
+				},
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-secret",
+				startTime: "2026-08-16 00:00:00",
+				endTime: "2026-08-16 23:59:59",
+				status: "unpaid",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "outpatient-payment-records",
+		requestId: "control-payment-field",
+		retryable: false,
+	});
+});
+
 test("众阳门诊费用 adapter 严格校验中国标准时间账单日期", async () => {
 	const createGateway = (billDate: string, requestId: string) =>
 		createZhongyangOutpatientPaymentGateway({

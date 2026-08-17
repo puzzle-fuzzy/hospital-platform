@@ -98,7 +98,16 @@ function requiredText(
 		);
 	}
 	const normalized = String(value).trim();
-	if (!normalized || normalized.length > maxLength) {
+	if (
+		!normalized ||
+		normalized.length > maxLength ||
+		Array.from(normalized).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		// Provider 文本会进入小程序页面和服务端读模型；换行、制表或
+		// 其它控制字符不是合法的科室/医生/预约展示事实，必须整批拒绝。
 		throw providerError(
 			operation,
 			`Zhongyang appointment field ${field} is invalid`,
