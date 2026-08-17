@@ -237,6 +237,11 @@ HIS 回写完成。
 用户 A 的资料不会被覆盖。该测试强化了“单账号页面看起来正确”之外的归属证据；真实微信资料读取、更新和过期版本
 409 仍需在当前 release 通过真机、HTTP 和 journald 三层验收，不能由本地 fixture 代替。
 
+随后补充了患者范围只读接口的跨 owner 集成测试：用户 B 使用用户 A 的内部 `patientId` 查询预约历史、报告目录
+和门诊费用时，三个服务都在 owner + patient 映射边界返回稳定的“患者不可用”错误，Provider gateway 调用次数保持为 0。
+这证明了 API 组合层不会把越权标识转换为 Provider 患者号；测试仍是合成 gateway 证据，不替代当前 release 的真实账号、
+公网 Provider 和真机验收。
+
 本轮还修正了受保护 API 的认证顺序：Elysia 在 query/body/params schema 校验前验证 Bearer，
 未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
 回调仍是明确公开入口。该修正已由 API 集成测试、候选临时端口 smoke 和当前公网无会话回归验证，

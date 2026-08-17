@@ -1783,6 +1783,148 @@ test("outpatient payment endpoint preserves owner mapping and empty-result seman
 	]);
 });
 
+test("patient-scoped read routes reject another owner's patient before provider access", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const otherOwner = await sessions.issue("fixture-user-0002");
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const patientRepository = createInMemoryPatientRepository();
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "patient-owned-by-user-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-owner-001",
+			providerReferences: { "his-patient": "his-patient-owner-001" },
+			displayName: "归属用户一的患者",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+
+	let appointmentCalls = 0;
+	let reportCalls = 0;
+	let outpatientPaymentCalls = 0;
+	const appointmentRecords: AppointmentRecordDirectoryGateway = {
+		listRecords: async () => {
+			appointmentCalls += 1;
+			return {
+				records: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: "must-not-be-called",
+				},
+			};
+		},
+	};
+	const reportDirectory: ReportDirectoryGateway = {
+		listReports: async () => {
+			reportCalls += 1;
+			return {
+				reports: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "must-not-be-called",
+				},
+			};
+		},
+	};
+	const outpatientGateway: OutpatientPaymentGateway = {
+		listRecords: async () => {
+			outpatientPaymentCalls += 1;
+			return {
+				records: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "must-not-be-called",
+				},
+			};
+		},
+	};
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(patientRepository),
+			appointments: new AppointmentService({
+				directory: createNotConfiguredGateways().appointmentDirectory,
+				repository: patientRepository,
+				records: appointmentRecords,
+			}),
+			reports: new ReportService({
+				repository: patientRepository,
+				directory: reportDirectory,
+			}),
+			outpatientPayments: new OutpatientPaymentService({
+				repository: patientRepository,
+				gateway: outpatientGateway,
+				authSysCode: "thirdSelfMachine",
+				now: () => new Date("2026-08-16T10:20:30.000Z"),
+			}),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			sessions,
+		},
+	});
+	const authorization = `Bearer ${otherOwner.accessToken}`;
+
+	const appointmentResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/records?patientId=patient-owned-by-user-001&startDate=2026-08-01&endDate=2026-08-31",
+			{ headers: { authorization } },
+		),
+	);
+	const reportResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/reports?patientId=patient-owned-by-user-001&startDate=2026-08-01&endDate=2026-08-31",
+			{ headers: { authorization } },
+		),
+	);
+	const outpatientResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/payments/outpatient/records?patientId=patient-owned-by-user-001&status=paid",
+			{ headers: { authorization } },
+		),
+	);
+
+	expect(appointmentResponse.status).toBe(404);
+	expect(await appointmentResponse.json()).toMatchObject({
+		success: false,
+		error: { code: "appointment-record-patient-not-found" },
+	});
+	expect(reportResponse.status).toBe(404);
+	expect(await reportResponse.json()).toMatchObject({
+		success: false,
+		error: { code: "report-patient-not-found" },
+	});
+	expect(outpatientResponse.status).toBe(404);
+	expect(await outpatientResponse.json()).toMatchObject({
+		success: false,
+		error: { code: "outpatient-payment-patient-not-found" },
+	});
+
+	// 越权请求必须在 owner + patient 映射边界被拒绝，不能先把用户 B 的请求
+	// 转换成用户 A 的 provider 患者号再依赖 Provider 自己报错。
+	expect(appointmentCalls).toBe(0);
+	expect(reportCalls).toBe(0);
+	expect(outpatientPaymentCalls).toBe(0);
+});
+
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const identityUsers = createInMemoryIdentityUserRepository([

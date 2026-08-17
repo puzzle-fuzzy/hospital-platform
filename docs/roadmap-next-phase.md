@@ -264,6 +264,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-17：收紧患者同步幂等键生成：首页和选择页不再只使用 `Date.now()`，改为集中生成符合 header 约束的业务前缀、时间片和随机尾部；同一页面单飞调用仍复用同一个 Promise，不同页面实例不会因同一毫秒而误共享 owner/provider/key 操作事实。该修正未部署，患者同步 replay、并发租约和真机证据仍待线上验收。
 - 2026-08-17：发现 Provider 空患者目录的语义尚未被正式 contract 区分为“确实无绑定患者”或“不完整/权限过滤/临时异常”，因此服务层新增 fail-closed 保护：首次且确实为空的 owner 仍可成功，已有医院目录患者时返回 `patient-directory-snapshot-unsafe` 并保留旧快照，避免一次不确定响应批量停用就诊人。该修正未部署，待 Provider contract 和真机多就诊人验收后再评估是否放宽。
 - 2026-08-17：病历域再次完成只读 contract 审计，仍未发现 `out-visit-records` 的正式 provider/HIS 文档、专用患者映射确认、四类脱敏样例和资源授权定义。旧端门诊记录与住院病案仍是两条不同链路；因此本轮按业务正确性要求停止编码，继续保持 `GET /api/v2/medical-records`、详情、正文、诊断和附件 404/未注册，不以万能转发或空列表伪造迁移完成。后续只有在 MR-01 至 MR-06、MR-13 至 MR-15 和最小交付包完成后才重新评估；当前切换到下一项可取得真实 contract 或可分层验收的只读工作。
+- 2026-08-17：补充患者范围只读接口的跨 owner API 集成测试：用户 B 携带用户 A 的内部 `patientId` 访问预约历史、报告目录和门诊费用时，均在 owner 映射前置边界返回稳定错误，Provider gateway 不被调用。该测试强化了“不能把格式正确的内部 ID 当作权限证明”的不变量，不改变线上 release，也不替代真实账号/Provider/真机证据。
 - 2026-08-17：修正报告目录详情引用的故障隔离：单条 LIS 短期引用持久化失败时保留安全摘要、隐藏详情入口并记录 `report.detail_reference.failed`；LIS/PACS/ECG Provider 聚合失败仍整批 fail-closed。该修正不打开报告 gate，不改变报告详情、附件和支付/医保/HIS 的关闭边界。
 - 2026-08-17：修正预约历史 Provider smoke 的验收窗口偏差：此前 smoke 只请求过去 90 天到当天，无法证明“我的挂号”不会漏掉未来预约；现在与原生 `dashboard-service` 和公共 contract 统一为当前中国标准时间前后各 90 天，并补固定日期回归测试。该修正只增强验收工具，不改变预约历史 API、预约写入或支付/医保/HIS 边界。
 - 2026-08-17：继续修正 Provider smoke 的日期基准：绝对时间先转换为 UTC+8 自然日再生成查询参数，并用北京时间午夜临界的 UTC 固定时刻回归，避免 smoke 在服务器时区或 UTC 截取下把预约、报告和排班窗口错移一天。该修正仍只影响验收工具，不改变线上 API。
