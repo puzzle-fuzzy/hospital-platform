@@ -37,7 +37,9 @@
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
 		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
 		<text>前后 90 天暂无挂号记录</text>
-		<text class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
+		<text wx:if="{{selectedPatient}}" class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
+		<!-- 患者为空时卡片不会渲染，必须保留可点击入口，避免错误态成为死路。 -->
+		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">请先选择就诊人，点击这里选择</view>
 	</view>
 
 	<view class="readonly-note">

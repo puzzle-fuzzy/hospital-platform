@@ -221,7 +221,13 @@ page {
 }
 
 .state-hint {
+	display: block;
 	margin-top: 12rpx;
 	color: #aaaaaa;
 	font-size: 24rpx;
+}
+
+.state-hint-action {
+	color: #3d6df6;
+	text-decoration: underline;
 }

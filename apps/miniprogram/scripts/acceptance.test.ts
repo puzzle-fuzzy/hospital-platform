@@ -740,6 +740,34 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).not.toContain("outTradeOrderId");
 });
 
+test("patient-scoped empty states keep a reachable patient selector", async () => {
+	for (const file of [
+		"pages/appointment-records/appointment-records.wxml",
+		"pages/missed-appointments/missed-appointments.wxml",
+		"pages/report-directory/report-directory.wxml",
+		"pages/outpatient-payment/outpatient-payment.wxml",
+	] as const) {
+		const page = await source(file);
+		// 失败或 stale 状态会清空 selectedPatient；此时不能只留下依赖患者卡片的
+		// “上方更换”文案，必须有一个真正绑定到选择页的可达入口。
+		expect(page).toContain('class="state-hint state-hint-action"');
+		expect(page).toContain('bindtap="onChangePatient"');
+		expect(page).toContain("wx:else");
+	}
+	const appointmentStyle = await source(
+		"pages/appointment-records/appointment-records.wxss",
+	);
+	const reportStyle = await source(
+		"pages/report-directory/report-directory.wxss",
+	);
+	const outpatientStyle = await source(
+		"pages/outpatient-payment/outpatient-payment.wxss",
+	);
+	expect(appointmentStyle).toContain(".state-hint-action");
+	expect(reportStyle).toContain(".state-hint-action");
+	expect(outpatientStyle).toContain(".state-hint-action");
+});
+
 test("native mini program migrates the legacy static indoor navigation page", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
