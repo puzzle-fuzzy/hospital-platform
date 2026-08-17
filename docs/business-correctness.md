@@ -97,7 +97,8 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 
 当前代码通过 `0015_patient_directory_sync_operations` 形成跨进程、跨重启的 operation ledger、租约代次和
 当前读模型重放能力，并通过已应用的 `0016_patient_directory_sync_owner_index` 增加同一 owner/provider 的
-跨幂等键活跃租约索引；当前公网 `18081` 的线上 release 是 `0b6f38f`，schema marker、索引列和 schema probe 均已核对通过。此前 release 的运行记录只作为历史证据保留。真实患者并发、provider 和真机证据仍缺，
+跨幂等键活跃租约索引。截至 2026-08-17 23:18 CST，当前公网 `18081` 的线上 release 是 `b823727`，schema marker、索引列和 schema probe 均已核对通过；发布与共存证据见
+[`release/b823727-production-acceptance-2026-08-17.md`](release/b823727-production-acceptance-2026-08-17.md)。此前 release 的运行记录只作为历史证据保留。真实患者并发、provider 和真机证据仍缺，
 不能把基础 runtime smoke 当作线上业务验收。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付命令的
 幂等实现；高风险命令开放前仍必须分别冻结各自的持久化操作状态、处理中结果和 key 冲突规则。
 具体实现边界、租约接管和“患者快照与操作成功同事务”要求见

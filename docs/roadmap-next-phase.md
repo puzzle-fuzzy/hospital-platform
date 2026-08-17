@@ -18,7 +18,7 @@
 - 发布与共存证据见 [`release/b823727-production-acceptance-2026-08-17.md`](release/b823727-production-acceptance-2026-08-17.md)。
   下一步是使用有效微信会话完成真机三层业务验收，不是继续用 readiness 或未登录 401 代替业务证据。
 
-### 本轮最新生产与公网复核（2026-08-17 22:57-22:58 CST）
+### 切换前生产与公网复核（2026-08-17 22:57-22:58 CST）
 
 - 已通过 SSH 对 `192.168.112.172` 完成只读核验：新 Bun/Elysia 服务由 `hospital-platform-api-v2.service`
   托管，当前 release 目录为 `bf67b9673708a6e5188880eba9a6d29b8e78f0c5`，监听 `10.0.0.3:18081`；旧
