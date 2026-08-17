@@ -34,6 +34,7 @@
 | [`release/41c9c18-production-acceptance-2026-08-16.md`](release/41c9c18-production-acceptance-2026-08-16.md) | 历史 `41c9c18` 生产切换、预约科室/排班只读和快照持久化验收证据 |
 | [`release/user-profile-production-acceptance-2026-08-16.md`](release/user-profile-production-acceptance-2026-08-16.md) | 普通个人资料 0014 migration、生产 API、schema 和公网路由验收；真实微信资料读写仍待完成 |
 | [`release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](release/patient-sync-idempotency-production-acceptance-2026-08-16.md) | 患者同步 0015 schema、新代码隔离 smoke 和历史共存证据；`0016` owner/provider 并发索引属于尚未发布候选；真实并发/多患者同步仍待验收 |
+| [`release/patient-sync-0016-readiness-audit-2026-08-17.md`](release/patient-sync-0016-readiness-audit-2026-08-17.md) | 0016 代码、schema gate、线上 marker/index 只读结果和非事务性 DDL 发布/止损顺序 |
 | [`release/bab0ce2-production-acceptance-2026-08-17.md`](release/bab0ce2-production-acceptance-2026-08-17.md) | `bab0ce2` 探针日志增强、候选 checksum、真实生产 preflight、原子切换、公网 6/6 readiness 和旧服务共存证据 |
 | [`release/ca5a372-production-acceptance-2026-08-17.md`](release/ca5a372-production-acceptance-2026-08-17.md) | `ca5a372` 认证顺序修复、候选 checksum、生产 preflight、公网认证边界和旧服务共存证据 |
 | [`release/527d163-production-acceptance-2026-08-17.md`](release/527d163-production-acceptance-2026-08-17.md) | `527d163` 持久化瞬态故障安全日志增强、候选 checksum、生产 preflight、公网 6/6 readiness 和旧服务共存证据 |

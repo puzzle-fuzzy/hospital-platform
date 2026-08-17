@@ -384,3 +384,9 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 可降级展示错误，不阻断已经成功的 `/me` 和患者目录；资料卡副标题改为与实际跳转一致的“点击编辑个人资料”。
 小程序 63 项验收、603 个断言、typecheck、lint、格式和运行包构建均通过；候选尚未部署，真实微信资料读写、
 409 冲突和真机返回证据仍待完成。
+
+随后完成 `0016_patient_directory_sync_owner_index` 的代码与线上只读审计：线上 `0015` marker 存在，
+`0016` marker 和目标复合索引均不存在；本地 0016 只对新端 operation ledger 增加非唯一查询索引，不影响
+旧 Python legacy 表和患者数据。由于该 migration 是非事务性 DDL，候选发布与 migration 必须绑定，失败时先
+核对 marker/索引元数据，不能自动重复执行或假设事务可回滚。持久化测试 67 项通过；详细执行边界见
+[`../release/patient-sync-0016-readiness-audit-2026-08-17.md`](../release/patient-sync-0016-readiness-audit-2026-08-17.md)。
