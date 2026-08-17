@@ -20,3 +20,17 @@ export class PatientDirectorySyncInProgressError extends Error {
 		this.name = "PatientDirectorySyncInProgressError";
 	}
 }
+
+/**
+ * Provider 返回空患者目录，但当前 owner 已有医院目录患者，快照不能安全应用。
+ *
+ * 空数组只有在 Provider contract 明确区分“确实没有绑定患者”和“响应不完整、
+ * 权限过滤或临时异常”后，才可以驱动失效回收。当前证据不足时必须保留旧目录，
+ * 不能把不确定结果当成用户主动解绑，更不能批量停用已有就诊人。
+ */
+export class PatientDirectorySnapshotUnsafeError extends Error {
+	constructor() {
+		super("Patient directory snapshot is unsafe to apply");
+		this.name = "PatientDirectorySnapshotUnsafeError";
+	}
+}

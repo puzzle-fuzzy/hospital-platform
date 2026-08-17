@@ -26,6 +26,7 @@ export {
 } from "./opaque-identifier";
 export {
 	DependencyNotConfiguredError,
+	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 } from "./errors";
 export type {

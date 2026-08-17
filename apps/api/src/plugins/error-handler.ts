@@ -5,6 +5,7 @@ import {
 	HealthKnowledgeValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
+	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
@@ -91,6 +92,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "patient-sync-in-progress",
 						message: "患者目录正在同步，请稍后刷新",
+					},
+				};
+			}
+
+			if (error instanceof PatientDirectorySnapshotUnsafeError) {
+				set.status = 502;
+				return {
+					success: false,
+					error: {
+						code: "patient-directory-snapshot-unsafe",
+						message: "外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
 					},
 				};
 			}

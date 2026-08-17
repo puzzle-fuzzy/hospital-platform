@@ -4,6 +4,7 @@ import {
 	type AdapterCallContext,
 	DependencyNotConfiguredError,
 	type PatientDirectoryGateway,
+	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	type PatientRepository,
 	type UserIdentityRepository,
@@ -210,6 +211,20 @@ export class PatientService {
 			if (!replaceDirectorySnapshot) {
 				// 生产仓储必须具备事务快照能力；逐条 upsert 会留下半套目录。
 				throw new DependencyNotConfiguredError("patient-directory-snapshot");
+			}
+			if (result.patients.length === 0) {
+				// 这里不能只相信 Provider 返回的 `complete=true`：当前 Provider
+				// contract 没有证明空数组一定代表“用户确实没有绑定患者”，也没有
+				// 证明权限过滤、临时异常或响应截断会返回什么形状。先读取当前 owner
+				// 的读模型，只在已有医院目录患者时拒绝破坏性替换；首次登录且确实
+				// 没有医院目录患者的用户仍允许得到合法的空列表。
+				const currentPatients = await this.repository.listByOwner(ownerUserId);
+				const hasExistingDirectoryPatients = currentPatients.some(
+					(patient) => patient.source === "hospital-his",
+				);
+				if (hasExistingDirectoryPatients) {
+					throw new PatientDirectorySnapshotUnsafeError();
+				}
 			}
 			let hisPatientReferenceCount = 0;
 			const snapshotPatients = result.patients.map((profile) => ({

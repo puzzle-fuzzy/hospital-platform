@@ -61,6 +61,8 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 - 档案 ID 发生变化：下一次同步按同一内部患者更新 `hp_patient_provider_references`，不更换平台 `patientId`。
 - 完整快照缺少档案 ID：清除旧临床映射并让预约、报告、门诊费用在 provider 请求前 fail-closed，
   不能继续沿用上一次同步的 `patId`。
+- 空患者目录且当前 owner 已有医院目录患者：在 Provider contract 明确空目录语义前，服务层返回
+  `patient-directory-snapshot-unsafe`，保留旧患者和旧临床映射，不执行批量失效；首次同步的真实空目录仍可提交。
 - 新 migration 失败：保持 `PERSISTENCE_SCHEMA_READY=false`，不得让新 API 使用半成品仓储；旧 Python 服务不受影响。
 
 ## 验收证据

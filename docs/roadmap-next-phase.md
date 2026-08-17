@@ -258,6 +258,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-17：门诊费用页面补齐大结果集的本地渲染边界：服务端仍返回本次完整只读结果，页面首批渲染 10 条，后续“加载更多”只展开同一次 owner-scoped 查询已取得的数据，不新增 provider 请求、不改变 `total`、金额或状态事实，也不被描述为 provider 分页。小程序 62 项验收、typecheck 和构建通过；该修正未部署，支付、医保、结算和 HIS 继续关闭。
 - 2026-08-17：预约历史和爽约派生页补齐同样的本地渲染边界：服务端固定日期窗口和完整结果不变，页面首批渲染 10 条，后续“加载更多”只展开当前已取得的数据；爽约仍只能由服务端归一化的 `missed` 状态决定，不新增 provider 请求、不改变状态或空结果语义。该修正未部署，预约写入、支付、医保和 HIS 继续关闭。
 - 2026-08-17：收紧患者同步幂等键生成：首页和选择页不再只使用 `Date.now()`，改为集中生成符合 header 约束的业务前缀、时间片和随机尾部；同一页面单飞调用仍复用同一个 Promise，不同页面实例不会因同一毫秒而误共享 owner/provider/key 操作事实。该修正未部署，患者同步 replay、并发租约和真机证据仍待线上验收。
+- 2026-08-17：发现 Provider 空患者目录的语义尚未被正式 contract 区分为“确实无绑定患者”或“不完整/权限过滤/临时异常”，因此服务层新增 fail-closed 保护：首次且确实为空的 owner 仍可成功，已有医院目录患者时返回 `patient-directory-snapshot-unsafe` 并保留旧快照，避免一次不确定响应批量停用就诊人。该修正未部署，待 Provider contract 和真机多就诊人验收后再评估是否放宽。
 - 2026-08-17：病历域再次完成只读 contract 审计，仍未发现 `out-visit-records` 的正式 provider/HIS 文档、专用患者映射确认、四类脱敏样例和资源授权定义。旧端门诊记录与住院病案仍是两条不同链路；因此本轮按业务正确性要求停止编码，继续保持 `GET /api/v2/medical-records`、详情、正文、诊断和附件 404/未注册，不以万能转发或空列表伪造迁移完成。后续只有在 MR-01 至 MR-06、MR-13 至 MR-15 和最小交付包完成后才重新评估；当前切换到下一项可取得真实 contract 或可分层验收的只读工作。
 - 2026-08-16 18:20-18:21 CST：SSH 只读复核确认 `current=55fce6c`、新 API `18081`、旧 Python `8001` 均存活；公网 `/api/v2` Smoke 的 system-ping 通过，但 live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝，`sudo -n` 仍需密码，未执行任何线上切换或重启。
 - 2026-08-16 18:35 CST：更新后的公网 Smoke 进一步确认 system-ping 与六路未登录 `auth-boundary` 通过；live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝。当前只证明公网路由和认证边界，不能替代候选切换、provider 或真机业务验收。

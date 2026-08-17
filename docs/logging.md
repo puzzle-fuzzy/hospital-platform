@@ -49,6 +49,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `auth.wechat.login.requested` | 微信授权登录应用服务 | 记录登录开始、traceId、provider 和是否携带幂等键；不记录 code |
 | `auth.wechat.login.succeeded` | 微信授权登录应用服务 | 记录内部 userId、provider request id 和会话 TTL；不记录 openid、unionId 或 access token |
 | `auth.wechat.login.failed` | 微信授权登录应用服务 | 记录错误类型和是否可重试；不记录 provider message、code 或原始响应 |
+| `patient.directory.failed` | 患者目录同步未提交成功 | 记录固定 `errorType`；若为 `PatientDirectorySnapshotUnsafeError`，表示空目录在已有医院患者时被安全拒绝，不记录患者正文或 provider 原始字段 |
 | `worker.outbox.claimed` | Outbox worker | 确认事件被领取及当前重试次数 |
 | `worker.outbox.processed` | Outbox worker | 确认事件处理完成 |
 | `worker.outbox.retry_scheduled` | Outbox worker | 查询重试原因和下一次尝试前的状态 |

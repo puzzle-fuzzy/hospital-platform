@@ -330,6 +330,7 @@ query schema 的内部任务传入未知值，也只能返回 `400 outpatient-pa
 | 409 | `payment-prepay-unknown` | 预支付结果需向 provider 确认，不能直接重建 |
 | 409 | `patient-sync-in-progress` | 当前用户的患者目录仍在同步，不能并发访问 provider |
 | 409 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
+| 502 | `patient-directory-snapshot-unsafe` | Provider 返回空患者目录但当前已有就诊人，服务端拒绝执行不确定的批量失效 |
 | 502 | `provider-request-rejected` | provider 明确拒绝请求，不能盲目重试 |
 | 503 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |
 | 503 | `persistence-temporarily-unavailable` | 数据库、Redis 或 schema 暂时不可用 |

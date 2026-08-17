@@ -286,6 +286,7 @@ test("public API documentation lists every stable public error code", async () =
 		"payment-prepay-in-progress",
 		"payment-prepay-unknown",
 		"patient-sync-in-progress",
+		"patient-directory-snapshot-unsafe",
 		"user-profile-invalid",
 		"user-profile-conflict",
 	] as const;

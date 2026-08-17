@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
+	PatientDirectorySnapshotUnsafeError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
 	PaymentNotificationConflictError,
@@ -39,6 +40,23 @@ test("persistence connection failures return a safe 503 contract", async () => {
 		error: {
 			code: "persistence-temporarily-unavailable",
 			message: "数据服务暂时不可用，请稍后重试",
+		},
+	});
+});
+
+test("ambiguous empty patient snapshots return a safe 502 contract", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new PatientDirectorySnapshotUnsafeError();
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(502);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "patient-directory-snapshot-unsafe",
+			message: "外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
 		},
 	});
 });

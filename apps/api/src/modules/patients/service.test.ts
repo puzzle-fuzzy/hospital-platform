@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	type PatientDirectoryGateway,
+	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	type PatientRepository,
 } from "@hospital/domain";
@@ -118,6 +119,70 @@ test("患者快照已提交后读模型失败不再伪造同步失败", async ()
 	expect(events).toContain("patient.directory.synced");
 	expect(events).toContain("patient.directory.read.failed");
 	expect(events).not.toContain("patient.directory.failed");
+});
+
+test("已有医院目录时拒绝把歧义空快照应用成批量失效", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-empty-unsafe",
+		unionId: "fixture-union-patient-empty-unsafe",
+	});
+	const repository = createInMemoryPatientRepository([
+		{
+			id: "internal-patient-empty-unsafe",
+			ownerUserId: "fixture-user-0001",
+			displayName: "已有就诊人",
+			relationship: "self",
+			cardNumberMasked: "12345*7890",
+			source: "hospital-his",
+		},
+	]);
+	const lines: string[] = [];
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "patient-empty-unsafe-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-empty-unsafe-trace",
+			idempotencyKey: "patient-empty-unsafe-key",
+		}),
+	).rejects.toBeInstanceOf(PatientDirectorySnapshotUnsafeError);
+
+	await expect(repository.listByOwner("fixture-user-0001")).resolves.toEqual([
+		expect.objectContaining({
+			id: "internal-patient-empty-unsafe",
+			displayName: "已有就诊人",
+		}),
+	]);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.failed",
+			errorType: "PatientDirectorySnapshotUnsafeError",
+		}),
+	);
+	expect(
+		records.some((record) => record.event === "patient.directory.synced"),
+	).toBe(false);
 });
 
 test("患者目录快照使用 provider 请求发起时间，避免乱序响应覆盖新快照", async () => {
