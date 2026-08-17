@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `7bbdd99`，在 `bf71c49` 的患者目录跨页面并发互斥基础上，补齐 `same-key` / `owner-provider` 低敏冲突日志枚举、日志契约和旧端支付调起台账修正；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `c291b93`，在 `7bbdd99` 的患者目录冲突范围日志基础上，修正 409 并发分支的日志状态，不再同时记录 `patient.directory.failed`；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -214,6 +214,11 @@ owner 身份行，并使用 `0016_patient_directory_sync_owner_index` 查询同�
 `conflictScope=same-key|owner-provider`，分别区分同 key 网络重试和首页/选择页不同 key 的
 跨页面并发；该字段不进入 API 响应，也不记录幂等键原文。同步文档、日志规范和旧端支付调起
 行为台账已同步，完整 `pnpm check` 继续通过。
+
+随后修正并发日志状态：`c291b93` 保证 `patient-sync-in-progress` 只记录带
+`conflictScope` 的 `patient.directory.operation.in_progress`，不会再被总异常捕获器追加为
+`patient.directory.failed`；同 key 和跨页面不同 key 均有测试覆盖。旧端支付调起台账随当前源代码
+复核为 2 个文件，未将其他会话的旧端临时变化误写成新端能力。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
