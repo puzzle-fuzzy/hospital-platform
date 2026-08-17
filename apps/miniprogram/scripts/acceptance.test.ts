@@ -237,6 +237,9 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("onUnload");
 	expect(selection).toContain("navigationPending");
 	expect(selection).toContain("if (!this.data.navigationPending) return;");
+	expect(selection).toContain("patientNavigationTimers");
+	expect(selection).toContain("clearTimeout(navigationTimer)");
+	expect(selection).toContain("patientNavigationTimers.delete(this)");
 	expect(selection).toContain(
 		'syncPatientsFromHospital("patient-selection-sync")',
 	);

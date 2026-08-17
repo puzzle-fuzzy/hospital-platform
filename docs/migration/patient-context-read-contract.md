@@ -31,6 +31,8 @@
 
 业务页面在新的请求开始时仍必须先清空上一位患者的列表，并使用页面实例级 latest-request guard 丢弃迟到响应。`loadCurrentPatient` 统一解析患者，不会替代页面自己的展示隔离和异步请求守卫。
 
+患者选择页切换成功后的 Toast 延迟回跳也属于页面实例状态：回跳定时器必须按当前选择页实例保存，并在 `onUnload` 中直接取消。页面已经卸载后不能再调用 `setData`，也不能让旧定时器继续执行 `navigateBack`，否则用户手动返回或快速重复进入时可能误操作新的页面栈。
+
 首页、我的、患者选择、预约记录、爽约记录、报告目录和门诊费用页的患者状态都必须复用
 `services/patient-selection-service.ts` 的 `patientContextErrorMessage` 或
 `patientSelectionResolutionMessage`。患者未绑定、已保存选择失效、临床映射不可用和要求先选择患者属于同一组

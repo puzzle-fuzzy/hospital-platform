@@ -31,6 +31,18 @@ type PatientSelectionPageMethods = {
 	setPatientList(patients: Array<Patient>): void;
 };
 
+/**
+ * 切换患者成功后的延迟回跳定时器必须按页面实例隔离。
+ *
+ * 选择页可能被多次打开并同时存在于页面栈中，不能用模块级单个 timer
+ * 保存状态。WeakMap 让每个页面只清理自己的回跳任务，也避免页面卸载后
+ * 因强引用长期保留页面对象。
+ */
+const patientNavigationTimers = new WeakMap<
+	object,
+	ReturnType<typeof setTimeout>
+>();
+
 /** provider 关系值是稳定枚举，中文文案由小程序展示层维护。 */
 const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
 	self: "本人",
@@ -174,13 +186,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		setSelectedPatientId(patient.id);
 		this.setData({ navigationPending: true });
 		wx.showToast({ title: "已切换就诊人", icon: "success" });
-		setTimeout(() => {
-			// 用户可能在 toast 期间手动返回；onUnload 会撤销标志，避免
-			// 旧选择页在页面栈变化后继续弹出当前调用页。
+		const navigationTimer = setTimeout(() => {
+			patientNavigationTimers.delete(this);
+			// 用户可能在 toast 期间手动返回；onUnload 会先清理定时器，
+			// 防止旧选择页在页面栈变化后又 navigateBack。
 			if (!this.data.navigationPending) return;
 			this.setData({ navigationPending: false });
 			wx.navigateBack();
 		}, 350);
+		patientNavigationTimers.set(this, navigationTimer);
 	},
 
 	/** 绑定写入接口尚未通过真实医院契约验收，先明确提示而不是伪造成功。 */
@@ -258,9 +272,11 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	onUnload(): void {
-		// 延迟返回是当前选择页实例的行为；页面已经离开时必须取消它，
-		// 不能让旧实例的回调误操作新的页面栈。
-		this.setData({ navigationPending: false });
+		// 页面卸载后不能再调用 setData；直接清理当前实例的定时器，
+		// 让延迟回调根本没有机会在新页面栈上继续 navigateBack。
+		const navigationTimer = patientNavigationTimers.get(this);
+		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
+		patientNavigationTimers.delete(this);
 	},
 
 	showError(error: unknown, fallback: string): void {
