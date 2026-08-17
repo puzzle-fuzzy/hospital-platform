@@ -36,6 +36,40 @@ function isExpectedJournalControlLine(line) {
 }
 
 /**
+ * systemd 的停止超时不是应用 JSON 解析错误，但也绝不能被当作普通控制行吞掉。
+ * 这里只提取固定的稳定原因，不保留 PID、进程名或 systemd 原文；业务证据门禁会
+ * 因为存在这类 warning 保持失败，避免“服务被 SIGKILL 后仍然算业务验收通过”。
+ */
+function classifyJournalLine(line) {
+	if (isExpectedJournalControlLine(line)) return { kind: "control" };
+	if (
+		/^hospital-platform-api-v2\.service: State 'stop-[A-Za-z0-9_-]+' timed out\. Killing\.$/u.test(
+			line,
+		)
+	)
+		return { kind: "warning", warningCode: "service-stop-timeout" };
+	if (
+		/^hospital-platform-api-v2\.service: Killing process [0-9]+ \([A-Za-z0-9_.-]+\) with signal SIGKILL\.$/u.test(
+			line,
+		)
+	)
+		return { kind: "warning", warningCode: "process-killed" };
+	if (
+		/^hospital-platform-api-v2\.service: Main process exited, code=killed, status=[0-9]+\/KILL$/u.test(
+			line,
+		)
+	)
+		return { kind: "warning", warningCode: "main-process-killed" };
+	if (
+		/^hospital-platform-api-v2\.service: Failed with result 'timeout'\.$/u.test(
+			line,
+		)
+	)
+		return { kind: "warning", warningCode: "service-timeout-failed" };
+	return null;
+}
+
+/**
  * journald 的 `-o json` 会把应用原始 stdout 放进 MESSAGE 字段，而不是直接把
  * Pino JSON 作为整行输出。先拆出 MESSAGE 再解析，才能避免长日志在终端宽度边界
  * 被拆行或混入控制字符；同时保留 `-o cat` 的兼容输入，方便旧手册和历史窗口继续
@@ -47,7 +81,8 @@ function parseInputRecord(line) {
 	try {
 		parsed = JSON.parse(line);
 	} catch {
-		if (isExpectedJournalControlLine(line.trim())) return { kind: "control" };
+		const journalLine = classifyJournalLine(line.trim());
+		if (journalLine) return journalLine;
 		return { kind: "error" };
 	}
 
@@ -61,8 +96,8 @@ function parseInputRecord(line) {
 		try {
 			parsed = JSON.parse(message);
 		} catch {
-			if (isExpectedJournalControlLine(message.trim()))
-				return { kind: "control" };
+			const journalLine = classifyJournalLine(message.trim());
+			if (journalLine) return journalLine;
 			return { kind: "error" };
 		}
 	}
@@ -131,6 +166,7 @@ export function aggregateLines(lines) {
 	const outcomeCounts = new Map();
 	const httpStatusCounts = new Map();
 	const errorTypeCounts = new Map();
+	const systemdWarningCounts = new Map();
 	const traceIds = new Set();
 	const providerRequestIds = new Set();
 	let inputLines = 0;
@@ -158,6 +194,10 @@ export function aggregateLines(lines) {
 		const parsedInput = parseInputRecord(line);
 		if (parsedInput.kind === "control") {
 			ignoredControlLines += 1;
+			continue;
+		}
+		if (parsedInput.kind === "warning") {
+			increment(systemdWarningCounts, parsedInput.warningCode);
 			continue;
 		}
 		if (parsedInput.kind === "error") {
@@ -202,6 +242,11 @@ export function aggregateLines(lines) {
 		outcomeCounts: sortedCounts(outcomeCounts),
 		httpStatusCounts: sortedCounts(httpStatusCounts),
 		errorTypeCounts: sortedCounts(errorTypeCounts),
+		systemdWarningCounts: sortedCounts(systemdWarningCounts),
+		systemdWarningCount: [...systemdWarningCounts.values()].reduce(
+			(total, count) => total + count,
+			0,
+		),
 		traceIdCount: traceIds.size,
 		providerRequestIdCount: providerRequestIds.size,
 	};

@@ -262,17 +262,19 @@ Provider 原始报文通过参数传给聚合工具。
 该工具不是日志采集器，也不会连接数据库、Redis 或 Provider；它只读 stdin（或 `--file` 指定的 JSONL）。生产环境优先使用
 `journalctl -o json`：工具会从 journald envelope 的 `MESSAGE` 字段还原 Pino JSON，并把明确白名单内的 systemd 启停提示计入
 `ignoredControlLines`，避免 `-o cat` 在终端宽度边界拆分长日志。直接传入 `-o cat` 仍兼容历史窗口；遇到未知的非 JSON 行只增加
-`parseErrors`。UTF-8 BOM 会计入 `strippedBomLines` 后再解析，空行计入 `ignoredBlankLines`，不会回显原文。聚合结果刻意不包含
+`parseErrors`。已识别的 systemd 停止超时、进程 SIGKILL 和 unit timeout 会只增加稳定的
+`systemdWarningCounts/systemdWarningCount`，不会回显 PID、进程名或原文。UTF-8 BOM 会计入 `strippedBomLines` 后再解析，
+空行计入 `ignoredBlankLines`，不会回显原文。聚合结果刻意不包含
 `msg`、URL、请求体、token、openid、
 患者标识、金额或第三方原始报文。`payment-frozen` 域只用于确认高风险支付日志是否误入观察窗口，不能证明支付、
-医保、退款或 HIS 写回已经成功。若 `parseErrors > 0`，应缩小 journald 格式或保留原始日志在受控环境内排查，
+医保、退款或 HIS 写回已经成功。若 `parseErrors > 0` 或 `systemdWarningCount > 0`，应在受控环境内排查日志/服务状态，
 不能把聚合结果当作完整审计记录。
 
 聚合结果可以继续交给
 [`tools/p0-business-evidence-audit.mjs`](../tools/p0-business-evidence-audit.mjs) 做业务事件链门禁：
 先使用 `p0-log-aggregate` 的 `--json` 输出纯 JSON，再按业务域检查 `requested` 和明确成功事件是否都出现。
 该门禁只证明日志确实进入并完成过某个业务模块，不证明页面字段、患者归属或 Provider 结果正确；仍必须和
-HTTP 响应、真机页面及同一时间窗口的低敏 trace 交叉核对。缺少成功事件、`parseErrors > 0` 或出现未知业务域时，
+HTTP 响应、真机页面及同一时间窗口的低敏 trace 交叉核对。缺少成功事件、`parseErrors > 0`、`systemdWarningCount > 0` 或出现未知业务域时，
 门禁必须失败，不能用 readiness、单独的 HTTP 200 或页面存在替代。
 
 示例（只输出安全计数和缺失项）：

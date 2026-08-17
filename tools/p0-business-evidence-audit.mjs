@@ -88,6 +88,13 @@ function validateSummary(summary) {
 	if (!Number.isSafeInteger(summary.parseErrors) || summary.parseErrors < 0) {
 		throw new Error("日志聚合对象缺少有效的 parseErrors");
 	}
+	if (
+		summary.systemdWarningCount !== undefined &&
+		(!Number.isSafeInteger(summary.systemdWarningCount) ||
+			summary.systemdWarningCount < 0)
+	) {
+		throw new Error("日志聚合对象缺少有效的 systemdWarningCount");
+	}
 }
 
 /**
@@ -107,6 +114,7 @@ export function auditBusinessEvidence(
 	}
 
 	const results = {};
+	const systemdWarningCount = summary.systemdWarningCount ?? 0;
 	for (const domain of domains) {
 		const contract = BUSINESS_EVIDENCE_CONTRACTS[domain];
 		if (!contract) throw new Error(`未知的 P0 业务域: ${domain}`);
@@ -123,15 +131,20 @@ export function auditBusinessEvidence(
 			successCount,
 			failureCount,
 			missing,
-			passed: summary.parseErrors === 0 && missing.length === 0,
+			passed:
+				summary.parseErrors === 0 &&
+				systemdWarningCount === 0 &&
+				missing.length === 0,
 		};
 	}
 
 	return {
 		passed:
 			summary.parseErrors === 0 &&
+			systemdWarningCount === 0 &&
 			Object.values(results).every((result) => result.passed),
 		parseErrors: summary.parseErrors,
+		systemdWarningCount,
 		domains: results,
 	};
 }

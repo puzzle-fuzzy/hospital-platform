@@ -17,6 +17,7 @@ test("P0 业务证据门禁要求请求和明确成功事件同时存在", () =>
 	expect(result).toEqual({
 		passed: true,
 		parseErrors: 0,
+		systemdWarningCount: 0,
 		domains: {
 			appointmentRecords: {
 				label: "预约历史",
@@ -62,6 +63,27 @@ test("患者同步的幂等重放是成功事实，但日志解析错误仍阻�
 
 	expect(result.domains.patientSync).toMatchObject({
 		successCount: 1,
+		missing: [],
+		passed: false,
+	});
+	expect(result.passed).toBe(false);
+});
+
+test("systemd 停止超时会阻止业务证据门禁，即使请求和成功事件齐全", () => {
+	const result = auditBusinessEvidence(
+		{
+			parseErrors: 0,
+			systemdWarningCount: 1,
+			eventCounts: {
+				"appointment.records.requested": 1,
+				"appointment.records.synced": 1,
+			},
+		},
+		["appointmentRecords"],
+	);
+
+	expect(result.systemdWarningCount).toBe(1);
+	expect(result.domains.appointmentRecords).toMatchObject({
 		missing: [],
 		passed: false,
 	});

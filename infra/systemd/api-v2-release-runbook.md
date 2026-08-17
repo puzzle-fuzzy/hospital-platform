@@ -122,7 +122,7 @@ sudo journalctl -u hospital-platform-api-v2.service \
   --file /tmp/p0-summary.json --domain appointmentRecords
 ```
 
-命令只输出安全计数和缺失项；`parseErrors` 不为 `0` 或请求/成功事件不完整时，证据门禁失败。该门禁不替代
+命令只输出安全计数和缺失项；`parseErrors` 不为 `0`、`systemdWarningCount` 不为 `0` 或请求/成功事件不完整时，证据门禁失败。该门禁不替代
 页面、HTTP 和 trace 交叉核对，也不会修改线上状态。
 
 该命令只读取 MySQL、Redis、schema 和配置 gate；这里必须使用 API 的生产 env，因为候选 API 的持久化

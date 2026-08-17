@@ -136,8 +136,9 @@ sudo journalctl -u hospital-platform-api-v2.service \
 聚合结果当作真机或业务成功证据。
 
 聚合结果只包含事件/业务域/结果计数、HTTP 状态、错误类型和 trace/provider request id 数量；`parseErrors` 必须为
-`0` 才能说明没有未知的非 JSON 行；UTF-8 BOM 会计入 `strippedBomLines`，正常 systemd 启停提示会单独计入
-`ignoredControlLines`。工具不会输出 `msg`、URL、请求体、
+`0` 才能说明没有未知的非 JSON 行，`systemdWarningCount` 也必须为 `0` 才能排除服务停止超时等运行时风险；UTF-8 BOM
+会计入 `strippedBomLines`，正常 systemd 启停提示会单独计入 `ignoredControlLines`，已识别的停止异常只进入稳定 warning 计数。
+工具不会输出 `msg`、URL、请求体、
 token、openid、患者标识、金额或 Provider 原始报文，
 也不会把 `payment-frozen` 计为支付成功证据。
 
@@ -160,7 +161,7 @@ sudo journalctl -u hospital-platform-api-v2.service \
 可用业务域包括 `auth`、`patientRead`、`patientSync`、`appointmentRecords`、
 `outpatientPaymentRecords`、`reportDirectory`、`profileRead` 和 `profileUpdate`。
 门禁只要求对应的请求事件和明确成功事件同时存在，并报告失败计数；它不能证明事件属于同一用户、
-不能证明页面展示正确，也不能替代 HTTP/真机和 trace 交叉核对。`parseErrors` 不为 `0` 时，无论业务事件
+不能证明页面展示正确，也不能替代 HTTP/真机和 trace 交叉核对。`parseErrors` 或 `systemdWarningCount` 不为 `0` 时，无论业务事件
 是否出现，门禁都必须失败。
 
 生产环境只看事件名、状态、traceId、provider request id、数量、状态和错误类型。禁止把下面内容复制到聊天、提交或截图：

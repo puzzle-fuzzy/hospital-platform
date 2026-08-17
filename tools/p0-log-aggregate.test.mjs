@@ -80,3 +80,35 @@ test("支持 journald -o json 的 MESSAGE envelope，并忽略已知 systemd 控
 	expect(summary.eventCounts["auth.wechat.login.succeeded"]).toBe(1);
 	expect(summary.traceIdCount).toBe(1);
 });
+
+test("systemd 停止超时只记录稳定 warning，不把 PID 和进程名带入聚合", () => {
+	const summary = aggregateLines([
+		JSON.stringify({
+			MESSAGE:
+				"hospital-platform-api-v2.service: State 'stop-sigterm' timed out. Killing.",
+		}),
+		JSON.stringify({
+			MESSAGE:
+				"hospital-platform-api-v2.service: Killing process 12345 (bun) with signal SIGKILL.",
+		}),
+		JSON.stringify({
+			MESSAGE:
+				"hospital-platform-api-v2.service: Main process exited, code=killed, status=9/KILL",
+		}),
+		JSON.stringify({
+			MESSAGE:
+				"hospital-platform-api-v2.service: Failed with result 'timeout'.",
+		}),
+	]);
+
+	expect(summary.parseErrors).toBe(0);
+	expect(summary.systemdWarningCount).toBe(4);
+	expect(summary.systemdWarningCounts).toEqual({
+		"main-process-killed": 1,
+		"process-killed": 1,
+		"service-stop-timeout": 1,
+		"service-timeout-failed": 1,
+	});
+	expect(JSON.stringify(summary)).not.toContain("12345");
+	expect(JSON.stringify(summary)).not.toContain("bun");
+});
