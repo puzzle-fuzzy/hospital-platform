@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `34bbb9c`，在 `9d258a1` 的基础上，补齐选择页读取/同步进行中也清除旧“当前”标记，并在最新目录和临床映射成功后恢复；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `4aa877f`，在 `34bbb9c` 的基础上，禁止选择页首帧直接把本地缓存绘制为“当前”患者，只允许最新 owner-scoped 目录和临床映射成功后恢复；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -285,6 +285,10 @@ schema `0015` 为准。
 
 随后 `34bbb9c` 将同一规则前移到读取和同步开始：待确认期间不展示旧“当前”患者，只有最新 owner-scoped
 目录与临床映射同步成功后才恢复标记；本地 opaque `patientId` 仍保留，避免暂时故障导致静默换人。小程序
+验收 62 项、类型检查已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
+
+随后 `4aa877f` 进一步收紧首帧边界：选择页不再在 owner-scoped 目录返回前直接读取本地选择来绘制当前患者，
+避免出现短暂的误导性标记；本地 opaque `patientId` 仍只保留在 storage，供目录恢复后的 stale 判断使用。小程序
 验收 62 项、类型检查已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
