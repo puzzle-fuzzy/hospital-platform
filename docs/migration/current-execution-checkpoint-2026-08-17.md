@@ -340,3 +340,12 @@ schema `0015` 为准；报告 gate、二维码、支付/医保/HIS 仍保持各�
 replay 已成立后，最后一步读模型暂时失败只记录 `read.failed`，不会再追加 `patient.directory.failed`，避免把数据库读失败
 误判为 Provider 同步失败。患者服务定向测试 7 项、API 集成测试 33 项和全量 `pnpm check` 已通过；候选尚未部署，线上
 继续以 `131fb5a` 和生产 schema `0015` 为准，支付/医保/HIS、二维码、预约写入仍保持关闭。
+
+随后 `9d9e7b1` 将 opaque 标识的形状边界下沉到 domain/service 层：预约科室/医生过滤标识、预约历史
+`patientId`、报告 `patientId/reportId` 和门诊费用 `patientId` 即使绕过 Elysia schema，也必须非空、长度不超过
+128、无首尾空白和控制字符；非法值在 repository/provider 前失败，业务失败日志统一使用 `invalid`，不记录原始值。
+该校验明确不替代 owner、TTL 或 provider 映射校验；API 91 项、domain 21 项、原生小程序 62 项、全量
+typecheck/test/build、架构/provider/文档/格式/Lint 检查均通过。完整 `pnpm check` 的 migration audit 目前被外部旧
+仓库 `G:\\fuck\\hospital` 另一会话未提交的医保结算改动阻塞：`module_common` 33→34、挂载合计 190→191，且旧端
+新增两个 endpoint 未登记；本轮不改动该外部工作树和清单。提交未部署，线上继续以 `131fb5a` 和生产 schema `0015`
+为准，支付/医保/HIS、二维码、预约写入仍保持关闭。
