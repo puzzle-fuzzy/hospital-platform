@@ -17,12 +17,12 @@ import {
 	createUpcomingDateRange,
 	formatPlatformDate,
 } from "../src/services/dashboard-service";
+import { createLatestRequestGuard } from "../src/services/latest-request-guard";
+import { resolvePatientSelection } from "../src/services/patient-selection-service";
 import {
 	LABORATORY_FLAG_LABELS,
 	toLaboratoryReportItemView,
 } from "../src/services/report-presenter";
-import { createLatestRequestGuard } from "../src/services/latest-request-guard";
-import { resolvePatientSelection } from "../src/services/patient-selection-service";
 import type { Patient } from "../src/types";
 
 const sourceRoot = join(import.meta.dir, "..", "src");
@@ -303,6 +303,16 @@ test("patient selection cannot leave before clinical mapping synchronization com
 		"this.setData({ selectionReady: patients.length > 0 });",
 	);
 	expect(selection).toContain("目录读取成功不等于医院侧临床映射已经完成");
+});
+
+test("patient selection clears the current badge after synchronization failure", async () => {
+	const selection = await source("pages/patient-select/patient-select.ts");
+
+	// 失败时列表可以留下来供诊断和重试，但当前标记必须清除；本地 opaque
+	// patientId 仍然保留在 storage，不能因为一次暂时失败而静默改选或丢失选择。
+	expect(selection).toContain('selectedPatientId: ""');
+	expect(selection).toContain("selectionReady: false");
+	expect(selection).toContain("不删除本地");
 });
 
 test("native patient synchronization is single-flight at both entry pages", async () => {

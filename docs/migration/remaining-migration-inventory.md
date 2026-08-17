@@ -104,7 +104,7 @@
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
 | --- | --- | --- | --- |
 | 微信登录与平台会话 | `auth`、Redis session | 服务端真实登录、`/me` 会话恢复和单患者同步已有历史 journald 证据，当前 API 已切换到 `131fb5a` | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成 |
-| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现 | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
+| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现；同步失败时清除页面当前标记并保持 fail-closed | 真实失效/恢复数据、真机证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页和生产未登录 401 已验证 | 真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；adapter 只接受已确认的 `usableSourceNum`，页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；缺少 `usableSourceNum` 的响应会 fail-closed；不能锁号、不能把 `scheduleId` 当成写入授权 |
 | 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；已确认保留预约、取消、完成、爽约、停诊、替诊、已登记七类状态；我的挂号使用前后各 90 天，爽约筛选使用过去 90 天 | 真实账号重新同步、公网和真机证据仍缺；未知状态不能推导为爽约 |
