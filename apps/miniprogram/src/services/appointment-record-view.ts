@@ -43,6 +43,23 @@ export function filterAppointmentRecords<T extends AppointmentRecord>(
 }
 
 /**
+ * 将公共读模型中的第一个时钟片段翻译成旧端的上午/下午/晚上标签。
+ *
+ * 这只是患者端排版辅助，不会改变服务端 `workTime`，也不会根据缺失的
+ * 时间猜测完整时段；例如没有明确小时值时保持空字符串，让页面只展示日期。
+ */
+function toPeriodLabel(workTime?: string): string {
+	const hourText = workTime?.match(/^(\d{2})/)?.[1];
+	if (!hourText) return "";
+
+	const hour = Number(hourText);
+	if (!Number.isInteger(hour) || hour > 23) return "";
+	if (hour < 12) return "上午";
+	if (hour < 18) return "下午";
+	return "晚上";
+}
+
+/**
  * 将服务端预约摘要转换为 WXML 渲染模型。
  *
  * `viewKey` 只用于当前响应批次的 WXML diff。由于只读摘要可能没有稳定的
@@ -58,5 +75,6 @@ export function toAppointmentRecordView(
 		viewKey: `${prefix}-${index}`,
 		statusLabel: APPOINTMENT_RECORD_STATUS_LABELS[record.status],
 		statusClass: `record-status-${record.status}`,
+		periodLabel: toPeriodLabel(record.workTime),
 	};
 }

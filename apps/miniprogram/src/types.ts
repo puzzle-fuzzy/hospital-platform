@@ -207,6 +207,8 @@ export type AppointmentRecordView = AppointmentRecord & {
 	viewKey: string;
 	statusLabel: string;
 	statusClass: string;
+	/** 旧端把就诊日期与上午/下午作为独立视觉层级展示。 */
+	periodLabel: string;
 };
 
 /** “我的挂号”旧端的两个展示标签；切换只过滤当前已取得的安全读模型。 */

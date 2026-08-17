@@ -84,7 +84,7 @@ page {
 /* 旧端两个状态标签共用一行，当前项使用医疗蓝和底部短线。 */
 .status-tabs {
 	display: flex;
-	margin-top: 20rpx;
+	/* 旧端选择区与状态标签连续相接，不额外插入新端间距。 */
 	background: #ffffff;
 }
 

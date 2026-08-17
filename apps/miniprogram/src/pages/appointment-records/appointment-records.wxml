@@ -63,9 +63,16 @@
 				<text wx:if="{{item.doctorName}}">{{item.doctorName}}</text>
 				<text wx:if="{{item.location}}">{{item.location}}</text>
 			</view>
-			<view class="record-date">{{item.workDate}}{{item.workTime ? " " + item.workTime : ""}}</view>
-			<view wx:if="{{item.serialNumber}}" class="record-number">
-				<text>第 </text><text class="record-number-emphasis">{{item.serialNumber}}</text><text> 号</text>
+			<!-- 旧端把日期/上午下午与时段分成两行，避免时间信息挤在同一行。 -->
+			<view class="record-date">
+				<text>{{item.workDate}}</text>
+				<text wx:if="{{item.periodLabel}}"> {{item.periodLabel}}</text>
+			</view>
+			<view wx:if="{{item.workTime || item.serialNumber}}" class="record-number">
+				<text wx:if="{{item.workTime}}">{{item.workTime}} </text>
+				<text wx:if="{{item.serialNumber}}">第 </text>
+				<text wx:if="{{item.serialNumber}}" class="record-number-emphasis">{{item.serialNumber}}</text>
+				<text wx:if="{{item.serialNumber}}"> 号</text>
 			</view>
 
 			<!-- 未取消记录保留旧端操作区；未迁移的预问诊只显示安全提示。 -->

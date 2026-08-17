@@ -60,3 +60,14 @@ test("预约摘要视图 key 只用于渲染且不改变业务状态", () => {
 		statusClass: "record-status-unknown",
 	});
 });
+
+test("预约卡片按旧端层级展示就诊日期和时段", () => {
+	const view = toAppointmentRecordView(
+		{ ...record("scheduled"), workTime: "13:30-14:00" },
+		0,
+		"appointment-record",
+	);
+
+	expect(view.periodLabel).toBe("下午");
+	expect(view.workTime).toBe("13:30-14:00");
+});
