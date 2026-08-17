@@ -78,7 +78,7 @@ session_key、患者身份证、手机号、provider 原始报文、支付签名
 | --- | --- |
 | `pnpm --filter @hospital/miniprogram test` | 76 pass，0 fail，712 个断言 |
 | `pnpm --filter @hospital/api test` | 97 pass，0 fail，476 个断言 |
-| `pnpm docs:audit` | 106 份 Markdown 文档，无断链 |
+| `pnpm docs:audit` | 107 份 Markdown 文档，无断链 |
 
 测试证明代码边界、错误码映射、owner 隔离、页面异步守卫和日志脱敏规则保持一致；它们不等于真实微信、Redis、
 Provider 或真机验收。
