@@ -42,7 +42,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `persistence.integration.dependencies` / `persistence.integration.schema_probe` / `persistence.integration.succeeded` / `persistence.integration.failed` / `persistence.integration.cleanup_failed` | 本地真实 MySQL/Redis 集成验收 | 记录依赖状态、schema 缺失、验收检查名和清理错误类型；不记录连接串、token 或 provider 原始报文 |
 | `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
 | `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
-| `persistence-temporarily-unavailable` | API 持久化错误响应 | MySQL 连接/传输层短暂异常；幂等读会在连接池内重试一次，写入和事务不会盲目重试；响应只返回 503 安全错误码，日志最多增加 `persistenceOperation` 和允许列表中的 `persistenceErrorCode`，不记录原始协议报文 |
+| `persistence-temporarily-unavailable` | API 持久化错误响应 | MySQL 连接/传输层短暂异常；连接池内的幂等读最多执行初始请求加两次短退避恢复尝试（25ms、100ms），写入和事务不会盲目重试；响应只返回 503 安全错误码，日志最多增加 `persistenceOperation` 和允许列表中的 `persistenceErrorCode`，不记录原始协议报文 |
 | `auth.wechat.login.requested` | 微信授权登录应用服务 | 记录登录开始、traceId、provider 和是否携带幂等键；不记录 code |
 | `auth.wechat.login.succeeded` | 微信授权登录应用服务 | 记录内部 userId、provider request id 和会话 TTL；不记录 openid、unionId 或 access token |
 | `auth.wechat.login.failed` | 微信授权登录应用服务 | 记录错误类型和是否可重试；不记录 provider message、code 或原始响应 |

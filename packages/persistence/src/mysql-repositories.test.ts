@@ -87,7 +87,7 @@ function protocolConnectionLostError(): Error & { code: string } {
 	return error;
 }
 
-test("MySQL idempotent reads retry once on a lost pooled connection", async () => {
+test("MySQL idempotent reads recover within the bounded retry window", async () => {
 	let attempts = 0;
 	const pool = {
 		async getConnection() {
@@ -95,7 +95,7 @@ test("MySQL idempotent reads retry once on a lost pooled connection", async () =
 		},
 		async execute() {
 			attempts += 1;
-			if (attempts === 1) throw protocolConnectionLostError();
+			if (attempts < 3) throw protocolConnectionLostError();
 			return [
 				[
 					{
@@ -118,7 +118,30 @@ test("MySQL idempotent reads retry once on a lost pooled connection", async () =
 	await expect(
 		repositories.patients.listByOwner("user-001"),
 	).resolves.toHaveLength(1);
-	expect(attempts).toBe(2);
+	expect(attempts).toBe(3);
+});
+
+test("MySQL read recovery stops after the bounded retry window", async () => {
+	let attempts = 0;
+	const pool = {
+		async getConnection() {
+			throw new Error("transaction connection is not used");
+		},
+		async execute() {
+			attempts += 1;
+			throw protocolConnectionLostError();
+		},
+	} as unknown as Pool;
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.listByOwner("user-001"),
+	).rejects.toMatchObject({
+		name: "PersistenceUnavailableError",
+		operation: "read",
+		errorCode: "PROTOCOL_CONNECTION_LOST",
+	});
+	expect(attempts).toBe(3);
 });
 
 test("MySQL transient write failures become a safe persistence error", async () => {

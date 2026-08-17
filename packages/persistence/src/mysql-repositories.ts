@@ -59,6 +59,15 @@ import {
 /** MySQL claim lease，防止 worker 崩溃后事件永久停留在 claimed 状态。 */
 const DEFAULT_OUTBOX_CLAIM_LEASE_MS = 60_000;
 
+/**
+ * 连接被网络侧回收时，只读 SQL 可以安全地从连接池重新取得连接后重试。
+ *
+ * 这里明确限制为三次尝试，并使用短退避窗口：这是为了覆盖云 MySQL
+ * 连接刚被发现断开、连接池正在清理坏连接的瞬态时间，不是把数据库故障
+ * 伪装成无限重试。写入、事务和 Provider 调用仍然禁止自动重放。
+ */
+const READ_CONNECTION_RECOVERY_DELAYS_MS = [25, 100] as const;
+
 /** 将 mysql2 的多重 overload 收窄为 repository 需要的参数形状。 */
 type QueryExecutor = {
 	execute(
@@ -68,16 +77,13 @@ type QueryExecutor = {
 };
 
 function isReadStatement(sql: string): boolean {
-	return /^\s*(SELECT|SHOW|DESCRIBE|EXPLAIN|WITH)\b/i.test(sql);
+	// `WITH` 也可以包裹 UPDATE/DELETE/INSERT；当前仓储没有使用 CTE，
+	// 因此不能仅凭前缀把它当成可安全重放的读操作。
+	return /^\s*(SELECT|SHOW|DESCRIBE|EXPLAIN)\b/i.test(sql);
 }
 
 function isPoolClient(client: Pool | PoolConnection): client is Pool {
 	return typeof (client as Pool).getConnection === "function";
-}
-
-/** 短暂等待让 mysql2 完成坏连接清理，再从连接池申请新连接。 */
-async function yieldForConnectionRecovery(): Promise<void> {
-	await new Promise<void>((resolve) => setTimeout(resolve, 25));
 }
 
 type IdentityUserRow = RowDataPacket & {
@@ -247,14 +253,20 @@ async function execute<T extends RowDataPacket[] | ResultSetHeader>(
 		// 只有连接池上的幂等读允许自动重试；事务连接和所有写语句
 		// 都不能在“不确定服务端是否已执行”的状态下盲目再次执行。
 		if (isPoolClient(client) && isReadStatement(sql)) {
-			await yieldForConnectionRecovery();
-			try {
-				const [rows] = await executor.execute(sql, values);
-				return rows as T;
-			} catch (retryError) {
-				if (!isTransientPersistenceError(retryError)) throw retryError;
-				throw new PersistenceUnavailableError("read", retryError);
+			let lastError: unknown = error;
+			for (const delayMs of READ_CONNECTION_RECOVERY_DELAYS_MS) {
+				await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+				try {
+					// 每次 execute 都重新向连接池申请连接；不能复用已经报告
+					// PROTOCOL_CONNECTION_LOST 的底层连接对象。
+					const [rows] = await executor.execute(sql, values);
+					return rows as T;
+				} catch (retryError) {
+					if (!isTransientPersistenceError(retryError)) throw retryError;
+					lastError = retryError;
+				}
 			}
+			throw new PersistenceUnavailableError("read", lastError);
 		}
 
 		throw new PersistenceUnavailableError(
