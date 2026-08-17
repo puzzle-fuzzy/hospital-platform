@@ -10,6 +10,7 @@
 
 - SSH 登录服务器，读取当前 release 软链接、API systemd 状态和 TCP 监听状态；
 - 通过公网 HTTPS 请求 `/api/v2/health/live` 和 `/api/v2/health/ready`；
+- 通过公网 HTTPS 对预约历史和门诊费用保护接口发送不带会话的请求，只验证认证边界；
 - 不读取原始 journald，不执行 sudo，不重启服务，不修改文件、数据库、Redis 或配置；
 - 不发送任何患者、预约、报告、费用或支付业务请求。
 
@@ -26,7 +27,9 @@
 | ready.database | `ok` |
 | ready.redis | `ok` |
 | ready.schema | `ok` |
-| 本次业务请求 | `0`；只访问健康检查 |
+| 本次患者/Provider 业务请求 | `0`；健康检查和未登录认证边界请求均未进入业务链路 |
+| 未登录预约历史 | `GET /api/v2/appointments/records` 返回 `401 unauthorized` |
+| 未登录门诊费用 | `GET /api/v2/payments/outpatient/records` 返回 `401 unauthorized` |
 
 公网响应包含安全 `x-request-id`，但本文不保存该值；需要排障时应从受控日志权限中按采集时间检索，
 不能把 request id、token 或患者标识写入小程序或普通文档。
@@ -39,6 +42,7 @@
 2. 新 API 与旧 Python API 继续并行监听，没有因为本次只读检查停止旧服务；
 3. 公网版本前缀、HTTPS、健康检查的 `200` 和 no-store 边界正常；
 4. 当前 ready 探针报告 MySQL、Redis 和 schema 可用。
+5. 预约历史和门诊费用在没有平台会话时会先经过统一认证边界，不会把未登录请求误送入患者映射或 Provider。
 
 本次观察不能证明：
 
