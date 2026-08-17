@@ -18,14 +18,14 @@
 | `auth.wechat.login.succeeded` | 1 | 微信身份交换和平台会话创建至少成功 1 次 | Redis 实际 TTL、过期恢复和多账号隔离 |
 | `patient.directory.synced` | 2 | 两次患者目录同步完成；每次记录 1 位 active 患者和 1 条临床映射 | 第二位患者、多患者切换、失效/恢复和 provider 全量目录语义 |
 | `patient.directory.read.loaded` | 4 | owner-scoped 患者目录读取成功 | 页面是否始终使用最新选择、真机返回竞态和跨页面 trace 对齐 |
-| `appointment.records.loaded` | 0 | 无 | “我的挂号” Provider、状态映射和未来预约窗口 |
+| `appointment.records.requested` / `appointment.records.synced` | 0 / 0 | 无 | “我的挂号” Provider、状态映射和未来预约窗口 |
 | `outpatient.payment.records.loaded` | 0 | 无 | 待缴/已缴目录、金额和状态切换 |
 
 ## 3. 当前 P0 判断
 
 1. 认证已获得当前 release 的一次真实成功样本，但 Redis TTL 仍未验收；
 2. 患者目录已获得当前 release 的单患者同步/读取样本，仍未完成多患者和失效恢复；
-3. “我的挂号”和门诊费用当前没有成功事件，不能用页面打开、HTTP 401、readiness 或配置项 `configured` 代替；
+3. “我的挂号”和门诊费用当前没有业务请求或成功事件，不能用页面打开、HTTP 401、readiness 或配置项 `configured` 代替；
 4. 支付、医保授权、结算、退款、预约写入和 HIS 回写继续保持关闭。
 
 ## 4. 下一次真机操作顺序
