@@ -242,6 +242,8 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(template).toContain("暂不可查");
 	expect(template).toContain("刷新就诊人");
 	expect(selection).toContain("hasClinicallyReadyPatients");
+	expect(selection).toContain("patientSelectionResolutionMessage");
+	expect(home).toContain("patientSelectionResolutionMessage");
 	expect(selection).toContain('clinicalAccess !== "ready"');
 	expect(selection).toContain("patient-clinical-unavailable");
 	expect(service).toContain('SELECTED_PATIENT_ID_KEY = "selected_patient_id"');
@@ -459,7 +461,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("getUserProfile");
 	expect(my).toContain('status: "rejected" as const');
 	expect(my).toContain("资料读取失败不能让已经成功的患者上下文整页失败");
-	expect(my).toContain("当前就诊人暂未完成医院档案映射，请进入选择页处理");
+	expect(my).toContain("patientSelectionResolutionMessage");
+	expect(my).toContain("patientContextErrorMessage");
 	expect(my).toContain("patientContextError || profileError");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
@@ -1187,7 +1190,7 @@ test("native my page clears stale patient context when owner reads fail", async 
 	expect(my).toContain("selectedPatient: null");
 	expect(my).toContain("patientCount: 0");
 	expect(my).toContain("不删除本地 selectedPatientId");
-	expect(my).toContain("safeApiErrorMessage(error, fallback)");
+	expect(my).toContain("patientContextErrorMessage(error, fallback)");
 });
 
 test("patient context pull-to-refresh waits for the complete directory lifecycle", async () => {

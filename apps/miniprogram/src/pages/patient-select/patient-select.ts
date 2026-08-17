@@ -1,4 +1,4 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import { ApiError } from "../../services/api-client";
 import {
 	loadPatients,
 	syncPatientsFromHospital,
@@ -8,6 +8,8 @@ import {
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
+	patientContextErrorMessage,
+	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
@@ -133,11 +135,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			patients: patients.map(toPatientSelectionView),
 			selectedPatientId,
 			error:
-				resolution.state === "stale"
-					? "上次选择的就诊人已失效，请重新选择"
-					: resolution.state === "unavailable"
-						? "当前选择的就诊人暂未完成医院档案映射，请选择可用就诊人"
-						: "",
+				resolution.state === "empty"
+					? ""
+					: patientSelectionResolutionMessage(resolution),
 		});
 	},
 
@@ -244,18 +244,10 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	showError(error: unknown, fallback: string): void {
-		let message = fallback;
-		if (error instanceof ApiError) {
-			if (error.code === "dependency-not-configured") {
-				message = "就诊人服务暂未配置完成，请联系管理员";
-			} else if (error.code === "patient-not-bound") {
-				message = "当前微信账号暂无绑定的就诊人";
-			} else if (error.code === "patient-clinical-unavailable") {
-				message = "当前就诊人暂未完成医院档案映射，请刷新或选择其他就诊人";
-			} else {
-				message = safeApiErrorMessage(error, fallback);
-			}
-		}
+		const message =
+			error instanceof ApiError && error.code === "dependency-not-configured"
+				? "就诊人服务暂未配置完成，请联系管理员"
+				: patientContextErrorMessage(error, fallback);
 		// 同步失败时可以保留列表帮助诊断和重试，但不能保留上一轮“当前”标记；
 		// 否则用户会误以为该患者的 his-patient 映射仍已确认。这里不删除本地
 		// opaque patientId，目录恢复后仍可正确进入 stale 判断，避免静默换人。

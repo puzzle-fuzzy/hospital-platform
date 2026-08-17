@@ -1,4 +1,4 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import { ApiError } from "../../services/api-client";
 import {
 	loadHealth,
 	loadPatients,
@@ -12,6 +12,8 @@ import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
+	patientContextErrorMessage,
+	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
@@ -604,14 +606,8 @@ Page<IndexPageData, IndexPageMethods>({
 					: fallback.includes("就诊人")
 						? "就诊人服务暂未配置完成，请联系管理员"
 						: "服务暂未配置完成，请联系管理员";
-			} else if (error.code === "patient-selection-required") {
-				message = "当前微信账号暂无已选择的就诊人，请先点击“新增就诊人”";
-			} else if (error.code === "patient-not-bound") {
-				message = "当前微信账号暂无绑定的就诊人";
-			} else if (error.code === "patient-clinical-unavailable") {
-				message = "当前就诊人暂未完成医院档案映射，请刷新或选择其他就诊人";
 			} else {
-				message = safeApiErrorMessage(error, fallback);
+				message = patientContextErrorMessage(error, fallback);
 			}
 		}
 		this.setData({ error: message });
@@ -664,12 +660,7 @@ Page<IndexPageData, IndexPageMethods>({
 			selectedPatientId,
 			selectedPatient,
 			hasPatients: patients.length > 0,
-			error:
-				resolution.state === "stale"
-					? "上次选择的就诊人已不可用，请重新选择就诊人"
-					: resolution.state === "unavailable"
-						? "当前就诊人暂未完成医院档案映射，请进入选择页处理"
-						: "",
+			error: patientSelectionResolutionMessage(resolution),
 		});
 	},
 });

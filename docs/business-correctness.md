@@ -28,7 +28,7 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
    报告或门诊费用页面；`unavailable` 记录可以保留脱敏资料帮助用户核对，但不能被选中，不能让页面
    把 `directory` 引用当作 `his-patient` 使用。首次没有历史选择时只能默认第一位 `ready` 患者，
    如果已有选择变为 `unavailable`，必须保留该选择的失效原因并要求用户显式选择其他可用患者。
-6. 选择页切换患者后，调用页必须重新读取患者目录并重新请求业务数据，不能沿用上一个患者的报告、挂号记录或缴费列表。预约记录、爽约记录、报告目录和门诊费用页统一通过 `dashboard-service.ts` 的 `loadCurrentPatient` 完成这次读取与选择解析，并通过 `patient-selection-service.ts` 的 `patientContextErrorMessage` 统一解释患者上下文错误；发起查询和写回异步结果前还必须通过 `isCurrentSelectedPatient` 校验当前 opaque patientId，避免跨页面切换后的旧响应覆盖新患者。该函数只重读平台目录，不隐式触发 Provider 同步。同步只由登录恢复和独立患者选择页负责，完整边界见 [`migration/patient-context-read-contract.md`](migration/patient-context-read-contract.md)。
+6. 选择页切换患者后，调用页必须重新读取患者目录并重新请求业务数据，不能沿用上一个患者的报告、挂号记录或缴费列表。首页、我的和患者选择页统一使用 `patient-selection-service.ts` 的目录解析错误码；预约记录、爽约记录、报告目录和门诊费用页统一通过 `dashboard-service.ts` 的 `loadCurrentPatient` 完成这次读取与选择解析，并通过 `patientContextErrorMessage` 或 `patientSelectionResolutionMessage` 统一解释患者上下文错误；发起查询和写回异步结果前还必须通过 `isCurrentSelectedPatient` 校验当前 opaque patientId，避免跨页面切换后的旧响应覆盖新患者。该函数只重读平台目录，不隐式触发 Provider 同步。同步只由登录恢复和独立患者选择页负责，完整边界见 [`migration/patient-context-read-contract.md`](migration/patient-context-read-contract.md)。
 7. 如果本地已有的 `patientId` 已不在当前 owner 的有效目录中，页面必须进入“请重新选择就诊人”状态；只有本地从未保存过选择时才允许默认目录第一位，不能用 `patients[0]` 静默替换已失效的患者。
 
    当前目录暂时为空时只清空页面展示，不删除本地选择；目录恢复后仍按已有选择进入 `stale`，必须由用户显式重选。

@@ -4,6 +4,8 @@ import { ApiError } from "./api-client";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
+	patientSelectionResolutionError,
+	patientSelectionResolutionMessage,
 	requirePatientFromResolution,
 	resolvePatientSelection,
 } from "./patient-selection-service";
@@ -133,6 +135,34 @@ test("业务页面区分没有绑定患者、已失效和临床映射不可用",
 			patient: patient("patient-b"),
 		}),
 	).toEqual(patient("patient-b"));
+});
+
+test("所有患者页面复用同一组目录解析错误码和文案", () => {
+	const empty = { state: "empty" } as const;
+	const stale = { state: "stale", storedPatientId: "patient-removed" } as const;
+	const unavailable = {
+		state: "unavailable",
+		storedPatientId: "patient-legacy",
+	} as const;
+
+	expect(patientSelectionResolutionError(empty)?.code).toBe(
+		"patient-not-bound",
+	);
+	expect(patientSelectionResolutionError(stale)?.code).toBe(
+		"patient-selection-stale",
+	);
+	expect(patientSelectionResolutionError(unavailable)?.code).toBe(
+		"patient-clinical-unavailable",
+	);
+	expect(patientSelectionResolutionMessage(empty)).toBe(
+		"当前微信账号暂无绑定的就诊人",
+	);
+	expect(patientSelectionResolutionMessage(stale)).toBe(
+		"上次选择的就诊人已失效，请重新选择",
+	);
+	expect(patientSelectionResolutionMessage(unavailable)).toBe(
+		"该就诊人暂未完成医院档案映射，请选择其他就诊人或刷新",
+	);
 });
 
 test("患者范围业务页使用统一的上下文错误文案", () => {

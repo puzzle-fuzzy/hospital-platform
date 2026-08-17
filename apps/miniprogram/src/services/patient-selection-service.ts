@@ -10,39 +10,17 @@ import { ApiError, safeApiErrorMessage } from "./api-client";
 export const SELECTED_PATIENT_ID_KEY = "selected_patient_id";
 
 /**
- * 患者范围业务页共用的上下文错误文案。
- *
- * 这些错误不是某一个页面的展示细节，而是“当前患者能否代表后续医疗查询”
- * 的业务状态：stale 不能静默换人，未绑定不能伪造空列表，临床映射不可用时
- * 不能把目录资料当作可查询患者。集中维护后，预约、报告和费用页不会因为
- * 各自新增分支而出现互相矛盾的提示；领域服务未配置的文案仍由页面保留。
- */
-const PATIENT_CONTEXT_ERROR_MESSAGES: Readonly<Record<string, string>> =
-	Object.freeze({
-		"patient-selection-required": "请先登录并选择就诊人",
-		"patient-selection-stale": "上次选择的就诊人已失效，请重新选择",
-		"patient-not-bound": "当前微信账号暂无绑定的就诊人",
-		"patient-clinical-unavailable":
-			"该就诊人暂未完成医院档案映射，请选择其他就诊人或刷新",
-	});
-
-/**
  * 将患者上下文错误翻译为一致的安全文案。
  *
- * 页面仍可在调用本函数前处理自己的领域错误（例如报告服务未配置），但
- * 一旦进入患者状态分支，必须使用本函数，不能把 ApiError.message 或 Provider
- * 原文直接展示给患者。
+ * 患者上下文的稳定错误码和中文文案唯一维护在 api-client 的公共错误表中；
+ * 本函数作为患者范围页面的语义入口，防止页面直接读取 ApiError.message 或
+ * Provider 原文。页面仍可在调用本函数前处理自己的领域错误（例如报告服务
+ * 未配置），但一旦进入患者状态分支必须回到这里。
  */
 export function patientContextErrorMessage(
 	error: unknown,
 	fallback: string,
 ): string {
-	if (error instanceof ApiError) {
-		return (
-			PATIENT_CONTEXT_ERROR_MESSAGES[error.code] ??
-			safeApiErrorMessage(error, fallback)
-		);
-	}
 	return safeApiErrorMessage(error, fallback);
 }
 
@@ -61,6 +39,45 @@ export type PatientSelectionResolution =
 	| { state: "unavailable"; patient?: undefined; storedPatientId?: string };
 
 /**
+ * 将目录解析状态转换成稳定的患者上下文错误对象。
+ *
+ * `empty`、`stale` 和 `unavailable` 都不是普通空列表：它们分别表示没有
+ * 绑定患者、已保存患者已失效、或医院档案映射未完成。先统一转换成 ApiError，
+ * 页面才能复用同一套中文文案和错误码，而不会因页面不同产生漂移。
+ */
+export function patientSelectionResolutionError(
+	resolution: PatientSelectionResolution,
+): ApiError | undefined {
+	if (resolution.state === "empty") {
+		return new ApiError("No patient is bound to the current account", {
+			code: "patient-not-bound",
+		});
+	}
+	if (resolution.state === "stale") {
+		return new ApiError("Stored patient selection is stale", {
+			code: "patient-selection-stale",
+		});
+	}
+	if (resolution.state === "unavailable") {
+		return new ApiError("Patient clinical mapping is unavailable", {
+			code: "patient-clinical-unavailable",
+		});
+	}
+	return undefined;
+}
+
+/** 将目录解析状态直接翻译成页面安全文案；成功状态返回给定空兜底。 */
+export function patientSelectionResolutionMessage(
+	resolution: PatientSelectionResolution,
+	fallback = "",
+): string {
+	return patientContextErrorMessage(
+		patientSelectionResolutionError(resolution),
+		fallback,
+	);
+}
+
+/**
  * 将目录解析结果提升为业务页面可消费的“必须有患者”结果。
  *
  * 页面不能把 `empty`、`stale` 和“调用方没有传患者”混成同一个错误：
@@ -71,19 +88,12 @@ export type PatientSelectionResolution =
 export function requirePatientFromResolution(
 	resolution: PatientSelectionResolution,
 ): Patient {
-	if (resolution.state === "stale") {
-		throw new ApiError("Stored patient selection is stale", {
-			code: "patient-selection-stale",
-		});
-	}
-	if (resolution.state === "unavailable") {
-		throw new ApiError("Patient clinical mapping is unavailable", {
-			code: "patient-clinical-unavailable",
-		});
-	}
+	const selectionError = patientSelectionResolutionError(resolution);
+	if (selectionError) throw selectionError;
 	if (resolution.patient) return resolution.patient;
-	throw new ApiError("No patient is bound to the current account", {
-		code: "patient-not-bound",
+	// 该分支只用于防御未来新增 resolution 状态；当前 union 的 empty 已在上面处理。
+	throw new ApiError("Patient selection resolution is incomplete", {
+		code: "patient-selection-required",
 	});
 }
 

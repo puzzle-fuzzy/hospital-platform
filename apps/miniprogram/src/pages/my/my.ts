@@ -4,7 +4,11 @@ import {
 	safeApiErrorMessage,
 } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
-import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
+import {
+	patientContextErrorMessage,
+	patientSelectionResolutionMessage,
+	resolveStoredPatientSelection,
+} from "../../services/patient-selection-service";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
 import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
@@ -161,11 +165,7 @@ Page<MyPageData, MyPageMethods>({
 						? safeApiErrorMessage(profile.error, "个人资料暂时不可用")
 						: "";
 				const patientContextError =
-					resolution.state === "stale"
-						? "上次选择的就诊人已不可用，请重新选择就诊人"
-						: resolution.state === "unavailable"
-							? "当前就诊人暂未完成医院档案映射，请进入选择页处理"
-							: "";
+					patientSelectionResolutionMessage(resolution);
 				this.setData({
 					userLabel:
 						displayName || (userPayload.data.user.id ? "微信用户" : "未登录"),
@@ -263,7 +263,7 @@ Page<MyPageData, MyPageMethods>({
 		// 也不清理仍可重试的 token；下一次成功读取目录后仍可恢复原选择，
 		// 但在恢复前不会把旧患者数量或资料标签展示给用户。
 		this.setData({
-			error: safeApiErrorMessage(error, fallback),
+			error: patientContextErrorMessage(error, fallback),
 			userLabel: "微信用户",
 			selectedPatient: null,
 			patientCount: 0,
