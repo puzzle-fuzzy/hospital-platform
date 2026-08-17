@@ -662,7 +662,9 @@ test("native mini program derives missed appointments from the normalized record
 	expect(my).toContain('url: "/pages/missed-appointments/missed-appointments"');
 	expect(myTemplate).toContain('data-action="missed-appointments"');
 	expect(page).toContain("loadAppointmentRecords");
-	expect(page).toContain('record.status === "missed"');
+	// 爽约判定集中在展示服务，避免页面重新解释 provider 状态码；这里检查
+	// 页面确实使用该服务，而不是绑定某一种实现写法。
+	expect(page).toContain("isMissedAppointment");
 	expect(page).toContain("MISSED_APPOINTMENT_PAGE_SIZE");
 	expect(page).toContain("visibleRecords: missedRecords.slice");
 	expect(page).toContain("onLoadMore(): void");

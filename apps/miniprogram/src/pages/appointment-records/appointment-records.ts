@@ -1,11 +1,12 @@
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import { toAppointmentRecordView } from "../../services/appointment-record-view";
 import {
 	loadAppointmentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
-import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -28,17 +29,6 @@ type AppointmentRecordsPageMethods = {
 	showError(error: unknown, fallback: string): void;
 	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
 };
-
-const STATUS_LABELS = Object.freeze({
-	scheduled: "已预约",
-	cancelled: "已取消",
-	completed: "已完成",
-	missed: "已爽约",
-	stopped: "停诊",
-	substituted: "替诊",
-	registered: "已登记",
-	unknown: "状态未知",
-} as const);
 
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
@@ -138,15 +128,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		record: AppointmentRecord,
 		index: number,
 	): AppointmentRecordView {
-		const statusLabel = STATUS_LABELS[record.status];
-		return {
-			...record,
-			// provider 只读摘要没有稳定公开记录 ID，流水号也可能缺失或重复；
-			// 这里用本次完整响应内的索引保证 WXML key 唯一，不把它当业务标识。
-			viewKey: `appointment-record-${index}`,
-			statusLabel,
-			statusClass: `record-status-${record.status}`,
-		};
+		return toAppointmentRecordView(record, index, "appointment-record");
 	},
 
 	onChangePatient(): void {

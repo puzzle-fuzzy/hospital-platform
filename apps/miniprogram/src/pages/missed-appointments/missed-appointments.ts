@@ -1,11 +1,15 @@
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
+	isMissedAppointment,
+	toAppointmentRecordView,
+} from "../../services/appointment-record-view";
+import {
 	loadAppointmentRecords,
 	loadPatients,
 } from "../../services/dashboard-service";
 import { getPageLatestRequestGuard } from "../../services/page-instance-state";
-import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { resolveStoredPatientSelection } from "../../services/patient-selection-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordView,
@@ -23,17 +27,6 @@ type MissedAppointmentsPageMethods = {
 	showError(error: unknown, fallback: string): void;
 	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
 };
-
-const STATUS_LABELS = Object.freeze({
-	scheduled: "已预约",
-	cancelled: "已取消",
-	completed: "已完成",
-	missed: "已爽约",
-	stopped: "停诊",
-	substituted: "替诊",
-	registered: "已登记",
-	unknown: "状态未知",
-} as const);
 
 Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	data: {
@@ -104,7 +97,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				if (!records || !loadGuard.isCurrent(requestToken)) return;
 				// 只筛选服务端标准化后的 missed，不能使用客户端 provider 数字状态。
 				const missedRecords = records
-					.filter((record) => record.status === "missed")
+					.filter(isMissedAppointment)
 					.map((record, index) => this.toRecordView(record, index));
 				const visibleRecordCount = Math.min(
 					MISSED_APPOINTMENT_PAGE_SIZE,
@@ -148,13 +141,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		record: AppointmentRecord,
 		index: number,
 	): AppointmentRecordView {
-		return {
-			...record,
-			// 爽约页同样只拿到只读摘要；serialNumber 不是可靠的列表主键。
-			viewKey: `missed-appointment-record-${index}`,
-			statusLabel: STATUS_LABELS[record.status],
-			statusClass: `record-status-${record.status}`,
-		};
+		return toAppointmentRecordView(record, index, "missed-appointment-record");
 	},
 
 	onChangePatient(): void {
