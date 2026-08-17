@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库 `main` | `6b4be2e`；包含 `aa536eb` 排班字段边界修正、迁移台账和最新公网 smoke 文档，尚未部署线上 | Git history；不得用仓库 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `aa536eb`，包含排班字段边界修正；后续文档提交不改变该实现候选，仓库实际 HEAD 以 Git history 为准，尚未部署线上 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -125,7 +125,7 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
   Provider 业务证据。
-- 当前仓库 HEAD `6b4be2e` 尚未发布；`aa536eb` 只收紧排班 adapter 的 `usableSourceNum` 字段边界，
+- 当前最新已验证实现提交 `aa536eb` 尚未发布；该提交只收紧排班 adapter 的 `usableSourceNum` 字段边界，
   没有改变支付、医保、预约写入或旧 Python 服务。线上验收必须继续以 `131fb5a` 的 bundle provenance
   和 journald 为准，不能用本地测试结果推导线上已经拥有该修正。
 - 本轮尝试只读连接 `ps@192.168.112.172` 获取当前 release 和业务日志时，SSH 返回
