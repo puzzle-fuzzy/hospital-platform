@@ -228,6 +228,11 @@ HIS 回写完成。
 这只说明完整 `pnpm check` 仍有外部审计阻塞，不影响本轮代码门禁结果；线上 release、公开网络 readiness 以及真实
 微信/Provider 业务证据仍需单独记录，不能由本地门禁替代。
 
+随后新增了 API owner-scope 结构门禁并复核通过，共 62 条架构规则：普通资料、患者目录、挂号历史、报告、
+门诊费用和订单入口必须从当前 Bearer principal 进入 service，路由不得接受客户端 `userId` 或微信身份字段。
+该门禁只防止迁移时的调用链结构漂移，不替代 owner 条件测试、Provider 映射测试或真机验收；支付订单仍只是
+内部事实和 fail-closed 边界，未因此开放现金支付、微信支付、医保或 HIS 写回。
+
 本轮还修正了受保护 API 的认证顺序：Elysia 在 query/body/params schema 校验前验证 Bearer，
 未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
 回调仍是明确公开入口。该修正已由 API 集成测试、候选临时端口 smoke 和当前公网无会话回归验证，

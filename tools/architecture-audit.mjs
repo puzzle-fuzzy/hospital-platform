@@ -22,7 +22,11 @@ const sources = Object.fromEntries(
 			"apps/api/src/application.ts",
 			"apps/api/src/index.ts",
 			"apps/api/src/modules/appointments/index.ts",
+			"apps/api/src/modules/profile/index.ts",
+			"apps/api/src/modules/patients/index.ts",
 			"apps/api/src/modules/payments/index.ts",
+			"apps/api/src/modules/reports/index.ts",
+			"apps/api/src/modules/outpatient-payments/index.ts",
 			"apps/worker/src/runtime.ts",
 			"apps/worker/src/index.ts",
 			"apps/miniprogram/src/services/api-client.ts",
@@ -74,6 +78,26 @@ function contains(name, relativePath, fragment, reason) {
 
 function excludes(name, relativePath, fragment, reason) {
 	check(name, !(sources[relativePath]?.includes(fragment) ?? true), reason);
+}
+
+/**
+ * 检查一条路由是否保留了 owner-scoped 调用链的结构锚点。
+ *
+ * 这不是用字符串代替业务测试：它只防止后续迁移时把会话解析、内部患者
+ * 标识或服务调用从 HTTP 边界意外删掉。真正的 owner 隔离仍必须由 API 测试、
+ * repository 条件和真实验收共同证明；如果未来改用统一 helper，应同步更新
+ * 本门禁的结构锚点，而不是为了通过检查写无意义的字符串。
+ */
+function containsAll(name, relativePath, fragments, reason) {
+	const source = sources[relativePath] ?? "";
+	const missing = fragments.filter((fragment) => !source.includes(fragment));
+	check(
+		name,
+		missing.length === 0,
+		missing.length === 0
+			? reason
+			: `${reason} 缺少结构锚点：${missing.join(", ")}`,
+	);
 }
 
 contains(
@@ -131,6 +155,96 @@ contains(
 	"PERSISTENCE_MIGRATIONS",
 	"migration 必须有可审计的显式 manifest。",
 );
+
+/** 患者端 API 的 owner 必须从当前 Bearer principal 进入 service，不能由客户端决定。 */
+containsAll(
+	"api.profile.owner-scope",
+	"apps/api/src/modules/profile/index.ts",
+	[
+		"/me/profile",
+		"principal.userId",
+		"profileService.get",
+		"profileService.update",
+	],
+	"普通资料读写必须按当前会话 owner 执行。",
+);
+containsAll(
+	"api.patients.owner-scope",
+	"apps/api/src/modules/patients/index.ts",
+	[
+		"/patients/sync",
+		"/patients",
+		"principal.userId",
+		"patientService.sync",
+		"patientService.list",
+	],
+	"患者目录同步和读取必须按当前会话 owner 执行。",
+);
+containsAll(
+	"api.appointments.records-owner-scope",
+	"apps/api/src/modules/appointments/index.ts",
+	[
+		"/appointments/records",
+		"const { patientId",
+		"principal.userId",
+		"appointmentService.listRecords",
+	],
+	"挂号历史必须使用内部 patientId，并把当前会话 owner 传入服务层。",
+);
+containsAll(
+	"api.reports.owner-scope",
+	"apps/api/src/modules/reports/index.ts",
+	[
+		"/reports",
+		"/reports/:reportId",
+		"principal.userId",
+		"reportService.list",
+		"reportService.detail",
+	],
+	"报告目录和详情必须按当前会话 owner 查询。",
+);
+containsAll(
+	"api.outpatient-payments.owner-scope",
+	"apps/api/src/modules/outpatient-payments/index.ts",
+	[
+		"/payments/outpatient/records",
+		"principal.userId",
+		"query.patientId",
+		"service.list",
+	],
+	"门诊费用读取必须按当前会话 owner 解析内部患者映射。",
+);
+containsAll(
+	"api.payment-orders.owner-scope",
+	"apps/api/src/modules/payments/index.ts",
+	[
+		"/payments/orders",
+		"principal.userId",
+		"ownerUserId: principal.userId",
+		"body.patientId",
+	],
+	"支付订单即使暂不开放真实支付，也必须保留 owner 与内部患者输入边界。",
+);
+
+/** 生产路由模块不得接受客户端提交的 owner 或 Provider 身份。 */
+for (const [relativePath, source] of Object.entries(sources).filter(
+	([path]) =>
+		path.startsWith("apps/api/src/modules/") && path.endsWith("/index.ts"),
+)) {
+	for (const forbidden of [
+		"body.userId",
+		"query.userId",
+		"params.userId",
+		"body.openid",
+		"query.openid",
+	]) {
+		check(
+			`api.routes.no-${forbidden.replaceAll(".", "-")}-${relativePath.split("/").at(-2)}`,
+			!source.includes(forbidden),
+			"API owner 和微信身份必须来自服务端会话，不能接受客户端伪造字段。",
+		);
+	}
+}
 
 /** 健康内容尚未完成真实 schema/审核导入前，患者端 route 必须保持未挂载。 */
 excludes(

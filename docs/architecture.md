@@ -47,8 +47,10 @@ packages/
 Elysia 实例之间显式声明依赖：业务模块通过工厂函数接收 service/port，不能从路由文件直接创建数据库连接或读取 provider secret。HTTP controller 只做路由、校验、鉴权和响应映射，状态迁移放在 domain service。
 
 仓库级不可妥协边界由 `pnpm architecture:audit` 做静态漂移检查，当前覆盖 Pino 入口、
-schema gate、fail-closed repository、预约只读路由和原生小程序 provider 隔离。该检查
-只证明源代码仍符合约束，不把静态通过误报为真实数据库、provider 或设备验收。
+schema gate、fail-closed repository、预约只读路由、原生小程序 Provider 隔离，以及患者端
+API 的 owner-scope 路由结构。后者只检查当前会话 principal、内部 `patientId` 和 service
+调用仍处于 HTTP 边界；该检查只证明源代码仍符合结构约束，不把静态通过误报为真实数据库、
+Provider 或设备验收。
 
 原生小程序构建还会动态读取 `apps/miniprogram/src/app.json`：每个注册页面必须同时存在
 `.json`、`.wxml`、`.wxss` 和 `.ts` 源文件，并在 `dist/` 生成同名 `.js`。因此页面注册、源码

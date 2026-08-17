@@ -12,6 +12,11 @@
         -> provider 引用映射 -> provider adapter -> 脱敏读模型
 ```
 
+API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，检查资料、患者目录、
+挂号历史、报告、门诊费用和订单入口仍从当前 Bearer principal 进入 service。该门禁只防止
+迁移时的结构漂移，不能把静态字符串检查当成越权验收；owner 条件、Provider 映射和响应脱敏
+仍以 API/repository 测试及真实账号验收为准。
+
 必须满足：
 
 1. 小程序只保存服务端返回的 opaque `patientId`，不保存 `openid`、`unionid`、完整卡号、身份证号或 provider 患者号。
