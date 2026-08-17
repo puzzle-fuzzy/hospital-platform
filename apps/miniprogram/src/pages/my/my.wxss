@@ -112,6 +112,8 @@ page {
 .menu-grid {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
+	/* 旧端使用 `grid ... gap-20rpx`，行列间距都必须保留。 */
+	column-gap: 20rpx;
 	row-gap: 20rpx;
 	padding-bottom: 20rpx;
 }

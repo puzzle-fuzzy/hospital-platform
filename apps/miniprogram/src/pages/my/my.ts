@@ -1,17 +1,17 @@
+import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import {
 	getCurrentUser,
 	getUserProfile,
 	safeApiErrorMessage,
 } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
+import { getPageLatestRequestGuard } from "../../services/page-instance-state";
+import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
-import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { getPageLatestRequestGuard } from "../../services/page-instance-state";
-import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {

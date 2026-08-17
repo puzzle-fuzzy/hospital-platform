@@ -479,6 +479,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(template).toContain("/assets/legacy-user/default-avatar.svg");
 	expect(template).toContain("{{section.title}}");
 	expect(template).toContain('src="{{item.icon}}" mode="aspectFill"');
+	// 旧端菜单的 `gap-20rpx` 同时约束行、列，不能只保留行间距。
+	expect(await source("pages/my/my.wxss")).toContain("column-gap: 20rpx;");
 	expect(my).toContain('title: "我的订单"');
 	expect(template).toContain('data-action="{{item.action}}"');
 	// 原版菜单的顺序、标题和图标属于可见业务契约；这里只允许使用仓库内
