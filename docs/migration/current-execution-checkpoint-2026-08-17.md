@@ -571,7 +571,7 @@ production mode、MySQL/Redis/schema `ok` 和支付/报告 gate 关闭；该发�
 TTL 范围和过期后 401 仍未验证；本次没有放宽 ACL、输出 key/token 或改动服务。详细记录见
 [`Redis 会话 TTL 与 ACL 只读观察`](../release/redis-session-ttl-acl-observation-2026-08-17.md)。
 
-本轮完成会话恢复、患者选择、预约记录和日志链路的只读代码审计；小程序 76 项、API 97 项测试和 106 份文档链接
+本轮完成会话恢复、患者选择、预约记录和日志链路的只读代码审计；小程序 76 项、API 99 项测试和 107 份文档链接
 审计均通过。审计确认 401/503 分流、并发 token 保护、首次默认患者、失效后显式重选、预约状态归一化和日志脱敏
 边界没有新的可安全推断缺陷；Redis 实际 TTL、多患者切换、资料 PUT/409、预约/费用页面三层证据仍未完成，详细停止
 条件见 [`session-patient-context-readonly-audit-2026-08-17.md`](../release/session-patient-context-readonly-audit-2026-08-17.md)。

@@ -27,6 +27,7 @@ import {
 	createInMemoryWechatPaymentNotificationRepository,
 } from "@hospital/persistence";
 import { createApp } from "./app";
+import { createDefaultApplicationServices } from "./application";
 import { createReadinessService } from "./infrastructure/readiness";
 import { AppointmentService } from "./modules/appointments";
 import {
@@ -403,6 +404,60 @@ test("protected routes authenticate before query validation", async () => {
 			},
 		});
 	}
+});
+
+test("会话 Redis 失效时返回 401，而不是把缺失 token 当作依赖故障", async () => {
+	const services = createDefaultApplicationServices({
+		sessionStore: {
+			async save() {},
+			async findUserId() {
+				return undefined;
+			},
+		},
+	});
+	const response = await createApp({ services }).handle(
+		new Request("http://localhost/api/v1/me", {
+			headers: { authorization: "Bearer expired-session-token" },
+		}),
+	);
+
+	// Redis 能正常返回“查无此会话”时，这是用户会话失效，不是基础设施故障。
+	// 该边界必须保持 401，客户端才会执行有限的一次重新登录。
+	expect(response.status).toBe(401);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "unauthorized",
+			message: "登录状态已失效，请重新登录",
+		},
+	});
+});
+
+test("会话 Redis 读取故障保持 503，不能误报为登录失效", async () => {
+	const services = createDefaultApplicationServices({
+		sessionStore: {
+			async save() {},
+			async findUserId() {
+				throw new Error("redis transport failure");
+			},
+		},
+	});
+	const response = await createApp({ services }).handle(
+		new Request("http://localhost/api/v1/me", {
+			headers: { authorization: "Bearer session-token" },
+		}),
+	);
+
+	// 网络、ACL 或连接池故障不能触发客户端清理仍可能恢复的会话，
+	// 否则用户会被错误地当成退出状态，且诊断日志会丢失真实依赖故障。
+	expect(response.status).toBe(503);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "dependency-not-configured",
+			message: "该服务暂未配置完成，请稍后重试",
+		},
+	});
 });
 
 test("patient sync authenticates before validating its idempotency header", async () => {
