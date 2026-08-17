@@ -357,7 +357,7 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 
 	// WXML disabled 只能降低重复点击概率，不能约束生命周期回调或真机重复事件。
 	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
-	expect(home).toContain("getPageSingleFlight<Array<Patient>>");
+	expect(home).toContain("getPageSingleFlight<void>");
 	expect(home).toContain("return patientSyncFlight.run(() => {");
 	expect(selection).toContain("getPageSingleFlight<void>");
 	expect(selection).toContain("return patientSyncFlight.run(() => {");
@@ -976,10 +976,7 @@ test("native homepage clears displayed patient context after directory failures"
 	);
 	const loadEnd = home.indexOf("\n\t},", loadStart);
 	const loadBody = home.slice(loadStart, loadEnd);
-	const syncStart = home.indexOf(
-		"onSyncPatients(): Promise<Array<Patient>>",
-		pageStart,
-	);
+	const syncStart = home.indexOf("onSyncPatients(): Promise<void>", pageStart);
 	const syncEnd = home.indexOf("\n\t},", syncStart);
 	const syncBody = home.slice(syncStart, syncEnd);
 
@@ -988,6 +985,8 @@ test("native homepage clears displayed patient context after directory failures"
 	expect(home).toContain("clearDisplayedPatientContext(): void");
 	expect(loadBody).toContain("this.clearDisplayedPatientContext();");
 	expect(syncBody).toContain("this.clearDisplayedPatientContext();");
+	expect(home).toContain("不向调用方返回患者快照");
+	expect(syncBody).not.toContain("return [];");
 	expect(home).toContain("保留本地 opaque 选择");
 });
 

@@ -200,7 +200,7 @@ type IndexPageMethods = {
 	onServiceTabChange(event: IndexEvent): void;
 	onServiceItemTap(event: ActionEvent): void;
 	loadPatients(): Promise<Array<Patient>>;
-	onSyncPatients(): Promise<Array<Patient>>;
+	onSyncPatients(): Promise<void>;
 	onLoadAppointments(): void;
 	onRefresh(): Promise<void>;
 	onPullDownRefresh(): void;
@@ -350,7 +350,7 @@ Page<IndexPageData, IndexPageMethods>({
 			.then(() => {
 				if (options.skipPatientBootstrap) return;
 				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床映射。
-				return this.onSyncPatients().then(() => undefined);
+				return this.onSyncPatients();
 			})
 			.then(() => options.afterSuccess?.())
 			.catch((error) => {
@@ -501,11 +501,16 @@ Page<IndexPageData, IndexPageMethods>({
 			});
 	},
 
-	onSyncPatients(): Promise<Array<Patient>> {
-		const patientSyncFlight = getPageSingleFlight<Array<Patient>>(
-			this,
-			"patient-sync",
-		);
+	/**
+	 * 首页同步只返回“同步流程已结束”，不向调用方返回患者快照。
+	 *
+	 * 成功的空目录和失败兜底都可能表现为数组长度为 0；如果这里返回
+	 * `[]`，后续调用方就无法区分“医院确认没有就诊人”和“同步失败”。
+	 * 患者快照只允许通过页面状态和服务端成功响应进入展示，失败则由本页
+	 * 清理展示上下文并保留可重试的会话，避免把错误伪装成业务空结果。
+	 */
+	onSyncPatients(): Promise<void> {
+		const patientSyncFlight = getPageSingleFlight<void>(this, "patient-sync");
 		return patientSyncFlight.run(() => {
 			const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 			const syncLoadingGuard = getPageLatestRequestGuard(this, "sync-loading");
@@ -514,7 +519,7 @@ Page<IndexPageData, IndexPageMethods>({
 			this.setData({ syncingPatients: true, error: "" });
 			return syncPatientsFromHospital("patient-sync")
 				.then((patients) => {
-					if (!patientDataGuard.isCurrent(requestToken)) return patients;
+					if (!patientDataGuard.isCurrent(requestToken)) return;
 					this.setPatientsFromPayload(patients);
 					if (patients.length === 0) {
 						this.showError(
@@ -524,7 +529,6 @@ Page<IndexPageData, IndexPageMethods>({
 							"就诊人同步失败",
 						);
 					}
-					return patients;
 				})
 				.catch((error) => {
 					if (patientDataGuard.isCurrent(requestToken)) {
@@ -533,7 +537,6 @@ Page<IndexPageData, IndexPageMethods>({
 						this.clearDisplayedPatientContext();
 						this.showError(error, "就诊人同步失败");
 					}
-					return [];
 				})
 				.finally(() => {
 					if (syncLoadingGuard.isCurrent(loadingToken)) {
