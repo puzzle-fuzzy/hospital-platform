@@ -11,11 +11,12 @@
 	"scripts": {
 		"architecture:audit": "bun tools/architecture-audit.mjs",
 		"build": "turbo run build",
-		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm provider:audit && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm provider:audit && pnpm docs:audit && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
 		"db:integration": "pnpm --filter @hospital/persistence integration",
 		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"db:schema": "pnpm --filter @hospital/persistence schema",
 		"dev": "turbo run dev --parallel",
+		"docs:audit": "bun tools/docs-link-audit.mjs",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"infra:down": "docker compose -f infra/docker-compose.yml stop",

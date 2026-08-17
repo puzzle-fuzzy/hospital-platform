@@ -58,6 +58,9 @@ pnpm check
 gate、fail-closed 组合根、预约只读路线以及原生小程序 provider 隔离。它是静态漂移检查，
 不能替代 `db:integration`、provider smoke、开发者工具或真机验收。
 
+`pnpm docs:audit` 会检查 `docs/` 下所有 Markdown 的本地链接是否仍指向仓库内存在的文件；
+它不访问外部网站，不能替代 Provider 文档来源、版本和真实接口可用性验收。
+
 本地真实持久化验收：
 
 ```powershell
