@@ -489,6 +489,10 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		const kinds: readonly ReportKind[] = input.query.kind
 			? [input.query.kind]
 			: ["laboratory", "imaging", "ecg"];
+		// 未指定 kind 时，调用方请求的是完整报告目录。公共 contract 没有
+		// partial 状态或逐来源错误字段，因此任一来源失败都必须让整批失败；
+		// 不能用 Promise.allSettled 只返回成功来源，否则页面会把不完整目录
+		// 当成“患者没有其他类型报告”，形成静默漏数据。
 		const results = await Promise.all(
 			kinds.map((kind) => this.requestKind(kind, input, context)),
 		);

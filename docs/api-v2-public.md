@@ -202,6 +202,10 @@ opaque `reportId`；当前只有检验报告可以返回该 `reportId`。影像�
 原始报告号，也会在 adapter 边界丢弃，因为当前没有对应的可审计详情 contract。检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange`
 和 `flag`；`flag` 为 `normal`、`high`、`low`、`critical` 或 `unknown`。
 
+未指定 `kind` 时，服务端会同时读取 LIS、PACS 和 ECG 三个来源；当前公共 contract 没有部分成功状态，
+因此任一来源失败都会让整次目录查询失败，不能把其余来源拼成不完整的成功列表。只有明确返回的空数组
+才是对应来源的成功空结果。
+
 目录摘要与详情引用是两个独立能力：provider 没有稳定报告号、详情 gate 未开启或无法建立
 短期引用时，目录仍可返回安全摘要并省略 `reportId`，客户端只能隐藏详情入口；不能因为单条详情引用不可用而把整批报告目录当成服务不可用。
 

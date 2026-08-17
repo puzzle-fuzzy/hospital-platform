@@ -265,6 +265,42 @@ test("众阳报告目录拒绝业务失败或无法映射的响应", async () =>
 	});
 });
 
+test("众阳默认报告目录任一来源失败时拒绝返回部分成功", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.includes("pacs")) {
+				return new Response(
+					JSON.stringify({ success: false, message: "pacs unavailable" }),
+					{ status: 200, headers: { "x-request-id": "pacs-failed" } },
+				);
+			}
+			return new Response(JSON.stringify({ success: true, data: [] }), {
+				status: 200,
+				headers: {
+					"x-request-id": url.includes("lis-reports") ? "lis-ok" : "ecg-ok",
+				},
+			});
+		},
+	});
+
+	await expect(
+		gateway.listReports(
+			{
+				providerPatientId: "provider-patient-004",
+				query: { startDate: "2026-08-01", endDate: "2026-08-15" },
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-imaging",
+		requestId: "pacs-failed",
+		retryable: false,
+	});
+});
+
 test("众阳报告目录拒绝同一来源中的重复报告号", async () => {
 	const gateway = createZhongyangReportGateway({
 		baseUrl: "https://zhongyang.example.test",

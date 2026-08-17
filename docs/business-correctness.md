@@ -109,6 +109,8 @@
 - 报告目录的日期校验、owner 映射和 Provider 失败必须记录 `report.directory.failed`；详情依赖未配置、
   owner/TTL 查询和 Provider 失败必须记录 `report.detail.failed`。只有 Provider 明确返回空目录时才记录
   `report.directory.synced(itemCount=0)`；报告详情依赖未配置不能被解释为“报告不存在”。
+- 报告目录未指定来源时是 LIS、PACS、ECG 的完整聚合查询；由于公共 contract 没有 `partial` 状态，
+  任一来源失败必须整批失败，不能用 `Promise.allSettled` 只返回成功来源并静默漏掉其他报告类型。
 - 科室、排班、预约历史和门诊费用当前保留 adapter 返回顺序；报告 adapter 明确按报告时间倒序、类型和
   标题升序排列。客户端不能把“第一项”或数组位置当作业务优先级、本人患者或最终状态。
 - 门诊费用 `recordId` 必须由 Provider 单据、就诊或项目稳定标识组合生成，不能使用返回数组下标；
