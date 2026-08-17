@@ -218,3 +218,62 @@ test("众阳患者目录缺少服务端身份时不会调用 provider", async ()
 	).rejects.toBeInstanceOf(ProviderRequestError);
 	expect(called).toBe(false);
 });
+
+test("众阳患者目录拒绝带控制字符的 unionId", async () => {
+	let called = false;
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			called = true;
+			return new Response("[]");
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-\u0000-001" }, context),
+	).rejects.toBeInstanceOf(ProviderRequestError);
+	// unionId 会进入目录查询 URL；在构造 URL 前拒绝，避免把编码后的脏身份
+	// 交给 Provider，且不产生看似成功的空目录。
+	expect(called).toBe(false);
+});
+
+test("众阳患者目录拒绝控制字符并且不继续查询档案", async () => {
+	const requestUrls: string[] = [];
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrls.push(String(input));
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-control",
+							patientName: "张\n三",
+							medicalCardNo: "card-control",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "control-character-request" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "zhongyang",
+		operation: "patient-list",
+		requestId: "control-character-request",
+		retryable: false,
+	});
+	// 目录字段在 adapter 边界即被拒绝；不能继续调用档案接口并把污染字段
+	// 编码后写入 HIS 映射或后续日志关联。
+	expect(requestUrls).toEqual([
+		"https://zhongyang.example.test/api/public/patientInfoByUnionId?unionId=union-001",
+	]);
+});

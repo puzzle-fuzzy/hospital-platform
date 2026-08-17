@@ -42,6 +42,19 @@ function requiredConfig(value: string): string {
 	return normalized;
 }
 
+/**
+ * 患者目录字段会进入查询 URL、内部映射和页面展示，不能只依赖 URL 编码或
+ * 数据库转义兜底。控制字符可能破坏日志检索、页面排版和后续引用边界；这里
+ * 选择拒绝整次 Provider 快照，而不是静默删除字符，避免把错误患者资料改写成
+ * 看似合法的另一条患者事实。
+ */
+function containsControlCharacter(value: string): boolean {
+	return Array.from(value).some((character) => {
+		const code = character.charCodeAt(0);
+		return code <= 0x1f || code === 0x7f;
+	});
+}
+
 function providerError(
 	message: string,
 	requestId?: string,
@@ -71,7 +84,11 @@ function requiredText(
 		);
 	}
 	const normalized = String(value).trim();
-	if (!normalized || normalized.length > maxLength) {
+	if (
+		!normalized ||
+		normalized.length > maxLength ||
+		containsControlCharacter(normalized)
+	) {
 		throw providerError(
 			`Zhongyang patient field ${field} is invalid`,
 			requestId,
@@ -210,13 +227,24 @@ function ensureUniqueHisPatientIds(
 	}
 }
 
-function mapPatient(value: ZhongyangPatientResponse): PatientDirectoryProfile {
+function mapPatient(
+	value: ZhongyangPatientResponse,
+	requestId: string,
+): PatientDirectoryProfile {
 	const providerPatientId = requiredText(
 		value.thirdPatientId,
 		"thirdPatientId",
 		128,
+		"patient-list",
+		requestId,
 	);
-	const displayName = requiredText(value.patientName, "patientName", 128);
+	const displayName = requiredText(
+		value.patientName,
+		"patientName",
+		128,
+		"patient-list",
+		requestId,
+	);
 	// 旧端患者选择流程明确优先 medicalCardNo；cardNo 只作为旧数据兜底。
 	const card = firstNonBlank(value.medicalCardNo, value.cardNo);
 	return {
@@ -240,14 +268,23 @@ async function resolveHisPatientId(
 	fetcher: ProviderFetcher,
 	baseUrl: string,
 	authorizationToken: string | undefined,
+	requestId: string,
 ): Promise<string> {
 	const operation = "patient-archive";
 	const card = requiredText(
 		firstNonBlank(value.medicalCardNo, value.cardNo),
 		"medicalCardNo",
 		128,
+		operation,
+		requestId,
 	);
-	const displayName = requiredText(value.patientName, "patientName", 128);
+	const displayName = requiredText(
+		value.patientName,
+		"patientName",
+		128,
+		operation,
+		requestId,
+	);
 	const url = new URL(PATIENT_ARCHIVE_PATH, baseUrl);
 	url.searchParams.set("type", "3");
 	url.searchParams.set("cardNo", card);
@@ -361,13 +398,14 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 		// thirdPatientId 错当成预约、报告和门诊费用接口的 patId。
 		const patients = await Promise.all(
 			items.map(async (item) => {
-				const patient = mapPatient(item);
+				const patient = mapPatient(item, response.requestId);
 				const hisPatientId = await resolveHisPatientId(
 					item,
 					context,
 					this.fetcher,
 					this.baseUrl,
 					this.authorizationToken,
+					response.requestId,
 				);
 				return {
 					...patient,

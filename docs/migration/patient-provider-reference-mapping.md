@@ -31,6 +31,7 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 - `packages/persistence/migrations/0012_patient_provider_references.sql` 新增独立映射表，并使用 owner-scoped 复合主键和外键。
 - 预约历史、报告、门诊费用服务必须显式传入 `referenceKind: "his-patient"`；不得恢复为默认目录映射。
 - provider 患者号只在一次服务端调用栈中交给 adapter，不进入日志、API contract 或小程序缓存。
+- 患者目录的 `unionId`、`thirdPatientId`、姓名、卡号和档案 `patId` 在 adapter 边界统一拒绝控制字符、空白和超长值；不能依赖 URL 编码、数据库转义或页面渲染来补救。发现控制字符时拒绝整次快照，不静默删除字符或继续写入映射。
 - 首页恢复已有微信会话、重新登录或直接打开就诊人选择页时，会主动触发一次患者目录同步，兼容迁移前已经落库但尚未拥有 `his-patient` 引用的旧患者记录。
 - 同一账号连续发起同步时，快照时间在 provider 请求发出前记录；旧请求晚返回也不能覆盖更新的 `his-patient` 映射，
   或把更新快照已经停用的患者重新激活。
@@ -61,12 +62,15 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 患者同步日志增加 `hisPatientReferenceCount`，只记录数量，不记录卡号、姓名、目录 ID 或档案 ID。
 
 - `patient-archive` 请求失败：同步失败并保留 `traceId`、provider request id 和错误类型；不写入不完整的成功映射。
+- `patient-archive` 缺少 `patId` 目前也按响应非法处理；在 Provider 没有提供可验证的“明确无档案”业务状态前，不能把它降级成 `clinicalAccess=unavailable`，否则临时故障可能被误写成患者解绑。
 - 临床业务没有映射：在调用 provider 前返回对应的患者不可用错误；不得发送目录 `thirdPatientId`。
 - 客户端收到 `clinicalAccess=unavailable` 时只能展示低敏原因和刷新/重新选择入口；不得把
   `directory` 引用当作临床引用，也不得因为列表中存在记录就把选择页开放为可返回状态。
 - 档案 ID 发生变化：下一次同步按同一内部患者更新 `hp_patient_provider_references`，不更换平台 `patientId`。
-- 完整快照缺少档案 ID：清除旧临床映射并让预约、报告、门诊费用在 provider 请求前 fail-closed，
-  不能继续沿用上一次同步的 `patId`。
+- 如果未来 Provider contract 能明确区分“档案不存在”与权限/临时/响应异常，adapter 才可以把该患者
+  作为缺少 `his-patient` 引用的完整快照事实提交；随后清除旧临床映射，并让预约、报告、门诊费用在
+  provider 请求前 fail-closed，不能继续沿用上一次同步的 `patId`。当前众阳 adapter 对缺少 `patId`
+  或档案响应异常统一拒绝整次同步，不能把通用错误猜成患者解绑。
 - 空患者目录且当前 owner 已有医院目录患者：在 Provider contract 明确空目录语义前，服务层返回
   `patient-directory-snapshot-unsafe`，保留旧患者和旧临床映射，不执行批量失效；首次同步的真实空目录仍可提交。
 - 新 migration 失败：保持 `PERSISTENCE_SCHEMA_READY=false`，不得让新 API 使用半成品仓储；旧 Python 服务不受影响。
