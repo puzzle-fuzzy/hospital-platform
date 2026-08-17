@@ -52,6 +52,13 @@ Redis TTL、多患者切换、预约历史和门诊费用的三层验收；详�
 后续增量窗口又观察到 1 次患者同步成功链和 2 次患者目录读取，但预约历史、门诊费用和报告仍无业务事件；这只更新
 低敏观察数量，不更新 P0 验收状态，也不改变支付、医保和 HIS 写回的关闭边界。
 
+本轮继续复核首页会话恢复的异常分支：如果 Redis、网络或会话校验暂时失败，首页只清理没有当前
+principal 证明的患者展示数据，保留用户已明确选择的 opaque `patientId`。这样下一次目录恢复仍会按
+owner-scoped 规则解析；若该患者已经失效，会进入 `patient-selection-stale` 并要求显式重选，不能因为
+一次暂时性故障就把选择抹掉后静默回退到第一位患者。只有明确退出、没有本地会话的新登录起点或确认
+会话失效后的安全收敛路径，才会清理本地选择。该修正只涉及小程序状态机和测试，没有修改 Provider、
+数据库、线上端口或支付/医保 gate。
+
 随后于 2026-08-17 11:13 CST 进行的公网只读复核已记录在同一证据文档的 2.5 节：live、ready、system-ping
 均成功，`/patients` 未登录返回 `401 unauthorized`，并保留了本次 `x-request-id`；该复核仍不代表本地候选
 已部署，也不更新微信、患者、Provider 或真机业务验收状态。
@@ -225,6 +232,14 @@ HIS 回写完成。
 未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
 回调仍是明确公开入口。该修正已由 API 集成测试、候选临时端口 smoke 和当前公网无会话回归验证，
 当前线上 `daee96d` 已具备该行为。业务会话、患者和 Provider 证据仍不能由认证边界 smoke 替代。
+
+本轮代码修改后的仓库级 `pnpm check` 已完成其余门禁：架构边界、Provider intake、99 份文档链接、
+格式、lint、9 个 workspace 的 typecheck/test 和 build 均通过；唯一失败仍是 `pnpm migration:audit`。
+该审计读取的旧仓库 `G:\\fuck\\hospital` 被其他会话继续修改，当前观测到 `module_common` 实际 38（基线
+34）、旧服务挂载总数实际 195（基线 191），并新增旧客户端未登记的
+`plugin-payment-complete`、`plugin-payment-order`、`plugin-refund`、`plugin-refund-sync` 四条支付/退款
+路径，`payment-invocation` 实际 3（基线 2）。本轮没有修改旧工作树、没有刷新基线清单，也没有因为台账
+漂移注册这些高风险路由；支付、医保、退款和 HIS 回写继续最后处理。
 
 随后补充了患者同步入口的专门契约测试：未登录的 `POST /patients/sync` 在缺少幂等键时仍先返回
 `401 unauthorized`；已登录但幂等键缺失或包含非法字符时返回 `400 validation`，并确认 provider

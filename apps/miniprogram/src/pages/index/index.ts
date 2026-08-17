@@ -8,13 +8,13 @@ import {
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
+import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
-import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	hasPlatformSession,
 	restorePlatformSession,
@@ -275,9 +275,10 @@ Page<IndexPageData, IndexPageMethods>({
 			})
 			.catch((error) => {
 				// 恢复失败时没有拿到当前 principal 的证明，旧患者卡片不能继续
-				// 作为新业务页的上下文；这里只清理页面派生数据，不删除 token，
-				// 让 Redis/网络恢复后仍可重新验证原会话。
-				this.clearPatientContext();
+				// 作为新业务页的上下文；这里只清理页面派生数据，不删除本地选择，
+				// 让 Redis/网络恢复后仍可重新验证原会话。若此时删除选择，下一次
+				// 目录恢复会把第一位患者误当成用户刚才明确选择的人。
+				this.clearDisplayedPatientContext();
 				this.showError(error, "会话恢复失败");
 			});
 	},

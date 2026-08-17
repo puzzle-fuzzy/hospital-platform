@@ -1000,6 +1000,23 @@ test("native homepage fails closed when session recovery cannot be completed", a
 	expect(home).toContain("auth/wechat");
 });
 
+test("native homepage preserves explicit patient choice during session recovery failure", async () => {
+	const home = await source("pages/index/index.ts");
+	const restoreStart = home.indexOf(
+		"restorePlatformSession()",
+		home.indexOf("onLoad()"),
+	);
+	const catchStart = home.indexOf("\n\t\t\t.catch((error) => {", restoreStart);
+	const catchEnd = home.indexOf("\n\t\t\t});", catchStart);
+	const restoreCatch = home.slice(catchStart, catchEnd);
+
+	// 会话恢复失败只说明当前 principal 尚未重新被证明，不能把用户已经
+	// 明确选择的患者 ID 当作页面展示数据一起删除；恢复后必须继续做 owner-scoped
+	// 解析，若患者已失效则进入 stale 分支并要求用户显式重选。
+	expect(restoreCatch).toContain("this.clearDisplayedPatientContext();");
+	expect(restoreCatch).not.toContain("this.clearPatientContext();");
+});
+
 test("native homepage clears displayed patient context after directory failures", async () => {
 	const home = await source("pages/index/index.ts");
 	const pageStart = home.indexOf("Page<IndexPageData");
