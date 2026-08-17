@@ -18,6 +18,16 @@
 - 完整证据见 [`release/52e9624-production-acceptance-2026-08-18.md`](release/52e9624-production-acceptance-2026-08-18.md)。
   下一步必须用当前 release 对应的小程序运行包，在有效微信会话中取得登录、患者切换、预约历史和门诊费用的页面/HTTP/日志三层证据。
 
+### 本轮患者目录真实运行观察（2026-08-18）
+
+- 当前 `52e9624` 启动窗口已经出现患者目录同步 `2 requested / 2 succeeded` 和患者目录读取
+  `4 requested / 4 loaded`；日志 `parseErrors=0`，患者同步与读取业务证据门禁均通过。完整低敏记录见
+  [`release/52e9624-patient-directory-observation-2026-08-18.md`](release/52e9624-patient-directory-observation-2026-08-18.md)。
+- 该结果只证明患者目录链路进入当前 release，不能证明多患者切换、失效/恢复、页面展示一致性，
+  也不能回填为“我的挂号”或门诊费用证据；当前窗口预约历史和门诊费用事件仍为 `0`。
+- 下一次真机验收按“患者刷新/显式切换 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”的顺序执行，
+  每个域必须同时保留页面、HTTP 和低敏日志证据；预约写入、支付、医保和 HIS 继续最后处理。
+
 ### 上一轮生产切换与公网复核（2026-08-18 00:04-00:06 CST）
 
 - 候选 `b3c9a99` 已完成本地构建、7 个 artifact checksum、服务器真实生产 env preflight 和
