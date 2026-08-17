@@ -531,6 +531,12 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain("取消、退号和支付状态处理");
 	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
 	expect(recordsTemplate).toContain("当前院区");
+	// 单院区静态配置不能保留没有实现目标的动态选择箭头，避免用户误以为可以切换院区。
+	const hospitalRowStart = recordsTemplate.indexOf("当前院区");
+	const hospitalRowEnd = recordsTemplate.indexOf("</view>", hospitalRowStart);
+	expect(recordsTemplate.slice(hospitalRowStart, hospitalRowEnd)).not.toContain(
+		"selector-arrow",
+	);
 	expect(recordsTemplate).toContain("在线挂号");
 	expect(recordsTemplate).toContain("全部挂号");
 	expect(recordsTemplate).toContain("预问诊");

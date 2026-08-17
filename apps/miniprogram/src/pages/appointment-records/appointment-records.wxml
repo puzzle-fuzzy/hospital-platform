@@ -12,11 +12,11 @@
 				<text class="selector-arrow">›</text>
 			</view>
 		</view>
+		<!-- 当前新端只有受控的单院区静态配置；动态院区选择未形成 contract，不能用箭头伪装成可用入口。 -->
 		<view class="selector-row">
 			<text class="selector-label">当前院区</text>
 			<view class="selector-value">
 				<text>{{hospitalName}}</text>
-				<text class="selector-arrow">›</text>
 			</view>
 		</view>
 	</view>
