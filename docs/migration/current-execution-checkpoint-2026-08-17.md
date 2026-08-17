@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `87f7171`，在 `0505709` 的报告 `kind` 运行时白名单基础上，补齐预约科室/排班服务层的日期校验失败日志；非法日期或服务端日期生成异常只记录 `appointment.directory.*.failed`，不产生 `requested`、Provider 调用或伪造空结果；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `c1d10e3`，在 `87f7171` 的预约目录日期失败日志基础上，拆分患者目录“同步快照已提交”和“脱敏读模型读取”的日志生命周期；GET `/patients` 现在记录独立读模型事件，快照/replay 成功后的读失败不再伪造 `patient.directory.failed`；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -334,3 +334,9 @@ schema `0015` 为准；报告 gate、二维码、支付/医保/HIS 仍保持各�
 `appointment.directory.schedules.failed`，不记录虚假的 `requested`，也不访问 Provider；合法空目录、
 排班快照和预约历史语义不变。API 87 项、原生小程序 62 项、全量 typecheck/test/build 和文档/迁移审计
 均通过，候选尚未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
+
+随后 `c1d10e3` 拆分患者目录同步与读模型读取的日志生命周期：`GET /patients` 记录
+`patient.directory.read.requested/read.loaded/read.failed`，只记录 trace 和脱敏数量；患者快照事务或 durable
+replay 已成立后，最后一步读模型暂时失败只记录 `read.failed`，不会再追加 `patient.directory.failed`，避免把数据库读失败
+误判为 Provider 同步失败。患者服务定向测试 7 项、API 集成测试 33 项和全量 `pnpm check` 已通过；候选尚未部署，线上
+继续以 `131fb5a` 和生产 schema `0015` 为准，支付/医保/HIS、二维码、预约写入仍保持关闭。

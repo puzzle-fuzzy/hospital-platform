@@ -245,6 +245,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-17：`0610558` 继续收紧门诊费用状态边界：领域 service 与众阳 adapter 都拒绝运行时未知状态，避免“非 unpaid 即 paid”误发 `tradeStatus=3`；新增稳定的 `outpatient-payment-query-invalid` 错误码、低敏 `status=invalid` 失败日志和回归测试。该修正未部署，不改变门诊费用只读范围，也未打开支付、医保或 HIS。
 - 2026-08-17：`0505709` 收紧报告目录 `kind` 的运行时边界：领域 service 与众阳 adapter 都拒绝未知来源，避免默认分支把错误查询降级为 ECG；复用 `report-query-invalid` 稳定错误码，补齐失败日志与回归测试。该修正未部署，不改变报告 gate，也未打开二维码、支付、医保或 HIS。
 - 2026-08-17：`87f7171` 补齐预约科室/排班日期校验的失败日志闭环：非法日期和服务端日期生成异常记录 `appointment.directory.*.failed`，不产生 `requested`、Provider 调用或伪造空结果；该修正未部署，不改变预约只读范围，也未打开预约写入、二维码、支付、医保或 HIS。
+- 2026-08-17：`c1d10e3` 拆分患者目录同步与读模型读取的日志生命周期：`GET /patients` 新增独立的 `read.requested/read.loaded/read.failed` 事件；快照事务或 durable replay 成功后，如果最后的脱敏读模型读取失败，只记录 `read.failed`，不再追加 `patient.directory.failed`，避免把持久化读取故障误判为 Provider 同步失败。患者服务定向 7 项、API 集成 33 项及全量 `pnpm check` 通过；该修正未部署，线上仍以 `131fb5a` 和生产 schema `0015` 为准。
 - 2026-08-16 18:20-18:21 CST：SSH 只读复核确认 `current=55fce6c`、新 API `18081`、旧 Python `8001` 均存活；公网 `/api/v2` Smoke 的 system-ping 通过，但 live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝，`sudo -n` 仍需密码，未执行任何线上切换或重启。
 - 2026-08-16 18:35 CST：更新后的公网 Smoke 进一步确认 system-ping 与六路未登录 `auth-boundary` 通过；live/ready 仍因缺少 `Cache-Control: no-store` 被拒绝。当前只证明公网路由和认证边界，不能替代候选切换、provider 或真机业务验收。
 - 2026-08-16：提交 `0dc39aa` 建立以原生 `app.json` 为事实源的 14 页面迁移台账和 `pnpm migration:audit` 门禁，随后以 `09c88b1` 校正发布文档时序；均为文档/静态检查增强，尚未构建、上传或部署，不能改变生产 `current=55fce6c` 和公网 no-store 未通过的结论。
