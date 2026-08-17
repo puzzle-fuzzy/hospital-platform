@@ -97,3 +97,14 @@ preflight 只读取依赖和配置 gate，没有执行 migration、Provider 业�
 如果后续出现“external service rejected the request”，先按 `traceId` 查 `http.request.failed`，再用 `providerRequestId` 对照 Provider 网关日志；只有确认 Provider request/response contract 后才修改 adapter。不能把 Provider 失败解释成“没有数据”，也不能在未确认时增加 fallback、重试或降级为空列表。
 
 下一步继续按以下顺序取得当前 release 的真实证据：微信登录 → 患者目录 → 更换就诊人 → 我的挂号 → 门诊费用只读列表。支付、医保授权、退款和 HIS 回写继续最后处理。
+
+## 8. 切换后业务日志复核
+
+切换后通过 SSH 复核新 API journald：当前 `current` 仍为 `releases/daee96d`，systemd 为 `active`，旧 Python `8001` 仍监听。切换后的日志只有服务启动和公网 runtime smoke 的健康/认证边界事件，没有出现：
+
+- `auth.wechat.login.*`；
+- `patient.directory.*`；
+- `appointment.records.*`；
+- `outpatient.payment.records.*`。
+
+复核中看到的微信登录和患者目录事件时间为 2026-08-17 14:55 CST，发生在 `daee96d` 切换前，不能并入本 release 的业务验收。当前发布因此仍只标记为“运行层已验收、真实业务待验收”，不会把历史日志误记为新版本成功。
