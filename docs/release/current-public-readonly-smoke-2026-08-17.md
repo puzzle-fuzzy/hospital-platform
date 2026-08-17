@@ -128,6 +128,19 @@ access token、患者标识或 Provider 凭证，也没有执行同步、预约�
 该复核只新增当前时刻的公网运行和关闭边界证据：它不能证明本地 `main` 或未部署候选已经上线，
 也不能更新微信登录、Redis TTL、多患者切换、预约历史、报告、门诊费用或真机验收状态。
 
+## 2.7 Provider 只读 smoke 配置边界复核（2026-08-17 13:31 CST）
+
+本次尝试按 P0 顺序启动当前 release 的 Provider 只读 smoke，目标为同一公网 `/api/v2`；只执行健康检查、
+会话、患者目录、预约目录、预约历史和门诊费用的读取计划，不包含患者同步、报告、支付、医保或 HIS 写入。
+运行器在发送首个 HTTP 请求前停止，原因是受控 SSH 环境没有注入 `HOSPITAL_ACCESS_TOKEN` 和
+`HOSPITAL_PATIENT_ID`。本次只输出变量是否存在和长度元数据，没有读取或记录 token、患者 ID、AppSecret、
+数据库连接串或 Redis 凭证；因此本节没有任何公网业务请求、Provider 请求或业务日志证据。
+
+当前共享生产文件 `shared/api.env` 只保存 API 常驻运行配置，不应写入个人验收 token 或患者 ID。后续如需执行
+真实 smoke，应由受控运维流程将临时变量注入单次进程环境，完成后销毁；禁止把验收凭据提交 Git、写入常驻
+systemd 环境或复制到聊天/文档。新的 smoke 运行器会以固定 `configurationReason` 记录缺失项，避免把
+“验收凭据未注入”误判成 Provider 拒绝。
+
 ## 3. 结论与限制
 
 - 当前公网 API 进程可响应，数据库、Redis 和 schema readiness gate 均通过。

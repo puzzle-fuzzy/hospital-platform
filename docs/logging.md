@@ -36,6 +36,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `runtime.preflight.succeeded` / `runtime.preflight.failed` | 发布前只读 preflight | 记录 MySQL、Redis、schemaStatus、缺失 migration/结构对象和 provider 配置状态；不记录连接串或密钥 |
 | `runtime.smoke.check.passed` / `runtime.smoke.check.warning` / `runtime.smoke.check.failed` | API runtime smoke 单项检查 | 记录检查名、HTTP 状态码（没有收到 HTTP 响应时为 `0`）、错误类型和请求 `traceId`；不记录 URL、请求头、请求体或原始响应 |
 | `runtime.smoke.completed` / `runtime.smoke.failed` | API runtime smoke 汇总 | 记录所有检查的安全摘要；每个失败项必须能通过其 `traceId` 关联反向代理和 API 日志，不能用重试次数掩盖 readiness 瞬态故障 |
+| `provider.smoke.configuration.failed` | Provider 只读 smoke 启动配置 | 只记录错误类型和固定的 `configurationReason`（例如 `access-token-missing`、`patient-id-missing`、`base-url-https-required`）；不记录 token、患者 ID、URL 原文、环境变量值或异常消息 |
+| `provider.smoke.capability.passed` / `provider.smoke.capability.failed` | Provider 只读 smoke 业务能力 | 记录能力名、错误类型、低敏数量和请求 `traceId`；不记录患者凭证、Provider 原始响应或完整请求 URL |
+| `provider.smoke.completed` / `provider.smoke.failed` | Provider 只读 smoke 汇总 | 记录各能力的安全结果；配置未通过时不发送任何业务请求，也不能把配置失败计为 Provider 拒绝 |
 | `persistence.schema.checked` / `persistence.schema.failed` | 独立 `db:schema` 只读检查 | 只记录 schema 状态、migration/结构缺失和错误类型；不执行 migration、不记录连接串 |
 | `persistence.probe.unavailable` / `persistence.probe.recovered` | API/worker persistence readiness 探针 | 仅在数据库、Redis 或 Schema 从正常变为不可用、或从不可用恢复时记录依赖名、有限操作名、错误类型；两类事件都可记录本次只读探针的 `attempts`、`durationMs`，Schema 还记录状态和缺失数量；不记录连接串、原始异常、SQL、参数或第三方报文 |
 | `persistence.migration.target_rejected` | migration CLI 安全闸门 | 记录远程/生产目标未通过显式确认；不记录 DATABASE_URL |

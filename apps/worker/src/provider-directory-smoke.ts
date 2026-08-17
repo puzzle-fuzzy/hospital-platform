@@ -11,6 +11,7 @@ import {
 } from "./api-route-prefix";
 import {
 	parseReadinessEnvironmentNumber,
+	ReadinessStabilityConfigurationError,
 	ReadinessStabilityProbeError,
 	runReadinessStabilityProbe,
 	resolveReadinessStability,
@@ -122,10 +123,29 @@ const FORBIDDEN_RESPONSE_KEYS = new Set([
 	"raw",
 ]);
 
+/**
+ * 命令行 smoke 的配置失败原因白名单。
+ *
+ * 这里不直接记录配置值或异常 message：smoke 可能在生产服务器上运行，
+ * 配置值中包含 token、患者内部 ID 或带凭证的 URL 时，诊断日志不能成为
+ * 第二条泄露通道。固定 reason 足够区分“没有注入凭证”和“URL/能力写错”。
+ */
+export type ProviderSmokeConfigurationReason =
+	| "access-token-missing"
+	| "base-url-invalid"
+	| "base-url-contains-credentials-or-query"
+	| "base-url-https-required"
+	| "api-prefix-invalid"
+	| "patient-id-missing"
+	| "capabilities-unsupported";
+
 class ProviderSmokeConfigurationError extends Error {
-	constructor(message: string) {
+	readonly reason: ProviderSmokeConfigurationReason;
+
+	constructor(reason: ProviderSmokeConfigurationReason, message: string) {
 		super(message);
 		this.name = "ProviderSmokeConfigurationError";
+		this.reason = reason;
 	}
 }
 
@@ -182,11 +202,13 @@ function requireBaseUrl(value: string, allowLocalHttp: boolean): string {
 		url = new URL(value);
 	} catch {
 		throw new ProviderSmokeConfigurationError(
+			"base-url-invalid",
 			"HOSPITAL_API_BASE_URL is invalid",
 		);
 	}
 	if (url.username || url.password || url.search || url.hash) {
 		throw new ProviderSmokeConfigurationError(
+			"base-url-contains-credentials-or-query",
 			"HOSPITAL_API_BASE_URL must not contain credentials or query data",
 		);
 	}
@@ -195,6 +217,7 @@ function requireBaseUrl(value: string, allowLocalHttp: boolean): string {
 		(url.hostname === "localhost" || url.hostname === "127.0.0.1");
 	if (url.protocol !== "https:" && !(allowLocalHttp && isLocalHttp)) {
 		throw new ProviderSmokeConfigurationError(
+			"base-url-https-required",
 			"HOSPITAL_API_BASE_URL must use HTTPS; local HTTP requires explicit opt-in",
 		);
 	}
@@ -214,6 +237,7 @@ function addDays(value: Date, days: number): Date {
 function requirePatientId(patientId: string | undefined): string {
 	if (!patientId?.trim()) {
 		throw new ProviderSmokeConfigurationError(
+			"patient-id-missing",
 			"HOSPITAL_PATIENT_ID is required for patient-scoped smoke checks",
 		);
 	}
@@ -336,6 +360,7 @@ export async function runProviderDirectorySmoke(
 ): Promise<ProviderSmokeResult> {
 	if (!options.accessToken.trim()) {
 		throw new ProviderSmokeConfigurationError(
+			"access-token-missing",
 			"HOSPITAL_ACCESS_TOKEN is required",
 		);
 	}
@@ -348,6 +373,7 @@ export async function runProviderDirectorySmoke(
 		apiPrefix = resolveApiPrefix(options.apiPrefix);
 	} catch {
 		throw new ProviderSmokeConfigurationError(
+			"api-prefix-invalid",
 			"HOSPITAL_API_PREFIX must be /api/v1 or /api/v2",
 		);
 	}
@@ -918,6 +944,7 @@ function parseCapabilities(
 		)
 	) {
 		throw new ProviderSmokeConfigurationError(
+			"capabilities-unsupported",
 			"HOSPITAL_SMOKE_CAPABILITIES contains an unsupported capability",
 		);
 	}
@@ -952,10 +979,17 @@ if (import.meta.main) {
 		});
 		if (!result.passed) process.exitCode = 1;
 	} catch (error) {
+		const configurationReason =
+			error instanceof ProviderSmokeConfigurationError
+				? error.reason
+				: error instanceof ReadinessStabilityConfigurationError
+					? "readiness-options-invalid"
+					: undefined;
 		logger.error(
 			{
 				event: "provider.smoke.configuration.failed",
 				errorType: error instanceof Error ? error.name : "UnknownError",
+				...(configurationReason ? { configurationReason } : {}),
 			},
 			"Provider directory smoke could not start",
 		);

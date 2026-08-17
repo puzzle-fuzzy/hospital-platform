@@ -776,7 +776,23 @@ test("provider directory smoke rejects public HTTP unless local opt-in is explic
 			accessToken: "platform-access-token",
 			capabilities: [],
 		}),
-	).rejects.toMatchObject({ name: "ProviderSmokeConfigurationError" });
+	).rejects.toMatchObject({
+		name: "ProviderSmokeConfigurationError",
+		reason: "base-url-https-required",
+	});
+});
+
+test("provider directory smoke rejects missing credentials with a safe reason", async () => {
+	await expect(
+		runProviderDirectorySmoke({
+			baseUrl: "https://hospital.example.test",
+			accessToken: "",
+			capabilities: [],
+		}),
+	).rejects.toMatchObject({
+		name: "ProviderSmokeConfigurationError",
+		reason: "access-token-missing",
+	});
 });
 
 test("provider directory smoke keeps traceId when the platform request fails", async () => {
