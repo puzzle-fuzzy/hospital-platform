@@ -6,6 +6,10 @@ import type {
 	OutpatientPaymentRecord,
 	OutpatientPaymentStatus,
 } from "@hospital/domain";
+import {
+	InvalidOutpatientPaymentStatusError,
+	isOutpatientPaymentStatus,
+} from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
@@ -358,6 +362,11 @@ export class ZhongyangOutpatientPaymentApiGateway
 		},
 		context: AdapterCallContext,
 	) {
+		if (!isOutpatientPaymentStatus(input.status)) {
+			// Provider 查询参数不能把未知值按“非 unpaid”降级为 paid；adapter
+			// 也必须独立守住边界，因为它可能被 API 以外的任务直接调用。
+			throw new InvalidOutpatientPaymentStatusError();
+		}
 		const url = new URL(OUTPATIENT_PAYMENT_PATH, this.baseUrl);
 		url.searchParams.set("patId", input.providerPatientId);
 		url.searchParams.set("startTime", input.startTime);

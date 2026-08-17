@@ -459,3 +459,28 @@ test("众阳门诊费用 adapter 只把 1/3 映射为公共 unpaid/paid", async 
 		});
 	}
 });
+
+test("众阳门诊费用 adapter 拒绝运行时未知状态且不访问 Provider", async () => {
+	let fetchCalled = false;
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			fetchCalled = true;
+			throw new Error("provider must not be called");
+		},
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-secret",
+				startTime: "2026-08-16 00:00:00",
+				endTime: "2026-08-16 23:59:59",
+				status: "unexpected" as never,
+				authSysCode: "thirdSelfMachine",
+			},
+			context,
+		),
+	).rejects.toMatchObject({ name: "InvalidOutpatientPaymentStatusError" });
+	expect(fetchCalled).toBe(false);
+});

@@ -68,6 +68,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"appointment-query-invalid": "预约排班查询条件不合法",
 		"appointment-record-query-invalid": "预约记录查询条件不合法",
 		"appointment-record-patient-not-found": "当前就诊人暂无可查询的预约记录",
+		"outpatient-payment-query-invalid": "门诊缴费查询条件不合法",
 		"report-query-invalid": "报告查询条件不合法",
 		"report-patient-not-found": "当前就诊人暂无可查询的报告",
 		"report-not-found": "报告详情暂不可用",

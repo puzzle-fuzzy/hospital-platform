@@ -74,6 +74,10 @@ export type {
 	OutpatientPaymentRecord,
 	OutpatientPaymentStatus,
 } from "./outpatient-payments";
+export {
+	InvalidOutpatientPaymentStatusError,
+	isOutpatientPaymentStatus,
+} from "./outpatient-payments";
 export type {
 	IdentityUser,
 	PatientDirectoryGateway,
@@ -93,17 +97,6 @@ export type {
 	UserIdentityRepository,
 	WechatIdentityGateway,
 } from "./patients";
-export type {
-	UserGender,
-	UserProfile,
-	UserProfileRepository,
-	UserProfileUpdate,
-} from "./user-profile";
-export {
-	emptyUserProfile,
-	UserProfileInputError,
-	UserProfileVersionConflictError,
-} from "./user-profile";
 export type {
 	CreatePaymentOrderInput,
 	PaymentAmounts,
@@ -181,3 +174,14 @@ export {
 	ReportReferenceValidationError,
 	validateReportReference,
 } from "./reports";
+export type {
+	UserGender,
+	UserProfile,
+	UserProfileRepository,
+	UserProfileUpdate,
+} from "./user-profile";
+export {
+	emptyUserProfile,
+	UserProfileInputError,
+	UserProfileVersionConflictError,
+} from "./user-profile";

@@ -113,6 +113,10 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 - `outpatient.payment.records.loaded`：只表示 Provider 返回已通过 adapter 白名单和状态校验的读模型，`itemCount=0`
   代表明确的成功空结果；它不表示支付、医保结算或 HIS 回写成功。
 
+门诊费用的 `status` 是运行时白名单字段。未知值在 service 和 adapter 边界都会 fail-closed；失败日志只记录
+`status=invalid`，不记录调用方传入的任意原始字符串，也不产生 Provider 请求。这样日志能证明拒绝发生，
+但不会把错误输入继续扩散为“已支付”查询语义。
+
 以上事件以同一个 `traceId` 关联；失败事件必须保留稳定 `errorType`，成功事件必须保留结果数量或状态。HTTP
 请求日志仍然独立记录请求生命周期，不能用 `http.request.completed` 代替业务 `synced/loaded`，也不能用 HTTP 200
 推导 Provider 业务成功。

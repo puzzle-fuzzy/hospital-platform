@@ -109,6 +109,55 @@ test("门诊费用查询在没有 owner 映射时拒绝调用 provider", async (
 	expect(gatewayCalled).toBe(false);
 });
 
+test("门诊费用查询拒绝运行时未知状态且不把它写入日志", async () => {
+	const lines: string[] = [];
+	let repositoryCalls = 0;
+	let gatewayCalled = false;
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => {
+				repositoryCalls += 1;
+				return undefined;
+			},
+		},
+		gateway: {
+			listRecords: async () => {
+				gatewayCalled = true;
+				throw new Error("provider must not be called");
+			},
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unexpected" as never, {
+			traceId: "trace-invalid-status",
+			idempotencyKey: "key-invalid-status",
+		}),
+	).rejects.toMatchObject({ name: "InvalidOutpatientPaymentStatusError" });
+
+	expect(repositoryCalls).toBe(0);
+	expect(gatewayCalled).toBe(false);
+	const record = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+	expect(record).toMatchObject({
+		event: "outpatient.payment.records.failed",
+		traceId: "trace-invalid-status",
+		status: "invalid",
+		errorType: "InvalidOutpatientPaymentStatusError",
+	});
+	expect(JSON.stringify(record)).not.toContain("unexpected");
+});
+
 test("门诊费用输入和 owner 映射失败都会留下可检索的低敏日志", async () => {
 	const lines: string[] = [];
 	let repositoryCalls = 0;

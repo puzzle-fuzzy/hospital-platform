@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	InvalidOutpatientPaymentStatusError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
 	PaymentNotificationConflictError,
@@ -140,6 +141,11 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 			error: new ReportQueryError("internal report detail"),
 			code: "report-query-invalid",
 			message: "报告查询条件不合法",
+		},
+		{
+			error: new InvalidOutpatientPaymentStatusError(),
+			code: "outpatient-payment-query-invalid",
+			message: "门诊缴费查询条件不合法",
 		},
 	] as const;
 

@@ -221,7 +221,11 @@ HIS 回写和退费必须走独立 contract。
 
 Provider 返回的 `tradeStatus` 也必须与查询状态一致：`unpaid` 只接受 `1`，`paid` 只接受 `3`；
 缺失、无法识别或错配时服务端整批拒绝结果，不把请求 tab 当作 Provider 事实贴到费用记录上。
-该字段只在服务端 adapter 内校验，不进入小程序公共 response，也不代表支付或结算已经开放。
+该字段的 Provider 数字映射只在服务端 adapter 内完成，不进入小程序公共 response，也不代表支付或结算已经开放。
+
+`status` 同时在领域 service 和 Provider adapter 做运行时白名单校验；即使绕过 Elysia
+query schema 的内部任务传入未知值，也只能返回 `400 outpatient-payment-query-invalid`，
+不能被按“非 unpaid”降级成 Provider 的 `tradeStatus=3`，也不会访问 Provider。
 
 账单时间按 2.6.33 的约定只接受 `YYYY-MM-DD HH:mm:ss`，并按中国标准时间解释；格式不合法、
 自然日不存在或时分秒越界时，adapter 会整批拒绝结果，不把异常时间交给页面自行解析。
@@ -293,6 +297,7 @@ Provider 返回的 `tradeStatus` 也必须与查询状态一致：`unpaid` 只�
 | 400 | `validation` / `parse` | 请求 schema 或 JSON 不合法 |
 | 400 | `appointment-query-invalid` | 排班日期/过滤条件不合法 |
 | 400 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
+| 400 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
 | 400 | `report-query-invalid` | 报告查询条件不合法 |
 | 400 | `payment-order-invalid` | 创建订单输入不合法 |
 | 400 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |

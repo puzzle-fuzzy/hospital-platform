@@ -3,6 +3,7 @@ import {
 	DependencyNotConfiguredError,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeValidationError,
+	InvalidOutpatientPaymentStatusError,
 	PatientDirectorySyncInProgressError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
@@ -178,6 +179,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "outpatient-payment-patient-not-found",
 						message: "当前就诊人暂未建立门诊缴费映射",
+					},
+				};
+			}
+
+			if (error instanceof InvalidOutpatientPaymentStatusError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "outpatient-payment-query-invalid",
+						message: "门诊缴费查询条件不合法",
 					},
 				};
 			}
