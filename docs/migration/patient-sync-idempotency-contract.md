@@ -1,7 +1,7 @@
 # 患者目录同步幂等契约
 
-> 状态：代码已实现，`0015` operation ledger 和 `0016` owner/provider 查询索引组成当前候选 schema；前一 release `41c9c18` 曾切换公网，当前公网为 `131fb5a`。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
-> 当前公网尚未应用 `0016`，只有完成 migration、候选切换和业务验收后，公网请求才具备本轮跨幂等键并发保护的运行语义。
+> 状态：代码已实现，`0015` operation ledger 和 `0016` owner/provider 查询索引组成当前生产 schema；当前公网为 `6d58c9c`，`0016` 已完成 migration、marker/index postcondition 和 schema probe。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
+> 当前线上已经具备本轮跨幂等键并发保护所需的 schema 运行前置，但这不等于真实 Provider 并发、失效恢复或真机业务已经验收。
 >
 > 适用接口：`POST /api/v2/patients/sync`。本契约只处理“从 provider 读取完整患者目录并
 > 替换当前 owner 快照”的同步命令，不延伸到患者建档、绑卡、预约写入或支付。
@@ -202,6 +202,5 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 8. 验收：本地并发测试 → 隔离 MySQL/Redis → staging provider → 公网 API → 微信真机；
 9. 生产：先 migration/schema probe，再灰度启用新同步语义；旧服务仍保持原端口和数据库边界。
 
-代码和候选 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；当前线上
-release 为 `131fb5a`，仓库中尚未部署的实现候选仍需应用 `0016`、固定版本并取得发布 provenance，
-在新 release 切换、真实并发、公网和真机验收完成前，发布文档必须继续标记为“线上业务证据待完成”。
+代码和生产 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；当前线上
+release 为 `6d58c9c`，并已取得 bundle provenance、migration postcondition 和公网运行前置证据。真实并发、公网业务和真机验收仍未完成，发布文档必须继续标记为“线上业务证据待完成”。

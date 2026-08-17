@@ -31,7 +31,7 @@
 `404 not-found`。本次没有携带会话、患者或 Provider 凭证，也没有执行任何写入；证据见
 [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md) 的 2.6 节。
 
-随后于 2026-08-17 约 12:25 CST 恢复了受控 SSH 只读会话，确认当前线上仍为 `131fb5a`，新 Elysia
+随后于 2026-08-17 约 12:25 CST、`6d58c9c` 发布前，恢复了受控 SSH 只读会话，确认当时线上仍为 `131fb5a`，新 Elysia
 `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，生产日志和三项 readiness 均正常；公网
 live/ready/system-ping 也通过。该次观察窗口出现 1 次真实微信登录成功和 4 次患者同步完成事件，但没有
 预约历史、门诊费用或资料事件。远端 Redis `PING` 通过，而会话 key 的 `SCAN` 被当前账号拒绝，所以
@@ -51,7 +51,7 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `131fb5a` 完成真实链路：
+这些不是继续加页面，而是用当前 `6d58c9c` 完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；

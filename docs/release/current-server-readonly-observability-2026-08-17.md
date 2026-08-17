@@ -3,6 +3,9 @@
 > 本文记录 2026-08-17 约 12:25（中国标准时间）通过 SSH 对中转服务器的当前只读复核。
 > 未发布候选代码、未重启或停止服务、未执行 migration、未清理缓存、未读取患者明文或凭证，
 > 也未执行预约、支付、医保、退款和 HIS 写入。文档只保留可维护的低敏运行事实。
+>
+> 这是 `6d58c9c` 切换前的历史快照；切换后的当前 release、0016 migration 和生产运行证据见
+> [`6d58c9c-production-acceptance-2026-08-17.md`](6d58c9c-production-acceptance-2026-08-17.md)。
 
 ## 1. 运行版本与新旧服务共存
 
@@ -10,7 +13,7 @@
 | --- | --- |
 | 服务器 | `192.168.112.172`，主机名 `ps` |
 | 新 API | `hospital-platform-api-v2.service` 为 `active/running`；Bun/Elysia 监听 `10.0.0.3:18081` |
-| 新 API 当前 release | `/home/ps/code/hospital-platform/current -> releases/131fb5a` |
+| 切换前历史 release | `/home/ps/code/hospital-platform/current -> releases/131fb5a` |
 | 新 API 运行模式 | journald 启动日志标记为 `production`；systemd 从 `/home/ps/code/hospital-platform/shared/api.env` 读取环境变量，值未进入本文 |
 | 旧 Python API | 进程仍运行并监听 `0.0.0.0:8001`；本次未修改、停止或重启 |
 | 本地候选 | `a4033b0` 及后续测试清理提交尚未部署；线上不能使用本地 Git HEAD 推导 |
@@ -77,7 +80,7 @@
 已完成的线上前置证据：
 
 - 新旧服务共存、旧 Python `8001` 未受影响；
-- 新 Elysia 服务当前 release `131fb5a` 处于 production mode；
+- 本历史快照中的新 Elysia release `131fb5a` 处于 production mode；
 - MySQL、Redis、schema readiness 通过；
 - 公网 live、ready、system ping 通过；
 - 线上出现过真实微信登录成功和患者同步成功日志。

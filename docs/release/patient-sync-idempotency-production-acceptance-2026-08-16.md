@@ -9,7 +9,7 @@
 > [`41c9c18-production-acceptance-2026-08-16.md`](41c9c18-production-acceptance-2026-08-16.md)，本记录对应的历史候选隔离证据见
 > [`candidate-a11f117-preproduction-smoke-2026-08-16.md`](candidate-a11f117-preproduction-smoke-2026-08-16.md)。
 
-> 当前事实更新：后续线上已切换为 `131fb5a`。本文仍是 2026-08-16 的历史 schema/发布窗口记录，不能作为
+> 当前事实更新：后续线上已切换为 `6d58c9c`。本文仍是 2026-08-16 的历史 schema/发布窗口记录，不能作为
 > 当前 release 的患者同步、Redis TTL、公网或真机验收证据；当前事实以
 > [`../migration/current-execution-checkpoint-2026-08-17.md`](../migration/current-execution-checkpoint-2026-08-17.md) 为准。
 
@@ -90,7 +90,7 @@ missingSchemaObjects=[]
 ## 5. 当前未完成和下一步
 
 当时公网 `18081` 尚未切换到 `69c0f20`，因此该历史记录本身不能证明公网患者同步使用了 operation ledger。
-当时 `41c9c18` 已具备公网运行条件；当前线上已是 `131fb5a`，如需服务器侧 smoke，必须使用当前 release
+当时 `41c9c18` 已具备公网运行条件；当前线上已是 `6d58c9c`，如需服务器侧 smoke，必须使用当前 release
 中 provenance 已核对的 bundle，不应把本文历史候选或 `41c9c18` 的输出当作当前 replay 门禁证据：
 
 1. 用受控平台 access token 做一次患者同步和同 key replay，保存 trace、operationId、provider request 次数和安全响应摘要；

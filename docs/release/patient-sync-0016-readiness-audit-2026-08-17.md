@@ -1,5 +1,7 @@
 # 0016 患者同步并发索引发布前审计（2026-08-17）
 
+> 本文记录的是 `6d58c9c` 发布前的只读审计窗口：当时线上仍为 `131fb5a`、schema marker/index 尚未应用。后续 migration、postcondition、候选切换和公网运行结果以 [`6d58c9c-production-acceptance-2026-08-17.md`](6d58c9c-production-acceptance-2026-08-17.md) 为准；本文中的“尚未应用”均属于发布前历史事实，不代表当前线上状态。
+
 > 本文记录 `0016_patient_directory_sync_owner_index` 的代码、schema 和线上只读审计结果。
 > 本次没有执行 migration、发布、重启、停止服务或患者同步写入。`0016` 是非事务性 MySQL DDL，
 > 必须和候选 release 绑定处理，不能在没有回滚/人工检查方案时直接对生产执行。
@@ -40,7 +42,7 @@ ALTER TABLE hp_patient_directory_sync_operations
 
 | 检查项 | 结果 |
 | --- | --- |
-| 当前线上 release | `131fb5a` |
+| 发布前线上 release | `131fb5a` |
 | `0015_patient_directory_sync_operations` marker | 存在（`1`） |
 | `0016_patient_directory_sync_owner_index` marker | 不存在（`0`） |
 | `ix_hp_patient_sync_owner_provider_state` | 不存在（`0`） |
@@ -52,7 +54,7 @@ ALTER TABLE hp_patient_directory_sync_operations
 
 ## 4. 为什么现在不直接执行
 
-直接在当前 `131fb5a` 上执行 `0016` 有三个风险：
+直接在发布前的 `131fb5a` 上执行 `0016` 有三个风险：
 
 1. 当前运行 bundle 不是包含 `0016` schema gate 的候选，migration 与代码 provenance 会被拆开，后续难以确认
    哪个版本开始承诺 owner/provider 并发语义；
