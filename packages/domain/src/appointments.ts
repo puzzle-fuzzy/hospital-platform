@@ -207,6 +207,7 @@ export type AppointmentRecordResultViolation =
 	| "records-not-array"
 	| "record-not-object"
 	| "work-date-invalid"
+	| "work-date-outside-query"
 	| "status-invalid"
 	| "display-text-invalid";
 

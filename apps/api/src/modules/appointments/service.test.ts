@@ -889,3 +889,83 @@ test("预约记录 service 拒绝非法网关结果并保留低敏失败原因",
 		expect.objectContaining({ event: "appointment.records.synced" }),
 	);
 });
+
+test("预约记录 service 拒绝查询窗口外结果且不筛掉坏行伪装成功", async () => {
+	const lines: string[] = [];
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => ({
+				// 一条在窗口内、一条在窗口外；整批拒绝才能避免目录不完整。
+				records: [
+					{ workDate: "2026-08-31", status: "scheduled" },
+					{ workDate: "2026-09-01", status: "scheduled" },
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: "record-outside-window",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-31" },
+			{
+				traceId: "trace-outside-window",
+				idempotencyKey: "key-outside-window",
+			},
+		),
+	).rejects.toMatchObject({
+		name: "AppointmentRecordResultValidationError",
+		violation: "work-date-outside-query",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.failed",
+			traceId: "trace-outside-window",
+			errorType: "AppointmentRecordResultValidationError",
+			resultViolation: "work-date-outside-query",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({ event: "appointment.records.synced" }),
+	);
+});

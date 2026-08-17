@@ -27,6 +27,10 @@
   也不能回填为“我的挂号”或门诊费用证据；当前窗口预约历史和门诊费用事件仍为 `0`。
 - 下一次真机验收按“患者刷新/显式切换 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”的顺序执行，
   每个域必须同时保留页面、HTTP 和低敏日志证据；预约写入、支付、医保和 HIS 继续最后处理。
+- 2026-08-18：预约历史服务层新增日期窗口二次校验。每条 Provider 记录的 `workDate` 必须位于
+  请求的闭区间 `[startDate, endDate]`；发现窗口外记录时整批 fail-closed，不过滤坏行伪装成功，
+  并只记录 `work-date-outside-query` 等稳定低敏原因。详细规则见
+  [`release/appointment-record-window-validation-2026-08-18.md`](release/appointment-record-window-validation-2026-08-18.md)。
 
 ### 上一轮生产切换与公网复核（2026-08-18 00:04-00:06 CST）
 

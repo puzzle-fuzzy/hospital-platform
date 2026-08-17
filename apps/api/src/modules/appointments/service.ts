@@ -7,6 +7,7 @@ import {
 	type AdapterCallContext,
 	type AppointmentDepartmentQuery,
 	type AppointmentDirectoryGateway,
+	type AppointmentRecord,
 	type AppointmentProviderSchedule,
 	type AppointmentRecordDirectoryGateway,
 	type AppointmentRecordQuery,
@@ -120,6 +121,37 @@ function validateRecordQuery(input: AppointmentRecordQuery): void {
 		throw new AppointmentRecordQueryError(
 			`Appointment record date range cannot exceed ${MAX_RECORD_RANGE_DAYS} days`,
 		);
+	}
+}
+
+/**
+ * Provider 返回结果必须服从本次查询窗口，不能只依赖 Provider 自己的筛选。
+ *
+ * 预约历史会同时查询过去和未来日期；如果上游忽略 start/end 参数，直接把
+ * 窗口外记录展示出来会造成“我的挂号”事实污染。这里选择整批拒绝而不是
+ * 过滤坏行：过滤会把 Provider 响应异常伪装成完整成功，患者无法知道目录不完整。
+ * 查询端点由 contract 定义为包含首尾日期，因此 start/end 当天都属于合法结果。
+ */
+function validateAppointmentRecordWindow(
+	records: readonly AppointmentRecord[],
+	query: AppointmentRecordQuery,
+): void {
+	const start = parseIsoCalendarDate(query.startDate);
+	const end = parseIsoCalendarDate(query.endDate);
+	if (start === undefined || end === undefined || end < start) {
+		// `validateRecordQuery` 已经负责这个入口校验；这里保留防御性分支，
+		// 避免未来其它调用路径绕过入口后把无效窗口当作有效事实比较。
+		throw new AppointmentRecordQueryError(
+			"Appointment record date range is invalid",
+		);
+	}
+	if (
+		records.some((record) => {
+			const workDate = parseIsoCalendarDate(record.workDate);
+			return workDate === undefined || workDate < start || workDate > end;
+		})
+	) {
+		throw new AppointmentRecordResultValidationError("work-date-outside-query");
 	}
 }
 
@@ -399,6 +431,7 @@ export class AppointmentService {
 			const normalizedRecords = normalizeAppointmentRecordResults(
 				(result as { records?: unknown } | undefined)?.records,
 			);
+			validateAppointmentRecordWindow(normalizedRecords, query);
 			this.logger.info(
 				{
 					event: "appointment.records.synced",
