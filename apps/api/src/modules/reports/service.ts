@@ -114,23 +114,25 @@ export class ReportService {
 		query: ReportDirectoryQuery,
 		context: AdapterCallContext,
 	): Promise<ReportListPayload["data"]> {
-		validateQuery(query);
-		if (!patientId.trim()) throw new ReportPatientNotFoundError();
-
-		this.logger.info(
-			{
-				event: "report.directory.requested",
-				traceId: context.traceId,
-				provider: "zhongyang",
-				patientId,
-				...(query.kind ? { kind: query.kind } : {}),
-				startDate: query.startDate,
-				endDate: query.endDate,
-			},
-			"Report directory requested",
-		);
-
 		try {
+			// 查询校验也必须进入统一失败出口。否则非法日期虽然会正确返回
+			// 400，但没有 `report.directory.failed`，日志链路会缺少业务模块事实。
+			validateQuery(query);
+			if (!patientId.trim()) throw new ReportPatientNotFoundError();
+
+			this.logger.info(
+				{
+					event: "report.directory.requested",
+					traceId: context.traceId,
+					provider: "zhongyang",
+					patientId,
+					...(query.kind ? { kind: query.kind } : {}),
+					startDate: query.startDate,
+					endDate: query.endDate,
+				},
+				"Report directory requested",
+			);
+
 			const reference =
 				await this.dependencies.repository.resolveProviderReference({
 					ownerUserId,
@@ -218,18 +220,21 @@ export class ReportService {
 		reportId: string,
 		context: AdapterCallContext,
 	): Promise<ReportDetailPayload["data"]> {
-		if (!this.dependencies.detail || !this.dependencies.references) {
-			throw new DependencyNotConfiguredError("report-detail");
-		}
-		this.logger.info(
-			{
-				event: "report.detail.requested",
-				traceId: context.traceId,
-				reportId,
-			},
-			"Report detail requested",
-		);
 		try {
+			// 详情依赖缺失也必须留在 `report.detail.failed` 中；否则页面拿到
+			// `dependency-not-configured` 时，服务日志会看起来像没有收到请求。
+			this.logger.info(
+				{
+					event: "report.detail.requested",
+					traceId: context.traceId,
+					reportId,
+				},
+				"Report detail requested",
+			);
+			if (!this.dependencies.detail || !this.dependencies.references) {
+				throw new DependencyNotConfiguredError("report-detail");
+			}
+
 			const reference = await this.dependencies.references.findByOwnerAndId(
 				ownerUserId,
 				reportId,

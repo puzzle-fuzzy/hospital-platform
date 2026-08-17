@@ -89,10 +89,10 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `appointment.schedule_snapshots.persisted` / `appointment.schedule_snapshots.failed` | 排班只读快照 | 记录 provider request id、数量、过期时间或错误类型；不记录 provider 身份和原始响应 |
 | `report.directory.requested` | 报告目录读取 | 记录内部 patientId、日期范围、来源筛选和 trace，不记录 provider 患者号 |
 | `report.directory.synced` | 报告目录读取 | 记录 provider request id 和摘要数量，不记录 provider 患者号或原始报告 |
-| `report.directory.failed` | 报告目录读取 | 记录错误类型和内部 patientId，不记录 provider 患者号或原始报告 |
+| `report.directory.failed` | 报告目录读取 | 覆盖日期校验、owner 映射、依赖和 Provider 失败；记录错误类型和内部 patientId，不记录 provider 患者号或原始报告 |
 | `report.detail.requested` | LIS 报告详情读取 | 记录 opaque reportId 和 trace，不记录 provider 报告号 |
 | `report.detail.synced` | LIS 报告详情读取 | 记录 provider request id 和检测项数量，不记录详情原文 |
-| `report.detail.failed` | LIS 报告详情读取 | 记录 opaque reportId 和错误类型，不记录 provider 原始错误 |
+| `report.detail.failed` | LIS 报告详情读取 | 覆盖详情依赖未配置、owner/TTL 查询和 Provider 失败；记录 opaque reportId 和错误类型，不记录 provider 原始错误 |
 
 基础设施与运维能力迁移时，日志事件还必须区分以下事实：
 
