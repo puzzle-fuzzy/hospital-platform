@@ -44,6 +44,7 @@ test("in-memory repositories preserve owner isolation", async () => {
 			relationship: "self",
 			cardNumberMasked: "****001",
 			source: "legacy-record",
+			clinicalAccess: "unavailable",
 		},
 		{
 			id: "patient-002",
@@ -52,6 +53,7 @@ test("in-memory repositories preserve owner isolation", async () => {
 			relationship: "self",
 			cardNumberMasked: "****002",
 			source: "legacy-record",
+			clinicalAccess: "unavailable",
 		},
 	]);
 
@@ -145,6 +147,7 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 		displayName: "张三（更新）",
 		cardNumberMasked: "******0000",
 		source: "hospital-his",
+		clinicalAccess: "ready",
 	});
 	expect(await patients.listByOwner("user-001")).toHaveLength(1);
 	expect(
@@ -237,6 +240,7 @@ test("患者目录完整快照只停用缺失患者并保留原内部 id", async
 			relationship: "self",
 			cardNumberMasked: "******1111",
 			source: "hospital-his",
+			clinicalAccess: "unavailable",
 		},
 	]);
 	expect(
@@ -338,6 +342,7 @@ test("患者目录旧快照返回较晚时不能覆盖新资料或重新激活�
 			relationship: "self",
 			cardNumberMasked: "******2001",
 			source: "hospital-his",
+			clinicalAccess: "ready",
 		},
 		{
 			id: "patient-order-002",
@@ -346,6 +351,7 @@ test("患者目录旧快照返回较晚时不能覆盖新资料或重新激活�
 			relationship: "spouse",
 			cardNumberMasked: "******2002",
 			source: "hospital-his",
+			clinicalAccess: "unavailable",
 		},
 	]);
 	expect(

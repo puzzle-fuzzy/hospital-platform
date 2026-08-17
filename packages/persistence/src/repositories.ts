@@ -143,6 +143,23 @@ export function createInMemoryPatientRepository(
 	}) =>
 		`${input.ownerUserId}:${input.provider}:${input.referenceKind}:${input.patientId}`;
 
+	/** 内存仓储也必须把临床可用性当作真实状态，不能只由 source 猜测。 */
+	const clinicalAccessFor = (
+		patient: PatientRecord,
+	): PatientRecord["clinicalAccess"] => {
+		if (patient.source === "legacy-record") return "unavailable";
+		return providerIndex.has(
+			providerReferenceKey({
+				ownerUserId: patient.ownerUserId,
+				provider: "zhongyang",
+				patientId: patient.id,
+				referenceKind: "his-patient",
+			}),
+		)
+			? "ready"
+			: patient.clinicalAccess;
+	};
+
 	const upsertDirectoryAt = async (
 		input: PatientDirectoryUpsertInput,
 		observedAt: string,
@@ -176,6 +193,9 @@ export function createInMemoryPatientRepository(
 			relationship: input.profile.relationship,
 			cardNumberMasked: input.profile.cardNumberMasked,
 			source: "hospital-his",
+			clinicalAccess: input.profile.providerReferences?.["his-patient"]
+				? "ready"
+				: (existingPatient?.clinicalAccess ?? "unavailable"),
 		};
 		if (existingIndex >= 0) patients[existingIndex] = next;
 		else patients.push(next);
@@ -212,11 +232,16 @@ export function createInMemoryPatientRepository(
 
 	return {
 		async listByOwner(ownerUserId) {
-			return patients.filter(
-				(patient) =>
-					patient.ownerUserId === ownerUserId &&
-					!inactivePatientIds.has(patient.id),
-			);
+			return patients
+				.filter(
+					(patient) =>
+						patient.ownerUserId === ownerUserId &&
+						!inactivePatientIds.has(patient.id),
+				)
+				.map((patient) => ({
+					...patient,
+					clinicalAccess: clinicalAccessFor(patient),
+				}));
 		},
 		async beginDirectorySync(input): Promise<PatientDirectorySyncStart> {
 			const key = syncOperationKey(input);
@@ -334,6 +359,18 @@ export function createInMemoryPatientRepository(
 							referenceKind: "his-patient",
 						}),
 					);
+					const patientIndex = patients.findIndex(
+						(candidate) => candidate.id === record.id,
+					);
+					if (patientIndex >= 0) {
+						const current = patients[patientIndex];
+						if (current) {
+							patients[patientIndex] = {
+								...current,
+								clinicalAccess: "unavailable",
+							};
+						}
+					}
 				}
 				seenPatientIds.add(record.id);
 			}

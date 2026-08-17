@@ -67,12 +67,20 @@ export class PatientService {
 			const items = await this.repository.listByOwner(ownerUserId);
 			const payload = {
 				items: items.map(
-					({ id, displayName, relationship, cardNumberMasked, source }) => ({
+					({
 						id,
 						displayName,
 						relationship,
 						cardNumberMasked,
 						source,
+						clinicalAccess,
+					}) => ({
+						id,
+						displayName,
+						relationship,
+						cardNumberMasked,
+						source,
+						clinicalAccess,
 					}),
 				),
 				total: items.length,

@@ -141,7 +141,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
       "displayName": "张*",
       "relationship": "self",
       "cardNumberMasked": "********12345",
-      "source": "hospital-his"
+      "source": "hospital-his",
+      "clinicalAccess": "ready"
     }],
     "total": 1
   }
@@ -151,6 +152,13 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 `relationship` 只允许 `self`、`spouse`、`child`、`parent`、`other`。`source` 只表示
 平台内部来源分类；页面不能把 `other` 当作 provider 错误或直接展示给用户。卡号是服务端
 脱敏读模型，不允许小程序自行拼接明文卡号。
+
+`clinicalAccess` 只允许 `ready` 和 `unavailable`：`ready` 表示当前 owner 的该患者已经存在
+可用于预约历史、报告和门诊费用只读查询的 `his-patient` 映射；`unavailable` 表示记录仍可在
+选择页展示和核对，但尚未完成或已经失去医院档案映射，不能被选为临床查询上下文。小程序首次
+没有历史选择时只能默认第一位 `ready` 患者；已有选择变为 `unavailable` 时必须要求用户显式
+选择其他 `ready` 患者，服务端也会在调用 Provider 前 fail-closed。该字段不暴露 Provider 患者号，
+也不能被客户端改写成可用状态。
 
 患者目录同步和读取是两条服务端事实链：同步快照提交成功后，接口还需要读取当前 owner 的
 脱敏读模型才能生成响应；如果这一步暂时失败，服务端返回错误，不会把空数组伪装成同步成功。

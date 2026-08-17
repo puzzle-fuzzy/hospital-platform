@@ -23,6 +23,7 @@ test("患者目录读取使用独立读模型日志且不泄露 owner 或患者�
 				relationship: "self",
 				cardNumberMasked: "******0001",
 				source: "hospital-his",
+				clinicalAccess: "ready",
 			},
 		]),
 		{
@@ -135,6 +136,7 @@ test("已有医院目录时拒绝把歧义空快照应用成批量失效", async
 			relationship: "self",
 			cardNumberMasked: "12345*7890",
 			source: "hospital-his",
+			clinicalAccess: "ready",
 		},
 	]);
 	const lines: string[] = [];

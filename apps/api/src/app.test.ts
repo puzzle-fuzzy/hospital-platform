@@ -943,6 +943,7 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 			relationship: "self",
 			cardNumberMasked: "****001",
 			source: "legacy-record",
+			clinicalAccess: "unavailable",
 		},
 	]);
 	const paymentOrders = new PaymentOrderService({
@@ -1091,6 +1092,7 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 					relationship: "self",
 					cardNumberMasked: "****001",
 					source: "legacy-record",
+					clinicalAccess: "unavailable",
 				},
 			],
 			total: 1,
@@ -1134,6 +1136,7 @@ test("patient sync resolves provider identity on the server and returns only int
 				patients: [
 					{
 						providerPatientId: "provider-patient-001",
+						providerReferences: { "his-patient": "his-patient-001" },
 						displayName: "服务端同步患者",
 						relationship: "self",
 						cardNumberMasked: "******0001",
@@ -1240,6 +1243,7 @@ test("patient sync resolves provider identity on the server and returns only int
 					relationship: "self",
 					cardNumberMasked: "******0001",
 					source: "hospital-his",
+					clinicalAccess: "ready",
 				},
 			],
 			total: 1,

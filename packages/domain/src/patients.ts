@@ -8,6 +8,15 @@ export type PatientRelationship =
 	| "parent"
 	| "other";
 
+/**
+ * 当前患者是否具备临床只读业务所需的 HIS 档案映射。
+ *
+ * `unavailable` 不是患者不存在，而是只能展示旧目录资料，不能被预约历史、
+ * 报告或门诊费用等需要 `his-patient` 引用的业务选中。把这个事实显式放在
+ * 读模型中，避免小程序先“选中”再在下游 provider 请求前才失败。
+ */
+export type PatientClinicalAccess = "ready" | "unavailable";
+
 /** 患者端允许返回的最小档案视图；身份证号和完整卡号不进入这个模型。 */
 export type PatientRecord = {
 	id: string;
@@ -16,6 +25,7 @@ export type PatientRecord = {
 	relationship: PatientRelationship;
 	cardNumberMasked: string;
 	source: "hospital-his" | "legacy-record";
+	clinicalAccess: PatientClinicalAccess;
 };
 
 /**

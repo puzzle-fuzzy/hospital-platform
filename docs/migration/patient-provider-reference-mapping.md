@@ -36,6 +36,10 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
   或把更新快照已经停用的患者重新激活。
 - 完整目录快照中若当前患者没有返回 `his-patient`，持久化事务会删除该患者旧的临床映射；
   目录 `thirdPatientId` 仍保留为目录引用。观察时间更早的旧快照不能执行这次清理。
+- 公共患者响应同时返回 `clinicalAccess`：只有存在当前 `his-patient` 映射的记录才是 `ready`；
+  迁移遗留的 `legacy-record` 或缺少临床映射的医院目录记录仍可展示，但必须标记为
+  `unavailable`，不能在小程序中被选为预约、报告或门诊费用查询上下文。首次没有历史选择时，
+  客户端只能默认第一位 `ready` 患者；已有选择变为 `unavailable` 时不得静默切换到另一位患者。
 
 ## 发布与回填顺序
 
@@ -58,6 +62,8 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 
 - `patient-archive` 请求失败：同步失败并保留 `traceId`、provider request id 和错误类型；不写入不完整的成功映射。
 - 临床业务没有映射：在调用 provider 前返回对应的患者不可用错误；不得发送目录 `thirdPatientId`。
+- 客户端收到 `clinicalAccess=unavailable` 时只能展示低敏原因和刷新/重新选择入口；不得把
+  `directory` 引用当作临床引用，也不得因为列表中存在记录就把选择页开放为可返回状态。
 - 档案 ID 发生变化：下一次同步按同一内部患者更新 `hp_patient_provider_references`，不更换平台 `patientId`。
 - 完整快照缺少档案 ID：清除旧临床映射并让预约、报告、门诊费用在 provider 请求前 fail-closed，
   不能继续沿用上一次同步的 `patId`。

@@ -300,3 +300,8 @@ available -> hold_pending -> held -> booking_pending -> booked
 测试和文档链接审计通过。确认 401/503 分流、并发 token 保护、首次默认患者、失效后显式重选、服务端状态归一化
 和日志脱敏边界没有新的可安全推断缺陷；Redis TTL、多患者、资料 PUT/409、预约/费用页面三层证据仍未完成，详见
 [`session-patient-context-readonly-audit-2026-08-17.md`](release/session-patient-context-readonly-audit-2026-08-17.md)。
+- 2026-08-17 20:04 CST：继续收紧“我的/我的挂号”使用的患者上下文：公共患者响应新增 `clinicalAccess`，
+  只有完成当前 `his-patient` 映射的记录才标记为 `ready`。旧目录或缺少映射的记录保留展示但标记为
+  `unavailable`，选择页不允许默认/显式选中，已有选择失效时也不静默切换；服务端业务页继续在 Provider
+  调用前 fail-closed。旧端背景、功能分类、图标、固定底栏和挂号布局不变；本轮已补中文注释、测试和迁移文档，
+  未部署且未新增真机/Provider 业务证据。

@@ -53,6 +53,11 @@ function toPatientSelectionView(patient: Patient): PatientSelectionView {
 	};
 }
 
+/** 目录可展示不等于可用于临床查询；只有存在 ready 患者才允许返回调用页。 */
+function hasClinicallyReadyPatients(patients: readonly Patient[]): boolean {
+	return patients.some((patient) => patient.clinicalAccess === "ready");
+}
+
 Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	data: {
 		patients: [],
@@ -130,7 +135,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			error:
 				resolution.state === "stale"
 					? "上次选择的就诊人已失效，请重新选择"
-					: "",
+					: resolution.state === "unavailable"
+						? "当前选择的就诊人暂未完成医院档案映射，请选择可用就诊人"
+						: "",
 		});
 	},
 
@@ -147,6 +154,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		if (typeof patientId !== "string" || !patientId) return;
 		const patient = this.data.patients.find((item) => item.id === patientId);
 		if (!patient) return;
+		if (patient.clinicalAccess !== "ready") {
+			// 旧目录记录仍可展示给用户核对，但不能写入本地选择；否则业务页
+			// 会在 provider 请求前失败，用户也无法判断是哪个患者上下文有问题。
+			wx.showToast({
+				title: "该就诊人暂不可用于查询，请先刷新",
+				icon: "none",
+			});
+			return;
+		}
 
 		setSelectedPatientId(patient.id);
 		wx.showToast({ title: "已切换就诊人", icon: "success" });
@@ -191,11 +207,20 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 						return;
 					}
 					this.setPatientList(patients);
-					this.setData({ selectionReady: patients.length > 0 });
+					this.setData({
+						selectionReady: hasClinicallyReadyPatients(patients),
+					});
 					if (patients.length === 0) {
 						this.showError(
 							new ApiError("当前微信账号暂无绑定的就诊人", {
 								code: "patient-not-bound",
+							}),
+							"就诊人同步失败",
+						);
+					} else if (!hasClinicallyReadyPatients(patients)) {
+						this.showError(
+							new ApiError("当前就诊人暂未完成医院档案映射", {
+								code: "patient-clinical-unavailable",
 							}),
 							"就诊人同步失败",
 						);
@@ -225,6 +250,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				message = "就诊人服务暂未配置完成，请联系管理员";
 			} else if (error.code === "patient-not-bound") {
 				message = "当前微信账号暂无绑定的就诊人";
+			} else if (error.code === "patient-clinical-unavailable") {
+				message = "当前就诊人暂未完成医院档案映射，请刷新或选择其他就诊人";
 			} else {
 				message = safeApiErrorMessage(error, fallback);
 			}

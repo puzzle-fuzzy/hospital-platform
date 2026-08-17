@@ -14,12 +14,14 @@ export const SELECTED_PATIENT_ID_KEY = "selected_patient_id";
  *
  * `defaulted` 只允许发生在本地从未保存过选择的首次进入场景；如果已有选择
  * 但该患者不再出现在当前 owner 的目录中，必须返回 `stale`，不能偷偷切换到
- * 列表第一位，避免报告、挂号记录和费用查询落到错误患者身上。
+ * 列表第一位。目录资料存在但没有临床映射时返回 `unavailable`，也不能被
+ * 当作一个可查询的患者，避免报告、挂号记录和费用查询落到错误患者身上。
  */
 export type PatientSelectionResolution =
 	| { state: "empty"; patient?: undefined }
 	| { state: "defaulted" | "selected"; patient: Patient }
-	| { state: "stale"; patient?: undefined; storedPatientId: string };
+	| { state: "stale"; patient?: undefined; storedPatientId: string }
+	| { state: "unavailable"; patient?: undefined; storedPatientId?: string };
 
 /**
  * 将目录解析结果提升为业务页面可消费的“必须有患者”结果。
@@ -32,12 +34,17 @@ export type PatientSelectionResolution =
 export function requirePatientFromResolution(
 	resolution: PatientSelectionResolution,
 ): Patient {
-	if (resolution.patient) return resolution.patient;
 	if (resolution.state === "stale") {
 		throw new ApiError("Stored patient selection is stale", {
 			code: "patient-selection-stale",
 		});
 	}
+	if (resolution.state === "unavailable") {
+		throw new ApiError("Patient clinical mapping is unavailable", {
+			code: "patient-clinical-unavailable",
+		});
+	}
+	if (resolution.patient) return resolution.patient;
 	throw new ApiError("No patient is bound to the current account", {
 		code: "patient-not-bound",
 	});
@@ -52,9 +59,9 @@ export function getSelectedPatientId(): string {
 /**
  * 纯函数解析患者目录与已保存选择，供业务页面和测试共用。
  *
- * 传入空的 `storedPatientId` 表示用户尚未做过选择，此时沿用现有产品体验
- * 默认选中目录第一项；传入一个当前目录不存在的 ID 则保持未选中，要求用户
- * 通过选择页显式确认新的患者。
+ * 传入空的 `storedPatientId` 表示用户尚未做过选择，此时沿用现有产品体验，
+ * 但只默认选中第一位已完成临床映射的患者；传入一个当前目录不存在的 ID
+ * 或没有临床映射的 ID 都保持未选中，要求用户通过选择页显式确认新的患者。
  */
 export function resolvePatientSelection(
 	patients: readonly Patient[],
@@ -63,25 +70,34 @@ export function resolvePatientSelection(
 	if (patients.length === 0) return { state: "empty" };
 
 	if (!storedPatientId) {
-		const firstPatient = patients[0];
-		return firstPatient
-			? { state: "defaulted", patient: firstPatient }
-			: { state: "empty" };
+		// 目录里可能同时存在旧端迁移记录和已经完成 HIS 映射的患者；默认值
+		// 只能从可用于临床只读业务的记录中产生，不能把“能展示”当成“能查询”。
+		const firstAvailablePatient = patients.find(
+			(patient) => patient.clinicalAccess === "ready",
+		);
+		return firstAvailablePatient
+			? { state: "defaulted", patient: firstAvailablePatient }
+			: { state: "unavailable" };
 	}
 
 	const selectedPatient = patients.find(
 		(patient) => patient.id === storedPatientId,
 	);
-	return selectedPatient
-		? { state: "selected", patient: selectedPatient }
-		: { state: "stale", storedPatientId };
+	if (!selectedPatient) return { state: "stale", storedPatientId };
+	if (selectedPatient.clinicalAccess !== "ready") {
+		// 已有选择但当前映射不可用时不能静默切换到另一位患者，必须由用户
+		// 在选择页明确点击一位 ready 患者，避免业务事实落到错误的人身上。
+		return { state: "unavailable", storedPatientId };
+	}
+	return { state: "selected", patient: selectedPatient };
 }
 
 /**
  * 读取并应用当前设备的选择状态。
  *
- * 只有“从未选择过”的默认分支会写入第一位患者；`stale` 分支保留原缓存，
- * 直到用户在选择页主动点击新的患者，从而让页面无法绕过显式确认。
+ * 只有“从未选择过”的默认分支会写入第一位可用患者；`stale` 和 `unavailable`
+ * 分支都保留原缓存，直到用户在选择页主动点击新的患者，从而让页面无法绕过
+ * 显式确认。
  */
 export function resolveStoredPatientSelection(
 	patients: readonly Patient[],
@@ -96,8 +112,9 @@ export function resolveStoredPatientSelection(
 /**
  * 业务页面统一取得当前患者。
  *
- * 该函数保留首次进入时的“默认第一位”体验，但会把 stale/empty 直接
- * 转成稳定错误码；调用方不再自行读取 `.patient` 后丢失目录状态原因。
+ * 该函数保留首次进入时的“默认第一位可用患者”体验，但会把 stale、
+ * unavailable 和 empty 直接转成稳定错误码；调用方不再自行读取 `.patient`
+ * 后丢失目录状态原因。
  */
 export function requireStoredPatientSelection(
 	patients: readonly Patient[],

@@ -94,6 +94,7 @@ export type {
 	PatientDirectorySyncStart,
 	PatientDirectorySyncStartInput,
 	PatientDirectoryUpsertInput,
+	PatientClinicalAccess,
 	PatientProviderReference,
 	PatientProviderReferenceKind,
 	PatientRecord,

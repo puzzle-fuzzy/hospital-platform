@@ -13,6 +13,14 @@ function patient(id: string): Patient {
 		relationship: "self",
 		cardNumberMasked: "********1234",
 		source: "hospital-his",
+		clinicalAccess: "ready",
+	};
+}
+
+function unavailablePatient(id: string): Patient {
+	return {
+		...patient(id),
+		clinicalAccess: "unavailable",
 	};
 }
 
@@ -36,6 +44,27 @@ test("首次进入选择页时才允许默认目录第一位患者", () => {
 		state: "defaulted",
 		patient: patient("patient-a"),
 	});
+});
+
+test("首次进入选择页时跳过仅可展示的旧患者", () => {
+	const result = resolvePatientSelection(
+		[unavailablePatient("legacy-patient"), patient("patient-ready")],
+		"",
+	);
+
+	expect(result).toEqual({
+		state: "defaulted",
+		patient: patient("patient-ready"),
+	});
+});
+
+test("没有任何临床映射时不能默认选中目录患者", () => {
+	const result = resolvePatientSelection(
+		[unavailablePatient("legacy-patient")],
+		"",
+	);
+
+	expect(result).toEqual({ state: "unavailable" });
 });
 
 test("已有选择从目录消失时必须进入 stale，不能静默切换到第一位", () => {
@@ -64,7 +93,19 @@ test("已保存的患者仍在当前 owner 目录时保持显式选择", () => {
 	});
 });
 
-test("业务页面区分没有绑定患者与已失效的历史选择", () => {
+test("已保存患者临床映射失效时不能静默切换患者", () => {
+	const result = resolvePatientSelection(
+		[unavailablePatient("patient-b"), patient("patient-ready")],
+		"patient-b",
+	);
+
+	expect(result).toEqual({
+		state: "unavailable",
+		storedPatientId: "patient-b",
+	});
+});
+
+test("业务页面区分没有绑定患者、已失效和临床映射不可用", () => {
 	expect(
 		thrownApiErrorCode(() => requirePatientFromResolution({ state: "empty" })),
 	).toBe("patient-not-bound");
@@ -76,6 +117,14 @@ test("业务页面区分没有绑定患者与已失效的历史选择", () => {
 			}),
 		),
 	).toBe("patient-selection-stale");
+	expect(
+		thrownApiErrorCode(() =>
+			requirePatientFromResolution({
+				state: "unavailable",
+				storedPatientId: "legacy-patient",
+			}),
+		),
+	).toBe("patient-clinical-unavailable");
 	expect(
 		requirePatientFromResolution({
 			state: "selected",

@@ -102,6 +102,12 @@ export const PatientRelationshipSchema = Type.Union([
 	Type.Literal("other"),
 ]);
 
+/** 患者目录是否具备预约、报告和费用只读链路需要的临床映射。 */
+export const PatientClinicalAccessSchema = Type.Union([
+	Type.Literal("ready"),
+	Type.Literal("unavailable"),
+]);
+
 export const PatientSchema = Type.Object({
 	id: Type.String({ minLength: 1 }),
 	displayName: Type.String({ minLength: 1 }),
@@ -111,6 +117,7 @@ export const PatientSchema = Type.Object({
 		Type.Literal("hospital-his"),
 		Type.Literal("legacy-record"),
 	]),
+	clinicalAccess: PatientClinicalAccessSchema,
 });
 
 /** 患者列表是脱敏后的读模型，不允许把领域层 ownerUserId 透传到客户端。 */

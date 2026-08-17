@@ -601,6 +601,15 @@ Page<IndexPageData, IndexPageMethods>({
 			(patient) => patient.id === patientId,
 		);
 		if (!selectedPatient) return;
+		if (selectedPatient.clinicalAccess !== "ready") {
+			// 首页若未来恢复患者快捷切换，也必须沿用选择页的临床可用性门禁；
+			// 不能把仅能展示的旧目录记录写入当前患者选择。
+			wx.showToast({
+				title: "该就诊人暂不可用于查询，请先刷新",
+				icon: "none",
+			});
+			return;
+		}
 
 		this.setData({
 			selectedPatientId: patientId,
@@ -623,6 +632,8 @@ Page<IndexPageData, IndexPageMethods>({
 				message = "当前微信账号暂无已选择的就诊人，请先点击“新增就诊人”";
 			} else if (error.code === "patient-not-bound") {
 				message = "当前微信账号暂无绑定的就诊人";
+			} else if (error.code === "patient-clinical-unavailable") {
+				message = "当前就诊人暂未完成医院档案映射，请刷新或选择其他就诊人";
 			} else {
 				message = safeApiErrorMessage(error, fallback);
 			}
@@ -680,7 +691,9 @@ Page<IndexPageData, IndexPageMethods>({
 			error:
 				resolution.state === "stale"
 					? "上次选择的就诊人已不可用，请重新选择就诊人"
-					: "",
+					: resolution.state === "unavailable"
+						? "当前就诊人暂未完成医院档案映射，请进入选择页处理"
+						: "",
 		});
 	},
 });

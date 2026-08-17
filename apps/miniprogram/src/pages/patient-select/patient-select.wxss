@@ -82,6 +82,12 @@ page {
 	box-shadow: 0 8rpx 24rpx rgba(61, 109, 246, 0.14);
 }
 
+/* 旧目录记录仍保留展示，但没有临床映射时必须显式呈现为不可查询。 */
+.patient-card-unavailable {
+	background: #fafafa;
+	box-shadow: none;
+}
+
 .patient-card-header {
 	display: flex;
 	align-items: center;
@@ -121,6 +127,15 @@ page {
 	color: #ffffff;
 	font-size: 24rpx;
 	font-weight: 700;
+}
+
+.unavailable-badge {
+	flex-shrink: 0;
+	padding: 8rpx 14rpx;
+	border-radius: 8rpx;
+	background: #f5f5f5;
+	color: #999999;
+	font-size: 24rpx;
 }
 
 .patient-card-detail {

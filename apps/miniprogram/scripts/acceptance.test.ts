@@ -238,7 +238,12 @@ test("native mini program exposes a real patient selection page", async () => {
 		'syncPatientsFromHospital("patient-selection-sync")',
 	);
 	expect(template).toContain("patient-card-selected");
+	expect(template).toContain("patient-card-unavailable");
+	expect(template).toContain("暂不可查");
 	expect(template).toContain("刷新就诊人");
+	expect(selection).toContain("hasClinicallyReadyPatients");
+	expect(selection).toContain('clinicalAccess !== "ready"');
+	expect(selection).toContain("patient-clinical-unavailable");
 	expect(service).toContain('SELECTED_PATIENT_ID_KEY = "selected_patient_id"');
 	expect(service).toContain("wx.setStorageSync");
 	expect(service).toContain("clearSelectedPatientId");
@@ -258,6 +263,7 @@ test("patient selection never silently switches a stale patient to another patie
 		relationship: "self",
 		cardNumberMasked: "******0001",
 		source: "hospital-his",
+		clinicalAccess: "ready",
 	} satisfies Patient;
 	const patientB = {
 		id: "patient-b",
@@ -265,6 +271,7 @@ test("patient selection never silently switches a stale patient to another patie
 		relationship: "child",
 		cardNumberMasked: "******0002",
 		source: "hospital-his",
+		clinicalAccess: "ready",
 	} satisfies Patient;
 	const patients = [patientA, patientB];
 
@@ -320,7 +327,7 @@ test("patient selection cannot leave before clinical mapping synchronization com
 		"this.data.loading || this.data.syncing || !this.data.selectionReady",
 	);
 	expect(selection).toContain(
-		"this.setData({ selectionReady: patients.length > 0 });",
+		"selectionReady: hasClinicallyReadyPatients(patients)",
 	);
 	expect(selection).toContain("目录读取成功不等于医院侧临床映射已经完成");
 });
@@ -428,7 +435,12 @@ test("native my page separates ordinary profile from family patient selection", 
 		expect(my).toContain(`icon: "/assets/legacy-user/${icon}"`);
 		expect(my).toContain(`title: "${title}"`);
 	}
-	for (const icon of ["tab-01.png", "tab-02.png", "tab-03.png", "tab-04-active.png"]) {
+	for (const icon of [
+		"tab-01.png",
+		"tab-02.png",
+		"tab-03.png",
+		"tab-04-active.png",
+	]) {
 		expect(template).toContain(`/assets/legacy-home/${icon}`);
 	}
 	expect(my).toContain('title: "电子导诊单"');

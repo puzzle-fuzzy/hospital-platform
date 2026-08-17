@@ -20,7 +20,7 @@
 		<view
 			wx:for="{{patients}}"
 			wx:key="id"
-			class="patient-card {{item.id === selectedPatientId ? 'patient-card-selected' : ''}}"
+			class="patient-card {{item.id === selectedPatientId ? 'patient-card-selected' : ''}} {{item.clinicalAccess !== 'ready' ? 'patient-card-unavailable' : ''}}"
 			bindtap="onPatientTap"
 			data-patient-id="{{item.id}}"
 		>
@@ -30,6 +30,7 @@
 					<text wx:if="{{item.relationshipLabel}}" class="patient-relationship">{{item.relationshipLabel}}</text>
 				</view>
 				<view wx:if="{{item.id === selectedPatientId}}" class="selected-badge">当前</view>
+				<view wx:elif="{{item.clinicalAccess !== 'ready'}}" class="unavailable-badge">暂不可查</view>
 			</view>
 			<view class="patient-card-detail">
 				<image class="patient-card-icon" src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />

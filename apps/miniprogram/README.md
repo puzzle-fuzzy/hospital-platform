@@ -32,6 +32,9 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 `pages/patient-select/patient-select` 页面；选择页把当前选择的 opaque `patientId` 写入
 `selected_patient_id`，返回首页后由 `onShow` 恢复，并清空上一位患者的报告和挂号记录状态。
 首页卡片只显示 `displayName` 和服务端生成的 `cardNumberMasked`，不会把内部 `patientId`、众阳患者号或完整医疗卡号作为用户可见 ID。
+选择页允许展示迁移遗留记录，便于用户核对姓名和脱敏卡号，但只有服务端返回
+`clinicalAccess=ready` 的患者可以被选中；缺少 `his-patient` 映射的记录标记为“暂不可查”，
+不会被默认选中，也不会静默切换当前患者。刷新完成前选择页保持不可返回状态，避免预约、挂号记录、报告或门诊费用页面使用未确认的临床上下文。
 新增/绑定就诊人仍未开放，因为当前平台只具备真实的目录同步契约，不能在小程序侧伪造绑定成功。
 页面只负责状态和交互事件；会话生命周期集中在 `src/services/session-service.ts` 和 `src/services/api-client.ts`，
 其中并发登录请求使用单飞机制，日期窗口和患者/预约/报告

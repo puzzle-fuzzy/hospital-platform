@@ -25,6 +25,7 @@ test("患者同步协调器跨页面实例复用同一在途 Promise", async () 
 				relationship: "other",
 				cardNumberMasked: "******0000",
 				source: "legacy-record",
+				clinicalAccess: "unavailable",
 			},
 		];
 	});
@@ -39,6 +40,7 @@ test("患者同步协调器跨页面实例复用同一在途 Promise", async () 
 			relationship: "self",
 			cardNumberMasked: "******0001",
 			source: "hospital-his",
+			clinicalAccess: "ready",
 		},
 	]);
 	expect(await first).toEqual([
@@ -48,6 +50,7 @@ test("患者同步协调器跨页面实例复用同一在途 Promise", async () 
 			relationship: "self",
 			cardNumberMasked: "******0001",
 			source: "hospital-his",
+			clinicalAccess: "ready",
 		},
 	]);
 	expect(isPatientSyncInFlight()).toBe(false);
@@ -59,6 +62,7 @@ test("患者同步协调器跨页面实例复用同一在途 Promise", async () 
 				relationship: "child",
 				cardNumberMasked: "******0002",
 				source: "hospital-his",
+				clinicalAccess: "ready",
 			},
 		]),
 	).toEqual([
@@ -68,6 +72,7 @@ test("患者同步协调器跨页面实例复用同一在途 Promise", async () 
 			relationship: "child",
 			cardNumberMasked: "******0002",
 			source: "hospital-his",
+			clinicalAccess: "ready",
 		},
 	]);
 });

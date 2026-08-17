@@ -111,6 +111,7 @@ type PatientRow = RowDataPacket & {
 	provider_name: string | null;
 	provider_patient_id: string | null;
 	directory_last_seen_at: string | null;
+	clinical_access: "ready" | "unavailable";
 };
 
 type PatientProviderReferenceRow = RowDataPacket & {
@@ -414,6 +415,12 @@ function patient(row: PatientRow): PatientRecord {
 	if (row.source !== "hospital-his" && row.source !== "legacy-record") {
 		throw new Error("Persistence returned an unknown patient source");
 	}
+	if (
+		row.clinical_access !== "ready" &&
+		row.clinical_access !== "unavailable"
+	) {
+		throw new Error("Persistence returned an unknown patient clinical access");
+	}
 	return {
 		id: row.patient_id,
 		ownerUserId: row.owner_user_id,
@@ -421,6 +428,7 @@ function patient(row: PatientRow): PatientRecord {
 		relationship: patientRelationship(row.relationship),
 		cardNumberMasked: row.card_number_masked,
 		source: row.source,
+		clinicalAccess: row.clinical_access,
 	};
 }
 
@@ -480,7 +488,7 @@ async function persistPatientProviderReferences(
 }
 
 const PATIENT_BY_PROVIDER_SQL =
-	"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id, directory_last_seen_at FROM hp_patients WHERE owner_user_id = ? AND provider_name = ? AND provider_patient_id = ? LIMIT 1";
+	"SELECT patients.patient_id, patients.owner_user_id, patients.display_name, patients.relationship, patients.card_number_masked, patients.source, patients.provider_name, patients.provider_patient_id, patients.directory_last_seen_at, CASE WHEN EXISTS (SELECT 1 FROM hp_patient_provider_references AS refs WHERE refs.owner_user_id = patients.owner_user_id AND refs.patient_id = patients.patient_id AND refs.provider_name = patients.provider_name AND refs.reference_kind = 'his-patient') THEN 'ready' ELSE 'unavailable' END AS clinical_access FROM hp_patients AS patients WHERE patients.owner_user_id = ? AND patients.provider_name = ? AND patients.provider_patient_id = ? LIMIT 1";
 
 /**
  * 把 MySQL DATETIME(3) 和领域层 ISO 时间统一转换为毫秒。
@@ -566,6 +574,12 @@ async function refreshExistingPatientFromDirectory(
 		relationship: input.profile.relationship,
 		card_number_masked: input.profile.cardNumberMasked,
 		source: "hospital-his",
+		// 单条 upsert 不负责清理缺失的临床引用；只有完整快照才有权把
+		// 上一次 `his-patient` 事实判定为失效。因此本次有新引用时标记 ready，
+		// 没有新引用时沿用数据库当前计算结果。
+		clinical_access: input.profile.providerReferences?.["his-patient"]
+			? "ready"
+			: existing.clinical_access,
 	});
 	await persistPatientProviderReferences(client, input, updatedPatient.id);
 	return updatedPatient;
@@ -624,6 +638,9 @@ async function upsertPatientFromDirectory(
 			relationship: input.profile.relationship,
 			cardNumberMasked: input.profile.cardNumberMasked,
 			source: "hospital-his",
+			clinicalAccess: input.profile.providerReferences?.["his-patient"]
+				? "ready"
+				: "unavailable",
 		};
 		await persistPatientProviderReferences(client, input, insertedPatient.id);
 		return insertedPatient;
@@ -1107,7 +1124,7 @@ export function createMySqlRepositories(
 		async listByOwner(ownerUserId) {
 			const rows = await execute<PatientRow[]>(
 				pool,
-				"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND (provider_name IS NULL OR directory_active = 1) ORDER BY patient_id",
+				"SELECT patients.patient_id, patients.owner_user_id, patients.display_name, patients.relationship, patients.card_number_masked, patients.source, patients.provider_name, patients.provider_patient_id, patients.directory_last_seen_at, CASE WHEN EXISTS (SELECT 1 FROM hp_patient_provider_references AS refs WHERE refs.owner_user_id = patients.owner_user_id AND refs.patient_id = patients.patient_id AND refs.provider_name = patients.provider_name AND refs.reference_kind = 'his-patient') THEN 'ready' ELSE 'unavailable' END AS clinical_access FROM hp_patients AS patients WHERE patients.owner_user_id = ? AND (patients.provider_name IS NULL OR patients.directory_active = 1) ORDER BY patients.patient_id",
 				[ownerUserId],
 			);
 			return rows.map(patient);
@@ -1300,7 +1317,7 @@ export function createMySqlRepositories(
 				);
 				const currentRows = await execute<PatientRow[]>(
 					connection,
-					"SELECT patient_id, owner_user_id, display_name, relationship, card_number_masked, source, provider_name, provider_patient_id FROM hp_patients WHERE owner_user_id = ? AND (provider_name IS NULL OR directory_active = 1) ORDER BY patient_id",
+					"SELECT patients.patient_id, patients.owner_user_id, patients.display_name, patients.relationship, patients.card_number_masked, patients.source, patients.provider_name, patients.provider_patient_id, patients.directory_last_seen_at, CASE WHEN EXISTS (SELECT 1 FROM hp_patient_provider_references AS refs WHERE refs.owner_user_id = patients.owner_user_id AND refs.patient_id = patients.patient_id AND refs.provider_name = patients.provider_name AND refs.reference_kind = 'his-patient') THEN 'ready' ELSE 'unavailable' END AS clinical_access FROM hp_patients AS patients WHERE patients.owner_user_id = ? AND (patients.provider_name IS NULL OR patients.directory_active = 1) ORDER BY patients.patient_id",
 					[input.ownerUserId],
 				);
 				if (input.operationId) {
