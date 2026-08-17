@@ -40,6 +40,28 @@
 - 直接访问应用内部的 `/api/v2/health/*` 返回 `404`；这是预期的路径边界，`/api/v2` 由外层反向代理提供，内部应用路由使用无版本前缀的 `/health/*`。该结果不能作为公网路径验收证据。
 - 以当前进程启动时间为边界筛选最近 60 分钟日志，仍未出现 `appointment.records.*`、`outpatient.payment.records.*` 或 `report.*` 业务事件。
 
+### 15:39 CST 之后的当前 release 复核
+
+后续只读观察以当前服务的 `service.started` 时间 `2026-08-17 15:39:39 CST` 为边界，
+只保留事件名和聚合数量，不记录用户标识、操作 ID、Provider 患者号或 token：
+
+| 事件 | 聚合数量 | 结论 |
+| --- | ---: | --- |
+| `auth.wechat.login.requested` / `auth.wechat.login.succeeded` | 各 1 | 当前 release 出现 1 次完整微信登录成功链，但不等于 Redis TTL 已验收 |
+| `patient.directory.requested` / `operation.started` / `synced` | 各 3 | 出现 3 次患者目录同步成功链；当前仍只能证明观测到的账号/快照，不证明多患者切换或失效恢复 |
+| `patient.directory.read.requested` / `read.loaded` | 各 6 | 患者读模型读取成功，观察到的目录数量为 1 |
+| `appointment.records.*` | 0 | 未出现预约历史真实业务请求证据 |
+| `outpatient.payment.records.*` | 0 | 未出现门诊费用真实业务请求证据 |
+| `report.*` | 0 | 报告 gate 仍关闭，未出现报告 Provider 业务证据 |
+
+同一窗口另有 7 次受保护 HTTP 请求返回 `401`，路径覆盖预约科室、预约记录、`/me`、患者、门诊费用和报告。
+这些请求没有形成对应的业务事件，当前只能作为认证边界观察，不能解释为 Provider 失败，也不能替代有效 Bearer
+会话下的预约或费用验收。
+
+本次观察确认线上新旧服务仍共存、当前 release 仍为 `daee96d`；但 P0 仍只新增了单账号微信登录和患者目录的
+低敏日志证据。下一步必须使用重新构建的原生小程序，在有效会话下依次进入“我的挂号”和“门诊缴费”并核对
+HTTP、页面和服务端事件三层结果。
+
 ## 4. 未完成的直接证据
 
 - 没有执行真实患者的预约历史请求；不能证明未来预约、状态映射或爽约筛选。

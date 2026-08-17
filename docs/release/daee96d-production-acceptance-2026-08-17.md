@@ -100,6 +100,9 @@ preflight 只读取依赖和配置 gate，没有执行 migration、Provider 业�
 
 ## 8. 切换后业务日志复核
 
+本节只记录切换完成后的即时观察窗口，截止当时的结果；后续日志不能回写本节的历史快照。
+当前较新的低敏聚合观察见 [`current-server-p0-observation-2026-08-17.md`](current-server-p0-observation-2026-08-17.md)。
+
 切换后通过 SSH 复核新 API journald：当前 `current` 仍为 `releases/daee96d`，systemd 为 `active`，旧 Python `8001` 仍监听。切换后的日志只有服务启动和公网 runtime smoke 的健康/认证边界事件，没有出现：
 
 - `auth.wechat.login.*`；
