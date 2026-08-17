@@ -564,3 +564,9 @@ production mode、MySQL/Redis/schema `ok` 和支付/报告 gate 关闭；该发�
 签名、TTL、撤销、防重放和扫码回执；新端 `onPatientQr` 只保留视觉入口并展示关闭态，不发起外部请求。按业务
 正确性要求本轮停止二维码编码，等待医院/HIS 书面协议、脱敏样例和测试设备；详细决策见
 [`首页就诊人二维码契约审计`](../release/qr-contract-audit-2026-08-17.md)。
+
+2026-08-17 19:17 CST 继续做 Redis 会话 TTL 只读探测：通过服务 env 确认新 API 实际连接远端 Redis DB3，
+服务器侧 Bun/ioredis 连接成功；关闭 `INFO` ready-check 后，`SCAN MATCH hospital:session:*` 被 ACL 明确拒绝。
+本机 `127.0.0.1:6379` 的 DB1/DB3 结果不属于新 API 会话证据，因此没有把空扫描写成“没有会话”。实际会话数量、
+TTL 范围和过期后 401 仍未验证；本次没有放宽 ACL、输出 key/token 或改动服务。详细记录见
+[`Redis 会话 TTL 与 ACL 只读观察`](../release/redis-session-ttl-acl-observation-2026-08-17.md)。

@@ -216,3 +216,14 @@ Provider 字段缺失或依赖暂时不可用都必须停止该业务域，不�
 `undefined is not iterable` 的微信工具控制/渲染层日志。它们不是 HTTP 失败证据，但也意味着本次不能宣称
 调试器零错误或真机视觉完成。首次资料写入、409 版本冲突、真机复测和敏感身份字段继续保持关闭；详细对照见
 [`普通个人资料只读观察记录`](user-profile-readonly-observation-2026-08-17.md)。
+
+### 19:17 CST Redis 会话 TTL ACL 复核
+
+服务器侧连接表确认当前 Bun API 连接的是远端 Redis `8.130.127.184:6379` 的 DB3，而非本机
+`127.0.0.1:6379`。使用服务环境配置创建只读 Bun/ioredis 诊断客户端时，默认 `INFO` ready-check 被 ACL
+拒绝；关闭该 ready-check 后，`SCAN MATCH hospital:session:*` 仍返回 ACL 无权限。实际会话数量和 TTL 范围因此
+没有取得，不能使用本机 DB3 空扫描作为结论。
+
+本次没有读取或输出 Redis URL、用户名、密码、session key 或 token，也没有修改 ACL、重启服务或写入 Redis。
+要取得直接 TTL 证据，应由运维临时提供只允许 `SCAN/TTL` 且限制在 `hospital:session:*` 的独立审计身份，脚本只输出
+数量和 TTL 范围，完成后撤销；详细记录见 [`Redis 会话 TTL 与 ACL 只读观察`](redis-session-ttl-acl-observation-2026-08-17.md)。
