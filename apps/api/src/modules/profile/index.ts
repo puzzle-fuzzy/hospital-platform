@@ -24,9 +24,14 @@ export function profileModule(
 		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/me/profile",
-			async ({ request }) => {
+			async ({ request, headers }) => {
 				const principal = await authentication.get(request);
-				return success(await profileService.get(principal.userId));
+				return success(
+					await profileService.get(
+						principal.userId,
+						adapterContextFromHeaders(headers),
+					),
+				);
 			},
 			{
 				headers: ProfileHeaders,

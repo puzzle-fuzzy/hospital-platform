@@ -88,10 +88,43 @@ export class UserProfileService {
 		this.logger = dependencies.logger ?? createNoopLogger();
 	}
 
-	/** 资料不存在时只返回安全默认值，不创建隐含副作用。 */
-	async get(userId: string): Promise<UserProfilePayload["data"]> {
-		const profile = await this.repository.findByUserId(userId);
-		return toPayload(profile ?? emptyUserProfile(userId));
+	/**
+	 * 资料不存在时只返回安全默认值，不创建隐含副作用。
+	 *
+	 * 读取也要留下资料域事件：通用 HTTP 日志只能说明请求状态，不能区分
+	 * “用户还没有资料行”和“仓储读取失败”。日志只使用 trace、是否已有持久化
+	 * 记录和错误类型，不写入 userId、昵称、邮箱或任何资料正文。
+	 */
+	async get(
+		userId: string,
+		context: AdapterCallContext,
+	): Promise<UserProfilePayload["data"]> {
+		this.logger.info(
+			{ event: "user.profile.requested", traceId: context.traceId },
+			"User profile requested",
+		);
+		try {
+			const profile = await this.repository.findByUserId(userId);
+			this.logger.info(
+				{
+					event: "user.profile.loaded",
+					traceId: context.traceId,
+					persisted: Boolean(profile),
+				},
+				"User profile loaded",
+			);
+			return toPayload(profile ?? emptyUserProfile(userId));
+		} catch (error) {
+			this.logger.error(
+				{
+					event: "user.profile.read_failed",
+					traceId: context.traceId,
+					errorType: error instanceof Error ? error.name : "unknown",
+				},
+				"User profile read failed",
+			);
+			throw error;
+		}
 	}
 
 	/**

@@ -8,10 +8,21 @@ import {
 import { UserProfileService } from "./service";
 
 test("普通资料不存在时返回默认值且不产生持久化副作用", async () => {
+	const lines: string[] = [];
 	const repository = createInMemoryUserProfileRepository();
-	const service = new UserProfileService(repository);
+	const service = new UserProfileService(repository, {
+		logger: createLogger({
+			service: "profile-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+	const context = {
+		traceId: "profile-read-trace-001",
+		idempotencyKey: "profile-read-trace-001",
+	};
 
-	await expect(service.get("profile-user-001")).resolves.toEqual({
+	await expect(service.get("profile-user-001", context)).resolves.toEqual({
 		displayName: "微信用户",
 		gender: "unknown",
 		age: null,
@@ -21,6 +32,59 @@ test("普通资料不存在时返回默认值且不产生持久化副作用", as
 	await expect(
 		repository.findByUserId("profile-user-001"),
 	).resolves.toBeUndefined();
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"user.profile.requested",
+		"user.profile.loaded",
+	]);
+	expect(records[1]).toMatchObject({
+		traceId: "profile-read-trace-001",
+		persisted: false,
+	});
+	expect(JSON.stringify(records)).not.toContain("profile-user-001");
+});
+
+test("普通资料读取失败记录安全事件而不泄露底层错误", async () => {
+	const lines: string[] = [];
+	const service = new UserProfileService(
+		{
+			findByUserId: async () => {
+				throw new Error("mysql password=secret connection failed");
+			},
+			update: async () => {
+				throw new Error("not used");
+			},
+		},
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
+
+	await expect(
+		service.get("profile-user-read-failure", {
+			traceId: "profile-read-trace-002",
+			idempotencyKey: "profile-read-trace-002",
+		}),
+	).rejects.toThrow("mysql password=secret connection failed");
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"user.profile.requested",
+		"user.profile.read_failed",
+	]);
+	expect(records[1]).toMatchObject({
+		traceId: "profile-read-trace-002",
+		errorType: "Error",
+	});
+	expect(JSON.stringify(records)).not.toContain("password=secret");
 });
 
 test("普通资料更新会归一化字段并只记录低敏事件元数据", async () => {
