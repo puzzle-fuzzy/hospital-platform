@@ -102,7 +102,22 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		const directoryToken = directoryGuard.begin();
 		// 新一轮科室目录会使上一轮右栏排班失效，避免刷新完成后旧排班回写。
 		scheduleGuard.begin();
-		this.setData({ loading: true, error: "" });
+		// 刷新开始后，上一轮科室和排班都不再代表当前读取；只让请求守卫失效
+		// 还不够，因为请求等待期间 WXML 仍可能展示旧号源。先清空整个级联
+		// 读模型，等新科室和对应排班都成功后再恢复页面内容。
+		this.setData({
+			loading: true,
+			error: "",
+			departments: [],
+			schedules: [],
+			selectedDepartmentId: "",
+			selectedDepartmentName: "",
+			dateGroups: [],
+			selectedDate: "",
+			visibleSchedules: [],
+			hasMoreSchedules: false,
+			visibleScheduleCount: SCHEDULE_PAGE_SIZE,
+		});
 		return loadAppointmentDepartments()
 			.then((departments) => {
 				if (!directoryGuard.isCurrent(directoryToken)) return undefined;
