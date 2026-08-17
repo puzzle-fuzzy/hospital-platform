@@ -59,6 +59,7 @@
 | [`release/miniprogram-static-official-account-acceptance.md`](release/miniprogram-static-official-account-acceptance.md) | 原生小程序静态公众号说明页和关注事实边界验收 |
 | [`release/miniprogram-static-feedback-acceptance.md`](release/miniprogram-static-feedback-acceptance.md) | 原生小程序反馈帮助、客服电话和真实提交边界验收 |
 | [`release/miniprogram-devtools-runtime-acceptance-2026-08-16.md`](release/miniprogram-devtools-runtime-acceptance-2026-08-16.md) | 原生小程序 `dist/` 模块缺失、开发者工具配置修复和模拟器复核证据 |
+| [`release/miniprogram-runtime-package-verification-2026-08-17.md`](release/miniprogram-runtime-package-verification-2026-08-17.md) | 报告目录/就诊人页面 JS 缺失问题的构建后运行包验证和未覆盖边界 |
 | [`release/payment-acceptance.md`](release/payment-acceptance.md) | 微信支付、回调、查单和真机验收 |
 
 ## 契约与迁移

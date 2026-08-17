@@ -73,5 +73,20 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 JavaScript 生成，并动态校验 `app.json` 的每个页面同时存在 `.json/.wxml/.wxss/.ts` 以及最终的 `.js`；
 同时验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须打开
 `apps/miniprogram/`，由公共 `project.config.json` 将 `dist/` 作为运行根目录；不要直接打开 `src/`。
+
+### 真机调试前验证运行包
+
+如果微信开发者工具提示 `pages/xxx/xxx.js` 不存在，先在仓库根目录执行：
+
+```bash
+pnpm --filter @hospital/miniprogram build
+pnpm --filter @hospital/miniprogram runtime:verify
+```
+
+`runtime:verify` 只读检查 `src/app.json` 注册的全部页面，以及 `dist/` 中对应的
+`.js/.json/.wxml/.wxss` 文件；它不会修改文件。开发者工具必须打开
+`apps/miniprogram/`，并保持 `project.config.json` 的 `miniprogramRoot` 为 `dist/`。
+不要把 `src/` 作为小程序根目录，也不要只上传单个页面目录，否则会重新出现页面
+脚本缺失、页面 404 或模板/样式不一致的问题。
 若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。
