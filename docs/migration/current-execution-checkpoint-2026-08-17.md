@@ -559,3 +559,8 @@ production mode、MySQL/Redis/schema `ok` 和支付/报告 gate 关闭；该发�
 期间出现 `clickCheckTask` 和 `undefined is not iterable` 控制/渲染层日志，因此本次不宣称调试器零错误或真机验收。
 普通资料已推进到“真实默认值读取证据”，首次 `PUT`、409、真机和敏感身份字段仍未开放。详细记录见
 [`普通个人资料只读观察记录`](../release/user-profile-readonly-observation-2026-08-17.md)。
+
+随后完成首页就诊人二维码契约审计：旧端将完整 `medicalCardNo` 拼接到第三方二维码 URL，缺少医院扫码字段、
+签名、TTL、撤销、防重放和扫码回执；新端 `onPatientQr` 只保留视觉入口并展示关闭态，不发起外部请求。按业务
+正确性要求本轮停止二维码编码，等待医院/HIS 书面协议、脱敏样例和测试设备；详细决策见
+[`首页就诊人二维码契约审计`](../release/qr-contract-audit-2026-08-17.md)。

@@ -16,6 +16,7 @@
 - `0b6f38f` 切换后的最新 journald 窗口只有 1 次 production 启动、13 次 HTTP 200 运行/系统探针和 6 次未登录 401；`auth.wechat.*`、`patient.directory.*`、`appointment.*`、`outpatient.payment.*` 和 `report.*` 均为 0。该结果证明运行和认证边界，不证明任何 Provider 业务成功；新 API `18081` 与旧 Python `8001` 仍同时监听，详见 [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
 - 2026-08-17 18:23 CST 的当前 release `5f5915e` 低敏 SSH 观察确认：1 次微信登录成功、7 次患者同步成功、14 次患者目录读取，观测目录仍为单患者；最近 30 分钟没有预约、门诊费用或报告事件。该证据只推进微信/单患者目录链的运行观察，不替代 Redis TTL、多患者切换、预约历史、门诊费用或真机验收，详见 [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
 - 2026-08-17 19:00-19:01 CST 的当前 release `5f5915e` 取得真实微信会话的普通资料默认值读取证据：`GET /me/profile` 返回 200，日志完成 `requested → loaded` 且 `persisted=false`，页面展示资料字段和边界说明；读取没有创建资料行。首次 `PUT`、409 版本冲突、真机视觉和敏感身份字段仍未验收，自动化开发者工具控制层日志也不能被记作干净真机证据，详见 [`release/user-profile-readonly-observation-2026-08-17.md`](release/user-profile-readonly-observation-2026-08-17.md)。
+- 2026-08-17：完成首页就诊人二维码契约审计。旧端第三方二维码 URL 只证明页面展示行为，不证明医院扫码事实；新端保持安全关闭态，未新增 API、外部请求或伪 token。正式开放前仍需医院/HIS 扫码字段、签名、短 TTL、防重放、撤销、扫码回执和真机设备证据，详见 [`release/qr-contract-audit-2026-08-17.md`](release/qr-contract-audit-2026-08-17.md)。
 
 ### 线上实时状态（历史快照：2026-08-17 02:56 CST）
 
