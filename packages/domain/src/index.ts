@@ -170,6 +170,8 @@ export type {
 	ReportSummary,
 } from "./reports";
 export {
+	InvalidReportKindError,
+	isReportKind,
 	REPORT_REFERENCE_MAX_TTL_MS,
 	ReportReferenceValidationError,
 	validateReportReference,

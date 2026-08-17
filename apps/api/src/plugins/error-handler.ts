@@ -4,6 +4,7 @@ import {
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeValidationError,
 	InvalidOutpatientPaymentStatusError,
+	InvalidReportKindError,
 	PatientDirectorySyncInProgressError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
@@ -229,7 +230,10 @@ export function errorHandlerPlugin() {
 				};
 			}
 
-			if (error instanceof ReportQueryError) {
+			if (
+				error instanceof ReportQueryError ||
+				error instanceof InvalidReportKindError
+			) {
 				set.status = 400;
 				return {
 					success: false,

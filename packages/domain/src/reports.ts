@@ -3,6 +3,25 @@ import type { AdapterCallContext, ExternalTrace } from "./ports";
 /** 当前已取得安全查询边界的报告来源；体检报告需要额外身份证合同，暂不纳入。 */
 export type ReportKind = "laboratory" | "imaging" | "ecg";
 
+/**
+ * 报告来源查询的运行时边界错误。
+ *
+ * HTTP query schema 会拦截普通外部请求，但内部任务和 adapter 仍可能绕过
+ * Elysia 进入领域层。未知来源不能落入 adapter 的默认 ECG 分支，否则查询
+ * 语义会被静默改变，必须在 Provider 请求前直接拒绝。
+ */
+export class InvalidReportKindError extends Error {
+	constructor() {
+		super("Invalid report kind");
+		this.name = "InvalidReportKindError";
+	}
+}
+
+/** 供报告 service 与 adapter 共用的来源白名单守卫。 */
+export function isReportKind(value: unknown): value is ReportKind {
+	return value === "laboratory" || value === "imaging" || value === "ecg";
+}
+
 /** 报告目录只返回患者端需要的最小摘要，不把 provider 原始报文带出 adapter。 */
 export type ReportSummary = {
 	kind: ReportKind;

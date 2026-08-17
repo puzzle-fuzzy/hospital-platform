@@ -13,6 +13,8 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
+	InvalidReportKindError,
+	isReportKind,
 	parseIsoCalendarDate,
 	REPORT_REFERENCE_MAX_TTL_MS,
 } from "@hospital/domain";
@@ -78,6 +80,9 @@ function reportReferenceId(
 }
 
 function validateQuery(input: ReportDirectoryQuery): void {
+	if (input.kind !== undefined && !isReportKind(input.kind)) {
+		throw new InvalidReportKindError();
+	}
 	const start = parseIsoCalendarDate(input.startDate);
 	const end = parseIsoCalendarDate(input.endDate);
 	// 当前 API 限制的是起止日期 UTC 零点的时间跨度，而不是“首尾都计入的

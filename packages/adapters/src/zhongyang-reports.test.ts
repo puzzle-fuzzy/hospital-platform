@@ -348,3 +348,29 @@ test("众阳报告目录拒绝同一来源中的重复报告号", async () => {
 		retryable: false,
 	});
 });
+
+test("众阳报告 adapter 拒绝运行时未知来源且不访问 Provider", async () => {
+	let fetchCalled = false;
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			fetchCalled = true;
+			throw new Error("provider must not be called");
+		},
+	});
+
+	await expect(
+		gateway.listReports(
+			{
+				providerPatientId: "provider-patient-unknown-kind",
+				query: {
+					startDate: "2026-08-01",
+					endDate: "2026-08-15",
+					kind: "unknown" as never,
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({ name: "InvalidReportKindError" });
+	expect(fetchCalled).toBe(false);
+});

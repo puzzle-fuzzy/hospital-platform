@@ -5,7 +5,10 @@ import type {
 	ReportDirectoryGateway,
 	ReportReferenceRepository,
 } from "@hospital/domain";
-import { DependencyNotConfiguredError } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	InvalidReportKindError,
+} from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import { createInMemoryReportReferenceRepository } from "@hospital/persistence";
 import {
@@ -16,6 +19,7 @@ import {
 
 test("报告目录空结果是成功，非法查询和详情依赖缺失保留失败日志", async () => {
 	const lines: string[] = [];
+	let directoryCalls = 0;
 	const logger = createLogger({
 		service: "report-test",
 		environment: "test",
@@ -31,14 +35,17 @@ test("报告目录空结果是成功，非法查询和详情依赖缺失保留�
 			}),
 		} as unknown as PatientRepository,
 		directory: {
-			listReports: async () => ({
-				reports: [],
-				trace: {
-					provider: "zhongyang",
-					operation: "reports-directory",
-					requestId: "report-empty",
-				},
-			}),
+			listReports: async () => {
+				directoryCalls += 1;
+				return {
+					reports: [],
+					trace: {
+						provider: "zhongyang" as const,
+						operation: "reports-directory",
+						requestId: "report-empty",
+					},
+				};
+			},
 		},
 		logger,
 	});
@@ -64,6 +71,23 @@ test("报告目录空结果是成功，非法查询和详情依赖缺失保留�
 			{ traceId: "trace-report-invalid", idempotencyKey: "key-report-invalid" },
 		),
 	).rejects.toBeInstanceOf(ReportQueryError);
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				kind: "unknown" as never,
+			},
+			{
+				traceId: "trace-report-invalid-kind",
+				idempotencyKey: "key-report-invalid-kind",
+			},
+		),
+	).rejects.toBeInstanceOf(InvalidReportKindError);
+	expect(directoryCalls).toBe(1);
 
 	const detailDisabledService = new ReportService({
 		repository: {
@@ -103,6 +127,13 @@ test("报告目录空结果是成功，非法查询和详情依赖缺失保留�
 			event: "report.directory.failed",
 			traceId: "trace-report-invalid",
 			errorType: "ReportQueryError",
+		}),
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "report.directory.failed",
+			traceId: "trace-report-invalid-kind",
+			errorType: "InvalidReportKindError",
 		}),
 	);
 	expect(events).toContainEqual(

@@ -117,6 +117,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 `status=invalid`，不记录调用方传入的任意原始字符串，也不产生 Provider 请求。这样日志能证明拒绝发生，
 但不会把错误输入继续扩散为“已支付”查询语义。
 
+报告目录的 `kind` 同样是运行时白名单字段；未知来源只记录 `report.directory.failed` 和稳定错误类型，
+不会产生 `report.directory.requested`，也不会把错误查询降级成 ECG Provider 请求。
+
 以上事件以同一个 `traceId` 关联；失败事件必须保留稳定 `errorType`，成功事件必须保留结果数量或状态。HTTP
 请求日志仍然独立记录请求生命周期，不能用 `http.request.completed` 代替业务 `synced/loaded`，也不能用 HTTP 200
 推导 Provider 业务成功。

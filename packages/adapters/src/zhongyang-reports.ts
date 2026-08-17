@@ -1,14 +1,15 @@
 import type {
 	AdapterCallContext,
 	ExternalTrace,
-	ReportDetailGateway,
-	ReportDirectoryGateway,
-	ReportDirectoryEntry,
-	ReportDirectoryInput,
 	LaboratoryReportDetail,
+	ReportDetailGateway,
+	ReportDirectoryEntry,
+	ReportDirectoryGateway,
+	ReportDirectoryInput,
 	ReportKind,
 	ReportSummary,
 } from "@hospital/domain";
+import { InvalidReportKindError, isReportKind } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
@@ -486,6 +487,11 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		reports: readonly ReportDirectoryEntry[];
 		trace: ExternalTrace;
 	}> {
+		if (input.query.kind !== undefined && !isReportKind(input.query.kind)) {
+			// 不能把未知来源交给下面的三路分支；默认 ECG 只适用于“未指定 kind”，
+			// 不适用于调用方传入了一个不认识的值。
+			throw new InvalidReportKindError();
+		}
 		const kinds: readonly ReportKind[] = input.query.kind
 			? [input.query.kind]
 			: ["laboratory", "imaging", "ecg"];
