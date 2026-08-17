@@ -34,7 +34,11 @@ export type OutpatientPaymentRecord = {
 	amountFen: number;
 };
 
-/** 门诊费用 provider 只读网关；写入、医保和微信支付另建独立 contract。 */
+/**
+ * 门诊费用 provider 只读网关；写入、医保和微信支付另建独立 contract。
+ * 渠道码属于 adapter 的启动配置，不属于单次患者查询参数，避免调用方
+ * 在运行时把请求导向未经确认的 Provider 业务渠道。
+ */
 export interface OutpatientPaymentGateway {
 	listRecords(
 		input: {
@@ -42,7 +46,6 @@ export interface OutpatientPaymentGateway {
 			startTime: string;
 			endTime: string;
 			status: OutpatientPaymentStatus;
-			authSysCode: string;
 		},
 		context: AdapterCallContext,
 	): Promise<{

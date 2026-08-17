@@ -77,7 +77,6 @@ test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务�
 		startTime: "2026-07-17 18:20:30",
 		endTime: "2026-08-16 18:20:30",
 		status: "unpaid",
-		authSysCode: "thirdSelfMachine",
 	});
 });
 

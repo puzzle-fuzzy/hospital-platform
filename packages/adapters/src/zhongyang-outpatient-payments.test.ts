@@ -55,7 +55,6 @@ test("众阳门诊费用 adapter 只使用已确认 amount 并把元转换为分
 			startTime: "2026-07-17 00:00:00",
 			endTime: "2026-08-16 23:59:59",
 			status: "unpaid",
-			authSysCode: "thirdSelfMachine",
 		},
 		context,
 	);
@@ -96,7 +95,6 @@ test("众阳门诊费用 adapter 拒绝非对象费用条目", async () => {
 				startTime: "2026-08-16 00:00:00",
 				endTime: "2026-08-16 23:59:59",
 				status: "unpaid",
-				authSysCode: "thirdSelfMachine",
 			},
 			context,
 		),
@@ -139,7 +137,6 @@ test("众阳门诊费用 adapter 拒绝缺失金额而不是降级为零元", as
 				startTime: "2026-08-16 00:00:00",
 				endTime: "2026-08-16 23:59:59",
 				status: "unpaid",
-				authSysCode: "thirdSelfMachine",
 			},
 			context,
 		),
@@ -183,7 +180,6 @@ test("众阳门诊费用 adapter 在公开 contract 边界拒绝超长展示字�
 				startTime: "2026-08-16 00:00:00",
 				endTime: "2026-08-16 23:59:59",
 				status: "unpaid",
-				authSysCode: "thirdSelfMachine",
 			},
 			context,
 		),
@@ -224,7 +220,6 @@ test("众阳门诊费用 adapter 严格校验中国标准时间账单日期", as
 		startTime: "2026-08-16 00:00:00",
 		endTime: "2026-08-16 23:59:59",
 		status: "unpaid" as const,
-		authSysCode: "thirdSelfMachine",
 	};
 
 	const valid = await createGateway(
@@ -284,7 +279,6 @@ test("众阳门诊费用 recordId 不依赖返回顺序", async () => {
 		startTime: "2026-08-16 00:00:00",
 		endTime: "2026-08-16 23:59:59",
 		status: "unpaid" as const,
-		authSysCode: "thirdSelfMachine",
 	};
 
 	const first = await gateway.listRecords(input, context);
@@ -315,7 +309,6 @@ test("众阳门诊费用 adapter 拒绝缺少稳定标识或重复费用", async
 		startTime: "2026-08-16 00:00:00",
 		endTime: "2026-08-16 23:59:59",
 		status: "unpaid" as const,
-		authSysCode: "thirdSelfMachine",
 	};
 
 	await expect(
@@ -383,7 +376,6 @@ test("众阳门诊费用 adapter 拒绝缺失或错配的 tradeStatus", async ()
 		startTime: "2026-08-16 00:00:00",
 		endTime: "2026-08-16 23:59:59",
 		status: "unpaid" as const,
-		authSysCode: "thirdSelfMachine",
 	};
 
 	const cases: readonly [unknown, string][] = [
@@ -443,7 +435,6 @@ test("众阳门诊费用 adapter 只把 1/3 映射为公共 unpaid/paid", async 
 		providerPatientId: "provider-patient-secret",
 		startTime: "2026-08-16 00:00:00",
 		endTime: "2026-08-16 23:59:59",
-		authSysCode: "thirdSelfMachine",
 	};
 
 	await expect(
@@ -496,7 +487,6 @@ test("众阳门诊费用 adapter 拒绝运行时未知状态且不访问 Provide
 				startTime: "2026-08-16 00:00:00",
 				endTime: "2026-08-16 23:59:59",
 				status: "unexpected" as never,
-				authSysCode: "thirdSelfMachine",
 			},
 			context,
 		),

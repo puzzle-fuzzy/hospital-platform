@@ -360,7 +360,6 @@ export class ZhongyangOutpatientPaymentApiGateway
 			startTime: string;
 			endTime: string;
 			status: OutpatientPaymentStatus;
-			authSysCode: string;
 		},
 		context: AdapterCallContext,
 	) {
@@ -374,7 +373,7 @@ export class ZhongyangOutpatientPaymentApiGateway
 		url.searchParams.set("startTime", input.startTime);
 		url.searchParams.set("endTime", input.endTime);
 		url.searchParams.set("tradeStatus", input.status === "unpaid" ? "1" : "3");
-		url.searchParams.set("authSysCode", requiredConfig(input.authSysCode));
+		url.searchParams.set("authSysCode", this.authSysCode);
 		const response = await requestJson<unknown>(
 			{
 				provider: "zhongyang",

@@ -61,7 +61,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 门诊缴费 Phase 7E 当前只实现“费用目录查询”，不等同于已经接通支付：
 
 - 使用 `/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records`，服务端从 owner-scoped 的内部 `patientId` 解析众阳患者映射；`patId`、provider 订单号和完整原始字段不会进入小程序请求或公开 contract；
-- 服务端固定最近 30 个中国标准时间日的查询窗口，并固定 `authSysCode` 配置；时间格式化显式使用 `Asia/Shanghai`，不能继承服务器进程时区；账单 `billDate` 严格使用 `YYYY-MM-DD HH:mm:ss`，adapter 会校验真实自然日和时分秒范围；小程序只能选择 `unpaid` 或 `paid`，不能提交金额、渠道、患者 provider 标识或结算状态；
+- 服务端固定最近 30 个中国标准时间日的查询窗口，并固定 `authSysCode` 配置；该渠道码只能在 adapter 构造时注入，不能作为单次查询参数被调用方覆盖。时间格式化显式使用 `Asia/Shanghai`，不能继承服务器进程时区；账单 `billDate` 严格使用 `YYYY-MM-DD HH:mm:ss`，adapter 会校验真实自然日和时分秒范围；小程序只能选择 `unpaid` 或 `paid`，不能提交金额、渠道、患者 provider 标识或结算状态；
 - 旧小程序当前源码曾写死 `authSysCode=internetHospital`，而本次受控服务器只读核对到运行环境显式配置为 `thirdSelfMachine`；这只是新旧配置差异证据，不代表任一值对所有环境都正确。新服务不再提供默认渠道码，必须由院方/Provider 确认后写入环境变量，缺失时 gate 保持 `incomplete`。
 - adapter 把 provider 元金额转换为整数分，并只返回科室、医生、账单日期、状态和金额等展示白名单；费用列表不是支付订单，也不能据此推导医保结算成功；
 - 当前以 2.6.33 输出表确认的 `amount`、`billDeptName`、`billDocName`、`billDate` 为唯一公共映射来源；旧端遗留的 `waitPayAmount`、`registerDept`、`registerDoctor` 未进入新 contract，adapter 必须忽略它们，不能将其作为金额或展示字段 fallback；

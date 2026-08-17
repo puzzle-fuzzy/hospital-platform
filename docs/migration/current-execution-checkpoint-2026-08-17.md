@@ -452,3 +452,10 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 旧 Python legacy 表和患者数据。由于该 migration 是非事务性 DDL，候选发布与 migration 必须绑定，失败时先
 核对 marker/索引元数据，不能自动重复执行或假设事务可回滚。持久化测试 67 项通过；详细执行边界见
 [`../release/patient-sync-0016-readiness-audit-2026-08-17.md`](../release/patient-sync-0016-readiness-audit-2026-08-17.md)。
+
+随后继续复核门诊费用的内部 Provider 契约：服务层仍会在访问患者映射和 Provider 前校验已确认的
+`OUTPATIENT_PAYMENT_AUTH_SYS_CODE`，但 `authSysCode` 不再出现在 `OutpatientPaymentGateway.listRecords` 的
+单次请求输入中，而是只在 adapter 构造时固定。这样可以避免未来调用方把查询动态导向未经确认的业务渠道，
+也避免 adapter 因空值而自行猜测默认渠道。domain、API、adapter 类型检查通过，API 96 项和 adapter 63 项测试通过；
+全仓 typecheck/test/build、架构/provider/文档/格式/Lint 检查通过，migration audit 仍仅被旧仓库的医保清单漂移阻塞。
+本轮未修改服务器、数据库、旧 Python 服务或线上 release，支付、医保、结算与 HIS 继续留到最后处理。

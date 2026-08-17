@@ -43,6 +43,7 @@ export class OutpatientPaymentQueryError extends Error {
 export type OutpatientPaymentServiceDependencies = {
 	repository: PatientRepository;
 	gateway: OutpatientPaymentGateway;
+	/** 已由运行配置和 Provider 合同确认的渠道码，不属于单次患者查询输入。 */
 	authSysCode: string;
 	logger?: AppLogger;
 	now?: () => Date;
@@ -213,7 +214,6 @@ export class OutpatientPaymentService {
 					providerPatientId: reference.providerPatientId,
 					...window,
 					status,
-					authSysCode,
 				},
 				context,
 			);

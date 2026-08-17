@@ -9,8 +9,8 @@ import {
 import {
 	type AppointmentDirectoryGateway,
 	type AppointmentRecordDirectoryGateway,
-	type PatientDirectoryGateway,
 	type OutpatientPaymentGateway,
+	type PatientDirectoryGateway,
 	PaymentOrderService,
 	type ReportDetailGateway,
 	type ReportDirectoryGateway,
@@ -34,8 +34,8 @@ import {
 	authModule,
 	createInMemorySessionTokenService,
 } from "./modules/auth";
-import { PatientService } from "./modules/patients";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
+import { PatientService } from "./modules/patients";
 import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
@@ -1633,14 +1633,12 @@ test("outpatient payment endpoint preserves owner mapping and empty-result seman
 	const gatewayCalls: Array<{
 		providerPatientId: string;
 		status: "unpaid" | "paid";
-		authSysCode: string;
 	}> = [];
 	const gateway: OutpatientPaymentGateway = {
 		listRecords: async (input) => {
 			gatewayCalls.push({
 				providerPatientId: input.providerPatientId,
 				status: input.status,
-				authSysCode: input.authSysCode,
 			});
 			return {
 				records:
@@ -1736,12 +1734,10 @@ test("outpatient payment endpoint preserves owner mapping and empty-result seman
 		{
 			providerPatientId: "his-patient-001",
 			status: "unpaid",
-			authSysCode: "thirdSelfMachine",
 		},
 		{
 			providerPatientId: "his-patient-001",
 			status: "paid",
-			authSysCode: "thirdSelfMachine",
 		},
 	]);
 });
