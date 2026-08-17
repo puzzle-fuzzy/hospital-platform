@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新运行时实现提交为 `015757a`，文档检查点将由本次同步提交更新；在 `9d9e7b1` 的 opaque 标识边界基础上，门诊费用、预约历史和爽约页均增加首批 10 条的本地渲染窗口和本地“加载更多”，不改变服务端完整查询结果、金额或状态语义；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新运行时实现提交为 `a4033b0`，文档检查点将由本次同步提交更新；在 `9d9e7b1` 的 opaque 标识边界基础上，门诊费用、预约历史和爽约页均增加首批 10 条的本地渲染窗口，并收紧患者同步幂等键生成，不改变服务端完整查询结果、金额或状态语义；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -138,12 +138,12 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
   Provider 业务证据。
-- 当前最新运行时实现提交 `015757a` 尚未发布；该提交在既有患者、预约、报告和门诊费用只读边界基础上，给门诊费用、预约历史和爽约派生页增加本地分批渲染：完整查询结果仍保留在页面状态，首批只把 10 条交给 WXML，后续只展开已取得的同一次 owner-scoped 结果，不新增 Provider 请求，也没有改变支付、医保、预约写入或旧 Python 服务。
+- 当前最新运行时实现提交 `a4033b0` 尚未发布；该提交在既有患者、预约、报告和门诊费用只读边界基础上，给门诊费用、预约历史和爽约派生页增加本地分批渲染，并让首页/选择页使用集中生成的安全幂等键：完整查询结果仍保留在页面状态，首批只把 10 条交给 WXML，后续只展开已取得的同一次 owner-scoped 结果，不新增 Provider 请求，也没有改变支付、医保、预约写入或旧 Python 服务。
   文档检查点将由本次同步提交更新，同样不代表线上已部署。线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
 - 本轮尝试只读连接 `ps@192.168.112.172` 获取当前 release 和业务日志时，SSH 返回
   `Permission denied (publickey,password)`；因此本轮没有新增服务器、公网、真实微信或 Provider 业务证据，
   也没有执行部署、重启、迁移或旧服务操作。恢复可验证 SSH 会话后，必须先重新执行 P0 手册的低敏日志和
-  Redis TTL 采样，再决定是否发布当前代码候选 `015757a`。
+  Redis TTL 采样，再决定是否发布当前代码候选 `a4033b0`。
 - 服务器日志显示 `2026-08-17 00:13 CST` 曾有一次 `auth.wechat` 失败，错误为旧 release
   `41c9c18` 的持久化不可用；该请求发生在 `b186098` 切换前，不能归因于当前 release。
 - `b186098` 在约 `01:16 CST` 切换后，`bab0ce2` 曾于约 `01:38 CST` 运行；本轮于约 `02:11 CST`
@@ -366,3 +366,8 @@ typecheck/test/build、架构/provider/文档/格式/Lint 检查均通过。完�
 不新增 Provider 请求、不改变状态或空结果语义。小程序 62 项验收、全仓 9 workspace 的 typecheck/test/build、
 架构/provider/文档/格式/Lint 检查均通过；本提交尚未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准，
 预约写入、支付、医保、结算与 HIS 继续关闭。
+
+随后 `a4033b0` 收紧患者同步幂等键：首页和选择页不再只使用 `Date.now()`，而是生成符合 header 字符约束的
+业务前缀、时间片和随机尾部；同一页面单飞调用仍共享同一 Promise，不同页面实例不会因同一毫秒而误共享
+owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typecheck、格式和文档检查通过；本提交尚未部署，
+患者同步 replay、owner/provider 并发租约、真实日志和真机证据仍待线上验收。
