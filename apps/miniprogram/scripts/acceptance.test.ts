@@ -574,6 +574,13 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(template).toContain(
 		'src="{{index === 3 ? item.activeIcon : item.icon}}"',
 	);
+	// 底部安全区不能把内容一起拉伸；首页和“我的”页都必须在 130rpx 业务栏内居中。
+	const myStyle = await source("pages/my/my.wxss");
+	const homeStyle = await source("pages/index/index.wxss");
+	expect(myStyle).toContain("align-items: flex-start;");
+	expect(myStyle).toContain("height: 130rpx;");
+	expect(homeStyle).toContain("align-items: flex-start;");
+	expect(homeStyle).toContain("height: 130rpx;");
 	expect(my).toContain('title: "电子导诊单"');
 	expect(my).toContain('action: "electronic-consultation"');
 	expect(my).toContain('action: "smart-customer"');
@@ -727,6 +734,9 @@ test("native mini program exposes read-only appointment directory and records pa
 	// 旧端挂号页是全宽 selector/tabs/list，不能回退成新端 710rpx 居中卡片。
 	expect(recordsStyle).toContain("width: 100%;");
 	expect(recordsStyle).toContain("background: #f5f5f5;");
+	// 旧端 py-4 的标签高度和 pb-20 的底部节奏必须固定，避免页面视觉逐步漂移。
+	expect(recordsStyle).toContain("height: 112rpx;");
+	expect(recordsStyle).toContain("calc(160rpx + env(safe-area-inset-bottom))");
 	expect(recordsStyle).toContain("transition: transform 0.3s ease;");
 	expect(recordsStyle).toContain("transform: scale(0.98);");
 	expect(recordsTemplate).toContain(

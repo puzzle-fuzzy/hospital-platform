@@ -106,7 +106,8 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	width: 50%;
-	height: 92rpx;
+	/* 旧端使用 py-4（上下各 16px）+ 32rpx 文本，换算后约 112rpx。 */
+	height: 112rpx;
 	color: #666666;
 	font-size: 30rpx;
 }
@@ -128,8 +129,8 @@ page {
 }
 
 .record-list {
-	/* 旧端使用 pb-20；挂号页没有底部导航，不能沿用首页 160rpx 的预留空间。 */
-	padding: 32rpx 32rpx calc(80rpx + env(safe-area-inset-bottom));
+	/* 旧端使用 pb-20，即 80px/160rpx；挂号页没有底部导航但仍保留原版底部节奏。 */
+	padding: 32rpx 32rpx calc(160rpx + env(safe-area-inset-bottom));
 	background: #f5f5f5;
 }
 
