@@ -200,7 +200,7 @@ test("native client requests patient synchronization through the Hospital API", 
 	expect(client).toContain('url: "/patients/sync"');
 	expect(page).toContain("onSyncPatients");
 	expect(page).toContain('createIdempotencyKey("patient-sync")');
-	expect(page).not.toContain("patient-sync-${Date.now()}");
+	expect(page).not.toContain(["patient-sync-", "$", "{Date.now()}"].join(""));
 	expect(page).not.toContain("unionId");
 	expect(page).not.toContain("providerPatientId");
 });
