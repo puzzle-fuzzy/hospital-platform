@@ -10,13 +10,17 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库 `main` | `9717766`；包含 `aa536eb` 排班字段边界修正和本次迁移台账同步，尚未部署线上 | Git history；不得用仓库 HEAD 代替线上 release |
+| 仓库 `main` | `6b4be2e`；包含 `aa536eb` 排班字段边界修正、迁移台账和最新公网 smoke 文档，尚未部署线上 | Git history；不得用仓库 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015` 已验证 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
 | 运行前置 | 公网 runtime smoke readiness `6/6`、no-store、system ping、未登录 401 通过 | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
+
+公网基础运行边界的最新只读复核（2026-08-17 09:17 CST）已记录在
+[`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
+3/3、system-ping 和未登录认证边界通过；该证据没有更新任何真实业务验收状态。
 
 ## 2. 剩余范围分层
 
@@ -121,7 +125,7 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
   Provider 业务证据。
-- 当前仓库 HEAD `9717766` 尚未发布；`aa536eb` 只收紧排班 adapter 的 `usableSourceNum` 字段边界，
+- 当前仓库 HEAD `6b4be2e` 尚未发布；`aa536eb` 只收紧排班 adapter 的 `usableSourceNum` 字段边界，
   没有改变支付、医保、预约写入或旧 Python 服务。线上验收必须继续以 `131fb5a` 的 bundle provenance
   和 journald 为准，不能用本地测试结果推导线上已经拥有该修正。
 - 本轮尝试只读连接 `ps@192.168.112.172` 获取当前 release 和业务日志时，SSH 返回
