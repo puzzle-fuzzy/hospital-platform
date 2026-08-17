@@ -103,7 +103,8 @@
 		<view class="location-popup" catchtap="stopLocationPropagation">
 			<view class="location-popup-header">
 				<text>科室位置信息</text>
-				<text class="location-close">×</text>
+				<!-- 父层需要阻止冒泡，但关闭按钮必须显式绑定，否则 catchtap 会吞掉关闭动作。 -->
+				<text class="location-close" bindtap="closeLocationModal">×</text>
 			</view>
 			<scroll-view wx:if="{{locationResults.length}}" class="location-scroll" scroll-y="true">
 				<view wx:for="{{locationResults}}" wx:key="department" class="location-item">

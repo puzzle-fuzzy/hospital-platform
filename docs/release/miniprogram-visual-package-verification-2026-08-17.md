@@ -22,7 +22,7 @@
 | `pages/my/my.wxml` | 2544 | `e7bb174c18df5c0c9b7acde681198fc9c3cdeffff6a9845d7469738137114297` |
 | `pages/my/my.wxss` | 2952 | `eb0d11bbe94bd093aac7e108c3f6ddd876afb1cd286a9f3e042b3819033a8d12` |
 | `pages/appointment-records/appointment-records.js` | 9676 | `e17a21094482b18bf557400b25f2f17a775c75802ff41a831f032da54ec5e56e` |
-| `pages/appointment-records/appointment-records.wxml` | 5022 | `0f3fff085781fbeea5cf59375854f1bfd189ae3d103ce20b6129e9d5525511eb` |
+| `pages/appointment-records/appointment-records.wxml` | 5168 | `c7736a0a93e5c4ab4d66d15714fcc0ae100838975caf1dd6ca9fcd48758e6900` |
 | `pages/appointment-records/appointment-records.wxss` | 6671 | `7365a6641d1cfe0995d4eaa244a371248da563a9008f211595b2fe4f462b3944` |
 | `assets/legacy-user/legacy-user-background.png` | 23457 | `1e067a8965b720a1eb60416344b8203da9da9cc9810b3785888d4e0112e152b4` |
 | `assets/legacy-user/appointment-status.svg` | 6440 | `83e45a46c186ff54a30b29f33a8217f1a60cf949c0870a2f4456de08dc473f9e` |
