@@ -54,3 +54,29 @@ test("并发冲突和支付域保持独立分类", () => {
 		"failure",
 	);
 });
+
+test("支持 journald -o json 的 MESSAGE envelope，并忽略已知 systemd 控制消息", () => {
+	const summary = aggregateLines([
+		JSON.stringify({
+			_SYSTEMD_UNIT: "hospital-platform-api-v2.service",
+			MESSAGE: JSON.stringify({
+				event: "auth.wechat.login.succeeded",
+				traceId: "trace-auth-json-envelope",
+			}),
+		}),
+		JSON.stringify({
+			_SYSTEMD_UNIT: "hospital-platform-api-v2.service",
+			MESSAGE: "Stopping Hospital Platform API v2 (Bun + Elysia)...",
+		}),
+		JSON.stringify({
+			_SYSTEMD_UNIT: "hospital-platform-api-v2.service",
+			MESSAGE: "systemd 未知文本不应被静默吞掉",
+		}),
+	]);
+
+	expect(summary.parsedRecords).toBe(1);
+	expect(summary.parseErrors).toBe(1);
+	expect(summary.ignoredControlLines).toBe(1);
+	expect(summary.eventCounts["auth.wechat.login.succeeded"]).toBe(1);
+	expect(summary.traceIdCount).toBe(1);
+});

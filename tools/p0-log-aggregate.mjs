@@ -35,6 +35,44 @@ function isExpectedJournalControlLine(line) {
 	);
 }
 
+/**
+ * journald 的 `-o json` 会把应用原始 stdout 放进 MESSAGE 字段，而不是直接把
+ * Pino JSON 作为整行输出。先拆出 MESSAGE 再解析，才能避免长日志在终端宽度边界
+ * 被拆行或混入控制字符；同时保留 `-o cat` 的兼容输入，方便旧手册和历史窗口继续
+ * 复核。返回值只包含“应用记录 / 已知 systemd 控制行 / 解析失败”三种结果，不保留
+ * journald 的主机、进程和游标元数据，避免把基础设施字段带入业务聚合。
+ */
+function parseInputRecord(line) {
+	let parsed;
+	try {
+		parsed = JSON.parse(line);
+	} catch {
+		if (isExpectedJournalControlLine(line.trim())) return { kind: "control" };
+		return { kind: "error" };
+	}
+
+	if (
+		parsed &&
+		typeof parsed === "object" &&
+		!Array.isArray(parsed) &&
+		typeof parsed.MESSAGE === "string"
+	) {
+		const message = parsed.MESSAGE.replace(/^\uFEFF/u, "");
+		try {
+			parsed = JSON.parse(message);
+		} catch {
+			if (isExpectedJournalControlLine(message.trim()))
+				return { kind: "control" };
+			return { kind: "error" };
+		}
+	}
+
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		return { kind: "error" };
+	}
+	return { kind: "record", record: parsed };
+}
+
 /** 将稳定事件名归入业务域，便于一眼判断真机请求是否已经到达目标模块。 */
 export function classifyDomain(event) {
 	if (event.startsWith("auth.wechat.")) return "auth";
@@ -117,18 +155,16 @@ export function aggregateLines(lines) {
 			ignoredBlankLines += 1;
 			continue;
 		}
-		let record;
-		try {
-			record = JSON.parse(line);
-		} catch {
-			if (isExpectedJournalControlLine(line.trim())) ignoredControlLines += 1;
-			else parseErrors += 1;
+		const parsedInput = parseInputRecord(line);
+		if (parsedInput.kind === "control") {
+			ignoredControlLines += 1;
 			continue;
 		}
-		if (!record || typeof record !== "object" || Array.isArray(record)) {
+		if (parsedInput.kind === "error") {
 			parseErrors += 1;
 			continue;
 		}
+		const { record } = parsedInput;
 
 		parsedRecords += 1;
 		const event = safeLabel(record.event) ?? "unknown";

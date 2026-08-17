@@ -118,7 +118,7 @@ ssh ps@192.168.112.172 "sudo journalctl -u hospital-platform-api-v2.service --si
 ```bash
 sudo journalctl -u hospital-platform-api-v2.service \
   --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
-  -o cat --no-pager | bun tools/p0-log-aggregate.mjs
+  -o json --no-pager | bun tools/p0-log-aggregate.mjs
 ```
 
 生产 release 必须使用同一候选包中的
@@ -127,7 +127,7 @@ sudo journalctl -u hospital-platform-api-v2.service \
 ```bash
 sudo journalctl -u hospital-platform-api-v2.service \
   --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
-  -o cat --no-pager | \
+  -o json --no-pager | \
   /home/ps/.bun/bin/bun \
   "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js"
 ```
@@ -147,7 +147,7 @@ token、openid、患者标识、金额或 Provider 原始报文，
 ```bash
 sudo journalctl -u hospital-platform-api-v2.service \
   --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
-  -o cat --no-pager | \
+  -o json --no-pager | \
   /home/ps/.bun/bin/bun \
   "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js" \
   --json > /tmp/p0-summary.json

@@ -84,7 +84,8 @@ sha256sum \
 `provider-directory-smoke.js`、`api-runtime-smoke.js` 和 `p0-log-aggregate.js`，这样服务器可以在没有
 workspace 链接时复现发布前只读验收，并在受控 journald 窗口执行不回显原文的日志聚合；这些脚本不会启动
 worker，也不会执行 migration 或支付/医保/HIS 写入。还必须包含 `p0-business-evidence-audit.js`，用于对安全
-聚合结果执行“请求事件 + 明确成功事件”的业务门禁。`p0-log-aggregate.js` 只消费 stdin 的 journald JSONL，
+聚合结果执行“请求事件 + 明确成功事件”的业务门禁。`p0-log-aggregate.js` 只消费 stdin 的 journald JSONL；生产查询
+优先使用 `journalctl -o json`，工具会安全拆出 `MESSAGE` 中的 Pino JSON，旧的 `-o cat` 输入仍兼容。
 不得接收 token、患者标识或 Provider 原始报文作为参数。候选临时 smoke 只验证运行时，不替代本地代码门禁。
 
 候选 release 上传后，可在不切换 `current` 的情况下执行生产环境 preflight：
@@ -103,7 +104,7 @@ workspace 源码：
 ```bash
 sudo journalctl -u hospital-platform-api-v2.service \
   --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
-  -o cat --no-pager | \
+  -o json --no-pager | \
   /home/ps/.bun/bin/bun "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js"
 ```
 
@@ -113,7 +114,7 @@ sudo journalctl -u hospital-platform-api-v2.service \
 ```bash
 sudo journalctl -u hospital-platform-api-v2.service \
   --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
-  -o cat --no-pager | \
+  -o json --no-pager | \
   /home/ps/.bun/bin/bun "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js" \
   --json > /tmp/p0-summary.json
 /home/ps/.bun/bin/bun \
