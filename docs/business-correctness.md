@@ -163,6 +163,9 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 - 患者目录 adapter 对 `unionId`、目录患者号、姓名、卡号和 HIS `patId` 使用同一控制字符边界；发现
   控制字符必须拒绝整次目录快照，不能静默清洗后继续建立患者映射。档案接口缺少 `patId` 也不能直接
   解释成“患者没有档案”，除非 Provider contract 明确区分“无记录”和临时/权限/响应异常。
+- 患者目录响应数组的每一项必须是普通对象；`null`、字符串和嵌套数组等形状错误必须在 adapter
+  边界保留 Provider request id 并映射为 `provider-response-invalid`，不能落成原生 TypeError、500
+  或部分成功，也不能在坏元素被发现前启动其它患者的档案查询。
 - 患者目录的整批结构校验必须先于逐患者 `patInfosFind` 查询；不能因为 Promise 并行而让有效患者先产生
   档案查询副作用，再在另一位患者字段非法时整体失败。只有全量预校验通过后才允许并行查询，且 HIS
   引用重复仍必须让整批失败。

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "@hospital/adapters";
 import {
 	AppointmentRecordResultValidationError,
 	InvalidOutpatientPaymentStatusError,
@@ -214,4 +215,27 @@ test("Provider 读模型校验错误映射为不可重试的 502", async () => {
 			},
 		});
 	}
+});
+
+test("Provider adapter 标记响应非法时映射为 provider-response-invalid", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new ProviderRequestError({
+			provider: "zhongyang",
+			operation: "patient-list",
+			requestId: "invalid-patient-response",
+			message: "provider response shape is invalid",
+			retryable: false,
+			responseInvalid: true,
+		});
+	});
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(502);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "provider-response-invalid",
+			message: "外部服务返回数据异常，请稍后重试",
+		},
+	});
 });

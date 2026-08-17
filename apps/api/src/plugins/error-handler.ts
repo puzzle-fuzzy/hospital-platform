@@ -144,15 +144,20 @@ export function errorHandlerPlugin() {
 
 			if (error instanceof ProviderRequestError) {
 				set.status = error.retryable ? 503 : 502;
+				const responseInvalid = error.responseInvalid === true;
 				return {
 					success: false,
 					error: {
-						code: error.retryable
-							? "provider-temporarily-unavailable"
-							: "provider-request-rejected",
-						message: error.retryable
-							? "外部服务暂时不可用，请稍后重试"
-							: "外部服务拒绝了本次请求，请稍后重试",
+						code: responseInvalid
+							? "provider-response-invalid"
+							: error.retryable
+								? "provider-temporarily-unavailable"
+								: "provider-request-rejected",
+						message: responseInvalid
+							? "外部服务返回数据异常，请稍后重试"
+							: error.retryable
+								? "外部服务暂时不可用，请稍后重试"
+								: "外部服务拒绝了本次请求，请稍后重试",
 					},
 				};
 			}

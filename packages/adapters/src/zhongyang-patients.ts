@@ -59,12 +59,14 @@ function providerError(
 	message: string,
 	requestId?: string,
 	operation = "patient-list",
+	responseInvalid = false,
 ): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "zhongyang",
 		operation,
 		message,
 		retryable: false,
+		responseInvalid,
 		...(requestId ? { requestId } : {}),
 	});
 }
@@ -75,12 +77,14 @@ function requiredText(
 	maxLength: number,
 	operation = "patient-list",
 	requestId?: string,
+	responseInvalid = false,
 ): string {
 	if (typeof value !== "string" && typeof value !== "number") {
 		throw providerError(
 			`Zhongyang patient field ${field} is invalid`,
 			requestId,
 			operation,
+			responseInvalid,
 		);
 	}
 	const normalized = String(value).trim();
@@ -93,6 +97,7 @@ function requiredText(
 			`Zhongyang patient field ${field} is invalid`,
 			requestId,
 			operation,
+			responseInvalid,
 		);
 	}
 	return normalized;
@@ -122,6 +127,17 @@ function firstNonBlank(...values: unknown[]): unknown {
 	);
 }
 
+/**
+ * Provider 数组中的每一项必须是普通对象。
+ *
+ * 只把整个数组断言成 `ZhongyangPatientResponse[]` 会掩盖 `null`、字符串或
+ * 嵌套数组等非法响应；后续读取 `thirdPatientId` 时会变成原生 TypeError，
+ * 既丢失 `provider-response-invalid` 语义，也无法稳定保留 Provider requestId。
+ */
+function isPatientRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function relationship(value: unknown): PatientRelationship {
 	const normalized =
 		typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -142,27 +158,47 @@ function responseItems(
 	value: unknown,
 	requestId: string,
 ): ZhongyangPatientResponse[] {
-	if (Array.isArray(value)) return value as ZhongyangPatientResponse[];
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+	let items: unknown[];
+	if (Array.isArray(value)) {
+		items = value;
+	} else if (
+		typeof value !== "object" ||
+		value === null ||
+		Array.isArray(value)
+	) {
 		throw providerError(
 			"Zhongyang patient response data was invalid",
 			requestId,
+			"patient-list",
+			true,
 		);
+	} else {
+		const envelope = value as ZhongyangPatientEnvelope;
+		if (envelope.success === false) {
+			throw providerError(
+				"Zhongyang patient provider rejected the request",
+				requestId,
+			);
+		}
+		if (!Array.isArray(envelope.data)) {
+			throw providerError(
+				"Zhongyang patient response data was invalid",
+				requestId,
+			);
+		}
+		items = envelope.data;
 	}
-	const envelope = value as ZhongyangPatientEnvelope;
-	if (envelope.success === false) {
+	if (!items.every(isPatientRecord)) {
+		// 必须在任何字段访问和档案查询之前拒绝整批，保证坏元素不会让
+		// 有效患者先产生 patInfosFind 副作用，也不会被当成内部异常。
 		throw providerError(
-			"Zhongyang patient provider rejected the request",
+			"Zhongyang patient response contained an invalid item",
 			requestId,
+			"patient-list",
+			true,
 		);
 	}
-	if (!Array.isArray(envelope.data)) {
-		throw providerError(
-			"Zhongyang patient response data was invalid",
-			requestId,
-		);
-	}
-	return envelope.data as ZhongyangPatientResponse[];
+	return items as ZhongyangPatientResponse[];
 }
 
 /**
@@ -185,11 +221,14 @@ function ensureUniqueProviderPatientIds(
 			128,
 			"patient-list",
 			requestId,
+			true,
 		);
 		if (seen.has(providerPatientId)) {
 			throw providerError(
 				"Zhongyang patient response contained duplicate patient ids",
 				requestId,
+				"patient-list",
+				true,
 			);
 		}
 		seen.add(providerPatientId);
@@ -215,12 +254,16 @@ function ensureUniqueHisPatientIds(
 			throw providerError(
 				"Zhongyang patient response did not contain a HIS patient reference",
 				requestId,
+				"patient-list",
+				true,
 			);
 		}
 		if (seen.has(hisPatientId)) {
 			throw providerError(
 				"Zhongyang patient response contained duplicate HIS patient references",
 				requestId,
+				"patient-list",
+				true,
 			);
 		}
 		seen.add(hisPatientId);
@@ -237,6 +280,7 @@ function mapPatient(
 		128,
 		"patient-list",
 		requestId,
+		true,
 	);
 	const displayName = requiredText(
 		value.patientName,
@@ -244,6 +288,7 @@ function mapPatient(
 		128,
 		"patient-list",
 		requestId,
+		true,
 	);
 	// 旧端患者选择流程明确优先 medicalCardNo；cardNo 只作为旧数据兜底。
 	const card = requiredText(
@@ -252,6 +297,7 @@ function mapPatient(
 		128,
 		"patient-archive",
 		requestId,
+		true,
 	);
 	return {
 		providerPatientId,
@@ -283,6 +329,7 @@ async function resolveHisPatientId(
 		128,
 		operation,
 		requestId,
+		true,
 	);
 	const displayName = requiredText(
 		value.patientName,
@@ -290,6 +337,7 @@ async function resolveHisPatientId(
 		128,
 		operation,
 		requestId,
+		true,
 	);
 	const url = new URL(PATIENT_ARCHIVE_PATH, baseUrl);
 	url.searchParams.set("type", "3");
@@ -317,6 +365,7 @@ async function resolveHisPatientId(
 			"Zhongyang patient archive response was invalid",
 			response.requestId,
 			operation,
+			true,
 		);
 	}
 	const envelope = response.data as ZhongyangPatientEnvelope;
@@ -336,6 +385,7 @@ async function resolveHisPatientId(
 			"Zhongyang patient archive data was invalid",
 			response.requestId,
 			operation,
+			true,
 		);
 	}
 	return requiredText(
@@ -344,6 +394,7 @@ async function resolveHisPatientId(
 		128,
 		operation,
 		response.requestId,
+		true,
 	);
 }
 

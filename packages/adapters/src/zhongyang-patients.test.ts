@@ -282,3 +282,46 @@ test("众阳患者目录拒绝控制字符并且不继续查询档案", async ()
 		"https://zhongyang.example.test/api/public/patientInfoByUnionId?unionId=union-001",
 	]);
 });
+
+test("众阳患者目录拒绝非法数组元素并且不继续查询档案", async () => {
+	const requestUrls: string[] = [];
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrls.push(String(input));
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "patient-valid",
+							patientName: "张三",
+							medicalCardNo: "1234567890",
+						},
+						null,
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "invalid-item-request" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "zhongyang",
+		operation: "patient-list",
+		requestId: "invalid-item-request",
+		retryable: false,
+		responseInvalid: true,
+	});
+	// 非对象元素必须在第一条档案查询之前被拒绝，避免坏响应造成部分
+	// Provider 查询和不完整的业务日志链路。
+	expect(requestUrls).toEqual([
+		"https://zhongyang.example.test/api/public/patientInfoByUnionId?unionId=union-001",
+	]);
+});

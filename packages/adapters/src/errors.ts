@@ -17,6 +17,8 @@ export class ProviderRequestError extends Error {
 	readonly requestId: string | undefined;
 	readonly statusCode: number | undefined;
 	readonly retryable: boolean;
+	/** Provider 已响应但内容不符合平台读模型时，公共错误码必须区分于请求被拒绝。 */
+	readonly responseInvalid: boolean;
 
 	constructor(input: {
 		provider: AdapterName;
@@ -25,6 +27,7 @@ export class ProviderRequestError extends Error {
 		requestId?: string;
 		statusCode?: number;
 		retryable: boolean;
+		responseInvalid?: boolean;
 		cause?: unknown;
 	}) {
 		super(input.message, { cause: input.cause });
@@ -34,5 +37,6 @@ export class ProviderRequestError extends Error {
 		this.requestId = input.requestId;
 		this.statusCode = input.statusCode;
 		this.retryable = input.retryable;
+		this.responseInvalid = input.responseInvalid === true;
 	}
 }
