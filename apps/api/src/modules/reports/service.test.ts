@@ -592,3 +592,83 @@ test("report directory keeps a summary when a provider detail reference is missi
 		),
 	).resolves.toEqual({ items: [summary], total: 1 });
 });
+
+test("报告详情引用持久化失败时保留摘要并记录低敏告警", async () => {
+	const lines: string[] = [];
+	const providerReportId = "provider-report-secret-002";
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory" as const,
+							title: "肝功能",
+							reportedAt: "2026-08-15 10:01:00",
+							status: "available" as const,
+							hasAttachment: true,
+						},
+						providerReportId,
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "directory-reference-write-failed",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => {
+				throw new Error("详情引用失败时不应调用 provider 详情");
+			},
+		},
+		references: {
+			upsert: async () => {
+				throw new Error("mysql temporarily unavailable");
+			},
+			findByOwnerAndId: async () => undefined,
+		},
+		logger: createLogger({
+			service: "report-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	const result = await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-reference-write-failed",
+			idempotencyKey: "key-report-reference-write-failed",
+		},
+	);
+
+	expect(result).toEqual({
+		items: [
+			{
+				kind: "laboratory",
+				title: "肝功能",
+				reportedAt: "2026-08-15 10:01:00",
+				status: "available",
+				hasAttachment: true,
+			},
+		],
+		total: 1,
+	});
+	const output = lines.join("\n");
+	expect(output).toContain("report.detail_reference.failed");
+	expect(output).toContain("trace-report-reference-write-failed");
+	expect(output).not.toContain(providerReportId);
+	expect(output).not.toContain("mysql temporarily unavailable");
+});

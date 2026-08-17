@@ -177,23 +177,42 @@ export class ReportService {
 						// 不能把“详情不可用”扩大成“整批报告不可用”。
 						return entry.summary;
 					}
-					const reference = await this.dependencies.references.upsert({
-						reportId: reportReferenceId(
+					try {
+						const reference = await this.dependencies.references.upsert({
+							reportId: reportReferenceId(
+								ownerUserId,
+								patientId,
+								entry.providerReportId,
+							),
 							ownerUserId,
 							patientId,
-							entry.providerReportId,
-						),
-						ownerUserId,
-						patientId,
-						provider: "zhongyang",
-						kind: "laboratory",
-						providerReportId: entry.providerReportId,
-						expiresAt: new Date(
-							observedNow.getTime() + REPORT_REFERENCE_TTL_MS,
-						).toISOString(),
-						createdAt: observedNow.toISOString(),
-					});
-					return { reportId: reference.reportId, ...entry.summary };
+							provider: "zhongyang",
+							kind: "laboratory",
+							providerReportId: entry.providerReportId,
+							expiresAt: new Date(
+								observedNow.getTime() + REPORT_REFERENCE_TTL_MS,
+							).toISOString(),
+							createdAt: observedNow.toISOString(),
+						});
+						return { reportId: reference.reportId, ...entry.summary };
+					} catch (error) {
+						// 详情引用是可选的增强能力：单条引用持久化失败时，
+						// 必须隐藏详情入口但保留目录摘要，避免把数据库短暂抖动
+						// 错误地展示成“患者没有报告”。Provider 聚合本身的失败
+						// 仍由外层 catch 处理，继续保持整批 fail-closed。
+						this.logger.warn(
+							{
+								event: "report.detail_reference.failed",
+								traceId: context.traceId,
+								provider: result.trace.provider,
+								providerRequestId: result.trace.requestId,
+								patientId,
+								errorType: error instanceof Error ? error.name : "unknown",
+							},
+							"Report detail reference unavailable; summary retained",
+						);
+						return entry.summary;
+					}
 				}),
 			);
 			this.logger.info(
