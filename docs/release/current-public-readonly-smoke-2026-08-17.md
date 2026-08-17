@@ -57,6 +57,23 @@
 本次 smoke 只更新公网基础运行证据，不更新任何 P0 业务领域的验收状态；真实微信会话、Redis TTL、患者切换/失效
 恢复、预约历史、报告和门诊费用仍必须按 P0 手册分别取得 Provider、平台公网、真机和服务端日志证据。
 
+## 2.3 最新公网 runtime smoke（2026-08-17 09:17 CST）
+
+本次继续使用仓库内 `runtime:smoke` 入口从开发机发起公网只读请求，目标为 `/api/v2`；连续 readiness
+采样 3 次，间隔 500ms，要求 readiness 为 ready。运行器本身为 development 环境，但目标是公网线上地址；
+没有携带 access token、患者号或 Provider 凭证，也没有执行登录、同步、预约、报告、费用、支付或任何写入。
+
+| 检查 | 结果 | trace/request 证据 |
+| --- | --- | --- |
+| `health-live` | 200，`status=passed` | `9b32bb43-9fd4-4603-a8f6-b72a3bcf1642` |
+| `health-ready` | 200，`status=passed`，连续 3/3 | `de38918d-b2c5-4dfa-bf3e-7600235bc419`、`eb3398e5-bea4-4d57-8ab5-bf372e8ea439`、`d58bdb7b-bb8d-4b7a-9fdb-7e52fa89de46` |
+| `system-ping` | 200，`status=passed` | `d611fc9c-98cc-4208-a484-5992b91f15ee` |
+| `auth-boundary` | 401，`status=passed` | `17403d13-3b06-4cd0-a729-9a6c494e4fe1` |
+
+本次只更新公网运行边界证据，不能证明本地 `main` 的 `58e342f` 已部署，也不能更新微信会话、Redis TTL、
+多患者切换、预约历史、报告或门诊费用的 P0 验收状态；服务器 release provenance 和业务日志仍需通过受控
+SSH 单独取得。
+
 ## 3. 结论与限制
 
 - 当前公网 API 进程可响应，数据库、Redis 和 schema readiness gate 均通过。
