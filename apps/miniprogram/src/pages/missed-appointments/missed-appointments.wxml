@@ -25,8 +25,8 @@
 		<text>正在加载爽约记录...</text>
 	</view>
 
-	<view wx:elif="{{records.length}}" class="record-list">
-		<view wx:for="{{records}}" wx:key="viewKey" class="record-card missed-record-card">
+	<view wx:elif="{{visibleRecords.length}}" class="record-list">
+		<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="record-card missed-record-card">
 			<view class="record-header">
 				<text class="record-date">{{item.workDate}}</text>
 				<text class="record-status record-status-missed">已爽约</text>
@@ -38,6 +38,7 @@
 			<view wx:if="{{item.serialNumber}}" class="record-number">流水号：{{item.serialNumber}}</view>
 			<text class="missed-stamp">已爽约</text>
 		</view>
+		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多爽约记录</view>
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">

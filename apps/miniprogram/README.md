@@ -43,7 +43,8 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 首页的“预约挂号”入口会进入 `pages/appointment-directory/appointment-directory`，只调用平台 API 的
 `GET /appointments/departments` 和 `GET /appointments/schedules`，日期范围由客户端限制为未来 7 天展示；
 “我的挂号”进入 `pages/appointment-records/appointment-records`，按当前选择的内部 `patientId` 查询当前日前后各 90 天记录；
-“爽约记录”单独查询过去 90 天，并只展示服务端归一化的 `missed` 状态。
+“爽约记录”单独查询过去 90 天，并只展示服务端归一化的 `missed` 状态。两页都保留本次完整查询结果，首批只渲染 10 条，
+“加载更多”只展开本地已取得的数据，不代表 provider 分页。
 预约目录按旧版“两列级联”复刻：左侧科室独立滚动，右侧只加载当前科室，再按日期分组并以每次 12 条的方式展示号源；
 两页只读展示服务端规范化结果，预约写入、锁号、取消和支付尚未开放。
 首页的“门诊缴费”进入 `pages/outpatient-payment/outpatient-payment`，按当前内部 `patientId` 查询门诊待缴/已缴摘要；

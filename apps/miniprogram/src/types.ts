@@ -213,7 +213,12 @@ export type AppointmentRecordsPageData = {
 	/** 只属于当前页面实例，不能使用模块级变量跨实例共享生命周期状态。 */
 	hasShown: boolean;
 	selectedPatient: Patient | null;
+	/** 当前查询得到的完整预约记录；总数和状态事实不能被本地分批改变。 */
 	records: Array<AppointmentRecordView>;
+	/** 当前真正交给 WXML 的预约记录窗口，避免历史数据过多时一次性渲染。 */
+	visibleRecords: Array<AppointmentRecordView>;
+	visibleRecordCount: number;
+	hasMoreRecords: boolean;
 	loading: boolean;
 	error: string;
 };
@@ -226,7 +231,12 @@ export type MissedAppointmentsPageData = {
 	/** 只属于当前页面实例，避免多层页面返回时互相消费首次 onShow 状态。 */
 	hasShown: boolean;
 	selectedPatient: Patient | null;
+	/** 完整的 missed 派生结果；它不是 provider 分页，也不能被截断后误报为空。 */
 	records: Array<AppointmentRecordView>;
+	/** 当前交给 WXML 的局部窗口；只影响渲染成本，不改变 missed 筛选规则。 */
+	visibleRecords: Array<AppointmentRecordView>;
+	visibleRecordCount: number;
+	hasMoreRecords: boolean;
 	loading: boolean;
 	error: string;
 };

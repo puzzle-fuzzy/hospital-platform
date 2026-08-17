@@ -19,8 +19,8 @@
 		<text>正在加载挂号记录...</text>
 	</view>
 
-	<view wx:elif="{{records.length}}" class="record-list">
-		<view wx:for="{{records}}" wx:key="viewKey" class="record-card">
+	<view wx:elif="{{visibleRecords.length}}" class="record-list">
+		<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="record-card">
 			<view class="record-header">
 				<text class="record-date">{{item.workDate}}</text>
 				<text class="record-status {{item.statusClass}}">{{item.statusLabel}}</text>
@@ -31,6 +31,7 @@
 			<view wx:if="{{item.location}}" class="record-line">地点：{{item.location}}</view>
 			<view wx:if="{{item.serialNumber}}" class="record-number">流水号：{{item.serialNumber}}</view>
 		</view>
+		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多挂号记录</view>
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">

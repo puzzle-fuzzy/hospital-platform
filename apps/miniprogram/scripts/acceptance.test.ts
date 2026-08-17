@@ -476,7 +476,14 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(loadDirectoryBody).toContain("schedules: []");
 	expect(loadDirectoryBody).toContain('selectedDepartmentId: ""');
 	expect(records).toContain("loadAppointmentRecords");
+	// 完整预约历史仍保留在页面状态；只有可见窗口交给 WXML，不能把本地分批
+	// 描述成 provider 分页，也不能因为首批少就把 total/状态事实截断。
+	expect(records).toContain("APPOINTMENT_RECORD_PAGE_SIZE");
+	expect(records).toContain("visibleRecords: mappedRecords.slice");
+	expect(records).toContain("onLoadMore(): void");
 	expect(recordsTemplate).toContain('wx:key="viewKey"');
+	expect(recordsTemplate).toContain("visibleRecords");
+	expect(recordsTemplate).toContain("加载更多挂号记录");
 	expect(records).toContain("resolveStoredPatientSelection");
 	expect(directoryTemplate).toContain("未来 7 天");
 	expect(directoryTemplate).toContain("cascade-shell");
@@ -630,7 +637,12 @@ test("native mini program derives missed appointments from the normalized record
 	expect(myTemplate).toContain('data-action="missed-appointments"');
 	expect(page).toContain("loadAppointmentRecords");
 	expect(page).toContain('record.status === "missed"');
+	expect(page).toContain("MISSED_APPOINTMENT_PAGE_SIZE");
+	expect(page).toContain("visibleRecords: missedRecords.slice");
+	expect(page).toContain("onLoadMore(): void");
 	expect(template).toContain('wx:key="viewKey"');
+	expect(template).toContain("visibleRecords");
+	expect(template).toContain("加载更多爽约记录");
 	expect(page).toContain("getPageLatestRequestGuard");
 	expect(page).toContain("中国标准时间过去 90 天");
 	expect(page).not.toContain("status === 4");

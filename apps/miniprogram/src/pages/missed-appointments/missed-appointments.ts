@@ -11,8 +11,12 @@ import type {
 	MissedAppointmentsPageData,
 } from "../../types";
 
+/** 爽约记录也使用本地渲染窗口；筛选结果本身仍由服务端状态事实决定。 */
+const MISSED_APPOINTMENT_PAGE_SIZE = 10;
+
 type MissedAppointmentsPageMethods = {
 	loadRecords(): Promise<void>;
+	onLoadMore(): void;
 	onChangePatient(): void;
 	onPullDownRefresh(): void;
 	showError(error: unknown, fallback: string): void;
@@ -35,6 +39,9 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		hasShown: false,
 		selectedPatient: null,
 		records: [],
+		visibleRecords: [],
+		visibleRecordCount: 0,
+		hasMoreRecords: false,
 		loading: true,
 		error: "",
 	},
@@ -74,6 +81,9 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			// 展示上一位患者的卡片或记录，避免身份和列表短暂错配。
 			selectedPatient: null,
 			records: [],
+			visibleRecords: [],
+			visibleRecordCount: 0,
+			hasMoreRecords: false,
 		});
 
 		return loadPatients()
@@ -95,7 +105,17 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				const missedRecords = records
 					.filter((record) => record.status === "missed")
 					.map((record, index) => this.toRecordView(record, index));
-				this.setData({ records: missedRecords, error: "" });
+				const visibleRecordCount = Math.min(
+					MISSED_APPOINTMENT_PAGE_SIZE,
+					missedRecords.length,
+				);
+				this.setData({
+					records: missedRecords,
+					visibleRecords: missedRecords.slice(0, visibleRecordCount),
+					visibleRecordCount,
+					hasMoreRecords: visibleRecordCount < missedRecords.length,
+					error: "",
+				});
 			})
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
@@ -107,6 +127,19 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 					this.setData({ loading: false });
 				}
 			});
+	},
+
+	/** 只展开当前已筛选的 missed 结果，不重新查询或改变状态判定。 */
+	onLoadMore(): void {
+		const nextCount = Math.min(
+			this.data.visibleRecordCount + MISSED_APPOINTMENT_PAGE_SIZE,
+			this.data.records.length,
+		);
+		this.setData({
+			visibleRecords: this.data.records.slice(0, nextCount),
+			visibleRecordCount: nextCount,
+			hasMoreRecords: nextCount < this.data.records.length,
+		});
 	},
 
 	/** 页面边界只负责把稳定状态枚举翻译成中文显示文案。 */
@@ -142,6 +175,13 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				message = safeApiErrorMessage(error, fallback);
 			}
 		}
-		this.setData({ error: message, selectedPatient: null, records: [] });
+		this.setData({
+			error: message,
+			selectedPatient: null,
+			records: [],
+			visibleRecords: [],
+			visibleRecordCount: 0,
+			hasMoreRecords: false,
+		});
 	},
 });
