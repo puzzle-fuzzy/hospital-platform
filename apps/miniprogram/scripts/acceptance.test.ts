@@ -1268,7 +1268,9 @@ test("dashboard service owns bounded date windows and internal patient inputs", 
 	expect(service).toContain("appointmentDirectory: 7");
 	expect(service).toContain("appointmentRecordsPast: 90");
 	expect(service).toContain("appointmentRecordsFuture: 90");
-	expect(service).toContain('window: "history" | "missed"');
+	expect(service).toContain(
+		'AppointmentRecordQueryWindow = "history" | "missed"',
+	);
 	expect(service).toContain("reports: 30");
 	expect(service).toContain("requirePatientId");
 	expect(service).not.toContain("providerPatientId");

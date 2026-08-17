@@ -238,13 +238,28 @@ export function loadOutpatientPaymentRecords(
 }
 
 /** 读取当前内部患者的脱敏预约历史摘要。 */
-export function loadAppointmentRecords(
+export type AppointmentRecordQueryWindow = "history" | "missed";
+
+export type AppointmentRecordQuery = {
+	patientId: string;
+	startDate: string;
+	endDate: string;
+};
+
+/**
+ * 生成预约记录的唯一查询契约。
+ *
+ * “我的挂号”和“爽约记录”虽然复用同一个 API，但不是同一个时间窗口：
+ * history 必须覆盖中国标准时间前后各 90 天，missed 只能覆盖过去 90 天。
+ * 把窗口选择集中在这里，页面就不能因为复制代码或切换标签而把未来预约
+ * 错误排除，或把未来预约拿来判断爽约。患者 ID 也必须在发请求前经过同一
+ * 个内部 opaque 输入校验；小程序不会在这里接触 Provider 患者号。
+ */
+export function createAppointmentRecordQuery(
 	patientId: string,
 	now = new Date(),
-	window: "history" | "missed" = "history",
-): Promise<Array<AppointmentRecord>> {
-	// “我的挂号”和“爽约记录”共享 provider 查询，但业务时间窗口不同：
-	// 前者不能漏掉未来预约，后者不能查询未来日期并把未知事实误当爽约。
+	window: AppointmentRecordQueryWindow = "history",
+): AppointmentRecordQuery {
 	const range =
 		window === "missed"
 			? createPastDateRange(
@@ -252,10 +267,20 @@ export function loadAppointmentRecords(
 					now,
 				)
 			: createAppointmentRecordDateRange(now);
-	return requestAppointmentRecords({
+	return {
 		patientId: requirePatientId(patientId),
 		...range,
-	}).then((payload) => payload.data.items);
+	};
+}
+
+export function loadAppointmentRecords(
+	patientId: string,
+	now = new Date(),
+	window: AppointmentRecordQueryWindow = "history",
+): Promise<Array<AppointmentRecord>> {
+	return requestAppointmentRecords(
+		createAppointmentRecordQuery(patientId, now, window),
+	).then((payload) => payload.data.items);
 }
 
 /** 读取当前内部患者的 LIS/PACS/ECG 报告目录摘要。 */

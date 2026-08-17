@@ -17,6 +17,10 @@
 - 2026-08-17 21:08 CST：候选清理后再次对公网 current 执行 readiness 6/6、system-ping 和未登录 401，均通过；
   当前 release 的 journald 聚合 `parseErrors=0`，没有新增微信、预约历史、门诊费用或普通资料业务事件。
   该结果只确认公网 current 未受候选上传/停止影响，不能替代真实微信会话和真机业务验收。
+- 本轮继续收紧“我的挂号/爽约记录”的客户端查询边界：新增 dashboard service 的
+  `createAppointmentRecordQuery`，集中生成 history 前后各 90 天和 missed 过去 90 天窗口，并在发请求前
+  校验内部 `patientId`；新增北京时间自然日、窗口差异和空标识回归测试，小程序测试达到 83 项通过。
+  该修正未部署、不改变 API/Provider 请求契约，也未新增真实微信、Provider 或真机证据。
 
 ### 线上实时状态（2026-08-17 17:55 CST）
 
