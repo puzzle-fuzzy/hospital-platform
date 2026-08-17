@@ -107,6 +107,27 @@ access token、患者标识或 Provider 凭证，也没有执行同步、预约�
 该复核只证明公网运行和认证边界在 11:13 CST 可达，不能证明本地 `main` 或未部署候选已经上线，
 也不能更新微信登录、Redis TTL、患者切换/失效恢复、预约历史、报告、门诊费用或真机验收状态。
 
+## 2.6 最新公网关闭边界复核（2026-08-17 12:06 CST）
+
+本次从开发机发起无会话公网请求，额外覆盖患者/预约历史的认证顺序，以及病历、医保授权和预约写入的
+未注册边界；没有携带 access token、患者凭证或 Provider 凭证，也没有执行登录、同步、Provider 查询、
+支付、医保、预约写入或任何数据变更。代理返回的 `HTTP/1.1 200 Connection established` 是 CONNECT
+隧道状态，不计入业务 HTTP 状态；下表只记录公网 API 的最终响应。
+
+| 请求 | HTTP | 关键响应 | `x-request-id` |
+| --- | ---: | --- | --- |
+| `GET /api/v2/health/live` | 200 | `status=ok`、`Cache-Control: no-store` | `codex-header-f6d1da6c939141fcb02d84e99a978c98` |
+| `GET /api/v2/health/ready` | 200 | `status=ready`、`database=ok`、`redis=ok`、`schema=ok`、`Cache-Control: no-store` | `codex-header-941d58793cbc4b38b4d6c949490c2abd` |
+| `GET /api/v2/system/ping` | 200 | `service=hospital-api`、`apiVersion=0.1.0` | `codex-header-a696db9de6d2412e9bfbbed9349e5e0a` |
+| `GET /api/v2/patients` | 401 | `error.code=unauthorized` | `codex-doc-b3783631401e4ea68920b63f513f399a` |
+| `GET /api/v2/appointments/records?...` | 401 | `error.code=unauthorized`，认证先于业务 query 校验 | `codex-doc-81aa6c5d27524618ace867705df9773c` |
+| `GET /api/v2/medical-records` | 404 | `error.code=not-found` | `codex-doc-d14c60939f654aa8b6301625bbf851e4` |
+| `POST /api/v2/payments/insurance/authorization` | 404 | `error.code=not-found` | `codex-doc-d4344c9b536443759b742ab6a87cd279` |
+| `POST /api/v2/appointments` | 404 | `error.code=not-found` | `codex-doc-0d34b5904d6d4c6bb40d9740fbf15500` |
+
+该复核只新增当前时刻的公网运行和关闭边界证据：它不能证明本地 `main` 或未部署候选已经上线，
+也不能更新微信登录、Redis TTL、多患者切换、预约历史、报告、门诊费用或真机验收状态。
+
 ## 3. 结论与限制
 
 - 当前公网 API 进程可响应，数据库、Redis 和 schema readiness gate 均通过。

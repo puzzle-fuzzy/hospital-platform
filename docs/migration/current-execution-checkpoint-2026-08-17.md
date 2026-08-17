@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `c1d10e3`，在 `87f7171` 的预约目录日期失败日志基础上，拆分患者目录“同步快照已提交”和“脱敏读模型读取”的日志生命周期；GET `/patients` 现在记录独立读模型事件，快照/replay 成功后的读失败不再伪造 `patient.directory.failed`；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新运行时实现提交为 `9d9e7b1`，文档检查点提交为 `1805081`；在 `c1d10e3` 的患者同步/读模型日志拆分基础上，继续把预约过滤、预约历史、报告目录/详情和门诊费用的 opaque 标识形状校验下沉到 domain/service 层，并对非法标识做固定 `invalid` 日志脱敏；均尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -25,6 +25,11 @@
 随后于 2026-08-17 11:13 CST 进行的公网只读复核已记录在同一证据文档的 2.5 节：live、ready、system-ping
 均成功，`/patients` 未登录返回 `401 unauthorized`，并保留了本次 `x-request-id`；该复核仍不代表本地候选
 已部署，也不更新微信、患者、Provider 或真机业务验收状态。
+
+随后于 2026-08-17 12:06 CST 完成了更窄的公网关闭边界复核：live/ready/system-ping 仍通过，未登录的患者
+和预约历史请求在业务 query 前返回 `401 unauthorized`，病历、医保授权和预约写入候选路径继续返回
+`404 not-found`。本次没有携带会话、患者或 Provider 凭证，也没有执行任何写入；证据见
+[`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md) 的 2.6 节。
 
 本地小程序运行包的最新构建复核（2026-08-17）已记录在
 [`miniprogram-runtime-package-verification-2026-08-17.md`](../release/miniprogram-runtime-package-verification-2026-08-17.md)：
@@ -128,18 +133,17 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 是否触碰旧 Python `8001`、旧表、旧 Redis DB1 或打开支付/医保/HIS gate；
 - 是否同步更新 contract、迁移台账、日志说明、测试和 release 证据。
 
-## 5. 本轮 P0 复核证据
+## 5. 当前 P0 复核证据
 
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
   Provider 业务证据。
-- 当前最新已验证实现提交 `ef6f34c` 尚未发布；该提交在 `5a58774` 的匿名“新增就诊人”登录成功后选择页续接、`c72232b` 的门诊费用状态一致性校验、
-  `f268be0` 的排班 adapter 字段边界和小程序运行包独立只读验证基础上，补齐了个人中心未开放入口的逐项关闭边界，没有改变支付、医保、预约写入或旧 Python 服务。
-  线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
+- 当前最新运行时实现提交 `9d9e7b1` 尚未发布；该提交在既有患者、预约、报告和门诊费用只读边界基础上，补齐了服务层 opaque 标识形状校验和非法值日志脱敏，没有改变支付、医保、预约写入或旧 Python 服务。
+  文档检查点提交为 `1805081`，同样不代表线上已部署。线上验收必须继续以 `131fb5a` 的 bundle provenance 和 journald 为准，不能用本地测试结果推导线上已经拥有这些修正。
 - 本轮尝试只读连接 `ps@192.168.112.172` 获取当前 release 和业务日志时，SSH 返回
   `Permission denied (publickey,password)`；因此本轮没有新增服务器、公网、真实微信或 Provider 业务证据，
   也没有执行部署、重启、迁移或旧服务操作。恢复可验证 SSH 会话后，必须先重新执行 P0 手册的低敏日志和
-  Redis TTL 采样，再决定是否发布当前代码候选 `ef6f34c`。
+  Redis TTL 采样，再决定是否发布当前代码候选 `9d9e7b1`。
 - 服务器日志显示 `2026-08-17 00:13 CST` 曾有一次 `auth.wechat` 失败，错误为旧 release
   `41c9c18` 的持久化不可用；该请求发生在 `b186098` 切换前，不能归因于当前 release。
 - `b186098` 在约 `01:16 CST` 切换后，`bab0ce2` 曾于约 `01:38 CST` 运行；本轮于约 `02:11 CST`
@@ -162,9 +166,11 @@ HIS 回写完成。
 其中 `attempts` 只表示探针自身的有限重试，不能解释为预约、支付或其他业务写入被重放；恢复日志的
 字段仍然不包含连接串、SQL、原始异常消息、参数或第三方报文。详细字段约束见 [`日志规范`](../logging.md)。
 
-本轮本地门禁已通过：`architecture:audit`、`migration:audit`、`provider:audit`、格式检查、lint、
-9 个 workspace 的 typecheck/test 和 build。该结果只证明代码与日志契约一致；线上 release、公开网络
-readiness 以及真实微信/Provider 业务证据仍需单独记录，不能由本地门禁替代。
+本轮独立门禁已通过：`architecture:audit`、`provider:audit`、文档断链、格式检查、lint、9 个 workspace
+的 typecheck/test 和 build。`migration:audit` 未能整体判绿：它读取的旧仓库 `G:\\fuck\\hospital` 正被其他会话
+修改，当前 `module_common` 和挂载总数、旧端 endpoint 台账均发生漂移；本轮没有修改该外部工作树或擅自刷新清单。
+这只说明完整 `pnpm check` 仍有外部审计阻塞，不影响本轮代码门禁结果；线上 release、公开网络 readiness 以及真实
+微信/Provider 业务证据仍需单独记录，不能由本地门禁替代。
 
 本轮还修正了受保护 API 的认证顺序：Elysia 在 query/body/params schema 校验前验证 Bearer，
 未登录或会话失效统一返回 `401 unauthorized`，认证通过后才返回 `400 validation`；微信登录和微信支付
