@@ -20,7 +20,7 @@
 
 - 旧端扫描基线为 64 个页面，原生小程序当前注册 14 个 TypeScript 页面；旧 FastAPI 与旧小程序
   的接口快照仍由 `legacy-api-endpoint-inventory.md` 维护。
- - 当前线上新 API release 为 `0b6f38f`，监听 `18081`；旧 Python 服务继续监听 `8001`，旧服务、
+ - 当前线上新 API release 为 `5f5915e`，监听 `18081`；旧 Python 服务继续监听 `8001`，旧服务、
   旧 Redis namespace 和旧端口不能因为新端验收而停止。
 - `41c9c18` 已取得预约科室 62 条、排班 1 条的真实只读结果，并确认
   `snapshotPersistenceStatus=persisted`。这只为未来写入评估提供近期观察事实，仍不是锁号或预约授权。
@@ -32,9 +32,9 @@
   这只证明公网运行和关闭边界，不证明会话、Provider 业务、真机或新旧服务共存；完整 requestId 与限制见
   [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)。
 - 同日切换后 SSH 核对确认新 Bun API 监听 `10.0.0.3:18081`、旧 Python API 监听 `0.0.0.0:8001`，
-  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `0b6f38f`，Worker 仍 inactive。这补强运行层共存证据，
+  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `5f5915e`，Worker 仍 inactive。这补强运行层共存证据，
   但不能替代业务和真机证据；当前 release 的完整记录见
-  [`../release/daee96d-production-acceptance-2026-08-17.md`](../release/daee96d-production-acceptance-2026-08-17.md)。
+  [`../release/5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md)。
 - 进程 TCP 连接和两侧配置的脱敏比对确认 Bun API 与旧 Python 共用远端 MySQL
   `8.130.127.184:3306/hospital-dev`，新 API 使用 Redis DB3、旧 Python 使用 Redis DB1；新服务只使用
   `hp_*` 表，旧服务继续使用 legacy 表。该事实不代表 MongoDB、旧 Redis namespace、旧任务或管理端能力已迁移。
@@ -61,6 +61,9 @@
   `missed`。
 - 原生“我的挂号”查询窗口已修正为当前中国标准时间日前后各 90 天，避免未来预约静默消失；爽约页
   独立使用过去 90 天窗口，避免把未来日期混入爽约派生逻辑。
+- 预约排班日期边界仍保留一个待收敛的 v2 过渡点：服务端当前校验真实日期和 31 天跨度，但排班请求的
+  startDate/endDate 仍由调用方提交；原生端使用中国标准时间未来 7 天。Provider 的 endDate 包含规则和
+  公共调用方范围确认前，不擅自改成完全服务端生成，也不扩大日期范围或开放写入。
 - 预约历史 adapter 现在会拒绝同一响应中的重复 `appointmentInfoId`；没有预约号的记录仍只作为摘要
   返回，不用数组下标或日期字段伪造后续业务引用。
 - `d71ecd4` 与 `3609944` 又收紧了 Provider 读模型的公开边界：门诊费用科室/医生/账单日期分别限制为
