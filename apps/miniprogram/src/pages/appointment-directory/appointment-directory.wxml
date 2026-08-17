@@ -92,6 +92,12 @@
 		</view>
 	</view>
 
+	<view wx:elif="{{!loading && !departments.length}}" class="state-card state-card-empty">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>当前暂无可预约科室</text>
+		<text class="state-hint">请稍后刷新，或联系医院确认排班安排</text>
+	</view>
+
 	<view class="readonly-note">
 		当前为预约目录查询。预约下单、锁号、取消和支付将在真实业务契约与线上验收完成后开放。
 	</view>

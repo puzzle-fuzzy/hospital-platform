@@ -455,6 +455,7 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directoryTemplate).toContain("未来 7 天");
 	expect(directoryTemplate).toContain("cascade-shell");
 	expect(directoryTemplate).toContain("加载更多号源");
+	expect(directoryTemplate).toContain("当前暂无可预约科室");
 	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
 	expect(recordsTemplate).toContain("更换就诊人");
 	expect(recordsTemplate).toContain("取消、退号和支付状态处理");
