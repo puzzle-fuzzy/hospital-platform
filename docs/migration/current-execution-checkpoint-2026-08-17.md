@@ -22,6 +22,13 @@
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
 3/3、system-ping 和未登录认证边界通过；该证据没有更新任何真实业务验收状态。
 
+本轮完整迁移门禁复核中，`architecture:audit`、`provider:audit` 和 `docs:audit` 通过；`migration:audit`
+没有判绿，原因来自并行会话正在修改的旧仓库 `G:\\fuck\\hospital`，不是新端业务请求失败。当前审计观察到
+`module_common` 为 34（台账期望 33）、旧服务挂载总数为 191（台账期望 190），并发现旧小程序接口台账缺少
+`/common/yunhealth/registration/plugin-settlement-complete` 和 `/msun-yb-app-miop/thirdPartPay/start`。
+本轮不修改旧工作树、不擅自增加旧端期望数量，也不把这两个路径直接注册到新 Elysia；必须等旧端并行修改稳定后，
+由接口来源、挂载关系和业务归属逐项复核，再更新迁移台账。完整 `pnpm check` 在此期间不能宣称全部通过。
+
 随后于 2026-08-17 11:13 CST 进行的公网只读复核已记录在同一证据文档的 2.5 节：live、ready、system-ping
 均成功，`/patients` 未登录返回 `401 unauthorized`，并保留了本次 `x-request-id`；该复核仍不代表本地候选
 已部署，也不更新微信、患者、Provider 或真机业务验收状态。
