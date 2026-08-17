@@ -17,9 +17,9 @@
 代码和测试完成不等于真实微信登录已经上线。真实登录还必须同时满足：微信 AppID/AppSecret、MySQL 目标 schema、
 Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收全部通过。
 
-当前线上 API release 为 `6d58c9c`，并已应用 `0016_patient_directory_sync_owner_index`。该版本已经完成生产模式启动、MySQL/Redis/schema 探针、公网
-`/api/v2` 健康检查、未登录认证边界和旧 Python 服务共存验收；此前 release 的真实微信登录、单患者同步、预约科室和排班读取证据仍只能作为历史证据，不能直接当作 `6d58c9c` 的真机验收。完整发布边界见
-[`release/6d58c9c-production-acceptance-2026-08-17.md`](release/6d58c9c-production-acceptance-2026-08-17.md)。
+当前线上 API release 为 `5c4e7cf`，并已应用 `0016_patient_directory_sync_owner_index`。该版本已经完成生产模式启动、MySQL/Redis/schema 探针、公网
+`/api/v2` 健康检查、未登录认证边界和旧 Python 服务共存验收；此前 release 的真实微信登录、单患者同步、预约科室和排班读取证据仍只能作为历史证据，不能直接当作 `5c4e7cf` 的真机验收。完整发布边界见
+[`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md)。
 
 ### 当前开发者工具观测（2026-08-16）
 

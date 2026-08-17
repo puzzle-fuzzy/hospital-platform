@@ -5,9 +5,9 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-17 12:58 CST）
+### 线上实时状态（2026-08-17 13:18 CST）
 
-- 新 API 已从 `131fb5a` 原子切换到 `6d58c9c`，systemd active，公网 `/api/v2` 的 live、ready、system-ping 和未登录认证边界通过；旧 Python `8001` 保持监听。启动日志确认 `runtimeMode=production`、MySQL/Redis/schema 为 `ok`，详细证据见 [`release/6d58c9c-production-acceptance-2026-08-17.md`](release/6d58c9c-production-acceptance-2026-08-17.md)。
+- 新 API 已从 `6d58c9c` 原子切换到 `5c4e7cf`，systemd active，公网 `/api/v2` 的 live、ready、system-ping 和未登录认证边界通过；旧 Python `8001` 保持监听。启动日志确认 `runtimeMode=production`、MySQL/Redis/schema 为 `ok`，并增加了 MySQL 幂等只读请求的两次短退避恢复，详细证据见 [`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md)。
 - `0016_patient_directory_sync_owner_index` 已由候选 bundle 执行成功，marker、`owner_user_id,provider_name,status,lease_until` 索引列顺序和 schema probe 均通过；错误的跨平台打包在切换前被拦截，未产生 schema 半成品。支付、医保、HIS、报告和 Worker 仍关闭。
 - 候选 runtime smoke 完成 readiness 连续 6/6、system ping 200、未登录受保护路由 401；这只是运行边界证据，真实微信会话、Redis TTL、多患者切换、普通资料读写/409、预约历史和门诊费用仍待真机三层验收。
 
@@ -16,7 +16,7 @@
 - 新 API `current=131fb5a`，systemd unit active，公网入口为 `https://test-hp.meiyi.pro/api/v2`；内外网 live/ready、no-store、system-ping 已通过，启动日志确认 `runtimeMode=production` 且 MySQL/Redis/schema 为 `ok`。本次只标准化持久化瞬态错误码日志，不改变业务 response 或写入重试边界；这是 `6d58c9c` 发布前的历史快照，证据见 [`release/131fb5a-production-acceptance-2026-08-17.md`](release/131fb5a-production-acceptance-2026-08-17.md)。
 - 旧 Python API 仍监听 `0.0.0.0:8001`，未停止；Worker 仍 inactive。支付、医保、HIS、报告 gate 仍关闭。
 - 02:18:26 CST 的一次真实微信登录因 `PersistenceUnavailableError` 返回 503；约 3 秒后下一次登录成功，随后 `/patients` 和完整患者同步均返回 200，记录 1 条 active 患者和 1 条 `his-patient` 映射，并读取到预约科室 62 条、排班 1 条。该组真实微信登录与单患者目录同步事件发生在 `527d163` 切换前，只能作为 `ca5a372` 的部分验收证据；当时没有安全底层错误码，不能断言具体网络/数据库根因。
-- 23:50:17-23:50:18 的预约科室/排班只读证据来自前一 release `41c9c18`；02:18 CST 的科室/排班读取来自 `ca5a372`，科室 62 条、排班 1 条均返回 200，且 `snapshotPersistenceStatus=persisted`；Redis 实际 TTL、多就诊人切换/失效恢复、预约历史/报告/门诊费用 Provider 读操作、真机页面网络对齐和普通资料真实读写仍未完成。这些是历史业务证据，当前 release 的运行证据见 [`release/6d58c9c-production-acceptance-2026-08-17.md`](release/6d58c9c-production-acceptance-2026-08-17.md)。
+- 23:50:17-23:50:18 的预约科室/排班只读证据来自前一 release `41c9c18`；02:18 CST 的科室/排班读取来自 `ca5a372`，科室 62 条、排班 1 条均返回 200，且 `snapshotPersistenceStatus=persisted`；Redis 实际 TTL、多就诊人切换/失效恢复、预约历史/报告/门诊费用 Provider 读操作、真机页面网络对齐和普通资料真实读写仍未完成。这些是历史业务证据，当前 release 的运行证据见 [`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md)。
 
 ### 2026-08-17 迁移差距审计
 
@@ -28,7 +28,7 @@
 - 本轮预约排班审计进一步移除 `usableNum`/`remainingNumber` 号源 fallback；当前只接受已确认的 `usableSourceNum`，缺失时 fail-closed，避免旧端不同接口字段被错误合并。该修正仅影响只读 adapter 边界，未打开预约写入或锁号。
 - 本轮为 runtime/provider smoke 增加有界 readiness 连续采样：库调用默认保持单次兼容语义，命令行默认 3 次，正式生产验收建议显式使用 6 次、间隔 2000 毫秒；任意中间 `not_ready` 都不能被最后一次恢复掩盖。该门禁只证明运行前置稳定，仍不替代真实微信、患者、Provider、真机或支付验收，规则见 [`release/readiness-stability-gate.md`](release/readiness-stability-gate.md)。
 - `ed250ec` 的本地 runtime smoke 已对公网 `/api/v2` 完成 6/6 readiness、no-store、system-ping 和未登录 401 连续复核；该证据仍不代表 `ed250ec` 已部署，也不替代服务器 bundle provenance、journald、微信会话或真机业务验收。详见 [`release/current-public-readiness-stability-2026-08-17.md`](release/current-public-readiness-stability-2026-08-17.md)。
-- 当前 `6d58c9c` 已完成服务器 bundle checksum、真实生产 preflight、候选 smoke、0016 migration、原子切换和公网 6/6 readiness；旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。此次切换只增加向后兼容的患者同步索引，不改变 P0 真实微信、多患者和 Provider 业务验收顺序，完整证据见 [`release/6d58c9c-production-acceptance-2026-08-17.md`](release/6d58c9c-production-acceptance-2026-08-17.md)。
+- 当前 `5c4e7cf` 已完成服务器 bundle checksum、真实生产 preflight、候选 smoke、原子切换和公网 6/6 readiness；旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。此次切换只增加 MySQL 幂等读的有限断线恢复，不改变 schema、支付 gate 或 P0 真实微信、多患者和 Provider 业务验收顺序，完整证据见 [`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md)。
 
 ### 已经具备
 
@@ -189,7 +189,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片、切换就诊人和报告目录，确认页面只显示脱敏卡号与平台摘要；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前已上线的 `6d58c9c` 重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前已上线的 `5c4e7cf` 重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -200,7 +200,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 候选 `d177991` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 已用公网 runtime smoke 的 traceId/requestId 证明 `/api/v2` 请求进入当时的 `d177991` Bun 进程；随后已切换到 `6d58c9c`，不再重复基础路由检查，转入真实 session、owner 映射、provider 状态和真机页面证据。
+14. 已用公网 runtime smoke 的 traceId/requestId 证明 `/api/v2` 请求进入当时的 `d177991` Bun 进程；随后经历 `6d58c9c` 并已切换到当前 `5c4e7cf`，不再重复基础路由检查，转入真实 session、owner 映射、provider 状态和真机页面证据。
 
 15. 2026-08-16 21:20 CST 使用候选 `3dc6f5f` 的 runtime smoke bundle 复测当前公网 `/api/v2`，live、ready、system-ping 和未登录认证边界全部通过；本次无会话、无患者/Provider 业务请求，不能替代真实微信 session 验收。证据见 [`release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md`](release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md)。
 
@@ -228,7 +228,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：修复服务端与小程序只读窗口依赖运行时本地时区的问题，并用 UTC 输入验证仍输出中国标准时间；提交 `4c0d255` 只涉及客户端和文档，不需要重启 API，也不会打开支付、医保或结算写入。
 - 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；目标环境 migration 和 schema probe 已完成，下一步是失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
 - 普通个人资料已在 0014 建立独立 `hp_user_profiles` 表；MySQL 首次写入和条件版本更新均有回归测试，下一步必须先做 schema probe、默认值/冲突公网验收，再允许真机使用资料编辑入口。
-- 2026-08-16：0014 已在生产受控应用，schema probe 返回 `ready`，当时 `d177991` 已切换新 API；该历史窗口随后运行 `b186098`，未登录 profile 401 已验证，真实微信资料默认值、首次更新、409 冲突和真机仍未完成。当前线上版本以 `6d58c9c` 验收记录为准。
+- 2026-08-16：0014 已在生产受控应用，schema probe 返回 `ready`，当时 `d177991` 已切换新 API；该历史窗口随后运行 `b186098`，未登录 profile 401 已验证，真实微信资料默认值、首次更新、409 冲突和真机仍未完成。当前线上版本以 `5c4e7cf` 验收记录为准。
 - 2026-08-16：修复首页与患者选择页下拉刷新提前结束的问题；首页等待健康检查和服务端目录读取，患者选择页继续等待医院目录同步，并移除目录读取完成后提前关闭 `loading` 的时序漏洞，避免临床映射尚未落库时进入预约、报告或费用查询，也不让首页普通刷新隐式放大为 provider 同步。
 - 2026-08-16：修复预约目录日期标签使用设备本地时区的问题；`workDate` 现在按固定日历解析，跨时区不会改变医院日期或星期。
 - 2026-08-16：患者同步 durable operation ledger、租约代次、同事务快照提交和 409 处理中语义已完成代码、测试和 `0015` migration，生产 schema probe 已通过；该历史窗口公网 `18081` 曾运行 `b186098`，真实患者并发、多患者切换、公网和真机证据仍待完成，契约与证据见 [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) 和 [`release/patient-sync-idempotency-production-acceptance-2026-08-16.md`](release/patient-sync-idempotency-production-acceptance-2026-08-16.md)。预约写入、患者绑定前必须完成这些线上验收。

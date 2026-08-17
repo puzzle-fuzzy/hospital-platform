@@ -1,7 +1,7 @@
 # 2026-08-17 公网只读运行复核
 
-> 当前线上 release 已在后续窗口切换为 `6d58c9c`；本文件保留早期只读观察，最新发布、认证边界和
-> 新旧服务共存证据见 [`6d58c9c-production-acceptance-2026-08-17.md`](6d58c9c-production-acceptance-2026-08-17.md)。
+> 当前线上 release 已在后续窗口切换为 `5c4e7cf`；本文件保留早期只读观察，最新发布、认证边界和
+> 新旧服务共存证据见 [`5c4e7cf-production-acceptance-2026-08-17.md`](5c4e7cf-production-acceptance-2026-08-17.md)。
 
 > 本文记录一次从开发机发起的公网只读观察，不执行登录、患者同步、Provider 请求、支付、写入、重启或发布。
 > 它只证明当前公网入口的运行状态和关闭边界，不能替代真实微信、患者 Provider、预约/报告/费用业务和真机验收。

@@ -1,6 +1,6 @@
 # P0 只读业务验收手册（2026-08-17）
 
-> 本手册用于当前 `6d58c9c` 生产版本的真实微信小程序验收。它只覆盖微信登录、患者上下文、预约历史、爽约记录和门诊费用只读查询；不包含预约下单、微信支付、医保结算、退款或 HIS 写入。
+> 本手册用于当前 `5c4e7cf` 生产版本的真实微信小程序验收。它只覆盖微信登录、患者上下文、预约历史、爽约记录和门诊费用只读查询；不包含预约下单、微信支付、医保结算、退款或 HIS 写入。
 >
 > `configured` 只表示环境变量和组合根依赖齐全，不表示 Provider 权限、接口字段或真实业务已经验收。每个域必须同时具备真机操作、HTTP 响应和服务端日志三类证据，缺一不可。
 
@@ -8,7 +8,7 @@
 
 | 项目 | 验收基线 |
 | --- | --- |
-| 线上 release | `6d58c9c` |
+| 线上 release | `5c4e7cf` |
 | 新 API | `hospital-platform-api-v2.service`，公网入口 `/api/v2` |
 | 旧 API | Python 服务继续保留在原端口，不能因为本手册重启或修改 |
 | 小程序运行目录 | `apps/miniprogram/dist/`；先执行 `pnpm --filter @hospital/miniprogram build`，开发者工具导入包含 `project.config.json` 的小程序目录，并确认 `miniprogramRoot` 为 `dist/` |
