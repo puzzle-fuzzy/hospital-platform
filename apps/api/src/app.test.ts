@@ -226,6 +226,14 @@ test("migration inventory labels production observations as evidence snapshots",
 	// 生产复核记录属于带版本的历史证据；如果不标明边界，新会话很容易把旧快照
 	// 当作当前 main 或线上实时状态，进而错误地跳过发布、回滚和真机验收。
 	expect(inventory).toContain("证据快照，不代表当前 `main` 或当前线上状态");
+	// 当前 release 观察必须成为盘点入口的一部分；否则 capability 表很容易
+	// 继续保留旧 release 的“当前 API”描述，让下一次业务验收使用错误版本。
+	expect(inventory).toContain(
+		"release/current-server-p0-observation-2026-08-17-2257.md",
+	);
+	expect(inventory).toContain("当前 release 启动后 `appointment.*=0`");
+	expect(inventory).toContain("当前 release 启动后 `outpatient.payment.*=0`");
+	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });
 

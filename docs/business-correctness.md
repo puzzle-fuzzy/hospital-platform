@@ -71,9 +71,12 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
    不能通过同一个 `[]` 结果混淆。只有服务端明确返回成功快照时，页面才更新患者展示；失败分支清理展示上下文并
    保留错误和重试能力，不能把错误转换成业务空结果交给后续调用方。
 
-预约历史状态按 Provider 已确认的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
-`4=missed`、`5=stopped`、`6=substituted`、`7=registered`；只有合同未确认的状态才进入
-`unknown`。停诊、替诊和已登记不能折叠成未知，否则患者无法区分医院侧变更与自身未就诊。
+预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
+`4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
+`src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的
+legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 Provider 文档/脱敏 fixture 未确认的状态才进入
+`unknown`；一旦新合同与旧端实现不一致，必须先更新 adapter contract 和测试，不能继续沿用旧数字。停诊、替诊和已登记不能折叠成
+未知，否则患者无法区分医院侧变更与自身未就诊。
 
 “我的挂号”的“在线挂号/全部挂号”标签只在当前安全读模型上工作：旧端虽然观察到
 `requestChannel=3/4` 两个渠道值，但新公共预约记录没有渠道字段，且两值的当前业务含义
