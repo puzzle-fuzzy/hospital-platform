@@ -20,7 +20,11 @@ export function profileModule(
 	sessions: SessionTokenService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions);
-	return new Elysia({ name: "profile-module" })
+	// 资料 contract 禁止静默清洗未知字段：Elysia 默认 normalize 会把
+	// avatar/openid 等旧端字段先删除，再让请求以 200 进入 service，调用方
+	// 无法知道自己的请求意图没有被保存。该模块局部关闭 normalize，让
+	// UserProfileUpdateRequest 的 additionalProperties=false 真正返回 validation。
+	return new Elysia({ name: "profile-module", normalize: false })
 		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/me/profile",

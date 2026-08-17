@@ -193,6 +193,12 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
 `outpatient.payment.records.failed`，不能只返回错误而没有业务事件，也不能把失败伪装成空费用列表。服务层还必须拒绝
 超长、首尾空白或控制字符标识；这些非法值在失败日志中统一记为 `patientId=invalid`，不能原样回写日志。
 
+普通个人资料更新也必须 fail-closed：请求体只允许 `version`、`displayName`、`gender`、`age` 和
+`email`。`avatar`、`openid`、`unionid`、`userId` 或其他未知字段必须在 API contract 边界返回
+`400 validation`，不能依赖序列化层静默清洗后返回成功；否则旧端字段会被误认为已迁移，后续维护也无法
+判断资料更新到底保存了哪些内容。通过校验后仍必须执行当前 Bearer owner 检查和 `version` 乐观锁，
+版本过期返回 `409 user-profile-conflict`。
+
 ## 7. 当前未完成验证
 
 代码和单元测试通过不等于真实业务完成。当前仍需在受控测试身份上分别完成：

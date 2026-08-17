@@ -66,7 +66,10 @@ export function createApp(options: AppOptions = {}) {
 	const services = options.services ?? createDefaultApplicationServices();
 	const logger = options.logger ?? createNoopLogger();
 
-	const app = new Elysia({ name: "hospital-api" })
+	// 患者端公共 contract 采用 fail-closed 输入语义：未知字段不能被 Elysia
+	// 默认 normalize 静默清洗，否则旧端的身份/支付字段可能被误认为已保存。
+	// 各模块仍需通过 schema 明确声明 additionalProperties 边界。
+	const app = new Elysia({ name: "hospital-api", normalize: false })
 		.use(
 			cors({
 				origin:

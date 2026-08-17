@@ -68,18 +68,30 @@ export const UserProfileResponse = Type.Object({
 	data: UserProfileSchema,
 });
 
-/** 普通资料使用版本条件更新；不接受 avatar/openid/unionid/身份证等旧字段。 */
-export const UserProfileUpdateRequest = Type.Object({
-	version: Type.Integer({ minimum: 0 }),
-	displayName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
-	gender: Type.Optional(UserGenderSchema),
-	age: Type.Optional(
-		Type.Union([Type.Integer({ minimum: 0, maximum: 150 }), Type.Null()]),
-	),
-	email: Type.Optional(
-		Type.Union([Type.String({ maxLength: 320, format: "email" }), Type.Null()]),
-	),
-});
+/**
+ * 普通资料使用版本条件更新；不接受 avatar/openid/unionid/身份证等旧字段。
+ *
+ * 必须显式关闭 additionalProperties：TypeBox/Elysia 在默认配置下可能把未知
+ * 字段当作可忽略的兼容字段，导致旧端请求收到 200 却没有保存完整意图。资料域
+ * 宁可让调用方修正请求，也不能把身份字段静默吞掉后伪造“更新成功”。
+ */
+export const UserProfileUpdateRequest = Type.Object(
+	{
+		version: Type.Integer({ minimum: 0 }),
+		displayName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+		gender: Type.Optional(UserGenderSchema),
+		age: Type.Optional(
+			Type.Union([Type.Integer({ minimum: 0, maximum: 150 }), Type.Null()]),
+		),
+		email: Type.Optional(
+			Type.Union([
+				Type.String({ maxLength: 320, format: "email" }),
+				Type.Null(),
+			]),
+		),
+	},
+	{ additionalProperties: false },
+);
 
 /** 关系值是跨 provider 的内部规范，页面显示文案由小程序决定。 */
 export const PatientRelationshipSchema = Type.Union([

@@ -461,6 +461,11 @@ owner/provider/key 操作事实。小程序 63 项验收、599 个断言、typec
 小程序 63 项验收、603 个断言、typecheck、lint、格式和运行包构建均通过；候选尚未部署，真实微信资料读写、
 409 冲突和真机返回证据仍待完成。
 
+本轮继续审计普通资料更新边界，发现 Elysia 默认 `normalize` 会把请求体中的未知字段静默删除，导致
+旧端提交 `avatar`/`openid` 时仍返回 200。现已在根应用关闭该行为，并用 API 集成测试锁定未知字段必须返回
+`400 validation`；这只是本地候选修复，尚未重启或切换线上 `0b6f38f`，真实资料读写、409 和真机验收仍待后续
+发布窗口单独完成。
+
 随后完成 `0016_patient_directory_sync_owner_index` 的代码与线上只读审计：线上 `0015` marker 存在，
 `0016` marker 和目标复合索引均不存在；本地 0016 只对新端 operation ledger 增加非唯一查询索引，不影响
 旧 Python legacy 表和患者数据。由于该 migration 是非事务性 DDL，候选发布与 migration 必须绑定，失败时先

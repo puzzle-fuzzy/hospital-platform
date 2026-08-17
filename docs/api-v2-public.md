@@ -163,6 +163,10 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 `openid`/`unionid` 和患者字段不属于该 API。详细字段、默认值、版本冲突和 migration 见
 [`migration/user-profile-contract.md`](migration/user-profile-contract.md)。
 
+`PUT /me/profile` 的请求体是严格白名单：除 `version` 和上述可更新字段外，任何未知字段都
+返回 `400 validation`，服务端不能把 `avatar`、`openid` 等旧端字段静默删除后继续保存。这样
+可以尽早发现旧页面仍在提交身份字段的迁移错误，也避免调用方误以为头像或微信身份已经被新服务接管。
+
 资料不存在时返回 `version=0` 的默认值；首次更新必须使用 `version=0`，保存后版本变为 1。
 后续更新必须带当前版本，冲突返回 `409 user-profile-conflict`，客户端应刷新后重试，不能
 自动覆盖其他设备的修改。

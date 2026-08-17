@@ -655,6 +655,29 @@ test("profile endpoint is owner-scoped and rejects stale versions", async () => 
 		success: true,
 		data: { displayName: "其他用户", version: 1 },
 	});
+
+	// 旧端资料更新曾经携带 avatar/openid 等身份字段；新 contract 必须在
+	// Elysia schema 层拒绝它们，不能静默丢弃后让调用方误以为资料已完整保存。
+	const legacyFieldResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			method: "PUT",
+			headers: {
+				authorization,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				version: 1,
+				displayName: "仅保存允许字段",
+				avatar: "https://legacy.example/avatar.png",
+				openid: "legacy-openid-must-not-enter-contract",
+			}),
+		}),
+	);
+	expect(legacyFieldResponse.status).toBe(400);
+	expect(await legacyFieldResponse.json()).toMatchObject({
+		success: false,
+		error: { code: "validation" },
+	});
 });
 
 test("readiness reports configured dependencies as unavailable until probes pass", async () => {
