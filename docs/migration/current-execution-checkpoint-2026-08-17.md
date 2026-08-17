@@ -171,6 +171,11 @@ readiness 以及真实微信/Provider 业务证据仍需单独记录，不能由
 `401 unauthorized`；已登录但幂等键缺失或包含非法字符时返回 `400 validation`，并确认 provider
 调用次数为 0。该轮只增加测试和文档，不改变已验证实现候选 `ef6f34c`，也没有发布或重启线上服务。
 
+本轮又补充门诊费用 API 组合测试：平台 `patientId` 必须由服务端 owner-scoped 解析为
+`his-patient` 引用；`unpaid`/`paid` 请求分别向 gateway 传递正确状态；Provider 确认的空目录保持
+HTTP 200、`items: []`、`total: 0`，不能被页面解释成异常。该测试使用合成 gateway，只证明 API 组合
+和响应契约，不替代当前线上账号、公网 Provider 或真机费用证据。
+
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
 的安全诊断字段，不增加写入重试；尚无新的真实登录失败样本，不能宣称瞬态故障已根治。完整发布边界

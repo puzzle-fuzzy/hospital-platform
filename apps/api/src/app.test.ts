@@ -10,6 +10,7 @@ import {
 	type AppointmentDirectoryGateway,
 	type AppointmentRecordDirectoryGateway,
 	type PatientDirectoryGateway,
+	type OutpatientPaymentGateway,
 	PaymentOrderService,
 	type ReportDetailGateway,
 	type ReportDirectoryGateway,
@@ -34,6 +35,7 @@ import {
 	createInMemorySessionTokenService,
 } from "./modules/auth";
 import { PatientService } from "./modules/patients";
+import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import {
 	WechatPaymentNotificationService,
 	WechatPrepayService,
@@ -1608,6 +1610,139 @@ test("appointment records resolve internal patient ownership and return only sum
 		},
 	});
 	expect(recordsInput).toEqual({ providerPatientId: "his-patient-001" });
+});
+
+test("outpatient payment endpoint preserves owner mapping and empty-result semantics", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const patientRepository = createInMemoryPatientRepository();
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+	const gatewayCalls: Array<{
+		providerPatientId: string;
+		status: "unpaid" | "paid";
+		authSysCode: string;
+	}> = [];
+	const gateway: OutpatientPaymentGateway = {
+		listRecords: async (input) => {
+			gatewayCalls.push({
+				providerPatientId: input.providerPatientId,
+				status: input.status,
+				authSysCode: input.authSysCode,
+			});
+			return {
+				records:
+					input.status === "unpaid"
+						? []
+						: [
+								{
+									recordId: "opaque-payment-001",
+									status: "paid",
+									billDate: "2026-08-16 09:00:00",
+									amountFen: 350,
+									departmentName: "心内科",
+								},
+							],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "outpatient-payment-trace",
+				},
+			};
+		},
+	};
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(patientRepository),
+			appointments: unusedAppointmentService(),
+			reports: unusedReportService(),
+			outpatientPayments: new OutpatientPaymentService({
+				repository: patientRepository,
+				gateway,
+				authSysCode: "thirdSelfMachine",
+				now: () => new Date("2026-08-16T10:20:30.000Z"),
+			}),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			sessions,
+		},
+	});
+	const authorization = `Bearer ${issued.accessToken}`;
+
+	const unpaidResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/payments/outpatient/records?patientId=internal-patient-001&status=unpaid",
+			{ headers: { authorization } },
+		),
+	);
+	const paidResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/payments/outpatient/records?patientId=internal-patient-001&status=paid",
+			{ headers: { authorization } },
+		),
+	);
+
+	expect(unpaidResponse.status).toBe(200);
+	expect(await unpaidResponse.json()).toEqual({
+		success: true,
+		data: { status: "unpaid", items: [], total: 0 },
+	});
+	expect(paidResponse.status).toBe(200);
+	expect(await paidResponse.json()).toEqual({
+		success: true,
+		data: {
+			status: "paid",
+			items: [
+				{
+					recordId: "opaque-payment-001",
+					status: "paid",
+					billDate: "2026-08-16 09:00:00",
+					amountFen: 350,
+					departmentName: "心内科",
+				},
+			],
+			total: 1,
+		},
+	});
+	// 公共 API 只接收平台 patientId；服务端才可以把它解析为 HIS patId。
+	expect(gatewayCalls).toEqual([
+		{
+			providerPatientId: "his-patient-001",
+			status: "unpaid",
+			authSysCode: "thirdSelfMachine",
+		},
+		{
+			providerPatientId: "his-patient-001",
+			status: "paid",
+			authSysCode: "thirdSelfMachine",
+		},
+	]);
 });
 
 test("wechat prepay endpoint fails closed while the payment gate is disabled", async () => {
