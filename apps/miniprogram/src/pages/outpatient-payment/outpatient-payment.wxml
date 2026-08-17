@@ -21,8 +21,8 @@
 		<text>正在加载门诊缴费记录...</text>
 	</view>
 
-	<view wx:elif="{{items.length}}" class="record-list">
-		<view wx:for="{{items}}" wx:key="recordId" class="record-card" bindtap="onRecordTap">
+	<view wx:elif="{{visibleItems.length}}" class="record-list">
+		<view wx:for="{{visibleItems}}" wx:key="recordId" class="record-card" bindtap="onRecordTap">
 			<view class="record-header">
 				<text class="record-department">{{item.departmentName || '门诊费用'}}</text>
 				<text class="record-status">{{item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
@@ -33,6 +33,7 @@
 				<text class="record-amount">{{item.amountLabel}}</text>
 			</view>
 		</view>
+		<view wx:if="{{hasMoreItems}}" class="load-more" bindtap="onLoadMore">加载更多缴费记录</view>
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">

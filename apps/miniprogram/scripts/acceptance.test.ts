@@ -677,7 +677,14 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).toContain(
 		"loadOutpatientPaymentRecords(patient.id, status)",
 	);
+	// 服务端仍返回完整只读结果；小程序只分批建立渲染树，不能把这个行为
+	// 描述成 provider 分页，也不能因为首批记录少就推导费用已支付。
+	expect(outpatient).toContain("OUTPATIENT_PAYMENT_PAGE_SIZE");
+	expect(outpatient).toContain("visibleItems: mappedItems.slice");
+	expect(outpatient).toContain("onLoadMore(): void");
 	expect(outpatientTemplate).toContain("待缴费");
+	expect(outpatientTemplate).toContain("visibleItems");
+	expect(outpatientTemplate).toContain("加载更多缴费记录");
 	expect(outpatientTemplate).toContain(
 		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
 	);

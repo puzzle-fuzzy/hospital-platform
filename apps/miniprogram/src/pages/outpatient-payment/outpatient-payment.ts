@@ -12,6 +12,15 @@ import type {
 	Patient,
 } from "../../types";
 
+/**
+ * 门诊费用只读结果的本地渲染批次大小。
+ *
+ * 当前 API 没有服务端 cursor/page，`items` 仍然保存本次完整查询结果，
+ * 以免把本地分批误解为 provider 分页或改变费用总数；只有 `visibleItems`
+ * 控制 WXML 首帧和后续渲染成本。支付、医保和结算状态不由这个批次推导。
+ */
+const OUTPATIENT_PAYMENT_PAGE_SIZE = 10;
+
 type OutpatientPaymentPageMethods = {
 	loadPage(): Promise<void>;
 	loadRecords(
@@ -20,6 +29,7 @@ type OutpatientPaymentPageMethods = {
 		requestToken?: number,
 	): Promise<void>;
 	onStatusTap(event: WechatMiniprogram.TouchEvent): void;
+	onLoadMore(): void;
 	onChangePatient(): void;
 	onRecordTap(): void;
 	onPullDownRefresh(): void;
@@ -33,6 +43,9 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		selectedPatient: null,
 		activeStatus: "unpaid",
 		items: [],
+		visibleItems: [],
+		visibleItemCount: 0,
+		hasMoreItems: false,
 		loading: true,
 		error: "",
 	},
@@ -61,6 +74,9 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			error: "",
 			selectedPatient: null,
 			items: [],
+			visibleItems: [],
+			visibleItemCount: 0,
+			hasMoreItems: false,
 		});
 		return loadPatients()
 			.then((patients) => {
@@ -94,8 +110,16 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		// 查询状态必须来自本次操作的快照，不能依赖 setData 后的异步页面状态。
 		return loadOutpatientPaymentRecords(patient.id, status).then((items) => {
 			if (!loadGuard.isCurrent(effectiveRequestToken)) return;
+			const mappedItems = items.map((item) => this.toView(item));
+			const visibleItemCount = Math.min(
+				OUTPATIENT_PAYMENT_PAGE_SIZE,
+				mappedItems.length,
+			);
 			this.setData({
-				items: items.map((item) => this.toView(item)),
+				items: mappedItems,
+				visibleItems: mappedItems.slice(0, visibleItemCount),
+				visibleItemCount,
+				hasMoreItems: visibleItemCount < mappedItems.length,
 				error: "",
 			});
 		});
@@ -119,7 +143,15 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		}
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
-		this.setData({ activeStatus: status, loading: true, error: "", items: [] });
+		this.setData({
+			activeStatus: status,
+			loading: true,
+			error: "",
+			items: [],
+			visibleItems: [],
+			visibleItemCount: 0,
+			hasMoreItems: false,
+		});
 		// 显式传入用户刚点击的状态，避免微信 setData 尚未完成时仍查询旧 tab。
 		this.loadRecords(this.data.selectedPatient, status, requestToken)
 			.catch((error) => {
@@ -130,6 +162,24 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			.finally(() => {
 				if (loadGuard.isCurrent(requestToken)) this.setData({ loading: false });
 			});
+	},
+
+	/**
+	 * 只增加当前完整结果的本地可见窗口。
+	 *
+	 * 这里不能重新请求 provider，也不能把当前页的部分记录解释成分页事实；
+	 * 用户只是继续查看同一次 owner-scoped、状态固定的只读查询结果。
+	 */
+	onLoadMore(): void {
+		const nextCount = Math.min(
+			this.data.visibleItemCount + OUTPATIENT_PAYMENT_PAGE_SIZE,
+			this.data.items.length,
+		);
+		this.setData({
+			visibleItems: this.data.items.slice(0, nextCount),
+			visibleItemCount: nextCount,
+			hasMoreItems: nextCount < this.data.items.length,
+		});
 	},
 
 	onChangePatient(): void {
@@ -165,6 +215,12 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				message = safeApiErrorMessage(error, fallback);
 			}
 		}
-		this.setData({ error: message, items: [] });
+		this.setData({
+			error: message,
+			items: [],
+			visibleItems: [],
+			visibleItemCount: 0,
+			hasMoreItems: false,
+		});
 	},
 });

@@ -263,7 +263,12 @@ export type OutpatientPaymentPageData = {
 	hasShown: boolean;
 	selectedPatient: Patient | null;
 	activeStatus: "unpaid" | "paid";
+	/** 完整的当前查询结果；它的总量不能被本地渲染分批改变。 */
 	items: Array<OutpatientPaymentRecordView>;
+	/** 当前真正交给 WXML 的窗口，避免费用过多时一次性建立整棵渲染树。 */
+	visibleItems: Array<OutpatientPaymentRecordView>;
+	visibleItemCount: number;
+	hasMoreItems: boolean;
 	loading: boolean;
 	error: string;
 };
