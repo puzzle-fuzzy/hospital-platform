@@ -5,6 +5,19 @@
 
 ## 当前基线
 
+### 本轮最新生产切换与公网复核（2026-08-17 23:13-23:18 CST）
+
+- 候选 `b823727` 已完成本地构建、7 个 artifact checksum、服务器真实生产 env preflight 和
+  `127.0.0.1:18082` 隔离 runtime smoke；随后原子切换为当前 release，只重启新 Bun/Elysia API。
+- 当前 release 为 `/home/ps/code/hospital-platform/releases/b823727`，新 API 监听 `10.0.0.3:18081`；
+  旧 Python 服务继续监听 `8001`，Worker 保持 inactive。内网和公网 live、ready、system-ping 均通过，
+  公网认证边界仍返回 `401/unauthorized`。
+- 当前 release 启动窗口的低敏日志聚合为 `parseErrors=0`，但没有 `appointment.*` 或
+  `outpatient.payment.*` 业务事件；预约历史和门诊费用 P0 证据门禁明确缺少 requested/success，
+  因此它们仍不能标记为真实线上业务验收完成。
+- 发布与共存证据见 [`release/b823727-production-acceptance-2026-08-17.md`](release/b823727-production-acceptance-2026-08-17.md)。
+  下一步是使用有效微信会话完成真机三层业务验收，不是继续用 readiness 或未登录 401 代替业务证据。
+
 ### 本轮最新生产与公网复核（2026-08-17 22:57-22:58 CST）
 
 - 已通过 SSH 对 `192.168.112.172` 完成只读核验：新 Bun/Elysia 服务由 `hospital-platform-api-v2.service`
@@ -320,7 +333,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-16：修复服务端与小程序只读窗口依赖运行时本地时区的问题，并用 UTC 输入验证仍输出中国标准时间；提交 `4c0d255` 只涉及客户端和文档，不需要重启 API，也不会打开支付、医保或结算写入。
 - 患者目录失效回收已在代码中实现为 0013 的 active/inactive 事务快照，并保留历史引用；目标环境 migration 和 schema probe 已完成，下一步是失效/恢复数据验收和真机证据，仍禁止物理删除 `hp_patients`。
 - 普通个人资料已在 0014 建立独立 `hp_user_profiles` 表；MySQL 首次写入和条件版本更新均有回归测试，下一步必须先做 schema probe、默认值/冲突公网验收，再允许真机使用资料编辑入口。
-- 2026-08-16：0014 已在生产受控应用，schema probe 返回 `ready`，当时 `d177991` 已切换新 API；该历史窗口随后运行 `b186098`，未登录 profile 401 已验证，真实微信资料默认值、首次更新、409 冲突和真机仍未完成。当前线上 release 已切换为 `0b6f38f`；真实资料默认值、首次更新、409 冲突和真机仍未完成，后续以当前迁移检查点为准。
+- 2026-08-16：0014 已在生产受控应用，schema probe 返回 `ready`，当时 `d177991` 已切换新 API；该历史窗口随后运行 `b186098`，未登录 profile 401 已验证，真实微信资料默认值、首次更新、409 冲突和真机仍未完成。该段记录中的 `0b6f38f` 是当时的历史 release；当前线上 release 以本文档顶部最新切换记录为准。
 - 2026-08-17：修复普通资料 contract 的未知字段静默清洗问题，并随 `5f5915e` 完成生产切换。Elysia 根应用关闭 `normalize` 后，`PUT /me/profile` 会对 `avatar`、`openid` 等旧端字段返回 `400 validation`，同时保留 owner 隔离和 `version` 冲突语义；新增 API 回归测试和中文业务规则。真实资料读写、409 和真机证据仍未完成。
 - 2026-08-16：修复首页与患者选择页下拉刷新提前结束的问题；首页等待健康检查和服务端目录读取，患者选择页继续等待医院目录同步，并移除目录读取完成后提前关闭 `loading` 的时序漏洞，避免临床映射尚未落库时进入预约、报告或费用查询，也不让首页普通刷新隐式放大为 provider 同步。
 - 2026-08-16：修复预约目录日期标签使用设备本地时区的问题；`workDate` 现在按固定日历解析，跨时区不会改变医院日期或星期。

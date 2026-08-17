@@ -278,3 +278,11 @@ mode、MySQL/Redis/schema、live/ready、system-ping 和认证边界 smoke 后�
 内的 `p0-log-aggregate.js` 对切换后 journald 窗口聚合 `parseErrors=0`。本次没有调用真实微信、患者、预约、费用
 Provider，也没有执行 migration、支付、医保、退款或 HIS 写入。完整证据见
 [`../../docs/release/bf67b96-production-acceptance-2026-08-17.md`](../../docs/release/bf67b96-production-acceptance-2026-08-17.md)。
+
+2026-08-17 23:13-23:18 CST：候选 `b823727` 完成 7 个 artifact checksum、真实生产 env preflight、
+`127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从
+`bf67b9673708a6e5188880eba9a6d29b8e78f0c5` 原子切换到 `b823727`，只重启新 API。切换后内网和公网
+live、ready、system-ping 通过，公网 runtime smoke 的 ready 连续 3/3，旧 Python `8001` 保持监听，
+Worker 仍 inactive。当前 release 的日志聚合 `parseErrors=0`，但预约历史和门诊费用 P0 证据门禁均因
+本窗口没有有效微信业务请求而缺少 requested/success；这不是业务验收完成。完整证据见
+[`../../docs/release/b823727-production-acceptance-2026-08-17.md`](../../docs/release/b823727-production-acceptance-2026-08-17.md)。
