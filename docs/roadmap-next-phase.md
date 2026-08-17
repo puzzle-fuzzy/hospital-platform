@@ -15,6 +15,7 @@
 - 候选 `0b6f38f` runtime smoke 完成 readiness 连续 6/6、system ping 200、未登录受保护路由 401；这只是运行边界证据，真实微信会话、Redis TTL、多患者切换、普通资料读写/409、预约历史和门诊费用仍待真机三层验收。
 - `0b6f38f` 切换后的最新 journald 窗口只有 1 次 production 启动、13 次 HTTP 200 运行/系统探针和 6 次未登录 401；`auth.wechat.*`、`patient.directory.*`、`appointment.*`、`outpatient.payment.*` 和 `report.*` 均为 0。该结果证明运行和认证边界，不证明任何 Provider 业务成功；新 API `18081` 与旧 Python `8001` 仍同时监听，详见 [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
 - 2026-08-17 18:23 CST 的当前 release `5f5915e` 低敏 SSH 观察确认：1 次微信登录成功、7 次患者同步成功、14 次患者目录读取，观测目录仍为单患者；最近 30 分钟没有预约、门诊费用或报告事件。该证据只推进微信/单患者目录链的运行观察，不替代 Redis TTL、多患者切换、预约历史、门诊费用或真机验收，详见 [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md)。
+- 2026-08-17 19:00-19:01 CST 的当前 release `5f5915e` 取得真实微信会话的普通资料默认值读取证据：`GET /me/profile` 返回 200，日志完成 `requested → loaded` 且 `persisted=false`，页面展示资料字段和边界说明；读取没有创建资料行。首次 `PUT`、409 版本冲突、真机视觉和敏感身份字段仍未验收，自动化开发者工具控制层日志也不能被记作干净真机证据，详见 [`release/user-profile-readonly-observation-2026-08-17.md`](release/user-profile-readonly-observation-2026-08-17.md)。
 
 ### 线上实时状态（历史快照：2026-08-17 02:56 CST）
 

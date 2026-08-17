@@ -552,3 +552,10 @@ production mode、MySQL/Redis/schema `ok` 和支付/报告 gate 关闭；该发�
 没有调用支付、医保或 HIS 写回。当前线上仍为 `5f5915e`，新 API `18081` 与旧 Python `8001` 共存；该证据只把
 门诊费用推进到“空列表三层只读证据”，不代表非空金额、第二位就诊人、Redis TTL、费用详情或任何支付/医保能力完成。
 详细记录见 [`门诊缴费只读验收记录`](../release/outpatient-payment-readonly-acceptance-2026-08-17.md)。
+
+2026-08-17 19:00-19:01 CST 又完成了普通个人资料真实会话只读复核：从个人中心进入“编辑个人信息”，
+`GET /api/v1/me/profile` 返回 HTTP 200，服务端记录 `user.profile.requested → user.profile.loaded`，并明确
+`persisted=false`；页面展示安全默认资料和普通资料边界说明，GET 没有隐式创建资料行。自动化控制开发者工具
+期间出现 `clickCheckTask` 和 `undefined is not iterable` 控制/渲染层日志，因此本次不宣称调试器零错误或真机验收。
+普通资料已推进到“真实默认值读取证据”，首次 `PUT`、409、真机和敏感身份字段仍未开放。详细记录见
+[`普通个人资料只读观察记录`](../release/user-profile-readonly-observation-2026-08-17.md)。
