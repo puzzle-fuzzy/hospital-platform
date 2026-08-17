@@ -34,6 +34,13 @@ import {
 } from "./application";
 import { config } from "./config";
 import { createReadinessService } from "./infrastructure/readiness";
+import { withShutdownDeadline } from "./shutdown";
+
+/**
+ * 必须小于 systemd 的 TimeoutStopSec=30s：连接回收异常时先记录失败并退出，
+ * 不能把发布切换拖到 systemd SIGKILL。正常停机通常远小于这个上限。
+ */
+const API_SHUTDOWN_DEADLINE_MS = 10_000;
 
 const logger = createLogger({
 	service: "hospital-api",
@@ -247,7 +254,7 @@ const stop = async (signal: "SIGINT" | "SIGTERM") => {
 		"Hospital API shutdown requested",
 	);
 	try {
-		await app.stop();
+		await withShutdownDeadline(() => app.stop(), API_SHUTDOWN_DEADLINE_MS);
 		logger.info({ event: "service.stopped", signal }, "Hospital API stopped");
 	} catch (error) {
 		logger.error(
@@ -259,6 +266,9 @@ const stop = async (signal: "SIGINT" | "SIGTERM") => {
 			"Hospital API shutdown failed",
 		);
 		process.exitCode = 1;
+		// app.stop() 的底层连接回收不可取消；deadline 到期后主动退出，
+		// 避免留下悬挂连接并再次触发 systemd 的硬 SIGKILL。
+		setImmediate(() => process.exit(1));
 	}
 };
 
