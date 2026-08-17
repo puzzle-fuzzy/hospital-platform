@@ -4,17 +4,17 @@ import {
 	createNoopLogger,
 } from "@hospital/observability";
 import {
+	type ApiPrefix,
 	apiRoute,
 	healthRoute,
 	resolveApiPrefix,
-	type ApiPrefix,
 } from "./api-route-prefix";
 import {
 	parseReadinessEnvironmentNumber,
 	ReadinessStabilityConfigurationError,
 	ReadinessStabilityProbeError,
-	runReadinessStabilityProbe,
 	resolveReadinessStability,
+	runReadinessStabilityProbe,
 } from "./readiness-stability";
 
 /**
@@ -23,6 +23,7 @@ import {
  */
 export type ProviderSmokeCapability =
 	| "session"
+	| "profile-read"
 	| "patient-sync"
 	| "patients"
 	| "appointment-directory"
@@ -72,6 +73,7 @@ export type ProviderSmokeOptions = {
 
 const DEFAULT_CAPABILITIES: readonly ProviderSmokeCapability[] = [
 	"session",
+	"profile-read",
 	"patients",
 	"appointment-directory",
 	"appointment-records",
@@ -421,6 +423,7 @@ export async function runProviderDirectorySmoke(
 	// parseCapabilities 自己提供默认能力，避免库函数隐式扩大验收范围。
 	const capabilityOrder: readonly ProviderSmokeCapability[] = [
 		"session",
+		"profile-read",
 		"patient-sync",
 		"patients",
 		"appointment-directory",
@@ -709,6 +712,87 @@ export async function runProviderDirectorySmoke(
 		return { traceId: result.traceId };
 	}
 
+	/**
+	 * 只读校验普通资料的结构，不把资料正文带入 smoke 结果。
+	 *
+	 * `/me/profile` 属于当前 Bearer owner 的普通展示资料；它不能被当作
+	 * 患者档案、实名资料或微信身份。这里故意只验证字段类型、允许枚举和
+	 * version，避免“接口返回 200”掩盖 schema 漂移，也避免验收工具输出昵称、
+	 * 邮箱等个人资料。资料写入、409 冲突和真机编辑仍由独立验收步骤完成。
+	 */
+	async function readProfile(): Promise<SmokeObservation> {
+		const result = await getJson(apiRoute(apiPrefix, "/me/profile"));
+		requireSafeData(result.data, result.traceId);
+		if (
+			typeof result.data !== "object" ||
+			result.data === null ||
+			Array.isArray(result.data)
+		) {
+			throw new ProviderSmokeRequestError(
+				"User profile response is not an object",
+				200,
+				result.traceId,
+			);
+		}
+		const profile = result.data as {
+			displayName?: unknown;
+			gender?: unknown;
+			age?: unknown;
+			email?: unknown;
+			version?: unknown;
+		};
+		if (typeof profile.displayName !== "string") {
+			throw new ProviderSmokeRequestError(
+				"User profile displayName is invalid",
+				200,
+				result.traceId,
+			);
+		}
+		if (
+			profile.gender !== "male" &&
+			profile.gender !== "female" &&
+			profile.gender !== "unknown"
+		) {
+			throw new ProviderSmokeRequestError(
+				"User profile gender is invalid",
+				200,
+				result.traceId,
+			);
+		}
+		if (
+			profile.age !== null &&
+			(typeof profile.age !== "number" ||
+				!Number.isSafeInteger(profile.age) ||
+				profile.age < 0 ||
+				profile.age > 150)
+		) {
+			throw new ProviderSmokeRequestError(
+				"User profile age is invalid",
+				200,
+				result.traceId,
+			);
+		}
+		if (profile.email !== null && typeof profile.email !== "string") {
+			throw new ProviderSmokeRequestError(
+				"User profile email is invalid",
+				200,
+				result.traceId,
+			);
+		}
+		if (
+			typeof profile.version !== "number" ||
+			!Number.isSafeInteger(profile.version) ||
+			profile.version < 0
+		) {
+			throw new ProviderSmokeRequestError(
+				"User profile version is invalid",
+				200,
+				result.traceId,
+			);
+		}
+		return { traceId: result.traceId };
+	}
+
 	function complete(): ProviderSmokeResult {
 		const passed = checks.every((check) => check.status === "passed");
 		logger[passed ? "info" : "error"](
@@ -751,6 +835,10 @@ export async function runProviderDirectorySmoke(
 
 	for (const capability of capabilities) {
 		if (capability === "session") continue;
+		if (capability === "profile-read") {
+			await check("profile-read", readProfile);
+			continue;
+		}
 		if (capability === "patient-sync") {
 			const firstTraceId = traceIdFactory();
 			const idempotencyKey = `provider-smoke-${firstTraceId}`;
@@ -953,6 +1041,7 @@ function parseCapabilities(
 	const capabilities = value.split(",").map((item) => item.trim());
 	const allowed = new Set<ProviderSmokeCapability>([
 		"session",
+		"profile-read",
 		"patient-sync",
 		...DEFAULT_CAPABILITIES,
 		"report-detail",

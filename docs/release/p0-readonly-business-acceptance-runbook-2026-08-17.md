@@ -63,6 +63,10 @@
 - 两个微信会话的资料必须完全 owner 隔离；更新用户 A 不能改变用户 B 的资料卡，也不能把用户 A 的昵称返回给用户 B。
 - 资料更新日志只保留字段数量、版本和 trace 等低敏元数据，不能记录昵称、邮箱、userId 或请求正文。
 
+受控 smoke 可以额外执行一次 `GET /me/profile` 的只读结构核验：只检查允许字段的类型和非负版本，
+不执行 `PUT`，不把昵称、邮箱或资料正文输出到终端；该检查不能替代资料页真机展示、首次写入或
+409 冲突验收。
+
 ## 3. 真机操作顺序
 
 ### 3.1 登录和会话恢复
@@ -148,6 +152,7 @@ token、openid、患者标识、金额或 Provider 原始报文，
 | 业务 | 必须出现的事件 | 关键验证 |
 | --- | --- | --- |
 | 微信登录 | `auth.wechat.login.requested` → `auth.wechat.login.succeeded` | 同一 trace 链路、会话过期秒数存在，日志无身份凭证 |
+| 普通资料只读 smoke | `GET /me/profile` | 只验证允许字段类型和 version，不执行写入、不输出资料正文 |
 | 患者同步 | `patient.directory.requested` → `patient.directory.synced` | `complete=true` 的 Provider 快照、活动数/失效数、临床引用计数 |
 | 幂等重放 | `patient.directory.operation.replayed` | 相同幂等键不再次出现 Provider 请求 |
 | 预约历史 | `appointment.records.requested` → `appointment.records.synced` | 当前内部 patient id、有限日期窗口、Provider request id |

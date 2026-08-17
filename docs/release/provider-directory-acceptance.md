@@ -6,6 +6,7 @@
 
 | 能力 | API | 当前允许的 provider 操作 | 明确不在本阶段 |
 | --- | --- | --- | --- |
+| 普通资料只读 | `GET /api/v1/me/profile` | 按当前 Bearer 会话读取昵称、性别、年龄、邮箱和版本的类型/版本事实；smoke 不输出资料正文 | `PUT` 写入、409 冲突、头像、手机号、实名资料和微信身份 |
 | 患者目录 | `POST /api/v1/patients/sync`、`GET /api/v1/patients` | 服务端使用已绑定身份读取目录，并分别保存目录引用与临床 `his-patient` 引用 | 建档、绑卡、修改患者、把 unionId/provider 患者号交给小程序 |
 | 预约目录 | `GET /api/v1/appointments/departments`、`GET /api/v1/appointments/schedules` | 读取科室、排班和号源数量 | 锁号、预约写入、取消、挂号费和支付 |
 | 预约历史 | `GET /api/v1/appointments/records` | 按内部 patientId 读取有限日期范围内的脱敏记录摘要 | 详情、取消、重试写入、挂号费、支付状态和 HIS 回写 |
@@ -33,6 +34,9 @@
 `HOSPITAL_PATIENT_ID` 出现在这次会话目录中，才允许继续请求预约记录、门诊费用或报告。
 若同时启用 `patient-sync`，必须先完成同步和同 key replay，再重新读取患者目录。目录归属
 失败会在平台 API 层短路，不会把未归属患者 ID 发送给众阳或其他 provider。
+
+普通资料只读能力不属于患者作用域，不要求 `HOSPITAL_PATIENT_ID`；它只校验当前 Bearer owner
+返回的资料结构，且只执行 `GET`。资料读取成功不能替代患者归属、实名身份或微信资料写入验收。
 
 截至 2026-08-16，服务器到真实 provider 的预约科室/排班只读回归已通过；线上实测确认目录
 `thirdPatientId` 调用记录接口会返回 `smcAppointment@1301 / 患者信息不存在`，而旧端的
@@ -116,6 +120,8 @@ pnpm check
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
 - Provider smoke 测试证明患者同步后会重新读取当前会话目录，未归属的内部 patientId 会在
   `patient-owner` 检查失败并停止，provider 不会收到后续患者作用域请求；
+- Provider smoke 测试证明 `profile-read` 只请求 `GET /me/profile`，只校验普通资料字段类型和
+  非负版本，不输出昵称/邮箱，不执行资料写入；资料域异常也不会被误记为患者域证据；
 - 原生小程序 acceptance test 证明只调用 Hospital API，不包含众阳 provider URL；
 - Pino 日志测试证明 `providerPatientId`、`provider_patient_id` 和 `providerSubject` 会被脱敏；
 - 报告测试不把 provider 报告号、患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
@@ -136,7 +142,7 @@ $env:HOSPITAL_API_BASE_URL = "https://<hospital-api-host>"
 $env:HOSPITAL_API_PREFIX = "/api/v2"
 $env:HOSPITAL_ACCESS_TOKEN = "<platform-access-token>"
 $env:HOSPITAL_PATIENT_ID = "<internal-patient-id>"
-$env:HOSPITAL_SMOKE_CAPABILITIES = "session,patient-sync,patients,appointment-directory,appointment-records,reports,outpatient-payments"
+$env:HOSPITAL_SMOKE_CAPABILITIES = "session,profile-read,patient-sync,patients,appointment-directory,appointment-records,reports,outpatient-payments"
 $env:HOSPITAL_PROVIDER_READINESS_SAMPLES = "6"
 $env:HOSPITAL_PROVIDER_READINESS_INTERVAL_MS = "2000"
 pnpm provider:smoke
@@ -151,7 +157,7 @@ set -a
 set +a
 HOSPITAL_API_BASE_URL="https://test-hp.meiyi.pro" \
 HOSPITAL_API_PREFIX="/api/v2" \
-HOSPITAL_SMOKE_CAPABILITIES="session,patients,appointment-directory,appointment-records,outpatient-payments" \
+HOSPITAL_SMOKE_CAPABILITIES="session,profile-read,patients,appointment-directory,appointment-records,outpatient-payments" \
 /home/ps/.bun/bin/bun "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/provider-directory-smoke.js"
 ```
 
@@ -187,6 +193,11 @@ smoke 会先验证 `health/live.data.status=ok`，再按
 `GET /me`，确认返回的是当前平台内部用户结构；会话无效或响应字段不符合 contract 时立即停止，
 不会继续访问患者、预约、报告或门诊费用接口。`session` 检查不把内部 userId 写入 smoke 结果，
 只保留 traceId 供服务端日志关联。
+
+默认 CLI 能力还包含 `profile-read`。它在健康检查后请求一次 `GET /me/profile`，只校验
+`displayName`、`gender`、`age`、`email` 和非负 `version` 的类型，不执行 `PUT`，不输出昵称/邮箱，
+也不会把资料读取成功误记为资料写入或真机编辑验收。资料域是独立的普通 owner 资料域；即使资料
+读取失败，也不能因此跳过或伪造患者目录的 owner 归属门禁。
 
 当能力列表包含任一患者作用域能力时，工具会自动补充一次 `patients` 和一次
 `patient-owner` 检查，即使调用方没有显式写入 `patients`。`patient-owner` 使用当前会话目录

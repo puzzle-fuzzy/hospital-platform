@@ -320,6 +320,124 @@ test("provider directory smoke verifies the platform session before patient read
 	]);
 });
 
+test("provider directory smoke verifies ordinary profile shape without writing data", async () => {
+	const requests: Array<{ url: string; method: string }> = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["session", "profile-read"],
+		fetcher: async (input, init) => {
+			const url = String(input);
+			requests.push({ url, method: init?.method ?? "GET" });
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.endsWith("/api/v1/me")) {
+				return jsonResponse({
+					success: true,
+					data: { user: { id: "internal-user-001" } },
+				});
+			}
+			if (url.endsWith("/api/v1/me/profile")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						displayName: "测试用户",
+						gender: "unknown",
+						age: null,
+						email: null,
+						version: 0,
+					},
+				});
+			}
+			throw new Error("provider route must not be called");
+		},
+	});
+
+	expect(result.passed).toBe(true);
+	expect(result.checks.map((check) => check.name)).toEqual([
+		"health-live",
+		"health-ready",
+		"session",
+		"profile-read",
+	]);
+	expect(requests).toEqual([
+		{
+			url: "https://hospital.example.test/health/live",
+			method: "GET",
+		},
+		{
+			url: "https://hospital.example.test/health/ready",
+			method: "GET",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/me",
+			method: "GET",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/me/profile",
+			method: "GET",
+		},
+	]);
+	// 资料 smoke 只允许 GET；不会因为普通资料契约存在就偷偷开放写入验收。
+	expect(requests.every((request) => request.method === "GET")).toBe(true);
+});
+
+test("provider directory smoke rejects malformed ordinary profile data", async () => {
+	const requests: string[] = [];
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		// 普通资料属于独立的 owner 资料域，不是患者目录读取的前置条件。
+		// 这里单独验证资料 schema，避免把资料异常误测成患者域失败。
+		capabilities: ["profile-read"],
+		fetcher: async (input) => {
+			const url = String(input);
+			requests.push(url);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			if (url.endsWith("/me/profile")) {
+				return jsonResponse({
+					success: true,
+					data: {
+						displayName: "测试用户",
+						gender: "unknown",
+						age: "32",
+						email: null,
+						version: 0,
+					},
+				});
+			}
+			if (url.endsWith("/me")) {
+				return jsonResponse({
+					success: true,
+					data: { user: { id: "internal-user-001" } },
+				});
+			}
+			throw new Error(
+				"provider route must not be called after profile failure",
+			);
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(result.checks.at(-1)).toEqual({
+		name: "profile-read",
+		status: "failed",
+		errorType: "ProviderSmokeRequestError",
+		traceId: expect.any(String),
+	});
+	expect(requests.at(-1)).toContain("/api/v1/me/profile");
+	expect(requests.some((url) => url.endsWith("/api/v1/patients"))).toBe(false);
+});
+
 test("provider directory smoke stops before provider reads when the platform session is invalid", async () => {
 	const requests: string[] = [];
 	const result = await runProviderDirectorySmoke({
