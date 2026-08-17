@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `0505709`，在 `0610558` 的门诊缴费状态运行时白名单基础上，补齐报告 `kind` 的领域 service/Provider adapter 运行时白名单；未知来源不会降级为 ECG，也不会访问 Provider；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `87f7171`，在 `0505709` 的报告 `kind` 运行时白名单基础上，补齐预约科室/排班服务层的日期校验失败日志；非法日期或服务端日期生成异常只记录 `appointment.directory.*.failed`，不产生 `requested`、Provider 调用或伪造空结果；选择页首帧仍只允许最新 owner-scoped 目录和临床映射成功后恢复；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -328,3 +328,9 @@ schema `0015` 为准，支付/医保/HIS 仍保持关闭。
 请求；失败日志只记录 `report.directory.failed` 和稳定错误类型。API 86 项、原生小程序 62 项、adapter
 62 项及全量 typecheck/test/build 和文档/迁移审计均通过，候选尚未部署，线上继续以 `131fb5a` 和生产
 schema `0015` 为准；报告 gate、二维码、支付/医保/HIS 仍保持各自关闭边界。
+
+随后 `87f7171` 补齐预约科室和排班服务层的失败日志出口：日期校验与服务端日期窗口生成均纳入
+统一 `try/catch`，非法日期只记录对应的 `appointment.directory.departments.failed` 或
+`appointment.directory.schedules.failed`，不记录虚假的 `requested`，也不访问 Provider；合法空目录、
+排班快照和预约历史语义不变。API 87 项、原生小程序 62 项、全量 typecheck/test/build 和文档/迁移审计
+均通过，候选尚未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
