@@ -5,9 +5,9 @@
 
 ## 当前基线
 
-### 线上实时状态（2026-08-17 13:18 CST）
+### 线上实时状态（2026-08-17 13:59 CST）
 
-- 新 API 已从 `6d58c9c` 原子切换到 `5c4e7cf`，systemd active，公网 `/api/v2` 的 live、ready、system-ping 和未登录认证边界通过；旧 Python `8001` 保持监听。启动日志确认 `runtimeMode=production`、MySQL/Redis/schema 为 `ok`，并增加了 MySQL 幂等只读请求的两次短退避恢复，详细证据见 [`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md)。
+- 新 API 已从 `5c4e7cf` 原子切换到 `3ab0a6c`，systemd active，内网原始路径和公网 `/api/v2` 的 live、ready、system-ping、未登录认证边界通过；公网 ready 连续 6/6 通过且保留 `Cache-Control: no-store`。旧 Python `8001` PID/监听保持不变，完整切换证据见 [`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md)。
 - `0016_patient_directory_sync_owner_index` 已由候选 bundle 执行成功，marker、`owner_user_id,provider_name,status,lease_until` 索引列顺序和 schema probe 均通过；错误的跨平台打包在切换前被拦截，未产生 schema 半成品。支付、医保、HIS、报告和 Worker 仍关闭。
 - 候选 runtime smoke 完成 readiness 连续 6/6、system ping 200、未登录受保护路由 401；这只是运行边界证据，真实微信会话、Redis TTL、多患者切换、普通资料读写/409、预约历史和门诊费用仍待真机三层验收。
 
@@ -28,8 +28,7 @@
 - 本轮预约排班审计进一步移除 `usableNum`/`remainingNumber` 号源 fallback；当前只接受已确认的 `usableSourceNum`，缺失时 fail-closed，避免旧端不同接口字段被错误合并。该修正仅影响只读 adapter 边界，未打开预约写入或锁号。
 - 本轮为 runtime/provider smoke 增加有界 readiness 连续采样：库调用默认保持单次兼容语义，命令行默认 3 次，正式生产验收建议显式使用 6 次、间隔 2000 毫秒；任意中间 `not_ready` 都不能被最后一次恢复掩盖。该门禁只证明运行前置稳定，仍不替代真实微信、患者、Provider、真机或支付验收，规则见 [`release/readiness-stability-gate.md`](release/readiness-stability-gate.md)。
 - `ed250ec` 的本地 runtime smoke 已对公网 `/api/v2` 完成 6/6 readiness、no-store、system-ping 和未登录 401 连续复核；该证据仍不代表 `ed250ec` 已部署，也不替代服务器 bundle provenance、journald、微信会话或真机业务验收。详见 [`release/current-public-readiness-stability-2026-08-17.md`](release/current-public-readiness-stability-2026-08-17.md)。
-- 当前 `5c4e7cf` 已完成服务器 bundle checksum、真实生产 preflight、候选 smoke、原子切换和公网 6/6 readiness；旧 Python `8001` PID/监听保持不变，Worker 仍 inactive。此次切换只增加 MySQL 幂等读的有限断线恢复，不改变 schema、支付 gate 或 P0 真实微信、多患者和 Provider 业务验收顺序，完整证据见 [`release/5c4e7cf-production-acceptance-2026-08-17.md`](release/5c4e7cf-production-acceptance-2026-08-17.md)。
-- 候选 `3ab0a6c` 已完成真实生产 env preflight 和 `127.0.0.1:18082` 隔离 runtime smoke，但在本记录时尚未切换 `current`；它只收紧患者目录“完成但空快照”的 fail-closed 语义，不打开支付、医保、报告、预约写入或 HIS 写入。证据见 [`release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md`](release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md)。
+- `3ab0a6c` 已完成真实生产 env preflight、`127.0.0.1:18082` 隔离 runtime smoke、原子切换和切换后公网 6/6 runtime smoke；它只收紧患者目录“完成但空快照”的 fail-closed 语义，不打开支付、医保、报告、预约写入或 HIS 写入。真实微信登录、多患者和 Provider 业务仍待在当前版本重新验收，证据见 [`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md)。
 
 ### 已经具备
 
