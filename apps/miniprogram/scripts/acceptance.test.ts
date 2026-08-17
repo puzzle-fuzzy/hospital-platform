@@ -691,6 +691,18 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(reportPage).not.toContain("providerReportId");
 });
 
+test("native homepage sends both add and change patient actions to the selection page", async () => {
+	const home = await source("pages/index/index.ts");
+	const start = home.indexOf("onHeroAction() {");
+	const end = home.indexOf("openPatientSelector():", start);
+	const heroAction = home.slice(start, end);
+
+	expect(heroAction).toContain("if (!hasPlatformSession())");
+	expect(heroAction).toContain("this.onLogin();");
+	expect(heroAction).toContain("this.openPatientSelector();");
+	expect(heroAction).not.toContain("this.onSyncPatients();");
+});
+
 test("native patient center does not mislabel reports as outpatient medical records", async () => {
 	const home = await source("pages/index/index.ts");
 	const myTemplate = await source("pages/my/my.wxml");

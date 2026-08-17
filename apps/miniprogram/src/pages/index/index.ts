@@ -352,14 +352,13 @@ Page<IndexPageData, IndexPageMethods>({
 
 	/** 顶部就诊人卡片的主动作：未登录先登录，已有患者进入独立选择页。 */
 	onHeroAction() {
-		if (!this.data.hasPatients) {
-			if (hasPlatformSession()) {
-				this.onSyncPatients();
-			} else {
-				this.onLogin();
-			}
+		if (!hasPlatformSession()) {
+			this.onLogin();
 			return;
 		}
+		// “新增就诊人”和“更换就诊人”都必须进入独立选择页；
+		// 不能在首页只刷新目录或静默使用当前用户。选择页会负责
+		// 读取目录、同步临床映射，并在绑定接口未开放时给出明确提示。
 		this.openPatientSelector();
 	},
 
