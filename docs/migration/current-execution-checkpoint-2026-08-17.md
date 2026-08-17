@@ -10,7 +10,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码候选 | 最新已验证的实现提交为 `c3bde66`，在 `91997c7` 的预约目录刷新隔离基础上，修正门诊费用首次读取患者目录时切换 tab 取消初始请求的竞态；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
+| 仓库代码候选 | 最新已验证的实现提交为 `7ea8228`，在 `c3bde66` 的门诊费用初始化竞态修正基础上，补齐预约目录合法空结果的明确空态；旧端支付调起台账已按当前源代码稳定为 2 个文件；尚未部署线上，仓库实际 HEAD 以 Git history 为准 | Git history；不得用仓库代码或文档 HEAD 代替线上 release |
 | 线上新 API | `131fb5a`，`18081`，production mode | [`131fb5a-production-acceptance-2026-08-17.md`](../release/131fb5a-production-acceptance-2026-08-17.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上仍是远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0015`；候选新增 `0016_patient_directory_sync_owner_index` 尚未应用 | [`current-production-observability-audit-2026-08-17.md`](../release/current-production-observability-audit-2026-08-17.md) |
@@ -265,6 +265,10 @@ schema `0015` 为准。
 随后 `c3bde66` 修正门诊费用 tab 的初始化竞态：患者目录尚未确认时切换待缴/已缴只记录最后点击的状态，
 不能创建新请求守卫取消初始 owner-scoped 患者读取；确认患者后才按最新状态查询费用。小程序验收 59 项、
 类型检查已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准；支付调起和医保授权仍未开放。
+
+随后 `7ea8228` 补齐预约目录合法空结果的页面边界：Provider 返回空科室目录时展示明确空态，区分“暂无可预约
+科室”和请求失败，不留下空白页面，也不伪造号源。小程序验收 59 项、类型检查已通过，候选仍未部署，线上
+继续以 `131fb5a` 和生产 schema `0015` 为准。
 
 随后 `527d163` 已完成真实生产 env preflight、`127.0.0.1:18082` 候选 smoke、原子切换和公网
 6/6 readiness 验收；旧 Python `8001` 保持运行，候选端口已释放。`527d163` 只增强持久化瞬态故障
