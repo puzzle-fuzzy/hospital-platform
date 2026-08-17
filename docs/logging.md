@@ -230,6 +230,24 @@ API 生产组合根会把同一个 Pino logger 注入认证、患者、预约、
 第二个 logger。systemd 使用 journald 收集标准输出和标准错误，检索时优先使用 `event`、`traceId`、
 `requestId`、`providerRequestId` 和内部业务 ID，不读取包含患者隐私的原始请求日志。
 
+### P0 只读日志聚合
+
+真机验收或线上排障时，可以把受控时间窗口的 journald JSONL 交给
+[`tools/p0-log-aggregate.mjs`](../tools/p0-log-aggregate.mjs)，只输出事件、业务域、结果、HTTP 状态、
+错误类型和链路数量的聚合结果：
+
+```bash
+sudo journalctl -u hospital-platform-api-v2.service \
+  --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
+  -o cat --no-pager | bun tools/p0-log-aggregate.mjs
+```
+
+该工具不是日志采集器，也不会连接数据库、Redis 或 Provider；它只读 stdin（或 `--file` 指定的 JSONL），
+遇到非 JSON 行只增加 `parseErrors`，不会回显原文。聚合结果刻意不包含 `msg`、URL、请求体、token、openid、
+患者标识、金额或第三方原始报文。`payment-frozen` 域只用于确认高风险支付日志是否误入观察窗口，不能证明支付、
+医保、退款或 HIS 写回已经成功。若 `parseErrors > 0`，应缩小 journald 格式或保留原始日志在受控环境内排查，
+不能把聚合结果当作完整审计记录。
+
 ## 维护要求
 
 日志不是审计数据库，也不是业务状态存储。关键业务结果必须落库或进入 outbox，日志只提供可检索的诊断线索。新增支付、医保、HIS 适配器时，至少补充：开始、成功、失败/重试三个阶段的事件，并使用请求链路标识和内部业务 ID 串联；外部请求内容只记录经过筛选的摘要。

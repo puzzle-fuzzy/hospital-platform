@@ -94,6 +94,18 @@ ssh ps@192.168.112.172 "sudo journalctl -u hospital-platform-api-v2.service --si
   Select-String -Pattern 'service.started|auth.wechat|patient.directory|appointment.records|outpatient.payment|persistence.probe'
 ```
 
+为避免在聊天或工单中复制原始日志，可在服务器受控环境或本地脱敏副本上进一步生成安全聚合：
+
+```bash
+sudo journalctl -u hospital-platform-api-v2.service \
+  --since '2026-08-17 00:00:00' --until '2026-08-17 23:59:59' \
+  -o cat --no-pager | bun tools/p0-log-aggregate.mjs
+```
+
+聚合结果只包含事件/业务域/结果计数、HTTP 状态、错误类型和 trace/provider request id 数量；`parseErrors` 必须为
+`0` 才能说明输入是完整的 JSONL。工具不会输出 `msg`、URL、请求体、token、openid、患者标识、金额或 Provider 原始报文，
+也不会把 `payment-frozen` 计为支付成功证据。
+
 生产环境只看事件名、状态、traceId、provider request id、数量、状态和错误类型。禁止把下面内容复制到聊天、提交或截图：
 
 - 微信临时 code、openid、unionId、session_key、AppSecret、Bearer token；
