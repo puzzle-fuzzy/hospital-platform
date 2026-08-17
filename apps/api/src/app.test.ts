@@ -614,6 +614,47 @@ test("profile endpoint is owner-scoped and rejects stale versions", async () => 
 			message: "个人资料已被其他设备修改，请刷新后重试",
 		},
 	});
+
+	// owner 必须来自 Bearer 会话；第二个用户即使知道第一个用户的资料接口，
+	// 也只能读取和修改自己的资料，不能因为 profile 表使用同一个 repository
+	// 就发生跨用户串读或覆盖。
+	const otherIssued = await sessions.issue("fixture-user-0002");
+	const otherUpdateResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			method: "PUT",
+			headers: {
+				authorization: `Bearer ${otherIssued.accessToken}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ version: 0, displayName: "其他用户" }),
+		}),
+	);
+	const originalOwnerReadResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			headers: { authorization },
+		}),
+	);
+	const otherOwnerReadResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			headers: { authorization: `Bearer ${otherIssued.accessToken}` },
+		}),
+	);
+
+	expect(otherUpdateResponse.status).toBe(200);
+	expect(await otherUpdateResponse.json()).toMatchObject({
+		success: true,
+		data: { displayName: "其他用户", version: 1 },
+	});
+	expect(originalOwnerReadResponse.status).toBe(200);
+	expect(await originalOwnerReadResponse.json()).toMatchObject({
+		success: true,
+		data: { displayName: "测试用户", version: 1 },
+	});
+	expect(otherOwnerReadResponse.status).toBe(200);
+	expect(await otherOwnerReadResponse.json()).toMatchObject({
+		success: true,
+		data: { displayName: "其他用户", version: 1 },
+	});
 });
 
 test("readiness reports configured dependencies as unavailable until probes pass", async () => {
