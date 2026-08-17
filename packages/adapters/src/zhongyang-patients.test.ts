@@ -248,8 +248,13 @@ test("众阳患者目录拒绝控制字符并且不继续查询档案", async ()
 					success: true,
 					data: [
 						{
+							thirdPatientId: "directory-patient-valid",
+							patientName: "张三",
+							medicalCardNo: "card-valid",
+						},
+						{
 							thirdPatientId: "directory-patient-control",
-							patientName: "张\n三",
+							patientName: "李\n四",
 							medicalCardNo: "card-control",
 						},
 					],

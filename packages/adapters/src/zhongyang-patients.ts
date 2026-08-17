@@ -246,7 +246,13 @@ function mapPatient(
 		requestId,
 	);
 	// 旧端患者选择流程明确优先 medicalCardNo；cardNo 只作为旧数据兜底。
-	const card = firstNonBlank(value.medicalCardNo, value.cardNo);
+	const card = requiredText(
+		firstNonBlank(value.medicalCardNo, value.cardNo),
+		"medicalCardNo",
+		128,
+		"patient-archive",
+		requestId,
+	);
 	return {
 		providerPatientId,
 		displayName,
@@ -394,11 +400,18 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 		// 先验证整个目录的主键唯一性，再访问每个患者的档案接口；否则
 		// 重复数据会造成额外 provider 请求，并在持久化层发生不确定覆盖。
 		ensureUniqueProviderPatientIds(items, response.requestId);
-		// 患者数量通常很少，按患者并行解析一次临床档案身份，避免把
+		// 先把整个目录映射成平台最小字段；只有所有患者的目录字段和档案查询
+		// 必要输入都通过结构校验后，才允许任何一条进入 patInfosFind。否则
+		// 第二位患者的坏数据可能让第一位患者先产生 Provider 副作用，最后才
+		// 以整批失败结束，既浪费请求也让排障日志混入不完整的查询链。
+		const mappedPatients = items.map((item) => ({
+			item,
+			patient: mapPatient(item, response.requestId),
+		}));
+		// 患者数量通常很少，完成整批预校验后再并行解析临床档案身份，避免把
 		// thirdPatientId 错当成预约、报告和门诊费用接口的 patId。
 		const patients = await Promise.all(
-			items.map(async (item) => {
-				const patient = mapPatient(item, response.requestId);
+			mappedPatients.map(async ({ item, patient }) => {
 				const hisPatientId = await resolveHisPatientId(
 					item,
 					context,
