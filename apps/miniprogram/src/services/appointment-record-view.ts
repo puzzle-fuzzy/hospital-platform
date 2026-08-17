@@ -25,8 +25,14 @@ export function isMissedAppointment(record: AppointmentRecord): boolean {
 }
 
 /**
- * 旧端“在线挂号”只排除已取消记录；新端不能重新解释 provider 数字状态，
- * 因此沿用服务端已经归一化的 `cancelled` 枚举作为唯一过滤边界。
+ * 旧端“在线挂号”通过 provider 的 `requestChannel=3` 查询，
+ * “全部挂号”则使用另一个渠道值；但新公共 AppointmentRecord 没有渠道字段，
+ * 当前也没有证据证明旧端的 3/4 仍代表同样的业务范围。这里不能在小程序内
+ * 猜测渠道、把标签点击重新翻译成 provider 参数，或把一次只读响应伪装成两
+ * 个独立渠道结果。因此当前“在线挂号”只排除服务端明确归一化的 `cancelled`，
+ * “全部挂号”展示本次已取得的完整读模型；这保持旧端可见结构，同时明确不
+ * 冒充旧渠道语义。只有 provider 合同冻结并将渠道归一化字段加入公共 contract
+ * 后，才能把两个标签改成真正不同的业务筛选。
  */
 export function isOnlineAppointmentRecord(record: AppointmentRecord): boolean {
 	return record.status !== "cancelled";

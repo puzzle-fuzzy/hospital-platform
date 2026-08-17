@@ -5,14 +5,14 @@
 
 ## 当前基线
 
-### 本轮最新公网复核（2026-08-17 22:27 CST）
+### 本轮最新公网复核（2026-08-17 22:49 CST）
 
 - 当前 `https://test-hp.meiyi.pro/api/v2` 的 `health/live`、`health/ready` 和 `system/ping` 均返回 `200`；ready
   返回 `database=ok`、`redis=ok`、`schema=ok`，健康响应带 `Cache-Control: no-store`。
 - 未携带会话访问预约历史和门诊费用均返回 `401 unauthorized`，证明认证边界仍生效，但没有证明 Provider、患者
   归属或只读业务成功；本次没有有效微信会话，也没有取得服务器 journald，因此不更新预约历史/门诊费用的真实验收结论。
 - 本次复核没有重启或修改服务器；SSH `ps@192.168.112.172` 仍未取得可用认证。完整低敏记录见
-  [`release/current-public-runtime-observation-2026-08-17-2227.md`](release/current-public-runtime-observation-2026-08-17-2227.md)。
+  [`release/current-public-runtime-observation-2026-08-17-2249.md`](release/current-public-runtime-observation-2026-08-17-2249.md)。
 
 ### 线上实时状态（2026-08-17 20:51 CST）
 

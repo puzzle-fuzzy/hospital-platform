@@ -740,6 +740,22 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(records).not.toContain("wx.requestPayment");
 });
 
+test("native appointment tabs do not fabricate provider channel semantics", async () => {
+	const records = await source(
+		"pages/appointment-records/appointment-records.ts",
+	);
+	const view = await source("services/appointment-record-view.ts");
+	const client = await source("services/api-client.ts");
+
+	// 旧端标签对应 provider requestChannel=3/4，但这些值的当前含义和
+	// 公共响应字段尚未冻结；客户端只能在服务端归一化状态上做安全筛选，
+	// 不能把标签点击变成未经授权的 provider 参数透传。
+	expect(records).toContain("filterAppointmentRecords");
+	expect(view).toContain('record.status !== "cancelled"');
+	expect(records).not.toContain("requestChannel");
+	expect(client).not.toContain("requestChannel");
+});
+
 test("outpatient payment tabs cannot cancel the initial patient load", async () => {
 	const payment = await source(
 		"pages/outpatient-payment/outpatient-payment.ts",
