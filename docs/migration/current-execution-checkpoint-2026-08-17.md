@@ -545,3 +545,10 @@ runtime smoke readiness 6/6、system-ping 200、认证边界 401，旧 Python `8
 production mode、MySQL/Redis/schema `ok` 和支付/报告 gate 关闭；该发布仍没有把普通资料真实读写、409、
 患者切换或预约/费用 Provider 事件误记为已验收。完整证据见
 [`../release/5f5915e-production-acceptance-2026-08-17.md`](../release/5f5915e-production-acceptance-2026-08-17.md)。
+
+2026-08-17 18:52-18:53 CST 又在当前原生小程序运行包中完成了门诊费用双状态只读复核：从首页进入“门诊缴费”，
+默认 `unpaid` 和手动切换 `paid` 均使用当前已确认就诊人的 owner-scoped 映射，服务端分别记录
+`outpatient.payment.records.requested → loaded`、HTTP 200 和 `itemCount=0`；页面分别展示待缴/已缴合法空态，
+没有调用支付、医保或 HIS 写回。当前线上仍为 `5f5915e`，新 API `18081` 与旧 Python `8001` 共存；该证据只把
+门诊费用推进到“空列表三层只读证据”，不代表非空金额、第二位就诊人、Redis TTL、费用详情或任何支付/医保能力完成。
+详细记录见 [`门诊缴费只读验收记录`](../release/outpatient-payment-readonly-acceptance-2026-08-17.md)。
