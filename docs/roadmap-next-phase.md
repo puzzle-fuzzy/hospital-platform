@@ -5,6 +5,14 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：继续复核开发者工具中的首页会话恢复时发现，服务端返回 `401/unauthorized` 时，客户端
+  `requestWithSession` 会按设计清理旧 token 并最多重新执行一次微信 code 兑换；但首页原来的 `onShow` 在已有本地 token
+  时会直接开始患者目录读取，认证完成前仍可能短暂保留上一位患者卡片。现已在 `onLoad` 和后续 `onShow` 发起认证/目录读取前
+  统一清空患者派生展示，只保留本地 opaque 选择用于恢复后的 stale 判断；成功后才恢复“已恢复会话”，失败则按
+  `invalid/unavailable` 收敛。新增原生 acceptance 门禁，避免出现“旧患者 + 新会话验证中”的不一致快照。该修正不改变服务端
+  路由、数据库、Redis 或旧 Python 服务，也不把模拟器观察写成真机验收，详见
+  [`release/miniprogram-session-display-boundary-2026-08-19.md`](release/miniprogram-session-display-boundary-2026-08-19.md)。
+
 - 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换为线上 current，目标是部署带有
   `traceId/requestId` 同链摘要的 P0 日志工具。只重启了新 `hospital-platform-api-v2.service`；旧 Python `8001`
   未停止、未重启、未修改，Worker 仍 inactive，数据库/Redis/schema 没有写入。切换后新 API 生产启动字段、内外网

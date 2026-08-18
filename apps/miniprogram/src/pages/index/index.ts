@@ -249,6 +249,12 @@ Page<IndexPageData, IndexPageMethods>({
 		if (selectedPatientId) this.setData({ selectedPatientId });
 		if (!hasPlatformSession()) return;
 
+		// 本地 token 只能说明“存在一个待验证的会话”，不能证明它仍属于当前
+		// principal。恢复 /me 期间先撤销页面上的患者派生数据，避免旧 token
+		// 过期、微信 code 兑换失败或 Redis 暂时不可用时继续展示上一位患者。
+		// 这里不删除本地 selectedPatientId；恢复成功后仍需按 owner-scoped
+		// 目录重新解析，失效选择进入 stale，而不是静默切到第一位患者。
+		this.clearDisplayedPatientContext();
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
 		this.setData({ sessionStatus: SESSION_LABELS.restoring });
@@ -309,12 +315,37 @@ Page<IndexPageData, IndexPageMethods>({
 			return;
 		}
 
-		const pageLifecycle = getPageLifecycle(this);
-		this.loadPatients().catch((error) => {
-			if (pageLifecycle.isActive()) {
-				this.showError(error, "就诊人刷新失败");
-			}
+		// onShow 可能发生在其他页面收到 401 但全局 token 尚未清理、或 token
+		// 即将被 requestWithSession 自动轮换的窗口内。目录请求完成前不能沿用
+		// 旧卡片；否则页面会同时出现“旧患者 + 新会话验证中”的不一致快照。
+		this.clearDisplayedPatientContext();
+		const sessionGuard = getPageLatestRequestGuard(this, "session");
+		const sessionToken = sessionGuard.begin();
+		this.setData({
+			sessionStatus: SESSION_LABELS.restoring,
+			error: "",
 		});
+		const pageLifecycle = getPageLifecycle(this);
+		this.loadPatients()
+			.then(() => {
+				if (!sessionGuard.isCurrent(sessionToken)) return;
+				// /patients 成功表示当前 token 已被服务端接受；如果请求期间
+				// 发生 401，requestWithSession 已完成一次受控微信登录后才会到达这里。
+				this.setData({ sessionStatus: SESSION_LABELS.restored });
+			})
+			.catch((error) => {
+				if (!sessionGuard.isCurrent(sessionToken) || !pageLifecycle.isActive())
+					return;
+				this.clearDisplayedPatientContext();
+				this.setData({
+					sessionStatus:
+						sessionVerificationStateFromError(error) === "invalid" ||
+						!hasPlatformSession()
+							? SESSION_LABELS.signedOut
+							: SESSION_LABELS.unavailable,
+				});
+				this.showError(error, "就诊人刷新失败");
+			});
 	},
 
 	checkHealth(): Promise<void> {

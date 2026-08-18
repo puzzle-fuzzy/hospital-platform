@@ -1627,6 +1627,23 @@ test("native homepage clears stale session display when another page removes the
 	expect(loginBody).toContain("sessionStatus: SESSION_LABELS.restoring");
 });
 
+test("native homepage clears the patient card before validating an existing token onShow", async () => {
+	const home = await source("pages/index/index.ts");
+	const showStart = home.indexOf("onShow() {");
+	const showEnd = home.indexOf("\n\t},", showStart);
+	const showBody = home.slice(showStart, showEnd);
+
+	// 本地 token 不是当前 principal 的证明；401 自动重登或 Redis 短暂故障
+	// 期间，首页必须先隐藏旧患者，再决定恢复、失效或暂不可用。
+	const clearIndex = showBody.indexOf("this.clearDisplayedPatientContext();");
+	const loadIndex = showBody.indexOf("this.loadPatients()");
+	expect(clearIndex).toBeGreaterThan(-1);
+	expect(clearIndex).toBeLessThan(loadIndex);
+	expect(showBody).toContain("sessionStatus: SESSION_LABELS.restoring");
+	expect(showBody).toContain("sessionStatus: SESSION_LABELS.restored");
+	expect(showBody).toContain("!hasPlatformSession()");
+});
+
 test("native appointment history pages clear old patient data before reload", async () => {
 	for (const file of [
 		"pages/appointment-records/appointment-records.ts",
