@@ -31,4 +31,3 @@
 ## 关联验收
 
 患者同步本身的 single-flight 会话隔离见 [`miniprogram-session-generation-isolation-2026-08-18.md`](miniprogram-session-generation-isolation-2026-08-18.md)。
-
