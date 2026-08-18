@@ -5,6 +5,20 @@
 
 ## 当前基线
 
+### 本轮 38bc553 微信身份边界收紧与无损切换（2026-08-18 13:03-13:08 CST）
+
+- `38bc553` 已完成本地 API/Worker/小程序候选构建、8 个 bundle checksum、真实生产 env preflight 和
+  `127.0.0.1:18082` 隔离 runtime smoke；随后按 runbook 原子切换为线上当前 release。
+- 当前新 Bun/Elysia API 为 `/home/ps/code/hospital-platform/releases/38bc553`，`runtimeMode=production`、auth ready、
+  MySQL/Redis/schema 均为 `ok`；旧 Python `0.0.0.0:8001` 继续监听，本次没有停止、重启或修改旧服务。
+- 切换后新 API `10.0.0.3:18081` 和公网 `/api/v2/health/ready` 均返回 `200`；本轮只完成运行层切换和身份 adapter 边界修复，
+  没有新的微信、患者、预约历史、门诊费用或报告业务事件，因此不能把任何真机业务域标记为已验收。
+- 切换后 journald 低敏聚合为 `parseErrors=0`、`systemdWarningCount=0`，只有健康请求；预约历史和门诊费用证据门禁均缺少
+  `requested/success`。当前 release 的 Redis TTL 审计仍按设计返回 `redis-session-scan-unavailable`、退出码 `2`，TTL 继续未验证。
+- 当前真机客户端必须使用来源指纹为 `38bc553395f07c017446ee2539677431c6835f13` 的小程序 `dist/`；旧的 `1697695` 包与当前服务端不再组成验收组合。
+- Redis TTL、真实微信会话、多患者切换/失效恢复、预约历史、爽约、门诊费用和普通资料读写仍按 P0 手册待完成；支付、医保、退款、报告和 HIS 继续关闭。
+- 具体产物、preflight、隔离 smoke、切换和回滚边界见 [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md)。
+
 ### 本轮 c63dba9 资料日志链路补齐与生产共存切换（2026-08-18 11:07-11:09 CST）
 
 - `c63dba9` 已完成本地全量门禁、7 个 bundle SHA-256、服务器真实生产 env preflight 和
@@ -83,9 +97,8 @@
   不再静默忽略畸形 `unionid`。这样“登录成功但患者同步缺少身份”的错误链会在身份交换阶段 fail-closed；新增 adapter 测试、中文业务注释和
   Provider contract 说明，未修改 API 响应、数据库 schema、旧服务或线上 release，待后续候选发布。
 - 2026-08-18：`38bc553` 已完成本地 API/Worker/小程序候选构建和 14 页面运行包校验，产物来源指纹为
-  `38bc553395f07c017446ee2539677431c6835f13`；随后上传到独立服务器 release 目录，使用真实 production env 的 preflight
-  和 `127.0.0.1:18082` 隔离 runtime smoke 均通过。`current` 没有切换，线上继续保持 `c63dba9`，旧 Python 服务未操作；
-  真实微信会话、患者业务和 Redis TTL 仍未验收。候选边界见
+  `38bc553395f07c017446ee2539677431c6835f13`；随后上传、通过真实 production env preflight 和 `127.0.0.1:18082` 隔离
+  runtime smoke，并切换为当前 release。真实微信会话、患者业务和 Redis TTL 仍未验收；候选边界见
   [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md)。
 - 2026-08-18 12:35 CST：修正患者选择页的一个隐式状态副作用：同步前的展示列表现在只用纯函数读取已有
   `selectedPatientId`，不会因为目录中存在 ready 患者就提前写入本地选择；只有完整临床同步成功后才允许恢复当前标记。

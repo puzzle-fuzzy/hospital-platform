@@ -3,27 +3,26 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 截至 2026-08-18 12:49 CST，本地仓库 `main` 已推进到 `8a14b3c`，当前线上 API release 为 `c63dba9`；新 Bun/Elysia API
+> 截至 2026-08-18 13:08 CST，本地仓库 `main` 已推进到 `5609074`，当前线上 API release 为 `38bc553`；新 Bun/Elysia API
 > 监听 `10.0.0.3:18081`，旧 Python API 继续监听 `8001`。此前的 `b3c9a99`、`5f5915e`、`bf67b96` 等内容均为历史段落，
 > 不能继续当作当前线上事实。当前 release 的发布和业务证据见
-> [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)；真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md)；真实微信、患者上下文和 P0 只读验收的操作顺序统一见
 > [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
 
 ## 1. 当前事实
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码基线 | `8a14b3c`；生产候选源码仍以小程序 `1697695` 为准，后续主要追加验收测试/文档；仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
-| 线上新 API | `c63dba9`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md) |
+| 仓库代码基线 | `5609074`；生产候选源码与小程序运行包均为 `38bc553`，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
+| 线上新 API | `38bc553`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md) |
-| 运行前置 | 公网 live、ready、system ping 通过，ready 连续 6/6，未登录受保护路由返回 `401/unauthorized`；低敏 journald 聚合 `parseErrors=0`、`systemdWarningCount=0` | [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md) |
+| 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md) |
+| 运行前置 | 公网 live、ready、system ping 通过，隔离 smoke ready 连续 3/3，未登录受保护路由返回 `401/unauthorized`；切换后启动日志为 production 且依赖均为 `ok` | [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
-2026-08-18 12:47 CST 的重启后 SSH 只读复核确认 `c63dba9`、新 `10.0.0.3:18081`、旧 `0.0.0.0:8001` 和内外网
-readiness 均未漂移；12:49 CST 架构、迁移、Provider 文档接收和 lint 门禁通过。`main` 后续提交没有部署，
-也没有修改旧服务、旧端口或数据库。
+2026-08-18 13:07-13:08 CST 的切换后 SSH/公网只读复核确认 `38bc553`、新 `10.0.0.3:18081`、旧 `0.0.0.0:8001` 和内外网
+readiness 均正常；本次只重启新 API，没有修改旧服务、旧端口或数据库。此前 `c63dba9` 的日志和业务事件仍按历史 release 理解，不能回填当前业务验收。
 
 公网基础运行边界的早期只读复核（2026-08-17 09:53 CST）已记录在
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
@@ -116,7 +115,7 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `c63dba9` 完成真实链路：
+这些不是继续加页面，而是用当前 `38bc553` 完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；

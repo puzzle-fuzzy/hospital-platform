@@ -7,18 +7,18 @@
 
 | 层级 | 固定值 | 证据 |
 | --- | --- | --- |
-| 服务端 release | `c63dba9` | 服务器 `/home/ps/code/hospital-platform/releases/c63dba9` |
+| 服务端 release | `38bc553` | 服务器 `/home/ps/code/hospital-platform/releases/38bc553` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `1697695` | 修正同步前本地选择副作用并包含构建来源指纹校验的 `main` |
+| 小程序客户端 | `38bc553` | 微信身份边界修复后的 `main` 候选，包含构建来源指纹校验 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序构建来源 | `1697695dff9917f976f2948d46fdfa8bf785813f` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 108 项 / 952 个断言 | 当前 `main` 的 `pnpm --dir apps/miniprogram test`；生产源码仍固定为 `1697695` |
+| 小程序构建来源 | `38bc553395f07c017446ee2539677431c6835f13` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 108 项 / 952 个断言 | 当前 `main` 的 `pnpm --dir apps/miniprogram test`；生产客户端源码固定为 `38bc553` |
 | 全仓回归 | 9/9 package、API 114/114、工具 10/10 | `3b4397d` 后的 `pnpm test`、`pnpm typecheck`、`pnpm test:tools` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `1697695` 工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-当前 `main` 的 `3b4397d` 只补充验收测试和文档，不改变小程序生产源码或 `dist/`；因此真机包的来源指纹仍必须是完整的 `1697695dff9917f976f2948d46fdfa8bf785813f`。
+客户端候选的 `dist/` 必须由 `38bc553` 工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+后续 `5609074` 只补充候选验收文档，不改变小程序生产源码或 `dist/`；因此真机包的来源指纹必须是完整的 `38bc553395f07c017446ee2539677431c6835f13`。
 
 ## 2. 真机操作顺序
 
@@ -63,5 +63,5 @@
 
 ## 5. 当前仍未完成
 
-本候选文件只固定验收方法，不宣称业务已经通过。当前仍缺：有效微信会话下的页面截图、HTTP trace、真实预约/费用 Provider 字段、
+本候选文件只固定验收方法，不宣称业务已经通过。当前 release 已切换为 `38bc553`，仍缺：有效微信会话下的页面截图、HTTP trace、真实预约/费用 Provider 字段、
 第二位患者切换和失效/恢复证据、普通资料 PUT/409、Redis TTL 以及后续支付/医保/HIS 独立契约证据。

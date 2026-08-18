@@ -28,7 +28,7 @@
 - `packages/domain/src/appointments.ts`
 - `packages/domain/src/outpatient-payments.ts`
 
-当前线上 release 以 [`c63dba9-production-acceptance-2026-08-18.md`](c63dba9-production-acceptance-2026-08-18.md)
+当前线上 release 以 [`candidate-38bc553-local-build-2026-08-18.md`](candidate-38bc553-local-build-2026-08-18.md)
 为准：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
@@ -97,14 +97,14 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 ## 3. 当前工作树测试证据
 
-生产候选源码仍固定为 `1697695` 的小程序患者选择修正；当前 `main` 在其上仅追加了验收测试和文档。
+生产候选源码固定为 `38bc553`，包含微信身份边界修正；当前 `main` 后续只追加了候选验收文档。
 本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
 - `pnpm --filter @hospital/miniprogram test`：108 项通过，952 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成，`dist/build-info.json` 来源指纹为
-  `1697695dff9917f976f2948d46fdfa8bf785813f`；
+  `38bc553395f07c017446ee2539677431c6835f13`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
-- `pnpm --filter @hospital/adapters test`：72 项通过，165 个断言；
+- `pnpm --filter @hospital/adapters test`：75 项通过，168 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
 - `pnpm --filter @hospital/api test`：114 项通过，528 个断言；其中包含预约记录、门诊费用、错误处理、
   患者归属和日志脱敏用例。
@@ -115,7 +115,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 以下事项仍不能标记完成：
 
-1. 使用与 `c63dba9` 匹配的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
+1. 使用与 `38bc553` 匹配的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
    爽约记录和门诊待缴/已缴页面操作；
 2. 每个页面同时保存页面结果、HTTP 状态/trace 和当前 release 的低敏业务事件；
 3. 取得真实账号的预约历史状态、未来预约窗口、门诊费用状态和 Provider 字段对照；

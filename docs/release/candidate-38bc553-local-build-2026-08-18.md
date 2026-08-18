@@ -1,6 +1,6 @@
 # `38bc553` 本地候选构建记录（2026-08-18）
 
-本文记录微信身份边界修复后的本地构建产物和验证范围。它不是生产发布验收：本候选尚未上传服务器、尚未切换 `current`，也没有重启任何服务。
+本文记录微信身份边界修复后的候选构建、服务器隔离验证和无损切换结果。它不等于真实业务验收：支付、医保、报告、HIS、真机和 Redis TTL 仍有独立门禁。
 
 ## 1. 候选身份
 
@@ -8,7 +8,7 @@
 | --- | --- |
 | Git 提交 | `38bc553`（`收紧微信身份交换边界`） |
 | 完整来源提交 | `38bc553395f07c017446ee2539677431c6835f13` |
-| 当前线上 release | `c63dba9`，本次未改变 |
+| 当前线上 release | `38bc553`；切换前为 `c63dba9` |
 | 旧 Python 服务 | 继续使用 `8001`，本次未操作 |
 | 小程序页面数 | 14 |
 | 小程序构建时间 | `2026-08-18T04:59:23.635Z`（见 `apps/miniprogram/dist/build-info.json`） |
@@ -63,13 +63,26 @@ apps/worker/dist/redis-session-ttl-audit.js 3f8190fb7acc75a41fb2be12181ad9eb99ca
 - 所有未登录保护路由均返回 `401 unauthorized`；
 - 临时进程收到 `SIGTERM` 正常退出，`18082` 端口已释放。
 
-隔离 smoke 前后 `current` 始终为 `/home/ps/code/hospital-platform/releases/c63dba9`，新 API `18081`、旧 Python
-`8001` 同时监听，公网/内网 readiness 未受影响。8 个远端 bundle 文件均存在，且 SHA-256 与本节前的本地记录一致。
+隔离 smoke 阶段 `current` 仍为 `/home/ps/code/hospital-platform/releases/c63dba9`。随后在 2026-08-18 13:07 CST
+按 runbook 原子切换到 `/home/ps/code/hospital-platform/releases/38bc553`，只重启
+`hospital-platform-api-v2.service`。切换后新 API `18081`、旧 Python `8001` 仍同时监听，内网和公网 readiness 均为
+`200`，启动日志明确记录 `runtimeMode=production`、auth ready、MySQL/Redis/schema `ok`；8 个远端 bundle 文件均存在，
+且 SHA-256 与本节前的本地记录一致。
 
-## 5. 尚未执行的发布动作
+## 5. 切换后低敏日志与 TTL 边界
 
-- 尚未把 `current` 切换到 `38bc553`，也没有重启 `hospital-platform-api-v2.service`；线上继续运行 `c63dba9`。
-- 尚未进行有效微信会话下的真机登录、患者切换、预约历史/爽约、门诊费用或普通资料读写验收。
+切换后从 `13:07 CST` 起使用当前 release 的 `p0-log-aggregate.js` 读取 journald JSON，聚合结果为：
+
+- `inputLines=12`、`parsedRecords=6`、`parseErrors=0`、`systemdWarningCount=0`；
+- 仅包含服务启动/停止和 3 次 HTTP 200 健康请求，没有预约历史、门诊费用或报告业务事件；
+- `appointmentRecords` 与 `outpatientPaymentRecords` 证据门禁均明确缺少 `requested/success`，因此不能标记为业务成功；
+- 当前 release 的 Redis TTL 审计返回固定 `redis-session-scan-unavailable`、退出码 `2`，没有输出 key、凭证或修改 Redis；
+  常驻 API ACL 仍未授予独立维护账号所需的 `SCAN/TTL` 只读权限。
+
+## 6. 当前仍未完成的验收
+
+- 尚未进行有效微信会话下的真机登录、患者切换、预约历史/爽约、门诊费用或普通资料读写验收；当前客户端必须使用来源指纹为
+  `38bc553395f07c017446ee2539677431c6835f13` 的 `dist/`，不能继续使用旧的 `1697695` 包。
 - Redis TTL 仍未通过独立维护 ACL 验证；支付、医保、退款、报告和 HIS 继续关闭。
 
 下一次发布必须同时保存候选目录、产物 checksum、production preflight、隔离 runtime smoke、旧 `8001` 监听和公网 ready 证据，具体命令以 [`api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md) 为准。
