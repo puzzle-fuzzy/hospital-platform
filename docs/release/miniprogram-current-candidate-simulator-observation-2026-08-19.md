@@ -56,6 +56,13 @@
 本次没有携带 Bearer 会话，没有读取患者、资料、预约或费用正文，也没有触发 Provider、写入、支付或医保流程。
 这条证据只确认当前公网运行层和未登录认证边界正常，不能代替微信真机、多患者切换、Provider 字段或业务写入验收。
 
+## 2.3 本地完整门禁复核（2026-08-19，继续工作窗口）
+
+针对本候选工作树执行 `pnpm check`，结果全部通过：架构边界 66 条、迁移台账、Provider 接收审计、183 份文档链接、发布基线、Biome 格式与 lint、工具测试 17 项、9 个 workspace 类型检查、9 个 workspace 测试和 9 个 workspace 构建。
+原生小程序构建重新生成 14 个注册页面脚本，来源仍为 `d2086d8` / `d2086d819b3e393da2e8c5c39d7704012854214b`。
+该门禁只证明当前代码、文档和构建产物一致，不扩大为真机、Provider、支付、医保或 HIS 业务完成；用户已有的
+`apps/miniprogram/project.config.json` 未修改、未暂存、未提交。
+
 ## 3. 工具层异常边界
 
 开发者工具 Console 出现 `clickCheckTask`、`undefined is not iterable` 和 `webviewScriptError`，调用栈落在本机
