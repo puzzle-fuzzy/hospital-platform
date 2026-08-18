@@ -10,15 +10,15 @@
 | 服务端 release | `b7c9451` | 服务器 `/home/ps/code/hospital-platform/releases/b7c9451` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `5fdc740` | 与服务端 `b7c9451` 配套的当前本地验收候选包；本次补强 GET 会话恢复、命令请求禁止重放以及会话失效页面收敛 |
+| 小程序客户端 | `d74bf10` | 与服务端 `b7c9451` 配套的当前本地验收候选包；本次补强患者端列表总数契约门禁 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
-| 小程序构建来源 | `5fdc740e3450c8773a81d1d13c8c55d5288d9259` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 134 项 / 1107 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `5fdc740` |
+| 小程序构建来源 | `d74bf101177a0213a7530c409e7b082fb29430ed` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 136 项 / 1113 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `d74bf10` |
 | 全仓回归 | 9/9 package、API 152/659、Worker 51/144、工具 19/57 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `b7c9451`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `5fdc740` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`5fdc740` 在既有患者上下文门禁基础上，补充“仅幂等 GET 自动恢复并重试一次、命令请求不自动重放”、患者选择页/普通资料页会话失效后回首页重新登录的边界，避免旧请求意图跨账号继续执行。它保留预约记录网络错误时关闭院区弹层以及报告详情、患者切换、预约历史和门诊费用的既有 fail-closed 规则，不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `5fdc740e3450c8773a81d1d13c8c55d5288d9259`。
+客户端候选的 `dist/` 必须由 `d74bf10` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`d74bf10` 在既有患者上下文和会话命令重放门禁基础上，补充患者目录、预约、报告和门诊费用列表的 `total === items.length` 运行时校验；协议错配统一 fail-closed，不能伪装成空列表或错误的本地“加载更多”。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `d74bf101177a0213a7530c409e7b082fb29430ed`。
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 
