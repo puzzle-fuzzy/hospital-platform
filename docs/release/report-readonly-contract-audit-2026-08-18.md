@@ -6,7 +6,7 @@
 ## 0. 当前检查点（2026-08-19）
 
 - 当前线上服务端 release 为 `b7c9451`，配套小程序构建来源为
-  `add82665a11229c7d2d3856e70a292a59b01c6da`（当前本地候选，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
+  `4d56496be950643e0628af482cd0aecc1c2d7348`（当前本地候选，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
 
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
   `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
@@ -21,7 +21,7 @@
 ## 1. 当前链路
 
 当前服务端 release 为 `b7c9451`，配套小程序构建来源为
-`d2086d819b3e393da2e8c5c39d7704012854214b`（当前本地候选，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
+`4d56496be950643e0628af482cd0aecc1c2d7348`（当前本地候选，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
 
 ```text
 小程序报告目录
@@ -72,6 +72,8 @@
 8. `ReportService` 增加第二道读模型校验：即使注入的目录/详情 gateway 绕过 adapter 类型约束，service 仍会逐字段验证、拒绝非法状态/重复 LIS 报告号，并重新投影白名单字段；Provider 患者字段、文件 URL、原始字段和未冻结扩展字段不会进入 API 响应。
 9. service 层的读模型异常使用有限 `resultViolation` 写入 `report.directory.failed` / `report.detail.failed`，错误处理统一映射为 `provider-response-invalid`（502），不记录 Provider 原文，也不把异常降级为空目录或空检测项。
 10. `ReportService` 对引用仓储的返回值增加 owner、患者、Provider、引用类型和 Provider 报告号的逐字段回验；仓储即使返回跨患者或跨报告来源的引用，也只能安全降级为无详情摘要，不会把错误 `reportId` 返回给小程序。
+11. 小程序 API client 现在对报告目录和 LIS 详情响应做第二道 canonical 运行时校验：详情 `reportId` 必须匹配请求引用，
+    目录/详情的枚举、文本、附件和列表总数不合法时整批 `provider-response-invalid`；详情页不再把缺失检测项降级成空数组。
 
 ## 3. 测试证据
 
@@ -81,6 +83,7 @@
 | --- | --- |
 | `pnpm --filter @hospital/adapters test` | 83 项通过，183 个断言 |
 | `pnpm --filter @hospital/persistence test` | 75 项通过，549 个断言 |
+| `pnpm --filter @hospital/miniprogram test` | 150 项通过，1195 个断言 |
 | `pnpm format:check` | 233 个文件通过 |
 | 报告 service 定向测试 | 13 项通过，60 个断言 |
 | API TypeScript 类型检查 | 通过 |

@@ -32,13 +32,16 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/b7c9451-production-acceptance-2026-08-19.md`](../release/b7c9451-production-acceptance-2026-08-19.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `add8266`，构建包 `dist/build-info.json` 的完整来源指纹为
-  `add82665a11229c7d2d3856e70a292a59b01c6da`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `4d56496`，构建包 `dist/build-info.json` 的完整来源指纹为
+  `4d56496be950643e0628af482cd0aecc1c2d7348`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：预约科室/排班客户端已补齐第二道 canonical 响应门禁，覆盖唯一标识、公开展示字段、请求科室归属、
   日期、时间分组和号源数量；异常整批 fail-closed。该门禁只保护两列级联只读展示，不代表 Provider、真机或预约写入
   已完成，详见 [`../release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md`](../release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md)。
+- 2026-08-19：报告目录/LIS 详情客户端已补齐第二道 canonical 响应门禁，覆盖报告来源、状态、详情引用匹配、检测项枚举和
+  临床展示文本；异常整批 fail-closed。该门禁不打开报告 Provider、影像/心电详情或附件下载，详见
+  [`../release/miniprogram-report-readonly-response-contract-2026-08-19.md`](../release/miniprogram-report-readonly-response-contract-2026-08-19.md)。
 - 2026-08-18 23:27 CST：P0 业务证据门禁新增同一 `traceId/requestId` 关联链校验；日志聚合只输出 SHA-256
   指纹和事件计数，跨请求拼接的 `requested/success` 总数不再通过。该修正只影响验收工具和 worker bundle，未打开
   预约写入、支付、医保、HIS 或任何新的业务路由。
