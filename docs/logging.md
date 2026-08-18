@@ -67,6 +67,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `patient.directory.operation.started` / `patient.directory.operation.lease_taken_over` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、provider 和 trace；不记录幂等键原文 |
 | `patient.directory.operation.replayed` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount 和 trace，确认没有再次访问 provider |
 | `patient.directory.operation.in_progress` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、固定的 `conflictScope` 和 trace，表示返回 409；不记录幂等键或租约原文 |
+| `patient.directory.snapshot.committed` | 患者目录同步快照事务 | 记录快照事务已返回、provider request id、内部 operationId、attemptCount 和 Provider 目录数量；不把仓储返回的 active 读模型当作已验证成功 |
 | `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
 | `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider、trace 和内部 operationId，不记录第三方原始错误报文 |
 | `patient.directory.read.requested` / `patient.directory.read.loaded` | 患者目录读模型读取 | 记录读取开始和有效患者数量；不记录 userId、患者正文或 provider 患者号 |
@@ -134,13 +135,18 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 
 患者目录同步和读模型读取必须按提交边界区分：
 
-- `patient.directory.synced` 表示完整目录快照事务已经提交，包含 operation ledger 的成功状态；
+- `patient.directory.snapshot.committed` 表示快照仓储调用已经返回，事务提交事实已经成立；它只记录 Provider 目录数量，
+  不代表仓储返回的 active 读模型已经通过二次校验。
+- `patient.directory.synced` 表示完整目录快照事务已经提交，包含 operation ledger 的成功状态，且事务返回的 active 读模型和失效数量
+  已通过 domain 二次投影；
   它不保证随后把当前读模型查询返回给客户端的动作一定成功。
 - `patient.directory.read.loaded` 表示当前 owner 的脱敏读模型已经从仓储读取并完成返回映射，`itemCount=0`
   是明确的成功空目录，不代表同步过 provider。
 - 如果快照已经提交或请求命中 durable replay，之后的仓储读取失败只能记录
   `patient.directory.read.failed`，不能再追加 `patient.directory.failed`；否则会把已成立的同步成功事实误报成
   provider 同步失败。
+- 如果 `snapshot.committed` 已记录但事务返回读模型校验失败，则只记录 `patient.directory.read.failed`，不记录
+  `patient.directory.synced` 或 `patient.directory.failed`；这样既保留数据库提交事实，也不把未经验证的数量当成同步成功。
 - 只有在快照提交前发生身份、租约、完整快照、Provider 或持久化错误时，才记录
   `patient.directory.failed`。处理中冲突仍只记录 `patient.directory.operation.in_progress`。
 

@@ -9,6 +9,7 @@ import {
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
+	PatientDirectorySnapshotResultValidationError,
 	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
@@ -127,6 +128,25 @@ test("支付订单和报价读模型损坏使用统一持久化错误契约", as
 			},
 		});
 	}
+});
+
+test("患者快照提交结果读模型损坏返回持久化错误", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new PatientDirectorySnapshotResultValidationError(
+			"deactivated-count-invalid",
+		);
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "persistence-invalid",
+			message: "数据服务返回异常，请联系管理员",
+		},
+	});
 });
 
 test("ambiguous empty patient snapshots return a safe 502 contract", async () => {

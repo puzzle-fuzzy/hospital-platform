@@ -204,12 +204,17 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 - `patient.directory.operation.replayed`
 - `patient.directory.operation.in_progress`
 - `patient.directory.operation.lease_taken_over`
+- `patient.directory.snapshot.committed`
 - `patient.directory.synced`（operation 成功提交后的结果事件）
 
 事件字段只允许 `traceId`、`operationId`、owner 的不可逆短摘要、provider、attempt、
 `conflictScope`、耗时、
 患者数量、失效数量和 `providerRequestId`。禁止记录 `Idempotency-Key` 原文、unionId、openid、
 身份证号、手机号、provider 原始响应和完整患者对象。
+
+`patient.directory.snapshot.committed` 只证明快照事务已经返回，不能替代 `patient.directory.synced`；后者还要求
+事务返回的 active 患者读模型和失效计数通过 domain 二次校验。若提交已成立但返回读模型损坏，只记录
+`patient.directory.read.failed`，保留提交事实但不伪造同步成功或同步失败。
 
 `conflictScope` 只允许 `same-key` 和 `owner-provider`：前者表示同一幂等键重试，后者表示
 首页、选择页等不同入口提交了不同幂等键，但同一 owner/provider 已有未过期同步租约。它只用于

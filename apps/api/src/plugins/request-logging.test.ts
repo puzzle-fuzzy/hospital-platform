@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
+	PatientDirectorySnapshotResultValidationError,
 	PaymentOrderReadModelValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
@@ -89,5 +90,20 @@ test("支付读模型日志只保留固定违规原因", () => {
 		errorName: "PaymentOrderReadModelValidationError",
 		errorCode: "UNKNOWN",
 		readModelViolation: "amounts-invalid",
+	});
+});
+
+test("患者快照读模型日志只保留固定违规原因", () => {
+	const metadata = safeErrorMetadata(
+		new PatientDirectorySnapshotResultValidationError(
+			"deactivated-count-invalid",
+		),
+		"UNKNOWN",
+	);
+
+	expect(metadata).toEqual({
+		errorName: "PatientDirectorySnapshotResultValidationError",
+		errorCode: "UNKNOWN",
+		readModelViolation: "deactivated-count-invalid",
 	});
 });

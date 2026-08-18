@@ -11,6 +11,7 @@ import {
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
+	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySyncInProgressError,
 	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
@@ -224,7 +225,10 @@ export function errorHandlerPlugin() {
 				};
 			}
 
-			if (error instanceof PatientReadModelValidationError) {
+			if (
+				error instanceof PatientReadModelValidationError ||
+				error instanceof PatientDirectorySnapshotResultValidationError
+			) {
 				// 数据库读模型违反内部患者 contract 时不能降级为空目录；空目录会让
 				// 小程序误以为用户没有就诊人，甚至触发错误的默认选择。固定返回
 				// 500，详细原因只进入服务端低敏日志。

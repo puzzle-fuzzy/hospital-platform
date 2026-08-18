@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import {
 	normalizePatientDirectoryResult,
+	normalizePatientDirectorySnapshotResult,
 	normalizePatientReadModel,
 	PatientDirectoryResultValidationError,
+	PatientDirectorySnapshotResultValidationError,
 	PatientReadModelValidationError,
 } from "./patients";
 
@@ -137,4 +139,37 @@ test("患者目录同步写入前拒绝完整卡号并重新投影安全字段",
 		],
 		trace,
 	});
+});
+
+test("患者快照事务返回值只保留已验证的 active 读模型和失效计数", () => {
+	const result = normalizePatientDirectorySnapshotResult(
+		{
+			activePatients: [
+				{
+					...basePatient,
+					providerPatientId: "must-not-leak",
+				},
+			],
+			deactivatedPatientCount: 2,
+			providerRawResult: "must-not-leak",
+		},
+		"owner-001",
+	);
+
+	expect(result).toEqual({
+		activePatients: [basePatient],
+		deactivatedPatientCount: 2,
+	});
+
+	for (const value of [
+		{ activePatients: [], deactivatedPatientCount: -1 },
+		{
+			activePatients: [{ ...basePatient, ownerUserId: "other-owner" }],
+			deactivatedPatientCount: 0,
+		},
+	]) {
+		expect(() =>
+			normalizePatientDirectorySnapshotResult(value, "owner-001"),
+		).toThrow(PatientDirectorySnapshotResultValidationError);
+	}
 });

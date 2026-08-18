@@ -6,9 +6,11 @@ import {
 	IdentityUserReadModelValidationError,
 	normalizeIdentityUserReadModel,
 	normalizePatientDirectoryResult,
+	normalizePatientDirectorySnapshotResult,
 	normalizePatientReadModel,
 	type PatientDirectoryGateway,
 	PatientDirectoryResultValidationError,
+	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	PatientReadModelValidationError,
@@ -262,15 +264,52 @@ export class PatientService {
 					hisPatientReferenceCount += 1;
 				}
 			}
-			const snapshot = await replaceDirectorySnapshot.call(this.repository, {
-				ownerUserId,
-				provider: "zhongyang",
-				observedAt,
-				operationId: operation.operationId,
-				operationAttemptCount: operation.attemptCount,
-				patients: snapshotPatients,
-			});
+			const snapshotResult = await replaceDirectorySnapshot.call(
+				this.repository,
+				{
+					ownerUserId,
+					provider: "zhongyang",
+					observedAt,
+					operationId: operation.operationId,
+					operationAttemptCount: operation.attemptCount,
+					patients: snapshotPatients,
+				},
+			);
+			// 到这里数据库快照事务已经返回；后续只验证其返回读模型，不能
+			// 因为返回值损坏而把已经提交的事实伪装成“同步未发生”。
 			syncOutcomeCommitted = true;
+			this.logger.info(
+				{
+					event: "patient.directory.snapshot.committed",
+					traceId: context.traceId,
+					provider: "zhongyang",
+					providerRequestId: result.trace.requestId,
+					patientCount: result.patients.length,
+					operationId,
+					attemptCount: operation.attemptCount,
+				},
+				"Patient directory snapshot transaction committed",
+			);
+			let snapshot: ReturnType<typeof normalizePatientDirectorySnapshotResult>;
+			try {
+				snapshot = normalizePatientDirectorySnapshotResult(
+					snapshotResult,
+					ownerUserId,
+				);
+			} catch (error) {
+				this.logger.error(
+					{
+						event: "patient.directory.read.failed",
+						traceId: context.traceId,
+						errorType: error instanceof Error ? error.name : "unknown",
+						...(error instanceof PatientDirectorySnapshotResultValidationError
+							? { readModelViolation: error.violation }
+							: {}),
+					},
+					"Patient directory snapshot result read failed",
+				);
+				throw error;
+			}
 
 			this.logger.info(
 				{

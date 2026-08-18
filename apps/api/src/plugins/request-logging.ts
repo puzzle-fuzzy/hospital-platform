@@ -1,6 +1,7 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
+	PatientDirectorySnapshotResultValidationError,
 	PaymentOrderReadModelValidationError,
 	PaymentQuoteReadModelValidationError,
 } from "@hospital/domain";
@@ -99,6 +100,7 @@ export function safeErrorMetadata(
 		return { ...metadata, dependency: error.dependency };
 	}
 	if (
+		error instanceof PatientDirectorySnapshotResultValidationError ||
 		error instanceof PaymentOrderReadModelValidationError ||
 		error instanceof PaymentQuoteReadModelValidationError
 	) {

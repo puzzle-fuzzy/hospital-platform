@@ -3,6 +3,7 @@ import {
 	IdentityUserReadModelValidationError,
 	type PatientDirectoryGateway,
 	PatientDirectoryResultValidationError,
+	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	type PatientRecord,
@@ -163,6 +164,75 @@ test("患者快照已提交后读模型失败不再伪造同步失败", async ()
 	expect(events).toContain("patient.directory.synced");
 	expect(events).toContain("patient.directory.read.failed");
 	expect(events).not.toContain("patient.directory.failed");
+});
+
+test("患者快照事务已提交但返回读模型损坏时保留提交事实并单独记录读取失败", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-snapshot-result-invalid",
+		unionId: "fixture-union-snapshot-result-invalid",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const replaceDirectorySnapshot = baseRepository.replaceDirectorySnapshot;
+	if (!replaceDirectorySnapshot) throw new Error("snapshot unavailable");
+	const repository: PatientRepository = {
+		...baseRepository,
+		async replaceDirectorySnapshot(input) {
+			await replaceDirectorySnapshot.call(baseRepository, input);
+			return {
+				activePatients: [],
+				deactivatedPatientCount: -1,
+			} as never;
+		},
+	};
+	const lines: string[] = [];
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "snapshot-result-invalid-provider-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "snapshot-result-invalid-trace",
+			idempotencyKey: "snapshot-result-invalid-key",
+		}),
+	).rejects.toBeInstanceOf(PatientDirectorySnapshotResultValidationError);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	const readFailure = records.find(
+		(record) => record.event === "patient.directory.read.failed",
+	);
+	expect(
+		records.some(
+			(record) => record.event === "patient.directory.snapshot.committed",
+		),
+	).toBe(true);
+	expect(readFailure).toMatchObject({
+		readModelViolation: "deactivated-count-invalid",
+	});
+	expect(
+		records.some((record) => record.event === "patient.directory.synced"),
+	).toBe(false);
+	expect(
+		records.some((record) => record.event === "patient.directory.failed"),
+	).toBe(false);
 });
 
 test("患者目录同步在快照写入前拒绝非法网关结果并记录固定原因", async () => {

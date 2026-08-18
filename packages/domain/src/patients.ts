@@ -429,6 +429,66 @@ export type PatientDirectorySnapshotResult = {
 	deactivatedPatientCount: number;
 };
 
+/** 患者快照事务返回值违反读模型 contract 时的固定原因。 */
+export type PatientDirectorySnapshotResultViolation =
+	| "result-not-object"
+	| "active-patients-invalid"
+	| "deactivated-count-invalid";
+
+/** 快照事务的提交结果不能因为 TypeScript 类型而直接进入成功日志。 */
+export class PatientDirectorySnapshotResultValidationError extends Error {
+	readonly violation: PatientDirectorySnapshotResultViolation;
+
+	constructor(violation: PatientDirectorySnapshotResultViolation) {
+		super("Patient directory snapshot result is invalid");
+		this.name = "PatientDirectorySnapshotResultValidationError";
+		this.violation = violation;
+	}
+}
+
+/**
+ * 重新投影患者快照事务结果。
+ *
+ * `replaceDirectorySnapshot` 可能来自 MySQL、回放任务或测试替身；事务提交
+ * 成功只证明写入完成，不证明返回的 activePatients 可直接作为日志/页面事实。
+ * 患者数组复用 owner-scoped 读模型校验，失效数量只允许非负安全整数。
+ */
+export function normalizePatientDirectorySnapshotResult(
+	value: unknown,
+	ownerUserId: string,
+): PatientDirectorySnapshotResult {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new PatientDirectorySnapshotResultValidationError(
+			"result-not-object",
+		);
+	}
+	const result = value as Record<string, unknown>;
+	let activePatients: PatientRecord[];
+	try {
+		activePatients = normalizePatientReadModel(
+			result.activePatients,
+			ownerUserId,
+		);
+	} catch {
+		throw new PatientDirectorySnapshotResultValidationError(
+			"active-patients-invalid",
+		);
+	}
+	if (
+		typeof result.deactivatedPatientCount !== "number" ||
+		!Number.isSafeInteger(result.deactivatedPatientCount) ||
+		result.deactivatedPatientCount < 0
+	) {
+		throw new PatientDirectorySnapshotResultValidationError(
+			"deactivated-count-invalid",
+		);
+	}
+	return {
+		activePatients,
+		deactivatedPatientCount: result.deactivatedPatientCount,
+	};
+}
+
 /**
  * MySQL 中的同步操作记录；key 原文只在仓储边界使用，禁止进入日志和 API 响应。
  */
