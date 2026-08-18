@@ -49,6 +49,8 @@
 - 本地运行包来源为 `93a3c720dc137162ff469ec745359775b08f84ab`；微信开发者工具重新普通编译成功，14 个页面编译完成，调试器显示 `Errors: 0`。
 - 模拟器从首页进入 `pages/appointment-records/appointment-records`，展示当前院区、在线/全部标签、空记录态和更换就诊人入口；没有执行预约写入、取消、支付或医保操作。
 - 服务器当前 release `c26e696` 的最近 10 分钟低敏聚合：`appointmentRecords` 请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；该结果证明服务端预约历史读链被触发，不证明真机页面或 Provider 数据正确。
+- 模拟器随后进入 `pages/outpatient-payment/outpatient-payment`，展示待缴费/已缴费切换、合法空状态以及支付/医保能力关闭提示；没有触发支付、退费、医保授权或任何费用写入。
+- 同一最近 10 分钟低敏聚合中，`outpatientPaymentRecords` 请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；该结果只证明门诊费用查询读链被触发并完成服务端门禁，不证明真实费用数据或真机页面验收。
 - 本轮仍未检测到手机连接，以上模拟器和日志结果不能升级为真实微信真机验收。
 
 ## 开发者工具错误边界
