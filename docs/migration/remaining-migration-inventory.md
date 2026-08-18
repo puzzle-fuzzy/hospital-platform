@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-## 当前 release 基线（2026-08-18 14:13 CST）
+## 当前 release 基线（2026-08-18 14:21 CST）
 
 本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
@@ -22,6 +22,10 @@
   Provider/公网/页面观察证据，但仍不是微信真机验收，也不代表全部挂号、费用详情、支付或医保完成。报告目录此前仍因
   `adapter:zhongyang` 未配置返回 `503`，不能把页面入口或失败响应当作报告迁移完成。当前只读候选证据见
   [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md)。
+- 2026-08-18 14:20-14:21 CST：配对开发者工具会话进入“编辑个人信息”页，普通资料 `GET /me/profile` 返回
+  `200`，页面展示服务端返回的昵称、性别、年龄和邮箱普通字段；本轮没有点击保存，没有产生 `PUT`、版本更新或
+  资料写入事件。这证明 owner-scoped 普通资料读取和页面渲染链路可用，但不替代真机读取，也不证明首次更新、
+  409 冲突、并发刷新或写入审计已经完成。
 - 下一步固定使用服务端 `38bc553` + 小程序客户端 `38bc553` 的验收组合；当前 `dist/` 已重新构建并验证 14 个页面脚本存在，
   `dist/build-info.json` 已记录完整来源提交号 `38bc553395f07c017446ee2539677431c6835f13`。当前 `main` 的验收 harness
   为 108 项、952 个断言，后续文档提交不改变 `dist/` 的来源指纹。复用有效微信会话，按“刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得
@@ -152,7 +156,7 @@
 | --- | --- | --- | --- |
 | 微信登录与平台会话 | `auth`、Redis session | `38bc553` 已通过 production preflight、隔离 smoke 和切换后 readiness；尚无该 release 的真实微信业务事件 | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成；日志成功不等于页面验收 |
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现；当前窗口同步 1 条 active 患者并建立 1 条 `his-patient` 映射；页面首帧、读取/同步期间及失败时均不绘制未经确认的当前标记并保持 fail-closed | 真实失效/恢复数据、多患者显式切换、切换后的真机页面证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
-| 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页和生产未登录 401 已验证 | 真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
+| 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页、生产未登录 401，以及 2026-08-18 配对模拟器的 `GET /me/profile` 200 已验证 | 本轮未执行 PUT；真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；adapter 只接受已确认的 `usableSourceNum`，页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；缺少 `usableSourceNum` 的响应会 fail-closed；不能锁号、不能把 `scheduleId` 当成写入授权 |
 | 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；当前 release 已观察到历史 `itemCount=60`、爽约窗口 `itemCount=58`；在线渠道固定 `requestChannel=3`，在线标签只排除服务端明确的 `cancelled`，爽约页只接受 `missed`；全部渠道标签保留位置但 fail-closed 提示迁移中 | 全部渠道仍缺独立 `requestChannel=4` contract、Provider 字段、公网和真机业务证据；当前账号页面没有已确认 `missed` 记录；未知状态不能推导为爽约；爽约页样式修复后的开发者工具缓存视觉复核待重新打开项目确认 |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收 |
