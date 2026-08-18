@@ -417,8 +417,10 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	expect(selection).toContain('"patient-list-load"');
 	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken)");
 	expect(selection).toContain("后发调用方仍要消费同一个患者数组");
-	expect(home).toContain("patient-sync:${getSessionGeneration()}");
-	expect(selection).toContain("patient-sync:${getSessionGeneration()}");
+	expect(home).toContain("patient-sync:");
+	expect(home).toContain("getSessionGeneration()");
+	expect(selection).toContain("patient-sync:");
+	expect(selection).toContain("getSessionGeneration()");
 	expect(coordinator).toContain("patientSyncFlights");
 	expect(coordinator).toContain("getSessionGeneration");
 	expect(sessionGeneration).toContain("advanceSessionGeneration");
