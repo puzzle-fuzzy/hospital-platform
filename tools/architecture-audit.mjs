@@ -29,6 +29,8 @@ const sources = Object.fromEntries(
 			"apps/api/src/modules/outpatient-payments/index.ts",
 			"apps/worker/src/runtime.ts",
 			"apps/worker/src/index.ts",
+			"apps/worker/src/api-runtime-smoke.ts",
+			"apps/worker/src/provider-directory-smoke.ts",
 			"apps/miniprogram/src/services/api-client.ts",
 			"packages/observability/src/index.ts",
 			"packages/persistence/src/runtime.ts",
@@ -124,6 +126,23 @@ excludes(
 	"console.",
 	"worker 运行入口不能绕过 Pino 直接输出服务日志。",
 );
+for (const relativePath of [
+	"apps/worker/src/api-runtime-smoke.ts",
+	"apps/worker/src/provider-directory-smoke.ts",
+]) {
+	excludes(
+		`worker.smoke.no-raw-error-message.${relativePath}`,
+		relativePath,
+		"error.message",
+		"worker smoke 日志不能写入原始 Error.message，只能保留固定错误类型和关联字段。",
+	);
+	excludes(
+		`worker.smoke.no-error-message-field.${relativePath}`,
+		relativePath,
+		"errorMessage",
+		"worker smoke 日志对象不能携带未审计的 errorMessage 字段。",
+	);
+}
 
 contains(
 	"api.request-logging",

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { AppLogger } from "@hospital/observability";
 import { runProviderDirectorySmoke } from "./provider-directory-smoke";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -1001,4 +1002,36 @@ test("provider directory smoke keeps traceId when the platform request fails", a
 		errorType: "ProviderSmokeRequestError",
 		traceId: "patients-trace",
 	});
+});
+
+test("provider directory smoke never logs the raw transport error message", async () => {
+	const errorLogs: unknown[] = [];
+	const logger = {
+		info: () => undefined,
+		error: (...arguments_: unknown[]) => errorLogs.push(arguments_),
+	} as unknown as AppLogger;
+	const result = await runProviderDirectorySmoke({
+		baseUrl: "https://hospital.example.test",
+		accessToken: "platform-access-token",
+		capabilities: ["patients"],
+		logger,
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } });
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } });
+			}
+			throw new Error(
+				"mysql://secret-user:secret-password/provider-raw-message",
+			);
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	const serializedLogs = JSON.stringify(errorLogs);
+	expect(serializedLogs).not.toContain("secret-password");
+	expect(serializedLogs).not.toContain("provider-raw-message");
+	expect(serializedLogs).toContain("ProviderSmokeRequestError");
 });

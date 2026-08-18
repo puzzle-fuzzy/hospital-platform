@@ -7,11 +7,11 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-## 当前 release 基线（2026-08-18 16:31-16:44 CST）
+## 当前 release 基线（2026-08-18 21:22 CST）
 
 本节优先于下方历史盘点记录。下方仍保留 `4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `b9ce8ae`，构建包 `dist/build-info.json` 的完整来源指纹为
+- 当前小程序运行输入来源为 `01b184d`，构建包 `dist/build-info.json` 的完整来源指纹为
   `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`，注册页面和生成脚本均为 14 个；本轮“我的”页
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
@@ -21,6 +21,9 @@
 - `687690e` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；
   没有新的预约历史、门诊费用、报告或微信业务事件，因此本次发布只证明运行层和 adapter fail-closed 边界，不推进真实业务验收。
   完整 provenance 见 [`../release/687690e-production-acceptance-2026-08-18.md`](../release/687690e-production-acceptance-2026-08-18.md)。
+- 2026-08-18 21:22 CST 使用当前 release 的 `redis-session-ttl-audit.js` 进行只读 TTL 审计；应用 Redis 账号没有
+  `SCAN` 权限，安全结果为 `verified=false`、`redis-session-scan-unavailable`、退出码 `2`。没有扩大常驻 ACL，
+  因此会话数量和 TTL 范围仍未验证，详见 [`../release/687690e-redis-session-ttl-observation-2026-08-18.md`](../release/687690e-redis-session-ttl-observation-2026-08-18.md)。
 - 2026-08-18 16:44 CST 公网只读复核再次通过 live/ready，ready 返回 `database/redis/schema=ok`；未登录资料接口返回预期 401。
   该结果只证明公网运行层和认证边界，不增加微信会话、患者切换、预约、报告或费用业务证据。
 - 2026-08-18 19:36 CST 重启后公网只读探针再次确认 live/ready/system-ping 为 200，ready 的 `database/redis/schema` 均为 `ok`，

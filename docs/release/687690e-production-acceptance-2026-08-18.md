@@ -75,6 +75,8 @@
 
 本记录只证明候选 checksum、生产依赖、隔离 smoke、原子切换、新旧服务共存、公网 runtime 和认证边界。
 它不证明真实微信会话、第二位患者切换、预约/报告/门诊费用 Provider 字段、Redis TTL、真机截图或业务日志闭环已经验收。
+当前 release 的 Redis TTL 只读观察结果和停止条件见
+[`687690e-redis-session-ttl-observation-2026-08-18.md`](687690e-redis-session-ttl-observation-2026-08-18.md)：应用 Redis 账号没有 `SCAN` 权限，未临时扩大常驻 ACL。
 支付、医保、退款、预约写入、报告详情真实资源和 HIS 写回继续最后处理。
 
 如新 API readiness、公网入口、旧 `8001` 或后续只读业务出现未解释异常，只允许将 `current` 原子切回

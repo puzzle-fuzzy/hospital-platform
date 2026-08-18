@@ -321,8 +321,6 @@ export async function runApiRuntimeSmoke(
 			const cause =
 				error instanceof ReadinessStabilityProbeError ? error.cause : error;
 			const errorType = cause instanceof Error ? cause.name : "UnknownError";
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown runtime smoke error";
 			const statusCode =
 				cause instanceof RuntimeSmokeRequestError
 					? cause.statusCode
@@ -348,7 +346,8 @@ export async function runApiRuntimeSmoke(
 					event: "runtime.smoke.check.failed",
 					check: name,
 					errorType,
-					errorMessage,
+					// 运行时 smoke 的异常 message 可能携带 URL 或底层连接信息；
+					// 日志只保留固定类型、HTTP 状态和 traceId，避免原文成为泄露通道。
 					...(statusCode === undefined ? {} : { statusCode }),
 					...(traceId ? { traceId } : {}),
 				},

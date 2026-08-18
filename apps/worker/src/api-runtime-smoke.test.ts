@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { AppLogger } from "@hospital/observability";
 import { runApiRuntimeSmoke } from "./api-runtime-smoke";
 
 function jsonResponse(
@@ -420,6 +421,44 @@ test("runtime smoke keeps traceId when a platform request fails", async () => {
 		statusCode: 0,
 		traceId: "transport-trace-001",
 	});
+});
+
+test("runtime smoke never logs the raw transport error message", async () => {
+	const errorLogs: unknown[] = [];
+	const logger = {
+		info: () => undefined,
+		error: (...arguments_: unknown[]) => errorLogs.push(arguments_),
+	} as unknown as AppLogger;
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		logger,
+		fetcher: async (input) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				throw new Error(
+					"mysql://secret-user:secret-password/runtime-raw-message",
+				);
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			return unauthorizedResponse();
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	const serializedLogs = JSON.stringify(errorLogs);
+	expect(serializedLogs).not.toContain("secret-password");
+	expect(serializedLogs).not.toContain("runtime-raw-message");
+	expect(serializedLogs).toContain("RuntimeSmokeRequestError");
 });
 
 test("runtime smoke fails when a protected route is not rejected by authentication", async () => {

@@ -577,8 +577,6 @@ export async function runProviderDirectorySmoke(
 			const cause =
 				error instanceof ReadinessStabilityProbeError ? error.cause : error;
 			const errorType = cause instanceof Error ? cause.name : "UnknownError";
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown provider smoke error";
 			const traceId =
 				cause instanceof ProviderSmokeRequestError ? cause.traceId : undefined;
 			checks.push({
@@ -600,7 +598,8 @@ export async function runProviderDirectorySmoke(
 					event: "provider.smoke.capability.failed",
 					capability: name,
 					errorType,
-					errorMessage,
+					// smoke 运行在受控生产环境时，Error.message 可能包含 URL、连接串或 Provider 原文；
+					// 这里只记录固定异常类型和 traceId，原始 message 永远不进入日志。
 					...(traceId ? { traceId } : {}),
 				},
 				"Provider directory smoke capability failed",

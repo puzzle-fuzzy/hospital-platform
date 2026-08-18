@@ -5,7 +5,7 @@
 
 ## 当前执行检查点（2026-08-18）
 
-- 当前线上服务端 release 为 `687690e`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序构建来源仍为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录。
+- 当前线上服务端 release 为 `687690e`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序构建来源仍为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。
 
 - 2026-08-18：`b213dcc` 将统一患者 provider 引用校验接入报告目录 service。仓储返回的非法结构、控制字符或跨患者/Provider 的 HIS `patId` 会在报告 Provider 调用前 fail-closed，日志只保留有限引用原因；报告详情已有的短期引用范围校验和安全摘要语义不变。新增报告目录回归测试，当前 API 为 131 项、599 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
