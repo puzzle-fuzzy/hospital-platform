@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-19：针对小程序刷新可能携带旧 `apiPrefix` 导致 404 的边界，客户端已将公共前缀收紧为已注册的
+  `/api/v1`、`/api/v2`，并按本地 HTTP/公网 HTTPS 使用不同安全回退；未知版本不会被正则表达式继续拼接。
+  提交 `d948d11` 已推送，127 项小程序测试、TypeScript、构建和 14 页面运行包校验通过。该修复只影响本地小程序，
+  未修改服务端、旧 Python 服务、数据库、Redis 或线上配置；真实微信设备验收仍待完成，详见
+  [`release/miniprogram-api-prefix-hardening-2026-08-19.md`](release/miniprogram-api-prefix-hardening-2026-08-19.md)。
+
 - 2026-08-19：会话重启后通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 仍为 `c26e696`，
   新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，临时端口 `18082` 无残留，公网 live/ready 均返回 `200` 且
   `database/redis/schema=ok`。本地 `pnpm check` 全部通过，小程序构建产出 14 个页面脚本；本次没有切换 release、migration、

@@ -69,6 +69,10 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 线上默认请求 `https://test-hp.meiyi.pro`，业务前缀为 `/api/v2`。本地开发时把 `app.ts` 的 `apiBaseUrl`
 改为 `http://127.0.0.1:3000`，把 `apiPrefix` 改为 `/api/v1`；健康检查同样必须经过版本前缀，线上地址是
 `/api/v2/health/live`，避免落到旧服务根路径产生 404。
+客户端当前只注册 `/api/v1` 和 `/api/v2` 两个公共前缀。`apiPrefix` 来自运行配置或本地缓存时，未知版本（例如
+`/api/v999`）不会按正则继续拼接；本地 HTTP 回退到 `/api/v1`，公网 HTTPS 回退到 `/api/v2`。这样可以清理
+旧版本缓存造成的刷新 404，同时避免把一个尚未注册的 API 版本误当作兼容接口。新增公共版本时必须同步修改
+`src/services/api-client.ts`、服务端反向代理、公共 API 文档和真机验收记录。
 客户端只允许本机 `localhost/127.0.0.1` 使用 HTTP，其他地址必须使用 HTTPS。完整登录启用、日志检索和真机验收
 请阅读 [`docs/wechat-auth-login.md`](../docs/wechat-auth-login.md)。
 小程序始终只接收平台会话，不接收 openid、session_key、医保凭证或商户配置。
