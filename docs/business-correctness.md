@@ -78,6 +78,10 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
    不替代业务页再次读取 owner-scoped 目录和校验当前 patientId；这样既避免无意义的 401，
    又保留页面级 stale、失效映射和异步回写保护。
 
+14. 只要求平台会话的资料页和患者选择页也必须经过会话门禁：会话失效时回到首页重新登录，
+   不能让“我的”页的资料、家庭成员或就诊人入口直接产生 401。患者选择页在会话有效后仍需
+   继续执行同步中的导航门禁；会话门禁和同步门禁是两个不同阶段，不能用其中一个替代另一个。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的

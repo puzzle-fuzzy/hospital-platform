@@ -536,7 +536,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 
 	expect(app).toContain('"pages/profile/profile"');
-	expect(my).toContain('url: "/pages/profile/profile"');
+	expect(my).toContain("navigateToAuthenticatedPage");
+	expect(my).toContain('"/pages/profile/profile"');
+	expect(my).toContain("hasPlatformSession()");
 	expect(my).toContain("getUserProfile");
 	expect(my).toContain('status: "rejected" as const');
 	expect(my).toContain("资料读取失败不能让已经成功的患者上下文整页失败");

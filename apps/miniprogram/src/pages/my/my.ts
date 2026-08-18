@@ -10,6 +10,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import {
+	navigateToAuthenticatedPage,
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
 } from "../../services/patient-navigation";
@@ -205,18 +206,18 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	onHeaderTap(): void {
-		wx.navigateTo({ url: "/pages/profile/profile" });
+		navigateToAuthenticatedPage("/pages/profile/profile", hasPlatformSession());
 	},
 
 	onFamilyTap(): void {
-		navigateToPatientSelector();
+		navigateToPatientSelector(hasPlatformSession());
 	},
 
 	onAction(event): void {
 		const action = event.currentTarget?.dataset?.action;
 		switch (action) {
 			case "patient-select":
-				navigateToPatientSelector();
+				navigateToPatientSelector(hasPlatformSession());
 				break;
 			case "appointment-records":
 				navigateToPatientScopedPage(
