@@ -39,6 +39,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "P0 只读业务验收手册",
 	},
 	{
+		path: "docs/release/miniprogram-device-session-boundary-2026-08-18.md",
+		label: "小程序真机调试会话边界",
+	},
+	{
 		path: "docs/release/1b94c46-production-acceptance-2026-08-18.md",
 		label: "当前服务端生产切换证据",
 	},
