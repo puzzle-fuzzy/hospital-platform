@@ -1635,6 +1635,17 @@ test("native appointment history pages clear old patient data before reload", as
 		expect(loadBody).toContain("selectedPatient: null");
 		expect(loadBody).toContain("records: []");
 	}
+
+	const appointmentRecords = await source(
+		"pages/appointment-records/appointment-records.ts",
+	);
+	const errorStart = appointmentRecords.indexOf(
+		"showError(error: unknown, fallback: string)",
+	);
+	const errorEnd = appointmentRecords.indexOf("\n\t},", errorStart);
+	const errorBody = appointmentRecords.slice(errorStart, errorEnd);
+	// 网络错误必须关闭院区弹层，避免错误条被遮挡后页面无法恢复。
+	expect(errorBody).toContain("showHospitalModal: false");
 });
 
 test("native homepage fails closed when session recovery cannot be completed", async () => {

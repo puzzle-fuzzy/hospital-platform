@@ -380,6 +380,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			visibleRecords: [],
 			visibleRecordCount: 0,
 			hasMoreRecords: false,
+			// 错误态必须关闭所有叠加层；否则用户可能在请求失败后仍被
+			// 院区弹层遮挡，既看不到顶部网络提示，也无法回到患者选择入口。
+			showHospitalModal: false,
 			showLocationModal: false,
 			locationResults: [],
 		});
