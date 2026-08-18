@@ -9,9 +9,9 @@ import {
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
+	getSelectedPatientId,
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
-	getSelectedPatientId,
 	resolvePatientSelection,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
@@ -260,21 +260,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				this.setData({
 					selectionReady: hasClinicallyReadyPatients(patients),
 				});
-				if (patients.length === 0) {
-					this.showError(
-						new ApiError("当前微信账号暂无绑定的就诊人", {
-							code: "patient-not-bound",
-						}),
-						"就诊人同步失败",
-					);
-				} else if (!hasClinicallyReadyPatients(patients)) {
-					this.showError(
-						new ApiError("当前就诊人暂未完成医院档案映射", {
-							code: "patient-clinical-unavailable",
-						}),
-						"就诊人同步失败",
-					);
-				}
+				// setPatientList 已按同一份成功快照解析并写入 empty/stale/
+				// unavailable 文案；这里仅更新“是否可点击”的门禁，不能按
+				// 数组长度或 ready 数量重新推断业务状态，避免覆盖 stale 语义。
 			})
 			.catch((error) => {
 				if (

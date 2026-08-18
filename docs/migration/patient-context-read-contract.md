@@ -46,6 +46,12 @@
 不能把同步结果封装在第一个调用方的 `void` 闭包中。目录读取先完成时只允许展示脱敏目录，
 不能在临床映射确认前恢复本地当前患者；该标记只能由完整同步成功的最新周期重新计算。
 
+同步成功后的页面回写必须继续消费 `setPatientsFromPayload`/`setPatientList` 对同一份快照
+生成的 `empty`、`stale` 或 `unavailable` 解析结果，不能再按 `patients.length` 或
+`ready` 数量二次推断错误状态。尤其是“已有本地选择但同步目录为空”时，数组长度为零
+不能覆盖 `patient-selection-stale`；否则页面会把患者失效错误伪装成“从未绑定患者”，
+用户也无法得到重新选择入口的正确提示。
+
 首页、我的、患者选择、预约记录、爽约记录、报告目录和门诊费用页的患者状态都必须复用
 `services/patient-selection-service.ts` 的 `patientContextErrorMessage` 或
 `patientSelectionResolutionMessage`。患者未绑定、已保存选择失效、临床映射不可用和要求先选择患者属于同一组

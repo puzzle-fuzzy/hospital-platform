@@ -213,6 +213,18 @@ test("native client requests patient synchronization through the Hospital API", 
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native patient pages preserve stale semantics for an empty synchronized directory", async () => {
+	const indexPage = await source("pages/index/index.ts");
+	const selectionPage = await source("pages/patient-select/patient-select.ts");
+
+	// 解析器已经区分“从未绑定”和“已有选择但目录为空”；页面同步回写
+	// 只能消费这份解析结果，不能再按 patients.length 重新覆盖成 empty。
+	expect(indexPage).toContain("setPatientsFromPayload(patients);");
+	expect(selectionPage).toContain("this.setPatientList(patients);");
+	expect(indexPage).not.toContain('code: "patient-not-bound"');
+	expect(selectionPage).not.toContain('code: "patient-not-bound"');
+});
+
 test("native client generates bounded non-colliding patient sync idempotency keys", () => {
 	const first = createIdempotencyKey("patient sync");
 	const second = createIdempotencyKey("patient sync");
@@ -258,7 +270,9 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("patientSelectionResolutionMessage");
 	expect(home).toContain("patientSelectionResolutionMessage");
 	expect(selection).toContain('clinicalAccess !== "ready"');
-	expect(selection).toContain("patient-clinical-unavailable");
+	// 页面不再自行拼接临床映射错误码；统一解析器负责 empty/stale/
+	// unavailable 三种患者上下文语义，页面只消费安全文案。
+	expect(service).toContain('code: "patient-clinical-unavailable"');
 	expect(service).toContain('SELECTED_PATIENT_ID_KEY = "selected_patient_id"');
 	expect(service).toContain("wx.setStorageSync");
 	expect(service).toContain("clearSelectedPatientId");

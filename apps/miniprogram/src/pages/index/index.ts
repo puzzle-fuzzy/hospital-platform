@@ -1,3 +1,4 @@
+import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import { ApiError } from "../../services/api-client";
 import {
 	loadHealth,
@@ -22,7 +23,6 @@ import {
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
-import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import {
 	hasPlatformSession,
 	restorePlatformSession,
@@ -549,15 +549,10 @@ Page<IndexPageData, IndexPageMethods>({
 			return syncPatientsFromHospital("patient-sync")
 				.then((patients) => {
 					if (!patientDataGuard.isCurrent(requestToken)) return;
+					// setPatientsFromPayload 已经按本地显式选择解析 empty/stale/
+					// unavailable。这里不能再用数组长度覆盖解析结果，否则“已有
+					// 患者但最新目录为空”会被错误降级成“从未绑定患者”。
 					this.setPatientsFromPayload(patients);
-					if (patients.length === 0) {
-						this.showError(
-							new ApiError("当前微信账号暂无绑定的就诊人", {
-								code: "patient-not-bound",
-							}),
-							"就诊人同步失败",
-						);
-					}
 				})
 				.catch((error) => {
 					if (patientDataGuard.isCurrent(requestToken)) {
