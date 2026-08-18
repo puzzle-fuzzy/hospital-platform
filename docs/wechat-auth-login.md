@@ -48,8 +48,8 @@ Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收�
 截至 2026-08-18 22:57 CST，当时线上 API release 为 `c26e696`，并已应用
 `0016_patient_directory_sync_owner_index`。该版本已经完成生产 env preflight、原子切换、MySQL/Redis/schema 探针、公网
 `/api/v2` 健康检查、ready 连续检查、未登录认证边界和旧 Python 服务共存验收；本次只补齐普通资料更新日志链路，
-切换后 runtime smoke 和低敏认证/患者目录观察已通过，但仍不能把服务端日志当作真机页面证据。当前配套小程序运行包来源指纹为
-`d2086d819b3e393da2e8c5c39d7704012854214b`；当前客户端候选 commit 为 `d2086d8`，完整服务端发布边界见
+切换后 runtime smoke 和低敏认证/患者目录观察已通过，但仍不能把服务端日志当作真机页面证据。当时配套小程序运行包来源指纹为
+`d2086d819b3e393da2e8c5c39d7704012854214b`；当时客户端候选 commit 为 `d2086d8`，完整服务端发布边界见
 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)，
 小程序候选和新旧真机调试边界见
 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
