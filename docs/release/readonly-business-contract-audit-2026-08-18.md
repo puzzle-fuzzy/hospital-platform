@@ -131,3 +131,6 @@ requested -> owner mapping / provider call -> synced 或 loaded
 3. 进入“我的挂号”和“爽约记录”，核对当前日前后/过去 90 天窗口及服务端状态；
 4. 分别进入门诊待缴和已缴，核对最近 30 天窗口、状态和金额展示；
 5. 只有以上只读证据连续稳定后，再处理预约写入；费用相关的微信支付、医保和 HIS 最后处理。
+
+当前客户端与服务端的固定验收组合、操作顺序、证据字段和停止条件见
+[`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md)。
