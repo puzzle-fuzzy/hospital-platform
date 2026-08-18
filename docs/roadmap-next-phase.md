@@ -16,7 +16,7 @@
   [`release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 
 - 微信开发者工具的 `miniprogram` 项目已确认使用 `miniprogramRoot=dist/`，当前运行包来源为
-  `dist/build-info.json.sourceRevision=bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`，14 个页面脚本和根文件均已通过运行包校验。
+  `dist/build-info.json.sourceRevision=691ba28053775bce84f1285583c6741018eb0d40`，14 个页面脚本和根文件均已通过运行包校验。
 - “二维码真机调试”弹窗已经生成 iOS 调试二维码，但截至本检查点尚未观察到手机扫码后的连接状态；二维码存在不等于微信会话、患者切换或业务已经验收。
 - 本地 `pnpm check` 已通过；随后仅做了路线图文案修正和文档门禁复核，没有重新发布服务端、没有重启新旧服务，也没有触碰用户已有的 `apps/miniprogram/project.config.json` 修改。
 - 当前门禁新增 `pnpm release:baseline:audit`：以只读业务验收候选为基准，自动核对路线图、迁移清单和当前业务审计是否仍绑定同一服务端 release 与小程序完整 `sourceRevision`，历史 release 仍可保留但不会被当作当前状态。
@@ -85,9 +85,9 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `bc1752f`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序当前运行输入来源为 `691ba28`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `bc1752f` 重建，`sourceRevision=bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`，14 个页面脚本已核对。
+- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `691ba28` 重建，`sourceRevision=691ba28053775bce84f1285583c6741018eb0d40`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 
 ### 本轮就诊人手动刷新事件修正（2026-08-18）

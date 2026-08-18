@@ -102,9 +102,9 @@ requested -> owner mapping / provider call -> synced 或 loaded
 服务端生产候选固定为 `1b94c46`，小程序当前运行输入来源为 `691ba28053775bce84f1285583c6741018eb0d40`，包含微信身份边界修正、患者引用 fail-closed 修正、空目录下已有选择的 stale 修正、同步回写不能覆盖 stale/unavailable 的状态门禁、精确运行包来源输入校验、选择页手动刷新事件边界、会话代际隔离修正、预约目录两阶段查询边界、刷新期间科室/日期事件校验、挂号卡片操作事件 key 回查、报告目录详情事件 key 回查、报告详情患者范围复核和失败态临床读模型清理、“我的”页未迁移菜单稳定 key、根入口全局脚本门禁、门诊费用失败态患者上下文清理、普通资料 409 后强制刷新边界、门诊缴费首次加载期间的标签状态快照边界、首页目录请求生命周期边界和“我的”页普通资料慢响应不阻塞患者目录关键路径；小程序修正未改变旧服务。
 本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
-- `pnpm --filter @hospital/miniprogram test`：122 项通过，1048 个断言；
+- `pnpm --filter @hospital/miniprogram test`：122 项通过，1052 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；候选 `dist/build-info.json` 来源指纹为
-  `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`；
+  `691ba28053775bce84f1285583c6741018eb0d40`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：75 项通过，168 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
@@ -117,7 +117,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 以下事项仍不能标记完成：
 
-1. 使用与服务端 `1b94c46` 配套、来源指纹为 `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9` 的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
+1. 使用与服务端 `1b94c46` 配套、来源指纹为 `691ba28053775bce84f1285583c6741018eb0d40` 的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
    爽约记录和门诊待缴/已缴页面操作；
 2. 每个页面同时保存页面结果、HTTP 状态/trace 和当前 release 的低敏业务事件；
 3. 取得真实账号的预约历史状态、未来预约窗口、门诊费用状态和 Provider 字段对照；
