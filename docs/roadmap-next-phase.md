@@ -14,6 +14,9 @@
 - 该候选尚未部署到服务器：重启后 SSH 端点只接受 publickey，当前连接方式无法完成候选上传和新 API 原子切换。最后一次已确认的线上 release
   仍是下方的 `9acdaf2`；不能把本地测试、构建或报告/费用 gate 代码当作线上或真机业务证据。候选和恢复步骤见
   [`release/candidate-4ae2a31-local-build-2026-08-18.md`](release/candidate-4ae2a31-local-build-2026-08-18.md)。
+- 2026-08-18 15:13 CST 重启后公网只读探针 `live/ready/system-ping` 均为 `200`，ready 的 `database/redis/schema` 均为 `ok`，并保留
+  `Cache-Control: no-store`；这只证明公网运行层仍可用，不能证明 `4ae2a31` 已部署，也不能替代 SSH 对旧 Python `8001` 的 PID/监听复核。
+  观察记录见 [`release/restart-public-readonly-observation-2026-08-18.md`](release/restart-public-readonly-observation-2026-08-18.md)。
 
 ### 当前 release 与验收增量（2026-08-18 14:55-14:57 CST）
 

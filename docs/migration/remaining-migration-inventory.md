@@ -19,6 +19,8 @@
   原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
 - `4ae2a31` 尚未上传或切换线上；重启后当前 SSH 端点只接受 publickey，现有密码方式和本地已知私钥均无法重新建立发布连接。因此下面的业务观察仍只属于
   `9acdaf2`，不能回填为 `4ae2a31` 的线上或真机证据；候选 provenance 见 [`../release/candidate-4ae2a31-local-build-2026-08-18.md`](../release/candidate-4ae2a31-local-build-2026-08-18.md)。
+- 2026-08-18 15:13 CST 从开发机只读访问公网 `live/ready/system-ping` 均为 `200`，ready 的 `database/redis/schema` 均为 `ok`；该运行层观察不包含
+  SSH 进程、旧 Python `8001` 或候选指纹证据，详细边界见 [`../release/restart-public-readonly-observation-2026-08-18.md`](../release/restart-public-readonly-observation-2026-08-18.md)。
 - 当前 release 的低敏日志窗口 `parseErrors=0`、`systemdWarningCount=0`；预约历史 P0 门禁请求/成功各 1、失败 0。
   配对开发者工具请求 `pages/appointment-records/appointment-records` 返回 HTTP 200，服务端记录 `itemCount=60`、
   `statusCounts={cancelled:60}`。在线标签排除已取消记录，空态正确；全部挂号继续保持迁移提示，因为独立 `requestChannel=4`
