@@ -85,6 +85,13 @@ systemd 为 `active`，内网 readiness 返回 database/redis/schema 全部 `ok`
 `domainCounts` 只有 `infrastructure`，`providerRequestIdCount=0`；因此当前窗口仍没有微信、患者、预约历史、门诊费用或报告业务事件。
 该结果只能证明运行层稳定和业务请求未进入，不能被解释为任何业务的成功空列表。
 
+2026-08-18 13:24 CST 的重启后只读复核确认 `hospital-platform-api-v2.service` 已恢复为
+`active/running`，`current` 仍指向 `/home/ps/code/hospital-platform/releases/38bc553`；服务启动时间为
+`13:07:26 CST`。新 API 内网 `/health/live` 返回 `200`，公网 `/api/v2/health/live`、
+`/api/v2/health/ready` 和 `/api/v2/system/ping` 均返回 `200`，ready 的 database/redis/schema 仍为 `ok`。
+对旧端 `127.0.0.1:8001/` 只做 GET 监听探针，返回 `404`，仅证明旧端口仍有 HTTP 响应，不把根路径 404 当作旧业务成功；
+本次未修改、停止或重启旧 Python 服务，也未修改数据库和环境变量。
+
 ## 6. 当前仍未完成的验收
 
 - 尚未进行有效微信会话下的真机登录、患者切换、预约历史/爽约、门诊费用或普通资料读写验收；当前客户端必须使用来源指纹为
