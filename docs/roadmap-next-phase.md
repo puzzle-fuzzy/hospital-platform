@@ -19,6 +19,11 @@
   本轮没有点击旧 `mp-weixin`、没有扫码、没有上传或发起业务请求；该结果只说明新候选窗口可识别，不能增加微信登录、
   患者切换、预约、费用或其它真机业务证据，详见 [`miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 
+- 2026-08-19 07:49 CST：在同一新 `miniprogram` 窗口执行普通编译并重新打开“真机调试”。构建日志显示 `app.json`、`ext.json`
+  和 14 个页面文件编译完成，问题面板为 0 个问题，调试器为 0 个错误和 3 条微信基础库提示；新二维码代码包约 637 KB，
+  有效期更新至 08:14，窗口仍没有新手机连接。本轮没有扫码、上传或发起业务请求，只恢复了可扫码候选入口，不增加微信真机登录、
+  患者切换、预约、费用或其它真机业务证据，详见 [`miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
+
 - 2026-08-19：修正首页登录后的患者初始化状态机。此前患者同步失败会在页面内部吞掉异常，
   登录链仍可能继续调用患者范围页面的 `afterSuccess`；同步请求发出前旧患者卡片也可能短暂保留。
   现已使用 `skipped/succeeded/failed/superseded` 显式结果：报告目录、我的挂号和门诊费用
