@@ -1,5 +1,6 @@
 import { access, cp, mkdir, readdir, rm } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
+import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 
 const root = join(import.meta.dir, "..");
 const repositoryRoot = join(root, "..", "..");
@@ -88,33 +89,15 @@ type MiniProgramBuildInfo = {
 
 /**
  * 构建来源必须能被真机验收人员复核。优先允许发布流水线显式传入来源，
- * 本地开发则从当前 Git 提交读取；两条路径都只接受完整 40 位小写提交号，
- * 避免把“看起来像版本”的分支名、短提交号或用户隐私写进运行包。
+ * 本地开发则从最近一次影响小程序运行输入的 Git 提交读取；两条路径都只
+ * 接受完整 40 位小写提交号，避免把分支名、短提交号或用户隐私写进运行包。
  */
 function resolveSourceRevision(): string {
-	const configuredRevision =
-		process.env.HOSPITAL_MINIPROGRAM_SOURCE_REVISION?.trim();
-	if (configuredRevision) {
-		if (!/^[0-9a-f]{40}$/.test(configuredRevision)) {
-			throw new Error(
-				"HOSPITAL_MINIPROGRAM_SOURCE_REVISION must be a 40-character lowercase Git revision",
-			);
-		}
-		return configuredRevision;
-	}
-
-	const revisionProcess = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
-		cwd: repositoryRoot,
-		stdout: "pipe",
-		stderr: "pipe",
-	});
-	const revision = new TextDecoder().decode(revisionProcess.stdout).trim();
-	if (!revisionProcess.success || !/^[0-9a-f]{40}$/.test(revision)) {
-		throw new Error(
-			"Unable to resolve the mini program source revision; set HOSPITAL_MINIPROGRAM_SOURCE_REVISION in a non-Git build environment",
-		);
-	}
-	return revision;
+	return resolveMiniProgramSourceRevision(
+		repositoryRoot,
+		process.env.HOSPITAL_MINIPROGRAM_SOURCE_REVISION,
+		"HOSPITAL_MINIPROGRAM_SOURCE_REVISION",
+	);
 }
 
 /**

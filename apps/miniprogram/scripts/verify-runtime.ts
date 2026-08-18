@@ -1,7 +1,9 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
+import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 
 const root = join(import.meta.dir, "..");
+const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
 const runtime = join(root, "dist");
 
@@ -85,6 +87,17 @@ if (
 ) {
 	throw new Error(
 		"Mini program dist/build-info.json has an invalid build provenance record",
+	);
+}
+
+const expectedSourceRevision = resolveMiniProgramSourceRevision(
+	repositoryRoot,
+	process.env.HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION,
+	"HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION",
+);
+if (buildInfo.sourceRevision !== expectedSourceRevision) {
+	throw new Error(
+		`Mini program build provenance mismatch: dist=${buildInfo.sourceRevision}, expected=${expectedSourceRevision}`,
 	);
 }
 

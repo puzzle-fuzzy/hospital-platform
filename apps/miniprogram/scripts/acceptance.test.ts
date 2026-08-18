@@ -746,6 +746,9 @@ test("native mini program runtime verification checks build provenance", async (
 	const verify = await Bun.file(
 		join(import.meta.dir, "..", "scripts", "verify-runtime.ts"),
 	).text();
+	const provenance = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "runtime-provenance.ts"),
+	).text();
 
 	// dist/ 可能被开发者工具缓存；来源指纹让验收过程可以证明导入的是哪一次构建。
 	expect(build).toContain('join(runtime, "build-info.json")');
@@ -753,6 +756,11 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(verify).toContain('assertFile("build-info.json")');
 	expect(verify).toContain("buildInfo.pageCount");
 	expect(verify).toContain("sourceRevision");
+	expect(verify).toContain("HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION");
+	expect(verify).toContain("build provenance mismatch");
+	expect(provenance).toContain('"apps/miniprogram/src"');
+	expect(provenance).toContain('"packages/contracts/src"');
+	expect(provenance).not.toContain('"docs"');
 });
 
 test("native mini program exposes read-only appointment directory and records pages", async () => {
