@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-## 当前 release 基线（2026-08-18 12:28 CST）
+## 当前 release 基线（2026-08-18 12:49 CST）
 
 本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
@@ -22,7 +22,8 @@
   标记为真实业务验收。逐事件低敏证据见
   [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
 - 下一步固定使用服务端 `c63dba9` + 小程序客户端 `1697695` 的验收组合；当前 `dist/` 已重新构建并验证 14 个页面脚本存在，
-  `dist/build-info.json` 已记录完整来源提交号 `1697695dff9917f976f2948d46fdfa8bf785813f`，小程序 107 项测试、945 个断言通过。复用有效微信会话，按“刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得
+  `dist/build-info.json` 已记录完整来源提交号 `1697695dff9917f976f2948d46fdfa8bf785813f`。生产源码候选仍是
+  `1697695`；当前 `main` 的验收 harness 为 108 项、952 个断言，后续测试/文档提交不改变 `dist/` 的来源指纹。复用有效微信会话，按“刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得
   页面、HTTP、低敏日志三层证据；具体候选、证据字段和停止条件见
   [`../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)。
   预约写入、详情、支付、医保和 HIS 回写继续最后处理。
@@ -34,6 +35,12 @@
   和内外网 readiness 均保持正常；本次没有新的预约历史、爽约、门诊费用或报告业务事件，Redis TTL 仍未验证。
 - 2026-08-18 12:42 CST：公网未登录访问患者目录、普通资料、预约历史和门诊费用均返回 `401/unauthorized`，
   认证边界正常，但该结果不替代真实微信会话、患者切换或 Provider 只读业务证据。
+- 2026-08-18 12:47 CST：重启后再次只读复核确认当前 release 仍为 `c63dba9`，新 Bun `10.0.0.3:18081` 与旧
+  Gunicorn `0.0.0.0:8001` 同时监听，内网 `/health/ready` 与公网 `/api/v2/health/ready` 均返回 200，
+  `database/redis/schema` 均为 `ok`；本次没有业务写入、release 切换或旧服务操作。
+- 2026-08-18 12:49 CST：架构边界 62/62、迁移台账、Provider 文档接收审计和 lint 通过；除用户已有的
+  `apps/miniprogram/project.config.json` 外，218 个源码/工具文件定向格式检查通过。全量格式检查仍仅被该用户文件的
+  未格式化差异阻断，本轮不修改、不暂存、不提交该文件。
 
 完整切换与停机证据见 [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
