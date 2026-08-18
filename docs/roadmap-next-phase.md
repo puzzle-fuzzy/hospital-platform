@@ -13,6 +13,7 @@
 - 重启后发现已有“真机调试”连接属于旧 `mp-weixin` 项目，而不是新 `apps/miniprogram`；旧窗口保持原样不操作，新项目二维码尚未产生连接。边界记录见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 - 2026-08-18 17:09 CST 已在新 `miniprogram` 项目窗口重新生成 iOS 真机调试二维码；截至记录时仍无新设备连接。二维码已生成不等于扫码成功，继续按上述边界区分旧项目连接和新项目验收。
 - 2026-08-18 18:36 CST：`07d3988` 候选重新编译后，新项目模拟器首页正常显示，`appService.js: define is not defined` 的 2 个错误已消失；最终二维码已重新生成，但窗口枚举仍未发现新设备连接，活动真机窗口仍属于旧 `mp-weixin` 项目。本次不增加真机业务证据。
+- 2026-08-18 18:38 CST：公网只读探针再次确认 `/api/v2/health/live=200`、`/api/v2/health/ready=200`（`database/redis/schema=ok`）、`/api/v2/system/ping=200`，未登录 `/api/v2/me/profile=401 unauthorized`。该结果只覆盖公网运行层和认证边界，完整低敏记录见 [`release/current-public-readonly-smoke-2026-08-18-1838.md`](release/current-public-readonly-smoke-2026-08-18-1838.md)。
 - 重启后再次按标题选择新 `miniprogram` 窗口时，窗口句柄与可见画面出现不一致，无法确认当前画面仍属于二维码弹窗；本次未点击、输入或继续扫码，避免误触旧项目。后续必须重新打开新候选项目并同时核对 `dist/` 资源树与二维码上下文，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 - 2026-08-18 16:44 CST 公网只读复核通过：`/api/v2/health/live=200`、`/api/v2/health/ready=200`，且 ready 返回 `database/redis/schema=ok`；未登录 `GET /api/v2/me/profile` 返回预期 `401 unauthorized`。这只证明公网运行层和认证边界，不能增加微信会话、患者切换、预约、报告或费用业务验收结论。
 - 下一步固定为：用户扫码后先确认微信会话，再按 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
