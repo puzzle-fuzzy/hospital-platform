@@ -2,6 +2,7 @@ import { access, cp, mkdir, readdir, rm } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
 
 const root = join(import.meta.dir, "..");
+const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
 const runtime = join(root, "dist");
 const projectConfigPath = join(root, "project.config.json");
@@ -73,6 +74,44 @@ const requiredTypeScriptFiles = [
 	"pages/my/my.ts",
 ];
 const requiredAssetDirectories = ["assets"];
+
+type MiniProgramBuildInfo = {
+	schemaVersion: 1;
+	sourceRevision: string;
+	pageCount: number;
+	generatedAt: string;
+};
+
+/**
+ * 构建来源必须能被真机验收人员复核。优先允许发布流水线显式传入来源，
+ * 本地开发则从当前 Git 提交读取；两条路径都只接受完整 40 位小写提交号，
+ * 避免把“看起来像版本”的分支名、短提交号或用户隐私写进运行包。
+ */
+function resolveSourceRevision(): string {
+	const configuredRevision =
+		process.env.HOSPITAL_MINIPROGRAM_SOURCE_REVISION?.trim();
+	if (configuredRevision) {
+		if (!/^[0-9a-f]{40}$/.test(configuredRevision)) {
+			throw new Error(
+				"HOSPITAL_MINIPROGRAM_SOURCE_REVISION must be a 40-character lowercase Git revision",
+			);
+		}
+		return configuredRevision;
+	}
+
+	const revisionProcess = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
+		cwd: repositoryRoot,
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const revision = new TextDecoder().decode(revisionProcess.stdout).trim();
+	if (!revisionProcess.success || !/^[0-9a-f]{40}$/.test(revision)) {
+		throw new Error(
+			"Unable to resolve the mini program source revision; set HOSPITAL_MINIPROGRAM_SOURCE_REVISION in a non-Git build environment",
+		);
+	}
+	return revision;
+}
 
 /**
  * 原生小程序的业务源代码仍然全部使用 TypeScript，但运行目录必须提供真实的
@@ -279,6 +318,22 @@ if (!compile.success) {
 }
 await copyStaticFiles(source);
 
+/**
+ * 这是运行包的来源指纹，不携带环境变量、会话、患者或服务商数据。
+ * 开发者工具导入 dist/ 后，验收人员可以直接将 sourceRevision 与候选提交核对，
+ * 从而区分“代码已修复但工具仍在运行旧缓存”和“当前候选本身仍有问题”。
+ */
+const buildInfo: MiniProgramBuildInfo = {
+	schemaVersion: 1,
+	sourceRevision: resolveSourceRevision(),
+	pageCount: appPagePaths.length,
+	generatedAt: new Date().toISOString(),
+};
+await Bun.write(
+	join(runtime, "build-info.json"),
+	`${JSON.stringify(buildInfo, null, 2)}\n`,
+);
+
 for (const file of requiredStaticFiles) {
 	await access(join(runtime, file));
 }
@@ -290,5 +345,5 @@ for (const pagePath of appPagePaths) {
 }
 
 console.log(
-	`Native mini program runtime generated at ${runtime}; ${appPagePaths.length} app.json page scripts are present`,
+	`Native mini program runtime generated at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
 );

@@ -96,5 +96,8 @@ pnpm --filter @hospital/miniprogram runtime:verify
 `apps/miniprogram/`，并保持 `project.config.json` 的 `miniprogramRoot` 为 `dist/`。
 不要把 `src/` 作为小程序根目录，也不要只上传单个页面目录，否则会重新出现页面
 脚本缺失、页面 404 或模板/样式不一致的问题。
+构建还会生成 `dist/build-info.json`，其中只有 schema 版本、完整 Git 提交号、
+页面数量和构建时间。开始真机验收前应检查 `sourceRevision` 是否与验收候选提交一致；
+该文件不包含密钥、会话、就诊人或服务商数据。
 若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。

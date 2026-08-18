@@ -665,6 +665,8 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("project.private.config.json");
 	expect(build).toContain("ignoreDevUnusedFiles");
 	expect(build).toContain("src 仍是唯一业务源码");
+	expect(build).toContain("build-info.json");
+	expect(build).toContain("sourceRevision");
 });
 
 test("native mini program build guards runtime page boundaries", async () => {
@@ -681,6 +683,22 @@ test("native mini program build guards runtime page boundaries", async () => {
 	expect(build).toContain("localAssetPattern");
 	expect(build).toContain("cannot load local assets with background-image");
 	expect(build).toContain("navigates to unregistered mini-program page");
+});
+
+test("native mini program runtime verification checks build provenance", async () => {
+	const build = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "build.ts"),
+	).text();
+	const verify = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "verify-runtime.ts"),
+	).text();
+
+	// dist/ 可能被开发者工具缓存；来源指纹让验收过程可以证明导入的是哪一次构建。
+	expect(build).toContain('join(runtime, "build-info.json")');
+	expect(build).toContain("generatedAt");
+	expect(verify).toContain('assertFile("build-info.json")');
+	expect(verify).toContain("buildInfo.pageCount");
+	expect(verify).toContain("sourceRevision");
 });
 
 test("native mini program exposes read-only appointment directory and records pages", async () => {
