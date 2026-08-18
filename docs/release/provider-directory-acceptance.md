@@ -128,6 +128,7 @@ pnpm check
 - 报告测试不把 provider 报告号、患者姓名、完整卡号、身份证号、报告明细、文件 URL 或 provider 原始对象带出 adapter。
 - LIS 详情测试证明 provider 报告号只用于 adapter 请求，响应只包含白名单检测项；报告引用测试证明 owner/patient/TTL 失败时不会读取详情。
 - 门诊费用服务测试必须使用带时区含义的固定 `Date`，证明最近 30 个 `Asia/Shanghai` 日历日不会随部署机器本地时区变化。
+- 门诊费用 service 测试还必须证明 owner-scoped 仓储返回的患者引用会在 Provider 调用前再次校验：非法结构、控制字符和跨患者/Provider 范围的 HIS `patId` 均 fail-closed，只记录有限原因，不把外部患者号写入日志或公共响应。
 - 门诊费用 smoke 必须分别读取 `unpaid` 和 `paid`，验证响应状态与请求状态一致，并确认不会触发支付、医保或结算写入。
 
 ## B. API 层只读 smoke

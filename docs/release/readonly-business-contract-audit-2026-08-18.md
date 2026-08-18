@@ -41,6 +41,9 @@
 1. 页面只提交平台内部、有限长度且无控制字符的 opaque `patientId`。
 2. 服务端使用当前登录用户的 owner 条件解析 `referenceKind: "his-patient"`；目录中的
    `thirdPatientId` 不会直接变成预约、报告或费用 Provider 患者号。
+   门诊费用 service 在仓储返回后还会复核 `patientId`、`provider` 和
+   `providerPatientId` 的运行时结构与范围；非法或跨范围引用在 Provider 调用前停止，
+   不会因为 TypeScript 返回类型而被当成可信授权事实。
 3. 映射不存在时在 Provider 调用前失败，页面展示“当前就诊人暂无可查询的预约记录”或
    “当前就诊人暂未建立门诊缴费映射”，不会伪造空列表。
 4. 页面请求开始时清除旧患者卡片和列表；Promise 返回前后都检查页面请求代次及当前显式患者，
@@ -130,7 +133,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/adapters test`：83 项通过，183 个断言；
 - `pnpm --filter @hospital/domain test`：27 项通过，62 个断言；其中包含患者读模型和普通资料读模型的 owner、
   重复 ID、展示字段、版本与白名单投影门禁；
-- `pnpm --filter @hospital/api test`：128 项通过，581 个断言；其中包含预约目录/排班二次投影、服务端平台排班引用、预约记录、门诊费用、
+- `pnpm --filter @hospital/api test`：129 项通过，587 个断言；其中包含预约目录/排班二次投影、服务端平台排班引用、预约记录、门诊费用、
   普通资料读模型、报告详情引用读写范围、错误处理、患者读模型归属和日志脱敏用例。
 
 本轮 `aa9807a` 收紧患者同步的 MySQL owner/provider 租约接管边界，并补充持久化回归测试和中文契约说明；
@@ -142,7 +145,9 @@ requested -> owner mapping / provider call -> synced 或 loaded
 本轮 `56c73af` 继续收紧报告详情读取的仓储返回值校验，并补充跨范围引用不调用 Provider 的回归测试；
 代码尚未部署到线上 `1b94c46`，不能增加真实报告 Provider、微信或真机验收结论。
 
-门诊费用重新投影修正提交为 `fb0efba`，同样尚未部署；线上 release 和真机验收边界保持不变。
+门诊费用白名单投影基础修正提交为 `fb0efba`；本轮 `98e091b` 继续补齐仓储患者引用的运行时
+结构与范围二次校验，并验证异常引用不会调用 Provider。两项修正均尚未部署；线上 release 和
+真机验收边界保持不变。
 
 本轮患者读模型二次投影尚未部署到 `1b94c46`；它只收紧新服务端的仓储读取边界，不修改旧 Python 服务、数据库数据或小程序运行包。
 

@@ -14,13 +14,17 @@
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
 | 小程序构建来源 | `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c` | `dist/build-info.json` 的 `sourceRevision` |
 | 小程序回归 | 124 项 / 1059 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `01b184d` |
-| 全仓回归 | 9/9 package、API 128/581、工具 14/14 | 当前工作树 `pnpm check` 已通过；服务端线上 release 仍为 `1b94c46`，旧 Python 保持运行 |
+| 全仓回归 | 9/9 package、API 129/587、工具 14/14 | 当前工作树 `pnpm check` 已通过；服务端线上 release 仍为 `1b94c46`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
 客户端候选的 `dist/` 必须由 `01b184d` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
 `01b184d` 在既有患者上下文门禁基础上，要求报告详情也复用统一的患者错误翻译入口，要求报告目录错误态同步清空列表派生的总数、已展示数量和分页标记，避免详情页与目录页出现状态文案或统计状态漂移；它保留空目录下已有选择进入 `stale` 的修正、首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，让所有认证响应在交付前核对会话代际，删除会并行请求未指定科室排班的误导性 helper，拒绝刷新期间已经脱离当前科室或日期分组的旧 WXML 事件，让挂号卡片和报告目录详情操作按渲染批次 key 回查而不是直接信任旧 WXML 引用，让报告详情请求同时携带当前 patientId 由服务端复核患者范围，让报告详情错误态清空上一轮检测项、报告时间和附件标记，让“我的”页先确认 `/me` 再读取患者目录和普通资料，并让未迁移菜单使用稳定的 `title` key，避免没有 action 的入口共享 `undefined` key；它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
+
+服务端当前工作树新增 `98e091b` 门诊费用患者引用二次门禁：仓储返回的非法或跨患者/Provider
+HIS 引用不会进入 Provider 调用；该修正尚未部署到线上 `1b94c46`，不改变本候选的真实 Provider、
+微信会话或真机验收结论。
 
 ## 2. 真机操作顺序
 
