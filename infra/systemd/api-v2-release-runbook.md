@@ -191,6 +191,13 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-18 15:23-15:25 CST：候选 `4ae2a31` 已完成八个 bundle SHA-256 对照、真实生产 env preflight、
+`127.0.0.1:18082` 隔离 runtime smoke 和正常 SIGTERM 回收，随后从 `9acdaf2` 原子切换到
+`4ae2a31`，只重启新 API。切换后内网/公网 live、ready、system-ping 均通过，ready 的 database/redis/schema 为 `ok`；
+旧 Python `8001` 的监听和 PID 集合保持不变，Worker 未启动。切换窗口日志聚合为 `parseErrors=0`、
+`systemdWarningCount=0`，只有基础设施和健康请求，没有真实业务事件。完整记录见
+[`../../docs/release/4ae2a31-production-acceptance-2026-08-18.md`](../../docs/release/4ae2a31-production-acceptance-2026-08-18.md)。
+
 2026-08-18 11:40 CST 左右：候选 `9ca3a89` 已上传到独立 release 目录，8 个 bundle SHA-256 与本地构建产物一致，
 使用真实 `shared/api.env` 的生产 preflight 通过，并在 `127.0.0.1:18082` 完成 production runtime smoke（live 200、
 ready 3/3、system-ping 200、未登录认证 401）后正常 SIGTERM 回收。候选未切换 `current`，当前仍为 `c63dba9`；

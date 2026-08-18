@@ -17,21 +17,21 @@
 代码和测试完成不等于真实微信登录已经上线。真实登录还必须同时满足：微信 AppID/AppSecret、MySQL 目标 schema、
 Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收全部通过。
 
-截至 2026-08-18 13:08 CST，当前线上 API release 为 `38bc553`，并已应用
+截至 2026-08-18 15:25 CST，当前线上 API release 为 `4ae2a31`，并已应用
 `0016_patient_directory_sync_owner_index`。该版本已经完成生产 env preflight、原子切换、MySQL/Redis/schema 探针、公网
 `/api/v2` 健康检查、ready 连续检查、未登录认证边界和旧 Python 服务共存验收；本次只补齐普通资料更新日志链路，
 切换后受控日志窗口只有健康请求，没有当前 release 下微信登录、患者目录、预约历史或门诊费用的真实业务事件，
 因此不能沿用旧 release 的业务证据。完整发布边界见
-[`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md)。
+[`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md)。
 当前业务未完成项仍按 [`roadmap-next-phase.md`](roadmap-next-phase.md) 的当前基线执行。
 
-### 当前 release 切换后的业务边界（2026-08-17）
+### 当前 release 切换后的业务边界（2026-08-18）
 
-当前 release `38bc553` 包含微信身份边界收紧和患者目录空快照的 fail-closed 保护：已有 HIS 就诊人时，外部目录“完成但为空”会返回
+当前 release `4ae2a31` 包含微信身份边界收紧、患者目录空快照和报告/门诊费用空 Provider 患者引用的 fail-closed 保护：已有 HIS 就诊人时，外部目录“完成但为空”会返回
 `patient-directory-snapshot-unsafe`，不会静默停用旧患者。切换后运行时 smoke 已通过，但真实微信登录和患者同步必须重新在当前 release 上取证；不能把切换前 `5c4e7cf` 的单患者成功日志直接复用。候选代码和生产切换证据分别见
 [`release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md`](release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md) 和
-[`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md)。当前 `38bc553` 的发布和业务边界见
-[`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md)。
+[`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md)。当前 `4ae2a31` 的发布和业务边界见
+[`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md)。
 
 ### 当前开发者工具观测（2026-08-16）
 

@@ -7,13 +7,13 @@
 
 | 层级 | 固定值 | 证据 |
 | --- | --- | --- |
-| 服务端 release | `38bc553` | 服务器 `/home/ps/code/hospital-platform/releases/38bc553` |
+| 服务端 release | `4ae2a31` | 服务器 `/home/ps/code/hospital-platform/releases/4ae2a31` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `9b1c99d` | 服务端 `38bc553` 配套的当前运行包，包含构建来源指纹校验 |
+| 小程序客户端 | `4ae2a31` | 服务端 `4ae2a31` 配套的当前运行包，包含构建来源指纹校验 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序构建来源 | `9b1c99d59076188e960e33d5f65863eaa67bae9a` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 108 项 / 954 个断言 | 当前 `main` 的 `pnpm --dir apps/miniprogram test`；运行包来源固定为 `9b1c99d` |
+| 小程序构建来源 | `4ae2a3105cf82054a316151bbf07e13f8a2b6085` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 109 项 / 955 个断言 | 当前 `main` 的 `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `4ae2a31` |
 | 全仓回归 | 9/9 package、API 114/114、工具 10/10 | `3b4397d` 后的 `pnpm test`、`pnpm typecheck`、`pnpm test:tools` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
@@ -63,5 +63,5 @@
 
 ## 5. 当前仍未完成
 
-本候选文件只固定验收方法，不宣称业务已经通过。当前 release 已切换为 `38bc553`，仍缺：有效微信会话下的页面截图、HTTP trace、真实预约/费用 Provider 字段、
+本候选文件只固定验收方法，不宣称业务已经通过。当前 release 已切换为 `4ae2a31`，仍缺：有效微信会话下的页面截图、HTTP trace、真实预约/费用 Provider 字段、
 第二位患者切换和失效/恢复证据、普通资料 PUT/409、Redis TTL 以及后续支付/医保/HIS 独立契约证据。

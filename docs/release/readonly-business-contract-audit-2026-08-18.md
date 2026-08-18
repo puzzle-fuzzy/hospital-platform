@@ -28,7 +28,7 @@
 - `packages/domain/src/appointments.ts`
 - `packages/domain/src/outpatient-payments.ts`
 
-当前线上 release 以 [`candidate-38bc553-local-build-2026-08-18.md`](candidate-38bc553-local-build-2026-08-18.md)
+当前线上 release 以 [`4ae2a31-production-acceptance-2026-08-18.md`](4ae2a31-production-acceptance-2026-08-18.md)
 为准：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
@@ -97,7 +97,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 ## 3. 当前工作树测试证据
 
-服务端生产候选固定为 `38bc553`，小程序运行包固定为 `9b1c99d`，包含微信身份边界修正、已验收的页面样式和完整重点页面构建门禁；当前 `main` 后续只追加了候选验收文档。
+服务端生产候选固定为 `4ae2a31`，小程序运行包固定为 `4ae2a31`，包含微信身份边界修正、患者引用 fail-closed 修正、已验收的页面样式和完整重点页面构建门禁；当前 `main` 后续只追加了生产验收文档。
 本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
 - `pnpm --filter @hospital/miniprogram test`：108 项通过，954 个断言；

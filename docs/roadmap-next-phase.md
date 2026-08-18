@@ -5,20 +5,25 @@
 
 ## 当前基线
 
-### 本地未部署候选增量（2026-08-18）
+### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 当前为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 当前为 `4f72d71`；线上运行 bundle 的代码来源为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
 - `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；运行包 `sourceRevision=4ae2a31`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
-- 该候选尚未部署到服务器：重启后 SSH 端点只接受 publickey，当前连接方式无法完成候选上传和新 API 原子切换。最后一次已确认的线上 release
-  仍是下方的 `9acdaf2`；不能把本地测试、构建或报告/费用 gate 代码当作线上或真机业务证据。候选和恢复步骤见
-  [`release/candidate-4ae2a31-local-build-2026-08-18.md`](release/candidate-4ae2a31-local-build-2026-08-18.md)。
-- 2026-08-18 15:13 CST 重启后公网只读探针 `live/ready/system-ping` 均为 `200`，ready 的 `database/redis/schema` 均为 `ok`，并保留
-  `Cache-Control: no-store`；这只证明公网运行层仍可用，不能证明 `4ae2a31` 已部署，也不能替代 SSH 对旧 Python `8001` 的 PID/监听复核。
-  观察记录见 [`release/restart-public-readonly-observation-2026-08-18.md`](release/restart-public-readonly-observation-2026-08-18.md)。
+- 2026-08-18 15:23-15:25 CST 已按无损 runbook 将 `4ae2a31` 上传、checksum 对照、生产 preflight、18082 隔离 smoke 后原子切换上线。
+  新 API 只重启自身；旧 Python `8001` 监听和 PID 集合保持不变。完整证据见
+  [`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md)。
 
-### 当前 release 与验收增量（2026-08-18 14:55-14:57 CST）
+### 当前线上 release 与验收边界（2026-08-18 15:23-15:25 CST）
+
+- 当前线上为 `4ae2a31`，运行于 `/home/ps/code/hospital-platform/releases/4ae2a31`，生产模式、MySQL/Redis/schema readiness 均正常；
+  旧 Python `0.0.0.0:8001` 继续运行，Worker、支付、医保、HIS 写入和报告 gate 保持关闭。
+- 切换后公网和内网健康探针均通过，journald 低敏聚合 `parseErrors=0`、`systemdWarningCount=0`，但窗口没有真实微信、患者、预约、费用或报告业务事件。
+  运行层成功不等于业务验收成功；下一步继续按 P0 手册取得真机页面、HTTP trace 和低敏业务日志三层证据。
+- Redis 会话实际 TTL、多患者切换/失效恢复、预约历史、爽约、门诊费用和普通资料的当前 release 业务证据仍未完成；支付、医保、退款、报告和 HIS 继续最后处理。
+
+### 上一 release 与验收增量（2026-08-18 14:55-14:57 CST，仅作历史）
 
 - 当前线上 release 仍为 `9acdaf2`。该版本在预约历史成功日志中增加低敏 `statusCounts`，只统计规范化预约状态的数量，
   用于解释“在线挂号”筛选后的结果，不记录患者、Provider 或预约标识；此前 `0ae4194` 的患者上下文空值前置校验仍包含在提交历史中。
@@ -31,7 +36,7 @@
 - 当前 release 的预约历史 P0 业务证据门禁通过（请求/成功各 1、失败 0、日志解析错误 0、systemd warning 0）。这仍是开发者工具证据，
   不等同于微信真机、公网分域、Provider 写入、支付、医保或 HIS 验收。详细记录见 [`release/9acdaf2-appointment-status-observation-2026-08-18.md`](release/9acdaf2-appointment-status-observation-2026-08-18.md)。
 
-### 本轮 38bc553 微信身份边界收紧与无损切换（2026-08-18 13:03-13:08 CST）
+### 上一轮 38bc553 微信身份边界收紧与无损切换（历史：2026-08-18 13:03-13:08 CST）
 
 - `38bc553` 已完成本地 API/Worker/小程序候选构建、8 个 bundle checksum、真实生产 env preflight 和
   `127.0.0.1:18082` 隔离 runtime smoke；随后按 runbook 原子切换为线上当前 release。
@@ -48,7 +53,7 @@
 ## 历史版本与迁移记录（不可覆盖当前基线）
 
 > 以下内容用于追溯此前候选版本的代码修正、生产切换和观察窗口。每个小节中的 release、schema、
-> 业务事件和“下一步”只对对应时间窗口成立，不能覆盖上面的 `38bc553` 当前基线，也不能把历史
+> 业务事件和“下一步”只对对应时间窗口成立，不能覆盖上面的 `4ae2a31` 当前基线，也不能把历史
 > 微信、患者、预约或费用事件回填为当前版本验收。开始新任务时，先以本节前的当前基线、当前执行
 > 检查点和最新 release 文档为准。
 
