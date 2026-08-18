@@ -86,15 +86,12 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 					);
 					return;
 				}
-				const report = payload?.data;
-				if (!report) {
-					throw new ApiError("服务端未返回报告详情", {
-						code: "report-detail-response-missing",
-					});
-				}
+				// API client 已经校验 data、reportId、kind、检测项和附件字段；
+				// 这里不能把缺失检测项的损坏响应伪装成空报告。
+				const report = payload.data;
 				// API 只返回稳定枚举；页面在这里转换为患者可读的中文，
 				// 不把展示文案反向写回服务端事实。
-				const items = (report.items || []).map(toLaboratoryReportItemView);
+				const items = report.items.map(toLaboratoryReportItemView);
 				this.setData({
 					title: report.title,
 					reportedAt: report.reportedAt,

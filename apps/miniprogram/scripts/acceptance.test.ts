@@ -1502,6 +1502,7 @@ test("native client reads report directories by internal patient id through the 
 	const page = await source("pages/index/index.ts");
 
 	expect(client).toContain("requestReports");
+	expect(client).toContain("requireReportListResponse");
 	expect(client).toContain("/reports?");
 	expect(client).toContain("patientId=");
 	expect(page).toContain("onLoadReports");
@@ -1524,6 +1525,8 @@ test("native report count comes from the report directory total", async () => {
 test("native report detail actions reject stale directory events", async () => {
 	const page = await source("pages/report-directory/report-directory.ts");
 	const template = await source("pages/report-directory/report-directory.wxml");
+	const client = await source("services/api-client.ts");
+	const detail = await source("pages/report-detail/report-detail.ts");
 
 	// 报告引用按当前渲染批次回查；患者切换后，刷新前遗留的 WXML 事件
 	// 不得直接携带旧 reportId 导航到旧患者的详情页。
@@ -1534,6 +1537,8 @@ test("native report detail actions reject stale directory events", async () => {
 	expect(template).toContain('wx:key="viewKey"');
 	expect(template).toContain('data-view-key="{{item.viewKey}}"');
 	expect(template).not.toContain('data-report-id="{{item.reportId}}"');
+	expect(client).toContain("requireReportDetailResponse");
+	expect(detail).not.toContain("items || []");
 });
 
 test("native report detail errors clear the previous clinical read model", async () => {

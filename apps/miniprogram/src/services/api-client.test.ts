@@ -5,6 +5,8 @@ import {
 	request,
 	requestWithSession,
 	requireCanonicalUserProfileResponse,
+	requireReportDetailResponse,
+	requireReportListResponse,
 } from "./api-client";
 import {
 	advanceSessionGeneration,
@@ -52,6 +54,134 @@ test("普通资料成功响应必须保留完整 canonical 快照并通过运行
 		} catch (error) {
 			expect(error).toMatchObject({ code: "provider-response-invalid" });
 		}
+	}
+});
+
+test("报告目录响应必须保持公开字段、详情引用和列表总数一致", () => {
+	const valid = {
+		success: true as const,
+		data: {
+			items: [
+				{
+					reportId: "report_001",
+					kind: "laboratory" as const,
+					title: "血常规",
+					reportedAt: "2026-08-19 10:30",
+					status: "available" as const,
+					hasAttachment: false,
+				},
+				{
+					kind: "imaging" as const,
+					title: "胸部影像",
+					reportedAt: "2026-08-18",
+					status: "abnormal" as const,
+					hasAttachment: true,
+				},
+			],
+			total: 2,
+		},
+	};
+
+	expect(requireReportListResponse(valid)).toEqual(valid);
+
+	const invalidResponses: unknown[] = [
+		{ ...valid, success: false },
+		{ ...valid, data: { ...valid.data, total: 1 } },
+		{
+			...valid,
+			data: {
+				...valid.data,
+				items: [{ ...valid.data.items[0], kind: "other" }],
+				total: 1,
+			},
+		},
+		{
+			...valid,
+			data: {
+				...valid.data,
+				items: [{ ...valid.data.items[0], title: " 血常规" }],
+				total: 1,
+			},
+		},
+		{
+			...valid,
+			data: {
+				...valid.data,
+				items: [{ ...valid.data.items[0] }, { ...valid.data.items[0] }],
+				total: 2,
+			},
+		},
+		{
+			...valid,
+			data: {
+				...valid.data,
+				items: [{ ...valid.data.items[1], reportId: "image-report" }],
+				total: 1,
+			},
+		},
+	];
+
+	for (const invalid of invalidResponses) {
+		expect(() => requireReportListResponse(invalid)).toThrow(
+			"Report list response",
+		);
+	}
+});
+
+test("报告详情响应必须匹配请求引用并保持检测项 contract", () => {
+	const valid = {
+		success: true as const,
+		data: {
+			reportId: "report_001",
+			kind: "laboratory" as const,
+			title: "血常规",
+			reportedAt: "2026-08-19 10:30",
+			items: [
+				{
+					name: "白细胞",
+					result: "10.2",
+					unit: "10^9/L",
+					referenceRange: "3.5-9.5",
+					flag: "high" as const,
+				},
+			],
+			hasAttachment: false,
+		},
+	};
+
+	expect(requireReportDetailResponse(valid, "report_001")).toEqual(valid);
+
+	const invalidResponses: unknown[] = [
+		{ ...valid, success: false },
+		{ ...valid, data: { ...valid.data, reportId: "report_002" } },
+		{ ...valid, data: { ...valid.data, kind: "imaging" } },
+		{
+			...valid,
+			data: {
+				...valid.data,
+				items: [{ ...valid.data.items[0], flag: "not-a-flag" }],
+			},
+		},
+		{
+			...valid,
+			data: {
+				...valid.data,
+				items: [{ ...valid.data.items[0], name: "白细胞\n异常" }],
+			},
+		},
+		{
+			...valid,
+			data: {
+				...valid.data,
+				items: [{ ...valid.data.items[0], unit: null }],
+			},
+		},
+	];
+
+	for (const invalid of invalidResponses) {
+		expect(() => requireReportDetailResponse(invalid, "report_001")).toThrow(
+			"Report",
+		);
 	}
 });
 

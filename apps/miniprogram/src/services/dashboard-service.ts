@@ -754,9 +754,7 @@ export function loadReports(
 		patientId: requirePatientId(patientId),
 		...createPastDateRange(DASHBOARD_DATE_RANGE_DAYS.reports, now),
 	};
-	return requestReports(range).then((payload) =>
-		requireExactListData<ReportListResponse["data"]["items"][number]>(
-			payload.data,
-		),
-	);
+	// 报告响应在 API client 边界已经完成 canonical 校验和白名单投影；
+	// 这里仅取同一份已验证读模型，不再使用泛型把未知 JSON 当作临床事实。
+	return requestReports(range).then((payload) => payload.data);
 }

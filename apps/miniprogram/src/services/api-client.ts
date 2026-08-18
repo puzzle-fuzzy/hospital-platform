@@ -235,6 +235,195 @@ export function requireCanonicalUserProfileResponse(
 	return value as unknown as UserProfileResponse;
 }
 
+const REPORT_KINDS = new Set<
+	ReportListResponse["data"]["items"][number]["kind"]
+>(["laboratory", "imaging", "ecg"]);
+
+const REPORT_STATUSES = new Set<
+	ReportListResponse["data"]["items"][number]["status"]
+>(["available", "abnormal"]);
+
+const REPORT_DETAIL_FLAGS = new Set<
+	ReportDetailResponse["data"]["items"][number]["flag"]
+>(["normal", "high", "low", "critical", "unknown"]);
+
+type ReportKind = ReportListResponse["data"]["items"][number]["kind"];
+type ReportStatus = ReportListResponse["data"]["items"][number]["status"];
+type ReportDetailFlag = ReportDetailResponse["data"]["items"][number]["flag"];
+
+function isReportKind(value: unknown): value is ReportKind {
+	return REPORT_KINDS.has(value as ReportKind);
+}
+
+function isReportStatus(value: unknown): value is ReportStatus {
+	return REPORT_STATUSES.has(value as ReportStatus);
+}
+
+function isReportDetailFlag(value: unknown): value is ReportDetailFlag {
+	return REPORT_DETAIL_FLAGS.has(value as ReportDetailFlag);
+}
+
+/** 报告文本不能携带控制字符或首尾空白，避免破坏临床展示和日志边界。 */
+function hasSafeReportText(value: unknown, maxLength: number): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function invalidReportResponse(message: string): never {
+	throw new ApiError(message, { code: "provider-response-invalid" });
+}
+
+function requiredReportText(value: unknown, maxLength: number): string {
+	if (!hasSafeReportText(value, maxLength)) {
+		return invalidReportResponse("Report response field is invalid");
+	}
+	return value;
+}
+
+function optionalReportText(
+	value: unknown,
+	maxLength: number,
+): string | undefined {
+	if (value === undefined) return undefined;
+	return requiredReportText(value, maxLength);
+}
+
+/**
+ * 报告目录响应必须在小程序接收 JSON 的边界重新投影。
+ *
+ * TypeScript 泛型不能验证微信实际收到的 JSON；这里同时检查列表总数、
+ * 报告来源、状态、公开文本、附件布尔值和短期详情引用。影像/心电当前
+ * 没有详情 contract，因此它们携带 `reportId` 时整批拒绝，不能让页面
+ * 误以为这些来源已经支持详情。未知字段会被丢弃，坏记录不会被过滤后
+ * 伪装成部分成功。
+ */
+export function requireReportListResponse(value: unknown): ReportListResponse {
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+		return invalidReportResponse("Report list response is invalid");
+	}
+	const data = value.data;
+	if (
+		!Array.isArray(data.items) ||
+		typeof data.total !== "number" ||
+		!Number.isSafeInteger(data.total) ||
+		data.total < 0 ||
+		data.total !== data.items.length
+	) {
+		return invalidReportResponse("Report list response total is invalid");
+	}
+
+	const seenReportIds = new Set<string>();
+	const items: ReportListResponse["data"]["items"] = [];
+	for (const item of data.items) {
+		if (!isRecord(item) || !isReportKind(item.kind)) {
+			return invalidReportResponse("Report list response item is invalid");
+		}
+		const kind = item.kind;
+		const reportId = item.reportId;
+		if (
+			reportId !== undefined &&
+			(!hasSafeReportText(reportId, 128) || seenReportIds.has(reportId))
+		) {
+			return invalidReportResponse("Report list response item is invalid");
+		}
+		if (kind !== "laboratory" && reportId !== undefined) {
+			return invalidReportResponse("Report list response item is invalid");
+		}
+		if (
+			!hasSafeReportText(item.title, 256) ||
+			!hasSafeReportText(item.reportedAt, 64) ||
+			!isReportStatus(item.status) ||
+			typeof item.hasAttachment !== "boolean"
+		) {
+			return invalidReportResponse("Report list response item is invalid");
+		}
+		if (reportId !== undefined) seenReportIds.add(reportId);
+		items.push({
+			...(reportId === undefined ? {} : { reportId }),
+			kind,
+			title: item.title,
+			reportedAt: item.reportedAt,
+			status: item.status,
+			hasAttachment: item.hasAttachment,
+		});
+	}
+	return { success: true, data: { items, total: data.total } };
+}
+
+/**
+ * 报告详情响应必须与请求的 opaque `reportId` 精确对应。
+ *
+ * 详情包含临床结果，不能使用 `report.items || []` 把损坏响应降级为空；
+ * 必须校验完整包络、报告引用、检验来源、检测项枚举和所有展示文本，
+ * 再重新投影白名单字段。服务端仍负责 owner、患者和 TTL 授权，这里只
+ * 负责阻止错误响应进入当前页面状态。
+ */
+export function requireReportDetailResponse(
+	value: unknown,
+	expectedReportId: string,
+): ReportDetailResponse {
+	if (
+		!hasSafeReportText(expectedReportId, 128) ||
+		!isRecord(value) ||
+		value.success !== true ||
+		!isRecord(value.data)
+	) {
+		return invalidReportResponse("Report detail response is invalid");
+	}
+	const data = value.data;
+	if (
+		!hasSafeReportText(data.reportId, 128) ||
+		data.reportId !== expectedReportId ||
+		data.kind !== "laboratory" ||
+		!hasSafeReportText(data.title, 256) ||
+		!hasSafeReportText(data.reportedAt, 64) ||
+		!Array.isArray(data.items) ||
+		typeof data.hasAttachment !== "boolean"
+	) {
+		return invalidReportResponse("Report detail response is invalid");
+	}
+
+	const items: ReportDetailResponse["data"]["items"] = [];
+	for (const item of data.items) {
+		if (
+			!isRecord(item) ||
+			!hasSafeReportText(item.name, 256) ||
+			!hasSafeReportText(item.result, 256) ||
+			!isReportDetailFlag(item.flag)
+		) {
+			return invalidReportResponse("Report detail item is invalid");
+		}
+		const unit = optionalReportText(item.unit, 64);
+		const referenceRange = optionalReportText(item.referenceRange, 256);
+		items.push({
+			name: item.name,
+			result: item.result,
+			...(unit === undefined ? {} : { unit }),
+			...(referenceRange === undefined ? {} : { referenceRange }),
+			flag: item.flag,
+		});
+	}
+	return {
+		success: true,
+		data: {
+			reportId: data.reportId,
+			kind: "laboratory",
+			title: data.title,
+			reportedAt: data.reportedAt,
+			items,
+			hasAttachment: data.hasAttachment,
+		},
+	};
+}
+
 /**
  * API base URL 只表示域名和端口，不携带 /api/v1 或 /api/v2 路径。
  * 清理旧缓存可避免请求被拼成 /api/v1/api/v2/... 导致公网 404。
@@ -716,9 +905,9 @@ export function requestReports(options: {
 		`endDate=${encodeURIComponent(options.endDate)}`,
 		...(options.kind ? [`kind=${encodeURIComponent(options.kind)}`] : []),
 	].join("&");
-	return requestWithSession<ReportListResponse>({
+	return requestWithSession<unknown>({
 		url: `/reports?${query}`,
-	});
+	}).then(requireReportListResponse);
 }
 
 /** 读取服务端生成的短期 LIS 详情引用。 */
@@ -726,9 +915,9 @@ export function requestReportDetail(options: {
 	patientId: string;
 	reportId: string;
 }): Promise<ReportDetailResponse> {
-	return requestWithSession<ReportDetailResponse>({
+	return requestWithSession<unknown>({
 		url: `/reports/${encodeURIComponent(options.reportId)}?patientId=${encodeURIComponent(options.patientId)}`,
-	});
+	}).then((payload) => requireReportDetailResponse(payload, options.reportId));
 }
 
 /** 读取服务端生成的微信调起参数。 */
