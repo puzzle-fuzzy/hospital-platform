@@ -210,6 +210,10 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
   不合法时设置 `responseInvalid=true`；只有 Provider 明确返回失败布尔值或失败业务码时才设置为 false。
   这样 API 才能稳定区分 `provider-response-invalid` 与 `provider-request-rejected`，日志聚合和小程序提示
   不会把上游格式污染误判为业务拒绝。
+- adapter 之后的 service 仍必须对可注入 gateway 结果做第二道运行时校验并重新投影。不能因为 TypeScript
+  端口已经声明了报告摘要或 LIS 详情类型，就直接展开返回对象；报告目录/详情只能构造 contract 白名单字段，
+  非 LIS 报告号、重复 LIS 报告号、非法状态、非法检测项和 Provider 扩展字段必须整批拒绝或丢弃，且失败日志
+  只能记录有限的 `resultViolation`，不能记录 Provider 原文、患者字段、文件 URL 或报告号。
 - 患者目录的整批结构校验必须先于逐患者 `patInfosFind` 查询；不能因为 Promise 并行而让有效患者先产生
   档案查询副作用，再在另一位患者字段非法时整体失败。只有全量预校验通过后才允许并行查询，且 HIS
   引用重复仍必须让整批失败。

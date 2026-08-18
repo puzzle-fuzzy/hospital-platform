@@ -51,6 +51,8 @@
 5. 在领域代码中加入中文注释，说明拒绝原因和“不能静默修剪临床数据”的维护原则。
 6. 跨 LIS/PACS/ECG 合并目录时，使用严格识别的日期格式倒序；无法识别的 Provider 时间放到末尾，避免字符串排序或运行时自动进位改变报告顺序。该修复不改写公开的原始展示时间。
 7. 小程序报告详情在请求失败、引用过期或患者范围变化时清空检测项、报告时间和附件标记；错误态不仅隐藏 WXML，还在页面状态层 fail-closed，避免页面实例复用时残留上一轮临床读模型。
+8. `ReportService` 增加第二道读模型校验：即使注入的目录/详情 gateway 绕过 adapter 类型约束，service 仍会逐字段验证、拒绝非法状态/重复 LIS 报告号，并重新投影白名单字段；Provider 患者字段、文件 URL、原始字段和未冻结扩展字段不会进入 API 响应。
+9. service 层的读模型异常使用有限 `resultViolation` 写入 `report.directory.failed` / `report.detail.failed`，错误处理统一映射为 `provider-response-invalid`（502），不记录 Provider 原文，也不把异常降级为空目录或空检测项。
 
 ## 3. 测试证据
 
@@ -58,9 +60,11 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| `pnpm --filter @hospital/adapters test` | 68 项通过，158 个断言 |
-| `pnpm --filter @hospital/persistence test` | 70 项通过，535 个断言 |
-| `pnpm format:check` | 221 个文件通过 |
+| `pnpm --filter @hospital/adapters test` | 83 项通过，183 个断言 |
+| `pnpm --filter @hospital/persistence test` | 74 项通过，545 个断言 |
+| `pnpm format:check` | 231 个文件通过 |
+| 报告 service 定向测试 | 17 项通过，102 个断言 |
+| API TypeScript 类型检查 | 通过 |
 
 已有报告 service/API 测试还覆盖：
 
@@ -82,6 +86,7 @@
 - Provider 报告日期包含边界、空目录语义以及真实字段样例与旧端逐字段比对。
 - 当前排序修复只覆盖 `yyyy-MM-dd`、`yyyy/MM/dd`、带时间文本和带时区 ISO 文本；新的 Provider 时间格式仍需拿到脱敏样例后再扩展，不能把未知文本当成有效医疗时间。
 - 小程序详情失败态清理已有静态回归，但仍需在真实微信会话中验证患者切换、详情引用过期和页面栈复用时的视觉收敛。
+- 本轮 service 二次校验提交为 `133e94e`，只完成本地代码、定向测试和类型证据，尚未部署到当前线上 `1b94c46`，不能据此增加 Provider 或真机验收结论。
 
 当前线上发布和运行观察见 [`1b94c46-production-acceptance-2026-08-18.md`](1b94c46-production-acceptance-2026-08-18.md)；
 配套小程序构建来源为 `691ba28053775bce84f1285583c6741018eb0d40`。

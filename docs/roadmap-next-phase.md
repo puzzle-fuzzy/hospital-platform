@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：`133e94e` 补齐报告只读链路的第二道 service 读模型门禁。目录和 LIS 详情 gateway 结果现在会在
+  service 层再次逐字段校验并重新投影，非法状态、重复 LIS 报告号、缺失检测项字段和 Provider 扩展字段不会进入
+  API；异常日志只记录有限 `resultViolation`，错误统一为 `provider-response-invalid`。新增报告 service 定向测试
+  后为 17 项、102 个断言，API 类型检查通过；本轮尚未部署、未重启新旧服务、未修改小程序或旧 Python 服务，详情见
+  [`release/report-readonly-contract-audit-2026-08-18.md`](release/report-readonly-contract-audit-2026-08-18.md)。
+
 - 2026-08-18：完成 Provider 成功包络一致性审计。患者目录、`patInfosFind` 档案映射、报告目录和
   LIS 详情的包络形态现在必须明确 `success=true`；缺失或非布尔成功标志不会再伪装成空目录、无档案
   或空临床详情，明确 `success=false` 仍保留业务拒绝语义。预约历史原有 `success/code` 门禁保持不变。
