@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：`b213dcc` 将统一患者 provider 引用校验接入报告目录 service。仓储返回的非法结构、控制字符或跨患者/Provider 的 HIS `patId` 会在报告 Provider 调用前 fail-closed，日志只保留有限引用原因；报告详情已有的短期引用范围校验和安全摘要语义不变。新增报告目录回归测试，当前 API 为 131 项、599 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18：`98e091b` 加固门诊费用 service 的患者引用二次门禁。即使 owner-scoped
   repository 返回了结构非法、控制字符或跨患者/Provider 的 HIS `patId`，service 也会在
   Provider 调用前 fail-closed，客户端继续使用安全的“门诊患者不可用”语义，日志只记录有限的

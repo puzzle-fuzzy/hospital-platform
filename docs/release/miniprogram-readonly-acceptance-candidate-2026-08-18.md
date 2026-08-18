@@ -14,7 +14,7 @@
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
 | 小程序构建来源 | `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c` | `dist/build-info.json` 的 `sourceRevision` |
 | 小程序回归 | 124 项 / 1059 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `01b184d` |
-| 全仓回归 | 9/9 package、API 130/593、工具 14/14 | 当前工作树 `pnpm check` 已通过；服务端线上 release 仍为 `1b94c46`，旧 Python 保持运行 |
+| 全仓回归 | 9/9 package、API 131/599、工具 14/14 | 当前工作树 `pnpm check` 已通过；服务端线上 release 仍为 `1b94c46`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
 客户端候选的 `dist/` 必须由 `01b184d` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
@@ -28,6 +28,9 @@ HIS 引用不会进入 Provider 调用；该修正尚未部署到线上 `1b94c46
 
 随后 `400a800` 将同一校验规则下沉到 domain 并接入预约历史；预约记录的错误引用同样不会进入
 Provider 调用。该修正也尚未部署到线上 `1b94c46`，不增加真实预约 Provider 或真机验收结论。
+
+随后 `b213dcc` 将同一校验规则接入报告目录；报告目录的错误引用同样不会进入 Provider 调用，
+也不增加真实报告 Provider、微信会话或真机验收结论。
 
 ## 2. 真机操作顺序
 

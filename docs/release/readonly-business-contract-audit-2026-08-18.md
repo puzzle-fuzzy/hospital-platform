@@ -133,7 +133,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/adapters test`：83 项通过，183 个断言；
 - `pnpm --filter @hospital/domain test`：27 项通过，62 个断言；其中包含患者读模型和普通资料读模型的 owner、
   重复 ID、展示字段、版本与白名单投影门禁；
-- `pnpm --filter @hospital/api test`：130 项通过，593 个断言；其中包含预约目录/排班二次投影、服务端平台排班引用、预约记录、门诊费用、
+- `pnpm --filter @hospital/api test`：131 项通过，599 个断言；其中包含预约目录/排班二次投影、服务端平台排班引用、预约记录、门诊费用、
   普通资料读模型、报告详情引用读写范围、错误处理、患者读模型归属和日志脱敏用例。
 
 本轮 `aa9807a` 收紧患者同步的 MySQL owner/provider 租约接管边界，并补充持久化回归测试和中文契约说明；
@@ -152,6 +152,9 @@ requested -> owner mapping / provider call -> synced 或 loaded
 本轮 `400a800` 将患者 provider 引用校验统一下沉到 domain，并接入预约历史 service；预约记录
 异常引用同样在 Provider 调用前 fail-closed。该修正尚未部署到线上 `1b94c46`，不增加真实
 预约 Provider、微信会话或真机验收证据。
+
+本轮 `b213dcc` 将同一校验接入报告目录 service；报告目录异常引用也会在 Provider 调用前
+fail-closed，该修正尚未部署到线上 `1b94c46`，不增加真实报告 Provider 或真机验收证据。
 
 本轮患者读模型二次投影尚未部署到 `1b94c46`；它只收紧新服务端的仓储读取边界，不修改旧 Python 服务、数据库数据或小程序运行包。
 
