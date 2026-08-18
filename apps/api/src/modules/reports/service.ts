@@ -11,6 +11,7 @@ import type {
 	ReportDirectoryEntry,
 	ReportDirectoryGateway,
 	ReportDirectoryQuery,
+	ReportReference,
 	ReportReferenceInput,
 	ReportReferenceRepository,
 } from "@hospital/domain";
@@ -76,6 +77,40 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
 	10 * 60 * 1000,
 	REPORT_REFERENCE_MAX_TTL_MS,
 );
+
+type ReportDetailReferenceViolation =
+	| "reference-invalid"
+	| "reference-scope-mismatch";
+
+/**
+ * 详情读取前的引用二次门禁。
+ *
+ * repository 的查询条件属于第一道 owner/patient 过滤，但缓存、历史脏数据
+ * 或未来的其它实现仍可能返回错误记录。这里把“结构不合法”和“范围不一致”
+ * 固定成有限原因，既能在 Provider 调用前 fail-closed，也不会把存储字段写进日志。
+ */
+function validateStoredDetailReference(
+	reference: ReportReference,
+	ownerUserId: string,
+	patientId: string,
+	reportId: string,
+): ReportDetailReferenceViolation | undefined {
+	try {
+		validateReportReference(reference);
+	} catch {
+		return "reference-invalid";
+	}
+	if (
+		reference.reportId !== reportId ||
+		reference.ownerUserId !== ownerUserId ||
+		reference.patientId !== patientId ||
+		reference.provider !== "zhongyang" ||
+		reference.kind !== "laboratory"
+	) {
+		return "reference-scope-mismatch";
+	}
+	return undefined;
+}
 
 /** reportId 只用于定位短期引用，不是 bearer token，也不替代 owner/patient 查询。 */
 function reportReferenceId(
@@ -327,6 +362,22 @@ export class ReportService {
 					this.now().toISOString(),
 				);
 			if (reference?.kind !== "laboratory") {
+				throw new ReportNotFoundError();
+			}
+			// 仓储查询已经按 owner/patient/reportId 加了条件，但它仍是跨层返回值，
+			// 不能把 SQL 条件当成唯一授权证明。这里再次校验引用完整性和范围，
+			// 防止错误实现、历史脏数据或未来缓存层把别的患者 providerReportId
+			// 送进详情 Provider；一旦不一致，必须在 Provider 调用前结束。
+			const referenceViolation = validateStoredDetailReference(
+				reference,
+				ownerUserId,
+				patientId,
+				reportId,
+			);
+			if (referenceViolation) {
+				// 对客户端统一收敛为“详情不可用”，不暴露存储层究竟是哪一列
+				// 损坏；有限原因只进入低敏服务日志，便于定位数据或缓存问题。
+				resultViolation = referenceViolation;
 				throw new ReportNotFoundError();
 			}
 			const result = await this.dependencies.detail.getLaboratoryDetail(

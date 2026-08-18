@@ -545,6 +545,57 @@ test("报告 service 拒绝仓储返回的跨患者详情引用", async () => {
 	expect(detailCalls).toBe(0);
 });
 
+test("报告详情 service 拒绝仓储返回的跨范围引用且不调用 Provider", async () => {
+	let detailCalls = 0;
+	const now = new Date("2026-08-16T00:00:00.000Z");
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => {
+				throw new Error("目录不应在详情查询中调用");
+			},
+		},
+		detail: {
+			getLaboratoryDetail: async () => {
+				detailCalls += 1;
+				throw new Error("跨范围引用不应访问详情 Provider");
+			},
+		},
+		references: {
+			upsert: async (input) => ({
+				...input,
+				createdAt: input.createdAt ?? now.toISOString(),
+			}),
+			findByOwnerPatientAndId: async () => ({
+				reportId: "report_foreign",
+				ownerUserId: "user-002",
+				patientId: "patient-002",
+				provider: "zhongyang" as const,
+				kind: "laboratory" as const,
+				providerReportId: "provider-report-foreign",
+				expiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
+				createdAt: now.toISOString(),
+			}),
+		},
+		now: () => now,
+	});
+
+	await expect(
+		service.detail("user-001", "patient-001", "report_requested", {
+			traceId: "trace-report-detail-scope",
+			idempotencyKey: "key-report-detail-scope",
+		}),
+	).rejects.toBeInstanceOf(ReportNotFoundError);
+	// 读取到错误范围引用后必须在 Provider 调用前 fail-closed，避免跨患者临床数据泄漏。
+	expect(detailCalls).toBe(0);
+});
+
 test("报告目录批量引用共享同一次观察时钟", async () => {
 	let nowCalls = 0;
 	const captured: Array<{ createdAt: string; expiresAt: string }> = [];
