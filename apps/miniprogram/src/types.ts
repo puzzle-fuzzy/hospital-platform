@@ -78,6 +78,8 @@ export type Report = ReportListResponse["data"]["items"][number];
 export type ReportDirectoryView = Report & {
 	kindLabel: string;
 	statusLabel: string;
+	/** 当前报告目录渲染批次生成的事件 key，不是服务端报告引用或业务主键。 */
+	viewKey: string;
 };
 export type ReportDetail = ReportDetailResponse["data"];
 export type LaboratoryReportItem = ReportDetail["items"][number];

@@ -1322,6 +1322,21 @@ test("native report count comes from the report directory total", async () => {
 	expect(detail).not.toContain("reportCount: 1");
 });
 
+test("native report detail actions reject stale directory events", async () => {
+	const page = await source("pages/report-directory/report-directory.ts");
+	const template = await source("pages/report-directory/report-directory.wxml");
+
+	// 报告引用按当前渲染批次回查；患者切换后，刷新前遗留的 WXML 事件
+	// 不得直接携带旧 reportId 导航到旧患者的详情页。
+	expect(page).toContain("findVisibleReport");
+	expect(page).toContain("event.currentTarget?.dataset?.viewKey");
+	expect(page).toContain("this.toView(report, index, requestToken)");
+	expect(page).toContain("viewKey: `report-");
+	expect(template).toContain('wx:key="viewKey"');
+	expect(template).toContain('data-view-key="{{item.viewKey}}"');
+	expect(template).not.toContain('data-report-id="{{item.reportId}}"');
+});
+
 test("native homepage keeps patient identity and QR data within the safe boundary", async () => {
 	const home = await source("pages/index/index.ts");
 	const template = await source("pages/index/index.wxml");

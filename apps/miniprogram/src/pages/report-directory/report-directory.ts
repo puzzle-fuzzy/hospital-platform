@@ -16,6 +16,7 @@ import type {
 	Report,
 	ReportDirectoryPageData,
 	ReportDirectoryView,
+	ViewKeyEvent,
 } from "../../types";
 
 /**
@@ -37,15 +38,32 @@ const REPORT_STATUS_LABELS = Object.freeze({
 	abnormal: "需关注",
 } as const);
 
+/**
+ * 报告详情点击必须按当前渲染批次回查，而不能直接相信旧 WXML 携带的
+ * `reportId`。`reportId` 是 owner-scoped 的短期详情引用；切换就诊人后，
+ * 旧事件即使晚到，也不能继续把旧患者的报告带入详情页。
+ */
+function findVisibleReport(
+	reports: readonly ReportDirectoryView[],
+	viewKey: unknown,
+): ReportDirectoryView | undefined {
+	if (typeof viewKey !== "string" || !viewKey) return undefined;
+	return reports.find((report) => report.viewKey === viewKey);
+}
+
 type ReportDirectoryPageMethods = {
 	loadPage(): Promise<void>;
 	onChangePatient(): void;
-	onReportTap(event: WechatMiniprogram.TouchEvent): void;
+	onReportTap(event: ViewKeyEvent): void;
 	onLoadMore(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
-	toView(report: Report): ReportDirectoryView;
+	toView(
+		report: Report,
+		index: number,
+		renderGeneration: number,
+	): ReportDirectoryView;
 };
 
 Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
@@ -115,7 +133,9 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 					return;
 				}
 				const { patient, payload } = result;
-				const reports = payload.items.map((report) => this.toView(report));
+				const reports = payload.items.map((report, index) =>
+					this.toView(report, index, requestToken),
+				);
 				const visibleReportCount = Math.min(REPORT_PAGE_SIZE, reports.length);
 				this.setData({
 					selectedPatient: patient,
@@ -141,9 +161,16 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		navigateToPatientSelector();
 	},
 
-	/** 详情页只接受服务端生成的短期 opaque reportId，摘要没有引用时保持不可点击。 */
+	/**
+	 * 详情页只接受当前渲染批次回查出的短期 opaque reportId；摘要没有引用，
+	 * 或事件来自患者切换前的旧 WXML 时，保持不可点击并阻断越权式串页。
+	 */
 	onReportTap(event): void {
-		const reportId = event.currentTarget?.dataset?.reportId;
+		const report = findVisibleReport(
+			this.data.visibleReports,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		const reportId = report?.reportId;
 		if (typeof reportId !== "string" || !reportId) {
 			wx.showToast({ title: "该报告详情暂未开放", icon: "none" });
 			return;
@@ -174,11 +201,17 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		disposePageInstance(this);
 	},
 
-	toView(report: Report): ReportDirectoryView {
+	toView(
+		report: Report,
+		index: number,
+		renderGeneration: number,
+	): ReportDirectoryView {
 		return {
 			...report,
 			kindLabel: REPORT_KIND_LABELS[report.kind],
 			statusLabel: REPORT_STATUS_LABELS[report.status],
+			// 该 key 只用于 WXML diff 和事件回查，严禁当作 provider 报告号使用。
+			viewKey: `report-${renderGeneration}-${index}`,
 		};
 	},
 

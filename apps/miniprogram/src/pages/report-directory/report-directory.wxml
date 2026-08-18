@@ -24,10 +24,10 @@
 	<view wx:elif="{{visibleReports.length}}" class="report-list">
 		<view
 			wx:for="{{visibleReports}}"
-			wx:key="index"
+			wx:key="viewKey"
 			class="report-card {{item.reportId ? 'report-card-clickable' : ''}}"
 			bindtap="onReportTap"
-			data-report-id="{{item.reportId}}"
+			data-view-key="{{item.viewKey}}"
 		>
 			<view class="report-card-header">
 				<view class="report-title-wrap">
