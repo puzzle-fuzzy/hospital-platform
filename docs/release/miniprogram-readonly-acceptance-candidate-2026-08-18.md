@@ -10,15 +10,15 @@
 | 服务端 release | `38bc553` | 服务器 `/home/ps/code/hospital-platform/releases/38bc553` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `38bc553` | 微信身份边界修复后的 `main` 候选，包含构建来源指纹校验 |
+| 小程序客户端 | `d6b3d66` | 服务端 `38bc553` 配套的当前运行包，包含构建来源指纹校验 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序构建来源 | `38bc553395f07c017446ee2539677431c6835f13` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序构建来源 | `d6b3d661e5864fffdccac14d72a58d4edaecc81d` | `dist/build-info.json` 的 `sourceRevision` |
 | 小程序回归 | 108 项 / 952 个断言 | 当前 `main` 的 `pnpm --dir apps/miniprogram test`；生产客户端源码固定为 `38bc553` |
 | 全仓回归 | 9/9 package、API 114/114、工具 10/10 | `3b4397d` 后的 `pnpm test`、`pnpm typecheck`、`pnpm test:tools` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `38bc553` 工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-后续 `5609074` 只补充候选验收文档，不改变小程序生产源码或 `dist/`；因此真机包的来源指纹必须是完整的 `38bc553395f07c017446ee2539677431c6835f13`。
+客户端候选的 `dist/` 已由 `d6b3d66` 工作树强制构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+后续 `32ba8c0`、`00724e4`、`97b3398` 和 `2bca0dd` 只补充发布/验收文档，不改变小程序运行源码或该候选 `dist/`；因此当前真机包的来源指纹必须是完整的 `d6b3d661e5864fffdccac14d72a58d4edaecc81d`。
 
 ## 2. 真机操作顺序
 
