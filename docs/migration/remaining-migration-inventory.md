@@ -7,39 +7,25 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-## 当前 release 基线（2026-08-18 14:29 CST）
+## 当前 release 基线（2026-08-18 14:55-14:57 CST）
 
 本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 本地 `main` 当前代码基线为 `0ae4194`，在患者上下文契约中补齐了门诊费用加载器的空 `patientId` 前置拒绝，
-  并通过全量 `pnpm check`；该修正尚未部署到服务器，不改变下面 `38bc553` 的线上 release、真实业务证据或旧 Python 服务状态。
-  这类小程序服务层校验只能减少无效请求，不能替代服务端 owner 归属校验。
-- 当前服务器 release 为 `38bc553`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
-  `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。
-- 当前 release 的生产 preflight、内网 readiness、公网 `/api/v2` runtime smoke 和 `runtimeMode=production` 已通过；MySQL、Redis、schema
-  均为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`，公网 ready 保留 `Cache-Control: no-store`。这些结果证明运行层共存，不证明患者端业务完成。
-- 候选隔离进程已通过 live/ready/system-ping/未登录 401 验收并在 SIGTERM 后释放端口；切换后低敏日志聚合
-  `parseErrors=0`、`systemdWarningCount=0`，但日志计数不能替代页面、HTTP、患者归属和 Provider 结果证据。
-- 当前 `38bc553` 已取得一次配对开发者工具会话下的预约历史、爽约筛选和门诊费用只读事件：预约历史窗口返回
-  `itemCount=60`，爽约窗口返回 `itemCount=58`，待缴/已缴费用均返回 `itemCount=0`。这些是当前 release 的真实
-  Provider/公网/页面观察证据，但仍不是微信真机验收，也不代表全部挂号、费用详情、支付或医保完成。报告目录此前仍因
-  `adapter:zhongyang` 未配置返回 `503`，不能把页面入口或失败响应当作报告迁移完成。当前只读候选证据见
-  [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md)。
-- 2026-08-18 14:20-14:21 CST：配对开发者工具会话进入“编辑个人信息”页，普通资料 `GET /me/profile` 返回
-  `200`，页面展示服务端返回的昵称、性别、年龄和邮箱普通字段；本轮没有点击保存，没有产生 `PUT`、版本更新或
-  资料写入事件。这证明 owner-scoped 普通资料读取和页面渲染链路可用，但不替代真机读取，也不证明首次更新、
-  409 冲突、并发刷新或写入审计已经完成。
-- 2026-08-18 14:22 CST：从“我的 → 家庭成员管理”进入独立 `patient-select` 页面，页面完成患者目录读取并展示当前
-  就诊人的脱敏卡号、当前标记和“刷新就诊人”入口；本轮没有新增、绑定或切换患者。当前会话只有 1 条已同步患者，
-  因此只证明“可进入独立选择页且不会把当前用户硬编码为患者”，不能证明多患者切换、失效恢复或新增绑定已经完成。
-- 2026-08-18 14:26 CST：重新打开 `apps/miniprogram/` 项目并进入爽约记录页后，患者卡、页面标题、空态卡片和底部说明
-  均按 `9ef8c85` 补齐的页面级 WXSS 正常显示；这完成了开发者工具缓存清理后的视觉复核，但仍不是微信真机验收。
-- 下一步固定使用服务端 `38bc553` + 小程序客户端 `9b1c99d` 的验收组合；当前 `dist/` 已在构建门禁提交后强制重建并验证 14 个页面脚本存在，
-  `dist/build-info.json` 已记录完整来源提交号 `9b1c99d59076188e960e33d5f65863eaa67bae9a`。当前 `main` 的验收 harness
-  为 108 项、954 个断言，后续文档提交不改变 `dist/` 的来源指纹。复用有效微信会话，按“刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得
-  页面、HTTP、低敏日志三层证据；具体候选、证据字段和停止条件见
-  [`../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)。
-  预约写入、详情、支付、医保和 HIS 回写继续最后处理。
+- 本地 `main` 当前代码基线为 `9acdaf2`，预约历史成功日志已增加低敏 `statusCounts`；此前患者上下文的空 `patientId` 前置校验仍在历史提交中。
+  本地全量 `pnpm check` 和 API/Worker/小程序强制构建均通过，运行包来源指纹为 `9acdaf2`，注册页面和生成脚本均为 14 个；用户已有的
+  `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
+- 当前服务器 release 为 `9acdaf2`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
+  `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
+  原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
+- 当前 release 的低敏日志窗口 `parseErrors=0`、`systemdWarningCount=0`；预约历史 P0 门禁请求/成功各 1、失败 0。
+  配对开发者工具请求 `pages/appointment-records/appointment-records` 返回 HTTP 200，服务端记录 `itemCount=60`、
+  `statusCounts={cancelled:60}`。在线标签排除已取消记录，空态正确；全部挂号继续保持迁移提示，因为独立 `requestChannel=4`
+  Provider contract 尚未冻结，不能用渠道 3 的数据冒充全部挂号。
+- 这次开发者工具观察仍不是微信真机、公网分域或 Provider 写入验收；多患者切换/失效恢复、Redis TTL、报告、支付、医保和 HIS 继续关闭。
+  门诊费用的先前只读观察仍属于历史 `38bc553` 窗口，不能回填为 `9acdaf2` 当前 release 的新增证据。当前预约状态观察见
+  [`../release/9acdaf2-appointment-status-observation-2026-08-18.md`](../release/9acdaf2-appointment-status-observation-2026-08-18.md)。
+- 下一步先冻结 `requestChannel=4` 的 Provider 字段、状态语义、排序/分页和页面级验收；在获得非取消样本前不人为写入测试预约，
+  也不打开预约写入、详情、支付、医保或 HIS 回写。
 - 2026-08-18 12:31 CST：重启后线上只读复核仍确认新旧服务共存；正确内网探针为 `10.0.0.3:18081/health/ready`，
   不应把服务绑定的非 loopback 地址误写成 `127.0.0.1:18081`。内网和公网 ready 均为 `200` 且 database、redis、schema 为 `ok`，
   该证据只覆盖运行层，不推进预约历史、门诊费用或真机业务状态。详见

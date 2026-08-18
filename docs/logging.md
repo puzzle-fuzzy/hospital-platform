@@ -79,6 +79,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `user.profile.conflict` | 普通个人资料版本冲突 | 记录 trace 和固定错误类型，保留 409 并发事实的可检索性；不记录 userId、版本值、字段值或请求正文 |
 | `user.profile.update_failed` | 普通个人资料更新失败（包括输入校验拒绝） | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
 
+低敏分布统计可以记录固定枚举值的数量（例如预约成功结果中的 `statusCounts`），用于解释筛选、分页或状态转换；
+这类字段只能是服务端白名单枚举到整数的聚合结果，不得包含逐条业务标识、患者标识、Provider 原始文本或任意调用方原值。
+
 患者目录 `in_progress` 事件的 `conflictScope` 只允许两个固定值：`same-key` 表示同一幂等键的
 网络重试，`owner-provider` 表示同一 owner/provider 的另一条幂等键正在占用租约。它只用于区分
 重复请求和跨页面并发，不是客户端可见的业务数据。

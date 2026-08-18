@@ -5,13 +5,18 @@
 
 ## 当前基线
 
-### 本地未部署增量（2026-08-18）
+### 当前 release 与验收增量（2026-08-18 14:55-14:57 CST）
 
-- 本地 `main` 当前为 `0ae4194`。这次只收紧原生小程序患者范围读服务：预约记录、报告目录和门诊费用
-  在发起 Hospital API 请求前统一拒绝空 `patientId`，避免把患者上下文错误延迟成一条无效网络请求；服务端
-  owner 归属校验保持不变。
-- `0ae4194` 已通过完整 `pnpm check`，但没有因此切换服务器 release、重启旧服务或产生新的 Provider/公网/真机证据。
-  下一次发布必须重新生成与提交来源配对的小程序运行包，并重新执行新旧服务共存验收；本地测试不能回填线上业务成功。
+- 本地 `main` 当前为 `9acdaf2`。本轮在预约历史成功日志中增加低敏 `statusCounts`，只统计规范化预约状态的数量，
+  用于解释“在线挂号”筛选后的结果，不记录患者、Provider 或预约标识；此前 `0ae4194` 的患者上下文空值前置校验仍包含在提交历史中。
+- `9acdaf2` 已通过完整 `pnpm check`，并强制重建 API、Worker 和原生小程序运行包；`dist/build-info.json` 的
+  `sourceRevision=9acdaf2`、14 个页面脚本均已核对。候选包完成 SHA-256、真实生产 env preflight 和隔离 runtime smoke 后才切换线上。
+- 当前新 Bun/Elysia API 为 `/home/ps/code/hospital-platform/releases/9acdaf2`，运行于生产模式，MySQL/Redis/schema 均为 `ok`；
+  旧 Python `0.0.0.0:8001` 继续监听，本轮只重启新 API，没有停止、重启或修改旧服务。
+- 配对开发者工具的预约历史请求返回 HTTP 200；日志聚合显示 `itemCount=60` 且 `statusCounts={cancelled:60}`。
+  在线标签排除已取消记录，因此显示空态符合业务筛选；全部挂号仍保持 fail-closed，因为独立的 `requestChannel=4` 契约尚未开放。
+- 当前 release 的预约历史 P0 业务证据门禁通过（请求/成功各 1、失败 0、日志解析错误 0、systemd warning 0）。这仍是开发者工具证据，
+  不等同于微信真机、公网分域、Provider 写入、支付、医保或 HIS 验收。详细记录见 [`release/9acdaf2-appointment-status-observation-2026-08-18.md`](release/9acdaf2-appointment-status-observation-2026-08-18.md)。
 
 ### 本轮 38bc553 微信身份边界收紧与无损切换（2026-08-18 13:03-13:08 CST）
 
