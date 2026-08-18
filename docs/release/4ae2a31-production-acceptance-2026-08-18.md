@@ -88,7 +88,7 @@ httpStatusCounts={200:6} systemdWarningCount=0 providerRequestIdCount=0
 - 公网 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 分别为 HTTP 200，live/ready 继续返回 `Cache-Control: no-store`，ready 的 database、redis、schema 均为 `ok`；
 - 15:23:30 起的低敏日志聚合仍为 `parseErrors=0`、`systemdWarningCount=0`，没有新增真实业务事件。
 
-本次只读复核没有切换 release、写入数据库/Redis 或操作旧服务；本地 `main` 后续的 `b276a25`、`c2d6e8f` 仅包含测试/文档门禁修正，尚未进入线上运行 bundle。
+本次只读复核没有切换 release、写入数据库/Redis 或操作旧服务；本地 `main` 后续的 `b276a25`、`c2d6e8f`、`189ce51` 仅包含测试/文档门禁修正，尚未进入线上运行 bundle。
 
 ## 7. 回滚与下一步
 
