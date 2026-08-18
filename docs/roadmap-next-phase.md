@@ -11,6 +11,8 @@
 
 - 继续审计 P0 证据门禁时发现：仅要求业务 `requested/success` 同链仍可能遗漏响应层失败。现已收紧为同一关联链必须同时包含业务请求、业务成功、HTTP `2xx` 完成，且不能出现同链 `http.request.failed`；新增状态摘要和失败回归测试。该修正尚未部署，不改变当前业务开放边界，支付、医保、预约写入和 HIS 回写继续关闭。
 
+- `387b4a3` 已作为未切换候选上传并通过 8 项产物 checksum、真实生产 preflight 和隔离 runtime smoke；当前 `current` 仍为 `c26e696`，旧 Python `8001` 未触碰。候选验收记录见 [`release/candidate-387b4a3-http-success-gate-2026-08-18.md`](release/candidate-387b4a3-http-success-gate-2026-08-18.md)。
+
 - 当前线上服务端 release 为 `c26e696`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序本地验收候选构建来源为 `a45d35edd91aab1a3a83c77301c9984402686145`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。本次生产切换证据见 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)。
 
 - 2026-08-18 23:18 CST：本地小程序运行包在提交 `a45d35e` 后重新构建，`dist/build-info.json.sourceRevision` 为

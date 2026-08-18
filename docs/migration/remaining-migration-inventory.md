@@ -15,6 +15,8 @@
 
 补充规则：P0 日志门禁现在还要求业务成功链包含 HTTP `2xx` 完成事件，且不能同时出现同链 `http.request.failed`；这只是证据真实性门禁，不会把当前日志或未验收页面升级为真实业务完成。
 
+补充记录：`387b4a3` 候选已完成该门禁的远端 checksum、真实生产 preflight 和隔离 runtime smoke，但尚未切换线上；当前业务未完成项和真机停止条件不变，详见 [`../release/candidate-387b4a3-http-success-gate-2026-08-18.md`](../release/candidate-387b4a3-http-success-gate-2026-08-18.md)。
+
 本节优先于下方历史盘点记录。当前服务端 release 为 `c26e696`，生产切换与新旧服务共存证据见
 [`../release/c26e696-production-acceptance-2026-08-18.md`](../release/c26e696-production-acceptance-2026-08-18.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
