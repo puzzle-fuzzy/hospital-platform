@@ -191,6 +191,13 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-18 11:40 CST 左右：候选 `9ca3a89` 已上传到独立 release 目录，8 个 bundle SHA-256 与本地构建产物一致，
+使用真实 `shared/api.env` 的生产 preflight 通过，并在 `127.0.0.1:18082` 完成 production runtime smoke（live 200、
+ready 3/3、system-ping 200、未登录认证 401）后正常 SIGTERM 回收。候选未切换 `current`，当前仍为 `c63dba9`；
+新 API `18081` 与旧 Python `8001` 均保持监听，两个生产服务均未重启。新增 Redis TTL 审计命令使用现有常驻 API Redis ACL
+时按设计返回 `redis-session-scan-unavailable`、退出码 2；没有修改 ACL、Redis、数据库或业务数据。独立维护 ACL 尚未注入，
+因此会话 TTL 仍未验证。完整证据见 [`../../docs/release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md`](../../docs/release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md)。
+
 2026-08-18 11:07-11:09 CST：候选 `c63dba9` 已完成 7 个 artifact checksum、真实生产 env preflight、
 `127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从 `e5bafd3` 原子切换到
 `c63dba9`，只重启新 API。切换后内网 live/ready/system-ping、公网 live/ready/system-ping 和连续 6/6
