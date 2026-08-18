@@ -256,8 +256,9 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
   报告继续使用过去 30 天；服务端仍会再次校验日期范围，客户端不能放宽服务端上限。
 - 原生小程序的 `createAppointmentRecordQuery` 是“我的挂号”和“爽约记录”共享的唯一查询构造边界：
   `history` 只能生成前后各 90 天，`missed` 只能生成过去 90 天，并在生成请求前拒绝空的内部
-  `patientId`。页面不应分别拼接日期或把 Provider 患者号带入请求；对应的自然日、窗口和空标识回归测试
-  必须保持在 dashboard service 层。
+  `patientId`。客户端还必须与服务端 opaque contract 对齐，拒绝首尾空白、控制字符和超过 128
+  个 UTF-16 code unit 的损坏标识；这只是请求前置清理，不替代服务端 owner 校验。页面不应分别拼接
+  日期或把 Provider 患者号带入请求；对应的自然日、窗口和标识形状回归测试必须保持在 dashboard service 层。
 - 预约历史的 Provider smoke 也必须发送与“我的挂号”相同的前后各 90 天窗口；只验证过去到当天
   会漏掉未来预约，不能作为该业务不变量的验收证据。
 - Provider 失败不能只记录一个笼统的 `Error`：认证、预约、门诊费用和报告的失败事件必须在不记录

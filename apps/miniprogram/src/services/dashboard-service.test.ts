@@ -39,6 +39,21 @@ test("预约查询先拒绝空患者标识，不允许生成跨患者请求", ()
 	);
 });
 
+test("预约查询拒绝损坏的本地患者标识", () => {
+	// 页面参数或本地缓存损坏时，空白、控制字符和超长值都必须在网络请求前
+	// 收敛为患者上下文错误；服务端仍会执行最终 owner 校验，这里不是授权替代。
+	for (const patientId of [
+		" ",
+		"\tpatient-internal-001",
+		"patient-internal-001\n",
+		"x".repeat(129),
+	]) {
+		expect(() =>
+			createAppointmentRecordQuery(patientId, BEIJING_MIDNIGHT),
+		).toThrow("请先登录并选择就诊人");
+	}
+});
+
 test("门诊费用查询先拒绝空患者标识，不把无效查询交给 API", () => {
 	// 这里必须在 requestWithSession 之前失败；否则页面会把患者上下文问题
 	// 误报成接口参数错误，且会产生一条没有业务意义的网络日志。
