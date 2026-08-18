@@ -1386,6 +1386,21 @@ test("native report detail actions reject stale directory events", async () => {
 	expect(template).not.toContain('data-report-id="{{item.reportId}}"');
 });
 
+test("native report detail errors clear the previous clinical read model", async () => {
+	const detail = await source("pages/report-detail/report-detail.ts");
+	const showErrorStart = detail.indexOf("showError(error: unknown): void");
+	const showErrorEnd = detail.indexOf("\n\t},", showErrorStart);
+	const showErrorBody = detail.slice(showErrorStart, showErrorEnd);
+
+	// 详情请求失败、引用过期或患者在请求期间发生变化时，错误态不能只
+	// 隐藏 WXML；页面实例还必须清空检测项、报告时间和附件标记，防止重试
+	// 或页面复用把上一位患者的临床结果当成当前结果。
+	expect(showErrorBody).toContain('reportedAt: ""');
+	expect(showErrorBody).toContain("items: []");
+	expect(showErrorBody).toContain("hasItems: false");
+	expect(showErrorBody).toContain("hasAttachment: false");
+});
+
 test("native homepage keeps patient identity and QR data within the safe boundary", async () => {
 	const home = await source("pages/index/index.ts");
 	const template = await source("pages/index/index.wxml");

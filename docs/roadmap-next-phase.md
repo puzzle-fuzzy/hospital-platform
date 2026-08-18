@@ -18,6 +18,7 @@
 - 2026-08-18 18:47 CST：`d4261e5` 提交后的运行包重新构建完成，`dist/build-info.json` 已核对为完整来源指纹
   `d4261e5a59e0a9bfe69534169504d8a118ebca7f`，并通过 `runtime:verify`。此前 `07d3988` 二维码不包含本轮门诊费用失败态修正，不得继续用于验收；本次未部署服务端、未重启新旧服务、未触碰旧 Python 服务。
 - 本轮修正门诊费用失败态：费用查询失败时页面现在清空 `selectedPatient`、费用列表和可见批次，但保留本地 opaque 选择并通过空态重新进入选择页；这样不会把上一轮患者卡片与失败/空读模型混在一起。该修正只影响小程序页面、中文注释和静态回归，详情见 [`release/miniprogram-outpatient-error-context-2026-08-18.md`](release/miniprogram-outpatient-error-context-2026-08-18.md)。
+- 本轮继续收紧报告详情失败态：请求失败、引用过期或患者范围变化时，页面清空检测项、报告时间和附件标记，不仅依赖 WXML 隐藏错误态。该修正只影响小程序页面、中文注释和静态回归，不打开报告 Provider 详情 gate；待重新构建候选并核对来源后再进入真机验收。
 - 重启后再次按标题选择新 `miniprogram` 窗口时，窗口句柄与可见画面出现不一致，无法确认当前画面仍属于二维码弹窗；本次未点击、输入或继续扫码，避免误触旧项目。后续必须重新打开新候选项目并同时核对 `dist/` 资源树与二维码上下文，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 - 2026-08-18 16:44 CST 公网只读复核通过：`/api/v2/health/live=200`、`/api/v2/health/ready=200`，且 ready 返回 `database/redis/schema=ok`；未登录 `GET /api/v2/me/profile` 返回预期 `401 unauthorized`。这只证明公网运行层和认证边界，不能增加微信会话、患者切换、预约、报告或费用业务验收结论。
 - 下一步固定为：用户扫码后先确认微信会话，再按 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)

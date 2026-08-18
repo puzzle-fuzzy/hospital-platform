@@ -140,7 +140,19 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 
 	showError(error: unknown): void {
 		const message = safeApiErrorMessage(error, "报告详情加载失败");
-		this.setData({ error: message, loading: false, title: "报告详情不可用" });
+		// 报告详情属于当前患者的一次性临床读模型。错误、患者切换或引用过期
+		// 时，上一轮检测项、报告时间和附件标记都不再有当前请求的证据；即使
+		// WXML 当前会隐藏详情区域，也必须把页面状态本身收敛为空，避免未来重试
+		// 或页面复用时把旧患者的临床结果重新展示出来。
+		this.setData({
+			error: message,
+			loading: false,
+			title: "报告详情不可用",
+			reportedAt: "",
+			items: [],
+			hasItems: false,
+			hasAttachment: false,
+		});
 		wx.showToast({ title: message, icon: "none" });
 	},
 });
