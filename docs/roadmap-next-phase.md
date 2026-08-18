@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-19：会话重启后通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 仍为 `c26e696`，
+  新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，临时端口 `18082` 无残留，公网 live/ready 均返回 `200` 且
+  `database/redis/schema=ok`。本地 `pnpm check` 全部通过，小程序构建产出 14 个页面脚本；本次没有切换 release、migration、
+  Redis 清理或业务写入，也没有增加 Provider、真机、支付或医保验收证据。详见
+  [`release/restart-coexistence-readonly-audit-2026-08-19.md`](release/restart-coexistence-readonly-audit-2026-08-19.md)。
+
 - 2026-08-18 23:37 CST：`b7c9451` 候选已上传服务器并通过远端 checksum、真实生产 preflight 和隔离 runtime smoke；当前 `current` 仍为 `c26e696`，没有重启正式 API、没有启动 Worker，旧 Python `8001` 未触碰。该候选只新增 P0 日志同 trace/request 关联链门禁，不推进支付、医保、预约写入或 HIS 回写，详见 [`release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md)。
 
 - 2026-08-18 23:40 CST：对当前 `c26e696` 自 `22:56:00` 起的 journald 做离线同链聚合，患者目录读取 `12/12`、患者同步 `6/6` 均在同一关联链内通过；微信登录、预约历史、门诊费用、报告和普通资料没有完整业务链，整体 P0 审计仍失败。该结果只增加服务端日志证据，不替代页面/HTTP/真机三层验收，详见 [`release/current-c26-p0-business-observation-2026-08-18-2340.md`](release/current-c26-p0-business-observation-2026-08-18-2340.md)。
