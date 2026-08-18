@@ -1,6 +1,6 @@
 # P0 只读业务验收手册（2026-08-17）
 
-> 本手册用于当前 `c63dba9` 生产版本的真实微信小程序验收。它覆盖微信登录、普通资料、患者上下文、预约历史、爽约记录和门诊费用只读查询；不包含预约下单、微信支付、医保结算、退款或 HIS 写入。
+> 本手册用于当前 `38bc553` 生产版本的真实微信小程序验收。它覆盖微信登录、普通资料、患者上下文、预约历史、爽约记录和门诊费用只读查询；不包含预约下单、微信支付、医保结算、退款或 HIS 写入。
 >
 > `configured` 只表示环境变量和组合根依赖齐全，不表示 Provider 权限、接口字段或真实业务已经验收。每个域必须同时具备真机操作、HTTP 响应和服务端日志三类证据，缺一不可。
 
@@ -8,7 +8,7 @@
 
 | 项目 | 验收基线 |
 | --- | --- |
-| 线上 release | `c63dba9` |
+| 线上 release | `38bc553` |
 | 新 API | `hospital-platform-api-v2.service`，公网入口 `/api/v2` |
 | 旧 API | Python 服务继续保留在原端口，不能因为本手册重启或修改 |
 | 小程序运行目录 | `apps/miniprogram/dist/`；先执行 `pnpm --filter @hospital/miniprogram build`，开发者工具导入包含 `project.config.json` 的小程序目录，并确认 `miniprogramRoot` 为 `dist/` |
@@ -206,7 +206,7 @@ echo 'session_count=<aggregate> ttl_min=<aggregate> ttl_max=<aggregate>'
 SSH 账号拒绝，因此 TTL、会话数量和范围仍为“未验证”。若 Redis ACL 不允许 `SCAN`，应由运维在不暴露 key
 的情况下提供等价聚合结果，不要临时放宽 ACL；在取得结果前，P0 会话 TTL 门禁保持未通过。
 
-2026-08-18 11:31 CST 对当前 `c63dba9` 使用 systemd 同一生产环境执行了受控探测：Redis `PING=PONG`，
+2026-08-18 13:08 CST 对当前 `38bc553` 使用 systemd 同一生产环境执行了受控探测：Redis `PING=PONG`，
 但 `SCAN hospital:session:*` 命令被当前授权上下文拒绝；脚本未输出 key、账号或凭证，也没有修改 ACL、会话或 TTL。
 因此本 release 的会话数量、TTL 最小/最大值仍未验证；必须由运维在不暴露 key 的前提下提供等价聚合，不能把
 Redis 连通性或 HTTP 登录成功误认为 TTL 证据。
@@ -242,7 +242,7 @@ Redis 连通性或 HTTP 登录成功误认为 TTL 证据。
 
 ## 7. 当前未完成事项
 
-1. `c63dba9` 于 2026-08-18 11:09 CST 前后启动；当前窗口已经有微信登录和患者目录真实业务事件，但仍没有新的
+1. `38bc553` 于 2026-08-18 13:07 CST 前后启动；当前窗口尚未有微信登录、患者目录或其他 P0 真实业务事件，仍没有新的
    `appointment.records.*` 或 `outpatient.payment.*` 业务事件。后续真机操作必须以本次 `service.started` 或实际验收开始时间
    为起点重新取证，不能沿用历史 release 日志。
 2. Redis 实际 TTL 尚未保存为本 release 的直接证据。
