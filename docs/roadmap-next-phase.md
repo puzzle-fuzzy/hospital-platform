@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 02:04 CST：重启后从公网只读复核确认 `/api/v2/health/live`、`/api/v2/health/ready` 和 `/api/v2/system/ping` 均为 `200`，ready 的 `database/redis/schema` 均为 `ok`，未登录 `/api/v2/me` 为预期 `401`。本轮没有微信会话、Provider 参数或业务写入；SSH 入口当前只接受 `publickey`，本地没有对应私钥，因此没有新增 systemd、`18081/8001` 共存或 Worker 结论。完整边界见 [`release/current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md)。
+
 - 2026-08-19：为发布基线审计增加“当前执行项/历史补充”边界校验。路线图的当前执行段现在必须同时写明服务端 release、小程序提交和完整 `sourceRevision`；历史 release 只能位于明确的追溯段，不能被新会话误当成真机验收版本。新增 2 项工具回归测试，未改变 API、数据库、Redis、线上 release 或旧 Python 服务。
 
 - 2026-08-19：继续做跨页面会话派生展示审计时发现，选择就诊人页在同步失败时虽然清除了“当前”角标，但会保留旧患者姓名、关系和脱敏电子就诊卡。现已区分暂时依赖故障与 `unauthorized`/`session-changed`/无 token：后者清理整个 owner-scoped 患者目录，重新建立会话后必须重新读取目录并完成临床映射；本地 opaque 选择仍保留用于 stale 判断。该修正只影响新小程序、中文注释和 acceptance 门禁，不新增绑定接口、不执行业务写入、不修改 API、数据库、Redis、旧 Python 服务或线上小程序，详见 [`release/miniprogram-patient-select-session-display-boundary-2026-08-19.md`](release/miniprogram-patient-select-session-display-boundary-2026-08-19.md)。
