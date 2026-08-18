@@ -17,6 +17,7 @@ import {
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
 import { getSessionGeneration } from "../../services/session-generation";
+import { hasPlatformSession } from "../../services/session-service";
 import type {
 	Patient,
 	PatientEvent,
@@ -32,6 +33,7 @@ type PatientSelectionPageMethods = {
 	syncPatientDirectoryForLoad(loadToken: number): Promise<void>;
 	onPullDownRefresh(): void;
 	onUnload(): void;
+	clearDisplayedPatientDirectory(): void;
 	showError(error: unknown, fallback: string): void;
 	setPatientList(patients: Array<Patient>, restoreSelection?: boolean): void;
 };
@@ -76,6 +78,21 @@ function toPatientSelectionView(patient: Patient): PatientSelectionView {
 /** 目录可展示不等于可用于临床查询；只有存在 ready 患者才允许返回调用页。 */
 function hasClinicallyReadyPatients(patients: readonly Patient[]): boolean {
 	return patients.some((patient) => patient.clinicalAccess === "ready");
+}
+
+/**
+ * 判断患者目录是否已经失去当前会话的 owner 证明。
+ *
+ * Provider/Redis/MySQL 暂时故障时，旧目录仍可作为诊断和重试线索；但
+ * unauthorized、session-changed 或自动重新登录失败后没有 token，旧目录
+ * 不能继续展示，否则新账号可能看到上一账号的患者姓名、关系和脱敏卡号。
+ */
+function shouldClearPatientDirectory(error: unknown): boolean {
+	if (!hasPlatformSession()) return true;
+	return (
+		error instanceof ApiError &&
+		(error.code === "unauthorized" || error.code === "session-changed")
+	);
 }
 
 Page<PatientSelectionPageData, PatientSelectionPageMethods>({
@@ -316,11 +333,30 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			error instanceof ApiError && error.code === "dependency-not-configured"
 				? "就诊人服务暂未配置完成，请联系管理员"
 				: patientContextErrorMessage(error, fallback);
+		const sessionDisplayInvalid = shouldClearPatientDirectory(error);
 		// 同步失败时可以保留列表帮助诊断和重试，但不能保留上一轮“当前”标记；
 		// 否则用户会误以为该患者的 his-patient 映射仍已确认。这里不删除本地
 		// opaque patientId，目录恢复后仍可正确进入 stale 判断，避免静默换人。
+		// 但会话归属已经失效时连患者列表也必须清理：列表中的姓名、关系和
+		// 脱敏卡号同样属于当前 owner 的派生数据，不能把“保留诊断列表”扩大
+		// 成“跨账号继续展示医疗目录”。
+		if (sessionDisplayInvalid) this.clearDisplayedPatientDirectory();
 		this.setData({
 			error: message,
+			selectedPatientId: "",
+			selectionReady: false,
+		});
+	},
+
+	/**
+	 * 清理当前页面中失去 owner 证明的患者目录展示。
+	 *
+	 * 只清理页面派生状态，不删除本地 opaque 选择、不修改服务端目录，也不
+	 * 触碰会话存储；重新建立有效会话后，下一次目录读取仍会按 stale 规则恢复。
+	 */
+	clearDisplayedPatientDirectory(): void {
+		this.setData({
+			patients: [],
 			selectedPatientId: "",
 			selectionReady: false,
 		});

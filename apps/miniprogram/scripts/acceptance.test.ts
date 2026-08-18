@@ -395,6 +395,30 @@ test("patient selection clears the current badge after synchronization failure",
 	expect(selection).toContain("不删除本地");
 });
 
+test("patient selection clears the old directory after session ownership is lost", async () => {
+	const selection = await source("pages/patient-select/patient-select.ts");
+	const showErrorStart = selection.indexOf(
+		"showError(error: unknown, fallback: string): void",
+	);
+	const clearDirectoryIndex = selection.indexOf(
+		"shouldClearPatientDirectory(error)",
+		showErrorStart,
+	);
+	const patientListClearIndex = selection.indexOf(
+		"this.clearDisplayedPatientDirectory();",
+		showErrorStart,
+	);
+
+	// 暂时故障可以保留列表帮助重试，但 401、账号切换或重新登录失败后，
+	// 患者姓名/关系/脱敏卡号也必须清理，不能只清除“当前”角标。
+	expect(selection).toContain("shouldClearPatientDirectory");
+	expect(selection).toContain('error.code === "session-changed"');
+	expect(selection).toContain("if (!hasPlatformSession()) return true;");
+	expect(clearDirectoryIndex).toBeGreaterThan(showErrorStart);
+	expect(patientListClearIndex).toBeGreaterThan(clearDirectoryIndex);
+	expect(selection).toContain("clearDisplayedPatientDirectory(): void");
+});
+
 test("patient selection hides the current badge while directory confirmation is pending", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 
