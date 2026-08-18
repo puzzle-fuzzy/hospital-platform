@@ -84,7 +84,21 @@
 - 新 API 产物 hash 为表中 `apps/api/dist/index.js` 的值；
 - `8001` 旧 Python 监听和 PID 未变化。
 
-## 6. 验收边界
+## 6. 公网转发复核
+
+切换后从本地通过 `https://test-hp.meiyi.pro/api/v2` 使用当前构建的 runtime smoke：
+
+- live：HTTP 200，traceId 为 `ce27ddc9-7265-432e-8ba6-4f0a22719cf0`；
+- ready：连续 3 次 HTTP 200，traceId 为 `c4de6936-a0bc-437b-819b-e4771ba80288`、
+  `7104ab26-7764-4a6d-a617-0a5f5c3a58cd`、`d0554200-e747-4655-82fc-75cfd6fcaf9b`；
+- system-ping：HTTP 200，traceId 为 `c6b245c0-859b-4483-a069-ee3f1e0eef9f`；
+- 未登录业务边界：HTTP 401，traceId 为 `0edcd645-237d-40e6-982d-13145d3ae1d2`；
+- 单独的公网 ready 请求返回 `Cache-Control: no-store`，`X-Request-Id` 为
+  `60313054-7037-4d62-a808-e63ed6f1e951`。
+
+这证明阿里云转发已把公网 `/api/v2` 请求送到新 API；它仍然只覆盖运行时和未登录边界，不包含有效微信会话或 Provider 业务结果。
+
+## 7. 验收边界
 
 本次没有新的真实微信会话或患者业务请求，以下仍为未验收/关闭：
 
@@ -95,7 +109,7 @@
 
 本次内网健康检查只证明服务存活和依赖 ready，不能代替公网 `/api/v2` 或真机业务验收。
 
-## 7. 下一步
+## 8. 下一步
 
 使用与 `e5bafd3` 匹配的小程序包，在有效微信会话中按以下顺序取证，并为每一步保留页面结果、HTTP 摘要和低敏日志：
 

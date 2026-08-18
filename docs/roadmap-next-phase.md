@@ -10,7 +10,7 @@
 - `bac6f7f` 收紧普通资料的 Unicode 昵称长度和 MySQL `INT UNSIGNED` 版本边界，`e5bafd3` 修正配置格式门禁与迁移文档测试；定向测试、全量测试和构建均通过。
 - 当前 release 为 `/home/ps/code/hospital-platform/releases/e5bafd3`，新 Bun/Elysia API
   `10.0.0.3:18081` active；旧 Python API `0.0.0.0:8001` 继续监听，旧进程 PID 未变，Worker 未启动。
-- 生产 preflight、候选隔离 `/api/v1` runtime smoke 和切换后内网 live/ready 均通过；MySQL、Redis、schema 为 `ok`，支付、医保相关支付链路和报告 gate 保持关闭。
+- 生产 preflight、候选隔离 `/api/v1` runtime smoke、切换后内网 live/ready 和公网 `/api/v2` runtime smoke 均通过；公网 ready 保留 `Cache-Control: no-store`，MySQL、Redis、schema 为 `ok`，支付、医保相关支付链路和报告 gate 保持关闭。
 - 本轮仍没有新的微信/患者/预约/费用业务请求，不能把运行层切换标记为真实业务验收。
 - 完整证据见 [`release/e5bafd3-production-acceptance-2026-08-18.md`](release/e5bafd3-production-acceptance-2026-08-18.md)。
 

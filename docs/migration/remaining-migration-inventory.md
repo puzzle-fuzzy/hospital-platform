@@ -13,8 +13,8 @@
 
 - 当前服务器 release 为 `e5bafd3`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；只重启新 API，没有覆盖或停止旧服务。
-- 当前 release 的生产 preflight、内网 readiness 和 `runtimeMode=production` 已通过；MySQL、Redis、schema
-  均为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。公网转发在本次切换后尚未重新取证；这些结果证明运行层共存，不证明患者端业务完成。
+- 当前 release 的生产 preflight、内网 readiness、公网 `/api/v2` runtime smoke 和 `runtimeMode=production` 已通过；MySQL、Redis、schema
+  均为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`，公网 ready 保留 `Cache-Control: no-store`。这些结果证明运行层共存，不证明患者端业务完成。
 - 候选隔离进程已通过 live/ready/system-ping/未登录 401 验收并在 SIGTERM 后释放端口；日志解析和停机边界已通过，
   但日志计数不能替代页面、HTTP、患者归属和 Provider 结果证据。
 - 当前 release 切换后仅取得健康检查和启动日志，没有新的 `appointment.*` 或 `outpatient.payment.*` 业务事件；此前窗口中的微信登录、
