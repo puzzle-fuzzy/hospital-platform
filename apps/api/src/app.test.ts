@@ -231,12 +231,14 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"release/current-server-p0-observation-2026-08-17-2257.md",
 	);
-	// 当前盘点必须明确记录 38bc553 的业务观察范围；不能把上一 release
+	// 当前盘点必须明确记录 9acdaf2 的业务观察范围；不能把上一 release
 	// 的登录/患者日志计入当前版本，也不能把一次只读观察扩展成完整业务完成。
 	expect(inventory).toContain(
-		"当前 `38bc553` 已取得一次配对开发者工具会话下的预约历史、爽约筛选和门诊费用只读事件",
+		"当前 release 的低敏日志窗口 `parseErrors=0`、`systemdWarningCount=0`；预约历史 P0 门禁请求/成功各 1、失败 0。",
 	);
-	expect(inventory).toContain("candidate-38bc553-local-build-2026-08-18.md");
+	expect(inventory).toContain(
+		"9acdaf2-appointment-status-observation-2026-08-18.md",
+	);
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });

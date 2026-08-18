@@ -492,6 +492,10 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		context: AdapterCallContext,
 	): Promise<{ reports: ReportDirectoryEntry[]; requestId: string }> {
 		const operation = `reports-${kind}`;
+		// 患者号通常来自 service 的 owner-scoped 映射，但 adapter 也必须
+		// 独立拒绝空引用：任务、回放器或可注入仓储不能仅凭 TypeScript 类型
+		// 把 `patId=` 发给 Provider。预约 adapter 也使用同一条边界规则。
+		const providerPatientId = requiredConfig(input.providerPatientId);
 		const url = new URL(
 			kind === "laboratory"
 				? LABORATORY_PATH
@@ -500,7 +504,7 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 					: ECG_PATH,
 			this.baseUrl,
 		);
-		url.searchParams.set("patId", input.providerPatientId);
+		url.searchParams.set("patId", providerPatientId);
 		if (kind === "laboratory") {
 			url.searchParams.set("startTime", dateTime(input.query.startDate, false));
 			url.searchParams.set("endTime", dateTime(input.query.endDate, true));

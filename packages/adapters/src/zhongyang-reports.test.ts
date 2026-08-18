@@ -451,3 +451,32 @@ test("众阳报告 adapter 拒绝运行时未知来源且不访问 Provider", as
 	).rejects.toMatchObject({ name: "InvalidReportKindError" });
 	expect(fetchCalled).toBe(false);
 });
+
+test("众阳报告 adapter 拒绝空 Provider 患者引用且不发起请求", async () => {
+	let fetchCalled = false;
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			fetchCalled = true;
+			throw new Error("provider must not be called");
+		},
+	});
+
+	await expect(
+		gateway.listReports(
+			{
+				providerPatientId: "   ",
+				query: {
+					startDate: "2026-08-01",
+					endDate: "2026-08-15",
+					kind: "laboratory",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "AdapterNotConfiguredError",
+		dependency: "adapter:zhongyang",
+	});
+	expect(fetchCalled).toBe(false);
+});
