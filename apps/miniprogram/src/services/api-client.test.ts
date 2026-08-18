@@ -9,6 +9,7 @@ import {
 	requireCurrentUserResponse,
 	requireReportDetailResponse,
 	requireReportListResponse,
+	requireSuccessDataResponse,
 } from "./api-client";
 import {
 	advanceSessionGeneration,
@@ -23,6 +24,22 @@ test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本"
 	expect(normalizeApiPrefix(" /api/v2/ ", "/api/v1")).toBe("/api/v2");
 	expect(normalizeApiPrefix("/api/v999", "/api/v2")).toBe("/api/v2");
 	expect(normalizeApiPrefix(undefined)).toBe("/api/v1");
+});
+
+test("平台成功包络必须在业务读模型之前通过运行时校验", () => {
+	const valid = { success: true as const, data: { items: [], total: 0 } };
+	expect(requireSuccessDataResponse<typeof valid.data>(valid)).toEqual(valid);
+
+	for (const invalid of [
+		{ success: false, data: valid.data },
+		{ success: true },
+		{ success: true, data: null },
+		{ data: valid.data },
+	]) {
+		expect(() => requireSuccessDataResponse(invalid)).toThrow(
+			"API success response is invalid",
+		);
+	}
 });
 
 test("微信登录响应必须完整通过会话 contract 才能进入 token 持久化边界", () => {

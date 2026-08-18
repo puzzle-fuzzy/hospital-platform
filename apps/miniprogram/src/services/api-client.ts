@@ -180,6 +180,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * 所有受保护读取先验证平台成功包络，再交给业务读模型校验。
+ *
+ * TypeScript 泛型只描述调用方“希望收到什么”，不能证明微信实际收到的
+ * JSON 是 `success: true`。如果这里只把 `data` 当作类型事实，代理把错误
+ * 包络或旧版本响应送到页面时，业务层可能把一次失败误显示成空目录。此处
+ * 只确认平台包络和对象型 data；患者、预约、费用等业务字段仍由各自的
+ * canonical validator 继续检查并白名单重投影。
+ */
+export function requireSuccessDataResponse<TData>(value: unknown): {
+	success: true;
+	data: TData;
+} {
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+		throw new ApiError("API success response is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	return { success: true, data: value.data as TData };
+}
+
+/**
  * 资料接口的成功响应必须是完整的服务端 canonical 快照。
  *
  * TypeScript 泛型只在编译期存在，微信请求收到的 JSON 仍然是运行时未知值；
@@ -911,19 +932,25 @@ export function updateUserProfile(
 export function syncPatients(
 	idempotencyKey: string,
 ): Promise<PatientListResponse> {
-	return requestWithSession<PatientListResponse>({
+	return requestWithSession<unknown>({
 		url: "/patients/sync",
 		method: "POST",
 		data: {},
 		idempotencyKey,
-	});
+	}).then((payload) =>
+		requireSuccessDataResponse<PatientListResponse["data"]>(payload),
+	);
 }
 
 /** 读取服务端白名单后的预约科室目录；小程序不直连众阳 AMC。 */
 export function requestAppointmentDepartments(): Promise<AppointmentDepartmentListResponse> {
-	return requestWithSession<AppointmentDepartmentListResponse>({
+	return requestWithSession<unknown>({
 		url: "/appointments/departments",
-	});
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentDepartmentListResponse["data"]>(
+			payload,
+		),
+	);
 }
 
 /** 读取服务端白名单后的排班目录。 */
@@ -943,9 +970,13 @@ export function requestAppointmentSchedules(options: {
 			? [`doctorId=${encodeURIComponent(options.doctorId)}`]
 			: []),
 	].join("&");
-	return requestWithSession<AppointmentScheduleListResponse>({
+	return requestWithSession<unknown>({
 		url: `/appointments/schedules?${query}`,
-	});
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentScheduleListResponse["data"]>(
+			payload,
+		),
+	);
 }
 
 /** 读取指定内部 patientId 的预约历史。 */
@@ -959,9 +990,11 @@ export function requestAppointmentRecords(options: {
 		`startDate=${encodeURIComponent(options.startDate)}`,
 		`endDate=${encodeURIComponent(options.endDate)}`,
 	].join("&");
-	return requestWithSession<AppointmentRecordListResponse>({
+	return requestWithSession<unknown>({
 		url: `/appointments/records?${query}`,
-	});
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentRecordListResponse["data"]>(payload),
+	);
 }
 
 /** 读取当前用户所选就诊人的门诊费用摘要；临床患者映射只在服务端解析。 */
@@ -973,9 +1006,11 @@ export function requestOutpatientPaymentRecords(options: {
 		`patientId=${encodeURIComponent(options.patientId)}`,
 		`status=${encodeURIComponent(options.status)}`,
 	].join("&");
-	return requestWithSession<OutpatientPaymentListResponse>({
+	return requestWithSession<unknown>({
 		url: `/payments/outpatient/records?${query}`,
-	});
+	}).then((payload) =>
+		requireSuccessDataResponse<OutpatientPaymentListResponse["data"]>(payload),
+	);
 }
 
 /** 读取指定内部 patientId 的报告目录。 */

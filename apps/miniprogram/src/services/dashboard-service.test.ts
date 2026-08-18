@@ -229,6 +229,15 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 		items: valid.items,
 		total: valid.total,
 	});
+	expect(
+		requireOutpatientPaymentListData(
+			{
+				...valid,
+				items: [{ ...valid.items[0], providerRecordId: "must-drop" }],
+			},
+			"unpaid",
+		),
+	).toEqual({ items: valid.items, total: valid.total });
 
 	for (const invalid of [
 		{ ...valid, status: "paid" },
@@ -236,6 +245,15 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 		{ ...valid, items: [{ ...valid.items[0], amountFen: 12.5 }] },
 		{ ...valid, items: [{ ...valid.items[0], recordId: "" }] },
 		{ ...valid, items: [{ ...valid.items[0], billDate: null }] },
+		{
+			...valid,
+			items: [{ ...valid.items[0], billDate: "2026-02-31 10:20:30" }],
+		},
+		{
+			...valid,
+			items: [valid.items[0], { ...valid.items[0] }],
+			total: 2,
+		},
 	]) {
 		expect(() => requireOutpatientPaymentListData(invalid, "unpaid")).toThrow(
 			"Outpatient payment response",
@@ -256,6 +274,12 @@ test("我的挂号列表必须保持公共状态、日期和展示字段一致",
 		total: 1,
 	};
 	expect(requireAppointmentRecordListData(valid)).toEqual(valid);
+	expect(
+		requireAppointmentRecordListData({
+			...valid,
+			items: [{ ...valid.items[0], providerAppointmentId: "must-drop" }],
+		}),
+	).toEqual(valid);
 
 	for (const invalid of [
 		{ items: [{ ...valid.items[0], status: "not-a-status" }], total: 1 },

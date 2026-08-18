@@ -19,6 +19,7 @@ import {
 	requestOutpatientPaymentRecords,
 	requestReports,
 	requestWithSession,
+	requireSuccessDataResponse,
 	syncPatients,
 } from "./api-client";
 import {
@@ -43,7 +44,64 @@ function hasBoundedDisplayText(
 	return (
 		typeof value === "string" &&
 		Array.from(value).length > 0 &&
-		Array.from(value).length <= maxLength
+		Array.from(value).length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+/** 客户端列表重投影使用的可选展示字段读取器；null 和控制字符不能静默丢弃。 */
+function optionalDisplayText(
+	value: unknown,
+	maxLength: number,
+	message = "List response display field is invalid",
+): string | undefined {
+	if (value === undefined) return undefined;
+	if (!hasBoundedDisplayText(value, maxLength)) {
+		throw new ApiError(message, {
+			code: "provider-response-invalid",
+		});
+	}
+	return value;
+}
+
+/** 门诊账单时间必须保持服务端的中国标准时间文本格式和真实日历值。 */
+function isOutpatientBillDateTime(value: unknown): value is string {
+	if (typeof value !== "string" || !hasBoundedDisplayText(value, 64)) {
+		return false;
+	}
+	const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value);
+	if (!match) return false;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const hour = Number(match[4]);
+	const minute = Number(match[5]);
+	const second = Number(match[6]);
+	if (
+		year < 1 ||
+		month < 1 ||
+		month > 12 ||
+		day < 1 ||
+		hour > 23 ||
+		minute > 59 ||
+		second > 59
+	) {
+		return false;
+	}
+	const candidate = new Date(0);
+	candidate.setUTCFullYear(year, month - 1, day);
+	candidate.setUTCHours(hour, minute, second, 0);
+	return (
+		candidate.getUTCFullYear() === year &&
+		candidate.getUTCMonth() === month - 1 &&
+		candidate.getUTCDate() === day &&
+		candidate.getUTCHours() === hour &&
+		candidate.getUTCMinutes() === minute &&
+		candidate.getUTCSeconds() === second
 	);
 }
 
@@ -397,32 +455,51 @@ export function requireOutpatientPaymentListData(
 	}
 
 	const list = requireExactListData<unknown>(value);
+	const seenRecordIds = new Set<string>();
+	const items: OutpatientPaymentRecord[] = [];
 	for (const item of list.items) {
 		if (!isRecord(item)) {
 			throw new ApiError("Outpatient payment response item is invalid", {
 				code: "provider-response-invalid",
 			});
 		}
-		const optionalDepartment = item.departmentName;
-		const optionalDoctor = item.doctorName;
-		const optionalTextValid = (field: unknown, maxLength: number) =>
-			field === undefined || hasBoundedDisplayText(field, maxLength);
+		const recordId = item.recordId;
+		const departmentName = optionalDisplayText(
+			item.departmentName,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const doctorName = optionalDisplayText(
+			item.doctorName,
+			128,
+			"Outpatient payment response item is invalid",
+		);
+		const amountFen = item.amountFen;
 		if (
 			item.status !== expectedStatus ||
-			!hasBoundedDisplayText(item.recordId, 128) ||
-			!hasBoundedDisplayText(item.billDate, 64) ||
-			!Number.isSafeInteger(item.amountFen) ||
-			(item.amountFen as number) < 0 ||
-			!optionalTextValid(optionalDepartment, 128) ||
-			!optionalTextValid(optionalDoctor, 128)
+			!hasBoundedDisplayText(recordId, 128) ||
+			seenRecordIds.has(recordId) ||
+			!isOutpatientBillDateTime(item.billDate) ||
+			typeof amountFen !== "number" ||
+			!Number.isSafeInteger(amountFen) ||
+			amountFen < 0
 		) {
 			throw new ApiError("Outpatient payment response item is invalid", {
 				code: "provider-response-invalid",
 			});
 		}
+		seenRecordIds.add(recordId);
+		items.push({
+			recordId,
+			status: expectedStatus,
+			billDate: item.billDate,
+			amountFen,
+			...(departmentName === undefined ? {} : { departmentName }),
+			...(doctorName === undefined ? {} : { doctorName }),
+		});
 	}
 	return {
-		items: list.items as Array<OutpatientPaymentRecord>,
+		items,
 		total: list.total,
 	};
 }
@@ -440,32 +517,61 @@ export function requireAppointmentRecordListData(
 	value: unknown,
 ): ExactListData<AppointmentRecord> {
 	const list = requireExactListData<unknown>(value);
+	const items: AppointmentRecord[] = [];
 	for (const item of list.items) {
 		if (!isRecord(item)) {
 			throw new ApiError("Appointment record response item is invalid", {
 				code: "provider-response-invalid",
 			});
 		}
-		const optionalTextValid = (field: unknown, maxLength: number) =>
-			field === undefined || hasBoundedDisplayText(field, maxLength);
+		const departmentName = optionalDisplayText(
+			item.departmentName,
+			128,
+			"Appointment record response item is invalid",
+		);
+		const doctorName = optionalDisplayText(
+			item.doctorName,
+			128,
+			"Appointment record response item is invalid",
+		);
+		const workTime = optionalDisplayText(
+			item.workTime,
+			64,
+			"Appointment record response item is invalid",
+		);
+		const location = optionalDisplayText(
+			item.location,
+			256,
+			"Appointment record response item is invalid",
+		);
+		const serialNumber = optionalDisplayText(
+			item.serialNumber,
+			64,
+			"Appointment record response item is invalid",
+		);
 		if (
 			!APPOINTMENT_RECORD_STATUSES.has(
 				item.status as AppointmentRecord["status"],
 			) ||
 			!isIsoCalendarDate(item.workDate) ||
-			!optionalTextValid(item.departmentName, 128) ||
-			!optionalTextValid(item.doctorName, 128) ||
-			!optionalTextValid(item.workTime, 64) ||
-			!optionalTextValid(item.location, 256) ||
-			!optionalTextValid(item.serialNumber, 64)
+			typeof item.status !== "string"
 		) {
 			throw new ApiError("Appointment record response item is invalid", {
 				code: "provider-response-invalid",
 			});
 		}
+		items.push({
+			status: item.status as AppointmentRecord["status"],
+			workDate: item.workDate,
+			...(departmentName === undefined ? {} : { departmentName }),
+			...(doctorName === undefined ? {} : { doctorName }),
+			...(workTime === undefined ? {} : { workTime }),
+			...(location === undefined ? {} : { location }),
+			...(serialNumber === undefined ? {} : { serialNumber }),
+		});
 	}
 	return {
-		items: list.items as Array<AppointmentRecord>,
+		items,
 		total: list.total,
 	};
 }
@@ -604,9 +710,13 @@ export function loadHealth(): Promise<HealthResponse> {
 
 /** 读取当前会话归属的脱敏患者读模型。 */
 export function loadPatients(): Promise<Array<Patient>> {
-	return requestWithSession<PatientListResponse>({
+	return requestWithSession<unknown>({
 		url: "/patients",
-	}).then((payload) => requirePatientListData(payload.data).items);
+	})
+		.then((payload) =>
+			requireSuccessDataResponse<PatientListResponse["data"]>(payload),
+		)
+		.then((payload) => requirePatientListData(payload.data).items);
 }
 
 /**

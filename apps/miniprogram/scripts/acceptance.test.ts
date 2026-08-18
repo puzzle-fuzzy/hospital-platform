@@ -57,6 +57,21 @@ test("native client restores a platform session through the current-user endpoin
 	expect(client).not.toContain("providerSubject");
 });
 
+test("native patient, appointment and outpatient reads validate the platform envelope before rendering", async () => {
+	const client = await source("services/api-client.ts");
+	const dashboard = await source("services/dashboard-service.ts");
+
+	// 业务 validator 只负责各自读模型；所有列表先经过 success/data 包络门禁，
+	// 防止错误 JSON 被当成空目录或继续流入金额、预约状态渲染。
+	expect(client).toContain("requireSuccessDataResponse");
+	expect(client).toContain('url: "/appointments/departments"');
+	expect(client).toContain('url: "/patients/sync"');
+	expect(client).toContain('OutpatientPaymentListResponse["data"]');
+	expect(dashboard).toContain("requireSuccessDataResponse");
+	expect(dashboard).toContain("const seenRecordIds = new Set<string>()");
+	expect(dashboard).toContain("isOutpatientBillDateTime");
+});
+
 test("native client single-flights login and preserves a newer concurrent token", async () => {
 	const client = await source("services/api-client.ts");
 
