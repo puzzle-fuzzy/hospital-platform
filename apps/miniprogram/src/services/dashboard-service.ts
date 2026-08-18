@@ -5,6 +5,7 @@ import type {
 	HealthResponse,
 	OutpatientPaymentRecord,
 	Patient,
+	PatientListResponse,
 	ReportListResponse,
 	ReportQuery,
 } from "../types";
@@ -22,6 +23,44 @@ import {
 } from "./api-client";
 import { requireStoredPatientSelection } from "./patient-selection-service";
 import { runPatientSync } from "./patient-sync-coordinator";
+
+type ExactListData<T> = {
+	items: Array<T>;
+	total: number;
+};
+
+/**
+ * 校验患者端列表响应的总数语义。
+ *
+ * 当前 API 没有服务端分页，`total` 表示本次响应中完整 `items` 的数量，
+ * 不是 provider 的隐藏总量，也不是页数。TypeScript 类型只能约束编译期；
+ * 如果网关、缓存或前后端版本错配返回了不一致的 total，页面继续使用就会
+ * 同时出现错误总数、错误空态或错误“加载更多”状态。因此在患者业务页的
+ * 统一读取边界整批 fail-closed，不能把协议异常降级成空列表。
+ */
+export function requireExactListData<T>(value: unknown): ExactListData<T> {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new ApiError("Patient list response is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	const data = value as { items?: unknown; total?: unknown };
+	if (
+		!Array.isArray(data.items) ||
+		typeof data.total !== "number" ||
+		!Number.isSafeInteger(data.total) ||
+		data.total < 0 ||
+		data.total !== data.items.length
+	) {
+		throw new ApiError("Patient list response total is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+	return {
+		items: data.items as Array<T>,
+		total: data.total,
+	};
+}
 
 /**
  * 首页只读工作台使用的时间窗口。
@@ -157,9 +196,9 @@ export function loadHealth(): Promise<HealthResponse> {
 
 /** 读取当前会话归属的脱敏患者读模型。 */
 export function loadPatients(): Promise<Array<Patient>> {
-	return requestWithSession<{ data: { items: Array<Patient> } }>({
+	return requestWithSession<PatientListResponse>({
 		url: "/patients",
-	}).then((payload) => payload.data.items);
+	}).then((payload) => requireExactListData<Patient>(payload.data).items);
 }
 
 /**
@@ -208,7 +247,10 @@ export function syncPatientsFromHospital(
 export function loadAppointmentDepartments(): Promise<
 	Array<AppointmentDepartment>
 > {
-	return requestAppointmentDepartments().then((payload) => payload.data.items);
+	return requestAppointmentDepartments().then(
+		(payload) =>
+			requireExactListData<AppointmentDepartment>(payload.data).items,
+	);
 }
 
 /** 只读取当前科室的排班；服务端仍会校验日期窗口和科室参数。 */
@@ -229,7 +271,9 @@ export function loadAppointmentSchedules(
 			DASHBOARD_DATE_RANGE_DAYS.appointmentDirectory,
 			now,
 		),
-	}).then((payload) => payload.data.items);
+	}).then(
+		(payload) => requireExactListData<AppointmentSchedule>(payload.data).items,
+	);
 }
 
 /** 读取门诊费用读模型，日期窗口由服务端统一限制。 */
@@ -242,7 +286,10 @@ export function loadOutpatientPaymentRecords(
 	return requestOutpatientPaymentRecords({
 		patientId: requirePatientId(patientId),
 		status,
-	}).then((payload) => payload.data.items);
+	}).then(
+		(payload) =>
+			requireExactListData<OutpatientPaymentRecord>(payload.data).items,
+	);
 }
 
 /** 读取当前内部患者的脱敏预约历史摘要。 */
@@ -288,7 +335,9 @@ export function loadAppointmentRecords(
 ): Promise<Array<AppointmentRecord>> {
 	return requestAppointmentRecords(
 		createAppointmentRecordQuery(patientId, now, window),
-	).then((payload) => payload.data.items);
+	).then(
+		(payload) => requireExactListData<AppointmentRecord>(payload.data).items,
+	);
 }
 
 /** 读取当前内部患者的 LIS/PACS/ECG 报告目录摘要。 */
@@ -300,5 +349,9 @@ export function loadReports(
 		patientId: requirePatientId(patientId),
 		...createPastDateRange(DASHBOARD_DATE_RANGE_DAYS.reports, now),
 	};
-	return requestReports(range).then((payload) => payload.data);
+	return requestReports(range).then((payload) =>
+		requireExactListData<ReportListResponse["data"]["items"][number]>(
+			payload.data,
+		),
+	);
 }

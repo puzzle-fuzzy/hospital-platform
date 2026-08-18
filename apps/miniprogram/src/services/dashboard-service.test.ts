@@ -4,6 +4,7 @@ import {
 	createAppointmentRecordQuery,
 	createPastDateRange,
 	loadOutpatientPaymentRecords,
+	requireExactListData,
 } from "./dashboard-service";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
@@ -44,6 +45,26 @@ test("门诊费用查询先拒绝空患者标识，不把无效查询交给 API"
 	expect(() => loadOutpatientPaymentRecords("", "unpaid")).toThrow(
 		"请先登录并选择就诊人",
 	);
+});
+
+test("患者端列表响应要求 total 与完整 items 数量一致", () => {
+	const items = [{ id: "patient-001" }];
+	expect(requireExactListData<{ id: string }>({ items, total: 1 })).toEqual({
+		items,
+		total: 1,
+	});
+});
+
+test("患者端列表响应 total 不一致时 fail-closed，不伪装成空列表", () => {
+	for (const value of [
+		{ items: [{ id: "patient-001" }], total: 0 },
+		{ items: [], total: 1 },
+		{ items: [{ id: "patient-001" }], total: 1.5 },
+		{ items: [{ id: "patient-001" }], total: -1 },
+		{ items: "not-an-array", total: 0 },
+	]) {
+		expect(() => requireExactListData(value)).toThrow("Patient list response");
+	}
 });
 
 test("历史和爽约窗口使用同一中国标准时间自然日基准", () => {
