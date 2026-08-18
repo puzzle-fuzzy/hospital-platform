@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	auditCurrentBaselineDocuments,
+	auditCurrentExecutionSection,
 	auditCurrentReleaseConsistency,
 	extractCurrentBaseline,
 } from "./release-baseline-audit.mjs";
@@ -48,6 +49,42 @@ test("文档缺少当前来源指纹时不能通过基线审计", () => {
 	expect(result.failures).toEqual([
 		"旧审计 缺少当前服务端 release 1b94c46",
 		"旧审计 缺少完整小程序 sourceRevision 4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	]);
+});
+
+test("路线图当前执行项必须与历史发布记录分界并锁定完整来源", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const roadmap = `
+## 本次立即执行项
+
+1. 使用服务端 release \`1b94c46\` 和小程序候选 \`4c9cfb4\`。
+2. 构建来源为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
+
+### 历史补充（仅供追溯，不作为当前执行项）
+
+旧 release \`d177991\`。
+`;
+
+	expect(auditCurrentExecutionSection(baseline, roadmap)).toEqual([]);
+});
+
+test("路线图缺少完整小程序来源时拒绝执行项", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const failures = auditCurrentExecutionSection(
+		baseline,
+		"## 本次立即执行项\n使用 1b94c46 和 4c9cfb4。\n### 历史补充（仅供追溯，不作为当前执行项）",
+	);
+
+	expect(failures).toEqual([
+		"当前执行项缺少完整小程序 sourceRevision 4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
 	]);
 });
 

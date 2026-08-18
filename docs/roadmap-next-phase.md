@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：为发布基线审计增加“当前执行项/历史补充”边界校验。路线图的当前执行段现在必须同时写明服务端 release、小程序提交和完整 `sourceRevision`；历史 release 只能位于明确的追溯段，不能被新会话误当成真机验收版本。新增 2 项工具回归测试，未改变 API、数据库、Redis、线上 release 或旧 Python 服务。
+
 - 2026-08-19：继续做跨页面会话派生展示审计时发现，选择就诊人页在同步失败时虽然清除了“当前”角标，但会保留旧患者姓名、关系和脱敏电子就诊卡。现已区分暂时依赖故障与 `unauthorized`/`session-changed`/无 token：后者清理整个 owner-scoped 患者目录，重新建立会话后必须重新读取目录并完成临床映射；本地 opaque 选择仍保留用于 stale 判断。该修正只影响新小程序、中文注释和 acceptance 门禁，不新增绑定接口、不执行业务写入、不修改 API、数据库、Redis、旧 Python 服务或线上小程序，详见 [`release/miniprogram-patient-select-session-display-boundary-2026-08-19.md`](release/miniprogram-patient-select-session-display-boundary-2026-08-19.md)。
 
 - 2026-08-19：继续审计普通资料页时发现，资料读取/保存请求在会话失效、并发账号切换或自动重新登录失败后，页面原先可能只显示错误而保留上一账号的昵称、性别、年龄、邮箱和版本。现已新增会话归属判断：`unauthorized`、`session-changed` 或已无 token 时清理资料派生字段并回到 `loaded=false`；普通网络/持久化暂时故障和 `user-profile-conflict` 仍保持各自语义。该修正只影响新小程序、中文注释和 acceptance 门禁，不执行真实 PUT、不修改 API、数据库、Redis、旧 Python 服务或线上小程序，详见 [`release/miniprogram-profile-session-display-boundary-2026-08-19.md`](release/miniprogram-profile-session-display-boundary-2026-08-19.md)。
@@ -864,7 +866,9 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 当前服务端 release `b7c9451` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `b7c9451` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用与之配套的 `d2086d8` 小程序候选。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `b7c9451` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用与之配套的 `d2086d8` 小程序候选（完整构建来源：`d2086d819b3e393da2e8c5c39d7704012854214b`）。
+
+### 历史补充（仅供追溯，不作为当前执行项）
 
 15. 2026-08-16 21:20 CST 使用候选 `3dc6f5f` 的 runtime smoke bundle 复测当前公网 `/api/v2`，live、ready、system-ping 和未登录认证边界全部通过；本次无会话、无患者/Provider 业务请求，不能替代真实微信 session 验收。证据见 [`release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md`](release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md)。
 

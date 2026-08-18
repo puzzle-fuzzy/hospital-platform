@@ -93,6 +93,49 @@ export function extractCurrentBaseline(candidateDocument) {
 }
 
 /**
+ * 从路线图中提取“当前立即执行项”正文。
+ *
+ * 路线图同时保留了大量历史发布记录；如果只用全文搜索当前 hash，旧
+ * release 也可能让审计通过，下一次真机验收就有拿错运行包的风险。当前
+ * 执行项必须和历史追溯段有明确标题边界，不能让历史文字混入当前指令。
+ */
+export function extractCurrentExecutionSection(roadmapDocument) {
+	const currentHeader = "## 本次立即执行项";
+	const historyHeader = "### 历史补充（仅供追溯，不作为当前执行项）";
+	const currentStart = roadmapDocument.indexOf(currentHeader);
+	if (currentStart < 0) return undefined;
+	const sectionStart = currentStart + currentHeader.length;
+	const historyStart = roadmapDocument.indexOf(historyHeader, sectionStart);
+	if (historyStart < 0) return undefined;
+	return roadmapDocument.slice(sectionStart, historyStart);
+}
+
+/**
+ * 当前路线图的执行指令必须锁定同一套候选来源。
+ * 只返回固定的文档错误，不回显 token、患者信息或 Provider 原文。
+ */
+export function auditCurrentExecutionSection(baseline, roadmapDocument) {
+	const section = extractCurrentExecutionSection(roadmapDocument);
+	if (!section) {
+		return ["下一阶段实施路线图缺少当前执行项与历史追溯段的明确边界"];
+	}
+
+	const failures = [];
+	if (!section.includes(baseline.serverRelease)) {
+		failures.push(`当前执行项缺少当前服务端 release ${baseline.serverRelease}`);
+	}
+	if (!section.includes(baseline.miniProgramCommit)) {
+		failures.push(`当前执行项缺少小程序提交 ${baseline.miniProgramCommit}`);
+	}
+	if (!section.includes(baseline.miniProgramSourceRevision)) {
+		failures.push(
+			`当前执行项缺少完整小程序 sourceRevision ${baseline.miniProgramSourceRevision}`,
+		);
+	}
+	return failures;
+}
+
+/**
  * 检查一组文档是否都写明同一套当前候选。
  * 返回低敏失败信息，便于本地门禁和测试复用，不输出 token、患者或 Provider 内容。
  */
@@ -109,6 +152,12 @@ export function auditCurrentBaselineDocuments(baseline, documents) {
 				`${document.label} 缺少完整小程序 sourceRevision ${baseline.miniProgramSourceRevision}`,
 			);
 		}
+	}
+	const roadmap = documents.find(
+		(document) => document.label === "下一阶段实施路线图",
+	);
+	if (roadmap) {
+		failures.push(...auditCurrentExecutionSection(baseline, roadmap.content));
 	}
 	return {
 		passed: failures.length === 0,
