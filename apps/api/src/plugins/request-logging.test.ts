@@ -6,6 +6,7 @@ import {
 	PaymentOrderReadModelValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
+import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
 import { safeErrorMetadata } from "./request-logging";
 
 test("请求日志保留 provider 诊断字段但不保留原始报文", () => {
@@ -105,5 +106,18 @@ test("患者快照读模型日志只保留固定违规原因", () => {
 		errorName: "PatientDirectorySnapshotResultValidationError",
 		errorCode: "UNKNOWN",
 		readModelViolation: "deactivated-count-invalid",
+	});
+});
+
+test("会话 principal 读模型日志只保留固定违规原因", () => {
+	const metadata = safeErrorMetadata(
+		new SessionPrincipalReadModelValidationError("user-id-invalid"),
+		"UNKNOWN",
+	);
+
+	expect(metadata).toEqual({
+		errorName: "SessionPrincipalReadModelValidationError",
+		errorCode: "UNKNOWN",
+		readModelViolation: "user-id-invalid",
 	});
 });

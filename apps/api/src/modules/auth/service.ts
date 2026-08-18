@@ -10,6 +10,7 @@ import type {
 import {
 	DependencyNotConfiguredError,
 	IdentityUserReadModelValidationError,
+	isBoundedOpaqueIdentifier,
 	normalizeIdentityUserReadModel,
 	normalizeWechatIdentityResult,
 	WechatIdentityResultValidationError,
@@ -25,6 +26,47 @@ import { HttpError } from "../../errors";
 export type SessionPrincipal = {
 	userId: string;
 };
+
+/** 会话 principal 读模型目前只允许落入身份表使用的安全 user_id 列宽。 */
+const MAX_SESSION_USER_ID_LENGTH = 64;
+
+/** Redis 或可替换会话实现返回异常 principal 时只记录这个固定原因。 */
+export type SessionPrincipalReadModelViolation = "user-id-invalid";
+
+/**
+ * 会话存储返回值违反内部 principal contract 时禁止继续进入 owner-scoped 路由。
+ *
+ * SessionTokenService 是运行时端口：Redis 中的旧值、手工写入值、测试 fixture 或
+ * 未来替换的 token 实现都可能绕过 TypeScript 类型，因此鉴权入口必须重新投影。
+ */
+export class SessionPrincipalReadModelValidationError extends Error {
+	readonly violation: SessionPrincipalReadModelViolation;
+
+	constructor(violation: SessionPrincipalReadModelViolation) {
+		super("Session principal read model is invalid");
+		this.name = "SessionPrincipalReadModelValidationError";
+		this.violation = violation;
+	}
+}
+
+/**
+ * 校验并重新投影会话 principal，丢弃未知字段，避免损坏 userId 进入业务 owner 范围。
+ */
+export function normalizeSessionPrincipal(value: unknown): SessionPrincipal {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new SessionPrincipalReadModelValidationError("user-id-invalid");
+	}
+
+	const userId = (value as Record<string, unknown>).userId;
+	if (
+		!isBoundedOpaqueIdentifier(userId) ||
+		userId.length > MAX_SESSION_USER_ID_LENGTH
+	) {
+		throw new SessionPrincipalReadModelValidationError("user-id-invalid");
+	}
+
+	return { userId };
+}
 
 /** 会话实现的最小端口；API 不关心 token 是 JWT、Redis session 还是其他实现。 */
 export type SessionTokenService = {
@@ -125,6 +167,9 @@ export class AuthService {
 					...(error instanceof IdentityUserReadModelValidationError
 						? { identityViolation: error.violation }
 						: {}),
+					...(error instanceof SessionPrincipalReadModelValidationError
+						? { sessionViolation: error.violation }
+						: {}),
 				},
 				"Wechat login failed",
 			);
@@ -144,9 +189,15 @@ export async function requirePrincipal(
 	}
 
 	try {
-		return await sessions.verify(match[1]);
+		// 即使自定义 session 实现声明了正确的返回类型，这里仍是所有 owner-scoped
+		// 路由的共同入口，必须再次校验运行时 principal，而不是直接信任类型。
+		return normalizeSessionPrincipal(await sessions.verify(match[1]));
 	} catch (error) {
-		if (error instanceof DependencyNotConfiguredError) throw error;
+		if (
+			error instanceof DependencyNotConfiguredError ||
+			error instanceof SessionPrincipalReadModelValidationError
+		)
+			throw error;
 		throw new HttpError(401, "unauthorized", "登录状态已失效，请重新登录");
 	}
 }
@@ -158,16 +209,17 @@ export function createInMemorySessionTokenService(): SessionTokenService {
 
 	return {
 		async issue(userId) {
+			const principal = normalizeSessionPrincipal({ userId });
 			sequence += 1;
 			const accessToken = `fixture-session-${String(sequence).padStart(4, "0")}`;
-			sessions.set(accessToken, userId);
+			sessions.set(accessToken, principal.userId);
 			return { accessToken, expiresInSeconds: 3600 };
 		},
 		async verify(accessToken) {
 			const userId = sessions.get(accessToken);
 			if (!userId)
 				throw new HttpError(401, "unauthorized", "登录状态已失效，请重新登录");
-			return { userId };
+			return normalizeSessionPrincipal({ userId });
 		},
 	};
 }
@@ -190,9 +242,10 @@ export function createRedisSessionTokenService(
 ): SessionTokenService {
 	return {
 		async issue(userId) {
+			const principal = normalizeSessionPrincipal({ userId });
 			const accessToken = crypto.randomUUID();
 			try {
-				await store.save(accessToken, userId, expiresInSeconds);
+				await store.save(accessToken, principal.userId, expiresInSeconds);
 			} catch {
 				throw new DependencyNotConfiguredError("session-token");
 			}
@@ -208,9 +261,13 @@ export function createRedisSessionTokenService(
 						"登录状态已失效，请重新登录",
 					);
 				}
-				return { userId };
+				return normalizeSessionPrincipal({ userId });
 			} catch (error) {
-				if (error instanceof HttpError) throw error;
+				if (
+					error instanceof HttpError ||
+					error instanceof SessionPrincipalReadModelValidationError
+				)
+					throw error;
 				throw new DependencyNotConfiguredError("session-token");
 			}
 		},

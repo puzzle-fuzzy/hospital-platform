@@ -6,7 +6,12 @@ import {
 	WechatIdentityResultValidationError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
-import { AuthService, createRedisSessionTokenService } from "./service";
+import {
+	AuthService,
+	createRedisSessionTokenService,
+	requirePrincipal,
+	SessionPrincipalReadModelValidationError,
+} from "./service";
 
 test("Redis session service issues and verifies a TTL-backed token", async () => {
 	const sessions = new Map<string, string>();
@@ -41,6 +46,53 @@ test("Redis session service fails closed when Redis is unavailable", async () =>
 	expect(service.verify("token-001")).rejects.toBeInstanceOf(
 		DependencyNotConfiguredError,
 	);
+});
+
+test("Redis session 读模型返回异常 userId 时拒绝进入业务", async () => {
+	const service = createRedisSessionTokenService({
+		async save() {
+			throw new Error("must not be called");
+		},
+		async findUserId() {
+			return "user-\u0000-corrupt";
+		},
+	});
+
+	await expect(service.verify("token-001")).rejects.toBeInstanceOf(
+		SessionPrincipalReadModelValidationError,
+	);
+});
+
+test("Redis session 写入前拒绝异常 userId", async () => {
+	let saveCalls = 0;
+	const service = createRedisSessionTokenService({
+		async save() {
+			saveCalls += 1;
+		},
+		async findUserId() {
+			return undefined;
+		},
+	});
+
+	await expect(service.issue("user-\u0000-corrupt")).rejects.toBeInstanceOf(
+		SessionPrincipalReadModelValidationError,
+	);
+	expect(saveCalls).toBe(0);
+});
+
+test("统一鉴权入口不信任自定义 session 返回的 principal 类型", async () => {
+	const sessions = {
+		async issue() {
+			return { accessToken: "token-001", expiresInSeconds: 3600 };
+		},
+		async verify() {
+			return { userId: "user-\u0000-corrupt" } as never;
+		},
+	};
+
+	await expect(
+		requirePrincipal("Bearer token-001", sessions),
+	).rejects.toBeInstanceOf(SessionPrincipalReadModelValidationError);
 });
 
 test("微信登录业务日志只记录可关联元数据，不记录身份凭证", async () => {

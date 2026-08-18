@@ -15,6 +15,8 @@
 
 - 2026-08-18 22:13 CST：继续审计微信登录运行时边界，发现 AuthService 之前直接信任 `WechatIdentityGateway` 的 TypeScript 返回类型，异常 gateway/回放结果仍可能在类型层之外污染 `hp_identity_users`。新增 adapter 之后的身份结果二次投影：只允许有界 `providerSubject`、可选 `unionId` 和固定低敏 trace；异常结果在身份写入和 Redis 会话签发前统一 fail-closed 为 `provider-response-invalid`，日志只保留固定 `resultViolation`，新增 domain/API 回归测试与中文 contract 文档。本轮未部署、未重启新旧服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
+- 2026-08-18（继续鉴权边界审计）：发现 Redis/可替换 `SessionTokenService` 返回的 `userId` 此前会直接成为 principal，异常会话值可能进入所有 owner-scoped 查询。新增统一会话 principal 二次投影：`userId` 必须是无控制字符、无首尾空白且不超过 64 个字符的 opaque 标识；异常读模型返回 `persistence-invalid`，不会伪装成 401，也不会调用患者、预约、报告、费用或支付 service。补充中文注释、API 错误契约、请求日志固定 `readModelViolation` 和回归测试；本轮未部署、未重启新旧服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18 21:33 CST：重启后重新核对新 `miniprogram` 窗口，资源树仍为 `dist/`，模拟器首页和问题面板正常；但二维码仍显示 `8/18 18:59` 失效，重新打开入口未刷新有效期。因此本轮没有扫码、没有新增微信会话/患者/只读业务真机证据；需先重新编译生成有效二维码，记录见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 
 - 2026-08-18 21:35 CST：在新 `miniprogram` 项目窗口触发普通编译后，二维码已更新为约 606 KB、有效期至 `8/18 21:59`；资源树仍为 `dist/`，问题面板为 0 个问题，模拟器首页正常。截至记录仍无新手机连接，因此只恢复了可扫码入口，不增加微信会话、患者目录或只读业务真机证据。

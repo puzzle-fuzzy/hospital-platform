@@ -20,6 +20,10 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`；失败�
 和允许列表中的规范化 `persistenceErrorCode`，用于判断连接丢失、重置或超时；
 驱动或包装层返回的小写、短横线形式会先统一为固定的大写下划线码；这两个字段
 不包含 SQL、连接串、账号、参数或原始错误消息。
+如果会话存储或可替换的 `SessionTokenService` 返回了异常 principal，统一请求日志还可记录固定的
+`readModelViolation=user-id-invalid`；该字段只说明会话读模型不符合 contract，不记录原始 `userId`、token
+或 Redis 键。该错误公共响应为 `persistence-invalid`，不能记录成普通 401，否则会让客户端把数据损坏误判为
+会话过期并反复登录。
 原生小程序为每个 `wx.request` 生成一次性的 `x-request-id`，服务端会校验后写入响应头
 和 Pino HTTP 日志；服务端错误返回的 request id 会保留在 `ApiError` 中，便于用户反馈
 “请求失败”时从日志平台反查链路。该 id 只用于关联，不是 token、幂等键或患者标识。
@@ -149,6 +153,14 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
   `patient.directory.synced` 或 `patient.directory.failed`；这样既保留数据库提交事实，也不把未经验证的数量当成同步成功。
 - 只有在快照提交前发生身份、租约、完整快照、Provider 或持久化错误时，才记录
   `patient.directory.failed`。处理中冲突仍只记录 `patient.directory.operation.in_progress`。
+
+会话 principal 读模型同样遵循 fail-closed 生命周期：
+
+- Redis 命中但返回的 `userId` 越过形状或列宽边界时，请求日志记录 `errorName=SessionPrincipalReadModelValidationError`
+  和固定 `readModelViolation=user-id-invalid`，不记录原始值。
+- 该异常表示持久化/运行时边界损坏，不是用户凭证自然过期；公共响应固定为 500 `persistence-invalid`，不得转换成
+  401，也不得继续调用患者、预约、报告、门诊费用或支付 service。
+- 只有 Redis 没有找到 token 时才返回 401；Redis 连接/传输失败仍保持 503 `dependency-not-configured`，三种事实不能混淆。
 
 以上事件以同一个 `traceId` 关联；失败事件必须保留稳定 `errorType`，成功事件必须保留结果数量或状态。HTTP
 请求日志仍然独立记录请求生命周期，不能用 `http.request.completed` 代替业务 `synced/loaded`，也不能用 HTTP 200

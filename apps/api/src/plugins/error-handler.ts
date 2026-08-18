@@ -10,8 +10,8 @@ import {
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryResultValidationError,
-	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySnapshotResultValidationError,
+	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
@@ -24,8 +24,8 @@ import {
 	PaymentPrepayAttemptInProgressError,
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
-	PaymentQuoteReadModelValidationError,
 	PaymentQuoteNotFoundError,
+	PaymentQuoteReadModelValidationError,
 	ReportResultValidationError,
 	UserProfileInputError,
 	UserProfileReadModelValidationError,
@@ -40,6 +40,7 @@ import {
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
+import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import {
 	OutpatientPaymentPatientNotFoundError,
@@ -243,6 +244,19 @@ export function errorHandlerPlugin() {
 			}
 
 			if (error instanceof IdentityUserReadModelValidationError) {
+				set.status = 500;
+				return {
+					success: false,
+					error: {
+						code: "persistence-invalid",
+						message: "数据服务返回异常，请联系管理员",
+					},
+				};
+			}
+
+			if (error instanceof SessionPrincipalReadModelValidationError) {
+				// Redis/session 实现返回的 userId 属于鉴权读模型；不能伪装成 401，
+				// 否则会掩盖持久化损坏并让所有 owner-scoped 请求反复重试。
 				set.status = 500;
 				return {
 					success: false,

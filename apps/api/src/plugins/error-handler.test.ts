@@ -8,8 +8,8 @@ import {
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryResultValidationError,
-	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySnapshotResultValidationError,
+	PatientDirectorySnapshotUnsafeError,
 	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
@@ -20,8 +20,8 @@ import {
 	PaymentPrepayAttemptInProgressError,
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
-	PaymentQuoteReadModelValidationError,
 	PaymentQuoteNotFoundError,
+	PaymentQuoteReadModelValidationError,
 	ReportResultValidationError,
 	UserProfileReadModelValidationError,
 	WechatIdentityResultValidationError,
@@ -32,6 +32,7 @@ import {
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
+import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
 import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
 import {
 	PaymentIdentityNotFoundError,
@@ -94,6 +95,23 @@ test("普通资料读模型损坏使用同一套持久化错误契约", async ()
 test("身份仓储读模型损坏不能继续进入业务并返回持久化错误", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 		throw new IdentityUserReadModelValidationError("user-id-invalid");
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "persistence-invalid",
+			message: "数据服务返回异常，请联系管理员",
+		},
+	});
+});
+
+test("会话 principal 读模型损坏不能伪装成未登录", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new SessionPrincipalReadModelValidationError("user-id-invalid");
 	});
 
 	const response = await app.handle(new Request("http://localhost/probe"));

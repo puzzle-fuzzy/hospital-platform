@@ -11,6 +11,7 @@ import {
 } from "@hospital/observability";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
+import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
 
 const requestStartTimes = new WeakMap<Request, number>();
 const requestErrors = new WeakMap<Request, ErrorMetadata>();
@@ -102,7 +103,8 @@ export function safeErrorMetadata(
 	if (
 		error instanceof PatientDirectorySnapshotResultValidationError ||
 		error instanceof PaymentOrderReadModelValidationError ||
-		error instanceof PaymentQuoteReadModelValidationError
+		error instanceof PaymentQuoteReadModelValidationError ||
+		error instanceof SessionPrincipalReadModelValidationError
 	) {
 		return { ...metadata, readModelViolation: error.violation };
 	}

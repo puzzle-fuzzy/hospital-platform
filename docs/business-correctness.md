@@ -31,6 +31,12 @@ Provider 扩展字段不得离开 adapter。`AuthService` 在调用 `hp_identity
 是有界且无控制字符的 opaque 标识。异常身份读模型统一返回 `persistence-invalid`，不会签发 Redis 会话、
 访问患者 Provider、创建预支付尝试或把仓储未知字段带入下游；日志只记录固定 `identityViolation`。
 
+会话 principal 也是持久化读模型，而不是因为 `SessionTokenService.verify()` 的 TypeScript 返回类型就天然可信。
+Redis 旧值、手工写入值、内存 fixture 和替换的 token 实现都必须在统一 `requirePrincipal` 入口重新投影：
+`userId` 只能是无控制字符、无首尾空白且不超过 64 个字符的 opaque 标识，未知字段必须丢弃。异常 principal
+不能降级成 401（否则会把持久化损坏伪装成登录过期并触发无意义重试），也不能进入任何 owner-scoped 查询；
+统一返回 `persistence-invalid`，请求日志只保留固定 `readModelViolation=user-id-invalid`，不记录原始会话值。
+
 ### 支付订单与报价的持久化读模型边界
 
 支付仍处于“真实支付最后处理”的 gate 之外，但其内部订单状态机不能因为支付尚未开放就放宽数据边界。

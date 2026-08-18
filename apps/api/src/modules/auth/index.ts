@@ -1,12 +1,12 @@
-import { Elysia } from "elysia";
 import {
 	AuthSessionResponse,
 	CurrentUserResponse,
 	success,
 	WechatLoginRequest,
 } from "@hospital/contracts";
-import { adapterContextFromHeaders } from "../../plugins/request-context";
+import { Elysia } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
+import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { AuthService, SessionTokenService } from "./service";
 
 /** 患者端登录入口：只接收微信临时 code，不接收或返回 provider secret。 */
@@ -48,11 +48,17 @@ export function authModule(
 	);
 }
 
+export type {
+	SessionPrincipal,
+	SessionPrincipalReadModelViolation,
+	SessionTokenService,
+} from "./service";
 export {
 	AuthService,
 	createInMemorySessionTokenService,
 	createNotConfiguredSessionTokenService,
 	createRedisSessionTokenService,
+	normalizeSessionPrincipal,
 	requirePrincipal,
+	SessionPrincipalReadModelValidationError,
 } from "./service";
-export type { SessionPrincipal, SessionTokenService } from "./service";
