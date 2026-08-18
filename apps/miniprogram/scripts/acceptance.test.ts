@@ -630,13 +630,20 @@ test("native my page separates ordinary profile from family patient selection", 
 });
 
 test("native mini program build guards the DevTools TypeScript configuration", async () => {
-	const config = await source("../project.config.json");
+	const config = JSON.parse(await source("../project.config.json")) as {
+		miniprogramRoot?: string;
+		setting?: {
+			useCompilerPlugins?: unknown;
+		};
+	};
 	const build = await Bun.file(
 		join(import.meta.dir, "..", "scripts", "build.ts"),
 	).text();
 
-	expect(config).toContain('"miniprogramRoot": "dist/"');
-	expect(config).toContain('"useCompilerPlugins": ["typescript"]');
+	// project.config.json 是开发者工具配置，空格、换行和 CRLF 都不属于
+	// 业务语义；解析 JSON 后校验字段，避免用户合法的格式化差异让门禁误报。
+	expect(config.miniprogramRoot).toBe("dist/");
+	expect(config.setting?.useCompilerPlugins).toEqual(["typescript"]);
 	expect(build).toContain("tsconfig.build.json");
 	expect(build).toContain("appPagePaths");
 	expect(build).toContain("app.json page scripts are present");

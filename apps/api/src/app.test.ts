@@ -235,7 +235,7 @@ test("migration inventory labels production observations as evidence snapshots",
 	// 旧版的“启动后计数为 0”；断言必须跟随证据语义，避免未来把历史
 	// 启动窗口误读成当前 release 的完整业务验收。
 	expect(inventory).toContain(
-		"当前 release 切换后的窄观察窗口没有新的 `appointment.*` 或 `outpatient.payment.*` 业务事件",
+		"当前 release 切换后仅取得健康检查和启动日志，没有新的 `appointment.*` 或 `outpatient.payment.*` 业务事件",
 	);
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");
