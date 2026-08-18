@@ -84,7 +84,7 @@
 - 小程序详情失败态清理已有静态回归，但仍需在真实微信会话中验证患者切换、详情引用过期和页面栈复用时的视觉收敛。
 
 当前线上发布和运行观察见 [`1b94c46-production-acceptance-2026-08-18.md`](1b94c46-production-acceptance-2026-08-18.md)；
-配套小程序构建来源为 `e5aef63d086e59bf66d43de4156b875314f39912`。
+配套小程序构建来源为 `9b88cf105314965837260b2d77671939ac22c828`。
 
 2026-08-18 13:46 CST 的配对开发者工具会话曾请求报告目录，但当前 release 因 `adapter:zhongyang` 未配置返回
 HTTP 503 / `dependency-not-configured`，页面展示“报告服务暂未配置完成”；本次没有进入 provider 查询，也没有发起
