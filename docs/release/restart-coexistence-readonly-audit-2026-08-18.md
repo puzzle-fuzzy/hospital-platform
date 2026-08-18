@@ -94,6 +94,13 @@ TTL 结果仍然是“未验证”，不是“没有会话”：常驻 API Redis
 因此没有输出 key、token 或 TTL，也没有修改 ACL、Redis、数据库或业务数据。最近日志的低敏聚合本次未重复声称通过，
 因为当前 SSH sudo 规则未授予 `journalctl` 无密码读取权限；后续必须由运维提供独立只读日志权限或安全聚合结果。
 
+### 2.7 12:23 CST 线上状态再次确认
+
+最新一次 SSH 只读检查确认状态没有漂移：`hospital-platform-api-v2.service=active`，当前 release 仍为 `c63dba9`，
+`10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 仍同时监听，内网和公网 ready 仍返回 `200` 且
+`database/redis/schema=ok`。`shared/api.env` 中未配置独立 `REDIS_SESSION_AUDIT_URL`，所以 Redis TTL 审计仍不能执行通过；
+本次没有重启服务、切换 release、修改 ACL 或写入业务数据。
+
 ## 3. 维护注意事项
 
 内网健康探针必须使用 `/health/live`、`/health/ready`，内网系统探针使用 `/api/v1/system/ping`；公网才使用
