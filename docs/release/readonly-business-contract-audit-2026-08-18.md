@@ -132,8 +132,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/api test`：125 项通过，573 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、
   普通资料读模型、错误处理、患者读模型归属和日志脱敏用例。
 
-本轮 `d7ac308` 只完成预约目录 service/domain 的本地校验、测试和中文注释，尚未部署到线上
-`1b94c46`，不能增加真实 Provider、微信或真机验收结论。
+本轮 `aa9807a` 收紧患者同步的 MySQL owner/provider 租约接管边界，并补充持久化回归测试和中文契约说明；
+代码尚未部署到线上 `1b94c46`，不能增加真实 Provider、微信或真机验收结论。
 
 门诊费用重新投影修正提交为 `fb0efba`，同样尚未部署；线上 release 和真机验收边界保持不变。
 
