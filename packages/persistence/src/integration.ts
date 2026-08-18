@@ -40,7 +40,7 @@ function wait(milliseconds: number): Promise<void> {
  *
  * 覆盖范围刻意围绕当前 Phase 5A-2 的边界：运行时探针、Redis TTL、
  * MySQL 外键写入、订单幂等竞争、订单-outbox 同事务、outbox lease 恢复、
- * 预支付查单 claim lease 恢复、排班快照 TTL/旧观察保护和 LIS 报告引用 owner/TTL 保护。
+ * 预支付查单 claim lease 恢复、排班快照 TTL/旧观察保护和 LIS 报告引用 owner/patient/TTL 保护。
  * provider、医保、HIS 和真实微信回调不在本脚本的证明范围内。
  */
 export async function runPersistenceIntegration() {

@@ -543,7 +543,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 ### 阶段 E：报告与健康内容
 
-- 报告目录先做真实 provider 只读验收，再开放带 owner/TTL 的 LIS 详情引用；首页入口必须进入独立目录页，不能在首页后台加载后丢失结果。
+- 报告目录先做真实 provider 只读验收，再开放带 owner/patient/TTL 的 LIS 详情引用；首页入口必须进入独立目录页，不能在首页后台加载后丢失结果。
 - 报告详情、云影像、下载和分享需要独立的资源授权；没有安全文件 URL 和审计契约时只展示摘要或迁移提示。
 - 健康百科先按 [`health-knowledge-content-mapping.md`](migration/health-knowledge-content-mapping.md) 完成脱敏导出、审核和版本化导入，再注册患者端路由。
 - AI 导诊和报告解读必须独立于医疗事实库，保留免责声明、内容版本和审计日志。

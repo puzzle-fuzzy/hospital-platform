@@ -12,7 +12,7 @@
 复核；快照不授权锁号，也不代表 provider 已接受预约写入。
 
 `0009_report_references` 保存短期 LIS 详情引用。客户端只接收 opaque `reportId`，
-MySQL 查询同时要求 owner 和 `expires_at`，provider 报告号不会进入 API response 或日志；
+MySQL 查询同时要求 owner、patient 和 `expires_at`，provider 报告号不会进入 API response 或日志；
 该表只支持已取得详情合同的 LIS 读模型，不代表报告下载、解读或其他报告来源已开放。
 
 `0013_patient_directory_snapshot` 为 `hp_patients` 增加目录 active 状态和最后一次完整快照时间。

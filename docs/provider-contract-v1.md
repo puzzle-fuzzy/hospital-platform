@@ -28,14 +28,14 @@ Phase 7A 已建立众阳患者目录 adapter：
 
 - LIS 使用 `/msun-middle-business-lis/v1/lis-reports-filter`，影像使用 `/msun-middle-business-pacs/v1/exclude-privacy-patient-reports`，心电使用 `/msun-middle-business-ecg/v2/ecg-reports`；三者都由服务端从内部 `patientId` 解析 provider 患者号后调用；
 - 目录 contract 只返回来源、报告摘要标题、报告时间、状态和是否有附件；详情 gate 打开后，目录可返回服务端生成的 opaque `reportId`，它只定位短期 MySQL 引用，不是 provider 报告号或 bearer token；
-- LIS 详情使用 `/msun-middle-business-lis/v1/lis-reports/details`，服务端先按 owner 查询未过期引用，再把 provider 报告号留在 adapter 请求内；公开详情只返回检测项名称、结果、单位、参考范围、异常标记和附件存在性，不返回患者字段、provider 报告号、文件 URL 或原始 JSON；
+- LIS 详情使用 `/msun-middle-business-lis/v1/lis-reports/details`，服务端先按 owner、当前 patientId 和 TTL 查询未过期引用，再把 provider 报告号留在 adapter 请求内；公开详情只返回检测项名称、结果、单位、参考范围、异常标记和附件存在性，不返回患者字段、provider 报告号、文件 URL 或原始 JSON；
 - 旧体检接口 `/msun-peis-app-peis-new/v1/find-report-list-for-wechat` 依赖完整身份证号和院方 hospitalId，新患者模型不保存完整身份证，因此本阶段不迁移该接口；
 - 报告解读、下载、门诊病历和体检报告仍需要单独的 provider 合同、资源授权和审计边界，不能由目录接口顺手开放；
 - 报告目录使用独立的 `ZHONGYANG_REPORT_DIRECTORY_READY` gate，和患者/预约目录共享连接配置但分别验收；configured 只表示配置字段完整，不代表真实 provider 已联调。
 - 报告目录的日期参数目前由平台校验为起止日期差值最多 366 天；provider `endDate` 的包含规则、同日查询和分页一致性仍未冻结，不能把平台近 30 天窗口写成 provider 的条目数量语义。
 - 即使 provider 患者号来自 owner-scoped 仓储映射，报告 adapter 仍会在发起 HTTP 请求前拒绝空引用；这样可防止任务、回放器或错误仓储把 `patId=` 发给 Provider，不能把 service 层校验当作唯一边界。
 - LIS 详情使用独立的 `ZHONGYANG_REPORT_DETAIL_READY` gate，并额外依赖 `0009_report_references`、owner 复合外键和 TTL 查询；configured 不代表真实 provider 资源授权或真机可用。
-- 报告引用的创建、过期和 owner 查询统一使用服务端应用时钟；不能让不同机器的本地时区或时钟漂移改变短期引用的有效性，测试必须注入固定时间覆盖 TTL 边界。
+- 报告引用的创建、过期和 owner + patient 查询统一使用服务端应用时钟；不能让不同机器的本地时区或时钟漂移改变短期引用的有效性，测试必须注入固定时间覆盖 TTL 边界。
 
 预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
 

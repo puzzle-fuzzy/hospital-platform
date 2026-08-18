@@ -363,7 +363,7 @@ owner 身份行，并使用 `0016_patient_directory_sync_owner_index` 查询同�
 测试和 API typecheck 已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
 
 随后 `1d6ca5c` 统一报告目录与详情的失败日志出口：报告目录非法查询、owner 映射和 Provider
-异常记录 `report.directory.failed`；详情依赖未配置、owner/TTL 查询和 Provider 异常记录
+异常记录 `report.directory.failed`；详情依赖未配置、owner/patient/TTL 查询和 Provider 异常记录
 `report.detail.failed`；Provider 明确空目录仍只记录 `report.directory.synced(itemCount=0)`。
 报告 API 测试 84 项、全仓门禁已通过，候选仍未部署，线上继续以 `131fb5a` 和生产 schema `0015` 为准。
 

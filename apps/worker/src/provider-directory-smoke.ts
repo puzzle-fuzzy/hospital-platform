@@ -1025,8 +1025,14 @@ export async function runProviderDirectorySmoke(
 					reportDirectoryTraceId,
 				);
 			}
+			// reportId 只是短期定位符，不能独立承担患者授权；真实 smoke 必须
+			// 使用同一轮目录查询的内部 patientId 调详情，才能验证 API 的
+			// owner + patient + reportId + TTL 组合边界，而不是绕过当前患者上下文。
 			return readSafe(
-				apiRoute(apiPrefix, `/reports/${encodeURIComponent(reportId)}`),
+				apiRoute(
+					apiPrefix,
+					`/reports/${encodeURIComponent(reportId)}?patientId=${encodeURIComponent(scopedPatientId)}`,
+				),
 			);
 		});
 	}

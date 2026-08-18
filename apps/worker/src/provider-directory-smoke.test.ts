@@ -766,8 +766,11 @@ test("provider smoke accepts only the platform opaque report id and can verify L
 		"reports",
 		"report-detail",
 	]);
-	expect(requests.some((url) => url.includes("/api/v1/reports/report_"))).toBe(
-		true,
+	const detailRequest = requests.find((url) =>
+		url.includes("/api/v1/reports/report_"),
+	);
+	expect(detailRequest).toContain(
+		"/api/v1/reports/report_0123456789abcdef0123456789abcdef0123456789abcdef?patientId=internal-patient-001",
 	);
 });
 
