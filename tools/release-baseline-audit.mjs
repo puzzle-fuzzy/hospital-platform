@@ -43,6 +43,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "小程序真机调试会话边界",
 	},
 	{
+		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
+		label: "普通资料真机验收手册",
+	},
+	{
 		path: "docs/release/1b94c46-production-acceptance-2026-08-18.md",
 		label: "当前服务端生产切换证据",
 	},
