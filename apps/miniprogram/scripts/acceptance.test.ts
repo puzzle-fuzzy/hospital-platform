@@ -529,6 +529,21 @@ test("report detail reuses the shared patient context error translation", async 
 	expect(page).not.toContain("safeApiErrorMessage(error");
 });
 
+test("native report directory errors clear list-derived counters", async () => {
+	const page = await source("pages/report-directory/report-directory.ts");
+	const showErrorStart = page.indexOf(
+		"showError(error: unknown, fallback: string): void",
+	);
+	const showErrorEnd = page.indexOf("\n\t},", showErrorStart);
+	const showErrorBody = page.slice(showErrorStart, showErrorEnd);
+
+	// 报告目录失败后，报告条数和加载更多标记必须与列表一起失效；否则
+	// 页面可能在错误态继续展示上一轮患者的统计信息或触发旧数据分页。
+	expect(showErrorBody).toContain("reportCount: 0");
+	expect(showErrorBody).toContain("visibleReportCount: 0");
+	expect(showErrorBody).toContain("hasMoreReports: false");
+});
+
 test("missed appointments commit the patient card with the filtered result", async () => {
 	const page = await source("pages/missed-appointments/missed-appointments.ts");
 	const loadStart = page.indexOf("loadRecords(): Promise<void>");

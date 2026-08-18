@@ -232,6 +232,11 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			selectedPatient: null,
 			reports: [],
 			visibleReports: [],
+			// 计数和分页标记都是同一份临床列表读模型的派生状态；请求失败
+			// 时必须与列表一起清空，避免页面显示旧总数或继续加载旧报告。
+			reportCount: 0,
+			visibleReportCount: 0,
+			hasMoreReports: false,
 		});
 	},
 });
