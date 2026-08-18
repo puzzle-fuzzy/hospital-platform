@@ -5,9 +5,18 @@
 
 ## 当前基线
 
+### 本地未部署候选增量（2026-08-18）
+
+- 本地 `main` 当前为 `10ec4e1`。本轮收紧报告目录 adapter：即使 Provider 患者号来自 owner-scoped 映射，
+  adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告 gate、详情 gate 和旧服务边界均未打开或修改。
+- `10ec4e1` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；运行包 `sourceRevision=10ec4e1`，14 个页面脚本已核对。
+- 该候选尚未部署到服务器：重启后 SSH 端点只接受 publickey，当前连接方式无法完成候选上传和新 API 原子切换。最后一次已确认的线上 release
+  仍是下方的 `9acdaf2`；不能把本地测试、构建或报告 gate 代码当作线上或真机业务证据。候选和恢复步骤见
+  [`release/candidate-10ec4e1-local-build-2026-08-18.md`](release/candidate-10ec4e1-local-build-2026-08-18.md)。
+
 ### 当前 release 与验收增量（2026-08-18 14:55-14:57 CST）
 
-- 本地 `main` 当前为 `9acdaf2`。本轮在预约历史成功日志中增加低敏 `statusCounts`，只统计规范化预约状态的数量，
+- 当前线上 release 仍为 `9acdaf2`。该版本在预约历史成功日志中增加低敏 `statusCounts`，只统计规范化预约状态的数量，
   用于解释“在线挂号”筛选后的结果，不记录患者、Provider 或预约标识；此前 `0ae4194` 的患者上下文空值前置校验仍包含在提交历史中。
 - `9acdaf2` 已通过完整 `pnpm check`，并强制重建 API、Worker 和原生小程序运行包；`dist/build-info.json` 的
   `sourceRevision=9acdaf2`、14 个页面脚本均已核对。候选包完成 SHA-256、真实生产 env preflight 和隔离 runtime smoke 后才切换线上。
