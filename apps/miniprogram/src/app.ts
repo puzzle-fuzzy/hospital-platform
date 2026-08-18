@@ -1,4 +1,9 @@
-export type AppGlobalData = {
+/**
+ * App 入口会被微信直接当作全局脚本执行，不能因为仅导出类型而被 TypeScript
+ * 包装成 CommonJS 模块；否则开发者工具的 appService 环境没有 `define/exports`
+ * 运行时，首页也就不会完成注册。这个类型只服务于本文件，因此不需要导出。
+ */
+type AppGlobalData = {
 	// 线上小程序固定访问已备案的 HTTPS 域名，真实业务路由由 apiPrefix 隔离。
 	apiBaseUrl: string;
 	apiPrefix: "/api/v2" | "/api/v1";

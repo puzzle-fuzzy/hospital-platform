@@ -801,6 +801,21 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(turboConfig.tasks?.build?.cache).toBe(false);
 });
 
+test("native mini program app entry remains a global script", async () => {
+	const app = await Bun.file(
+		join(import.meta.dir, "..", "src", "app.ts"),
+	).text();
+	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
+
+	// App 入口由微信直接执行，不能被“仅导出类型”误判为 CommonJS 模块。
+	expect(app).not.toMatch(/export\s+type\s+AppGlobalData/);
+	expect(build).toContain(
+		"app.js must remain a global script without CommonJS bootstrap",
+	);
+	expect(build).toContain("commonJsBootstrapPattern");
+	expect(build).toContain("Object\\.defineProperty\\(exports");
+});
+
 test("native mini program build guards runtime page boundaries", async () => {
 	const build = await Bun.file(
 		join(import.meta.dir, "..", "scripts", "build.ts"),

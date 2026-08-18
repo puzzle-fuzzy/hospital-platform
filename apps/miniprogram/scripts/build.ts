@@ -303,6 +303,34 @@ if (!compile.success) {
 		`Mini program TypeScript emit failed with code ${compile.exitCode}`,
 	);
 }
+
+/**
+ * app.js 是微信小程序的全局脚本，不是可由 CommonJS loader 执行的业务模块。
+ * 这里把根入口的运行时形态纳入构建门禁，避免“TypeScript 编译成功但 appService
+ * 因 define/exports 未定义而白屏”的问题再次进入真机候选；页面业务模块仍可按
+ * 依赖图使用 CommonJS 输出，由微信的页面模块加载器执行。
+ */
+const appRuntimePath = join(runtime, "app.js");
+const appRuntime = await Bun.file(appRuntimePath).text();
+const commonJsBootstrapPattern =
+	/^"use strict";\r?\nObject\.defineProperty\(exports, "__esModule", \{ value: true \}\);\r?\n/;
+if (commonJsBootstrapPattern.test(appRuntime)) {
+	// Node16 模块输出会给没有 import/export 的根脚本也加两行启动壳；保留
+	// 空行而移除壳，既不改变 source map 的行偏移，也不把 CommonJS 运行时带进微信。
+	await Bun.write(
+		appRuntimePath,
+		appRuntime.replace(commonJsBootstrapPattern, "\n\n"),
+	);
+}
+const normalizedAppRuntime = await Bun.file(appRuntimePath).text();
+if (
+	/Object\.defineProperty\(exports/.test(normalizedAppRuntime) ||
+	/\b(?:exports|module|require)\s*[.(=]/.test(normalizedAppRuntime)
+) {
+	throw new Error(
+		"Mini program app.js must remain a global script without CommonJS bootstrap",
+	);
+}
 await copyStaticFiles(source);
 
 /**
