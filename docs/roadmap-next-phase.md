@@ -72,6 +72,10 @@
   `10.0.0.3:18081` 与旧 Gunicorn `0.0.0.0:8001` 同时监听，内网 `/health/ready` 与公网
   `/api/v2/health/ready` 均返回 200，`database/redis/schema` 均为 `ok`。本次没有业务写入、release 切换、
   旧服务操作或 Redis 会话探测；真实微信会话、患者显式切换、预约历史和门诊费用仍按 P0 手册待真机三层验收。
+- 2026-08-18 12:49 CST：补跑当前工作树门禁：架构边界 62/62、迁移台账、Provider 文档接收审计和 lint 均通过；
+  `apps/api`、`apps/worker`、小程序 `src/scripts`、`packages`、`tools`、`infra` 定向格式检查共 218 个文件通过。
+  全量格式检查唯一失败项仍是用户已有的 `apps/miniprogram/project.config.json`，本轮未格式化、未暂存、未提交该文件，
+  以保留其他会话的工作内容。
 - 2026-08-18 12:35 CST：修正患者选择页的一个隐式状态副作用：同步前的展示列表现在只用纯函数读取已有
   `selectedPatientId`，不会因为目录中存在 ready 患者就提前写入本地选择；只有完整临床同步成功后才允许恢复当前标记。
   该修正通过小程序 107 项测试、945 个断言、typecheck、build 和 14 页面运行包校验，提交为 `1697695`，未改变 API、
