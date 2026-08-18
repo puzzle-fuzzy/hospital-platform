@@ -26,6 +26,10 @@
   页面、HTTP、低敏日志三层证据；具体候选、证据字段和停止条件见
   [`../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)。
   预约写入、详情、支付、医保和 HIS 回写继续最后处理。
+- 2026-08-18 12:31 CST：重启后线上只读复核仍确认新旧服务共存；正确内网探针为 `10.0.0.3:18081/health/ready`，
+  不应把服务绑定的非 loopback 地址误写成 `127.0.0.1:18081`。内网和公网 ready 均为 `200` 且 database、redis、schema 为 `ok`，
+  该证据只覆盖运行层，不推进预约历史、门诊费用或真机业务状态。详见
+  [`../release/restart-coexistence-readonly-audit-2026-08-18.md`](../release/restart-coexistence-readonly-audit-2026-08-18.md)。
 
 完整切换与停机证据见 [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
