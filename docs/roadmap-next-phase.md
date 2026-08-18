@@ -17,6 +17,8 @@
 
 - 2026-08-18 21:43 CST：继续工作期间 SSH 只读复核确认 `current=687690e`、新 API `10.0.0.3:18081`、旧 Python `0.0.0.0:8001` 和 `hospital-platform-api-v2.service=active` 未漂移；公网 ready 仍返回 `database/redis/schema=ok`。本次未执行重启、切换、migration 或业务写入，详见 [`release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。
 
+- 2026-08-18 21:41 CST：新 `miniprogram` 模拟器出现旧会话 `/me 401` 后，服务端低敏日志核对到 `/auth/wechat 200`、`/me 200`、患者目录读取 200 和同步 200（1 条患者、1 条临床映射）；这证明模拟器的自动重新登录边界可工作，但没有新手机连接，不能计入真机验收。详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
+
 - `37016c4` 已作为未切换候选上传并通过产物 checksum、真实生产 env preflight 和 production 公网 runtime smoke；它只修正 smoke 日志不记录原始 `Error.message`，当前线上仍为 `687690e`，候选证据见 [`release/candidate-37016c4-smoke-log-hardening-2026-08-18.md`](release/candidate-37016c4-smoke-log-hardening-2026-08-18.md)。
 
 - 2026-08-18：`b213dcc` 将统一患者 provider 引用校验接入报告目录 service。仓储返回的非法结构、控制字符或跨患者/Provider 的 HIS `patId` 会在报告 Provider 调用前 fail-closed，日志只保留有限引用原因；报告详情已有的短期引用范围校验和安全摘要语义不变。新增报告目录回归测试，当前 API 为 131 项、599 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
