@@ -6,7 +6,7 @@
 ## 0. 当前检查点（2026-08-19）
 
 - 当前线上服务端 release 为 `b7c9451`，配套小程序构建来源为
-  `3a66d125b0c1ca53879dd88a3661e3025fb7dd3d`（当前本地候选，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
+  `07dde51d84888a33a762bcdffa2d74bde62d1064`（当前本地候选，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
 
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
   `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
