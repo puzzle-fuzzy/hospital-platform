@@ -1736,6 +1736,21 @@ test("appointment directory labels provider calendar dates without device timezo
 	expect(page).not.toContain("getDay()");
 });
 
+test("appointment directory ignores stale date events after a cascade refresh", async () => {
+	const page = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const dateHandlerStart = page.indexOf("onDateTap(event)");
+	const dateHandlerEnd = page.indexOf("\n\t},", dateHandlerStart);
+	const dateHandler = page.slice(dateHandlerStart, dateHandlerEnd);
+
+	// 日期事件可能来自刷新前的 WXML；只有当前日期分组中仍存在的日期，
+	// 才能改变右侧排班读模型，避免级联页面产生脱离当前科室的 selectedDate。
+	expect(dateHandler).toContain("const group = this.data.dateGroups.find");
+	expect(dateHandler).toContain("if (!group)");
+	expect(dateHandler).toContain("selectedDate,");
+});
+
 test("page request guard only permits the latest patient read to update state", () => {
 	const guard = createLatestRequestGuard();
 	const first = guard.begin();

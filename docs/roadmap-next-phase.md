@@ -27,6 +27,11 @@
 - 当前小程序候选来源为 `77588b566d98facfac7b1d952e41d8db875278d4`，14 个页面运行包已重新构建并通过 `runtime:verify`；全仓 `pnpm check` 通过，小程序为 115 项测试、997 个断言。
 - 详细规则见 [`release/miniprogram-authenticated-response-session-gate-2026-08-18.md`](release/miniprogram-authenticated-response-session-gate-2026-08-18.md)。
 
+### 本轮预约目录日期事件边界（2026-08-18）
+
+- 预约目录在刷新或切换科室期间会先清空当前日期分组；页面现在拒绝已经不属于当前分组的旧日期事件，避免过期 WXML 事件把 `selectedDate` 写成脱离当前科室读模型的状态。
+- 该修正只涉及小程序级联页面、静态验收测试和中文业务注释，不扩大 Provider 查询、不开放预约写入、不修改 API、数据库、线上 release 或旧 Python 服务；真机和 Provider 证据仍需按候选验收手册取得。
+
 ### 本轮普通资料版本上限门禁（2026-08-18）
 
 - `1b94c46` 修正普通资料 service 的版本边界：当请求版本已经达到 MySQL `INT UNSIGNED` 最大值时，在仓储写入前返回 `user-profile-invalid`，不尝试生成越界的下一版本。

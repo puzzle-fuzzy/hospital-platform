@@ -229,6 +229,12 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		const group = this.data.dateGroups.find(
 			(item) => item.workDate === selectedDate,
 		);
+		if (!group) {
+			// 刷新或切换科室时，旧 WXML 事件可能晚于当前日期分组抵达。
+			// 这类日期已经不属于当前科室的读模型，不能仅凭事件参数写入
+			// selectedDate，否则页面会出现“当前日期不在日期标签中”的假状态。
+			return;
+		}
 		this.setData({
 			selectedDate,
 			visibleScheduleCount: visibleCount,
