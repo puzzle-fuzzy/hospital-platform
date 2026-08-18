@@ -609,7 +609,6 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("sessionVerificationStateFromError");
 	expect(my).toContain('this.setData({ sessionState: "valid" })');
 	expect(my).toContain("getUserProfile");
-	expect(my).toContain('status: "rejected" as const');
 	// 必须先完成 `/me` 会话确认，再启动患者目录和普通资料读取；否则无效
 	// token 会额外制造受保护请求，旧页面周期也可能扩大为新的业务读取。
 	const myLoadStart = my.indexOf("loadPage(): Promise<void>");
@@ -617,18 +616,22 @@ test("native my page separates ordinary profile from family patient selection", 
 		"const sessionResult = getCurrentUser()",
 		myLoadStart,
 	);
-	const dependentReadsStart = my.indexOf(
-		"Promise.all([loadPatients(), profileResult])",
-		myLoadStart,
-	);
+	const dependentReadsStart = my.indexOf("return loadPatients();", myLoadStart);
 	expect(dependentReadsStart).toBeGreaterThan(sessionStart);
+	// 患者目录是页面关键路径，普通资料只能并行作为展示增强；不能再次
+	// 用 Promise.all 把资料慢响应带回患者卡片的关键提交点。
+	expect(my).toContain("const profilePromise = getUserProfile()");
+	expect(my).toContain(".catch(applyProfileError)");
+	expect(my).toContain("void profilePromise;");
+	expect(my).not.toContain("Promise.all([loadPatients(), profileResult])");
+	expect(my).toContain("资料请求可能已经先完成并写入真实昵称");
 	expect(my).toContain(
 		"if (!pageLoadGuard.isCurrent(requestToken)) return undefined;",
 	);
-	expect(my).toContain("资料读取失败不能让已经成功的患者上下文整页失败");
+	expect(my).toContain("资料接口的慢响应阻塞");
 	expect(my).toContain("patientSelectionResolutionMessage");
 	expect(my).toContain("patientContextErrorMessage");
-	expect(my).toContain("patientContextError || profileError");
+	expect(my).toContain("patientContextError || this.data.error");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(navigation).toContain("resolveAuthenticatedEntry");

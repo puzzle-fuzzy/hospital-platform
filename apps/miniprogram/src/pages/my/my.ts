@@ -126,7 +126,8 @@ function showUnavailableMyAction(action: UnavailableMyAction): void {
 
 /**
  * “我的”页同时读取会话用户和患者目录；从选择页返回或下拉刷新时，
- * 较早的 Promise.all 不能再覆盖当前用户和就诊人数量。
+ * 较早的异步周期不能再覆盖当前用户和就诊人数量。普通资料属于可降级
+ * 展示增强，患者目录属于关键业务上下文，两者的提交边界在 loadPage 中分开。
  */
 Page<MyPageData, MyPageMethods>({
 	data: {
@@ -161,7 +162,14 @@ Page<MyPageData, MyPageMethods>({
 	loadPage(): Promise<void> {
 		const pageLoadGuard = getPageLatestRequestGuard(this, "my-page");
 		const requestToken = pageLoadGuard.begin();
-		this.setData({ loading: true, error: "", sessionState: "checking" });
+		this.setData({
+			loading: true,
+			error: "",
+			sessionState: "checking",
+			// 新一轮会话读取开始时先清除上一轮普通资料的展示结果；
+			// 否则资料请求失败时，旧昵称会被误认为当前会话资料。
+			userLabel: "微信用户",
+		});
 		const sessionResult = getCurrentUser().then(
 			(payload) => {
 				if (pageLoadGuard.isCurrent(requestToken)) {
@@ -183,44 +191,55 @@ Page<MyPageData, MyPageMethods>({
 		// 应额外制造两条必然失败的受保护请求，也不能让依赖读取在会话状态尚未
 		// 收敛时抢先进入日志和页面状态。
 		return sessionResult
-			.then((userPayload) => {
+			.then(() => {
 				// 当前页面周期已经被新的 onShow/下拉刷新淘汰时，不再启动后续
 				// 读取。微信请求本身无法取消，但至少不让旧周期扩大为新的业务请求。
 				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
-				// 资料读取失败不能让已经成功的患者上下文整页失败，但必须
-				// 留下用户可见的可重试提示，避免把“微信用户”误认为资料读取成功。
-				const profileResult = getUserProfile().then(
-					(response) => ({ status: "fulfilled" as const, response }),
-					(error) => ({ status: "rejected" as const, error }),
-				);
-				return Promise.all([loadPatients(), profileResult]).then(
-					([patients, profile]) => ({ userPayload, patients, profile }),
-				);
+				// 患者目录是“我的”页的关键业务上下文，普通资料只是头像区的
+				// 展示增强。两者可以并行请求，但不能让资料接口的慢响应阻塞
+				// 患者卡片、患者数量和业务入口；否则资料服务短暂抖动时，用户
+				// 会误以为挂号/报告/费用入口也没有加载完成。
+				const applyProfileError = (error: unknown): void => {
+					if (!pageLoadGuard.isCurrent(requestToken)) return;
+					// 患者目录已经有更重要的错误时，不要用资料失败覆盖它。
+					if (this.data.error) return;
+					this.setData({
+						error: safeApiErrorMessage(error, "个人资料暂时不可用"),
+					});
+				};
+				const profilePromise = getUserProfile()
+					.then((response) => {
+						if (!pageLoadGuard.isCurrent(requestToken)) return;
+						const displayName = response.data.displayName.trim();
+						this.setData({
+							userLabel: displayName || "微信用户",
+							// 患者目录错误优先于资料增强错误；资料成功也不能清除
+							// 当前就诊人不可用的业务提示。
+							error: this.data.error,
+						});
+					})
+					.catch(applyProfileError);
+				// 普通资料请求已经在自己的成功/失败分支中收敛；这里不把它
+				// 接入患者关键路径，也不留下未处理的 rejected Promise。
+				void profilePromise;
+				return loadPatients();
 			})
 			.then((result) => {
 				if (!result) return;
-				const { userPayload, patients, profile } = result;
+				const patients = result;
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);
 				const selectedPatient = resolution.patient ?? null;
-				const displayName =
-					profile.status === "fulfilled"
-						? profile.response.data.displayName.trim()
-						: "";
-				const profileError =
-					profile.status === "rejected"
-						? safeApiErrorMessage(profile.error, "个人资料暂时不可用")
-						: "";
 				const patientContextError =
 					patientSelectionResolutionMessage(resolution);
 				this.setData({
-					userLabel:
-						displayName || (userPayload.data.user.id ? "微信用户" : "未登录"),
+					// 资料请求可能已经先完成并写入真实昵称；患者关键路径只
+					// 更新自己负责的字段，不能用默认文案覆盖资料增强结果。
 					selectedPatient,
 					patientCount: patients.length,
 					// 患者上下文错误优先于资料增强错误：当前就诊人不可查询是
 					// 影响预约、报告和费用入口的业务事实，不能被普通资料提示覆盖。
-					error: patientContextError || profileError,
+					error: patientContextError || this.data.error,
 				});
 			})
 			.catch((error) => {
