@@ -219,6 +219,15 @@ test("native client requests patient synchronization through the Hospital API", 
 	expect(client).toContain('url: "/patients/sync"');
 	expect(dashboard).toContain("runPatientSync");
 	expect(dashboard).toContain("createIdempotencyKey(operationPrefix)");
+	// 读取和同步都必须经过同一个列表总数门禁；否则异常同步快照会绕过
+	// 患者目录读取边界，继续进入页面协调器并被当作成功结果消费。
+	expect(
+		(
+			dashboard.match(
+				/requireExactListData<Patient>\(payload\.data\)\.items/g,
+			) ?? []
+		).length,
+	).toBe(2);
 	expect(page).toContain("onSyncPatients");
 	expect(page).toContain('syncPatientsFromHospital("patient-sync")');
 	expect(page).not.toContain("unionId");

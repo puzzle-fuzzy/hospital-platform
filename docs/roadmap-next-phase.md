@@ -5,7 +5,7 @@
 
 ## 当前执行检查点（2026-08-19）
 
-- 2026-08-19：小程序患者端列表读取统一增加 `total === items.length` 运行时契约门禁，覆盖患者目录、预约科室/排班/历史、报告目录和门诊费用；协议错配返回 `provider-response-invalid`，不伪装成空列表或错误的本地“加载更多”。提交 `d74bf10`，小程序定向测试 136/136、1113 个断言；旧 Python、线上新 API、数据库和 Redis 均未修改，详见 [`release/miniprogram-list-total-contract-2026-08-19.md`](release/miniprogram-list-total-contract-2026-08-19.md)。
+- 2026-08-19：小程序患者端列表读取与同步统一增加 `total === items.length` 运行时契约门禁，覆盖患者目录读取/同步、预约科室/排班/历史、报告目录和门诊费用；协议错配返回 `provider-response-invalid`，不伪装成空列表、成功同步快照或错误的本地“加载更多”。提交 `d74bf10`，小程序定向测试 136/136、1113 个断言；旧 Python、线上新 API、数据库和 Redis 均未修改，详见 [`release/miniprogram-list-total-contract-2026-08-19.md`](release/miniprogram-list-total-contract-2026-08-19.md)。
 
 - 2026-08-19 02:04 CST：重启后从公网只读复核确认 `/api/v2/health/live`、`/api/v2/health/ready` 和 `/api/v2/system/ping` 均为 `200`，ready 的 `database/redis/schema` 均为 `ok`，未登录 `/api/v2/me` 为预期 `401`。本轮没有微信会话、Provider 参数或业务写入；SSH 入口当前只接受 `publickey`，本地没有对应私钥，因此没有新增 systemd、`18081/8001` 共存或 Worker 结论。完整边界见 [`release/current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md)。
 

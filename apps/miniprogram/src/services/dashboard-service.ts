@@ -230,7 +230,7 @@ export function syncPatientsFromHospital(
 ): Promise<Array<Patient>> {
 	return runPatientSync(() =>
 		syncPatients(createIdempotencyKey(operationPrefix)).then(
-			(payload) => payload.data.items,
+			(payload) => requireExactListData<Patient>(payload.data).items,
 		),
 	);
 }
