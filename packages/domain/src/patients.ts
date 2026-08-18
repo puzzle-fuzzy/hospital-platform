@@ -296,6 +296,44 @@ export type PatientProviderReference = {
 	providerPatientId: string;
 };
 
+/** 患者 provider 引用在跨层返回时允许写入日志的有限异常原因。 */
+export type PatientProviderReferenceViolation =
+	| "reference-invalid"
+	| "reference-scope-mismatch";
+
+/**
+ * 校验服务端仓储返回的患者 provider 引用。
+ *
+ * TypeScript 类型只约束编译期，不能保护缓存、回放任务或错误仓储实现带来的
+ * 运行时对象。ownerUserId 不在返回值中重复携带，owner 隔离仍由 repository
+ * 查询合同负责；这里统一复核患者、Provider 和外部患者号，防止各业务 service
+ * 把别的患者 patId 发送给 Provider。返回值只允许固定原因，不能把存储字段写入日志。
+ */
+export function validatePatientProviderReference(
+	reference: unknown,
+	patientId: string,
+): PatientProviderReferenceViolation | undefined {
+	if (
+		typeof reference !== "object" ||
+		reference === null ||
+		Array.isArray(reference)
+	) {
+		return "reference-invalid";
+	}
+	const candidate = reference as Partial<PatientProviderReference>;
+	if (
+		!isBoundedOpaqueIdentifier(candidate.patientId) ||
+		!isBoundedOpaqueIdentifier(candidate.providerPatientId) ||
+		typeof candidate.provider !== "string"
+	) {
+		return "reference-invalid";
+	}
+	if (candidate.patientId !== patientId || candidate.provider !== "zhongyang") {
+		return "reference-scope-mismatch";
+	}
+	return undefined;
+}
+
 /** 与微信 provider 的 subject 解耦的内部用户身份；业务表只引用 userId。 */
 export type IdentityUser = {
 	userId: string;

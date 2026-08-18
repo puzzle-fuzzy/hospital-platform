@@ -7,7 +7,6 @@ import type {
 	AdapterCallContext,
 	OutpatientPaymentGateway,
 	OutpatientPaymentRecord,
-	PatientProviderReference,
 	OutpatientPaymentStatus,
 	PatientRepository,
 } from "@hospital/domain";
@@ -19,6 +18,7 @@ import {
 	normalizeOutpatientPaymentRecords,
 	OutpatientPaymentResultValidationError,
 	parseOutpatientBillDateTime,
+	validatePatientProviderReference,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -66,44 +66,6 @@ type ProviderDateTimeParts = {
 	minute: number;
 	second: number;
 };
-
-type OutpatientPaymentReferenceViolation =
-	| "reference-invalid"
-	| "reference-scope-mismatch";
-
-/**
- * 门诊费用调用 Provider 前的患者引用二次门禁。
- *
- * repository 的 SQL 条件属于第一道 owner/patient 过滤，但缓存、回放任务或
- * 未来的其它实现仍可能返回错误对象。`PatientProviderReference` 只保留内部
- * provider 引用，不重复返回 owner；因此 owner 隔离仍由 repository 合同负责，
- * service 在这里至少重新确认患者、Provider 和外部患者号的结构与范围，避免
- * 把别的患者 patId 发送给门诊费用 Provider。
- */
-function validateOutpatientPaymentReference(
-	reference: unknown,
-	patientId: string,
-): OutpatientPaymentReferenceViolation | undefined {
-	if (
-		typeof reference !== "object" ||
-		reference === null ||
-		Array.isArray(reference)
-	) {
-		return "reference-invalid";
-	}
-	const candidate = reference as Partial<PatientProviderReference>;
-	if (
-		!isBoundedOpaqueIdentifier(candidate.patientId) ||
-		!isBoundedOpaqueIdentifier(candidate.providerPatientId) ||
-		typeof candidate.provider !== "string"
-	) {
-		return "reference-invalid";
-	}
-	if (candidate.patientId !== patientId || candidate.provider !== "zhongyang") {
-		return "reference-scope-mismatch";
-	}
-	return undefined;
-}
 
 /**
  * 将绝对时间读取为 provider 的本地日历字段。
@@ -286,7 +248,7 @@ export class OutpatientPaymentService {
 			// 仓储返回值仍是跨层运行时数据，不能只依赖 PatientProviderReference
 			// 的编译期类型。发现结构或范围异常时，在 Provider 调用前 fail-closed，
 			// 对客户端继续使用与“没有映射”相同的安全语义。
-			const referenceViolation = validateOutpatientPaymentReference(
+			const referenceViolation = validatePatientProviderReference(
 				reference,
 				patientId,
 			);

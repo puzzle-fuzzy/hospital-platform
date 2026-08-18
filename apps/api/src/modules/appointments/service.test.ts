@@ -12,6 +12,7 @@ import { createLogger } from "@hospital/observability";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
 import {
 	AppointmentRecordQueryError,
+	AppointmentRecordPatientNotFoundError,
 	AppointmentScheduleQueryError,
 	AppointmentService,
 } from "./service";
@@ -451,6 +452,81 @@ test("appointment record empty results are successful and record failures are lo
 	});
 	expect(JSON.stringify(providerFailure)).not.toContain("provider unavailable");
 	expect(providerCalls).toBe(1);
+});
+
+test("预约记录 service 拒绝仓储返回的非法或越界患者引用", async () => {
+	for (const [reference, expectedViolation] of [
+		[
+			{
+				patientId: "patient-other",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-other",
+			},
+			"reference-scope-mismatch",
+		],
+		[
+			{
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider\u0000patient-001",
+			},
+			"reference-invalid",
+		],
+	] as const) {
+		const lines: string[] = [];
+		let providerCalls = 0;
+		const service = new AppointmentService({
+			directory: {
+				listDepartments: async () => ({
+					departments: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "unused",
+						requestId: "unused",
+					},
+				}),
+				listSchedules: async () => ({
+					schedules: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "unused",
+						requestId: "unused",
+					},
+				}),
+			},
+			repository: {
+				resolveProviderReference: async () => reference,
+			} as unknown as PatientRepository,
+			records: {
+				listRecords: async () => {
+					providerCalls += 1;
+					throw new Error("provider must not be called");
+				},
+			},
+			logger: createLogger({
+				service: "appointment-test",
+				environment: "test",
+				level: "info",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		});
+
+		await expect(
+			service.listRecords(
+				"user-001",
+				"patient-001",
+				{ startDate: "2026-08-01", endDate: "2026-08-31" },
+				{
+					traceId: `trace-reference-${expectedViolation}`,
+					idempotencyKey: `key-reference-${expectedViolation}`,
+				},
+			),
+		).rejects.toBeInstanceOf(AppointmentRecordPatientNotFoundError);
+		expect(providerCalls).toBe(0);
+		expect(lines.join("\n")).toContain(
+			`"resultViolation":"${expectedViolation}"`,
+		);
+	}
 });
 
 test("snapshot persistence failure does not turn a read directory into fake success", async () => {

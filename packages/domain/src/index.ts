@@ -110,6 +110,7 @@ export type {
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientProviderReferenceKind,
+	PatientProviderReferenceViolation,
 	PatientReadModelViolation,
 	PatientRecord,
 	PatientRelationship,
@@ -120,6 +121,7 @@ export type {
 export {
 	normalizePatientReadModel,
 	PatientReadModelValidationError,
+	validatePatientProviderReference,
 } from "./patients";
 export type {
 	CreatePaymentOrderInput,

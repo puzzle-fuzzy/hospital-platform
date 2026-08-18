@@ -23,6 +23,7 @@ import {
 	normalizeAppointmentScheduleResults,
 	type PatientRepository,
 	parseIsoCalendarDate,
+	validatePatientProviderReference,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -427,6 +428,8 @@ export class AppointmentService {
 		query: AppointmentRecordQuery,
 		context: AdapterCallContext,
 	): Promise<AppointmentRecordListPayload["data"]> {
+		// 只保存有限枚举，供失败日志关联跨层引用校验；不保存引用原值。
+		let resultViolation: string | undefined;
 		try {
 			// 输入校验、依赖检查、owner 映射和 Provider 请求必须共用同一个
 			// 失败出口。否则“未配置”或非法日期虽然已经返回错误，业务日志却
@@ -465,6 +468,18 @@ export class AppointmentService {
 					referenceKind: "his-patient",
 				});
 			if (!reference) throw new AppointmentRecordPatientNotFoundError();
+			// 仓储返回值仍是跨层运行时数据，不能只依赖 PatientProviderReference
+			// 的编译期类型。发现结构或范围异常时，在 Provider 调用前 fail-closed，
+			// 对客户端继续使用与“没有映射”相同的安全语义。
+			const referenceViolation = validatePatientProviderReference(
+				reference,
+				patientId,
+			);
+			if (referenceViolation) {
+				// 只把有限原因写入失败日志，不暴露存储中的外部患者号或字段值。
+				resultViolation = referenceViolation;
+				throw new AppointmentRecordPatientNotFoundError();
+			}
 
 			const result = await this.dependencies.records.listRecords(
 				{
@@ -507,6 +522,7 @@ export class AppointmentService {
 						? patientId
 						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(resultViolation ? { resultViolation } : {}),
 					...(error instanceof AppointmentRecordResultValidationError
 						? { resultViolation: error.violation }
 						: {}),
