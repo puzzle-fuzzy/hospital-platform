@@ -64,11 +64,23 @@ test("native client single-flights login and preserves a newer concurrent token"
 	expect(client).toContain("const promise = performLogin()");
 	expect(client).toContain("currentToken !== accessToken");
 	expect(client).toContain(
-		"return request<TResponse>({ ...options, authenticated: true })",
+		"return requestForSession(options, sessionGeneration)",
 	);
 	expect(client).toContain(
 		'appData.sessionStatus = accessToken ? "signed_in" : "signed_out"',
 	);
+});
+
+test("native authenticated reads reject responses from an older session generation", async () => {
+	const client = await source("services/api-client.ts");
+	const generation = await source("services/session-generation.ts");
+
+	// 页面守卫只能保护当前页面实例；服务层必须在响应交付前再检查会话代际，
+	// 才能覆盖跨页面、跨页面栈的账号切换。
+	expect(client).toContain("requestForSession");
+	expect(client).toContain("isCurrentSessionGeneration(sessionGeneration)");
+	expect(client).toContain('code: "session-changed"');
+	expect(generation).toContain("isCurrentSessionGeneration");
 });
 
 test("native client sends request ids for Pino HTTP correlation", async () => {

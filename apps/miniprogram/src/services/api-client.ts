@@ -15,7 +15,11 @@ import type {
 	WechatPrepayResponse,
 	WechatPrepayStatusResponse,
 } from "../types";
-import { advanceSessionGeneration } from "./session-generation";
+import {
+	advanceSessionGeneration,
+	getSessionGeneration,
+	isCurrentSessionGeneration,
+} from "./session-generation";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
@@ -213,6 +217,34 @@ function setAccessToken(accessToken: string): void {
 	} else {
 		wx.removeStorageSync(ACCESS_TOKEN_KEY);
 	}
+}
+
+/**
+ * 只有请求开始时记录的会话代际仍然有效，认证响应才可以交给业务层。
+ *
+ * 微信请求不会因为 token 被替换而自动取消；如果用户在网络等待期间
+ * 切换了账号，旧请求即使返回 200，也只证明旧账号的读取成功。这里在
+ * 客户端丢弃这份响应，避免患者、资料、报告或费用快照跨账号进入页面。
+ * 这不是写入操作的回滚机制，因此支付和资料更新仍必须依赖服务端幂等、
+ * 版本冲突及后续查询；本门禁只负责不展示错误会话的响应。
+ */
+async function requestForSession<TResponse>(
+	options: ApiRequestOptions,
+	sessionGeneration: number,
+): Promise<TResponse> {
+	const response = await request<TResponse>({
+		...options,
+		authenticated: true,
+	});
+	if (!isCurrentSessionGeneration(sessionGeneration)) {
+		throw new ApiError(
+			"Session changed while authenticated request was pending",
+			{
+				code: "session-changed",
+			},
+		);
+	}
+	return response;
 }
 
 /** 将公共错误码映射为小程序稳定中文文案；未知码才使用服务端安全兜底。 */
@@ -441,18 +473,27 @@ export async function requestWithSession<TResponse>(
 		await login();
 		accessToken = getAppConfig().accessToken;
 	}
+	// 登录可能在上一步推进代际；必须在拿到当前 token 后再取快照，
+	// 否则首次登录的正常请求会被误判成“旧会话响应”。
+	let sessionGeneration = getSessionGeneration();
 
 	try {
-		return await request<TResponse>({ ...options, authenticated: true });
+		return await requestForSession(options, sessionGeneration);
 	} catch (error) {
 		if (!(error instanceof ApiError) || error.statusCode !== 401) throw error;
 		const currentToken = getAppConfig().accessToken;
 		if (currentToken && currentToken !== accessToken) {
-			return request<TResponse>({ ...options, authenticated: true });
+			// 并发请求已经完成会话轮换；沿用新 token 重试，并把响应门禁
+			// 绑定到新代际，不能继续使用旧请求的快照。
+			accessToken = currentToken;
+			sessionGeneration = getSessionGeneration();
+			return requestForSession(options, sessionGeneration);
 		}
 		setAccessToken("");
 		await login();
-		return request<TResponse>({ ...options, authenticated: true });
+		accessToken = getAppConfig().accessToken;
+		sessionGeneration = getSessionGeneration();
+		return requestForSession(options, sessionGeneration);
 	}
 }
 

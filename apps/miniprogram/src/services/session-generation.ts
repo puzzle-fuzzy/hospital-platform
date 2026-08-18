@@ -13,6 +13,11 @@ export function getSessionGeneration(): number {
 	return currentSessionGeneration;
 }
 
+/** 判断异步结果是否仍属于它发起时记录的会话代际。 */
+export function isCurrentSessionGeneration(expected: number): boolean {
+	return currentSessionGeneration === expected;
+}
+
 /**
  * 在平台 token 发生变化后推进会话代际。
  * 返回值便于测试和调用方记录本轮代际，但不返回任何认证字段。
