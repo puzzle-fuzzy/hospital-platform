@@ -906,6 +906,13 @@ test("native mini program runtime verification checks build provenance", async (
 		'"apps/miniprogram/scripts/runtime-provenance.ts"',
 	);
 	expect(provenance).toContain('"apps/miniprogram/turbo.json"');
+	expect(provenance).toContain('"git",\n\t\t\t"status"');
+	expect(provenance).toContain(
+		"Mini program runtime inputs are dirty; commit them before build or runtime verification",
+	);
+	// project.config.json 由开发者工具维护，必要字段会在 build.ts 单独校验，
+	// 不能因为本地工具格式化或额外设置变化而伪造一个新的业务源码版本。
+	expect(provenance).not.toContain('"apps/miniprogram/project.config.json"');
 	expect(provenance).not.toContain('"apps/miniprogram/scripts"');
 	expect(provenance).toContain('"packages/contracts/src"');
 	expect(provenance).not.toContain('"docs"');

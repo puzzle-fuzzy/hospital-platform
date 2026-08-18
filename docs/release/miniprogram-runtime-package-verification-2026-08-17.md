@@ -34,6 +34,11 @@ pnpm --filter @hospital/miniprogram test
 `runtime:verify` 是只读检查，不会删除或修改 `dist/`。若它失败，禁止继续用旧运行包进行真机验收；先修复构建产物，
 再重新导入开发者工具项目。
 
+构建和 `runtime:verify` 还会检查运行输入是否干净。只要 `src/`、构建脚本、公共 contract、锁文件或其它运行输入有
+未提交/未跟踪改动，流程就会停止，避免把工作树中的新代码打进 `dist/` 却仍标记为旧提交来源。开发者工具维护的
+`project.config.json` 不参与业务源码指纹，但 `build.ts` 会单独校验 `dist/` 根目录和 TypeScript 插件配置；因此不能通过
+修改配置绕过运行包结构门禁。
+
 ## 4. 尚未证明的事项
 
 本次结果不能证明：
