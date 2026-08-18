@@ -12,6 +12,8 @@
   129 项、587 个断言，domain 为 27 项、62 个断言。本轮未部署、未重启新旧服务、未修改旧 Python
   服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
+- 2026-08-18：`400a800` 将患者 provider 引用的运行时结构/范围校验下沉到 domain，并接入预约历史与门诊费用 service。两条业务在 owner-scoped repository 返回后都会复核内部 `patientId`、Provider 和外部患者号；非法或跨患者引用在 Provider 调用前停止，日志只保留有限 `reference-invalid/reference-scope-mismatch` 原因。新增预约历史回归测试，当前 API 为 130 项、593 个断言，domain 为 27 项、62 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18：`092928b` 收紧预约目录服务端生成的公共 `scheduleId`。每条排班引用现在必须通过 opaque 形状校验，同一批次不能生成重复 ID；异常时在 API/快照边界前整批 fail-closed，并记录有限 `schedule-id-invalid/schedule-id-duplicate` 原因。新增预约 service 回归测试，当前 API 为 128 项、581 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
 - 2026-08-18：`56c73af` 收紧报告详情引用读取的第二道授权边界。即使 owner-scoped 仓储返回跨 owner、跨患者、跨报告号或结构非法的短期引用，service 也会在详情 Provider 调用前拒绝，并只记录有限 `reference-invalid/reference-scope-mismatch` 原因；新增“不调用 Provider”的回归测试，当前 API 为 127 项、577 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。

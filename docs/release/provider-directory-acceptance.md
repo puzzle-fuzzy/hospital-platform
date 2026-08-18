@@ -118,6 +118,7 @@ pnpm check
 - API 测试证明公共 `scheduleId` 是平台 opaque 引用，provider `hisScheduleId` 不进入 response；服务端生成的
   `scheduleId` 还会拒绝空白/控制字符和同批次重复值，避免列表节点复用或短期快照覆盖；
 - 预约记录测试证明服务端先读取用途为 `his-patient` 的 owner-scoped 映射，再固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`，并丢弃预约号、患者身份、电话、费用和支付字段；
+- 预约记录 service 测试还必须证明 owner-scoped 仓储返回的患者引用会在 Provider 调用前通过统一 domain 校验；非法结构、控制字符和跨患者/Provider 范围的 HIS `patId` 均 fail-closed，只记录有限原因。
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
 - Provider smoke 测试证明患者同步后会重新读取当前会话目录，未归属的内部 patientId 会在
   `patient-owner` 检查失败并停止，provider 不会收到后续患者作用域请求；
