@@ -223,6 +223,10 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 - 预约目录切换左侧科室或下拉刷新时，确认旧科室排班不会覆盖当前科室，旧请求也不会恢复旧的日期分组和号源列表；下拉刷新开始即清空旧科室和号源读模型，失败时不得继续把上一轮目录当作当前事实；合法空科室目录必须展示明确空态。
 - 患者目录同步使用 provider 请求发起时间做快照版本；较早请求晚返回时，不能覆盖较新的患者资料、临床映射，
   也不能重新激活已被新快照标记为 inactive 的患者。
+- 原生小程序的患者目录读取和同步共用 `requirePatientListData` 运行时门禁，除列表总数外重新校验唯一 opaque
+  ID、关系/来源/临床访问枚举、展示文本和脱敏卡号，并只投影公共字段；异常 JSON 必须整批 fail-closed，不能
+  伪装成空目录或默认换人。该门禁只保护客户端协议边界，不能替代服务端 owner/HIS 映射；详细规则见
+  [`../release/miniprogram-patient-read-model-contract-2026-08-19.md`](../release/miniprogram-patient-read-model-contract-2026-08-19.md)。
 - 预约目录曾在配对候选中取得真实 Provider、内网 API 和微信开发者工具只读证据，且 `snapshotPersistenceStatus=persisted`；该观察不自动回填为当前 `b7c9451` 业务证据。预约历史、报告、门诊费用仍需分别完成当前 release 的 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 排班只读快照的 `observedAt` 与 `expiresAt` 必须使用同一次服务端时钟采样；快照有效只表示近期观察事实，不能单独授权锁号、预约或支付。
 - 预约只读目录的 adapter 会拒绝重复科室/排班主键；预约历史 adapter 也会拒绝重复的 `appointmentInfoId`，

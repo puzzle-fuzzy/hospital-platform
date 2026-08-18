@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：患者目录读取和同步现在共用原生小程序的 canonical 响应运行时校验。除 `total === items.length` 外，客户端会拒绝重复/非法 opaque `patientId`、未知关系或来源、未知临床访问状态、首尾空白展示文本和未脱敏卡号，并重新投影白名单字段；异常整批收敛为 `provider-response-invalid`，不伪装成空目录或触发默认换人。该修正不改变服务端 owner/HIS 映射、不开放新增绑定，详见 [`miniprogram-patient-read-model-contract-2026-08-19.md`](release/miniprogram-patient-read-model-contract-2026-08-19.md)。
+
 - 2026-08-19：继续收紧“我的挂号”只读边界。小程序不再只依赖 `total`，会在渲染前拒绝未知预约状态、异常
   日期形状、越界展示字段和损坏列表，坏记录整批 fail-closed；这不开放全部挂号、详情、取消、预约写入或支付。
   详见 [`miniprogram-appointment-record-readonly-contract-2026-08-19.md`](release/miniprogram-appointment-record-readonly-contract-2026-08-19.md)。

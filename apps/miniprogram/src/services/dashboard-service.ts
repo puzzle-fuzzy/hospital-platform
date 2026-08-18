@@ -47,6 +47,61 @@ function hasBoundedDisplayText(
 	);
 }
 
+/** 患者资料的展示文本必须和服务端读模型一样没有控制字符或首尾空白。 */
+function hasSafePatientText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		Array.from(value).length > 0 &&
+		Array.from(value).length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+const PATIENT_RELATIONSHIPS = new Set<Patient["relationship"]>([
+	"self",
+	"spouse",
+	"child",
+	"parent",
+	"other",
+]);
+
+const PATIENT_SOURCES = new Set<Patient["source"]>([
+	"hospital-his",
+	"legacy-record",
+]);
+
+const PATIENT_CLINICAL_ACCESS = new Set<Patient["clinicalAccess"]>([
+	"ready",
+	"unavailable",
+]);
+
+function isPatientRelationship(
+	value: unknown,
+): value is Patient["relationship"] {
+	return PATIENT_RELATIONSHIPS.has(value as Patient["relationship"]);
+}
+
+function isPatientSource(value: unknown): value is Patient["source"] {
+	return PATIENT_SOURCES.has(value as Patient["source"]);
+}
+
+function isPatientClinicalAccess(
+	value: unknown,
+): value is Patient["clinicalAccess"] {
+	return PATIENT_CLINICAL_ACCESS.has(value as Patient["clinicalAccess"]);
+}
+
+/** 服务端患者读模型允许的脱敏卡号形状；完整卡号不得进入页面。 */
+const MASKED_CARD_NUMBER_PATTERN =
+	/^(?:未绑定|[A-Za-z0-9]{0,5}\*+[A-Za-z0-9]{0,4})$/u;
+
 /** 客户端只复核日期的自然日有效性，不把预约时间解释成设备时区的瞬时点。 */
 function isIsoCalendarDate(value: unknown): value is string {
 	if (typeof value !== "string") return false;
@@ -108,6 +163,55 @@ export function requireExactListData<T>(value: unknown): ExactListData<T> {
 		items: data.items as Array<T>,
 		total: data.total,
 	};
+}
+
+/**
+ * 在小程序收到 JSON 的边界重新校验患者读模型。
+ *
+ * `Patient` 来自 TypeScript 类型和服务端 contract，但微信响应本身仍是
+ * 运行时未知数据。只检查 `total` 会让未知关系、未脱敏卡号或重复 patientId
+ * 进入页面；重复 ID 还可能让选择页的点击事件命中错误记录。这里整批校验并
+ * 重新投影白名单字段，任何一条异常都返回稳定的 provider-response-invalid，
+ * 不能把坏目录降级成空列表或继续默认切换患者。
+ */
+export function requirePatientListData(value: unknown): ExactListData<Patient> {
+	const list = requireExactListData<unknown>(value);
+	const seenPatientIds = new Set<string>();
+	const items: Patient[] = [];
+	for (const item of list.items) {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			throw new ApiError("Patient response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+		const record = item as Record<string, unknown>;
+		if (
+			typeof record.id !== "string" ||
+			!isBoundedPatientId(record.id) ||
+			seenPatientIds.has(record.id) ||
+			!hasSafePatientText(record.displayName, 128) ||
+			!isPatientRelationship(record.relationship) ||
+			typeof record.cardNumberMasked !== "string" ||
+			!hasSafePatientText(record.cardNumberMasked, 128) ||
+			!MASKED_CARD_NUMBER_PATTERN.test(record.cardNumberMasked) ||
+			!isPatientSource(record.source) ||
+			!isPatientClinicalAccess(record.clinicalAccess)
+		) {
+			throw new ApiError("Patient response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+		seenPatientIds.add(record.id);
+		items.push({
+			id: record.id,
+			displayName: record.displayName,
+			relationship: record.relationship,
+			cardNumberMasked: record.cardNumberMasked,
+			source: record.source,
+			clinicalAccess: record.clinicalAccess,
+		});
+	}
+	return { items, total: list.total };
 }
 
 /**
@@ -339,7 +443,7 @@ export function loadHealth(): Promise<HealthResponse> {
 export function loadPatients(): Promise<Array<Patient>> {
 	return requestWithSession<PatientListResponse>({
 		url: "/patients",
-	}).then((payload) => requireExactListData<Patient>(payload.data).items);
+	}).then((payload) => requirePatientListData(payload.data).items);
 }
 
 /**
@@ -371,7 +475,7 @@ export function syncPatientsFromHospital(
 ): Promise<Array<Patient>> {
 	return runPatientSync(() =>
 		syncPatients(createIdempotencyKey(operationPrefix)).then(
-			(payload) => requireExactListData<Patient>(payload.data).items,
+			(payload) => requirePatientListData(payload.data).items,
 		),
 	);
 }

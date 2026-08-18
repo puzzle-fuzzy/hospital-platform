@@ -6,6 +6,7 @@ import {
 	loadOutpatientPaymentRecords,
 	requireAppointmentRecordListData,
 	requireExactListData,
+	requirePatientListData,
 	requireOutpatientPaymentListData,
 } from "./dashboard-service";
 
@@ -81,6 +82,48 @@ test("患者端列表响应 total 不一致时 fail-closed，不伪装成空列�
 		{ items: "not-an-array", total: 0 },
 	]) {
 		expect(() => requireExactListData(value)).toThrow("Patient list response");
+	}
+});
+
+test("患者目录响应必须保持脱敏读模型和唯一患者标识", () => {
+	const valid = {
+		items: [
+			{
+				id: "patient-001",
+				displayName: "患者甲",
+				relationship: "self" as const,
+				cardNumberMasked: "12345******1234",
+				source: "hospital-his" as const,
+				clinicalAccess: "ready" as const,
+			},
+		],
+		total: 1,
+	};
+
+	expect(requirePatientListData(valid)).toEqual(valid);
+
+	for (const invalid of [
+		{ ...valid, items: [{ ...valid.items[0], relationship: "friend" }] },
+		{ ...valid, items: [{ ...valid.items[0], source: "provider" }] },
+		{
+			...valid,
+			items: [{ ...valid.items[0], clinicalAccess: "ready-now" }],
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], cardNumberMasked: "6217001234567890" }],
+		},
+		{ ...valid, items: [{ ...valid.items[0], displayName: " 患者甲" }] },
+		{
+			...valid,
+			items: [valid.items[0], { ...valid.items[0] }],
+			total: 2,
+		},
+		{ ...valid, items: [{ ...valid.items[0], id: "\tpatient-001" }] },
+	]) {
+		expect(() => requirePatientListData(invalid)).toThrow(
+			"Patient response item",
+		);
 	}
 });
 
