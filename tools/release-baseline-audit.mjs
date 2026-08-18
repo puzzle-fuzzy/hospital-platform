@@ -55,6 +55,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "只读业务 contract 审计",
 	},
 	{
+		path: "docs/release/miniprogram-my-page-critical-path-2026-08-18.md",
+		label: "我的页面关键路径验收记录",
+	},
+	{
 		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
 		label: "报告只读 contract 审计",
 	},

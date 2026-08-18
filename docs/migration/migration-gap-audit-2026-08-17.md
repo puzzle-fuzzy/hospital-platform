@@ -27,7 +27,7 @@
   这些事实已补入旧端清单并通过 `pnpm migration:audit`，状态仍为“最后处理”，没有因此开放新端
   支付、医保、退款或 HIS 回写接口。
  - 当前线上新 API release 为 `1b94c46`，监听 `18081`；配套小程序构建来源为
-  `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`；旧 Python 服务继续监听 `8001`，旧服务、
+  `62ef5275522e60ecb823c0f189f48b7e38a9e347`；旧 Python 服务继续监听 `8001`，旧服务、
   旧 Redis namespace 和旧端口不能因为新端验收而停止。
 - `41c9c18` 已取得预约科室 62 条、排班 1 条的真实只读结果，并确认
   `snapshotPersistenceStatus=persisted`。这只为未来写入评估提供近期观察事实，仍不是锁号或预约授权。

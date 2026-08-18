@@ -14,12 +14,12 @@ import {
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
 } from "../../services/patient-navigation";
-import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {

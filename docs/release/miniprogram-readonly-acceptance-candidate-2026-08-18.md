@@ -10,15 +10,15 @@
 | 服务端 release | `1b94c46` | 服务器 `/home/ps/code/hospital-platform/releases/1b94c46` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `bc1752f` | 与服务端 `1b94c46` 配套的当前候选包，包含选择页手动刷新、会话代际隔离、认证响应回写门禁、预约目录级联查询边界、科室/日期旧事件门禁、挂号卡片操作事件门禁、报告目录详情事件门禁、报告详情的当前患者范围校验与失败态临床读模型清理、“我的”页菜单稳定 key、根入口全局脚本门禁、门诊费用失败态患者上下文清理、普通资料 409 后强制刷新边界、门诊缴费首次加载期间标签状态快照边界和首页目录请求生命周期边界 |
+| 小程序客户端 | `62ef527` | 与服务端 `1b94c46` 配套的当前候选包，包含选择页手动刷新、会话代际隔离、认证响应回写门禁、预约目录级联查询边界、科室/日期旧事件门禁、挂号卡片操作事件门禁、报告目录详情事件门禁、报告详情的当前患者范围校验与失败态临床读模型清理、“我的”页菜单稳定 key、根入口全局脚本门禁、门诊费用失败态患者上下文清理、普通资料 409 后强制刷新边界、门诊缴费首次加载期间标签状态快照边界、首页目录请求生命周期边界和“我的”页患者关键路径/资料降级边界 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
-| 小程序构建来源 | `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 122 项 / 1048 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `bc1752f` |
+| 小程序构建来源 | `62ef5275522e60ecb823c0f189f48b7e38a9e347` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 122 项 / 1052 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `62ef527` |
 | 全仓回归 | 9/9 package、API 115/115、工具 14/14 | `1b94c46` 后的 `pnpm check` 已通过；服务端 release 已按无损 runbook 切换，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `bc1752f` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`bc1752f` 延续空目录下已有选择进入 `stale` 的修正，保留首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，让所有认证响应在交付前核对会话代际，删除会并行请求未指定科室排班的误导性 helper，拒绝刷新期间已经脱离当前科室或日期分组的旧 WXML 事件，让挂号卡片和报告目录详情操作按渲染批次 key 回查而不是直接信任旧 WXML 引用，让报告详情请求同时携带当前 patientId 由服务端复核患者范围，让报告详情错误态清空上一轮检测项、报告时间和附件标记，让“我的”页先确认 `/me` 再读取患者目录和普通资料，并让未迁移菜单使用稳定的 `title` key，避免没有 action 的入口共享 `undefined` key；本轮同时修复了 `app.ts` 被 Node16 输出包裹成 CommonJS 后导致微信 `appService` 中 `define/exports` 不存在的问题，修正门诊费用失败时不能残留上一轮患者卡片的问题，在普通资料收到 `user-profile-conflict` 后退出 loaded 可编辑态、强制下拉刷新取得最新 version，并让门诊缴费在患者目录确认后即可接收标签切换、以新 requestToken 淘汰旧费用请求，把根入口形态、费用失败态、报告详情失败态、资料并发冲突边界和门诊费用标签竞态纳入构建门禁。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`。
+客户端候选的 `dist/` 必须由 `62ef527` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`62ef527` 延续空目录下已有选择进入 `stale` 的修正，保留首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，让所有认证响应在交付前核对会话代际，删除会并行请求未指定科室排班的误导性 helper，拒绝刷新期间已经脱离当前科室或日期分组的旧 WXML 事件，让挂号卡片和报告目录详情操作按渲染批次 key 回查而不是直接信任旧 WXML 引用，让报告详情请求同时携带当前 patientId 由服务端复核患者范围，让报告详情错误态清空上一轮检测项、报告时间和附件标记，让“我的”页先确认 `/me` 再读取患者目录和普通资料，并让未迁移菜单使用稳定的 `title` key，避免没有 action 的入口共享 `undefined` key；本轮同时修复了 `app.ts` 被 Node16 输出包裹成 CommonJS 后导致微信 `appService` 中 `define/exports` 不存在的问题，修正门诊费用失败时不能残留上一轮患者卡片的问题，在普通资料收到 `user-profile-conflict` 后退出 loaded 可编辑态、强制下拉刷新取得最新 version，让门诊缴费在患者目录确认后即可接收标签切换、以新 requestToken 淘汰旧费用请求，并把“我的”页普通资料慢响应不再阻塞患者目录关键路径纳入构建门禁。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `62ef5275522e60ecb823c0f189f48b7e38a9e347`。
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 
