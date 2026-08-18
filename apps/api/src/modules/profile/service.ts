@@ -5,11 +5,12 @@ import type {
 import {
 	type AdapterCallContext,
 	emptyUserProfile,
-	UserProfileInputError,
-	UserProfileVersionConflictError,
+	MAX_USER_PROFILE_VERSION,
 	type UserGender,
 	type UserProfile,
+	UserProfileInputError,
 	type UserProfileRepository,
+	UserProfileVersionConflictError,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
@@ -39,12 +40,21 @@ function containsControlCharacter(value: string): boolean {
 	});
 }
 
+/**
+ * 契约中的“字符”按 Unicode code point 计数，而不是 JavaScript 的 UTF-16
+ * code unit。否则一个 emoji 会被算成两个字符，中文和特殊符号会在服务层
+ * 被过早拒绝；数据库 utf8mb4 的 VARCHAR(64) 也不是按 UTF-16 code unit 限制。
+ */
+function characterCount(value: string): number {
+	return Array.from(value).length;
+}
+
 function normalizeDisplayName(value: string | undefined): string | undefined {
 	if (value === undefined) return undefined;
 	const normalized = value.trim();
 	if (
 		!normalized ||
-		normalized.length > 64 ||
+		characterCount(normalized) > 64 ||
 		containsControlCharacter(normalized)
 	) {
 		throw new UserProfileInputError("displayName is invalid");
@@ -63,7 +73,11 @@ function normalizeGender(
 }
 
 function normalizeVersion(value: number): number {
-	if (!Number.isSafeInteger(value) || value < 0) {
+	if (
+		!Number.isSafeInteger(value) ||
+		value < 0 ||
+		value > MAX_USER_PROFILE_VERSION
+	) {
 		throw new UserProfileInputError("version is invalid");
 	}
 	return value;

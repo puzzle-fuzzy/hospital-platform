@@ -50,6 +50,12 @@ export const UserGenderSchema = Type.Union([
 	Type.Literal("unknown"),
 ]);
 
+/**
+ * 普通资料版本最终落在 MySQL INT UNSIGNED；API 不能接受超出数据库范围的
+ * 客户端版本，否则会把一个可预期的输入错误推迟成持久化异常。
+ */
+export const MAX_USER_PROFILE_VERSION = 4_294_967_295;
+
 /** 个人资料只返回平台展示字段，不返回微信身份、实名或患者字段。 */
 export const UserProfileSchema = Type.Object({
 	displayName: Type.String({ minLength: 1, maxLength: 64 }),
@@ -60,7 +66,7 @@ export const UserProfileSchema = Type.Object({
 		Type.Null(),
 	]),
 	/** 0 表示尚未持久化，正整数表示已落库版本。 */
-	version: Type.Integer({ minimum: 0 }),
+	version: Type.Integer({ minimum: 0, maximum: MAX_USER_PROFILE_VERSION }),
 });
 
 export const UserProfileResponse = Type.Object({
@@ -77,7 +83,7 @@ export const UserProfileResponse = Type.Object({
  */
 export const UserProfileUpdateRequest = Type.Object(
 	{
-		version: Type.Integer({ minimum: 0 }),
+		version: Type.Integer({ minimum: 0, maximum: MAX_USER_PROFILE_VERSION }),
 		displayName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 		gender: Type.Optional(UserGenderSchema),
 		age: Type.Optional(

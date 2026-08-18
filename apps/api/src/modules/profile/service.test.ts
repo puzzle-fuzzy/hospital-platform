@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createInMemoryUserProfileRepository } from "@hospital/persistence";
-import { createLogger } from "@hospital/observability";
 import {
 	UserProfileInputError,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
+import { createLogger } from "@hospital/observability";
+import { createInMemoryUserProfileRepository } from "@hospital/persistence";
 import { UserProfileService } from "./service";
 
 test("普通资料不存在时返回默认值且不产生持久化副作用", async () => {
@@ -272,4 +272,56 @@ test("普通资料版本冲突保留 409 语义并记录低敏 trace 事件", as
 	});
 	expect(JSON.stringify(conflict)).not.toContain("profile-user-004");
 	expect(JSON.stringify(conflict)).not.toContain("旧设备资料");
+});
+
+test("普通资料按 Unicode 字符计数，允许 64 个中文或 emoji 字符并拒绝第 65 个", async () => {
+	const service = new UserProfileService(createInMemoryUserProfileRepository());
+
+	await expect(
+		service.update(
+			"profile-unicode-001",
+			{ version: 0, displayName: "中".repeat(64) },
+			{
+				traceId: "profile-unicode-trace-001",
+				idempotencyKey: "profile-unicode-key-001",
+			},
+		),
+	).resolves.toMatchObject({ version: 1 });
+
+	await expect(
+		service.update(
+			"profile-unicode-002",
+			{ version: 0, displayName: "😀".repeat(64) },
+			{
+				traceId: "profile-unicode-trace-002",
+				idempotencyKey: "profile-unicode-key-002",
+			},
+		),
+	).resolves.toMatchObject({ version: 1 });
+
+	await expect(
+		service.update(
+			"profile-unicode-003",
+			{ version: 0, displayName: "中".repeat(65) },
+			{
+				traceId: "profile-unicode-trace-003",
+				idempotencyKey: "profile-unicode-key-003",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+});
+
+test("普通资料拒绝超出 MySQL INT UNSIGNED 的版本", async () => {
+	const service = new UserProfileService(createInMemoryUserProfileRepository());
+
+	await expect(
+		service.update(
+			"profile-version-001",
+			{ version: 4_294_967_296, displayName: "版本越界" },
+			{
+				traceId: "profile-version-trace-001",
+				idempotencyKey: "profile-version-key-001",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
 });

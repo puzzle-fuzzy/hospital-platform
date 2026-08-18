@@ -198,6 +198,7 @@ export type {
 } from "./user-profile";
 export {
 	emptyUserProfile,
+	MAX_USER_PROFILE_VERSION,
 	UserProfileInputError,
 	UserProfileVersionConflictError,
 } from "./user-profile";

@@ -442,6 +442,28 @@ test("MySQL ordinary profile preserves null as the explicit clear value", async 
 	]);
 });
 
+test("MySQL ordinary profile rejects a version beyond INT UNSIGNED", async () => {
+	const { pool } = createFakePool([
+		[
+			{
+				user_id: "user-profile-version-overflow-001",
+				display_name: "版本异常",
+				gender: "unknown",
+				age: null,
+				email: null,
+				version: 4_294_967_296,
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	// 数据库读模型也必须 fail-closed；不能因为历史脏数据超出写入边界，
+	// 就把它当作可继续递增的正常版本交给资料服务。
+	await expect(
+		repositories.userProfiles.findByUserId("user-profile-version-overflow-001"),
+	).rejects.toThrow("invalid user profile version");
+});
+
 test("MySQL patient snapshot clears missing clinical references by stable internal id", async () => {
 	const existingPatient = {
 		patient_id: "stable-internal-patient-001",

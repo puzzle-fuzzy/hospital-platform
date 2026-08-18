@@ -1,5 +1,10 @@
+import { MAX_USER_PROFILE_VERSION as CONTRACT_MAX_USER_PROFILE_VERSION } from "@hospital/contracts";
+
 /** 普通个人资料允许的性别枚举；实名资料不属于这个领域。 */
 export type UserGender = "male" | "female" | "unknown";
+
+/** 由 contracts 与 MySQL INT UNSIGNED 共同冻结的资料版本上限。 */
+export const MAX_USER_PROFILE_VERSION = CONTRACT_MAX_USER_PROFILE_VERSION;
 
 /**
  * 平台普通个人资料。

@@ -32,6 +32,7 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
+	MAX_USER_PROFILE_VERSION,
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
@@ -395,7 +396,11 @@ function userGender(value: string): UserProfile["gender"] {
 function userProfile(row: UserProfileRow): UserProfile {
 	const version = Number(row.version);
 	const age = row.age === null ? null : Number(row.age);
-	if (!Number.isSafeInteger(version) || version < 1) {
+	if (
+		!Number.isSafeInteger(version) ||
+		version < 1 ||
+		version > MAX_USER_PROFILE_VERSION
+	) {
 		throw new Error("Persistence returned an invalid user profile version");
 	}
 	if (age !== null && (!Number.isSafeInteger(age) || age < 0 || age > 150)) {
