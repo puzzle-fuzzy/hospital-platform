@@ -961,7 +961,9 @@ test("native appointment record actions reject stale index events", async () => 
 	expect(records).toContain("findVisibleRecord");
 	expect(records).toContain("event.currentTarget?.dataset?.viewKey");
 	expect(records).toContain("renderGeneration: number");
-	expect(view).toContain("`${prefix}-${renderGeneration}-${index}`");
+	expect(view).toMatch(
+		/viewKey: `\$\{prefix\}-\$\{renderGeneration\}-\$\{index\}`/,
+	);
 	expect(template).toContain('data-view-key="{{item.viewKey}}"');
 	expect(template).not.toContain('data-index="{{index}}"');
 });
