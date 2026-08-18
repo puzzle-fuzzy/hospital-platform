@@ -26,6 +26,7 @@
 | [`release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md) | 首页患者目录旧请求、页面卸载和错误回写的生命周期边界 |
 | [`release/miniprogram-my-page-critical-path-2026-08-18.md`](release/miniprogram-my-page-critical-path-2026-08-18.md) | “我的”页患者目录关键路径、普通资料降级读取和页面实例并发边界 |
 | [`release/report-readonly-contract-audit-2026-08-18.md`](release/report-readonly-contract-audit-2026-08-18.md) | 报告目录/详情的患者归属、短期 opaque 引用、Provider 文本边界、日志和真实验收缺口 |
+| [`release/current-public-readonly-smoke-2026-08-18-2025.md`](release/current-public-readonly-smoke-2026-08-18-2025.md) | 重启后的公网 live/ready/system-ping 与未登录认证边界复核；不代表真实业务验收 |
 | [`release/current-release-p0-observation-2026-08-17-2129.md`](release/current-release-p0-observation-2026-08-17-2129.md) | `bf67b96` 21:29 CST 当前 release 的新旧服务共存、公网 ready 和只读业务事件增量观察 |
 | [`logging.md`](logging.md) | Pino 事件、脱敏字段、requestId/traceId 和 journald 检索 |
 | [`../README.md`](../README.md) | 项目状态、开发命令和公开 API 概览 |
