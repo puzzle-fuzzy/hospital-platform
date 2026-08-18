@@ -5,6 +5,9 @@
 
 ## 0. 当前检查点（2026-08-19）
 
+- 当前线上服务端 release 为 `b7c9451`，配套小程序构建来源为
+  `a45d35edd91aab1a3a83c77301c9984402686145`；本文件的 Provider 材料门禁不因 release 切换而放宽。
+
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
   `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
 - `docs/provider-contract-v1.md` 只冻结了平台侧的候选 endpoint 和公开字段边界，不能代替报告 Provider 的版本、环境、权限、

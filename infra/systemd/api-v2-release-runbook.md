@@ -191,6 +191,13 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换到当前 `current`，只重启
+`hospital-platform-api-v2.service`。第一次 `sudo -n` 因服务器要求密码被保护分支回滚，随后使用标准
+`sudo -S` 完成同一范围的重启；回滚分支确认没有影响旧 Python。切换后新 API 的 production 启动字段、内外网
+live/ready/system-ping、未登录 `401`、`no-store` 和 `18081`/`8001` 共存均通过，Worker inactive，
+`18082` 无残留。当前 release 使用带 `correlation` 的 P0 聚合和业务证据 bundle；完整记录见
+[`../../docs/release/b7c9451-production-acceptance-2026-08-19.md`](../../docs/release/b7c9451-production-acceptance-2026-08-19.md)。
+
 2026-08-18 15:23-15:25 CST：候选 `4ae2a31` 已完成八个 bundle SHA-256 对照、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke 和正常 SIGTERM 回收，随后从 `9acdaf2` 原子切换到
 `4ae2a31`，只重启新 API。切换后内网/公网 live、ready、system-ping 均通过，ready 的 database/redis/schema 为 `ok`；

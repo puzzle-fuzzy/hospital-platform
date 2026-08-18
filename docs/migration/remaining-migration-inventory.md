@@ -7,9 +7,14 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-## 当前 release 基线（2026-08-18 22:57 CST）
+## 当前 release 基线（2026-08-19 00:50 CST）
 
-补充记录（2026-08-18 23:37 CST）：服务端 `b7c9451` 已作为未切换候选完成远端 checksum、真实生产依赖 preflight 和隔离 runtime smoke；线上 `current` 仍为 `c26e696`。候选只修正 P0 日志同 `traceId/requestId` 关联链门禁，不改变业务路由开放状态；旧 Python `8001` 未触碰，详见 [`../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md)。
+补充记录（2026-08-19 00:48–00:50 CST）：服务端 `b7c9451` 已从 `c26e696` 原子切换到线上 `current`，只重启新 API；
+P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和旧 Python `8001` 共存复核通过。第一次无密码 sudo
+被服务器拒绝后已精确回滚并复核，再使用标准 sudo 完成切换；没有修改旧服务、数据库、Redis 或 Worker。完整记录见
+[`../release/b7c9451-production-acceptance-2026-08-19.md`](../release/b7c9451-production-acceptance-2026-08-19.md)。
+
+补充记录（2026-08-18 23:37 CST）：服务端 `b7c9451` 曾作为未切换候选完成远端 checksum、真实生产依赖 preflight 和隔离 runtime smoke；随后已按受控窗口切换，当前事实以本节最新记录为准。候选只修正 P0 日志同 `traceId/requestId` 关联链门禁，不改变业务路由开放状态；旧 Python `8001` 未触碰，候选过程见 [`../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md)。
 
 补充记录（2026-08-18 23:40 CST）：当前 `c26e696` 重启后日志窗口已形成患者目录读取 `12/12`、同步 `6/6` 的同链服务端证据；微信登录、患者切换设备结果、预约历史、门诊费用、报告和普通资料仍不能由日志总数补齐，详见 [`../release/current-c26-p0-business-observation-2026-08-18-2340.md`](../release/current-c26-p0-business-observation-2026-08-18-2340.md)。
 
@@ -21,8 +26,8 @@
 
 最新运行复核（2026-08-18 23:54 CST）：误重启后系统 uptime、`current=c26e696`、新旧监听和 `hospital-platform-api-v2.service` 均未漂移，`18082` 无残留；内外网 live/ready 均为 200，ready 依赖为 `database/redis/schema=ok`。当前 P0 日志门禁仍只通过微信登录、患者读取和同步，预约历史、门诊费用、报告和普通资料没有业务链；这次记录不增加真机、多患者切换或 Provider 业务证据，详见 [`../release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md`](../release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md)。
 
-本节优先于下方历史盘点记录。当前服务端 release 为 `c26e696`，生产切换与新旧服务共存证据见
-[`../release/c26e696-production-acceptance-2026-08-18.md`](../release/c26e696-production-acceptance-2026-08-18.md)。下方仍保留
+本节优先于下方历史盘点记录。当前服务端 release 为 `b7c9451`，生产切换与新旧服务共存证据见
+[`../release/b7c9451-production-acceptance-2026-08-19.md`](../release/b7c9451-production-acceptance-2026-08-19.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
 - 当前小程序运行输入来源为 `a45d35e`，构建包 `dist/build-info.json` 的完整来源指纹为
@@ -32,7 +37,7 @@
 - 2026-08-18 23:27 CST：P0 业务证据门禁新增同一 `traceId/requestId` 关联链校验；日志聚合只输出 SHA-256
   指纹和事件计数，跨请求拼接的 `requested/success` 总数不再通过。该修正只影响验收工具和 worker bundle，未打开
   预约写入、支付、医保、HIS 或任何新的业务路由。
-- 当前服务器 release 为 `c26e696`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
+- 当前服务器 release 为 `b7c9451`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
   原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
 - `687690e` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；

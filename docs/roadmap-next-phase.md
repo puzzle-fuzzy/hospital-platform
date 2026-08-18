@@ -3,7 +3,14 @@
 本文档是新会话继续工作的入口，描述当前真实边界、业务优先级、工程治理和上线验收顺序。
 其中“已完成”只表示代码、测试或部署证据，不代表微信、众阳、医保、HIS、支付或真机已经完成真实验收。
 
-## 当前执行检查点（2026-08-18）
+## 当前执行检查点（2026-08-19）
+
+- 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换为线上 current，目标是部署带有
+  `traceId/requestId` 同链摘要的 P0 日志工具。只重启了新 `hospital-platform-api-v2.service`；旧 Python `8001`
+  未停止、未重启、未修改，Worker 仍 inactive，数据库/Redis/schema 没有写入。切换后新 API 生产启动字段、内外网
+  live/ready/system-ping、未登录 `401`、`no-store` 和双端口共存均通过；P0 聚合 `parseErrors=0`、
+  `systemdWarningCount=0`、`correlation.chainCount=10`、`truncated=false`。这只修正日志证据版本，不增加真实微信、
+  多患者、Provider 或真机业务完成度，完整记录见 [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md)。
 
 - 2026-08-19：针对小程序刷新可能携带旧 `apiPrefix` 导致 404 的边界，客户端已将公共前缀收紧为已注册的
   `/api/v1`、`/api/v2`，并按本地 HTTP/公网 HTTPS 使用不同安全回退；未知版本不会被正则表达式继续拼接。

@@ -47,7 +47,7 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "普通资料真机验收手册",
 	},
 	{
-		path: "docs/release/c26e696-production-acceptance-2026-08-18.md",
+		path: "docs/release/b7c9451-production-acceptance-2026-08-19.md",
 		label: "当前服务端生产切换证据",
 	},
 	{

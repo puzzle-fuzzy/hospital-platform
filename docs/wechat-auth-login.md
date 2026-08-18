@@ -5,6 +5,10 @@
 
 ## 当前结论
 
+当前线上新 API release 为 `b7c9451`，旧 Python `8001` 保持共存；生产切换和运行边界见
+[`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md)。
+该 release 切换只更新新服务的日志证据 bundle，不改变微信登录的业务开放边界。
+
 微信授权登录的代码闭环已经完成：
 
 1. 小程序调用 `wx.login()` 获取一次性 `code`。

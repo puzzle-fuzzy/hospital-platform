@@ -9,7 +9,8 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `c26e696`、配套小程序来源以 `a45d35edd91aab1a3a83c77301c9984402686145` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `b7c9451`、配套小程序来源以 `a45d35edd91aab1a3a83c77301c9984402686145` 为准 |
+| [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 当前 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |
 | [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前服务端候选切换、生产 preflight、隔离 smoke 和新旧服务共存证据 |
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
@@ -17,7 +18,7 @@
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板 |
 | [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c26e696`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
 | [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态以 `c26e696` 和配套小程序 sourceRevision 为准 |
-| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `c26e696` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
+| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `b7c9451` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊缴费的患者归属、窗口、错误分流、日志闭环和未完成证据审计 |
 | [`release/outpatient-payment-envelope-validation-2026-08-18.md`](release/outpatient-payment-envelope-validation-2026-08-18.md) | 门诊费用 Provider 响应包络必须明确 `success=true` 的代码修正、测试和未部署边界 |
@@ -51,6 +52,7 @@
 | [`release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md`](release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md) | `9ca3a89` Redis 会话 TTL 审计工具的独立上传、生产 preflight、临时 smoke 和 ACL fail-closed 证据；未切换生产 |
 | [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md) | `38bc553` 微信身份边界修复后的候选构建、产物 checksum、隔离 smoke、无损切换和未完成业务边界 |
 | [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前 `c26e696` 服务端生产切换、真实 env preflight、隔离 smoke、新旧服务共存和日志边界；配套小程序来源以完整 sourceRevision 为准 |
+| [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 当前 `b7c9451` P0 日志关联门禁生产切换、启动模式、内外网运行层和旧服务共存验收；不等同真实业务完成 |
 | [`release/current-c26-p0-business-observation-2026-08-18-2340.md`](release/current-c26-p0-business-observation-2026-08-18-2340.md) | 当前 `c26e696` 重启后 P0 日志只读观察；患者读取/同步同链证据通过，其他业务域仍缺证据，不等同真机验收 |
 | [`release/current-c26-p0-business-observation-2026-08-18-2349.md`](release/current-c26-p0-business-observation-2026-08-18-2349.md) | 当前 `c26e696` 新 HTTP 完成门禁下的最新日志观察；微信登录、患者读取/同步同链通过，其他业务域仍缺证据 |
 | [`release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md`](release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md) | 误重启后的当前 `c26e696` 运行层、双服务共存和 P0 日志门禁复核；不等同真机业务验收 |
