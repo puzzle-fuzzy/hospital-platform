@@ -287,6 +287,17 @@ function responseItems(
 			false,
 		);
 	}
+	// 2.6.33 的响应包络明确包含布尔型 success；不能因为 data 恰好是数组
+	// 就跳过这个事实校验。否则上游返回 `{ data: [] }`、`success: "false"`
+	// 或其他异常包络时，患者端会看到“暂无费用”，把 Provider 故障误报成
+	// 合法空列表。裸数组仍作为兼容 2.6.33 实际返回体的独立形态处理，
+	// 但一旦选择包络形态，就必须明确声明 success=true。
+	if (envelope.success !== true) {
+		throw providerError(
+			"Zhongyang outpatient response success flag was invalid",
+			requestId,
+		);
+	}
 	if (Array.isArray(envelope.data)) {
 		return envelope.data.map((item) => objectValue(item, requestId));
 	}

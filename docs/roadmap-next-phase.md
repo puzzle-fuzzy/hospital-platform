@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：门诊费用只读 adapter 收紧 Provider 响应包络：2.6.33 的包络形态现在必须明确
+  `success=true`，`{data: []}` 或非布尔 success 不再伪装成合法空列表；Provider 明确
+  `success=false` 仍保留业务拒绝分支。新增 2 个回归场景，定向 adapter/API 测试通过；本次未部署、
+  未重启新旧服务、未修改小程序或旧 Python 服务。详情见
+  [`release/outpatient-payment-envelope-validation-2026-08-18.md`](release/outpatient-payment-envelope-validation-2026-08-18.md)。
+
 - 2026-08-18：`691ba28` 收紧“我的”页关键加载路径。会话确认后患者目录与普通资料并行读取，患者目录先提交并结束关键加载态，
   普通资料只作为可降级昵称增强；新一轮读取先清理旧昵称，资料失败不覆盖患者上下文错误，所有回写仍受页面实例请求守卫保护。
   小程序回归为 122 项、1052 个断言，TypeScript 构建和 `runtime:verify` 通过；本轮未部署服务端、未重启新旧服务、未触碰用户已有的

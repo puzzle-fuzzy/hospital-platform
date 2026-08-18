@@ -19,6 +19,7 @@
 | [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `1b94c46` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊缴费的患者归属、窗口、错误分流、日志闭环和未完成证据审计 |
+| [`release/outpatient-payment-envelope-validation-2026-08-18.md`](release/outpatient-payment-envelope-validation-2026-08-18.md) | 门诊费用 Provider 响应包络必须明确 `success=true` 的代码修正、测试和未部署边界 |
 | [`release/miniprogram-outpatient-error-context-2026-08-18.md`](release/miniprogram-outpatient-error-context-2026-08-18.md) | 门诊费用失败态清理患者上下文、可达选择空态和本地回归证据 |
 | [`release/miniprogram-outpatient-tab-race-2026-08-18.md`](release/miniprogram-outpatient-tab-race-2026-08-18.md) | 门诊缴费首次加载期间切换待缴/已缴标签的状态快照和旧请求淘汰边界 |
 | [`release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md) | 首页患者目录旧请求、页面卸载和错误回写的生命周期边界 |

@@ -136,6 +136,40 @@ test("众阳门诊费用明确业务拒绝不误报为响应结构异常", async
 	});
 });
 
+test("众阳门诊费用包络缺少明确 success=true 时拒绝伪装成空列表", async () => {
+	const createGateway = (payload: unknown, requestId: string) =>
+		createZhongyangOutpatientPaymentGateway({
+			baseUrl: "https://zhongyang.example.test",
+			authSysCode: "thirdSelfMachine",
+			fetcher: async () =>
+				new Response(JSON.stringify(payload), {
+					status: 200,
+					headers: { "x-request-id": requestId },
+				}),
+		});
+	const input = {
+		providerPatientId: "provider-patient-secret",
+		startTime: "2026-08-16 00:00:00",
+		endTime: "2026-08-16 23:59:59",
+		status: "unpaid" as const,
+	};
+
+	for (const [payload, requestId] of [
+		[{ data: [] }, "missing-success-flag"],
+		[{ success: "true", data: [] }, "non-boolean-success-flag"],
+	] as const) {
+		await expect(
+			createGateway(payload, requestId).listRecords(input, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "outpatient-payment-records",
+			requestId,
+			retryable: false,
+			responseInvalid: true,
+		});
+	}
+});
+
 test("众阳门诊费用 adapter 拒绝缺失金额而不是降级为零元", async () => {
 	const gateway = createZhongyangOutpatientPaymentGateway({
 		baseUrl: "https://zhongyang.example.test",
