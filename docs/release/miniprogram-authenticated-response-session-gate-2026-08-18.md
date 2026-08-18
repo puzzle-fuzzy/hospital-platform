@@ -20,7 +20,7 @@
 - 小程序 typecheck：通过。
 - 小程序测试：115 项通过、0 失败、997 个断言。
 - Biome format：228 个文件通过；Biome lint：229 个文件通过。
-- 运行包来源必须在下一次构建后重新核对；旧 `dist/build-info.json` 不能作为本次源代码变更的运行证据。
+- 本次构建已核对 `dist/build-info.json.sourceRevision=4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，14 个页面脚本和根文件运行包检查通过。
 
 ## 发布边界
 

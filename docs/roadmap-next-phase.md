@@ -10,6 +10,7 @@
 - 在患者同步代际隔离之外，原生小程序认证请求层现在会在响应交付前再次核对会话代际；旧账号的患者目录、资料、预约、报告、费用或预支付响应不会因为 HTTP 200 而进入新账号页面。
 - 401 的既有单次重试仍然保留，但重试会重新绑定新 token 的代际；`session-changed` 不会被当作普通网络错误重试，避免把旧请求无限延长。
 - 新增真实延迟响应回归测试和中文业务注释；本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务。
+- 当前小程序候选来源为 `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，14 个页面运行包已重新构建并通过 `runtime:verify`；全仓 `pnpm check` 通过，小程序为 115 项测试、997 个断言。
 - 详细规则见 [`release/miniprogram-authenticated-response-session-gate-2026-08-18.md`](release/miniprogram-authenticated-response-session-gate-2026-08-18.md)。
 
 ### 本地候选与当前线上增量（2026-08-18）
