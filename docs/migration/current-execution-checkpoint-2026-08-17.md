@@ -3,25 +3,26 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 截至 2026-08-18 15:25 CST，本地仓库 `main` 的当前 HEAD 以 Git history 为准，线上 API release 已切换为 `4ae2a31`；本轮已完成候选上传、隔离 smoke 和只重启新 API；新 Bun/Elysia API
+> 截至 2026-08-18 15:25 CST，本地仓库 `main` 的当前 HEAD 以 Git history 为准，线上 API release 已切换为 `1b94c46`；本轮已完成候选上传、隔离 smoke 和只重启新 API；新 Bun/Elysia API
 > 监听 `10.0.0.3:18081`，旧 Python API 继续监听 `8001`。此前的 `b3c9a99`、`5f5915e`、`bf67b96` 等内容均为历史段落，
 > 不能继续当作当前线上事实。当前 release 的发布和业务证据见
-> [`../release/4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md)；真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> [`../release/1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md)；配套小程序构建来源为
+> `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
 > [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
 
 ## 1. 当前事实
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码基线 | `main` 当前 HEAD（以 Git history 为准）；生产运行 bundle 的代码来源为 `4ae2a31`，仓库 HEAD 不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
-| 线上新 API | `4ae2a31`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md) |
+| 仓库代码基线 | `main` 当前 HEAD（以 Git history 为准）；生产运行 bundle 的代码来源为 `1b94c46`，仓库 HEAD 不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
+| 线上新 API | `1b94c46`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md) |
-| 运行前置 | 公网 live、ready、system ping 通过，隔离 smoke ready 连续 3/3，未登录受保护路由返回 `401/unauthorized`；切换后启动日志为 production 且依赖均为 `ok` | [`../release/4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md) |
+| 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md) |
+| 运行前置 | 公网 live、ready、system ping 通过，隔离 smoke ready 连续 3/3，未登录受保护路由返回 `401/unauthorized`；切换后启动日志为 production 且依赖均为 `ok` | [`../release/1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
-2026-08-18 15:23-15:25 CST 的切换后 SSH/公网只读复核确认 `4ae2a31`、新 `10.0.0.3:18081`、旧 `0.0.0.0:8001` 和内外网
+2026-08-18 15:23-15:25 CST 的切换后 SSH/公网只读复核确认 `1b94c46`、新 `10.0.0.3:18081`、旧 `0.0.0.0:8001` 和内外网
 readiness 均正常；本次只重启新 API，没有修改旧服务、旧端口或数据库。此前 `c63dba9` 的日志和业务事件仍按历史 release 理解，不能回填当前业务验收。
 
 2026-08-18 13:20 CST 的增量只读复核再次确认双端口共存和 readiness 的 database/redis/schema `ok`；切换后日志聚合仍只有
@@ -128,7 +129,7 @@ production、MySQL/Redis/schema `ok`、支付/报告 gate 关闭；公网 runtim
 
 ### P0：已有代码，但缺真实业务证据
 
-这些不是继续加页面，而是用当前 `4ae2a31` 完成真实链路：
+这些不是继续加页面，而是用当前 `1b94c46` 服务端与配套小程序候选完成真实链路：
 
 1. 微信登录、Redis 会话实际 TTL、`/me` 恢复；
 2. 患者同步 replay、第二位就诊人、多患者切换、inactive/recovery；
@@ -226,8 +227,8 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 
 > 本节保留历次候选版本、历史服务窗口和代码提交的追溯记录。每条记录中的“当前 release”、
 > schema、端口和业务事件只对它自己的时间窗口成立，不得覆盖第 1 节的当前事实，也不能回填
-> `4ae2a31` 的真机、Provider 或 Redis TTL 验收。需要当前证据时，优先阅读本节前的当前事实、
-> [`4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md)
+> `1b94c46` 的真机、Provider 或 Redis TTL 验收。需要当前证据时，优先阅读本节前的当前事实、
+> [`1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md)
 > 和 [`p0-readonly-business-acceptance-runbook-2026-08-17.md`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
 
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
