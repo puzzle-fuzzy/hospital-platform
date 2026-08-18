@@ -14,6 +14,12 @@
   [`release/miniprogram-session-display-boundary-2026-08-19.md`](release/miniprogram-session-display-boundary-2026-08-19.md)。当前本地小程序候选已更新为
   `379eae2a528265df900030cea6e8dc45a82902c1`，尚未上传或替换线上小程序包。
 
+- 2026-08-19 01:06–01:09 CST：使用当前候选 `379eae2` 在新 `miniprogram` 开发者工具项目完成首页、独立就诊人选择/刷新、
+  “我的”、普通资料只读和“我的挂号”只读观察；预约历史最终显示当前就诊人的空记录态，未执行 PUT、预约、绑定、支付或医保操作。
+  工具 Console 出现的 `clickCheckTask`、`undefined is not iterable` 和 `webviewScriptError` 栈均落在微信开发者工具内部
+  `appservice`，没有项目源码调用栈，暂不加入猜测性兼容代码，必须在新项目手机真机上复核。完整记录见
+  [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md)。
+
 - 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换为线上 current，目标是部署带有
   `traceId/requestId` 同链摘要的 P0 日志工具。只重启了新 `hospital-platform-api-v2.service`；旧 Python `8001`
   未停止、未重启、未修改，Worker 仍 inactive，数据库/Redis/schema 没有写入。切换后新 API 生产启动字段、内外网

@@ -186,13 +186,13 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
 | --- | --- | --- | --- |
-| 微信登录与平台会话 | `auth`、Redis session | `687690e` 已通过 production preflight、隔离 smoke、公网 readiness 和认证边界检查；当前 release 启动窗口尚无真实微信业务事件 | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成；日志成功不等于页面验收 |
+| 微信登录与平台会话 | `auth`、Redis session | 当前 `b7c9451` 已通过 production preflight、隔离 smoke、公网 readiness 和认证边界检查；当前 release 启动窗口尚无新的真实微信业务事件 | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成；日志成功不等于页面验收 |
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现；此前受控窗口曾同步 1 条 active 患者并建立 1 条 `his-patient` 映射，但该历史事实不能替代当前 release 的真机证据；页面首帧、读取/同步期间及失败时均不绘制未经确认的当前标记并保持 fail-closed | 真实失效/恢复数据、多患者显式切换、切换后的真机页面证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页、生产未登录 401，以及 2026-08-18 配对模拟器的 `GET /me/profile` 200 已验证；`ca46091` 又补充了 service 对仓储读模型的 owner、字段、版本二次校验和白名单投影，避免脏资料先记录成功事件 | 本轮未执行 PUT；真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；adapter 只接受已确认的 `usableSourceNum`，页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；缺少 `usableSourceNum` 的响应会 fail-closed；不能锁号、不能把 `scheduleId` 当成写入授权 |
-| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；历史 release 曾观察到预约记录与爽约筛选结果，当前 `687690e` 仍需重新取得同一业务域证据；在线渠道固定 `requestChannel=3`，在线标签只排除服务端明确的 `cancelled`，爽约页只接受 `missed`；全部渠道标签保留位置但 fail-closed 提示迁移中 | 全部渠道仍缺独立 `requestChannel=4` contract、Provider 字段、公网和真机业务证据；未知状态不能推导为爽约；缺口审计见 [`request-channel-4-all-records-contract-audit-2026-08-18.md`](request-channel-4-all-records-contract-audit-2026-08-18.md) |
+| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；历史 release 曾观察到预约记录与爽约筛选结果，当前 `b7c9451` 仍需重新取得同一业务域证据；在线渠道固定 `requestChannel=3`，在线标签只排除服务端明确的 `cancelled`，爽约页只接受 `missed`；全部渠道标签保留位置但 fail-closed 提示迁移中 | 全部渠道仍缺独立 `requestChannel=4` contract、Provider 字段、公网和真机业务证据；未知状态不能推导为爽约；缺口审计见 [`request-channel-4-all-records-contract-audit-2026-08-18.md`](request-channel-4-all-records-contract-audit-2026-08-18.md) |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现；跨 LIS/PACS/ECG 合并目录按严格可解析时间倒序，未知 Provider 时间放到末尾 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收；Provider 新时间格式仍须先取得脱敏样例 |
-| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；待缴/已缴各一次 `requested → loaded` 的空列表观察属于历史 release，当前 `687690e` 仍需重新取得业务证据，页面展示合法空态并保留患者更换入口 | 真实微信真机证据、费用详情、金额非空样例、支付、医保、结算回写和退费未开放；空列表不能替代费用字段和支付链路验收 |
+| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；待缴/已缴各一次 `requested → loaded` 的空列表观察属于历史 release，当前 `b7c9451` 仍需重新取得业务证据，页面展示合法空态并保留患者更换入口 | 真实微信真机证据、费用详情、金额非空样例、支付、医保、结算回写和退费未开放；空列表不能替代费用字段和支付链路验收 |
 | 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
 | 公众号说明 | `pages/official-account/official-account` | 旧端运行时静态通知说明已迁移；旧端二维码区域本身是注释代码，未有关注 API | 二维码、关注状态、订阅消息授权和真实发送结果属于未来新增能力 |
 | 意见反馈帮助 | `pages/feedback/feedback` | 旧端实际只有热点问题、客服电话和 Toast；新端保留静态内容并明确提示未开放，拨号需用户确认 | 真实反馈写入、客服工单、电话/工作时间受控配置属于未来新增能力 |
@@ -221,7 +221,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 - 预约目录切换左侧科室或下拉刷新时，确认旧科室排班不会覆盖当前科室，旧请求也不会恢复旧的日期分组和号源列表；下拉刷新开始即清空旧科室和号源读模型，失败时不得继续把上一轮目录当作当前事实；合法空科室目录必须展示明确空态。
 - 患者目录同步使用 provider 请求发起时间做快照版本；较早请求晚返回时，不能覆盖较新的患者资料、临床映射，
   也不能重新激活已被新快照标记为 inactive 的患者。
-- 预约目录曾在配对候选中取得真实 Provider、内网 API 和微信开发者工具只读证据，且 `snapshotPersistenceStatus=persisted`；该观察不自动回填为当前 `687690e` 业务证据。预约历史、报告、门诊费用仍需分别完成当前 release 的 provider、内网 API、公网 HTTPS 和真机四层证据。
+- 预约目录曾在配对候选中取得真实 Provider、内网 API 和微信开发者工具只读证据，且 `snapshotPersistenceStatus=persisted`；该观察不自动回填为当前 `b7c9451` 业务证据。预约历史、报告、门诊费用仍需分别完成当前 release 的 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 排班只读快照的 `observedAt` 与 `expiresAt` 必须使用同一次服务端时钟采样；快照有效只表示近期观察事实，不能单独授权锁号、预约或支付。
 - 预约只读目录的 adapter 会拒绝重复科室/排班主键；预约历史 adapter 也会拒绝重复的 `appointmentInfoId`，
   但不会为缺少预约号的摘要伪造稳定公开记录 ID，原生页面的渲染 key 不能作为可写入或详情引用。

@@ -17,6 +17,10 @@ export const currentBaselineDocuments = Object.freeze([
 		path: "docs/release/miniprogram-readonly-acceptance-candidate-2026-08-18.md",
 		label: "小程序只读业务验收候选",
 	},
+	{
+		path: "docs/release/miniprogram-current-candidate-simulator-observation-2026-08-19.md",
+		label: "小程序当前候选模拟器只读观察",
+	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
 	{
 		path: "docs/migration/current-execution-checkpoint-2026-08-17.md",
