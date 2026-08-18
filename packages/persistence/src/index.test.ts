@@ -400,6 +400,75 @@ test("患者目录旧租约在新代次接管后不能提交同步结果", async
 	).rejects.toThrow("operation is not active");
 });
 
+test("患者目录旧租约被接管后不能留下部分快照修改", async () => {
+	const patients = createInMemoryPatientRepository();
+	const begin = patients.beginDirectorySync;
+	const snapshot = patients.replaceDirectorySnapshot;
+	if (!begin || !snapshot)
+		throw new Error("patient sync repository unavailable");
+
+	await patients.upsertFromDirectory({
+		ownerUserId: "user-lease-002",
+		patientId: "patient-lease-002",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-lease-002",
+			displayName: "原始资料",
+			relationship: "self",
+			cardNumberMasked: "******0002",
+		},
+	});
+
+	const first = await begin({
+		ownerUserId: "user-lease-002",
+		provider: "zhongyang",
+		idempotencyKey: "lease-key-002",
+		now: "2026-08-16T00:00:00.000Z",
+		leaseUntil: "2026-08-16T00:00:01.000Z",
+	});
+	await begin({
+		ownerUserId: "user-lease-002",
+		provider: "zhongyang",
+		idempotencyKey: "lease-key-002",
+		now: "2026-08-16T00:00:01.001Z",
+		leaseUntil: "2026-08-16T00:00:02.001Z",
+	});
+
+	await expect(
+		snapshot({
+			ownerUserId: "user-lease-002",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T00:00:00.000Z",
+			operationId: first.operationId,
+			operationAttemptCount: first.attemptCount,
+			patients: [
+				{
+					patientId: "stale-patient-id",
+					profile: {
+						providerPatientId: "provider-lease-002",
+						displayName: "旧租约错误资料",
+						relationship: "self",
+						cardNumberMasked: "******9999",
+					},
+				},
+			],
+		}),
+	).rejects.toThrow("operation is not active");
+
+	// 旧代次被拒绝时，既不能改名，也不能把患者 ID 或脱敏卡号换成旧快照。
+	expect(await patients.listByOwner("user-lease-002")).toEqual([
+		{
+			id: "patient-lease-002",
+			ownerUserId: "user-lease-002",
+			displayName: "原始资料",
+			relationship: "self",
+			cardNumberMasked: "******0002",
+			source: "hospital-his",
+			clinicalAccess: "unavailable",
+		},
+	]);
+});
+
 test("appointment schedule snapshots reject stale observations and expire", async () => {
 	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
 	const schedule = {

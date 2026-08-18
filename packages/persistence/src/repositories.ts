@@ -159,11 +159,25 @@ export function createInMemoryPatientRepository(
 			? "ready"
 			: patient.clinicalAccess;
 	};
+	const listActivePatientsByOwner = (ownerUserId: string): PatientRecord[] =>
+		patients
+			.filter(
+				(patient) =>
+					patient.ownerUserId === ownerUserId &&
+					!inactivePatientIds.has(patient.id),
+			)
+			.map((patient) => ({
+				...patient,
+				clinicalAccess: clinicalAccessFor(patient),
+			}));
 
-	const upsertDirectoryAt = async (
+	// 这里刻意保持同步：内存仓储没有真实 I/O，快照替换必须在一次
+	// JavaScript 事件循环 turn 内完成，才能模拟 MySQL 事务的“校验租约、
+	// 修改快照、完成 operation”不可被同一进程内另一个调用插入的边界。
+	const upsertDirectoryAt = (
 		input: PatientDirectoryUpsertInput,
 		observedAt: string,
-	): Promise<PatientRecord> => {
+	): PatientRecord => {
 		const key = directoryKey(input);
 		const existingId = directoryIndex.get(key);
 		const existingIndex = existingId
@@ -232,16 +246,7 @@ export function createInMemoryPatientRepository(
 
 	return {
 		async listByOwner(ownerUserId) {
-			return patients
-				.filter(
-					(patient) =>
-						patient.ownerUserId === ownerUserId &&
-						!inactivePatientIds.has(patient.id),
-				)
-				.map((patient) => ({
-					...patient,
-					clinicalAccess: clinicalAccessFor(patient),
-				}));
+			return listActivePatientsByOwner(ownerUserId);
 		},
 		async beginDirectorySync(input): Promise<PatientDirectorySyncStart> {
 			const key = syncOperationKey(input);
@@ -330,7 +335,7 @@ export function createInMemoryPatientRepository(
 			}
 			const seenPatientIds = new Set<string>();
 			for (const patient of input.patients) {
-				const record = await upsertDirectoryAt(
+				const record = upsertDirectoryAt(
 					{
 						ownerUserId: input.ownerUserId,
 						patientId: patient.patientId,
@@ -397,7 +402,9 @@ export function createInMemoryPatientRepository(
 			}
 
 			const result = {
-				activePatients: await this.listByOwner(input.ownerUserId),
+				// 不能在 operation 完成校验前 await：否则旧租约可能在
+				// 快照已修改后被新代次接管，造成内存实现与 MySQL 事务语义不一致。
+				activePatients: listActivePatientsByOwner(input.ownerUserId),
 				deactivatedPatientCount,
 			};
 			if (input.operationId) {
