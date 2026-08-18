@@ -3,6 +3,7 @@ import {
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
 	createPastDateRange,
+	loadAppointmentSchedules,
 	loadOutpatientPaymentRecords,
 	requireAppointmentDepartmentListData,
 	requireAppointmentRecordListData,
@@ -65,6 +66,20 @@ test("门诊费用查询先拒绝空患者标识，不把无效查询交给 API"
 	expect(() => loadOutpatientPaymentRecords("", "unpaid")).toThrow(
 		"请先登录并选择就诊人",
 	);
+});
+
+test("预约排班查询在网络请求前拒绝损坏的科室标识", async () => {
+	// 科室 ID 是排班请求的归属边界；异常值必须在 requestWithSession 之前
+	// 收敛为稳定错误码，不能先被 URL 编码后交给 Provider 再等待失败。
+	await expect(
+		loadAppointmentSchedules(" ", BEIJING_MIDNIGHT),
+	).rejects.toMatchObject({ code: "appointment-query-invalid" });
+	await expect(
+		loadAppointmentSchedules("dept-001\n", BEIJING_MIDNIGHT),
+	).rejects.toMatchObject({ code: "appointment-query-invalid" });
+	await expect(
+		loadAppointmentSchedules("x".repeat(129), BEIJING_MIDNIGHT),
+	).rejects.toMatchObject({ code: "appointment-query-invalid" });
 });
 
 test("患者端列表响应要求 total 与完整 items 数量一致", () => {

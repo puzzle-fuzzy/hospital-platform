@@ -782,6 +782,18 @@ export function loadAppointmentSchedules(
 			}),
 		);
 	}
+	// 科室 ID 来自 WXML 事件和页面状态，不能因为它“通常由服务端返回”
+	// 就跳过运行时校验。空白、控制字符或超长值若先进入 URL，会制造一条
+	// 没有业务意义的 Provider 请求；即使响应阶段还能拒绝，也已经污染了
+	// 网络和日志链路。这里与排班响应的 `expectedDepartmentId` 使用同一形状
+	// 规则，保证请求前和回包后的科室归属校验不会出现两套边界。
+	if (!isBoundedAppointmentIdentifier(departmentId)) {
+		return Promise.reject(
+			new ApiError("预约科室参数不合法", {
+				code: "appointment-query-invalid",
+			}),
+		);
+	}
 	return requestAppointmentSchedules({
 		departmentId,
 		...createUpcomingDateRange(
