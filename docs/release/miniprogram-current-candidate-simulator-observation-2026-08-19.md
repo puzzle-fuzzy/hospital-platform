@@ -38,6 +38,24 @@
 
 开发者工具调试面板仍显示 `0 errors` 和若干微信基础库提示；本轮未观察到指向新小程序业务源文件的调用栈，不能因此加入未经证实的兼容代码。
 
+## 2.2 公网未登录边界复核（2026-08-19 01:45 CST）
+
+从工作区对当前公网入口 `https://test-hp.meiyi.pro/api/v2` 发起只读 GET：
+
+| 路由 | HTTP | 结果 |
+| --- | ---: | --- |
+| `/health/live` | 200 | `status=ok`，服务可达 |
+| `/health/ready` | 200 | `database=ok`、`redis=ok`、`schema=ok` |
+| `/system/ping` | 200 | `service=hospital-api`、`apiVersion=0.1.0` |
+| `/me` | 401 | `error.code=unauthorized` |
+| `/patients` | 401 | `error.code=unauthorized` |
+| `/me/profile` | 401 | `error.code=unauthorized` |
+| `/appointments/records?page=1&pageSize=10` | 401 | `error.code=unauthorized` |
+| `/payments/outpatient/records?page=1&pageSize=10` | 401 | `error.code=unauthorized` |
+
+本次没有携带 Bearer 会话，没有读取患者、资料、预约或费用正文，也没有触发 Provider、写入、支付或医保流程。
+这条证据只确认当前公网运行层和未登录认证边界正常，不能代替微信真机、多患者切换、Provider 字段或业务写入验收。
+
 ## 3. 工具层异常边界
 
 开发者工具 Console 出现 `clickCheckTask`、`undefined is not iterable` 和 `webviewScriptError`，调用栈落在本机
