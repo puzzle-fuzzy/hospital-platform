@@ -87,6 +87,8 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 固定 `grant_type=authorization_code`；
 - `40029` 等无效 code 不重试，`-1`/`45011` 分类为可重试；
 - 缺少 `openid` 或配置不完整时 fail-closed；
+- `openid`/`unionid` 只接受有限长度、无控制字符的字符串；字段类型异常不能被静默忽略，
+  必须让本次身份交换失败，避免日志记录“登录成功”但患者同步随后因身份不完整失败；
 - API 组合根只有在 `WECHAT_IDENTITY_READY=true` 时才注入它，默认仍使用 not-configured gateway。
 - API 只有同时注入真实 MySQL identity repository 和 Redis session store 才把启动日志标记为
   `authRuntimeStatus=ready`；缺任一依赖时登录保持 503 fail-closed。

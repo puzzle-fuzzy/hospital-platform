@@ -101,6 +101,70 @@ test("wechat identity adapter rejects a successful HTTP response without openid"
 	});
 });
 
+test("wechat identity adapter rejects malformed unionid instead of partial login", async () => {
+	const gateway = createWechatIdentityGateway({
+		appId: "wx-test-app",
+		appSecret: "test-secret",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					openid: "openid-001",
+					unionid: 123,
+				}),
+				{ status: 200 },
+			),
+	});
+
+	// 身份字段一旦异常，不能只忽略 unionid 或继续创建平台用户；否则登录
+	// 会被记录为成功，但后续患者目录又因缺少合法身份而失败，形成错误的
+	// “登录成功”假象。
+	await expect(
+		gateway.exchangeCode({ code: "login-code" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "wechat-identity",
+		retryable: false,
+	});
+});
+
+test("wechat identity adapter rejects control characters in openid", async () => {
+	const gateway = createWechatIdentityGateway({
+		appId: "wx-test-app",
+		appSecret: "test-secret",
+		fetcher: async () =>
+			new Response(JSON.stringify({ openid: "openid-\u0000-001" }), {
+				status: 200,
+			}),
+	});
+
+	await expect(
+		gateway.exchangeCode({ code: "login-code" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "wechat-identity",
+		message: "Wechat code2session openid is invalid",
+	});
+});
+
+test("wechat identity adapter rejects overlong identity values", async () => {
+	const gateway = createWechatIdentityGateway({
+		appId: "wx-test-app",
+		appSecret: "test-secret",
+		fetcher: async () =>
+			new Response(JSON.stringify({ openid: "o".repeat(129) }), {
+				status: 200,
+			}),
+	});
+
+	await expect(
+		gateway.exchangeCode({ code: "login-code" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		provider: "wechat-identity",
+		message: "Wechat code2session openid is invalid",
+	});
+});
+
 test("wechat identity adapter refuses incomplete credentials", () => {
 	expect(() =>
 		createWechatIdentityGateway({ appId: "", appSecret: "test-secret" }),

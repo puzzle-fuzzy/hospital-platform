@@ -4,11 +4,13 @@ import type {
 	WechatIdentityGateway,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
-import { requestJson, type ProviderFetcher } from "./http";
+import { type ProviderFetcher, requestJson } from "./http";
 
 const DEFAULT_WECHAT_IDENTITY_BASE_URL = "https://api.weixin.qq.com";
 const WECHAT_CODE2SESSION_PATH = "/sns/jscode2session";
 const AUTHORIZATION_GRANT_TYPE = "authorization_code";
+/** 微信身份标识只在服务端短暂流转，不能把异常长文本带入身份仓储。 */
+const MAX_WECHAT_IDENTITY_LENGTH = 128;
 
 type WechatCode2SessionResponse = {
 	openid?: unknown;
@@ -66,6 +68,46 @@ function identityTrace(requestId: string): ExternalTrace {
 		operation: "code2session",
 		requestId,
 	};
+}
+
+/**
+ * 严格收窄微信返回的身份字符串。
+ *
+ * `openid`/`unionid` 是后续 owner 映射的身份主键；如果只判断 openid 非空，
+ * 控制字符或异常长值可能进入 MySQL，`unionid` 的错误类型还会被静默忽略，
+ * 最终表现为“登录成功但患者同步没有身份”。这里不猜测 provider 的字符集，
+ * 只拒绝空白、控制字符、超长值和非字符串；字段异常必须整次登录失败，不能
+ * 降级成另一个身份或把不完整身份当作成功事实。
+ */
+function normalizeWechatIdentityValue(
+	value: unknown,
+	field: "openid" | "unionid",
+	requestId: string,
+): string | undefined {
+	if (value === undefined || value === null) return undefined;
+	if (typeof value !== "string") {
+		throw providerError({
+			message: `Wechat code2session ${field} is invalid`,
+			retryable: false,
+			requestId,
+		});
+	}
+	const normalized = value.trim();
+	if (
+		!normalized ||
+		Array.from(normalized).length > MAX_WECHAT_IDENTITY_LENGTH ||
+		Array.from(normalized).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		throw providerError({
+			message: `Wechat code2session ${field} is invalid`,
+			retryable: false,
+			requestId,
+		});
+	}
+	return normalized;
 }
 
 /**
@@ -132,10 +174,11 @@ export class WechatIdentityApiGateway implements WechatIdentityGateway {
 			});
 		}
 
-		const providerSubject =
-			typeof response.data.openid === "string"
-				? response.data.openid.trim()
-				: "";
+		const providerSubject = normalizeWechatIdentityValue(
+			response.data.openid,
+			"openid",
+			response.requestId,
+		);
 		if (!providerSubject) {
 			throw providerError({
 				message: "Wechat code2session response did not contain openid",
@@ -144,10 +187,11 @@ export class WechatIdentityApiGateway implements WechatIdentityGateway {
 			});
 		}
 
-		const unionId =
-			typeof response.data.unionid === "string"
-				? response.data.unionid.trim()
-				: undefined;
+		const unionId = normalizeWechatIdentityValue(
+			response.data.unionid,
+			"unionid",
+			response.requestId,
+		);
 		return {
 			providerSubject,
 			...(unionId ? { unionId } : {}),
