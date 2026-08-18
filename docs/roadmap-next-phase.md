@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：收紧小程序微信登录与 `/me` 会话恢复的客户端响应边界。登录成功 JSON 不再只依赖 truthy token，
+  必须完整校验 success、Bearer、过期时间、token 和内部 user id；`/me` 也必须返回安全的 owner 引用，未知字段会被
+  白名单重投影。协议异常统一 fail-closed 为 `provider-response-invalid`，401 的重新登录/命令禁止重放边界保持不变。
+  代码提交 `c727e1c`，小程序定向测试 152/152、1215 个断言和类型检查通过。该修正不代表真实微信真机、Provider、
+  MySQL/Redis 或线上小程序验收，详见 [`miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
+
 - 2026-08-19：报告目录与 LIS 详情补齐小程序 API client 的 canonical 运行时响应校验。目录拒绝未知来源/状态、异常展示字段、
   非 LIS 详情引用、重复 `reportId` 和错误总数；详情必须匹配请求的 opaque `reportId`，并逐项校验检测结果与标记枚举。
   损坏响应统一收敛为 `provider-response-invalid`，不把临床坏数据降级成空列表或空检测项。报告 Provider gate、影像/心电详情和附件
@@ -906,7 +912,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片、切换就诊人和报告目录，确认页面只显示脱敏卡号与平台摘要；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `b7c9451` 和小程序候选 `4d56496` 重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `b7c9451` 和小程序候选 `c727e1c` 重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -917,7 +923,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 当前服务端 release `b7c9451` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `b7c9451` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用与之配套的 `4d56496` 小程序候选（完整构建来源：`4d56496be950643e0628af482cd0aecc1c2d7348`）。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `b7c9451` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用与之配套的 `c727e1c` 小程序候选（完整构建来源：`c727e1c73969e16d94531c8e385ca772c51de62e`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 

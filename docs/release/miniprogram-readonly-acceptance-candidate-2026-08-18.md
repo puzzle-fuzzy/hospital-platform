@@ -10,15 +10,15 @@
 | 服务端 release | `b7c9451` | 服务器 `/home/ps/code/hospital-platform/releases/b7c9451` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `4d56496` | 与服务端 `b7c9451` 配套的当前本地验收候选包；本次新增报告目录/详情、预约科室/排班、患者目录、资料、门诊费用和挂号只读响应运行时契约门禁 |
+| 小程序客户端 | `c727e1c` | 与服务端 `b7c9451` 配套的当前本地验收候选包；本次新增微信登录与 `/me` 会话响应运行时契约门禁 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
-| 小程序构建来源 | `4d56496be950643e0628af482cd0aecc1c2d7348` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 150 项 / 1195 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `4d56496` |
+| 小程序构建来源 | `c727e1c73969e16d94531c8e385ca772c51de62e` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 152 项 / 1215 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `c727e1c` |
 | 全仓回归 | 9/9 package、API 152/659、Worker 51/144、工具 19/57 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `b7c9451`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `4d56496` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`4d56496` 在既有患者上下文、服务端 canonical 资料快照回写和会话命令重放门禁基础上，新增报告目录/详情、预约科室/排班、患者目录、普通资料、门诊缴费列表和我的挂号列表的运行时响应契约校验：报告引用匹配、检测项枚举、科室归属、排班日期、时间分组、号源数量、患者标识、脱敏卡号、状态、金额、展示字段和列表总数不符合约束时统一 fail-closed。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `4d56496be950643e0628af482cd0aecc1c2d7348`。
+客户端候选的 `dist/` 必须由 `c727e1c` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`c727e1c` 在既有患者上下文、服务端 canonical 资料快照回写和会话命令重放门禁基础上，新增微信登录与 `/me` 会话响应运行时契约校验：不完整包络、错误 Bearer 类型、非法过期时间、危险 token 或 owner 引用统一 fail-closed。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `c727e1c73969e16d94531c8e385ca772c51de62e`。
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 
