@@ -21,8 +21,8 @@
   仍没有新的 `appointment.records.*`、`outpatient.payment.*` 或 `report.*` 业务事件，不能把“我的挂号”、爽约记录、门诊费用或报告
   标记为真实业务验收。逐事件低敏证据见
   [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
-- 下一步固定使用服务端 `c63dba9` + 小程序客户端 `b86d58b` 的验收组合；当前 `dist/` 已重新构建并验证 14 个页面脚本存在，
-  `dist/build-info.json` 已记录完整来源提交号 `b86d58b6dd749ccc7acf53ceb06edd76698fa5aa`，小程序 107 项测试、943 个断言通过。复用有效微信会话，按“刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得
+- 下一步固定使用服务端 `c63dba9` + 小程序客户端 `1697695` 的验收组合；当前 `dist/` 已重新构建并验证 14 个页面脚本存在，
+  `dist/build-info.json` 已记录完整来源提交号 `1697695dff9917f976f2948d46fdfa8bf785813f`，小程序 107 项测试、945 个断言通过。复用有效微信会话，按“刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得
   页面、HTTP、低敏日志三层证据；具体候选、证据字段和停止条件见
   [`../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)。
   预约写入、详情、支付、医保和 HIS 回写继续最后处理。
