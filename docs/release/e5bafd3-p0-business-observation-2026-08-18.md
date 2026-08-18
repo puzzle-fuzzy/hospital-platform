@@ -36,7 +36,13 @@
 
 此前登录前的一次报告请求返回 `401 unauthorized`，属于未登录认证边界，不属于报告 provider 验收。
 
-## 4. 下一次真机取证顺序
+## 4. 只读 Provider smoke 的前置边界
+
+2026-08-18 10:20:51 CST 使用当前 release 的 `provider-directory-smoke`，只读能力原本计划覆盖预约历史、待缴费用和已缴费用；脚本在配置校验阶段返回 `configurationReason=access-token-missing`，没有发出任何平台 HTTP 或 Provider 请求。
+
+服务器共享 worker 配置没有平台访问 token 和内部患者 ID。后续如果需要从命令行补充三层证据，必须由受控验收环境临时注入这两个值，命令结束后清理；不能从 Redis 导出真实小程序 token，也不能把 token 或患者 ID 写入仓库、release、命令输出或日志。
+
+## 5. 下一次真机取证顺序
 
 使用同一 release 对应的小程序运行包，在已经登录且患者目录显示成功后，按以下顺序逐项操作，并为每项保留页面结果、HTTP 状态和低敏日志：
 
