@@ -101,6 +101,20 @@ TTL 结果仍然是“未验证”，不是“没有会话”：常驻 API Redis
 `database/redis/schema=ok`。`shared/api.env` 中未配置独立 `REDIS_SESSION_AUDIT_URL`，所以 Redis TTL 审计仍不能执行通过；
 本次没有重启服务、切换 release、修改 ACL 或写入业务数据。
 
+### 2.8 12:31 CST 正确内网地址复核
+
+本次复核仍只读取进程、监听和健康接口，没有重启服务、切换 release、执行 migration 或访问患者/Provider 业务：
+
+| 指标 | 结果 |
+| --- | --- |
+| systemd / 当前 release | `active`；`c63dba9` |
+| 新旧监听 | `10.0.0.3:18081` 与 `0.0.0.0:8001` 同时存在 |
+| 内网 ready | `http://10.0.0.3:18081/health/ready` 返回 `200`；database、redis、schema 均为 `ok` |
+| 公网 ready | `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 `200`；database、redis、schema 均为 `ok` |
+
+本次先试探 `127.0.0.1:18081` 得到连接拒绝，原因是新 API 明确绑定 `10.0.0.3` 而不是 loopback；随后使用正确的
+`10.0.0.3` 地址成功。该连接拒绝是探针地址错误，不能解释为服务故障，也没有因此重启或修改任何服务。
+
 ## 3. 维护注意事项
 
 内网健康探针必须使用 `/health/live`、`/health/ready`，内网系统探针使用 `/api/v1/system/ping`；公网才使用
