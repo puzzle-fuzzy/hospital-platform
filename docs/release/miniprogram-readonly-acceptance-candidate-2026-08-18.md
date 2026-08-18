@@ -10,15 +10,15 @@
 | 服务端 release | `4ae2a31` | 服务器 `/home/ps/code/hospital-platform/releases/4ae2a31` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `6f0ba70` | 与服务端 `4ae2a31` 配套的当前运行包，包含空目录下 stale 语义修正、同步回写状态覆盖修正和精确运行包来源输入校验 |
+| 小程序客户端 | `144b5b4` | 与服务端 `4ae2a31` 配套的当前候选包，另包含选择页手动刷新事件边界修正 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序构建来源 | `6f0ba70a1a26bb1b90b1615696e2e0bb694bfb2d` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 112 项 / 975 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `6f0ba70` |
-| 全仓回归 | 9/9 package、API 114/114、工具 10/10 | `6f0ba70` 后的 `pnpm check`；小程序运行输入来自 `6f0ba70` |
+| 小程序构建来源 | `144b5b44f6e221569b458fda87e33b064f49a000` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 112 项 / 979 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `144b5b4` |
+| 全仓回归 | 待本轮 `pnpm check` 完成 | 代码来源为 `144b5b4`；小程序运行输入来自 `144b5b4` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 已由 `6f0ba70` 工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`6f0ba70` 延续空目录下已有选择进入 `stale` 的修正，并修正首页/选择页同步成功后不能按数组长度覆盖 `stale`/`unavailable` 的状态语义，同时把运行包来源输入收紧为真正影响构建的源码、构建脚本和共享 contract；它不改变服务端 API、Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `6f0ba70a1a26bb1b90b1615696e2e0bb694bfb2d`。
+客户端候选的 `dist/` 必须由 `144b5b4` 工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`144b5b4` 延续空目录下已有选择进入 `stale` 的修正，保留首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，并修正选择页手动刷新事件对象误入加载 token 的问题；它不改变服务端 API、Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `144b5b44f6e221569b458fda87e33b064f49a000`。
 
 ## 2. 真机操作顺序
 
