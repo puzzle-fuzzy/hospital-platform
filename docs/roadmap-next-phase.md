@@ -7,9 +7,9 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 当前为 `144b5b4`；小程序运行输入来源为 `144b5b4`，线上运行 bundle 的代码来源为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 当前为 `005d961`；小程序运行输入来源为 `86fa75f`，线上运行 bundle 的代码来源为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；服务端运行 bundle 来源为 `4ae2a31`，当前真机配套小程序候选由 `144b5b4` 重建，`sourceRevision=144b5b44f6e221569b458fda87e33b064f49a000`，14 个页面脚本已核对。
+- `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；服务端运行 bundle 来源为 `4ae2a31`，当前真机配套小程序候选由 `86fa75f` 重建，`sourceRevision=86fa75f3a76718dcf8da96fc6c10f71e5a4b49a2`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 
 ### 本轮就诊人手动刷新事件修正（2026-08-18）
@@ -18,6 +18,13 @@
 - 本次只修改原生小程序页面和静态验收测试，未修改 API、数据库、Provider、线上 release 或旧 Python 服务；中文业务注释明确记录了此前“点击无同步”的根因。
 - 小程序定向门禁为 112 项通过、979 个断言；完整来源指纹为 `144b5b44f6e221569b458fda87e33b064f49a000`。该候选尚未部署，真机验收前必须重新构建并核对 `dist/build-info.json`。
 - 详细修正说明见 [`release/miniprogram-patient-refresh-event-boundary-2026-08-18.md`](release/miniprogram-patient-refresh-event-boundary-2026-08-18.md)。
+
+### 本轮患者同步会话代际隔离（2026-08-18）
+
+- `86fa75f` 为真正影响运行包的来源提交；它为客户端会话引入只存在于内存的代际号，token 变化时递增，但不把 token 写入 single-flight key、日志或患者数据。
+- 首页、选择页和进程级患者同步都按会话代际隔离；旧会话的在途同步即使晚于重新登录返回，也会以 `session-changed` 拒绝，不会把旧账号患者快照回写给新账号。
+- 当前分支最新提交为 `005d961`，只修正静态门禁字符串写法；运行包来源仍为 `86fa75f3a76718dcf8da96fc6c10f71e5a4b49a2`。小程序定向测试为 113 项、991 个断言，完整门禁需以本轮 `pnpm check` 输出为准。
+- 本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务。详细说明见 [`release/miniprogram-session-generation-isolation-2026-08-18.md`](release/miniprogram-session-generation-isolation-2026-08-18.md)。
 - 2026-08-18 15:23-15:25 CST 已按无损 runbook 将 `4ae2a31` 上传、checksum 对照、生产 preflight、18082 隔离 smoke 后原子切换上线。
   新 API 只重启自身；旧 Python `8001` 监听和 PID 集合保持不变。完整证据见
   [`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md)。

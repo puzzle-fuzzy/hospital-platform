@@ -97,12 +97,12 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 ## 3. 当前工作树测试证据
 
-服务端生产候选固定为 `4ae2a31`，小程序当前候选为 `144b5b4`，包含微信身份边界修正、患者引用 fail-closed 修正、空目录下已有选择的 stale 修正、同步回写不能覆盖 stale/unavailable 的状态门禁、精确运行包来源输入校验、选择页手动刷新事件边界修正、已验收的页面样式和完整重点页面构建门禁；小程序修正未改变服务端 API 或旧服务。
+服务端生产候选固定为 `4ae2a31`，小程序当前运行输入来源为 `86fa75f`，包含微信身份边界修正、患者引用 fail-closed 修正、空目录下已有选择的 stale 修正、同步回写不能覆盖 stale/unavailable 的状态门禁、精确运行包来源输入校验、选择页手动刷新事件边界和会话代际隔离修正、已验收的页面样式和完整重点页面构建门禁；小程序修正未改变服务端 API 或旧服务。
 本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
-- `pnpm --filter @hospital/miniprogram test`：112 项通过，979 个断言；
+- `pnpm --filter @hospital/miniprogram test`：113 项通过，991 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；候选 `dist/build-info.json` 来源指纹为
-  `144b5b44f6e221569b458fda87e33b064f49a000`；
+  `86fa75f3a76718dcf8da96fc6c10f71e5a4b49a2`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：75 项通过，168 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
