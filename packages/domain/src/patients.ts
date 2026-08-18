@@ -287,6 +287,8 @@ export type PatientDirectorySyncOperation = {
  *
  * 该类型故意不包含在 PatientRecord 中，避免 provider 患者号被 API read
  * model、日志或小程序响应意外暴露；只有已完成 owner 校验的服务端流程才能取得它。
+ * 返回值不重复携带 ownerUserId，owner 隔离由 PatientRepository 的查询合同负责，
+ * 各业务 service 仍必须对 patientId、provider 和 providerPatientId 做运行时复核。
  */
 export type PatientProviderReference = {
 	patientId: string;

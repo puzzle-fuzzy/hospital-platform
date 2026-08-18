@@ -7,7 +7,11 @@ import type {
 } from "@hospital/domain";
 import { DependencyNotConfiguredError as MissingDependencyError } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
-import { OutpatientPaymentQueryError, OutpatientPaymentService } from "./index";
+import {
+	OutpatientPaymentPatientNotFoundError,
+	OutpatientPaymentQueryError,
+	OutpatientPaymentService,
+} from "./index";
 
 test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务端窗口", async () => {
 	// 只有 provider 被真实调用后才会赋值，先显式标记未赋值状态以通过严格类型检查。
@@ -109,6 +113,63 @@ test("门诊费用查询在没有 owner 映射时拒绝调用 provider", async (
 		name: "OutpatientPaymentPatientNotFoundError",
 	});
 	expect(gatewayCalled).toBe(false);
+});
+
+test("门诊费用查询拒绝仓储返回的非法或越界患者引用", async () => {
+	for (const [reference, expectedViolation] of [
+		[
+			{
+				patientId: "patient-other",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-other",
+			},
+			"reference-scope-mismatch",
+		],
+		[
+			{
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider\u0000patient-001",
+			},
+			"reference-invalid",
+		],
+	] as const) {
+		const lines: string[] = [];
+		let gatewayCalled = false;
+		const service = new OutpatientPaymentService({
+			repository: {
+				listByOwner: async () => [],
+				upsertFromDirectory: async () => {
+					throw new Error("not used");
+				},
+				resolveProviderReference: async () => reference,
+			},
+			gateway: {
+				listRecords: async () => {
+					gatewayCalled = true;
+					throw new Error("provider must not be called");
+				},
+			},
+			authSysCode: "thirdSelfMachine",
+			logger: createLogger({
+				service: "hospital-api-test",
+				environment: "test",
+				level: "info",
+				destination: { write: (chunk) => lines.push(chunk) },
+			}),
+		});
+
+		await expect(
+			service.list("user-001", "patient-001", "unpaid", {
+				traceId: `trace-reference-${expectedViolation}`,
+				idempotencyKey: `key-reference-${expectedViolation}`,
+			}),
+		).rejects.toBeInstanceOf(OutpatientPaymentPatientNotFoundError);
+		expect(gatewayCalled).toBe(false);
+		expect(lines.join("\n")).toContain(
+			`"resultViolation":"${expectedViolation}"`,
+		);
+	}
 });
 
 test("门诊费用查询缺少已确认渠道码时在 provider 前 fail-closed", async () => {
