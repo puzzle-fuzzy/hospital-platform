@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：普通资料读写边界继续收紧。小程序 API 客户端原先只凭 TypeScript 泛型接收 `/me/profile` 成功
+  JSON，现已增加完整 canonical 快照的运行时校验，拒绝缺失 `data`、非法性别、越界年龄、异常版本或邮箱类型，
+  不把协议错配降级成默认资料，也不自动重放 PUT。该修正只影响新小程序及中文说明，详见
+  [`miniprogram-profile-response-contract-2026-08-19.md`](release/miniprogram-profile-response-contract-2026-08-19.md)；
+  未执行真实资料 PUT/409，旧 Python、线上 API、数据库、Redis 和线上小程序均未修改。
+
 - 2026-08-19：继续审计门诊/住院病历目录时，旧端仍只能提供历史调用线索，当前没有新增 `out-visit-records` 正式
   Provider contract、患者映射确认、四类脱敏响应样例或字段授权清单。已将本轮结论记录到
   [`medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md)：停止在契约

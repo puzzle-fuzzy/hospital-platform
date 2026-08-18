@@ -4,6 +4,7 @@ import {
 	normalizeApiPrefix,
 	request,
 	requestWithSession,
+	requireCanonicalUserProfileResponse,
 } from "./api-client";
 import {
 	advanceSessionGeneration,
@@ -18,6 +19,40 @@ test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本"
 	expect(normalizeApiPrefix(" /api/v2/ ", "/api/v1")).toBe("/api/v2");
 	expect(normalizeApiPrefix("/api/v999", "/api/v2")).toBe("/api/v2");
 	expect(normalizeApiPrefix(undefined)).toBe("/api/v1");
+});
+
+test("普通资料成功响应必须保留完整 canonical 快照并通过运行时类型校验", () => {
+	const valid = {
+		success: true,
+		data: {
+			displayName: "平台用户",
+			gender: "unknown",
+			age: null,
+			email: null,
+			version: 2,
+		},
+	} as const;
+
+	expect(requireCanonicalUserProfileResponse(valid)).toEqual(valid);
+
+	const invalidResponses: unknown[] = [
+		{ success: true, data: { ...valid.data, displayName: undefined } },
+		{ success: true, data: { ...valid.data, gender: "other" } },
+		{ success: true, data: { ...valid.data, age: 151 } },
+		{ success: true, data: { ...valid.data, version: "2" } },
+		{ success: true, data: { ...valid.data, email: { value: "x@y.test" } } },
+		{ success: true, data: { ...valid.data, version: 4_294_967_296 } },
+		{ success: true, data: { displayName: "平台用户" } },
+	];
+
+	for (const invalid of invalidResponses) {
+		try {
+			requireCanonicalUserProfileResponse(invalid);
+			throw new Error("expected invalid profile response to be rejected");
+		} catch (error) {
+			expect(error).toMatchObject({ code: "provider-response-invalid" });
+		}
+	}
 });
 
 test("真实请求会把旧缓存前缀回退到当前地址对应的公共版本", async () => {

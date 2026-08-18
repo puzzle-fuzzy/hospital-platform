@@ -180,6 +180,62 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * 资料接口的成功响应必须是完整的服务端 canonical 快照。
+ *
+ * TypeScript 泛型只在编译期存在，微信请求收到的 JSON 仍然是运行时未知值；
+ * 如果代理把 `data` 丢失、性别枚举改名，或把版本号变成字符串，资料页继续
+ * 把它当成成功响应会展示半套资料，并可能在下一次保存时带着错误 version
+ * 形成错误的 409。这里复核页面依赖的字段和基本类型，发现协议错配就
+ * fail-closed；字段的业务格式和最终归一化仍以服务端 contract 为准。
+ */
+export function requireCanonicalUserProfileResponse(
+	value: unknown,
+): UserProfileResponse {
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+		throw new ApiError("User profile response is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+
+	const data = value.data;
+	const displayName = data.displayName;
+	const gender = data.gender;
+	const age = data.age;
+	const email = data.email;
+	const version = data.version;
+	const displayNameLength =
+		typeof displayName === "string" ? Array.from(displayName).length : 0;
+	const emailValid =
+		email === null ||
+		(typeof email === "string" && Array.from(email).length <= 320);
+	const ageValid =
+		age === null ||
+		(typeof age === "number" &&
+			Number.isSafeInteger(age) &&
+			age >= 0 &&
+			age <= 150);
+	const versionValid =
+		typeof version === "number" &&
+		Number.isSafeInteger(version) &&
+		version >= 0 &&
+		version <= 4_294_967_295;
+	if (
+		displayNameLength < 1 ||
+		displayNameLength > 64 ||
+		(gender !== "male" && gender !== "female" && gender !== "unknown") ||
+		!ageValid ||
+		!emailValid ||
+		!versionValid
+	) {
+		throw new ApiError("User profile response is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+
+	return value as unknown as UserProfileResponse;
+}
+
+/**
  * API base URL 只表示域名和端口，不携带 /api/v1 或 /api/v2 路径。
  * 清理旧缓存可避免请求被拼成 /api/v1/api/v2/... 导致公网 404。
  */
@@ -560,18 +616,20 @@ export function getCurrentUser(): Promise<CurrentUserResponse> {
 
 /** 读取普通个人资料；响应不包含微信身份、实名或患者字段。 */
 export function getUserProfile(): Promise<UserProfileResponse> {
-	return requestWithSession<UserProfileResponse>({ url: "/me/profile" });
+	return requestWithSession<unknown>({ url: "/me/profile" }).then(
+		requireCanonicalUserProfileResponse,
+	);
 }
 
 /** 使用服务端版本号更新普通个人资料，避免多设备静默互相覆盖。 */
 export function updateUserProfile(
 	input: UserProfileUpdateRequest,
 ): Promise<UserProfileResponse> {
-	return requestWithSession<UserProfileResponse>({
+	return requestWithSession<unknown>({
 		url: "/me/profile",
 		method: "PUT",
 		data: input,
-	});
+	}).then(requireCanonicalUserProfileResponse);
 }
 
 /** 请求服务端从已认证身份同步患者，不在小程序侧拼 provider 字段。 */
