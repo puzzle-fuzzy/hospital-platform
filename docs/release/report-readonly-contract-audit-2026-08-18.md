@@ -89,7 +89,7 @@
 - 本轮 service 二次校验提交为 `133e94e`，只完成本地代码、定向测试和类型证据，尚未部署到当前线上 `1b94c46`，不能据此增加 Provider 或真机验收结论。
 
 当前线上发布和运行观察见 [`1b94c46-production-acceptance-2026-08-18.md`](1b94c46-production-acceptance-2026-08-18.md)；
-配套小程序构建来源为 `d854c116e4d08382caae76b3f15db26f374c785a`。
+配套小程序构建来源为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。
 
 2026-08-18 13:46 CST 的配对开发者工具会话曾请求报告目录，但当前 release 因 `adapter:zhongyang` 未配置返回
 HTTP 503 / `dependency-not-configured`，页面展示“报告服务暂未配置完成”；本次没有进入 provider 查询，也没有发起

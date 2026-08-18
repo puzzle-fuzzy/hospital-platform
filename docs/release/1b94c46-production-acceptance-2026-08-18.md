@@ -8,8 +8,8 @@
 - 服务端代码来源：`1b94c46`，包含普通资料版本达到 MySQL `INT UNSIGNED` 上限时的写入前 fail-closed 修正；
 - 数据库没有执行 migration，schema 仍使用已验证的 `0016_patient_directory_sync_owner_index`；
 - 支付、医保、HIS 写入、预约写入、报告 gate 和 Worker 继续关闭；
- - 原生小程序当前配套候选为 `d854c11`，构建来源指纹为
-   `d854c116e4d08382caae76b3f15db26f374c785a`；本次 API 发布没有替代或上传小程序运行包，当前候选由后续代码提交重新构建。
+ - 原生小程序当前配套候选为 `01b184d`，构建来源指纹为
+   `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`；本次 API 发布没有替代或上传小程序运行包，当前候选由后续代码提交重新构建。
 
 ## 2. 本地产物与检查
 
