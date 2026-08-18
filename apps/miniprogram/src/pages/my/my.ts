@@ -19,7 +19,10 @@ import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
-import { sessionVerificationStateFromError } from "../../services/session-service";
+import {
+	hasPlatformSession,
+	sessionVerificationStateFromError,
+} from "../../services/session-service";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -169,6 +172,10 @@ Page<MyPageData, MyPageMethods>({
 			// 新一轮会话读取开始时先清除上一轮普通资料的展示结果；
 			// 否则资料请求失败时，旧昵称会被误认为当前会话资料。
 			userLabel: "微信用户",
+			// 患者目录必须和本轮会话重新绑定；在新目录完成前不能保留
+			// 上一轮患者卡片或数量，避免资料/患者读取失败时出现混合快照。
+			selectedPatient: null,
+			patientCount: 0,
 		});
 		const sessionResult = getCurrentUser().then(
 			(payload) => {
@@ -206,6 +213,11 @@ Page<MyPageData, MyPageMethods>({
 					this.setData({
 						error: safeApiErrorMessage(error, "个人资料暂时不可用"),
 					});
+					if (!hasPlatformSession()) {
+						this.setData({
+							sessionState: sessionVerificationStateFromError(error),
+						});
+					}
 				};
 				return getUserProfile()
 					.then((response) => {
@@ -221,7 +233,8 @@ Page<MyPageData, MyPageMethods>({
 					.catch(applyProfileError);
 			})
 			.then(() => {
-				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
+				if (!pageLoadGuard.isCurrent(requestToken) || !hasPlatformSession())
+					return undefined;
 				// 只有资料请求完成或已降级后才读取患者目录。这样即使资料
 				// GET 触发了自动登录，患者关键读模型也一定从最新代际开始。
 				return loadPatients();
