@@ -106,6 +106,10 @@ MySQL、Redis 和 schema 均为 `ok`。
 Provider 均为 `configured`。不带该环境文件的普通 SSH shell preflight 会出现 `not_configured`，那只是命令执行上下文
 不完整，不是线上服务状态。
 
+同一生产环境下的 Redis 会话 TTL 受控探测在 11:31 CST 得到 `PING=PONG`，但当前授权上下文拒绝执行
+`SCAN hospital:session:*`；没有输出 key 或凭证，也没有修改 ACL、会话或 TTL。因此本 release 的会话数量和 TTL
+范围仍未验证，不能把 Redis 连通性或微信登录成功事件当作 TTL 证据。
+
 普通资料更新的证据链现在明确为：
 
 ```text

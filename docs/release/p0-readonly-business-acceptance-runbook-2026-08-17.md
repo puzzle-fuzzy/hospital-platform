@@ -206,6 +206,11 @@ echo 'session_count=<aggregate> ttl_min=<aggregate> ttl_max=<aggregate>'
 SSH 账号拒绝，因此 TTL、会话数量和范围仍为“未验证”。若 Redis ACL 不允许 `SCAN`，应由运维在不暴露 key
 的情况下提供等价聚合结果，不要临时放宽 ACL；在取得结果前，P0 会话 TTL 门禁保持未通过。
 
+2026-08-18 11:31 CST 对当前 `c63dba9` 使用 systemd 同一生产环境执行了受控探测：Redis `PING=PONG`，
+但 `SCAN hospital:session:*` 命令被当前授权上下文拒绝；脚本未输出 key、账号或凭证，也没有修改 ACL、会话或 TTL。
+因此本 release 的会话数量、TTL 最小/最大值仍未验证；必须由运维在不暴露 key 的前提下提供等价聚合，不能把
+Redis 连通性或 HTTP 登录成功误认为 TTL 证据。
+
 ## 6. 验收结果记录模板
 
 | 领域 | 真机结果 | HTTP/request id | journald 事件 | 结论 |

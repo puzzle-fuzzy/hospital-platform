@@ -21,6 +21,8 @@
   200；使用服务真实 `EnvironmentFiles=/home/ps/code/hospital-platform/shared/api.env` 重跑 preflight，生产模式、
   MySQL/Redis/schema 和微信/患者/预约/门诊只读 Provider 配置均通过。普通 SSH shell 不带该环境文件时的
   `not_configured` 不属于线上服务故障。
+- 11:31 CST 受控 Redis 会话探测 `PING=PONG`，但当前授权上下文拒绝 `SCAN hospital:session:*`；没有输出 key、
+  凭证或修改 ACL，故当前 release 的会话数量和 TTL 范围仍未验证，不能把 Redis 连通性当作会话 TTL 证据。
 - 当前 release 切换后的受控日志窗口已通过微信登录 `4/4`、患者目录读取 `20/20`、患者同步 `10/10` 的请求/成功
   门禁；但这仍需要页面和 HTTP trace 交叉核对，且没有 `appointment.records.*` 或 `outpatient.payment.records.*`
   请求/成功事件，不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
