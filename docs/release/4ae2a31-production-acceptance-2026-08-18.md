@@ -77,7 +77,20 @@ httpStatusCounts={200:6} systemdWarningCount=0 providerRequestIdCount=0
 
 该窗口没有真实微信登录、患者同步、预约历史、门诊费用或报告业务事件，不能把健康探针成功写成业务验收成功。
 
-## 6. 回滚与下一步
+## 6. 重启后复核（15:35 CST）
+
+用户会话重启后再次只读核对，线上状态没有漂移：
+
+- `current` 仍指向 `/home/ps/code/hospital-platform/releases/4ae2a31`；
+- `hospital-platform-api-v2.service` 仍为 `active`，Bun 进程继续监听 `10.0.0.3:18081`；
+- `hospital-platform-worker-v2.service` 仍为 `inactive`；
+- 旧 Python Gunicorn 继续监听 `0.0.0.0:8001`，未停止、未重启、未修改；
+- 公网 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 分别为 HTTP 200，live/ready 继续返回 `Cache-Control: no-store`，ready 的 database、redis、schema 均为 `ok`；
+- 15:23:30 起的低敏日志聚合仍为 `parseErrors=0`、`systemdWarningCount=0`，没有新增真实业务事件。
+
+本次只读复核没有切换 release、写入数据库/Redis 或操作旧服务；本地 `main` 后续的 `b276a25`、`c2d6e8f` 仅包含测试/文档门禁修正，尚未进入线上运行 bundle。
+
+## 7. 回滚与下一步
 
 如新 API readiness、公网路径、旧 `8001` 或后续只读业务出现未解释异常，只回滚新 API：将 `current` 原子切回
 `releases/9acdaf2`，重启 `hospital-platform-api-v2.service`，再次核对新旧端口。禁止停止旧 Python、删除旧 release、
