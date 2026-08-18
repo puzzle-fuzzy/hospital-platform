@@ -180,7 +180,7 @@ sudo journalctl -u hospital-platform-api-v2.service \
 | 幂等重放 | `patient.directory.operation.replayed` | 相同幂等键不再次出现 Provider 请求 |
 | 预约历史 | `appointment.records.requested` → `appointment.records.synced` | 当前内部 patient id、有限日期窗口、Provider request id |
 | 门诊费用 | `outpatient.payment.records.requested` → `outpatient.payment.records.loaded` | `unpaid`/`paid` 状态与查询结果一致 |
-| 普通资料读取/更新 | `user.profile.requested` → `user.profile.loaded` / `user.profile.updated` | 只记录低敏元数据，版本递增且 owner 不串读 |
+| 普通资料读取/更新 | `user.profile.requested` → `user.profile.loaded`；`user.profile.update.requested` → `user.profile.updated` | 只记录低敏元数据，版本递增且 owner 不串读；更新请求和成功写入不能混为一谈 |
 | 普通资料并发冲突 | `user.profile.conflict` | 旧版本返回 409，不覆盖新资料 |
 | 依赖故障 | `persistence.probe.unavailable` / `persistence.probe.recovered` | 失败和恢复有明确时间，不能只看一次 ready 200 |
 

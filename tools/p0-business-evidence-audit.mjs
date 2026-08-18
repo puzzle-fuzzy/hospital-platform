@@ -59,9 +59,9 @@ const BUSINESS_EVIDENCE_CONTRACTS = Object.freeze({
 	},
 	profileUpdate: {
 		label: "普通资料更新",
-		// 更新接口没有单独的 requested 事件；updated/conflict 都是明确进入
-		// 更新 service 后留下的结果事实，不能把普通资料读取事件当作写入证据。
-		requested: ["user.profile.updated", "user.profile.conflict"],
+		// requested 只证明请求进入更新 service；updated 是成功写入，conflict
+		// 是明确的 409 并发结果，二者都不能互相冒充。
+		requested: ["user.profile.update.requested"],
 		success: ["user.profile.updated"],
 		failure: ["user.profile.update_failed", "user.profile.conflict"],
 	},

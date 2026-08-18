@@ -120,6 +120,13 @@ test("普通资料更新会归一化字段并只记录低敏事件元数据", as
 	});
 
 	const line = lines.join("");
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"user.profile.update.requested",
+		"user.profile.updated",
+	]);
 	expect(line).toContain('"event":"user.profile.updated"');
 	expect(line).toContain('"traceId":"profile-trace-001"');
 	expect(line).toContain('"fieldCount":4');
@@ -180,13 +187,18 @@ test("普通资料服务拒绝非法输入并留下安全失败日志", async ()
 		(line) => JSON.parse(line) as Record<string, unknown>,
 	);
 	expect(records.map((record) => record.event)).toEqual([
+		"user.profile.update.requested",
 		"user.profile.update_failed",
+		"user.profile.update.requested",
 		"user.profile.update_failed",
+		"user.profile.update.requested",
 		"user.profile.update_failed",
+		"user.profile.update.requested",
 		"user.profile.update_failed",
+		"user.profile.update.requested",
 		"user.profile.update_failed",
 	]);
-	expect(records[1]).toMatchObject({
+	expect(records[3]).toMatchObject({
 		traceId: "profile-trace-003",
 		errorType: "UserProfileInputError",
 	});

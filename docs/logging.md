@@ -70,17 +70,19 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
 | `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider、trace 和内部 operationId，不记录第三方原始错误报文 |
 | `patient.directory.read.requested` / `patient.directory.read.loaded` | 患者目录读模型读取 | 记录读取开始和有效患者数量；不记录 userId、患者正文或 provider 患者号 |
-| `patient.directory.read.failed` | 患者目录读模型读取 | 记录读取错误类型和 trace；不记录 userId、患者正文或底层错误消息 |
+| `patient.directory.read.failed` | 患者目录读模型读取 | 记录读取错误类型和 trace；不记录 userId、患者正文或 provider 患者号 |
 | `user.profile.requested` | 普通个人资料读取 | 记录 trace 和读取开始，不记录 userId、资料字段或请求正文 |
 | `user.profile.loaded` | 普通个人资料读取 | 记录 trace 和是否存在持久化资料行；默认值与已落库资料可区分，不记录 userId 或资料正文 |
 | `user.profile.read_failed` | 普通个人资料读取 | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
+| `user.profile.update.requested` | 普通个人资料更新开始 | 记录 trace 和更新服务已接收请求，不记录 userId、版本、资料字段或请求正文 |
+| `user.profile.updated` | 普通个人资料更新 | 记录 trace、修改字段数量和新版本，不记录 userId、昵称、邮箱或请求正文 |
+| `user.profile.conflict` | 普通个人资料版本冲突 | 记录 trace 和固定错误类型，保留 409 并发事实的可检索性；不记录 userId、版本值、字段值或请求正文 |
+| `user.profile.update_failed` | 普通个人资料更新失败（包括输入校验拒绝） | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
 
 患者目录 `in_progress` 事件的 `conflictScope` 只允许两个固定值：`same-key` 表示同一幂等键的
 网络重试，`owner-provider` 表示同一 owner/provider 的另一条幂等键正在占用租约。它只用于区分
 重复请求和跨页面并发，不是客户端可见的业务数据。
-| `user.profile.updated` | 普通个人资料更新 | 记录 trace、修改字段数量和新版本，不记录 userId、昵称、邮箱或请求正文 |
-| `user.profile.conflict` | 普通个人资料版本冲突 | 记录 trace 和固定错误类型，保留 409 并发事实的可检索性；不记录 userId、版本值、字段值或请求正文 |
-| `user.profile.update_failed` | 普通个人资料更新失败（包括输入校验拒绝） | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
+
 | `appointment.directory.departments.requested` | 预约科室目录读取 | 记录读取开始、provider 和 trace |
 | `appointment.directory.departments.synced` | 预约科室目录读取 | 记录 provider request id 和科室数量 |
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |

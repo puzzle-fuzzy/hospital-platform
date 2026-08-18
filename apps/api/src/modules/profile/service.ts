@@ -169,9 +169,15 @@ export class UserProfileService {
 		input: UserProfileUpdatePayload,
 		context: AdapterCallContext,
 	): Promise<UserProfilePayload["data"]> {
-		const { version, displayName, gender, age, email } = input;
-
+		// 更新请求必须先留下独立的开始事件，再进入字段校验和版本条件写入。
+		// 这样日志才能区分“请求没有到达资料服务”“到达后输入被拒绝/版本冲突”
+		// 和“已经成功写入”，而不是用 updated 或 conflict 反推请求是否发生。
+		this.logger.info(
+			{ event: "user.profile.update.requested", traceId: context.traceId },
+			"User profile update requested",
+		);
 		try {
+			const { version, displayName, gender, age, email } = input;
 			const normalizedVersion = normalizeVersion(version);
 			if (
 				displayName === undefined &&

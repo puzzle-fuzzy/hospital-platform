@@ -95,6 +95,7 @@ test("普通资料更新不能用资料读取事件冒充写入成功", () => {
 		{
 			parseErrors: 0,
 			eventCounts: {
+				"user.profile.update.requested": 1,
 				"user.profile.requested": 1,
 				"user.profile.loaded": 1,
 			},
@@ -103,9 +104,9 @@ test("普通资料更新不能用资料读取事件冒充写入成功", () => {
 	);
 
 	expect(result.domains.profileUpdate).toMatchObject({
-		requestedCount: 0,
+		requestedCount: 1,
 		successCount: 0,
-		missing: ["requested", "success"],
+		missing: ["success"],
 		passed: false,
 	});
 });
