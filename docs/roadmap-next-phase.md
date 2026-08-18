@@ -14,9 +14,9 @@
   `invalid/unavailable` 收敛。新增原生 acceptance 门禁，避免出现“旧患者 + 新会话验证中”的不一致快照。该修正不改变服务端
   路由、数据库、Redis 或旧 Python 服务，也不把模拟器观察写成真机验收，详见
   [`release/miniprogram-session-display-boundary-2026-08-19.md`](release/miniprogram-session-display-boundary-2026-08-19.md)。当前本地小程序候选已更新为
-  `379eae2a528265df900030cea6e8dc45a82902c1`，尚未上传或替换线上小程序包。
+  `65657a0bb289fb25f17f14c0b8fec22270f964b2`，尚未上传或替换线上小程序包。
 
-- 2026-08-19 01:06–01:09 CST：使用当前候选 `379eae2` 在新 `miniprogram` 开发者工具项目完成首页、独立就诊人选择/刷新、
+- 2026-08-19 01:06–01:09 CST：使用当前候选 `65657a0` 在新 `miniprogram` 开发者工具项目完成首页、独立就诊人选择/刷新、
   “我的”、普通资料只读和“我的挂号”只读观察；预约历史最终显示当前就诊人的空记录态，未执行 PUT、预约、绑定、支付或医保操作。
   工具 Console 出现的 `clickCheckTask`、`undefined is not iterable` 和 `webviewScriptError` 栈均落在微信开发者工具内部
   `appservice`，没有项目源码调用栈，暂不加入猜测性兼容代码，必须在新项目手机真机上复核。完整记录见
