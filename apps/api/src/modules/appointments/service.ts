@@ -295,14 +295,33 @@ export class AppointmentService {
 			const normalizedSchedules = normalizeAppointmentScheduleResults(
 				(result as { schedules?: unknown } | undefined)?.schedules,
 			);
+			const scheduleIds = new Set<string>();
 			const observedSchedules = normalizedSchedules.map(
 				(providerSchedule: AppointmentProviderSchedule) => {
 					const { providerScheduleId, ...details } = providerSchedule;
+					const scheduleId = this.createScheduleId();
+					// scheduleId 是服务端生成、会返回给小程序并作为未来写入
+					// 前置引用的公共标识，不能把生成器的 TypeScript 返回类型
+					// 当成运行时事实。空白、控制字符或超长值会破坏页面事件
+					// 和持久化查询，必须在 response/快照边界前拒绝。
+					if (!isBoundedOpaqueIdentifier(scheduleId)) {
+						throw new AppointmentDirectoryResultValidationError(
+							"schedule-id-invalid",
+						);
+					}
+					// 同一批次的两个排班如果共享公共 ID，页面会复用错误节点，
+					// 快照仓储也可能覆盖前一条事实；不能交给客户端或数据库兜底。
+					if (scheduleIds.has(scheduleId)) {
+						throw new AppointmentDirectoryResultValidationError(
+							"schedule-id-duplicate",
+						);
+					}
+					scheduleIds.add(scheduleId);
 					return {
 						providerScheduleId,
 						schedule: {
 							...details,
-							scheduleId: this.createScheduleId(),
+							scheduleId,
 						},
 					};
 				},

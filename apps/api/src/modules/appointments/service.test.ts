@@ -1174,3 +1174,102 @@ test("预约目录 service 拒绝非法科室和排班并记录有限原因", as
 		}),
 	);
 });
+
+test("预约目录 service 拒绝异常或重复的平台 scheduleId", async () => {
+	const lines: string[] = [];
+	const baseSchedule = {
+		providerScheduleId: "provider-schedule-platform-id",
+		departmentId: "dept-platform-id",
+		departmentName: "心内科",
+		doctorId: "doctor-platform-id",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		totalSlots: 10,
+		availableSlots: 5,
+		timeGroup: "range" as const,
+	} as unknown as AppointmentProviderSchedule;
+	const makeService = (
+		schedules: readonly AppointmentProviderSchedule[],
+		createScheduleId: () => string,
+	) =>
+		new AppointmentService({
+			directory: {
+				listDepartments: async () => ({
+					departments: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-departments",
+						requestId: "platform-id-departments",
+					},
+				}),
+				listSchedules: async () => ({
+					schedules,
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-schedules",
+						requestId: "platform-id-schedules",
+					},
+				}),
+			},
+			createScheduleId,
+			logger: createLogger({
+				service: "appointment-platform-id-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		});
+
+	await expect(
+		makeService([baseSchedule], () => " ").listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			{
+				traceId: "trace-platform-id-invalid",
+				idempotencyKey: "key-platform-id-invalid",
+			},
+		),
+	).rejects.toMatchObject({
+		name: "AppointmentDirectoryResultValidationError",
+		violation: "schedule-id-invalid",
+	});
+
+	await expect(
+		makeService(
+			[
+				baseSchedule,
+				{
+					...baseSchedule,
+					providerScheduleId: "provider-schedule-platform-id-2",
+				},
+			],
+			() => "platform-schedule-duplicate",
+		).listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			{
+				traceId: "trace-platform-id-duplicate",
+				idempotencyKey: "key-platform-id-duplicate",
+			},
+		),
+	).rejects.toMatchObject({
+		name: "AppointmentDirectoryResultValidationError",
+		violation: "schedule-id-duplicate",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.failed",
+			traceId: "trace-platform-id-invalid",
+			resultViolation: "schedule-id-invalid",
+		}),
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.failed",
+			traceId: "trace-platform-id-duplicate",
+			resultViolation: "schedule-id-duplicate",
+		}),
+	);
+});

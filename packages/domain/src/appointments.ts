@@ -57,7 +57,10 @@ export type AppointmentDirectoryResultViolation =
 	| "work-date-invalid"
 	| "slot-count-invalid"
 	| "time-group-invalid"
-	| "provider-schedule-id-duplicate";
+	| "provider-schedule-id-duplicate"
+	/** service 生成的公共引用也属于读模型边界，不能信任生成器返回值。 */
+	| "schedule-id-invalid"
+	| "schedule-id-duplicate";
 
 /** 预约目录 gateway 的结果不满足平台只读 contract。 */
 export class AppointmentDirectoryResultValidationError extends Error {
