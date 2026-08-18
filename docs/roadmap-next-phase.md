@@ -82,6 +82,10 @@
 - 2026-08-18：收紧微信 code2session 身份边界：adapter 现在拒绝 `openid/unionid` 的非字符串、控制字符、空白和超长值，
   不再静默忽略畸形 `unionid`。这样“登录成功但患者同步缺少身份”的错误链会在身份交换阶段 fail-closed；新增 adapter 测试、中文业务注释和
   Provider contract 说明，未修改 API 响应、数据库 schema、旧服务或线上 release，待后续候选发布。
+- 2026-08-18：`38bc553` 已完成本地 API/Worker/小程序候选构建和 14 页面运行包校验，产物来源指纹为
+  `38bc553395f07c017446ee2539677431c6835f13`，并记录了服务端 bundle checksum；目标服务器当前 SSH 公钥认证不可用，
+  因而尚未上传、执行生产 preflight 或切换 `current`。线上继续保持 `c63dba9`，旧 Python 服务未操作。候选边界见
+  [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md)。
 - 2026-08-18 12:35 CST：修正患者选择页的一个隐式状态副作用：同步前的展示列表现在只用纯函数读取已有
   `selectedPatientId`，不会因为目录中存在 ready 患者就提前写入本地选择；只有完整临床同步成功后才允许恢复当前标记。
   该修正通过小程序 107 项测试、945 个断言、typecheck、build 和 14 页面运行包校验，提交为 `1697695`，未改变 API、
