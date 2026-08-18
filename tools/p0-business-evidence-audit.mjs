@@ -42,6 +42,20 @@ const BUSINESS_EVIDENCE_CONTRACTS = Object.freeze({
 		success: ["appointment.records.synced"],
 		failure: ["appointment.records.failed"],
 	},
+	// 科室和排班是两个连续但独立的只读请求；必须分别验收，不能因为
+	// 科室成功、排班失败就把级联预约目录整体误判为成功。
+	appointmentDepartments: {
+		label: "预约科室目录",
+		requested: ["appointment.directory.departments.requested"],
+		success: ["appointment.directory.departments.synced"],
+		failure: ["appointment.directory.departments.failed"],
+	},
+	appointmentSchedules: {
+		label: "预约排班目录",
+		requested: ["appointment.directory.schedules.requested"],
+		success: ["appointment.directory.schedules.synced"],
+		failure: ["appointment.directory.schedules.failed"],
+	},
 	outpatientPaymentRecords: {
 		label: "门诊费用只读",
 		requested: ["outpatient.payment.records.requested"],

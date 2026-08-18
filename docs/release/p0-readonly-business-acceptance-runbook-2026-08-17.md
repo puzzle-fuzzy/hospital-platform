@@ -164,12 +164,26 @@ sudo journalctl -u hospital-platform-api-v2.service \
 ```
 
 可用业务域包括 `auth`、`patientRead`、`patientSync`、`appointmentRecords`、
-`outpatientPaymentRecords`、`reportDirectory`、`profileRead` 和 `profileUpdate`。
+`appointmentDepartments`、`appointmentSchedules`、`outpatientPaymentRecords`、
+`reportDirectory`、`profileRead` 和 `profileUpdate`。预约目录的科室和排班必须分别执行门禁：
+科室成功但排班失败时，不能把两列级联页面整体标记为通过。
 门禁要求对应的请求事件、明确成功事件和同一条链上的 HTTP `2xx` 完成事件同时存在，并报告失败计数；如果只有总数而没有同链事件，
 如果 service 写了成功但响应层只有 `4xx/5xx` 或 `http.request.failed`，或者关联链被截断，会以
 `same-trace-request-success` / `same-trace-http-2xx` / `correlation-truncated` 失败。关联指纹只证明服务端事件属于同一
 请求链，不证明属于同一用户、患者或页面展示正确，仍不能替代 HTTP/真机和页面语义核对。`parseErrors` 或
 `systemdWarningCount` 不为 `0` 时，无论业务事件是否出现，门禁都必须失败。
+
+预约目录需要分别检查两个只读请求，仍然使用同一份安全聚合摘要：
+
+```bash
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js" \
+  --file /tmp/p0-summary.json --domain appointmentDepartments
+
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js" \
+  --file /tmp/p0-summary.json --domain appointmentSchedules
+```
 
 生产环境的聚合摘要只看事件名、状态、关联指纹、provider request id 数量、结果数量和错误类型。禁止把下面内容复制到聊天、提交或截图：
 

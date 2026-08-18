@@ -332,6 +332,21 @@ sudo journalctl -u hospital-platform-api-v2.service \
   --file /tmp/p0-summary.json --domain appointmentRecords
 ```
 
+预约目录的科室与排班是两个独立的只读证据域，必须分别执行：
+
+```bash
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js" \
+  --file /tmp/p0-summary.json --domain appointmentDepartments
+
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js" \
+  --file /tmp/p0-summary.json --domain appointmentSchedules
+```
+
+不能把 `appointment.directory.departments.synced` 当作排班成功，也不能因为左栏成功就掩盖右栏排班的
+Provider/HTTP 失败；只有两个域分别通过同链请求、成功事件和 HTTP `2xx` 门禁，才能记录预约目录只读链路完整。
+
 `p0-business-evidence-audit` 不读取原始日志，不输出 trace、requestId、患者标识、金额或 Provider 原文；
 它也不会把失败请求从统计中删除。输出中的 `failureCount` 大于零时，只能说明该域同时出现过失败，
 不能把 `passed=true` 解读成所有请求均成功。

@@ -121,6 +121,55 @@ test("systemd 停止超时会阻止业务证据门禁，即使请求和成功事
 	expect(result.passed).toBe(false);
 });
 
+test("预约科室和排班必须分别通过同链业务证据门禁", () => {
+	const result = auditBusinessEvidence(
+		{
+			parseErrors: 0,
+			eventCounts: {
+				"appointment.directory.departments.requested": 1,
+				"appointment.directory.departments.synced": 1,
+				"appointment.directory.schedules.requested": 1,
+				"appointment.directory.schedules.failed": 1,
+			},
+			correlation: {
+				chainCount: 2,
+				recordCount: 4,
+				missingCount: 0,
+				truncated: false,
+				chains: {
+					"department-chain": {
+						events: {
+							"appointment.directory.departments.requested": 1,
+							"appointment.directory.departments.synced": 1,
+						},
+						httpCompletedStatusCounts: { 200: 1 },
+					},
+					"schedule-chain": {
+						events: {
+							"appointment.directory.schedules.requested": 1,
+							"appointment.directory.schedules.failed": 1,
+						},
+						httpCompletedStatusCounts: { 503: 1 },
+					},
+				},
+			},
+		},
+		["appointmentDepartments", "appointmentSchedules"],
+	);
+
+	expect(result.domains.appointmentDepartments).toMatchObject({
+		label: "预约科室目录",
+		passed: true,
+		missing: [],
+	});
+	expect(result.domains.appointmentSchedules).toMatchObject({
+		label: "预约排班目录",
+		passed: false,
+		missing: ["success", "same-trace-request-success", "same-trace-http-2xx"],
+	});
+	expect(result.passed).toBe(false);
+});
+
 test("普通资料更新不能用资料读取事件冒充写入成功", () => {
 	const result = auditBusinessEvidence(
 		{
