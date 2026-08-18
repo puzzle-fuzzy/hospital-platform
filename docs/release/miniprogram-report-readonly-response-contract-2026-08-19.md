@@ -32,5 +32,9 @@
 
 ## 未完成项
 
+当前候选已在 `31ce94a` 继续收紧患者、预约和门诊费用列表的公共 `success/data` 包络门禁；本文件前述 `4d56496` 和
+`150/1195` 仍保留为报告专属修正的历史证据，不能作为当前小程序候选来源。当前组合和整体回归数量以
+[`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md) 为准。
+
 本轮没有取得新的 Provider 报告目录/详情成功样例、真机页面、当前服务端 trace 或日志三方关联证据，不能把本地响应门禁
 宣称为真实报告业务验收。报告 Provider gate、影像/心电详情、附件资源、支付、医保和 HIS 回写继续保持关闭。

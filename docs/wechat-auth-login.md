@@ -9,8 +9,8 @@
 [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md)。
 该 release 切换只更新新服务的日志证据 bundle，不改变微信登录的业务开放边界。
 
-当前本地小程序候选为 `8ff8831`，运行包来源指纹为
-`8ff88317b0c1d70700f44d883b289385fad604ea`，尚未上传线上。微信登录与 `/me`
+当前本地小程序候选为 `31ce94a`，运行包来源指纹为
+`31ce94a1df539f140d78ed1882ca15561634d8fd`，尚未上传线上。微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
@@ -32,8 +32,9 @@
 小程序接收成功 JSON 后还有第三道客户端边界：`requireAuthSessionResponse` 完整校验登录包络、Bearer 类型、过期时间、
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
-`provider-response-invalid`，不会被降级成“登录成功”或空用户。该客户端修正的本地证据为 `c727e1c`、152 项测试和
-1215 个断言，详见上方响应边界文档。
+`provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试和
+1215 个断言；当前候选整体已推进到 `31ce94a`，列表读取边界见
+[`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 
 身份仓储返回值还有独立的持久化读模型校验：登录必须确认仓储返回的 `providerSubject` 仍对应本次微信交换，
 并且只有有界的内部 `userId` 才能创建 Redis 会话。患者同步和预支付读取身份时还会确认 `userId` 等于当前
