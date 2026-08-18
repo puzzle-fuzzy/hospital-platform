@@ -19,15 +19,26 @@ Bun/Elysia API，并不能替代服务器 SSH 进程核对、真实微信会话�
 
 ## 2. SSH 进程边界
 
-本轮尝试使用既有只读 SSH 入口时，服务器返回 `publickey`，本地会话没有对应私钥，因此没有
-继续尝试修改 SSH 配置，也没有通过终端执行任何服务器命令。故本记录不新增以下结论：
+本轮第一次使用无密钥批处理 SSH 时服务器返回 `publickey`；随后使用既有账号的密码认证完成了
+只读检查。没有修改 SSH 配置，也没有执行切换、重启、迁移或业务写入。
 
-- `hospital-platform-api-v2.service` 当前 systemd 状态；
-- `current` 指针实际指向的 release；
-- 新 API `18081` 与旧 Python `8001` 是否仍同时监听；
-- Worker 是否保持 inactive。
+### 2.1 初次无密钥尝试
 
-以上项目仍以最近一次已记录的生产切换证据为准；本次公网结果不能覆盖或扩大该证据范围。
+第一次 SSH 没有建立会话，因此该次尝试本身不产生服务器状态结论；后续只读结果以 2.2 为准。
+
+### 2.2 当前只读 SSH 复核（2026-08-19 06:54 CST）
+
+| 检查 | 结果 |
+| --- | --- |
+| `current` 指针 | `/home/ps/code/hospital-platform/releases/b7c9451` |
+| 新 API systemd | `hospital-platform-api-v2.service=active` |
+| 新 API 监听 | `10.0.0.3:18081`，Bun 进程 |
+| 旧 Python 监听 | `0.0.0.0:8001`，Gunicorn 进程仍在监听 |
+| 最近 API 日志 | 采样命中两条未携带会话访问 `/me` 的预期 `401/unauthorized`；未命中 `unavailable`、解析错误或 systemd warning |
+
+本次 SSH 仅读取 release 指针、进程监听和低敏日志摘要，没有触碰旧 Python 服务、数据库、Redis、
+Worker 或任何业务数据。该结果确认新旧服务共存和运行层稳定，不增加真实微信、患者切换、Provider、
+真机、支付或医保验收结论。
 
 ## 2.1 后续只读复核（2026-08-19 06:42 CST）
 
