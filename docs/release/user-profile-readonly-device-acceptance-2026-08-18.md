@@ -72,4 +72,3 @@
 5. 日志、截图和网络记录中没有 token、openid、unionId、userId、邮箱、真实昵称或原始 provider 内容。
 
 单元测试、ready、模拟器页面和旧项目真机网络只能证明各自边界，不能单独通过本手册。
-
