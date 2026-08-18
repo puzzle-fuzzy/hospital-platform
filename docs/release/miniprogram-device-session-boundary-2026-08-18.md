@@ -55,7 +55,7 @@
 
 1. 操作窗口标题和项目资源树明确对应 `hospital-platform/apps/miniprogram`，运行根目录为 `dist/`；
 2. 真机连接是在新项目的“二维码真机调试”弹窗扫码后产生，而不是复用已有 `mp-weixin` 会话；
-3. 页面、HTTP `requestId/traceId` 和当前服务端 `1b94c46` 的低敏业务日志属于同一时间窗口；
+3. 页面、HTTP `requestId/traceId` 和当前服务端 `687690e` 的低敏业务日志属于同一时间窗口；
 4. 不出现旧端 Provider 直连、旧端患者标识或支付/医保/HIS 写入请求。
 
 只看到设备在线、旧项目页面可用或旧 Network 有 HTTP 200，都不能证明新原生小程序完成登录、患者切换、预约历史或门诊费用验收。
@@ -63,7 +63,7 @@
 ## 3. 下一步
 
 先重新打开并确认新 `miniprogram` 窗口的项目资源树与二维码属于同一上下文，再扫码连接当前候选包：
-服务端 `1b94c46`，小程序构建来源 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。
+服务端 `687690e`，小程序构建来源 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。
 连接成功后先完成微信会话和患者目录，再按
 [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md)
 采集只读业务三层证据；在此之前不开放全部挂号、预约写入、支付、医保、报告详情或 HIS 回写。

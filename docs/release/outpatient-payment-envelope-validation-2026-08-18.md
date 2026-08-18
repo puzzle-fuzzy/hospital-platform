@@ -33,7 +33,7 @@
 ## 4. 线上与验收边界
 
 本次未通过 SSH 修改服务器、未重启新旧服务、未触碰用户已有的
-`apps/miniprogram/project.config.json` 修改。当前生产服务端仍以 `1b94c46` 为准，
+`apps/miniprogram/project.config.json` 修改。当前生产服务端以 `687690e` 为准，
 本地代码变更必须经过全仓门禁、独立候选发布和公网/真机/Provider 三层证据后才能进入线上。
 真实门诊费用仍需在有效微信会话下取得页面结果、HTTP trace、低敏业务日志和 Provider
 字段对照；不能用本次测试替代真实业务验收。

@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 当前线上服务端 release 为 `687690e`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序构建来源仍为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录。
+
 - 2026-08-18：`b213dcc` 将统一患者 provider 引用校验接入报告目录 service。仓储返回的非法结构、控制字符或跨患者/Provider 的 HIS `patId` 会在报告 Provider 调用前 fail-closed，日志只保留有限引用原因；报告详情已有的短期引用范围校验和安全摘要语义不变。新增报告目录回归测试，当前 API 为 131 项、599 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
 - 2026-08-18：`98e091b` 加固门诊费用 service 的患者引用二次门禁。即使 owner-scoped
@@ -27,14 +29,14 @@
 - 2026-08-18：`074a436` 收紧患者目录读取的第二道读模型边界。患者 service 现在会重新确认仓储结果的 owner、
   opaque `patientId` 唯一性、脱敏展示字段和临床枚举，并重新投影公共对象；错 owner、重复 ID、控制字符或非法枚举
   不会降级成成功空目录，日志只记录固定 `readModelViolation`，公共错误为 `persistence-invalid`。新增 domain/API
-  回归测试和中文注释，全仓 `pnpm check` 通过；本轮尚未部署到线上 `1b94c46`，未重启新旧服务，未修改旧 Python 服务，
+  回归测试和中文注释，全仓 `pnpm check` 通过；当时尚未部署到线上 `1b94c46`，未重启新旧服务，未修改旧 Python 服务，
   也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
 - 2026-08-18：`ca46091` 收紧普通资料读取和更新的第二道读模型边界。资料 service 不再直接信任仓储的
   TypeScript 返回类型，而是重新校验当前 owner、昵称/邮箱、性别、年龄和持久化版本，并按公共白名单投影；
   损坏资料返回 `persistence-invalid`，不会降级成“微信用户”、空资料或记录 `user.profile.loaded/updated`
   成功。新增领域/API 回归测试、中文注释和普通资料契约说明，全仓 `pnpm check` 通过（domain 27/62，API
-  125/573）；本轮尚未部署到线上 `1b94c46`，未重启新旧服务，未修改旧 Python 服务，也未触碰用户已有的
+  125/573）；当时尚未部署到线上 `1b94c46`，未重启新旧服务，未修改旧 Python 服务，也未触碰用户已有的
   `apps/miniprogram/project.config.json`。
 
 - 2026-08-18：`b9ce8ae` 收敛首页患者入口。首页不再保留可被误绑定的直接写入患者死方法，新增/更换患者继续统一
@@ -144,7 +146,7 @@
 
 - `1b94c46` 修正普通资料 service 的版本边界：当请求版本已经达到 MySQL `INT UNSIGNED` 最大值时，在仓储写入前返回 `user-profile-invalid`，不尝试生成越界的下一版本。
 - 新增“最大版本不触碰仓储”的回归测试；全仓 `pnpm check` 通过，API 为 115 项测试、525 个断言。代码注释明确区分输入校验、409 并发冲突和版本耗尽三种业务事实。
-- `1b94c46` 已按无损 runbook 完成生产切换，当前 release 为 `/home/ps/code/hospital-platform/releases/1b94c46`；普通资料首次 PUT、真实 409 和真机证据仍需 P0 验收，部署证据见 [`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)。
+- 上一轮 `1b94c46` 曾按无损 runbook 完成生产切换；当前 release 已推进到 `/home/ps/code/hospital-platform/releases/687690e`。普通资料首次 PUT、真实 409 和真机证据仍需 P0 验收，上一轮部署证据见 [`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)，当前共存证据见 [`release/687690e-production-acceptance-2026-08-18.md`](release/687690e-production-acceptance-2026-08-18.md)。
 
 ### 本轮普通资料 409 页面状态收敛（2026-08-18）
 
@@ -153,9 +155,9 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序当前运行输入来源为 `01b184d`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序当前运行输入来源为 `01b184d`，线上服务端运行 bundle 来源为 `687690e`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `01b184d` 重建，`sourceRevision=01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`，14 个页面脚本已核对。
+- `687690e` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `01b184d` 重建，`sourceRevision=01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 
 ### 本轮就诊人手动刷新事件修正（2026-08-18）
@@ -178,7 +180,7 @@
 
 ### 当前线上 release 与验收边界（2026-08-18 16:31-16:32 CST）
 
-- 当前线上为 `1b94c46`，运行于 `/home/ps/code/hospital-platform/releases/1b94c46`，生产模式、MySQL/Redis/schema readiness 均正常；
+- 当前线上为 `687690e`，运行于 `/home/ps/code/hospital-platform/releases/687690e`，生产模式、MySQL/Redis/schema readiness 均正常；
   旧 Python `0.0.0.0:8001` 继续运行，Worker、支付、医保、HIS 写入和报告 gate 保持关闭。
 - 切换后公网和内网健康探针均通过，当前服务启动窗口低敏聚合 `parseErrors=0`、`systemdWarningCount=0`，仅有健康请求和预期未登录 401，没有真实资料 PUT/409、患者、预约、费用或报告业务事件。
   运行层成功不等于业务验收成功；下一步继续按 P0 手册取得真机页面、HTTP trace 和低敏业务日志三层证据。
@@ -214,7 +216,7 @@
 ## 历史版本与迁移记录（不可覆盖当前基线）
 
 > 以下内容用于追溯此前候选版本的代码修正、生产切换和观察窗口。每个小节中的 release、schema、
-> 业务事件和“下一步”只对对应时间窗口成立，不能覆盖上面的 `1b94c46` 当前基线，也不能把历史
+> 业务事件和“下一步”只对对应时间窗口成立，不能覆盖上面的 `687690e` 当前基线，也不能把历史
 > 微信、患者、预约或费用事件回填为当前版本验收。开始新任务时，先以本节前的当前基线、当前执行
 > 检查点和最新 release 文档为准。
 

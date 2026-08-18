@@ -55,7 +55,7 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	const result = await auditCurrentReleaseConsistency();
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "1b94c46",
+		serverRelease: "687690e",
 		miniProgramCommit: "01b184d",
 		miniProgramSourceRevision: "01b184d9a6e37f7045b0cf62ecbf685cf0fc482c",
 	});

@@ -17,13 +17,13 @@
 代码和测试完成不等于真实微信登录已经上线。真实登录还必须同时满足：微信 AppID/AppSecret、MySQL 目标 schema、
 Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收全部通过。
 
-截至 2026-08-18 15:25 CST，当前线上 API release 为 `1b94c46`，并已应用
+截至 2026-08-18 21:10 CST，当前线上 API release 为 `687690e`，并已应用
 `0016_patient_directory_sync_owner_index`。该版本已经完成生产 env preflight、原子切换、MySQL/Redis/schema 探针、公网
 `/api/v2` 健康检查、ready 连续检查、未登录认证边界和旧 Python 服务共存验收；本次只补齐普通资料更新日志链路，
 切换后受控日志窗口只有健康请求，没有当前 release 下微信登录、患者目录、预约历史或门诊费用的真实业务事件，
 因此不能沿用旧 release 的业务证据。当前配套小程序运行包来源指纹为
 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`；完整服务端发布边界见
-[`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)，
+[`release/687690e-production-acceptance-2026-08-18.md`](release/687690e-production-acceptance-2026-08-18.md)，
 小程序候选和新旧真机调试边界见
 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
 和 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
@@ -31,11 +31,11 @@ Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收�
 
 ### 当前 release 切换后的业务边界（2026-08-18）
 
-当前 release `1b94c46` 包含微信身份边界收紧、患者目录空快照和报告/门诊费用空 Provider 患者引用的 fail-closed 保护：已有 HIS 就诊人时，外部目录“完成但为空”会返回
+当前 release `687690e` 包含微信身份边界收紧、患者目录空快照和报告/门诊费用空 Provider 患者引用的 fail-closed 保护：已有 HIS 就诊人时，外部目录“完成但为空”会返回
 `patient-directory-snapshot-unsafe`，不会静默停用旧患者。切换后运行时 smoke 已通过，但真实微信登录和患者同步必须重新在当前 release 上取证；不能把切换前 `5c4e7cf` 的单患者成功日志直接复用。候选代码和生产切换证据分别见
 [`release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md`](release/candidate-3ab0a6c-preproduction-smoke-2026-08-17.md) 和
-[`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md)。当前 `1b94c46` 的发布和业务边界见
-[`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)。
+[`release/3ab0a6c-production-acceptance-2026-08-17.md`](release/3ab0a6c-production-acceptance-2026-08-17.md)。当前 `687690e` 的发布和业务边界见
+[`release/687690e-production-acceptance-2026-08-18.md`](release/687690e-production-acceptance-2026-08-18.md)。
 
 ### 当前开发者工具观测（2026-08-16）
 
