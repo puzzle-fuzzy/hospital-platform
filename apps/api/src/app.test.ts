@@ -229,12 +229,12 @@ test("migration inventory labels production observations as evidence snapshots",
 	// 当前 release 观察必须成为盘点入口的一部分；否则 capability 表很容易
 	// 继续保留旧 release 的“当前 API”描述，让下一次业务验收使用错误版本。
 	expect(inventory).toContain(
-		"release/current-server-p0-observation-2026-08-17-2257.md",
+		"release/current-runtime-coexistence-readonly-2026-08-18-2136.md",
 	);
 	// 当前盘点必须明确记录当前 release 的运行层观察范围；不能把上一 release
 	// 的登录/患者日志计入当前版本，也不能把健康探针成功扩展成业务完成。
 	expect(inventory).toContain(
-		"`1b94c46` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；",
+		"`687690e` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；",
 	);
 	expect(inventory).toContain(
 		"历史 release `9acdaf2` 曾观察到预约历史 `itemCount=60`、`statusCounts={cancelled:60}`",
