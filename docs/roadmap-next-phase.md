@@ -60,6 +60,11 @@
 - 新增“最大版本不触碰仓储”的回归测试；全仓 `pnpm check` 通过，API 为 115 项测试、525 个断言。代码注释明确区分输入校验、409 并发冲突和版本耗尽三种业务事实。
 - `1b94c46` 已按无损 runbook 完成生产切换，当前 release 为 `/home/ps/code/hospital-platform/releases/1b94c46`；普通资料首次 PUT、真实 409 和真机证据仍需 P0 验收，部署证据见 [`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)。
 
+### 本轮普通资料 409 页面状态收敛（2026-08-18）
+
+- 小程序收到 `user-profile-conflict` 后现在会退出 `loaded` 可编辑态并隐藏保存按钮，要求下拉刷新重新取得最新 `version` 后再提交；不会让用户继续用旧版本重复 PUT。
+- 本轮只修改原生小程序页面、中文业务注释、静态回归和契约文档，不改变 API、数据库、Provider、线上 release 或旧 Python 服务；真实微信 PUT/409 和真机证据仍待 P0 验收。
+
 ### 本地候选与当前线上增量（2026-08-18）
 
 - 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `e5aef63`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，

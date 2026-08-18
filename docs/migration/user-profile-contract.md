@@ -71,6 +71,10 @@ owner 审计的完整契约。因此头像本轮仍然关闭，不能因为普�
 MySQL `INT UNSIGNED` 上限时已经没有合法的下一版本，服务层必须在仓储写入前返回
 `user-profile-invalid`，不能让数据库尝试写入越界值。
 
+小程序收到 `user-profile-conflict` 后必须退出已加载可编辑态并隐藏保存入口；只有重新 GET
+取得最新 `version` 和资料值后才能再次编辑提交。保留旧页面的 `loaded=true` 会让用户用同一
+个过期版本重复 PUT，冲突提示虽然正确，但页面状态仍然允许错误操作。
+
 ## 4. 数据和权限不变量
 
 1. `hp_user_profiles.user_id` 引用 `hp_identity_users.user_id`，删除身份时级联清理普通资料。
@@ -101,7 +105,7 @@ MySQL `INT UNSIGNED` 上限时已经没有合法的下一版本，服务层必�
   `/me`、患者目录和普通资料时，资料读取采用可降级分支，不阻断核心患者上下文，但会展示安全的重试提示。
 - 验收：API owner/版本测试、MySQL SQL 条件更新测试和小程序源码/构建门禁均已补齐；新增回归断言确认
   非法资料在 service 校验失败时不会触碰仓储写入，小程序保存流程必须先通过 loaded/saving/navigationPending
-  门禁，只有拿到服务端新 version 才展示保存成功，409 仍进入刷新提示。上述新增断言属于本地候选代码证据，
+  门禁，只有拿到服务端新 version 才展示保存成功，409 进入刷新提示并强制退出 loaded 可编辑态。上述新增断言属于本地候选代码证据，
   不替代真实微信资料 GET/PUT/409 和真机证据。
 
 生产 0014 migration、schema probe、API 重启和公网 HTTPS readiness 已完成；未登录 `/me/profile` 的

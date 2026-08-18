@@ -715,6 +715,7 @@ test("native my page separates ordinary profile from family patient selection", 
 
 test("native profile save keeps validation, version and conflict boundaries ordered", async () => {
 	const profile = await source("pages/profile/profile.ts");
+	const profileTemplate = await source("pages/profile/profile.wxml");
 	// 文件顶部的 PageMethods 类型也有同名签名；必须从 Page 实现开始截取，
 	// 否则断言可能只检查类型声明而没有覆盖真实的保存流程。
 	const pageImplementationStart = profile.indexOf("Page<");
@@ -742,6 +743,11 @@ test("native profile save keeps validation, version and conflict boundaries orde
 	);
 	expect(saveBody).toContain('this.showError(error, "个人资料保存失败")');
 	expect(profile).toContain("个人资料已被其他设备修改，请下拉刷新后重试");
+	// 409 后不能继续用旧 version 重复提交；页面必须隐藏保存入口，
+	// 通过下拉刷新重新取得服务端最新资料后才能再次编辑。
+	expect(saveBody).toContain('error.code === "user-profile-conflict"');
+	expect(saveBody).toContain("loaded: false");
+	expect(profileTemplate).toContain('wx:if="{{loaded}}" class="save-button"');
 });
 
 test("native profile picker keeps its range and bounded index initialized", async () => {
