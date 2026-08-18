@@ -243,6 +243,10 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 					: patientContextErrorMessage(error, fallback);
 		this.setData({
 			error: message,
+			// 费用查询失败时，当前页面没有一份与患者卡片同时确认的费用读模型。
+			// 即使失败发生在已缴/待缴切换，也不能保留上一轮卡片让用户误以为
+			// 当前列表属于这位患者；WXML 的空态会提供重新选择入口。
+			selectedPatient: null,
 			items: [],
 			visibleItems: [],
 			visibleItemCount: 0,

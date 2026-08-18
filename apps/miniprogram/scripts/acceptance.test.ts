@@ -1281,9 +1281,15 @@ test("patient-scoped empty states keep a reachable patient selector", async () =
 	const outpatientStyle = await source(
 		"pages/outpatient-payment/outpatient-payment.wxss",
 	);
+	const outpatientPage = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
 	expect(appointmentStyle).toContain(".state-hint-action");
 	expect(reportStyle).toContain(".state-hint-action");
 	expect(outpatientStyle).toContain(".state-hint-action");
+	// 门诊费用失败时不能保留上一轮患者卡片；否则空态与当前患者事实不成对，
+	// 也会让“更换就诊人”入口消失，必须回到可重新选择的状态。
+	expect(outpatientPage).toContain("selectedPatient: null");
 });
 
 test("native mini program migrates the legacy static indoor navigation page", async () => {
