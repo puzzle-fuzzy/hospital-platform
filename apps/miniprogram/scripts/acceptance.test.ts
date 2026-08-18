@@ -1652,6 +1652,12 @@ test("native homepage clears displayed patient context after directory failures"
 	expect(home).toContain("clearDisplayedPatientContext(): void");
 	expect(loadBody).toContain("this.clearDisplayedPatientContext();");
 	expect(syncBody).toContain("this.clearDisplayedPatientContext();");
+	// 旧目录请求失去页面/请求资格后必须安静结束，不能把错误冒泡到
+	// onShow/onRefresh 的外层回调，再次清空新请求或已卸载页面。
+	expect(loadBody).toContain("if (!patientDataGuard.isCurrent(requestToken))");
+	expect(loadBody).toContain("return [];");
+	expect(home).toContain("getPageLifecycle(this)");
+	expect(home).toContain("pageLifecycle.isActive()");
 	expect(home).toContain("不向调用方返回患者快照");
 	expect(syncBody).not.toContain("return [];");
 	expect(home).toContain("保留本地 opaque 选择");

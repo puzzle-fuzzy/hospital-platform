@@ -7,6 +7,7 @@ import {
 } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
+	getPageLifecycle,
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
@@ -311,9 +312,12 @@ Page<IndexPageData, IndexPageMethods>({
 			return;
 		}
 
-		this.loadPatients().catch((error) =>
-			this.showError(error, "就诊人刷新失败"),
-		);
+		const pageLifecycle = getPageLifecycle(this);
+		this.loadPatients().catch((error) => {
+			if (pageLifecycle.isActive()) {
+				this.showError(error, "就诊人刷新失败");
+			}
+		});
 	},
 
 	checkHealth(): Promise<void> {
@@ -522,11 +526,16 @@ Page<IndexPageData, IndexPageMethods>({
 				return patients;
 			})
 			.catch((error) => {
-				if (patientDataGuard.isCurrent(requestToken)) {
-					// 目录读取失败时，当前首页的患者卡片不再具有最新 owner-scoped
-					// 证据；清理展示状态但保留本地 opaque 选择，便于下一次恢复。
-					this.clearDisplayedPatientContext();
+				if (!patientDataGuard.isCurrent(requestToken)) {
+					// 新一轮目录读取或页面卸载已经取消了本次请求；旧错误不能再
+					// 冒泡给 onShow/onRefresh，否则外层回调可能清空新请求的结果，
+					// 或在页面销毁后继续 setData。失去回写资格的请求按安全的
+					// 空完成收敛，调用方只处理仍属于当前页面的失败。
+					return [];
 				}
+				// 目录读取失败时，当前首页的患者卡片不再具有最新 owner-scoped
+				// 证据；清理展示状态但保留本地 opaque 选择，便于下一次恢复。
+				this.clearDisplayedPatientContext();
 				throw error;
 			});
 	},
@@ -597,6 +606,7 @@ Page<IndexPageData, IndexPageMethods>({
 		// “刷新完成”并不代表当前患者上下文已经更新，后续业务页可能读到旧映射。
 		const patientRefresh = hasPlatformSession()
 			? this.loadPatients().catch((error) => {
+					if (!getPageLifecycle(this).isActive()) return;
 					this.showError(error, "就诊人刷新失败");
 				})
 			: Promise.resolve();
