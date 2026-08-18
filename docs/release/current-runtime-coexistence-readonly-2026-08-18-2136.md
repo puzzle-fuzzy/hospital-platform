@@ -62,3 +62,14 @@
 健康路由，返回 404 不能作为服务故障证据。本次没有重启服务、切换 release、执行 migration、修改旧
 Python 项目或写入 MySQL/Redis；上述结果只解除重启后的运行层检查，仍不增加微信会话、真机、多患者、
 预约、报告、费用、支付、医保或 HIS 业务验收结论。
+
+## 6. 重启后低敏日志窗口（2026-08-18 21:52–22:00 CST）
+
+使用当前 release `687690e` 自带的 `apps/worker/dist/p0-log-aggregate.js`，通过 SSH 账号可读取的
+journald 权限对本窗口进行聚合；没有输出原始日志。结果为：`parsedRecords=9`、`parseErrors=0`、
+`traceIdCount=9`、`providerRequestIdCount=0`；HTTP 状态计数为 `200=5`、`401=2`、`404=2`。
+
+事件计数只有 `http.request.completed=5` 和 `http.request.failed=4`，没有
+`auth.wechat.*`、`patient.*`、`appointment.*`、`report.*` 或 `outpatient.payment.*` 业务事件。
+因此本窗口没有形成新微信登录、患者切换、预约历史、报告或门诊费用的业务验收链；前述 200/401/404
+只能解释为运行层、未登录边界或探针路径访问，不能替代页面、HTTP trace 和业务成功事件的三层证据。
