@@ -14,6 +14,9 @@
   `Cache-Control: no-store` 保持不变。
 - 本次只补齐普通资料更新的 `user.profile.update.requested` 开始事件、结果事件测试和 P0 证据门禁，
   不打开支付、医保、HIS 写入、预约写入、报告或 Worker。日志聚合 `parseErrors=0`、`systemdWarningCount=0`。
+- 切换后 11:15 CST 出现 1 次患者目录读取 `503/PersistenceUnavailableError`（`PROTOCOL_CONNECTION_LOST`），
+  服务正确 fail-closed；11:19 CST 生产 env preflight 恢复 `MySQL/Redis/schema=ok`。这说明存在一次持久化瞬态，
+  不能把短时 readiness 当作长期稳定，P0 业务验收需在连续稳定窗口中进行。
 - 当前 release 切换后的受控日志窗口已通过微信登录 `4/4`、患者目录读取 `20/20`、患者同步 `10/10` 的请求/成功
   门禁；但这仍需要页面和 HTTP trace 交叉核对，且没有 `appointment.records.*` 或 `outpatient.payment.records.*`
   请求/成功事件，不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
