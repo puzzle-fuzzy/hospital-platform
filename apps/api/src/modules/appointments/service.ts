@@ -7,8 +7,8 @@ import {
 	type AdapterCallContext,
 	type AppointmentDepartmentQuery,
 	type AppointmentDirectoryGateway,
-	type AppointmentRecord,
 	type AppointmentProviderSchedule,
+	type AppointmentRecord,
 	type AppointmentRecordDirectoryGateway,
 	type AppointmentRecordQuery,
 	AppointmentRecordResultValidationError,
@@ -49,6 +49,24 @@ const APPOINTMENT_DIRECTORY_RANGE_DAYS = 7;
 const APPOINTMENT_PROVIDER_TIME_ZONE = "Asia/Shanghai";
 /** 排班快照只作为短期服务端观察事实，过期后不能授权后续写入。 */
 const SCHEDULE_SNAPSHOT_TTL_MS = 60_000;
+
+/**
+ * 预约记录成功日志只记录状态数量，不记录预约号、患者标识或 Provider 原文。
+ *
+ * 线上页面的“在线挂号”会排除已取消记录；仅记录总数无法解释“Provider 返回
+ * 多条、页面却显示空态”的合法情况。状态计数能帮助排障和验收，同时仍保持
+ * 低敏日志边界，不把逐条记录重新写入 journald。
+ */
+function countAppointmentRecordStatuses(
+	records: readonly AppointmentRecord[],
+): Partial<Record<AppointmentRecord["status"], number>> {
+	const statusCounts: Partial<Record<AppointmentRecord["status"], number>> = {};
+	for (const record of records) {
+		statusCounts[record.status] = (statusCounts[record.status] ?? 0) + 1;
+	}
+	return statusCounts;
+}
+
 /**
  * 只读目录的 Provider 结果和写入前观察快照是两条不同事实链。
  *
@@ -440,6 +458,7 @@ export class AppointmentService {
 					providerRequestId: result.trace.requestId,
 					patientId,
 					itemCount: normalizedRecords.length,
+					statusCounts: countAppointmentRecordStatuses(normalizedRecords),
 				},
 				"Appointment records loaded",
 			);

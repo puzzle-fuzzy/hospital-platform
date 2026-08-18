@@ -325,6 +325,7 @@ test("appointment record empty results are successful and record failures are lo
 		expect.objectContaining({
 			event: "appointment.records.synced",
 			itemCount: 0,
+			statusCounts: {},
 		}),
 	);
 	expect(successEvents).not.toContainEqual(
@@ -734,6 +735,7 @@ test("预约服务层拒绝越过 HTTP schema 的非法 opaque 标识", async ()
 });
 
 test("预约记录 service 二次校验并只投影公共字段", async () => {
+	const lines: string[] = [];
 	const service = new AppointmentService({
 		directory: {
 			listDepartments: async () => ({
@@ -784,6 +786,11 @@ test("预约记录 service 二次校验并只投影公共字段", async () => {
 				},
 			}),
 		},
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
 	});
 
 	await expect(
@@ -809,6 +816,14 @@ test("预约记录 service 二次校验并只投影公共字段", async () => {
 			},
 		],
 		total: 1,
+	});
+
+	const successEvent = lines
+		.map((line) => JSON.parse(line) as Record<string, unknown>)
+		.find((record) => record.event === "appointment.records.synced");
+	expect(successEvent).toMatchObject({
+		itemCount: 1,
+		statusCounts: { scheduled: 1 },
 	});
 });
 
