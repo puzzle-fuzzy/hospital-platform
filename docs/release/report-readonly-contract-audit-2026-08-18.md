@@ -6,7 +6,7 @@
 ## 0. 当前检查点（2026-08-19）
 
 - 当前线上服务端 release 为 `b7c9451`，配套小程序构建来源为
-  `4f6b341cee1525cb0d73bcdf152f630dd74f25f3`（当前本地候选，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
+  `3a66d125b0c1ca53879dd88a3661e3025fb7dd3d`（当前本地候选，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
 
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
   `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
@@ -21,7 +21,7 @@
 ## 1. 当前链路
 
 当前服务端 release 为 `b7c9451`，配套小程序构建来源为
-`4f6b341cee1525cb0d73bcdf152f630dd74f25f3`（当前本地候选，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
+`3a66d125b0c1ca53879dd88a3661e3025fb7dd3d`（当前本地候选，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
 
 ```text
 小程序报告目录
@@ -83,7 +83,7 @@
 | --- | --- |
 | `pnpm --filter @hospital/adapters test` | 83 项通过，183 个断言 |
 | `pnpm --filter @hospital/persistence test` | 75 项通过，549 个断言 |
-| `pnpm --filter @hospital/miniprogram test` | 报告专属记录为 150 项通过、1195 个断言；当前整体候选为 154 项、1232 个断言 |
+| `pnpm --filter @hospital/miniprogram test` | 报告专属记录为 150 项通过、1195 个断言；当前整体候选为 154 项、1235 个断言 |
 | `pnpm format:check` | 233 个文件通过 |
 | 报告 service 定向测试 | 13 项通过，60 个断言 |
 | API TypeScript 类型检查 | 通过 |

@@ -28,7 +28,7 @@ cursor/page，因此 `total` 的语义是本次完整 `items` 的数量，而不
 
 ## 4. 发布边界
 
-> 本文中的 `4d56496` 是列表总数专属修正的历史候选；当前小程序组合已推进到 `4f6b341`，整体候选来源和回归数据以
+> 本文中的 `4d56496` 是列表总数专属修正的历史候选；当前小程序组合已推进到 `3a66d12`，整体候选来源和回归数据以
 > [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md) 为准。
 
 - 当前线上新 API 仍为 `b7c9451`；旧 Python `8001` 未修改、未停止、未重启。
