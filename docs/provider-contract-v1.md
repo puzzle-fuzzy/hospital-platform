@@ -22,6 +22,9 @@
 - `AuthService` 仍要把可替换 gateway 的 `unknown` 运行时结果重新投影后，才允许调用 `hp_identity_users` 和 Redis
   会话端口。`providerSubject`、可选 `unionId`、固定 trace 不满足边界时统一返回 `provider-response-invalid`，
   不得留下身份写入或会话签发副作用；成功日志仅保留低敏 provider request id、user id 和 TTL。
+- `hp_identity_users` 的仓储返回值不是天然可信的授权事实：登录 service 会再次确认返回的 `providerSubject` 与本次
+  交换一致；患者同步、预支付会确认返回的 `userId` 与当前 owner 一致。身份读模型异常映射为
+  `persistence-invalid`，不能把错误身份交给 Redis、众阳或微信支付。
 
 Phase 7A 已建立众阳患者目录 adapter：
 

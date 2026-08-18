@@ -19,6 +19,10 @@
 身份表，也不会签发 Redis 会话；失败日志只记录固定 `resultViolation`，不记录 openid、unionid、session_key、
 临时 code 或 provider 原文。
 
+身份仓储返回值还有独立的持久化读模型校验：登录必须确认仓储返回的 `providerSubject` 仍对应本次微信交换，
+并且只有有界的内部 `userId` 才能创建 Redis 会话。患者同步和预支付读取身份时还会确认 `userId` 等于当前
+Bearer owner；发现脏数据或替换仓储越界时返回 `persistence-invalid`，不会继续访问 Provider 或创建支付尝试。
+
 代码和测试完成不等于真实微信登录已经上线。真实登录还必须同时满足：微信 AppID/AppSecret、MySQL 目标 schema、
 Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收全部通过。
 

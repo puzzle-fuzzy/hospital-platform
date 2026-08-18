@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
+	IdentityUserReadModelValidationError,
 	WechatIdentityResultValidationError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -233,4 +234,65 @@ test("微信身份交换结果在身份写入前拒绝异常值并记录固定�
 	expect(output).toContain("auth.wechat.login.failed");
 	expect(output).toContain('"resultViolation":"provider-subject-invalid"');
 	expect(output).not.toContain("must-be-rejected");
+});
+
+test("身份仓储结果越过 owner/provider 范围时不签发会话", async () => {
+	const lines: string[] = [];
+	let sessionIssueCalls = 0;
+	const service = new AuthService({
+		identityGateway: {
+			async exchangeCode() {
+				return {
+					providerSubject: "openid-identity-repository-001",
+					trace: {
+						provider: "wechat-identity",
+						operation: "code2session",
+						requestId: "wechat-provider-request-002",
+					},
+				};
+			},
+		},
+		identityUsers: {
+			async findOrCreateByWechat() {
+				// 模拟数据库/替换仓储返回了异常身份，不能让它成为本次会话 owner。
+				return {
+					userId: "user-\u0000-corrupt",
+					providerSubject: "openid-identity-repository-001",
+				} as never;
+			},
+			async findByUserId() {
+				return undefined;
+			},
+		},
+		sessions: {
+			async issue() {
+				sessionIssueCalls += 1;
+				throw new Error("must not be called");
+			},
+			async verify() {
+				return { userId: "user-001" };
+			},
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.login(
+			{ code: "temporary-code-002" },
+			{
+				traceId: "auth-trace-identity-repository-001",
+				idempotencyKey: "auth-idempotency-identity-repository-001",
+			},
+		),
+	).rejects.toBeInstanceOf(IdentityUserReadModelValidationError);
+
+	expect(sessionIssueCalls).toBe(0);
+	const output = lines.join("");
+	expect(output).toContain('"identityViolation":"user-id-invalid"');
+	expect(output).not.toContain("corrupt");
 });

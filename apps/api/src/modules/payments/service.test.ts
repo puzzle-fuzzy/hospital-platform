@@ -4,12 +4,15 @@ import {
 	createNotConfiguredGateways,
 } from "@hospital/adapters";
 import {
+	IdentityUserReadModelValidationError,
+	PaymentOrderService,
+} from "@hospital/domain";
+import { createLogger } from "@hospital/observability";
+import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 } from "@hospital/persistence";
-import { PaymentOrderService } from "@hospital/domain";
-import { createLogger } from "@hospital/observability";
 import { PaymentIdentityNotFoundError, WechatPrepayService } from "./service";
 
 const order = {
@@ -155,6 +158,47 @@ test("wechat prepay fails before provider call when identity is missing", async 
 			},
 		}),
 	).rejects.toBeInstanceOf(PaymentIdentityNotFoundError);
+});
+
+test("wechat prepay rejects an invalid owner identity before creating an attempt", async () => {
+	let providerCalls = 0;
+	const fixture = createFixtureWechatPaymentGateway();
+	const service = new WechatPrepayService({
+		orders: new PaymentOrderService({
+			orders: createInMemoryPaymentOrderRepository([order]),
+		}),
+		identityUsers: {
+			async findByUserId() {
+				return {
+					userId: "other-owner",
+					providerSubject: "fixture-openid-001",
+				} as never;
+			},
+			async findOrCreateByWechat() {
+				throw new Error("not used");
+			},
+		},
+		attempts: createInMemoryPaymentPrepayAttemptRepository(),
+		wechatPayment: {
+			...fixture,
+			async createJsapiOrder(...args) {
+				providerCalls += 1;
+				return fixture.createJsapiOrder(...args);
+			},
+		},
+	});
+
+	await expect(
+		service.create({
+			ownerUserId: order.ownerUserId,
+			orderId: order.orderId,
+			context: {
+				traceId: "trace-prepay-invalid-identity",
+				idempotencyKey: "prepay-invalid-identity",
+			},
+		}),
+	).rejects.toBeInstanceOf(IdentityUserReadModelValidationError);
+	expect(providerCalls).toBe(0);
 });
 
 test("wechat prepay does not leave a not-configured dependency permanently pending", async () => {

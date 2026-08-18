@@ -98,6 +98,7 @@ export {
 } from "./outpatient-payments";
 export type {
 	IdentityUser,
+	IdentityUserReadModelViolation,
 	PatientClinicalAccess,
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
@@ -121,6 +122,8 @@ export type {
 	WechatIdentityResultViolation,
 } from "./patients";
 export {
+	IdentityUserReadModelValidationError,
+	normalizeIdentityUserReadModel,
 	normalizePatientDirectoryResult,
 	normalizePatientReadModel,
 	normalizeWechatIdentityResult,

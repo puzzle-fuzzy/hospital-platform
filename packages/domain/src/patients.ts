@@ -503,6 +503,87 @@ export type IdentityUser = {
 	unionId?: string;
 };
 
+/** 身份仓储读模型违反 owner/Provider 边界时的固定原因。 */
+export type IdentityUserReadModelViolation =
+	| "result-not-object"
+	| "user-id-invalid"
+	| "user-id-mismatch"
+	| "provider-subject-invalid"
+	| "provider-subject-mismatch"
+	| "union-id-invalid";
+
+/** 身份仓储返回异常读模型时禁止继续签发会话或调用下游 Provider。 */
+export class IdentityUserReadModelValidationError extends Error {
+	readonly violation: IdentityUserReadModelViolation;
+
+	constructor(violation: IdentityUserReadModelViolation) {
+		super("Identity user read model is invalid");
+		this.name = "IdentityUserReadModelValidationError";
+		this.violation = violation;
+	}
+}
+
+function invalidIdentityUserReadModel(
+	violation: IdentityUserReadModelViolation,
+): never {
+	throw new IdentityUserReadModelValidationError(violation);
+}
+
+/** 数据库 user_id 的列宽小于通用 opaque 标识上限，不能只依赖 TypeScript 类型。 */
+function isSafeIdentityUserId(value: unknown): value is string {
+	return isBoundedOpaqueIdentifier(value) && value.length <= 64;
+}
+
+/**
+ * 校验并重新投影身份仓储结果。
+ *
+ * 身份仓储是可替换的运行时端口；MySQL 脏数据、内存 fixture 或回放任务
+ * 都可能绕过编译期类型。调用方必须传入已知的 owner/provider 期望值，
+ * 防止错误的 userId 进入 Redis 会话、错误的 unionId 进入患者 Provider，
+ * 以及错误的 providerSubject 被拿去调起支付。未知字段全部丢弃。
+ */
+export function normalizeIdentityUserReadModel(
+	value: unknown,
+	options: {
+		expectedUserId?: string;
+		expectedProviderSubject?: string;
+	} = {},
+): IdentityUser {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidIdentityUserReadModel("result-not-object");
+	}
+	const result = value as Record<string, unknown>;
+	if (!isSafeIdentityUserId(result.userId)) {
+		invalidIdentityUserReadModel("user-id-invalid");
+	}
+	if (
+		options.expectedUserId !== undefined &&
+		result.userId !== options.expectedUserId
+	) {
+		invalidIdentityUserReadModel("user-id-mismatch");
+	}
+	if (!isBoundedOpaqueIdentifier(result.providerSubject)) {
+		invalidIdentityUserReadModel("provider-subject-invalid");
+	}
+	if (
+		options.expectedProviderSubject !== undefined &&
+		result.providerSubject !== options.expectedProviderSubject
+	) {
+		invalidIdentityUserReadModel("provider-subject-mismatch");
+	}
+	if (
+		result.unionId !== undefined &&
+		!isBoundedOpaqueIdentifier(result.unionId)
+	) {
+		invalidIdentityUserReadModel("union-id-invalid");
+	}
+	return {
+		userId: result.userId,
+		providerSubject: result.providerSubject,
+		...(result.unionId !== undefined ? { unionId: result.unionId } : {}),
+	};
+}
+
 /** 身份仓储负责把 provider 身份幂等映射为平台用户。 */
 export interface UserIdentityRepository {
 	findOrCreateByWechat(input: {

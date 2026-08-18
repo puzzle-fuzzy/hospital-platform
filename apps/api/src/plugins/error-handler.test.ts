@@ -3,6 +3,7 @@ import { ProviderRequestError } from "@hospital/adapters";
 import {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
+	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
@@ -73,6 +74,23 @@ test("患者读模型损坏不能降级为空目录", async () => {
 test("普通资料读模型损坏使用同一套持久化错误契约", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 		throw new UserProfileReadModelValidationError("profile-version-invalid");
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "persistence-invalid",
+			message: "数据服务返回异常，请联系管理员",
+		},
+	});
+});
+
+test("身份仓储读模型损坏不能继续进入业务并返回持久化错误", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new IdentityUserReadModelValidationError("user-id-invalid");
 	});
 
 	const response = await app.handle(new Request("http://localhost/probe"));

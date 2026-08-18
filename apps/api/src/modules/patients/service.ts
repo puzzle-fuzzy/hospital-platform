@@ -3,6 +3,8 @@ import type { PatientListPayload } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
 	DependencyNotConfiguredError,
+	IdentityUserReadModelValidationError,
+	normalizeIdentityUserReadModel,
 	normalizePatientDirectoryResult,
 	normalizePatientReadModel,
 	type PatientDirectoryGateway,
@@ -152,8 +154,15 @@ export class PatientService {
 				throw new DependencyNotConfiguredError("patient-directory");
 			}
 
-			const identity = await identityUsers.findByUserId(ownerUserId);
-			if (!identity?.unionId) {
+			const storedIdentity = await identityUsers.findByUserId(ownerUserId);
+			if (!storedIdentity) {
+				// 没有 unionId 时不能猜测 provider 身份，也不能降级为客户端传参。
+				throw new DependencyNotConfiguredError("patient-directory-identity");
+			}
+			const identity = normalizeIdentityUserReadModel(storedIdentity, {
+				expectedUserId: ownerUserId,
+			});
+			if (!identity.unionId) {
 				// 没有 unionId 时不能猜测 provider 身份，也不能降级为客户端传参。
 				throw new DependencyNotConfiguredError("patient-directory-identity");
 			}
@@ -297,6 +306,9 @@ export class PatientService {
 						errorType: error instanceof Error ? error.name : "unknown",
 						...(error instanceof PatientDirectoryResultValidationError
 							? { resultViolation: error.violation }
+							: {}),
+						...(error instanceof IdentityUserReadModelValidationError
+							? { identityViolation: error.violation }
 							: {}),
 					},
 					"Patient directory synchronization failed",

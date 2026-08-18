@@ -9,6 +9,8 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
+	IdentityUserReadModelValidationError,
+	normalizeIdentityUserReadModel,
 	normalizeWechatIdentityResult,
 	WechatIdentityResultValidationError,
 } from "@hospital/domain";
@@ -73,10 +75,15 @@ export class AuthService {
 					context,
 				),
 			);
-			const user = await this.dependencies.identityUsers.findOrCreateByWechat({
-				providerSubject: identity.providerSubject,
-				...(identity.unionId ? { unionId: identity.unionId } : {}),
-			});
+			// 身份仓储返回值也是运行时边界；必须确认它仍然映射到本次
+			// code2session 的 provider subject，才能签发 owner 会话。
+			const user = normalizeIdentityUserReadModel(
+				await this.dependencies.identityUsers.findOrCreateByWechat({
+					providerSubject: identity.providerSubject,
+					...(identity.unionId ? { unionId: identity.unionId } : {}),
+				}),
+				{ expectedProviderSubject: identity.providerSubject },
+			);
 			const session = await this.dependencies.sessions.issue(user.userId);
 
 			this.logger.info(
@@ -114,6 +121,9 @@ export class AuthService {
 						: { retryable: providerFailure.providerRetryable }),
 					...(error instanceof WechatIdentityResultValidationError
 						? { resultViolation: error.violation }
+						: {}),
+					...(error instanceof IdentityUserReadModelValidationError
+						? { identityViolation: error.violation }
 						: {}),
 				},
 				"Wechat login failed",

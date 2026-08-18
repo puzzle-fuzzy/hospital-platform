@@ -26,6 +26,11 @@ Provider 扩展字段不得离开 adapter。`AuthService` 在调用 `hp_identity
 空 `unionId` 或 trace 不符合 contract 时，必须 fail-closed 为 `provider-response-invalid`，不能写入身份表、
 不能签发 Redis 会话；日志只记录固定的 `resultViolation`，不记录异常身份值、临时 code 或 provider 原文。
 
+身份仓储返回值也必须经过第二道读模型门禁：登录时 `providerSubject` 必须等于本次 code2session 的身份，
+患者同步和预支付时 `userId` 必须等于当前 Bearer owner；`userId`、`providerSubject` 和可选 `unionId` 必须
+是有界且无控制字符的 opaque 标识。异常身份读模型统一返回 `persistence-invalid`，不会签发 Redis 会话、
+访问患者 Provider、创建预支付尝试或把仓储未知字段带入下游；日志只记录固定 `identityViolation`。
+
 必须满足：
 
 1. 小程序只保存服务端返回的 opaque `patientId`，不保存 `openid`、`unionid`、完整卡号、身份证号或 provider 患者号。

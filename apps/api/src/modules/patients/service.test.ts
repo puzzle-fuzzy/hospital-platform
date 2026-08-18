@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	IdentityUserReadModelValidationError,
 	type PatientDirectoryGateway,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
@@ -57,6 +58,46 @@ test("患者目录读取使用独立读模型日志且不泄露 owner 或患者�
 	});
 	expect(JSON.stringify(records)).not.toContain("fixture-owner-read-001");
 	expect(JSON.stringify(records)).not.toContain("读模型患者");
+});
+
+test("患者同步拒绝越过 owner 范围的身份仓储结果并且不调用 Provider", async () => {
+	let providerCalls = 0;
+	const lines: string[] = [];
+	const service = new PatientService(createInMemoryPatientRepository(), {
+		identityUsers: {
+			async findByUserId() {
+				return {
+					userId: "other-owner",
+					providerSubject: "openid-001",
+					unionId: "unionid-001",
+				} as never;
+			},
+			async findOrCreateByWechat() {
+				throw new Error("not used");
+			},
+		},
+		directory: {
+			async listByIdentity() {
+				providerCalls += 1;
+				throw new Error("provider must not be called");
+			},
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-identity-read-trace",
+			idempotencyKey: "patient-identity-read-key",
+		}),
+	).rejects.toBeInstanceOf(IdentityUserReadModelValidationError);
+
+	expect(providerCalls).toBe(0);
+	expect(lines.join("\n")).toContain('"identityViolation":"user-id-mismatch"');
 });
 
 test("患者快照已提交后读模型失败不再伪造同步失败", async () => {

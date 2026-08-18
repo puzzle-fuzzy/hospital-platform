@@ -4,16 +4,17 @@ import type {
 } from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
+	normalizeIdentityUserReadModel,
 	PaymentCashPrepayNotAllowedError,
-	PaymentPrepayAttemptInProgressError,
-	PaymentPrepayAttemptUnknownError,
-	type PaymentPrepayAttempt,
-	type PaymentPrepayAttemptRepository,
 	type PaymentOrderService,
+	type PaymentPrepayAttempt,
+	PaymentPrepayAttemptInProgressError,
+	type PaymentPrepayAttemptRepository,
+	PaymentPrepayAttemptUnknownError,
 	type UserIdentityRepository,
 	type WechatPaymentGateway,
 } from "@hospital/domain";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
+import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
 /** API 请求崩溃后给 worker 留出的最小恢复窗口，避免和前一个请求并发查单。 */
 const INITIAL_QUERY_DELAY_MS = 5_000;
@@ -84,10 +85,13 @@ export class WechatPrepayService {
 			);
 		if (existing) return this.replayAttempt(existing, order.state);
 
-		const identity = await this.dependencies.identityUsers.findByUserId(
+		const storedIdentity = await this.dependencies.identityUsers.findByUserId(
 			input.ownerUserId,
 		);
-		if (!identity) throw new PaymentIdentityNotFoundError();
+		if (!storedIdentity) throw new PaymentIdentityNotFoundError();
+		const identity = normalizeIdentityUserReadModel(storedIdentity, {
+			expectedUserId: input.ownerUserId,
+		});
 		const now = this.now();
 		const timestamp = now.toISOString();
 		const pending: PaymentPrepayAttempt = {

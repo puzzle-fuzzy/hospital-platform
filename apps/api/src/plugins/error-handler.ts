@@ -5,6 +5,7 @@ import {
 	DependencyNotConfiguredError,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeValidationError,
+	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
@@ -225,6 +226,17 @@ export function errorHandlerPlugin() {
 				// 数据库读模型违反内部患者 contract 时不能降级为空目录；空目录会让
 				// 小程序误以为用户没有就诊人，甚至触发错误的默认选择。固定返回
 				// 500，详细原因只进入服务端低敏日志。
+				set.status = 500;
+				return {
+					success: false,
+					error: {
+						code: "persistence-invalid",
+						message: "数据服务返回异常，请联系管理员",
+					},
+				};
+			}
+
+			if (error instanceof IdentityUserReadModelValidationError) {
 				set.status = 500;
 				return {
 					success: false,
