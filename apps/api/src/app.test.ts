@@ -231,17 +231,22 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"release/current-server-p0-observation-2026-08-17-2257.md",
 	);
-	// 当前盘点把“微信/患者前置证据已通过，但预约和费用仍没有当前 release 业务事件”写清楚，
-	// 避免未来把单患者同步误读成预约、费用或报告已经完成。
+	// 当前盘点必须明确记录 38bc553 切换后没有新的业务事件；不能把上一 release
+	// 的登录/患者日志计入当前版本，更不能用“没有事件”反推出成功空列表。
 	expect(inventory).toContain(
-		"当前 release 切换后受控日志窗口已通过微信登录 `4/4`、患者目录读取 `20/20`、患者同步 `10/10`",
+		"当前 `38bc553` 切换后暂未产生新的 `appointment.records.*`、`outpatient.payment.*` 或 `report.*` 业务事件",
+	);
+	expect(inventory).toContain(
+		"candidate-38bc553-local-build-2026-08-18.md",
 	);
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });
 
 test("P0 acceptance documents share the current release baseline", async () => {
-	const currentRelease = "c63dba9";
+	// 该断言故意只维护当前线上 release；历史 release 文档继续保留，
+	// 但不能因为历史证据中出现旧 hash 就让当前验收文档继续引用旧包。
+	const currentRelease = "38bc553";
 	const currentDocuments = [
 		"../../../docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
 		"../../../docs/release/readonly-business-contract-audit-2026-08-18.md",
