@@ -31,6 +31,18 @@ Provider 扩展字段不得离开 adapter。`AuthService` 在调用 `hp_identity
 是有界且无控制字符的 opaque 标识。异常身份读模型统一返回 `persistence-invalid`，不会签发 Redis 会话、
 访问患者 Provider、创建预支付尝试或把仓储未知字段带入下游；日志只记录固定 `identityViolation`。
 
+### 支付订单与报价的持久化读模型边界
+
+支付仍处于“真实支付最后处理”的 gate 之外，但其内部订单状态机不能因为支付尚未开放就放宽数据边界。
+订单和报价仓储返回值在进入状态迁移、outbox 或 API 之前，必须由 domain 重新投影：
+
+- 订单的 `orderId`、`ownerUserId`、`patientId` 和幂等键必须是有界 opaque 标识；owner、订单号、患者号和幂等键
+  在需要时还要与本次请求的期望值一致。
+- `totalFen = insuranceFen + cashFen`、金额为安全整数且总额大于 0；未知状态、非法版本或非法时间戳直接 fail-closed。
+- 服务端报价同样必须校验 owner、患者、金额、有效期和来源；不能把报价仓储返回的金额当成“因为有 TypeScript 类型所以可信”。
+- 读模型异常统一返回 `persistence-invalid`，请求日志只记录固定 `readModelViolation`，不记录订单原值、完整幂等键、
+  provider 报文或支付凭证。该门禁只保护内部事实，不代表微信支付、医保结算、退款或 HIS 回写已经开放。
+
 必须满足：
 
 1. 小程序只保存服务端返回的 opaque `patientId`，不保存 `openid`、`unionid`、完整卡号、身份证号或 provider 患者号。

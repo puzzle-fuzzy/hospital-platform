@@ -11,7 +11,11 @@ import {
 	InvalidPaymentAmountsError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderService,
+	PaymentOrderReadModelValidationError,
 	PaymentQuoteExpiredError,
+	PaymentQuoteReadModelValidationError,
+	normalizePaymentOrderReadModel,
+	normalizePaymentQuoteReadModel,
 } from "./payment-order";
 
 const amounts = {
@@ -67,6 +71,86 @@ function createMemoryQuotes(seed: PaymentQuote): PaymentQuoteRepository {
 }
 
 describe("payment order domain", () => {
+	test("重新投影订单读模型并丢弃未声明字段", () => {
+		const normalized = normalizePaymentOrderReadModel({
+			orderId: "order-read-001",
+			ownerUserId: "user-read-001",
+			patientId: "patient-read-001",
+			idempotencyKey: "pay-read-001",
+			amounts,
+			state: "cash_pending",
+			version: 4,
+			createdAt: "2026-08-15T00:00:00.000Z",
+			updatedAt: "2026-08-15T00:00:01.000Z",
+			providerSecret: "must-not-cross-domain",
+		});
+
+		expect(normalized).not.toHaveProperty("providerSecret");
+		expect(normalized.amounts).toEqual(amounts);
+	});
+
+	test("订单读模型损坏时不允许进入状态机", async () => {
+		const service = new PaymentOrderService({
+			orders: {
+				async findById() {
+					return {
+						orderId: "order-invalid-001",
+						ownerUserId: "user-invalid-001",
+						patientId: "patient-invalid-001",
+						idempotencyKey: "pay-invalid-001",
+						amounts: { ...amounts, cashFen: 301 },
+						state: "cash_pending",
+						version: 4,
+						createdAt: "2026-08-15T00:00:00.000Z",
+						updatedAt: "2026-08-15T00:00:01.000Z",
+					} as never;
+				},
+				async findByOwnerAndIdempotencyKey() {
+					return undefined;
+				},
+				async findByOwnerAndId() {
+					return undefined;
+				},
+				async insert() {
+					throw new Error("not used");
+				},
+				async update() {
+					throw new Error("must not update invalid order");
+				},
+			},
+		});
+
+		const error = await service
+			.reconcileWechatPayment({
+				orderId: "order-invalid-001",
+				state: "cash_paid",
+				totalFen: 300,
+				trace: {
+					provider: "wechat-pay",
+					operation: "order-query",
+					requestId: "payment-read-invalid-001",
+				},
+			})
+			.catch((reason: unknown) => reason);
+		expect(error).toBeInstanceOf(PaymentOrderReadModelValidationError);
+		expect((error as PaymentOrderReadModelValidationError).violation).toBe(
+			"amounts-invalid",
+		);
+	});
+
+	test("报价读模型损坏时不能成为订单金额来源", () => {
+		expect(() =>
+			normalizePaymentQuoteReadModel({
+				quoteId: "quote-invalid-001",
+				ownerUserId: "user-invalid-001",
+				patientId: "patient-invalid-001",
+				amounts: { totalFen: 1000, insuranceFen: 700, cashFen: 301 },
+				expiresAt: "2026-08-15T00:10:00.000Z",
+				source: "fixture",
+			}),
+		).toThrow(PaymentQuoteReadModelValidationError);
+	});
+
 	test("validates integer amount split and rejects mismatch", () => {
 		expect(assertValidPaymentAmounts(amounts)).toEqual(amounts);
 		expect(() =>

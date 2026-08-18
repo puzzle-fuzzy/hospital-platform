@@ -14,10 +14,12 @@ import {
 	PaymentIdempotencyConflictError,
 	PaymentNotificationConflictError,
 	PaymentOrderInputError,
+	PaymentOrderReadModelValidationError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptInProgressError,
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
+	PaymentQuoteReadModelValidationError,
 	PaymentQuoteNotFoundError,
 	ReportResultValidationError,
 	UserProfileReadModelValidationError,
@@ -103,6 +105,28 @@ test("身份仓储读模型损坏不能继续进入业务并返回持久化错�
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
+});
+
+test("支付订单和报价读模型损坏使用统一持久化错误契约", async () => {
+	for (const error of [
+		new PaymentOrderReadModelValidationError("amounts-invalid"),
+		new PaymentQuoteReadModelValidationError("source-invalid"),
+	]) {
+		const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+			throw error;
+		});
+
+		const response = await app.handle(new Request("http://localhost/probe"));
+
+		expect(response.status).toBe(500);
+		expect(await response.json()).toEqual({
+			success: false,
+			error: {
+				code: "persistence-invalid",
+				message: "数据服务返回异常，请联系管理员",
+			},
+		});
+	}
 });
 
 test("ambiguous empty patient snapshots return a safe 502 contract", async () => {

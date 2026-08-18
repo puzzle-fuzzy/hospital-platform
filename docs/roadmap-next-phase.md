@@ -7,6 +7,8 @@
 
 - 当前线上服务端 release 为 `687690e`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序构建来源仍为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。
 
+- 2026-08-18（继续审计）：支付真实链路仍按计划最后处理，未打开微信支付、医保、退款或 HIS 写回；本轮仅收紧内部支付订单和服务端报价的持久化读模型。订单/报价在状态机、outbox 和 API 前重新投影并校验 owner、患者、金额、状态、版本、时间和来源，异常统一为 `persistence-invalid`，请求日志只保留固定 `readModelViolation`。本轮未部署、未重启、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18 22:19 CST：继续审计身份仓储读模型，发现登录、患者同步和微信预支付此前直接信任 `UserIdentityRepository` 的 TypeScript 返回类型，替换仓储或脏数据可能让错误 `userId`/`providerSubject` 进入 Redis、众阳或微信支付。新增身份读模型二次投影：登录校验本次 provider subject，患者同步/预支付校验当前 owner，异常统一返回 `persistence-invalid` 并在下游调用前停止；补充中文注释、domain/API/业务回归测试和 contract 文档。本轮未部署、未重启新旧服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
 - 2026-08-18 22:13 CST：继续审计微信登录运行时边界，发现 AuthService 之前直接信任 `WechatIdentityGateway` 的 TypeScript 返回类型，异常 gateway/回放结果仍可能在类型层之外污染 `hp_identity_users`。新增 adapter 之后的身份结果二次投影：只允许有界 `providerSubject`、可选 `unionId` 和固定低敏 trace；异常结果在身份写入和 Redis 会话签发前统一 fail-closed 为 `provider-response-invalid`，日志只保留固定 `resultViolation`，新增 domain/API 回归测试与中文 contract 文档。本轮未部署、未重启新旧服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。

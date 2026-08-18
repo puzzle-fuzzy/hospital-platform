@@ -18,10 +18,12 @@ import {
 	PaymentNotificationConflictError,
 	PaymentOrderInputError,
 	PaymentOrderNotFoundError,
+	PaymentOrderReadModelValidationError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptInProgressError,
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
+	PaymentQuoteReadModelValidationError,
 	PaymentQuoteNotFoundError,
 	ReportResultValidationError,
 	UserProfileInputError,
@@ -237,6 +239,22 @@ export function errorHandlerPlugin() {
 			}
 
 			if (error instanceof IdentityUserReadModelValidationError) {
+				set.status = 500;
+				return {
+					success: false,
+					error: {
+						code: "persistence-invalid",
+						message: "数据服务返回异常，请联系管理员",
+					},
+				};
+			}
+
+			if (
+				error instanceof PaymentOrderReadModelValidationError ||
+				error instanceof PaymentQuoteReadModelValidationError
+			) {
+				// 订单和报价读模型损坏不能降级为“没有订单”或重新读取客户端金额，
+				// 否则会把持久化异常扩散到状态机和支付边界。具体 violation 只进入低敏日志。
 				set.status = 500;
 				return {
 					success: false,

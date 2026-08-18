@@ -1,5 +1,6 @@
 import type { PaymentState } from "@hospital/contracts";
 import { transitionPayment } from "./payment-state";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { OutboxEvent } from "./outbox";
 import type { ExternalTrace, WechatMiniProgramPayParams } from "./ports";
 
@@ -71,6 +72,308 @@ export type PaymentQuote = {
 	expiresAt: string;
 	source: "hospital-his" | "fixture";
 };
+
+/** 支付订单的持久化状态白名单；未知状态不能继续驱动状态机或页面。 */
+const PAYMENT_STATES: readonly PaymentState[] = [
+	"created",
+	"authorized",
+	"pre_settled",
+	"insurance_submitted",
+	"insurance_settled",
+	"cash_pending",
+	"cash_paid",
+	"his_written_back",
+	"awaiting_confirmation",
+	"completed",
+	"failed",
+	"cancelled",
+];
+
+/** MySQL 列宽比通用 opaque 标识更窄，读回时也必须复核实际列边界。 */
+function isPaymentColumnIdentifier(value: unknown): value is string {
+	return isBoundedOpaqueIdentifier(value) && value.length <= 64;
+}
+
+/** 允许 MySQL DATETIME(3) 和 UTC ISO 字符串，拒绝空值、控制字符和非法日期。 */
+function isPaymentTimestamp(value: unknown): value is string {
+	if (
+		typeof value !== "string" ||
+		value.length > 64 ||
+		value !== value.trim() ||
+		Array.from(value).some((character) => character.charCodeAt(0) <= 0x1f)
+	) {
+		return false;
+	}
+	const normalized = value.includes(" ") ? value.replace(" ", "T") : value;
+	const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized)
+		? normalized
+		: `${normalized}Z`;
+	return Number.isFinite(Date.parse(withZone));
+}
+
+/** 支付订单仓储返回值违反内部 contract 时的固定原因。 */
+export type PaymentOrderReadModelViolation =
+	| "result-not-object"
+	| "order-id-invalid"
+	| "order-id-mismatch"
+	| "owner-user-id-invalid"
+	| "owner-user-id-mismatch"
+	| "patient-id-invalid"
+	| "patient-id-mismatch"
+	| "idempotency-key-invalid"
+	| "idempotency-key-mismatch"
+	| "amounts-invalid"
+	| "state-invalid"
+	| "state-mismatch"
+	| "version-invalid"
+	| "version-mismatch"
+	| "created-at-invalid"
+	| "updated-at-invalid";
+
+/** 订单读模型异常不能被当成“没有订单”，必须停止状态迁移。 */
+export class PaymentOrderReadModelValidationError extends Error {
+	readonly violation: PaymentOrderReadModelViolation;
+
+	constructor(violation: PaymentOrderReadModelViolation) {
+		super("Payment order read model is invalid");
+		this.name = "PaymentOrderReadModelValidationError";
+		this.violation = violation;
+	}
+}
+
+/** 服务端报价读模型违反内部 contract 时，不能把错误金额带入订单。 */
+export type PaymentQuoteReadModelViolation =
+	| "result-not-object"
+	| "quote-id-invalid"
+	| "quote-id-mismatch"
+	| "owner-user-id-invalid"
+	| "owner-user-id-mismatch"
+	| "patient-id-invalid"
+	| "patient-id-mismatch"
+	| "amounts-invalid"
+	| "expires-at-invalid"
+	| "source-invalid";
+
+export class PaymentQuoteReadModelValidationError extends Error {
+	readonly violation: PaymentQuoteReadModelViolation;
+
+	constructor(violation: PaymentQuoteReadModelViolation) {
+		super("Payment quote read model is invalid");
+		this.name = "PaymentQuoteReadModelValidationError";
+		this.violation = violation;
+	}
+}
+
+function invalidPaymentOrderReadModel(
+	violation: PaymentOrderReadModelViolation,
+): never {
+	throw new PaymentOrderReadModelValidationError(violation);
+}
+
+function invalidPaymentQuoteReadModel(
+	violation: PaymentQuoteReadModelViolation,
+): never {
+	throw new PaymentQuoteReadModelValidationError(violation);
+}
+
+function paymentAmountsFromUnknown(value: unknown): PaymentAmounts {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidPaymentOrderReadModel("amounts-invalid");
+	}
+	const amounts = value as Record<string, unknown>;
+	try {
+		return assertValidPaymentAmounts({
+			totalFen: amounts.totalFen as number,
+			insuranceFen: amounts.insuranceFen as number,
+			cashFen: amounts.cashFen as number,
+		});
+	} catch {
+		invalidPaymentOrderReadModel("amounts-invalid");
+	}
+}
+
+function paymentQuoteAmountsFromUnknown(value: unknown): PaymentAmounts {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidPaymentQuoteReadModel("amounts-invalid");
+	}
+	const amounts = value as Record<string, unknown>;
+	try {
+		return assertValidPaymentAmounts({
+			totalFen: amounts.totalFen as number,
+			insuranceFen: amounts.insuranceFen as number,
+			cashFen: amounts.cashFen as number,
+		});
+	} catch {
+		invalidPaymentQuoteReadModel("amounts-invalid");
+	}
+}
+
+/**
+ * 重新投影订单仓储结果。
+ *
+ * 仓储是运行时可替换端口，编译期的 `PaymentOrder` 不能证明 MySQL 行、
+ * 回放数据或测试 fixture 真的满足 owner、金额、状态和版本不变量。所有
+ * 进入状态机、outbox 或 API 的订单都必须经过这里；未知字段全部丢弃。
+ */
+export function normalizePaymentOrderReadModel(
+	value: unknown,
+	options: {
+		expectedOrderId?: string;
+		expectedOwnerUserId?: string;
+		expectedPatientId?: string;
+		expectedIdempotencyKey?: string;
+		expectedState?: PaymentState;
+		expectedVersion?: number;
+	} = {},
+): PaymentOrder {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidPaymentOrderReadModel("result-not-object");
+	}
+	const result = value as Record<string, unknown>;
+	if (!isPaymentColumnIdentifier(result.orderId)) {
+		invalidPaymentOrderReadModel("order-id-invalid");
+	}
+	if (
+		options.expectedOrderId !== undefined &&
+		result.orderId !== options.expectedOrderId
+	) {
+		invalidPaymentOrderReadModel("order-id-mismatch");
+	}
+	if (!isPaymentColumnIdentifier(result.ownerUserId)) {
+		invalidPaymentOrderReadModel("owner-user-id-invalid");
+	}
+	if (
+		options.expectedOwnerUserId !== undefined &&
+		result.ownerUserId !== options.expectedOwnerUserId
+	) {
+		invalidPaymentOrderReadModel("owner-user-id-mismatch");
+	}
+	if (!isPaymentColumnIdentifier(result.patientId)) {
+		invalidPaymentOrderReadModel("patient-id-invalid");
+	}
+	if (
+		options.expectedPatientId !== undefined &&
+		result.patientId !== options.expectedPatientId
+	) {
+		invalidPaymentOrderReadModel("patient-id-mismatch");
+	}
+	if (
+		typeof result.idempotencyKey !== "string" ||
+		!isBoundedOpaqueIdentifier(result.idempotencyKey) ||
+		result.idempotencyKey.length > 128
+	) {
+		invalidPaymentOrderReadModel("idempotency-key-invalid");
+	}
+	if (
+		options.expectedIdempotencyKey !== undefined &&
+		result.idempotencyKey !== options.expectedIdempotencyKey
+	) {
+		invalidPaymentOrderReadModel("idempotency-key-mismatch");
+	}
+	const amounts = paymentAmountsFromUnknown(result.amounts);
+	if (
+		typeof result.state !== "string" ||
+		!PAYMENT_STATES.includes(result.state as PaymentState)
+	) {
+		invalidPaymentOrderReadModel("state-invalid");
+	}
+	if (
+		options.expectedState !== undefined &&
+		result.state !== options.expectedState
+	) {
+		invalidPaymentOrderReadModel("state-mismatch");
+	}
+	if (
+		typeof result.version !== "number" ||
+		!Number.isSafeInteger(result.version) ||
+		result.version < 1
+	) {
+		invalidPaymentOrderReadModel("version-invalid");
+	}
+	if (
+		options.expectedVersion !== undefined &&
+		result.version !== options.expectedVersion
+	) {
+		invalidPaymentOrderReadModel("version-mismatch");
+	}
+	if (!isPaymentTimestamp(result.createdAt)) {
+		invalidPaymentOrderReadModel("created-at-invalid");
+	}
+	if (!isPaymentTimestamp(result.updatedAt)) {
+		invalidPaymentOrderReadModel("updated-at-invalid");
+	}
+	return {
+		orderId: result.orderId,
+		ownerUserId: result.ownerUserId,
+		patientId: result.patientId,
+		idempotencyKey: result.idempotencyKey,
+		amounts,
+		state: result.state as PaymentState,
+		version: result.version,
+		createdAt: result.createdAt,
+		updatedAt: result.updatedAt,
+	};
+}
+
+/**
+ * 重新投影报价仓储结果；报价是创建订单的唯一金额来源，不能只校验 quoteId。
+ * 这里与订单读模型分开定义错误，便于日志判断是报价数据还是订单行损坏。
+ */
+export function normalizePaymentQuoteReadModel(
+	value: unknown,
+	options: {
+		expectedQuoteId?: string;
+		expectedOwnerUserId?: string;
+		expectedPatientId?: string;
+	} = {},
+): PaymentQuote {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidPaymentQuoteReadModel("result-not-object");
+	}
+	const result = value as Record<string, unknown>;
+	if (!isPaymentColumnIdentifier(result.quoteId)) {
+		invalidPaymentQuoteReadModel("quote-id-invalid");
+	}
+	if (
+		options.expectedQuoteId !== undefined &&
+		result.quoteId !== options.expectedQuoteId
+	) {
+		invalidPaymentQuoteReadModel("quote-id-mismatch");
+	}
+	if (!isPaymentColumnIdentifier(result.ownerUserId)) {
+		invalidPaymentQuoteReadModel("owner-user-id-invalid");
+	}
+	if (
+		options.expectedOwnerUserId !== undefined &&
+		result.ownerUserId !== options.expectedOwnerUserId
+	) {
+		invalidPaymentQuoteReadModel("owner-user-id-mismatch");
+	}
+	if (!isPaymentColumnIdentifier(result.patientId)) {
+		invalidPaymentQuoteReadModel("patient-id-invalid");
+	}
+	if (
+		options.expectedPatientId !== undefined &&
+		result.patientId !== options.expectedPatientId
+	) {
+		invalidPaymentQuoteReadModel("patient-id-mismatch");
+	}
+	const amounts = paymentQuoteAmountsFromUnknown(result.amounts);
+	if (!isPaymentTimestamp(result.expiresAt)) {
+		invalidPaymentQuoteReadModel("expires-at-invalid");
+	}
+	if (result.source !== "hospital-his" && result.source !== "fixture") {
+		invalidPaymentQuoteReadModel("source-invalid");
+	}
+	return {
+		quoteId: result.quoteId,
+		ownerUserId: result.ownerUserId,
+		patientId: result.patientId,
+		amounts,
+		expiresAt: result.expiresAt,
+		source: result.source,
+	};
+}
 
 export type PaymentPrepayAttemptStatus = "pending" | "succeeded" | "unknown";
 
@@ -264,9 +567,9 @@ export class PaymentOrderService {
 
 	async create(input: CreatePaymentOrderInput): Promise<PaymentOrder> {
 		if (
-			!input.ownerUserId ||
-			!input.patientId ||
-			!input.idempotencyKey ||
+			!isPaymentColumnIdentifier(input.ownerUserId) ||
+			!isPaymentColumnIdentifier(input.patientId) ||
+			!isBoundedOpaqueIdentifier(input.idempotencyKey) ||
 			input.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH
 		) {
 			throw new PaymentOrderInputError(
@@ -280,15 +583,19 @@ export class PaymentOrderService {
 				input.idempotencyKey,
 			);
 		if (existing) {
+			const stored = normalizePaymentOrderReadModel(existing, {
+				expectedOwnerUserId: input.ownerUserId,
+				expectedIdempotencyKey: input.idempotencyKey,
+			});
 			if (
-				existing.patientId !== input.patientId ||
-				existing.amounts.totalFen !== amounts.totalFen ||
-				existing.amounts.insuranceFen !== amounts.insuranceFen ||
-				existing.amounts.cashFen !== amounts.cashFen
+				stored.patientId !== input.patientId ||
+				stored.amounts.totalFen !== amounts.totalFen ||
+				stored.amounts.insuranceFen !== amounts.insuranceFen ||
+				stored.amounts.cashFen !== amounts.cashFen
 			) {
 				throw new PaymentIdempotencyConflictError();
 			}
-			return existing;
+			return stored;
 		}
 
 		const timestamp = this.now().toISOString();
@@ -303,10 +610,31 @@ export class PaymentOrderService {
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		};
-		return this.dependencies.orders.insert(
-			order,
-			createPaymentOrderEvent("payment-order.created", order),
+		// 在写入和 outbox 事务之前先验证服务端新建的订单，覆盖自定义 ID 生成器
+		// 或未来组合根注入错误值的情况；不能等落库后才发现订单形状非法。
+		const candidate = normalizePaymentOrderReadModel(order, {
+			expectedOwnerUserId: input.ownerUserId,
+			expectedPatientId: input.patientId,
+			expectedIdempotencyKey: input.idempotencyKey,
+		});
+		const stored = await this.dependencies.orders.insert(
+			candidate,
+			createPaymentOrderEvent("payment-order.created", candidate),
 		);
+		const normalized = normalizePaymentOrderReadModel(stored, {
+			expectedOwnerUserId: candidate.ownerUserId,
+			expectedIdempotencyKey: candidate.idempotencyKey,
+		});
+		if (
+			normalized.patientId !== candidate.patientId ||
+			normalized.amounts.totalFen !== candidate.amounts.totalFen ||
+			normalized.amounts.insuranceFen !== candidate.amounts.insuranceFen ||
+			normalized.amounts.cashFen !== candidate.amounts.cashFen
+		) {
+			// 仓储可能在唯一键竞争后返回已存在订单；只有同一业务身份才能安全重放。
+			throw new PaymentIdempotencyConflictError();
+		}
+		return normalized;
 	}
 
 	/** 通过服务端 quote 创建订单，防止客户端伪造医保和现金金额。 */
@@ -319,10 +647,16 @@ export class PaymentOrderService {
 		if (!this.dependencies.quotes) {
 			throw new PaymentOrderInputError("Payment quote repository is required");
 		}
-		const quote = await this.dependencies.quotes.findByOwnerAndId(
+		const quoteResult = await this.dependencies.quotes.findByOwnerAndId(
 			input.ownerUserId,
 			input.quoteId,
 		);
+		const quote = quoteResult
+			? normalizePaymentQuoteReadModel(quoteResult, {
+					expectedOwnerUserId: input.ownerUserId,
+					expectedQuoteId: input.quoteId,
+				})
+			: undefined;
 		if (!quote || quote.patientId !== input.patientId) {
 			throw new PaymentQuoteNotFoundError();
 		}
@@ -340,12 +674,15 @@ export class PaymentOrderService {
 	}
 
 	async get(ownerUserId: string, orderId: string): Promise<PaymentOrder> {
-		const order = await this.dependencies.orders.findByOwnerAndId(
+		const result = await this.dependencies.orders.findByOwnerAndId(
 			ownerUserId,
 			orderId,
 		);
-		if (!order) throw new PaymentOrderNotFoundError();
-		return order;
+		if (!result) throw new PaymentOrderNotFoundError();
+		return normalizePaymentOrderReadModel(result, {
+			expectedOwnerUserId: ownerUserId,
+			expectedOrderId: orderId,
+		});
 	}
 
 	/**
@@ -360,8 +697,11 @@ export class PaymentOrderService {
 		totalFen: number;
 		trace: ExternalTrace;
 	}): Promise<WechatPaymentReconciliationResult> {
-		const current = await this.dependencies.orders.findById(input.orderId);
-		if (!current) throw new PaymentOrderNotFoundError();
+		const result = await this.dependencies.orders.findById(input.orderId);
+		if (!result) throw new PaymentOrderNotFoundError();
+		const current = normalizePaymentOrderReadModel(result, {
+			expectedOrderId: input.orderId,
+		});
 
 		const evidence = {
 			provider: "wechat-pay" as const,
@@ -384,17 +724,23 @@ export class PaymentOrderService {
 				version: current.version + 1,
 				updatedAt: this.now().toISOString(),
 			};
+			const stored = await this.dependencies.orders.update(
+				updated,
+				current.version,
+				createPaymentOrderEvent(
+					"payment-order.state-changed",
+					updated,
+					evidence,
+				),
+			);
 			return {
 				outcome,
-				order: await this.dependencies.orders.update(
-					updated,
-					current.version,
-					createPaymentOrderEvent(
-						"payment-order.state-changed",
-						updated,
-						evidence,
-					),
-				),
+				order: normalizePaymentOrderReadModel(stored, {
+					expectedOrderId: updated.orderId,
+					expectedOwnerUserId: updated.ownerUserId,
+					expectedState: updated.state,
+					expectedVersion: updated.version,
+				}),
 			};
 		};
 
@@ -433,11 +779,15 @@ export class PaymentOrderService {
 		orderId: string,
 		nextState: PaymentState,
 	): Promise<PaymentOrder> {
-		const current = await this.dependencies.orders.findByOwnerAndId(
+		const result = await this.dependencies.orders.findByOwnerAndId(
 			ownerUserId,
 			orderId,
 		);
-		if (!current) throw new PaymentOrderNotFoundError();
+		if (!result) throw new PaymentOrderNotFoundError();
+		const current = normalizePaymentOrderReadModel(result, {
+			expectedOwnerUserId: ownerUserId,
+			expectedOrderId: orderId,
+		});
 
 		const updated: PaymentOrder = {
 			...current,
@@ -445,11 +795,17 @@ export class PaymentOrderService {
 			version: current.version + 1,
 			updatedAt: this.now().toISOString(),
 		};
-		return this.dependencies.orders.update(
+		const stored = await this.dependencies.orders.update(
 			updated,
 			current.version,
 			createPaymentOrderEvent("payment-order.state-changed", updated),
 		);
+		return normalizePaymentOrderReadModel(stored, {
+			expectedOrderId: updated.orderId,
+			expectedOwnerUserId: updated.ownerUserId,
+			expectedState: updated.state,
+			expectedVersion: updated.version,
+		});
 	}
 }
 

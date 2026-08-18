@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
-import { DependencyNotConfiguredError } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	PaymentOrderReadModelValidationError,
+} from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { safeErrorMetadata } from "./request-logging";
 
@@ -73,5 +76,18 @@ test("持久化日志拒绝未知或可能携带敏感信息的错误码", () =>
 		errorName: "PersistenceUnavailableError",
 		errorCode: "UNKNOWN",
 		persistenceOperation: "write",
+	});
+});
+
+test("支付读模型日志只保留固定违规原因", () => {
+	const metadata = safeErrorMetadata(
+		new PaymentOrderReadModelValidationError("amounts-invalid"),
+		"UNKNOWN",
+	);
+
+	expect(metadata).toEqual({
+		errorName: "PaymentOrderReadModelValidationError",
+		errorCode: "UNKNOWN",
+		readModelViolation: "amounts-invalid",
 	});
 });

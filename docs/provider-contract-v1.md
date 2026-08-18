@@ -125,6 +125,8 @@ Phase 6B 已加入 `WechatPrepayService` 和 `POST /api/v1/payments/orders/:orde
 
 - 服务端通过 `UserIdentityRepository.findByUserId` 读取当前会话对应的 provider subject，小程序不能提交 openid；
 - 只有 `cash_pending` 且 `cashFen > 0` 的订单可以申请 JSAPI 预支付，金额来自已落库订单，不来自页面；
+- 订单和服务端报价仓储结果在领域层还要二次投影，校验 owner、患者、金额守恒、状态、版本、有效期和数据库列宽；
+  读模型异常返回 `persistence-invalid`，不能伪装成订单不存在，也不能回退到客户端金额；
 - 返回值只包含服务端生成的 `payParams`，不返回 provider 原始报文，不改变订单状态；
 - 预支付闸门由 `WECHAT_PAYMENT_READY` 控制，默认关闭；真实环境还需要补齐通知入站、查单补偿和设备验收后，才能宣称支付链路完成。
 - 预支付成功后，`prepay_id` 只保存摘要，`payParams` 只以 AES-256-GCM 密文保存；`PAYMENT_DATA_ENCRYPTION_KEY` 缺失时不得调用 provider。

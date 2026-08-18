@@ -1,5 +1,9 @@
 import { ProviderRequestError } from "@hospital/adapters";
-import { DependencyNotConfiguredError } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	PaymentOrderReadModelValidationError,
+	PaymentQuoteReadModelValidationError,
+} from "@hospital/domain";
 import {
 	type AppLogger,
 	providerFailureMetadata,
@@ -24,6 +28,8 @@ type ErrorMetadata = {
 	/** 仅允许列表中的连接/传输层错误码。 */
 	persistenceErrorCode?: string;
 	dependency?: string;
+	/** 持久化读模型固定违规原因，不携带字段原值或数据库内容。 */
+	readModelViolation?: string;
 };
 
 function statusCode(value: number | string | undefined): number {
@@ -91,6 +97,12 @@ export function safeErrorMetadata(
 	}
 	if (error instanceof DependencyNotConfiguredError) {
 		return { ...metadata, dependency: error.dependency };
+	}
+	if (
+		error instanceof PaymentOrderReadModelValidationError ||
+		error instanceof PaymentQuoteReadModelValidationError
+	) {
+		return { ...metadata, readModelViolation: error.violation };
 	}
 	return metadata;
 }
