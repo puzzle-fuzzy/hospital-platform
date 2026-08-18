@@ -43,11 +43,33 @@ apps/worker/dist/p0-business-evidence-audit.js ae82730903e392b061b5cd08a86c09cad
 apps/worker/dist/redis-session-ttl-audit.js 3f8190fb7acc75a41fb2be12181ad9eb99cafc2302f7044a157452228d4fcd70
 ```
 
-## 4. 尚未执行的发布动作
+## 4. 服务器候选上传与隔离验证
 
-- 当前本机 SSH 公钥不能登录目标服务器，返回 `Permission denied (publickey,password)`；没有修改 SSH、sudoers、旧服务或服务器环境。
-- 因此尚未执行服务器 release 上传、真实生产 env preflight、临时端口 smoke 或 `current` 切换。
-- 即使后续上传并通过 preflight，也只能先保留 `c63dba9` 在线，完成新候选隔离 smoke 后再决定是否切换；旧 Python `8001` 不得停止。
-- 真实微信登录、患者切换、预约历史/爽约、门诊费用和 Redis TTL 仍需按当前只读验收文档取得独立证据；支付、医保、退款和 HIS 继续关闭。
+2026-08-18 13:03 CST，使用用户此前授权的交互式 SSH 方式，将 8 个 bundle 上传到：
+`/home/ps/code/hospital-platform/releases/38bc553`。本机没有可用 SSH 公钥，BatchMode 仍返回
+`Permission denied (publickey,password)`；本次没有修改 SSH、sudoers、旧服务或服务器环境变量。
+
+候选上传后使用服务器既有 `shared/api.env` 执行 production preflight，结果为通过：
+
+- `environment=production`；
+- 微信身份、患者目录、预约目录、预约记录和门诊费用为 `configured`；微信支付、报告目录和报告详情继续为 `disabled`；
+- MySQL、Redis、schema 均为 `ok`，schema 为 `0016_patient_directory_sync_owner_index`。
+
+2026-08-18 13:05 CST，在 `127.0.0.1:18082` 启动候选 API 做隔离 runtime smoke，结果为通过：
+
+- live `200`；
+- readiness 连续 3 次 `200`；
+- system-ping `200`；
+- 所有未登录保护路由均返回 `401 unauthorized`；
+- 临时进程收到 `SIGTERM` 正常退出，`18082` 端口已释放。
+
+隔离 smoke 前后 `current` 始终为 `/home/ps/code/hospital-platform/releases/c63dba9`，新 API `18081`、旧 Python
+`8001` 同时监听，公网/内网 readiness 未受影响。8 个远端 bundle 文件均存在，且 SHA-256 与本节前的本地记录一致。
+
+## 5. 尚未执行的发布动作
+
+- 尚未把 `current` 切换到 `38bc553`，也没有重启 `hospital-platform-api-v2.service`；线上继续运行 `c63dba9`。
+- 尚未进行有效微信会话下的真机登录、患者切换、预约历史/爽约、门诊费用或普通资料读写验收。
+- Redis TTL 仍未通过独立维护 ACL 验证；支付、医保、退款、报告和 HIS 继续关闭。
 
 下一次发布必须同时保存候选目录、产物 checksum、production preflight、隔离 runtime smoke、旧 `8001` 监听和公网 ready 证据，具体命令以 [`api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md) 为准。
