@@ -53,6 +53,8 @@
 - 同一最近 10 分钟低敏聚合中，`outpatientPaymentRecords` 请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；该结果只证明门诊费用查询读链被触发并完成服务端门禁，不证明真实费用数据或真机页面验收。
 - 模拟器随后进入 `pages/report-directory/report-directory`，页面正确展示报告服务未配置提示、摘要范围说明和合法空状态；未打开报告详情、下载或文件资源。
 - 同一最近 10 分钟低敏聚合中，`reportDirectory` 请求 `1`、成功 `0`、失败 `1`，`parseErrors=0`、`systemdWarningCount=0`；对应公网请求为 `503 dependency-not-configured`。这证明报告路由和 Provider 未配置时的 fail-closed 错误边界已生效，不把未接入能力伪装成成功空列表，也不证明真实 Provider 数据或真机页面验收。
+- 模拟器随后从“我的”页进入 `pages/profile/profile`，普通资料只读加载完成，页面展示昵称、性别、年龄、邮箱和资料边界提示；本轮没有点击保存，没有触发 `PUT /api/v2/me/profile`，也没有写入生产资料。
+- 同一最近 10 分钟低敏聚合中，`profileRead` 请求 `2`、成功 `2`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；该结果证明普通资料读取链完成，不代表首次更新、版本冲突 `409` 或真机验收完成。
 - 本轮仍未检测到手机连接，以上模拟器和日志结果不能升级为真实微信真机验收。
 
 ## 开发者工具错误边界

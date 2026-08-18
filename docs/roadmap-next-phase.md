@@ -26,6 +26,10 @@
   该结果确认报告路由的 fail-closed 边界，没有把未接入 Provider 伪装成成功空列表；报告真实 Provider、详情资源授权、真机和页面三层验收仍未完成，详见
   [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
 
+- 2026-08-19：同一运行包的微信开发者工具模拟器从“我的”页进入普通资料页，资料只读加载完成；当前线上 `c26e696` 同一最近 10 分钟低敏门禁中，
+  `profileRead` 请求 `2`、成功 `2`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`。本轮没有点击保存或写入生产资料，普通资料首次更新、版本冲突 `409`、真机视觉和真实微信证据仍未完成，详见
+  [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
+
 - 2026-08-19：会话重启后通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 仍为 `c26e696`，
   新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，临时端口 `18082` 无残留，公网 live/ready 均返回 `200` 且
   `database/redis/schema=ok`。本地 `pnpm check` 全部通过，小程序构建产出 14 个页面脚本；本次没有切换 release、migration、
