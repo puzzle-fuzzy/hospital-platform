@@ -195,10 +195,10 @@ Page<MyPageData, MyPageMethods>({
 				// 当前页面周期已经被新的 onShow/下拉刷新淘汰时，不再启动后续
 				// 读取。微信请求本身无法取消，但至少不让旧周期扩大为新的业务请求。
 				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
-				// 患者目录是“我的”页的关键业务上下文，普通资料只是头像区的
-				// 展示增强。两者可以并行请求，但不能让资料接口的慢响应阻塞
-				// 患者卡片、患者数量和业务入口；否则资料服务短暂抖动时，用户
-				// 会误以为挂号/报告/费用入口也没有加载完成。
+				// 普通资料虽然只是头像区的展示增强，但 GET 也允许在 401 时
+				// 自动换取新平台会话。它必须在患者目录之前完成；否则两个并行
+				// GET 可能分别属于旧/新会话，页面会把旧患者目录和新资料混在
+				// 一起，或者把 session-changed 误显示成患者目录失败。
 				const applyProfileError = (error: unknown): void => {
 					if (!pageLoadGuard.isCurrent(requestToken)) return;
 					// 患者目录已经有更重要的错误时，不要用资料失败覆盖它。
@@ -207,7 +207,7 @@ Page<MyPageData, MyPageMethods>({
 						error: safeApiErrorMessage(error, "个人资料暂时不可用"),
 					});
 				};
-				const profilePromise = getUserProfile()
+				return getUserProfile()
 					.then((response) => {
 						if (!pageLoadGuard.isCurrent(requestToken)) return;
 						const displayName = response.data.displayName.trim();
@@ -219,9 +219,11 @@ Page<MyPageData, MyPageMethods>({
 						});
 					})
 					.catch(applyProfileError);
-				// 普通资料请求已经在自己的成功/失败分支中收敛；这里不把它
-				// 接入患者关键路径，也不留下未处理的 rejected Promise。
-				void profilePromise;
+			})
+			.then(() => {
+				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
+				// 只有资料请求完成或已降级后才读取患者目录。这样即使资料
+				// GET 触发了自动登录，患者关键读模型也一定从最新代际开始。
 				return loadPatients();
 			})
 			.then((result) => {
@@ -233,8 +235,8 @@ Page<MyPageData, MyPageMethods>({
 				const patientContextError =
 					patientSelectionResolutionMessage(resolution);
 				this.setData({
-					// 资料请求可能已经先完成并写入真实昵称；患者关键路径只
-					// 更新自己负责的字段，不能用默认文案覆盖资料增强结果。
+					// 资料请求已经完成或安全降级；患者关键路径只更新自己负责
+					// 的字段，不能用默认文案覆盖资料增强结果。
 					selectedPatient,
 					patientCount: patients.length,
 					// 患者上下文错误优先于资料增强错误：当前就诊人不可查询是

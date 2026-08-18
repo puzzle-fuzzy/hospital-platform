@@ -728,17 +728,20 @@ test("native my page separates ordinary profile from family patient selection", 
 	);
 	const dependentReadsStart = my.indexOf("return loadPatients();", myLoadStart);
 	expect(dependentReadsStart).toBeGreaterThan(sessionStart);
-	// 患者目录是页面关键路径，普通资料只能并行作为展示增强；不能再次
-	// 用 Promise.all 把资料慢响应带回患者卡片的关键提交点。
-	expect(my).toContain("const profilePromise = getUserProfile()");
+	// 普通资料 GET 可能触发自动会话轮换，必须在患者目录之前完成或降级；
+	// 否则两个并行读取可能把旧患者目录和新资料混成一个页面快照。
+	expect(my).toContain("return getUserProfile()");
 	expect(my).toContain(".catch(applyProfileError)");
-	expect(my).toContain("void profilePromise;");
 	expect(my).not.toContain("Promise.all([loadPatients(), profileResult])");
-	expect(my).toContain("资料请求可能已经先完成并写入真实昵称");
+	expect(my).toContain("只有资料请求完成或已降级后才读取患者目录");
+	const profileStart = my.indexOf("return getUserProfile()", sessionStart);
+	const patientReadStart = my.indexOf("return loadPatients();", sessionStart);
+	expect(profileStart).toBeGreaterThan(sessionStart);
+	expect(patientReadStart).toBeGreaterThan(profileStart);
 	expect(my).toContain(
 		"if (!pageLoadGuard.isCurrent(requestToken)) return undefined;",
 	);
-	expect(my).toContain("资料接口的慢响应阻塞");
+	expect(my).toContain("患者关键读模型也一定从最新代际开始");
 	expect(my).toContain("patientSelectionResolutionMessage");
 	expect(my).toContain("patientContextErrorMessage");
 	expect(my).toContain("patientContextError || this.data.error");
