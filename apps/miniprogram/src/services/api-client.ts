@@ -270,7 +270,10 @@ function isReportDetailFlag(value: unknown): value is ReportDetailFlag {
  * 参与当前账号的 owner 关联。因此这里只接受非空、去除首尾空白、无控制
  * 字符且长度受限的字符串；不会把未知字段或未经校验的对象继续传给业务层。
  */
-function hasSafeSessionText(value: unknown, maxLength: number): value is string {
+function hasSafeSessionText(
+	value: unknown,
+	maxLength: number,
+): value is string {
 	return (
 		typeof value === "string" &&
 		value.length > 0 &&
