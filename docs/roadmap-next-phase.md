@@ -24,6 +24,7 @@
 - 2026-08-18 17:09 CST 已在新 `miniprogram` 项目窗口重新生成 iOS 真机调试二维码；截至记录时仍无新设备连接。二维码已生成不等于扫码成功，继续按上述边界区分旧项目连接和新项目验收。
 - 2026-08-18 18:36 CST：`07d3988` 候选重新编译后，新项目模拟器首页正常显示，`appService.js: define is not defined` 的 2 个错误已消失；最终二维码已重新生成，但窗口枚举仍未发现新设备连接，活动真机窗口仍属于旧 `mp-weixin` 项目。本次不增加真机业务证据。
 - 2026-08-18 18:38 CST：公网只读探针再次确认 `/api/v2/health/live=200`、`/api/v2/health/ready=200`（`database/redis/schema=ok`）、`/api/v2/system/ping=200`，未登录 `/api/v2/me/profile=401 unauthorized`。该结果只覆盖公网运行层和认证边界，完整低敏记录见 [`release/current-public-readonly-smoke-2026-08-18-1838.md`](release/current-public-readonly-smoke-2026-08-18-1838.md)。
+- 2026-08-18 19:36 CST：重启后公网只读探针再次确认 live/ready/system-ping 为 200，ready 的 `database/redis/schema` 均为 `ok`，未登录 profile/patients 均为 401。当前环境 SSH 仍无法建立，因此没有新增新旧监听端口或 systemd 共存证据；完整边界见 [`release/current-public-readonly-smoke-2026-08-18-1936.md`](release/current-public-readonly-smoke-2026-08-18-1936.md)。
 - 2026-08-18 18:40 CST：重启后重新核对新 `miniprogram` 窗口，资源树确认是 `dist/`，二维码代码包约 607 KB，模拟器首页正常，调试器为 0 errors / 3 条微信基础库提示；仍未观察到新手机连接。本次只恢复二维码上下文，不增加微信会话或只读业务真机证据，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 - 2026-08-18 18:47 CST：`d4261e5` 提交后的运行包重新构建完成，`dist/build-info.json` 已核对为完整来源指纹
   `d4261e5a59e0a9bfe69534169504d8a118ebca7f`，并通过 `runtime:verify`。此前 `07d3988` 二维码不包含本轮门诊费用失败态修正，不得继续用于验收；本次未部署服务端、未重启新旧服务、未触碰旧 Python 服务。
