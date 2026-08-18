@@ -135,6 +135,23 @@ TTL 结果仍然是“未验证”，不是“没有会话”：常驻 API Redis
 均返回 `401` 且错误码为 `unauthorized`。这些请求没有进入 query 校验或 Provider 调用；它们只证明认证门禁，
 不构成真实微信会话或业务域验收证据。
 
+### 2.10 13:35 CST 当前 release 再次复核
+
+用户反馈应用会话重启后，本次再次通过 SSH 只读核对当前运行层：
+
+| 指标 | 结果 |
+| --- | --- |
+| systemd / 当前 release | `active`；`/home/ps/code/hospital-platform/releases/38bc553` |
+| 新旧监听 | `10.0.0.3:18081` 与 `0.0.0.0:8001` 同时存在 |
+| 内网 live / ready | `200 / 200`；ready 的 `database/redis/schema` 均为 `ok` |
+| 公网 live / ready / ping | `200 / 200 / 200` |
+| 旧端根路径探针 | `127.0.0.1:8001/` 返回 `404`，仅证明旧端口仍响应 |
+
+本次没有切换 release、重启任一服务、执行 migration、修改旧服务或写入业务数据。尝试用当前 release 的
+`p0-log-aggregate.js` 读取重启窗口时，SSH 账号的 `sudo` 日志读取权限不足，工具收到的是空输入；该结果
+不代表日志窗口为空，也不代表预约、费用或其他业务成功。当前 P0 真机验收状态、Redis TTL 未验证状态和
+支付/医保/HIS 关闭边界均保持不变；后续需要运维提供独立只读 journald 权限或安全聚合结果后，才能补日志证据。
+
 ## 3. 维护注意事项
 
 内网健康探针必须使用 `/health/live`、`/health/ready`，内网系统探针使用 `/api/v1/system/ping`；公网才使用

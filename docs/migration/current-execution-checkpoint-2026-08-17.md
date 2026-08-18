@@ -3,7 +3,7 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 截至 2026-08-18 13:24 CST，本地仓库 `main` 的当前 HEAD 以 Git history 为准，线上 API release 仍为 `38bc553`；本轮只做测试/文档和只读观察，未重新部署；新 Bun/Elysia API
+> 截至 2026-08-18 13:35 CST，本地仓库 `main` 的当前 HEAD 以 Git history 为准，线上 API release 仍为 `38bc553`；本轮只做测试/文档和只读观察，未重新部署；新 Bun/Elysia API
 > 监听 `10.0.0.3:18081`，旧 Python API 继续监听 `8001`。此前的 `b3c9a99`、`5f5915e`、`bf67b96` 等内容均为历史段落，
 > 不能继续当作当前线上事实。当前 release 的发布和业务证据见
 > [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md)；真实微信、患者上下文和 P0 只读验收的操作顺序统一见
@@ -32,6 +32,10 @@ readiness 均正常；本次只重启新 API，没有修改旧服务、旧端口
 `38bc553`；新 API 内网 live、公网 `/api/v2/health/live`、`/api/v2/health/ready` 和 `/api/v2/system/ping`
 均返回 `200`，ready 的 database/redis/schema 仍为 `ok`。旧端 `8001` 的本机根路径 GET 返回 `404`，仅作为端口监听证据，
 不作为旧业务成功证据；本次没有修改旧服务、旧端口、数据库或环境变量。该复核未新增业务事件，P0 真机验收顺序保持不变。
+
+2026-08-18 13:35 CST 再次复核确认 `38bc553`、新旧双端口和内外网健康探针均未漂移；本次仍没有业务写入或
+release 切换。日志聚合尝试因当前 SSH `sudo` 无法读取 journald 而只得到空输入，不能据此推导“没有业务事件”或
+“日志无错误”；P0 业务证据继续以真机页面、HTTP trace 和具备权限的低敏日志三层为准。
 
 公网基础运行边界的早期只读复核（2026-08-17 09:53 CST）已记录在
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续
