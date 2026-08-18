@@ -1,6 +1,6 @@
 # 患者目录同步幂等契约
 
-> 状态：代码已实现，`0015` operation ledger 和 `0016` owner/provider 查询索引组成当前生产 schema；当前公网 release 为 `1b94c46`，配套小程序构建来源为 `dd34d12d6fd68b3b7f2c4231f8646cdcaf9421fe`，`0016` 已完成 migration、marker/index postcondition 和 schema probe。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
+> 状态：代码已实现，`0015` operation ledger 和 `0016` owner/provider 查询索引组成当前生产 schema；当前公网 release 为 `1b94c46`，配套小程序构建来源为 `cea2502a47b3882684e222ecfc8720ea217e1c9c`，`0016` 已完成 migration、marker/index postcondition 和 schema probe。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
 > 当前线上已经具备本轮跨幂等键并发保护所需的 schema 运行前置，但这不等于真实 Provider 并发、失效恢复或真机业务已经验收。
 >
 > 适用接口：`POST /api/v2/patients/sync`。本契约只处理“从 provider 读取完整患者目录并

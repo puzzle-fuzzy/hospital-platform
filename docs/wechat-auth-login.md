@@ -22,7 +22,7 @@ Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收�
 `/api/v2` 健康检查、ready 连续检查、未登录认证边界和旧 Python 服务共存验收；本次只补齐普通资料更新日志链路，
 切换后受控日志窗口只有健康请求，没有当前 release 下微信登录、患者目录、预约历史或门诊费用的真实业务事件，
 因此不能沿用旧 release 的业务证据。当前配套小程序运行包来源指纹为
-`dd34d12d6fd68b3b7f2c4231f8646cdcaf9421fe`；完整服务端发布边界见
+`cea2502a47b3882684e222ecfc8720ea217e1c9c`；完整服务端发布边界见
 [`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)，
 小程序候选和新旧真机调试边界见
 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
