@@ -21,7 +21,7 @@ cursor/page，因此 `total` 的语义是本次完整 `items` 的数量，而不
 
 ## 3. 本地证据
 
-- 小程序定向测试：136 pass、0 fail、1113 个断言。
+- 小程序定向测试：136 pass、0 fail、1114 个断言。
 - 小程序 TypeScript 类型检查：通过。
 - `git diff --check`：本轮代码和文档通过；用户已有的
   `apps/miniprogram/project.config.json` 未触碰、未暂存、未提交。
@@ -30,5 +30,6 @@ cursor/page，因此 `total` 的语义是本次完整 `items` 的数量，而不
 
 - 当前线上新 API 仍为 `b7c9451`；旧 Python `8001` 未修改、未停止、未重启。
 - 本轮未修改数据库、Redis、微信域名、Provider 配置或服务器运行配置。
-- 本轮只改变新小程序读取层；完整 `pnpm check`、构建和新的运行包来源必须在提交后重新生成，
+- 本轮只改变新小程序读取层；当前候选提交为 `59d76cf`，运行包来源指纹为
+  `59d76cf8f8904cb74bd9cd2bd13df0920f0b99f4`。完整 `pnpm check`、构建和新的运行包来源已经重新生成，
   真机与公网业务证据仍待受控验收。

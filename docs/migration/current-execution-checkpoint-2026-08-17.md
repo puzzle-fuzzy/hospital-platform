@@ -7,7 +7,7 @@
 > 监听 `10.0.0.3:18081`，旧 Python API 继续监听 `8001`。此前的 `b3c9a99`、`5f5915e`、`bf67b96` 等内容均为历史段落，
 > 不能继续当作当前线上事实。当前 release 的发布和业务证据见
 > [`../release/b7c9451-production-acceptance-2026-08-19.md`](../release/b7c9451-production-acceptance-2026-08-19.md)；配套小程序构建来源为
-> `d74bf101177a0213a7530c409e7b082fb29430ed`（当前本地候选 `d74bf10`，尚未上传线上）。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
+> `59d76cf8f8904cb74bd9cd2bd13df0920f0b99f4`（当前本地候选 `59d76cf`，尚未上传线上）。真实微信、患者上下文和 P0 只读验收的操作顺序统一见
 > [`P0 只读业务验收手册`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
 
 ## 1. 当前事实
