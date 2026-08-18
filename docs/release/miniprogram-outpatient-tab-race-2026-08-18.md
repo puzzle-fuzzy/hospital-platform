@@ -31,8 +31,7 @@ selectedPatient = 已确认的当前患者
 
 ## 3. 验证与发布边界
 
-- 原生小程序回归：122 项通过，1044 个断言；类型检查和 Biome 格式检查通过。
-- 当前候选源码提交：`e4d9de6`；运行包重建后必须以 `dist/build-info.json.sourceRevision` 为准。
+- 原生小程序回归：122 项通过，1048 个断言；类型检查和 Biome 格式检查通过。
+- 当前候选源码提交：`bc1752f`；运行包重建后必须以 `dist/build-info.json.sourceRevision` 为准。
 - 本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务；未进行部署和重启。
 - 真实微信会话、门诊费用 Provider、公网 HTTPS、日志和真机页面仍需按 P0 手册分别取证。
-

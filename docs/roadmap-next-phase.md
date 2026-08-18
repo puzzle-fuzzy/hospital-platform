@@ -5,8 +5,13 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18 19:12 CST：`bc1752f` 收紧首页患者目录请求的生命周期边界。失去当前请求或页面资格的旧错误以安全空完成收敛，
+  不再冒泡到 `onShow/onRefresh` 或卸载后的页面回写；仍属于当前请求的失败继续按原错误语义清理展示态并提示。
+  小程序回归为 122 项、1048 个断言，未部署服务端、未重启新旧服务，详见
+  [`release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](release/miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
+
 - 微信开发者工具的 `miniprogram` 项目已确认使用 `miniprogramRoot=dist/`，当前运行包来源为
-  `dist/build-info.json.sourceRevision=e4d9de6ef88ca9d24e89682f51f69ce292030ae2`，14 个页面脚本和根文件均已通过运行包校验。
+  `dist/build-info.json.sourceRevision=bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`，14 个页面脚本和根文件均已通过运行包校验。
 - “二维码真机调试”弹窗已经生成 iOS 调试二维码，但截至本检查点尚未观察到手机扫码后的连接状态；二维码存在不等于微信会话、患者切换或业务已经验收。
 - 本地 `pnpm check` 已通过；随后仅做了路线图文案修正和文档门禁复核，没有重新发布服务端、没有重启新旧服务，也没有触碰用户已有的 `apps/miniprogram/project.config.json` 修改。
 - 当前门禁新增 `pnpm release:baseline:audit`：以只读业务验收候选为基准，自动核对路线图、迁移清单和当前业务审计是否仍绑定同一服务端 release 与小程序完整 `sourceRevision`，历史 release 仍可保留但不会被当作当前状态。
@@ -54,7 +59,7 @@
 - 在患者同步代际隔离之外，原生小程序认证请求层现在会在响应交付前再次核对会话代际；旧账号的患者目录、资料、预约、报告、费用或预支付响应不会因为 HTTP 200 而进入新账号页面。
 - 401 的既有单次重试仍然保留，但重试会重新绑定新 token 的代际；`session-changed` 不会被当作普通网络错误重试，避免把旧请求无限延长。
 - 新增真实延迟响应回归测试和中文业务注释；本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务。
-- 当前小程序候选来源为 `e4d9de6ef88ca9d24e89682f51f69ce292030ae2`，14 个页面运行包已重新构建并通过 `runtime:verify`；小程序为 122 项测试、1044 个断言；本轮修正了门诊缴费首次加载期间的标签状态快照竞态，并保留普通资料 409 冲突后的强制刷新、报告详情/门诊费用失败态患者上下文、“我的”页未迁移菜单的 WXML key 和根入口全局脚本兼容，未改变服务端或旧服务。
+- 当前小程序候选来源为 `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`，14 个页面运行包已重新构建并通过 `runtime:verify`；小程序为 122 项测试、1048 个断言；本轮修正了首页目录旧请求在新请求或页面卸载后错误回写的生命周期竞态，并保留门诊缴费首次加载期间标签状态快照竞态、普通资料 409 冲突后的强制刷新、报告详情/门诊费用失败态患者上下文、“我的”页未迁移菜单的 WXML key 和根入口全局脚本兼容，未改变服务端或旧服务。
 - 详细规则见 [`release/miniprogram-authenticated-response-session-gate-2026-08-18.md`](release/miniprogram-authenticated-response-session-gate-2026-08-18.md)。
 
 ### 本轮预约目录日期事件边界（2026-08-18）
@@ -75,9 +80,9 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `e4d9de6`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `bc1752f`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `e4d9de6` 重建，`sourceRevision=e4d9de6ef88ca9d24e89682f51f69ce292030ae2`，14 个页面脚本已核对。
+- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `bc1752f` 重建，`sourceRevision=bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 
 ### 本轮就诊人手动刷新事件修正（2026-08-18）

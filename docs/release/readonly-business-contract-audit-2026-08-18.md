@@ -29,7 +29,7 @@
 - `packages/domain/src/outpatient-payments.ts`
 
 当前线上 release 以 [`1b94c46-production-acceptance-2026-08-18.md`](1b94c46-production-acceptance-2026-08-18.md)
-为准；配套小程序构建来源为 `e4d9de6ef88ca9d24e89682f51f69ce292030ae2`：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
+为准；配套小程序构建来源为 `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -99,12 +99,12 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 ## 3. 当前工作树测试证据
 
-服务端生产候选固定为 `1b94c46`，小程序当前运行输入来源为 `e4d9de6ef88ca9d24e89682f51f69ce292030ae2`，包含微信身份边界修正、患者引用 fail-closed 修正、空目录下已有选择的 stale 修正、同步回写不能覆盖 stale/unavailable 的状态门禁、精确运行包来源输入校验、选择页手动刷新事件边界、会话代际隔离修正、预约目录两阶段查询边界、刷新期间科室/日期事件校验、挂号卡片操作事件 key 回查、报告目录详情事件 key 回查、报告详情患者范围复核和失败态临床读模型清理、“我的”页未迁移菜单稳定 key、根入口全局脚本门禁、门诊费用失败态患者上下文清理、普通资料 409 后强制刷新边界和门诊缴费首次加载期间的标签状态快照边界；小程序修正未改变旧服务。
+服务端生产候选固定为 `1b94c46`，小程序当前运行输入来源为 `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`，包含微信身份边界修正、患者引用 fail-closed 修正、空目录下已有选择的 stale 修正、同步回写不能覆盖 stale/unavailable 的状态门禁、精确运行包来源输入校验、选择页手动刷新事件边界、会话代际隔离修正、预约目录两阶段查询边界、刷新期间科室/日期事件校验、挂号卡片操作事件 key 回查、报告目录详情事件 key 回查、报告详情患者范围复核和失败态临床读模型清理、“我的”页未迁移菜单稳定 key、根入口全局脚本门禁、门诊费用失败态患者上下文清理、普通资料 409 后强制刷新边界、门诊缴费首次加载期间的标签状态快照边界和首页目录请求生命周期边界；小程序修正未改变旧服务。
 本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
-- `pnpm --filter @hospital/miniprogram test`：122 项通过，1044 个断言；
+- `pnpm --filter @hospital/miniprogram test`：122 项通过，1048 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；候选 `dist/build-info.json` 来源指纹为
-  `e4d9de6ef88ca9d24e89682f51f69ce292030ae2`；
+  `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：75 项通过，168 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
@@ -117,7 +117,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 以下事项仍不能标记完成：
 
-1. 使用与服务端 `1b94c46` 配套、来源指纹为 `e4d9de6ef88ca9d24e89682f51f69ce292030ae2` 的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
+1. 使用与服务端 `1b94c46` 配套、来源指纹为 `bc1752f1a4531a15b8121e8a2bac9d9e4d625cb9` 的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
    爽约记录和门诊待缴/已缴页面操作；
 2. 每个页面同时保存页面结果、HTTP 状态/trace 和当前 release 的低敏业务事件；
 3. 取得真实账号的预约历史状态、未来预约窗口、门诊费用状态和 Provider 字段对照；
