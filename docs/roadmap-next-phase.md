@@ -5,6 +5,14 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：继续审计门诊/住院病历目录时，旧端仍只能提供历史调用线索，当前没有新增 `out-visit-records` 正式
+  Provider contract、患者映射确认、四类脱敏响应样例或字段授权清单。已将本轮结论记录到
+  [`medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md)：停止在契约
+  准入，不新增 schema、adapter、service、页面或兼容转发；门诊目录、住院病历、诊断和附件继续保持独立未开放，
+  `GET /api/v2/medical-records` 保持未注册/404。只有 Provider 补齐 MR-01 至 MR-06、MR-13 至 MR-15 和最小交付包，
+  并通过脱敏样例、字段白名单、错误语义、分页及时区测试后，才进入实现评估；旧 Python、线上新 API、数据库、
+  Redis 和线上小程序均未修改。
+
 - 2026-08-19：继续审计患者目录同步的并发语义时发现，内存测试仓储在无 I/O 的快照路径中存在不必要的异步让出点，旧租约可能在资料已修改后被新代次接管。提交 `3c1b497` 已将该路径收紧为单事件循环 turn 的快照提交，并补充旧租约不得留下部分患者资料的回归测试；生产 MySQL 的事务和条件更新未修改，旧 Python、线上 API、数据库、Redis 和线上小程序均未修改或重启。
 
 - 2026-08-19：继续观察当前候选的真机入口，开发者工具已成功编译约 `608 KB` 代码包并生成 iOS 二维码，但窗口仍处于等待扫码状态，没有手机连接、真机日志或真机 HTTP trace。该证据只证明“真机调试入口可生成”，不推进微信登录、患者切换、预约、费用、支付或医保验收；二维码未保存或外传，详细记录见 [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md)。
