@@ -70,7 +70,7 @@ test("开发者工具配置改动不冒充业务源码版本", async () => {
 		});
 		await writeFile(
 			join(repositoryRoot, "apps/miniprogram/project.config.json"),
-			"{\"libVersion\":\"3.17.1\"}\n",
+			'{"libVersion":"3.17.1"}\n',
 			"utf8",
 		);
 		const revision = resolveMiniProgramSourceRevision(
