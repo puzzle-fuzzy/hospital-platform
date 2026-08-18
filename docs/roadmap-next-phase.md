@@ -9,6 +9,7 @@
   `dist/build-info.json.sourceRevision=4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，14 个页面脚本和根文件均已通过运行包校验。
 - “二维码真机调试”弹窗已经生成 iOS 调试二维码，但截至本检查点尚未观察到手机扫码后的连接状态；二维码存在不等于微信会话、患者切换或业务已经验收。
 - 本地 `pnpm check` 已通过；随后仅做了路线图文案修正和文档门禁复核，没有重新发布服务端、没有重启新旧服务，也没有触碰用户已有的 `apps/miniprogram/project.config.json` 修改。
+- 当前门禁新增 `pnpm release:baseline:audit`：以只读业务验收候选为基准，自动核对路线图、迁移清单和当前业务审计是否仍绑定同一服务端 release 与小程序完整 `sourceRevision`，历史 release 仍可保留但不会被当作当前状态。
 - 2026-08-18 16:44 CST 公网只读复核通过：`/api/v2/health/live=200`、`/api/v2/health/ready=200`，且 ready 返回 `database/redis/schema=ok`；未登录 `GET /api/v2/me/profile` 返回预期 `401 unauthorized`。这只证明公网运行层和认证边界，不能增加微信会话、患者切换、预约、报告或费用业务验收结论。
 - 下一步固定为：用户扫码后先确认微信会话，再按 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
   采集页面、HTTP trace 和低敏服务日志三层证据；在三层证据对齐前，不把任何只读业务标记为真实已验收。
@@ -26,7 +27,7 @@
 ### 本轮普通资料版本上限门禁（2026-08-18）
 
 - `1b94c46` 修正普通资料 service 的版本边界：当请求版本已经达到 MySQL `INT UNSIGNED` 最大值时，在仓储写入前返回 `user-profile-invalid`，不尝试生成越界的下一版本。
-- 新增“最大版本不触碰仓储”的回归测试；全仓 `pnpm check` 通过，API 为 115 项测试、532 个断言。代码注释明确区分输入校验、409 并发冲突和版本耗尽三种业务事实。
+- 新增“最大版本不触碰仓储”的回归测试；全仓 `pnpm check` 通过，API 为 115 项测试、525 个断言。代码注释明确区分输入校验、409 并发冲突和版本耗尽三种业务事实。
 - `1b94c46` 已按无损 runbook 完成生产切换，当前 release 为 `/home/ps/code/hospital-platform/releases/1b94c46`；普通资料首次 PUT、真实 409 和真机证据仍需 P0 验收，部署证据见 [`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)。
 
 ### 本地候选与当前线上增量（2026-08-18）

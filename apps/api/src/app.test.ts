@@ -231,36 +231,37 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"release/current-server-p0-observation-2026-08-17-2257.md",
 	);
-	// 当前盘点必须明确记录 4ae2a31 的运行层观察范围；不能把上一 release
+	// 当前盘点必须明确记录当前 release 的运行层观察范围；不能把上一 release
 	// 的登录/患者日志计入当前版本，也不能把健康探针成功扩展成业务完成。
 	expect(inventory).toContain(
-		"切换后 journald 低敏窗口 `parseErrors=0`、`systemdWarningCount=0`，只有基础设施和健康探针事件；没有新的预约历史、门诊费用、报告或微信业务事件，",
+		"`1b94c46` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；",
 	);
 	expect(inventory).toContain(
-		"9acdaf2-appointment-status-observation-2026-08-18.md",
+		"历史 release `9acdaf2` 曾观察到预约历史 `itemCount=60`、`statusCounts={cancelled:60}`",
 	);
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });
 
 test("P0 acceptance documents share the current release baseline", async () => {
-	// 该断言故意只维护当前线上 release；历史 release 文档继续保留，
-	// 但不能因为历史证据中出现旧 hash 就让当前验收文档继续引用旧包。
-	const currentRelease = "4ae2a31";
-	const currentDocuments = [
-		"../../../docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
-		"../../../docs/release/readonly-business-contract-audit-2026-08-18.md",
-		"../../../docs/release/report-readonly-contract-audit-2026-08-18.md",
-	];
-
-	for (const relativePath of currentDocuments) {
-		const document = await Bun.file(join(import.meta.dir, relativePath)).text();
-		// 发布后必须把真机包、日志窗口和业务审计绑定到同一个 release；否则
-		// 旧窗口的“已验收”文字会让新会话误跳过当前版本的真实业务验证。
-		expect(document).toContain(currentRelease);
-		expect(document).not.toContain("b3c9a99");
-		expect(document).not.toContain("0995f7c");
-	}
+	// 当前候选文档集中声明版本，其余当前状态文档由同一个工具统一核对；
+	// 历史 release 可以保留，但不能让当前验收继续引用已经下线的运行包。
+	const auditProcess = Bun.spawn(
+		["bun", join(import.meta.dir, "../../../tools/release-baseline-audit.mjs")],
+		{
+			cwd: join(import.meta.dir, "../../.."),
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
+	const output = await new Response(auditProcess.stdout).text();
+	const error = await new Response(auditProcess.stderr).text();
+	const exitCode = await auditProcess.exited;
+	expect(exitCode).toBe(0);
+	expect({ error, result: JSON.parse(output) }).toEqual({
+		error: "",
+		result: expect.objectContaining({ passed: true, failures: [] }),
+	});
 });
 
 test("medical record draft preserves source evidence and fail-closed semantics", async () => {

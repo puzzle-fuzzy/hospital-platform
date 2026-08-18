@@ -8,11 +8,12 @@
 - 服务端代码来源：`1b94c46`，包含普通资料版本达到 MySQL `INT UNSIGNED` 上限时的写入前 fail-closed 修正；
 - 数据库没有执行 migration，schema 仍使用已验证的 `0016_patient_directory_sync_owner_index`；
 - 支付、医保、HIS 写入、预约写入、报告 gate 和 Worker 继续关闭；
-- 原生小程序候选仍为 `4c9cfb4`，本次 API 发布没有替代或上传小程序运行包。
+- 原生小程序候选仍为 `4c9cfb4`，构建来源指纹为
+  `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`；本次 API 发布没有替代或上传小程序运行包。
 
 ## 2. 本地产物与检查
 
-本次服务端改动完成全仓 `pnpm check`；API 为 115 项测试、532 个断言，普通资料 service 定向测试为 10 项、37 个断言。候选预生产 smoke 使用本地构建产物，八个 bundle 上传后 SHA-256 与本地一致：
+本次服务端改动完成全仓 `pnpm check`；API 为 115 项测试、525 个断言，普通资料 service 定向测试为 10 项、37 个断言。候选预生产 smoke 使用本地构建产物，八个 bundle 上传后 SHA-256 与本地一致：
 
 | 产物 | SHA-256 |
 | --- | --- |

@@ -14,7 +14,7 @@
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
 | 小程序构建来源 | `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d` | `dist/build-info.json` 的 `sourceRevision` |
 | 小程序回归 | 115 项 / 997 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `4c9cfb4` |
-| 全仓回归 | 9/9 package、API 115/115、工具 10/10 | `1b94c46` 后的 `pnpm check` 已通过；服务端 release 已按无损 runbook 切换，旧 Python 保持运行 |
+| 全仓回归 | 9/9 package、API 115/115、工具 14/14 | `1b94c46` 后的 `pnpm check` 已通过；服务端 release 已按无损 runbook 切换，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
 客户端候选的 `dist/` 必须由 `4c9cfb4` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
