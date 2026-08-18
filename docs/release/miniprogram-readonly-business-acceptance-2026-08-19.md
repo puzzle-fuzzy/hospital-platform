@@ -55,6 +55,7 @@
 - 同一最近 10 分钟低敏聚合中，`reportDirectory` 请求 `1`、成功 `0`、失败 `1`，`parseErrors=0`、`systemdWarningCount=0`；对应公网请求为 `503 dependency-not-configured`。这证明报告路由和 Provider 未配置时的 fail-closed 错误边界已生效，不把未接入能力伪装成成功空列表，也不证明真实 Provider 数据或真机页面验收。
 - 模拟器随后从“我的”页进入 `pages/profile/profile`，普通资料只读加载完成，页面展示昵称、性别、年龄、邮箱和资料边界提示；本轮没有点击保存，没有触发 `PUT /api/v2/me/profile`，也没有写入生产资料。
 - 同一最近 10 分钟低敏聚合中，`profileRead` 请求 `2`、成功 `2`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；该结果证明普通资料读取链完成，不代表首次更新、版本冲突 `409` 或真机验收完成。
+- 普通资料写入契约完成本地分层审计：API 49 项/268 个断言、持久化 42 项/152 个断言、小程序全套 128 项/1075 个断言均通过；覆盖 owner 隔离、首次 `version=0` 插入、条件版本更新、显式清空、非法字段拒绝、版本上限和 409 页面边界。全仓 `pnpm check` 也通过（架构 66 条、9 个 workspace typecheck/test/build）；本地小程序运行包 revision 为 `93a3c72`，未因此部署服务端或写入生产资料。
 - 本轮继续前通过 SSH 只读复核：`hospital-platform-api-v2.service` 仍为 `active`，当前 release 仍为 `c26e696`；新 API `18081` 与旧 Python `8001` 同时监听，临时端口 `18082` 不存在。公网 live/ready 均为 `200`，ready 的 `database/redis/schema` 均为 `ok`；本轮没有重启、migration、Redis 清理或业务写入。
 - 本轮仍未检测到手机连接，以上模拟器和日志结果不能升级为真实微信真机验收。
 

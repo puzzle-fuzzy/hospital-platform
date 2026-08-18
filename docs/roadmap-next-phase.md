@@ -30,6 +30,9 @@
   `profileRead` 请求 `2`、成功 `2`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`。本轮没有点击保存或写入生产资料，普通资料首次更新、版本冲突 `409`、真机视觉和真实微信证据仍未完成，详见
   [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
 
+- 2026-08-19：对普通资料写入契约完成本地分层审计，API 49/268、持久化 42/152、小程序 128/1075 的定向与全套断言通过；全仓 `pnpm check` 通过，确认 owner、version、显式清空、非法字段、版本上限、409 和页面保存门禁保持一致。
+  本地运行包 revision 为 `93a3c72`，没有部署服务端、写入生产资料或把本地测试当作真实首次 PUT/409/真机证据。
+
 - 2026-08-19：继续工作前通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 为 `c26e696`，新 API `18081` 与旧 Python `8001` 同时监听，`18082` 无残留；公网 live/ready 均为 `200`，ready 的
   `database/redis/schema` 均为 `ok`。本轮没有重启、migration、Redis 清理、业务写入或旧服务操作。
 
