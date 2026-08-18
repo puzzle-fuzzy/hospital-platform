@@ -62,9 +62,9 @@
 | 检查 | 结果 |
 | --- | --- |
 | `pnpm --filter @hospital/adapters test` | 83 项通过，183 个断言 |
-| `pnpm --filter @hospital/persistence test` | 74 项通过，545 个断言 |
-| `pnpm format:check` | 231 个文件通过 |
-| 报告 service 定向测试 | 18 项通过，104 个断言 |
+| `pnpm --filter @hospital/persistence test` | 75 项通过，549 个断言 |
+| `pnpm format:check` | 233 个文件通过 |
+| 报告 service 定向测试 | 13 项通过，60 个断言 |
 | API TypeScript 类型检查 | 通过 |
 
 已有报告 service/API 测试还覆盖：
@@ -88,7 +88,8 @@
 - Provider 报告日期包含边界、空目录语义以及真实字段样例与旧端逐字段比对。
 - 当前排序修复只覆盖 `yyyy-MM-dd`、`yyyy/MM/dd`、带时间文本和带时区 ISO 文本；新的 Provider 时间格式仍需拿到脱敏样例后再扩展，不能把未知文本当成有效医疗时间。
 - 小程序详情失败态清理已有静态回归，但仍需在真实微信会话中验证患者切换、详情引用过期和页面栈复用时的视觉收敛。
-- 本轮 service 二次校验提交为 `133e94e`，引用范围回验提交为 `62e1dac`；两者只完成本地代码、定向测试和类型证据，尚未部署到当前线上 `1b94c46`，不能据此增加 Provider 或真机验收结论。
+- 本轮 service 二次校验提交为 `133e94e`，引用写入范围回验提交为 `62e1dac`，引用读取范围回验提交为 `56c73af`；
+  这些提交只完成本地代码、定向测试和类型证据，尚未部署到当前线上 `1b94c46`，不能据此增加 Provider 或真机验收结论。
 
 当前线上发布和运行观察见 [`1b94c46-production-acceptance-2026-08-18.md`](1b94c46-production-acceptance-2026-08-18.md)；
 配套小程序构建来源为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。

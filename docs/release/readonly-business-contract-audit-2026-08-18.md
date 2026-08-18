@@ -129,14 +129,17 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/adapters test`：83 项通过，183 个断言；
 - `pnpm --filter @hospital/domain test`：27 项通过，62 个断言；其中包含患者读模型和普通资料读模型的 owner、
   重复 ID、展示字段、版本与白名单投影门禁；
-- `pnpm --filter @hospital/api test`：126 项通过，575 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、
-  普通资料读模型、报告详情引用范围、错误处理、患者读模型归属和日志脱敏用例。
+- `pnpm --filter @hospital/api test`：127 项通过，577 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、
+  普通资料读模型、报告详情引用读写范围、错误处理、患者读模型归属和日志脱敏用例。
 
 本轮 `aa9807a` 收紧患者同步的 MySQL owner/provider 租约接管边界，并补充持久化回归测试和中文契约说明；
 代码尚未部署到线上 `1b94c46`，不能增加真实 Provider、微信或真机验收结论。
 
 本轮 `62e1dac` 收紧报告详情引用的 service 范围校验，并补充跨患者引用回归测试；代码尚未部署到线上
 `1b94c46`，不能增加真实报告 Provider、微信或真机验收结论。
+
+本轮 `56c73af` 继续收紧报告详情读取的仓储返回值校验，并补充跨范围引用不调用 Provider 的回归测试；
+代码尚未部署到线上 `1b94c46`，不能增加真实报告 Provider、微信或真机验收结论。
 
 门诊费用重新投影修正提交为 `fb0efba`，同样尚未部署；线上 release 和真机验收边界保持不变。
 
