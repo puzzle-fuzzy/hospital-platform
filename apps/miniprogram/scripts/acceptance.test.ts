@@ -697,6 +697,10 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("appPagePaths");
 	expect(build).toContain("app.json page scripts are present");
 	expect(build).toContain("report-directory/report-directory.js");
+	// 爽约页虽然也由 app.json 动态校验，但必须同时出现在重点静态/脚本清单中，
+	// 防止后续维护只更新页面注册而漏掉运行包门禁。
+	expect(build).toContain("missed-appointments/missed-appointments.wxss");
+	expect(build).toContain("missed-appointments/missed-appointments.ts");
 	expect(build).toContain("project.private.config.json");
 	expect(build).toContain("ignoreDevUnusedFiles");
 	expect(build).toContain("src 仍是唯一业务源码");
