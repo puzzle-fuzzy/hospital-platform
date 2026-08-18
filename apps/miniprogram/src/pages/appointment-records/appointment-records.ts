@@ -24,6 +24,7 @@ import type {
 	AppointmentRecordTab,
 	AppointmentRecordView,
 	DepartmentLocationView,
+	ViewKeyEvent,
 } from "../../types";
 
 /**
@@ -55,7 +56,11 @@ type AppointmentRecordsPageMethods = {
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
-	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
+	toRecordView(
+		record: AppointmentRecord,
+		index: number,
+		renderGeneration: number,
+	): AppointmentRecordView;
 };
 
 function removeOutpatient(text: string): string {
@@ -113,6 +118,21 @@ function getVisibleRecords(
 		visibleRecordCount,
 		hasMoreRecords: visibleRecordCount < filteredRecords.length,
 	};
+}
+
+/**
+ * 从当前可见窗口按视图 key 回查记录。
+ *
+ * WXML 的 `index` 只代表当次数组位置；患者切换、刷新或异步回写后，旧
+ * 事件携带的数字可能命中新患者的另一张卡片。视图 key 带有本页请求令牌，
+ * 因此只能命中当前渲染批次仍存在的记录，不能被当作服务端业务主键使用。
+ */
+function findVisibleRecord(
+	records: readonly AppointmentRecordView[],
+	viewKey: unknown,
+): AppointmentRecordView | undefined {
+	if (typeof viewKey !== "string" || !viewKey) return undefined;
+	return records.find((record) => record.viewKey === viewKey);
 }
 
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
@@ -181,7 +201,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 						return;
 					}
 					const mappedRecords = records.map((record, index) =>
-						this.toRecordView(record, index),
+						this.toRecordView(record, index, requestToken),
 					);
 					const visibleState = getVisibleRecords(
 						mappedRecords,
@@ -248,8 +268,14 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	toRecordView(
 		record: AppointmentRecord,
 		index: number,
+		renderGeneration: number,
 	): AppointmentRecordView {
-		return toAppointmentRecordView(record, index, "appointment-record");
+		return toAppointmentRecordView(
+			record,
+			index,
+			"appointment-record",
+			renderGeneration,
+		);
 	},
 
 	onChangePatient(): void {
@@ -282,9 +308,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	 * 旧端卡片点击会打开挂号详情；新 contract 没有稳定的详情引用，
 	 * 所以这里必须给出明确的迁移状态，不能把 WXML 的列表索引拼成详情 URL。
 	 */
-	onRecordTap(event: WechatMiniprogram.TouchEvent): void {
-		const index = Number(event.currentTarget?.dataset?.index);
-		if (!Number.isInteger(index) || !this.data.visibleRecords[index]) return;
+	onRecordTap(event: ViewKeyEvent): void {
+		const record = findVisibleRecord(
+			this.data.visibleRecords,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		if (!record) return;
 		wx.showToast({ title: "挂号详情暂未开放", icon: "none" });
 	},
 
@@ -294,7 +323,14 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/** 旧端预问诊目标页尚未完成独立 contract，保留入口位置但不伪造跳转。 */
-	onPreVisit(): void {
+	onPreVisit(event: ViewKeyEvent): void {
+		if (
+			!findVisibleRecord(
+				this.data.visibleRecords,
+				event.currentTarget?.dataset?.viewKey,
+			)
+		)
+			return;
 		wx.showToast({ title: "预问诊功能正在迁移中", icon: "none" });
 	},
 
@@ -302,9 +338,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	 * 院内导航继续使用旧端静态科室位置弹窗；没有匹配时展示空状态，
 	 * 不把科室名称拼接成未经审核的楼层或诊室。
 	 */
-	onHospitalGuide(event: WechatMiniprogram.TouchEvent): void {
-		const index = Number(event.currentTarget?.dataset?.index);
-		const record = this.data.visibleRecords[index];
+	onHospitalGuide(event: ViewKeyEvent): void {
+		const record = findVisibleRecord(
+			this.data.visibleRecords,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		if (!record) return;
 		this.setData({
 			showLocationModal: true,
 			locationResults: searchDepartmentLocation(record?.departmentName ?? ""),

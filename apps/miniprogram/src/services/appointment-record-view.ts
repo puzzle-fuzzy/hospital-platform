@@ -77,17 +77,20 @@ function toPeriodLabel(workTime?: string): string {
 /**
  * 将服务端预约摘要转换为 WXML 渲染模型。
  *
- * `viewKey` 只用于当前响应批次的 WXML diff。由于只读摘要可能没有稳定的
- * 公共预约 ID，索引不能被当作详情、取消、支付或任何写入业务引用。
+ * `viewKey` 只用于当前响应批次的 WXML diff 和事件回查。由于只读摘要没有
+ * 稳定的公共预约 ID，页面会把自己的请求令牌作为渲染批次号传入；这样刷新
+ * 患者或重新查询后，即使旧 WXML 事件晚到，也不会按相同数组索引命中新记录。
+ * 这个 key 仍然不是详情、取消、支付或任何写入业务引用。
  */
 export function toAppointmentRecordView(
 	record: AppointmentRecord,
 	index: number,
 	prefix: "appointment-record" | "missed-appointment-record",
+	renderGeneration = 0,
 ): AppointmentRecordView {
 	return {
 		...record,
-		viewKey: `${prefix}-${index}`,
+		viewKey: `${prefix}-${renderGeneration}-${index}`,
 		statusLabel: APPOINTMENT_RECORD_STATUS_LABELS[record.status],
 		statusClass: `record-status-${record.status}`,
 		periodLabel: toPeriodLabel(record.workTime),

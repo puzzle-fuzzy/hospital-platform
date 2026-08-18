@@ -891,6 +891,10 @@ test("native mini program exposes read-only appointment directory and records pa
 	// 卡片详情还没有稳定公开引用时，点击必须给出明确的迁移状态，
 	// 不能把列表索引误当成预约详情或取消/支付业务主键。
 	expect(recordsTemplate).toContain('bindtap="onRecordTap"');
+	expect(recordsTemplate).toContain('data-view-key="{{item.viewKey}}"');
+	expect(recordsTemplate).not.toContain('data-index="{{index}}"');
+	expect(records).toContain("findVisibleRecord");
+	expect(records).toContain("requestToken),");
 	expect(records).toContain("挂号详情暂未开放");
 	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
 	expect(recordsTemplate).toContain("当前院区");
@@ -941,6 +945,25 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directory).not.toContain("providerPatientId");
 	expect(records).not.toContain("providerPatientId");
 	expect(records).not.toContain("wx.requestPayment");
+});
+
+test("native appointment record actions reject stale index events", async () => {
+	const records = await source(
+		"pages/appointment-records/appointment-records.ts",
+	);
+	const template = await source(
+		"pages/appointment-records/appointment-records.wxml",
+	);
+	const view = await source("services/appointment-record-view.ts");
+
+	// 预约卡片事件必须用当前渲染批次的视图 key 回查；索引在患者切换后
+	// 仍可能是合法数字，但它已经不再代表原来的预约记录。
+	expect(records).toContain("findVisibleRecord");
+	expect(records).toContain("event.currentTarget?.dataset?.viewKey");
+	expect(records).toContain("renderGeneration: number");
+	expect(view).toContain("`${prefix}-${renderGeneration}-${index}`");
+	expect(template).toContain('data-view-key="{{item.viewKey}}"');
+	expect(template).not.toContain('data-index="{{index}}"');
 });
 
 test("native appointment tabs do not fabricate provider channel semantics", async () => {

@@ -32,7 +32,11 @@ type MissedAppointmentsPageMethods = {
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
-	toRecordView(record: AppointmentRecord, index: number): AppointmentRecordView;
+	toRecordView(
+		record: AppointmentRecord,
+		index: number,
+		renderGeneration: number,
+	): AppointmentRecordView;
 };
 
 Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
@@ -115,7 +119,9 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				// 只筛选服务端标准化后的 missed，不能使用客户端 provider 数字状态。
 				const missedRecords = records
 					.filter(isMissedAppointment)
-					.map((record, index) => this.toRecordView(record, index));
+					.map((record, index) =>
+						this.toRecordView(record, index, requestToken),
+					);
 				const visibleRecordCount = Math.min(
 					MISSED_APPOINTMENT_PAGE_SIZE,
 					missedRecords.length,
@@ -158,8 +164,14 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	toRecordView(
 		record: AppointmentRecord,
 		index: number,
+		renderGeneration: number,
 	): AppointmentRecordView {
-		return toAppointmentRecordView(record, index, "missed-appointment-record");
+		return toAppointmentRecordView(
+			record,
+			index,
+			"missed-appointment-record",
+			renderGeneration,
+		);
 	},
 
 	onChangePatient(): void {

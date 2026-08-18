@@ -80,7 +80,7 @@
 			wx:key="viewKey"
 			class="record-card"
 			bindtap="onRecordTap"
-			data-index="{{index}}"
+			data-view-key="{{item.viewKey}}"
 		>
 			<view class="record-status-badge {{item.statusClass}}">
 				<!-- 原版已预约状态使用蓝色业务图标，其余状态继续显示服务端归一化文案。 -->
@@ -119,13 +119,13 @@
 				<button
 					class="record-action-button"
 					bindtap="onPreVisit"
-					data-index="{{index}}"
+					data-view-key="{{item.viewKey}}"
 					plain="true"
 				>预问诊</button>
 				<button
 					class="record-action-button"
 					bindtap="onHospitalGuide"
-					data-index="{{index}}"
+					data-view-key="{{item.viewKey}}"
 					plain="true"
 				>院内导航</button>
 			</view>

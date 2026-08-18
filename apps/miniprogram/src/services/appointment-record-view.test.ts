@@ -62,11 +62,28 @@ test("预约摘要视图 key 只用于渲染且不改变业务状态", () => {
 	);
 
 	expect(view).toMatchObject({
-		viewKey: "appointment-record-2",
+		viewKey: "appointment-record-0-2",
 		status: "unknown",
 		statusLabel: "状态未知",
 		statusClass: "record-status-unknown",
 	});
+});
+
+test("预约记录刷新后使用新的渲染批次 key，不能复用旧索引事件", () => {
+	const firstBatch = toAppointmentRecordView(
+		record("scheduled"),
+		0,
+		"appointment-record",
+		1,
+	);
+	const secondBatch = toAppointmentRecordView(
+		record("scheduled"),
+		0,
+		"appointment-record",
+		2,
+	);
+
+	expect(firstBatch.viewKey).not.toBe(secondBatch.viewKey);
 });
 
 test("预约卡片按旧端层级展示就诊日期和时段", () => {
