@@ -7,7 +7,7 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 当前为 `4f72d71`；线上运行 bundle 的代码来源为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 当前为 `b276a25`；线上运行 bundle 的代码来源为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
 - `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；运行包 `sourceRevision=4ae2a31`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。

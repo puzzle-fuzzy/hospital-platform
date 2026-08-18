@@ -6,7 +6,7 @@
 
 - 线上运行 release：`/home/ps/code/hospital-platform/releases/4ae2a31`；
 - 切换前 release：`/home/ps/code/hospital-platform/releases/9acdaf2`；
-- 本次运行代码来自已通过本地门禁的 `4ae2a31`（`收紧门诊费用患者引用边界`）；后续 `4f72d71` 只补充发布文档，未进入运行 bundle；
+- 本次运行代码来自已通过本地门禁的 `4ae2a31`（`收紧门诊费用患者引用边界`）；后续 `4f72d71`、`b276a25` 只补充发布/验收门禁文档，未进入运行 bundle；
 - 报告目录和门诊费用 adapter 在 HTTP 请求前拒绝空 Provider 患者引用，空引用不会调用 Provider；
 - 未打开支付、医保、HIS 写入、预约写入、报告 gate、Worker 或旧 Python 服务变更；
 - 数据库没有执行 migration、写入业务数据或修改 schema。
