@@ -21,6 +21,11 @@
   这只增加门诊费用查询的模拟器与服务端读链证据，不开放支付、医保授权、退费或结算回写，也不能替代真机、Provider 数据和页面三层验收；详见
   [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
 
+- 2026-08-19：同一运行包的微信开发者工具模拟器进入报告目录后，页面展示 Provider 未配置提示和合法空状态；当前线上 `c26e696` 同一最近 10 分钟低敏门禁中，
+  `reportDirectory` 请求 `1`、成功 `0`、失败 `1`，`parseErrors=0`、`systemdWarningCount=0`，公网响应为 `503 dependency-not-configured`。
+  该结果确认报告路由的 fail-closed 边界，没有把未接入 Provider 伪装成成功空列表；报告真实 Provider、详情资源授权、真机和页面三层验收仍未完成，详见
+  [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
+
 - 2026-08-19：会话重启后通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 仍为 `c26e696`，
   新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，临时端口 `18082` 无残留，公网 live/ready 均返回 `200` 且
   `database/redis/schema=ok`。本地 `pnpm check` 全部通过，小程序构建产出 14 个页面脚本；本次没有切换 release、migration、
