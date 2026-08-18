@@ -11,7 +11,8 @@
   统一清空患者派生展示，只保留本地 opaque 选择用于恢复后的 stale 判断；成功后才恢复“已恢复会话”，失败则按
   `invalid/unavailable` 收敛。新增原生 acceptance 门禁，避免出现“旧患者 + 新会话验证中”的不一致快照。该修正不改变服务端
   路由、数据库、Redis 或旧 Python 服务，也不把模拟器观察写成真机验收，详见
-  [`release/miniprogram-session-display-boundary-2026-08-19.md`](release/miniprogram-session-display-boundary-2026-08-19.md)。
+  [`release/miniprogram-session-display-boundary-2026-08-19.md`](release/miniprogram-session-display-boundary-2026-08-19.md)。当前本地小程序候选已更新为
+  `379eae2a528265df900030cea6e8dc45a82902c1`，尚未上传或替换线上小程序包。
 
 - 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换为线上 current，目标是部署带有
   `traceId/requestId` 同链摘要的 P0 日志工具。只重启了新 `hospital-platform-api-v2.service`；旧 Python `8001`

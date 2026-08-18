@@ -9,15 +9,15 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `b7c9451`、配套小程序来源以 `a45d35edd91aab1a3a83c77301c9984402686145` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `b7c9451`、当前本地小程序候选来源以 `379eae2a528265df900030cea6e8dc45a82902c1` 为准 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 当前 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |
 | [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前服务端候选切换、生产 preflight、隔离 smoke 和新旧服务共存证据 |
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板 |
-| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c26e696`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
-| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态以 `c26e696` 和配套小程序 sourceRevision 为准 |
+| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `b7c9451`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
+| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态以 `b7c9451` 和当前小程序 sourceRevision 为准 |
 | [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `b7c9451` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊缴费的患者归属、窗口、错误分流、日志闭环和未完成证据审计 |

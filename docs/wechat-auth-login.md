@@ -34,7 +34,7 @@ Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收�
 `0016_patient_directory_sync_owner_index`。该版本已经完成生产 env preflight、原子切换、MySQL/Redis/schema 探针、公网
 `/api/v2` 健康检查、ready 连续检查、未登录认证边界和旧 Python 服务共存验收；本次只补齐普通资料更新日志链路，
 切换后 runtime smoke 和低敏认证/患者目录观察已通过，但仍不能把服务端日志当作真机页面证据。当前配套小程序运行包来源指纹为
-`a45d35edd91aab1a3a83c77301c9984402686145`；完整服务端发布边界见
+`379eae2a528265df900030cea6e8dc45a82902c1`；当前客户端候选 commit 为 `379eae2`，完整服务端发布边界见
 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)，
 小程序候选和新旧真机调试边界见
 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
