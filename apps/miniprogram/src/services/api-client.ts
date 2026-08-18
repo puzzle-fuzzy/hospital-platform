@@ -24,7 +24,10 @@ import {
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
 const API_PREFIX_KEY = "api_prefix";
-const DEFAULT_API_PREFIX = "/api/v1";
+/** 当前代码实际支持的两个 API 版本；其它版本不能由本地缓存或手工配置带入请求。 */
+export type SupportedApiPrefix = "/api/v1" | "/api/v2";
+const DEFAULT_API_PREFIX: SupportedApiPrefix = "/api/v1";
+const PRODUCTION_API_PREFIX: SupportedApiPrefix = "/api/v2";
 const SAFE_UNKNOWN_ERROR_MESSAGE = "服务暂时不可用，请稍后重试";
 
 type ApiErrorDetails = {
@@ -150,12 +153,22 @@ function getAppConfig(): ApiConfig {
 	const appData = globalData();
 	const storedBaseUrl = wx.getStorageSync(API_BASE_URL_KEY);
 	const storedApiPrefix = wx.getStorageSync(API_PREFIX_KEY);
+	const apiBaseUrl = normalizeApiBaseUrl(
+		appData.apiBaseUrl || storedBaseUrl || "",
+	);
+	// 本地开发进程使用 /api/v1，备案域名通过 Nginx 使用 /api/v2。即使旧缓存
+	// 中残留了 /api/v3、/api/v999 或带路径的脏值，也只能回退到当前环境的
+	// 已知版本，不能把这个值直接拼接到 URL 后再让公网返回 404。
+	const fallbackApiPrefix = apiBaseUrl.startsWith("http://")
+		? DEFAULT_API_PREFIX
+		: PRODUCTION_API_PREFIX;
 	return {
 		// 以 app.ts 的版本化配置为准，旧缓存只在没有代码配置时兜底，避免刷新后回到旧 API。
-		apiBaseUrl: normalizeApiBaseUrl(appData.apiBaseUrl || storedBaseUrl || ""),
-		apiPrefix: String(
-			appData.apiPrefix || storedApiPrefix || DEFAULT_API_PREFIX,
-		).replace(/\/$/, ""),
+		apiBaseUrl,
+		apiPrefix: normalizeApiPrefix(
+			appData.apiPrefix || storedApiPrefix,
+			fallbackApiPrefix,
+		),
 		accessToken: String(
 			appData.accessToken || wx.getStorageSync(ACCESS_TOKEN_KEY) || "",
 		),
@@ -180,10 +193,30 @@ export function normalizeApiBaseUrl(value: unknown): string {
 }
 
 /**
- * 只允许平台 API 的版本前缀，避免把本地存储中的任意路径拼进请求地址。
+ * 只允许当前已经注册且经过 Nginx 约定的 API 版本，避免把未来版本、任意
+ * 子路径或本地存储中的脏值拼进请求地址。新增版本时必须同步 app、Nginx、
+ * 文档和验收，不允许客户端通过正则自动“兼容”未知版本。
  */
-export function isAllowedApiPrefix(value: unknown): value is `/api/v${number}` {
-	return typeof value === "string" && /^\/api\/v\d+$/.test(value.trim());
+export function isAllowedApiPrefix(
+	value: unknown,
+): value is SupportedApiPrefix {
+	return value === "/api/v1" || value === "/api/v2";
+}
+
+/**
+ * 清理 API 版本前缀的运行时输入。
+ *
+ * `fallback` 由调用方根据运行环境选择：本地 HTTP 回退内部 `/api/v1`，
+ * 公网 HTTPS 回退隔离旧服务的 `/api/v2`。这样既兼容旧开发缓存，又不会在
+ * 生产环境因缓存污染而悄悄请求旧公网入口。
+ */
+export function normalizeApiPrefix(
+	value: unknown,
+	fallback: SupportedApiPrefix = DEFAULT_API_PREFIX,
+): SupportedApiPrefix {
+	const normalized =
+		typeof value === "string" ? value.trim().replace(/\/$/, "") : "";
+	return isAllowedApiPrefix(normalized) ? normalized : fallback;
 }
 
 /**

@@ -1,9 +1,23 @@
 import { expect, test } from "bun:test";
-import { requestWithSession } from "./api-client";
+import {
+	isAllowedApiPrefix,
+	normalizeApiPrefix,
+	requestWithSession,
+} from "./api-client";
 import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 } from "./session-generation";
+
+test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本", () => {
+	expect(isAllowedApiPrefix("/api/v1")).toBe(true);
+	expect(isAllowedApiPrefix("/api/v2")).toBe(true);
+	expect(isAllowedApiPrefix("/api/v3")).toBe(false);
+	expect(isAllowedApiPrefix("/api/v2/reports")).toBe(false);
+	expect(normalizeApiPrefix(" /api/v2/ ", "/api/v1")).toBe("/api/v2");
+	expect(normalizeApiPrefix("/api/v999", "/api/v2")).toBe("/api/v2");
+	expect(normalizeApiPrefix(undefined)).toBe("/api/v1");
+});
 
 test("认证请求在会话切换后丢弃已经返回的旧快照", async () => {
 	type TestGlobal = typeof globalThis & {
