@@ -85,6 +85,9 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
    `/me` 成功后才是 `valid`；服务端明确返回 `unauthorized` 才是 `invalid`，网络、持久化或其他依赖
    故障统一是 `unavailable`。`checking` 和 `unavailable` 只提示等待/刷新，不导航也不删除本地会话，
    防止过期 token 被延迟到资料、患者或挂号页面才暴露，也防止一次 503 被误处理为退出登录。
+16. 没有保存最近 `/me` 结果的旧患者范围页面调用选择页时，统一入口至少实时读取本地 token；如果上一轮
+   401 已清除 token，不能继续使用默认 `true` 绕过登录门禁。实时 token 检查只是最低保护，不能替代页面
+   已有的四态验证结果，也不能把 token 存在推导成未过期。
 
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端

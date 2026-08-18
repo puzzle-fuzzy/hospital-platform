@@ -551,6 +551,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(navigation).toContain("resolveAuthenticatedEntry");
 	expect(navigation).toContain("登录状态验证中，请稍后");
+	expect(navigation).toContain(
+		"state: AuthenticatedEntryState = hasPlatformSession()",
+	);
 	expect(tabbar).toContain('text: "医疗服务"');
 	expect(tabbar).toContain('text: "就诊"');
 	expect(tabbar).toContain('text: "互联网医院"');

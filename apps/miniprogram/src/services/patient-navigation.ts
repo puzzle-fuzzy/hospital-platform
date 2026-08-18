@@ -1,4 +1,5 @@
 import { isPatientSyncInFlight } from "./patient-sync-coordinator";
+import { hasPlatformSession } from "./session-service";
 import type { SessionVerificationState } from "../types";
 
 /** 兼容已有布尔调用方，同时允许页面传入最近一次 `/me` 验证结果。 */
@@ -74,10 +75,12 @@ export function navigateToAuthenticatedPage(
  *
  * 任何页面都可能在首页后台同步尚未结束时发起“更换就诊人”。统一门禁
  * 避免选择页再次产生第二条同步链；门禁只改善用户入口，真正的并发安全
- * 仍由进程级同步协调器和服务端幂等租约共同保证。
+ * 仍由进程级同步协调器和服务端幂等租约共同保证。没有显式传入四态结果的
+ * 旧页面至少实时读取本地 token；这不能证明 token 未过期，但能避免 401 已
+ * 清理 token 后仍然把用户送进选择页。
  */
 export function navigateToPatientSelector(
-	state: AuthenticatedEntryState = true,
+	state: AuthenticatedEntryState = hasPlatformSession(),
 ): void {
 	const decision = resolveAuthenticatedEntry(state);
 	if (decision !== "open") {
