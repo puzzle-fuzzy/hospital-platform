@@ -110,6 +110,11 @@ Provider 均为 `configured`。不带该环境文件的普通 SSH shell prefligh
 `SCAN hospital:session:*`；没有输出 key 或凭证，也没有修改 ACL、会话或 TTL。因此本 release 的会话数量和 TTL
 范围仍未验证，不能把 Redis 连通性或微信登录成功事件当作 TTL 证据。
 
+2026-08-18 12:47 CST 再次通过 SSH 只读复核重启后的共存状态：当前 release 仍为 `c63dba9`，新 Bun 服务
+`10.0.0.3:18081` 与旧 Gunicorn `0.0.0.0:8001` 同时监听；内网 `/health/ready` 与公网
+`/api/v2/health/ready` 均返回 200，且 `database`、`redis`、`schema` 均为 `ok`。本次没有执行业务写入、
+release 切换、旧服务操作或 Redis 会话探测，因此不推进真实微信会话、患者切换、预约历史、门诊费用和 TTL 的验收状态。
+
 普通资料更新的证据链现在明确为：
 
 ```text

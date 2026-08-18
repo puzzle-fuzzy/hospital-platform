@@ -68,6 +68,10 @@
   `pnpm typecheck` 为 9/9 package 成功，`pnpm test:tools` 为 10/10 成功。当前工作树仍只有用户已有的
   `apps/miniprogram/project.config.json` 修改；本次验证没有重建、上传、切换 release、重启服务或修改旧 Python 服务。
   生产真机候选仍固定使用 `1697695` 的 `dist/`，`3b4397d` 仅是测试/文档提交，不改变候选包来源指纹。
+- 2026-08-18 12:47 CST：再次通过 SSH 只读复核重启后的线上共存状态：当前 release 仍为 `c63dba9`，新 Bun 服务
+  `10.0.0.3:18081` 与旧 Gunicorn `0.0.0.0:8001` 同时监听，内网 `/health/ready` 与公网
+  `/api/v2/health/ready` 均返回 200，`database/redis/schema` 均为 `ok`。本次没有业务写入、release 切换、
+  旧服务操作或 Redis 会话探测；真实微信会话、患者显式切换、预约历史和门诊费用仍按 P0 手册待真机三层验收。
 - 2026-08-18 12:35 CST：修正患者选择页的一个隐式状态副作用：同步前的展示列表现在只用纯函数读取已有
   `selectedPatientId`，不会因为目录中存在 ready 患者就提前写入本地选择；只有完整临床同步成功后才允许恢复当前标记。
   该修正通过小程序 107 项测试、945 个断言、typecheck、build 和 14 页面运行包校验，提交为 `1697695`，未改变 API、
