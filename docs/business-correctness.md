@@ -166,6 +166,12 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
     成功或明确收敛为失败。不能只清除 token 而保留“微信已登录”文案，也不能在登录请求期间继续让
     预约、报告、挂号或费用入口使用上一次的有效状态。
 
+19. 小程序请求层只能对幂等的受保护 `GET` 读取自动刷新会话并重试一次；`PUT`、`POST` 和 `DELETE`
+    命令收到 `401` 后不得把原请求体、幂等键或支付意图带到新会话。若请求等待期间已经发生账号切换，
+    必须返回 `session-changed` 并保留新 token；若当前 token 已失效，只清理旧会话并让页面在用户确认
+    当前账号后重新触发业务动作。资料保存、患者同步和支付预支付都不能依靠通用鉴权重试来保证命令安全，
+    必须由调用方显式重新点击/确认，服务端仍以 owner、幂等键和最终状态查询作为第二道边界。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的

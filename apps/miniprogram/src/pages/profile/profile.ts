@@ -280,6 +280,13 @@ Page<
 			error instanceof ApiError && error.code === "user-profile-conflict"
 				? "个人资料已被其他设备修改，请下拉刷新后重试"
 				: safeApiErrorMessage(error, fallback);
+		if (shouldClearProfileDisplay(error)) {
+			// 资料 GET 的自动恢复或资料 PUT 的明确失效都不能把用户留在旧页面；
+			// 返回首页后由用户确认当前微信账号，避免自动重放普通资料命令。
+			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });
+			wx.reLaunch({ url: "/pages/index/index" });
+			return;
+		}
 		this.setData({ error: message });
 	},
 });

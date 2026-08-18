@@ -340,7 +340,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		// 但会话归属已经失效时连患者列表也必须清理：列表中的姓名、关系和
 		// 脱敏卡号同样属于当前 owner 的派生数据，不能把“保留诊断列表”扩大
 		// 成“跨账号继续展示医疗目录”。
-		if (sessionDisplayInvalid) this.clearDisplayedPatientDirectory();
+		if (sessionDisplayInvalid) {
+			this.clearDisplayedPatientDirectory();
+			// 选择页没有自己的登录入口。命令请求（例如患者同步）失效后，
+			// 不能在当前页面自动重登并重放；清理 owner-scoped 目录后回首页，
+			// 由用户明确确认当前微信账号，再重新发起同步动作。
+			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });
+			wx.reLaunch({ url: "/pages/index/index" });
+			return;
+		}
 		this.setData({
 			error: message,
 			selectedPatientId: "",

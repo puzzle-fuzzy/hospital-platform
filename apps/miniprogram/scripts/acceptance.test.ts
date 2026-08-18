@@ -417,6 +417,23 @@ test("patient selection clears the old directory after session ownership is lost
 	expect(clearDirectoryIndex).toBeGreaterThan(showErrorStart);
 	expect(patientListClearIndex).toBeGreaterThan(clearDirectoryIndex);
 	expect(selection).toContain("clearDisplayedPatientDirectory(): void");
+	expect(selection).toContain('wx.reLaunch({ url: "/pages/index/index" });');
+	expect(selection).toContain("不能在当前页面自动重登并重放");
+});
+
+test("native profile returns to login after the session owner is lost", async () => {
+	const profile = await source("pages/profile/profile.ts");
+	const errorStart = profile.lastIndexOf(
+		"showError(error: unknown, fallback: string): void",
+	);
+	const errorEnd = profile.indexOf("\n\t},", errorStart);
+	const errorBody = profile.slice(errorStart, errorEnd);
+
+	// 资料 GET 的自动恢复或资料 PUT 的明确失效都不能把用户留在旧页面；
+	// 返回首页后由用户确认当前微信账号，避免自动重放普通资料命令。
+	expect(errorBody).toContain("shouldClearProfileDisplay(error)");
+	expect(errorBody).toContain('wx.reLaunch({ url: "/pages/index/index" });');
+	expect(errorBody).toContain("不能把用户留在旧页面");
 });
 
 test("patient selection hides the current badge while directory confirmation is pending", async () => {

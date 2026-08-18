@@ -32,7 +32,7 @@
 
 - 2026-08-19 01:45 CST：对当前公网入口执行只读运行与未登录边界复核：`/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 均为 200，ready 的 `database/redis/schema` 均为 `ok`；`/me`、`/patients`、`/me/profile`、预约历史和门诊费用均按预期返回 `401/unauthorized`。本轮未携带 Bearer、未访问患者正文、未调用 Provider、未产生任何写入；这只确认公网运行层和认证边界，不增加微信真机、多患者、Provider 或业务写入验收结论。详细记录见 [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md)。
 
-- 2026-08-19：针对当前候选工作树执行完整 `pnpm check`，架构 66 条、迁移台账、Provider 文档、183 份文档链接、发布基线、Biome、工具测试 17 项、9 个 workspace 类型检查、9 个 workspace 测试和 9 个 workspace 构建全部通过；小程序重新生成 14 个注册页面脚本，来源仍为 `d2086d8`。这只是代码/文档/构建门禁证据，未新增真机、多患者、Provider、支付、医保或 HIS 业务结论；用户已有 `apps/miniprogram/project.config.json` 未触碰。
+- 2026-08-19：针对当前候选工作树执行完整 `pnpm check`，架构 66 条、迁移台账、Provider 文档、184 份文档链接、发布基线、Biome、工具测试 19 项、9 个 workspace 类型检查、9 个 workspace 测试和 9 个 workspace 构建全部通过；小程序重新生成 14 个注册页面脚本，来源仍为 `d2086d8`。这只是代码/文档/构建门禁证据，未新增真机、多患者、Provider、支付、医保或 HIS 业务结论；用户已有 `apps/miniprogram/project.config.json` 未触碰。
 
 - 2026-08-19 01:51 CST：在同一 `d2086d8` 模拟器候选中继续验证报告目录和普通资料连续入口。报告页对 `503 dependency-not-configured` 保持 fail-closed，未伪造报告空列表；“我的”页和头像入口进入普通资料页后，昵称、性别、年龄、邮箱、资料边界提示和保存按钮均正常显示，本轮未执行 PUT。开发者工具 Console 中的 `clickCheckTask`、`undefined is not iterable` 和 `webviewScriptError` 仍只有微信基础库内部调用栈，不能作为项目业务错误或成功证据；真机、多患者、Provider 详情和资料写入仍待完成，详见 [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md)。
 

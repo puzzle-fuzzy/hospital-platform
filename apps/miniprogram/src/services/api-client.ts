@@ -515,13 +515,36 @@ export async function requestWithSession<TResponse>(
 	} catch (error) {
 		if (!(error instanceof ApiError) || error.statusCode !== 401) throw error;
 		const currentToken = getAppConfig().accessToken;
+		const method = options.method ?? "GET";
+		if (method !== "GET") {
+			// 401 只证明本次请求没有通过当前会话鉴权，不能证明业务命令
+			// 可以安全地换一个账号再次执行。资料 PUT、患者同步 POST 和
+			// 支付预支付 POST 都可能改变状态或触发外部副作用；如果这里
+			// 自动重放，旧页面的请求体/幂等键就可能被带到新账号，产生
+			// 跨账号写入或重复命令。即使服务端最终会拒绝，也不能把这
+			// 个安全责任交给“通常会 401”的实现细节。
+			if (currentToken && currentToken !== accessToken) {
+				throw new ApiError("Session changed while a command was pending", {
+					code: "session-changed",
+					requestId: error.requestId,
+				});
+			}
+			// 当前 token 已被服务端判定失效时只清理本地会话，不自动重新
+			// 执行命令。页面会显示登录失效，并由用户在确认当前账号后
+			// 重新点击保存/同步/支付，确保新的业务意图重新生成请求。
+			setAccessToken("");
+			throw error;
+		}
 		if (currentToken && currentToken !== accessToken) {
 			// 并发请求已经完成会话轮换；沿用新 token 重试，并把响应门禁
-			// 绑定到新代际，不能继续使用旧请求的快照。
+			// 绑定到新代际，不能继续使用旧请求的快照。这里只对 GET
+			// 读取开放，不能把该分支复制给任何写入命令。
 			accessToken = currentToken;
 			sessionGeneration = getSessionGeneration();
 			return requestForSession(options, sessionGeneration);
 		}
+		// GET 读取在明确失效后可以安全地重新建立一次平台会话；仍然
+		// 只允许重试一次，防止失效 token 与登录失败之间形成循环。
 		setAccessToken("");
 		await login();
 		accessToken = getAppConfig().accessToken;

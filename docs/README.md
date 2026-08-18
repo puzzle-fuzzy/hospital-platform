@@ -11,6 +11,7 @@
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
 | [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `b7c9451`、当前本地小程序候选来源以 `d2086d819b3e393da2e8c5c39d7704012854214b` 为准 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 当前 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |
+| [`release/current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md) | 重启后公网 live/ready/system-ping 与未登录认证边界复核；不代表 SSH 进程共存、Provider 或真机业务验收 |
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 当前 `d2086d8` 小程序候选的模拟器只读页面观察；不替代真机、Provider 或服务端日志证据 |
 | [`release/miniprogram-patient-select-session-display-boundary-2026-08-19.md`](release/miniprogram-patient-select-session-display-boundary-2026-08-19.md) | 就诊人选择页在会话失效/账号切换后的目录清理边界；不代表多患者真机验收 |
 | [`release/miniprogram-profile-session-display-boundary-2026-08-19.md`](release/miniprogram-profile-session-display-boundary-2026-08-19.md) | 普通资料读取/保存在会话失效后的旧资料清理边界；不代表真实 PUT、409 或真机验收 |
