@@ -7,29 +7,27 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-## 当前 release 基线（2026-08-18 15:23-15:25 CST）
+## 当前 release 基线（2026-08-18 16:31-16:44 CST）
 
-本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
+本节优先于下方历史盘点记录。下方仍保留 `4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 本地小程序运行输入来源基线为 `6f0ba70`，线上 API 运行 bundle 使用代码提交 `4ae2a31`；本轮在报告和门诊费用 adapter 边界拒绝空 Provider 患者引用，并在小程序修正已有选择遇到空目录时的 `stale` 语义及同步回写覆盖问题，同时收紧运行包来源输入边界。预约历史成功日志的
-  低敏 `statusCounts` 和患者上下文空 `patientId` 前置校验仍在提交历史中。本地全量 `pnpm check` 和 API/Worker/小程序强制构建均通过，
-  小程序运行包来源指纹为 `6f0ba70a1a26bb1b90b1615696e2e0bb694bfb2d`，注册页面和生成脚本均为 14 个；用户已有的 `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
-- 当前服务器 release 为 `4ae2a31`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
+- 当前小程序运行输入来源为 `4c9cfb4`，构建包 `dist/build-info.json` 的完整来源指纹为
+  `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，注册页面和生成脚本均为 14 个；用户已有的
+  `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
+- 当前服务器 release 为 `1b94c46`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
   原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
-- 切换后 journald 低敏窗口 `parseErrors=0`、`systemdWarningCount=0`，只有基础设施和健康探针事件；没有新的预约历史、门诊费用、报告或微信业务事件，
-  因此本次发布只推进运行层和 adapter fail-closed 边界，不推进真实业务验收。完整 provenance 见
-  [`../release/4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md)。
-- 上一 release `9acdaf2` 的低敏日志窗口 `parseErrors=0`、`systemdWarningCount=0`；预约历史 P0 门禁请求/成功各 1、失败 0。
-  配对开发者工具请求 `pages/appointment-records/appointment-records` 返回 HTTP 200，服务端记录 `itemCount=60`、
-  `statusCounts={cancelled:60}`。在线标签排除已取消记录，空态正确；全部挂号继续保持迁移提示，因为独立 `requestChannel=4`
-  Provider contract 尚未冻结，不能用渠道 3 的数据冒充全部挂号。
-- 以上开发者工具观察仍不是微信真机、公网分域或 Provider 写入验收；多患者切换/失效恢复、Redis TTL、报告、支付、医保和 HIS 继续关闭。
-  门诊费用的先前只读观察属于历史 release，不能回填为当前 `4ae2a31` 的新增证据。当前生产切换观察见
-  [`../release/4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md)；当前预约状态历史观察见
-  [`../release/9acdaf2-appointment-status-observation-2026-08-18.md`](../release/9acdaf2-appointment-status-observation-2026-08-18.md)。
-- 下一步先冻结 `requestChannel=4` 的 Provider 字段、状态语义、排序/分页和页面级验收；在获得非取消样本前不人为写入测试预约，
-  也不打开预约写入、详情、支付、医保或 HIS 回写。
+- `1b94c46` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；
+  没有新的预约历史、门诊费用、报告或微信业务事件，因此本次发布只证明运行层和 adapter fail-closed 边界，不推进真实业务验收。
+  完整 provenance 见 [`../release/1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md)。
+- 2026-08-18 16:44 CST 公网只读复核再次通过 live/ready，ready 返回 `database/redis/schema=ok`；未登录资料接口返回预期 401。
+  该结果只证明公网运行层和认证边界，不增加微信会话、患者切换、预约、报告或费用业务证据。
+- 历史 release `9acdaf2` 曾观察到预约历史 `itemCount=60`、`statusCounts={cancelled:60}`，在线标签排除已取消记录的空态符合当时规则；
+  这不能回填为当前 `1b94c46` 的业务事件。全部挂号继续保持迁移提示，因为独立 `requestChannel=4` Provider contract 尚未冻结。
+- 当前下一步是取得真机微信会话并按候选验收手册重新采集页面、HTTP trace 和低敏日志三层证据；在此之前不开放全部挂号、预约写入、详情、
+  支付、医保或 HIS 回写。
+
+### 早于当前 `1b94c46` 的历史运行窗口
 - 2026-08-18 12:31 CST：重启后线上只读复核仍确认新旧服务共存；正确内网探针为 `10.0.0.3:18081/health/ready`，
   不应把服务绑定的非 loopback 地址误写成 `127.0.0.1:18081`。内网和公网 ready 均为 `200` 且 database、redis、schema 为 `ok`，
   该证据只覆盖运行层，不推进预约历史、门诊费用或真机业务状态。详见
@@ -45,7 +43,7 @@
   `apps/miniprogram/project.config.json` 外，218 个源码/工具文件定向格式检查通过。全量格式检查仍仅被该用户文件的
   未格式化差异阻断，本轮不修改、不暂存、不提交该文件。
 
-完整当前切换与候选证据见 [`../release/4ae2a31-production-acceptance-2026-08-18.md`](../release/4ae2a31-production-acceptance-2026-08-18.md)；
+完整当前切换与候选证据见 [`../release/1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md)；
 `9acdaf2`、`c63dba9` 和更早文档保留为历史 release 证据。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
 [`../release/0995f7c-production-acceptance-2026-08-18.md`](../release/0995f7c-production-acceptance-2026-08-18.md) 和
@@ -64,7 +62,7 @@
 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md)；连接探针通过不等于这些能力已替代。
 
 ```text
-已形成代码闭环（服务端真实微信登录与单患者同步已有生产证据，预约科室/排班已取得当前 release 的真实只读与快照持久化证据，但其他只读域和真机证据仍待）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
+已形成代码闭环（服务端真实微信登录与单患者同步已有受控生产证据，预约科室/排班曾在配对候选中取得真实只读与快照持久化证据，但当前 release 的其他只读域和真机证据仍待重新采集）：登录 -> 患者目录 -> 选择患者 -> 只读预约/报告/费用查询 -> 爽约记录安全筛选
 已迁移旧端静态能力：医院列表单院区卡片、公众号通知说明、意见反馈帮助页、院内导航静态地图（均不含动态机构/路线或授权能力）；旧端意见反馈没有真实提交接口，消息订阅只有本地假保存，因此不复制假业务
 仍缺业务契约：患者新增绑定、病历、住院、便民、AI、预约写入、支付、医保、HIS、二维码、公众号关注/订阅；医院列表仍缺动态机构/院区/路线 contract
 仍缺真实证据：Redis 实际 TTL、多就诊人切换/失效恢复、众阳预约历史/报告/门诊费用、公网分域真机页面和生产回归；预约科室/排班当前已取得只读与快照持久化证据，上一版快照暂时不可用仅保留为历史故障
@@ -152,13 +150,13 @@
 
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
 | --- | --- | --- | --- |
-| 微信登录与平台会话 | `auth`、Redis session | `4ae2a31` 已通过 production preflight、隔离 smoke 和切换后 readiness；尚无该 release 的真实微信业务事件 | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成；日志成功不等于页面验收 |
-| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现；当前窗口同步 1 条 active 患者并建立 1 条 `his-patient` 映射；页面首帧、读取/同步期间及失败时均不绘制未经确认的当前标记并保持 fail-closed | 真实失效/恢复数据、多患者显式切换、切换后的真机页面证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
+| 微信登录与平台会话 | `auth`、Redis session | `1b94c46` 已通过 production preflight、隔离 smoke、公网 readiness 和认证边界检查；当前 release 启动窗口尚无真实微信业务事件 | Redis 实际 TTL、多就诊人切换、完整真机网络对齐和其他业务仍未完成；日志成功不等于页面验收 |
+| 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现；此前受控窗口曾同步 1 条 active 患者并建立 1 条 `his-patient` 映射，但该历史事实不能替代当前 release 的真机证据；页面首帧、读取/同步期间及失败时均不绘制未经确认的当前标记并保持 fail-closed | 真实失效/恢复数据、多患者显式切换、切换后的真机页面证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页、生产未登录 401，以及 2026-08-18 配对模拟器的 `GET /me/profile` 200 已验证 | 本轮未执行 PUT；真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | `41c9c18` 已取得真实 Provider 科室/排班只读结果，并出现 `snapshotPersistenceStatus=persisted`；adapter 只接受已确认的 `usableSourceNum`，页面两列级联和排班分批渲染正常 | 多次稳定观察、公网/真机网络证据仍待；缺少 `usableSourceNum` 的响应会 fail-closed；不能锁号、不能把 `scheduleId` 当成写入授权 |
-| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；当前 release 已观察到历史 `itemCount=60`、爽约窗口 `itemCount=58`；在线渠道固定 `requestChannel=3`，在线标签只排除服务端明确的 `cancelled`，爽约页只接受 `missed`；全部渠道标签保留位置但 fail-closed 提示迁移中；14:26 重新打开开发者工具后页面级 WXSS 视觉复核通过 | 全部渠道仍缺独立 `requestChannel=4` contract、Provider 字段、公网和真机业务证据；当前账号页面没有已确认 `missed` 记录；未知状态不能推导为爽约；缺口审计见 [`request-channel-4-all-records-contract-audit-2026-08-18.md`](request-channel-4-all-records-contract-audit-2026-08-18.md) |
+| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；历史 release 曾观察到预约记录与爽约筛选结果，当前 `1b94c46` 仍需重新取得同一业务域证据；在线渠道固定 `requestChannel=3`，在线标签只排除服务端明确的 `cancelled`，爽约页只接受 `missed`；全部渠道标签保留位置但 fail-closed 提示迁移中 | 全部渠道仍缺独立 `requestChannel=4` contract、Provider 字段、公网和真机业务证据；未知状态不能推导为爽约；缺口审计见 [`request-channel-4-all-records-contract-audit-2026-08-18.md`](request-channel-4-all-records-contract-audit-2026-08-18.md) |
 | 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现；跨 LIS/PACS/ECG 合并目录按严格可解析时间倒序，未知 Provider 时间放到末尾 | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收；Provider 新时间格式仍须先取得脱敏样例 |
-| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；当前 release 已观察到待缴/已缴各一次 `requested → loaded`，均为 `200/itemCount=0`，页面展示合法空态并保留患者更换入口 | 真实微信真机证据、费用详情、金额非空样例、支付、医保、结算回写和退费未开放；空列表不能替代费用字段和支付链路验收 |
+| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；待缴/已缴各一次 `requested → loaded` 的空列表观察属于历史 release，当前 `1b94c46` 仍需重新取得业务证据，页面展示合法空态并保留患者更换入口 | 真实微信真机证据、费用详情、金额非空样例、支付、医保、结算回写和退费未开放；空列表不能替代费用字段和支付链路验收 |
 | 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
 | 公众号说明 | `pages/official-account/official-account` | 旧端运行时静态通知说明已迁移；旧端二维码区域本身是注释代码，未有关注 API | 二维码、关注状态、订阅消息授权和真实发送结果属于未来新增能力 |
 | 意见反馈帮助 | `pages/feedback/feedback` | 旧端实际只有热点问题、客服电话和 Toast；新端保留静态内容并明确提示未开放，拨号需用户确认 | 真实反馈写入、客服工单、电话/工作时间受控配置属于未来新增能力 |
@@ -187,7 +185,7 @@
 - 预约目录切换左侧科室或下拉刷新时，确认旧科室排班不会覆盖当前科室，旧请求也不会恢复旧的日期分组和号源列表；下拉刷新开始即清空旧科室和号源读模型，失败时不得继续把上一轮目录当作当前事实；合法空科室目录必须展示明确空态。
 - 患者目录同步使用 provider 请求发起时间做快照版本；较早请求晚返回时，不能覆盖较新的患者资料、临床映射，
   也不能重新激活已被新快照标记为 inactive 的患者。
-- 预约目录已取得当前 release 的真实 Provider、内网 API 和微信开发者工具只读证据，且 `snapshotPersistenceStatus=persisted`；上一版的暂时不可用仅作为历史故障记录。预约历史、报告、门诊费用仍需分别完成 provider、内网 API、公网 HTTPS 和真机四层证据。
+- 预约目录曾在配对候选中取得真实 Provider、内网 API 和微信开发者工具只读证据，且 `snapshotPersistenceStatus=persisted`；该观察不自动回填为当前 `1b94c46` 业务证据。预约历史、报告、门诊费用仍需分别完成当前 release 的 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 排班只读快照的 `observedAt` 与 `expiresAt` 必须使用同一次服务端时钟采样；快照有效只表示近期观察事实，不能单独授权锁号、预约或支付。
 - 预约只读目录的 adapter 会拒绝重复科室/排班主键；预约历史 adapter 也会拒绝重复的 `appointmentInfoId`，
   但不会为缺少预约号的摘要伪造稳定公开记录 ID，原生页面的渲染 key 不能作为可写入或详情引用。
