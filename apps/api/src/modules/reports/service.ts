@@ -26,6 +26,7 @@ import {
 	REPORT_REFERENCE_MAX_TTL_MS,
 	ReportResultValidationError,
 	validateReportReference,
+	validatePatientProviderReference,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -197,6 +198,17 @@ export class ReportService {
 					referenceKind: "his-patient",
 				});
 			if (!reference) throw new ReportPatientNotFoundError();
+			// 仓储返回值仍是跨层运行时数据，不能只依赖 PatientProviderReference
+			// 的编译期类型。发现结构或范围异常时，在 Provider 调用前 fail-closed，
+			// 对客户端继续使用与“没有映射”相同的安全语义。
+			const referenceViolation = validatePatientProviderReference(
+				reference,
+				patientId,
+			);
+			if (referenceViolation) {
+				resultViolation = referenceViolation;
+				throw new ReportPatientNotFoundError();
+			}
 
 			const result = await this.dependencies.directory.listReports(
 				{

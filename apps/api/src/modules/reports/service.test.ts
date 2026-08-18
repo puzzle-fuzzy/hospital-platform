@@ -16,6 +16,7 @@ import { createLogger } from "@hospital/observability";
 import { createInMemoryReportReferenceRepository } from "@hospital/persistence";
 import {
 	ReportNotFoundError,
+	ReportPatientNotFoundError,
 	ReportQueryError,
 	ReportService,
 } from "./service";
@@ -146,6 +147,63 @@ test("报告目录空结果是成功，非法查询和详情依赖缺失保留�
 			errorType: "DependencyNotConfiguredError",
 		}),
 	);
+});
+
+test("报告目录 service 拒绝仓储返回的非法或越界患者引用", async () => {
+	for (const [reference, expectedViolation] of [
+		[
+			{
+				patientId: "patient-other",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-other",
+			},
+			"reference-scope-mismatch",
+		],
+		[
+			{
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider\u0000patient-001",
+			},
+			"reference-invalid",
+		],
+	] as const) {
+		const lines: string[] = [];
+		let directoryCalls = 0;
+		const service = new ReportService({
+			repository: {
+				resolveProviderReference: async () => reference,
+			} as unknown as PatientRepository,
+			directory: {
+				listReports: async () => {
+					directoryCalls += 1;
+					throw new Error("provider must not be called");
+				},
+			},
+			logger: createLogger({
+				service: "report-test",
+				environment: "test",
+				level: "info",
+				destination: { write: (chunk) => lines.push(chunk) },
+			}),
+		});
+
+		await expect(
+			service.list(
+				"user-001",
+				"patient-001",
+				{ startDate: "2026-08-01", endDate: "2026-08-15" },
+				{
+					traceId: `trace-reference-${expectedViolation}`,
+					idempotencyKey: `key-reference-${expectedViolation}`,
+				},
+			),
+		).rejects.toBeInstanceOf(ReportPatientNotFoundError);
+		expect(directoryCalls).toBe(0);
+		expect(lines.join("\n")).toContain(
+			`"resultViolation":"${expectedViolation}"`,
+		);
+	}
 });
 
 test("report date ranges accept the configured span and reject anything wider", async () => {
