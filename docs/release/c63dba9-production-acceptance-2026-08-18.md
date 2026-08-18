@@ -98,6 +98,14 @@ MySQL、Redis 和 schema 均为 `ok`。
 该样本证明当前 fail-closed 和错误日志边界正确，但不能证明数据库连接长期稳定；后续 P0 业务验收仍需观察
 连续稳定窗口。只读查询可以使用有限连接恢复策略，写入、事务和 Provider 调用禁止因为连接异常而盲目重放。
 
+2026-08-18 11:23 CST 重启后复核确认：`hospital-platform-api-v2.service` 仍为 `active`，服务进程继续监听
+`10.0.0.3:18081`，旧 Python `0.0.0.0:8001` 同时监听；公网 `/api/v2/health/live` 和
+`/api/v2/health/ready` 均为 200，内网服务根路径 `/health/live` 和 `/health/ready` 也均为 200。
+服务实际通过 systemd `EnvironmentFiles=/home/ps/code/hospital-platform/shared/api.env` 启动；以该文件注入环境后
+重新执行 preflight，结果为 `environment=production`、MySQL/Redis/schema `ok`，微信身份和患者/预约/门诊只读
+Provider 均为 `configured`。不带该环境文件的普通 SSH shell preflight 会出现 `not_configured`，那只是命令执行上下文
+不完整，不是线上服务状态。
+
 普通资料更新的证据链现在明确为：
 
 ```text

@@ -17,6 +17,10 @@
 - 切换后 11:15 CST 出现 1 次患者目录读取 `503/PersistenceUnavailableError`（`PROTOCOL_CONNECTION_LOST`），
   服务正确 fail-closed；11:19 CST 生产 env preflight 恢复 `MySQL/Redis/schema=ok`。这说明存在一次持久化瞬态，
   不能把短时 readiness 当作长期稳定，P0 业务验收需在连续稳定窗口中进行。
+- 11:23 CST 重启后复核确认 systemd 服务仍为 `active`，新 `18081` 与旧 `8001` 同时监听，公网和内网 live/ready 均为
+  200；使用服务真实 `EnvironmentFiles=/home/ps/code/hospital-platform/shared/api.env` 重跑 preflight，生产模式、
+  MySQL/Redis/schema 和微信/患者/预约/门诊只读 Provider 配置均通过。普通 SSH shell 不带该环境文件时的
+  `not_configured` 不属于线上服务故障。
 - 当前 release 切换后的受控日志窗口已通过微信登录 `4/4`、患者目录读取 `20/20`、患者同步 `10/10` 的请求/成功
   门禁；但这仍需要页面和 HTTP trace 交叉核对，且没有 `appointment.records.*` 或 `outpatient.payment.records.*`
   请求/成功事件，不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
