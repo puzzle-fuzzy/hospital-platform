@@ -13,6 +13,12 @@
 - 当前小程序候选来源为 `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，14 个页面运行包已重新构建并通过 `runtime:verify`；全仓 `pnpm check` 通过，小程序为 115 项测试、997 个断言。
 - 详细规则见 [`release/miniprogram-authenticated-response-session-gate-2026-08-18.md`](release/miniprogram-authenticated-response-session-gate-2026-08-18.md)。
 
+### 本轮普通资料版本上限门禁（2026-08-18）
+
+- `1b94c46` 修正普通资料 service 的版本边界：当请求版本已经达到 MySQL `INT UNSIGNED` 最大值时，在仓储写入前返回 `user-profile-invalid`，不尝试生成越界的下一版本。
+- 新增“最大版本不触碰仓储”的回归测试；全仓 `pnpm check` 通过，API 为 115 项测试、532 个断言。代码注释明确区分输入校验、409 并发冲突和版本耗尽三种业务事实。
+- 本修正尚未部署，线上仍为 `4ae2a31`；不会影响旧 Python 服务、数据库现有数据或当前生产 release。普通资料首次 PUT、真实 409 和真机证据仍需 P0 验收。
+
 ### 本地候选与当前线上增量（2026-08-18）
 
 - 本地 `main` 当前为 `964cfe2`；小程序运行输入来源为 `4c9cfb4`，线上运行 bundle 的代码来源为 `4ae2a31`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
