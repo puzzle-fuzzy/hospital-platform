@@ -19,6 +19,8 @@
 
 - 2026-08-18 21:49 CST：重启后重新打开新 `miniprogram` 的“真机调试”入口，编译完成并生成约 606 KB 二维码；资源树仍为 `dist/`，但尚未出现新手机连接。本次只恢复可扫码入口，不增加真实微信、患者或只读业务真机证据，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 
+- 2026-08-18 21:52 CST：模拟器进入普通资料页后页面和性别选择器可完成只读交互，未执行保存；控制台仍有 `undefined is not iterable`、`clickCheckTask` 和会话恢复 401，未出现项目源码调用栈。该异常暂列为待真机复核，不加入猜测性兼容代码；二维码重新打开后约 606 KB、有效期至 `22:13`，仍无新手机连接，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
+
 - 2026-08-18 21:41 CST：新 `miniprogram` 模拟器出现旧会话 `/me 401` 后，服务端低敏日志核对到 `/auth/wechat 200`、`/me 200`、患者目录读取 200 和同步 200（1 条患者、1 条临床映射）；这证明模拟器的自动重新登录边界可工作，但没有新手机连接，不能计入真机验收。详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 
 - `37016c4` 已作为未切换候选上传并通过产物 checksum、真实生产 env preflight 和 production 公网 runtime smoke；它只修正 smoke 日志不记录原始 `Error.message`，当前线上仍为 `687690e`，候选证据见 [`release/candidate-37016c4-smoke-log-hardening-2026-08-18.md`](release/candidate-37016c4-smoke-log-hardening-2026-08-18.md)。
