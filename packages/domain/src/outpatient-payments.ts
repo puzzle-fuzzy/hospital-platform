@@ -1,5 +1,5 @@
-import type { AdapterCallContext, ExternalTrace } from "./ports";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 门诊费用列表只表达查询状态，不把 provider 数字状态码带到客户端。 */
 export type OutpatientPaymentStatus = "unpaid" | "paid";
@@ -153,53 +153,75 @@ export function parseOutpatientBillDateTime(value: string): number | undefined {
  * 可渲染、可关联；任一条失败都整批拒绝，不能过滤坏行后把剩余行伪装成完整
  * 结果，更不能返回成功空列表。
  */
-export function validateOutpatientPaymentRecords(
+export function normalizeOutpatientPaymentRecords(
 	value: unknown,
 	expectedStatus: OutpatientPaymentStatus,
-): asserts value is readonly OutpatientPaymentRecord[] {
+): OutpatientPaymentRecord[] {
 	if (!Array.isArray(value)) invalidResult("records-not-array");
 
 	const recordIds = new Set<string>();
-	for (const item of value) {
+	return value.map((item) => {
 		if (typeof item !== "object" || item === null || Array.isArray(item)) {
 			invalidResult("record-not-object");
 		}
 		const record = item as Record<string, unknown>;
-		if (
-			!isOutpatientPaymentStatus(record.status) ||
-			record.status !== expectedStatus
-		) {
+		const status = record.status;
+		const normalizedStatus: OutpatientPaymentStatus =
+			status === "unpaid" || status === "paid"
+				? status
+				: invalidResult("status-mismatch");
+		if (normalizedStatus !== expectedStatus) {
 			invalidResult("status-mismatch");
 		}
-		if (!isBoundedOpaqueIdentifier(record.recordId)) {
+		const recordId = record.recordId;
+		if (!isBoundedOpaqueIdentifier(recordId)) {
 			invalidResult("record-id-invalid");
 		}
-		if (recordIds.has(record.recordId)) {
+		if (recordIds.has(recordId)) {
 			invalidResult("record-id-duplicate");
 		}
-		recordIds.add(record.recordId);
-		if (
-			!hasSafeDisplayText(record.billDate, 64) ||
-			parseOutpatientBillDateTime(record.billDate) === undefined
-		) {
+		recordIds.add(recordId);
+		const billDate = hasSafeDisplayText(record.billDate, 64)
+			? record.billDate
+			: invalidResult("bill-date-invalid");
+		if (parseOutpatientBillDateTime(billDate) === undefined) {
 			invalidResult("bill-date-invalid");
 		}
+		const amountFen = record.amountFen;
 		if (
-			typeof record.amountFen !== "number" ||
-			!Number.isSafeInteger(record.amountFen) ||
-			record.amountFen < 0
+			typeof amountFen !== "number" ||
+			!Number.isSafeInteger(amountFen) ||
+			amountFen < 0
 		) {
 			invalidResult("amount-invalid");
 		}
-		for (const field of ["departmentName", "doctorName"] as const) {
-			if (
-				record[field] !== undefined &&
-				!hasSafeDisplayText(record[field], 128)
-			) {
-				invalidResult("display-text-invalid");
-			}
-		}
+		const departmentName = optionalPaymentDisplayText(record.departmentName);
+		const doctorName = optionalPaymentDisplayText(record.doctorName);
+		return {
+			recordId,
+			status: normalizedStatus,
+			...(departmentName !== undefined ? { departmentName } : {}),
+			...(doctorName !== undefined ? { doctorName } : {}),
+			billDate,
+			amountFen,
+		};
+	});
+}
+
+function optionalPaymentDisplayText(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	if (!hasSafeDisplayText(value, 128)) {
+		invalidResult("display-text-invalid");
 	}
+	return value;
+}
+
+/** 兼容只需要断言的调用方；新 service 应优先消费重新投影后的数组。 */
+export function validateOutpatientPaymentRecords(
+	value: unknown,
+	expectedStatus: OutpatientPaymentStatus,
+): asserts value is readonly OutpatientPaymentRecord[] {
+	normalizeOutpatientPaymentRecords(value, expectedStatus);
 }
 
 /**

@@ -91,6 +91,7 @@ export type {
 export {
 	InvalidOutpatientPaymentStatusError,
 	isOutpatientPaymentStatus,
+	normalizeOutpatientPaymentRecords,
 	OutpatientPaymentResultValidationError,
 	parseOutpatientBillDateTime,
 	validateOutpatientPaymentRecords,

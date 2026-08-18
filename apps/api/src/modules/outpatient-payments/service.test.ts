@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	OutpatientPaymentGateway,
+	OutpatientPaymentRecord,
 	PatientRepository,
 } from "@hospital/domain";
 import { DependencyNotConfiguredError as MissingDependencyError } from "@hospital/domain";
@@ -533,4 +534,66 @@ test("门诊费用 service 拒绝查询窗口外账单且不筛掉坏行伪装�
 			event: "outpatient.payment.records.loaded",
 		}),
 	);
+});
+
+test("门诊费用 service 二次校验后只返回白名单字段", async () => {
+	const providerRecord = {
+		recordId: "payment-projection-001",
+		status: "paid" as const,
+		departmentName: "心内科",
+		doctorName: "李医生",
+		billDate: "2026-08-16 09:00:00",
+		amountFen: 350,
+		providerTradeNo: "provider-trade-secret",
+		patientName: "provider-patient-secret",
+		insuranceAmountFen: 300,
+	} as unknown as OutpatientPaymentRecord;
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				records: [providerRecord],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "payment-projection",
+				},
+			}),
+		},
+		authSysCode: "thirdSelfMachine",
+	});
+
+	const result = await service.list("user-001", "patient-001", "paid", {
+		traceId: "trace-payment-projection",
+		idempotencyKey: "key-payment-projection",
+	});
+
+	expect(result).toEqual({
+		status: "paid",
+		items: [
+			{
+				recordId: "payment-projection-001",
+				status: "paid",
+				departmentName: "心内科",
+				doctorName: "李医生",
+				billDate: "2026-08-16 09:00:00",
+				amountFen: 350,
+			},
+		],
+		total: 1,
+	});
+	const output = JSON.stringify(result);
+	expect(output).not.toContain("provider-trade-secret");
+	expect(output).not.toContain("provider-patient-secret");
+	expect(output).not.toContain("insuranceAmountFen");
 });

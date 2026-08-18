@@ -6,17 +6,18 @@ import {
 import type {
 	AdapterCallContext,
 	OutpatientPaymentGateway,
+	OutpatientPaymentRecord,
 	OutpatientPaymentStatus,
 	PatientRepository,
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
 	InvalidOutpatientPaymentStatusError,
-	OutpatientPaymentResultValidationError,
 	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
+	normalizeOutpatientPaymentRecords,
+	OutpatientPaymentResultValidationError,
 	parseOutpatientBillDateTime,
-	validateOutpatientPaymentRecords,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -252,13 +253,17 @@ export class OutpatientPaymentService {
 				},
 				context,
 			);
+			let normalizedRecords: OutpatientPaymentRecord[];
 			try {
 				// adapter 是第一道 Provider 白名单边界，这里是可注入 gateway
 				// 的第二道 contract 边界。不能因为返回类型写成了 TS 类型，就
 				// 允许未来的回放实现或错误网关把错状态、重复 ID、非法金额带到
 				// API 响应。
-				validateOutpatientPaymentRecords(result?.records, status);
-				validateOutpatientPaymentRecordWindow(result.records, window);
+				normalizedRecords = normalizeOutpatientPaymentRecords(
+					(result as { records?: unknown } | undefined)?.records,
+					status,
+				);
+				validateOutpatientPaymentRecordWindow(normalizedRecords, window);
 			} catch (error) {
 				if (error instanceof OutpatientPaymentResultValidationError) {
 					resultViolation = error.violation;
@@ -272,14 +277,14 @@ export class OutpatientPaymentService {
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
 					status,
-					itemCount: result.records.length,
+					itemCount: normalizedRecords.length,
 				},
 				"Outpatient payment records loaded",
 			);
 			return {
 				status,
-				items: [...result.records],
-				total: result.records.length,
+				items: normalizedRecords,
+				total: normalizedRecords.length,
 			};
 		} catch (error) {
 			this.logger.error(
