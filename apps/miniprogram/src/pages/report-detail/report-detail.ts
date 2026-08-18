@@ -7,6 +7,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { isCurrentSelectedPatient } from "../../services/patient-selection-service";
 import { toLaboratoryReportItemView } from "../../services/report-presenter";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
@@ -58,12 +59,34 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 			);
 			return;
 		}
+		// 服务端仍会再次校验 owner + patientId + reportId + TTL；这里的客户端门禁
+		// 不是授权替代品，而是阻止旧页面栈/手工深链在当前设备已经切换患者后，
+		// 继续展示另一位患者的合法详情。详情页只能消费当前本地明确选择的患者。
+		if (!isCurrentSelectedPatient(patientId)) {
+			this.showError(
+				new ApiError("当前就诊人已变更，请重新选择后查看报告", {
+					code: "patient-selection-required",
+				}),
+			);
+			return;
+		}
 
 		const detailGuard = getPageLatestRequestGuard(this, "report-detail");
 		const detailToken = detailGuard.begin();
 		requestReportDetail({ patientId, reportId })
 			.then((payload) => {
 				if (!detailGuard.isCurrent(detailToken)) return;
+				// 请求等待期间可能从另一个页面切换了患者；即使服务端响应合法，
+				// 也不能把旧患者的详情写入当前页面。服务端 owner/patient 校验和
+				// 这里的本地选择校验分别承担授权与展示隔离，两层都不能省略。
+				if (!isCurrentSelectedPatient(patientId)) {
+					this.showError(
+						new ApiError("当前就诊人已变更，请重新选择后查看报告", {
+							code: "patient-selection-required",
+						}),
+					);
+					return;
+				}
 				const report = payload?.data;
 				if (!report) {
 					throw new ApiError("服务端未返回报告详情", {

@@ -1353,6 +1353,7 @@ test("native homepage routes patient binding and report query to real pages", as
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
 	const reportPage = await source("pages/report-directory/report-directory.ts");
+	const reportDetailPage = await source("pages/report-detail/report-detail.ts");
 	const reportTemplate = await source(
 		"pages/report-directory/report-directory.wxml",
 	);
@@ -1368,6 +1369,10 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(reportTemplate).toContain("加载更多报告");
 	// 报告详情只接受服务端生成的 opaque reportId 和当前 patientId，目录不透传 provider 报告号。
 	expect(reportPage).not.toContain("providerReportId");
+	// 详情页在请求前和响应回写前都必须确认当前设备仍选择同一位患者，
+	// 防止旧页面栈或慢响应在切换患者后泄漏合法但不属于当前上下文的详情。
+	expect(reportDetailPage).toContain("isCurrentSelectedPatient(patientId)");
+	expect(reportDetailPage).toContain('code: "patient-selection-required"');
 });
 
 test("native homepage sends both add and change patient actions to the selection page", async () => {
