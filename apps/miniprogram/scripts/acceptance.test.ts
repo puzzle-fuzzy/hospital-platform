@@ -769,6 +769,9 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	const build = await Bun.file(
 		join(import.meta.dir, "..", "scripts", "build.ts"),
 	).text();
+	const turboConfig = JSON.parse(
+		await Bun.file(join(import.meta.dir, "..", "turbo.json")).text(),
+	) as { extends?: unknown; tasks?: { build?: { cache?: unknown } } };
 
 	// project.config.json 是开发者工具配置，空格、换行和 CRLF 都不属于
 	// 业务语义；解析 JSON 后校验字段，避免用户合法的格式化差异让门禁误报。
@@ -787,6 +790,11 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("src 仍是唯一业务源码");
 	expect(build).toContain("build-info.json");
 	expect(build).toContain("sourceRevision");
+	// build-info.json 写入 Git 来源指纹；如果 Turbo 复用提交前的缓存产物，
+	// 开发者工具可能打开旧页面。小程序构建因此必须关闭缓存，不能只依赖
+	// 源文件内容命中来推断来源提交已经同步。
+	expect(turboConfig.extends).toEqual(["//"]);
+	expect(turboConfig.tasks?.build?.cache).toBe(false);
 });
 
 test("native mini program build guards runtime page boundaries", async () => {
@@ -829,6 +837,7 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(provenance).toContain(
 		'"apps/miniprogram/scripts/runtime-provenance.ts"',
 	);
+	expect(provenance).toContain('"apps/miniprogram/turbo.json"');
 	expect(provenance).not.toContain('"apps/miniprogram/scripts"');
 	expect(provenance).toContain('"packages/contracts/src"');
 	expect(provenance).not.toContain('"docs"');
