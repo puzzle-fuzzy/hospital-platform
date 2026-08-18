@@ -9,6 +9,8 @@
 
 ## 当前 release 基线（2026-08-18 22:57 CST）
 
+补充记录（2026-08-18 23:37 CST）：服务端 `b7c9451` 已作为未切换候选完成远端 checksum、真实生产依赖 preflight 和隔离 runtime smoke；线上 `current` 仍为 `c26e696`。候选只修正 P0 日志同 `traceId/requestId` 关联链门禁，不改变业务路由开放状态；旧 Python `8001` 未触碰，详见 [`../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md)。
+
 本节优先于下方历史盘点记录。当前服务端 release 为 `c26e696`，生产切换与新旧服务共存证据见
 [`../release/c26e696-production-acceptance-2026-08-18.md`](../release/c26e696-production-acceptance-2026-08-18.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。

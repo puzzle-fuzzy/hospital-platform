@@ -51,6 +51,7 @@
 | [`release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md`](release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md) | `9ca3a89` Redis 会话 TTL 审计工具的独立上传、生产 preflight、临时 smoke 和 ACL fail-closed 证据；未切换生产 |
 | [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md) | `38bc553` 微信身份边界修复后的候选构建、产物 checksum、隔离 smoke、无损切换和未完成业务边界 |
 | [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前 `c26e696` 服务端生产切换、真实 env preflight、隔离 smoke、新旧服务共存和日志边界；配套小程序来源以完整 sourceRevision 为准 |
+| [`release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md) | `b7c9451` P0 同 trace/request 证据门禁候选的远端 checksum、真实生产 preflight、隔离 runtime smoke 和未切换边界 |
 | [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md) | 当前 `687690e` 的 Redis 会话 TTL 只读审计结果；应用账号无 `SCAN` 权限，TTL 保持未验证，不扩大常驻 ACL |
 | [`release/candidate-37016c4-smoke-log-hardening-2026-08-18.md`](release/candidate-37016c4-smoke-log-hardening-2026-08-18.md) | `37016c4` smoke 日志原始异常消息修正、产物 checksum、生产 preflight 和公网 runtime smoke；候选未切换线上 |
 | [`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md) | 历史 `4ae2a31` 生产切换证据；仅用于追溯，不作为当前线上基线 |
