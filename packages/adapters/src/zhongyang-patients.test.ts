@@ -79,6 +79,47 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("众阳患者目录对 18 位卡号保留前五位和后四位", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: { patId: "his-patient-018" },
+					}),
+					{ status: 200, headers: { "x-request-id": "archive-request-018" } },
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "1002",
+							patientName: "李四",
+							medicalCardNo: "123456789012345678",
+							relation: "本人",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "zhongyang-request-018" } },
+			);
+		},
+	});
+
+	const result = await gateway.listByIdentity(
+		{ unionId: "union-018" },
+		context,
+	);
+
+	// 18 位卡号仍只暴露最小可核对信息，防止把完整医疗卡号返回给小程序。
+	expect(result.patients[0]?.cardNumberMasked).toBe("12345*********5678");
+	expect(JSON.stringify(result)).not.toContain("123456789012345678");
+});
+
 test("众阳患者目录拒绝业务失败响应", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",
