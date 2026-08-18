@@ -3,7 +3,7 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 截至 2026-08-18 13:08 CST，本地仓库 `main` 已推进到 `f0330fc`，当前线上 API release 仍为 `38bc553`；本次仅同步测试门禁，未重新部署；新 Bun/Elysia API
+> 截至 2026-08-18 13:20 CST，本地仓库 `main` 的当前 HEAD 以 Git history 为准，线上 API release 仍为 `38bc553`；本轮只做测试/文档和只读观察，未重新部署；新 Bun/Elysia API
 > 监听 `10.0.0.3:18081`，旧 Python API 继续监听 `8001`。此前的 `b3c9a99`、`5f5915e`、`bf67b96` 等内容均为历史段落，
 > 不能继续当作当前线上事实。当前 release 的发布和业务证据见
 > [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md)；真实微信、患者上下文和 P0 只读验收的操作顺序统一见
@@ -13,7 +13,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码基线 | `f0330fc`；生产候选源码与小程序运行包仍为 `38bc553`，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
+| 仓库代码基线 | `main` 当前 HEAD（以 Git history 为准）；生产候选源码与小程序运行包仍为 `38bc553`，仓库 HEAD 不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
 | 线上新 API | `38bc553`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md) |
@@ -23,6 +23,10 @@
 
 2026-08-18 13:07-13:08 CST 的切换后 SSH/公网只读复核确认 `38bc553`、新 `10.0.0.3:18081`、旧 `0.0.0.0:8001` 和内外网
 readiness 均正常；本次只重启新 API，没有修改旧服务、旧端口或数据库。此前 `c63dba9` 的日志和业务事件仍按历史 release 理解，不能回填当前业务验收。
+
+2026-08-18 13:20 CST 的增量只读复核再次确认双端口共存和 readiness 的 database/redis/schema `ok`；切换后日志聚合仍只有
+`infrastructure` 事件和健康请求，`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，没有新的 P0 业务请求。
+因此真机验收状态不变，不能把无业务事件解释为空列表成功。
 
 公网基础运行边界的早期只读复核（2026-08-17 09:53 CST）已记录在
 [`current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)：live、ready 连续

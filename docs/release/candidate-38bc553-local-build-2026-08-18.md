@@ -79,6 +79,12 @@ apps/worker/dist/redis-session-ttl-audit.js 3f8190fb7acc75a41fb2be12181ad9eb99ca
 - 当前 release 的 Redis TTL 审计返回固定 `redis-session-scan-unavailable`、退出码 `2`，没有输出 key、凭证或修改 Redis；
   常驻 API ACL 仍未授予独立维护账号所需的 `SCAN/TTL` 只读权限。
 
+2026-08-18 13:20 CST 的增量 SSH 只读观察仍指向 `38bc553`：新 API `10.0.0.3:18081` 与旧 Python `8001` 同时监听，
+systemd 为 `active`，内网 readiness 返回 database/redis/schema 全部 `ok`。从切换起聚合 `inputLines=15`、
+`parsedRecords=9`、`parseErrors=0`、`systemdWarningCount=0`，事件只有服务启停和 6 次 HTTP 200 健康请求，
+`domainCounts` 只有 `infrastructure`，`providerRequestIdCount=0`；因此当前窗口仍没有微信、患者、预约历史、门诊费用或报告业务事件。
+该结果只能证明运行层稳定和业务请求未进入，不能被解释为任何业务的成功空列表。
+
 ## 6. 当前仍未完成的验收
 
 - 尚未进行有效微信会话下的真机登录、患者切换、预约历史/爽约、门诊费用或普通资料读写验收；当前客户端必须使用来源指纹为
