@@ -518,6 +518,17 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 	}
 });
 
+test("report detail reuses the shared patient context error translation", async () => {
+	const page = await source("pages/report-detail/report-detail.ts");
+
+	// 详情页的患者参数和响应都经过当前 patientId 校验；错误文案也必须
+	// 回到同一个患者上下文翻译入口，不能因为它没有列表 loader 就绕过
+	// patientContextErrorMessage，导致 patient-selection-required 等错误在
+	// 不同页面出现不同提示。
+	expect(page).toContain("patientContextErrorMessage(error,");
+	expect(page).not.toContain("safeApiErrorMessage(error");
+});
+
 test("missed appointments commit the patient card with the filtered result", async () => {
 	const page = await source("pages/missed-appointments/missed-appointments.ts");
 	const loadStart = page.indexOf("loadRecords(): Promise<void>");

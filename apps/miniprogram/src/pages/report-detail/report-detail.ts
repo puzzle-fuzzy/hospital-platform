@@ -1,13 +1,12 @@
-import {
-	ApiError,
-	requestReportDetail,
-	safeApiErrorMessage,
-} from "../../services/api-client";
+import { ApiError, requestReportDetail } from "../../services/api-client";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import { isCurrentSelectedPatient } from "../../services/patient-selection-service";
+import {
+	isCurrentSelectedPatient,
+	patientContextErrorMessage,
+} from "../../services/patient-selection-service";
 import { toLaboratoryReportItemView } from "../../services/report-presenter";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
@@ -139,7 +138,10 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 	},
 
 	showError(error: unknown): void {
-		const message = safeApiErrorMessage(error, "报告详情加载失败");
+		// 报告详情虽然不是目录列表页，但仍然属于当前患者范围业务；
+		// 患者失效、切换或临床映射错误必须和其它患者页面使用同一套中文
+		// 错误语义，不能因为详情页单独调用通用翻译而产生文案漂移。
+		const message = patientContextErrorMessage(error, "报告详情加载失败");
 		// 报告详情属于当前患者的一次性临床读模型。错误、患者切换或引用过期
 		// 时，上一轮检测项、报告时间和附件标记都不再有当前请求的证据；即使
 		// WXML 当前会隐藏详情区域，也必须把页面状态本身收敛为空，避免未来重试

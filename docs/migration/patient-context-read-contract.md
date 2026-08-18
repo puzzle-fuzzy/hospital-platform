@@ -52,7 +52,7 @@
 不能覆盖 `patient-selection-stale`；否则页面会把患者失效错误伪装成“从未绑定患者”，
 用户也无法得到重新选择入口的正确提示。
 
-首页、我的、患者选择、预约记录、爽约记录、报告目录和门诊费用页的患者状态都必须复用
+首页、我的、患者选择、预约记录、爽约记录、报告目录、报告详情和门诊费用页的患者状态都必须复用
 `services/patient-selection-service.ts` 的 `patientContextErrorMessage` 或
 `patientSelectionResolutionMessage`。患者未绑定、已保存选择失效、临床映射不可用和要求先选择患者属于同一组
 跨页面业务状态，不能由页面各自复制文案或直接展示服务端/Provider 原文；领域服务未配置、费用映射缺失等业务专属错误
@@ -81,7 +81,7 @@
 
 ## 4. 代码门禁与真实验收
 
-- `apps/miniprogram/scripts/acceptance.test.ts` 必须确保五个患者范围页面都使用统一患者门禁，且不各自重新实现目录解析；
+- `apps/miniprogram/scripts/acceptance.test.ts` 必须确保四个患者目录列表页使用统一患者门禁，且报告详情页单独复用同一患者错误翻译入口；五个患者范围页面都不得各自重新实现目录解析或错误语义；
 - 同一静态门禁还必须确保患者范围页面复用 `patientContextErrorMessage` 或 `patientSelectionResolutionMessage`，避免患者状态文案随页面迁移发生漂移；
 - 同一静态门禁还必须确保五个页面复用 `isCurrentSelectedPatient`，避免跨页面切换后的旧异步响应或详情响应覆盖当前患者；
 - 小程序测试只能证明调用顺序和失败边界，不能替代真实 Provider、生产公网和真机证据；
