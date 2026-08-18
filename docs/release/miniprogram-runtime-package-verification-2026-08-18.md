@@ -7,14 +7,14 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 本地仓库提交 | `450fc72`（`同步小程序验收候选版本`） |
+| 本地仓库提交 | `499b25f`（`收紧小程序运行包来源追踪`） |
 | 小程序根目录 | `apps/miniprogram/` |
 | 开发者工具运行根目录 | `dist/` |
 | `src/app.json` 注册页面 | 14 个 |
 | `dist/` 生成文件 | 171 个 |
 | 生成页面脚本 | 14 个 |
-| 构建来源指纹 | `450fc72fbd25c7f56644d9d33660400c6d338ef2` |
-| 原生验收 | 111 项通过，960 个断言 |
+| 构建来源指纹 | `499b25fe9b888f849b815949290eda9cd756bceb` |
+| 原生验收 | 111 项通过，965 个断言 |
 
 ## 2. 本次验证
 
@@ -30,6 +30,9 @@ pnpm --filter @hospital/miniprogram test
 
 - TypeScript 类型检查通过，构建脚本从 `src/app.json` 生成全部 14 个页面 JavaScript；
 - `runtime:verify` 通过，14 个页面均具备运行所需的 `.js/.json/.wxml/.wxss`；
+- `runtime:verify` 同时将 `dist/build-info.json.sourceRevision` 与当前 `HEAD` 对照，避免
+  提交更新后继续导入旧的 `dist/`；脱离 Git 的归档验证必须显式设置
+  `HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION`；
 - 构建阶段继续检查 WXML 事件方法、已注册页面跳转、本地资源存在性，以及 WXSS 不通过 `background-image` 读取本地图片；
 - 页面生命周期守卫、患者切换、会话恢复、报告详情和费用/预约只读边界的原生验收全部通过；
 - 当前提交还包含患者选择空目录的 stale 语义修正，以及首页/选择页不能覆盖同步解析结果的门禁：已有选择不会被降级为“从未绑定”，测试覆盖该业务边界。

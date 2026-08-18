@@ -11,9 +11,9 @@
 
 本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 本地小程序业务代码基线为 `450fc72`，线上 API 运行 bundle 使用代码提交 `4ae2a31`；本轮在报告和门诊费用 adapter 边界拒绝空 Provider 患者引用，并在小程序修正已有选择遇到空目录时的 `stale` 语义及同步回写覆盖问题。预约历史成功日志的
+- 本地小程序业务代码基线为 `499b25f`，线上 API 运行 bundle 使用代码提交 `4ae2a31`；本轮在报告和门诊费用 adapter 边界拒绝空 Provider 患者引用，并在小程序修正已有选择遇到空目录时的 `stale` 语义及同步回写覆盖问题，同时增加运行包来源一致性校验。预约历史成功日志的
   低敏 `statusCounts` 和患者上下文空 `patientId` 前置校验仍在提交历史中。本地全量 `pnpm check` 和 API/Worker/小程序强制构建均通过，
-  小程序运行包来源指纹为 `450fc72fbd25c7f56644d9d33660400c6d338ef2`，注册页面和生成脚本均为 14 个；用户已有的 `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
+  小程序运行包来源指纹为 `499b25fe9b888f849b815949290eda9cd756bceb`，注册页面和生成脚本均为 14 个；用户已有的 `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 当前服务器 release 为 `4ae2a31`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
   原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
