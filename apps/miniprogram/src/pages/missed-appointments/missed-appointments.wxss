@@ -1,12 +1,50 @@
 @import "../appointment-records/appointment-records.wxss";
 
-.trust-notice {
+page {
+	background: #f8f8f8;
+}
+
+/*
+	爽约页复用预约记录卡片的基础样式，但页面自身仍要声明布局容器。
+	如果只依赖被 import 的卡片样式，患者卡和标题会退化成原始 WXML 文本，
+	空态图片也会按原始资源尺寸撑满视口；这些是页面级视觉契约，不能省略。
+*/
+.page {
 	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 24rpx 20rpx calc(40rpx + env(safe-area-inset-bottom));
+	background: #f8f8f8;
+}
+
+.error-message,
+.trust-notice,
+.patient-strip,
+.page-header,
+.record-list,
+.state-card,
+.readonly-note {
+	box-sizing: border-box;
+	width: 710rpx;
+	margin-right: auto;
+	margin-left: auto;
+}
+
+.error-message {
+	margin-bottom: 18rpx;
+	padding: 20rpx;
+	border-radius: 12rpx;
+	background: #fff1f1;
+	color: #ff4444;
+	font-size: 26rpx;
+	line-height: 1.5;
+	text-align: center;
+}
+
+.trust-notice {
 	display: flex;
 	align-items: center;
-	margin: 0 auto 20rpx;
+	margin-bottom: 20rpx;
 	padding: 18rpx 22rpx;
-	width: 710rpx;
 	border: 1rpx solid #ffe1b8;
 	border-radius: 14rpx;
 	background: #fff8ee;
@@ -27,6 +65,105 @@
 	color: #ffffff;
 	font-size: 23rpx;
 	font-weight: 700;
+}
+
+/* 就诊人卡保持与门诊缴费/报告页一致；点击整卡进入独立选择页。 */
+.patient-strip {
+	display: flex;
+	align-items: center;
+	padding: 18rpx 22rpx;
+	border: 1rpx solid #dbe5ff;
+	border-radius: 18rpx;
+	background: #f2f6ff;
+}
+
+.patient-strip image {
+	flex-shrink: 0;
+	width: 56rpx;
+	height: 56rpx;
+}
+
+.patient-strip-copy {
+	display: flex;
+	min-width: 0;
+	margin-left: 18rpx;
+	flex-direction: column;
+}
+
+.patient-strip-name {
+	overflow: hidden;
+	color: #222222;
+	font-size: 30rpx;
+	font-weight: 700;
+	line-height: 1.4;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.patient-strip-card {
+	margin-top: 5rpx;
+	color: #777777;
+	font-size: 23rpx;
+	line-height: 1.4;
+}
+
+.patient-strip-change {
+	margin-left: auto;
+	padding-left: 20rpx;
+	color: #3d6df6;
+	font-size: 25rpx;
+	white-space: nowrap;
+}
+
+.page-header {
+	margin-top: 26rpx;
+	margin-bottom: 20rpx;
+}
+
+.page-title {
+	color: #222222;
+	font-size: 38rpx;
+	font-weight: 700;
+	line-height: 1.5;
+}
+
+.page-description {
+	margin-top: 8rpx;
+	color: #888888;
+	font-size: 26rpx;
+	line-height: 1.6;
+}
+
+/* 预约记录基础样式的 record-list 带有全宽定义，这里补齐爽约页的内容宽度。 */
+.record-list {
+	padding-right: 0;
+	padding-left: 0;
+	background: transparent;
+}
+
+.state-card {
+	min-height: 220rpx;
+	margin-top: 60rpx;
+	padding: 44rpx 30rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+}
+
+/* 空态图必须限制在业务卡片内，避免 widthFix 直接撑满小程序视口。 */
+.state-card-empty image {
+	display: block;
+	margin-bottom: 16rpx;
+	width: 200rpx;
+}
+
+.readonly-note {
+	margin-top: 24rpx;
+	padding: 20rpx;
+	border-radius: 12rpx;
+	background: #fff7ee;
+	color: #d56d2a;
+	font-size: 24rpx;
+	line-height: 1.6;
 }
 
 .missed-record-card {
