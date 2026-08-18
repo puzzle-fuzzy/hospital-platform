@@ -5,6 +5,13 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：完成“我的挂号”双标签契约审计。当前服务端只使用已冻结的在线渠道
+  `requestChannel=3`；“在线挂号”仅排除明确的 `cancelled`，而“全部挂号”需要独立的
+  `requestChannel=4` Provider 合同，不能把在线结果本地复制或通过空列表伪装完成。页面继续
+  保留原版双标签视觉位置，未开放标签只提示迁移中且不发起请求。该结论已固化到
+  [`appointment-record-tab-contract-audit-2026-08-19.md`](release/appointment-record-tab-contract-audit-2026-08-19.md)，
+  不改变 API、数据库、Redis、线上 release 或旧 Python 服务。
+
 - 2026-08-19 06:42 CST：再次从公网只读复核 `health/live`、`health/ready`、`system/ping` 均为 `200`，ready 的
   `database/redis/schema` 均为 `ok`，未登录 `/me` 返回预期 `401/unauthorized`。本次没有携带 Bearer、openid、患者参数，
   没有写入或 Provider 请求；这只确认公网运行层和未登录认证边界，不增加真机、Provider、患者切换、费用、支付或医保结论，
