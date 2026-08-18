@@ -30,7 +30,7 @@ pnpm --filter @hospital/miniprogram test
 
 - TypeScript 类型检查通过，构建脚本从 `src/app.json` 生成全部 14 个页面 JavaScript；
 - `runtime:verify` 通过，14 个页面均具备运行所需的 `.js/.json/.wxml/.wxss`；
-- `runtime:verify` 同时将 `dist/build-info.json.sourceRevision` 与当前 `HEAD` 对照，避免
+- `runtime:verify` 同时将 `dist/build-info.json.sourceRevision` 与最近一次影响小程序运行输入的提交对照，避免
   提交更新后继续导入旧的 `dist/`；脱离 Git 的归档验证必须显式设置
   `HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION`；
 - 构建阶段继续检查 WXML 事件方法、已注册页面跳转、本地资源存在性，以及 WXSS 不通过 `background-image` 读取本地图片；

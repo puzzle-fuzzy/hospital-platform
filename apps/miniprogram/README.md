@@ -98,7 +98,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 脚本缺失、页面 404 或模板/样式不一致的问题。
 构建还会生成 `dist/build-info.json`，其中只有 schema 版本、完整 Git 提交号、
 页面数量和构建时间。开始真机验收前应检查 `sourceRevision` 是否与验收候选提交一致；
-`runtime:verify` 在 Git 工作树中会自动把该指纹与当前 `HEAD` 对照；验证脱离 Git 的归档包时，
+`runtime:verify` 在 Git 工作树中会自动把该指纹与最近一次影响小程序运行输入的提交对照；验证脱离 Git 的归档包时，
 请设置 `HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION` 为完整 40 位提交号。指纹不一致时
 必须重新构建，不能继续导入开发者工具；
 该文件不包含密钥、会话、就诊人或服务商数据。
