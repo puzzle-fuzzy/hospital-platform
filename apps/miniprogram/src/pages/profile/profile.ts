@@ -9,7 +9,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { hasPlatformSession } from "../../services/session-service";
-import type { ProfilePageData } from "../../types";
+import type { ProfilePageData, UserProfileResponse } from "../../types";
 
 type ProfilePageMethods = {
 	loadProfile(): Promise<void>;
@@ -63,6 +63,32 @@ function genderIndex(gender: ProfilePageData["gender"]): number {
 	return index >= 0 ? index : GENDER_VALUES.length - 1;
 }
 
+/**
+ * 将服务端资料响应投影成页面编辑模型。
+ *
+ * GET 和 PUT 都必须消费同一个服务端快照，不能只在保存成功后回写 version
+ * 而继续展示本地输入值。服务端可能在持久化边界做 trim、空值归一化或其他
+ * 合法规范化；页面只有完整采用成功响应，才不会把“请求值”误当成“当前事实”。
+ */
+function toProfilePageFields(profile: UserProfileResponse["data"]): Pick<
+	ProfilePageData,
+	"displayName" | "gender" | "age" | "email" | "version"
+> & {
+	genderIndex: number;
+	genderLabel: string;
+} {
+	const index = genderIndex(profile.gender);
+	return {
+		displayName: profile.displayName,
+		gender: profile.gender,
+		genderIndex: index,
+		genderLabel: GENDER_LABELS[index] ?? "未知",
+		age: profile.age === null ? "" : String(profile.age),
+		email: profile.email ?? "",
+		version: profile.version,
+	};
+}
+
 Page<
 	ProfilePageData & {
 		genderLabels: readonly string[];
@@ -98,16 +124,8 @@ Page<
 		return getUserProfile()
 			.then((response) => {
 				if (!profileLoadGuard.isCurrent(requestToken)) return;
-				const profile = response.data;
-				const index = genderIndex(profile.gender);
 				this.setData({
-					displayName: profile.displayName,
-					gender: profile.gender,
-					genderIndex: index,
-					genderLabel: GENDER_LABELS[index] ?? "未知",
-					age: profile.age === null ? "" : String(profile.age),
-					email: profile.email ?? "",
-					version: profile.version,
+					...toProfilePageFields(response.data),
 					loaded: true,
 					error: "",
 				});
@@ -200,7 +218,9 @@ Page<
 			.then((response) => {
 				if (!saveGuard.isCurrent(saveToken)) return;
 				this.setData({
-					version: response.data.version,
+					// PUT 成功后的响应是服务端 canonical 快照；完整回写，避免
+					// 页面继续保留未经服务端最终校验的本地输入值。
+					...toProfilePageFields(response.data),
 					saving: false,
 					navigationPending: true,
 				});

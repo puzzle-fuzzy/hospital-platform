@@ -875,11 +875,12 @@ test("native profile save keeps validation, version and conflict boundaries orde
 	expect(saveBody.indexOf("if (!this.data.loaded)")).toBeLessThan(updateIndex);
 	expect(saveBody).toContain("if (!saveGuard.isCurrent(saveToken)) return;");
 
-	// 只有服务端返回新的 version 后才显示保存成功；请求异常统一进入
+	// 只有服务端返回完整 canonical 快照后才显示保存成功；请求异常统一进入
 	// showError，409 由页面中文错误边界提示刷新，不能伪造成功或自动覆盖。
-	expect(saveBody.indexOf("response.data.version")).toBeGreaterThan(
-		updateIndex,
-	);
+	expect(
+		saveBody.indexOf("toProfilePageFields(response.data)"),
+	).toBeGreaterThan(updateIndex);
+	expect(profile).toContain("服务端 canonical 快照");
 	expect(saveBody).toContain('this.showError(error, "个人资料保存失败")');
 	expect(profile).toContain("个人资料已被其他设备修改，请下拉刷新后重试");
 	// 409 后不能继续用旧 version 重复提交；页面必须隐藏保存入口，
