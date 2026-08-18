@@ -79,8 +79,12 @@
 - 影像详情、心电详情、体检报告、附件下载和短期资源授权；
 - Provider 报告日期包含边界、空目录语义以及真实字段样例与旧端逐字段比对。
 
-当前线上发布和运行观察见 [`candidate-38bc553-local-build-2026-08-18.md`](candidate-38bc553-local-build-2026-08-18.md)，
-该观察只验证当前 release、双服务共存、健康检查和未登录认证边界，没有发送患者或报告业务请求。
+当前线上发布和运行观察见 [`candidate-38bc553-local-build-2026-08-18.md`](candidate-38bc553-local-build-2026-08-18.md)。
+
+2026-08-18 13:46 CST 的配对开发者工具会话曾请求报告目录，但当前 release 因 `adapter:zhongyang` 未配置返回
+HTTP 503 / `dependency-not-configured`，页面展示“报告服务暂未配置完成”；本次没有进入 provider 查询，也没有发起
+报告详情请求。这个结果证明报告 gate 仍然 fail-closed，不能把 503 或页面入口解释成目录迁移完成；当前报告域仍未取得
+真实 provider 成功/空目录/失败样例或真机证据。
 
 ## 5. 下一步与停止条件
 
