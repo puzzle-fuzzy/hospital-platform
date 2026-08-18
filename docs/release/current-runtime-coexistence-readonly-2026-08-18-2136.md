@@ -33,3 +33,13 @@
 下一步仍按 [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md)
 执行：先由新 `miniprogram` 项目建立有效微信设备连接，再采集页面、HTTP trace 和当前 release 低敏日志三层证据。
 真实 Provider 字段、多患者切换/失效恢复、Redis TTL、普通资料 PUT/409 及支付/医保/HIS 继续分别验收，不能互相替代。
+
+## 4. 继续工作后的 SSH 只读复核（2026-08-18 21:43 CST）
+
+为确认本轮继续工作期间没有发生运行层漂移，再次执行同范围只读检查：`current` 仍指向
+`releases/687690e`，`hospital-platform-api-v2.service` 仍为 `active`，新 API 仍监听
+`10.0.0.3:18081`，旧 Python API 仍监听 `0.0.0.0:8001`；公网
+`GET /api/v2/health/ready` 仍返回 HTTP 200，`database`、`redis`、`schema` 均为 `ok`。
+
+本次没有重启、release 切换、migration、旧项目修改或 MySQL/Redis 写入；运行层证据仍不能替代新小程序的
+真实微信设备连接、患者切换和只读业务三层验收。
