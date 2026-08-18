@@ -211,6 +211,18 @@ SSH 账号拒绝，因此 TTL、会话数量和范围仍为“未验证”。若
 因此本 release 的会话数量、TTL 最小/最大值仍未验证；必须由运维在不暴露 key 的前提下提供等价聚合，不能把
 Redis 连通性或 HTTP 登录成功误认为 TTL 证据。
 
+后续候选 release 会提供独立维护命令 `apps/worker/dist/redis-session-ttl-audit.js`：
+
+```bash
+# REDIS_SESSION_AUDIT_URL 必须通过密钥管理或受控进程环境注入，不要写入命令历史或输出。
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/redis-session-ttl-audit.js"
+```
+
+命令只输出 `sessionCount`、`ttlMin`、`ttlMax`、`noExpiryCount`、`ttlErrorCount`、`truncated` 和
+`verified`；退出码 `0` 仅表示非空且未截断的完整扫描中每个 key 都有非负 TTL，退出码 `1` 表示聚合完成但
+证据不完整，退出码 `2` 表示配置/连接/权限错误。它不会重启 API、不会触碰旧 Python 服务，也不会写 Redis。
+
 ## 6. 验收结果记录模板
 
 | 领域 | 真机结果 | HTTP/request id | journald 事件 | 结论 |

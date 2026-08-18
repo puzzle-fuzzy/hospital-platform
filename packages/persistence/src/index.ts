@@ -29,6 +29,13 @@ export {
 	type RedisSessionStore,
 } from "./redis-session";
 export {
+	auditRedisSessionTtl,
+	RedisSessionTtlAuditError,
+	type RedisSessionTtlAuditClient,
+	type RedisSessionTtlAuditOptions,
+	type RedisSessionTtlAuditResult,
+} from "./redis-session-ttl-audit";
+export {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
 	createInMemoryUserProfileRepository,

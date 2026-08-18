@@ -12,12 +12,22 @@ import {
 	createRedisSessionStore,
 	type RedisSessionStore,
 } from "./redis-session";
+import {
+	auditRedisSessionTtl,
+	RedisSessionTtlAuditError,
+	type RedisSessionTtlAuditResult,
+} from "./redis-session-ttl-audit";
 
 export type PersistenceRuntime = PersistencePorts & {
 	/** 数据库配置存在时提供真实 repository；未配置时保持 undefined。 */
 	repositories: MySqlRepositories | undefined;
 	/** Redis 配置存在时提供带 TTL 的会话存储；未配置时保持 undefined。 */
 	sessions: RedisSessionStore | undefined;
+	/**
+	 * 仅供受控维护命令使用的 TTL 聚合；正常 API 请求永远不调用 SCAN。
+	 * 该方法使用独立维护凭证时才有可能通过，不能把应用 ACL 强行扩权。
+	 */
+	auditSessionTtl: (() => Promise<RedisSessionTtlAuditResult>) | undefined;
 	/** 关闭数据库连接池和 Redis 客户端，供 API/Worker 的 stop 生命周期调用。 */
 	close(): Promise<void>;
 };
@@ -324,6 +334,21 @@ export function createPersistenceRuntime(options: {
 					})
 				: undefined,
 		sessions: redisClient ? createRedisSessionStore(redisClient) : undefined,
+		auditSessionTtl: redisClient
+			? async () => {
+					try {
+						if (redisClient.status !== "ready") await redisClient.connect();
+						return await auditRedisSessionTtl(redisClient);
+					} catch (error) {
+						if (error instanceof RedisSessionTtlAuditError) throw error;
+						// 连接失败也只暴露固定错误，不能把 URL 或 Redis 原文带到维护输出。
+						throw new RedisSessionTtlAuditError(
+							"redis-session-connection-unavailable",
+							"Redis session TTL audit connection is unavailable",
+						);
+					}
+				}
+			: undefined,
 		async close() {
 			await Promise.all([
 				databasePool?.end(),

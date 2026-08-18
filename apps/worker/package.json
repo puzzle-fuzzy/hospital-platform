@@ -4,9 +4,10 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"build": "bun build src/index.ts src/preflight.ts src/provider-directory-smoke.ts src/api-runtime-smoke.ts --outdir dist --target bun && bun build ../../tools/p0-log-aggregate.mjs --outfile dist/p0-log-aggregate.js --target bun && bun build ../../tools/p0-business-evidence-audit.mjs --outfile dist/p0-business-evidence-audit.js --target bun",
+		"build": "bun build src/index.ts src/preflight.ts src/provider-directory-smoke.ts src/api-runtime-smoke.ts src/redis-session-ttl-audit.ts --outdir dist --target bun && bun build ../../tools/p0-log-aggregate.mjs --outfile dist/p0-log-aggregate.js --target bun && bun build ../../tools/p0-business-evidence-audit.mjs --outfile dist/p0-business-evidence-audit.js --target bun",
 		"dev": "bun --watch run src/index.ts",
 		"preflight": "bun run src/preflight.ts",
+		"redis-session-ttl-audit": "bun run src/redis-session-ttl-audit.ts",
 		"runtime-smoke": "bun run src/api-runtime-smoke.ts",
 		"provider-smoke": "bun run src/provider-directory-smoke.ts",
 		"test": "bun test",
