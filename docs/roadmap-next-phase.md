@@ -15,7 +15,7 @@
   没有新的微信、患者、预约历史、门诊费用或报告业务事件，因此不能把任何真机业务域标记为已验收。
 - 切换后 journald 低敏聚合为 `parseErrors=0`、`systemdWarningCount=0`，只有健康请求；预约历史和门诊费用证据门禁均缺少
   `requested/success`。当前 release 的 Redis TTL 审计仍按设计返回 `redis-session-scan-unavailable`、退出码 `2`，TTL 继续未验证。
-- 当前真机客户端必须使用来源指纹为 `d6b3d661e5864fffdccac14d72a58d4edaecc81d` 的小程序 `dist/`，与服务端 `38bc553` 配套；旧的 `1697695` 包与当前服务端不再组成验收组合。
+- 当前真机客户端必须使用来源指纹为 `9b1c99d59076188e960e33d5f65863eaa67bae9a` 的小程序 `dist/`，与服务端 `38bc553` 配套；旧的 `1697695` 包与当前服务端不再组成验收组合。
 - Redis TTL、真实微信会话、多患者切换/失效恢复、预约历史、爽约、门诊费用和普通资料读写仍按 P0 手册待完成；支付、医保、退款、报告和 HIS 继续关闭。
 - 具体产物、preflight、隔离 smoke、切换和回滚边界见 [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md)。
 

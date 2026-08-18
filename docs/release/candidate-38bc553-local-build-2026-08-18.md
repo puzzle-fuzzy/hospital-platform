@@ -139,6 +139,10 @@ systemd 为 `active`，内网 readiness 返回 database/redis/schema 全部 `ok`
 “仅文档/配置提交后仍需刷新运行包指纹”这一场景必须执行强制小程序构建，或在 CI 中加入等价的来源指纹门禁；
 不能只依据 Turbo 的缓存命中结果判断开发者工具和真机拿到的是当前候选包。
 
+2026-08-18 14:29 CST，补齐爽约页重点构建清单的 `9b1c99d` 提交后再次强制构建小程序包，
+`dist/build-info.json` 来源指纹更新为 `9b1c99d59076188e960e33d5f65863eaa67bae9a`，`runtime:verify` 仍通过，
+14 个页面脚本和根文件齐全。该提交只加强构建门禁，不改变患者、预约、报告或费用业务运行逻辑；后续真机验收应使用这份最新 `dist/`。
+
 2026-08-18 14:20-14:21 CST，配对开发者工具会话进入“编辑个人信息”页，普通资料 `GET /me/profile` 返回
 `200`，页面展示服务端返回的昵称、性别、年龄和邮箱普通字段；本轮未点击“保存”，没有执行 `PUT`，也没有产生
 资料写入或版本更新。该证据只覆盖当前会话下的普通资料读取和页面渲染，不覆盖真机、首次更新、409 并发冲突或写入审计。
@@ -153,7 +157,7 @@ systemd 为 `active`，内网 readiness 返回 database/redis/schema 全部 `ok`
 ## 6. 当前仍未完成的验收
 
 - 尚未进行有效微信会话下的真机登录、患者切换、预约历史/爽约、门诊费用或普通资料写入验收；当前客户端必须使用来源指纹为
-  `d6b3d661e5864fffdccac14d72a58d4edaecc81d` 的 `dist/`，不能继续使用旧的 `1697695` 包。
+  `9b1c99d59076188e960e33d5f65863eaa67bae9a` 的 `dist/`，不能继续使用旧的 `1697695` 包。
 - Redis TTL 仍未通过独立维护 ACL 验证；支付、医保、退款、报告和 HIS 继续关闭。
 
 下一次发布必须同时保存候选目录、产物 checksum、production preflight、隔离 runtime smoke、旧 `8001` 监听和公网 ready 证据，具体命令以 [`api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md) 为准。
