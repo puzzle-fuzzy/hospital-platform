@@ -10,15 +10,15 @@
 | 服务端 release | `c26e696` | 服务器 `/home/ps/code/hospital-platform/releases/c26e696` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `2902917` | 与服务端 `c26e696` 配套的当前本地验收候选包；页面安全边界和验收顺序保持不变 |
+| 小程序客户端 | `a45d35e` | 与服务端 `c26e696` 配套的当前本地验收候选包；页面安全边界和验收顺序保持不变 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
-| 小程序构建来源 | `29029175a5064aa4480359255e74d73dc010b3cd` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 124 项 / 1060 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `2902917` |
+| 小程序构建来源 | `a45d35edd91aab1a3a83c77301c9984402686145` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 126 项 / 1066 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `a45d35e` |
 | 全仓回归 | 9/9 package、API 152/659、Worker 51/144、工具 14/44 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `c26e696`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `2902917` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`2902917` 在既有患者上下文门禁基础上，补充预约记录网络错误时关闭院区弹层的失败态边界，避免错误提示被过期叠加层遮挡；它保留报告详情、患者切换、预约历史和门诊费用的既有 fail-closed 规则，不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `29029175a5064aa4480359255e74d73dc010b3cd`。
+客户端候选的 `dist/` 必须由 `a45d35e` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`a45d35e` 在既有患者上下文门禁基础上，补充运行输入必须先提交的来源一致性边界，避免工作树新代码被打进运行包却仍标记为旧提交；它保留预约记录网络错误时关闭院区弹层以及报告详情、患者切换、预约历史和门诊费用的既有 fail-closed 规则，不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `a45d35edd91aab1a3a83c77301c9984402686145`。
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 

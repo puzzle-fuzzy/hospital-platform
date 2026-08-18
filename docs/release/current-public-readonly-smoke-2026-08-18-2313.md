@@ -18,5 +18,5 @@
 
 - 这次探针证明公网 HTTPS、反向代理、新 API 响应和未登录 401 边界正常；
 - readiness 的三个依赖为 `ok` 只证明当前探针时刻可用，不替代 Redis TTL、真实微信登录或 Provider 业务证据；
-- 当前本地真机验收候选为小程序 `2902917`，完整来源指纹见 [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md)；
+- 当前本地真机验收候选为小程序 `a45d35e`，完整来源指纹见 [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md)；
 - 预约写入、支付、医保、退款、HIS 回写和报告详情 gate 继续关闭；旧 Python 服务保持原样。
