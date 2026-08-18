@@ -57,7 +57,7 @@
 
 - `pnpm --filter @hospital/miniprogram typecheck`
 - `pnpm --filter @hospital/miniprogram test`
-- 小程序测试 `155 pass / 0 fail`，共 `1244` 个断言
+- 小程序测试 `156 pass / 0 fail`，共 `1248` 个断言
 
 ## 5. 未扩大的范围
 
