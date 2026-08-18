@@ -25,7 +25,7 @@ type PatientSelectionPageMethods = {
 	loadPatientList(): Promise<void>;
 	onPatientTap(event: PatientEvent): void;
 	onAddPatient(): void;
-	onSyncPatients(): Promise<void>;
+	onSyncPatients(loadToken?: number): Promise<void>;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
@@ -93,12 +93,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 进入页面先读取平台目录，再主动同步一次临床映射，保证直接打开选择页也可用。 */
 	loadPatientList(): Promise<void> {
-		const directoryDataGuard = getPageLatestRequestGuard(
-			this,
-			"directory-data",
-		);
+		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
 		const loadingGuard = getPageLatestRequestGuard(this, "loading");
-		const dataToken = directoryDataGuard.begin();
+		const loadToken = listLoadGuard.begin();
 		const loadingToken = loadingGuard.begin();
 		this.setData({
 			loading: true,
@@ -109,18 +106,18 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		});
 		return loadPatients()
 			.then((patients) => {
-				if (!directoryDataGuard.isCurrent(dataToken)) return;
+				if (!listLoadGuard.isCurrent(loadToken)) return;
 				this.setPatientList(patients);
 				// 选择页也可能被历史路径直接打开，不能依赖首页先完成临床映射；
 				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到临床映射。
 				// 选择页的目录读取完成后还必须等待一次完整同步；否则下拉刷新会
 				// 提前结束，调用页可能在 HIS 映射尚未落库时开始预约/报告查询。
 				// loading 由外层 finally 统一关闭，不能在这里提前置 false。
-				return this.onSyncPatients();
+				return this.onSyncPatients(loadToken);
 			})
 			.catch((error) => {
 				if (
-					directoryDataGuard.isCurrent(dataToken) &&
+					listLoadGuard.isCurrent(loadToken) &&
 					loadingGuard.isCurrent(loadingToken)
 				) {
 					this.showError(error, "就诊人加载失败");
@@ -207,65 +204,82 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		});
 	},
 
-	/** 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。 */
-	onSyncPatients(): Promise<void> {
-		const patientSyncFlight = getPageSingleFlight<void>(this, "patient-sync");
-		return patientSyncFlight.run(() => {
-			const directoryDataGuard = getPageLatestRequestGuard(
-				this,
-				"directory-data",
-			);
-			const syncGuard = getPageLatestRequestGuard(this, "sync");
-			const dataToken = directoryDataGuard.begin();
-			const syncToken = syncGuard.begin();
-			// 每次同步开始都先撤销上一次“可选择”状态；只有完整快照成功返回后才能恢复。
-			// 临床映射尚未被本轮同步确认前，不展示上一轮“当前”患者；同步成功后
-			// setPatientList 会基于最新 owner-scoped 目录恢复正确的展示标记。
-			this.setData({
-				syncing: true,
-				selectionReady: false,
-				selectedPatientId: "",
-				error: "",
-			});
-			return syncPatientsFromHospital("patient-selection-sync")
-				.then((patients) => {
-					if (
-						!directoryDataGuard.isCurrent(dataToken) ||
-						!syncGuard.isCurrent(syncToken)
-					) {
-						return;
-					}
-					this.setPatientList(patients);
-					this.setData({
-						selectionReady: hasClinicallyReadyPatients(patients),
-					});
-					if (patients.length === 0) {
-						this.showError(
-							new ApiError("当前微信账号暂无绑定的就诊人", {
-								code: "patient-not-bound",
-							}),
-							"就诊人同步失败",
-						);
-					} else if (!hasClinicallyReadyPatients(patients)) {
-						this.showError(
-							new ApiError("当前就诊人暂未完成医院档案映射", {
-								code: "patient-clinical-unavailable",
-							}),
-							"就诊人同步失败",
-						);
-					}
-				})
-				.catch((error) => {
-					if (syncGuard.isCurrent(syncToken)) {
-						this.showError(error, "就诊人同步失败");
-					}
-				})
-				.finally(() => {
-					if (syncGuard.isCurrent(syncToken)) {
-						this.setData({ syncing: false });
-					}
-				});
+	/**
+	 * 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。
+	 *
+	 * `loadToken` 表示一次“目录读取 + 临床同步”的完整刷新周期。选择页的旧同步
+	 * 即使比新读取更晚返回，也必须失去回写资格；反过来，页面级 single-flight
+	 * 复用在途 Promise 时，后发调用方仍要消费同一个患者数组，不能只复用一个
+	 * 已经绑定在旧调用方闭包里的 void Promise，否则新一轮刷新会永远停在不可选择。
+	 */
+	onSyncPatients(loadToken?: number): Promise<void> {
+		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
+		const currentLoadToken = loadToken ?? listLoadGuard.begin();
+		if (!listLoadGuard.isCurrent(currentLoadToken)) return Promise.resolve();
+
+		const patientSyncFlight = getPageSingleFlight<Array<Patient>>(
+			this,
+			"patient-sync",
+		);
+		const syncGuard = getPageLatestRequestGuard(this, "sync");
+		const syncToken = syncGuard.begin();
+		// 每次同步开始都先撤销上一次“可选择”状态；只有完整快照成功返回后才能恢复。
+		// 临床映射尚未被本轮同步确认前，不展示上一轮“当前”患者；同步成功后
+		// setPatientList 会基于最新 owner-scoped 目录恢复正确的展示标记。
+		this.setData({
+			syncing: true,
+			selectionReady: false,
+			selectedPatientId: "",
+			error: "",
 		});
+
+		// single-flight 只负责共享远端 Promise；目录回写必须在每个调用方自己的
+		// loadToken/syncToken 仍有效时执行，避免旧页面周期覆盖新周期。
+		return patientSyncFlight
+			.run(() => syncPatientsFromHospital("patient-selection-sync"))
+			.then((patients) => {
+				if (
+					!listLoadGuard.isCurrent(currentLoadToken) ||
+					!syncGuard.isCurrent(syncToken)
+				) {
+					return;
+				}
+				this.setPatientList(patients);
+				this.setData({
+					selectionReady: hasClinicallyReadyPatients(patients),
+				});
+				if (patients.length === 0) {
+					this.showError(
+						new ApiError("当前微信账号暂无绑定的就诊人", {
+							code: "patient-not-bound",
+						}),
+						"就诊人同步失败",
+					);
+				} else if (!hasClinicallyReadyPatients(patients)) {
+					this.showError(
+						new ApiError("当前就诊人暂未完成医院档案映射", {
+							code: "patient-clinical-unavailable",
+						}),
+						"就诊人同步失败",
+					);
+				}
+			})
+			.catch((error) => {
+				if (
+					listLoadGuard.isCurrent(currentLoadToken) &&
+					syncGuard.isCurrent(syncToken)
+				) {
+					this.showError(error, "就诊人同步失败");
+				}
+			})
+			.finally(() => {
+				if (
+					listLoadGuard.isCurrent(currentLoadToken) &&
+					syncGuard.isCurrent(syncToken)
+				) {
+					this.setData({ syncing: false });
+				}
+			});
 	},
 
 	onPullDownRefresh(): void {

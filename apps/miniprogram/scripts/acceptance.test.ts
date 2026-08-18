@@ -366,7 +366,7 @@ test("patient selection hides the current badge while directory confirmation is 
 		'loading: true,\n\t\t\tsyncing: false,\n\t\t\tselectionReady: false,\n\t\t\tselectedPatientId: "",',
 	);
 	expect(selection).toContain(
-		'syncing: true,\n\t\t\t\tselectionReady: false,\n\t\t\t\tselectedPatientId: "",',
+		'syncing: true,\n\t\t\tselectionReady: false,\n\t\t\tselectedPatientId: "",',
 	);
 	expect(selection).not.toContain(
 		"this.setData({ selectedPatientId: getSelectedPatientId() });",
@@ -381,8 +381,11 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
 	expect(home).toContain("getPageSingleFlight<void>");
 	expect(home).toContain("return patientSyncFlight.run(() => {");
-	expect(selection).toContain("getPageSingleFlight<void>");
-	expect(selection).toContain("return patientSyncFlight.run(() => {");
+	expect(selection).toContain("getPageSingleFlight<Array<Patient>>");
+	expect(selection).toContain(".run(() => syncPatientsFromHospital");
+	expect(selection).toContain('"patient-list-load"');
+	expect(selection).toContain("onSyncPatients(loadToken)");
+	expect(selection).toContain("后发调用方仍要消费同一个患者数组");
 });
 
 test("native data pages keep first-show state on the page instance", async () => {
@@ -1413,11 +1416,13 @@ test("patient context pull-to-refresh waits for the complete directory lifecycle
 	expect(home).toContain(
 		"this.onRefresh().finally(() => wx.stopPullDownRefresh())",
 	);
-	expect(selection).toContain("return this.onSyncPatients();");
+	expect(selection).toContain("return this.onSyncPatients(loadToken);");
 	expect(selection).toContain(
 		"this.loadPatientList().finally(() => wx.stopPullDownRefresh())",
 	);
-	const syncCallIndex = selection.indexOf("return this.onSyncPatients();");
+	const syncCallIndex = selection.indexOf(
+		"return this.onSyncPatients(loadToken);",
+	);
 	const loadPatientListBody = selection.slice(
 		selection.indexOf("loadPatientList(): Promise<void>"),
 		syncCallIndex,

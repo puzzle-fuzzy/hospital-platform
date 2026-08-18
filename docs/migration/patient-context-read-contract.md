@@ -35,6 +35,10 @@
 
 患者选择页切换成功后的 Toast 延迟回跳也属于页面实例状态：回跳定时器必须按当前选择页实例保存，并在 `onUnload` 中直接取消。页面已经卸载后不能再调用 `setData`，也不能让旧定时器继续执行 `navigateBack`，否则用户手动返回或快速重复进入时可能误操作新的页面栈。
 
+选择页的刷新还必须区分“完整刷新周期”和“共享同步 Promise”：新一轮目录读取开始后，旧同步即使晚返回也不能覆盖新列表；
+如果多个调用方复用同一个在途同步，Promise 必须返回完整患者数组，让每个仍有效的页面周期独立判断是否回写 `selectionReady` 和错误状态，
+不能把同步结果封装在第一个调用方的 `void` 闭包中。
+
 首页、我的、患者选择、预约记录、爽约记录、报告目录和门诊费用页的患者状态都必须复用
 `services/patient-selection-service.ts` 的 `patientContextErrorMessage` 或
 `patientSelectionResolutionMessage`。患者未绑定、已保存选择失效、临床映射不可用和要求先选择患者属于同一组
