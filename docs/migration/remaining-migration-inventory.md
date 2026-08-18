@@ -11,6 +11,9 @@
 
 本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
+- 本地 `main` 当前代码基线为 `0ae4194`，在患者上下文契约中补齐了门诊费用加载器的空 `patientId` 前置拒绝，
+  并通过全量 `pnpm check`；该修正尚未部署到服务器，不改变下面 `38bc553` 的线上 release、真实业务证据或旧 Python 服务状态。
+  这类小程序服务层校验只能减少无效请求，不能替代服务端 owner 归属校验。
 - 当前服务器 release 为 `38bc553`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。
 - 当前 release 的生产 preflight、内网 readiness、公网 `/api/v2` runtime smoke 和 `runtimeMode=production` 已通过；MySQL、Redis、schema
