@@ -97,12 +97,12 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 ## 3. 当前工作树测试证据
 
-服务端生产候选固定为 `4ae2a31`，小程序运行包固定为 `4ae2a31`，包含微信身份边界修正、患者引用 fail-closed 修正、已验收的页面样式和完整重点页面构建门禁；当前 `main` 后续只追加了生产验收文档。
+服务端生产候选固定为 `4ae2a31`，小程序运行包固定为 `c82b0c7`，包含微信身份边界修正、患者引用 fail-closed 修正、空目录下已有选择的 stale 修正、已验收的页面样式和完整重点页面构建门禁；小程序修正未改变服务端 API 或旧服务。
 本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
-- `pnpm --filter @hospital/miniprogram test`：108 项通过，954 个断言；
+- `pnpm --filter @hospital/miniprogram test`：110 项通过，956 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；候选 `dist/build-info.json` 来源指纹为
-  `9b1c99d59076188e960e33d5f65863eaa67bae9a`，普通构建曾命中旧 Turbo 缓存，已使用强制构建校正；
+  `c82b0c759c9d9a0e3de144934b679161f34807d8`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：75 项通过，168 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
@@ -115,7 +115,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 以下事项仍不能标记完成：
 
-1. 使用与服务端 `38bc553` 配套的 `9b1c99d` 小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
+1. 使用与服务端 `4ae2a31` 配套的 `c82b0c7` 小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
    爽约记录和门诊待缴/已缴页面操作；
 2. 每个页面同时保存页面结果、HTTP 状态/trace 和当前 release 的低敏业务事件；
 3. 取得真实账号的预约历史状态、未来预约窗口、门诊费用状态和 Provider 字段对照；

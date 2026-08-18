@@ -6,7 +6,7 @@
 
 - 线上运行 release：`/home/ps/code/hospital-platform/releases/4ae2a31`；
 - 切换前 release：`/home/ps/code/hospital-platform/releases/9acdaf2`；
-- 本次运行代码来自已通过本地门禁的 `4ae2a31`（`收紧门诊费用患者引用边界`）；后续 `4f72d71`、`b276a25` 只补充发布/验收门禁文档，未进入运行 bundle；
+- 本次服务端运行代码来自已通过本地门禁的 `4ae2a31`（`收紧门诊费用患者引用边界`）；后续 `4f72d71`、`b276a25` 只补充发布/验收门禁文档，未进入服务端运行 bundle；小程序客户端另由 `c82b0c7` 重建，作为本次真机配套包，但未改变服务端或旧服务。
 - 报告目录和门诊费用 adapter 在 HTTP 请求前拒绝空 Provider 患者引用，空引用不会调用 Provider；
 - 未打开支付、医保、HIS 写入、预约写入、报告 gate、Worker 或旧 Python 服务变更；
 - 数据库没有执行 migration、写入业务数据或修改 schema。
@@ -90,7 +90,7 @@ httpStatusCounts={200:6} systemdWarningCount=0 providerRequestIdCount=0
 - 15:35-15:40 CST 的后续窗口单独聚合为 `inputLines=7`、`parsedRecords=6`、`parseErrors=0`、
   `systemdWarningCount=0`，6 条全部是基础设施健康请求且 HTTP 200；这段连续观察仍没有真实微信、患者、预约、费用或报告业务事件。
 
-本次只读复核没有切换 release、写入数据库/Redis 或操作旧服务；本地 `main` 后续的 `b276a25`、`c2d6e8f`、`189ce51` 仅包含测试/文档门禁修正，尚未进入线上运行 bundle。
+本次只读复核没有切换 release、写入数据库/Redis 或操作旧服务；小程序 `c82b0c7` 只修正客户端已有选择遇到空目录时的 `stale` 语义，未上传服务器或改变线上 API；`ebafd7b`、`7017dec` 仅补充文档。
 
 ## 7. 回滚与下一步
 

@@ -10,15 +10,15 @@
 | 服务端 release | `4ae2a31` | 服务器 `/home/ps/code/hospital-platform/releases/4ae2a31` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `4ae2a31` | 服务端 `4ae2a31` 配套的当前运行包，包含构建来源指纹校验 |
+| 小程序客户端 | `c82b0c7` | 与服务端 `4ae2a31` 配套的当前运行包，包含空目录下 stale 语义修正和构建来源指纹校验 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序构建来源 | `4ae2a3105cf82054a316151bbf07e13f8a2b6085` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 109 项 / 955 个断言 | 当前 `main` 的 `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `4ae2a31` |
+| 小程序构建来源 | `c82b0c759c9d9a0e3de144934b679161f34807d8` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 110 项 / 956 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `c82b0c7` |
 | 全仓回归 | 9/9 package、API 114/114、工具 10/10 | `3b4397d` 后的 `pnpm test`、`pnpm typecheck`、`pnpm test:tools` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 已由 `9b1c99d` 工作树强制构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`9b1c99d` 只补强重点页面构建门禁，不改变患者、预约、报告或费用业务运行逻辑；后续 `32ba8c0`、`00724e4`、`97b3398`、`2bca0dd` 和 `6eb5ee7` 只补充发布/验收文档，不改变该候选 `dist/`。当前真机包的来源指纹必须是完整的 `9b1c99d59076188e960e33d5f65863eaa67bae9a`。
+客户端候选的 `dist/` 已由 `c82b0c7` 工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`c82b0c7` 只修正客户端患者上下文状态：已有选择但最新目录为空时进入 `stale`，首次无选择且目录为空时仍为 `empty`；它不改变服务端 API、Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `c82b0c759c9d9a0e3de144934b679161f34807d8`。
 
 ## 2. 真机操作顺序
 
