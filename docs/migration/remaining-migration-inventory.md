@@ -32,6 +32,9 @@
 - 2026-08-18 20:25 CST 本地重启后再次从公网只读复核 live/ready/system-ping 为 200，ready 的 `database/redis/schema` 均为 `ok`，
   未登录 profile/patients 均为 401；本次仍未携带微信会话，也没有产生预约、报告、门诊费用或患者切换业务事件，详见
   [`../release/current-public-readonly-smoke-2026-08-18-2025.md`](../release/current-public-readonly-smoke-2026-08-18-2025.md)。
+- 2026-08-18 21:36 CST 通过 SSH 只读确认 `current=687690e`、新旧监听和 `hospital-platform-api-v2.service=active` 未漂移，公网 ready
+  的 `database/redis/schema` 均为 `ok`；本次仍未携带微信会话或业务参数，也没有修改旧服务，详见
+  [`../release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](../release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。
 - 2026-08-18 16:48 CST 公网 `GET /api/v2/medical-records` 返回 `404/not-found`，确认病历路由仍未注册；这是关闭边界证据，不代表病历功能已经迁移。
 - 历史 release `9acdaf2` 曾观察到预约历史 `itemCount=60`、`statusCounts={cancelled:60}`，在线标签排除已取消记录的空态符合当时规则；
   这不能回填为当前 `687690e` 的业务事件。全部挂号继续保持迁移提示，因为独立 `requestChannel=4` Provider contract 尚未冻结。
