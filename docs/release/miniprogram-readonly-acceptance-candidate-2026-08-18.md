@@ -13,7 +13,7 @@
 | 小程序客户端 | `d6b3d66` | 服务端 `38bc553` 配套的当前运行包，包含构建来源指纹校验 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
 | 小程序构建来源 | `d6b3d661e5864fffdccac14d72a58d4edaecc81d` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 108 项 / 952 个断言 | 当前 `main` 的 `pnpm --dir apps/miniprogram test`；生产客户端源码固定为 `38bc553` |
+| 小程序回归 | 108 项 / 954 个断言 | 当前 `main` 的 `pnpm --dir apps/miniprogram test`；运行包来源固定为 `d6b3d66` |
 | 全仓回归 | 9/9 package、API 114/114、工具 10/10 | `3b4397d` 后的 `pnpm test`、`pnpm typecheck`、`pnpm test:tools` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 

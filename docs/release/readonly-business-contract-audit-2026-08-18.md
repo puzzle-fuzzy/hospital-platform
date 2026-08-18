@@ -100,7 +100,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 服务端生产候选固定为 `38bc553`，小程序运行包固定为 `d6b3d66`，包含微信身份边界修正和已验收的页面样式；当前 `main` 后续只追加了候选验收文档。
 本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
-- `pnpm --filter @hospital/miniprogram test`：108 项通过，952 个断言；
+- `pnpm --filter @hospital/miniprogram test`：108 项通过，954 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；候选 `dist/build-info.json` 来源指纹为
   `d6b3d661e5864fffdccac14d72a58d4edaecc81d`，普通构建曾命中旧 Turbo 缓存，已使用强制构建校正；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
