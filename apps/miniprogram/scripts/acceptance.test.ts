@@ -944,7 +944,10 @@ test("native mini program derives missed appointments from the normalized record
 
 	expect(app).toContain('"pages/missed-appointments/missed-appointments"');
 	expect(my).toContain('case "missed-appointments"');
-	expect(my).toContain('url: "/pages/missed-appointments/missed-appointments"');
+	// 入口统一经过患者范围门禁；URL 仍必须保留在页面源中，防止静态迁移时
+	// 只保留菜单 action 却丢失真实页面目标。
+	expect(my).toContain("navigateToPatientScopedPage");
+	expect(my).toContain('"/pages/missed-appointments/missed-appointments"');
 	expect(myTemplate).toContain('data-action="{{item.action}}"');
 	expect(my).toContain('action: "missed-appointments"');
 	expect(page).toContain("loadAppointmentRecords");
@@ -1025,8 +1028,9 @@ test("native mini program exposes outpatient payment and my pages through platfo
 		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
 	);
 	expect(my).toContain("navigateToPatientSelector");
+	expect(my).toContain("navigateToPatientScopedPage");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
-	expect(my).toContain('url: "/pages/appointment-records/appointment-records"');
+	expect(my).toContain('"/pages/appointment-records/appointment-records"');
 	expect(myTemplate).toContain("家庭成员管理");
 	expect(myTemplate).toContain("legacy-tabbar");
 	// 小程序不能把 provider patId、provider 订单号或旧直连地址交给页面。

@@ -9,7 +9,11 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import { navigateToPatientSelector } from "../../services/patient-navigation";
+import {
+	navigateToPatientScopedPage,
+	navigateToPatientSelector,
+} from "../../services/patient-navigation";
+import { hasPlatformSession } from "../../services/session-service";
 import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
@@ -215,17 +219,25 @@ Page<MyPageData, MyPageMethods>({
 				navigateToPatientSelector();
 				break;
 			case "appointment-records":
-				wx.navigateTo({
-					url: "/pages/appointment-records/appointment-records",
-				});
+				navigateToPatientScopedPage(
+					"/pages/appointment-records/appointment-records",
+					hasPlatformSession(),
+					Boolean(this.data.selectedPatient),
+				);
 				break;
 			case "missed-appointments":
-				wx.navigateTo({
-					url: "/pages/missed-appointments/missed-appointments",
-				});
+				navigateToPatientScopedPage(
+					"/pages/missed-appointments/missed-appointments",
+					hasPlatformSession(),
+					Boolean(this.data.selectedPatient),
+				);
 				break;
 			case "outpatient-payment":
-				wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
+				navigateToPatientScopedPage(
+					"/pages/outpatient-payment/outpatient-payment",
+					hasPlatformSession(),
+					Boolean(this.data.selectedPatient),
+				);
 				break;
 			case "medical-record":
 				// 报告目录与门诊病历是两类不同医疗事实，不能复用 reports 路由。

@@ -71,6 +71,13 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
    不能通过同一个 `[]` 结果混淆。只有服务端明确返回成功快照时，页面才更新患者展示；失败分支清理展示上下文并
    保留错误和重试能力，不能把错误转换成业务空结果交给后续调用方。
 
+13. 患者范围业务页的入口必须先经过统一三态门禁：未登录回到首页建立平台会话，
+   已登录但没有当前 `clinicalAccess=ready` 患者进入独立选择页，只有两项都满足时才打开
+   我的挂号、爽约记录、报告或门诊费用页面。登录成功后应继续用户刚才触发的动作；预约目录
+   是不依赖患者的只读目录，可以跳过患者同步，但不能跳过平台会话。入口门禁只负责路由，
+   不替代业务页再次读取 owner-scoped 目录和校验当前 patientId；这样既避免无意义的 401，
+   又保留页面级 stale、失效映射和异步回写保护。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的

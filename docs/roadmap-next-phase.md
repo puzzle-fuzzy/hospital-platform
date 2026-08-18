@@ -32,6 +32,10 @@
   门禁；但这仍需要页面和 HTTP trace 交叉核对，且没有 `appointment.records.*` 或 `outpatient.payment.records.*`
   请求/成功事件，不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
   [`release/c63dba9-production-acceptance-2026-08-18.md`](release/c63dba9-production-acceptance-2026-08-18.md)。
+- 本轮继续完成原生小程序入口业务门禁：预约目录未登录时登录成功会继续原动作，门诊缴费不再绕过登录，
+  我的挂号/爽约/报告/费用在未绑定当前临床患者时统一进入选择页，不再先发起无意义的 401 或患者上下文错误。
+  该行为由 `patient-navigation.ts` 的三态纯函数和 3 个单元测试覆盖；本地小程序 96 个测试、类型检查、构建及
+  14 页面运行包校验均通过。该修改尚未部署，当前线上仍为 `c63dba9`。
 - 下一步优先用页面操作和 HTTP trace 核对当前会话的患者显式切换，再完成预约历史/门诊费用只读三层验收；支付、医保、预约写入、
   退款、报告 Provider 和 HIS 写回继续最后处理。
 

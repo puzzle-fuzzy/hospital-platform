@@ -181,6 +181,7 @@ type IndexPageMethods = {
 	loadPatients(): Promise<Array<Patient>>;
 	onSyncPatients(): Promise<void>;
 	onLoadAppointments(): void;
+	onLoadOutpatientPayment(): void;
 	onRefresh(): Promise<void>;
 	onPullDownRefresh(): void;
 	onUnload(): void;
@@ -433,7 +434,7 @@ Page<IndexPageData, IndexPageMethods>({
 				this.onLoadAppointments();
 				break;
 			case "outpatient-payment":
-				wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
+				this.onLoadOutpatientPayment();
 				break;
 			case "hospital-list":
 				// 保留旧首页实际跳转的 hospitalList；动态机构和外部互联网医院仍未开放。
@@ -546,7 +547,12 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onLoadAppointments() {
 		if (!hasPlatformSession()) {
-			this.onLogin();
+			// 预约目录是公开的只读目录，不需要先同步患者；登录成功后
+			// 继续原动作，避免用户看到“登录成功”却仍停在首页。
+			this.onLogin({
+				afterSuccess: () => this.onLoadAppointments(),
+				skipPatientBootstrap: true,
+			});
 			return;
 		}
 		// 旧端预约流程先确认医院/院区，再进入科室与排班目录。医院列表目前是
@@ -578,7 +584,11 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onLoadReports() {
 		if (!hasPlatformSession()) {
-			this.onLogin();
+			this.onLogin({ afterSuccess: () => this.onLoadReports() });
+			return;
+		}
+		if (!this.data.selectedPatient) {
+			navigateToPatientSelector();
 			return;
 		}
 		// 报告查询拥有独立的患者上下文和空态，不能在首页后台请求后丢失展示结果。
@@ -587,12 +597,29 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onLoadAppointmentRecords() {
 		if (!hasPlatformSession()) {
-			this.onLogin();
+			this.onLogin({ afterSuccess: () => this.onLoadAppointmentRecords() });
+			return;
+		}
+		if (!this.data.selectedPatient) {
+			navigateToPatientSelector();
 			return;
 		}
 		wx.navigateTo({
 			url: "/pages/appointment-records/appointment-records",
 		});
+	},
+
+	/** 门诊费用与预约历史一样必须绑定临床患者，不能先打开再由 API 返回 401。 */
+	onLoadOutpatientPayment() {
+		if (!hasPlatformSession()) {
+			this.onLogin({ afterSuccess: () => this.onLoadOutpatientPayment() });
+			return;
+		}
+		if (!this.data.selectedPatient) {
+			navigateToPatientSelector();
+			return;
+		}
+		wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
 	},
 
 	/** 切换患者时清空首页不再持有的报告状态，选择页负责新的患者上下文。 */
