@@ -205,6 +205,32 @@ test("普通资料服务拒绝非法输入并留下安全失败日志", async ()
 	expect(JSON.stringify(records)).not.toContain("not-an-email");
 });
 
+test("普通资料输入校验失败时不会触碰仓储写入", async () => {
+	let updateCalls = 0;
+	const service = new UserProfileService({
+		findByUserId: async () => undefined,
+		update: async () => {
+			updateCalls += 1;
+			throw new Error("update must not run for invalid input");
+		},
+	});
+
+	// 输入边界必须先于仓储调用执行；否则非法资料可能先写入数据库，
+	// 再由后续层返回失败，造成“页面提示失败但数据已经改变”的危险语义。
+	await expect(
+		service.update(
+			"profile-no-write-001",
+			{ version: 0, email: "not-an-email" },
+			{
+				traceId: "profile-no-write-trace",
+				idempotencyKey: "profile-no-write-key",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+
+	expect(updateCalls).toBe(0);
+});
+
 test("清空普通资料字段时日志字段数量仍反映实际修改", async () => {
 	const lines: string[] = [];
 	const service = new UserProfileService(

@@ -647,6 +647,37 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(build).toContain("profile/profile.js");
 });
 
+test("native profile save keeps validation, version and conflict boundaries ordered", async () => {
+	const profile = await source("pages/profile/profile.ts");
+	// 文件顶部的 PageMethods 类型也有同名签名；必须从 Page 实现开始截取，
+	// 否则断言可能只检查类型声明而没有覆盖真实的保存流程。
+	const pageImplementationStart = profile.indexOf("Page<");
+	const saveStart = profile.indexOf(
+		"onSave(): Promise<void>",
+		pageImplementationStart,
+	);
+	const saveEnd = profile.indexOf("\n\t},", saveStart);
+	const saveBody = profile.slice(saveStart, saveEnd);
+	const updateIndex = saveBody.indexOf("updateUserProfile({");
+
+	// 页面层的前置判断必须发生在 PUT 之前：加载失败、未加载完成或重复点击
+	// 都不能把默认值/旧 version 送到服务端，再依赖 409 兜底。
+	expect(
+		saveBody.indexOf("if (this.data.saving || this.data.navigationPending)"),
+	).toBeLessThan(updateIndex);
+	expect(saveBody.indexOf("if (this.data.loading)")).toBeLessThan(updateIndex);
+	expect(saveBody.indexOf("if (!this.data.loaded)")).toBeLessThan(updateIndex);
+	expect(saveBody).toContain("if (!saveGuard.isCurrent(saveToken)) return;");
+
+	// 只有服务端返回新的 version 后才显示保存成功；请求异常统一进入
+	// showError，409 由页面中文错误边界提示刷新，不能伪造成功或自动覆盖。
+	expect(saveBody.indexOf("response.data.version")).toBeGreaterThan(
+		updateIndex,
+	);
+	expect(saveBody).toContain('this.showError(error, "个人资料保存失败")');
+	expect(profile).toContain("个人资料已被其他设备修改，请下拉刷新后重试");
+});
+
 test("native mini program build guards the DevTools TypeScript configuration", async () => {
 	const config = JSON.parse(await source("../project.config.json")) as {
 		miniprogramRoot?: string;
