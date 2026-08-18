@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：`d7ac308` 收紧预约科室与排班的 service 读模型边界。即使 gateway 绕过 adapter 类型约束，
+  service 仍会重新校验文本、日期、号源数量、时间分组和 Provider 排班号唯一性，并只把公共白名单字段
+  返回给小程序；Provider 扩展字段不会进入短期排班快照。新增预约目录投影/非法结果及错误映射测试，定向
+  API/domain 类型检查通过；本轮尚未部署、未重启新旧服务、未修改小程序或旧 Python 服务，详情见
+  [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md)。
+
 - 2026-08-18：`133e94e` 补齐报告只读链路的第二道 service 读模型门禁。目录和 LIS 详情 gateway 结果现在会在
   service 层再次逐字段校验并重新投影，非法状态、重复 LIS 报告号、缺失检测项字段和 Provider 扩展字段不会进入
   API；异常日志只记录有限 `resultViolation`，错误统一为 `provider-response-invalid`。新增报告 service 定向测试

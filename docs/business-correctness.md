@@ -122,6 +122,12 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 任一条记录不符合 contract 都拒绝整批，记录 `appointment.records.failed` 的有限 `resultViolation`，返回
 `502/provider-response-invalid`；只有明确成功的空数组才能显示“暂无预约”。
 
+预约科室和排班目录同样不能直接浅拷贝 gateway 结果：service 必须再次校验科室/排班的文本边界、
+真实工作日、时间分组、号源数量和 Provider 排班号唯一性，并重新构造公共对象。Provider 扩展字段不能
+进入 API 或排班快照；排班快照只保存服务端生成的 `scheduleId` 与服务端内部的 Provider 引用，不能因为
+快照写入成功就推导出已具备锁号、预约或支付授权。非法目录结果记录固定 `resultViolation` 并返回
+`provider-response-invalid`，不能筛掉坏科室/坏排班后伪装成完整级联目录。
+
 “我的挂号”的“在线挂号/全部挂号”标签必须区分渠道事实和状态筛选：旧端的在线查询
 固定使用 `requestChannel=3`，并在页面排除明确的 `cancelled`；全部挂号则需要独立的
 `requestChannel=4` 请求。新端当前只完成前者，因此保留全部标签的视觉位置，但点击只提示

@@ -95,6 +95,11 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - 不记录 token、openid、unionid、session_key、Provider 患者号、支付凭证、金额明细或原始报文；
 - `http.request.completed` 只能证明 HTTP 生命周期，不能替代上述业务成功事件。
 
+预约科室与排班也遵循同一套第二道 service 门禁：`AppointmentService` 不再直接展开 gateway
+结果，而是在记录 `synced` 或写入短期排班快照前重新校验并投影；Provider 扩展字段、重复科室键、
+重复排班号、非法工作日、号源数量和时间分组不会进入 API 或快照。该快照仍只是短期只读观察事实，
+不能作为锁号、预约、支付或医保授权成功的证明。
+
 详细字段规则见 [`../logging.md`](../logging.md)。
 
 ## 3. 当前工作树测试证据
@@ -106,10 +111,13 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；候选 `dist/build-info.json` 来源指纹为
   `691ba28053775bce84f1285583c6741018eb0d40`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
-- `pnpm --filter @hospital/adapters test`：75 项通过，168 个断言；
+- `pnpm --filter @hospital/adapters test`：83 项通过，183 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
-- `pnpm --filter @hospital/api test`：115 项通过，528 个断言；其中包含预约记录、门诊费用、错误处理、
+- `pnpm --filter @hospital/api test`：119 项通过，556 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、错误处理、
   患者归属和日志脱敏用例。
+
+本轮 `d7ac308` 只完成预约目录 service/domain 的本地校验、测试和中文注释，尚未部署到线上
+`1b94c46`，不能增加真实 Provider、微信或真机验收结论。
 
 测试只能证明注入网关和固定 fixture 下的不变量，不能证明当前线上账号能查询到真实预约或费用。
 
