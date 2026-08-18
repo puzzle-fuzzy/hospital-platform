@@ -13,10 +13,12 @@
 | 小程序客户端 | `1697695` | 修正同步前本地选择副作用并包含构建来源指纹校验的 `main` |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
 | 小程序构建来源 | `1697695dff9917f976f2948d46fdfa8bf785813f` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 107 项 / 945 个断言 | `pnpm --dir apps/miniprogram test` |
+| 小程序回归 | 108 项 / 952 个断言 | 当前 `main` 的 `pnpm --dir apps/miniprogram test`；生产源码仍固定为 `1697695` |
+| 全仓回归 | 9/9 package、API 114/114、工具 10/10 | `3b4397d` 后的 `pnpm test`、`pnpm typecheck`、`pnpm test:tools` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
 客户端候选的 `dist/` 必须由 `1697695` 工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+当前 `main` 的 `3b4397d` 只补充验收测试和文档，不改变小程序生产源码或 `dist/`；因此真机包的来源指纹仍必须是完整的 `1697695dff9917f976f2948d46fdfa8bf785813f`。
 
 ## 2. 真机操作顺序
 
