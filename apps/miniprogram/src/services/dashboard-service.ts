@@ -2,7 +2,6 @@ import type {
 	AppointmentDepartment,
 	AppointmentRecord,
 	AppointmentSchedule,
-	AppointmentScheduleQuery,
 	HealthResponse,
 	OutpatientPaymentRecord,
 	Patient,
@@ -21,8 +20,8 @@ import {
 	requestWithSession,
 	syncPatients,
 } from "./api-client";
-import { runPatientSync } from "./patient-sync-coordinator";
 import { requireStoredPatientSelection } from "./patient-selection-service";
+import { runPatientSync } from "./patient-sync-coordinator";
 
 /**
  * 首页只读工作台使用的时间窗口。
@@ -197,29 +196,14 @@ export function syncPatientsFromHospital(
 	);
 }
 
-/** 并行读取预约科室和排班目录。 */
-export function loadAppointmentDirectory(now = new Date()): Promise<{
-	departments: Array<AppointmentDepartment>;
-	schedules: Array<AppointmentSchedule>;
-}> {
-	const range: AppointmentScheduleQuery = createUpcomingDateRange(
-		DASHBOARD_DATE_RANGE_DAYS.appointmentDirectory,
-		now,
-	);
-	return Promise.all([
-		requestAppointmentDepartments(),
-		requestAppointmentSchedules(range),
-	]).then(([departmentPayload, schedulePayload]) => ({
-		departments: departmentPayload.data.items,
-		schedules: schedulePayload.data.items,
-	}));
-}
-
 /**
  * 只读取预约一级科室。
  *
- * 预约页采用“两列级联”布局后，排班必须在选中科室后再请求；不能为了
- * 绘制左侧菜单把未来窗口内的全部排班一次性搬到小程序内存和渲染树。
+ * 预约页采用“两列级联”布局后，排班必须在选中科室后再请求；因此这里
+ * 刻意不提供“科室 + 排班”的聚合 helper，不能为了绘制左侧菜单把未来
+ * 窗口内的全部排班一次性搬到小程序内存和渲染树，也不能向 Provider 发送
+ * 缺少科室范围的宽查询。调用顺序由 appointment-directory 页面控制：
+ * 先调用本函数，再把用户明确选择的 departmentId 传给下一个函数。
  */
 export function loadAppointmentDepartments(): Promise<
 	Array<AppointmentDepartment>
