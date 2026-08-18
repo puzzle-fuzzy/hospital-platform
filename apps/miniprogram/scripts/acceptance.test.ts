@@ -258,6 +258,9 @@ test("native mini program exposes a real patient selection page", async () => {
 
 	expect(app).toContain('"pages/patient-select/patient-select"');
 	expect(home).toContain("openPatientSelector");
+	// 首页只能把新增/更换动作交给独立选择页，不能保留可被误绑定的直接写入入口。
+	expect(home).not.toContain("onSelectPatient");
+	expect(home).not.toContain("setSelectedPatientId");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(home).not.toContain("wx.showActionSheet");
 	expect(home).toContain("onShow()");

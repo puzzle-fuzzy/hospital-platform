@@ -7,8 +7,8 @@ import {
 } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
-	getPageLifecycle,
 	getPageLatestRequestGuard,
+	getPageLifecycle,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
@@ -22,8 +22,8 @@ import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
-	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
 	restorePlatformSession,
@@ -31,13 +31,11 @@ import {
 	sessionVerificationStateFromLabel,
 	signInPlatformSession,
 } from "../../services/session-service";
-import { getSessionGeneration } from "../../services/session-generation";
 import type {
 	ActionEvent,
 	IndexEvent,
 	IndexPageData,
 	Patient,
-	PatientEvent,
 	ServiceTab,
 	SessionLabel,
 	TopTabItem,
@@ -196,7 +194,6 @@ type IndexPageMethods = {
 	onUnload(): void;
 	onLoadReports(): void;
 	onLoadAppointmentRecords(): void;
-	onSelectPatient(event: PatientEvent): void;
 	showError(error: unknown, fallback: string): void;
 	clearDisplayedPatientContext(): void;
 	clearPatientContext(): void;
@@ -660,32 +657,6 @@ Page<IndexPageData, IndexPageMethods>({
 			sessionVerificationStateFromLabel(this.data.sessionStatus),
 			Boolean(this.data.selectedPatient),
 		);
-	},
-
-	/** 切换患者时清空首页不再持有的报告状态，选择页负责新的患者上下文。 */
-	onSelectPatient(event: PatientEvent): void {
-		const patientId = event.currentTarget?.dataset?.patientId;
-		if (typeof patientId !== "string" || !patientId) return;
-		const selectedPatient = this.data.patients.find(
-			(patient) => patient.id === patientId,
-		);
-		if (!selectedPatient) return;
-		if (selectedPatient.clinicalAccess !== "ready") {
-			// 首页若未来恢复患者快捷切换，也必须沿用选择页的临床可用性门禁；
-			// 不能把仅能展示的旧目录记录写入当前患者选择。
-			wx.showToast({
-				title: "该就诊人暂不可用于查询，请先刷新",
-				icon: "none",
-			});
-			return;
-		}
-
-		this.setData({
-			selectedPatientId: patientId,
-			selectedPatient,
-			error: "",
-		});
-		setSelectedPatientId(patientId);
 	},
 
 	showError(error: unknown, fallback: string): void {
