@@ -95,6 +95,11 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
     更换就诊人不能只用 `hasPlatformSession()` 直接跳转；登录成功后的原动作仍由首页继续，
     避免恢复中的 token 提前发出患者范围请求或把持久化暂时故障误判成已退出。
 
+18. 任意页面收到 `401/unauthorized` 并清理全局 token 后，首页下一次 `onShow` 必须同时清理
+    页面患者派生数据和 `sessionStatus`；主动重新登录从发起请求起进入 `验证会话中`，直到服务端
+    成功或明确收敛为失败。不能只清除 token 而保留“微信已登录”文案，也不能在登录请求期间继续让
+    预约、报告、挂号或费用入口使用上一次的有效状态。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的

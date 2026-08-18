@@ -1306,6 +1306,21 @@ test("native homepage reloads the owner directory after returning from patient s
 	);
 });
 
+test("native homepage clears stale session display when another page removes the token", async () => {
+	const home = await source("pages/index/index.ts");
+	const showStart = home.indexOf("onShow() {");
+	const showEnd = home.indexOf("\n\t},", showStart);
+	const showBody = home.slice(showStart, showEnd);
+	const loginStart = home.indexOf("onLogin(options: LoginOptions = {})");
+	const loginEnd = home.indexOf("/** 顶部就诊人卡片", loginStart);
+	const loginBody = home.slice(loginStart, loginEnd);
+
+	// 其他页面的 401 可能先清除全局 token；首页重新显示时必须同步清理
+	// 页面文案，主动登录期间也必须进入 checking，不能残留“微信已登录”。
+	expect(showBody).toContain("sessionStatus: SESSION_LABELS.signedOut");
+	expect(loginBody).toContain("sessionStatus: SESSION_LABELS.restoring");
+});
+
 test("native appointment history pages clear old patient data before reload", async () => {
 	for (const file of [
 		"pages/appointment-records/appointment-records.ts",

@@ -301,6 +301,7 @@ Page<IndexPageData, IndexPageMethods>({
 			// 会话失效时不继续展示上一位患者；重新登录后由目录读取恢复。
 			clearSelectedPatientId();
 			this.setData({
+				sessionStatus: SESSION_LABELS.signedOut,
 				patients: [],
 				selectedPatient: null,
 				selectedPatientId: "",
@@ -339,7 +340,13 @@ Page<IndexPageData, IndexPageMethods>({
 		if (!hasPlatformSession()) this.clearPatientContext();
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
-		this.setData({ loading: true, error: "" });
+		// 主动登录期间不能继续沿用上一次的“已登录”文案；入口门禁必须保持
+		// checking，直到服务端确认新会话，或明确收敛为 invalid/unavailable。
+		this.setData({
+			loading: true,
+			error: "",
+			sessionStatus: SESSION_LABELS.restoring,
+		});
 		signInPlatformSession()
 			.then(() => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
