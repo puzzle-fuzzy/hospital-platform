@@ -32,6 +32,21 @@ type ExactListData<T> = {
 	total: number;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasBoundedDisplayText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		Array.from(value).length > 0 &&
+		Array.from(value).length <= maxLength
+	);
+}
+
 /**
  * 校验患者端列表响应的总数语义。
  *
@@ -42,7 +57,7 @@ type ExactListData<T> = {
  * 统一读取边界整批 fail-closed，不能把协议异常降级成空列表。
  */
 export function requireExactListData<T>(value: unknown): ExactListData<T> {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+	if (!isRecord(value)) {
 		throw new ApiError("Patient list response is invalid", {
 			code: "provider-response-invalid",
 		});
@@ -62,6 +77,56 @@ export function requireExactListData<T>(value: unknown): ExactListData<T> {
 	return {
 		items: data.items as Array<T>,
 		total: data.total,
+	};
+}
+
+/**
+ * 门诊费用列表必须和本次查询状态保持一致。
+ *
+ * `total` 一致只能证明数组长度没有错，不能证明“待缴费/已缴费”语义没有
+ * 串台。客户端收到的 JSON 不是 TypeScript 事实；这里在页面读取边界再次
+ * 校验列表状态、记录标识、账单时间和金额的基本形状，防止代理或版本错配
+ * 把已缴记录展示在待缴页，或让非整数金额进入 `toFixed`/支付前置逻辑。
+ * Provider 的日期格式、金额来源和最终权限仍由服务端 contract 负责。
+ */
+export function requireOutpatientPaymentListData(
+	value: unknown,
+	expectedStatus: "unpaid" | "paid",
+): ExactListData<OutpatientPaymentRecord> {
+	if (!isRecord(value) || value.status !== expectedStatus) {
+		throw new ApiError("Outpatient payment response status is invalid", {
+			code: "provider-response-invalid",
+		});
+	}
+
+	const list = requireExactListData<unknown>(value);
+	for (const item of list.items) {
+		if (!isRecord(item)) {
+			throw new ApiError("Outpatient payment response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+		const optionalDepartment = item.departmentName;
+		const optionalDoctor = item.doctorName;
+		const optionalTextValid = (field: unknown, maxLength: number) =>
+			field === undefined || hasBoundedDisplayText(field, maxLength);
+		if (
+			item.status !== expectedStatus ||
+			!hasBoundedDisplayText(item.recordId, 128) ||
+			!hasBoundedDisplayText(item.billDate, 64) ||
+			!Number.isSafeInteger(item.amountFen) ||
+			(item.amountFen as number) < 0 ||
+			!optionalTextValid(optionalDepartment, 128) ||
+			!optionalTextValid(optionalDoctor, 128)
+		) {
+			throw new ApiError("Outpatient payment response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+	}
+	return {
+		items: list.items as Array<OutpatientPaymentRecord>,
+		total: list.total,
 	};
 }
 
@@ -290,8 +355,7 @@ export function loadOutpatientPaymentRecords(
 		patientId: requirePatientId(patientId),
 		status,
 	}).then(
-		(payload) =>
-			requireExactListData<OutpatientPaymentRecord>(payload.data).items,
+		(payload) => requireOutpatientPaymentListData(payload.data, status).items,
 	);
 }
 

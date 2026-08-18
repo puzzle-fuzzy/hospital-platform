@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：门诊缴费只读客户端补齐查询状态边界。小程序读取费用时不再只检查 `total`，还会拒绝响应包络
+  状态与当前标签不一致、单条记录状态串台、非法金额、空记录标识或异常展示字段；异常响应不会降级为空列表。
+  该修正未打开微信支付、医保授权、退费或结算回写，详见
+  [`miniprogram-outpatient-payment-readonly-contract-2026-08-19.md`](release/miniprogram-outpatient-payment-readonly-contract-2026-08-19.md)。
+
 - 2026-08-19：普通资料读写边界继续收紧。小程序 API 客户端原先只凭 TypeScript 泛型接收 `/me/profile` 成功
   JSON，现已增加完整 canonical 快照的运行时校验，拒绝缺失 `data`、非法性别、越界年龄、异常版本或邮箱类型，
   不把协议错配降级成默认资料，也不自动重放 PUT。该修正只影响新小程序及中文说明，详见

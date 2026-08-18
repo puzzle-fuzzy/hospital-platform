@@ -5,6 +5,7 @@ import {
 	createPastDateRange,
 	loadOutpatientPaymentRecords,
 	requireExactListData,
+	requireOutpatientPaymentListData,
 } from "./dashboard-service";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
@@ -79,6 +80,37 @@ test("患者端列表响应 total 不一致时 fail-closed，不伪装成空列�
 		{ items: "not-an-array", total: 0 },
 	]) {
 		expect(() => requireExactListData(value)).toThrow("Patient list response");
+	}
+});
+
+test("门诊费用列表必须保持查询状态和公共记录字段一致", () => {
+	const valid = {
+		status: "unpaid" as const,
+		items: [
+			{
+				recordId: "fee-001",
+				status: "unpaid" as const,
+				billDate: "2026-08-15 10:20:30",
+				amountFen: 1234,
+			},
+		],
+		total: 1,
+	};
+	expect(requireOutpatientPaymentListData(valid, "unpaid")).toEqual({
+		items: valid.items,
+		total: valid.total,
+	});
+
+	for (const invalid of [
+		{ ...valid, status: "paid" },
+		{ ...valid, items: [{ ...valid.items[0], status: "paid" }] },
+		{ ...valid, items: [{ ...valid.items[0], amountFen: 12.5 }] },
+		{ ...valid, items: [{ ...valid.items[0], recordId: "" }] },
+		{ ...valid, items: [{ ...valid.items[0], billDate: null }] },
+	]) {
+		expect(() => requireOutpatientPaymentListData(invalid, "unpaid")).toThrow(
+			"Outpatient payment response",
+		);
 	}
 });
 
