@@ -7,6 +7,7 @@ import {
 	type AdapterCallContext,
 	type AppointmentDepartmentQuery,
 	type AppointmentDirectoryGateway,
+	AppointmentDirectoryResultValidationError,
 	type AppointmentProviderSchedule,
 	type AppointmentRecord,
 	type AppointmentRecordDirectoryGateway,
@@ -17,7 +18,9 @@ import {
 	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
+	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
+	normalizeAppointmentScheduleResults,
 	type PatientRepository,
 	parseIsoCalendarDate,
 } from "@hospital/domain";
@@ -243,19 +246,25 @@ export class AppointmentService {
 				query,
 				context,
 			);
+			// adapter 是第一道 Provider 白名单边界；gateway 仍可能由回放或
+			// 未来实现注入。service 在日志和 API 响应前重新投影，避免额外的
+			// 患者字段、费用字段或重复科室键越过级联目录边界。
+			const normalizedDepartments = normalizeAppointmentDepartmentResults(
+				(result as { departments?: unknown } | undefined)?.departments,
+			);
 			this.logger.info(
 				{
 					event: "appointment.directory.departments.synced",
 					traceId: context.traceId,
 					provider: result.trace.provider,
 					providerRequestId: result.trace.requestId,
-					itemCount: result.departments.length,
+					itemCount: normalizedDepartments.length,
 				},
 				"Appointment department directory loaded",
 			);
 			return {
-				items: [...result.departments],
-				total: result.departments.length,
+				items: normalizedDepartments,
+				total: normalizedDepartments.length,
 			};
 		} catch (error) {
 			this.logFailure(context, error, "departments");
@@ -283,7 +292,10 @@ export class AppointmentService {
 				input,
 				context,
 			);
-			const observedSchedules = result.schedules.map(
+			const normalizedSchedules = normalizeAppointmentScheduleResults(
+				(result as { schedules?: unknown } | undefined)?.schedules,
+			);
+			const observedSchedules = normalizedSchedules.map(
 				(providerSchedule: AppointmentProviderSchedule) => {
 					const { providerScheduleId, ...details } = providerSchedule;
 					return {
@@ -498,6 +510,9 @@ export class AppointmentService {
 				traceId: context.traceId,
 				provider: "zhongyang",
 				errorType: error instanceof Error ? error.name : "unknown",
+				...(error instanceof AppointmentDirectoryResultValidationError
+					? { resultViolation: error.violation }
+					: {}),
 				...providerFailureMetadata(error),
 			},
 			"Appointment directory request failed",

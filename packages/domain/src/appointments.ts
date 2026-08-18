@@ -39,6 +39,253 @@ export type AppointmentProviderSchedule = AppointmentScheduleDetails & {
 	providerScheduleId: string;
 };
 
+/**
+ * 预约目录/排班 gateway 结果违反公共读模型时使用的低敏原因。
+ *
+ * adapter 是 Provider 的第一道边界，但目录 gateway 仍然可以由回放实现、
+ * 任务实现或未来真实网关注入。这里不能把 TypeScript 类型声明当成运行时
+ * 事实，否则额外的患者字段、费用字段或非法号源数量可能先进入快照仓储。
+ */
+export type AppointmentDirectoryResultViolation =
+	| "departments-not-array"
+	| "department-not-object"
+	| "department-field-invalid"
+	| "department-id-duplicate"
+	| "schedules-not-array"
+	| "schedule-not-object"
+	| "schedule-field-invalid"
+	| "work-date-invalid"
+	| "slot-count-invalid"
+	| "time-group-invalid"
+	| "provider-schedule-id-duplicate";
+
+/** 预约目录 gateway 的结果不满足平台只读 contract。 */
+export class AppointmentDirectoryResultValidationError extends Error {
+	readonly violation: AppointmentDirectoryResultViolation;
+
+	constructor(violation: AppointmentDirectoryResultViolation) {
+		super("Appointment directory provider result is invalid");
+		this.name = "AppointmentDirectoryResultValidationError";
+		this.violation = violation;
+	}
+}
+
+function hasSafeAppointmentText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function invalidAppointmentDirectoryResult(
+	violation: AppointmentDirectoryResultViolation,
+): never {
+	throw new AppointmentDirectoryResultValidationError(violation);
+}
+
+function optionalAppointmentText(
+	record: Record<string, unknown>,
+	field: string,
+	maxLength: number,
+): string | undefined {
+	const value = record[field];
+	if (value === undefined) return undefined;
+	if (!hasSafeAppointmentText(value, maxLength)) {
+		invalidAppointmentDirectoryResult("department-field-invalid");
+	}
+	return value;
+}
+
+function requiredAppointmentText(
+	record: Record<string, unknown>,
+	field: string,
+	maxLength: number,
+	violation: AppointmentDirectoryResultViolation,
+): string {
+	const value = record[field];
+	if (!hasSafeAppointmentText(value, maxLength)) {
+		invalidAppointmentDirectoryResult(violation);
+	}
+	return value;
+}
+
+/**
+ * 校验并重新投影科室目录。
+ *
+ * 返回新对象而不是展开 gateway 条目，既防止 Provider 扩展字段进入 API，
+ * 也保证重复科室 ID 不会让小程序级联选择状态指向不确定的同一个筛选键。
+ */
+export function normalizeAppointmentDepartmentResults(
+	value: unknown,
+): AppointmentDepartment[] {
+	if (!Array.isArray(value)) {
+		invalidAppointmentDirectoryResult("departments-not-array");
+	}
+	const departmentIds = new Set<string>();
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidAppointmentDirectoryResult("department-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		const departmentId = requiredAppointmentText(
+			record,
+			"departmentId",
+			128,
+			"department-field-invalid",
+		);
+		const displayName = requiredAppointmentText(
+			record,
+			"displayName",
+			256,
+			"department-field-invalid",
+		);
+		if (departmentIds.has(departmentId)) {
+			invalidAppointmentDirectoryResult("department-id-duplicate");
+		}
+		departmentIds.add(departmentId);
+		const departmentCode = optionalAppointmentText(
+			record,
+			"departmentCode",
+			128,
+		);
+		const location = optionalAppointmentText(record, "location", 256);
+		return {
+			departmentId,
+			...(departmentCode ? { departmentCode } : {}),
+			displayName,
+			...(location ? { location } : {}),
+		};
+	});
+}
+
+/**
+ * 校验并重新投影排班目录。
+ *
+ * 排班会在 service 层生成新的平台 `scheduleId`，因此这里保留的
+ * `providerScheduleId` 只用于快照仓储，绝不能随着 schedule 一起返回给小程序。
+ * 号源数量、日期和时间分组任一不合法都拒绝整批，不能筛掉坏排班后伪装成完整目录。
+ */
+export function normalizeAppointmentScheduleResults(
+	value: unknown,
+): AppointmentProviderSchedule[] {
+	if (!Array.isArray(value)) {
+		invalidAppointmentDirectoryResult("schedules-not-array");
+	}
+	const providerScheduleIds = new Set<string>();
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidAppointmentDirectoryResult("schedule-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		const providerScheduleId = requiredAppointmentText(
+			record,
+			"providerScheduleId",
+			128,
+			"schedule-field-invalid",
+		);
+		const departmentId = requiredAppointmentText(
+			record,
+			"departmentId",
+			128,
+			"schedule-field-invalid",
+		);
+		const departmentName = requiredAppointmentText(
+			record,
+			"departmentName",
+			256,
+			"schedule-field-invalid",
+		);
+		const doctorId = requiredAppointmentText(
+			record,
+			"doctorId",
+			128,
+			"schedule-field-invalid",
+		);
+		const doctorName = requiredAppointmentText(
+			record,
+			"doctorName",
+			256,
+			"schedule-field-invalid",
+		);
+		const shiftName = requiredAppointmentText(
+			record,
+			"shiftName",
+			128,
+			"schedule-field-invalid",
+		);
+		if (providerScheduleIds.has(providerScheduleId)) {
+			invalidAppointmentDirectoryResult("provider-schedule-id-duplicate");
+		}
+		providerScheduleIds.add(providerScheduleId);
+		const workDate = requiredAppointmentText(
+			record,
+			"workDate",
+			32,
+			"work-date-invalid",
+		);
+		if (parseIsoCalendarDate(workDate) === undefined) {
+			invalidAppointmentDirectoryResult("work-date-invalid");
+		}
+		const startTime = optionalAppointmentScheduleText(record, "startTime", 32);
+		const endTime = optionalAppointmentScheduleText(record, "endTime", 32);
+		const totalSlots = record.totalSlots;
+		const availableSlots = record.availableSlots;
+		if (
+			typeof totalSlots !== "number" ||
+			typeof availableSlots !== "number" ||
+			!Number.isSafeInteger(totalSlots) ||
+			!Number.isSafeInteger(availableSlots) ||
+			totalSlots < 0 ||
+			availableSlots < 0 ||
+			availableSlots > totalSlots
+		) {
+			invalidAppointmentDirectoryResult("slot-count-invalid");
+		}
+		const timeGroup: AppointmentSchedule["timeGroup"] =
+			record.timeGroup === "point" ||
+			record.timeGroup === "range" ||
+			record.timeGroup === "unknown"
+				? record.timeGroup
+				: invalidAppointmentDirectoryResult("time-group-invalid");
+		return {
+			providerScheduleId,
+			departmentId,
+			departmentName,
+			doctorId,
+			doctorName,
+			workDate,
+			shiftName,
+			...(startTime ? { startTime } : {}),
+			...(endTime ? { endTime } : {}),
+			totalSlots,
+			availableSlots,
+			timeGroup,
+		};
+	});
+}
+
+function optionalAppointmentScheduleText(
+	record: Record<string, unknown>,
+	field: string,
+	maxLength: number,
+): string | undefined {
+	const value = record[field];
+	if (value === undefined) return undefined;
+	if (!hasSafeAppointmentText(value, maxLength)) {
+		invalidAppointmentDirectoryResult("schedule-field-invalid");
+	}
+	return value;
+}
+
 export type AppointmentScheduleQuery = {
 	startDate: string;
 	endDate: string;

@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import type {
+	AppointmentDepartment,
 	AppointmentDirectoryGateway,
+	AppointmentProviderSchedule,
 	AppointmentRecord,
 	PatientRepository,
 } from "@hospital/domain";
@@ -982,5 +984,193 @@ test("预约记录 service 拒绝查询窗口外结果且不筛掉坏行伪装�
 	);
 	expect(events).not.toContainEqual(
 		expect.objectContaining({ event: "appointment.records.synced" }),
+	);
+});
+
+test("预约目录 service 二次校验并重新投影科室和排班", async () => {
+	const department = {
+		departmentId: "dept-001",
+		departmentCode: "CARDIO",
+		displayName: "心内科",
+		location: "门诊楼二层",
+		providerPatientName: "provider-secret",
+	} as unknown as AppointmentDepartment;
+	const schedule = {
+		providerScheduleId: "provider-schedule-projection",
+		departmentId: "dept-001",
+		departmentName: "心内科",
+		doctorId: "doctor-001",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		startTime: "08:00",
+		endTime: "12:00",
+		totalSlots: 30,
+		availableSlots: 12,
+		timeGroup: "range" as const,
+		providerFee: 12.5,
+	} as unknown as AppointmentProviderSchedule;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [department],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "directory-projection",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [schedule],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "schedule-projection",
+				},
+			}),
+		},
+		createScheduleId: () => "platform-schedule-projection",
+	});
+
+	const departments = await service.listDepartments({
+		traceId: "trace-department-projection",
+		idempotencyKey: "key-department-projection",
+	});
+	const schedules = await service.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		{
+			traceId: "trace-schedule-projection",
+			idempotencyKey: "key-schedule-projection",
+		},
+	);
+
+	expect(departments).toEqual({
+		items: [
+			{
+				departmentId: "dept-001",
+				departmentCode: "CARDIO",
+				displayName: "心内科",
+				location: "门诊楼二层",
+			},
+		],
+		total: 1,
+	});
+	expect(schedules).toEqual({
+		items: [
+			{
+				scheduleId: "platform-schedule-projection",
+				departmentId: "dept-001",
+				departmentName: "心内科",
+				doctorId: "doctor-001",
+				doctorName: "李医生",
+				workDate: "2026-08-20",
+				shiftName: "上午",
+				startTime: "08:00",
+				endTime: "12:00",
+				totalSlots: 30,
+				availableSlots: 12,
+				timeGroup: "range",
+			},
+		],
+		total: 1,
+	});
+	const output = JSON.stringify({ departments, schedules });
+	expect(output).not.toContain("provider-secret");
+	expect(output).not.toContain("providerFee");
+	expect(output).not.toContain("provider-schedule-projection");
+});
+
+test("预约目录 service 拒绝非法科室和排班并记录有限原因", async () => {
+	const lines: string[] = [];
+	const invalidDepartment = {
+		departmentId: "dept-invalid",
+		displayName: "",
+	} as unknown as AppointmentDepartment;
+	const invalidSchedule = {
+		providerScheduleId: "schedule-invalid",
+		departmentId: "dept-invalid",
+		departmentName: "心内科",
+		doctorId: "doctor-invalid",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		totalSlots: 1,
+		availableSlots: 2,
+		timeGroup: "range" as const,
+	} as unknown as AppointmentProviderSchedule;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [invalidDepartment],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "invalid-department-result",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [invalidSchedule],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "invalid-schedule-result",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "appointment-directory-validation-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.listDepartments({
+			traceId: "trace-invalid-department-result",
+			idempotencyKey: "key-invalid-department-result",
+		}),
+	).rejects.toMatchObject({
+		name: "AppointmentDirectoryResultValidationError",
+		violation: "department-field-invalid",
+	});
+	await expect(
+		service.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			{
+				traceId: "trace-invalid-schedule-result",
+				idempotencyKey: "key-invalid-schedule-result",
+			},
+		),
+	).rejects.toMatchObject({
+		name: "AppointmentDirectoryResultValidationError",
+		violation: "slot-count-invalid",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.departments.failed",
+			traceId: "trace-invalid-department-result",
+			resultViolation: "department-field-invalid",
+		}),
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.failed",
+			traceId: "trace-invalid-schedule-result",
+			resultViolation: "slot-count-invalid",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.departments.synced",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.synced",
+		}),
 	);
 });

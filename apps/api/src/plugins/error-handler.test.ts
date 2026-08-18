@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
+	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
@@ -199,6 +200,7 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 
 test("Provider 读模型校验错误映射为不可重试的 502", async () => {
 	for (const error of [
+		new AppointmentDirectoryResultValidationError("slot-count-invalid"),
 		new OutpatientPaymentResultValidationError("status-mismatch"),
 		new AppointmentRecordResultValidationError("status-invalid"),
 		new ReportResultValidationError("detail-field-invalid"),

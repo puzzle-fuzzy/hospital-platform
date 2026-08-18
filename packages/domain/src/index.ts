@@ -2,6 +2,7 @@ export type {
 	AppointmentDepartment,
 	AppointmentDepartmentQuery,
 	AppointmentDirectoryGateway,
+	AppointmentDirectoryResultViolation,
 	AppointmentProviderSchedule,
 	AppointmentRecord,
 	AppointmentRecordDirectoryGateway,
@@ -17,10 +18,13 @@ export type {
 	AppointmentScheduleSnapshotRepository,
 } from "./appointments";
 export {
+	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	AppointmentScheduleSnapshotValidationError,
 	isAppointmentRecordStatus,
+	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
+	normalizeAppointmentScheduleResults,
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
 export { parseIsoCalendarDate } from "./date-range";

@@ -1,5 +1,6 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import {
+	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	DependencyNotConfiguredError,
 	HealthKnowledgeContentUnavailableError,
@@ -165,6 +166,7 @@ export function errorHandlerPlugin() {
 
 			if (
 				error instanceof OutpatientPaymentResultValidationError ||
+				error instanceof AppointmentDirectoryResultValidationError ||
 				error instanceof AppointmentRecordResultValidationError ||
 				error instanceof ReportResultValidationError
 			) {
