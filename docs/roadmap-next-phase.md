@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：`092928b` 收紧预约目录服务端生成的公共 `scheduleId`。每条排班引用现在必须通过 opaque 形状校验，同一批次不能生成重复 ID；异常时在 API/快照边界前整批 fail-closed，并记录有限 `schedule-id-invalid/schedule-id-duplicate` 原因。新增预约 service 回归测试，当前 API 为 128 项、581 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18：`56c73af` 收紧报告详情引用读取的第二道授权边界。即使 owner-scoped 仓储返回跨 owner、跨患者、跨报告号或结构非法的短期引用，service 也会在详情 Provider 调用前拒绝，并只记录有限 `reference-invalid/reference-scope-mismatch` 原因；新增“不调用 Provider”的回归测试，当前 API 为 127 项、577 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
 - 2026-08-18：`aa9807a` 收紧患者目录同步的 MySQL 租约接管边界。精确幂等键过期时，仓储会先排除当前 operation 查询同一 owner/provider 的其它有效租约；若另一页面已用新 key 获得同步租约，则返回 `owner-provider` 范围的处理中冲突，不会并发访问 Provider 或竞争患者快照。新增 MySQL 回归测试和中文契约说明，持久化包为 75 项测试、549 个断言，全仓 `pnpm check` 通过；本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。

@@ -101,7 +101,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 预约科室与排班也遵循同一套第二道 service 门禁：`AppointmentService` 不再直接展开 gateway
 结果，而是在记录 `synced` 或写入短期排班快照前重新校验并投影；Provider 扩展字段、重复科室键、
-重复排班号、非法工作日、号源数量和时间分组不会进入 API 或快照。该快照仍只是短期只读观察事实，
+重复排班号、非法工作日、号源数量和时间分组不会进入 API 或快照；服务端生成的公共 `scheduleId`
+也必须无控制字符且在同一批次内唯一，避免页面列表键和短期快照互相覆盖。该快照仍只是短期只读观察事实，
 不能作为锁号、预约、支付或医保授权成功的证明。
 
 门诊费用 service 也采用同样的重新投影规则：`normalizeOutpatientPaymentRecords` 在状态、标识、
@@ -129,7 +130,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/adapters test`：83 项通过，183 个断言；
 - `pnpm --filter @hospital/domain test`：27 项通过，62 个断言；其中包含患者读模型和普通资料读模型的 owner、
   重复 ID、展示字段、版本与白名单投影门禁；
-- `pnpm --filter @hospital/api test`：127 项通过，577 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、
+- `pnpm --filter @hospital/api test`：128 项通过，581 个断言；其中包含预约目录/排班二次投影、服务端平台排班引用、预约记录、门诊费用、
   普通资料读模型、报告详情引用读写范围、错误处理、患者读模型归属和日志脱敏用例。
 
 本轮 `aa9807a` 收紧患者同步的 MySQL owner/provider 租约接管边界，并补充持久化回归测试和中文契约说明；

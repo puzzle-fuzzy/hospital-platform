@@ -115,7 +115,8 @@ pnpm check
 - Biome format/lint、所有 workspace typecheck、test 和 build 全部通过；
 - adapter 测试覆盖数组/包装响应、业务失败、档案查询的卡号+姓名参数、临床 patId 白名单、科室与排班日期参数、字段白名单和 provider 请求 id；
 - 排班服务测试证明只读结果会写入带 `providerRequestId` 和 `expiresAt` 的短期服务端快照；快照不会自动开放预约写入；
-- API 测试证明公共 `scheduleId` 是平台 opaque 引用，provider `hisScheduleId` 不进入 response；
+- API 测试证明公共 `scheduleId` 是平台 opaque 引用，provider `hisScheduleId` 不进入 response；服务端生成的
+  `scheduleId` 还会拒绝空白/控制字符和同批次重复值，避免列表节点复用或短期快照覆盖；
 - 预约记录测试证明服务端先读取用途为 `his-patient` 的 owner-scoped 映射，再固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`，并丢弃预约号、患者身份、电话、费用和支付字段；
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
 - Provider smoke 测试证明患者同步后会重新读取当前会话目录，未归属的内部 patientId 会在
