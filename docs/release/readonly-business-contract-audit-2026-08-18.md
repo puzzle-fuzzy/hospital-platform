@@ -97,16 +97,16 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 ## 3. 当前工作树测试证据
 
-当前工作树代码提交为 `1697695` 的小程序患者选择修正之上、仅追加验收文档；本节计数重新执行取得，
-不把更早审计窗口的测试数字继续当作当前证据：
+生产候选源码仍固定为 `1697695` 的小程序患者选择修正；当前 `main` 在其上仅追加了验收测试和文档。
+本节计数于 2026-08-18 当前工作树重新执行取得，不把更早审计窗口的测试数字继续当作当前证据：
 
-- `pnpm --filter @hospital/miniprogram test`：107 项通过，945 个断言；
+- `pnpm --filter @hospital/miniprogram test`：108 项通过，952 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成，`dist/build-info.json` 来源指纹为
   `1697695dff9917f976f2948d46fdfa8bf785813f`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：72 项通过，165 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
-- `pnpm --filter @hospital/api test`：113 项通过，526 个断言；其中包含预约记录、门诊费用、错误处理、
+- `pnpm --filter @hospital/api test`：114 项通过，528 个断言；其中包含预约记录、门诊费用、错误处理、
   患者归属和日志脱敏用例。
 
 测试只能证明注入网关和固定 fixture 下的不变量，不能证明当前线上账号能查询到真实预约或费用。
