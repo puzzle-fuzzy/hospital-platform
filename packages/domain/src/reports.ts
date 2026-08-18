@@ -193,6 +193,225 @@ export type LaboratoryReportDetail = {
 	hasAttachment: boolean;
 };
 
+/**
+ * 报告网关读模型违反公共 contract 时使用的低敏原因。
+ *
+ * adapter 是第一道 Provider 白名单边界，但目录和详情 gateway 仍然是可
+ * 注入端口，回放实现、任务实现或未来替换的真实网关都不能仅凭 TypeScript
+ * 类型被 service 当作可信事实。原因固定为有限枚举，日志可以检索，错误响应
+ * 不需要携带 Provider 原文、患者字段或报告号。
+ */
+export type ReportResultViolation =
+	| "reports-not-array"
+	| "report-not-object"
+	| "summary-not-object"
+	| "kind-invalid"
+	| "title-invalid"
+	| "reported-at-invalid"
+	| "status-invalid"
+	| "attachment-invalid"
+	| "provider-report-id-invalid"
+	| "provider-report-id-forbidden"
+	| "provider-report-id-duplicate"
+	| "detail-not-object"
+	| "detail-kind-invalid"
+	| "detail-title-invalid"
+	| "detail-reported-at-invalid"
+	| "detail-items-not-array"
+	| "detail-item-not-object"
+	| "detail-field-invalid"
+	| "detail-attachment-invalid";
+
+/** Provider 返回的报告读模型不完整或越过了服务端安全边界。 */
+export class ReportResultValidationError extends Error {
+	readonly violation: ReportResultViolation;
+
+	constructor(violation: ReportResultViolation) {
+		super("Report provider result is invalid");
+		this.name = "ReportResultValidationError";
+		this.violation = violation;
+	}
+}
+
+function hasSafeReportText(value: unknown, maxLength: number): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function invalidReportResult(violation: ReportResultViolation): never {
+	throw new ReportResultValidationError(violation);
+}
+
+function optionalReportText(
+	record: Record<string, unknown>,
+	field: string,
+	maxLength: number,
+): string | undefined {
+	const value = record[field];
+	if (value === undefined) return undefined;
+	if (!hasSafeReportText(value, maxLength)) {
+		invalidReportResult("detail-field-invalid");
+	}
+	return value;
+}
+
+/**
+ * 校验并重新投影报告目录读模型。
+ *
+ * 不能直接把 gateway 返回的 `reports` 浅拷贝给 API：运行时对象即使被
+ * TypeScript 标注为 `ReportDirectoryEntry`，仍可能携带患者姓名、身份证、
+ * Provider URL 或其它未审计字段。这里整批校验后只构造公共摘要；任何坏项、
+ * 非 LIS 详情号或重复详情号都会拒绝整批，不能过滤坏行伪装成成功。
+ */
+export function normalizeReportDirectoryResults(
+	value: unknown,
+): ReportDirectoryEntry[] {
+	if (!Array.isArray(value)) invalidReportResult("reports-not-array");
+	const providerReportIds = new Set<string>();
+
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidReportResult("report-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		const rawSummary = record.summary;
+		if (
+			typeof rawSummary !== "object" ||
+			rawSummary === null ||
+			Array.isArray(rawSummary)
+		) {
+			invalidReportResult("summary-not-object");
+		}
+		const summary = rawSummary as Record<string, unknown>;
+		const kind = summary.kind;
+		if (!isReportKind(kind)) invalidReportResult("kind-invalid");
+		if (!hasSafeReportText(summary.title, 256)) {
+			invalidReportResult("title-invalid");
+		}
+		if (!hasSafeReportText(summary.reportedAt, 64)) {
+			invalidReportResult("reported-at-invalid");
+		}
+		const status: ReportSummary["status"] =
+			summary.status === "available" || summary.status === "abnormal"
+				? summary.status
+				: invalidReportResult("status-invalid");
+		const hasAttachment = summary.hasAttachment;
+		if (typeof hasAttachment !== "boolean") {
+			invalidReportResult("attachment-invalid");
+		}
+
+		const providerReportId = record.providerReportId;
+		if (kind !== "laboratory" && providerReportId !== undefined) {
+			// 影像和心电尚无详情字段合同，不能把 Provider 报告号留在
+			// 内部结果中等待未来页面“顺手”消费，必须在当前边界拒绝。
+			invalidReportResult("provider-report-id-forbidden");
+		}
+		if (providerReportId !== undefined) {
+			if (!hasSafeReportText(providerReportId, 256)) {
+				invalidReportResult("provider-report-id-invalid");
+			}
+			if (providerReportIds.has(providerReportId)) {
+				invalidReportResult("provider-report-id-duplicate");
+			}
+			providerReportIds.add(providerReportId);
+		}
+
+		const safeSummary = {
+			title: summary.title,
+			reportedAt: summary.reportedAt,
+			status,
+			hasAttachment,
+		};
+		if (kind === "laboratory") {
+			return {
+				summary: { kind, ...safeSummary },
+				...(providerReportId !== undefined ? { providerReportId } : {}),
+			};
+		}
+		return { summary: { kind, ...safeSummary } };
+	});
+}
+
+/**
+ * 校验并重新投影 LIS 详情读模型，只保留已冻结的检测项字段。
+ *
+ * 报告详情含有临床结果，不能依靠 API schema 在最后一层兜底；service
+ * 必须在记录日志、计算条目数量和返回 payload 之前完成同样的运行时校验。
+ */
+export function normalizeLaboratoryReportDetail(
+	value: unknown,
+): LaboratoryReportDetail {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidReportResult("detail-not-object");
+	}
+	const record = value as Record<string, unknown>;
+	if (record.kind !== "laboratory") {
+		invalidReportResult("detail-kind-invalid");
+	}
+	if (!hasSafeReportText(record.title, 256)) {
+		invalidReportResult("detail-title-invalid");
+	}
+	if (!hasSafeReportText(record.reportedAt, 64)) {
+		invalidReportResult("detail-reported-at-invalid");
+	}
+	if (!Array.isArray(record.items)) {
+		invalidReportResult("detail-items-not-array");
+	}
+	if (typeof record.hasAttachment !== "boolean") {
+		invalidReportResult("detail-attachment-invalid");
+	}
+
+	const items = record.items.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidReportResult("detail-item-not-object");
+		}
+		const detailItem = item as Record<string, unknown>;
+		if (!hasSafeReportText(detailItem.name, 256)) {
+			invalidReportResult("detail-field-invalid");
+		}
+		if (!hasSafeReportText(detailItem.result, 256)) {
+			invalidReportResult("detail-field-invalid");
+		}
+		const flag: ReportDetailFlag =
+			detailItem.flag === "normal" ||
+			detailItem.flag === "high" ||
+			detailItem.flag === "low" ||
+			detailItem.flag === "critical" ||
+			detailItem.flag === "unknown"
+				? detailItem.flag
+				: invalidReportResult("detail-field-invalid");
+		const unit = optionalReportText(detailItem, "unit", 64);
+		const referenceRange = optionalReportText(
+			detailItem,
+			"referenceRange",
+			256,
+		);
+		return {
+			name: detailItem.name,
+			result: detailItem.result,
+			...(unit ? { unit } : {}),
+			...(referenceRange ? { referenceRange } : {}),
+			flag,
+		};
+	});
+
+	return {
+		kind: "laboratory",
+		title: record.title,
+		reportedAt: record.reportedAt,
+		items,
+		hasAttachment: record.hasAttachment,
+	};
+}
+
 /** 报告详情 provider 端口只接受服务端已 owner 校验的受限引用。 */
 export interface ReportDetailGateway {
 	getLaboratoryDetail(

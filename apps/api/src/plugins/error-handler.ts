@@ -1,11 +1,11 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import {
+	AppointmentRecordResultValidationError,
 	DependencyNotConfiguredError,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
-	AppointmentRecordResultValidationError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
@@ -19,6 +19,7 @@ import {
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
+	ReportResultValidationError,
 	UserProfileInputError,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
@@ -164,7 +165,8 @@ export function errorHandlerPlugin() {
 
 			if (
 				error instanceof OutpatientPaymentResultValidationError ||
-				error instanceof AppointmentRecordResultValidationError
+				error instanceof AppointmentRecordResultValidationError ||
+				error instanceof ReportResultValidationError
 			) {
 				// Provider 已返回响应，但网关结果违反平台读模型；这不是患者
 				// 查询参数错误，也不能降级为空列表，应明确返回不可重试的 502。

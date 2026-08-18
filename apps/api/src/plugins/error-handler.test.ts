@@ -15,6 +15,7 @@ import {
 	PaymentPrepayAttemptUnknownError,
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
+	ReportResultValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
@@ -22,11 +23,11 @@ import {
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
+import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
 import {
 	PaymentIdentityNotFoundError,
 	WechatPaymentNotificationRejectedError,
 } from "../modules/payments";
-import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
 import { ReportQueryError } from "../modules/reports/service";
 import { errorHandlerPlugin } from "./error-handler";
 
@@ -200,6 +201,7 @@ test("Provider 读模型校验错误映射为不可重试的 502", async () => {
 	for (const error of [
 		new OutpatientPaymentResultValidationError("status-mismatch"),
 		new AppointmentRecordResultValidationError("status-invalid"),
+		new ReportResultValidationError("detail-field-invalid"),
 	]) {
 		const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 			throw error;

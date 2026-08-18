@@ -25,10 +25,6 @@ export {
 } from "./appointments";
 export { parseIsoCalendarDate } from "./date-range";
 export {
-	isBoundedOpaqueIdentifier,
-	MAX_OPAQUE_IDENTIFIER_LENGTH,
-} from "./opaque-identifier";
-export {
 	DependencyNotConfiguredError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
@@ -72,6 +68,10 @@ export {
 	HealthKnowledgeImportValidationError,
 	validateHealthKnowledgeImportBundle,
 } from "./knowledge-import";
+export {
+	isBoundedOpaqueIdentifier,
+	MAX_OPAQUE_IDENTIFIER_LENGTH,
+} from "./opaque-identifier";
 export type {
 	OutboxEvent,
 	OutboxEventName,
@@ -81,18 +81,19 @@ export type {
 export type {
 	OutpatientPaymentGateway,
 	OutpatientPaymentRecord,
-	OutpatientPaymentStatus,
 	OutpatientPaymentResultViolation,
+	OutpatientPaymentStatus,
 } from "./outpatient-payments";
 export {
 	InvalidOutpatientPaymentStatusError,
-	OutpatientPaymentResultValidationError,
 	isOutpatientPaymentStatus,
+	OutpatientPaymentResultValidationError,
 	parseOutpatientBillDateTime,
 	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
 export type {
 	IdentityUser,
+	PatientClinicalAccess,
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
 	PatientDirectorySnapshotInput,
@@ -102,7 +103,6 @@ export type {
 	PatientDirectorySyncStart,
 	PatientDirectorySyncStartInput,
 	PatientDirectoryUpsertInput,
-	PatientClinicalAccess,
 	PatientProviderReference,
 	PatientProviderReferenceKind,
 	PatientRecord,
@@ -181,13 +181,17 @@ export type {
 	ReportReferenceInput,
 	ReportReferenceRepository,
 	ReportReferenceValidationReason,
+	ReportResultViolation,
 	ReportSummary,
 } from "./reports";
 export {
 	InvalidReportKindError,
 	isReportKind,
+	normalizeLaboratoryReportDetail,
+	normalizeReportDirectoryResults,
 	REPORT_REFERENCE_MAX_TTL_MS,
 	ReportReferenceValidationError,
+	ReportResultValidationError,
 	validateReportReference,
 } from "./reports";
 export type {

@@ -1,13 +1,16 @@
 import { expect, test } from "bun:test";
 import type {
+	LaboratoryReportDetail,
 	PatientRepository,
 	ReportDetailGateway,
+	ReportDirectoryEntry,
 	ReportDirectoryGateway,
 	ReportReferenceRepository,
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
 	InvalidReportKindError,
+	ReportResultValidationError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import { createInMemoryReportReferenceRepository } from "@hospital/persistence";
@@ -677,4 +680,244 @@ test("报告详情引用持久化失败时保留摘要并记录低敏告警", as
 	expect(output).toContain("trace-report-reference-write-failed");
 	expect(output).not.toContain(providerReportId);
 	expect(output).not.toContain("mysql temporarily unavailable");
+});
+
+test("报告 service 二次校验并重新投影目录和 LIS 详情", async () => {
+	const references = createInMemoryReportReferenceRepository();
+	const providerReportId = "provider-report-service-projection";
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory",
+							title: "肝功能",
+							reportedAt: "2026-08-15 10:01:00",
+							status: "available",
+							hasAttachment: true,
+							providerPatientName: "provider-patient-name-secret",
+						} as unknown as ReportDirectoryEntry["summary"],
+						providerReportId,
+					} as unknown as ReportDirectoryEntry,
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "report-projection-directory",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => ({
+				detail: {
+					kind: "laboratory",
+					title: "肝功能",
+					reportedAt: "2026-08-15 10:01:00",
+					items: [
+						{
+							name: "丙氨酸氨基转移酶",
+							result: "22",
+							unit: "U/L",
+							referenceRange: "9-50",
+							flag: "normal",
+							providerItemId: "provider-item-secret",
+						},
+					],
+					hasAttachment: true,
+					patientName: "provider-patient-name-secret",
+					fileUrl: "https://provider.invalid/secret-file",
+				} as unknown as LaboratoryReportDetail,
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-detail",
+					requestId: "report-projection-detail",
+				},
+			}),
+		},
+		references,
+	});
+
+	const list = await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-projection-list",
+			idempotencyKey: "key-report-projection-list",
+		},
+	);
+	const listOutput = JSON.stringify(list);
+	expect(list.items).toHaveLength(1);
+	expect(list.items[0]?.reportId).toMatch(/^report_/);
+	expect(listOutput).not.toContain("provider-patient-name-secret");
+
+	const reportId = list.items[0]?.reportId;
+	if (!reportId) throw new Error("report reference was not created");
+	const detail = await service.detail("user-001", "patient-001", reportId, {
+		traceId: "trace-report-projection-detail",
+		idempotencyKey: "key-report-projection-detail",
+	});
+	const detailOutput = JSON.stringify(detail);
+	expect(detail).toEqual({
+		reportId,
+		kind: "laboratory",
+		title: "肝功能",
+		reportedAt: "2026-08-15 10:01:00",
+		items: [
+			{
+				name: "丙氨酸氨基转移酶",
+				result: "22",
+				unit: "U/L",
+				referenceRange: "9-50",
+				flag: "normal",
+			},
+		],
+		hasAttachment: true,
+	});
+	expect(detailOutput).not.toContain("provider-item-secret");
+	expect(detailOutput).not.toContain("provider.invalid");
+});
+
+test("报告 service 拒绝异常目录和详情读模型并记录有限原因", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "report-result-validation-test",
+		environment: "test",
+		level: "info",
+		destination: { write: (chunk) => lines.push(chunk) },
+	});
+	const createRepository = (): PatientRepository =>
+		({
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		}) as unknown as PatientRepository;
+
+	const invalidDirectoryService = new ReportService({
+		repository: createRepository(),
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory",
+							title: "肝功能",
+							reportedAt: "2026-08-15 10:01:00",
+							status: "provider-pending",
+							hasAttachment: false,
+							providerRaw: "provider-raw-secret",
+						} as unknown as ReportDirectoryEntry["summary"],
+					} as unknown as ReportDirectoryEntry,
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "report-invalid-directory",
+				},
+			}),
+		},
+		logger,
+	});
+
+	const directoryError = await invalidDirectoryService
+		.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-15" },
+			{
+				traceId: "trace-report-invalid-directory",
+				idempotencyKey: "key-report-invalid-directory",
+			},
+		)
+		.catch((error: unknown) => error);
+	expect(directoryError).toBeInstanceOf(ReportResultValidationError);
+	expect((directoryError as ReportResultValidationError).violation).toBe(
+		"status-invalid",
+	);
+
+	const references = createInMemoryReportReferenceRepository();
+	const invalidDetailService = new ReportService({
+		repository: createRepository(),
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory",
+							title: "肝功能",
+							reportedAt: "2026-08-15 10:01:00",
+							status: "available",
+							hasAttachment: false,
+						},
+						providerReportId: "provider-report-invalid-detail",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "report-valid-directory-for-invalid-detail",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => ({
+				detail: {
+					kind: "laboratory",
+					title: "肝功能",
+					reportedAt: "2026-08-15 10:01:00",
+					items: [
+						{
+							name: "",
+							result: "22",
+							flag: "normal",
+						},
+					],
+					hasAttachment: false,
+				} as unknown as LaboratoryReportDetail,
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-detail",
+					requestId: "report-invalid-detail",
+				},
+			}),
+		},
+		references,
+		logger,
+	});
+	const validList = await invalidDetailService.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-valid-directory",
+			idempotencyKey: "key-report-valid-directory",
+		},
+	);
+	const reportId = validList.items[0]?.reportId;
+	if (!reportId) throw new Error("report reference was not created");
+	const detailError = await invalidDetailService
+		.detail("user-001", "patient-001", reportId, {
+			traceId: "trace-report-invalid-detail",
+			idempotencyKey: "key-report-invalid-detail",
+		})
+		.catch((error: unknown) => error);
+	expect(detailError).toBeInstanceOf(ReportResultValidationError);
+	expect((detailError as ReportResultValidationError).violation).toBe(
+		"detail-field-invalid",
+	);
+
+	const output = lines.join("\n");
+	expect(output).toContain('"resultViolation":"status-invalid"');
+	expect(output).toContain('"resultViolation":"detail-field-invalid"');
+	expect(output).not.toContain("provider-raw-secret");
 });

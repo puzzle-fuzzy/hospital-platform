@@ -5,8 +5,10 @@ import type {
 } from "@hospital/contracts";
 import type {
 	AdapterCallContext,
+	LaboratoryReportDetail,
 	PatientRepository,
 	ReportDetailGateway,
+	ReportDirectoryEntry,
 	ReportDirectoryGateway,
 	ReportDirectoryQuery,
 	ReportReferenceRepository,
@@ -16,8 +18,11 @@ import {
 	InvalidReportKindError,
 	isBoundedOpaqueIdentifier,
 	isReportKind,
+	normalizeLaboratoryReportDetail,
+	normalizeReportDirectoryResults,
 	parseIsoCalendarDate,
 	REPORT_REFERENCE_MAX_TTL_MS,
+	ReportResultValidationError,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -124,6 +129,7 @@ export class ReportService {
 		query: ReportDirectoryQuery,
 		context: AdapterCallContext,
 	): Promise<ReportListPayload["data"]> {
+		let resultViolation: string | undefined;
 		try {
 			// 查询校验也必须进入统一失败出口。否则非法日期虽然会正确返回
 			// 400，但没有 `report.directory.failed`，日志链路会缺少业务模块事实。
@@ -163,13 +169,24 @@ export class ReportService {
 				},
 				context,
 			);
+			let normalizedReports: ReportDirectoryEntry[];
+			try {
+				normalizedReports = normalizeReportDirectoryResults(
+					(result as { reports?: unknown } | undefined)?.reports,
+				);
+			} catch (error) {
+				if (error instanceof ReportResultValidationError) {
+					resultViolation = error.violation;
+				}
+				throw error;
+			}
 			// 一次目录响应代表同一个 provider 观察快照；所有短期详情引用必须
 			// 使用同一个服务端时间样本计算 TTL。若在每条报告上分别读取时钟，
 			// 批量处理跨过时间边界时会产生不同的 expiresAt，甚至让同一批刚返回
 			// 的报告出现“一个可点、一个已过期”的不可解释结果。
 			const observedNow = this.now();
 			const items = await Promise.all(
-				result.reports.map(async (entry) => {
+				normalizedReports.map(async (entry) => {
 					if (
 						!this.dependencies.detail ||
 						entry.summary.kind !== "laboratory" ||
@@ -241,6 +258,7 @@ export class ReportService {
 						? patientId
 						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(resultViolation ? { resultViolation } : {}),
 					...providerFailureMetadata(error),
 				},
 				"Report directory request failed",
@@ -255,6 +273,7 @@ export class ReportService {
 		reportId: string,
 		context: AdapterCallContext,
 	): Promise<ReportDetailPayload["data"]> {
+		let resultViolation: string | undefined;
 		try {
 			if (!isBoundedOpaqueIdentifier(patientId)) {
 				throw new ReportQueryError("Report patient identifier is invalid");
@@ -294,6 +313,17 @@ export class ReportService {
 				{ providerReportId: reference.providerReportId },
 				context,
 			);
+			let normalizedDetail: LaboratoryReportDetail;
+			try {
+				normalizedDetail = normalizeLaboratoryReportDetail(
+					(result as { detail?: unknown } | undefined)?.detail,
+				);
+			} catch (error) {
+				if (error instanceof ReportResultValidationError) {
+					resultViolation = error.violation;
+				}
+				throw error;
+			}
 			this.logger.info(
 				{
 					event: "report.detail.synced",
@@ -301,11 +331,15 @@ export class ReportService {
 					patientId,
 					reportId,
 					providerRequestId: result.trace.requestId,
-					itemCount: result.detail.items.length,
+					itemCount: normalizedDetail.items.length,
 				},
 				"Report detail loaded",
 			);
-			return { reportId, ...result.detail, items: [...result.detail.items] };
+			return {
+				reportId,
+				...normalizedDetail,
+				items: [...normalizedDetail.items],
+			};
 		} catch (error) {
 			this.logger.error(
 				{
@@ -316,6 +350,7 @@ export class ReportService {
 						: "invalid",
 					reportId: isBoundedOpaqueIdentifier(reportId) ? reportId : "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(resultViolation ? { resultViolation } : {}),
 					...providerFailureMetadata(error),
 				},
 				"Report detail request failed",
