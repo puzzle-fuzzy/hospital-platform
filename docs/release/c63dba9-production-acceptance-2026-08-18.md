@@ -115,6 +115,11 @@ Provider 均为 `configured`。不带该环境文件的普通 SSH shell prefligh
 `/api/v2/health/ready` 均返回 200，且 `database`、`redis`、`schema` 均为 `ok`。本次没有执行业务写入、
 release 切换、旧服务操作或 Redis 会话探测，因此不推进真实微信会话、患者切换、预约历史、门诊费用和 TTL 的验收状态。
 
+2026-08-18 12:53 CST 读取当前服务 journald 并执行 P0 业务证据门禁：SSH 日志读取成功，12:49 起输入行数为 `0`，
+聚合 `parseErrors=0`、`systemdWarningCount=0`，但所有业务域的 `requested/success` 均为 `0`。这表示观察窗口内
+没有新的业务操作，不是“Provider 返回空列表”；在没有真机请求、HTTP trace 和业务成功事件前，预约历史、爽约、门诊费用、
+报告和普通资料仍不得标记为真实验收完成。
+
 普通资料更新的证据链现在明确为：
 
 ```text
