@@ -7,6 +7,8 @@
 
 - 当前线上服务端 release 为 `687690e`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序构建来源仍为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。
 
+- 2026-08-18 22:50 CST：重启后再次只读复核确认 `current=687690e`、新 API `10.0.0.3:18081`、旧 Python `0.0.0.0:8001` 和 `hospital-platform-api-v2.service=active/running` 均正常。22:30–22:50 CST 低敏日志聚合为 `parseErrors=0`、`systemdWarningCount=0`，微信登录 `1/1`、患者目录读取 `8/8`、患者同步 `4/4` 的请求/成功门禁通过；没有预约、报告或门诊费用事件。该结果没有页面截图和设备连接证据，仍不计入真机三层验收；完整记录见 [`release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。本轮没有切换 release、执行 migration、写入 MySQL/Redis、修改旧 Python 服务或触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18（继续审计）：支付真实链路仍按计划最后处理，未打开微信支付、医保、退款或 HIS 写回；本轮仅收紧内部支付订单和服务端报价的持久化读模型。订单/报价在状态机、outbox 和 API 前重新投影并校验 owner、患者、金额、状态、版本、时间和来源，异常统一为 `persistence-invalid`，请求日志只保留固定 `readModelViolation`。本轮未部署、未重启、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
 - 2026-08-18（继续患者同步审计）：发现快照事务返回值此前直接进入 `activePatientCount/deactivatedPatientCount` 成功日志。新增 `PatientDirectorySnapshotResult` 二次投影，并增加 `patient.directory.snapshot.committed` 事件区分“事务已提交”和“返回读模型已验证”；提交后读模型损坏只记录 `patient.directory.read.failed`，不伪造 `patient.directory.synced`，也不误报 `patient.directory.failed`。补充中文注释、domain/API 测试和日志/幂等契约文档；本轮未部署、未重启、未修改旧 Python 服务。

@@ -73,3 +73,25 @@ journald 权限对本窗口进行聚合；没有输出原始日志。结果为�
 `auth.wechat.*`、`patient.*`、`appointment.*`、`report.*` 或 `outpatient.payment.*` 业务事件。
 因此本窗口没有形成新微信登录、患者切换、预约历史、报告或门诊费用的业务验收链；前述 200/401/404
 只能解释为运行层、未登录边界或探针路径访问，不能替代页面、HTTP trace 和业务成功事件的三层证据。
+
+## 7. 重启后继续工作的低敏业务观察（2026-08-18 22:30–22:50 CST）
+
+本轮没有切换 `current`，也没有重启服务；使用当前 `687690e` 自带的日志聚合与业务证据工具，
+通过 SSH 读取 `hospital-platform-api-v2.service` 的 journald JSON。工具只输出事件计数、状态码和
+固定错误类型，不输出原始消息、用户标识、患者标识或 Provider 报文。
+
+| 观察项 | 结果 |
+| --- | --- |
+| 输入记录 | `49` 行，其中 `48` 条应用记录 |
+| 日志解析 | `parseErrors=0`、`systemdWarningCount=0` |
+| HTTP 状态 | `200=17`、`401=1` |
+| 微信登录 | `requested=1`、`succeeded=1`、`failed=0` |
+| 患者目录读取 | `requested=8`、`loaded=8`、`failed=0` |
+| 患者目录同步 | `requested=4`、`synced/replayed=4`、`failed=0` |
+| 预约、报告、门诊费用 | 本窗口没有对应业务请求/成功事件 |
+| 关联标识计数 | `traceIdCount=18`、`providerRequestIdCount=5` |
+
+上述结果证明当前 release 的认证和患者目录日志链在该窗口没有解析错误，也没有出现 systemd 停止告警；
+它不能证明页面展示、真机连接、多患者切换、预约历史、报告详情或门诊费用已经验收。由于本窗口没有同时
+取得页面截图和同一请求的 HTTP trace，仍只能作为服务端低敏观察，不能升级为“真机三层证据”。
+旧 Python `8001` 全程未操作。
