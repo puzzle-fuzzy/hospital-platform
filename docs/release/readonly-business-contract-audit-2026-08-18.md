@@ -100,6 +100,11 @@ requested -> owner mapping / provider call -> synced 或 loaded
 重复排班号、非法工作日、号源数量和时间分组不会进入 API 或快照。该快照仍只是短期只读观察事实，
 不能作为锁号、预约、支付或医保授权成功的证明。
 
+门诊费用 service 也采用同样的重新投影规则：`normalizeOutpatientPaymentRecords` 在状态、标识、
+日期、金额和展示文本通过校验后，只构造 `recordId/status/departmentName/doctorName/billDate/amountFen`
+返回；Provider 交易号、患者字段、医保金额和其它扩展字段不会因为 gateway 类型声明而进入小程序。
+这只收紧查询读模型，不表示门诊缴费、微信支付或医保结算已经开放。
+
 详细字段规则见 [`../logging.md`](../logging.md)。
 
 ## 3. 当前工作树测试证据
@@ -113,11 +118,13 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：83 项通过，183 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
-- `pnpm --filter @hospital/api test`：119 项通过，556 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、错误处理、
+- `pnpm --filter @hospital/api test`：120 项通过，560 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、错误处理、
   患者归属和日志脱敏用例。
 
 本轮 `d7ac308` 只完成预约目录 service/domain 的本地校验、测试和中文注释，尚未部署到线上
 `1b94c46`，不能增加真实 Provider、微信或真机验收结论。
+
+门诊费用重新投影修正提交为 `fb0efba`，同样尚未部署；线上 release 和真机验收边界保持不变。
 
 测试只能证明注入网关和固定 fixture 下的不变量，不能证明当前线上账号能查询到真实预约或费用。
 

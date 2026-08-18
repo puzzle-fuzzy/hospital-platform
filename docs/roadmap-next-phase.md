@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：`fb0efba` 完成门诊费用 service 的最终白名单投影。门诊费用 gateway 结果在状态、标识、
+  日期、金额和展示文本校验后，必须重新构造公共对象，Provider 交易号、患者字段、医保金额和其它扩展字段
+  不会进入小程序；本轮仍未打开支付、医保或 HIS。新增投影回归测试，定向 API/domain 检查通过；尚未部署、
+  未重启新旧服务、未修改小程序或旧 Python 服务，详情见
+  [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md)。
+
 - 2026-08-18：`d7ac308` 收紧预约科室与排班的 service 读模型边界。即使 gateway 绕过 adapter 类型约束，
   service 仍会重新校验文本、日期、号源数量、时间分组和 Provider 排班号唯一性，并只把公共白名单字段
   返回给小程序；Provider 扩展字段不会进入短期排班快照。新增预约目录投影/非法结果及错误映射测试，定向
