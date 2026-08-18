@@ -43,3 +43,23 @@ test("患者读模型拒绝错 owner、重复 ID 和非法展示字段", () => {
 		);
 	}
 });
+
+test("患者读模型拒绝未脱敏的完整卡号", () => {
+	const fullCardNumber = {
+		...basePatient,
+		cardNumberMasked: "123456789012345678",
+	};
+
+	expect(() =>
+		normalizePatientReadModel([fullCardNumber], "owner-001"),
+	).toThrow(new PatientReadModelValidationError("patient-card-number-invalid"));
+});
+
+test("患者读模型保留未绑定哨兵值但仍要求其它卡号带掩码", () => {
+	expect(
+		normalizePatientReadModel(
+			[{ ...basePatient, cardNumberMasked: "未绑定" }],
+			"owner-001",
+		),
+	).toEqual([{ ...basePatient, cardNumberMasked: "未绑定" }]);
+});

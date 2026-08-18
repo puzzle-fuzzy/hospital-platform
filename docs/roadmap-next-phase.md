@@ -27,6 +27,8 @@
 
 - 2026-08-18 21:58 CST：对当前 `687690e` 的 21:52–22:00 journald 做低敏聚合，9 条记录全部是 HTTP 生命周期事件（200=5、401=2、404=2），`parseErrors=0`、`traceIdCount=9`、`providerRequestIdCount=0`，没有微信、患者、预约、报告或门诊费用业务事件。因此当前仍未形成新小程序业务验收链，下一步必须先在新 `miniprogram` 项目扫码建立有效微信设备连接；详细结果见 [`release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。
 
+- 2026-08-18 22:01 CST：患者目录安全审计发现读模型第二道校验只检查 `cardNumberMasked` 的字符串形状和长度，无法阻止持久化层异常返回完整卡号。domain 现在要求卡号公共字段符合“前最多 5 位 + 连续掩码 + 后最多 4 位”或 `未绑定` 哨兵；不符合时整批 fail-closed，固定记录 `patient-card-number-invalid`，不会交给小程序自行脱敏。新增 domain/API 定向回归和中文业务规则；本轮未部署、未重启新旧服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - `37016c4` 已作为未切换候选上传并通过产物 checksum、真实生产 env preflight 和 production 公网 runtime smoke；它只修正 smoke 日志不记录原始 `Error.message`，当前线上仍为 `687690e`，候选证据见 [`release/candidate-37016c4-smoke-log-hardening-2026-08-18.md`](release/candidate-37016c4-smoke-log-hardening-2026-08-18.md)。
 
 - 2026-08-18：`b213dcc` 将统一患者 provider 引用校验接入报告目录 service。仓储返回的非法结构、控制字符或跨患者/Provider 的 HIS `patId` 会在报告 Provider 调用前 fail-closed，日志只保留有限引用原因；报告详情已有的短期引用范围校验和安全摘要语义不变。新增报告目录回归测试，当前 API 为 131 项、599 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。

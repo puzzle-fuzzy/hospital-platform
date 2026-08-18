@@ -519,3 +519,54 @@ test("患者目录读取再次校验 owner 和重复 ID，并记录固定读模�
 		}),
 	);
 });
+
+test("患者目录读模型拒绝完整卡号并记录固定脱敏违规原因", async () => {
+	const baseRepository = createInMemoryPatientRepository();
+	const lines: string[] = [];
+	const repository: PatientRepository = {
+		...baseRepository,
+		async listByOwner() {
+			return [
+				{
+					id: "patient-card-read-invalid-001",
+					ownerUserId: "owner-001",
+					displayName: "完整卡号患者",
+					relationship: "self",
+					// 故意模拟持久化层或人工修复把完整卡号带回读模型。
+					cardNumberMasked: "123456789012345678",
+					source: "hospital-his",
+					clinicalAccess: "ready",
+				} as unknown as PatientRecord,
+			];
+		},
+	};
+	const service = new PatientService(repository, {
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("owner-001", {
+			traceId: "patient-card-read-invalid-trace",
+			idempotencyKey: "patient-card-read-invalid-key",
+		}),
+	).rejects.toMatchObject({
+		name: "PatientReadModelValidationError",
+		violation: "patient-card-number-invalid",
+	});
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	// 日志只保留固定原因，不把完整卡号或患者展示文本写入日志。
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.read.failed",
+			readModelViolation: "patient-card-number-invalid",
+		}),
+	);
+	expect(lines.join("\n")).not.toContain("123456789012345678");
+});

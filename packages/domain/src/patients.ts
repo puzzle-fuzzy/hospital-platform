@@ -82,6 +82,19 @@ function hasSafePatientText(
 	);
 }
 
+/**
+ * 患者卡号是“可核对但不可还原”的展示值，不是普通任意文本。
+ *
+ * Provider adapter 会保留最多前五位和后四位，中间必须存在连续掩码；
+ * `未绑定` 是 adapter 对缺少卡号的固定哨兵值。这里在读模型边界再次
+ * 校验形状，防止未来 MySQL 回放、手工修复或其它仓储把完整卡号带进
+ * API，即使 TypeScript 的 `cardNumberMasked` 类型仍然写着 string。
+ */
+function isMaskedCardNumber(value: string): boolean {
+	if (value === "未绑定") return true;
+	return /^[A-Za-z0-9]{0,5}\*+[A-Za-z0-9]{0,4}$/u.test(value);
+}
+
 function isPatientRelationship(value: unknown): value is PatientRelationship {
 	return (
 		value === "self" ||
@@ -141,6 +154,12 @@ export function normalizePatientReadModel(
 			invalidPatientReadModel("patient-relationship-invalid");
 		}
 		if (!hasSafePatientText(record.cardNumberMasked, 128)) {
+			invalidPatientReadModel("patient-card-number-invalid");
+		}
+		if (!isMaskedCardNumber(record.cardNumberMasked)) {
+			// 不能只做字符串长度校验：完整卡号同样可能是短文本，且会在
+			// 进入 Elysia response schema 前已经泄露给调用层。读模型异常
+			// 必须整批失败，不能只过滤一条后继续返回其它患者。
 			invalidPatientReadModel("patient-card-number-invalid");
 		}
 		if (!isPatientSource(record.source)) {

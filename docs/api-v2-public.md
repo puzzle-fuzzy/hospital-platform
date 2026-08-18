@@ -140,7 +140,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
       "id": "patient-opaque-id",
       "displayName": "张*",
       "relationship": "self",
-      "cardNumberMasked": "********12345",
+      "cardNumberMasked": "12345*********2345",
       "source": "hospital-his",
       "clinicalAccess": "ready"
     }],
