@@ -11,8 +11,8 @@
 
 本节优先于下方历史盘点记录。下方仍保留 `4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `9b88cf1`，构建包 `dist/build-info.json` 的完整来源指纹为
-  `9b88cf105314965837260b2d77671939ac22c828`，注册页面和生成脚本均为 14 个；用户已有的
+- 当前小程序运行输入来源为 `2bb18d1`，构建包 `dist/build-info.json` 的完整来源指纹为
+  `2bb18d1d0f265e24237cd4e9a782ae20ff4bd127`，注册页面和生成脚本均为 14 个；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 当前服务器 release 为 `1b94c46`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
