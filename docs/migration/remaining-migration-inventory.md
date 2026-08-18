@@ -21,8 +21,11 @@
   仍没有新的 `appointment.records.*`、`outpatient.payment.*` 或 `report.*` 业务事件，不能把“我的挂号”、爽约记录、门诊费用或报告
   标记为真实业务验收。逐事件低敏证据见
   [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
-- 下一步固定使用与 `c63dba9` 匹配的小程序运行包；当前 `dist/` 已重新构建并验证 14 个页面脚本存在。复用有效微信会话，按
-  “刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得页面、HTTP、低敏日志三层证据；预约写入、详情、支付、医保和 HIS 回写继续最后处理。
+- 下一步固定使用服务端 `c63dba9` + 小程序客户端 `055a784` 的验收组合；当前 `dist/` 已重新构建并验证 14 个页面脚本存在，
+  小程序 106 项测试、932 个断言通过。复用有效微信会话，按“刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”取得
+  页面、HTTP、低敏日志三层证据；具体候选、证据字段和停止条件见
+  [`../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](../release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)。
+  预约写入、详情、支付、医保和 HIS 回写继续最后处理。
 
 完整切换与停机证据见 [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
