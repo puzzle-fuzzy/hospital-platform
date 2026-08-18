@@ -381,8 +381,13 @@ export class ZhongyangOutpatientPaymentApiGateway
 			// 也必须独立守住边界，因为它可能被 API 以外的任务直接调用。
 			throw new InvalidOutpatientPaymentStatusError();
 		}
+		// Provider 患者号通常来自 service 的 owner-scoped 映射，但费用
+		// adapter 也必须独立拒绝空引用。任务、回放器或错误仓储不能仅凭
+		// TypeScript 类型把 `patId=` 发给 Provider；这与预约和报告 adapter
+		// 使用同一条患者引用边界。
+		const providerPatientId = requiredConfig(input.providerPatientId);
 		const url = new URL(OUTPATIENT_PAYMENT_PATH, this.baseUrl);
-		url.searchParams.set("patId", input.providerPatientId);
+		url.searchParams.set("patId", providerPatientId);
 		url.searchParams.set("startTime", input.startTime);
 		url.searchParams.set("endTime", input.endTime);
 		url.searchParams.set("tradeStatus", input.status === "unpaid" ? "1" : "3");

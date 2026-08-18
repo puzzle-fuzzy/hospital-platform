@@ -68,6 +68,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 服务端固定最近 30 个中国标准时间日的查询窗口，并固定 `authSysCode` 配置；该渠道码只能在 adapter 构造时注入，不能作为单次查询参数被调用方覆盖。时间格式化显式使用 `Asia/Shanghai`，不能继承服务器进程时区；账单 `billDate` 严格使用 `YYYY-MM-DD HH:mm:ss`，adapter 会校验真实自然日和时分秒范围；小程序只能选择 `unpaid` 或 `paid`，不能提交金额、渠道、患者 provider 标识或结算状态；
 - 旧小程序当前源码曾写死 `authSysCode=internetHospital`，而本次受控服务器只读核对到运行环境显式配置为 `thirdSelfMachine`；这只是新旧配置差异证据，不代表任一值对所有环境都正确。新服务不再提供默认渠道码，必须由院方/Provider 确认后写入环境变量，缺失时 gate 保持 `incomplete`。
 - adapter 把 provider 元金额转换为整数分，并只返回科室、医生、账单日期、状态和金额等展示白名单；费用列表不是支付订单，也不能据此推导医保结算成功；
+- 即使 Provider 患者号来自 owner-scoped 仓储映射，门诊费用 adapter 仍会在发起 HTTP 请求前拒绝空引用，避免任务、回放器或错误仓储把 `patId=` 发给 Provider；服务层校验不是唯一边界；
 - 当前以 2.6.33 输出表确认的 `amount`、`billDeptName`、`billDocName`、`billDate` 为唯一公共映射来源；旧端遗留的 `waitPayAmount`、`registerDept`、`registerDoctor` 未进入新 contract，adapter 必须忽略它们，不能将其作为金额或展示字段 fallback；
 - `ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是独立只读 gate。打开它只允许查询门诊费用，不会隐式注册微信支付、医保 1101/6201/6202/6301、退款或 HIS 回写；这些能力必须分别完成 contract、幂等、查单、授权和真机验收；
 - 原生小程序已加入门诊缴费页和“我的”页面入口；没有支付/医保合同前，点击费用记录只展示迁移边界，不伪造支付成功或调用旧 provider URL。
