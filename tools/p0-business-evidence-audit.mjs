@@ -4,10 +4,12 @@ import { readFile } from "node:fs/promises";
  * P0 业务证据门禁只消费 p0-log-aggregate 生成的安全计数，不读取或输出原始日志。
  *
  * `requested` 证明请求已经进入业务模块，`success` 证明至少有一次明确的业务成功
- * 事实；二者还必须出现在同一条 traceId/requestId 关联链中。这样不同请求的总数
- * 不会被拼成一次成功，避免“页面能打开”“HTTP 200”或 readiness 被误当成业务验收。
- * `failure` 只作为风险提示保留，不会被工具降级成成功。关联摘要只保留 SHA-256
- * 指纹和事件计数，不输出原始链路标识；跨三层验收仍需人工核对页面和 HTTP 语义。
+ * 事实；二者必须和最终 `http.request.completed` 的 2xx 状态出现在同一条
+ * traceId/requestId 关联链中。这样不同请求的总数不会被拼成一次成功，也不会把
+ * service 层已经写出的 success 事件误当成客户端已经收到成功响应。`failure` 只
+ * 作为风险提示保留，不会被工具降级成成功。关联摘要只保留 SHA-256 指纹、事件
+ * 计数和 HTTP 完成状态计数，不输出原始链路标识；跨三层验收仍需人工核对页面和
+ * HTTP 语义。
  */
 
 const BUSINESS_EVIDENCE_CONTRACTS = Object.freeze({
@@ -78,7 +80,9 @@ function countEvents(eventCounts, events) {
 /** 只在同一条安全关联链内寻找请求和成功事件，拒绝跨请求拼接。 */
 function countCorrelatedChains(correlation, contract) {
 	let correlatedChainCount = 0;
-	for (const events of Object.values(correlation.chains)) {
+	for (const chain of Object.values(correlation.chains)) {
+		if (!chain || typeof chain !== "object" || Array.isArray(chain)) continue;
+		const events = chain.events;
 		if (!events || typeof events !== "object" || Array.isArray(events))
 			continue;
 		const requestedCount = countEvents(events, contract.requested);
@@ -86,6 +90,49 @@ function countCorrelatedChains(correlation, contract) {
 		if (requestedCount > 0 && successCount > 0) correlatedChainCount += 1;
 	}
 	return correlatedChainCount;
+}
+
+/**
+ * 只接受同一业务关联链上的 HTTP 2xx 完成事实。
+ *
+ * `httpStatusCounts` 的全局总数没有关联意义；必须读取当前 chain 的
+ * `httpCompletedStatusCounts`。如果链上同时出现 `http.request.failed`，即使
+ * 曾出现 2xx 也视为结果不明确，避免异常重试或响应层错误被成功计数掩盖。
+ */
+function countCorrelatedHttpSuccessChains(correlation, contract) {
+	let httpSuccessChainCount = 0;
+	for (const chain of Object.values(correlation.chains)) {
+		if (!chain || typeof chain !== "object" || Array.isArray(chain)) continue;
+		const events = chain.events;
+		const completedStatusCounts = chain.httpCompletedStatusCounts;
+		if (
+			!events ||
+			typeof events !== "object" ||
+			Array.isArray(events) ||
+			!completedStatusCounts ||
+			typeof completedStatusCounts !== "object" ||
+			Array.isArray(completedStatusCounts)
+		)
+			continue;
+		const requestedCount = countEvents(events, contract.requested);
+		const successCount = countEvents(events, contract.success);
+		const hasHttpFailure = countEvents(events, ["http.request.failed"]) > 0;
+		const hasHttp2xx = Object.entries(completedStatusCounts).some(
+			([statusCode, count]) => {
+				const numericStatusCode = Number(statusCode);
+				return (
+					Number.isInteger(numericStatusCode) &&
+					numericStatusCode >= 200 &&
+					numericStatusCode <= 299 &&
+					Number.isSafeInteger(count) &&
+					count > 0
+				);
+			},
+		);
+		if (requestedCount > 0 && successCount > 0 && hasHttp2xx && !hasHttpFailure)
+			httpSuccessChainCount += 1;
+	}
+	return httpSuccessChainCount;
 }
 
 function validateSummary(summary) {
@@ -119,6 +166,7 @@ function validateSummary(summary) {
 		Array.isArray(correlation.chains) ||
 		!Number.isSafeInteger(correlation.chainCount) ||
 		correlation.chainCount < 0 ||
+		correlation.chainCount !== Object.keys(correlation.chains).length ||
 		!Number.isSafeInteger(correlation.missingCount) ||
 		correlation.missingCount < 0 ||
 		typeof correlation.truncated !== "boolean"
@@ -156,10 +204,15 @@ export function auditBusinessEvidence(
 			summary.correlation,
 			contract,
 		);
+		const httpSuccessChainCount = countCorrelatedHttpSuccessChains(
+			summary.correlation,
+			contract,
+		);
 		const missing = [];
 		if (requestedCount === 0) missing.push("requested");
 		if (successCount === 0) missing.push("success");
 		if (correlatedChainCount === 0) missing.push("same-trace-request-success");
+		if (httpSuccessChainCount === 0) missing.push("same-trace-http-2xx");
 		if (summary.correlation.truncated) missing.push("correlation-truncated");
 		results[domain] = {
 			label: contract.label,
@@ -167,6 +220,7 @@ export function auditBusinessEvidence(
 			successCount,
 			failureCount,
 			correlatedChainCount,
+			httpSuccessChainCount,
 			missing,
 			passed:
 				summary.parseErrors === 0 &&

@@ -140,7 +140,7 @@ sudo journalctl -u hospital-platform-api-v2.service \
 聚合结果当作真机或业务成功证据。
 
 聚合结果只包含事件/业务域/结果计数、HTTP 状态、错误类型和 trace/provider request id 数量，并增加由 traceId 优先、
-requestId 兜底生成的 SHA-256 关联链指纹及每条链的事件计数；`parseErrors` 必须为 `0` 才能说明没有未知的非 JSON 行，
+requestId 兜底生成的 SHA-256 关联链指纹、每条链的事件计数和 `http.request.completed` 状态计数；`parseErrors` 必须为 `0` 才能说明没有未知的非 JSON 行，
 `systemdWarningCount` 也必须为 `0` 才能排除服务停止超时等运行时风险；UTF-8 BOM
 会计入 `strippedBomLines`，正常 systemd 启停提示会单独计入 `ignoredControlLines`，已识别的停止异常只进入稳定 warning 计数。
 工具不会输出 `msg`、URL、请求体、
@@ -165,8 +165,9 @@ sudo journalctl -u hospital-platform-api-v2.service \
 
 可用业务域包括 `auth`、`patientRead`、`patientSync`、`appointmentRecords`、
 `outpatientPaymentRecords`、`reportDirectory`、`profileRead` 和 `profileUpdate`。
-门禁要求对应的请求事件和明确成功事件同时存在于同一条关联链，并报告失败计数；如果只有总数而没有同链事件，
-或关联链被截断，会以 `same-trace-request-success` / `correlation-truncated` 失败。关联指纹只证明服务端事件属于同一
+门禁要求对应的请求事件、明确成功事件和同一条链上的 HTTP `2xx` 完成事件同时存在，并报告失败计数；如果只有总数而没有同链事件，
+如果 service 写了成功但响应层只有 `4xx/5xx` 或 `http.request.failed`，或者关联链被截断，会以
+`same-trace-request-success` / `same-trace-http-2xx` / `correlation-truncated` 失败。关联指纹只证明服务端事件属于同一
 请求链，不证明属于同一用户、患者或页面展示正确，仍不能替代 HTTP/真机和页面语义核对。`parseErrors` 或
 `systemdWarningCount` 不为 `0` 时，无论业务事件是否出现，门禁都必须失败。
 

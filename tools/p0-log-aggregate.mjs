@@ -173,12 +173,27 @@ function correlationFingerprint(value) {
 	return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
-/** 将受限关联桶转换为稳定排序的安全事件计数。 */
+/**
+ * 将受限关联桶转换为稳定排序的安全摘要。
+ *
+ * 业务成功事件是在 service 层产生的，HTTP 完成事件是在路由/响应层产生的；
+ * 两者必须同时存在，才能证明“业务结果最终真正返回给客户端”。因此关联桶
+ * 除了事件计数，还单独保留 `http.request.completed` 的状态码计数。只保留
+ * 有界状态码，不复制 URL、响应体或原始日志。
+ */
 function sortedCorrelationChains(chains) {
 	return Object.fromEntries(
 		[...chains.entries()]
 			.sort(([left], [right]) => left.localeCompare(right))
-			.map(([fingerprint, events]) => [fingerprint, sortedCounts(events)]),
+			.map(([fingerprint, chain]) => [
+				fingerprint,
+				{
+					events: sortedCounts(chain.events),
+					httpCompletedStatusCounts: sortedCounts(
+						chain.httpCompletedStatusCounts,
+					),
+				},
+			]),
 	);
 }
 
@@ -267,10 +282,24 @@ export function aggregateLines(lines) {
 					correlationTruncated = true;
 					continue;
 				}
-				events = new Map();
+				events = {
+					events: new Map(),
+					httpCompletedStatusCounts: new Map(),
+				};
 				correlationChains.set(fingerprint, events);
 			}
-			increment(events, event);
+			increment(events.events, event);
+			// 只有最终 HTTP 完成事件的 2xx 状态才算“成功结果已返回”。
+			// 业务 service 的 success 日志不能单独替代响应层事实；4xx/5xx
+			// 即使与 success 共用一条链，也必须由业务门禁拒绝。
+			if (
+				event === "http.request.completed" &&
+				typeof record.statusCode === "number" &&
+				Number.isInteger(record.statusCode) &&
+				record.statusCode >= 100 &&
+				record.statusCode <= 599
+			)
+				increment(events.httpCompletedStatusCounts, String(record.statusCode));
 		} else {
 			correlationMissingCount += 1;
 		}

@@ -9,6 +9,8 @@
 
 - 2026-08-18 23:40 CST：对当前 `c26e696` 自 `22:56:00` 起的 journald 做离线同链聚合，患者目录读取 `12/12`、患者同步 `6/6` 均在同一关联链内通过；微信登录、预约历史、门诊费用、报告和普通资料没有完整业务链，整体 P0 审计仍失败。该结果只增加服务端日志证据，不替代页面/HTTP/真机三层验收，详见 [`release/current-c26-p0-business-observation-2026-08-18-2340.md`](release/current-c26-p0-business-observation-2026-08-18-2340.md)。
 
+- 继续审计 P0 证据门禁时发现：仅要求业务 `requested/success` 同链仍可能遗漏响应层失败。现已收紧为同一关联链必须同时包含业务请求、业务成功、HTTP `2xx` 完成，且不能出现同链 `http.request.failed`；新增状态摘要和失败回归测试。该修正尚未部署，不改变当前业务开放边界，支付、医保、预约写入和 HIS 回写继续关闭。
+
 - 当前线上服务端 release 为 `c26e696`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序本地验收候选构建来源为 `a45d35edd91aab1a3a83c77301c9984402686145`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。本次生产切换证据见 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)。
 
 - 2026-08-18 23:18 CST：本地小程序运行包在提交 `a45d35e` 后重新构建，`dist/build-info.json.sourceRevision` 为

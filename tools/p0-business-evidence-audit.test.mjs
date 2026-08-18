@@ -1,14 +1,17 @@
 import { expect, test } from "bun:test";
 import { auditBusinessEvidence } from "./p0-business-evidence-audit.mjs";
 
-function correlationFor(events) {
+function correlationFor(events, httpCompletedStatusCounts = { 200: 1 }) {
 	return {
 		chainCount: 1,
 		recordCount: events.length,
 		missingCount: 0,
 		truncated: false,
 		chains: {
-			"test-correlation": Object.fromEntries(events.map((event) => [event, 1])),
+			"test-correlation": {
+				events: Object.fromEntries(events.map((event) => [event, 1])),
+				httpCompletedStatusCounts,
+			},
 		},
 	};
 }
@@ -42,6 +45,7 @@ test("P0 业务证据门禁要求请求和明确成功事件同时存在", () =>
 				successCount: 1,
 				failureCount: 1,
 				correlatedChainCount: 1,
+				httpSuccessChainCount: 1,
 				missing: [],
 				passed: true,
 			},
@@ -63,7 +67,7 @@ test("只有 HTTP 或 requested 不能通过业务证据门禁", () => {
 	expect(result.domains.outpatientPaymentRecords).toMatchObject({
 		requestedCount: 1,
 		successCount: 0,
-		missing: ["success", "same-trace-request-success"],
+		missing: ["success", "same-trace-request-success", "same-trace-http-2xx"],
 		passed: false,
 	});
 });
@@ -138,7 +142,7 @@ test("普通资料更新不能用资料读取事件冒充写入成功", () => {
 	expect(result.domains.profileUpdate).toMatchObject({
 		requestedCount: 1,
 		successCount: 0,
-		missing: ["success", "same-trace-request-success"],
+		missing: ["success", "same-trace-request-success", "same-trace-http-2xx"],
 		passed: false,
 	});
 });
@@ -157,8 +161,14 @@ test("不同 trace 的请求和成功不能拼成一次业务成功", () => {
 				missingCount: 0,
 				truncated: false,
 				chains: {
-					"trace-a": { "appointment.records.requested": 1 },
-					"trace-b": { "appointment.records.synced": 1 },
+					"trace-a": {
+						events: { "appointment.records.requested": 1 },
+						httpCompletedStatusCounts: { 200: 1 },
+					},
+					"trace-b": {
+						events: { "appointment.records.synced": 1 },
+						httpCompletedStatusCounts: {},
+					},
 				},
 			},
 		},
@@ -169,7 +179,37 @@ test("不同 trace 的请求和成功不能拼成一次业务成功", () => {
 		requestedCount: 1,
 		successCount: 1,
 		correlatedChainCount: 0,
-		missing: ["same-trace-request-success"],
+		missing: ["same-trace-request-success", "same-trace-http-2xx"],
+		passed: false,
+	});
+	expect(result.passed).toBe(false);
+});
+
+test("业务请求和成功同链但没有 HTTP 2xx 完成不能通过", () => {
+	const result = auditBusinessEvidence(
+		{
+			parseErrors: 0,
+			eventCounts: {
+				"appointment.records.requested": 1,
+				"appointment.records.synced": 1,
+				"http.request.failed": 1,
+			},
+			correlation: correlationFor(
+				[
+					"appointment.records.requested",
+					"appointment.records.synced",
+					"http.request.failed",
+				],
+				{ 500: 1 },
+			),
+		},
+		["appointmentRecords"],
+	);
+
+	expect(result.domains.appointmentRecords).toMatchObject({
+		correlatedChainCount: 1,
+		httpSuccessChainCount: 0,
+		missing: ["same-trace-http-2xx"],
 		passed: false,
 	});
 	expect(result.passed).toBe(false);

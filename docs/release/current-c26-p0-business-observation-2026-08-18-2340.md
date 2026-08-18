@@ -4,7 +4,7 @@
 
 ## 1. 观察范围
 
-本次只读取服务器 `hospital-platform-api-v2.service` 的 journald，窗口从 `2026-08-18 22:56:00 CST` 开始；当前实际 release 为 `c26e696`，API service 为 active，Worker 为 inactive。日志聚合使用未切换候选 `b7c9451` 的安全聚合器和同链审计器离线处理，**不代表 `b7c9451` 已经运行在线上**。
+本次只读取服务器 `hospital-platform-api-v2.service` 的 journald，窗口从 `2026-08-18 22:56:00 CST` 开始；当前实际 release 为 `c26e696`，API service 为 active，Worker 为 inactive。日志聚合使用未切换候选 `b7c9451` 的安全聚合器和同链审计器离线处理，**不代表 `b7c9451` 已经运行在线上**。该次观察使用的是旧版同链摘要，尚未包含本轮新增的 HTTP `2xx` 完成门禁，因此不能回溯替代新门禁。
 
 聚合器只输出事件计数、HTTP 状态计数、低敏错误类型和 SHA-256 关联指纹，不输出 openid、患者标识、token、金额或原始 request/trace 值。
 

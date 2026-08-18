@@ -44,6 +44,13 @@ test("P0 日志聚合按业务域和结果分类，并且不输出原始敏感�
 		missingCount: 1,
 		truncated: false,
 	});
+	const authChain = Object.values(summary.correlation.chains).find(
+		(chain) => chain.events["auth.wechat.login.succeeded"] === 1,
+	);
+	expect(authChain).toEqual({
+		events: { "auth.wechat.login.succeeded": 1 },
+		httpCompletedStatusCounts: {},
+	});
 
 	const output = JSON.stringify(summary);
 	expect(output).not.toContain("must-not-be-output");
@@ -88,6 +95,35 @@ test("支持 journald -o json 的 MESSAGE envelope，并忽略已知 systemd 控
 	expect(summary.traceIdCount).toBe(1);
 	expect(summary.correlation.chainCount).toBe(1);
 	expect(summary.correlation.missingCount).toBe(0);
+});
+
+test("关联链只保留 HTTP 完成状态码，不输出原始链路标识", () => {
+	const summary = aggregateLines([
+		JSON.stringify({
+			event: "appointment.records.requested",
+			traceId: "trace-http-success",
+		}),
+		JSON.stringify({
+			event: "appointment.records.synced",
+			traceId: "trace-http-success",
+		}),
+		JSON.stringify({
+			event: "http.request.completed",
+			traceId: "trace-http-success",
+			statusCode: 200,
+		}),
+	]);
+
+	const chain = Object.values(summary.correlation.chains)[0];
+	expect(chain).toEqual({
+		events: {
+			"appointment.records.requested": 1,
+			"appointment.records.synced": 1,
+			"http.request.completed": 1,
+		},
+		httpCompletedStatusCounts: { 200: 1 },
+	});
+	expect(JSON.stringify(summary)).not.toContain("trace-http-success");
 });
 
 test("systemd 停止超时只记录稳定 warning，不把 PID 和进程名带入聚合", () => {
