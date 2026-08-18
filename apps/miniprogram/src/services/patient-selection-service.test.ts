@@ -4,6 +4,7 @@ import { ApiError } from "./api-client";
 import {
 	isBoundedPatientId,
 	isCurrentSelectedPatient,
+	normalizeStoredPatientIdForResolution,
 	patientContextErrorMessage,
 	patientSelectionResolutionError,
 	patientSelectionResolutionMessage,
@@ -243,4 +244,24 @@ test("患者上下文统一拒绝越界 patientId 形状", () => {
 	}
 	expect(isBoundedPatientId("patient-a")).toBe(true);
 	expect(isBoundedPatientId("x".repeat(128))).toBe(true);
+});
+
+test("损坏的 storage 值不能伪装成首次进入并默认切换患者", () => {
+	expect(normalizeStoredPatientIdForResolution(undefined)).toBe("");
+	expect(normalizeStoredPatientIdForResolution(null)).not.toBe("");
+	expect(normalizeStoredPatientIdForResolution(123)).not.toBe("");
+	expect(normalizeStoredPatientIdForResolution({ id: "patient-a" })).not.toBe(
+		"",
+	);
+
+	const corruptedPatientId = normalizeStoredPatientIdForResolution(123);
+	expect(isBoundedPatientId(corruptedPatientId)).toBe(false);
+	const result = resolvePatientSelection(
+		[patient("patient-a")],
+		corruptedPatientId,
+	);
+	expect(result).toEqual({
+		state: "stale",
+		storedPatientId: corruptedPatientId,
+	});
 });

@@ -18,6 +18,14 @@ export const SELECTED_PATIENT_ID_KEY = "selected_patient_id";
  */
 export const MAX_PATIENT_ID_LENGTH = 128;
 
+/**
+ * 仅供损坏缓存进入 `stale` 分支的内部占位值。
+ *
+ * 它不是服务端 patientId，也不会写回 storage、页面或网络请求；占位值刻意
+ * 含有控制字符，因此即使未来调用方忘记区分来源，也会被同一形状校验拒绝。
+ */
+const CORRUPTED_STORED_PATIENT_ID = "\u0000corrupted-selected-patient-id";
+
 export function isBoundedPatientId(value: unknown): value is string {
 	return (
 		typeof value === "string" &&
@@ -119,10 +127,23 @@ export function requirePatientFromResolution(
 	});
 }
 
-/** 读取上一次选择的就诊人 ID；缓存损坏时按未选择处理。 */
+/** 读取上一次选择的就诊人 ID；非字符串缓存只作为无效值对外隐藏。 */
 export function getSelectedPatientId(): string {
 	const value = wx.getStorageSync(SELECTED_PATIENT_ID_KEY);
 	return typeof value === "string" ? value : "";
+}
+
+/**
+ * 将微信 storage 原始值转换成患者目录解析器的输入。
+ *
+ * `undefined`/空字符串表示没有历史选择；`null` 或其它非字符串则表示缓存已经
+ * 损坏，必须进入 `stale` 而不能伪装成首次进入，否则目录同步后会静默默认
+ * 第一位患者。占位值不会离开本服务，也不会成为实际业务 patientId。
+ */
+export function normalizeStoredPatientIdForResolution(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (value === undefined) return "";
+	return CORRUPTED_STORED_PATIENT_ID;
 }
 
 /**
@@ -202,7 +223,12 @@ export function resolvePatientSelection(
 export function resolveStoredPatientSelection(
 	patients: readonly Patient[],
 ): PatientSelectionResolution {
-	const resolution = resolvePatientSelection(patients, getSelectedPatientId());
+	const resolution = resolvePatientSelection(
+		patients,
+		normalizeStoredPatientIdForResolution(
+			wx.getStorageSync(SELECTED_PATIENT_ID_KEY),
+		),
+	);
 	if (resolution.state === "defaulted") {
 		setSelectedPatientId(resolution.patient.id);
 	}
