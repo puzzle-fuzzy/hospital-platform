@@ -1791,6 +1791,26 @@ test("appointment directory ignores stale date events after a cascade refresh", 
 	expect(dateHandler).toContain("selectedDate,");
 });
 
+test("appointment directory ignores stale department events after a cascade refresh", async () => {
+	const page = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const departmentHandlerStart = page.indexOf("onDepartmentTap(event)");
+	const departmentHandlerEnd = page.indexOf("\n\t},", departmentHandlerStart);
+	const departmentHandler = page.slice(
+		departmentHandlerStart,
+		departmentHandlerEnd,
+	);
+
+	// 科室事件也可能来自刷新前的 WXML；必须先在当前科室目录中回查，
+	// 再允许改变右栏排班查询条件，避免旧级联上下文重新发起请求。
+	expect(departmentHandler).toContain("this.data.departments.find");
+	expect(departmentHandler).toContain("if (!department)");
+	expect(departmentHandler).toContain(
+		"this.loadDepartmentSchedules(department.departmentId)",
+	);
+});
+
 test("page request guard only permits the latest patient read to update state", () => {
 	const guard = createLatestRequestGuard();
 	const first = guard.begin();

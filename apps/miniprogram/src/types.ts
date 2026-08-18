@@ -117,7 +117,7 @@ export type DatasetEvent<T extends Record<string, unknown>> = {
 
 export type ActionEvent = DatasetEvent<{ action?: string }>;
 export type IndexEvent = DatasetEvent<{ index?: string | number }>;
-/** 挂号卡片操作只接受当前渲染批次生成的视图 key，不能回退到数组索引。 */
+/** 列表卡片操作只接受当前渲染批次生成的视图 key，不能回退到数组索引。 */
 export type ViewKeyEvent = DatasetEvent<{ viewKey?: string }>;
 export type PatientEvent = DatasetEvent<{ patientId?: string }>;
 export type ReportTabEvent = DatasetEvent<{ tab?: string }>;

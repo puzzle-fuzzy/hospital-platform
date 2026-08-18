@@ -217,9 +217,21 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 	onDepartmentTap(event): void {
 		const departmentId = event.currentTarget?.dataset?.departmentId;
 		if (typeof departmentId !== "string" || !departmentId) return;
-		if (departmentId === this.data.selectedDepartmentId && !this.data.error)
+		const department = this.data.departments.find(
+			(item) => item.departmentId === departmentId,
+		);
+		if (!department) {
+			// 刷新或重新加载科室期间，旧 WXML 可能晚于当前目录触发点击。
+			// 事件携带的 departmentId 不能直接成为新的查询条件，必须先确认
+			// 它仍属于当前页面的科室读模型，避免旧级联上下文重新发起请求。
 			return;
-		this.loadDepartmentSchedules(departmentId);
+		}
+		if (
+			department.departmentId === this.data.selectedDepartmentId &&
+			!this.data.error
+		)
+			return;
+		this.loadDepartmentSchedules(department.departmentId);
 	},
 
 	onDateTap(event): void {
