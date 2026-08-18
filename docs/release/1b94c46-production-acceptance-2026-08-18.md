@@ -9,7 +9,7 @@
 - 数据库没有执行 migration，schema 仍使用已验证的 `0016_patient_directory_sync_owner_index`；
 - 支付、医保、HIS 写入、预约写入、报告 gate 和 Worker 继续关闭；
  - 原生小程序当前配套候选为 `691ba28`，构建来源指纹为
-   `691ba28053775bce84f1285583c6741018eb0d40`；本次 API 发布没有替代或上传小程序运行包。
+   `b9ce8ae1ccb17a2be80cabdd0211d613e1a975bf`；本次 API 发布没有替代或上传小程序运行包。
 
 ## 2. 本地产物与检查
 
