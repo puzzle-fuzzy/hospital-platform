@@ -87,6 +87,8 @@ httpStatusCounts={200:6} systemdWarningCount=0 providerRequestIdCount=0
 - 旧 Python Gunicorn 继续监听 `0.0.0.0:8001`，未停止、未重启、未修改；
 - 公网 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 分别为 HTTP 200，live/ready 继续返回 `Cache-Control: no-store`，ready 的 database、redis、schema 均为 `ok`；
 - 15:23:30 起的低敏日志聚合仍为 `parseErrors=0`、`systemdWarningCount=0`，没有新增真实业务事件。
+- 15:35-15:40 CST 的后续窗口单独聚合为 `inputLines=7`、`parsedRecords=6`、`parseErrors=0`、
+  `systemdWarningCount=0`，6 条全部是基础设施健康请求且 HTTP 200；这段连续观察仍没有真实微信、患者、预约、费用或报告业务事件。
 
 本次只读复核没有切换 release、写入数据库/Redis 或操作旧服务；本地 `main` 后续的 `b276a25`、`c2d6e8f`、`189ce51` 仅包含测试/文档门禁修正，尚未进入线上运行 bundle。
 
