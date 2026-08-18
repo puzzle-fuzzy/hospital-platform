@@ -16,6 +16,13 @@
   systemd warning。本次没有切换、重启服务、迁移或业务写入；运行层稳定不等于微信真机、患者切换、Provider、支付或医保验收。
   详见 [`current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md)。
 
+- 2026-08-19 07:01 CST：重启后重新执行本地 `pnpm check` 和小程序 `runtime:verify`，架构 66 条、迁移台账、Provider
+  文档、195 份 Markdown 链接、发布基线、Biome、19 项工具测试、9/9 类型检查、9/9 测试和 9/9 构建全部通过；运行包
+  来源仍为服务端配套候选 `3a66d12`（完整指纹
+  `3a66d125b0c1ca53879dd88a3661e3025fb7dd3d`），14 个页面脚本和根文件齐全。本轮只修正了重启复核文档中的旧证据，
+  没有修改 `apps/miniprogram/project.config.json`、旧 Python、线上服务、数据库或 Redis；这些门禁不增加真机、Provider、
+  患者切换、费用、支付或医保验收结论。
+
 - 2026-08-19：修正“我的”页普通资料与患者目录并行读取的会话代际风险。资料 GET 先完成或安全降级，患者目录再从最新会话代际读取，避免旧患者目录与新资料混合；资料失败且没有可用会话时会停止后续患者读取，并在新加载周期清空旧患者卡片和数量，防止失效会话继续展示旧数据。提交 `3a66d12`，小程序定向测试 154/154、1235 个断言和类型检查通过；未改变 API、数据库、Redis、Provider、线上服务或旧 Python，详见 [`miniprogram-my-page-session-generation-order-2026-08-19.md`](release/miniprogram-my-page-session-generation-order-2026-08-19.md)。
 
 - 2026-08-19：患者、预约和门诊费用列表读取统一先验证 `success/data` 平台成功包络，再进入业务 canonical validator；预约记录与门诊费用只重投影页面白名单字段，门诊费用额外拒绝重复 `recordId`、无效账单日历值、负数/非安全整数金额。坏包络或坏记录整批 fail-closed，不伪装为空列表。提交 `31ce94a`，小程序定向测试 154/154、1231 个断言和类型检查通过；未改变 Provider、数据库、Redis、线上服务或旧 Python，详见 [`miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
