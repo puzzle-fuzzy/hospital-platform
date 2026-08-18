@@ -653,7 +653,7 @@ export function createInMemoryAppointmentScheduleSnapshotRepository(
 
 /**
  * 仅用于报告详情组合测试；生产实现必须把 provider 引用放在 MySQL，
- * 并通过 owner + 过期时间查询，不能依赖进程内 Map。
+ * 并通过 owner + patient + 过期时间查询，不能依赖进程内 Map。
  */
 export function createInMemoryReportReferenceRepository(
 	seed: readonly ReportReference[] = [],
@@ -675,9 +675,15 @@ export function createInMemoryReportReferenceRepository(
 			references.set(reference.reportId, reference);
 			return reference;
 		},
-		async findByOwnerAndId(ownerUserId, reportId, now) {
+		async findByOwnerPatientAndId(ownerUserId, patientId, reportId, now) {
 			const reference = references.get(reportId);
-			if (!reference || reference.ownerUserId !== ownerUserId) return undefined;
+			if (
+				!reference ||
+				reference.ownerUserId !== ownerUserId ||
+				reference.patientId !== patientId
+			) {
+				return undefined;
+			}
 			const expiresAt = Date.parse(reference.expiresAt);
 			const nowAt = Date.parse(now);
 			return Number.isFinite(expiresAt) &&
@@ -788,7 +794,7 @@ export function createNotConfiguredRepositories(): {
 			upsert: async () => {
 				throw new PersistenceNotConfiguredError("report-references");
 			},
-			findByOwnerAndId: async () => {
+			findByOwnerPatientAndId: async () => {
 				throw new PersistenceNotConfiguredError("report-references");
 			},
 		},

@@ -175,8 +175,15 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			wx.showToast({ title: "该报告详情暂未开放", icon: "none" });
 			return;
 		}
+		const patientId = this.data.selectedPatient?.id;
+		if (typeof patientId !== "string" || !patientId) {
+			// 患者上下文丢失时不能只凭旧 reportId 进入详情；返回目录重新选择，
+			// 让服务端的 owner + patient + reportId 三重校验保持完整。
+			wx.showToast({ title: "请先选择就诊人", icon: "none" });
+			return;
+		}
 		wx.navigateTo({
-			url: `/pages/report-detail/report-detail?reportId=${encodeURIComponent(reportId)}&reportCount=${this.data.reportCount}`,
+			url: `/pages/report-detail/report-detail?patientId=${encodeURIComponent(patientId)}&reportId=${encodeURIComponent(reportId)}&reportCount=${this.data.reportCount}`,
 		});
 	},
 

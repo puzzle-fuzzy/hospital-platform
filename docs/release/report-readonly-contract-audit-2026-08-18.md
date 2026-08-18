@@ -13,8 +13,8 @@
   -> 只输出安全摘要；仅 LIS 在服务端建立短期 opaque reportId
 
 小程序报告详情
-  -> 只提交 opaque reportId
-  -> API 按 owner + TTL 查询短期引用
+  -> 提交当前内部 patientId + opaque reportId
+  -> API 按 owner + patient + TTL 查询短期引用
   -> 仅把 providerReportId 留在服务端调用 LIS 详情
   -> adapter 白名单映射检测项后返回患者端详情
 ```
@@ -67,7 +67,7 @@
 - 患者没有 `his-patient` 映射时不访问 Provider；
 - 日期窗口、未知报告来源和报告详情 gate 失败时返回稳定错误；
 - 单条详情引用持久化失败时摘要仍保留且不返回 `reportId`；
-- 详情引用过期或 owner 不匹配时不能调用 Provider；
+- 详情引用过期、owner 不匹配或 patient 不匹配时不能调用 Provider；
 - Provider 原始患者字段、文件 URL 和非 LIS 报告号不会进入公共响应。
 
 ## 4. 尚未完成的证据

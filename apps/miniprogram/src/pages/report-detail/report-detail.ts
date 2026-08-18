@@ -43,10 +43,16 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 	},
 
 	onLoad(options: Record<string, string | undefined>): void {
+		const patientId = options?.patientId;
 		const reportId = options?.reportId;
 		const reportCount = parseReportCount(options?.reportCount);
 		this.setData({ reportCount });
-		if (typeof reportId !== "string" || !reportId) {
+		if (
+			typeof patientId !== "string" ||
+			!patientId ||
+			typeof reportId !== "string" ||
+			!reportId
+		) {
 			this.showError(
 				new ApiError("报告详情引用无效", { code: "report-detail-id-missing" }),
 			);
@@ -55,7 +61,7 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 
 		const detailGuard = getPageLatestRequestGuard(this, "report-detail");
 		const detailToken = detailGuard.begin();
-		requestReportDetail(reportId)
+		requestReportDetail({ patientId, reportId })
 			.then((payload) => {
 				if (!detailGuard.isCurrent(detailToken)) return;
 				const report = payload?.data;

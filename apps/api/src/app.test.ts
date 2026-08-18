@@ -1623,12 +1623,15 @@ test("report directory resolves internal patient ownership before provider looku
 	expect(JSON.stringify(reportListBody)).not.toContain("provider-report-001");
 
 	const detailResponse = await app.handle(
-		new Request(`http://localhost/api/v1/reports/${reportId}`, {
-			headers: {
-				authorization: `Bearer ${loginBody.data.accessToken}`,
-				"x-request-id": "report-detail-query-trace",
+		new Request(
+			`http://localhost/api/v1/reports/${reportId}?patientId=internal-patient-001`,
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+					"x-request-id": "report-detail-query-trace",
+				},
 			},
-		}),
+		),
 	);
 	expect(detailResponse.status).toBe(200);
 	expect(await detailResponse.json()).toEqual({
@@ -1643,6 +1646,20 @@ test("report directory resolves internal patient ownership before provider looku
 		},
 	});
 	expect(directoryInput).toEqual({ providerPatientId: "his-patient-001" });
+	const wrongPatientDetailResponse = await app.handle(
+		new Request(
+			`http://localhost/api/v1/reports/${reportId}?patientId=other-patient`,
+			{ headers: { authorization: `Bearer ${loginBody.data.accessToken}` } },
+		),
+	);
+	expect(wrongPatientDetailResponse.status).toBe(404);
+	expect(await wrongPatientDetailResponse.json()).toEqual({
+		success: false,
+		error: {
+			code: "report-not-found",
+			message: "报告详情暂不可用",
+		},
+	});
 
 	directoryInput = undefined;
 	const missingResponse = await app.handle(

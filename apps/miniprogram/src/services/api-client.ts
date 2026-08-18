@@ -608,11 +608,12 @@ export function requestReports(options: {
 }
 
 /** 读取服务端生成的短期 LIS 详情引用。 */
-export function requestReportDetail(
-	reportId: string,
-): Promise<ReportDetailResponse> {
+export function requestReportDetail(options: {
+	patientId: string;
+	reportId: string;
+}): Promise<ReportDetailResponse> {
 	return requestWithSession<ReportDetailResponse>({
-		url: `/reports/${encodeURIComponent(reportId)}`,
+		url: `/reports/${encodeURIComponent(options.reportId)}?patientId=${encodeURIComponent(options.patientId)}`,
 	});
 }
 

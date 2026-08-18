@@ -262,7 +262,7 @@ Admin/Operations 边界，当前不计入患者端迁移完成度；新端若建
 | 患者目录 | `GET /api/v2/patients`、`POST /api/v2/patients/sync` | 完整目录快照、active/inactive 和 owner 隔离已进入代码；新增/绑卡仍关闭 |
 | 预约目录 | `GET /api/v2/appointments/departments`、`GET /api/v2/appointments/schedules` | 只读目录已实现；号源锁定、预约写入、取消和挂号费关闭 |
 | 预约历史 | `GET /api/v2/appointments/records` | 只读摘要已实现；provider 专用患者映射和真实环境仍需验收 |
-| 报告目录/检验详情 | `GET /api/v2/reports`、`GET /api/v2/reports/{reportId}` | 目录已按来源分层；只有 gated LIS 白名单详情，附件/体检/原始报告关闭 |
+| 报告目录/检验详情 | `GET /api/v2/reports`、`GET /api/v2/reports/{reportId}?patientId=...` | 目录已按来源分层；详情必须同时绑定 owner、当前 patientId、opaque reportId 和 TTL；只有 gated LIS 白名单详情，附件/体检/原始报告关闭 |
 | 门诊费用目录 | `GET /api/v2/payments/outpatient/records` | 只读列表已实现；费用详情、支付、医保和 HIS 回写关闭 |
 | 微信支付基础设施 | `/api/v2/payments/orders*`、`/api/v2/payments/wechat/notifications` | 代码和 fail-closed gate 已实现；不能据此宣称真实支付完成 |
 

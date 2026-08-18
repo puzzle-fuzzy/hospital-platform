@@ -152,11 +152,17 @@ export function validateReportReference(input: ReportReferenceInput): void {
 	}
 }
 
-/** 报告引用必须按 owner 查询，并在过期后视为不存在。 */
+/**
+ * 报告引用必须同时按 owner、patient 和 reportId 查询，并在过期后视为不存在。
+ *
+ * reportId 是短期 opaque 引用，不是独立授权凭证；即使同一个用户拥有多个
+ * 就诊人，也不能只凭 reportId 跨患者读取另一条报告引用。
+ */
 export interface ReportReferenceRepository {
 	upsert(input: ReportReferenceInput): Promise<ReportReference>;
-	findByOwnerAndId(
+	findByOwnerPatientAndId(
 		ownerUserId: string,
+		patientId: string,
 		reportId: string,
 		now: string,
 	): Promise<ReportReference | undefined>;

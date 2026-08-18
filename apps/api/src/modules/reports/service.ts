@@ -70,7 +70,7 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
 	REPORT_REFERENCE_MAX_TTL_MS,
 );
 
-/** reportId 只用于定位服务端记录，不是 bearer token，也不替代 owner 查询。 */
+/** reportId 只用于定位短期引用，不是 bearer token，也不替代 owner/patient 查询。 */
 function reportReferenceId(
 	ownerUserId: string,
 	patientId: string,
@@ -251,10 +251,14 @@ export class ReportService {
 
 	async detail(
 		ownerUserId: string,
+		patientId: string,
 		reportId: string,
 		context: AdapterCallContext,
 	): Promise<ReportDetailPayload["data"]> {
 		try {
+			if (!isBoundedOpaqueIdentifier(patientId)) {
+				throw new ReportQueryError("Report patient identifier is invalid");
+			}
 			if (!isBoundedOpaqueIdentifier(reportId)) {
 				throw new ReportQueryError("Report reference identifier is invalid");
 			}
@@ -264,6 +268,7 @@ export class ReportService {
 				{
 					event: "report.detail.requested",
 					traceId: context.traceId,
+					patientId,
 					reportId,
 				},
 				"Report detail requested",
@@ -272,11 +277,16 @@ export class ReportService {
 				throw new DependencyNotConfiguredError("report-detail");
 			}
 
-			const reference = await this.dependencies.references.findByOwnerAndId(
-				ownerUserId,
-				reportId,
-				this.now().toISOString(),
-			);
+			// reportId 本身只是不透明定位符，不能单独承担患者授权。
+			// 这里再次绑定 owner 和当前就诊人，即使旧页面栈或手工请求带入
+			// 另一个患者的 reportId，也只能得到“详情不存在”，不会访问 Provider。
+			const reference =
+				await this.dependencies.references.findByOwnerPatientAndId(
+					ownerUserId,
+					patientId,
+					reportId,
+					this.now().toISOString(),
+				);
 			if (reference?.kind !== "laboratory") {
 				throw new ReportNotFoundError();
 			}
@@ -288,6 +298,7 @@ export class ReportService {
 				{
 					event: "report.detail.synced",
 					traceId: context.traceId,
+					patientId,
 					reportId,
 					providerRequestId: result.trace.requestId,
 					itemCount: result.detail.items.length,
@@ -300,6 +311,9 @@ export class ReportService {
 				{
 					event: "report.detail.failed",
 					traceId: context.traceId,
+					patientId: isBoundedOpaqueIdentifier(patientId)
+						? patientId
+						: "invalid",
 					reportId: isBoundedOpaqueIdentifier(reportId) ? reportId : "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
 					...providerFailureMetadata(error),

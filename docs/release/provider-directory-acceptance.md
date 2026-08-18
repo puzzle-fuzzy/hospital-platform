@@ -247,9 +247,9 @@ HTTPS 是硬条件：三个众阳 gate、微信身份和微信支付的自定义
 4. 患者归属：使用另一个账号的内部 patientId 做 smoke，确认 `patient-owner` 失败且请求列表中没有预约、报告或费用 provider 请求；不能只验证 ID 格式。
 5. 预约历史：确认服务端以内部 patientId 查询 `his-patient` 映射，固定 `requestChannel=3`、`isMzFlag=1`、`dateFlag=1`；确认响应没有 `appointmentInfoId`、患者身份、电话、费用、支付和 HIS 字段；用只有目录映射的测试患者确认不会错误调用 provider。
 6. 报告目录：确认服务端以内部 patientId 查映射后分别读取 LIS/PACS/ECG；确认响应只有来源、标题、时间、状态和附件存在性。
-7. LIS 报告详情：先从报告目录取得 opaque `reportId`，再通过当前公网入口请求 `GET /api/v2/reports/:reportId`（内网直连时才使用 `/api/v1`）；确认服务端按 owner 和 TTL 查询，响应没有 provider 报告号、患者字段、文件 URL 或原始 JSON。
+7. LIS 报告详情：先从报告目录取得 opaque `reportId` 和当前内部 `patientId`，再通过当前公网入口请求 `GET /api/v2/reports/:reportId?patientId=...`（内网直连时才使用 `/api/v1`）；确认服务端按 owner、patient 和 TTL 查询，响应没有 provider 报告号、患者字段、文件 URL 或原始 JSON。
 8. provider 业务失败、超时和 malformed response：确认 API 返回统一安全错误，日志保留 trace、provider request id 和错误类型，不保留 provider 原始错误内容。
-9. 使用错误 owner 的内部 patientId/reportId：确认服务端在 provider 请求前返回预约记录或报告的 owner 隔离错误。
+9. 使用错误 owner 的内部 patientId/reportId，或使用同一 owner 另一就诊人的 patientId/reportId 组合：确认服务端在 provider 请求前返回预约记录或报告的隔离错误。
 
 必须出现的结构化日志事件：
 

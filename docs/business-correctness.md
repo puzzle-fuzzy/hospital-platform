@@ -210,8 +210,11 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 - 患者目录的整批结构校验必须先于逐患者 `patInfosFind` 查询；不能因为 Promise 并行而让有效患者先产生
   档案查询副作用，再在另一位患者字段非法时整体失败。只有全量预校验通过后才允许并行查询，且 HIS
   引用重复仍必须让整批失败。
-- 报告详情的短期 opaque 引用在创建、过期计算和 owner 查询时必须使用同一个服务端应用时钟；
-  不能分别读取各机器本地时间，否则会出现目录刚返回引用、详情却被提前判定过期的错误。
+- 报告详情的短期 opaque 引用在创建、过期计算和 owner + patient 查询时必须使用同一个服务端应用时钟；
+	不能分别读取各机器本地时间，否则会出现目录刚返回引用、详情却被提前判定过期的错误。
+- 报告详情不能把 `reportId` 当作独立授权凭证；仓储查询必须同时绑定当前会话 owner、当前选中
+  `patientId`、`reportId` 和 TTL。这样即使旧页面栈或手工请求带入另一位就诊人的引用，也只能得到
+  `report-not-found`，不能访问 Provider。
 - 报告目录一次 provider 响应生成的所有短期详情引用必须共享同一个观察时间样本；
   不能在批量处理每条报告时分别取时钟，避免同一批数据出现不一致的 `createdAt`/`expiresAt`。
 - 单条报告的短期详情引用持久化失败时，目录必须保留该报告的安全摘要并省略 `reportId`，同时记录
@@ -231,7 +234,7 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
   `appointment.records.failed`；只有 Provider 明确返回空数组时才记录 `appointment.records.synced` 且
   `itemCount=0`。页面不能从缺失的失败日志或 HTTP 200 反推“没有预约”。
 - 报告目录的日期校验、owner 映射和 Provider 失败必须记录 `report.directory.failed`；详情依赖未配置、
-  owner/TTL 查询和 Provider 失败必须记录 `report.detail.failed`。只有 Provider 明确返回空目录时才记录
+  owner/patient/TTL 查询和 Provider 失败必须记录 `report.detail.failed`。只有 Provider 明确返回空目录时才记录
   `report.directory.synced(itemCount=0)`；报告详情依赖未配置不能被解释为“报告不存在”。
 - 报告目录未指定来源时是 LIS、PACS、ECG 的完整聚合查询；由于公共 contract 没有 `partial` 状态，
   任一来源失败必须整批失败，不能用 `Promise.allSettled` 只返回成功来源并静默漏掉其他报告类型。

@@ -1037,13 +1037,16 @@ test("MySQL report references persist provider ids but read them owner-scoped", 
 		}),
 	).resolves.toMatchObject({ reportId: "report-001" });
 	await expect(
-		repositories.reportReferences.findByOwnerAndId(
+		repositories.reportReferences.findByOwnerPatientAndId(
 			"user-001",
+			"patient-001",
 			"report-001",
 			"2026-08-15T00:05:00.000Z",
 		),
 	).resolves.toMatchObject({ providerReportId: "provider-report-001" });
 	expect(state.statements[0]).toContain("INSERT INTO hp_report_references");
 	expect(state.statements[0]).toContain("created_at = VALUES(created_at)");
-	expect(state.statements[1]).toContain("owner_user_id = ? AND report_id = ?");
+	expect(state.statements[1]).toContain(
+		"owner_user_id = ? AND patient_id = ? AND report_id = ?",
+	);
 });

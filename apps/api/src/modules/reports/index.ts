@@ -23,7 +23,11 @@ const ReportQuery = t.Object({
 	),
 });
 
-/** 报告接口只接受内部 patientId，服务端负责 owner 隔离和 provider lookup。 */
+const ReportDetailQuery = t.Object({
+	patientId: t.String({ minLength: 1, maxLength: 128 }),
+});
+
+/** 报告接口只接受内部 patientId，服务端负责 owner、patient 隔离和 provider lookup。 */
 export function reportsModule(
 	reportService: ReportService,
 	sessions: SessionTokenService,
@@ -33,11 +37,12 @@ export function reportsModule(
 		.onTransform({ as: "local" }, authentication.authenticate)
 		.get(
 			"/reports/:reportId",
-			async ({ request, headers, params }) => {
+			async ({ request, headers, params, query }) => {
 				const principal = await authentication.get(request);
 				return success(
 					await reportService.detail(
 						principal.userId,
+						query.patientId,
 						params.reportId,
 						adapterContextFromHeaders(headers),
 					),
@@ -48,6 +53,7 @@ export function reportsModule(
 					reportId: t.String({ minLength: 1, maxLength: 128 }),
 				}),
 				headers: ReportHeaders,
+				query: ReportDetailQuery,
 				response: { 200: ReportDetailResponse },
 				tags: ["reports"],
 			},

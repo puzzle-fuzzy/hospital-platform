@@ -106,7 +106,7 @@ test("报告目录空结果是成功，非法查询和详情依赖缺失保留�
 		logger,
 	});
 	await expect(
-		detailDisabledService.detail("user-001", "report-001", {
+		detailDisabledService.detail("user-001", "patient-001", "report-001", {
 			traceId: "trace-report-detail-disabled",
 			idempotencyKey: "key-report-detail-disabled",
 		}),
@@ -260,7 +260,7 @@ test("报告服务层拒绝非法 patientId/reportId 且不把原值写入日志
 		),
 	).rejects.toBeInstanceOf(ReportQueryError);
 	await expect(
-		service.detail("user-001", "\nreport-id", {
+		service.detail("user-001", "patient-001", "\nreport-id", {
 			traceId: "trace-invalid-report-reference",
 			idempotencyKey: "key-2",
 		}),
@@ -289,7 +289,7 @@ test("报告服务层拒绝非法 patientId/reportId 且不把原值写入日志
 	expect(JSON.stringify(records)).not.toContain("report-id");
 });
 
-test("report details use a short-lived opaque reference and owner-scoped lookup", async () => {
+test("report details use a short-lived opaque reference with owner and patient scope", async () => {
 	const directory: ReportDirectoryGateway = {
 		listReports: async () => ({
 			reports: [
@@ -363,7 +363,9 @@ test("report details use a short-lived opaque reference and owner-scoped lookup"
 	expect(reportId).toMatch(/^report_[a-f0-9]{48}$/);
 	expect(JSON.stringify(list)).not.toContain("provider-report-secret-001");
 
-	expect(await service.detail("user-001", reportId, context)).toEqual({
+	expect(
+		await service.detail("user-001", "patient-001", reportId, context),
+	).toEqual({
 		reportId,
 		kind: "laboratory",
 		title: "血常规",
@@ -372,7 +374,10 @@ test("report details use a short-lived opaque reference and owner-scoped lookup"
 		hasAttachment: true,
 	});
 	await expect(
-		service.detail("user-002", reportId, context),
+		service.detail("user-002", "patient-001", reportId, context),
+	).rejects.toBeInstanceOf(ReportNotFoundError);
+	await expect(
+		service.detail("user-001", "patient-002", reportId, context),
 	).rejects.toBeInstanceOf(ReportNotFoundError);
 });
 
@@ -391,8 +396,9 @@ test("报告详情引用的 TTL 使用注入的服务端时间基准", async () 
 				createdAt: input.createdAt ?? "2026-08-16T00:00:00.000Z",
 			};
 		},
-		findByOwnerAndId: async (
+		findByOwnerPatientAndId: async (
 			_ownerUserId: string,
+			_patientId: string,
 			_reportId: string,
 			now: string,
 		) => {
@@ -446,7 +452,7 @@ test("报告详情引用的 TTL 使用注入的服务端时间基准", async () 
 		{ traceId: "trace-report-clock", idempotencyKey: "key-report-clock" },
 	);
 	await expect(
-		service.detail("user-001", "report_missing", {
+		service.detail("user-001", "patient-001", "report_missing", {
 			traceId: "trace-report-clock-detail",
 			idempotencyKey: "key-report-clock-detail",
 		}),
@@ -518,7 +524,7 @@ test("报告目录批量引用共享同一次观察时钟", async () => {
 					createdAt: input.createdAt ?? fixedNow.toISOString(),
 				};
 			},
-			findByOwnerAndId: async () => undefined,
+			findByOwnerPatientAndId: async () => undefined,
 		},
 		now: () => {
 			nowCalls += 1;
@@ -634,7 +640,7 @@ test("报告详情引用持久化失败时保留摘要并记录低敏告警", as
 			upsert: async () => {
 				throw new Error("mysql temporarily unavailable");
 			},
-			findByOwnerAndId: async () => undefined,
+			findByOwnerPatientAndId: async () => undefined,
 		},
 		logger: createLogger({
 			service: "report-test",

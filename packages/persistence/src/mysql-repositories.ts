@@ -1720,14 +1720,15 @@ export function createMySqlRepositories(
 				createdAt,
 			};
 		},
-		async findByOwnerAndId(ownerUserId, reportId, now) {
+		async findByOwnerPatientAndId(ownerUserId, patientId, reportId, now) {
 			const rows = await execute<ReportReferenceRow[]>(
 				pool,
 				`SELECT report_id, owner_user_id, patient_id, provider, kind,
 					provider_report_id, expires_at, created_at
 				 FROM hp_report_references
-				 WHERE owner_user_id = ? AND report_id = ? AND expires_at > ? LIMIT 1`,
-				[ownerUserId, reportId, mysqlDateTime(now)],
+					 WHERE owner_user_id = ? AND patient_id = ? AND report_id = ?
+					   AND expires_at > ? LIMIT 1`,
+				[ownerUserId, patientId, reportId, mysqlDateTime(now)],
 			);
 			return rows[0] ? reportReference(rows[0]) : undefined;
 		},

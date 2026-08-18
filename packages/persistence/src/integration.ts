@@ -244,8 +244,9 @@ export async function runPersistenceIntegration() {
 		assert.equal(reportReference.reportId, reportId);
 		assert.equal(
 			(
-				await repositories.reportReferences.findByOwnerAndId(
+				await repositories.reportReferences.findByOwnerPatientAndId(
 					user.userId,
+					patientId,
 					reportId,
 					new Date(now.getTime() + 30_000).toISOString(),
 				)
@@ -253,16 +254,18 @@ export async function runPersistenceIntegration() {
 			reportReference.providerReportId,
 		);
 		assert.equal(
-			await repositories.reportReferences.findByOwnerAndId(
+			await repositories.reportReferences.findByOwnerPatientAndId(
 				"integration-other-user-not-owner",
+				patientId,
 				reportId,
 				new Date(now.getTime() + 30_000).toISOString(),
 			),
 			undefined,
 		);
 		assert.equal(
-			await repositories.reportReferences.findByOwnerAndId(
+			await repositories.reportReferences.findByOwnerPatientAndId(
 				user.userId,
+				patientId,
 				reportId,
 				new Date(now.getTime() + 60_000).toISOString(),
 			),

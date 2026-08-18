@@ -163,7 +163,7 @@ migration 的持久化边界。
 - 原生端页面只负责交互和状态；会话生命周期由 `session-service.ts` 管理，预约/报告日期窗口和读模型由
   `dashboard-service.ts` 编排，避免页面直接拼接 provider 参数；
 - 原生小程序业务源文件统一使用 TypeScript，构建脚本将其编译为 `dist/` 下的 CommonJS 页面 JavaScript 并复制静态资源；`src/` 是唯一业务源码，微信开发者工具和真机只读取已生成的运行目录，避免隐式 TS 编译失败导致页面 `.js` 缺失；
-- 报告详情只接受服务端生成的 opaque `reportId`，只展示 LIS 白名单检测项；没有详情引用时保持摘要只读；
+- 报告详情只接受服务端生成的 opaque `reportId` 和当前内部 `patientId`，服务端再次校验 owner、patient、reportId 与 TTL；只展示 LIS 白名单检测项，没有详情引用时保持摘要只读；
 - 当前首页只证明代码路径和 API contract 可用，不证明真实微信账号、HTTPS 域名、开发者工具或真机网络已验收。
 
 微信支付 adapter 的安全边界如下：

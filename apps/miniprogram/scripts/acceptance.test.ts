@@ -1366,7 +1366,7 @@ test("native homepage routes patient binding and report query to real pages", as
 	expect(reportPage).toContain("loadCurrentPatient");
 	expect(reportTemplate).toContain("报告查询");
 	expect(reportTemplate).toContain("加载更多报告");
-	// 报告详情只接受服务端生成的 opaque reportId，目录不透传 provider 报告号。
+	// 报告详情只接受服务端生成的 opaque reportId 和当前 patientId，目录不透传 provider 报告号。
 	expect(reportPage).not.toContain("providerReportId");
 });
 
@@ -1617,7 +1617,9 @@ test("native client reads LIS detail only through the opaque Hospital API refere
 	const client = await source("services/api-client.ts");
 
 	expect(client).toContain("requestReportDetail");
-	expect(client).toContain(`/reports/\${encodeURIComponent(reportId)}`);
+	expect(client).toContain(
+		"/reports/${encodeURIComponent(options.reportId)}?patientId=${encodeURIComponent(options.patientId)}",
+	);
 	expect(client).not.toContain("lis-reports/details");
 	expect(client).not.toContain("providerReportId");
 });
@@ -1907,7 +1909,8 @@ test("native report detail page consumes only the opaque platform reference", as
 	const template = await source("pages/report-detail/report-detail.wxml");
 
 	expect(client).toContain("requestReportDetail");
-	expect(page).toContain("requestReportDetail(reportId)");
+	expect(page).toContain("requestReportDetail({ patientId, reportId })");
+	expect(page).toContain('typeof patientId !== "string"');
 	expect(page).toContain("report-detail-id-missing");
 	expect(template).toContain("report-actions");
 	expect(page).not.toContain("providerReportId");

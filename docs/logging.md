@@ -102,9 +102,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `report.directory.synced` | 报告目录读取 | 记录 provider request id 和摘要数量，不记录 provider 患者号或原始报告 |
 | `report.directory.failed` | 报告目录读取 | 覆盖日期校验、owner 映射、依赖和 Provider 失败；记录错误类型、内部 patientId 以及 Provider 低敏诊断字段，不记录 provider 患者号或原始报告 |
 | `report.detail_reference.failed` | 报告目录中的详情引用建立 | 单条短期引用持久化失败时记录 trace、provider request id、内部 patientId 和错误类型；该事件表示详情入口被隐藏，摘要仍保留，不记录 provider 报告号或原始异常 |
-| `report.detail.requested` | LIS 报告详情读取 | 记录 opaque reportId 和 trace，不记录 provider 报告号 |
+| `report.detail.requested` | LIS 报告详情读取 | 记录内部 patientId、opaque reportId 和 trace，不记录 provider 报告号 |
 | `report.detail.synced` | LIS 报告详情读取 | 记录 provider request id 和检测项数量，不记录详情原文 |
-| `report.detail.failed` | LIS 报告详情读取 | 覆盖详情依赖未配置、owner/TTL 查询和 Provider 失败；记录 opaque reportId、错误类型以及 Provider 低敏诊断字段，不记录 provider 原始错误 |
+| `report.detail.failed` | LIS 报告详情读取 | 覆盖详情依赖未配置、owner/patient/TTL 查询和 Provider 失败；记录内部 patientId、opaque reportId、错误类型以及 Provider 低敏诊断字段，不记录 provider 原始错误 |
 
 ### 只读查询事件的生命周期约定
 

@@ -521,24 +521,35 @@ test("report references enforce owner isolation and expiry", async () => {
 	});
 
 	expect(
-		await references.findByOwnerAndId(
+		await references.findByOwnerPatientAndId(
 			"user-001",
+			"patient-001",
 			"report-001",
 			"2026-08-15T00:05:00.000Z",
 		),
 	).toMatchObject({ providerReportId: "provider-report-001" });
 	expect(
-		await references.findByOwnerAndId(
+		await references.findByOwnerPatientAndId(
 			"user-002",
+			"patient-001",
 			"report-001",
 			"2026-08-15T00:05:00.000Z",
 		),
 	).toBeUndefined();
 	expect(
-		await references.findByOwnerAndId(
+		await references.findByOwnerPatientAndId(
 			"user-001",
+			"patient-001",
 			"report-001",
 			"2026-08-15T00:10:00.000Z",
+		),
+	).toBeUndefined();
+	expect(
+		await references.findByOwnerPatientAndId(
+			"user-001",
+			"patient-002",
+			"report-001",
+			"2026-08-15T00:05:00.000Z",
 		),
 	).toBeUndefined();
 	await expect(

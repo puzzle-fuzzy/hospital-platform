@@ -120,7 +120,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/appointments/schedules` | Bearer；幂等键可选 | 必填 `startDate`、`endDate`；可选 `departmentId`、`doctorId` |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`、`startDate`、`endDate`；只读预约历史 |
 | `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg` |
-| `GET` | `/api/v2/reports/{reportId}` | Bearer | 只返回已开放的检验详情白名单，不返回文件 URL |
+| `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；只返回已开放的检验详情白名单，不返回文件 URL |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
 | `GET` | `/api/v2/payments/orders/{orderId}` | Bearer | 读取当前用户自己的平台支付订单 |
@@ -218,7 +218,9 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 ### 3.4 报告
 
 报告目录只返回 `kind`、标题、时间、`available`/`abnormal`、`hasAttachment` 和可选的
-opaque `reportId`；当前只有检验报告可以返回该 `reportId`。影像和心电 provider 即使返回
+opaque `reportId`；当前只有检验报告可以返回该 `reportId`。读取详情时必须同时提交目录当前选中的
+内部 `patientId`，服务端按 owner、patient、reportId 和 TTL 再次校验；`reportId` 不能独立作为授权凭证。
+影像和心电 provider 即使返回
 原始报告号，也会在 adapter 边界丢弃，因为当前没有对应的可审计详情 contract。检验详情的检测项只包含 `name`、`result`、`unit`、`referenceRange`
 和 `flag`；`flag` 为 `normal`、`high`、`low`、`critical` 或 `unknown`。
 
