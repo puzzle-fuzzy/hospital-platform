@@ -642,6 +642,10 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(await source("pages/my/my.wxss")).toContain("column-gap: 20rpx;");
 	expect(my).toContain('title: "我的订单"');
 	expect(template).toContain('data-action="{{item.action}}"');
+	// 未迁移菜单项故意没有 action；不能拿 action 做 WXML key，否则同一分组
+	// 的多个 undefined key 会让渲染层错误复用节点，出现图标/文案错位。
+	expect(template).toContain('wx:key="title"');
+	expect(template).not.toContain('wx:key="action"');
 	// 原版菜单的顺序、标题和图标属于可见业务契约；这里只允许使用仓库内
 	// 已核对过的本地图标，避免后续会话只保留文字或重新设计入口顺序。
 	for (const item of [

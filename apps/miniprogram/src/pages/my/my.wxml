@@ -36,11 +36,12 @@
 		-->
 		<view wx:for="{{menuSections}}" wx:for-item="section" wx:key="index" class="menu-section">
 			<text class="section-title">{{section.title}}</text>
-			<view class="menu-grid">
-				<view
-					wx:for="{{section.items}}"
-					wx:for-item="item"
-					wx:key="action"
+		<view class="menu-grid">
+			<!-- 未迁移入口没有 action；使用 title 作为稳定展示 key，避免多个 undefined key 让真机复用错位。 -->
+			<view
+				wx:for="{{section.items}}"
+				wx:for-item="item"
+				wx:key="title"
 					class="menu-item"
 					bindtap="onAction"
 					data-action="{{item.action}}"
