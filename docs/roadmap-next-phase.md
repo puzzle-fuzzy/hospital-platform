@@ -12,6 +12,7 @@
 - 当前门禁新增 `pnpm release:baseline:audit`：以只读业务验收候选为基准，自动核对路线图、迁移清单和当前业务审计是否仍绑定同一服务端 release 与小程序完整 `sourceRevision`，历史 release 仍可保留但不会被当作当前状态。
 - 重启后发现已有“真机调试”连接属于旧 `mp-weixin` 项目，而不是新 `apps/miniprogram`；旧窗口保持原样不操作，新项目二维码尚未产生连接。边界记录见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 - 2026-08-18 17:09 CST 已在新 `miniprogram` 项目窗口重新生成 iOS 真机调试二维码；截至记录时仍无新设备连接。二维码已生成不等于扫码成功，继续按上述边界区分旧项目连接和新项目验收。
+- 重启后再次按标题选择新 `miniprogram` 窗口时，窗口句柄与可见画面出现不一致，无法确认当前画面仍属于二维码弹窗；本次未点击、输入或继续扫码，避免误触旧项目。后续必须重新打开新候选项目并同时核对 `dist/` 资源树与二维码上下文，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 - 2026-08-18 16:44 CST 公网只读复核通过：`/api/v2/health/live=200`、`/api/v2/health/ready=200`，且 ready 返回 `database/redis/schema=ok`；未登录 `GET /api/v2/me/profile` 返回预期 `401 unauthorized`。这只证明公网运行层和认证边界，不能增加微信会话、患者切换、预约、报告或费用业务验收结论。
 - 下一步固定为：用户扫码后先确认微信会话，再按 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
   采集页面、HTTP trace 和低敏服务日志三层证据；在三层证据对齐前，不把任何只读业务标记为真实已验收。
