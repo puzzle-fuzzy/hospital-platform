@@ -104,7 +104,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：72 项通过，165 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
-- `pnpm --filter @hospital/api test`：112 项通过，517 个断言；其中包含预约记录、门诊费用、错误处理、
+- `pnpm --filter @hospital/api test`：113 项通过，526 个断言；其中包含预约记录、门诊费用、错误处理、
   患者归属和日志脱敏用例。
 
 测试只能证明注入网关和固定 fixture 下的不变量，不能证明当前线上账号能查询到真实预约或费用。

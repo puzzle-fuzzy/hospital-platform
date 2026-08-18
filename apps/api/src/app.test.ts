@@ -240,6 +240,24 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });
 
+test("P0 acceptance documents share the current release baseline", async () => {
+	const currentRelease = "c63dba9";
+	const currentDocuments = [
+		"../../../docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
+		"../../../docs/release/readonly-business-contract-audit-2026-08-18.md",
+		"../../../docs/release/report-readonly-contract-audit-2026-08-18.md",
+	];
+
+	for (const relativePath of currentDocuments) {
+		const document = await Bun.file(join(import.meta.dir, relativePath)).text();
+		// 发布后必须把真机包、日志窗口和业务审计绑定到同一个 release；否则
+		// 旧窗口的“已验收”文字会让新会话误跳过当前版本的真实业务验证。
+		expect(document).toContain(currentRelease);
+		expect(document).not.toContain("b3c9a99");
+		expect(document).not.toContain("0995f7c");
+	}
+});
+
 test("medical record draft preserves source evidence and fail-closed semantics", async () => {
 	const draft = await Bun.file(
 		join(
