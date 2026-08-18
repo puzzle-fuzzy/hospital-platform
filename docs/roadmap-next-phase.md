@@ -5,6 +5,21 @@
 
 ## 当前基线
 
+### 本轮 c63dba9 资料日志链路补齐与生产共存切换（2026-08-18 11:07-11:09 CST）
+
+- `c63dba9` 已完成本地全量门禁、7 个 bundle SHA-256、服务器真实生产 env preflight 和
+  `127.0.0.1:18082` 隔离 runtime smoke；当前 release 为 `/home/ps/code/hospital-platform/releases/c63dba9`。
+- 新 Bun/Elysia API `10.0.0.3:18081` 以生产模式 active；旧 Python API `0.0.0.0:8001` 继续监听，
+  旧服务未被重启、停止或修改，Worker 仍 inactive。切换后公网 ready 连续 6/6，MySQL、Redis、schema 为 `ok`，
+  `Cache-Control: no-store` 保持不变。
+- 本次只补齐普通资料更新的 `user.profile.update.requested` 开始事件、结果事件测试和 P0 证据门禁，
+  不打开支付、医保、HIS 写入、预约写入、报告或 Worker。日志聚合 `parseErrors=0`、`systemdWarningCount=0`。
+- 当前仍未取得本 release 的有效微信会话下“显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊费用”的页面、HTTP、
+  低敏日志三层证据；不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
+  [`release/c63dba9-production-acceptance-2026-08-18.md`](release/c63dba9-production-acceptance-2026-08-18.md)。
+- 下一步优先使用匹配的原生小程序包完成患者显式切换和预约历史/门诊费用只读三层验收；支付、医保、预约写入、
+  退款、报告 Provider 和 HIS 写回继续最后处理。
+
 ### 本轮 e5bafd3 资料边界修正与生产共存切换（2026-08-18 10:05-10:07 CST）
 
 - `bac6f7f` 收紧普通资料的 Unicode 昵称长度和 MySQL `INT UNSIGNED` 版本边界，`e5bafd3` 修正配置格式门禁与迁移文档测试；定向测试、全量测试和构建均通过。
