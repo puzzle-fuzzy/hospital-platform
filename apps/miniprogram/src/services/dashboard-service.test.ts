@@ -3,6 +3,7 @@ import {
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
 	createPastDateRange,
+	loadOutpatientPaymentRecords,
 } from "./dashboard-service";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
@@ -33,6 +34,14 @@ test("爽约查询只使用过去 90 天，不把未来预约混入派生视图"
 
 test("预约查询先拒绝空患者标识，不允许生成跨患者请求", () => {
 	expect(() => createAppointmentRecordQuery("", BEIJING_MIDNIGHT)).toThrow(
+		"请先登录并选择就诊人",
+	);
+});
+
+test("门诊费用查询先拒绝空患者标识，不把无效查询交给 API", () => {
+	// 这里必须在 requestWithSession 之前失败；否则页面会把患者上下文问题
+	// 误报成接口参数错误，且会产生一条没有业务意义的网络日志。
+	expect(() => loadOutpatientPaymentRecords("", "unpaid")).toThrow(
 		"请先登录并选择就诊人",
 	);
 });

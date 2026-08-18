@@ -253,9 +253,12 @@ export function loadOutpatientPaymentRecords(
 	patientId: string,
 	status: "unpaid" | "paid",
 ): Promise<Array<OutpatientPaymentRecord>> {
-	return requestOutpatientPaymentRecords({ patientId, status }).then(
-		(payload) => payload.data.items,
-	);
+	// 门诊费用和预约、报告一样属于患者范围查询；即使调用方来自已选患者页面，
+	// 也必须在服务层再次拒绝空标识，不能把“当前页面没有患者”转换成一次无效 API 请求。
+	return requestOutpatientPaymentRecords({
+		patientId: requirePatientId(patientId),
+		status,
+	}).then((payload) => payload.data.items);
 }
 
 /** 读取当前内部患者的脱敏预约历史摘要。 */
