@@ -11,7 +11,7 @@
 
 本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前服务器 release 为 `4cf9e66`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
+- 当前服务器 release 为 `e5bafd3`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；只重启新 API，没有覆盖或停止旧服务。
 - 当前 release 的生产 preflight、内网 readiness 和 `runtimeMode=production` 已通过；MySQL、Redis、schema
   均为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。公网转发在本次切换后尚未重新取证；这些结果证明运行层共存，不证明患者端业务完成。
@@ -19,10 +19,10 @@
   但日志计数不能替代页面、HTTP、患者归属和 Provider 结果证据。
 - 当前 release 切换后仅取得健康检查和启动日志，没有新的 `appointment.*` 或 `outpatient.payment.*` 业务事件；此前窗口中的微信登录、
   患者同步、预约和费用事件均按历史事件处理，不能回填为 `4cf9e66` 的真实业务验收。
-- 下一步固定使用与 `4cf9e66` 匹配的小程序运行包，按“有效微信会话登录 → 刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”
+- 下一步固定使用与 `e5bafd3` 匹配的小程序运行包，按“有效微信会话登录 → 刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊待缴/已缴”
   取页面、HTTP、低敏日志三层证据；预约写入、详情、支付、医保和 HIS 回写继续最后处理。
 
-完整切换与停机证据见 [`../release/4cf9e66-production-acceptance-2026-08-18.md`](../release/4cf9e66-production-acceptance-2026-08-18.md)。
+完整切换与停机证据见 [`../release/e5bafd3-production-acceptance-2026-08-18.md`](../release/e5bafd3-production-acceptance-2026-08-18.md)。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
 [`../release/0995f7c-production-acceptance-2026-08-18.md`](../release/0995f7c-production-acceptance-2026-08-18.md) 和
 [`../release/0995f7c-current-runtime-observation-2026-08-18-0254.md`](../release/0995f7c-current-runtime-observation-2026-08-18-0254.md)；
