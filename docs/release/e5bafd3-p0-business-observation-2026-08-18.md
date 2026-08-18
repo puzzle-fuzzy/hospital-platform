@@ -53,3 +53,17 @@
 “全部挂号”标签当前只保留原版视觉位置并提示迁移中，不应作为本轮业务验收入口；它需要独立的 Provider 渠道 contract。
 
 若任一项返回 `unauthorized`、`patient-selection-required`、`patient-not-found`、`persistence-temporarily-unavailable` 或 provider 错误，先根据同一 traceId 定位会话、患者映射和 provider 边界；不能把失败降级为空列表，也不能在当前证据不足时打开支付、医保或 HIS 写回。
+
+## 6. 10:27 CST 运行层复核
+
+随后通过受控 SSH 和公网只读探针复核当前共存状态：
+
+- 新服务 `hospital-platform-api-v2.service` 为 `active`，当前 release 仍为
+  `/home/ps/code/hospital-platform/releases/e5bafd3`，监听 `10.0.0.3:18081`；
+- 旧 Python/Gunicorn 进程仍监听 `0.0.0.0:8001`，本次没有停止、重启或修改旧服务；
+- 公网 `https://test-hp.meiyi.pro/api/v2/health/live` 和 `/api/v2/health/ready` 均返回 HTTP 200，
+  ready 的 database、Redis、schema 均为 `ok`，并保留 `Cache-Control: no-store`；
+- 当前观察窗口仍没有新增 `user.profile.*`、`appointment.records.*` 或
+  `outpatient.payment.*` 事件，因此运行层健康不能替代个人资料、挂号历史和门诊费用的真实业务验收。
+
+这次复核只验证服务共存、路由和依赖健康，不读取业务数据、不导出会话 token，也没有执行支付、医保、退款或 HIS 写回。

@@ -16,6 +16,17 @@
 - 当前服务器只读 Provider smoke 在配置校验阶段因缺少临时平台 access token 停止，未发出任何预约/费用请求；后续命令行验收必须使用受控临时注入，不能从 Redis 导出真机 token。
 - 完整证据见 [`release/e5bafd3-production-acceptance-2026-08-18.md`](release/e5bafd3-production-acceptance-2026-08-18.md)。
 
+### 本轮 10:27 CST 共存与公网健康复核
+
+- 当前 `hospital-platform-api-v2.service` 仍运行 `/home/ps/code/hospital-platform/releases/e5bafd3`，新 API 监听
+  `10.0.0.3:18081`；旧 Python/Gunicorn 仍监听 `0.0.0.0:8001`，旧服务没有被本轮操作停止或修改。
+- 公网 `/api/v2/health/live`、`/api/v2/health/ready` 均为 HTTP 200，ready 的 MySQL、Redis、schema 为 `ok`，
+  但当前没有新增个人资料、挂号历史或门诊费用业务事件。
+- 因此下一步不是继续改动运行层，而是使用匹配当前 release 的小程序运行包，按
+  `我的 → 我的挂号（在线渠道） → 爽约记录 → 门诊缴费（待缴/已缴） → 更换就诊人后重复读取`
+  逐项触发真实请求；没有页面结果和对应低敏日志前，相关域仍保持“未完成三层验收”。
+- 复核记录见 [`release/e5bafd3-p0-business-observation-2026-08-18.md`](release/e5bafd3-p0-business-observation-2026-08-18.md)。
+
 ### 本轮 4cf9e66 生产共存切换与候选验收（2026-08-18 09:16-09:20 CST）
 
 - `4cf9e66` 已完成本地全量 `pnpm check`、服务器真实生产 env preflight、`127.0.0.1:18082` 隔离
