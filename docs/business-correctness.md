@@ -124,7 +124,8 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 `requestChannel=4` 请求。新端当前只完成前者，因此保留全部标签的视觉位置，但点击只提示
 “查询正在迁移中”，不能把同一批在线结果复制成全部记录，也不能在小程序内猜测渠道参数。
 只有 `requestChannel=4` 的 provider contract、owner 映射、日期窗口、失败/超时语义和脱敏样例
-冻结后，才允许开放全部标签。
+冻结后，才允许开放全部标签；当前缺口与停止条件见
+[`migration/request-channel-4-all-records-contract-audit-2026-08-18.md`](migration/request-channel-4-all-records-contract-audit-2026-08-18.md)。
 
 ## 2. 同步和历史数据
 

@@ -48,6 +48,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 预约记录 Phase 7D 只实现历史记录只读摘要：
 
 - 使用旧项目记录查询对应的 `/msun-middle-business-appointment-server/v1/appointment-infos/{pat-id}`，服务端固定 `requestChannel=3`、`isMzFlag=1` 和 `dateFlag=1`，日期范围由平台限制；provider 患者号只能来自服务端 mapping；
+- 旧端“全部挂号”虽然曾使用同一路径的 `requestChannel=4` 且省略日期参数，但当前没有生产渠道权限、响应字段、状态/分页/排序和空结果语义的独立合同；这部分审计保持关闭，详见 [`migration/request-channel-4-all-records-contract-audit-2026-08-18.md`](migration/request-channel-4-all-records-contract-audit-2026-08-18.md)；
 - 新 contract 只返回科室、医生、就诊日期/时间、地点、序号和规范化状态；`appointmentInfoId`、患者身份字段、电话、挂号费、支付状态、HIS 挂号号和 provider 原始字段全部丢弃；
 - Provider 包络必须带有已确认的成功事实：新链路接受 `success=true`（可配 `code=0`），旧预约记录链路接受 `code=0000`；HTTP 200、存在 `data` 或返回空数组都不能单独代表成功。业务失败空列表必须转换为 Provider 错误，不能让小程序误显示“暂无预约”；
 - adapter 完成第一道白名单映射后，预约 service 仍会对可注入网关结果做第二次运行时校验，并重新投影公共字段；非法日期、未知状态、非法展示文本或夹带的 Provider 字段不会进入 API，读模型异常返回 `502/provider-response-invalid`，不降级为空列表；
