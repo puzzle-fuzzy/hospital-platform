@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 07:20 CST：公网只读复核 `health/live`、`health/ready`、`system/ping` 均为 `200`，ready 的
+  `database/redis/schema` 均为 `ok`，未登录 `/me` 为预期 `401/unauthorized`；live/ready 的 `Cache-Control: no-store`
+  和低敏 `x-request-id` 均存在。本轮没有 Bearer、openid、患者参数、Provider 请求或业务写入，只更新公网运行层证据，
+  不增加真机、患者切换、费用、支付或医保结论，详见 [`current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md)。
+
 - 2026-08-19：完成“我的挂号”双标签契约审计。当前服务端只使用已冻结的在线渠道
   `requestChannel=3`；“在线挂号”仅排除明确的 `cancelled`，而“全部挂号”需要独立的
   `requestChannel=4` Provider 合同，不能把在线结果本地复制或通过空列表伪装完成。页面继续

@@ -65,6 +65,21 @@ Worker 或任何业务数据。该结果确认新旧服务共存和运行层稳�
 这次结果只补充公网入口和未登录认证边界；SSH 双服务共存、真实微信会话、患者切换、Provider、真机、
 费用、支付和医保仍以各自的独立证据为准。
 
+## 2.4 当前公网只读复核（2026-08-19 07:20 CST）
+
+本轮再次只请求公网健康探针和未登录 `/me`，没有携带 Bearer、openid、患者参数或 Provider 参数，
+也没有执行数据库、Redis 或业务写入。最终 HTTP 结果如下：
+
+| 请求 | 结果 | 低敏说明 |
+| --- | --- | --- |
+| `GET /api/v2/health/live` | `200` | `status=ok`，响应带 `Cache-Control: no-store`，`x-request-id=e137e949-98e3-41af-b43d-826d1e3a5975` |
+| `GET /api/v2/health/ready` | `200` | `database=ok`、`redis=ok`、`schema=ok`，响应带 `Cache-Control: no-store`，`x-request-id=74de7833-79d0-427c-9582-82e008bc45fd` |
+| `GET /api/v2/system/ping` | `200` | 新 API 路由可达，`x-request-id=f56cc61a-cdc4-4836-bf7a-938adc1f26ad` |
+| `GET /api/v2/me` | `401 unauthorized` | 未携带 Bearer 时认证门禁正常，`x-request-id=e71926f1-b940-4412-93e8-7fa095896f56` |
+
+该复核只更新公网运行层和未登录认证证据，不增加 SSH 双服务共存、真实微信会话、多患者切换、
+Provider、真机、费用、支付或医保结论。
+
 ## 3. 后续动作
 
 继续按当前路线图执行：先取得可验证的真实微信会话和多就诊人切换证据，再分别验收预约历史、
