@@ -1724,13 +1724,17 @@ test("native homepage and my page reject stale patient directory responses", asy
 
 test("native homepage reloads the owner directory after returning from patient selection", async () => {
 	const home = await source("pages/index/index.ts");
+	const showStart = home.indexOf("onShow() {");
+	const showEnd = home.indexOf("\n\t},", showStart);
+	const showBody = home.slice(showStart, showEnd);
 
 	// 选择页同步后可能让旧患者失效，但本地缓存中的旧 ID 仍会保留到
 	// 用户显式重选；首页不能用“ID 没变化”误判为仍可展示旧患者。
 	expect(home).toContain("hasShown: false");
 	expect(home).toContain("if (!this.data.hasShown)");
 	expect(home).toContain("if (!hasPlatformSession())");
-	expect(home).toContain("clearSelectedPatientId();");
+	expect(showBody).toContain("this.clearDisplayedPatientContext();");
+	expect(showBody).not.toContain("clearSelectedPatientId();");
 	expect(home).toContain("this.loadPatients().catch((error) =>");
 	expect(home).not.toContain(
 		"selectedPatientId === this.data.selectedPatientId",
@@ -1801,9 +1805,10 @@ test("native homepage fails closed when session recovery cannot be completed", a
 	const home = await source("pages/index/index.ts");
 
 	// 401 清除 token 后，微信登录又遇到 503 时，旧页面实例不能继续展示
-	// 上一位患者；依赖暂时不可用但 token 尚存时则不能误删可重试会话。
+	// 上一位患者；但本地显式选择仍要保留，后续同账号恢复必须进入原患者
+	// 或 stale 分支，不能因为临时失效而静默默认第一位。
 	expect(home).toContain(
-		"if (!hasPlatformSession()) this.clearPatientContext();",
+		"if (!hasPlatformSession()) this.clearDisplayedPatientContext();",
 	);
 	expect(home).toContain("clearPatientContext(): void");
 	expect(home).toContain("auth/wechat");
@@ -1824,6 +1829,19 @@ test("native homepage preserves explicit patient choice during session recovery 
 	// 解析，若患者已失效则进入 stale 分支并要求用户显式重选。
 	expect(restoreCatch).toContain("this.clearDisplayedPatientContext();");
 	expect(restoreCatch).not.toContain("this.clearPatientContext();");
+});
+
+test("native homepage preserves explicit patient choice across login failure", async () => {
+	const home = await source("pages/index/index.ts");
+	const loginStart = home.indexOf("onLogin(options: LoginOptions = {})");
+	const loginEnd = home.indexOf("/** 顶部就诊人卡片", loginStart);
+	const loginBody = home.slice(loginStart, loginEnd);
+
+	// token 失效和微信重新兑换失败只清理页面派生数据，不删除 storage 中的
+	// opaque patientId；下一次成功目录读取才能区分 selected 与 stale，禁止自动换人。
+	expect(loginBody).toContain("this.clearDisplayedPatientContext();");
+	expect(loginBody).not.toContain("this.clearPatientContext();");
+	expect(loginBody).toContain("不能在这里删除本地选择");
 });
 
 test("native homepage clears displayed patient context after directory failures", async () => {

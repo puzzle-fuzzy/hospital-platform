@@ -22,6 +22,7 @@
 | [`release/miniprogram-patient-select-session-display-boundary-2026-08-19.md`](release/miniprogram-patient-select-session-display-boundary-2026-08-19.md) | 就诊人选择页在会话失效/账号切换后的目录清理边界；不代表多患者真机验收 |
 | [`release/miniprogram-profile-session-display-boundary-2026-08-19.md`](release/miniprogram-profile-session-display-boundary-2026-08-19.md) | 普通资料读取/保存在会话失效后的旧资料清理边界；不代表真实 PUT、409 或真机验收 |
 | [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md) | 登录成功与患者上下文就绪的分层契约、同步失败回调门禁和首页旧患者清理边界 |
+| [`release/miniprogram-session-explicit-patient-retention-2026-08-19.md`](release/miniprogram-session-explicit-patient-retention-2026-08-19.md) | 会话失效/重新登录期间保留显式就诊人选择，防止恢复后静默换成第一位患者 |
 | [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md) | GET 自动恢复与命令请求禁止重放的会话安全边界；不代表线上小程序、真机或支付验收 |
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |

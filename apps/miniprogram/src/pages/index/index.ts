@@ -309,14 +309,13 @@ Page<IndexPageData, IndexPageMethods>({
 		}
 
 		if (!hasPlatformSession()) {
-			// 会话失效时不继续展示上一位患者；重新登录后由目录读取恢复。
-			clearSelectedPatientId();
+			// 会话失效时不继续展示上一位患者；重新登录后由 owner-scoped
+			// 目录读取恢复。这里不能删除用户已经明确选择的 opaque ID：
+			// 同一微信账号只是 token 过期时，应恢复原患者；如果账号已经
+			// 变化，目录解析会进入 stale，要求显式重选，不能静默切第一位。
+			this.clearDisplayedPatientContext();
 			this.setData({
 				sessionStatus: SESSION_LABELS.signedOut,
-				patients: [],
-				selectedPatient: null,
-				selectedPatientId: "",
-				hasPatients: false,
 			});
 			return;
 		}
@@ -376,7 +375,9 @@ Page<IndexPageData, IndexPageMethods>({
 	onLogin(options: LoginOptions = {}) {
 		// 主动重新登录前若已没有可验证会话，先清掉旧页面实例中的患者数据。
 		// 否则 auth/wechat 返回 503 时，用户可能看到旧患者而误以为登录成功。
-		if (!hasPlatformSession()) this.clearPatientContext();
+		// 这里只清理展示态，不删除用户的本地显式选择；登录到同一账号时
+		// 可以恢复原患者，登录到其他账号时则由 owner-scoped 目录进入 stale。
+		if (!hasPlatformSession()) this.clearDisplayedPatientContext();
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
 		// 主动登录期间不能继续沿用上一次的“已登录”文案；入口门禁必须保持
@@ -414,9 +415,11 @@ Page<IndexPageData, IndexPageMethods>({
 			.catch((error) => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
 				// 登录失败不能留下“有患者但无会话”的半登录状态；只有确认
-				// 没有本地 token 才清除，避免 Redis 短暂故障时误删仍可重试的会话。
+				// 没有本地 token 才清理页面展示。不能在这里删除本地选择：
+				// token 失效可能只是同一账号的临时会话故障，下一轮 owner-scoped
+				// 目录读取仍需把用户原来的选择解析成 selected/stale，而非默认换人。
 				if (!hasPlatformSession()) {
-					this.clearPatientContext();
+					this.clearDisplayedPatientContext();
 					this.setData({ sessionStatus: SESSION_LABELS.signedOut });
 				} else if (sessionVerificationStateFromError(error) === "unavailable") {
 					// Redis/网络暂时失败时保留 token，但把入口从“验证中”收敛到

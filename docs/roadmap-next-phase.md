@@ -22,6 +22,12 @@
   该修正不改变 API、数据库、Redis、Provider、线上服务或旧 Python，详见
   [`miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)。
 
+- 2026-08-19：修正会话失效后的就诊人选择生命周期。首页此前在无 token 的 `onShow()`
+  中删除本地显式患者 ID，重新登录后可能把同一账号的当前患者静默换成目录第一位；现已只清理
+  页面展示态，保留 opaque ID，由 owner-scoped 目录解析为原患者或 `stale`，跨账号不会获得访问授权。
+  小程序回归为 `156/156`、`1248` 个断言通过；未修改 API、数据库、Redis、Provider、线上服务或旧 Python，
+  详见 [`miniprogram-session-explicit-patient-retention-2026-08-19.md`](release/miniprogram-session-explicit-patient-retention-2026-08-19.md)。
+
 - 2026-08-19：完成“我的挂号”双标签契约审计。当前服务端只使用已冻结的在线渠道
   `requestChannel=3`；“在线挂号”仅排除明确的 `cancelled`，而“全部挂号”需要独立的
   `requestChannel=4` Provider 合同，不能把在线结果本地复制或通过空列表伪装完成。页面继续
