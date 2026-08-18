@@ -234,6 +234,23 @@ test("native client requests patient synchronization through the Hospital API", 
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native patient QR entry requires a confirmed patient snapshot", async () => {
+	const page = await source("pages/index/index.ts");
+	const qrStart = page.indexOf("onPatientQr() {");
+	const qrEnd = page.indexOf("\n\t},", qrStart);
+	const qrBody = page.slice(qrStart, qrEnd);
+
+	// 本地缓存的 opaque patientId 可能在会话失效或目录读取失败后仍保留，
+	// 不能把它当作当前患者事实，更不能据此开放或暗示二维码能力。二维码
+	// 入口只能基于本轮已经确认并展示的 selectedPatient 做关闭态判断。
+	expect(qrBody).toContain(
+		"const hasConfirmedPatient = Boolean(this.data.selectedPatient);",
+	);
+	expect(qrBody).toContain("title: hasConfirmedPatient ?");
+	expect(qrBody).toContain("content: hasConfirmedPatient");
+	expect(qrBody).not.toContain("this.data.selectedPatientId ?");
+});
+
 test("native patient pages preserve stale semantics for an empty synchronized directory", async () => {
 	const indexPage = await source("pages/index/index.ts");
 	const selectionPage = await source("pages/patient-select/patient-select.ts");

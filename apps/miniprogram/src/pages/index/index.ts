@@ -453,9 +453,13 @@ Page<IndexPageData, IndexPageMethods>({
 	 * 因此只给出明确迁移状态，不生成伪二维码，也不把医疗标识发送给第三方。
 	 */
 	onPatientQr() {
+		// 本地 opaque patientId 只能用于恢复/stale 判断，不能证明当前页面已经
+		// 取得同一会话的最新患者目录。二维码入口必须依赖本轮已确认的患者对象，
+		// 否则临时故障或会话切换后仍会把“有缓存 ID”误报成“有患者可扫码”。
+		const hasConfirmedPatient = Boolean(this.data.selectedPatient);
 		wx.showModal({
-			title: this.data.selectedPatientId ? "二维码暂未开放" : "暂无就诊人",
-			content: this.data.selectedPatientId
+			title: hasConfirmedPatient ? "二维码暂未开放" : "暂无就诊人",
+			content: hasConfirmedPatient
 				? "医院扫码字段和有效期协议确认后开放，请先使用实体就诊卡或窗口服务。"
 				: "请先登录并选择就诊人。",
 			showCancel: false,
