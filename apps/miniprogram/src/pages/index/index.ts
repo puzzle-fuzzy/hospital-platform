@@ -30,6 +30,7 @@ import {
 	sessionVerificationStateFromLabel,
 	signInPlatformSession,
 } from "../../services/session-service";
+import { getSessionGeneration } from "../../services/session-generation";
 import type {
 	ActionEvent,
 	IndexEvent,
@@ -539,7 +540,10 @@ Page<IndexPageData, IndexPageMethods>({
 	 * 清理展示上下文并保留可重试的会话，避免把错误伪装成业务空结果。
 	 */
 	onSyncPatients(): Promise<void> {
-		const patientSyncFlight = getPageSingleFlight<void>(this, "patient-sync");
+		const patientSyncFlight = getPageSingleFlight<void>(
+			this,
+			`patient-sync:${getSessionGeneration()}`,
+		);
 		return patientSyncFlight.run(() => {
 			const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 			const syncLoadingGuard = getPageLatestRequestGuard(this, "sync-loading");

@@ -15,6 +15,7 @@ import type {
 	WechatPrepayResponse,
 	WechatPrepayStatusResponse,
 } from "../types";
+import { advanceSessionGeneration } from "./session-generation";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
@@ -95,6 +96,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"wechat-code-missing": "微信登录未返回临时凭证",
 		"session-missing": "登录响应缺少平台会话",
 		"wechat-login-failed": "微信登录失败",
+		"session-changed": "登录账号已切换，请重新加载",
 		"patient-selection-required": "请先登录并选择就诊人",
 		"patient-selection-stale": "上次选择的就诊人已失效，请重新选择",
 		"patient-not-bound": "当前微信账号暂无绑定的就诊人",
@@ -195,6 +197,14 @@ export function isAllowedApiBaseUrl(value: unknown): value is string {
 
 function setAccessToken(accessToken: string): void {
 	const appData = globalData();
+	const previousAccessToken = String(
+		appData.accessToken || wx.getStorageSync(ACCESS_TOKEN_KEY) || "",
+	);
+	if (previousAccessToken !== accessToken) {
+		// 患者、资料和费用请求不能跨账号复用；只递增不记录 token，避免
+		// 会话代际机制本身成为敏感信息存储点。
+		advanceSessionGeneration();
+	}
 	appData.accessToken = accessToken;
 	// token 与全局展示状态必须原子地同步；401 清理 token 时不能继续显示“已登录”。
 	appData.sessionStatus = accessToken ? "signed_in" : "signed_out";

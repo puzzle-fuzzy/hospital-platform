@@ -16,6 +16,7 @@ import {
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
+import { getSessionGeneration } from "../../services/session-generation";
 import type {
 	Patient,
 	PatientEvent,
@@ -246,7 +247,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 		const patientSyncFlight = getPageSingleFlight<Array<Patient>>(
 			this,
-			"patient-sync",
+			`patient-sync:${getSessionGeneration()}`,
 		);
 		const syncGuard = getPageLatestRequestGuard(this, "sync");
 		const syncToken = syncGuard.begin();

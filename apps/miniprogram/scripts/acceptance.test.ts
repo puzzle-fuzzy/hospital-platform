@@ -405,6 +405,8 @@ test("patient selection hides the current badge while directory confirmation is 
 test("native patient synchronization is single-flight at both entry pages", async () => {
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");
+	const coordinator = await source("services/patient-sync-coordinator.ts");
+	const sessionGeneration = await source("services/session-generation.ts");
 
 	// WXML disabled 只能降低重复点击概率，不能约束生命周期回调或真机重复事件。
 	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
@@ -415,6 +417,14 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	expect(selection).toContain('"patient-list-load"');
 	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken)");
 	expect(selection).toContain("后发调用方仍要消费同一个患者数组");
+	expect(home).toContain("patient-sync:${getSessionGeneration()}");
+	expect(selection).toContain("patient-sync:${getSessionGeneration()}");
+	expect(coordinator).toContain("patientSyncFlights");
+	expect(coordinator).toContain("getSessionGeneration");
+	expect(sessionGeneration).toContain("advanceSessionGeneration");
+	// 页面/进程 single-flight 必须随会话代际隔离，不能把旧账号的患者快照
+	// 交给新账号；token 本身不允许进入协调器的 key 或测试输出。
+	expect(coordinator).not.toContain("accessToken");
 });
 
 test("native data pages keep first-show state on the page instance", async () => {
