@@ -130,7 +130,16 @@ export function resolvePatientSelection(
 	patients: readonly Patient[],
 	storedPatientId: string,
 ): PatientSelectionResolution {
-	if (patients.length === 0) return { state: "empty" };
+	if (patients.length === 0) {
+		// 空目录的含义取决于本地是否已有明确选择：首次进入时它表示当前
+		// owner 没有任何患者；但如果本地曾保存过 patientId，则说明该患者
+		// 已经不在最新 owner-scoped 快照中。两种情况都不能切到其他患者，
+		// 后者必须保留 stale 语义，让页面要求用户显式重新选择，也避免把
+		// “目录暂时为空/患者已失效”误报成“从未绑定患者”。
+		return storedPatientId
+			? { state: "stale", storedPatientId }
+			: { state: "empty" };
+	}
 
 	if (!storedPatientId) {
 		// 目录里可能同时存在旧端迁移记录和已经完成 HIS 映射的患者；默认值

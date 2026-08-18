@@ -85,6 +85,17 @@ test("已有选择从目录消失时必须进入 stale，不能静默切换到�
 	});
 });
 
+test("已有选择但最新目录为空时仍必须进入 stale", () => {
+	const result = resolvePatientSelection([], "patient-removed");
+
+	// 空快照也代表“当前选择不再被 owner 目录确认”；不能因为没有第二条
+	// 患者可供切换，就把失效选择降级成未绑定，避免页面隐藏真正的失效原因。
+	expect(result).toEqual({
+		state: "stale",
+		storedPatientId: "patient-removed",
+	});
+});
+
 test("已保存的患者仍在当前 owner 目录时保持显式选择", () => {
 	const result = resolvePatientSelection(
 		[patient("patient-a"), patient("patient-b")],

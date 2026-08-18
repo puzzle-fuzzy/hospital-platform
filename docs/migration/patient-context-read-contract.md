@@ -26,8 +26,9 @@
 1. 目录读取必须经过带当前 Bearer 会话的 `/patients`，不能使用旧端缓存、Provider 地址或页面参数；
 2. 首次从未保存选择时，才允许默认第一位 `clinicalAccess=ready` 患者；
 3. 已保存患者不在当前 owner 目录时必须返回 `patient-selection-stale`，不能静默切换到 `patients[0]`；
-4. 已保存患者存在但临床映射不可用时必须返回 `patient-clinical-unavailable`，不能把目录引用当作 `his-patient`；
-5. 只有解析成功的内部 opaque `patientId` 才能进入预约、报告或门诊费用查询；Provider 患者号只在服务端 adapter 内部流转。
+4. 当最新 owner 目录成功返回空数组时，如果本地已有选择，仍必须返回 `patient-selection-stale`；只有从未保存过选择时才返回 `patient-not-bound` 对应的 `empty` 状态，不能把患者失效或目录恢复窗口误报成从未绑定；
+5. 已保存患者存在但临床映射不可用时必须返回 `patient-clinical-unavailable`，不能把目录引用当作 `his-patient`；
+6. 只有解析成功的内部 opaque `patientId` 才能进入预约、报告或门诊费用查询；Provider 患者号只在服务端 adapter 内部流转。
 
 其中门诊费用、预约记录和报告目录的加载器还必须在小程序服务层再次调用同一个非空校验，
 不能因为页面已经展示过患者卡片就把空标识交给 API。这样可以把患者上下文错误在网络请求

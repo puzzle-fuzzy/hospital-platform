@@ -305,7 +305,8 @@ test("patient selection never silently switches a stale patient to another patie
 	// 空目录也不能把已有选择改写成“从未选择”；目录恢复后必须进入 stale，
 	// 而不是自动选择恢复列表的第一位。
 	expect(resolvePatientSelection([], "patient-removed")).toEqual({
-		state: "empty",
+		state: "stale",
+		storedPatientId: "patient-removed",
 	});
 });
 
