@@ -132,6 +132,13 @@ systemd 为 `active`，内网 readiness 返回 database/redis/schema 全部 `ok`
 确认后再开放；开发者工具网络面板没有新增二维码第三方请求。该结果与旧端曾把 `medicalCardNo` 拼接到第三方二维码 URL
 的行为形成明确安全边界：当前新端不外发医疗标识，也不把静态二维码图标解释成真实扫码能力。
 
+2026-08-18 14:16 CST 发现普通 `pnpm build` 命中了 Turbo 缓存：由于当前 build 任务指纹没有把 Git HEAD
+作为输入，`dist/build-info.json` 仍保留了更早的 `217b684` 来源指纹。随后使用
+`pnpm exec turbo run build --filter=@hospital/miniprogram --force` 强制重建，小程序产物来源指纹已更新为当前
+`d6b3d661e5864fffdccac14d72a58d4edaecc81d`，`runtime:verify` 通过，14 个页面脚本和根文件齐全。今后的发布在
+“仅文档/配置提交后仍需刷新运行包指纹”这一场景必须执行强制小程序构建，或在 CI 中加入等价的来源指纹门禁；
+不能只依据 Turbo 的缓存命中结果判断开发者工具和真机拿到的是当前候选包。
+
 ## 6. 当前仍未完成的验收
 
 - 尚未进行有效微信会话下的真机登录、患者切换、预约历史/爽约、门诊费用或普通资料读写验收；当前客户端必须使用来源指纹为
