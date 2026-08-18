@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：继续做跨页面会话派生展示审计时发现，选择就诊人页在同步失败时虽然清除了“当前”角标，但会保留旧患者姓名、关系和脱敏电子就诊卡。现已区分暂时依赖故障与 `unauthorized`/`session-changed`/无 token：后者清理整个 owner-scoped 患者目录，重新建立会话后必须重新读取目录并完成临床映射；本地 opaque 选择仍保留用于 stale 判断。该修正只影响新小程序、中文注释和 acceptance 门禁，不新增绑定接口、不执行业务写入、不修改 API、数据库、Redis、旧 Python 服务或线上小程序，详见 [`release/miniprogram-patient-select-session-display-boundary-2026-08-19.md`](release/miniprogram-patient-select-session-display-boundary-2026-08-19.md)。
+
 - 2026-08-19：继续审计普通资料页时发现，资料读取/保存请求在会话失效、并发账号切换或自动重新登录失败后，页面原先可能只显示错误而保留上一账号的昵称、性别、年龄、邮箱和版本。现已新增会话归属判断：`unauthorized`、`session-changed` 或已无 token 时清理资料派生字段并回到 `loaded=false`；普通网络/持久化暂时故障和 `user-profile-conflict` 仍保持各自语义。该修正只影响新小程序、中文注释和 acceptance 门禁，不执行真实 PUT、不修改 API、数据库、Redis、旧 Python 服务或线上小程序，详见 [`release/miniprogram-profile-session-display-boundary-2026-08-19.md`](release/miniprogram-profile-session-display-boundary-2026-08-19.md)。
 
 - 2026-08-19：继续复核开发者工具中的首页会话恢复时发现，服务端返回 `401/unauthorized` 时，客户端
@@ -14,9 +16,9 @@
   `invalid/unavailable` 收敛。新增原生 acceptance 门禁，避免出现“旧患者 + 新会话验证中”的不一致快照。该修正不改变服务端
   路由、数据库、Redis 或旧 Python 服务，也不把模拟器观察写成真机验收，详见
   [`release/miniprogram-session-display-boundary-2026-08-19.md`](release/miniprogram-session-display-boundary-2026-08-19.md)。当前本地小程序候选已更新为
-  `65657a0bb289fb25f17f14c0b8fec22270f964b2`，尚未上传或替换线上小程序包。
+  `d2086d819b3e393da2e8c5c39d7704012854214b`，尚未上传或替换线上小程序包。
 
-- 2026-08-19 01:06–01:09 CST：使用当前候选 `65657a0` 在新 `miniprogram` 开发者工具项目完成首页、独立就诊人选择/刷新、
+- 2026-08-19 01:06–01:09 CST：使用当前候选 `d2086d8` 在新 `miniprogram` 开发者工具项目完成首页、独立就诊人选择/刷新、
   “我的”、普通资料只读和“我的挂号”只读观察；预约历史最终显示当前就诊人的空记录态，未执行 PUT、预约、绑定、支付或医保操作。
   工具 Console 出现的 `clickCheckTask`、`undefined is not iterable` 和 `webviewScriptError` 栈均落在微信开发者工具内部
   `appservice`，没有项目源码调用栈，暂不加入猜测性兼容代码，必须在新项目手机真机上复核。完整记录见
