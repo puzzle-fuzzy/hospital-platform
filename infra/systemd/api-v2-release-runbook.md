@@ -57,6 +57,7 @@ test -f "releases/${new_sha}/apps/worker/dist/provider-directory-smoke.js"
 test -f "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js"
 test -f "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js"
 test -f "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js"
+test -f "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js"
 test -f shared/api.env
 test "$(stat -c '%a' shared/api.env)" = 600
 # release 中的 dist 和脱敏日志聚合 artifact 必须来自已通过本地门禁的构建产物；先在本地保存 checksum，上传后再复核。
@@ -67,7 +68,8 @@ sha256sum \
     "releases/${new_sha}/apps/worker/dist/provider-directory-smoke.js" \
     "releases/${new_sha}/apps/worker/dist/api-runtime-smoke.js" \
     "releases/${new_sha}/apps/worker/dist/p0-log-aggregate.js" \
-    "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js"
+    "releases/${new_sha}/apps/worker/dist/p0-business-evidence-audit.js" \
+    "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js"
 ```
 
 切换前必须保存以下证据：
@@ -86,7 +88,9 @@ workspace 链接时复现发布前只读验收，并在受控 journald 窗口执
 worker，也不会执行 migration 或支付/医保/HIS 写入。还必须包含 `p0-business-evidence-audit.js`，用于对安全
 聚合结果执行“请求事件 + 明确成功事件”的业务门禁。`p0-log-aggregate.js` 只消费 stdin 的 journald JSONL；生产查询
 优先使用 `journalctl -o json`，工具会安全拆出 `MESSAGE` 中的 Pino JSON，旧的 `-o cat` 输入仍兼容。
-不得接收 token、患者标识或 Provider 原始报文作为参数。候选临时 smoke 只验证运行时，不替代本地代码门禁。
+还必须包含 `redis-session-ttl-audit.js`，用于在独立只读维护 ACL 下统计
+`hospital:session:*` 的 TTL；它不属于 API 请求路径，不接收 token、患者标识或 Provider 原始报文作为参数，
+也不会修改 Redis。候选临时 smoke 只验证运行时，不替代本地代码门禁。
 
 候选 release 上传后，可在不切换 `current` 的情况下执行生产环境 preflight：
 
@@ -124,6 +128,17 @@ sudo journalctl -u hospital-platform-api-v2.service \
 
 命令只输出安全计数和缺失项；`parseErrors` 不为 `0`、`systemdWarningCount` 不为 `0` 或请求/成功事件不完整时，证据门禁失败。该门禁不替代
 页面、HTTP 和 trace 交叉核对，也不会修改线上状态。
+
+会话 TTL 需要单独的只读维护凭证，不能给 API 常驻账号扩展 `SCAN` 权限：
+
+```bash
+# 通过密钥管理或受控进程环境注入，不要把真实 URL 写入 shell 历史、日志或聊天记录。
+/home/ps/.bun/bin/bun \
+  "releases/${new_sha}/apps/worker/dist/redis-session-ttl-audit.js"
+```
+
+命令优先读取 `REDIS_SESSION_AUDIT_URL`，未提供时才回退 `REDIS_URL`；退出码 `0` 只代表完整、非空且每个
+会话 key 都有非负 TTL，权限拒绝、空结果、截断或 TTL 异常均不会被当作通过。
 
 该命令只读取 MySQL、Redis、schema 和配置 gate；这里必须使用 API 的生产 env，因为候选 API 的持久化
 连接和 schema gate 在 `shared/api.env`，`shared/worker.env` 只用于尚未启用的 Worker。支付 gate 保持关闭
