@@ -15,6 +15,14 @@
 | 医保退款/撤销 | `forward_6203` / `forward_6401` | `legacy-fsi-contract.ts` validators | contract 已拆分，退款状态 port 待补充 |
 | HIS 回写 | 旧项目订单服务的回写调用 | `HospitalSettlementGateway.writeBack` | 待实现 |
 
+微信身份交换有两道独立边界：
+
+- `packages/adapters/src/wechat-identity.ts` 先把微信 `code2session` 的原始响应映射成最小结果；`session_key`、
+  原始微信报文和 Provider 扩展字段只允许短暂存在于 adapter，不得进入 domain、日志、outbox、数据库或 API 响应；
+- `AuthService` 仍要把可替换 gateway 的 `unknown` 运行时结果重新投影后，才允许调用 `hp_identity_users` 和 Redis
+  会话端口。`providerSubject`、可选 `unionId`、固定 trace 不满足边界时统一返回 `provider-response-invalid`，
+  不得留下身份写入或会话签发副作用；成功日志仅保留低敏 provider request id、user id 和 TTL。
+
 Phase 7A 已建立众阳患者目录 adapter：
 
 - 服务端调用旧小程序使用的 `/api/public/patientInfoByUnionId`，unionId 只能来自已落库的服务端身份；

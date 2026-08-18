@@ -26,6 +26,7 @@ import {
 	UserProfileInputError,
 	UserProfileReadModelValidationError,
 	UserProfileVersionConflictError,
+	WechatIdentityResultValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
@@ -172,7 +173,8 @@ export function errorHandlerPlugin() {
 				error instanceof AppointmentDirectoryResultValidationError ||
 				error instanceof AppointmentRecordResultValidationError ||
 				error instanceof ReportResultValidationError ||
-				error instanceof PatientDirectoryResultValidationError
+				error instanceof PatientDirectoryResultValidationError ||
+				error instanceof WechatIdentityResultValidationError
 			) {
 				// Provider 已返回响应，但网关结果违反平台读模型；这不是患者
 				// 查询参数错误，也不能降级为空列表，应明确返回不可重试的 502。

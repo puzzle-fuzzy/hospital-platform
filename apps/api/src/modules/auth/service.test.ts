@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
-import { DependencyNotConfiguredError } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	WechatIdentityResultValidationError,
+} from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import { AuthService, createRedisSessionTokenService } from "./service";
 
@@ -161,4 +164,73 @@ test("微信 provider 失败日志不记录 provider message 或临时 code", as
 	expect(output).not.toContain("40029");
 	expect(output).not.toContain("secret text");
 	expect(output).not.toContain("temporary-code-must-not-be-logged");
+});
+
+test("微信身份交换结果在身份写入前拒绝异常值并记录固定原因", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	let identityWriteCalls = 0;
+	let sessionIssueCalls = 0;
+	const service = new AuthService({
+		identityGateway: {
+			async exchangeCode() {
+				// 运行时端口可以被替换或被错误实现，故意模拟绕过 adapter
+				// 类型的异常 providerSubject，验证 AuthService 的第二道边界。
+				return {
+					providerSubject: "openid\u0000must-be-rejected",
+					unionId: "unionid-001",
+					trace: {
+						provider: "wechat-identity",
+						operation: "code2session",
+						requestId: "wechat-provider-request-001",
+					},
+				} as never;
+			},
+		},
+		identityUsers: {
+			async findOrCreateByWechat() {
+				identityWriteCalls += 1;
+				throw new Error("must not be called");
+			},
+			async findByUserId() {
+				return undefined;
+			},
+		},
+		sessions: {
+			async issue() {
+				sessionIssueCalls += 1;
+				throw new Error("must not be called");
+			},
+			async verify() {
+				return { userId: "user-001" };
+			},
+		},
+		logger,
+	});
+
+	await expect(
+		service.login(
+			{ code: "temporary-code-001" },
+			{
+				traceId: "auth-trace-invalid-result-001",
+				idempotencyKey: "auth-idempotency-invalid-result-001",
+			},
+		),
+	).rejects.toBeInstanceOf(WechatIdentityResultValidationError);
+
+	expect(identityWriteCalls).toBe(0);
+	expect(sessionIssueCalls).toBe(0);
+	const output = lines.join("");
+	expect(output).toContain("auth.wechat.login.failed");
+	expect(output).toContain('"resultViolation":"provider-subject-invalid"');
+	expect(output).not.toContain("must-be-rejected");
 });

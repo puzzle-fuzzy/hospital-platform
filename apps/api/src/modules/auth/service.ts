@@ -7,7 +7,11 @@ import type {
 	UserIdentityRepository,
 	WechatIdentityGateway,
 } from "@hospital/domain";
-import { DependencyNotConfiguredError } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	normalizeWechatIdentityResult,
+	WechatIdentityResultValidationError,
+} from "@hospital/domain";
 import {
 	type AppLogger,
 	createNoopLogger,
@@ -61,9 +65,13 @@ export class AuthService {
 		);
 
 		try {
-			const identity = await this.dependencies.identityGateway.exchangeCode(
-				{ code: input.code },
-				context,
+			// code2session 结果属于可替换 gateway 的运行时边界；在身份写入
+			// MySQL 前重新投影，不能把 TypeScript 类型当成授权事实。
+			const identity = normalizeWechatIdentityResult(
+				await this.dependencies.identityGateway.exchangeCode(
+					{ code: input.code },
+					context,
+				),
 			);
 			const user = await this.dependencies.identityUsers.findOrCreateByWechat({
 				providerSubject: identity.providerSubject,
@@ -104,6 +112,9 @@ export class AuthService {
 					...(providerFailure.providerRetryable === undefined
 						? {}
 						: { retryable: providerFailure.providerRetryable }),
+					...(error instanceof WechatIdentityResultValidationError
+						? { resultViolation: error.violation }
+						: {}),
 				},
 				"Wechat login failed",
 			);

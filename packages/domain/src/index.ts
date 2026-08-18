@@ -118,13 +118,16 @@ export type {
 	PatientRepository,
 	UserIdentityRepository,
 	WechatIdentityGateway,
+	WechatIdentityResultViolation,
 } from "./patients";
 export {
 	normalizePatientDirectoryResult,
 	normalizePatientReadModel,
+	normalizeWechatIdentityResult,
 	PatientDirectoryResultValidationError,
 	PatientReadModelValidationError,
 	validatePatientProviderReference,
+	WechatIdentityResultValidationError,
 } from "./patients";
 export type {
 	CreatePaymentOrderInput,

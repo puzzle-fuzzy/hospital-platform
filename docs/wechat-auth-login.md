@@ -14,6 +14,11 @@
 5. API 通过 Redis 写入带 TTL 的平台会话，并只返回平台 `accessToken`。
 6. 小程序使用 Bearer 会话访问 `/me` 和其他需要认证的接口。
 
+登录结果在两个边界上校验：微信 adapter 先过滤原始 `code2session` 响应，`AuthService` 在写入
+`hp_identity_users` 前再次校验并只投影 `providerSubject`、可选 `unionId` 和低敏 trace。异常结果不会写入
+身份表，也不会签发 Redis 会话；失败日志只记录固定 `resultViolation`，不记录 openid、unionid、session_key、
+临时 code 或 provider 原文。
+
 代码和测试完成不等于真实微信登录已经上线。真实登录还必须同时满足：微信 AppID/AppSecret、MySQL 目标 schema、
 Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收全部通过。
 

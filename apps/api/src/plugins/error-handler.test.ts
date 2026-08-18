@@ -20,6 +20,7 @@ import {
 	PaymentQuoteNotFoundError,
 	ReportResultValidationError,
 	UserProfileReadModelValidationError,
+	WechatIdentityResultValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
@@ -242,6 +243,7 @@ test("Provider 读模型校验错误映射为不可重试的 502", async () => {
 		new AppointmentRecordResultValidationError("status-invalid"),
 		new ReportResultValidationError("detail-field-invalid"),
 		new PatientDirectoryResultValidationError("patient-card-number-invalid"),
+		new WechatIdentityResultValidationError("provider-subject-invalid"),
 	]) {
 		const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 			throw error;

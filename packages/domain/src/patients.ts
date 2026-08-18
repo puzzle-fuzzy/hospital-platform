@@ -569,3 +569,78 @@ export interface WechatIdentityGateway {
 		trace: ExternalTrace;
 	}>;
 }
+
+/**
+ * 微信身份 gateway 结果违反登录边界时的固定原因。
+ *
+ * adapter 会先校验微信响应，但 gateway 仍是可替换的运行时端口；AuthService
+ * 在写入身份仓储前必须再次确认 provider subject、unionId 和 trace，避免异常
+ * 身份值污染 `hp_identity_users`，也避免未经审计的 trace 字段进入日志。
+ */
+export type WechatIdentityResultViolation =
+	| "result-not-object"
+	| "provider-subject-invalid"
+	| "union-id-invalid"
+	| "trace-invalid";
+
+/** 微信身份交换结果不满足平台身份映射 contract。 */
+export class WechatIdentityResultValidationError extends Error {
+	readonly violation: WechatIdentityResultViolation;
+
+	constructor(violation: WechatIdentityResultViolation) {
+		super("Wechat identity provider result is invalid");
+		this.name = "WechatIdentityResultValidationError";
+		this.violation = violation;
+	}
+}
+
+function invalidWechatIdentityResult(
+	violation: WechatIdentityResultViolation,
+): never {
+	throw new WechatIdentityResultValidationError(violation);
+}
+
+/** 在身份仓储写入前重新投影微信 provider 的最小身份事实。 */
+export function normalizeWechatIdentityResult(value: unknown): {
+	providerSubject: string;
+	unionId?: string;
+	trace: ExternalTrace;
+} {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidWechatIdentityResult("result-not-object");
+	}
+	const result = value as Record<string, unknown>;
+	if (!isBoundedOpaqueIdentifier(result.providerSubject)) {
+		invalidWechatIdentityResult("provider-subject-invalid");
+	}
+	if (
+		result.unionId !== undefined &&
+		!isBoundedOpaqueIdentifier(result.unionId)
+	) {
+		invalidWechatIdentityResult("union-id-invalid");
+	}
+	if (
+		typeof result.trace !== "object" ||
+		result.trace === null ||
+		Array.isArray(result.trace)
+	) {
+		invalidWechatIdentityResult("trace-invalid");
+	}
+	const trace = result.trace as Record<string, unknown>;
+	if (
+		trace.provider !== "wechat-identity" ||
+		trace.operation !== "code2session" ||
+		!hasSafePatientText(trace.requestId, 128)
+	) {
+		invalidWechatIdentityResult("trace-invalid");
+	}
+	return {
+		providerSubject: result.providerSubject,
+		...(result.unionId !== undefined ? { unionId: result.unionId } : {}),
+		trace: {
+			provider: "wechat-identity",
+			operation: "code2session",
+			requestId: trace.requestId,
+		},
+	};
+}

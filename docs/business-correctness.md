@@ -17,6 +17,15 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
 迁移时的结构漂移，不能把静态字符串检查当成越权验收；owner 条件、Provider 映射和响应脱敏
 仍以 API/repository 测试及真实账号验收为准。
 
+### 身份交换的双重边界
+
+微信 `code2session` 的 adapter 负责把微信原始响应收敛成最小身份结果；`session_key`、原始报文和
+Provider 扩展字段不得离开 adapter。`AuthService` 在调用 `hp_identity_users` 写入前还必须对可替换的
+`WechatIdentityGateway` 结果执行第二次运行时校验和白名单投影，只允许有界的 `providerSubject`、可选
+`unionId` 以及固定 provider/operation 的低敏 `trace.requestId` 继续流转。结果对象缺失、身份值含控制字符、
+空 `unionId` 或 trace 不符合 contract 时，必须 fail-closed 为 `provider-response-invalid`，不能写入身份表、
+不能签发 Redis 会话；日志只记录固定的 `resultViolation`，不记录异常身份值、临时 code 或 provider 原文。
+
 必须满足：
 
 1. 小程序只保存服务端返回的 opaque `patientId`，不保存 `openid`、`unionid`、完整卡号、身份证号或 provider 患者号。

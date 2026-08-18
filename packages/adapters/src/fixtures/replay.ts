@@ -28,7 +28,7 @@ export function createFixtureWechatIdentityGateway(): WechatIdentityGateway {
 			providerSubject: "fixture-openid-001",
 			unionId: "fixture-unionid-001",
 			trace: trace(
-				"fixture-wechat-identity",
+				"wechat-identity",
 				"code2session",
 				context,
 				"fixture-openid-001",
