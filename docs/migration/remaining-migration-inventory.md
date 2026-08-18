@@ -17,6 +17,8 @@
 
 补充记录：`387b4a3` 候选已完成该门禁的远端 checksum、真实生产 preflight 和隔离 runtime smoke，但尚未切换线上；当前业务未完成项和真机停止条件不变，详见 [`../release/candidate-387b4a3-http-success-gate-2026-08-18.md`](../release/candidate-387b4a3-http-success-gate-2026-08-18.md)。
 
+最新日志窗口（2026-08-18 23:49 CST）在当前 `c26e696` 上观察到微信登录 `1/1`、患者读取 `14/14`、同步 `7/7` 的同链 HTTP `2xx` 证据；这仍没有页面和患者显式切换证据，预约历史、门诊费用、报告、普通资料和真机三层验收保持未完成，详见 [`../release/current-c26-p0-business-observation-2026-08-18-2349.md`](../release/current-c26-p0-business-observation-2026-08-18-2349.md)。
+
 本节优先于下方历史盘点记录。当前服务端 release 为 `c26e696`，生产切换与新旧服务共存证据见
 [`../release/c26e696-production-acceptance-2026-08-18.md`](../release/c26e696-production-acceptance-2026-08-18.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
