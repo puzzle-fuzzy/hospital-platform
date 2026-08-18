@@ -75,6 +75,7 @@
 | [`release/current-public-readonly-smoke-2026-08-17.md`](release/current-public-readonly-smoke-2026-08-17.md) | 2026-08-17 公网 live/ready/ping 和病历关闭边界的只读复核；不包含会话、Provider 或真机验收 |
 | [`release/current-public-readonly-smoke-2026-08-18-1936.md`](release/current-public-readonly-smoke-2026-08-18-1936.md) | 2026-08-18 19:36 CST 重启后公网 live/ready/ping、未登录认证和 SSH 证据边界复核 |
 | [`release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](release/current-runtime-coexistence-readonly-2026-08-18-2136.md) | 2026-08-18 21:36 CST 重启后当前 release、新旧监听和公网 ready 的只读复核 |
+| [`release/current-runtime-coexistence-readonly-audit-2026-08-18-2322.md`](release/current-runtime-coexistence-readonly-audit-2026-08-18-2322.md) | 2026-08-18 23:22 CST 重启后 `c26e696`、新旧监听、内外网 live/ready 和业务证据边界复核 |
 | [`release/current-public-readiness-stability-2026-08-17.md`](release/current-public-readiness-stability-2026-08-17.md) | `ed250ec` smoke 源码对公网 `/api/v2` 的 6 次 readiness 连续采样证据；不代表该提交已部署 |
 | [`release/current-server-p0-observation-2026-08-17.md`](release/current-server-p0-observation-2026-08-17.md) | `3ab0a6c` 切换后、15:00 发布前服务器生产模式、双服务共存、依赖 readiness 和预约/门诊费用业务事件缺失的历史只读观察 |
 | [`release/production-coexistence-readonly-audit-2026-08-17.md`](release/production-coexistence-readonly-audit-2026-08-17.md) | 2026-08-17 SSH 只读核对新 Bun `18081`、旧 Python `8001`、systemd 状态和 release 指针；不包含业务验收 |
