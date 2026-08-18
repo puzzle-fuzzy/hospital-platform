@@ -7,9 +7,9 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 当前为 `64e97c1`（仅修正文档）；小程序运行输入来源仍为 `499b25f`，线上运行 bundle 的代码来源为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 当前为 `6f0ba70`；小程序运行输入来源为 `6f0ba70`，线上运行 bundle 的代码来源为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；服务端运行 bundle 来源为 `4ae2a31`，当前真机配套小程序由 `499b25f` 重建，`sourceRevision=499b25fe9b888f849b815949290eda9cd756bceb`，14 个页面脚本已核对。
+- `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；服务端运行 bundle 来源为 `4ae2a31`，当前真机配套小程序由 `6f0ba70` 重建，`sourceRevision=6f0ba70a1a26bb1b90b1615696e2e0bb694bfb2d`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 - 2026-08-18 15:23-15:25 CST 已按无损 runbook 将 `4ae2a31` 上传、checksum 对照、生产 preflight、18082 隔离 smoke 后原子切换上线。
   新 API 只重启自身；旧 Python `8001` 监听和 PID 集合保持不变。完整证据见

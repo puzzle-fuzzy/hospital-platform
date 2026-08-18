@@ -703,7 +703,9 @@ test("native profile picker keeps its range and bounded index initialized", asyn
 	// 只能写入固定枚举。真机仍需继续验证工具和渲染层本身的行为。
 	expect(profile).toContain("genderLabels: GENDER_LABELS");
 	expect(profile).toContain("genderIndex: 2");
-	expect(profile).toContain("const GENDER_VALUES = [\"male\", \"female\", \"unknown\"]");
+	expect(profile).toContain(
+		'const GENDER_VALUES = ["male", "female", "unknown"]',
+	);
 	expect(profile).toContain("Number.isInteger(rawIndex)");
 	expect(profileTemplate).toContain('range="{{genderLabels}}"');
 	expect(profileTemplate).toContain('value="{{genderIndex}}"');
@@ -777,7 +779,9 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(verify).toContain("build provenance mismatch");
 	expect(provenance).toContain('"apps/miniprogram/src"');
 	expect(provenance).toContain('"apps/miniprogram/scripts/build.ts"');
-	expect(provenance).toContain('"apps/miniprogram/scripts/runtime-provenance.ts"');
+	expect(provenance).toContain(
+		'"apps/miniprogram/scripts/runtime-provenance.ts"',
+	);
 	expect(provenance).not.toContain('"apps/miniprogram/scripts"');
 	expect(provenance).toContain('"packages/contracts/src"');
 	expect(provenance).not.toContain('"docs"');
