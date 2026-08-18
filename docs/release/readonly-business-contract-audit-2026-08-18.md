@@ -4,7 +4,7 @@
 它用于新会话、代码评审和真机验收前的边界复核；“代码和测试通过”不等于
 真实微信会话、Provider、公网 HTTPS 或真机业务已经验收。
 
-当前线上服务端 release 为 `687690e`，小程序构建来源为
+当前线上服务端 release 为 `c26e696`，小程序构建来源为
 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`；线上只证明运行层和认证边界，域级 Provider/真机证据仍需独立闭环。
 
 ## 1. 证据范围与当前发布边界
@@ -32,7 +32,7 @@
 - `packages/domain/src/outpatient-payments.ts`
 - `packages/domain/src/patients.ts`
 
-当前线上 release 以 [`687690e-production-acceptance-2026-08-18.md`](687690e-production-acceptance-2026-08-18.md)
+当前线上 release 以 [`c26e696-production-acceptance-2026-08-18.md`](c26e696-production-acceptance-2026-08-18.md)
 为准；配套小程序构建来源为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
@@ -123,7 +123,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 本次交付候选固定为小程序 `01b184d`，完整运行包来源为
 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`；本节如保留更早审计窗口的来源文字，仅用于追溯，不能作为当前真机包。
 
-本节对应的当前服务端生产候选为 `687690e`；下方保留的 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
+本节对应的当前服务端生产候选为 `c26e696`；下方保留的 `687690e` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 
 ### 上一轮 `1b94c46` 代码摘要（历史追溯）
 
@@ -163,7 +163,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 本轮 `b213dcc` 将同一校验接入报告目录 service；报告目录异常引用也会在 Provider 调用前
 fail-closed，该修正已随当前线上 `687690e` 部署，不增加真实报告 Provider 或真机验收证据。
 
-本轮患者读模型二次投影已随 `687690e` 部署；它只收紧新服务端的仓储读取边界，不修改旧 Python 服务、数据库数据或小程序运行包。
+本轮患者读模型二次投影已随 `c26e696` 部署；它只收紧新服务端的仓储读取边界，不修改旧 Python 服务、数据库数据或小程序运行包。
 
 本轮普通资料读模型二次校验与白名单投影也已随 `687690e` 部署；它只收紧新服务端的资料 service 返回边界，
 防止损坏仓储结果先记录 `user.profile.loaded/updated` 成功，再在响应层失败。该修正不修改旧 Python 服务、数据库数据或小程序运行包。

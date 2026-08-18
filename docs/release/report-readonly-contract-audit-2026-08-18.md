@@ -5,6 +5,9 @@
 
 ## 1. 当前链路
 
+当前服务端 release 为 `c26e696`，配套小程序构建来源为
+`01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`；本次只切换了新 API，报告 Provider gate 仍保持关闭。
+
 ```text
 小程序报告目录
   -> 当前登录用户 + 当前选中内部 patientId

@@ -9,14 +9,15 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `687690e`、配套小程序来源以 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `c26e696`、配套小程序来源以 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c` 为准 |
+| [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前服务端候选切换、生产 preflight、隔离 smoke 和新旧服务共存证据 |
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板 |
-| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `687690e`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
-| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态以 `687690e` 和配套小程序 sourceRevision 为准 |
-| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `687690e` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
+| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c26e696`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
+| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态以 `c26e696` 和配套小程序 sourceRevision 为准 |
+| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `c26e696` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊缴费的患者归属、窗口、错误分流、日志闭环和未完成证据审计 |
 | [`release/outpatient-payment-envelope-validation-2026-08-18.md`](release/outpatient-payment-envelope-validation-2026-08-18.md) | 门诊费用 Provider 响应包络必须明确 `success=true` 的代码修正、测试和未部署边界 |
@@ -49,7 +50,7 @@
 | [`release/0995f7c-production-acceptance-2026-08-18.md`](release/0995f7c-production-acceptance-2026-08-18.md) | `0995f7c` 生产切换、停机边界、新旧服务共存和真实业务未验收边界 |
 | [`release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md`](release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md) | `9ca3a89` Redis 会话 TTL 审计工具的独立上传、生产 preflight、临时 smoke 和 ACL fail-closed 证据；未切换生产 |
 | [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md) | `38bc553` 微信身份边界修复后的候选构建、产物 checksum、隔离 smoke、无损切换和未完成业务边界 |
-| [`release/687690e-production-acceptance-2026-08-18.md`](release/687690e-production-acceptance-2026-08-18.md) | 当前 `687690e` 服务端生产切换、真实 env preflight、隔离 smoke、新旧服务共存和日志边界；配套小程序来源以完整 sourceRevision 为准 |
+| [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前 `c26e696` 服务端生产切换、真实 env preflight、隔离 smoke、新旧服务共存和日志边界；配套小程序来源以完整 sourceRevision 为准 |
 | [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md) | 当前 `687690e` 的 Redis 会话 TTL 只读审计结果；应用账号无 `SCAN` 权限，TTL 保持未验证，不扩大常驻 ACL |
 | [`release/candidate-37016c4-smoke-log-hardening-2026-08-18.md`](release/candidate-37016c4-smoke-log-hardening-2026-08-18.md) | `37016c4` smoke 日志原始异常消息修正、产物 checksum、生产 preflight 和公网 runtime smoke；候选未切换线上 |
 | [`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md) | 历史 `4ae2a31` 生产切换证据；仅用于追溯，不作为当前线上基线 |

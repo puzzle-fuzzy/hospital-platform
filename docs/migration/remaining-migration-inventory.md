@@ -7,15 +7,17 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-## 当前 release 基线（2026-08-18 21:22 CST）
+## 当前 release 基线（2026-08-18 22:57 CST）
 
-本节优先于下方历史盘点记录。下方仍保留 `4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
+本节优先于下方历史盘点记录。当前服务端 release 为 `c26e696`，生产切换与新旧服务共存证据见
+[`../release/c26e696-production-acceptance-2026-08-18.md`](../release/c26e696-production-acceptance-2026-08-18.md)。下方仍保留
+`687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
 - 当前小程序运行输入来源为 `01b184d`，构建包 `dist/build-info.json` 的完整来源指纹为
   `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`，注册页面和生成脚本均为 14 个；本轮“我的”页
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
-- 当前服务器 release 为 `687690e`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
+- 当前服务器 release 为 `c26e696`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
   原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
 - `687690e` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；
