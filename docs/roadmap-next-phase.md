@@ -3,6 +3,15 @@
 本文档是新会话继续工作的入口，描述当前真实边界、业务优先级、工程治理和上线验收顺序。
 其中“已完成”只表示代码、测试或部署证据，不代表微信、众阳、医保、HIS、支付或真机已经完成真实验收。
 
+## 当前执行检查点（2026-08-18）
+
+- 微信开发者工具的 `miniprogram` 项目已确认使用 `miniprogramRoot=dist/`，当前运行包来源为
+  `dist/build-info.json.sourceRevision=4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，14 个页面脚本和根文件均已通过运行包校验。
+- “二维码真机调试”弹窗已经生成 iOS 调试二维码，但截至本检查点尚未观察到手机扫码后的连接状态；二维码存在不等于微信会话、患者切换或业务已经验收。
+- 本地 `pnpm check` 已通过；随后仅做了路线图文案修正和文档门禁复核，没有重新发布服务端、没有重启新旧服务，也没有触碰用户已有的 `apps/miniprogram/project.config.json` 修改。
+- 下一步固定为：用户扫码后先确认微信会话，再按 [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md)
+  采集页面、HTTP trace 和低敏服务日志三层证据；在三层证据对齐前，不把任何只读业务标记为真实已验收。
+
 ## 当前基线
 
 ### 本轮认证响应会话代际门禁（2026-08-18）
