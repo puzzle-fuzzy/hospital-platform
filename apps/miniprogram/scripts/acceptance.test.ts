@@ -547,7 +547,9 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	const outpatient = await source(
 		"pages/outpatient-payment/outpatient-payment.ts",
 	);
-	const outpatientPageStart = outpatient.indexOf("loadPage(): Promise<void>");
+	const outpatientPageStart = outpatient.indexOf(
+		"loadPage(): Promise<void> {",
+	);
 	const outpatientRecordsStart = outpatient.indexOf(
 		"loadRecords(\n",
 		outpatientPageStart,
@@ -555,6 +557,12 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	const outpatientPageLoad = outpatient.slice(
 		outpatientPageStart,
 		outpatientRecordsStart,
+	);
+	const outpatientPatientContextIndex = outpatientPageLoad.indexOf(
+		"this.setData({ selectedPatient: patient });",
+	);
+	const outpatientInitialLoadIndex = outpatientPageLoad.indexOf(
+		"return this.loadRecords(patient, this.data.activeStatus, requestToken);",
 	);
 	const outpatientRecordsLoad = outpatient.slice(outpatientRecordsStart);
 	const outpatientProviderIndex = outpatientRecordsLoad.indexOf(
@@ -567,13 +575,18 @@ test("report and outpatient pages commit patient cards with read-only results", 
 		"selectedPatient: patient",
 	);
 
-	// 这三个页面都属于患者范围只读业务：患者卡片只有和对应业务结果
-	// 一起通过当前请求/当前选择校验后才能提交，避免切换期间上下文错配。
+	// 这三个页面都属于患者范围只读业务：报告页和费用列表只有和对应
+	// 业务结果一起通过当前请求/当前选择校验后才能提交，避免切换期间
+	// 上下文错配；费用页在目录确认后即可先提交患者上下文，保证费用
+	// 请求进行期间的 tab 切换不会被误判为“尚未选择患者”。
 	expect(reportProviderIndex).toBeGreaterThanOrEqual(0);
 	expect(reportGateIndex).toBeGreaterThan(reportProviderIndex);
 	expect(reportCommitIndex).toBeGreaterThan(reportGateIndex);
-	expect(outpatientPageLoad).not.toContain(
+	expect(outpatientPageLoad).toContain(
 		"this.setData({ selectedPatient: patient });",
+	);
+	expect(outpatientInitialLoadIndex).toBeGreaterThan(
+		outpatientPatientContextIndex,
 	);
 	expect(outpatientProviderIndex).toBeGreaterThanOrEqual(0);
 	expect(outpatientGateIndex).toBeGreaterThan(outpatientProviderIndex);

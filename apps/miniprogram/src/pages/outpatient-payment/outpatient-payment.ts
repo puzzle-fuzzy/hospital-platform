@@ -94,6 +94,12 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				) {
 					return;
 				}
+				// 患者目录已经完成 owner-scoped 确认，此时就可以把患者卡片
+				// 作为当前上下文交给页面；费用列表仍在独立请求中，不能因为
+				// selectedPatient 还为空而把“已缴/待缴”切换误判成首次加载。
+				// 这样用户在费用请求进行期间切换 tab 时，新的 tab 请求会让
+				// 旧 requestToken 失效，旧状态不会覆盖用户最后一次选择。
+				this.setData({ selectedPatient: patient });
 				return this.loadRecords(patient, this.data.activeStatus, requestToken);
 			})
 			.catch((error) => {
