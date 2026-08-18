@@ -7,6 +7,7 @@ import {
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
+	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
 	PaymentNotificationConflictError,
@@ -45,6 +46,23 @@ test("persistence connection failures return a safe 503 contract", async () => {
 		error: {
 			code: "persistence-temporarily-unavailable",
 			message: "数据服务暂时不可用，请稍后重试",
+		},
+	});
+});
+
+test("患者读模型损坏不能降级为空目录", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new PatientReadModelValidationError("patient-owner-mismatch");
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "persistence-invalid",
+			message: "数据服务返回异常，请联系管理员",
 		},
 	});
 });

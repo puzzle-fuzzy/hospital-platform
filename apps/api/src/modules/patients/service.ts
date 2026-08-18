@@ -3,9 +3,11 @@ import type { PatientListPayload } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
 	DependencyNotConfiguredError,
+	normalizePatientReadModel,
 	type PatientDirectoryGateway,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
+	PatientReadModelValidationError,
 	type PatientRepository,
 	type UserIdentityRepository,
 } from "@hospital/domain";
@@ -64,7 +66,13 @@ export class PatientService {
 			"Patient directory read requested",
 		);
 		try {
-			const items = await this.repository.listByOwner(ownerUserId);
+			// 仓储已经按 owner 查询，但这里仍要做第二道运行时门禁。组合测试、
+			// 回放任务或未来读模型实现不能因为 TypeScript 类型声明就把错 owner、
+			// 重复 ID 或 provider 扩展字段带到小程序。
+			const items = normalizePatientReadModel(
+				await this.repository.listByOwner(ownerUserId),
+				ownerUserId,
+			);
 			const payload = {
 				items: items.map(
 					({
@@ -100,6 +108,9 @@ export class PatientService {
 					event: "patient.directory.read.failed",
 					traceId: context.traceId,
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof PatientReadModelValidationError
+						? { readModelViolation: error.violation }
+						: {}),
 				},
 				"Patient directory read failed",
 			);

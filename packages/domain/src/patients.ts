@@ -1,3 +1,4 @@
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 关系值是内部规范化值，不能直接把旧系统的中文显示值写入领域层。 */
@@ -27,6 +28,138 @@ export type PatientRecord = {
 	source: "hospital-his" | "legacy-record";
 	clinicalAccess: PatientClinicalAccess;
 };
+
+/**
+ * 患者读模型从仓储返回时的二次校验原因。
+ *
+ * MySQL repository 已经按 owner 和枚举做了第一层收窄，但 service 还会被
+ * 内存仓储、回放任务和未来的读模型实现调用。TypeScript 的 PatientRecord
+ * 不能约束运行时对象，因此 API 不能把仓储结果直接当成可信响应；尤其是
+ * owner 错配、重复 patientId 和控制字符会分别造成越权、页面 key 混乱和
+ * 日志/渲染边界污染。
+ */
+export type PatientReadModelViolation =
+	| "patients-not-array"
+	| "patient-not-object"
+	| "patient-id-invalid"
+	| "patient-id-duplicate"
+	| "patient-owner-mismatch"
+	| "patient-display-name-invalid"
+	| "patient-relationship-invalid"
+	| "patient-card-number-invalid"
+	| "patient-source-invalid"
+	| "patient-clinical-access-invalid";
+
+/** 仓储读模型不符合患者域安全边界时使用的固定错误。 */
+export class PatientReadModelValidationError extends Error {
+	readonly violation: PatientReadModelViolation;
+
+	constructor(violation: PatientReadModelViolation) {
+		super("Patient read model is invalid");
+		this.name = "PatientReadModelValidationError";
+		this.violation = violation;
+	}
+}
+
+function invalidPatientReadModel(violation: PatientReadModelViolation): never {
+	throw new PatientReadModelValidationError(violation);
+}
+
+/** 患者展示文本只允许稳定、有限且没有控制字符的字符串。 */
+function hasSafePatientText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function isPatientRelationship(value: unknown): value is PatientRelationship {
+	return (
+		value === "self" ||
+		value === "spouse" ||
+		value === "child" ||
+		value === "parent" ||
+		value === "other"
+	);
+}
+
+function isPatientSource(value: unknown): value is PatientRecord["source"] {
+	return value === "hospital-his" || value === "legacy-record";
+}
+
+function isPatientClinicalAccess(
+	value: unknown,
+): value is PatientClinicalAccess {
+	return value === "ready" || value === "unavailable";
+}
+
+/**
+ * 校验并重新投影 owner-scoped 患者读模型。
+ *
+ * 该函数只接受服务端仓储结果，不接受小程序提交的 owner；调用方必须把
+ * 当前 Bearer principal 的 userId 作为 expectedOwnerUserId 传入。返回值会
+ * 重新构造为 PatientRecord，任何未来仓储扩展字段（例如 provider 患者号）
+ * 都不会沿着 service 误进入 API 或日志。
+ */
+export function normalizePatientReadModel(
+	value: unknown,
+	expectedOwnerUserId: string,
+): PatientRecord[] {
+	if (!Array.isArray(value)) {
+		invalidPatientReadModel("patients-not-array");
+	}
+	const seenPatientIds = new Set<string>();
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidPatientReadModel("patient-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		const id = record.id;
+		if (!isBoundedOpaqueIdentifier(id)) {
+			invalidPatientReadModel("patient-id-invalid");
+		}
+		if (seenPatientIds.has(id)) {
+			invalidPatientReadModel("patient-id-duplicate");
+		}
+		seenPatientIds.add(id);
+		if (record.ownerUserId !== expectedOwnerUserId) {
+			invalidPatientReadModel("patient-owner-mismatch");
+		}
+		if (!hasSafePatientText(record.displayName, 128)) {
+			invalidPatientReadModel("patient-display-name-invalid");
+		}
+		if (!isPatientRelationship(record.relationship)) {
+			invalidPatientReadModel("patient-relationship-invalid");
+		}
+		if (!hasSafePatientText(record.cardNumberMasked, 128)) {
+			invalidPatientReadModel("patient-card-number-invalid");
+		}
+		if (!isPatientSource(record.source)) {
+			invalidPatientReadModel("patient-source-invalid");
+		}
+		if (!isPatientClinicalAccess(record.clinicalAccess)) {
+			invalidPatientReadModel("patient-clinical-access-invalid");
+		}
+		return {
+			id,
+			ownerUserId: expectedOwnerUserId,
+			displayName: record.displayName,
+			relationship: record.relationship,
+			cardNumberMasked: record.cardNumberMasked,
+			source: record.source,
+			clinicalAccess: record.clinicalAccess,
+		};
+	});
+}
 
 /**
  * 外部患者目录经过 adapter 白名单映射后的最小事实。

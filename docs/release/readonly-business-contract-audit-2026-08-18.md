@@ -27,6 +27,7 @@
 - `packages/adapters/src/zhongyang-outpatient-payments.ts`
 - `packages/domain/src/appointments.ts`
 - `packages/domain/src/outpatient-payments.ts`
+- `packages/domain/src/patients.ts`
 
 当前线上 release 以 [`1b94c46-production-acceptance-2026-08-18.md`](1b94c46-production-acceptance-2026-08-18.md)
 为准；配套小程序构建来源为 `691ba28053775bce84f1285583c6741018eb0d40`：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
@@ -48,6 +49,9 @@
    待缴/已缴会创建新的状态快照和 request token，旧状态响应不能落到新标签。
 5. 已保存患者从最新 owner 目录消失时进入 stale 状态，不能静默替换成 `patients[0]`；只有
    从未保存过选择的首次页面才允许默认第一位可查询患者。
+6. 患者 service 在仓储返回后重新校验 owner、opaque ID 唯一性、脱敏展示字段和临床枚举，并
+   重新投影公共对象；损坏读模型不会被降级成成功空目录，服务端只记录有限的
+   `readModelViolation` 并返回 `persistence-invalid`。
 
 这部分规则与 [`../migration/patient-context-read-contract.md`](../migration/patient-context-read-contract.md)
 和 [`../business-correctness.md`](../business-correctness.md) 保持一致。
@@ -117,14 +121,16 @@ requested -> owner mapping / provider call -> synced 或 loaded
   `691ba28053775bce84f1285583c6741018eb0d40`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：83 项通过，183 个断言；
-- `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
-- `pnpm --filter @hospital/api test`：120 项通过，560 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、错误处理、
-  患者归属和日志脱敏用例。
+- `pnpm --filter @hospital/domain test`：25 项通过，56 个断言；其中包含患者读模型 owner、重复 ID 和展示字段门禁；
+- `pnpm --filter @hospital/api test`：122 项通过，564 个断言；其中包含预约目录/排班二次投影、预约记录、门诊费用、错误处理、
+  患者读模型归属和日志脱敏用例。
 
 本轮 `d7ac308` 只完成预约目录 service/domain 的本地校验、测试和中文注释，尚未部署到线上
 `1b94c46`，不能增加真实 Provider、微信或真机验收结论。
 
 门诊费用重新投影修正提交为 `fb0efba`，同样尚未部署；线上 release 和真机验收边界保持不变。
+
+本轮患者读模型二次投影尚未部署到 `1b94c46`；它只收紧新服务端的仓储读取边界，不修改旧 Python 服务、数据库数据或小程序运行包。
 
 测试只能证明注入网关和固定 fixture 下的不变量，不能证明当前线上账号能查询到真实预约或费用。
 

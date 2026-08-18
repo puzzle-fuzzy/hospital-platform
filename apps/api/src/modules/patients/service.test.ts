@@ -3,6 +3,7 @@ import {
 	type PatientDirectoryGateway,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
+	type PatientRecord,
 	type PatientRepository,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -469,4 +470,52 @@ test("患者目录 provider 失败后只在租约到期才允许同 key 接管�
 		total: 0,
 	});
 	expect(providerCalls).toBe(2);
+});
+
+test("患者目录读取再次校验 owner 和重复 ID，并记录固定读模型原因", async () => {
+	const baseRepository = createInMemoryPatientRepository();
+	const lines: string[] = [];
+	const repository: PatientRepository = {
+		...baseRepository,
+		async listByOwner() {
+			return [
+				{
+					id: "patient-read-invalid-001",
+					ownerUserId: "other-owner",
+					displayName: "错误归属患者",
+					relationship: "self",
+					cardNumberMasked: "******0001",
+					source: "hospital-his",
+					clinicalAccess: "ready",
+				} as unknown as PatientRecord,
+			];
+		},
+	};
+	const service = new PatientService(repository, {
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("owner-001", {
+			traceId: "patient-read-model-invalid-trace",
+			idempotencyKey: "patient-read-model-invalid-key",
+		}),
+	).rejects.toMatchObject({
+		name: "PatientReadModelValidationError",
+		violation: "patient-owner-mismatch",
+	});
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.read.failed",
+			readModelViolation: "patient-owner-mismatch",
+		}),
+	);
 });

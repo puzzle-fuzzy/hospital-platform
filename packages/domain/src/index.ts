@@ -110,11 +110,16 @@ export type {
 	PatientDirectoryUpsertInput,
 	PatientProviderReference,
 	PatientProviderReferenceKind,
+	PatientReadModelViolation,
 	PatientRecord,
 	PatientRelationship,
 	PatientRepository,
 	UserIdentityRepository,
 	WechatIdentityGateway,
+} from "./patients";
+export {
+	normalizePatientReadModel,
+	PatientReadModelValidationError,
 } from "./patients";
 export type {
 	CreatePaymentOrderInput,
