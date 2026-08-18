@@ -51,6 +51,7 @@
 | [`release/candidate-38bc553-local-build-2026-08-18.md`](release/candidate-38bc553-local-build-2026-08-18.md) | `38bc553` 微信身份边界修复后的候选构建、产物 checksum、隔离 smoke、无损切换和未完成业务边界 |
 | [`release/687690e-production-acceptance-2026-08-18.md`](release/687690e-production-acceptance-2026-08-18.md) | 当前 `687690e` 服务端生产切换、真实 env preflight、隔离 smoke、新旧服务共存和日志边界；配套小程序来源以完整 sourceRevision 为准 |
 | [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md) | 当前 `687690e` 的 Redis 会话 TTL 只读审计结果；应用账号无 `SCAN` 权限，TTL 保持未验证，不扩大常驻 ACL |
+| [`release/candidate-37016c4-smoke-log-hardening-2026-08-18.md`](release/candidate-37016c4-smoke-log-hardening-2026-08-18.md) | `37016c4` smoke 日志原始异常消息修正、产物 checksum、生产 preflight 和公网 runtime smoke；候选未切换线上 |
 | [`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md) | 历史 `4ae2a31` 生产切换证据；仅用于追溯，不作为当前线上基线 |
 | [`release/0995f7c-current-runtime-observation-2026-08-18-0254.md`](release/0995f7c-current-runtime-observation-2026-08-18-0254.md) | `0995f7c` 当前 release、双服务监听、公网 live/ready 和 MySQL/Redis/schema 的只读运行时快照 |
 | [`release/0b6f38f-production-acceptance-2026-08-17.md`](release/0b6f38f-production-acceptance-2026-08-17.md) | 历史 `0b6f38f` 原子切换、候选 checksum、真实 env preflight、公网 6/6 readiness 和新旧服务共存证据 |
