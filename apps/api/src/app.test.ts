@@ -236,9 +236,7 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"当前 `38bc553` 切换后暂未产生新的 `appointment.records.*`、`outpatient.payment.*` 或 `report.*` 业务事件",
 	);
-	expect(inventory).toContain(
-		"candidate-38bc553-local-build-2026-08-18.md",
-	);
+	expect(inventory).toContain("candidate-38bc553-local-build-2026-08-18.md");
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });
