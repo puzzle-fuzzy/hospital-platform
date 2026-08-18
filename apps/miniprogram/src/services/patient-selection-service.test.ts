@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { Patient } from "../types";
 import { ApiError } from "./api-client";
 import {
+	isBoundedPatientId,
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 	patientSelectionResolutionError,
@@ -53,6 +54,18 @@ test("首次进入选择页时才允许默认目录第一位患者", () => {
 test("首次进入选择页时跳过仅可展示的旧患者", () => {
 	const result = resolvePatientSelection(
 		[unavailablePatient("legacy-patient"), patient("patient-ready")],
+		"",
+	);
+
+	expect(result).toEqual({
+		state: "defaulted",
+		patient: patient("patient-ready"),
+	});
+});
+
+test("首次进入选择页时跳过 patientId 形状异常的可用患者", () => {
+	const result = resolvePatientSelection(
+		[patient(" "), patient("patient-ready")],
 		"",
 	);
 
@@ -117,6 +130,17 @@ test("已保存患者临床映射失效时不能静默切换患者", () => {
 	expect(result).toEqual({
 		state: "unavailable",
 		storedPatientId: "patient-b",
+	});
+});
+
+test("目录返回与本地缓存一致但形状异常时仍必须进入 stale", () => {
+	const result = resolvePatientSelection([patient(" ")], " ");
+
+	// 不能因为字符串恰好相等就把损坏的 opaque ID 当成已授权患者，
+	// 否则后续页面可能把未验证的值带入患者范围接口。
+	expect(result).toEqual({
+		state: "stale",
+		storedPatientId: " ",
 	});
 });
 
@@ -201,4 +225,22 @@ test("异步患者结果必须匹配当前显式选择", () => {
 	expect(isCurrentSelectedPatient("patient-a", "patient-a")).toBe(true);
 	expect(isCurrentSelectedPatient("patient-a", "patient-b")).toBe(false);
 	expect(isCurrentSelectedPatient("patient-a", "")).toBe(false);
+	expect(isCurrentSelectedPatient(" ", " ")).toBe(false);
+	expect(isCurrentSelectedPatient("x".repeat(129), "x".repeat(129))).toBe(
+		false,
+	);
+});
+
+test("患者上下文统一拒绝越界 patientId 形状", () => {
+	for (const value of [
+		"",
+		" ",
+		"\tpatient-a",
+		"patient-a\n",
+		"x".repeat(129),
+	]) {
+		expect(isBoundedPatientId(value)).toBe(false);
+	}
+	expect(isBoundedPatientId("patient-a")).toBe(true);
+	expect(isBoundedPatientId("x".repeat(128))).toBe(true);
 });

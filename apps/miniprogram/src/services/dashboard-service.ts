@@ -21,7 +21,10 @@ import {
 	requestWithSession,
 	syncPatients,
 } from "./api-client";
-import { requireStoredPatientSelection } from "./patient-selection-service";
+import {
+	isBoundedPatientId,
+	requireStoredPatientSelection,
+} from "./patient-selection-service";
 import { runPatientSync } from "./patient-sync-coordinator";
 
 type ExactListData<T> = {
@@ -177,28 +180,6 @@ export function createUpcomingDateRange(
 		startDate: formatCalendarDate(start),
 		endDate: formatCalendarDate(end),
 	};
-}
-
-/**
- * 患者端内部 patientId 的请求前置边界必须和服务端 opaque contract 对齐。
- *
- * 这不是 owner 授权：页面仍必须先读取 owner-scoped 目录，并由服务端再次
- * 校验归属。这里的作用是拦截损坏的本地选择或页面参数，避免空白、控制字符
- * 和超长值先制造一条无意义的网络请求，再由 API 返回 validation 失败。
- */
-const MAX_PATIENT_ID_LENGTH = 128;
-
-function isBoundedPatientId(value: unknown): value is string {
-	return (
-		typeof value === "string" &&
-		value.length > 0 &&
-		value.length <= MAX_PATIENT_ID_LENGTH &&
-		value === value.trim() &&
-		!Array.from(value).some((character) => {
-			const code = character.charCodeAt(0);
-			return code <= 0x1f || code === 0x7f;
-		})
-	);
 }
 
 /** 只允许使用服务端返回且通过形状校验的内部 patientId。 */

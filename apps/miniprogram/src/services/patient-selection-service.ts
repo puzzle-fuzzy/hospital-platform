@@ -10,6 +10,28 @@ import { ApiError, safeApiErrorMessage } from "./api-client";
 export const SELECTED_PATIENT_ID_KEY = "selected_patient_id";
 
 /**
+ * 小程序患者上下文复用服务端 opaque patientId 的形状上限。
+ *
+ * 这只是输入形状校验，不代表 owner、临床映射或详情 TTL 已经授权；真正的
+ * 业务权限仍由服务端目录和 owner-scoped API 决定。把规则集中在这里，是为了
+ * 让查询请求、异步结果比较和本地持久化不会各自采用不同的字符串边界。
+ */
+export const MAX_PATIENT_ID_LENGTH = 128;
+
+export function isBoundedPatientId(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= MAX_PATIENT_ID_LENGTH &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+/**
  * 将患者上下文错误翻译为一致的安全文案。
  *
  * 患者上下文的稳定错误码和中文文案唯一维护在 api-client 的公共错误表中；
@@ -116,7 +138,11 @@ export function isCurrentSelectedPatient(
 	patientId: string,
 	storedPatientId = getSelectedPatientId(),
 ): boolean {
-	return Boolean(patientId) && patientId === storedPatientId;
+	return (
+		isBoundedPatientId(patientId) &&
+		isBoundedPatientId(storedPatientId) &&
+		patientId === storedPatientId
+	);
 }
 
 /**
@@ -145,7 +171,8 @@ export function resolvePatientSelection(
 		// 目录里可能同时存在旧端迁移记录和已经完成 HIS 映射的患者；默认值
 		// 只能从可用于临床只读业务的记录中产生，不能把“能展示”当成“能查询”。
 		const firstAvailablePatient = patients.find(
-			(patient) => patient.clinicalAccess === "ready",
+			(patient) =>
+				patient.clinicalAccess === "ready" && isBoundedPatientId(patient.id),
 		);
 		return firstAvailablePatient
 			? { state: "defaulted", patient: firstAvailablePatient }
@@ -153,7 +180,8 @@ export function resolvePatientSelection(
 	}
 
 	const selectedPatient = patients.find(
-		(patient) => patient.id === storedPatientId,
+		(patient) =>
+			patient.id === storedPatientId && isBoundedPatientId(patient.id),
 	);
 	if (!selectedPatient) return { state: "stale", storedPatientId };
 	if (selectedPatient.clinicalAccess !== "ready") {
@@ -200,11 +228,15 @@ export function requireStoredPatientSelection(
  * 由选择页的显式点击完成替换，避免把失效状态伪装成另一位患者。
  */
 export function setSelectedPatientId(patientId: string): void {
-	if (patientId) {
+	if (isBoundedPatientId(patientId)) {
 		wx.setStorageSync(SELECTED_PATIENT_ID_KEY, patientId);
 		return;
 	}
-	wx.removeStorageSync(SELECTED_PATIENT_ID_KEY);
+	if (patientId === "") {
+		// 空值表示明确清除；其它非法值不能覆盖一个仍可能有效的选择，避免
+		// 页面事件或损坏的服务端读模型把坏字符串持久化成当前患者。
+		wx.removeStorageSync(SELECTED_PATIENT_ID_KEY);
+	}
 }
 
 /** 清理当前就诊人选择，供退出登录、会话失效和明确清除上下文流程复用。 */

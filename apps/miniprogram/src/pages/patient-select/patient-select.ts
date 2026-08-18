@@ -10,6 +10,7 @@ import {
 } from "../../services/page-instance-state";
 import {
 	getSelectedPatientId,
+	isBoundedPatientId,
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
 	resolvePatientSelection,
@@ -199,7 +200,10 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			return;
 		}
 		const patientId = event.currentTarget?.dataset?.patientId;
-		if (typeof patientId !== "string" || !patientId) return;
+		if (!isBoundedPatientId(patientId)) {
+			wx.showToast({ title: "就诊人数据异常，请刷新", icon: "none" });
+			return;
+		}
 		const patient = this.data.patients.find((item) => item.id === patientId);
 		if (!patient) return;
 		if (patient.clinicalAccess !== "ready") {
