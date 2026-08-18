@@ -82,7 +82,7 @@
 - 当前排序修复只覆盖 `yyyy-MM-dd`、`yyyy/MM/dd`、带时间文本和带时区 ISO 文本；新的 Provider 时间格式仍需拿到脱敏样例后再扩展，不能把未知文本当成有效医疗时间。
 
 当前线上发布和运行观察见 [`1b94c46-production-acceptance-2026-08-18.md`](1b94c46-production-acceptance-2026-08-18.md)；
-配套小程序构建来源为 `07d39882dd7bbd71f7b9d5ea83c27ca0c1e8c7af`。
+配套小程序构建来源为 `d4261e5a59e0a9bfe69534169504d8a118ebca7f`。
 
 2026-08-18 13:46 CST 的配对开发者工具会话曾请求报告目录，但当前 release 因 `adapter:zhongyang` 未配置返回
 HTTP 503 / `dependency-not-configured`，页面展示“报告服务暂未配置完成”；本次没有进入 provider 查询，也没有发起

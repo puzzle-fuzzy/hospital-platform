@@ -34,8 +34,8 @@ token；空态仍保留“点击这里选择就诊人”的入口，用户可以
 - `pnpm --filter @hospital/miniprogram test`：121 项通过，1036 个断言。
 - `pnpm --filter @hospital/miniprogram typecheck`：通过。
 - `pnpm --filter @hospital/miniprogram build`：通过，14 个页面脚本生成。
-- `pnpm --filter @hospital/miniprogram runtime:verify`：通过，运行包来源仍为
-  `07d39882dd7bbd71f7b9d5ea83c27ca0c1e8c7af`。
+- `pnpm --filter @hospital/miniprogram runtime:verify`：通过，运行包来源为
+  `d4261e5a59e0a9bfe69534169504d8a118ebca7f`。
 
 以上是代码和本地运行包证据，不代表真实 Provider、生产公网或微信真机费用业务已经验收；
 真实验收仍须按当前候选手册取得页面、HTTP trace 和低敏日志三层证据。
