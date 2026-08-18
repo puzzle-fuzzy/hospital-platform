@@ -599,6 +599,21 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('this.setData({ sessionState: "valid" })');
 	expect(my).toContain("getUserProfile");
 	expect(my).toContain('status: "rejected" as const');
+	// 必须先完成 `/me` 会话确认，再启动患者目录和普通资料读取；否则无效
+	// token 会额外制造受保护请求，旧页面周期也可能扩大为新的业务读取。
+	const myLoadStart = my.indexOf("loadPage(): Promise<void>");
+	const sessionStart = my.indexOf(
+		"const sessionResult = getCurrentUser()",
+		myLoadStart,
+	);
+	const dependentReadsStart = my.indexOf(
+		"Promise.all([loadPatients(), profileResult])",
+		myLoadStart,
+	);
+	expect(dependentReadsStart).toBeGreaterThan(sessionStart);
+	expect(my).toContain(
+		"if (!pageLoadGuard.isCurrent(requestToken)) return undefined;",
+	);
 	expect(my).toContain("资料读取失败不能让已经成功的患者上下文整页失败");
 	expect(my).toContain("patientSelectionResolutionMessage");
 	expect(my).toContain("patientContextErrorMessage");

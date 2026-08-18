@@ -179,14 +179,27 @@ Page<MyPageData, MyPageMethods>({
 			},
 		);
 		// `/me` 和患者目录决定“我的”页的核心会话上下文，资料只是头像区域的
-		// 展示增强。资料读取失败不能让已经成功的患者上下文整页失败，但必须
-		// 留下用户可见的可重试提示，避免把“微信用户”误认为资料读取成功。
-		const profileResult = getUserProfile().then(
-			(response) => ({ status: "fulfilled" as const, response }),
-			(error) => ({ status: "rejected" as const, error }),
-		);
-		return Promise.all([sessionResult, loadPatients(), profileResult])
-			.then(([userPayload, patients, profile]) => {
+		// 展示增强。必须先确认 `/me`，再启动患者目录和资料读取：会话失效时不
+		// 应额外制造两条必然失败的受保护请求，也不能让依赖读取在会话状态尚未
+		// 收敛时抢先进入日志和页面状态。
+		return sessionResult
+			.then((userPayload) => {
+				// 当前页面周期已经被新的 onShow/下拉刷新淘汰时，不再启动后续
+				// 读取。微信请求本身无法取消，但至少不让旧周期扩大为新的业务请求。
+				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
+				// 资料读取失败不能让已经成功的患者上下文整页失败，但必须
+				// 留下用户可见的可重试提示，避免把“微信用户”误认为资料读取成功。
+				const profileResult = getUserProfile().then(
+					(response) => ({ status: "fulfilled" as const, response }),
+					(error) => ({ status: "rejected" as const, error }),
+				);
+				return Promise.all([loadPatients(), profileResult]).then(
+					([patients, profile]) => ({ userPayload, patients, profile }),
+				);
+			})
+			.then((result) => {
+				if (!result) return;
+				const { userPayload, patients, profile } = result;
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);
 				const selectedPatient = resolution.patient ?? null;
