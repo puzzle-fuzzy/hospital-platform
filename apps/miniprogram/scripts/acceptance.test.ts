@@ -693,6 +693,23 @@ test("native profile save keeps validation, version and conflict boundaries orde
 	expect(profile).toContain("个人资料已被其他设备修改，请下拉刷新后重试");
 });
 
+test("native profile picker keeps its range and bounded index initialized", async () => {
+	const profile = await source("pages/profile/profile.ts");
+	const profileTemplate = await source("pages/profile/profile.wxml");
+
+	// 开发者工具曾经出现过控制/渲染层的 `undefined is not iterable`，但这类
+	// 日志不能直接证明业务代码有错。这里至少把最容易造成同类问题的页面
+	// 前置条件固化：range 必须在首帧已有三项，索引必须有安全默认值，事件
+	// 只能写入固定枚举。真机仍需继续验证工具和渲染层本身的行为。
+	expect(profile).toContain("genderLabels: GENDER_LABELS");
+	expect(profile).toContain("genderIndex: 2");
+	expect(profile).toContain("const GENDER_VALUES = [\"male\", \"female\", \"unknown\"]");
+	expect(profile).toContain("Number.isInteger(rawIndex)");
+	expect(profileTemplate).toContain('range="{{genderLabels}}"');
+	expect(profileTemplate).toContain('value="{{genderIndex}}"');
+	expect(profileTemplate).toContain('bindchange="onGenderChange"');
+});
+
 test("native mini program build guards the DevTools TypeScript configuration", async () => {
 	const config = JSON.parse(await source("../project.config.json")) as {
 		miniprogramRoot?: string;
@@ -759,6 +776,9 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(verify).toContain("HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION");
 	expect(verify).toContain("build provenance mismatch");
 	expect(provenance).toContain('"apps/miniprogram/src"');
+	expect(provenance).toContain('"apps/miniprogram/scripts/build.ts"');
+	expect(provenance).toContain('"apps/miniprogram/scripts/runtime-provenance.ts"');
+	expect(provenance).not.toContain('"apps/miniprogram/scripts"');
 	expect(provenance).toContain('"packages/contracts/src"');
 	expect(provenance).not.toContain('"docs"');
 });

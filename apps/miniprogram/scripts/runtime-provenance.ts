@@ -2,12 +2,15 @@
  * 会影响原生小程序运行包的输入路径。
  *
  * 文档和历史验收记录不属于运行包输入；如果只修改文档，已经验证过的
- * `dist/` 不应被错误判定为另一份客户端代码。共享 contract、构建脚本、
- * 小程序配置和锁文件变化则必须推进来源指纹，避免旧运行包继续被使用。
+ * `dist/` 不应被错误判定为另一份客户端代码。验收测试和运行包校验脚本也
+ * 不会改变小程序实际产物，不能把整个 scripts 目录打包进指纹；只有构建
+ * 脚本及其来源解析辅助、共享 contract、小程序配置和锁文件变化才必须推进
+ * 来源指纹，避免旧运行包继续被使用。
  */
 const RUNTIME_INPUT_PATHS = [
 	"apps/miniprogram/src",
-	"apps/miniprogram/scripts",
+	"apps/miniprogram/scripts/build.ts",
+	"apps/miniprogram/scripts/runtime-provenance.ts",
 	"apps/miniprogram/package.json",
 	"apps/miniprogram/tsconfig.build.json",
 	"apps/miniprogram/project.config.json",
