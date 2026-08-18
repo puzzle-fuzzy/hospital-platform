@@ -2,6 +2,7 @@ import { ApiError, getCurrentUser, login } from "./api-client";
 import type {
 	AuthSessionResponse,
 	CurrentUserResponse,
+	SessionLabel,
 	SessionVerificationState,
 } from "../types";
 
@@ -21,6 +22,29 @@ export function sessionVerificationStateFromError(
 		return "invalid";
 	}
 	return "unavailable";
+}
+
+/**
+ * 将首页展示文案映射回真正的入口门禁状态。
+ *
+ * 首页的中文状态是给用户看的，不能让各个按钮自行猜测“有 token 就算登录”。
+ * 这里集中定义四态边界：恢复中只能等待，恢复成功才可进入，明确失效才回登录，
+ * 依赖暂时不可用时保留会话并提示重试。
+ */
+export function sessionVerificationStateFromLabel(
+	label: SessionLabel,
+): SessionVerificationState {
+	switch (label) {
+		case "验证会话中":
+			return "checking";
+		case "已恢复会话":
+		case "已登录":
+			return "valid";
+		case "未登录":
+			return "invalid";
+		case "会话暂不可用":
+			return "unavailable";
+	}
 }
 
 function globalData(): { accessToken: string; sessionStatus: SessionState } {

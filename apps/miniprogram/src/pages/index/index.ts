@@ -9,7 +9,11 @@ import {
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
-import { navigateToPatientSelector } from "../../services/patient-navigation";
+import {
+	navigateToAuthenticatedPage,
+	navigateToPatientScopedPage,
+	navigateToPatientSelector,
+} from "../../services/patient-navigation";
 import {
 	clearSelectedPatientId,
 	getSelectedPatientId,
@@ -22,6 +26,8 @@ import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import {
 	hasPlatformSession,
 	restorePlatformSession,
+	sessionVerificationStateFromError,
+	sessionVerificationStateFromLabel,
 	signInPlatformSession,
 } from "../../services/session-service";
 import type {
@@ -39,6 +45,7 @@ import type {
 const SESSION_LABELS = Object.freeze({
 	signedOut: "未登录",
 	restoring: "验证会话中",
+	unavailable: "会话暂不可用",
 	restored: "已恢复会话",
 	signedIn: "已登录",
 } as const satisfies Record<string, SessionLabel>);
@@ -265,6 +272,12 @@ Page<IndexPageData, IndexPageMethods>({
 				// 让 Redis/网络恢复后仍可重新验证原会话。若此时删除选择，下一次
 				// 目录恢复会把第一位患者误当成用户刚才明确选择的人。
 				this.clearDisplayedPatientContext();
+				this.setData({
+					sessionStatus:
+						sessionVerificationStateFromError(error) === "invalid"
+							? SESSION_LABELS.signedOut
+							: SESSION_LABELS.unavailable,
+				});
 				this.showError(error, "会话恢复失败");
 			});
 	},
@@ -351,7 +364,14 @@ Page<IndexPageData, IndexPageMethods>({
 				if (!sessionGuard.isCurrent(sessionToken)) return;
 				// 登录失败不能留下“有患者但无会话”的半登录状态；只有确认
 				// 没有本地 token 才清除，避免 Redis 短暂故障时误删仍可重试的会话。
-				if (!hasPlatformSession()) this.clearPatientContext();
+				if (!hasPlatformSession()) {
+					this.clearPatientContext();
+					this.setData({ sessionStatus: SESSION_LABELS.signedOut });
+				} else if (sessionVerificationStateFromError(error) === "unavailable") {
+					// Redis/网络暂时失败时保留 token，但把入口从“验证中”收敛到
+					// 明确的暂不可用，允许用户理解失败原因并稍后重试。
+					this.setData({ sessionStatus: SESSION_LABELS.unavailable });
+				}
 				this.showError(error, "登录失败");
 			})
 			.finally(() => {
@@ -383,7 +403,9 @@ Page<IndexPageData, IndexPageMethods>({
 		// 患者同步可能由首页、我的或其他业务页发起；统一导航服务检查
 		// 进程级在途 Promise，不能只看当前首页的 syncingPatients。这样即使
 		// 首页已经隐藏，选择页也不会带另一条幂等键并发触发 provider 同步。
-		navigateToPatientSelector();
+		navigateToPatientSelector(
+			sessionVerificationStateFromLabel(this.data.sessionStatus),
+		);
 	},
 
 	/**
@@ -438,7 +460,8 @@ Page<IndexPageData, IndexPageMethods>({
 				break;
 			case "hospital-list":
 				// 保留旧首页实际跳转的 hospitalList；动态机构和外部互联网医院仍未开放。
-				wx.navigateTo({ url: "/pages/hospital-list/hospital-list" });
+				// 预约目录虽不需要患者，但仍必须先通过平台会话门禁。
+				this.onLoadAppointments();
 				break;
 			case "follow":
 				// 旧轮播图只进入公众号静态说明页，不把“已关注”误判成微信授权事实。
@@ -557,7 +580,10 @@ Page<IndexPageData, IndexPageMethods>({
 		}
 		// 旧端预约流程先确认医院/院区，再进入科室与排班目录。医院列表目前是
 		// 单院区静态配置页，不把未确认的机构接口或路线字段混入新的预约 contract。
-		wx.navigateTo({ url: "/pages/hospital-list/hospital-list" });
+		navigateToAuthenticatedPage(
+			"/pages/hospital-list/hospital-list",
+			sessionVerificationStateFromLabel(this.data.sessionStatus),
+		);
 	},
 
 	onRefresh(): Promise<void> {
@@ -587,12 +613,12 @@ Page<IndexPageData, IndexPageMethods>({
 			this.onLogin({ afterSuccess: () => this.onLoadReports() });
 			return;
 		}
-		if (!this.data.selectedPatient) {
-			navigateToPatientSelector();
-			return;
-		}
 		// 报告查询拥有独立的患者上下文和空态，不能在首页后台请求后丢失展示结果。
-		wx.navigateTo({ url: "/pages/report-directory/report-directory" });
+		navigateToPatientScopedPage(
+			"/pages/report-directory/report-directory",
+			sessionVerificationStateFromLabel(this.data.sessionStatus),
+			Boolean(this.data.selectedPatient),
+		);
 	},
 
 	onLoadAppointmentRecords() {
@@ -600,13 +626,11 @@ Page<IndexPageData, IndexPageMethods>({
 			this.onLogin({ afterSuccess: () => this.onLoadAppointmentRecords() });
 			return;
 		}
-		if (!this.data.selectedPatient) {
-			navigateToPatientSelector();
-			return;
-		}
-		wx.navigateTo({
-			url: "/pages/appointment-records/appointment-records",
-		});
+		navigateToPatientScopedPage(
+			"/pages/appointment-records/appointment-records",
+			sessionVerificationStateFromLabel(this.data.sessionStatus),
+			Boolean(this.data.selectedPatient),
+		);
 	},
 
 	/** 门诊费用与预约历史一样必须绑定临床患者，不能先打开再由 API 返回 401。 */
@@ -615,11 +639,11 @@ Page<IndexPageData, IndexPageMethods>({
 			this.onLogin({ afterSuccess: () => this.onLoadOutpatientPayment() });
 			return;
 		}
-		if (!this.data.selectedPatient) {
-			navigateToPatientSelector();
-			return;
-		}
-		wx.navigateTo({ url: "/pages/outpatient-payment/outpatient-payment" });
+		navigateToPatientScopedPage(
+			"/pages/outpatient-payment/outpatient-payment",
+			sessionVerificationStateFromLabel(this.data.sessionStatus),
+			Boolean(this.data.selectedPatient),
+		);
 	},
 
 	/** 切换患者时清空首页不再持有的报告状态，选择页负责新的患者上下文。 */

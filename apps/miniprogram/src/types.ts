@@ -118,7 +118,12 @@ export type IndexEvent = DatasetEvent<{ index?: string | number }>;
 export type PatientEvent = DatasetEvent<{ patientId?: string }>;
 export type ReportTabEvent = DatasetEvent<{ tab?: string }>;
 
-export type SessionLabel = "未登录" | "验证会话中" | "已恢复会话" | "已登录";
+export type SessionLabel =
+	| "未登录"
+	| "验证会话中"
+	| "会话暂不可用"
+	| "已恢复会话"
+	| "已登录";
 
 /**
  * 页面级会话验证状态。

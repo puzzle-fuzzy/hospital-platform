@@ -59,7 +59,13 @@ export function navigateToAuthenticatedPage(
 ): void {
 	const decision = resolveAuthenticatedEntry(state);
 	if (decision === "wait-for-session") {
-		wx.showToast({ title: "登录状态验证中，请稍后", icon: "none" });
+		wx.showToast({
+			title:
+				state === "unavailable"
+					? "登录服务暂不可用，请稍后重试"
+					: "登录状态验证中，请稍后",
+			icon: "none",
+		});
 		return;
 	}
 	if (decision === "redirect-to-login") {

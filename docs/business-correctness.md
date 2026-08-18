@@ -89,6 +89,12 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
    401 已清除 token，不能继续使用默认 `true` 绕过登录门禁。实时 token 检查只是最低保护，不能替代页面
    已有的四态验证结果，也不能把 token 存在推导成未过期。
 
+17. 首页的 `sessionStatus` 必须映射到统一的四态会话门禁：`验证会话中` 只能等待，
+    `已恢复会话`/`已登录` 才算最近一次验证成功，`未登录` 才允许走微信登录，
+    `会话暂不可用` 只能提示重试并保留 token。预约目录、报告、我的挂号、门诊费用和
+    更换就诊人不能只用 `hasPlatformSession()` 直接跳转；登录成功后的原动作仍由首页继续，
+    避免恢复中的 token 提前发出患者范围请求或把持久化暂时故障误判成已退出。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的

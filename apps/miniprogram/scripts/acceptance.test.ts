@@ -699,10 +699,10 @@ test("native mini program exposes read-only appointment directory and records pa
 
 	expect(app).toContain('"pages/appointment-directory/appointment-directory"');
 	expect(app).toContain('"pages/appointment-records/appointment-records"');
-	expect(home).toContain('url: "/pages/hospital-list/hospital-list"');
-	expect(home).toContain(
-		'url: "/pages/appointment-records/appointment-records"',
-	);
+	expect(home).toContain("navigateToAuthenticatedPage");
+	expect(home).toContain('"/pages/hospital-list/hospital-list"');
+	expect(home).toContain("navigateToPatientScopedPage");
+	expect(home).toContain('"/pages/appointment-records/appointment-records"');
 	expect(home).not.toContain("预约下单功能仍在迁移中");
 	expect(directory).toContain("loadAppointmentDepartments");
 	expect(directory).toContain("loadDepartmentSchedules");
@@ -852,7 +852,8 @@ test("native mini program preserves the legacy static hospital entry boundary", 
 	);
 
 	expect(app).toContain('"pages/hospital-list/hospital-list"');
-	expect(home).toContain('url: "/pages/hospital-list/hospital-list"');
+	expect(home).toContain("navigateToAuthenticatedPage");
+	expect(home).toContain('"/pages/hospital-list/hospital-list"');
 	// 旧首页顶部“互联网医院”实际指向 pagesB/hospital/hospitalList，
 	// 不能因为标签名称而误判为必须恢复外部 web-view。
 	expect(home).toContain('action: "hospital-list"');
@@ -1006,7 +1007,8 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(app).toContain('"pages/my/my"');
 	expect(client).toContain("requestOutpatientPaymentRecords");
 	expect(client).toContain("/payments/outpatient/records?");
-	expect(home).toContain('url: "/pages/outpatient-payment/outpatient-payment"');
+	expect(home).toContain("navigateToPatientScopedPage");
+	expect(home).toContain('"/pages/outpatient-payment/outpatient-payment"');
 	expect(home).toContain('url: "/pages/my/my"');
 	expect(outpatient).toContain("loadOutpatientPaymentRecords");
 	// tab 切换必须把用户本次点击的状态作为查询快照传入，不能依赖 setData 的异步回写。
@@ -1176,7 +1178,8 @@ test("native homepage routes patient binding and report query to real pages", as
 
 	expect(app).toContain('"pages/report-directory/report-directory"');
 	expect(home).toContain('action: "patient-select"');
-	expect(home).toContain('url: "/pages/report-directory/report-directory"');
+	expect(home).toContain("navigateToPatientScopedPage");
+	expect(home).toContain('"/pages/report-directory/report-directory"');
 	expect(reportPage).toContain("loadReports");
 	expect(reportPage).toContain("onLoadMore");
 	expect(reportPage).toContain("loadCurrentPatient");
@@ -1222,6 +1225,9 @@ test("native homepage blocks patient selection while its sync snapshot is in fli
 	// 页面级状态不能覆盖跨页面实例的在途同步；统一导航服务必须检查
 	// 进程级协调器，等待当前快照收敛后再让用户进入选择流程。
 	expect(selector).toContain("navigateToPatientSelector");
+	expect(selector).toContain(
+		"sessionVerificationStateFromLabel(this.data.sessionStatus)",
+	);
 	expect(navigation).toContain("isPatientSyncInFlight");
 	expect(navigation).toContain("就诊人正在同步，请稍后");
 	const patientScopedPages = [
@@ -1233,6 +1239,29 @@ test("native homepage blocks patient selection while its sync snapshot is in fli
 	];
 	for (const pagePath of patientScopedPages) {
 		expect(await source(pagePath)).toContain("navigateToPatientSelector");
+	}
+});
+
+test("native homepage uses the same verified session state for every business entry", async () => {
+	const home = await source("pages/index/index.ts");
+
+	// 首页不能因为本地 token 存在就绕过正在进行的 /me 验证；所有入口都必须
+	// 消费同一份 sessionStatus，患者范围页还要继续经过当前患者门禁。
+	expect(home).toContain("sessionVerificationStateFromLabel");
+	expect(home).toContain("navigateToAuthenticatedPage");
+	expect(home).toContain("navigateToPatientScopedPage");
+	expect(home).toContain('case "hospital-list":');
+	expect(home).toContain("this.onLoadAppointments();");
+	expect(home).not.toContain(
+		'wx.navigateTo({ url: "/pages/hospital-list/hospital-list" });',
+	);
+
+	for (const url of [
+		"/pages/report-directory/report-directory",
+		"/pages/appointment-records/appointment-records",
+		"/pages/outpatient-payment/outpatient-payment",
+	]) {
+		expect(home).toContain(url);
 	}
 });
 
