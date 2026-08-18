@@ -36,6 +36,10 @@
 - 2026-08-19：继续工作前通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 为 `c26e696`，新 API `18081` 与旧 Python `8001` 同时监听，`18082` 无残留；公网 live/ready 均为 `200`，ready 的
   `database/redis/schema` 均为 `ok`。本轮没有重启、migration、Redis 清理、业务写入或旧服务操作。
 
+- 2026-08-19：报告域再次做 Provider 接收审计：当前仅登记 3 份接收记录、26 个 `documentId`，`docs/provider-intake/` 没有报告目录专用的正式接收记录、脱敏响应样例或错误样例；
+  `provider-contract-v1.md` 只能作为平台候选边界，不能代替真实报告联调合同。因此报告目录/详情继续保持 `dependency-not-configured` fail-closed，不修改报告代码或打开 gate，等待按
+  [`release/report-readonly-contract-audit-2026-08-18.md`](release/report-readonly-contract-audit-2026-08-18.md) 的材料门禁推进。
+
 - 2026-08-19：会话重启后通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 仍为 `c26e696`，
   新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，临时端口 `18082` 无残留，公网 live/ready 均返回 `200` 且
   `database/redis/schema=ok`。本地 `pnpm check` 全部通过，小程序构建产出 14 个页面脚本；本次没有切换 release、migration、

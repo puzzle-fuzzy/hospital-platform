@@ -3,6 +3,18 @@
 本文记录当前原生小程序报告目录/详情链路的代码级审计结果、已补的安全边界、测试证据和未完成的真实验收项。
 报告属于低风险只读域，但内容仍可能包含临床结果；“页面能打开”不能等同于报告数据已正确迁移。
 
+## 0. 当前检查点（2026-08-19）
+
+- `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
+  `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
+- `docs/provider-contract-v1.md` 只冻结了平台侧的候选 endpoint 和公开字段边界，不能代替报告 Provider 的版本、环境、权限、
+  请求头/签名、分页、空结果、失败响应和资源授权证据；因此不能据此打开 `ZHONGYANG_REPORT_DIRECTORY_READY` 或
+  `ZHONGYANG_REPORT_DETAIL_READY`。
+- 当前线上报告请求仍按 `503 dependency-not-configured` fail-closed；本轮代码、Provider 配置、旧服务和生产数据均未修改。
+
+本节是当前停止条件的优先事实；后续若新增报告材料，必须先按
+[`../provider-document-intake.md`](../provider-document-intake.md) 登记，再更新本文的字段差异和验收证据。
+
 ## 1. 当前链路
 
 当前服务端 release 为 `c26e696`，配套小程序构建来源为
