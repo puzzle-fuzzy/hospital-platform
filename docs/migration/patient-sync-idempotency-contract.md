@@ -134,6 +134,11 @@ Provider，并可能以不同快照顺序覆盖同一份患者目录。MySQL 仓
 4. 仅当 `operation_id`、owner、provider 和 `attempt_count` 都仍然匹配时，把操作状态从 `in_progress` 更新为 `succeeded`，写入 `observed_at`、`completed_at` 和结果摘要；
 5. 任意一步失败都回滚患者状态和操作状态，不能留下“目录已更新但操作仍显示成功”或相反的半套事实。
 
+内存仓储虽然只服务测试，但也必须保留这条提交边界：目录快照替换没有真实 I/O 时不得插入
+隐藏的异步让出点，租约校验、快照状态修改和 operation 成功标记在同一个事件循环 turn 内完成。
+因此测试中的旧租约接管不会留下部分患者资料；真实环境仍以 MySQL 事务回滚、行锁和
+`attempt_count` 条件更新作为最终保证。
+
 进入这段事务前，adapter 必须验证 provider 返回的完整目录中 `providerPatientId` 唯一。重复患者号会在
 upsert 时合并成一条内部患者，后出现的姓名、关系、卡号或能力映射可能覆盖先出现的资料；这类响应不能被
 解释成“同一患者的两条展示记录”，必须作为非法快照拒绝并保留 provider request id 供排障。
