@@ -506,7 +506,8 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 
 	// WXML disabled 只能降低重复点击概率，不能约束生命周期回调或真机重复事件。
 	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
-	expect(home).toContain("getPageSingleFlight<void>");
+	expect(home).toContain("getPageSingleFlight<");
+	expect(home).toContain('Exclude<PatientBootstrapResult, "skipped">');
 	expect(home).toContain("return patientSyncFlight.run(() => {");
 	expect(selection).toContain("getPageSingleFlight<Array<Patient>>");
 	expect(selection).toContain(".run(() => syncPatientsFromHospital");
@@ -1635,8 +1636,10 @@ test("native homepage sends both add and change patient actions to the selection
 	const loginEnd = home.indexOf("/** 顶部就诊人卡片", loginStart);
 	const login = home.slice(loginStart, loginEnd);
 	expect(login).toContain(
-		"if (options.skipPatientBootstrap) return Promise.resolve();",
+		'if (options.skipPatientBootstrap) return "skipped" as const;',
 	);
+	expect(login).toContain("shouldContinueAfterLogin");
+	expect(login).toContain("options.requiresPatient ?? false");
 	expect(login).toContain("options.afterSuccess?.()");
 });
 
@@ -1832,7 +1835,10 @@ test("native homepage clears displayed patient context after directory failures"
 	);
 	const loadEnd = home.indexOf("\n\t},", loadStart);
 	const loadBody = home.slice(loadStart, loadEnd);
-	const syncStart = home.indexOf("onSyncPatients(): Promise<void>", pageStart);
+	const syncStart = home.indexOf(
+		'onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">>',
+		pageStart,
+	);
 	const syncEnd = home.indexOf("\n\t},", syncStart);
 	const syncBody = home.slice(syncStart, syncEnd);
 
@@ -1841,6 +1847,11 @@ test("native homepage clears displayed patient context after directory failures"
 	expect(home).toContain("clearDisplayedPatientContext(): void");
 	expect(loadBody).toContain("this.clearDisplayedPatientContext();");
 	expect(syncBody).toContain("this.clearDisplayedPatientContext();");
+	// 同步请求发出前就要撤销旧卡片；否则临床映射尚未确认时，用户仍可把旧患者
+	// 当作预约、报告或费用页面的有效上下文。
+	expect(syncBody.indexOf("this.clearDisplayedPatientContext();")).toBeLessThan(
+		syncBody.indexOf('syncPatientsFromHospital("patient-sync")'),
+	);
 	// 旧目录请求失去页面/请求资格后必须安静结束，不能把错误冒泡到
 	// onShow/onRefresh 的外层回调，再次清空新请求或已卸载页面。
 	expect(loadBody).toContain("if (!patientDataGuard.isCurrent(requestToken))");
@@ -1850,6 +1861,27 @@ test("native homepage clears displayed patient context after directory failures"
 	expect(home).toContain("不向调用方返回患者快照");
 	expect(syncBody).not.toContain("return [];");
 	expect(home).toContain("保留本地 opaque 选择");
+});
+
+test("native homepage only replays patient actions after a confirmed bootstrap", async () => {
+	const home = await source("pages/index/index.ts");
+	const reportsStart = home.indexOf("onLoadReports() {");
+	const reportsEnd = home.indexOf("\n\t},", reportsStart);
+	const reports = home.slice(reportsStart, reportsEnd);
+	const recordsStart = home.indexOf("onLoadAppointmentRecords() {");
+	const recordsEnd = home.indexOf("\n\t},", recordsStart);
+	const records = home.slice(recordsStart, recordsEnd);
+	const paymentStart = home.indexOf("onLoadOutpatientPayment() {");
+	const paymentEnd = home.indexOf("\n\t},", paymentStart);
+	const payment = home.slice(paymentStart, paymentEnd);
+
+	// 三个患者范围入口都必须声明 requiresPatient；登录成功但患者同步失败或
+	// 目录为空时，afterSuccess 不能把用户直接送入业务页再暴露二次错误。
+	expect(reports).toContain("requiresPatient: true");
+	expect(records).toContain("requiresPatient: true");
+	expect(payment).toContain("requiresPatient: true");
+	expect(home).toContain('"failed"');
+	expect(home).toContain('"superseded"');
 });
 
 test("native my page clears stale patient context when owner reads fail", async () => {

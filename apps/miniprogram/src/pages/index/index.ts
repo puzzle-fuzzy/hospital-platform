@@ -25,6 +25,10 @@ import {
 } from "../../services/patient-selection-service";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
+	shouldContinueAfterLogin,
+	type PatientBootstrapResult,
+} from "../../services/patient-bootstrap";
+import {
 	hasPlatformSession,
 	restorePlatformSession,
 	sessionVerificationStateFromError,
@@ -186,7 +190,7 @@ type IndexPageMethods = {
 	onServiceTabChange(event: IndexEvent): void;
 	onServiceItemTap(event: ActionEvent): void;
 	loadPatients(): Promise<Array<Patient>>;
-	onSyncPatients(): Promise<void>;
+	onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">>;
 	onLoadAppointments(): void;
 	onLoadOutpatientPayment(): void;
 	onRefresh(): Promise<void>;
@@ -205,6 +209,8 @@ type LoginOptions = {
 	afterSuccess?: () => void;
 	/** 需要跳转到会自行读取目录的页面时，避免首页重复请求患者同步。 */
 	skipPatientBootstrap?: boolean;
+	/** 患者范围页面必须等当前轮次确认出患者后才能继续。 */
+	requiresPatient?: boolean;
 };
 
 /**
@@ -387,17 +393,22 @@ Page<IndexPageData, IndexPageMethods>({
 				// wx.login 是静默的 code 交换；用成功提示让用户知道平台会话已建立，
 				// 不额外索取与医疗业务无关的头像和昵称权限。
 				wx.showToast({ title: "微信登录成功", icon: "success" });
-				if (options.skipPatientBootstrap) return Promise.resolve();
-				return this.loadPatients().then(() => undefined);
+				if (options.skipPatientBootstrap) return "skipped" as const;
+				return this.loadPatients().then(() => this.onSyncPatients());
 			})
-			.then(() => {
+			.then((bootstrapResult: PatientBootstrapResult | undefined) => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
-				if (options.skipPatientBootstrap) return;
-				// 新登录同样主动同步，兼容迁移前已经存在的目录患者记录，并补齐临床映射。
-				return this.onSyncPatients();
-			})
-			.then(() => {
-				if (!sessionGuard.isCurrent(sessionToken)) return;
+				if (
+					!bootstrapResult ||
+					!shouldContinueAfterLogin(
+						bootstrapResult,
+						options.requiresPatient ?? false,
+						Boolean(this.data.selectedPatient),
+					)
+				)
+					return;
+				// 只有首页初始化结果明确允许时，才重放用户刚才点击的动作。
+				// 同步失败不会冒充成功；患者为空时也不能进入患者范围页面。
 				return options.afterSuccess?.();
 			})
 			.catch((error) => {
@@ -573,31 +584,36 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	/**
-	 * 首页同步只返回“同步流程已结束”，不向调用方返回患者快照。
+	 * 首页同步只返回“同步流程结果”，不向调用方返回患者快照。
 	 *
 	 * 成功的空目录和失败兜底都可能表现为数组长度为 0；如果这里返回
 	 * `[]`，后续调用方就无法区分“医院确认没有就诊人”和“同步失败”。
 	 * 患者快照只允许通过页面状态和服务端成功响应进入展示，失败则由本页
 	 * 清理展示上下文并保留可重试的会话，避免把错误伪装成业务空结果。
 	 */
-	onSyncPatients(): Promise<void> {
-		const patientSyncFlight = getPageSingleFlight<void>(
-			this,
-			`patient-sync:${getSessionGeneration()}`,
-		);
+	onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">> {
+		const patientSyncFlight = getPageSingleFlight<
+			Exclude<PatientBootstrapResult, "skipped">
+		>(this, `patient-sync:${getSessionGeneration()}`);
 		return patientSyncFlight.run(() => {
 			const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 			const syncLoadingGuard = getPageLatestRequestGuard(this, "sync-loading");
 			const requestToken = patientDataGuard.begin();
 			const loadingToken = syncLoadingGuard.begin();
+			// 同步在途期间旧患者尚未得到本轮临床映射确认，不能继续作为
+			// 预约、报告和门诊费用的业务上下文。这里只清理首页展示态，
+			// 不删除本地显式选择，成功后仍由 resolveStoredPatientSelection 恢复。
+			this.clearDisplayedPatientContext();
 			this.setData({ syncingPatients: true, error: "" });
 			return syncPatientsFromHospital("patient-sync")
 				.then((patients) => {
-					if (!patientDataGuard.isCurrent(requestToken)) return;
+					if (!patientDataGuard.isCurrent(requestToken))
+						return "superseded" as const;
 					// setPatientsFromPayload 已经按本地显式选择解析 empty/stale/
 					// unavailable。这里不能再用数组长度覆盖解析结果，否则“已有
 					// 患者但最新目录为空”会被错误降级成“从未绑定患者”。
 					this.setPatientsFromPayload(patients);
+					return "succeeded" as const;
 				})
 				.catch((error) => {
 					if (patientDataGuard.isCurrent(requestToken)) {
@@ -606,6 +622,9 @@ Page<IndexPageData, IndexPageMethods>({
 						this.clearDisplayedPatientContext();
 						this.showError(error, "就诊人同步失败");
 					}
+					return patientDataGuard.isCurrent(requestToken)
+						? ("failed" as const)
+						: ("superseded" as const);
 				})
 				.finally(() => {
 					if (syncLoadingGuard.isCurrent(loadingToken)) {
@@ -658,7 +677,10 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onLoadReports() {
 		if (!hasPlatformSession()) {
-			this.onLogin({ afterSuccess: () => this.onLoadReports() });
+			this.onLogin({
+				afterSuccess: () => this.onLoadReports(),
+				requiresPatient: true,
+			});
 			return;
 		}
 		// 报告查询拥有独立的患者上下文和空态，不能在首页后台请求后丢失展示结果。
@@ -671,7 +693,10 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onLoadAppointmentRecords() {
 		if (!hasPlatformSession()) {
-			this.onLogin({ afterSuccess: () => this.onLoadAppointmentRecords() });
+			this.onLogin({
+				afterSuccess: () => this.onLoadAppointmentRecords(),
+				requiresPatient: true,
+			});
 			return;
 		}
 		navigateToPatientScopedPage(
@@ -684,7 +709,10 @@ Page<IndexPageData, IndexPageMethods>({
 	/** 门诊费用与预约历史一样必须绑定临床患者，不能先打开再由 API 返回 401。 */
 	onLoadOutpatientPayment() {
 		if (!hasPlatformSession()) {
-			this.onLogin({ afterSuccess: () => this.onLoadOutpatientPayment() });
+			this.onLogin({
+				afterSuccess: () => this.onLoadOutpatientPayment(),
+				requiresPatient: true,
+			});
 			return;
 		}
 		navigateToPatientScopedPage(

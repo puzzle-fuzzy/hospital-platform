@@ -10,6 +10,14 @@
   和低敏 `x-request-id` 均存在。本轮没有 Bearer、openid、患者参数、Provider 请求或业务写入，只更新公网运行层证据，
   不增加真机、患者切换、费用、支付或医保结论，详见 [`current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md)。
 
+- 2026-08-19：修正首页登录后的患者初始化状态机。此前患者同步失败会在页面内部吞掉异常，
+  登录链仍可能继续调用患者范围页面的 `afterSuccess`；同步请求发出前旧患者卡片也可能短暂保留。
+  现已使用 `skipped/succeeded/failed/superseded` 显式结果：报告目录、我的挂号和门诊费用
+  必须等本轮同步成功且存在已确认患者，失败或被淘汰的同步不会重放后续动作；同步开始时只清理
+  页面展示态，不删除本地显式选择。已通过小程序类型检查和 `155/155` 定向测试、`1244` 个断言。
+  该修正不改变 API、数据库、Redis、Provider、线上服务或旧 Python，详见
+  [`miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)。
+
 - 2026-08-19：完成“我的挂号”双标签契约审计。当前服务端只使用已冻结的在线渠道
   `requestChannel=3`；“在线挂号”仅排除明确的 `cancelled`，而“全部挂号”需要独立的
   `requestChannel=4` Provider 合同，不能把在线结果本地复制或通过空列表伪装完成。页面继续
