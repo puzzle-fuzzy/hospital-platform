@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `31ce94a1df539f140d78ed1882ca15561634d8fd`，尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `4f6b341cee1525cb0d73bcdf152f630dd74f25f3`，尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 ## 当前 release 基线（2026-08-19 00:50 CST）
 
@@ -34,7 +34,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/b7c9451-production-acceptance-2026-08-19.md`](../release/b7c9451-production-acceptance-2026-08-19.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `31ce94a`，构建包来源需在本轮完整构建后重新生成；注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `4f6b341`，构建包来源需在本轮完整构建后重新生成；注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
@@ -45,6 +45,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
   门诊费用额外拒绝重复 `recordId` 和无效中国标准时间日历值，预约扩展字段不会进入页面。提交 `31ce94a`，小程序定向测试
   154/154、1231 个断言和类型检查通过；该修正不改变 Provider、数据库、Redis、线上服务或旧 Python，详见
   [`../release/miniprogram-list-response-envelope-contract-2026-08-19.md`](../release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
+- 2026-08-19：修正“我的”页资料与患者目录并行读取的会话代际风险；资料 GET 先完成或降级，患者目录再从最新会话代际读取，避免旧患者与新资料混合。提交 `4f6b341`，小程序定向测试 154/154、1232 个断言和类型检查通过，详见
+  [`../release/miniprogram-my-page-session-generation-order-2026-08-19.md`](../release/miniprogram-my-page-session-generation-order-2026-08-19.md)。
 - 2026-08-19：预约科室/排班客户端已补齐第二道 canonical 响应门禁，覆盖唯一标识、公开展示字段、请求科室归属、
   日期、时间分组和号源数量；异常整批 fail-closed。该门禁只保护两列级联只读展示，不代表 Provider、真机或预约写入
   已完成，详见 [`../release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md`](../release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md)。

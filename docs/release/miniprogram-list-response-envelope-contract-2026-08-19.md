@@ -27,7 +27,7 @@
 
 ## 3. 本地证据
 
-当前代码提交为 `31ce94a1df539f140d78ed1882ca15561634d8fd`，已推送 `origin/main`。小程序定向类型检查通过，定向测试为 `154` 项、`1231` 个断言通过。
+当前代码提交为 `4f6b341cee1525cb0d73bcdf152f630dd74f25f3`，已推送 `origin/main`。小程序定向类型检查通过，定向测试为 `154` 项、`1232` 个断言通过。
 
 本次没有修改旧 Python 服务、线上环境变量、MySQL、Redis、Provider 配置、预约写入、微信支付、医保或 HIS；没有取得新的微信真机、Provider 或支付证据。后续真机验收必须重新构建并核对 `dist/build-info.json.sourceRevision`，再按同一服务端 release 和当前候选执行。
 
