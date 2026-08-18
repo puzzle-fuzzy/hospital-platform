@@ -198,8 +198,7 @@ Page<
 			.catch((error) => {
 				if (!saveGuard.isCurrent(saveToken)) return;
 				const requiresReload =
-					error instanceof ApiError &&
-					error.code === "user-profile-conflict";
+					error instanceof ApiError && error.code === "user-profile-conflict";
 				// 409 说明服务端已经存在比当前页面更新的 version；继续保留
 				// loaded=true 会让用户再次提交同一个旧版本，形成重复冲突，
 				// 也会让页面继续把旧资料当作最新事实。冲突后强制回到未加载态，
