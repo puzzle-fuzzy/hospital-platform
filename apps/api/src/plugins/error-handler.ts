@@ -23,6 +23,7 @@ import {
 	PaymentQuoteNotFoundError,
 	ReportResultValidationError,
 	UserProfileInputError,
+	UserProfileReadModelValidationError,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
@@ -220,6 +221,20 @@ export function errorHandlerPlugin() {
 				// 数据库读模型违反内部患者 contract 时不能降级为空目录；空目录会让
 				// 小程序误以为用户没有就诊人，甚至触发错误的默认选择。固定返回
 				// 500，详细原因只进入服务端低敏日志。
+				set.status = 500;
+				return {
+					success: false,
+					error: {
+						code: "persistence-invalid",
+						message: "数据服务返回异常，请联系管理员",
+					},
+				};
+			}
+
+			if (error instanceof UserProfileReadModelValidationError) {
+				// 资料读模型损坏不能被响应 schema 兜底成一个模糊的 500，也不能
+				// 伪装成“没有资料”。固定错误码让监控和页面保持稳定，具体字段原因
+				// 只保留在服务端的 readModelViolation 日志中。
 				set.status = 500;
 				return {
 					success: false,

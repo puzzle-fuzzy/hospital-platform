@@ -6,9 +6,11 @@ import {
 	type AdapterCallContext,
 	emptyUserProfile,
 	MAX_USER_PROFILE_VERSION,
+	normalizeUserProfileReadModel,
 	type UserGender,
 	type UserProfile,
 	UserProfileInputError,
+	UserProfileReadModelValidationError,
 	type UserProfileRepository,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
@@ -135,7 +137,10 @@ export class UserProfileService {
 			"User profile requested",
 		);
 		try {
-			const profile = await this.repository.findByUserId(userId);
+			const storedProfile = await this.repository.findByUserId(userId);
+			const profile = storedProfile
+				? normalizeUserProfileReadModel(storedProfile, userId)
+				: undefined;
 			this.logger.info(
 				{
 					event: "user.profile.loaded",
@@ -151,6 +156,9 @@ export class UserProfileService {
 					event: "user.profile.read_failed",
 					traceId: context.traceId,
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof UserProfileReadModelValidationError
+						? { readModelViolation: error.violation }
+						: {}),
 				},
 				"User profile read failed",
 			);
@@ -209,16 +217,21 @@ export class UserProfileService {
 				email !== undefined ? "email" : undefined,
 			].filter((field): field is string => Boolean(field));
 
-			const profile = await this.repository.update({
+			const profile = normalizeUserProfileReadModel(
+				await this.repository.update({
+					userId,
+					expectedVersion: normalizedVersion,
+					...(normalizedDisplayName !== undefined
+						? { displayName: normalizedDisplayName }
+						: {}),
+					...(normalizedGender !== undefined
+						? { gender: normalizedGender }
+						: {}),
+					...(normalizedAge !== undefined ? { age: normalizedAge } : {}),
+					...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
+				}),
 				userId,
-				expectedVersion: normalizedVersion,
-				...(normalizedDisplayName !== undefined
-					? { displayName: normalizedDisplayName }
-					: {}),
-				...(normalizedGender !== undefined ? { gender: normalizedGender } : {}),
-				...(normalizedAge !== undefined ? { age: normalizedAge } : {}),
-				...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
-			});
+			);
 			this.logger.info(
 				{
 					event: "user.profile.updated",
@@ -263,6 +276,9 @@ export class UserProfileService {
 					event: "user.profile.update_failed",
 					traceId: context.traceId,
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof UserProfileReadModelValidationError
+						? { readModelViolation: error.violation }
+						: {}),
 				},
 				"User profile update failed",
 			);

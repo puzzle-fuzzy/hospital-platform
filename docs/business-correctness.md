@@ -319,6 +319,12 @@ Provider 原始错误文本。
 判断资料更新到底保存了哪些内容。通过校验后仍必须执行当前 Bearer owner 检查和 `version` 乐观锁，
 版本过期返回 `409 user-profile-conflict`。
 
+资料 service 不能把 TypeScript 的仓储返回类型当作数据库事实：`get` 和 `update` 返回前都必须再次确认
+当前 owner、昵称/邮箱的无控制字符和长度边界、性别枚举、年龄范围以及持久化版本，并按公开资料白名单
+重新投影。读模型错 owner、非法字段或非法版本时必须 fail-closed 为 `persistence-invalid`，不能降级成
+“微信用户”、空资料或已更新成功；`user.profile.loaded` / `user.profile.updated` 只能在这道门禁通过后写入，
+否则日志会把响应层失败错误地记录成业务成功。
+
 资料页和患者选择页的成功返回不是“调用后立刻无条件 `navigateBack`”：toast 期间允许用户手动离开，
 所以延迟返回必须绑定到当前页面实例，并由 `onUnload` 直接清理定时器；页面卸载后不能再调用 `setData`。
 延迟回调执行前还要再次检查页面实例的

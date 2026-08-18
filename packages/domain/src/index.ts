@@ -207,12 +207,15 @@ export {
 export type {
 	UserGender,
 	UserProfile,
+	UserProfileReadModelViolation,
 	UserProfileRepository,
 	UserProfileUpdate,
 } from "./user-profile";
 export {
 	emptyUserProfile,
 	MAX_USER_PROFILE_VERSION,
+	normalizeUserProfileReadModel,
 	UserProfileInputError,
+	UserProfileReadModelValidationError,
 	UserProfileVersionConflictError,
 } from "./user-profile";

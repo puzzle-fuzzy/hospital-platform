@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	MAX_USER_PROFILE_VERSION,
 	UserProfileInputError,
+	UserProfileReadModelValidationError,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -86,6 +87,104 @@ test("普通资料读取失败记录安全事件而不泄露底层错误", async
 		errorType: "Error",
 	});
 	expect(JSON.stringify(records)).not.toContain("password=secret");
+});
+
+test("普通资料损坏读模型不会记录 loaded 成功或降级成默认资料", async () => {
+	const lines: string[] = [];
+	const service = new UserProfileService(
+		{
+			findByUserId: async () => ({
+				userId: "profile-corrupt-001",
+				displayName: "坏\n资料",
+				gender: "unknown",
+				age: null,
+				email: null,
+				version: 1,
+			}),
+			update: async () => {
+				throw new Error("not used");
+			},
+		},
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
+
+	await expect(
+		service.get("profile-corrupt-001", {
+			traceId: "profile-corrupt-trace",
+			idempotencyKey: "profile-corrupt-key",
+		}),
+	).rejects.toMatchObject({
+		name: "UserProfileReadModelValidationError",
+		violation: "profile-display-name-invalid",
+	});
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.some((record) => record.event === "user.profile.loaded")).toBe(
+		false,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "user.profile.read_failed",
+			readModelViolation: "profile-display-name-invalid",
+		}),
+	);
+	expect(JSON.stringify(records)).not.toContain("坏");
+});
+
+test("普通资料更新返回损坏读模型时不记录 updated 成功", async () => {
+	const lines: string[] = [];
+	const service = new UserProfileService(
+		{
+			findByUserId: async () => undefined,
+			update: async () => ({
+				userId: "profile-corrupt-update-001",
+				displayName: "正常",
+				gender: "unknown",
+				age: null,
+				email: "bad-email",
+				version: 1,
+			}),
+		},
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
+
+	await expect(
+		service.update(
+			"profile-corrupt-update-001",
+			{ version: 0, displayName: "正常" },
+			{
+				traceId: "profile-corrupt-update-trace",
+				idempotencyKey: "profile-corrupt-update-key",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileReadModelValidationError);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(
+		records.some((record) => record.event === "user.profile.updated"),
+	).toBe(false);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "user.profile.update_failed",
+			readModelViolation: "profile-email-invalid",
+		}),
+	);
 });
 
 test("普通资料更新会归一化字段并只记录低敏事件元数据", async () => {

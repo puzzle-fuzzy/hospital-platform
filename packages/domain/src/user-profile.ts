@@ -23,6 +23,122 @@ export type UserProfile = {
 	version: number;
 };
 
+/**
+ * 普通资料读模型的固定失败原因。
+ *
+ * 请求体校验只能约束客户端提交，不能证明 MySQL、内存回放或未来仓储实现
+ * 返回的对象仍符合公共 contract。若不在 service 再校验，坏资料会先记录
+ * `user.profile.loaded/updated` 成功事件，随后才在 Elysia 响应校验阶段失败，
+ * 形成“日志说成功、接口却失败”的错误事实链。
+ */
+export type UserProfileReadModelViolation =
+	| "profile-not-object"
+	| "profile-user-mismatch"
+	| "profile-display-name-invalid"
+	| "profile-gender-invalid"
+	| "profile-age-invalid"
+	| "profile-email-invalid"
+	| "profile-version-invalid";
+
+/** 仓储返回的普通资料不满足公共读模型时使用的固定错误。 */
+export class UserProfileReadModelValidationError extends Error {
+	readonly violation: UserProfileReadModelViolation;
+
+	constructor(violation: UserProfileReadModelViolation) {
+		super("User profile read model is invalid");
+		this.name = "UserProfileReadModelValidationError";
+		this.violation = violation;
+	}
+}
+
+function invalidUserProfileReadModel(
+	violation: UserProfileReadModelViolation,
+): never {
+	throw new UserProfileReadModelValidationError(violation);
+}
+
+/** 资料展示文本按 Unicode code point 限制，并拒绝首尾空白和控制字符。 */
+function hasSafeUserProfileText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		Array.from(value).length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function isUserGender(value: unknown): value is UserGender {
+	return value === "male" || value === "female" || value === "unknown";
+}
+
+function isUserEmail(value: unknown): value is string {
+	return hasSafeUserProfileText(value, 320) && /^\S+@\S+\.\S+$/.test(value);
+}
+
+/**
+ * 校验并重新构造仓储返回的普通资料。
+ *
+ * `expectedUserId` 始终来自当前 Bearer principal，而不是客户端参数。返回
+ * 新对象而不是展开仓储对象，避免未来加入手机号、身份或内部审计字段后
+ * 顺着资料接口泄漏；首次未持久化的 version=0 默认值不走此函数。
+ */
+export function normalizeUserProfileReadModel(
+	value: unknown,
+	expectedUserId: string,
+): UserProfile {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidUserProfileReadModel("profile-not-object");
+	}
+	const record = value as Record<string, unknown>;
+	if (record.userId !== expectedUserId) {
+		invalidUserProfileReadModel("profile-user-mismatch");
+	}
+	if (!hasSafeUserProfileText(record.displayName, 64)) {
+		invalidUserProfileReadModel("profile-display-name-invalid");
+	}
+	if (!isUserGender(record.gender)) {
+		invalidUserProfileReadModel("profile-gender-invalid");
+	}
+	const age = record.age;
+	if (
+		age !== null &&
+		(typeof age !== "number" ||
+			!Number.isSafeInteger(age) ||
+			age < 0 ||
+			age > 150)
+	) {
+		invalidUserProfileReadModel("profile-age-invalid");
+	}
+	const email = record.email;
+	if (email !== null && !isUserEmail(email)) {
+		invalidUserProfileReadModel("profile-email-invalid");
+	}
+	const version = record.version;
+	if (
+		typeof version !== "number" ||
+		!Number.isSafeInteger(version) ||
+		version < 1 ||
+		version > MAX_USER_PROFILE_VERSION
+	) {
+		invalidUserProfileReadModel("profile-version-invalid");
+	}
+	return {
+		userId: expectedUserId,
+		displayName: record.displayName,
+		gender: record.gender,
+		age,
+		email,
+		version,
+	};
+}
+
 /** 普通个人资料更新命令；未出现的字段保持原值，null 表示清空可选值。 */
 export type UserProfileUpdate = {
 	userId: string;

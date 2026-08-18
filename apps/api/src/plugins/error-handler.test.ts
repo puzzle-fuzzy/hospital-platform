@@ -18,6 +18,7 @@ import {
 	PaymentQuoteExpiredError,
 	PaymentQuoteNotFoundError,
 	ReportResultValidationError,
+	UserProfileReadModelValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
@@ -53,6 +54,23 @@ test("persistence connection failures return a safe 503 contract", async () => {
 test("患者读模型损坏不能降级为空目录", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 		throw new PatientReadModelValidationError("patient-owner-mismatch");
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "persistence-invalid",
+			message: "数据服务返回异常，请联系管理员",
+		},
+	});
+});
+
+test("普通资料读模型损坏使用同一套持久化错误契约", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new UserProfileReadModelValidationError("profile-version-invalid");
 	});
 
 	const response = await app.handle(new Request("http://localhost/probe"));
