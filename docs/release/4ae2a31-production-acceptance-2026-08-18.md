@@ -57,7 +57,7 @@
   `environment=production`、`runtimeMode=production`、MySQL/Redis/schema `ok`；
 - 新 API 监听 `10.0.0.3:18081`；
 - 旧 Python Gunicorn 继续监听 `0.0.0.0:8001`，切换前后 PID 均为 `1990166、1990195、1990197、1990198、1990199`；
-- Worker 没有启动；
+- `hospital-platform-worker-v2.service` 只读复核为 `inactive/dead`、`MainPID=0`，Worker 没有启动；
 - 临时上传压缩包已从候选目录清理，八个运行 bundle 保留。
 
 ## 5. 内外网与日志观察
