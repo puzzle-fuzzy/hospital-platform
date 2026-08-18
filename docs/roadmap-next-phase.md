@@ -9,6 +9,8 @@
 
 - 2026-08-18 21:33 CST：重启后重新核对新 `miniprogram` 窗口，资源树仍为 `dist/`，模拟器首页和问题面板正常；但二维码仍显示 `8/18 18:59` 失效，重新打开入口未刷新有效期。因此本轮没有扫码、没有新增微信会话/患者/只读业务真机证据；需先重新编译生成有效二维码，记录见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 
+- 2026-08-18 21:35 CST：在新 `miniprogram` 项目窗口触发普通编译后，二维码已更新为约 606 KB、有效期至 `8/18 21:59`；资源树仍为 `dist/`，问题面板为 0 个问题，模拟器首页正常。截至记录仍无新手机连接，因此只恢复了可扫码入口，不增加微信会话、患者目录或只读业务真机证据。
+
 - `37016c4` 已作为未切换候选上传并通过产物 checksum、真实生产 env preflight 和 production 公网 runtime smoke；它只修正 smoke 日志不记录原始 `Error.message`，当前线上仍为 `687690e`，候选证据见 [`release/candidate-37016c4-smoke-log-hardening-2026-08-18.md`](release/candidate-37016c4-smoke-log-hardening-2026-08-18.md)。
 
 - 2026-08-18：`b213dcc` 将统一患者 provider 引用校验接入报告目录 service。仓储返回的非法结构、控制字符或跨患者/Provider 的 HIS `patId` 会在报告 Provider 调用前 fail-closed，日志只保留有限引用原因；报告详情已有的短期引用范围校验和安全摘要语义不变。新增报告目录回归测试，当前 API 为 131 项、599 个断言。本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
