@@ -115,6 +115,12 @@ MySQL 中按用户、provider、key 隔离的操作事实，并且和目录快�
 7. 已有过期 `in_progress` 且没有其他活跃同步时增加 `attempt_count`、刷新租约并返回 `started`；
 8. 事务提交后，只有拿到 `started` 的请求才能访问 provider。
 
+这里的“没有其他活跃同步”也适用于精确幂等键已经过期的情况：如果同一
+`ownerUserId/provider` 下存在另一个幂等键且其租约仍有效，当前请求必须返回
+`owner-provider` 范围的 `in_progress`，不能直接接管旧 key。否则两个请求会同时访问
+Provider，并可能以不同快照顺序覆盖同一份患者目录。MySQL 仓储在 owner 行锁内执行这次
+排除当前 operation 的活跃租约查询，内存仓储和回归测试也保持同一语义。
+
 插入竞争必须依靠数据库唯一约束处理，不能只依赖“先 SELECT 再 INSERT”。唯一键冲突后必须重新
 读取并按状态分支，不能把 SQL duplicate error 直接转换成 500。
 

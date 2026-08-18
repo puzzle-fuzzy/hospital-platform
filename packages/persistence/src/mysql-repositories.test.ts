@@ -233,6 +233,7 @@ test("MySQL patient sync operation uses owner-scoped lease and replay states", a
 				lease_until: "2026-08-15 23:59:00.000",
 			},
 		],
+		[],
 		{ affectedRows: 1 },
 		[{ user_id: "user-001" }],
 		[
@@ -271,6 +272,50 @@ test("MySQL patient sync operation uses owner-scoped lease and replay states", a
 	expect(state.statements[1]).toContain("hp_patient_directory_sync_operations");
 	expect(state.values[1]).toContain("patient-sync-key");
 	expect(state.statements[1]).toContain("FOR UPDATE");
+});
+
+test("MySQL patient sync does not take over an expired key beside another active lease", async () => {
+	const { pool, state } = createFakePool([
+		[{ user_id: "user-001" }],
+		[
+			{
+				operation_id: "operation-expired",
+				status: "in_progress",
+				attempt_count: 2,
+				lease_until: "2026-08-15 23:59:00.000",
+			},
+		],
+		[
+			{
+				operation_id: "operation-active",
+				status: "in_progress",
+				attempt_count: 1,
+				lease_until: "2026-08-16 00:01:00.000",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.beginDirectorySync?.({
+			ownerUserId: "user-001",
+			provider: "zhongyang",
+			idempotencyKey: "expired-key",
+			now: "2026-08-16T00:00:00.000Z",
+			leaseUntil: "2026-08-16T00:01:00.000Z",
+		}),
+	).resolves.toEqual({
+		outcome: "in_progress",
+		operationId: "operation-active",
+		attemptCount: 1,
+		leaseUntil: "2026-08-16T00:01:00.000Z",
+		conflictScope: "owner-provider",
+	});
+	// 只有 owner、精确 key 和排除旧 operation 的活跃租约查询，不能出现
+	// 接管 UPDATE；否则同一 owner/provider 会同时拥有两把有效租约。
+	expect(state.statements).toHaveLength(3);
+	expect(state.statements[2]).toContain("operation_id <> ?");
+	expect(state.values[2]).toContain("operation-expired");
 });
 
 test("MySQL patient sync blocks a different key while the owner has an active lease", async () => {

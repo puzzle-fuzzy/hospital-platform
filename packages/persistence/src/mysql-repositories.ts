@@ -1216,6 +1216,47 @@ export function createMySqlRepositories(
 					};
 				};
 
+				if (exactRow?.status === "in_progress") {
+					const exactLeaseMilliseconds = timestampMilliseconds(
+						exactRow.lease_until,
+					);
+					const nowMilliseconds = timestampMilliseconds(input.now);
+					if (
+						exactLeaseMilliseconds === undefined ||
+						nowMilliseconds === undefined
+					) {
+						throw new Error(
+							"Persistence returned an invalid patient sync lease",
+						);
+					}
+					if (exactLeaseMilliseconds <= nowMilliseconds) {
+						// 同一 key 的旧租约过期，不代表 owner/provider 已经空闲。
+						// 另一页面可能使用新 key 取得了有效租约；此时必须先返回
+						// owner-provider 冲突，不能直接接管旧 key，避免两个请求同时
+						// 访问 Provider 并竞争同一份患者快照。
+						const activeRows = await execute<
+							PatientDirectorySyncOperationRow[]
+						>(
+							connection,
+							"SELECT operation_id, status, attempt_count, lease_until FROM hp_patient_directory_sync_operations WHERE owner_user_id = ? AND provider_name = ? AND status = 'in_progress' AND lease_until > ? AND operation_id <> ? ORDER BY updated_at DESC, operation_id DESC LIMIT 1 FOR UPDATE",
+							[input.ownerUserId, input.provider, now, exactRow.operation_id],
+						);
+						const activeRow = activeRows[0];
+						if (activeRow) {
+							const active = await readExistingOperation(
+								activeRow,
+								"owner-provider",
+							);
+							if (active.outcome !== "in_progress") {
+								throw new Error(
+									"Patient sync active-operation query returned an invalid state",
+								);
+							}
+							return active;
+						}
+					}
+				}
+
 				if (exactRow) return readExistingOperation(exactRow);
 
 				// 这是和唯一幂等键不同的第二道并发边界：即使本次 key 从未出现，
