@@ -25,27 +25,36 @@ export function isMissedAppointment(record: AppointmentRecord): boolean {
 }
 
 /**
- * 旧端“在线挂号”通过 provider 的 `requestChannel=3` 查询，
- * “全部挂号”则使用另一个渠道值；但新公共 AppointmentRecord 没有渠道字段，
- * 当前也没有证据证明旧端的 3/4 仍代表同样的业务范围。这里不能在小程序内
- * 猜测渠道、把标签点击重新翻译成 provider 参数，或把一次只读响应伪装成两
- * 个独立渠道结果。因此当前“在线挂号”只排除服务端明确归一化的 `cancelled`，
- * “全部挂号”展示本次已取得的完整读模型；这保持旧端可见结构，同时明确不
- * 冒充旧渠道语义。只有 provider 合同冻结并将渠道归一化字段加入公共 contract
- * 后，才能把两个标签改成真正不同的业务筛选。
+ * 当前服务端预约历史查询固定使用已经确认的微信渠道 `requestChannel=3`。
+ * 旧端的在线标签还会排除服务端明确归一化的 `cancelled`，这属于已观察到的
+ * 展示规则，不是把“取消”误当作渠道字段。新公共记录没有渠道字段，因此
+ * 小程序不能把同一批 `3` 渠道结果伪装成“全部挂号”；全部渠道必须等服务端
+ * 取得并冻结 `requestChannel=4` 的独立查询 contract 后再开放。
  */
 export function isOnlineAppointmentRecord(record: AppointmentRecord): boolean {
 	return record.status !== "cancelled";
 }
 
-/** 标签切换只影响当前已取得的记录，不改变日期窗口或新增 Provider 请求。 */
+/** 当前只有在线渠道可用；全部渠道不能用本地记录拼接或状态推导。 */
+export function isAppointmentRecordTabAvailable(
+	tab: "online" | "all",
+): boolean {
+	return tab === "online";
+}
+
+/**
+ * 标签切换只影响当前已取得的在线读模型。
+ *
+ * `all` 返回空数组只是防御性边界：页面会在切换前拦截该标签并提示迁移中，
+ * 不能让未来新增调用方误把在线记录当成全部记录。真正的全部查询必须在
+ * 服务端新增独立渠道请求和 owner-scoped contract 后实现。
+ */
 export function filterAppointmentRecords<T extends AppointmentRecord>(
 	records: readonly T[],
 	tab: "online" | "all",
 ): T[] {
-	return tab === "all"
-		? [...records]
-		: records.filter(isOnlineAppointmentRecord);
+	if (!isAppointmentRecordTabAvailable(tab)) return [];
+	return records.filter(isOnlineAppointmentRecord);
 }
 
 /**

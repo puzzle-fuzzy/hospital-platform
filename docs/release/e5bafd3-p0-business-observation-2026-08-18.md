@@ -41,7 +41,9 @@
 使用同一 release 对应的小程序运行包，在已经登录且患者目录显示成功后，按以下顺序逐项操作，并为每项保留页面结果、HTTP 状态和低敏日志：
 
 ```text
-进入“我的” -> 我的挂号 -> 爽约记录 -> 门诊缴费/待缴费 -> 已缴费 -> 更换就诊人后重复读取
+进入“我的” -> 我的挂号（在线渠道） -> 爽约记录 -> 门诊缴费/待缴费 -> 已缴费 -> 更换就诊人后重复读取
 ```
+
+“全部挂号”标签当前只保留原版视觉位置并提示迁移中，不应作为本轮业务验收入口；它需要独立的 Provider 渠道 contract。
 
 若任一项返回 `unauthorized`、`patient-selection-required`、`patient-not-found`、`persistence-temporarily-unavailable` 或 provider 错误，先根据同一 traceId 定位会话、患者映射和 provider 边界；不能把失败降级为空列表，也不能在当前证据不足时打开支付、医保或 HIS 写回。

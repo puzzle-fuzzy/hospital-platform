@@ -35,7 +35,7 @@
 		</view>
 	</view>
 
-	<!-- 旧端的在线/全部标签；只过滤当前已取得的服务端读模型。 -->
+	<!-- 保留旧端双标签布局；全部渠道尚未取得独立 contract，点击时明确提示迁移中。 -->
 	<view class="status-tabs">
 		<view
 			class="status-tab {{activeTab === 'online' ? 'status-tab-active' : ''}}"
@@ -46,7 +46,7 @@
 			<view wx:if="{{activeTab === 'online'}}" class="status-tab-indicator"></view>
 		</view>
 		<view
-			class="status-tab {{activeTab === 'all' ? 'status-tab-active' : ''}}"
+			class="status-tab status-tab-disabled {{activeTab === 'all' ? 'status-tab-active' : ''}}"
 			bindtap="onTabTap"
 			data-tab="all"
 		>

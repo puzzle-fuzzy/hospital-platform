@@ -12,6 +12,7 @@
   `10.0.0.3:18081` active；旧 Python API `0.0.0.0:8001` 继续监听，旧进程 PID 未变，Worker 未启动。
 - 生产 preflight、候选隔离 `/api/v1` runtime smoke、切换后内网 live/ready 和公网 `/api/v2` runtime smoke 均通过；公网 ready 保留 `Cache-Control: no-store`，MySQL、Redis、schema 为 `ok`，支付、医保相关支付链路和报告 gate 保持关闭。
 - 切换后已取得一次真实微信会话：`POST /auth/wechat` 200、患者目录读取 200、患者同步 200，返回 1 条 active 患者和 1 条 `his-patient` 映射；但没有新的 `appointment.records.*`、`outpatient.payment.*` 或 `report.*` 事件，不能把“我的挂号”、爽约记录、门诊费用或报告标记为真实业务验收。详细低敏证据见 [`release/e5bafd3-p0-business-observation-2026-08-18.md`](release/e5bafd3-p0-business-observation-2026-08-18.md)。
+- 当前预约历史页面只开放已确认的在线渠道读模型；“全部挂号”保留原版标签位置但 fail-closed 提示迁移中，不能把在线结果复制为全部渠道结果。
 - 完整证据见 [`release/e5bafd3-production-acceptance-2026-08-18.md`](release/e5bafd3-production-acceptance-2026-08-18.md)。
 
 ### 本轮 4cf9e66 生产共存切换与候选验收（2026-08-18 09:16-09:20 CST）

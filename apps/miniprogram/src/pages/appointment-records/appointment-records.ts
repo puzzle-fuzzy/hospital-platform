@@ -2,6 +2,7 @@ import departmentLocations from "../../data/department-location";
 import { ApiError } from "../../services/api-client";
 import {
 	filterAppointmentRecords,
+	isAppointmentRecordTabAvailable,
 	toAppointmentRecordView,
 } from "../../services/appointment-record-view";
 import {
@@ -222,14 +223,21 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/**
-	 * 复刻旧端“在线挂号/全部挂号”标签，但只在当前安全读模型上过滤。
-	 * 旧端的 provider 渠道参数不属于新公共 contract，不能为了视觉一致把它
-	 * 重新透传到 API；这样切换标签不会增加 Provider 请求或改变事实总量。
+	 * 保留旧端双标签的视觉位置，但只开放当前已确认的微信渠道查询。
+	 *
+	 * 旧端“全部挂号”需要另一个 Provider 渠道请求；新 API 当前只实现已确认的
+	 * 微信在线查询，不能把在线结果在页面内复制成全部结果。等服务端
+	 * contract、owner 映射和失败/超时语义冻结后，再新增独立查询，不在这里
+	 * 通过切换标签修改现有请求或猜测数据范围。
 	 */
 	onTabTap(event: WechatMiniprogram.TouchEvent): void {
 		const tab = event.currentTarget?.dataset?.tab;
 		if (tab !== "online" && tab !== "all") return;
 		const activeTab = tab as AppointmentRecordTab;
+		if (!isAppointmentRecordTabAvailable(activeTab)) {
+			wx.showToast({ title: "全部挂号查询正在迁移中", icon: "none" });
+			return;
+		}
 		this.setData({
 			activeTab,
 			...getVisibleRecords(this.data.records, activeTab),

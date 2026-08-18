@@ -800,10 +800,10 @@ test("native appointment tabs do not fabricate provider channel semantics", asyn
 	const view = await source("services/appointment-record-view.ts");
 	const client = await source("services/api-client.ts");
 
-	// 旧端标签对应 provider requestChannel=3/4，但这些值的当前含义和
-	// 公共响应字段尚未冻结；客户端只能在服务端归一化状态上做安全筛选，
-	// 不能把标签点击变成未经授权的 provider 参数透传。
+	// 旧端全部标签需要另一条 provider 渠道查询；新端页面只能使用服务端
+	// 已确认的在线读模型，并在 contract 未到齐前把全部标签保持为迁移提示。
 	expect(records).toContain("filterAppointmentRecords");
+	expect(records).toContain("isAppointmentRecordTabAvailable");
 	expect(view).toContain('record.status !== "cancelled"');
 	expect(records).not.toContain("requestChannel");
 	expect(client).not.toContain("requestChannel");

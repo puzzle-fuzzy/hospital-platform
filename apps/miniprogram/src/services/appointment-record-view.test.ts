@@ -3,6 +3,7 @@ import type { AppointmentRecord } from "../types";
 import {
 	APPOINTMENT_RECORD_STATUS_LABELS,
 	filterAppointmentRecords,
+	isAppointmentRecordTabAvailable,
 	isMissedAppointment,
 	isOnlineAppointmentRecord,
 	toAppointmentRecordView,
@@ -43,7 +44,14 @@ test("我的挂号在线标签只排除服务端明确的已取消记录", () =>
 	expect(isOnlineAppointmentRecord(scheduled)).toBe(true);
 	expect(isOnlineAppointmentRecord(cancelled)).toBe(false);
 	expect(filterAppointmentRecords(records, "online")).toHaveLength(2);
-	expect(filterAppointmentRecords(records, "all")).toHaveLength(3);
+});
+
+test("全部挂号在独立渠道 contract 到齐前不可用", () => {
+	const records = [record("scheduled"), record("cancelled")];
+
+	expect(isAppointmentRecordTabAvailable("online")).toBe(true);
+	expect(isAppointmentRecordTabAvailable("all")).toBe(false);
+	expect(filterAppointmentRecords(records, "all")).toEqual([]);
 });
 
 test("预约摘要视图 key 只用于渲染且不改变业务状态", () => {
