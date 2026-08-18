@@ -43,3 +43,22 @@
 
 本次没有重启、release 切换、migration、旧项目修改或 MySQL/Redis 写入；运行层证据仍不能替代新小程序的
 真实微信设备连接、患者切换和只读业务三层验收。
+
+## 5. 重启后继续工作的公网只读复核（2026-08-18 21:57 CST）
+
+为确认刚才重启后没有发生运行层漂移，再次执行公网和 SSH 只读复核。当前 release 仍为 `687690e`，
+`hospital-platform-api-v2.service` 仍为 `active`，新 API 仍监听 `10.0.0.3:18081`，旧 Python API
+仍监听 `0.0.0.0:8001`。
+
+| 检查项 | 结果 | 低敏关联信息 |
+| --- | --- | --- |
+| `GET /api/v2/health/live` | HTTP 200，`status=ok` | `x-request-id=b5dcc308-36f9-4d9a-887c-d72726da7be1` |
+| `GET /api/v2/health/ready` | HTTP 200，`database=ok`、`redis=ok`、`schema=ok` | `x-request-id=7c38300a-7e3a-4d7e-9038-1ebd964ab19a` |
+| `GET /api/v2/system/ping` | HTTP 200，服务身份正常 | `x-request-id=ce71fd30-1698-4ab8-9ad1-3651810345ae` |
+| 未登录 `GET /api/v2/me` | HTTP 401，`unauthorized` | `x-request-id=f2a00c28-60f4-48c6-9186-339b3d90d2b6` |
+| 未登录 `GET /api/v2/patients` | HTTP 401，`unauthorized` | `x-request-id=85e8da32-ddd3-48fe-baf5-271d71bd3670` |
+
+这里的 system ping 正确路径是 `/api/v2/system/ping`；`/api/v2/health/system-ping` 不属于当前新 API
+健康路由，返回 404 不能作为服务故障证据。本次没有重启服务、切换 release、执行 migration、修改旧
+Python 项目或写入 MySQL/Redis；上述结果只解除重启后的运行层检查，仍不增加微信会话、真机、多患者、
+预约、报告、费用、支付、医保或 HIS 业务验收结论。
