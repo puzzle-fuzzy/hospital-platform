@@ -27,13 +27,18 @@
 
 ## 本地证据
 
-提交 `d948d11`（`收紧小程序 API 版本前缀`）后完成：
+实现提交 `d948d11`（`收紧小程序 API 版本前缀`）并补充真实请求回归提交
+`93a3c72`（`补充小程序 API 前缀真实请求回归`）后完成：
 
-- `pnpm --filter @hospital/miniprogram test`：127 项通过，1073 个断言；
+- `pnpm --filter @hospital/miniprogram test`：128 项通过，1075 个断言；
 - `pnpm --filter @hospital/miniprogram typecheck`：通过；
-- `pnpm --filter @hospital/miniprogram build`：通过；
+- `pnpm --filter @hospital/miniprogram build`：通过，运行包来源为 `93a3c720dc137162ff469ec745359775b08f84ab`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：通过，14 个页面脚本和根文件完整；
 - Biome 对本次源码和测试检查通过。
+
+新增回归直接 mock 微信请求层，验证同一个旧缓存 `/api/v999` 在公网 HTTPS 地址拼成
+`/api/v2/health/live`，在本地 HTTP 地址拼成 `/api/v1/health/live`；它覆盖实际 URL 生成路径，
+不只验证前缀辅助函数。
 
 ## 尚未证明的边界
 
