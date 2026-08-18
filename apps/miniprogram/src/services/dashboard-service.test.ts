@@ -4,10 +4,12 @@ import {
 	createAppointmentRecordQuery,
 	createPastDateRange,
 	loadOutpatientPaymentRecords,
+	requireAppointmentDepartmentListData,
 	requireAppointmentRecordListData,
+	requireAppointmentScheduleListData,
 	requireExactListData,
-	requirePatientListData,
 	requireOutpatientPaymentListData,
+	requirePatientListData,
 } from "./dashboard-service";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
@@ -124,6 +126,89 @@ test("患者目录响应必须保持脱敏读模型和唯一患者标识", () =>
 		expect(() => requirePatientListData(invalid)).toThrow(
 			"Patient response item",
 		);
+	}
+});
+
+test("预约科室目录响应必须保持唯一标识和公开展示字段", () => {
+	const valid = {
+		items: [
+			{
+				departmentId: "dept-001",
+				departmentCode: "内科",
+				displayName: "内科",
+				location: "门诊二楼",
+			},
+		],
+		total: 1,
+	};
+
+	expect(requireAppointmentDepartmentListData(valid)).toEqual(valid);
+
+	for (const invalid of [
+		{ ...valid, items: [{ ...valid.items[0], departmentId: "" }] },
+		{ ...valid, items: [{ ...valid.items[0], displayName: " 内科" }] },
+		{ ...valid, items: [{ ...valid.items[0], location: null }] },
+		{
+			...valid,
+			items: [valid.items[0], { ...valid.items[0] }],
+			total: 2,
+		},
+	]) {
+		expect(() => requireAppointmentDepartmentListData(invalid)).toThrow(
+			"Appointment",
+		);
+	}
+});
+
+test("预约排班响应必须绑定请求科室并保持号源语义", () => {
+	const valid = {
+		items: [
+			{
+				scheduleId: "schedule-001",
+				departmentId: "dept-001",
+				departmentName: "内科",
+				doctorId: "doctor-001",
+				doctorName: "医生甲",
+				workDate: "2026-08-20",
+				shiftName: "上午",
+				startTime: "08:00",
+				endTime: "12:00",
+				totalSlots: 20,
+				availableSlots: 8,
+				timeGroup: "range" as const,
+			},
+		],
+		total: 1,
+	};
+
+	expect(requireAppointmentScheduleListData(valid, "dept-001")).toEqual(valid);
+
+	for (const invalid of [
+		{
+			...valid,
+			items: [{ ...valid.items[0], departmentId: "dept-002" }],
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], workDate: "2026-02-31" }],
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], availableSlots: 21 }],
+		},
+		{
+			...valid,
+			items: [{ ...valid.items[0], timeGroup: "unknown-value" }],
+		},
+		{
+			...valid,
+			items: [valid.items[0], { ...valid.items[0] }],
+			total: 2,
+		},
+	]) {
+		expect(() =>
+			requireAppointmentScheduleListData(invalid, "dept-001"),
+		).toThrow("Appointment");
 	}
 });
 

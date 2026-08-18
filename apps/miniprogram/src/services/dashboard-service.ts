@@ -121,6 +121,56 @@ function isIsoCalendarDate(value: unknown): value is string {
 	);
 }
 
+/** 预约目录的标识必须是可回查的短字符串，不能携带控制字符或空白。 */
+function isBoundedAppointmentIdentifier(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= 128 &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+const APPOINTMENT_TIME_GROUPS = new Set<AppointmentSchedule["timeGroup"]>([
+	"point",
+	"range",
+	"unknown",
+]);
+
+function isAppointmentTimeGroup(
+	value: unknown,
+): value is AppointmentSchedule["timeGroup"] {
+	return APPOINTMENT_TIME_GROUPS.has(value as AppointmentSchedule["timeGroup"]);
+}
+
+/** 预约目录的每条记录都必须通过运行时 contract，异常时整批拒绝。 */
+function invalidAppointmentResponse(message: string): never {
+	throw new ApiError(message, {
+		code: "provider-response-invalid",
+	});
+}
+
+function requiredAppointmentText(value: unknown, maxLength: number): string {
+	if (!hasSafePatientText(value, maxLength)) {
+		return invalidAppointmentResponse(
+			"Appointment directory response item is invalid",
+		);
+	}
+	return value;
+}
+
+function optionalAppointmentText(
+	value: unknown,
+	maxLength: number,
+): string | undefined {
+	if (value === undefined) return undefined;
+	return requiredAppointmentText(value, maxLength);
+}
+
 const APPOINTMENT_RECORD_STATUSES = new Set<AppointmentRecord["status"]>([
 	"scheduled",
 	"cancelled",
@@ -209,6 +259,119 @@ export function requirePatientListData(value: unknown): ExactListData<Patient> {
 			cardNumberMasked: record.cardNumberMasked,
 			source: record.source,
 			clinicalAccess: record.clinicalAccess,
+		});
+	}
+	return { items, total: list.total };
+}
+
+/**
+ * 小程序级联左栏只接受服务端公开的科室白名单字段。
+ *
+ * 科室目录虽然不包含患者信息，但仍然是 Provider 结果进入页面的边界；
+ * 这里拒绝重复键、控制字符和未知字段以外的非法核心字段，并重新投影
+ * 公共对象，避免网关扩展字段被后续页面当成业务事实。
+ */
+export function requireAppointmentDepartmentListData(
+	value: unknown,
+): ExactListData<AppointmentDepartment> {
+	const list = requireExactListData<unknown>(value);
+	const seenDepartmentIds = new Set<string>();
+	const items: AppointmentDepartment[] = [];
+	for (const item of list.items) {
+		if (!isRecord(item)) {
+			return invalidAppointmentResponse(
+				"Appointment department response item is invalid",
+			);
+		}
+		const departmentId = requiredAppointmentText(item.departmentId, 128);
+		if (seenDepartmentIds.has(departmentId)) {
+			return invalidAppointmentResponse(
+				"Appointment department response item is invalid",
+			);
+		}
+		seenDepartmentIds.add(departmentId);
+		const departmentCode = optionalAppointmentText(item.departmentCode, 128);
+		const location = optionalAppointmentText(item.location, 256);
+		const displayName = requiredAppointmentText(item.displayName, 256);
+		items.push({
+			departmentId,
+			...(departmentCode === undefined ? {} : { departmentCode }),
+			displayName,
+			...(location === undefined ? {} : { location }),
+		});
+	}
+	return { items, total: list.total };
+}
+
+/**
+ * 小程序级联右栏只接受当前左栏科室对应的排班读模型。
+ *
+ * `scheduleId` 只是服务端生成的 opaque 只读引用，不是预约授权；客户端
+ * 仍必须校验它唯一、日期真实、号源数量满足 available <= total、时间分组
+ * 属于有限枚举，并拒绝“请求科室 A 却返回科室 B”的串台响应。任何一条
+ * 异常都整批 fail-closed，不能筛掉坏记录后伪装成完整号源目录。
+ */
+export function requireAppointmentScheduleListData(
+	value: unknown,
+	expectedDepartmentId: string,
+): ExactListData<AppointmentSchedule> {
+	if (!isBoundedAppointmentIdentifier(expectedDepartmentId)) {
+		return invalidAppointmentResponse(
+			"Appointment department request context is invalid",
+		);
+	}
+	const list = requireExactListData<unknown>(value);
+	const seenScheduleIds = new Set<string>();
+	const items: AppointmentSchedule[] = [];
+	for (const item of list.items) {
+		if (!isRecord(item)) {
+			return invalidAppointmentResponse(
+				"Appointment schedule response item is invalid",
+			);
+		}
+		const scheduleId = requiredAppointmentText(item.scheduleId, 128);
+		const departmentId = requiredAppointmentText(item.departmentId, 128);
+		const departmentName = requiredAppointmentText(item.departmentName, 256);
+		const doctorId = requiredAppointmentText(item.doctorId, 128);
+		const doctorName = requiredAppointmentText(item.doctorName, 256);
+		const workDate = item.workDate;
+		const shiftName = requiredAppointmentText(item.shiftName, 128);
+		const startTime = optionalAppointmentText(item.startTime, 32);
+		const endTime = optionalAppointmentText(item.endTime, 32);
+		const totalSlots = item.totalSlots;
+		const availableSlots = item.availableSlots;
+		if (
+			!isBoundedAppointmentIdentifier(scheduleId) ||
+			seenScheduleIds.has(scheduleId) ||
+			departmentId !== expectedDepartmentId ||
+			!isIsoCalendarDate(workDate) ||
+			typeof totalSlots !== "number" ||
+			!Number.isSafeInteger(totalSlots) ||
+			totalSlots < 0 ||
+			typeof availableSlots !== "number" ||
+			!Number.isSafeInteger(availableSlots) ||
+			availableSlots < 0 ||
+			availableSlots > totalSlots ||
+			!isAppointmentTimeGroup(item.timeGroup)
+		) {
+			return invalidAppointmentResponse(
+				"Appointment schedule response item is invalid",
+			);
+		}
+		seenScheduleIds.add(scheduleId);
+		items.push({
+			scheduleId,
+			departmentId,
+			departmentName,
+			doctorId,
+			doctorName,
+			workDate,
+			shiftName,
+			...(startTime === undefined ? {} : { startTime }),
+			...(endTime === undefined ? {} : { endTime }),
+			totalSlots,
+			availableSlots,
+			timeGroup: item.timeGroup,
 		});
 	}
 	return { items, total: list.total };
@@ -493,8 +656,7 @@ export function loadAppointmentDepartments(): Promise<
 	Array<AppointmentDepartment>
 > {
 	return requestAppointmentDepartments().then(
-		(payload) =>
-			requireExactListData<AppointmentDepartment>(payload.data).items,
+		(payload) => requireAppointmentDepartmentListData(payload.data).items,
 	);
 }
 
@@ -517,7 +679,8 @@ export function loadAppointmentSchedules(
 			now,
 		),
 	}).then(
-		(payload) => requireExactListData<AppointmentSchedule>(payload.data).items,
+		(payload) =>
+			requireAppointmentScheduleListData(payload.data, departmentId).items,
 	);
 }
 
