@@ -120,6 +120,19 @@ export type ReportTabEvent = DatasetEvent<{ tab?: string }>;
 
 export type SessionLabel = "未登录" | "验证会话中" | "已恢复会话" | "已登录";
 
+/**
+ * 页面级会话验证状态。
+ *
+ * `hasPlatformSession()` 只能说明本地存在 token，不能证明 token 仍被服务端
+ * 接受；患者、资料和挂号入口必须消费这个最近一次 `/me` 验证结果。`unavailable`
+ * 表示服务暂时不可用，不能误判成退出登录并删除可重试的本地会话。
+ */
+export type SessionVerificationState =
+	| "checking"
+	| "valid"
+	| "invalid"
+	| "unavailable";
+
 export type ServiceTab = {
 	title: string;
 	items: ReadonlyArray<ServiceItem>;
@@ -319,6 +332,8 @@ export type MyMenuSection = {
 export type MyPageData = {
 	/** 只属于当前“我的”页面实例；首次 onShow 不重复 onLoad 已发起的读取。 */
 	hasShown: boolean;
+	/** 入口门禁使用最近一次 `/me` 结果，而不是仅凭本地 token 存在与否。 */
+	sessionState: SessionVerificationState;
 	userLabel: string;
 	selectedPatient: Patient | null;
 	patientCount: number;

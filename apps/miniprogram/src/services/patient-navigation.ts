@@ -1,10 +1,33 @@
 import { isPatientSyncInFlight } from "./patient-sync-coordinator";
+import type { SessionVerificationState } from "../types";
+
+/** 兼容已有布尔调用方，同时允许页面传入最近一次 `/me` 验证结果。 */
+type AuthenticatedEntryState = SessionVerificationState | boolean;
 
 /** 患者范围页面进入前的三态门禁，页面不能把它们混成一个跳转结果。 */
 export type PatientScopedEntryDecision =
 	| "redirect-to-login"
 	| "select-patient"
 	| "open";
+
+export type AuthenticatedEntryDecision =
+	| "wait-for-session"
+	| "redirect-to-login"
+	| "open";
+
+/**
+ * 只有明确验证成功才允许进入需要会话的页面。
+ *
+ * 布尔值仅保留给旧调用点：true 等价于已验证，false 等价于已失效；新页面
+ * 应传入四态值，避免把“本地有 token”错误地当作“服务端已登录”。
+ */
+export function resolveAuthenticatedEntry(
+	state: AuthenticatedEntryState,
+): AuthenticatedEntryDecision {
+	if (state === true || state === "valid") return "open";
+	if (state === false || state === "invalid") return "redirect-to-login";
+	return "wait-for-session";
+}
 
 /**
  * 纯函数判断患者范围页面的入口状态。
@@ -31,9 +54,14 @@ export function resolvePatientScopedEntry(
  */
 export function navigateToAuthenticatedPage(
 	url: string,
-	hasSession: boolean,
+	state: AuthenticatedEntryState,
 ): void {
-	if (!hasSession) {
+	const decision = resolveAuthenticatedEntry(state);
+	if (decision === "wait-for-session") {
+		wx.showToast({ title: "登录状态验证中，请稍后", icon: "none" });
+		return;
+	}
+	if (decision === "redirect-to-login") {
 		wx.showToast({ title: "请先登录", icon: "none" });
 		wx.reLaunch({ url: "/pages/index/index" });
 		return;
@@ -48,9 +76,12 @@ export function navigateToAuthenticatedPage(
  * 避免选择页再次产生第二条同步链；门禁只改善用户入口，真正的并发安全
  * 仍由进程级同步协调器和服务端幂等租约共同保证。
  */
-export function navigateToPatientSelector(hasSession = true): void {
-	if (!hasSession) {
-		navigateToAuthenticatedPage("/pages/patient-select/patient-select", false);
+export function navigateToPatientSelector(
+	state: AuthenticatedEntryState = true,
+): void {
+	const decision = resolveAuthenticatedEntry(state);
+	if (decision !== "open") {
+		navigateToAuthenticatedPage("/pages/patient-select/patient-select", state);
 		return;
 	}
 	if (isPatientSyncInFlight()) {
@@ -69,16 +100,17 @@ export function navigateToPatientSelector(hasSession = true): void {
  */
 export function navigateToPatientScopedPage(
 	url: string,
-	hasSession: boolean,
+	state: AuthenticatedEntryState,
 	hasPatient: boolean,
 ): void {
-	const decision = resolvePatientScopedEntry(hasSession, hasPatient);
-	if (decision === "redirect-to-login") {
-		navigateToAuthenticatedPage(url, false);
+	const sessionDecision = resolveAuthenticatedEntry(state);
+	if (sessionDecision !== "open") {
+		navigateToAuthenticatedPage(url, state);
 		return;
 	}
+	const decision = resolvePatientScopedEntry(true, hasPatient);
 	if (decision === "select-patient") {
-		navigateToPatientSelector();
+		navigateToPatientSelector(state);
 		return;
 	}
 	wx.navigateTo({ url });

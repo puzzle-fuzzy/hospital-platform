@@ -1,5 +1,9 @@
-import { getCurrentUser, login } from "./api-client";
-import type { AuthSessionResponse, CurrentUserResponse } from "../types";
+import { ApiError, getCurrentUser, login } from "./api-client";
+import type {
+	AuthSessionResponse,
+	CurrentUserResponse,
+	SessionVerificationState,
+} from "../types";
 
 /** 会话状态只在这一层写入全局，页面层只消费本地化后的显示文案。 */
 export const SESSION_STATES = Object.freeze({
@@ -8,6 +12,16 @@ export const SESSION_STATES = Object.freeze({
 } as const);
 
 export type SessionState = (typeof SESSION_STATES)[keyof typeof SESSION_STATES];
+
+/** 将会话验证异常收敛成页面可消费的状态，临时故障不等同于退出登录。 */
+export function sessionVerificationStateFromError(
+	error: unknown,
+): Exclude<SessionVerificationState, "checking" | "valid"> {
+	if (error instanceof ApiError && error.code === "unauthorized") {
+		return "invalid";
+	}
+	return "unavailable";
+}
 
 function globalData(): { accessToken: string; sessionStatus: SessionState } {
 	return (

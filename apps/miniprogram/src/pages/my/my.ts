@@ -14,7 +14,7 @@ import {
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
 } from "../../services/patient-navigation";
-import { hasPlatformSession } from "../../services/session-service";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
@@ -131,6 +131,7 @@ function showUnavailableMyAction(action: UnavailableMyAction): void {
 Page<MyPageData, MyPageMethods>({
 	data: {
 		hasShown: false,
+		sessionState: "checking",
 		userLabel: "微信用户",
 		selectedPatient: null,
 		patientCount: 0,
@@ -160,7 +161,23 @@ Page<MyPageData, MyPageMethods>({
 	loadPage(): Promise<void> {
 		const pageLoadGuard = getPageLatestRequestGuard(this, "my-page");
 		const requestToken = pageLoadGuard.begin();
-		this.setData({ loading: true, error: "" });
+		this.setData({ loading: true, error: "", sessionState: "checking" });
+		const sessionResult = getCurrentUser().then(
+			(payload) => {
+				if (pageLoadGuard.isCurrent(requestToken)) {
+					this.setData({ sessionState: "valid" });
+				}
+				return payload;
+			},
+			(error) => {
+				if (pageLoadGuard.isCurrent(requestToken)) {
+					this.setData({
+						sessionState: sessionVerificationStateFromError(error),
+					});
+				}
+				throw error;
+			},
+		);
 		// `/me` 和患者目录决定“我的”页的核心会话上下文，资料只是头像区域的
 		// 展示增强。资料读取失败不能让已经成功的患者上下文整页失败，但必须
 		// 留下用户可见的可重试提示，避免把“微信用户”误认为资料读取成功。
@@ -168,7 +185,7 @@ Page<MyPageData, MyPageMethods>({
 			(response) => ({ status: "fulfilled" as const, response }),
 			(error) => ({ status: "rejected" as const, error }),
 		);
-		return Promise.all([getCurrentUser(), loadPatients(), profileResult])
+		return Promise.all([sessionResult, loadPatients(), profileResult])
 			.then(([userPayload, patients, profile]) => {
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);
@@ -206,37 +223,40 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	onHeaderTap(): void {
-		navigateToAuthenticatedPage("/pages/profile/profile", hasPlatformSession());
+		navigateToAuthenticatedPage(
+			"/pages/profile/profile",
+			this.data.sessionState,
+		);
 	},
 
 	onFamilyTap(): void {
-		navigateToPatientSelector(hasPlatformSession());
+		navigateToPatientSelector(this.data.sessionState);
 	},
 
 	onAction(event): void {
 		const action = event.currentTarget?.dataset?.action;
 		switch (action) {
 			case "patient-select":
-				navigateToPatientSelector(hasPlatformSession());
+				navigateToPatientSelector(this.data.sessionState);
 				break;
 			case "appointment-records":
 				navigateToPatientScopedPage(
 					"/pages/appointment-records/appointment-records",
-					hasPlatformSession(),
+					this.data.sessionState,
 					Boolean(this.data.selectedPatient),
 				);
 				break;
 			case "missed-appointments":
 				navigateToPatientScopedPage(
 					"/pages/missed-appointments/missed-appointments",
-					hasPlatformSession(),
+					this.data.sessionState,
 					Boolean(this.data.selectedPatient),
 				);
 				break;
 			case "outpatient-payment":
 				navigateToPatientScopedPage(
 					"/pages/outpatient-payment/outpatient-payment",
-					hasPlatformSession(),
+					this.data.sessionState,
 					Boolean(this.data.selectedPatient),
 				);
 				break;

@@ -81,6 +81,10 @@ API 路由层另外有 `pnpm architecture:audit` 的 owner-scope 结构门禁，
 14. 只要求平台会话的资料页和患者选择页也必须经过会话门禁：会话失效时回到首页重新登录，
    不能让“我的”页的资料、家庭成员或就诊人入口直接产生 401。患者选择页在会话有效后仍需
    继续执行同步中的导航门禁；会话门禁和同步门禁是两个不同阶段，不能用其中一个替代另一个。
+15. “我的”页不能用本地 `access_token` 存在与否直接决定入口是否可用：页面加载期间为 `checking`，
+   `/me` 成功后才是 `valid`；服务端明确返回 `unauthorized` 才是 `invalid`，网络、持久化或其他依赖
+   故障统一是 `unavailable`。`checking` 和 `unavailable` 只提示等待/刷新，不导航也不删除本地会话，
+   防止过期 token 被延迟到资料、患者或挂号页面才暴露，也防止一次 503 被误处理为退出登录。
 
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
