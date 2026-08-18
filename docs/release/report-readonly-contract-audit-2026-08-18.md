@@ -79,8 +79,8 @@
 - 影像详情、心电详情、体检报告、附件下载和短期资源授权；
 - Provider 报告日期包含边界、空目录语义以及真实字段样例与旧端逐字段比对。
 
-当前线上只读观察见 [`0995f7c-current-runtime-observation-2026-08-18-0254.md`](0995f7c-current-runtime-observation-2026-08-18-0254.md)，
-该观察只验证 release、双服务共存、健康检查和未登录认证边界，没有发送患者或报告业务请求。
+当前线上发布和运行观察见 [`c63dba9-production-acceptance-2026-08-18.md`](c63dba9-production-acceptance-2026-08-18.md)，
+该观察只验证当前 release、双服务共存、健康检查和未登录认证边界，没有发送患者或报告业务请求。
 
 ## 5. 下一步与停止条件
 

@@ -28,8 +28,8 @@
 - `packages/domain/src/appointments.ts`
 - `packages/domain/src/outpatient-payments.ts`
 
-当前线上 release 仍以 [`0995f7c-production-acceptance-2026-08-18.md`](0995f7c-production-acceptance-2026-08-18.md)
-为准：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。切换后的窄观察窗口没有新的
+当前线上 release 以 [`c63dba9-production-acceptance-2026-08-18.md`](c63dba9-production-acceptance-2026-08-18.md)
+为准：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -99,12 +99,12 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 本轮在当前 worktree 执行：
 
-- `pnpm --filter @hospital/miniprogram test`：92 项通过，886 个断言；
+- `pnpm --filter @hospital/miniprogram test`：93 项通过，888 个断言；
 - `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
-- `pnpm --filter @hospital/adapters test`：67 项通过，157 个断言；
+- `pnpm --filter @hospital/adapters test`：72 项通过，165 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
-- `pnpm --filter @hospital/api test`：109 项通过，508 个断言；其中包含预约记录、门诊费用、错误处理、
+- `pnpm --filter @hospital/api test`：112 项通过，517 个断言；其中包含预约记录、门诊费用、错误处理、
   患者归属和日志脱敏用例。
 
 测试只能证明注入网关和固定 fixture 下的不变量，不能证明当前线上账号能查询到真实预约或费用。
@@ -113,7 +113,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 以下事项仍不能标记完成：
 
-1. 使用与 `0995f7c` 匹配的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
+1. 使用与 `c63dba9` 匹配的小程序运行包，在有效微信会话下完成登录、患者刷新/显式切换、我的挂号、
    爽约记录和门诊待缴/已缴页面操作；
 2. 每个页面同时保存页面结果、HTTP 状态/trace 和当前 release 的低敏业务事件；
 3. 取得真实账号的预约历史状态、未来预约窗口、门诊费用状态和 Provider 字段对照；

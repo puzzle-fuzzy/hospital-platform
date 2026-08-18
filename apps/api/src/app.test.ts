@@ -231,10 +231,10 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"release/current-server-p0-observation-2026-08-17-2257.md",
 	);
-	// 当前盘点把“已取得微信/患者前置证据，但没有后续业务事件”写清楚，
+	// 当前盘点把“微信/患者前置证据已通过，但预约和费用仍没有当前 release 业务事件”写清楚，
 	// 避免未来把单患者同步误读成预约、费用或报告已经完成。
 	expect(inventory).toContain(
-		"当前 release 切换后已取得一次真实微信登录、`/me` 读取、患者目录读取和患者同步",
+		"当前 release 切换后受控日志窗口已通过微信登录 `4/4`、患者目录读取 `20/20`、患者同步 `10/10`",
 	);
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");
