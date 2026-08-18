@@ -15,6 +15,8 @@
 
 - 2026-08-18 23:49 CST：使用 `387b4a3` 新门禁离线复核当前 `c26e696` 日志，微信登录 `1/1`、患者目录读取 `14/14`、同步 `7/7` 均同链且 HTTP `2xx` 通过；预约历史、门诊费用、报告和普通资料仍为 `0/0`，不能替代真机页面验收。最新窗口见 [`release/current-c26-p0-business-observation-2026-08-18-2349.md`](release/current-c26-p0-business-observation-2026-08-18-2349.md)。
 
+- 2026-08-18 23:54 CST：用户重启后通过 SSH 只读复核确认操作系统 uptime 未变化，新 API `hospital-platform-api-v2.service=active/running`、`current=c26e696`、`10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 均保持；`18082` 无残留，内外网 live/ready 为 200，ready 依赖为 `database/redis/schema=ok`。同窗口 P0 聚合仍为微信登录 `1/1`、患者读取 `14/14`、同步 `7/7` 的同链 HTTP `2xx`，预约历史、门诊费用、报告和普通资料为 `0/0`；完整记录见 [`release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md`](release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md)。本次没有旧服务操作、migration、Redis 清理或业务写入。
+
 - 当前线上服务端 release 为 `c26e696`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序本地验收候选构建来源为 `a45d35edd91aab1a3a83c77301c9984402686145`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。本次生产切换证据见 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)。
 
 - 2026-08-18 23:18 CST：本地小程序运行包在提交 `a45d35e` 后重新构建，`dist/build-info.json.sourceRevision` 为

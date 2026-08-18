@@ -53,6 +53,7 @@
 | [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前 `c26e696` 服务端生产切换、真实 env preflight、隔离 smoke、新旧服务共存和日志边界；配套小程序来源以完整 sourceRevision 为准 |
 | [`release/current-c26-p0-business-observation-2026-08-18-2340.md`](release/current-c26-p0-business-observation-2026-08-18-2340.md) | 当前 `c26e696` 重启后 P0 日志只读观察；患者读取/同步同链证据通过，其他业务域仍缺证据，不等同真机验收 |
 | [`release/current-c26-p0-business-observation-2026-08-18-2349.md`](release/current-c26-p0-business-observation-2026-08-18-2349.md) | 当前 `c26e696` 新 HTTP 完成门禁下的最新日志观察；微信登录、患者读取/同步同链通过，其他业务域仍缺证据 |
+| [`release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md`](release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md) | 误重启后的当前 `c26e696` 运行层、双服务共存和 P0 日志门禁复核；不等同真机业务验收 |
 | [`release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md) | `b7c9451` P0 同 trace/request 证据门禁候选的远端 checksum、真实生产 preflight、隔离 runtime smoke 和未切换边界 |
 | [`release/candidate-387b4a3-http-success-gate-2026-08-18.md`](release/candidate-387b4a3-http-success-gate-2026-08-18.md) | `387b4a3` HTTP 2xx 完成门禁候选的远端 checksum、真实生产 preflight、隔离 runtime smoke 和未切换边界 |
 | [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md) | 当前 `687690e` 的 Redis 会话 TTL 只读审计结果；应用账号无 `SCAN` 权限，TTL 保持未验证，不扩大常驻 ACL |
