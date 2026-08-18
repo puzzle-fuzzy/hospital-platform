@@ -6,7 +6,7 @@
 ## 当前执行检查点（2026-08-18）
 
 - 微信开发者工具的 `miniprogram` 项目已确认使用 `miniprogramRoot=dist/`，当前运行包来源为
-  `dist/build-info.json.sourceRevision=cea2502a47b3882684e222ecfc8720ea217e1c9c`，14 个页面脚本和根文件均已通过运行包校验。
+  `dist/build-info.json.sourceRevision=3f0f9e05f697364c9a69163da6a4f718302516e2`，14 个页面脚本和根文件均已通过运行包校验。
 - “二维码真机调试”弹窗已经生成 iOS 调试二维码，但截至本检查点尚未观察到手机扫码后的连接状态；二维码存在不等于微信会话、患者切换或业务已经验收。
 - 本地 `pnpm check` 已通过；随后仅做了路线图文案修正和文档门禁复核，没有重新发布服务端、没有重启新旧服务，也没有触碰用户已有的 `apps/miniprogram/project.config.json` 修改。
 - 当前门禁新增 `pnpm release:baseline:audit`：以只读业务验收候选为基准，自动核对路线图、迁移清单和当前业务审计是否仍绑定同一服务端 release 与小程序完整 `sourceRevision`，历史 release 仍可保留但不会被当作当前状态。
@@ -24,7 +24,7 @@
 - 在患者同步代际隔离之外，原生小程序认证请求层现在会在响应交付前再次核对会话代际；旧账号的患者目录、资料、预约、报告、费用或预支付响应不会因为 HTTP 200 而进入新账号页面。
 - 401 的既有单次重试仍然保留，但重试会重新绑定新 token 的代际；`session-changed` 不会被当作普通网络错误重试，避免把旧请求无限延长。
 - 新增真实延迟响应回归测试和中文业务注释；本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务。
-- 当前小程序候选来源为 `cea2502a47b3882684e222ecfc8720ea217e1c9c`，14 个页面运行包已重新构建并通过 `runtime:verify`；小程序为 119 项测试、1018 个断言；本次文档同步后的全仓 `pnpm check` 也已通过。
+- 当前小程序候选来源为 `3f0f9e05f697364c9a69163da6a4f718302516e2`，14 个页面运行包已重新构建并通过 `runtime:verify`；小程序为 120 项测试、1021 个断言；本次文档同步后的全仓 `pnpm check` 也已通过。
 - 详细规则见 [`release/miniprogram-authenticated-response-session-gate-2026-08-18.md`](release/miniprogram-authenticated-response-session-gate-2026-08-18.md)。
 
 ### 本轮预约目录日期事件边界（2026-08-18）
@@ -40,9 +40,9 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `cea2502`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `3f0f9e0`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `cea2502` 重建，`sourceRevision=cea2502a47b3882684e222ecfc8720ea217e1c9c`，14 个页面脚本已核对。
+- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `3f0f9e0` 重建，`sourceRevision=3f0f9e05f697364c9a69163da6a4f718302516e2`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 
 ### 本轮就诊人手动刷新事件修正（2026-08-18）
@@ -56,7 +56,7 @@
 
 - `86fa75f` 为真正影响运行包的来源提交；它为客户端会话引入只存在于内存的代际号，token 变化时递增，但不把 token 写入 single-flight key、日志或患者数据。
 - 首页、选择页和进程级患者同步都按会话代际隔离；旧会话的在途同步即使晚于重新登录返回，也会以 `session-changed` 拒绝，不会把旧账号患者快照回写给新账号。
-- 当时分支最新提交为 `005d961`，只修正静态门禁字符串写法；该历史运行包来源为 `86fa75f3a76718dcf8da96fc6c10f71e5a4b49a2`。当前候选已推进到 `cea2502`，小程序定向测试为 119 项、1018 个断言。
+- 当时分支最新提交为 `005d961`，只修正静态门禁字符串写法；该历史运行包来源为 `86fa75f3a76718dcf8da96fc6c10f71e5a4b49a2`。当前候选已推进到 `3f0f9e0`，小程序定向测试为 120 项、1021 个断言。
 - 本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务。详细说明见 [`release/miniprogram-session-generation-isolation-2026-08-18.md`](release/miniprogram-session-generation-isolation-2026-08-18.md)。
 ### 上一轮 4ae2a31 生产切换（历史）
 
