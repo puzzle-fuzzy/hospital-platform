@@ -24,6 +24,8 @@
   `appservice`，没有项目源码调用栈，暂不加入猜测性兼容代码，必须在新项目手机真机上复核。完整记录见
   [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md)。
 
+- 2026-08-19 01:40–01:41 CST：在同一 `d2086d8` 模拟器运行包中继续复核选择页刷新、我的挂号和门诊缴费状态切换；患者目录刷新后保持当前选择，挂号页显示院区/双标签/合法空态，费用页的待缴费和已缴费均保持各自空态及支付/医保关闭提示。当前会话只有一位可用就诊人，因此仍没有多患者显式切换证据；本轮没有绑定、资料 PUT、预约写入、支付或医保操作。详细观察见上述模拟器记录。
+
 - 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换为线上 current，目标是部署带有
   `traceId/requestId` 同链摘要的 P0 日志工具。只重启了新 `hospital-platform-api-v2.service`；旧 Python `8001`
   未停止、未重启、未修改，Worker 仍 inactive，数据库/Redis/schema 没有写入。切换后新 API 生产启动字段、内外网
