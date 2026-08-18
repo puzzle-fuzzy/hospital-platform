@@ -32,8 +32,8 @@
 - `packages/domain/src/outpatient-payments.ts`
 - `packages/domain/src/patients.ts`
 
-当前线上 release 以 [`c26e696-production-acceptance-2026-08-18.md`](c26e696-production-acceptance-2026-08-18.md)
-为准；配套小程序构建来源为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
+当前线上 release 以 [`b7c9451-production-acceptance-2026-08-19.md`](b7c9451-production-acceptance-2026-08-19.md)
+为准；配套小程序构建来源为 `d2086d819b3e393da2e8c5c39d7704012854214b`：新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -123,7 +123,7 @@ requested -> owner mapping / provider call -> synced 或 loaded
 本次交付候选固定为小程序 `d2086d8`，完整运行包来源为
 `d2086d819b3e393da2e8c5c39d7704012854214b`；本节如保留更早审计窗口的来源文字，仅用于追溯，不能作为当前真机包。
 
-本节对应的当前服务端生产候选为 `c26e696`；下方保留的 `687690e` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
+本节对应的当前服务端生产候选为 `b7c9451`；下方保留的 `687690e`、`c26e696` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 
 ### 上一轮 `1b94c46` 代码摘要（历史追溯）
 
@@ -144,24 +144,24 @@ requested -> owner mapping / provider call -> synced 或 loaded
   普通资料读模型、报告详情引用读写范围、错误处理、患者读模型归属和日志脱敏用例。
 
 本轮 `aa9807a` 收紧患者同步的 MySQL owner/provider 租约接管边界，并补充持久化回归测试和中文契约说明；
-代码已随当前线上 `687690e` 部署，但不能增加真实 Provider、微信或真机验收结论。
+代码已随历史 release `687690e` 部署，但不能增加真实 Provider、微信或真机验收结论。
 
 本轮 `62e1dac` 收紧报告详情引用的 service 范围校验，并补充跨患者引用回归测试；代码尚未部署到线上
 `687690e` 部署，但不能增加真实报告 Provider、微信或真机验收结论。
 
 本轮 `56c73af` 继续收紧报告详情读取的仓储返回值校验，并补充跨范围引用不调用 Provider 的回归测试；
-代码已随当前线上 `687690e` 部署，但不能增加真实报告 Provider、微信或真机验收结论。
+代码已随历史 release `687690e` 部署，但不能增加真实报告 Provider、微信或真机验收结论。
 
 门诊费用白名单投影基础修正提交为 `fb0efba`；本轮 `98e091b` 继续补齐仓储患者引用的运行时
-结构与范围二次校验，并验证异常引用不会调用 Provider。两项修正已随当前线上 `687690e` 部署；线上只读业务 release 和
+结构与范围二次校验，并验证异常引用不会调用 Provider。两项修正已随历史 release `687690e` 部署；线上只读业务 release 和
 真机验收边界保持不变。
 
 本轮 `400a800` 将患者 provider 引用校验统一下沉到 domain，并接入预约历史 service；预约记录
-异常引用同样在 Provider 调用前 fail-closed。该修正已随当前线上 `687690e` 部署，不增加真实
+异常引用同样在 Provider 调用前 fail-closed。该修正已随历史 release `687690e` 部署，不增加真实
 预约 Provider、微信会话或真机验收证据。
 
 本轮 `b213dcc` 将同一校验接入报告目录 service；报告目录异常引用也会在 Provider 调用前
-fail-closed，该修正已随当前线上 `687690e` 部署，不增加真实报告 Provider 或真机验收证据。
+fail-closed，该修正已随历史 release `687690e` 部署，不增加真实报告 Provider 或真机验收证据。
 
 本轮患者读模型二次投影已随 `c26e696` 部署；它只收紧新服务端的仓储读取边界，不修改旧 Python 服务、数据库数据或小程序运行包。
 

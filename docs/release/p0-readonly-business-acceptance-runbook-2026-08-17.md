@@ -12,7 +12,7 @@
 
 | 项目 | 验收基线 |
 | --- | --- |
-| 线上 release | `c26e696` |
+| 线上 release | `b7c9451` |
 | 新 API | `hospital-platform-api-v2.service`，公网入口 `/api/v2` |
 | 旧 API | Python 服务继续保留在原端口，不能因为本手册重启或修改 |
 | 小程序运行目录 | `apps/miniprogram/dist/`；先执行 `pnpm --filter @hospital/miniprogram build`，开发者工具导入包含 `project.config.json` 的小程序目录，并确认 `miniprogramRoot` 为 `dist/` |

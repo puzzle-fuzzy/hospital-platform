@@ -240,4 +240,4 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 9. 生产：先 migration/schema probe，再灰度启用新同步语义；旧服务仍保持原端口和数据库边界。
 
 代码和生产 schema 完成后，`POST /patients/sync` 的新 release 语义已不再只是请求/provider 上下文；当前线上
-release 为 `687690e`，并已取得 bundle provenance、migration postcondition 和公网运行前置证据。真实并发、公网业务和真机验收仍未完成，发布文档必须继续标记为“线上业务证据待完成”。
+release 为 `b7c9451`，并已取得 bundle provenance、migration postcondition 和公网运行前置证据。真实并发、公网业务和真机验收仍未完成，发布文档必须继续标记为“线上业务证据待完成”。

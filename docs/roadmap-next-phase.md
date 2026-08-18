@@ -31,6 +31,11 @@
   `systemdWarningCount=0`、`correlation.chainCount=10`、`truncated=false`。这只修正日志证据版本，不增加真实微信、
   多患者、Provider 或真机业务完成度，完整记录见 [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md)。
 
+## b7c9451 切换前的历史运行窗口（仅供追溯）
+
+以下记录发生在 2026-08-19 00:48 CST 的 `b7c9451` 切换之前；其中的 `c26e696`、`687690e` 和旧小程序 sourceRevision
+保留原始时间与证据含义，但不能覆盖本文顶部的当前服务端和小程序候选基线。
+
 - 2026-08-19：针对小程序刷新可能携带旧 `apiPrefix` 导致 404 的边界，客户端已将公共前缀收紧为已注册的
   `/api/v1`、`/api/v2`，并按本地 HTTP/公网 HTTPS 使用不同安全回退；未知版本不会被正则表达式继续拼接。
   `d948d11` 实现、`93a3c72` 补充真实请求层回归，128 项小程序测试、1075 个断言、TypeScript、构建和 14 页面运行包校验通过。

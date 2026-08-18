@@ -16,6 +16,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 
 补充记录（2026-08-18 23:37 CST）：服务端 `b7c9451` 曾作为未切换候选完成远端 checksum、真实生产依赖 preflight 和隔离 runtime smoke；随后已按受控窗口切换，当前事实以本节最新记录为准。候选只修正 P0 日志同 `traceId/requestId` 关联链门禁，不改变业务路由开放状态；旧 Python `8001` 未触碰，候选过程见 [`../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](../release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md)。
 
+### 2026-08-19 00:48 CST 前的历史运行窗口（不覆盖上方当前基线）
+
 补充记录（2026-08-18 23:40 CST）：当前 `c26e696` 重启后日志窗口已形成患者目录读取 `12/12`、同步 `6/6` 的同链服务端证据；微信登录、患者切换设备结果、预约历史、门诊费用、报告和普通资料仍不能由日志总数补齐，详见 [`../release/current-c26-p0-business-observation-2026-08-18-2340.md`](../release/current-c26-p0-business-observation-2026-08-18-2340.md)。
 
 补充规则：P0 日志门禁现在还要求业务成功链包含 HTTP `2xx` 完成事件，且不能同时出现同链 `http.request.failed`；这只是证据真实性门禁，不会把当前日志或未验收页面升级为真实业务完成。
@@ -59,7 +61,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
   [`../release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](../release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。
 - 2026-08-18 16:48 CST 公网 `GET /api/v2/medical-records` 返回 `404/not-found`，确认病历路由仍未注册；这是关闭边界证据，不代表病历功能已经迁移。
 - 历史 release `9acdaf2` 曾观察到预约历史 `itemCount=60`、`statusCounts={cancelled:60}`，在线标签排除已取消记录的空态符合当时规则；
-  这不能回填为当前 `687690e` 的业务事件。全部挂号继续保持迁移提示，因为独立 `requestChannel=4` Provider contract 尚未冻结。
+这不能回填为当前 `b7c9451` 的业务事件。全部挂号继续保持迁移提示，因为独立 `requestChannel=4` Provider contract 尚未冻结。
 - 当前下一步是取得真机微信会话并按候选验收手册重新采集页面、HTTP trace 和低敏日志三层证据；在此之前不开放全部挂号、预约写入、详情、
   支付、医保或 HIS 回写。
 
@@ -79,7 +81,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
   `apps/miniprogram/project.config.json` 外，218 个源码/工具文件定向格式检查通过。全量格式检查仍仅被该用户文件的
   未格式化差异阻断，本轮不修改、不暂存、不提交该文件。
 
-完整当前切换与候选证据见 [`../release/687690e-production-acceptance-2026-08-18.md`](../release/687690e-production-acceptance-2026-08-18.md)；
+完整历史切换与候选证据见 [`../release/687690e-production-acceptance-2026-08-18.md`](../release/687690e-production-acceptance-2026-08-18.md)；
 `9acdaf2`、`c63dba9` 和更早文档保留为历史 release 证据。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
 [`../release/0995f7c-production-acceptance-2026-08-18.md`](../release/0995f7c-production-acceptance-2026-08-18.md) 和

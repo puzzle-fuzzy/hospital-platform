@@ -19,7 +19,7 @@
 | --- | --- |
 | 开发者工具项目 | 窗口为新 `miniprogram`，资源树包含 `dist/`，不是旧 `mp-weixin` |
 | 构建来源 | `dist/build-info.json.sourceRevision` 等于 `d2086d819b3e393da2e8c5c39d7704012854214b` |
-| 服务端 | 当前运行 bundle 为 `c26e696`，生产模式，旧 Python `8001` 继续运行 |
+| 服务端 | 当前运行 bundle 为 `b7c9451`，生产模式，旧 Python `8001` 继续运行 |
 | 依赖 | `health/ready` 返回 `database/redis/schema=ok` |
 | 会话 | 新项目扫码后产生的微信会话；不能复用旧调试窗口 token 或历史日志 |
 | 日志窗口 | 记录中国标准时间、页面操作时间和请求 `x-request-id/traceId`，不复制敏感响应正文 |

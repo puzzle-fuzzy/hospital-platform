@@ -22,6 +22,10 @@
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
+## 1.1 b7c9451 切换前的历史运行窗口（仅供追溯）
+
+以下时间段的 release、监听和日志描述保留原始事实，但不能覆盖上方的当前 `b7c9451` 运行基线。
+
 2026-08-18 21:08-21:10 CST 的切换后 SSH/公网只读复核确认 `687690e`、新 `10.0.0.3:18081`、旧 `0.0.0.0:8001` 和内外网
 readiness 均正常；本次只重启新 API，没有修改旧服务、旧端口或数据库。此前 `c63dba9` 的日志和业务事件仍按历史 release 理解，不能回填当前业务验收。
 
