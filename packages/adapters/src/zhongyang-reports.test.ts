@@ -229,6 +229,7 @@ test("众阳 LIS 详情在公开 contract 边界拒绝超长单位", async () =>
 		operation: "reports-laboratory-detail",
 		requestId: "oversized-report-unit",
 		retryable: false,
+		responseInvalid: true,
 	});
 });
 
@@ -270,6 +271,7 @@ test("众阳报告 adapter 拒绝带控制字符的 Provider 文本", async () =
 		operation: "reports-laboratory",
 		requestId: "control-character-report",
 		retryable: false,
+		responseInvalid: true,
 	});
 });
 
@@ -303,6 +305,7 @@ test("众阳报告目录拒绝业务失败或无法映射的响应", async () =>
 		operation: "reports-imaging",
 		requestId: "provider-report-003",
 		retryable: false,
+		responseInvalid: false,
 	});
 });
 

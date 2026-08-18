@@ -31,12 +31,15 @@ function providerError(
 	operation: string,
 	message: string,
 	requestId?: string,
+	/** 默认是响应读模型异常；明确的 Provider 业务拒绝由调用方传 false。 */
+	responseInvalid = true,
 ): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "zhongyang",
 		operation,
 		message,
 		retryable: false,
+		responseInvalid,
 		...(requestId ? { requestId } : {}),
 	});
 }
@@ -77,6 +80,19 @@ function hasSuccessfulBusinessEnvelope(envelope: ProviderObject): boolean {
 	return success === true || successfulCode;
 }
 
+/**
+ * 只有 Provider 明确给出失败布尔值或可识别的失败业务码，才算“请求被拒绝”。
+ * 缺少成功标志、成功标志类型错误或 code 形状异常属于响应格式问题，不能
+ * 和真实业务拒绝混在一起，否则前端会给出错误的重试/提示语义。
+ */
+function hasExplicitBusinessFailure(envelope: ProviderObject): boolean {
+	if (envelope.success === false) return true;
+	if (!Object.hasOwn(envelope, "code")) return false;
+	const code = envelope.code;
+	if (typeof code !== "string" && typeof code !== "number") return false;
+	return !(code === 0 || code === "0" || code === "0000");
+}
+
 function responseItems(
 	value: unknown,
 	operation: string,
@@ -90,6 +106,7 @@ function responseItems(
 			operation,
 			"Zhongyang appointment provider returned a business failure",
 			requestId,
+			!hasExplicitBusinessFailure(envelope),
 		);
 	}
 	if (!Array.isArray(envelope.data)) {

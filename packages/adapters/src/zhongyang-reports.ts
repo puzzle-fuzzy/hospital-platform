@@ -27,12 +27,15 @@ function providerError(
 	operation: string,
 	message: string,
 	requestId?: string,
+	/** 默认是响应读模型异常；明确的 Provider 业务拒绝由调用方传 false。 */
+	responseInvalid = true,
 ): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "zhongyang",
 		operation,
 		message,
 		retryable: false,
+		responseInvalid,
 		...(requestId ? { requestId } : {}),
 	});
 }
@@ -73,6 +76,7 @@ function responseItems(
 			operation,
 			"Zhongyang report provider rejected the request",
 			requestId,
+			false,
 		);
 	}
 	if (!Array.isArray(envelope.data)) {
@@ -97,6 +101,7 @@ function responseObject(
 			operation,
 			"Zhongyang report provider rejected the request",
 			requestId,
+			false,
 		);
 	}
 	if ("data" in envelope && envelope.data !== undefined) {

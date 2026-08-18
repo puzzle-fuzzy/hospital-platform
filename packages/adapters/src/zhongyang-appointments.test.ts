@@ -237,6 +237,7 @@ test("众阳预约目录拒绝无法形成安全读模型的响应", async () =>
 		operation: "appointment-departments",
 		requestId: "provider-request-003",
 		retryable: false,
+		responseInvalid: false,
 	});
 });
 
@@ -267,6 +268,7 @@ test("众阳预约记录拒绝 HTTP 200 下的业务失败空列表", async () =
 		operation: "appointment-records",
 		requestId: "record-business-failure",
 		retryable: false,
+		responseInvalid: false,
 	});
 });
 
@@ -351,6 +353,7 @@ test("众阳预约 adapter 拒绝不存在的日历日期", async () => {
 	).rejects.toMatchObject({
 		name: "ProviderRequestError",
 		operation: "appointment-records",
+		responseInvalid: true,
 	});
 });
 
@@ -556,6 +559,7 @@ test("众阳预约 adapter 拒绝带控制字符的展示文本", async () => {
 		operation: "appointment-departments",
 		requestId: "control-department",
 		retryable: false,
+		responseInvalid: true,
 	});
 });
 

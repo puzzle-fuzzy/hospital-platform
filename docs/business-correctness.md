@@ -166,6 +166,10 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 - 患者目录响应数组的每一项必须是普通对象；`null`、字符串和嵌套数组等形状错误必须在 adapter
   边界保留 Provider request id 并映射为 `provider-response-invalid`，不能落成原生 TypeError、500
   或部分成功，也不能在坏元素被发现前启动其它患者的档案查询。
+- 预约、报告和门诊费用 adapter 也必须沿用同一错误事实边界：响应包络、条目、字段、状态或重复标识
+  不合法时设置 `responseInvalid=true`；只有 Provider 明确返回失败布尔值或失败业务码时才设置为 false。
+  这样 API 才能稳定区分 `provider-response-invalid` 与 `provider-request-rejected`，日志聚合和小程序提示
+  不会把上游格式污染误判为业务拒绝。
 - 患者目录的整批结构校验必须先于逐患者 `patInfosFind` 查询；不能因为 Promise 并行而让有效患者先产生
   档案查询副作用，再在另一位患者字段非法时整体失败。只有全量预校验通过后才允许并行查询，且 HIS
   引用重复仍必须让整批失败。

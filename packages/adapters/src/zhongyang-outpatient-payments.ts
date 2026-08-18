@@ -64,12 +64,15 @@ function requiredConfig(value: string): string {
 function providerError(
 	message: string,
 	requestId?: string,
+	/** 默认是响应读模型异常；明确的 Provider 业务拒绝由调用方传 false。 */
+	responseInvalid = true,
 ): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "zhongyang",
 		operation: OPERATION,
 		message,
 		retryable: false,
+		responseInvalid,
 		...(requestId ? { requestId } : {}),
 	});
 }
@@ -281,6 +284,7 @@ function responseItems(
 		throw providerError(
 			"Zhongyang outpatient provider rejected the request",
 			requestId,
+			false,
 		);
 	}
 	if (Array.isArray(envelope.data)) {
