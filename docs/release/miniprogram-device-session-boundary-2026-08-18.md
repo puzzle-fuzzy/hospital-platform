@@ -48,7 +48,7 @@
 ## 3. 下一步
 
 先重新打开并确认新 `miniprogram` 窗口的项目资源树与二维码属于同一上下文，再扫码连接当前候选包：
-服务端 `1b94c46`，小程序构建来源 `3f0f9e05f697364c9a69163da6a4f718302516e2`。
+服务端 `1b94c46`，小程序构建来源 `3857926951fc6c512e069042db08e500736b4dfc`。
 连接成功后先完成微信会话和患者目录，再按
 [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md)
 采集只读业务三层证据；在此之前不开放全部挂号、预约写入、支付、医保、报告详情或 HIS 回写。
