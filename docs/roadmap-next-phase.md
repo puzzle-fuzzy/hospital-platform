@@ -5,6 +5,18 @@
 
 ## 当前基线
 
+### 本轮 4cf9e66 生产共存切换与候选验收（2026-08-18 09:16-09:20 CST）
+
+- `4cf9e66` 已完成本地全量 `pnpm check`、服务器真实生产 env preflight、`127.0.0.1:18082` 隔离
+  runtime smoke、7 个 bundle SHA-256 校验和原子 `current` 切换。
+- 当前 release 为 `/home/ps/code/hospital-platform/releases/4cf9e66`，新 Bun/Elysia API
+  `10.0.0.3:18081` active；旧 Python API `0.0.0.0:8001` 继续监听，旧进程未被停止，Worker 仍未启动。
+- 切换后的内网 `/health/live`、`/health/ready` 均通过，启动日志确认 `environment=production`、
+  `runtimeMode=production`、MySQL/Redis/schema `ok`，微信身份和只读业务依赖已配置；支付、报告保持关闭。
+- 这次只完成运行层共存和产物可追溯，尚未取得当前 release 的微信真机、患者显式切换、我的挂号、爽约记录和门诊费用三层业务证据。
+- 完整证据见 [`release/4cf9e66-production-acceptance-2026-08-18.md`](release/4cf9e66-production-acceptance-2026-08-18.md)。
+  下一步使用匹配的小程序运行包，按“登录 → 刷新/显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊费用只读”取证。
+
 ### 本轮 0995f7c 生产切换与停机边界复核（2026-08-18 02:34 CST）
 
 - `0995f7c` 已完成全量 `pnpm check`、真实生产 env preflight、`127.0.0.1:18082` 隔离 readiness 和
