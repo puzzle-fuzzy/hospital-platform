@@ -77,6 +77,23 @@ live、ready 和 system ping 均成功。没有把这两个路径错误计入业
 低敏请求/结果记录，不能代替真机页面、HTTP trace 或 Provider 字段验收。旧 Python 服务未被本轮停止、
 重启或修改。
 
+### 2.6 12:17 CST 重启后再次复核
+
+再次通过 SSH 执行只读检查，当前服务仍未切换 release、重启或写入业务数据：
+
+| 指标 | 结果 |
+| --- | --- |
+| systemd / 当前 release | `active`；`c63dba9` |
+| 新旧监听 | `10.0.0.3:18081` 与 `0.0.0.0:8001` 同时存在 |
+| 内网 ready | `200`；database、redis、schema 均为 `ok` |
+| 公网 ready | `200`；database、redis、schema 均为 `ok` |
+| 当前 release 的 TTL 工具 | 不存在；不能用未发布脚本冒充当前 release 证据 |
+| 同一生产 Redis ACL 的 TTL 探测 | 候选 `9ca3a89` 工具返回 `redis-session-scan-unavailable`，退出码 `2` |
+
+TTL 结果仍然是“未验证”，不是“没有会话”：常驻 API Redis ACL 可以连通 Redis，但没有会话 key 的扫描权限，
+因此没有输出 key、token 或 TTL，也没有修改 ACL、Redis、数据库或业务数据。最近日志的低敏聚合本次未重复声称通过，
+因为当前 SSH sudo 规则未授予 `journalctl` 无密码读取权限；后续必须由运维提供独立只读日志权限或安全聚合结果。
+
 ## 3. 维护注意事项
 
 内网健康探针必须使用 `/health/live`、`/health/ready`，内网系统探针使用 `/api/v1/system/ping`；公网才使用

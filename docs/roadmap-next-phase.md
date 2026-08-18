@@ -28,6 +28,10 @@
   同一候选的 Redis TTL 审计工具在常驻 API Redis ACL 下返回固定 `redis-session-scan-unavailable`、退出码 2，证明权限不足时
   fail-closed；独立维护 ACL 尚未提供，因此 TTL 仍未验证。完整证据见
   [`release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md`](release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md)。
+- 12:17 CST 再次通过 SSH 只读复核确认 `c63dba9` 仍为当前 release，新 `18081` 与旧 Python `8001` 共存，内网/公网 ready
+  均为 `200` 且 database、redis、schema 为 `ok`。当前 release 尚未包含 TTL 审计 bundle；使用已审计候选工具读取同一生产
+  Redis ACL 仍返回 `redis-session-scan-unavailable`、退出码 `2`，所以 TTL 继续保持未验证。由于当前 sudo 规则不允许无密码读取
+  journald，本次不把日志聚合声称为通过；详见 [`release/restart-coexistence-readonly-audit-2026-08-18.md`](release/restart-coexistence-readonly-audit-2026-08-18.md)。
 - 当前 release 切换后的受控日志窗口已通过微信登录 `4/4`、患者目录读取 `20/20`、患者同步 `10/10` 的请求/成功
   门禁；但这仍需要页面和 HTTP trace 交叉核对，且没有 `appointment.records.*` 或 `outpatient.payment.records.*`
   请求/成功事件，不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
