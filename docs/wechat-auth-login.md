@@ -9,8 +9,8 @@
 [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md)。
 该 release 切换只更新新服务的日志证据 bundle，不改变微信登录的业务开放边界。
 
-当前本地小程序候选为 `6a2ed92`，运行包来源指纹为
-`6a2ed923d5fdd3f16d3f8c63117684b5f3271627`；尚未上传线上。命令请求禁止跨会话自动重放的边界见
+当前本地小程序候选为 `1858e6c`，运行包来源指纹为
+`1858e6cee2efe34e36f5648ee8e53a03bee5543d`；尚未上传线上。命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
 微信授权登录的代码闭环已经完成：
