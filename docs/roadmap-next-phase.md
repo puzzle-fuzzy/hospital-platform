@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：`074a436` 收紧患者目录读取的第二道读模型边界。患者 service 现在会重新确认仓储结果的 owner、
+  opaque `patientId` 唯一性、脱敏展示字段和临床枚举，并重新投影公共对象；错 owner、重复 ID、控制字符或非法枚举
+  不会降级成成功空目录，日志只记录固定 `readModelViolation`，公共错误为 `persistence-invalid`。新增 domain/API
+  回归测试和中文注释，全仓 `pnpm check` 通过；本轮尚未部署到线上 `1b94c46`，未重启新旧服务，未修改旧 Python 服务，
+  也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18：`fb0efba` 完成门诊费用 service 的最终白名单投影。门诊费用 gateway 结果在状态、标识、
   日期、金额和展示文本校验后，必须重新构造公共对象，Provider 交易号、患者字段、医保金额和其它扩展字段
   不会进入小程序；本轮仍未打开支付、医保或 HIS。新增投影回归测试，定向 API/domain 检查通过；尚未部署、
