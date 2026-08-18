@@ -29,7 +29,7 @@ type PatientSelectionPageMethods = {
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
-	setPatientList(patients: Array<Patient>): void;
+	setPatientList(patients: Array<Patient>, restoreSelection?: boolean): void;
 };
 
 /**
@@ -107,7 +107,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		return loadPatients()
 			.then((patients) => {
 				if (!listLoadGuard.isCurrent(loadToken)) return;
-				this.setPatientList(patients);
+				// 目录读取只证明平台目录可读，不证明本轮 HIS 临床映射已经收敛；
+				// 预同步阶段只能展示患者资料，禁止先恢复本地“当前”标记。
+				this.setPatientList(patients, false);
 				// 选择页也可能被历史路径直接打开，不能依赖首页先完成临床映射；
 				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到临床映射。
 				// 选择页的目录读取完成后还必须等待一次完整同步；否则下拉刷新会
@@ -136,18 +138,20 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 * 首次没有历史选择时默认第一位；已有选择失效时不自动换人，页面保持无选中
 	 * 状态，要求用户明确点击新的就诊人。
 	 */
-	setPatientList(patients: Array<Patient>): void {
+	setPatientList(patients: Array<Patient>, restoreSelection = true): void {
 		// 空目录不等于用户主动清除了选择：可能是 provider 暂时没有返回数据，
 		// 也可能是当前账号暂时没有绑定患者。保留本地 opaque patientId，避免
 		// 目录恢复后被误判为“从未选择”并静默切换到第一位患者；真正的清理只
 		// 在会话失效或用户明确退出/清除上下文时发生。
 		const resolution = resolveStoredPatientSelection(patients);
-		const selectedPatientId = resolution.patient?.id ?? "";
+		const selectedPatientId = restoreSelection
+			? (resolution.patient?.id ?? "")
+			: "";
 		this.setData({
 			patients: patients.map(toPatientSelectionView),
 			selectedPatientId,
 			error:
-				resolution.state === "empty"
+				!restoreSelection || resolution.state === "empty"
 					? ""
 					: patientSelectionResolutionMessage(resolution),
 		});
