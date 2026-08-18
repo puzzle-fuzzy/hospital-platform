@@ -218,7 +218,13 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 - 是否触碰旧 Python `8001`、旧表、旧 Redis DB1 或打开支付/医保/HIS gate；
 - 是否同步更新 contract、迁移台账、日志说明、测试和 release 证据。
 
-## 5. 当前 P0 复核证据
+## 5. 历史执行记录（不可覆盖前述当前事实）
+
+> 本节保留历次候选版本、历史服务窗口和代码提交的追溯记录。每条记录中的“当前 release”、
+> schema、端口和业务事件只对它自己的时间窗口成立，不得覆盖第 1 节的当前事实，也不能回填
+> `38bc553` 的真机、Provider 或 Redis TTL 验收。需要当前证据时，优先阅读本节前的当前事实、
+> [`candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md)
+> 和 [`p0-readonly-business-acceptance-runbook-2026-08-17.md`](../release/p0-readonly-business-acceptance-runbook-2026-08-17.md)。
 
 - 本地 `pnpm test`、`pnpm typecheck` 和小程序构建均通过；9 个 workspace 包测试成功，原生小程序
   14 个注册页面的运行时脚本均生成。测试和构建只能证明代码边界与构建产物一致，不能替代真实微信和
@@ -245,7 +251,7 @@ owner 目录、内部 `patientId`、TTL 和失效/恢复证据。单元测试、
 验收、病历/费用详情/患者绑定/动态医院/二维码/便民服务完成，以及任何预约写入、支付、医保、退款或
 HIS 回写完成。
 
-## 7. 本轮基础设施观测增强
+## 7. 历史基础设施观测记录（不可覆盖当前 release）
 
 本轮补齐了 MySQL、Redis 和 schema 只读 readiness 探针的安全诊断字段：不可用与恢复事件均可记录
 `attempts` 和 `durationMs`，schema 额外记录 `schemaStatus`、缺失 migration 数量和缺失结构数量。
