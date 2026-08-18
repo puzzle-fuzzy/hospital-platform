@@ -547,9 +547,7 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	const outpatient = await source(
 		"pages/outpatient-payment/outpatient-payment.ts",
 	);
-	const outpatientPageStart = outpatient.indexOf(
-		"loadPage(): Promise<void> {",
-	);
+	const outpatientPageStart = outpatient.indexOf("loadPage(): Promise<void> {");
 	const outpatientRecordsStart = outpatient.indexOf(
 		"loadRecords(\n",
 		outpatientPageStart,
