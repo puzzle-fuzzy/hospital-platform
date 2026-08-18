@@ -33,6 +33,9 @@ pnpm --filter @hospital/miniprogram test
 - `runtime:verify` 同时将 `dist/build-info.json.sourceRevision` 与最近一次影响小程序运行输入的提交对照，避免
   提交更新后继续导入旧的 `dist/`；脱离 Git 的归档验证必须显式设置
   `HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION`；
+- 小程序包在 `apps/miniprogram/turbo.json` 中关闭 Turbo 的 `build` 缓存，因为 `build-info.json` 写入的是
+  Git 来源指纹；提交前缓存可能与提交后的相同源码内容复用，却保留旧提交号。每次验收都必须重新构建并执行
+  `runtime:verify`，不能只看 Turbo 的缓存命中结果；
 - 构建阶段继续检查 WXML 事件方法、已注册页面跳转、本地资源存在性，以及 WXSS 不通过 `background-image` 读取本地图片；
 - 页面生命周期守卫、患者切换、会话恢复、报告详情和费用/预约只读边界的原生验收全部通过；
 - 当前提交还包含患者选择空目录的 stale 语义修正，以及首页/选择页不能覆盖同步解析结果的门禁：已有选择不会被降级为“从未绑定”，测试覆盖该业务边界。

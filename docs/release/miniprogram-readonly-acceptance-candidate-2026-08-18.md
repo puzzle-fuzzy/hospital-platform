@@ -10,15 +10,15 @@
 | 服务端 release | `1b94c46` | 服务器 `/home/ps/code/hospital-platform/releases/1b94c46` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `3857926` | 与服务端 `1b94c46` 配套的当前候选包，包含选择页手动刷新、会话代际隔离、认证响应回写门禁、预约目录级联查询边界、科室/日期旧事件门禁、挂号卡片操作事件门禁、报告目录详情事件门禁和报告详情的当前患者范围校验 |
-| 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序构建来源 | `3857926951fc6c512e069042db08e500736b4dfc` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 120 项 / 1022 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `3857926` |
+| 小程序客户端 | `d8adce5` | 与服务端 `1b94c46` 配套的当前候选包，包含选择页手动刷新、会话代际隔离、认证响应回写门禁、预约目录级联查询边界、科室/日期旧事件门禁、挂号卡片操作事件门禁、报告目录详情事件门禁和报告详情的当前患者范围校验 |
+| 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
+| 小程序构建来源 | `d8adce5d1d39fb4ac4b5210c2156f2d976be18b8` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 120 项 / 1029 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `d8adce5` |
 | 全仓回归 | 9/9 package、API 115/115、工具 14/14 | `1b94c46` 后的 `pnpm check` 已通过；服务端 release 已按无损 runbook 切换，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `3857926` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`3857926` 延续空目录下已有选择进入 `stale` 的修正，保留首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，让所有认证响应在交付前核对会话代际，删除会并行请求未指定科室排班的误导性 helper，拒绝刷新期间已经脱离当前科室或日期分组的旧 WXML 事件，让挂号卡片和报告目录详情操作按渲染批次 key 回查而不是直接信任旧 WXML 引用，并让报告详情请求同时携带当前 patientId 由服务端复核患者范围；它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `3857926951fc6c512e069042db08e500736b4dfc`。
+客户端候选的 `dist/` 必须由 `d8adce5` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`d8adce5` 延续空目录下已有选择进入 `stale` 的修正，保留首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，让所有认证响应在交付前核对会话代际，删除会并行请求未指定科室排班的误导性 helper，拒绝刷新期间已经脱离当前科室或日期分组的旧 WXML 事件，让挂号卡片和报告目录详情操作按渲染批次 key 回查而不是直接信任旧 WXML 引用，让报告详情请求同时携带当前 patientId 由服务端复核患者范围，让“我的”页先确认 `/me` 再读取患者目录和普通资料，并让构建缓存策略进入来源指纹且禁止复用旧小程序运行包；它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `d8adce5d1d39fb4ac4b5210c2156f2d976be18b8`。
 
 ## 2. 真机操作顺序
 
