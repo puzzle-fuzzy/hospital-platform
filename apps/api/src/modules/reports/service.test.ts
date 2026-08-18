@@ -468,6 +468,83 @@ test("报告详情引用的 TTL 使用注入的服务端时间基准", async () 
 	expect(captured.lookupAt).toBe(fixedNow.toISOString());
 });
 
+test("报告 service 拒绝仓储返回的跨患者详情引用", async () => {
+	let detailCalls = 0;
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory",
+							title: "血常规",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available",
+							hasAttachment: true,
+						},
+						providerReportId: "provider-report-001",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "report-mismatched-reference",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => {
+				detailCalls += 1;
+				throw new Error("错误引用不应访问详情 Provider");
+			},
+		},
+		references: {
+			upsert: async (input) => ({
+				...input,
+				reportId: "report_foreign_reference",
+				patientId: "patient-002",
+				providerReportId: "provider-report-foreign",
+				createdAt: input.createdAt ?? "2026-08-16T00:00:00.000Z",
+			}),
+			findByOwnerPatientAndId: async () => undefined,
+		} satisfies ReportReferenceRepository,
+		now: () => new Date("2026-08-16T00:00:00.000Z"),
+	});
+
+	const result = await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-mismatched-reference",
+			idempotencyKey: "key-report-mismatched-reference",
+		},
+	);
+
+	// 引用写入返回了另一位患者的 scope，目录仍可安全展示，但不能带出
+	// 错误 reportId，也不能因此访问详情 Provider。
+	expect(result).toEqual({
+		items: [
+			{
+				kind: "laboratory",
+				title: "血常规",
+				reportedAt: "2026-08-15 10:00:00",
+				status: "available",
+				hasAttachment: true,
+			},
+		],
+		total: 1,
+	});
+	expect(detailCalls).toBe(0);
+});
+
 test("报告目录批量引用共享同一次观察时钟", async () => {
 	let nowCalls = 0;
 	const captured: Array<{ createdAt: string; expiresAt: string }> = [];

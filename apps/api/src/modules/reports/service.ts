@@ -11,6 +11,7 @@ import type {
 	ReportDirectoryEntry,
 	ReportDirectoryGateway,
 	ReportDirectoryQuery,
+	ReportReferenceInput,
 	ReportReferenceRepository,
 } from "@hospital/domain";
 import {
@@ -23,6 +24,7 @@ import {
 	parseIsoCalendarDate,
 	REPORT_REFERENCE_MAX_TTL_MS,
 	ReportResultValidationError,
+	validateReportReference,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -199,7 +201,7 @@ export class ReportService {
 						return entry.summary;
 					}
 					try {
-						const reference = await this.dependencies.references.upsert({
+						const referenceInput: ReportReferenceInput = {
 							reportId: reportReferenceId(
 								ownerUserId,
 								patientId,
@@ -214,7 +216,25 @@ export class ReportService {
 								observedNow.getTime() + REPORT_REFERENCE_TTL_MS,
 							).toISOString(),
 							createdAt: observedNow.toISOString(),
-						});
+						};
+						const reference =
+							await this.dependencies.references.upsert(referenceInput);
+						// 仓储返回值仍是跨层边界，不能只相信 TypeScript 类型。若实现
+						// 返回了另一位患者、另一位 owner 或另一个 Provider 报告引用，
+						// 必须隐藏详情入口并保留安全摘要，不能把错误引用交给客户端。
+						validateReportReference(reference);
+						if (
+							reference.reportId !== referenceInput.reportId ||
+							reference.ownerUserId !== referenceInput.ownerUserId ||
+							reference.patientId !== referenceInput.patientId ||
+							reference.provider !== referenceInput.provider ||
+							reference.kind !== referenceInput.kind ||
+							reference.providerReportId !== referenceInput.providerReportId
+						) {
+							throw new Error(
+								"Report reference repository returned a mismatched scope",
+							);
+						}
 						return { reportId: reference.reportId, ...entry.summary };
 					} catch (error) {
 						// 详情引用是可选的增强能力：单条引用持久化失败时，
