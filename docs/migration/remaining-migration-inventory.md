@@ -13,8 +13,8 @@
 [`../release/c26e696-production-acceptance-2026-08-18.md`](../release/c26e696-production-acceptance-2026-08-18.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `01b184d`，构建包 `dist/build-info.json` 的完整来源指纹为
-  `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`，注册页面和生成脚本均为 14 个；本轮“我的”页
+- 当前小程序运行输入来源为 `2902917`，构建包 `dist/build-info.json` 的完整来源指纹为
+  `29029175a5064aa4480359255e74d73dc010b3cd`，注册页面和生成脚本均为 14 个；本轮“我的”页
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 当前服务器 release 为 `c26e696`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听

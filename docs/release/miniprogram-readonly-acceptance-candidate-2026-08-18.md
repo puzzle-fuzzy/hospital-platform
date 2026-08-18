@@ -10,15 +10,15 @@
 | 服务端 release | `c26e696` | 服务器 `/home/ps/code/hospital-platform/releases/c26e696` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `01b184d` | 与服务端 `c26e696` 配套的当前候选包；页面安全边界和验收顺序保持不变 |
+| 小程序客户端 | `2902917` | 与服务端 `c26e696` 配套的当前本地验收候选包；页面安全边界和验收顺序保持不变 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
-| 小程序构建来源 | `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 124 项 / 1059 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `01b184d` |
-| 全仓回归 | 9/9 package、API 131/599、工具 14/14 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `c26e696`，旧 Python 保持运行 |
+| 小程序构建来源 | `29029175a5064aa4480359255e74d73dc010b3cd` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 124 项 / 1060 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `2902917` |
+| 全仓回归 | 9/9 package、API 152/659、Worker 51/144、工具 14/44 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `c26e696`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `01b184d` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`01b184d` 在既有患者上下文门禁基础上，要求报告详情也复用统一的患者错误翻译入口，要求报告目录错误态同步清空列表派生的总数、已展示数量和分页标记，避免详情页与目录页出现状态文案或统计状态漂移；它保留空目录下已有选择进入 `stale` 的修正、首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，让所有认证响应在交付前核对会话代际，删除会并行请求未指定科室排班的误导性 helper，拒绝刷新期间已经脱离当前科室或日期分组的旧 WXML 事件，让挂号卡片和报告目录详情操作按渲染批次 key 回查而不是直接信任旧 WXML 引用，让报告详情请求同时携带当前 patientId 由服务端复核患者范围，让报告详情错误态清空上一轮检测项、报告时间和附件标记，让“我的”页先确认 `/me` 再读取患者目录和普通资料，并让未迁移菜单使用稳定的 `title` key，避免没有 action 的入口共享 `undefined` key；它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。
+客户端候选的 `dist/` 必须由 `2902917` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`2902917` 在既有患者上下文门禁基础上，补充预约记录网络错误时关闭院区弹层的失败态边界，避免错误提示被过期叠加层遮挡；它保留报告详情、患者切换、预约历史和门诊费用的既有 fail-closed 规则，不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `29029175a5064aa4480359255e74d73dc010b3cd`。
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 

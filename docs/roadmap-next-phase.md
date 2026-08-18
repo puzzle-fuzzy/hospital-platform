@@ -5,7 +5,10 @@
 
 ## 当前执行检查点（2026-08-18）
 
-- 当前线上服务端 release 为 `c26e696`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序构建来源仍为 `01b184d9a6e37f7045b0cf62ecbf685cf0fc482c`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。本次生产切换证据见 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)。
+- 当前线上服务端 release 为 `c26e696`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序本地验收候选构建来源为 `29029175a5064aa4480359255e74d73dc010b3cd`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。本次生产切换证据见 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)。
+
+- 2026-08-18 23:09 CST：本地小程序运行包在提交 `2902917` 后重新构建，`dist/build-info.json.sourceRevision` 为
+  `29029175a5064aa4480359255e74d73dc010b3cd`，14 个页面脚本通过 `runtime:verify`。本轮只修复预约记录网络错误时院区弹层残留，未上传小程序线上包、未重启服务、未修改旧 Python 服务；真机三层业务证据仍待重新采集。
 
 - 2026-08-18 22:50 CST：重启后再次只读复核确认 `current=687690e`、新 API `10.0.0.3:18081`、旧 Python `0.0.0.0:8001` 和 `hospital-platform-api-v2.service=active/running` 均正常。22:30–22:50 CST 低敏日志聚合为 `parseErrors=0`、`systemdWarningCount=0`，微信登录 `1/1`、患者目录读取 `8/8`、患者同步 `4/4` 的请求/成功门禁通过；没有预约、报告或门诊费用事件。该结果没有页面截图和设备连接证据，仍不计入真机三层验收；完整记录见 [`release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。本轮没有切换 release、执行 migration、写入 MySQL/Redis、修改旧 Python 服务或触碰用户已有的 `apps/miniprogram/project.config.json`。
 - 2026-08-18 22:50 CST：重启后再次只读复核确认当时 `current=687690e`、新 API `10.0.0.3:18081`、旧 Python `0.0.0.0:8001` 和 `hospital-platform-api-v2.service=active/running` 均正常。22:30–22:50 CST 低敏日志聚合为 `parseErrors=0`、`systemdWarningCount=0`，微信登录 `1/1`、患者目录读取 `8/8`、患者同步 `4/4` 的请求/成功门禁通过；没有预约、报告或门诊费用事件。该结果没有页面截图和设备连接证据，仍不计入真机三层验收；完整记录见 [`release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。随后 `c26e696` 已按无损手册完成候选切换，切换证据见 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)。
