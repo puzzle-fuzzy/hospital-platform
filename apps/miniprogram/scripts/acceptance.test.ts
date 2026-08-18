@@ -756,6 +756,35 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(build).toContain("profile/profile.js");
 });
 
+test("native profile clears stale fields after session ownership is lost", async () => {
+	const page = await source("pages/profile/profile.ts");
+	const saveStart = page.indexOf("onSave(): Promise<void>");
+	const saveCatchStart = page.indexOf(".catch((error) => {", saveStart);
+	const clearIndex = page.indexOf(
+		"this.clearDisplayedProfileContext();",
+		saveCatchStart,
+	);
+	const showErrorIndex = page.indexOf(
+		'this.showError(error, "个人资料保存失败");',
+		saveCatchStart,
+	);
+
+	// 保存失败后只有在当前会话归属仍然成立时才能保留编辑态；401、账号切换
+	// 或重新登录失败必须先清除旧资料，不能让上一账号资料继续作为当前事实。
+	expect(page).toContain("shouldClearProfileDisplay");
+	expect(page).toContain('error.code === "session-changed"');
+	expect(page).toContain("if (!hasPlatformSession()) return true;");
+	expect(clearIndex).toBeGreaterThan(saveCatchStart);
+	expect(showErrorIndex).toBeGreaterThan(clearIndex);
+
+	const clearMethodStart = page.indexOf("clearDisplayedProfileContext(): void");
+	const clearMethodBody = page.slice(clearMethodStart);
+	expect(clearMethodBody).toContain('displayName: ""');
+	expect(clearMethodBody).toContain('gender: "unknown"');
+	expect(clearMethodBody).toContain("version: 0");
+	expect(clearMethodBody).toContain("loaded: false");
+});
+
 test("native profile save keeps validation, version and conflict boundaries ordered", async () => {
 	const profile = await source("pages/profile/profile.ts");
 	const profileTemplate = await source("pages/profile/profile.wxml");

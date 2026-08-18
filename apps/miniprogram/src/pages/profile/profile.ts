@@ -8,6 +8,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { hasPlatformSession } from "../../services/session-service";
 import type { ProfilePageData } from "../../types";
 
 type ProfilePageMethods = {
@@ -19,6 +20,7 @@ type ProfilePageMethods = {
 	onSave(): Promise<void>;
 	onPullDownRefresh(): void;
 	onUnload(): void;
+	clearDisplayedProfileContext(): void;
 	showError(error: unknown, fallback: string): void;
 };
 
@@ -36,6 +38,21 @@ const profileNavigationTimers = new WeakMap<
 
 const GENDER_LABELS = ["男", "女", "未知"] as const;
 const GENDER_VALUES = ["male", "female", "unknown"] as const;
+
+/**
+ * 判断保存失败是否已经破坏了当前资料的会话归属。
+ *
+ * 普通网络失败或服务端 5xx 不足以证明用户已经换号，旧资料可以暂留在
+ * 页面内等待重试；但明确的 unauthorized/session-changed，或者自动重新登录
+ * 失败后已经没有 token，都不能继续把旧资料展示成当前账号的资料。
+ */
+function shouldClearProfileDisplay(error: unknown): boolean {
+	if (!hasPlatformSession()) return true;
+	return (
+		error instanceof ApiError &&
+		(error.code === "unauthorized" || error.code === "session-changed")
+	);
+}
 
 /**
  * 资料页允许下拉刷新；较早的 GET 不能覆盖较新的资料版本，
@@ -97,6 +114,9 @@ Page<
 			})
 			.catch((error) => {
 				if (!profileLoadGuard.isCurrent(requestToken)) return;
+				if (shouldClearProfileDisplay(error)) {
+					this.clearDisplayedProfileContext();
+				}
 				this.showError(error, "个人资料加载失败");
 				this.setData({ loaded: false });
 			})
@@ -199,14 +219,20 @@ Page<
 				if (!saveGuard.isCurrent(saveToken)) return;
 				const requiresReload =
 					error instanceof ApiError && error.code === "user-profile-conflict";
+				const sessionDisplayInvalid = shouldClearProfileDisplay(error);
 				// 409 说明服务端已经存在比当前页面更新的 version；继续保留
 				// loaded=true 会让用户再次提交同一个旧版本，形成重复冲突，
 				// 也会让页面继续把旧资料当作最新事实。冲突后强制回到未加载态，
 				// 只有下拉刷新重新取得服务端版本后才恢复保存入口。
 				this.setData({
 					saving: false,
-					...(requiresReload ? { loaded: false } : {}),
+					...(requiresReload || sessionDisplayInvalid ? { loaded: false } : {}),
 				});
+				if (sessionDisplayInvalid) {
+					// 保存请求失败时不能让旧昵称、性别和邮箱继续停留在页面上；
+					// 否则用户重新登录后会把上一账号资料误认为当前账号资料。
+					this.clearDisplayedProfileContext();
+				}
 				this.showError(error, "个人资料保存失败");
 			});
 	},
@@ -226,6 +252,27 @@ Page<
 		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
 		profileNavigationTimers.delete(this);
 		disposePageInstance(this);
+	},
+
+	/**
+	 * 清理当前页面实例中已经失去会话证明的资料读模型。
+	 *
+	 * 这里只清理页面状态，不删除平台 token，也不修改服务端资料；临时依赖
+	 * 故障仍由调用方保留重试能力。只有用户重新取得有效会话并重新读取资料后，
+	 * 页面才允许恢复编辑和保存入口。
+	 */
+	clearDisplayedProfileContext(): void {
+		this.setData({
+			displayName: "",
+			gender: "unknown",
+			genderIndex: GENDER_VALUES.length - 1,
+			genderLabel: GENDER_LABELS[GENDER_LABELS.length - 1] ?? "未知",
+			age: "",
+			email: "",
+			version: 0,
+			loaded: false,
+			navigationPending: false,
+		});
 	},
 
 	showError(error: unknown, fallback: string): void {

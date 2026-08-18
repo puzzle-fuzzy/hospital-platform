@@ -12,6 +12,7 @@
 | [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `b7c9451`、当前本地小程序候选来源以 `379eae2a528265df900030cea6e8dc45a82902c1` 为准 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 当前 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 当前 `379eae2` 小程序候选的模拟器只读页面观察；不替代真机、Provider 或服务端日志证据 |
+| [`release/miniprogram-profile-session-display-boundary-2026-08-19.md`](release/miniprogram-profile-session-display-boundary-2026-08-19.md) | 普通资料读取/保存在会话失效后的旧资料清理边界；不代表真实 PUT、409 或真机验收 |
 | [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 当前服务端候选切换、生产 preflight、隔离 smoke 和新旧服务共存证据 |
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |

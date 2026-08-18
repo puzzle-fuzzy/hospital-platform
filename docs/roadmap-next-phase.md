@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19：继续审计普通资料页时发现，资料读取/保存请求在会话失效、并发账号切换或自动重新登录失败后，页面原先可能只显示错误而保留上一账号的昵称、性别、年龄、邮箱和版本。现已新增会话归属判断：`unauthorized`、`session-changed` 或已无 token 时清理资料派生字段并回到 `loaded=false`；普通网络/持久化暂时故障和 `user-profile-conflict` 仍保持各自语义。该修正只影响新小程序、中文注释和 acceptance 门禁，不执行真实 PUT、不修改 API、数据库、Redis、旧 Python 服务或线上小程序，详见 [`release/miniprogram-profile-session-display-boundary-2026-08-19.md`](release/miniprogram-profile-session-display-boundary-2026-08-19.md)。
+
 - 2026-08-19：继续复核开发者工具中的首页会话恢复时发现，服务端返回 `401/unauthorized` 时，客户端
   `requestWithSession` 会按设计清理旧 token 并最多重新执行一次微信 code 兑换；但首页原来的 `onShow` 在已有本地 token
   时会直接开始患者目录读取，认证完成前仍可能短暂保留上一位患者卡片。现已在 `onLoad` 和后续 `onShow` 发起认证/目录读取前
