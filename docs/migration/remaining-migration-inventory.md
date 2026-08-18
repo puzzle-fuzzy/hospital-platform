@@ -11,14 +11,14 @@
 
 本节优先于下方历史盘点记录。下方仍保留 `bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 本地 `main` 当前代码基线为 `10ec4e1`，在报告 adapter 边界拒绝空 Provider 患者引用，并新增“不调用 Provider”的测试；预约历史成功日志的
+- 本地 `main` 当前代码基线为 `4ae2a31`，在报告和门诊费用 adapter 边界拒绝空 Provider 患者引用，并新增“不调用 Provider”的测试；预约历史成功日志的
   低敏 `statusCounts` 和患者上下文空 `patientId` 前置校验仍在提交历史中。本地全量 `pnpm check` 和 API/Worker/小程序强制构建均通过，
-  运行包来源指纹为 `10ec4e1`，注册页面和生成脚本均为 14 个；用户已有的 `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
+  运行包来源指纹为 `4ae2a31`，注册页面和生成脚本均为 14 个；用户已有的 `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 当前服务器 release 为 `9acdaf2`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
   原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
-- `10ec4e1` 尚未上传或切换线上；重启后当前 SSH 端点只接受 publickey，现有密码方式无法重新建立发布连接。因此下面的业务观察仍只属于
-  `9acdaf2`，不能回填为 `10ec4e1` 的线上或真机证据；候选 provenance 见 [`../release/candidate-10ec4e1-local-build-2026-08-18.md`](../release/candidate-10ec4e1-local-build-2026-08-18.md)。
+- `4ae2a31` 尚未上传或切换线上；重启后当前 SSH 端点只接受 publickey，现有密码方式和本地已知私钥均无法重新建立发布连接。因此下面的业务观察仍只属于
+  `9acdaf2`，不能回填为 `4ae2a31` 的线上或真机证据；候选 provenance 见 [`../release/candidate-4ae2a31-local-build-2026-08-18.md`](../release/candidate-4ae2a31-local-build-2026-08-18.md)。
 - 当前 release 的低敏日志窗口 `parseErrors=0`、`systemdWarningCount=0`；预约历史 P0 门禁请求/成功各 1、失败 0。
   配对开发者工具请求 `pages/appointment-records/appointment-records` 返回 HTTP 200，服务端记录 `itemCount=60`、
   `statusCounts={cancelled:60}`。在线标签排除已取消记录，空态正确；全部挂号继续保持迁移提示，因为独立 `requestChannel=4`

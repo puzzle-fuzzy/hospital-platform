@@ -7,12 +7,13 @@
 
 ### 本地未部署候选增量（2026-08-18）
 
-- 本地 `main` 当前为 `10ec4e1`。本轮收紧报告目录 adapter：即使 Provider 患者号来自 owner-scoped 映射，
-  adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告 gate、详情 gate 和旧服务边界均未打开或修改。
-- `10ec4e1` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；运行包 `sourceRevision=10ec4e1`，14 个页面脚本已核对。
+- 本地 `main` 当前为 `4ae2a31`。本轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界：即使患者号来自 owner-scoped 映射，
+  adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
+- `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；运行包 `sourceRevision=4ae2a31`，14 个页面脚本已核对。
+  adapter 测试为 78 项、173 个断言。
 - 该候选尚未部署到服务器：重启后 SSH 端点只接受 publickey，当前连接方式无法完成候选上传和新 API 原子切换。最后一次已确认的线上 release
-  仍是下方的 `9acdaf2`；不能把本地测试、构建或报告 gate 代码当作线上或真机业务证据。候选和恢复步骤见
-  [`release/candidate-10ec4e1-local-build-2026-08-18.md`](release/candidate-10ec4e1-local-build-2026-08-18.md)。
+  仍是下方的 `9acdaf2`；不能把本地测试、构建或报告/费用 gate 代码当作线上或真机业务证据。候选和恢复步骤见
+  [`release/candidate-4ae2a31-local-build-2026-08-18.md`](release/candidate-4ae2a31-local-build-2026-08-18.md)。
 
 ### 当前 release 与验收增量（2026-08-18 14:55-14:57 CST）
 
