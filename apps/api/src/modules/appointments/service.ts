@@ -17,10 +17,12 @@ import {
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
 	isBoundedOpaqueIdentifier,
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
+	normalizeExternalTrace,
 	type PatientRepository,
 	parseIsoCalendarDate,
 	validatePatientProviderReference,
@@ -247,6 +249,10 @@ export class AppointmentService {
 				query,
 				context,
 			);
+			const trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
 			// adapter 是第一道 Provider 白名单边界；gateway 仍可能由回放或
 			// 未来实现注入。service 在日志和 API 响应前重新投影，避免额外的
 			// 患者字段、费用字段或重复科室键越过级联目录边界。
@@ -257,8 +263,8 @@ export class AppointmentService {
 				{
 					event: "appointment.directory.departments.synced",
 					traceId: context.traceId,
-					provider: result.trace.provider,
-					providerRequestId: result.trace.requestId,
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
 					itemCount: normalizedDepartments.length,
 				},
 				"Appointment department directory loaded",
@@ -292,6 +298,10 @@ export class AppointmentService {
 			const result = await this.dependencies.directory.listSchedules(
 				input,
 				context,
+			);
+			const trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
 			);
 			const normalizedSchedules = normalizeAppointmentScheduleResults(
 				(result as { schedules?: unknown } | undefined)?.schedules,
@@ -329,14 +339,14 @@ export class AppointmentService {
 			);
 			const snapshotPersistenceStatus = await this.persistScheduleSnapshots(
 				observedSchedules,
-				result.trace,
+				trace,
 			);
 			this.logger.info(
 				{
 					event: "appointment.directory.schedules.synced",
 					traceId: context.traceId,
-					provider: result.trace.provider,
-					providerRequestId: result.trace.requestId,
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
 					itemCount: observedSchedules.length,
 					// 这个字段明确区分“Provider 只读结果成功”和“写入前快照可用”，
 					// 避免后续维护把一条 200 响应误当成已经具备锁号授权。
@@ -489,6 +499,10 @@ export class AppointmentService {
 				},
 				context,
 			);
+			const trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
 			// adapter 已经完成 Provider 字段白名单映射，但 service 端口仍可
 			// 被其它实现注入；在 `synced` 日志和 API 响应前再做一次校验并
 			// 重新投影，确保患者身份、预约号、费用和支付字段不会越过边界。
@@ -500,8 +514,8 @@ export class AppointmentService {
 				{
 					event: "appointment.records.synced",
 					traceId: context.traceId,
-					provider: result.trace.provider,
-					providerRequestId: result.trace.requestId,
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
 					patientId,
 					itemCount: normalizedRecords.length,
 					statusCounts: countAppointmentRecordStatuses(normalizedRecords),
@@ -526,6 +540,9 @@ export class AppointmentService {
 					...(error instanceof AppointmentRecordResultValidationError
 						? { resultViolation: error.violation }
 						: {}),
+					...(error instanceof ExternalTraceReadModelValidationError
+						? { resultViolation: error.violation }
+						: {}),
 					...providerFailureMetadata(error),
 				},
 				"Appointment records request failed",
@@ -546,6 +563,9 @@ export class AppointmentService {
 				provider: "zhongyang",
 				errorType: error instanceof Error ? error.name : "unknown",
 				...(error instanceof AppointmentDirectoryResultValidationError
+					? { resultViolation: error.violation }
+					: {}),
+				...(error instanceof ExternalTraceReadModelValidationError
 					? { resultViolation: error.violation }
 					: {}),
 				...providerFailureMetadata(error),

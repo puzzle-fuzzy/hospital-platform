@@ -17,16 +17,18 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
 	InvalidReportKindError,
 	isBoundedOpaqueIdentifier,
 	isReportKind,
+	normalizeExternalTrace,
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
 	parseIsoCalendarDate,
 	REPORT_REFERENCE_MAX_TTL_MS,
 	ReportResultValidationError,
-	validateReportReference,
 	validatePatientProviderReference,
+	validateReportReference,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -218,6 +220,10 @@ export class ReportService {
 				},
 				context,
 			);
+			const trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
 			let normalizedReports: ReportDirectoryEntry[];
 			try {
 				normalizedReports = normalizeReportDirectoryResults(
@@ -225,6 +231,9 @@ export class ReportService {
 				);
 			} catch (error) {
 				if (error instanceof ReportResultValidationError) {
+					resultViolation = error.violation;
+				}
+				if (error instanceof ExternalTraceReadModelValidationError) {
 					resultViolation = error.violation;
 				}
 				throw error;
@@ -292,8 +301,8 @@ export class ReportService {
 							{
 								event: "report.detail_reference.failed",
 								traceId: context.traceId,
-								provider: result.trace.provider,
-								providerRequestId: result.trace.requestId,
+								provider: trace.provider,
+								providerRequestId: trace.requestId,
 								patientId,
 								errorType: error instanceof Error ? error.name : "unknown",
 							},
@@ -307,8 +316,8 @@ export class ReportService {
 				{
 					event: "report.directory.synced",
 					traceId: context.traceId,
-					provider: result.trace.provider,
-					providerRequestId: result.trace.requestId,
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
 					patientId,
 					itemCount: items.length,
 				},
@@ -325,6 +334,9 @@ export class ReportService {
 						? patientId
 						: "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof ExternalTraceReadModelValidationError
+						? { resultViolation: error.violation }
+						: {}),
 					...(resultViolation ? { resultViolation } : {}),
 					...providerFailureMetadata(error),
 				},
@@ -396,6 +408,10 @@ export class ReportService {
 				{ providerReportId: reference.providerReportId },
 				context,
 			);
+			const trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
 			let normalizedDetail: LaboratoryReportDetail;
 			try {
 				normalizedDetail = normalizeLaboratoryReportDetail(
@@ -403,6 +419,9 @@ export class ReportService {
 				);
 			} catch (error) {
 				if (error instanceof ReportResultValidationError) {
+					resultViolation = error.violation;
+				}
+				if (error instanceof ExternalTraceReadModelValidationError) {
 					resultViolation = error.violation;
 				}
 				throw error;
@@ -413,7 +432,7 @@ export class ReportService {
 					traceId: context.traceId,
 					patientId,
 					reportId,
-					providerRequestId: result.trace.requestId,
+					providerRequestId: trace.requestId,
 					itemCount: normalizedDetail.items.length,
 				},
 				"Report detail loaded",
@@ -433,6 +452,9 @@ export class ReportService {
 						: "invalid",
 					reportId: isBoundedOpaqueIdentifier(reportId) ? reportId : "invalid",
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof ExternalTraceReadModelValidationError
+						? { resultViolation: error.violation }
+						: {}),
 					...(resultViolation ? { resultViolation } : {}),
 					...providerFailureMetadata(error),
 				},

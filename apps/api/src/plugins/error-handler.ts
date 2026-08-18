@@ -3,6 +3,7 @@ import {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeValidationError,
 	IdentityUserReadModelValidationError,
@@ -179,6 +180,7 @@ export function errorHandlerPlugin() {
 				error instanceof AppointmentRecordResultValidationError ||
 				error instanceof ReportResultValidationError ||
 				error instanceof PatientDirectoryResultValidationError ||
+				error instanceof ExternalTraceReadModelValidationError ||
 				error instanceof WechatIdentityResultValidationError
 			) {
 				// Provider 已返回响应，但网关结果违反平台读模型；这不是患者

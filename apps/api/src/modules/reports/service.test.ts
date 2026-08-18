@@ -9,6 +9,7 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
 	InvalidReportKindError,
 	ReportResultValidationError,
 } from "@hospital/domain";
@@ -147,6 +148,51 @@ test("报告目录空结果是成功，非法查询和详情依赖缺失保留�
 			errorType: "DependencyNotConfiguredError",
 		}),
 	);
+});
+
+test("报告目录拒绝异常 Provider trace 并只记录固定原因", async () => {
+	const lines: string[] = [];
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "report-directory",
+					requestId: "bad\n-request-id",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "report-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-15" },
+			{
+				traceId: "trace-invalid-report-trace",
+				idempotencyKey: "key-invalid-report-trace",
+			},
+		),
+	).rejects.toBeInstanceOf(ExternalTraceReadModelValidationError);
+
+	const output = lines.join("");
+	expect(output).toContain('"resultViolation":"request-id-invalid"');
+	expect(output).not.toContain("bad\\n-request-id");
 });
 
 test("报告目录 service 拒绝仓储返回的非法或越界患者引用", async () => {

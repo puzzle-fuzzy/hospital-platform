@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PaymentOrderReadModelValidationError,
 } from "@hospital/domain";
@@ -119,5 +120,18 @@ test("会话 principal 读模型日志只保留固定违规原因", () => {
 		errorName: "SessionPrincipalReadModelValidationError",
 		errorCode: "UNKNOWN",
 		readModelViolation: "user-id-invalid",
+	});
+});
+
+test("Provider trace 读模型日志只保留固定违规原因", () => {
+	const metadata = safeErrorMetadata(
+		new ExternalTraceReadModelValidationError("request-id-invalid"),
+		"UNKNOWN",
+	);
+
+	expect(metadata).toEqual({
+		errorName: "ExternalTraceReadModelValidationError",
+		errorCode: "UNKNOWN",
+		readModelViolation: "request-id-invalid",
 	});
 });

@@ -3,6 +3,7 @@ import { ProviderRequestError } from "@hospital/adapters";
 import {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
+	ExternalTraceReadModelValidationError,
 	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
@@ -318,6 +319,7 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 
 test("Provider 读模型校验错误映射为不可重试的 502", async () => {
 	for (const error of [
+		new ExternalTraceReadModelValidationError("request-id-invalid"),
 		new AppointmentDirectoryResultValidationError("slot-count-invalid"),
 		new OutpatientPaymentResultValidationError("status-mismatch"),
 		new AppointmentRecordResultValidationError("status-invalid"),

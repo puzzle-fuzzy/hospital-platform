@@ -17,6 +17,8 @@
 
 - 2026-08-18（继续鉴权边界审计）：发现 Redis/可替换 `SessionTokenService` 返回的 `userId` 此前会直接成为 principal，异常会话值可能进入所有 owner-scoped 查询。新增统一会话 principal 二次投影：`userId` 必须是无控制字符、无首尾空白且不超过 64 个字符的 opaque 标识；异常读模型返回 `persistence-invalid`，不会伪装成 401，也不会调用患者、预约、报告、费用或支付 service。补充中文注释、API 错误契约、请求日志固定 `readModelViolation` 和回归测试；本轮未部署、未重启新旧服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
+- 2026-08-18（继续只读 Provider 边界审计）：发现预约、报告和门诊费用 service 在业务列表二次投影后仍直接信任 gateway `trace`，异常 Provider、控制字符或超长 request id 可能污染日志或内部引用关联。新增共享 `normalizeExternalTrace`，service 只允许有界低敏 trace 进入成功日志、排班快照和报告详情引用；异常统一为 `provider-response-invalid`，请求日志保留固定 `readModelViolation`。补充 domain/API 回归测试和中文 contract 文档；本轮未部署、未重启新旧服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
+
 - 2026-08-18 21:33 CST：重启后重新核对新 `miniprogram` 窗口，资源树仍为 `dist/`，模拟器首页和问题面板正常；但二维码仍显示 `8/18 18:59` 失效，重新打开入口未刷新有效期。因此本轮没有扫码、没有新增微信会话/患者/只读业务真机证据；需先重新编译生成有效二维码，记录见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 
 - 2026-08-18 21:35 CST：在新 `miniprogram` 项目窗口触发普通编译后，二维码已更新为约 606 KB、有效期至 `8/18 21:59`；资源树仍为 `dist/`，问题面板为 0 个问题，模拟器首页正常。截至记录仍无新手机连接，因此只恢复了可扫码入口，不增加微信会话、患者目录或只读业务真机证据。

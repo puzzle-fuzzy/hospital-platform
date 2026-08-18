@@ -33,6 +33,11 @@ export {
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 } from "./errors";
+export type { ExternalTraceReadModelViolation } from "./external-trace";
+export {
+	ExternalTraceReadModelValidationError,
+	normalizeExternalTrace,
+} from "./external-trace";
 export type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeCatalogKind,
@@ -103,9 +108,9 @@ export type {
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
 	PatientDirectoryResultViolation,
-	PatientDirectorySnapshotResultViolation,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
+	PatientDirectorySnapshotResultViolation,
 	PatientDirectorySyncOperation,
 	PatientDirectorySyncOperationStatus,
 	PatientDirectorySyncStart,
@@ -139,21 +144,23 @@ export type {
 	CreatePaymentOrderInput,
 	PaymentAmounts,
 	PaymentOrder,
-	PaymentOrderRepository,
 	PaymentOrderReadModelViolation,
+	PaymentOrderRepository,
 	PaymentOrderServiceDependencies,
 	PaymentPrepayAttempt,
 	PaymentPrepayAttemptRepository,
 	PaymentPrepayAttemptStatus,
 	PaymentQuote,
-	PaymentQuoteRepository,
 	PaymentQuoteReadModelViolation,
+	PaymentQuoteRepository,
 	WechatPaymentReconciliationOutcome,
 	WechatPaymentReconciliationResult,
 } from "./payment-order";
 export {
 	assertValidPaymentAmounts,
 	InvalidPaymentAmountsError,
+	normalizePaymentOrderReadModel,
+	normalizePaymentQuoteReadModel,
 	PaymentCashPrepayNotAllowedError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderInputError,
@@ -165,10 +172,8 @@ export {
 	PaymentPrepayAttemptUnknownError,
 	PaymentPrepayAttemptVersionConflictError,
 	PaymentQuoteExpiredError,
-	PaymentQuoteReadModelValidationError,
 	PaymentQuoteNotFoundError,
-	normalizePaymentOrderReadModel,
-	normalizePaymentQuoteReadModel,
+	PaymentQuoteReadModelValidationError,
 } from "./payment-order";
 export type {
 	WechatPaymentNotification,

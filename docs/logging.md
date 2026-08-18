@@ -24,6 +24,10 @@ API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`；失败�
 `readModelViolation=user-id-invalid`；该字段只说明会话读模型不符合 contract，不记录原始 `userId`、token
 或 Redis 键。该错误公共响应为 `persistence-invalid`，不能记录成普通 401，否则会让客户端把数据损坏误判为
 会话过期并反复登录。
+Provider 只读 gateway 的 trace 也必须先经过 service 二次投影；若 `provider`、`operation` 或 `requestId` 越过
+形状边界，或 Provider 不属于当前已配置渠道，请求日志只记录固定的 `readModelViolation`（例如
+`request-id-invalid`、`provider-mismatch`），不记录原始字符串。这样 `provider-response-invalid` 仍然可以通过
+`traceId` 关联 Provider 失败，而不会把可控文本注入日志字段。
 原生小程序为每个 `wx.request` 生成一次性的 `x-request-id`，服务端会校验后写入响应头
 和 Pino HTTP 日志；服务端错误返回的 request id 会保留在 `ApiError` 中，便于用户反馈
 “请求失败”时从日志平台反查链路。该 id 只用于关联，不是 token、幂等键或患者标识。
@@ -161,6 +165,13 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 - 该异常表示持久化/运行时边界损坏，不是用户凭证自然过期；公共响应固定为 500 `persistence-invalid`，不得转换成
   401，也不得继续调用患者、预约、报告、门诊费用或支付 service。
 - 只有 Redis 没有找到 token 时才返回 401；Redis 连接/传输失败仍保持 503 `dependency-not-configured`，三种事实不能混淆。
+
+Provider trace 读模型也遵循同一条规则：
+
+- 预约、报告和门诊费用 gateway 返回结果后，service 先校验并重新投影 trace，再写 `synced/loaded` 成功事件或把 request id
+  交给短期快照/详情引用。
+- trace 违反 contract 时只记录固定 `readModelViolation`，公共响应为 502 `provider-response-invalid`；它不能被当作
+  Provider 业务拒绝、空列表或持久化故障，也不能把不可信 request id 当作日志关联事实。
 
 以上事件以同一个 `traceId` 关联；失败事件必须保留稳定 `errorType`，成功事件必须保留结果数量或状态。HTTP
 请求日志仍然独立记录请求生命周期，不能用 `http.request.completed` 代替业务 `synced/loaded`，也不能用 HTTP 200

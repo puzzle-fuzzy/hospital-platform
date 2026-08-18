@@ -7,12 +7,15 @@ import type {
 	AppointmentRecord,
 	PatientRepository,
 } from "@hospital/domain";
-import { DependencyNotConfiguredError } from "@hospital/domain";
+import {
+	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
+} from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
 import {
-	AppointmentRecordQueryError,
 	AppointmentRecordPatientNotFoundError,
+	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 	AppointmentService,
 } from "./service";
@@ -73,6 +76,47 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 		providerRequestId: "provider-request-001",
 		expiresAt: "2026-08-15T00:01:00.000Z",
 	});
+});
+
+test("预约目录拒绝异常 Provider trace 并只记录固定原因", async () => {
+	const lines: string[] = [];
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "bad\n-request-id",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "unused",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.listDepartments({
+			traceId: "trace-invalid-provider-trace",
+			idempotencyKey: "key-invalid-provider-trace",
+		}),
+	).rejects.toBeInstanceOf(ExternalTraceReadModelValidationError);
+
+	const output = lines.join("");
+	expect(output).toContain('"resultViolation":"request-id-invalid"');
+	expect(output).not.toContain("bad\\n-request-id");
 });
 
 test("appointment snapshot expiry uses the same observed clock sample", async () => {

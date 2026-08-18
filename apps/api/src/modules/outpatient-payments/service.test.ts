@@ -5,7 +5,10 @@ import type {
 	OutpatientPaymentRecord,
 	PatientRepository,
 } from "@hospital/domain";
-import { DependencyNotConfiguredError as MissingDependencyError } from "@hospital/domain";
+import {
+	ExternalTraceReadModelValidationError,
+	DependencyNotConfiguredError as MissingDependencyError,
+} from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import {
 	OutpatientPaymentPatientNotFoundError,
@@ -83,6 +86,51 @@ test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务�
 		endTime: "2026-08-16 18:20:30",
 		status: "unpaid",
 	});
+});
+
+test("门诊费用拒绝异常 Provider trace 并只记录固定原因", async () => {
+	const lines: string[] = [];
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang",
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				records: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "bad\n-request-id",
+				},
+			}),
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "outpatient-payment-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unpaid", {
+			traceId: "trace-invalid-payment-trace",
+			idempotencyKey: "key-invalid-payment-trace",
+		}),
+	).rejects.toBeInstanceOf(ExternalTraceReadModelValidationError);
+
+	const output = lines.join("");
+	expect(output).toContain('"resultViolation":"request-id-invalid"');
+	expect(output).not.toContain("bad\\n-request-id");
 });
 
 test("门诊费用查询在没有 owner 映射时拒绝调用 provider", async () => {

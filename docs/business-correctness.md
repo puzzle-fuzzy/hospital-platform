@@ -37,6 +37,12 @@ Redis 旧值、手工写入值、内存 fixture 和替换的 token 实现都必�
 不能降级成 401（否则会把持久化损坏伪装成登录过期并触发无意义重试），也不能进入任何 owner-scoped 查询；
 统一返回 `persistence-invalid`，请求日志只保留固定 `readModelViolation=user-id-invalid`，不记录原始会话值。
 
+Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/历史、报告目录/详情和门诊费用在 service
+层会重新投影 `provider`、`operation`、`requestId` 以及可选的 provider order reference，只允许有界、无控制字符
+的低敏字符串进入日志或内部关联，并确认 Provider 仍是当前已配置的 `zhongyang`。trace 异常统一按
+`provider-response-invalid` 处理，固定记录 `readModelViolation`，不能把原始 trace 写入 Pino，也不能把错误 Provider
+当作成功读模型继续展示。该规则只保护只读链路的证据边界，不代表预约写入、支付、医保或 HIS 已开放。
+
 ### 支付订单与报价的持久化读模型边界
 
 支付仍处于“真实支付最后处理”的 gate 之外，但其内部订单状态机不能因为支付尚未开放就放宽数据边界。

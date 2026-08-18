@@ -1,6 +1,7 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PaymentOrderReadModelValidationError,
 	PaymentQuoteReadModelValidationError,
@@ -102,6 +103,7 @@ export function safeErrorMetadata(
 	}
 	if (
 		error instanceof PatientDirectorySnapshotResultValidationError ||
+		error instanceof ExternalTraceReadModelValidationError ||
 		error instanceof PaymentOrderReadModelValidationError ||
 		error instanceof PaymentQuoteReadModelValidationError ||
 		error instanceof SessionPrincipalReadModelValidationError

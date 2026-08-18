@@ -12,9 +12,11 @@ import type {
 } from "@hospital/domain";
 import {
 	DependencyNotConfiguredError,
+	ExternalTraceReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
+	normalizeExternalTrace,
 	normalizeOutpatientPaymentRecords,
 	OutpatientPaymentResultValidationError,
 	parseOutpatientBillDateTime,
@@ -265,6 +267,10 @@ export class OutpatientPaymentService {
 				},
 				context,
 			);
+			const trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
 			let normalizedRecords: OutpatientPaymentRecord[];
 			try {
 				// adapter 是第一道 Provider 白名单边界，这里是可注入 gateway
@@ -280,14 +286,17 @@ export class OutpatientPaymentService {
 				if (error instanceof OutpatientPaymentResultValidationError) {
 					resultViolation = error.violation;
 				}
+				if (error instanceof ExternalTraceReadModelValidationError) {
+					resultViolation = error.violation;
+				}
 				throw error;
 			}
 			this.logger.info(
 				{
 					event: "outpatient.payment.records.loaded",
 					traceId: context.traceId,
-					provider: result.trace.provider,
-					providerRequestId: result.trace.requestId,
+					provider: trace.provider,
+					providerRequestId: trace.requestId,
 					status,
 					itemCount: normalizedRecords.length,
 				},
@@ -313,6 +322,9 @@ export class OutpatientPaymentService {
 					// 避免把任意外部字符串当成合法业务状态继续传播。
 					status: isOutpatientPaymentStatus(status) ? status : "invalid",
 					errorType: error instanceof Error ? error.name : "UnknownError",
+					...(error instanceof ExternalTraceReadModelValidationError
+						? { resultViolation: error.violation }
+						: {}),
 					...(resultViolation ? { resultViolation } : {}),
 					...providerFailureMetadata(error),
 				},
