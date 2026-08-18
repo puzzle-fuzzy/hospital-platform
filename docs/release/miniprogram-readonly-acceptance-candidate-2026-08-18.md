@@ -10,12 +10,12 @@
 | 服务端 release | `c63dba9` | 服务器 `/home/ps/code/hospital-platform/releases/c63dba9` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `c1338a2` | 就诊人选择刷新并发修正后的 `main` |
+| 小程序客户端 | `1cd2b07` | 就诊人选择同步前当前标记修正后的 `main` |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序回归 | 106 项 / 935 个断言 | `pnpm --dir apps/miniprogram test` |
+| 小程序回归 | 106 项 / 936 个断言 | `pnpm --dir apps/miniprogram test` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `c1338a2` 工作树重新构建；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+客户端候选的 `dist/` 必须由 `1cd2b07` 工作树重新构建；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
 
 ## 2. 真机操作顺序
 
