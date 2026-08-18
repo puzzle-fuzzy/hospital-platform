@@ -7,6 +7,8 @@
 
 - 2026-08-18 23:37 CST：`b7c9451` 候选已上传服务器并通过远端 checksum、真实生产 preflight 和隔离 runtime smoke；当前 `current` 仍为 `c26e696`，没有重启正式 API、没有启动 Worker，旧 Python `8001` 未触碰。该候选只新增 P0 日志同 trace/request 关联链门禁，不推进支付、医保、预约写入或 HIS 回写，详见 [`release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md`](release/candidate-b7c9451-p0-correlation-gate-2026-08-18.md)。
 
+- 2026-08-18 23:40 CST：对当前 `c26e696` 自 `22:56:00` 起的 journald 做离线同链聚合，患者目录读取 `12/12`、患者同步 `6/6` 均在同一关联链内通过；微信登录、预约历史、门诊费用、报告和普通资料没有完整业务链，整体 P0 审计仍失败。该结果只增加服务端日志证据，不替代页面/HTTP/真机三层验收，详见 [`release/current-c26-p0-business-observation-2026-08-18-2340.md`](release/current-c26-p0-business-observation-2026-08-18-2340.md)。
+
 - 当前线上服务端 release 为 `c26e696`，新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；配套小程序本地验收候选构建来源为 `a45d35edd91aab1a3a83c77301c9984402686145`。发布运行层已验收，真实微信、Provider、真机和 Redis TTL 业务证据仍按下方域级清单单独记录；当前 TTL 只读审计因常驻 Redis 账号无 `SCAN` 权限保持未验证，详见 [`release/687690e-redis-session-ttl-observation-2026-08-18.md`](release/687690e-redis-session-ttl-observation-2026-08-18.md)。本次生产切换证据见 [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md)。
 
 - 2026-08-18 23:18 CST：本地小程序运行包在提交 `a45d35e` 后重新构建，`dist/build-info.json.sourceRevision` 为
