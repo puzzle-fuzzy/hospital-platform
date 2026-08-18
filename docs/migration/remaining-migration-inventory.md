@@ -22,6 +22,7 @@
   完整 provenance 见 [`../release/1b94c46-production-acceptance-2026-08-18.md`](../release/1b94c46-production-acceptance-2026-08-18.md)。
 - 2026-08-18 16:44 CST 公网只读复核再次通过 live/ready，ready 返回 `database/redis/schema=ok`；未登录资料接口返回预期 401。
   该结果只证明公网运行层和认证边界，不增加微信会话、患者切换、预约、报告或费用业务证据。
+- 2026-08-18 16:48 CST 公网 `GET /api/v2/medical-records` 返回 `404/not-found`，确认病历路由仍未注册；这是关闭边界证据，不代表病历功能已经迁移。
 - 历史 release `9acdaf2` 曾观察到预约历史 `itemCount=60`、`statusCounts={cancelled:60}`，在线标签排除已取消记录的空态符合当时规则；
   这不能回填为当前 `1b94c46` 的业务事件。全部挂号继续保持迁移提示，因为独立 `requestChannel=4` Provider contract 尚未冻结。
 - 当前下一步是取得真机微信会话并按候选验收手册重新采集页面、HTTP trace 和低敏日志三层证据；在此之前不开放全部挂号、预约写入、详情、
