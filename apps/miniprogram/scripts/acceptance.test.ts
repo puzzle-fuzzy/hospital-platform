@@ -266,6 +266,14 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(template).toContain("patient-card-unavailable");
 	expect(template).toContain("暂不可查");
 	expect(template).toContain("刷新就诊人");
+	// WXML 事件对象不能进入只接受 number 的内部加载 token 流程；
+	// 真机刷新必须经过无参数事件入口再创建本轮 token。
+	expect(template).toContain('bindtap="onSyncPatients"');
+	expect(selection).toContain("onSyncPatients(): Promise<void>");
+	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken: number)");
+	expect(selection).not.toContain(
+		"onSyncPatients(loadToken?: number): Promise<void>",
+	);
 	expect(selection).toContain("hasClinicallyReadyPatients");
 	expect(selection).toContain("patientSelectionResolutionMessage");
 	expect(home).toContain("patientSelectionResolutionMessage");
@@ -405,7 +413,7 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	expect(selection).toContain("getPageSingleFlight<Array<Patient>>");
 	expect(selection).toContain(".run(() => syncPatientsFromHospital");
 	expect(selection).toContain('"patient-list-load"');
-	expect(selection).toContain("onSyncPatients(loadToken)");
+	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken)");
 	expect(selection).toContain("后发调用方仍要消费同一个患者数组");
 });
 
@@ -1522,12 +1530,14 @@ test("patient context pull-to-refresh waits for the complete directory lifecycle
 	expect(home).toContain(
 		"this.onRefresh().finally(() => wx.stopPullDownRefresh())",
 	);
-	expect(selection).toContain("return this.onSyncPatients(loadToken);");
+	expect(selection).toContain(
+		"return this.syncPatientDirectoryForLoad(loadToken);",
+	);
 	expect(selection).toContain(
 		"this.loadPatientList().finally(() => wx.stopPullDownRefresh())",
 	);
 	const syncCallIndex = selection.indexOf(
-		"return this.onSyncPatients(loadToken);",
+		"return this.syncPatientDirectoryForLoad(loadToken);",
 	);
 	const loadPatientListBody = selection.slice(
 		selection.indexOf("loadPatientList(): Promise<void>"),

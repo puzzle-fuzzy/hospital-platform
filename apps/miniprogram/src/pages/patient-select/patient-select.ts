@@ -27,7 +27,8 @@ type PatientSelectionPageMethods = {
 	loadPatientList(): Promise<void>;
 	onPatientTap(event: PatientEvent): void;
 	onAddPatient(): void;
-	onSyncPatients(loadToken?: number): Promise<void>;
+	onSyncPatients(): Promise<void>;
+	syncPatientDirectoryForLoad(loadToken: number): Promise<void>;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
@@ -117,7 +118,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				// 选择页的目录读取完成后还必须等待一次完整同步；否则下拉刷新会
 				// 提前结束，调用页可能在 HIS 映射尚未落库时开始预约/报告查询。
 				// loading 由外层 finally 统一关闭，不能在这里提前置 false。
-				return this.onSyncPatients(loadToken);
+				return this.syncPatientDirectoryForLoad(loadToken);
 			})
 			.catch((error) => {
 				if (
@@ -224,10 +225,24 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 * 复用在途 Promise 时，后发调用方仍要消费同一个患者数组，不能只复用一个
 	 * 已经绑定在旧调用方闭包里的 void Promise，否则新一轮刷新会永远停在不可选择。
 	 */
-	onSyncPatients(loadToken?: number): Promise<void> {
+	/**
+	 * 真机按钮的事件入口。
+	 *
+	 * WXML bindtap 会传入微信事件对象，不能把这个参数直接转交给内部的
+	 * number 类型加载 token。此前按钮直接绑定带 token 参数的方法，运行时
+	 * 会把事件对象误当成 token，`isCurrent` 永远返回 false，表现为点击
+	 * “刷新就诊人”没有真正发起同步。这里单独创建本轮加载 token，再交给
+	 * 只接受 number 的内部流程，明确隔离框架事件和业务状态。
+	 */
+	onSyncPatients(): Promise<void> {
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
-		const currentLoadToken = loadToken ?? listLoadGuard.begin();
-		if (!listLoadGuard.isCurrent(currentLoadToken)) return Promise.resolve();
+		return this.syncPatientDirectoryForLoad(listLoadGuard.begin());
+	},
+
+	/** 执行一次患者目录同步；调用方必须传入当前页面的加载周期 token。 */
+	syncPatientDirectoryForLoad(loadToken: number): Promise<void> {
+		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
+		if (!listLoadGuard.isCurrent(loadToken)) return Promise.resolve();
 
 		const patientSyncFlight = getPageSingleFlight<Array<Patient>>(
 			this,
@@ -251,7 +266,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			.run(() => syncPatientsFromHospital("patient-selection-sync"))
 			.then((patients) => {
 				if (
-					!listLoadGuard.isCurrent(currentLoadToken) ||
+					!listLoadGuard.isCurrent(loadToken) ||
 					!syncGuard.isCurrent(syncToken)
 				) {
 					return;
@@ -266,7 +281,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			})
 			.catch((error) => {
 				if (
-					listLoadGuard.isCurrent(currentLoadToken) &&
+					listLoadGuard.isCurrent(loadToken) &&
 					syncGuard.isCurrent(syncToken)
 				) {
 					this.showError(error, "就诊人同步失败");
@@ -274,7 +289,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			})
 			.finally(() => {
 				if (
-					listLoadGuard.isCurrent(currentLoadToken) &&
+					listLoadGuard.isCurrent(loadToken) &&
 					syncGuard.isCurrent(syncToken)
 				) {
 					this.setData({ syncing: false });
