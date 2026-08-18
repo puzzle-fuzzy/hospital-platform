@@ -181,8 +181,9 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 `c63dba9`，只重启新 API。切换后内网 live/ready/system-ping、公网 live/ready/system-ping 和连续 6/6
 公网 readiness 均通过，ready 的 database/redis/schema 为 `ok`，日志聚合 `parseErrors=0`、
 `systemdWarningCount=0`。新 API `18081` 与旧 Python `8001` 保持共存，Worker 仍 inactive；本次只补齐
-普通资料更新的 `user.profile.update.requested` 日志链路，没有调用真实微信、患者、预约、门诊费用 Provider，
-也没有执行 migration、支付、医保、退款或 HIS 写入。完整记录见
+普通资料更新的 `user.profile.update.requested` 日志链路；切换后受控窗口的微信登录 `4/4`、患者目录读取 `20/20`、
+患者同步 `10/10` 请求/成功门禁通过，但预约历史和门诊费用仍缺少请求/成功事件，也没有执行 migration、支付、医保、
+退款或 HIS 写入。完整记录见
 [`../../docs/release/c63dba9-production-acceptance-2026-08-18.md`](../../docs/release/c63dba9-production-acceptance-2026-08-18.md)。
 
 2026-08-18 01:26-01:32 CST：候选 `52e9624` 已完成 7 个 artifact checksum、真实生产 env preflight、

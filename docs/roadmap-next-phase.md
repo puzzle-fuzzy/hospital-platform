@@ -14,10 +14,11 @@
   `Cache-Control: no-store` 保持不变。
 - 本次只补齐普通资料更新的 `user.profile.update.requested` 开始事件、结果事件测试和 P0 证据门禁，
   不打开支付、医保、HIS 写入、预约写入、报告或 Worker。日志聚合 `parseErrors=0`、`systemdWarningCount=0`。
-- 当前仍未取得本 release 的有效微信会话下“显式切换就诊人 → 我的挂号 → 爽约记录 → 门诊费用”的页面、HTTP、
-  低敏日志三层证据；不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
+- 当前 release 切换后的受控日志窗口已通过微信登录 `4/4`、患者目录读取 `20/20`、患者同步 `10/10` 的请求/成功
+  门禁；但这仍需要页面和 HTTP trace 交叉核对，且没有 `appointment.records.*` 或 `outpatient.payment.records.*`
+  请求/成功事件，不能把运行层 smoke 或历史 release 业务事件复用为当前业务验收。完整发布证据见
   [`release/c63dba9-production-acceptance-2026-08-18.md`](release/c63dba9-production-acceptance-2026-08-18.md)。
-- 下一步优先使用匹配的原生小程序包完成患者显式切换和预约历史/门诊费用只读三层验收；支付、医保、预约写入、
+- 下一步优先用页面操作和 HTTP trace 核对当前会话的患者显式切换，再完成预约历史/门诊费用只读三层验收；支付、医保、预约写入、
   退款、报告 Provider 和 HIS 写回继续最后处理。
 
 ### 本轮 e5bafd3 资料边界修正与生产共存切换（2026-08-18 10:05-10:07 CST）

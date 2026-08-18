@@ -19,8 +19,9 @@ Redis 会话、微信合法域名、HTTPS 证书和开发者工具/真机验收�
 
 截至 2026-08-18 11:09 CST，当前线上 API release 为 `c63dba9`，并已应用
 `0016_patient_directory_sync_owner_index`。该版本已经完成生产 env preflight、原子切换、MySQL/Redis/schema 探针、公网
-`/api/v2` 健康检查、ready 连续检查、未登录认证边界和旧 Python 服务共存验收；本次只补齐普通资料更新日志链路，尚未
-取得当前 release 下预约历史或门诊费用的真实业务事件，因此不能沿用旧 release 的业务证据。完整发布边界见
+`/api/v2` 健康检查、ready 连续检查、未登录认证边界和旧 Python 服务共存验收；本次只补齐普通资料更新日志链路，
+切换后受控日志窗口的微信登录和患者目录请求/成功门禁已通过，但尚未取得当前 release 下预约历史或门诊费用的真实
+业务事件，因此不能沿用旧 release 的业务证据。完整发布边界见
 [`release/c63dba9-production-acceptance-2026-08-18.md`](release/c63dba9-production-acceptance-2026-08-18.md)。
 当前业务未完成项仍按 [`roadmap-next-phase.md`](roadmap-next-phase.md) 的当前基线执行。
 

@@ -63,13 +63,30 @@ preflight，结果如下：
 - 公网 `/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping`：均为 200；
 - 公网 `/api/v2/health/ready` 连续 6/6 为 200，响应保留 `Cache-Control: no-store`；
 - 公网未登录 `/api/v2/patients`：401，返回 `unauthorized`，认证边界正常；
-- 本次只做运行层、依赖、日志和认证边界验收，没有调用真实微信、患者、预约、门诊费用或 Provider 业务接口。
+- 切换后的日志窗口确实观察到微信登录和患者目录业务请求；预约历史、门诊费用和其他 Provider 业务接口仍未调用。
 
-## 6. 日志质量和业务证据边界
+## 6. 切换后真实会话的低敏业务证据
 
-切换后使用同一 release 的 `p0-log-aggregate.js` 对受控 journald 窗口执行低敏聚合，结果为：
-`inputLines=186`、`parsedRecords=170`、`parseErrors=0`、`systemdWarningCount=0`、
-`traceIdCount=83`。这证明日志输入和解析链路正常，但不等于业务域已经验收。
+切换后使用同一 release 的 `p0-log-aggregate.js` 和 `p0-business-evidence-audit.js` 对受控 journald
+窗口执行低敏聚合。基础结果为 `inputLines=186`、`parsedRecords=170`、`parseErrors=0`、
+`systemdWarningCount=0`、`traceIdCount=83`；业务门禁结果如下：
+
+| 业务域 | requested | success | 结果 |
+| --- | ---: | ---: | --- |
+| 微信登录 | 4 | 4 | P0 日志门禁通过 |
+| 患者目录读取 | 20 | 20 | P0 日志门禁通过 |
+| 患者目录同步 | 10 | 10 | P0 日志门禁通过 |
+| 预约历史 | 0 | 0 | 缺少请求和成功事件 |
+| 门诊费用只读 | 0 | 0 | 缺少请求和成功事件 |
+
+以上只证明当前服务已经记录了对应的“请求 + 明确结果”事件，不能证明这些事件属于同一个用户或同一条
+页面操作链，也不能替代页面结果和 HTTP trace。患者显式切换、我的挂号、爽约记录和门诊费用仍需在匹配的
+原生小程序运行包中完成页面、HTTP、低敏日志三层交叉核对。
+
+## 7. 日志质量和普通资料证据边界
+
+日志输入和解析链路正常，但业务域仍必须使用请求事件和明确结果事件双门禁，不能把 readiness 或单个 HTTP 200
+降级成业务成功。
 
 普通资料更新的证据链现在明确为：
 
@@ -83,13 +100,13 @@ user.profile.update.requested
 其中 `requested` 只证明请求已进入资料服务，不能被当作成功写入；后续真机验收必须同时提供页面结果、
 HTTP trace 和对应的结果事件。预约历史、爽约记录、门诊费用、报告、支付和医保仍保持真实业务未验收状态。
 
-## 7. 回滚边界
+## 8. 回滚边界
 
 如新 API readiness、公网路径、旧 `8001` 或真实业务出现无法解释的异常，只把 `current` 回滚到
 `e5bafd3` 并重启 `hospital-platform-api-v2.service`；不得停止旧 Python、清空 Redis、回滚 schema
 或删除旧 release。
 
-## 8. 下一步
+## 9. 下一步
 
 使用与 `c63dba9` 匹配的原生小程序运行包，在有效微信会话下依次验收：登录恢复 → 患者目录/显式切换 → 我的挂号 →
 爽约记录 → 门诊费用待缴/已缴。支付、医保、预约写入、退款、报告 gate 和 HIS 写回继续最后处理。
