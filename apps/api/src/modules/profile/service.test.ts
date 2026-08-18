@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	MAX_USER_PROFILE_VERSION,
 	UserProfileInputError,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
@@ -362,4 +363,28 @@ test("普通资料拒绝超出 MySQL INT UNSIGNED 的版本", async () => {
 			},
 		),
 	).rejects.toBeInstanceOf(UserProfileInputError);
+});
+
+test("普通资料版本到达上限时在仓储写入前失败", async () => {
+	let updateCalls = 0;
+	const service = new UserProfileService({
+		findByUserId: async () => undefined,
+		update: async () => {
+			updateCalls += 1;
+			throw new Error("profile update must not run at version limit");
+		},
+	});
+
+	await expect(
+		service.update(
+			"profile-version-limit-001",
+			{ version: MAX_USER_PROFILE_VERSION, displayName: "最后一次资料" },
+			{
+				traceId: "profile-version-limit-trace",
+				idempotencyKey: "profile-version-limit-key",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+	// 版本已无法产生合法的下一版本，不能把越界值交给 MySQL 或内存仓储。
+	expect(updateCalls).toBe(0);
 });

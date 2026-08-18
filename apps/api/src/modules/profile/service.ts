@@ -189,6 +189,12 @@ export class UserProfileService {
 					"At least one profile field is required",
 				);
 			}
+			if (normalizedVersion === MAX_USER_PROFILE_VERSION) {
+				// version 必须在成功写入后递增；已经到达 MySQL INT UNSIGNED
+				// 上限时，继续调用仓储会产生越界值，甚至可能出现“数据库已变更
+				// 但响应校验失败”的半成功语义。这里在任何写入前 fail-closed。
+				throw new UserProfileInputError("version cannot be incremented");
+			}
 
 			const normalizedDisplayName = normalizeDisplayName(displayName);
 			const normalizedGender = normalizeGender(gender);

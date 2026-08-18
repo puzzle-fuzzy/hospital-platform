@@ -67,7 +67,9 @@ owner 审计的完整契约。因此头像本轮仍然关闭，不能因为普�
 
 首次写入使用 `version=0` 创建版本 1；后续写入必须匹配数据库当前版本，并以条件更新
 `WHERE user_id = ? AND version = ?` 递增版本。版本不匹配返回 HTTP 409 和稳定错误码
-`user-profile-conflict`，客户端应重新读取后让用户确认，而不是自动覆盖。
+`user-profile-conflict`，客户端应重新读取后让用户确认，而不是自动覆盖。请求版本达到
+MySQL `INT UNSIGNED` 上限时已经没有合法的下一版本，服务层必须在仓储写入前返回
+`user-profile-invalid`，不能让数据库尝试写入越界值。
 
 ## 4. 数据和权限不变量
 
