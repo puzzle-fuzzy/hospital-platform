@@ -58,6 +58,25 @@
 live、ready 和 system ping 均成功。没有把这两个路径错误计入业务失败，也没有把患者目录事件推导成预约、
 费用或真机验收完成。
 
+### 2.5 12:06 CST 继续复核
+
+本轮继续使用 SSH 只读检查，当前服务端 release 未变化，仍为 `c63dba9`；本地刚提交的原生小程序入口修正
+`f44600e` 尚未部署到服务器。结果如下：
+
+| 指标 | 结果 |
+| --- | --- |
+| systemd / 监听 | `active`；新 API `10.0.0.3:18081`、旧 Python `0.0.0.0:8001` 同时存在 |
+| 内网 live / ready / ping | `200 / 200 / 200`，database、redis、schema 均为 `ok` |
+| 公网 live / ready / ping | `200 / 200 / 200` |
+| journald 输入行 / 解析记录 | `48 / 47`，`parseErrors=0`，`systemdWarningCount=0` |
+| HTTP `200 / 404` | `24 / 2`；`404` 为已知路径探测，不扩展为业务故障 |
+| 患者目录请求 / 读取成功 / 同步成功 | `3 / 6 / 3` |
+| 去重 `providerRequestId` | `3` |
+
+该窗口仍没有新的微信登录、预约历史、爽约、门诊费用或报告业务链证据；患者目录日志只证明当前服务有
+低敏请求/结果记录，不能代替真机页面、HTTP trace 或 Provider 字段验收。旧 Python 服务未被本轮停止、
+重启或修改。
+
 ## 3. 维护注意事项
 
 内网健康探针必须使用 `/health/live`、`/health/ready`，内网系统探针使用 `/api/v1/system/ping`；公网才使用
