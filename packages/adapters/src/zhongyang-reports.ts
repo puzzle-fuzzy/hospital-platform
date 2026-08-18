@@ -183,6 +183,92 @@ function ensureUniqueReportIds(
 	}
 }
 
+/**
+ * 只为目录排序解析已经确认过结构的日期文本，不改变患者端展示值。
+ *
+ * LIS、PACS、ECG 的旧端返回值可能分别使用 `yyyy-MM-dd`、带时间的
+ * `yyyy-MM-dd HH:mm:ss` 或斜杠日期。不能直接依赖 `Date.parse`，因为部分
+ * JavaScript 运行时会把 `2026-02-30` 自动进位，也不能把未知格式猜成
+ * 医疗事实。无法严格解析的时间返回 undefined，由比较器稳定地放到末尾。
+ */
+function reportTimestampForOrder(value: string): number | undefined {
+	const trimmed = value.trim();
+	const localMatch =
+		/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/.exec(
+			trimmed,
+		);
+	if (localMatch) {
+		const year = Number(localMatch[1]);
+		const month = Number(localMatch[2]);
+		const day = Number(localMatch[3]);
+		const hour = Number(localMatch[4] ?? 0);
+		const minute = Number(localMatch[5] ?? 0);
+		const second = Number(localMatch[6] ?? 0);
+		const millisecond = Number((localMatch[7] ?? "").padEnd(3, "0") || 0);
+		const timestamp = Date.UTC(
+			year,
+			month - 1,
+			day,
+			hour,
+			minute,
+			second,
+			millisecond,
+		);
+		const date = new Date(timestamp);
+		if (
+			date.getUTCFullYear() !== year ||
+			date.getUTCMonth() !== month - 1 ||
+			date.getUTCDate() !== day ||
+			hour > 23 ||
+			minute > 59 ||
+			second > 59
+		) {
+			return undefined;
+		}
+		return timestamp;
+	}
+
+	// 带时区的 ISO 时间可以安全交给 Date.parse；其结构先经过白名单限制，
+	// 避免不同运行时对任意自然语言日期作出不同解释。
+	if (
+		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+			trimmed,
+		)
+	) {
+		const timestamp = Date.parse(trimmed);
+		return Number.isFinite(timestamp) ? timestamp : undefined;
+	}
+	return undefined;
+}
+
+/**
+ * 跨 LIS/PACS/ECG 合并目录时按可验证时间倒序；未知时间永远排在末尾。
+ *
+ * 这里不把排序键加入公开 contract：报告原始时间仍按 Provider 文本展示，
+ * 等院方冻结统一时间格式后再考虑是否把标准化时间纳入接口版本。
+ */
+function compareReportEntries(
+	left: ReportDirectoryEntry,
+	right: ReportDirectoryEntry,
+): number {
+	const leftTimestamp = reportTimestampForOrder(left.summary.reportedAt);
+	const rightTimestamp = reportTimestampForOrder(right.summary.reportedAt);
+	if (leftTimestamp === undefined && rightTimestamp !== undefined) return 1;
+	if (leftTimestamp !== undefined && rightTimestamp === undefined) return -1;
+	if (
+		leftTimestamp !== undefined &&
+		rightTimestamp !== undefined &&
+		leftTimestamp !== rightTimestamp
+	) {
+		return rightTimestamp - leftTimestamp;
+	}
+	return (
+		left.summary.reportedAt.localeCompare(right.summary.reportedAt) ||
+		left.summary.kind.localeCompare(right.summary.kind) ||
+		left.summary.title.localeCompare(right.summary.title)
+	);
+}
+
 function flag(value: unknown): boolean {
 	if (value === true || value === 1 || value === "1") return true;
 	return typeof value === "string" && value.trim().toLowerCase() === "true";
@@ -519,12 +605,7 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		);
 		const reports = results
 			.flatMap((result) => result.reports)
-			.sort(
-				(left, right) =>
-					right.summary.reportedAt.localeCompare(left.summary.reportedAt) ||
-					left.summary.kind.localeCompare(right.summary.kind) ||
-					left.summary.title.localeCompare(right.summary.title),
-			);
+			.sort(compareReportEntries);
 		return {
 			reports,
 			trace: {

@@ -231,10 +231,10 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"release/current-server-p0-observation-2026-08-17-2257.md",
 	);
-	// 当前盘点必须明确记录 38bc553 切换后没有新的业务事件；不能把上一 release
-	// 的登录/患者日志计入当前版本，更不能用“没有事件”反推出成功空列表。
+	// 当前盘点必须明确记录 38bc553 的业务观察范围；不能把上一 release
+	// 的登录/患者日志计入当前版本，也不能把一次只读观察扩展成完整业务完成。
 	expect(inventory).toContain(
-		"当前 `38bc553` 切换后暂未产生新的 `appointment.records.*`、`outpatient.payment.*` 或 `report.*` 业务事件",
+		"当前 `38bc553` 已取得一次配对开发者工具会话下的预约历史、爽约筛选和门诊费用只读事件",
 	);
 	expect(inventory).toContain("candidate-38bc553-local-build-2026-08-18.md");
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
@@ -344,7 +344,7 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"HTTP `200`、`items: []` 和 `total: 0`",
 		"右栏每次最多渲染 12 条；这是本地渲染分页",
 		"每次渲染 10 条；这是本地渲染分页",
-		"adapter 按 `reportedAt` 倒序",
+		"adapter 对严格可识别的 `reportedAt` 按时间倒序，无法识别的时间置后",
 		"目录摘要与详情引用是两个独立能力",
 		"不能因为单条详情引用不可用而把整批报告目录当成服务不可用",
 		"不能被验收记录写成“服务端已支持分页”",

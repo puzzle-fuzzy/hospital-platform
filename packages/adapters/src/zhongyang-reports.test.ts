@@ -127,6 +127,39 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 	expect(JSON.stringify(result)).not.toContain("ecg-provider-secret");
 });
 
+test("众阳跨来源报告按严格可解析时间倒序，未知时间放在末尾", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const url = String(input);
+			const data = url.includes("lis-reports")
+				? [{ reportTypeName: "检验", reportTime: "2026/9/30 10:00:00" }]
+				: url.includes("pacs")
+					? [{ modality: "CT", reportAuditTime: "2026-10-01" }]
+					: [{ diagnosis: "窦性心律", diagnoseTime: "未知时间" }];
+			return new Response(JSON.stringify(data), {
+				status: 200,
+				headers: { "x-request-id": `order-${url}` },
+			});
+		},
+	});
+
+	const result = await gateway.listReports(
+		{
+			providerPatientId: "provider-patient-order",
+			query: { startDate: "2026-09-01", endDate: "2026-10-02" },
+		},
+		context,
+	);
+
+	// 斜杠日期和短日期都能严格排序；未知 Provider 文本不参与猜测，放到末尾。
+	expect(result.reports.map((report) => report.summary.kind)).toEqual([
+		"imaging",
+		"laboratory",
+		"ecg",
+	]);
+});
+
 test("众阳 LIS 详情只映射白名单检测项并保留 provider 引用在请求内", async () => {
 	let requestUrl = "";
 	const gateway = createZhongyangReportGateway({
