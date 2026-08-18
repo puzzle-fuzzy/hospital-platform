@@ -231,11 +231,10 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"release/current-server-p0-observation-2026-08-17-2257.md",
 	);
-	// 当前盘点把业务事件写成“切换后的窄观察窗口没有新事件”，而不是
-	// 旧版的“启动后计数为 0”；断言必须跟随证据语义，避免未来把历史
-	// 启动窗口误读成当前 release 的完整业务验收。
+	// 当前盘点把“已取得微信/患者前置证据，但没有后续业务事件”写清楚，
+	// 避免未来把单患者同步误读成预约、费用或报告已经完成。
 	expect(inventory).toContain(
-		"当前 release 切换后仅取得健康检查和启动日志，没有新的 `appointment.*` 或 `outpatient.payment.*` 业务事件",
+		"当前 release 切换后已取得一次真实微信登录、`/me` 读取、患者目录读取和患者同步",
 	);
 	expect(inventory).not.toContain("当前 API 已切换到 `0b6f38f`");
 	expect(inventory).not.toContain("当前生产只读复核仍为");

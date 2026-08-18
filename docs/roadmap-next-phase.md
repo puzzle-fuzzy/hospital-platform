@@ -11,7 +11,7 @@
 - 当前 release 为 `/home/ps/code/hospital-platform/releases/e5bafd3`，新 Bun/Elysia API
   `10.0.0.3:18081` active；旧 Python API `0.0.0.0:8001` 继续监听，旧进程 PID 未变，Worker 未启动。
 - 生产 preflight、候选隔离 `/api/v1` runtime smoke、切换后内网 live/ready 和公网 `/api/v2` runtime smoke 均通过；公网 ready 保留 `Cache-Control: no-store`，MySQL、Redis、schema 为 `ok`，支付、医保相关支付链路和报告 gate 保持关闭。
-- 本轮仍没有新的微信/患者/预约/费用业务请求，不能把运行层切换标记为真实业务验收。
+- 切换后已取得一次真实微信会话：`POST /auth/wechat` 200、患者目录读取 200、患者同步 200，返回 1 条 active 患者和 1 条 `his-patient` 映射；但没有新的 `appointment.records.*`、`outpatient.payment.*` 或 `report.*` 事件，不能把“我的挂号”、爽约记录、门诊费用或报告标记为真实业务验收。详细低敏证据见 [`release/e5bafd3-p0-business-observation-2026-08-18.md`](release/e5bafd3-p0-business-observation-2026-08-18.md)。
 - 完整证据见 [`release/e5bafd3-production-acceptance-2026-08-18.md`](release/e5bafd3-production-acceptance-2026-08-18.md)。
 
 ### 本轮 4cf9e66 生产共存切换与候选验收（2026-08-18 09:16-09:20 CST）
