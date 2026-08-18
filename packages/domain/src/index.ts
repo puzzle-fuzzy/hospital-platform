@@ -101,6 +101,7 @@ export type {
 	PatientClinicalAccess,
 	PatientDirectoryGateway,
 	PatientDirectoryProfile,
+	PatientDirectoryResultViolation,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
 	PatientDirectorySyncOperation,
@@ -119,7 +120,9 @@ export type {
 	WechatIdentityGateway,
 } from "./patients";
 export {
+	normalizePatientDirectoryResult,
 	normalizePatientReadModel,
+	PatientDirectoryResultValidationError,
 	PatientReadModelValidationError,
 	validatePatientProviderReference,
 } from "./patients";

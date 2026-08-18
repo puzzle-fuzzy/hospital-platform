@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	type PatientDirectoryGateway,
+	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	type PatientRecord,
@@ -121,6 +122,72 @@ test("患者快照已提交后读模型失败不再伪造同步失败", async ()
 	expect(events).toContain("patient.directory.synced");
 	expect(events).toContain("patient.directory.read.failed");
 	expect(events).not.toContain("patient.directory.failed");
+});
+
+test("患者目录同步在快照写入前拒绝非法网关结果并记录固定原因", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-result-invalid",
+		unionId: "fixture-union-patient-result-invalid",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const replaceDirectorySnapshot = baseRepository.replaceDirectorySnapshot;
+	if (!replaceDirectorySnapshot) throw new Error("snapshot unavailable");
+	let replaceCalls = 0;
+	const repository: PatientRepository = {
+		...baseRepository,
+		async replaceDirectorySnapshot(input) {
+			replaceCalls += 1;
+			return replaceDirectorySnapshot.call(baseRepository, input);
+		},
+	};
+	const lines: string[] = [];
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients: [
+					{
+						providerPatientId: "provider-patient-result-invalid",
+						displayName: "非法卡号患者",
+						relationship: "self",
+						// 故意模拟网关绕过 adapter，把完整卡号交给 service。
+						cardNumberMasked: "123456789012345678",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "patient-result-invalid-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-result-invalid-trace",
+			idempotencyKey: "patient-result-invalid-key",
+		}),
+	).rejects.toBeInstanceOf(PatientDirectoryResultValidationError);
+	expect(replaceCalls).toBe(0);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.failed",
+			resultViolation: "patient-card-number-invalid",
+		}),
+	);
+	expect(lines.join("\n")).not.toContain("123456789012345678");
 });
 
 test("已有医院目录时拒绝把歧义空快照应用成批量失效", async () => {

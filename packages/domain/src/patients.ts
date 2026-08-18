@@ -201,6 +201,149 @@ export type PatientDirectoryProfile = {
 	providerReferences?: Partial<Record<PatientProviderReferenceKind, string>>;
 };
 
+/**
+ * 患者目录 gateway 返回值违反同步写入 contract 时的固定原因。
+ *
+ * gateway 是可替换的端口，TypeScript 类型不能保护真实 HTTP、回放任务或
+ * 未来组合根返回的运行时对象。同步在进入快照事务前必须拒绝整批异常，避免
+ * 先把完整卡号、重复 provider 患者或未审计引用写入 MySQL，再等下次读取时才发现。
+ */
+export type PatientDirectoryResultViolation =
+	| "result-not-object"
+	| "snapshot-incomplete"
+	| "patients-not-array"
+	| "patient-not-object"
+	| "provider-patient-id-invalid"
+	| "provider-patient-id-duplicate"
+	| "patient-display-name-invalid"
+	| "patient-relationship-invalid"
+	| "patient-card-number-invalid"
+	| "provider-references-invalid"
+	| "trace-invalid";
+
+/** 患者目录同步不会把非法 gateway 结果交给持久化层。 */
+export class PatientDirectoryResultValidationError extends Error {
+	readonly violation: PatientDirectoryResultViolation;
+
+	constructor(violation: PatientDirectoryResultViolation) {
+		super("Patient directory provider result is invalid");
+		this.name = "PatientDirectoryResultValidationError";
+		this.violation = violation;
+	}
+}
+
+function invalidPatientDirectoryResult(
+	violation: PatientDirectoryResultViolation,
+): never {
+	throw new PatientDirectoryResultValidationError(violation);
+}
+
+function normalizePatientProviderReferences(
+	value: unknown,
+): Partial<Record<PatientProviderReferenceKind, string>> | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidPatientDirectoryResult("provider-references-invalid");
+	}
+	const record = value as Record<string, unknown>;
+	const keys = Object.keys(record);
+	if (keys.some((key) => key !== "directory" && key !== "his-patient")) {
+		invalidPatientDirectoryResult("provider-references-invalid");
+	}
+	const normalized: Partial<Record<PatientProviderReferenceKind, string>> = {};
+	for (const key of keys as PatientProviderReferenceKind[]) {
+		if (!isBoundedOpaqueIdentifier(record[key])) {
+			invalidPatientDirectoryResult("provider-references-invalid");
+		}
+		normalized[key] = record[key];
+	}
+	return keys.length > 0 ? normalized : undefined;
+}
+
+/**
+ * 在患者目录快照事务前重新校验并投影 gateway 结果。
+ *
+ * 这不是对 adapter 的重复调用，而是写入边界的运行时保护：即使测试替身、
+ * 回放器或未来 gateway 绕过了 adapter 的白名单，异常数据也只能停在 service
+ * 层并记录固定 violation，不能污染快照或让下一次 GET 才发现数据损坏。
+ */
+export function normalizePatientDirectoryResult(value: unknown): {
+	complete: true;
+	patients: PatientDirectoryProfile[];
+	trace: ExternalTrace;
+} {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		invalidPatientDirectoryResult("result-not-object");
+	}
+	const result = value as Record<string, unknown>;
+	if (result.complete !== true) {
+		invalidPatientDirectoryResult("snapshot-incomplete");
+	}
+	if (!Array.isArray(result.patients)) {
+		invalidPatientDirectoryResult("patients-not-array");
+	}
+	if (
+		typeof result.trace !== "object" ||
+		result.trace === null ||
+		Array.isArray(result.trace)
+	) {
+		invalidPatientDirectoryResult("trace-invalid");
+	}
+	const trace = result.trace as Record<string, unknown>;
+	if (
+		trace.provider !== "zhongyang" ||
+		trace.operation !== "patient-list" ||
+		!hasSafePatientText(trace.requestId, 128)
+	) {
+		invalidPatientDirectoryResult("trace-invalid");
+	}
+	const seenProviderPatientIds = new Set<string>();
+	const patients = result.patients.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidPatientDirectoryResult("patient-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		if (!isBoundedOpaqueIdentifier(record.providerPatientId)) {
+			invalidPatientDirectoryResult("provider-patient-id-invalid");
+		}
+		if (seenProviderPatientIds.has(record.providerPatientId)) {
+			invalidPatientDirectoryResult("provider-patient-id-duplicate");
+		}
+		seenProviderPatientIds.add(record.providerPatientId);
+		if (!hasSafePatientText(record.displayName, 128)) {
+			invalidPatientDirectoryResult("patient-display-name-invalid");
+		}
+		if (!isPatientRelationship(record.relationship)) {
+			invalidPatientDirectoryResult("patient-relationship-invalid");
+		}
+		if (
+			!hasSafePatientText(record.cardNumberMasked, 128) ||
+			!isMaskedCardNumber(record.cardNumberMasked)
+		) {
+			invalidPatientDirectoryResult("patient-card-number-invalid");
+		}
+		const providerReferences = normalizePatientProviderReferences(
+			record.providerReferences,
+		);
+		return {
+			providerPatientId: record.providerPatientId,
+			displayName: record.displayName,
+			relationship: record.relationship,
+			cardNumberMasked: record.cardNumberMasked,
+			...(providerReferences ? { providerReferences } : {}),
+		};
+	});
+	return {
+		complete: true,
+		patients,
+		trace: {
+			provider: "zhongyang",
+			operation: "patient-list",
+			requestId: trace.requestId,
+		},
+	};
+}
+
 /** 众阳目录 ID 与临床档案 patId 的用途边界。 */
 export type PatientProviderReferenceKind = "directory" | "his-patient";
 

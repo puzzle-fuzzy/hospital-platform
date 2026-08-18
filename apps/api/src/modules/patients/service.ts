@@ -3,8 +3,10 @@ import type { PatientListPayload } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
 	DependencyNotConfiguredError,
+	normalizePatientDirectoryResult,
 	normalizePatientReadModel,
 	type PatientDirectoryGateway,
+	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	PatientReadModelValidationError,
@@ -217,15 +219,11 @@ export class PatientService {
 				},
 				"Patient directory synchronization operation started",
 			);
-			const result = await directory.listByIdentity(
-				{ unionId: identity.unionId },
-				context,
+			// gateway 返回值是运行时边界，不能因为 TypeScript 声明完整就直接
+			// 进入快照事务；先投影并验证完整快照、患者字段和 provider trace。
+			const result = normalizePatientDirectoryResult(
+				await directory.listByIdentity({ unionId: identity.unionId }, context),
 			);
-			if (result.complete !== true) {
-				// 不完整目录不能触发失效回收；provider contract 若未来引入分页，
-				// 必须先在 adapter 层合并完全部分页再返回 complete=true。
-				throw new DependencyNotConfiguredError("patient-directory-snapshot");
-			}
 			const replaceDirectorySnapshot = this.repository.replaceDirectorySnapshot;
 			if (!replaceDirectorySnapshot) {
 				// 生产仓储必须具备事务快照能力；逐条 upsert 会留下半套目录。
@@ -297,6 +295,9 @@ export class PatientService {
 						provider: "zhongyang",
 						operationId,
 						errorType: error instanceof Error ? error.name : "unknown",
+						...(error instanceof PatientDirectoryResultValidationError
+							? { resultViolation: error.violation }
+							: {}),
 					},
 					"Patient directory synchronization failed",
 				);

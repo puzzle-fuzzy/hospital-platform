@@ -46,6 +46,10 @@ Phase 7A 已建立众阳患者目录 adapter：
 
 患者目录的 `cardNumberMasked` 仅用于页面核对：服务端最多返回前五位和后四位，中间保持掩码；身份证号、手机号和完整卡号不进入新 contract。
 
+患者目录 adapter 完成第一道白名单映射后，患者同步 service 还会在快照事务前重新校验并投影 gateway 结果；
+这道门禁覆盖完整快照标志、provider 患者号唯一性、卡号掩码、允许的 provider 引用和 trace。异常结果返回
+`provider-response-invalid`，不会先写入 MySQL 再等患者读取时暴露问题。
+
 预约记录 Phase 7D 只实现历史记录只读摘要：
 
 - 使用旧项目记录查询对应的 `/msun-middle-business-appointment-server/v1/appointment-infos/{pat-id}`，服务端固定 `requestChannel=3`、`isMzFlag=1` 和 `dateFlag=1`，日期范围由平台限制；provider 患者号只能来自服务端 mapping；

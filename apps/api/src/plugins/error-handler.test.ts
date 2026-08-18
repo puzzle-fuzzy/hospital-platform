@@ -6,6 +6,7 @@ import {
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
+	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
@@ -240,6 +241,7 @@ test("Provider 读模型校验错误映射为不可重试的 502", async () => {
 		new OutpatientPaymentResultValidationError("status-mismatch"),
 		new AppointmentRecordResultValidationError("status-invalid"),
 		new ReportResultValidationError("detail-field-invalid"),
+		new PatientDirectoryResultValidationError("patient-card-number-invalid"),
 	]) {
 		const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 			throw error;
