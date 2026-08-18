@@ -11,6 +11,13 @@
   回归测试和中文注释，全仓 `pnpm check` 通过；本轮尚未部署到线上 `1b94c46`，未重启新旧服务，未修改旧 Python 服务，
   也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
+- 2026-08-18：`ca46091` 收紧普通资料读取和更新的第二道读模型边界。资料 service 不再直接信任仓储的
+  TypeScript 返回类型，而是重新校验当前 owner、昵称/邮箱、性别、年龄和持久化版本，并按公共白名单投影；
+  损坏资料返回 `persistence-invalid`，不会降级成“微信用户”、空资料或记录 `user.profile.loaded/updated`
+  成功。新增领域/API 回归测试、中文注释和普通资料契约说明，全仓 `pnpm check` 通过（domain 27/62，API
+  125/573）；本轮尚未部署到线上 `1b94c46`，未重启新旧服务，未修改旧 Python 服务，也未触碰用户已有的
+  `apps/miniprogram/project.config.json`。
+
 - 2026-08-18：`fb0efba` 完成门诊费用 service 的最终白名单投影。门诊费用 gateway 结果在状态、标识、
   日期、金额和展示文本校验后，必须重新构造公共对象，Provider 交易号、患者字段、医保金额和其它扩展字段
   不会进入小程序；本轮仍未打开支付、医保或 HIS。新增投影回归测试，定向 API/domain 检查通过；尚未部署、
