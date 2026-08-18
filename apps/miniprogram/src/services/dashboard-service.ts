@@ -47,6 +47,36 @@ function hasBoundedDisplayText(
 	);
 }
 
+/** 客户端只复核日期的自然日有效性，不把预约时间解释成设备时区的瞬时点。 */
+function isIsoCalendarDate(value: unknown): value is string {
+	if (typeof value !== "string") return false;
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+	if (!match) return false;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+	const candidate = new Date(0);
+	candidate.setUTCHours(0, 0, 0, 0);
+	candidate.setUTCFullYear(year, month - 1, day);
+	return (
+		candidate.getUTCFullYear() === year &&
+		candidate.getUTCMonth() === month - 1 &&
+		candidate.getUTCDate() === day
+	);
+}
+
+const APPOINTMENT_RECORD_STATUSES = new Set<AppointmentRecord["status"]>([
+	"scheduled",
+	"cancelled",
+	"completed",
+	"missed",
+	"stopped",
+	"substituted",
+	"registered",
+	"unknown",
+]);
+
 /**
  * 校验患者端列表响应的总数语义。
  *
@@ -126,6 +156,49 @@ export function requireOutpatientPaymentListData(
 	}
 	return {
 		items: list.items as Array<OutpatientPaymentRecord>,
+		total: list.total,
+	};
+}
+
+/**
+ * 我的挂号列表也必须在客户端边界保持公共读模型形状。
+ *
+ * 服务端已经完成 Provider 状态和日期的归一化，但 TypeScript 泛型不会
+ * 校验微信收到的 JSON。若这里直接把异常状态交给 `toRecordView`，状态文案
+ * 可能变成空值；若工作日期或展示字段被代理污染，页面会把错误记录当作
+ * 当前患者的预约事实。发现一条坏记录时整批拒绝，不能过滤后伪装成完整
+ * 历史；全部渠道仍由独立 contract 决定，不能由这个校验顺手开放。
+ */
+export function requireAppointmentRecordListData(
+	value: unknown,
+): ExactListData<AppointmentRecord> {
+	const list = requireExactListData<unknown>(value);
+	for (const item of list.items) {
+		if (!isRecord(item)) {
+			throw new ApiError("Appointment record response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+		const optionalTextValid = (field: unknown, maxLength: number) =>
+			field === undefined || hasBoundedDisplayText(field, maxLength);
+		if (
+			!APPOINTMENT_RECORD_STATUSES.has(
+				item.status as AppointmentRecord["status"],
+			) ||
+			!isIsoCalendarDate(item.workDate) ||
+			!optionalTextValid(item.departmentName, 128) ||
+			!optionalTextValid(item.doctorName, 128) ||
+			!optionalTextValid(item.workTime, 64) ||
+			!optionalTextValid(item.location, 256) ||
+			!optionalTextValid(item.serialNumber, 64)
+		) {
+			throw new ApiError("Appointment record response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
+	}
+	return {
+		items: list.items as Array<AppointmentRecord>,
 		total: list.total,
 	};
 }
@@ -402,9 +475,7 @@ export function loadAppointmentRecords(
 ): Promise<Array<AppointmentRecord>> {
 	return requestAppointmentRecords(
 		createAppointmentRecordQuery(patientId, now, window),
-	).then(
-		(payload) => requireExactListData<AppointmentRecord>(payload.data).items,
-	);
+	).then((payload) => requireAppointmentRecordListData(payload.data).items);
 }
 
 /** 读取当前内部患者的 LIS/PACS/ECG 报告目录摘要。 */

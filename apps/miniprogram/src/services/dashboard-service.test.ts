@@ -4,6 +4,7 @@ import {
 	createAppointmentRecordQuery,
 	createPastDateRange,
 	loadOutpatientPaymentRecords,
+	requireAppointmentRecordListData,
 	requireExactListData,
 	requireOutpatientPaymentListData,
 } from "./dashboard-service";
@@ -110,6 +111,32 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 	]) {
 		expect(() => requireOutpatientPaymentListData(invalid, "unpaid")).toThrow(
 			"Outpatient payment response",
+		);
+	}
+});
+
+test("我的挂号列表必须保持公共状态、日期和展示字段一致", () => {
+	const valid = {
+		items: [
+			{
+				status: "scheduled" as const,
+				workDate: "2026-08-15",
+				departmentName: "内科",
+				workTime: "09:00-09:30",
+			},
+		],
+		total: 1,
+	};
+	expect(requireAppointmentRecordListData(valid)).toEqual(valid);
+
+	for (const invalid of [
+		{ items: [{ ...valid.items[0], status: "not-a-status" }], total: 1 },
+		{ items: [{ ...valid.items[0], workDate: "2026-02-31" }], total: 1 },
+		{ items: [{ ...valid.items[0], departmentName: null }], total: 1 },
+		{ items: [{ ...valid.items[0], serialNumber: "" }], total: 1 },
+	]) {
+		expect(() => requireAppointmentRecordListData(invalid)).toThrow(
+			"Appointment record response",
 		);
 	}
 });
