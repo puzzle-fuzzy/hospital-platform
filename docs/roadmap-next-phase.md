@@ -33,6 +33,8 @@
 
 - 2026-08-19 00:41 CST：继续在同一模拟器运行包复核首页患者卡片与独立就诊人选择页。首页先显示加载态，患者目录收敛后恢复当前就诊人和首 5 位+末 4 位脱敏卡号；点击“更换就诊人”进入 `patient-select`，同步完成后显示当前标记、关系“其他”和脱敏电子就诊卡。线上 `c26e696` 低敏关联审计为 `patientRead=9/9`、`patientSync=3/3`、失败均为 `0`，解析和 systemd 警告均为 `0`。该证据只覆盖模拟器与服务端读/同步链，不替代真机、多患者切换和新增绑定验收；本轮没有预约、报告、费用、支付或医保写入。
 
+- 2026-08-19 00:42 CST：继续验收预约目录只读链路。模拟器从医院静态前置页进入两列科室/排班页面，真实 Provider 结果可展示；快速连续切换科室后最终右栏只对应最后一次选择，13 条排班按 12 条本地渲染批次保留加载边界。线上 `c26e696` 事件计数为科室 `1/1`、排班 `3/3`、短期快照持久化 `3`，`parseErrors=0`、`systemdWarningCount=0`。这只证明预约目录读取和短期观察快照，不开放锁号、预约写入、取消、支付或医保，也不替代真机验收；详见 [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
+
 - 2026-08-19：同一运行包的微信开发者工具模拟器从“我的”页进入普通资料页，资料只读加载完成；当前线上 `c26e696` 同一最近 10 分钟低敏门禁中，
   `profileRead` 请求 `2`、成功 `2`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`。本轮没有点击保存或写入生产资料，普通资料首次更新、版本冲突 `409`、真机视觉和真实微信证据仍未完成，详见
   [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
