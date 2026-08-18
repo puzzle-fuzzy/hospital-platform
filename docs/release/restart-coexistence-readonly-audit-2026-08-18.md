@@ -131,6 +131,10 @@ TTL 结果仍然是“未验证”，不是“没有会话”：常驻 API Redis
 `appointment.records.*`、`outpatient.payment.*` 或报告业务事件。因此“我的挂号”、爽约记录、门诊费用和报告
 仍不能标记为真实业务验收完成，Redis 会话 TTL 也仍保持“未验证”。
 
+同一复核窗口补做公网未登录边界探针：`GET /api/v2/patients`、`GET /api/v2/me/profile`、预约历史和门诊费用
+均返回 `401` 且错误码为 `unauthorized`。这些请求没有进入 query 校验或 Provider 调用；它们只证明认证门禁，
+不构成真实微信会话或业务域验收证据。
+
 ## 3. 维护注意事项
 
 内网健康探针必须使用 `/health/live`、`/health/ready`，内网系统探针使用 `/api/v1/system/ping`；公网才使用

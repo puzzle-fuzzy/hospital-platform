@@ -32,6 +32,8 @@
   [`../release/restart-coexistence-readonly-audit-2026-08-18.md`](../release/restart-coexistence-readonly-audit-2026-08-18.md)。
 - 2026-08-18 12:38 CST：应用会话重启后再次只读复核，`c63dba9`、`10.0.0.3:18081`、旧 Python `0.0.0.0:8001`
   和内外网 readiness 均保持正常；本次没有新的预约历史、爽约、门诊费用或报告业务事件，Redis TTL 仍未验证。
+- 2026-08-18 12:42 CST：公网未登录访问患者目录、普通资料、预约历史和门诊费用均返回 `401/unauthorized`，
+  认证边界正常，但该结果不替代真实微信会话、患者切换或 Provider 只读业务证据。
 
 完整切换与停机证据见 [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
