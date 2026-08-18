@@ -342,6 +342,76 @@ test("众阳报告目录拒绝业务失败或无法映射的响应", async () =>
 	});
 });
 
+test("众阳报告目录包络缺少明确 success=true 时不伪装成空目录", async () => {
+	const createGateway = (payload: unknown, requestId: string) =>
+		createZhongyangReportGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(JSON.stringify(payload), {
+					status: 200,
+					headers: { "x-request-id": requestId },
+				}),
+		});
+	const input = {
+		providerPatientId: "provider-patient-envelope",
+		query: {
+			startDate: "2026-08-01",
+			endDate: "2026-08-15",
+			kind: "imaging" as const,
+		},
+	};
+
+	for (const [payload, requestId] of [
+		[{ data: [] }, "report-missing-success"],
+		[{ success: "true", data: [] }, "report-non-boolean-success"],
+	] as const) {
+		await expect(
+			createGateway(payload, requestId).listReports(input, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-imaging",
+			requestId,
+			retryable: false,
+			responseInvalid: true,
+		});
+	}
+});
+
+test("众阳 LIS 详情包络缺少明确 success=true 时拒绝临床数据", async () => {
+	const createGateway = (payload: unknown, requestId: string) =>
+		createZhongyangReportGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(JSON.stringify(payload), {
+					status: 200,
+					headers: { "x-request-id": requestId },
+				}),
+		});
+	const detail = {
+		testList: "血常规",
+		reportTime: "2026-08-15 10:00:00",
+		details: [],
+	};
+
+	for (const [payload, requestId] of [
+		[{ data: detail }, "report-detail-missing-success"],
+		[{ success: "true", data: detail }, "report-detail-non-boolean-success"],
+	] as const) {
+		await expect(
+			createGateway(payload, requestId).getLaboratoryDetail(
+				{ providerReportId: "provider-report-envelope" },
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-laboratory-detail",
+			requestId,
+			retryable: false,
+			responseInvalid: true,
+		});
+	}
+});
+
 test("众阳默认报告目录任一来源失败时拒绝返回部分成功", async () => {
 	const gateway = createZhongyangReportGateway({
 		baseUrl: "https://zhongyang.example.test",

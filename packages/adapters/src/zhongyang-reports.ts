@@ -61,7 +61,37 @@ function objectValue(
 	return value as ProviderObject;
 }
 
-/** 兼容 provider 的数组响应和 { success, data } 包装，但不接受任意对象透传。 */
+/**
+ * 校验报告接口的成功包络。
+ *
+ * 报告目录和 LIS 详情都可能返回裸数组/裸对象，也可能返回 `{ success,
+ * data }` 包装。只有包装形态才允许从 `data` 读取业务内容；一旦上游带出
+ * `success` 或 `data`，就必须明确 `success=true`。否则 `{ data: [] }` 会被
+ * 误当成“没有报告”，把 Provider 格式异常隐藏成合法空目录。
+ */
+function requireSuccessfulEnvelope(
+	envelope: ProviderObject,
+	operation: string,
+	requestId: string,
+): void {
+	if (envelope.success === false) {
+		throw providerError(
+			operation,
+			"Zhongyang report provider rejected the request",
+			requestId,
+			false,
+		);
+	}
+	if (envelope.success !== true) {
+		throw providerError(
+			operation,
+			"Zhongyang report response success flag was invalid",
+			requestId,
+		);
+	}
+}
+
+/** 兼容 provider 的数组响应和 `{ success, data }` 包装，但不接受任意对象透传。 */
 function responseItems(
 	value: unknown,
 	operation: string,
@@ -71,14 +101,7 @@ function responseItems(
 		return value.map((item) => objectValue(item, operation, requestId));
 	}
 	const envelope = objectValue(value, operation, requestId);
-	if (envelope.success === false) {
-		throw providerError(
-			operation,
-			"Zhongyang report provider rejected the request",
-			requestId,
-			false,
-		);
-	}
+	requireSuccessfulEnvelope(envelope, operation, requestId);
 	if (!Array.isArray(envelope.data)) {
 		throw providerError(
 			operation,
@@ -96,15 +119,18 @@ function responseObject(
 	requestId: string,
 ): ProviderObject {
 	const envelope = objectValue(value, operation, requestId);
-	if (envelope.success === false) {
-		throw providerError(
-			operation,
-			"Zhongyang report provider rejected the request",
-			requestId,
-			false,
-		);
-	}
-	if ("data" in envelope && envelope.data !== undefined) {
+	// 没有 success/data 的对象是已兼容的裸详情形态；只要响应带出包络
+	// 字段，就必须走同一成功事实校验，不能让缺失 success 的 data 对象进入
+	// 临床详情映射。
+	if (Object.hasOwn(envelope, "data") || Object.hasOwn(envelope, "success")) {
+		requireSuccessfulEnvelope(envelope, operation, requestId);
+		if (!Object.hasOwn(envelope, "data") || envelope.data === undefined) {
+			throw providerError(
+				operation,
+				"Zhongyang report detail data was invalid",
+				requestId,
+			);
+		}
 		return objectValue(envelope.data, operation, requestId);
 	}
 	return envelope;

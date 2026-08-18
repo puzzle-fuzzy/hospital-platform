@@ -144,6 +144,67 @@ test("众阳患者目录拒绝业务失败响应", async () => {
 	});
 });
 
+test("众阳患者目录和档案包络缺少明确 success=true 时拒绝空映射", async () => {
+	const listGateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(JSON.stringify({ data: [] }), {
+				status: 200,
+				headers: { "x-request-id": "patient-missing-success" },
+			}),
+	});
+
+	await expect(
+		listGateway.listByIdentity({ unionId: "union-envelope" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-list",
+		requestId: "patient-missing-success",
+		retryable: false,
+		responseInvalid: true,
+	});
+
+	const archiveGateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			if (String(input).includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						data: { patId: "patient-archive-missing-success" },
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "patient-archive-missing-success" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "patient-envelope",
+							patientName: "张三",
+							medicalCardNo: "card-envelope",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "patient-list-ok" } },
+			);
+		},
+	});
+
+	await expect(
+		archiveGateway.listByIdentity({ unionId: "union-envelope" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		requestId: "patient-archive-missing-success",
+		retryable: false,
+		responseInvalid: true,
+	});
+});
+
 test("众阳患者目录拒绝重复 provider 患者号且不继续查询档案", async () => {
 	const requestUrls: string[] = [];
 	const gateway = createZhongyangPatientGateway({

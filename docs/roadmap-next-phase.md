@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-18）
 
+- 2026-08-18：完成 Provider 成功包络一致性审计。患者目录、`patInfosFind` 档案映射、报告目录和
+  LIS 详情的包络形态现在必须明确 `success=true`；缺失或非布尔成功标志不会再伪装成空目录、无档案
+  或空临床详情，明确 `success=false` 仍保留业务拒绝语义。预约历史原有 `success/code` 门禁保持不变。
+  新增 23 项 adapter 定向测试全部通过，本次未部署、未重启新旧服务、未修改小程序或旧 Python 服务；
+  详情见 [`release/provider-envelope-consistency-2026-08-18.md`](release/provider-envelope-consistency-2026-08-18.md)。
+
 - 2026-08-18：门诊费用只读 adapter 收紧 Provider 响应包络：2.6.33 的包络形态现在必须明确
   `success=true`，`{data: []}` 或非布尔 success 不再伪装成合法空列表；Provider 明确
   `success=false` 仍保留业务拒绝分支。新增 2 个回归场景，定向 adapter/API 测试通过；本次未部署、

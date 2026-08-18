@@ -180,6 +180,16 @@ function responseItems(
 				requestId,
 			);
 		}
+		// 患者目录的包络必须明确 success=true；缺少成功标志时不能把
+		// `{ data: [] }` 当成“没有就诊人”，否则会触发错误的空目录/失效语义。
+		if (envelope.success !== true) {
+			throw providerError(
+				"Zhongyang patient response success flag was invalid",
+				requestId,
+				"patient-list",
+				true,
+			);
+		}
 		if (!Array.isArray(envelope.data)) {
 			throw providerError(
 				"Zhongyang patient response data was invalid",
@@ -374,6 +384,16 @@ async function resolveHisPatientId(
 			"Zhongyang patient archive provider rejected the request",
 			response.requestId,
 			operation,
+		);
+	}
+	if (envelope.success !== true) {
+		// 档案接口的 patId 是预约、报告和门诊费用共用的临床映射；
+		// 缺少明确成功标志时必须停止，不能把不完整响应解释成“无档案”。
+		throw providerError(
+			"Zhongyang patient archive success flag was invalid",
+			response.requestId,
+			operation,
+			true,
 		);
 	}
 	if (
