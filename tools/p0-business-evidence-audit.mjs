@@ -4,9 +4,10 @@ import { readFile } from "node:fs/promises";
  * P0 业务证据门禁只消费 p0-log-aggregate 生成的安全计数，不读取或输出原始日志。
  *
  * `requested` 证明请求已经进入业务模块，`success` 证明至少有一次明确的业务成功
- * 事实。两者缺一都不能把“页面能打开”“HTTP 200”或 readiness 当成业务验收；
- * `failure` 只作为风险提示保留，不会被工具降级成成功。该工具也不会声称请求和
- * 成功事件属于同一个用户或 trace，跨三层验收仍需按手册人工关联 requestId/traceId。
+ * 事实；二者还必须出现在同一条 traceId/requestId 关联链中。这样不同请求的总数
+ * 不会被拼成一次成功，避免“页面能打开”“HTTP 200”或 readiness 被误当成业务验收。
+ * `failure` 只作为风险提示保留，不会被工具降级成成功。关联摘要只保留 SHA-256
+ * 指纹和事件计数，不输出原始链路标识；跨三层验收仍需人工核对页面和 HTTP 语义。
  */
 
 const BUSINESS_EVIDENCE_CONTRACTS = Object.freeze({
@@ -74,6 +75,19 @@ function countEvents(eventCounts, events) {
 	}, 0);
 }
 
+/** 只在同一条安全关联链内寻找请求和成功事件，拒绝跨请求拼接。 */
+function countCorrelatedChains(correlation, contract) {
+	let correlatedChainCount = 0;
+	for (const events of Object.values(correlation.chains)) {
+		if (!events || typeof events !== "object" || Array.isArray(events))
+			continue;
+		const requestedCount = countEvents(events, contract.requested);
+		const successCount = countEvents(events, contract.success);
+		if (requestedCount > 0 && successCount > 0) correlatedChainCount += 1;
+	}
+	return correlatedChainCount;
+}
+
 function validateSummary(summary) {
 	if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
 		throw new Error("输入不是安全的日志聚合对象");
@@ -94,6 +108,22 @@ function validateSummary(summary) {
 			summary.systemdWarningCount < 0)
 	) {
 		throw new Error("日志聚合对象缺少有效的 systemdWarningCount");
+	}
+	const correlation = summary.correlation;
+	if (
+		!correlation ||
+		typeof correlation !== "object" ||
+		Array.isArray(correlation) ||
+		!correlation.chains ||
+		typeof correlation.chains !== "object" ||
+		Array.isArray(correlation.chains) ||
+		!Number.isSafeInteger(correlation.chainCount) ||
+		correlation.chainCount < 0 ||
+		!Number.isSafeInteger(correlation.missingCount) ||
+		correlation.missingCount < 0 ||
+		typeof correlation.truncated !== "boolean"
+	) {
+		throw new Error("日志聚合对象缺少有效的关联链摘要");
 	}
 }
 
@@ -122,14 +152,21 @@ export function auditBusinessEvidence(
 		const requestedCount = countEvents(summary.eventCounts, contract.requested);
 		const successCount = countEvents(summary.eventCounts, contract.success);
 		const failureCount = countEvents(summary.eventCounts, contract.failure);
+		const correlatedChainCount = countCorrelatedChains(
+			summary.correlation,
+			contract,
+		);
 		const missing = [];
 		if (requestedCount === 0) missing.push("requested");
 		if (successCount === 0) missing.push("success");
+		if (correlatedChainCount === 0) missing.push("same-trace-request-success");
+		if (summary.correlation.truncated) missing.push("correlation-truncated");
 		results[domain] = {
 			label: contract.label,
 			requestedCount,
 			successCount,
 			failureCount,
+			correlatedChainCount,
 			missing,
 			passed:
 				summary.parseErrors === 0 &&

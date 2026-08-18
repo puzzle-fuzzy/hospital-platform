@@ -139,8 +139,9 @@ sudo journalctl -u hospital-platform-api-v2.service \
 候选发布前必须对该文件做 SHA-256 校验；`parseErrors` 不为 `0` 时只能在受控服务器环境排查，不能把不完整
 聚合结果当作真机或业务成功证据。
 
-聚合结果只包含事件/业务域/结果计数、HTTP 状态、错误类型和 trace/provider request id 数量；`parseErrors` 必须为
-`0` 才能说明没有未知的非 JSON 行，`systemdWarningCount` 也必须为 `0` 才能排除服务停止超时等运行时风险；UTF-8 BOM
+聚合结果只包含事件/业务域/结果计数、HTTP 状态、错误类型和 trace/provider request id 数量，并增加由 traceId 优先、
+requestId 兜底生成的 SHA-256 关联链指纹及每条链的事件计数；`parseErrors` 必须为 `0` 才能说明没有未知的非 JSON 行，
+`systemdWarningCount` 也必须为 `0` 才能排除服务停止超时等运行时风险；UTF-8 BOM
 会计入 `strippedBomLines`，正常 systemd 启停提示会单独计入 `ignoredControlLines`，已识别的停止异常只进入稳定 warning 计数。
 工具不会输出 `msg`、URL、请求体、
 token、openid、患者标识、金额或 Provider 原始报文，
@@ -164,11 +165,12 @@ sudo journalctl -u hospital-platform-api-v2.service \
 
 可用业务域包括 `auth`、`patientRead`、`patientSync`、`appointmentRecords`、
 `outpatientPaymentRecords`、`reportDirectory`、`profileRead` 和 `profileUpdate`。
-门禁只要求对应的请求事件和明确成功事件同时存在，并报告失败计数；它不能证明事件属于同一用户、
-不能证明页面展示正确，也不能替代 HTTP/真机和 trace 交叉核对。`parseErrors` 或 `systemdWarningCount` 不为 `0` 时，无论业务事件
-是否出现，门禁都必须失败。
+门禁要求对应的请求事件和明确成功事件同时存在于同一条关联链，并报告失败计数；如果只有总数而没有同链事件，
+或关联链被截断，会以 `same-trace-request-success` / `correlation-truncated` 失败。关联指纹只证明服务端事件属于同一
+请求链，不证明属于同一用户、患者或页面展示正确，仍不能替代 HTTP/真机和页面语义核对。`parseErrors` 或
+`systemdWarningCount` 不为 `0` 时，无论业务事件是否出现，门禁都必须失败。
 
-生产环境只看事件名、状态、traceId、provider request id、数量、状态和错误类型。禁止把下面内容复制到聊天、提交或截图：
+生产环境的聚合摘要只看事件名、状态、关联指纹、provider request id 数量、结果数量和错误类型。禁止把下面内容复制到聊天、提交或截图：
 
 - 微信临时 code、openid、unionId、session_key、AppSecret、Bearer token；
 - 完整身份证号、完整卡号、Provider patId/thirdPatientId；
@@ -178,7 +180,7 @@ sudo journalctl -u hospital-platform-api-v2.service \
 
 | 业务 | 必须出现的事件 | 关键验证 |
 | --- | --- | --- |
-| 微信登录 | `auth.wechat.login.requested` → `auth.wechat.login.succeeded` | 同一 trace 链路、会话过期秒数存在，日志无身份凭证 |
+| 微信登录 | `auth.wechat.login.requested` → `auth.wechat.login.succeeded` | 同一关联链指纹、会话过期秒数存在，日志无身份凭证 |
 | 普通资料只读 smoke | `GET /me/profile` | 只验证允许字段类型和 version，不执行写入、不输出资料正文 |
 | 患者同步 | `patient.directory.requested` → `patient.directory.synced` | `complete=true` 的 Provider 快照、活动数/失效数、临床引用计数 |
 | 幂等重放 | `patient.directory.operation.replayed` | 相同幂等键不再次出现 Provider 请求 |

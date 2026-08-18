@@ -38,9 +38,16 @@ test("P0 日志聚合按业务域和结果分类，并且不输出原始敏感�
 	expect(summary.errorTypeCounts.ProviderUnavailableError).toBe(1);
 	expect(summary.traceIdCount).toBe(2);
 	expect(summary.eventCounts["auth.wechat.login.succeeded"]).toBe(1);
+	expect(summary.correlation).toMatchObject({
+		chainCount: 2,
+		recordCount: 2,
+		missingCount: 1,
+		truncated: false,
+	});
 
 	const output = JSON.stringify(summary);
 	expect(output).not.toContain("must-not-be-output");
+	expect(output).not.toContain("trace-auth");
 });
 
 test("并发冲突和支付域保持独立分类", () => {
@@ -79,6 +86,8 @@ test("支持 journald -o json 的 MESSAGE envelope，并忽略已知 systemd 控
 	expect(summary.ignoredControlLines).toBe(1);
 	expect(summary.eventCounts["auth.wechat.login.succeeded"]).toBe(1);
 	expect(summary.traceIdCount).toBe(1);
+	expect(summary.correlation.chainCount).toBe(1);
+	expect(summary.correlation.missingCount).toBe(0);
 });
 
 test("systemd 停止超时只记录稳定 warning，不把 PID 和进程名带入聚合", () => {

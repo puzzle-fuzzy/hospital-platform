@@ -1,6 +1,18 @@
 import { expect, test } from "bun:test";
 import { auditBusinessEvidence } from "./p0-business-evidence-audit.mjs";
 
+function correlationFor(events) {
+	return {
+		chainCount: 1,
+		recordCount: events.length,
+		missingCount: 0,
+		truncated: false,
+		chains: {
+			"test-correlation": Object.fromEntries(events.map((event) => [event, 1])),
+		},
+	};
+}
+
 test("P0 业务证据门禁要求请求和明确成功事件同时存在", () => {
 	const result = auditBusinessEvidence(
 		{
@@ -10,6 +22,11 @@ test("P0 业务证据门禁要求请求和明确成功事件同时存在", () =>
 				"appointment.records.synced": 1,
 				"appointment.records.failed": 1,
 			},
+			correlation: correlationFor([
+				"appointment.records.requested",
+				"appointment.records.synced",
+				"appointment.records.failed",
+			]),
 		},
 		["appointmentRecords"],
 	);
@@ -24,6 +41,7 @@ test("P0 业务证据门禁要求请求和明确成功事件同时存在", () =>
 				requestedCount: 2,
 				successCount: 1,
 				failureCount: 1,
+				correlatedChainCount: 1,
 				missing: [],
 				passed: true,
 			},
@@ -36,6 +54,7 @@ test("只有 HTTP 或 requested 不能通过业务证据门禁", () => {
 		{
 			parseErrors: 0,
 			eventCounts: { "outpatient.payment.records.requested": 1 },
+			correlation: correlationFor(["outpatient.payment.records.requested"]),
 		},
 		["outpatientPaymentRecords"],
 	);
@@ -44,7 +63,7 @@ test("只有 HTTP 或 requested 不能通过业务证据门禁", () => {
 	expect(result.domains.outpatientPaymentRecords).toMatchObject({
 		requestedCount: 1,
 		successCount: 0,
-		missing: ["success"],
+		missing: ["success", "same-trace-request-success"],
 		passed: false,
 	});
 });
@@ -57,6 +76,10 @@ test("患者同步的幂等重放是成功事实，但日志解析错误仍阻�
 				"patient.directory.requested": 1,
 				"patient.directory.operation.replayed": 1,
 			},
+			correlation: correlationFor([
+				"patient.directory.requested",
+				"patient.directory.operation.replayed",
+			]),
 		},
 		["patientSync"],
 	);
@@ -78,6 +101,10 @@ test("systemd 停止超时会阻止业务证据门禁，即使请求和成功事
 				"appointment.records.requested": 1,
 				"appointment.records.synced": 1,
 			},
+			correlation: correlationFor([
+				"appointment.records.requested",
+				"appointment.records.synced",
+			]),
 		},
 		["appointmentRecords"],
 	);
@@ -99,6 +126,11 @@ test("普通资料更新不能用资料读取事件冒充写入成功", () => {
 				"user.profile.requested": 1,
 				"user.profile.loaded": 1,
 			},
+			correlation: correlationFor([
+				"user.profile.update.requested",
+				"user.profile.requested",
+				"user.profile.loaded",
+			]),
 		},
 		["profileUpdate"],
 	);
@@ -106,9 +138,41 @@ test("普通资料更新不能用资料读取事件冒充写入成功", () => {
 	expect(result.domains.profileUpdate).toMatchObject({
 		requestedCount: 1,
 		successCount: 0,
-		missing: ["success"],
+		missing: ["success", "same-trace-request-success"],
 		passed: false,
 	});
+});
+
+test("不同 trace 的请求和成功不能拼成一次业务成功", () => {
+	const result = auditBusinessEvidence(
+		{
+			parseErrors: 0,
+			eventCounts: {
+				"appointment.records.requested": 1,
+				"appointment.records.synced": 1,
+			},
+			correlation: {
+				chainCount: 2,
+				recordCount: 2,
+				missingCount: 0,
+				truncated: false,
+				chains: {
+					"trace-a": { "appointment.records.requested": 1 },
+					"trace-b": { "appointment.records.synced": 1 },
+				},
+			},
+		},
+		["appointmentRecords"],
+	);
+
+	expect(result.domains.appointmentRecords).toMatchObject({
+		requestedCount: 1,
+		successCount: 1,
+		correlatedChainCount: 0,
+		missing: ["same-trace-request-success"],
+		passed: false,
+	});
+	expect(result.passed).toBe(false);
 });
 
 test("跨 Windows 管道产生的摘要 BOM 不影响业务证据判断", async () => {
@@ -128,6 +192,10 @@ test("跨 Windows 管道产生的摘要 BOM 不影响业务证据判断", async 
 						"appointment.records.requested": 1,
 						"appointment.records.synced": 1,
 					},
+					correlation: correlationFor([
+						"appointment.records.requested",
+						"appointment.records.synced",
+					]),
 				}),
 			]),
 			stdout: "pipe",

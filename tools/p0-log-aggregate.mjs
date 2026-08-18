@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 const SAFE_LABEL_PATTERN = /^[A-Za-z0-9_.:-]{1,96}$/u;
 const MAX_DISTINCT_LABELS = 200;
+const MAX_CORRELATION_CHAINS = 256;
 
 /**
  * P0 日志聚合只消费 journald 导出的 JSONL，不参与业务请求，也不改变线上状态。
@@ -159,6 +161,27 @@ function addBoundedLabel(map, value) {
 	increment(map, label);
 }
 
+/**
+ * 把 traceId/requestId 转成只用于本次证据窗口的关联指纹。
+ *
+ * 原始链路标识虽然不是患者正文，但直接输出仍会扩大日志传播范围；业务
+ * 门禁只需要知道“请求和成功是否来自同一条链”，不需要知道标识本身。这里
+ * 使用完整 SHA-256 指纹，输出只保留事件计数；同一窗口内的相同链路仍能被
+ * 关联，原始 trace/request 值不会进入聚合摘要。
+ */
+function correlationFingerprint(value) {
+	return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+/** 将受限关联桶转换为稳定排序的安全事件计数。 */
+function sortedCorrelationChains(chains) {
+	return Object.fromEntries(
+		[...chains.entries()]
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([fingerprint, events]) => [fingerprint, sortedCounts(events)]),
+	);
+}
+
 /** 对一组 journald JSONL 行生成不含原始业务内容的聚合摘要。 */
 export function aggregateLines(lines) {
 	const eventCounts = new Map();
@@ -169,12 +192,16 @@ export function aggregateLines(lines) {
 	const systemdWarningCounts = new Map();
 	const traceIds = new Set();
 	const providerRequestIds = new Set();
+	const correlationChains = new Map();
 	let inputLines = 0;
 	let parsedRecords = 0;
 	let parseErrors = 0;
 	let ignoredBlankLines = 0;
 	let ignoredControlLines = 0;
 	let strippedBomLines = 0;
+	let correlationRecordCount = 0;
+	let correlationMissingCount = 0;
+	let correlationTruncated = false;
 
 	for (const inputLine of lines) {
 		inputLines += 1;
@@ -228,6 +255,25 @@ export function aggregateLines(lines) {
 		if (traceId) traceIds.add(traceId);
 		const providerRequestId = safeLabel(record.providerRequestId);
 		if (providerRequestId) providerRequestIds.add(providerRequestId);
+
+		// traceId 优先、requestId 兜底；没有关联标识的日志仍进入普通计数，
+		// 但业务证据门禁不会把它和另一条链上的成功事件拼成一次完成。
+		if (traceId) {
+			correlationRecordCount += 1;
+			const fingerprint = correlationFingerprint(traceId);
+			let events = correlationChains.get(fingerprint);
+			if (!events) {
+				if (correlationChains.size >= MAX_CORRELATION_CHAINS) {
+					correlationTruncated = true;
+					continue;
+				}
+				events = new Map();
+				correlationChains.set(fingerprint, events);
+			}
+			increment(events, event);
+		} else {
+			correlationMissingCount += 1;
+		}
 	}
 
 	return {
@@ -249,6 +295,13 @@ export function aggregateLines(lines) {
 		),
 		traceIdCount: traceIds.size,
 		providerRequestIdCount: providerRequestIds.size,
+		correlation: {
+			chainCount: correlationChains.size,
+			recordCount: correlationRecordCount,
+			missingCount: correlationMissingCount,
+			truncated: correlationTruncated,
+			chains: sortedCorrelationChains(correlationChains),
+		},
 	};
 }
 
