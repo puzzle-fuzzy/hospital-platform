@@ -29,6 +29,16 @@ Bun/Elysia API，并不能替代服务器 SSH 进程核对、真实微信会话�
 
 以上项目仍以最近一次已记录的生产切换证据为准；本次公网结果不能覆盖或扩大该证据范围。
 
+## 2.1 后续只读复核（2026-08-19 06:42 CST）
+
+在没有 Bearer、openid、患者参数或写入操作的前提下再次从公网复核：`health/live`、`health/ready`
+和 `system/ping` 均返回 `200`，`health/ready` 的 `database/redis/schema` 均为 `ok`；`GET /me`
+返回预期 `401 unauthorized`。本次 `/me` 响应的低敏 `x-request-id` 为
+`7d4373db-3cf1-4ed6-b2b9-e913a5a80b7a`，未保存响应以外的会话或身份信息。
+
+这次复核仍只证明公网运行层和未登录认证边界，不证明线上 release 指针、旧 Python 共存、Provider、
+微信真机或任何患者/费用业务已经验收。
+
 ## 3. 后续动作
 
 继续按当前路线图执行：先取得可验证的真实微信会话和多就诊人切换证据，再分别验收预约历史、

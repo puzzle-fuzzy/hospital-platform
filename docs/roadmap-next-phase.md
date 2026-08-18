@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 06:42 CST：再次从公网只读复核 `health/live`、`health/ready`、`system/ping` 均为 `200`，ready 的
+  `database/redis/schema` 均为 `ok`，未登录 `/me` 返回预期 `401/unauthorized`。本次没有携带 Bearer、openid、患者参数，
+  没有写入或 Provider 请求；这只确认公网运行层和未登录认证边界，不增加真机、Provider、患者切换、费用、支付或医保结论，
+  详见 [`current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md)。
+
 - 2026-08-19：修正“我的”页普通资料与患者目录并行读取的会话代际风险。资料 GET 先完成或安全降级，患者目录再从最新会话代际读取，避免旧患者目录与新资料混合；资料失败仍不会阻止患者目录继续读取。提交 `4f6b341`，小程序定向测试 154/154、1232 个断言和类型检查通过；未改变 API、数据库、Redis、Provider、线上服务或旧 Python，详见 [`miniprogram-my-page-session-generation-order-2026-08-19.md`](release/miniprogram-my-page-session-generation-order-2026-08-19.md)。
 
 - 2026-08-19：患者、预约和门诊费用列表读取统一先验证 `success/data` 平台成功包络，再进入业务 canonical validator；预约记录与门诊费用只重投影页面白名单字段，门诊费用额外拒绝重复 `recordId`、无效账单日历值、负数/非安全整数金额。坏包络或坏记录整批 fail-closed，不伪装为空列表。提交 `31ce94a`，小程序定向测试 154/154、1231 个断言和类型检查通过；未改变 Provider、数据库、Redis、线上服务或旧 Python，详见 [`miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
