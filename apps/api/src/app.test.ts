@@ -231,10 +231,10 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).toContain(
 		"release/current-server-p0-observation-2026-08-17-2257.md",
 	);
-	// 当前盘点必须明确记录 9acdaf2 的业务观察范围；不能把上一 release
-	// 的登录/患者日志计入当前版本，也不能把一次只读观察扩展成完整业务完成。
+	// 当前盘点必须明确记录 4ae2a31 的运行层观察范围；不能把上一 release
+	// 的登录/患者日志计入当前版本，也不能把健康探针成功扩展成业务完成。
 	expect(inventory).toContain(
-		"当前 release 的低敏日志窗口 `parseErrors=0`、`systemdWarningCount=0`；预约历史 P0 门禁请求/成功各 1、失败 0。",
+		"切换后 journald 低敏窗口 `parseErrors=0`、`systemdWarningCount=0`，只有基础设施和健康探针事件；没有新的预约历史、门诊费用、报告或微信业务事件，",
 	);
 	expect(inventory).toContain(
 		"9acdaf2-appointment-status-observation-2026-08-18.md",
@@ -246,7 +246,7 @@ test("migration inventory labels production observations as evidence snapshots",
 test("P0 acceptance documents share the current release baseline", async () => {
 	// 该断言故意只维护当前线上 release；历史 release 文档继续保留，
 	// 但不能因为历史证据中出现旧 hash 就让当前验收文档继续引用旧包。
-	const currentRelease = "38bc553";
+	const currentRelease = "4ae2a31";
 	const currentDocuments = [
 		"../../../docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
 		"../../../docs/release/readonly-business-contract-audit-2026-08-18.md",
