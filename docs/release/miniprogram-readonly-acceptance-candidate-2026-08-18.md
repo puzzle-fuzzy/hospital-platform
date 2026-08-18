@@ -10,15 +10,15 @@
 | 服务端 release | `b7c9451` | 服务器 `/home/ps/code/hospital-platform/releases/b7c9451` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `6f08eb9` | 与服务端 `b7c9451` 配套的当前本地验收候选包；本次补强资料保存后的服务端 canonical 快照回写 |
+| 小程序客户端 | `6a2ed92` | 与服务端 `b7c9451` 配套的当前本地验收候选包；本次补强患者标识请求前置校验 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
-| 小程序构建来源 | `6f08eb9ac33c54dea91b13938af726b3ed53a8cc` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 137 项 / 1119 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `6f08eb9` |
+| 小程序构建来源 | `6a2ed923d5fdd3f16d3f8c63117684b5f3271627` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 138 项 / 1123 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `6a2ed92` |
 | 全仓回归 | 9/9 package、API 152/659、Worker 51/144、工具 19/57 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `b7c9451`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `6f08eb9` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`6f08eb9` 在既有患者上下文和会话命令重放门禁基础上，补充服务端 canonical 资料快照回写；患者目录读取/同步、预约、报告和门诊费用列表的 `total === items.length` 运行时校验以及二维码关闭态门禁仍保持不变。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `6f08eb9ac33c54dea91b13938af726b3ed53a8cc`。
+客户端候选的 `dist/` 必须由 `6a2ed92` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`6a2ed92` 在既有患者上下文、服务端 canonical 资料快照回写和会话命令重放门禁基础上，补充患者标识请求前置校验；患者目录读取/同步、预约、报告和门诊费用列表的 `total === items.length` 运行时校验以及二维码关闭态门禁仍保持不变。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `6a2ed923d5fdd3f16d3f8c63117684b5f3271627`。
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 

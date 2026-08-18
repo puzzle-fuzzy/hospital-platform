@@ -93,8 +93,8 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	expect(result).toMatchObject({
 		passed: true,
 		serverRelease: "b7c9451",
-		miniProgramCommit: "6f08eb9",
-		miniProgramSourceRevision: "6f08eb9ac33c54dea91b13938af726b3ed53a8cc",
+		miniProgramCommit: "6a2ed92",
+		miniProgramSourceRevision: "6a2ed923d5fdd3f16d3f8c63117684b5f3271627",
 	});
 	expect(result.failures).toEqual([]);
 });
