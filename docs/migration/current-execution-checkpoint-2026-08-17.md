@@ -3,7 +3,7 @@
 本文是新会话继续迁移时的短入口。它不替代逐域 contract，而是把当前线上事实、剩余范围、
 下一步顺序和停止条件固定下来，避免在 Provider 文档不足时凭旧页面猜实现。
 
-> 截至 2026-08-18 13:08 CST，本地仓库 `main` 已推进到 `95fb982`，当前线上 API release 为 `38bc553`；新 Bun/Elysia API
+> 截至 2026-08-18 13:08 CST，本地仓库 `main` 已推进到 `f0330fc`，当前线上 API release 仍为 `38bc553`；本次仅同步测试门禁，未重新部署；新 Bun/Elysia API
 > 监听 `10.0.0.3:18081`，旧 Python API 继续监听 `8001`。此前的 `b3c9a99`、`5f5915e`、`bf67b96` 等内容均为历史段落，
 > 不能继续当作当前线上事实。当前 release 的发布和业务证据见
 > [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md)；真实微信、患者上下文和 P0 只读验收的操作顺序统一见
@@ -13,7 +13,7 @@
 
 | 项目 | 当前状态 | 证据 |
 | --- | --- | --- |
-| 仓库代码基线 | `95fb982`；生产候选源码与小程序运行包均为 `38bc553`，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
+| 仓库代码基线 | `f0330fc`；生产候选源码与小程序运行包仍为 `38bc553`，仓库 HEAD 仍不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
 | 线上新 API | `38bc553`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
 | 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/candidate-38bc553-local-build-2026-08-18.md`](../release/candidate-38bc553-local-build-2026-08-18.md) |
