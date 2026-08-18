@@ -6,7 +6,7 @@
 ## 当前执行检查点（2026-08-18）
 
 - 微信开发者工具的 `miniprogram` 项目已确认使用 `miniprogramRoot=dist/`，当前运行包来源为
-  `dist/build-info.json.sourceRevision=d4261e5a59e0a9bfe69534169504d8a118ebca7f`，14 个页面脚本和根文件均已通过运行包校验。
+  `dist/build-info.json.sourceRevision=e5aef63d086e59bf66d43de4156b875314f39912`，14 个页面脚本和根文件均已通过运行包校验。
 - “二维码真机调试”弹窗已经生成 iOS 调试二维码，但截至本检查点尚未观察到手机扫码后的连接状态；二维码存在不等于微信会话、患者切换或业务已经验收。
 - 本地 `pnpm check` 已通过；随后仅做了路线图文案修正和文档门禁复核，没有重新发布服务端、没有重启新旧服务，也没有触碰用户已有的 `apps/miniprogram/project.config.json` 修改。
 - 当前门禁新增 `pnpm release:baseline:audit`：以只读业务验收候选为基准，自动核对路线图、迁移清单和当前业务审计是否仍绑定同一服务端 release 与小程序完整 `sourceRevision`，历史 release 仍可保留但不会被当作当前状态。
@@ -17,6 +17,8 @@
 - 2026-08-18 18:40 CST：重启后重新核对新 `miniprogram` 窗口，资源树确认是 `dist/`，二维码代码包约 607 KB，模拟器首页正常，调试器为 0 errors / 3 条微信基础库提示；仍未观察到新手机连接。本次只恢复二维码上下文，不增加微信会话或只读业务真机证据，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 - 2026-08-18 18:47 CST：`d4261e5` 提交后的运行包重新构建完成，`dist/build-info.json` 已核对为完整来源指纹
   `d4261e5a59e0a9bfe69534169504d8a118ebca7f`，并通过 `runtime:verify`。此前 `07d3988` 二维码不包含本轮门诊费用失败态修正，不得继续用于验收；本次未部署服务端、未重启新旧服务、未触碰旧 Python 服务。
+- 2026-08-18 18:53 CST：`e5aef63` 提交后的运行包重新构建完成，`dist/build-info.json` 已核对为完整来源指纹
+  `e5aef63d086e59bf66d43de4156b875314f39912`，并通过 `runtime:verify`。本轮仅收紧报告详情错误态的临床读模型清理，未部署服务端、未重启新旧服务、未触碰旧 Python 服务；此前 `d4261e5` 运行包不包含本轮修正，不能用于最终真机验收。
 - 本轮修正门诊费用失败态：费用查询失败时页面现在清空 `selectedPatient`、费用列表和可见批次，但保留本地 opaque 选择并通过空态重新进入选择页；这样不会把上一轮患者卡片与失败/空读模型混在一起。该修正只影响小程序页面、中文注释和静态回归，详情见 [`release/miniprogram-outpatient-error-context-2026-08-18.md`](release/miniprogram-outpatient-error-context-2026-08-18.md)。
 - 本轮继续收紧报告详情失败态：请求失败、引用过期或患者范围变化时，页面清空检测项、报告时间和附件标记，不仅依赖 WXML 隐藏错误态。该修正只影响小程序页面、中文注释和静态回归，不打开报告 Provider 详情 gate；待重新构建候选并核对来源后再进入真机验收。
 - 重启后再次按标题选择新 `miniprogram` 窗口时，窗口句柄与可见画面出现不一致，无法确认当前画面仍属于二维码弹窗；本次未点击、输入或继续扫码，避免误触旧项目。后续必须重新打开新候选项目并同时核对 `dist/` 资源树与二维码上下文，详见 [`release/miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
@@ -44,7 +46,7 @@
 - 在患者同步代际隔离之外，原生小程序认证请求层现在会在响应交付前再次核对会话代际；旧账号的患者目录、资料、预约、报告、费用或预支付响应不会因为 HTTP 200 而进入新账号页面。
 - 401 的既有单次重试仍然保留，但重试会重新绑定新 token 的代际；`session-changed` 不会被当作普通网络错误重试，避免把旧请求无限延长。
 - 新增真实延迟响应回归测试和中文业务注释；本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务。
-- 当前小程序候选来源为 `d4261e5a59e0a9bfe69534169504d8a118ebca7f`，14 个页面运行包已重新构建并通过 `runtime:verify`；小程序为 121 项测试、1036 个断言；本轮修正了门诊费用失败态患者上下文，并保留“我的”页未迁移菜单的 WXML key 和根入口全局脚本兼容，未改变服务端或旧服务。
+- 当前小程序候选来源为 `e5aef63d086e59bf66d43de4156b875314f39912`，14 个页面运行包已重新构建并通过 `runtime:verify`；小程序为 122 项测试、1040 个断言；本轮修正了报告详情失败态的临床读模型清理，并保留门诊费用失败态患者上下文、“我的”页未迁移菜单的 WXML key 和根入口全局脚本兼容，未改变服务端或旧服务。
 - 详细规则见 [`release/miniprogram-authenticated-response-session-gate-2026-08-18.md`](release/miniprogram-authenticated-response-session-gate-2026-08-18.md)。
 
 ### 本轮预约目录日期事件边界（2026-08-18）
@@ -60,9 +62,9 @@
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `d4261e5`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 与 `origin/main` 已同步，具体文档提交以仓库当前 `HEAD` 为准；小程序运行输入来源为 `e5aef63`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `d4261e5` 重建，`sourceRevision=d4261e5a59e0a9bfe69534169504d8a118ebca7f`，14 个页面脚本已核对。
+- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `e5aef63` 重建，`sourceRevision=e5aef63d086e59bf66d43de4156b875314f39912`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 
 ### 本轮就诊人手动刷新事件修正（2026-08-18）
