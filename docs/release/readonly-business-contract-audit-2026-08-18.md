@@ -95,12 +95,14 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 详细字段规则见 [`../logging.md`](../logging.md)。
 
-## 3. 本轮测试证据
+## 3. 当前工作树测试证据
 
-本轮在当前 worktree 执行：
+当前工作树代码提交为 `b86d58b` 的小程序构建修正之上、仅追加验收文档；本节计数重新执行取得，
+不把更早审计窗口的测试数字继续当作当前证据：
 
-- `pnpm --filter @hospital/miniprogram test`：93 项通过，888 个断言；
-- `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成；
+- `pnpm --filter @hospital/miniprogram test`：107 项通过，943 个断言；
+- `pnpm --filter @hospital/miniprogram build`：类型检查通过，14 个页面脚本生成，`dist/build-info.json` 来源指纹为
+  `b86d58b6dd749ccc7acf53ceb06edd76698fa5aa`；
 - `pnpm --filter @hospital/miniprogram runtime:verify`：14 个页面运行包完整；
 - `pnpm --filter @hospital/adapters test`：72 项通过，165 个断言；
 - `pnpm --filter @hospital/domain test`：23 项通过，51 个断言；
