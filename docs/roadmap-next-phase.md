@@ -16,6 +16,11 @@
   该结果只证明模拟器触发了服务端预约历史读链，不能替代手机真机、Provider 数据和页面三层证据；本轮没有预约写入、支付、医保或旧服务操作，详见
   [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
 
+- 2026-08-19：同一运行包的微信开发者工具模拟器从“我的”页进入爽约记录，页面显示当前就诊人、过去 90 天范围和空状态；当前线上 `c26e696` 针对该查询窗口的
+  `appointmentRecords` 低敏门禁为请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`。
+  爽约只由服务端归一化的 `missed` 状态派生，没有新增 Provider 接口或业务写入；真实 Provider 字段、患者切换和真机证据仍待完成，详见
+  [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
+
 - 2026-08-19：同一运行包的微信开发者工具模拟器随后进入门诊缴费页，展示待缴费/已缴费切换、合法空状态和支付/医保关闭提示；当前线上 `c26e696` 同一最近 10 分钟低敏门禁中，
   `outpatientPaymentRecords` 请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`。
   这只增加门诊费用查询的模拟器与服务端读链证据，不开放支付、医保授权、退费或结算回写，也不能替代真机、Provider 数据和页面三层验收；详见

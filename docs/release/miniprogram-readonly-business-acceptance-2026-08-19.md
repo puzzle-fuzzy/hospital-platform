@@ -2,11 +2,13 @@
 
 ## 验收范围
 
-本次仅验收不产生费用、不改变医院业务数据的三条链路：
+本次仅验收不产生费用、不改变医院业务数据的只读链路：
 
-1. 我的挂号；
+1. 我的挂号和爽约记录；
 2. 门诊缴费查询；
-3. 更换就诊人并进入独立的就诊人选择页。
+3. 报告目录的 Provider 未配置 fail-closed 边界；
+4. 普通资料读取；
+5. 更换就诊人并进入独立的就诊人选择页。
 
 支付调起、医保授权、退费和结算回写不在本次范围内，也没有为了模拟成功而添加假数据。
 
@@ -49,6 +51,8 @@
 - 本地运行包来源为 `93a3c720dc137162ff469ec745359775b08f84ab`；微信开发者工具重新普通编译成功，14 个页面编译完成，调试器显示 `Errors: 0`。
 - 模拟器从首页进入 `pages/appointment-records/appointment-records`，展示当前院区、在线/全部标签、空记录态和更换就诊人入口；没有执行预约写入、取消、支付或医保操作。
 - 服务器当前 release `c26e696` 的最近 10 分钟低敏聚合：`appointmentRecords` 请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；该结果证明服务端预约历史读链被触发，不证明真机页面或 Provider 数据正确。
+- 模拟器随后从“我的”页进入 `pages/missed-appointments/missed-appointments`，页面显示当前就诊人、过去 90 天查询范围和合法空状态；爽约结果只按服务端归一化的 `missed` 状态派生，没有执行任何写入。
+- 针对该爽约查询窗口的低敏聚合为 `appointmentRecords` 请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；这证明爽约页触发了预约历史只读链，不证明真实 Provider 字段或真机验收完成。
 - 模拟器随后进入 `pages/outpatient-payment/outpatient-payment`，展示待缴费/已缴费切换、合法空状态以及支付/医保能力关闭提示；没有触发支付、退费、医保授权或任何费用写入。
 - 同一最近 10 分钟低敏聚合中，`outpatientPaymentRecords` 请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`；该结果只证明门诊费用查询读链被触发并完成服务端门禁，不证明真实费用数据或真机页面验收。
 - 模拟器随后进入 `pages/report-directory/report-directory`，页面正确展示报告服务未配置提示、摘要范围说明和合法空状态；未打开报告详情、下载或文件资源。
