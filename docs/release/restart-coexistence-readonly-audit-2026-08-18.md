@@ -115,6 +115,22 @@ TTL 结果仍然是“未验证”，不是“没有会话”：常驻 API Redis
 本次先试探 `127.0.0.1:18081` 得到连接拒绝，原因是新 API 明确绑定 `10.0.0.3` 而不是 loopback；随后使用正确的
 `10.0.0.3` 地址成功。该连接拒绝是探针地址错误，不能解释为服务故障，也没有因此重启或修改任何服务。
 
+### 2.9 12:38 CST 会话恢复后的状态复核
+
+应用会话重启后再次通过 SSH 只读检查，没有切换 release、重启服务、执行 migration 或发起患者/Provider 业务请求：
+
+| 指标 | 结果 |
+| --- | --- |
+| systemd / 当前 release | `active`；`c63dba9` |
+| 新旧监听 | `10.0.0.3:18081` 与 `0.0.0.0:8001` 同时存在 |
+| 内网 ready | `200`；database、redis、schema 均为 `ok` |
+| 公网 ready | `200`；database、redis、schema 均为 `ok` |
+| 本次复核请求 | 仅内网和公网 `health/ready`；requestId 已保留在终端证据中 |
+
+最近可读取的低敏 journald 窗口仍只显示健康探针及此前患者目录请求；没有新的
+`appointment.records.*`、`outpatient.payment.*` 或报告业务事件。因此“我的挂号”、爽约记录、门诊费用和报告
+仍不能标记为真实业务验收完成，Redis 会话 TTL 也仍保持“未验证”。
+
 ## 3. 维护注意事项
 
 内网健康探针必须使用 `/health/live`、`/health/ready`，内网系统探针使用 `/api/v1/system/ping`；公网才使用

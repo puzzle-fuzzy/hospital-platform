@@ -30,6 +30,8 @@
   不应把服务绑定的非 loopback 地址误写成 `127.0.0.1:18081`。内网和公网 ready 均为 `200` 且 database、redis、schema 为 `ok`，
   该证据只覆盖运行层，不推进预约历史、门诊费用或真机业务状态。详见
   [`../release/restart-coexistence-readonly-audit-2026-08-18.md`](../release/restart-coexistence-readonly-audit-2026-08-18.md)。
+- 2026-08-18 12:38 CST：应用会话重启后再次只读复核，`c63dba9`、`10.0.0.3:18081`、旧 Python `0.0.0.0:8001`
+  和内外网 readiness 均保持正常；本次没有新的预约历史、爽约、门诊费用或报告业务事件，Redis TTL 仍未验证。
 
 完整切换与停机证据见 [`../release/c63dba9-production-acceptance-2026-08-18.md`](../release/c63dba9-production-acceptance-2026-08-18.md)。
 此前 `0995f7c` 的切换和 2026-08-18 02:54 CST 运行时只读快照仍作为历史证据保留，分别见
