@@ -7,6 +7,8 @@
 
 - 2026-08-19：继续审计患者目录同步的并发语义时发现，内存测试仓储在无 I/O 的快照路径中存在不必要的异步让出点，旧租约可能在资料已修改后被新代次接管。提交 `3c1b497` 已将该路径收紧为单事件循环 turn 的快照提交，并补充旧租约不得留下部分患者资料的回归测试；生产 MySQL 的事务和条件更新未修改，旧 Python、线上 API、数据库、Redis 和线上小程序均未修改或重启。
 
+- 2026-08-19：继续观察当前候选的真机入口，开发者工具已成功编译约 `608 KB` 代码包并生成 iOS 二维码，但窗口仍处于等待扫码状态，没有手机连接、真机日志或真机 HTTP trace。该证据只证明“真机调试入口可生成”，不推进微信登录、患者切换、预约、费用、支付或医保验收；二维码未保存或外传，详细记录见 [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md)。
+
 - 2026-08-19：小程序患者端列表读取与同步统一增加 `total === items.length` 运行时契约门禁，覆盖患者目录读取/同步、预约科室/排班/历史、报告目录和门诊费用；协议错配返回 `provider-response-invalid`，不伪装成空列表、成功同步快照或错误的本地“加载更多”。提交 `59d76cf`，小程序定向测试 136/136、1114 个断言；旧 Python、线上新 API、数据库和 Redis 均未修改，详见 [`release/miniprogram-list-total-contract-2026-08-19.md`](release/miniprogram-list-total-contract-2026-08-19.md)。
 - 2026-08-19：继续收紧首页二维码入口的患者上下文门禁。二维码协议尚未冻结时，只有本轮已确认的 `selectedPatient` 才能展示“二维码暂未开放”；本地缓存 opaque ID 不再被当作当前患者事实，失效/未确认状态统一显示“请先登录并选择就诊人”。提交 `7a5b937`，小程序定向测试 137/137、1118 个断言；未生成或发送任何二维码内容，旧 Python、线上新 API、数据库和 Redis 均未修改。
 
