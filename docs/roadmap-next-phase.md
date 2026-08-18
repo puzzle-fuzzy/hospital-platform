@@ -30,6 +30,8 @@
 
 - 2026-08-19：针对当前候选工作树执行完整 `pnpm check`，架构 66 条、迁移台账、Provider 文档、183 份文档链接、发布基线、Biome、工具测试 17 项、9 个 workspace 类型检查、9 个 workspace 测试和 9 个 workspace 构建全部通过；小程序重新生成 14 个注册页面脚本，来源仍为 `d2086d8`。这只是代码/文档/构建门禁证据，未新增真机、多患者、Provider、支付、医保或 HIS 业务结论；用户已有 `apps/miniprogram/project.config.json` 未触碰。
 
+- 2026-08-19 01:51 CST：在同一 `d2086d8` 模拟器候选中继续验证报告目录和普通资料连续入口。报告页对 `503 dependency-not-configured` 保持 fail-closed，未伪造报告空列表；“我的”页和头像入口进入普通资料页后，昵称、性别、年龄、邮箱、资料边界提示和保存按钮均正常显示，本轮未执行 PUT。开发者工具 Console 中的 `clickCheckTask`、`undefined is not iterable` 和 `webviewScriptError` 仍只有微信基础库内部调用栈，不能作为项目业务错误或成功证据；真机、多患者、Provider 详情和资料写入仍待完成，详见 [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md)。
+
 - 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换为线上 current，目标是部署带有
   `traceId/requestId` 同链摘要的 P0 日志工具。只重启了新 `hospital-platform-api-v2.service`；旧 Python `8001`
   未停止、未重启、未修改，Worker 仍 inactive，数据库/Redis/schema 没有写入。切换后新 API 生产启动字段、内外网
