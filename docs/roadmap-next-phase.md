@@ -17,13 +17,13 @@
 
 - `1b94c46` 修正普通资料 service 的版本边界：当请求版本已经达到 MySQL `INT UNSIGNED` 最大值时，在仓储写入前返回 `user-profile-invalid`，不尝试生成越界的下一版本。
 - 新增“最大版本不触碰仓储”的回归测试；全仓 `pnpm check` 通过，API 为 115 项测试、532 个断言。代码注释明确区分输入校验、409 并发冲突和版本耗尽三种业务事实。
-- 本修正尚未部署，线上仍为 `4ae2a31`；不会影响旧 Python 服务、数据库现有数据或当前生产 release。普通资料首次 PUT、真实 409 和真机证据仍需 P0 验收。
+- `1b94c46` 已按无损 runbook 完成生产切换，当前 release 为 `/home/ps/code/hospital-platform/releases/1b94c46`；普通资料首次 PUT、真实 409 和真机证据仍需 P0 验收，部署证据见 [`release/1b94c46-production-acceptance-2026-08-18.md`](release/1b94c46-production-acceptance-2026-08-18.md)。
 
 ### 本地候选与当前线上增量（2026-08-18）
 
-- 本地 `main` 当前为 `964cfe2`；小程序运行输入来源为 `4c9cfb4`，线上运行 bundle 的代码来源为 `4ae2a31`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
+- 本地 `main` 当前为 `5a8c9ec`；小程序运行输入来源为 `4c9cfb4`，线上服务端运行 bundle 来源为 `1b94c46`。服务端上一轮在报告目录和门诊费用 adapter 中统一收紧 Provider 患者引用边界，并修正小程序同步回写不能覆盖患者 `stale/unavailable` 状态：即使患者号来自 owner-scoped 映射，
   adapter 也会在 HTTP 请求前拒绝空引用，并新增“不调用 Provider”的测试；报告、门诊费用 gate 和旧服务边界均未打开或修改。
-- `4ae2a31` 已通过全量 `pnpm check`，并在提交后强制重建 API、Worker 和原生小程序；服务端运行 bundle 来源为 `4ae2a31`，当前真机配套小程序候选由 `4c9cfb4` 重建，`sourceRevision=4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，14 个页面脚本已核对。
+- `1b94c46` 已通过全量 `pnpm check`、真实生产 env preflight、`18082` 隔离 smoke 和 SHA-256 对照后切换；当前真机配套小程序候选由 `4c9cfb4` 重建，`sourceRevision=4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`，14 个页面脚本已核对。
   adapter 测试为 78 项、173 个断言。
 
 ### 本轮就诊人手动刷新事件修正（2026-08-18）
@@ -39,17 +39,18 @@
 - 首页、选择页和进程级患者同步都按会话代际隔离；旧会话的在途同步即使晚于重新登录返回，也会以 `session-changed` 拒绝，不会把旧账号患者快照回写给新账号。
 - 当时分支最新提交为 `005d961`，只修正静态门禁字符串写法；该历史运行包来源为 `86fa75f3a76718dcf8da96fc6c10f71e5a4b49a2`。当前候选已推进到 `4c9cfb4`，小程序定向测试为 115 项、997 个断言。
 - 本轮未修改 API、数据库、Provider、线上 release 或旧 Python 服务。详细说明见 [`release/miniprogram-session-generation-isolation-2026-08-18.md`](release/miniprogram-session-generation-isolation-2026-08-18.md)。
-- 2026-08-18 15:23-15:25 CST 已按无损 runbook 将 `4ae2a31` 上传、checksum 对照、生产 preflight、18082 隔离 smoke 后原子切换上线。
-  新 API 只重启自身；旧 Python `8001` 监听和 PID 集合保持不变。完整证据见
+### 上一轮 4ae2a31 生产切换（历史）
+
+- 2026-08-18 15:23-15:25 CST 曾按无损 runbook 将 `4ae2a31` 上传、checksum 对照、生产 preflight、18082 隔离 smoke 后原子切换上线；新 API 只重启自身，旧 Python `8001` 监听和 PID 集合保持不变。完整证据见
   [`release/4ae2a31-production-acceptance-2026-08-18.md`](release/4ae2a31-production-acceptance-2026-08-18.md)。
 
-### 当前线上 release 与验收边界（2026-08-18 15:23-15:25 CST）
+### 当前线上 release 与验收边界（2026-08-18 16:31-16:32 CST）
 
-- 当前线上为 `4ae2a31`，运行于 `/home/ps/code/hospital-platform/releases/4ae2a31`，生产模式、MySQL/Redis/schema readiness 均正常；
+- 当前线上为 `1b94c46`，运行于 `/home/ps/code/hospital-platform/releases/1b94c46`，生产模式、MySQL/Redis/schema readiness 均正常；
   旧 Python `0.0.0.0:8001` 继续运行，Worker、支付、医保、HIS 写入和报告 gate 保持关闭。
-- 切换后公网和内网健康探针均通过，journald 低敏聚合 `parseErrors=0`、`systemdWarningCount=0`，但窗口没有真实微信、患者、预约、费用或报告业务事件。
+- 切换后公网和内网健康探针均通过，当前服务启动窗口低敏聚合 `parseErrors=0`、`systemdWarningCount=0`，仅有健康请求和预期未登录 401，没有真实资料 PUT/409、患者、预约、费用或报告业务事件。
   运行层成功不等于业务验收成功；下一步继续按 P0 手册取得真机页面、HTTP trace 和低敏业务日志三层证据。
-- Redis 会话实际 TTL、多患者切换/失效恢复、预约历史、爽约、门诊费用和普通资料的当前 release 业务证据仍未完成；支付、医保、退款、报告和 HIS 继续最后处理。
+- Redis 会话实际 TTL、多患者切换/失效恢复、预约历史、爽约、门诊费用和普通资料 PUT/409 的当前 release 业务证据仍未完成；支付、医保、退款、报告和 HIS 继续最后处理。
 
 ### 上一 release 与验收增量（2026-08-18 14:55-14:57 CST，仅作历史）
 
@@ -81,7 +82,7 @@
 ## 历史版本与迁移记录（不可覆盖当前基线）
 
 > 以下内容用于追溯此前候选版本的代码修正、生产切换和观察窗口。每个小节中的 release、schema、
-> 业务事件和“下一步”只对对应时间窗口成立，不能覆盖上面的 `4ae2a31` 当前基线，也不能把历史
+> 业务事件和“下一步”只对对应时间窗口成立，不能覆盖上面的 `1b94c46` 当前基线，也不能把历史
 > 微信、患者、预约或费用事件回填为当前版本验收。开始新任务时，先以本节前的当前基线、当前执行
 > 检查点和最新 release 文档为准。
 
