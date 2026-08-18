@@ -38,6 +38,7 @@ test("native client keeps WeChat identity exchange on the Hospital API", async (
 
 	expect(client).toContain("wx.login");
 	expect(client).toContain('url: "/auth/wechat"');
+	expect(client).toContain("requireAuthSessionResponse");
 	expect(client).toContain("apiPrefix");
 	expect(app).toContain('apiBaseUrl: "https://test-hp.meiyi.pro"');
 	expect(app).toContain('apiPrefix: "/api/v2"');
@@ -51,6 +52,7 @@ test("native client restores a platform session through the current-user endpoin
 
 	expect(client).toContain("getCurrentUser");
 	expect(client).toContain('url: "/me"');
+	expect(client).toContain("requireCurrentUserResponse");
 	expect(page).toContain("验证会话中");
 	expect(client).not.toContain("providerSubject");
 });

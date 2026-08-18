@@ -263,6 +263,93 @@ function isReportDetailFlag(value: unknown): value is ReportDetailFlag {
 	return REPORT_DETAIL_FLAGS.has(value as ReportDetailFlag);
 }
 
+/**
+ * 会话响应中的 opaque 字段必须在小程序运行时重新校验。
+ *
+ * 这些值不是页面展示文本：token 会进入 Authorization 请求头，user id 会
+ * 参与当前账号的 owner 关联。因此这里只接受非空、去除首尾空白、无控制
+ * 字符且长度受限的字符串；不会把未知字段或未经校验的对象继续传给业务层。
+ */
+function hasSafeSessionText(value: unknown, maxLength: number): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+const MAX_ACCESS_TOKEN_LENGTH = 512;
+const MAX_SESSION_USER_ID_LENGTH = 64;
+
+function invalidSessionResponse(message: string): never {
+	throw new ApiError(message, { code: "provider-response-invalid" });
+}
+
+/**
+ * 登录响应是所有患者业务的会话根；必须完整通过服务端 contract 后才可以
+ * 写入本地 token。TypeScript 泛型不能验证微信真实收到的 JSON，所以这里
+ * 不允许“有一个 truthy token 就算登录成功”的兼容分支，并且重新投影白名单。
+ */
+export function requireAuthSessionResponse(
+	value: unknown,
+): AuthSessionResponse {
+	if (
+		!isRecord(value) ||
+		value.success !== true ||
+		!isRecord(value.data) ||
+		!hasSafeSessionText(value.data.accessToken, MAX_ACCESS_TOKEN_LENGTH) ||
+		value.data.tokenType !== "Bearer" ||
+		typeof value.data.expiresInSeconds !== "number" ||
+		!Number.isSafeInteger(value.data.expiresInSeconds) ||
+		value.data.expiresInSeconds < 1 ||
+		!isRecord(value.data.user) ||
+		!hasSafeSessionText(value.data.user.id, MAX_SESSION_USER_ID_LENGTH)
+	) {
+		return invalidSessionResponse("Auth session response is invalid");
+	}
+
+	return {
+		success: true,
+		data: {
+			accessToken: value.data.accessToken,
+			tokenType: "Bearer",
+			expiresInSeconds: value.data.expiresInSeconds,
+			user: { id: value.data.user.id },
+		},
+	};
+}
+
+/**
+ * 会话恢复只接受当前用户的最小 canonical 引用。
+ *
+ * `/me` 的 200 不是“任意 JSON 都代表登录有效”：缺少 user.id 时保持当前
+ * 会话并继续渲染，会把后续患者查询绑定到不确定的 owner。协议错误在这里
+ * fail-closed，401 仍由 requestWithSession 单独负责重新登录和清理 token。
+ */
+export function requireCurrentUserResponse(
+	value: unknown,
+): CurrentUserResponse {
+	if (
+		!isRecord(value) ||
+		value.success !== true ||
+		!isRecord(value.data) ||
+		!isRecord(value.data.user) ||
+		!hasSafeSessionText(value.data.user.id, MAX_SESSION_USER_ID_LENGTH)
+	) {
+		return invalidSessionResponse("Current user response is invalid");
+	}
+
+	return {
+		success: true,
+		data: { user: { id: value.data.user.id } },
+	};
+}
+
 /** 报告文本不能携带控制字符或首尾空白，避免破坏临床展示和日志边界。 */
 function hasSafeReportText(value: unknown, maxLength: number): value is string {
 	return (
@@ -692,23 +779,17 @@ function performLogin(): Promise<AuthSessionResponse> {
 					);
 					return;
 				}
-				request<AuthSessionResponse>({
+				request<unknown>({
 					url: "/auth/wechat",
 					method: "POST",
 					data: { code },
 					authenticated: false,
 				})
+					.then(requireAuthSessionResponse)
 					.then((payload) => {
-						const accessToken = payload.data.accessToken;
-						if (!accessToken) {
-							reject(
-								new ApiError("登录响应缺少平台会话", {
-									code: "session-missing",
-								}),
-							);
-							return;
-						}
-						setAccessToken(accessToken);
+						// 只有完整响应通过运行时校验后才能落盘；坏响应不得污染
+						// 会话代际，也不得让后续页面误以为已经登录。
+						setAccessToken(payload.data.accessToken);
 						resolve(payload);
 					})
 					.catch(reject);
@@ -800,7 +881,9 @@ export async function requestWithSession<TResponse>(
 
 /** 验证当前平台会话；响应只包含内部用户 id。 */
 export function getCurrentUser(): Promise<CurrentUserResponse> {
-	return requestWithSession<CurrentUserResponse>({ url: "/me" });
+	return requestWithSession<unknown>({ url: "/me" }).then(
+		requireCurrentUserResponse,
+	);
 }
 
 /** 读取普通个人资料；响应不包含微信身份、实名或患者字段。 */

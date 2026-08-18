@@ -4,7 +4,9 @@ import {
 	normalizeApiPrefix,
 	request,
 	requestWithSession,
+	requireAuthSessionResponse,
 	requireCanonicalUserProfileResponse,
+	requireCurrentUserResponse,
 	requireReportDetailResponse,
 	requireReportListResponse,
 } from "./api-client";
@@ -21,6 +23,70 @@ test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本"
 	expect(normalizeApiPrefix(" /api/v2/ ", "/api/v1")).toBe("/api/v2");
 	expect(normalizeApiPrefix("/api/v999", "/api/v2")).toBe("/api/v2");
 	expect(normalizeApiPrefix(undefined)).toBe("/api/v1");
+});
+
+test("微信登录响应必须完整通过会话 contract 才能进入 token 持久化边界", () => {
+	const valid = {
+		success: true as const,
+		data: {
+			accessToken: "fixture-session-0001",
+			tokenType: "Bearer" as const,
+			expiresInSeconds: 3600,
+			user: { id: "user-001" },
+		},
+	};
+
+	expect(requireAuthSessionResponse(valid)).toEqual(valid);
+	expect(
+		requireAuthSessionResponse({
+			...valid,
+			data: { ...valid.data, providerSubject: "must-be-dropped" },
+		}),
+	).toEqual(valid);
+
+	const invalidResponses: unknown[] = [
+		{ ...valid, success: false },
+		{ success: true, data: { ...valid.data, accessToken: "" } },
+		{ success: true, data: { ...valid.data, accessToken: " token " } },
+		{ success: true, data: { ...valid.data, accessToken: "token\nvalue" } },
+		{ success: true, data: { ...valid.data, tokenType: "Basic" } },
+		{ success: true, data: { ...valid.data, expiresInSeconds: 1.5 } },
+		{ success: true, data: { ...valid.data, expiresInSeconds: 0 } },
+		{ success: true, data: { ...valid.data, user: { id: "" } } },
+		{ success: true, data: { ...valid.data, user: { id: " user-001" } } },
+		{
+			success: true,
+			data: { ...valid.data, user: { id: "x".repeat(65) } },
+		},
+	];
+
+	for (const invalid of invalidResponses) {
+		expect(() => requireAuthSessionResponse(invalid)).toThrow(
+			"Auth session response is invalid",
+		);
+	}
+});
+
+test("当前用户响应必须提供安全的 owner 引用，不能用任意 200 JSON 恢复会话", () => {
+	const valid = {
+		success: true as const,
+		data: { user: { id: "user-001" } },
+	};
+
+	expect(requireCurrentUserResponse(valid)).toEqual(valid);
+	const invalidResponses: unknown[] = [
+		{ ...valid, success: false },
+		{ success: true, data: {} },
+		{ success: true, data: { user: { id: "" } } },
+		{ success: true, data: { user: { id: "user-001\u0000" } } },
+		{ success: true, data: { user: { id: "x".repeat(65) } } },
+	];
+
+	for (const invalid of invalidResponses) {
+		expect(() => requireCurrentUserResponse(invalid)).toThrow(
+			"Current user response is invalid",
+		);
+	}
 });
 
 test("普通资料成功响应必须保留完整 canonical 快照并通过运行时类型校验", () => {
