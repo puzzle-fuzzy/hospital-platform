@@ -10,15 +10,15 @@
 | 服务端 release | `1b94c46` | 服务器 `/home/ps/code/hospital-platform/releases/1b94c46` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `4c9cfb4` | 与服务端 `1b94c46` 配套的当前候选包，包含选择页手动刷新、会话代际隔离和认证响应回写门禁 |
+| 小程序客户端 | `77588b5` | 与服务端 `1b94c46` 配套的当前候选包，包含选择页手动刷新、会话代际隔离、认证响应回写门禁和预约目录级联查询边界 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify` |
-| 小程序构建来源 | `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 115 项 / 997 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `4c9cfb4` |
+| 小程序构建来源 | `77588b566d98facfac7b1d952e41d8db875278d4` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 115 项 / 997 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `77588b5` |
 | 全仓回归 | 9/9 package、API 115/115、工具 14/14 | `1b94c46` 后的 `pnpm check` 已通过；服务端 release 已按无损 runbook 切换，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `4c9cfb4` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`4c9cfb4` 延续空目录下已有选择进入 `stale` 的修正，保留首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，并让所有认证响应在交付前核对会话代际；它不改变服务端 API、Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`。
+客户端候选的 `dist/` 必须由 `77588b5` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`77588b5` 延续空目录下已有选择进入 `stale` 的修正，保留首页/选择页同步成功后的 `stale/unavailable` 状态门禁和精确运行包来源输入校验，修正选择页手动刷新事件对象误入加载 token，隔离患者同步的会话代际，让所有认证响应在交付前核对会话代际，并删除会并行请求未指定科室排班的误导性 helper；它不改变服务端 API、Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `77588b566d98facfac7b1d952e41d8db875278d4`。
 
 ## 2. 真机操作顺序
 
