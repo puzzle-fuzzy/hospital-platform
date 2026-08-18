@@ -11,6 +11,11 @@
   该修复只影响本地小程序，未修改服务端、旧 Python 服务、数据库、Redis 或线上配置；真实微信设备验收仍待完成，详见
   [`release/miniprogram-api-prefix-hardening-2026-08-19.md`](release/miniprogram-api-prefix-hardening-2026-08-19.md)。
 
+- 2026-08-19：在最新运行包 `93a3c720dc137162ff469ec745359775b08f84ab` 的微信开发者工具模拟器中进入“我的挂号”，页面显示当前院区、在线/全部标签、空记录态和更换就诊人入口；当前线上 `c26e696` 最近 10 分钟的
+  `appointmentRecords` 低敏门禁为请求 `1`、成功 `1`、失败 `0`，`parseErrors=0`、`systemdWarningCount=0`。
+  该结果只证明模拟器触发了服务端预约历史读链，不能替代手机真机、Provider 数据和页面三层证据；本轮没有预约写入、支付、医保或旧服务操作，详见
+  [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
+
 - 2026-08-19：会话重启后通过 SSH 只读复核确认 `hospital-platform-api-v2.service=active`、当前 release 仍为 `c26e696`，
   新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，临时端口 `18082` 无残留，公网 live/ready 均返回 `200` 且
   `database/redis/schema=ok`。本地 `pnpm check` 全部通过，小程序构建产出 14 个页面脚本；本次没有切换 release、migration、
