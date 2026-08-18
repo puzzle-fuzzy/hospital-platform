@@ -11,6 +11,8 @@ import {
 import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
+	getSelectedPatientId,
+	resolvePatientSelection,
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
@@ -143,7 +145,13 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		// 也可能是当前账号暂时没有绑定患者。保留本地 opaque patientId，避免
 		// 目录恢复后被误判为“从未选择”并静默切换到第一位患者；真正的清理只
 		// 在会话失效或用户明确退出/清除上下文时发生。
-		const resolution = resolveStoredPatientSelection(patients);
+		// 预同步阶段只能用纯函数读取已有选择，绝不能调用
+		// resolveStoredPatientSelection：后者在首次没有选择时会把第一位 ready
+		// 患者写入 storage。那会让同步失败后的下一次业务页误以为该患者已经
+		// 通过本轮临床映射确认，形成“没有当前标记但本地已有隐式选择”的绕过。
+		const resolution = restoreSelection
+			? resolveStoredPatientSelection(patients)
+			: resolvePatientSelection(patients, getSelectedPatientId());
 		const selectedPatientId = restoreSelection
 			? (resolution.patient?.id ?? "")
 			: "";

@@ -368,6 +368,10 @@ test("patient selection hides the current badge while directory confirmation is 
 	// 目录先到、临床映射后到时，预同步列表只能展示资料，不能先恢复当前患者。
 	expect(selection).toContain("this.setPatientList(patients, false);");
 	expect(selection).toContain(
+		"resolvePatientSelection(patients, getSelectedPatientId())",
+	);
+	expect(selection).toContain("绝不能调用");
+	expect(selection).toContain(
 		'syncing: true,\n\t\t\tselectionReady: false,\n\t\t\tselectedPatientId: "",',
 	);
 	expect(selection).not.toContain(
