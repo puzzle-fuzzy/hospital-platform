@@ -7,6 +7,8 @@
 
 - 2026-08-18：`aa9807a` 收紧患者目录同步的 MySQL 租约接管边界。精确幂等键过期时，仓储会先排除当前 operation 查询同一 owner/provider 的其它有效租约；若另一页面已用新 key 获得同步租约，则返回 `owner-provider` 范围的处理中冲突，不会并发访问 Provider 或竞争患者快照。新增 MySQL 回归测试和中文契约说明，持久化包为 75 项测试、549 个断言，全仓 `pnpm check` 通过；本轮未部署、未重启新旧服务、未修改旧 Python 服务，也未触碰用户已有的 `apps/miniprogram/project.config.json`。
 
+- 2026-08-18：`62e1dac` 收紧报告详情短期引用的 service 范围校验。即使注入的引用仓储返回了错误 owner、患者、Provider 或报告号，service 也会拒绝把跨患者引用交给小程序，只保留安全报告摘要并记录有限失败事件；新增 API 回归测试，当前 API 为 126 项、575 个断言。本轮未部署、未重启新旧服务、未修改小程序或旧 Python 服务，报告 Provider 和真机验收边界保持关闭。
+
 - 2026-08-18：`074a436` 收紧患者目录读取的第二道读模型边界。患者 service 现在会重新确认仓储结果的 owner、
   opaque `patientId` 唯一性、脱敏展示字段和临床枚举，并重新投影公共对象；错 owner、重复 ID、控制字符或非法枚举
   不会降级成成功空目录，日志只记录固定 `readModelViolation`，公共错误为 `persistence-invalid`。新增 domain/API
