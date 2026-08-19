@@ -26,6 +26,11 @@
   新增中文注释和回归测试，未扩大预约 Provider 查询、未开放预约写入、支付或医保，也未修改旧 Python、线上服务、
   数据库和 Redis。
 
+- 2026-08-19（预约服务运行时查询形状门禁）：服务端 `AppointmentService` 不再只依赖 Elysia HTTP schema 和
+  TypeScript 查询类型；组合根、回放任务或未来 Worker 直接传入 `null`、数组或非字符串日期时，会在 Provider/患者映射
+  之前收敛为稳定的预约查询错误，并继续写入低敏 `appointment.*.failed` 事件。新增回归验证 Provider 调用次数为 0，
+  未扩大预约只读范围、未开放锁号/写入/支付/医保，也未修改旧 Python、线上服务、数据库和 Redis。
+
 - 2026-08-19（普通资料清空语义回归）：API 组合测试补充 `age=null`、`email=null` 的明确清空路径，验证服务端不会把
   `null` 当成省略字段，且仍按 owner/version 条件递增并返回 canonical 资料快照；原有 409、跨用户隔离和未知字段拒绝保持不变。
   API 全量回归仍为 `153/153`。这是本地 HTTP/内存仓储证据，不替代真实微信资料 PUT、409 和真机验收。

@@ -725,6 +725,74 @@ test("appointment queries reject impossible calendar dates before provider acces
 	);
 });
 
+test("预约服务拒绝绕过 HTTP schema 的畸形查询对象", async () => {
+	const lines: string[] = [];
+	let providerCalls = 0;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => {
+				providerCalls += 1;
+				throw new Error("schedule provider must not be called");
+			},
+		},
+		repository: {
+			resolveProviderReference: async () => {
+				providerCalls += 1;
+				return undefined;
+			},
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => {
+				providerCalls += 1;
+				throw new Error("record provider must not be called");
+			},
+		},
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+	const context = {
+		traceId: "trace-malformed-query",
+		idempotencyKey: "key-malformed-query",
+	};
+
+	await expect(
+		service.listSchedules(undefined as never, context),
+	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
+	await expect(
+		service.listRecords("user-001", "patient-001", null as never, context),
+	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
+
+	expect(providerCalls).toBe(0);
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.failed",
+			traceId: "trace-malformed-query",
+			errorType: "AppointmentScheduleQueryError",
+		}),
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.records.failed",
+			traceId: "trace-malformed-query",
+			errorType: "AppointmentRecordQueryError",
+		}),
+	);
+});
+
 test("appointment department date generation failures are logged before provider access", async () => {
 	const lines: string[] = [];
 	let providerCalls = 0;

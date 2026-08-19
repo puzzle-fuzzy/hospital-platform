@@ -105,7 +105,30 @@ export class AppointmentRecordPatientNotFoundError extends Error {
 	}
 }
 
+/**
+ * HTTP schema 不是预约服务唯一的调用入口。
+ *
+ * 组合根、回放任务和未来 Worker 都可能直接调用 service；这些调用绕过
+ * Elysia 的 query schema，不能把 TypeScript 的 `Appointment*Query` 类型当成
+ * 运行时事实。先确认对象和日期字段的基本形状，再进入 `parseIsoCalendarDate`，
+ * 避免 null/数组/非字符串值变成未映射的 TypeError 或 Provider 请求。
+ */
+function hasDateRangeShape(
+	value: unknown,
+): value is { startDate: string; endDate: string } {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const record = value as Record<string, unknown>;
+	return (
+		typeof record.startDate === "string" && typeof record.endDate === "string"
+	);
+}
+
 function validateScheduleQuery(input: AppointmentScheduleQuery): void {
+	if (!hasDateRangeShape(input)) {
+		throw new AppointmentScheduleQueryError("Schedule date range is invalid");
+	}
 	if (
 		(input.departmentId !== undefined &&
 			!isBoundedOpaqueIdentifier(input.departmentId)) ||
@@ -131,6 +154,11 @@ function validateScheduleQuery(input: AppointmentScheduleQuery): void {
 }
 
 function validateRecordQuery(input: AppointmentRecordQuery): void {
+	if (!hasDateRangeShape(input)) {
+		throw new AppointmentRecordQueryError(
+			"Appointment record date range is invalid",
+		);
+	}
 	const start = parseIsoCalendarDate(input.startDate);
 	const end = parseIsoCalendarDate(input.endDate);
 	// 保持与排班查询一致：按起止日期差值限制查询跨度，避免不同只读接口
