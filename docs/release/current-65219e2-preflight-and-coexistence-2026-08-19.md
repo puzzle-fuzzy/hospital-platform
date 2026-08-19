@@ -53,3 +53,17 @@
 4. 报告 Provider 合同、二维码协议，以及最后的支付、医保和 HIS 回写专项验收。
 
 任何一项只能证明基础 readiness，都不能替代上述业务证据；旧 Python `8001` 在新业务逐项验收前继续保持运行。
+
+## 5. 最近业务日志窗口
+
+使用 `65219e2` 自带的低敏 `p0-log-aggregate.js` 对 `hospital-platform-api-v2.service` 从
+2026-08-19 12:39 CST 到当日 23:59 CST 的 journald 做只读聚合：
+
+- 输入 3 行，成功解析 2 条，`parseErrors=0`；
+- 仅有 2 条 `http.request.completed`，均属于 infrastructure，HTTP `200`；
+- `systemdWarningCount=0`、`providerRequestIdCount=0`；
+- 没有微信登录、患者目录、患者同步、预约记录、爽约或门诊费用业务事件。
+
+这说明该时间窗口没有形成可供业务验收的真实请求链，不能据此推断“没有患者数据”或“业务返回空列表”，
+也不能把两条 readiness/基础请求当成 Provider 或真机成功。下一步仍需在 `b451cc6` 小程序窗口生成新二维码并扫码，
+再按页面、HTTP trace 和服务端业务事件三层对齐。
