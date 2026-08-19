@@ -81,3 +81,26 @@
 
 本观察只说明当前窗口没有形成新的业务请求链；404 或 readiness 不能被解释为 Provider 空结果、患者不存在或业务失败。
 本次没有重启 unit、切换 release、写入 MySQL/Redis、修改旧项目或调整权限。
+
+## 7. Provider gate 与凭证状态（2026-08-19，SSH 只读核查）
+
+服务实际读取的环境文件为 `/home/ps/code/hospital-platform/shared/api.env`。本次只输出开关和值是否存在，
+没有读取或记录任何 secret 内容：
+
+| 配置项 | 当前状态 |
+| --- | --- |
+| `ZHONGYANG_PATIENT_DIRECTORY_READY` | `true` |
+| `ZHONGYANG_APPOINTMENT_DIRECTORY_READY` | `true` |
+| `ZHONGYANG_APPOINTMENT_RECORDS_READY` | `true` |
+| `ZHONGYANG_OUTPATIENT_PAYMENT_READY` | `true` |
+| `ZHONGYANG_REPORT_DIRECTORY_READY` | `false` |
+| `ZHONGYANG_REPORT_DETAIL_READY` | `false` |
+| `ZHONGYANG_BASE_URL` | 已配置 |
+| `ZHONGYANG_AUTHORIZATION_TOKEN` | 未配置 |
+| `ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN` | 未配置 |
+
+这里的“未配置”只表示当前新服务没有服务端专用 Provider Bearer；它不能证明所有上游接口都不需要鉴权，
+也不能授权复制旧端用户 JWT。由于本次日志窗口没有 `providerRequestId`，患者同步、预约记录和门诊费用仍需
+使用同一 release 在真机产生实际请求后分别验收。报告 gate 保持关闭是正确的 fail-closed 状态。
+
+本节核查没有修改环境文件、重启服务或写入业务数据。
