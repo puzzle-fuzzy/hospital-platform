@@ -30,6 +30,29 @@
 `deadLockFlag`、`cardStatus`、`hospitalId` 或 `orgId` 自行推导档案是否有效。上述状态
 必须等待 Provider 的正式枚举和脱敏样例后另行冻结。
 
+## 2.1 旧端源码复核结论
+
+本次对照旧项目 `G:\\fuck\\hospital\\hospital-app` 的源码，得到以下可复核事实：
+
+1. `src/api/modules/ZY.ts:19` 通过 `type=3`、卡号和姓名调用
+   `patInfosFind`；旧端同时传了 query 和 GET body，但新 adapter 只依赖 query，避免依赖
+   浏览器对 GET body 的非标准兼容行为。
+2. `src/types/ZY.ts:54,81-82` 只声明了 `patCardVOList`、`cardStatus` 和
+   `cardStatusName` 的数据形状，没有给出状态枚举或患者可用性规则。
+3. 旧端患者选择/首页流程没有以 `invalidFlag`、`deadLockFlag` 或 `cardStatus` 作为
+   患者可选门禁；旧端出现的 `invalidFlag` 筛选位于医保科室资料，不是患者档案状态，不能
+   反向推导患者档案规则。
+4. `src/pages/index/index.vue:22` 将档案/患者对象中的 `patId` 作为普通页面 ID 展示，
+   但 `src/pages/index/index.vue:204-206` 生成二维码时读取的是 `medicalCardNo`，并将其
+   送到外部二维码图片服务。这个事实只证明旧二维码使用医疗卡号，不证明医院扫码协议就是
+   医疗卡号，也不证明 `patId` 可以用于二维码。
+
+因此，新端保留两条独立边界：`patInfosFind.data.patId` 只作为服务端的
+`his-patient` 临床引用；`invalidFlag`、锁定状态、卡片状态和机构归属在没有正式 Provider
+枚举前不参与“可用患者”判断，也不进入小程序公共响应。若后续拿到正式契约，应新增独立的
+`archiveEligibility` 校验和脱敏测试，未知状态必须 fail-closed，不能直接改写当前
+`his-patient` 映射规则。二维码仍需单独冻结字段、签名、TTL、防重放和扫码回执。
+
 ## 3. 代码与测试证据
 
 - adapter 在 [zhongyang-patients.ts](../../packages/adapters/src/zhongyang-patients.ts) 中完成可选身份字段校验；
