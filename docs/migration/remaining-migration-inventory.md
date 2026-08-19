@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `69e6cdb28f2996095b8647f82b1b90afd061b918`（提交 `69e6cdb`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `b55df37b48bbe250e4ebefee3db7739d2fd554e2`（提交 `b55df37`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 ## 当前准入复核（2026-08-19 08:47 CST）
 

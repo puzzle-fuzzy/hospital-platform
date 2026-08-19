@@ -1,4 +1,4 @@
-# 原生小程序只读业务验收候选（2026-08-18）
+# 原生小程序只读业务验收候选（基线更新于 2026-08-19）
 
 本文固定当前真机验收所使用的“客户端候选 + 服务端 release”组合，避免把不同版本的页面、API 和日志混在同一份证据中。
 本文只覆盖微信会话、患者目录、预约历史、爽约记录和门诊费用只读查询；预约写入、支付、医保、退款、报告详情和 HIS 继续关闭。
@@ -10,15 +10,15 @@
 | 服务端 release | `b7c9451` | 服务器 `/home/ps/code/hospital-platform/releases/b7c9451` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `69e6cdb` | 与服务端 `b7c9451` 配套的当前本地验收候选包；本次收紧普通资料响应的客户端 canonical 边界 |
+| 小程序客户端 | `b55df37` | 与服务端 `b7c9451` 配套的当前本地验收候选包；包含报告目录旧患者事件阻断和就诊人选择会话代际边界 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
-| 小程序构建来源 | `69e6cdb28f2996095b8647f82b1b90afd061b918` | `dist/build-info.json` 的 `sourceRevision` |
-| 小程序回归 | 159 项 / 1259 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `69e6cdb` |
+| 小程序构建来源 | `b55df37b48bbe250e4ebefee3db7739d2fd554e2` | `dist/build-info.json` 的 `sourceRevision` |
+| 小程序回归 | 160 项 / 1293 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `b55df37` |
 | 全仓回归 | 9/9 package、API 162/709、Worker 51/144、工具 20/60 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `b7c9451`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
-客户端候选的 `dist/` 必须由 `69e6cdb` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
-`69e6cdb` 在既有登录后患者初始化和显式就诊人选择门禁基础上，进一步收紧普通资料响应：拒绝首尾空白、控制字符和非法邮箱，并只向页面投影白名单字段。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `69e6cdb28f2996095b8647f82b1b90afd061b918`。
+客户端候选的 `dist/` 必须由 `b55df37` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
+`b55df37` 在既有登录后患者初始化、显式就诊人选择和普通资料 canonical 响应门禁基础上，进一步阻止报告目录页面在患者切换后把旧详情事件带入下一页，并阻止选择页在会话代际变化后回写旧目录。它不改变 Provider、数据库或旧服务。当前真机包的来源指纹必须是完整的 `b55df37b48bbe250e4ebefee3db7739d2fd554e2`。
 
 本候选已在本地完成构建和全仓门禁，但尚未上传微信开发者工具、尚未部署服务端；真机、Provider 和真实业务日志证据仍未取得。
 
@@ -37,7 +37,7 @@ Provider 调用。不增加真实预约 Provider 或真机验收结论。
 
 ### 2.1 会话和患者上下文
 
-1. 在微信开发者工具重新编译当前 `dist/`，确认网络请求只指向公网 Hospital API。
+1. 在微信开发者工具导入 `apps/miniprogram/`，确认运行根目录为 `dist/`；重新编译当前 `dist/`，并在扫码前核对 `dist/build-info.json.sourceRevision` 必须等于 `b55df37b48bbe250e4ebefee3db7739d2fd554e2`。确认网络请求只指向公网 Hospital API。
 2. 清理旧的本地会话后执行微信登录；首页应经历“验证会话中”再进入“已登录/已恢复会话”。
 3. 进入“新增就诊人/更换就诊人”，等待目录读取和临床映射同步完成；同步中不能提前选择或返回使用旧患者。
 4. 如果测试账号存在第二位 `clinicalAccess=ready` 患者，显式切换到第二位，返回首页后再分别打开业务页。
