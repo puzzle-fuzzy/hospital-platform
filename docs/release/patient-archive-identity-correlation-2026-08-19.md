@@ -32,7 +32,7 @@
 
 ## 2.1 旧端源码复核结论
 
-本次对照旧项目 `G:\\fuck\\hospital\\hospital-app` 的源码，得到以下可复核事实：
+本次对照旧项目 `G:\fuck\hospital\hospital-app` 的源码，得到以下可复核事实：
 
 1. `src/api/modules/ZY.ts:19` 通过 `type=3`、卡号和姓名调用
    `patInfosFind`；旧端同时传了 query 和 GET body，但新 adapter 只依赖 query，避免依赖
