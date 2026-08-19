@@ -437,7 +437,7 @@ test("patient selection clears the current badge after synchronization failure",
 
 test("patient selection clears the old directory after session ownership is lost", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
-	const showErrorStart = selection.indexOf(
+	const showErrorStart = selection.lastIndexOf(
 		"showError(error: unknown, fallback: string): void",
 	);
 	const clearDirectoryIndex = selection.indexOf(
@@ -454,6 +454,11 @@ test("patient selection clears the old directory after session ownership is lost
 	expect(selection).toContain("shouldClearPatientDirectory");
 	expect(selection).toContain('error.code === "session-changed"');
 	expect(selection).toContain("if (!hasPlatformSession()) return true;");
+	expect(selection).toContain("isPatientSelectionSessionCurrent");
+	expect(selection).toContain("登录状态已变化，正在重新刷新");
+	expect(selection).toContain(
+		"patientSelectionSessionGenerations.delete(this)",
+	);
 	expect(clearDirectoryIndex).toBeGreaterThan(showErrorStart);
 	expect(patientListClearIndex).toBeGreaterThan(clearDirectoryIndex);
 	expect(selection).toContain("clearDisplayedPatientDirectory(): void");

@@ -17,7 +17,10 @@ import {
 	resolveStoredPatientSelection,
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
-import { getSessionGeneration } from "../../services/session-generation";
+import {
+	getSessionGeneration,
+	isCurrentSessionGeneration,
+} from "../../services/session-generation";
 import { hasPlatformSession } from "../../services/session-service";
 import type {
 	Patient,
@@ -50,6 +53,28 @@ const patientNavigationTimers = new WeakMap<
 	object,
 	ReturnType<typeof setTimeout>
 >();
+
+/**
+ * 选择页当前列表所属的会话代际。
+ *
+ * 选择页可能在页面栈中停留较久；期间其它页面完成重新登录或 token
+ * 轮换时，旧页面仍然保留着姓名、关系和脱敏卡号。页面级请求 guard 只能
+ * 淘汰同一页面的新旧请求，不能识别“请求已经结束后账号才发生变化”的
+ * 情况，因此这里额外记录本页最后一次成功同步所对应的会话代际。
+ * 使用 WeakMap 保存非渲染状态，避免把内部会话序号写入 WXML 或 storage。
+ */
+const patientSelectionSessionGenerations = new WeakMap<object, number>();
+
+function markPatientSelectionSession(page: object): number {
+	const generation = getSessionGeneration();
+	patientSelectionSessionGenerations.set(page, generation);
+	return generation;
+}
+
+function isPatientSelectionSessionCurrent(page: object): boolean {
+	const generation = patientSelectionSessionGenerations.get(page);
+	return generation !== undefined && isCurrentSessionGeneration(generation);
+}
 
 /** provider 关系值是稳定枚举，中文文案由小程序展示层维护。 */
 const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
@@ -187,6 +212,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 
 	/** 选择完成后只写入 opaque patientId，再返回调用页触发 onShow 刷新。 */
 	onPatientTap(event: PatientEvent): void {
+		if (!isPatientSelectionSessionCurrent(this)) {
+			// 会话在列表同步完成后发生了变化，当前卡片不能再作为新账号的
+			// 患者上下文。先清掉页面上的医疗派生数据，再重新读取当前会话；
+			// 不能把旧 patientId 写入 storage 后交给首页自行猜测归属。
+			this.clearDisplayedPatientDirectory();
+			wx.showToast({ title: "登录状态已变化，正在重新刷新", icon: "none" });
+			void this.loadPatientList();
+			return;
+		}
 		// 目录读取成功不等于医院侧临床映射已经完成。同步期间即使页面还显示上一轮
 		// 列表，也必须禁止返回调用页，否则调用页可能在 his-patient 尚未落库时发起
 		// 预约、报告或门诊费用查询；失败后保留列表只用于诊断，不能被当作可用上下文。
@@ -265,6 +299,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	syncPatientDirectoryForLoad(loadToken: number): Promise<void> {
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
 		if (!listLoadGuard.isCurrent(loadToken)) return Promise.resolve();
+		const sessionGeneration = markPatientSelectionSession(this);
 
 		const patientSyncFlight = getPageSingleFlight<Array<Patient>>(
 			this,
@@ -287,6 +322,17 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		return patientSyncFlight
 			.run(() => syncPatientsFromHospital("patient-selection-sync"))
 			.then((patients) => {
+				if (!isCurrentSessionGeneration(sessionGeneration)) {
+					// 同步 Promise 已经完成也不能放宽会话边界：账号可能恰好在
+					// Provider 返回与页面回写之间发生切换。统一交给 catch 走
+					// owner 失效清理，不让旧快照进入当前选择页。
+					throw new ApiError(
+						"Session changed while patient directory was pending",
+						{
+							code: "session-changed",
+						},
+					);
+				}
 				if (
 					!listLoadGuard.isCurrent(loadToken) ||
 					!syncGuard.isCurrent(syncToken)
@@ -329,6 +375,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		const navigationTimer = patientNavigationTimers.get(this);
 		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
 		patientNavigationTimers.delete(this);
+		patientSelectionSessionGenerations.delete(this);
 		disposePageInstance(this);
 	},
 
