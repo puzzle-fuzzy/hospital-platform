@@ -11,6 +11,11 @@
 
 ## 当前准入复核（2026-08-19 08:47 CST）
 
+补充记录（2026-08-19 11:43–11:44 CST）：重启后只读检查发现新 API 远端 MySQL 曾短暂出现 `PROTOCOL_CONNECTION_LOST`，readiness
+一度为 `not_ready`，随后 database/Redis/schema 自动恢复为 `ok`；新旧服务监听、release 和旧 Python 均未改变。服务器本机 3306
+不是新 API 的数据库目标，根分区约 95% 使用率需要单独运维关注。该事件只记录运行层恢复，不增加患者、预约、报告、费用或真机证据，详见
+[`../release/current-b7c9451-database-transient-observation-2026-08-19.md`](../release/current-b7c9451-database-transient-observation-2026-08-19.md)。
+
 通过 SSH 只读确认当前 release 为 `b7c9451`、`hospital-platform-api-v2.service` 为 `active`；服务进程环境中的
 `ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false` 均为显式关闭。报告目录/详情因此继续
 保持 `503 dependency-not-configured` 的 fail-closed 边界，不调用 Provider、不把空列表伪装成真实结果，也不因页面已经存在就打开 gate。

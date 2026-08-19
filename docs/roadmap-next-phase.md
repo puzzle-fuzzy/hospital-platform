@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 11:43–11:44 CST（重启后数据库瞬态只读复核）：SSH 确认新 API `b7c9451` 与旧 Python `8001` 共存，期间新 API
+  的远端 MySQL 探针出现一次 `PROTOCOL_CONNECTION_LOST`，`/health/ready` 短暂为 `not_ready`；约一分钟后 database、Redis、schema
+  全部恢复 `ok`，没有重启服务或修改旧项目。已确认新 API 连接的是远端 MySQL，不应以服务器本机 3306 判断生产数据库；服务器根分区约
+  95% 使用率另记为运维风险。完整只读证据见 [`release/current-b7c9451-database-transient-observation-2026-08-19.md`](release/current-b7c9451-database-transient-observation-2026-08-19.md)。
+
 - 2026-08-19（报告 Provider 契约差异复核）：只读核对旧端 LIS、PACS、ECG、体检 PEIS 四类报告请求，确认新端目前仅有前三类
   目录和 LIS 详情骨架；体检接口需要完整身份证号，旧端还会把非 LIS 报告对象和外部文件地址写入本地缓存，均不能直接复制。
   本轮没有打开报告 gate、没有调用 Provider、没有新增报告 API/小程序能力，差异和后续停止条件记录在
