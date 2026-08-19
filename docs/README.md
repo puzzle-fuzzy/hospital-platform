@@ -18,6 +18,7 @@
 | [`release/968af78-production-acceptance-2026-08-19.md`](release/968af78-production-acceptance-2026-08-19.md) | 当前 `968af78` 原子生产切换、档案关联校验、新旧服务共存和未完成验收 |
 | [`release/current-968af78-runtime-coexistence-2026-08-19-1550.md`](release/current-968af78-runtime-coexistence-2026-08-19-1550.md) | 15:50 CST 重启后 SSH 只读复核 `968af78`、新旧监听、公网 live/ready、依赖状态和最近业务日志；不代表 Provider/真机业务成功 |
 | [`release/in-memory-clinical-access-parity-2026-08-19.md`](release/in-memory-clinical-access-parity-2026-08-19.md) | 内存患者 `clinicalAccess` 与 MySQL 映射事实对齐；本地修正，未部署线上 |
+| [`release/patient-provider-owner-join-2026-08-19.md`](release/patient-provider-owner-join-2026-08-19.md) | 临床 `his-patient` 映射同时校验患者主表与映射表 Provider 归属；本地修正，未部署线上 |
 | [`release/current-968af78-runtime-coexistence-2026-08-19-1543.md`](release/current-968af78-runtime-coexistence-2026-08-19-1543.md) | 15:43 CST SSH 只读复核 `968af78`、新旧监听、公网 live/ready 和依赖状态；不代表 Provider/真机业务成功 |
 | [`release/08c36a8-production-acceptance-2026-08-19.md`](release/08c36a8-production-acceptance-2026-08-19.md) | 历史 `08c36a8` 原子生产切换、日志脱敏、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
 | [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md) | 历史 `65219e2` 原子生产切换、候选 smoke、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |

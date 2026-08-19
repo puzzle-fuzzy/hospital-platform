@@ -35,6 +35,12 @@
   尚未部署到 `968af78`；详见
   [`release/in-memory-clinical-access-parity-2026-08-19.md`](release/in-memory-clinical-access-parity-2026-08-19.md)。
 
+- 2026-08-19（患者临床映射 Provider 归属校验）：发现 MySQL 临床引用查询此前只筛选独立映射表的 Provider，
+  未同时确认患者主表的 `provider_name`。现已增加主表与映射表 Provider 的联合条件，避免历史迁移或异常修复产生
+  “其它 Provider 患者主表 + 众阳 HIS patId”交叉记录；补充 SQL 参数回归断言和中文注释。该修正只在新项目本地完成，
+  未修改旧 Python、线上服务、数据库或 Redis，尚未部署到 `968af78`；详见
+  [`release/patient-provider-owner-join-2026-08-19.md`](release/patient-provider-owner-join-2026-08-19.md)。
+
 - 2026-08-19（档案查询身份二次关联）：在不要求 Provider 尚未冻结的可选字段全部存在的前提下，
   新 adapter 现在会校验：响应若包含 `patName`，必须匹配本次查询姓名；若包含顶层卡号或
   `patCardVOList`，必须包含本次查询卡号；若卡片项包含 `patId`，还必须与档案顶层 `patId` 一致。

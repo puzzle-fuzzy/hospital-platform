@@ -781,11 +781,15 @@ test("MySQL clinical provider lookup uses the purpose-specific HIS mapping", asy
 		providerPatientId: "his-patient-001",
 	});
 	expect(state.statements[0]).toContain("FROM hp_patient_provider_references");
+	expect(state.statements[0]).toContain(
+		"patients.provider_name = provider_refs.provider_name",
+	);
 	expect(state.values[0]).toEqual([
 		"user-001",
 		"internal-patient-001",
 		"zhongyang",
 		"his-patient",
+		"zhongyang",
 	]);
 });
 

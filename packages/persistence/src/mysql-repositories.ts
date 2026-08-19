@@ -1398,10 +1398,20 @@ export function createMySqlRepositories(
 		): Promise<PatientProviderReference | undefined> {
 			const referenceKind = input.referenceKind ?? "directory";
 			if (referenceKind === "his-patient") {
+				// 临床映射表的 provider 归属还必须与患者主表一致。仅过滤
+				// provider_refs.provider_name 不够：异常数据修复或历史迁移可能留下
+				// “患者主表属于其它 Provider、独立表却有众阳 patId”的交叉记录；
+				// 这类记录不能进入预约、报告或费用调用帧，必须在仓储层拒绝。
 				const rows = await execute<PatientProviderReferenceRow[]>(
 					pool,
-					"SELECT provider_refs.patient_id, provider_refs.provider_name, provider_refs.reference_kind, provider_refs.provider_patient_id FROM hp_patient_provider_references AS provider_refs INNER JOIN hp_patients AS patients ON patients.owner_user_id = provider_refs.owner_user_id AND patients.patient_id = provider_refs.patient_id WHERE provider_refs.owner_user_id = ? AND provider_refs.patient_id = ? AND provider_refs.provider_name = ? AND provider_refs.reference_kind = ? AND patients.directory_active = 1 LIMIT 1",
-					[input.ownerUserId, input.patientId, input.provider, referenceKind],
+					"SELECT provider_refs.patient_id, provider_refs.provider_name, provider_refs.reference_kind, provider_refs.provider_patient_id FROM hp_patient_provider_references AS provider_refs INNER JOIN hp_patients AS patients ON patients.owner_user_id = provider_refs.owner_user_id AND patients.patient_id = provider_refs.patient_id AND patients.provider_name = provider_refs.provider_name WHERE provider_refs.owner_user_id = ? AND provider_refs.patient_id = ? AND provider_refs.provider_name = ? AND provider_refs.reference_kind = ? AND patients.provider_name = ? AND patients.directory_active = 1 LIMIT 1",
+					[
+						input.ownerUserId,
+						input.patientId,
+						input.provider,
+						referenceKind,
+						input.provider,
+					],
 				);
 				const row = rows[0];
 				return row?.provider_patient_id
