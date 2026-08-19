@@ -48,6 +48,19 @@ HIS 临床患者引用，`patCardVOList`、身份证、手机号、姓名扩展�
 `data.patId`。医院尚未确认扫码字段、签名、TTL 和扫码回执前，二维码继续保持关闭态；不得因为档案接口能返回
 `patId` 就把它生成二维码或暴露给小程序。
 
+### 旧端源码行为对照（2026-08-19）
+
+为避免把旧端变量名、注释和实际运行值混为一谈，下面按旧端源码的执行位置固定四个事实：
+
+| 旧端位置 | 实际行为 | 新平台对应边界 |
+| --- | --- | --- |
+| `hospital-app/src/api/modules/ZY.ts` 的 `getArchivesInfoApi` | 调用 `patInfosFind`，查询参数是 `type=3`、`cardNo` 和 `patName`。 | 由服务端 adapter 调用，不能让小程序直连 Provider。 |
+| `hospital-app/src/pagesB/patient/patientChange.vue` 的 `selectPatient` | 选择目录患者后读取档案响应，并把 `archives.patId` 写入旧端本地患者状态。 | `patId` 只进入服务端 `his-patient` 映射，不能作为平台公开患者 ID。 |
+| `hospital-app/src/pages/index/index.vue` 首页患者卡片 | 卡片文字 `ID:` 显示的是 `patientInfo.patId`。这是展示行为，不代表二维码也使用该值。 | 平台首页只展示脱敏卡号和平台内部患者摘要，不展示 Provider 引用。 |
+| `hospital-app/src/pages/index/index.vue` 的 `patientQrUrl` | 可执行代码实际读取 `patientInfo.medicalCardNo`，再拼接第三方二维码 URL；源码旁的“只需要包含 patId”注释与执行代码不一致。 | 不能把这段第三方 URL 当作医院扫码协议；协议未确认前保持关闭。 |
+
+因此，当前能够确认的是“`patInfosFind.data.patId` 支撑临床查询映射”，而不是“`patId` 是二维码载荷”。旧端已经证明了页面展示值和二维码输入值可以不同；医院扫码端是否要求医疗卡号、HIS 患者号或签名凭证，仍必须以医院/HIS 的正式协议和扫码回执为准。
+
 ### 2026-08-19 档案返回身份关联校验
 
 在最小 `success=true + data.patId` 契约之上，新 adapter 增加了兼容性的二次关联：Provider
