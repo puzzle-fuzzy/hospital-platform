@@ -19,6 +19,13 @@
 患者映射确认、字段脱敏白名单和权限/错误样例；本轮不新增 schema、adapter、service、页面或兼容转发。待 Provider/HIS 材料齐全后，
 必须先完成 intake 和差异表，再按 contract → adapter → API → 小程序 → 测试 → 验收手册顺序推进。
 
+补充记录（2026-08-19 11:20 CST）：重启后重新读取微信开发者工具，新 `miniprogram` 窗口的资源树仍为 `dist/`，但没有形成新的
+真机二维码、手机连接或可绑定的独立真机调试窗口；一次入口操作也没有产生可复核的“当前候选来源 + 有效二维码 + 设备连接”证据链。
+因此本次不把模拟器画面、页面变化或 Network 面板变化计入微信登录、患者切换、预约、门诊费用、报告或其它业务验收。旧 `mp-weixin` 窗口继续排除，
+旧 Python 服务、线上新 API、数据库和 Redis 均未触碰。下一步仍需在新 `miniprogram` 窗口人工重新生成二维码并扫码，再按
+[`../release/miniprogram-device-session-boundary-2026-08-18.md`](../release/miniprogram-device-session-boundary-2026-08-18.md) 同时采集设备归属、页面结果、
+HTTP `traceId/requestId` 和低敏服务端日志。
+
 ## 当前 release 基线（2026-08-19 00:50 CST）
 
 补充记录（2026-08-19 00:48–00:50 CST）：服务端 `b7c9451` 已从 `c26e696` 原子切换到线上 `current`，只重启新 API；
