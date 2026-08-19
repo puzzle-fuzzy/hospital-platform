@@ -20,7 +20,7 @@
 
 ## 2. 当前事实
 
-- 当前线上 release 为 `65219e2`，已完成 production preflight、隔离 runtime smoke 和只重启新 API 的无损切换；旧 Python `8001` 继续运行。`b7c9451`、`c26e696` 及此前 release 均按历史切换记录理解。
+- 当前线上 release 为 `968af78`，已完成 production preflight、隔离 runtime smoke 和只重启新 API 的无损切换；旧 Python `8001` 继续运行。`b7c9451`、`c26e696` 及此前 release 均按历史切换记录理解。
   本次切换只包含微信身份边界修复和候选运行包，不增加预约写入、支付、医保、报告或 HIS 能力；真实微信/患者/只读业务证据仍待。
 - 旧端扫描基线为 64 个页面，原生小程序当前注册 14 个 TypeScript 页面；旧 FastAPI 与旧小程序
   的接口快照仍由 `legacy-api-endpoint-inventory.md` 维护。
@@ -28,7 +28,7 @@
   总挂载数从 191 漂移到 195；同时发现 4 条挂号插件支付/退款入口和第 3 个微信支付调起页面。
   这些事实已补入旧端清单并通过 `pnpm migration:audit`，状态仍为“最后处理”，没有因此开放新端
   支付、医保、退款或 HIS 回写接口。
-  - 当前线上新 API release 为 `65219e2`，监听 `18081`；配套小程序构建来源为
+  - 当前线上新 API release 为 `968af78`，监听 `18081`；配套小程序构建来源为
     `482288496c6de90ff86fb2f2eb54db3b9ae0bae5`（当前本地候选，尚未上传线上）；旧 Python 服务继续监听 `8001`，旧服务、
   旧 Redis namespace 和旧端口不能因为新端验收而停止。
 - `41c9c18` 已取得预约科室 62 条、排班 1 条的真实只读结果，并确认
@@ -41,9 +41,9 @@
   这只证明公网运行和关闭边界，不证明会话、Provider 业务、真机或新旧服务共存；完整 requestId 与限制见
   [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)。
 - 当前切换后 SSH 核对确认新 Bun API 监听 `10.0.0.3:18081`、旧 Python API 监听 `0.0.0.0:8001`，
-  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `65219e2`，Worker 仍 inactive。这补强运行层共存证据，
+  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `968af78`，Worker 仍 inactive。这补强运行层共存证据，
   但不能替代业务和真机证据；当前 release 的完整记录见
-  [`../release/65219e2-production-acceptance-2026-08-19.md`](../release/65219e2-production-acceptance-2026-08-19.md)。
+  [`../release/968af78-production-acceptance-2026-08-19.md`](../release/968af78-production-acceptance-2026-08-19.md)。
 - 进程 TCP 连接和两侧配置的脱敏比对确认 Bun API 与旧 Python 共用远端 MySQL
   `8.130.127.184:3306/hospital-dev`，新 API 使用 Redis DB3、旧 Python 使用 Redis DB1；新服务只使用
   `hp_*` 表，旧服务继续使用 legacy 表。该事实不代表 MongoDB、旧 Redis namespace、旧任务或管理端能力已迁移。
