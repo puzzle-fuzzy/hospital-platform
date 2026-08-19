@@ -16,6 +16,13 @@
   [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md)。
   Provider 业务、真实微信真机和支付/医保仍未验收。
 
+- 2026-08-19（档案查询身份二次关联）：在不要求 Provider 尚未冻结的可选字段全部存在的前提下，
+  新 adapter 现在会校验：响应若包含 `patName`，必须匹配本次查询姓名；若包含顶层卡号或
+  `patCardVOList`，必须包含本次查询卡号。姓名/卡号不一致、卡片列表异常或字段格式异常时整次同步
+  fail-closed，不写入错误 `his-patient` 映射；错误信息不携带查询姓名、卡号或原始档案。新增定向测试后
+  患者 adapter 为 15/15；本次只改新项目，未部署、未调用真实 Provider、未修改旧 Python、数据库或 Redis。
+  Provider 正式字段、档案状态枚举、真实业务和真机证据仍待补齐。
+
 - 2026-08-19 12:39 CST（当前 release 只读复核）：SSH 确认 `current=65219e2`、新 API `active`、Worker `inactive`，
   `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；使用当前 release 的 preflight 和受控生产 env 复核
   `environment=production`、MySQL/Redis/schema `ok`、schema marker `0016`，患者/预约/门诊费用 gate 为 configured，

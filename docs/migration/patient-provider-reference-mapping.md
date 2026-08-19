@@ -48,6 +48,16 @@ HIS 临床患者引用，`patCardVOList`、身份证、手机号、姓名扩展�
 `data.patId`。医院尚未确认扫码字段、签名、TTL 和扫码回执前，二维码继续保持关闭态；不得因为档案接口能返回
 `patId` 就把它生成二维码或暴露给小程序。
 
+### 2026-08-19 档案返回身份关联校验
+
+在最小 `success=true + data.patId` 契约之上，新 adapter 增加了兼容性的二次关联：Provider
+若返回 `patName`，必须与本次查询姓名一致；若返回顶层卡号或 `patCardVOList`，卡片集合必须
+包含本次查询卡号。由于正式 Provider 文档尚未冻结，暂不把这些字段设为所有环境的必填项；
+但字段一旦出现而不一致，整次同步必须 fail-closed，不能把返回的 `patId` 写入当前患者映射。
+这条校验只证明“查询身份和档案身份一致”，不替代 `invalidFlag`、锁定状态、机构归属等尚未
+取得正式枚举的业务判断。具体代码和测试证据见
+[`patient-archive-identity-correlation-2026-08-19.md`](../release/patient-archive-identity-correlation-2026-08-19.md)。
+
 ## 代码边界
 
 - `packages/adapters/src/zhongyang-patients.ts` 负责按旧端真实契约查询档案，并把 `patId` 收窄为 `his-patient` 引用。

@@ -325,6 +325,114 @@ function mapPatient(
 	};
 }
 
+const ARCHIVE_CARD_FIELDS = [
+	"cardNo",
+	"medicalCardNo",
+	"idCardNo",
+	"idcardNo",
+] as const;
+
+const ARCHIVE_PATIENT_CARD_FIELDS = [
+	"patCardNo",
+	"cardPatCardNo",
+	"originalPatCardNo",
+	"idcardNo",
+] as const;
+
+/**
+ * 读取档案响应中的可选身份字段，但不把它们带出 adapter。
+ *
+ * 目前已确认的最小 Provider 契约只有 `success=true` 和字符串 `patId`；
+ * 不同环境可能省略姓名或卡片列表，所以缺少字段仍保持兼容。可是只要
+ * Provider 返回了这些字段，就必须先校验格式，不能让错误的患者资料静默
+ * 参与 HIS 映射。这里沿用 `requiredText` 的安全整数边界，避免把超出
+ * JavaScript 安全范围的数字卡号转换成另一张卡号。
+ */
+function optionalArchiveText(
+	value: unknown,
+	field: string,
+	requestId: string,
+): string | undefined {
+	if (value === undefined || value === null) return undefined;
+	return requiredText(value, field, 128, "patient-archive", requestId, true);
+}
+
+/**
+ * 将档案查询结果与本次目录患者做二次身份关联。
+ *
+ * `patInfosFind` 是按姓名和卡号查询的，但只检查返回 `patId` 仍不足以
+ * 证明 Provider 没有返回同名患者或错误卡片。正式契约尚未冻结时，不能
+ * 贸然要求所有环境都返回完整字段；因此采用“有字段必匹配、无字段保持
+ * 最小兼容”的边界。发现不匹配时整次同步失败，绝不把错误 HIS `patId`
+ * 写入当前患者的 owner-scoped 映射。
+ */
+function ensureArchiveMatchesQuery(
+	archive: Record<string, unknown>,
+	requestedCard: string,
+	requestedName: string,
+	requestId: string,
+): void {
+	const returnedName = optionalArchiveText(
+		archive.patName,
+		"patName",
+		requestId,
+	);
+	if (returnedName !== undefined && returnedName !== requestedName) {
+		throw providerError(
+			"Zhongyang patient archive did not match requested patient",
+			requestId,
+			"patient-archive",
+			true,
+		);
+	}
+
+	const returnedCards = new Set<string>();
+	for (const field of ARCHIVE_CARD_FIELDS) {
+		const card = optionalArchiveText(archive[field], field, requestId);
+		if (card !== undefined) returnedCards.add(card);
+	}
+
+	const patientCards = archive.patCardVOList;
+	if (patientCards !== undefined && patientCards !== null) {
+		if (!Array.isArray(patientCards)) {
+			throw providerError(
+				"Zhongyang patient archive card list was invalid",
+				requestId,
+				"patient-archive",
+				true,
+			);
+		}
+		for (const [index, item] of patientCards.entries()) {
+			if (typeof item !== "object" || item === null || Array.isArray(item)) {
+				throw providerError(
+					"Zhongyang patient archive card item was invalid",
+					requestId,
+					"patient-archive",
+					true,
+				);
+			}
+			const cardItem = item as Record<string, unknown>;
+			for (const field of ARCHIVE_PATIENT_CARD_FIELDS) {
+				const card = optionalArchiveText(
+					cardItem[field],
+					`patCardVOList[${index}].${field}`,
+					requestId,
+				);
+				if (card !== undefined) returnedCards.add(card);
+			}
+		}
+	}
+
+	if (returnedCards.size > 0 && !returnedCards.has(requestedCard)) {
+		throw providerError(
+			"Zhongyang patient archive did not match requested card",
+			requestId,
+			"patient-archive",
+			true,
+		);
+	}
+}
+
 /**
  * 使用旧端已经验证过的档案查询契约取得临床业务所需的 HIS patId。
  *
@@ -416,8 +524,10 @@ async function resolveHisPatientId(
 			true,
 		);
 	}
+	const archive = envelope.data as Record<string, unknown>;
+	ensureArchiveMatchesQuery(archive, card, displayName, response.requestId);
 	return requiredText(
-		(envelope.data as Record<string, unknown>).patId,
+		archive.patId,
 		"patId",
 		128,
 		operation,
