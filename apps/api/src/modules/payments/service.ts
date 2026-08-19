@@ -4,8 +4,10 @@ import type {
 } from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
+	isBoundedOpaqueIdentifier,
 	normalizeIdentityUserReadModel,
 	PaymentCashPrepayNotAllowedError,
+	PaymentOrderInputError,
 	type PaymentOrderService,
 	type PaymentPrepayAttempt,
 	PaymentPrepayAttemptInProgressError,
@@ -38,6 +40,80 @@ export type WechatPrepayServiceDependencies = {
 	createAttemptId?: () => string;
 };
 
+type WechatPrepayCreateInput = {
+	ownerUserId: string;
+	orderId: string;
+	context: { traceId: string; idempotencyKey: string };
+};
+
+type WechatPrepayReadInput = {
+	ownerUserId: string;
+	orderId: string;
+	idempotencyKey: string;
+};
+
+/**
+ * 预支付服务也可能被组合根或 Worker 直接调用，不能只依赖 HTTP schema。
+ *
+ * 这里仅验证平台内部标识和链路字段的形状，不代表订单允许支付，也不
+ * 代表真实微信/医保 contract 已打开；订单状态、金额和 provider gate 仍
+ * 在后续业务步骤继续校验。先收敛运行时对象，可以避免 null/数组在读取
+ * 属性时变成未映射 500，更不能让异常输入触碰订单仓储或支付 Provider。
+ */
+function normalizeWechatPrepayCreateInput(
+	value: unknown,
+): WechatPrepayCreateInput {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new PaymentOrderInputError("Wechat prepay input is invalid");
+	}
+	const record = value as Record<string, unknown>;
+	const context = record.context;
+	if (
+		!isBoundedOpaqueIdentifier(record.ownerUserId) ||
+		!isBoundedOpaqueIdentifier(record.orderId) ||
+		typeof context !== "object" ||
+		context === null ||
+		Array.isArray(context)
+	) {
+		throw new PaymentOrderInputError("Wechat prepay input is invalid");
+	}
+	const contextRecord = context as Record<string, unknown>;
+	if (
+		!isBoundedOpaqueIdentifier(contextRecord.traceId) ||
+		!isBoundedOpaqueIdentifier(contextRecord.idempotencyKey)
+	) {
+		throw new PaymentOrderInputError("Wechat prepay context is invalid");
+	}
+	return {
+		ownerUserId: record.ownerUserId,
+		orderId: record.orderId,
+		context: {
+			traceId: contextRecord.traceId,
+			idempotencyKey: contextRecord.idempotencyKey,
+		},
+	};
+}
+
+/** 读取预支付状态使用同一组 owner/order/幂等键边界，不能绕过创建端校验。 */
+function normalizeWechatPrepayReadInput(value: unknown): WechatPrepayReadInput {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new PaymentOrderInputError("Wechat prepay read input is invalid");
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		!isBoundedOpaqueIdentifier(record.ownerUserId) ||
+		!isBoundedOpaqueIdentifier(record.orderId) ||
+		!isBoundedOpaqueIdentifier(record.idempotencyKey)
+	) {
+		throw new PaymentOrderInputError("Wechat prepay read input is invalid");
+	}
+	return {
+		ownerUserId: record.ownerUserId,
+		orderId: record.orderId,
+		idempotencyKey: record.idempotencyKey,
+	};
+}
+
 /**
  * 微信预支付应用服务是一个很窄的 provider 边界：
  *
@@ -64,11 +140,10 @@ export class WechatPrepayService {
 		return new Date(this.now().getTime() + delayMs).toISOString();
 	}
 
-	async create(input: {
-		ownerUserId: string;
-		orderId: string;
-		context: { traceId: string; idempotencyKey: string };
-	}): Promise<WechatPrepayPayload["data"]> {
+	async create(
+		input: WechatPrepayCreateInput,
+	): Promise<WechatPrepayPayload["data"]> {
+		input = normalizeWechatPrepayCreateInput(input);
 		const order = await this.dependencies.orders.get(
 			input.ownerUserId,
 			input.orderId,
@@ -189,11 +264,10 @@ export class WechatPrepayService {
 	}
 
 	/** 只读取当前用户的尝试事实；查询不会调用微信或改变订单状态。 */
-	async read(input: {
-		ownerUserId: string;
-		orderId: string;
-		idempotencyKey: string;
-	}): Promise<WechatPrepayStatusPayload["data"]> {
+	async read(
+		input: WechatPrepayReadInput,
+	): Promise<WechatPrepayStatusPayload["data"]> {
+		input = normalizeWechatPrepayReadInput(input);
 		const order = await this.dependencies.orders.get(
 			input.ownerUserId,
 			input.orderId,

@@ -5,6 +5,10 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（支付预支付服务层输入边界）：`WechatPrepayService.create/read` 新增运行时 owner、订单、幂等键和链路上下文校验，
+  即使内部调用绕过 Elysia schema 传入 `null` 或数组，也会在订单仓储、微信 Provider 和支付状态机之前复用既有
+  `400 payment-order-invalid`。本次没有打开支付、医保或结算 gate，也未修改旧 Python、线上服务、数据库和 Redis。
+
 - 2026-08-19（报告目录服务层查询边界）：`ReportService.list` 新增运行时 query 形状收敛，即使组合根或回放任务绕过 Elysia
   schema 传入 `null`、数组、缺少日期或非字符串 `kind`，也会在 owner 映射和 Provider 调用前返回既有 `report-query-invalid`，并
   保留 `report.directory.failed` 低敏日志。新增服务层回归，未打开报告 Provider、详情、附件或修改旧 Python、线上服务、数据库和 Redis。

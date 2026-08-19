@@ -5,6 +5,7 @@ import {
 } from "@hospital/adapters";
 import {
 	IdentityUserReadModelValidationError,
+	PaymentOrderInputError,
 	PaymentOrderService,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -72,6 +73,39 @@ test("wechat prepay reads server identity and returns only server pay params", a
 		state: "cash_pending",
 		status: "ready",
 	});
+});
+
+test("微信预支付服务拒绝绕过 HTTP schema 的畸形输入", async () => {
+	let orderCalls = 0;
+	let providerCalls = 0;
+	const fixture = createFixtureWechatPaymentGateway();
+	const service = new WechatPrepayService({
+		orders: {
+			async get() {
+				orderCalls += 1;
+				throw new Error("order repository must not be called");
+			},
+		} as unknown as PaymentOrderService,
+		identityUsers: createInMemoryIdentityUserRepository(),
+		attempts: createInMemoryPaymentPrepayAttemptRepository(),
+		wechatPayment: {
+			...fixture,
+			async createJsapiOrder(...args) {
+				providerCalls += 1;
+				return fixture.createJsapiOrder(...args);
+			},
+		},
+	});
+
+	await expect(service.create(null as never)).rejects.toBeInstanceOf(
+		PaymentOrderInputError,
+	);
+	await expect(service.read([] as never)).rejects.toBeInstanceOf(
+		PaymentOrderInputError,
+	);
+
+	expect(orderCalls).toBe(0);
+	expect(providerCalls).toBe(0);
 });
 
 test("wechat prepay refuses an order before cash_pending", async () => {
