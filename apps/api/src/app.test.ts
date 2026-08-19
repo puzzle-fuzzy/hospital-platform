@@ -687,6 +687,36 @@ test("profile endpoint is owner-scoped and rejects stale versions", async () => 
 		},
 	});
 
+	const clearNullableFieldsResponse = await app.handle(
+		new Request("http://localhost/api/v1/me/profile", {
+			method: "PUT",
+			headers: {
+				authorization,
+				"content-type": "application/json",
+				"x-request-id": "profile-clear-nullable-fields",
+			},
+			body: JSON.stringify({
+				version: 1,
+				age: null,
+				email: null,
+			}),
+		}),
+	);
+	// null 是页面明确清空普通资料的业务意图，不等价于省略字段；服务端
+	// 必须在同一个 version 条件下持久化清空并返回新的 canonical 快照，
+	// 否则用户下次进入页面仍会看到旧邮箱/年龄，形成“保存成功但事实未变”。
+	expect(clearNullableFieldsResponse.status).toBe(200);
+	expect(await clearNullableFieldsResponse.json()).toEqual({
+		success: true,
+		data: {
+			displayName: "测试用户",
+			gender: "female",
+			age: null,
+			email: null,
+			version: 2,
+		},
+	});
+
 	const staleResponse = await app.handle(
 		new Request("http://localhost/api/v1/me/profile", {
 			method: "PUT",
@@ -739,7 +769,7 @@ test("profile endpoint is owner-scoped and rejects stale versions", async () => 
 	expect(originalOwnerReadResponse.status).toBe(200);
 	expect(await originalOwnerReadResponse.json()).toMatchObject({
 		success: true,
-		data: { displayName: "测试用户", version: 1 },
+		data: { displayName: "测试用户", age: null, email: null, version: 2 },
 	});
 	expect(otherOwnerReadResponse.status).toBe(200);
 	expect(await otherOwnerReadResponse.json()).toMatchObject({

@@ -5,6 +5,10 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（普通资料清空语义回归）：API 组合测试补充 `age=null`、`email=null` 的明确清空路径，验证服务端不会把
+  `null` 当成省略字段，且仍按 owner/version 条件递增并返回 canonical 资料快照；原有 409、跨用户隔离和未知字段拒绝保持不变。
+  API 全量回归仍为 `153/153`。这是本地 HTTP/内存仓储证据，不替代真实微信资料 PUT、409 和真机验收。
+
 - 2026-08-19 09:13 CST：公网只读复核 `health/live`、`health/ready`、`system/ping` 均为 `200`，ready 的
   `database/redis/schema` 均为 `ok`，未登录 `/me` 为预期 `401/unauthorized`；本轮无 Bearer、患者参数、Provider
   请求或业务写入。当前环境尝试无密钥批处理 SSH 被 `publickey,password` 拒绝，因此没有新增服务器 release、systemd、
