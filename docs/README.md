@@ -3,7 +3,7 @@
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前权威运行基线（2026-08-19 生产切换后）为：服务端 `65219e2`、小程序候选来源
+当前权威运行基线（2026-08-19 14:43 生产切换后）为：服务端 `08c36a8`、小程序候选来源
 `482288496c6de90ff86fb2f2eb54db3b9ae0bae5`（提交 `4822884`）、新 API `10.0.0.3:18081`、旧 Python `8001`。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
@@ -13,11 +13,12 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `65219e2`、当前本地小程序候选来源以 `482288496c6de90ff86fb2f2eb54db3b9ae0bae5` 为准 |
-| [`release/candidate-4822884-local-build-2026-08-19.md`](release/candidate-4822884-local-build-2026-08-19.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；尚未上传线上 |
-| [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md) | `65219e2` 原子生产切换、候选 smoke、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
-| [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md) | 当前 `65219e2` 生产 preflight、gate 状态、内外网 readiness 和旧 Python 共存复核；不代表 Provider/真机业务完成 |
-| [`release/current-65219e2-runtime-observation-2026-08-19.md`](release/current-65219e2-runtime-observation-2026-08-19.md) | 重启后 `65219e2` 运行层、正确内网探针、公网 readiness、生产模式和报告关闭 gate 的只读复核 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `08c36a8`、当前本地小程序候选来源以 `482288496c6de90ff86fb2f2eb54db3b9ae0bae5` 为准 |
+| [`release/candidate-4822884-local-build-2026-08-19.md`](release/candidate-4822884-local-build-2026-08-19.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；尚未上传线上，服务端基线为 `08c36a8` |
+| [`release/08c36a8-production-acceptance-2026-08-19.md`](release/08c36a8-production-acceptance-2026-08-19.md) | 当前 `08c36a8` 原子生产切换、日志脱敏、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
+| [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md) | 历史 `65219e2` 原子生产切换、候选 smoke、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
+| [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md) | 切换前 `65219e2` 生产 preflight、gate 状态、内外网 readiness 和旧 Python 共存历史复核；不代表 Provider/真机业务完成 |
+| [`release/current-65219e2-runtime-observation-2026-08-19.md`](release/current-65219e2-runtime-observation-2026-08-19.md) | 切换前重启窗口的 `65219e2` 运行层、正确内网探针、公网 readiness、生产模式和报告关闭 gate 历史复核 |
 | [`migration/zhongyang-authorization-contract-audit-2026-08-19.md`](migration/zhongyang-authorization-contract-audit-2026-08-19.md) | 旧平台用户 JWT 与新服务 Provider 凭证的区别、鉴权契约缺口和真实验收停止条件 |
 | [`migration/outpatient-payment-provider-contract-audit-2026-08-19.md`](migration/outpatient-payment-provider-contract-audit-2026-08-19.md) | 门诊费用 2.6.33 参数、`patInfosFind.data.patId`、金额/状态映射、渠道码和只读停止条件 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 历史 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |
@@ -43,9 +44,9 @@
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板 |
-| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `65219e2`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
-| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态以 `65219e2` 和当前小程序 sourceRevision 为准 |
-| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | 当前 `65219e2` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
+| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `65219e2` 的历史窗口）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
+| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态记录 `65219e2` 历史窗口和当前小程序 sourceRevision |
+| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | `65219e2` 历史窗口服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊缴费的患者归属、窗口、错误分流、日志闭环和未完成证据审计 |
 | [`release/outpatient-payment-envelope-validation-2026-08-18.md`](release/outpatient-payment-envelope-validation-2026-08-18.md) | 门诊费用 Provider 响应包络必须明确 `success=true` 的代码修正、测试和未部署边界 |
@@ -120,7 +121,7 @@
 | [`release/current-production-observability-audit-2026-08-17.md`](release/current-production-observability-audit-2026-08-17.md) | 2026-08-17 当前 API 启动 capability、MySQL/schema 探针抖动、微信登录失败/恢复和患者同步日志复核 |
 | [`release/restart-coexistence-readonly-audit-2026-08-18.md`](release/restart-coexistence-readonly-audit-2026-08-18.md) | 2026-08-18 重启后新旧服务监听、内外网探针和内网/公网路径边界复核 |
 | [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md) | 历史 `b451cc6` 小程序候选的只读验收组合和停止条件；当前候选请改读 `candidate-4822884-local-build-2026-08-19.md` |
-| [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md) | 历史 `c26e696` 窗口的模拟器与服务端日志观察；不替代当前 `65219e2` + `4822884` 真机/Provider 验收 |
+| [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md) | 历史 `c26e696` 窗口的模拟器与服务端日志观察；不替代当前 `08c36a8` + `4822884` 真机/Provider 验收 |
 | [`release/miniprogram-api-prefix-hardening-2026-08-19.md`](release/miniprogram-api-prefix-hardening-2026-08-19.md) | 2026-08-19 小程序未知 API 前缀缓存回退、刷新 404 防护和运行包证据 |
 | [`release/restart-coexistence-readonly-audit-2026-08-19.md`](release/restart-coexistence-readonly-audit-2026-08-19.md) | 2026-08-19 重启后新旧服务共存、公网健康探针、全仓门禁和业务未完成边界复核 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊费用只读业务的不变量、日志闭环和当前测试证据 |

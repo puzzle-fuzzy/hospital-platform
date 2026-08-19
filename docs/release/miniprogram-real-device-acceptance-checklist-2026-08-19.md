@@ -7,7 +7,7 @@
 
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
-| 服务端 | `65219e2` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
+| 服务端 | `08c36a8` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
 | 小程序运行输入 | `4822884` | 当前本地候选，尚未上传线上 |
 | 小程序运行包来源 | `482288496c6de90ff86fb2f2eb54db3b9ae0bae5` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |

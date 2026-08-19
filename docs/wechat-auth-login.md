@@ -5,8 +5,8 @@
 
 ## 当前结论
 
-当前线上新 API release 为 `65219e2`，旧 Python `8001` 保持共存；生产切换和运行边界见
-[`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md)。
+当前线上新 API release 为 `08c36a8`，旧 Python `8001` 保持共存；生产切换和运行边界见
+[`release/08c36a8-production-acceptance-2026-08-19.md`](release/08c36a8-production-acceptance-2026-08-19.md)。
 该 release 切换只更新新服务的日志证据 bundle，不改变微信登录的业务开放边界。
 
 当前本地小程序候选为 `4822884`，运行包来源指纹为
