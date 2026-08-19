@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `b55df37b48bbe250e4ebefee3db7739d2fd554e2`（提交 `b55df37`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`（提交 `b451cc6`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-19 生产更新：服务端已切换到 `65219e2`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
 > `patInfosFind` 临床引用和二维码边界见 [`../release/65219e2-production-acceptance-2026-08-19.md`](../release/65219e2-production-acceptance-2026-08-19.md)。
@@ -16,7 +16,7 @@
 
 ## 当前准入复核（2026-08-19 08:47 CST）
 
-补充记录（2026-08-19 11:49 CST）：数据库瞬态断连恢复后，SSH 只读确认当前 release `b7c9451`、新 API `active/running`，
+补充记录（2026-08-19 11:49 CST）：数据库瞬态断连恢复后，SSH 只读确认该观察窗口 release `b7c9451`、新 API `active/running`，
 正确监听地址 `10.0.0.3:18081` 的 readiness 为 `database/redis/schema=ok`，旧 Python `8001` 继续共存。Redis 会话 TTL
 审计仍返回 `redis-session-scan-unavailable`（退出码 2），所以会话实际 TTL、过期后的重新登录和多患者失效恢复继续保持未验收；
 没有修改 ACL、重启服务、写数据库/Redis 或操作旧项目。详见 [`../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md`](../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md)。
@@ -35,7 +35,7 @@ JavaScript 精度损失后的数字。新 adapter 已拒绝超出安全整数范
 不是新 API 的数据库目标，根分区约 95% 使用率需要单独运维关注。该事件只记录运行层恢复，不增加患者、预约、报告、费用或真机证据，详见
 [`../release/current-b7c9451-database-transient-observation-2026-08-19.md`](../release/current-b7c9451-database-transient-observation-2026-08-19.md)。
 
-通过 SSH 只读确认当前 release 为 `b7c9451`、`hospital-platform-api-v2.service` 为 `active`；服务进程环境中的
+通过 SSH 只读确认该观察窗口 release 为 `b7c9451`、`hospital-platform-api-v2.service` 为 `active`；服务进程环境中的
 `ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false` 均为显式关闭。报告目录/详情因此继续
 保持 `503 dependency-not-configured` 的 fail-closed 边界，不调用 Provider、不把空列表伪装成真实结果，也不因页面已经存在就打开 gate。
 
