@@ -26,6 +26,42 @@ export const currentBaselineDocuments = Object.freeze([
 		path: "docs/release/miniprogram-real-device-acceptance-checklist-2026-08-19.md",
 		label: "当前小程序真机验收清单",
 	},
+	{
+		path: "docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
+		label: "P0 只读业务验收手册",
+	},
+	{
+		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
+		label: "普通资料验收手册",
+	},
+	{
+		path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
+		label: "P0 只读业务 contract 审计",
+	},
+	{
+		path: "docs/migration/current-execution-checkpoint-2026-08-17.md",
+		label: "当前迁移执行检查点",
+	},
+	{
+		path: "docs/migration/migration-gap-audit-2026-08-17.md",
+		label: "迁移差距审计",
+	},
+	{
+		path: "docs/migration/patient-sync-idempotency-contract.md",
+		label: "患者同步幂等契约",
+	},
+	{
+		path: "docs/migration/outpatient-payment-provider-contract-audit-2026-08-19.md",
+		label: "门诊费用 Provider 契约审计",
+	},
+	{
+		path: "docs/release/appointment-record-tab-contract-audit-2026-08-19.md",
+		label: "预约记录标签契约审计",
+	},
+	{
+		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
+		label: "报告只读契约审计",
+	},
 ]);
 
 /** 从验收候选的表格中提取当前服务端和小程序来源指纹。 */
