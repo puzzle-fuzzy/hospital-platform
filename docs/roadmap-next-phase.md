@@ -9,6 +9,12 @@
 > 当前服务端为 `398be8e`，小程序候选为 `474b044`，完整来源为
 > `474b0444736599c848a4cef9f47fd930884e401d`。
 
+- 2026-08-19 17:58 CST（局域网真机调试重试）：当前 `miniprogram` 窗口重新生成 iOS 二维码，代码包约 `643 KB`，
+  “局域网模式”已勾选，工具显示有效至 18:23；截至观察结束仍没有手机连接、微信 session 或业务 HTTP 流量。
+  该状态只能证明二维码入口和传输模式配置已生成，不能计入微信登录、患者同步、预约、报告或门诊费用验收；本次没有修改
+  旧 Python、线上新 API、MySQL、Redis 或 Provider 配置。详见
+  [`release/miniprogram-device-session-lan-2026-08-19.md`](release/miniprogram-device-session-lan-2026-08-19.md)。
+
 - 2026-08-19 16:57 CST 重启后 SSH 只读复核：`398be8e` 仍为 `current`，新 API
   `10.0.0.3:18081` 与旧 Python `8001` 同时监听，systemd 为 `active/enabled`；使用正确内网绑定地址检查时
   live=200，ready 的 `database/redis/schema` 均为 `ok`。第一次对 `127.0.0.1:18081` 的连接拒绝是探针地址错误，
