@@ -5,6 +5,13 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（重启后本地门禁复核）：API `152/152`、原生小程序 `157/157`、domain `40/40`、persistence
+  `76/76` 全部通过；架构 `66` 条、迁移台账、Provider 接收、文档链接、发布基线和工具测试全部通过，Biome
+  format/lint、9 个 workspace typecheck 与 9 个 workspace build 也全部通过。小程序运行包验证确认 revision 为
+  `b2ce91e`、来源指纹为 `b2ce91e1892a5cddec6953e3812d6f0ec08af8a6`、14 个页面齐全。本次没有新增生产代码，
+  没有部署或重启服务，也没有修改旧 Python、数据库、Redis；用户已有的 `apps/miniprogram/project.config.json`
+  仍保持未触碰、未暂存、未提交。
+
 - 2026-08-19 08:47 CST：通过 SSH 对当前线上环境做只读准入复核：`current=/home/ps/code/hospital-platform/releases/b7c9451`，
   `hospital-platform-api-v2.service=active`；服务进程环境中的 `ZHONGYANG_REPORT_DIRECTORY_READY=false` 和
   `ZHONGYANG_REPORT_DETAIL_READY=false` 均为显式关闭。因此报告目录/详情返回 `503 dependency-not-configured` 是预期
