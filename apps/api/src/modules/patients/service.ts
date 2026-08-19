@@ -19,7 +19,11 @@ import {
 	type PatientRepository,
 	type UserIdentityRepository,
 } from "@hospital/domain";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	type AppLogger,
+	createNoopLogger,
+	providerFailureMetadata,
+} from "@hospital/observability";
 
 export type PatientServiceDependencies = {
 	/** 由服务端会话解析出的 userId 映射到 provider unionId。 */
@@ -379,6 +383,10 @@ export class PatientService {
 						...(error instanceof IdentityUserReadModelValidationError
 							? { identityViolation: error.violation }
 							: {}),
+						// Provider 原始 message、URL、响应体和患者查询字段禁止进入日志；
+						// 这里只追加统一白名单中的请求号、状态码和可重试判断，确保
+						// 线上能按 Provider 链路排障，同时不扩大敏感数据暴露面。
+						...providerFailureMetadata(error),
 					},
 					"Patient directory synchronization failed",
 				);

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "@hospital/adapters";
 import {
 	IdentityUserReadModelValidationError,
 	type PatientDirectoryGateway,
@@ -781,6 +782,63 @@ test("患者目录 provider 失败后只在租约到期才允许同 key 接管�
 		total: 0,
 	});
 	expect(providerCalls).toBe(2);
+});
+
+test("患者目录 provider 失败日志保留安全诊断字段且不泄露查询参数", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-log-safe",
+		unionId: "fixture-union-patient-log-safe",
+	});
+	const lines: string[] = [];
+	const sensitiveCard = "fixture-archive-card-secret";
+	const sensitiveName = "fixture-archive-name-secret";
+	const providerError = new ProviderRequestError({
+		provider: "zhongyang",
+		operation: "patient-archive",
+		requestId: "patient-archive-failed-request",
+		statusCode: 502,
+		retryable: true,
+		message: `raw URL contains ${sensitiveCard} and ${sensitiveName}`,
+		cause: new Error(`raw provider body contains ${sensitiveCard}`),
+	});
+	const service = new PatientService(createInMemoryPatientRepository(), {
+		identityUsers,
+		directory: {
+			async listByIdentity() {
+				throw providerError;
+			},
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-log-safe-trace",
+			idempotencyKey: "patient-log-safe-key",
+		}),
+	).rejects.toBe(providerError);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	const failure = records.find(
+		(record) => record.event === "patient.directory.failed",
+	);
+	expect(failure).toMatchObject({
+		providerOperation: "patient-archive",
+		providerRequestId: "patient-archive-failed-request",
+		providerStatusCode: 502,
+		providerRetryable: true,
+	});
+	// 失败日志只能出现白名单元数据，不能把 Provider 错误 message/cause
+	// 中的卡号、姓名或原始报文带回结构化日志。
+	expect(lines.join("\n")).not.toContain(sensitiveCard);
+	expect(lines.join("\n")).not.toContain(sensitiveName);
 });
 
 test("患者目录读取再次校验 owner 和重复 ID，并记录固定读模型原因", async () => {

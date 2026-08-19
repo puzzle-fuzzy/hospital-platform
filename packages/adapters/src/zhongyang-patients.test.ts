@@ -144,6 +144,56 @@ test("众阳患者目录拒绝业务失败响应", async () => {
 	});
 });
 
+test("众阳档案请求失败时只保留状态和请求号，不泄露查询参数或原始响应", async () => {
+	const card = "fixture-archive-card-secret";
+	const name = "fixture-archive-name-secret";
+	const requestUrls: string[] = [];
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			requestUrls.push(requestUrl);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(JSON.stringify({ message: `${card}:${name}` }), {
+					status: 502,
+					headers: { "x-request-id": "archive-http-failed" },
+				});
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-archive-failure",
+							patientName: name,
+							medicalCardNo: card,
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "patient-list-ok" } },
+			);
+		},
+	});
+
+	const failure = await gateway
+		.listByIdentity({ unionId: "union-archive-failure" }, context)
+		.catch((error: unknown) => error);
+
+	expect(failure).toBeInstanceOf(ProviderRequestError);
+	expect(failure).toMatchObject({
+		operation: "patient-archive",
+		requestId: "archive-http-failed",
+		statusCode: 502,
+		retryable: true,
+	});
+	expect(String(failure)).not.toContain(card);
+	expect(String(failure)).not.toContain(name);
+	expect(JSON.stringify(failure)).not.toContain(card);
+	expect(JSON.stringify(failure)).not.toContain(name);
+	// 只有 Provider 边界允许构造查询 URL；该 URL 不得再被错误对象或日志复制。
+	expect(requestUrls[1]).toContain("patInfosFind");
+});
+
 test("众阳患者目录和档案包络缺少明确 success=true 时拒绝空映射", async () => {
 	const listGateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",

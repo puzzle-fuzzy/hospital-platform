@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（档案查询安全边界与失败日志复核）：复核旧端 `patInfosFind` 的真实响应形状，确认新 adapter 只读取
+  `success=true` 下的 `data.patId`，不把身份证、手机号、`patCardVOList` 或原始档案对象带入公共模型。补充档案 HTTP 失败时
+  不泄露查询卡号/姓名和原始响应的回归测试，并让 `patient.directory.failed` 增加安全的 Provider 请求号、状态码和可重试字段，
+  便于排障但不扩大敏感日志面。该轮只修改新项目、未调用真实 Provider、未重启服务、未修改旧 Python；二维码仍按既有契约保持关闭。
+
 - 2026-08-19 11:01 CST（线上业务事件只读复核）：SSH 再次确认线上仍为 `b7c9451`，新 API `18081` 与旧 Python `8001`
   共存，live/ready 和 `database/redis/schema=ok` 均正常。最近约 30 分钟只有微信登录、患者读取和同步事件，没有预约记录、
   爽约或门诊费用事件；聚合中有 1 次 HTTP 失败，经只读投影确认为旧会话访问 `/api/v1/me` 的预期 `401 unauthorized`，
