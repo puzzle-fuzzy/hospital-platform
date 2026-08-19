@@ -122,10 +122,15 @@ test("普通资料成功响应必须保留完整 canonical 快照并通过运行
 
 	const invalidResponses: unknown[] = [
 		{ success: true, data: { ...valid.data, displayName: undefined } },
+		{ success: true, data: { ...valid.data, displayName: " 平台用户" } },
+		{ success: true, data: { ...valid.data, displayName: "平台\n用户" } },
 		{ success: true, data: { ...valid.data, gender: "other" } },
 		{ success: true, data: { ...valid.data, age: 151 } },
 		{ success: true, data: { ...valid.data, version: "2" } },
 		{ success: true, data: { ...valid.data, email: { value: "x@y.test" } } },
+		{ success: true, data: { ...valid.data, email: "invalid-email" } },
+		{ success: true, data: { ...valid.data, email: " user@example.com" } },
+		{ success: true, data: { ...valid.data, email: "user@\nexample.com" } },
 		{ success: true, data: { ...valid.data, version: 4_294_967_296 } },
 		{ success: true, data: { displayName: "平台用户" } },
 	];
@@ -138,6 +143,13 @@ test("普通资料成功响应必须保留完整 canonical 快照并通过运行
 			expect(error).toMatchObject({ code: "provider-response-invalid" });
 		}
 	}
+
+	expect(
+		requireCanonicalUserProfileResponse({
+			...valid,
+			data: { ...valid.data, extra: "must-be-dropped" },
+		}),
+	).toEqual(valid);
 });
 
 test("报告目录响应必须保持公开字段、详情引用和列表总数一致", () => {

@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（小程序普通资料响应二次 canonical 校验）：客户端此前只检查资料字段的粗略类型，未拒绝首尾空白、控制字符和非法邮箱，且把代理返回的未知字段原样交给页面。现已与服务端 domain 对齐展示文本、邮箱、年龄和版本边界，并重新投影 `displayName/gender/age/email/version` 白名单；异常整包返回既有 `provider-response-invalid`，不会进入资料编辑态。新增小程序回归与中文注释，未执行真实 PUT、未修改旧 Python、线上服务、数据库或 Redis。
+
 - 2026-08-19（支付预支付服务层输入边界）：`WechatPrepayService.create/read` 新增运行时 owner、订单、幂等键和链路上下文校验，
   即使内部调用绕过 Elysia schema 传入 `null` 或数组，也会在订单仓储、微信 Provider 和支付状态机之前复用既有
   `400 payment-order-invalid`。本次没有打开支付、医保或结算 gate，也未修改旧 Python、线上服务、数据库和 Redis。

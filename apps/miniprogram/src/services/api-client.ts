@@ -224,36 +224,87 @@ export function requireCanonicalUserProfileResponse(
 	const age = data.age;
 	const email = data.email;
 	const version = data.version;
-	const displayNameLength =
-		typeof displayName === "string" ? Array.from(displayName).length : 0;
-	const emailValid =
-		email === null ||
-		(typeof email === "string" && Array.from(email).length <= 320);
-	const ageValid =
-		age === null ||
-		(typeof age === "number" &&
-			Number.isSafeInteger(age) &&
-			age >= 0 &&
-			age <= 150);
-	const versionValid =
-		typeof version === "number" &&
-		Number.isSafeInteger(version) &&
-		version >= 0 &&
-		version <= 4_294_967_295;
 	if (
-		displayNameLength < 1 ||
-		displayNameLength > 64 ||
-		(gender !== "male" && gender !== "female" && gender !== "unknown") ||
-		!ageValid ||
-		!emailValid ||
-		!versionValid
+		!hasSafeUserProfileText(displayName, 64) ||
+		!isUserProfileGender(gender) ||
+		!isUserProfileAge(age) ||
+		!isUserProfileEmail(email) ||
+		!isUserProfileVersion(version)
 	) {
 		throw new ApiError("User profile response is invalid", {
 			code: "provider-response-invalid",
 		});
 	}
 
-	return value as unknown as UserProfileResponse;
+	// 不把代理/旧服务额外返回的字段继续交给页面，避免未来响应扩展时把
+	// 身份、实名或患者字段顺着普通资料页面带出。这里的返回对象同时保证
+	// 与服务端 domain 的 trim、控制字符、邮箱和版本边界保持同一语义。
+	return {
+		success: true,
+		data: {
+			displayName,
+			gender,
+			age,
+			email,
+			version,
+		},
+	};
+}
+
+/** 普通资料展示文本与服务端 canonical 读模型共用安全字符边界。 */
+function hasSafeUserProfileText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		Array.from(value).length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function isUserProfileGender(
+	value: unknown,
+): value is UserProfileResponse["data"]["gender"] {
+	return value === "male" || value === "female" || value === "unknown";
+}
+
+function isUserProfileAge(
+	value: unknown,
+): value is UserProfileResponse["data"]["age"] {
+	return (
+		value === null ||
+		(typeof value === "number" &&
+			Number.isSafeInteger(value) &&
+			value >= 0 &&
+			value <= 150)
+	);
+}
+
+function isUserProfileEmail(
+	value: unknown,
+): value is UserProfileResponse["data"]["email"] {
+	return (
+		value === null ||
+		(hasSafeUserProfileText(value, 320) && /^\S+@\S+\.\S+$/.test(value))
+	);
+}
+
+/** 0 代表尚未持久化；正数必须仍落在 MySQL INT UNSIGNED 范围内。 */
+function isUserProfileVersion(
+	value: unknown,
+): value is UserProfileResponse["data"]["version"] {
+	return (
+		typeof value === "number" &&
+		Number.isSafeInteger(value) &&
+		value >= 0 &&
+		value <= 4_294_967_295
+	);
 }
 
 const REPORT_KINDS = new Set<
