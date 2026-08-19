@@ -90,11 +90,14 @@ test("路线图缺少完整小程序来源时拒绝执行项", () => {
 
 test("仓库当前发布文档保持同一套候选", async () => {
 	const result = await auditCurrentReleaseConsistency();
+	// 这里固定当前验收候选，而不是只断言 passed=true：候选文档、运行包来源
+	// 和路线图如果被部分更新，单独的发布审计仍可能通过，但真机就会拿到
+	// 与服务端不配套的旧包。每次切换候选时必须同步更新这组三项断言。
 	expect(result).toMatchObject({
 		passed: true,
 		serverRelease: "b7c9451",
-		miniProgramCommit: "5348715",
-		miniProgramSourceRevision: "534871549517080807c7e5c1375247477f422750",
+		miniProgramCommit: "b2ce91e",
+		miniProgramSourceRevision: "b2ce91e1892a5cddec6953e3812d6f0ec08af8a6",
 	});
 	expect(result.failures).toEqual([]);
 });
