@@ -111,6 +111,31 @@ function requiredText(
 	return normalized;
 }
 
+/**
+ * 卡号必须保持 Provider 原始字符串形态。
+ *
+ * 与允许安全整数的普通外部 ID 不同，卡号可能有前导零；一旦 JSON 把
+ * `001000...` 编码成 Number，JavaScript 即使没有发生精度溢出，也已经
+ * 无法恢复原卡号。身份查询宁可 fail-closed，也不能用被改写的卡号查档案。
+ */
+function requiredCardText(
+	value: unknown,
+	field: string,
+	operation: string,
+	requestId: string,
+	responseInvalid = false,
+): string {
+	if (typeof value !== "string") {
+		throw providerError(
+			`Zhongyang patient field ${field} is invalid`,
+			requestId,
+			operation,
+			responseInvalid,
+		);
+	}
+	return requiredText(value, field, 128, operation, requestId, responseInvalid);
+}
+
 function maskCardNumber(value: unknown): string {
 	if (value === undefined || value === null) return "未绑定";
 	const normalized = String(value).trim();
@@ -309,10 +334,9 @@ function mapPatient(
 		true,
 	);
 	// 旧端患者选择流程明确优先 medicalCardNo；cardNo 只作为旧数据兜底。
-	const card = requiredText(
+	const card = requiredCardText(
 		firstNonBlank(value.medicalCardNo, value.cardNo),
 		"medicalCardNo",
-		128,
 		"patient-archive",
 		requestId,
 		true,
@@ -345,8 +369,8 @@ const ARCHIVE_PATIENT_CARD_FIELDS = [
  * 目前已确认的最小 Provider 契约只有 `success=true` 和字符串 `patId`；
  * 不同环境可能省略姓名或卡片列表，所以缺少字段仍保持兼容。可是只要
  * Provider 返回了这些字段，就必须先校验格式，不能让错误的患者资料静默
- * 参与 HIS 映射。这里沿用 `requiredText` 的安全整数边界，避免把超出
- * JavaScript 安全范围的数字卡号转换成另一张卡号。
+ * 参与 HIS 映射。普通档案字段沿用 `requiredText` 的安全整数边界；卡号
+ * 字段另走 `optionalArchiveCardText`，禁止 JSON 数字破坏前导零。
  */
 function optionalArchiveText(
 	value: unknown,
@@ -355,6 +379,16 @@ function optionalArchiveText(
 ): string | undefined {
 	if (value === undefined || value === null) return undefined;
 	return requiredText(value, field, 128, "patient-archive", requestId, true);
+}
+
+/** 档案响应中的卡号也必须保持字符串，不能接受丢失前导零的 JSON 数字。 */
+function optionalArchiveCardText(
+	value: unknown,
+	field: string,
+	requestId: string,
+): string | undefined {
+	if (value === undefined || value === null) return undefined;
+	return requiredCardText(value, field, "patient-archive", requestId, true);
 }
 
 /**
@@ -389,7 +423,7 @@ function ensureArchiveMatchesQuery(
 
 	const returnedCards = new Set<string>();
 	for (const field of ARCHIVE_CARD_FIELDS) {
-		const card = optionalArchiveText(archive[field], field, requestId);
+		const card = optionalArchiveCardText(archive[field], field, requestId);
 		if (card !== undefined) returnedCards.add(card);
 	}
 
@@ -432,7 +466,7 @@ function ensureArchiveMatchesQuery(
 				);
 			}
 			for (const field of ARCHIVE_PATIENT_CARD_FIELDS) {
-				const card = optionalArchiveText(
+				const card = optionalArchiveCardText(
 					cardItem[field],
 					`patCardVOList[${index}].${field}`,
 					requestId,
@@ -471,10 +505,9 @@ async function resolveHisPatientId(
 	requestId: string,
 ): Promise<string> {
 	const operation = "patient-archive";
-	const card = requiredText(
+	const card = requiredCardText(
 		firstNonBlank(value.medicalCardNo, value.cardNo),
 		"medicalCardNo",
-		128,
 		operation,
 		requestId,
 		true,

@@ -79,6 +79,76 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("众阳患者目录拒绝 JSON 数字卡号，避免查询卡号丢失前导零", async () => {
+	let archiveRequested = false;
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) archiveRequested = true;
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-card-number-001",
+							patientName: "合成测试患者",
+							// JSON 数字无法保留医院卡号可能存在的前导零。
+							medicalCardNo: 987654321001,
+						},
+					],
+				}),
+				{ status: 200 },
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-card-number-001" }, context),
+	).rejects.toBeInstanceOf(ProviderRequestError);
+	expect(archiveRequested).toBe(false);
+});
+
+test("patInfosFind 返回数字卡号时拒绝写入 HIS 映射", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patName: "合成测试患者",
+							// 返回数字会让带前导零的原卡号无法恢复。
+							cardNo: 987654321001,
+							patId: "his-card-number-001",
+						},
+					}),
+					{ status: 200 },
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-card-number-002",
+							patientName: "合成测试患者",
+							medicalCardNo: "000000000000001",
+						},
+					],
+				}),
+				{ status: 200 },
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-card-number-002" }, context),
+	).rejects.toBeInstanceOf(ProviderRequestError);
+});
+
 test("patInfosFind 使用 GET 查询参数和服务端授权，不发送 GET 请求体", async () => {
 	const requests: Array<{
 		url: string;
