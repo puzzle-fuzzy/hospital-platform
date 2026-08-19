@@ -104,3 +104,17 @@
 使用同一 release 在真机产生实际请求后分别验收。报告 gate 保持关闭是正确的 fail-closed 状态。
 
 本节核查没有修改环境文件、重启服务或写入业务数据。
+
+## 8. 继续窗口 SSH 只读复核
+
+在后续重启/继续工作窗口中再次使用 `ps@192.168.112.172` 做只读检查：
+
+- `current` 仍指向 `/home/ps/code/hospital-platform/releases/65219e2`；
+- `hospital-platform-api-v2.service` 为 `active/running`；
+- 新 Bun API 继续监听 `10.0.0.3:18081`；
+- 旧 Python Gunicorn 继续监听 `0.0.0.0:8001`，未停止、未重启、未修改；
+- 内网 `/health/ready` 返回 200，`database/redis/schema` 均为 `ok`；
+- 新 API 近期日志仍明确 `environment=production`，匿名 `/me`、患者、预约历史和门诊费用请求均按预期 401，
+  没有新的有效微信会话或 Provider 业务链。
+
+本次没有执行 `systemctl restart/stop`、release 切换、migration、权限调整、数据库/Redis 写入或旧项目操作。
