@@ -24,6 +24,17 @@ GET /msun-middle-aggregate-patient/v1/patInfosFind
 `PatientRecord.id` 始终是平台内部 opaque `patientId`。小程序只能提交这个内部值，服务端按
 `ownerUserId + patientId + provider + referenceKind` 查询外部引用。
 
+### 本次旧接口响应形状复核（2026-08-19）
+
+旧端实际调用的档案接口返回 `success=true`、`data` 为单个患者对象；`data.patId` 是本次同步需要的
+HIS 临床患者引用，`patCardVOList`、身份证、手机号、姓名扩展字段等都不是小程序公共读模型。新 adapter
+只读取并校验 `data.patId`，其它档案字段不会进入 `PatientDirectoryProfile`、日志或 API 响应；现有 adapter
+测试也覆盖了 `data: { patId: ... }` 的对象形状、目录卡号脱敏和敏感字段不泄露。
+
+二维码不能从这条响应形状推导：旧首页二维码源码读取的是目录对象的 `medicalCardNo`，而不是档案响应的
+`data.patId`。医院尚未确认扫码字段、签名、TTL 和扫码回执前，二维码继续保持关闭态；不得因为档案接口能返回
+`patId` 就把它生成二维码或暴露给小程序。
+
 ## 代码边界
 
 - `packages/adapters/src/zhongyang-patients.ts` 负责按旧端真实契约查询档案，并把 `patId` 收窄为 `his-patient` 引用。
