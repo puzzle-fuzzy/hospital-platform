@@ -11,6 +11,11 @@
   没有修改 ACL、重启服务、写数据库/Redis 或操作旧项目。详见
   [`release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md`](release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md)。
 
+- 2026-08-19 11:55 CST（生产配置 gate 只读复核）：`NODE_ENV=production`，schema、微信身份、患者目录、预约目录/记录和
+  门诊费用 gate 为 `true`；微信支付、报告目录和报告详情 gate 仍为 `false`。这只证明配置准入，不增加 Provider、页面、真机或
+  支付验收结论；新旧服务继续共存，根分区 95% 使用率仍需运维跟踪。详见
+  [`release/current-b7c9451-config-gates-observation-2026-08-19-1155.md`](release/current-b7c9451-config-gates-observation-2026-08-19-1155.md)。
+
 - 2026-08-19 11:43–11:44 CST（重启后数据库瞬态只读复核）：SSH 确认新 API `b7c9451` 与旧 Python `8001` 共存，期间新 API
   的远端 MySQL 探针出现一次 `PROTOCOL_CONNECTION_LOST`，`/health/ready` 短暂为 `not_ready`；约一分钟后 database、Redis、schema
   全部恢复 `ok`，没有重启服务或修改旧项目。已确认新 API 连接的是远端 MySQL，不应以服务器本机 3306 判断生产数据库；服务器根分区约

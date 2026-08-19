@@ -71,6 +71,7 @@
 | [`release/c26e696-production-acceptance-2026-08-18.md`](release/c26e696-production-acceptance-2026-08-18.md) | 历史 `c26e696` 服务端生产切换、真实 env preflight、隔离 smoke、新旧服务共存和日志边界；仅用于追溯 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 当前 `b7c9451` P0 日志关联门禁生产切换、启动模式、内外网运行层和旧服务共存验收；不等同真实业务完成 |
 | [`release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md`](release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md) | 当前 `b7c9451` 数据库恢复后的 readiness、双服务共存和 Redis 会话 TTL 未验证边界 |
+| [`release/current-b7c9451-config-gates-observation-2026-08-19-1155.md`](release/current-b7c9451-config-gates-observation-2026-08-19-1155.md) | 当前 `b7c9451` 生产模式、非敏感业务 gate 和支付/报告关闭边界 |
 | [`release/current-c26-p0-business-observation-2026-08-18-2340.md`](release/current-c26-p0-business-observation-2026-08-18-2340.md) | 历史 `c26e696` 重启后 P0 日志只读观察；患者读取/同步同链证据通过，其他业务域仍缺证据，不等同真机验收 |
 | [`release/current-c26-p0-business-observation-2026-08-18-2349.md`](release/current-c26-p0-business-observation-2026-08-18-2349.md) | 历史 `c26e696` 新 HTTP 完成门禁下的日志观察；微信登录、患者读取/同步同链通过，其他业务域仍缺证据 |
 | [`release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md`](release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md) | 误重启后的历史 `c26e696` 运行层、双服务共存和 P0 日志门禁复核；不等同真机业务验收 |

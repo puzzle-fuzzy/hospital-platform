@@ -16,6 +16,11 @@
 审计仍返回 `redis-session-scan-unavailable`（退出码 2），所以会话实际 TTL、过期后的重新登录和多患者失效恢复继续保持未验收；
 没有修改 ACL、重启服务、写数据库/Redis 或操作旧项目。详见 [`../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md`](../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md)。
 
+补充记录（2026-08-19 11:55 CST）：线上环境确认 `NODE_ENV=production`；schema、微信身份、患者目录、预约目录/记录和门诊费用
+配置 gate 为 `true`，微信支付、报告目录/详情仍为 `false`。这些只是配置准入，不替代真实 Provider、公网、页面和真机证据；旧 Python
+服务仍在 `8001`，本次未重启、未写数据库/Redis、未修改 ACL 或旧项目。详见
+[`../release/current-b7c9451-config-gates-observation-2026-08-19-1155.md`](../release/current-b7c9451-config-gates-observation-2026-08-19-1155.md)。
+
 补充记录（2026-08-19，档案引用输入边界）：旧端档案接口返回的 `data.patId` 是预约、报告和门诊费用共用的临床引用，不能接受
 JavaScript 精度损失后的数字。新 adapter 已拒绝超出安全整数范围的数字 `patId`，保留 19 位字符串，并用完整脱敏包络测试确认
 身份证、手机号和 `patCardVOList` 不进入内部公共结果；本轮未调用真实 Provider，未修改旧项目、数据库、Redis 或线上服务。
