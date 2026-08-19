@@ -6,65 +6,25 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
 
 /**
- * 当前候选文档是发布基线的唯一人工入口；其他“当前状态”文档必须引用同一
- * 服务端 release 和小程序来源指纹。历史发布记录可以保留旧 hash，但不能再
- * 被当前路线图、迁移清单或业务验收审计当作线上版本。
+ * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
+ * 才需要引用同一服务端 release 和小程序来源指纹。历史发布记录可以保留旧
+ * hash，不能因为它们曾经写过“当前”就被重新解释成这次真机验收版本。
  */
 export const currentBaselineDocuments = Object.freeze([
 	{ path: "docs/README.md", label: "文档导航" },
 	{ path: "docs/wechat-auth-login.md", label: "微信授权登录手册" },
 	{
-		path: "docs/release/miniprogram-readonly-acceptance-candidate-2026-08-18.md",
-		label: "小程序只读业务验收候选",
-	},
-	{
-		path: "docs/release/miniprogram-current-candidate-simulator-observation-2026-08-19.md",
-		label: "小程序当前候选模拟器只读观察",
+		path: "docs/release/candidate-4822884-local-build-2026-08-19.md",
+		label: "当前小程序本地构建候选",
 	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
-	{
-		path: "docs/migration/current-execution-checkpoint-2026-08-17.md",
-		label: "当前迁移执行检查点",
-	},
-	{
-		path: "docs/migration/migration-gap-audit-2026-08-17.md",
-		label: "迁移差距审计",
-	},
-	{
-		path: "docs/migration/patient-sync-idempotency-contract.md",
-		label: "患者同步幂等契约",
-	},
 	{
 		path: "docs/migration/remaining-migration-inventory.md",
 		label: "剩余迁移清单",
 	},
 	{
-		path: "docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
-		label: "P0 只读业务验收手册",
-	},
-	{
-		path: "docs/release/miniprogram-device-session-boundary-2026-08-18.md",
-		label: "小程序真机调试会话边界",
-	},
-	{
-		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
-		label: "普通资料真机验收手册",
-	},
-	{
-		path: "docs/release/65219e2-production-acceptance-2026-08-19.md",
-		label: "当前服务端生产切换证据",
-	},
-	{
-		path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
-		label: "只读业务 contract 审计",
-	},
-	{
-		path: "docs/release/miniprogram-my-page-critical-path-2026-08-18.md",
-		label: "我的页面关键路径验收记录",
-	},
-	{
-		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
-		label: "报告只读 contract 审计",
+		path: "docs/release/miniprogram-real-device-acceptance-checklist-2026-08-19.md",
+		label: "当前小程序真机验收清单",
 	},
 ]);
 
@@ -174,7 +134,7 @@ export async function auditCurrentReleaseConsistency(
 ) {
 	const candidatePath = join(
 		rootDirectory,
-		"docs/release/miniprogram-readonly-acceptance-candidate-2026-08-18.md",
+		"docs/release/candidate-4822884-local-build-2026-08-19.md",
 	);
 	const candidateDocument = await readFile(candidatePath, "utf8");
 	const baseline = extractCurrentBaseline(candidateDocument);

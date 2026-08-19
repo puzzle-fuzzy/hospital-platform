@@ -98,8 +98,29 @@ test("仓库当前发布文档保持同一套候选", async () => {
 		serverRelease: "65219e2",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "b451cc6",
-		miniProgramSourceRevision: "b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8",
+		miniProgramCommit: "4822884",
+		miniProgramSourceRevision: "482288496c6de90ff86fb2f2eb54db3b9ae0bae5",
 	});
+	expect(result.failures).toEqual([]);
+});
+
+test("历史候选不被当前发布基线强制重写", () => {
+	const result = auditCurrentBaselineDocuments(
+		{
+			serverRelease: "65219e2",
+			miniProgramCommit: "4822884",
+			miniProgramSourceRevision: "482288496c6de90ff86fb2f2eb54db3b9ae0bae5",
+		},
+		[
+			{
+				label: "当前候选",
+				content: "65219e2 482288496c6de90ff86fb2f2eb54db3b9ae0bae5",
+			},
+		],
+	);
+
+	expect(result.passed).toBe(true);
+	// 历史记录由文件自身的时间和 release 语义负责追溯，不应因为保留旧 hash
+	// 就被强行改写成当前运行包。
 	expect(result.failures).toEqual([]);
 });
