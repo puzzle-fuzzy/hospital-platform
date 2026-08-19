@@ -81,6 +81,43 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
 	REPORT_REFERENCE_MAX_TTL_MS,
 );
 
+/**
+ * 将报告目录查询收敛为服务层可以安全读取的运行时形状。
+ *
+ * Elysia 的 HTTP query schema 只保护路由入口；组合根、回放任务或未来
+ * Worker 直接调用 service 时仍可能绕过它。这里先拒绝 null、数组、缺少
+ * 日期和非字符串 kind，避免在读取 `input.kind` 或日期解析时产生未映射
+ * TypeError，也避免错误查询进入患者映射和 Provider 请求。
+ */
+function normalizeReportDirectoryQuery(value: unknown): ReportDirectoryQuery {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new ReportQueryError("Report query is invalid");
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		typeof record.startDate !== "string" ||
+		typeof record.endDate !== "string"
+	) {
+		throw new ReportQueryError("Report query date range is invalid");
+	}
+	if (record.kind !== undefined && typeof record.kind !== "string") {
+		throw new ReportQueryError("Report query kind is invalid");
+	}
+	const query: ReportDirectoryQuery = {
+		startDate: record.startDate,
+		endDate: record.endDate,
+	};
+	if (record.kind !== undefined) {
+		// exactOptionalPropertyTypes 下不能把 `undefined` 写进可选字段；只有
+		// 调用方确实提供 kind 时才写入，未知字符串仍交给枚举校验拒绝。
+		query.kind = record.kind as Exclude<
+			ReportDirectoryQuery["kind"],
+			undefined
+		>;
+	}
+	return query;
+}
+
 type ReportDetailReferenceViolation =
 	| "reference-invalid"
 	| "reference-scope-mismatch";
@@ -173,7 +210,8 @@ export class ReportService {
 		try {
 			// 查询校验也必须进入统一失败出口。否则非法日期虽然会正确返回
 			// 400，但没有 `report.directory.failed`，日志链路会缺少业务模块事实。
-			validateQuery(query);
+			const normalizedQuery = normalizeReportDirectoryQuery(query);
+			validateQuery(normalizedQuery);
 			if (!isBoundedOpaqueIdentifier(patientId)) {
 				throw new ReportQueryError("Report patient identifier is invalid");
 			}
@@ -184,9 +222,9 @@ export class ReportService {
 					traceId: context.traceId,
 					provider: "zhongyang",
 					patientId,
-					...(query.kind ? { kind: query.kind } : {}),
-					startDate: query.startDate,
-					endDate: query.endDate,
+					...(normalizedQuery.kind ? { kind: normalizedQuery.kind } : {}),
+					startDate: normalizedQuery.startDate,
+					endDate: normalizedQuery.endDate,
 				},
 				"Report directory requested",
 			);
@@ -216,7 +254,7 @@ export class ReportService {
 				{
 					// 受限引用只存在此调用帧内；不得写入日志或 API payload。
 					providerPatientId: reference.providerPatientId,
-					query,
+					query: normalizedQuery,
 				},
 				context,
 			);

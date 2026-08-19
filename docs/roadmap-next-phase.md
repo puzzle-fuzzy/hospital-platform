@@ -5,6 +5,10 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（报告目录服务层查询边界）：`ReportService.list` 新增运行时 query 形状收敛，即使组合根或回放任务绕过 Elysia
+  schema 传入 `null`、数组、缺少日期或非字符串 `kind`，也会在 owner 映射和 Provider 调用前返回既有 `report-query-invalid`，并
+  保留 `report.directory.failed` 低敏日志。新增服务层回归，未打开报告 Provider、详情、附件或修改旧 Python、线上服务、数据库和 Redis。
+
 - 2026-08-19（微信登录服务层输入边界）：`AuthService.login` 新增运行时 payload 校验，即使组合根或回放任务绕过 Elysia schema
   传入 `null`、数组或非字符串/越界 `code`，也会在 Provider 调用前返回既有 `400 validation`，并保留统一失败日志；新增认证服务和
   错误处理回归。没有改变微信 code2session、会话、Redis、域名或 Provider contract，也未修改旧 Python、线上服务、数据库或 Redis。

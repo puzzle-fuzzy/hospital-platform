@@ -195,6 +195,68 @@ test("报告目录拒绝异常 Provider trace 并只记录固定原因", async (
 	expect(output).not.toContain("bad\\n-request-id");
 });
 
+test("报告服务层拒绝绕过 HTTP schema 的畸形查询", async () => {
+	const lines: string[] = [];
+	let repositoryCalls = 0;
+	let directoryCalls = 0;
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => {
+				repositoryCalls += 1;
+				return undefined;
+			},
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => {
+				directoryCalls += 1;
+				throw new Error("provider must not be called");
+			},
+		},
+		logger: createLogger({
+			service: "report-input-test",
+			environment: "test",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	for (const [query, traceId] of [
+		[null, "trace-report-null-query"],
+		[[], "trace-report-array-query"],
+		[{ startDate: null, endDate: "2026-08-15" }, "trace-report-null-date"],
+		[
+			{ startDate: "2026-08-01", endDate: "2026-08-15", kind: null },
+			"trace-report-null-kind",
+		],
+	] as const) {
+		await expect(
+			service.list("user-001", "patient-001", query as never, {
+				traceId,
+				idempotencyKey: `${traceId}-key`,
+			}),
+		).rejects.toBeInstanceOf(ReportQueryError);
+	}
+
+	expect(repositoryCalls).toBe(0);
+	expect(directoryCalls).toBe(0);
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	for (const traceId of [
+		"trace-report-null-query",
+		"trace-report-array-query",
+		"trace-report-null-date",
+		"trace-report-null-kind",
+	]) {
+		expect(events).toContainEqual(
+			expect.objectContaining({
+				event: "report.directory.failed",
+				traceId,
+				errorType: "ReportQueryError",
+			}),
+		);
+	}
+});
+
 test("报告目录 service 拒绝仓储返回的非法或越界患者引用", async () => {
 	for (const [reference, expectedViolation] of [
 		[
