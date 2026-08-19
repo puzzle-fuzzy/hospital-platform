@@ -368,6 +368,7 @@ function optionalArchiveText(
  */
 function ensureArchiveMatchesQuery(
 	archive: Record<string, unknown>,
+	archivePatientId: string,
 	requestedCard: string,
 	requestedName: string,
 	requestId: string,
@@ -412,6 +413,19 @@ function ensureArchiveMatchesQuery(
 				);
 			}
 			const cardItem = item as Record<string, unknown>;
+			const cardPatientId = optionalArchiveText(
+				cardItem.patId,
+				`patCardVOList[${index}].patId`,
+				requestId,
+			);
+			if (cardPatientId !== undefined && cardPatientId !== archivePatientId) {
+				throw providerError(
+					"Zhongyang patient archive card owner did not match archive",
+					requestId,
+					"patient-archive",
+					true,
+				);
+			}
 			for (const field of ARCHIVE_PATIENT_CARD_FIELDS) {
 				const card = optionalArchiveText(
 					cardItem[field],
@@ -525,8 +539,7 @@ async function resolveHisPatientId(
 		);
 	}
 	const archive = envelope.data as Record<string, unknown>;
-	ensureArchiveMatchesQuery(archive, card, displayName, response.requestId);
-	return requiredText(
+	const archivePatientId = requiredText(
 		archive.patId,
 		"patId",
 		128,
@@ -534,6 +547,14 @@ async function resolveHisPatientId(
 		response.requestId,
 		true,
 	);
+	ensureArchiveMatchesQuery(
+		archive,
+		archivePatientId,
+		card,
+		displayName,
+		response.requestId,
+	);
+	return archivePatientId;
 }
 
 function trace(requestId: string): ExternalTrace {

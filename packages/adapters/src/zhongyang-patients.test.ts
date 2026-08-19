@@ -235,6 +235,63 @@ test("众阳档案卡片列表存在时必须包含本次查询卡号", async ()
 	});
 });
 
+test("众阳档案卡片的患者引用与顶层 patId 不一致时拒绝绑定", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			if (String(input).includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patName: "张三",
+							patId: "his-patient-card-owner-001",
+							patCardVOList: [
+								{
+									patId: "his-patient-other-owner-001",
+									patCardNo: "requested-card-003",
+								},
+							],
+						},
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "archive-card-owner-mismatch-001" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-card-owner-001",
+							patientName: "张三",
+							medicalCardNo: "requested-card-003",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "directory-card-owner-mismatch-001" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity(
+			{ unionId: "union-card-owner-mismatch-001" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		requestId: "archive-card-owner-mismatch-001",
+		responseInvalid: true,
+	});
+});
+
 test("众阳档案响应拒绝超出安全整数范围的数字 patId", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",

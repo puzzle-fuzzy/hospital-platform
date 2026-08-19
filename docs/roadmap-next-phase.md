@@ -18,9 +18,10 @@
 
 - 2026-08-19（档案查询身份二次关联）：在不要求 Provider 尚未冻结的可选字段全部存在的前提下，
   新 adapter 现在会校验：响应若包含 `patName`，必须匹配本次查询姓名；若包含顶层卡号或
-  `patCardVOList`，必须包含本次查询卡号。姓名/卡号不一致、卡片列表异常或字段格式异常时整次同步
-  fail-closed，不写入错误 `his-patient` 映射；错误信息不携带查询姓名、卡号或原始档案。新增定向测试后
-  患者 adapter 为 15/15；本次只改新项目，未部署、未调用真实 Provider、未修改旧 Python、数据库或 Redis。
+  `patCardVOList`，必须包含本次查询卡号；若卡片项包含 `patId`，还必须与档案顶层 `patId` 一致。
+  姓名/卡号/卡片归属不一致、卡片列表异常或字段格式异常时整次同步 fail-closed，不写入错误
+  `his-patient` 映射；错误信息不携带查询姓名、卡号或原始档案。新增定向测试后患者 adapter 为 16/16；
+  本次只改新项目，未部署、未调用真实 Provider、未修改旧 Python、数据库或 Redis。
   Provider 正式字段、档案状态枚举、真实业务和真机证据仍待补齐。
 
 - 2026-08-19 12:39 CST（当前 release 只读复核）：SSH 确认 `current=65219e2`、新 API `active`、Worker `inactive`，
