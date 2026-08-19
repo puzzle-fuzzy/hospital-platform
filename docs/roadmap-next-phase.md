@@ -5,6 +5,19 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 08:28 CST：用户重启后再次通过 SSH 做只读复核，当前 release 仍为 `b7c9451`，新 Bun API
+  `10.0.0.3:18081` 与旧 Gunicorn `0.0.0.0:8001` 同时监听；内网健康路径必须使用 `/health/live`、`/health/ready`，
+  公网反向代理路径才使用 `/api/v2/health/live`、`/api/v2/health/ready`，ready 的 `database/redis/schema` 均为 `ok`。
+  `08:00–08:30` 低敏日志聚合为微信登录 `1/1`、患者目录读取 `8/8`、患者同步 `4/4`，`parseErrors=0`、
+  `systemdWarningCount=0`；预约历史和门诊缴费均无请求，不能把本窗口写成预约/费用或真机验收完成。该复核没有切换、
+  migration、业务写入或旧服务操作。
+
+- 2026-08-19：对预约历史、门诊费用只读、报告目录/详情和“我的”页面做了第二轮静态业务审计。日期/金额/状态窗口、
+  owner-scoped 患者映射、短期报告引用、客户端患者代际和异步回写边界均已有代码与回归测试；没有发现可以安全补写的
+  明确逻辑缺口，因此没有为了“继续迁移”猜测 Provider 字段、开放详情/支付或修改旧服务。当前本地回归为 API `152/152`、
+  原生小程序 `157/157`，domain/adapters `123/123`，下一步仍是使用 `b2ce91e` 小程序候选取得预约、爽约、门诊费用和
+  普通资料的页面 + HTTP + 低敏日志三层证据。
+
 - 2026-08-19 07:20 CST：公网只读复核 `health/live`、`health/ready`、`system/ping` 均为 `200`，ready 的
   `database/redis/schema` 均为 `ok`，未登录 `/me` 为预期 `401/unauthorized`；live/ready 的 `Cache-Control: no-store`
   和低敏 `x-request-id` 均存在。本轮没有 Bearer、openid、患者参数、Provider 请求或业务写入，只更新公网运行层证据，
