@@ -5,6 +5,13 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 08:47 CST：通过 SSH 对当前线上环境做只读准入复核：`current=/home/ps/code/hospital-platform/releases/b7c9451`，
+  `hospital-platform-api-v2.service=active`；服务进程环境中的 `ZHONGYANG_REPORT_DIRECTORY_READY=false` 和
+  `ZHONGYANG_REPORT_DETAIL_READY=false` 均为显式关闭。因此报告目录/详情返回 `503 dependency-not-configured` 是预期
+  fail-closed，不应重试到 Provider 或只为得到页面数据而打开 gate；门诊病历 `/api/v2/medical-records` 仍保持未注册/404，
+  因为 `out-visit-records` 尚无正式请求/响应、字段脱敏和权限 contract。本次没有修改代码、旧服务、数据库或 Redis；下一步等待
+  Provider/HIS 文档和脱敏样例，再按 contract → adapter → API → 小程序顺序推进。
+
 - 2026-08-19 08:41 CST：在当前 `b7c9451` 服务和 `b2ce91e` 运行包上完成一轮模拟器只读业务链路，页面、HTTP 和低敏
   journald 日志已按同一时间窗口核对：预约历史 `GET /api/v1/appointments/records` 返回 `200`，Provider 返回 `60` 条且
   `cancelled=60`，页面按契约排除后显示空状态；爽约页使用过去 90 天窗口并同样只得到取消记录，没有把取消状态推断为爽约；

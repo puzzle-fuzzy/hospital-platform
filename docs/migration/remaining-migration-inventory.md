@@ -9,6 +9,16 @@
 
 > 当前配套小程序候选构建来源为 `b2ce91e1892a5cddec6953e3812d6f0ec08af8a6`（提交 `b2ce91e`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
+## 当前准入复核（2026-08-19 08:47 CST）
+
+通过 SSH 只读确认当前 release 为 `b7c9451`、`hospital-platform-api-v2.service` 为 `active`；服务进程环境中的
+`ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false` 均为显式关闭。报告目录/详情因此继续
+保持 `503 dependency-not-configured` 的 fail-closed 边界，不调用 Provider、不把空列表伪装成真实结果，也不因页面已经存在就打开 gate。
+
+门诊病历的 `/api/v2/medical-records` 仍刻意未注册。旧端 `out-visit-records` 只有历史调用线索，尚未获得正式请求/响应 contract、
+患者映射确认、字段脱敏白名单和权限/错误样例；本轮不新增 schema、adapter、service、页面或兼容转发。待 Provider/HIS 材料齐全后，
+必须先完成 intake 和差异表，再按 contract → adapter → API → 小程序 → 测试 → 验收手册顺序推进。
+
 ## 当前 release 基线（2026-08-19 00:50 CST）
 
 补充记录（2026-08-19 00:48–00:50 CST）：服务端 `b7c9451` 已从 `c26e696` 原子切换到线上 `current`，只重启新 API；
