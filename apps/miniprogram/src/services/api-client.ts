@@ -671,11 +671,28 @@ function setAccessToken(accessToken: string): void {
 async function requestForSession<TResponse>(
 	options: ApiRequestOptions,
 	sessionGeneration: number,
+	accessToken: string,
 ): Promise<TResponse> {
-	const response = await request<TResponse>({
-		...options,
-		authenticated: true,
-	});
+	// 这个检查必须发生在 `wx.request` 之前：响应回来后再丢弃只能防止
+	// 页面展示旧结果，不能撤销已经由错误账号发出的资料更新、患者同步或
+	// 其它命令。配置快照和代际双重比较，分别覆盖正式会话轮换与异常的
+	// 直接配置漂移。
+	const config = getAppConfig();
+	if (
+		!isCurrentSessionGeneration(sessionGeneration) ||
+		config.accessToken !== accessToken
+	) {
+		throw new ApiError("Session changed before authenticated request", {
+			code: "session-changed",
+		});
+	}
+	const response = await requestWithConfig<TResponse>(
+		{
+			...options,
+			authenticated: true,
+		},
+		{ ...config, accessToken },
+	);
 	if (!isCurrentSessionGeneration(sessionGeneration)) {
 		throw new ApiError(
 			"Session changed while authenticated request was pending",
@@ -764,10 +781,17 @@ export function buildApiRequestUrl(
 }
 
 /**
- * 通过 Hospital API 访问后端；返回类型由调用方显式声明，禁止业务层退回 any。
+ * 使用已经取得的配置发出一次微信请求。
+ *
+ * 受保护请求不能在函数内部再次读取全局 token：调用方可能已经记录了旧
+ * 会话代际，但账号切换恰好发生在真正调用 `wx.request` 之前。这里接收
+ * 显式配置快照，让 Authorization 与本次请求的代际保持同一事实；页面和
+ * 业务服务仍只能使用下面公开的 `request`/`requestWithSession`，不会接触
+ * token 快照参数。
  */
-export function request<TResponse = unknown>(
+function requestWithConfig<TResponse = unknown>(
 	options: ApiRequestOptions,
+	config: ApiConfig,
 ): Promise<TResponse> {
 	const {
 		url,
@@ -776,7 +800,7 @@ export function request<TResponse = unknown>(
 		authenticated = false,
 		idempotencyKey,
 	} = options;
-	const { apiBaseUrl, apiPrefix, accessToken } = getAppConfig();
+	const { apiBaseUrl, apiPrefix, accessToken } = config;
 	if (!apiBaseUrl) {
 		return Promise.reject(
 			new ApiError("API 地址尚未配置", { code: "api-base-url-missing" }),
@@ -836,6 +860,13 @@ export function request<TResponse = unknown>(
 				),
 		});
 	});
+}
+
+/** 通过 Hospital API 访问后端；返回类型由调用方显式声明，禁止业务层退回 any。 */
+export function request<TResponse = unknown>(
+	options: ApiRequestOptions,
+): Promise<TResponse> {
+	return requestWithConfig(options, getAppConfig());
 }
 
 /** 当前小程序进程内的登录请求；并发页面共享同一个一次性 code 兑换结果。 */
@@ -912,7 +943,7 @@ export async function requestWithSession<TResponse>(
 	let sessionGeneration = getSessionGeneration();
 
 	try {
-		return await requestForSession(options, sessionGeneration);
+		return await requestForSession(options, sessionGeneration, accessToken);
 	} catch (error) {
 		if (!(error instanceof ApiError) || error.statusCode !== 401) throw error;
 		const currentToken = getAppConfig().accessToken;
@@ -942,7 +973,7 @@ export async function requestWithSession<TResponse>(
 			// 读取开放，不能把该分支复制给任何写入命令。
 			accessToken = currentToken;
 			sessionGeneration = getSessionGeneration();
-			return requestForSession(options, sessionGeneration);
+			return requestForSession(options, sessionGeneration, accessToken);
 		}
 		// GET 读取在明确失效后可以安全地重新建立一次平台会话；仍然
 		// 只允许重试一次，防止失效 token 与登录失败之间形成循环。
@@ -950,7 +981,7 @@ export async function requestWithSession<TResponse>(
 		await login();
 		accessToken = getAppConfig().accessToken;
 		sessionGeneration = getSessionGeneration();
-		return requestForSession(options, sessionGeneration);
+		return requestForSession(options, sessionGeneration, accessToken);
 	}
 }
 

@@ -374,6 +374,60 @@ test("认证请求在会话切换后丢弃已经返回的旧快照", async () =>
 	expect(getSessionGeneration()).toBeGreaterThan(0);
 });
 
+test("认证命令在发出前发生会话切换时不使用新 token 发送", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let getAppCalls = 0;
+	let requestCount = 0;
+	let sentAuthorization = "";
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "token-for-old-session",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => {
+		getAppCalls += 1;
+		if (getAppCalls === 2) {
+			// 第二次读取发生在真正发出请求前；旧实现会在这里重新读取
+			// 新 token 并发送命令，导致“响应被丢弃但副作用已发生”。
+			globalData.accessToken = "token-for-new-session";
+			advanceSessionGeneration();
+		}
+		return { globalData };
+	};
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		request: (options: { header?: Record<string, string> }) => {
+			requestCount += 1;
+			sentAuthorization = options.header?.Authorization ?? "";
+		},
+	};
+
+	try {
+		await expect(
+			requestWithSession({
+				url: "/patients/sync",
+				method: "POST",
+				data: {},
+				idempotencyKey: "sync-command-before-send-001",
+			}),
+		).rejects.toMatchObject({ code: "session-changed" });
+		expect(requestCount).toBe(0);
+		expect(sentAuthorization).toBe("");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
 test("非 GET 命令遇到会话切换时不把旧请求重放到新账号", async () => {
 	type TestGlobal = typeof globalThis & {
 		getApp: (() => unknown) | undefined;
