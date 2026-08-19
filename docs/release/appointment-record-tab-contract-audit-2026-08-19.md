@@ -3,8 +3,8 @@
 ## 审计范围
 
 本次只核对原生小程序“我的挂号”页面的“在线挂号/全部挂号”两个标签、服务端当前
-预约历史渠道和客户端筛选边界。审计基准为服务端 `b7c9451` 与配套小程序候选
-`b2ce91e`；本记录只描述只读合同边界，不代表已经取得新的 Provider、真机或生产业务请求证据。
+预约历史渠道和客户端筛选边界。当前审计基准为服务端 `65219e2` 与配套小程序候选
+`b55df37`；本记录只描述只读合同边界，不代表已经取得新的 Provider、真机或生产业务请求证据。
 
 ## 已确认的业务事实
 
@@ -12,7 +12,8 @@
 2. 公共预约记录读模型不携带 `requestChannel` 或 Provider 患者标识；小程序不能从
    状态、数组顺序或空结果推导“全部渠道”。
 3. “在线挂号”只排除服务端明确归一化为 `cancelled` 的记录；`scheduled`、`completed`、
-   `missed`、`stopped`、`substituted`、`registered` 和 `unknown` 保持各自状态。
+   `missed`、`stopped`、`substituted`、`registered` 和已确认枚举 `unknown` 保持各自状态。
+   展示边界还会拒绝绕过响应校验的未知字符串，不能因为它“不等于 cancelled”就进入列表。
 4. “全部挂号”需要独立的 `requestChannel=4` Provider 合同、患者映射、日期窗口、失败/超时
    语义和验收证据。它不是把在线结果放宽筛选后的页面视图。
 
@@ -34,7 +35,8 @@
 - `apps/miniprogram/src/pages/appointment-records/appointment-records.ts`：标签点击前检查
   `isAppointmentRecordTabAvailable`，未开放标签不会触发请求。
 - `apps/miniprogram/src/services/appointment-record-view.test.ts`：覆盖在线标签只排除取消记录，
-  以及全部标签在独立 contract 到齐前不可用。
+  已确认 `unknown` 的展示语义、绕过校验的未知状态 fail-closed，以及全部标签在独立 contract
+  到齐前不可用。
 - `apps/miniprogram/scripts/acceptance.test.ts`：覆盖页面保留双标签、客户端不携带
   `requestChannel` 和未开放提示边界。
 

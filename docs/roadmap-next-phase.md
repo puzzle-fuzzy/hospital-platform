@@ -23,6 +23,11 @@
   通过，真实 Provider 字段对照、当前 release 公网/真机三层证据仍待完成，支付/医保继续关闭。详见
   [`migration/outpatient-payment-provider-contract-audit-2026-08-19.md`](migration/outpatient-payment-provider-contract-audit-2026-08-19.md)。
 
+- 2026-08-19（“我的挂号”状态展示边界复核）：旧端在线挂号使用 `requestChannel=3`、全部挂号使用 `requestChannel=4`；
+  新端继续只开放已确认的渠道 3，未凭页面筛选拼出全部记录。本轮补强小程序展示边界：已确认枚举 `unknown` 仍显示为“状态未知”，
+  但绕过响应校验的未知状态不会因为“不等于 cancelled”而进入在线列表；未开放的渠道 4、详情、取消、预问诊、预约写入和挂号费支付继续关闭。
+  详见 [`release/appointment-record-tab-contract-audit-2026-08-19.md`](release/appointment-record-tab-contract-audit-2026-08-19.md)。
+
 - 2026-08-19 11:49 CST（会话与 readiness 只读复核）：数据库瞬态断连恢复后，新 API `b7c9451` 仍为 `active/running`，
   正确监听地址 `10.0.0.3:18081` 的 readiness 为 `database/redis/schema=ok`，旧 Python `8001` 继续共存。Redis 会话 TTL
   审计仍安全返回 `redis-session-scan-unavailable`、退出码 `2`；这只说明当前身份没有完成会话扫描权限，不能当作“没有会话”。

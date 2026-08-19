@@ -32,7 +32,15 @@ export function isMissedAppointment(record: AppointmentRecord): boolean {
  * 取得并冻结 `requestChannel=4` 的独立查询 contract 后再开放。
  */
 export function isOnlineAppointmentRecord(record: AppointmentRecord): boolean {
-	return record.status !== "cancelled";
+	// dashboard-service 已经做过一次响应重投影，但页面展示边界不能把
+	// TypeScript 联合类型当成运行时事实。若未来有旧缓存、回放数据或新
+	// 调用方绕过该校验，未知状态不能因为“不是 cancelled”就进入在线列表。
+	// `unknown` 是已确认的公共枚举，仍然保留并以“状态未知”展示；真正
+	// 不在枚举中的值必须在这里 fail-closed。
+	return (
+		Object.hasOwn(APPOINTMENT_RECORD_STATUS_LABELS, record.status) &&
+		record.status !== "cancelled"
+	);
 }
 
 /** 当前只有在线渠道可用；全部渠道不能用本地记录拼接或状态推导。 */

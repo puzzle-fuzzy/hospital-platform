@@ -39,11 +39,23 @@ test("我的挂号在线标签只排除服务端明确的已取消记录", () =>
 	const scheduled = record("scheduled");
 	const completed = record("completed");
 	const cancelled = record("cancelled");
-	const records = [scheduled, completed, cancelled];
+	const unknown = record("unknown");
+	const records = [scheduled, completed, cancelled, unknown];
 
 	expect(isOnlineAppointmentRecord(scheduled)).toBe(true);
 	expect(isOnlineAppointmentRecord(cancelled)).toBe(false);
-	expect(filterAppointmentRecords(records, "online")).toHaveLength(2);
+	expect(isOnlineAppointmentRecord(unknown)).toBe(true);
+	expect(filterAppointmentRecords(records, "online")).toHaveLength(3);
+});
+
+test("在线挂号展示边界拒绝绕过响应校验的未知状态", () => {
+	const invalid = {
+		...record("unknown"),
+		status: "provider-status-not-confirmed",
+	} as unknown as AppointmentRecord;
+
+	expect(isOnlineAppointmentRecord(invalid)).toBe(false);
+	expect(filterAppointmentRecords([invalid], "online")).toEqual([]);
 });
 
 test("全部挂号在独立渠道 contract 到齐前不可用", () => {
