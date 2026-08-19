@@ -3,6 +3,7 @@ import {
 	auditCurrentBaselineDocuments,
 	auditCurrentExecutionSection,
 	auditCurrentReleaseConsistency,
+	auditCurrentReadonlyBusinessBoundaries,
 	extractCurrentBaseline,
 } from "./release-baseline-audit.mjs";
 
@@ -85,6 +86,43 @@ test("路线图缺少完整小程序来源时拒绝执行项", () => {
 
 	expect(failures).toEqual([
 		"当前执行项缺少完整小程序 sourceRevision 4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	]);
+});
+
+test("报告关闭门禁必须在路线图和 P0 手册中保持 fail-closed", () => {
+	const roadmap = `
+## 本次立即执行项
+
+1. 真机验收报告目录，直到报告 Provider contract 开放；报告目录当前只验证 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收。
+
+### 历史补充（仅供追溯，不作为当前执行项）
+`;
+	const runbook = `
+ZHONGYANG_REPORT_DIRECTORY_READY=false
+ZHONGYANG_REPORT_DETAIL_READY=false
+当前只允许验收 fail-closed 文案。
+`;
+
+	expect(auditCurrentReadonlyBusinessBoundaries(roadmap, runbook)).toEqual([]);
+});
+
+test("报告文档把关闭门禁写成真实成功时拒绝发布基线", () => {
+	const roadmap = `
+## 本次立即执行项
+
+1. 真机验收报告目录真实数据。
+
+### 历史补充（仅供追溯，不作为当前执行项）
+`;
+	const runbook = "报告目录可用。";
+
+	expect(auditCurrentReadonlyBusinessBoundaries(roadmap, runbook)).toEqual([
+		"报告目录当前执行项缺少 fail-closed 关闭边界",
+		"报告目录当前执行项缺少 Provider contract 开放前置条件",
+		"报告目录当前执行项未明确禁止真实报告数据验收",
+		"P0 手册缺少报告关闭边界：ZHONGYANG_REPORT_DIRECTORY_READY=false",
+		"P0 手册缺少报告关闭边界：ZHONGYANG_REPORT_DETAIL_READY=false",
+		"P0 手册缺少报告关闭边界：只允许验收 fail-closed",
 	]);
 });
 

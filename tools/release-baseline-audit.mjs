@@ -132,6 +132,47 @@ export function auditCurrentExecutionSection(baseline, roadmapDocument) {
 }
 
 /**
+ * 检查当前只读验收文档是否仍然尊重报告 Provider 的关闭边界。
+ *
+ * 报告页面已经存在，但目录/详情 gate 仍关闭；如果路线图只写“验收报告”而
+ * 没有明确 fail-closed，下一次真机操作很容易把依赖未配置误认为真实空目录，
+ * 或把页面渲染成功误认为 Provider 已迁移。因此把这条业务不变量放进发布
+ * 基线门禁，要求路线图和 P0 手册同时表达“只验收安全失败边界”。未来正式
+ * 打开 gate 时，必须同步修改这里的规则、Provider contract 和验收手册。
+ */
+export function auditCurrentReadonlyBusinessBoundaries(
+	roadmapDocument,
+	runbookDocument,
+) {
+	const failures = [];
+	const executionSection = extractCurrentExecutionSection(roadmapDocument);
+	if (!executionSection) {
+		return ["当前只读业务边界无法定位路线图执行项"];
+	}
+	if (executionSection.includes("报告目录")) {
+		if (!executionSection.includes("fail-closed")) {
+			failures.push("报告目录当前执行项缺少 fail-closed 关闭边界");
+		}
+		if (!executionSection.includes("Provider contract")) {
+			failures.push("报告目录当前执行项缺少 Provider contract 开放前置条件");
+		}
+		if (!executionSection.includes("不进行真实报告数据验收")) {
+			failures.push("报告目录当前执行项未明确禁止真实报告数据验收");
+		}
+	}
+	for (const requiredText of [
+		"ZHONGYANG_REPORT_DIRECTORY_READY=false",
+		"ZHONGYANG_REPORT_DETAIL_READY=false",
+		"只允许验收 fail-closed",
+	]) {
+		if (!runbookDocument.includes(requiredText)) {
+			failures.push(`P0 手册缺少报告关闭边界：${requiredText}`);
+		}
+	}
+	return failures;
+}
+
+/**
  * 检查一组文档是否都写明同一套当前候选。
  * 返回低敏失败信息，便于本地门禁和测试复用，不输出 token、患者或 Provider 内容。
  */
@@ -152,8 +193,19 @@ export function auditCurrentBaselineDocuments(baseline, documents) {
 	const roadmap = documents.find(
 		(document) => document.label === "下一阶段实施路线图",
 	);
+	const runbook = documents.find(
+		(document) => document.label === "P0 只读业务验收手册",
+	);
 	if (roadmap) {
 		failures.push(...auditCurrentExecutionSection(baseline, roadmap.content));
+	}
+	if (roadmap && runbook) {
+		failures.push(
+			...auditCurrentReadonlyBusinessBoundaries(
+				roadmap.content,
+				runbook.content,
+			),
+		);
 	}
 	return {
 		passed: failures.length === 0,

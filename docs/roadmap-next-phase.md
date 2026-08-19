@@ -1328,7 +1328,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 ## 业务正确性加固记录
 
-- 2026-08-19：发现“本次立即执行项”曾把报告目录写成真机真实数据验收，但当前 `ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false`，且报告 Provider contract 尚未完成；已将该项收紧为 fail-closed 边界 smoke。报告目录在门禁开放前不得以页面成功、HTTP 200 或测试桩数据宣称迁移完成。
+- 2026-08-19：发现“本次立即执行项”曾把报告目录写成真机真实数据验收，但当前 `ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false`，且报告 Provider contract 尚未完成；已将该项收紧为 fail-closed 边界 smoke，并把该不变量加入 `release-baseline-audit` 与回归测试。报告目录在门禁开放前不得以页面成功、HTTP 200 或测试桩数据宣称迁移完成。
 
 - 2026-08-16：开发者工具观测到一次 `/api/v2/auth/wechat` `503`，但旧页面层仍显示脱敏患者卡片；
   已确认页面可见患者不等于本次微信登录成功。首页会话恢复或重新登录失败时现在清理当前页面患者派生状态，
