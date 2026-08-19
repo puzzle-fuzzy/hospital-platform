@@ -1307,7 +1307,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 ## 本次立即执行项
 
-1. 在真机重新验收首页患者卡片、切换就诊人和报告目录，确认页面只显示脱敏卡号与平台摘要；
+1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
 3. 使用当前服务端 release `398be8e` 和小程序候选 `474b044`（完整构建来源：`474b0444736599c848a4cef9f47fd930884e401d`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
@@ -1327,6 +1327,8 @@ available -> hold_pending -> held -> booking_pending -> booked
 15. 2026-08-16 21:20 CST 使用候选 `3dc6f5f` 的 runtime smoke bundle 复测当前公网 `/api/v2`，live、ready、system-ping 和未登录认证边界全部通过；本次无会话、无患者/Provider 业务请求，不能替代真实微信 session 验收。证据见 [`release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md`](release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md)。
 
 ## 业务正确性加固记录
+
+- 2026-08-19：发现“本次立即执行项”曾把报告目录写成真机真实数据验收，但当前 `ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false`，且报告 Provider contract 尚未完成；已将该项收紧为 fail-closed 边界 smoke。报告目录在门禁开放前不得以页面成功、HTTP 200 或测试桩数据宣称迁移完成。
 
 - 2026-08-16：开发者工具观测到一次 `/api/v2/auth/wechat` `503`，但旧页面层仍显示脱敏患者卡片；
   已确认页面可见患者不等于本次微信登录成功。首页会话恢复或重新登录失败时现在清理当前页面患者派生状态，

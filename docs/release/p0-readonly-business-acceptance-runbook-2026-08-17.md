@@ -5,6 +5,10 @@
 >
 > `configured` 只表示环境变量和组合根依赖齐全，不表示 Provider 权限、接口字段或真实业务已经验收。每个域必须同时具备真机操作、HTTP 响应和服务端日志三类证据，缺一不可。
 
+> 当前报告目录和 LIS 详情的真实 Provider 读取仍未开放：`ZHONGYANG_REPORT_DIRECTORY_READY=false`、
+> `ZHONGYANG_REPORT_DETAIL_READY=false`。因此本手册对报告域只允许验收 fail-closed 文案、HTTP 边界和日志边界，
+> 不应期待真实报告数据或把页面成功/HTTP 200 当成报告迁移完成；真实只读验收必须等 Provider contract、字段白名单和门禁变更完成后另行执行。
+
 普通资料的首次读取、版本更新和 409 并发冲突，按
 [`普通资料真机与日志验收手册`](user-profile-readonly-device-acceptance-2026-08-18.md)执行；它不能被一次保存成功 Toast 或单元测试替代。
 
@@ -165,7 +169,8 @@ sudo journalctl -u hospital-platform-api-v2.service \
 
 可用业务域包括 `auth`、`patientRead`、`patientSync`、`appointmentRecords`、
 `appointmentDepartments`、`appointmentSchedules`、`outpatientPaymentRecords`、
-`reportDirectory`、`profileRead` 和 `profileUpdate`。预约目录的科室和排班必须分别执行门禁：
+`reportDirectory`、`profileRead` 和 `profileUpdate`。其中当前 `reportDirectory` 只用于
+fail-closed 边界证据，不代表真实报告 Provider 成功。预约目录的科室和排班必须分别执行门禁：
 科室成功但排班失败时，不能把两列级联页面整体标记为通过。
 门禁要求对应的请求事件、明确成功事件和同一条链上的 HTTP `2xx` 完成事件同时存在，并报告失败计数；如果只有总数而没有同链事件，
 如果 service 写了成功但响应层只有 `4xx/5xx` 或 `http.request.failed`，或者关联链被截断，会以
