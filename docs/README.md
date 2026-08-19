@@ -16,6 +16,7 @@
 | [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `398be8e`、当前本地小程序候选来源以 `48ba22f16cb0f1d1098895772e660a3ed96761bb` 为准 |
 | [`release/candidate-48ba22f-local-build-2026-08-19.md`](release/candidate-48ba22f-local-build-2026-08-19.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；尚未上传线上，服务端基线为 `398be8e` |
 | [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md) | 当前 `398be8e` 原子生产切换、患者映射安全修正、新旧服务共存和未完成验收 |
+| [`release/current-398be8e-runtime-recheck-2026-08-19-1657.md`](release/current-398be8e-runtime-recheck-2026-08-19-1657.md) | 16:57 CST 重启后 `398be8e`、新旧端口、正确内网探针和业务日志只读复核；不代表 Provider/真机业务完成 |
 | [`release/968af78-production-acceptance-2026-08-19.md`](release/968af78-production-acceptance-2026-08-19.md) | 历史 `968af78` 原子生产切换、档案关联校验、新旧服务共存和未完成验收 |
 | [`release/current-968af78-runtime-coexistence-2026-08-19-1550.md`](release/current-968af78-runtime-coexistence-2026-08-19-1550.md) | 15:50 CST 重启后 SSH 只读复核 `968af78`、新旧监听、公网 live/ready、依赖状态和最近业务日志；不代表 Provider/真机业务成功 |
 | [`release/in-memory-clinical-access-parity-2026-08-19.md`](release/in-memory-clinical-access-parity-2026-08-19.md) | 内存患者 `clinicalAccess` 与 MySQL 映射事实对齐；本地修正，未部署线上 |

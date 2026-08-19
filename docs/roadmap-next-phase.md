@@ -9,6 +9,12 @@
 > 当前服务端为 `398be8e`，小程序候选为 `48ba22f`，完整来源为
 > `48ba22f16cb0f1d1098895772e660a3ed96761bb`。
 
+- 2026-08-19 16:57 CST 重启后 SSH 只读复核：`398be8e` 仍为 `current`，新 API
+  `10.0.0.3:18081` 与旧 Python `8001` 同时监听，systemd 为 `active/enabled`；使用正确内网绑定地址检查时
+  live=200，ready 的 `database/redis/schema` 均为 `ok`。第一次对 `127.0.0.1:18081` 的连接拒绝是探针地址错误，
+  不是服务故障。最近 15 分钟没有观察到新的患者、预约、门诊费用或资料业务事件，不升级真机或 Provider 验收等级。
+  详见 [`release/current-398be8e-runtime-recheck-2026-08-19-1657.md`](release/current-398be8e-runtime-recheck-2026-08-19-1657.md)。
+
 - 2026-08-19 16:30–16:37 CST 生产切换：患者临床可用性读模型和 Provider 归属校验修正已从 `968af78` 原子切换到
   `398be8e`，只重启新 API；旧 Python `8001` 保持监听。生产 preflight、候选 `18082` smoke、公网 live/ready 连续
   `6/6`、system ping、未登录 `401` 和日志聚合均通过，`parseErrors=0`、`systemdWarningCount=0`。
