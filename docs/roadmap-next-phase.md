@@ -11,6 +11,11 @@
   不是新业务故障。由于仍没有新小程序窗口的手机连接，
   不把这组日志算作真机业务验收，详见 [`current-b7c9451-runtime-and-p0-observation-2026-08-19-1036.md`](release/current-b7c9451-runtime-and-p0-observation-2026-08-19-1036.md)。
 
+- 2026-08-19 11:12 CST（真机窗口边界复核）：新 `miniprogram` 窗口仍只有已过期二维码，没有手机连接；另一个独立
+  “真机调试”窗口出现旧端 Provider 直连上下文，无法证明属于当前 `b55df37` 运行包，因此设备、页面、Network 和日志均排除。
+  本次没有点击业务、关闭窗口、修改服务器或旧 Python；下一步必须在新 `miniprogram` 窗口重新生成二维码后再扫码，详见
+  [`miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
+
 - 2026-08-19（报告目录旧患者事件边界）：报告目录详情导航现在在当前渲染批次回查后，
   还会确认 `patientId` 仍是设备当前显式选择；患者切换后遗留事件会在客户端停止，
   不把旧患者引用带入详情页，同时保留服务端 owner/患者/TTL 最终校验。新增中文注释和
