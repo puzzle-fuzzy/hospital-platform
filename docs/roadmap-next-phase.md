@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 10:44 CST（意外重启后的线上只读复核）：SSH 再次确认新服务仍为 `active`，Bun API 继续监听
+  `10.0.0.3:18081`，旧 Python/Gunicorn 继续监听 `0.0.0.0:8001`；live/ready 均成功，ready 的
+  `database/redis/schema` 全部为 `ok`。本次没有执行服务重启、配置写入、数据库写入或 Redis 清理；真机连接和业务验收状态不因此升级。
+  详见 [`current-b7c9451-runtime-and-p0-observation-2026-08-19-1036.md`](release/current-b7c9451-runtime-and-p0-observation-2026-08-19-1036.md)。
+
 - 2026-08-19 10:36 CST（线上双服务与 P0 日志只读复核）：SSH 确认 `current=b7c9451`、新 API `18081`、旧 Python
   `8001` 同时监听，`hospital-platform-api-v2.service` 为 `active/running`，live/ready 均成功且
   `database/redis/schema=ok`。生产日志出现会话恢复、微信登录、患者读取和同步成功链；开发者工具新 `miniprogram`
