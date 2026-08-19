@@ -80,7 +80,7 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 });
 
 test("众阳档案响应保留 19 位字符串 patId 并丢弃额外身份字段", async () => {
-	const hisPatientId = "8481567861861908740";
+	const hisPatientId = "9000000000000000001";
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",
 		fetcher: async (input) => {
@@ -89,12 +89,24 @@ test("众阳档案响应保留 19 位字符串 patId 并丢弃额外身份字段
 				return new Response(
 					JSON.stringify({
 						success: true,
+						code: "0000",
+						message: "成功",
 						data: {
-							patName: "杨东平",
+							patName: "合成测试患者",
 							patId: hisPatientId,
-							idCardNo: "330782199903271910",
-							phone: "18267094443",
-							patCardVOList: [{ patCardNo: "001000305367027" }],
+							idCardNo: "000000199001010000",
+							phone: "00011122233",
+							invalidFlag: "0",
+							deadLockFlag: "0",
+							hospitalId: "10389001",
+							orgId: "10389",
+							patCardVOList: [
+								{
+									patCardNo: "777777777777777",
+									cardStatus: "0",
+									cardStatusName: "正常",
+								},
+							],
 						},
 					}),
 					{ status: 200, headers: { "x-request-id": "archive-full-001" } },
@@ -106,8 +118,8 @@ test("众阳档案响应保留 19 位字符串 patId 并丢弃额外身份字段
 					data: [
 						{
 							thirdPatientId: "directory-patient-full-001",
-							patientName: "杨东平",
-							medicalCardNo: "001000305367027",
+							patientName: "合成测试患者",
+							medicalCardNo: "777777777777777",
 							relation: "本人",
 						},
 					],
@@ -126,9 +138,9 @@ test("众阳档案响应保留 19 位字符串 patId 并丢弃额外身份字段
 		"his-patient": hisPatientId,
 	});
 	const serialized = JSON.stringify(result);
-	expect(serialized).not.toContain("330782199903271910");
-	expect(serialized).not.toContain("18267094443");
-	expect(serialized).not.toContain("001000305367027");
+	expect(serialized).not.toContain("000000199001010000");
+	expect(serialized).not.toContain("00011122233");
+	expect(serialized).not.toContain("777777777777777");
 });
 
 test("众阳档案响应拒绝超出安全整数范围的数字 patId", async () => {
