@@ -80,6 +80,23 @@ Worker 或任何业务数据。该结果确认新旧服务共存和运行层稳�
 该复核只更新公网运行层和未登录认证证据，不增加 SSH 双服务共存、真实微信会话、多患者切换、
 Provider、真机、费用、支付或医保结论。
 
+## 2.5 当前公网只读复核（2026-08-19 09:13 CST）
+
+本轮从公网再次只请求运行层探针和未登录 `/me`，没有携带 Bearer、openid、患者参数或 Provider 参数，
+也没有执行数据库、Redis 或业务写入。结果如下：
+
+| 请求 | 结果 | 低敏说明 |
+| --- | --- | --- |
+| `GET /api/v2/health/live` | `200` | `status=ok` |
+| `GET /api/v2/health/ready` | `200` | `database=ok`、`redis=ok`、`schema=ok`，响应带 `Cache-Control: no-store` |
+| `GET /api/v2/system/ping` | `200` | 新 API 路由可达 |
+| `GET /api/v2/me` | `401 unauthorized` | 未携带 Bearer 时认证门禁正常 |
+
+本轮尝试使用无密钥批处理 SSH 只读连接时被服务器以 `publickey,password` 拒绝，因此没有新增
+`current` 指针、systemd、`18081/8001` 监听或 journald 结论；服务器进程边界继续以本文件 2.2
+和路线图顶部最近一次成功 SSH 复核为准。公网结果也不增加真实微信、多患者切换、Provider、真机、
+费用、支付或医保验收结论。
+
 ## 3. 后续动作
 
 继续按当前路线图执行：先取得可验证的真实微信会话和多就诊人切换证据，再分别验收预约历史、

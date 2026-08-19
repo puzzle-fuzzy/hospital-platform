@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 09:13 CST：公网只读复核 `health/live`、`health/ready`、`system/ping` 均为 `200`，ready 的
+  `database/redis/schema` 均为 `ok`，未登录 `/me` 为预期 `401/unauthorized`；本轮无 Bearer、患者参数、Provider
+  请求或业务写入。当前环境尝试无密钥批处理 SSH 被 `publickey,password` 拒绝，因此没有新增服务器 release、systemd、
+  `18081/8001` 共存或 journald 结论，继续以顶部最近一次成功 SSH 复核为准；本轮只推进公网运行层证据，不增加真机或业务域验收。
+
 - 2026-08-19（本地多就诊人组合回归）：新增 API 端到端测试，验证同一账号明确选择第二位就诊人后，
   `/appointments/records` 与 `/payments/outpatient/records` 都通过 owner-scoped `patientId` 解析到第二位的
   `his-patient` 引用；患者目录仍只返回安全读模型，未把 provider 的 directory 患者号或临床引用下发到小程序。
