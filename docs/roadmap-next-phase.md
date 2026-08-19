@@ -15,6 +15,12 @@
   旧 Python、线上新 API、MySQL、Redis 或 Provider 配置。详见
   [`release/miniprogram-device-session-lan-2026-08-19.md`](release/miniprogram-device-session-lan-2026-08-19.md)。
 
+- 2026-08-19 18:15 CST（真机调试工具追加观察）：二维码仍可见，iOS 与局域网模式仍已选中，但没有手机连接、微信 `code`、
+  平台 session 或业务 HTTP 流量；工具同时提示“模拟器长时间没有响应”，调试面板持续出现代码包文件列表请求日志。
+  该提示发生在业务请求前，暂归类为开发者工具/真机传输层状态，不升级微信登录、患者同步、预约、报告或门诊费用验收等级，
+  也没有修改旧 Python、线上新 API、MySQL、Redis 或 Provider 配置。详见
+  [`release/miniprogram-device-session-lan-2026-08-19.md`](release/miniprogram-device-session-lan-2026-08-19.md)。
+
 - 2026-08-19 16:57 CST 重启后 SSH 只读复核：`398be8e` 仍为 `current`，新 API
   `10.0.0.3:18081` 与旧 Python `8001` 同时监听，systemd 为 `active/enabled`；使用正确内网绑定地址检查时
   live=200，ready 的 `database/redis/schema` 均为 `ok`。第一次对 `127.0.0.1:18081` 的连接拒绝是探针地址错误，
