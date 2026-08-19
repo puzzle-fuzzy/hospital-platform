@@ -55,6 +55,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "门诊费用 Provider 契约审计",
 	},
 	{
+		path: "docs/migration/zhongyang-authorization-contract-audit-2026-08-19.md",
+		label: "众阳授权契约审计",
+	},
+	{
 		path: "docs/release/appointment-record-tab-contract-audit-2026-08-19.md",
 		label: "预约记录标签契约审计",
 	},
