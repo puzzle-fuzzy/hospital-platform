@@ -16,6 +16,11 @@
   本次没有点击业务、关闭窗口、修改服务器或旧 Python；下一步必须在新 `miniprogram` 窗口重新生成二维码后再扫码，详见
   [`miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
 
+- 2026-08-19 11:20 CST（真机入口复核未形成新二维码）：重新读取新 `miniprogram` 窗口后，资源树仍为 `dist/`，但没有新的二维码、
+  手机连接或可绑定的独立真机调试窗口；一次入口操作也未形成“当前候选来源 + 有效二维码 + 设备连接”的证据链。因此不把本次模拟器/Network
+  画面或页面变化计入微信登录、患者切换、预约、费用或其它业务验收。下一步仍需在新窗口人工重新生成二维码并扫码，详见
+  [`miniprogram-device-session-boundary-2026-08-18.md`](release/miniprogram-device-session-boundary-2026-08-18.md)。
+
 - 2026-08-19（报告目录旧患者事件边界）：报告目录详情导航现在在当前渲染批次回查后，
   还会确认 `patientId` 仍是设备当前显式选择；患者切换后遗留事件会在客户端停止，
   不把旧患者引用带入详情页，同时保留服务端 owner/患者/TTL 最终校验。新增中文注释和
