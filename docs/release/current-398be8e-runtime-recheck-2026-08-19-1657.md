@@ -49,3 +49,17 @@ http://10.0.0.3:18081/health/ready
 3. 没有新增真实微信 session 或患者业务事件，因此不升级真机和 Provider 验收等级；
 4. 下一步仍按“新小程序扫码登录 → 患者同步/显式切换 → 预约历史 → 门诊费用只读”的顺序取证；支付、医保、预约写入、二维码和 HIS 回写继续关闭。
 
+## 5. 后续维护门禁复核
+
+本次完整 `pnpm check` 首次发现发布基线测试仍把当前服务端写成历史 release `968af78`，而路线图、候选文档和生产事实已经统一为 `398be8e`。这属于验收测试与当前基线漂移，不是运行服务故障。
+
+已在新项目 `tools/release-baseline-audit.test.mjs` 中将当前断言更新为 `398be8e`，并补充中文注释，明确每次原子切换都必须同步更新服务端 release、小程序短提交号和完整 sourceRevision 三项事实。该修正不改变 API、数据库、Redis、Provider 或旧 Python 行为。
+
+修正后的证据：
+
+- 发布基线定向测试：`7 pass / 0 fail`；
+- 完整 `pnpm check`：退出码 `0`；
+- 架构审计：`66` 条通过；
+- 文档链接审计：`237` 个 Markdown 文档无断链；
+- Turbo：`9` 个 workspace 的 typecheck、test、build 全部成功；
+- 小程序构建：`14` 个 `app.json` 页面脚本均生成，来源仍为 `48ba22f`。
