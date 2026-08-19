@@ -843,6 +843,18 @@ export function loadOutpatientPaymentRecords(
 	);
 }
 
+/**
+ * 将已通过 contract 校验的账单时间投影为旧端列表的展示粒度。
+ *
+ * `billDate` 的完整时分秒仍是业务事实，不能在 API 或领域层截断：服务端
+ * 需要它执行中国标准时间窗口校验，记录引用也会使用它区分不同开单时刻。
+ * 这里只在小程序渲染边界显示自然日，恢复旧端 `formatBillDate` 的行为，
+ * 避免把内部精确时间误认为页面设计或支付状态的一部分。
+ */
+export function formatOutpatientBillDateLabel(billDate: string): string {
+	return billDate.slice(0, 10);
+}
+
 /** 读取当前内部患者的脱敏预约历史摘要。 */
 export type AppointmentRecordQueryWindow = "history" | "missed";
 

@@ -2,6 +2,7 @@ import { ApiError } from "../../services/api-client";
 import {
 	loadOutpatientPaymentRecords,
 	loadCurrentPatient,
+	formatOutpatientBillDateLabel,
 } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
@@ -227,6 +228,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		return {
 			...record,
 			amountLabel: `¥${(record.amountFen / 100).toFixed(2)}`,
+			billDateLabel: formatOutpatientBillDateLabel(record.billDate),
 		};
 	},
 

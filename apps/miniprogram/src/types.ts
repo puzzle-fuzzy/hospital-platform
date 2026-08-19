@@ -72,6 +72,8 @@ export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
 export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
 	amountLabel: string;
+	/** 旧端列表只显示账单自然日；原始 billDate 仍保留用于业务校验。 */
+	billDateLabel: string;
 };
 export type Report = ReportListResponse["data"]["items"][number];
 /** 报告目录的页面显示模型；服务端英文枚举只在页面边界翻译为中文。 */

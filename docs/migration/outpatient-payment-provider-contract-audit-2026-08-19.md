@@ -81,6 +81,13 @@ GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-
 服务层和 adapter 双重校验的目的，是防止未来替换真实网关、回放网关或任务调用方绕过 Elysia HTTP schema
 后，把错误状态、窗口外账单或敏感字段带到小程序。
 
+### 4.1 页面展示字段与业务事实分离
+
+旧端门诊费用列表通过 `formatBillDate` 只展示 `YYYY-MM-DD`，而 Provider 的完整
+`YYYY-MM-DD HH:mm:ss` 仍然是查询窗口校验和费用记录稳定引用的一部分。新端因此保留完整
+`billDate` 在服务端和客户端读模型中，只在原生小程序渲染边界生成 `billDateLabel` 展示自然日；
+不能为了视觉一致性在 adapter、API contract 或持久化边界截断时间，也不能让页面展示字段反过来参与支付、医保或结算判断。
+
 ## 5. `authSysCode` 不能凭旧代码猜测
 
 旧端查询页面曾使用 `internetHospital`，旧端后续支付流程又使用过 `thirdSelfMachine`；这两个值不能直接

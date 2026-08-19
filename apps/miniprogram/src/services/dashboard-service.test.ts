@@ -3,6 +3,7 @@ import {
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
 	createPastDateRange,
+	formatOutpatientBillDateLabel,
 	loadAppointmentSchedules,
 	loadOutpatientPaymentRecords,
 	requireAppointmentDepartmentListData,
@@ -300,6 +301,12 @@ test("门诊费用列表必须保持查询状态和公共记录字段一致", ()
 			"Outpatient payment response",
 		);
 	}
+});
+
+test("门诊费用列表展示旧端日期粒度但保留完整账单事实", () => {
+	const billDate = "2026-08-15 10:20:30";
+	// 这里只验证渲染投影；服务端 contract 仍在上面的读模型测试中保留完整时间。
+	expect(formatOutpatientBillDateLabel(billDate)).toBe("2026-08-15");
 });
 
 test("我的挂号列表必须保持公共状态、日期和展示字段一致", () => {

@@ -30,7 +30,7 @@
 			</view>
 			<view wx:if="{{item.doctorName}}" class="record-line">医生：{{item.doctorName}}</view>
 			<view class="record-footer">
-				<text>{{item.billDate}}</text>
+				<text>{{item.billDateLabel}}</text>
 				<text class="record-amount">{{item.amountLabel}}</text>
 			</view>
 		</view>
