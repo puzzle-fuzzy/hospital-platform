@@ -28,12 +28,12 @@ cursor/page，因此 `total` 的语义是本次完整 `items` 的数量，而不
 
 ## 4. 发布边界
 
-> 本文中的 `4d56496` 是列表总数专属修正的历史候选；当前小程序组合已推进到 `b451cc6`，完整来源指纹为
-> `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`，整体候选来源和回归数据以
-> [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md) 为准。
+> 本文中的 `4d56496` 是列表总数专属修正的历史候选；当前小程序组合已推进到 `4822884`，完整来源指纹为
+> `482288496c6de90ff86fb2f2eb54db3b9ae0bae5`，整体候选来源和回归数据以
+> [`candidate-4822884-local-build-2026-08-19.md`](candidate-4822884-local-build-2026-08-19.md) 为准。
 
 - 当前线上新 API 仍为 `65219e2`；旧 Python `8001` 未修改、未停止、未重启。
 - 本轮未修改数据库、Redis、微信域名、Provider 配置或服务器运行配置。
 - 本轮只改变新小程序读取层；本轮专属修正提交为历史候选 `4d56496`，当前配套运行包来源为
-  `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`。完整 `pnpm check`、构建和新的运行包来源已经重新生成，
+  `482288496c6de90ff86fb2f2eb54db3b9ae0bae5`。完整 `pnpm check`、构建和新的运行包来源已经重新生成，
   真机与公网业务证据仍待受控验收。

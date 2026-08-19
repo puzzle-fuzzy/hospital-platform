@@ -9,6 +9,7 @@
 | 小程序构建来源 | `482288496c6de90ff86fb2f2eb54db3b9ae0bae5` |
 | 运行包目录 | `apps/miniprogram/dist/` |
 | 生成页面脚本数量 | 14 |
+| 小程序回归 | `162 pass / 0 fail / 1299 expects` |
 | 是否上传线上小程序 | 否 |
 | 是否完成真机验收 | 否 |
 

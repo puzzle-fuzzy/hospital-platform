@@ -3,6 +3,9 @@
 本文固定当前真机验收所使用的“客户端候选 + 服务端 release”组合，避免把不同版本的页面、API 和日志混在同一份证据中。
 本文只覆盖微信会话、患者目录、预约历史、爽约记录和门诊费用只读查询；预约写入、支付、医保、退款、报告详情和 HIS 继续关闭。
 
+> 历史候选说明：本文记录的 `b451cc6` 是当时验收窗口的事实，现已被当前候选 `4822884` 取代。当前构建来源、门禁和真机前置条件以
+> [`candidate-4822884-local-build-2026-08-19.md`](candidate-4822884-local-build-2026-08-19.md) 为准；本文中的历史测试数字和来源指纹不应重新用于验收。
+
 ## 1. 当前候选组合
 
 | 层级 | 固定值 | 证据 |
@@ -10,7 +13,7 @@
 | 服务端 release | `65219e2` | 服务器 `/home/ps/code/hospital-platform/releases/65219e2` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `b451cc6` | 与服务端 `65219e2` 配套的当前本地验收候选包；包含预约记录状态展示的运行时 fail-closed 边界 |
+| 小程序客户端 | `b451cc6` | 历史候选；包含预约记录状态展示的运行时 fail-closed 边界 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
 | 小程序构建来源 | `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8` | `dist/build-info.json` 的 `sourceRevision` |
 | 小程序回归 | 161 项 / 1296 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `b451cc6` |
