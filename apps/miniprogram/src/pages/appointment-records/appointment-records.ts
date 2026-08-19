@@ -1,5 +1,5 @@
 import departmentLocations from "../../data/department-location";
-import { ApiError } from "../../services/api-client";
+import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	filterAppointmentRecords,
 	isAppointmentRecordTabAvailable,
@@ -14,6 +14,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
@@ -138,6 +139,7 @@ function findVisibleRecord(
 Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
 		hasShown: false,
+		sessionState: "checking",
 		selectedPatient: null,
 		records: [],
 		visibleRecords: [],
@@ -176,6 +178,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		this.setData({
 			loading: true,
 			error: "",
+			sessionState: "checking",
 			selectedPatient: null,
 			records: [],
 			visibleRecords: [],
@@ -185,8 +188,16 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			showLocationModal: false,
 			locationResults: [],
 		});
-		return loadCurrentPatient()
+		// 患者业务页不能把 loadCurrentPatient 内部自动登录当作入口授权事实；
+		// 先单独完成 `/me` 验证，页面上的“更换就诊人”才有可传递的四态状态。
+		return getCurrentUser()
+			.then(() => {
+				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				this.setData({ sessionState: "valid" });
+				return loadCurrentPatient();
+			})
 			.then((patient) => {
+				if (!patient) return;
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -216,6 +227,11 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 				});
 			})
 			.catch((error) => {
+				if (loadGuard.isCurrent(requestToken)) {
+					this.setData({
+						sessionState: sessionVerificationStateFromError(error),
+					});
+				}
 				if (loadGuard.isCurrent(requestToken)) {
 					this.showError(error, "挂号记录加载失败");
 				}
@@ -279,7 +295,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	onChangePatient(): void {
-		navigateToPatientSelector();
+		navigateToPatientSelector(this.data.sessionState);
 	},
 
 	/**

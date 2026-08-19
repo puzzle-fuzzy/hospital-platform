@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	isMissedAppointment,
 	toAppointmentRecordView,
@@ -12,6 +12,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
@@ -42,6 +43,7 @@ type MissedAppointmentsPageMethods = {
 Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	data: {
 		hasShown: false,
+		sessionState: "checking",
 		selectedPatient: null,
 		records: [],
 		visibleRecords: [],
@@ -82,6 +84,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		this.setData({
 			loading: true,
 			error: "",
+			sessionState: "checking",
 			// 爽约记录是当前患者预约历史的派生结果；新患者查询开始后不能继续
 			// 展示上一位患者的卡片或记录，避免身份和列表短暂错配。
 			selectedPatient: null,
@@ -91,8 +94,16 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			hasMoreRecords: false,
 		});
 
-		return loadCurrentPatient()
+		// 先验证平台会话，再读取患者和预约历史；这让页面入口与请求使用同一
+		// 四态会话事实，避免本地 token 存在时错误放行“更换就诊人”。
+		return getCurrentUser()
+			.then(() => {
+				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				this.setData({ sessionState: "valid" });
+				return loadCurrentPatient();
+			})
 			.then((patient) => {
+				if (!patient) return undefined;
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -137,6 +148,11 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			})
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
+					this.setData({
+						sessionState: sessionVerificationStateFromError(error),
+					});
+				}
+				if (loadGuard.isCurrent(requestToken)) {
 					this.showError(error, "爽约记录加载失败");
 				}
 			})
@@ -175,7 +191,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	},
 
 	onChangePatient(): void {
-		navigateToPatientSelector();
+		navigateToPatientSelector(this.data.sessionState);
 	},
 
 	onPullDownRefresh(): void {

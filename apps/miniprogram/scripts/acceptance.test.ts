@@ -824,9 +824,10 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');
 	expect(navigation).toContain("resolveAuthenticatedEntry");
 	expect(navigation).toContain("登录状态验证中，请稍后");
-	expect(navigation).toContain(
-		"state: AuthenticatedEntryState = hasPlatformSession()",
-	);
+	// 入口必须显式接收 `/me` 四态验证结果；不能退回“本地 token 存在就放行”
+	// 的兼容默认值，否则服务端已失效的会话仍可能进入患者选择页。
+	expect(navigation).toContain("state: AuthenticatedEntryState");
+	expect(navigation).not.toContain("hasPlatformSession()");
 	expect(tabbar).toContain('text: "医疗服务"');
 	expect(tabbar).toContain('text: "就诊"');
 	expect(tabbar).toContain('text: "互联网医院"');

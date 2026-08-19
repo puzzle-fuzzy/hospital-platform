@@ -5,9 +5,8 @@ import {
 } from "./patient-navigation";
 
 describe("会话验证入口门禁", () => {
-	test("验证成功或兼容布尔 true 才允许打开页面", () => {
+	test("只有服务端验证成功才允许打开页面", () => {
 		expect(resolveAuthenticatedEntry("valid")).toBe("open");
-		expect(resolveAuthenticatedEntry(true)).toBe("open");
 	});
 
 	test("验证中和暂不可用时必须等待，不能把故障当作退出登录", () => {
@@ -17,7 +16,6 @@ describe("会话验证入口门禁", () => {
 
 	test("服务端明确拒绝会话时才回首页重新登录", () => {
 		expect(resolveAuthenticatedEntry("invalid")).toBe("redirect-to-login");
-		expect(resolveAuthenticatedEntry(false)).toBe("redirect-to-login");
 	});
 });
 

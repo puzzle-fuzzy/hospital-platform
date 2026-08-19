@@ -249,6 +249,8 @@ export type DepartmentLocationView = {
 export type AppointmentRecordsPageData = {
 	/** 只属于当前页面实例，不能使用模块级变量跨实例共享生命周期状态。 */
 	hasShown: boolean;
+	/** 只有 `/me` 验证成功后，页面才允许进入就诊人选择入口。 */
+	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
 	/** 当前查询得到的完整预约记录；总数和状态事实不能被本地分批改变。 */
 	records: Array<AppointmentRecordView>;
@@ -273,6 +275,8 @@ export type AppointmentRecordsPageData = {
 export type MissedAppointmentsPageData = {
 	/** 只属于当前页面实例，避免多层页面返回时互相消费首次 onShow 状态。 */
 	hasShown: boolean;
+	/** 爽约记录属于受保护患者业务，入口必须消费真实会话验证状态。 */
+	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
 	/** 完整的 missed 派生结果；它不是 provider 分页，也不能被截断后误报为空。 */
 	records: Array<AppointmentRecordView>;
@@ -300,6 +304,8 @@ export type ReportDetailPageData = {
 export type ReportDirectoryPageData = {
 	/** 只属于当前页面实例，首次 onShow 不重复 onLoad 已发起的目录读取。 */
 	hasShown: boolean;
+	/** 报告目录的更换患者入口不能用本地 token 存在替代 `/me` 验证。 */
+	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
 	reports: Array<ReportDirectoryView>;
 	visibleReports: Array<ReportDirectoryView>;
@@ -314,6 +320,8 @@ export type ReportDirectoryPageData = {
 export type OutpatientPaymentPageData = {
 	/** 只属于当前页面实例，避免费用页面之间共享首次展示标记。 */
 	hasShown: boolean;
+	/** 门诊费用入口在支付开放前也必须先确认当前平台会话。 */
+	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
 	activeStatus: "unpaid" | "paid";
 	/** 完整的当前查询结果；它的总量不能被本地渲染分批改变。 */

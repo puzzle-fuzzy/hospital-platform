@@ -15,6 +15,13 @@
   不是服务故障。最近 15 分钟没有观察到新的患者、预约、门诊费用或资料业务事件，不升级真机或 Provider 验收等级。
   详见 [`release/current-398be8e-runtime-recheck-2026-08-19-1657.md`](release/current-398be8e-runtime-recheck-2026-08-19-1657.md)。
 
+- 2026-08-19（小程序患者入口四态会话门禁）：发现预约记录、爽约记录、报告目录和门诊费用页面的“更换就诊人”
+  入口仍保留“本地 token 存在即放行”的兼容默认值。现已删除 boolean/默认 token 分支，四个页面在患者目录读取前
+  先完成 `/me` 验证，并显式保存 `checking/valid/invalid/unavailable` 状态；入口与页面请求不再把本地凭证存在误解为
+  服务端登录成功。小程序定向测试 `163/163`、`1302` 个断言，TypeScript 和 Biome 通过；本地候选尚未上传，
+  未修改新旧服务、数据库、Redis 或线上小程序，详见
+  [`release/miniprogram-patient-navigation-session-state-2026-08-19.md`](release/miniprogram-patient-navigation-session-state-2026-08-19.md)。
+
 - 2026-08-19 16:30–16:37 CST 生产切换：患者临床可用性读模型和 Provider 归属校验修正已从 `968af78` 原子切换到
   `398be8e`，只重启新 API；旧 Python `8001` 保持监听。生产 preflight、候选 `18082` smoke、公网 live/ready 连续
   `6/6`、system ping、未登录 `401` 和日志聚合均通过，`parseErrors=0`、`systemdWarningCount=0`。

@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	loadOutpatientPaymentRecords,
 	loadCurrentPatient,
@@ -9,6 +9,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
@@ -49,6 +50,7 @@ type OutpatientPaymentPageMethods = {
 Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	data: {
 		hasShown: false,
+		sessionState: "checking",
 		selectedPatient: null,
 		activeStatus: "unpaid",
 		items: [],
@@ -81,14 +83,23 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		this.setData({
 			loading: true,
 			error: "",
+			sessionState: "checking",
 			selectedPatient: null,
 			items: [],
 			visibleItems: [],
 			visibleItemCount: 0,
 			hasMoreItems: false,
 		});
-		return loadCurrentPatient()
+		// 先完成服务端 `/me` 验证，再读取患者目录；否则页面入口会在本地
+		// token 已过期时仍被误认为可切换患者，随后才在费用请求中暴露 401。
+		return getCurrentUser()
+			.then(() => {
+				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				this.setData({ sessionState: "valid" });
+				return loadCurrentPatient();
+			})
 			.then((patient) => {
+				if (!patient) return;
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -104,6 +115,11 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				return this.loadRecords(patient, this.data.activeStatus, requestToken);
 			})
 			.catch((error) => {
+				if (loadGuard.isCurrent(requestToken)) {
+					this.setData({
+						sessionState: sessionVerificationStateFromError(error),
+					});
+				}
 				if (loadGuard.isCurrent(requestToken)) {
 					this.showError(error, "门诊缴费记录加载失败");
 				}
@@ -203,7 +219,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	},
 
 	onChangePatient(): void {
-		navigateToPatientSelector();
+		navigateToPatientSelector(this.data.sessionState);
 	},
 
 	/**

@@ -1,9 +1,15 @@
 import { isPatientSyncInFlight } from "./patient-sync-coordinator";
-import { hasPlatformSession } from "./session-service";
 import type { SessionVerificationState } from "../types";
 
-/** 兼容已有布尔调用方，同时允许页面传入最近一次 `/me` 验证结果。 */
-type AuthenticatedEntryState = SessionVerificationState | boolean;
+/**
+ * 所有受保护入口必须使用最近一次 `/me` 验证结果。
+ *
+ * 不能再接受 boolean 或默认读取本地 token：本地 token 只代表设备上存在
+ * 一个待尝试的凭证，不能证明服务端仍接受该凭证，也不能证明它属于当前
+ * 会话代际。这样把入口状态收紧到四态后，所有页面都必须显式处理验证中、
+ * 已验证、已失效和暂不可用四种真实业务状态。
+ */
+type AuthenticatedEntryState = SessionVerificationState;
 
 /** 患者范围页面进入前的三态门禁，页面不能把它们混成一个跳转结果。 */
 export type PatientScopedEntryDecision =
@@ -18,15 +24,12 @@ export type AuthenticatedEntryDecision =
 
 /**
  * 只有明确验证成功才允许进入需要会话的页面。
- *
- * 布尔值仅保留给旧调用点：true 等价于已验证，false 等价于已失效；新页面
- * 应传入四态值，避免把“本地有 token”错误地当作“服务端已登录”。
  */
 export function resolveAuthenticatedEntry(
 	state: AuthenticatedEntryState,
 ): AuthenticatedEntryDecision {
-	if (state === true || state === "valid") return "open";
-	if (state === false || state === "invalid") return "redirect-to-login";
+	if (state === "valid") return "open";
+	if (state === "invalid") return "redirect-to-login";
 	return "wait-for-session";
 }
 
@@ -81,12 +84,11 @@ export function navigateToAuthenticatedPage(
  *
  * 任何页面都可能在首页后台同步尚未结束时发起“更换就诊人”。统一门禁
  * 避免选择页再次产生第二条同步链；门禁只改善用户入口，真正的并发安全
- * 仍由进程级同步协调器和服务端幂等租约共同保证。没有显式传入四态结果的
- * 旧页面至少实时读取本地 token；这不能证明 token 未过期，但能避免 401 已
- * 清理 token 后仍然把用户送进选择页。
+ * 仍由进程级同步协调器和服务端幂等租约共同保证。调用方必须传入最近一次
+ * `/me` 验证状态，不能用本地 token 存在与否替代服务端认证事实。
  */
 export function navigateToPatientSelector(
-	state: AuthenticatedEntryState = hasPlatformSession(),
+	state: AuthenticatedEntryState,
 ): void {
 	const decision = resolveAuthenticatedEntry(state);
 	if (decision !== "open") {

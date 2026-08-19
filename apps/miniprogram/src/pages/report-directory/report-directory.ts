@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	loadCurrentPatient,
 	loadReports,
@@ -8,6 +8,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
@@ -69,6 +70,7 @@ type ReportDirectoryPageMethods = {
 Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	data: {
 		hasShown: false,
+		sessionState: "checking",
 		selectedPatient: null,
 		reports: [],
 		visibleReports: [],
@@ -102,6 +104,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		this.setData({
 			loading: true,
 			error: "",
+			sessionState: "checking",
 			selectedPatient: null,
 			reports: [],
 			visibleReports: [],
@@ -109,8 +112,16 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			visibleReportCount: 0,
 			hasMoreReports: false,
 		});
-		return loadCurrentPatient()
+		// 报告属于患者范围业务；只有 `/me` 已验证成功，才能把“更换患者”
+		// 入口视为可用，不能把请求层的自动登录隐藏成页面授权状态。
+		return getCurrentUser()
+			.then(() => {
+				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				this.setData({ sessionState: "valid" });
+				return loadCurrentPatient();
+			})
 			.then((patient) => {
+				if (!patient) return undefined;
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -149,6 +160,11 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			})
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
+					this.setData({
+						sessionState: sessionVerificationStateFromError(error),
+					});
+				}
+				if (loadGuard.isCurrent(requestToken)) {
 					this.showError(error, "报告目录加载失败");
 				}
 			})
@@ -158,7 +174,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	},
 
 	onChangePatient(): void {
-		navigateToPatientSelector();
+		navigateToPatientSelector(this.data.sessionState);
 	},
 
 	/**
