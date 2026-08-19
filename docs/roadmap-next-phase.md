@@ -5,6 +5,13 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 08:41 CST：在当前 `b7c9451` 服务和 `b2ce91e` 运行包上完成一轮模拟器只读业务链路，页面、HTTP 和低敏
+  journald 日志已按同一时间窗口核对：预约历史 `GET /api/v1/appointments/records` 返回 `200`，Provider 返回 `60` 条且
+  `cancelled=60`，页面按契约排除后显示空状态；爽约页使用过去 90 天窗口并同样只得到取消记录，没有把取消状态推断为爽约；
+  门诊缴费的 `unpaid` 和 `paid` 两个状态请求均返回 `200`、`itemCount=0`。普通资料读取、患者目录读取/同步也均为成功，
+  `parseErrors=0`、`systemdWarningCount=0`，没有支付、医保、退费或业务写入。该轮是“开发者工具模拟器 + 公网请求 + 新服务日志”
+  证据，不替代真实微信设备；详细记录见 [`miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md)。
+
 - 2026-08-19 08:36 CST：继续在新 `miniprogram` 开发者工具窗口核对当前候选。资源树仍明确包含 `dist/`，
   模拟器首页正常，`dist/build-info.json` 的运行包来源仍为 `b2ce91e1892a5cddec6953e3812d6f0ec08af8a6`；
   普通编译完成后，问题面板为 0 个问题，代码包约 `638 KB`，iOS 二维码有效期更新至 `09:00`，窗口仍没有
