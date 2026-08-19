@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	auditCurrentBaselineDocuments,
+	auditCurrentCandidateReferences,
 	auditCurrentExecutionSection,
 	auditCurrentReleaseConsistency,
 	auditCurrentReadonlyBusinessBoundaries,
@@ -123,6 +124,33 @@ test("报告文档把关闭门禁写成真实成功时拒绝发布基线", () =>
 		"P0 手册缺少报告关闭边界：ZHONGYANG_REPORT_DIRECTORY_READY=false",
 		"P0 手册缺少报告关闭边界：ZHONGYANG_REPORT_DETAIL_READY=false",
 		"P0 手册缺少报告关闭边界：只允许验收 fail-closed",
+	]);
+});
+
+test("当前语义短语附近的历史候选会被发布基线拒绝", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const documents = [
+		{
+			path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
+			content: `## 1. 证据范围与当前发布边界\n当前配套候选为 \`${baseline.miniProgramSourceRevision}\`。\n## 2. 已验证的不变量\n## 3. 当前工作树测试证据\n当前真机候选以 \`old-candidate\` 为准。\n## 4. 尚未完成的证据与停止条件`,
+		},
+		{
+			path: "docs/migration/migration-gap-audit-2026-08-17.md",
+			content: `## 2. 当前事实\n配套小程序构建来源为 \`${baseline.miniProgramSourceRevision}\`。\n## 3. 下一步`,
+		},
+		{
+			path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
+			content: `## 0. 当前检查点\n配套小程序构建来源为 \`${baseline.miniProgramSourceRevision}\`。\n## 1. 当前链路\n配套小程序构建来源为 \`old-report-candidate\`。\n## 2. 已验证`,
+		},
+	];
+
+	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
+		"P0 只读业务 contract 审计 的“当前真机候选以”未指向当前完整小程序 sourceRevision",
+		"报告只读契约审计 的“配套小程序构建来源为”未指向当前完整小程序 sourceRevision",
 	]);
 });
 

@@ -64,6 +64,59 @@ export const currentBaselineDocuments = Object.freeze([
 	},
 ]);
 
+/**
+ * 当前基线文档中容易被历史发布记录污染的“当前候选”短语。
+ *
+ * 仅检查文档包含完整 sourceRevision 不够：同一文件可能在顶部写对当前候选，
+ * 正文却仍把旧候选写成“当前配套包”，导致验收人员导入错误运行包。这里逐个
+ * 检查所有匹配短语附近的完整来源，历史段落不使用这些当前语义短语即可保留。
+ */
+const currentCandidateReferenceRules = Object.freeze([
+	{
+		path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
+		label: "P0 只读业务 contract 审计",
+		sections: [
+			{
+				start: "## 1. 证据范围与当前发布边界",
+				end: "## 2. 已验证的不变量",
+				phrases: [{ text: "当前配套候选为", expected: "full" }],
+			},
+			{
+				start: "## 3. 当前工作树测试证据",
+				end: "## 4. 尚未完成的证据与停止条件",
+				phrases: [{ text: "当前真机候选以", expected: "short" }],
+			},
+		],
+	},
+	{
+		path: "docs/migration/migration-gap-audit-2026-08-17.md",
+		label: "迁移差距审计",
+		sections: [
+			{
+				start: "## 2. 当前事实",
+				end: "## 3.",
+				phrases: [{ text: "配套小程序构建来源为", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
+		label: "报告只读契约审计",
+		sections: [
+			{
+				start: "## 0. 当前检查点",
+				end: "## 1. 当前链路",
+				phrases: [{ text: "配套小程序构建来源为", expected: "full" }],
+			},
+			{
+				start: "## 1. 当前链路",
+				end: "## 2.",
+				phrases: [{ text: "配套小程序构建来源为", expected: "full" }],
+			},
+		],
+	},
+]);
+
 /** 从验收候选的表格中提取当前服务端和小程序来源指纹。 */
 export function extractCurrentBaseline(candidateDocument) {
 	const serverRelease = candidateDocument.match(
@@ -127,6 +180,55 @@ export function auditCurrentExecutionSection(baseline, roadmapDocument) {
 		failures.push(
 			`当前执行项缺少完整小程序 sourceRevision ${baseline.miniProgramSourceRevision}`,
 		);
+	}
+	return failures;
+}
+
+/** 检查当前语义短语附近的候选来源，避免旧 hash 伪装成当前运行包。 */
+export function auditCurrentCandidateReferences(baseline, documents) {
+	const failures = [];
+	for (const rule of currentCandidateReferenceRules) {
+		const document = documents.find((item) => item.path === rule.path);
+		if (!document) {
+			continue;
+		}
+		for (const section of rule.sections) {
+			const sectionStart = document.content.indexOf(section.start);
+			const sectionEnd = document.content.indexOf(
+				section.end,
+				sectionStart + 1,
+			);
+			if (sectionStart < 0 || sectionEnd < 0) {
+				failures.push(`${rule.label} 缺少候选审计所需的当前章节边界`);
+				continue;
+			}
+			const sectionContent = document.content.slice(sectionStart, sectionEnd);
+			for (const phraseDefinition of section.phrases) {
+				const phrase = phraseDefinition.text;
+				const occurrences = [];
+				let offset = sectionContent.indexOf(phrase);
+				while (offset >= 0) {
+					occurrences.push(offset);
+					offset = sectionContent.indexOf(phrase, offset + phrase.length);
+				}
+				if (occurrences.length === 0) {
+					failures.push(`${rule.label} 缺少当前候选语义：${phrase}`);
+					continue;
+				}
+				for (const occurrence of occurrences) {
+					const nearbyText = sectionContent.slice(occurrence, occurrence + 240);
+					const expected =
+						phraseDefinition.expected === "short"
+							? baseline.miniProgramCommit
+							: baseline.miniProgramSourceRevision;
+					if (!nearbyText.includes(expected)) {
+						failures.push(
+							`${rule.label} 的“${phrase}”未指向当前完整小程序 sourceRevision`,
+						);
+					}
+				}
+			}
+		}
 	}
 	return failures;
 }
@@ -207,6 +309,7 @@ export function auditCurrentBaselineDocuments(baseline, documents) {
 			),
 		);
 	}
+	failures.push(...auditCurrentCandidateReferences(baseline, documents));
 	return {
 		passed: failures.length === 0,
 		serverRelease: baseline.serverRelease,
