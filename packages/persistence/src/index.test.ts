@@ -182,6 +182,42 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 	).toBeUndefined();
 });
 
+test("内存患者读模型缺少 his-patient 映射时拒绝沿用历史 ready 状态", async () => {
+	const patients = createInMemoryPatientRepository([
+		{
+			id: "seed-patient-001",
+			ownerUserId: "seed-user-001",
+			displayName: "历史患者",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+			source: "hospital-his",
+			// 故意模拟只恢复了患者行、没有恢复独立临床映射的脏状态。
+			// 读模型必须重新以映射事实为准，而不能信任这个历史枚举。
+			clinicalAccess: "ready",
+		},
+	]);
+
+	await expect(patients.listByOwner("seed-user-001")).resolves.toEqual([
+		{
+			id: "seed-patient-001",
+			ownerUserId: "seed-user-001",
+			displayName: "历史患者",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+			source: "hospital-his",
+			clinicalAccess: "unavailable",
+		},
+	]);
+	await expect(
+		patients.resolveProviderReference({
+			ownerUserId: "seed-user-001",
+			patientId: "seed-patient-001",
+			provider: "zhongyang",
+			referenceKind: "his-patient",
+		}),
+	).resolves.toBeUndefined();
+});
+
 test("患者目录完整快照只停用缺失患者并保留原内部 id", async () => {
 	const patients = createInMemoryPatientRepository();
 	if (!patients.replaceDirectorySnapshot)

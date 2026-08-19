@@ -143,7 +143,12 @@ export function createInMemoryPatientRepository(
 	}) =>
 		`${input.ownerUserId}:${input.provider}:${input.referenceKind}:${input.patientId}`;
 
-	/** 内存仓储也必须把临床可用性当作真实状态，不能只由 source 猜测。 */
+	/**
+	 * 内存仓储也必须把临床可用性当作映射事实，不能沿用 seed/旧对象上的
+	 * `clinicalAccess=ready`。MySQL 读模型是通过 EXISTS 查询实时计算的；如果
+	 * 内存实现保留旧枚举，就会让测试里的预约、报告或费用流程绕过缺失的
+	 * `his-patient` 映射，掩盖生产环境本应触发的 fail-closed 边界。
+	 */
 	const clinicalAccessFor = (
 		patient: PatientRecord,
 	): PatientRecord["clinicalAccess"] => {
@@ -157,7 +162,7 @@ export function createInMemoryPatientRepository(
 			}),
 		)
 			? "ready"
-			: patient.clinicalAccess;
+			: "unavailable";
 	};
 	const listActivePatientsByOwner = (ownerUserId: string): PatientRecord[] =>
 		patients

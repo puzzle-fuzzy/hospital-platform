@@ -29,6 +29,12 @@
   预约写入、二维码和 HIS 回写继续关闭。详见
   [`release/current-968af78-runtime-coexistence-2026-08-19-1550.md`](release/current-968af78-runtime-coexistence-2026-08-19-1550.md)。
 
+- 2026-08-19（患者临床可用性读模型对齐）：发现内存测试仓储在缺少独立 `his-patient` 映射时可能沿用历史
+  `clinicalAccess=ready`，与 MySQL 通过 `EXISTS` 实时计算的生产读模型不一致。现已统一为“映射存在才 `ready`，否则
+  `unavailable`”，补充历史脏状态回归测试和中文核心注释。该修正只在新项目本地完成，未修改旧 Python、线上服务、数据库或 Redis，
+  尚未部署到 `968af78`；详见
+  [`release/in-memory-clinical-access-parity-2026-08-19.md`](release/in-memory-clinical-access-parity-2026-08-19.md)。
+
 - 2026-08-19（档案查询身份二次关联）：在不要求 Provider 尚未冻结的可选字段全部存在的前提下，
   新 adapter 现在会校验：响应若包含 `patName`，必须匹配本次查询姓名；若包含顶层卡号或
   `patCardVOList`，必须包含本次查询卡号；若卡片项包含 `patId`，还必须与档案顶层 `patId` 一致。
