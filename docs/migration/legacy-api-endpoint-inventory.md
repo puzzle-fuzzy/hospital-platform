@@ -33,7 +33,7 @@
 | 旧 endpoint | 旧来源 | 新端状态 | 业务边界 |
 | --- | --- | --- | --- |
 | `GET /api/public/patientInfoByUnionId` | `api/modules/ZY.ts` | 代码已迁移（只读） | 新服务只从服务端微信身份读取 unionId；小程序不提交 unionId，响应只映射为脱敏患者目录。 |
-| `GET /msun-middle-aggregate-patient/v1/patInfosFind` | `api/modules/ZY.ts` | 待 provider contract | 旧端档案查询依赖 provider 患者字段；新服务尚未把完整身份证、手机号或 provider 患者号放入公共 contract。 |
+| `GET /msun-middle-aggregate-patient/v1/patInfosFind` | `api/modules/ZY.ts` | 代码已迁移（服务端临床映射，只读） | 新服务按目录返回的卡号+姓名查询 `success=true` 的 `data.patId`，仅保存为 owner-scoped `his-patient` 引用，不进入小程序、日志或公共 contract；`invalidFlag`、锁定/卡片状态、机构边界和真实 Provider 业务验收仍待正式 contract，不能据此开放写入或支付。 |
 | `POST /msun-middle-aggregate-patient/v1/patients` | `api/modules/ZY.ts` | 待 provider contract | 真实建档需要身份证、卡号、手机号、关系和幂等/重复建档语义；不能用“同步目录”冒充新增成功。 |
 | `POST /msun-middle-aggregate-patient/v1/patCards` | `api/modules/ZY.ts` | 待 provider contract | 绑卡必须校验当前平台用户、卡号所有权、重复绑定和撤销语义；当前只支持目录读取。 |
 
