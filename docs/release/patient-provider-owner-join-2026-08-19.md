@@ -16,4 +16,4 @@
 
 - 这是仓储归属校验，不新增 Provider 字段、不改变旧 Python 服务、不调用 Provider。
 - 只读业务在没有一致的 owner/provider/active 映射时继续 fail-closed，不降级为空列表。
-- 本次修正完成全仓门禁后进入本地新项目提交；尚未部署线上 `968af78`，需要后续按发布流程单独切换和验证。
+- 本次修正已完成全仓门禁并随线上 `398be8e` 部署；生产切换和回滚边界见 [`398be8e-production-acceptance-2026-08-19.md`](398be8e-production-acceptance-2026-08-19.md)。

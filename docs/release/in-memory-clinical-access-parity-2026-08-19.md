@@ -21,4 +21,4 @@ MySQL repository 原本通过 `EXISTS` 查询实时计算这个字段，生产�
 - 持久化测试：`77 pass / 0 fail`。
 - 持久化 TypeScript 类型检查：通过。
 - 本次只修改新项目本地代码和测试，没有修改旧 Python 项目、数据库、Redis、线上配置或线上服务。
-- 该修正尚未随线上 `968af78` 部署；完成全仓门禁和中文提交后，仍需按发布流程单独决定是否部署。
+- 该修正已随线上 `398be8e` 部署；完整生产证据见 [`398be8e-production-acceptance-2026-08-19.md`](398be8e-production-acceptance-2026-08-19.md)。

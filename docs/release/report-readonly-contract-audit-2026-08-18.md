@@ -5,7 +5,7 @@
 
 ## 0. 当前检查点（2026-08-19）
 
-- 当前线上服务端 release 为 `968af78`，配套小程序构建来源为
+- 当前线上服务端 release 为 `398be8e`，配套小程序构建来源为
   `48ba22f16cb0f1d1098895772e660a3ed96761bb`（当前本地候选 `48ba22f`，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
 
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
@@ -20,7 +20,7 @@
 
 ## 1. 当前链路
 
-当前服务端 release 为 `968af78`，配套小程序构建来源为
+当前服务端 release 为 `398be8e`，配套小程序构建来源为
 `48ba22f16cb0f1d1098895772e660a3ed96761bb`（当前本地候选 `48ba22f`，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
 
 ```text

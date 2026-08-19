@@ -5,9 +5,15 @@
 
 ## 当前执行检查点（2026-08-19）
 
-> 本节以下按时间顺序保留历史观察；凡记录中写“当前 `b7c9451`”或更早 release，均表示当时观察窗口，
-> 不覆盖顶部最新事实。当前服务端为 `968af78`，小程序候选为 `48ba22f`，完整来源为
+> 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
+> 当前服务端为 `398be8e`，小程序候选为 `48ba22f`，完整来源为
 > `48ba22f16cb0f1d1098895772e660a3ed96761bb`。
+
+- 2026-08-19 16:30–16:37 CST 生产切换：患者临床可用性读模型和 Provider 归属校验修正已从 `968af78` 原子切换到
+  `398be8e`，只重启新 API；旧 Python `8001` 保持监听。生产 preflight、候选 `18082` smoke、公网 live/ready 连续
+  `6/6`、system ping、未登录 `401` 和日志聚合均通过，`parseErrors=0`、`systemdWarningCount=0`。
+  本窗口没有真实患者、预约或费用 Provider 业务事件，真机验收等级不变。详见
+  [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md)。
 
 - 2026-08-19 15:00 CST 生产切换：新 Elysia API 已从 `08c36a8` 原子切换到 `968af78`。候选在 `18082` 完成生产依赖
   preflight 和连续 readiness smoke 后，只重启 `hospital-platform-api-v2.service`；新 API `10.0.0.3:18081`
@@ -37,15 +43,15 @@
 
 - 2026-08-19（患者临床可用性读模型对齐）：发现内存测试仓储在缺少独立 `his-patient` 映射时可能沿用历史
   `clinicalAccess=ready`，与 MySQL 通过 `EXISTS` 实时计算的生产读模型不一致。现已统一为“映射存在才 `ready`，否则
-  `unavailable`”，补充历史脏状态回归测试和中文核心注释。该修正只在新项目本地完成，未修改旧 Python、线上服务、数据库或 Redis，
-  尚未部署到 `968af78`；详见
-  [`release/in-memory-clinical-access-parity-2026-08-19.md`](release/in-memory-clinical-access-parity-2026-08-19.md)。
+  `unavailable`”，补充历史脏状态回归测试和中文核心注释。该修正只在新项目完成，未修改旧 Python、线上服务、数据库或 Redis，
+  已随 `398be8e` 部署；详见
+  [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md)。
 
 - 2026-08-19（患者临床映射 Provider 归属校验）：发现 MySQL 临床引用查询此前只筛选独立映射表的 Provider，
   未同时确认患者主表的 `provider_name`。现已增加主表与映射表 Provider 的联合条件，避免历史迁移或异常修复产生
-  “其它 Provider 患者主表 + 众阳 HIS patId”交叉记录；补充 SQL 参数回归断言和中文注释。该修正只在新项目本地完成，
-  未修改旧 Python、线上服务、数据库或 Redis，尚未部署到 `968af78`；详见
-  [`release/patient-provider-owner-join-2026-08-19.md`](release/patient-provider-owner-join-2026-08-19.md)。
+  “其它 Provider 患者主表 + 众阳 HIS patId”交叉记录；补充 SQL 参数回归断言和中文注释。该修正只在新项目完成，
+  未修改旧 Python、线上服务、数据库或 Redis，已随 `398be8e` 部署；详见
+  [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md)。
 
 - 2026-08-19（档案查询身份二次关联）：在不要求 Provider 尚未冻结的可选字段全部存在的前提下，
   新 adapter 现在会校验：响应若包含 `patName`，必须匹配本次查询姓名；若包含顶层卡号或
@@ -1276,7 +1282,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片、切换就诊人和报告目录，确认页面只显示脱敏卡号与平台摘要；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `968af78` 和小程序候选 `48ba22f`（完整构建来源：`48ba22f16cb0f1d1098895772e660a3ed96761bb`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `398be8e` 和小程序候选 `48ba22f`（完整构建来源：`48ba22f16cb0f1d1098895772e660a3ed96761bb`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -1286,8 +1292,8 @@ available -> hold_pending -> held -> booking_pending -> booked
 10. 旧生产 env 文件权限已收紧到 `0700/0600` 且旧进程存活；新 API Redis 会话已切换至 DB3/`hospital_v2` 最小 ACL 并完成公网 readiness 验收；0014 普通资料已完成生产 schema/API 运行验收，但真实微信资料读写和真机证据仍待完成。下一步完成历史读取风险/秘密轮换判断，再继续报告、病历和文件资源 contract；旧 DB1 全权限账号、旧任务和其他基础设施仍不得视为已迁移。
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
-13. 当前服务端 release `968af78` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `968af78` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用与之配套的 `48ba22f` 小程序候选（完整构建来源：`48ba22f16cb0f1d1098895772e660a3ed96761bb`）。
+13. 当前服务端 release `398be8e` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `398be8e` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用与之配套的 `48ba22f` 小程序候选（完整构建来源：`48ba22f16cb0f1d1098895772e660a3ed96761bb`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 
