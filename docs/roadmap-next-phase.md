@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 10:36 CST（线上双服务与 P0 日志只读复核）：SSH 确认 `current=b7c9451`、新 API `18081`、旧 Python
+  `8001` 同时监听，`hospital-platform-api-v2.service` 为 `active/running`，live/ready 均成功且
+  `database/redis/schema=ok`。生产日志出现会话恢复、微信登录、患者读取和同步成功链；开发者工具新 `miniprogram`
+  窗口仍没有手机连接，因此只记录生产运行层与模拟器触发的 P0 观察，不增加真机、多患者切换、预约、费用或资料验收结论。
+  详见 [`current-b7c9451-runtime-and-p0-observation-2026-08-19-1036.md`](release/current-b7c9451-runtime-and-p0-observation-2026-08-19-1036.md)。
+
 - 2026-08-19 10:31 CST（重启后真机入口复核）：重新激活标题为 `miniprogram` 的新项目窗口，资源树仍指向
   `dist/`，模拟器首页正常，二维码仍为 iOS 真机调试包，约 `639 KB`，有效至 `10:49`。窗口没有出现手机连接，
   因此本次只证明候选入口和资源上下文一致，不增加微信登录、患者目录、患者切换、预约、门诊费用或普通资料的真机证据。
