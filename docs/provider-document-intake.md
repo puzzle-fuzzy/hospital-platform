@@ -118,3 +118,31 @@
 在新的 provider 文档和受控证据到达前，以下内容保持冻结：预约写入/锁号/取消、费用详情、微信支付、医保授权/结算、
 HIS 回写、二维码、住院数据、病历详情、动态地图定位、AI 导诊和需要临床确认的健康自测结果。
 页面可以保留明确的迁移提示，但不能通过旧 provider 万能转发来制造“功能已完成”的假象。
+
+## 7. 当前材料缺口台账（2026-08-19）
+
+本表只描述准入缺口，不代表已经收到新的 Provider 文件，也不把旧端抓包或历史成功响应升级为正式 contract。
+每个业务域必须先补齐表中的最小材料包，再单独建立版本化 contract；缺口存在时继续保持页面提示、未注册路由或
+独立 gate 的 fail-closed 状态。
+
+| 业务域 | 当前材料状态 | 已有边界/草案 | 进入实现前的最小材料包 | 当前动作 |
+| --- | --- | --- | --- | --- |
+| 患者新增/绑定家属 | 未收到当前环境的正式绑定 contract | [`migration/patient-binding-contract-draft.md`](migration/patient-binding-contract-draft.md)；PB-01 至 PB-16 | 绑定/建档 endpoint、身份核验、协议确认、owner 归属、重复/超时/幂等样例、撤销和错误码 | 只维护患者目录读取；“添加就诊人”不伪造成功 |
+| 门诊就诊记录/病历目录 | 未收到 `out-visit-records` 的正式确认包 | [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md)；MR-01 至 MR-15 | 请求/响应 envelope、`patId` 映射、成功空目录/权限拒绝/暂时失败样例、分页/时区、字段白名单和资源授权 | 不注册 `/api/v2/medical-records`；保持 404 |
+| 报告目录与详情 | 代码骨架存在，但当前 Provider gate 和资源授权仍未完成 | [`migration/report-provider-contract-audit-2026-08-19.md`](migration/report-provider-contract-audit-2026-08-19.md) | 当前 LIS/PACS/ECG/体检环境的脱敏成功与失败样例、时间格式、详情/附件权限、短期引用和公网验收入口 | 继续保持报告 gate；不开放下载、影像/心电详情或体检接口 |
+| 首页二维码 | 未收到医院扫码协议 | [`release/qr-contract-audit-2026-08-17.md`](release/qr-contract-audit-2026-08-17.md) | 扫码载荷定义、签名、短 TTL、一次性/防重放、撤销、扫码回执、医院设备和真机隔离验收 | 保留入口但显示未开放；不使用 `patId` 或完整卡号生成二维码 |
+| 现金支付/医保/HIS 回写 | 已收到历史规范材料，但当前状态仍为 `normalized`，不是已确认生产 contract | [`provider-intake/2026-08-16-outpatient-settlement-insurance.md`](provider-intake/2026-08-16-outpatient-settlement-insurance.md) | 当前环境鉴权、金额守恒、6201/6202/6301/6203/6401 状态机、回调/查单/补偿、HIS 顺序和回滚样例 | 按用户要求最后处理；支付、医保和回写 gate 保持关闭 |
+
+### 缺口转正式实现的顺序
+
+```text
+收到原始材料
+  -> 登记 documentId / 版本 / 环境 / SHA-256
+  -> 脱敏并取得成功、空、拒绝、暂时失败样例
+  -> 明确 owner 映射、字段白名单、时区、幂等和日志禁止字段
+  -> 更新对应差异审计与 contract
+  -> contract / adapter / domain / API / 小程序 / 验收逐层实现
+```
+
+如果只拿到一段抓包或一个成功响应，最多把对应材料登记为 `normalized`；不能跳过失败语义、权限边界和回滚证据，
+也不能为了让页面可点击而加入万能转发。这样可以保证旧 Python 服务继续运行，新服务的每个业务域仍可独立回滚。
