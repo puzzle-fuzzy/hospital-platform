@@ -10,6 +10,9 @@
 - 2026-08-19（当前小程序验收候选更新）：上述修正已提交为 `69e6cdb`，`dist/build-info.json.sourceRevision` 为
   `69e6cdb28f2996095b8647f82b1b90afd061b918`，本地 `pnpm check` 已通过；候选尚未上传微信开发者工具或部署线上，真机和服务端日志证据仍待重新采集。
 
+- 2026-08-19 10:24 CST（真机入口恢复）：新 `miniprogram` 开发者工具窗口已确认资源树为 `dist/`，重新生成 iOS 真机调试二维码，
+  代码包约 `639 KB`，标注有效至 `10:49`；当前尚未看到手机连接，因此只记录二维码准备完成，不把它写成微信登录或只读业务验收。
+
 - 2026-08-19（支付预支付服务层输入边界）：`WechatPrepayService.create/read` 新增运行时 owner、订单、幂等键和链路上下文校验，
   即使内部调用绕过 Elysia schema 传入 `null` 或数组，也会在订单仓储、微信 Provider 和支付状态机之前复用既有
   `400 payment-order-invalid`。本次没有打开支付、医保或结算 gate，也未修改旧 Python、线上服务、数据库和 Redis。
