@@ -16,6 +16,12 @@
   全部恢复 `ok`，没有重启服务或修改旧项目。已确认新 API 连接的是远端 MySQL，不应以服务器本机 3306 判断生产数据库；服务器根分区约
   95% 使用率另记为运维风险。完整只读证据见 [`release/current-b7c9451-database-transient-observation-2026-08-19.md`](release/current-b7c9451-database-transient-observation-2026-08-19.md)。
 
+- 2026-08-19（档案 `patId` 数值精度边界）：根据旧端 `patInfosFind` 的真实响应形状，确认 `data.patId` 可能是 19 位临床引用；
+  新 adapter 现在只兼容安全整数形式的短数字，拒绝超出 JavaScript 安全整数范围的 JSON number，并保留合法的 19 位字符串引用。
+  补充了含身份证、手机号和 `patCardVOList` 额外字段的完整包络测试，验证只有 `his-patient` 引用进入内部结果，敏感字段不外泄。
+  adapter `86/86` 测试和类型检查通过；没有调用真实 Provider、修改旧项目、数据库、Redis 或线上服务。边界说明见
+  [`migration/patient-provider-reference-mapping.md`](migration/patient-provider-reference-mapping.md)。
+
 - 2026-08-19（报告 Provider 契约差异复核）：只读核对旧端 LIS、PACS、ECG、体检 PEIS 四类报告请求，确认新端目前仅有前三类
   目录和 LIS 详情骨架；体检接口需要完整身份证号，旧端还会把非 LIS 报告对象和外部文件地址写入本地缓存，均不能直接复制。
   本轮没有打开报告 gate、没有调用 Provider、没有新增报告 API/小程序能力，差异和后续停止条件记录在

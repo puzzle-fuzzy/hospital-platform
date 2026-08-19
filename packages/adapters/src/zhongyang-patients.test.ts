@@ -79,6 +79,99 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("众阳档案响应保留 19 位字符串 patId 并丢弃额外身份字段", async () => {
+	const hisPatientId = "8481567861861908740";
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patName: "杨东平",
+							patId: hisPatientId,
+							idCardNo: "330782199903271910",
+							phone: "18267094443",
+							patCardVOList: [{ patCardNo: "001000305367027" }],
+						},
+					}),
+					{ status: 200, headers: { "x-request-id": "archive-full-001" } },
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-full-001",
+							patientName: "杨东平",
+							medicalCardNo: "001000305367027",
+							relation: "本人",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "directory-full-001" } },
+			);
+		},
+	});
+
+	const result = await gateway.listByIdentity(
+		{ unionId: "union-full-001" },
+		context,
+	);
+
+	expect(result.patients[0]?.providerReferences).toEqual({
+		"his-patient": hisPatientId,
+	});
+	const serialized = JSON.stringify(result);
+	expect(serialized).not.toContain("330782199903271910");
+	expect(serialized).not.toContain("18267094443");
+	expect(serialized).not.toContain("001000305367027");
+});
+
+test("众阳档案响应拒绝超出安全整数范围的数字 patId", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						// 模拟 Provider 将 19 位临床引用错误地作为 JSON number 返回。
+						data: { patId: Number.MAX_SAFE_INTEGER + 1 },
+					}),
+					{ status: 200, headers: { "x-request-id": "archive-unsafe-001" } },
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-unsafe-001",
+							patientName: "测试患者",
+							medicalCardNo: "card-unsafe-001",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "directory-unsafe-001" } },
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-unsafe-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		requestId: "archive-unsafe-001",
+		responseInvalid: true,
+	});
+});
+
 test("众阳患者目录对 18 位卡号保留前五位和后四位", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",

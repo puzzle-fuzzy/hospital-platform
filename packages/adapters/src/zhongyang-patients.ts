@@ -79,7 +79,15 @@ function requiredText(
 	requestId?: string,
 	responseInvalid = false,
 ): string {
-	if (typeof value !== "string" && typeof value !== "number") {
+	// Provider 的 JSON 数字会先被 JavaScript 解析成 Number；超过
+	// `Number.MAX_SAFE_INTEGER` 后，原始 19 位 patId 已经发生不可逆精度
+	// 损失，再调用 String(value) 也无法恢复真实临床档案。安全整数仍允许
+	// 兼容少数旧接口返回的短数字 thirdPatientId，但不接受 NaN、Infinity、
+	// 小数或超出安全范围的数字，避免把错误引用写入后续患者映射。
+	if (
+		(typeof value !== "string" && typeof value !== "number") ||
+		(typeof value === "number" && !Number.isSafeInteger(value))
+	) {
 		throw providerError(
 			`Zhongyang patient field ${field} is invalid`,
 			requestId,

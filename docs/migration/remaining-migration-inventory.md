@@ -16,6 +16,10 @@
 审计仍返回 `redis-session-scan-unavailable`（退出码 2），所以会话实际 TTL、过期后的重新登录和多患者失效恢复继续保持未验收；
 没有修改 ACL、重启服务、写数据库/Redis 或操作旧项目。详见 [`../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md`](../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md)。
 
+补充记录（2026-08-19，档案引用输入边界）：旧端档案接口返回的 `data.patId` 是预约、报告和门诊费用共用的临床引用，不能接受
+JavaScript 精度损失后的数字。新 adapter 已拒绝超出安全整数范围的数字 `patId`，保留 19 位字符串，并用完整脱敏包络测试确认
+身份证、手机号和 `patCardVOList` 不进入内部公共结果；本轮未调用真实 Provider，未修改旧项目、数据库、Redis 或线上服务。
+
 补充记录（2026-08-19 11:43–11:44 CST）：重启后只读检查发现新 API 远端 MySQL 曾短暂出现 `PROTOCOL_CONNECTION_LOST`，readiness
 一度为 `not_ready`，随后 database/Redis/schema 自动恢复为 `ok`；新旧服务监听、release 和旧 Python 均未改变。服务器本机 3306
 不是新 API 的数据库目标，根分区约 95% 使用率需要单独运维关注。该事件只记录运行层恢复，不增加患者、预约、报告、费用或真机证据，详见
