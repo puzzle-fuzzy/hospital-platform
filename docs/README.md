@@ -23,6 +23,7 @@
 | [`release/current-b7c9451-p0-business-observation-2026-08-19-0815.md`](release/current-b7c9451-p0-business-observation-2026-08-19-0815.md) | 历史 `b7c9451` SSH 只读 P0 业务日志观察；患者读取/同步同链通过，其他业务域和真机证据仍缺 |
 | [`release/current-b7c9451-p0-business-observation-2026-08-19-0821.md`](release/current-b7c9451-p0-business-observation-2026-08-19-0821.md) | 历史 `b7c9451` 微信登录、患者读取和同步同链观察；预约、费用、报告和真机页面仍待继续取证 |
 | [`release/current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md) | 重启后公网 live/ready/system-ping 与未登录认证边界复核；不代表 SSH 进程共存、Provider 或真机业务验收 |
+| [`release/current-public-readonly-smoke-2026-08-19-1329.md`](release/current-public-readonly-smoke-2026-08-19-1329.md) | 13:29 CST 公网 live/ready/ping 与未登录患者接口复核；不代表微信、Provider 或真机业务验收 |
 | [`release/current-b7c9451-database-transient-observation-2026-08-19.md`](release/current-b7c9451-database-transient-observation-2026-08-19.md) | 历史 `b7c9451` 远端 MySQL 瞬态断连、readiness 恢复、双服务共存和磁盘风险观察；不代表业务验收 |
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前候选为 `4822884`，本记录不替代真机、Provider 或服务端日志证据 |
 | [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `4822884` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
