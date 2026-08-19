@@ -16,6 +16,12 @@
   [`release/968af78-production-acceptance-2026-08-19.md`](release/968af78-production-acceptance-2026-08-19.md)。
   Provider 业务、真实微信真机和支付/医保仍未验收。
 
+- 2026-08-19 15:43 CST SSH 只读复核：`current` 仍指向 `968af78`，`hospital-platform-api-v2.service` 为 `active`，
+  新 API `10.0.0.3:18081` 和旧 Python `0.0.0.0:8001` 同时监听；公网 live/ready 均返回 `200`，ready 的
+  `database/redis/schema` 均为 `ok`。本次没有写入、重启或调用 Provider，只更新运行层共存证据，不增加微信、患者、预约、
+  报告、门诊费用或真机业务验收等级。详见
+  [`release/current-968af78-runtime-coexistence-2026-08-19-1543.md`](release/current-968af78-runtime-coexistence-2026-08-19-1543.md)。
+
 - 2026-08-19（档案查询身份二次关联）：在不要求 Provider 尚未冻结的可选字段全部存在的前提下，
   新 adapter 现在会校验：响应若包含 `patName`，必须匹配本次查询姓名；若包含顶层卡号或
   `patCardVOList`，必须包含本次查询卡号；若卡片项包含 `patId`，还必须与档案顶层 `patId` 一致。

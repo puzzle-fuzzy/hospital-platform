@@ -16,6 +16,7 @@
 | [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `968af78`、当前本地小程序候选来源以 `48ba22f16cb0f1d1098895772e660a3ed96761bb` 为准 |
 | [`release/candidate-48ba22f-local-build-2026-08-19.md`](release/candidate-48ba22f-local-build-2026-08-19.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；尚未上传线上，服务端基线为 `968af78` |
 | [`release/968af78-production-acceptance-2026-08-19.md`](release/968af78-production-acceptance-2026-08-19.md) | 当前 `968af78` 原子生产切换、档案关联校验、新旧服务共存和未完成验收 |
+| [`release/current-968af78-runtime-coexistence-2026-08-19-1543.md`](release/current-968af78-runtime-coexistence-2026-08-19-1543.md) | 15:43 CST SSH 只读复核 `968af78`、新旧监听、公网 live/ready 和依赖状态；不代表 Provider/真机业务成功 |
 | [`release/08c36a8-production-acceptance-2026-08-19.md`](release/08c36a8-production-acceptance-2026-08-19.md) | 历史 `08c36a8` 原子生产切换、日志脱敏、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
 | [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md) | 历史 `65219e2` 原子生产切换、候选 smoke、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
 | [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md) | 切换前 `65219e2` 生产 preflight、gate 状态、内外网 readiness 和旧 Python 共存历史复核；不代表 Provider/真机业务完成 |

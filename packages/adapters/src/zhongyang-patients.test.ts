@@ -79,6 +79,88 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("patInfosFind 使用 GET 查询参数和服务端授权，不发送 GET 请求体", async () => {
+	const requests: Array<{
+		url: string;
+		method: string;
+		authorization: string | null;
+		contentType: string | null;
+		body: BodyInit | null | undefined;
+	}> = [];
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authorizationToken: "provider-server-token",
+		fetcher: async (input, init) => {
+			const requestUrl = String(input);
+			const headers = new Headers(init?.headers);
+			requests.push({
+				url: requestUrl,
+				method: init?.method ?? "GET",
+				authorization: headers.get("authorization"),
+				contentType: headers.get("content-type"),
+				body: init?.body,
+			});
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patName: "张三",
+							cardNo: "archive-card-001",
+							patId: "his-archive-001",
+						},
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "archive-http-shape-001" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-http-shape-001",
+							patientName: "张三",
+							medicalCardNo: "archive-card-001",
+							relation: "本人",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "directory-http-shape-001" },
+				},
+			);
+		},
+	});
+
+	await gateway.listByIdentity({ unionId: "union-http-shape-001" }, context);
+
+	const archiveRequest = requests.find((request) =>
+		request.url.includes("patInfosFind"),
+	);
+	expect(archiveRequest).toMatchObject({
+		method: "GET",
+		authorization: "Bearer provider-server-token",
+		contentType: null,
+		body: undefined,
+	});
+	if (!archiveRequest) throw new Error("archive request was not captured");
+	const archiveUrl = new URL(archiveRequest.url);
+	// 旧端虽然曾把 JSON body 挂在 GET 上，新端必须使用 Provider 实际读取的
+	// 查询参数；这样代理、缓存和服务端框架不会因为 GET body 被丢弃而改变患者。
+	expect(archiveUrl.pathname).toBe(
+		"/msun-middle-aggregate-patient/v1/patInfosFind",
+	);
+	expect(Object.fromEntries(archiveUrl.searchParams)).toEqual({
+		type: "3",
+		cardNo: "archive-card-001",
+		patName: "张三",
+	});
+});
+
 test("众阳档案响应保留 19 位字符串 patId 并丢弃额外身份字段", async () => {
 	const hisPatientId = "9000000000000000001";
 	const gateway = createZhongyangPatientGateway({
