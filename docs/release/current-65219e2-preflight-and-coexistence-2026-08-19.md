@@ -118,3 +118,18 @@
   没有新的有效微信会话或 Provider 业务链。
 
 本次没有执行 `systemctl restart/stop`、release 切换、migration、权限调整、数据库/Redis 写入或旧项目操作。
+
+## 9. 重启恢复后再次只读复核（2026-08-19）
+
+在继续工作窗口中再次通过 SSH 复核当前运行态，结果如下：
+
+- `current` 仍指向 `/home/ps/code/hospital-platform/releases/65219e2`；
+- `hospital-platform-api-v2.service` 为 `active/running`；
+- 新 Bun API 继续监听 `10.0.0.3:18081`，旧 Python Gunicorn 继续监听 `0.0.0.0:8001`；
+- 直接访问内网服务时，`/health/live`、`/health/ready` 和 `/api/v1/system/ping` 均返回 200；
+- 通过公网反向代理访问 `/api/v2/health/live`、`/api/v2/health/ready` 和 `/api/v2/system/ping` 均返回 200，
+  其中 readiness 的 `database/redis/schema` 均为 `ok`；
+- 新 API 日志明确记录 `environment=production`。最近窗口只有基础探针和未登录请求，未形成新的微信登录、患者同步、预约记录或门诊费用 Provider 业务链。
+
+直接访问 `18081` 时不能重复拼接公网 `/api/v2` 前缀；内网请求 `/api/v2/health/ready` 得到的 404 只是路径不匹配，
+不能据此判断服务不可用。该次复核没有重启或切换任何服务，没有执行 migration、权限调整以及 MySQL/Redis 写入，旧 Python 项目保持不变。
