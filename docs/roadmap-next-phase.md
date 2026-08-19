@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（本地多就诊人组合回归）：新增 API 端到端测试，验证同一账号明确选择第二位就诊人后，
+  `/appointments/records` 与 `/payments/outpatient/records` 都通过 owner-scoped `patientId` 解析到第二位的
+  `his-patient` 引用；患者目录仍只返回安全读模型，未把 provider 的 directory 患者号或临床引用下发到小程序。
+  API 全量回归为 `153/153`，类型检查和 `git diff --check` 通过。该证据是本地 API/Provider 夹具回归，不替代真实微信
+  真机扫码、第二位患者切换或众阳/HIS 线上验收。
+
 - 2026-08-19 09:05 CST：通过 SSH 只读复核当前 `b7c9451`，`hospital-platform-api-v2.service=active`，内网
   `/health/ready` 返回 `database/redis/schema=ok`。最近 20 分钟 journald 经当前 release 的聚合工具得到
   `parsedRecords=38`、`parseErrors=0`、`systemdWarningCount=0`、HTTP `200=14`；业务事件仍只有患者目录读取/同步，

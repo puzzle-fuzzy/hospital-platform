@@ -1789,6 +1789,162 @@ test("appointment records resolve internal patient ownership and return only sum
 	expect(recordsInput).toEqual({ providerPatientId: "his-patient-001" });
 });
 
+test("explicit second patient selection keeps appointment and outpatient mappings aligned", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	const identityUsers = createInMemoryIdentityUserRepository();
+	const patientRepository = createInMemoryPatientRepository();
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "directory-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
+			displayName: "本人患者",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+	await patientRepository.upsertFromDirectory({
+		ownerUserId: "fixture-user-0001",
+		patientId: "internal-patient-002",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "directory-patient-002",
+			providerReferences: { "his-patient": "his-patient-002" },
+			displayName: "家属患者",
+			relationship: "other",
+			cardNumberMasked: "******0002",
+		},
+	});
+
+	let appointmentProviderPatientId: string | undefined;
+	const appointmentRecords: AppointmentRecordDirectoryGateway = {
+		listRecords: async (input, context) => {
+			appointmentProviderPatientId = input.providerPatientId;
+			return {
+				records: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: context.traceId,
+				},
+			};
+		},
+	};
+	let outpatientProviderPatientId: string | undefined;
+	const outpatientGateway: OutpatientPaymentGateway = {
+		listRecords: async (input) => {
+			outpatientProviderPatientId = input.providerPatientId;
+			return {
+				records: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "explicit-second-patient-trace",
+				},
+			};
+		},
+	};
+	const paymentOrders = new PaymentOrderService({
+		orders: createInMemoryPaymentOrderRepository(),
+		quotes: createInMemoryPaymentQuoteRepository(),
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers,
+				sessions,
+			}),
+			patients: new PatientService(patientRepository),
+			appointments: new AppointmentService({
+				directory: createNotConfiguredGateways().appointmentDirectory,
+				repository: patientRepository,
+				records: appointmentRecords,
+			}),
+			reports: unusedReportService(),
+			outpatientPayments: new OutpatientPaymentService({
+				repository: patientRepository,
+				gateway: outpatientGateway,
+				authSysCode: "thirdSelfMachine",
+				now: () => new Date("2026-08-16T10:20:30.000Z"),
+			}),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers,
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createFixtureWechatPaymentGateway(),
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			sessions,
+		},
+	});
+	const authorization = `Bearer ${issued.accessToken}`;
+
+	const patientsResponse = await app.handle(
+		new Request("http://localhost/api/v1/patients", {
+			headers: { authorization },
+		}),
+	);
+	const appointmentResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/records?patientId=internal-patient-002&startDate=2026-08-01&endDate=2026-08-31",
+			{ headers: { authorization } },
+		),
+	);
+	const outpatientResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/payments/outpatient/records?patientId=internal-patient-002&status=unpaid",
+			{ headers: { authorization } },
+		),
+	);
+
+	// 这里模拟小程序在选择页明确点击第二位患者后的请求链路：API
+	// 只能接受平台内部 patientId，再按当前用户归属解析对应的 HIS 身份。
+	// 预约和门诊费用必须各自声明并使用同一位患者的临床引用，不能回退到
+	// 首页默认患者，也不能让 provider 的 directory patientId 代替 his-patient。
+	expect(patientsResponse.status).toBe(200);
+	expect(await patientsResponse.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					id: "internal-patient-001",
+					displayName: "本人患者",
+					relationship: "self",
+					cardNumberMasked: "******0001",
+					source: "hospital-his",
+					clinicalAccess: "ready",
+				},
+				{
+					id: "internal-patient-002",
+					displayName: "家属患者",
+					relationship: "other",
+					cardNumberMasked: "******0002",
+					source: "hospital-his",
+					clinicalAccess: "ready",
+				},
+			],
+			total: 2,
+		},
+	});
+	expect(appointmentResponse.status).toBe(200);
+	expect(await appointmentResponse.json()).toEqual({
+		success: true,
+		data: { items: [], total: 0 },
+	});
+	expect(outpatientResponse.status).toBe(200);
+	expect(await outpatientResponse.json()).toEqual({
+		success: true,
+		data: { status: "unpaid", items: [], total: 0 },
+	});
+	expect(appointmentProviderPatientId).toBe("his-patient-002");
+	expect(outpatientProviderPatientId).toBe("his-patient-002");
+});
+
 test("outpatient payment endpoint preserves owner mapping and empty-result semantics", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const issued = await sessions.issue("fixture-user-0001");
