@@ -394,6 +394,11 @@ function ensureArchiveMatchesQuery(
 	}
 
 	const patientCards = archive.patCardVOList;
+	// `undefined/null` 表示 Provider 没有给出卡片列表，继续保留最小兼容；
+	// 但只要明确返回数组（包括空数组），它就成为本次档案身份关联的一部分。
+	// 空数组或只有无卡号字段的数组不能证明查询卡号属于该档案，必须拒绝，
+	// 不能因为顶层仍有一个合法格式的 patId 就放行错误临床映射。
+	const patientCardListProvided = Array.isArray(patientCards);
 	if (patientCards !== undefined && patientCards !== null) {
 		if (!Array.isArray(patientCards)) {
 			throw providerError(
@@ -437,7 +442,10 @@ function ensureArchiveMatchesQuery(
 		}
 	}
 
-	if (returnedCards.size > 0 && !returnedCards.has(requestedCard)) {
+	if (
+		(patientCardListProvided || returnedCards.size > 0) &&
+		!returnedCards.has(requestedCard)
+	) {
 		throw providerError(
 			"Zhongyang patient archive did not match requested card",
 			requestId,

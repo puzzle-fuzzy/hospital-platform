@@ -235,6 +235,55 @@ test("众阳档案卡片列表存在时必须包含本次查询卡号", async ()
 	});
 });
 
+test("众阳档案返回空卡片列表时拒绝绑定临床 patId", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			if (String(input).includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patName: "张三",
+							patId: "his-patient-empty-card-list",
+							patCardVOList: [],
+						},
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "archive-empty-card-list-001" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-patient-empty-card-list-001",
+							patientName: "张三",
+							medicalCardNo: "requested-card-empty-list-001",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "directory-empty-card-list-001" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-empty-card-list-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		requestId: "archive-empty-card-list-001",
+		responseInvalid: true,
+	});
+});
+
 test("众阳档案卡片的患者引用与顶层 patId 不一致时拒绝绑定", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",
