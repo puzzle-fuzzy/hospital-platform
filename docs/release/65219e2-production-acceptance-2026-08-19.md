@@ -60,6 +60,10 @@ API 163 项、小程序 160 项、Worker 51 项、持久化 76 项测试通过�
 - 公网未登录 `GET /api/v2/patients` 返回预期 HTTP 401；
 - `current.next` 没有残留。
 
+切换后的延续只读复核还分别验证了 `/me`、`/patients`、预约历史和门诊费用未登录均返回 `401/unauthorized`，
+并确认 ready 仍为 `database/redis/schema=ok`；未携带会话、未读取患者数据、未产生写入。详细结果见
+[`current-public-readonly-smoke-2026-08-19-continued.md`](current-public-readonly-smoke-2026-08-19-continued.md)。
+
 新 API 启动日志明确打印 `environment=production` 和 `runtimeMode=production`，并记录依赖探针、
 身份状态及业务 gate；日志只保留低敏 request/trace 关联字段，没有打印微信密钥、会话密钥、完整卡号、
 身份证号、手机号或 Provider 原始档案。
