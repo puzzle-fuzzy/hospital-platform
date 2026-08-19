@@ -9,6 +9,9 @@
 
 > 当前配套小程序候选构建来源为 `b55df37b48bbe250e4ebefee3db7739d2fd554e2`（提交 `b55df37`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
+> 2026-08-19 生产更新：服务端已切换到 `65219e2`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
+> `patInfosFind` 临床引用和二维码边界见 [`../release/65219e2-production-acceptance-2026-08-19.md`](../release/65219e2-production-acceptance-2026-08-19.md)。
+
 ## 当前准入复核（2026-08-19 08:47 CST）
 
 补充记录（2026-08-19 11:49 CST）：数据库瞬态断连恢复后，SSH 只读确认当前 release `b7c9451`、新 API `active/running`，

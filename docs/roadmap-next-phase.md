@@ -5,6 +5,13 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 生产切换：新 Elysia API 已从 `b7c9451` 原子切换到 `65219e2`。候选在 `18082` 完成生产依赖
+  preflight 和连续 readiness smoke 后，只重启 `hospital-platform-api-v2.service`；新 API `10.0.0.3:18081`
+  与旧 Python `8001` 持续共存，公网 live/ready/ping 和未登录 401 边界通过。该 release 同时固化了旧端
+  `patInfosFind.data.patId` 是临床 `his-patient` 引用、不是二维码载荷的证据。详细记录见
+  [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md)。
+  Provider 业务、真实微信真机和支付/医保仍未验收。
+
 - 2026-08-19 11:49 CST（会话与 readiness 只读复核）：数据库瞬态断连恢复后，新 API `b7c9451` 仍为 `active/running`，
   正确监听地址 `10.0.0.3:18081` 的 readiness 为 `database/redis/schema=ok`，旧 Python `8001` 继续共存。Redis 会话 TTL
   审计仍安全返回 `redis-session-scan-unavailable`、退出码 `2`；这只说明当前身份没有完成会话扫描权限，不能当作“没有会话”。

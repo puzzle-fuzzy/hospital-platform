@@ -31,6 +31,12 @@ HIS 临床患者引用，`patCardVOList`、身份证、手机号、姓名扩展�
 只读取并校验 `data.patId`，其它档案字段不会进入 `PatientDirectoryProfile`、日志或 API 响应；现有 adapter
 测试也覆盖了 `data: { patId: ... }` 的对象形状、目录卡号脱敏和敏感字段不泄露。
 
+本次从旧端实际请求样例进一步确认：虽然调用方同时在 `fetch` 中写了 query string 和 GET body，Provider
+契约真正依赖的是 `type=3`、`cardNo`、`patName` 这三个查询参数；新 adapter 只使用 query string，不依赖
+浏览器对 GET body 的非标准兼容行为。响应中的 `code=0000` 和 `traceId` 是 Provider 包络的附加信息，当前以
+明确的 `success=true` 作为档案成功门禁；在 Provider 文档没有冻结 `code` 的全部取值语义前，不把未知附加字段
+直接提升为业务成功条件。
+
 二维码不能从这条响应形状推导：旧首页二维码源码读取的是目录对象的 `medicalCardNo`，而不是档案响应的
 `data.patId`。医院尚未确认扫码字段、签名、TTL 和扫码回执前，二维码继续保持关闭态；不得因为档案接口能返回
 `patId` 就把它生成二维码或暴露给小程序。
