@@ -15,6 +15,7 @@
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
 | [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `65219e2`、当前本地小程序候选来源以 `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8` 为准 |
 | [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md) | `65219e2` 原子生产切换、候选 smoke、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
+| [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md) | 当前 `65219e2` 生产 preflight、gate 状态、内外网 readiness 和旧 Python 共存复核；不代表 Provider/真机业务完成 |
 | [`migration/zhongyang-authorization-contract-audit-2026-08-19.md`](migration/zhongyang-authorization-contract-audit-2026-08-19.md) | 旧平台用户 JWT 与新服务 Provider 凭证的区别、鉴权契约缺口和真实验收停止条件 |
 | [`migration/outpatient-payment-provider-contract-audit-2026-08-19.md`](migration/outpatient-payment-provider-contract-audit-2026-08-19.md) | 门诊费用 2.6.33 参数、`patInfosFind.data.patId`、金额/状态映射、渠道码和只读停止条件 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 历史 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |

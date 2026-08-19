@@ -16,6 +16,12 @@
   [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md)。
   Provider 业务、真实微信真机和支付/医保仍未验收。
 
+- 2026-08-19 12:39 CST（当前 release 只读复核）：SSH 确认 `current=65219e2`、新 API `active`、Worker `inactive`，
+  `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 共存；使用当前 release 的 preflight 和受控生产 env 复核
+  `environment=production`、MySQL/Redis/schema `ok`、schema marker `0016`，患者/预约/门诊费用 gate 为 configured，
+  支付和报告 gate 仍 disabled。该窗口没有注入真实会话或患者，不增加 Provider/真机业务证据，详见
+  [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md)。
+
 - 2026-08-19（门诊费用与临床 `patId` 契约审计）：复核旧端 2.6.33
   `outpatient-child-payment-records` 请求和真实 `patInfosFind` 响应，确认 `data.patId` 是预约历史、报告和门诊费用
   共用的 HIS 临床引用，不能与目录 `thirdPatientId` 或首页二维码的 `medicalCardNo` 混用。新版只读链路已经固定

@@ -1,0 +1,55 @@
+# `65219e2` 当前生产 preflight 与新旧服务共存复核
+
+> 记录时间：2026-08-19 12:39 CST
+>
+> 本记录来自 `ps@192.168.112.172` 的只读 SSH 检查。它只证明当前新服务的运行前置和端口共存，
+> 不把 readiness 或配置通过误写成微信、Provider、真机或临床业务已验收。
+
+## 1. 当前版本与进程边界
+
+| 检查项 | 结果 |
+| --- | --- |
+| 新 API release | `/home/ps/code/hospital-platform/current -> releases/65219e2` |
+| 新 API unit | `hospital-platform-api-v2.service=active` |
+| Worker unit | `hospital-platform-worker-v2.service=inactive` |
+| 新 API 监听 | `10.0.0.3:18081`，Bun |
+| 旧 Python 监听 | `0.0.0.0:8001`，Gunicorn |
+| 旧项目 | 未修改、未停止、未重启 |
+
+本次没有切换 `current`、重启任何 unit、执行 migration、清理 Redis 或写入业务数据库。
+
+## 2. 生产 preflight
+
+使用当前 release 的 `apps/worker/dist/preflight.js` 和服务器受控 `shared/api.env` 执行只读检查，
+结果为 `runtime.preflight.succeeded`：
+
+- `environment=production`；
+- MySQL：`ok`；
+- Redis：`ok`；
+- schema：`verified`，预期 marker 为 `0016_patient_directory_sync_owner_index`；
+- 微信身份：`configured`；
+- 患者目录、预约目录、预约记录、门诊费用：`configured`；
+- 微信支付、报告目录、报告详情：`disabled`。
+
+`configured` 只表示配置字段和组合根准入完整，不表示上游权限、字段、状态或页面业务已通过。
+支付和报告继续保持显式关闭是当前正确状态。
+
+## 3. 内网与公网 readiness
+
+- 内网 `http://10.0.0.3:18081/health/ready`：成功，`database/redis/schema=ok`；
+- 公网 `https://test-hp.meiyi.pro/api/v2/health/ready`：成功，`database/redis/schema=ok`。
+
+公网 `/api/v2` 是反向代理公共前缀；直接访问 18081 时使用服务自身的 `/health/ready` 路径，
+不能把公网前缀重复拼到内网请求上。
+
+## 4. 尚未升级的证据
+
+本次没有注入 access token 或内部 `patientId`，因此没有执行 Provider directory smoke；也没有取得
+当前 `b451cc6` 小程序的手机连接。以下事项仍需在同一版本组合中独立完成：
+
+1. 微信真机登录、患者同步和第二位就诊人显式切换；
+2. `patInfosFind.data.patId` 的当前业务请求与低敏 `providerRequestId` 对照；
+3. 预约历史、爽约记录和门诊费用的 Provider / 公网 / 页面三层证据；
+4. 报告 Provider 合同、二维码协议，以及最后的支付、医保和 HIS 回写专项验收。
+
+任何一项只能证明基础 readiness，都不能替代上述业务证据；旧 Python `8001` 在新业务逐项验收前继续保持运行。
