@@ -31,6 +31,11 @@
   之前收敛为稳定的预约查询错误，并继续写入低敏 `appointment.*.failed` 事件。新增回归验证 Provider 调用次数为 0，
   未扩大预约只读范围、未开放锁号/写入/支付/医保，也未修改旧 Python、线上服务、数据库和 Redis。
 
+- 2026-08-19（普通资料服务运行时输入门禁）：`UserProfileService.update` 现在拒绝绕过 HTTP schema 的 `null`、数组、
+  非字符串昵称或非字符串邮箱，避免在字段归一化/解构处产生未映射 `TypeError/500`。异常统一保持
+  `user-profile-invalid` 和低敏 `user.profile.update_failed` 日志，仓储写入次数为 0；未扩大普通资料字段，未触碰实名、头像、
+  手机号或微信身份，也未修改旧 Python、线上服务、数据库和 Redis。
+
 - 2026-08-19（普通资料清空语义回归）：API 组合测试补充 `age=null`、`email=null` 的明确清空路径，验证服务端不会把
   `null` 当成省略字段，且仍按 owner/version 条件递增并返回 canonical 资料快照；原有 409、跨用户隔离和未知字段拒绝保持不变。
   API 全量回归仍为 `153/153`。这是本地 HTTP/内存仓储证据，不替代真实微信资料 PUT、409 和真机验收。

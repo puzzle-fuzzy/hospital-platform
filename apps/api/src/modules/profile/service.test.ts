@@ -331,6 +331,60 @@ test("普通资料输入校验失败时不会触碰仓储写入", async () => {
 	expect(updateCalls).toBe(0);
 });
 
+test("普通资料服务拒绝绕过 HTTP schema 的畸形更新体", async () => {
+	const lines: string[] = [];
+	let updateCalls = 0;
+	const service = new UserProfileService(
+		{
+			findByUserId: async () => undefined,
+			update: async () => {
+				updateCalls += 1;
+				throw new Error("profile update must not run");
+			},
+		},
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
+	const context = {
+		traceId: "profile-input-trace",
+		idempotencyKey: "profile-input-key",
+	};
+
+	for (const input of [
+		null as never,
+		[] as never,
+		{ version: 0, displayName: 123 } as never,
+		{ version: 0, email: {} } as never,
+	]) {
+		await expect(
+			service.update("profile-secret-user", input, context),
+		).rejects.toBeInstanceOf(UserProfileInputError);
+	}
+
+	expect(updateCalls).toBe(0);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toHaveLength(8);
+	expect(
+		records.filter((record) => record.event === "user.profile.update_failed"),
+	).toHaveLength(4);
+	expect(
+		records.every(
+			(record) =>
+				record.errorType === undefined ||
+				record.errorType === "UserProfileInputError" ||
+				record.event === "user.profile.update.requested",
+		),
+	).toBe(true);
+	expect(JSON.stringify(records)).not.toContain("profile-secret-user");
+});
+
 test("清空普通资料字段时日志字段数量仍反映实际修改", async () => {
 	const lines: string[] = [];
 	const service = new UserProfileService(

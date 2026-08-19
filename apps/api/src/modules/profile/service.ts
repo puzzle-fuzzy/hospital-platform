@@ -51,8 +51,18 @@ function characterCount(value: string): number {
 	return Array.from(value).length;
 }
 
-function normalizeDisplayName(value: string | undefined): string | undefined {
+/** 资料更新也可能来自非 HTTP 调用方，先拒绝 null/数组等非对象请求体。 */
+function isProfileUpdateObject(
+	value: unknown,
+): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeDisplayName(value: unknown): string | undefined {
 	if (value === undefined) return undefined;
+	if (typeof value !== "string") {
+		throw new UserProfileInputError("displayName is invalid");
+	}
 	const normalized = value.trim();
 	if (
 		!normalized ||
@@ -64,9 +74,7 @@ function normalizeDisplayName(value: string | undefined): string | undefined {
 	return normalized;
 }
 
-function normalizeGender(
-	value: UserGender | undefined,
-): UserGender | undefined {
+function normalizeGender(value: unknown): UserGender | undefined {
 	if (value === undefined) return undefined;
 	if (value !== "male" && value !== "female" && value !== "unknown") {
 		throw new UserProfileInputError("gender is invalid");
@@ -74,8 +82,9 @@ function normalizeGender(
 	return value;
 }
 
-function normalizeVersion(value: number): number {
+function normalizeVersion(value: unknown): number {
 	if (
+		typeof value !== "number" ||
 		!Number.isSafeInteger(value) ||
 		value < 0 ||
 		value > MAX_USER_PROFILE_VERSION
@@ -85,10 +94,11 @@ function normalizeVersion(value: number): number {
 	return value;
 }
 
-function normalizeEmail(
-	value: string | null | undefined,
-): string | null | undefined {
+function normalizeEmail(value: unknown): string | null | undefined {
 	if (value === undefined || value === null) return value;
+	if (typeof value !== "string") {
+		throw new UserProfileInputError("email is invalid");
+	}
 	const normalized = value.trim();
 	if (
 		!normalized ||
@@ -101,11 +111,14 @@ function normalizeEmail(
 	return normalized;
 }
 
-function normalizeAge(
-	value: number | null | undefined,
-): number | null | undefined {
+function normalizeAge(value: unknown): number | null | undefined {
 	if (value === undefined || value === null) return value;
-	if (!Number.isSafeInteger(value) || value < 0 || value > 150) {
+	if (
+		typeof value !== "number" ||
+		!Number.isSafeInteger(value) ||
+		value < 0 ||
+		value > 150
+	) {
 		throw new UserProfileInputError("age is invalid");
 	}
 	return value;
@@ -185,6 +198,12 @@ export class UserProfileService {
 			"User profile update requested",
 		);
 		try {
+			if (!isProfileUpdateObject(input)) {
+				// Elysia 会在 HTTP 层校验请求体，但 service 还可能被组合根、
+				// 回放任务或未来 Worker 直接调用。不能让 null/数组在解构处
+				// 变成 TypeError/500，必须保持资料域的 400 错误语义。
+				throw new UserProfileInputError("Profile update input is invalid");
+			}
 			const { version, displayName, gender, age, email } = input;
 			const normalizedVersion = normalizeVersion(version);
 			if (
