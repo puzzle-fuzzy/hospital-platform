@@ -95,7 +95,7 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	// 与服务端不配套的旧包。每次切换候选时必须同步更新这组三项断言。
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "08c36a8",
+		serverRelease: "968af78",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
 		miniProgramCommit: "4822884",
