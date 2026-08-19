@@ -29,6 +29,12 @@
   预约写入、二维码和 HIS 回写继续关闭。详见
   [`release/current-968af78-runtime-coexistence-2026-08-19-1550.md`](release/current-968af78-runtime-coexistence-2026-08-19-1550.md)。
 
+- 2026-08-19 16:13 CST SSH 只读复核：`current` 仍指向 `968af78`，`hospital-platform-api-v2.service=active`，
+  新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听；内网和公网 live/ready 均返回 `200`，
+  `database/redis/schema` 均为 `ok`。本次只执行健康检查，没有调用 Provider、使用微信会话或写入业务数据，
+  不增加微信、患者、预约、报告、门诊费用或真机业务验收等级。详细证据见
+  [`release/current-968af78-runtime-coexistence-2026-08-19-1613.md`](release/current-968af78-runtime-coexistence-2026-08-19-1613.md)。
+
 - 2026-08-19（患者临床可用性读模型对齐）：发现内存测试仓储在缺少独立 `his-patient` 映射时可能沿用历史
   `clinicalAccess=ready`，与 MySQL 通过 `EXISTS` 实时计算的生产读模型不一致。现已统一为“映射存在才 `ready`，否则
   `unavailable`”，补充历史脏状态回归测试和中文核心注释。该修正只在新项目本地完成，未修改旧 Python、线上服务、数据库或 Redis，
