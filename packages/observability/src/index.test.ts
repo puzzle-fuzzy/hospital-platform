@@ -71,10 +71,11 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 			providerArchive: {
 				patId: "his-patient-001",
 				patName: "档案患者",
-				cardNo: "001000305367027",
-				medicalCardNo: "001000305367027",
-				idCardNo: "330782199903271910",
-				phone: "18267094443",
+				// 这里只能使用明确的合成值，不能把真实患者卡号、证件号或手机号带入仓库。
+				cardNo: "synthetic-card-001",
+				medicalCardNo: "synthetic-medical-card-001",
+				idCardNo: "synthetic-id-card-001",
+				phone: "synthetic-phone-001",
 				patCardVOList: [{ patId: "his-patient-001" }],
 				providerReferences: { "his-patient": "his-patient-001" },
 			},
