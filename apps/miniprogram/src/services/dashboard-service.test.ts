@@ -60,6 +60,24 @@ test("预约查询拒绝损坏的本地患者标识", () => {
 	}
 });
 
+test("预约记录查询拒绝未知窗口，不静默降级为历史", () => {
+	// 联合类型只保护编译期；异常页面参数不能改变“爽约记录”和“我的挂号”
+	// 的业务含义。必须返回稳定错误码，且在构造请求前结束。
+	const error = (() => {
+		try {
+			createAppointmentRecordQuery(
+				"patient-internal-001",
+				BEIJING_MIDNIGHT,
+				"unexpected" as never,
+			);
+		} catch (caught) {
+			return caught;
+		}
+		return undefined;
+	})();
+	expect(error).toMatchObject({ code: "appointment-record-query-invalid" });
+});
+
 test("门诊费用查询先拒绝空患者标识，不把无效查询交给 API", () => {
 	// 这里必须在 requestWithSession 之前失败；否则页面会把患者上下文问题
 	// 误报成接口参数错误，且会产生一条没有业务意义的网络日志。

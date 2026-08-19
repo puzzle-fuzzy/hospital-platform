@@ -846,6 +846,19 @@ export function loadOutpatientPaymentRecords(
 /** 读取当前内部患者的脱敏预约历史摘要。 */
 export type AppointmentRecordQueryWindow = "history" | "missed";
 
+/**
+ * 预约记录窗口是页面业务语义，不是可以随意降级的字符串参数。
+ *
+ * TypeScript 的联合类型只在编译期存在；微信事件、页面参数或旧缓存仍
+ * 可能在运行时传入未知值。未知值不能静默落入 `history` 分支，否则“爽约
+ * 记录”可能被错误查询成普通挂号历史，页面看似有数据但业务含义已经错了。
+ */
+function isAppointmentRecordQueryWindow(
+	value: unknown,
+): value is AppointmentRecordQueryWindow {
+	return value === "history" || value === "missed";
+}
+
 export type AppointmentRecordQuery = {
 	patientId: string;
 	startDate: string;
@@ -866,6 +879,13 @@ export function createAppointmentRecordQuery(
 	now = new Date(),
 	window: AppointmentRecordQueryWindow = "history",
 ): AppointmentRecordQuery {
+	if (!isAppointmentRecordQueryWindow(window)) {
+		// 这里必须在生成日期窗口和发起网络请求前失败；不能把未知窗口
+		// 当成 history，也不能让服务端或 Provider 猜测调用方意图。
+		throw new ApiError("预约记录查询条件不合法", {
+			code: "appointment-record-query-invalid",
+		});
+	}
 	const range =
 		window === "missed"
 			? createPastDateRange(
