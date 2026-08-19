@@ -34,7 +34,8 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试和
-1215 个断言；当前候选整体已推进到 `69e6cdb`，登录后患者初始化边界见
+1215 个断言；当前候选整体已推进到 `b451cc6`，完整运行包来源为
+`b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 

@@ -79,8 +79,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/65219e2-production-acceptance-2026-08-19.md`](../release/65219e2-production-acceptance-2026-08-19.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `69e6cdb`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `69e6cdb28f2996095b8647f82b1b90afd061b918`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `b451cc6`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
@@ -124,7 +124,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
   [`../release/current-runtime-coexistence-readonly-2026-08-18-2136.md`](../release/current-runtime-coexistence-readonly-2026-08-18-2136.md)。
 - 2026-08-18 16:48 CST 公网 `GET /api/v2/medical-records` 返回 `404/not-found`，确认病历路由仍未注册；这是关闭边界证据，不代表病历功能已经迁移。
 - 历史 release `9acdaf2` 曾观察到预约历史 `itemCount=60`、`statusCounts={cancelled:60}`，在线标签排除已取消记录的空态符合当时规则；
-这不能回填为当前 `b7c9451` 的业务事件。全部挂号继续保持迁移提示，因为独立 `requestChannel=4` Provider contract 尚未冻结。
+这不能回填为当前 `65219e2` 的业务事件。全部挂号继续保持迁移提示，因为独立 `requestChannel=4` Provider contract 尚未冻结。
 - 当前下一步是取得真机微信会话并按候选验收手册重新采集页面、HTTP trace 和低敏日志三层证据；在此之前不开放全部挂号、预约写入、详情、
   支付、医保或 HIS 回写。
 
@@ -290,7 +290,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
   ID、关系/来源/临床访问枚举、展示文本和脱敏卡号，并只投影公共字段；异常 JSON 必须整批 fail-closed，不能
   伪装成空目录或默认换人。该门禁只保护客户端协议边界，不能替代服务端 owner/HIS 映射；详细规则见
   [`../release/miniprogram-patient-read-model-contract-2026-08-19.md`](../release/miniprogram-patient-read-model-contract-2026-08-19.md)。
-- 预约目录曾在配对候选中取得真实 Provider、内网 API 和微信开发者工具只读证据，且 `snapshotPersistenceStatus=persisted`；该观察不自动回填为当前 `b7c9451` 业务证据。预约历史、报告、门诊费用仍需分别完成当前 release 的 provider、内网 API、公网 HTTPS 和真机四层证据。
+- 预约目录曾在配对候选中取得真实 Provider、内网 API 和微信开发者工具只读证据，且 `snapshotPersistenceStatus=persisted`；该观察不自动回填为当前 `65219e2` 业务证据。预约历史、报告、门诊费用仍需分别完成当前 release 的 provider、内网 API、公网 HTTPS 和真机四层证据。
 - 排班只读快照的 `observedAt` 与 `expiresAt` 必须使用同一次服务端时钟采样；快照有效只表示近期观察事实，不能单独授权锁号、预约或支付。
 - 预约只读目录的 adapter 会拒绝重复科室/排班主键；预约历史 adapter 也会拒绝重复的 `appointmentInfoId`，
   但不会为缺少预约号的摘要伪造稳定公开记录 ID，原生页面的渲染 key 不能作为可写入或详情引用。

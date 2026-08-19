@@ -311,9 +311,9 @@ Provider 原始报文通过参数传给聚合工具。
 HTTP 响应、真机页面及同一时间窗口的低敏 trace 交叉核对。缺少成功事件、`parseErrors > 0`、`systemdWarningCount > 0` 或出现未知业务域时，
 门禁必须失败，不能用 readiness、单独的 HTTP 200 或页面存在替代。
 
-2026-08-19 00:48 CST 起，线上新 API current 使用 `b7c9451` 的关联链 bundle；当前发布记录见
-[`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md)。
-从这一版本开始，生产 P0 证据必须由同一 release 的 `p0-log-aggregate.js` 生成 `correlation` 摘要，
+2026-08-19 00:48 CST 起的历史运行窗口中，线上新 API 使用 `b7c9451` 的关联链 bundle；当前线上新 API
+已切换为 `65219e2`，当前发布记录见 [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md)。
+从 `b7c9451` 这一版本开始，生产 P0 证据必须由同一 release 的 `p0-log-aggregate.js` 生成 `correlation` 摘要，
 再交给同一 release 的 `p0-business-evidence-audit.js` 检查同链业务请求、业务成功、HTTP `2xx` 和失败冲突。
 旧 release 生成的没有 `correlation` 字段的摘要不能与新门禁混用；它们只能按历史运行观察理解。
 

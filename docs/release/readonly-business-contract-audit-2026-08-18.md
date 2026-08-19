@@ -35,7 +35,7 @@
 当前线上 release 以 [`65219e2-production-acceptance-2026-08-19.md`](65219e2-production-acceptance-2026-08-19.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选已更新为
-`69e6cdb28f2996095b8647f82b1b90afd061b918`（提交 `69e6cdb`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
+`b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`（提交 `b451cc6`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 `65219e2` release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 

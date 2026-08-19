@@ -28,11 +28,13 @@
 | workspace 类型检查 | 9/9 通过 |
 | workspace 测试 | 9/9 通过 |
 | workspace 构建 | 9/9 通过；原生小程序生成 14 个页面脚本 |
-| 运行包来源 | `apps/miniprogram/dist/build-info.json.sourceRevision=5fdc740e3450c8773a81d1d13c8c55d5288d9259` |
+| 修正提交时运行包来源 | `5fdc740e3450c8773a81d1d13c8c55d5288d9259`（历史代码级证据） |
 
 ## 4. 发布边界
 
-- 当前线上新 API 仍是 `b7c9451`，旧 Python `8001` 未修改、未停止、未重启。
+- 当前线上新 API 仍是 `65219e2`，旧 Python `8001` 未修改、未停止、未重启。
 - 本次未修改数据库、Redis、Provider 配置、微信域名或服务器运行配置。
 - `apps/miniprogram/project.config.json` 是用户已有的开发者工具配置修改，本次未触碰、未暂存、未提交。
-- `5fdc740` 只是本地候选代码提交；在取得新的真机二维码、服务端 trace 和低敏日志对齐证据前，不得把它标记为线上小程序版本。
+- `5fdc740` 只是本次修正的历史代码提交；当前待验收小程序包来源为
+  `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`，在取得新的真机二维码、服务端 trace 和低敏日志对齐证据前，
+  不得把它标记为线上小程序版本。

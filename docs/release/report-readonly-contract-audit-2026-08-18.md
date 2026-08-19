@@ -21,7 +21,7 @@
 ## 1. 当前链路
 
 当前服务端 release 为 `65219e2`，配套小程序构建来源为
-`69e6cdb28f2996095b8647f82b1b90afd061b918`（当前本地候选 `69e6cdb`，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
+`b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`（当前本地候选 `b451cc6`，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
 
 ```text
 小程序报告目录
