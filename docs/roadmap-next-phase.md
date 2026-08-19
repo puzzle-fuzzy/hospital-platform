@@ -22,6 +22,13 @@
   报告、门诊费用或真机业务验收等级。详见
   [`release/current-968af78-runtime-coexistence-2026-08-19-1543.md`](release/current-968af78-runtime-coexistence-2026-08-19-1543.md)。
 
+- 2026-08-19 15:50 CST 重启后 SSH 只读复核：`current` 仍指向 `968af78`，新 API 与旧 Python `8001` 同时监听，
+  公网 live/ready 均返回 `200`，ready 的 `database/redis/schema` 均为 `ok`；最近 20 分钟没有新的登录、患者、预约、
+  门诊费用或报告业务事件。本次没有写入、调用 Provider 或使用微信会话，不升级任何业务验收等级。下一步回到当前
+  `48ba22f` 小程序候选，按“微信登录 → 患者同步/显式切换 → 预约历史 → 门诊费用”的只读三层证据顺序取证，支付、医保、
+  预约写入、二维码和 HIS 回写继续关闭。详见
+  [`release/current-968af78-runtime-coexistence-2026-08-19-1550.md`](release/current-968af78-runtime-coexistence-2026-08-19-1550.md)。
+
 - 2026-08-19（档案查询身份二次关联）：在不要求 Provider 尚未冻结的可选字段全部存在的前提下，
   新 adapter 现在会校验：响应若包含 `patName`，必须匹配本次查询姓名；若包含顶层卡号或
   `patCardVOList`，必须包含本次查询卡号；若卡片项包含 `patId`，还必须与档案顶层 `patId` 一致。
