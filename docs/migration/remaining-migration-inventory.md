@@ -15,6 +15,10 @@
 `ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false` 均为显式关闭。报告目录/详情因此继续
 保持 `503 dependency-not-configured` 的 fail-closed 边界，不调用 Provider、不把空列表伪装成真实结果，也不因页面已经存在就打开 gate。
 
+补充记录（2026-08-19，报告来源差异）：旧端报告页实际包含 LIS、PACS、ECG 和体检 PEIS 四类请求；新端前三类只有只读目录/LIS
+详情骨架，PEIS 仍需要完整身份证号和独立患者归属 contract，PACS/ECG 详情、附件和报告解读也未冻结。旧端非 LIS 报告对象会写入
+本地缓存的做法不迁移。详细停止条件见 [`report-provider-contract-audit-2026-08-19.md`](report-provider-contract-audit-2026-08-19.md)。
+
 门诊病历的 `/api/v2/medical-records` 仍刻意未注册。旧端 `out-visit-records` 只有历史调用线索，尚未获得正式请求/响应 contract、
 患者映射确认、字段脱敏白名单和权限/错误样例；本轮不新增 schema、adapter、service、页面或兼容转发。待 Provider/HIS 材料齐全后，
 必须先完成 intake 和差异表，再按 contract → adapter → API → 小程序 → 测试 → 验收手册顺序推进。

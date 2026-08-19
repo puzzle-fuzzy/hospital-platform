@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（报告 Provider 契约差异复核）：只读核对旧端 LIS、PACS、ECG、体检 PEIS 四类报告请求，确认新端目前仅有前三类
+  目录和 LIS 详情骨架；体检接口需要完整身份证号，旧端还会把非 LIS 报告对象和外部文件地址写入本地缓存，均不能直接复制。
+  本轮没有打开报告 gate、没有调用 Provider、没有新增报告 API/小程序能力，差异和后续停止条件记录在
+  [`migration/report-provider-contract-audit-2026-08-19.md`](migration/report-provider-contract-audit-2026-08-19.md)。
+
 - 2026-08-19（档案查询安全边界与失败日志复核）：复核旧端 `patInfosFind` 的真实响应形状，确认新 adapter 只读取
   `success=true` 下的 `data.patId`，不把身份证、手机号、`patCardVOList` 或原始档案对象带入公共模型。补充档案 HTTP 失败时
   不泄露查询卡号/姓名和原始响应的回归测试，并让 `patient.directory.failed` 增加安全的 Provider 请求号、状态码和可重试字段，
