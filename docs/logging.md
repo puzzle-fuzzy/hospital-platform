@@ -222,7 +222,7 @@ unionid、access token、签名小程序 extraData、外部 URL 原文或 WebVie
 - 患者身份证号、完整就诊卡号、完整手机号等可直接识别个人的信息。
 - provider 患者号；它只能在服务端 lookup 与 adapter 调用的短生命周期内存在。
 
-Pino 还会集中脱敏 `unionId`、`prepayId`、`payParams`、`paySign`、`nonceStr`、APIv3 key、商户私钥和其他常见密钥字段的大小写变体；`providerTransactionId` 保留用于通知排障关联，但不能据此放宽业务代码对原始支付报文的禁止。
+Pino 还会集中脱敏 `unionId`、`prepayId`、`payParams`、`paySign`、`nonceStr`、APIv3 key、商户私钥和其他常见密钥字段的大小写变体；众阳档案中的 `patId`、`thirdPatientId`、姓名、卡号、身份证号、手机号、`patCardVOList` 和 `providerReferences` 也被列入最终兜底清单。`providerTransactionId` 保留用于通知排障关联，但不能据此放宽业务代码对原始支付报文的禁止。
 
 请求日志只记录 `idempotencyKeyPresent`，不记录幂等键本身。需要关联支付或医保排障时，记录内部 `orderId`、`eventId`、`providerRequestId` 等不可直接还原凭证的标识。Pino 的 `redact` 是最终兜底，不是业务代码记录敏感数据的许可。
 

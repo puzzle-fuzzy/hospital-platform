@@ -68,6 +68,16 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 			unionId: "unionid-001",
 			providerPatientId: "provider-patient-001",
 			provider: { provider_patient_id: "provider-patient-002" },
+			providerArchive: {
+				patId: "his-patient-001",
+				patName: "档案患者",
+				cardNo: "001000305367027",
+				medicalCardNo: "001000305367027",
+				idCardNo: "330782199903271910",
+				phone: "18267094443",
+				patCardVOList: [{ patId: "his-patient-001" }],
+				providerReferences: { "his-patient": "his-patient-001" },
+			},
 			payment: {
 				prepayId: "wx-prepay-001",
 				payParams: { paySign: "payment-signature", nonceStr: "nonce-001" },
@@ -93,6 +103,16 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 		unionId: "[REDACTED]",
 		providerPatientId: "[REDACTED]",
 		provider: { provider_patient_id: "[REDACTED]" },
+		providerArchive: {
+			patId: "[REDACTED]",
+			patName: "[REDACTED]",
+			cardNo: "[REDACTED]",
+			medicalCardNo: "[REDACTED]",
+			idCardNo: "[REDACTED]",
+			phone: "[REDACTED]",
+			patCardVOList: "[REDACTED]",
+			providerReferences: "[REDACTED]",
+		},
 		payment: {
 			prepayId: "[REDACTED]",
 			payParams: "[REDACTED]",
