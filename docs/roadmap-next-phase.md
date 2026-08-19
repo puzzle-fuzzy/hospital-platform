@@ -15,6 +15,11 @@
   本窗口没有真实患者、预约或费用 Provider 业务事件，真机验收等级不变。详见
   [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md)。
 
+- 2026-08-19 16:49–16:51 CST 真机入口复核：当前 `miniprogram` 窗口已使用 `48ba22f` 完整来源重新生成 iOS 二维码，
+  约 643 KB，有效至 17:14；已有“真机调试”子窗口显示未连接且服务已结束，没有形成手机连接、微信 session 或业务日志。
+  本次只记录候选入口状态，不升级微信、患者、预约、门诊费用或真机验收等级。详见
+  [`release/miniprogram-device-session-2026-08-19-1651.md`](release/miniprogram-device-session-2026-08-19-1651.md)。
+
 - 2026-08-19 15:00 CST 生产切换：新 Elysia API 已从 `08c36a8` 原子切换到 `968af78`。候选在 `18082` 完成生产依赖
   preflight 和连续 readiness smoke 后，只重启 `hospital-platform-api-v2.service`；新 API `10.0.0.3:18081`
   与旧 Python `8001` 持续共存，公网 live/ready/ping 和未登录 401 边界通过。该 release 同时固化了旧端
