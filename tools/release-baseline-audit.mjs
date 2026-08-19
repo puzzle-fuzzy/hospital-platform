@@ -14,7 +14,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{ path: "docs/README.md", label: "文档导航" },
 	{ path: "docs/wechat-auth-login.md", label: "微信授权登录手册" },
 	{
-		path: "docs/release/candidate-4822884-local-build-2026-08-19.md",
+		path: "docs/release/candidate-48ba22f-local-build-2026-08-19.md",
 		label: "当前小程序本地构建候选",
 	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
@@ -134,7 +134,7 @@ export async function auditCurrentReleaseConsistency(
 ) {
 	const candidatePath = join(
 		rootDirectory,
-		"docs/release/candidate-4822884-local-build-2026-08-19.md",
+		"docs/release/candidate-48ba22f-local-build-2026-08-19.md",
 	);
 	const candidateDocument = await readFile(candidatePath, "utf8");
 	const baseline = extractCurrentBaseline(candidateDocument);

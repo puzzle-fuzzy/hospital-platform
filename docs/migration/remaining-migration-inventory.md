@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `482288496c6de90ff86fb2f2eb54db3b9ae0bae5`（提交 `4822884`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `48ba22f16cb0f1d1098895772e660a3ed96761bb`（提交 `48ba22f`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-19 生产更新：服务端已切换到 `968af78`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
 > `patInfosFind` 临床引用和档案关联边界见 [`../release/968af78-production-acceptance-2026-08-19.md`](../release/968af78-production-acceptance-2026-08-19.md)。
@@ -79,8 +79,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/968af78-production-acceptance-2026-08-19.md`](../release/968af78-production-acceptance-2026-08-19.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `4822884`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `482288496c6de90ff86fb2f2eb54db3b9ae0bae5`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `48ba22f`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `48ba22f16cb0f1d1098895772e660a3ed96761bb`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
