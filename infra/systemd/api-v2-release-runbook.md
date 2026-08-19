@@ -191,6 +191,14 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-19 16:30–16:37 CST：候选 `398be8e` 已完成八个 bundle SHA-256 对照、真实生产 env preflight、
+`127.0.0.1:18082` 隔离 runtime smoke，并从 `968af78` 原子切换到当前 `current`，只重启
+`hospital-platform-api-v2.service`。切换后公网 `/api/v2` live、ready 连续 6/6、system-ping 和未登录认证边界均通过，
+ready 的 database/redis/schema 为 `ok`；新 API `18081` 与旧 Python `8001` 同时监听。切换窗口日志聚合为
+`parseErrors=0`、`systemdWarningCount=0`，仅包含基础设施和健康检查事件，没有把本次运行层 smoke 误记为真实患者、
+预约或费用业务证据。完整记录见
+[`../../docs/release/398be8e-production-acceptance-2026-08-19.md`](../../docs/release/398be8e-production-acceptance-2026-08-19.md)。
+
 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。第一次 `sudo -n` 因服务器要求密码被保护分支回滚，随后使用标准
 `sudo -S` 完成同一范围的重启；回滚分支确认没有影响旧 Python。切换后新 API 的 production 启动字段、内外网
