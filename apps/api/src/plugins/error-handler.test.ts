@@ -34,7 +34,10 @@ import {
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
-import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
+import {
+	SessionPrincipalReadModelValidationError,
+	WechatLoginInputError,
+} from "../modules/auth/service";
 import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
 import {
 	PaymentIdentityNotFoundError,
@@ -73,6 +76,23 @@ test("患者读模型损坏不能降级为空目录", async () => {
 		error: {
 			code: "persistence-invalid",
 			message: "数据服务返回异常，请联系管理员",
+		},
+	});
+});
+
+test("微信登录服务输入错误保持 400 validation 契约", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new WechatLoginInputError();
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(400);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "validation",
+			message: "微信登录参数不合法",
 		},
 	});
 });

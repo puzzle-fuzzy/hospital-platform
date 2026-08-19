@@ -61,4 +61,5 @@ export {
 	normalizeSessionPrincipal,
 	requirePrincipal,
 	SessionPrincipalReadModelValidationError,
+	WechatLoginInputError,
 } from "./service";

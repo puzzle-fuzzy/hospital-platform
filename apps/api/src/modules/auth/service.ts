@@ -27,6 +27,14 @@ export type SessionPrincipal = {
 	userId: string;
 };
 
+/** 微信登录服务层输入错误；HTTP schema 之外的调用方也必须得到稳定 400。 */
+export class WechatLoginInputError extends Error {
+	constructor() {
+		super("Wechat login input is invalid");
+		this.name = "WechatLoginInputError";
+	}
+}
+
 /** 会话 principal 读模型目前只允许落入身份表使用的安全 user_id 列宽。 */
 const MAX_SESSION_USER_ID_LENGTH = 64;
 
@@ -85,6 +93,24 @@ export type AuthServiceDependencies = {
 	logger?: AppLogger;
 };
 
+/**
+ * 重新校验微信登录输入的运行时形状。
+ *
+ * Elysia 会在 HTTP 边界校验 `code`，但登录 service 也可能被组合根、回放
+ * 任务或未来 Worker 直接调用。这里不能把 TypeScript 的 payload 类型当成
+ * 运行时事实，更不能让 null/数组在读取 `.code` 时变成未映射 500。
+ */
+function normalizeWechatLoginInput(value: unknown): { code: string } {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new WechatLoginInputError();
+	}
+	const code = (value as Record<string, unknown>).code;
+	if (typeof code !== "string" || code.length < 1 || code.length > 256) {
+		throw new WechatLoginInputError();
+	}
+	return { code };
+}
+
 /** 患者端认证编排：兑换 provider code、幂等建用户、签发平台会话。 */
 export class AuthService {
 	private readonly logger: AppLogger;
@@ -109,11 +135,12 @@ export class AuthService {
 		);
 
 		try {
+			const loginInput = normalizeWechatLoginInput(input);
 			// code2session 结果属于可替换 gateway 的运行时边界；在身份写入
 			// MySQL 前重新投影，不能把 TypeScript 类型当成授权事实。
 			const identity = normalizeWechatIdentityResult(
 				await this.dependencies.identityGateway.exchangeCode(
-					{ code: input.code },
+					loginInput,
 					context,
 				),
 			);

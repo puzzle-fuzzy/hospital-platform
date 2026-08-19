@@ -11,6 +11,7 @@ import {
 	createRedisSessionTokenService,
 	requirePrincipal,
 	SessionPrincipalReadModelValidationError,
+	WechatLoginInputError,
 } from "./service";
 
 test("Redis session service issues and verifies a TTL-backed token", async () => {
@@ -347,4 +348,40 @@ test("身份仓储结果越过 owner/provider 范围时不签发会话", async (
 	const output = lines.join("");
 	expect(output).toContain('"identityViolation":"user-id-invalid"');
 	expect(output).not.toContain("corrupt");
+});
+
+test("微信登录服务拒绝绕过 HTTP schema 的畸形输入", async () => {
+	let providerCalls = 0;
+	const service = new AuthService({
+		identityGateway: {
+			async exchangeCode() {
+				providerCalls += 1;
+				throw new Error("must not be called");
+			},
+		},
+		identityUsers: {
+			async findOrCreateByWechat() {
+				throw new Error("must not be called");
+			},
+			async findByUserId() {
+				return undefined;
+			},
+		},
+		sessions: {
+			async issue() {
+				throw new Error("must not be called");
+			},
+			async verify() {
+				return { userId: "user-001" };
+			},
+		},
+	});
+
+	await expect(
+		service.login(null as never, {
+			traceId: "auth-invalid-input-trace",
+			idempotencyKey: "auth-invalid-input-key",
+		}),
+	).rejects.toBeInstanceOf(WechatLoginInputError);
+	expect(providerCalls).toBe(0);
 });

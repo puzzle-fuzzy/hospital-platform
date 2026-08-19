@@ -42,7 +42,10 @@ import {
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
 } from "../modules/appointments/service";
-import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
+import {
+	SessionPrincipalReadModelValidationError,
+	WechatLoginInputError,
+} from "../modules/auth/service";
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import {
 	OutpatientPaymentPatientNotFoundError,
@@ -203,6 +206,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "user-profile-invalid",
 						message: "个人资料字段不合法",
+					},
+				};
+			}
+
+			if (error instanceof WechatLoginInputError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "validation",
+						message: "微信登录参数不合法",
 					},
 				};
 			}

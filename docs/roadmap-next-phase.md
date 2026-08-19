@@ -5,6 +5,10 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（微信登录服务层输入边界）：`AuthService.login` 新增运行时 payload 校验，即使组合根或回放任务绕过 Elysia schema
+  传入 `null`、数组或非字符串/越界 `code`，也会在 Provider 调用前返回既有 `400 validation`，并保留统一失败日志；新增认证服务和
+  错误处理回归。没有改变微信 code2session、会话、Redis、域名或 Provider contract，也未修改旧 Python、线上服务、数据库或 Redis。
+
 - 2026-08-19（患者空快照当前读模型边界）：Provider 返回空患者目录时，服务端现在先用既有 owner-scoped 读模型校验重新投影
   仓储结果，再决定是否允许空快照继续；非数组、错 owner、重复 ID 或其它畸形结果会在快照事务前以固定
   `readModelViolation` 失败，不会被当成“没有就诊人”而批量停用目录。新增回归和发布文档，未扩展 Provider、患者绑定、预约、
