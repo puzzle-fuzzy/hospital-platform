@@ -11,6 +11,11 @@
 
 ## 当前准入复核（2026-08-19 08:47 CST）
 
+补充记录（2026-08-19 11:49 CST）：数据库瞬态断连恢复后，SSH 只读确认当前 release `b7c9451`、新 API `active/running`，
+正确监听地址 `10.0.0.3:18081` 的 readiness 为 `database/redis/schema=ok`，旧 Python `8001` 继续共存。Redis 会话 TTL
+审计仍返回 `redis-session-scan-unavailable`（退出码 2），所以会话实际 TTL、过期后的重新登录和多患者失效恢复继续保持未验收；
+没有修改 ACL、重启服务、写数据库/Redis 或操作旧项目。详见 [`../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md`](../release/current-b7c9451-session-and-readiness-observation-2026-08-19-1149.md)。
+
 补充记录（2026-08-19 11:43–11:44 CST）：重启后只读检查发现新 API 远端 MySQL 曾短暂出现 `PROTOCOL_CONNECTION_LOST`，readiness
 一度为 `not_ready`，随后 database/Redis/schema 自动恢复为 `ok`；新旧服务监听、release 和旧 Python 均未改变。服务器本机 3306
 不是新 API 的数据库目标，根分区约 95% 使用率需要单独运维关注。该事件只记录运行层恢复，不增加患者、预约、报告、费用或真机证据，详见
