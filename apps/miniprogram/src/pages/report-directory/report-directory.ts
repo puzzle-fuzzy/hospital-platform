@@ -182,6 +182,13 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			wx.showToast({ title: "请先选择就诊人", icon: "none" });
 			return;
 		}
+		if (!isCurrentSelectedPatient(patientId)) {
+			// 另一个页面可能已经切换了就诊人，但旧报告卡片的事件仍然晚到。
+			// 这里先在客户端阻断旧 patientId，避免把合法但属于上一位患者的
+			// opaque 详情引用带入详情页；服务端 owner 校验仍是最后一道边界。
+			wx.showToast({ title: "当前就诊人已变化，请重新加载", icon: "none" });
+			return;
+		}
 		wx.navigateTo({
 			url: `/pages/report-detail/report-detail?patientId=${encodeURIComponent(patientId)}&reportId=${encodeURIComponent(reportId)}&reportCount=${this.data.reportCount}`,
 		});

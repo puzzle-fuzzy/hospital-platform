@@ -1567,6 +1567,8 @@ test("native report detail actions reject stale directory events", async () => {
 	expect(template).toContain('data-view-key="{{item.viewKey}}"');
 	expect(template).not.toContain('data-report-id="{{item.reportId}}"');
 	expect(client).toContain("requireReportDetailResponse");
+	expect(page).toContain("isCurrentSelectedPatient(patientId)");
+	expect(page).toContain("当前就诊人已变化，请重新加载");
 	expect(detail).not.toContain("items || []");
 });
 
