@@ -12,10 +12,19 @@ import type {
 import type { AdapterName } from "./context";
 import { AdapterNotConfiguredError } from "./errors";
 
+/**
+ * 未配置 Provider 时必须抛出稳定的依赖错误，而不是返回空数组、假成功或虚构支付结果。
+ * 这样页面才能区分“确实没有业务数据”和“服务尚未接入”，日志也能保留明确的依赖边界。
+ */
 function unavailable(adapter: AdapterName): never {
 	throw new AdapterNotConfiguredError(adapter);
 }
 
+/**
+ * 组合根在 schema/配置门禁未打开时使用这组 gateway。
+ * 每个方法都保持 fail-closed，避免某个新业务忘记配置 Provider 后静默降级为成功空态；
+ * 真正打开能力必须由对应 adapter contract、生产配置和独立验收共同决定。
+ */
 export type NotConfiguredGateways = {
 	wechatIdentity: WechatIdentityGateway;
 	medicalInsurance: MedicalInsuranceGateway;
