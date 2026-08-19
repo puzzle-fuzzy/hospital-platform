@@ -605,6 +605,71 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 	}
 });
 
+test("患者范围只读页面开始新查询前统一清空旧读模型", async () => {
+	const pages = [
+		{
+			file: "pages/appointment-records/appointment-records.ts",
+			method: "loadRecords(): Promise<void>",
+			fields: [
+				"selectedPatient: null",
+				"records: []",
+				"visibleRecords: []",
+				"visibleRecordCount: 0",
+				"hasMoreRecords: false",
+			],
+		},
+		{
+			file: "pages/missed-appointments/missed-appointments.ts",
+			method: "loadRecords(): Promise<void>",
+			fields: [
+				"selectedPatient: null",
+				"records: []",
+				"visibleRecords: []",
+				"visibleRecordCount: 0",
+				"hasMoreRecords: false",
+			],
+		},
+		{
+			file: "pages/report-directory/report-directory.ts",
+			method: "loadPage(): Promise<void>",
+			fields: [
+				"selectedPatient: null",
+				"reports: []",
+				"visibleReports: []",
+				"reportCount: 0",
+				"visibleReportCount: 0",
+				"hasMoreReports: false",
+			],
+		},
+		{
+			file: "pages/outpatient-payment/outpatient-payment.ts",
+			method: "loadPage(): Promise<void>",
+			fields: [
+				"selectedPatient: null",
+				"items: []",
+				"visibleItems: []",
+				"visibleItemCount: 0",
+				"hasMoreItems: false",
+			],
+		},
+	] as const;
+
+	for (const item of pages) {
+		const page = await source(item.file);
+		const pageStart = page.indexOf("Page<");
+		const loadStart = page.indexOf(item.method, pageStart);
+		const loadEnd = page.indexOf("\n\t},", loadStart);
+		const loadBody = page.slice(loadStart, loadEnd);
+
+		// 患者切换、下拉刷新或重试开始后，旧卡片和旧列表不能继续与新一轮
+		// owner-scoped 请求并存；否则加载中的页面会把上一位患者的临床事实
+		// 误显示成当前结果。该规则只检查页面状态清理，不替代运行时 guard。
+		expect(loadStart).toBeGreaterThanOrEqual(0);
+		expect(loadEnd).toBeGreaterThan(loadStart);
+		for (const field of item.fields) expect(loadBody).toContain(field);
+	}
+});
+
 test("report detail reuses the shared patient context error translation", async () => {
 	const page = await source("pages/report-detail/report-detail.ts");
 
