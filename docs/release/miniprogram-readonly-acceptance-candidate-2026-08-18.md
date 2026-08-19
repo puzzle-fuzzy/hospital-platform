@@ -7,14 +7,14 @@
 
 | 层级 | 固定值 | 证据 |
 | --- | --- | --- |
-| 服务端 release | `b7c9451` | 服务器 `/home/ps/code/hospital-platform/releases/b7c9451` |
+| 服务端 release | `65219e2` | 服务器 `/home/ps/code/hospital-platform/releases/65219e2` |
 | 服务端运行方式 | Bun/Elysia production | `hospital-platform-api-v2.service`，监听 `10.0.0.3:18081` |
 | 旧服务 | Python，监听 `0.0.0.0:8001` | 本次验收不得停止、重启或修改 |
-| 小程序客户端 | `b55df37` | 与服务端 `b7c9451` 配套的当前本地验收候选包；包含报告目录旧患者事件阻断和就诊人选择会话代际边界 |
+| 小程序客户端 | `b55df37` | 与服务端 `65219e2` 配套的当前本地验收候选包；包含报告目录旧患者事件阻断和就诊人选择会话代际边界 |
 | 小程序构建结果 | 14 个页面脚本 | `pnpm --dir apps/miniprogram build`、`runtime:verify`；小程序包的 Turbo build cache 已关闭，避免 Git 来源指纹被提交前缓存污染 |
 | 小程序构建来源 | `b55df37b48bbe250e4ebefee3db7739d2fd554e2` | `dist/build-info.json` 的 `sourceRevision` |
 | 小程序回归 | 160 项 / 1293 个断言 | `pnpm --filter @hospital/miniprogram test`；运行包来源固定为 `b55df37` |
-| 全仓回归 | 9/9 package、API 162/709、Worker 51/144、工具 20/60 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `b7c9451`，旧 Python 保持运行 |
+| 全仓回归 | 9/9 package、API 162/709、Worker 51/144、工具 20/60 | 当前工作树 `pnpm check` 已通过；服务端线上 release 为 `65219e2`，旧 Python 保持运行 |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 只允许 HTTPS，客户端不直连 Provider |
 
 客户端候选的 `dist/` 必须由 `b55df37` 运行输入工作树重新构建，并核对 `dist/build-info.json` 的完整 `sourceRevision`；不能使用旧聊天、旧开发者工具缓存或其他 release 的运行包推导本次结果。
@@ -24,7 +24,7 @@
 
 本轮新增首页目录生命周期门禁：旧目录请求失去当前请求或页面资格后不会再把错误交给外层回调，避免覆盖新结果或在页面卸载后继续回写；当前请求的依赖失败仍保持原有 fail-closed 语义。详细边界见 [`miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md`](miniprogram-homepage-stale-directory-lifecycle-2026-08-18.md)。
 
-服务端当前 release `b7c9451` 包含 `98e091b` 门诊费用患者引用二次门禁：仓储返回的非法或跨患者/Provider
+服务端当前 release `65219e2` 包含 `98e091b` 门诊费用患者引用二次门禁：仓储返回的非法或跨患者/Provider
 HIS 引用不会进入 Provider 调用；不改变本候选的真实 Provider、微信会话或真机验收结论。
 
 随后 `400a800` 将同一校验规则下沉到 domain 并接入预约历史；预约记录的错误引用同样不会进入
@@ -76,5 +76,5 @@ Provider 调用。不增加真实预约 Provider 或真机验收结论。
 
 ## 5. 当前仍未完成
 
-本候选文件只固定验收方法，不宣称业务已经通过。当前 release 已切换为 `b7c9451`，仍缺：有效微信会话下的页面截图、HTTP trace、真实预约/费用 Provider 字段、
+本候选文件只固定验收方法，不宣称业务已经通过。当前 release 已切换为 `65219e2`，仍缺：有效微信会话下的页面截图、HTTP trace、真实预约/费用 Provider 字段、
 第二位患者切换和失效/恢复证据、普通资料 PUT/409、Redis TTL 以及后续支付/医保/HIS 独立契约证据。

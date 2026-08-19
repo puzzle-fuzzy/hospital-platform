@@ -15,6 +15,14 @@
   [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md)。
   Provider 业务、真实微信真机和支付/医保仍未验收。
 
+- 2026-08-19（门诊费用与临床 `patId` 契约审计）：复核旧端 2.6.33
+  `outpatient-child-payment-records` 请求和真实 `patInfosFind` 响应，确认 `data.patId` 是预约历史、报告和门诊费用
+  共用的 HIS 临床引用，不能与目录 `thirdPatientId` 或首页二维码的 `medicalCardNo` 混用。新版只读链路已经固定
+  owner-scoped `his-patient` 映射、`amount` 元转分、`tradeStatus=1/3`、30 个 `Asia/Shanghai` 日历日和公共字段白名单；
+  旧端 `waitPayAmount` 及 `internetHospital`/`thirdSelfMachine` 渠道差异不做猜测。定向 adapter 15/15、API service 12/12
+  通过，真实 Provider 字段对照、当前 release 公网/真机三层证据仍待完成，支付/医保继续关闭。详见
+  [`migration/outpatient-payment-provider-contract-audit-2026-08-19.md`](migration/outpatient-payment-provider-contract-audit-2026-08-19.md)。
+
 - 2026-08-19 11:49 CST（会话与 readiness 只读复核）：数据库瞬态断连恢复后，新 API `b7c9451` 仍为 `active/running`，
   正确监听地址 `10.0.0.3:18081` 的 readiness 为 `database/redis/schema=ok`，旧 Python `8001` 继续共存。Redis 会话 TTL
   审计仍安全返回 `redis-session-scan-unavailable`、退出码 `2`；这只说明当前身份没有完成会话扫描权限，不能当作“没有会话”。

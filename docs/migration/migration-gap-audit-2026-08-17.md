@@ -20,7 +20,7 @@
 
 ## 2. 当前事实
 
-- 当前线上 release 为 `b7c9451`，已完成 production preflight、隔离 runtime smoke 和只重启新 API 的无损切换；旧 Python `8001` 继续运行。`c26e696` 及此前 release 均按历史切换记录理解。
+- 当前线上 release 为 `65219e2`，已完成 production preflight、隔离 runtime smoke 和只重启新 API 的无损切换；旧 Python `8001` 继续运行。`b7c9451`、`c26e696` 及此前 release 均按历史切换记录理解。
   本次切换只包含微信身份边界修复和候选运行包，不增加预约写入、支付、医保、报告或 HIS 能力；真实微信/患者/只读业务证据仍待。
 - 旧端扫描基线为 64 个页面，原生小程序当前注册 14 个 TypeScript 页面；旧 FastAPI 与旧小程序
   的接口快照仍由 `legacy-api-endpoint-inventory.md` 维护。

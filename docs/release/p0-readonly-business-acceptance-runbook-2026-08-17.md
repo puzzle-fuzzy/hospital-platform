@@ -12,7 +12,7 @@
 
 | 项目 | 验收基线 |
 | --- | --- |
-| 线上 release | `b7c9451` |
+| 线上 release | `65219e2` |
 | 新 API | `hospital-platform-api-v2.service`，公网入口 `/api/v2` |
 | 旧 API | Python 服务继续保留在原端口，不能因为本手册重启或修改 |
 | 小程序运行目录 | `apps/miniprogram/dist/`；先执行 `pnpm --filter @hospital/miniprogram build`，开发者工具导入包含 `project.config.json` 的小程序目录，并确认 `miniprogramRoot` 为 `dist/` |
@@ -263,7 +263,7 @@ Redis 连通性或 HTTP 登录成功误认为 TTL 证据。
 
 ## 7. 当前未完成事项
 
-1. 当前服务端基线为 `b7c9451`，当前本地真机候选为
+1. 当前服务端基线为 `65219e2`，当前本地真机候选为
    `b55df37b48bbe250e4ebefee3db7739d2fd554e2`（提交 `b55df37`）；截至本记录，公网 live/ready 和未登录 401 已复核，
    但尚未取得这份候选在有效微信会话下的登录、患者目录、预约历史或门诊费用真机业务事件。后续必须以真实验收开始时间
    为起点重新取证，不能沿用历史 release 日志。

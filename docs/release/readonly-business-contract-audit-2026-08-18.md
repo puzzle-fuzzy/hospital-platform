@@ -4,7 +4,7 @@
 它用于新会话、代码评审和真机验收前的边界复核；“代码和测试通过”不等于
 真实微信会话、Provider、公网 HTTPS 或真机业务已经验收。
 
-当前线上服务端 release 为 `b7c9451`，小程序构建来源为
+当前线上服务端 release 为 `65219e2`，小程序构建来源为
 `b55df37b48bbe250e4ebefee3db7739d2fd554e2`（当前本地候选 `b55df37`，尚未上传线上）；线上只证明运行层和认证边界，域级 Provider/真机证据仍需独立闭环。
 
 ## 1. 证据范围与当前发布边界
@@ -32,7 +32,7 @@
 - `packages/domain/src/outpatient-payments.ts`
 - `packages/domain/src/patients.ts`
 
-当前线上 release 以 [`b7c9451-production-acceptance-2026-08-19.md`](b7c9451-production-acceptance-2026-08-19.md)
+当前线上 release 以 [`65219e2-production-acceptance-2026-08-19.md`](65219e2-production-acceptance-2026-08-19.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选已更新为
 `69e6cdb28f2996095b8647f82b1b90afd061b918`（提交 `69e6cdb`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 release 的窄观察窗口没有新的
