@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19 09:05 CST：通过 SSH 只读复核当前 `b7c9451`，`hospital-platform-api-v2.service=active`，内网
+  `/health/ready` 返回 `database/redis/schema=ok`。最近 20 分钟 journald 经当前 release 的聚合工具得到
+  `parsedRecords=38`、`parseErrors=0`、`systemdWarningCount=0`、HTTP `200=14`；业务事件仍只有患者目录读取/同步，
+  没有新的微信登录、预约历史、爽约、门诊费用、普通资料、报告、支付、医保或真机设备事件。本次只读检查没有重启、
+  切换、迁移、业务写入或旧服务操作，后续真机验收应从该窗口之后重新建立关联链。
+
 - 2026-08-19 08:58 CST：重启后通过 SSH 只读聚合当前 `b7c9451` 最近 10 分钟 journald，得到 `parsedRecords=13`、
   `parseErrors=0`、`systemdWarningCount=0`、HTTP `200=5`；业务事件只有患者目录读取/同步，未出现新的微信登录、
   预约历史、爽约、门诊费用、普通资料、报告、支付或医保事件。该窗口没有真机设备连接或第二位就诊人数据，
