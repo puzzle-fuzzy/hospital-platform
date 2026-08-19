@@ -4,7 +4,7 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前权威运行基线（2026-08-19 生产切换后）为：服务端 `65219e2`、小程序候选来源
-`b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8`（提交 `b451cc6`）、新 API `10.0.0.3:18081`、旧 Python `8001`。
+`482288496c6de90ff86fb2f2eb54db3b9ae0bae5`（提交 `4822884`）、新 API `10.0.0.3:18081`、旧 Python `8001`。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 ## 首先阅读
@@ -13,7 +13,8 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `65219e2`、当前本地小程序候选来源以 `b451cc6df6959df3155e1ffaf1ef3c8dcd0c6df8` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `65219e2`、当前本地小程序候选来源以 `482288496c6de90ff86fb2f2eb54db3b9ae0bae5` 为准 |
+| [`release/candidate-4822884-local-build-2026-08-19.md`](release/candidate-4822884-local-build-2026-08-19.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；尚未上传线上 |
 | [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md) | `65219e2` 原子生产切换、候选 smoke、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
 | [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md) | 当前 `65219e2` 生产 preflight、gate 状态、内外网 readiness 和旧 Python 共存复核；不代表 Provider/真机业务完成 |
 | [`migration/zhongyang-authorization-contract-audit-2026-08-19.md`](migration/zhongyang-authorization-contract-audit-2026-08-19.md) | 旧平台用户 JWT 与新服务 Provider 凭证的区别、鉴权契约缺口和真实验收停止条件 |
@@ -23,8 +24,8 @@
 | [`release/current-b7c9451-p0-business-observation-2026-08-19-0821.md`](release/current-b7c9451-p0-business-observation-2026-08-19-0821.md) | 历史 `b7c9451` 微信登录、患者读取和同步同链观察；预约、费用、报告和真机页面仍待继续取证 |
 | [`release/current-public-readonly-smoke-2026-08-19.md`](release/current-public-readonly-smoke-2026-08-19.md) | 重启后公网 live/ready/system-ping 与未登录认证边界复核；不代表 SSH 进程共存、Provider 或真机业务验收 |
 | [`release/current-b7c9451-database-transient-observation-2026-08-19.md`](release/current-b7c9451-database-transient-observation-2026-08-19.md) | 历史 `b7c9451` 远端 MySQL 瞬态断连、readiness 恢复、双服务共存和磁盘风险观察；不代表业务验收 |
-| [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察；当前候选来源已推进到 `b451cc6`，本记录不替代真机、Provider 或服务端日志证据 |
-| [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `b451cc6` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
+| [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前候选为 `4822884`，本记录不替代真机、Provider 或服务端日志证据 |
+| [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `4822884` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
 | [`release/miniprogram-my-page-session-generation-order-2026-08-19.md`](release/miniprogram-my-page-session-generation-order-2026-08-19.md) | “我的”页资料与患者目录的会话代际顺序、降级和旧患者清理边界 |
 | [`release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md`](release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md) | 预约科室/排班两列级联的 JSON 运行时契约、号源语义和只读停止条件 |
 | [`release/miniprogram-report-readonly-response-contract-2026-08-19.md`](release/miniprogram-report-readonly-response-contract-2026-08-19.md) | 报告目录/LIS 详情 JSON 运行时契约、短期引用匹配和临床结果停止条件 |
