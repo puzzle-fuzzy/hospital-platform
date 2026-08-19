@@ -8,6 +8,7 @@ import {
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
+	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
@@ -153,6 +154,25 @@ test("患者快照提交结果读模型损坏返回持久化错误", async () =>
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 		throw new PatientDirectorySnapshotResultValidationError(
 			"deactivated-count-invalid",
+		);
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "persistence-invalid",
+			message: "数据服务返回异常，请联系管理员",
+		},
+	});
+});
+
+test("服务端生成的患者 ID 违反内部 contract 返回持久化错误", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new PatientDirectoryGeneratedIdValidationError(
+			"patient-id-duplicate",
 		);
 	});
 

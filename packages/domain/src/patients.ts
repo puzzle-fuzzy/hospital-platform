@@ -429,6 +429,28 @@ export type PatientDirectorySnapshotResult = {
 	deactivatedPatientCount: number;
 };
 
+/**
+ * 服务端生成的平台患者 ID 违反内部身份边界时的固定原因。
+ *
+ * 这个错误与 Provider 结果校验分开：Provider 患者号已经通过 adapter
+ * 白名单校验，异常发生在平台自己的 opaque ID 生成器或组合根注入上。
+ * 事务写入前必须拒绝，不能让重复 ID 先落库、再等下一次读取才暴露。
+ */
+export type PatientDirectoryGeneratedIdViolation =
+	| "patient-id-invalid"
+	| "patient-id-duplicate";
+
+/** 患者目录同步不会把非法的平台患者 ID 交给持久化层。 */
+export class PatientDirectoryGeneratedIdValidationError extends Error {
+	readonly violation: PatientDirectoryGeneratedIdViolation;
+
+	constructor(violation: PatientDirectoryGeneratedIdViolation) {
+		super("Generated patient directory id is invalid");
+		this.name = "PatientDirectoryGeneratedIdValidationError";
+		this.violation = violation;
+	}
+}
+
 /** 患者快照事务返回值违反读模型 contract 时的固定原因。 */
 export type PatientDirectorySnapshotResultViolation =
 	| "result-not-object"

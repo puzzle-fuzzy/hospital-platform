@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	IdentityUserReadModelValidationError,
 	type PatientDirectoryGateway,
+	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
@@ -299,6 +300,77 @@ test("患者目录同步在快照写入前拒绝非法网关结果并记录固�
 		}),
 	);
 	expect(lines.join("\n")).not.toContain("123456789012345678");
+});
+
+test("患者目录同步在快照事务前拒绝重复的平台患者 ID", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-generated-id",
+		unionId: "fixture-union-patient-generated-id",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const replaceDirectorySnapshot = baseRepository.replaceDirectorySnapshot;
+	if (!replaceDirectorySnapshot) throw new Error("snapshot unavailable");
+	let replaceCalls = 0;
+	const repository: PatientRepository = {
+		...baseRepository,
+		async replaceDirectorySnapshot(input) {
+			replaceCalls += 1;
+			return replaceDirectorySnapshot.call(baseRepository, input);
+		},
+	};
+	const lines: string[] = [];
+	const service = new PatientService(repository, {
+		identityUsers,
+		createPatientId: () => "same-platform-patient-id",
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients: [
+					{
+						providerPatientId: "provider-patient-generated-id-001",
+						displayName: "第一位患者",
+						relationship: "self",
+						cardNumberMasked: "12345*7890",
+					},
+					{
+						providerPatientId: "provider-patient-generated-id-002",
+						displayName: "第二位患者",
+						relationship: "child",
+						cardNumberMasked: "54321*0987",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "patient-generated-id-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-generated-id-trace",
+			idempotencyKey: "patient-generated-id-key",
+		}),
+	).rejects.toBeInstanceOf(PatientDirectoryGeneratedIdValidationError);
+	expect(replaceCalls).toBe(0);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.failed",
+			generatedIdViolation: "patient-id-duplicate",
+		}),
+	);
 });
 
 test("已有医院目录时拒绝把歧义空快照应用成批量失效", async () => {

@@ -4,11 +4,13 @@ import {
 	type AdapterCallContext,
 	DependencyNotConfiguredError,
 	IdentityUserReadModelValidationError,
+	isBoundedOpaqueIdentifier,
 	normalizeIdentityUserReadModel,
 	normalizePatientDirectoryResult,
 	normalizePatientDirectorySnapshotResult,
 	normalizePatientReadModel,
 	type PatientDirectoryGateway,
+	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
@@ -255,10 +257,26 @@ export class PatientService {
 				}
 			}
 			let hisPatientReferenceCount = 0;
-			const snapshotPatients = result.patients.map((profile) => ({
-				patientId: this.createPatientId(),
-				profile,
-			}));
+			const generatedPatientIds = new Set<string>();
+			const snapshotPatients = result.patients.map((profile) => {
+				const patientId = this.createPatientId();
+				// patientId 是平台内部 opaque 身份，会成为小程序列表 key 以及
+				// 预约、报告、费用映射的 owner-scoped 引用。这里必须在快照事务
+				// 前验证形状和批次唯一性；否则重复 ID 会先污染整批目录，再在
+				// 下次 GET 才触发读模型错误，期间可能让用户选错就诊人。
+				if (!isBoundedOpaqueIdentifier(patientId)) {
+					throw new PatientDirectoryGeneratedIdValidationError(
+						"patient-id-invalid",
+					);
+				}
+				if (generatedPatientIds.has(patientId)) {
+					throw new PatientDirectoryGeneratedIdValidationError(
+						"patient-id-duplicate",
+					);
+				}
+				generatedPatientIds.add(patientId);
+				return { patientId, profile };
+			});
 			for (const { profile } of snapshotPatients) {
 				if (profile.providerReferences?.["his-patient"]) {
 					hisPatientReferenceCount += 1;
@@ -345,6 +363,9 @@ export class PatientService {
 						errorType: error instanceof Error ? error.name : "unknown",
 						...(error instanceof PatientDirectoryResultValidationError
 							? { resultViolation: error.violation }
+							: {}),
+						...(error instanceof PatientDirectoryGeneratedIdValidationError
+							? { generatedIdViolation: error.violation }
 							: {}),
 						...(error instanceof IdentityUserReadModelValidationError
 							? { identityViolation: error.violation }

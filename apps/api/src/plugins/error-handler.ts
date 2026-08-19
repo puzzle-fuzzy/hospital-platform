@@ -10,6 +10,7 @@ import {
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
+	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
@@ -230,11 +231,13 @@ export function errorHandlerPlugin() {
 
 			if (
 				error instanceof PatientReadModelValidationError ||
-				error instanceof PatientDirectorySnapshotResultValidationError
+				error instanceof PatientDirectorySnapshotResultValidationError ||
+				error instanceof PatientDirectoryGeneratedIdValidationError
 			) {
-				// 数据库读模型违反内部患者 contract 时不能降级为空目录；空目录会让
-				// 小程序误以为用户没有就诊人，甚至触发错误的默认选择。固定返回
-				// 500，详细原因只进入服务端低敏日志。
+				// 患者内部身份或数据库读模型违反 contract 时不能降级为空目录；
+				// 空目录会让小程序误以为用户没有就诊人，甚至触发错误的默认选择。
+				// 生成 ID 的异常同样是服务端内部持久化边界问题，不应误报成
+				// Provider 502。固定返回 500，详细原因只进入低敏服务端日志。
 				set.status = 500;
 				return {
 					success: false,
