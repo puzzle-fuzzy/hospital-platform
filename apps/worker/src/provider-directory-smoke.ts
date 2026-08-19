@@ -1,3 +1,4 @@
+import { isBoundedOpaqueIdentifier } from "@hospital/domain";
 import {
 	type AppLogger,
 	createLogger,
@@ -139,6 +140,7 @@ export type ProviderSmokeConfigurationReason =
 	| "base-url-https-required"
 	| "api-prefix-invalid"
 	| "patient-id-missing"
+	| "patient-id-invalid"
 	| "capabilities-unsupported";
 
 class ProviderSmokeConfigurationError extends Error {
@@ -253,13 +255,22 @@ const APPOINTMENT_RECORDS_FUTURE_DAYS = 90;
 const PLATFORM_TIME_ZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function requirePatientId(patientId: string | undefined): string {
-	if (!patientId?.trim()) {
+	if (patientId === undefined || patientId.length === 0) {
 		throw new ProviderSmokeConfigurationError(
 			"patient-id-missing",
 			"HOSPITAL_PATIENT_ID is required for patient-scoped smoke checks",
 		);
 	}
-	return patientId.trim();
+	// 这里必须复用平台领域层的 opaque ID 规则，不能用 trim() 把错误配置
+	// 静默变成另一个 ID。该值只能是平台患者目录返回的 patientId，绝不能
+	// 填入 provider 的 patId、卡号或身份证号；调用方仍需继续通过 owner 目录校验。
+	if (!isBoundedOpaqueIdentifier(patientId)) {
+		throw new ProviderSmokeConfigurationError(
+			"patient-id-invalid",
+			"HOSPITAL_PATIENT_ID must be a bounded platform opaque identifier",
+		);
+	}
+	return patientId;
 }
 
 function responseItemCount(data: unknown): number | undefined {
@@ -297,14 +308,14 @@ function patientIds(data: unknown, traceId?: string): readonly string[] {
 			);
 		}
 		const id = (item as { id?: unknown }).id;
-		if (typeof id !== "string" || !id.trim()) {
+		if (!isBoundedOpaqueIdentifier(id)) {
 			throw new ProviderSmokeRequestError(
 				`Patient directory item ${index} has no internal id`,
 				200,
 				traceId,
 			);
 		}
-		ids.push(id.trim());
+		ids.push(id);
 	}
 	return ids;
 }
@@ -408,7 +419,7 @@ export async function runProviderDirectorySmoke(
 	const recordEndDate = dateOnly(addDays(now, APPOINTMENT_RECORDS_FUTURE_DAYS));
 	const reportStartDate = dateOnly(addDays(now, -30));
 	const today = dateOnly(now);
-	const patientId = options.patientId?.trim();
+	const patientId = options.patientId;
 	const scopedCapabilities = new Set<ProviderSmokeCapability>([
 		"appointment-records",
 		"outpatient-payments",
@@ -436,6 +447,11 @@ export async function runProviderDirectorySmoke(
 	const capabilities = capabilityOrder.filter((capability) =>
 		options.capabilities.includes(capability),
 	);
+	// 患者作用域验收若配置了非法 ID，应在健康探针前直接停止；否则会先向
+	// 线上服务发起一串无意义请求，既污染证据，也掩盖真正的配置错误。
+	if (capabilities.some((capability) => scopedCapabilities.has(capability))) {
+		requirePatientId(patientId);
+	}
 	const checks: ProviderSmokeCheck[] = [];
 
 	async function requestJson(

@@ -972,6 +972,26 @@ test("provider directory smoke rejects missing credentials with a safe reason", 
 	});
 });
 
+test("provider directory smoke rejects an invalid patient id before network access", async () => {
+	const requests: string[] = [];
+	await expect(
+		runProviderDirectorySmoke({
+			baseUrl: "https://hospital.example.test",
+			accessToken: "platform-access-token",
+			patientId: " patient-001",
+			capabilities: ["outpatient-payments"],
+			fetcher: async (input) => {
+				requests.push(String(input));
+				throw new Error("network must not be reached");
+			},
+		}),
+	).rejects.toMatchObject({
+		name: "ProviderSmokeConfigurationError",
+		reason: "patient-id-invalid",
+	});
+	expect(requests).toEqual([]);
+});
+
 test("provider directory smoke keeps traceId when the platform request fails", async () => {
 	const traceIds = [
 		"health-live-trace",

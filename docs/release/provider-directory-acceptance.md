@@ -172,6 +172,11 @@ HOSPITAL_SMOKE_CAPABILITIES="session,profile-read,patients,appointment-directory
 用于验证门诊费用 owner 映射、金额脱敏和空列表语义；它不会创建支付订单、调起微信、请求医保或执行结算回写。
 
 `HOSPITAL_ACCESS_TOKEN` 和 `HOSPITAL_PATIENT_ID` 只从受控环境注入，命令输出不会打印其值。
+`HOSPITAL_PATIENT_ID` 必须是当前平台患者目录返回的有界 opaque `patientId`：长度不得超过 128，
+不得带前后空白或控制字符，也不得填写众阳临床 `patId`、就诊卡号或身份证号。只要能力列表包含
+预约历史、门诊费用或报告等患者作用域检查，runner 会在任何健康探针和业务请求之前拒绝非法配置；
+这样不会把配置错误伪装成线上业务失败，也不会用错误值污染服务端验收日志。患者 ID 即使形状合法，
+仍必须通过当前 Bearer 会话的 owner 目录精确归属校验。
 `patient-sync` 会让服务端重新读取当前微信身份对应的患者目录，并在首轮成功后用同一个幂等键执行
 第二次 replay；它不会接受 provider 患者号，
 也不会把同步结果中的临床引用返回给脚本。同步完成后，从平台 `GET /patients` 响应中取得内部
