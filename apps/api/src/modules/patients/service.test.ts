@@ -7,6 +7,7 @@ import {
 	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
+	PatientReadModelValidationError,
 	type PatientRecord,
 	type PatientRepository,
 } from "@hospital/domain";
@@ -369,6 +370,66 @@ test("患者目录同步在快照事务前拒绝重复的平台患者 ID", async
 		expect.objectContaining({
 			event: "patient.directory.failed",
 			generatedIdViolation: "patient-id-duplicate",
+		}),
+	);
+});
+
+test("空患者快照先校验已有读模型并记录固定原因", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-empty-read-model",
+		unionId: "fixture-union-patient-empty-read-model",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const replaceDirectorySnapshot = baseRepository.replaceDirectorySnapshot;
+	if (!replaceDirectorySnapshot) throw new Error("snapshot unavailable");
+	let replaceCalls = 0;
+	const repository: PatientRepository = {
+		...baseRepository,
+		// 故意模拟越过 TypeScript 的回放/缓存实现，验证空快照保护不会
+		// 把非数组仓储结果当成“当前没有患者”。
+		listByOwner: async () => null as unknown as readonly PatientRecord[],
+		async replaceDirectorySnapshot(input) {
+			replaceCalls += 1;
+			return replaceDirectorySnapshot.call(baseRepository, input);
+		},
+	};
+	const lines: string[] = [];
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "patient-empty-read-model-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-empty-read-model-trace",
+			idempotencyKey: "patient-empty-read-model-key",
+		}),
+	).rejects.toBeInstanceOf(PatientReadModelValidationError);
+	expect(replaceCalls).toBe(0);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.failed",
+			readModelViolation: "patients-not-array",
 		}),
 	);
 });

@@ -246,9 +246,15 @@ export class PatientService {
 				// 这里不能只相信 Provider 返回的 `complete=true`：当前 Provider
 				// contract 没有证明空数组一定代表“用户确实没有绑定患者”，也没有
 				// 证明权限过滤、临时异常或响应截断会返回什么形状。先读取当前 owner
-				// 的读模型，只在已有医院目录患者时拒绝破坏性替换；首次登录且确实
-				// 没有医院目录患者的用户仍允许得到合法的空列表。
-				const currentPatients = await this.repository.listByOwner(ownerUserId);
+				// 的读模型并重新校验，只在已有医院目录患者时拒绝破坏性替换；
+				// 首次登录且确实没有医院目录患者的用户仍允许得到合法的空列表。
+				// 不能直接读取 `source`：仓储、回放器和缓存都是运行时边界，
+				// 畸形结果必须先收敛为固定 readModelViolation，不能在 `.some()`
+				// 中变成未映射的 TypeError。
+				const currentPatients = normalizePatientReadModel(
+					await this.repository.listByOwner(ownerUserId),
+					ownerUserId,
+				);
 				const hasExistingDirectoryPatients = currentPatients.some(
 					(patient) => patient.source === "hospital-his",
 				);
@@ -366,6 +372,9 @@ export class PatientService {
 							: {}),
 						...(error instanceof PatientDirectoryGeneratedIdValidationError
 							? { generatedIdViolation: error.violation }
+							: {}),
+						...(error instanceof PatientReadModelValidationError
+							? { readModelViolation: error.violation }
 							: {}),
 						...(error instanceof IdentityUserReadModelValidationError
 							? { identityViolation: error.violation }

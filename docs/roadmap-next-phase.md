@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-19）
 
+- 2026-08-19（患者空快照当前读模型边界）：Provider 返回空患者目录时，服务端现在先用既有 owner-scoped 读模型校验重新投影
+  仓储结果，再决定是否允许空快照继续；非数组、错 owner、重复 ID 或其它畸形结果会在快照事务前以固定
+  `readModelViolation` 失败，不会被当成“没有就诊人”而批量停用目录。新增回归和发布文档，未扩展 Provider、患者绑定、预约、
+  报告、门诊费用、支付或医保能力，也未修改旧 Python、线上服务、数据库或 Redis。
+
 - 2026-08-19（患者目录平台 ID 事务边界）：患者同步为每条 Provider 患者生成平台内部 `patientId` 时，新增 bounded opaque
   形状和同批唯一性校验，并在 `replaceDirectorySnapshot` 事务前拒绝非法/重复 ID。错误单独区别于 Provider 响应异常，日志只记录
   `generatedIdViolation`，公共响应固定为 `500 persistence-invalid`；新增服务与错误契约回归和发布文档。该改动没有扩展患者绑定、
