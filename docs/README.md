@@ -17,6 +17,7 @@
 | [`release/candidate-4822884-local-build-2026-08-19.md`](release/candidate-4822884-local-build-2026-08-19.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；尚未上传线上 |
 | [`release/65219e2-production-acceptance-2026-08-19.md`](release/65219e2-production-acceptance-2026-08-19.md) | `65219e2` 原子生产切换、候选 smoke、新旧服务共存、`patInfosFind`/二维码边界和未完成验收 |
 | [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md) | 当前 `65219e2` 生产 preflight、gate 状态、内外网 readiness 和旧 Python 共存复核；不代表 Provider/真机业务完成 |
+| [`release/current-65219e2-runtime-observation-2026-08-19.md`](release/current-65219e2-runtime-observation-2026-08-19.md) | 重启后 `65219e2` 运行层、正确内网探针、公网 readiness、生产模式和报告关闭 gate 的只读复核 |
 | [`migration/zhongyang-authorization-contract-audit-2026-08-19.md`](migration/zhongyang-authorization-contract-audit-2026-08-19.md) | 旧平台用户 JWT 与新服务 Provider 凭证的区别、鉴权契约缺口和真实验收停止条件 |
 | [`migration/outpatient-payment-provider-contract-audit-2026-08-19.md`](migration/outpatient-payment-provider-contract-audit-2026-08-19.md) | 门诊费用 2.6.33 参数、`patInfosFind.data.patId`、金额/状态映射、渠道码和只读停止条件 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 历史 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |
