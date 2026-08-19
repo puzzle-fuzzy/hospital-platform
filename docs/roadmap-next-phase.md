@@ -15,6 +15,11 @@
   原生小程序构建生成 14 个页面脚本，运行包来源仍为 `b2ce91e`。全局 `git diff --check` 的唯一既有告警来自用户正在修改的
   `apps/miniprogram/project.config.json`，本轮未触碰、未暂存、未提交该文件。
 
+- 2026-08-19 09:24 CST（门诊费用查询前置状态门禁）：小程序 `loadOutpatientPaymentRecords` 新增运行时状态校验，
+  即使旧页面或异常事件绕过 TypeScript 联合类型传入未知值，也会在网络请求前返回稳定的
+  `outpatient-payment-query-invalid`，不会把未知状态交给 API/Provider 或让“非 unpaid 即 paid”的历史分支解释它。
+  新增小程序回归后，支付调起、医保授权、结算回写和费用详情仍保持关闭；旧 Python、线上服务、数据库和 Redis 未修改。
+
 - 2026-08-19（普通资料清空语义回归）：API 组合测试补充 `age=null`、`email=null` 的明确清空路径，验证服务端不会把
   `null` 当成省略字段，且仍按 owner/version 条件递增并返回 canonical 资料快照；原有 409、跨用户隔离和未知字段拒绝保持不变。
   API 全量回归仍为 `153/153`。这是本地 HTTP/内存仓储证据，不替代真实微信资料 PUT、409 和真机验收。

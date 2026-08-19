@@ -703,6 +703,21 @@ function requirePatientId(patientId: unknown): string {
 	return patientId;
 }
 
+/**
+ * 门诊费用查询状态必须在发请求前再次做运行时校验。
+ *
+ * 页面事件通常会把状态限制为 `unpaid`/`paid`，但 TypeScript 类型在微信
+ * 运行时不存在，旧页面、手工调用或损坏的事件数据仍可能传入未知字符串。
+ * 这里不能等 API 响应阶段才发现错误：那时已经制造了错误的网络和日志语义，
+ * 甚至可能让旧网关把未知值按“非 unpaid 即 paid”处理。服务端仍会做最终校验，
+ * 本层只是患者端请求前的第一道 fail-closed 门禁。
+ */
+function isOutpatientPaymentStatus(
+	value: unknown,
+): value is OutpatientPaymentRecord["status"] {
+	return value === "unpaid" || value === "paid";
+}
+
 /** 健康检查只证明 API 进程响应，不把 ready 误显示为可用。 */
 export function loadHealth(): Promise<HealthResponse> {
 	return request<HealthResponse>({ url: "/health/live" });
@@ -811,6 +826,13 @@ export function loadOutpatientPaymentRecords(
 	patientId: string,
 	status: "unpaid" | "paid",
 ): Promise<Array<OutpatientPaymentRecord>> {
+	if (!isOutpatientPaymentStatus(status)) {
+		return Promise.reject(
+			new ApiError("门诊缴费查询状态不合法", {
+				code: "outpatient-payment-query-invalid",
+			}),
+		);
+	}
 	// 门诊费用和预约、报告一样属于患者范围查询；即使调用方来自已选患者页面，
 	// 也必须在服务层再次拒绝空标识，不能把“当前页面没有患者”转换成一次无效 API 请求。
 	return requestOutpatientPaymentRecords({

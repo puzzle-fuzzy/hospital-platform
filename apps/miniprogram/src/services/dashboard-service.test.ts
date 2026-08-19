@@ -68,6 +68,14 @@ test("门诊费用查询先拒绝空患者标识，不把无效查询交给 API"
 	);
 });
 
+test("门诊费用查询在网络请求前拒绝未知状态", async () => {
+	// 联合类型只在编译期存在；运行时的旧页面或异常事件仍可能传入未知值。
+	// 这里必须先返回稳定错误码，不能让未知状态进入 API 或被 Provider 解释成 paid。
+	await expect(
+		loadOutpatientPaymentRecords("patient-internal-001", "unexpected" as never),
+	).rejects.toMatchObject({ code: "outpatient-payment-query-invalid" });
+});
+
 test("预约排班查询在网络请求前拒绝损坏的科室标识", async () => {
 	// 科室 ID 是排班请求的归属边界；异常值必须在 requestWithSession 之前
 	// 收敛为稳定错误码，不能先被 URL 编码后交给 Provider 再等待失败。
