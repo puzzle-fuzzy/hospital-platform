@@ -17,7 +17,8 @@
 - `pnpm --filter @hospital/miniprogram test`：167 项通过，0 项失败，1326 个断言。
 - `pnpm --filter @hospital/miniprogram build`：通过，14 个页面脚本完整生成。
 - `pnpm --filter @hospital/miniprogram runtime:verify`：通过。
-- `pnpm docs:audit`：264 个文档，无断链。
+- `pnpm docs:audit`：266 个文档，无断链；随后新增的运行包/公网观察记录见
+  [`current-runtime-and-build-observation-2026-08-20-1839.md`](current-runtime-and-build-observation-2026-08-20-1839.md)。
 - `dist/` 中 `*.test.js` 和 `*.spec.js` 数量为 0。
 - 全仓 `pnpm check`：通过。
 
