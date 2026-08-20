@@ -206,6 +206,7 @@ export type ReportResultViolation =
 	| "report-not-object"
 	| "summary-not-object"
 	| "kind-invalid"
+	| "report-kind-mismatch"
 	| "title-invalid"
 	| "reported-at-invalid"
 	| "status-invalid"

@@ -50,6 +50,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - LIS 详情使用独立的 `ZHONGYANG_REPORT_DETAIL_READY` gate，并额外依赖 `0009_report_references`、owner 复合外键和 TTL 查询；configured 不代表真实 provider 资源授权或真机可用。
 - 报告引用的创建、过期和 owner + patient 查询统一使用服务端应用时钟；不能让不同机器的本地时区或时钟漂移改变短期引用的有效性，测试必须注入固定时间覆盖 TTL 边界。
 - 报告目录返回后，短期详情引用按最多 4 路并发写入并保持报告顺序；该并发度是平台数据库资源策略，不是 Provider 分页或报告数量合同，单条引用失败仍只隐藏详情入口并保留该报告摘要。
+- 报告查询指定 `kind` 时，service 会确认所有返回摘要都属于该来源；来源错配整批返回 `provider-response-invalid`，不把其它来源静默混入当前报告列表。
 
 预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
 
@@ -57,6 +58,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - `/msun-middle-business-amc-server/v1/schedulings` 映射为排班、时间和号源数量读模型，服务端固定 `requestChannel=4`；真实响应中的 `remainingNumber` 可能为 `null`，当前有效号源数只使用 provider 的 `usableSourceNum`；若该字段缺失，adapter 必须拒绝整条响应，不能用旧端其他接口的 `usableNum`/`remainingNumber` 兜底或据此授权未来写入；
 - 新 API 不返回挂号费、医生电话/照片、provider 原始字段，也不允许小程序透传任意 query；预约写入、锁号、取消和支付仍等待完整 contract。
 - 已验证排班目录在写入短期观察快照时最多 4 路并发，并保持目录结果顺序；该限制只保护 MySQL 资源，任一写入异常会停止领取新快照、等待已在途写入收尾后记录 `unavailable`，不改变只读目录结果，也不把部分快照当作未来写入授权。
+- 排班 service 会再次确认每条结果都在请求的日期窗口内，并匹配请求中的科室/医生筛选；窗口外或筛选错配时整批返回 `provider-response-invalid`，不会过滤坏行后伪装成完整号源目录。
 - 预约目录使用独立的 `ZHONGYANG_APPOINTMENT_DIRECTORY_READY` gate；患者目录和预约目录共享连接配置，但必须分别完成合同与真实验收。
 
 患者目录的 `cardNumberMasked` 仅用于页面核对：服务端最多返回前五位和后四位，中间保持掩码；身份证号、手机号和完整卡号不进入新 contract。

@@ -234,6 +234,25 @@ function validateQuery(input: ReportDirectoryQuery): void {
 }
 
 /**
+ * 指定报告来源时，响应中的每一条摘要都必须属于该来源。
+ *
+ * Provider adapter 会按来源选择接口，但 gateway 仍是可替换的运行时边界；
+ * 回放数据或缓存错位不能把影像/心电报告混进检验查询。这里整批拒绝而不是
+ * 过滤其它来源，避免返回一个看似成功但缺少真实数据的目录。
+ */
+function validateReportKindFilter(
+	reports: readonly ReportDirectoryEntry[],
+	query: ReportDirectoryQuery,
+): void {
+	if (
+		query.kind !== undefined &&
+		reports.some((report) => report.summary.kind !== query.kind)
+	) {
+		throw new ReportResultValidationError("report-kind-mismatch");
+	}
+}
+
+/**
  * 报告目录应用服务。
  *
  * 客户端只提交平台 patientId；这里先按 token 所属 owner 解析 provider 引用，
@@ -315,6 +334,7 @@ export class ReportService {
 				normalizedReports = normalizeReportDirectoryResults(
 					(result as { reports?: unknown } | undefined)?.reports,
 				);
+				validateReportKindFilter(normalizedReports, normalizedQuery);
 			} catch (error) {
 				if (error instanceof ReportResultValidationError) {
 					resultViolation = error.violation;

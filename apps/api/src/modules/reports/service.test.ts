@@ -1291,3 +1291,74 @@ test("报告 service 拒绝异常目录和详情读模型并记录有限原因",
 	expect(output).toContain('"resultViolation":"detail-field-invalid"');
 	expect(output).not.toContain("provider-raw-secret");
 });
+
+test("报告 service 绑定指定来源筛选并整批拒绝错配结果", async () => {
+	const lines: string[] = [];
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "imaging",
+							title: "胸部影像",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available",
+							hasAttachment: true,
+						},
+					},
+				] as ReportDirectoryEntry[],
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "reports-directory",
+					requestId: "report-kind-mismatch",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "report-kind-binding-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				kind: "laboratory",
+			},
+			{
+				traceId: "trace-report-kind-mismatch",
+				idempotencyKey: "key-report-kind-mismatch",
+			},
+		),
+	).rejects.toMatchObject({
+		name: "ReportResultValidationError",
+		violation: "report-kind-mismatch",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "report.directory.failed",
+			traceId: "trace-report-kind-mismatch",
+			resultViolation: "report-kind-mismatch",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({ event: "report.directory.synced" }),
+	);
+});

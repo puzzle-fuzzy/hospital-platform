@@ -83,6 +83,12 @@
   全项目 `pnpm test` 和 `pnpm typecheck` 均通过。本轮未调用 Provider、未写入真实数据库、未修改旧 Python 或并行会话文件。
   详见 [`provider-contract-v1.md`](provider-contract-v1.md)。
 
+- 2026-08-20（只读查询结果与筛选条件绑定）：审计发现预约排班 service 只验证日期格式，未验证返回排班是否位于请求窗口、
+  科室和医生筛选内；报告 service 指定 `kind` 时也未验证返回摘要来源。现改为服务层整批 fail-closed：窗口外/科室错配/医生错配
+  和报告来源错配统一记录有限 `resultViolation`，不静默过滤、不写入成功日志；预约 service 21/21、报告 service 18/18、API 全套
+  176/176 通过，完整 `pnpm test` 和 `pnpm typecheck` 均为 9/9。该修正不调用 Provider、
+  不写入数据库/Redis、不修改旧 Python 或并行众阳自动化文件，预约写入、支付、医保和 HIS 继续关闭。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

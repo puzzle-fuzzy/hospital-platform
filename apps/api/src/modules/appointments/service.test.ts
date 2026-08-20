@@ -5,6 +5,7 @@ import type {
 	AppointmentDirectoryGateway,
 	AppointmentProviderSchedule,
 	AppointmentRecord,
+	AppointmentScheduleQuery,
 	AppointmentScheduleSnapshotRepository,
 	PatientRepository,
 } from "@hospital/domain";
@@ -1610,6 +1611,115 @@ test("预约目录 service 拒绝异常或重复的平台 scheduleId", async () 
 			event: "appointment.directory.schedules.failed",
 			traceId: "trace-platform-id-duplicate",
 			resultViolation: "schedule-id-duplicate",
+		}),
+	);
+});
+
+test("预约排班 service 绑定日期窗口和科室医生筛选", async () => {
+	const lines: string[] = [];
+	let currentSchedule: AppointmentProviderSchedule = {
+		providerScheduleId: "provider-schedule-filter-binding",
+		departmentId: "dept-expected",
+		departmentName: "心内科",
+		doctorId: "doctor-expected",
+		doctorName: "李医生",
+		workDate: "2026-08-20",
+		shiftName: "上午",
+		totalSlots: 10,
+		availableSlots: 5,
+		timeGroup: "range",
+	};
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [currentSchedule],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "schedule-filter-binding",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "appointment-filter-binding-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+		createScheduleId: () => "platform-filter-binding",
+	});
+
+	const expectViolation = async (
+		query: AppointmentScheduleQuery,
+		traceId: string,
+		violation: string,
+	) => {
+		await expect(
+			service.listSchedules(query, {
+				traceId,
+				idempotencyKey: `key-${traceId}`,
+			}),
+		).rejects.toMatchObject({
+			name: "AppointmentDirectoryResultValidationError",
+			violation,
+		});
+	};
+
+	currentSchedule = { ...currentSchedule, workDate: "2026-08-22" };
+	await expectViolation(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		"trace-schedule-window-mismatch",
+		"schedule-work-date-outside-query",
+	);
+
+	currentSchedule = { ...currentSchedule, workDate: "2026-08-20" };
+	await expectViolation(
+		{
+			startDate: "2026-08-20",
+			endDate: "2026-08-21",
+			departmentId: "dept-requested",
+		},
+		"trace-schedule-department-mismatch",
+		"schedule-department-mismatch",
+	);
+
+	currentSchedule = { ...currentSchedule, departmentId: "dept-expected" };
+	await expectViolation(
+		{
+			startDate: "2026-08-20",
+			endDate: "2026-08-21",
+			doctorId: "doctor-requested",
+		},
+		"trace-schedule-doctor-mismatch",
+		"schedule-doctor-mismatch",
+	);
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	for (const [traceId, violation] of [
+		["trace-schedule-window-mismatch", "schedule-work-date-outside-query"],
+		["trace-schedule-department-mismatch", "schedule-department-mismatch"],
+		["trace-schedule-doctor-mismatch", "schedule-doctor-mismatch"],
+	] as const) {
+		expect(events).toContainEqual(
+			expect.objectContaining({
+				event: "appointment.directory.schedules.failed",
+				traceId,
+				resultViolation: violation,
+			}),
+		);
+	}
+	expect(events).not.toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.schedules.synced",
 		}),
 	);
 });

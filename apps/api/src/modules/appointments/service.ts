@@ -201,6 +201,53 @@ function validateScheduleQuery(input: AppointmentScheduleQuery): void {
 	}
 }
 
+/**
+ * Provider 返回的排班必须与本次查询意图绑定。
+ *
+ * 不能只相信 Provider 已经接收了 start/end/department/doctor 参数：上游
+ * 可能忽略筛选、缓存错位或把上一轮结果回放到当前请求。这里整批拒绝窗口外
+ * 或筛选条件不匹配的排班，而不是过滤后继续返回；过滤会把“不完整的排班
+ * 目录”伪装成完整成功，患者会误以为当前科室/医生没有其它号源。
+ */
+function validateAppointmentScheduleResult(
+	schedules: readonly AppointmentProviderSchedule[],
+	query: AppointmentScheduleQuery,
+): void {
+	const start = parseIsoCalendarDate(query.startDate);
+	const end = parseIsoCalendarDate(query.endDate);
+	if (start === undefined || end === undefined || end < start) {
+		// validateScheduleQuery 已经负责入口校验；这里保留防御性分支，避免
+		// 未来其它调用路径绕过入口后把异常窗口当成有效 Provider 事实。
+		throw new AppointmentScheduleQueryError("Schedule date range is invalid");
+	}
+	if (
+		schedules.some((schedule) => {
+			const workDate = parseIsoCalendarDate(schedule.workDate);
+			return workDate === undefined || workDate < start || workDate > end;
+		})
+	) {
+		throw new AppointmentDirectoryResultValidationError(
+			"schedule-work-date-outside-query",
+		);
+	}
+	if (
+		query.departmentId !== undefined &&
+		schedules.some((schedule) => schedule.departmentId !== query.departmentId)
+	) {
+		throw new AppointmentDirectoryResultValidationError(
+			"schedule-department-mismatch",
+		);
+	}
+	if (
+		query.doctorId !== undefined &&
+		schedules.some((schedule) => schedule.doctorId !== query.doctorId)
+	) {
+		throw new AppointmentDirectoryResultValidationError(
+			"schedule-doctor-mismatch",
+		);
+	}
+}
+
 function validateRecordQuery(input: AppointmentRecordQuery): void {
 	if (!hasDateRangeShape(input)) {
 		throw new AppointmentRecordQueryError(
@@ -382,6 +429,7 @@ export class AppointmentService {
 			const normalizedSchedules = normalizeAppointmentScheduleResults(
 				(result as { schedules?: unknown } | undefined)?.schedules,
 			);
+			validateAppointmentScheduleResult(normalizedSchedules, input);
 			const scheduleIds = new Set<string>();
 			const observedSchedules = normalizedSchedules.map(
 				(providerSchedule: AppointmentProviderSchedule) => {
