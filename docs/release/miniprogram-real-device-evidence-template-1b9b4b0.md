@@ -53,12 +53,15 @@
 或反向代理日志粘贴到本文件。示例命令中的路径和时间必须替换成实际验收窗口：
 
 ```bash
-sudo journalctl -u hospital-api-v2 --since "YYYY-MM-DD HH:MM:SS" --until "YYYY-MM-DD HH:MM:SS" \
-  | /home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js --json \
+# 发布 bundle 不依赖可执行 bit；显式使用服务器固定 Bun，避免直接执行 .js 时出现 Permission denied。
+sudo journalctl -u hospital-platform-api-v2.service --since "YYYY-MM-DD HH:MM:SS" --until "YYYY-MM-DD HH:MM:SS" \
+  | /home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js" --json \
   > /tmp/p0-<window>.json
 
 cat /tmp/p0-<window>.json \
-  | /home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js \
+  | /home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js" \
   --domain appointmentRecords
 ```
 
