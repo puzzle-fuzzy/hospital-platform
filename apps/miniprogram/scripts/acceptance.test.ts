@@ -1976,7 +1976,7 @@ test("native homepage clears displayed patient context after directory failures"
 	const home = await source("pages/index/index.ts");
 	const pageStart = home.indexOf("Page<IndexPageData");
 	const loadStart = home.indexOf(
-		"loadPatients(): Promise<Array<Patient>>",
+		"loadPatients(): Promise<PatientDirectoryLoadResult>",
 		pageStart,
 	);
 	const loadEnd = home.indexOf("\n\t},", loadStart);
@@ -1999,9 +1999,10 @@ test("native homepage clears displayed patient context after directory failures"
 		syncBody.indexOf('syncPatientsFromHospital("patient-sync")'),
 	);
 	// 旧目录请求失去页面/请求资格后必须安静结束，不能把错误冒泡到
-	// onShow/onRefresh 的外层回调，再次清空新请求或已卸载页面。
+	// onShow/onRefresh 的外层回调，再次清空新请求或已卸载页面；同时必须
+	// 用显式状态阻止登录恢复链继续启动患者同步，不能返回 [] 冒充成功。
 	expect(loadBody).toContain("if (!patientDataGuard.isCurrent(requestToken))");
-	expect(loadBody).toContain("return [];");
+	expect(loadBody).toContain('return "superseded" as const;');
 	expect(home).toContain("getPageLifecycle(this)");
 	expect(home).toContain("pageLifecycle.isActive()");
 	expect(home).toContain("不向调用方返回患者快照");

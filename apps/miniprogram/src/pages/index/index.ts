@@ -12,6 +12,12 @@ import {
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
+	type PatientBootstrapResult,
+	type PatientDirectoryLoadResult,
+	shouldContinueAfterLogin,
+	shouldContinueAfterPatientLoad,
+} from "../../services/patient-bootstrap";
+import {
 	navigateToAuthenticatedPage,
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
@@ -24,10 +30,6 @@ import {
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
 import { getSessionGeneration } from "../../services/session-generation";
-import {
-	shouldContinueAfterLogin,
-	type PatientBootstrapResult,
-} from "../../services/patient-bootstrap";
 import {
 	hasPlatformSession,
 	restorePlatformSession,
@@ -189,7 +191,7 @@ type IndexPageMethods = {
 	executeQuickAction(action?: string): void;
 	onServiceTabChange(event: IndexEvent): void;
 	onServiceItemTap(event: ActionEvent): void;
-	loadPatients(): Promise<Array<Patient>>;
+	loadPatients(): Promise<PatientDirectoryLoadResult>;
 	onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">>;
 	onLoadAppointments(): void;
 	onLoadOutpatientPayment(): void;
@@ -270,8 +272,14 @@ Page<IndexPageData, IndexPageMethods>({
 				this.setData({ sessionStatus: SESSION_LABELS.restored });
 				return this.loadPatients();
 			})
-			.then(() => {
-				if (!sessionGuard.isCurrent(sessionToken)) return;
+			.then((patientLoadResult) => {
+				if (
+					patientLoadResult === undefined ||
+					!sessionGuard.isCurrent(sessionToken) ||
+					!shouldContinueAfterPatientLoad(patientLoadResult)
+				) {
+					return;
+				}
 				// 恢复旧会话后也要重建一次临床患者映射；仅读取旧目录数据会让预约、报告
 				// 和门诊费用继续使用过期的上游映射，导致“患者信息不存在”。
 				return this.onSyncPatients();
@@ -395,7 +403,12 @@ Page<IndexPageData, IndexPageMethods>({
 				// 不额外索取与医疗业务无关的头像和昵称权限。
 				wx.showToast({ title: "微信登录成功", icon: "success" });
 				if (options.skipPatientBootstrap) return "skipped" as const;
-				return this.loadPatients().then(() => this.onSyncPatients());
+				return this.loadPatients().then((patientLoadResult) => {
+					if (!shouldContinueAfterPatientLoad(patientLoadResult)) {
+						return "superseded" as const;
+					}
+					return this.onSyncPatients();
+				});
 			})
 			.then((bootstrapResult: PatientBootstrapResult | undefined) => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
@@ -561,23 +574,28 @@ Page<IndexPageData, IndexPageMethods>({
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
-	loadPatients(): Promise<Array<Patient>> {
+	loadPatients(): Promise<PatientDirectoryLoadResult> {
 		const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 		const requestToken = patientDataGuard.begin();
 		return loadPatients()
 			.then((patients) => {
-				if (patientDataGuard.isCurrent(requestToken)) {
-					this.setPatientsFromPayload(patients);
+				if (!patientDataGuard.isCurrent(requestToken)) {
+					// 成功响应也可能在回调执行前被新一轮读取淘汰；不能因为
+					// Provider 返回了 200，就把没有资格写入页面的旧快照当成
+					// 当前目录读取成功，更不能让登录链继续启动患者同步。
+					return "superseded" as const;
 				}
-				return patients;
+				this.setPatientsFromPayload(patients);
+				return "loaded" as const;
 			})
 			.catch((error) => {
 				if (!patientDataGuard.isCurrent(requestToken)) {
 					// 新一轮目录读取或页面卸载已经取消了本次请求；旧错误不能再
 					// 冒泡给 onShow/onRefresh，否则外层回调可能清空新请求的结果，
-					// 或在页面销毁后继续 setData。失去回写资格的请求按安全的
-					// 空完成收敛，调用方只处理仍属于当前页面的失败。
-					return [];
+					// 或在页面销毁后继续 setData。这里必须返回显式的
+					// `superseded`，不能返回 []：上层登录恢复链需要据此阻止
+					// 后续患者同步，避免把取消误当成成功空目录。
+					return "superseded" as const;
 				}
 				// 目录读取失败时，当前首页的患者卡片不再具有最新 owner-scoped
 				// 证据；清理展示状态但保留本地 opaque 选择，便于下一次恢复。

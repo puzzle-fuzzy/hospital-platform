@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { shouldContinueAfterLogin } from "./patient-bootstrap";
+import {
+	shouldContinueAfterLogin,
+	shouldContinueAfterPatientLoad,
+} from "./patient-bootstrap";
 
 test("患者范围页面只有同步成功且确认出患者后才能继续", () => {
 	expect(shouldContinueAfterLogin("succeeded", true, true)).toBe(true);
@@ -11,4 +14,9 @@ test("患者范围页面只有同步成功且确认出患者后才能继续", ()
 test("会自行读取患者目录的页面可以跳过首页同步", () => {
 	expect(shouldContinueAfterLogin("skipped", false, false)).toBe(true);
 	expect(shouldContinueAfterLogin("skipped", true, true)).toBe(false);
+});
+
+test("被淘汰的患者目录读取不能启动同步", () => {
+	expect(shouldContinueAfterPatientLoad("loaded")).toBe(true);
+	expect(shouldContinueAfterPatientLoad("superseded")).toBe(false);
 });
