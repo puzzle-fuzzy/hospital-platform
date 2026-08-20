@@ -10,6 +10,12 @@
 > `6e6604f`，完整运行包来源为 `6e6604f8089e45ceeaaf4bcbbd57065174a59a31`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
+- 2026-08-21 03:23 CST（当前候选二维码重新建立）：只读检查发现开发者工具先前显示的二维码已于 `01:17` 失效，
+  线上最近 30 分钟仅有 readiness 健康检查，没有新的微信/患者业务事件。随后在正确的 `miniprogram` 项目中对当前
+  `6e6604f` 运行包重新普通编译，确认 `analyzing codes success`、14 个页面和无测试脚本，再重新生成 iOS/局域网二维码，
+  约于 `03:48` CST 失效。该记录只恢复扫码前置，不增加微信登录、患者同步、预约、费用或真机三层验收证据；旧 Python 未修改、未重启。
+  详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md)。
+
 - 2026-08-21 02:41–02:46 CST（`6038560` 服务端生产切换）：患者目录同步新增的 domain `provider-reference-duplicate` 二次门禁已完成本地全仓门禁，
   8 个运行产物与本地产物 SHA-256 一致，真实生产 env preflight、`127.0.0.1:18082` 隔离 runtime smoke 和公网 `/api/v2` runtime smoke 均通过。
   新 API `current` 已从 `0e360d3` 原子切换到 `6038560`，只重启 `hospital-platform-api-v2.service`；新 `18081`、旧 Python `8001` 仍同时监听，Worker 保持 inactive。
