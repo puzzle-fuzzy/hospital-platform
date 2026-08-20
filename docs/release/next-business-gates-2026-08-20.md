@@ -49,6 +49,11 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 本次没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis；由于没有新的微信扫码请求，当前候选的真机登录、患者切换、预约历史和门诊费用
 三层证据仍未变化，下一步仍需使用 `6ce1272` 新二维码开始人工操作。
 
+2026-08-21 06:31 CST 通过 SSH 和公网再次只读复核：新 API `5a31427` 为 active，明确以 production mode 启动；
+`10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 继续共存，Worker inactive，内网 readiness 的 database/Redis/schema 均为 `ok`，
+公网 live/ready/ping 均为 `200`。本次没有业务请求或 Provider 调用，详细证据见
+[`current-5a31427-coexistence-readonly-2026-08-21-0631.md`](current-5a31427-coexistence-readonly-2026-08-21-0631.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `6ce1272`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
