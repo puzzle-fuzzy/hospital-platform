@@ -96,7 +96,9 @@ test("开发者工具配置改动不冒充业务源码版本", async () => {
 });
 
 test("运行包发布先完成 staging，再替换 live，旧文件不会在编译期间被清空", async () => {
-	const workspace = await mkdtemp(join(tmpdir(), "hospital-mini-runtime-publish-"));
+	const workspace = await mkdtemp(
+		join(tmpdir(), "hospital-mini-runtime-publish-"),
+	);
 	const liveRuntime = join(workspace, "dist");
 	const stagingRuntime = join(workspace, "staging");
 	try {
@@ -131,7 +133,7 @@ test("运行包发布先完成 staging，再替换 live，旧文件不会在编�
 		expect(
 			(await readdir(workspace)).filter((entry) =>
 				entry.startsWith(".hospital-runtime-backup-"),
-		).length,
+			).length,
 		).toBe(0);
 	} finally {
 		await rm(workspace, { recursive: true, force: true });
@@ -139,7 +141,9 @@ test("运行包发布先完成 staging，再替换 live，旧文件不会在编�
 });
 
 test("运行包发布失败时保留旧 live 目录", async () => {
-	const workspace = await mkdtemp(join(tmpdir(), "hospital-mini-runtime-rollback-"));
+	const workspace = await mkdtemp(
+		join(tmpdir(), "hospital-mini-runtime-rollback-"),
+	);
 	const liveRuntime = join(workspace, "dist");
 	const missingStagingRuntime = join(workspace, "missing-staging");
 	try {
