@@ -301,6 +301,11 @@ const stagingRuntime = await mkdtemp(
 	join(dirname(root), ".hospital-miniprogram-staging-"),
 );
 try {
+	/**
+	 * tsconfig.build.json 会继续检查同一份 src 类型树，但明确排除 *.test.ts。
+	 * 测试文件属于开发验证输入，不是微信运行时模块；若把它们发进 dist，
+	 * 不仅会增大上传包，还会让测试提交伪装成页面运行包变化。
+	 */
 	const compile = Bun.spawnSync(
 		["pnpm", "exec", "tsc", "-p", buildConfigPath, "--outDir", stagingRuntime],
 		{

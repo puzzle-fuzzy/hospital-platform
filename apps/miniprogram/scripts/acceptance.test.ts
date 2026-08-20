@@ -1017,6 +1017,9 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 			useCompilerPlugins?: unknown;
 		};
 	};
+	const buildConfig = JSON.parse(
+		await source("../tsconfig.build.json"),
+	) as { exclude?: unknown };
 	const build = await Bun.file(
 		join(import.meta.dir, "..", "scripts", "build.ts"),
 	).text();
@@ -1028,6 +1031,8 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	// 业务语义；解析 JSON 后校验字段，避免用户合法的格式化差异让门禁误报。
 	expect(config.miniprogramRoot).toBe("dist/");
 	expect(config.setting?.useCompilerPlugins).toEqual(["typescript"]);
+	// 测试文件必须留在源码验证链路中，但不能被 tsc 发到微信运行包。
+	expect(buildConfig.exclude).toEqual(["src/**/*.test.ts"]);
 	expect(build).toContain("tsconfig.build.json");
 	expect(build).toContain("appPagePaths");
 	expect(build).toContain("app.json page scripts are present");

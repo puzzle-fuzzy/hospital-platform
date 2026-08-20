@@ -95,6 +95,33 @@ test("开发者工具配置改动不冒充业务源码版本", async () => {
 	}
 });
 
+test("测试文件改动不改变微信运行包来源", async () => {
+	const repositoryRoot = await createCommittedRuntimeFixture();
+	try {
+		const committedRevision = resolveMiniProgramSourceRevision(
+			repositoryRoot,
+			undefined,
+			"TEST_SOURCE_REVISION",
+		);
+		await writeFile(
+			join(repositoryRoot, "apps/miniprogram/src/page.test.ts"),
+			"export const testOnly = true;\n",
+			"utf8",
+		);
+		runGit(repositoryRoot, ["add", "."]);
+		runGit(repositoryRoot, ["commit", "-m", "test-only"]);
+		const revisionAfterTestOnlyCommit = resolveMiniProgramSourceRevision(
+			repositoryRoot,
+			undefined,
+			"TEST_SOURCE_REVISION",
+		);
+		// 测试提交不进入 dist，因此不应迫使同一份业务运行包更换来源。
+		expect(revisionAfterTestOnlyCommit).toBe(committedRevision);
+	} finally {
+		await rm(repositoryRoot, { recursive: true, force: true });
+	}
+});
+
 test("运行包发布先完成 staging，再替换 live，旧文件不会在编译期间被清空", async () => {
 	const workspace = await mkdtemp(
 		join(tmpdir(), "hospital-mini-runtime-publish-"),

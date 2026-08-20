@@ -4,7 +4,7 @@
  * 文档和历史验收记录不属于运行包输入；如果只修改文档，已经验证过的
  * `dist/` 不应被错误判定为另一份客户端代码。验收测试和运行包校验脚本也
  * 不会改变小程序实际产物，不能把整个 scripts 目录打包进指纹；只有构建
- * 脚本及其来源解析辅助、构建缓存策略、共享 contract 和锁文件变化才必须
+ * 实际运行源码、构建脚本及其来源解析辅助、构建缓存策略、共享 contract 和锁文件变化才必须
  * 推进来源指纹，避免旧运行包继续被使用。开发者工具维护的
  * `project.config.json` 只在构建时校验必要字段，故意不参与业务源码指纹，
  * 避免本地工具设置变化伪造新的业务版本。
@@ -21,6 +21,11 @@ const RUNTIME_INPUT_PATHS = [
 	"packages/contracts/src",
 	"package.json",
 	"pnpm-lock.yaml",
+] as const;
+
+/** 测试源码仍由 typecheck 和 Bun test 校验，但不属于微信运行包输入。 */
+const NON_RUNTIME_INPUT_PATHS = [
+	":(exclude,glob)apps/miniprogram/src/**/*.test.ts",
 ] as const;
 
 function validateRevision(revision: string, variableName: string): string {
@@ -49,6 +54,7 @@ function assertRuntimeInputsClean(repositoryRoot: string): void {
 			"--untracked-files=all",
 			"--",
 			...RUNTIME_INPUT_PATHS,
+			...NON_RUNTIME_INPUT_PATHS,
 		],
 		{
 			cwd: repositoryRoot,
@@ -87,7 +93,15 @@ export function resolveMiniProgramSourceRevision(
 	}
 
 	const revisionProcess = Bun.spawnSync(
-		["git", "log", "-1", "--format=%H", "--", ...RUNTIME_INPUT_PATHS],
+		[
+			"git",
+			"log",
+			"-1",
+			"--format=%H",
+			"--",
+			...RUNTIME_INPUT_PATHS,
+			...NON_RUNTIME_INPUT_PATHS,
+		],
 		{
 			cwd: repositoryRoot,
 			stdout: "pipe",
