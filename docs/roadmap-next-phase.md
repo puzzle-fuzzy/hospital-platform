@@ -21,6 +21,12 @@
   部署、Provider 调用或 MySQL/Redis 业务写入；本地 `e050fa0` 尚未部署，真实微信会话、患者同步、预约、
   报告、门诊费用和真机业务仍没有新增验收证据。详见 [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md)。
 
+- 2026-08-20（旧 Python `6201` 日志路由只读观察）：确认 `/common/mbs-fsi/6201` 的原始记录存在于
+  `logs/info_2026-08-19.log`，但没有出现在 `logs/all.log`。原因是旧 Gunicorn 多 worker 各自持有并轮转
+  文件 handler，`all.log` 不是完整索引；本次未修改旧项目、未重启旧服务、未主动发送医保请求。新服务继续
+  使用 Pino + journald 的结构化日志链，不依赖旧 `all.log`。详见
+  [`release/old-python-log-routing-observation-2026-08-20.md`](release/old-python-log-routing-observation-2026-08-20.md)。
+
 - 2026-08-20（患者同步过期快照审计）：发现旧同步请求在租约过期并由新幂等键接管后，若晚于新快照返回，
   仅依赖单患者 `directory_last_seen_at` 仍可能重新激活新快照已经停用的患者。新端已在带 operation 的 MySQL
   快照事务中重新锁定 owner 行，并在任何患者写入前拒绝早于已提交成功快照的 `observedAt`；内存仓储同步维护
