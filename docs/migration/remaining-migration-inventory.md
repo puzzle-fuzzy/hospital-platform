@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `d772f0966bbb0e369c61646528e8205eaf73825f`（提交 `d772f09`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `767ed9c225bf4d329761f6abed7668015a2626b2`（提交 `767ed9c`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-20 最新网络与门禁补充：WireGuard `10.0.0.3 ↔ 10.0.0.1` 的 MySQL `SELECT 1`、Redis `PING` 已真实验证；
 > 新 API 私网切换脚本已加入仓库，但因 systemd 重启需要交互授权，当前线上配置已保持原公网目标并自动回滚。
@@ -20,13 +20,17 @@
 > 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
 > `0e360d32edcfaa49128a7c29aaa4947cf739e090`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
 > `0.0.0.0:8001`；公网 live/ready/ping 均为 200，ready 依赖为 `database=ok`、`redis=ok`、`schema=ok`，
-> 未授权患者/预约接口均返回 `401 unauthorized`。本地 `d772f09` 尚未部署；这次没有 Provider 调用、服务重启或
+> 未授权患者/预约接口均返回 `401 unauthorized`。本地 `767ed9c` 尚未部署；这次没有 Provider 调用、服务重启或
 > MySQL/Redis 业务写入。详见 [`../release/current-public-readonly-smoke-2026-08-20.md`](../release/current-public-readonly-smoke-2026-08-20.md)。
 
 > 2026-08-20 12:27 CST 再次只读复核：新 API 与旧 Python `8001` 仍同时监听，Worker 仍为 inactive，公网 readiness
 > 返回 `200` 且 database/redis/schema 均为 `ok`；最近 30 分钟没有新的登录、患者、预约、门诊费用或报告业务事件。
 > 这只是运行层和日志窗口证据，不能把“没有事件”解释为业务失败，也不能替代真机操作。完整证据见
 > [`../release/current-runtime-readonly-observation-2026-08-20-1227.md`](../release/current-runtime-readonly-observation-2026-08-20-1227.md)。
+
+> 2026-08-20 18:11 CST 真机入口复核：正确的 `miniprogram` 项目已重新打开，资源树指向 `dist/`，运行包无
+> `*.test.js`/`*.spec.js`，并重新生成 iOS 真机调试二维码；当前服务端同时间窗口只观察到健康检查，没有
+> `/auth/wechat` 或 `/patients` 请求。因此仍未形成真机登录/患者同步三层证据，旧 `mp-weixin` 项目和旧 Python 服务均未触碰。
 
 > 本文下方保留了切换前的 b7/c26/652/08/398 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `0e360d3`。
 
@@ -105,8 +109,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `d772f09`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `d772f0966bbb0e369c61646528e8205eaf73825f`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `767ed9c`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `767ed9c225bf4d329761f6abed7668015a2626b2`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
