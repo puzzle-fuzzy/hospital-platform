@@ -128,6 +128,12 @@ Page<
 			this.setData({ hasShown: true });
 			return;
 		}
+		// PUT 成功后服务端返回的 canonical 快照已经是当前页面事实；保存请求
+		// 或延迟回跳仍在进行时不能再启动 GET。否则页面栈的 onShow/下拉刷新
+		// 可能让一条旧读模型与当前 PUT 并发，旧响应会覆盖刚刚确认的 version，
+		// 下一次保存就会制造本可避免的 409。保存结束后由成功回跳或用户重现
+		// 页面触发下一次读取，失败则保留明确的重试状态。
+		if (this.data.saving || this.data.navigationPending) return;
 		// 页面重新可见时不能只看本地 token；loadProfile 会经过 API 的当前
 		// owner/session 校验，并在明确失效时清理资料后回到登录入口。
 		this.loadProfile();
@@ -274,7 +280,9 @@ Page<
 	},
 
 	onPullDownRefresh(): void {
-		if (this.data.saving) {
+		// 下拉刷新属于 GET，不能插入正在提交的 PUT，也不能覆盖保存成功后
+		// 等待回跳的 canonical 快照。两种状态都由用户后续重新进入页面恢复。
+		if (this.data.saving || this.data.navigationPending) {
 			wx.stopPullDownRefresh();
 			return;
 		}

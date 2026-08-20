@@ -914,6 +914,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).toContain("hasShown: false");
 	expect(profile).toContain("onShow()");
 	expect(profile).toContain("页面重新可见时不能只看本地 token");
+	expect(profile).toContain("this.data.saving || this.data.navigationPending");
+	expect(profile).toContain("不能再启动 GET");
 	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
 	expect(profile).toContain(
