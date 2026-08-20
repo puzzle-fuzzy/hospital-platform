@@ -20,6 +20,14 @@ const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
  * Provider 正式分页契约到达后再改为有界分页合并，不能在这里截断成“成功”。
  */
 const MAX_PATIENT_DIRECTORY_ITEMS = 128;
+/**
+ * `patInfosFind` 的单次目录查询并发上限。
+ *
+ * 该值是服务端资源策略，不是 Provider 业务字段；即使目录在 128 条以内，
+ * 也不能用 `Promise.all` 一次性打满外部连接。查询结果仍按原目录顺序返回，
+ * 失败时整批拒绝；后续若取得 Provider 限流契约，再按受控实测调整。
+ */
+const PATIENT_ARCHIVE_CONCURRENCY = 4;
 
 type ZhongyangPatientResponse = {
 	thirdPatientId?: unknown;
@@ -272,6 +280,46 @@ function ensureDirectorySize(
 		"patient-list",
 		true,
 	);
+}
+
+/**
+ * 以固定并发度映射患者档案，同时保留输入顺序。
+ *
+ * 不能简单改成串行循环：正常多患者目录会被单个慢档案拖长；也不能继续
+ * 使用无界 `Promise.all`：一次异常 Provider 响应就能制造大量并发请求。这里
+ * 只在当前 adapter 内调度，任一任务失败后不再领取新的任务，已经在途的
+ * 请求仍交给各自的 AbortSignal/超时机制收尾。
+ */
+async function mapWithConcurrency<T, R>(
+	items: readonly T[],
+	concurrency: number,
+	mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+	if (items.length === 0) return [];
+	const results = new Array<R>(items.length);
+	let nextIndex = 0;
+	let failed = false;
+	let failure: unknown;
+
+	const worker = async (): Promise<void> => {
+		while (!failed) {
+			const index = nextIndex;
+			nextIndex += 1;
+			if (index >= items.length) return;
+			try {
+				results[index] = await mapper(items[index] as T, index);
+			} catch (error) {
+				failed = true;
+				failure = error;
+				return;
+			}
+		}
+	};
+
+	const workerCount = Math.min(Math.max(1, concurrency), items.length);
+	await Promise.all(Array.from({ length: workerCount }, () => worker()));
+	if (failed) throw failure;
+	return results;
 }
 
 /**
@@ -708,8 +756,10 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 		}));
 		// 患者数量通常很少，完成整批预校验后再并行解析临床档案身份，避免把
 		// thirdPatientId 错当成预约、报告和门诊费用接口的 patId。
-		const patients = await Promise.all(
-			mappedPatients.map(async ({ item, patient }) => {
+		const patients = await mapWithConcurrency(
+			mappedPatients,
+			PATIENT_ARCHIVE_CONCURRENCY,
+			async ({ item, patient }) => {
 				const hisPatientId = await resolveHisPatientId(
 					item,
 					context,
@@ -722,7 +772,7 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 					...patient,
 					providerReferences: { "his-patient": hisPatientId },
 				};
-			}),
+			},
 		);
 		// provider 档案查询完成后再校验第二层标识的一对一关系；只有两层
 		// 标识都没有重复，才允许把完整快照交给 service 和持久化层。

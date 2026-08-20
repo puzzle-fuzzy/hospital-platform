@@ -114,6 +114,58 @@ test("众阳患者目录超过资源上限时整批拒绝且不发起档案查�
 	expect(archiveRequestCount).toBe(0);
 });
 
+test("众阳患者档案查询保持目录顺序且不超过固定并发度", async () => {
+	let activeArchiveRequests = 0;
+	let maximumArchiveRequests = 0;
+	const requestedArchiveNames: string[] = [];
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = new URL(String(input));
+			if (requestUrl.pathname.endsWith("patInfosFind")) {
+				activeArchiveRequests += 1;
+				maximumArchiveRequests = Math.max(
+					maximumArchiveRequests,
+					activeArchiveRequests,
+				);
+				const name = requestUrl.searchParams.get("patName") ?? "";
+				requestedArchiveNames.push(name);
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				activeArchiveRequests -= 1;
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: { patName: name, patId: `his-${name}` },
+					}),
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: Array.from({ length: 8 }, (_, index) => ({
+						thirdPatientId: `directory-concurrency-${index}`,
+						patientName: `患者${index}`,
+						medicalCardNo: `card-${index}`,
+					})),
+				}),
+			);
+		},
+	});
+
+	const result = await gateway.listByIdentity(
+		{ unionId: "union-directory-concurrency-001" },
+		context,
+	);
+
+	expect(maximumArchiveRequests).toBe(4);
+	expect(requestedArchiveNames).toEqual(
+		Array.from({ length: 8 }, (_, index) => `患者${index}`),
+	);
+	expect(result.patients.map((patient) => patient.displayName)).toEqual(
+		Array.from({ length: 8 }, (_, index) => `患者${index}`),
+	);
+});
+
 test("众阳患者目录拒绝 JSON 数字卡号，避免查询卡号丢失前导零", async () => {
 	let archiveRequested = false;
 	const gateway = createZhongyangPatientGateway({
