@@ -14,6 +14,13 @@
   MySQL/Redis 写入或微信 session，不能据此证明本地 `1186937` 已部署、旧 Python 共存、患者同步、预约、报告、
   门诊费用或真机业务成功。详见 [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md)。
 
+- 2026-08-20 12:05 CST（公网与 SSH 运行层只读复核）：确认线上 `current` 为完整 release
+  `398be8eca74d4f0245b88695056061ac43c7f860`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
+  `0.0.0.0:8001`；systemd 服务为 `active`，公网 live/ready/ping 均为 200，ready 依赖为
+  `database=ok`、`redis=ok`、`schema=ok`，未授权患者/预约接口均返回 `401 unauthorized`。本次没有重启、
+  部署、Provider 调用或 MySQL/Redis 业务写入；本地 `e050fa0` 尚未部署，真实微信会话、患者同步、预约、
+  报告、门诊费用和真机业务仍没有新增验收证据。详见 [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md)。
+
 - 2026-08-20（患者同步过期快照审计）：发现旧同步请求在租约过期并由新幂等键接管后，若晚于新快照返回，
   仅依赖单患者 `directory_last_seen_at` 仍可能重新激活新快照已经停用的患者。新端已在带 operation 的 MySQL
   快照事务中重新锁定 owner 行，并在任何患者写入前拒绝早于已提交成功快照的 `observedAt`；内存仓储同步维护

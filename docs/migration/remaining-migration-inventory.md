@@ -12,6 +12,12 @@
 > 2026-08-19 生产更新：服务端已切换到 `398be8e`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
 > `patInfosFind` 临床引用和患者映射安全边界见 [`../release/398be8e-production-acceptance-2026-08-19.md`](../release/398be8e-production-acceptance-2026-08-19.md)。
 
+> 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
+> `398be8eca74d4f0245b88695056061ac43c7f860`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
+> `0.0.0.0:8001`；公网 live/ready/ping 均为 200，ready 依赖为 `database=ok`、`redis=ok`、`schema=ok`，
+> 未授权患者/预约接口均返回 `401 unauthorized`。本地 `e050fa0` 尚未部署；这次没有 Provider 调用、服务重启或
+> MySQL/Redis 业务写入。详见 [`../release/current-public-readonly-smoke-2026-08-20.md`](../release/current-public-readonly-smoke-2026-08-20.md)。
+
 > 本文下方保留了切换前的 b7/c26/652/08 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `398be8e`。
 
 > 2026-08-20 迁移审计更新：重新核对旧端门诊病历页面和 `ZY.ts` 的当前 SHA-256，确认仍只有
