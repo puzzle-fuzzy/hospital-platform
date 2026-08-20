@@ -16,11 +16,12 @@
   约于 `03:48` CST 失效。该记录只恢复扫码前置，不增加微信登录、患者同步、预约、费用或真机三层验收证据；旧 Python 未修改、未重启。
   详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md)。
 
-- 2026-08-21 03:22–03:23 CST（当前候选真实微信登录与患者同步）：同一真机二维码产生 `POST /api/v1/auth/wechat` 200、
+- 2026-08-21 03:22–03:23 CST（历史 release `6038560` 的真机微信登录与患者同步）：同一真机二维码产生 `POST /api/v1/auth/wechat` 200、
   `GET /api/v1/me` 200、`GET /api/v1/patients` 200 和 `POST /api/v1/patients/sync` 200；服务端日志包含登录成功、
   owner 读取、同步操作开始、快照提交、同步成功和同步后目录读取。日志中的 `/api/v1` 是公网 `/api/v2` 经 Nginx 转发到
-  Elysia 内部路由的预期路径，不是客户端误用旧服务。当前只把微信会话与患者同步标为真机已观察，患者显式切换、预约历史、
-  门诊费用和普通资料仍待同一候选继续取证；详见 [`release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md`](release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md)。
+  Elysia 内部路由的预期路径，不是客户端误用旧服务。该历史窗口只把微信会话与患者同步标为已观察，不能升级当前
+  `5a31427` 的真机证据；患者显式切换、预约历史、门诊费用和普通资料仍需当前 release 重新取证；详见
+  [`release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md`](release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md)。
 
 - 2026-08-21 02:41–02:46 CST（`6038560` 服务端生产切换）：患者目录同步新增的 domain `provider-reference-duplicate` 二次门禁已完成本地全仓门禁，
   8 个运行产物与本地产物 SHA-256 一致，真实生产 env preflight、`127.0.0.1:18082` 隔离 runtime smoke 和公网 `/api/v2` runtime smoke 均通过。
@@ -43,6 +44,12 @@
   `03:54` 之后的 journald，`parseErrors=0`、`systemdWarningCount=0`，但微信、患者、预约、门诊费用和普通资料
   所有业务域均为 `requested=0/success=0`。这是“尚未扫码/尚未产生业务请求”的证据，不是 Provider 失败；下一步必须由
   当前 `6e6604f` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
+
+- 2026-08-21 04:09 CST（`5a31427` 线上只读复核）：当前 release 仍为 `5a31427`，新 API `18081` 与旧 Python `8001`
+  同时监听且新 API 为 `active`。从 `03:54` 切换窗口开始，当前 release 的日志聚合解析 `10` 条记录，`parseErrors=0`、
+  `systemdWarningCount=0`；P0 业务域仍全部为 `requested=0/success=0`，只有启动和健康检查，没有新的真机业务请求。
+  该结果继续保持业务门禁关闭，不把“服务正常但没有请求”解释成 Provider 成功或失败。详见
+  [`release/current-5a31427-p0-business-observation-2026-08-21-0409.md`](release/current-5a31427-p0-business-observation-2026-08-21-0409.md)。
 
 - 2026-08-21（患者目录 trace 保留边界）：domain 现在会保留 gateway 返回且通过统一校验的有界 `requestIds`，
   service 的 `patient.directory.snapshot.committed` / `patient.directory.synced` 同时记录兼容主 ID 和列表；

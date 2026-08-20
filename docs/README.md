@@ -25,13 +25,14 @@
 | [`release/miniprogram-outpatient-payment-logic-audit-2026-08-20.md`](release/miniprogram-outpatient-payment-logic-audit-2026-08-20.md) | 门诊费用只读的患者归属、状态、日期、金额精度、页面并发和支付关闭边界 |
 | [`release/miniprogram-report-readonly-logic-audit-2026-08-20.md`](release/miniprogram-report-readonly-logic-audit-2026-08-20.md) | 报告目录/详情的患者归属、多来源聚合、opaque 引用、附件存在性和关闭门禁 |
 | [`release/candidate-6e6604f-local-build-2026-08-21.md`](release/candidate-6e6604f-local-build-2026-08-21.md) | 当前小程序本地构建来源、患者选择返回期间刷新门禁、资料页读写互斥、测试脚本隔离、运行包门禁和真机前置条件；小程序尚未上传线上，服务端基线为 `5a31427` |
-| [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 当前服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界 |
+| [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界；当前线上请以 `5a31427` 为准 |
 | [`release/5a31427-production-acceptance-2026-08-21.md`](release/5a31427-production-acceptance-2026-08-21.md) | 当前日志多请求 trace 保留修正的真实生产切换、隔离候选验收、新旧服务共存和未完成真机业务边界 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md) | `5a31427` 切换后 P0 日志空窗口的安全计数、门禁缺失项和下一次真机取证顺序 |
+| [`release/current-5a31427-p0-business-observation-2026-08-21-0409.md`](release/current-5a31427-p0-business-observation-2026-08-21-0409.md) | `5a31427` 04:09 CST 线上只读复核；新旧端口正常、日志解析无误，但仍没有新的真机业务请求 |
 | [`release/current-6038560-readonly-observation-2026-08-21-0303.md`](release/current-6038560-readonly-observation-2026-08-21-0303.md) | `6038560` 切换后 SSH 只读运行状态与低敏日志观察；当前窗口只有健康检查，没有新的真实业务事件 |
 | [`release/patient-directory-trace-retention-2026-08-21.md`](release/patient-directory-trace-retention-2026-08-21.md) | 患者目录多请求 provider trace 的 domain 保留、低敏日志字段、测试证据和与众阳自动化的隔离边界 |
 | [`release/readonly-provider-trace-retention-2026-08-21.md`](release/readonly-provider-trace-retention-2026-08-21.md) | 预约目录/历史和门诊费用只读日志的多请求 trace 保留、失败链关联和测试证据 |
-| [`release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md`](release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md) | 当前 `6e6604f` 真机微信登录、患者目录读取/同步三层低敏证据，以及公网 `/api/v2` 到内部 `/api/v1` 的前缀边界 |
+| [`release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md`](release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md) | 历史 `6038560` 窗口的 `6e6604f` 真机微信登录、患者目录读取/同步三层低敏证据；不能替代当前 `5a31427` 验收 |
 | [`release/candidate-7f157d4-local-build-2026-08-20.md`](release/candidate-7f157d4-local-build-2026-08-20.md) | 历史 `7f157d4` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |
 | [`release/candidate-457d9ae-local-build-2026-08-20.md`](release/candidate-457d9ae-local-build-2026-08-20.md) | 历史 `457d9ae` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |
 | [`release/candidate-ac238c6-local-build-2026-08-20.md`](release/candidate-ac238c6-local-build-2026-08-20.md) | 历史 `ac238c6` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |
@@ -94,9 +95,9 @@
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `5a31427` |
-| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `6038560`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
-| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态记录 `6038560` 与当前小程序 sourceRevision |
-| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | `6038560` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
+| [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `5a31427`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表 |
+| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；顶部状态记录 `5a31427` 与当前小程序 sourceRevision |
+| [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | `5a31427` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊缴费的患者归属、窗口、错误分流、日志闭环和未完成证据审计 |
 | [`release/readonly-business-chain-audit-2026-08-20.md`](release/readonly-business-chain-audit-2026-08-20.md) | `patInfosFind` → 临床 `patId` → 预约/门诊费用 → 小程序的只读闭环、日志边界和本地测试证据 |
