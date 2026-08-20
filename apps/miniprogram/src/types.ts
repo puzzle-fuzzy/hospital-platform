@@ -197,6 +197,8 @@ export type IndexPageData = {
 
 /** 就诊人选择页的渲染状态；列表数据始终来自平台脱敏患者目录。 */
 export type PatientSelectionPageData = {
+	/** 只属于当前选择页实例；首次 onShow 不重复 onLoad 已发起的目录读取。 */
+	hasShown: boolean;
 	patients: Array<PatientSelectionView>;
 	selectedPatientId: string;
 	loading: boolean;

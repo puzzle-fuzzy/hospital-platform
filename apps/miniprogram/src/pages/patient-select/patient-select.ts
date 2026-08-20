@@ -31,6 +31,7 @@ import type {
 
 type PatientSelectionPageMethods = {
 	loadPatientList(): Promise<void>;
+	onShow(): void;
 	onPatientTap(event: PatientEvent): void;
 	onAddPatient(): void;
 	onSyncPatients(): Promise<void>;
@@ -126,6 +127,7 @@ function shouldClearPatientDirectory(error: unknown): boolean {
 
 Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	data: {
+		hasShown: false,
 		patients: [],
 		selectedPatientId: "",
 		loading: true,
@@ -136,9 +138,42 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	onLoad() {
+		// 首次 onShow 会紧跟 onLoad 触发；使用页面实例标记避免同一轮目录
+		// 读取被生命周期重复启动。页面重新从栈中显示时，onShow 再负责
+		// 重新确认 owner 和会话代际，不能继续信任旧页面快照。
+		this.setData({ hasShown: false });
 		// 不能在 owner-scoped 目录返回前直接把本地缓存画成“当前”患者；
 		// 当前标记只能由本次成功读取并完成临床映射确认的目录恢复。
 		this.loadPatientList();
+	},
+
+	/**
+	 * 页面栈返回时重新读取当前 owner 的患者目录。
+	 *
+	 * 选择页可能在页面栈中停留期间发生 token 轮换、账号切换或其它页面
+	 * 收到 401。仅在点击患者时检查会话代际太晚：用户在此之前已经能看到
+	 * 上一轮姓名、关系和脱敏卡号。因此每次从其它页面返回都先清空当前
+	 * 派生目录，再以最新平台会话执行“目录读取 + 临床映射同步”完整流程。
+	 */
+	onShow(): void {
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
+			return;
+		}
+
+		if (!hasPlatformSession()) {
+			// 没有待验证 token 时，旧目录不能继续作为当前账号的医疗事实；
+			// 选择页没有独立登录入口，回首页由用户明确确认微信账号。
+			this.clearDisplayedPatientDirectory();
+			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });
+			wx.reLaunch({ url: "/pages/index/index" });
+			return;
+		}
+
+		// loadPatientList 会把 loading 置为 true，使旧列表在请求期间不再
+		// 进入 WXML；这里提前清空，避免 setData 尚未完成时出现旧卡片闪现。
+		this.clearDisplayedPatientDirectory();
+		void this.loadPatientList();
 	},
 
 	/** 进入页面先读取平台目录，再主动同步一次临床映射，保证直接打开选择页也可用。 */

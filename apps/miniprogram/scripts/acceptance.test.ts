@@ -316,6 +316,10 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(home).not.toContain("wx.showActionSheet");
 	expect(home).toContain("onShow()");
 	expect(selection).toContain("loadPatients");
+	expect(selection).toContain("hasShown: false");
+	expect(selection).toContain("onShow(): void");
+	expect(selection).toContain("this.clearDisplayedPatientDirectory();");
+	expect(selection).toContain('wx.reLaunch({ url: "/pages/index/index" });');
 	expect(selection).toContain("onPatientTap");
 	expect(selection).toContain("setSelectedPatientId");
 	expect(selection).toContain("onUnload");
