@@ -27,6 +27,13 @@
   使用 Pino + journald 的结构化日志链，不依赖旧 `all.log`。详见
   [`release/old-python-log-routing-observation-2026-08-20.md`](release/old-python-log-routing-observation-2026-08-20.md)。
 
+- 2026-08-20（普通资料更新链定向回归）：服务端普通资料 service `13/13` 通过，小程序患者选择、会话
+  代际、资料保存和公共 API 响应门禁定向回归 `163/163` 通过；API 集成测试同时确认 owner 隔离、版本冲突、
+  `null` 清空和旧端 `avatar/openid` 字段拒绝。该结果只证明代码、契约和本地测试边界，不代表真实微信资料
+  首次写入、双设备 `409`、公网日志同链或真机页面已经验收；下一步仍需使用当前 `e050fa0` 候选按
+  [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md)
+  采集页面、HTTP 和低敏日志三层证据。
+
 - 2026-08-20（患者同步过期快照审计）：发现旧同步请求在租约过期并由新幂等键接管后，若晚于新快照返回，
   仅依赖单患者 `directory_last_seen_at` 仍可能重新激活新快照已经停用的患者。新端已在带 operation 的 MySQL
   快照事务中重新锁定 owner 行，并在任何患者写入前拒绝早于已提交成功快照的 `observedAt`；内存仓储同步维护
