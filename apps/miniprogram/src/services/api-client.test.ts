@@ -326,6 +326,54 @@ test("真实请求会把旧缓存前缀回退到当前地址对应的公共版�
 	}
 });
 
+test("错误响应从 X-Request-Id 传入 ApiError，保持客户端与服务端同链", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+
+	testGlobal.getApp = () => ({
+		globalData: {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "",
+			sessionStatus: "signed_out",
+		},
+	});
+	testGlobal.wx = {
+		getStorageSync: () => "",
+		request: (options: RequestOptions) => {
+			options.success({
+				statusCode: 503,
+				header: { "x-request-id": "server-error-trace-001" },
+				data: {
+					success: false,
+					error: {
+						code: "persistence-temporarily-unavailable",
+					},
+				},
+			});
+		},
+	};
+
+	try {
+		await expect(request({ url: "/health/ready" })).rejects.toMatchObject({
+			statusCode: 503,
+			code: "persistence-temporarily-unavailable",
+			requestId: "server-error-trace-001",
+		});
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
 test("认证请求在会话切换后丢弃已经返回的旧快照", async () => {
 	type TestGlobal = typeof globalThis & {
 		getApp: (() => unknown) | undefined;
