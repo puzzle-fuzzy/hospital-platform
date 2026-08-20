@@ -181,15 +181,31 @@ function amountFen(value: unknown, requestId: string): number {
 	if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
 		throw providerError("Zhongyang outpatient amount is invalid", requestId);
 	}
-	const [yuan, fraction = ""] = normalized.split(".");
-	const fen = Number(yuan) * 100 + Number(`${fraction}00`.slice(0, 2));
-	if (!Number.isSafeInteger(fen)) {
+	const [yuanText, fractionText = ""] = normalized.split(".");
+	// 元整数部分允许前导零，但先去掉前导零再限制长度，避免对异常超长
+	// 字符串直接执行 BigInt，防止上游脏数据放大解析成本。
+	const yuanWithoutLeadingZeros = yuanText.replace(/^0+(?=\d)/, "");
+	if (yuanWithoutLeadingZeros.length > 14) {
 		throw providerError(
 			"Zhongyang outpatient amount is out of range",
 			requestId,
 		);
 	}
-	return fen;
+
+	// 金额转换不能使用浮点乘法：即使最终字段是整数，浮点舍入也可能
+	// 在安全整数边界附近改变分值。BigInt 先按十进制精确拼出分，再转换
+	// 为 JSON/领域层使用的 number，并明确拒绝超过 Number 安全整数的金额。
+	const yuan = BigInt(yuanWithoutLeadingZeros);
+	const fraction = BigInt(`${fractionText}00`.slice(0, 2));
+	const fen = yuan * 100n + fraction;
+	const maxSafeFen = BigInt(Number.MAX_SAFE_INTEGER);
+	if (fen > maxSafeFen) {
+		throw providerError(
+			"Zhongyang outpatient amount is out of range",
+			requestId,
+		);
+	}
+	return Number(fen);
 }
 
 /**

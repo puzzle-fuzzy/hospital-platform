@@ -2,6 +2,7 @@ import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	loadOutpatientPaymentRecords,
 	loadCurrentPatient,
+	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
 } from "../../services/dashboard-service";
 import {
@@ -243,7 +244,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	toView(record): OutpatientPaymentRecordView {
 		return {
 			...record,
-			amountLabel: `¥${(record.amountFen / 100).toFixed(2)}`,
+			amountLabel: formatOutpatientAmountLabel(record.amountFen),
 			billDateLabel: formatOutpatientBillDateLabel(record.billDate),
 		};
 	},

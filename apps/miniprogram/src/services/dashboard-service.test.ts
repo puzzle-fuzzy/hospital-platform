@@ -3,6 +3,7 @@ import {
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
 	createPastDateRange,
+	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
 	loadAppointmentSchedules,
 	loadOutpatientPaymentRecords,
@@ -402,6 +403,14 @@ test("门诊费用列表展示旧端日期粒度但保留完整账单事实", ()
 	const billDate = "2026-08-15 10:20:30";
 	// 这里只验证渲染投影；服务端 contract 仍在上面的读模型测试中保留完整时间。
 	expect(formatOutpatientBillDateLabel(billDate)).toBe("2026-08-15");
+	expect(formatOutpatientAmountLabel(1234)).toBe("¥12.34");
+	expect(formatOutpatientAmountLabel(0)).toBe("¥0.00");
+	expect(formatOutpatientAmountLabel(Number.MAX_SAFE_INTEGER)).toBe(
+		"¥90071992547409.91",
+	);
+	expect(() => formatOutpatientAmountLabel(12.5)).toThrow(
+		"门诊金额不合法",
+	);
 });
 
 test("我的挂号列表必须保持公共状态、日期和展示字段一致", () => {

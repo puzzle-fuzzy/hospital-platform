@@ -864,6 +864,23 @@ export function formatOutpatientBillDateLabel(billDate: string): string {
 	return billDate.slice(0, 10);
 }
 
+/**
+ * 将已通过服务端和客户端 contract 校验的分值格式化为元展示文本。
+ *
+ * 门诊金额是业务事实，不能用浮点除法再调用 `toFixed` 重新舍入；这里
+ * 直接拆出元整数和余分，保证安全整数范围内的金额仍按原始分值展示。
+ */
+export function formatOutpatientAmountLabel(amountFen: number): string {
+	if (!Number.isSafeInteger(amountFen) || amountFen < 0) {
+		throw new ApiError("门诊金额不合法", {
+			code: "provider-response-invalid",
+		});
+	}
+	const yuan = Math.floor(amountFen / 100);
+	const fen = amountFen % 100;
+	return `¥${yuan}.${String(fen).padStart(2, "0")}`;
+}
+
 /** 读取当前内部患者的脱敏预约历史摘要。 */
 export type AppointmentRecordQueryWindow = "history" | "missed";
 
