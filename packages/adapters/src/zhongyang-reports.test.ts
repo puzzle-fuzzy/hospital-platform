@@ -317,6 +317,71 @@ test("众阳报告 adapter 拒绝带控制字符的 Provider 文本", async () =
 	});
 });
 
+test("众阳报告附件标记拒绝宽松 truthy 值", async () => {
+	const cases = [
+		{
+			kind: "laboratory" as const,
+			value: {
+				testList: "血常规",
+				reportTime: "2026-08-15 10:00:00",
+				pdfUrlList: [{}],
+			},
+			requestId: "invalid-lis-attachment",
+		},
+		{
+			kind: "imaging" as const,
+			value: {
+				modality: "CT",
+				reportAuditTime: "2026-08-15 10:00:00",
+				reportPdfPath: {},
+			},
+			requestId: "invalid-pacs-attachment",
+		},
+		{
+			kind: "ecg" as const,
+			value: {
+				diagnosis: "窦性心律",
+				diagnoseTime: "2026-08-15 10:00:00",
+				pdfPath: true,
+			},
+			requestId: "invalid-ecg-attachment",
+		},
+	] as const;
+
+	for (const item of cases) {
+		const gateway = createZhongyangReportGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(JSON.stringify([item.value]), {
+					status: 200,
+					headers: { "x-request-id": item.requestId },
+				}),
+		});
+
+		// 附件只读提示也必须遵守 Provider 字段类型；不能因对象、数组或布尔值
+		// 是 truthy 就向患者展示“含附件”，更不能让后续资源授权建立在该误判上。
+		await expect(
+			gateway.listReports(
+				{
+					providerPatientId: "provider-patient-attachment",
+					query: {
+						startDate: "2026-08-01",
+						endDate: "2026-08-15",
+						kind: item.kind,
+					},
+				},
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: `reports-${item.kind}`,
+			requestId: item.requestId,
+			retryable: false,
+			responseInvalid: true,
+		});
+	}
+});
+
 test("众阳报告目录拒绝业务失败或无法映射的响应", async () => {
 	const gateway = createZhongyangReportGateway({
 		baseUrl: "https://zhongyang.example.test",

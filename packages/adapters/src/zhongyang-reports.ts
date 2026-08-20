@@ -201,6 +201,70 @@ function optionalText(
 }
 
 /**
+ * 只把已经确认是非空字符串的 Provider 文件字段计为“有附件”。
+ *
+ * 这里故意不返回 URL，也不负责下载授权；`hasAttachment` 只是目录和详情
+ * 的存在性提示。旧端 PACS/ECG 类型将文件字段定义为 `string | null`，因此
+ * 对象、数组和布尔值都属于响应结构异常，不能用 JavaScript 的 truthy 规则
+ * 把它们误报成患者可用的附件。
+ */
+function hasAttachmentText(
+	value: ProviderObject,
+	field: string,
+	operation: string,
+	requestId: string,
+): boolean {
+	const marker = value[field];
+	if (marker === undefined || marker === null) return false;
+	if (typeof marker !== "string") {
+		throw providerError(
+			operation,
+			`Zhongyang report attachment field ${field} is invalid`,
+			requestId,
+		);
+	}
+	const normalized = marker.trim();
+	if (
+		Array.from(normalized).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		throw providerError(
+			operation,
+			`Zhongyang report attachment field ${field} is invalid`,
+			requestId,
+		);
+	}
+	return normalized.length > 0;
+}
+
+/**
+ * LIS 的附件字段是字符串数组。数组为空或只包含空字符串时没有可用附件；
+ * 数组元素出现对象等未知形态则整条响应失败，避免把不明结构降级成“有附件”。
+ */
+function hasAttachmentTextList(
+	value: ProviderObject,
+	field: string,
+	operation: string,
+	requestId: string,
+): boolean {
+	const marker = value[field];
+	if (marker === undefined || marker === null) return false;
+	if (
+		!Array.isArray(marker) ||
+		marker.some((item) => typeof item !== "string")
+	) {
+		throw providerError(
+			operation,
+			`Zhongyang report attachment field ${field} is invalid`,
+			requestId,
+		);
+	}
+	return marker.some((item) => item.trim().length > 0);
+}
+
+/**
  * 同一报告来源内的 provider 报告号必须唯一。
  *
  * API 会依据 providerReportId 生成 owner-scoped opaque 引用；重复报告号
@@ -362,8 +426,12 @@ function mapLaboratory(
 			title,
 			reportedAt,
 			status: reportStatus(flag(value.criticalFlag) || flag(value.flagGerm)),
-			hasAttachment:
-				Array.isArray(value.pdfUrlList) && value.pdfUrlList.length > 0,
+			hasAttachment: hasAttachmentTextList(
+				value,
+				"pdfUrlList",
+				operation,
+				requestId,
+			),
 		},
 		...(providerReportId ? { providerReportId } : {}),
 	};
@@ -393,7 +461,9 @@ function mapImaging(
 				64,
 			),
 			status: "available",
-			hasAttachment: Boolean(value.reportPdfPath || value.reportImgPath),
+			hasAttachment:
+				hasAttachmentText(value, "reportPdfPath", operation, requestId) ||
+				hasAttachmentText(value, "reportImgPath", operation, requestId),
 		},
 	};
 }
@@ -421,7 +491,7 @@ function mapEcg(
 				64,
 			),
 			status: "available",
-			hasAttachment: Boolean(value.pdfPath),
+			hasAttachment: hasAttachmentText(value, "pdfPath", operation, requestId),
 		},
 	};
 }
@@ -512,8 +582,12 @@ function mapLaboratoryDetail(
 				flag: detailFlag(detail),
 			};
 		}),
-		hasAttachment:
-			Array.isArray(value.pdfUrlList) && value.pdfUrlList.length > 0,
+		hasAttachment: hasAttachmentTextList(
+			value,
+			"pdfUrlList",
+			operation,
+			requestId,
+		),
 	};
 }
 

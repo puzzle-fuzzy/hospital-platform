@@ -16,6 +16,11 @@
   淘汰和本地分批展示均已核对；支付、医保、退费、结算和 HIS 写回继续关闭，真实 Provider/真机证据仍缺失。详见
   [`release/miniprogram-outpatient-payment-logic-audit-2026-08-20.md`](release/miniprogram-outpatient-payment-logic-audit-2026-08-20.md)。
 
+- 2026-08-20（报告目录/详情只读逻辑审计）：继续核对报告 owner/患者映射、多来源聚合、LIS 短期 opaque 引用、页面旧请求
+  淘汰和附件存在性。发现并收紧众阳 adapter 的附件字段判定：LIS 只接受字符串数组，PACS/ECG 只接受字符串或空值，
+  不再用宽松 `Boolean(...)` 把未知 truthy 结构展示成“含附件”；附件下载、影像/心电详情、体检、报告解读和两个报告 gate
+  继续关闭。详见 [`release/miniprogram-report-readonly-logic-audit-2026-08-20.md`](release/miniprogram-report-readonly-logic-audit-2026-08-20.md)。
+
 - 2026-08-20（门诊金额修正后运行包重建）：本地小程序运行输入来源为 `ac238c6`，完整 `dist/build-info.json.sourceRevision`
   为 `ac238c6156f085fdb56f5806fefac3613e5f85be`；14 个页面脚本齐全、运行包中没有 `*.test.js`/`*.spec.js`，小程序完整
   测试 169/169，且全仓 `pnpm check` 9/9 通过。该候选尚未上传线上，旧 `8f80b3e` 二维码不能继续用于真机验收；旧 Python
