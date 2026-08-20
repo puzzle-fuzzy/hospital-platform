@@ -34,6 +34,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - provider 患者号已经通过 `hp_patients.provider_name/provider_patient_id` 做内部映射，生产组合根仍默认保持 not-configured；只有 `ZHONGYANG_PATIENT_DIRECTORY_READY=true`、服务端 HTTPS 地址完整且 provider 合同确认后才会注入患者 adapter。
 - 当前患者目录响应在 adapter 内标记为 `complete: true`，因为 `patientInfoByUnionId` 当前返回的是完整数组而不是分页游标；该标记才允许 0013 快照事务回收未出现患者。若 provider 改为分页，必须先合并全部分页，不能用单页结果标记 complete。
 - 患者目录 adapter 对完整数组设置 128 条资源上限；这不是医院业务上的绑定人数上限，而是为了避免异常响应在后续为每位患者调用 `patInfosFind` 时形成无界并发。超过上限整批返回 `provider-response-invalid`，不会截断后继续快照失效回收；若 Provider 后续提供分页契约，必须先完成有界分页合并后再评估该边界。
+- 该 128 条边界同时由 domain/service 在可注入 gateway 进入快照事务前再次执行；这样回放器、测试替身或未来其它 gateway 不能绕过 adapter 继续生成平台 ID、发起档案副作用或写入部分快照。超量统一整批失败，不截断、不回收失效患者。
 - 在资源上限以内，`patInfosFind` 仍按最多 4 路并发调度并保持目录顺序；任一档案失败后不再领取新的查询任务，已在途请求按原有超时/取消机制结束。该并发度是平台资源策略，不是 Provider 限流合同，取得正式限流材料后再重新校准。
 - `ZHONGYANG_AUTHORIZATION_TOKEN` 是可选的服务端 secret，是否需要以及具体授权格式必须以众阳/HIS 合同确认；配置状态 configured 只代表字段完整，不代表真实请求成功。旧的 `ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN` 仅作为迁移兼容变量读取。
 

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
 	IdentityUserReadModelValidationError,
+	MAX_PATIENT_DIRECTORY_ITEMS,
 	type PatientDirectoryGateway,
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
@@ -302,6 +303,74 @@ test("患者目录同步在快照写入前拒绝非法网关结果并记录固�
 		}),
 	);
 	expect(lines.join("\n")).not.toContain("123456789012345678");
+});
+
+test("患者目录同步超过资源上限时在快照事务前整批拒绝", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-too-many",
+		unionId: "fixture-union-patient-too-many",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const replaceDirectorySnapshot = baseRepository.replaceDirectorySnapshot;
+	if (!replaceDirectorySnapshot) throw new Error("snapshot unavailable");
+	let replaceCalls = 0;
+	const repository: PatientRepository = {
+		...baseRepository,
+		async replaceDirectorySnapshot(input) {
+			replaceCalls += 1;
+			return replaceDirectorySnapshot.call(baseRepository, input);
+		},
+	};
+	const lines: string[] = [];
+	const patients = Array.from(
+		{ length: MAX_PATIENT_DIRECTORY_ITEMS + 1 },
+		(_, index) => ({
+			providerPatientId: `provider-patient-too-many-${index}`,
+			displayName: `患者${index}`,
+			relationship: "self" as const,
+			cardNumberMasked: "12345*7890",
+		}),
+	);
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients,
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "patient-too-many-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-too-many-trace",
+			idempotencyKey: "patient-too-many-key",
+		}),
+	).rejects.toMatchObject({
+		name: "PatientDirectoryResultValidationError",
+		violation: "patients-too-many",
+	});
+	expect(replaceCalls).toBe(0);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.failed",
+			resultViolation: "patients-too-many",
+		}),
+	);
 });
 
 test("患者目录同步在快照事务前拒绝重复的平台患者 ID", async () => {

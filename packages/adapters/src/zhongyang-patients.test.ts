@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_PATIENT_DIRECTORY_ITEMS } from "@hospital/domain";
 import { ProviderRequestError } from "./errors";
 import { createZhongyangPatientGateway } from "./zhongyang-patients";
 
@@ -91,11 +92,14 @@ test("众阳患者目录超过资源上限时整批拒绝且不发起档案查�
 			return new Response(
 				JSON.stringify({
 					success: true,
-					data: Array.from({ length: 129 }, (_, index) => ({
-						thirdPatientId: `directory-too-large-${index}`,
-						patientName: `合成患者${index}`,
-						medicalCardNo: `card-${index}`,
-					})),
+					data: Array.from(
+						{ length: MAX_PATIENT_DIRECTORY_ITEMS + 1 },
+						(_, index) => ({
+							thirdPatientId: `directory-too-large-${index}`,
+							patientName: `合成患者${index}`,
+							medicalCardNo: `card-${index}`,
+						}),
+					),
 				}),
 				{ status: 200, headers: { "x-request-id": "directory-too-large-001" } },
 			);

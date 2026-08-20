@@ -141,6 +141,7 @@ export type {
 } from "./patients";
 export {
 	IdentityUserReadModelValidationError,
+	MAX_PATIENT_DIRECTORY_ITEMS,
 	normalizeIdentityUserReadModel,
 	normalizePatientDirectoryResult,
 	normalizePatientDirectorySnapshotResult,

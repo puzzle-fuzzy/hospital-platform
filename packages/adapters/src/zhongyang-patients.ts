@@ -1,25 +1,16 @@
-import type {
-	AdapterCallContext,
-	ExternalTrace,
-	PatientDirectoryGateway,
-	PatientDirectoryProfile,
-	PatientRelationship,
+import {
+	type AdapterCallContext,
+	type ExternalTrace,
+	MAX_PATIENT_DIRECTORY_ITEMS,
+	type PatientDirectoryGateway,
+	type PatientDirectoryProfile,
+	type PatientRelationship,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 
 const PATIENT_INFO_BY_UNION_ID_PATH = "/api/public/patientInfoByUnionId";
 const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
-/**
- * 患者目录响应的资源保护上限，不代表医院业务上的“最多可绑定人数”。
- *
- * 当前 provider 返回完整数组，没有分页游标；adapter 后续还要为每位患者
- * 查询一次 `patInfosFind`。如果不限制数组大小，异常响应会让一次登录触发
- * 大量并发外部请求，既可能压垮 Provider，也会让快照事务处理不受控的患者
- * 数量。128 足以覆盖正常家庭/代办场景；超过上限时整批 fail-closed，待
- * Provider 正式分页契约到达后再改为有界分页合并，不能在这里截断成“成功”。
- */
-const MAX_PATIENT_DIRECTORY_ITEMS = 128;
 /**
  * `patInfosFind` 的单次目录查询并发上限。
  *

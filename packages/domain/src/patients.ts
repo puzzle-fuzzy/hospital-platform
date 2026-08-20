@@ -202,6 +202,15 @@ export type PatientDirectoryProfile = {
 };
 
 /**
+ * 单次患者目录完整快照的资源上限。
+ *
+ * 这是平台资源防护，不是医院业务上的绑定人数上限，也不是 Provider 分页契约。
+ * 超过上限必须整批拒绝，不能截断后触发快照失效回收；待 Provider 正式分页契约
+ * 到达后，再设计有界分页合并。
+ */
+export const MAX_PATIENT_DIRECTORY_ITEMS = 128;
+
+/**
  * 患者目录 gateway 返回值违反同步写入 contract 时的固定原因。
  *
  * gateway 是可替换的端口，TypeScript 类型不能保护真实 HTTP、回放任务或
@@ -212,6 +221,7 @@ export type PatientDirectoryResultViolation =
 	| "result-not-object"
 	| "snapshot-incomplete"
 	| "patients-not-array"
+	| "patients-too-many"
 	| "patient-not-object"
 	| "provider-patient-id-invalid"
 	| "provider-patient-id-duplicate"
@@ -281,6 +291,11 @@ export function normalizePatientDirectoryResult(value: unknown): {
 	}
 	if (!Array.isArray(result.patients)) {
 		invalidPatientDirectoryResult("patients-not-array");
+	}
+	if (result.patients.length > MAX_PATIENT_DIRECTORY_ITEMS) {
+		// 不能 slice：完整快照被截断会把未返回的真实患者标记为 inactive。
+		// 资源异常必须整批失败，并且要发生在字段映射、平台 ID 生成和快照事务之前。
+		invalidPatientDirectoryResult("patients-too-many");
 	}
 	if (
 		typeof result.trace !== "object" ||
