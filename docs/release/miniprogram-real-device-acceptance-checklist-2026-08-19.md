@@ -8,8 +8,8 @@
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
 | 服务端 | `5a31427` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
-| 小程序运行输入 | `c08378b` | 当前本地候选，尚未上传线上 |
-| 小程序运行包来源 | `c08378bebed493b6f3094d30d8ad4e27031e7037` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
+| 小程序运行输入 | `9340846` | 当前本地候选，尚未上传线上 |
+| 小程序运行包来源 | `93408462f3eeadffed172f1ea3b10c043d461b1b` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 真机只能访问公网 API，不直连 Provider 或内网地址 |
 
@@ -21,7 +21,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 ```
 
-如果 `sourceRevision` 不是完整的 `c08378bebed493b6f3094d30d8ad4e27031e7037`，立即停止，不得打开二维码。
+如果 `sourceRevision` 不是完整的 `93408462f3eeadffed172f1ea3b10c043d461b1b`，立即停止，不得打开二维码。
 开发者工具必须使用新 `miniprogram` 项目窗口；旧 `mp-weixin` 窗口不属于本次验收范围。二维码只能现场重新生成，不保存、不复制、不写入文档。
 
 ## 2. 扫码前运行层检查

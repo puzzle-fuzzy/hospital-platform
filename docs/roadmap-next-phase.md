@@ -33,10 +33,10 @@
   [`release/current-5a31427-p0-business-observation-2026-08-21-0451.md`](release/current-5a31427-p0-business-observation-2026-08-21-0451.md)。
 
 - 2026-08-21（首页患者目录并发边界）：发现并修复首页目录读取在“旧请求已被淘汰”时返回 `[]` 的语义缺陷。
-  业务修正已包含在当前 `c08378b` 运行包中；登录恢复链只有在 `loaded` 时才会继续患者同步。
+  业务修正已包含在当前 `9340846` 运行包中；登录恢复链只有在 `loaded` 时才会继续患者同步。
   小程序业务测试、运行包构建和 `runtime:verify` 已通过。未修改旧 Python 服务；真实设备和线上新包仍待重新取证。
 
-- 2026-08-21（当前候选全仓门禁复核）：基于服务端 `5a31427` 和小程序来源 `c08378b`，API 188/188、众阳及通用
+- 2026-08-21（当前候选全仓门禁复核）：基于服务端 `5a31427` 和小程序来源 `9340846`，API 188/188、众阳及通用
   adapter 105/105、domain 57/57、persistence 83/83、小程序 169/169 全部通过，所有 typecheck、架构审计、迁移清单、
   Provider intake、文档断链和 release baseline 审计均通过。该结果只证明当前代码和文档边界一致，不增加 Provider、
   公网或真机三层业务证据；健康知识、病历、患者绑定、报告资源、支付/医保/HIS 继续按各自契约门禁关闭。详细当前审计见
@@ -45,21 +45,21 @@
 - 2026-08-21 06:44 CST（真机扫码前置恢复）：正确的 `miniprogram` 项目已对当前 `6ce1272` 运行包重新执行普通编译，
   工具显示 14 个页面、约 607 KB 的 iOS/局域网二维码，`dist/` 中测试脚本数量仍为 0。该记录只解决开发者工具旧增量索引
   造成的 `single-flight.test.js` ENOENT，不增加微信登录、患者、预约或费用的真机证据；扫码后仍须按三层证据顺序验收。
-  详见 [`release/miniprogram-device-qr-session-2026-08-21-0644.md`](release/miniprogram-device-qr-session-2026-08-21-0644.md)。
+  详见 [`release/miniprogram-device-qr-session-2026-08-21-0705.md`](release/miniprogram-device-qr-session-2026-08-21-0705.md)。
 
 - 2026-08-21 06:47 CST（线上只读业务空窗口）：SSH 复核确认新 API `10.0.0.3:18081`、旧 Python `8001` 共存，Worker inactive，
   readiness 的 database/redis/schema 均为 `ok`；近 20 分钟没有微信、患者、预约或门诊费用事件。错误版本前缀探针的 `404` 不代表公网代理
   或业务失败，当前仍需真机扫码取得三层证据。详见
   [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md)。
 
-- 2026-08-21（会话恢复状态机修正）：发现 GET 重新登录后第二次 `401` 未清理同代无效 token，已在 `c08378b` 增加双重代际/token
+- 2026-08-21（会话恢复状态机修正）：发现 GET 重新登录后第二次 `401` 未清理同代无效 token，已在 `9340846` 增加双重代际/token
   清理条件；并保持 PUT/POST/支付命令不自动重放。小程序 170/170 测试、构建、14 页运行包和测试脚本隔离验证通过。真实微信和 P0
   只读三层证据仍待当前运行包重新扫码，详细规则见
   [`release/miniprogram-session-recovery-logic-audit-2026-08-21.md`](release/miniprogram-session-recovery-logic-audit-2026-08-21.md)。
 
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
-> `c08378b`，完整运行包来源为 `c08378bebed493b6f3094d30d8ad4e27031e7037`，尚未上传线上。
+> `9340846`，完整运行包来源为 `93408462f3eeadffed172f1ea3b10c043d461b1b`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
 - 2026-08-21 03:23 CST（历史 `6ce1272` 候选二维码重新建立）：只读检查发现开发者工具先前显示的二维码已于 `01:17` 失效，
@@ -1730,7 +1730,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `5a31427` 和最新小程序候选 `c08378b`（完整构建来源：`c08378bebed493b6f3094d30d8ad4e27031e7037`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `5a31427` 和最新小程序候选 `9340846`（完整构建来源：`93408462f3eeadffed172f1ea3b10c043d461b1b`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -1741,7 +1741,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 当前服务端 release `5a31427` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `c08378b` 小程序候选（完整构建来源：`c08378bebed493b6f3094d30d8ad4e27031e7037`）。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `9340846` 小程序候选（完整构建来源：`93408462f3eeadffed172f1ea3b10c043d461b1b`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 
