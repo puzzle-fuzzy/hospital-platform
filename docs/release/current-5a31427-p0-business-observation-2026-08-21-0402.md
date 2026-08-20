@@ -12,6 +12,7 @@
 | 旧 Python | `0.0.0.0:8001`，继续监听，未修改、未停止 |
 | Worker | `inactive` |
 | readiness | database/Redis/schema 均为 `ok` |
+| 当前小程序候选来源 | `1d161b701384ad8073ed907fe14f611ab3166fcd`（`1d161b7`） |
 | 日志解析错误 | `0` |
 | systemd warning | `0` |
 

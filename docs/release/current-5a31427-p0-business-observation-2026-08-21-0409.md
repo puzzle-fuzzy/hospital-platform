@@ -17,6 +17,9 @@
 本次只执行 SSH 只读命令：读取当前 release 指针、systemd 状态、监听端口和新 API journald，
 没有重启服务、写入 MySQL/Redis、调用 Provider 或改变 Nginx 转发。
 
+当前小程序候选来源为完整 SHA
+`1d161b701384ad8073ed907fe14f611ab3166fcd`（短提交 `1d161b7`）。
+
 ## 2. 日志聚合结果
 
 使用当前 release 自带的 `apps/worker/dist/p0-log-aggregate.js` 解析 journald，再使用同一 release

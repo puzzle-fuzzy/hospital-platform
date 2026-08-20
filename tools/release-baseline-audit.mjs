@@ -42,6 +42,22 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "P0 只读业务验收手册",
 	},
 	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0402.md",
+		label: "04:02 P0 业务空窗口观察",
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0409.md",
+		label: "04:09 P0 业务空窗口观察",
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0429.md",
+		label: "04:29 P0 业务空窗口观察",
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0451.md",
+		label: "04:51 P0 业务空窗口观察",
+	},
+	{
 		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
 		label: "普通资料验收手册",
 	},
@@ -138,6 +154,50 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "## 2026-08-21 当前候选只读业务复核",
 				end: "## 1. 当前门禁状态",
 				phrases: [{ text: "本次代码复核基于服务端", expected: "short" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0402.md",
+		label: "04:02 P0 业务空窗口观察",
+		sections: [
+			{
+				start: "## 1. 运行边界",
+				end: "## 2. P0 聚合结果",
+				phrases: [{ text: "当前小程序候选来源", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0409.md",
+		label: "04:09 P0 业务空窗口观察",
+		sections: [
+			{
+				start: "## 1. 观察范围与运行状态",
+				end: "## 2. 日志聚合结果",
+				phrases: [{ text: "当前小程序候选来源为完整 SHA", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0429.md",
+		label: "04:29 P0 业务空窗口观察",
+		sections: [
+			{
+				start: "## 结论",
+				end: "支付、医保、预约写入",
+				phrases: [{ text: "当前候选固定为服务端", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0451.md",
+		label: "04:51 P0 业务空窗口观察",
+		sections: [
+			{
+				start: "## 结论",
+				end: "在三层证据形成前",
+				phrases: [{ text: "当前小程序候选", expected: "short" }],
 			},
 		],
 	},
