@@ -16,6 +16,11 @@
   本次没有调用患者/预约/费用 Provider、没有写入业务数据、没有修改旧 Python；完整证据见
   [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md)。
 
+- 2026-08-21 03:03 CST（`6038560` 切换后 SSH 只读观察）：新 API `active`、Worker `inactive`，`10.0.0.3:18081` 与旧 Python
+  `8001` 继续同时监听，内网 readiness 的 database/Redis/schema 均为 `ok`。切换后日志窗口只有 1 条健康检查 `200`，没有新的
+  微信登录、患者、预约、门诊费用或普通资料事件；这只说明当前尚未形成新的真实业务链，不能解释成 Provider 失败或业务完成。
+  详细证据见 [`release/current-6038560-readonly-observation-2026-08-21-0303.md`](release/current-6038560-readonly-observation-2026-08-21-0303.md)。
+
 - 2026-08-20 23:14 CST（历史候选真机工具复核）：针对 `dist/services/single-flight.test.js` 的 ENOENT，历史 `7f157d4`
   运行包重新通过构建和 `runtime:verify`，`dist/` 中测试运行脚本为 0、14 个页面脚本齐全；微信开发者工具已关闭旧真机调试
   会话、普通编译成功并显示 `analyzing codes success`，随后重新生成 iOS/局域网二维码。该证据只证明本地运行包和工具模块图已刷新，
