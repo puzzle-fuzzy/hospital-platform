@@ -44,6 +44,11 @@
 > ready 连续 `3/3`，认证边界为 `401/unauthorized`，7 条未开放能力均为 `404/not-found`。该请求不携带会话、不调用
 > Provider、不写 MySQL/Redis，也不增加微信、患者、预约、费用或真机业务证据；旧 Python `8001` 不属于本次范围。
 
+> 2026-08-21 01:01 CST SSH 只读观察：`hospital-platform-api-v2.service=active`，新 API `10.0.0.3:18081` 和旧 Python
+> `0.0.0.0:8001` 均在监听；最近 30 分钟仅统计到 `http.request.completed=10`、`http.request.failed=26`，没有
+> `auth.*`、`patient.*`、`appointment.*`、`outpatient.payment.*` 或 `user.profile.*` 业务事件。因此当前仍没有
+> 真机微信登录、患者同步或后续业务请求证据；本次未读取原始日志、未改配置、未重启服务。
+
 > 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
 > `0e360d32edcfaa49128a7c29aaa4947cf739e090`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
 > `0.0.0.0:8001`；公网 live/ready/ping 均为 200，ready 依赖为 `database=ok`、`redis=ok`、`schema=ok`，
