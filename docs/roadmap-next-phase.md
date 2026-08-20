@@ -9,6 +9,11 @@
 > 当前服务端为 `398be8e`，小程序候选为 `474b044`，完整来源为
 > `474b0444736599c848a4cef9f47fd930884e401d`。
 
+- 2026-08-20 09:15 CST（公网只读复核）：`/health/live`、`/health/ready`、`/system/ping` 分别返回 200，
+  readiness 为 `ready`；未带凭证的 `/me`、`/patients` 均返回 401/`unauthorized`。本次没有 Provider 调用、
+  MySQL/Redis 写入或微信 session，不能据此证明本地 `1186937` 已部署、旧 Python 共存、患者同步、预约、报告、
+  门诊费用或真机业务成功。详见 [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向
