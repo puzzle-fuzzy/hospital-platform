@@ -110,3 +110,11 @@ Get-ChildItem -LiteralPath apps/miniprogram/dist -Recurse -File |
 因此当前代码和运行包没有需要补入的业务文件。若开发者工具继续请求这个不存在的绝对路径，仍应按“开发者工具旧增量模块索引”处理：关闭当前真机调试，退出并重新打开仓库中的 `apps/miniprogram/` 项目，确认 `project.config.json` 的 `miniprogramRoot` 为 `dist/`，先执行一次普通编译，再用当前 `457d9ae` 候选重新生成二维码。不要复制或手工创建 `single-flight.test.js`。
 
 同一时间窗口的公网只读复核未发现新服务异常：`/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 返回 200；未携带会话访问 `/api/v2/me`、`/api/v2/patients` 返回 401。该复核没有发送微信登录、患者同步、Provider、医保或任何业务写入请求，也没有修改或重启旧 Python 服务。
+
+## 后续候选指针（2026-08-20）
+
+本文件前面的 `457d9ae` 记录属于当时的 ENOENT 复核窗口，不再是当前真机候选。关系语义修正后，当前小程序运行输入已推进到
+`7f157d4`，完整运行包来源为 `7f157d4cca02fa857612daec0b6aa56e328e0083`；当前构建和扫码前操作以
+[`candidate-7f157d4-local-build-2026-08-20.md`](candidate-7f157d4-local-build-2026-08-20.md) 和
+[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md) 为准。
+ENOENT 处理原则不变：不要把 `single-flight.test.js` 复制进 `dist/`，应关闭旧真机调试、重开项目、普通编译后重新生成二维码。
