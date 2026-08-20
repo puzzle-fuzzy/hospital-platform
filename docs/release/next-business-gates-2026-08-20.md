@@ -78,6 +78,11 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 必须重新普通编译并生成新二维码后，才可以开始真机业务证据采集。详见
 [`candidate-9340846-local-build-2026-08-21.md`](candidate-9340846-local-build-2026-08-21.md)。
 
+2026-08-21 07:25 CST 的 SSH/公网只读复核确认新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 仍共存，
+新 API active、Worker inactive，内网 `health/live` 与 `health/ready` 依赖均为 `ok`，公网 `/api/v2` live/ready/ping 均为 `200`；
+最近 10 分钟没有新的 P0 业务事件。内网探针不带 `/api/v2`，误用公网前缀返回 `not-found` 属于路径差异，不是服务故障。
+详细记录见 [`current-5a31427-coexistence-readonly-2026-08-21-0725.md`](current-5a31427-coexistence-readonly-2026-08-21-0725.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `9340846`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，

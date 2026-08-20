@@ -29,6 +29,7 @@
 | [`release/miniprogram-patient-directory-superseded-2026-08-21.md`](release/miniprogram-patient-directory-superseded-2026-08-21.md) | 首页患者目录请求被淘汰时的显式生命周期结果、禁止误启动同步的并发修正与验证证据 |
 | [`release/candidate-9340846-local-build-2026-08-21.md`](release/candidate-9340846-local-build-2026-08-21.md) | 当前小程序本地构建来源、会话恢复修正、运行包验证命令和真机前置条件；小程序尚未上传线上，服务端基线为 `5a31427` |
 | [`release/current-5a31427-coexistence-readonly-2026-08-21-0631.md`](release/current-5a31427-coexistence-readonly-2026-08-21-0631.md) | 06:31 CST 新旧服务共存、生产模式、内网依赖和公网 live/ready/ping 只读复核；不替代真机业务证据 |
+| [`release/current-5a31427-coexistence-readonly-2026-08-21-0725.md`](release/current-5a31427-coexistence-readonly-2026-08-21-0725.md) | 07:25 CST 新旧服务共存、正确内外网探针路径和 P0 业务日志空窗口；不替代真机业务证据 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md) | 06:47 CST 二维码等待期间的新旧服务、readiness 和 P0 业务日志空窗口；不把健康检查或空窗口当作业务成功 |
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界；当前线上请以 `5a31427` 为准 |
 | [`release/5a31427-production-acceptance-2026-08-21.md`](release/5a31427-production-acceptance-2026-08-21.md) | 当前日志多请求 trace 保留修正的真实生产切换、隔离候选验收、新旧服务共存和未完成真机业务边界 |
