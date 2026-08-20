@@ -42,6 +42,11 @@
   公网或真机三层业务证据；健康知识、病历、患者绑定、报告资源、支付/医保/HIS 继续按各自契约门禁关闭。详细当前审计见
   [`release/readonly-business-chain-audit-2026-08-21.md`](release/readonly-business-chain-audit-2026-08-21.md)。
 
+- 2026-08-21 06:44 CST（真机扫码前置恢复）：正确的 `miniprogram` 项目已对当前 `6ce1272` 运行包重新执行普通编译，
+  工具显示 14 个页面、约 607 KB 的 iOS/局域网二维码，`dist/` 中测试脚本数量仍为 0。该记录只解决开发者工具旧增量索引
+  造成的 `single-flight.test.js` ENOENT，不增加微信登录、患者、预约或费用的真机证据；扫码后仍须按三层证据顺序验收。
+  详见 [`release/miniprogram-device-qr-session-2026-08-21-0644.md`](release/miniprogram-device-qr-session-2026-08-21-0644.md)。
+
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
 > `6ce1272`，完整运行包来源为 `6ce12729c3e112a6cb8333c5132c23713d1cb1ec`，尚未上传线上。

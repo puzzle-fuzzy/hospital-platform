@@ -54,6 +54,11 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 公网 live/ready/ping 均为 `200`。本次没有业务请求或 Provider 调用，详细证据见
 [`current-5a31427-coexistence-readonly-2026-08-21-0631.md`](current-5a31427-coexistence-readonly-2026-08-21-0631.md)。
 
+2026-08-21 06:44 CST 在正确的 `miniprogram` 项目中重新执行普通编译并生成 iOS/局域网二维码；当前代码包约 607 KB、
+14 个页面，工具显示二维码至 07:06 CST 失效，`dist/` 仍不含任何测试运行脚本。该操作只恢复开发者工具的增量模块索引，
+不增加真实微信或业务证据；详细记录见
+[`miniprogram-device-qr-session-2026-08-21-0644.md`](miniprogram-device-qr-session-2026-08-21-0644.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `6ce1272`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
