@@ -1,5 +1,7 @@
 # 小程序 `single-flight.test.js` ENOENT 恢复记录（2026-08-20）
 
+> 本文记录的 `6e6604f` 及更早候选均为历史窗口。当前真机入口是 [`candidate-1b9b4b0-local-build-2026-08-21.md`](candidate-1b9b4b0-local-build-2026-08-21.md)，ENOENT 修复原则不变，但二维码必须从当前候选重新生成。
+
 ## 结论
 
 2026-08-20 17:30 左右真机调试报告：

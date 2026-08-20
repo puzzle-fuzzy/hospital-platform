@@ -1,15 +1,13 @@
-# 小程序当前候选真机三层证据记录模板（`6e6604f`）
-
-> 历史模板：当前候选已切换为 `1b9b4b0`，请使用 [`miniprogram-real-device-evidence-template-1b9b4b0.md`](miniprogram-real-device-evidence-template-1b9b4b0.md)。本文件不再用于当前真机记录。
+# 小程序当前候选真机三层证据记录模板（`1b9b4b0`）
 
 > 用途：记录当前候选真实微信设备上的页面、客户端 HTTP 和服务端低敏日志三层证据。
 > 本文件是空白记录模板，不代表任何业务已验收；没有实际页面操作和同一时间窗口的请求链，
 > 不得把表格填写成“通过”。
 >
-> 当前服务端 release：`6038560`
-> 当前小程序候选：`6e6604f`  
-> 运行包来源：`6e6604f8089e45ceeaaf4bcbbd57065174a59a31`  
-> 运行根目录：`apps/miniprogram/dist/`  
+> 当前服务端 release：`5a31427`
+> 当前小程序候选：`1b9b4b0`
+> 运行包来源：`1b9b4b0d101dfcd5011845f7797c9523676cc987`
+> 运行根目录：`apps/miniprogram/dist/`
 > 旧 Python 服务：`8001`，本次验收不得修改或重启
 
 ## 1. 填写规则
@@ -29,7 +27,7 @@
 | 设备/系统 | `iOS/Android + 版本` |
 | 微信基础库 | `版本` |
 | 开发者工具真机窗口 | `新窗口/窗口标识` |
-| `dist/build-info.json.sourceRevision` | 必须等于 `6e6604f8089e45ceeaaf4bcbbd57065174a59a31` |
+| `dist/build-info.json.sourceRevision` | 必须等于 `1b9b4b0d101dfcd5011845f7797c9523676cc987` |
 | 扫码时间 | `YYYY-MM-DD HH:mm:ss` |
 | 是否使用历史二维码 | 必须为“否” |
 

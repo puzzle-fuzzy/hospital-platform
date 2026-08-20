@@ -7,12 +7,12 @@
 
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
-> `6e6604f`，完整运行包来源为 `6e6604f8089e45ceeaaf4bcbbd57065174a59a31`，尚未上传线上。
+> `1b9b4b0`，完整运行包来源为 `1b9b4b0d101dfcd5011845f7797c9523676cc987`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
 - 2026-08-21 03:23 CST（当前候选二维码重新建立）：只读检查发现开发者工具先前显示的二维码已于 `01:17` 失效，
   线上最近 30 分钟仅有 readiness 健康检查，没有新的微信/患者业务事件。随后在正确的 `miniprogram` 项目中对当前
-  `6e6604f` 运行包重新普通编译，确认 `analyzing codes success`、14 个页面和无测试脚本，再重新生成 iOS/局域网二维码，
+  `1b9b4b0` 运行包重新普通编译，确认 `analyzing codes success`、14 个页面和无测试脚本，再重新生成 iOS/局域网二维码，
   约于 `03:48` CST 失效。该记录只恢复扫码前置，不增加微信登录、患者同步、预约、费用或真机三层验收证据；旧 Python 未修改、未重启。
   详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md)。
 
@@ -43,7 +43,7 @@
 - 2026-08-21 04:02 CST（`5a31427` P0 业务日志空窗口）：使用线上 release 内置日志聚合和业务证据门禁复核
   `03:54` 之后的 journald，`parseErrors=0`、`systemdWarningCount=0`，但微信、患者、预约、门诊费用和普通资料
   所有业务域均为 `requested=0/success=0`。这是“尚未扫码/尚未产生业务请求”的证据，不是 Provider 失败；下一步必须由
-  当前 `6e6604f` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
+  当前 `1b9b4b0` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
 
 - 2026-08-21 04:09 CST（`5a31427` 线上只读复核）：当前 release 仍为 `5a31427`，新 API `18081` 与旧 Python `8001`
   同时监听且新 API 为 `active`。从 `03:54` 切换窗口开始，当前 release 的日志聚合解析 `10` 条记录，`parseErrors=0`、
@@ -73,7 +73,7 @@
   `dist/services/single-flight.test.js` 不属于运行包。真实微信会话、Provider 业务和真机三层证据仍未因本次本地门禁通过而完成。
   详见 [`release/configuration-normalization-2026-08-20.md`](release/configuration-normalization-2026-08-20.md)。
 
-- 2026-08-21（患者选择返回期间刷新门禁修正）：当前 `6e6604f` 为最新小程序候选；选择页在延迟返回窗口内禁止刷新命令，资料页继续保留页面实例级 `onShow`，
+- 2026-08-21（患者选择返回期间刷新门禁修正）：`6e6604f` 为前一小程序候选；选择页在延迟返回窗口内禁止刷新命令，资料页继续保留页面实例级 `onShow`，
   页面栈重新可见时重新确认当前会话并读取资料，首次展示不重复 `onLoad` 请求；无平台会话时清理旧资料并回到登录入口。
   `typecheck`、169 项小程序测试、构建和 `runtime:verify` 均通过，运行包没有 `*.test.js`/`*.spec.js`。
 
@@ -1673,7 +1673,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `5a31427` 和最新小程序候选 `6e6604f`（完整构建来源：`6e6604f8089e45ceeaaf4bcbbd57065174a59a31`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `5a31427` 和最新小程序候选 `1b9b4b0`（完整构建来源：`1b9b4b0d101dfcd5011845f7797c9523676cc987`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -1684,7 +1684,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 当前服务端 release `5a31427` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `6e6604f` 小程序候选（完整构建来源：`6e6604f8089e45ceeaaf4bcbbd57065174a59a31`）。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `1b9b4b0` 小程序候选（完整构建来源：`1b9b4b0d101dfcd5011845f7797c9523676cc987`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 
