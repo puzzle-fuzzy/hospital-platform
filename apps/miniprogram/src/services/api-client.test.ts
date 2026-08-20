@@ -596,3 +596,76 @@ test("非 GET 命令失效后只清理旧会话，不自动登录或重放", asy
 		testGlobal.wx = previousWx;
 	}
 });
+
+test("GET 重新登录后的第二次 401 会清理同一代无效 token", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let requestCount = 0;
+	let loginCount = 0;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "expired-token",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		removeStorageSync: (_key: string) => {
+			globalData.accessToken = "";
+		},
+		setStorageSync: (_key: string, value: string) => {
+			globalData.accessToken = value;
+		},
+		login: (options: { success: (value: { code: string }) => void }) => {
+			loginCount += 1;
+			options.success({ code: `wechat-code-${loginCount}` });
+		},
+		request: (options: RequestOptions) => {
+			requestCount += 1;
+			if (options.url.endsWith("/auth/wechat")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							accessToken: "new-but-invalid-token",
+							tokenType: "Bearer",
+							expiresInSeconds: 3600,
+							user: { id: "user-001" },
+						},
+					},
+				});
+				return;
+			}
+			options.success({
+				statusCode: 401,
+				data: { success: false, error: { code: "unauthorized" } },
+			});
+		},
+	};
+
+	try {
+		await expect(requestWithSession({ url: "/patients" })).rejects.toMatchObject(
+			{ code: "unauthorized", statusCode: 401 },
+		);
+		expect(loginCount).toBe(1);
+		expect(requestCount).toBe(3);
+		expect(globalData.accessToken).toBe("");
+		expect(globalData.sessionStatus).toBe("signed_out");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});

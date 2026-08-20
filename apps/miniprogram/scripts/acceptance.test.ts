@@ -91,7 +91,7 @@ test("native client single-flights login and preserves a newer concurrent token"
 	expect(client).toContain("const promise = performLogin()");
 	expect(client).toContain("currentToken !== accessToken");
 	expect(client).toContain(
-		"return requestForSession(options, sessionGeneration, accessToken)",
+		"return requestAfterSessionRecovery(",
 	);
 	expect(client).toContain("config.accessToken !== accessToken");
 	expect(client).toContain(

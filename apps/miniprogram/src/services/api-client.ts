@@ -706,6 +706,36 @@ async function requestForSession<TResponse>(
 	return response;
 }
 
+/**
+ * 执行会话恢复后的 GET，并在“同一代、同一 token”再次 401 时清理它。
+ *
+ * 首次 401 之后重新登录得到的 token 仍可能因为服务端会话落库延迟、
+ * 用户被禁用或网关/应用会话不一致而再次失效。若直接把第二次 401
+ * 向上抛出而不清理本地 token，后续页面会反复携带同一无效凭证，用户
+ * 看到的就是持续的“Invalid or expired session”。清理必须带双重条件：
+ * 只有当前 token 和请求开始时相同、且会话代际没有被其它并发登录推进时，
+ * 才能清理；否则说明已经有更新的账号上下文，不能误删新会话。
+ */
+async function requestAfterSessionRecovery<TResponse>(
+	options: ApiRequestOptions,
+	sessionGeneration: number,
+	accessToken: string,
+): Promise<TResponse> {
+	try {
+		return await requestForSession(options, sessionGeneration, accessToken);
+	} catch (error) {
+		if (
+			error instanceof ApiError &&
+			error.statusCode === 401 &&
+			isCurrentSessionGeneration(sessionGeneration) &&
+			getAppConfig().accessToken === accessToken
+		) {
+			setAccessToken("");
+		}
+		throw error;
+	}
+}
+
 /** 将公共错误码映射为小程序稳定中文文案；未知码才使用服务端安全兜底。 */
 export function localizedApiErrorMessage(
 	code: string,
@@ -984,7 +1014,11 @@ export async function requestWithSession<TResponse>(
 			// 读取开放，不能把该分支复制给任何写入命令。
 			accessToken = currentToken;
 			sessionGeneration = getSessionGeneration();
-			return requestForSession(options, sessionGeneration, accessToken);
+			return requestAfterSessionRecovery(
+				options,
+				sessionGeneration,
+				accessToken,
+			);
 		}
 		// GET 读取在明确失效后可以安全地重新建立一次平台会话；仍然
 		// 只允许重试一次，防止失效 token 与登录失败之间形成循环。
@@ -992,7 +1026,11 @@ export async function requestWithSession<TResponse>(
 		await login();
 		accessToken = getAppConfig().accessToken;
 		sessionGeneration = getSessionGeneration();
-		return requestForSession(options, sessionGeneration, accessToken);
+		return requestAfterSessionRecovery(
+			options,
+			sessionGeneration,
+			accessToken,
+		);
 	}
 }
 
