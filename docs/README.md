@@ -28,6 +28,7 @@
 | [`release/current-65219e2-preflight-and-coexistence-2026-08-19.md`](release/current-65219e2-preflight-and-coexistence-2026-08-19.md) | 切换前 `65219e2` 生产 preflight、gate 状态、内外网 readiness 和旧 Python 共存历史复核；不代表 Provider/真机业务完成 |
 | [`release/current-65219e2-runtime-observation-2026-08-19.md`](release/current-65219e2-runtime-observation-2026-08-19.md) | 切换前重启窗口的 `65219e2` 运行层、正确内网探针、公网 readiness、生产模式和报告关闭 gate 历史复核 |
 | [`migration/zhongyang-authorization-contract-audit-2026-08-19.md`](migration/zhongyang-authorization-contract-audit-2026-08-19.md) | 旧平台用户 JWT 与新服务 Provider 凭证的区别、鉴权契约缺口和真实验收停止条件 |
+| [`migration/patinfosfind-archive-field-audit-2026-08-19.md`](migration/patinfosfind-archive-field-audit-2026-08-19.md) | `patInfosFind` 的档案字段、`patId` 临床引用、卡片层级、二维码事实和继续开放门禁 |
 | [`migration/outpatient-payment-provider-contract-audit-2026-08-19.md`](migration/outpatient-payment-provider-contract-audit-2026-08-19.md) | 门诊费用 2.6.33 参数、`patInfosFind.data.patId`、金额/状态映射、渠道码和只读停止条件 |
 | [`release/b7c9451-production-acceptance-2026-08-19.md`](release/b7c9451-production-acceptance-2026-08-19.md) | 历史 `b7c9451` 生产切换、P0 日志同链门禁、双服务共存和业务未完成边界 |
 | [`release/current-b7c9451-p0-business-observation-2026-08-19-0815.md`](release/current-b7c9451-p0-business-observation-2026-08-19-0815.md) | 历史 `b7c9451` SSH 只读 P0 业务日志观察；患者读取/同步同链通过，其他业务域和真机证据仍缺 |
