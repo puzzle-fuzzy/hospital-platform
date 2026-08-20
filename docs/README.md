@@ -29,6 +29,7 @@
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界；当前线上请以 `5a31427` 为准 |
 | [`release/5a31427-production-acceptance-2026-08-21.md`](release/5a31427-production-acceptance-2026-08-21.md) | 当前日志多请求 trace 保留修正的真实生产切换、隔离候选验收、新旧服务共存和未完成真机业务边界 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md) | `5a31427` 切换后 P0 日志空窗口的安全计数、门禁缺失项和下一次真机取证顺序 |
+| [`release/current-5a31427-p0-business-observation-2026-08-21-0451.md`](release/current-5a31427-p0-business-observation-2026-08-21-0451.md) | `5a31427` 04:51 CST 线上只读观测：新旧服务共存正常，但最近 30 分钟没有新的微信/患者/预约/费用/资料业务事件 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0409.md`](release/current-5a31427-p0-business-observation-2026-08-21-0409.md) | `5a31427` 04:09 CST 线上只读复核；新旧端口正常、日志解析无误，但仍没有新的真机业务请求 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0429.md`](release/current-5a31427-p0-business-observation-2026-08-21-0429.md) | `5a31427` 04:29 CST 最新线上只读复核；服务 active、新旧端口共存，但最近窗口仍没有新的真机业务请求 |
 | [`release/current-6038560-readonly-observation-2026-08-21-0303.md`](release/current-6038560-readonly-observation-2026-08-21-0303.md) | `6038560` 切换后 SSH 只读运行状态与低敏日志观察；当前窗口只有健康检查，没有新的真实业务事件 |

@@ -26,6 +26,11 @@ trace 保留修正尚未取得真实 Provider 三层业务样例；下一次真�
 [`current-5a31427-p0-business-observation-2026-08-21-0429.md`](current-5a31427-p0-business-observation-2026-08-21-0429.md)，
 不能替代真机业务证据。
 
+2026-08-21 04:51 CST 的最新 SSH 只读观测仍确认 `5a31427` active、`10.0.0.3:18081` 与旧 Python
+`0.0.0.0:8001` 共存；最近 30 分钟没有新的微信、患者、预约、门诊费用或普通资料业务事件。
+本窗口没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis，详见
+[`current-5a31427-p0-business-observation-2026-08-21-0451.md`](current-5a31427-p0-business-observation-2026-08-21-0451.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `1b9b4b0`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
