@@ -28,6 +28,7 @@
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 当前服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界 |
 | [`release/current-6038560-readonly-observation-2026-08-21-0303.md`](release/current-6038560-readonly-observation-2026-08-21-0303.md) | `6038560` 切换后 SSH 只读运行状态与低敏日志观察；当前窗口只有健康检查，没有新的真实业务事件 |
 | [`release/patient-directory-trace-retention-2026-08-21.md`](release/patient-directory-trace-retention-2026-08-21.md) | 患者目录多请求 provider trace 的 domain 保留、低敏日志字段、测试证据和与众阳自动化的隔离边界 |
+| [`release/readonly-provider-trace-retention-2026-08-21.md`](release/readonly-provider-trace-retention-2026-08-21.md) | 预约目录/历史和门诊费用只读日志的多请求 trace 保留、失败链关联和测试证据 |
 | [`release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md`](release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md) | 当前 `6e6604f` 真机微信登录、患者目录读取/同步三层低敏证据，以及公网 `/api/v2` 到内部 `/api/v1` 的前缀边界 |
 | [`release/candidate-7f157d4-local-build-2026-08-20.md`](release/candidate-7f157d4-local-build-2026-08-20.md) | 历史 `7f157d4` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |
 | [`release/candidate-457d9ae-local-build-2026-08-20.md`](release/candidate-457d9ae-local-build-2026-08-20.md) | 历史 `457d9ae` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |

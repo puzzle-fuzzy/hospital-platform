@@ -17,6 +17,7 @@ import {
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
 	DependencyNotConfiguredError,
+	type ExternalTrace,
 	ExternalTraceReadModelValidationError,
 	isBoundedOpaqueIdentifier,
 	normalizeAppointmentDepartmentResults,
@@ -119,6 +120,22 @@ function countAppointmentRecordStatuses(
 		statusCounts[record.status] = (statusCounts[record.status] ?? 0) + 1;
 	}
 	return statusCounts;
+}
+
+/**
+ * 将预约 gateway 的外部请求链投影成统一的低敏日志字段。
+ *
+ * `requestId` 兼容现有单请求检索；当目录或未来的预约读取由多个 Provider
+ * 请求组成时，必须同时保留已经通过 domain 校验的完整 `requestIds`。这里
+ * 只复制请求号，不把 Provider 原文、患者号或响应字段带入 journald。
+ */
+function traceLogFields(
+	trace: Pick<ExternalTrace, "requestId" | "requestIds">,
+): Record<string, unknown> {
+	return {
+		providerRequestId: trace.requestId,
+		...(trace.requestIds ? { providerRequestIds: [...trace.requestIds] } : {}),
+	};
 }
 
 /**
@@ -356,6 +373,7 @@ export class AppointmentService {
 	async listDepartments(
 		context: AdapterCallContext,
 	): Promise<AppointmentDepartmentListPayload["data"]> {
+		let trace: ExternalTrace | undefined;
 		try {
 			const query = createDepartmentQuery(this.now());
 			this.logger.info(
@@ -372,7 +390,7 @@ export class AppointmentService {
 				query,
 				context,
 			);
-			const trace = normalizeExternalTrace(
+			trace = normalizeExternalTrace(
 				(result as { trace?: unknown } | undefined)?.trace,
 				{ expectedProvider: "zhongyang" },
 			);
@@ -387,7 +405,7 @@ export class AppointmentService {
 					event: "appointment.directory.departments.synced",
 					traceId: context.traceId,
 					provider: trace.provider,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					itemCount: normalizedDepartments.length,
 				},
 				"Appointment department directory loaded",
@@ -397,7 +415,7 @@ export class AppointmentService {
 				total: normalizedDepartments.length,
 			};
 		} catch (error) {
-			this.logFailure(context, error, "departments");
+			this.logFailure(context, error, "departments", trace);
 			throw error;
 		}
 	}
@@ -406,6 +424,7 @@ export class AppointmentService {
 		input: AppointmentScheduleQuery,
 		context: AdapterCallContext,
 	): Promise<AppointmentScheduleListPayload["data"]> {
+		let trace: ExternalTrace | undefined;
 		try {
 			validateScheduleQuery(input);
 			this.logger.info(
@@ -422,7 +441,7 @@ export class AppointmentService {
 				input,
 				context,
 			);
-			const trace = normalizeExternalTrace(
+			trace = normalizeExternalTrace(
 				(result as { trace?: unknown } | undefined)?.trace,
 				{ expectedProvider: "zhongyang" },
 			);
@@ -470,7 +489,7 @@ export class AppointmentService {
 					event: "appointment.directory.schedules.synced",
 					traceId: context.traceId,
 					provider: trace.provider,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					itemCount: observedSchedules.length,
 					// 这个字段明确区分“Provider 只读结果成功”和“写入前快照可用”，
 					// 避免后续维护把一条 200 响应误当成已经具备锁号授权。
@@ -483,7 +502,7 @@ export class AppointmentService {
 				total: observedSchedules.length,
 			};
 		} catch (error) {
-			this.logFailure(context, error, "schedules");
+			this.logFailure(context, error, "schedules", trace);
 			throw error;
 		}
 	}
@@ -498,7 +517,7 @@ export class AppointmentService {
 			schedule: AppointmentSchedule;
 			providerScheduleId: string;
 		}[],
-		trace: { provider: string; requestId: string },
+		trace: Pick<ExternalTrace, "provider" | "requestId" | "requestIds">,
 	): Promise<ScheduleSnapshotPersistenceStatus> {
 		const snapshots = this.dependencies.snapshots;
 		if (!snapshots || schedules.length === 0) return "not-required";
@@ -531,7 +550,7 @@ export class AppointmentService {
 				{
 					event: "appointment.schedule_snapshots.persisted",
 					provider: trace.provider,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					itemCount: schedules.length,
 					expiresAt,
 				},
@@ -543,7 +562,7 @@ export class AppointmentService {
 				{
 					event: "appointment.schedule_snapshots.failed",
 					provider: trace.provider,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					errorType: error instanceof Error ? error.name : "unknown",
 				},
 				"Appointment schedule snapshots were not persisted",
@@ -566,6 +585,7 @@ export class AppointmentService {
 	): Promise<AppointmentRecordListPayload["data"]> {
 		// 只保存有限枚举，供失败日志关联跨层引用校验；不保存引用原值。
 		let resultViolation: string | undefined;
+		let trace: ExternalTrace | undefined;
 		try {
 			// 输入校验、依赖检查、owner 映射和 Provider 请求必须共用同一个
 			// 失败出口。否则“未配置”或非法日期虽然已经返回错误，业务日志却
@@ -625,7 +645,7 @@ export class AppointmentService {
 				},
 				context,
 			);
-			const trace = normalizeExternalTrace(
+			trace = normalizeExternalTrace(
 				(result as { trace?: unknown } | undefined)?.trace,
 				{ expectedProvider: "zhongyang" },
 			);
@@ -641,7 +661,7 @@ export class AppointmentService {
 					event: "appointment.records.synced",
 					traceId: context.traceId,
 					provider: trace.provider,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					patientId,
 					itemCount: normalizedRecords.length,
 					statusCounts: countAppointmentRecordStatuses(normalizedRecords),
@@ -670,6 +690,7 @@ export class AppointmentService {
 						? { resultViolation: error.violation }
 						: {}),
 					...providerFailureMetadata(error),
+					...(trace ? traceLogFields(trace) : {}),
 				},
 				"Appointment records request failed",
 			);
@@ -681,6 +702,7 @@ export class AppointmentService {
 		context: AdapterCallContext,
 		error: unknown,
 		resource: "departments" | "schedules",
+		trace?: ExternalTrace,
 	): void {
 		this.logger.error(
 			{
@@ -695,6 +717,7 @@ export class AppointmentService {
 					? { resultViolation: error.violation }
 					: {}),
 				...providerFailureMetadata(error),
+				...(trace ? traceLogFields(trace) : {}),
 			},
 			"Appointment directory request failed",
 		);

@@ -774,3 +774,60 @@ test("门诊费用 service 超过资源上限时整批拒绝且不记录 loaded"
 		}),
 	);
 });
+
+test("门诊费用日志保留经过校验的多请求 provider trace", async () => {
+	const lines: string[] = [];
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				records: [
+					{
+						recordId: "payment-trace-record",
+						status: "paid" as const,
+						billDate: "2026-08-16 09:00:00",
+						amountFen: 100,
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "outpatient-payment-records",
+					requestId: "payment-trace-primary",
+					requestIds: ["payment-trace-primary", "payment-trace-secondary"],
+				},
+			}),
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "outpatient-payment-trace-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await service.list("user-001", "patient-001", "paid", {
+		traceId: "trace-payment-multiple-provider-requests",
+		idempotencyKey: "key-payment-multiple-provider-requests",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "outpatient.payment.records.loaded",
+			providerRequestId: "payment-trace-primary",
+			providerRequestIds: ["payment-trace-primary", "payment-trace-secondary"],
+		}),
+	);
+});

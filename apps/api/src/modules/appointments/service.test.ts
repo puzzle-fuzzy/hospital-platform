@@ -1786,3 +1786,62 @@ test("预约排班 service 绑定日期窗口和科室医生筛选", async () =>
 		}),
 	);
 });
+
+test("预约目录失败日志保留经过校验的多请求 provider trace", async () => {
+	const lines: string[] = [];
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				// 重复 ID 触发 service 二次校验；trace 已先通过 domain 校验，
+				// 因此失败日志仍必须保留完整的外部请求关联链。
+				departments: [
+					{ departmentId: "duplicate-department", displayName: "心内科" },
+					{ departmentId: "duplicate-department", displayName: "消化科" },
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "appointment-trace-primary",
+					requestIds: [
+						"appointment-trace-primary",
+						"appointment-trace-secondary",
+					],
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "unused-schedule-trace",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "appointment-trace-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.listDepartments({
+			traceId: "trace-appointment-multiple-provider-requests",
+			idempotencyKey: "key-appointment-multiple-provider-requests",
+		}),
+	).rejects.toThrow("Appointment directory provider result is invalid");
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.directory.departments.failed",
+			providerRequestId: "appointment-trace-primary",
+			providerRequestIds: [
+				"appointment-trace-primary",
+				"appointment-trace-secondary",
+			],
+		}),
+	);
+});

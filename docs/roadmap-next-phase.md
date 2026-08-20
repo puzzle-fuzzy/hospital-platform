@@ -39,6 +39,11 @@
   domain 10/10、患者 service 21/21、P0 工具 32/32 定向测试通过；本轮未部署、未重启新旧服务，详见
   [`release/patient-directory-trace-retention-2026-08-21.md`](release/patient-directory-trace-retention-2026-08-21.md)。
 
+- 2026-08-21（预约/门诊费用多请求 trace 日志保留）：补齐预约目录、预约历史、排班快照和门诊费用
+  service 对已校验 `requestIds` 的成功/失败日志保留，继续兼容主 `providerRequestId`；不改变 Provider 请求、
+  患者归属、状态、金额或真机验收边界。API typecheck、预约/费用 service 37/37 和 Biome 通过；未部署、未重启新旧服务，
+  详见 [`release/readonly-provider-trace-retention-2026-08-21.md`](release/readonly-provider-trace-retention-2026-08-21.md)。
+
 - 2026-08-20 23:14 CST（历史候选真机工具复核）：针对 `dist/services/single-flight.test.js` 的 ENOENT，历史 `7f157d4`
   运行包重新通过构建和 `runtime:verify`，`dist/` 中测试运行脚本为 0、14 个页面脚本齐全；微信开发者工具已关闭旧真机调试
   会话、普通编译成功并显示 `analyzing codes success`，随后重新生成 iOS/局域网二维码。该证据只证明本地运行包和工具模块图已刷新，

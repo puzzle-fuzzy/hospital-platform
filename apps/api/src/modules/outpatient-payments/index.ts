@@ -5,6 +5,7 @@ import {
 } from "@hospital/contracts";
 import type {
 	AdapterCallContext,
+	ExternalTrace,
 	OutpatientPaymentGateway,
 	OutpatientPaymentRecord,
 	OutpatientPaymentStatus,
@@ -55,6 +56,22 @@ export type OutpatientPaymentServiceDependencies = {
 	logger?: AppLogger;
 	now?: () => Date;
 };
+
+/**
+ * 将门诊费用 gateway 的外部请求链投影为低敏日志字段。
+ *
+ * 单请求场景继续保留 `providerRequestId` 兼容既有检索；未来费用查询若由
+ * 多个 Provider 请求组成，则同步保存 domain 已校验的 `providerRequestIds`。
+ * 这里只保存关联标识，不能把费用、患者号或 Provider 原始响应写入日志。
+ */
+function traceLogFields(
+	trace: Pick<ExternalTrace, "requestId" | "requestIds">,
+): Record<string, unknown> {
+	return {
+		providerRequestId: trace.requestId,
+		...(trace.requestIds ? { providerRequestIds: [...trace.requestIds] } : {}),
+	};
+}
 
 /** 众阳门诊接口使用中国标准时间，不得继承 systemd 进程的本地时区。 */
 const OUTPATIENT_PROVIDER_TIME_ZONE = "Asia/Shanghai";
@@ -205,6 +222,7 @@ export class OutpatientPaymentService {
 		// 该变量只保存有限枚举，供失败日志关联网关输出；不能把 Provider
 		// 原始响应或金额明细写入日志。
 		let resultViolation: string | undefined;
+		let trace: ExternalTrace | undefined;
 		try {
 			if (!isOutpatientPaymentStatus(status)) {
 				// 不能把未知状态交给 adapter；adapter 的历史实现会把非 unpaid
@@ -268,7 +286,7 @@ export class OutpatientPaymentService {
 				},
 				context,
 			);
-			const trace = normalizeExternalTrace(
+			trace = normalizeExternalTrace(
 				(result as { trace?: unknown } | undefined)?.trace,
 				{ expectedProvider: "zhongyang" },
 			);
@@ -297,7 +315,7 @@ export class OutpatientPaymentService {
 					event: "outpatient.payment.records.loaded",
 					traceId: context.traceId,
 					provider: trace.provider,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					status,
 					itemCount: normalizedRecords.length,
 				},
@@ -328,6 +346,7 @@ export class OutpatientPaymentService {
 						: {}),
 					...(resultViolation ? { resultViolation } : {}),
 					...providerFailureMetadata(error),
+					...(trace ? traceLogFields(trace) : {}),
 				},
 				"Outpatient payment records failed",
 			);
