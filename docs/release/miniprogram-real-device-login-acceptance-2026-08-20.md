@@ -8,8 +8,8 @@
 | 项目 | 本次固定值 |
 | --- | --- |
 | 新服务 | `0e360d3` |
-| 小程序候选 | `767ed9c` |
-| 运行包来源指纹 | `767ed9c225bf4d329761f6abed7668015a2626b2` |
+| 小程序候选 | `3a89312` |
+| 运行包来源指纹 | `3a89312cd982ee2fc490b75515cdb6c7d58d513e` |
 | 公网入口 | `https://test-hp.meiyi.pro/api/v2` |
 | 真机链路 | 微信开发者工具真机调试，iPhone 微信 WebView |
 
@@ -74,7 +74,7 @@ openid、临时 code、患者标识、身份证号、原始响应或请求体。
 
 ## 5. 当前候选复核（18:11 CST）
 
-当前 `767ed9c` 候选已在正确的 `miniprogram` 开发者工具项目中重新生成 iOS 真机调试二维码；
+当前 `3a89312` 候选已在正确的 `miniprogram` 开发者工具项目中重新生成 iOS 真机调试二维码；
 控制台未再出现 `dist/services/single-flight.test.js`。但对应时间窗口的服务端只观察到健康检查，
 没有新的 `/auth/wechat` 或 `/patients` 请求，因此本次不能新增微信登录或患者同步通过结论。
 必须等待真机扫码后，再按页面、HTTP 和 journald 三层证据继续验收。
@@ -89,7 +89,7 @@ openid、临时 code、患者标识、身份证号、原始响应或请求体。
 本轮重新执行了 `pnpm --filter @hospital/miniprogram test`，结果为 167 项通过、0 项失败、1326 个断言；
 随后检查正确的 `miniprogram` 开发者工具窗口，运行根目录仍为 `dist/`，控制台没有再次出现
 `dist/services/single-flight.test.js` 缺失错误。运行包中测试脚本数量仍为 0，来源指纹仍为
-`767ed9c225bf4d329761f6abed7668015a2626b2`。
+`3a89312cd982ee2fc490b75515cdb6c7d58d513e`。
 
 18:27 前后服务端最近 30 分钟的低敏日志没有新的 `/auth/wechat`、`/me`、`/patients` 或
 `/patients/sync` 请求；开发者工具二维码仍处于原窗口，显示 18:36 CST 失效。因此当前没有新增

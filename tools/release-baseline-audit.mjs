@@ -14,7 +14,7 @@ const repositoryRoot = resolve(scriptDirectory, "..");
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-767ed9c-local-build-2026-08-20.md";
+	"docs/release/candidate-3a89312-local-build-2026-08-20.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
