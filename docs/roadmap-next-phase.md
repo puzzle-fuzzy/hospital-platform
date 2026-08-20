@@ -39,6 +39,11 @@
   内外网 `/health/ready` 均为 200，旧 Python `8001` 继续监听。该次没有调用微信、患者、预约、费用 Provider，
   因此多请求 trace 的真实业务三层证据仍待真机操作；详见 [`release/5a31427-production-acceptance-2026-08-21.md`](release/5a31427-production-acceptance-2026-08-21.md)。
 
+- 2026-08-21 04:02 CST（`5a31427` P0 业务日志空窗口）：使用线上 release 内置日志聚合和业务证据门禁复核
+  `03:54` 之后的 journald，`parseErrors=0`、`systemdWarningCount=0`，但微信、患者、预约、门诊费用和普通资料
+  所有业务域均为 `requested=0/success=0`。这是“尚未扫码/尚未产生业务请求”的证据，不是 Provider 失败；下一步必须由
+  当前 `6e6604f` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
+
 - 2026-08-21（患者目录 trace 保留边界）：domain 现在会保留 gateway 返回且通过统一校验的有界 `requestIds`，
   service 的 `patient.directory.snapshot.committed` / `patient.directory.synced` 同时记录兼容主 ID 和列表；
   P0 聚合器也会读取两种字段并去重统计；当前众阳患者 adapter 尚未因本轮改动而改变，另一个会话的自动化获取不受影响。
