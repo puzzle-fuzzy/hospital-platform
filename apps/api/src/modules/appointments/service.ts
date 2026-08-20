@@ -55,6 +55,54 @@ const APPOINTMENT_DIRECTORY_RANGE_DAYS = 7;
 const APPOINTMENT_PROVIDER_TIME_ZONE = "Asia/Shanghai";
 /** 排班快照只作为短期服务端观察事实，过期后不能授权后续写入。 */
 const SCHEDULE_SNAPSHOT_TTL_MS = 60_000;
+/**
+ * 排班快照单次批量持久化的并发上限。
+ *
+ * 这是平台数据库资源策略，不是 Provider 的分页或号源数量合同。目录仍
+ * 会尝试保存全部已验证排班，但不会因为一次只读响应就同时打满 MySQL
+ * 连接；未来预约写入也不能仅凭快照已落库而绕过自己的合同门禁。
+ */
+const SCHEDULE_SNAPSHOT_CONCURRENCY = 4;
+
+/**
+ * 以固定并发度处理快照，同时保留目录顺序并在异常后停止领取新任务。
+ *
+ * 不能改成串行循环，否则一个慢写入会拖住整批观察；也不能继续使用无界
+ * `Promise.all`，因为它会让异常 Provider 响应放大成大量数据库写入。已经
+ * 在途的任务仍需完成，外层才会统一记录 `unavailable`；这样日志不会在
+ * 实际写入尚未收尾时提前宣称批次已经结束。
+ */
+async function mapWithConcurrency<T, R>(
+	items: readonly T[],
+	concurrency: number,
+	mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+	if (items.length === 0) return [];
+	const results = new Array<R>(items.length);
+	let nextIndex = 0;
+	let failed = false;
+	let failure: unknown;
+
+	const worker = async (): Promise<void> => {
+		while (!failed) {
+			const index = nextIndex;
+			nextIndex += 1;
+			if (index >= items.length) return;
+			try {
+				results[index] = await mapper(items[index] as T, index);
+			} catch (error) {
+				failed = true;
+				failure = error;
+				return;
+			}
+		}
+	};
+
+	const workerCount = Math.min(Math.max(1, concurrency), items.length);
+	await Promise.all(Array.from({ length: workerCount }, () => worker()));
+	if (failed) throw failure;
+	return results;
+}
 
 /**
  * 预约记录成功日志只记录状态数量，不记录预约号、患者标识或 Provider 原文。
@@ -404,8 +452,8 @@ export class AppointmentService {
 		}[],
 		trace: { provider: string; requestId: string },
 	): Promise<ScheduleSnapshotPersistenceStatus> {
-		if (!this.dependencies.snapshots || schedules.length === 0)
-			return "not-required";
+		const snapshots = this.dependencies.snapshots;
+		if (!snapshots || schedules.length === 0) return "not-required";
 		// observedAt 和 expiresAt 必须来自同一次时钟采样。若分别读取 now，
 		// 请求跨过时间边界时 TTL 会被悄悄拉长，未来写入流程可能使用一条
 		// 与 provider 观察时刻不一致的快照；所有过期判断都以这个基准计算。
@@ -415,9 +463,11 @@ export class AppointmentService {
 			observedNow.getTime() + SCHEDULE_SNAPSHOT_TTL_MS,
 		).toISOString();
 		try {
-			await Promise.all(
-				schedules.map(({ schedule, providerScheduleId }) =>
-					this.dependencies.snapshots?.upsert({
+			await mapWithConcurrency(
+				schedules,
+				SCHEDULE_SNAPSHOT_CONCURRENCY,
+				async ({ schedule, providerScheduleId }) => {
+					await snapshots.upsert({
 						schedule,
 						provider: "zhongyang",
 						// 该引用来自 adapter 的内部事实，不能被客户端提交或
@@ -426,8 +476,8 @@ export class AppointmentService {
 						providerRequestId: trace.requestId,
 						observedAt,
 						expiresAt,
-					}),
-				),
+					});
+				},
 			);
 			this.logger.info(
 				{

@@ -5,6 +5,7 @@ import type {
 	AppointmentDirectoryGateway,
 	AppointmentProviderSchedule,
 	AppointmentRecord,
+	AppointmentScheduleSnapshotRepository,
 	PatientRepository,
 } from "@hospital/domain";
 import {
@@ -76,6 +77,157 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 		providerRequestId: "provider-request-001",
 		expiresAt: "2026-08-15T00:01:00.000Z",
 	});
+});
+
+test("预约排班快照保持目录顺序且不超过固定持久化并发度", async () => {
+	let activeSnapshots = 0;
+	let maximumSnapshots = 0;
+	const requestedProviderScheduleIds: string[] = [];
+	const schedules: AppointmentProviderSchedule[] = Array.from(
+		{ length: 8 },
+		(_, index) => ({
+			providerScheduleId: `provider-schedule-${index}`,
+			departmentId: `dept-${index}`,
+			departmentName: `科室${index}`,
+			doctorId: `doctor-${index}`,
+			doctorName: `医生${index}`,
+			workDate: "2026-08-20",
+			shiftName: "上午",
+			totalSlots: 30,
+			availableSlots: 12,
+			timeGroup: "range" as const,
+		}),
+	);
+	const snapshotStore = createInMemoryAppointmentScheduleSnapshotRepository();
+	const snapshots: AppointmentScheduleSnapshotRepository = {
+		upsert: async (input) => {
+			activeSnapshots += 1;
+			maximumSnapshots = Math.max(maximumSnapshots, activeSnapshots);
+			requestedProviderScheduleIds.push(input.providerScheduleId);
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			activeSnapshots -= 1;
+			return snapshotStore.upsert(input);
+		},
+		findActive: (scheduleId, now) => snapshotStore.findActive(scheduleId, now),
+	};
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "appointment-departments",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules,
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "appointment-schedules",
+					requestId: "appointment-concurrency",
+				},
+			}),
+		},
+		snapshots,
+		createScheduleId: (() => {
+			let index = 0;
+			return () => `platform-schedule-${index++}`;
+		})(),
+	});
+
+	const result = await service.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		{
+			traceId: "trace-appointment-concurrency",
+			idempotencyKey: "key-appointment-concurrency",
+		},
+	);
+
+	expect(maximumSnapshots).toBe(4);
+	expect(requestedProviderScheduleIds).toEqual(
+		Array.from({ length: 8 }, (_, index) => `provider-schedule-${index}`),
+	);
+	expect(result.items.map((item) => item.doctorName)).toEqual(
+		Array.from({ length: 8 }, (_, index) => `医生${index}`),
+	);
+});
+
+test("预约排班快照写入失败后不再领取新的快照任务", async () => {
+	const requestedProviderScheduleIds: string[] = [];
+	const schedules: AppointmentProviderSchedule[] = Array.from(
+		{ length: 8 },
+		(_, index) => ({
+			providerScheduleId: `provider-schedule-failure-${index}`,
+			departmentId: `dept-failure-${index}`,
+			departmentName: `科室${index}`,
+			doctorId: `doctor-failure-${index}`,
+			doctorName: `医生${index}`,
+			workDate: "2026-08-20",
+			shiftName: "上午",
+			totalSlots: 30,
+			availableSlots: 12,
+			timeGroup: "range" as const,
+		}),
+	);
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "appointment-departments",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules,
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "appointment-schedules",
+					requestId: "appointment-failure",
+				},
+			}),
+		},
+		snapshots: {
+			upsert: async (input) => {
+				requestedProviderScheduleIds.push(input.providerScheduleId);
+				await new Promise((resolve) =>
+					setTimeout(resolve, input.providerScheduleId.endsWith("-1") ? 5 : 30),
+				);
+				if (input.providerScheduleId.endsWith("-1")) {
+					throw new Error("snapshot storage unavailable");
+				}
+				return {
+					scheduleId: input.schedule.scheduleId,
+					...input,
+				};
+			},
+			findActive: async () => undefined,
+		},
+		createScheduleId: (() => {
+			let index = 0;
+			return () => `platform-failure-schedule-${index++}`;
+		})(),
+	});
+
+	await expect(
+		service.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			{
+				traceId: "trace-appointment-failure",
+				idempotencyKey: "key-appointment-failure",
+			},
+		),
+	).resolves.toMatchObject({ total: 8 });
+
+	// 前四个任务已在途；第二个失败后，不能再把第五个及之后的排班交给仓储。
+	expect(requestedProviderScheduleIds).toEqual(
+		Array.from(
+			{ length: 4 },
+			(_, index) => `provider-schedule-failure-${index}`,
+		),
+	);
 });
 
 test("预约目录拒绝异常 Provider trace 并只记录固定原因", async () => {

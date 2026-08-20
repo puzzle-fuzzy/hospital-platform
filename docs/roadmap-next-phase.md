@@ -70,6 +70,12 @@
   未修改旧 Python、线上服务或并行会话文件。该并发度是平台资源策略，不是 Provider 分页合同，详见
   [`provider-contract-v1.md`](provider-contract-v1.md)。
 
+- 2026-08-20（预约排班快照持久化并发边界）：复核排班只读服务时发现，已验证的每条排班会由无界 `Promise.all` 同时写入
+  短期 MySQL 快照。现改为最多 4 路并发并保持目录顺序；任一写入异常后不再领取新任务，已在途写入收尾后统一记录
+  `snapshotPersistenceStatus=unavailable`，只读目录仍保留真实结果。预约测试 20/20、80 个断言通过；本次未调用 Provider、
+  未写入真实数据库、未开放锁号/预约写入、未修改旧 Python 或并行会话文件。该并发度是平台资源策略，不是号源或分页合同，
+  详见 [`provider-contract-v1.md`](provider-contract-v1.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

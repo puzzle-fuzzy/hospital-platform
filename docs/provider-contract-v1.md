@@ -56,6 +56,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts` 映射为科室读模型；该接口虽然返回科室列表，仍要求 `requestChannel=4`、`startDate` 和 `endDate`，日期窗口由服务端固定为未来 7 天，不由小程序透传；provider 的 `endDate` 是否包含当天、以及最大范围的计数方式仍待文档确认，当前服务端只按起止日期差值限制平台请求跨度；
 - `/msun-middle-business-amc-server/v1/schedulings` 映射为排班、时间和号源数量读模型，服务端固定 `requestChannel=4`；真实响应中的 `remainingNumber` 可能为 `null`，当前有效号源数只使用 provider 的 `usableSourceNum`；若该字段缺失，adapter 必须拒绝整条响应，不能用旧端其他接口的 `usableNum`/`remainingNumber` 兜底或据此授权未来写入；
 - 新 API 不返回挂号费、医生电话/照片、provider 原始字段，也不允许小程序透传任意 query；预约写入、锁号、取消和支付仍等待完整 contract。
+- 已验证排班目录在写入短期观察快照时最多 4 路并发，并保持目录结果顺序；该限制只保护 MySQL 资源，任一写入异常会停止领取新快照、等待已在途写入收尾后记录 `unavailable`，不改变只读目录结果，也不把部分快照当作未来写入授权。
 - 预约目录使用独立的 `ZHONGYANG_APPOINTMENT_DIRECTORY_READY` gate；患者目录和预约目录共享连接配置，但必须分别完成合同与真实验收。
 
 患者目录的 `cardNumberMasked` 仅用于页面核对：服务端最多返回前五位和后四位，中间保持掩码；身份证号、手机号和完整卡号不进入新 contract。
