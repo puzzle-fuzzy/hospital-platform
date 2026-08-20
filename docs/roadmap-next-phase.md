@@ -42,7 +42,7 @@
   公网或真机三层业务证据；健康知识、病历、患者绑定、报告资源、支付/医保/HIS 继续按各自契约门禁关闭。详细当前审计见
   [`release/readonly-business-chain-audit-2026-08-21.md`](release/readonly-business-chain-audit-2026-08-21.md)。
 
-- 2026-08-21 06:44 CST（真机扫码前置恢复）：正确的 `miniprogram` 项目已对当前 `6ce1272` 运行包重新执行普通编译，
+- 2026-08-21 06:44 CST（历史候选扫码前置恢复）：正确的 `miniprogram` 项目曾对历史 `6ce1272` 运行包重新执行普通编译，
   工具显示 14 个页面、约 607 KB 的 iOS/局域网二维码，`dist/` 中测试脚本数量仍为 0。该记录只解决开发者工具旧增量索引
   造成的 `single-flight.test.js` ENOENT，不增加微信登录、患者、预约或费用的真机证据；扫码后仍须按三层证据顺序验收。
   详见 [`release/miniprogram-device-qr-session-2026-08-21-0705.md`](release/miniprogram-device-qr-session-2026-08-21-0705.md)。
@@ -56,6 +56,11 @@
   清理条件；并保持 PUT/POST/支付命令不自动重放。小程序 170/170 测试、构建、14 页运行包和测试脚本隔离验证通过。真实微信和 P0
   只读三层证据仍待当前运行包重新扫码，详细规则见
   [`release/miniprogram-session-recovery-logic-audit-2026-08-21.md`](release/miniprogram-session-recovery-logic-audit-2026-08-21.md)。
+
+- 2026-08-21 07:05 CST（当前候选真机扫码前置）：格式修正后重新构建的小程序来源为 `9340846`，完整来源
+  `93408462f3eeadffed172f1ea3b10c043d461b1b`；开发者工具重新普通编译并打开 iOS/局域网二维码，显示约 607 KB、14 个页面，
+  `dist/` 测试脚本数量为 0。07:00 CST 之后线上没有新的登录、患者、预约、费用或资料事件，因此当前仍只有扫码前运行包证据，
+  尚未形成真机业务三层证据。详见 [`release/miniprogram-device-qr-session-2026-08-21-0705.md`](release/miniprogram-device-qr-session-2026-08-21-0705.md)。
 
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
@@ -95,7 +100,7 @@
 - 2026-08-21 04:02 CST（`5a31427` P0 业务日志空窗口）：使用线上 release 内置日志聚合和业务证据门禁复核
   `03:54` 之后的 journald，`parseErrors=0`、`systemdWarningCount=0`，但微信、患者、预约、门诊费用和普通资料
   所有业务域均为 `requested=0/success=0`。这是“尚未扫码/尚未产生业务请求”的证据，不是 Provider 失败；下一步必须由
-  当前 `6ce1272` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
+  历史 `6ce1272` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
 
 - 2026-08-21 04:09 CST（`5a31427` 线上只读复核）：当前 release 仍为 `5a31427`，新 API `18081` 与旧 Python `8001`
   同时监听且新 API 为 `active`。从 `03:54` 切换窗口开始，当前 release 的日志聚合解析 `10` 条记录，`parseErrors=0`、
@@ -266,7 +271,7 @@
 - 2026-08-20（普通资料更新链定向回归）：服务端普通资料 service `13/13` 通过，小程序患者选择、会话
   代际、资料保存和公共 API 响应门禁定向回归 `163/163` 通过；API 集成测试同时确认 owner 隔离、版本冲突、
   `null` 清空和旧端 `avatar/openid` 字段拒绝。该结果只证明代码、契约和本地测试边界，不代表真实微信资料
-  首次写入、双设备 `409`、公网日志同链或真机页面已经验收；下一步仍需使用当前 `6ce1272` 候选按
+  首次写入、双设备 `409`、公网日志同链或真机页面已经验收；下一步仍需使用当前 `9340846` 候选按
   [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md)
   采集页面、HTTP 和低敏日志三层证据。
 

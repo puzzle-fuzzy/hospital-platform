@@ -29,7 +29,7 @@
 | 设备/系统 | `iOS/Android + 版本` |
 | 微信基础库 | `版本` |
 | 开发者工具真机窗口 | `新窗口/窗口标识` |
-| `dist/build-info.json.sourceRevision` | 历史候选曾核对为 `1d161b701384ad8073ed907fe14f611ab3166fcd`；当前验收必须改用 6ce1272 模板 |
+| `dist/build-info.json.sourceRevision` | 历史候选曾核对为 `1d161b701384ad8073ed907fe14f611ab3166fcd`；当前验收必须改用 9340846 模板 |
 | 扫码时间 | `YYYY-MM-DD HH:mm:ss` |
 | 是否使用历史二维码 | 必须为“否” |
 

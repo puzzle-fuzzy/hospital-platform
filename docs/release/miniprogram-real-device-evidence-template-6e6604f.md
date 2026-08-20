@@ -1,6 +1,6 @@
 # 小程序历史候选真机三层证据记录模板（`6e6604f`）
 
-> 历史模板：当前候选已切换为 `6ce1272`，请使用 [`miniprogram-real-device-evidence-template-6ce1272.md`](miniprogram-real-device-evidence-template-6ce1272.md)。本文件不再用于当前真机记录。
+> 历史模板：当前候选已切换为 `9340846`，请使用 [`miniprogram-real-device-evidence-template-9340846.md`](miniprogram-real-device-evidence-template-9340846.md)。本文件不再用于当前真机记录。
 
 > 用途：记录当前候选真实微信设备上的页面、客户端 HTTP 和服务端低敏日志三层证据。
 > 本文件是空白记录模板，不代表任何业务已验收；没有实际页面操作和同一时间窗口的请求链，
