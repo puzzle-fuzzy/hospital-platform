@@ -18,6 +18,11 @@
 > 未授权患者/预约接口均返回 `401 unauthorized`。本地 `e050fa0` 尚未部署；这次没有 Provider 调用、服务重启或
 > MySQL/Redis 业务写入。详见 [`../release/current-public-readonly-smoke-2026-08-20.md`](../release/current-public-readonly-smoke-2026-08-20.md)。
 
+> 2026-08-20 12:27 CST 再次只读复核：新 API 与旧 Python `8001` 仍同时监听，Worker 仍为 inactive，公网 readiness
+> 返回 `200` 且 database/redis/schema 均为 `ok`；最近 30 分钟没有新的登录、患者、预约、门诊费用或报告业务事件。
+> 这只是运行层和日志窗口证据，不能把“没有事件”解释为业务失败，也不能替代真机操作。完整证据见
+> [`../release/current-runtime-readonly-observation-2026-08-20-1227.md`](../release/current-runtime-readonly-observation-2026-08-20-1227.md)。
+
 > 本文下方保留了切换前的 b7/c26/652/08 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `398be8e`。
 
 > 2026-08-20 迁移审计更新：重新核对旧端门诊病历页面和 `ZY.ts` 的当前 SHA-256，确认仍只有
