@@ -25,6 +25,18 @@
 | 外部 TCP 可达性 | 从当前工作站到 3306、6379 的 TCP 建连测试均可达；这不代表认证成功 |
 | 当前 API readiness | 数据库、Redis、schema 均为 `ok`；新 API active |
 
+### 2.1 WireGuard 私网路径已验证
+
+两台服务器已有 WireGuard：内网应用主机为 `10.0.0.3`，阿里云主机为 `10.0.0.1`，双方握手正常。
+在新 API 所在主机上，使用当前新 API 运行时配置做了不写入的连接验证：
+
+- `10.0.0.1:3306` 的真实 `SELECT 1` 成功；
+- `10.0.0.1:6379` 的真实 `PING` 成功。
+
+因此“新 API 改走 WireGuard 私网”具备实际连通性，不需要引入 SSH 隧道。随后尝试只切换新 API 的
+两条连接配置时，服务器返回 `systemctl restart ...: Interactive authentication required`；脚本已自动
+回滚 env，临时备份也已删除。当前线上仍是原公网连接配置，新 API 进程和旧 Python 服务均未受影响。
+
 文档只保留端点、监听和状态等维护所需信息，不记录密码、连接串、access token、openid、患者标识、SQL
 或第三方报文。
 
@@ -52,6 +64,8 @@
 - 优先使用云厂商 VPC/私网地址或专用安全组，让新 API 先通过私网连接数据库和 Redis；保留旧 Python 的公网
   路径不动。
 - 使用独立的 `api-v2` 环境变量文件和 systemd drop-in，先只改变新 API 的连接目标；旧服务配置不改。
+- 当前 SSH 用户没有 systemd 重启授权；正式切换时需要具备 systemd 管理权限的维护窗口执行一次新 API 重启，
+  或由管理员代执行，不应通过强杀进程绕过权限边界。
 - 在切换前后依次验证 `health/live`、`health/ready`、微信登录、患者目录只读和 Redis 会话恢复，并观察足够
   时间窗口；任何依赖异常都回滚新 API 的连接目标，不碰旧服务。
 
