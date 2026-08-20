@@ -10,6 +10,11 @@
   门诊病历、医保授权和预约写入保持 `404`。本次不携带 Bearer、不调用 Provider、不写 MySQL/Redis，结果只证明公网路由边界，
   不增加真机或业务验收证据。详见 [`release/current-public-readonly-smoke-2026-08-21-0547.md`](release/current-public-readonly-smoke-2026-08-21-0547.md)。
 
+- 2026-08-21 05:54 CST（当前 release 线上只读复核）：`5a31427` active，Worker inactive，新 API `10.0.0.3:18081` 与旧 Python
+  `8001` 共存，readiness 的 database/Redis/schema 均为 `ok`；最近 30 分钟没有登录、患者、预约、门诊费用或普通资料事件。
+  该窗口没有新的真机请求，不增加业务验收证据；详见
+  [`release/current-5a31427-p0-business-observation-2026-08-21-0554.md`](release/current-5a31427-p0-business-observation-2026-08-21-0554.md)。
+
 - 2026-08-21 05:45 CST（线上只读共存与业务空窗口复核）：服务器确认当前 release `5a31427` active，新 API
   `10.0.0.3:18081` 与旧 Python `8001` 继续共存；使用实际内网监听地址的 readiness 返回 `database=ok`、`redis=ok`、
   `schema=ok`。最近 30 分钟没有微信、患者、预约、门诊费用或普通资料业务事件，最近 10 分钟只有 readiness `200`。

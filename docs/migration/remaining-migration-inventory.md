@@ -34,6 +34,11 @@
 > live/ready 为 `no-store`；这只证明公网 fail-closed 边界，不增加真机或 Provider 业务证据。详见
 > [`../release/current-public-readonly-smoke-2026-08-21-0547.md`](../release/current-public-readonly-smoke-2026-08-21-0547.md)。
 
+> 2026-08-21 05:54 CST SSH 只读复核：`5a31427` active，Worker inactive，新 API `10.0.0.3:18081` 与旧 Python `8001` 共存，
+> readiness 的 database/Redis/schema 均为 `ok`；最近 30 分钟没有 P0 业务事件。该窗口只证明运行层和业务请求为空，
+> 不增加当前候选的真机或 Provider 证据。详见
+> [`../release/current-5a31427-p0-business-observation-2026-08-21-0554.md`](../release/current-5a31427-p0-business-observation-2026-08-21-0554.md)。
+
 > 2026-08-21 患者只读证据补充：在历史服务端 release `0e360d3` 的运行窗口中，
 > `2026-08-20 23:35:18 CST` 至 `2026-08-21 00:05:18 CST` 低敏日志窗口中，解析记录 13 条、解析错误 0、HTTP 完成 5 条且全部为
 > `200`；患者目录读取 `2/2`、患者目录同步 `1/1` 均通过同链业务证据门禁。该窗口没有微信登录、预约历史或门诊费用事件，

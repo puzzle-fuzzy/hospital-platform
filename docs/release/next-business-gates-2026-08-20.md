@@ -39,6 +39,11 @@ trace 保留修正尚未取得真实 Provider 三层业务样例；下一次真�
 live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代真机业务证据，详见
 [`current-public-readonly-smoke-2026-08-21-0547.md`](current-public-readonly-smoke-2026-08-21-0547.md)。
 
+2026-08-21 05:54 CST 的 SSH 只读复核再次确认 `5a31427` active、Worker inactive、新 API `10.0.0.3:18081` 与旧 Python
+`0.0.0.0:8001` 共存，readiness 的 database/Redis/schema 均为 `ok`；最近 30 分钟仍没有 P0 业务事件。
+这只说明当前没有新的真机请求，不能替代三层业务证据，详见
+[`current-5a31427-p0-business-observation-2026-08-21-0554.md`](current-5a31427-p0-business-observation-2026-08-21-0554.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `1d161b7`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
