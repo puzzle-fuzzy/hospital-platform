@@ -14,7 +14,7 @@
 | 旧 Python Gunicorn master | `3687390`，启动于 `2026-08-19 10:11:47 CST` | PID 和启动时间未变化 |
 | 旧 Python workers | `3687419`、`3687420`、`3687421`、`3687422` | PID 均仍存活，未重启 |
 | Worker unit | `inactive` | 未启动 |
-| 配套小程序 | 本地 `e050fa0` | 仍未上传线上 |
+| 配套小程序 | 本地 `e050fa0`（切换时的历史候选） | 仍未上传线上；当前验收候选见下方说明 |
 
 切换只使用 `current.next -> current` 同目录原子替换，并只重启
 `hospital-platform-api-v2.service`。旧 Python `8001` 没有停止、重启或改代码。
@@ -89,5 +89,7 @@ Gunicorn PID 与 master 启动时间校验，再次切换成功。两次保护�
 若新 API readiness、公网路径或后续业务只读验收出现无法解释的异常，只将 `current` 原子切回
 `releases/398be8eca74d4f0245b88695056061ac43c7f860` 并只重启新 API；旧 Python `8001` 不参与回滚。
 
-下一步应使用与当前服务端 `0e360d3` 配套的原生小程序本地候选 `e050fa0`，在真实微信会话下重新取得患者目录、显式患者切换、
+后续真机验收应使用当前候选 `ce8d68b`（完整来源
+`ce8d68b15fc0c6a813fbf7a95d36610167874b8e`），而不是本次切换时尚未包含后续会话代际修正的 `e050fa0`；候选记录见
+[`candidate-ce8d68b-local-build-2026-08-20.md`](candidate-ce8d68b-local-build-2026-08-20.md)。在真实微信会话下继续取得患者目录、显式患者切换、
 预约历史和门诊费用只读的页面、HTTP、Provider/日志三层证据。支付、医保、HIS、报告和写入能力继续保持最后专项处理。
