@@ -47,6 +47,11 @@
   造成的 `single-flight.test.js` ENOENT，不增加微信登录、患者、预约或费用的真机证据；扫码后仍须按三层证据顺序验收。
   详见 [`release/miniprogram-device-qr-session-2026-08-21-0644.md`](release/miniprogram-device-qr-session-2026-08-21-0644.md)。
 
+- 2026-08-21 06:47 CST（线上只读业务空窗口）：SSH 复核确认新 API `10.0.0.3:18081`、旧 Python `8001` 共存，Worker inactive，
+  readiness 的 database/redis/schema 均为 `ok`；近 20 分钟没有微信、患者、预约或门诊费用事件。错误版本前缀探针的 `404` 不代表公网代理
+  或业务失败，当前仍需真机扫码取得三层证据。详见
+  [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md)。
+
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
 > `6ce1272`，完整运行包来源为 `6ce12729c3e112a6cb8333c5132c23713d1cb1ec`，尚未上传线上。

@@ -59,6 +59,12 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 不增加真实微信或业务证据；详细记录见
 [`miniprogram-device-qr-session-2026-08-21-0644.md`](miniprogram-device-qr-session-2026-08-21-0644.md)。
 
+2026-08-21 06:47 CST 的 SSH 只读复核确认新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 继续共存，Worker inactive，
+内网 readiness 的 database/redis/schema 均为 `ok`。近 20 分钟没有微信、患者、预约或门诊费用业务事件；直接访问内网应用的带版本
+前缀路径出现的 `404` 属于路径探针，不是公网代理后的业务失败。该窗口详见
+[`current-5a31427-p0-business-observation-2026-08-21-0647.md`](current-5a31427-p0-business-observation-2026-08-21-0647.md)，
+当前 P0 仍等待真机二维码扫码。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `6ce1272`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
