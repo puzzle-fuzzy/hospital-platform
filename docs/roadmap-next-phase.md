@@ -37,6 +37,11 @@
   不使用 fixture 或旧正文冒充生产内容；自测、风险评估、AI 导诊和报告解读保持独立。详见
   [`release/health-knowledge-readiness-audit-2026-08-20.md`](release/health-knowledge-readiness-audit-2026-08-20.md)。
 
+- 2026-08-20（健康知识详情归属门禁）：继续审计只读 service，发现仓储即使返回结构合法的疾病/药品详情，
+  也可能与请求路径中的 opaque id 不一致。现已在 service 运行时白名单校验中绑定 `diseaseId`/`drugId` 与返回
+  `item.id`，错配整次 fail-closed，并保留低敏 `persistence-invalid` 错误语义。该修正只在新项目本地完成，
+  未导入内容、未挂载健康知识 API、未修改旧 Python、数据库、Redis 或线上服务。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

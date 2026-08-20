@@ -557,14 +557,36 @@ export function normalizeHealthKnowledgeSymptomListSnapshot(
 
 export function normalizeHealthKnowledgeDiseaseDocument(
 	value: unknown,
+	expectedDiseaseId?: string,
 ): HealthKnowledgeDocument<HealthKnowledgeDiseaseDetail> | undefined {
-	return normalizeDocument(value, normalizeDiseaseDetail);
+	const document = normalizeDocument(value, normalizeDiseaseDetail);
+	if (
+		document &&
+		expectedDiseaseId !== undefined &&
+		document.item.id !== expectedDiseaseId
+	) {
+		// 详情接口是按 opaque id 定位的；仓储即使返回了一个结构合法的
+		// 其它疾病，也不能让调用方把它当成当前 URL 对应的内容。
+		invalidResult("disease-detail-invalid");
+	}
+	return document;
 }
 
 export function normalizeHealthKnowledgeDrugDocument(
 	value: unknown,
+	expectedDrugId?: string,
 ): HealthKnowledgeDocument<HealthKnowledgeDrugDetail> | undefined {
-	return normalizeDocument(value, normalizeDrugDetail);
+	const document = normalizeDocument(value, normalizeDrugDetail);
+	if (
+		document &&
+		expectedDrugId !== undefined &&
+		document.item.id !== expectedDrugId
+	) {
+		// 药品详情同样必须与请求路径绑定；不能把“查到了一条合法药品”
+		// 当成“查到了用户请求的药品”，避免错患者/错条目展示。
+		invalidResult("drug-detail-invalid");
+	}
+	return document;
 }
 
 /**

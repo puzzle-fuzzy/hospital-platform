@@ -162,3 +162,23 @@ test("health knowledge service fails closed and logs only a fixed violation", as
 		resultViolation: "catalog-item-invalid",
 	});
 });
+
+test("health knowledge service rejects a detail returned for another requested id", async () => {
+	const service = new HealthKnowledgeService({
+		repository: createRepository({
+			getDiseaseDetail: async () => ({
+				publication,
+				item: {
+					id: "disease-other",
+					diseaseName: "另一种疾病",
+					availableDrugs: [],
+				},
+			}),
+		}),
+	});
+
+	await expect(service.getDiseaseDetail("disease-cold")).rejects.toMatchObject({
+		name: "HealthKnowledgeResultValidationError",
+		violation: "disease-detail-invalid",
+	});
+});

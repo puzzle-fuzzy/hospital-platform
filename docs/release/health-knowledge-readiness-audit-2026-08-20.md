@@ -13,7 +13,7 @@
 - `packages/persistence/src/health-knowledge-import.ts`：单事务导入，验证或 SQL 失败时回滚；
 - `packages/persistence/src/mysql-health-knowledge-repository.ts`：只选择同一个 `published` 版本，拒绝草稿/撤回内容；
 - `apps/api/src/modules/knowledge`：只读 service、响应 contract 和旧端路径映射，但模块尚未挂载到公共 API；
-- 健康知识 service 会在日志和响应前重新校验 repository 读模型，并只投影已冻结的患者端字段；异常只记录有限 `resultViolation`，统一映射为持久化错误；
+- 健康知识 service 会在日志和响应前重新校验 repository 读模型，并只投影已冻结的患者端字段；详情返回的 opaque id 必须与请求 id 一致；异常只记录有限 `resultViolation`，统一映射为持久化错误；
 - `apps/api/src/app.test.ts`：验证健康知识路由在审核内容就绪前保持未注册。
 
 ## 2. 当前缺失的上线证据

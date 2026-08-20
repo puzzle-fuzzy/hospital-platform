@@ -122,3 +122,25 @@ test("health knowledge drug details keep the public field boundary", () => {
 		},
 	});
 });
+
+test("health knowledge detail results must match the requested opaque id", () => {
+	const diseaseDocument = {
+		publication,
+		item: {
+			id: "disease-other",
+			diseaseName: "另一种疾病",
+			availableDrugs: [],
+		},
+	};
+	const drugDocument = {
+		publication,
+		item: { id: "drug-other", drugName: "另一种药物" },
+	};
+
+	expect(() =>
+		normalizeHealthKnowledgeDiseaseDocument(diseaseDocument, "disease-cold"),
+	).toThrow(HealthKnowledgeResultValidationError);
+	expect(() =>
+		normalizeHealthKnowledgeDrugDocument(drugDocument, "drug-cold"),
+	).toThrow(HealthKnowledgeResultValidationError);
+});

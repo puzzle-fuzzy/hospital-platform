@@ -109,7 +109,7 @@ export class HealthKnowledgeService {
 		const document = await this.read(
 			"disease-detail",
 			() => this.dependencies.repository.getDiseaseDetail(diseaseId),
-			normalizeHealthKnowledgeDiseaseDocument,
+			(value) => normalizeHealthKnowledgeDiseaseDocument(value, diseaseId),
 		);
 		if (!document) {
 			this.logNotFound("disease-detail", "disease");
@@ -130,7 +130,7 @@ export class HealthKnowledgeService {
 		const document = await this.read(
 			"drug-detail",
 			() => this.dependencies.repository.getDrugDetail(drugId),
-			normalizeHealthKnowledgeDrugDocument,
+			(value) => normalizeHealthKnowledgeDrugDocument(value, drugId),
 		);
 		if (!document) {
 			this.logNotFound("drug-detail", "drug");
