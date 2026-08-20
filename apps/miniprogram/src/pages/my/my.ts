@@ -1,5 +1,6 @@
 import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import {
+	ApiError,
 	getCurrentUser,
 	getUserProfile,
 	safeApiErrorMessage,
@@ -19,6 +20,10 @@ import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
+import {
+	getSessionGeneration,
+	isCurrentSessionGeneration,
+} from "../../services/session-generation";
 import {
 	hasPlatformSession,
 	sessionVerificationStateFromError,
@@ -128,6 +133,20 @@ function showUnavailableMyAction(action: UnavailableMyAction): void {
 }
 
 /**
+ * 创建“页面组合快照已失效”的稳定错误。
+ *
+ * API 客户端可以保护单个请求不把旧会话响应交给调用方，但 `我的` 页面
+ * 还要把 `/me`、普通资料和患者目录组合成一个页面快照。只要其中任意两
+ * 次读取之间发生会话代际变化，就不能把剩余请求的结果继续拼到旧快照上。
+ * 该错误只携带稳定 code，不把 token、用户身份或 provider 原文带入页面。
+ */
+function sessionCompositionChangedError(): ApiError {
+	return new ApiError("Session changed while composing my page", {
+		code: "session-changed",
+	});
+}
+
+/**
  * “我的”页同时读取会话用户和患者目录；从选择页返回或下拉刷新时，
  * 较早的异步周期不能再覆盖当前用户和就诊人数量。普通资料属于可降级
  * 展示增强，患者目录属于关键业务上下文，两者的提交边界在 loadPage 中分开。
@@ -165,6 +184,16 @@ Page<MyPageData, MyPageMethods>({
 	loadPage(): Promise<void> {
 		const pageLoadGuard = getPageLatestRequestGuard(this, "my-page");
 		const requestToken = pageLoadGuard.begin();
+		// 页面组合开始时只记录代际号，不记录 token。`/me` 成功后会重新取
+		// 一次代际，因为首次 GET 可能安全地触发一次会话恢复；从那以后，
+		// 个人资料和患者目录必须属于同一代际，不能把账号切换后的结果拼回
+		// 这一次页面加载。请求级 guard 负责单个响应，这里负责跨请求组合。
+		let expectedSessionGeneration = getSessionGeneration();
+		const assertPageSessionCurrent = (): void => {
+			if (!isCurrentSessionGeneration(expectedSessionGeneration)) {
+				throw sessionCompositionChangedError();
+			}
+		};
 		this.setData({
 			loading: true,
 			error: "",
@@ -180,6 +209,10 @@ Page<MyPageData, MyPageMethods>({
 		const sessionResult = getCurrentUser().then(
 			(payload) => {
 				if (pageLoadGuard.isCurrent(requestToken)) {
+					// `/me` 是当前页面组合的 owner 证明。若它内部因旧 token
+					// 失效而完成了一次安全 GET 重登，以返回后的代际作为后续
+					// 资料/患者读取的起点；不能把请求开始时的旧代际继续沿用。
+					expectedSessionGeneration = getSessionGeneration();
 					this.setData({ sessionState: "valid" });
 				}
 				return payload;
@@ -202,12 +235,26 @@ Page<MyPageData, MyPageMethods>({
 				// 当前页面周期已经被新的 onShow/下拉刷新淘汰时，不再启动后续
 				// 读取。微信请求本身无法取消，但至少不让旧周期扩大为新的业务请求。
 				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
+				assertPageSessionCurrent();
 				// 普通资料虽然只是头像区的展示增强，但 GET 也允许在 401 时
 				// 自动换取新平台会话。它必须在患者目录之前完成；否则两个并行
 				// GET 可能分别属于旧/新会话，页面会把旧患者目录和新资料混在
 				// 一起，或者把 session-changed 误显示成患者目录失败。
 				const applyProfileError = (error: unknown): void => {
 					if (!pageLoadGuard.isCurrent(requestToken)) return;
+					// 个人资料失败不能被普通降级逻辑吞掉会话代际变化；否则
+					// 后面的患者目录会使用新 token，和旧 `/me` 证明拼成混合快照。
+					// 没有 token 时保留原始认证错误，让外层按失效会话收敛；
+					// 仍有新 token 时统一中止本轮，要求下一轮完整 `/me` 重建。
+					if (
+						!isCurrentSessionGeneration(expectedSessionGeneration) &&
+						hasPlatformSession()
+					) {
+						throw sessionCompositionChangedError();
+					}
+					if (error instanceof ApiError && error.code === "session-changed") {
+						throw error;
+					}
 					// 患者目录已经有更重要的错误时，不要用资料失败覆盖它。
 					if (this.data.error) return;
 					this.setData({
@@ -222,6 +269,7 @@ Page<MyPageData, MyPageMethods>({
 				return getUserProfile()
 					.then((response) => {
 						if (!pageLoadGuard.isCurrent(requestToken)) return;
+						assertPageSessionCurrent();
 						const displayName = response.data.displayName.trim();
 						this.setData({
 							userLabel: displayName || "微信用户",
@@ -235,12 +283,20 @@ Page<MyPageData, MyPageMethods>({
 			.then(() => {
 				if (!pageLoadGuard.isCurrent(requestToken) || !hasPlatformSession())
 					return undefined;
+				// 只有与 `/me` 同一代际的资料读取完成后，才允许启动患者
+				// 目录；这是页面级 owner 边界，不能只依赖单个 HTTP 请求成功。
+				assertPageSessionCurrent();
 				// 只有资料请求完成或已降级后才读取患者目录。这样即使资料
 				// GET 触发了自动登录，患者关键读模型也一定从最新代际开始。
 				return loadPatients();
 			})
 			.then((result) => {
 				if (!result) return;
+				if (!isCurrentSessionGeneration(expectedSessionGeneration)) {
+					// 患者请求在 Promise 完成后、setData 前仍可能遇到另一个
+					// 页面换号；响应级 guard 已无法替代这里的组合一致性检查。
+					throw sessionCompositionChangedError();
+				}
 				const patients = result;
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);
@@ -259,6 +315,19 @@ Page<MyPageData, MyPageMethods>({
 			})
 			.catch((error) => {
 				if (pageLoadGuard.isCurrent(requestToken)) {
+					if (error instanceof ApiError && error.code === "session-changed") {
+						// 不把混合快照伪装成普通网络错误，也不在当前页面自动
+						// 重放；清理派生数据后由用户下拉刷新，先重新取得完整
+						// `/me` owner 证明，再读取资料和患者目录。
+						this.setData({
+							sessionState: "checking",
+							userLabel: "微信用户",
+							selectedPatient: null,
+							patientCount: 0,
+							error: "登录状态已变化，请下拉刷新后重试",
+						});
+						return;
+					}
 					this.showError(error, "我的页面加载失败");
 				}
 			})

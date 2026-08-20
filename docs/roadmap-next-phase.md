@@ -46,6 +46,13 @@
   [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md)
   采集页面、HTTP 和低敏日志三层证据。
 
+- 2026-08-20（“我的”页面跨请求会话组合审计）：发现小程序 API 客户端虽然能保护单个请求，
+  但 `/me`、个人资料和患者目录之间仍缺少页面级 owner 代际围栏；账号在资料请求期间切换时，
+  资料降级可能继续启动新账号患者目录，形成混合页面快照。新项目已在小程序页面层补充代际检查、
+  旧派生状态清理和中文回归门禁；定向测试 `163/163`、类型检查通过。本次尚未上传小程序、未部署线上、
+  未调用 Provider、未修改旧 Python 服务、数据库或 Redis。详见
+  [`release/miniprogram-my-page-session-composition-boundary-2026-08-20.md`](release/miniprogram-my-page-session-composition-boundary-2026-08-20.md)。
+
 - 2026-08-20（患者同步过期快照审计）：发现旧同步请求在租约过期并由新幂等键接管后，若晚于新快照返回，
   仅依赖单患者 `directory_last_seen_at` 仍可能重新激活新快照已经停用的患者。新端已在带 operation 的 MySQL
   快照事务中重新锁定 owner 行，并在任何患者写入前拒绝早于已提交成功快照的 `observedAt`；内存仓储同步维护
