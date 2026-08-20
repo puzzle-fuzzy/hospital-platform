@@ -4,14 +4,14 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 服务端 release | `6038560` |
+| 服务端 release | `5a31427` |
 | 小程序客户端 | `6e6604f` |
 | 小程序构建来源 | `6e6604f8089e45ceeaaf4bcbbd57065174a59a31` |
 | 运行根目录 | `apps/miniprogram/dist/` |
-| 上传线上 | 小程序否；服务端已切换，详见 [`6038560-production-acceptance-2026-08-21.md`](6038560-production-acceptance-2026-08-21.md) |
+| 上传线上 | 小程序否；服务端已切换，详见 [`5a31427-production-acceptance-2026-08-21.md`](5a31427-production-acceptance-2026-08-21.md) |
 | 旧服务 | Python `8001`，本次未修改、未重启 |
 
-服务端 `6038560` 已完成新 API 生产切换，详见 [`6038560-production-acceptance-2026-08-21.md`](6038560-production-acceptance-2026-08-21.md)。
+服务端 `5a31427` 已完成新 API 生产切换，详见 [`5a31427-production-acceptance-2026-08-21.md`](5a31427-production-acceptance-2026-08-21.md)。
 
 ## 本候选变更
 
