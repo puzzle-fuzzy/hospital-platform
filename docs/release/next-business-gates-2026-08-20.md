@@ -11,6 +11,7 @@
 
 | 业务域 | 当前代码状态 | 当前能证明的事实 | 下一道真实证据 | 未满足时的处理 |
 | --- | --- | --- | --- | --- |
+| 运行层与未开放能力边界 | 已实现 | `b4a73c4` 新增 `closed-boundary` smoke；`9f21324` 记录当前公网生产模式复核：live/ready/ping 为 `200`、保护路由为 `401`、7 条关闭路径为 `404/not-found` | 每次服务端候选发布都重新执行 `/api/v2` smoke，并确认日志为 `environment=production` | 任一关闭路径返回 `401`、`2xx`、代理层非平台 `404` 或出现 Provider 事件，立即停止发布和业务验收 |
 | 微信登录与会话 | 已实现 | code 形状校验、session TTL、owner 解析和安全日志通过本地门禁 | 真机登录、`/me`、会话失效恢复的 HTTP 与日志同链 | 停止后续患者业务，不把扫码成功当作登录成功 |
 | 患者目录与显式切换 | 已实现 | owner-scoped 目录、临床映射、失效选择和异步代际保护已覆盖 | 当前候选下真实同步、多患者切换、切换后页面/请求归属 | 旧患者残留、映射不一致或过期快照立即停止当前域 |
 | 普通资料 | 读写已实现 | 字段白名单、版本更新、`null` 清空和 409 语义已覆盖 | 首次读取/更新、双设备冲突、真机页面与低敏日志 | 409 不自动覆盖，重新读取后再操作 |
@@ -25,6 +26,8 @@
 ## 2. 执行顺序
 
 ```text
+运行层 live/ready + auth-boundary + closed-boundary smoke
+  ->
 真机微信会话
   -> 患者目录同步
   -> 用户显式选择就诊人
@@ -60,6 +63,7 @@
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
 - 当前候选来源：[`candidate-7f157d4-local-build-2026-08-20.md`](candidate-7f157d4-local-build-2026-08-20.md)
+- 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
 - 患者绑定准入草案：[`../migration/patient-binding-contract-draft.md`](../migration/patient-binding-contract-draft.md)
