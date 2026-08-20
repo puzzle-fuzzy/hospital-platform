@@ -62,6 +62,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "05:45 P0 业务空窗口观察",
 	},
 	{
+		path: "docs/release/current-public-readonly-smoke-2026-08-21-0547.md",
+		label: "05:47 公网只读边界复核",
+	},
+	{
 		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
 		label: "普通资料验收手册",
 	},
@@ -213,6 +217,17 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "## 1. 运行边界",
 				end: "## 2. 低敏业务事件",
 				phrases: [{ text: "当前小程序候选来源", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-public-readonly-smoke-2026-08-21-0547.md",
+		label: "05:47 公网只读边界复核",
+		sections: [
+			{
+				start: "## 1. 当前候选",
+				end: "## 2. 公网响应边界",
+				phrases: [{ text: "小程序完整来源", expected: "full" }],
 			},
 		],
 	},

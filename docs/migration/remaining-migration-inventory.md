@@ -30,6 +30,10 @@
 > 新旧端口继续共存，最近 30 分钟没有 P0 业务事件；回环地址 `127.0.0.1:18081` 不是新 API 监听地址。该窗口只证明运行层，
 > 不增加真机或 Provider 业务证据。详见 [`../release/current-5a31427-p0-business-observation-2026-08-21-0545.md`](../release/current-5a31427-p0-business-observation-2026-08-21-0545.md)。
 
+> 2026-08-21 05:47 CST 公网只读 smoke：健康探针为 `200`，未登录业务读取为 `401`，门诊病历、医保授权和预约写入为 `404`，
+> live/ready 为 `no-store`；这只证明公网 fail-closed 边界，不增加真机或 Provider 业务证据。详见
+> [`../release/current-public-readonly-smoke-2026-08-21-0547.md`](../release/current-public-readonly-smoke-2026-08-21-0547.md)。
+
 > 2026-08-21 患者只读证据补充：在历史服务端 release `0e360d3` 的运行窗口中，
 > `2026-08-20 23:35:18 CST` 至 `2026-08-21 00:05:18 CST` 低敏日志窗口中，解析记录 13 条、解析错误 0、HTTP 完成 5 条且全部为
 > `200`；患者目录读取 `2/2`、患者目录同步 `1/1` 均通过同链业务证据门禁。该窗口没有微信登录、预约历史或门诊费用事件，

@@ -35,6 +35,10 @@ trace 保留修正尚未取得真实 Provider 三层业务样例；下一次真�
 回环地址 `127.0.0.1:18081` 不属于新 API 监听地址。最近 30 分钟仍没有业务事件，详见
 [`current-5a31427-p0-business-observation-2026-08-21-0545.md`](current-5a31427-p0-business-observation-2026-08-21-0545.md)。
 
+2026-08-21 05:47 CST 的公网只读 smoke 确认 live/ready/ping 为 `200`，未登录业务读取为 `401`，病历/医保授权/预约写入为 `404`；
+live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代真机业务证据，详见
+[`current-public-readonly-smoke-2026-08-21-0547.md`](current-public-readonly-smoke-2026-08-21-0547.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `1d161b7`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，

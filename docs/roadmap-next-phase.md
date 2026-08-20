@@ -5,6 +5,11 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 05:47 CST（公网只读边界复核）：`https://test-hp.meiyi.pro` 的 `/api/v2/health/live`、`health/ready`、`system/ping`
+  返回 `200`；live/ready 返回 `Cache-Control: no-store`。未登录的 `/me`、`/patients`、预约历史和门诊费用返回 `401`，
+  门诊病历、医保授权和预约写入保持 `404`。本次不携带 Bearer、不调用 Provider、不写 MySQL/Redis，结果只证明公网路由边界，
+  不增加真机或业务验收证据。详见 [`release/current-public-readonly-smoke-2026-08-21-0547.md`](release/current-public-readonly-smoke-2026-08-21-0547.md)。
+
 - 2026-08-21 05:45 CST（线上只读共存与业务空窗口复核）：服务器确认当前 release `5a31427` active，新 API
   `10.0.0.3:18081` 与旧 Python `8001` 继续共存；使用实际内网监听地址的 readiness 返回 `database=ok`、`redis=ok`、
   `schema=ok`。最近 30 分钟没有微信、患者、预约、门诊费用或普通资料业务事件，最近 10 分钟只有 readiness `200`。
