@@ -26,6 +26,12 @@
 > 2026-08-20 生产更新：服务端已切换到 `0e360d3`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
 > `patInfosFind` 临床引用和患者映射安全边界见 [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md)。
 
+> 2026-08-21 当前患者只读证据补充：在服务端 release `0e360d3` 的
+> `2026-08-20 23:35:18 CST` 至 `2026-08-21 00:05:18 CST` 低敏日志窗口中，解析记录 13 条、解析错误 0、HTTP 完成 5 条且全部为
+> `200`；患者目录读取 `2/2`、患者目录同步 `1/1` 均通过同链业务证据门禁。该窗口没有微信登录、预约历史或门诊费用事件，
+> 因此只能证明当前 release 的患者读取/同步服务链，不能替代新的微信扫码、真机页面、多患者切换或其它业务验收；详见
+> [`../release/miniprogram-real-device-login-acceptance-2026-08-20.md`](../release/miniprogram-real-device-login-acceptance-2026-08-20.md) 第 10 节。
+
 > 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
 > `0e360d32edcfaa49128a7c29aaa4947cf739e090`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
 > `0.0.0.0:8001`；公网 live/ready/ping 均为 200，ready 依赖为 `database=ok`、`redis=ok`、`schema=ok`，
@@ -55,7 +61,7 @@
 
 > 2026-08-20 当前仓库门禁复核：服务端发布基线仍为 `0e360d3`，原生小程序运行输入来源已更新为
 > `7f157d4cca02fa857612daec0b6aa56e328e0083`。`pnpm check` 全部通过：架构 67 条、旧端页面/接口/客户端清单、Provider intake、
-> 285 篇 Markdown 文档、Biome、9 个 workspace 的类型检查/测试/构建均通过；当前 API 测试 184 项通过，小程序测试 169 项通过，
+> 286 篇 Markdown 文档、Biome、9 个 workspace 的类型检查/测试/构建均通过；当前 API 测试 184 项通过，小程序测试 169 项通过，
 > 配置包新增的空白上游地址回退测试也通过。
 > 这只能证明代码边界和构建门禁一致，不能把微信真机、患者多选、预约历史、门诊费用、报告 Provider 或普通资料写入标记为当前 release
 > 的真实完成。当前工作树中的 `apps/miniprogram/project.config.json` 修改和 `.codegraph/` 未跟踪目录属于并行会话，本次未触碰、暂存或提交。
