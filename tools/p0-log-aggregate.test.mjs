@@ -69,6 +69,32 @@ test("并发冲突和支付域保持独立分类", () => {
 	);
 });
 
+test("聚合器统计有界多请求 provider trace 并去重", () => {
+	const summary = aggregateLines([
+		JSON.stringify({
+			event: "patient.directory.snapshot.committed",
+			providerRequestId: "provider-primary",
+			providerRequestIds: [
+				"provider-primary",
+				"provider-archive-001",
+				"provider-archive-002",
+			],
+		}),
+		JSON.stringify({
+			event: "patient.directory.synced",
+			providerRequestId: "provider-primary",
+			providerRequestIds: [
+				"provider-primary",
+				"provider-archive-001",
+				"provider-archive-002",
+			],
+		}),
+	]);
+
+	// 两条成功日志共享同一组请求号，摘要应去重后得到 3，而不是只得到主 ID 的 1。
+	expect(summary.providerRequestIdCount).toBe(3);
+});
+
 test("支持 journald -o json 的 MESSAGE envelope，并忽略已知 systemd 控制消息", () => {
 	const summary = aggregateLines([
 		JSON.stringify({

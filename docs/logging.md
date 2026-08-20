@@ -149,6 +149,10 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 低敏请求号写入日志。当前具体 Provider 是否能返回所有档案请求号，仍由对应 adapter
 contract 决定；不能用日志字段存在推断 Provider 已返回完整链。
 
+P0 日志聚合器会同时读取单个 `providerRequestId` 和有界 `providerRequestIds`，再做去重后
+输出 `providerRequestIdCount`；该数字是关联请求号数量，不是业务请求次数，也不证明
+Provider 结果或页面展示已经成功。
+
 - `patient.directory.snapshot.committed` 表示快照仓储调用已经返回，事务提交事实已经成立；它只记录 Provider 目录数量，
   不代表仓储返回的 active 读模型已经通过二次校验。
 - `patient.directory.synced` 表示完整目录快照事务已经提交，包含 operation ledger 的成功状态，且事务返回的 active 读模型和失效数量

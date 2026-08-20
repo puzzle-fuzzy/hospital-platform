@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 const SAFE_LABEL_PATTERN = /^[A-Za-z0-9_.:-]{1,96}$/u;
 const MAX_DISTINCT_LABELS = 200;
 const MAX_CORRELATION_CHAINS = 256;
+/** 与 domain trace contract 对齐，防止异常日志数组消耗无界聚合资源。 */
+const MAX_PROVIDER_REQUEST_IDS = 8;
 
 /**
  * P0 日志聚合只消费 journald 导出的 JSONL，不参与业务请求，也不改变线上状态。
@@ -14,6 +16,30 @@ function safeLabel(value) {
 	if (typeof value !== "string" && typeof value !== "number") return null;
 	const label = String(value).trim();
 	return SAFE_LABEL_PATTERN.test(label) ? label : null;
+}
+
+/**
+ * 提取单请求和多请求 trace 的低敏请求号。
+ *
+ * 业务日志保留兼容的 `providerRequestId`，多请求场景再写入已由 domain
+ * 校验的 `providerRequestIds`。聚合器不能只读主字段，否则报告/患者档案
+ * 等多次 Provider 调用会被错误汇总成一次；这里再次限制数组长度和 label
+ * 形状，避免异常日志反过来拖垮证据工具。集合去重由调用方负责。
+ */
+function providerRequestIdLabels(record) {
+	const labels = [];
+	const primary = safeLabel(record.providerRequestId);
+	if (primary) labels.push(primary);
+	if (Array.isArray(record.providerRequestIds)) {
+		for (const value of record.providerRequestIds.slice(
+			0,
+			MAX_PROVIDER_REQUEST_IDS,
+		)) {
+			const label = safeLabel(value);
+			if (label) labels.push(label);
+		}
+	}
+	return labels;
 }
 
 function increment(map, key) {
@@ -268,8 +294,9 @@ export function aggregateLines(lines) {
 
 		const traceId = safeLabel(record.traceId) ?? safeLabel(record.requestId);
 		if (traceId) traceIds.add(traceId);
-		const providerRequestId = safeLabel(record.providerRequestId);
-		if (providerRequestId) providerRequestIds.add(providerRequestId);
+		for (const providerRequestId of providerRequestIdLabels(record)) {
+			providerRequestIds.add(providerRequestId);
+		}
 
 		// traceId 优先、requestId 兜底；没有关联标识的日志仍进入普通计数，
 		// 但业务证据门禁不会把它和另一条链上的成功事件拼成一次完成。

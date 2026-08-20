@@ -16,6 +16,7 @@
 - `packages/domain/src/patients.ts`：统一调用 `normalizeExternalTrace`，要求 provider 为
   `zhongyang`、operation 为 `patient-list`，保留已校验的 `requestIds`，丢弃未知扩展字段。
 - `apps/api/src/modules/patients/service.ts`：成功日志统一输出主请求号和可选有界请求号列表。
+- `tools/p0-log-aggregate.mjs`：聚合器同时读取两个字段并去重，避免多请求日志在 P0 摘要中被压缩成一个请求号。
 - 患者 domain/API 测试覆盖多请求列表保留、主 ID 一致性和日志输出；没有放宽患者 owner、
   临床映射、快照完整性或租约门禁。
 
@@ -36,6 +37,7 @@ contract、HTTP trace、页面结果和真机/线上观察共同证明。
 - domain 患者读模型：10/10；
 - API 患者 service：21/21；
 - 测试 gateway 返回三项 request id 时，两个成功事件均保留同一主 ID 和完整有界列表；
+- P0 聚合器回归确认两条重复成功日志的三项 request id 汇总为 `providerRequestIdCount=3`；
 - 未部署、未重启新旧服务、未修改旧 Python、线上 MySQL/Redis 或并行维护的众阳 adapter。
 
 后续若众阳 adapter 开始返回档案请求号，必须继续使用同一列表 contract，并在当前候选
