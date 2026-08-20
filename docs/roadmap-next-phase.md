@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 05:17 CST（线上只读共存与业务窗口复核）：服务器确认服务端 `5a31427` active，新 API
+  `10.0.0.3:18081` 与旧 Python `8001` 继续共存，readiness 的 database/Redis/schema 均为 `ok`；最近 30 分钟
+  journald 只有 1 条健康检查 `200`，没有新的微信、患者、预约、门诊费用或普通资料业务事件。该结果只证明运行层
+  正常，不能升级为真机或 Provider 业务完成；本次没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis。
+  详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0517.md`](release/current-5a31427-p0-business-observation-2026-08-21-0517.md)。
+
 - 2026-08-21 04:51 CST（线上只读观测）：服务器确认服务端 `5a31427` active，新 API `10.0.0.3:18081` 与旧 Python
   `8001` 继续共存；最近 30 分钟没有新的微信、患者、预约、门诊费用或普通资料业务事件。本次没有修改配置、重启服务、
   调用 Provider 或写入 MySQL/Redis，因此仍没有当前候选的真机三层业务证据。详见
