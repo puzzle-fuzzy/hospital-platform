@@ -325,6 +325,10 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("onUnload");
 	expect(selection).toContain("navigationPending");
 	expect(selection).toContain("if (!this.data.navigationPending) return;");
+	expect(selection).toContain(
+		"if (this.data.navigationPending) return Promise.resolve();",
+	);
+	expect(selection).toContain("wx.stopPullDownRefresh();");
 	expect(selection).toContain("patientNavigationTimers");
 	expect(selection).toContain("clearTimeout(navigationTimer)");
 	expect(selection).toContain("patientNavigationTimers.delete(this)");
@@ -339,6 +343,7 @@ test("native mini program exposes a real patient selection page", async () => {
 	// WXML 事件对象不能进入只接受 number 的内部加载 token 流程；
 	// 真机刷新必须经过无参数事件入口再创建本轮 token。
 	expect(template).toContain('bindtap="onSyncPatients"');
+	expect(template).toContain('disabled="{{syncing || navigationPending}}"');
 	expect(selection).toContain("onSyncPatients(): Promise<void>");
 	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken: number)");
 	expect(selection).not.toContain(

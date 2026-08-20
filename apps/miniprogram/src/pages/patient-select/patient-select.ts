@@ -327,6 +327,11 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 * 隔离框架事件和业务状态。
 	 */
 	onSyncPatients(): Promise<void> {
+		// 选择完成后页面已经进入延迟返回窗口；此时再次启动同步会让即将
+		// 离开的页面发起第二条 Provider 命令，并把“选择患者”和“刷新目录”
+		// 两个不同业务动作混在同一个页面周期内。WXML 已经禁用按钮，方法层
+		// 仍保留门禁，防止测试、无障碍或未来其它入口绕过视图属性。
+		if (this.data.navigationPending) return Promise.resolve();
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
 		return this.syncPatientDirectoryForLoad(listLoadGuard.begin());
 	},
@@ -402,6 +407,12 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	onPullDownRefresh(): void {
+		// 下拉刷新同样是目录同步命令；选择完成后等待返回期间必须停止刷新，
+		// 避免旧页面在返回调用页前又创建一轮患者快照。
+		if (this.data.navigationPending) {
+			wx.stopPullDownRefresh();
+			return;
+		}
 		this.loadPatientList().finally(() => wx.stopPullDownRefresh());
 	},
 
