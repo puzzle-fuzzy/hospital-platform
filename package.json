@@ -16,6 +16,7 @@
 		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"db:schema": "pnpm --filter @hospital/persistence schema",
 		"dev": "turbo run dev --parallel",
+		"device:evidence:audit": "bun tools/device-evidence-audit.mjs",
 		"docs:audit": "bun tools/docs-link-audit.mjs",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
