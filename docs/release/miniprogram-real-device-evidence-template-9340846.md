@@ -1,4 +1,6 @@
-# 小程序当前候选真机三层证据记录模板（`9340846`）
+# 小程序历史候选真机三层证据记录模板（`9340846`）
+
+> 本模板已被当前候选 [`miniprogram-real-device-evidence-template-6677671.md`](miniprogram-real-device-evidence-template-6677671.md) 替代，仅用于追溯。
 
 > 本文件是空白记录模板，不代表任何业务已经验收。每条 `passed` 必须同时具备真机页面、客户端 HTTP 和服务端低敏日志三层证据。
 

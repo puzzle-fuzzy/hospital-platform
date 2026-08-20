@@ -2,7 +2,7 @@
 
 本文只验收普通资料的读取、版本条件更新和并发冲突，不验收实名资料、头像、患者关系、医保身份或任何支付能力。
 当前配套服务端 release 为 `5a31427`，小程序运行包来源必须为完整
-`93408462f3eeadffed172f1ea3b10c043d461b1b`（当前本地候选 `9340846`，尚未上传线上）。旧 `mp-weixin` 项目、旧 Python 服务和旧接口不属于本手册证据。
+`667767123efdb5b3a0bedbe423ab1797f16b1247`（当前本地候选 `6677671`，尚未上传线上）。旧 `mp-weixin` 项目、旧 Python 服务和旧接口不属于本手册证据。
 
 ## 1. 业务不变量
 
@@ -18,7 +18,7 @@
 | 检查项 | 必须满足的结果 |
 | --- | --- |
 | 开发者工具项目 | 窗口为新 `miniprogram`，资源树包含 `dist/`，不是旧 `mp-weixin` |
-| 构建来源 | `dist/build-info.json.sourceRevision` 等于 `93408462f3eeadffed172f1ea3b10c043d461b1b` |
+| 构建来源 | `dist/build-info.json.sourceRevision` 等于 `667767123efdb5b3a0bedbe423ab1797f16b1247` |
 | 服务端 | 当前运行 bundle 为 `5a31427`，生产模式，旧 Python `8001` 继续运行 |
 | 依赖 | `health/ready` 返回 `database/redis/schema=ok` |
 | 会话 | 新项目扫码后产生的微信会话；不能复用旧调试窗口 token 或历史日志 |

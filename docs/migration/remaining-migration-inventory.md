@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `93408462f3eeadffed172f1ea3b10c043d461b1b`（提交 `9340846`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `667767123efdb5b3a0bedbe423ab1797f16b1247`（提交 `6677671`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-21 当前执行顺序：私网监听、数据库/Redis/schema readiness 和新旧服务共存已经完成只读复核；下一步先取得当前小程序候选的真实微信会话、患者显式切换、预约历史和门诊费用只读三层证据，
 > 再验收普通资料写入。报告、患者绑定、门诊病历和二维码必须等各自 Provider contract、权限/归属、脱敏样例和可回滚验收材料齐全后再实现；支付、医保和 HIS 回写最后处理。
@@ -92,7 +92,7 @@
 > [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.1 节。
 
 > 2026-08-21 当前仓库门禁复核：服务端发布基线已切换为 `5a31427`，原生小程序运行输入来源已更新为
-> `93408462f3eeadffed172f1ea3b10c043d461b1b`。`pnpm check` 全部通过：架构 67 条、旧端页面/接口/客户端清单、Provider intake、
+> `667767123efdb5b3a0bedbe423ab1797f16b1247`。代码、架构、迁移清单、Provider intake、文档、类型、测试均通过；小程序构建门禁随后以当前候选重新执行，
 > 327 篇 Markdown 文档、Biome、9 个 workspace 的类型检查/测试/构建均通过；当前 API 测试 188 项通过，小程序测试 170 项通过，
 > 配置包新增的空白上游地址回退测试也通过。
 > 这只能证明代码边界和构建门禁一致，不能把微信真机、患者多选、预约历史、门诊费用、报告 Provider 或普通资料写入标记为当前 release
@@ -167,8 +167,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/5a31427-production-acceptance-2026-08-21.md`](../release/5a31427-production-acceptance-2026-08-21.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `9340846`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `93408462f3eeadffed172f1ea3b10c043d461b1b`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `6677671`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `667767123efdb5b3a0bedbe423ab1797f16b1247`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
