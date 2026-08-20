@@ -398,6 +398,9 @@ test("众阳档案返回空卡片列表时拒绝绑定临床 patId", async () =>
 						data: {
 							patName: "张三",
 							patId: "his-patient-empty-card-list",
+							// 即使顶层卡号看起来匹配，显式空卡片列表也不能证明
+							// 本次查询卡号属于该档案。
+							cardNo: "requested-card-empty-list-001",
 							patCardVOList: [],
 						},
 					}),
@@ -432,6 +435,114 @@ test("众阳档案返回空卡片列表时拒绝绑定临床 patId", async () =>
 		name: "ProviderRequestError",
 		operation: "patient-archive",
 		requestId: "archive-empty-card-list-001",
+		responseInvalid: true,
+	});
+});
+
+test("众阳档案卡片列表不能被顶层卡号的并集结果绕过", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			if (String(input).includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patName: "张三",
+							patId: "his-patient-card-list-authority-001",
+							// 旧实现会把这个顶层卡号与列表卡号合并，
+							// 从而错误放行；卡片数组必须独立包含查询卡号。
+							cardNo: "requested-card-list-authority-001",
+							patCardVOList: [{ patCardNo: "different-card-002" }],
+						},
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "archive-card-list-authority-001" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-card-list-authority-001",
+							patientName: "张三",
+							medicalCardNo: "requested-card-list-authority-001",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "directory-card-list-authority-001" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity(
+			{ unionId: "union-card-list-authority-001" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		requestId: "archive-card-list-authority-001",
+		responseInvalid: true,
+	});
+});
+
+test("众阳档案卡片列表没有可比较卡号时拒绝绑定临床 patId", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			if (String(input).includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patName: "张三",
+							patId: "his-patient-card-list-without-number-001",
+							cardNo: "requested-card-without-number-001",
+							patCardVOList: [{ cardStatus: "0" }],
+						},
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "archive-card-list-without-number-001" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-card-list-without-number-001",
+							patientName: "张三",
+							medicalCardNo: "requested-card-without-number-001",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "directory-card-list-without-number-001" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity(
+			{ unionId: "union-card-list-without-number-001" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		requestId: "archive-card-list-without-number-001",
 		responseInvalid: true,
 	});
 });

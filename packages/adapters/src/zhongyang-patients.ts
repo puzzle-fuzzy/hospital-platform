@@ -421,10 +421,10 @@ function ensureArchiveMatchesQuery(
 		);
 	}
 
-	const returnedCards = new Set<string>();
+	const returnedTopLevelCards = new Set<string>();
 	for (const field of ARCHIVE_CARD_FIELDS) {
 		const card = optionalArchiveCardText(archive[field], field, requestId);
-		if (card !== undefined) returnedCards.add(card);
+		if (card !== undefined) returnedTopLevelCards.add(card);
 	}
 
 	const patientCards = archive.patCardVOList;
@@ -432,7 +432,6 @@ function ensureArchiveMatchesQuery(
 	// 但只要明确返回数组（包括空数组），它就成为本次档案身份关联的一部分。
 	// 空数组或只有无卡号字段的数组不能证明查询卡号属于该档案，必须拒绝，
 	// 不能因为顶层仍有一个合法格式的 patId 就放行错误临床映射。
-	const patientCardListProvided = Array.isArray(patientCards);
 	if (patientCards !== undefined && patientCards !== null) {
 		if (!Array.isArray(patientCards)) {
 			throw providerError(
@@ -442,6 +441,7 @@ function ensureArchiveMatchesQuery(
 				true,
 			);
 		}
+		const returnedCardListCards = new Set<string>();
 		for (const [index, item] of patientCards.entries()) {
 			if (typeof item !== "object" || item === null || Array.isArray(item)) {
 				throw providerError(
@@ -471,15 +471,29 @@ function ensureArchiveMatchesQuery(
 					`patCardVOList[${index}].${field}`,
 					requestId,
 				);
-				if (card !== undefined) returnedCards.add(card);
+				if (card !== undefined) returnedCardListCards.add(card);
 			}
 		}
-	}
-
-	if (
-		(patientCardListProvided || returnedCards.size > 0) &&
-		!returnedCards.has(requestedCard)
+		// Provider 明确返回卡片数组后，数组本身才是卡片归属证据：空数组、
+		// 没有任何可比较卡号的数组，或数组不包含本次查询卡号，都必须拒绝。
+		// 不能让顶层 cardNo 与卡片数组做并集，否则“顶层匹配但卡片列表
+		// 为空/指向另一张卡”的错误档案会被误写成有效 HIS 映射。
+		if (
+			returnedCardListCards.size === 0 ||
+			!returnedCardListCards.has(requestedCard)
+		) {
+			throw providerError(
+				"Zhongyang patient archive did not match requested card",
+				requestId,
+				"patient-archive",
+				true,
+			);
+		}
+	} else if (
+		returnedTopLevelCards.size > 0 &&
+		!returnedTopLevelCards.has(requestedCard)
 	) {
+		// Provider 未返回卡片数组时，才使用顶层卡号做最小兼容校验。
 		throw providerError(
 			"Zhongyang patient archive did not match requested card",
 			requestId,
