@@ -1,0 +1,77 @@
+# 当前只读业务链审计（2026-08-21）
+
+> 本记录以服务端 `5a31427` 和小程序本地候选 `6ce1272` 为基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
+>
+> 本地代码和测试通过不等于真实 Provider、HTTPS、真机页面或业务日志三层验收完成。
+
+## 1. 本轮结论
+
+本轮没有发现可以在不猜测 Provider 合同的前提下安全修改的业务缺口，因此没有新增兼容字段，也没有打开预约写入、全部挂号、支付、医保或 HIS 回写。
+
+已经确认的只读链路如下：
+
+```text
+当前平台会话
+  -> owner-scoped 患者目录
+  -> 显式选择且临床映射可用的内部 patientId
+  -> 预约历史 / 爽约 / 门诊费用查询
+  -> 服务端状态、日期、金额和引用校验
+  -> 页面请求令牌 + 当前患者复核
+  -> 小程序展示
+```
+
+- “我的挂号”使用过去 90 天至未来 90 天的中国标准时间窗口。
+- “爽约记录”只使用过去 90 天，并且只筛选服务端明确归一化的 `missed`，不会把未知状态或空列表猜成爽约。
+- 门诊费用只开放 `unpaid`/`paid` 只读目录，由服务端固定查询最近 30 个中国标准时间日；金额在服务端和客户端均保持整数分语义。
+- 三个页面在开始新一轮患者查询时清除旧卡片和列表；只有会话代际、页面请求令牌、当前显式患者和本次响应同时有效时才回写。
+- `dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在，运行包内 `*.test.js`/`*.spec.js` 数量为 0。再次出现该 ENOENT 时应按开发者工具旧增量索引处理，不得把测试脚本复制进运行包。
+
+## 2. 代码边界
+
+| 链路 | 关键位置 | 已确认的边界 |
+| --- | --- | --- |
+| 预约历史 | `apps/api/src/modules/appointments/service.ts` | owner-scoped `his-patient` 映射、日期窗口、状态和 Provider 结果二次校验；日志只保留低敏关联字段和状态计数 |
+| 爽约记录 | `apps/miniprogram/src/pages/missed-appointments/missed-appointments.ts` | 只消费服务端 `missed` 枚举，不能用 Provider 数字状态在客户端自行推断 |
+| 门诊费用 | `apps/api/src/modules/outpatient-payments/index.ts` | 固定 30 日窗口、患者映射、状态、账单时间、金额、重复记录和 trace 校验；不创建支付订单 |
+| 页面患者上下文 | `apps/miniprogram/src/services/dashboard-service.ts`、三个患者范围页面 | 统一读取当前 owner 目录，显式选择失效时 fail-closed，旧异步结果不得覆盖新患者 |
+| 运行包 | `apps/miniprogram/tsconfig.build.json`、`scripts/build.ts`、`scripts/runtime-publisher.ts` | 测试源码不进入 `dist`，staging 完成后才原子替换运行目录，并在发布前拒绝测试脚本 |
+
+## 3. 当前验证证据
+
+| 范围 | 命令 | 结果 |
+| --- | --- | --- |
+| 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 169 项通过，0 项失败，1359 个断言 |
+| API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
+| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `6ce1272`，不含测试脚本 |
+| 当前运行目录 | `apps/miniprogram/dist/services/single-flight.js` | 存在 |
+| 当前运行目录 | `apps/miniprogram/dist/services/single-flight.test.js` | 不存在 |
+
+## 4. 真机前的 ENOENT 恢复动作
+
+如果微信开发者工具继续报告：
+
+```text
+ENOENT .../apps/miniprogram/dist/services/single-flight.test.js
+```
+
+按以下顺序恢复：
+
+1. 停止当前真机调试并关闭当前小程序项目窗口。
+2. 确认开发者工具重新导入的是 `E:/__Super_Core__/hospital-platform/apps/miniprogram/`，且 `project.config.json` 的 `miniprogramRoot` 为 `dist/`。
+3. 清理开发者工具的文件/编译缓存后重新打开项目；本机 `project.private.config.json` 保持 `setting.ignoreDevUnusedFiles=false`。
+4. 重新执行一次普通编译，再生成新的真机二维码。
+5. 编译前后都确认 `dist/` 没有 `*.test.js` 或 `*.spec.js`。不要手工创建或复制 `single-flight.test.js`。
+
+该错误属于开发者工具旧增量模块索引引用已被构建排除的测试文件，不是当前业务运行文件缺失。若清理缓存后仍出现，应记录完整时间、当前 `dist/build-info.json` 的 `sourceRevision` 和开发者工具项目路径，再停止本次真机业务操作。
+
+## 5. 尚未完成的真实业务证据
+
+以下事项保持原门禁，不因本轮测试通过而提前开放：
+
+1. 当前候选的微信登录、患者同步和多就诊人切换三层真机证据；
+2. 预约历史、爽约、门诊费用的真实 Provider + HTTPS + 页面三层闭环；
+3. 报告目录/详情、病历、新增/绑定就诊人和动态医院数据的正式 contract；
+4. 预约写入、取消、支付、医保授权、结算、退款和 HIS 回写；
+5. 二维码载荷、签名、有效期、受众和防重放规则的医院确认。
+
+后续仍按“真实微信会话 → 患者显式选择 → 预约历史/爽约 → 门诊费用只读 → 普通资料 → 报告 contract → 支付医保最后专项”推进。任一环节出现患者归属、状态、日期、金额或 trace 不一致，立即停止该业务域并回到 contract 审计。

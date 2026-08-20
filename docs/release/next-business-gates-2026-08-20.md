@@ -58,6 +58,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `6ce1272`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
+本轮更新后的详细审计见 [`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)。
 
 ### 已确认的业务边界
 
