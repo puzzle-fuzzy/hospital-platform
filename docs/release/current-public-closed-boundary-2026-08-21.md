@@ -1,7 +1,7 @@
 # 当前公网关闭能力边界复核（2026-08-21）
 
-> 本文只记录当前公网路由的 fail-closed 边界，不代表 Provider、微信真机或任何业务域已经完成真实验收。
-> 复核服务端发布基线为 `0e360d3`；配套小程序本地候选为 `6e6604f`。本次请求不携带 Bearer 会话，
+> 本文记录 2026-08-21 02:41 生产切换前的公网 fail-closed 边界窗口，不代表 Provider、微信真机或任何业务域已经完成真实验收。
+> 该历史窗口使用服务端 `0e360d3`；当前服务端已切换为 `6038560`，配套小程序本地候选仍为 `6e6604f`。本次请求不携带 Bearer 会话，
 > 不提交患者数据，不调用 Provider，不修改数据库、Redis 或旧 Python 服务。
 
 ## 1. 公网结果
@@ -42,11 +42,11 @@ runtime smoke 会对患者新增、门诊病历目录/详情、医保授权、�
 或 GET，并要求每条同时返回 HTTP `404` 与平台错误码 `not-found`。这只是防止路由被意外注册的工程门禁，
 不替代 Provider/HIS contract、真机页面、微信会话或真实业务验收；本节代码变更尚未声称已重新取得公网运行证据。
 
-## 5. `b4a73c4` 工具对当前公网的生产模式复核
+## 5. `b4a73c4` 工具对切换前公网的生产模式复核
 
 2026-08-21 00:49:28-00:49:31 CST，使用本地提交 `b4a73c4` 的 runtime smoke，设置
 `NODE_ENV=production`、`HOSPITAL_API_PREFIX=/api/v2`、`HOSPITAL_RUNTIME_REQUIRE_READY=true`，
-对当前线上服务端 `0e360d3` 执行只读边界检查：
+对当时线上服务端 `0e360d3` 执行只读边界检查：
 
 | 检查 | 结果 |
 | --- | --- |
@@ -57,5 +57,5 @@ runtime smoke 会对患者新增、门诊病历目录/详情、医保授权、�
 | `closed-boundary` | `404/not-found`，7 条关闭路径全部通过 |
 
 本次只携带 smoke 生成的 request id，不携带平台 Bearer、微信 code、患者/订单数据，也没有调用
-Provider、修改数据库/Redis 或重启任何服务；日志明确打印 `environment=production`。这证明当前公网
+Provider、修改数据库/Redis 或重启任何服务；日志明确打印 `environment=production`。这证明切换前公网
 关闭边界仍然成立，不证明 `b4a73c4` 已部署，也不证明任何支付、医保、预约写入或病历业务已经完成。

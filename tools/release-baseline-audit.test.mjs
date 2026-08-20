@@ -158,11 +158,11 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	const result = await auditCurrentReleaseConsistency();
 	// 这里固定当前验收候选，而不是只断言 passed=true：候选文档、运行包来源
 	// 和路线图如果被部分更新，单独的发布审计仍可能通过，但真机就会拿到
-	// 与服务端不配套的旧包。当前生产服务已经切换到 0e360d3，后续切换候选时
+	// 与服务端不配套的旧包。当前生产服务已经切换到 6038560，后续切换候选时
 	// 必须同步更新这组三项断言，不能让历史 release 继续伪装成当前基线。
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "0e360d3",
+		serverRelease: "6038560",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
 		miniProgramCommit: "6e6604f",
