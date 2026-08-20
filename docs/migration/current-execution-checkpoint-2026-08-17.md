@@ -19,14 +19,14 @@
 | 仓库代码基线 | `main` 当前 HEAD（以 Git history 为准）；生产运行 bundle 的代码来源为 `0e360d3`，仓库 HEAD 不能替代线上 release | Git history；线上 bundle provenance 见最新发布记录 |
 | 线上新 API | `0e360d3`，监听 `10.0.0.3:18081`，由 `hospital-platform-api-v2.service` 托管 | [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md) |
 | 旧 API | Python `8001` 继续运行，不能因为新端验收而停止 | 同上 |
-| 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/398be8e-production-acceptance-2026-08-19.md`](../release/398be8e-production-acceptance-2026-08-19.md) |
-| 运行前置 | 公网 live、ready、system ping 通过，隔离 smoke ready 连续 3/3，未登录受保护路由返回 `401/unauthorized`；切换后启动日志为 production 且依赖均为 `ok` | [`../release/398be8e-production-acceptance-2026-08-19.md`](../release/398be8e-production-acceptance-2026-08-19.md) |
+| 依赖 | 线上远端 MySQL `hospital-dev` 共库、Redis DB3/DB1 隔离、schema `0016`；`0016_patient_directory_sync_owner_index` 已应用并通过生产 preflight | [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md) |
+| 运行前置 | 公网 live、ready、system ping 通过，隔离 smoke ready 连续 3/3，未登录受保护路由返回 `401/unauthorized`；切换后启动日志为 production 且依赖均为 `ok` | [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md) |
 | 原生页面 | `app.json` 注册 14 页，页面/构建/跳转台账通过 | [`native-page-migration-status.md`](native-page-migration-status.md) |
 | Provider 文档 | 当前 intake 审计 3 份接收记录、26 个 documentId；新增旧项目目录发现材料和挂号/支付/退款材料均为 `normalized`，不能据此打开写入 | [`../provider-intake/2026-08-17-legacy-document-discovery.md`](../provider-intake/2026-08-17-legacy-document-discovery.md) |
 
 ## 1.1 b7c9451 切换前的历史运行窗口（仅供追溯）
 
-以下时间段的 release、监听和日志描述保留原始事实，但不能覆盖上方的当前 `398be8e` 运行基线。
+以下时间段的 release、监听和日志描述保留原始事实，但不能覆盖上方的当前 `0e360d3` 运行基线。
 
 2026-08-18 21:08-21:10 CST 的切换后 SSH/公网只读复核确认 `687690e`、新 `10.0.0.3:18081`、旧 `0.0.0.0:8001` 和内外网
 readiness 均正常；本次只重启新 API，没有修改旧服务、旧端口或数据库。此前 `c63dba9` 的日志和业务事件仍按历史 release 理解，不能回填当前业务验收。

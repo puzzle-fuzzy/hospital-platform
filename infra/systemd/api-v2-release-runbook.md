@@ -191,6 +191,12 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-20 13:42–13:44 CST：候选 `0e360d3` 已完成本地全仓门禁、真实生产 env preflight、
+`127.0.0.1:18082` 隔离 runtime smoke，并从 `398be8e` 原子切换到当前 `current`，只重启
+`hospital-platform-api-v2.service`。切换后内网/公网 readiness、生产模式启动日志、公网 runtime smoke 和 journald
+低敏聚合均通过；旧 Python `8001` 的 Gunicorn master/worker PID 与启动时间未变化。完整证据见
+[`../../docs/release/0e360d3-production-acceptance-2026-08-20.md`](../../docs/release/0e360d3-production-acceptance-2026-08-20.md)。
+
 2026-08-19 16:30–16:37 CST：候选 `398be8e` 已完成八个 bundle SHA-256 对照、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `968af78` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。切换后公网 `/api/v2` live、ready 连续 6/6、system-ping 和未登录认证边界均通过，
