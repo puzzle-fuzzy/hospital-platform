@@ -65,6 +65,16 @@ test("runtime config trims secrets and parses explicit worker settings", () => {
 	});
 });
 
+test("blank WeChat upstream URLs fall back to official HTTPS defaults", () => {
+	const config = loadRuntimeConfig({
+		WECHAT_IDENTITY_BASE_URL: "  ",
+		WECHAT_PAY_BASE_URL: "",
+	});
+
+	expect(config.wechatIdentityBaseUrl).toBe("https://api.weixin.qq.com");
+	expect(config.wechatPayBaseUrl).toBe("https://api.mch.weixin.qq.com");
+});
+
 test("runtime config rejects an unsafe worker interval", () => {
 	expect(() => loadRuntimeConfig({ WORKER_POLL_INTERVAL_MS: "10" })).toThrow(
 		"WORKER_POLL_INTERVAL_MS",

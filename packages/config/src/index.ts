@@ -55,6 +55,11 @@ export type RuntimeConfig = {
 	workerPollIntervalMs: number;
 };
 
+/** 微信身份接口的官方默认地址；自定义地址必须由部署环境显式提供 HTTPS。 */
+const DEFAULT_WECHAT_IDENTITY_BASE_URL = "https://api.weixin.qq.com";
+/** 微信支付 APIv3 的官方默认地址；空白环境变量不能覆盖这个安全默认值。 */
+const DEFAULT_WECHAT_PAY_BASE_URL = "https://api.mch.weixin.qq.com";
+
 /**
  * 配置状态只描述“开关与必填字段是否齐全”，不代表 provider 沙箱或生产
  * 联调已经通过；把 configured 和真实可用性分开，避免日志给出过度承诺。
@@ -433,6 +438,17 @@ function optional(value: string | undefined): string | undefined {
 	return normalized ? normalized : undefined;
 }
 
+/**
+ * 解析可覆盖的上游地址。
+ *
+ * 环境变量经常会因为模板替换留下空字符串或首尾空格；这类值应视为“未
+ * 覆盖”，回退到官方 HTTPS 地址，避免配置状态显示 configured 却把空地址
+ * 注入 adapter。非空自定义地址仍交给 provider 配置闸门校验 HTTPS。
+ */
+function providerBaseUrl(value: string | undefined, fallback: string): string {
+	return optional(value) ?? fallback;
+}
+
 function origins(value: string | undefined): string[] {
 	if (!value) return ["http://localhost:5173", "http://127.0.0.1:5173"];
 	return value
@@ -480,8 +496,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		wechatIdentityReady: boolean(env.WECHAT_IDENTITY_READY, false),
 		wechatAppId: optional(env.WECHAT_APPID),
 		wechatAppSecret: optional(env.WECHAT_APP_SECRET),
-		wechatIdentityBaseUrl:
-			env.WECHAT_IDENTITY_BASE_URL ?? "https://api.weixin.qq.com",
+		wechatIdentityBaseUrl: providerBaseUrl(
+			env.WECHAT_IDENTITY_BASE_URL,
+			DEFAULT_WECHAT_IDENTITY_BASE_URL,
+		),
 		wechatPaymentReady: boolean(env.WECHAT_PAYMENT_READY, false),
 		wechatPayAppId: optional(env.WECHAT_PAY_APP_ID),
 		wechatPayMchId: optional(env.WECHAT_PAY_MCH_ID),
@@ -495,8 +513,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		wechatPayPlatformPublicKey: optional(env.WECHAT_PAY_PLATFORM_PUBLIC_KEY),
 		wechatPayApiV3Key: optional(env.WECHAT_PAY_API_V3_KEY),
 		wechatPayNotifyUrl: optional(env.WECHAT_PAY_NOTIFY_URL),
-		wechatPayBaseUrl:
-			env.WECHAT_PAY_BASE_URL ?? "https://api.mch.weixin.qq.com",
+		wechatPayBaseUrl: providerBaseUrl(
+			env.WECHAT_PAY_BASE_URL,
+			DEFAULT_WECHAT_PAY_BASE_URL,
+		),
 		patientDirectoryReady: boolean(
 			env.ZHONGYANG_PATIENT_DIRECTORY_READY,
 			false,
