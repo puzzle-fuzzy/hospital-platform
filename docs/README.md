@@ -17,6 +17,7 @@
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/candidate-3a89312-local-build-2026-08-20.md`](release/candidate-3a89312-local-build-2026-08-20.md) | 当前小程序本地构建来源、测试脚本隔离、运行包门禁和真机前置条件；小程序尚未上传线上，服务端基线为 `0e360d3` |
+| [`release/miniprogram-device-qr-session-2026-08-20-2004.md`](release/miniprogram-device-qr-session-2026-08-20-2004.md) | 当前 `3a89312` 候选重新生成的 iOS 真机二维码会话；仅记录运行层和扫码前状态，不代表登录或业务验收成功 |
 | [`release/candidate-767ed9c-local-build-2026-08-20.md`](release/candidate-767ed9c-local-build-2026-08-20.md) | 历史 `767ed9c` 小程序候选构建记录；不能替代当前 `3a89312` 候选 |
 | [`release/candidate-d772f09-local-build-2026-08-20.md`](release/candidate-d772f09-local-build-2026-08-20.md) | 历史 `d772f09` 小程序候选构建记录；不能替代当前 `3a89312` 候选 |
 | [`release/candidate-0dccf54-local-build-2026-08-20.md`](release/candidate-0dccf54-local-build-2026-08-20.md) | 历史 `0dccf54` 小程序候选构建记录；不能替代当前 `3a89312` 候选 |

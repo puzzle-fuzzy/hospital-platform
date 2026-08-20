@@ -17,7 +17,7 @@
 - `pnpm --filter @hospital/miniprogram test`：168 项通过，0 项失败，1329 个断言。
 - `pnpm --filter @hospital/miniprogram build`：通过，14 个页面脚本完整生成。
 - `pnpm --filter @hospital/miniprogram runtime:verify`：通过。
-- 全仓 `pnpm check`：9/9 任务通过；架构门禁 67 条、文档审计 268 个文档、工具测试 31 项通过。
+- 全仓 `pnpm check`：9/9 任务通过；架构门禁 67 条、文档审计 269 个文档、工具测试 31 项通过。
 - `dist/` 中 `*.test.js` 和 `*.spec.js` 数量为 0。
 - `dist/build-info.json.sourceRevision` 与本记录的完整来源一致。
 
