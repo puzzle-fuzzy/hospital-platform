@@ -42,7 +42,7 @@
 
 ```text
 服务端 profile service：13 pass，0 fail，53 expect()
-小程序原生全量回归：169 pass，0 fail，1351 expect()
+小程序原生全量回归：169 pass，0 fail，1354 expect()
 小程序 TypeScript：通过
 ```
 
