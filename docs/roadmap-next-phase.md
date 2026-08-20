@@ -10,7 +10,7 @@
 > `ac238c6`，完整运行包来源为 `ac238c6156f085fdb56f5806fefac3613e5f85be`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
-- 2026-08-20（配置与运行包边界复核）：代码修正提交为 `a2af341`，当前路线图提交为 `c39f59f`。微信身份和微信支付上游地址的空字符串/空白值现在会
+- 2026-08-20（配置与运行包边界复核）：前序配置修正提交为 `a2af341`，随后又完成 Redis 连接并发边界收敛；微信身份和微信支付上游地址的空字符串/空白值现在会
   回退到官方 HTTPS 默认地址，配置闸门与 adapter 收到的地址保持一致；小程序构建仍硬性排除测试脚本，
   `dist/services/single-flight.test.js` 不属于运行包。真实微信会话、Provider 业务和真机三层证据仍未因本次本地门禁通过而完成。
   详见 [`release/configuration-normalization-2026-08-20.md`](release/configuration-normalization-2026-08-20.md)。
