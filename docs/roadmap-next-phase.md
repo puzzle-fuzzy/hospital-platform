@@ -23,8 +23,8 @@
 
 - 2026-08-21（患者目录 trace 保留边界）：domain 现在会保留 gateway 返回且通过统一校验的有界 `requestIds`，
   service 的 `patient.directory.snapshot.committed` / `patient.directory.synced` 同时记录兼容主 ID 和列表；
-  当前众阳患者 adapter 尚未因本轮改动而改变，另一个会话的自动化获取不受影响。domain 10/10、患者 service 21/21
-  定向测试通过；本轮未部署、未重启新旧服务，详见
+  P0 聚合器也会读取两种字段并去重统计；当前众阳患者 adapter 尚未因本轮改动而改变，另一个会话的自动化获取不受影响。
+  domain 10/10、患者 service 21/21、P0 工具 32/32 定向测试通过；本轮未部署、未重启新旧服务，详见
   [`release/patient-directory-trace-retention-2026-08-21.md`](release/patient-directory-trace-retention-2026-08-21.md)。
 
 - 2026-08-20 23:14 CST（历史候选真机工具复核）：针对 `dist/services/single-flight.test.js` 的 ENOENT，历史 `7f157d4`
