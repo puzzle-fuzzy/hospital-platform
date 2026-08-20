@@ -44,6 +44,11 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 这只说明当前没有新的真机请求，不能替代三层业务证据，详见
 [`current-5a31427-p0-business-observation-2026-08-21-0554.md`](current-5a31427-p0-business-observation-2026-08-21-0554.md)。
 
+2026-08-21 06:03 CST 再次通过 SSH 只读复核：当前 release 仍为 `5a31427`，新 API `10.0.0.3:18081` 与旧 Python
+`0.0.0.0:8001` 共存，Worker 仍为 inactive；readiness 的 database/Redis/schema 均为 `ok`，最近 30 分钟业务事件计数仍为 `0`。
+本次没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis；由于没有新的微信扫码请求，当前候选的真机登录、患者切换、预约历史和门诊费用
+三层证据仍未变化，下一步仍需使用 `1d161b7` 新二维码开始人工操作。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `1d161b7`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
