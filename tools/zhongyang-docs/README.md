@@ -25,7 +25,7 @@ pnpm zhongyang:docs
 pnpm zhongyang:docs --query 2.6.65.2
 ```
 
-浏览器会以有界面模式启动。请在浏览器内人工完成登录和验证码，然后回到终端按 Enter。工具不会尝试绕过验证码，也不会读取或输出密码、Cookie、localStorage 或 Authorization。
+浏览器会以有界面模式启动。请在浏览器内人工完成登录和验证码并点击确认，然后回到终端按 Enter；如果没有点击确认，脚本也会在回车后代为提交。工具不会尝试绕过验证码，也不会读取或输出密码、Cookie、localStorage 或 Authorization。
 
 本工具已内置当前众阳门户的登录、验证码提示、搜索框和目录项选择器。门户页面结构发生变化时，再通过选择器覆盖配置：
 

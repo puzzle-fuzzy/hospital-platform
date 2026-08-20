@@ -232,7 +232,8 @@ export async function runBrowserQuery(
 			waitUntil: "domcontentloaded",
 			timeout: config.timeoutMs,
 		});
-		await dismissGuidanceTour(page);
+		await waitForPortalReady(page, config);
+		await dismissGuidanceTour(page, config.timeoutMs);
 		await prepareLogin(page, config);
 		if (
 			config.authenticatedSelector &&
@@ -313,6 +314,35 @@ export async function runBrowserQuery(
 	}
 }
 
+async function waitForPortalReady(
+	page: Page,
+	config: QueryConfig,
+): Promise<void> {
+	const selectors = [
+		"#loginBtn",
+		config.searchSelector,
+		...(config.searchSelector ? [] : SEARCH_SELECTORS),
+	].filter((selector): selector is string => Boolean(selector));
+	try {
+		await Promise.any(
+			selectors.map((selector) =>
+				page
+					.locator(selector)
+					.first()
+					.waitFor({
+						state: "visible",
+						timeout: Math.min(config.timeoutMs, 15_000),
+					}),
+			),
+		);
+	} catch {
+		throw new ZhongyangDocsError(
+			"ui_changed",
+			"门户首屏控件未在等待时间内挂载，请检查网络或页面结构",
+		);
+	}
+}
+
 async function prepareLogin(page: Page, config: QueryConfig): Promise<void> {
 	const host = new URL(config.portalUrl).hostname.toLocaleLowerCase();
 	if (host !== "openapi.msuncloud.com") {
@@ -365,28 +395,35 @@ async function prepareLogin(page: Page, config: QueryConfig): Promise<void> {
 	);
 	await waitForEnter();
 
-	const responsePromise = page
-		.waitForResponse(
-			(response) => {
-				try {
-					return new URL(response.url()).pathname === "/portal/service/login";
-				} catch {
-					return false;
-				}
-			},
-			{ timeout: 15_000 },
-		)
-		.catch(() => undefined);
 	const submit = dialog
 		.locator(".el-dialog__footer button")
 		.filter({ hasText: "确 定" })
 		.first();
-	if (!(await submit.isVisible().catch(() => false))) {
-		throw new ZhongyangDocsError("ui_changed", "未找到登录确认按钮");
+	let responseText = "";
+	if (await submit.isVisible().catch(() => false)) {
+		const responsePromise = page
+			.waitForResponse(
+				(response) => {
+					try {
+						return new URL(response.url()).pathname === "/portal/service/login";
+					} catch {
+						return false;
+					}
+				},
+				{ timeout: 15_000 },
+			)
+			.catch(() => undefined);
+		await submit.click();
+		const response = await responsePromise;
+		responseText = response ? await response.text().catch(() => "") : "";
+	} else {
+		await Promise.race([
+			dialog.waitFor({ state: "hidden", timeout: 15_000 }),
+			page
+				.locator('#loginBtn span:has-text("登 录")')
+				.waitFor({ state: "hidden", timeout: 15_000 }),
+		]).catch(() => undefined);
 	}
-	await submit.click();
-	const response = await responsePromise;
-	const responseText = response ? await response.text().catch(() => "") : "";
 	if (responseText.includes("VERIFY_CODE_ERROR")) {
 		throw new ZhongyangDocsError(
 			"upstream_error",
@@ -419,10 +456,23 @@ async function prepareLogin(page: Page, config: QueryConfig): Promise<void> {
 	}
 }
 
-async function dismissGuidanceTour(page: Page): Promise<void> {
+async function dismissGuidanceTour(
+	page: Page,
+	timeoutMs: number,
+): Promise<void> {
+	const tourCloseButton = page.locator(".el-tour__closebtn").first();
+	await tourCloseButton
+		.waitFor({
+			state: "visible",
+			timeout: Math.min(timeoutMs, 3_000),
+		})
+		.catch(() => undefined);
 	const closeButton = await firstVisible(page, ".el-tour__closebtn");
 	if (!closeButton) return;
 	await closeButton.click({ timeout: 5_000 });
+	await tourCloseButton
+		.waitFor({ state: "hidden", timeout: 3_000 })
+		.catch(() => undefined);
 	await page.waitForTimeout(200);
 }
 
