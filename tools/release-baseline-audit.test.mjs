@@ -3,8 +3,8 @@ import {
 	auditCurrentBaselineDocuments,
 	auditCurrentCandidateReferences,
 	auditCurrentExecutionSection,
-	auditCurrentReleaseConsistency,
 	auditCurrentReadonlyBusinessBoundaries,
+	auditCurrentReleaseConsistency,
 	extractCurrentBaseline,
 } from "./release-baseline-audit.mjs";
 
@@ -151,6 +151,26 @@ test("当前语义短语附近的历史候选会被发布基线拒绝", () => {
 	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
 		"P0 只读业务 contract 审计 的“当前真机候选以”未指向当前完整小程序 sourceRevision",
 		"报告只读契约审计 的“配套小程序构建来源为”未指向当前完整小程序 sourceRevision",
+	]);
+});
+
+test("业务门禁执行板的当前候选不能漂移到历史小程序包", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const documents = [
+		{
+			path: "docs/release/next-business-gates-2026-08-20.md",
+			content: `## 2026-08-21 当前候选只读业务复核
+本次代码复核基于服务端 \`1b94c46\`、小程序候选 \`old-candidate\`；
+## 1. 当前门禁状态`,
+		},
+	];
+
+	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
+		"下一阶段业务门禁执行板 的“本次代码复核基于服务端”未指向当前完整小程序 sourceRevision",
 	]);
 });
 

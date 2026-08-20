@@ -130,6 +130,17 @@ const currentCandidateReferenceRules = Object.freeze([
 			},
 		],
 	},
+	{
+		path: "docs/release/next-business-gates-2026-08-20.md",
+		label: "下一阶段业务门禁执行板",
+		sections: [
+			{
+				start: "## 2026-08-21 当前候选只读业务复核",
+				end: "## 1. 当前门禁状态",
+				phrases: [{ text: "本次代码复核基于服务端", expected: "short" }],
+			},
+		],
+	},
 ]);
 
 /** 从验收候选的表格中提取当前服务端和小程序来源指纹。 */
