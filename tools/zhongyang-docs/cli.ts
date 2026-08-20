@@ -6,6 +6,7 @@ import {
 	ZhongyangDocsError,
 } from "./browser.ts";
 import { classifyErrorStatus, createIntakeMarkdown } from "./core.ts";
+import { normalizeApiCapture, renderNormalizedMarkdown } from "./normalize.ts";
 import type { QueryConfig } from "./types.ts";
 
 type ParsedArgs = Record<string, string | boolean>;
@@ -173,6 +174,29 @@ async function main(): Promise<void> {
 			const draftPath = resolve(config.outputDir, `${stem}.md`);
 			await writeFile(draftPath, markdown, "utf8");
 			console.log(`脱敏文档草稿：${draftPath}`);
+			const normalized = normalizeApiCapture(capture);
+			if (normalized) {
+				const structuredJsonPath = resolve(
+					config.outputDir,
+					`${stem}.structured.json`,
+				);
+				const structuredMarkdownPath = resolve(
+					config.outputDir,
+					`${stem}.structured.md`,
+				);
+				await writeFile(
+					structuredJsonPath,
+					JSON.stringify(normalized, null, 2),
+					"utf8",
+				);
+				await writeFile(
+					structuredMarkdownPath,
+					renderNormalizedMarkdown(normalized),
+					"utf8",
+				);
+				console.log(`结构化 JSON：${structuredJsonPath}`);
+				console.log(`结构化 Markdown：${structuredMarkdownPath}`);
+			}
 			if (config.writeIntake) {
 				const intakeFileName = `${config.query.replace(/[^a-zA-Z0-9.-]+/gu, "-")}.md`;
 				const intakePath = resolve("docs/provider-intake", intakeFileName);

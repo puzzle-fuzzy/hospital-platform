@@ -10,7 +10,7 @@ const MAX_TEXT_LENGTH = 200_000;
 const MAX_STRING_LENGTH = 10_000;
 const MAX_OBJECT_KEYS = 200;
 const MAX_ARRAY_ITEMS = 200;
-const MAX_DEPTH = 8;
+const MAX_DEPTH = 20;
 
 export function sha256(value: string): string {
 	return createHash("sha256").update(value, "utf8").digest("hex");

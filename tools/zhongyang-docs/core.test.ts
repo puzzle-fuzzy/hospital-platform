@@ -6,6 +6,7 @@ import {
 	sanitizeNetworkBody,
 	sanitizeText,
 } from "./core.ts";
+import { normalizeApiCapture, renderNormalizedMarkdown } from "./normalize.ts";
 import type { QueryCapture } from "./types.ts";
 
 describe("众阳文档查询纯函数边界", () => {
@@ -87,5 +88,75 @@ describe("众阳文档查询纯函数边界", () => {
 		expect(markdown).toContain("SHA-256");
 		expect(markdown).toContain("冻结边界");
 		expect(captureFingerprint(capture)).toMatch(/^[a-f0-9]{64}$/u);
+	});
+
+	test("从详情响应整理请求和返回字段树", () => {
+		const capture: QueryCapture = {
+			query: "2.6.65.2",
+			status: "found",
+			title: "众阳云门户",
+			pageUrl: "https://openapi.msuncloud.com/document",
+			capturedAt: "2026-08-20T00:00:00.000Z",
+			visibleText: "接口详情",
+			resultLabels: ["2.6.65.2"],
+			matchedResultCount: 1,
+			network: [
+				{
+					method: "GET",
+					url: "https://openapi.msuncloud.com/portal/service/getApiDetail",
+					status: 200,
+					contentType: "application/json",
+					resourceType: "xhr",
+					body: {
+						data: {
+							id: "1",
+							interfaceName: "2.6.65.2.发起支付",
+							interfaceType: "POST",
+							url: "/payment/pre-order",
+							interfaceDescription: "application/json",
+							reqBody: {
+								type: "object",
+								name: "root",
+								objectProps: [
+									{
+										type: "string",
+										name: "businessId",
+										required: 1,
+										desc: "结算单 ID",
+									},
+								],
+							},
+							resBody: {
+								type: "object",
+								name: "root",
+								objectProps: [
+									{
+										type: "object",
+										name: "data",
+										objectProps: [
+											{
+												type: "bool",
+												name: "success",
+												required: 1,
+											},
+										],
+									},
+								],
+							},
+							interfaceInputExample: '{"businessId":1}',
+							interfaceOutputExample: '{"success":true}',
+						},
+					},
+				},
+			],
+			notes: [],
+		};
+		const normalized = normalizeApiCapture(capture);
+		expect(normalized?.request.fields[0]?.path).toBe("businessId");
+		expect(normalized?.response.fields[1]?.path).toBe("data.success");
+		expect(normalized?.request.example).toEqual({ businessId: 1 });
+		expect(
+			renderNormalizedMarkdown(normalized as NonNullable<typeof normalized>),
+		).toContain("data.success");
 	});
 });

@@ -36,7 +36,7 @@ $env:ZHONGYANG_DOCS_AUTHENTICATED_SELECTOR = '.user-menu'
 pnpm zhongyang:docs
 ```
 
-结果保存在 `.local/zhongyang-docs/queries/`，浏览器登录 profile 在 `.local/zhongyang-docs/profile/`。这些内容默认被 Git 忽略。
+结果保存在 `.local/zhongyang-docs/queries/`，其中包括原始脱敏采集、结构化 JSON 和结构化 Markdown；浏览器登录 profile 在 `.local/zhongyang-docs/profile/`。这些内容默认被 Git 忽略。
 
 状态含义：
 
