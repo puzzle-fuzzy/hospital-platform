@@ -326,7 +326,7 @@ test("真实请求会把旧缓存前缀回退到当前地址对应的公共版�
 	}
 });
 
-test("错误响应从 X-Request-Id 传入 ApiError，保持客户端与服务端同链", async () => {
+test("错误响应按大小写无关方式读取 X-Request-Id，保持客户端与服务端同链", async () => {
 	type TestGlobal = typeof globalThis & {
 		getApp: (() => unknown) | undefined;
 		wx: unknown;
@@ -351,7 +351,7 @@ test("错误响应从 X-Request-Id 传入 ApiError，保持客户端与服务端
 		request: (options: RequestOptions) => {
 			options.success({
 				statusCode: 503,
-				header: { "x-request-id": "server-error-trace-001" },
+				header: { "X-ReQuEsT-Id": "server-error-trace-001" },
 				data: {
 					success: false,
 					error: {

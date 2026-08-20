@@ -29,8 +29,9 @@ Provider 只读 gateway 的 trace 也必须先经过 service 二次投影；若 
 `request-id-invalid`、`provider-mismatch`），不记录原始字符串。这样 `provider-response-invalid` 仍然可以通过
 `traceId` 关联 Provider 失败，而不会把可控文本注入日志字段。
 原生小程序为每个 `wx.request` 生成一次性的 `x-request-id`，服务端会校验后写入响应头
-和 Pino HTTP 日志；服务端错误返回的 request id 会保留在 `ApiError` 中，便于用户反馈
-“请求失败”时从日志平台反查链路。该 id 只用于关联，不是 token、幂等键或患者标识。
+和 Pino HTTP 日志；小程序读取响应头时按 HTTP 规范进行大小写无关匹配，避免代理或运行时
+改写 `X-Request-Id` 的拼写后丢失服务端链路。服务端错误返回的 request id 会保留在 `ApiError`
+中，便于用户反馈“请求失败”时从日志平台反查链路。该 id 只用于关联，不是 token、幂等键或患者标识。
 Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts`。这些字段用于按请求、订单或异步事件还原一条完整故障链。
 
 ## 当前事件名

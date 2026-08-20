@@ -766,7 +766,16 @@ function responseRequestId(
 	response: WechatMiniprogram.RequestSuccessCallbackResult,
 ): string {
 	const headers = response.header || {};
-	return String(headers["x-request-id"] || headers["X-Request-Id"] || "");
+	// HTTP Header 名称大小写不敏感，但微信运行时、Nginx 和不同 mock 实现
+	// 不一定使用同一种拼写。逐项按小写比较，避免混合大小写时丢失服务端
+	// requestId，导致页面错误只能关联到客户端生成的备用 ID。值仍只接受
+	// 字符串，不把异常 header 对象/数字转换后写入 ApiError 或日志链。
+	for (const [name, value] of Object.entries(headers)) {
+		if (name.toLowerCase() === "x-request-id" && typeof value === "string") {
+			return value;
+		}
+	}
+	return "";
 }
 
 /**
