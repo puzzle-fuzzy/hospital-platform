@@ -60,3 +60,19 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 4. 从开发者工具“打开最近项目”重新打开 `[小程序] miniprogram`，等待编译完成后重新生成真机调试二维码。
 
 重载后的候选窗口再次显示完整首页，构建面板完成，二维码正常生成且不再显示 `end/重试`。因此本次仍确认是开发者工具对旧运行包的增量索引，而不是业务模块缺失；后续如果再次出现同一路径，必须重复“重建、校验、关闭并重新打开当前项目”流程，不能向 `dist/` 添加测试文件。
+
+## 当前候选再次复核（2026-08-20 20:11 CST）
+
+针对用户报告的同一路径错误，本轮在当前 `3a89312` 候选上重新执行：
+
+1. `pnpm --filter @hospital/miniprogram build`：通过；运行包来源仍为完整提交
+   `3a89312cd982ee2fc490b75515cdb6c7d58d513e`。
+2. `pnpm --filter @hospital/miniprogram runtime:verify`：通过；14 个页面及根文件齐全。
+3. 递归扫描 `apps/miniprogram/dist/`：测试运行时脚本数量为 0，且没有
+   `single-flight.test.js` 的引用。
+4. 在正确的 `miniprogram` 开发者工具窗口重新打开真机调试并等待编译完成；构建面板显示 14 个页面分析成功，
+   iOS 二维码显示有效至 20:36 CST。
+
+因此当前错误仍应按开发者工具旧增量索引处理，不能通过复制 `single-flight.test.js` 进行“修复”。本次只证明运行包和
+真机调试入口已恢复，不增加微信登录、患者同步或其他业务的真机通过结论；后续若扫码成功，仍须按页面、HTTP 请求号
+和服务端低敏日志三层证据继续验收。
