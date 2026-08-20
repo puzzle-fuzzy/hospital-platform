@@ -27,6 +27,7 @@
 | [`release/candidate-6e6604f-local-build-2026-08-21.md`](release/candidate-6e6604f-local-build-2026-08-21.md) | 当前小程序本地构建来源、患者选择返回期间刷新门禁、资料页读写互斥、测试脚本隔离、运行包门禁和真机前置条件；小程序尚未上传线上，服务端基线为 `6038560` |
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 当前服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界 |
 | [`release/current-6038560-readonly-observation-2026-08-21-0303.md`](release/current-6038560-readonly-observation-2026-08-21-0303.md) | `6038560` 切换后 SSH 只读运行状态与低敏日志观察；当前窗口只有健康检查，没有新的真实业务事件 |
+| [`release/patient-directory-trace-retention-2026-08-21.md`](release/patient-directory-trace-retention-2026-08-21.md) | 患者目录多请求 provider trace 的 domain 保留、低敏日志字段、测试证据和与众阳自动化的隔离边界 |
 | [`release/candidate-7f157d4-local-build-2026-08-20.md`](release/candidate-7f157d4-local-build-2026-08-20.md) | 历史 `7f157d4` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |
 | [`release/candidate-457d9ae-local-build-2026-08-20.md`](release/candidate-457d9ae-local-build-2026-08-20.md) | 历史 `457d9ae` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |
 | [`release/candidate-ac238c6-local-build-2026-08-20.md`](release/candidate-ac238c6-local-build-2026-08-20.md) | 历史 `ac238c6` 小程序候选构建记录；不能替代当前 `6e6604f` 候选 |

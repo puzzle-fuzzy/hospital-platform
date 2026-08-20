@@ -166,6 +166,34 @@ test("患者目录同步写入前拒绝完整卡号并重新投影安全字段",
 	});
 });
 
+test("患者目录同步保留已校验的多请求 provider trace", () => {
+	const primaryRequestId = "patient-directory-primary-request";
+	const requestIds = [
+		primaryRequestId,
+		"patient-directory-archive-request-001",
+		"patient-directory-archive-request-002",
+	];
+
+	const result = normalizePatientDirectoryResult({
+		complete: true,
+		patients: [],
+		trace: {
+			provider: "zhongyang",
+			operation: "patient-list",
+			requestId: primaryRequestId,
+			requestIds,
+			providerOrderId: "must-be-dropped",
+		},
+	});
+
+	expect(result.trace).toEqual({
+		provider: "zhongyang",
+		operation: "patient-list",
+		requestId: primaryRequestId,
+		requestIds,
+	});
+});
+
 test("患者目录同步拒绝不同目录患者共享同一个 HIS 临床引用", () => {
 	const trace = {
 		provider: "zhongyang",

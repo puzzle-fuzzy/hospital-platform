@@ -76,8 +76,8 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `patient.directory.operation.replayed` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount 和 trace，确认没有再次访问 provider |
 | `patient.directory.operation.in_progress` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、固定的 `conflictScope` 和 trace，表示返回 409；不记录幂等键或租约原文 |
 | `patient.directory.snapshot.stale` | 患者目录同步并发保护 | 记录内部 operationId、attemptCount、provider 和 trace，表示旧快照被更新快照拒绝；不记录患者正文、幂等键或 provider 原始响应 |
-| `patient.directory.snapshot.committed` | 患者目录同步快照事务 | 记录快照事务已返回、provider request id、内部 operationId、attemptCount 和 Provider 目录数量；不把仓储返回的 active 读模型当作已验证成功 |
-| `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
+| `patient.directory.snapshot.committed` | 患者目录同步快照事务 | 记录快照事务已返回、domain 已校验的 `providerRequestId` 及可选有界 `providerRequestIds`、内部 operationId、attemptCount 和 Provider 目录数量；不把仓储返回的 active 读模型当作已验证成功 |
+| `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、domain 已校验的 `providerRequestId` 及可选有界 `providerRequestIds`、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
 | `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider、trace、内部 operationId，以及安全白名单中的 `providerOperation`、`providerRequestId`、`providerStatusCode`、`providerRetryable`（有值时）；不记录第三方原始错误报文、请求 URL、查询卡号或姓名 |
 | `patient.directory.read.requested` / `patient.directory.read.loaded` | 患者目录读模型读取 | 记录读取开始和有效患者数量；不记录 userId、患者正文或 provider 患者号 |
 | `patient.directory.read.failed` | 患者目录读模型读取 | 记录读取错误类型和 trace；不记录 userId、患者正文或 provider 患者号 |
@@ -143,6 +143,11 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 不会产生 `report.directory.requested`，也不会把错误查询降级成 ECG Provider 请求。
 
 患者目录同步和读模型读取必须按提交边界区分：
+
+患者同步 trace 的 `providerRequestIds` 是可选的多请求关联列表。它必须在 domain
+重投影时逐项校验、限制数量并包含主 `providerRequestId`；service 只把这组已校验的
+低敏请求号写入日志。当前具体 Provider 是否能返回所有档案请求号，仍由对应 adapter
+contract 决定；不能用日志字段存在推断 Provider 已返回完整链。
 
 - `patient.directory.snapshot.committed` 表示快照仓储调用已经返回，事务提交事实已经成立；它只记录 Provider 目录数量，
   不代表仓储返回的 active 读模型已经通过二次校验。

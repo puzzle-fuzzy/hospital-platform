@@ -44,6 +44,22 @@ export type PatientServiceDependencies = {
 	syncLeaseMs?: number;
 };
 
+/**
+ * 将患者目录的单请求/多请求 trace 统一投影为低敏日志字段。
+ *
+ * `providerRequestIds` 只包含 domain 已逐项校验的外部请求号，不携带患者、
+ * 查询卡号、unionId 或原始 Provider 报文；保留兼容的主 ID 供现有检索脚本使用。
+ */
+function traceLogFields(trace: {
+	requestId: string;
+	requestIds?: readonly string[];
+}): Record<string, unknown> {
+	return {
+		providerRequestId: trace.requestId,
+		...(trace.requestIds ? { providerRequestIds: [...trace.requestIds] } : {}),
+	};
+}
+
 export class PatientService {
 	private readonly logger: AppLogger;
 	private readonly createPatientId: () => string;
@@ -312,7 +328,7 @@ export class PatientService {
 					event: "patient.directory.snapshot.committed",
 					traceId: context.traceId,
 					provider: "zhongyang",
-					providerRequestId: result.trace.requestId,
+					...traceLogFields(result.trace),
 					patientCount: result.patients.length,
 					operationId,
 					attemptCount: operation.attemptCount,
@@ -345,7 +361,7 @@ export class PatientService {
 					event: "patient.directory.synced",
 					traceId: context.traceId,
 					provider: result.trace.provider,
-					providerRequestId: result.trace.requestId,
+					...traceLogFields(result.trace),
 					patientCount: result.patients.length,
 					activePatientCount: snapshot.activePatients.length,
 					deactivatedPatientCount: snapshot.deactivatedPatientCount,

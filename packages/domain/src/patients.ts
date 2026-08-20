@@ -1,4 +1,5 @@
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import { normalizeExternalTrace } from "./external-trace";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /**
@@ -320,12 +321,29 @@ export function normalizePatientDirectoryResult(value: unknown): {
 	) {
 		invalidPatientDirectoryResult("trace-invalid");
 	}
-	const trace = result.trace as Record<string, unknown>;
-	if (
-		trace.provider !== "zhongyang" ||
-		trace.operation !== "patient-list" ||
-		!hasSafePatientText(trace.requestId, 128)
-	) {
+	let trace: ExternalTrace;
+	try {
+		// 患者同步可能先读目录，再并发读取多条临床档案；如果 gateway 已经
+		// 返回有界 requestIds，这里必须保留完整关联链，不能只留下主请求号。
+		// 统一复用外部 trace 的运行时门禁，避免可替换 gateway 绕过列表长度、
+		// 主 ID 归属或 Provider 归属校验。
+		const normalizedTrace = normalizeExternalTrace(result.trace, {
+			expectedProvider: "zhongyang",
+		});
+		if (normalizedTrace.operation !== "patient-list") {
+			invalidPatientDirectoryResult("trace-invalid");
+		}
+		// 患者目录不产生 provider order；未知扩展字段不能进入领域结果，
+		// 但已校验的 requestIds 是排障所需的低敏关联事实，应明确保留。
+		trace = {
+			provider: normalizedTrace.provider,
+			operation: normalizedTrace.operation,
+			requestId: normalizedTrace.requestId,
+			...(normalizedTrace.requestIds
+				? { requestIds: normalizedTrace.requestIds }
+				: {}),
+		};
+	} catch {
 		invalidPatientDirectoryResult("trace-invalid");
 	}
 	const seenProviderPatientIds = new Set<string>();
@@ -380,11 +398,7 @@ export function normalizePatientDirectoryResult(value: unknown): {
 	return {
 		complete: true,
 		patients,
-		trace: {
-			provider: "zhongyang",
-			operation: "patient-list",
-			requestId: trace.requestId,
-		},
+		trace,
 	};
 }
 

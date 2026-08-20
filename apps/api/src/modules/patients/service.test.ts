@@ -65,6 +65,63 @@ test("患者目录读取使用独立读模型日志且不泄露 owner 或患者�
 	expect(JSON.stringify(records)).not.toContain("读模型患者");
 });
 
+test("患者目录成功日志保留 domain 已校验的多请求 provider trace", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-trace-list",
+		unionId: "fixture-union-patient-trace-list",
+	});
+	const lines: string[] = [];
+	const primaryRequestId = "patient-directory-primary-request";
+	const requestIds = [
+		primaryRequestId,
+		"patient-directory-archive-request-001",
+		"patient-directory-archive-request-002",
+	];
+	const service = new PatientService(createInMemoryPatientRepository(), {
+		identityUsers,
+		directory: {
+			async listByIdentity() {
+				return {
+					complete: true,
+					patients: [],
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-list",
+						requestId: primaryRequestId,
+						requestIds,
+					},
+				};
+			},
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-trace-list-trace",
+			idempotencyKey: "patient-trace-list-key",
+		}),
+	).resolves.toMatchObject({ total: 0 });
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	for (const event of [
+		"patient.directory.snapshot.committed",
+		"patient.directory.synced",
+	]) {
+		expect(records.find((record) => record.event === event)).toMatchObject({
+			providerRequestId: primaryRequestId,
+			providerRequestIds: requestIds,
+		});
+	}
+});
+
 test("患者同步拒绝越过 owner 范围的身份仓储结果并且不调用 Provider", async () => {
 	let providerCalls = 0;
 	const lines: string[] = [];
