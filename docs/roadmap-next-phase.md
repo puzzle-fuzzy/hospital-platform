@@ -17,8 +17,8 @@
   [`release/current-5a31427-p0-business-observation-2026-08-21-0451.md`](release/current-5a31427-p0-business-observation-2026-08-21-0451.md)。
 
 - 2026-08-21（首页患者目录并发边界）：发现并修复首页目录读取在“旧请求已被淘汰”时返回 `[]` 的语义缺陷。
-  当前 `02c18af` 已将成功且具备写回资格、以及已被新请求淘汰两种结果分开；登录恢复链只有在 `loaded` 时才会继续患者同步。
-  小程序测试 169 项通过，运行包构建和 `runtime:verify` 通过，来源指纹为 `02c18af`。未修改旧 Python 服务；真实设备和线上新包仍待重新取证。
+  业务修正已包含在当前 `1d161b7` 运行包中；登录恢复链只有在 `loaded` 时才会继续患者同步。
+  小程序业务测试、运行包构建和 `runtime:verify` 已通过。未修改旧 Python 服务；真实设备和线上新包仍待重新取证。
 
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
@@ -27,7 +27,7 @@
 
 - 2026-08-21 03:23 CST（当前候选二维码重新建立）：只读检查发现开发者工具先前显示的二维码已于 `01:17` 失效，
   线上最近 30 分钟仅有 readiness 健康检查，没有新的微信/患者业务事件。随后在正确的 `miniprogram` 项目中对当前
-  `02c18af` 运行包重新普通编译，确认 `analyzing codes success`、14 个页面和无测试脚本，再重新生成 iOS/局域网二维码，
+  `1d161b7` 运行包重新普通编译，确认 `analyzing codes success`、14 个页面和无测试脚本，再重新生成 iOS/局域网二维码，
   约于 `03:48` CST 失效。该记录只恢复扫码前置，不增加微信登录、患者同步、预约、费用或真机三层验收证据；旧 Python 未修改、未重启。
   详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md)。
 
@@ -58,7 +58,7 @@
 - 2026-08-21 04:02 CST（`5a31427` P0 业务日志空窗口）：使用线上 release 内置日志聚合和业务证据门禁复核
   `03:54` 之后的 journald，`parseErrors=0`、`systemdWarningCount=0`，但微信、患者、预约、门诊费用和普通资料
   所有业务域均为 `requested=0/success=0`。这是“尚未扫码/尚未产生业务请求”的证据，不是 Provider 失败；下一步必须由
-  当前 `02c18af` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
+  当前 `1d161b7` 真机候选产生新的同链请求。详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md)。
 
 - 2026-08-21 04:09 CST（`5a31427` 线上只读复核）：当前 release 仍为 `5a31427`，新 API `18081` 与旧 Python `8001`
   同时监听且新 API 为 `active`。从 `03:54` 切换窗口开始，当前 release 的日志聚合解析 `10` 条记录，`parseErrors=0`、
@@ -229,7 +229,7 @@
 - 2026-08-20（普通资料更新链定向回归）：服务端普通资料 service `13/13` 通过，小程序患者选择、会话
   代际、资料保存和公共 API 响应门禁定向回归 `163/163` 通过；API 集成测试同时确认 owner 隔离、版本冲突、
   `null` 清空和旧端 `avatar/openid` 字段拒绝。该结果只证明代码、契约和本地测试边界，不代表真实微信资料
-  首次写入、双设备 `409`、公网日志同链或真机页面已经验收；下一步仍需使用当前 `6e6604f` 候选按
+  首次写入、双设备 `409`、公网日志同链或真机页面已经验收；下一步仍需使用当前 `1d161b7` 候选按
   [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md)
   采集页面、HTTP 和低敏日志三层证据。
 
