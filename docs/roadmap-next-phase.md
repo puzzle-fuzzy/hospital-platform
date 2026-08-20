@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 07:32 CST（当前候选扫码等待窗口）：SSH 只读复核确认服务端 `5a31427` active，新 API `10.0.0.3:18081` 与旧 Python
+  `8001` 继续共存，内网 readiness 的 database/Redis/schema 均为 `ok`；当前 `9340846` 小程序运行包为 14 个页面、约 607 KB，
+  `dist/` 中没有测试脚本，开发者工具二维码显示有效至 07:56。`07:22–07:32` 没有新的 `auth.*`、`patient.*`、
+  `appointment.*`、`outpatient.payment.*` 或 `user.profile.*` 事件，因此尚未形成当前候选的真机三层业务证据；详见
+  [`release/current-5a31427-p0-business-observation-2026-08-21-0732.md`](release/current-5a31427-p0-business-observation-2026-08-21-0732.md)。
+
 - 2026-08-21 05:47 CST（公网只读边界复核）：`https://test-hp.meiyi.pro` 的 `/api/v2/health/live`、`health/ready`、`system/ping`
   返回 `200`；live/ready 返回 `Cache-Control: no-store`。未登录的 `/me`、`/patients`、预约历史和门诊费用返回 `401`，
   门诊病历、医保授权和预约写入保持 `404`。本次不携带 Bearer、不调用 Provider、不写 MySQL/Redis，结果只证明公网路由边界，
