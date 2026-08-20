@@ -18,6 +18,7 @@
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
+| [`release/miniprogram-appointment-readonly-logic-audit-2026-08-20.md`](release/miniprogram-appointment-readonly-logic-audit-2026-08-20.md) | 预约历史/爽约的患者归属、日期窗口、状态筛选、双标签停止条件和并发回写审计 |
 | [`release/candidate-8f80b3e-local-build-2026-08-20.md`](release/candidate-8f80b3e-local-build-2026-08-20.md) | 当前小程序本地构建来源、患者同步会话证明、测试脚本隔离、运行包门禁和真机前置条件；小程序尚未上传线上，服务端基线为 `0e360d3` |
 | [`release/miniprogram-device-qr-session-2026-08-20-2027.md`](release/miniprogram-device-qr-session-2026-08-20-2027.md) | 当前 `8f80b3e` 候选的 iOS 真机二维码会话，二维码预计 20:52 CST 失效；仅记录扫码前运行包状态，不代表真机业务验收成功 |
 | [`release/current-public-readonly-smoke-2026-08-20-2030.md`](release/current-public-readonly-smoke-2026-08-20-2030.md) | 20:30 CST 公网 `/api/v2` live/ready/ping 与未登录 `/me`、`/patients` 认证边界复核；不代表微信、Provider 或真机业务完成 |
