@@ -178,6 +178,9 @@
 | [`migration/directory-contract-diff-2026-08-17.md`](migration/directory-contract-diff-2026-08-17.md) | 2.1.9 科室基础目录与 2.1.13 院内用户资料和当前预约/患者域的差异、敏感字段和实现门禁 |
 | [`migration/convenience-service-boundaries.md`](migration/convenience-service-boundaries.md) | 便民服务 13 个旧路由、旧表风险、新领域边界、幂等、日志和验收门禁 |
 | [`migration/health-calculator-contract-draft.md`](migration/health-calculator-contract-draft.md) | BMI/血压旧端规则审计、临床确认项、版本化规则和迁移门禁 |
+| [`migration/health-knowledge-content-mapping.md`](migration/health-knowledge-content-mapping.md) | 健康知识旧表映射、版本化导入、审核发布和患者端路由准入边界 |
+| [`adr/0004-health-knowledge-content-boundary.md`](adr/0004-health-knowledge-content-boundary.md) | 健康知识内容审核、撤回、免责声明和 AI/自测隔离决策 |
+| [`release/health-knowledge-readiness-audit-2026-08-20.md`](release/health-knowledge-readiness-audit-2026-08-20.md) | 当前健康知识代码、内容输入、发布证据和未挂载状态审计 |
 | [`migration/patient-center-and-external-entry-boundaries.md`](migration/patient-center-and-external-entry-boundaries.md) | 个人资料、绑卡、协议、签名、订阅、WebView、医院列表和采血预约的旧行为与安全边界 |
 | [`migration/patient-binding-contract-draft.md`](migration/patient-binding-contract-draft.md) | 患者查档、建档、绑卡、协议、幂等、超时恢复和 provider 待确认问题；当前写入路由保持关闭 |
 | [`migration/user-profile-contract.md`](migration/user-profile-contract.md) | 普通个人资料的字段边界、版本并发、owner 隔离、头像/实名排除项和验收门禁 |
