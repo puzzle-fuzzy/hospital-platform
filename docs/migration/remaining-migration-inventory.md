@@ -14,6 +14,11 @@
 
 > 本文下方保留了切换前的 b7/c26/652/08 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `398be8e`。
 
+> 2026-08-20 迁移审计更新：重新核对旧端门诊病历页面和 `ZY.ts` 的当前 SHA-256，确认仍只有
+> `POST /msun-middle-aggregate-clinic/v1/out-visit-records` 的历史调用线索；没有 Provider 正式 contract、患者映射确认、
+> 字段授权或四类脱敏响应样例。因此 `/api/v2/medical-records` 继续保持未注册/404，不新增兼容转发或空数据实现。
+> 详见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md) 的 0.3 节。
+
 ## 当前准入复核（2026-08-19 08:47 CST）
 
 补充记录（2026-08-19 11:49 CST）：数据库瞬态断连恢复后，SSH 只读确认该观察窗口 release `b7c9451`、新 API `active/running`，

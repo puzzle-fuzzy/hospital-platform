@@ -48,6 +48,22 @@ Provider intake 登记和新端未注册路由后，没有新增可供实现的 
 MR-01 至 MR-06、MR-13 至 MR-15 以及最小交付包后，必须先通过脱敏样例、字段白名单、错误语义和分页/时区测试，
 再建立版本化 contract 并开放路由；在此之前，`GET /api/v2/medical-records` 继续保持未注册/404。
 
+## 0.3 2026-08-20 旧端源码与新端准入再核对
+
+本轮重新读取旧端当前文件并校验审计指纹，结果仍与本文记录一致：
+
+| 文件 | 当前 SHA-256 | 本轮确认 |
+| --- | --- | --- |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\health\\electronic_record.vue` | `7e9842d10fce9e954a059c9dba9827fda66cb0ce629360e89a9333df4b10f669` | 页面按设备本地时间计算最近 30 天，发送 `type="5"`、`patId`、`startDate`、`endDate`；非数组和请求异常都被清空为页面空态 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\ZY.ts` | `659408140db42dd1705a143850dd568d8f286285cf31b58dfa7ae865607bfe38` | 只声明 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，返回项的未审计字段仍使用 `any` |
+
+这次核对没有获得 Provider 新文档、脱敏响应、权限样例、分页/排序说明或 `out-visit-records.patId` 的用途确认。
+因此不能把旧端“异常清空数组”的行为迁移到新端，也不能把旧端页面声明的 `regId`、诊断或身份字段当作公共白名单。
+新端 `GET /api/v2/medical-records` 继续保持未注册/404；旧端仓库、线上服务、数据库和 Redis 均未修改。
+
+只有在 MR-01 至 MR-15 的必要项和最小 Provider 交付包齐全后，才允许进入
+“版本化 contract → adapter → owner-scoped service → API → 小程序页面 → 四层验收”的实现顺序。
+
 ## 1. 业务范围
 
 本草案只覆盖“门诊就诊记录目录”，不覆盖：

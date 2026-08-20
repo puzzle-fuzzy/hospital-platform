@@ -21,6 +21,12 @@
   适配器 95/95、API 163/163、小程序 163/163 通过；本次没有调用 Provider、修改旧 Python、写入数据库/Redis 或发布线上。
   详见 [`release/readonly-business-chain-audit-2026-08-20.md`](release/readonly-business-chain-audit-2026-08-20.md)。
 
+- 2026-08-20（门诊病历目录准入复核）：重新校验旧端 `electronic_record.vue` 与 `ZY.ts` 的源码指纹，确认旧端仅能证明
+  `POST /msun-middle-aggregate-clinic/v1/out-visit-records` 的调用方式，且把非数组/异常折叠为空列表；当前仍缺正式
+  Provider contract、`patId` 用途确认、字段白名单和成功/空/拒绝/暂时失败脱敏样例。新端继续保持
+  `GET /api/v2/medical-records` 未注册/404，不把报告目录冒充病历，也不新增兼容转发。本次只更新新项目文档，未修改旧项目、
+  线上服务、数据库或 Redis。详见 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向
