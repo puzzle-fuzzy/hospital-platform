@@ -42,3 +42,21 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 `/health/ready` 和 `/health/live`，没有新的 `/auth/wechat` 或 `/patients` 请求。因此不能把
 “重新扫码后没有立即报错”写成微信登录成功；下一次验收必须先确认开发者工具当前项目确实是
 `E:\__Super_Core__\hospital-platform\apps\miniprogram`，再同时保存真机页面结果、请求链和服务端低敏日志。
+
+## 本次再次复现与处理记录
+
+用户在 2026-08-20 报告真机调试再次请求：
+
+```text
+ENOENT: no such file or directory, open
+E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight.test.js
+```
+
+本次处理按以下顺序完成：
+
+1. 复核 `dist/`：`services/single-flight.js` 存在，`services/single-flight.test.js` 不存在，整个运行包没有 `*.test.js` 或 `*.spec.js`。
+2. 重新执行 `pnpm --filter @hospital/miniprogram build` 与 `runtime:verify`，均通过；来源指纹仍为 `767ed9c`，页面数为 14。
+3. 关闭当前新项目开发者工具窗口；旧的 `mp-weixin` 项目窗口保持打开。
+4. 从开发者工具“打开最近项目”重新打开 `[小程序] miniprogram`，等待编译完成后重新生成真机调试二维码。
+
+重载后的候选窗口再次显示完整首页，构建面板完成，二维码正常生成且不再显示 `end/重试`。因此本次仍确认是开发者工具对旧运行包的增量索引，而不是业务模块缺失；后续如果再次出现同一路径，必须重复“重建、校验、关闭并重新打开当前项目”流程，不能向 `dist/` 添加测试文件。
