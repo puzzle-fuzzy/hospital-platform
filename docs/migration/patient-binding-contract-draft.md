@@ -17,6 +17,29 @@
 因此本草案继续保持 `draft`，`POST /api/v2/patient-binding/*` 不注册；不能把“有科室/院内用户文档”
 误判成“患者绑定 Provider contract 已到达”，也不能根据旧端 `patInfosFind` 的一次成功响应打开写入。
 
+## 0.1 2026-08-20 旧端绑定流程再审计
+
+本轮重新读取旧端新增就诊人和切换就诊人代码，并校验源码指纹：
+
+| 文件 | 当前 SHA-256 | 本轮确认的事实 |
+| --- | --- | --- |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\patient\\patientAdd.vue` | `4d1e382e88e12a967a2ff4da2e27fc88fb2a9102f128670bf0187e1b06c197b5` | `type=2` 查档后有 `patId` 就调用 `patCards`；查档异常会继续进入 `patients` 建档；建档后再次绑卡；提交前还会更新旧用户资料 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\patient\\patientChange.vue` | `726d8a97433dfec1f09089268676b5b196f34275579ab2ef975c87bacf794e1e` | 切换时使用旧端 `thirdPatientId/cardNo` 组合并重新查档；随后把档案字段写入旧端缓存，编辑模式仍是 TODO |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\ZY.ts` | `659408140db42dd1705a143850dd568d8f286285cf31b58dfa7ae865607bfe38` | 只声明 `patInfosFind`、`patients`、`patCards` 等旧 Provider 调用，未提供新服务所需的幂等、最终确认和错误语义 |
+
+这次复核进一步确认以下行为不能作为新端实现依据：
+
+1. `patInfosFind(type=2)` 超时、5xx、空响应或解析失败会被旧端当成“没有档案”，继续执行建档，存在重复建档和错患者风险；
+2. 建档请求把身份证号复制到 `cardNo`，并固定 `cardType=3`，但没有医院合同证明证件号就是医疗卡号；
+3. 建档和绑卡之间没有可恢复的命令状态、幂等键或最终状态查询，HTTP 成功也不能证明 owner 已经绑定；
+4. 旧端会把姓名、手机号、身份证号和 `openid` 写入用户资料接口，患者绑定不能借此修改平台微信身份；
+5. 协议复选框默认同意，提交函数没有强制校验版本化同意事实；
+6. 切换页将档案身份证字段放入 `patCardNo` 的缓存结构，不能复制为新端卡号读模型。
+
+因此本轮不新增写入 API、数据库表、Provider adapter、绑定命令或兼容转发；`pages/patient-select` 的新增入口继续
+显示迁移提示。只有 PB-01 至 PB-16 获得书面 contract、脱敏成功/未找到/拒绝/超时样例和可回滚测试环境后，才进入
+“查档只读 → 绑定状态机 → 建档”分阶段实现。旧仓库、线上服务、数据库和 Redis 均未修改。
+
 ## 1. 结论先行
 
 患者新增、已有档案绑定、修改资料和解绑不是一个简单的“保存表单”接口，而是

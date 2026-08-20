@@ -27,6 +27,11 @@
   `GET /api/v2/medical-records` 未注册/404，不把报告目录冒充病历，也不新增兼容转发。本次只更新新项目文档，未修改旧项目、
   线上服务、数据库或 Redis。详见 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md)。
 
+- 2026-08-20（患者新增/绑定流程准入复核）：复核旧端 `patientAdd.vue`、`patientChange.vue` 和 `ZY.ts`，确认旧流程存在
+  “查档异常继续建档”、身份证号代替卡号、建档后绑卡无最终确认、用户资料副作用和协议默认同意等风险；当前缺 PB-01 至 PB-16
+  的正式 Provider contract、幂等/冲突/撤销语义和脱敏错误样例。新端继续只做已绑定患者目录同步和显式切换，新增绑定入口保持迁移提示，
+  不注册写入 API、不修改旧服务。详见 [`migration/patient-binding-contract-draft.md`](migration/patient-binding-contract-draft.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

@@ -19,6 +19,11 @@
 > 字段授权或四类脱敏响应样例。因此 `/api/v2/medical-records` 继续保持未注册/404，不新增兼容转发或空数据实现。
 > 详见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md) 的 0.3 节。
 
+> 2026-08-20 患者绑定审计更新：复核旧端 `patientAdd.vue`、`patientChange.vue` 和 `ZY.ts` 后确认，旧流程会把查档异常
+> 降级为建档、把身份证号当卡号、把患者身份写入旧用户资料接口，且缺少幂等/最终状态查询/协议版本校验。新增、绑卡、修改和解绑
+> 继续保持未注册；新端只允许已绑定目录同步和显式选择，不迁移旧端写入副作用。详见
+> [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.1 节。
+
 ## 当前准入复核（2026-08-19 08:47 CST）
 
 补充记录（2026-08-19 11:49 CST）：数据库瞬态断连恢复后，SSH 只读确认该观察窗口 release `b7c9451`、新 API `active/running`，
