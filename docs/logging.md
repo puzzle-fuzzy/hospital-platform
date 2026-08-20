@@ -42,7 +42,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `service.stop.failed` | API 进程生命周期 | 记录优雅停机失败的错误类型，触发部署侧人工关注 |
 | `service.start.skipped` / `service.start.failed` | worker 启动探针 | 区分配置不完整与 MySQL/schema 不可用；未通过时不进入 provider 循环 |
 | `runtime.preflight.succeeded` / `runtime.preflight.failed` | 发布前只读 preflight | 记录 MySQL、Redis、schemaStatus、缺失 migration/结构对象和 provider 配置状态；不记录连接串或密钥 |
-| `runtime.smoke.check.passed` / `runtime.smoke.check.warning` / `runtime.smoke.check.failed` | API runtime smoke 单项检查 | 记录检查名、HTTP 状态码（没有收到 HTTP 响应时为 `0`）、错误类型和请求 `traceId`；不记录 URL、请求头、请求体或原始响应 |
+| `runtime.smoke.check.passed` / `runtime.smoke.check.warning` / `runtime.smoke.check.failed` | API runtime smoke 单项检查 | 记录检查名（包括 `auth-boundary` 和 `closed-boundary`）、HTTP 状态码（没有收到 HTTP 响应时为 `0`）、错误类型和请求 `traceId`；不记录 URL、请求头、请求体或原始响应 |
 | `runtime.smoke.completed` / `runtime.smoke.failed` | API runtime smoke 汇总 | 记录所有检查的安全摘要；每个失败项必须能通过其 `traceId` 关联反向代理和 API 日志，不能用重试次数掩盖 readiness 瞬态故障 |
 | `provider.smoke.configuration.failed` | Provider 只读 smoke 启动配置 | 只记录错误类型和固定的 `configurationReason`（例如 `access-token-missing`、`patient-id-missing`、`base-url-https-required`）；不记录 token、患者 ID、URL 原文、环境变量值或异常消息 |
 | `provider.smoke.capability.passed` / `provider.smoke.capability.failed` | Provider 只读 smoke 业务能力 | 记录能力名、错误类型、低敏数量和请求 `traceId`；不记录患者凭证、Provider 原始响应或完整请求 URL |
@@ -232,11 +232,12 @@ Pino 还会集中脱敏 `unionId`、`prepayId`、`payParams`、`paySign`、`nonc
 unionId、session_key 或 access token 作为日志检索条件；这些值不应出现在日志中。
 
 runtime smoke 的每个 HTTP 请求都会发送独立的 `x-request-id`，其值就是该检查的 `traceId`。
-因此 `health-live`、`health-ready`、`system-ping` 和认证边界的失败结果不能只记录一个共享的
+因此 `health-live`、`health-ready`、`system-ping`、认证边界和关闭能力边界的失败结果不能只记录一个共享的
 smoke 批次号：网络错误、非法 JSON、HTTP/业务失败和 readiness 不满足都必须保留对应请求的
 `traceId`。认证边界逐路检查时，若某一路网络失败，汇总项使用失败请求的 traceId；若只有 HTTP
-状态或错误码不符合预期，则仍保留该路收到响应的 traceId。`statusCode=0` 只表示没有收到
-HTTP 响应，不是服务端返回的业务状态码。
+状态或错误码不符合预期，则仍保留该路收到响应的 traceId。关闭能力边界除了要求 HTTP `404`，
+还要求平台错误码为 `not-found`，避免把代理层的任意 404 误认为应用确实保持了未注册状态。
+`statusCode=0` 只表示没有收到 HTTP 响应，不是服务端返回的业务状态码。
 
 MySQL 出现连接断开时，优先按 `requestId` 检索 `http.request.failed`，结合 `errorName`、HTTP 503、
 `persistenceOperation` 和 `persistenceErrorCode`，再与时间窗口内的数据库服务、网络和连接池状态核对。

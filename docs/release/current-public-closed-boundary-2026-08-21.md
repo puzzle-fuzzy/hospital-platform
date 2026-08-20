@@ -35,3 +35,9 @@
 本次只验证 HTTP 状态码，没有产生业务请求链，也没有读取原始响应正文。后续真实业务仍必须在当前候选包中同时取得页面结果、
 客户端 `requestId/traceId` 和服务端低敏日志；旧 Python `8001` 不属于本次变更范围。
 
+## 4. 后续运行时门禁
+
+本地新增的 `apps/worker/src/api-runtime-smoke.ts` 已增加 `closed-boundary` 检查：下一次发布候选的
+runtime smoke 会对患者新增、门诊病历目录/详情、医保授权、预约创建/占号/取消共 7 条路径发送空 JSON
+或 GET，并要求每条同时返回 HTTP `404` 与平台错误码 `not-found`。这只是防止路由被意外注册的工程门禁，
+不替代 Provider/HIS contract、真机页面、微信会话或真实业务验收；本节代码变更尚未声称已重新取得公网运行证据。

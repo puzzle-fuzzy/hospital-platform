@@ -26,11 +26,53 @@ function unauthorizedResponse(): Response {
 	);
 }
 
+function notFoundResponse(): Response {
+	return jsonResponse(
+		{
+			success: false,
+			error: {
+				code: "not-found",
+				message: "请求路径不存在",
+			},
+		},
+		404,
+	);
+}
+
+/** 测试夹具模拟当前服务的两类未登录边界：已注册路由返回 401，关闭路由返回 404。 */
+function defaultBoundaryResponse(url: string, method = "GET"): Response {
+	const pathname = new URL(url).pathname;
+	if (
+		(method === "POST" && pathname === "/api/v1/patients") ||
+		pathname === "/api/v1/medical-records" ||
+		pathname === "/api/v1/medical-records/closed-boundary-visit" ||
+		(method === "POST" &&
+			pathname === "/api/v1/payments/insurance/authorization") ||
+		(method === "POST" && pathname === "/api/v1/appointments") ||
+		(method === "POST" && pathname === "/api/v1/appointments/holds") ||
+		(method === "POST" &&
+			pathname === "/api/v1/appointments/closed-boundary-appointment/cancel") ||
+		(method === "POST" && pathname === "/api/v2/patients") ||
+		pathname === "/api/v2/medical-records" ||
+		pathname === "/api/v2/medical-records/closed-boundary-visit" ||
+		(method === "POST" &&
+			pathname === "/api/v2/payments/insurance/authorization") ||
+		(method === "POST" && pathname === "/api/v2/appointments") ||
+		(method === "POST" && pathname === "/api/v2/appointments/holds") ||
+		(method === "POST" &&
+			pathname === "/api/v2/appointments/closed-boundary-appointment/cancel")
+	) {
+		return notFoundResponse();
+	}
+	return unauthorizedResponse();
+}
+
 test("runtime smoke verifies platform health without auth or provider calls", async () => {
 	const requests: Array<{
 		url: string;
 		method: string;
 		authorization: string | null;
+		body: string | null;
 	}> = [];
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
@@ -41,6 +83,7 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 				url,
 				method: init?.method ?? "GET",
 				authorization: new Headers(init?.headers).get("authorization"),
+				body: typeof init?.body === "string" ? init.body : null,
 			});
 			if (url.endsWith("/health/live")) {
 				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
@@ -58,7 +101,7 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -69,6 +112,7 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 			{ name: "health-ready", status: "passed" },
 			{ name: "system-ping", status: "passed" },
 			{ name: "auth-boundary", status: "passed" },
+			{ name: "closed-boundary", status: "passed" },
 		],
 	});
 	expect(requests).toEqual([
@@ -76,46 +120,97 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 			url: "https://hospital.example.test/health/live",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/health/ready",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/api/v1/system/ping",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/api/v1/me",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/api/v1/patients",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/api/v1/appointments/departments",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/api/v1/appointments/records?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/api/v1/reports?patientId=runtime-smoke-patient&startDate=2026-01-01&endDate=2026-01-02",
 			method: "GET",
 			authorization: null,
+			body: null,
 		},
 		{
 			url: "https://hospital.example.test/api/v1/payments/outpatient/records?patientId=runtime-smoke-patient&status=unpaid",
 			method: "GET",
 			authorization: null,
+			body: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/patients",
+			method: "POST",
+			authorization: null,
+			body: "{}",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/medical-records",
+			method: "GET",
+			authorization: null,
+			body: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/medical-records/closed-boundary-visit",
+			method: "GET",
+			authorization: null,
+			body: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v1/payments/insurance/authorization",
+			method: "POST",
+			authorization: null,
+			body: "{}",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/appointments",
+			method: "POST",
+			authorization: null,
+			body: "{}",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/appointments/holds",
+			method: "POST",
+			authorization: null,
+			body: "{}",
+		},
+		{
+			url: "https://hospital.example.test/api/v1/appointments/closed-boundary-appointment/cancel",
+			method: "POST",
+			authorization: null,
+			body: "{}",
 		},
 	]);
 });
@@ -148,7 +243,7 @@ test("runtime smoke uses the public v2 prefix when explicitly requested", async 
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -190,13 +285,41 @@ test("runtime smoke uses the public v2 prefix when explicitly requested", async 
 			url: "https://hospital.example.test/api/v2/payments/outpatient/records?patientId=runtime-smoke-patient&status=unpaid",
 			authorization: null,
 		},
+		{
+			url: "https://hospital.example.test/api/v2/patients",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/medical-records",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/medical-records/closed-boundary-visit",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/payments/insurance/authorization",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/appointments",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/appointments/holds",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/appointments/closed-boundary-appointment/cancel",
+			authorization: null,
+		},
 	]);
 });
 
 test("runtime smoke fails when a public health path loses no-store", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				return jsonResponse({ success: true, data: { status: "ok" } });
@@ -212,7 +335,7 @@ test("runtime smoke fails when a public health path loses no-store", async () =>
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -227,7 +350,7 @@ test("runtime smoke fails when a public health path loses no-store", async () =>
 test("runtime smoke reports not-ready as a warning in observation mode", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
@@ -247,7 +370,7 @@ test("runtime smoke reports not-ready as a warning in observation mode", async (
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -270,7 +393,7 @@ test("runtime smoke requires ready for release acceptance", async () => {
 		baseUrl: "https://hospital.example.test",
 		requireReady: true,
 		traceIdFactory: () => traceIds.shift() ?? "fallback-trace",
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
@@ -290,7 +413,7 @@ test("runtime smoke requires ready for release acceptance", async () => {
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -310,7 +433,7 @@ test("runtime smoke fails when readiness becomes unavailable inside the stabilit
 		requireReady: true,
 		readinessSamples: 3,
 		readinessIntervalMs: 0,
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
@@ -334,7 +457,7 @@ test("runtime smoke fails when readiness becomes unavailable inside the stabilit
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -353,7 +476,7 @@ test("runtime smoke reports an intermittent not-ready sample instead of hiding i
 		baseUrl: "https://hospital.example.test",
 		readinessSamples: 2,
 		readinessIntervalMs: 0,
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
@@ -377,7 +500,7 @@ test("runtime smoke reports an intermittent not-ready sample instead of hiding i
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -393,7 +516,7 @@ test("runtime smoke keeps traceId when a platform request fails", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
 		traceIdFactory: () => "transport-trace-001",
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				throw new Error("connection reset by peer");
@@ -409,7 +532,7 @@ test("runtime smoke keeps traceId when a platform request fails", async () => {
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -432,7 +555,7 @@ test("runtime smoke never logs the raw transport error message", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
 		logger,
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				throw new Error(
@@ -450,7 +573,7 @@ test("runtime smoke never logs the raw transport error message", async () => {
 					data: { service: "hospital-api", apiVersion: "0.1.0" },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
@@ -464,7 +587,7 @@ test("runtime smoke never logs the raw transport error message", async () => {
 test("runtime smoke fails when a protected route is not rejected by authentication", async () => {
 	const result = await runApiRuntimeSmoke({
 		baseUrl: "https://hospital.example.test",
-		fetcher: async (input) => {
+		fetcher: async (input, init) => {
 			const url = String(input);
 			if (url.endsWith("/health/live")) {
 				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
@@ -488,15 +611,73 @@ test("runtime smoke fails when a protected route is not rejected by authenticati
 					data: { items: [], total: 0 },
 				});
 			}
-			return unauthorizedResponse();
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
 		},
 	});
 
 	expect(result.passed).toBe(false);
-	expect(result.checks.at(-1)).toMatchObject({
+	expect(
+		result.checks.find((check) => check.name === "auth-boundary"),
+	).toMatchObject({
 		name: "auth-boundary",
 		status: "failed",
 		details: ["me:http-200"],
+	});
+});
+
+test("runtime smoke fails when a closed route is registered", async () => {
+	const result = await runApiRuntimeSmoke({
+		baseUrl: "https://hospital.example.test",
+		fetcher: async (input, init) => {
+			const url = String(input);
+			if (url.endsWith("/health/live")) {
+				return jsonResponse({ success: true, data: { status: "ok" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/health/ready")) {
+				return jsonResponse({ success: true, data: { status: "ready" } }, 200, {
+					"cache-control": "no-store",
+				});
+			}
+			if (url.endsWith("/system/ping")) {
+				return jsonResponse({
+					success: true,
+					data: { service: "hospital-api", apiVersion: "0.1.0" },
+				});
+			}
+			if (
+				url.endsWith("/api/v1/patients") &&
+				(init?.method ?? "GET") === "POST"
+			) {
+				return unauthorizedResponse();
+			}
+			if (
+				url.endsWith("/api/v1/medical-records") &&
+				(init?.method ?? "GET") === "GET"
+			) {
+				return jsonResponse(
+					{
+						success: false,
+						error: {
+							code: "upstream-not-found",
+							message: "路径由代理层拦截",
+						},
+					},
+					404,
+				);
+			}
+			return defaultBoundaryResponse(url, init?.method ?? "GET");
+		},
+	});
+
+	expect(result.passed).toBe(false);
+	expect(
+		result.checks.find((check) => check.name === "closed-boundary"),
+	).toMatchObject({
+		name: "closed-boundary",
+		status: "failed",
+		details: ["patient-create:http-401", "medical-records:error-code"],
 	});
 });
 

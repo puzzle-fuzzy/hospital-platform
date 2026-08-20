@@ -399,6 +399,8 @@ query schema 的内部任务传入未知值，也只能返回 `400 outpatient-pa
 - `POST /api/v2/patients`：患者新增/建档；
 - `GET /api/v2/medical-records`、`GET /api/v2/medical-records/{visitRecordId}`：门诊就诊记录目录与详情；
 - `POST /api/v2/payments/insurance/authorization`：医保授权。
+- `POST /api/v2/appointments`、`POST /api/v2/appointments/holds`、
+  `POST /api/v2/appointments/{appointmentId}/cancel`：预约写入、占号和取消。
 
 它们必须先完成 provider/HIS contract、owner 映射、状态/幂等、脱敏和真实验收，才允许进入公共
 OpenAPI；旧服务存在对应能力不改变这一关闭状态。

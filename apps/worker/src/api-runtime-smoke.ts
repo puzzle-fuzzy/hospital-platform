@@ -1,19 +1,19 @@
 import {
+	type AppLogger,
 	createLogger,
 	createNoopLogger,
-	type AppLogger,
 } from "@hospital/observability";
 import {
+	type ApiPrefix,
 	apiRoute,
 	healthRoute,
 	resolveApiPrefix,
-	type ApiPrefix,
 } from "./api-route-prefix";
 import {
 	parseReadinessEnvironmentNumber,
 	ReadinessStabilityProbeError,
-	runReadinessStabilityProbe,
 	resolveReadinessStability,
+	runReadinessStabilityProbe,
 } from "./readiness-stability";
 
 export type RuntimeSmokeFetcher = (
@@ -22,7 +22,12 @@ export type RuntimeSmokeFetcher = (
 ) => Promise<Response>;
 
 export type RuntimeSmokeCheck = {
-	name: "health-live" | "health-ready" | "system-ping" | "auth-boundary";
+	name:
+		| "health-live"
+		| "health-ready"
+		| "system-ping"
+		| "auth-boundary"
+		| "closed-boundary";
 	status: "passed" | "warning" | "failed";
 	statusCode?: number;
 	details?: readonly string[];
@@ -148,6 +153,38 @@ const AUTH_BOUNDARY_ROUTES = [
 ] as const;
 
 /**
+ * 这些能力目前没有完成 Provider/HIS contract，因此必须保持“未注册”的 404。
+ * smoke 只发送空 JSON 来确认 HTTP 方法和路径边界，不传患者、订单、医保或支付
+ * 数据；如果将来有人注册了其中任一路由，门禁会立即失败，避免把“接口存在”误写
+ * 成业务迁移完成。取消和预约写入也放在这里，是因为它们属于同一个待审核的命令面。
+ */
+const CLOSED_BOUNDARY_ROUTES = [
+	{ name: "patient-create", method: "POST", path: "/patients" },
+	{ name: "medical-records", method: "GET", path: "/medical-records" },
+	{
+		name: "medical-record-detail",
+		method: "GET",
+		path: "/medical-records/closed-boundary-visit",
+	},
+	{
+		name: "insurance-authorization",
+		method: "POST",
+		path: "/payments/insurance/authorization",
+	},
+	{ name: "appointment-create", method: "POST", path: "/appointments" },
+	{
+		name: "appointment-hold",
+		method: "POST",
+		path: "/appointments/holds",
+	},
+	{
+		name: "appointment-cancel",
+		method: "POST",
+		path: "/appointments/closed-boundary-appointment/cancel",
+	},
+] as const;
+
+/**
  * 健康接口是瞬时探针，发布 smoke 必须确认反向代理没有移除 no-store。
  * 只按 Cache-Control 指令解析，不把其他缓存参数误判为等价的禁止缓存。
  */
@@ -255,7 +292,10 @@ export async function runApiRuntimeSmoke(
 		};
 	}
 
-	async function getUnauthorized(path: string): Promise<{
+	async function requestWithoutAuth(
+		path: string,
+		method: "GET" | "POST" = "GET",
+	): Promise<{
 		body: unknown;
 		statusCode: number;
 		traceId: string;
@@ -265,15 +305,17 @@ export async function runApiRuntimeSmoke(
 		let response: Response;
 		try {
 			response = await fetcher(`${baseUrl}${route}`, {
-				method: "GET",
+				method,
 				signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
 				headers: {
 					accept: "application/json",
+					...(method === "POST" ? { "content-type": "application/json" } : {}),
 					"x-request-id": traceId,
 				},
+				...(method === "POST" ? { body: "{}" } : {}),
 			});
 		} catch (error) {
-			// 认证边界的网络失败也必须携带 traceId，否则无法区分具体失败路由。
+			// 未授权/关闭能力边界的网络失败都必须携带 traceId，否则无法区分具体失败路由。
 			const errorType = error instanceof Error ? error.name : "UnknownError";
 			throw new RuntimeSmokeRequestError(
 				`Hospital API request failed (${errorType})`,
@@ -465,7 +507,7 @@ export async function runApiRuntimeSmoke(
 
 		for (const route of AUTH_BOUNDARY_ROUTES) {
 			try {
-				const result = await getUnauthorized(route.path);
+				const result = await requestWithoutAuth(route.path);
 				statusCode ??= result.statusCode;
 				traceId = result.traceId;
 				if (result.statusCode !== 401) {
@@ -488,6 +530,44 @@ export async function runApiRuntimeSmoke(
 
 		return {
 			name: "auth-boundary",
+			status: failures.length > 0 ? "failed" : "passed",
+			...(failures.length > 0 ? { details: failures } : {}),
+			...(statusCode === undefined ? {} : { statusCode }),
+			...(finalTraceId ? { traceId: finalTraceId } : {}),
+		};
+	});
+
+	await check("closed-boundary", async () => {
+		const failures: string[] = [];
+		let statusCode: number | undefined;
+		let traceId: string | undefined;
+		let failureTraceId: string | undefined;
+
+		for (const route of CLOSED_BOUNDARY_ROUTES) {
+			try {
+				const result = await requestWithoutAuth(route.path, route.method);
+				statusCode ??= result.statusCode;
+				traceId = result.traceId;
+				if (result.statusCode !== 404) {
+					failures.push(`${route.name}:http-${result.statusCode}`);
+					continue;
+				}
+				if (responseErrorCode(result.body) !== "not-found") {
+					failures.push(`${route.name}:error-code`);
+				}
+			} catch (error) {
+				if (error instanceof RuntimeSmokeRequestError && error.traceId) {
+					failureTraceId = error.traceId;
+				}
+				failures.push(
+					`${route.name}:${error instanceof Error ? error.name : "UnknownError"}`,
+				);
+			}
+		}
+		const finalTraceId = failureTraceId ?? traceId;
+
+		return {
+			name: "closed-boundary",
 			status: failures.length > 0 ? "failed" : "passed",
 			...(failures.length > 0 ? { details: failures } : {}),
 			...(statusCode === undefined ? {} : { statusCode }),

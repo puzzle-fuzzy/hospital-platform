@@ -358,6 +358,9 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"POST /api/v2/patients",
 		"GET /api/v2/medical-records",
 		"POST /api/v2/payments/insurance/authorization",
+		"POST /api/v2/appointments",
+		"POST /api/v2/appointments/holds",
+		"POST /api/v2/appointments/{appointmentId}/cancel",
 	] as const;
 
 	for (const statement of requiredDocumentation) {

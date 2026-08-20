@@ -95,8 +95,11 @@ $env:HOSPITAL_API_PREFIX = "/api/v1"
 pnpm runtime:smoke
 ```
 
-它只访问 `health/live`、`health/ready` 和 `system/ping`，不需要平台 token，也不触碰业务写入；
-同时会确认两个健康接口的 `Cache-Control` 保留 `no-store`，防止公网代理缓存 readiness 状态。
+它会访问 `health/live`、`health/ready`、`system/ping`，检查已注册保护路由的未登录 `401/unauthorized`
+边界，并检查当前刻意关闭的患者新增、门诊病历、医保授权和预约写入路由保持
+`404/not-found`。关闭边界的 POST 只发送空 JSON，GET 不带 query/body，用于确认 HTTP 方法和路径；不需要平台 token，
+不会携带患者/订单数据，也不会调用 Provider 或触碰业务写入；同时会确认两个健康接口的
+`Cache-Control` 保留 `no-store`，防止公网代理缓存 readiness 状态。
 开发观察模式下 `ready=not_ready` 会记录 warning；发布验收设置
 `$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"`，此时未 ready 会返回失败。
 
