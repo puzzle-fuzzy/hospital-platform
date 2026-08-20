@@ -7,6 +7,7 @@ dist/
 coverage/
 *.log
 .DS_Store
+.local/zhongyang-docs/
 .idea/
 .vscode/
 apps/miniprogram/dist/
