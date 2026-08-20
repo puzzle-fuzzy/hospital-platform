@@ -31,6 +31,10 @@ trace 保留修正尚未取得真实 Provider 三层业务样例；下一次真�
 本窗口没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis，详见
 [`current-5a31427-p0-business-observation-2026-08-21-0451.md`](current-5a31427-p0-business-observation-2026-08-21-0451.md)。
 
+2026-08-21 05:45 CST 的最新复核改用实际监听地址 `10.0.0.3:18081`，readiness 的 database/Redis/schema 均为 `ok`；
+回环地址 `127.0.0.1:18081` 不属于新 API 监听地址。最近 30 分钟仍没有业务事件，详见
+[`current-5a31427-p0-business-observation-2026-08-21-0545.md`](current-5a31427-p0-business-observation-2026-08-21-0545.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `1d161b7`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，

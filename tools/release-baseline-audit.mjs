@@ -58,6 +58,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "04:51 P0 业务空窗口观察",
 	},
 	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0545.md",
+		label: "05:45 P0 业务空窗口观察",
+	},
+	{
 		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
 		label: "普通资料验收手册",
 	},
@@ -198,6 +202,17 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "## 结论",
 				end: "在三层证据形成前",
 				phrases: [{ text: "当前小程序候选", expected: "short" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0545.md",
+		label: "05:45 P0 业务空窗口观察",
+		sections: [
+			{
+				start: "## 1. 运行边界",
+				end: "## 2. 低敏业务事件",
+				phrases: [{ text: "当前小程序候选来源", expected: "full" }],
 			},
 		],
 	},

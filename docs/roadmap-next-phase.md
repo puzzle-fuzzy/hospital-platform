@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 05:45 CST（线上只读共存与业务空窗口复核）：服务器确认当前 release `5a31427` active，新 API
+  `10.0.0.3:18081` 与旧 Python `8001` 继续共存；使用实际内网监听地址的 readiness 返回 `database=ok`、`redis=ok`、
+  `schema=ok`。最近 30 分钟没有微信、患者、预约、门诊费用或普通资料业务事件，最近 10 分钟只有 readiness `200`。
+  `127.0.0.1:18081` 不是新 API 的监听地址，回环探针失败不能解释成服务停止。本次没有部署、重启、配置写入、Provider 调用或业务数据写入。
+  详见 [`release/current-5a31427-p0-business-observation-2026-08-21-0545.md`](release/current-5a31427-p0-business-observation-2026-08-21-0545.md)。
+
 - 2026-08-21 05:17 CST（线上只读共存与业务窗口复核）：服务器确认服务端 `5a31427` active，新 API
   `10.0.0.3:18081` 与旧 Python `8001` 继续共存，readiness 的 database/Redis/schema 均为 `ok`；最近 30 分钟
   journald 只有 1 条健康检查 `200`，没有新的微信、患者、预约、门诊费用或普通资料业务事件。该结果只证明运行层
