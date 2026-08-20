@@ -73,6 +73,11 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 后续真机二维码必须重新基于该来源生成；逻辑审计见
 [`miniprogram-session-recovery-logic-audit-2026-08-21.md`](miniprogram-session-recovery-logic-audit-2026-08-21.md)。
 
+2026-08-21 07:20 CST 针对 `dist/services/single-flight.test.js` ENOENT 重新执行当前候选构建、`runtime:verify` 和小程序定向测试：
+运行包仍为 14 个页面，测试脚本为 0，170 项测试全部通过。该结果修复并确认了运行包边界，但不延长 07:23 CST 已过期的旧二维码；
+必须重新普通编译并生成新二维码后，才可以开始真机业务证据采集。详见
+[`candidate-9340846-local-build-2026-08-21.md`](candidate-9340846-local-build-2026-08-21.md)。
+
 ## 2026-08-21 当前候选只读业务复核
 
 本次代码复核基于服务端 `5a31427`、小程序候选 `9340846`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，

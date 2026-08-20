@@ -16,6 +16,17 @@
 | `single-flight.js` | 存在 |
 | `single-flight.test.js` | 不存在，符合运行包边界 |
 
+## 2026-08-21 07:20 CST ENOENT 复核
+
+针对开发者工具曾报告的 `dist/services/single-flight.test.js`，在当前候选上重新执行了完整的小程序运行包构建与只读验证：
+
+- `pnpm --filter @hospital/miniprogram build` 通过，运行包来源仍为 `93408462f3eeadffed172f1ea3b10c043d461b1b`；
+- `pnpm --filter @hospital/miniprogram runtime:verify` 通过，14 个页面入口和根文件齐全；
+- `dist/` 中 `*.test.js` / `*.spec.js` 数量为 0，`single-flight.js` 存在，`single-flight.test.js` 不存在；
+- 小程序定向测试为 170 项通过、0 项失败、1364 个断言通过。
+
+因此该路径只能来自开发者工具旧的增量模块索引或旧真机调试会话，不能通过复制测试脚本修复。必须先普通编译当前 `dist/`，再重新生成真机调试二维码。
+
 ## 本候选验证
 
 - 小程序 170 项测试、1364 个断言通过；全仓 typecheck 通过。
