@@ -875,6 +875,21 @@ test("request context preserves a safe incoming request id", async () => {
 	expect(response.headers.get("x-request-id")).toBe("test-trace-001");
 });
 
+test("错误响应同样保留 request id，客户端才能关联服务端失败日志", async () => {
+	const response = await createApp().handle(
+		new Request("http://localhost/route-does-not-exist", {
+			headers: { "x-request-id": "error-trace-001" },
+		}),
+	);
+
+	// 失败响应不能因为进入统一错误处理器就丢失链路号；小程序的
+	// ApiError.requestId 会从这个响应头读取它，再与 journald 中的
+	// http.request.failed 及业务失败事件关联。这里只验证低敏 header，
+	// 不把内部异常细节或请求体扩散到公共响应。
+	expect(response.status).toBe(404);
+	expect(response.headers.get("x-request-id")).toBe("error-trace-001");
+});
+
 test("request logger records trace, route, status and duration without headers", async () => {
 	const lines: string[] = [];
 	const logger = createLogger({

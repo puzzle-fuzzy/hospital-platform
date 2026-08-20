@@ -68,6 +68,11 @@ Content-Type: application/json
 | `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` + `0016` schema gate 通过后使用 owner-scoped operation ledger，线上新 release、并发、公网和真机验收仍待完成 |
 | `Authorization` | 受保护接口 | 只接受平台 Bearer 会话，不接受 provider token |
 
+无论接口返回成功还是错误，服务端都会在响应头返回最终采用的 `X-Request-Id`；错误响应不会因为进入统一错误处理器而丢失它。
+小程序将该值保存到 `ApiError.requestId`，用于关联服务端 `http.request.failed`、业务失败事件和反向代理日志。
+一次 401 自动登录重试可能对应多个物理 HTTP 请求，每个请求都有独立 requestId；最终抛出的错误只代表最后一次失败请求的链路号。
+该标识只用于排障关联，不是会话凭证，也不应被页面当作业务主键展示或持久化。
+
 患者同步使用 `POST /api/v2/patients/sync`，没有请求体；当前 `Idempotency-Key` 会进入
 adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_operations` 和
 `0016_patient_directory_sync_owner_index` 通过 schema gate 的实例中，
