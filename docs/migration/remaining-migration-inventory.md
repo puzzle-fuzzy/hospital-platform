@@ -32,6 +32,10 @@
 > 因此只能证明当前 release 的患者读取/同步服务链，不能替代新的微信扫码、真机页面、多患者切换或其它业务验收；详见
 > [`../release/miniprogram-real-device-login-acceptance-2026-08-20.md`](../release/miniprogram-real-device-login-acceptance-2026-08-20.md) 第 10 节。
 
+> 2026-08-21 00:23 CST 线上共存只读复核：`hospital-platform-api-v2.service` 为 `active`，新 Bun API 监听
+> `10.0.0.3:18081`，旧 Python API 仍监听 `0.0.0.0:8001`，公网 `/api/v2/health/ready` 返回 `200`。
+> 本次只读取服务状态、监听和 readiness，没有重启服务、修改配置或触碰旧项目；该运行层证据不增加任何新的 Provider 或真机业务结论。
+
 > 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
 > `0e360d32edcfaa49128a7c29aaa4947cf739e090`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
 > `0.0.0.0:8001`；公网 live/ready/ping 均为 200，ready 依赖为 `database=ok`、`redis=ok`、`schema=ok`，
