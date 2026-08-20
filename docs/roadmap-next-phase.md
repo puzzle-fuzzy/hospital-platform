@@ -3,7 +3,7 @@
 本文档是新会话继续工作的入口，描述当前真实边界、业务优先级、工程治理和上线验收顺序。
 其中“已完成”只表示代码、测试或部署证据，不代表微信、众阳、医保、HIS、支付或真机已经完成真实验收。
 
-## 当前执行检查点（2026-08-19）
+## 当前执行检查点（2026-08-20）
 
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端为 `398be8e`，小程序候选为 `474b044`，完整来源为
@@ -46,6 +46,12 @@
   session 实现。现已在统一鉴权入口、Redis session 和测试内存 session 前增加 512 字符的安全形状门禁；畸形 token
   直接返回 `401 unauthorized`，不触碰 Redis、不写入日志。该修正不改变正常 token、Redis TTL 或 owner 语义，未修改
   众阳 Provider 自动化、旧 Python、数据库、Redis 配置或线上服务。
+
+- 2026-08-20（微信一次性 code 输入边界与本地门禁）：新提交 `3a7f952` 让登录 contract、AuthService 和微信 adapter
+  统一拒绝首尾空白、控制字符、超长 `code`，并拒绝 `openid`、`session_key` 等未知字段；API 170/170、adapter 96/96
+  通过。完整 `pnpm check` 的架构、迁移、Provider intake、文档、基线、格式、lint、工具、类型和测试阶段均通过，
+  但小程序 build 因并行会话尚未提交的运行输入被 provenance 门禁主动停止；本次没有部署、Provider 调用、旧 Python、
+  MySQL/Redis 写入或线上小程序上传。Docker daemon 未运行，`pnpm db:integration` 尚未取得 MySQL/Redis 集成证据。
 
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
