@@ -35,3 +35,10 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 ## 验收边界
 
 本记录只证明运行包不会主动发布测试脚本，并不能替代微信开发者工具重新加载、真机连接和公网请求的实际验收。登录、患者同步以及后续业务仍需按请求号、服务日志和真机页面结果分别确认。
+
+## 本轮复扫观察
+
+2026-08-20 本轮重新扫码后，公网 readiness 仍返回 `200`，内部 journald 只观察到
+`/health/ready` 和 `/health/live`，没有新的 `/auth/wechat` 或 `/patients` 请求。因此不能把
+“重新扫码后没有立即报错”写成微信登录成功；下一次验收必须先确认开发者工具当前项目确实是
+`E:\__Super_Core__\hospital-platform\apps\miniprogram`，再同时保存真机页面结果、请求链和服务端低敏日志。
