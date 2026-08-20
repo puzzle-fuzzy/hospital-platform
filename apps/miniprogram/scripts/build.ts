@@ -292,11 +292,14 @@ async function copyStaticFiles(
 }
 
 /**
- * 使用项目锁定的 TypeScript 编译器输出 CommonJS 页面脚本到 staging；小程序只
- * 消费已经完整发布的 dist，src 仍是唯一业务源码。不能在这里清空 live dist，
- * 否则开发者工具监听到整目录删除时会出现页面 404。
+ * 使用项目锁定的 TypeScript 编译器输出 CommonJS 页面脚本到 staging；staging
+ * 放在 miniprogram 项目根目录之外，避免微信开发者工具把临时文件当成页面输入。
+ * 小程序只消费已经完整发布的 dist，src 仍是唯一业务源码；不能在这里清空 live
+ * dist，否则开发者工具监听到整目录删除时会出现页面 404。
  */
-const stagingRuntime = await mkdtemp(join(root, ".hospital-runtime-staging-"));
+const stagingRuntime = await mkdtemp(
+	join(dirname(root), ".hospital-miniprogram-staging-"),
+);
 try {
 	const compile = Bun.spawnSync(
 		["pnpm", "exec", "tsc", "-p", buildConfigPath, "--outDir", stagingRuntime],

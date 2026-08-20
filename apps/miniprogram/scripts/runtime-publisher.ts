@@ -51,8 +51,9 @@ async function listFiles(
  * 绝不能在 TypeScript 编译开始时删除线上/真机正在读取的 `dist/`：微信开发者
  * 工具会监听项目目录，整目录删除会制造一段真实的“页面文件不存在”窗口，表现
  * 为 `pages/*.js` 404。这里先在 staging 中完成全部编译和静态资源复制，再把旧
- * 目录移动到同一父目录下的临时备份，最后把完整 staging 目录移入 `dist/`。
- * 任一步替换失败都会尽力恢复旧目录，避免失败构建留下半套运行包。
+ * 目录移动到项目根目录之外、但与 `dist/` 同盘的临时备份，最后把完整 staging
+ * 目录移入 `dist/`。任一步替换失败都会尽力恢复旧目录，避免失败构建留下半套
+ * 运行包；临时目录不进入微信开发者工具的监听范围。
  *
  * Windows 下开发者工具可能短暂持有 dist 文件。如果旧目录无法移动，函数会
  * 直接失败并保留旧运行包；调用方应关闭编译/真机调试后重试，不能退化为先删
@@ -67,9 +68,12 @@ export async function publishMiniProgramRuntime(
 	}
 
 	const liveParent = dirname(liveRuntime);
+	// liveRuntime 通常是 <repo>/apps/miniprogram/dist；向上一级放置临时备份，
+	// 让它脱离 miniprogram 项目根，同时仍保持在同一文件系统中，支持快速 rename。
+	const temporaryParent = dirname(liveParent);
 	const backupRuntime = join(
-		liveParent,
-		`.hospital-runtime-backup-${process.pid}-${Date.now()}`,
+		temporaryParent,
+		`.hospital-miniprogram-backup-${process.pid}-${Date.now()}`,
 	);
 	let liveMoved = false;
 	let newRuntimeInstalled = false;
@@ -84,24 +88,9 @@ export async function publishMiniProgramRuntime(
 		await rename(stagingRuntime, liveRuntime);
 		newRuntimeInstalled = true;
 
-		// 新运行包已经完整挂载后再清理旧文件。即使某个旧文件被开发者工具
-		// 暂时占用，也不能回到“先清空 dist 再构建”的危险路径；旧的未注册文件
-		// 不会被 app.json 引用，保留它只记录为警告，不影响当前候选可启动。
-		const desiredFiles = new Set(await listFiles(liveRuntime));
-		const previousFiles = await listFiles(backupRuntime).catch(() => []);
-		for (const previousFile of previousFiles) {
-			if (desiredFiles.has(previousFile)) continue;
-			try {
-				await rm(join(liveRuntime, previousFile), {
-					force: true,
-					recursive: false,
-				});
-			} catch {
-				console.warn(
-					`Mini program runtime kept an obsolete unregistered file: ${previousFile}`,
-				);
-			}
-		}
+		// 新运行包已经完整挂载；旧目录只存在于项目根之外的备份路径，finally
+		// 会递归清理它，因此旧的未注册文件不会泄漏到新的 dist，也不会触发开发者
+		// 工具对项目根的临时文件监听。
 	} catch (error) {
 		// 新目录没有安装成功时，恢复旧目录；恢复失败必须把两个错误都带出，
 		// 让发布人员知道不能继续启动开发者工具或上传当前 dist。
@@ -123,7 +112,7 @@ export async function publishMiniProgramRuntime(
 		throw error;
 	} finally {
 		// stagingRuntime 成功 rename 后路径已经不存在；失败时这里只清理未发布的
-		// 临时目录，不触碰 liveRuntime 或恢复后的旧目录。
+		// 临时目录，不触碰 liveRuntime 或恢复后的旧目录。备份同样在项目根之外。
 		if (await pathExists(stagingRuntime)) {
 			await rm(stagingRuntime, { recursive: true, force: true });
 		}

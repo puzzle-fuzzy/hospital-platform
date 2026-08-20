@@ -99,7 +99,8 @@ test("运行包发布先完成 staging，再替换 live，旧文件不会在编�
 	const workspace = await mkdtemp(
 		join(tmpdir(), "hospital-mini-runtime-publish-"),
 	);
-	const liveRuntime = join(workspace, "dist");
+	const watchedProject = join(workspace, "miniprogram");
+	const liveRuntime = join(watchedProject, "dist");
 	const stagingRuntime = join(workspace, "staging");
 	try {
 		await mkdir(join(liveRuntime, "pages/index"), { recursive: true });
@@ -131,8 +132,8 @@ test("运行包发布先完成 staging，再替换 live，旧文件不会在编�
 		await expect(access(join(liveRuntime, "stale.js"))).rejects.toThrow();
 		expect(await listRuntimeFiles(liveRuntime)).toContain("app.json");
 		expect(
-			(await readdir(workspace)).filter((entry) =>
-				entry.startsWith(".hospital-runtime-backup-"),
+			(await readdir(watchedProject)).filter((entry) =>
+				entry.startsWith(".hospital-miniprogram-backup-"),
 			).length,
 		).toBe(0);
 	} finally {

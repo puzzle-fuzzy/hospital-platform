@@ -1093,6 +1093,9 @@ test("native mini program runtime verification checks build provenance", async (
 	// dist/ 可能被开发者工具持续监听；来源指纹必须先写入 staging 目录，
 	// 再一次性发布到 live 目录，避免 tsc 编译期间出现“目录存在但页面 JS 暂时不存在”的 404。
 	expect(build).toContain('join(stagingRuntime, "build-info.json")');
+	expect(build).toContain(
+		'join(dirname(root), ".hospital-miniprogram-staging-")',
+	);
 	expect(build).toContain("--outDir");
 	expect(build).toContain("publishMiniProgramRuntime(stagingRuntime, runtime)");
 	expect(build).not.toContain(
