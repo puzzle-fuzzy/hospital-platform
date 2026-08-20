@@ -1,8 +1,8 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `5a31427`，当前本地小程序候选为 `1b9b4b0`，完整运行包来源为
-> `1b9b4b0d101dfcd5011845f7797c9523676cc987`。小程序尚未上传线上。
+> 当前服务端候选为 `5a31427`，当前本地小程序候选为 `02c18af`，完整运行包来源为
+> `02c18af2e658507a0fa5182368235cf62cd348c7`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -108,9 +108,9 @@ trace 保留修正尚未取得真实 Provider 三层业务样例；下一次真�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-1b9b4b0.md`](miniprogram-real-device-evidence-template-1b9b4b0.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-02c18af.md`](miniprogram-real-device-evidence-template-02c18af.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-1b9b4b0-local-build-2026-08-21.md`](candidate-1b9b4b0-local-build-2026-08-21.md)
+- 当前候选来源：[`candidate-02c18af-local-build-2026-08-21.md`](candidate-02c18af-local-build-2026-08-21.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)

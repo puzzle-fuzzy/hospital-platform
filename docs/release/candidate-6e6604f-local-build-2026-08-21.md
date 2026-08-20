@@ -1,6 +1,6 @@
 # 小程序候选 `6e6604f` 本地构建记录（2026-08-21）
 
-> 历史候选记录：当前真机验收入口已推进到 [`candidate-1b9b4b0-local-build-2026-08-21.md`](candidate-1b9b4b0-local-build-2026-08-21.md)，本文件仅用于追溯，不能继续生成二维码或作为当前 `dist/` 来源。
+> 历史候选记录：当前真机验收入口已推进到 [`candidate-02c18af-local-build-2026-08-21.md`](candidate-02c18af-local-build-2026-08-21.md)，本文件仅用于追溯，不能继续生成二维码或作为当前 `dist/` 来源。
 
 ## 固定来源
 

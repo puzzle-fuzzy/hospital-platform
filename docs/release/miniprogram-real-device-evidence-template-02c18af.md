@@ -1,15 +1,13 @@
-# 小程序当前候选真机三层证据记录模板（`6e6604f`）
-
-> 历史模板：当前候选已切换为 `02c18af`，请使用 [`miniprogram-real-device-evidence-template-02c18af.md`](miniprogram-real-device-evidence-template-02c18af.md)。本文件不再用于当前真机记录。
+# 小程序当前候选真机三层证据记录模板（`02c18af`）
 
 > 用途：记录当前候选真实微信设备上的页面、客户端 HTTP 和服务端低敏日志三层证据。
 > 本文件是空白记录模板，不代表任何业务已验收；没有实际页面操作和同一时间窗口的请求链，
 > 不得把表格填写成“通过”。
 >
-> 当前服务端 release：`6038560`
-> 当前小程序候选：`6e6604f`  
-> 运行包来源：`6e6604f8089e45ceeaaf4bcbbd57065174a59a31`  
-> 运行根目录：`apps/miniprogram/dist/`  
+> 当前服务端 release：`5a31427`
+> 当前小程序候选：`02c18af`
+> 运行包来源：以 `apps/miniprogram/dist/build-info.json.sourceRevision` 现场读取的完整 40 位 SHA 为准，必须以 `02c18af` 开头
+> 运行根目录：`apps/miniprogram/dist/`
 > 旧 Python 服务：`8001`，本次验收不得修改或重启
 
 ## 1. 填写规则
@@ -29,7 +27,7 @@
 | 设备/系统 | `iOS/Android + 版本` |
 | 微信基础库 | `版本` |
 | 开发者工具真机窗口 | `新窗口/窗口标识` |
-| `dist/build-info.json.sourceRevision` | 必须等于 `6e6604f8089e45ceeaaf4bcbbd57065174a59a31` |
+| `dist/build-info.json.sourceRevision` | 必须以现场读取的完整 40 位 SHA 为准，且以 `02c18af` 开头 |
 | 扫码时间 | `YYYY-MM-DD HH:mm:ss` |
 | 是否使用历史二维码 | 必须为“否” |
 
@@ -49,28 +47,20 @@
 | 普通资料读取 | 进入个人资料页 | `待填写` | `待填写` | `待填写` | `profile requested → loaded → HTTP 2xx` | `not-run` |
 | 普通资料更新 | 修改允许字段并保存 | `待填写` | `待填写` | `待填写` | `profile.update requested → updated` 或明确 `409` | `not-run` |
 
-## 4. 服务端聚合命令
+## 4. 运行包命令
 
-生产日志只能先由当前 release 的 `p0-log-aggregate` 生成安全 JSON，再交给业务证据审计；不要直接把原始 journald
-或反向代理日志粘贴到本文件。示例命令中的路径和时间必须替换成实际验收窗口：
-
-```bash
-sudo journalctl -u hospital-api-v2 --since "YYYY-MM-DD HH:MM:SS" --until "YYYY-MM-DD HH:MM:SS" \
-  | /home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-log-aggregate.js --json \
-  > /tmp/p0-<window>.json
-
-cat /tmp/p0-<window>.json \
-  | /home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/p0-business-evidence-audit.js \
-  --domain appointmentRecords
+```powershell
+pnpm --filter @hospital/miniprogram build
+pnpm --filter @hospital/miniprogram runtime:verify
+Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 ```
 
-记录审计输出时只保留：`passed`、域名、事件计数、缺失项、`parseErrors`、`systemdWarningCount`、关联链数量和 HTTP 状态计数。
-不要把原始日志、完整 trace、患者标识或 Provider request id 原文写入 Git。
+生产日志仍只能先由当前 release 的 P0 聚合器生成安全 JSON，再交给业务证据审计；不要把原始 journald、请求头、患者标识或 Provider 原文写入本文件。
 
 ## 5. 关闭和复核
 
 - 当前候选来源不一致：立即停止，不打开二维码。
-- 页面显示上一位患者、患者切换后请求仍使用旧上下文、或服务端关联链与客户端 trace 对不上：该域标记 `blocked`。
+- 页面显示上一位患者、患者切换后请求仍使用旧上下文、或服务端关联链与客户端 trace 对不上：该域标记为 `blocked`。
 - 只有 `requested`、业务成功事件、同链 HTTP `2xx`、`parseErrors=0` 且无 systemd 警告，才允许进入页面结果复核。
 - 任何空列表都必须同时确认 Provider 查询成功；不能把 `401`、`403`、`503`、依赖未配置或映射缺失写成“没有数据”。
 - 本模板不适用于报告 Provider、患者绑定、二维码、微信支付、医保结算、退款或 HIS 写回；这些能力继续遵守各自 contract gate。
