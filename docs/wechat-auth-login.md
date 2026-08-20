@@ -16,6 +16,9 @@
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
+2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见
+[`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。
+
 微信授权登录的代码闭环已经完成：
 
 1. 小程序调用 `wx.login()` 获取一次性 `code`。

@@ -115,6 +115,12 @@
   本次没有创建微信 session、调用 Provider 或写入业务数据，因此不增加真机、患者、预约或门诊费用验收结论。详见
   [`release/current-public-readonly-smoke-2026-08-20-1442.md`](release/current-public-readonly-smoke-2026-08-20-1442.md)。
 
+- 2026-08-20 16:10–16:14 CST（真机微信会话与患者同步部分验收）：阿里云公网日志观测到同一 iPhone 微信 WebView
+  先收到 `/me 401`，随后 `/auth/wechat 200`、`/me 200`、`/patients 200` 和 `/patients/sync 200`，并有后续会话恢复请求。
+  这证明当前新服务的真实微信会话与患者同步入口可达，但开发者工具当前真机画面仍显示匿名，尚未取得患者选择页、患者目录内容、
+  多患者切换和页面三层同链证据；不能据此开放预约写入、报告、门诊费用或支付医保。详见
+  [`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。
+
 - 2026-08-20（Bearer 会话输入边界）：复核认证入口发现任意长度或带控制字符的 Authorization token 仍可能先进入
   session 实现。现已在统一鉴权入口、Redis session 和测试内存 session 前增加 512 字符的安全形状门禁；畸形 token
   直接返回 `401 unauthorized`，不触碰 Redis、不写入日志。该修正不改变正常 token、Redis TTL 或 owner 语义，未修改

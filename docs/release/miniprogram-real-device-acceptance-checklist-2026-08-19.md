@@ -72,6 +72,9 @@ Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 
 ## 6. 当前状态与下一步
 
-当前候选已完成本地代码、测试、构建和运行包来源校验，但尚未取得本候选的手机连接、页面、HTTP trace 和服务端低敏日志三层证据。
-用户完成扫码并提供设备连接后，继续按本清单采集；小程序运行包上传前不替换开发者工具运行根目录，
-也不修改旧 Python 服务、数据库或 Redis。服务端 `0e360d3` 已按独立 release 完成切换。
+当前候选已经取得真机连接以及微信会话、`/me`、患者目录读取和患者同步的公网 `2xx` 证据，但页面仍未取得与同一时间窗口关联的
+患者选择结果，因此只能标记为“服务端部分通过”，不能标记为完整真机业务验收。详细证据和限制见
+[`miniprogram-real-device-login-acceptance-2026-08-20.md`](miniprogram-real-device-login-acceptance-2026-08-20.md)。
+
+下一步由真机手动点击“新增就诊人/更换就诊人”，按第 4 节采集页面、客户端 HTTP 和服务端日志三层证据；
+小程序运行包上传前不替换开发者工具运行根目录，也不修改旧 Python 服务、数据库或 Redis。服务端 `0e360d3` 已按独立 release 完成切换。
