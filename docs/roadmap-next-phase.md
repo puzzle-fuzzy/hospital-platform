@@ -10,6 +10,24 @@
 > `8f80b3e`，完整运行包来源为 `8f80b3e30385fe3655f871673d8616cd2d31faaa`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
+- 2026-08-20 20:36 CST（当前新旧服务与 P0 日志只读观察）：新 API `10.0.0.3:18081` 与旧 Python
+  `0.0.0.0:8001` 仍同时监听，`hospital-platform-api-v2.service=active`，readiness 的
+  `database/redis/schema` 均为 `ok`。最近 15 分钟低敏计数只有健康/系统请求的 HTTP 200 和未登录认证的
+  HTTP 401，没有微信、患者、预约、报告、门诊费用或普通资料业务事件；本次未重启、未部署、未写入业务数据，
+  旧 Python 未修改。详见 [`release/current-runtime-p0-observation-2026-08-20-2036.md`](release/current-runtime-p0-observation-2026-08-20-2036.md)。
+
+- 2026-08-20 20:30 CST（当前公网只读边界）：新 API 公网 `/api/v2/health/live`、`health/ready`、
+  `system/ping` 均为 200，未登录 `/me`、`/patients` 均为 401；本次未携带 Bearer、未创建微信 session、
+  未调用 Provider、未写入 MySQL/Redis。详见 [`release/current-public-readonly-smoke-2026-08-20-2030.md`](release/current-public-readonly-smoke-2026-08-20-2030.md)。
+
+- 2026-08-20 20:27 CST（当前真机二维码）：新 `miniprogram` 窗口已重新编译 `8f80b3e` 候选，资源树指向
+  `apps/miniprogram/dist/`，14 个页面已编译，iOS/局域网二维码预计 20:52 CST 失效。该记录只证明运行包和扫码入口，
+  当前尚未取得手机扫码后的页面、HTTP 和服务端日志三层业务证据。详见 [`release/miniprogram-device-qr-session-2026-08-20-2027.md`](release/miniprogram-device-qr-session-2026-08-20-2027.md)。
+
+- 2026-08-20 20:18 CST（患者同步会话顺序修正）：小程序患者同步现在先用只读 `/me` 建立 owner 会话证明，
+  再进入 `POST /patients/sync` 的进程级 single-flight，避免首次登录推进会话代际后把有效同步结果误判为
+  `session-changed`。定向回归和全量构建通过；这仍需当前二维码的真实微信会话验证。详见 [`release/miniprogram-patient-sync-session-proof-2026-08-20.md`](release/miniprogram-patient-sync-session-proof-2026-08-20.md)。
+
 - 2026-08-20 18:01 CST（运行包测试文件边界收敛）：当时候选 `767ed9c` 通过 staging 构建，
   `dist/` 实际包含 14 个页面脚本且没有任何 `*.test.js`/`*.spec.js`。构建脚本和
   `runtime:verify` 已把测试脚本排除作为硬门禁；本轮全仓 `pnpm check` 通过（小程序 167 项测试）。
