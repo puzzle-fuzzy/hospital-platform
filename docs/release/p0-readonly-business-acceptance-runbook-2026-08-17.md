@@ -13,7 +13,7 @@
 [`普通资料真机与日志验收手册`](user-profile-readonly-device-acceptance-2026-08-18.md)执行；它不能被一次保存成功 Toast 或单元测试替代。
 
 当前候选的逐条页面、客户端 trace 和服务端低敏事件记录使用
-[`真机三层证据记录模板`](miniprogram-real-device-evidence-template-02c18af.md)；空白模板不构成验收证据。
+[`真机三层证据记录模板`](miniprogram-real-device-evidence-template-1d161b7.md)；空白模板不构成验收证据。
 
 ## 1. 当前前置条件
 

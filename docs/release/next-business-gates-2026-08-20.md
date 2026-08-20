@@ -113,7 +113,7 @@ trace 保留修正尚未取得真实 Provider 三层业务样例；下一次真�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-02c18af.md`](miniprogram-real-device-evidence-template-02c18af.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-1d161b7.md`](miniprogram-real-device-evidence-template-1d161b7.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
 - 当前候选来源：[`candidate-1d161b7-local-build-2026-08-21.md`](candidate-1d161b7-local-build-2026-08-21.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
