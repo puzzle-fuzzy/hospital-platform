@@ -83,6 +83,13 @@
   全项目 `pnpm test` 和 `pnpm typecheck` 均通过。本轮未调用 Provider、未写入真实数据库、未修改旧 Python 或并行会话文件。
   详见 [`provider-contract-v1.md`](provider-contract-v1.md)。
 
+- 2026-08-20（报告/预约只读数组资源边界闭环）：审计发现报告目录、LIS 明细、预约科室、排班和预约历史此前没有统一数组基数保护，
+  异常 Provider 或可注入 gateway 可能放大映射、平台排班 ID、短期报告详情引用和页面响应。现集中增加报告目录 512、LIS 明细 1024、
+  预约科室 256、排班 512、预约历史 512 的平台资源上限；adapter 与 domain/service 双层整批拒绝，绝不截断、不生成引用、
+  不写入快照、不返回部分临床明细。定向 domain 4/4、adapter 30/30、预约/报告 service 41/41 通过；本轮未调用 Provider、未写真实
+  MySQL/Redis、未改旧 Python 或并行众阳文件。详见 [`provider-contract-v1.md`](provider-contract-v1.md) 与
+  [`api-v2-public.md`](api-v2-public.md)。
+
 - 2026-08-20（只读查询结果与筛选条件绑定）：审计发现预约排班 service 只验证日期格式，未验证返回排班是否位于请求窗口、
   科室和医生筛选内；报告 service 指定 `kind` 时也未验证返回摘要来源。现改为服务层整批 fail-closed：窗口外/科室错配/医生错配
   和报告来源错配统一记录有限 `resultViolation`，不静默过滤、不写入成功日志；预约 service 21/21、报告 service 18/18、API 全套

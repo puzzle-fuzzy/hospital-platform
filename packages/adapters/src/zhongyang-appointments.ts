@@ -1,17 +1,20 @@
-import type {
-	AdapterCallContext,
-	AppointmentDepartment,
-	AppointmentDepartmentQuery,
-	AppointmentDirectoryGateway,
-	AppointmentProviderSchedule,
-	AppointmentRecord,
-	AppointmentRecordDirectoryGateway,
-	AppointmentRecordQuery,
-	AppointmentSchedule,
-	AppointmentScheduleQuery,
-	ExternalTrace,
+import {
+	type AdapterCallContext,
+	type AppointmentDepartment,
+	type AppointmentDepartmentQuery,
+	type AppointmentDirectoryGateway,
+	type AppointmentProviderSchedule,
+	type AppointmentRecord,
+	type AppointmentRecordDirectoryGateway,
+	type AppointmentRecordQuery,
+	type AppointmentSchedule,
+	type AppointmentScheduleQuery,
+	type ExternalTrace,
+	MAX_APPOINTMENT_DEPARTMENT_ITEMS,
+	MAX_APPOINTMENT_RECORD_ITEMS,
+	MAX_APPOINTMENT_SCHEDULE_ITEMS,
+	parseIsoCalendarDate,
 } from "@hospital/domain";
-import { parseIsoCalendarDate } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
@@ -97,9 +100,18 @@ function responseItems(
 	value: unknown,
 	operation: string,
 	requestId: string,
+	maxItems: number,
 ): ProviderObject[] {
-	if (Array.isArray(value))
+	if (Array.isArray(value)) {
+		if (value.length > maxItems) {
+			throw providerError(
+				operation,
+				"Zhongyang appointment response contained too many items",
+				requestId,
+			);
+		}
 		return value.map((item) => objectValue(item, operation, requestId));
+	}
 	const envelope = objectValue(value, operation, requestId);
 	if (!hasSuccessfulBusinessEnvelope(envelope)) {
 		throw providerError(
@@ -113,6 +125,13 @@ function responseItems(
 		throw providerError(
 			operation,
 			"Zhongyang appointment response data was invalid",
+			requestId,
+		);
+	}
+	if (envelope.data.length > maxItems) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment response contained too many items",
 			requestId,
 		);
 	}
@@ -564,6 +583,7 @@ export class ZhongyangAppointmentApiGateway
 			response.data,
 			operation,
 			response.requestId,
+			MAX_APPOINTMENT_DEPARTMENT_ITEMS,
 		).map((item) => mapDepartment(item, operation, response.requestId));
 		ensureUniqueDepartmentIds(departments, operation, response.requestId);
 		return { departments, trace: trace(operation, response.requestId) };
@@ -596,6 +616,7 @@ export class ZhongyangAppointmentApiGateway
 			response.data,
 			operation,
 			response.requestId,
+			MAX_APPOINTMENT_SCHEDULE_ITEMS,
 		).map((item) => mapSchedule(item, operation, response.requestId));
 		ensureUniqueScheduleIds(schedules, operation, response.requestId);
 		return { schedules, trace: trace(operation, response.requestId) };
@@ -631,7 +652,12 @@ export class ZhongyangAppointmentApiGateway
 			},
 			this.fetcher,
 		);
-		const records = responseItems(response.data, operation, response.requestId);
+		const records = responseItems(
+			response.data,
+			operation,
+			response.requestId,
+			MAX_APPOINTMENT_RECORD_ITEMS,
+		);
 		ensureUniqueAppointmentIds(records, operation, response.requestId);
 		const mappedRecords = records.map((item) =>
 			mapRecord(item, operation, response.requestId),

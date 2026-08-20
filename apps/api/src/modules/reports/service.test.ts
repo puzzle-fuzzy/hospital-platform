@@ -11,6 +11,7 @@ import {
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
 	InvalidReportKindError,
+	MAX_REPORT_DIRECTORY_ITEMS,
 	ReportResultValidationError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -1361,4 +1362,65 @@ test("报告 service 绑定指定来源筛选并整批拒绝错配结果", async
 	expect(events).not.toContainEqual(
 		expect.objectContaining({ event: "report.directory.synced" }),
 	);
+});
+
+test("报告目录 service 超过资源上限时不创建短期详情引用", async () => {
+	const reports = Array.from(
+		{ length: MAX_REPORT_DIRECTORY_ITEMS + 1 },
+		(_, index) => ({
+			summary: {
+				kind: "laboratory" as const,
+				title: "血常规",
+				reportedAt: "2026-08-15 10:00:00",
+				status: "available" as const,
+				hasAttachment: false,
+			},
+			providerReportId: `provider-report-too-many-${index}`,
+		}),
+	);
+	const referenceStore = createInMemoryReportReferenceRepository();
+	let referenceWrites = 0;
+	const references: ReportReferenceRepository = {
+		upsert: async (input) => {
+			referenceWrites += 1;
+			return referenceStore.upsert(input);
+		},
+		findByOwnerPatientAndId: referenceStore.findByOwnerPatientAndId,
+	};
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports,
+				trace: {
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "report-too-many-service",
+				},
+			}),
+		},
+		references,
+	});
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-15" },
+			{
+				traceId: "trace-report-too-many",
+				idempotencyKey: "key-report-too-many",
+			},
+		),
+	).rejects.toMatchObject({
+		name: "ReportResultValidationError",
+		violation: "reports-too-many",
+	});
+	expect(referenceWrites).toBe(0);
 });

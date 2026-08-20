@@ -1,4 +1,8 @@
 import { expect, test } from "bun:test";
+import {
+	MAX_REPORT_DETAIL_ITEMS,
+	MAX_REPORT_DIRECTORY_ITEMS,
+} from "@hospital/domain";
 import { createZhongyangReportGateway } from "./zhongyang-reports";
 
 const context = {
@@ -549,4 +553,77 @@ test("众阳报告 adapter 拒绝空 Provider 患者引用且不发起请求", a
 		dependency: "adapter:zhongyang",
 	});
 	expect(fetchCalled).toBe(false);
+});
+
+test("众阳报告目录超过资源上限时在摘要映射前整批拒绝", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: Array.from(
+						{ length: MAX_REPORT_DIRECTORY_ITEMS + 1 },
+						(_, index) => ({
+							reportId: `report-too-many-${index}`,
+							testList: "血常规",
+							reportTime: "2026-08-15 10:00:00",
+						}),
+					),
+				}),
+				{ status: 200, headers: { "x-request-id": "report-too-many" } },
+			),
+	});
+
+	await expect(
+		gateway.listReports(
+			{
+				providerPatientId: "provider-patient-too-many",
+				query: {
+					startDate: "2026-08-01",
+					endDate: "2026-08-15",
+					kind: "laboratory",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory",
+		requestId: "report-too-many",
+		responseInvalid: true,
+	});
+});
+
+test("众阳 LIS 明细超过资源上限时不映射部分临床结果", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						testList: "血常规",
+						reportTime: "2026-08-15 10:00:00",
+						details: Array.from(
+							{ length: MAX_REPORT_DETAIL_ITEMS + 1 },
+							() => ({ itemName: "白细胞", itemResult: "10.2" }),
+						),
+					},
+				}),
+				{ status: 200, headers: { "x-request-id": "detail-too-many" } },
+			),
+	});
+
+	await expect(
+		gateway.getLaboratoryDetail(
+			{ providerReportId: "provider-report-detail-too-many" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory-detail",
+		requestId: "detail-too-many",
+		responseInvalid: true,
+	});
 });

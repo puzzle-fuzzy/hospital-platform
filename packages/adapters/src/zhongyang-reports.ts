@@ -1,15 +1,18 @@
-import type {
-	AdapterCallContext,
-	ExternalTrace,
-	LaboratoryReportDetail,
-	ReportDetailGateway,
-	ReportDirectoryEntry,
-	ReportDirectoryGateway,
-	ReportDirectoryInput,
-	ReportKind,
-	ReportSummary,
+import {
+	type AdapterCallContext,
+	type ExternalTrace,
+	InvalidReportKindError,
+	isReportKind,
+	type LaboratoryReportDetail,
+	MAX_REPORT_DETAIL_ITEMS,
+	MAX_REPORT_DIRECTORY_ITEMS,
+	type ReportDetailGateway,
+	type ReportDirectoryEntry,
+	type ReportDirectoryGateway,
+	type ReportDirectoryInput,
+	type ReportKind,
+	type ReportSummary,
 } from "@hospital/domain";
-import { InvalidReportKindError, isReportKind } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
@@ -96,8 +99,16 @@ function responseItems(
 	value: unknown,
 	operation: string,
 	requestId: string,
+	maxItems: number,
 ): ProviderObject[] {
 	if (Array.isArray(value)) {
+		if (value.length > maxItems) {
+			throw providerError(
+				operation,
+				"Zhongyang report response contained too many items",
+				requestId,
+			);
+		}
 		return value.map((item) => objectValue(item, operation, requestId));
 	}
 	const envelope = objectValue(value, operation, requestId);
@@ -106,6 +117,13 @@ function responseItems(
 		throw providerError(
 			operation,
 			"Zhongyang report response data was invalid",
+			requestId,
+		);
+	}
+	if (envelope.data.length > maxItems) {
+		throw providerError(
+			operation,
+			"Zhongyang report response contained too many items",
 			requestId,
 		);
 	}
@@ -454,6 +472,13 @@ function mapLaboratoryDetail(
 			requestId,
 		);
 	}
+	if (value.details.length > MAX_REPORT_DETAIL_ITEMS) {
+		throw providerError(
+			operation,
+			"Zhongyang laboratory detail contained too many items",
+			requestId,
+		);
+	}
 	return {
 		kind: "laboratory",
 		title,
@@ -557,7 +582,12 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 			},
 			this.fetcher,
 		);
-		const items = responseItems(response.data, operation, response.requestId);
+		const items = responseItems(
+			response.data,
+			operation,
+			response.requestId,
+			MAX_REPORT_DIRECTORY_ITEMS,
+		);
 		const map =
 			kind === "laboratory"
 				? mapLaboratory
@@ -636,6 +666,15 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		const reports = results
 			.flatMap((result) => result.reports)
 			.sort(compareReportEntries);
+		if (reports.length > MAX_REPORT_DIRECTORY_ITEMS) {
+			// 未指定来源时三路 Provider 结果会合并成一个公共目录，不能让
+			// 每一路各自通过上限后再把超大总结果交给 service 和引用持久化。
+			throw providerError(
+				"reports-directory",
+				"Zhongyang report directory contained too many items",
+				results.map((result) => result.requestId).join(","),
+			);
+		}
 		return {
 			reports,
 			trace: {

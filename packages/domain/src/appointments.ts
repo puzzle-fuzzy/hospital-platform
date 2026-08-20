@@ -40,6 +40,17 @@ export type AppointmentProviderSchedule = AppointmentScheduleDetails & {
 };
 
 /**
+ * 预约只读目录的单次资源上限。
+ *
+ * 这些是平台资源防护，不是医院业务上的科室、号源或历史记录数量上限，
+ * 也不是 Provider 分页契约。超过上限必须整批拒绝，不能截断后把不完整
+ * 的目录当作“暂无更多结果”；Provider 正式分页到位后再设计有界合并。
+ */
+export const MAX_APPOINTMENT_DEPARTMENT_ITEMS = 256;
+export const MAX_APPOINTMENT_SCHEDULE_ITEMS = 512;
+export const MAX_APPOINTMENT_RECORD_ITEMS = 512;
+
+/**
  * 预约目录/排班 gateway 结果违反公共读模型时使用的低敏原因。
  *
  * adapter 是 Provider 的第一道边界，但目录 gateway 仍然可以由回放实现、
@@ -48,10 +59,12 @@ export type AppointmentProviderSchedule = AppointmentScheduleDetails & {
  */
 export type AppointmentDirectoryResultViolation =
 	| "departments-not-array"
+	| "departments-too-many"
 	| "department-not-object"
 	| "department-field-invalid"
 	| "department-id-duplicate"
 	| "schedules-not-array"
+	| "schedules-too-many"
 	| "schedule-not-object"
 	| "schedule-field-invalid"
 	| "work-date-invalid"
@@ -136,6 +149,10 @@ export function normalizeAppointmentDepartmentResults(
 	if (!Array.isArray(value)) {
 		invalidAppointmentDirectoryResult("departments-not-array");
 	}
+	if (value.length > MAX_APPOINTMENT_DEPARTMENT_ITEMS) {
+		// 不能截断科室目录：小程序的级联筛选会把截断结果当成完整科室事实。
+		invalidAppointmentDirectoryResult("departments-too-many");
+	}
 	const departmentIds = new Set<string>();
 	return value.map((item) => {
 		if (typeof item !== "object" || item === null || Array.isArray(item)) {
@@ -185,6 +202,10 @@ export function normalizeAppointmentScheduleResults(
 ): AppointmentProviderSchedule[] {
 	if (!Array.isArray(value)) {
 		invalidAppointmentDirectoryResult("schedules-not-array");
+	}
+	if (value.length > MAX_APPOINTMENT_SCHEDULE_ITEMS) {
+		// 排班还会生成平台 scheduleId 并写入短期快照；超量必须在这些副作用前失败。
+		invalidAppointmentDirectoryResult("schedules-too-many");
 	}
 	const providerScheduleIds = new Set<string>();
 	return value.map((item) => {
@@ -458,6 +479,7 @@ export type AppointmentRecord = {
  */
 export type AppointmentRecordResultViolation =
 	| "records-not-array"
+	| "records-too-many"
 	| "record-not-object"
 	| "work-date-invalid"
 	| "work-date-outside-query"
@@ -535,6 +557,10 @@ export function normalizeAppointmentRecordResults(
 	value: unknown,
 ): AppointmentRecord[] {
 	if (!Array.isArray(value)) invalidRecordResult("records-not-array");
+	if (value.length > MAX_APPOINTMENT_RECORD_ITEMS) {
+		// 历史记录不能截断后伪装成完整“我的挂号”，否则患者会误判没有更早记录。
+		invalidRecordResult("records-too-many");
+	}
 
 	return value.map((item) => {
 		if (typeof item !== "object" || item === null || Array.isArray(item)) {

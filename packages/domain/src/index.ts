@@ -22,6 +22,9 @@ export {
 	AppointmentRecordResultValidationError,
 	AppointmentScheduleSnapshotValidationError,
 	isAppointmentRecordStatus,
+	MAX_APPOINTMENT_DEPARTMENT_ITEMS,
+	MAX_APPOINTMENT_RECORD_ITEMS,
+	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
@@ -236,6 +239,8 @@ export type {
 export {
 	InvalidReportKindError,
 	isReportKind,
+	MAX_REPORT_DETAIL_ITEMS,
+	MAX_REPORT_DIRECTORY_ITEMS,
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
 	REPORT_REFERENCE_MAX_TTL_MS,

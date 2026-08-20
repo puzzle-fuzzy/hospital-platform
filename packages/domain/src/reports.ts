@@ -70,6 +70,16 @@ export type ReportDirectoryInput = {
 	query: ReportDirectoryQuery;
 };
 
+/**
+ * 报告目录和 LIS 明细的单次资源上限。
+ *
+ * 这是平台资源防护，不是患者实际报告数量上限，也不是 Provider 分页契约。
+ * 报告目录超量时不能截断后继续生成短期详情引用；明细超量时不能让异常
+ * 响应放大内存、序列化和页面渲染。Provider 分页契约确认后再设计有界合并。
+ */
+export const MAX_REPORT_DIRECTORY_ITEMS = 512;
+export const MAX_REPORT_DETAIL_ITEMS = 1024;
+
 /** 服务端短期报告引用；provider id 永远不进入客户端，也不是授权凭证。 */
 export type ReportReference = {
 	reportId: string;
@@ -203,6 +213,7 @@ export type LaboratoryReportDetail = {
  */
 export type ReportResultViolation =
 	| "reports-not-array"
+	| "reports-too-many"
 	| "report-not-object"
 	| "summary-not-object"
 	| "kind-invalid"
@@ -219,6 +230,7 @@ export type ReportResultViolation =
 	| "detail-title-invalid"
 	| "detail-reported-at-invalid"
 	| "detail-items-not-array"
+	| "detail-items-too-many"
 	| "detail-item-not-object"
 	| "detail-field-invalid"
 	| "detail-attachment-invalid";
@@ -276,6 +288,11 @@ export function normalizeReportDirectoryResults(
 	value: unknown,
 ): ReportDirectoryEntry[] {
 	if (!Array.isArray(value)) invalidReportResult("reports-not-array");
+	if (value.length > MAX_REPORT_DIRECTORY_ITEMS) {
+		// 不能 slice：被截断的报告目录可能继续生成部分快照引用，
+		// 让患者误以为不存在未返回的报告。
+		invalidReportResult("reports-too-many");
+	}
 	const providerReportIds = new Set<string>();
 
 	return value.map((item) => {
@@ -365,6 +382,10 @@ export function normalizeLaboratoryReportDetail(
 	}
 	if (!Array.isArray(record.items)) {
 		invalidReportResult("detail-items-not-array");
+	}
+	if (record.items.length > MAX_REPORT_DETAIL_ITEMS) {
+		// 明细是临床结果，必须整批 fail-closed，不能只返回前一部分检测项。
+		invalidReportResult("detail-items-too-many");
 	}
 	if (typeof record.hasAttachment !== "boolean") {
 		invalidReportResult("detail-attachment-invalid");

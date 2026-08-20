@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_APPOINTMENT_SCHEDULE_ITEMS } from "@hospital/domain";
 import { createZhongyangAppointmentGateway } from "./zhongyang-appointments";
 
 const context = {
@@ -586,5 +587,46 @@ test("众阳预约科室 adapter 拒绝重复的科室主键", async () => {
 		operation: "appointment-departments",
 		requestId: "duplicate-department",
 		retryable: false,
+	});
+});
+
+test("众阳预约目录超过资源上限时在字段映射前整批拒绝", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			const data = Array.from(
+				{ length: MAX_APPOINTMENT_SCHEDULE_ITEMS + 1 },
+				(_, index) => ({
+					hisScheduleId: `schedule-too-many-${index}`,
+					deptId: "dept-001",
+					deptName: "心内科",
+					docId: "doctor-001",
+					docName: "李医生",
+					workDate: "2026-08-20",
+					shiftName: "上午",
+					totalNum: 30,
+					usableSourceNum: 12,
+				}),
+			);
+			return new Response(JSON.stringify(data), {
+				status: 200,
+				headers: { "x-request-id": "schedule-too-many" },
+			});
+		},
+	});
+
+	await expect(
+		gateway.listSchedules(
+			{
+				startDate: "2026-08-20",
+				endDate: "2026-08-21",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-schedules",
+		requestId: "schedule-too-many",
+		responseInvalid: true,
 	});
 });

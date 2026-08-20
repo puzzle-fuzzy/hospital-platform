@@ -12,6 +12,7 @@ import type {
 import {
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
+	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
@@ -1514,6 +1515,68 @@ test("预约目录 service 拒绝非法科室和排班并记录有限原因", as
 			event: "appointment.directory.schedules.synced",
 		}),
 	);
+});
+
+test("预约排班 service 超过资源上限时不生成引用或写入快照", async () => {
+	const schedules = Array.from(
+		{ length: MAX_APPOINTMENT_SCHEDULE_ITEMS + 1 },
+		(_, index) => ({
+			providerScheduleId: `provider-schedule-too-many-${index}`,
+			departmentId: "department-001",
+			departmentName: "心内科",
+			doctorId: "doctor-001",
+			doctorName: "李医生",
+			workDate: "2026-08-20",
+			shiftName: "上午",
+			totalSlots: 30,
+			availableSlots: 12,
+			timeGroup: "range" as const,
+		}),
+	);
+	const snapshotStore = createInMemoryAppointmentScheduleSnapshotRepository();
+	let snapshotWrites = 0;
+	const snapshots: AppointmentScheduleSnapshotRepository = {
+		upsert: async (input) => {
+			snapshotWrites += 1;
+			return snapshotStore.upsert(input);
+		},
+		findActive: snapshotStore.findActive,
+	};
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules,
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "schedule-too-many-service",
+				},
+			}),
+		},
+		snapshots,
+	});
+
+	await expect(
+		service.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			{
+				traceId: "trace-schedule-too-many",
+				idempotencyKey: "key-schedule-too-many",
+			},
+		),
+	).rejects.toMatchObject({
+		name: "AppointmentDirectoryResultValidationError",
+		violation: "schedules-too-many",
+	});
+	expect(snapshotWrites).toBe(0);
 });
 
 test("预约目录 service 拒绝异常或重复的平台 scheduleId", async () => {
