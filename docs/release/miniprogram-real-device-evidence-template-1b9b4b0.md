@@ -1,6 +1,6 @@
 # 小程序历史候选真机三层证据记录模板（`1b9b4b0`）
 
-> 本模板对应历史候选，当前真机记录请改用 [`miniprogram-real-device-evidence-template-1d161b7.md`](miniprogram-real-device-evidence-template-1d161b7.md)。
+> 本模板对应历史候选，当前真机记录请改用 [`miniprogram-real-device-evidence-template-6ce1272.md`](miniprogram-real-device-evidence-template-6ce1272.md)。
 
 > 用途：记录当前候选真实微信设备上的页面、客户端 HTTP 和服务端低敏日志三层证据。
 > 本文件是空白记录模板，不代表任何业务已验收；没有实际页面操作和同一时间窗口的请求链，
