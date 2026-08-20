@@ -81,7 +81,8 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
 
    患者同步在快照事务前还必须执行 gateway 结果的第二道门禁：完整标志、患者目录字段、provider 患者号唯一性、
    允许的 `directory`/`his-patient` 引用和低敏 trace 都由 domain 重新投影。`complete` 缺失或为假、完整卡号、
-   重复 provider 患者号以及未知引用字段统一记录固定 `resultViolation`，返回 `provider-response-invalid`，
+   重复 provider 患者号、不同目录患者共享同一个 `his-patient` 引用以及未知引用字段统一记录固定
+   `resultViolation`，返回 `provider-response-invalid`，
    不得创建成功快照，也不得把异常数据留给下一次 GET 才发现。
 
    快照事务返回值还要经过独立的持久化读模型门禁：事务返回后先记录

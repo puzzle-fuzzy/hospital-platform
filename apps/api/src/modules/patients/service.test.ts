@@ -444,6 +444,81 @@ test("患者目录同步在快照事务前拒绝重复的平台患者 ID", async
 	);
 });
 
+test("患者目录同步在快照事务前拒绝重复的 HIS 临床映射", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-duplicate-his",
+		unionId: "fixture-union-patient-duplicate-his",
+	});
+	const baseRepository = createInMemoryPatientRepository();
+	const replaceDirectorySnapshot = baseRepository.replaceDirectorySnapshot;
+	if (!replaceDirectorySnapshot) throw new Error("snapshot unavailable");
+	let replaceCalls = 0;
+	const repository: PatientRepository = {
+		...baseRepository,
+		async replaceDirectorySnapshot(input) {
+			replaceCalls += 1;
+			return replaceDirectorySnapshot.call(baseRepository, input);
+		},
+	};
+	const lines: string[] = [];
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			listByIdentity: async () => ({
+				complete: true,
+				patients: [
+					{
+						providerPatientId: "directory-patient-duplicate-his-001",
+						displayName: "张三",
+						relationship: "self",
+						cardNumberMasked: "12345*7890",
+						providerReferences: { "his-patient": "his-patient-shared" },
+					},
+					{
+						providerPatientId: "directory-patient-duplicate-his-002",
+						displayName: "李四",
+						relationship: "child",
+						cardNumberMasked: "54321*0987",
+						providerReferences: { "his-patient": "his-patient-shared" },
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: "patient-duplicate-his-request",
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-duplicate-his-trace",
+			idempotencyKey: "patient-duplicate-his-key",
+		}),
+	).rejects.toMatchObject({
+		name: "PatientDirectoryResultValidationError",
+		violation: "provider-reference-duplicate",
+	});
+	expect(replaceCalls).toBe(0);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.failed",
+			resultViolation: "provider-reference-duplicate",
+		}),
+	);
+});
+
 test("空患者快照先校验已有读模型并记录固定原因", async () => {
 	const identityUsers = createInMemoryIdentityUserRepository();
 	await identityUsers.findOrCreateByWechat({

@@ -244,6 +244,7 @@ export type PatientDirectoryResultViolation =
 	| "patient-relationship-invalid"
 	| "patient-card-number-invalid"
 	| "provider-references-invalid"
+	| "provider-reference-duplicate"
 	| "trace-invalid";
 
 /** 患者目录同步不会把非法 gateway 结果交给持久化层。 */
@@ -328,6 +329,7 @@ export function normalizePatientDirectoryResult(value: unknown): {
 		invalidPatientDirectoryResult("trace-invalid");
 	}
 	const seenProviderPatientIds = new Set<string>();
+	const seenHisPatientIds = new Set<string>();
 	const patients = result.patients.map((item) => {
 		if (typeof item !== "object" || item === null || Array.isArray(item)) {
 			invalidPatientDirectoryResult("patient-not-object");
@@ -355,6 +357,18 @@ export function normalizePatientDirectoryResult(value: unknown): {
 		const providerReferences = normalizePatientProviderReferences(
 			record.providerReferences,
 		);
+		const hisPatientId = providerReferences?.["his-patient"];
+		if (hisPatientId !== undefined) {
+			// 目录 adapter 会先做一次一对一校验，但 gateway 是可替换的运行时
+			// 端口，回放器、测试替身或未来的组合根仍可能绕过 adapter。重复
+			// HIS patId 会让两个平台患者在预约、报告或费用查询中指向同一份
+			// 临床数据；必须在进入快照事务前整批拒绝，不能依赖数据库唯一键
+			// 兜底后才返回一个含糊的持久化错误。
+			if (seenHisPatientIds.has(hisPatientId)) {
+				invalidPatientDirectoryResult("provider-reference-duplicate");
+			}
+			seenHisPatientIds.add(hisPatientId);
+		}
 		return {
 			providerPatientId: record.providerPatientId,
 			displayName: record.displayName,

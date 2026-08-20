@@ -147,6 +147,14 @@ adapter 还必须验证目录患者到 `his-patient` 的临床引用是一对一
 时，切换就诊人后可能读取同一份预约、报告或费用数据；在 provider 没有明确说明这种归并语义前，必须拒绝
 整个快照，不能把潜在的错患者映射写入平台。
 
+当前实现对此保持三层防线：众阳 adapter 在完成 `patInfosFind` 后拒绝缺失或重复的 `his-patient` 引用；
+`normalizePatientDirectoryResult()` 在可替换 gateway 的领域写入边界再次按整批检查重复引用，并以固定的
+`provider-reference-duplicate` 原因拒绝；MySQL 的
+`UNIQUE(owner_user_id, provider_name, reference_kind, provider_patient_id)` 作为持久化最终约束。
+第二层不能省略：adapter 之外的回放器、测试替身或未来组合根同样属于运行时输入，不能因为当前生产 adapter
+已经校验过就把重复临床身份交给快照事务。该错误只记录白名单 `resultViolation`，不会把 HIS `patId`、姓名、
+卡号或 Provider 原始报文写入日志，也不会产生部分患者快照。
+
 `observedAt` 仍然在 provider 请求发出前采样。租约接管会递增 `attempt_count`，因此较早的 provider
 快照即使晚返回，也不能完成新一轮 operation；它的目录事务必须回滚，且不能覆盖已经提交的更新快照。
 

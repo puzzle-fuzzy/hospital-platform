@@ -25,6 +25,13 @@
   页面栈重新可见时重新确认当前会话并读取资料，首次展示不重复 `onLoad` 请求；无平台会话时清理旧资料并回到登录入口。
   `typecheck`、169 项小程序测试、构建和 `runtime:verify` 均通过，运行包没有 `*.test.js`/`*.spec.js`。
 
+- 2026-08-21（患者临床映射一对一边界补强）：继续审计患者目录同步时发现，当前众阳 adapter 虽已拒绝重复 HIS `patId`，
+  但可替换的 gateway/回放实现仍可能直接把重复 `his-patient` 引用交给 service。新端 domain 的
+  `normalizePatientDirectoryResult()` 现在在快照事务前再次整批拒绝 `provider-reference-duplicate`，API service 回归确认
+  `replaceDirectorySnapshot` 调用次数为 0，日志只保留固定 `resultViolation`；MySQL 原有唯一约束继续作为最终持久化防线。
+  domain 9/9、患者 service 20/20、adapter 105/105、persistence 83/83 和 API 185/185 定向/包级测试均通过。
+  本次只修改新项目本地代码与文档，未部署、未重启新旧服务、未触碰旧 Python、线上 MySQL/Redis 或并行维护的众阳自动化。
+
 - 2026-08-20（Redis 就绪探针并发边界）：发现 readiness、会话读写和 TTL 维护命令在首次连接窗口可能重复调用
   ioredis `connect()`，造成连接竞争被误报为数据服务暂不可用。新端已将同一 Redis 客户端的连接建立收敛为共享单飞，
   但不重放业务命令；连接失败会释放后续重试资格。persistence 83 项测试和类型检查通过，旧 Python、线上 Redis 和 ACL 未修改。

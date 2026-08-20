@@ -166,6 +166,39 @@ test("患者目录同步写入前拒绝完整卡号并重新投影安全字段",
 	});
 });
 
+test("患者目录同步拒绝不同目录患者共享同一个 HIS 临床引用", () => {
+	const trace = {
+		provider: "zhongyang",
+		operation: "patient-list",
+		requestId: "patient-directory-duplicate-his-request",
+	};
+
+	expect(() =>
+		normalizePatientDirectoryResult({
+			complete: true,
+			patients: [
+				{
+					providerPatientId: "directory-patient-001",
+					displayName: "张三",
+					relationship: "self",
+					cardNumberMasked: "12345*********7890",
+					providerReferences: { "his-patient": "his-patient-shared" },
+				},
+				{
+					providerPatientId: "directory-patient-002",
+					displayName: "李四",
+					relationship: "child",
+					cardNumberMasked: "54321*********0987",
+					providerReferences: { "his-patient": "his-patient-shared" },
+				},
+			],
+			trace,
+		}),
+	).toThrow(
+		new PatientDirectoryResultValidationError("provider-reference-duplicate"),
+	);
+});
+
 test("患者快照事务返回值只保留已验证的 active 读模型和失效计数", () => {
 	const result = normalizePatientDirectorySnapshotResult(
 		{
