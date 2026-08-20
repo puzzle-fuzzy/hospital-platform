@@ -7,7 +7,7 @@
 
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
-| 服务端 | `6038560` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
+| 服务端 | `5a31427` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
 | 小程序运行输入 | `6e6604f` | 当前本地候选，尚未上传线上 |
 | 小程序运行包来源 | `6e6604f8089e45ceeaaf4bcbbd57065174a59a31` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
@@ -78,4 +78,4 @@ Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 [`miniprogram-real-device-login-acceptance-2026-08-20.md`](miniprogram-real-device-login-acceptance-2026-08-20.md)。
 
 下一步必须在最新二维码对应的真机连接中手动点击“新增就诊人/更换就诊人”，按第 4 节采集同一时间窗口的页面、客户端 HTTP 和服务端日志三层证据；
-小程序运行包上传前不替换开发者工具运行根目录，也不修改旧 Python 服务、数据库或 Redis。服务端 `6038560` 已按独立 release 完成切换。
+小程序运行包上传前不替换开发者工具运行根目录，也不修改旧 Python 服务、数据库或 Redis。服务端 `5a31427` 已按独立 release 完成切换。
