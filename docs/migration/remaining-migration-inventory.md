@@ -44,6 +44,16 @@
 > 继续保持未注册；新端只允许已绑定目录同步和显式选择，不迁移旧端写入副作用。详见
 > [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.1 节。
 
+> 2026-08-20 当前仓库门禁复核：仓库 `HEAD=f8f89e6`，服务端发布基线仍为 `0e360d3`，原生小程序运行输入来源仍为
+> `ac238c6156f085fdb56f5806fefac3613e5f85be`。`pnpm check` 全部通过：架构 67 条、旧端页面/接口/客户端清单、Provider intake、
+> 280 篇 Markdown 文档、Biome、9 个 workspace 的类型检查/测试/构建均通过；当前 API 测试 184 项通过，小程序测试 169 项通过。
+> 这只能证明代码边界和构建门禁一致，不能把微信真机、患者多选、预约历史、门诊费用、报告 Provider 或普通资料写入标记为当前 release
+> 的真实完成。当前工作树中的 `apps/miniprogram/project.config.json` 修改和 `.codegraph/` 未跟踪目录属于并行会话，本次未触碰、暂存或提交。
+
+> 2026-08-20 继续审计剩余业务后的停止结论：旧端门诊病历只能确认 `out-visit-records` 的历史调用线索，仍缺 Provider 正式请求/响应 contract、
+> `patId` 用途映射、字段展示授权、成功/空/拒绝/暂时失败样例和分页/时区语义；二维码、患者新增/绑卡、支付、医保和 HIS 回写同样缺少必要准入证据。
+> 本轮没有新增 schema、adapter、service、兼容转发或旧服务修改；缺少契约时保持 404/迁移提示是当前正确状态。
+
 ## 当前准入复核（2026-08-19 08:47 CST）
 
 补充记录（2026-08-19 11:49 CST）：数据库瞬态断连恢复后，SSH 只读确认该观察窗口 release `b7c9451`、新 API `active/running`，
