@@ -98,6 +98,12 @@
   `item.id`，错配整次 fail-closed，并保留低敏 `persistence-invalid` 错误语义。该修正只在新项目本地完成，
   未导入内容、未挂载健康知识 API、未修改旧 Python、数据库、Redis 或线上服务。
 
+- 2026-08-20（下一阶段业务门禁执行板）：将当前已实现但仍待真实证据的微信会话、患者显式切换、普通资料、预约历史、
+  爽约和门诊费用，与报告、病历、绑卡、健康知识及支付/医保/HIS 的契约缺口重新分层。后续按“真机微信会话 → 患者切换
+  → 预约/费用只读 → 资料 → 其余独立 contract → 支付医保最后专项”执行；三层证据不足时不扩大开放范围。详见
+  [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md)。本轮只修改新项目文档，未修改旧 Python、
+  线上服务、数据库、Redis 或并行众阳自动化文件。
+
 - 2026-08-20（Bearer 会话输入边界）：复核认证入口发现任意长度或带控制字符的 Authorization token 仍可能先进入
   session 实现。现已在统一鉴权入口、Redis session 和测试内存 session 前增加 512 字符的安全形状门禁；畸形 token
   直接返回 `401 unauthorized`，不触碰 Redis、不写入日志。该修正不改变正常 token、Redis TTL 或 owner 语义，未修改
