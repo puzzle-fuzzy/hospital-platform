@@ -36,6 +36,12 @@
   业务修正已包含在当前 `6ce1272` 运行包中；登录恢复链只有在 `loaded` 时才会继续患者同步。
   小程序业务测试、运行包构建和 `runtime:verify` 已通过。未修改旧 Python 服务；真实设备和线上新包仍待重新取证。
 
+- 2026-08-21（当前候选全仓门禁复核）：基于服务端 `5a31427` 和小程序来源 `6ce1272`，API 188/188、众阳及通用
+  adapter 105/105、domain 57/57、persistence 83/83、小程序 169/169 全部通过，所有 typecheck、架构审计、迁移清单、
+  Provider intake、文档断链和 release baseline 审计均通过。该结果只证明当前代码和文档边界一致，不增加 Provider、
+  公网或真机三层业务证据；健康知识、病历、患者绑定、报告资源、支付/医保/HIS 继续按各自契约门禁关闭。详细当前审计见
+  [`release/readonly-business-chain-audit-2026-08-21.md`](release/readonly-business-chain-audit-2026-08-21.md)。
+
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
 > `6ce1272`，完整运行包来源为 `6ce12729c3e112a6cb8333c5132c23713d1cb1ec`，尚未上传线上。
