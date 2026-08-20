@@ -1,6 +1,9 @@
 import { access, cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
-import { publishMiniProgramRuntime } from "./runtime-publisher";
+import {
+	listRuntimeFiles,
+	publishMiniProgramRuntime,
+} from "./runtime-publisher";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 
 const root = join(import.meta.dir, "..");
@@ -348,6 +351,22 @@ try {
 		);
 	}
 	await copyStaticFiles(source, stagingRuntime);
+
+	/**
+	 * 测试源码已经在 tsconfig.build.json 排除，但发布目录还必须再做一次
+	 * 文件级门禁。这样即使未来有人新增静态复制逻辑、误把历史 dist 内容
+	 * 带入 staging，测试脚本也不会被微信开发者工具当成运行时模块加载。
+	 * 真机报错里的 `dist/services/*.test.js` 就属于必须在发布前阻断的形态。
+	 */
+	const stagingFiles = await listRuntimeFiles(stagingRuntime);
+	const forbiddenTestRuntimeFiles = stagingFiles.filter((file) =>
+		/(?:\.test|\.spec)\.js$/u.test(file),
+	);
+	if (forbiddenTestRuntimeFiles.length > 0) {
+		throw new Error(
+			`Mini program runtime must not contain test scripts: ${forbiddenTestRuntimeFiles.join(", ")}`,
+		);
+	}
 
 	/**
 	 * 这是运行包的来源指纹，不携带环境变量、会话、患者或服务商数据。

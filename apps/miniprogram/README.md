@@ -107,4 +107,5 @@ pnpm --filter @hospital/miniprogram runtime:verify
 必须重新构建，不能继续导入开发者工具；
 该文件不包含密钥、会话、就诊人或服务商数据。
 若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
+如果错误路径包含 `dist/services/*.test.js` 或其他 `*.test.js`，先关闭当前真机调试和开发者工具，再执行一次 `pnpm --filter @hospital/miniprogram build`，重新打开 `apps/miniprogram/` 后再“编译/真机调试”。这是开发者工具增量缓存指向旧测试产物的表现，不应在 `src/` 或 `dist/` 中手工补测试脚本；构建与 `runtime:verify` 都会阻止测试脚本进入运行包。
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。

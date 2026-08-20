@@ -1044,6 +1044,7 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("project.private.config.json");
 	expect(build).toContain("ignoreDevUnusedFiles");
 	expect(build).toContain("src 仍是唯一业务源码");
+	expect(build).toContain("runtime must not contain test scripts");
 	expect(build).toContain("build-info.json");
 	expect(build).toContain("sourceRevision");
 	// build-info.json 写入 Git 来源指纹；如果 Turbo 复用提交前的缓存产物，
@@ -1108,6 +1109,7 @@ test("native mini program runtime verification checks build provenance", async (
 	);
 	expect(build).toContain("generatedAt");
 	expect(verify).toContain('assertFile("build-info.json")');
+	expect(verify).toContain("runtime must not contain test scripts");
 	expect(verify).toContain("buildInfo.pageCount");
 	expect(verify).toContain("sourceRevision");
 	expect(verify).toContain("HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION");

@@ -1,6 +1,7 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
+import { listRuntimeFiles } from "./runtime-publisher";
 
 const root = join(import.meta.dir, "..");
 const repositoryRoot = join(root, "..", "..");
@@ -71,6 +72,20 @@ await assertFile("sitemap.json");
 await assertFile("build-info.json");
 // 预约历史页面通过 TypeScript 模块读取静态科室位置，运行包必须带上编译后的 JS。
 await assertFile("data/department-location.js");
+
+/**
+ * 运行包只允许承载微信页面运行时脚本；测试文件即使不是页面入口，
+ * 也可能被开发者工具的增量编译器索引，导致真机出现“找不到 .test.js”。
+ * 因此这里对已经存在的 dist 做只读扫描，发现测试脚本立即停止验收。
+ */
+const forbiddenTestRuntimeFiles = (await listRuntimeFiles(runtime)).filter(
+	(file) => /(?:\.test|\.spec)\.js$/u.test(file),
+);
+if (forbiddenTestRuntimeFiles.length > 0) {
+	throw new Error(
+		`Mini program runtime must not contain test scripts: ${forbiddenTestRuntimeFiles.join(", ")}`,
+	);
+}
 
 const buildInfo = JSON.parse(
 	await Bun.file(join(runtime, "build-info.json")).text(),
