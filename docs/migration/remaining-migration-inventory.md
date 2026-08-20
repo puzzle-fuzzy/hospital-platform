@@ -9,8 +9,8 @@
 
 > 当前配套小程序候选构建来源为 `e050fa026f2cb5b2de4af4de98024cfdb946229c`（提交 `e050fa0`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
-> 2026-08-19 生产更新：服务端已切换到 `398be8e`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
-> `patInfosFind` 临床引用和患者映射安全边界见 [`../release/398be8e-production-acceptance-2026-08-19.md`](../release/398be8e-production-acceptance-2026-08-19.md)。
+> 2026-08-20 生产更新：服务端已切换到 `0e360d3`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
+> `patInfosFind` 临床引用和患者映射安全边界见 [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md)。
 
 > 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
 > `398be8eca74d4f0245b88695056061ac43c7f860`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
@@ -23,7 +23,7 @@
 > 这只是运行层和日志窗口证据，不能把“没有事件”解释为业务失败，也不能替代真机操作。完整证据见
 > [`../release/current-runtime-readonly-observation-2026-08-20-1227.md`](../release/current-runtime-readonly-observation-2026-08-20-1227.md)。
 
-> 本文下方保留了切换前的 b7/c26/652/08 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `398be8e`。
+> 本文下方保留了切换前的 b7/c26/652/08/398 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `0e360d3`。
 
 > 2026-08-20 迁移审计更新：重新核对旧端门诊病历页面和 `ZY.ts` 的当前 SHA-256，确认仍只有
 > `POST /msun-middle-aggregate-clinic/v1/out-visit-records` 的历史调用线索；没有 Provider 正式 contract、患者映射确认、

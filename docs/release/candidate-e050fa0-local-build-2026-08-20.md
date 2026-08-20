@@ -4,7 +4,7 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 服务端 release | `398be8e` |
+| 服务端 release | `0e360d3` |
 | 小程序客户端 | `e050fa0` |
 | 小程序构建来源 | `e050fa026f2cb5b2de4af4de98024cfdb946229c` |
 | 运行包目录 | `apps/miniprogram/dist/` |
@@ -12,7 +12,8 @@
 | 是否上传线上小程序 | 否 |
 | 是否完成真机验收 | 否 |
 
-`dist/build-info.json.sourceRevision` 必须与上表完整 40 位来源一致。文档提交本身不改变
+`dist/build-info.json.sourceRevision` 必须与上表完整 40 位来源一致。服务端 `0e360d3` 已完成生产切换；本记录只表示小程序运行包仍未上传。
+文档提交本身不改变
 小程序运行输入，因此本候选来源仍锁定最近一次影响运行包的代码提交 `e050fa0`；开发者工具的
 `project.config.json` 和 `.codegraph/` 本地状态不属于候选运行输入，不能被暂存或提交。
 

@@ -7,7 +7,7 @@
 
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
-| 服务端 | `398be8e` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
+| 服务端 | `0e360d3` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
 | 小程序运行输入 | `e050fa0` | 当前本地候选，尚未上传线上 |
 | 小程序运行包来源 | `e050fa026f2cb5b2de4af4de98024cfdb946229c` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
@@ -73,4 +73,5 @@ Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 ## 6. 当前状态与下一步
 
 当前候选已完成本地代码、测试、构建和运行包来源校验，但尚未取得本候选的手机连接、页面、HTTP trace 和服务端低敏日志三层证据。
-用户完成扫码并提供设备连接后，继续按本清单采集；在此之前不上传线上、不切换服务端 release、不修改旧 Python 服务、数据库或 Redis。
+用户完成扫码并提供设备连接后，继续按本清单采集；小程序运行包上传前不替换开发者工具运行根目录，
+也不修改旧 Python 服务、数据库或 Redis。服务端 `0e360d3` 已按独立 release 完成切换。

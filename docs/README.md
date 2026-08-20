@@ -3,7 +3,7 @@
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前权威运行基线（2026-08-20）为：服务端 `398be8e`、小程序候选来源
+当前权威运行基线（2026-08-20）为：服务端 `0e360d3`、小程序候选来源
 `e050fa026f2cb5b2de4af4de98024cfdb946229c`（提交 `e050fa0`）、新 API `10.0.0.3:18081`、旧 Python `8001`。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
@@ -13,9 +13,10 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `398be8e`、当前本地小程序候选来源以 `e050fa026f2cb5b2de4af4de98024cfdb946229c` 为准 |
-| [`release/candidate-e050fa0-local-build-2026-08-20.md`](release/candidate-e050fa0-local-build-2026-08-20.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；尚未上传线上，服务端基线为 `398be8e` |
-| [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md) | 当前 `398be8e` 原子生产切换、患者映射安全修正、新旧服务共存和未完成验收 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `0e360d3`、当前本地小程序候选来源以 `e050fa026f2cb5b2de4af4de98024cfdb946229c` 为准 |
+| [`release/candidate-e050fa0-local-build-2026-08-20.md`](release/candidate-e050fa0-local-build-2026-08-20.md) | 当前小程序本地构建来源、门禁结果和真机前置条件；小程序尚未上传线上，服务端基线为 `0e360d3` |
+| [`release/0e360d3-production-acceptance-2026-08-20.md`](release/0e360d3-production-acceptance-2026-08-20.md) | 当前 `0e360d3` 原子生产切换、`patId` 契约、新旧服务共存和未完成业务验收 |
+| [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md) | 历史 `398be8e` 原子生产切换、患者映射安全修正、新旧服务共存和未完成验收 |
 | [`release/current-398be8e-runtime-recheck-2026-08-19-1657.md`](release/current-398be8e-runtime-recheck-2026-08-19-1657.md) | 16:57 CST 重启后 `398be8e`、新旧端口、正确内网探针和业务日志只读复核；不代表 Provider/真机业务完成 |
 | [`release/current-public-readonly-smoke-2026-08-19-1723.md`](release/current-public-readonly-smoke-2026-08-19-1723.md) | 当前 `398be8e` 公网 live/ready/ping 与未授权 `/me`、`/patients` 只读复核；不替代微信、Provider 或真机业务验收 |
 | [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md) | 2026-08-20 公网 live/ready/ping、未授权只读边界与 SSH 双服务共存复核；当前线上 `398be8e`，不替代本地候选部署、微信、Provider 或真机验收 |
