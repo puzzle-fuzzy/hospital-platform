@@ -181,7 +181,7 @@ function amountFen(value: unknown, requestId: string): number {
 	if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
 		throw providerError("Zhongyang outpatient amount is invalid", requestId);
 	}
-	const [yuanText, fractionText = ""] = normalized.split(".");
+	const [yuanText = "0", fractionText = ""] = normalized.split(".");
 	// 元整数部分允许前导零，但先去掉前导零再限制长度，避免对异常超长
 	// 字符串直接执行 BigInt，防止上游脏数据放大解析成本。
 	const yuanWithoutLeadingZeros = yuanText.replace(/^0+(?=\d)/, "");
