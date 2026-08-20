@@ -1,8 +1,8 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `5a31427`，当前本地小程序候选为 `1d161b7`，完整运行包来源为
-> `1d161b701384ad8073ed907fe14f611ab3166fcd`。小程序尚未上传线上。
+> 当前服务端候选为 `5a31427`，当前本地小程序候选为 `6ce1272`，完整运行包来源为
+> `6ce12729c3e112a6cb8333c5132c23713d1cb1ec`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -47,11 +47,11 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 2026-08-21 06:03 CST 再次通过 SSH 只读复核：当前 release 仍为 `5a31427`，新 API `10.0.0.3:18081` 与旧 Python
 `0.0.0.0:8001` 共存，Worker 仍为 inactive；readiness 的 database/Redis/schema 均为 `ok`，最近 30 分钟业务事件计数仍为 `0`。
 本次没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis；由于没有新的微信扫码请求，当前候选的真机登录、患者切换、预约历史和门诊费用
-三层证据仍未变化，下一步仍需使用 `1d161b7` 新二维码开始人工操作。
+三层证据仍未变化，下一步仍需使用 `6ce1272` 新二维码开始人工操作。
 
 ## 2026-08-21 当前候选只读业务复核
 
-本次代码复核基于服务端 `5a31427`、小程序候选 `1d161b7`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
+本次代码复核基于服务端 `5a31427`、小程序候选 `6ce1272`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
 
 ### 已确认的业务边界
@@ -131,9 +131,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-1d161b7.md`](miniprogram-real-device-evidence-template-1d161b7.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-6ce1272.md`](miniprogram-real-device-evidence-template-6ce1272.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-1d161b7-local-build-2026-08-21.md`](candidate-1d161b7-local-build-2026-08-21.md)
+- 当前候选来源：[`candidate-6ce1272-local-build-2026-08-21.md`](candidate-6ce1272-local-build-2026-08-21.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
