@@ -16,6 +16,12 @@
   约于 `03:48` CST 失效。该记录只恢复扫码前置，不增加微信登录、患者同步、预约、费用或真机三层验收证据；旧 Python 未修改、未重启。
   详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md)。
 
+- 2026-08-21 03:22–03:23 CST（当前候选真实微信登录与患者同步）：同一真机二维码产生 `POST /api/v1/auth/wechat` 200、
+  `GET /api/v1/me` 200、`GET /api/v1/patients` 200 和 `POST /api/v1/patients/sync` 200；服务端日志包含登录成功、
+  owner 读取、同步操作开始、快照提交、同步成功和同步后目录读取。日志中的 `/api/v1` 是公网 `/api/v2` 经 Nginx 转发到
+  Elysia 内部路由的预期路径，不是客户端误用旧服务。当前只把微信会话与患者同步标为真机已观察，患者显式切换、预约历史、
+  门诊费用和普通资料仍待同一候选继续取证；详见 [`release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md`](release/miniprogram-real-device-login-patient-acceptance-2026-08-21.md)。
+
 - 2026-08-21 02:41–02:46 CST（`6038560` 服务端生产切换）：患者目录同步新增的 domain `provider-reference-duplicate` 二次门禁已完成本地全仓门禁，
   8 个运行产物与本地产物 SHA-256 一致，真实生产 env preflight、`127.0.0.1:18082` 隔离 runtime smoke 和公网 `/api/v2` runtime smoke 均通过。
   新 API `current` 已从 `0e360d3` 原子切换到 `6038560`，只重启 `hospital-platform-api-v2.service`；新 `18081`、旧 Python `8001` 仍同时监听，Worker 保持 inactive。
