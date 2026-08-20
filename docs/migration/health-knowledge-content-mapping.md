@@ -116,6 +116,7 @@
 - published/withdrawn 版本必须有 `reviewerRef`；
 - 任何导入失败都回滚整批，不留下半套目录；
 - 患者端 repository 只能读取当前生效的 published 版本，不能读 draft 或 withdrawn；
+- repository 读取关系时还必须校验同一 `content_version` 下的 `item_kind`，不能只依赖复合外键存在；
 - 撤回后要验证原版本不再展示，重新发布要产生新的不可变版本，不能原地覆盖患者已看到的版本。
 
 ## 5. 当前结论与下一步

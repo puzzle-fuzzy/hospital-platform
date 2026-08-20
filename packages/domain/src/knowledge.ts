@@ -654,13 +654,7 @@ export function validateHealthKnowledgeLetter(
 ): void {
 	validateHealthKnowledgeIdentifier(value.id);
 	assertBoundedText(value.name, 256, "invalid_identifier");
-	if (
-		typeof value.initialLetter !== "string" ||
-		value.initialLetter.trim().length === 0 ||
-		value.initialLetter.length > 8
-	) {
-		throw new HealthKnowledgeValidationError("invalid_initial_letter");
-	}
+	assertBoundedText(value.initialLetter, 8, "invalid_initial_letter");
 }
 
 /** 旧接口允许按多个症状筛选；平台把数量和重复值限制在领域层。 */

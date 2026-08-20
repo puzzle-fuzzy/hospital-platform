@@ -58,10 +58,14 @@ function optionalTextField<Key extends string>(
 	return normalized ? ({ [key]: normalized } as { [K in Key]?: string }) : {};
 }
 
+/** MySQL BOOLEAN 通常以 0/1 返回；未知值不能静默当成 false。 */
 function booleanValue(value: boolean | number | string): boolean {
 	if (typeof value === "boolean") return value;
-	if (typeof value === "number") return value === 1;
-	return value === "1" || value.toLowerCase() === "true";
+	if (typeof value === "number" && (value === 0 || value === 1)) {
+		return value === 1;
+	}
+	if (value === "0" || value === "1") return value === "1";
+	throw new Error("Persistence returned an invalid health knowledge boolean");
 }
 
 function assertCatalogKind(
@@ -118,6 +122,7 @@ type DiseaseDetailRow = RowDataPacket & {
 
 type DiseaseDrugRow = RowDataPacket & {
 	drug_id: string | null;
+	drug_item_kind: string | null;
 	drug_name: string;
 	is_clickable: boolean | number | string;
 };
@@ -288,6 +293,10 @@ export function createMySqlHealthKnowledgeRepository(
 				`SELECT d.item_id, d.name,
 						d.initial_letter, dd.treatment_department, dd.symptoms
 				 FROM hp_health_knowledge_disease_relations AS r
+				 JOIN hp_health_knowledge_items AS relation_item
+				   ON relation_item.item_id = r.relation_id
+				  AND relation_item.content_version = r.content_version
+				  AND relation_item.item_kind = r.relation_kind
 				 JOIN hp_health_knowledge_items AS d
 				   ON d.item_id = r.disease_id
 				  AND d.content_version = r.content_version
@@ -314,6 +323,10 @@ export function createMySqlHealthKnowledgeRepository(
 				pool,
 				`SELECT s.item_id, s.name, s.initial_letter
 				 FROM hp_health_knowledge_part_symptoms AS ps
+				 JOIN hp_health_knowledge_items AS p
+				   ON p.item_id = ps.part_id
+				  AND p.content_version = ps.content_version
+				  AND p.item_kind = 'part'
 				 JOIN hp_health_knowledge_items AS s
 				   ON s.item_id = ps.symptom_id
 				  AND s.content_version = ps.content_version
@@ -337,6 +350,10 @@ export function createMySqlHealthKnowledgeRepository(
 				`SELECT d.item_id, d.name,
 						d.initial_letter, dd.treatment_department, dd.symptoms
 				 FROM hp_health_knowledge_symptom_diseases AS sd
+				 JOIN hp_health_knowledge_items AS s
+				   ON s.item_id = sd.symptom_id
+				  AND s.content_version = sd.content_version
+				  AND s.item_kind = 'symptom'
 				 JOIN hp_health_knowledge_items AS d
 				   ON d.item_id = sd.disease_id
 				  AND d.content_version = sd.content_version
@@ -381,17 +398,30 @@ export function createMySqlHealthKnowledgeRepository(
 			if (!row) return undefined;
 			const drugRows = await execute<DiseaseDrugRow[]>(
 				pool,
-				`SELECT drug_id, drug_name, is_clickable
-				 FROM hp_health_knowledge_disease_drugs
-				 WHERE content_version = ? AND disease_id = ?
+				`SELECT dd.drug_id, drug.item_kind AS drug_item_kind,
+						dd.drug_name, dd.is_clickable
+				 FROM hp_health_knowledge_disease_drugs AS dd
+				 LEFT JOIN hp_health_knowledge_items AS drug
+				   ON drug.item_id = dd.drug_id
+				  AND drug.content_version = dd.content_version
+				 WHERE dd.content_version = ? AND dd.disease_id = ?
 				 ORDER BY drug_name`,
 				[publication.contentVersion, diseaseId],
 			);
-			const drugs = drugRows.map((drug) => ({
-				...(drug.drug_id ? { drugId: drug.drug_id } : {}),
-				drugName: drug.drug_name,
-				isClickable: booleanValue(drug.is_clickable),
-			}));
+			const drugs = drugRows.map((drug) => {
+				if (drug.drug_id !== null && drug.drug_item_kind !== "drug") {
+					// 外键只证明 item 存在，不证明它是药品；错误类别不能
+					// 继续进入患者端的“可点击药品”读模型。
+					throw new Error(
+						"Persistence returned a health knowledge reference with an invalid drug kind",
+					);
+				}
+				return {
+					...(drug.drug_id ? { drugId: drug.drug_id } : {}),
+					drugName: drug.drug_name,
+					isClickable: booleanValue(drug.is_clickable),
+				};
+			});
 			const item = diseaseDetail(row, drugs);
 			return {
 				publication,

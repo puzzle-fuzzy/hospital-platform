@@ -95,8 +95,18 @@ test("MySQL disease detail keeps drug references on the selected content version
 			},
 		],
 		[
-			{ drug_id: "drug-cold", drug_name: "示例药物", is_clickable: 1 },
-			{ drug_id: null, drug_name: "非链接药物描述", is_clickable: 0 },
+			{
+				drug_id: "drug-cold",
+				drug_item_kind: "drug",
+				drug_name: "示例药物",
+				is_clickable: 1,
+			},
+			{
+				drug_id: null,
+				drug_item_kind: null,
+				drug_name: "非链接药物描述",
+				is_clickable: 0,
+			},
 		],
 	]);
 	const repository = createMySqlHealthKnowledgeRepository(pool);
@@ -118,6 +128,108 @@ test("MySQL disease detail keeps drug references on the selected content version
 	for (const statement of state.statements.slice(1)) {
 		expect(statement).toContain("content_version");
 	}
+	expect(state.statements[2]).toContain("drug.item_kind AS drug_item_kind");
+});
+
+test("MySQL health knowledge enforces relation item kinds in every version", async () => {
+	const relationCases = [
+		{
+			name: "disease relation",
+			read: (
+				repository: ReturnType<typeof createMySqlHealthKnowledgeRepository>,
+			) => repository.listDiseasesByRelation({ kind: "part", id: "part-1" }),
+			needle: "relation_item.item_kind = r.relation_kind",
+		},
+		{
+			name: "part symptom relation",
+			read: (
+				repository: ReturnType<typeof createMySqlHealthKnowledgeRepository>,
+			) => repository.listSymptomsByPart("part-1"),
+			needle: "p.item_kind = 'part'",
+		},
+		{
+			name: "symptom disease relation",
+			read: (
+				repository: ReturnType<typeof createMySqlHealthKnowledgeRepository>,
+			) => repository.listDiseasesBySymptoms(["symptom-1"]),
+			needle: "s.item_kind = 'symptom'",
+		},
+	] as const;
+
+	for (const relationCase of relationCases) {
+		const { pool, state } = createFakePool([[publicationRow], []]);
+		const repository = createMySqlHealthKnowledgeRepository(pool);
+		await relationCase.read(repository);
+		expect(state.statements[1], relationCase.name).toContain(
+			relationCase.needle,
+		);
+	}
+});
+
+test("MySQL health knowledge rejects an invalid drug reference kind or boolean", async () => {
+	const invalidKindPool = createFakePool([
+		[publicationRow],
+		[
+			{
+				disease_id: "disease-cold",
+				disease_name: "普通感冒",
+				disease_alias: null,
+				affected_part: null,
+				treatment_department: null,
+				susceptible_crowd: null,
+				cause: null,
+				symptoms: null,
+				examination: null,
+				prevention: null,
+				treatment: null,
+			},
+		],
+		[
+			{
+				drug_id: "disease-cold",
+				drug_item_kind: "disease",
+				drug_name: "伪药品引用",
+				is_clickable: 1,
+			},
+		],
+	]);
+	await expect(
+		createMySqlHealthKnowledgeRepository(invalidKindPool.pool).getDiseaseDetail(
+			"disease-cold",
+		),
+	).rejects.toThrow("invalid drug kind");
+
+	const invalidBooleanPool = createFakePool([
+		[publicationRow],
+		[
+			{
+				disease_id: "disease-cold",
+				disease_name: "普通感冒",
+				disease_alias: null,
+				affected_part: null,
+				treatment_department: null,
+				susceptible_crowd: null,
+				cause: null,
+				symptoms: null,
+				examination: null,
+				prevention: null,
+				treatment: null,
+			},
+		],
+		[
+			{
+				drug_id: null,
+				drug_item_kind: null,
+				drug_name: "未知标记",
+				is_clickable: "maybe",
+			},
+		],
+	]);
+	await expect(
+		createMySqlHealthKnowledgeRepository(
+			invalidBooleanPool.pool,
+		).getDiseaseDetail("disease-cold"),
+	).rejects.toThrow("invalid health knowledge boolean");
 });
 
 test("MySQL health knowledge rejects invalid symptom queries before touching SQL", async () => {
