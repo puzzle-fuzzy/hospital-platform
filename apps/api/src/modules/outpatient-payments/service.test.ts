@@ -7,6 +7,7 @@ import type {
 } from "@hospital/domain";
 import {
 	ExternalTraceReadModelValidationError,
+	MAX_OUTPATIENT_PAYMENT_RECORDS,
 	DependencyNotConfiguredError as MissingDependencyError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
@@ -705,4 +706,71 @@ test("门诊费用 service 二次校验后只返回白名单字段", async () =>
 	expect(output).not.toContain("provider-trade-secret");
 	expect(output).not.toContain("provider-patient-secret");
 	expect(output).not.toContain("insuranceAmountFen");
+});
+
+test("门诊费用 service 超过资源上限时整批拒绝且不记录 loaded", async () => {
+	const lines: string[] = [];
+	const records: OutpatientPaymentRecord[] = Array.from(
+		{ length: MAX_OUTPATIENT_PAYMENT_RECORDS + 1 },
+		(_, index) => ({
+			recordId: `payment-limit-${index}`,
+			status: "paid" as const,
+			billDate: "2026-08-16 09:00:00",
+			amountFen: 100,
+		}),
+	);
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => ({
+				records,
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "outpatient-payment-records",
+					requestId: "payment-limit",
+				},
+			}),
+		},
+		authSysCode: "thirdSelfMachine",
+		logger: createLogger({
+			service: "outpatient-payment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "paid", {
+			traceId: "trace-payment-limit",
+			idempotencyKey: "key-payment-limit",
+		}),
+	).rejects.toMatchObject({
+		name: "OutpatientPaymentResultValidationError",
+	});
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "outpatient.payment.records.failed",
+			traceId: "trace-payment-limit",
+			resultViolation: "records-too-many",
+		}),
+	);
+	expect(events).not.toContainEqual(
+		expect.objectContaining({
+			event: "outpatient.payment.records.loaded",
+		}),
+	);
 });

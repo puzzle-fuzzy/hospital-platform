@@ -106,6 +106,7 @@ export type {
 export {
 	InvalidOutpatientPaymentStatusError,
 	isOutpatientPaymentStatus,
+	MAX_OUTPATIENT_PAYMENT_RECORDS,
 	normalizeOutpatientPaymentRecords,
 	OutpatientPaymentResultValidationError,
 	parseOutpatientBillDateTime,

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	MAX_OUTPATIENT_PAYMENT_RECORDS,
 	parseOutpatientBillDateTime,
 	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
@@ -26,4 +27,20 @@ test("门诊费用公共读模型拒绝非法账单时间", () => {
 			"unpaid",
 		),
 	).toThrow("Outpatient payment provider result is invalid");
+});
+
+test("门诊费用公共读模型超过资源上限时整批拒绝而不截断", () => {
+	const records = Array.from(
+		{ length: MAX_OUTPATIENT_PAYMENT_RECORDS + 1 },
+		(_, index) => ({
+			recordId: `record-domain-${index}`,
+			status: "unpaid" as const,
+			billDate: "2026-08-16 09:00:00",
+			amountFen: 100,
+		}),
+	);
+
+	expect(() => validateOutpatientPaymentRecords(records, "unpaid")).toThrow(
+		"Outpatient payment provider result is invalid",
+	);
 });

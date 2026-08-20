@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_OUTPATIENT_PAYMENT_RECORDS } from "@hospital/domain";
 import { createZhongyangOutpatientPaymentGateway } from "./zhongyang-outpatient-payments";
 
 const context = {
@@ -168,6 +169,44 @@ test("众阳门诊费用包络缺少明确 success=true 时拒绝伪装成空列
 			responseInvalid: true,
 		});
 	}
+});
+
+test("众阳门诊费用超过资源上限时在条目映射前整批拒绝", async () => {
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: Array.from(
+						{ length: MAX_OUTPATIENT_PAYMENT_RECORDS + 1 },
+						() => null,
+					),
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "too-many-payment-records" },
+				},
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-secret",
+				startTime: "2026-08-16 00:00:00",
+				endTime: "2026-08-16 23:59:59",
+				status: "unpaid",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "outpatient-payment-records",
+		requestId: "too-many-payment-records",
+		responseInvalid: true,
+	});
 });
 
 test("众阳门诊费用 adapter 拒绝缺失金额而不是降级为零元", async () => {

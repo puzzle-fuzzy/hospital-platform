@@ -9,6 +9,7 @@ import type {
 import {
 	InvalidOutpatientPaymentStatusError,
 	isOutpatientPaymentStatus,
+	MAX_OUTPATIENT_PAYMENT_RECORDS,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
@@ -271,6 +272,14 @@ function responseItems(
 	requestId: string,
 ): ProviderPaymentItem[] {
 	if (Array.isArray(value)) {
+		if (value.length > MAX_OUTPATIENT_PAYMENT_RECORDS) {
+			// 必须在 object 映射、金额计算和费用 ID 哈希之前拒绝异常大响应；
+			// 不能先全部展开再截断，否则资源放大已经发生。
+			throw providerError(
+				"Zhongyang outpatient response contained too many records",
+				requestId,
+			);
+		}
 		return value.map((item) => objectValue(item, requestId));
 	}
 	if (typeof value !== "object" || value === null) {
@@ -299,6 +308,14 @@ function responseItems(
 		);
 	}
 	if (Array.isArray(envelope.data)) {
+		if (envelope.data.length > MAX_OUTPATIENT_PAYMENT_RECORDS) {
+			// 包络和裸数组必须使用同一资源边界，避免 Provider 只换一种
+			// 响应形态就绕过保护。
+			throw providerError(
+				"Zhongyang outpatient response contained too many records",
+				requestId,
+			);
+		}
 		return envelope.data.map((item) => objectValue(item, requestId));
 	}
 	throw providerError(

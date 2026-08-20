@@ -76,6 +76,13 @@
   未写入真实数据库、未开放锁号/预约写入、未修改旧 Python 或并行会话文件。该并发度是平台资源策略，不是号源或分页合同，
   详见 [`provider-contract-v1.md`](provider-contract-v1.md)。
 
+- 2026-08-20（门诊费用只读响应资源边界）：审计发现 Provider 及可注入网关的费用数组此前没有数量上限，异常响应会在对象映射、
+  金额解析、稳定费用 ID 和小程序序列化阶段放大资源。现统一增加 512 条资源上限：adapter 在映射前拒绝，domain/service 再次拒绝，
+  超过即整批 `provider-response-invalid`，不截断、不记录 `loaded`，不改变正常金额、状态、30 日窗口或支付/医保关闭边界。
+  domain 定向测试 3/3、adapter 定向测试 16/16、API 门诊费用 service 定向测试 13/13，API 全套 174/174，
+  全项目 `pnpm test` 和 `pnpm typecheck` 均通过。本轮未调用 Provider、未写入真实数据库、未修改旧 Python 或并行会话文件。
+  详见 [`provider-contract-v1.md`](provider-contract-v1.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

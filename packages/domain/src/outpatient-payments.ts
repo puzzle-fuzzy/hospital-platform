@@ -36,6 +36,15 @@ export type OutpatientPaymentRecord = {
 };
 
 /**
+ * 单次门诊费用只读响应的资源上限。
+ *
+ * 这是平台防御异常响应的上限，不是患者实际费用条数上限，也不是 Provider
+ * 分页合同。超过上限时必须整批拒绝，不能截断后把不完整账单伪装成成功；等
+ * Provider 正式分页契约到达后，再设计有界分页合并和总量语义。
+ */
+export const MAX_OUTPATIENT_PAYMENT_RECORDS = 512;
+
+/**
  * Provider/网关返回的门诊费用读模型违反公共 contract 时的低敏原因。
  *
  * 原因只用于服务端日志和测试断言，不能直接暴露给患者；尤其不能把
@@ -44,6 +53,7 @@ export type OutpatientPaymentRecord = {
  */
 export type OutpatientPaymentResultViolation =
 	| "records-not-array"
+	| "records-too-many"
 	| "record-not-object"
 	| "status-mismatch"
 	| "record-id-invalid"
@@ -158,6 +168,11 @@ export function normalizeOutpatientPaymentRecords(
 	expectedStatus: OutpatientPaymentStatus,
 ): OutpatientPaymentRecord[] {
 	if (!Array.isArray(value)) invalidResult("records-not-array");
+	if (value.length > MAX_OUTPATIENT_PAYMENT_RECORDS) {
+		// 不能在这里 slice：调用方看到的 total 和页面列表会变成“看似成功但
+		// 实际缺项”的错误事实。这个门禁同时保护回放网关和绕过 adapter 的内部任务。
+		invalidResult("records-too-many");
+	}
 
 	const recordIds = new Set<string>();
 	return value.map((item) => {
