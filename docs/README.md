@@ -18,6 +18,7 @@
 | [`release/candidate-ce8d68b-local-build-2026-08-20.md`](release/candidate-ce8d68b-local-build-2026-08-20.md) | 最新小程序本地构建来源、会话组合修正、门禁结果和真机前置条件；小程序尚未上传线上，服务端基线为 `0e360d3` |
 | [`release/candidate-e050fa0-local-build-2026-08-20.md`](release/candidate-e050fa0-local-build-2026-08-20.md) | 历史 `e050fa0` 小程序候选构建记录；不能替代最新 `ce8d68b` 候选 |
 | [`release/0e360d3-production-acceptance-2026-08-20.md`](release/0e360d3-production-acceptance-2026-08-20.md) | 当前 `0e360d3` 原子生产切换、`patId` 契约、新旧服务共存和未完成业务验收 |
+| [`release/current-public-readonly-smoke-2026-08-20-1442.md`](release/current-public-readonly-smoke-2026-08-20-1442.md) | 14:42 CST 公网健康探针、ready 依赖和未登录普通资料/预约/门诊费用接口的只读复核；不代表真机或 Provider 业务完成 |
 | [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md) | 历史 `398be8e` 原子生产切换、患者映射安全修正、新旧服务共存和未完成验收 |
 | [`release/current-398be8e-runtime-recheck-2026-08-19-1657.md`](release/current-398be8e-runtime-recheck-2026-08-19-1657.md) | 16:57 CST 重启后 `398be8e`、新旧端口、正确内网探针和业务日志只读复核；不代表 Provider/真机业务完成 |
 | [`release/current-public-readonly-smoke-2026-08-19-1723.md`](release/current-public-readonly-smoke-2026-08-19-1723.md) | 历史 `398be8e` 公网 live/ready/ping 与未授权 `/me`、`/patients` 只读复核；不替代微信、Provider 或真机业务验收 |

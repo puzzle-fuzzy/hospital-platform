@@ -104,6 +104,11 @@
   [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md)。本轮只修改新项目文档，未修改旧 Python、
   线上服务、数据库、Redis 或并行众阳自动化文件。
 
+- 2026-08-20 14:42 CST（公网只读复核）：新 API 公网 `health/live`、`health/ready`、`system/ping` 均返回 200，
+  ready 的 database、Redis 和 schema 均为 `ok`；普通资料、预约历史和门诊费用入口在无凭证下均按预期返回 401。
+  本次没有创建微信 session、调用 Provider 或写入业务数据，因此不增加真机、患者、预约或门诊费用验收结论。详见
+  [`release/current-public-readonly-smoke-2026-08-20-1442.md`](release/current-public-readonly-smoke-2026-08-20-1442.md)。
+
 - 2026-08-20（Bearer 会话输入边界）：复核认证入口发现任意长度或带控制字符的 Authorization token 仍可能先进入
   session 实现。现已在统一鉴权入口、Redis session 和测试内存 session 前增加 512 字符的安全形状门禁；畸形 token
   直接返回 `401 unauthorized`，不触碰 Redis、不写入日志。该修正不改变正常 token、Redis TTL 或 owner 语义，未修改
