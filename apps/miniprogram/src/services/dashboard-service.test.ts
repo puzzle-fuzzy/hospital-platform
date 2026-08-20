@@ -147,6 +147,12 @@ test("患者目录响应必须保持脱敏读模型和唯一患者标识", () =>
 	};
 
 	expect(requirePatientListData(valid)).toEqual(valid);
+	expect(
+		requirePatientListData({
+			...valid,
+			items: [{ ...valid.items[0], relationship: "unknown" }],
+		}).items[0]?.relationship,
+	).toBe("unknown");
 
 	for (const invalid of [
 		{ ...valid, items: [{ ...valid.items[0], relationship: "friend" }] },

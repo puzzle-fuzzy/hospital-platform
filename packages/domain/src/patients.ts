@@ -1,13 +1,20 @@
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
-/** 关系值是内部规范化值，不能直接把旧系统的中文显示值写入领域层。 */
+/**
+ * 关系值是内部规范化值，不能直接把旧系统的中文显示值写入领域层。
+ *
+ * `other` 只表示 Provider 明确声明了“其他”；`unknown` 表示上游没有提供
+ * 关系，或提供了平台暂时无法识别的值。两者不能混用，否则页面会把“没有
+ * 关系资料”误报成真实的家庭关系分类。
+ */
 export type PatientRelationship =
 	| "self"
 	| "spouse"
 	| "child"
 	| "parent"
-	| "other";
+	| "other"
+	| "unknown";
 
 /**
  * 当前患者是否具备临床只读业务所需的 HIS 档案映射。
@@ -102,7 +109,8 @@ function isPatientRelationship(value: unknown): value is PatientRelationship {
 		value === "spouse" ||
 		value === "child" ||
 		value === "parent" ||
-		value === "other"
+		value === "other" ||
+		value === "unknown"
 	);
 }
 

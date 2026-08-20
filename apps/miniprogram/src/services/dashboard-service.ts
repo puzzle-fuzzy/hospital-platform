@@ -129,6 +129,7 @@ const PATIENT_RELATIONSHIPS = new Set<Patient["relationship"]>([
 	"child",
 	"parent",
 	"other",
+	"unknown",
 ]);
 
 const PATIENT_SOURCES = new Set<Patient["source"]>([

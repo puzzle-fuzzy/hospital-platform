@@ -80,6 +80,68 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("众阳关系缺失与明确其他必须保持不同语义", async () => {
+	let archiveRequestCount = 0;
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				archiveRequestCount += 1;
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: {
+							patId: `his-patient-relationship-${archiveRequestCount}`,
+						},
+					}),
+					{
+						status: 200,
+						headers: { "x-request-id": "relationship-archive-001" },
+					},
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "relationship-unknown-001",
+							patientName: "关系缺失患者",
+							medicalCardNo: "card-unknown-001",
+							relation: null,
+						},
+						{
+							thirdPatientId: "relationship-other-001",
+							patientName: "明确其他患者",
+							medicalCardNo: "card-other-001",
+							relation: "其他",
+						},
+						{
+							thirdPatientId: "relationship-other-en-001",
+							patientName: "英文其他患者",
+							medicalCardNo: "card-other-en-001",
+							relation: "other",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "relationship-list-001" } },
+			);
+		},
+	});
+
+	const result = await gateway.listByIdentity(
+		{ unionId: "union-relationship-001" },
+		context,
+	);
+
+	expect(result.patients.map((patient) => patient.relationship)).toEqual([
+		"unknown",
+		"other",
+		"other",
+	]);
+});
+
 test("众阳患者目录超过资源上限时整批拒绝且不发起档案查询", async () => {
 	let archiveRequestCount = 0;
 	const gateway = createZhongyangPatientGateway({

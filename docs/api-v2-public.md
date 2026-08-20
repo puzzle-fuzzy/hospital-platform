@@ -154,8 +154,10 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 }
 ```
 
-`relationship` 只允许 `self`、`spouse`、`child`、`parent`、`other`。`source` 只表示
-平台内部来源分类；页面不能把 `other` 当作 provider 错误或直接展示给用户。卡号是服务端
+`relationship` 只允许 `self`、`spouse`、`child`、`parent`、`other`、`unknown`。
+`other` 仅表示 Provider 明确返回“其他”；`unknown` 表示关系未提供或暂时无法识别，
+不能将两者互相替换。`source` 只表示平台内部来源分类；页面不能把 `other` 当作 provider
+错误或直接展示给用户。卡号是服务端
 脱敏读模型，不允许小程序自行拼接明文卡号。
 
 `clinicalAccess` 只允许 `ready` 和 `unavailable`：`ready` 表示当前 owner 的该患者已经存在

@@ -370,6 +370,7 @@ const PATIENT_RELATIONSHIPS: readonly PatientRelationship[] = [
 	"child",
 	"parent",
 	"other",
+	"unknown",
 ];
 
 function patientRelationship(value: string): PatientRelationship {

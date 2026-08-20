@@ -192,8 +192,15 @@ function relationship(value: unknown): PatientRelationship {
 		子女: "child",
 		parent: "parent",
 		父母: "parent",
+		other: "other",
+		其他: "other",
+		unknown: "unknown",
+		未知: "unknown",
+		未提供: "unknown",
 	};
-	return aliases[normalized] ?? "other";
+	// 未提供或暂时无法识别的关系不能臆造为“其他”；只有 Provider 明确
+	// 返回 other/其他时才进入 other，避免前端把资料缺失误解为业务分类。
+	return aliases[normalized] ?? "unknown";
 }
 
 function responseItems(

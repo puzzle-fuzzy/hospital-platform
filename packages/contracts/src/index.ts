@@ -108,13 +108,17 @@ export const UserProfileUpdateRequest = Type.Object(
 	{ additionalProperties: false },
 );
 
-/** 关系值是跨 provider 的内部规范，页面显示文案由小程序决定。 */
+/**
+ * 关系值是跨 provider 的内部规范，页面显示文案由小程序决定。
+ * `other` 是上游明确给出的“其他”，`unknown` 是关系缺失或暂时无法识别。
+ */
 export const PatientRelationshipSchema = Type.Union([
 	Type.Literal("self"),
 	Type.Literal("spouse"),
 	Type.Literal("child"),
 	Type.Literal("parent"),
 	Type.Literal("other"),
+	Type.Literal("unknown"),
 ]);
 
 /** 患者目录是否具备预约、报告和费用只读链路需要的临床映射。 */

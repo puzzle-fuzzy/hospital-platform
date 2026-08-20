@@ -10,7 +10,8 @@
 - `total` 必须等于完整 `items` 数量；
 - 每条记录必须是唯一、有限且无控制字符的内部 opaque `patientId`；
 - `displayName` 必须是有界展示文本；
-- `relationship` 只能是 `self/spouse/child/parent/other`；
+- `relationship` 只能是 `self/spouse/child/parent/other/unknown`；其中 `other` 只表示
+  Provider 明确返回“其他”，关系缺失或暂时无法识别必须使用 `unknown`；
 - `cardNumberMasked` 必须符合服务端脱敏形状，允许固定哨兵 `未绑定`，不允许完整卡号；
 - `source` 只能是 `hospital-his/legacy-record`，`clinicalAccess` 只能是 `ready/unavailable`。
 

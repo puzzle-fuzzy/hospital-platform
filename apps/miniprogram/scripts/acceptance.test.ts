@@ -2094,6 +2094,9 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	const patientSelectTemplate = await source(
 		"pages/patient-select/patient-select.wxml",
 	);
+	const patientSelectScript = await source(
+		"pages/patient-select/patient-select.ts",
+	);
 	const patientSelectStyle = await source(
 		"pages/patient-select/patient-select.wxss",
 	);
@@ -2128,6 +2131,8 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(homeStyle).toContain("env(safe-area-inset-bottom)");
 	expect(homeStyle).toContain("justify-content: center");
 	expect(patientSelectTemplate).toContain("relationshipLabel");
+	expect(patientSelectScript).toContain('other: "其他"');
+	expect(patientSelectScript).toContain('unknown: "关系未提供"');
 	expect(patientSelectTemplate).toContain("电子就诊卡（脱敏）");
 	expect(patientSelectStyle).toContain("height: 80rpx");
 	expect(homeStyle).toContain("width: 350rpx");

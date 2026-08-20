@@ -35,6 +35,15 @@ test("患者读模型只返回白名单字段并固定当前 owner", () => {
 	expect(result[0]).not.toHaveProperty("providerPatientId");
 });
 
+test("患者读模型允许未知关系但不把它当作其他关系", () => {
+	const result = normalizePatientReadModel(
+		[{ ...basePatient, relationship: "unknown" }],
+		"owner-001",
+	);
+
+	expect(result[0]?.relationship).toBe("unknown");
+});
+
 test("患者读模型超过资源上限时整批拒绝", () => {
 	const patients = Array.from(
 		{ length: MAX_PATIENT_DIRECTORY_ITEMS + 1 },

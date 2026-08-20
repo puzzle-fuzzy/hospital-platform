@@ -76,14 +76,17 @@ function isPatientSelectionSessionCurrent(page: object): boolean {
 	return generation !== undefined && isCurrentSessionGeneration(generation);
 }
 
-/** provider 关系值是稳定枚举，中文文案由小程序展示层维护。 */
+/**
+ * provider 关系值是稳定枚举，中文文案由小程序展示层维护。
+ * “其他”只对应 provider 的明确分类；关系未提供单独展示，避免产生误解。
+ */
 const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
 	self: "本人",
 	spouse: "配偶",
 	child: "子女",
 	parent: "父母",
-	/** provider 未声明可识别关系时显示“其他”，不代表患者信息异常。 */
 	other: "其他",
+	unknown: "关系未提供",
 };
 
 /**
