@@ -1017,9 +1017,9 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 			useCompilerPlugins?: unknown;
 		};
 	};
-	const buildConfig = JSON.parse(
-		await source("../tsconfig.build.json"),
-	) as { exclude?: unknown };
+	const buildConfig = JSON.parse(await source("../tsconfig.build.json")) as {
+		exclude?: unknown;
+	};
 	const build = await Bun.file(
 		join(import.meta.dir, "..", "scripts", "build.ts"),
 	).text();
