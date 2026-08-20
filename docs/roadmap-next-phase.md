@@ -20,6 +20,10 @@
   最新快照水位，API 返回 `409 patient-sync-stale`，日志记录 `patient.directory.snapshot.stale`。新增跨快照回归测试，
   未修改众阳 adapter、旧 Python 服务、线上数据库、Redis 或小程序并行文件。
 
+- 2026-08-20（公共错误码跨层复核）：上一项新增的 `patient-sync-stale` 已补入原生小程序统一中文文案表，
+  并重新执行文档驱动的客户端验收，避免过期同步结果在页面上退化为无业务含义的通用“请求失败”。本轮只修改新项目，
+  未部署、未重启旧 Python、未调用 Provider、未写入数据库/Redis，也未触碰并行会话文件。
+
 - 2026-08-20（预约、门诊费用与患者档案只读闭环审计）：结合旧端真实 `patInfosFind` 响应，确认
   `data.patId` 是预约、报告和门诊费用共用的 HIS 临床患者引用，不是首页二维码 ID；新端继续以 owner-scoped
   `his-patient` 映射驱动 Provider 查询。复核了患者卡片独立归属、预约渠道 3、费用 `tradeStatus=1/3`、金额元转分、
