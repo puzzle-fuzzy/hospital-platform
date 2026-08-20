@@ -7,13 +7,17 @@
 
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `0e360d3`，旧 Python `8001` 继续共存；本地小程序候选为
-> `ac238c6`，完整运行包来源为 `ac238c6156f085fdb56f5806fefac3613e5f85be`，尚未上传线上。
+> `457d9ae`，完整运行包来源为 `457d9aee567bc77c33279a9b61db921e3011f1c1`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
 - 2026-08-20（配置与运行包边界复核）：前序配置修正提交为 `a2af341`，随后又完成 Redis 连接并发边界收敛；微信身份和微信支付上游地址的空字符串/空白值现在会
   回退到官方 HTTPS 默认地址，配置闸门与 adapter 收到的地址保持一致；小程序构建仍硬性排除测试脚本，
   `dist/services/single-flight.test.js` 不属于运行包。真实微信会话、Provider 业务和真机三层证据仍未因本次本地门禁通过而完成。
   详见 [`release/configuration-normalization-2026-08-20.md`](release/configuration-normalization-2026-08-20.md)。
+
+- 2026-08-20（小程序候选重建）：患者选择页只完善中文并发边界注释，没有改变运行逻辑；由于小程序源码提交发生变化，
+  已重新构建并通过 `runtime:verify`，当前运行包来源为 `457d9aee567bc77c33279a9b61db921e3011f1c1`，14 个页面脚本齐全，
+  且没有 `*.test.js`/`*.spec.js`。旧 `ac238c6` 运行包仅保留为历史记录，真机必须使用当前候选重新生成二维码。
 
 - 2026-08-20（Redis 就绪探针并发边界）：发现 readiness、会话读写和 TTL 维护命令在首次连接窗口可能重复调用
   ioredis `connect()`，造成连接竞争被误报为数据服务暂不可用。新端已将同一 Redis 客户端的连接建立收敛为共享单飞，
@@ -31,7 +35,7 @@
   不再用宽松 `Boolean(...)` 把未知 truthy 结构展示成“含附件”；附件下载、影像/心电详情、体检、报告解读和两个报告 gate
   继续关闭。详见 [`release/miniprogram-report-readonly-logic-audit-2026-08-20.md`](release/miniprogram-report-readonly-logic-audit-2026-08-20.md)。
 
-- 2026-08-20（门诊金额修正后运行包重建）：本地小程序运行输入来源为 `ac238c6`，完整 `dist/build-info.json.sourceRevision`
+- 2026-08-20（前一候选 `ac238c6` 的门诊金额修正后运行包重建，历史追溯）：本地小程序运行输入来源为 `ac238c6`，完整 `dist/build-info.json.sourceRevision`
   为 `ac238c6156f085fdb56f5806fefac3613e5f85be`；14 个页面脚本齐全、运行包中没有 `*.test.js`/`*.spec.js`，小程序完整
   测试 169/169，且全仓 `pnpm check` 9/9 通过。该候选尚未上传线上，旧 `8f80b3e` 二维码不能继续用于真机验收；旧 Python
   服务未修改、未重启。
@@ -140,7 +144,7 @@
 - 2026-08-20（普通资料更新链定向回归）：服务端普通资料 service `13/13` 通过，小程序患者选择、会话
   代际、资料保存和公共 API 响应门禁定向回归 `163/163` 通过；API 集成测试同时确认 owner 隔离、版本冲突、
   `null` 清空和旧端 `avatar/openid` 字段拒绝。该结果只证明代码、契约和本地测试边界，不代表真实微信资料
-  首次写入、双设备 `409`、公网日志同链或真机页面已经验收；下一步仍需使用当前 `ac238c6` 候选按
+  首次写入、双设备 `409`、公网日志同链或真机页面已经验收；下一步仍需使用当前 `457d9ae` 候选按
   [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md)
   采集页面、HTTP 和低敏日志三层证据。
 
@@ -1604,7 +1608,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `0e360d3` 和最新小程序候选 `ac238c6`（完整构建来源：`ac238c6156f085fdb56f5806fefac3613e5f85be`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `0e360d3` 和最新小程序候选 `457d9ae`（完整构建来源：`457d9aee567bc77c33279a9b61db921e3011f1c1`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -1615,7 +1619,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 当前服务端 release `0e360d3` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `0e360d3` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `ac238c6` 小程序候选（完整构建来源：`ac238c6156f085fdb56f5806fefac3613e5f85be`）。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `0e360d3` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `457d9ae` 小程序候选（完整构建来源：`457d9aee567bc77c33279a9b61db921e3011f1c1`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 
