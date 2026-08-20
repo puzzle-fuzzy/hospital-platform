@@ -1,13 +1,13 @@
-import { createPool, type Pool } from "mysql2/promise";
-import Redis from "ioredis";
 import type { DependencyState } from "@hospital/contracts";
 import type { AppLogger } from "@hospital/observability";
+import Redis from "ioredis";
+import { createPool, type Pool } from "mysql2/promise";
 import type { DependencyPort, PersistencePorts } from "./index";
+import { type CoreSchemaState, readCoreSchemaStateFromPool } from "./migrate";
 import {
 	createMySqlRepositories,
 	type MySqlRepositories,
 } from "./mysql-repositories";
-import { readCoreSchemaStateFromPool, type CoreSchemaState } from "./migrate";
 import {
 	createRedisSessionStore,
 	type RedisSessionStore,
@@ -100,6 +100,47 @@ export async function probeMySqlReadOnly(
 
 function safeErrorType(error: unknown): string {
 	return error instanceof Error ? error.name : "UnknownError";
+}
+
+type RedisConnectionClient = {
+	readonly status: string;
+	connect(): Promise<unknown>;
+};
+
+/**
+ * 为同一个 Redis 客户端建立共享连接单飞。
+ *
+ * readiness、会话读写和维护命令可能在同一时间到达；如果每条路径都在
+ * `status !== ready` 时直接调用 `connect()`，ioredis 在 `connecting` 窗口会
+ * 抛出连接竞争错误，最终把基础设施仍在正常建立连接误报为 503。这里仅
+ * 合并连接建立动作，不合并业务命令，也不重放任何写入；连接失败后会释放
+ * Promise，下一次真实请求仍可重新建立连接。
+ */
+export function createRedisConnectionGate(
+	client: RedisConnectionClient,
+): () => Promise<void> {
+	let connectionInFlight: Promise<void> | undefined;
+
+	return async () => {
+		if (client.status === "ready") return;
+
+		if (!connectionInFlight) {
+			const connection = Promise.resolve()
+				.then(() => client.connect())
+				.then(() => undefined)
+				.finally(() => {
+					if (connectionInFlight === connection) {
+						connectionInFlight = undefined;
+					}
+				});
+			connectionInFlight = connection;
+		}
+
+		await connectionInFlight;
+		if (client.status !== "ready") {
+			throw new Error("Redis connection did not become ready");
+		}
+	};
 }
 
 /**
@@ -208,14 +249,18 @@ function createMySqlPort(pool: Pool, logger?: AppLogger): DependencyPort {
 	};
 }
 
-function createRedisPort(client: Redis, logger?: AppLogger): DependencyPort {
+function createRedisPort(
+	client: Redis,
+	ensureRedisReady: () => Promise<void>,
+	logger?: AppLogger,
+): DependencyPort {
 	const trackProbeState = createPersistenceProbeStateTracker(logger, "redis");
 
 	return {
 		async check(): Promise<DependencyState> {
 			const startedAt = Date.now();
 			try {
-				if (client.status !== "ready") await client.connect();
+				await ensureRedisReady();
 				await client.ping();
 				trackProbeState("ok", {
 					attempts: 1,
@@ -313,13 +358,38 @@ export function createPersistenceRuntime(options: {
 
 	// ioredis 必须有 error listener，否则断连时 Node/Bun 可能产生未处理事件。
 	redisClient?.on("error", () => undefined);
+	const ensureRedisReady = redisClient
+		? createRedisConnectionGate(redisClient)
+		: undefined;
+	const sessionClient =
+		redisClient && ensureRedisReady
+			? {
+					async get(key: string) {
+						await ensureRedisReady();
+						return redisClient.get(key);
+					},
+					async set(
+						key: string,
+						value: string,
+						mode: "EX",
+						expiresInSeconds: number,
+					) {
+						await ensureRedisReady();
+						return redisClient.set(key, value, mode, expiresInSeconds);
+					},
+				}
+			: undefined;
 
 	return {
 		database: databasePool
 			? createMySqlPort(databasePool, options.logger)
 			: notConfiguredPort(),
 		redis: redisClient
-			? createRedisPort(redisClient, options.logger)
+			? createRedisPort(
+					redisClient,
+					ensureRedisReady as () => Promise<void>,
+					options.logger,
+				)
 			: notConfiguredPort(),
 		schema:
 			databasePool && options.useRepositories
@@ -333,11 +403,13 @@ export function createPersistenceRuntime(options: {
 							: {}),
 					})
 				: undefined,
-		sessions: redisClient ? createRedisSessionStore(redisClient) : undefined,
+		sessions: sessionClient
+			? createRedisSessionStore(sessionClient)
+			: undefined,
 		auditSessionTtl: redisClient
 			? async () => {
 					try {
-						if (redisClient.status !== "ready") await redisClient.connect();
+						await (ensureRedisReady as () => Promise<void>)();
 						return await auditRedisSessionTtl(redisClient);
 					} catch (error) {
 						if (error instanceof RedisSessionTtlAuditError) throw error;

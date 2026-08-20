@@ -3,6 +3,7 @@ import { createLogger } from "@hospital/observability";
 import {
 	createPersistenceProbeStateTracker,
 	createPersistenceRuntime,
+	createRedisConnectionGate,
 	probeMySqlReadOnly,
 	safeErrorMetadata,
 } from "./runtime";
@@ -125,6 +126,49 @@ test("persistence probe keeps only a safe infrastructure error code", () => {
 		errorCode: "PROTOCOL_CONNECTION_LOST",
 	});
 	expect(safeErrorMetadata(unsafeError)).toEqual({ errorType: "Error" });
+});
+
+test("Redis connection establishment is shared across concurrent readiness callers", async () => {
+	let connectCount = 0;
+	const client: { status: string; connect(): Promise<void> } = {
+		status: "wait",
+		async connect() {
+			connectCount += 1;
+			await Promise.resolve();
+			client.status = "ready";
+		},
+	};
+	const ensureRedisReady = createRedisConnectionGate(client);
+
+	await Promise.all([
+		ensureRedisReady(),
+		ensureRedisReady(),
+		ensureRedisReady(),
+	]);
+
+	expect(connectCount).toBe(1);
+	expect(client.status).toBe("ready");
+});
+
+test("Redis connection failure releases the single-flight for a later retry", async () => {
+	let connectCount = 0;
+	let shouldFail = true;
+	const client: { status: string; connect(): Promise<void> } = {
+		status: "wait",
+		async connect() {
+			connectCount += 1;
+			if (shouldFail) throw new Error("redis connection failed");
+			client.status = "ready";
+		},
+	};
+	const ensureRedisReady = createRedisConnectionGate(client);
+
+	await expect(ensureRedisReady()).rejects.toThrow("redis connection failed");
+	shouldFail = false;
+	await ensureRedisReady();
+
+	expect(connectCount).toBe(2);
+	expect(client.status).toBe("ready");
 });
 
 test("MySQL read-only probes retry once without replaying a business operation", async () => {

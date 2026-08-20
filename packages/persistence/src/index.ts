@@ -30,24 +30,28 @@ export {
 } from "./redis-session";
 export {
 	auditRedisSessionTtl,
-	RedisSessionTtlAuditError,
 	type RedisSessionTtlAuditClient,
+	RedisSessionTtlAuditError,
 	type RedisSessionTtlAuditOptions,
 	type RedisSessionTtlAuditResult,
 } from "./redis-session-ttl-audit";
 export {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
-	createInMemoryUserProfileRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
 	createInMemoryPaymentQuoteRepository,
 	createInMemoryReportReferenceRepository,
+	createInMemoryUserProfileRepository,
 	createInMemoryWechatPaymentNotificationRepository,
 	createNotConfiguredRepositories,
 } from "./repositories";
-export { createPersistenceRuntime, type PersistenceRuntime } from "./runtime";
+export {
+	createPersistenceRuntime,
+	createRedisConnectionGate,
+	type PersistenceRuntime,
+} from "./runtime";
 
 export type DependencyPort = {
 	check(): Promise<DependencyState>;

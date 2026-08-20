@@ -10,10 +10,15 @@
 > `ac238c6`，完整运行包来源为 `ac238c6156f085fdb56f5806fefac3613e5f85be`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
-- 2026-08-20（配置与运行包边界复核）：仓库当前提交为 `a2af341`。微信身份和微信支付上游地址的空字符串/空白值现在会
+- 2026-08-20（配置与运行包边界复核）：代码修正提交为 `a2af341`，当前路线图提交为 `c39f59f`。微信身份和微信支付上游地址的空字符串/空白值现在会
   回退到官方 HTTPS 默认地址，配置闸门与 adapter 收到的地址保持一致；小程序构建仍硬性排除测试脚本，
   `dist/services/single-flight.test.js` 不属于运行包。真实微信会话、Provider 业务和真机三层证据仍未因本次本地门禁通过而完成。
   详见 [`release/configuration-normalization-2026-08-20.md`](release/configuration-normalization-2026-08-20.md)。
+
+- 2026-08-20（Redis 就绪探针并发边界）：发现 readiness、会话读写和 TTL 维护命令在首次连接窗口可能重复调用
+  ioredis `connect()`，造成连接竞争被误报为数据服务暂不可用。新端已将同一 Redis 客户端的连接建立收敛为共享单飞，
+  但不重放业务命令；连接失败会释放后续重试资格。persistence 83 项测试和类型检查通过，旧 Python、线上 Redis 和 ACL 未修改。
+  详见 [`release/redis-readiness-concurrency-audit-2026-08-20.md`](release/redis-readiness-concurrency-audit-2026-08-20.md)。
 
 - 2026-08-20（门诊费用只读逻辑审计）：服务端门诊费用 service、众阳 adapter 和小程序页面的定向测试通过；发现并修正
   Provider 元字符串使用浮点乘法以及客户端使用 `toFixed` 展示的金额精度风险，改为服务端 `BigInt` 精确转分、客户端整数

@@ -19,6 +19,10 @@
 > 小程序运行包继续只包含 `single-flight.js`，不包含 `single-flight.test.js` 或其它测试脚本；该 ENOENT 仍属于微信开发者工具旧增量索引，
 > 应关闭真机调试、重开项目、普通编译后重新生成二维码，不能把测试文件复制进 `dist/`。
 
+> 2026-08-20 Redis 运行边界复核：readiness、会话读写和 TTL 维护命令现在共用同一 Redis 连接单飞，
+> 连接竞争不会再被直接当作业务失败；业务写入仍不自动重放。persistence 测试 83 项通过，详见
+> [`../release/redis-readiness-concurrency-audit-2026-08-20.md`](../release/redis-readiness-concurrency-audit-2026-08-20.md)。
+
 > 2026-08-20 生产更新：服务端已切换到 `0e360d3`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
 > `patInfosFind` 临床引用和患者映射安全边界见 [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md)。
 
