@@ -326,6 +326,22 @@ check(
 );
 
 /**
+ * 当前登录只交换 wx.login 的一次性 code，不采集头像/昵称，也不应在页面
+ * 初始化时触发微信资料授权弹窗。`getUserProfile` 这个名称在本项目中还
+ * 专指 Hospital API 的普通资料读取，因此这里必须检查带 wx 前缀的真实
+ * 微信授权调用，避免维护人员把两个概念混在一起。未来若产品确认需要
+ * 头像或昵称，必须先完成独立隐私、字段、撤回和页面触发 contract，再有意
+ * 更新这条门禁；不能通过删除检查来绕过授权边界。
+ */
+check(
+	"miniprogram.no-wechat-profile-consent-in-login",
+	![/\bwx\.getUserProfile\s*\(/u, /\bwx\.getUserInfo\s*\(/u].some((pattern) =>
+		pattern.test(miniprogramSource),
+	),
+	"微信登录只交换 wx.login code，不能在生产小程序中隐式请求头像/昵称资料授权。",
+);
+
+/**
  * 旧端曾在患者中心使用本地假患者和固定外部小程序标识；这些值一旦回流，
  * 就会绕过当前服务端 owner 校验，造成展示身份与真实业务身份分离。
  */

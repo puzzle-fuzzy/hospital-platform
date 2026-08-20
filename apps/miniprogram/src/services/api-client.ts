@@ -994,7 +994,14 @@ export function getCurrentUser(): Promise<CurrentUserResponse> {
 	);
 }
 
-/** 读取普通个人资料；响应不包含微信身份、实名或患者字段。 */
+/**
+ * 读取平台普通个人资料快照；响应不包含微信身份、实名或患者字段。
+ *
+ * 这里的 `getUserProfile` 是 Hospital API 的 `/me/profile` 业务命名，
+ * 不是微信的 `wx.getUserProfile` 授权接口。登录只需要 `wx.login()` 的
+ * 一次性 code；如果未来要采集头像或昵称，必须另立用户主动触发的授权
+ * contract，不能在会话登录或患者初始化时偷偷弹窗/扩大采集范围。
+ */
 export function getUserProfile(): Promise<UserProfileResponse> {
 	return requestWithSession<unknown>({ url: "/me/profile" }).then(
 		requireCanonicalUserProfileResponse,

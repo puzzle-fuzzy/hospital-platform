@@ -46,6 +46,16 @@ test("native client keeps WeChat identity exchange on the Hospital API", async (
 	expect(client).not.toContain("api.weixin.qq.com");
 });
 
+test("native login does not request WeChat profile consent", async () => {
+	const client = await source("services/api-client.ts");
+
+	// `wx.login` 的 code 交换本身不会弹出头像/昵称授权；项目内部的
+	// `getUserProfile` 只表示 `/me/profile`，不能把它误写成微信资料授权。
+	expect(client).toContain("wx.login");
+	expect(client).not.toMatch(/\bwx\.getUserProfile\s*\(/u);
+	expect(client).not.toMatch(/\bwx\.getUserInfo\s*\(/u);
+});
+
 test("native client restores a platform session through the current-user endpoint", async () => {
 	const client = await source("services/api-client.ts");
 	const page = await source("pages/index/index.ts");
