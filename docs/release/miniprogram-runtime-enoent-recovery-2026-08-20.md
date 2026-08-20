@@ -92,3 +92,21 @@ Get-ChildItem -LiteralPath apps/miniprogram/dist -Recurse -File |
 这里运行包来源指纹仍为 `ac238c6`，是因为当前提交只包含服务端/文档侧后续审计，原生小程序源码没有产生新的运行包输入；这不影响运行包门禁，反而能证明构建没有把测试文件带入发布目录。
 
 如果微信开发者工具仍打开旧项目实例或旧真机调试会话，必须执行“关闭真机调试 → 退出并重新打开当前小程序项目 → 普通编译 → 重新生成二维码”。这个问题属于本机工具的增量模块索引，不应通过改服务端、改旧 Python 服务或把测试脚本复制到 `dist/` 来处理。
+
+## 当前候选复核（2026-08-20 22:39 CST）
+
+针对用户在 17:30 左右再次看到的同一路径错误，已在当前工作树重新完成只读运行包检查：
+
+| 项目 | 当前结果 |
+| --- | --- |
+| 当前仓库提交 | `1a85a03` |
+| 当前小程序候选来源 | `457d9aee567bc77c33279a9b61db921e3011f1c1`（`457d9ae`） |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| 注册页面 | 14 个 |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | 0 个 |
+
+因此当前代码和运行包没有需要补入的业务文件。若开发者工具继续请求这个不存在的绝对路径，仍应按“开发者工具旧增量模块索引”处理：关闭当前真机调试，退出并重新打开仓库中的 `apps/miniprogram/` 项目，确认 `project.config.json` 的 `miniprogramRoot` 为 `dist/`，先执行一次普通编译，再用当前 `457d9ae` 候选重新生成二维码。不要复制或手工创建 `single-flight.test.js`。
+
+同一时间窗口的公网只读复核未发现新服务异常：`/api/v2/health/live`、`/api/v2/health/ready`、`/api/v2/system/ping` 返回 200；未携带会话访问 `/api/v2/me`、`/api/v2/patients` 返回 401。该复核没有发送微信登录、患者同步、Provider、医保或任何业务写入请求，也没有修改或重启旧 Python 服务。
