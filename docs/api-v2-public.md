@@ -164,6 +164,11 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 脱敏读模型才能生成响应；如果这一步暂时失败，服务端返回错误，不会把空数组伪装成同步成功。
 相同幂等键命中 durable replay 时不会再次访问 Provider，但仍会重新读取当前读模型。
 
+患者目录的同步结果和 owner-scoped 读模型单次最多允许 128 条；这是平台资源保护，不是医院
+业务上的绑定人数上限，也不是 Provider 分页总数。超过上限或读模型结构异常时服务端整批失败，
+不会截断、不回收未出现在异常结果中的旧患者，也不会返回 `total` 与实际目录不一致的成功响应；
+内部持久化读模型校验失败返回 `500 persistence-invalid`，不能被小程序解释为“暂无就诊人”。
+
 ### 3.2 普通个人资料
 
 `GET /me/profile` 和 `PUT /me/profile` 只处理 `displayName`、`gender`、`age`、`email`。
@@ -358,6 +363,7 @@ query schema 的内部任务传入未知值，也只能返回 `400 outpatient-pa
 | 503 | `persistence-temporarily-unavailable` | 数据库、Redis 或 schema 暂时不可用 |
 | 503 | `provider-temporarily-unavailable` | provider 暂时不可用，可按策略重试 |
 | 500 | `unknown` | 未分类服务异常；页面不得根据此码推断业务结果 |
+| 500 | `persistence-invalid` | 数据库读模型或服务端内部身份违反 contract，不能降级为空列表 |
 
 小程序端统一在 [`apps/miniprogram/src/services/api-client.ts`](../apps/miniprogram/src/services/api-client.ts)
 按上述稳定错误码映射中文文案；新增公共错误码时必须同步更新该映射和验收测试。未知错误码只展示安全兜底，

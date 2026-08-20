@@ -40,6 +40,7 @@ export type PatientRecord = {
  */
 export type PatientReadModelViolation =
 	| "patients-not-array"
+	| "patients-too-many"
 	| "patient-not-object"
 	| "patient-id-invalid"
 	| "patient-id-duplicate"
@@ -130,6 +131,12 @@ export function normalizePatientReadModel(
 	if (!Array.isArray(value)) {
 		invalidPatientReadModel("patients-not-array");
 	}
+	if (value.length > MAX_PATIENT_DIRECTORY_ITEMS) {
+		// GET 读模型和同步快照返回值必须共享同一资源边界；不能让异常的
+		// 仓储、回放器或人工修复绕过同步入口，把超大目录序列化到小程序。
+		// 这里同样整批失败，不能截断后让用户把不完整目录当成全部患者。
+		invalidPatientReadModel("patients-too-many");
+	}
 	const seenPatientIds = new Set<string>();
 	return value.map((item) => {
 		if (typeof item !== "object" || item === null || Array.isArray(item)) {
@@ -202,11 +209,11 @@ export type PatientDirectoryProfile = {
 };
 
 /**
- * 单次患者目录完整快照的资源上限。
+ * 单次患者目录读模型和完整快照的资源上限。
  *
  * 这是平台资源防护，不是医院业务上的绑定人数上限，也不是 Provider 分页契约。
- * 超过上限必须整批拒绝，不能截断后触发快照失效回收；待 Provider 正式分页契约
- * 到达后，再设计有界分页合并。
+ * 超过上限必须整批拒绝，不能截断后触发快照失效回收，也不能把不完整读模型
+ * 返回给小程序；待 Provider 正式分页契约到达后，再设计有界分页合并。
  */
 export const MAX_PATIENT_DIRECTORY_ITEMS = 128;
 

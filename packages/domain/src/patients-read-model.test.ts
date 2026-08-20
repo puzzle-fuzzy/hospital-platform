@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	MAX_PATIENT_DIRECTORY_ITEMS,
 	normalizePatientDirectoryResult,
 	normalizePatientDirectorySnapshotResult,
 	normalizePatientReadModel,
@@ -32,6 +33,21 @@ test("患者读模型只返回白名单字段并固定当前 owner", () => {
 
 	expect(result).toEqual([basePatient]);
 	expect(result[0]).not.toHaveProperty("providerPatientId");
+});
+
+test("患者读模型超过资源上限时整批拒绝", () => {
+	const patients = Array.from(
+		{ length: MAX_PATIENT_DIRECTORY_ITEMS + 1 },
+		(_, index) => ({
+			...basePatient,
+			id: `patient-internal-${index}`,
+			displayName: `患者${index}`,
+		}),
+	);
+
+	expect(() => normalizePatientReadModel(patients, "owner-001")).toThrow(
+		new PatientReadModelValidationError("patients-too-many"),
+	);
 });
 
 test("患者读模型拒绝错 owner、重复 ID 和非法展示字段", () => {

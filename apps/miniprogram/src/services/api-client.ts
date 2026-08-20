@@ -74,6 +74,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"provider-response-invalid": "外部服务返回数据异常，请稍后重试",
 		"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",
 		"persistence-temporarily-unavailable": "数据服务暂时不可用，请稍后重试",
+		"persistence-invalid": "数据服务返回异常，请稍后重试",
 		"user-profile-invalid": "个人资料字段不合法",
 		"user-profile-conflict": "个人资料已被其他设备修改，请刷新后重试",
 		"appointment-query-invalid": "预约排班查询条件不合法",

@@ -1008,3 +1008,56 @@ test("患者目录读模型拒绝完整卡号并记录固定脱敏违规原因",
 	);
 	expect(lines.join("\n")).not.toContain("123456789012345678");
 });
+
+test("患者目录读取超过资源上限时不伪装成完整成功", async () => {
+	const baseRepository = createInMemoryPatientRepository();
+	const lines: string[] = [];
+	const repository: PatientRepository = {
+		...baseRepository,
+		async listByOwner() {
+			return Array.from(
+				{ length: MAX_PATIENT_DIRECTORY_ITEMS + 1 },
+				(_, index) =>
+					({
+						id: `patient-read-too-many-${index}`,
+						ownerUserId: "owner-001",
+						displayName: `患者${index}`,
+						relationship: "self",
+						cardNumberMasked: "12345*********7890",
+						source: "hospital-his",
+						clinicalAccess: "ready",
+					}) as PatientRecord,
+			);
+		},
+	};
+	const service = new PatientService(repository, {
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list("owner-001", {
+			traceId: "patient-read-too-many-trace",
+			idempotencyKey: "patient-read-too-many-key",
+		}),
+	).rejects.toMatchObject({
+		name: "PatientReadModelValidationError",
+		violation: "patients-too-many",
+	});
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "patient.directory.read.failed",
+			readModelViolation: "patients-too-many",
+		}),
+	);
+	expect(records).not.toContainEqual(
+		expect.objectContaining({ event: "patient.directory.read.loaded" }),
+	);
+});

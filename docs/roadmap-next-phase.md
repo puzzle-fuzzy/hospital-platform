@@ -90,6 +90,12 @@
   MySQL/Redis、未改旧 Python 或并行众阳文件。详见 [`provider-contract-v1.md`](provider-contract-v1.md) 与
   [`api-v2-public.md`](api-v2-public.md)。
 
+- 2026-08-20（患者读模型资源边界闭环）：继续审计患者链路时发现同步 gateway 已有 128 条上限，但普通 `GET /patients` 及同步
+  提交后的 owner-scoped 读模型没有复用该边界，异常仓储、回放器或人工修复可能把超大目录序列化给小程序。现由 domain 的
+  `normalizePatientReadModel` 统一拒绝超过 128 条的读模型，service 记录固定 `patients-too-many` 并返回 `500 persistence-invalid`，
+  不截断、不伪装成空目录、不记录 `loaded`；同步、读取和客户端错误文案/公开文档已保持一致。定向 domain 7/7、患者 service 18/18 通过，
+  本轮未调用 Provider、未写真实 MySQL/Redis、未改旧 Python 或并行众阳文件。
+
 - 2026-08-20（只读查询结果与筛选条件绑定）：审计发现预约排班 service 只验证日期格式，未验证返回排班是否位于请求窗口、
   科室和医生筛选内；报告 service 指定 `kind` 时也未验证返回摘要来源。现改为服务层整批 fail-closed：窗口外/科室错配/医生错配
   和报告来源错配统一记录有限 `resultViolation`，不静默过滤、不写入成功日志；预约 service 21/21、报告 service 18/18、API 全套
