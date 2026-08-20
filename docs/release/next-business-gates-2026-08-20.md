@@ -1,15 +1,15 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `0e360d3`，当前本地小程序候选为 `39e2caa`，完整运行包来源为
-> `39e2caac27ec4bf569f5debc8edb47947bc398d2`。小程序尚未上传线上。
+> 当前服务端候选为 `0e360d3`，当前本地小程序候选为 `3a6bf3e`，完整运行包来源为
+> `3a6bf3ea3d2b8944e05ffcad254a37afdbca2aab`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
 
 ## 2026-08-21 当前候选只读业务复核
 
-本次复核基于服务端 `0e360d3`、小程序候选 `39e2caa`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
+本次复核基于服务端 `0e360d3`、小程序候选 `3a6bf3e`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
 
 ### 已确认的业务边界
@@ -19,6 +19,7 @@
 - 门诊费用只开放待缴/已缴只读目录；服务端固定最近 30 个中国标准时间日，adapter 只把 Provider `tradeStatus=1/3` 映射为 `unpaid/paid`，金额只读取已确认的 `amount` 并精确转换为分。旧端 `waitPayAmount`、费用详情、支付调起、医保授权、结算回写和退费均不属于当前读模型。
 - 预约详情、预问诊和费用详情没有稳定且已授权的公共引用，因此页面保留入口位置但给出迁移提示；不能把数组下标、Provider 预约号或费用单号拼进小程序 URL。
 - 三个页面均在新一轮 owner-scoped 读取开始时清空上一位患者的卡片和列表，并在会话代际、页面请求令牌和当前显式患者三者同时有效时提交结果；这条逻辑已由小程序页面测试覆盖。
+- 普通资料页额外在页面栈重新可见时执行 `onShow` 会话重读；首次展示不重复请求，后续展示不依赖用户手动下拉来清除旧账号资料。
 
 ### 本地验证证据
 
@@ -27,7 +28,7 @@
 | API 预约记录/门诊费用 service | 35 项通过，139 个断言 |
 | 众阳预约/门诊费用 adapter | 32 项通过，70 个断言 |
 | 领域 contract | 5 项通过，7 个断言 |
-| 原生小程序 | 169 项通过，1342 个断言 |
+| 原生小程序 | 169 项通过，1349 个断言 |
 | 运行包 | `runtime:verify` 通过；14 个页面齐全，`dist/` 不含测试脚本 |
 
 这些结果证明当前 fail-closed 代码边界一致，不证明当前 release 已取得 Provider、HTTPS、页面和真机三层业务证据。
@@ -89,7 +90,7 @@
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-39e2caa-local-build-2026-08-21.md`](candidate-39e2caa-local-build-2026-08-21.md)
+- 当前候选来源：[`candidate-3a6bf3e-local-build-2026-08-21.md`](candidate-3a6bf3e-local-build-2026-08-21.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
