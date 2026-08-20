@@ -33,6 +33,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - adapter 会统一注入 trace/idempotency headers，并把 provider 业务失败转换为不可伪装的 `ProviderRequestError`；
 - provider 患者号已经通过 `hp_patients.provider_name/provider_patient_id` 做内部映射，生产组合根仍默认保持 not-configured；只有 `ZHONGYANG_PATIENT_DIRECTORY_READY=true`、服务端 HTTPS 地址完整且 provider 合同确认后才会注入患者 adapter。
 - 当前患者目录响应在 adapter 内标记为 `complete: true`，因为 `patientInfoByUnionId` 当前返回的是完整数组而不是分页游标；该标记才允许 0013 快照事务回收未出现患者。若 provider 改为分页，必须先合并全部分页，不能用单页结果标记 complete。
+- 患者目录 adapter 对完整数组设置 128 条资源上限；这不是医院业务上的绑定人数上限，而是为了避免异常响应在后续为每位患者调用 `patInfosFind` 时形成无界并发。超过上限整批返回 `provider-response-invalid`，不会截断后继续快照失效回收；若 Provider 后续提供分页契约，必须先完成有界分页合并后再评估该边界。
 - `ZHONGYANG_AUTHORIZATION_TOKEN` 是可选的服务端 secret，是否需要以及具体授权格式必须以众阳/HIS 合同确认；配置状态 configured 只代表字段完整，不代表真实请求成功。旧的 `ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN` 仅作为迁移兼容变量读取。
 
 报告 Phase 7C/7C-1 实现众阳 LIS/PACS/ECG 只读目录，以及独立 gate 下的 LIS 详情读模型：

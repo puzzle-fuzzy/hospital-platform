@@ -79,6 +79,41 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("众阳患者目录超过资源上限时整批拒绝且不发起档案查询", async () => {
+	let archiveRequestCount = 0;
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				archiveRequestCount += 1;
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: Array.from({ length: 129 }, (_, index) => ({
+						thirdPatientId: `directory-too-large-${index}`,
+						patientName: `合成患者${index}`,
+						medicalCardNo: `card-${index}`,
+					})),
+				}),
+				{ status: 200, headers: { "x-request-id": "directory-too-large-001" } },
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity(
+			{ unionId: "union-directory-too-large-001" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: true,
+	});
+	expect(archiveRequestCount).toBe(0);
+});
+
 test("众阳患者目录拒绝 JSON 数字卡号，避免查询卡号丢失前导零", async () => {
 	let archiveRequested = false;
 	const gateway = createZhongyangPatientGateway({

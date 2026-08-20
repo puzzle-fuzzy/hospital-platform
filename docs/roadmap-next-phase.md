@@ -53,6 +53,12 @@
   但小程序 build 因并行会话尚未提交的运行输入被 provenance 门禁主动停止；本次没有部署、Provider 调用、旧 Python、
   MySQL/Redis 写入或线上小程序上传。Docker daemon 未运行，`pnpm db:integration` 尚未取得 MySQL/Redis 集成证据。
 
+- 2026-08-20（患者目录 Provider 响应资源边界）：发现 `patientInfoByUnionId` 返回完整数组后会为每位患者调用一次
+  `patInfosFind`；此前没有数组基数上限，异常响应可能造成无界并发外部请求。现已在患者 adapter 的字段映射和临床档案查询
+  之前增加 128 条资源上限，超过即整批 `provider-response-invalid`，不截断、不写快照、不发起档案查询；适配器全套
+  97/97、213 个断言通过。该上限是资源保护而非业务绑定人数规则，Provider 分页契约未确认前不会改为截断成功；本次未调用
+  Provider、未修改旧 Python、数据库、Redis 或线上 gate。详见 [`provider-contract-v1.md`](provider-contract-v1.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

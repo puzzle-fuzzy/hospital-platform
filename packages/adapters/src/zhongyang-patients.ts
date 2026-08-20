@@ -10,6 +10,16 @@ import { type ProviderFetcher, requestJson } from "./http";
 
 const PATIENT_INFO_BY_UNION_ID_PATH = "/api/public/patientInfoByUnionId";
 const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
+/**
+ * 患者目录响应的资源保护上限，不代表医院业务上的“最多可绑定人数”。
+ *
+ * 当前 provider 返回完整数组，没有分页游标；adapter 后续还要为每位患者
+ * 查询一次 `patInfosFind`。如果不限制数组大小，异常响应会让一次登录触发
+ * 大量并发外部请求，既可能压垮 Provider，也会让快照事务处理不受控的患者
+ * 数量。128 足以覆盖正常家庭/代办场景；超过上限时整批 fail-closed，待
+ * Provider 正式分页契约到达后再改为有界分页合并，不能在这里截断成“成功”。
+ */
+const MAX_PATIENT_DIRECTORY_ITEMS = 128;
 
 type ZhongyangPatientResponse = {
 	thirdPatientId?: unknown;
@@ -242,6 +252,26 @@ function responseItems(
 		);
 	}
 	return items as ZhongyangPatientResponse[];
+}
+
+/**
+ * 在任何字段映射和档案查询前限制目录基数。
+ *
+ * 不能先 `slice` 取前 128 条：被截断的完整目录会继续驱动快照失效回收，
+ * 可能把真实但未出现在前 128 条的患者标成 inactive。资源异常必须和业务
+ * 结果异常一样拒绝整批，并保留统一的 Provider response-invalid 语义。
+ */
+function ensureDirectorySize(
+	items: readonly ZhongyangPatientResponse[],
+	requestId: string,
+): void {
+	if (items.length <= MAX_PATIENT_DIRECTORY_ITEMS) return;
+	throw providerError(
+		"Zhongyang patient response contained too many patients",
+		requestId,
+		"patient-list",
+		true,
+	);
 }
 
 /**
@@ -662,6 +692,9 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 			this.fetcher,
 		);
 		const items = responseItems(response.data, response.requestId);
+		// 先限制 Provider 返回的完整数组，再做唯一性校验和 patInfosFind；
+		// 这样超大响应不会先产生一批外部档案请求或部分业务副作用。
+		ensureDirectorySize(items, response.requestId);
 		// 先验证整个目录的主键唯一性，再访问每个患者的档案接口；否则
 		// 重复数据会造成额外 provider 请求，并在持久化层发生不确定覆盖。
 		ensureUniqueProviderPatientIds(items, response.requestId);
