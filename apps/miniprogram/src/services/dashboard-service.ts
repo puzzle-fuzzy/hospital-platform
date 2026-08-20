@@ -12,6 +12,7 @@ import type {
 import {
 	ApiError,
 	createIdempotencyKey,
+	getCurrentUser,
 	request,
 	requestAppointmentDepartments,
 	requestAppointmentRecords,
@@ -756,14 +757,22 @@ export function loadCurrentPatient(): Promise<Patient> {
 
 /**
  * 请求服务端从已认证身份同步患者，不在小程序侧拼 provider 字段。
- * 同步请求在进程级协调器内生成幂等键，保证不同页面实例复用同一操作。
+ *
+ * 患者同步是 POST 命令，不能依赖它自己在 requestWithSession 内“顺便登录”：
+ * 如果本地没有 token，登录会在进程级同步协调器捕获会话代际之后发生，
+ * 有效的同步结果会被协调器误判为旧会话并收敛成 `session-changed`。先用
+ * 只读 `/me` 建立当前 owner 证明，既允许 GET 在过期 token 时安全换会话，
+ * 又让后续 POST 在稳定代际中生成幂等键；不同页面仍通过协调器复用同一
+ * 在途同步 Promise，服务端继续负责跨进程租约和最终幂等。
  */
 export function syncPatientsFromHospital(
 	operationPrefix: string,
 ): Promise<Array<Patient>> {
-	return runPatientSync(() =>
-		syncPatients(createIdempotencyKey(operationPrefix)).then(
-			(payload) => requirePatientListData(payload.data).items,
+	return getCurrentUser().then(() =>
+		runPatientSync(() =>
+			syncPatients(createIdempotencyKey(operationPrefix)).then(
+				(payload) => requirePatientListData(payload.data).items,
+			),
 		),
 	);
 }

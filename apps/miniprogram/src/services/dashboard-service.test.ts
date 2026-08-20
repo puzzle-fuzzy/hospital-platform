@@ -12,6 +12,7 @@ import {
 	requireExactListData,
 	requireOutpatientPaymentListData,
 	requirePatientListData,
+	syncPatientsFromHospital,
 } from "./dashboard-service";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
@@ -168,6 +169,100 @@ test("患者目录响应必须保持脱敏读模型和唯一患者标识", () =>
 		expect(() => requirePatientListData(invalid)).toThrow(
 			"Patient response item",
 		);
+	}
+});
+
+test("患者同步先建立会话证明，再进入 POST 协调器", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const requestPaths: string[] = [];
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "",
+		sessionStatus: "signed_out",
+	};
+	const patient = {
+		id: "patient-sync-session-001",
+		displayName: "同步患者",
+		relationship: "self" as const,
+		cardNumberMasked: "12345******0001",
+		source: "hospital-his" as const,
+		clinicalAccess: "ready" as const,
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		setStorageSync: (key: string, value: string) => {
+			if (key === "access_token") globalData.accessToken = value;
+		},
+		removeStorageSync: (key: string) => {
+			if (key === "access_token") globalData.accessToken = "";
+		},
+		login: (options: { success: (value: { code: string }) => void }) =>
+			options.success({ code: "wechat-code-for-sync" }),
+		request: (options: RequestOptions) => {
+			const path = new URL(options.url).pathname;
+			requestPaths.push(path);
+			if (path.endsWith("/auth/wechat")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							accessToken: "session-for-sync",
+							tokenType: "Bearer",
+							expiresInSeconds: 3600,
+							user: { id: "user-sync" },
+						},
+					},
+				});
+				return;
+			}
+			if (path.endsWith("/me")) {
+				options.success({
+					statusCode: 200,
+					data: { success: true, data: { user: { id: "user-sync" } } },
+				});
+				return;
+			}
+			if (path.endsWith("/patients/sync")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: { items: [patient], total: 1 },
+					},
+				});
+				return;
+			}
+			throw new Error(`unexpected request: ${path}`);
+		},
+	};
+
+	try {
+		expect(await syncPatientsFromHospital("sync-session-proof")).toEqual([
+			patient,
+		]);
+		expect(requestPaths).toEqual([
+			"/api/v2/auth/wechat",
+			"/api/v2/me",
+			"/api/v2/patients/sync",
+		]);
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
 	}
 });
 
