@@ -139,7 +139,19 @@ function normalizeWechatLoginInput(value: unknown): { code: string } {
 		throw new WechatLoginInputError();
 	}
 	const code = (value as Record<string, unknown>).code;
-	if (typeof code !== "string" || code.length < 1 || code.length > 256) {
+	if (
+		typeof code !== "string" ||
+		code.length < 1 ||
+		Array.from(code).length > 256 ||
+		code !== code.trim() ||
+		Array.from(code).some((character) => {
+			const codePoint = character.charCodeAt(0);
+			return codePoint <= 0x1f || codePoint === 0x7f;
+		})
+	) {
+		// wx.login 产生的 code 是一次性不透明凭证；不能像普通展示文本一样
+		// 静默 trim 或清理。不同入口若对同一凭证采用不同规范化规则，会让
+		// provider 调用、重试和审计日志出现不可复现的语义差异。
 		throw new WechatLoginInputError();
 	}
 	return { code };

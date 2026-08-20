@@ -64,6 +64,32 @@ test("wechat identity adapter classifies invalid code as non-retryable", async (
 	});
 });
 
+test("wechat identity adapter rejects malformed code before network access", async () => {
+	let fetchCalls = 0;
+	const gateway = createWechatIdentityGateway({
+		appId: "wx-test-app",
+		appSecret: "test-secret",
+		fetcher: async () => {
+			fetchCalls += 1;
+			return new Response(JSON.stringify({ openid: "must-not-be-used" }), {
+				status: 200,
+			});
+		},
+	});
+
+	for (const code of [" login-code", "login-code ", "login-\u0000-code"]) {
+		await expect(gateway.exchangeCode({ code }, context)).rejects.toMatchObject(
+			{
+				name: "ProviderRequestError",
+				provider: "wechat-identity",
+				retryable: false,
+				message: "Wechat login code is invalid",
+			},
+		);
+	}
+	expect(fetchCalls).toBe(0);
+});
+
 test("wechat identity adapter classifies provider busy and rate-limit errors as retryable", async () => {
 	const gateway = createWechatIdentityGateway({
 		appId: "wx-test-app",

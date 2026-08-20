@@ -997,6 +997,25 @@ test("default auth dependency fails closed instead of issuing a fake token", asy
 	});
 });
 
+test("wechat login rejects legacy identity fields before dependency access", async () => {
+	const response = await createApp().handle(
+		new Request("http://localhost/api/v1/auth/wechat", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				code: "real-wechat-code",
+				openid: "must-not-enter-contract",
+				session_key: "must-not-enter-contract",
+			}),
+		}),
+	);
+
+	// 登录一次性 code 的请求不能静默吞掉旧身份字段，否则调用方会误以为
+	// openid/session_key 已被接受；必须在未配置 provider 之前就返回统一的
+	// 400 输入错误，而不是继续进入 provider 依赖并返回 503。
+	expect(response.status).toBe(400);
+});
+
 test("wechat login and patient list keep identity ownership on the server", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const identityUsers = createInMemoryIdentityUserRepository();

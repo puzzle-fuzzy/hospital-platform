@@ -427,3 +427,44 @@ test("微信登录服务拒绝绕过 HTTP schema 的畸形输入", async () => {
 	).rejects.toBeInstanceOf(WechatLoginInputError);
 	expect(providerCalls).toBe(0);
 });
+
+test("微信登录服务拒绝首尾空白和控制字符 code，且不调用 provider", async () => {
+	let providerCalls = 0;
+	const service = new AuthService({
+		identityGateway: {
+			async exchangeCode() {
+				providerCalls += 1;
+				throw new Error("must not be called");
+			},
+		},
+		identityUsers: {
+			async findOrCreateByWechat() {
+				throw new Error("must not be called");
+			},
+			async findByUserId() {
+				return undefined;
+			},
+		},
+		sessions: {
+			async issue() {
+				throw new Error("must not be called");
+			},
+			async verify() {
+				return { userId: "user-001" };
+			},
+		},
+	});
+
+	for (const code of [" login-code", "login-code ", "login-\u0000-code"]) {
+		await expect(
+			service.login(
+				{ code },
+				{
+					traceId: "auth-invalid-code-boundary-trace",
+					idempotencyKey: "auth-invalid-code-boundary-key",
+				},
+			),
+		).rejects.toBeInstanceOf(WechatLoginInputError);
+	}
+	expect(providerCalls).toBe(0);
+});

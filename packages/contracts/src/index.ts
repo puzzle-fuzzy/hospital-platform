@@ -19,10 +19,19 @@ export const DependencyStateSchema = Type.Union([
 
 export type DependencyState = Static<typeof DependencyStateSchema>;
 
-/** 微信登录 code 只在服务端兑换，前端不得提交 openid、session_key 或 AppSecret。 */
-export const WechatLoginRequest = Type.Object({
-	code: Type.String({ minLength: 1, maxLength: 256 }),
-});
+/**
+ * 微信登录 code 只在服务端兑换，前端不得提交 openid、session_key 或 AppSecret。
+ *
+ * 登录是一次性凭证交换，不接受旧端遗留字段被静默丢弃；否则调用方会收到
+ * “成功”却不知道自己的请求中混入了错误身份字段。服务层还会再次拒绝首尾
+ * 空白和控制字符，保证绕过 HTTP 的内部调用也遵守同一边界。
+ */
+export const WechatLoginRequest = Type.Object(
+	{
+		code: Type.String({ minLength: 1, maxLength: 256 }),
+	},
+	{ additionalProperties: false },
+);
 
 /** 登录成功只返回平台会话和内部用户 id，不暴露 provider session_key。 */
 export const AuthSessionResponse = Type.Object({

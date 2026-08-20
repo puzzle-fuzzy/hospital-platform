@@ -139,8 +139,18 @@ export class WechatIdentityApiGateway implements WechatIdentityGateway {
 		unionId?: string;
 		trace: ExternalTrace;
 	}> {
-		const code = typeof input.code === "string" ? input.code.trim() : "";
-		if (!code || code.length > 256) {
+		const code = typeof input.code === "string" ? input.code : "";
+		if (
+			!code ||
+			code !== code.trim() ||
+			Array.from(code).length > 256 ||
+			Array.from(code).some((character) => {
+				const codePoint = character.charCodeAt(0);
+				return codePoint <= 0x1f || codePoint === 0x7f;
+			})
+		) {
+			// adapter 也必须独立拒绝异常 code：它可能被 Worker、回放任务或
+			// 未来其它入口直接调用，不能依赖 API service 已经做过校验。
 			throw providerError({
 				message: "Wechat login code is invalid",
 				retryable: false,

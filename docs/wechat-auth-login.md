@@ -171,6 +171,11 @@ X-Request-Id: mp-...
 {"code":"wx.login 返回的一次性 code"}
 ```
 
+`code` 是一次性不透明凭证，服务端只接受非空、长度不超过 256 个 Unicode 字符、无首尾空白且不含控制字符的值。
+登录请求也不接受 `openid`、`unionid`、`session_key` 或其它未声明字段；这类输入在进入微信依赖前统一返回
+`400 validation`，不会被静默清洗后伪装成登录成功。API service 和微信 adapter 都保留同一条运行时门禁，避免
+Worker、回放任务或未来内部调用绕过 HTTP schema 后产生不同语义。
+
 成功响应只允许包含：
 
 ```json
