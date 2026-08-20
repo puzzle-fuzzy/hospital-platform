@@ -4,6 +4,7 @@ import {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	ExternalTraceReadModelValidationError,
+	HealthKnowledgeResultValidationError,
 	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
@@ -100,6 +101,23 @@ test("微信登录服务输入错误保持 400 validation 契约", async () => {
 test("普通资料读模型损坏使用同一套持久化错误契约", async () => {
 	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
 		throw new UserProfileReadModelValidationError("profile-version-invalid");
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "persistence-invalid",
+			message: "数据服务返回异常，请联系管理员",
+		},
+	});
+});
+
+test("健康知识读模型损坏使用持久化错误契约", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new HealthKnowledgeResultValidationError("publication-invalid");
 	});
 
 	const response = await app.handle(new Request("http://localhost/probe"));

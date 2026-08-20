@@ -3,6 +3,7 @@ import type { HealthKnowledgeRepository } from "@hospital/domain";
 import {
 	HEALTH_KNOWLEDGE_DISCLAIMER,
 	HealthKnowledgeContentUnavailableError,
+	HealthKnowledgeResultValidationError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import {
@@ -40,7 +41,13 @@ test("health knowledge service returns a stable publication envelope and logs me
 		repository: createRepository({
 			listCatalog: async () => ({
 				publication,
-				items: [{ id: "part-respiratory", name: "呼吸系统" }],
+				items: [
+					{
+						id: "part-respiratory",
+						name: "呼吸系统",
+						patientName: "不应穿过健康知识边界",
+					},
+				],
 			}),
 		}),
 		logger: createLogger({
@@ -116,4 +123,42 @@ test("health knowledge service maps disease details and rejects missing document
 	await expect(
 		missing.getDiseaseDetail("missing-disease"),
 	).rejects.toBeInstanceOf(HealthKnowledgeNotFoundError);
+});
+
+test("health knowledge service fails closed and logs only a fixed violation", async () => {
+	const lines: string[] = [];
+	const service = new HealthKnowledgeService({
+		repository: createRepository({
+			listCatalog: async () => ({
+				publication,
+				items: [{ id: "part-respiratory", name: " 呼吸系统" }],
+			}),
+		}),
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: {
+				write(chunk: string) {
+					lines.push(chunk);
+				},
+			},
+		}),
+	});
+
+	await expect(service.listCatalog("part")).rejects.toBeInstanceOf(
+		HealthKnowledgeResultValidationError,
+	);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records.map((record) => record.event)).toEqual([
+		"health-knowledge.read.requested",
+		"health-knowledge.read.failed",
+	]);
+	expect(JSON.stringify(records)).not.toContain("呼吸系统");
+	expect(records[1]).toMatchObject({
+		operation: "catalog",
+		resultViolation: "catalog-item-invalid",
+	});
 });

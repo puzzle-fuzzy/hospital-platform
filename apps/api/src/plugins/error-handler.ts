@@ -5,6 +5,7 @@ import {
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
 	HealthKnowledgeContentUnavailableError,
+	HealthKnowledgeResultValidationError,
 	HealthKnowledgeValidationError,
 	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
@@ -154,6 +155,19 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "health-knowledge-not-found",
 						message: "未找到对应的健康知识内容",
+					},
+				};
+			}
+
+			if (error instanceof HealthKnowledgeResultValidationError) {
+				// 健康知识来自已审核内容的持久化读模型，不是 Provider 代理结果；
+				// 读模型损坏不能降级成空目录，也不能误报成可重试的外部服务错误。
+				set.status = 500;
+				return {
+					success: false,
+					error: {
+						code: "persistence-invalid",
+						message: "数据服务返回异常，请联系管理员",
 					},
 				};
 			}

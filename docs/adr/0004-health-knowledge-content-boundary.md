@@ -45,8 +45,11 @@
 批量导入属于未来独立 Admin API，不能复用患者端 session，也不能把后台 repository
 直接暴露给小程序。
 
-患者端接口必须经过 response schema 白名单映射。疾病详情可以包含正文段落，但不得
-顺带返回原始数据库字段、编辑人、内部审核备注、未发布版本或管理端操作信息。
+患者端接口必须经过 response schema 白名单映射，而且 repository 返回值在 service 边界
+还要做一次运行时校验和重新投影。TypeScript 类型不能证明 MySQL 行、回放数据或未来
+任务实现真的安全；疾病详情可以包含正文段落，但不得顺带返回原始数据库字段、编辑人、
+内部审核备注、未发布版本或管理端操作信息。读模型损坏必须整批 fail-closed，不能过滤坏
+行伪装成空目录或成功结果。
 
 ### 4. 自测评分必须版本化并经过临床复核
 
@@ -99,5 +102,6 @@ AI assistant 只能通过独立的 gateway 读取已发布知识片段，并保�
 | 产品 | 小程序阅读、免责声明、过期/撤回内容不再展示 |
 
 当前状态：已完成边界设计、TypeBox contract、domain port、固定免责声明校验、只读 service、
-bundle validator、带时区的导入时间校验、版本化 schema 和 fail-closed MySQL repository/事务导入器；
+repository 结果运行时校验与白名单重新投影、低敏失败日志、bundle validator、带时区的导入时间校验、
+版本化 schema 和 fail-closed MySQL repository/事务导入器；
 真实内容导入、staging 审核/撤回证据、患者端健康知识 API 挂载和小程序页面均未因本 ADR 标记为 ready。

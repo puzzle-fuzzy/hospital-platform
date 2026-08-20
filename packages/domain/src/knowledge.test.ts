@@ -2,7 +2,11 @@ import { expect, test } from "bun:test";
 import {
 	groupHealthKnowledgeByInitialLetter,
 	HEALTH_KNOWLEDGE_DISCLAIMER,
+	HealthKnowledgeResultValidationError,
 	HealthKnowledgeValidationError,
+	normalizeHealthKnowledgeCatalogSnapshot,
+	normalizeHealthKnowledgeDiseaseDocument,
+	normalizeHealthKnowledgeDrugDocument,
 	validateHealthKnowledgePublication,
 	validateHealthKnowledgeSymptomIds,
 } from "./knowledge";
@@ -55,4 +59,66 @@ test("health knowledge symptom queries reject empty, duplicate and oversized inp
 			Array.from({ length: 11 }, (_, index) => `s-${index}`),
 		),
 	).toThrow(HealthKnowledgeValidationError);
+});
+
+test("health knowledge read models are re-projected to the public allowlist", () => {
+	const result = normalizeHealthKnowledgeCatalogSnapshot({
+		publication: { ...publication, internalReviewerNote: "仅后台可见" },
+		items: [
+			{
+				id: "part-respiratory",
+				name: "呼吸系统",
+				patientName: "不应出现在健康知识中",
+			},
+		],
+	});
+
+	expect(result).toEqual({
+		publication,
+		items: [{ id: "part-respiratory", name: "呼吸系统" }],
+	});
+});
+
+test("health knowledge read models reject duplicate or malformed medical items", () => {
+	expect(() =>
+		normalizeHealthKnowledgeCatalogSnapshot({
+			publication,
+			items: [
+				{ id: "part-1", name: "呼吸系统" },
+				{ id: "part-1", name: "循环系统" },
+			],
+		}),
+	).toThrow(HealthKnowledgeResultValidationError);
+
+	expect(() =>
+		normalizeHealthKnowledgeDiseaseDocument({
+			publication,
+			item: {
+				id: "disease-cold",
+				diseaseName: "普通感冒",
+				availableDrugs: [{ drugName: "示例药物", isClickable: true }],
+			},
+		}),
+	).toThrow(HealthKnowledgeResultValidationError);
+});
+
+test("health knowledge drug details keep the public field boundary", () => {
+	const result = normalizeHealthKnowledgeDrugDocument({
+		publication,
+		item: {
+			id: "drug-cold",
+			drugName: "示例药物",
+			indications: "用于知识内容展示",
+			providerRawPayload: { secret: true },
+		},
+	});
+
+	expect(result).toEqual({
+		publication,
+		item: {
+			id: "drug-cold",
+			drugName: "示例药物",
+			indications: "用于知识内容展示",
+		},
+	});
 });

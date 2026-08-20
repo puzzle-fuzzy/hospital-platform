@@ -10,6 +10,14 @@ import type {
 	HealthKnowledgeDiseaseRelation,
 	HealthKnowledgeRepository,
 } from "@hospital/domain";
+import {
+	HealthKnowledgeResultValidationError,
+	normalizeHealthKnowledgeCatalogSnapshot,
+	normalizeHealthKnowledgeDiseaseDocument,
+	normalizeHealthKnowledgeDiseaseListSnapshot,
+	normalizeHealthKnowledgeDrugDocument,
+	normalizeHealthKnowledgeSymptomListSnapshot,
+} from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
 /** 健康知识详情不存在时返回 404，不把空对象误报为可展示内容。 */
@@ -46,8 +54,10 @@ export class HealthKnowledgeService {
 	async listCatalog(
 		kind: HealthKnowledgeCatalogKind,
 	): Promise<HealthKnowledgeCatalogResponsePayload["data"]> {
-		const snapshot = await this.read("catalog", () =>
-			this.dependencies.repository.listCatalog(kind),
+		const snapshot = await this.read(
+			"catalog",
+			() => this.dependencies.repository.listCatalog(kind),
+			normalizeHealthKnowledgeCatalogSnapshot,
 		);
 		return {
 			publication: snapshot.publication,
@@ -59,8 +69,10 @@ export class HealthKnowledgeService {
 	async listDiseasesByRelation(
 		relation: HealthKnowledgeDiseaseRelation,
 	): Promise<HealthKnowledgeDiseaseListResponsePayload["data"]> {
-		const snapshot = await this.read("disease-relation", () =>
-			this.dependencies.repository.listDiseasesByRelation(relation),
+		const snapshot = await this.read(
+			"disease-relation",
+			() => this.dependencies.repository.listDiseasesByRelation(relation),
+			normalizeHealthKnowledgeDiseaseListSnapshot,
 		);
 		return this.diseaseList(snapshot);
 	}
@@ -68,8 +80,10 @@ export class HealthKnowledgeService {
 	async listSymptomsByPart(
 		partId: string,
 	): Promise<HealthKnowledgeSymptomListResponsePayload["data"]> {
-		const snapshot = await this.read("symptoms-by-part", () =>
-			this.dependencies.repository.listSymptomsByPart(partId),
+		const snapshot = await this.read(
+			"symptoms-by-part",
+			() => this.dependencies.repository.listSymptomsByPart(partId),
+			normalizeHealthKnowledgeSymptomListSnapshot,
 		);
 		return {
 			publication: snapshot.publication,
@@ -81,8 +95,10 @@ export class HealthKnowledgeService {
 	async listDiseasesBySymptoms(
 		symptomIds: readonly string[],
 	): Promise<HealthKnowledgeDiseaseListResponsePayload["data"]> {
-		const snapshot = await this.read("disease-symptoms", () =>
-			this.dependencies.repository.listDiseasesBySymptoms(symptomIds),
+		const snapshot = await this.read(
+			"disease-symptoms",
+			() => this.dependencies.repository.listDiseasesBySymptoms(symptomIds),
+			normalizeHealthKnowledgeDiseaseListSnapshot,
 		);
 		return this.diseaseList(snapshot);
 	}
@@ -90,8 +106,10 @@ export class HealthKnowledgeService {
 	async getDiseaseDetail(
 		diseaseId: string,
 	): Promise<HealthKnowledgeDiseaseDetailResponsePayload["data"]> {
-		const document = await this.read("disease-detail", () =>
-			this.dependencies.repository.getDiseaseDetail(diseaseId),
+		const document = await this.read(
+			"disease-detail",
+			() => this.dependencies.repository.getDiseaseDetail(diseaseId),
+			normalizeHealthKnowledgeDiseaseDocument,
 		);
 		if (!document) {
 			this.logNotFound("disease-detail", "disease");
@@ -109,8 +127,10 @@ export class HealthKnowledgeService {
 	async getDrugDetail(
 		drugId: string,
 	): Promise<HealthKnowledgeDrugDetailResponsePayload["data"]> {
-		const document = await this.read("drug-detail", () =>
-			this.dependencies.repository.getDrugDetail(drugId),
+		const document = await this.read(
+			"drug-detail",
+			() => this.dependencies.repository.getDrugDetail(drugId),
+			normalizeHealthKnowledgeDrugDocument,
 		);
 		if (!document) {
 			this.logNotFound("drug-detail", "drug");
@@ -131,7 +151,11 @@ export class HealthKnowledgeService {
 		};
 	}
 
-	private async read<T>(operation: string, read: () => Promise<T>): Promise<T> {
+	private async read<T>(
+		operation: string,
+		read: () => Promise<unknown>,
+		normalize: (value: unknown) => T,
+	): Promise<T> {
 		this.logger.info(
 			{
 				event: "health-knowledge.read.requested",
@@ -140,7 +164,10 @@ export class HealthKnowledgeService {
 			"Health knowledge read requested",
 		);
 		try {
-			const result = await read();
+			// 不能因为端口已经标注了 TypeScript 类型，就跳过运行时校验。
+			// MySQL 行、回放数据和未来任务都可能携带未审计字段或坏值；先
+			// 整批 fail-closed 并白名单投影，再计算日志元数据和返回结果。
+			const result = normalize(await read());
 			const publication = this.publicationOf(result);
 			this.logger.info(
 				{
@@ -158,6 +185,9 @@ export class HealthKnowledgeService {
 					event: "health-knowledge.read.failed",
 					operation,
 					errorName: error instanceof Error ? error.name : "UnknownError",
+					...(error instanceof HealthKnowledgeResultValidationError
+						? { resultViolation: error.violation }
+						: {}),
 				},
 				"Health knowledge read failed",
 			);
