@@ -80,7 +80,7 @@ HIS 临床患者引用，`patCardVOList`、身份证、手机号、姓名扩展�
 - 预约历史、报告、门诊费用服务必须显式传入 `referenceKind: "his-patient"`；不得恢复为默认目录映射。
 - provider 患者号只在一次服务端调用栈中交给 adapter，不进入日志、API contract 或小程序缓存。
 - 患者目录的 `unionId`、`thirdPatientId`、姓名、卡号和档案 `patId` 在 adapter 边界统一拒绝控制字符、空白和超长值；不能依赖 URL 编码、数据库转义或页面渲染来补救。发现控制字符时拒绝整次快照，不静默删除字符或继续写入映射。
-- Provider 返回数字形式的引用只在 `Number.isSafeInteger` 范围内兼容；档案 `patId` 常见为 19 位字符串，若错误地作为超出 JavaScript 安全整数范围的 JSON number 返回，adapter 必须拒绝整次同步，因为解析阶段已经无法恢复原始引用，不能把精度损失后的值写入 `his-patient` 映射。
+- 目录 `thirdPatientId` 按旧端类型允许在 `Number.isSafeInteger` 范围内无损字符串化；档案 `patInfosFind.data.patId` 则严格只接受字符串。即使数字形式的 `patId` 没有超出 JavaScript 安全整数范围，也属于 Provider schema 错误，adapter 必须拒绝整次同步，不能把错误类型伪装成有效的 `his-patient` 映射。实现记录见 [`../release/patient-archive-patid-string-contract-2026-08-20.md`](../release/patient-archive-patid-string-contract-2026-08-20.md)。
 - Provider 目录数组中的每一项还必须是普通对象；`null`、字符串、嵌套数组等非法元素统一归类为 `provider-response-invalid`，并在任何 `patInfosFind` 查询前拒绝整批。不能让原生 `TypeError` 冒充内部 500，也不能只处理前面的有效患者。
 - 一次目录响应必须先完成全部患者的目录字段预校验，再开始任何 `patInfosFind` 请求；预校验失败时不得让部分患者先进入档案查询，最后才把整批标记为失败。字段全部通过后才允许并行查询档案，但最终仍需整批通过 HIS 引用唯一性校验。
 - 首页恢复已有微信会话、重新登录或直接打开就诊人选择页时，会主动触发一次患者目录同步，兼容迁移前已经落库但尚未拥有 `his-patient` 引用的旧患者记录。

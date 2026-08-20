@@ -48,7 +48,7 @@
 [`../release/current-b7c9451-config-gates-observation-2026-08-19-1155.md`](../release/current-b7c9451-config-gates-observation-2026-08-19-1155.md)。
 
 补充记录（2026-08-19，档案引用输入边界）：旧端档案接口返回的 `data.patId` 是预约、报告和门诊费用共用的临床引用，不能接受
-JavaScript 精度损失后的数字。新 adapter 已拒绝超出安全整数范围的数字 `patId`，保留 19 位字符串，并用完整脱敏包络测试确认
+数字形式的 Provider schema。新 adapter 严格保留字符串 `patId`，并用完整脱敏包络测试确认
 身份证、手机号和 `patCardVOList` 不进入内部公共结果；本轮未调用真实 Provider，未修改旧项目、数据库、Redis 或线上服务。
 
 补充记录（2026-08-19 11:43–11:44 CST）：重启后只读检查发现新 API 远端 MySQL 曾短暂出现 `PROTOCOL_CONNECTION_LOST`，readiness

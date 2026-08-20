@@ -695,7 +695,7 @@ test("众阳档案卡片的患者引用与顶层 patId 不一致时拒绝绑定"
 	});
 });
 
-test("众阳档案响应拒绝超出安全整数范围的数字 patId", async () => {
+test("众阳档案响应拒绝数字 patId，避免放宽临床引用 contract", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",
 		fetcher: async (input) => {
@@ -704,8 +704,9 @@ test("众阳档案响应拒绝超出安全整数范围的数字 patId", async ()
 				return new Response(
 					JSON.stringify({
 						success: true,
-						// 模拟 Provider 将 19 位临床引用错误地作为 JSON number 返回。
-						data: { patId: Number.MAX_SAFE_INTEGER + 1 },
+						// 即使数字没有超出安全整数，也不能把错误的 Provider
+						// schema 转换成有效的临床档案引用。
+						data: { patId: 12345678 },
 					}),
 					{ status: 200, headers: { "x-request-id": "archive-unsafe-001" } },
 				);
