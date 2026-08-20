@@ -29,6 +29,13 @@
 
 这 4 次 200 和 2 次 401 与本轮公网健康检查及未登录认证边界复核相符；没有新的微信真机业务请求。
 
+## 20:44 CST 后续只读复核
+
+再次确认新服务仍为 `active`，新旧端口仍分别为 `10.0.0.3:18081` 和 `0.0.0.0:8001`，readiness
+仍为 `database/redis/schema=ok`。随后 10 分钟日志只出现 2 次 `http.request.completed`（HTTP 200），
+没有 `auth.*`、`patient.*`、`appointment.*`、`report.*`、`outpatient.payment.*` 或 `user.profile.*` 事件，
+也没有解析错误。本次仍未重启、未部署、未写入业务数据。
+
 ## 验收结论
 
 - 新旧服务仍然共存，旧 Python `8001` 没有被本轮操作影响。
