@@ -9,11 +9,19 @@ export type AdapterCallContext = {
 	timeoutMs?: number;
 };
 
-/** 外部系统证据索引；只保存可关联的标识，不保存密钥或完整敏感报文。 */
+/**
+ * 外部系统证据索引；只保存可关联的标识，不保存密钥或完整敏感报文。
+ *
+ * `requestId` 保留单请求场景和旧日志查询的兼容字段；一个业务读取若并发
+ * 调用多个 Provider，则必须把完整的有界列表放到 `requestIds`，不能把多个
+ * 外部 ID 直接拼进一个字符串后越过单字段长度门禁。
+ */
 export type ExternalTrace = {
 	provider: string;
 	operation: string;
 	requestId: string;
+	/** 多 Provider 聚合时的完整请求号；每项都必须单独通过运行时校验。 */
+	requestIds?: readonly string[];
 	providerOrderId?: string;
 };
 

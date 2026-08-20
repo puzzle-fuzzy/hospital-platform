@@ -52,3 +52,46 @@ test("external trace 拒绝异常字符串和错误 Provider", () => {
 		).toThrow(new ExternalTraceReadModelValidationError(scenario.violation));
 	}
 });
+
+test("多 Provider trace 保留有界请求号列表而不拼接超长主 ID", () => {
+	const requestIds = ["a".repeat(70), "b".repeat(70), "c".repeat(70)];
+	const primaryRequestId = requestIds[0];
+	if (!primaryRequestId) throw new Error("test request id is missing");
+
+	expect(
+		normalizeExternalTrace(
+			{
+				provider: "zhongyang",
+				operation: "reports-directory",
+				requestId: primaryRequestId,
+				requestIds,
+			},
+			{ expectedProvider: "zhongyang" },
+		),
+	).toEqual({
+		provider: "zhongyang",
+		operation: "reports-directory",
+		requestId: primaryRequestId,
+		requestIds,
+	});
+});
+
+test("多 Provider trace 拒绝不完整或无界请求号列表", () => {
+	for (const requestIds of [
+		[],
+		Array.from({ length: 9 }, (_, index) => `request-${index}`),
+		["request-001", "bad\n-request"],
+	] as const) {
+		expect(() =>
+			normalizeExternalTrace(
+				{
+					provider: "zhongyang",
+					operation: "reports-directory",
+					requestId: "request-001",
+					requestIds,
+				},
+				{ expectedProvider: "zhongyang" },
+			),
+		).toThrow(new ExternalTraceReadModelValidationError("request-ids-invalid"));
+	}
+});

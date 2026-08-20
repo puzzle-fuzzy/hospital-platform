@@ -40,6 +40,7 @@ export {
 export type { ExternalTraceReadModelViolation } from "./external-trace";
 export {
 	ExternalTraceReadModelValidationError,
+	MAX_EXTERNAL_TRACE_REQUEST_IDS,
 	normalizeExternalTrace,
 } from "./external-trace";
 export type {

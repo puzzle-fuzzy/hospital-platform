@@ -196,6 +196,62 @@ test("报告目录拒绝异常 Provider trace 并只记录固定原因", async (
 	expect(output).not.toContain("bad\\n-request-id");
 });
 
+test("报告目录接受多 Provider 的有界请求号列表并完整写入低敏日志", async () => {
+	const lines: string[] = [];
+	const requestIds = ["a".repeat(70), "b".repeat(70), "c".repeat(70)];
+	const primaryRequestId = requestIds[0];
+	if (!primaryRequestId) throw new Error("test request id is missing");
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [],
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "reports-directory",
+					requestId: primaryRequestId,
+					requestIds,
+				},
+			}),
+		},
+		logger: createLogger({
+			service: "report-trace-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-15" },
+			{
+				traceId: "trace-report-multi-provider",
+				idempotencyKey: "key-report-multi-provider",
+			},
+		),
+	).resolves.toEqual({ items: [], total: 0 });
+
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "report.directory.synced",
+			providerRequestId: primaryRequestId,
+			providerRequestIds: requestIds,
+		}),
+	);
+});
+
 test("报告服务层拒绝绕过 HTTP schema 的畸形查询", async () => {
 	const lines: string[] = [];
 	let repositoryCalls = 0;

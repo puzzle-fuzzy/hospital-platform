@@ -39,6 +39,13 @@
   使用 Pino + journald 的结构化日志链，不依赖旧 `all.log`。详见
   [`release/old-python-log-routing-observation-2026-08-20.md`](release/old-python-log-routing-observation-2026-08-20.md)。
 
+- 2026-08-20（报告目录多 Provider trace 边界）：发现 LIS/PACS/ECG 三路请求号直接逗号拼接后可能超过单个
+  opaque 标识的 128 字符上限，导致 Provider 已成功返回的目录在 service 二次校验时被误判为响应非法。新端保留
+  兼容的首个 `requestId`，并增加最多 8 项、逐项校验且必须包含主 ID 的 `requestIds`；低敏日志同时保留主 ID
+  和完整有界列表，不记录 Provider 原文或患者字段。domain `52/52`、adapters `102/102`、API `183/183` 通过；
+  本轮未打开报告 gate、未调用真实 Provider、未部署、未修改旧 Python。详见
+  [`release/report-provider-trace-aggregation-boundary-2026-08-20.md`](release/report-provider-trace-aggregation-boundary-2026-08-20.md)。
+
 - 2026-08-20（普通资料更新链定向回归）：服务端普通资料 service `13/13` 通过，小程序患者选择、会话
   代际、资料保存和公共 API 响应门禁定向回归 `163/163` 通过；API 集成测试同时确认 owner 隔离、版本冲突、
   `null` 清空和旧端 `avatar/openid` 字段拒绝。该结果只证明代码、契约和本地测试边界，不代表真实微信资料

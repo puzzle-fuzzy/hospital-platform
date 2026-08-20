@@ -171,6 +171,22 @@ type ReportDetailReferenceViolation =
 	| "reference-scope-mismatch";
 
 /**
+ * 将单 Provider 与多 Provider 聚合 trace 统一投影为低敏日志字段。
+ *
+ * `providerRequestIds` 来自 domain 的有界运行时校验，不把原始响应或患者
+ * 字段带入日志；保留兼容的 `providerRequestId` 方便现有检索脚本继续工作。
+ */
+function traceLogFields(trace: {
+	requestId: string;
+	requestIds?: readonly string[];
+}): Record<string, unknown> {
+	return {
+		providerRequestId: trace.requestId,
+		...(trace.requestIds ? { providerRequestIds: [...trace.requestIds] } : {}),
+	};
+}
+
+/**
  * 详情读取前的引用二次门禁。
  *
  * repository 的查询条件属于第一道 owner/patient 过滤，但缓存、历史脏数据
@@ -410,7 +426,7 @@ export class ReportService {
 								event: "report.detail_reference.failed",
 								traceId: context.traceId,
 								provider: trace.provider,
-								providerRequestId: trace.requestId,
+								...traceLogFields(trace),
 								patientId,
 								errorType: error instanceof Error ? error.name : "unknown",
 							},
@@ -425,7 +441,7 @@ export class ReportService {
 					event: "report.directory.synced",
 					traceId: context.traceId,
 					provider: trace.provider,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					patientId,
 					itemCount: items.length,
 				},
@@ -540,7 +556,7 @@ export class ReportService {
 					traceId: context.traceId,
 					patientId,
 					reportId,
-					providerRequestId: trace.requestId,
+					...traceLogFields(trace),
 					itemCount: normalizedDetail.items.length,
 				},
 				"Report detail loaded",

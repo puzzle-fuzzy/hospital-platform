@@ -126,7 +126,12 @@ test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () 
 		"imaging",
 		"laboratory",
 	]);
-	expect(result.trace.requestId).toBe("request-1,request-2,request-3");
+	expect(result.trace.requestId).toBe("request-1");
+	expect(result.trace.requestIds).toEqual([
+		"request-1",
+		"request-2",
+		"request-3",
+	]);
 	expect(JSON.stringify(result)).not.toContain("pacs-provider-secret");
 	expect(JSON.stringify(result)).not.toContain("ecg-provider-secret");
 });

@@ -50,6 +50,7 @@
 | [`release/miniprogram-my-page-session-composition-boundary-2026-08-20.md`](release/miniprogram-my-page-session-composition-boundary-2026-08-20.md) | “我的”页 `/me`、资料和患者目录跨请求组合的一致性围栏；本地修正，未部署线上 |
 | [`release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md`](release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md) | 预约科室/排班两列级联的 JSON 运行时契约、号源语义和只读停止条件 |
 | [`release/miniprogram-report-readonly-response-contract-2026-08-19.md`](release/miniprogram-report-readonly-response-contract-2026-08-19.md) | 报告目录/LIS 详情 JSON 运行时契约、短期引用匹配和临床结果停止条件 |
+| [`release/report-provider-trace-aggregation-boundary-2026-08-20.md`](release/report-provider-trace-aggregation-boundary-2026-08-20.md) | 报告目录多 Provider 请求号的有界聚合、低敏日志字段和回归证据 |
 | [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md) | 微信登录与 `/me` 会话响应的运行时校验、token 持久化和会话代际边界 |
 | [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md) | 患者、预约和门诊费用列表的 success/data 包络、字段白名单、唯一性和日期金额校验 |
 | [`release/appointment-record-tab-contract-audit-2026-08-19.md`](release/appointment-record-tab-contract-audit-2026-08-19.md) | “我的挂号”在线/全部双标签的渠道边界、未开放语义和 requestChannel=4 前置条件 |

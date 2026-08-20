@@ -666,13 +666,23 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		const reports = results
 			.flatMap((result) => result.reports)
 			.sort(compareReportEntries);
+		const requestIds = results.map((result) => result.requestId);
+		const primaryRequestId = requestIds[0];
+		if (!primaryRequestId) {
+			// `kinds` 当前至少包含一个来源；这里仍显式保护未来调用方扩展，
+			// 避免把 undefined 断言成请求号并污染错误日志或内部引用。
+			throw providerError(
+				"reports-directory",
+				"Zhongyang report directory returned no request id",
+			);
+		}
 		if (reports.length > MAX_REPORT_DIRECTORY_ITEMS) {
 			// 未指定来源时三路 Provider 结果会合并成一个公共目录，不能让
 			// 每一路各自通过上限后再把超大总结果交给 service 和引用持久化。
 			throw providerError(
 				"reports-directory",
 				"Zhongyang report directory contained too many items",
-				results.map((result) => result.requestId).join(","),
+				primaryRequestId,
 			);
 		}
 		return {
@@ -680,7 +690,11 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 			trace: {
 				provider: "zhongyang",
 				operation: "reports-directory",
-				requestId: results.map((result) => result.requestId).join(","),
+				// 兼容旧日志查询保留第一条 requestId；完整三路关联号
+				// 放入有界 requestIds，避免逗号拼接后超过 128 字符并被
+				// service 错误地判定为 trace 损坏。
+				requestId: primaryRequestId,
+				...(requestIds.length > 1 ? { requestIds } : {}),
 			},
 		};
 	}
