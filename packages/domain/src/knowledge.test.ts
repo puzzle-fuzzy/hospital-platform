@@ -32,6 +32,12 @@ test("health knowledge publication requires traceable review metadata", () => {
 			disclaimer: "可由内容导入覆盖的文案",
 		}),
 	).toThrow(HealthKnowledgeValidationError);
+	expect(() =>
+		validateHealthKnowledgePublication({
+			...publication,
+			sourceLabel: "医院健康教育内容\u0000",
+		}),
+	).toThrow(HealthKnowledgeValidationError);
 });
 
 test("health knowledge groups stable letters and keeps empty values isolated", () => {
@@ -121,6 +127,31 @@ test("health knowledge drug details keep the public field boundary", () => {
 			indications: "用于知识内容展示",
 		},
 	});
+});
+
+test("health knowledge medical正文保留换行，但拒绝其它控制字符", () => {
+	const disease = normalizeHealthKnowledgeDiseaseDocument({
+		publication,
+		item: {
+			id: "disease-cold",
+			diseaseName: "普通感冒",
+			availableDrugs: [],
+			symptoms: "第一行\n第二行",
+		},
+	});
+
+	expect(disease?.item.symptoms).toBe("第一行\n第二行");
+	expect(() =>
+		normalizeHealthKnowledgeDiseaseDocument({
+			publication,
+			item: {
+				id: "disease-cold",
+				diseaseName: "普通感冒",
+				availableDrugs: [],
+				symptoms: "第一行\u0000第二行",
+			},
+		}),
+	).toThrow(HealthKnowledgeResultValidationError);
 });
 
 test("health knowledge detail results must match the requested opaque id", () => {

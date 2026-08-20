@@ -158,16 +158,36 @@ function assertBoundedText(
 	if (
 		typeof value !== "string" ||
 		value.trim().length === 0 ||
-		value.length > maxLength
+		value.length > maxLength ||
+		value !== value.trim() ||
+		Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
 	) {
 		throw new HealthKnowledgeValidationError(reason);
 	}
 }
 
+type KnowledgeTextOptions = {
+	/** 医疗正文允许保留换行，便于小程序按审核内容原样分段展示。 */
+	allowLineBreaks?: boolean;
+};
+
+/**
+ * 患者端文本的运行时边界。
+ *
+ * 标识、名称和发布元数据只能是单行安全文本；疾病/药品正文另行允许
+ * CR/LF。不能把所有控制字符一概放行，否则不可见字符会进入日志、页面
+ * 或缓存键；也不能把正文换行一概拒绝，否则旧端 LONGTEXT 的分段内容会
+ * 在导入后变成“已发布但读取 500”的半成功状态。
+ */
 function hasSafeKnowledgeText(
 	value: unknown,
 	maxLength: number,
+	options: KnowledgeTextOptions = {},
 ): value is string {
+	const allowLineBreaks = options.allowLineBreaks === true;
 	return (
 		typeof value === "string" &&
 		value.length > 0 &&
@@ -175,7 +195,10 @@ function hasSafeKnowledgeText(
 		value === value.trim() &&
 		!Array.from(value).some((character) => {
 			const code = character.charCodeAt(0);
-			return code <= 0x1f || code === 0x7f;
+			const isLineBreak = code === 0x0a || code === 0x0d;
+			return (
+				(code <= 0x1f && !(allowLineBreaks && isLineBreak)) || code === 0x7f
+			);
 		})
 	);
 }
@@ -193,11 +216,25 @@ function optionalKnowledgeText(
 	field: string,
 	maxLength: number,
 	violation: HealthKnowledgeResultViolation,
+	options: KnowledgeTextOptions = {},
 ): string | undefined {
 	const value = record[field];
 	if (value === undefined) return undefined;
-	if (!hasSafeKnowledgeText(value, maxLength)) invalidResult(violation);
+	if (!hasSafeKnowledgeText(value, maxLength, options))
+		invalidResult(violation);
 	return value;
+}
+
+/** 长正文保留换行，但仍拒绝制表符、NUL 等不可见控制字符。 */
+function optionalKnowledgeBodyText(
+	record: Record<string, unknown>,
+	field: string,
+	maxLength: number,
+	violation: HealthKnowledgeResultViolation,
+): string | undefined {
+	return optionalKnowledgeText(record, field, maxLength, violation, {
+		allowLineBreaks: true,
+	});
 }
 
 function normalizePublication(value: unknown): HealthKnowledgePublication {
@@ -263,7 +300,7 @@ function normalizeDiseaseSummary(
 		500,
 		"disease-summary-invalid",
 	);
-	const symptoms = optionalKnowledgeText(
+	const symptoms = optionalKnowledgeBodyText(
 		value,
 		"symptoms",
 		10_000,
@@ -341,31 +378,31 @@ function normalizeDiseaseDetail(value: unknown): HealthKnowledgeDiseaseDetail {
 			500,
 			"disease-detail-invalid",
 		),
-		cause: optionalKnowledgeText(
+		cause: optionalKnowledgeBodyText(
 			value,
 			"cause",
 			100_000,
 			"disease-detail-invalid",
 		),
-		symptoms: optionalKnowledgeText(
+		symptoms: optionalKnowledgeBodyText(
 			value,
 			"symptoms",
 			100_000,
 			"disease-detail-invalid",
 		),
-		examination: optionalKnowledgeText(
+		examination: optionalKnowledgeBodyText(
 			value,
 			"examination",
 			100_000,
 			"disease-detail-invalid",
 		),
-		prevention: optionalKnowledgeText(
+		prevention: optionalKnowledgeBodyText(
 			value,
 			"prevention",
 			100_000,
 			"disease-detail-invalid",
 		),
-		treatment: optionalKnowledgeText(
+		treatment: optionalKnowledgeBodyText(
 			value,
 			"treatment",
 			100_000,
@@ -419,37 +456,37 @@ function normalizeDrugDetail(value: unknown): HealthKnowledgeDrugDetail {
 			500,
 			"drug-detail-invalid",
 		),
-		indications: optionalKnowledgeText(
+		indications: optionalKnowledgeBodyText(
 			value,
 			"indications",
 			100_000,
 			"drug-detail-invalid",
 		),
-		usageDosage: optionalKnowledgeText(
+		usageDosage: optionalKnowledgeBodyText(
 			value,
 			"usageDosage",
 			100_000,
 			"drug-detail-invalid",
 		),
-		adverseReactions: optionalKnowledgeText(
+		adverseReactions: optionalKnowledgeBodyText(
 			value,
 			"adverseReactions",
 			100_000,
 			"drug-detail-invalid",
 		),
-		contraindications: optionalKnowledgeText(
+		contraindications: optionalKnowledgeBodyText(
 			value,
 			"contraindications",
 			100_000,
 			"drug-detail-invalid",
 		),
-		interactions: optionalKnowledgeText(
+		interactions: optionalKnowledgeBodyText(
 			value,
 			"interactions",
 			100_000,
 			"drug-detail-invalid",
 		),
-		precautions: optionalKnowledgeText(
+		precautions: optionalKnowledgeBodyText(
 			value,
 			"precautions",
 			100_000,

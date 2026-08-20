@@ -140,3 +140,21 @@ test("health knowledge publication timestamps must carry an explicit timezone", 
 		validateHealthKnowledgeImportBundle(explicitOffset).contentVersion,
 	).toBe("health-2026-08-15");
 });
+
+test("health knowledge import keeps reviewed multiline正文 readable and rejects hidden controls", () => {
+	const multiline = validBundle();
+	multiline.diseaseDetails = multiline.diseaseDetails.map((detail) => ({
+		...detail,
+		symptoms: "第一行\n第二行",
+	}));
+	expect(() => validateHealthKnowledgeImportBundle(multiline)).not.toThrow();
+
+	const unsafe = validBundle();
+	unsafe.diseaseDetails = unsafe.diseaseDetails.map((detail) => ({
+		...detail,
+		symptoms: "第一行\t第二行",
+	}));
+	expect(() => validateHealthKnowledgeImportBundle(unsafe)).toThrow(
+		"diseaseDetails[0].symptoms",
+	);
+});

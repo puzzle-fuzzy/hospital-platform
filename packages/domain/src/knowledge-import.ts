@@ -82,11 +82,36 @@ function fail(path: string): never {
 	throw new HealthKnowledgeImportValidationError(path);
 }
 
-function assertText(value: string, path: string, maxLength: number): void {
+type ImportTextOptions = {
+	/** 医疗正文允许换行，导入规则必须与患者端读模型保持一致。 */
+	allowLineBreaks?: boolean;
+};
+
+/**
+ * 导入文本必须和读取层使用同一套控制字符边界。
+ *
+ * 如果导入器比读取器宽松，数据库会出现“事务已提交、患者端读不出来”
+ * 的半成功版本；正文只放行 CR/LF，制表符、NUL 和其它不可见字符仍拒绝。
+ */
+function assertText(
+	value: string,
+	path: string,
+	maxLength: number,
+	options: ImportTextOptions = {},
+): void {
+	const allowLineBreaks = options.allowLineBreaks === true;
 	if (
 		typeof value !== "string" ||
 		value.trim().length === 0 ||
-		value.length > maxLength
+		value.length > maxLength ||
+		value !== value.trim() ||
+		Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			const isLineBreak = code === 0x0a || code === 0x0d;
+			return (
+				(code <= 0x1f && !(allowLineBreaks && isLineBreak)) || code === 0x7f
+			);
+		})
 	) {
 		fail(path);
 	}
@@ -230,7 +255,11 @@ function validateDiseaseDetails(
 			"treatment",
 		] as const) {
 			const value = detail[field];
-			if (value !== undefined) assertText(value, `${path}.${field}`, 100_000);
+			if (value !== undefined) {
+				assertText(value, `${path}.${field}`, 100_000, {
+					allowLineBreaks: true,
+				});
+			}
 		}
 		const drugNames = detail.availableDrugs.map((drug) => drug.drugName);
 		assertUnique(drugNames, `${path}.availableDrugs.drugName`);
@@ -275,7 +304,11 @@ function validateDrugDetails(
 			"precautions",
 		] as const) {
 			const value = detail[field];
-			if (value !== undefined) assertText(value, `${path}.${field}`, 100_000);
+			if (value !== undefined) {
+				assertText(value, `${path}.${field}`, 100_000, {
+					allowLineBreaks: true,
+				});
+			}
 		}
 	}
 }
