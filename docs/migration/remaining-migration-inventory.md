@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `6ce12729c3e112a6cb8333c5132c23713d1cb1ec`（提交 `6ce1272`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `c08378bebed493b6f3094d30d8ad4e27031e7037`（提交 `c08378b`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-20 最新网络与门禁补充：WireGuard `10.0.0.3 ↔ 10.0.0.1` 的 MySQL `SELECT 1`、Redis `PING` 已真实验证；
 > 新 API 私网切换脚本已加入仓库，但因 systemd 重启需要交互授权，当前线上配置已保持原公网目标并自动回滚。
