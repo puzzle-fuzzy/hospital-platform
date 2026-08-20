@@ -42,6 +42,11 @@
   `item.id`，错配整次 fail-closed，并保留低敏 `persistence-invalid` 错误语义。该修正只在新项目本地完成，
   未导入内容、未挂载健康知识 API、未修改旧 Python、数据库、Redis 或线上服务。
 
+- 2026-08-20（Bearer 会话输入边界）：复核认证入口发现任意长度或带控制字符的 Authorization token 仍可能先进入
+  session 实现。现已在统一鉴权入口、Redis session 和测试内存 session 前增加 512 字符的安全形状门禁；畸形 token
+  直接返回 `401 unauthorized`，不触碰 Redis、不写入日志。该修正不改变正常 token、Redis TTL 或 owner 语义，未修改
+  众阳 Provider 自动化、旧 Python、数据库、Redis 配置或线上服务。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

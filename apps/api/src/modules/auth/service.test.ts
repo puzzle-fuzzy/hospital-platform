@@ -96,6 +96,48 @@ test("统一鉴权入口不信任自定义 session 返回的 principal 类型", 
 	).rejects.toBeInstanceOf(SessionPrincipalReadModelValidationError);
 });
 
+test("鉴权入口拒绝越界或控制字符 token，且不触碰 session 实现", async () => {
+	let verifyCalls = 0;
+	const sessions = {
+		async issue() {
+			return { accessToken: "token-001", expiresInSeconds: 3600 };
+		},
+		async verify() {
+			verifyCalls += 1;
+			return { userId: "user-001" };
+		},
+	};
+
+	for (const token of ["x".repeat(513), "token-\u0000-001"]) {
+		await expect(
+			requirePrincipal(`Bearer ${token}`, sessions),
+		).rejects.toMatchObject({
+			statusCode: 401,
+			code: "unauthorized",
+		});
+	}
+	expect(verifyCalls).toBe(0);
+});
+
+test("Redis session 直接校验 token 边界后才访问 Redis", async () => {
+	let findCalls = 0;
+	const service = createRedisSessionTokenService({
+		async save() {
+			throw new Error("must not be called");
+		},
+		async findUserId() {
+			findCalls += 1;
+			return "user-001";
+		},
+	});
+
+	await expect(service.verify("x".repeat(513))).rejects.toMatchObject({
+		statusCode: 401,
+		code: "unauthorized",
+	});
+	expect(findCalls).toBe(0);
+});
+
 test("微信登录业务日志只记录可关联元数据，不记录身份凭证", async () => {
 	const lines: string[] = [];
 	const logger = createLogger({

@@ -38,6 +38,40 @@ export class WechatLoginInputError extends Error {
 /** 会话 principal 读模型目前只允许落入身份表使用的安全 user_id 列宽。 */
 const MAX_SESSION_USER_ID_LENGTH = 64;
 
+/**
+ * 平台会话 token 的 HTTP 传输上限，与小程序登录响应的运行时校验保持一致。
+ *
+ * token 是不透明凭证，服务端不解析它的 JWT 形状，也不允许任意长度或控制字符
+ * 在进入 Redis 前扩散到 key。这个上限只保护传输和存储边界，不代表 token 已经
+ * 通过 Redis 会话存在性、owner 或过期校验。
+ */
+const MAX_SESSION_ACCESS_TOKEN_LENGTH = 512;
+
+/** 会话 token 只允许有界、无首尾空白和控制字符的字符串。 */
+function isSafeSessionAccessToken(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= MAX_SESSION_ACCESS_TOKEN_LENGTH &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+/**
+ * 认证失败的 token 不能进入 session 实现；统一返回 401，避免让 malformed
+ * Authorization 头触发 Redis 查询或被误报成依赖故障。
+ */
+function requireSafeSessionAccessToken(value: unknown): string {
+	if (!isSafeSessionAccessToken(value)) {
+		throw new HttpError(401, "unauthorized", "登录状态已失效，请重新登录");
+	}
+	return value;
+}
+
 /** Redis 或可替换会话实现返回异常 principal 时只记录这个固定原因。 */
 export type SessionPrincipalReadModelViolation = "user-id-invalid";
 
@@ -214,11 +248,12 @@ export async function requirePrincipal(
 	if (!match?.[1]) {
 		throw new HttpError(401, "unauthorized", "请先登录后再继续操作");
 	}
+	const accessToken = requireSafeSessionAccessToken(match[1]);
 
 	try {
 		// 即使自定义 session 实现声明了正确的返回类型，这里仍是所有 owner-scoped
 		// 路由的共同入口，必须再次校验运行时 principal，而不是直接信任类型。
-		return normalizeSessionPrincipal(await sessions.verify(match[1]));
+		return normalizeSessionPrincipal(await sessions.verify(accessToken));
 	} catch (error) {
 		if (
 			error instanceof DependencyNotConfiguredError ||
@@ -243,6 +278,7 @@ export function createInMemorySessionTokenService(): SessionTokenService {
 			return { accessToken, expiresInSeconds: 3600 };
 		},
 		async verify(accessToken) {
+			requireSafeSessionAccessToken(accessToken);
 			const userId = sessions.get(accessToken);
 			if (!userId)
 				throw new HttpError(401, "unauthorized", "登录状态已失效，请重新登录");
@@ -279,6 +315,7 @@ export function createRedisSessionTokenService(
 			return { accessToken, expiresInSeconds };
 		},
 		async verify(accessToken) {
+			requireSafeSessionAccessToken(accessToken);
 			try {
 				const userId = await store.findUserId(accessToken);
 				if (!userId) {

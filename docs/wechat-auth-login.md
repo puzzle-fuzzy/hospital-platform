@@ -200,6 +200,10 @@ Authorization: Bearer <accessToken>
 复用新 token，不能把它清除，不能无限重试。资料 `PUT`、患者同步 `POST`、支付预支付和其他命令收到 401 后不自动
 重放原请求，必须由页面在当前账号确认后重新发起，避免旧请求体或幂等键跨账号执行。
 
+服务端在调用 Redis 前还会校验 Bearer token 的传输边界：token 必须是非空、首尾无空白、无控制字符且不超过
+512 个字符。越界或畸形 token 直接返回 `401 unauthorized`，不会触发 Redis 查询，也不会把 Authorization 原值
+写入日志；这只是凭证形状门禁，不能替代 Redis 中的 owner、存在性和 TTL 校验。
+
 ### 健康检查
 
 ```http
