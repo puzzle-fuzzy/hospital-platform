@@ -236,82 +236,22 @@ export const LOG_REDACT_PATHS = [
  * 需要从日志结构中递归移除原值的字段名。
  *
  * Pino 10 当前依赖的 @pinojs/redact 只支持固定层级的 `*`，不支持
- * `**.field` 无限递归路径。因此这里保留 Pino 的快速固定路径脱敏，同时在
- * 单行 JSON 输出边界按字段名递归处理，避免 Provider 多层响应留下隐私缺口。
+ * `**.field` 无限递归路径。因此这里从同一份 Pino 路径清单派生字段名，
+ * 再在单行 JSON 输出边界递归处理，避免 Provider 多层响应留下隐私缺口，
+ * 也避免新增脱敏字段时维护两套可能漂移的列表。
  */
-const LOG_REDACT_KEY_SET = new Set([
-	"authorization",
-	"Authorization",
-	"cookie",
-	"Cookie",
-	"set-cookie",
-	"Set-Cookie",
-	"idempotency-key",
-	"Idempotency-Key",
-	"IDEMPOTENCY-KEY",
-	"password",
-	"secret",
-	"token",
-	"accessToken",
-	"refreshToken",
-	"session_key",
-	"sessionKey",
-	"openid",
-	"unionid",
-	"unionId",
-	"providerSubject",
-	"provider_subject",
-	"providerPatientId",
-	"provider_patient_id",
-	"patId",
-	"pat_id",
-	"thirdPatientId",
-	"third_patient_id",
-	"patName",
-	"patientName",
-	"cardNo",
-	"medicalCardNo",
-	"patCardNo",
-	"cardPatCardNo",
-	"originalPatCardNo",
-	"idCardNo",
-	"idcardNo",
-	"IDCardNo",
-	"idCard",
-	"IDCard",
-	"identityCard",
-	"identity_card",
-	"birthday",
-	"addr",
-	"address",
-	"nationalResidentIndexNo",
-	"cityResidentIndexNo",
-	"contactIdCardNo",
-	"contactIdcardNo",
-	"motherIdcard",
-	"motherPhone",
-	"phone",
-	"contactTelephone",
-	"contactName",
-	"healthCardNumber",
-	"patCardVOList",
-	"providerReferences",
-	"provider_references",
-	"providerOrderId",
-	"provider_order_id",
-	"prepayId",
-	"prepay_id",
-	"payParams",
-	"pay_params",
-	"paySign",
-	"nonceStr",
-	"apiV3Key",
-	"appSecret",
-	"merchantPrivateKey",
-	"platformPrivateKey",
-	"privateKey",
-	"idempotencyKey",
-]);
+function redactKeyFromPath(path: string): string | undefined {
+	const bracketMatch = path.match(/\[["']([^"']+)["']\]$/);
+	if (bracketMatch?.[1]) return bracketMatch[1];
+	const lastSegment = path.split(".").at(-1);
+	return lastSegment && lastSegment !== "*" ? lastSegment : undefined;
+}
+
+const LOG_REDACT_KEY_SET = new Set(
+	LOG_REDACT_PATHS.map(redactKeyFromPath).filter((key): key is string =>
+		Boolean(key),
+	),
+);
 const LOG_REDACT_CENSOR = "[REDACTED]";
 
 /** 递归复制已序列化的 JSON 值，并按字段名替换敏感值。 */

@@ -189,6 +189,12 @@ test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {
 						],
 					},
 				},
+				deepHeaders: {
+					branch: {
+						"set-cookie": "synthetic-deep-cookie",
+						"IDEMPOTENCY-KEY": "synthetic-deep-idempotency-key",
+					},
+				},
 			},
 			"provider response inspected",
 		);
@@ -200,6 +206,8 @@ test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {
 		"synthetic-deep-patient-id",
 		"synthetic-deep-contact",
 		"synthetic-deep-id-card",
+		"synthetic-deep-cookie",
+		"synthetic-deep-idempotency-key",
 	]) {
 		expect(serialized).not.toContain(secret);
 	}
@@ -212,6 +220,12 @@ test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {
 				cards: Array<{ identity: { idCardNo: string } }>;
 			};
 		};
+		deepHeaders: {
+			branch: {
+				"set-cookie": string;
+				"IDEMPOTENCY-KEY": string;
+			};
+		};
 	};
 	expect(record.context.provider.patient.phone).toBe("[REDACTED]");
 	expect(record.providerEnvelope.data.patient).toMatchObject({
@@ -221,6 +235,10 @@ test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {
 	expect(record.providerEnvelope.data.cards[0]?.identity.idCardNo).toBe(
 		"[REDACTED]",
 	);
+	expect(record.deepHeaders.branch).toEqual({
+		"set-cookie": "[REDACTED]",
+		"IDEMPOTENCY-KEY": "[REDACTED]",
+	});
 });
 
 test("pino honors the configured minimum level", () => {
