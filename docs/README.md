@@ -27,6 +27,7 @@
 | [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md) | 2026-08-20 切换前 `398be8e` 的公网 live/ready/ping、未授权只读边界与 SSH 双服务共存复核；不替代微信、Provider 或真机验收 |
 | [`release/current-runtime-readonly-observation-2026-08-20-1227.md`](release/current-runtime-readonly-observation-2026-08-20-1227.md) | 12:27 CST 新旧服务监听、Worker、readiness 和最近业务日志的只读观察；不代表 Provider 或真机业务完成 |
 | [`release/current-runtime-readonly-observation-2026-08-20-1306.md`](release/current-runtime-readonly-observation-2026-08-20-1306.md) | 13:06 CST 切换前 `398be8e`、新旧端口、readiness 与 journald 低敏聚合复核；无新的业务事件，不代表 Provider 或真机业务完成 |
+| [`release/current-runtime-and-build-observation-2026-08-20-1839.md`](release/current-runtime-and-build-observation-2026-08-20-1839.md) | 当前小程序运行包测试脚本隔离、全量门禁、公网 `/api/v2` 只读回归和未完成真机业务证据 |
 | [`release/old-python-log-routing-observation-2026-08-20.md`](release/old-python-log-routing-observation-2026-08-20.md) | 旧 Python 多 worker 下 6201 日志未出现在 `all.log` 的只读证据、原因边界和后续治理建议；未修改旧服务 |
 | [`release/968af78-production-acceptance-2026-08-19.md`](release/968af78-production-acceptance-2026-08-19.md) | 历史 `968af78` 原子生产切换、档案关联校验、新旧服务共存和未完成验收 |
 | [`release/current-968af78-runtime-coexistence-2026-08-19-1550.md`](release/current-968af78-runtime-coexistence-2026-08-19-1550.md) | 15:50 CST 重启后 SSH 只读复核 `968af78`、新旧监听、公网 live/ready、依赖状态和最近业务日志；不代表 Provider/真机业务成功 |
