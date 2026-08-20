@@ -1,15 +1,15 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `0e360d3`，当前本地小程序候选为 `3a6bf3e`，完整运行包来源为
-> `3a6bf3ea3d2b8944e05ffcad254a37afdbca2aab`。小程序尚未上传线上。
+> 当前服务端候选为 `0e360d3`，当前本地小程序候选为 `6252ea4`，完整运行包来源为
+> `6252ea41a40a22a6264276b6590750e4bf0ef5bc`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
 
 ## 2026-08-21 当前候选只读业务复核
 
-本次复核基于服务端 `0e360d3`、小程序候选 `3a6bf3e`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
+本次复核基于服务端 `0e360d3`、小程序候选 `6252ea4`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
 
 ### 已确认的业务边界
@@ -28,7 +28,7 @@
 | API 预约记录/门诊费用 service | 35 项通过，139 个断言 |
 | 众阳预约/门诊费用 adapter | 32 项通过，70 个断言 |
 | 领域 contract | 5 项通过，7 个断言 |
-| 原生小程序 | 169 项通过，1349 个断言 |
+| 原生小程序 | 169 项通过，1351 个断言 |
 | 运行包 | `runtime:verify` 通过；14 个页面齐全，`dist/` 不含测试脚本 |
 
 这些结果证明当前 fail-closed 代码边界一致，不证明当前 release 已取得 Provider、HTTPS、页面和真机三层业务证据。
@@ -90,7 +90,7 @@
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-3a6bf3e-local-build-2026-08-21.md`](candidate-3a6bf3e-local-build-2026-08-21.md)
+- 当前候选来源：[`candidate-6252ea4-local-build-2026-08-21.md`](candidate-6252ea4-local-build-2026-08-21.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)

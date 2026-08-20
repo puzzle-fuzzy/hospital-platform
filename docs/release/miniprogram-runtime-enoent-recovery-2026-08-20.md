@@ -121,8 +121,8 @@ ENOENT 处理原则不变：不要把 `single-flight.test.js` 复制进 `dist/`�
 
 ## 当前候选更新（2026-08-21）
 
-选择页和普通资料页会话生命周期修正后，当前小程序候选为 `3a6bf3e`，完整运行包来源为
-`3a6bf3ea3d2b8944e05ffcad254a37afdbca2aab`。该候选已重新构建并通过 `runtime:verify`；
+选择页和普通资料页会话生命周期修正后，当前小程序候选为 `6252ea4`，完整运行包来源为
+`6252ea41a40a22a6264276b6590750e4bf0ef5bc`。该候选已重新构建并通过 `runtime:verify`；
 `dist/` 仍不存在 `single-flight.test.js` 或其它 `*.test.js`/`*.spec.js`。后续真机调试必须以该候选
 重新普通编译和生成二维码，前文 `7f157d4` 及更早候选只用于历史追溯。
 
