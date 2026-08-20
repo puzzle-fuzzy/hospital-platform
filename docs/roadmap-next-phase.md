@@ -39,6 +39,12 @@
   使用 Pino + journald 的结构化日志链，不依赖旧 `all.log`。详见
   [`release/old-python-log-routing-observation-2026-08-20.md`](release/old-python-log-routing-observation-2026-08-20.md)。
 
+- 2026-08-20（小程序运行包发布竞态）：微信开发者工具日志证明旧构建会在 TypeScript 编译前删除整个
+  `dist/`，从而在页面 JS 尚未重新生成期间报告 `pages/report-directory/report-directory.js` 404。
+  新构建先在 staging 完成编译、静态资源复制、来源指纹和页面门禁，再替换 live `dist/`；替换失败时
+  保留旧运行包。本次不修改旧 Python、线上服务、数据库、Redis 或并行维护的开发者工具配置。详见
+  [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md)。
+
 - 2026-08-20（报告目录多 Provider trace 边界）：发现 LIS/PACS/ECG 三路请求号直接逗号拼接后可能超过单个
   opaque 标识的 128 字符上限，导致 Provider 已成功返回的目录在 service 二次校验时被误判为响应非法。新端保留
   兼容的首个 `requestId`，并增加最多 8 项、逐项校验且必须包含主 ID 的 `requestIds`；低敏日志同时保留主 ID

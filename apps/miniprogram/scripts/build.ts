@@ -1,5 +1,6 @@
-import { access, cp, mkdir, readdir, rm } from "node:fs/promises";
+import { access, cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
+import { publishMiniProgramRuntime } from "./runtime-publisher";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 
 const root = join(import.meta.dir, "..");
@@ -265,7 +266,10 @@ for (const directory of requiredAssetDirectories) {
 }
 
 /** 只把非 TypeScript 资源复制到运行目录，避免把源码配置副本带入上传包。 */
-async function copyStaticFiles(currentSource: string): Promise<void> {
+async function copyStaticFiles(
+	currentSource: string,
+	targetRuntime: string,
+): Promise<void> {
 	const entries = await readdir(currentSource, { withFileTypes: true });
 	for (const entry of entries) {
 		if (
@@ -276,9 +280,9 @@ async function copyStaticFiles(currentSource: string): Promise<void> {
 
 		const sourcePath = join(currentSource, entry.name);
 		const relativePath = relative(source, sourcePath);
-		const targetPath = join(runtime, relativePath);
+		const targetPath = join(targetRuntime, relativePath);
 		if (entry.isDirectory()) {
-			await copyStaticFiles(sourcePath);
+			await copyStaticFiles(sourcePath, targetRuntime);
 			continue;
 		}
 		if (extname(entry.name) === ".ts") continue;
@@ -288,77 +292,89 @@ async function copyStaticFiles(currentSource: string): Promise<void> {
 }
 
 /**
- * 使用项目锁定的 TypeScript 编译器输出 CommonJS 页面脚本；小程序只消费 dist，
- * src 仍是唯一业务源码，删除页面时不会留下旧的运行时 JavaScript 文件。
+ * 使用项目锁定的 TypeScript 编译器输出 CommonJS 页面脚本到 staging；小程序只
+ * 消费已经完整发布的 dist，src 仍是唯一业务源码。不能在这里清空 live dist，
+ * 否则开发者工具监听到整目录删除时会出现页面 404。
  */
-await rm(runtime, { recursive: true, force: true });
-await mkdir(runtime, { recursive: true });
-const compile = Bun.spawnSync(["pnpm", "exec", "tsc", "-p", buildConfigPath], {
-	cwd: root,
-	stdout: "inherit",
-	stderr: "inherit",
-});
-if (!compile.success) {
-	throw new Error(
-		`Mini program TypeScript emit failed with code ${compile.exitCode}`,
+const stagingRuntime = await mkdtemp(join(root, ".hospital-runtime-staging-"));
+try {
+	const compile = Bun.spawnSync(
+		["pnpm", "exec", "tsc", "-p", buildConfigPath, "--outDir", stagingRuntime],
+		{
+			cwd: root,
+			stdout: "inherit",
+			stderr: "inherit",
+		},
 	);
-}
+	if (!compile.success) {
+		throw new Error(
+			`Mini program TypeScript emit failed with code ${compile.exitCode}`,
+		);
+	}
 
-/**
- * app.js 是微信小程序的全局脚本，不是可由 CommonJS loader 执行的业务模块。
- * 这里把根入口的运行时形态纳入构建门禁，避免“TypeScript 编译成功但 appService
- * 因 define/exports 未定义而白屏”的问题再次进入真机候选；页面业务模块仍可按
- * 依赖图使用 CommonJS 输出，由微信的页面模块加载器执行。
- */
-const appRuntimePath = join(runtime, "app.js");
-const appRuntime = await Bun.file(appRuntimePath).text();
-const commonJsBootstrapPattern =
-	/^"use strict";\r?\nObject\.defineProperty\(exports, "__esModule", \{ value: true \}\);\r?\n/;
-if (commonJsBootstrapPattern.test(appRuntime)) {
-	// Node16 模块输出会给没有 import/export 的根脚本也加两行启动壳；保留
-	// 空行而移除壳，既不改变 source map 的行偏移，也不把 CommonJS 运行时带进微信。
+	/**
+	 * app.js 是微信小程序的全局脚本，不是可由 CommonJS loader 执行的业务模块。
+	 * 这里把根入口的运行时形态纳入构建门禁，避免“TypeScript 编译成功但 appService
+	 * 因 define/exports 未定义而白屏”的问题再次进入真机候选；页面业务模块仍可按
+	 * 依赖图使用 CommonJS 输出，由微信的页面模块加载器执行。
+	 */
+	const appRuntimePath = join(stagingRuntime, "app.js");
+	const appRuntime = await Bun.file(appRuntimePath).text();
+	const commonJsBootstrapPattern =
+		/^"use strict";\r?\nObject\.defineProperty\(exports, "__esModule", \{ value: true \}\);\r?\n/;
+	if (commonJsBootstrapPattern.test(appRuntime)) {
+		// Node16 模块输出会给没有 import/export 的根脚本也加两行启动壳；保留
+		// 空行而移除壳，既不改变 source map 的行偏移，也不把 CommonJS 运行时带进微信。
+		await Bun.write(
+			appRuntimePath,
+			appRuntime.replace(commonJsBootstrapPattern, "\n\n"),
+		);
+	}
+	const normalizedAppRuntime = await Bun.file(appRuntimePath).text();
+	if (
+		/Object\.defineProperty\(exports/.test(normalizedAppRuntime) ||
+		/\b(?:exports|module|require)\s*[.(=]/.test(normalizedAppRuntime)
+	) {
+		throw new Error(
+			"Mini program app.js must remain a global script without CommonJS bootstrap",
+		);
+	}
+	await copyStaticFiles(source, stagingRuntime);
+
+	/**
+	 * 这是运行包的来源指纹，不携带环境变量、会话、患者或服务商数据。
+	 * 开发者工具导入 dist/ 后，验收人员可以直接将 sourceRevision 与候选提交核对，
+	 * 从而区分“代码已修复但工具仍在运行旧缓存”和“当前候选本身仍有问题”。
+	 */
+	const buildInfo: MiniProgramBuildInfo = {
+		schemaVersion: 1,
+		sourceRevision: resolveSourceRevision(),
+		pageCount: appPagePaths.length,
+		generatedAt: new Date().toISOString(),
+	};
 	await Bun.write(
-		appRuntimePath,
-		appRuntime.replace(commonJsBootstrapPattern, "\n\n"),
+		join(stagingRuntime, "build-info.json"),
+		`${JSON.stringify(buildInfo, null, 2)}\n`,
 	);
-}
-const normalizedAppRuntime = await Bun.file(appRuntimePath).text();
-if (
-	/Object\.defineProperty\(exports/.test(normalizedAppRuntime) ||
-	/\b(?:exports|module|require)\s*[.(=]/.test(normalizedAppRuntime)
-) {
-	throw new Error(
-		"Mini program app.js must remain a global script without CommonJS bootstrap",
+
+	for (const file of requiredStaticFiles) {
+		await access(join(stagingRuntime, file));
+	}
+	for (const file of requiredTypeScriptFiles) {
+		await access(join(stagingRuntime, file.replace(/\.ts$/, ".js")));
+	}
+	for (const pagePath of appPagePaths) {
+		await access(join(stagingRuntime, `${pagePath}.js`));
+	}
+
+	await publishMiniProgramRuntime(stagingRuntime, runtime);
+
+	console.log(
+		`Native mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
 	);
+} catch (error) {
+	// 发布前的任意校验/编译失败都只清理 staging；live dist 保留上一份完整运行包，
+	// 让开发者工具继续使用旧候选，而不是把失败构建暴露成页面 404。
+	await rm(stagingRuntime, { recursive: true, force: true });
+	throw error;
 }
-await copyStaticFiles(source);
-
-/**
- * 这是运行包的来源指纹，不携带环境变量、会话、患者或服务商数据。
- * 开发者工具导入 dist/ 后，验收人员可以直接将 sourceRevision 与候选提交核对，
- * 从而区分“代码已修复但工具仍在运行旧缓存”和“当前候选本身仍有问题”。
- */
-const buildInfo: MiniProgramBuildInfo = {
-	schemaVersion: 1,
-	sourceRevision: resolveSourceRevision(),
-	pageCount: appPagePaths.length,
-	generatedAt: new Date().toISOString(),
-};
-await Bun.write(
-	join(runtime, "build-info.json"),
-	`${JSON.stringify(buildInfo, null, 2)}\n`,
-);
-
-for (const file of requiredStaticFiles) {
-	await access(join(runtime, file));
-}
-for (const file of requiredTypeScriptFiles) {
-	await access(join(runtime, file.replace(/\.ts$/, ".js")));
-}
-for (const pagePath of appPagePaths) {
-	await access(join(runtime, `${pagePath}.js`));
-}
-
-console.log(
-	`Native mini program runtime generated at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
-);

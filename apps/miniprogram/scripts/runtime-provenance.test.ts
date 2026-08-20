@@ -1,8 +1,19 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import {
+	access,
+	mkdtemp,
+	mkdir,
+	readdir,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "bun:test";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
+import {
+	listRuntimeFiles,
+	publishMiniProgramRuntime,
+} from "./runtime-publisher";
 
 function runGit(repositoryRoot: string, args: string[]): void {
 	const result = Bun.spawnSync(["git", ...args], {
@@ -81,5 +92,67 @@ test("开发者工具配置改动不冒充业务源码版本", async () => {
 		expect(revision).toMatch(/^[0-9a-f]{40}$/);
 	} finally {
 		await rm(repositoryRoot, { recursive: true, force: true });
+	}
+});
+
+test("运行包发布先完成 staging，再替换 live，旧文件不会在编译期间被清空", async () => {
+	const workspace = await mkdtemp(join(tmpdir(), "hospital-mini-runtime-publish-"));
+	const liveRuntime = join(workspace, "dist");
+	const stagingRuntime = join(workspace, "staging");
+	try {
+		await mkdir(join(liveRuntime, "pages/index"), { recursive: true });
+		await writeFile(
+			join(liveRuntime, "pages/index/index.js"),
+			"old-runtime",
+			"utf8",
+		);
+		await writeFile(join(liveRuntime, "stale.js"), "stale-runtime", "utf8");
+
+		await mkdir(join(stagingRuntime, "pages/index"), { recursive: true });
+		await writeFile(
+			join(stagingRuntime, "pages/index/index.js"),
+			"new-runtime",
+			"utf8",
+		);
+		await writeFile(join(stagingRuntime, "app.json"), "{}", "utf8");
+		await writeFile(
+			join(stagingRuntime, "build-info.json"),
+			'{"schemaVersion":1}',
+			"utf8",
+		);
+
+		await publishMiniProgramRuntime(stagingRuntime, liveRuntime);
+
+		expect(
+			await Bun.file(join(liveRuntime, "pages/index/index.js")).text(),
+		).toBe("new-runtime");
+		await expect(access(join(liveRuntime, "stale.js"))).rejects.toThrow();
+		expect(await listRuntimeFiles(liveRuntime)).toContain("app.json");
+		expect(
+			(await readdir(workspace)).filter((entry) =>
+				entry.startsWith(".hospital-runtime-backup-"),
+		).length,
+		).toBe(0);
+	} finally {
+		await rm(workspace, { recursive: true, force: true });
+	}
+});
+
+test("运行包发布失败时保留旧 live 目录", async () => {
+	const workspace = await mkdtemp(join(tmpdir(), "hospital-mini-runtime-rollback-"));
+	const liveRuntime = join(workspace, "dist");
+	const missingStagingRuntime = join(workspace, "missing-staging");
+	try {
+		await mkdir(liveRuntime, { recursive: true });
+		await writeFile(join(liveRuntime, "app.js"), "old-runtime", "utf8");
+
+		await expect(
+			publishMiniProgramRuntime(missingStagingRuntime, liveRuntime),
+		).rejects.toThrow("staging runtime does not exist");
+		expect(await Bun.file(join(liveRuntime, "app.js")).text()).toBe(
+			"old-runtime",
+		);
+	} finally {
+		await rm(workspace, { recursive: true, force: true });
 	}
 });

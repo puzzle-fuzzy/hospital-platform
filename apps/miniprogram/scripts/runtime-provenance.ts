@@ -12,6 +12,8 @@
 const RUNTIME_INPUT_PATHS = [
 	"apps/miniprogram/src",
 	"apps/miniprogram/scripts/build.ts",
+	// 发布器决定 live dist 的替换、回滚和开发者工具 404 风险，必须参与运行包来源指纹。
+	"apps/miniprogram/scripts/runtime-publisher.ts",
 	"apps/miniprogram/scripts/runtime-provenance.ts",
 	"apps/miniprogram/turbo.json",
 	"apps/miniprogram/package.json",

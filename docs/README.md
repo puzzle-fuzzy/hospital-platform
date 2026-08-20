@@ -15,6 +15,7 @@
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
 | [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `0e360d3`、最新本地小程序候选来源以 `ce8d68b15fc0c6a813fbf7a95d36610167874b8e` 为准 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
+| [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/candidate-ce8d68b-local-build-2026-08-20.md`](release/candidate-ce8d68b-local-build-2026-08-20.md) | 最新小程序本地构建来源、会话组合修正、门禁结果和真机前置条件；小程序尚未上传线上，服务端基线为 `0e360d3` |
 | [`release/candidate-e050fa0-local-build-2026-08-20.md`](release/candidate-e050fa0-local-build-2026-08-20.md) | 历史 `e050fa0` 小程序候选构建记录；不能替代最新 `ce8d68b` 候选 |
 | [`release/0e360d3-production-acceptance-2026-08-20.md`](release/0e360d3-production-acceptance-2026-08-20.md) | 当前 `0e360d3` 原子生产切换、`patId` 契约、新旧服务共存和未完成业务验收 |

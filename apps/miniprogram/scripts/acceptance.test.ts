@@ -1090,8 +1090,14 @@ test("native mini program runtime verification checks build provenance", async (
 		join(import.meta.dir, "..", "scripts", "runtime-provenance.ts"),
 	).text();
 
-	// dist/ 可能被开发者工具缓存；来源指纹让验收过程可以证明导入的是哪一次构建。
-	expect(build).toContain('join(runtime, "build-info.json")');
+	// dist/ 可能被开发者工具持续监听；来源指纹必须先写入 staging 目录，
+	// 再一次性发布到 live 目录，避免 tsc 编译期间出现“目录存在但页面 JS 暂时不存在”的 404。
+	expect(build).toContain('join(stagingRuntime, "build-info.json")');
+	expect(build).toContain("--outDir");
+	expect(build).toContain("publishMiniProgramRuntime(stagingRuntime, runtime)");
+	expect(build).not.toContain(
+		"await rm(runtime, { recursive: true, force: true })",
+	);
 	expect(build).toContain("generatedAt");
 	expect(verify).toContain('assertFile("build-info.json")');
 	expect(verify).toContain("buildInfo.pageCount");
@@ -1102,6 +1108,9 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(provenance).toContain('"apps/miniprogram/scripts/build.ts"');
 	expect(provenance).toContain(
 		'"apps/miniprogram/scripts/runtime-provenance.ts"',
+	);
+	expect(provenance).toContain(
+		'"apps/miniprogram/scripts/runtime-publisher.ts"',
 	);
 	expect(provenance).toContain('"apps/miniprogram/turbo.json"');
 	expect(provenance).toContain('"git",\n\t\t\t"status"');
