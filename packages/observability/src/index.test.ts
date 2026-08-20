@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createLogger, providerFailureMetadata } from "./index";
+import {
+	createLogger,
+	providerFailureMetadata,
+	redactSerializedLogLine,
+} from "./index";
 
 test("Provider 失败只提取可关联的低敏诊断字段", () => {
 	const error = Object.assign(
@@ -238,6 +242,21 @@ test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {
 	expect(record.deepHeaders.branch).toEqual({
 		"set-cookie": "[REDACTED]",
 		"IDEMPOTENCY-KEY": "[REDACTED]",
+	});
+});
+
+test("序列化日志格式异常时丢弃原文并输出固定安全事件", () => {
+	const line = redactSerializedLogLine(
+		"invalid-log phone=synthetic-phone idCardNo=synthetic-id-card",
+	);
+
+	expect(line).not.toContain("synthetic-phone");
+	expect(line).not.toContain("synthetic-id-card");
+	expect(JSON.parse(line)).toEqual({
+		level: 50,
+		event: "log.redaction.failed",
+		errorType: "serialized-json-invalid",
+		msg: "Log record discarded by redaction boundary",
 	});
 });
 

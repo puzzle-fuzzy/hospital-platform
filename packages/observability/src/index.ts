@@ -253,6 +253,12 @@ const LOG_REDACT_KEY_SET = new Set(
 	),
 );
 const LOG_REDACT_CENSOR = "[REDACTED]";
+const LOG_REDACTION_FAILURE_LINE = `${JSON.stringify({
+	level: 50,
+	event: "log.redaction.failed",
+	errorType: "serialized-json-invalid",
+	msg: "Log record discarded by redaction boundary",
+})}\n`;
 
 /** 递归复制已序列化的 JSON 值，并按字段名替换敏感值。 */
 function redactNestedLogValue(value: unknown): unknown {
@@ -276,15 +282,15 @@ function redactNestedLogValue(value: unknown): unknown {
  * 在 Pino 已经生成单行 JSON 后做最终递归门禁。
  *
  * 选择输出边界而不是改写业务 logger 调用，是为了同时覆盖普通字段、child
- * bindings 和 serializer 产生的结构，并且不修改调用方传入的对象。Pino 始终
- * 输出合法 JSON；解析失败只作为防御性兜底保留原 chunk，不能替代业务层禁止
- * 记录原始报文的约束。
+ * bindings 和 serializer 产生的结构，并且不修改调用方传入的对象。Pino 正常
+ * 始终输出合法 JSON；如果异常 chunk 无法解析，必须丢弃原文并输出固定的安全
+ * 事件，不能为了保留排障信息而把未经脱敏的原 chunk 放行。
  */
-function redactSerializedLogLine(serialized: string): string {
+export function redactSerializedLogLine(serialized: string): string {
 	try {
 		return `${JSON.stringify(redactNestedLogValue(JSON.parse(serialized)))}\n`;
 	} catch {
-		return serialized;
+		return LOG_REDACTION_FAILURE_LINE;
 	}
 }
 

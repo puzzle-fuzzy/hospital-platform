@@ -240,6 +240,8 @@ Pino 10 使用的 `@pinojs/redact` 路径通配符是固定层级，不支持 `*
 覆盖普通字段、child binding、数组和 serializer 产生的深层结构；这只是最后一道输出门禁，
 不是记录原始请求体或 Provider 响应的许可。该边界的合成深层字段回归测试和审计证据见
 [`release/observability-deep-redaction-audit-2026-08-21.md`](release/observability-deep-redaction-audit-2026-08-21.md)。
+如果最终 chunk 不是合法 JSON，输出钩子会丢弃原文，只输出固定的 `log.redaction.failed`，
+禁止以保留排障原文为理由绕过脱敏边界。
 
 请求日志只记录 `idempotencyKeyPresent`，不记录幂等键本身。需要关联支付或医保排障时，记录内部 `orderId`、`eventId`、`providerRequestId` 等不可直接还原凭证的标识。Pino 的 `redact` 是最终兜底，不是业务代码记录敏感数据的许可。
 
