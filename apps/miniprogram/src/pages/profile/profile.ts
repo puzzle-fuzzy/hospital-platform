@@ -13,6 +13,7 @@ import type { ProfilePageData, UserProfileResponse } from "../../types";
 
 type ProfilePageMethods = {
 	loadProfile(): Promise<void>;
+	onShow(): void;
 	onDisplayNameInput(event: WechatMiniprogram.Input): void;
 	onGenderChange(event: WechatMiniprogram.PickerChange): void;
 	onAgeInput(event: WechatMiniprogram.Input): void;
@@ -98,6 +99,7 @@ Page<
 	ProfilePageMethods
 >({
 	data: {
+		hasShown: false,
 		displayName: "",
 		gender: "unknown",
 		genderLabels: GENDER_LABELS,
@@ -114,6 +116,20 @@ Page<
 	},
 
 	onLoad() {
+		// 首次 onShow 只消费 onLoad 已发起的读取；该状态必须属于当前
+		// 页面实例，不能依赖模块级变量，否则页面栈复用时会漏掉资料刷新。
+		this.setData({ hasShown: false });
+		this.loadProfile();
+	},
+
+	/** 从页面栈返回或账号状态变化后重新验证资料归属，避免继续展示旧快照。 */
+	onShow() {
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
+			return;
+		}
+		// 页面重新可见时不能只看本地 token；loadProfile 会经过 API 的当前
+		// owner/session 校验，并在明确失效时清理资料后回到登录入口。
 		this.loadProfile();
 	},
 

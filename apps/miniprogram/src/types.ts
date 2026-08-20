@@ -367,6 +367,8 @@ export type MyPageData = {
 
 /** 普通资料页只编辑平台展示资料；实名、微信身份和头像资源另有边界。 */
 export type ProfilePageData = {
+	/** 只属于当前资料页实例；首次 onShow 不重复 onLoad 已发起的读取。 */
+	hasShown: boolean;
 	displayName: string;
 	gender: "male" | "female" | "unknown";
 	age: string;

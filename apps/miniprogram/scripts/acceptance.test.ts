@@ -554,6 +554,7 @@ test("native data pages keep first-show state on the page instance", async () =>
 		"pages/report-directory/report-directory.ts",
 		"pages/outpatient-payment/outpatient-payment.ts",
 		"pages/my/my.ts",
+		"pages/profile/profile.ts",
 	] as const;
 
 	for (const file of pageFiles) {
@@ -910,6 +911,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).toContain("getUserProfile");
 	expect(profile).toContain("updateUserProfile");
 	expect(profile).toContain("getPageLatestRequestGuard");
+	expect(profile).toContain("hasShown: false");
+	expect(profile).toContain("onShow()");
+	expect(profile).toContain("页面重新可见时不能只看本地 token");
 	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
 	expect(profile).toContain(
