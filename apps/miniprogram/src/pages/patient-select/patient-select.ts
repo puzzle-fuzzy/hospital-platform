@@ -274,21 +274,19 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	/**
-	 * 从已认证会话重新同步医院目录，不在小程序端拼接身份证或 provider 参数。
+	 * 从已认证会话重新同步医院目录；真机按钮的事件入口。
 	 *
-	 * `loadToken` 表示一次“目录读取 + 临床同步”的完整刷新周期。选择页的旧同步
-	 * 即使比新读取更晚返回，也必须失去回写资格；反过来，页面级 single-flight
-	 * 复用在途 Promise 时，后发调用方仍要消费同一个患者数组，不能只复用一个
-	 * 已经绑定在旧调用方闭包里的 void Promise，否则新一轮刷新会永远停在不可选择。
-	 */
-	/**
-	 * 真机按钮的事件入口。
+	 * 不在小程序端拼接身份证或 provider 参数。`loadToken` 表示一次“目录读取 +
+	 * 临床同步”的完整刷新周期；选择页的旧同步即使比新读取更晚返回，也必须
+	 * 失去回写资格。页面级 single-flight 复用在途 Promise 时，后发调用方仍要消费同一个患者数组，
+	 * 不能只复用一个已经绑定在旧调用方闭包里的 void Promise，
+	 * 否则新一轮刷新会永远停在不可选择。
 	 *
-	 * WXML bindtap 会传入微信事件对象，不能把这个参数直接转交给内部的
-	 * number 类型加载 token。此前按钮直接绑定带 token 参数的方法，运行时
-	 * 会把事件对象误当成 token，`isCurrent` 永远返回 false，表现为点击
-	 * “刷新就诊人”没有真正发起同步。这里单独创建本轮加载 token，再交给
-	 * 只接受 number 的内部流程，明确隔离框架事件和业务状态。
+	 * WXML `bindtap` 会传入微信事件对象，不能把这个参数直接转交给内部的 number
+	 * 类型加载 token。此前按钮直接绑定带 token 参数的方法，运行时会把事件对象
+	 * 误当成 token，`isCurrent` 永远返回 false，表现为点击“刷新就诊人”没有真正
+	 * 发起同步。这里单独创建本轮加载 token，再交给只接受 number 的内部流程，明确
+	 * 隔离框架事件和业务状态。
 	 */
 	onSyncPatients(): Promise<void> {
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
