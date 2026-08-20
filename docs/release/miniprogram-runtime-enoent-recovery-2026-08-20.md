@@ -118,3 +118,22 @@ Get-ChildItem -LiteralPath apps/miniprogram/dist -Recurse -File |
 [`candidate-7f157d4-local-build-2026-08-20.md`](candidate-7f157d4-local-build-2026-08-20.md) 和
 [`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md) 为准。
 ENOENT 处理原则不变：不要把 `single-flight.test.js` 复制进 `dist/`，应关闭旧真机调试、重开项目、普通编译后重新生成二维码。
+
+## 当前候选再次复核（2026-08-20 23:14 CST）
+
+针对同一错误继续在当前工作树和已打开的 `miniprogram` 开发者工具窗口复核：
+
+| 项目 | 当前结果 |
+| --- | --- |
+| 当前小程序构建来源 | `7f157d4cca02fa857612daec0b6aa56e328e0083`（`7f157d4`） |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| 注册页面/已编译页面 | 14 / 14 |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | 0 个 |
+| 微信开发者工具普通编译 | 通过，日志显示 `Compile json files of 14 pages` 与 `analyzing codes success` |
+| 当前真机调试二维码 | 已关闭旧会话并重新生成 iOS/局域网二维码，工具显示约 23:37 CST 失效 |
+| 旧服务 | Python `8001` 未修改、未重启 |
+
+这次复核进一步排除了“当前候选缺少测试文件”的可能性。当前尚未取得手机重新扫码后的微信登录、患者同步或业务页面三层证据；二维码生成只能证明调试入口已刷新，不能证明真机业务已经验收。后续必须使用这张新二维码扫码，并按页面、HTTP、服务端低敏日志三层关联记录。

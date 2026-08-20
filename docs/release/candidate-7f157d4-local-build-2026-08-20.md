@@ -38,3 +38,16 @@
 本记录只证明本地代码和运行包门禁通过，不证明真实微信登录、患者同步、多患者切换、预约历史、门诊费用或普通资料写入
 已经在真机完成。每个业务域仍需页面结果、客户端 `requestId/traceId` 和服务端低敏日志三层同链证据。支付、医保、报告 Provider、
 患者绑定和 HIS 写回继续保持关闭。
+
+## 2026-08-20 23:14 CST 开发者工具复核
+
+针对真机报错 `dist/services/single-flight.test.js`，已在当前候选重新执行构建与运行包扫描：
+
+- `pnpm --filter @hospital/miniprogram build` 和 `runtime:verify` 均通过；
+- `dist/` 中测试运行脚本数量为 0，14 个 `app.json` 页面脚本全部存在；
+- 已在 `miniprogram` 项目窗口关闭旧二维码会话、执行普通编译，并确认日志出现 `analyzing codes success`；
+- 已重新生成 iOS/局域网真机调试二维码；
+- 不修改 `src/` 或 `dist/` 补测试脚本，不修改旧 Python 服务。
+
+因此该错误仍按开发者工具旧增量模块索引处理。重新扫码前必须丢弃旧二维码；若新二维码仍复现同一路径，退出并重新打开
+`apps/miniprogram/` 项目后再次普通编译，而不是改变运行包文件边界。

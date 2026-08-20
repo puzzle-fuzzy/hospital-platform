@@ -10,6 +10,12 @@
 > `7f157d4`，完整运行包来源为 `7f157d4cca02fa857612daec0b6aa56e328e0083`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
+- 2026-08-20 23:14 CST（当前候选真机工具复核）：针对 `dist/services/single-flight.test.js` 的 ENOENT，当前 `7f157d4`
+  运行包重新通过构建和 `runtime:verify`，`dist/` 中测试运行脚本为 0、14 个页面脚本齐全；微信开发者工具已关闭旧真机调试
+  会话、普通编译成功并显示 `analyzing codes success`，随后重新生成 iOS/局域网二维码。该证据只证明本地运行包和工具模块图已刷新，
+  尚未证明手机重新扫码后的微信登录、患者同步或业务页面三层证据；旧 Python `8001` 未修改、未重启。详见
+  [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md)。
+
 - 2026-08-20（配置与运行包边界复核）：前序配置修正提交为 `a2af341`，随后又完成 Redis 连接并发边界收敛；微信身份和微信支付上游地址的空字符串/空白值现在会
   回退到官方 HTTPS 默认地址，配置闸门与 adapter 收到的地址保持一致；小程序构建仍硬性排除测试脚本，
   `dist/services/single-flight.test.js` 不属于运行包。真实微信会话、Provider 业务和真机三层证据仍未因本次本地门禁通过而完成。
