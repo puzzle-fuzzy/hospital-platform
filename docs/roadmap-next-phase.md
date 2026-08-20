@@ -14,6 +14,13 @@
   MySQL/Redis 写入或微信 session，不能据此证明本地 `1186937` 已部署、旧 Python 共存、患者同步、预约、报告、
   门诊费用或真机业务成功。详见 [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md)。
 
+- 2026-08-20（预约、门诊费用与患者档案只读闭环审计）：结合旧端真实 `patInfosFind` 响应，确认
+  `data.patId` 是预约、报告和门诊费用共用的 HIS 临床患者引用，不是首页二维码 ID；新端继续以 owner-scoped
+  `his-patient` 映射驱动 Provider 查询。复核了患者卡片独立归属、预约渠道 3、费用 `tradeStatus=1/3`、金额元转分、
+  中国标准时间 30 日窗口、重复/越界整批拒绝和低敏日志边界，未发现可以不猜 Provider 合同而安全修复的缺口。
+  适配器 95/95、API 163/163、小程序 163/163 通过；本次没有调用 Provider、修改旧 Python、写入数据库/Redis 或发布线上。
+  详见 [`release/readonly-business-chain-audit-2026-08-20.md`](release/readonly-business-chain-audit-2026-08-20.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向
