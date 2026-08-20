@@ -408,9 +408,7 @@ test("门诊费用列表展示旧端日期粒度但保留完整账单事实", ()
 	expect(formatOutpatientAmountLabel(Number.MAX_SAFE_INTEGER)).toBe(
 		"¥90071992547409.91",
 	);
-	expect(() => formatOutpatientAmountLabel(12.5)).toThrow(
-		"门诊金额不合法",
-	);
+	expect(() => formatOutpatientAmountLabel(12.5)).toThrow("门诊金额不合法");
 });
 
 test("我的挂号列表必须保持公共状态、日期和展示字段一致", () => {
