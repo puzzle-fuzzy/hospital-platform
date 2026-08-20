@@ -9,6 +9,16 @@
 > 当前服务端为 `0e360d3`，最新本地小程序候选为 `d772f09`，完整来源为
 > `d772f0966bbb0e369c61646528e8205eaf73825f`；小程序尚未上传线上。`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
+- 2026-08-20（最新网络边界审计）：新旧服务目前仍通过阿里云公网地址访问 MySQL/Redis；WireGuard 私网
+  `10.0.0.3 ↔ 10.0.0.1` 已用真实 MySQL `SELECT 1` 和 Redis `PING` 验证可用。新 API 私网切换脚本已加入仓库，
+  但当前 SSH 用户没有 systemd 重启授权，配置试切换已自动回滚，线上仍保持原状态；旧 Python `8001` 未修改。
+  详见 [`release/production-network-boundary-audit-2026-08-20.md`](release/production-network-boundary-audit-2026-08-20.md)。
+
+- 2026-08-20（最新本地门禁）：`8817f90` 后全仓 `pnpm check` 通过；这只证明当前代码、文档、迁移台账、
+  测试和构建一致，不增加真机、Provider、数据库私网切换或业务成功证据。获得授权后先执行新 API 私网切换和
+  readiness 观察，再继续患者选择、多患者切换、预约历史、门诊费用只读和普通资料真实写入；支付、医保、退款和 HIS
+  仍最后处理。
+
 - 2026-08-20 09:15 CST（公网只读复核）：`/health/live`、`/health/ready`、`/system/ping` 分别返回 200，
   readiness 为 `ready`；未带凭证的 `/me`、`/patients` 均返回 401/`unauthorized`。本次没有 Provider 调用、
   MySQL/Redis 写入或微信 session，不能据此证明本地 `1186937` 已部署、旧 Python 共存、患者同步、预约、报告、
