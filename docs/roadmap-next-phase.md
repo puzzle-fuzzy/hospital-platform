@@ -21,6 +21,12 @@
   部署、Provider 调用或 MySQL/Redis 业务写入；本地 `e050fa0` 尚未部署，真实微信会话、患者同步、预约、
   报告、门诊费用和真机业务仍没有新增验收证据。详见 [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md)。
 
+- 2026-08-20 13:06 CST（线上运行层与 journald 只读复核）：线上仍为 `398be8e`，新 API `10.0.0.3:18081`
+  与旧 Python `8001` 同时监听，Worker 保持 inactive，readiness 的 `database/redis/schema` 均为 `ok`。
+  最近 30 分钟聚合为 3 条基础设施健康请求，`parseErrors=0`、`systemdWarningCount=0`，没有新的微信、患者、
+  预约、报告或门诊费用业务事件；本次未修改旧服务、未重启、未调用 Provider、未写入 MySQL/Redis。详见
+  [`release/current-runtime-readonly-observation-2026-08-20-1306.md`](release/current-runtime-readonly-observation-2026-08-20-1306.md)。
+
 - 2026-08-20（旧 Python `6201` 日志路由只读观察）：确认 `/common/mbs-fsi/6201` 的原始记录存在于
   `logs/info_2026-08-19.log`，但没有出现在 `logs/all.log`。原因是旧 Gunicorn 多 worker 各自持有并轮转
   文件 handler，`all.log` 不是完整索引；本次未修改旧项目、未重启旧服务、未主动发送医保请求。新服务继续
