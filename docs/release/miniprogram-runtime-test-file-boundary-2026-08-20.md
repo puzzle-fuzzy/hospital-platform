@@ -30,7 +30,9 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 2. 在仓库根目录执行 `pnpm --filter @hospital/miniprogram build`。
 3. 执行 `pnpm --filter @hospital/miniprogram runtime:verify`，确认页面脚本和运行包来源指纹完整。
 4. 重新打开 `apps/miniprogram/`，确认项目配置的 `miniprogramRoot` 为 `dist/`，再执行编译和扫码。
-5. 若仍出现同一 `*.test.js` 路径，记录完整错误时间和当前 `dist/build-info.json` 的 `sourceRevision`；不要手工在 `dist/` 创建测试脚本。
+5. 如果开发者工具仍显示旧的 `*.test.js` 路径，先在开发者工具中执行“工具/清除缓存”里的文件缓存清理，退出后重新打开
+   `E:\__Super_Core__\hospital-platform\apps\miniprogram`；不要继续使用旧的 `mp-weixin` 项目窗口，也不要直接打开 `src/`。
+6. 若仍出现同一 `*.test.js` 路径，记录完整错误时间和当前 `dist/build-info.json` 的 `sourceRevision`；不要手工在 `dist/` 创建测试脚本。
 
 ## 验收边界
 
