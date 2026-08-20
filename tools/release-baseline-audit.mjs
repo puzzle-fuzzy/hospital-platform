@@ -6,6 +6,17 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
 
 /**
+ * 当前真机候选必须只有一个人工入口。
+ *
+ * 历史候选文档仍然保留，用于追溯当时的运行包和验收窗口；这里不能继续
+ * 硬编码已经过期的候选，否则发布基线审计即使通过，也可能把旧二维码对应的
+ * 运行包当成当前包。每次构建来源发生变化时，应同时新增当前候选记录并更新
+ * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
+ */
+const currentCandidateDocumentPath =
+	"docs/release/candidate-e050fa0-local-build-2026-08-20.md";
+
+/**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
  * 才需要引用同一服务端 release 和小程序来源指纹。历史发布记录可以保留旧
  * hash，不能因为它们曾经写过“当前”就被重新解释成这次真机验收版本。
@@ -14,7 +25,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{ path: "docs/README.md", label: "文档导航" },
 	{ path: "docs/wechat-auth-login.md", label: "微信授权登录手册" },
 	{
-		path: "docs/release/candidate-474b044-local-build-2026-08-19.md",
+		path: currentCandidateDocumentPath,
 		label: "当前小程序本地构建候选",
 	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
@@ -327,10 +338,7 @@ export function auditCurrentBaselineDocuments(baseline, documents) {
 export async function auditCurrentReleaseConsistency(
 	rootDirectory = repositoryRoot,
 ) {
-	const candidatePath = join(
-		rootDirectory,
-		"docs/release/candidate-474b044-local-build-2026-08-19.md",
-	);
+	const candidatePath = join(rootDirectory, currentCandidateDocumentPath);
 	const candidateDocument = await readFile(candidatePath, "utf8");
 	const baseline = extractCurrentBaseline(candidateDocument);
 	const documents = [];
