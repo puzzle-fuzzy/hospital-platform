@@ -1,8 +1,8 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `0e360d3`，当前本地小程序候选为 `ce8d68b`，完整运行包来源为
-> `ce8d68b15fc0c6a813fbf7a95d36610167874b8e`。小程序尚未上传线上。
+> 当前服务端候选为 `0e360d3`，当前本地小程序候选为 `501e3a7`，完整运行包来源为
+> `501e3a77e3d6808d946cbe6c6122d942182709a9`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -59,7 +59,7 @@
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-ce8d68b-local-build-2026-08-20.md`](candidate-ce8d68b-local-build-2026-08-20.md)
+- 当前候选来源：[`candidate-501e3a7-local-build-2026-08-20.md`](candidate-501e3a7-local-build-2026-08-20.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
 - 患者绑定准入草案：[`../migration/patient-binding-contract-draft.md`](../migration/patient-binding-contract-draft.md)

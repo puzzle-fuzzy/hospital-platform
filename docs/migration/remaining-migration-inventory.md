@@ -7,7 +7,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `ce8d68b15fc0c6a813fbf7a95d36610167874b8e`（提交 `ce8d68b`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `501e3a77e3d6808d946cbe6c6122d942182709a9`（提交 `501e3a7`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-20 生产更新：服务端已切换到 `0e360d3`；旧 Python `8001` 未修改并继续共存。新 release 的运行层、
 > `patInfosFind` 临床引用和患者映射安全边界见 [`../release/0e360d3-production-acceptance-2026-08-20.md`](../release/0e360d3-production-acceptance-2026-08-20.md)。
