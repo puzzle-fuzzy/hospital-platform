@@ -18,6 +18,12 @@
   微信授权、患者同步或后续业务验收。详细恢复顺序见
   [`release/miniprogram-runtime-test-file-boundary-2026-08-20.md`](release/miniprogram-runtime-test-file-boundary-2026-08-20.md)。
 
+- 2026-08-20 19:46 CST（当前候选二维码会话）：新的 `miniprogram` 窗口已确认资源树指向 `dist/`，
+  重新生成 iOS、局域网模式真机二维码，工具显示将于 20:11 CST 失效；模拟器当前停留在患者选择页，
+  能看到服务端脱敏卡号。此记录只证明二维码生成和运行包边界正确，尚未取得手机扫码后的 `/auth/wechat`、
+  `/me`、`/patients` 及页面/HTTP/低敏日志三层证据。详见
+  [`release/miniprogram-device-qr-session-2026-08-20-1946.md`](release/miniprogram-device-qr-session-2026-08-20-1946.md)。
+
 - 2026-08-20（最新网络边界审计）：新旧服务目前仍通过阿里云公网地址访问 MySQL/Redis；WireGuard 私网
   `10.0.0.3 ↔ 10.0.0.1` 已用真实 MySQL `SELECT 1` 和 Redis `PING` 验证可用。新 API 私网切换脚本已加入仓库，
   但当前 SSH 用户没有 systemd 重启授权，配置试切换已自动回滚，线上仍保持原状态；旧 Python `8001` 未修改。
