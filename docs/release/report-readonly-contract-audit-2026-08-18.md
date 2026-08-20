@@ -6,7 +6,7 @@
 ## 0. 当前检查点（2026-08-19）
 
 - 当前线上服务端 release 为 `0e360d3`，配套小程序构建来源为
-  `0dccf545ef65a905b58a27f38e787daea250fa54`（当前本地候选 `0dccf54`，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
+  `d772f0966bbb0e369c61646528e8205eaf73825f`（当前本地候选 `d772f09`，尚未上传线上）；本文件的 Provider 材料门禁不因 release 切换而放宽。
 
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
   `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
@@ -21,7 +21,7 @@
 ## 1. 当前链路
 
 当前服务端 release 为 `0e360d3`，配套小程序构建来源为
-`0dccf545ef65a905b58a27f38e787daea250fa54`（当前本地候选 `0dccf54`，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
+`d772f0966bbb0e369c61646528e8205eaf73825f`（当前本地候选 `d772f09`，尚未上传线上）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
 
 ```text
 小程序报告目录

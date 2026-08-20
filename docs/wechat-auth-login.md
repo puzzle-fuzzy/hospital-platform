@@ -9,8 +9,8 @@
 [`release/0e360d3-production-acceptance-2026-08-20.md`](release/0e360d3-production-acceptance-2026-08-20.md)。
 该 release 切换只更新新服务的日志证据 bundle，不改变微信登录的业务开放边界。
 
-当前本地小程序候选为 `0dccf54`，运行包来源指纹为
-`0dccf545ef65a905b58a27f38e787daea250fa54`，尚未上传线上。本候选包含认证命令会话代际边界，
+当前本地小程序候选为 `d772f09`，运行包来源指纹为
+`d772f0966bbb0e369c61646528e8205eaf73825f`，尚未上传线上。本候选包含认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
 命令请求禁止跨会话自动重放的边界见
@@ -37,8 +37,8 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试和
-1215 个断言；当前候选整体已推进到 `0dccf54`，完整运行包来源为
-`0dccf545ef65a905b58a27f38e787daea250fa54`，登录后患者初始化边界见
+1215 个断言；当前候选整体已推进到 `d772f09`，完整运行包来源为
+`d772f0966bbb0e369c61646528e8205eaf73825f`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 
