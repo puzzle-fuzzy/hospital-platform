@@ -49,6 +49,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 即使 provider 患者号来自 owner-scoped 仓储映射，报告 adapter 仍会在发起 HTTP 请求前拒绝空引用；这样可防止任务、回放器或错误仓储把 `patId=` 发给 Provider，不能把 service 层校验当作唯一边界。
 - LIS 详情使用独立的 `ZHONGYANG_REPORT_DETAIL_READY` gate，并额外依赖 `0009_report_references`、owner 复合外键和 TTL 查询；configured 不代表真实 provider 资源授权或真机可用。
 - 报告引用的创建、过期和 owner + patient 查询统一使用服务端应用时钟；不能让不同机器的本地时区或时钟漂移改变短期引用的有效性，测试必须注入固定时间覆盖 TTL 边界。
+- 报告目录返回后，短期详情引用按最多 4 路并发写入并保持报告顺序；该并发度是平台数据库资源策略，不是 Provider 分页或报告数量合同，单条引用失败仍只隐藏详情入口并保留该报告摘要。
 
 预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
 

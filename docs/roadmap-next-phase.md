@@ -64,6 +64,12 @@
   98/98、216 个断言通过；该调整只改变调用调度，不改变患者字段、临床映射或快照语义，未调用 Provider、未修改旧 Python、
   数据库、Redis 或线上 gate。详见 [`provider-contract-v1.md`](provider-contract-v1.md)。
 
+- 2026-08-20（报告短期引用持久化并发边界）：复核报告目录服务时发现，详情 gate 打开后，所有 LIS 报告引用会由无界
+  `Promise.all` 同时写入 MySQL。现改为最多 4 路并发，保持报告顺序；单条引用失败仍隐藏详情入口并保留摘要，不改变
+  Provider 查询、报告字段、TTL 或失败语义。API 全套 171/171、733 个断言通过；本次未调用 Provider、未写入真实数据库、
+  未修改旧 Python、线上服务或并行会话文件。该并发度是平台资源策略，不是 Provider 分页合同，详见
+  [`provider-contract-v1.md`](provider-contract-v1.md)。
+
 - 2026-08-20（档案卡片列表独立证据门禁，本地待发布）：复核 `patInfosFind` 身份关联时发现，若把顶层卡号和
   `patCardVOList` 合并判断，可能让“顶层卡号匹配但卡片列表为空、无卡号或指向另一张卡”的错误档案进入
   `his-patient` 映射。现已让显式卡片列表独立证明查询卡号归属，并补充 2 个回归场景；患者 adapter 定向

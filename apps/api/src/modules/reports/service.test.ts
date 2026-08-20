@@ -550,6 +550,82 @@ test("report details use a short-lived opaque reference with owner and patient s
 	).rejects.toBeInstanceOf(ReportNotFoundError);
 });
 
+test("报告目录短期引用保持目录顺序且不超过固定持久化并发度", async () => {
+	let activeReferences = 0;
+	let maximumReferences = 0;
+	const requestedProviderReportIds: string[] = [];
+	const reports: ReportDirectoryEntry[] = Array.from(
+		{ length: 8 },
+		(_, index) => ({
+			summary: {
+				kind: "laboratory" as const,
+				title: `检验${index}`,
+				reportedAt: "2026-08-15 10:00:00",
+				status: "available" as const,
+				hasAttachment: false,
+			},
+			providerReportId: `provider-report-${index}`,
+		}),
+	);
+	const references: ReportReferenceRepository = {
+		upsert: async (input) => {
+			activeReferences += 1;
+			maximumReferences = Math.max(maximumReferences, activeReferences);
+			requestedProviderReportIds.push(input.providerReportId);
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			activeReferences -= 1;
+			return {
+				...input,
+				createdAt: input.createdAt ?? "2026-08-16T00:00:00.000Z",
+			};
+		},
+		findByOwnerPatientAndId: async () => undefined,
+	};
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports,
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "reports-directory",
+					requestId: "report-concurrency",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => {
+				throw new Error("详情不应在目录查询中调用");
+			},
+		},
+		references,
+	});
+
+	const result = await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-concurrency",
+			idempotencyKey: "key-report-concurrency",
+		},
+	);
+
+	expect(maximumReferences).toBe(4);
+	expect(requestedProviderReportIds).toEqual(
+		Array.from({ length: 8 }, (_, index) => `provider-report-${index}`),
+	);
+	expect(result.items.map((item) => item.title)).toEqual(
+		Array.from({ length: 8 }, (_, index) => `检验${index}`),
+	);
+});
+
 test("报告详情引用的 TTL 使用注入的服务端时间基准", async () => {
 	const captured: {
 		createdAt?: string;

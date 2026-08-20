@@ -80,6 +80,54 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
 	10 * 60 * 1000,
 	REPORT_REFERENCE_MAX_TTL_MS,
 );
+/**
+ * 报告目录短期引用的单次持久化并发上限。
+ *
+ * 详情引用是只读目录的可选增强，不应因为一份异常大的报告目录而一次性
+ * 打满 MySQL 连接。这个数值是平台资源策略，不是 Provider 业务分页或
+ * 报告数量上限；所有报告仍会尝试创建引用，结果顺序也保持不变。
+ */
+const REPORT_REFERENCE_CONCURRENCY = 4;
+
+/**
+ * 以固定并发度映射目录项并保留输入顺序。
+ *
+ * 这里不能简单改成串行循环，否则一个慢引用会拖住整个目录；也不能继续
+ * 使用无界 `Promise.all`，否则一次只读请求就可能制造大量并发写入。单项
+ * mapper 的已知失败由调用方自行转换为安全摘要；若出现未预期异常，调度器
+ * 会停止领取新任务并把异常交给外层统一处理，避免继续扩大一次失败请求的影响。
+ */
+async function mapWithConcurrency<T, R>(
+	items: readonly T[],
+	concurrency: number,
+	mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+	if (items.length === 0) return [];
+	const results = new Array<R>(items.length);
+	let nextIndex = 0;
+	let failed = false;
+	let failure: unknown;
+
+	const worker = async (): Promise<void> => {
+		while (!failed) {
+			const index = nextIndex;
+			nextIndex += 1;
+			if (index >= items.length) return;
+			try {
+				results[index] = await mapper(items[index] as T, index);
+			} catch (error) {
+				failed = true;
+				failure = error;
+				return;
+			}
+		}
+	};
+
+	const workerCount = Math.min(Math.max(1, concurrency), items.length);
+	await Promise.all(Array.from({ length: workerCount }, () => worker()));
+	if (failed) throw failure;
+	return results;
+}
 
 /**
  * 将报告目录查询收敛为服务层可以安全读取的运行时形状。
@@ -281,8 +329,10 @@ export class ReportService {
 			// 批量处理跨过时间边界时会产生不同的 expiresAt，甚至让同一批刚返回
 			// 的报告出现“一个可点、一个已过期”的不可解释结果。
 			const observedNow = this.now();
-			const items = await Promise.all(
-				normalizedReports.map(async (entry) => {
+			const items = await mapWithConcurrency(
+				normalizedReports,
+				REPORT_REFERENCE_CONCURRENCY,
+				async (entry) => {
 					if (
 						!this.dependencies.detail ||
 						entry.summary.kind !== "laboratory" ||
@@ -348,7 +398,7 @@ export class ReportService {
 						);
 						return entry.summary;
 					}
-				}),
+				},
 			);
 			this.logger.info(
 				{
