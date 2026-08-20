@@ -10,6 +10,11 @@
 > `8f80b3e`，完整运行包来源为 `8f80b3e30385fe3655f871673d8616cd2d31faaa`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
+- 2026-08-20 20:49 CST（真机调试 ENOENT 恢复）：当前 `8f80b3e` 运行包重新构建并通过 `runtime:verify`，`dist/` 中没有
+  `single-flight.test.js` 或其他测试脚本；微信开发者工具已关闭旧真机调试会话并完成普通编译，模拟器恢复到首页，随后重新生成
+  iOS/局域网二维码（工具显示约 21:14 CST 失效）。根因是开发者工具旧增量模块索引继续请求历史测试文件，不是当前运行包依赖；本次未修改或重启旧服务。
+  详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md)。
+
 - 2026-08-20 20:36 CST（当前新旧服务与 P0 日志只读观察）：新 API `10.0.0.3:18081` 与旧 Python
   `0.0.0.0:8001` 仍同时监听，`hospital-platform-api-v2.service=active`，readiness 的
   `database/redis/schema` 均为 `ok`。最近 15 分钟低敏计数只有健康/系统请求的 HTTP 200 和未登录认证的
