@@ -232,6 +232,122 @@ export const LOG_REDACT_PATHS = [
 	"*.idempotencyKey",
 ] as const;
 
+/**
+ * 需要从日志结构中递归移除原值的字段名。
+ *
+ * Pino 10 当前依赖的 @pinojs/redact 只支持固定层级的 `*`，不支持
+ * `**.field` 无限递归路径。因此这里保留 Pino 的快速固定路径脱敏，同时在
+ * 单行 JSON 输出边界按字段名递归处理，避免 Provider 多层响应留下隐私缺口。
+ */
+const LOG_REDACT_KEY_SET = new Set([
+	"authorization",
+	"Authorization",
+	"cookie",
+	"Cookie",
+	"set-cookie",
+	"Set-Cookie",
+	"idempotency-key",
+	"Idempotency-Key",
+	"IDEMPOTENCY-KEY",
+	"password",
+	"secret",
+	"token",
+	"accessToken",
+	"refreshToken",
+	"session_key",
+	"sessionKey",
+	"openid",
+	"unionid",
+	"unionId",
+	"providerSubject",
+	"provider_subject",
+	"providerPatientId",
+	"provider_patient_id",
+	"patId",
+	"pat_id",
+	"thirdPatientId",
+	"third_patient_id",
+	"patName",
+	"patientName",
+	"cardNo",
+	"medicalCardNo",
+	"patCardNo",
+	"cardPatCardNo",
+	"originalPatCardNo",
+	"idCardNo",
+	"idcardNo",
+	"IDCardNo",
+	"idCard",
+	"IDCard",
+	"identityCard",
+	"identity_card",
+	"birthday",
+	"addr",
+	"address",
+	"nationalResidentIndexNo",
+	"cityResidentIndexNo",
+	"contactIdCardNo",
+	"contactIdcardNo",
+	"motherIdcard",
+	"motherPhone",
+	"phone",
+	"contactTelephone",
+	"contactName",
+	"healthCardNumber",
+	"patCardVOList",
+	"providerReferences",
+	"provider_references",
+	"providerOrderId",
+	"provider_order_id",
+	"prepayId",
+	"prepay_id",
+	"payParams",
+	"pay_params",
+	"paySign",
+	"nonceStr",
+	"apiV3Key",
+	"appSecret",
+	"merchantPrivateKey",
+	"platformPrivateKey",
+	"privateKey",
+	"idempotencyKey",
+]);
+const LOG_REDACT_CENSOR = "[REDACTED]";
+
+/** 递归复制已序列化的 JSON 值，并按字段名替换敏感值。 */
+function redactNestedLogValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map((item) => redactNestedLogValue(item));
+	}
+	if (value === null || typeof value !== "object") {
+		return value;
+	}
+
+	const record: Record<string, unknown> = {};
+	for (const [key, nestedValue] of Object.entries(value)) {
+		record[key] = LOG_REDACT_KEY_SET.has(key)
+			? LOG_REDACT_CENSOR
+			: redactNestedLogValue(nestedValue);
+	}
+	return record;
+}
+
+/**
+ * 在 Pino 已经生成单行 JSON 后做最终递归门禁。
+ *
+ * 选择输出边界而不是改写业务 logger 调用，是为了同时覆盖普通字段、child
+ * bindings 和 serializer 产生的结构，并且不修改调用方传入的对象。Pino 始终
+ * 输出合法 JSON；解析失败只作为防御性兜底保留原 chunk，不能替代业务层禁止
+ * 记录原始报文的约束。
+ */
+function redactSerializedLogLine(serialized: string): string {
+	try {
+		return `${JSON.stringify(redactNestedLogValue(JSON.parse(serialized)))}\n`;
+	} catch {
+		return serialized;
+	}
+}
+
 export type LoggerOptions = {
 	service: string;
 	environment: string;
@@ -251,7 +367,10 @@ export function createLogger(options: LoggerOptions): AppLogger {
 			timestamp: pino.stdTimeFunctions.isoTime,
 			redact: {
 				paths: [...LOG_REDACT_PATHS],
-				censor: "[REDACTED]",
+				censor: LOG_REDACT_CENSOR,
+			},
+			hooks: {
+				streamWrite: redactSerializedLogLine,
 			},
 		},
 		options.destination,

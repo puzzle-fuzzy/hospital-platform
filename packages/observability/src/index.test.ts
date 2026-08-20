@@ -152,6 +152,77 @@ test("pino emits JSON and redacts configured sensitive paths", () => {
 	});
 });
 
+test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "test-service",
+		environment: "test",
+		level: "debug",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+
+	// 这些字段模拟 Provider 原始结构可能出现的深层和数组嵌套，全部使用合成值。
+	logger
+		.child({
+			context: {
+				provider: {
+					patient: { phone: "synthetic-child-phone" },
+				},
+			},
+		})
+		.info(
+			{
+				providerEnvelope: {
+					data: {
+						patient: {
+							patId: "synthetic-deep-patient-id",
+							contactTelephone: "synthetic-deep-contact",
+						},
+						cards: [
+							{
+								identity: { idCardNo: "synthetic-deep-id-card" },
+							},
+						],
+					},
+				},
+			},
+			"provider response inspected",
+		);
+
+	const serialized = lines[0] ?? "";
+	// 先检查原值没有进入最终 JSON，再检查结构化字段确实被统一替换。
+	for (const secret of [
+		"synthetic-child-phone",
+		"synthetic-deep-patient-id",
+		"synthetic-deep-contact",
+		"synthetic-deep-id-card",
+	]) {
+		expect(serialized).not.toContain(secret);
+	}
+
+	const record = JSON.parse(serialized) as {
+		context: { provider: { patient: { phone: string } } };
+		providerEnvelope: {
+			data: {
+				patient: { patId: string; contactTelephone: string };
+				cards: Array<{ identity: { idCardNo: string } }>;
+			};
+		};
+	};
+	expect(record.context.provider.patient.phone).toBe("[REDACTED]");
+	expect(record.providerEnvelope.data.patient).toMatchObject({
+		patId: "[REDACTED]",
+		contactTelephone: "[REDACTED]",
+	});
+	expect(record.providerEnvelope.data.cards[0]?.identity.idCardNo).toBe(
+		"[REDACTED]",
+	);
+});
+
 test("pino honors the configured minimum level", () => {
 	const lines: string[] = [];
 	const logger = createLogger({
