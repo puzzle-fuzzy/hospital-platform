@@ -263,13 +263,35 @@ async function readSummary() {
 	const file = flagValue("--file");
 	if (file) {
 		const input = await readFile(file, "utf8");
-		return JSON.parse(input.replace(/^\uFEFF/u, ""));
+		return parseSummaryJson(input);
 	}
 	let input = "";
 	for await (const chunk of process.stdin) input += chunk;
 	// Windows PowerShell 可能在进程管道开头保留 UTF-8 BOM；它不是
 	// 业务日志内容，应该在 JSON 摘要边界剥离，而不是把整次证据判成坏数据。
-	return JSON.parse(input.replace(/^\uFEFF/u, ""));
+	return parseSummaryJson(input);
+}
+
+/**
+ * 解析日志聚合摘要时先区分“没有输入”和“JSON 损坏”。
+ *
+ * 这个工具只接受 `p0-log-aggregate` 生成的 JSON 摘要；直接空运行时如果
+ * 透出 JavaScript 的 `Unexpected EOF`，维护人员很容易误以为生产日志被截断。
+ * 这里统一给出中文操作提示，但不输出原始日志或摘要内容，避免诊断工具
+ * 反过来扩大敏感信息暴露面。
+ */
+function parseSummaryJson(input) {
+	const normalized = input.replace(/^\uFEFF/u, "").trim();
+	if (!normalized) {
+		throw new Error(
+			"未提供日志聚合摘要；请先运行 p0-log-aggregate，再通过管道传入或使用 --file 指定 JSON 文件",
+		);
+	}
+	try {
+		return JSON.parse(normalized);
+	} catch {
+		throw new Error("日志聚合摘要不是有效 JSON，请重新生成安全聚合结果");
+	}
 }
 
 async function main() {

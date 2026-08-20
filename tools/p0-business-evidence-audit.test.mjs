@@ -299,3 +299,22 @@ test("跨 Windows 管道产生的摘要 BOM 不影响业务证据判断", async 
 	expect(error).toBe("");
 	expect(JSON.parse(output)).toMatchObject({ passed: true });
 });
+
+test("空输入给出中文操作提示而不是泄露 Unexpected EOF", async () => {
+	const process = Bun.spawn(
+		["bun", "tools/p0-business-evidence-audit.mjs", "--domain", "auth"],
+		{
+			stdin: new Blob([]),
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
+	const output = await new Response(process.stdout).text();
+	const error = await new Response(process.stderr).text();
+	const exitCode = await process.exited;
+
+	expect(exitCode).toBe(2);
+	expect(output).toBe("");
+	expect(error).toContain("未提供日志聚合摘要");
+	expect(error).not.toContain("Unexpected EOF");
+});
