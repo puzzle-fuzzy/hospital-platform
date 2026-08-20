@@ -15,8 +15,10 @@ import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
+/** 众阳 2.6.33 门诊子项目费用只读接口；支付调起和医保结算不复用此路径。 */
 const OUTPATIENT_PAYMENT_PATH =
 	"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records";
+/** 低敏日志中的稳定操作名，用于与 Provider 原始路径解耦并关联请求链。 */
 const OPERATION = "outpatient-payment-records";
 
 /**

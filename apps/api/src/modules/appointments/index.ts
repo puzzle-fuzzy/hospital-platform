@@ -5,17 +5,19 @@ import {
 	success,
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
-import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import type { AppointmentService } from "./service";
 
+/** 只接收平台链路所需的认证、幂等和请求关联头，不允许透传 Provider 头。 */
 const AppointmentHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
 	"idempotency-key": t.Optional(t.String({ maxLength: 128 })),
 	"x-request-id": t.Optional(t.String({ maxLength: 128 })),
 });
 
+/** 预约业务使用自然日，不接受带时区或任意文本的日期。 */
 const DatePattern = "^\\d{4}-\\d{2}-\\d{2}$";
 
 /** 日期和过滤条件由 API 收窄，provider 不接收任意 query 参数透传。 */

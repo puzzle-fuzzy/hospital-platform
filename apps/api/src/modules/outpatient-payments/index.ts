@@ -58,6 +58,7 @@ export type OutpatientPaymentServiceDependencies = {
 
 /** 众阳门诊接口使用中国标准时间，不得继承 systemd 进程的本地时区。 */
 const OUTPATIENT_PROVIDER_TIME_ZONE = "Asia/Shanghai";
+/** 仅用于按 Provider 自然日倒推查询窗口，不能替代 Provider 的分页语义。 */
 const CALENDAR_DAY_MS = 24 * 60 * 60 * 1000;
 
 type ProviderDateTimeParts = {
