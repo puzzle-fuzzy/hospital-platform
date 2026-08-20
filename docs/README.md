@@ -48,7 +48,7 @@
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前验收候选请改读 `501e3a7`，本记录不替代真机、Provider 或服务端日志证据 |
 | [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `501e3a7` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
 | [`release/miniprogram-device-session-2026-08-19-1651.md`](release/miniprogram-device-session-2026-08-19-1651.md) | 历史 `398be8e + 48ba22f` 候选的二维码/设备连接状态复核；当前尚无有效手机连接，不代表真机业务验收 |
-| [`release/miniprogram-device-session-lan-2026-08-19.md`](release/miniprogram-device-session-lan-2026-08-19.md) | 历史 `474b044` 候选的局域网二维码重试、传输层错误边界；新的扫码必须使用当前 `ce8d68b` 候选 |
+| [`release/miniprogram-device-session-lan-2026-08-19.md`](release/miniprogram-device-session-lan-2026-08-19.md) | 历史 `474b044` 候选的局域网二维码重试、传输层错误边界；新的扫码必须使用当前 `501e3a7` 候选 |
 | [`release/miniprogram-my-page-session-generation-order-2026-08-19.md`](release/miniprogram-my-page-session-generation-order-2026-08-19.md) | “我的”页资料与患者目录的会话代际顺序、降级和旧患者清理边界 |
 | [`release/miniprogram-my-page-session-composition-boundary-2026-08-20.md`](release/miniprogram-my-page-session-composition-boundary-2026-08-20.md) | “我的”页 `/me`、资料和患者目录跨请求组合的一致性围栏；本地修正，未部署线上 |
 | [`release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md`](release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md) | 预约科室/排班两列级联的 JSON 运行时契约、号源语义和只读停止条件 |
@@ -144,8 +144,8 @@
 | [`release/production-coexistence-readonly-audit-2026-08-17.md`](release/production-coexistence-readonly-audit-2026-08-17.md) | 2026-08-17 SSH 只读核对新 Bun `18081`、旧 Python `8001`、systemd 状态和 release 指针；不包含业务验收 |
 | [`release/current-production-observability-audit-2026-08-17.md`](release/current-production-observability-audit-2026-08-17.md) | 2026-08-17 当前 API 启动 capability、MySQL/schema 探针抖动、微信登录失败/恢复和患者同步日志复核 |
 | [`release/restart-coexistence-readonly-audit-2026-08-18.md`](release/restart-coexistence-readonly-audit-2026-08-18.md) | 2026-08-18 重启后新旧服务监听、内外网探针和内网/公网路径边界复核 |
-| [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md) | 历史 `b451cc6` 小程序候选的只读验收组合和停止条件；当前候选请改读 [`candidate-ce8d68b-local-build-2026-08-20.md`](release/candidate-ce8d68b-local-build-2026-08-20.md) |
-| [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md) | 历史 `c26e696` 窗口的模拟器与服务端日志观察；不替代当前 `0e360d3` + `ce8d68b` 真机/Provider 验收 |
+| [`release/miniprogram-readonly-acceptance-candidate-2026-08-18.md`](release/miniprogram-readonly-acceptance-candidate-2026-08-18.md) | 历史 `b451cc6` 小程序候选的只读验收组合和停止条件；当前候选请改读 [`candidate-501e3a7-local-build-2026-08-20.md`](release/candidate-501e3a7-local-build-2026-08-20.md) |
+| [`release/miniprogram-readonly-business-acceptance-2026-08-19.md`](release/miniprogram-readonly-business-acceptance-2026-08-19.md) | 历史 `c26e696` 窗口的模拟器与服务端日志观察；不替代当前 `0e360d3` + `501e3a7` 真机/Provider 验收 |
 | [`release/miniprogram-api-prefix-hardening-2026-08-19.md`](release/miniprogram-api-prefix-hardening-2026-08-19.md) | 2026-08-19 小程序未知 API 前缀缓存回退、刷新 404 防护和运行包证据 |
 | [`release/restart-coexistence-readonly-audit-2026-08-19.md`](release/restart-coexistence-readonly-audit-2026-08-19.md) | 2026-08-19 重启后新旧服务共存、公网健康探针、全仓门禁和业务未完成边界复核 |
 | [`release/readonly-business-contract-audit-2026-08-18.md`](release/readonly-business-contract-audit-2026-08-18.md) | 预约历史、爽约记录和门诊费用只读业务的不变量、日志闭环和当前测试证据 |

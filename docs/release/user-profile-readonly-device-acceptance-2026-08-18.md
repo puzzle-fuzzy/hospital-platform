@@ -18,7 +18,7 @@
 | 检查项 | 必须满足的结果 |
 | --- | --- |
 | 开发者工具项目 | 窗口为新 `miniprogram`，资源树包含 `dist/`，不是旧 `mp-weixin` |
-| 构建来源 | `dist/build-info.json.sourceRevision` 等于 `ce8d68b15fc0c6a813fbf7a95d36610167874b8e` |
+| 构建来源 | `dist/build-info.json.sourceRevision` 等于 `501e3a77e3d6808d946cbe6c6122d942182709a9` |
 | 服务端 | 当前运行 bundle 为 `0e360d3`，生产模式，旧 Python `8001` 继续运行 |
 | 依赖 | `health/ready` 返回 `database/redis/schema=ok` |
 | 会话 | 新项目扫码后产生的微信会话；不能复用旧调试窗口 token 或历史日志 |
