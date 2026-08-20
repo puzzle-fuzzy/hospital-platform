@@ -66,6 +66,9 @@
 - 使用独立的 `api-v2` 环境变量文件和 systemd drop-in，先只改变新 API 的连接目标；旧服务配置不改。
 - 当前 SSH 用户没有 systemd 重启授权；正式切换时需要具备 systemd 管理权限的维护窗口执行一次新 API 重启，
   或由管理员代执行，不应通过强杀进程绕过权限边界。
+- 正式切换使用仓库内的
+  `tools/production/switch-api-persistence-to-wireguard.sh apply`；脚本会保护 env 路径和旧端口、保留 600
+  回滚副本，并在 readiness 或私网连接校验失败时只回滚新 API。需要撤销时使用同一脚本的 `rollback` 参数。
 - 在切换前后依次验证 `health/live`、`health/ready`、微信登录、患者目录只读和 Redis 会话恢复，并观察足够
   时间窗口；任何依赖异常都回滚新 API 的连接目标，不碰旧服务。
 
