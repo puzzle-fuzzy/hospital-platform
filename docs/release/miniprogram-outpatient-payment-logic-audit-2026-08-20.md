@@ -8,7 +8,7 @@
 拆分展示，超过 `Number.MAX_SAFE_INTEGER` 的分值整批 fail-closed。
 
 本次没有修改旧 Python 服务、旧端口、旧数据库数据或 Redis 数据，也没有部署线上新 API/小程序运行包；本地 `dist/`
-已在提交后重新构建并通过运行包门禁。当前小程序候选以发布基线指定的 `7f157d4` 为准，旧候选只保留作历史追溯。
+已在提交后重新构建并通过运行包门禁。当前小程序候选以发布基线指定的 `39e2caa` 为准，旧候选只保留作历史追溯。
 
 ## 已核对的不变量
 
@@ -56,4 +56,4 @@
 - `wx.requestPayment`、微信支付商户签名、医保授权、6202/6301 结算状态、支付通知幂等、退款和 HIS 写回必须分别建立
   独立 contract，并经过金额、订单状态、重试和审计日志验收后才能开放。
 - 旧候选二维码和开发者工具旧增量缓存不能作为当前候选证据；真机验收必须重新编译当前 `dist/`，并先核对
-  `dist/build-info.json.sourceRevision=7f157d4cca02fa857612daec0b6aa56e328e0083`。
+  `dist/build-info.json.sourceRevision=39e2caac27ec4bf569f5debc8edb47947bc398d2`。

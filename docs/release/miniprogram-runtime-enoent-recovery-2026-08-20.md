@@ -119,6 +119,13 @@ Get-ChildItem -LiteralPath apps/miniprogram/dist -Recurse -File |
 [`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md) 为准。
 ENOENT 处理原则不变：不要把 `single-flight.test.js` 复制进 `dist/`，应关闭旧真机调试、重开项目、普通编译后重新生成二维码。
 
+## 当前候选更新（2026-08-21）
+
+选择页会话生命周期修正后，当前小程序候选为 `39e2caa`，完整运行包来源为
+`39e2caac27ec4bf569f5debc8edb47947bc398d2`。该候选已重新构建并通过 `runtime:verify`；
+`dist/` 仍不存在 `single-flight.test.js` 或其它 `*.test.js`/`*.spec.js`。后续真机调试必须以该候选
+重新普通编译和生成二维码，前文 `7f157d4` 及更早候选只用于历史追溯。
+
 ## 当前候选再次复核（2026-08-20 23:14 CST）
 
 针对同一错误继续在当前工作树和已打开的 `miniprogram` 开发者工具窗口复核：
