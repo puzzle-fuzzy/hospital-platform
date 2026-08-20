@@ -40,6 +40,10 @@
 > 在无 Bearer 会话时均返回 `401`。这证明路由的关闭/鉴权边界仍符合 fail-closed 设计，不证明任何 Provider 或真机业务已经完成；详见
 > [`../release/current-public-closed-boundary-2026-08-21.md`](../release/current-public-closed-boundary-2026-08-21.md)。
 
+> 2026-08-21 00:49 CST 使用本地 `b4a73c4` 的生产模式 runtime smoke 复核当前公网 `0e360d3`：live/ready/ping 为 `200`、
+> ready 连续 `3/3`，认证边界为 `401/unauthorized`，7 条未开放能力均为 `404/not-found`。该请求不携带会话、不调用
+> Provider、不写 MySQL/Redis，也不增加微信、患者、预约、费用或真机业务证据；旧 Python `8001` 不属于本次范围。
+
 > 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
 > `0e360d32edcfaa49128a7c29aaa4947cf739e090`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
 > `0.0.0.0:8001`；公网 live/ready/ping 均为 200，ready 依赖为 `database=ok`、`redis=ok`、`schema=ok`，
