@@ -64,7 +64,9 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 `payParams`；`launchWechatPayment` 只把白名单字段交给 `wx.requestPayment`，调起成功和取消都不会直接更新业务状态。
 页面仍需在订单状态为 `cash_pending` 时调用它，支付最终结果必须重新读取服务端订单状态。
 同时可用 `getWechatPrepay(orderId, idempotencyKey)` 读取 `not_started/pending/ready/unknown`，避免网络重试时把未知结果误报为失败。
-后续按领域迁移：登录/就诊人选择 → 预约目录与挂号记录页面 → 挂号写入契约 → 支付状态页 → 报告 → 健康服务 → AI。
+以上只是支付领域的服务端参数与客户端安全边界封装，不代表小程序已经开放支付页面、微信支付、医保授权或结算回写；当前门诊费用仍为只读查询。
+后续按业务门禁推进：微信登录/就诊人选择 → 预约目录与挂号记录 → 门诊费用只读 → 普通资料读写 →
+报告 Provider contract 和只读验收 → 病历、患者绑定与健康内容等独立 contract → 支付、医保、退款和 HIS 回写最后专项。
 
 线上默认请求 `https://test-hp.meiyi.pro`，业务前缀为 `/api/v2`。本地开发时把 `app.ts` 的 `apiBaseUrl`
 改为 `http://127.0.0.1:3000`，把 `apiPrefix` 改为 `/api/v1`；健康检查同样必须经过版本前缀，线上地址是
