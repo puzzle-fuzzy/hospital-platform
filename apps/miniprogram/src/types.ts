@@ -369,6 +369,8 @@ export type MyPageData = {
 export type ProfilePageData = {
 	/** 只属于当前资料页实例；首次 onShow 不重复 onLoad 已发起的读取。 */
 	hasShown: boolean;
+	/** 当前编辑快照所属的平台会话代际；-1 表示尚未取得 owner 证明。 */
+	sessionGeneration: number;
 	displayName: string;
 	gender: "male" | "female" | "unknown";
 	age: string;

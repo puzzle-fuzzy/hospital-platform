@@ -923,6 +923,10 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).toContain("不能再启动 GET");
 	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
+	expect(profile).toContain("sessionGeneration");
+	expect(profile).toContain("getSessionGeneration");
+	expect(profile).toContain("isCurrentSessionGeneration");
+	expect(profile).toContain("profileSessionChangedError");
 	expect(profile).toContain(
 		"if (this.data.saving || this.data.navigationPending)",
 	);
@@ -996,6 +1000,11 @@ test("native profile save keeps validation, version and conflict boundaries orde
 	// 都不能把默认值/旧 version 送到服务端，再依赖 409 兜底。
 	expect(
 		saveBody.indexOf("if (this.data.saving || this.data.navigationPending)"),
+	).toBeLessThan(updateIndex);
+	expect(
+		saveBody.indexOf(
+			"if (!isCurrentSessionGeneration(profileSessionGeneration))",
+		),
 	).toBeLessThan(updateIndex);
 	expect(saveBody.indexOf("if (this.data.loading)")).toBeLessThan(updateIndex);
 	expect(saveBody.indexOf("if (!this.data.loaded)")).toBeLessThan(updateIndex);

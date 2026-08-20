@@ -9,6 +9,10 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { hasPlatformSession } from "../../services/session-service";
+import {
+	getSessionGeneration,
+	isCurrentSessionGeneration,
+} from "../../services/session-generation";
 import type { ProfilePageData, UserProfileResponse } from "../../types";
 
 type ProfilePageMethods = {
@@ -65,6 +69,19 @@ function genderIndex(gender: ProfilePageData["gender"]): number {
 }
 
 /**
+ * 创建“资料快照不再属于当前账号”的稳定错误。
+ *
+ * API 客户端只能保证请求发出时使用当前 token；它不知道页面里的昵称、
+ * 性别、年龄和 version 是哪一次会话读取出来的。页面必须在 PUT 前再做
+ * 一次代际比较，避免账号 A 停留在页面栈中的旧资料被提交给账号 B。
+ */
+function profileSessionChangedError(): ApiError {
+	return new ApiError("Profile session changed before update", {
+		code: "session-changed",
+	});
+}
+
+/**
  * 将服务端资料响应投影成页面编辑模型。
  *
  * GET 和 PUT 都必须消费同一个服务端快照，不能只在保存成功后回写 version
@@ -100,6 +117,7 @@ Page<
 >({
 	data: {
 		hasShown: false,
+		sessionGeneration: -1,
 		displayName: "",
 		gender: "unknown",
 		genderLabels: GENDER_LABELS,
@@ -148,6 +166,9 @@ Page<
 				if (!profileLoadGuard.isCurrent(requestToken)) return;
 				this.setData({
 					...toProfilePageFields(response.data),
+					// GET 可能在没有 token 时安全地完成一次登录；必须记录
+					// 响应所属的最新代际，不能沿用请求开始前的旧数字。
+					sessionGeneration: getSessionGeneration(),
 					loaded: true,
 					error: "",
 				});
@@ -158,7 +179,7 @@ Page<
 					this.clearDisplayedProfileContext();
 				}
 				this.showError(error, "个人资料加载失败");
-				this.setData({ loaded: false });
+				this.setData({ loaded: false, sessionGeneration: -1 });
 			})
 			.finally(() => {
 				if (profileLoadGuard.isCurrent(requestToken)) {
@@ -215,6 +236,16 @@ Page<
 			this.setData({ error: "个人资料尚未加载完成，请稍后重试" });
 			return Promise.resolve();
 		}
+		const profileSessionGeneration = this.data.sessionGeneration;
+		// 页面中的编辑值和 version 必须属于当前平台会话。只检查当前 token
+		// 存在是不够的：账号切换后 token 仍然存在，但旧页面快照已经不能
+		// 代表新账号。这里在 PUT 前 fail-closed，避免把旧账号资料写入新账号。
+		if (!isCurrentSessionGeneration(profileSessionGeneration)) {
+			const error = profileSessionChangedError();
+			this.clearDisplayedProfileContext();
+			this.showError(error, "个人资料保存失败");
+			return Promise.resolve();
+		}
 		const displayName = this.data.displayName.trim();
 		if (!displayName) {
 			this.setData({ error: "请输入昵称" });
@@ -239,6 +270,15 @@ Page<
 		})
 			.then((response) => {
 				if (!saveGuard.isCurrent(saveToken)) return;
+				// API 客户端已经会在等待期间丢弃跨代际响应；页面再检查一次，
+				// 是为了把“请求已返回”和“页面准备回写”之间的快照边界也
+				// 固定下来，不能把成功提示显示给错误账号。
+				if (!isCurrentSessionGeneration(profileSessionGeneration)) {
+					const error = profileSessionChangedError();
+					this.clearDisplayedProfileContext();
+					this.showError(error, "个人资料保存失败");
+					return;
+				}
 				this.setData({
 					// PUT 成功后的响应是服务端 canonical 快照；完整回写，避免
 					// 页面继续保留未经服务端最终校验的本地输入值。
@@ -314,6 +354,7 @@ Page<
 			age: "",
 			email: "",
 			version: 0,
+			sessionGeneration: -1,
 			loaded: false,
 			navigationPending: false,
 		});
