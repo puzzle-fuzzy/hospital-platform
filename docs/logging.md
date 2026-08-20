@@ -75,6 +75,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `patient.directory.operation.started` / `patient.directory.operation.lease_taken_over` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、provider 和 trace；不记录幂等键原文 |
 | `patient.directory.operation.replayed` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount 和 trace，确认没有再次访问 provider |
 | `patient.directory.operation.in_progress` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、固定的 `conflictScope` 和 trace，表示返回 409；不记录幂等键或租约原文 |
+| `patient.directory.snapshot.stale` | 患者目录同步并发保护 | 记录内部 operationId、attemptCount、provider 和 trace，表示旧快照被更新快照拒绝；不记录患者正文、幂等键或 provider 原始响应 |
 | `patient.directory.snapshot.committed` | 患者目录同步快照事务 | 记录快照事务已返回、provider request id、内部 operationId、attemptCount 和 Provider 目录数量；不把仓储返回的 active 读模型当作已验证成功 |
 | `patient.directory.synced` | 患者目录同步应用服务 | 记录 provider、trace、provider request id、内部 operationId、attemptCount、目录数量、active 数量和失效数量，不记录 unionId 或 provider 患者号 |
 | `patient.directory.failed` | 患者目录同步应用服务 | 记录失败类型、provider、trace、内部 operationId，以及安全白名单中的 `providerOperation`、`providerRequestId`、`providerStatusCode`、`providerRetryable`（有值时）；不记录第三方原始错误报文、请求 URL、查询卡号或姓名 |

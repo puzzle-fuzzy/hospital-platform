@@ -803,6 +803,90 @@ test("患者目录不同幂等键也不能在同一 owner 下并发访问 provid
 	);
 });
 
+test("患者目录旧租约晚返回时记录过期事件且不能覆盖新快照", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-stale",
+		unionId: "fixture-union-patient-stale",
+	});
+	const repository = createInMemoryPatientRepository();
+	const lines: string[] = [];
+	let now = new Date("2026-08-16T00:00:00.000Z");
+	let providerCalls = 0;
+	let releaseFirst!: () => void;
+	const firstBlocked = new Promise<void>((resolve) => {
+		releaseFirst = resolve;
+	});
+	const directory: PatientDirectoryGateway = {
+		listByIdentity: async () => {
+			providerCalls += 1;
+			if (providerCalls === 1) await firstBlocked;
+			return {
+				complete: true,
+				patients: [
+					{
+						providerPatientId:
+							providerCalls === 1 ? "provider-stale-old" : "provider-stale-new",
+						displayName: providerCalls === 1 ? "旧快照患者" : "新快照患者",
+						relationship: "self",
+						cardNumberMasked: "******0001",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "patient-list",
+					requestId: `patient-stale-request-${providerCalls}`,
+				},
+			};
+		},
+	};
+	let generatedIds = 0;
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory,
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
+		now: () => now,
+		syncLeaseMs: 1_000,
+		createPatientId: () => `internal-patient-stale-${++generatedIds}`,
+	});
+
+	const first = service.sync("fixture-user-0001", {
+		traceId: "patient-stale-old-trace",
+		idempotencyKey: "patient-stale-old-key",
+	});
+	while (providerCalls === 0) await Promise.resolve();
+	now = new Date("2026-08-16T00:00:02.000Z");
+	await expect(
+		service.sync("fixture-user-0001", {
+			traceId: "patient-stale-new-trace",
+			idempotencyKey: "patient-stale-new-key",
+		}),
+	).resolves.toMatchObject({ total: 1 });
+	releaseFirst();
+	await expect(first).rejects.toMatchObject({
+		name: "PatientDirectorySnapshotStaleError",
+	});
+
+	expect(await repository.listByOwner("fixture-user-0001")).toMatchObject([
+		{ displayName: "新快照患者", source: "hospital-his" },
+	]);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(
+		records.some(
+			(record) => record.event === "patient.directory.snapshot.stale",
+		),
+	).toBe(true);
+	expect(
+		records.some((record) => record.event === "patient.directory.failed"),
+	).toBe(false);
+});
+
 test("患者目录 provider 失败后只在租约到期才允许同 key 接管重试", async () => {
 	const identityUsers = createInMemoryIdentityUserRepository();
 	await identityUsers.findOrCreateByWechat({

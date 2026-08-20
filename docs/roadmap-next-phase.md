@@ -14,6 +14,12 @@
   MySQL/Redis 写入或微信 session，不能据此证明本地 `1186937` 已部署、旧 Python 共存、患者同步、预约、报告、
   门诊费用或真机业务成功。详见 [`release/current-public-readonly-smoke-2026-08-20.md`](release/current-public-readonly-smoke-2026-08-20.md)。
 
+- 2026-08-20（患者同步过期快照审计）：发现旧同步请求在租约过期并由新幂等键接管后，若晚于新快照返回，
+  仅依赖单患者 `directory_last_seen_at` 仍可能重新激活新快照已经停用的患者。新端已在带 operation 的 MySQL
+  快照事务中重新锁定 owner 行，并在任何患者写入前拒绝早于已提交成功快照的 `observedAt`；内存仓储同步维护
+  最新快照水位，API 返回 `409 patient-sync-stale`，日志记录 `patient.directory.snapshot.stale`。新增跨快照回归测试，
+  未修改众阳 adapter、旧 Python 服务、线上数据库、Redis 或小程序并行文件。
+
 - 2026-08-20（预约、门诊费用与患者档案只读闭环审计）：结合旧端真实 `patInfosFind` 响应，确认
   `data.patId` 是预约、报告和门诊费用共用的 HIS 临床患者引用，不是首页二维码 ID；新端继续以 owner-scoped
   `his-patient` 映射驱动 Provider 查询。复核了患者卡片独立归属、预约渠道 3、费用 `tradeStatus=1/3`、金额元转分、

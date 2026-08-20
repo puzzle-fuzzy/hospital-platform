@@ -26,6 +26,7 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
+	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
@@ -114,6 +115,8 @@ export function createInMemoryPatientRepository(
 	const inactivePatientIds = new Set<string>();
 	/** 记录完整目录快照的发起时间，模拟 MySQL 的 directory_last_seen_at。 */
 	const directoryLastSeenAt = new Map<string, string>();
+	/** 记录已经提交的最新完整快照，防止过期请求重新激活新快照停用的患者。 */
+	const latestDirectorySnapshotAt = new Map<string, string>();
 	const directoryIndex = new Map<string, string>();
 	const providerIndex = new Map<string, string>();
 	/**
@@ -135,6 +138,10 @@ export function createInMemoryPatientRepository(
 		`${input.ownerUserId}:${input.provider}:${input.idempotencyKey}`;
 	const directoryKey = (input: PatientDirectoryUpsertInput) =>
 		`${input.ownerUserId}:${input.provider}:${input.profile.providerPatientId}`;
+	const directorySnapshotKey = (input: {
+		ownerUserId: string;
+		provider: "zhongyang";
+	}) => `${input.ownerUserId}:${input.provider}`;
 	const providerReferenceKey = (input: {
 		ownerUserId: string;
 		provider: "zhongyang";
@@ -338,6 +345,16 @@ export function createInMemoryPatientRepository(
 			) {
 				throw new Error("Patient directory sync operation is not active");
 			}
+			const snapshotKey = directorySnapshotKey(input);
+			const latestObservedAt = latestDirectorySnapshotAt.get(snapshotKey);
+			if (
+				latestObservedAt &&
+				Date.parse(latestObservedAt) > Date.parse(input.observedAt)
+			) {
+				// 不仅患者逐条资料不能被旧时间覆盖，完整快照的“缺失即失效”
+				// 结论也不能倒流。否则旧请求可能把新快照已经停用的患者重新激活。
+				throw new PatientDirectorySnapshotStaleError();
+			}
 			const seenPatientIds = new Set<string>();
 			for (const patient of input.patients) {
 				const record = upsertDirectoryAt(
@@ -425,6 +442,9 @@ export function createInMemoryPatientRepository(
 				// 相同的领域状态，供 service 测试验证 replay 分支。
 				activeOperation.status = "succeeded";
 			}
+			// 只有整批快照和 operation 成功事实都成立后才推进水位；失败请求
+			// 不得留下一个会阻塞后续合法同步的伪最新时间。
+			latestDirectorySnapshotAt.set(snapshotKey, input.observedAt);
 			return result;
 		},
 		async resolveProviderReference(

@@ -33,6 +33,7 @@ export {
 export { parseIsoCalendarDate } from "./date-range";
 export {
 	DependencyNotConfiguredError,
+	PatientDirectorySnapshotStaleError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 } from "./errors";

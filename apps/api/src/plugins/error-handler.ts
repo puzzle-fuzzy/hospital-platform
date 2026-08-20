@@ -14,6 +14,7 @@ import {
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
+	PatientDirectorySnapshotStaleError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	PatientReadModelValidationError,
@@ -122,6 +123,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "patient-directory-snapshot-unsafe",
 						message: "外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
+					},
+				};
+			}
+
+			if (error instanceof PatientDirectorySnapshotStaleError) {
+				set.status = 409;
+				return {
+					success: false,
+					error: {
+						code: "patient-sync-stale",
+						message: "本次同步结果已过期，请刷新后重试",
 					},
 				};
 			}

@@ -367,6 +367,8 @@ test("MySQL patient snapshot marks sync operation succeeded in the same transact
 		directory_last_seen_at: "2026-08-16 00:00:00.000",
 	};
 	const { pool, state } = createFakePool([
+		[{ user_id: "user-001" }],
+		[],
 		[],
 		{ affectedRows: 1 },
 		{ affectedRows: 0 },
@@ -721,6 +723,35 @@ test("MySQL patient directory ignores a stale snapshot without reactivating or o
 			statement.includes("SET display_name = ?"),
 		),
 	).toBe(false);
+});
+
+test("MySQL patient snapshot rejects an older committed operation before writes", async () => {
+	const { pool, state } = createFakePool([
+		[{ user_id: "user-stale-001" }],
+		[{ observed_at: "2026-08-16 02:00:00.000" }],
+	]);
+	const repositories = createMySqlRepositories(pool);
+	const snapshot = repositories.patients.replaceDirectorySnapshot;
+	if (!snapshot) throw new Error("snapshot unavailable");
+
+	await expect(
+		snapshot({
+			ownerUserId: "user-stale-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T01:00:00.000Z",
+			operationId: "operation-stale-001",
+			operationAttemptCount: 1,
+			patients: [],
+		}),
+	).rejects.toMatchObject({ name: "PatientDirectorySnapshotStaleError" });
+
+	expect(state.rolledBack).toBe(true);
+	expect(
+		state.statements.some((statement) =>
+			statement.includes("SET directory_active"),
+		),
+	).toBe(false);
+	expect(state.statements[1]).toContain("status = 'succeeded'");
 });
 
 test("MySQL patient provider lookup is owner-scoped and server-only", async () => {

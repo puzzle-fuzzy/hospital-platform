@@ -33,6 +33,7 @@ import type {
 } from "@hospital/domain";
 import {
 	MAX_USER_PROFILE_VERSION,
+	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
@@ -1331,6 +1332,36 @@ export function createMySqlRepositories(
 				throw new Error("Patient sync operation attempt is required");
 			}
 			return withTransaction(pool, async (connection) => {
+				const observedAt = mysqlDateTime(input.observedAt);
+				if (input.operationId) {
+					// beginDirectorySync 只在请求 Provider 前锁 owner 行；Provider
+					// 响应返回后必须再次锁同一行，才能把“检查最新快照、修改目录、
+					// 完成 operation”串成一个顺序。否则租约过期的旧请求可能和新
+					// operation 同时提交，重新激活新快照已经停用的患者。
+					const ownerRows = await execute<RowDataPacket[]>(
+						connection,
+						"SELECT user_id FROM hp_identity_users WHERE user_id = ? LIMIT 1 FOR UPDATE",
+						[input.ownerUserId],
+					);
+					if (!ownerRows[0]) {
+						throw new Error(
+							"Patient sync owner disappeared before snapshot commit",
+						);
+					}
+					const newerRows = await execute<
+						(RowDataPacket & { observed_at: string | null })[]
+					>(
+						connection,
+						"SELECT observed_at FROM hp_patient_directory_sync_operations WHERE owner_user_id = ? AND provider_name = ? AND status = 'succeeded' AND observed_at IS NOT NULL AND observed_at > ? ORDER BY observed_at DESC LIMIT 1 FOR UPDATE",
+						[input.ownerUserId, input.provider, observedAt],
+					);
+					if (newerRows[0]?.observed_at) {
+						// 这里必须在任何患者写入之前拒绝；事务虽然可以回滚，
+						// 但先写再报错会扩大锁持有时间，也让排障难以区分
+						// “旧快照被拒绝”和“数据库写入失败”。
+						throw new PatientDirectorySnapshotStaleError();
+					}
+				}
 				for (const snapshotPatient of input.patients) {
 					const patient = await upsertPatientFromDirectory(
 						connection,
@@ -1355,7 +1386,6 @@ export function createMySqlRepositories(
 					);
 				}
 
-				const observedAt = mysqlDateTime(input.observedAt);
 				const deactivated = await execute<ResultSetHeader>(
 					connection,
 					"UPDATE hp_patients SET directory_active = 0, updated_at = ? WHERE owner_user_id = ? AND provider_name = ? AND directory_active = 1 AND (directory_last_seen_at IS NULL OR directory_last_seen_at < ?)",

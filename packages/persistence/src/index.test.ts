@@ -351,26 +351,27 @@ test("患者目录旧快照返回较晚时不能覆盖新资料或重新激活�
 		],
 	});
 
-	const stale = await patients.replaceDirectorySnapshot({
-		ownerUserId: "user-order-001",
-		provider: "zhongyang",
-		observedAt: "2026-08-16T01:00:00.000Z",
-		patients: [
-			{
-				patientId: "must-not-replace-order-id",
-				profile: {
-					providerPatientId: "provider-order-001",
-					providerReferences: { "his-patient": "his-order-old" },
-					displayName: "旧资料",
-					relationship: "self",
-					cardNumberMasked: "******1001",
+	await expect(
+		patients.replaceDirectorySnapshot({
+			ownerUserId: "user-order-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T01:00:00.000Z",
+			patients: [
+				{
+					patientId: "must-not-replace-order-id",
+					profile: {
+						providerPatientId: "provider-order-001",
+						providerReferences: { "his-patient": "his-order-old" },
+						displayName: "旧资料",
+						relationship: "self",
+						cardNumberMasked: "******1001",
+					},
 				},
-			},
-		],
-	});
+			],
+		}),
+	).rejects.toMatchObject({ name: "PatientDirectorySnapshotStaleError" });
 
-	expect(stale.deactivatedPatientCount).toBe(0);
-	expect(stale.activePatients).toEqual([
+	expect(await patients.listByOwner("user-order-001")).toEqual([
 		{
 			id: "patient-order-001",
 			ownerUserId: "user-order-001",
@@ -398,6 +399,75 @@ test("患者目录旧快照返回较晚时不能覆盖新资料或重新激活�
 			referenceKind: "his-patient",
 		}),
 	).toMatchObject({ providerPatientId: "his-order-new" });
+});
+
+test("患者目录更旧的完整快照不能重新激活新快照已停用的患者", async () => {
+	const patients = createInMemoryPatientRepository();
+	if (!patients.replaceDirectorySnapshot)
+		throw new Error("snapshot unavailable");
+
+	await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-stale-activation-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T00:00:00.000Z",
+		patients: [
+			{
+				patientId: "patient-stale-activation-old",
+				profile: {
+					providerPatientId: "provider-stale-activation-old",
+					displayName: "旧快照患者",
+					relationship: "self",
+					cardNumberMasked: "******0001",
+				},
+			},
+		],
+	});
+	await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-stale-activation-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T02:00:00.000Z",
+		patients: [
+			{
+				patientId: "patient-stale-activation-new",
+				profile: {
+					providerPatientId: "provider-stale-activation-new",
+					displayName: "新快照患者",
+					relationship: "self",
+					cardNumberMasked: "******0002",
+				},
+			},
+		],
+	});
+
+	await expect(
+		patients.replaceDirectorySnapshot({
+			ownerUserId: "user-stale-activation-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T01:00:00.000Z",
+			patients: [
+				{
+					patientId: "must-not-reactivate-old",
+					profile: {
+						providerPatientId: "provider-stale-activation-old",
+						displayName: "旧快照重新返回",
+						relationship: "self",
+						cardNumberMasked: "******9999",
+					},
+				},
+			],
+		}),
+	).rejects.toMatchObject({ name: "PatientDirectorySnapshotStaleError" });
+	expect(await patients.listByOwner("user-stale-activation-001")).toEqual([
+		{
+			id: "patient-stale-activation-new",
+			ownerUserId: "user-stale-activation-001",
+			displayName: "新快照患者",
+			relationship: "self",
+			cardNumberMasked: "******0002",
+			source: "hospital-his",
+			clinicalAccess: "unavailable",
+		},
+	]);
 });
 
 test("患者目录旧租约在新代次接管后不能提交同步结果", async () => {

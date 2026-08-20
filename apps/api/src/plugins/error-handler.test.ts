@@ -12,6 +12,7 @@ import {
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
+	PatientDirectorySnapshotStaleError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientReadModelValidationError,
 	PaymentCashPrepayNotAllowedError,
@@ -239,6 +240,23 @@ test("ambiguous empty patient snapshots return a safe 502 contract", async () =>
 		error: {
 			code: "patient-directory-snapshot-unsafe",
 			message: "外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
+		},
+	});
+});
+
+test("stale patient snapshots return a retryable conflict contract", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new PatientDirectorySnapshotStaleError();
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(409);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "patient-sync-stale",
+			message: "本次同步结果已过期，请刷新后重试",
 		},
 	});
 });

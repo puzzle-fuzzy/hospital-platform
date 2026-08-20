@@ -13,6 +13,7 @@ import {
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
+	PatientDirectorySnapshotStaleError,
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 	PatientReadModelValidationError,
@@ -362,7 +363,8 @@ export class PatientService {
 			// `failed`，监控会把正常的重复刷新误报成同步故障。
 			if (
 				!syncOutcomeCommitted &&
-				!(error instanceof PatientDirectorySyncInProgressError)
+				!(error instanceof PatientDirectorySyncInProgressError) &&
+				!(error instanceof PatientDirectorySnapshotStaleError)
 			) {
 				this.logger.error(
 					{
@@ -389,6 +391,20 @@ export class PatientService {
 						...providerFailureMetadata(error),
 					},
 					"Patient directory synchronization failed",
+				);
+			} else if (
+				!syncOutcomeCommitted &&
+				error instanceof PatientDirectorySnapshotStaleError
+			) {
+				this.logger.warn(
+					{
+						event: "patient.directory.snapshot.stale",
+						traceId: context.traceId,
+						provider: "zhongyang",
+						operationId,
+						attemptCount: operationAttemptCount,
+					},
+					"Patient directory snapshot was rejected because a newer snapshot won",
 				);
 			}
 			throw error;

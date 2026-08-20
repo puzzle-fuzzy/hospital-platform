@@ -87,8 +87,13 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
    快照事务返回值还要经过独立的持久化读模型门禁：事务返回后先记录
    `patient.directory.snapshot.committed`，再重新校验 `activePatients` 的 owner、唯一 ID、脱敏字段和
    `deactivatedPatientCount` 的非负安全整数。只有二次投影成功才记录 `patient.directory.synced`；如果数据库已经提交但
-   返回值损坏，只记录 `patient.directory.read.failed`，不能因为读模型异常把已提交快照误报为同步失败，也不能把未经验证的数量
-   作为同步成功证据。
+    返回值损坏，只记录 `patient.directory.read.failed`，不能因为读模型异常把已提交快照误报为同步失败，也不能把未经验证的数量
+    作为同步成功证据。
+
+    患者完整快照还必须按 owner/provider 串行提交：带 operation lease 的 MySQL
+    快照事务会重新锁定 owner 身份行，并拒绝早于已提交成功 operation 的 `observedAt`。
+    这样即使旧 Provider 请求在租约过期后才返回，也不能把新快照已经停用的患者重新激活；
+    这类结果返回 `patient-sync-stale`，并记录为明确的过期快照事件，而不是伪装成 Provider 故障。
 8. 患者目录、报告、挂号记录和门诊费用页面使用“最后一次请求获胜”规则；旧的异步响应即使晚返回，也不能回写当前页面。
    挂号记录和爽约记录在新请求开始时还必须先清理上一位患者的卡片和列表；最新请求守卫只能阻止旧响应回写，
    不能替代请求等待期间的展示隔离。

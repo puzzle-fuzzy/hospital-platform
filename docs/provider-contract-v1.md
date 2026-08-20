@@ -35,6 +35,11 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 当前患者目录响应在 adapter 内标记为 `complete: true`，因为 `patientInfoByUnionId` 当前返回的是完整数组而不是分页游标；该标记才允许 0013 快照事务回收未出现患者。若 provider 改为分页，必须先合并全部分页，不能用单页结果标记 complete。
 - 患者目录 adapter 对完整数组设置 128 条资源上限；这不是医院业务上的绑定人数上限，而是为了避免异常响应在后续为每位患者调用 `patInfosFind` 时形成无界并发。超过上限整批返回 `provider-response-invalid`，不会截断后继续快照失效回收；若 Provider 后续提供分页契约，必须先完成有界分页合并后再评估该边界。
 - 该 128 条边界同时由 domain/service 在可注入 gateway 进入快照事务前再次执行，患者 GET 读取也会在读模型返回前复用；这样回放器、测试替身或未来其它 gateway 不能绕过 adapter 继续生成平台 ID、发起档案副作用、写入部分快照或把超大目录返回给小程序。超量统一整批失败，不截断、不回收失效患者；持久化读模型异常返回 `persistence-invalid`，不能伪装成空目录。
+
+完整快照提交还受 `observedAt` 顺序保护：带同步 operation 的 MySQL 事务会重新锁定 owner，
+如果发现同一 owner/provider 已经提交了更晚的成功快照，就整批拒绝当前旧结果并回滚，返回
+`patient-sync-stale`。不能只依赖每条患者的 `directory_last_seen_at`，因为旧完整快照缺少的患者
+也可能被新快照停用，逐条时间判断无法阻止旧请求重新激活它。
 - 在资源上限以内，`patInfosFind` 仍按最多 4 路并发调度并保持目录顺序；任一档案失败后不再领取新的查询任务，已在途请求按原有超时/取消机制结束。该并发度是平台资源策略，不是 Provider 限流合同，取得正式限流材料后再重新校准。
 - `ZHONGYANG_AUTHORIZATION_TOKEN` 是可选的服务端 secret，是否需要以及具体授权格式必须以众阳/HIS 合同确认；配置状态 configured 只代表字段完整，不代表真实请求成功。旧的 `ZHONGYANG_PATIENT_DIRECTORY_AUTHORIZATION_TOKEN` 仅作为迁移兼容变量读取。
 

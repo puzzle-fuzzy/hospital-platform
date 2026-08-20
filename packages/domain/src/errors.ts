@@ -34,3 +34,16 @@ export class PatientDirectorySnapshotUnsafeError extends Error {
 		this.name = "PatientDirectorySnapshotUnsafeError";
 	}
 }
+
+/**
+ * 患者目录快照已经落后于同一 owner/provider 的更新快照。
+ *
+ * 旧请求即使仍持有未清理的租约，也不能覆盖新一轮已经提交的目录；
+ * 这属于并发冲突而不是 Provider 故障，调用方应刷新当前读模型。
+ */
+export class PatientDirectorySnapshotStaleError extends Error {
+	constructor() {
+		super("Patient directory snapshot is stale");
+		this.name = "PatientDirectorySnapshotStaleError";
+	}
+}
