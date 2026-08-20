@@ -43,6 +43,14 @@
 | `GET /knowledge/health/disease/detail/{disease_id}` | 疾病详情 | `getDiseaseDetail(diseaseId)` |
 | `GET /knowledge/health/drug/detail/{drug_id}` | 药品详情 | `getDrugDetail(drugId)` |
 
+### 症状查询参数命名边界
+
+旧 FastAPI 接口的查询参数名是 `symptoms_ids`；新平台的未挂载 route 使用新的统一
+camelCase 参数 `symptomIds`（重复 query key）。这不是旧接口的透明兼容层：原生小程序
+未来接入时必须使用 `symptomIds`，不能让服务端同时猜测两个参数或把缺失参数默默当成空查询。
+如果后续确实需要服务旧客户端，应单独设计带迁移期限、日志和回归测试的 compatibility route，
+不能改变当前 canonical contract。
+
 旧表事实来自 `model.py`，包括：
 
 | 旧表 | 内容 | 新端目标表/事实 |

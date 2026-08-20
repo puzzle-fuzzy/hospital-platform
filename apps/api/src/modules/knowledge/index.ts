@@ -19,6 +19,11 @@ const KnowledgeIdParams = t.Object({
 	partId: t.String({ minLength: 1, maxLength: 128 }),
 });
 
+/**
+ * 新平台 HTTP contract 统一使用 camelCase；旧 FastAPI 的 `symptoms_ids` 只
+ * 保留在迁移映射中，不在新路由里同时猜测两个参数。这样客户端拼错参数时
+ * 会明确失败，避免“兼容成功”却无法判断实际调用的是哪套查询语义。
+ */
 const SymptomQuery = t.Object({
 	symptomIds: t.Array(t.String({ minLength: 1, maxLength: 128 }), {
 		minItems: 1,
