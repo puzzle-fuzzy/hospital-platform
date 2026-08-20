@@ -657,9 +657,9 @@ test("GET 重新登录后的第二次 401 会清理同一代无效 token", async
 	};
 
 	try {
-		await expect(requestWithSession({ url: "/patients" })).rejects.toMatchObject(
-			{ code: "unauthorized", statusCode: 401 },
-		);
+		await expect(
+			requestWithSession({ url: "/patients" }),
+		).rejects.toMatchObject({ code: "unauthorized", statusCode: 401 });
 		expect(loginCount).toBe(1);
 		expect(requestCount).toBe(3);
 		expect(globalData.accessToken).toBe("");

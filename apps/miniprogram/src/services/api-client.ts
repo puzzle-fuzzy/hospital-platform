@@ -1026,11 +1026,7 @@ export async function requestWithSession<TResponse>(
 		await login();
 		accessToken = getAppConfig().accessToken;
 		sessionGeneration = getSessionGeneration();
-		return requestAfterSessionRecovery(
-			options,
-			sessionGeneration,
-			accessToken,
-		);
+		return requestAfterSessionRecovery(options, sessionGeneration, accessToken);
 	}
 }
 
