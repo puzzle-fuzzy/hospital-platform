@@ -26,6 +26,7 @@
 		"provider:audit": "bun tools/provider-intake-audit.mjs",
 		"release:baseline:audit": "bun tools/release-baseline-audit.mjs",
 		"runtime:preflight": "pnpm --filter @hospital/worker preflight",
+		"runtime:verify": "pnpm --filter @hospital/miniprogram runtime:verify",
 		"runtime:smoke": "pnpm --filter @hospital/worker runtime-smoke",
 		"provider:smoke": "pnpm --filter @hospital/worker provider-smoke",
 		"zhongyang:docs": "node --no-warnings --experimental-strip-types tools/zhongyang-docs/cli.ts",
