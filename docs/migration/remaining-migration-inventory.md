@@ -36,6 +36,10 @@
 > `10.0.0.3:18081`，旧 Python API 仍监听 `0.0.0.0:8001`，公网 `/api/v2/health/ready` 返回 `200`。
 > 本次只读取服务状态、监听和 readiness，没有重启服务、修改配置或触碰旧项目；该运行层证据不增加任何新的 Provider 或真机业务结论。
 
+> 2026-08-21 公网关闭能力边界复核：患者新增、门诊病历、医保授权和预约写入均保持 `404`；普通资料、预约历史、门诊费用和报告
+> 在无 Bearer 会话时均返回 `401`。这证明路由的关闭/鉴权边界仍符合 fail-closed 设计，不证明任何 Provider 或真机业务已经完成；详见
+> [`../release/current-public-closed-boundary-2026-08-21.md`](../release/current-public-closed-boundary-2026-08-21.md)。
+
 > 2026-08-20 12:05 CST SSH 与公网只读复核：线上 `current` 仍为完整 release
 > `0e360d32edcfaa49128a7c29aaa4947cf739e090`，新 Bun API 监听 `10.0.0.3:18081`，旧 Python API 仍监听
 > `0.0.0.0:8001`；公网 live/ready/ping 均为 200，ready 依赖为 `database=ok`、`redis=ok`、`schema=ok`，
