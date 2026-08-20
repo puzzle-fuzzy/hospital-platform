@@ -51,6 +51,11 @@
   该结果继续保持业务门禁关闭，不把“服务正常但没有请求”解释成 Provider 成功或失败。详见
   [`release/current-5a31427-p0-business-observation-2026-08-21-0409.md`](release/current-5a31427-p0-business-observation-2026-08-21-0409.md)。
 
+- 2026-08-21 04:29 CST（`5a31427` 最新只读复核）：当前 release 仍为 `5a31427`，新 API `18081` 与旧 Python `8001`
+  同时监听且新 API 为 `active`。最近约 30 分钟日志聚合解析 `3` 条记录，`parseErrors=0`、`systemdWarningCount=0`，
+  仅有 3 条基础 HTTP `200`，没有新的微信、患者、预约或门诊费用事件。该结果继续保持业务门禁关闭；详见
+  [`release/current-5a31427-p0-business-observation-2026-08-21-0429.md`](release/current-5a31427-p0-business-observation-2026-08-21-0429.md)。
+
 - 2026-08-21（患者目录 trace 保留边界）：domain 现在会保留 gateway 返回且通过统一校验的有界 `requestIds`，
   service 的 `patient.directory.snapshot.committed` / `patient.directory.synced` 同时记录兼容主 ID 和列表；
   P0 聚合器也会读取两种字段并去重统计；当前众阳患者 adapter 尚未因本轮改动而改变，另一个会话的自动化获取不受影响。
