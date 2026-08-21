@@ -7,6 +7,13 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 19:24 CST（当前 `single-flight.test.js` ENOENT 复核）：重新执行小程序构建后，运行包来源为
+  `f488c6f3270514af10b19fdf3c45a47519e1736b`，14 个页面入口均有完整 `.js/.json/.wxml/.wxss` 文件，
+  `dist/services/single-flight.js` 存在，`dist/` 中 `*.test.js`/`*.spec.js` 数量为 0；小程序 197 项测试全部通过。
+  当前源码和运行包没有对 `single-flight.test` 的运行时引用，因此真机报错属于开发者工具旧增量模块索引，
+  不应把测试脚本复制到 `dist/`。处理方式是关闭旧真机调试、重新打开
+  `E:\__Super_Core__\hospital-platform\apps\miniprogram\`，普通编译后重新生成二维码；旧 Python 服务未修改、未重启。
+
 - 2026-08-21（健康知识导入运行时边界）：提交 `5d8b9c44` 将健康知识 bundle 校验改为
   `unknown -> 严格字段解析 -> 版本/关系/完整详情集校验`，缺失数组、错误类型和患者敏感字段不会再被
   普通 TypeError 或静默丢字段掩盖；提交 `f488c6f3` 将只读检查命令归属到
