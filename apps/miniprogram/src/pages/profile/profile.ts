@@ -47,11 +47,32 @@ const GENDER_VALUES = ["male", "female", "unknown"] as const;
 /**
  * 判断保存失败是否已经破坏了当前资料的会话归属。
  *
- * 普通网络失败或服务端 5xx 不足以证明用户已经换号，旧资料可以暂留在
- * 页面内等待重试；但明确的 unauthorized/session-changed，或者自动重新登录
- * 失败后已经没有 token，都不能继续把旧资料展示成当前账号的资料。
+ * 普通网络失败、Redis 暂时不可用或其他服务端 5xx 不足以证明用户已经换号，
+ * 最近一次已确认的资料可以暂留在页面内等待重试；但明确的 unauthorized、
+ * session-changed、自动重新登录失败后已经没有 token，或者服务端明确说读模型
+ * 已损坏，都不能继续把旧资料展示成当前账号的可编辑事实。
+ *
+ * `persistence-invalid` 与会话失效不是同一件事：前者需要清空旧资料并阻止保存，
+ * 但不能把仍可能有效的登录态误判为未登录并强制跳转首页。
  */
 function shouldClearProfileDisplay(error: unknown): boolean {
+	if (!hasPlatformSession()) return true;
+	return (
+		error instanceof ApiError &&
+		(error.code === "unauthorized" ||
+			error.code === "session-changed" ||
+			error.code === "persistence-invalid")
+	);
+}
+
+/**
+ * 只有会话事实失效才回到登录入口。
+ *
+ * 资料读模型损坏和 Redis 短暂故障都不等价于“用户未登录”：前者清空当前
+ * 资料后留在页面等待刷新，后者保留最近一次已确认内容并允许重试；如果复用
+ * `shouldClearProfileDisplay` 直接 `reLaunch`，会把数据层故障伪装成登录失效。
+ */
+function shouldReturnToLogin(error: unknown): boolean {
 	if (!hasPlatformSession()) return true;
 	return (
 		error instanceof ApiError &&
@@ -372,7 +393,7 @@ Page<
 			error instanceof ApiError && error.code === "user-profile-conflict"
 				? "个人资料已被其他设备修改，请下拉刷新后重试"
 				: safeApiErrorMessage(error, fallback);
-		if (shouldClearProfileDisplay(error)) {
+		if (shouldReturnToLogin(error)) {
 			// 资料 GET 的自动恢复或资料 PUT 的明确失效都不能把用户留在旧页面；
 			// 返回首页后由用户确认当前微信账号，避免自动重放普通资料命令。
 			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });

@@ -509,9 +509,28 @@ test("native profile returns to login after the session owner is lost", async ()
 
 	// 资料 GET 的自动恢复或资料 PUT 的明确失效都不能把用户留在旧页面；
 	// 返回首页后由用户确认当前微信账号，避免自动重放普通资料命令。
-	expect(errorBody).toContain("shouldClearProfileDisplay(error)");
+	expect(errorBody).toContain("shouldReturnToLogin(error)");
 	expect(errorBody).toContain('wx.reLaunch({ url: "/pages/index/index" });');
 	expect(errorBody).toContain("不能把用户留在旧页面");
+});
+
+test("native profile distinguishes invalid read models from session loss", async () => {
+	const profile = await source("pages/profile/profile.ts");
+	const clearStart = profile.indexOf("function shouldClearProfileDisplay");
+	const loginStart = profile.indexOf("function shouldReturnToLogin");
+	const showErrorStart = profile.lastIndexOf(
+		"showError(error: unknown, fallback: string): void",
+	);
+	const showErrorEnd = profile.indexOf("\n\t},", showErrorStart);
+	const clearBody = profile.slice(clearStart, loginStart);
+	const loginBody = profile.slice(loginStart, showErrorStart);
+	const showErrorBody = profile.slice(showErrorStart, showErrorEnd);
+
+	// persistence-invalid 说明服务端无法确认资料读模型，旧资料必须清空；
+	// 但它不是 unauthorized，不能通过 reLaunch 把数据层故障伪装成登录失效。
+	expect(clearBody).toContain('error.code === "persistence-invalid"');
+	expect(loginBody).not.toContain('error.code === "persistence-invalid"');
+	expect(showErrorBody).toContain("shouldReturnToLogin(error)");
 });
 
 test("patient selection hides the current badge while directory confirmation is pending", async () => {
