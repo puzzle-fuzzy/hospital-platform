@@ -52,3 +52,21 @@
 | 手机是否扫码 | 待记录；不能复用旧二维码 |
 
 本次仍未修改、部署或重启旧 Python 服务。手机端后续必须扫码当前二维码；若再次出现相同 ENOENT，应立即停止该扫码会话，关闭并重新打开 `apps/miniprogram/` 项目后再普通编译，不能把测试脚本手工复制到 `dist/`。
+
+## 针对 `single-flight.test.js` 报错的再次恢复（2026-08-21 08:54 CST）
+
+本次收到真机错误：`ENOENT .../dist/services/single-flight.test.js`。重新检查后确认运行包中只有生产模块 `single-flight.js`，不存在任何 `*.test.js` 或 `*.spec.js`；TypeScript 构建排除了测试源码，构建脚本和 `runtime:verify` 也都通过了测试脚本运行包门禁。该错误是开发者工具/真机调试会话仍引用旧增量模块索引的表现，不应通过复制测试脚本“修复”。
+
+随后重新打开正确的 `miniprogram` 项目真机调试入口并重新编译，当前新二维码为 iOS + 局域网模式，工具显示有效至 `08:54 CST`。本次仍未获得手机扫码后的业务结果，因此真机登录、患者同步及其他 P0 域仍为 `not-run`；本次也未修改、部署或重启旧 Python 服务。
+
+| 项目 | 当前结果 |
+| --- | --- |
+| `dist/build-info.json` | `pageCount=14`，生成时间 `2026-08-21T00:27:51.448Z` |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 测试运行脚本 | `*.test.js` / `*.spec.js` 均为 0 |
+| 开发者工具项目 | `miniprogram`，运行根目录为 `apps/miniprogram/dist/` |
+| 当前二维码 | iOS + 局域网，工具显示有效至 `08:54 CST` |
+| 手机是否扫码 | 待记录；不能复用旧二维码 |
