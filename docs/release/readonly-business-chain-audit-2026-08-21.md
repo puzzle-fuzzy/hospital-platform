@@ -1,12 +1,12 @@
 # 当前只读业务链审计（2026-08-21）
 
-> 本记录以服务端 `5a31427` 和小程序本地候选 `f085d06` 为基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。完整运行包来源为 `f085d06d8e4b9695274f93b5a6b56f2af3faac91`。没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
+> 本记录以服务端 `5a31427` 和小程序本地候选 `f085d06` 为运行基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。完整运行包来源为 `f085d06d8e4b9695274f93b5a6b56f2af3faac91`。本地适配器审计修正已提交为 `313e903`，尚未部署；没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
 >
 > 本地代码和测试通过不等于真实 Provider、HTTPS、真机页面或业务日志三层验收完成。
 
 ## 1. 本轮结论
 
-本轮没有发现可以在不猜测 Provider 合同的前提下安全修改的业务缺口，因此没有新增兼容字段，也没有打开预约写入、全部挂号、支付、医保或 HIS 回写。
+本轮没有发现可以在不猜测 Provider 合同的前提下扩展新业务的缺口，因此没有新增兼容字段，也没有打开预约写入、全部挂号、支付、医保或 HIS 回写。对已有门诊费用只读链路做了一项边界收紧：展示名称不能参与生成稳定业务引用。
 
 已经确认的只读链路如下：
 
@@ -26,6 +26,10 @@
 - 三个页面在开始新一轮患者查询时清除旧卡片和列表；只有会话代际、页面请求令牌、当前显式患者和本次响应同时有效时才回写。
 - `dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在，运行包内 `*.test.js`/`*.spec.js` 数量为 0。再次出现该 ENOENT 时应按开发者工具旧增量索引处理，不得把测试脚本复制进运行包。
 
+### 门诊费用稳定身份修正（`313e903`）
+
+众阳费用条目的 `itemName` 只是展示文本，不能作为费用、就诊或单据的稳定身份。此前如果响应只包含 `itemName`、账单日期、金额和状态，可能生成一个看似稳定但无法定位原始费用的 `recordId`；这会为后续详情、支付或对账留下错误引用。现在 `opaqueRecordId()` 只接受已确认的单据、就诊或费用标识（例如 `outTradeOrderId`、`registerId`、`visitRecordId`、`mainId`、`chargeId`、`chargeCode`、`presCode`），缺少这些标识时整批 fail-closed，并由回归测试覆盖“仅展示名称不能成 ID”。本修正没有调用 Provider、没有部署或重启服务。
+
 ## 2. 代码边界
 
 | 链路 | 关键位置 | 已确认的边界 |
@@ -42,6 +46,8 @@
 | --- | --- | --- |
 | 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 171 项通过，0 项失败，1366 个断言 |
 | API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
+| 众阳及通用 adapter | `pnpm --filter @hospital/adapters test` | 105 项通过，0 项失败，228 个断言；包含稳定身份缺失回归 |
+| 全仓门禁 | `pnpm check` | 通过；架构 67 项、文档 343 篇无断链、9 个 workspace 类型/测试/构建全部成功 |
 | 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `f085d06`，不含测试脚本 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.js` | 存在 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.test.js` | 不存在 |
