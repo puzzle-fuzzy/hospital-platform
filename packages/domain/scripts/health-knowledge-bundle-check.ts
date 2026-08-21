@@ -1,9 +1,10 @@
 import {
 	HealthKnowledgeImportValidationError,
 	validateHealthKnowledgeImportBundle,
-} from "../packages/domain/src/index.ts";
+} from "../src/index.ts";
 
-const USAGE = "用法：pnpm knowledge:bundle:check -- <脱敏健康知识 bundle.json>";
+const USAGE =
+	"用法：pnpm --filter @hospital/domain knowledge:bundle:check -- <脱敏健康知识 bundle.json>";
 
 /**
  * 这是导入前的只读门禁，不连接 MySQL、Redis，也不改变患者端 route gate。

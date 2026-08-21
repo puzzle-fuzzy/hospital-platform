@@ -111,7 +111,7 @@ API 仍保持未挂载，真实内容导入和患者页面验收门禁不变。
 - `validateHealthKnowledgeImportBundle` 现在先按 `unknown` 解析 JSON，再执行版本、时区、关系和完整详情集校验；
 - 缺失对象/数组、错误类型和未知字段会统一返回字段路径，不再先抛普通 `TypeError`；
 - `patientName`、身份证号等不在 contract 内的字段不会被静默丢弃，而是在导入前拒绝；
-- `pnpm knowledge:bundle:check -- <file>` 只读文件并输出低敏摘要，不连接 MySQL/Redis、不执行 migration、不写库；
+- `pnpm --filter @hospital/domain knowledge:bundle:check -- <file>` 只读文件并输出低敏摘要，不连接 MySQL/Redis、不执行 migration、不写库；
 - `packages/persistence/src/health-knowledge-import.ts` 的单事务和路由未挂载边界保持不变。
 
 这项改动只提高“内容进入 SQL 之前”的确定性，不能替代旧库脱敏、医学审核、staging 发布演练或患者端真机验收。

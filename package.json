@@ -24,7 +24,6 @@
 		"infra:up": "docker compose -f infra/docker-compose.yml up -d",
 		"lint": "biome lint .",
 		"migration:audit": "bun tools/migration-inventory-audit.mjs",
-		"knowledge:bundle:check": "bun tools/health-knowledge-bundle-check.ts",
 		"provider:audit": "bun tools/provider-intake-audit.mjs",
 		"release:baseline:audit": "bun tools/release-baseline-audit.mjs",
 		"runtime:preflight": "pnpm --filter @hospital/worker preflight",

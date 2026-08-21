@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "tsc --noEmit false --declaration --emitDeclarationOnly --outDir dist",
+		"knowledge:bundle:check": "bun scripts/health-knowledge-bundle-check.ts",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},
