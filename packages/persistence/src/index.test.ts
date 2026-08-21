@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { PatientDirectoryReferenceConflictError } from "@hospital/domain";
 import {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
@@ -180,6 +181,115 @@ test("in-memory patient directory upsert keeps a stable internal id", async () =
 			provider: "zhongyang",
 		}),
 	).toBeUndefined();
+});
+
+test("内存患者目录拒绝跨患者复用 HIS 映射", async () => {
+	const patients = createInMemoryPatientRepository();
+	await patients.upsertFromDirectory({
+		ownerUserId: "user-001",
+		patientId: "internal-patient-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-patient-001",
+			providerReferences: { "his-patient": "his-patient-001" },
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******7890",
+		},
+	});
+
+	await expect(
+		patients.upsertFromDirectory({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-002",
+			provider: "zhongyang",
+			profile: {
+				providerPatientId: "provider-patient-002",
+				providerReferences: { "his-patient": "his-patient-001" },
+				displayName: "李四",
+				relationship: "spouse",
+				cardNumberMasked: "******0001",
+			},
+		}),
+	).rejects.toBeInstanceOf(PatientDirectoryReferenceConflictError);
+
+	// 冲突必须发生在患者数组更新之前，不能留下没有临床身份的第二位患者。
+	await expect(patients.listByOwner("user-001")).resolves.toEqual([
+		{
+			id: "internal-patient-001",
+			ownerUserId: "user-001",
+			displayName: "张三",
+			relationship: "self",
+			cardNumberMasked: "******7890",
+			source: "hospital-his",
+			clinicalAccess: "ready",
+		},
+	]);
+});
+
+test("内存患者完整快照在映射冲突前不留下部分更新", async () => {
+	const patients = createInMemoryPatientRepository();
+	if (!patients.replaceDirectorySnapshot)
+		throw new Error("snapshot unavailable");
+
+	await patients.replaceDirectorySnapshot({
+		ownerUserId: "user-001",
+		provider: "zhongyang",
+		observedAt: "2026-08-16T00:00:00.000Z",
+		patients: [
+			{
+				patientId: "internal-patient-001",
+				profile: {
+					providerPatientId: "provider-patient-001",
+					providerReferences: { "his-patient": "his-patient-001" },
+					displayName: "张三",
+					relationship: "self",
+					cardNumberMasked: "******7890",
+				},
+			},
+		],
+	});
+
+	await expect(
+		patients.replaceDirectorySnapshot({
+			ownerUserId: "user-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T01:00:00.000Z",
+			patients: [
+				{
+					patientId: "internal-patient-new",
+					profile: {
+						providerPatientId: "provider-patient-new",
+						providerReferences: { "his-patient": "his-patient-new" },
+						displayName: "王五",
+						relationship: "child",
+						cardNumberMasked: "******0002",
+					},
+				},
+				{
+					patientId: "internal-patient-conflict",
+					profile: {
+						providerPatientId: "provider-patient-conflict",
+						providerReferences: { "his-patient": "his-patient-001" },
+						displayName: "赵六",
+						relationship: "parent",
+						cardNumberMasked: "******0003",
+					},
+				},
+			],
+		}),
+	).rejects.toBeInstanceOf(PatientDirectoryReferenceConflictError);
+
+	// 预检副本中即使先遇到王五，也不能让失败快照部分激活新患者或停用张三。
+	await expect(patients.listByOwner("user-001")).resolves.toHaveLength(1);
+	await expect(
+		patients.resolveProviderReference({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-new",
+			provider: "zhongyang",
+			referenceKind: "his-patient",
+		}),
+	).resolves.toBeUndefined();
 });
 
 test("内存患者读模型缺少 his-patient 映射时拒绝沿用历史 ready 状态", async () => {

@@ -26,6 +26,7 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
+	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
@@ -120,6 +121,13 @@ export function createInMemoryPatientRepository(
 	const directoryIndex = new Map<string, string>();
 	const providerIndex = new Map<string, string>();
 	/**
+	 * 模拟 MySQL `hp_patient_provider_references` 的二级唯一约束：同一
+	 * owner/provider/用途下，一个外部患者号只能归属于一个内部患者。
+	 * 生产实现依靠 MySQL 唯一键；内存实现必须保留同样的拒绝语义，避免
+	 * 测试环境把生产必然失败的跨患者映射当成成功。
+	 */
+	const providerExternalIndex = new Map<string, string>();
+	/**
 	 * 模拟生产 operation ledger；真实跨进程并发由 MySQL 唯一键和行锁保证，
 	 * 这里只用于验证服务层的 replay、处理中冲突和租约接管语义。
 	 */
@@ -136,7 +144,12 @@ export function createInMemoryPatientRepository(
 	>();
 	const syncOperationKey = (input: PatientDirectorySyncStartInput) =>
 		`${input.ownerUserId}:${input.provider}:${input.idempotencyKey}`;
-	const directoryKey = (input: PatientDirectoryUpsertInput) =>
+	const directoryKey = (
+		input: Pick<
+			PatientDirectoryUpsertInput,
+			"ownerUserId" | "provider" | "profile"
+		>,
+	) =>
 		`${input.ownerUserId}:${input.provider}:${input.profile.providerPatientId}`;
 	const directorySnapshotKey = (input: {
 		ownerUserId: string;
@@ -149,6 +162,13 @@ export function createInMemoryPatientRepository(
 		referenceKind: "directory" | "his-patient";
 	}) =>
 		`${input.ownerUserId}:${input.provider}:${input.referenceKind}:${input.patientId}`;
+	const providerExternalReferenceKey = (input: {
+		ownerUserId: string;
+		provider: "zhongyang";
+		referenceKind: "directory" | "his-patient";
+		providerPatientId: string;
+	}) =>
+		`${input.ownerUserId}:${input.provider}:${input.referenceKind}:${input.providerPatientId}`;
 
 	/**
 	 * 内存仓储也必须把临床可用性当作映射事实，不能沿用 seed/旧对象上的
@@ -183,6 +203,97 @@ export function createInMemoryPatientRepository(
 				clinicalAccess: clinicalAccessFor(patient),
 			}));
 
+	/**
+	 * 先按生产唯一键规则检查并记录能力专用映射。
+	 *
+	 * `providerIndex` 按内部患者保存当前引用，`providerExternalIndex` 按
+	 * 外部患者号保存归属；更新同一患者的 patId 时先释放旧外部值，才能
+	 * 复现 MySQL UPDATE 后旧唯一值被释放的行为。调用方可以传入副本做整批
+	 * 快照预检，确保冲突发生前不会修改任何患者状态。
+	 */
+	const applyProviderReferencePlan = (
+		input: Pick<
+			PatientDirectoryUpsertInput,
+			"ownerUserId" | "provider" | "profile"
+		>,
+		patientId: string,
+		references: Map<string, string>,
+		externalReferences: Map<string, string>,
+	): void => {
+		for (const [referenceKind, providerPatientId] of Object.entries(
+			input.profile.providerReferences ?? {},
+		)) {
+			if (
+				(referenceKind !== "directory" && referenceKind !== "his-patient") ||
+				!providerPatientId
+			) {
+				continue;
+			}
+			const referenceKey = providerReferenceKey({
+				ownerUserId: input.ownerUserId,
+				provider: input.provider,
+				patientId,
+				referenceKind,
+			});
+			const externalKey = providerExternalReferenceKey({
+				ownerUserId: input.ownerUserId,
+				provider: input.provider,
+				referenceKind,
+				providerPatientId,
+			});
+			const previousProviderPatientId = references.get(referenceKey);
+			if (
+				previousProviderPatientId &&
+				previousProviderPatientId !== providerPatientId
+			) {
+				const previousExternalKey = providerExternalReferenceKey({
+					ownerUserId: input.ownerUserId,
+					provider: input.provider,
+					referenceKind,
+					providerPatientId: previousProviderPatientId,
+				});
+				if (externalReferences.get(previousExternalKey) === patientId) {
+					externalReferences.delete(previousExternalKey);
+				}
+			}
+			const existingPatientId = externalReferences.get(externalKey);
+			if (existingPatientId && existingPatientId !== patientId) {
+				throw new PatientDirectoryReferenceConflictError();
+			}
+			externalReferences.set(externalKey, patientId);
+			references.set(referenceKey, providerPatientId);
+		}
+	};
+
+	/** 清理完整快照确认失效的能力引用，并同步释放外部唯一值。 */
+	const removeProviderReference = (
+		input: Pick<PatientDirectoryUpsertInput, "ownerUserId" | "provider">,
+		patientId: string,
+		referenceKind: "directory" | "his-patient",
+		references: Map<string, string>,
+		externalReferences: Map<string, string>,
+	): void => {
+		const referenceKey = providerReferenceKey({
+			ownerUserId: input.ownerUserId,
+			provider: input.provider,
+			patientId,
+			referenceKind,
+		});
+		const providerPatientId = references.get(referenceKey);
+		if (providerPatientId) {
+			const externalKey = providerExternalReferenceKey({
+				ownerUserId: input.ownerUserId,
+				provider: input.provider,
+				referenceKind,
+				providerPatientId,
+			});
+			if (externalReferences.get(externalKey) === patientId) {
+				externalReferences.delete(externalKey);
+			}
+		}
+		references.delete(referenceKey);
+	};
+
 	// 这里刻意保持同步：内存仓储没有真实 I/O，快照替换必须在一次
 	// JavaScript 事件循环 turn 内完成，才能模拟 MySQL 事务的“校验租约、
 	// 修改快照、完成 operation”不可被同一进程内另一个调用插入的边界。
@@ -209,11 +320,32 @@ export function createInMemoryPatientRepository(
 			return existingPatient;
 		}
 
+		const nextId =
+			existingIndex >= 0
+				? (patients[existingIndex]?.id ?? input.patientId)
+				: input.patientId;
+		// 单条 upsert 也先在副本中校验所有引用，避免同一请求包含多个
+		// 引用时前一个引用已经改动、后一个引用冲突而留下半状态。
+		const plannedProviderIndex = new Map(providerIndex);
+		const plannedProviderExternalIndex = new Map(providerExternalIndex);
+		plannedProviderIndex.set(
+			providerReferenceKey({
+				ownerUserId: input.ownerUserId,
+				provider: input.provider,
+				referenceKind: "directory",
+				patientId: nextId,
+			}),
+			input.profile.providerPatientId,
+		);
+		applyProviderReferencePlan(
+			input,
+			nextId,
+			plannedProviderIndex,
+			plannedProviderExternalIndex,
+		);
+
 		const next: PatientRecord = {
-			id:
-				existingIndex >= 0
-					? (patients[existingIndex]?.id ?? input.patientId)
-					: input.patientId,
+			id: nextId,
 			ownerUserId: input.ownerUserId,
 			displayName: input.profile.displayName,
 			relationship: input.profile.relationship,
@@ -228,30 +360,15 @@ export function createInMemoryPatientRepository(
 		inactivePatientIds.delete(next.id);
 		directoryLastSeenAt.set(next.id, observedAt);
 		directoryIndex.set(key, next.id);
-		// 目录 ID 保留在旧的默认映射中；档案 patId 等专用引用单独存放，
+		// 目录 ID 保留在默认映射中；档案 patId 等专用引用单独存放，
 		// 让预约、报告和门诊费用可以显式声明自己需要哪一种外部身份。
-		providerIndex.set(
-			providerReferenceKey({
-				ownerUserId: input.ownerUserId,
-				provider: input.provider,
-				referenceKind: "directory",
-				patientId: next.id,
-			}),
-			input.profile.providerPatientId,
-		);
-		for (const [referenceKind, providerPatientId] of Object.entries(
-			input.profile.providerReferences ?? {},
-		)) {
-			if (!providerPatientId) continue;
-			providerIndex.set(
-				providerReferenceKey({
-					ownerUserId: input.ownerUserId,
-					provider: input.provider,
-					referenceKind: referenceKind as "directory" | "his-patient",
-					patientId: next.id,
-				}),
-				providerPatientId,
-			);
+		providerIndex.clear();
+		for (const [referenceKey, providerPatientId] of plannedProviderIndex) {
+			providerIndex.set(referenceKey, providerPatientId);
+		}
+		providerExternalIndex.clear();
+		for (const [externalKey, ownerPatientId] of plannedProviderExternalIndex) {
+			providerExternalIndex.set(externalKey, ownerPatientId);
 		}
 		return next;
 	};
@@ -375,6 +492,55 @@ export function createInMemoryPatientRepository(
 				// 结论也不能倒流。否则旧请求可能把新快照已经停用的患者重新激活。
 				throw new PatientDirectorySnapshotStaleError();
 			}
+			// 先在副本上完整模拟本次快照的引用变更。MySQL 会在同一事务
+			// 中遇到二级唯一冲突后回滚；内存实现没有数据库事务，因此必须
+			// 在任何患者状态写入前完成等价预检，不能留下半个快照。
+			const plannedProviderIndex = new Map(providerIndex);
+			const plannedProviderExternalIndex = new Map(providerExternalIndex);
+			for (const patient of input.patients) {
+				const existingId = directoryIndex.get(
+					directoryKey({
+						ownerUserId: input.ownerUserId,
+						provider: input.provider,
+						profile: patient.profile,
+					}),
+				);
+				const existingPatient = existingId
+					? patients.find((candidate) => candidate.id === existingId)
+					: undefined;
+				const existingObservedAt = existingPatient
+					? directoryLastSeenAt.get(existingPatient.id)
+					: undefined;
+				if (
+					existingObservedAt &&
+					Date.parse(existingObservedAt) > Date.parse(input.observedAt)
+				) {
+					continue;
+				}
+				const plannedPatientId = existingId ?? patient.patientId;
+				applyProviderReferencePlan(
+					{
+						ownerUserId: input.ownerUserId,
+						provider: input.provider,
+						profile: patient.profile,
+					},
+					plannedPatientId,
+					plannedProviderIndex,
+					plannedProviderExternalIndex,
+				);
+				if (!patient.profile.providerReferences?.["his-patient"]) {
+					removeProviderReference(
+						{
+							ownerUserId: input.ownerUserId,
+							provider: input.provider,
+						},
+						plannedPatientId,
+						"his-patient",
+						plannedProviderIndex,
+						plannedProviderExternalIndex,
+					);
+				}
+			}
 			const seenPatientIds = new Set<string>();
 			for (const patient of input.patients) {
 				const record = upsertDirectoryAt(
@@ -398,13 +564,15 @@ export function createInMemoryPatientRepository(
 					snapshotWasAccepted &&
 					!patient.profile.providerReferences?.["his-patient"]
 				) {
-					providerIndex.delete(
-						providerReferenceKey({
+					removeProviderReference(
+						{
 							ownerUserId: input.ownerUserId,
 							provider: input.provider,
-							patientId: record.id,
-							referenceKind: "his-patient",
-						}),
+						},
+						record.id,
+						"his-patient",
+						providerIndex,
+						providerExternalIndex,
 					);
 					const patientIndex = patients.findIndex(
 						(candidate) => candidate.id === record.id,

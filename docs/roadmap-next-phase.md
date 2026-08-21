@@ -7,6 +7,11 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（内存与 MySQL 患者映射语义对齐）：上一轮只修正 MySQL 后，继续审计发现内存仓储仍会允许不同内部患者复用同一个
+  HIS `patId`，会让测试环境放过生产环境的唯一约束。现已增加外部引用索引、单条 upsert 副本预检和完整快照副本预检，冲突时不留下
+  第二位患者或半个快照；内存 persistence `92 pass / 0 fail`，类型检查和 Biome 通过。详见
+  [`patient-provider-reference-conflict-2026-08-21.md`](release/patient-provider-reference-conflict-2026-08-21.md)。
+
 - 2026-08-21（患者医院档案映射冲突）：复核 `hp_patient_provider_references` 的患者主键与外部患者号双重唯一约束时，发现
   `ON DUPLICATE KEY UPDATE` 会把历史失效患者占用同一 HIS `patId` 的冲突静默当成成功；当前就诊人可能已经写入目录资料，
   但临床映射实际没有落库。现已改为显式 INSERT，重复时按当前患者主键加锁判别：同一患者保持幂等，跨患者冲突返回稳定的
