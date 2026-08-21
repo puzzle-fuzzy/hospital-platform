@@ -88,6 +88,17 @@ JavaScript 生成，并动态校验 `app.json` 的每个页面同时存在 `.jso
 同时验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须打开
 `apps/miniprogram/`，由公共 `project.config.json` 将 `dist/` 作为运行根目录；不要直接打开 `src/`。
 
+如果开发者工具最近打开记录经常恢复到旧项目，Windows 可以使用工具自带的 CLI 明确指定项目根目录：
+
+```powershell
+<微信开发者工具安装目录>\cli.bat open --project E:\__Super_Core__\hospital-platform\apps\miniprogram
+```
+
+首次使用 CLI 前，在开发者工具“设置 → 安全”中开启“服务端口”。命令的 `--project` 必须指向
+`apps/miniprogram/`，不能指向 `dist/`、`src/` 或旧项目的 `mp-weixin`；公共配置会继续把 `dist/`
+作为实际运行根目录。部分旧版工具在打开项目后仍会输出一次 `TypeError: d.on is not a function`，
+但只要窗口标题为 `miniprogram` 且资源管理器显示新项目根目录，就应以窗口实际项目为准，并手动执行一次“编译”。
+
 ### 真机调试前验证运行包
 
 如果微信开发者工具提示 `pages/xxx/xxx.js` 不存在，先在仓库根目录执行：

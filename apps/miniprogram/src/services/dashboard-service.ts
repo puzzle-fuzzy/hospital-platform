@@ -1,4 +1,3 @@
-import { isAppointmentRecordWorkTime } from "@hospital/contracts";
 import type {
 	AppointmentDepartment,
 	AppointmentRecord,
@@ -24,6 +23,7 @@ import {
 	requireSuccessDataResponse,
 	syncPatients,
 } from "./api-client";
+import { isAppointmentRecordWorkTime } from "./appointment-record-work-time";
 import {
 	isBoundedPatientId,
 	requireStoredPatientSelection,
