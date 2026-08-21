@@ -5,6 +5,8 @@ import {
 	auditCurrentExecutionSection,
 	auditCurrentReadonlyBusinessBoundaries,
 	auditCurrentReleaseConsistency,
+	auditServerRuntimeSourceChanges,
+	auditServerSourceRelease,
 	extractCurrentBaseline,
 } from "./release-baseline-audit.mjs";
 
@@ -230,4 +232,78 @@ test("历史候选不被当前发布基线强制重写", () => {
 	// 历史记录由文件自身的时间和 release 语义负责追溯，不应因为保留旧 hash
 	// 就被强行改写成当前运行包。
 	expect(result.failures).toEqual([]);
+});
+
+test("服务端 release 后的中文注释和测试 fixture 不被误报为运行时代码漂移", () => {
+	const baseline = { serverRelease: "release-001" };
+	const sources = new Map([
+		[
+			"release-001:packages/persistence/src/migrate.ts",
+			"/** English comment */\nexport const timeout: number = 15000;",
+		],
+		[
+			"HEAD:packages/persistence/src/migrate.ts",
+			"/** 中文注释 */\nexport const timeout: number = 15000;",
+		],
+	]);
+
+	const changedRuntimeFiles = auditServerRuntimeSourceChanges(
+		baseline,
+		[
+			"packages/adapters/src/fixtures/replay.ts",
+			"packages/persistence/src/migrate.ts",
+		],
+		(revision, path) => sources.get(`${revision}:${path}`),
+	);
+
+	expect(changedRuntimeFiles).toEqual([]);
+});
+
+test("服务端 release 后的运行逻辑变化必须阻止继续验收", () => {
+	const baseline = { serverRelease: "release-001" };
+	const sources = new Map([
+		["release-001:apps/api/src/index.ts", "export const timeout = 15000;"],
+		["HEAD:apps/api/src/index.ts", "export const timeout = 30000;"],
+	]);
+	const changedRuntimeFiles = auditServerRuntimeSourceChanges(
+		baseline,
+		["apps/api/src/index.ts"],
+		(revision, path) => sources.get(`${revision}:${path}`),
+	);
+
+	expect(changedRuntimeFiles).toEqual(["apps/api/src/index.ts"]);
+});
+
+test("服务端 release 漂移审计只输出文件名，不回显源码", () => {
+	const calls = [];
+	const result = auditServerSourceRelease(
+		{ serverRelease: "release-001" },
+		{
+			runGit: (args) => {
+				calls.push(args);
+				if (args[0] === "merge-base") return "";
+				if (args[0] === "diff") return "apps/api/src/index.ts\n";
+				if (
+					args[0] === "show" &&
+					args[1] === "release-001:apps/api/src/index.ts"
+				) {
+					return "export const timeout = 15000;";
+				}
+				if (args[0] === "show" && args[1] === "HEAD:apps/api/src/index.ts") {
+					return "export const timeout = 30000;";
+				}
+				throw new Error("unexpected git call");
+			},
+		},
+	);
+
+	expect(result).toEqual({
+		passed: false,
+		changedRuntimeFiles: ["apps/api/src/index.ts"],
+		failures: [
+			"服务端 release release-001 之后存在未部署运行时代码：apps/api/src/index.ts",
+		],
+	});
+	expect(JSON.stringify(result)).not.toContain("30000");
+	expect(calls.some((args) => args[0] === "merge-base")).toBe(true);
 });

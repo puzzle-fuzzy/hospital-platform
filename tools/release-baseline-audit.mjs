@@ -1,9 +1,150 @@
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
+
+/**
+ * 服务端 release 的运行时代码范围。
+ *
+ * 文档、测试和小程序可以在 release 之后继续完善；但这些目录中的运行时
+ * 代码一旦变化，线上 `002acc1` 仍然运行旧实现，本地测试却可能已经验证了
+ * 新实现。发布基线必须把这种“本地正确、线上过期”的状态直接拦住。
+ */
+export const serverRuntimeSourceRoots = Object.freeze([
+	"apps/api/src",
+	"packages/adapters/src",
+	"packages/config/src",
+	"packages/contracts/src",
+	"packages/domain/src",
+	"packages/observability/src",
+	"packages/persistence/src",
+]);
+
+function isRuntimeSourcePath(path) {
+	const normalized = path.replaceAll("\\", "/");
+	if (
+		!serverRuntimeSourceRoots.some((root) => normalized.startsWith(`${root}/`))
+	) {
+		return false;
+	}
+	// 测试和 fixture 不会被生产组合根装载；它们可以随文档门禁单独更新。
+	if (normalized.includes("/fixtures/") || normalized.includes("/__tests__/")) {
+		return false;
+	}
+	return !/(^|\/)[^/]+\.(?:test|spec)\.[^/]+$/u.test(normalized);
+}
+
+function runGit(rootDirectory, args) {
+	return execFileSync("git", args, {
+		cwd: rootDirectory,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	});
+}
+
+function sourceAtRevision(revision, path, git = runGit) {
+	try {
+		return git(["show", `${revision}:${path}`]);
+	} catch {
+		// 文件新增或删除都属于运行时代码漂移，不能用“读不到旧文件”掩盖。
+		return undefined;
+	}
+}
+
+/**
+ * 只比较会进入 JavaScript 运行时的内容。
+ *
+ * TypeScript 的类型和注释不会进入 Bun 运行包，因此中文注释、类型擦除后
+ * 的差异不应强迫线上为文档性改动重启；真正的语句、常量和导入变化仍会在
+ * transpile 后保留下来并触发 release 漂移失败。这个判断只服务于发布门，
+ * 不替代 `tsc`、Biome 或业务测试。
+ */
+function runtimeComparableSource(path, source) {
+	if (source === undefined) return undefined;
+	if (!/\.(?:ts|tsx)$/u.test(path)) return source;
+	const loader = path.endsWith(".tsx") ? "tsx" : "ts";
+	return new Bun.Transpiler({ loader }).transformSync(source).trim();
+}
+
+/**
+ * 比较 release 后的服务端文件；单独导出纯比较逻辑，避免测试依赖真实 Git
+ * 仓库，也让失败输出只包含文件路径，不回显源码、token 或配置。
+ */
+export function auditServerRuntimeSourceChanges(
+	baseline,
+	changedFiles,
+	readSource,
+) {
+	const changedRuntimeFiles = [];
+	for (const path of changedFiles) {
+		if (!isRuntimeSourcePath(path)) continue;
+		const before = runtimeComparableSource(
+			path,
+			readSource(baseline.serverRelease, path),
+		);
+		const after = runtimeComparableSource(path, readSource("HEAD", path));
+		if (before === undefined || after === undefined || before !== after) {
+			changedRuntimeFiles.push(path);
+		}
+	}
+	return changedRuntimeFiles;
+}
+
+/**
+ * 审计当前服务端 release 之后是否出现未部署的运行逻辑变化。
+ *
+ * 只读业务验收必须绑定线上正在运行的服务端版本；如果 release 不是当前
+ * 工作树祖先，或 release 之后出现运行时代码差异，调用方必须先生成新的
+ * release 并完成共存发布，再继续使用真机二维码取证。
+ */
+export function auditServerSourceRelease(baseline, options = {}) {
+	const rootDirectory = options.rootDirectory ?? repositoryRoot;
+	const git = options.runGit ?? ((args) => runGit(rootDirectory, args));
+	const failures = [];
+	let changedFiles = [];
+	try {
+		git(["merge-base", "--is-ancestor", baseline.serverRelease, "HEAD"]);
+		changedFiles = git([
+			"diff",
+			"--name-only",
+			"--diff-filter=ACMRTUXB",
+			`${baseline.serverRelease}..HEAD`,
+			"--",
+			...serverRuntimeSourceRoots,
+		])
+			.split(/\r?\n/u)
+			.map((path) => path.trim())
+			.filter(Boolean);
+	} catch {
+		return {
+			passed: false,
+			changedRuntimeFiles: [],
+			failures: [
+				`当前服务端 release ${baseline.serverRelease} 不是工作树可验证的祖先，不能确认线上与本地代码关系`,
+			],
+		};
+	}
+
+	const readSource = (revision, path) => sourceAtRevision(revision, path, git);
+	const changedRuntimeFiles = auditServerRuntimeSourceChanges(
+		baseline,
+		changedFiles,
+		readSource,
+	);
+	if (changedRuntimeFiles.length > 0) {
+		failures.push(
+			`服务端 release ${baseline.serverRelease} 之后存在未部署运行时代码：${changedRuntimeFiles.join(", ")}`,
+		);
+	}
+	return {
+		passed: failures.length === 0,
+		changedRuntimeFiles,
+		failures,
+	};
+}
 
 /**
  * 当前真机候选必须只有一个人工入口。
@@ -391,7 +532,16 @@ export async function auditCurrentReleaseConsistency(
 		documents.push({ ...document, content });
 	}
 
-	return auditCurrentBaselineDocuments(baseline, documents);
+	const documentAudit = auditCurrentBaselineDocuments(baseline, documents);
+	const serverSourceAudit = auditServerSourceRelease(baseline, {
+		rootDirectory,
+	});
+	return {
+		...documentAudit,
+		passed: documentAudit.passed && serverSourceAudit.passed,
+		failures: [...documentAudit.failures, ...serverSourceAudit.failures],
+		serverSourceAudit,
+	};
 }
 
 if (import.meta.main) {

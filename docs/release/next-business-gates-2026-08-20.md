@@ -16,6 +16,11 @@
 [`002acc1b-production-acceptance-2026-08-22.md`](002acc1b-production-acceptance-2026-08-22.md)。
 这只证明新候选运行边界，不能替代微信、患者、预约或门诊费用的真机三层业务证据。
 
+`release:baseline:audit` 现在还会检查当前服务端 release 之后的运行时代码是否发生
+未部署漂移：只改变中文注释、类型擦除后的内容、测试或 fixture 不会误报；API、domain、adapter、
+persistence 等真正进入 Bun 运行包的语句、常量或导入发生变化时，必须先生成新的服务端 release，
+完成新旧服务共存发布并重新取得公网/真机基线。这样可以避免本地已经验证新逻辑，线上仍运行旧逻辑时继续验收。
+
 ### `9f491cb5` 切换前历史观察（仅供追溯）
 
 服务端已从 `c8eef370` 原子切换到 `9f491cb5`，只重启新 API；新 API `18081`、旧 Python `8001` 共存，Worker 保持 inactive。
