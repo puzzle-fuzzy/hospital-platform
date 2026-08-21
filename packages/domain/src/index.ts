@@ -222,6 +222,10 @@ export type {
 	WechatPaymentGateway,
 	WechatPaymentQueryState,
 } from "./ports";
+export {
+	adapterContextTraceId,
+	normalizeAdapterCallContext,
+} from "./ports";
 export type {
 	LaboratoryReportDetail,
 	LaboratoryReportDetailItem,

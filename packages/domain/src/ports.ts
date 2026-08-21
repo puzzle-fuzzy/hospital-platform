@@ -1,4 +1,5 @@
 import type { PaymentState } from "@hospital/contracts";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { PaymentAmounts } from "./payment-order";
 
 /** 每次 provider 调用都必须携带的链路和幂等上下文。 */
@@ -8,6 +9,82 @@ export type AdapterCallContext = {
 	signal?: AbortSignal;
 	timeoutMs?: number;
 };
+
+const ADAPTER_CALL_CONTEXT_FIELDS = new Set([
+	"traceId",
+	"idempotencyKey",
+	"signal",
+	"timeoutMs",
+]);
+
+/**
+ * 运行时校验可替换 gateway 共用的调用上下文。
+ *
+ * HTTP 路由会生成合法上下文，但组合根、回放任务和 Worker 也可能直接调用
+ * service。未知字段不能被静默带入 Provider，trace/idempotency 也不能只依赖
+ * TypeScript 声明；否则错误租约、不可检索日志或错误重放会在更深层才暴露。
+ * 返回新对象而不是原样透传，确保 gateway 只看到 contract 允许的字段。
+ */
+export function normalizeAdapterCallContext(
+	value: unknown,
+): AdapterCallContext | undefined {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return undefined;
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		Object.keys(record).some((field) => !ADAPTER_CALL_CONTEXT_FIELDS.has(field))
+	) {
+		return undefined;
+	}
+	if (
+		!isBoundedOpaqueIdentifier(record.traceId) ||
+		!isBoundedOpaqueIdentifier(record.idempotencyKey)
+	) {
+		return undefined;
+	}
+	if (
+		record.timeoutMs !== undefined &&
+		(typeof record.timeoutMs !== "number" ||
+			!Number.isSafeInteger(record.timeoutMs) ||
+			record.timeoutMs <= 0)
+	) {
+		return undefined;
+	}
+	if (record.signal !== undefined) {
+		if (
+			typeof record.signal !== "object" ||
+			record.signal === null ||
+			typeof (record.signal as { aborted?: unknown }).aborted !== "boolean" ||
+			typeof (record.signal as { addEventListener?: unknown })
+				.addEventListener !== "function" ||
+			typeof (record.signal as { removeEventListener?: unknown })
+				.removeEventListener !== "function"
+		) {
+			return undefined;
+		}
+	}
+
+	return {
+		traceId: record.traceId,
+		idempotencyKey: record.idempotencyKey,
+		...(record.signal !== undefined
+			? { signal: record.signal as AbortSignal }
+			: {}),
+		...(record.timeoutMs !== undefined
+			? { timeoutMs: record.timeoutMs as number }
+			: {}),
+	};
+}
+
+/** 失败日志读取上下文时使用安全投影，避免坏上下文让错误处理再次抛异常。 */
+export function adapterContextTraceId(value: unknown): string {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return "invalid";
+	}
+	const traceId = (value as Record<string, unknown>).traceId;
+	return isBoundedOpaqueIdentifier(traceId) ? traceId : "invalid";
+}
 
 /**
  * 外部系统证据索引；只保存可关联的标识，不保存密钥或完整敏感报文。

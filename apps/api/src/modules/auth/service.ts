@@ -8,9 +8,11 @@ import type {
 	WechatIdentityGateway,
 } from "@hospital/domain";
 import {
+	adapterContextTraceId,
 	DependencyNotConfiguredError,
 	IdentityUserReadModelValidationError,
 	isBoundedOpaqueIdentifier,
+	normalizeAdapterCallContext,
 	normalizeIdentityUserReadModel,
 	normalizeWechatIdentityResult,
 	WechatIdentityResultValidationError,
@@ -157,6 +159,13 @@ function normalizeWechatLoginInput(value: unknown): { code: string } {
 	return { code };
 }
 
+/** 微信登录 service 也可能被组合根直接调用，先复用共享上下文运行时门禁。 */
+function requireAuthContext(value: unknown): AdapterCallContext {
+	const normalized = normalizeAdapterCallContext(value);
+	if (!normalized) throw new WechatLoginInputError();
+	return normalized;
+}
+
 /** 患者端认证编排：兑换 provider code、幂等建用户、签发平台会话。 */
 export class AuthService {
 	private readonly logger: AppLogger;
@@ -173,14 +182,19 @@ export class AuthService {
 		this.logger.info(
 			{
 				event: "auth.wechat.login.requested",
-				traceId: context.traceId,
+				traceId: adapterContextTraceId(context),
 				provider: "wechat-identity",
-				idempotencyKeyPresent: Boolean(context.idempotencyKey),
+				// 这里不能直接读取 context：非法 direct-call 需要先进入统一
+				// 输入错误分支，失败日志本身不能再次抛 TypeError。
+				idempotencyKeyPresent: Boolean(
+					normalizeAdapterCallContext(context)?.idempotencyKey,
+				),
 			},
 			"Wechat login requested",
 		);
 
 		try {
+			context = requireAuthContext(context);
 			const loginInput = normalizeWechatLoginInput(input);
 			// code2session 结果属于可替换 gateway 的运行时边界；在身份写入
 			// MySQL 前重新投影，不能把 TypeScript 类型当成授权事实。
@@ -204,7 +218,7 @@ export class AuthService {
 			this.logger.info(
 				{
 					event: "auth.wechat.login.succeeded",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "wechat-identity",
 					providerRequestId: identity.trace.requestId,
 					userId: user.userId,
@@ -225,7 +239,7 @@ export class AuthService {
 			this.logger.error(
 				{
 					event: "auth.wechat.login.failed",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "wechat-identity",
 					errorType: error instanceof Error ? error.name : "unknown",
 					...providerFailure,

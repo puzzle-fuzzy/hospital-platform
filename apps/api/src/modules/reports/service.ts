@@ -16,11 +16,13 @@ import type {
 	ReportReferenceRepository,
 } from "@hospital/domain";
 import {
+	adapterContextTraceId,
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
 	InvalidReportKindError,
 	isBoundedOpaqueIdentifier,
 	isReportKind,
+	normalizeAdapterCallContext,
 	normalizeExternalTrace,
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
@@ -90,6 +92,21 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
 const REPORT_REFERENCE_CONCURRENCY = 4;
 
 const REPORT_DIRECTORY_QUERY_FIELDS = new Set(["startDate", "endDate", "kind"]);
+
+/**
+ * 报告目录和详情共用调用上下文门禁。
+ *
+ * 报告 service 可能被回放任务或组合根直接调用；如果上下文只靠 HTTP
+ * schema 保证，损坏的 trace/idempotency 会在 owner 映射、引用仓储或 Provider
+ * 之后才暴露。统一先投影并拒绝未知字段，失败日志再读取安全 trace。
+ */
+function requireReportContext(value: unknown): AdapterCallContext {
+	const normalized = normalizeAdapterCallContext(value);
+	if (!normalized) {
+		throw new ReportQueryError("Report call context is invalid");
+	}
+	return normalized;
+}
 
 /**
  * 以固定并发度映射目录项并保留输入顺序。
@@ -308,6 +325,7 @@ export class ReportService {
 	): Promise<ReportListPayload["data"]> {
 		let resultViolation: string | undefined;
 		try {
+			context = requireReportContext(context);
 			// 查询校验也必须进入统一失败出口。否则非法日期虽然会正确返回
 			// 400，但没有 `report.directory.failed`，日志链路会缺少业务模块事实。
 			const normalizedQuery = normalizeReportDirectoryQuery(query);
@@ -319,7 +337,7 @@ export class ReportService {
 			this.logger.info(
 				{
 					event: "report.directory.requested",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					patientId,
 					...(normalizedQuery.kind ? { kind: normalizedQuery.kind } : {}),
@@ -441,7 +459,7 @@ export class ReportService {
 						this.logger.warn(
 							{
 								event: "report.detail_reference.failed",
-								traceId: context.traceId,
+								traceId: adapterContextTraceId(context),
 								provider: trace.provider,
 								...traceLogFields(trace),
 								patientId,
@@ -456,7 +474,7 @@ export class ReportService {
 			this.logger.info(
 				{
 					event: "report.directory.synced",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: trace.provider,
 					...traceLogFields(trace),
 					patientId,
@@ -469,7 +487,7 @@ export class ReportService {
 			this.logger.error(
 				{
 					event: "report.directory.failed",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					patientId: isBoundedOpaqueIdentifier(patientId)
 						? patientId
@@ -495,6 +513,7 @@ export class ReportService {
 	): Promise<ReportDetailPayload["data"]> {
 		let resultViolation: string | undefined;
 		try {
+			context = requireReportContext(context);
 			if (!isBoundedOpaqueIdentifier(patientId)) {
 				throw new ReportQueryError("Report patient identifier is invalid");
 			}
@@ -506,7 +525,7 @@ export class ReportService {
 			this.logger.info(
 				{
 					event: "report.detail.requested",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					patientId,
 					reportId,
 				},
@@ -570,7 +589,7 @@ export class ReportService {
 			this.logger.info(
 				{
 					event: "report.detail.synced",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					patientId,
 					reportId,
 					...traceLogFields(trace),
@@ -587,7 +606,7 @@ export class ReportService {
 			this.logger.error(
 				{
 					event: "report.detail.failed",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					patientId: isBoundedOpaqueIdentifier(patientId)
 						? patientId
 						: "invalid",

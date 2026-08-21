@@ -48,6 +48,34 @@ test("普通资料不存在时返回默认值且不产生持久化副作用", as
 	expect(JSON.stringify(records)).not.toContain("profile-user-001");
 });
 
+test("普通资料 service 在仓储前拒绝非法调用上下文且失败日志不崩溃", async () => {
+	let readCalls = 0;
+	let updateCalls = 0;
+	const service = new UserProfileService({
+		findByUserId: async () => {
+			readCalls += 1;
+			return undefined;
+		},
+		update: async () => {
+			updateCalls += 1;
+			throw new Error("must not be called");
+		},
+	});
+
+	await expect(
+		service.get("profile-user-invalid-context", null as never),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+	await expect(
+		service.update(
+			"profile-user-invalid-context",
+			{ version: 0, displayName: "资料" },
+			null as never,
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+	expect(readCalls).toBe(0);
+	expect(updateCalls).toBe(0);
+});
+
 test("普通资料读取失败记录安全事件而不泄露底层错误", async () => {
 	const lines: string[] = [];
 	const service = new UserProfileService(

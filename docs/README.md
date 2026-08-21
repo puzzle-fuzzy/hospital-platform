@@ -13,7 +13,7 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `5a31427`、最新本地小程序候选来源以 `c86a788c01760fd5a74ac8c2769871025297a4fc` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `5a31427`、最新本地小程序候选来源以 `5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6` 为准 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
@@ -33,7 +33,8 @@
 | [`release/miniprogram-patient-directory-superseded-2026-08-21.md`](release/miniprogram-patient-directory-superseded-2026-08-21.md) | 首页患者目录请求被淘汰时的显式生命周期结果、禁止误启动同步的并发修正与验证证据 |
 | [`release/patient-directory-correctness-audit-2026-08-21.md`](release/patient-directory-correctness-audit-2026-08-21.md) | 患者目录 owner、双层 Provider ID、完整快照、临床映射、会话代际和显式切换的全链路正确性审计 |
 | [`release/patient-service-input-boundary-audit-2026-08-21.md`](release/patient-service-input-boundary-audit-2026-08-21.md) | 患者目录 service 直接调用的 owner/上下文运行时校验、公共错误契约和仓储前 fail-closed 证据 |
-| [`release/candidate-c86a788-local-build-2026-08-21.md`](release/candidate-c86a788-local-build-2026-08-21.md) | 当前小程序本地构建来源、患者初始化测试门禁、test/spec 运行包隔离和真机前置条件；小程序尚未上传线上，服务端基线为 `5a31427` |
+| [`release/adapter-call-context-runtime-boundary-audit-2026-08-21.md`](release/adapter-call-context-runtime-boundary-audit-2026-08-21.md) | 非支付 service 共享 AdapterCallContext 运行时校验、失败日志安全投影和下游访问停止条件 |
+| [`release/candidate-c86a788-local-build-2026-08-21.md`](release/candidate-c86a788-local-build-2026-08-21.md) | 历史 `c86a788` 小程序本地构建来源和运行包隔离记录；当前候选请使用 `candidate-5c06929-local-build-2026-08-21.md` |
 | [`release/candidate-5c06929-local-build-2026-08-21.md`](release/candidate-5c06929-local-build-2026-08-21.md) | 当前 `5c06929` 小程序运行包、`single-flight.test.js` ENOENT 诊断、构建来源指纹和开发者工具恢复顺序 |
 | [`release/current-public-runtime-smoke-2026-08-21-1112.md`](release/current-public-runtime-smoke-2026-08-21-1112.md) | 11:12 CST 公网 `/api/v2` live/ready、未登录鉴权和未开放路由只读复核；不替代真机业务证据 |
 | [`release/current-public-runtime-smoke-2026-08-21-1136.md`](release/current-public-runtime-smoke-2026-08-21-1136.md) | 11:36 CST 公网 `/api/v2` 生产模式、普通资料独立鉴权和未开放能力边界复核；不替代真机业务证据 |
@@ -43,7 +44,7 @@
 | [`release/current-5a31427-coexistence-readonly-2026-08-21-0725.md`](release/current-5a31427-coexistence-readonly-2026-08-21-0725.md) | 07:25 CST 新旧服务共存、正确内外网探针路径和 P0 业务日志空窗口；不替代真机业务证据 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0732.md`](release/current-5a31427-p0-business-observation-2026-08-21-0732.md) | 07:32 CST 当前候选二维码、运行包来源、新旧服务和 P0 业务日志空窗口；不替代真机业务证据 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md) | 06:47 CST 二维码等待期间的新旧服务、readiness 和 P0 业务日志空窗口；不把健康检查或空窗口当作业务成功 |
-| [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `c86a788` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
+| [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `5c06929` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界；当前线上请以 `5a31427` 为准 |
 | [`release/5a31427-production-acceptance-2026-08-21.md`](release/5a31427-production-acceptance-2026-08-21.md) | 当前日志多请求 trace 保留修正的真实生产切换、隔离候选验收、新旧服务共存和未完成真机业务边界 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md) | `5a31427` 切换后 P0 日志空窗口的安全计数、门禁缺失项和下一次真机取证顺序 |
@@ -101,7 +102,8 @@
 | [`release/current-b7c9451-database-transient-observation-2026-08-19.md`](release/current-b7c9451-database-transient-observation-2026-08-19.md) | 历史 `b7c9451` 远端 MySQL 瞬态断连、readiness 恢复、双服务共存和磁盘风险观察；不代表业务验收 |
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前验收候选请改读 `39ad2c5`，本记录不替代真机、Provider 或服务端日志证据 |
 | [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `39ad2c5` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
-| [`release/miniprogram-real-device-evidence-template-c86a788.md`](release/miniprogram-real-device-evidence-template-c86a788.md) | 当前 `c86a788` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；空白模板不代表验收通过 |
+| [`release/miniprogram-real-device-evidence-template-c86a788.md`](release/miniprogram-real-device-evidence-template-c86a788.md) | 历史 `c86a788` 候选的真机证据模板；当前模板请使用 `miniprogram-real-device-evidence-template-5c06929.md` |
+| [`release/miniprogram-real-device-evidence-template-5c06929.md`](release/miniprogram-real-device-evidence-template-5c06929.md) | 当前 `5c06929` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；空白模板不代表验收通过 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0903-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0903-acf5a85.md) | 历史 `acf5a85` 候选 09:03 CST 的 iOS/局域网二维码会话；不能用于当前 `39ad2c5` 真机验收，仅记录当时缓存清理、普通编译和扫码前运行包状态 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0854-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0854-acf5a85.md) | `acf5a85` 候选的上一二维码会话历史；已被新候选替代，不得用于当前真机验收 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md) | `acf5a85` 候选的历史二维码会话；已被新候选替代，不得用于当前真机验收 |

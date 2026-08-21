@@ -81,6 +81,55 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 	});
 });
 
+test("预约 service 在 Provider 和快照仓储前拒绝非法调用上下文", async () => {
+	let directoryCalls = 0;
+	const directory: AppointmentDirectoryGateway = {
+		listDepartments: async () => {
+			directoryCalls += 1;
+			return {
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "departments",
+					requestId: "unused",
+				},
+			};
+		},
+		listSchedules: async () => {
+			directoryCalls += 1;
+			return {
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "schedules",
+					requestId: "unused",
+				},
+			};
+		},
+	};
+	const service = new AppointmentService({ directory });
+
+	await expect(service.listDepartments(null as never)).rejects.toBeInstanceOf(
+		AppointmentScheduleQueryError,
+	);
+	await expect(
+		service.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			null as never,
+		),
+	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			null as never,
+		),
+	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
+
+	expect(directoryCalls).toBe(0);
+});
+
 test("预约排班快照保持目录顺序且不超过固定持久化并发度", async () => {
 	let activeSnapshots = 0;
 	let maximumSnapshots = 0;

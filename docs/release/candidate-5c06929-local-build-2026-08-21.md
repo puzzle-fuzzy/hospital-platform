@@ -4,11 +4,18 @@
 
 本候选由提交 `5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6` 生成，服务端和旧 Python 服务均未因本次构建而修改或重启。
 
+| 基线项目 | 值 |
+| --- | --- |
+| 服务端 release | `5a31427` |
+| 小程序客户端 | `5c06929` |
+| 小程序构建来源 | `5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6` |
+
 | 项目 | 结果 |
 | --- | --- |
 | 构建命令 | `pnpm --filter @hospital/miniprogram build` 通过 |
 | 运行包验证 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
 | 运行包来源 | `5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6` |
+| 原生小程序全量测试 | 174 项通过，0 项失败，1380 个断言 |
 | 注册/编译页面 | 14 / 14 |
 | `dist/services/single-flight.js` | 存在 |
 | `dist/services/single-flight.test.js` | 不存在 |

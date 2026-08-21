@@ -151,6 +151,47 @@ test("报告目录空结果是成功，非法查询和详情依赖缺失保留�
 	);
 });
 
+test("报告 service 在 owner 映射、引用仓储和 Provider 前拒绝非法调用上下文", async () => {
+	let repositoryCalls = 0;
+	let directoryCalls = 0;
+	let detailCalls = 0;
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => {
+				repositoryCalls += 1;
+				return undefined;
+			},
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => {
+				directoryCalls += 1;
+				throw new Error("must not be called");
+			},
+		},
+		detail: {
+			getLaboratoryDetail: async () => {
+				detailCalls += 1;
+				throw new Error("must not be called");
+			},
+		},
+	});
+
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-02" },
+			null as never,
+		),
+	).rejects.toBeInstanceOf(ReportQueryError);
+	await expect(
+		service.detail("user-001", "patient-001", "report-001", null as never),
+	).rejects.toBeInstanceOf(ReportQueryError);
+	expect(repositoryCalls).toBe(0);
+	expect(directoryCalls).toBe(0);
+	expect(detailCalls).toBe(0);
+});
+
 test("报告目录拒绝异常 Provider trace 并只记录固定原因", async () => {
 	const lines: string[] = [];
 	const service = new ReportService({

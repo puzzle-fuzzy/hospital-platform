@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { PatientListPayload } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
+	adapterContextTraceId,
 	DependencyNotConfiguredError,
 	IdentityUserReadModelValidationError,
 	isBoundedOpaqueIdentifier,
+	normalizeAdapterCallContext,
 	normalizeIdentityUserReadModel,
 	normalizePatientDirectoryResult,
 	normalizePatientDirectorySnapshotResult,
@@ -57,21 +59,6 @@ export class PatientServiceInputError extends Error {
 	}
 }
 
-const PATIENT_CONTEXT_FIELDS = new Set([
-	"traceId",
-	"idempotencyKey",
-	"signal",
-	"timeoutMs",
-]);
-
-function safeTraceId(value: unknown): string {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
-		return "invalid";
-	}
-	const traceId = (value as Record<string, unknown>).traceId;
-	return isBoundedOpaqueIdentifier(traceId) ? traceId : "invalid";
-}
-
 /**
  * HTTP header schema不能成为患者 service 的唯一输入门禁。
  *
@@ -87,57 +74,14 @@ function normalizePatientServiceCall(
 	if (!isBoundedOpaqueIdentifier(ownerUserId)) {
 		throw new PatientServiceInputError("owner-invalid");
 	}
-	if (
-		typeof context !== "object" ||
-		context === null ||
-		Array.isArray(context)
-	) {
+	const normalizedContext = normalizeAdapterCallContext(context);
+	if (!normalizedContext) {
 		throw new PatientServiceInputError("context-invalid");
-	}
-	const record = context as Record<string, unknown>;
-	if (Object.keys(record).some((field) => !PATIENT_CONTEXT_FIELDS.has(field))) {
-		throw new PatientServiceInputError("context-invalid");
-	}
-	if (
-		!isBoundedOpaqueIdentifier(record.traceId) ||
-		!isBoundedOpaqueIdentifier(record.idempotencyKey)
-	) {
-		throw new PatientServiceInputError("context-invalid");
-	}
-	if (
-		record.timeoutMs !== undefined &&
-		(typeof record.timeoutMs !== "number" ||
-			!Number.isSafeInteger(record.timeoutMs) ||
-			record.timeoutMs <= 0)
-	) {
-		throw new PatientServiceInputError("context-invalid");
-	}
-	if (record.signal !== undefined) {
-		if (
-			typeof record.signal !== "object" ||
-			record.signal === null ||
-			typeof (record.signal as { aborted?: unknown }).aborted !== "boolean" ||
-			typeof (record.signal as { addEventListener?: unknown })
-				.addEventListener !== "function" ||
-			typeof (record.signal as { removeEventListener?: unknown })
-				.removeEventListener !== "function"
-		) {
-			throw new PatientServiceInputError("context-invalid");
-		}
 	}
 
 	return {
 		ownerUserId,
-		context: {
-			traceId: record.traceId,
-			idempotencyKey: record.idempotencyKey,
-			...(record.signal !== undefined
-				? { signal: record.signal as AbortSignal }
-				: {}),
-			...(record.timeoutMs !== undefined
-				? { timeoutMs: record.timeoutMs as number }
-				: {}),
-		},
+		context: normalizedContext,
 	};
 }
 
@@ -187,7 +131,7 @@ export class PatientService {
 		this.logger.info(
 			{
 				event: "patient.directory.read.requested",
-				traceId: safeTraceId(context),
+				traceId: adapterContextTraceId(context),
 			},
 			"Patient directory read requested",
 		);
@@ -235,7 +179,7 @@ export class PatientService {
 			this.logger.error(
 				{
 					event: "patient.directory.read.failed",
-					traceId: safeTraceId(context),
+					traceId: adapterContextTraceId(context),
 					errorType: error instanceof Error ? error.name : "unknown",
 					...(error instanceof PatientServiceInputError
 						? { inputViolation: error.violation }
@@ -268,7 +212,7 @@ export class PatientService {
 		this.logger.info(
 			{
 				event: "patient.directory.requested",
-				traceId: safeTraceId(context),
+				traceId: adapterContextTraceId(context),
 				provider: "zhongyang",
 			},
 			"Patient directory synchronization requested",
@@ -491,7 +435,7 @@ export class PatientService {
 				this.logger.error(
 					{
 						event: "patient.directory.failed",
-						traceId: safeTraceId(context),
+						traceId: adapterContextTraceId(context),
 						provider: "zhongyang",
 						operationId,
 						errorType: error instanceof Error ? error.name : "unknown",

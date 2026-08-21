@@ -12,11 +12,13 @@ import type {
 	PatientRepository,
 } from "@hospital/domain";
 import {
+	adapterContextTraceId,
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	isBoundedOpaqueIdentifier,
 	isOutpatientPaymentStatus,
+	normalizeAdapterCallContext,
 	normalizeExternalTrace,
 	normalizeOutpatientPaymentRecords,
 	OutpatientPaymentResultValidationError,
@@ -46,6 +48,21 @@ export class OutpatientPaymentQueryError extends Error {
 		super("Outpatient payment query is invalid");
 		this.name = "OutpatientPaymentQueryError";
 	}
+}
+
+/**
+ * 门诊费用只读 service 的上下文运行时门禁。
+ *
+ * 费用查询虽然不调起支付，但仍会把 trace/idempotency 传给 Provider；直接
+ * 调用方若绕过 HTTP schema，必须在 owner 映射和 Provider 前停止，避免错误
+ * 日志或错误渠道继续传播损坏上下文。
+ */
+function requireOutpatientContext(value: unknown): AdapterCallContext {
+	const normalized = normalizeAdapterCallContext(value);
+	if (!normalized) {
+		throw new OutpatientPaymentQueryError();
+	}
+	return normalized;
 }
 
 export type OutpatientPaymentServiceDependencies = {
@@ -224,6 +241,7 @@ export class OutpatientPaymentService {
 		let resultViolation: string | undefined;
 		let trace: ExternalTrace | undefined;
 		try {
+			context = requireOutpatientContext(context);
 			if (!isOutpatientPaymentStatus(status)) {
 				// 不能把未知状态交给 adapter；adapter 的历史实现会把非 unpaid
 				// 值映射成 Provider 的 paid 查询，运行时必须在这里先 fail-closed。
@@ -247,7 +265,7 @@ export class OutpatientPaymentService {
 			this.logger.info(
 				{
 					event: "outpatient.payment.records.requested",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					status,
 					patientId,
@@ -313,7 +331,7 @@ export class OutpatientPaymentService {
 			this.logger.info(
 				{
 					event: "outpatient.payment.records.loaded",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: trace.provider,
 					...traceLogFields(trace),
 					status,
@@ -330,7 +348,7 @@ export class OutpatientPaymentService {
 			this.logger.error(
 				{
 					event: "outpatient.payment.records.failed",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					// 这是平台内部 opaque patientId，用于把 owner 映射失败与
 					// 页面请求关联；provider 患者号仍只存在于调用帧内。

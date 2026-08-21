@@ -4,8 +4,10 @@ import type {
 } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
+	adapterContextTraceId,
 	emptyUserProfile,
 	MAX_USER_PROFILE_VERSION,
+	normalizeAdapterCallContext,
 	normalizeUserProfileReadModel,
 	type UserGender,
 	type UserProfile,
@@ -81,6 +83,15 @@ function rejectUnknownProfileUpdateFields(
 	if ([...Object.keys(value)].some((key) => !PROFILE_UPDATE_FIELDS.has(key))) {
 		throw new UserProfileInputError("Profile update contains an unknown field");
 	}
+}
+
+/** 普通资料读写共用上下文门禁，避免 direct-call 在仓储或失败日志前才崩溃。 */
+function requireProfileContext(value: unknown): AdapterCallContext {
+	const normalized = normalizeAdapterCallContext(value);
+	if (!normalized) {
+		throw new UserProfileInputError("Profile call context is invalid");
+	}
+	return normalized;
 }
 
 function normalizeDisplayName(value: unknown): string | undefined {
@@ -171,10 +182,14 @@ export class UserProfileService {
 		context: AdapterCallContext,
 	): Promise<UserProfilePayload["data"]> {
 		this.logger.info(
-			{ event: "user.profile.requested", traceId: context.traceId },
+			{
+				event: "user.profile.requested",
+				traceId: adapterContextTraceId(context),
+			},
 			"User profile requested",
 		);
 		try {
+			context = requireProfileContext(context);
 			const storedProfile = await this.repository.findByUserId(userId);
 			const profile = storedProfile
 				? normalizeUserProfileReadModel(storedProfile, userId)
@@ -182,7 +197,7 @@ export class UserProfileService {
 			this.logger.info(
 				{
 					event: "user.profile.loaded",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					persisted: Boolean(profile),
 				},
 				"User profile loaded",
@@ -192,7 +207,7 @@ export class UserProfileService {
 			this.logger.error(
 				{
 					event: "user.profile.read_failed",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					errorType: error instanceof Error ? error.name : "unknown",
 					...(error instanceof UserProfileReadModelValidationError
 						? { readModelViolation: error.violation }
@@ -219,10 +234,14 @@ export class UserProfileService {
 		// 这样日志才能区分“请求没有到达资料服务”“到达后输入被拒绝/版本冲突”
 		// 和“已经成功写入”，而不是用 updated 或 conflict 反推请求是否发生。
 		this.logger.info(
-			{ event: "user.profile.update.requested", traceId: context.traceId },
+			{
+				event: "user.profile.update.requested",
+				traceId: adapterContextTraceId(context),
+			},
 			"User profile update requested",
 		);
 		try {
+			context = requireProfileContext(context);
 			if (!isProfileUpdateObject(input)) {
 				// Elysia 会在 HTTP 层校验请求体，但 service 还可能被组合根、
 				// 回放任务或未来 Worker 直接调用。不能让 null/数组在解构处
@@ -280,7 +299,7 @@ export class UserProfileService {
 			this.logger.info(
 				{
 					event: "user.profile.updated",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					fieldCount: fields.length,
 					version: profile.version,
 				},
@@ -296,7 +315,7 @@ export class UserProfileService {
 				this.logger.warn(
 					{
 						event: "user.profile.conflict",
-						traceId: context.traceId,
+						traceId: adapterContextTraceId(context),
 						errorType: error.name,
 					},
 					"User profile update conflicted with a newer version",
@@ -309,7 +328,7 @@ export class UserProfileService {
 				this.logger.warn(
 					{
 						event: "user.profile.update_failed",
-						traceId: context.traceId,
+						traceId: adapterContextTraceId(context),
 						errorType: error.name,
 					},
 					"User profile update rejected",
@@ -319,7 +338,7 @@ export class UserProfileService {
 			this.logger.error(
 				{
 					event: "user.profile.update_failed",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					errorType: error instanceof Error ? error.name : "unknown",
 					...(error instanceof UserProfileReadModelValidationError
 						? { readModelViolation: error.violation }

@@ -16,10 +16,12 @@ import {
 	type AppointmentSchedule,
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
+	adapterContextTraceId,
 	DependencyNotConfiguredError,
 	type ExternalTrace,
 	ExternalTraceReadModelValidationError,
 	isBoundedOpaqueIdentifier,
+	normalizeAdapterCallContext,
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
@@ -214,6 +216,22 @@ const APPOINTMENT_SCHEDULE_QUERY_FIELDS = new Set([
 ]);
 
 const APPOINTMENT_RECORD_QUERY_FIELDS = new Set(["startDate", "endDate"]);
+
+/**
+ * 预约 service 的所有入口共用同一份上下文门禁。
+ *
+ * 目录、排班和预约历史虽然是只读操作，但都会把 trace/idempotency 交给
+ * Provider 或日志链。直接调用方不能绕过 HTTP schema；非法上下文必须在
+ * Provider、快照仓储和错误日志之前停止，并由各方法选择对应的公共查询错误。
+ */
+function requireAppointmentContext(
+	value: unknown,
+	error: Error,
+): AdapterCallContext {
+	const normalized = normalizeAdapterCallContext(value);
+	if (!normalized) throw error;
+	return normalized;
+}
 
 function validateScheduleQuery(input: AppointmentScheduleQuery): void {
 	if (!hasDateRangeShape(input)) {
@@ -410,11 +428,17 @@ export class AppointmentService {
 	): Promise<AppointmentDepartmentListPayload["data"]> {
 		let trace: ExternalTrace | undefined;
 		try {
+			context = requireAppointmentContext(
+				context,
+				new AppointmentScheduleQueryError(
+					"Appointment department call context is invalid",
+				),
+			);
 			const query = createDepartmentQuery(this.now());
 			this.logger.info(
 				{
 					event: "appointment.directory.departments.requested",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					startDate: query.startDate,
 					endDate: query.endDate,
@@ -438,7 +462,7 @@ export class AppointmentService {
 			this.logger.info(
 				{
 					event: "appointment.directory.departments.synced",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: trace.provider,
 					...traceLogFields(trace),
 					itemCount: normalizedDepartments.length,
@@ -461,11 +485,17 @@ export class AppointmentService {
 	): Promise<AppointmentScheduleListPayload["data"]> {
 		let trace: ExternalTrace | undefined;
 		try {
+			context = requireAppointmentContext(
+				context,
+				new AppointmentScheduleQueryError(
+					"Appointment schedule call context is invalid",
+				),
+			);
 			validateScheduleQuery(input);
 			this.logger.info(
 				{
 					event: "appointment.directory.schedules.requested",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					startDate: input.startDate,
 					endDate: input.endDate,
@@ -522,7 +552,7 @@ export class AppointmentService {
 			this.logger.info(
 				{
 					event: "appointment.directory.schedules.synced",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: trace.provider,
 					...traceLogFields(trace),
 					itemCount: observedSchedules.length,
@@ -622,6 +652,12 @@ export class AppointmentService {
 		let resultViolation: string | undefined;
 		let trace: ExternalTrace | undefined;
 		try {
+			context = requireAppointmentContext(
+				context,
+				new AppointmentRecordQueryError(
+					"Appointment record call context is invalid",
+				),
+			);
 			// 输入校验、依赖检查、owner 映射和 Provider 请求必须共用同一个
 			// 失败出口。否则“未配置”或非法日期虽然已经返回错误，业务日志却
 			// 没有 `appointment.records.failed`，排障时会误以为请求从未进入该模块。
@@ -635,7 +671,7 @@ export class AppointmentService {
 			this.logger.info(
 				{
 					event: "appointment.records.requested",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					patientId,
 					startDate: query.startDate,
@@ -694,7 +730,7 @@ export class AppointmentService {
 			this.logger.info(
 				{
 					event: "appointment.records.synced",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: trace.provider,
 					...traceLogFields(trace),
 					patientId,
@@ -711,7 +747,7 @@ export class AppointmentService {
 			this.logger.error(
 				{
 					event: "appointment.records.failed",
-					traceId: context.traceId,
+					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
 					patientId: isBoundedOpaqueIdentifier(patientId)
 						? patientId
@@ -734,7 +770,7 @@ export class AppointmentService {
 	}
 
 	private logFailure(
-		context: AdapterCallContext,
+		context: unknown,
 		error: unknown,
 		resource: "departments" | "schedules",
 		trace?: ExternalTrace,
@@ -742,7 +778,7 @@ export class AppointmentService {
 		this.logger.error(
 			{
 				event: `appointment.directory.${resource}.failed`,
-				traceId: context.traceId,
+				traceId: adapterContextTraceId(context),
 				provider: "zhongyang",
 				errorType: error instanceof Error ? error.name : "unknown",
 				...(error instanceof AppointmentDirectoryResultValidationError

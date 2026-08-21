@@ -89,6 +89,36 @@ test("门诊费用查询由 owner-scoped patient 映射驱动，并固定服务�
 	});
 });
 
+test("门诊费用 service 在 owner 映射和 Provider 前拒绝非法调用上下文", async () => {
+	let repositoryCalls = 0;
+	let gatewayCalls = 0;
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => {
+				repositoryCalls += 1;
+				return undefined;
+			},
+		},
+		gateway: {
+			listRecords: async () => {
+				gatewayCalls += 1;
+				throw new Error("must not be called");
+			},
+		},
+		authSysCode: "thirdSelfMachine",
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unpaid", null as never),
+	).rejects.toBeInstanceOf(OutpatientPaymentQueryError);
+	expect(repositoryCalls).toBe(0);
+	expect(gatewayCalls).toBe(0);
+});
+
 test("门诊费用拒绝异常 Provider trace 并只记录固定原因", async () => {
 	const lines: string[] = [];
 	const service = new OutpatientPaymentService({

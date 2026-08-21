@@ -468,3 +468,38 @@ test("微信登录服务拒绝首尾空白和控制字符 code，且不调用 pr
 	}
 	expect(providerCalls).toBe(0);
 });
+
+test("微信登录在上下文校验前不触碰身份和会话下游", async () => {
+	let downstreamCalls = 0;
+	const service = new AuthService({
+		identityGateway: {
+			async exchangeCode() {
+				downstreamCalls += 1;
+				throw new Error("must not be called");
+			},
+		},
+		identityUsers: {
+			async findOrCreateByWechat() {
+				downstreamCalls += 1;
+				throw new Error("must not be called");
+			},
+			async findByUserId() {
+				return undefined;
+			},
+		},
+		sessions: {
+			async issue() {
+				downstreamCalls += 1;
+				throw new Error("must not be called");
+			},
+			async verify() {
+				return { userId: "user-001" };
+			},
+		},
+	});
+
+	await expect(
+		service.login({ code: "temporary-code-003" }, null as never),
+	).rejects.toBeInstanceOf(WechatLoginInputError);
+	expect(downstreamCalls).toBe(0);
+});
