@@ -696,7 +696,16 @@ async function requestForSession<TResponse>(
 		},
 		{ ...config, accessToken },
 	);
-	if (!isCurrentSessionGeneration(sessionGeneration)) {
+	// 代际通常由 setAccessToken 统一推进，但 app 生命周期、开发者工具或
+	// 未来其它组合根仍可能直接改动 globalData。仅检查代际会让这种配置漂移
+	// 绕过会话隔离；响应回写前再次比较当前有效 token，确保“代际”和“认证
+	// 快照”两条事实链都仍然属于同一账号。这里仍只丢弃响应，不尝试回滚
+	// 已经发出的命令；资料更新、患者同步等命令的副作用必须由服务端幂等
+	// 和 owner 校验负责。
+	if (
+		!isCurrentSessionGeneration(sessionGeneration) ||
+		getAppConfig().accessToken !== accessToken
+	) {
 		throw new ApiError(
 			"Session changed while authenticated request was pending",
 			{

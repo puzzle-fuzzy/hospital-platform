@@ -422,6 +422,52 @@ test("认证请求在会话切换后丢弃已经返回的旧快照", async () =>
 	expect(getSessionGeneration()).toBeGreaterThan(0);
 });
 
+test("认证响应在有效 token 直接漂移时也必须丢弃旧快照", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let completeRequest: ((response: unknown) => void) | undefined;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "token-for-old-session",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? "token-for-old-session" : "",
+		request: (options: { success: (response: unknown) => void }) => {
+			completeRequest = options.success;
+		},
+	};
+
+	try {
+		const pending = requestWithSession<{ success: true }>({
+			url: "/patients",
+		});
+		await Promise.resolve();
+		if (!completeRequest) throw new Error("测试请求没有进入微信请求层");
+
+		// 故意绕过 setAccessToken 模拟生命周期或组合根直接改动全局配置；
+		// 代际没有变化时，响应层的 token 二次校验仍必须阻断旧快照。
+		globalData.accessToken = "token-for-new-session";
+		completeRequest({ statusCode: 200, data: { success: true } });
+
+		await expect(pending).rejects.toMatchObject({
+			code: "session-changed",
+		});
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
 test("认证命令在发出前发生会话切换时不使用新 token 发送", async () => {
 	type TestGlobal = typeof globalThis & {
 		getApp: (() => unknown) | undefined;
