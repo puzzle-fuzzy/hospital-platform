@@ -1,20 +1,22 @@
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
-	loadOutpatientPaymentRecords,
-	loadCurrentPatient,
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
+	loadCurrentPatient,
+	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
+import { assertSessionGeneration } from "../../services/session-boundary";
+import { getSessionGeneration } from "../../services/session-generation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -37,6 +39,7 @@ type OutpatientPaymentPageMethods = {
 		patient: Patient,
 		status: "unpaid" | "paid",
 		requestToken?: number,
+		expectedSessionGeneration?: number,
 	): Promise<void>;
 	onStatusTap(event: WechatMiniprogram.TouchEvent): void;
 	onLoadMore(): void;
@@ -80,6 +83,9 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	loadPage(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
+		// 费用页面的患者卡片、状态标签和金额必须来自同一会话代际；
+		// 另一个页面换号时，不能只靠当前页面 requestToken 继续拼接旧快照。
+		let expectedSessionGeneration = -1;
 		// 患者切换期间不展示上一位患者的费用，避免身份和金额短暂错配。
 		this.setData({
 			loading: true,
@@ -96,11 +102,16 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		return getCurrentUser()
 			.then(() => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
 				return loadCurrentPatient();
 			})
 			.then((patient) => {
 				if (!patient) return;
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Outpatient payment page session changed before patient context was committed",
+				);
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -113,7 +124,12 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				// 这样用户在费用请求进行期间切换 tab 时，新的 tab 请求会让
 				// 旧 requestToken 失效，旧状态不会覆盖用户最后一次选择。
 				this.setData({ selectedPatient: patient });
-				return this.loadRecords(patient, this.data.activeStatus, requestToken);
+				return this.loadRecords(
+					patient,
+					this.data.activeStatus,
+					requestToken,
+					expectedSessionGeneration,
+				);
 			})
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
@@ -134,12 +150,17 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		patient: Patient,
 		status: "unpaid" | "paid",
 		requestToken?: number,
+		expectedSessionGeneration = getSessionGeneration(),
 	): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const effectiveRequestToken = requestToken ?? loadGuard.begin();
 		// 查询状态必须来自本次操作的快照，不能依赖 setData 后的异步页面状态。
 		if (!isCurrentSelectedPatient(patient.id)) return Promise.resolve();
 		return loadOutpatientPaymentRecords(patient.id, status).then((items) => {
+			assertSessionGeneration(
+				expectedSessionGeneration,
+				"Outpatient payment page session changed before records were committed",
+			);
 			if (
 				!loadGuard.isCurrent(effectiveRequestToken) ||
 				!isCurrentSelectedPatient(patient.id)

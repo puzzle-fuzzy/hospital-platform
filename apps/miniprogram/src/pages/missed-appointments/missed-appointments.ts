@@ -12,11 +12,13 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
+import { assertSessionGeneration } from "../../services/session-boundary";
+import { getSessionGeneration } from "../../services/session-generation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordView,
@@ -81,6 +83,9 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	loadRecords(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "missed-appointments");
 		const requestToken = loadGuard.begin();
+		// 爽约记录和普通预约历史共享患者上下文，但页面实例不同；必须把
+		// `/me`、患者目录和筛选结果绑定在同一会话代际，防止跨页换号串快照。
+		let expectedSessionGeneration = -1;
 		this.setData({
 			loading: true,
 			error: "",
@@ -99,11 +104,16 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		return getCurrentUser()
 			.then(() => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
 				return loadCurrentPatient();
 			})
 			.then((patient) => {
 				if (!patient) return undefined;
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Missed appointment page session changed before patient context was committed",
+				);
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -115,7 +125,13 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				// 请求期间时，旧响应虽然会被丢弃，旧患者卡片仍可能短暂留在页面，
 				// 形成“卡片属于 A、列表等待 B”的错误业务快照。
 				return loadAppointmentRecords(patient.id, new Date(), "missed").then(
-					(records) => ({ patient, records }),
+					(records) => {
+						assertSessionGeneration(
+							expectedSessionGeneration,
+							"Missed appointment page session changed before records were committed",
+						);
+						return { patient, records };
+					},
 				);
 			})
 			.then((result) => {

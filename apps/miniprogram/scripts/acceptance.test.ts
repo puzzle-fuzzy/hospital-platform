@@ -752,7 +752,7 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	);
 	const outpatientPageStart = outpatient.indexOf("loadPage(): Promise<void> {");
 	const outpatientRecordsStart = outpatient.indexOf(
-		"loadRecords(\n",
+		"\n\tloadRecords(\n",
 		outpatientPageStart,
 	);
 	const outpatientPageLoad = outpatient.slice(
@@ -763,7 +763,7 @@ test("report and outpatient pages commit patient cards with read-only results", 
 		"this.setData({ selectedPatient: patient });",
 	);
 	const outpatientInitialLoadIndex = outpatientPageLoad.indexOf(
-		"return this.loadRecords(patient, this.data.activeStatus, requestToken);",
+		"return this.loadRecords(",
 	);
 	const outpatientRecordsLoad = outpatient.slice(outpatientRecordsStart);
 	const outpatientProviderIndex = outpatientRecordsLoad.indexOf(
@@ -792,6 +792,35 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	expect(outpatientProviderIndex).toBeGreaterThanOrEqual(0);
 	expect(outpatientGateIndex).toBeGreaterThan(outpatientProviderIndex);
 	expect(outpatientCommitIndex).toBeGreaterThan(outpatientGateIndex);
+});
+
+test("患者范围页面把会话代际贯穿到患者和业务结果提交", async () => {
+	const pageFiles = [
+		"pages/appointment-records/appointment-records.ts",
+		"pages/missed-appointments/missed-appointments.ts",
+		"pages/report-directory/report-directory.ts",
+		"pages/outpatient-payment/outpatient-payment.ts",
+	] as const;
+
+	for (const file of pageFiles) {
+		const page = await source(file);
+		// 每个页面都必须在 `/me` 成功后捕获当前代际，并在患者上下文和
+		// 业务列表准备提交时再次校验；单纯的 page request guard 不能覆盖
+		// 另一个页面完成账号切换的情况。
+		expect(page).toContain("let expectedSessionGeneration = -1");
+		expect(page).toContain(
+			"expectedSessionGeneration = getSessionGeneration()",
+		);
+		expect(page).toContain("assertSessionGeneration(");
+	}
+
+	const detail = await source("pages/report-detail/report-detail.ts");
+	// 详情深链也要先重建当前 owner 的患者目录，不能只用 URL 和旧 storage
+	// 中的 patientId 直接请求报告详情。
+	expect(detail).toContain("getCurrentUser()");
+	expect(detail).toContain("return loadCurrentPatient()");
+	expect(detail).toContain("currentPatient.id !== patientId");
+	expect(detail).toContain("assertSessionGeneration(");
 });
 
 test("native my page separates ordinary profile from family patient selection", async () => {

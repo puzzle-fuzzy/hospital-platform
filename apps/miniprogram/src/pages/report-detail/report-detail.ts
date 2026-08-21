@@ -1,4 +1,9 @@
-import { ApiError, requestReportDetail } from "../../services/api-client";
+import {
+	ApiError,
+	getCurrentUser,
+	requestReportDetail,
+} from "../../services/api-client";
+import { loadCurrentPatient } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -8,6 +13,8 @@ import {
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { toLaboratoryReportItemView } from "../../services/report-presenter";
+import { assertSessionGeneration } from "../../services/session-boundary";
+import { getSessionGeneration } from "../../services/session-generation";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
@@ -72,9 +79,39 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 
 		const detailGuard = getPageLatestRequestGuard(this, "report-detail");
 		const detailToken = detailGuard.begin();
-		requestReportDetail({ patientId, reportId })
+		// 详情页可能被旧页面栈或手工深链直接打开，不能只相信 URL 中的
+		// patientId。先重新取得当前 owner，再读取其患者目录；这样即使本地
+		// selected_patient_id 仍是旧账号的值，也不会直接把引用送进详情 API。
+		let expectedSessionGeneration = -1;
+		getCurrentUser()
+			.then(() => {
+				if (!detailGuard.isCurrent(detailToken)) return undefined;
+				expectedSessionGeneration = getSessionGeneration();
+				return loadCurrentPatient();
+			})
+			.then((currentPatient) => {
+				if (!currentPatient || !detailGuard.isCurrent(detailToken))
+					return undefined;
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Report detail session changed before patient context was confirmed",
+				);
+				if (
+					currentPatient.id !== patientId ||
+					!isCurrentSelectedPatient(patientId)
+				) {
+					throw new ApiError("当前就诊人已变更，请重新选择后查看报告", {
+						code: "patient-selection-required",
+					});
+				}
+				return requestReportDetail({ patientId, reportId });
+			})
 			.then((payload) => {
-				if (!detailGuard.isCurrent(detailToken)) return;
+				if (!payload || !detailGuard.isCurrent(detailToken)) return;
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Report detail session changed before detail was committed",
+				);
 				// 请求等待期间可能从另一个页面切换了患者；即使服务端响应合法，
 				// 也不能把旧患者的详情写入当前页面。服务端 owner/patient 校验和
 				// 这里的本地选择校验分别承担授权与展示隔离，两层都不能省略。

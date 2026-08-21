@@ -8,11 +8,13 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
+import { assertSessionGeneration } from "../../services/session-boundary";
+import { getSessionGeneration } from "../../services/session-generation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import type {
 	Report,
 	ReportDirectoryPageData,
@@ -100,6 +102,9 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	loadPage(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "reports");
 		const requestToken = loadGuard.begin();
+		// 报告目录是 `/me`、患者和临床列表的组合读模型；所有阶段必须属于
+		// 同一会话代际，不能只依赖单个请求的 HTTP 成功状态。
+		let expectedSessionGeneration = -1;
 		// 切换患者后先清掉旧患者的结果，避免新请求期间出现患者和列表不一致。
 		this.setData({
 			loading: true,
@@ -117,11 +122,16 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		return getCurrentUser()
 			.then(() => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
 				return loadCurrentPatient();
 			})
 			.then((patient) => {
 				if (!patient) return undefined;
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Report directory session changed before patient context was committed",
+				);
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -130,10 +140,13 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				}
 				// 患者卡片必须和同一轮报告目录一起提交；只确认目录患者后就
 				// 先展示卡片，会在切换患者或报告请求失败时形成错误的上下文暗示。
-				return loadReports(patient.id).then((payload) => ({
-					patient,
-					payload,
-				}));
+				return loadReports(patient.id).then((payload) => {
+					assertSessionGeneration(
+						expectedSessionGeneration,
+						"Report directory session changed before reports were committed",
+					);
+					return { patient, payload };
+				});
 			})
 			.then((result) => {
 				if (

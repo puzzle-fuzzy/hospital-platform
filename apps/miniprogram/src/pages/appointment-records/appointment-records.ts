@@ -14,11 +14,13 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { sessionVerificationStateFromError } from "../../services/session-service";
 import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
+import { assertSessionGeneration } from "../../services/session-boundary";
+import { getSessionGeneration } from "../../services/session-generation";
+import { sessionVerificationStateFromError } from "../../services/session-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -173,6 +175,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	loadRecords(): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "appointment-records");
 		const requestToken = loadGuard.begin();
+		// `/me`、患者目录和预约记录必须属于同一会话代际；页面守卫只隔离
+		// 当前实例的刷新，不能覆盖另一个页面完成换号后的跨请求组合问题。
+		let expectedSessionGeneration = -1;
 		// 患者切换或从选择页返回时，旧记录不能继续和新一轮目录读取并存；
 		// 只有当前患者和当前请求都确认成功后，页面才重新展示记录。
 		this.setData({
@@ -193,11 +198,16 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		return getCurrentUser()
 			.then(() => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
 				return loadCurrentPatient();
 			})
 			.then((patient) => {
 				if (!patient) return;
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Appointment page session changed before patient context was committed",
+				);
 				if (
 					!loadGuard.isCurrent(requestToken) ||
 					!isCurrentSelectedPatient(patient.id)
@@ -205,6 +215,10 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					return;
 				}
 				return loadAppointmentRecords(patient.id).then((records) => {
+					assertSessionGeneration(
+						expectedSessionGeneration,
+						"Appointment page session changed before records were committed",
+					);
 					if (
 						!loadGuard.isCurrent(requestToken) ||
 						!isCurrentSelectedPatient(patient.id)
