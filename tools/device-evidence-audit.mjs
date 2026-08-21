@@ -15,6 +15,7 @@ const DOMAIN_LABELS = Object.freeze({
 	appointmentRecords: "我的挂号",
 	missedAppointments: "爽约记录",
 	outpatientPayment: "门诊缴费只读",
+	profileReadonlyWrite: "普通资料读取与更新",
 });
 
 /**
@@ -207,6 +208,129 @@ function validateServerEvidence(server, domain) {
 	return object;
 }
 
+/**
+ * 普通资料不是单次查询：真机验收至少要分别证明 GET 读取和 PUT 更新。
+ * 两条请求虽然使用同一个公共路径，但方法、requestId 和服务端关联链都
+ * 不同；如果把它们压成一个计数，很容易把 GET 成功误当成 PUT 已保存。
+ */
+function validateProfileClientRequest(
+	client,
+	domain,
+	operation,
+	method,
+	requireSuccess,
+) {
+	const source = requirePlainObject(
+		client,
+		`${domain}.client.${operation} 缺失`,
+	);
+	const evidence = validateClientEvidence(
+		source,
+		`${domain}.client.${operation}`,
+	);
+	if (source.path !== "/api/v2/me/profile") {
+		throw new Error(
+			`${domain}.client.${operation}.path 必须是 /api/v2/me/profile`,
+		);
+	}
+	if (source.method !== method) {
+		throw new Error(`${domain}.client.${operation}.method 必须是 ${method}`);
+	}
+	if (
+		requireSuccess &&
+		(evidence.statusCode < 200 || evidence.statusCode > 299)
+	) {
+		throw new Error(`${domain}.client.${operation} 标记 passed 时必须为 2xx`);
+	}
+	return evidence;
+}
+
+function validateProfileClientEvidence(client, domain, requireSuccess = true) {
+	const object = requirePlainObject(client, `${domain}.client 缺失`);
+	const read = validateProfileClientRequest(
+		object.read,
+		domain,
+		"read",
+		"GET",
+		requireSuccess,
+	);
+	const update = validateProfileClientRequest(
+		object.update,
+		domain,
+		"update",
+		"PUT",
+		requireSuccess,
+	);
+	return { read, update };
+}
+
+/** 普通资料的 GET/PUT 各自必须有独立的低敏服务端关联摘要。 */
+function validateProfileServerEvidence(server, domain) {
+	const object = requirePlainObject(server, `${domain}.server 缺失`);
+	if (typeof object.auditPassed !== "boolean") {
+		throw new Error(`${domain}.server.auditPassed 必须为布尔值`);
+	}
+	const read = validateServerEvidence(object.read, `${domain}.server.read`);
+	const update = validateServerEvidence(
+		object.update,
+		`${domain}.server.update`,
+	);
+	return { auditPassed: object.auditPassed, read, update };
+}
+
+function validatePassedProfileDomain(domain, evidence) {
+	const page = validatePageEvidence(evidence.page, domain);
+	const client = validateProfileClientEvidence(evidence.client, domain);
+	const server = validateProfileServerEvidence(evidence.server, domain);
+	for (const [operation, summary] of [
+		["read", server.read],
+		["update", server.update],
+	]) {
+		if (
+			server.auditPassed !== true ||
+			summary.requested < 1 ||
+			summary.succeeded < 1 ||
+			summary.http2xx < 1 ||
+			summary.failed !== 0
+		) {
+			throw new Error(
+				`${domain}.${operation} 缺少同链 requested/succeeded/http2xx 或存在失败事件`,
+			);
+		}
+	}
+	return {
+		result: "passed",
+		page,
+		client,
+		server,
+	};
+}
+
+function validateFailedProfileDomain(domain, evidence) {
+	validatePageEvidence(evidence.page, domain);
+	const client = validateProfileClientEvidence(evidence.client, domain, false);
+	const { read, update } = client;
+	const server = validateProfileServerEvidence(evidence.server, domain);
+	if (
+		read.statusCode >= 200 &&
+		read.statusCode <= 299 &&
+		update.statusCode >= 200 &&
+		update.statusCode <= 299 &&
+		server.read.failed === 0 &&
+		server.update.failed === 0
+	) {
+		throw new Error(
+			`${domain} 标记 failed 时必须保留读取或更新失败状态，不能与成功链矛盾`,
+		);
+	}
+	return {
+		result: "failed",
+		pageObserved: true,
+		readStatusCode: read.statusCode,
+		updateStatusCode: update.statusCode,
+	};
+}
+
 function validatePassedDomain(domain, evidence) {
 	const page = validatePageEvidence(evidence.page, domain);
 	const client = validateClientEvidence(evidence.client, domain);
@@ -284,6 +408,13 @@ export function auditDeviceEvidence(manifest, expectedCandidate) {
 			continue;
 		}
 		if (result === "passed") {
+			if (domain === "profileReadonlyWrite") {
+				results[domain] = {
+					label: DOMAIN_LABELS[domain],
+					...validatePassedProfileDomain(domain, evidence),
+				};
+				continue;
+			}
 			results[domain] = {
 				label: DOMAIN_LABELS[domain],
 				...validatePassedDomain(domain, evidence),
@@ -291,6 +422,13 @@ export function auditDeviceEvidence(manifest, expectedCandidate) {
 			continue;
 		}
 		if (result === "failed") {
+			if (domain === "profileReadonlyWrite") {
+				results[domain] = {
+					label: DOMAIN_LABELS[domain],
+					...validateFailedProfileDomain(domain, evidence),
+				};
+				continue;
+			}
 			results[domain] = {
 				label: DOMAIN_LABELS[domain],
 				...validateFailedDomain(domain, evidence),
