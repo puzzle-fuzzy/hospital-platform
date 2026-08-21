@@ -10,6 +10,8 @@
 
 ## 当前执行检查点（2026-08-22）
 
+- 2026-08-22（当前真机准入复核）：仓库根目录 `pnpm check` 全部通过，包含 67 条架构规则、14 页迁移台账、Provider 文档审计、439 篇文档链接、发布基线、Biome、9 个 workspace 包的类型检查/测试/构建；API 为 `204 pass / 0 fail`，小程序运行包仍为 14 页且不含任何 `*.test.js`/`*.spec.js`。桌面开发者工具当前自动恢复的是旧项目 `mp-weixin`，因此没有把旧模拟器、旧控制台或旧网络请求计入新项目真机证据。`single-flight.test.js` 仍按旧增量索引处理，下一步必须重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 后生成当前二维码；详见 [`current-device-acceptance-gate-2026-08-22.md`](release/current-device-acceptance-gate-2026-08-22.md)。
+
 - 2026-08-22 00:32–00:44 CST（`002acc1b` 生产切换，完整 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`）：候选已通过真实 `shared/api.env` preflight、`127.0.0.1:18082` 隔离 runtime smoke，并从
   `9f491cb5` 原子切换到当前 `002acc1b`，只重启 `hospital-platform-api-v2.service`。切换后内网/公网 readiness、生产模式启动日志和公网 runtime smoke 均通过；旧 Python `8001` 的
   Gunicorn PID 集合未变化，Worker 仍为 `inactive`，`18082` 已释放。该记录只证明运行层，不替代真机或 Provider 业务证据，详见
