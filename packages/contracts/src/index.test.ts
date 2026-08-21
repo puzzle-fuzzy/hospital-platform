@@ -2,6 +2,9 @@ import { expect, test } from "bun:test";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
 import { Value } from "@sinclair/typebox/value";
 import {
+	PatientCardNumberMaskedSchema,
+	PatientListResponse,
+	PatientSchema,
 	UserProfileDisplayNameSchema,
 	UserProfileSchema,
 	UserProfileUpdateRequest,
@@ -10,6 +13,11 @@ import {
 const displayNameSchema = TypeCompiler.Compile(UserProfileDisplayNameSchema);
 const profileSchema = TypeCompiler.Compile(UserProfileSchema);
 const updateSchema = TypeCompiler.Compile(UserProfileUpdateRequest);
+const patientCardNumberSchema = TypeCompiler.Compile(
+	PatientCardNumberMaskedSchema,
+);
+const patientSchema = TypeCompiler.Compile(PatientSchema);
+const patientListSchema = TypeCompiler.Compile(PatientListResponse);
 
 function profile(displayName: string) {
 	return {
@@ -43,5 +51,42 @@ test("个人资料展示名拒绝第 65 个 Unicode code point 和孤立代理�
 		expect(Value.Check(UserProfileDisplayNameSchema, value)).toBe(false);
 		expect(profileSchema.Check(profile(value))).toBe(false);
 		expect(updateSchema.Check({ version: 1, displayName: value })).toBe(false);
+	}
+});
+
+test("公共患者 contract 固定卡号最多前五位和后四位", () => {
+	const validCard = "12345******1234";
+	const legacyMaskedCard = "******7890";
+	const unboundCard = "未绑定";
+
+	for (const value of [validCard, legacyMaskedCard, unboundCard]) {
+		expect(patientCardNumberSchema.Check(value)).toBe(true);
+		expect(Value.Check(PatientCardNumberMaskedSchema, value)).toBe(true);
+	}
+
+	const patient = {
+		id: "patient-contract-001",
+		displayName: "患者甲",
+		relationship: "self" as const,
+		cardNumberMasked: validCard,
+		source: "hospital-his" as const,
+		clinicalAccess: "ready" as const,
+	};
+	expect(patientSchema.Check(patient)).toBe(true);
+	expect(
+		patientListSchema.Check({
+			success: true,
+			data: { items: [patient], total: 1 },
+		}),
+	).toBe(true);
+
+	for (const value of [
+		"123456******1234", // 前六位可见，超出页面允许的前缀边界。
+		"12345********12345", // 后五位可见，超出页面允许的后缀边界。
+		"123456789012345678", // 完整卡号，不包含掩码。
+		"12345-******1234", // 卡号展示不允许夹带未审计分隔符。
+	]) {
+		expect(patientCardNumberSchema.Check(value)).toBe(false);
+		expect(Value.Check(PatientCardNumberMaskedSchema, value)).toBe(false);
 	}
 });

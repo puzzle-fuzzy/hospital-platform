@@ -840,6 +840,50 @@ test("众阳患者目录对 18 位卡号保留前五位和后四位", async () =
 	expect(JSON.stringify(result)).not.toContain("123456789012345678");
 });
 
+test("众阳患者目录对 15 位卡号保留前五位和后四位", async () => {
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: { patId: "his-patient-015" },
+					}),
+					{ status: 200, headers: { "x-request-id": "archive-request-015" } },
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "1003",
+							patientName: "王五",
+							medicalCardNo: "123456789012345",
+							relation: "本人",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "zhongyang-request-015" },
+				},
+			);
+		},
+	});
+
+	const result = await gateway.listByIdentity(
+		{ unionId: "union-015" },
+		context,
+	);
+
+	// 这是展示边界测试，不使用真实患者卡号；前五位必须保留，后四位也必须保留。
+	expect(result.patients[0]?.cardNumberMasked).toBe("12345******2345");
+	expect(JSON.stringify(result)).not.toContain("123456789012345");
+});
+
 test("众阳患者目录拒绝业务失败响应", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",

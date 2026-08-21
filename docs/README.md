@@ -29,6 +29,7 @@
 | [`release/observability-deep-redaction-audit-2026-08-21.md`](release/observability-deep-redaction-audit-2026-08-21.md) | Pino 10 固定层级路径的深层泄露缺口、递归 JSON 输出门禁、合成探针和未部署边界 |
 | [`release/worker-startup-mode-log-audit-2026-08-21.md`](release/worker-startup-mode-log-audit-2026-08-21.md) | Worker 启动探针失败时的 development/test/production 模式日志边界、回归测试和未部署说明 |
 | [`release/patient-relationship-unknown-boundary-2026-08-20.md`](release/patient-relationship-unknown-boundary-2026-08-20.md) | 患者关系明确“其他”和关系缺失/未知的契约、adapter 映射、小程序文案与验收边界 |
+| [`release/patient-card-masking-contract-2026-08-22.md`](release/patient-card-masking-contract-2026-08-22.md) | 患者卡号公共 contract、前五位/后四位展示边界、历史掩码兼容和重新同步停止条件 |
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |
 | [`release/profile-mysql-write-response-atomicity-2026-08-21.md`](release/profile-mysql-write-response-atomicity-2026-08-21.md) | 普通资料 MySQL 行锁、版本条件更新和 canonical 响应回读的事务原子性修正 |

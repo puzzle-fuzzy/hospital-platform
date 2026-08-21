@@ -84,6 +84,32 @@ test("患者读模型拒绝未脱敏的完整卡号", () => {
 	).toThrow(new PatientReadModelValidationError("patient-card-number-invalid"));
 });
 
+test("患者读模型保留前五位展示边界并拒绝更多可见前缀", () => {
+	const visibleCard = normalizePatientReadModel(
+		[
+			{
+				...basePatient,
+				cardNumberMasked: "00100******7027",
+			},
+		],
+		"owner-001",
+	);
+	// 15 位卡号的展示值应能核对前五位和后四位，不能退化成只显示后四位。
+	expect(visibleCard[0]?.cardNumberMasked).toBe("00100******7027");
+
+	expect(() =>
+		normalizePatientReadModel(
+			[
+				{
+					...basePatient,
+					cardNumberMasked: "123456******7027",
+				},
+			],
+			"owner-001",
+		),
+	).toThrow(new PatientReadModelValidationError("patient-card-number-invalid"));
+});
+
 test("患者读模型保留未绑定哨兵值但仍要求其它卡号带掩码", () => {
 	expect(
 		normalizePatientReadModel(

@@ -12,6 +12,8 @@
 
 - 2026-08-22（真机证据隐私门禁）：发现页面摘要的通用 `summary` 字段可能绕过字段名检查写入 11 位手机号；已在 `device-evidence-audit` 增加手机号值级拒绝和回归测试，并补充边界文档。该修正只影响验收证据文件，不改变 API、患者数据、Provider 或旧 Python 服务；详见 [`release/device-evidence-redaction-phone-audit-2026-08-22.md`](release/device-evidence-redaction-phone-audit-2026-08-22.md)。
 
+- 2026-08-22（患者卡号公共 contract 收口）：复核发现领域层、众阳 adapter 和小程序已经校验脱敏卡号，但 Elysia 公共 `PatientSchema` 仍把 `cardNumberMasked` 声明为普通字符串；现已补充标准 JSON Schema pattern，并用合成 15 位卡号锁定“前五位 + 后四位”展示、超过五位前缀/四位后缀和完整卡号拒绝边界。旧快照中只有后四位的历史掩码无法反推出前五位，必须重新取得真实 Provider 卡号后受控同步，不能在小程序端猜测；详见 [`release/patient-card-masking-contract-2026-08-22.md`](release/patient-card-masking-contract-2026-08-22.md)。本轮未调用 Provider、未写 MySQL/Redis、未修改旧 Python 服务。
+
 - 2026-08-22 06:30–06:31 CST（当前小程序候选运行包恢复）：针对再次出现的 `dist/services/single-flight.test.js` ENOENT，重新构建并验证候选 `4e1b2e2`；`single-flight.js` 存在、测试脚本为 0、14 个页面齐全，`runtime:verify` 通过。新 `miniprogram` 项目普通编译成功，调试器错误数为 0，并重新生成 iOS/局域网二维码。该记录仍不增加真实手机业务证据，不得把二维码或模拟器状态当作微信登录、患者或只读业务完成；详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md)。
 
 - 2026-08-22 06:30–06:43 CST（当前候选全仓门禁复核）：再次执行 `pnpm check`，架构规则 67 条、API 测试 `206 pass / 0 fail`、工具测试 `51 pass / 0 fail`，9 个 workspace 的 typecheck/test/build 全部通过；运行包来源仍为 `4e1b2e2`，14 个页面完整且不含测试脚本，二维码界面显示有效至 06:56。该复核未产生手机扫码、微信会话或 Provider 业务证据；旧 `mp-weixin`、旧 Python 服务、数据库和 Redis 均未修改。

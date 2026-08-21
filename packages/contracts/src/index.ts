@@ -147,11 +147,26 @@ export const PatientClinicalAccessSchema = Type.Union([
 	Type.Literal("unavailable"),
 ]);
 
+/**
+ * 患者端允许返回的卡号展示值。
+ *
+ * 卡号不是普通字符串：最多保留前五位和后四位，中间必须存在至少一个
+ * 掩码字符；`未绑定` 表示 Provider 没有可展示卡号。把规则写进公共
+ * Elysia response contract，可以让路由 schema 和领域/小程序的运行时
+ * 二次校验共享同一条安全边界，避免未来 service 漏校验时仍把完整卡号
+ * 当成合法响应发出。这里使用标准 JSON Schema `pattern`，不依赖 TypeBox
+ * 私有的 RegExp kind，便于文档生成和不同运行时验证器保持一致。
+ */
+export const PatientCardNumberMaskedSchema = Type.Union([
+	Type.Literal("未绑定"),
+	Type.String({ pattern: "^[A-Za-z0-9]{0,5}\\*+[A-Za-z0-9]{0,4}$" }),
+]);
+
 export const PatientSchema = Type.Object({
 	id: Type.String({ minLength: 1 }),
 	displayName: Type.String({ minLength: 1 }),
 	relationship: PatientRelationshipSchema,
-	cardNumberMasked: Type.String({ minLength: 1 }),
+	cardNumberMasked: PatientCardNumberMaskedSchema,
 	source: Type.Union([
 		Type.Literal("hospital-his"),
 		Type.Literal("legacy-record"),
