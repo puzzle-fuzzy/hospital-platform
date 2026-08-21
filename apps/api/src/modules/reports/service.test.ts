@@ -290,6 +290,80 @@ test("报告目录 service 拒绝未知字段而不是静默丢弃查询意图",
 	expect(providerCalls).toBe(0);
 });
 
+test("报告目录 service 拒绝窗口外或无法解析的 Provider 时间并记录固定原因", async () => {
+	for (const [reportedAt, violation] of [
+		["2026-07-31 23:59:59", "reported-at-outside-query"],
+		["未知时间", "reported-at-invalid"],
+	] as const) {
+		const lines: string[] = [];
+		let successEvents = 0;
+		const service = new ReportService({
+			repository: {
+				resolveProviderReference: async () => ({
+					patientId: "patient-001",
+					provider: "zhongyang" as const,
+					providerPatientId: "provider-patient-001",
+				}),
+			} as unknown as PatientRepository,
+			directory: {
+				listReports: async () => ({
+					reports: [
+						{
+							summary: {
+								kind: "laboratory" as const,
+								title: "血常规",
+								reportedAt,
+								status: "available" as const,
+								hasAttachment: false,
+							},
+						},
+					],
+					trace: {
+						provider: "zhongyang" as const,
+						operation: "reports-directory",
+						requestId: `report-window-${violation}`,
+					},
+				}),
+			},
+			logger: createLogger({
+				service: "report-window-test",
+				environment: "test",
+				level: "info",
+				destination: {
+					write: (chunk) => {
+						lines.push(chunk);
+						if (chunk.includes('"event":"report.directory.synced"')) {
+							successEvents += 1;
+						}
+					},
+				},
+			}),
+		});
+
+		await expect(
+			service.list(
+				"user-001",
+				"patient-001",
+				{ startDate: "2026-08-01", endDate: "2026-08-15" },
+				{
+					traceId: `trace-report-${violation}`,
+					idempotencyKey: `key-report-${violation}`,
+				},
+			),
+		).rejects.toMatchObject({ violation });
+		const events = lines.map(
+			(line) => JSON.parse(line) as Record<string, unknown>,
+		);
+		expect(successEvents).toBe(0);
+		expect(events).toContainEqual(
+			expect.objectContaining({
+				event: "report.directory.failed",
+				resultViolation: violation,
+			}),
+		);
+	}
+});
+
 test("报告目录接受多 Provider 的有界请求号列表并完整写入低敏日志", async () => {
 	const lines: string[] = [];
 	const requestIds = ["a".repeat(70), "b".repeat(70), "c".repeat(70)];

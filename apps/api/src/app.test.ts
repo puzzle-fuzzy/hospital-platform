@@ -349,7 +349,7 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"HTTP `200`、`items: []` 和 `total: 0`",
 		"右栏每次最多渲染 12 条；这是本地渲染分页",
 		"每次渲染 10 条；这是本地渲染分页",
-		"adapter 对严格可识别的 `reportedAt` 按时间倒序，无法识别的时间置后",
+		"服务端仅对通过时间窗口校验的结果按 `reportedAt` 时间倒序",
 		"目录摘要与详情引用是两个独立能力",
 		"不能因为单条详情引用不可用而把整批报告目录当成服务不可用",
 		"不能被验收记录写成“服务端已支持分页”",

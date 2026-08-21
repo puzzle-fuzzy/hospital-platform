@@ -7,6 +7,8 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（报告目录结果窗口绑定）：复核发现报告 service 之前只校验请求日期范围，未验证 Provider 返回的 `reportedAt` 是否属于本次查询；缓存旧快照或忽略日期参数时可能被误报为成功目录。现已在 domain/service 增加统一时间解析和自然日窗口门禁：每条报告时间必须是已审计格式且落在首尾日期内，未知格式或窗口外结果整批以 `provider-response-invalid` 拒绝，并记录固定 `resultViolation`；新增 domain/API 回归测试与边界文档。该修正不调用真实 Provider、不打开报告 gate、不修改旧 Python 服务，详见 [`report-directory-window-validation-2026-08-21.md`](release/report-directory-window-validation-2026-08-21.md)。
+
 - 2026-08-21（预约记录时间字段边界）：对照旧端 `workTime` 的 `HH:mm` 定义和 `groupStart/groupEnd` 时间段逻辑，发现新端 domain/client 之前只校验非空文本，可能把任意时间文本交给页面时段推导。现已在公共 contract、domain 读模型和小程序响应边界统一限制为合法时间点/不倒序时间段，并新增 `work-time-invalid` 回归测试；未修改另一会话维护的众阳自动化 adapter。详见 [`appointment-work-time-boundary-audit-2026-08-21.md`](release/appointment-work-time-boundary-audit-2026-08-21.md)。
 
 - 2026-08-21（日志最终脱敏边界）：日志业务调用已经只保留低敏元数据，但最终递归脱敏清单此前主要覆盖 camelCase 字段，未来 Provider 原始响应使用

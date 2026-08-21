@@ -252,9 +252,11 @@ export {
 	MAX_REPORT_DIRECTORY_ITEMS,
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
+	parseReportTimestamp,
 	REPORT_REFERENCE_MAX_TTL_MS,
 	ReportReferenceValidationError,
 	ReportResultValidationError,
+	validateReportDirectoryResultWindow,
 	validateReportReference,
 } from "./reports";
 export type {

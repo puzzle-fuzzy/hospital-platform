@@ -30,6 +30,7 @@ import {
 	REPORT_REFERENCE_MAX_TTL_MS,
 	ReportResultValidationError,
 	validatePatientProviderReference,
+	validateReportDirectoryResultWindow,
 	validateReportReference,
 } from "@hospital/domain";
 import {
@@ -391,6 +392,7 @@ export class ReportService {
 					(result as { reports?: unknown } | undefined)?.reports,
 				);
 				validateReportKindFilter(normalizedReports, normalizedQuery);
+				validateReportDirectoryResultWindow(normalizedReports, normalizedQuery);
 			} catch (error) {
 				if (error instanceof ReportResultValidationError) {
 					resultViolation = error.violation;

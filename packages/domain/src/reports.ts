@@ -1,3 +1,4 @@
+import { parseIsoCalendarDate } from "./date-range";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 当前已取得安全查询边界的报告来源；体检报告需要额外身份证合同，暂不纳入。 */
@@ -220,6 +221,7 @@ export type ReportResultViolation =
 	| "report-kind-mismatch"
 	| "title-invalid"
 	| "reported-at-invalid"
+	| "reported-at-outside-query"
 	| "status-invalid"
 	| "attachment-invalid"
 	| "provider-report-id-invalid"
@@ -356,6 +358,94 @@ export function normalizeReportDirectoryResults(
 		}
 		return { summary: { kind, ...safeSummary } };
 	});
+}
+
+/**
+ * 解析报告摘要时间，返回用于窗口比较的时间戳。
+ *
+ * 旧端 LIS/PACS/ECG 的报告时间可能是 `yyyy-MM-dd`、带时间的本地文本、
+ * 斜杠日期或带明确时区的 ISO 文本。自然日文本按 UTC 伪时间线比较，避免
+ * 服务部署机器的时区改变查询结果；带时区的 ISO 文本则按其明确偏移解析。
+ * 未知格式和不存在的日历日期都返回 undefined，调用方必须 fail-closed。
+ */
+export function parseReportTimestamp(value: string): number | undefined {
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	const localMatch =
+		/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/.exec(
+			trimmed,
+		);
+	if (localMatch) {
+		const year = Number(localMatch[1]);
+		const month = Number(localMatch[2]);
+		const day = Number(localMatch[3]);
+		const hour = Number(localMatch[4] ?? 0);
+		const minute = Number(localMatch[5] ?? 0);
+		const second = Number(localMatch[6] ?? 0);
+		const millisecond = Number((localMatch[7] ?? "").padEnd(3, "0") || 0);
+		const timestamp = Date.UTC(
+			year,
+			month - 1,
+			day,
+			hour,
+			minute,
+			second,
+			millisecond,
+		);
+		const date = new Date(timestamp);
+		if (
+			date.getUTCFullYear() !== year ||
+			date.getUTCMonth() !== month - 1 ||
+			date.getUTCDate() !== day ||
+			hour > 23 ||
+			minute > 59 ||
+			second > 59
+		) {
+			return undefined;
+		}
+		return timestamp;
+	}
+
+	// 先校验 ISO 日期部分，避免某些运行时把 2 月 30 日自动进位后当成合法值。
+	if (
+		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+			trimmed,
+		) &&
+		parseIsoCalendarDate(trimmed.slice(0, 10)) !== undefined
+	) {
+		const timestamp = Date.parse(trimmed);
+		return Number.isFinite(timestamp) ? timestamp : undefined;
+	}
+	return undefined;
+}
+
+/**
+ * 报告目录不能只验证请求日期本身，还必须证明 Provider 返回的每条摘要
+ * 属于这次查询的自然日窗口。窗口首日和末日均包含；未知时间、窗口外
+ * 结果和整批混合结果一律拒绝，不能过滤坏行后伪装成完整目录。
+ */
+export function validateReportDirectoryResultWindow(
+	reports: readonly ReportDirectoryEntry[],
+	query: ReportDirectoryQuery,
+): void {
+	const start = parseIsoCalendarDate(query.startDate);
+	const end = parseIsoCalendarDate(query.endDate);
+	if (start === undefined || end === undefined || end < start) {
+		// service 已经有更具体的 ReportQueryError；这里仍保留防御性门禁，
+		// 防止未来的内部调用绕过 service 后把非法窗口交给比较逻辑。
+		invalidReportResult("reported-at-invalid");
+	}
+	const endExclusive = (end as number) + 24 * 60 * 60 * 1000;
+
+	for (const report of reports) {
+		const timestamp = parseReportTimestamp(report.summary.reportedAt);
+		if (timestamp === undefined) {
+			invalidReportResult("reported-at-invalid");
+		}
+		if (timestamp < (start as number) || timestamp >= endExclusive) {
+			invalidReportResult("reported-at-outside-query");
+		}
+	}
 }
 
 /**
