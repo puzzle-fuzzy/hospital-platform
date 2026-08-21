@@ -184,6 +184,12 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
     当前账号后重新触发业务动作。资料保存、患者同步和支付预支付都不能依靠通用鉴权重试来保证命令安全，
     必须由调用方显式重新点击/确认，服务端仍以 owner、幂等键和最终状态查询作为第二道边界。
 
+20. 患者范围页面完成 `/me` 验证后，不能把后续患者目录、报告、挂号或门诊费用读取的所有错误都映射成
+    `unavailable`。患者未选择、临床映射缺失、Provider 暂时失败和合法空结果属于业务读模型状态，
+    只要当前 token 仍在且没有收到明确 `unauthorized`，页面必须保留 `valid`，让用户能够进入“更换就诊人”或稍后重试；
+    `401` 才收敛为 `invalid`，`session-changed` 收敛为 `checking`，恢复后无 token 才按会话验证错误处理。
+    这条规则由 `sessionStateAfterAuthenticatedReadError()` 统一实现，不能由各页面再次复制判断。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的
