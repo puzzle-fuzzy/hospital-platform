@@ -1,8 +1,8 @@
 # 小程序患者页面会话组合边界审计（2026-08-21）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `968a587158289da6a482b3614907bde0a5ad9581`（提交 `968a587`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`（提交 `ec3e5f09`）。
 
-> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `968a587`，完整运行包来源为 `968a587158289da6a482b3614907bde0a5ad9581`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
+> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `ec3e5f09`，完整运行包来源为 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
 
 ## 发现的问题
 
@@ -15,17 +15,18 @@
   -> 页面把三段结果拼成一张卡片
 ```
 
-当另一个页面在请求之间完成微信会话轮换时，每个单独的 GET 可能都返回 200，但它们不再属于同一个 owner 快照。单纯检查 `isCurrentSelectedPatient` 只能确认本地选择字符串，没有证明 `/me`、患者目录和业务列表属于同一会话代际。
+当另一个页面在请求之间完成微信会话轮换时，每个单独的 GET 可能都返回 200，但它们不再属于同一个 owner 快照。单纯检查 `isCurrentSelectedPatient` 只能确认本地选择字符串，没有证明 `/me`、患者目录和业务列表属于同一会话代际；只比较代际也无法证明患者目录读取期间 owner 没有变化。
 
 报告详情还有一条深链风险：旧页面栈或手工 URL 可以携带 `patientId/reportId`，如果详情页不重新读取当前 owner 的患者目录，就会把旧本地选择当作当前患者证明。服务端仍会做最终授权，但客户端应在发起详情请求前先收敛自己的上下文。
 
 ## 修正规则
 
-新增 `services/session-boundary.ts` 的 `assertSessionGeneration`：
+新增 `services/session-boundary.ts` 的 `assertSessionGeneration`，并在 `dashboard-service.ts` 增加 `loadCurrentPatientForOwner`：
 
 - 患者范围页面在 `/me` 成功后捕获当前会话代际；
 - 患者目录返回、业务列表返回和页面提交前重新校验代际；
-- 代际变化统一抛出 `session-changed`，沿用已有中文错误文案和页面清理语义；
+- 同一 owner 的 GET 会话恢复允许使用最新代际继续只读组合；患者目录读取完成后重新请求 `/me`，owner 不一致或无法证明时统一抛出 `session-changed`；
+- 业务请求发出前仍检查最新代际，不能把旧患者 ID 交给新会话；
 - 不记录 token、openid、患者号或非法上下文，代际只存在进程内内存；
 - 不自动把旧患者请求重放到新账号，必须由下一轮完整页面加载建立新快照。
 
@@ -44,22 +45,22 @@
 
 | 页面 | 组合边界 |
 | --- | --- |
-| `appointment-records` | `/me`、当前患者、预约历史提交绑定同一代际 |
-| `missed-appointments` | `/me`、当前患者、爽约筛选结果提交绑定同一代际 |
-| `report-directory` | `/me`、当前患者、报告目录提交绑定同一代际 |
-| `outpatient-payment` | `/me`、当前患者、待缴/已缴费用结果提交绑定同一代际；标签切换也捕获当前代际 |
-| `report-detail` | 先重新确认 owner 和患者目录，再请求详情，并在详情提交前复核代际 |
+| `appointment-records` | `/me`、owner 重验证、当前患者、预约历史提交绑定同一最新代际 |
+| `missed-appointments` | `/me`、owner 重验证、当前患者、爽约筛选结果提交绑定同一最新代际 |
+| `report-directory` | `/me`、owner 重验证、当前患者、报告目录提交绑定同一最新代际 |
+| `outpatient-payment` | `/me`、owner 重验证、当前患者、待缴/已缴费用结果提交绑定同一最新代际；标签切换也捕获当前代际 |
+| `report-detail` | 先重新确认 owner、患者目录和 owner 一致性，再请求详情，并在详情提交前复核代际 |
 
 ## 验证证据
 
 | 检查 | 结果 |
 | --- | --- |
-| 小程序全量测试 | 180 pass / 0 fail / 1438 expects |
+| 小程序全量测试 | 196 pass / 0 fail / 1490 expects |
 | 会话代际单元测试 | `session-boundary.test.ts` 通过 |
 | 小程序 typecheck | 通过 |
 | Biome | 通过 |
-| 小程序 build | 通过；14 个页面运行脚本存在 |
-| `runtime:verify` | 通过；来源 `968a587158289da6a482b3614907bde0a5ad9581`，不含测试脚本 |
+| 小程序 build | 通过；14 个页面运行脚本存在，来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac` |
+| `runtime:verify` | 通过；来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`，不含测试脚本 |
 | 真机、Provider、公网业务 | 尚未由本轮证明 |
 
 ## 后续停止条件

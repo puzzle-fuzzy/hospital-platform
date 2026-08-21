@@ -1,10 +1,10 @@
 # 当前只读业务链审计（2026-08-21）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `968a587158289da6a482b3614907bde0a5ad9581`（提交 `968a587`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`（提交 `ec3e5f09`）。
 
-> 当前基线更新：服务端 `5a31427`；小程序候选 `968a587`；完整运行包来源 `968a587158289da6a482b3614907bde0a5ad9581`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `5a31427`；小程序候选 `ec3e5f09`；完整运行包来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`。下文更早候选只作历史追溯。
 
-> 本记录以服务端 `5a31427` 和小程序本地候选 `968a587` 为当前运行基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。当前完整运行包来源为 `968a587158289da6a482b3614907bde0a5ad9581`；文中更早候选只作历史追溯。本地适配器审计修正已提交为 `313e903`，本轮个人资料合同修正尚未部署；没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
+> 本记录以服务端 `5a31427` 和小程序本地候选 `ec3e5f09` 为当前运行基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。当前完整运行包来源为 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`；文中更早候选只作历史追溯。本地适配器审计修正已提交为 `313e903`，本轮个人资料合同修正尚未部署；没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
 >
 > 本地代码和测试通过不等于真实 Provider、HTTPS、真机页面或业务日志三层验收完成。
 
@@ -61,7 +61,7 @@
 | API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
 | 众阳及通用 adapter | `pnpm --filter @hospital/adapters test` | 105 项通过，0 项失败，228 个断言；包含稳定身份缺失回归 |
 | 全仓门禁 | `pnpm check` | 架构、迁移、Provider、文档 400 篇无断链、发布基线、格式、lint、工具测试、9 workspace 类型检查、9 workspace 测试和构建均通过 |
-| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `968a587`，不含 test/spec 脚本 |
+| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `ec3e5f09`，不含 test/spec 脚本 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.js` | 存在 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.test.js` | 不存在 |
 
