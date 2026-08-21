@@ -1,6 +1,6 @@
 # 当前只读业务链审计（2026-08-21）
 
-> 本记录以服务端 `5a31427` 和小程序本地候选 `b629380` 为当前运行基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。当前完整运行包来源为 `b629380162aa8275418b643e10a16e96a65d0b36`；文中更早候选只作历史追溯。本地适配器审计修正已提交为 `313e903`，本轮个人资料合同修正尚未部署；没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
+> 本记录以服务端 `5a31427` 和小程序本地候选 `c86a788` 为当前运行基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。当前完整运行包来源为 `c86a788c01760fd5a74ac8c2769871025297a4fc`；文中更早候选只作历史追溯。本地适配器审计修正已提交为 `313e903`，本轮个人资料合同修正尚未部署；没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
 >
 > 本地代码和测试通过不等于真实 Provider、HTTPS、真机页面或业务日志三层验收完成。
 
@@ -57,7 +57,7 @@
 | API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
 | 众阳及通用 adapter | `pnpm --filter @hospital/adapters test` | 105 项通过，0 项失败，228 个断言；包含稳定身份缺失回归 |
 | 全仓门禁 | `pnpm check` | 架构、迁移、Provider、文档 345 篇无断链、发布基线、格式、lint、工具测试、9 workspace 类型检查和 9 workspace 测试均通过；构建阶段的 8 个 workspace 已通过，小程序构建因并行会话未提交 `apps/miniprogram/project.config.json` 被运行输入洁净门禁阻止 |
-| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `b629380`，不含 test/spec 脚本 |
+| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `c86a788`，不含 test/spec 脚本 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.js` | 存在 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.test.js` | 不存在 |
 
