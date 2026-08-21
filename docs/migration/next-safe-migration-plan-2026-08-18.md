@@ -6,8 +6,8 @@
 它不代表任何支付、医保、预约写入或患者资料写入已经开放。
 
 > **当前执行基线（2026-08-22）**：服务端配套 release 为
-> `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，小程序运行包来源为
-> `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`。本文较早日期的观察记录只作历史
+> `84fac75ceeb2247b252cf7e160eedbda220378f8`，小程序运行包来源为
+> `90fd7832e3ad1031c9c916f118f90cc0f2840aff`。本文较早日期的观察记录只作历史
 > 追溯；当前真机准入、运行包和 ENOENT 处理以
 > [`当前真机准入记录`](../release/current-device-acceptance-gate-2026-08-22.md) 为准。
 

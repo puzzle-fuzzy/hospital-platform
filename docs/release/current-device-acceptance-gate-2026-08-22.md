@@ -204,4 +204,11 @@ LIS/PACS/ECG 只读目录；未指定来源时三路 Provider 必须全部成功
 - 预约目录/历史、报告目录、门诊费用的真实 Provider 请求号和真机结果；
 - 支付、医保、HIS 写回等副作用证据。
 
+## 2026-08-22 04:44–04:50 CST `84fac75c` 切换后观察
+
+新 API 已从 `002acc1b` 原子切换到 `84fac75c`，仅重启 `hospital-platform-api-v2.service`；旧 Python `8001` 保持监听，
+Worker 保持 inactive。切换后内网和公网 live/ready/system-ping 通过，ready 的 MySQL、Redis、schema 均为 `ok`。
+低敏日志聚合 `parseErrors=0`、`systemdWarningCount=0`，窗口内没有新的登录、患者、预约、报告、门诊费用或普通资料成功事件。
+因此当前仍等待同一二维码的真机三层业务证据，不能把健康探针或未登录 `401` 当作微信登录/患者同步完成。
+
 因此下一步仍应先完成当前候选的真实微信登录和患者切换，再按只读预约、报告、门诊费用顺序验收。支付、医保、退款、预约写入和 HIS 回写继续保持最后专项。

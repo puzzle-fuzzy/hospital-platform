@@ -66,7 +66,7 @@
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
 - `pnpm --filter @hospital/miniprogram test`：`203 pass / 0 fail / 1534 expects`；
-- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源仍为服务端 `002acc1b`、小程序 `90fd783`。
+- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `84fac75c`、小程序 `90fd783`。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
 
