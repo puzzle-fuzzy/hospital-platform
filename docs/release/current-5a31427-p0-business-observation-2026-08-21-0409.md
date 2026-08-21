@@ -18,7 +18,7 @@
 没有重启服务、写入 MySQL/Redis、调用 Provider 或改变 Nginx 转发。
 
 当前小程序候选来源为完整 SHA
-`f085d06d8e4b9695274f93b5a6b56f2af3faac91`（短提交 `f085d06`）。
+`39ad2c5937af2fdc735ffb223c0648464af3a48c`（短提交 `39ad2c5`）。
 
 ## 2. 日志聚合结果
 
