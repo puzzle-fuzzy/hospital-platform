@@ -7,6 +7,10 @@
 > 根 `pnpm check` 唯一停止点是发布基线不一致；本机 PEM 连接阿里云中转机 `8.130.127.184` 被服务器拒绝，
 > 没有执行上传、切换、旧 Python `8001` 检查或线上修改。后续先恢复受控 SSH，再继续候选发布和重新构建真机包。
 
+> 2026-08-22 07:38 CST 当前服务端候选已推进为 `4f2d890d`：只收紧众阳超长卡号响应，超过平台 64 字符资源边界时
+> 在 `patInfosFind` 前 fail-closed；小程序运行包来源仍是 `b0e0935`，因为本轮未修改小程序运行输入。该服务端
+> 候选尚未部署，SSH 仍被阿里云拒绝；详见 [`../release/candidate-4f2d890-local-build-2026-08-22.md`](../release/candidate-4f2d890-local-build-2026-08-22.md)。
+
 > 当前基线更新：服务端 `7181e99e`；小程序候选 `4e1b2e2`，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
 
 > 2026-08-21 报告只读 adapter 已收紧 LIS `pdfUrlList`：数组元素必须为无控制字符字符串，异常对象、数字、布尔值和控制字符会整批拒绝；当前仍只返回附件存在性，不返回地址、不开放下载或授权。详见 [`../release/report-attachment-boundary-2026-08-21.md`](../release/report-attachment-boundary-2026-08-21.md)。

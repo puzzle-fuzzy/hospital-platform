@@ -29,6 +29,7 @@
 | [`release/device-evidence-distinct-chain-audit-2026-08-22.md`](release/device-evidence-distinct-chain-audit-2026-08-22.md) | 普通资料与预约目录双请求必须使用独立客户端 requestId 和服务端关联指纹的证据门禁 |
 | [`release/candidate-4e1b2e2-local-build-2026-08-22.md`](release/candidate-4e1b2e2-local-build-2026-08-22.md) | 当前 `4e1b2e2` 小程序运行包、资料读模型失效与会话失效边界、`single-flight.test.js` ENOENT 恢复和真机前运行包边界 |
 | [`release/candidate-b0e0935-local-build-2026-08-22.md`](release/candidate-b0e0935-local-build-2026-08-22.md) | 未部署 `b0e0935` 候选的患者卡号 contract、运行包来源、本地门禁和线上切换停止条件 |
+| [`release/candidate-4f2d890-local-build-2026-08-22.md`](release/candidate-4f2d890-local-build-2026-08-22.md) | 未部署 `4f2d890` 众阳卡号超长响应 fail-closed 修正、服务端/小程序来源区分和发布停止条件 |
 | [`release/miniprogram-devtools-project-preflight-2026-08-21.md`](release/miniprogram-devtools-project-preflight-2026-08-21.md) | 当前候选运行包和微信开发者工具项目选择前置检查；防止误用旧 `mp-weixin` 窗口 |
 | [`release/redis-readiness-concurrency-audit-2026-08-20.md`](release/redis-readiness-concurrency-audit-2026-08-20.md) | Redis readiness、会话读写和 TTL 维护的连接单飞边界；不重放业务命令，失败后允许安全重试 |
 | [`release/redis-session-error-classification-2026-08-22.md`](release/redis-session-error-classification-2026-08-22.md) | 区分 Redis 未配置、会话自然失效和已配置 Redis 瞬态读写故障的 HTTP/日志边界；修复已随 `7181e99e` 发布 |

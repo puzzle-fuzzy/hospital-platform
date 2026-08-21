@@ -24,6 +24,10 @@
 前五位。要让旧快照显示新的前五位，必须在取得真实 Provider 卡号后重新执行受控的患者目录同步，
 不能在小程序端猜测或拼接。
 
+众阳 adapter 对原始卡号设置 64 个字符的平台资源上限。超过上限的 Provider 值属于响应异常，
+会在 `patInfosFind` 前返回 `provider-response-invalid`，不能被脱敏函数改写为“未绑定”；“未绑定”
+只表示没有可用卡号事实，不表示卡号格式或长度校验失败。
+
 ## 代码边界
 
 - `packages/contracts/src/index.ts` 的 `PatientCardNumberMaskedSchema` 将规则写入公共 JSON Schema；
