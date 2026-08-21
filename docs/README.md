@@ -36,6 +36,7 @@
 | [`release/readonly-business-chain-audit-2026-08-21.md`](release/readonly-business-chain-audit-2026-08-21.md) | 当前候选预约历史、爽约、门诊费用患者上下文复核，以及 `single-flight.test.js` ENOENT 运行包恢复证据 |
 | [`release/current-gated-domains-audit-2026-08-21.md`](release/current-gated-domains-audit-2026-08-21.md) | 当前病历、患者绑定、二维码、报告详情/附件和支付医保门禁，以及公网关闭路由只读证据 |
 | [`release/miniprogram-qr-contract-audit-2026-08-21.md`](release/miniprogram-qr-contract-audit-2026-08-21.md) | 旧端二维码实际使用 `medicalCardNo` 而非 `patId` 的证据、外部生成风险和新端关闭闸门 |
+| [`release/current-public-readonly-smoke-2026-08-21-2055.md`](release/current-public-readonly-smoke-2026-08-21-2055.md) | 20:55 CST 公网 live/ready/ping、未登录资料/患者鉴权和本地运行包来源限制；不替代真机业务证据 |
 | [`release/miniprogram-report-readonly-logic-audit-2026-08-20.md`](release/miniprogram-report-readonly-logic-audit-2026-08-20.md) | 报告目录/详情的患者归属、多来源聚合、opaque 引用、附件存在性和关闭门禁 |
 | [`release/report-directory-service-input-boundary-audit-2026-08-21.md`](release/report-directory-service-input-boundary-audit-2026-08-21.md) | 报告目录 service 未知字段拒绝、owner/患者映射、详情引用和 Provider gate 边界 |
 | [`release/miniprogram-patient-directory-superseded-2026-08-21.md`](release/miniprogram-patient-directory-superseded-2026-08-21.md) | 首页患者目录请求被淘汰时的显式生命周期结果、禁止误启动同步的并发修正与验证证据 |
