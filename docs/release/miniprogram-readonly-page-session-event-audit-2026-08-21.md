@@ -1,7 +1,7 @@
 # 小程序只读页面跨会话本地事件审计（2026-08-21）
 
 > 当前候选：服务端 release `5a31427`；小程序运行包来源
-> `7a6f4df34fac5975c6012a30d2c137953a892059`（提交 `7a6f4df`）。
+> `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`（提交 `aafccf5`）。
 
 ## 发现
 
@@ -30,10 +30,10 @@
 | 检查 | 结果 |
 | --- | --- |
 | 小程序类型检查 | 通过 |
-| 小程序测试 | 178 pass，0 fail，1418 expect 调用 |
+| 小程序测试 | 180 pass，0 fail，1438 expect 调用 |
 | Biome 格式与 Lint | 通过 |
 | 小程序运行包构建 | 通过；14 个页面入口 |
-| `runtime:verify` | 通过；来源为 `7a6f4df` |
+| `runtime:verify` | 通过；来源为 `aafccf5` |
 | `dist/services/single-flight.test.js` | 不存在 |
 
 本轮只修改新项目小程序代码、测试和文档，没有部署、重启或修改旧 Python 服务、

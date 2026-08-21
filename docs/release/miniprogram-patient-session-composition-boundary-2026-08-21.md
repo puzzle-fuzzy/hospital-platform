@@ -54,12 +54,12 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| 小程序全量测试 | 176 pass / 0 fail / 1399 expects |
+| 小程序全量测试 | 180 pass / 0 fail / 1438 expects |
 | 会话代际单元测试 | `session-boundary.test.ts` 通过 |
 | 小程序 typecheck | 通过 |
 | Biome | 通过 |
 | 小程序 build | 通过；14 个页面运行脚本存在 |
-| `runtime:verify` | 通过；来源 `7a6f4df34fac5975c6012a30d2c137953a892059`，不含测试脚本 |
+| `runtime:verify` | 通过；来源 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`，不含测试脚本 |
 | 真机、Provider、公网业务 | 尚未由本轮证明 |
 
 ## 后续停止条件
