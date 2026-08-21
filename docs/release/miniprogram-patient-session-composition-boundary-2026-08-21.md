@@ -1,8 +1,8 @@
 # 小程序患者页面会话组合边界审计（2026-08-21）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`（提交 `ec3e5f09`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `cdb27e5023a188ab36a340497cebe18f1e274013`（提交 `cdb27e50`）。
 
-> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `ec3e5f09`，完整运行包来源为 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
+> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `cdb27e50`，完整运行包来源为 `cdb27e5023a188ab36a340497cebe18f1e274013`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
 
 ## 发现的问题
 
@@ -55,12 +55,12 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| 小程序全量测试 | 196 pass / 0 fail / 1490 expects |
+| 小程序全量测试 | 197 pass / 0 fail / 1493 expects |
 | 会话代际单元测试 | `session-boundary.test.ts` 通过 |
 | 小程序 typecheck | 通过 |
 | Biome | 通过 |
-| 小程序 build | 通过；14 个页面运行脚本存在，来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac` |
-| `runtime:verify` | 通过；来源 `ec3e5f094ecd0a85bbf98d4fc6ff9f14b27bb9ac`，不含测试脚本 |
+| 小程序 build | 通过；14 个页面运行脚本存在，来源 `cdb27e5023a188ab36a340497cebe18f1e274013` |
+| `runtime:verify` | 通过；来源 `cdb27e5023a188ab36a340497cebe18f1e274013`，不含测试脚本 |
 | 真机、Provider、公网业务 | 尚未由本轮证明 |
 
 ## 后续停止条件
