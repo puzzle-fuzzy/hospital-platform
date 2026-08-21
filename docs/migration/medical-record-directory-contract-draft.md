@@ -64,6 +64,22 @@ MR-01 至 MR-06、MR-13 至 MR-15 以及最小交付包后，必须先通过脱�
 只有在 MR-01 至 MR-15 的必要项和最小 Provider 交付包齐全后，才允许进入
 “版本化 contract → adapter → owner-scoped service → API → 小程序页面 → 四层验收”的实现顺序。
 
+## 0.4 2026-08-22 继续复核后的准入结论
+
+本轮再次只读核对旧端页面、接口声明和患者选择器，四个审计文件指纹仍未变化：
+
+| 文件 | 当前 SHA-256 | 本轮确认 |
+| --- | --- | --- |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\health\\electronic_record.vue` | `7e9842d10fce9e954a059c9dba9827fda66cb0ce629360e89a9333df4b10f669` | 页面只调用门诊 `out-visit-records`，按设备时间生成近 30 天窗口，异常响应会被旧端折叠为空列表 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\ZY.ts` | `659408140db42dd1705a143850dd568d8f286285cf31b58dfa7ae865607bfe38` | 门诊记录声明为 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，摘要类型仍含未审计扩展字段 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\medicalRecord.ts` | `1a0db15d194e468ec2ef8b8502f9687322d07007b1c8a447d9a53d3cf61ef801` | 同时声明住院病历目录、内容和结构化接口，但没有证据证明门诊页面使用过这些接口 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\components\\health\\patient-hospital-selector.vue` | `e45e4d911f1d29eb86637857df20e2984663d7fd382db0a472c3ebc83d1ce02` | 旧选择器会把 Provider 患者号写入本地选择状态，不能迁移为新端 storage 或公共请求输入 |
+
+截至本次复核，`docs/provider-intake/` 仍没有 `out-visit-records` 的正式确认包、患者映射说明、成功空目录/权限
+拒绝/暂时失败脱敏样例、分页/时区约束或字段展示白名单。故本次仍停止在文档准入边界：不新增 schema、adapter、
+service、API、页面或兼容转发，不把旧端异常清空列表的行为复制到新端；`/api/v2/medical-records` 继续保持未注册。
+本次没有调用 Provider，也没有修改旧项目、线上服务、数据库、Redis 或并行会话维护的众阳自动化。
+
 ## 1. 业务范围
 
 本草案只覆盖“门诊就诊记录目录”，不覆盖：
