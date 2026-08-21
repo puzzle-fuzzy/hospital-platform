@@ -1,9 +1,9 @@
-import { Elysia, t } from "elysia";
 import { PatientListResponse, success } from "@hospital/contracts";
-import type { PatientService } from "./service";
-import type { SessionTokenService } from "../auth/service";
-import { adapterContextFromHeaders } from "../../plugins/request-context";
+import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
+import { adapterContextFromHeaders } from "../../plugins/request-context";
+import type { SessionTokenService } from "../auth/service";
+import type { PatientService } from "./service";
 
 const AuthorizationHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
@@ -66,4 +66,4 @@ export function patientsModule(
 		);
 }
 
-export { PatientService } from "./service";
+export { PatientService, PatientServiceInputError } from "./service";

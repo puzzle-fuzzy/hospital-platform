@@ -44,6 +44,103 @@ export type PatientServiceDependencies = {
 	syncLeaseMs?: number;
 };
 
+type PatientServiceInputViolation = "owner-invalid" | "context-invalid";
+
+/** 患者 service 直接调用时的输入错误；不能让坏上下文变成未映射 500。 */
+export class PatientServiceInputError extends Error {
+	readonly violation: PatientServiceInputViolation;
+
+	constructor(violation: PatientServiceInputViolation) {
+		super("Patient service input is invalid");
+		this.name = "PatientServiceInputError";
+		this.violation = violation;
+	}
+}
+
+const PATIENT_CONTEXT_FIELDS = new Set([
+	"traceId",
+	"idempotencyKey",
+	"signal",
+	"timeoutMs",
+]);
+
+function safeTraceId(value: unknown): string {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return "invalid";
+	}
+	const traceId = (value as Record<string, unknown>).traceId;
+	return isBoundedOpaqueIdentifier(traceId) ? traceId : "invalid";
+}
+
+/**
+ * HTTP header schema不能成为患者 service 的唯一输入门禁。
+ *
+ * 同步会把幂等键写入 durable operation ledger，把 traceId 交给 Provider；
+ * 如果组合根或回放任务绕过 HTTP 传入 null、控制字符、未知上下文字段或
+ * 错误 timeout/signal，可能出现错误租约、不可检索日志或未映射 TypeError。
+ * 这里先投影为固定上下文，再允许进入 owner 查询和 Provider 调用。
+ */
+function normalizePatientServiceCall(
+	ownerUserId: unknown,
+	context: unknown,
+): { ownerUserId: string; context: AdapterCallContext } {
+	if (!isBoundedOpaqueIdentifier(ownerUserId)) {
+		throw new PatientServiceInputError("owner-invalid");
+	}
+	if (
+		typeof context !== "object" ||
+		context === null ||
+		Array.isArray(context)
+	) {
+		throw new PatientServiceInputError("context-invalid");
+	}
+	const record = context as Record<string, unknown>;
+	if (Object.keys(record).some((field) => !PATIENT_CONTEXT_FIELDS.has(field))) {
+		throw new PatientServiceInputError("context-invalid");
+	}
+	if (
+		!isBoundedOpaqueIdentifier(record.traceId) ||
+		!isBoundedOpaqueIdentifier(record.idempotencyKey)
+	) {
+		throw new PatientServiceInputError("context-invalid");
+	}
+	if (
+		record.timeoutMs !== undefined &&
+		(typeof record.timeoutMs !== "number" ||
+			!Number.isSafeInteger(record.timeoutMs) ||
+			record.timeoutMs <= 0)
+	) {
+		throw new PatientServiceInputError("context-invalid");
+	}
+	if (record.signal !== undefined) {
+		if (
+			typeof record.signal !== "object" ||
+			record.signal === null ||
+			typeof (record.signal as { aborted?: unknown }).aborted !== "boolean" ||
+			typeof (record.signal as { addEventListener?: unknown })
+				.addEventListener !== "function" ||
+			typeof (record.signal as { removeEventListener?: unknown })
+				.removeEventListener !== "function"
+		) {
+			throw new PatientServiceInputError("context-invalid");
+		}
+	}
+
+	return {
+		ownerUserId,
+		context: {
+			traceId: record.traceId,
+			idempotencyKey: record.idempotencyKey,
+			...(record.signal !== undefined
+				? { signal: record.signal as AbortSignal }
+				: {}),
+			...(record.timeoutMs !== undefined
+				? { timeoutMs: record.timeoutMs as number }
+				: {}),
+		},
+	};
+}
+
 /**
  * 将患者目录的单请求/多请求 trace 统一投影为低敏日志字段。
  *
@@ -90,11 +187,14 @@ export class PatientService {
 		this.logger.info(
 			{
 				event: "patient.directory.read.requested",
-				traceId: context.traceId,
+				traceId: safeTraceId(context),
 			},
 			"Patient directory read requested",
 		);
 		try {
+			const normalized = normalizePatientServiceCall(ownerUserId, context);
+			ownerUserId = normalized.ownerUserId;
+			context = normalized.context;
 			// 仓储已经按 owner 查询，但这里仍要做第二道运行时门禁。组合测试、
 			// 回放任务或未来读模型实现不能因为 TypeScript 类型声明就把错 owner、
 			// 重复 ID 或 provider 扩展字段带到小程序。
@@ -135,8 +235,11 @@ export class PatientService {
 			this.logger.error(
 				{
 					event: "patient.directory.read.failed",
-					traceId: context.traceId,
+					traceId: safeTraceId(context),
 					errorType: error instanceof Error ? error.name : "unknown",
+					...(error instanceof PatientServiceInputError
+						? { inputViolation: error.violation }
+						: {}),
 					...(error instanceof PatientReadModelValidationError
 						? { readModelViolation: error.violation }
 						: {}),
@@ -165,13 +268,16 @@ export class PatientService {
 		this.logger.info(
 			{
 				event: "patient.directory.requested",
-				traceId: context.traceId,
+				traceId: safeTraceId(context),
 				provider: "zhongyang",
 			},
 			"Patient directory synchronization requested",
 		);
 
 		try {
+			const normalized = normalizePatientServiceCall(ownerUserId, context);
+			ownerUserId = normalized.ownerUserId;
+			context = normalized.context;
 			const identityUsers = this.dependencies.identityUsers;
 			const directory = this.dependencies.directory;
 			const beginDirectorySync = this.repository.beginDirectorySync;
@@ -385,7 +491,7 @@ export class PatientService {
 				this.logger.error(
 					{
 						event: "patient.directory.failed",
-						traceId: context.traceId,
+						traceId: safeTraceId(context),
 						provider: "zhongyang",
 						operationId,
 						errorType: error instanceof Error ? error.name : "unknown",

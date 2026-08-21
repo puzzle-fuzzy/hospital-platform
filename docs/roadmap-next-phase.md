@@ -5,6 +5,13 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（患者目录 service 直接调用输入边界修正）：发现 HTTP schema 之外，`PatientService.list/sync` 仍依赖
+  TypeScript 类型来保证 owner 与 `AdapterCallContext` 正确；现已增加固定上下文字段、opaque identifier、timeout/signal
+  运行时校验，并在仓储/租约/幂等账本/Provider 前 fail-closed。非法输入使用公共 `patient-query-invalid` 契约，失败日志只保留
+  固定分类，不泄露 owner 或患者正文。患者 service 与错误处理 `39 pass/159 expects`、API 应用 `40 pass/241 expects`、小程序
+  `174 pass/1377 expects`、API/小程序 typecheck 和 Biome 均通过；详见
+  [`release/patient-service-input-boundary-audit-2026-08-21.md`](release/patient-service-input-boundary-audit-2026-08-21.md)。
+
 - 2026-08-21（健康知识 service 输入边界修正）：发现健康知识 HTTP 路由虽有参数 schema，但直接调用 service 时分类、
   关联对象、条目 ID 和症状数组仍依赖 TypeScript 类型；现已在 domain 增加分类运行时校验，并在 service 的统一日志范围内
   对所有 repository 入口 fail-closed。API 健康知识 service `6 pass/24 expects`、domain `15 pass/31 expects`、persistence

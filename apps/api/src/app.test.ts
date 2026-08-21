@@ -322,6 +322,7 @@ test("public API documentation lists every stable public error code", async () =
 		"payment-identity-not-found",
 		"payment-prepay-in-progress",
 		"payment-prepay-unknown",
+		"patient-query-invalid",
 		"patient-sync-in-progress",
 		"patient-directory-snapshot-unsafe",
 		"user-profile-invalid",

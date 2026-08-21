@@ -118,6 +118,9 @@ test("native client sends request ids for Pino HTTP correlation", async () => {
 });
 
 test("native client localizes every public query and session error boundary", () => {
+	expect(localizedApiErrorMessage("patient-query-invalid", "fallback")).toBe(
+		"就诊人查询条件不合法",
+	);
 	expect(localizedApiErrorMessage("patient-sync-in-progress", "fallback")).toBe(
 		"患者目录正在同步，请稍后刷新",
 	);

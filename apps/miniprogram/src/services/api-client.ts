@@ -68,6 +68,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		unauthorized: "登录状态已失效，请重新登录",
 		"dependency-not-configured": "该服务暂未配置完成，请稍后重试",
 		"patient-sync-in-progress": "患者目录正在同步，请稍后刷新",
+		"patient-query-invalid": "就诊人查询条件不合法",
 		"patient-sync-stale": "本次同步结果已过期，请刷新后重试",
 		"patient-directory-snapshot-unsafe":
 			"外部患者目录结果不完整，当前就诊人未更新，请稍后重试",

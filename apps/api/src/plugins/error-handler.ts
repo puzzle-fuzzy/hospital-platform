@@ -53,6 +53,7 @@ import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
 } from "../modules/outpatient-payments";
+import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
 import {
@@ -101,6 +102,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "dependency-not-configured",
 						message: "该服务暂未配置完成，请稍后重试",
+					},
+				};
+			}
+
+			if (error instanceof PatientServiceInputError) {
+				set.status = 400;
+				return {
+					success: false,
+					error: {
+						code: "patient-query-invalid",
+						message: "就诊人查询条件不合法",
 					},
 				};
 			}

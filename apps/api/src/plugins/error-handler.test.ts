@@ -41,6 +41,7 @@ import {
 	WechatLoginInputError,
 } from "../modules/auth/service";
 import { OutpatientPaymentQueryError } from "../modules/outpatient-payments";
+import { PatientServiceInputError } from "../modules/patients/service";
 import {
 	PaymentIdentityNotFoundError,
 	WechatPaymentNotificationRejectedError,
@@ -95,6 +96,23 @@ test("微信登录服务输入错误保持 400 validation 契约", async () => {
 		error: {
 			code: "validation",
 			message: "微信登录参数不合法",
+		},
+	});
+});
+
+test("患者 service 输入错误保持 400 查询契约", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new PatientServiceInputError("context-invalid");
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(400);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "patient-query-invalid",
+			message: "就诊人查询条件不合法",
 		},
 	});
 });

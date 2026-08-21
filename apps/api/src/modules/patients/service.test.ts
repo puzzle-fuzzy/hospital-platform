@@ -18,7 +18,7 @@ import {
 	createInMemoryIdentityUserRepository,
 	createInMemoryPatientRepository,
 } from "@hospital/persistence";
-import { PatientService } from "./service";
+import { PatientService, PatientServiceInputError } from "./service";
 
 test("患者目录读取使用独立读模型日志且不泄露 owner 或患者正文", async () => {
 	const lines: string[] = [];
@@ -63,6 +63,40 @@ test("患者目录读取使用独立读模型日志且不泄露 owner 或患者�
 	});
 	expect(JSON.stringify(records)).not.toContain("fixture-owner-read-001");
 	expect(JSON.stringify(records)).not.toContain("读模型患者");
+});
+
+test("患者 service 在仓储前拒绝非法 owner 和调用上下文", async () => {
+	let repositoryCalls = 0;
+	const baseRepository = createInMemoryPatientRepository();
+	const repository: PatientRepository = {
+		...baseRepository,
+		async listByOwner(ownerUserId) {
+			repositoryCalls += 1;
+			return baseRepository.listByOwner(ownerUserId);
+		},
+	};
+	const service = new PatientService(repository);
+
+	// 这些调用模拟绕过 HTTP 的组合根或回放任务。owner、幂等键和 trace
+	// 不能在进入仓储前才发现错误，更不能让 null 上下文在失败日志中再次崩溃。
+	await expect(
+		service.list(null as never, null as never),
+	).rejects.toBeInstanceOf(PatientServiceInputError);
+	await expect(
+		service.sync("fixture-owner-001", {
+			traceId: "patient-trace-001",
+			idempotencyKey: "patient-key-001\n",
+		} as never),
+	).rejects.toBeInstanceOf(PatientServiceInputError);
+	await expect(
+		service.sync("fixture-owner-001", {
+			traceId: "patient-trace-001",
+			idempotencyKey: "patient-key-001",
+			timeoutMs: 0,
+		} as never),
+	).rejects.toBeInstanceOf(PatientServiceInputError);
+
+	expect(repositoryCalls).toBe(0);
 });
 
 test("患者目录成功日志保留 domain 已校验的多请求 provider trace", async () => {

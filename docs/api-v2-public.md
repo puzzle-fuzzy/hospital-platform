@@ -342,6 +342,7 @@ query schema 的内部任务传入未知值，也只能返回 `400 outpatient-pa
 | 400 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
 | 400 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
 | 400 | `report-query-invalid` | 报告查询条件不合法 |
+| 400 | `patient-query-invalid` | 就诊人查询上下文不合法 |
 | 400 | `payment-order-invalid` | 创建订单输入不合法 |
 | 400 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |
 | 400 | `user-profile-invalid` | 普通个人资料字段不合法或没有可更新字段 |
