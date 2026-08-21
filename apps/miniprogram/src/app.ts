@@ -21,10 +21,11 @@ App<{ globalData: AppGlobalData }>({
 	},
 
 	onLaunch() {
-		const storedToken = wx.getStorageSync("access_token");
-		if (typeof storedToken === "string" && storedToken) {
-			this.globalData.accessToken = storedToken;
-			this.globalData.sessionStatus = "signed_in";
-		}
+		// App 入口不能把本地缓存直接当成已登录事实：缓存可能来自旧版本、
+		// 开发者工具手工写入或异常中断，也没有经过当前服务端的 owner 验证。
+		// token 保留在 storage，由 api-client/session-service 在真正请求前按同一
+		// contract 校验；只有 `/me` 或微信 code 兑换成功后，才能写入全局状态。
+		// 这样全局 `signed_in` 不会先于服务端会话证明出现，页面也不会在恢复
+		// 期间把上一账号的患者上下文误当成当前账号事实。
 	},
 });

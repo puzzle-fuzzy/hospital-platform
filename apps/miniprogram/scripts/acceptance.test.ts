@@ -46,6 +46,17 @@ test("native client keeps WeChat identity exchange on the Hospital API", async (
 	expect(client).not.toContain("api.weixin.qq.com");
 });
 
+test("native App entry does not trust a cached token before session verification", async () => {
+	const app = await source("app.ts");
+
+	// 本地缓存只是一项待验证输入；如果 App 入口先把它写入全局并标记已登录，
+	// 首页可能在 `/me` 返回前展示旧患者，或者让损坏缓存绕过统一会话边界。
+	// 会话服务负责读取、校验并在服务端证明后写入全局状态。
+	expect(app).not.toContain('wx.getStorageSync("access_token")');
+	expect(app).not.toContain("this.globalData.accessToken = storedToken");
+	expect(app).not.toContain('this.globalData.sessionStatus = "signed_in"');
+});
+
 test("native login does not request WeChat profile consent", async () => {
 	const client = await source("services/api-client.ts");
 
