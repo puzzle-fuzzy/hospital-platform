@@ -23,8 +23,8 @@
 - 2026-08-21（患者页面会话组合边界）：发现预约历史、爽约、报告目录和门诊费用页面虽然有页面令牌和患者 ID 回查，
   但 `/me`、患者目录和业务列表之间仍可能跨会话代际拼接；报告详情深链也缺少重新确认当前 owner 患者目录的客户端门禁。
   现已新增共享 `assertSessionGeneration`，五个页面在组合读取和提交前 fail-closed，新增回归后小程序为 `176 pass/1399 expects`。
-  当前小程序候选已重新构建为 `f66514d`，完整来源为
-  `f66514de81c051cb8ade1477f758700b2837b9b7`；详见
+  当前小程序候选已重新构建为 `d4d65b7`，完整来源为
+  `d4d65b735da8630e9b6795d9e105192713297474`；详见
   [`release/miniprogram-patient-session-composition-boundary-2026-08-21.md`](release/miniprogram-patient-session-composition-boundary-2026-08-21.md)。
 
 - 2026-08-21（非支付 service 共享调用上下文边界）：复核发现预约、门诊费用、报告、普通资料和微信登录仍主要依赖
@@ -41,10 +41,10 @@
   [`release/owner-runtime-boundary-audit-2026-08-21.md`](release/owner-runtime-boundary-audit-2026-08-21.md)。
 
 - 2026-08-21（当前小程序运行包刷新）：针对真机调试报告的 `dist/services/single-flight.test.js` ENOENT，已用提交
-  `f66514de81c051cb8ade1477f758700b2837b9b7` 重新构建并通过 `runtime:verify`。当前 `dist` 有 14 个页面、真实运行模块
+  `d4d65b735da8630e9b6795d9e105192713297474` 重新构建并通过 `runtime:verify`。当前 `dist` 有 14 个页面、真实运行模块
   `single-flight.js`，没有 `single-flight.test.js` 或任何 `*.test.js`/`*.spec.js`；因此问题边界是微信开发者工具旧增量模块索引，
   不能向运行包补测试文件。关闭旧真机调试、重开 `apps/miniprogram/`、普通编译并重新生成二维码后，才可继续真机验收；详见
-  [`release/candidate-f66514d-local-build-2026-08-21.md`](release/candidate-f66514d-local-build-2026-08-21.md)。
+  [`release/candidate-d4d65b7-local-build-2026-08-21.md`](release/candidate-d4d65b7-local-build-2026-08-21.md)。
 
 - 2026-08-21（患者目录 service 直接调用输入边界修正）：发现 HTTP schema 之外，`PatientService.list/sync` 仍依赖
   TypeScript 类型来保证 owner 与 `AdapterCallContext` 正确；现已增加固定上下文字段、opaque identifier、timeout/signal
@@ -193,7 +193,7 @@
 
 > 本节以下按时间顺序保留历史观察；凡记录中写旧 release，均表示当时观察窗口，不覆盖顶部最新事实。
 > 当前服务端 release 为 `5a31427`（完整提交 `5a314275e9bae43730eab5b32638a8baecda5869`），旧 Python `8001` 继续共存；本地小程序候选为
-> `f66514d`，完整运行包来源为 `f66514de81c051cb8ade1477f758700b2837b9b7`，尚未上传线上。
+> `d4d65b7`，完整运行包来源为 `d4d65b735da8630e9b6795d9e105192713297474`，尚未上传线上。
 > `d772f09`、`0dccf54`、`ce8d68b` 和 `e050fa0` 仅保留为历史候选。
 
 - 2026-08-21 03:23 CST（历史 `6ce1272` 候选二维码重新建立）：只读检查发现开发者工具先前显示的二维码已于 `01:17` 失效，

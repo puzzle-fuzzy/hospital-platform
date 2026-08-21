@@ -78,7 +78,7 @@ GET canonical snapshot
 | `pnpm --filter @hospital/api typecheck` | 通过 |
 | `pnpm --filter @hospital/miniprogram test` | 176 项通过，1398 个断言 |
 | `pnpm --filter @hospital/miniprogram typecheck` | 通过 |
-| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面，来源 `f66514d` |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面，来源 `d4d65b7` |
 | `dist` 测试脚本扫描 | `*.test.js`/`*.spec.js` 为 0；`single-flight.test.js` 不存在 |
 
 一次将额外测试文件参数附加到已经固定测试清单的命令出现了运行包来源测试超时；按
@@ -87,7 +87,7 @@ GET canonical snapshot
 
 ## 5. 下一条真机门禁
 
-当前候选仍为 `f66514de81c051cb8ade1477f758700b2837b9b7`，开发者工具已在正确的
+当前候选仍为 `d4d65b735da8630e9b6795d9e105192713297474`，开发者工具已在正确的
 `miniprogram` 窗口重新编译并生成新的 iOS 真机二维码。二维码生成不等于真机验收；必须
 按以下顺序保存证据：
 
