@@ -95,6 +95,17 @@ export const currentBaselineDocuments = Object.freeze([
  */
 const currentCandidateReferenceRules = Object.freeze([
 	{
+		path: "docs/README.md",
+		label: "文档导航",
+		sections: [
+			{
+				start: "# 项目文档导航",
+				end: "## 发布与运行",
+				phrases: [{ text: "因早于当前", expected: "short" }],
+			},
+		],
+	},
+	{
 		path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
 		label: "P0 只读业务 contract 审计",
 		sections: [

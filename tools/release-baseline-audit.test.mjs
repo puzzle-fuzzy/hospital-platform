@@ -175,6 +175,25 @@ test("业务门禁执行板的当前候选不能漂移到历史小程序包", ()
 	]);
 });
 
+test("文档导航的历史窗口说明必须跟随当前小程序候选", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const documents = [
+		{
+			path: "docs/README.md",
+			content:
+				"# 项目文档导航\n\n该窗口因早于当前 `old-candidate` 构建。\n## 发布与运行",
+		},
+	];
+
+	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
+		"文档导航 的“因早于当前”未指向当前完整小程序 sourceRevision",
+	]);
+});
+
 test("仓库当前发布文档保持同一套候选", async () => {
 	const result = await auditCurrentReleaseConsistency();
 	// 这里固定当前验收候选，而不是只断言 passed=true：候选文档、运行包来源
