@@ -1,5 +1,9 @@
 import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
+	groupAppointmentSchedules,
+	visibleAppointmentSchedules,
+} from "../../services/appointment-directory-view";
+import {
 	loadAppointmentDepartments,
 	loadAppointmentSchedules,
 } from "../../services/dashboard-service";
@@ -7,10 +11,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import type {
-	AppointmentDirectoryPageData,
-	AppointmentSchedule,
-} from "../../types";
+import type { AppointmentDirectoryPageData } from "../../types";
 
 /**
  * 当前右侧最多绘制的号源数量，继续加载由用户明确触发。
@@ -32,53 +33,11 @@ type AppointmentDirectoryPageMethods = {
 	showError(error: unknown, fallback: string): void;
 };
 
-const WEEKDAY_LABELS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-
 /**
  * 预约目录有两层异步读取：左栏科室和右栏排班。
  * 用户快速切换科室或下拉刷新时，旧 provider 响应可能晚于新响应到达；
  * 两层分别设守卫，防止旧科室的排班覆盖当前选择，也防止旧刷新恢复旧状态。
  */
-/** 把服务端日期转换成旧端右栏可快速扫描的短标签。 */
-function dateLabel(value: string): string {
-	// `workDate` 是医院业务日历，而不是用户设备所在时区的瞬时时间。
-	// 固定用 UTC 解析纯日期并读取 UTC 字段，把 UTC 当作不会发生偏移的
-	// 日历容器；否则海外设备可能把医院日期显示成前一天或后一天。
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-	const date = new Date(`${value}T00:00:00.000Z`);
-	if (
-		Number.isNaN(date.getTime()) ||
-		date.toISOString().slice(0, 10) !== value
-	) {
-		return value;
-	}
-	const weekday = WEEKDAY_LABELS[date.getUTCDay()] ?? "";
-	return `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${weekday}`;
-}
-
-function dateGroups(schedules: readonly { workDate: string }[]) {
-	const counts = new Map<string, number>();
-	for (const schedule of schedules) {
-		counts.set(schedule.workDate, (counts.get(schedule.workDate) ?? 0) + 1);
-	}
-	return [...counts.entries()]
-		.sort(([first], [second]) => first.localeCompare(second))
-		.map(([workDate, count]) => ({
-			workDate,
-			label: dateLabel(workDate),
-			count,
-		}));
-}
-
-function visibleSchedules(
-	schedules: readonly AppointmentSchedule[],
-	selectedDate: string,
-	visibleCount: number,
-) {
-	return schedules
-		.filter((schedule) => schedule.workDate === selectedDate)
-		.slice(0, visibleCount);
-}
 
 Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 	data: {
@@ -185,14 +144,14 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		return loadAppointmentSchedules(departmentId)
 			.then((schedules) => {
 				if (!scheduleGuard.isCurrent(scheduleToken)) return;
-				const groups = dateGroups(schedules);
+				const groups = groupAppointmentSchedules(schedules);
 				const selectedDate = groups[0]?.workDate ?? "";
 				const visibleCount = SCHEDULE_PAGE_SIZE;
 				this.setData({
 					schedules,
 					dateGroups: groups,
 					selectedDate,
-					visibleSchedules: visibleSchedules(
+					visibleSchedules: visibleAppointmentSchedules(
 						schedules,
 						selectedDate,
 						visibleCount,
@@ -250,7 +209,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		this.setData({
 			selectedDate,
 			visibleScheduleCount: visibleCount,
-			visibleSchedules: visibleSchedules(
+			visibleSchedules: visibleAppointmentSchedules(
 				this.data.schedules,
 				selectedDate,
 				visibleCount,
@@ -275,7 +234,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		if (nextCount <= this.data.visibleScheduleCount) return;
 		this.setData({
 			visibleScheduleCount: nextCount,
-			visibleSchedules: visibleSchedules(
+			visibleSchedules: visibleAppointmentSchedules(
 				this.data.schedules,
 				this.data.selectedDate,
 				nextCount,

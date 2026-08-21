@@ -12,6 +12,7 @@ import {
 	safeApiErrorMessage,
 	toWechatPaymentParams,
 } from "../src/services/api-client";
+import { formatAppointmentDateLabel } from "../src/services/appointment-directory-view";
 import {
 	createAppointmentRecordDateRange,
 	createPastDateRange,
@@ -2461,19 +2462,11 @@ test("dashboard service calculates China Standard Time calendar windows", () => 
 	expect(formatPlatformDate(afterChinaMidnight)).toBe("2026-08-16");
 });
 
-test("appointment directory labels provider calendar dates without device timezone drift", async () => {
-	const page = await source(
-		"pages/appointment-directory/appointment-directory.ts",
-	);
-
-	// workDate 是医院日历值，页面不能用设备本地 getMonth/getDate/getDay 推导星期。
-	expect(page).toContain("T00:00:00.000Z");
-	expect(page).toContain("getUTCMonth()");
-	expect(page).toContain("getUTCDate()");
-	expect(page).toContain("getUTCDay()");
-	expect(page).not.toContain("getMonth()");
-	expect(page).not.toContain("getDate()");
-	expect(page).not.toContain("getDay()");
+test("appointment directory labels provider calendar dates without device timezone drift", () => {
+	// workDate 是医院日历值，不能使用设备本地 getMonth/getDate/getDay 推导星期。
+	// 逻辑已经抽到纯展示 helper，由行为测试直接验证，而不是依赖页面源码字符串。
+	expect(formatAppointmentDateLabel("2026-08-21")).toBe("8月21日 周五");
+	expect(formatAppointmentDateLabel("2026-02-30")).toBe("2026-02-30");
 });
 
 test("appointment directory ignores stale date events after a cascade refresh", async () => {
