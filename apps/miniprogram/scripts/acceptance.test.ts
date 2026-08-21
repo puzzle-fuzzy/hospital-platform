@@ -1089,10 +1089,7 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(config.setting?.useCompilerPlugins).toEqual(["typescript"]);
 	// 测试文件必须留在源码验证链路中，但不能被 tsc 发到微信运行包；
 	// test/spec 两种常见命名都必须和运行包的文件级门禁保持一致。
-	expect(buildConfig.exclude).toEqual([
-		"src/**/*.test.ts",
-		"src/**/*.spec.ts",
-	]);
+	expect(buildConfig.exclude).toEqual(["src/**/*.test.ts", "src/**/*.spec.ts"]);
 	expect(build).toContain("tsconfig.build.json");
 	expect(build).toContain("appPagePaths");
 	expect(build).toContain("app.json page scripts are present");

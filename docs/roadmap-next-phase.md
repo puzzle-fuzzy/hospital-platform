@@ -13,6 +13,9 @@
   `b629380162aa8275418b643e10a16e96a65d0b36`；构建、类型检查和运行包验证通过，14 个页面齐全，`*.test.js`/`*.spec.js` 均为 0。
   这次只统一测试/规格文件的运行包隔离，不改变业务 contract；此前 `39ad2c5` 记录保留为历史候选。
 
+- 2026-08-21（全量测试入口修正）：补入已存在的 `patient-bootstrap.test.ts`，使小程序标准测试命令覆盖登录后患者初始化状态机；当前候选全量为
+  `174 pass / 0 fail / 1378 expects`。该修正只扩大本地测试门禁，不改变运行包来源、业务 contract、线上服务或旧 Python 服务。
+
 - 2026-08-21 10:38–10:47 CST（当前运行层与 P0 业务窗口）：服务器只读核验确认 `5a31427` 的新 API
   `10.0.0.3:18081` 与旧 Python `8001` 继续共存，`hospital-platform-api-v2.service` 为 `active/running`，启动事件的
   `environment=production`，readiness 的 database/Redis/schema 均为 `ok`。后续 10 分钟只有健康检查、未登录认证和关闭路由探针，

@@ -52,7 +52,7 @@
 
 | 范围 | 命令 | 结果 |
 | --- | --- | --- |
-| 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 171 项通过，0 项失败，1370 个断言 |
+| 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 174 项通过，0 项失败，1378 个断言 |
 | 个人资料 HTTP schema Unicode 边界 | `pnpm --filter @hospital/contracts test` | 2 项通过，0 项失败，27 个断言；64 个 emoji 可通过，65 个 code point 被拒绝 |
 | API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
 | 众阳及通用 adapter | `pnpm --filter @hospital/adapters test` | 105 项通过，0 项失败，228 个断言；包含稳定身份缺失回归 |

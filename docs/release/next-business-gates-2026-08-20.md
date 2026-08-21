@@ -16,7 +16,7 @@
 
 2026-08-21 10:38–10:47 CST 的追加只读核验仍确认新旧服务共存、生产环境启动、MySQL/Redis/schema readiness 正常；最近窗口
 只有健康检查、未登录认证和关闭路由探针，没有 `auth.*`、`patient.*`、`appointment.*` 或 `outpatient.payment.*` 业务事件。
-这不是 Provider 失败，也不是业务成功；下一步仍必须使用当前 `39ad2c5` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
+这不是 Provider 失败，也不是业务成功；下一步仍必须使用当前 `b629380` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
 完整运行窗口见 [`current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md)。
 
 ## 2026-08-21 03:54 CST 后的业务事件观察
@@ -52,7 +52,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 2026-08-21 06:03 CST 再次通过 SSH 只读复核：当前 release 仍为 `5a31427`，新 API `10.0.0.3:18081` 与旧 Python
 `0.0.0.0:8001` 共存，Worker 仍为 inactive；readiness 的 database/Redis/schema 均为 `ok`，最近 30 分钟业务事件计数仍为 `0`。
 本次没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis；由于没有新的微信扫码请求，当前候选的真机登录、患者切换、预约历史和门诊费用
-三层证据仍未变化，下一步应使用当前 `39ad2c5` 重新编译并生成二维码后开始人工操作。
+三层证据仍未变化，下一步应使用当前 `b629380` 重新编译并生成二维码后开始人工操作。
 
 2026-08-21 06:31 CST 通过 SSH 和公网再次只读复核：新 API `5a31427` 为 active，明确以 production mode 启动；
 `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 继续共存，Worker inactive，内网 readiness 的 database/Redis/schema 均为 `ok`，
@@ -112,7 +112,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 | 众阳及通用 adapter 全量测试 | 105 项通过，227 个断言 |
 | domain 全量测试 | 57 项通过，112 个断言 |
 | persistence 全量测试 | 83 项通过，571 个断言 |
-| 原生小程序 | 171 项通过，1366 个断言 |
+| 原生小程序 | 174 项通过，1378 个断言 |
 | 运行包 | `runtime:verify` 通过；14 个页面齐全，`dist/` 不含测试脚本 |
 
 这些结果证明当前 fail-closed 代码边界一致，不证明当前 release 已取得 Provider、HTTPS、页面和真机三层业务证据。
