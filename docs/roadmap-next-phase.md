@@ -7,6 +7,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（普通资料写入口的运行时鉴权门禁）：发现 release smoke 原先只检查 `GET /me/profile` 的未登录边界，
+  没有检查真正的 `PUT /me/profile` 写入口。现已补充带最小合法请求体的无会话 `PUT` 检查，要求认证先于资料校验和
+  持久化执行；该 smoke 不携带 Bearer、不创建资料、不递增 version，也不写 MySQL。Worker 全量 `53 pass / 148 expects`、
+  typecheck 和 Biome 通过。该修正尚未部署，下一次新 API release 必须重新构建并执行生产 preflight；当前线上 `c8eef370`
+  不因本地门禁修正而自动升级。
+
 - 2026-08-21 19:44–19:46 CST（当前 release 业务观察与开发者工具边界）：`c8eef370` 的 journald 低敏聚合为
   `parsedRecords=0`、`parseErrors=0`、`eventCounts={}`，尚未产生新的微信/患者/预约/门诊费用事件。桌面可见的
   可操作开发者工具窗口仍是旧 `mp-weixin`；`miniprogram` 条目句柄失效，刷新后无法取得，本轮没有操作旧项目。

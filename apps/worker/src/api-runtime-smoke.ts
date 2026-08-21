@@ -134,11 +134,26 @@ function responseErrorCode(body: unknown): unknown {
  * 如果省略查询参数，Elysia 会先返回 validation；那只能证明输入校验，
  * 不能证明未登录请求被认证层拒绝，所以这里不能用空 query 做验收。
  */
-const AUTH_BOUNDARY_ROUTES = [
+type AuthBoundaryRoute = {
+	name: string;
+	path: string;
+	method?: "GET" | "PUT";
+	body?: string;
+};
+
+const AUTH_BOUNDARY_ROUTES: readonly AuthBoundaryRoute[] = [
 	{ name: "me", path: "/me" },
 	// 普通资料是“我的”页按当前用户隔离的独立路由，不能只依赖 /me 间接覆盖。
 	// 未携带会话时必须先命中认证边界，不能被资料参数校验或业务读取逻辑吞掉。
 	{ name: "profile", path: "/me/profile" },
+	// PUT 是资料真正的写入口；这里使用无会话的最小合法形状，只验证认证先于
+	// 业务写入执行，不会创建资料、递增 version 或触碰 MySQL 业务数据。
+	{
+		name: "profile-update",
+		path: "/me/profile",
+		method: "PUT",
+		body: JSON.stringify({ version: 0, displayName: "runtime-smoke" }),
+	},
 	{ name: "patients", path: "/patients" },
 	{ name: "appointment-departments", path: "/appointments/departments" },
 	{
@@ -297,7 +312,8 @@ export async function runApiRuntimeSmoke(
 
 	async function requestWithoutAuth(
 		path: string,
-		method: "GET" | "POST" = "GET",
+		method: "GET" | "POST" | "PUT" = "GET",
+		requestBody?: string,
 	): Promise<{
 		body: unknown;
 		statusCode: number;
@@ -312,10 +328,14 @@ export async function runApiRuntimeSmoke(
 				signal: AbortSignal.timeout(RUNTIME_REQUEST_TIMEOUT_MS),
 				headers: {
 					accept: "application/json",
-					...(method === "POST" ? { "content-type": "application/json" } : {}),
+					...(method === "POST" || method === "PUT"
+						? { "content-type": "application/json" }
+						: {}),
 					"x-request-id": traceId,
 				},
-				...(method === "POST" ? { body: "{}" } : {}),
+				...(method === "POST" || method === "PUT"
+					? { body: requestBody ?? "{}" }
+					: {}),
 			});
 		} catch (error) {
 			// 未授权/关闭能力边界的网络失败都必须携带 traceId，否则无法区分具体失败路由。
@@ -326,9 +346,9 @@ export async function runApiRuntimeSmoke(
 				traceId,
 			);
 		}
-		let body: unknown;
+		let responseBody: unknown;
 		try {
-			body = await response.json();
+			responseBody = await response.json();
 		} catch {
 			throw new RuntimeSmokeRequestError(
 				`Protected route ${path} returned invalid JSON`,
@@ -336,7 +356,7 @@ export async function runApiRuntimeSmoke(
 				traceId,
 			);
 		}
-		return { body, statusCode: response.status, traceId };
+		return { body: responseBody, statusCode: response.status, traceId };
 	}
 
 	async function check(
@@ -510,7 +530,11 @@ export async function runApiRuntimeSmoke(
 
 		for (const route of AUTH_BOUNDARY_ROUTES) {
 			try {
-				const result = await requestWithoutAuth(route.path);
+				const result = await requestWithoutAuth(
+					route.path,
+					route.method,
+					route.body,
+				);
 				statusCode ??= result.statusCode;
 				traceId = result.traceId;
 				if (result.statusCode !== 401) {

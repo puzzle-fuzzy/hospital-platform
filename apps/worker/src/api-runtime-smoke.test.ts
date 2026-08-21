@@ -147,6 +147,12 @@ test("runtime smoke verifies platform health without auth or provider calls", as
 			body: null,
 		},
 		{
+			url: "https://hospital.example.test/api/v1/me/profile",
+			method: "PUT",
+			authorization: null,
+			body: '{"version":0,"displayName":"runtime-smoke"}',
+		},
+		{
 			url: "https://hospital.example.test/api/v1/patients",
 			method: "GET",
 			authorization: null,
@@ -269,6 +275,10 @@ test("runtime smoke uses the public v2 prefix when explicitly requested", async 
 		},
 		{
 			url: "https://hospital.example.test/api/v2/me",
+			authorization: null,
+		},
+		{
+			url: "https://hospital.example.test/api/v2/me/profile",
 			authorization: null,
 		},
 		{
@@ -631,7 +641,7 @@ test("runtime smoke fails when a protected route is not rejected by authenticati
 	).toMatchObject({
 		name: "auth-boundary",
 		status: "failed",
-		details: ["me:http-200", "profile:http-200"],
+		details: ["me:http-200", "profile:http-200", "profile-update:http-200"],
 	});
 });
 
