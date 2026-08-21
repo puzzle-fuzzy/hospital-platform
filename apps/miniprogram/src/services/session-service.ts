@@ -1,4 +1,9 @@
-import { ApiError, getCurrentUser, login } from "./api-client";
+import {
+	ApiError,
+	getCurrentUser,
+	isUsableAccessToken,
+	login,
+} from "./api-client";
 import type {
 	AuthSessionResponse,
 	CurrentUserResponse,
@@ -58,7 +63,10 @@ function globalData(): { accessToken: string; sessionStatus: SessionState } {
 /** 判断是否存在可尝试恢复的平台 token。 */
 export function hasPlatformSession(): boolean {
 	const appData = globalData();
-	return Boolean(appData.accessToken || wx.getStorageSync("access_token"));
+	return (
+		isUsableAccessToken(appData.accessToken) ||
+		isUsableAccessToken(wx.getStorageSync("access_token"))
+	);
 }
 
 function setSessionState(state: SessionState): void {

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	isAllowedApiPrefix,
+	isUsableAccessToken,
 	normalizeApiPrefix,
 	request,
 	requestWithSession,
@@ -24,6 +25,83 @@ test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本"
 	expect(normalizeApiPrefix(" /api/v2/ ", "/api/v1")).toBe("/api/v2");
 	expect(normalizeApiPrefix("/api/v999", "/api/v2")).toBe("/api/v2");
 	expect(normalizeApiPrefix(undefined)).toBe("/api/v1");
+});
+
+test("本地缓存 token 必须通过与登录响应相同的安全边界", () => {
+	expect(isUsableAccessToken("fixture-session-0001")).toBe(true);
+	expect(isUsableAccessToken(" token-with-padding ")).toBe(false);
+	expect(isUsableAccessToken("token\nvalue")).toBe(false);
+	expect(isUsableAccessToken("x".repeat(513))).toBe(false);
+	expect(isUsableAccessToken("")).toBe(false);
+	expect(isUsableAccessToken(null)).toBe(false);
+});
+
+test("异常本地 token 不得进入登录前或受保护请求的 Authorization", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		header?: Record<string, string>;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const authorizationHeaders: string[] = [];
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "",
+		sessionStatus: "signed_out",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? " token-with-padding " : "",
+		setStorageSync: (key: string, value: string) => {
+			if (key === "access_token") globalData.accessToken = value;
+		},
+		removeStorageSync: (key: string) => {
+			if (key === "access_token") globalData.accessToken = "";
+		},
+		login: (options: { success: (value: { code: string }) => void }) => {
+			options.success({ code: "wechat-code-from-invalid-cache" });
+		},
+		request: (options: RequestOptions) => {
+			authorizationHeaders.push(options.header?.Authorization ?? "");
+			if (options.url.endsWith("/auth/wechat")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							accessToken: "fresh-session-0001",
+							tokenType: "Bearer",
+							expiresInSeconds: 3600,
+							user: { id: "user-001" },
+						},
+					},
+				});
+				return;
+			}
+			options.success({
+				statusCode: 200,
+				data: { success: true, data: { items: [], total: 0 } },
+			});
+		},
+	};
+
+	try {
+		await requestWithSession({ url: "/patients" });
+		expect(authorizationHeaders).toEqual(["", "Bearer fresh-session-0001"]);
+		expect(authorizationHeaders).not.toContain("Bearer  token-with-padding ");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
 });
 
 test("平台成功包络必须在业务读模型之前通过运行时校验", () => {

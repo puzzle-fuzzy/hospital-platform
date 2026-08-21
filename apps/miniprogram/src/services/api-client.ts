@@ -156,6 +156,13 @@ function getAppConfig(): ApiConfig {
 	const appData = globalData();
 	const storedBaseUrl = wx.getStorageSync(API_BASE_URL_KEY);
 	const storedApiPrefix = wx.getStorageSync(API_PREFIX_KEY);
+	const storedAccessTokenValue = wx.getStorageSync(ACCESS_TOKEN_KEY);
+	const appAccessToken = isUsableAccessToken(appData.accessToken)
+		? appData.accessToken
+		: "";
+	const storedAccessToken = isUsableAccessToken(storedAccessTokenValue)
+		? storedAccessTokenValue
+		: "";
 	const apiBaseUrl = normalizeApiBaseUrl(
 		appData.apiBaseUrl || storedBaseUrl || "",
 	);
@@ -172,9 +179,11 @@ function getAppConfig(): ApiConfig {
 			appData.apiPrefix || storedApiPrefix,
 			fallbackApiPrefix,
 		),
-		accessToken: String(
-			appData.accessToken || wx.getStorageSync(ACCESS_TOKEN_KEY) || "",
-		),
+		// app.ts 与历史版本都可能把本地缓存直接放进全局状态；进入
+		// Authorization 前必须重新验证两处来源，不能让损坏的缓存绕过
+		// 登录响应同一套 token contract。优先使用内存中的有效快照，
+		// 只有它无效或为空时才回退到有效的持久化快照。
+		accessToken: appAccessToken || storedAccessToken,
 	};
 }
 
@@ -363,6 +372,18 @@ function hasSafeSessionText(
 
 const MAX_ACCESS_TOKEN_LENGTH = 512;
 const MAX_SESSION_USER_ID_LENGTH = 64;
+
+/**
+ * 判断本地缓存 token 是否可以进入认证请求边界。
+ *
+ * 本地存储不是可信输入：旧版本残留、开发者工具手工写入和异常中断都
+ * 可能产生带空白、控制字符或超长正文的值。这里复用登录响应使用的
+ * `hasSafeSessionText`，使“缓存恢复”和“服务端登录成功”拥有同一套
+ * 最小安全事实；返回 false 时只当作没有可恢复会话，不把原文带进请求头。
+ */
+export function isUsableAccessToken(value: unknown): value is string {
+	return hasSafeSessionText(value, MAX_ACCESS_TOKEN_LENGTH);
+}
 
 function invalidSessionResponse(message: string): never {
 	throw new ApiError(message, { code: "provider-response-invalid" });
