@@ -174,3 +174,20 @@ journald 只读观察，没有部署、重启、配置写入或业务请求。
 因此，当前只能使用 `6677671` 重新生成的新二维码进行真机验收，必须从“微信登录 → `/me` → 患者同步”开始；
 不能把二维码显示、模拟器已登录患者或普通编译成功当作真实业务完成。若手机再次报同一
 `single-flight.test.js` ENOENT，应立即停止扫码并记录错误时间，不应在 `dist/` 中补测试文件。
+
+## 当前工作树复核（2026-08-21 12:57 CST）
+
+针对真机再次报告的同一路径错误，本次在当前工作树重新构建并验证：
+
+| 项目 | 当前结果 |
+| --- | --- |
+| 当前仓库提交 | `3a96b6c` |
+| 小程序运行包来源 | `5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6`（`5c06929`） |
+| `pnpm --filter @hospital/miniprogram build` | 通过；14 个页面运行脚本已发布 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | 0 个 |
+| 旧 Python 服务、线上配置、MySQL、Redis | 未修改、未重启 |
+
+本次结果再次确认：`single-flight.test.js` 是测试输入对应的历史编译文件，不是当前小程序运行模块。若微信开发者工具继续请求该绝对路径，按“关闭真机调试 → 关闭并重新打开 `apps/miniprogram/` 项目 → 普通编译 → 重新生成二维码”的顺序刷新本地模块索引；不要手工创建或复制测试文件到 `dist/`。刷新后再从新的二维码开始微信登录和患者同步验收。
