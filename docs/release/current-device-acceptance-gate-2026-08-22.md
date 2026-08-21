@@ -292,6 +292,12 @@ LIS/PACS/ECG 只读目录；未指定来源时三路 Provider 必须全部成功
 - 预约目录/历史、报告目录、门诊费用的真实 Provider 请求号和真机结果；
 - 支付、医保、HIS 写回等副作用证据。
 
+## 双请求证据独立性门禁
+
+普通资料和预约目录的真机清单现在还要求两条客户端请求使用不同的
+`requestId/traceId`，两条服务端摘要使用不同的 `correlationFingerprint`，避免把同一条链复制成双请求成功。
+规则和回归证据见 [`device-evidence-distinct-chain-audit-2026-08-22.md`](device-evidence-distinct-chain-audit-2026-08-22.md)。
+
 ## 2026-08-22 `7181e99e` 切换后观察
 
 最新生产切换已从 `84fac75c` 原子切换到 `7181e99e`，只重启新 API；旧 Python `8001` 仍保持监听，

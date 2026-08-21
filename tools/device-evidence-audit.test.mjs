@@ -86,11 +86,10 @@ function passedEvidence(domain = "auth") {
 }
 
 function profilePassedEvidence() {
-	const serverEvidence = (businessDomain) => ({
+	const serverEvidence = (businessDomain, correlationFingerprint) => ({
 		auditPassed: true,
 		businessDomain,
-		correlationFingerprint:
-			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		correlationFingerprint,
 		requested: 1,
 		succeeded: 1,
 		http2xx: 1,
@@ -119,18 +118,23 @@ function profilePassedEvidence() {
 		},
 		server: {
 			auditPassed: true,
-			read: serverEvidence("profileRead"),
-			update: serverEvidence("profileUpdate"),
+			read: serverEvidence(
+				"profileRead",
+				"1111111111111111111111111111111111111111111111111111111111111111",
+			),
+			update: serverEvidence(
+				"profileUpdate",
+				"2222222222222222222222222222222222222222222222222222222222222222",
+			),
 		},
 	};
 }
 
 function appointmentDirectoryPassedEvidence() {
-	const serverEvidence = (businessDomain) => ({
+	const serverEvidence = (businessDomain, correlationFingerprint) => ({
 		auditPassed: true,
 		businessDomain,
-		correlationFingerprint:
-			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		correlationFingerprint,
 		requested: 1,
 		succeeded: 1,
 		http2xx: 1,
@@ -159,8 +163,14 @@ function appointmentDirectoryPassedEvidence() {
 		},
 		server: {
 			auditPassed: true,
-			departments: serverEvidence("appointmentDepartments"),
-			schedules: serverEvidence("appointmentSchedules"),
+			departments: serverEvidence(
+				"appointmentDepartments",
+				"3333333333333333333333333333333333333333333333333333333333333333",
+			),
+			schedules: serverEvidence(
+				"appointmentSchedules",
+				"4444444444444444444444444444444444444444444444444444444444444444",
+			),
 		},
 	};
 }
@@ -201,6 +211,24 @@ describe("device evidence audit", () => {
 		);
 	});
 
+	test("普通资料双请求必须使用不同的客户端和服务端关联证据", () => {
+		const clientManifest = completeManifest();
+		clientManifest.domains.profileReadonlyWrite = profilePassedEvidence();
+		clientManifest.domains.profileReadonlyWrite.client.update.requestId =
+			clientManifest.domains.profileReadonlyWrite.client.read.requestId;
+		expect(() => auditDeviceEvidence(clientManifest)).toThrow(
+			"必须使用不同的 requestId/traceId",
+		);
+
+		const serverManifest = completeManifest();
+		serverManifest.domains.profileReadonlyWrite = profilePassedEvidence();
+		serverManifest.domains.profileReadonlyWrite.server.update.correlationFingerprint =
+			serverManifest.domains.profileReadonlyWrite.server.read.correlationFingerprint;
+		expect(() => auditDeviceEvidence(serverManifest)).toThrow(
+			"必须使用不同的关联指纹",
+		);
+	});
+
 	test("预约目录域必须同时证明科室和排班两个只读请求", () => {
 		const manifest = completeManifest();
 		manifest.domains.appointmentDirectory =
@@ -222,6 +250,26 @@ describe("device evidence audit", () => {
 		failedManifest.domains.appointmentDirectory.client.schedules.statusCode = 503;
 		const failedResult = auditDeviceEvidence(failedManifest);
 		expect(failedResult.domains.appointmentDirectory.result).toBe("failed");
+	});
+
+	test("预约目录双请求必须使用不同的客户端和服务端关联证据", () => {
+		const clientManifest = completeManifest();
+		clientManifest.domains.appointmentDirectory =
+			appointmentDirectoryPassedEvidence();
+		clientManifest.domains.appointmentDirectory.client.schedules.requestId =
+			clientManifest.domains.appointmentDirectory.client.departments.requestId;
+		expect(() => auditDeviceEvidence(clientManifest)).toThrow(
+			"必须使用不同的 requestId/traceId",
+		);
+
+		const serverManifest = completeManifest();
+		serverManifest.domains.appointmentDirectory =
+			appointmentDirectoryPassedEvidence();
+		serverManifest.domains.appointmentDirectory.server.schedules.correlationFingerprint =
+			serverManifest.domains.appointmentDirectory.server.departments.correlationFingerprint;
+		expect(() => auditDeviceEvidence(serverManifest)).toThrow(
+			"必须使用不同的关联指纹",
+		);
 	});
 
 	test("只有页面、客户端和同链服务端证据齐全时才允许 passed", () => {

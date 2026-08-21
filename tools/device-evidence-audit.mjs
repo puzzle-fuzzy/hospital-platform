@@ -318,6 +318,16 @@ function validateProfileClientEvidence(client, domain, requireSuccess = true) {
 		"PUT",
 		requireSuccess,
 	);
+	const readRequestId = object.read.requestId ?? object.read.traceId;
+	const updateRequestId = object.update.requestId ?? object.update.traceId;
+	if (readRequestId === updateRequestId) {
+		// GET 与 PUT 是两次不同的 HTTP 操作；如果复用同一个 requestId，
+		// 证据整理者可能只是把同一条请求复制到两个栏位，不能证明资料
+		// 真的经历了“读取后更新”的完整闭环。
+		throw new Error(
+			`${domain}.client.read 与 client.update 必须使用不同的 requestId/traceId`,
+		);
+	}
 	return { read, update };
 }
 
@@ -337,6 +347,13 @@ function validateProfileServerEvidence(server, domain) {
 		`${domain}.server.update`,
 		"profileUpdate",
 	);
+	if (read.correlationFingerprint === update.correlationFingerprint) {
+		// 服务端摘要指纹来自各自的关联链；相同指纹代表两栏指向同一条
+		// 服务器链，不能与独立的 GET/PUT 客户端请求配对。
+		throw new Error(
+			`${domain}.server.read 与 server.update 必须使用不同的关联指纹`,
+		);
+	}
 	return { auditPassed: object.auditPassed, read, update };
 }
 
@@ -395,6 +412,17 @@ function validateAppointmentDirectoryClientEvidence(
 		"/api/v2/appointments/schedules",
 		requireSuccess,
 	);
+	const departmentsRequestId =
+		object.departments.requestId ?? object.departments.traceId;
+	const schedulesRequestId =
+		object.schedules.requestId ?? object.schedules.traceId;
+	if (departmentsRequestId === schedulesRequestId) {
+		// 科室和排班是两个有先后关系的 HTTP 请求；复用同一 requestId
+		// 会让一条请求被重复填入双请求证据，无法证明级联链真的发生。
+		throw new Error(
+			`${domain}.client.departments 与 client.schedules 必须使用不同的 requestId/traceId`,
+		);
+	}
 	return { departments, schedules };
 }
 
@@ -414,6 +442,13 @@ function validateAppointmentDirectoryServerEvidence(server, domain) {
 		`${domain}.server.schedules`,
 		"appointmentSchedules",
 	);
+	if (departments.correlationFingerprint === schedules.correlationFingerprint) {
+		// 两个服务端摘要必须来自两条独立的业务关联链；否则“科室成功”
+		// 可能只是被复制成“排班成功”，不能打开预约目录验收门禁。
+		throw new Error(
+			`${domain}.server.departments 与 server.schedules 必须使用不同的关联指纹`,
+		);
+	}
 	return { auditPassed: object.auditPassed, departments, schedules };
 }
 

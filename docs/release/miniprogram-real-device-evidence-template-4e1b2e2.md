@@ -30,6 +30,10 @@
 预约目录的科室/排班分别为 `appointmentDepartments`/`appointmentSchedules`，
 普通资料读取/更新分别为 `profileRead`/`profileUpdate`。计数相同但 contract 不同，不能互相替代。
 
+双请求域的两条客户端请求必须使用不同的 `requestId/traceId`，两条服务端摘要也必须使用不同的
+`correlationFingerprint`。这不是格式要求，而是为了防止把同一条请求或同一条服务端关联链复制到两个栏位，
+误报为“读取后更新”或“科室后排班”已经完成。
+
 | 域 | 状态 | 页面证据 | 客户端 requestId | 服务端 traceId/低敏日志 | 备注 |
 | --- | --- | --- | --- | --- | --- |
 | auth | pending |  |  |  |  |
