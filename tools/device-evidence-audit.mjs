@@ -12,6 +12,7 @@ const DOMAIN_LABELS = Object.freeze({
 	auth: "微信登录与当前用户",
 	patientDirectory: "首页患者目录",
 	patientSelection: "显式更换就诊人",
+	appointmentDirectory: "预约科室与排班",
 	appointmentRecords: "我的挂号",
 	missedAppointments: "爽约记录",
 	outpatientPayment: "门诊缴费只读",
@@ -278,6 +279,140 @@ function validateProfileServerEvidence(server, domain) {
 	return { auditPassed: object.auditPassed, read, update };
 }
 
+/**
+ * 预约目录也是双请求业务：先读取科室，再按当前科室读取排班和号源。
+ * 不能只记录排班成功，因为没有对应的科室请求就无法证明排班属于当前
+ * 候选的目录链；同样不能把科室目录 200 当成排班已经可用。
+ */
+function validateAppointmentDirectoryClientRequest(
+	client,
+	domain,
+	operation,
+	path,
+	requireSuccess,
+) {
+	const source = requirePlainObject(
+		client,
+		`${domain}.client.${operation} 缺失`,
+	);
+	const evidence = validateClientEvidence(
+		source,
+		`${domain}.client.${operation}`,
+	);
+	if (source.path !== path) {
+		throw new Error(`${domain}.client.${operation}.path 必须是 ${path}`);
+	}
+	if (source.method !== "GET") {
+		throw new Error(`${domain}.client.${operation}.method 必须是 GET`);
+	}
+	if (
+		requireSuccess &&
+		(evidence.statusCode < 200 || evidence.statusCode > 299)
+	) {
+		throw new Error(`${domain}.client.${operation} 标记 passed 时必须为 2xx`);
+	}
+	return evidence;
+}
+
+function validateAppointmentDirectoryClientEvidence(
+	client,
+	domain,
+	requireSuccess = true,
+) {
+	const object = requirePlainObject(client, `${domain}.client 缺失`);
+	const departments = validateAppointmentDirectoryClientRequest(
+		object.departments,
+		domain,
+		"departments",
+		"/api/v2/appointments/departments",
+		requireSuccess,
+	);
+	const schedules = validateAppointmentDirectoryClientRequest(
+		object.schedules,
+		domain,
+		"schedules",
+		"/api/v2/appointments/schedules",
+		requireSuccess,
+	);
+	return { departments, schedules };
+}
+
+/** 科室和排班各自保留服务端关联摘要，避免把两条请求压成一个计数。 */
+function validateAppointmentDirectoryServerEvidence(server, domain) {
+	const object = requirePlainObject(server, `${domain}.server 缺失`);
+	if (typeof object.auditPassed !== "boolean") {
+		throw new Error(`${domain}.server.auditPassed 必须为布尔值`);
+	}
+	const departments = validateServerEvidence(
+		object.departments,
+		`${domain}.server.departments`,
+	);
+	const schedules = validateServerEvidence(
+		object.schedules,
+		`${domain}.server.schedules`,
+	);
+	return { auditPassed: object.auditPassed, departments, schedules };
+}
+
+function validatePassedAppointmentDirectoryDomain(domain, evidence) {
+	const page = validatePageEvidence(evidence.page, domain);
+	const client = validateAppointmentDirectoryClientEvidence(
+		evidence.client,
+		domain,
+	);
+	const server = validateAppointmentDirectoryServerEvidence(
+		evidence.server,
+		domain,
+	);
+	for (const [operation, summary] of [
+		["departments", server.departments],
+		["schedules", server.schedules],
+	]) {
+		if (
+			server.auditPassed !== true ||
+			summary.requested < 1 ||
+			summary.succeeded < 1 ||
+			summary.http2xx < 1 ||
+			summary.failed !== 0
+		) {
+			throw new Error(
+				`${domain}.${operation} 缺少同链 requested/succeeded/http2xx 或存在失败事件`,
+			);
+		}
+	}
+	return { result: "passed", page, client, server };
+}
+
+function validateFailedAppointmentDirectoryDomain(domain, evidence) {
+	validatePageEvidence(evidence.page, domain);
+	const client = validateAppointmentDirectoryClientEvidence(
+		evidence.client,
+		domain,
+		false,
+	);
+	const server = validateAppointmentDirectoryServerEvidence(
+		evidence.server,
+		domain,
+	);
+	const clientSucceeded = Object.values(client).every(
+		({ statusCode }) => statusCode >= 200 && statusCode <= 299,
+	);
+	const serverFailed = Object.values(server)
+		.filter((value) => isPlainObject(value) && "failed" in value)
+		.some((value) => value.failed > 0);
+	if (clientSucceeded && !serverFailed) {
+		throw new Error(
+			`${domain} 标记 failed 时必须保留科室或排班失败状态，不能与成功链矛盾`,
+		);
+	}
+	return {
+		result: "failed",
+		pageObserved: true,
+		departmentsStatusCode: client.departments.statusCode,
+		schedulesStatusCode: client.schedules.statusCode,
+	};
+}
+
 function validatePassedProfileDomain(domain, evidence) {
 	const page = validatePageEvidence(evidence.page, domain);
 	const client = validateProfileClientEvidence(evidence.client, domain);
@@ -408,6 +543,13 @@ export function auditDeviceEvidence(manifest, expectedCandidate) {
 			continue;
 		}
 		if (result === "passed") {
+			if (domain === "appointmentDirectory") {
+				results[domain] = {
+					label: DOMAIN_LABELS[domain],
+					...validatePassedAppointmentDirectoryDomain(domain, evidence),
+				};
+				continue;
+			}
 			if (domain === "profileReadonlyWrite") {
 				results[domain] = {
 					label: DOMAIN_LABELS[domain],
@@ -422,6 +564,13 @@ export function auditDeviceEvidence(manifest, expectedCandidate) {
 			continue;
 		}
 		if (result === "failed") {
+			if (domain === "appointmentDirectory") {
+				results[domain] = {
+					label: DOMAIN_LABELS[domain],
+					...validateFailedAppointmentDirectoryDomain(domain, evidence),
+				};
+				continue;
+			}
 			if (domain === "profileReadonlyWrite") {
 				results[domain] = {
 					label: DOMAIN_LABELS[domain],

@@ -9,7 +9,7 @@
 | 小程序提交 | `4e1b2e2` |
 | 完整运行包来源 | `4e1b2e224964797c103eba832323ee7074c7ad2b` |
 | 运行包目录 | `apps/miniprogram/dist/` |
-| 当前二维码状态 | 已在正确项目中重新生成，界面显示有效至 `2026-08-22 06:15 CST`；尚未扫码 |
+| 当前二维码状态 | 已在正确项目中重新生成，界面显示有效至 `2026-08-22 06:36 CST`；尚未观察到手机业务请求 |
 
 ## 验收记录
 
@@ -21,6 +21,7 @@
 | auth | pending |  |  |  |  |
 | patientDirectory | pending |  |  |  |  |
 | patientSelection | pending |  |  |  |  |
+| appointmentDirectory | pending |  |  |  |  |
 | appointmentRecords | pending |  |  |  |  |
 | missedAppointments | pending |  |  |  |  |
 | outpatientPayment | pending |  |  |  |  |
@@ -41,3 +42,16 @@
 
 支付、医保、预约写入、患者绑定、报告详情 Provider 和 HIS 回写继续使用各自 contract
 与真实授权门禁，不在本模板中标记完成。
+
+### `appointmentDirectory` 的双请求证据格式
+
+预约目录必须分别记录两条只读链：
+
+- `client.departments`：`GET /api/v2/appointments/departments`；
+- `client.schedules`：`GET /api/v2/appointments/schedules`，日期、科室和医生参数不写入证据文档；
+- `server.departments`、`server.schedules`：各自来自低敏日志聚合的同链摘要。
+
+两条客户端请求都必须为 2xx，且两条服务端摘要都必须具备
+`requested >= 1`、`succeeded >= 1`、`http2xx >= 1`、`failed = 0`。
+科室目录成功不能替代排班成功，排班成功也不能证明科室目录链完整；该域仍然是只读观察，
+不代表锁号、预约写入、取消或支付已经开放。

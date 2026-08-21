@@ -11,6 +11,7 @@ const domainNames = [
 	"auth",
 	"patientDirectory",
 	"patientSelection",
+	"appointmentDirectory",
 	"appointmentRecords",
 	"missedAppointments",
 	"outpatientPayment",
@@ -90,6 +91,45 @@ function profilePassedEvidence() {
 	};
 }
 
+function appointmentDirectoryPassedEvidence() {
+	const serverEvidence = {
+		auditPassed: true,
+		correlationFingerprint:
+			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		requested: 1,
+		succeeded: 1,
+		http2xx: 1,
+		failed: 0,
+	};
+	return {
+		result: "passed",
+		page: {
+			observedAt: "2026-08-21T08:00:00+08:00",
+			screenshot: true,
+			summary: "页面显示科室、日期分组和排班号源",
+		},
+		client: {
+			departments: {
+				requestId: "appointment-departments-001",
+				method: "GET",
+				path: "/api/v2/appointments/departments",
+				statusCode: 200,
+			},
+			schedules: {
+				requestId: "appointment-schedules-001",
+				method: "GET",
+				path: "/api/v2/appointments/schedules",
+				statusCode: 200,
+			},
+		},
+		server: {
+			auditPassed: true,
+			departments: { ...serverEvidence },
+			schedules: { ...serverEvidence },
+		},
+	};
+}
+
 function completeManifest() {
 	return {
 		// 每个测试都复制候选，避免来源错配测试污染后续测试。
@@ -103,7 +143,7 @@ describe("device evidence audit", () => {
 	test("允许当前候选的全量 pending 清单，并安全输出摘要", () => {
 		const result = auditDeviceEvidence(completeManifest());
 		expect(result.passed).toBe(false);
-		expect(Object.keys(result.domains)).toHaveLength(7);
+		expect(Object.keys(result.domains)).toHaveLength(8);
 		expect(result.domains.auth.reasonRecorded).toBe(true);
 	});
 
@@ -124,6 +164,29 @@ describe("device evidence audit", () => {
 		expect(() => auditDeviceEvidence(failedManifest)).toThrow(
 			"method 必须是 PUT",
 		);
+	});
+
+	test("预约目录域必须同时证明科室和排班两个只读请求", () => {
+		const manifest = completeManifest();
+		manifest.domains.appointmentDirectory =
+			appointmentDirectoryPassedEvidence();
+		const result = auditDeviceEvidence(manifest);
+		expect(result.passed).toBe(false);
+		expect(result.domains.appointmentDirectory.result).toBe("passed");
+
+		manifest.domains.appointmentDirectory.client.schedules.path =
+			"/api/v2/appointments/departments";
+		expect(() => auditDeviceEvidence(manifest)).toThrow(
+			"schedules.path 必须是 /api/v2/appointments/schedules",
+		);
+
+		const failedManifest = completeManifest();
+		failedManifest.domains.appointmentDirectory =
+			appointmentDirectoryPassedEvidence();
+		failedManifest.domains.appointmentDirectory.result = "failed";
+		failedManifest.domains.appointmentDirectory.client.schedules.statusCode = 503;
+		const failedResult = auditDeviceEvidence(failedManifest);
+		expect(failedResult.domains.appointmentDirectory.result).toBe("failed");
 	});
 
 	test("只有页面、客户端和同链服务端证据齐全时才允许 passed", () => {
