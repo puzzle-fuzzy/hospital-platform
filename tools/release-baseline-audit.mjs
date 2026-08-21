@@ -48,6 +48,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前未开放业务门禁审计",
 	},
 	{
+		path: "docs/release/current-device-acceptance-gate-2026-08-22.md",
+		label: "当前真机准入记录",
+	},
+	{
 		path: "docs/release/miniprogram-real-device-evidence-template-47be0bc.md",
 		label: "当前小程序真机证据模板",
 	},
