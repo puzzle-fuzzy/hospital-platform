@@ -102,6 +102,21 @@ pnpm workspace 裸模块名造成的真实运行包问题，已在前一候选 `
 也没有重试写入、重启服务、调用 Provider、修改数据库或 Redis。待用户恢复该 SSH 检查入口后，再补做线上进程共存和
 业务日志三层关联复核。
 
+## 2026-08-22 04:20 CST SSH 只读运行层复核
+
+SSH 检查入口已恢复。本次只读快照确认：当前新服务 release 为
+`002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，`hospital-platform-api-v2.service` 为 `active`，主进程为 Bun
+PID `2765512`，监听 `10.0.0.3:18081`；Worker 为 `inactive`。在绑定地址请求 `/health/ready` 返回 200，
+MySQL、Redis 和 schema 均为 `ok`。`127.0.0.1:18081` 不接受连接是因为新 API 没有绑定 loopback，而不是 readiness 失败。
+
+旧 Python 服务没有名为 `hospital-backend.service` 的当前 systemd unit，但 Gunicorn 主进程 PID `3687390` 及四个
+worker（`3687419`–`3687422`）仍监听 `0.0.0.0:8001`；主进程自 `2026-08-19 10:11:47` 由 PID 1 托管。
+这证明本次快照中新旧监听同时存在，但不替代连续 PID 变化记录，也不证明旧 Python 的每个业务接口均正常。
+
+最近两小时新 API journald 仅筛到健康探针 `http.request.completed`，没有新的 `auth.*`、`patient.*`、
+`appointment.*`、`outpatient.payment.*`、`report.*` 或 `profile.*` 业务事件，因此仍没有真机业务流量证据。
+本次没有重启、写数据库/Redis、调用 Provider 或修改旧 Python。
+
 ## 当前未形成的证据
 
 当前没有以下新项目三层证据：
