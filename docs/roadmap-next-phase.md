@@ -7,6 +7,13 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 21:02 CST（真机 `single-flight.test.js` ENOENT 复核）：重新构建并核对当前小程序运行包，来源指纹为
+  `24d84099eafe48e6438508f4e060c7ed701c0102`，14 个页面入口齐全，`single-flight.js` 存在，`single-flight.test.js`
+  和所有 `*.test.js`/`*.spec.js` 均不存在；小程序定向测试 `197 pass / 0 fail`，`runtime:verify` 通过。
+  该报错仍属于开发者工具旧增量模块索引或旧真机调试会话，不应把测试脚本复制进运行包；应关闭旧会话、重新打开
+  `E:\__Super_Core__\hospital-platform\apps\miniprogram`、普通编译后重新生成二维码，详见
+  [`miniprogram-enoent-single-flight-recheck-2026-08-21.md`](release/miniprogram-enoent-single-flight-recheck-2026-08-21.md)。
+
 - 2026-08-21（报告附件字段边界）：LIS `pdfUrlList` 即使当前只映射为 `hasAttachment`，也必须拒绝对象、数字、布尔值和控制字符字符串，不能把异常 Provider 值误报成“含附件”并为未来下载授权留下未审计输入。已补充 adapter 回归测试和中文边界文档；不开放报告文件下载、PACS/ECG 详情或任何支付/医保能力，详见 [`report-attachment-boundary-2026-08-21.md`](release/report-attachment-boundary-2026-08-21.md)。
 
 - 2026-08-21（门诊费用稳定身份字段边界）：门诊费用 adapter 不再把存在但形状异常的 `outTradeOrderId`、就诊/费用 ID 等字段静默当作缺失；对象、数组、布尔值、非有限数字、控制字符和超长值会整批以 `responseInvalid` 拒绝，账单时间也经过同一边界校验。该修正防止内部 `recordId` 随 Provider 字段漂移，不增加支付、医保或结算能力，详见 [`outpatient-payment-identity-boundary-2026-08-21.md`](release/outpatient-payment-identity-boundary-2026-08-21.md)。
