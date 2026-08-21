@@ -4,6 +4,8 @@
 
 > 当前基线更新：服务端 `c8eef370`；小程序候选不沿用历史运行包，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
 
+> 2026-08-21 报告只读 adapter 已收紧 LIS `pdfUrlList`：数组元素必须为无控制字符字符串，异常对象、数字、布尔值和控制字符会整批拒绝；当前仍只返回附件存在性，不返回地址、不开放下载或授权。详见 [`../release/report-attachment-boundary-2026-08-21.md`](../release/report-attachment-boundary-2026-08-21.md)。
+
 > 2026-08-21 门诊费用只读 adapter 已收紧稳定身份字段：字段存在但为对象、数组、布尔值、非有限数字、控制字符或超过 256 个 UTF-16 单元时整批拒绝，不再静默忽略并生成可能漂移的 `recordId`；账单时间使用同一边界校验。该修正不开放支付、医保或结算，详见 [`../release/outpatient-payment-identity-boundary-2026-08-21.md`](../release/outpatient-payment-identity-boundary-2026-08-21.md)。
 
 > 2026-08-21 排班只读快照边界已加固：进入内存/MySQL persistence 前统一校验 `zhongyang` 来源、排班嵌套字段、号源数量和不超过 5 分钟的观察 TTL；这只保证只读观察事实不被错误调用方写入，不开放预约写入或锁号。详见 [`../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md`](../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md)。

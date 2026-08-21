@@ -329,6 +329,15 @@ test("众阳报告附件标记拒绝宽松 truthy 值", async () => {
 			requestId: "invalid-lis-attachment",
 		},
 		{
+			kind: "laboratory" as const,
+			value: {
+				testList: "血常规",
+				reportTime: "2026-08-15 10:00:00",
+				pdfUrlList: ["https://provider.invalid/private.pdf\n"],
+			},
+			requestId: "invalid-lis-attachment-control",
+		},
+		{
 			kind: "imaging" as const,
 			value: {
 				modality: "CT",

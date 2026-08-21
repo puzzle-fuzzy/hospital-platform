@@ -241,7 +241,9 @@ function hasAttachmentText(
 
 /**
  * LIS 的附件字段是字符串数组。数组为空或只包含空字符串时没有可用附件；
- * 数组元素出现对象等未知形态则整条响应失败，避免把不明结构降级成“有附件”。
+ * 数组元素出现对象或控制字符等未知形态则整条响应失败，避免把不明结构
+ * 降级成“有附件”。即使附件地址当前不下发，异常值也不能绕过 Provider
+ * 响应边界进入未来的下载/授权逻辑。
  */
 function hasAttachmentTextList(
 	value: ProviderObject,
@@ -253,7 +255,14 @@ function hasAttachmentTextList(
 	if (marker === undefined || marker === null) return false;
 	if (
 		!Array.isArray(marker) ||
-		marker.some((item) => typeof item !== "string")
+		marker.some(
+			(item) =>
+				typeof item !== "string" ||
+				Array.from(item).some((character) => {
+					const code = character.charCodeAt(0);
+					return code <= 0x1f || code === 0x7f;
+				}),
+		)
 	) {
 		throw providerError(
 			operation,
