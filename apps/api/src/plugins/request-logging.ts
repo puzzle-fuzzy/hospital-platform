@@ -1,10 +1,21 @@
 import { ProviderRequestError } from "@hospital/adapters";
 import {
+	AppointmentDirectoryResultValidationError,
+	AppointmentRecordResultValidationError,
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
+	HealthKnowledgeResultValidationError,
+	IdentityUserReadModelValidationError,
+	OutpatientPaymentResultValidationError,
+	PatientDirectoryGeneratedIdValidationError,
+	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
+	PatientReadModelValidationError,
 	PaymentOrderReadModelValidationError,
 	PaymentQuoteReadModelValidationError,
+	ReportResultValidationError,
+	UserProfileReadModelValidationError,
+	WechatIdentityResultValidationError,
 } from "@hospital/domain";
 import {
 	type AppLogger,
@@ -102,12 +113,26 @@ export function safeErrorMetadata(
 		return { ...metadata, dependency: error.dependency };
 	}
 	if (
+		error instanceof AppointmentDirectoryResultValidationError ||
+		error instanceof AppointmentRecordResultValidationError ||
 		error instanceof PatientDirectorySnapshotResultValidationError ||
+		error instanceof PatientDirectoryGeneratedIdValidationError ||
+		error instanceof PatientDirectoryResultValidationError ||
+		error instanceof PatientReadModelValidationError ||
 		error instanceof ExternalTraceReadModelValidationError ||
+		error instanceof HealthKnowledgeResultValidationError ||
+		error instanceof IdentityUserReadModelValidationError ||
+		error instanceof OutpatientPaymentResultValidationError ||
 		error instanceof PaymentOrderReadModelValidationError ||
 		error instanceof PaymentQuoteReadModelValidationError ||
-		error instanceof SessionPrincipalReadModelValidationError
+		error instanceof ReportResultValidationError ||
+		error instanceof SessionPrincipalReadModelValidationError ||
+		error instanceof UserProfileReadModelValidationError ||
+		error instanceof WechatIdentityResultValidationError
 	) {
+		// 这些错误都携带固定的 domain violation；把它投影到 HTTP 失败事件，
+		// 让请求日志和业务 service 日志可以用同一个 trace 解释“为什么失败”。
+		// violation 来自有限枚举，不记录字段原值、患者资料或 Provider 报文。
 		return { ...metadata, readModelViolation: error.violation };
 	}
 	return metadata;

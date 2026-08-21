@@ -245,6 +245,11 @@ Pino 10 使用的 `@pinojs/redact` 路径通配符是固定层级，不支持 `*
 
 请求日志只记录 `idempotencyKeyPresent`，不记录幂等键本身。需要关联支付或医保排障时，记录内部 `orderId`、`eventId`、`providerRequestId` 等不可直接还原凭证的标识。Pino 的 `redact` 是最终兜底，不是业务代码记录敏感数据的许可。
 
+所有会传播到 HTTP 生命周期的 domain 读模型异常，`http.request.failed` 都会保留其固定
+`readModelViolation`；这只用于区分资料、身份、患者、预约、报告和费用读模型的契约失败，
+不携带字段原值。业务 service 的成功事件仍必须在完整读模型校验之后记录，不能因为请求日志补充了
+违规原因就把 `502/500` 误判为业务成功。
+
 微信授权登录的排障顺序固定为：先用同一个 `traceId/requestId` 查 `http.request.*`，再查对应的
 `auth.wechat.login.*` 事件，最后结合 `providerRequestId` 查询 provider 侧记录。禁止用临时 code、openid、
 unionId、session_key 或 access token 作为日志检索条件；这些值不应出现在日志中。

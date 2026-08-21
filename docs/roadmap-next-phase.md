@@ -7,6 +7,13 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 19:31 CST（HTTP 失败日志读模型原因补齐）：发现普通资料、身份、患者、预约、报告和门诊费用等
+  domain 读模型异常虽会映射成稳定错误响应，但请求层 `http.request.failed` 只保留了部分固定违规原因，排查时
+  需要额外依赖业务日志。现已在新 API 的 request logging 白名单中补齐所有携带 `violation` 的读模型错误，并增加
+  资料/身份回归测试；`http.request.failed` 现在会保留 `readModelViolation`，不携带原始 userId、患者字段、资料正文
+  或 Provider 报文。API 全量 `200 pass`、文档 `410` 篇断链审计、Biome 和类型检查通过；未修改旧 Python 服务、线上配置、
+  数据库或 Redis。
+
 - 2026-08-21 19:24 CST（当前 `single-flight.test.js` ENOENT 复核）：重新执行小程序构建后，运行包来源为
   `f488c6f3270514af10b19fdf3c45a47519e1736b`，14 个页面入口均有完整 `.js/.json/.wxml/.wxss` 文件，
   `dist/services/single-flight.js` 存在，`dist/` 中 `*.test.js`/`*.spec.js` 数量为 0；小程序 197 项测试全部通过。

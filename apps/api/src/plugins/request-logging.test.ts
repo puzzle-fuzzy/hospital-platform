@@ -3,8 +3,10 @@ import { ProviderRequestError } from "@hospital/adapters";
 import {
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
+	IdentityUserReadModelValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PaymentOrderReadModelValidationError,
+	UserProfileReadModelValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
@@ -134,4 +136,29 @@ test("Provider trace 读模型日志只保留固定违规原因", () => {
 		errorCode: "UNKNOWN",
 		readModelViolation: "request-id-invalid",
 	});
+});
+
+test("普通资料和身份读模型错误会进入 HTTP 失败日志的固定违规字段", () => {
+	const profileMetadata = safeErrorMetadata(
+		new UserProfileReadModelValidationError("profile-email-invalid"),
+		"UNKNOWN",
+	);
+	const identityMetadata = safeErrorMetadata(
+		new IdentityUserReadModelValidationError("user-id-invalid"),
+		"UNKNOWN",
+	);
+
+	expect(profileMetadata).toMatchObject({
+		errorName: "UserProfileReadModelValidationError",
+		readModelViolation: "profile-email-invalid",
+	});
+	expect(identityMetadata).toMatchObject({
+		errorName: "IdentityUserReadModelValidationError",
+		readModelViolation: "user-id-invalid",
+	});
+	// 固定违规原因可以帮助定位持久化/会话读模型损坏，但不能把原始 userId、
+	// 邮箱或其它个人字段带进请求日志。
+	expect(JSON.stringify({ profileMetadata, identityMetadata })).not.toContain(
+		"profile-user",
+	);
 });
