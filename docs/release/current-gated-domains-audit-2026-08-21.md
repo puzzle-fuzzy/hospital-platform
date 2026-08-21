@@ -1,0 +1,55 @@
+# 当前未开放业务门禁审计（2026-08-21）
+
+> 本文是当前服务端 `5a31427` 与小程序候选 `6677671` 的门禁快照。它用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
+
+## 1. 当前基线与公网只读证据
+
+| 项目 | 当前事实 |
+| --- | --- |
+| 服务端 release | `5a314275e9bae43730eab5b32638a8baecda5869`（`5a31427`） |
+| 小程序本地候选 | `667767123efdb5b3a0bedbe423ab1797f16b1247`（`6677671`），尚未上传线上 |
+| 新服务 | `https://test-hp.meiyi.pro/api/v2`，生产模式、数据库/Redis/schema readiness 为 ready |
+| 小程序运行包 | `apps/miniprogram/dist/`，14 个页面；不包含 `*.test.js`/`*.spec.js` |
+| `GET /health/live` | `200` |
+| `GET /health/ready` | `200` |
+| `GET /medical-records` | `404`，病历目录路由未注册 |
+| `GET /patient-binding/commands` | `404`，患者绑定命令路由未注册 |
+| 未登录 `GET /reports?...` | `401`，先经过会话认证；不代表报告 Provider 已验收 |
+| 未登录 `GET /payments/outpatient/records?...` | `401`，只读路由的认证边界正常 |
+
+上述请求未携带 Bearer、微信身份、患者标识或 Provider 凭证，也未写入 MySQL/Redis；关闭路由的 `404` 是预期门禁证据，不是需要用兼容转发填补的故障。
+
+## 2. 分域结论
+
+| 业务域 | 当前代码/路由 | 契约与证据判断 | 当前动作 |
+| --- | --- | --- | --- |
+| 门诊病历目录 | 未注册 `/api/v2/medical-records` | 缺正式 `out-visit-records` 请求/响应、专用患者映射、空/拒绝/超时语义、字段白名单和分页/时间语义 | 保持 404，不编码 |
+| 患者新增/绑卡/解绑 | 未注册 `/api/v2/patient-binding/*` | 缺 PB-01 至 PB-16 的 provider 文档、命令幂等、最终事实查询、协议和跨 owner 冲突规则 | 选择页只保留迁移提示 |
+| 首页患者二维码 | 入口关闭，不生成二维码载荷 | 缺扫码字段、签名、受众、TTL、防重放、撤销、扫码回执和医院设备验收 | 不生成伪二维码、不外发卡号/patId |
+| 报告目录 | 有只读路由和安全读模型骨架 | 缺 provider intake 正式记录、LIS/PACS/ECG 脱敏成功/空/失败样例、真实公网/日志/真机三层证据；gate 仍关闭 | 不打开 gate；只维护 fail-closed 代码 |
+| 报告详情/附件 | 仅有 LIS opaque 引用骨架，附件未开放 | 缺详情字段、影像/心电资源授权、短期 URL、下载审计和过期回执 | 不扩展详情、下载或分享 |
+| 支付/医保/HIS 写回 | 不纳入本阶段 | 涉及副作用、结算状态、授权回跳和生产凭证 | 最后专项处理 |
+
+## 3. 已核对的代码边界
+
+1. `apps/api/src/app.ts` 只挂载当前已有的患者、预约、报告和门诊费用模块；没有病历或患者绑定模块。
+2. `apps/api/src/index.ts` 只有在报告目录/详情配置状态为 `configured` 且 Provider 基础配置存在时才创建报告 gateway；配置缺失时不能被页面入口解释成真实报告成功。
+3. `apps/api/src/modules/reports/index.ts` 的公共输入是平台内部 `patientId`、日期和有限 `kind`；Provider 患者号、报告号、文件 URL 不属于小程序 contract。
+4. `docs/migration/medical-record-directory-contract-draft.md`、`patient-binding-contract-draft.md` 和 `qr-contract-audit-2026-08-17.md` 仍分别处于草案/关闭态，尚未满足实现门禁。
+5. 报告已有的 adapter/domain/service 测试只证明本地读模型和 fail-closed 逻辑，不能替代真实 Provider 字段、公网请求、日志关联或真机患者切换证据。
+
+## 4. 下一步顺序与停止条件
+
+当前最合理的下一步不是同时开发四个高风险域，而是等待/接收 Provider 文档 intake，然后只选一个域形成完整闭环：
+
+1. 若众阳自动化会话产出报告材料，先登记来源、版本、环境、请求头/签名、成功/空/失败/超时脱敏样例，不修改现有 adapter 以外的业务边界。
+2. 优先评估报告目录只读；只有字段白名单、`his-patient` 映射、日期窗口、错误语义和 trace 关联都确认后，才打开目录 gate。
+3. 目录真实证据稳定后，再单独评估 LIS 详情；PACS/ECG 详情、附件下载、体检和报告解读不得顺手复用。
+4. 病历、患者绑定和二维码继续分别等待各自契约；不因报告目录或 `patInfosFind` 曾经成功，就共用 `patId`、卡号或二维码载荷。
+5. 任一域出现“HTTP 200 但字段不完整”“空数组无法区分故障”“患者映射不唯一”“日志无法按 trace 关联”或“真机页面与响应患者不一致”，立即停止该域并回到契约修正。
+
+## 5. 日志与旧服务边界
+
+新服务只记录 `event`、内部 request/trace 关联、provider 名、HTTP 状态、耗时、固定错误码和安全计数；不记录 Authorization、openid、unionid、session_key、身份证、手机号、姓名与证件组合、`patId`、卡号或 Provider 原始 JSON。任何后续 Provider 取证都必须沿用这个边界，并明确区分“没有请求发生”和“请求返回空结果”。
+
+本轮没有 SSH 写入、部署、重启或修改旧 Python 服务；也没有触碰并行修改的 `apps/miniprogram/project.config.json` 与 `.codegraph/`。
