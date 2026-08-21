@@ -10,6 +10,8 @@
 
 ## 当前执行检查点（2026-08-22）
 
+- 2026-08-22（真机证据隐私门禁）：发现页面摘要的通用 `summary` 字段可能绕过字段名检查写入 11 位手机号；已在 `device-evidence-audit` 增加手机号值级拒绝和回归测试，并补充边界文档。该修正只影响验收证据文件，不改变 API、患者数据、Provider 或旧 Python 服务；详见 [`release/device-evidence-redaction-phone-audit-2026-08-22.md`](release/device-evidence-redaction-phone-audit-2026-08-22.md)。
+
 - 2026-08-22 06:30–06:31 CST（当前小程序候选运行包恢复）：针对再次出现的 `dist/services/single-flight.test.js` ENOENT，重新构建并验证候选 `4e1b2e2`；`single-flight.js` 存在、测试脚本为 0、14 个页面齐全，`runtime:verify` 通过。新 `miniprogram` 项目普通编译成功，调试器错误数为 0，并重新生成 iOS/局域网二维码。该记录仍不增加真实手机业务证据，不得把二维码或模拟器状态当作微信登录、患者或只读业务完成；详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md)。
 
 - 2026-08-22（当前真机准入复核）：仓库根目录 `pnpm check` 全部通过，包含 67 条架构规则、14 页迁移台账、Provider 文档审计、81 个静态日志事件登记、发布基线、Biome、9 个 workspace 包的类型检查/测试/构建；API 为 `204 pass / 0 fail`，小程序运行包来源为 `4e1b2e224964797c103eba832323ee7074c7ad2b`，仍为 14 页且不含任何 `*.test.js`/`*.spec.js`。已在微信开发者工具开启服务端口，并使用官方 CLI 的 `--project E:\__Super_Core__\hospital-platform\apps\miniprogram` 打开新项目；资源树确认是 `MINIPROGRAM`，旧 `mp-weixin`、`single-flight.test.js` 和 `@hospital/contracts` 裸模块错误均未计入新项目证据，控制台当前仅有未登录状态下预期的 `/api/v2/me` `401`。后续仍需从该来源生成二维码并取得真实业务证据；详见 [`current-device-acceptance-gate-2026-08-22.md`](release/current-device-acceptance-gate-2026-08-22.md)。

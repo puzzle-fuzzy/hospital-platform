@@ -87,6 +87,12 @@ const SENSITIVE_VALUE_PATTERNS = Object.freeze([
 	/(?:openid|unionid|session[_-]?key|appsecret|authorization|idcard|cardno|patid)\s*[:=]/iu,
 	/[?&](?:code|token|secret|openid|unionid|idCard|cardNo|patId)=[^&\s]+/iu,
 	/\b\d{15,19}\b/u,
+	// 证据摘要通常只有 `summary` 这样的通用字段名，不能依赖字段名识别手机号。
+	// 11 位手机号一旦进入验收文档就无法靠页面域名或 requestId 脱敏，因此对
+	// 常见中国移动号段和显式手机号标签都直接拒绝；这只约束证据文件，不影响
+	// 业务接口接收或展示已经按 contract 脱敏后的患者卡片。
+	/(?:手机号|手机号码|mobile(?:phone)?|phone)\s*[:=：]?\s*1[3-9]\d{9}\b/iu,
+	/\b1[3-9]\d{9}\b/u,
 ]);
 
 function isPlainObject(value) {

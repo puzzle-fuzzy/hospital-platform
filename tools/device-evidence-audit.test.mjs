@@ -319,6 +319,19 @@ describe("device evidence audit", () => {
 		expect(() => auditDeviceEvidence(fieldManifest)).toThrow("敏感字段");
 	});
 
+	test("拒绝把页面摘要中的手机号写进证据", () => {
+		const labeledPhoneManifest = completeManifest();
+		labeledPhoneManifest.domains.auth = passedEvidence();
+		labeledPhoneManifest.domains.auth.page.summary =
+			"登录页面显示手机号：13800138000";
+		expect(() => auditDeviceEvidence(labeledPhoneManifest)).toThrow("敏感内容");
+
+		const barePhoneManifest = completeManifest();
+		barePhoneManifest.domains.auth = passedEvidence();
+		barePhoneManifest.domains.auth.page.summary = "页面显示 13800138000";
+		expect(() => auditDeviceEvidence(barePhoneManifest)).toThrow("敏感内容");
+	});
+
 	test("拒绝不带公共版本前缀或查询参数的客户端路径", () => {
 		const manifest = completeManifest();
 		manifest.domains.auth = passedEvidence();
