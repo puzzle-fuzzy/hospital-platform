@@ -507,6 +507,25 @@ test("众阳门诊费用 adapter 拒绝缺少稳定标识或重复费用", async
 		createGateway(
 			[
 				{
+					itemName: "普通门诊项目",
+					amount: "1.00",
+					tradeStatus: "1",
+					billDate: "2026-08-16 09:00:00",
+				},
+			],
+			"display-name-only-identity",
+		).listRecords(input, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "outpatient-payment-records",
+		requestId: "display-name-only-identity",
+		retryable: false,
+	});
+
+	await expect(
+		createGateway(
+			[
+				{
 					amount: "1.00",
 					tradeStatus: "1",
 					billDate: "2026-08-16 09:00:00",

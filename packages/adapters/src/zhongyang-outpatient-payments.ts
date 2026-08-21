@@ -38,7 +38,6 @@ type ProviderPaymentItem = {
 	mainId?: unknown;
 	chargeId?: unknown;
 	chargeCode?: unknown;
-	itemName?: unknown;
 	presCode?: unknown;
 	billDeptName?: unknown;
 	billDocName?: unknown;
@@ -251,7 +250,8 @@ function identityText(value: unknown): string | undefined {
  *
  * 数组下标只能作为渲染辅助，不能进入业务引用：Provider 对同一账单的
  * 返回顺序可能变化，支付后 `tradeStatus` 也会改变。这里使用单据、就诊
- * 和项目标识组成内部哈希；缺少全部稳定标识时拒绝响应，避免把不可定位
+ * 和项目标识组成内部哈希；`itemName` 只是展示文本，不属于稳定身份，不能
+ * 作为最后 fallback。缺少单据、就诊或费用 ID 时拒绝响应，避免把不可定位
  * 的费用伪装成可供后续详情/支付使用的 recordId。
  */
 function opaqueRecordId(item: ProviderPaymentItem, requestId: string): string {
@@ -263,7 +263,6 @@ function opaqueRecordId(item: ProviderPaymentItem, requestId: string): string {
 		["chargeId", identityText(item.chargeId)],
 		["chargeCode", identityText(item.chargeCode)],
 		["presCode", identityText(item.presCode)],
-		["itemName", identityText(item.itemName)],
 	]
 		.filter((entry): entry is [string, string] => entry[1] !== undefined)
 		.map(([field, value]) => `${field}=${value}`);
