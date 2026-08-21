@@ -89,10 +89,12 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 后续真机二维码必须重新基于当前 `cdb27e50` 来源生成；逻辑审计见
 [`miniprogram-session-recovery-logic-audit-2026-08-21.md`](miniprogram-session-recovery-logic-audit-2026-08-21.md)。
 
-2026-08-21 07:20 CST 针对 `dist/services/single-flight.test.js` ENOENT 重新执行历史候选构建、`runtime:verify` 和小程序定向测试：
+### 2026-08-21 07:20 CST 历史运行包复核（不作为当前候选）
+
+针对 `dist/services/single-flight.test.js` ENOENT 重新执行历史候选构建、`runtime:verify` 和小程序定向测试：
 运行包仍为 14 个页面，测试脚本为 0，170 项测试全部通过。该结果修复并确认了运行包边界，但不延长 07:23 CST 已过期的旧二维码；
-必须使用当前 `968a587` 重新普通编译并生成新二维码后，才可以开始真机业务证据采集。详见
-历史证据见 [`candidate-9340846-local-build-2026-08-21.md`](candidate-9340846-local-build-2026-08-21.md)；当前候选请使用
+当时必须使用历史候选 `968a587` 重新普通编译并生成新二维码，才可以开始当时的真机业务证据采集。详见
+历史证据见 [`candidate-9340846-local-build-2026-08-21.md`](candidate-9340846-local-build-2026-08-21.md)；当时配套候选记录见
 [`candidate-cdb27e5-local-build-2026-08-21.md`](candidate-cdb27e5-local-build-2026-08-21.md)。
 
 2026-08-21 07:25 CST 的 SSH/公网只读复核确认新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 仍共存，
@@ -102,7 +104,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核
 
-本次代码复核基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`、小程序候选 `90fd783`（完整来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`）；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
+当前验收基线为服务端 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`、小程序候选 `90fd783`（完整来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`）；
+下方历史代码复核原始记录当时基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
+不代表当前线上服务端 release。当前线上服务端和真机候选以本文顶部基线为准，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
 本轮更新后的详细审计见 [`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)。
 
@@ -184,9 +188,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-968a587.md`](miniprogram-real-device-evidence-template-968a587.md)
-- 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-968a587-local-build-2026-08-21.md`](candidate-968a587-local-build-2026-08-21.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-90fd783.md`](miniprogram-real-device-evidence-template-90fd783.md)
+- 只读业务不变量：[`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)
+- 当前候选来源：[`candidate-90fd783-local-build-2026-08-22.md`](candidate-90fd783-local-build-2026-08-22.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)

@@ -164,13 +164,14 @@ test("业务门禁执行板的当前候选不能漂移到历史小程序包", ()
 		{
 			path: "docs/release/next-business-gates-2026-08-20.md",
 			content: `## 2026-08-21 当前候选只读业务复核
-本次代码复核基于服务端 \`1b94c46\`、小程序候选 \`old-candidate\`；
+当前验收基线为服务端 \`old-server\`、小程序候选 \`old-candidate\`；
 ## 1. 当前门禁状态`,
 		},
 	];
 
 	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
-		"下一阶段业务门禁执行板 的“本次代码复核基于服务端”未指向当前完整小程序 sourceRevision",
+		"下一阶段业务门禁执行板 的“当前验收基线为服务端”未指向当前服务端 release",
+		"下一阶段业务门禁执行板 的“当前验收基线为服务端”未指向当前完整小程序 sourceRevision",
 	]);
 });
 

@@ -144,7 +144,13 @@ const currentCandidateReferenceRules = Object.freeze([
 			{
 				start: "## 2026-08-21 当前候选只读业务复核",
 				end: "## 1. 当前门禁状态",
-				phrases: [{ text: "本次代码复核基于服务端", expected: "short" }],
+				phrases: [
+					{
+						text: "当前验收基线为服务端",
+						expected: "short",
+						serverExpected: "full",
+					},
+				],
 			},
 		],
 	},
@@ -250,6 +256,14 @@ export function auditCurrentCandidateReferences(baseline, documents) {
 				}
 				for (const occurrence of occurrences) {
 					const nearbyText = sectionContent.slice(occurrence, occurrence + 240);
+					if (
+						phraseDefinition.serverExpected === "full" &&
+						!nearbyText.includes(baseline.serverRelease)
+					) {
+						failures.push(
+							`${rule.label} 的“${phrase}”未指向当前服务端 release`,
+						);
+					}
 					const expected =
 						phraseDefinition.expected === "short"
 							? baseline.miniProgramCommit
