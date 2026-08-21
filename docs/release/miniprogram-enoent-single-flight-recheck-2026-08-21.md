@@ -1,5 +1,12 @@
 # 原生小程序 `single-flight.test.js` ENOENT 复核（2026-08-21）
 
+> **历史问题记录，不是当前候选基线。** 本文记录的是 2026-08-21 对旧候选
+> `24d84099eafe48e6438508f4e060c7ed701c0102` 的复核；当前小程序候选已经推进到
+> `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`，当前准入结论以
+> [`当前真机准入记录`](current-device-acceptance-gate-2026-08-22.md) 为准。
+> 本文中的旧提交号、旧测试数量和旧构建时间只能用于追溯当时的错误，不能作为当前
+> 真机包来源或业务验收证据。
+
 ## 结论
 
 本次收到的真机调试错误：
@@ -18,6 +25,11 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 - 当前 `dist/` 中 `single-flight.js` 存在，`single-flight.test.js` 不存在，测试脚本数量为 0。
 
 因此不能通过手工复制测试脚本到 `dist/` 修复。该错误是开发者工具或旧真机调试会话仍引用旧增量模块索引的表现，不能据此判断当前业务运行包缺少生产模块。
+
+当前候选仍遵循同一边界，并额外增加了运行时门禁：构建和 `runtime:verify` 会同时
+拒绝 `*.test.js`、`*.spec.js` 以及 `@hospital/*` workspace 裸模块进入 `dist/`。
+如果开发者工具再次请求该测试文件，应优先清理旧项目会话和增量缓存；不能为了消除
+ENOENT 把测试文件复制进运行包。
 
 ## 2026-08-21 21:02 CST 本地证据
 
