@@ -29,6 +29,21 @@ Provider 患者号、渠道码和 `isMzFlag/dateFlag` 均由服务端 adapter �
 小程序当前只对已经取得的渠道 3 结果做“在线”筛选：排除服务端明确归一化为 `cancelled` 的记录。它不能把
 渠道 3 结果复制到“全部”，也不能把未知状态、时间范围或页面列表数量推导为渠道 4 事实。
 
+### 2.1 2026-08-21 旧端状态映射再核对
+
+本轮继续只读核对旧端状态来源，确认 `0/1/3/4/5/6/7` 并不是新端凭空创造的枚举：
+
+- 旧端 `hospital-app/src/api/modules/appointment.ts` 的记录类型至少明确注释了 `1=已取消`、`3=已就诊`；
+- 旧端 `hospital-app/src/pagesB/hospital/registration_detail.vue` 的详情状态分支进一步把
+  `0/1/3/4/5/6/7` 分别展示为已预约、已取消、已就诊、爽约、停诊、替诊和已登记；
+- 旧端 `app/api/v1/module_intelligent/types.py` 也保留了同一组状态文案；爽约页只按 `status === 4`
+  筛选，不能从状态名称或日期自行推断爽约。
+
+这组证据只能证明旧系统曾采用过该状态映射，不能证明当前 Provider 的所有环境仍会返回相同数字或渠道 4
+也具有相同语义。因此新 adapter 继续把已观察的数字映射为服务端有限枚举，未知数字保持 `unknown`；新端
+页面只把明确的 `missed` 交给爽约筛选，不把 `unknown` 猜成已预约、已完成或爽约。本节不改变渠道 3/4
+的开放边界，也不把旧端 `statusName` 原文透传到小程序或日志。
+
 ## 3. 必须补齐的渠道 4 事实
 
 在实现代码前，至少需要 Provider/院方提供书面合同、脱敏 fixture 或受控 staging 回放，回答以下问题：
@@ -55,4 +70,3 @@ Provider 患者号、渠道码和 `isMzFlag/dateFlag` 均由服务端 adapter �
 
 在上述证据到达前，不新增 `requestChannel=4` 生产请求、不放宽日期校验、不修改当前 adapter 常量，
 也不人为写入测试预约来制造样本。
-
