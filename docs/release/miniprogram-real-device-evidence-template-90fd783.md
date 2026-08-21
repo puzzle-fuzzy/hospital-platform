@@ -1,15 +1,13 @@
-# 历史小程序候选真机三层证据记录模板（`341524a`）
-
-> 本模板已被 `90fd783` 替代，仅用于追溯上一轮候选；当前模板请使用 [`miniprogram-real-device-evidence-template-90fd783.md`](miniprogram-real-device-evidence-template-90fd783.md)。
+# 小程序当前候选真机三层证据记录模板（`90fd783`）
 
 > 当前服务端 release 为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序完整运行包来源为
-> `341524ac345d9cfae3f6e0f8258aed3e9457f458`。空白模板不代表真机或业务验收通过。
+> `90fd7832e3ad1031c9c916f118f90cc0f2840aff`。空白模板不代表真机或业务验收通过。
 
 | 项目 | 值 |
 | --- | --- |
 | 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
-| 小程序提交 | `341524a` |
-| 完整运行包来源 | `341524ac345d9cfae3f6e0f8258aed3e9457f458` |
+| 小程序提交 | `90fd783` |
+| 完整运行包来源 | `90fd7832e3ad1031c9c916f118f90cc0f2840aff` |
 | 运行包目录 | `apps/miniprogram/dist/` |
 | 当前二维码状态 | 待在正确项目中普通编译后重新生成 |
 

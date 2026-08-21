@@ -1,6 +1,6 @@
 # 历史小程序候选 `f307424` 本地构建记录（2026-08-22）
 
-> 本候选已被 `341524a` 替代，仅用于追溯旧的开发者工具缓存和运行包边界；当前真机验收请改用 [`candidate-341524a-local-build-2026-08-22.md`](candidate-341524a-local-build-2026-08-22.md)。
+> 本候选已被 `90fd783` 替代，仅用于追溯旧的开发者工具缓存和运行包边界；当前真机验收请改用 [`candidate-90fd783-local-build-2026-08-22.md`](candidate-90fd783-local-build-2026-08-22.md)。
 
 > 本记录对应当前本地运行包。服务端配套线上 release 为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，本候选不代表微信、Provider 或真机业务已经验收。
 

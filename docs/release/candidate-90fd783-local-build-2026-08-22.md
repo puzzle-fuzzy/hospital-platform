@@ -1,6 +1,4 @@
-# 历史小程序候选 `341524a` 本地构建记录（2026-08-22）
-
-> 本候选已被 `90fd783` 替代，仅用于追溯上一轮患者范围只读请求修复；当前真机验收请改用 [`candidate-90fd783-local-build-2026-08-22.md`](candidate-90fd783-local-build-2026-08-22.md)。
+# 小程序当前候选 `90fd783` 本地构建记录（2026-08-22）
 
 > 本记录对应当前本地运行包。服务端配套线上 release 为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，本候选不代表微信、Provider 或真机业务已经验收。
 
@@ -9,8 +7,8 @@
 | 项目 | 结果 |
 | --- | --- |
 | 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
-| 小程序客户端 | `341524a` |
-| 小程序构建来源 | `341524ac345d9cfae3f6e0f8258aed3e9457f458` |
+| 小程序客户端 | `90fd783` |
+| 小程序构建来源 | `90fd7832e3ad1031c9c916f118f90cc0f2840aff` |
 | 运行包目录 | `apps/miniprogram/dist/` |
 | 页面入口 | 14 个 |
 | 运行包测试脚本 | 0 个 `*.test.js` / `*.spec.js` |
@@ -19,10 +17,9 @@
 
 ## 2. 本轮业务正确性修复
 
-患者范围的预约历史、爽约记录、报告目录/详情和门诊费用都是带有旧患者 opaque ID 的只读请求。
-本候选使用 `requestWithStableSession` 在真正进入 `wx.request` 前同时固定 token 和会话代际，
-不允许普通 GET 的自动登录重放跨过会话边界。这样可以避免页面刚完成“更换就诊人”或重新登录时，
-旧患者 ID 被新会话带出；如果会话已漂移，请求会在网络调用前直接停止，返回结果也会继续由页面代际守卫丢弃。
+本候选保留患者范围只读请求的稳定会话代际边界，并进一步修复首页 `onShow` 与下拉刷新并发时的状态竞态。
+只有当前目录读取返回 `loaded`，且页面生命周期和 session guard 仍有效时，首页才会显示“已恢复会话”；
+被更新周期淘汰的 `superseded` 结果不能伪造会话成功，也不能在患者目录尚未确认时开放患者范围入口。
 
 ## 3. 真机错误复核
 
@@ -36,11 +33,10 @@
 
 ## 4. 本轮门禁结果
 
-- 小程序测试：202 pass、0 fail、1528 个 expect；
-- `pnpm --filter @hospital/miniprogram typecheck` 通过；
-- `pnpm --filter @hospital/miniprogram build` 和 `runtime:verify` 通过；
+- 小程序测试：203 pass、0 fail、1534 个 expect；
+- 小程序 typecheck、build、runtime:verify 通过；
 - 生成 14 个页面脚本，运行包不含 `*.test.js`、`*.spec.js` 或 workspace 裸模块运行时引用；
-- 生成来源已固定到 `build-info.json.sourceRevision`，真机前必须在正确的 `apps/miniprogram/` 项目重新普通编译。
+- `dist/build-info.json.sourceRevision` 已固定为 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`，真机前必须在正确的 `apps/miniprogram/` 项目重新普通编译。
 
 ## 5. 当前验收边界
 

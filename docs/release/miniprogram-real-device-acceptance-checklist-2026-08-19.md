@@ -1,8 +1,8 @@
 # 原生小程序当前候选真机验收清单（2026-08-19）
 
-> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `341524ac345d9cfae3f6e0f8258aed3e9457f458`（提交 `341524a`）。
+> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。
 
-> 当前基线更新：服务端 `002acc1b`；小程序候选 `341524a`；完整运行包来源 `341524ac345d9cfae3f6e0f8258aed3e9457f458`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `002acc1b`；小程序候选 `90fd783`；完整运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`。下文更早候选只作历史追溯。
 
 这是一份扫码前后都能复用的操作清单，固定当前客户端候选，避免把旧开发者工具窗口、旧二维码、模拟器结果或服务端历史日志误当成真机验收。
 本轮只验收微信登录、患者目录/切换、我的挂号、爽约记录、门诊费用只读和普通资料读取；预约写入、支付、医保、退费、报告 Provider、HIS 写入继续关闭。
@@ -12,8 +12,8 @@
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
 | 服务端 | `002acc1b` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
-| 小程序运行输入 | `341524a` | 当前本地候选，尚未上传线上 |
-| 小程序运行包来源 | `341524ac345d9cfae3f6e0f8258aed3e9457f458` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
+| 小程序运行输入 | `90fd783` | 当前本地候选，尚未上传线上 |
+| 小程序运行包来源 | `90fd7832e3ad1031c9c916f118f90cc0f2840aff` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 真机只能访问公网 API，不直连 Provider 或内网地址 |
 
@@ -25,7 +25,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 ```
 
-如果 `sourceRevision` 不是完整的 `341524ac345d9cfae3f6e0f8258aed3e9457f458`，立即停止，不得打开二维码。
+如果 `sourceRevision` 不是完整的 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`，立即停止，不得打开二维码。
 开发者工具必须使用新 `miniprogram` 项目窗口；旧 `mp-weixin` 窗口不属于本次验收范围。二维码只能现场重新生成，不保存、不复制、不写入文档。
 
 ## 2. 扫码前运行层检查

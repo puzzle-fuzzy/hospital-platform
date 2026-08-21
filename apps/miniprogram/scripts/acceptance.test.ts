@@ -2140,7 +2140,9 @@ test("native homepage reloads the owner directory after returning from patient s
 	expect(showBody).toContain("this.clearDisplayedPatientContext();");
 	expect(showBody).not.toContain("clearSelectedPatientId();");
 	expect(home).toContain("this.loadPatients()");
-	expect(showBody).toContain("shouldContinueAfterPatientLoad(patientLoadResult)");
+	expect(showBody).toContain(
+		"shouldContinueAfterPatientLoad(patientLoadResult)",
+	);
 	expect(home).not.toContain(
 		"selectedPatientId === this.data.selectedPatientId",
 	);
