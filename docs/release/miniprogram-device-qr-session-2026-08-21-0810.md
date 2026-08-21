@@ -32,3 +32,23 @@
 4. 每个业务域同时保存页面结果、客户端脱敏 HTTP 关联和服务端低敏事件链。
 
 任一业务域出现患者归属不一致、旧患者残留、未配置依赖、未知状态或 HTTP/日志链不一致，立即停止该域，不用另一条重试链覆盖原证据。支付、医保、预约写入、退款、HIS 写回和二维码协议仍保持关闭。
+
+## 当前候选再次恢复（2026-08-21 08:42 CST）
+
+针对真机再次报告 `dist/services/single-flight.test.js` 缺失，本次重新执行了构建、运行包校验和开发者工具普通编译，然后重新打开了 iOS/局域网真机调试二维码。当前错误仍属于开发者工具旧增量模块索引或旧二维码会话，不是运行包缺少业务文件。
+
+| 项目 | 当前结果 |
+| --- | --- |
+| 当前小程序运行包来源 | `667767123efdb5b3a0bedbe423ab1797f16b1247`（`6677671`） |
+| `dist/build-info.json` | `pageCount=14`，生成时间 `2026-08-21T00:15:07.007Z` |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 测试运行脚本 | `*.test.js` / `*.spec.js` 均为 0 |
+| 开发者工具问题面板 | 0 个问题 |
+| 模拟器控制台剩余错误 | 未登录模拟器请求 `/api/v2/me` 的预期 401，不是 ENOENT |
+| 当前二维码 | iOS + 局域网，工具显示约 `08:42 CST` 失效 |
+| 手机是否扫码 | 待记录；不能复用旧二维码 |
+
+本次仍未修改、部署或重启旧 Python 服务。手机端后续必须扫码当前二维码；若再次出现相同 ENOENT，应立即停止该扫码会话，关闭并重新打开 `apps/miniprogram/` 项目后再普通编译，不能把测试脚本手工复制到 `dist/`。
