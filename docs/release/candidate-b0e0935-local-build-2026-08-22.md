@@ -4,6 +4,18 @@
 > `7181e99e3a352244102f5591279528b3b66332c9`；在完成新 API 原子发布并重新生成真机包前，
 > 不得把本记录当作线上或真机业务验收证据。
 
+## 2026-08-22 07:32 当前发布阻断
+
+本轮再次执行根 `pnpm check`。架构、迁移、Provider 文档、文档链接、日志事件和本地代码门禁没有新增失败；
+流程在 `release:baseline:audit` 停止，因为 `packages/contracts/src/index.ts` 属于 `b0e0935`，尚未进入线上
+`7181e99e`。这是候选未部署事实，不是通过修改基线文档可以消除的测试问题。
+
+本机已有 `remote-8-130-127-184.pem`，但使用 `ps@8.130.127.184` 的 `BatchMode` 无写入检查返回
+`Permission denied (publickey)`；之前用于内网服务器的专用检查密钥同样未被接受。故本轮没有上传 bundle、
+运行生产 preflight、切换 `hospital-platform-api-v2.service`、读取旧 Python `8001`，也没有修改旧服务、
+MySQL 或 Redis。恢复 SSH 前不得开始发布操作；恢复后仍需按 [`api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)
+先做只读目标确认和隔离端口 smoke。
+
 ## 候选来源
 
 | 项目 | 结果 |
