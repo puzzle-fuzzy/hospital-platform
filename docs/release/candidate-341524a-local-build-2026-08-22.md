@@ -1,6 +1,4 @@
-# 历史小程序候选 `f307424` 本地构建记录（2026-08-22）
-
-> 本候选已被 `341524a` 替代，仅用于追溯旧的开发者工具缓存和运行包边界；当前真机验收请改用 [`candidate-341524a-local-build-2026-08-22.md`](candidate-341524a-local-build-2026-08-22.md)。
+# 小程序当前候选 `341524a` 本地构建记录（2026-08-22）
 
 > 本记录对应当前本地运行包。服务端配套线上 release 为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，本候选不代表微信、Provider 或真机业务已经验收。
 
@@ -9,15 +7,22 @@
 | 项目 | 结果 |
 | --- | --- |
 | 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
-| 小程序客户端 | `f307424` |
-| 小程序构建来源 | `f3074243e136621d64f296a687c0fb2ca8230991` |
+| 小程序客户端 | `341524a` |
+| 小程序构建来源 | `341524ac345d9cfae3f6e0f8258aed3e9457f458` |
 | 运行包目录 | `apps/miniprogram/dist/` |
 | 页面入口 | 14 个 |
 | 运行包测试脚本 | 0 个 `*.test.js` / `*.spec.js` |
 | `single-flight.js` | 存在 |
 | `single-flight.test.js` | 不存在，符合运行包边界 |
 
-## 2. 真机错误复核
+## 2. 本轮业务正确性修复
+
+患者范围的预约历史、爽约记录、报告目录/详情和门诊费用都是带有旧患者 opaque ID 的只读请求。
+本候选使用 `requestWithStableSession` 在真正进入 `wx.request` 前同时固定 token 和会话代际，
+不允许普通 GET 的自动登录重放跨过会话边界。这样可以避免页面刚完成“更换就诊人”或重新登录时，
+旧患者 ID 被新会话带出；如果会话已漂移，请求会在网络调用前直接停止，返回结果也会继续由页面代际守卫丢弃。
+
+## 3. 真机错误复核
 
 `src/services/single-flight.test.ts` 是测试输入，不能复制到 `dist/`。本候选通过
 `tsconfig.build.json` 和最终文件清单两层排除测试脚本；开发者工具报告的
@@ -27,14 +32,15 @@
 `require("@hospital/*")`、`from "@hospital/*"` 和动态 `import("@hospital/*")` 进入 JavaScript
 运行包；共享契约只能在 TypeScript 类型或测试边界使用，小程序页面运行时使用本地模块。
 
-## 3. 本轮门禁结果
+## 4. 本轮门禁结果
 
-- 根目录 `pnpm check` 全部通过；
-- `pnpm --filter @hospital/miniprogram runtime:verify` 通过；
+- 小程序测试：202 pass、0 fail、1528 个 expect；
+- `pnpm --filter @hospital/miniprogram typecheck` 通过；
+- `pnpm --filter @hospital/miniprogram build` 和 `runtime:verify` 通过；
 - 生成 14 个页面脚本，运行包不含 `*.test.js`、`*.spec.js` 或 workspace 裸模块运行时引用；
-- 新增日志事件文档审计，81 个静态生产日志事件均已登记到 `docs/logging.md`。
+- 生成来源已固定到 `build-info.json.sourceRevision`，真机前必须在正确的 `apps/miniprogram/` 项目重新普通编译。
 
-## 4. 当前验收边界
+## 5. 当前验收边界
 
 真机验收必须同时记录页面结果、客户端 `/api/v2/` 请求及 requestId/traceId、服务端低敏同链事件。没有三层证据时，微信登录、患者同步、显式患者切换、预约历史、门诊费用和普通资料均只能标记为待验收。
 
