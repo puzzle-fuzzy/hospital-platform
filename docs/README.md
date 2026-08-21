@@ -3,8 +3,9 @@
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前权威运行基线（2026-08-21）为：服务端 `c8eef370c82e358205ee032af41ba2b23576af06`（提交 `c8eef370`）、最新本地小程序候选来源
-`f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`，尚未上传线上）、新 API `10.0.0.3:18081`、旧 Python `8001`。
+当前发布基线（2026-08-21）仍为：服务端线上 `c8eef370c82e358205ee032af41ba2b23576af06`（提交 `c8eef370`）、待真机复核的小程序候选来源
+`f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`，尚未上传线上）。本轮本地验证另生成了未发布运行包来源
+`13b86a5a400ca0ccbee67abdfed726476a4749d4`，不能替代上述发布基线；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 ## 首先阅读
@@ -23,6 +24,7 @@
 | [`release/redis-session-ttl-audit-hard-cap-2026-08-21.md`](release/redis-session-ttl-audit-hard-cap-2026-08-21.md) | Redis 会话 TTL 只读审计 `maxKeys` 硬上限、最后一页超量返回和当前线上未验证边界 |
 | [`release/observability-redaction-casing-audit-2026-08-20.md`](release/observability-redaction-casing-audit-2026-08-20.md) | Pino 日志脱敏的 HTTP 头大小写、幂等键和患者身份字段变体边界；仅为本地新项目代码审计，不代表线上已切换 |
 | [`release/observability-deep-redaction-audit-2026-08-21.md`](release/observability-deep-redaction-audit-2026-08-21.md) | Pino 10 固定层级路径的深层泄露缺口、递归 JSON 输出门禁、合成探针和未部署边界 |
+| [`release/worker-startup-mode-log-audit-2026-08-21.md`](release/worker-startup-mode-log-audit-2026-08-21.md) | Worker 启动探针失败时的 development/test/production 模式日志边界、回归测试和未部署说明 |
 | [`release/patient-relationship-unknown-boundary-2026-08-20.md`](release/patient-relationship-unknown-boundary-2026-08-20.md) | 患者关系明确“其他”和关系缺失/未知的契约、adapter 映射、小程序文案与验收边界 |
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |

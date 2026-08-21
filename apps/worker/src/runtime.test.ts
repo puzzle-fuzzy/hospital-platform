@@ -62,10 +62,15 @@ test("worker startup failure emits structured persistence readiness logs", async
 		},
 	});
 
-	await runWorkerLoop(runtime, { intervalMs: 1000, logger });
+	await runWorkerLoop(runtime, {
+		intervalMs: 1000,
+		logger,
+		environment: "production",
+	});
 
 	expect(JSON.parse(lines[0] ?? "{}")).toMatchObject({
 		event: "service.start.failed",
+		runtimeMode: "production",
 		status: "not_ready",
 		dependencies: { database: "ok", schema: "unavailable" },
 		msg: "Hospital worker persistence is not ready; no provider work will run",

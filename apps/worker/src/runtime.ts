@@ -1,12 +1,12 @@
 import { createWechatPaymentGateway } from "@hospital/adapters";
-import type { DependencyState } from "@hospital/contracts";
 import {
-	type RuntimeConfig,
 	config as defaultConfig,
+	type RuntimeConfig,
 	wechatPaymentConfigurationMissingFields,
 } from "@hospital/config";
+import type { DependencyState } from "@hospital/contracts";
 import { PaymentOrderService } from "@hospital/domain";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
+import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import {
 	createPersistenceRuntime,
 	type PersistenceRuntime,
@@ -244,6 +244,10 @@ export async function runWorkerLoop(
 		options.logger[configured ? "error" : "warn"](
 			{
 				event: configured ? "service.start.failed" : "service.start.skipped",
+				// 启动探针失败时进程会提前退出，仍必须记录运行模式；否则
+				// 排查“开发配置误部署到生产”时只能看到失败原因，无法确认
+				// 这条日志究竟来自 development、test 还是 production 实例。
+				runtimeMode: runtimeEnvironment,
 				status: initialization.status,
 				...(initialization.dependencies
 					? { dependencies: initialization.dependencies }

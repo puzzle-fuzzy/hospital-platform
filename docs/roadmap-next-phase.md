@@ -2,10 +2,19 @@
 
 > 当前候选：服务端 release `c8eef370c82e358205ee032af41ba2b23576af06`；小程序真机前必须重新构建并核对运行包来源。
 
+> 本轮本地验证使用的新项目服务端代码为 `c597209a991d148859869533013a92fe5c658f78`，小程序运行包来源为
+> `13b86a5a400ca0ccbee67abdfed726476a4749d4`；这只是未发布验证证据，不能替代上方发布基线，也未因本路线图记录自动部署线上。
+
 本文档是新会话继续工作的入口，描述当前真实边界、业务优先级、工程治理和上线验收顺序。
 其中“已完成”只表示代码、测试或部署证据，不代表微信、众阳、医保、HIS、支付或真机已经完成真实验收。
 
 ## 当前执行检查点（2026-08-21）
+
+- 2026-08-21（Worker 启动失败日志模式）：发现 Worker 在配置不完整或 MySQL/schema 探针失败后会提前退出，原有
+  `service.start.skipped/failed` 日志没有 `runtimeMode`，导致最需要排障的启动失败窗口无法确认来自 development、test
+  还是 production。现已补充统一 `runtimeMode` 字段、中文注释和回归测试；Worker `53 pass / 0 fail`、类型检查和 Biome
+  通过。该修正只影响新项目日志，不启动支付 Worker、不修改旧 Python 服务或线上配置，详见
+  [`worker-startup-mode-log-audit-2026-08-21.md`](release/worker-startup-mode-log-audit-2026-08-21.md)。
 
 - 2026-08-21（报告目录结果窗口绑定）：复核发现报告 service 之前只校验请求日期范围，未验证 Provider 返回的 `reportedAt` 是否属于本次查询；缓存旧快照或忽略日期参数时可能被误报为成功目录。现已在 domain/service 增加统一时间解析和自然日窗口门禁：每条报告时间必须是已审计格式且落在首尾日期内，未知格式或窗口外结果整批以 `provider-response-invalid` 拒绝，并记录固定 `resultViolation`；新增 domain/API 回归测试与边界文档。该修正不调用真实 Provider、不打开报告 gate、不修改旧 Python 服务，详见 [`report-directory-window-validation-2026-08-21.md`](release/report-directory-window-validation-2026-08-21.md)。
 
