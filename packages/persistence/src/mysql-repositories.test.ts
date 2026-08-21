@@ -45,7 +45,9 @@ function createFakePool(responses: unknown[] = []): {
 		async execute(sql: string, values: readonly unknown[] = []) {
 			state.statements.push(sql);
 			state.values.push([...values]);
-			return [state.responses.shift() ?? { affectedRows: 1 }, []];
+			const response = state.responses.shift();
+			if (response instanceof Error) throw response;
+			return [response ?? { affectedRows: 1 }, []];
 		},
 	};
 	const pool = {
@@ -55,7 +57,9 @@ function createFakePool(responses: unknown[] = []): {
 		async execute(sql: string, values: readonly unknown[] = []) {
 			state.statements.push(sql);
 			state.values.push([...values]);
-			return [state.responses.shift() ?? [], []];
+			const response = state.responses.shift();
+			if (response instanceof Error) throw response;
+			return [response ?? [], []];
 		},
 	} as unknown as Pool;
 
@@ -87,6 +91,14 @@ const createdEvent: OutboxEvent = {
 function protocolConnectionLostError(): Error & { code: string } {
 	const error = new Error("socket closed") as Error & { code: string };
 	error.code = "PROTOCOL_CONNECTION_LOST";
+	return error;
+}
+
+function duplicateEntryError(): Error & { code: string } {
+	const error = new Error("duplicate provider subject") as Error & {
+		code: string;
+	};
+	error.code = "ER_DUP_ENTRY";
 	return error;
 }
 
@@ -146,6 +158,47 @@ test("MySQL read recovery stops after the bounded retry window", async () => {
 		errorCode: "PROTOCOL_CONNECTION_LOST",
 	});
 	expect(attempts).toBe(3);
+});
+
+test("MySQL 微信身份重复键竞争后仍补齐迟到的 unionId", async () => {
+	const { pool, state } = createFakePool([
+		[],
+		duplicateEntryError(),
+		[
+			{
+				user_id: "user-raced-001",
+				provider_subject: "openid-raced-001",
+				union_id: null,
+			},
+		],
+		// 模拟另一个并发请求在本请求读取胜出行后先补齐 unionId；本请求
+		// 的条件更新因此没有抢到写入权，必须继续回读数据库权威值。
+		{ affectedRows: 0 },
+		[
+			{
+				user_id: "user-raced-001",
+				provider_subject: "openid-raced-001",
+				union_id: "union-raced-001",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.identityUsers.findOrCreateByWechat({
+			providerSubject: "openid-raced-001",
+			unionId: "union-raced-001",
+		}),
+	).resolves.toEqual({
+		userId: "user-raced-001",
+		providerSubject: "openid-raced-001",
+		unionId: "union-raced-001",
+	});
+	// 关键顺序是：首次查询、插入竞争、读取胜出行、条件补全、权威回读。
+	// 测试不允许重复键分支直接返回没有 unionId 的 raced 行。
+	expect(state.statements).toHaveLength(5);
+	expect(state.statements[3]).toContain("union_id IS NULL");
+	expect(state.values[3]).toContain("user-raced-001");
 });
 
 test("MySQL transient write failures become a safe persistence error", async () => {

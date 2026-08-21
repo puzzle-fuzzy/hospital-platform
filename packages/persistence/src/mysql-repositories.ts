@@ -993,6 +993,37 @@ export function createMySqlRepositories(
 		return prepayCipher;
 	};
 
+	/**
+	 * 补齐微信身份迟到的 unionId，并始终以数据库最终值作为返回值。
+	 *
+	 * 首次登录可能先落库一个没有 unionId 的行；另一个并发请求随后才拿到
+	 * unionId。这里的条件 UPDATE 只允许把 NULL 补成值，绝不覆盖已经绑定的
+	 * unionId。若 UPDATE 没抢到补全权，则重新读取同一 userId，避免把本次
+	 * 未生效的候选值伪装成权威身份，进而让患者目录拿错 Provider 身份。
+	 */
+	async function completeMissingUnionId(
+		existing: IdentityUser,
+		unionId: string | undefined,
+	): Promise<IdentityUser> {
+		if (!unionId || existing.unionId) return existing;
+
+		const updateResult = await execute<ResultSetHeader>(
+			pool,
+			"UPDATE hp_identity_users SET union_id = ?, updated_at = ? WHERE user_id = ? AND union_id IS NULL",
+			[unionId, mysqlDateTime(new Date()), existing.userId],
+		);
+		if (updateResult.affectedRows === 1) {
+			return { ...existing, unionId };
+		}
+
+		const refreshedRows = await execute<IdentityUserRow[]>(
+			pool,
+			"SELECT user_id, provider_subject, union_id FROM hp_identity_users WHERE user_id = ? LIMIT 1",
+			[existing.userId],
+		);
+		return refreshedRows[0] ? identityUser(refreshedRows[0]) : existing;
+	}
+
 	const identityUsers: UserIdentityRepository = {
 		async findOrCreateByWechat(input) {
 			const existingRows = await execute<IdentityUserRow[]>(
@@ -1002,27 +1033,7 @@ export function createMySqlRepositories(
 			);
 			if (existingRows[0]) {
 				const existing = identityUser(existingRows[0]);
-				// unionId 可能因微信主体配置变化而延迟返回；只补齐空值，绝不覆盖
-				// 已绑定的 unionId，避免把同一 provider subject 错绑到另一主体。
-				if (input.unionId && !existing.unionId) {
-					const updateResult = await execute<ResultSetHeader>(
-						pool,
-						"UPDATE hp_identity_users SET union_id = ?, updated_at = ? WHERE user_id = ? AND union_id IS NULL",
-						[input.unionId, mysqlDateTime(new Date()), existing.userId],
-					);
-					if (updateResult.affectedRows === 1) {
-						return { ...existing, unionId: input.unionId };
-					}
-					// 并发登录可能已经补齐了 unionId；重新读取权威行，不能把本次
-					// 未生效的候选值返回给上层，避免身份绑定在竞争条件下漂移。
-					const refreshedRows = await execute<IdentityUserRow[]>(
-						pool,
-						"SELECT user_id, provider_subject, union_id FROM hp_identity_users WHERE user_id = ? LIMIT 1",
-						[existing.userId],
-					);
-					return refreshedRows[0] ? identityUser(refreshedRows[0]) : existing;
-				}
-				return existing;
+				return completeMissingUnionId(existing, input.unionId);
 			}
 
 			const timestamp = new Date();
@@ -1052,7 +1063,13 @@ export function createMySqlRepositories(
 					[input.providerSubject],
 				);
 				if (!racedRows[0]) throw error;
-				return identityUser(racedRows[0]);
+				// 重复键只说明另一请求先创建了同一 provider subject，并不说明
+				// 它已经拿到了 unionId；继续走补全流程，保证本次登录不会因
+				// 竞争顺序偶发地签发一个无法同步患者目录的会话。
+				return completeMissingUnionId(
+					identityUser(racedRows[0]),
+					input.unionId,
+				);
 			}
 		},
 		async findByUserId(userId) {

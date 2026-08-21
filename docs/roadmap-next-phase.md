@@ -7,6 +7,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（微信身份重复键竞争）：审计发现 MySQL 身份首次创建发生重复键竞争时，后到请求虽有
+  `unionId` 却会直接返回并发胜出行，若胜出行暂时为空，后续患者目录同步会被错误判定为身份依赖未配置。
+  现已让重复键分支与已存在分支共用“仅补齐 NULL、失败后权威回读”的流程，并补充回归测试；该修正尚未部署，
+  真实 MySQL 双会话并发和当前候选真机微信登录仍待验收，详见
+  [`wechat-identity-duplicate-race-unionid-2026-08-21.md`](release/wechat-identity-duplicate-race-unionid-2026-08-21.md)。
+
 - 2026-08-21（普通资料 MySQL 写入响应一致性）：审计发现资料仓储在条件更新后于事务外回读，存在另一个设备在回读前提交时让
   `PUT /me/profile` 返回后续设备快照的竞态。现已把首次插入/版本锁定/条件更新/本次 canonical 回读收进同一事务，并要求返回版本严格为
   `expectedVersion + 1`；异常版本直接回滚并返回 409 冲突。persistence `87 pass / 0 fail`、API 资料 service `15 pass / 0 fail`、
