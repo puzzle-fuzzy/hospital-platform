@@ -4,7 +4,7 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前权威运行基线（2026-08-21）为：服务端 `5a314275e9bae43730eab5b32638a8baecda5869`（提交 `5a31427`）、最新本地小程序候选来源
-`c86a788c01760fd5a74ac8c2769871025297a4fc`（提交 `c86a788`，尚未上传线上）、新 API `10.0.0.3:18081`、旧 Python `8001`。
+`5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6`（提交 `5c06929`，尚未上传线上）、新 API `10.0.0.3:18081`、旧 Python `8001`。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 ## 首先阅读
@@ -34,6 +34,7 @@
 | [`release/patient-directory-correctness-audit-2026-08-21.md`](release/patient-directory-correctness-audit-2026-08-21.md) | 患者目录 owner、双层 Provider ID、完整快照、临床映射、会话代际和显式切换的全链路正确性审计 |
 | [`release/patient-service-input-boundary-audit-2026-08-21.md`](release/patient-service-input-boundary-audit-2026-08-21.md) | 患者目录 service 直接调用的 owner/上下文运行时校验、公共错误契约和仓储前 fail-closed 证据 |
 | [`release/candidate-c86a788-local-build-2026-08-21.md`](release/candidate-c86a788-local-build-2026-08-21.md) | 当前小程序本地构建来源、患者初始化测试门禁、test/spec 运行包隔离和真机前置条件；小程序尚未上传线上，服务端基线为 `5a31427` |
+| [`release/candidate-5c06929-local-build-2026-08-21.md`](release/candidate-5c06929-local-build-2026-08-21.md) | 当前 `5c06929` 小程序运行包、`single-flight.test.js` ENOENT 诊断、构建来源指纹和开发者工具恢复顺序 |
 | [`release/current-public-runtime-smoke-2026-08-21-1112.md`](release/current-public-runtime-smoke-2026-08-21-1112.md) | 11:12 CST 公网 `/api/v2` live/ready、未登录鉴权和未开放路由只读复核；不替代真机业务证据 |
 | [`release/current-public-runtime-smoke-2026-08-21-1136.md`](release/current-public-runtime-smoke-2026-08-21-1136.md) | 11:36 CST 公网 `/api/v2` 生产模式、普通资料独立鉴权和未开放能力边界复核；不替代真机业务证据 |
 | [`release/current-5a31427-runtime-p0-observation-2026-08-21-1121.md`](release/current-5a31427-runtime-p0-observation-2026-08-21-1121.md) | 11:21 CST 新旧服务共存、Worker、端口和 P0 业务日志空窗口只读复核；不替代真机业务证据 |

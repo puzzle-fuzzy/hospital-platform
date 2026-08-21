@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（当前小程序运行包刷新）：针对真机调试报告的 `dist/services/single-flight.test.js` ENOENT，已用提交
+  `5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6` 重新构建并通过 `runtime:verify`。当前 `dist` 有 14 个页面、真实运行模块
+  `single-flight.js`，没有 `single-flight.test.js` 或任何 `*.test.js`/`*.spec.js`；因此问题边界是微信开发者工具旧增量模块索引，
+  不能向运行包补测试文件。关闭旧真机调试、重开 `apps/miniprogram/`、普通编译并重新生成二维码后，才可继续真机验收；详见
+  [`release/candidate-5c06929-local-build-2026-08-21.md`](release/candidate-5c06929-local-build-2026-08-21.md)。
+
 - 2026-08-21（患者目录 service 直接调用输入边界修正）：发现 HTTP schema 之外，`PatientService.list/sync` 仍依赖
   TypeScript 类型来保证 owner 与 `AdapterCallContext` 正确；现已增加固定上下文字段、opaque identifier、timeout/signal
   运行时校验，并在仓储/租约/幂等账本/Provider 前 fail-closed。非法输入使用公共 `patient-query-invalid` 契约，失败日志只保留
