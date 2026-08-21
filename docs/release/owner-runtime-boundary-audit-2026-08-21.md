@@ -31,7 +31,7 @@
 | 预约、门诊费用、报告、普通资料 service 定向测试 | 77 pass / 313 expects |
 | API/domain typecheck | 通过 |
 | Biome 定向检查 | 通过 |
-| 当前 release baseline / 文档断链审计 | 通过；分别为 `5a31427 + 5c06929`、366 个文档无断链 |
+| 当前 release baseline / 文档断链审计 | 通过；分别为 `5a31427 + 4e82313`、369 个文档无断链 |
 
 每个受影响 service 都有非法 owner/userId 的 direct-call 回归测试，并断言不会触达仓储、Provider 或资料写入。支付预支付、
 医保授权、6201/6202/6301、结算、退款和 HIS 回写不在本轮范围内，避免在 Provider contract 未冻结时扩大改动面。

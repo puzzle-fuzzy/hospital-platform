@@ -58,8 +58,8 @@
 | 个人资料 HTTP schema Unicode 边界 | `pnpm --filter @hospital/contracts test` | 2 项通过，0 项失败，27 个断言；64 个 emoji 可通过，65 个 code point 被拒绝 |
 | API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
 | 众阳及通用 adapter | `pnpm --filter @hospital/adapters test` | 105 项通过，0 项失败，228 个断言；包含稳定身份缺失回归 |
-| 全仓门禁 | `pnpm check` | 架构、迁移、Provider、文档 345 篇无断链、发布基线、格式、lint、工具测试、9 workspace 类型检查和 9 workspace 测试均通过；构建阶段的 8 个 workspace 已通过，小程序构建因并行会话未提交 `apps/miniprogram/project.config.json` 被运行输入洁净门禁阻止 |
-| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `c86a788`，不含 test/spec 脚本 |
+| 全仓门禁 | `pnpm check` | 架构、迁移、Provider、文档 369 篇无断链、发布基线、格式、lint、工具测试、9 workspace 类型检查、9 workspace 测试和构建均通过 |
+| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `4e82313`，不含 test/spec 脚本 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.js` | 存在 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.test.js` | 不存在 |
 

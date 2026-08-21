@@ -843,8 +843,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("getUserProfile");
 	expect(my).toContain("hasPlatformSession");
 	expect(my).toContain("getSessionGeneration");
-	expect(my).toContain("isCurrentSessionGeneration");
-	expect(my).toContain("sessionCompositionChangedError");
+	expect(my).toContain("assertSessionGeneration");
 	expect(my).toContain("登录状态已变化，请下拉刷新后重试");
 	// 必须先完成 `/me` 会话确认，再启动患者目录和普通资料读取；否则无效
 	// token 会额外制造受保护请求，旧页面周期也可能扩大为新的业务读取。

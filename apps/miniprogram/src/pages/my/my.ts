@@ -20,10 +20,8 @@ import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
-import {
-	getSessionGeneration,
-	isCurrentSessionGeneration,
-} from "../../services/session-generation";
+import { assertSessionGeneration } from "../../services/session-boundary";
+import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
 	sessionVerificationStateFromError,
@@ -133,20 +131,6 @@ function showUnavailableMyAction(action: UnavailableMyAction): void {
 }
 
 /**
- * 创建“页面组合快照已失效”的稳定错误。
- *
- * API 客户端可以保护单个请求不把旧会话响应交给调用方，但 `我的` 页面
- * 还要把 `/me`、普通资料和患者目录组合成一个页面快照。只要其中任意两
- * 次读取之间发生会话代际变化，就不能把剩余请求的结果继续拼到旧快照上。
- * 该错误只携带稳定 code，不把 token、用户身份或 provider 原文带入页面。
- */
-function sessionCompositionChangedError(): ApiError {
-	return new ApiError("Session changed while composing my page", {
-		code: "session-changed",
-	});
-}
-
-/**
  * “我的”页同时读取会话用户和患者目录；从选择页返回或下拉刷新时，
  * 较早的异步周期不能再覆盖当前用户和就诊人数量。普通资料属于可降级
  * 展示增强，患者目录属于关键业务上下文，两者的提交边界在 loadPage 中分开。
@@ -190,9 +174,10 @@ Page<MyPageData, MyPageMethods>({
 		// 这一次页面加载。请求级 guard 负责单个响应，这里负责跨请求组合。
 		let expectedSessionGeneration = getSessionGeneration();
 		const assertPageSessionCurrent = (): void => {
-			if (!isCurrentSessionGeneration(expectedSessionGeneration)) {
-				throw sessionCompositionChangedError();
-			}
+			assertSessionGeneration(
+				expectedSessionGeneration,
+				"Session changed while composing my page",
+			);
 		};
 		this.setData({
 			loading: true,
@@ -246,11 +231,8 @@ Page<MyPageData, MyPageMethods>({
 					// 后面的患者目录会使用新 token，和旧 `/me` 证明拼成混合快照。
 					// 没有 token 时保留原始认证错误，让外层按失效会话收敛；
 					// 仍有新 token 时统一中止本轮，要求下一轮完整 `/me` 重建。
-					if (
-						!isCurrentSessionGeneration(expectedSessionGeneration) &&
-						hasPlatformSession()
-					) {
-						throw sessionCompositionChangedError();
+					if (hasPlatformSession()) {
+						assertPageSessionCurrent();
 					}
 					if (error instanceof ApiError && error.code === "session-changed") {
 						throw error;
@@ -292,11 +274,9 @@ Page<MyPageData, MyPageMethods>({
 			})
 			.then((result) => {
 				if (!result) return;
-				if (!isCurrentSessionGeneration(expectedSessionGeneration)) {
-					// 患者请求在 Promise 完成后、setData 前仍可能遇到另一个
-					// 页面换号；响应级 guard 已无法替代这里的组合一致性检查。
-					throw sessionCompositionChangedError();
-				}
+				// 患者请求在 Promise 完成后、setData 前仍可能遇到另一个
+				// 页面换号；响应级 guard 已无法替代这里的组合一致性检查。
+				assertPageSessionCurrent();
 				const patients = result;
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);

@@ -97,7 +97,7 @@
 > [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.1 节。
 
 > 2026-08-21 当前仓库门禁复核：服务端发布基线已切换为 `5a31427`，原生小程序运行输入来源已更新为
-> `c86a788c01760fd5a74ac8c2769871025297a4fc`。代码、架构、迁移清单、Provider intake、文档、类型、测试均通过；小程序构建门禁随后以当前候选重新执行，
+> `4e823137b7180390209614ef677c5a71f9c465be`。代码、架构、迁移清单、Provider intake、文档、类型、测试均通过；小程序构建门禁随后以当前候选重新执行，
 > 343 篇 Markdown 文档、Biome、9 个 workspace 的类型检查/测试/构建均通过；当前 API 测试 188 项通过，小程序测试 174 项通过、1378 个断言通过，
 > 配置包新增的空白上游地址回退测试也通过。
 > 这只能证明代码边界和构建门禁一致，不能把微信真机、患者多选、预约历史、门诊费用、报告 Provider 或普通资料写入标记为当前 release
@@ -172,8 +172,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/5a31427-production-acceptance-2026-08-21.md`](../release/5a31427-production-acceptance-2026-08-21.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `c86a788`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `c86a788c01760fd5a74ac8c2769871025297a4fc`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `4e82313`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `4e823137b7180390209614ef677c5a71f9c465be`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
