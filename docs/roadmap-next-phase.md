@@ -10,6 +10,13 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-22 00:07 CST（当前运行层只读观察）：新 API `hospital-platform-api-v2.service` 仍为
+  `active`，旧 Python `8001` 继续共存，Worker 仍为 `inactive`。从 `2026-08-21 23:53:00` 到
+  当前日志聚合为 `parsedRecords=0`、`parseErrors=0`、`eventCounts={}`、
+  `providerRequestIdCount=0`，没有新的微信、患者、预约、门诊费用或 Provider 业务请求；本次未修改
+  旧服务、未重启旧服务、未启动 Worker。下一步必须从当前小程序候选重新普通编译、生成二维码并取得真实
+  三层业务证据，详见 [`release/current-runtime-observation-2026-08-22.md`](release/current-runtime-observation-2026-08-22.md)。
+
 - 2026-08-21 23:34–23:38 CST（当前 `9f491cb5` 生产切换与运行包复核）：新 API 已从 `c8eef370` 原子切换到
   `9f491cb5ac813acf89ed1f2f4afb361517e82324`，MySQL/Redis/schema 探针和 `127.0.0.1:18082` 隔离 smoke 通过；公网
   live/ready/ping、未登录鉴权和关闭路由边界通过。旧 Python `8001` 的 Gunicorn PID 集合未变化，Worker 仍 inactive。
