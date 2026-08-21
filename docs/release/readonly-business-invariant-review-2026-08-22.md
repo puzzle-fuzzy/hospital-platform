@@ -51,11 +51,24 @@
 - API 全量：`204 pass / 0 fail / 846 expects`；
 - domain 预约与门诊费用：`7 pass / 0 fail / 15 expects`；
 - 众阳预约与门诊费用 adapter：`33 pass / 0 fail / 74 expects`；
-- 原生小程序：`199 pass / 0 fail / 1510 expects`；
+- 原生小程序：`203 pass / 0 fail / 1534 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：443 篇文档无断链；生产基线审计指向 `002acc1b` 和 `90fd783`。
+- 文档链接审计：451 篇文档无断链；生产基线审计指向 `002acc1b` 和 `90fd783`。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
+
+### 2026-08-22 继续复核
+
+本轮没有把历史 journald 窗口或模拟器页面升级为当前业务证据，只重新验证了当前候选的公开运行边界：
+
+- `GET https://test-hp.meiyi.pro/api/v2/health/live`：`200`；
+- `GET https://test-hp.meiyi.pro/api/v2/health/ready`：`200`，`database/redis/schema` 均为 `ok`；
+- `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
+- 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
+- `pnpm --filter @hospital/miniprogram test`：`203 pass / 0 fail / 1534 expects`；
+- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源仍为服务端 `002acc1b`、小程序 `90fd783`。
+
+本轮尝试对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接，均因当前环境返回 `Permission denied` 未进入服务器；因此没有新增线上服务状态、旧 `8001` 进程或业务日志结论，也没有执行任何线上写入、部署或重启。真实微信、患者切换、预约和门诊费用的三层证据仍待当前候选重新扫码后产生。
 
 ## 4. 当前开发者工具边界
 
