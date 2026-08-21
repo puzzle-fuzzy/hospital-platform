@@ -2,13 +2,15 @@
 
 > 当前候选：服务端 release `c8eef370c82e358205ee032af41ba2b23576af06`；小程序真机前必须重新构建并核对运行包来源。
 
-> 本轮本地验证使用的新项目服务端代码为 `c597209a991d148859869533013a92fe5c658f78`，小程序运行包来源为
+> 本轮本地验证使用的新项目服务端代码为 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`，小程序运行包来源为
 > `13b86a5a400ca0ccbee67abdfed726476a4749d4`；这只是未发布验证证据，不能替代上方发布基线，也未因本路线图记录自动部署线上。
 
 本文档是新会话继续工作的入口，描述当前真实边界、业务优先级、工程治理和上线验收顺序。
 其中“已完成”只表示代码、测试或部署证据，不代表微信、众阳、医保、HIS、支付或真机已经完成真实验收。
 
 ## 当前执行检查点（2026-08-21）
+
+- 2026-08-21（普通资料 MySQL 读模型错误边界）：继续复核资料 service 之外的 MySQL 行映射，发现未知性别、越界年龄或版本此前会抛出普通 `Error`，绕过统一的 `persistence-invalid` 响应和 `readModelViolation` 请求日志。现已让仓储复用领域层 `normalizeUserProfileReadModel`，并补充版本、性别回归测试和中文边界注释；本地 persistence `93 pass / 0 fail`，全仓 `pnpm check` 通过。候选服务端为 `160e7c85`，尚未部署、未修改旧 Python 服务、数据库或 Redis；真实资料 GET/PUT、双会话 409 和真机三层证据仍待完成，详见 [`profile-mysql-read-model-validation-2026-08-21.md`](release/profile-mysql-read-model-validation-2026-08-21.md)。
 
 - 2026-08-21（Worker 启动失败日志模式）：发现 Worker 在配置不完整或 MySQL/schema 探针失败后会提前退出，原有
   `service.start.skipped/failed` 日志没有 `runtimeMode`，导致最需要排障的启动失败窗口无法确认来自 development、test

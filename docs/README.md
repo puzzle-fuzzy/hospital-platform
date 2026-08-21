@@ -5,7 +5,7 @@
 
 当前发布基线（2026-08-21）仍为：服务端线上 `c8eef370c82e358205ee032af41ba2b23576af06`（提交 `c8eef370`）、待真机复核的小程序候选来源
 `f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`，尚未上传线上）。本轮本地验证另生成了未发布运行包来源
-`13b86a5a400ca0ccbee67abdfed726476a4749d4`，不能替代上述发布基线；旧 Python `8001` 未因本轮修改而改变。
+`13b86a5a400ca0ccbee67abdfed726476a4749d4`，以及未发布服务端候选 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`；二者不能替代上述发布基线；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 ## 首先阅读
@@ -29,6 +29,7 @@
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |
 | [`release/profile-mysql-write-response-atomicity-2026-08-21.md`](release/profile-mysql-write-response-atomicity-2026-08-21.md) | 普通资料 MySQL 行锁、版本条件更新和 canonical 响应回读的事务原子性修正 |
+| [`release/profile-mysql-read-model-validation-2026-08-21.md`](release/profile-mysql-read-model-validation-2026-08-21.md) | 普通资料 MySQL 行映射统一领域读模型校验、`persistence-invalid` 错误链和未发布边界 |
 | [`release/wechat-identity-duplicate-race-unionid-2026-08-21.md`](release/wechat-identity-duplicate-race-unionid-2026-08-21.md) | 微信身份重复键竞争时的 unionId 补全、条件写入和权威回读边界 |
 | [`release/patient-provider-reference-conflict-2026-08-21.md`](release/patient-provider-reference-conflict-2026-08-21.md) | 患者目录与 HIS 临床档案双重唯一约束冲突、事务回滚和稳定错误码边界 |
 | [`release/miniprogram-appointment-readonly-logic-audit-2026-08-20.md`](release/miniprogram-appointment-readonly-logic-audit-2026-08-20.md) | 预约历史/爽约的患者归属、日期窗口、状态筛选、双标签停止条件和并发回写审计 |
