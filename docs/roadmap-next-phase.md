@@ -5,7 +5,7 @@
 
 ## 当前执行检查点（2026-08-21）
 
-- 2026-08-21（当前运行包重新发布）：个人资料 Unicode contract 修正后，按来源指纹门禁重新构建小程序，当前候选为 `39ad2c5`，完整来源
+- 2026-08-21（上一候选运行包记录）：个人资料 Unicode contract 修正后，按来源指纹门禁重新构建小程序，上一候选为 `39ad2c5`，完整来源
   `39ad2c5937af2fdc735ffb223c0648464af3a48c`；`dist/` 仍为 14 个页面且不包含测试脚本，`single-flight.test.js` 不会进入运行包。
   `pnpm --filter @hospital/miniprogram runtime:verify` 已通过；真机业务三层证据仍待扫码采集。
 
