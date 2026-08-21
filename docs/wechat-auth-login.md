@@ -1,14 +1,14 @@
 # 微信授权登录实施与验收手册
 
-> 当前候选：服务端 release `9f491cb5ac813acf89ed1f2f4afb361517e82324`；小程序运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`）。
+> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`）。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
 
 ## 当前结论
 
-当前线上新 API release 为 `9f491cb5`，旧 Python `8001` 保持共存；生产切换和运行边界见
-[`release/9f491cb5-production-acceptance-2026-08-21.md`](release/9f491cb5-production-acceptance-2026-08-21.md)。
+当前线上新 API release 为 `002acc1b`，旧 Python `8001` 保持共存；生产切换和运行边界见
+[`release/002acc1b-production-acceptance-2026-08-22.md`](release/002acc1b-production-acceptance-2026-08-22.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
 当前本地小程序候选为 `13b86a5`，运行包来源指纹为

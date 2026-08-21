@@ -1,12 +1,12 @@
 # 小程序当前候选 `13b86a5` 本地构建记录（2026-08-21）
 
-> 本记录对应当前本地运行包。服务端配套 release 为 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，但小程序仍未上传微信开发者工具线上代码包；本记录不代表微信、Provider 或真机业务已经验收。
+> 本记录对应当前本地运行包。服务端配套线上 release 已更新为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，小程序仍需在正确项目中重新普通编译；本记录不代表微信、Provider 或真机业务已经验收。
 
 ## 1. 候选边界
 
 | 项目 | 结果 |
 | --- | --- |
-| 服务端 release | `9f491cb5ac813acf89ed1f2f4afb361517e82324` |
+| 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
 | 小程序客户端 | `13b86a5` |
 | 小程序构建来源 | `13b86a5a400ca0ccbee67abdfed726476a4749d4` |
 | 运行包目录 | `apps/miniprogram/dist/` |

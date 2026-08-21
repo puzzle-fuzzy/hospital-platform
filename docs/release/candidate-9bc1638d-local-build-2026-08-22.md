@@ -1,13 +1,15 @@
 # 服务端候选 `9bc1638d` 本地构建记录（2026-08-22）
 
-> 本记录只描述仓库本地候选的代码、测试和运行包证据。它没有把候选上传或切换到线上，不能替代生产 preflight、真实 MySQL/Redis/schema 复核、微信真机或 Provider 业务验收。
+> 本记录描述服务端代码候选 `9bc1638d` 及其最终可发布提交 `002acc1b` 的代码、测试和运行包证据。创建本记录时线上仍是 `9f491cb5`；后续生产切换、运行层验收和未完成的业务边界见
+> [`002acc1b-production-acceptance-2026-08-22.md`](002acc1b-production-acceptance-2026-08-22.md)。
 
 ## 1. 候选边界
 
 | 项目 | 结果 |
 | --- | --- |
 | 服务端本地候选 | `9bc1638d718d90cc222452530212881745b6a5045` |
-| 服务端线上基线 | 仍以路线图和生产验收文档记录的 `9f491cb5` 为准；本轮未切换 |
+| 生成时服务端线上基线 | `9f491cb5ac813acf89ed1f2f4afb361517e82324`；生成本记录时尚未切换 |
+| 最终发布提交 | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；已按独立 release 流程切换 |
 | 小程序运行包来源 | `13b86a5a400ca0ccbee67abdfed726476a4749d4` |
 | 旧 Python 服务 | 未修改、未重启 |
 | 数据库/Redis | 本轮未迁移、未写入、未清理 |
@@ -38,13 +40,12 @@
 
 ## 4. 真机与线上停止条件
 
-当前候选仍不能宣称普通资料真实完成，尚缺：
+运行层发布已经通过，但不能据此宣称普通资料真实完成，仍尚缺：
 
-- 当前线上 release 使用本候选后的真实 production preflight 和隔离 runtime smoke；
 - 真实微信会话下 `GET/PUT /me/profile` 首次更新、默认值和合法性边界；
 - 两个并发资料编辑者的 `409 user-profile-conflict`；
 - 真机资料页面与服务端低敏日志的同链证据。
 
-若要部署，只能按新 API 的 release runbook 上传独立 release、执行真实生产配置 preflight、
+本候选已按新 API 的 release runbook 上传独立 release、执行真实生产配置 preflight、
 用临时端口隔离 smoke，再原子切换新 API `current` 并重启 `hospital-platform-api-v2.service`。
 旧 Python `8001` 不参与切换、回滚或重启；支付、医保、退款和 HIS 写回仍保持关闭。

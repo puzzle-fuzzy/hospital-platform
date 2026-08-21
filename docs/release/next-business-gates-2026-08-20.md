@@ -1,15 +1,22 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
-> 当前候选：服务端 release `9f491cb5ac813acf89ed1f2f4afb361517e82324`；小程序运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`）。
+> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`）。
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，当前本地小程序候选为 `13b86a5`，完整运行包来源为
+> 当前服务端候选为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，当前本地小程序候选为 `13b86a5`，完整运行包来源为
 > `13b86a5a400ca0ccbee67abdfed726476a4749d4`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
 
-## 2026-08-21 `9f491cb5` 当前候选运行层复核
+## 2026-08-22 `002acc1b` 当前候选运行层复核
+
+服务端已从 `9f491cb5` 原子切换到 `002acc1b`，只重启新 API；新 API `18081`、旧 Python `8001` 共存，Worker 保持 inactive。
+真实 production preflight、隔离 `18082` runtime smoke 和公网 `/api/v2` smoke 均通过；完整发布证据见
+[`002acc1b-production-acceptance-2026-08-22.md`](002acc1b-production-acceptance-2026-08-22.md)。
+这只证明新候选运行边界，不能替代微信、患者、预约或门诊费用的真机三层业务证据。
+
+### `9f491cb5` 切换前历史观察（仅供追溯）
 
 服务端已从 `c8eef370` 原子切换到 `9f491cb5`，只重启新 API；新 API `18081`、旧 Python `8001` 共存，Worker 保持 inactive。
 真实 production preflight、隔离 `18082` runtime smoke 和公网 `/api/v2` smoke 均通过；完整发布证据见

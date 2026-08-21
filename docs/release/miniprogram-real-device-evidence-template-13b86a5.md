@@ -1,11 +1,11 @@
 # 小程序当前候选真机三层证据记录模板（`13b86a5`）
 
-> 当前服务端 release 为 `9f491cb5ac813acf89ed1f2f4afb361517e82324`；小程序完整运行包来源为
+> 当前服务端 release 为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序完整运行包来源为
 > `13b86a5a400ca0ccbee67abdfed726476a4749d4`。空白模板不代表真机或业务验收通过。
 
 | 项目 | 值 |
 | --- | --- |
-| 服务端 release | `9f491cb5ac813acf89ed1f2f4afb361517e82324` |
+| 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
 | 小程序提交 | `13b86a5` |
 | 完整运行包来源 | `13b86a5a400ca0ccbee67abdfed726476a4749d4` |
 | 运行包目录 | `apps/miniprogram/dist/` |

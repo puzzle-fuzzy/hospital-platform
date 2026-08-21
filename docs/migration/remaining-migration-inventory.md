@@ -1,8 +1,8 @@
 # 剩余迁移盘点与下一步计划
 
-> 当前候选：服务端 release `9f491cb5`（完整提交 `9f491cb5ac813acf89ed1f2f4afb361517e82324`）；小程序运行包来源为 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`），真机前必须重新构建并核对来源。
+> 当前候选：服务端 release `002acc1b`（完整提交 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`）；小程序运行包来源为 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`），真机前必须重新构建并核对来源。
 
-> 当前基线更新：服务端 `9f491cb5`；小程序候选 `13b86a5`，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `002acc1b`；小程序候选 `13b86a5`，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
 
 > 2026-08-21 报告只读 adapter 已收紧 LIS `pdfUrlList`：数组元素必须为无控制字符字符串，异常对象、数字、布尔值和控制字符会整批拒绝；当前仍只返回附件存在性，不返回地址、不开放下载或授权。详见 [`../release/report-attachment-boundary-2026-08-21.md`](../release/report-attachment-boundary-2026-08-21.md)。
 
