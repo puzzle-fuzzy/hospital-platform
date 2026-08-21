@@ -18,11 +18,16 @@ owner 审计的完整契约。因此头像本轮仍然关闭，不能因为普�
 
 | 字段 | 新端类型 | 允许行为 | 明确不做的事 |
 | --- | --- | --- | --- |
-| `displayName` | 1 到 64 个 Unicode 字符的非空、无控制字符字符串 | 修改展示昵称 | 不把它当作实名姓名或患者档案姓名 |
+| `displayName` | 1 到 64 个 Unicode code point 的非空、无控制字符字符串 | 修改展示昵称 | 不把它当作实名姓名或患者档案姓名 |
 | `gender` | `male`、`female`、`unknown` | 修改普通展示性别 | 不推导医保、临床或实名结论 |
 | `age` | `0` 到 `150` 的整数或 `null` | 修改或清空展示年龄 | 不用于临床年龄判断，不接受小数/字符串年龄 |
 | `email` | RFC 风格的非空、无控制字符邮箱或 `null` | 修改或清空邮箱 | 不作为登录身份，不在日志中记录原文 |
 | `version` | `0` 到 MySQL `INT UNSIGNED` 上限的整数 | 乐观锁版本 | 不由客户端自由递增，服务端返回下一版本 |
+
+实现备注：TypeBox 0.34 的 `maxLength` 运行时按 UTF-16 code unit 计数，不能直接表达本契约的
+Unicode code point 上限。共享 `UserProfileDisplayNameSchema` 使用代理项对模式约束 1–64 个
+code point，并由合同测试覆盖中文、emoji、混合字符、第 65 个字符和孤立代理项；资料 service
+继续负责首尾空白和控制字符校验。
 
 不属于本契约的字段：头像、手机号、身份证、实名姓名、微信 `openid`/`unionid`、患者号、
 医保身份和任何 provider 原始字段。

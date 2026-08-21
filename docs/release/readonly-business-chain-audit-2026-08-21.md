@@ -1,6 +1,6 @@
 # 当前只读业务链审计（2026-08-21）
 
-> 本记录以服务端 `5a31427` 和小程序本地候选 `f085d06` 为运行基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。完整运行包来源为 `f085d06d8e4b9695274f93b5a6b56f2af3faac91`。本地适配器审计修正已提交为 `313e903`，尚未部署；没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
+> 本记录以服务端 `5a31427` 和小程序本地候选 `f085d06` 为运行基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。完整运行包来源为 `f085d06d8e4b9695274f93b5a6b56f2af3faac91`。本地适配器审计修正已提交为 `313e903`，本轮个人资料合同修正尚未部署；没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
 >
 > 本地代码和测试通过不等于真实 Provider、HTTPS、真机页面或业务日志三层验收完成。
 
@@ -30,6 +30,14 @@
 
 众阳费用条目的 `itemName` 只是展示文本，不能作为费用、就诊或单据的稳定身份。此前如果响应只包含 `itemName`、账单日期、金额和状态，可能生成一个看似稳定但无法定位原始费用的 `recordId`；这会为后续详情、支付或对账留下错误引用。现在 `opaqueRecordId()` 只接受已确认的单据、就诊或费用标识（例如 `outTradeOrderId`、`registerId`、`visitRecordId`、`mainId`、`chargeId`、`chargeCode`、`presCode`），缺少这些标识时整批 fail-closed，并由回归测试覆盖“仅展示名称不能成 ID”。本修正没有调用 Provider、没有部署或重启服务。
 
+### 个人资料 Unicode 契约修正（本轮本地候选）
+
+资料领域和迁移文档约定昵称长度按 Unicode code point 计数，但 TypeBox `maxLength` 的实际
+运行时按 UTF-16 code unit 计数；因此 64 个 emoji 会在 HTTP schema 层被错误拒绝。现在共享
+`UserProfileDisplayNameSchema` 用代理项对 pattern 精确约束 1–64 个 code point，并补充合同层
+编译测试覆盖中文、emoji、混合字符、第 65 个字符和孤立代理项；领域层原有 `Array.from`
+计数规则保持不变。该修正只在本地验证，未上传、未重启服务，也未改变真实用户资料。
+
 ## 2. 代码边界
 
 | 链路 | 关键位置 | 已确认的边界 |
@@ -44,10 +52,11 @@
 
 | 范围 | 命令 | 结果 |
 | --- | --- | --- |
-| 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 171 项通过，0 项失败，1366 个断言 |
+| 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 171 项通过，0 项失败，1370 个断言 |
+| 个人资料 HTTP schema Unicode 边界 | `pnpm --filter @hospital/contracts test` | 2 项通过，0 项失败，27 个断言；64 个 emoji 可通过，65 个 code point 被拒绝 |
 | API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
 | 众阳及通用 adapter | `pnpm --filter @hospital/adapters test` | 105 项通过，0 项失败，228 个断言；包含稳定身份缺失回归 |
-| 全仓门禁 | `pnpm check` | 通过；架构 67 项、文档 343 篇无断链、9 个 workspace 类型/测试/构建全部成功 |
+| 全仓门禁 | `pnpm check` | 架构、迁移、Provider、文档 345 篇无断链、发布基线、格式、lint、工具测试、9 workspace 类型检查和 9 workspace 测试均通过；构建阶段的 8 个 workspace 已通过，小程序构建因并行会话未提交 `apps/miniprogram/project.config.json` 被运行输入洁净门禁阻止 |
 | 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `f085d06`，不含测试脚本 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.js` | 存在 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.test.js` | 不存在 |

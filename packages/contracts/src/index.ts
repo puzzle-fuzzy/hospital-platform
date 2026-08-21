@@ -65,9 +65,29 @@ export const UserGenderSchema = Type.Union([
  */
 export const MAX_USER_PROFILE_VERSION = 4_294_967_295;
 
+/**
+ * 资料昵称最多 64 个 Unicode code point。
+ *
+ * TypeBox 0.34 的 `maxLength` 运行时按 JavaScript UTF-16 code unit 计数：一个
+ * emoji 会占两个 unit，直接写 `maxLength: 64` 就会把合法的 64 个 emoji 错误
+ * 拒绝。这个 pattern 将 BMP 字符计为一个 code point，将合法的代理项对计为一
+ * 个 code point；同时拒绝孤立代理项，确保 HTTP 契约与资料服务的 `Array.from`
+ * 计数规则一致。`minLength` 只负责拒绝空字符串，实际长度上限由 pattern 完成。
+ */
+const USER_PROFILE_DISPLAY_NAME_PATTERN =
+	"^(?:[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[^\\uD800-\\uDFFF]){1,64}$";
+
+/** 个人资料展示名的跨 HTTP/领域共享约束。 */
+export const UserProfileDisplayNameSchema = Type.String({
+	minLength: 1,
+	pattern: USER_PROFILE_DISPLAY_NAME_PATTERN,
+	description:
+		"最多 64 个 Unicode code point；服务端另行拒绝首尾空白和控制字符。",
+});
+
 /** 个人资料只返回平台展示字段，不返回微信身份、实名或患者字段。 */
 export const UserProfileSchema = Type.Object({
-	displayName: Type.String({ minLength: 1, maxLength: 64 }),
+	displayName: UserProfileDisplayNameSchema,
 	gender: UserGenderSchema,
 	age: Type.Union([Type.Integer({ minimum: 0, maximum: 150 }), Type.Null()]),
 	email: Type.Union([
@@ -93,7 +113,7 @@ export const UserProfileResponse = Type.Object({
 export const UserProfileUpdateRequest = Type.Object(
 	{
 		version: Type.Integer({ minimum: 0, maximum: MAX_USER_PROFILE_VERSION }),
-		displayName: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+		displayName: Type.Optional(UserProfileDisplayNameSchema),
 		gender: Type.Optional(UserGenderSchema),
 		age: Type.Optional(
 			Type.Union([Type.Integer({ minimum: 0, maximum: 150 }), Type.Null()]),
