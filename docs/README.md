@@ -90,7 +90,8 @@
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前验收候选请改读 `acf5a85`，本记录不替代真机、Provider 或服务端日志证据 |
 | [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `acf5a85` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
 | [`release/miniprogram-real-device-evidence-template-acf5a85.md`](release/miniprogram-real-device-evidence-template-acf5a85.md) | 当前 `acf5a85` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；空白模板不代表验收通过 |
-| [`release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md) | 当前 `acf5a85` 候选 08:42 CST 重新打开后的 iOS/局域网二维码会话；尚未形成真机业务证据 |
+| [`release/miniprogram-device-qr-session-2026-08-21-0854-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0854-acf5a85.md) | 当前 `acf5a85` 候选 08:54 CST 的 iOS/局域网二维码会话，工具显示有效至 09:06；尚未形成真机业务证据 |
+| [`release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md) | 08:42 CST 的上一二维码会话历史；当前扫码必须使用 08:54 会话 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0810.md`](release/miniprogram-device-qr-session-2026-08-21-0810.md) | 先前真机二维码会话历史；当前扫码必须使用最新 `acf5a85` 会话 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0705.md`](release/miniprogram-device-qr-session-2026-08-21-0705.md) | 历史 `9340846` 候选的 iOS/局域网真机二维码会话；当前二维码必须从 `acf5a85` 候选重新生成，仅证明二维码与运行包边界，不代表手机业务验收成功 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0658.md`](release/miniprogram-device-qr-session-2026-08-21-0658.md) | 历史 `c08378b` 候选的二维码会话；已被当前 `acf5a85` 候选替代，不得用于当前真机验收 |
