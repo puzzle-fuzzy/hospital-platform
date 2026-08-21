@@ -245,6 +245,71 @@ test("pino 在多层 Provider 结构和 child binding 中递归脱敏", () => {
 	});
 });
 
+test("pino 递归脱敏 Provider 常见蛇形字段和原始报文容器", () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "test-service",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+
+	// 这些字段模拟不同版本网关可能返回的命名风格和原始报文包装层；
+	// 业务代码仍然禁止主动记录它们，这里只验证最终输出层不会放行原值。
+	logger.info(
+		{
+			providerEnvelope: {
+				patient_name: "synthetic-snake-patient",
+				id_card_no: "synthetic-snake-id-card",
+				mobile_phone: "synthetic-snake-phone",
+				card_no: "synthetic-snake-card",
+			},
+			provider_raw_payload: {
+				data: { email_address: "synthetic-snake-email" },
+			},
+			response_body: {
+				pat_name: "synthetic-raw-patient",
+			},
+		},
+		"provider response inspected",
+	);
+
+	const serialized = lines[0] ?? "";
+	for (const secret of [
+		"synthetic-snake-patient",
+		"synthetic-snake-id-card",
+		"synthetic-snake-phone",
+		"synthetic-snake-card",
+		"synthetic-snake-email",
+		"synthetic-raw-patient",
+	]) {
+		expect(serialized).not.toContain(secret);
+	}
+
+	const record = JSON.parse(serialized) as {
+		providerEnvelope: {
+			patient_name: string;
+			id_card_no: string;
+			mobile_phone: string;
+			card_no: string;
+		};
+		provider_raw_payload: string;
+		response_body: string;
+	};
+	expect(record.providerEnvelope).toEqual({
+		patient_name: "[REDACTED]",
+		id_card_no: "[REDACTED]",
+		mobile_phone: "[REDACTED]",
+		card_no: "[REDACTED]",
+	});
+	expect(record.provider_raw_payload).toBe("[REDACTED]");
+	expect(record.response_body).toBe("[REDACTED]");
+});
+
 test("序列化日志格式异常时丢弃原文并输出固定安全事件", () => {
 	const line = redactSerializedLogLine(
 		"invalid-log phone=synthetic-phone idCardNo=synthetic-id-card",

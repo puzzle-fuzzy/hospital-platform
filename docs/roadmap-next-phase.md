@@ -7,6 +7,11 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（日志最终脱敏边界）：日志业务调用已经只保留低敏元数据，但最终递归脱敏清单此前主要覆盖 camelCase 字段，未来 Provider 原始响应使用
+  `patient_name`、`id_card_no`、`mobile_phone` 或 `response_body` 时存在兜底缺口。现已补充常见 snake_case/移动端别名和原始报文容器，新增观测层回归测试；
+  `7 pass / 0 fail / 28 expects`、类型检查和 Biome 通过。该修正不开放任何业务能力，也不替代真实 Provider、真机或线上日志证据，详见
+  [`log-redaction-boundary-audit-2026-08-21.md`](release/log-redaction-boundary-audit-2026-08-21.md)。
+
 - 2026-08-21（内存与 MySQL 患者映射语义对齐）：上一轮只修正 MySQL 后，继续审计发现内存仓储仍会允许不同内部患者复用同一个
   HIS `patId`，会让测试环境放过生产环境的唯一约束。现已增加外部引用索引、单条 upsert 副本预检和完整快照副本预检，冲突时不留下
   第二位患者或半个快照；内存 persistence `92 pass / 0 fail`，类型检查和 Biome 通过。详见
