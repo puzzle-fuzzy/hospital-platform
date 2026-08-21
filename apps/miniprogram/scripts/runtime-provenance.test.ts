@@ -95,7 +95,7 @@ test("开发者工具配置改动不冒充业务源码版本", async () => {
 	}
 });
 
-test("测试文件改动不改变微信运行包来源", async () => {
+test("测试与规格文件改动不改变微信运行包来源", async () => {
 	const repositoryRoot = await createCommittedRuntimeFixture();
 	try {
 		const committedRevision = resolveMiniProgramSourceRevision(
@@ -103,11 +103,13 @@ test("测试文件改动不改变微信运行包来源", async () => {
 			undefined,
 			"TEST_SOURCE_REVISION",
 		);
-		await writeFile(
-			join(repositoryRoot, "apps/miniprogram/src/page.test.ts"),
-			"export const testOnly = true;\n",
-			"utf8",
-		);
+		for (const fileName of ["page.test.ts", "page.spec.ts"]) {
+			await writeFile(
+				join(repositoryRoot, "apps/miniprogram/src", fileName),
+				"export const testOnly = true;\n",
+				"utf8",
+			);
+		}
 		runGit(repositoryRoot, ["add", "."]);
 		runGit(repositoryRoot, ["commit", "-m", "test-only"]);
 		const revisionAfterTestOnlyCommit = resolveMiniProgramSourceRevision(

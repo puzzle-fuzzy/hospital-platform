@@ -26,6 +26,7 @@ const RUNTIME_INPUT_PATHS = [
 /** 测试源码仍由 typecheck 和 Bun test 校验，但不属于微信运行包输入。 */
 const NON_RUNTIME_INPUT_PATHS = [
 	":(exclude,glob)apps/miniprogram/src/**/*.test.ts",
+	":(exclude,glob)apps/miniprogram/src/**/*.spec.ts",
 ] as const;
 
 function validateRevision(revision: string, variableName: string): string {
