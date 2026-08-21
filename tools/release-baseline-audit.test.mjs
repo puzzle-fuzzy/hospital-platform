@@ -178,15 +178,15 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	const result = await auditCurrentReleaseConsistency();
 	// 这里固定当前验收候选，而不是只断言 passed=true：候选文档、运行包来源
 	// 和路线图如果被部分更新，单独的发布审计仍可能通过，但真机就会拿到
-	// 与服务端不配套的旧包。当前生产服务已经切换到 5a31427，后续切换候选时
-	// 必须同步更新这组三项断言，不能让历史 release 继续伪装成当前基线。
+	// 与服务端不配套的旧包。生产切换或小程序重建后必须同步更新这组三项断言，
+	// 不能让历史 release 继续伪装成当前基线。
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "5a31427",
+		serverRelease: "c8eef370c82e358205ee032af41ba2b23576af06",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "cdb27e50",
-		miniProgramSourceRevision: "cdb27e5023a188ab36a340497cebe18f1e274013",
+		miniProgramCommit: "f488c6f3",
+		miniProgramSourceRevision: "f488c6f3270514af10b19fdf3c45a47519e1736b",
 	});
 	expect(result.failures).toEqual([]);
 });

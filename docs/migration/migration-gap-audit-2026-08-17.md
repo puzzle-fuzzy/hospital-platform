@@ -1,13 +1,13 @@
 # 迁移差距审计与下一阶段冻结计划（2026-08-17）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `cdb27e5023a188ab36a340497cebe18f1e274013`（提交 `cdb27e50`）。
+> 当前候选：服务端 release `c8eef370c82e358205ee032af41ba2b23576af06`；小程序运行包来源 `f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`）。
 
-> 当前基线更新：服务端 `5a31427`；小程序候选 `cdb27e50`；完整运行包来源 `cdb27e5023a188ab36a340497cebe18f1e274013`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `c8eef370`；小程序候选 `f488c6f3`；完整运行包来源 `f488c6f3270514af10b19fdf3c45a47519e1736b`。下文更早候选只作历史追溯。
 
 本文是当前迁移目标的差距审计，不把“页面已注册”“接口返回 200”“生产 readiness 正常”
 误写成业务迁移完成。新会话应先阅读本文，再进入具体业务 contract。
 
-> 当前配套小程序候选构建来源为 `cdb27e5023a188ab36a340497cebe18f1e274013`（提交 `cdb27e50`），尚未上传线上；历史候选只用于追溯。
+> 当前配套小程序候选构建来源为 `f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`），尚未上传线上；历史候选只用于追溯。
 
 ## 1. 审计基准与证据等级
 
@@ -24,7 +24,7 @@
 
 ## 2. 当前事实
 
-- 当前线上 release 为 `5a31427`，已完成 production preflight、隔离 runtime smoke 和只重启新 API 的无损切换；旧 Python `8001` 继续运行。`6038560`、`0e360d3`、`398be8e`、`968af78`、`b7c9451`、`c26e696` 及此前 release 均按历史切换记录理解。
+- 当前线上 release 为 `c8eef370`，已完成 production preflight、隔离 runtime smoke 和只重启新 API 的无损切换；旧 Python `8001` 继续运行。`5a31427`、`6038560`、`0e360d3`、`398be8e`、`968af78`、`b7c9451`、`c26e696` 及此前 release 均按历史切换记录理解。
   本次切换只包含微信身份边界修复和候选运行包，不增加预约写入、支付、医保、报告或 HIS 能力；真实微信/患者/只读业务证据仍待。
 - 旧端扫描基线为 64 个页面，原生小程序当前注册 14 个 TypeScript 页面；旧 FastAPI 与旧小程序
   的接口快照仍由 `legacy-api-endpoint-inventory.md` 维护。
@@ -32,8 +32,8 @@
   总挂载数从 191 漂移到 195；同时发现 4 条挂号插件支付/退款入口和第 3 个微信支付调起页面。
   这些事实已补入旧端清单并通过 `pnpm migration:audit`，状态仍为“最后处理”，没有因此开放新端
   支付、医保、退款或 HIS 回写接口。
-  - 当前线上新 API release 为 `5a31427`，监听 `18081`；配套小程序构建来源为
-  `cdb27e5023a188ab36a340497cebe18f1e274013`（当前本地候选 `cdb27e50`，尚未上传线上）；旧 Python 服务继续监听 `8001`，旧服务、
+  - 当前线上新 API release 为 `c8eef370`，监听 `18081`；配套小程序构建来源为
+  `f488c6f3270514af10b19fdf3c45a47519e1736b`（当前本地候选 `f488c6f3`，尚未上传线上）；旧 Python 服务继续监听 `8001`，旧服务、
   旧 Redis namespace 和旧端口不能因为新端验收而停止。
 - `41c9c18` 已取得预约科室 62 条、排班 1 条的真实只读结果，并确认
   `snapshotPersistenceStatus=persisted`。这只为未来写入评估提供近期观察事实，仍不是锁号或预约授权。
@@ -45,9 +45,9 @@
   这只证明公网运行和关闭边界，不证明会话、Provider 业务、真机或新旧服务共存；完整 requestId 与限制见
   [`../release/current-public-readonly-smoke-2026-08-17.md`](../release/current-public-readonly-smoke-2026-08-17.md)。
 - 当前切换后 SSH 核对确认新 Bun API 监听 `10.0.0.3:18081`、旧 Python API 监听 `0.0.0.0:8001`，
-  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `5a31427`，Worker 仍 inactive。这补强运行层共存证据，
+  `hospital-platform-api-v2.service` 为 active/running，服务器 current 指向 `c8eef370`，Worker 仍 inactive。这补强运行层共存证据，
   但不能替代业务和真机证据；当前 release 的完整记录见
-  [`../release/5a31427-production-acceptance-2026-08-21.md`](../release/5a31427-production-acceptance-2026-08-21.md)。
+  [`../release/c8eef370-production-acceptance-2026-08-21.md`](../release/c8eef370-production-acceptance-2026-08-21.md)。
 - 进程 TCP 连接和两侧配置的脱敏比对确认 Bun API 与旧 Python 共用远端 MySQL
   `8.130.127.184:3306/hospital-dev`，新 API 使用 Redis DB3、旧 Python 使用 Redis DB1；新服务只使用
   `hp_*` 表，旧服务继续使用 legacy 表。该事实不代表 MongoDB、旧 Redis namespace、旧任务或管理端能力已迁移。

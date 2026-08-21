@@ -14,7 +14,7 @@ const repositoryRoot = resolve(scriptDirectory, "..");
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-cdb27e5-local-build-2026-08-21.md";
+	"docs/release/candidate-f488c6f-local-build-2026-08-21.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -27,6 +27,10 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		path: currentCandidateDocumentPath,
 		label: "当前小程序本地构建候选",
+	},
+	{
+		path: "docs/release/c8eef370-production-acceptance-2026-08-21.md",
+		label: "当前服务端生产切换记录",
 	},
 	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入
 	// 同一基线集合，文档虽然能打开，执行人员仍可能从旧模板生成可通过格式审计
@@ -44,23 +48,7 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前未开放业务门禁审计",
 	},
 	{
-		path: "docs/release/miniprogram-session-recovery-logic-audit-2026-08-21.md",
-		label: "当前小程序会话状态机审计",
-	},
-	{
-		path: "docs/release/owner-runtime-boundary-audit-2026-08-21.md",
-		label: "当前 owner 运行时边界审计",
-	},
-	{
-		path: "docs/release/miniprogram-patient-session-composition-boundary-2026-08-21.md",
-		label: "当前小程序患者会话组合边界审计",
-	},
-	{
-		path: "docs/release/personal-center-patient-context-audit-2026-08-21.md",
-		label: "当前个人中心患者上下文审计",
-	},
-	{
-		path: "docs/release/miniprogram-real-device-evidence-template-cdb27e50.md",
+		path: "docs/release/miniprogram-real-device-evidence-template-f488c6f.md",
 		label: "当前小程序真机证据模板",
 	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
@@ -77,40 +65,12 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "P0 只读业务验收手册",
 	},
 	{
-		path: "docs/release/current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md",
-		label: "10:38 运行层与 P0 业务观察",
-	},
-	{
-		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
-		label: "普通资料验收手册",
-	},
-	{
 		path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
 		label: "P0 只读业务 contract 审计",
 	},
 	{
-		path: "docs/migration/current-execution-checkpoint-2026-08-17.md",
-		label: "当前迁移执行检查点",
-	},
-	{
 		path: "docs/migration/migration-gap-audit-2026-08-17.md",
 		label: "迁移差距审计",
-	},
-	{
-		path: "docs/migration/patient-sync-idempotency-contract.md",
-		label: "患者同步幂等契约",
-	},
-	{
-		path: "docs/migration/outpatient-payment-provider-contract-audit-2026-08-19.md",
-		label: "门诊费用 Provider 契约审计",
-	},
-	{
-		path: "docs/migration/zhongyang-authorization-contract-audit-2026-08-19.md",
-		label: "众阳授权契约审计",
-	},
-	{
-		path: "docs/release/appointment-record-tab-contract-audit-2026-08-19.md",
-		label: "预约记录标签契约审计",
 	},
 	{
 		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",

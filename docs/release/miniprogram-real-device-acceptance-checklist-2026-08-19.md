@@ -1,8 +1,8 @@
 # 原生小程序当前候选真机验收清单（2026-08-19）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `cdb27e5023a188ab36a340497cebe18f1e274013`（提交 `cdb27e50`）。
+> 当前候选：服务端 release `c8eef370c82e358205ee032af41ba2b23576af06`；小程序运行包来源 `f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`）。
 
-> 当前基线更新：服务端 `5a31427`；小程序候选 `cdb27e50`；完整运行包来源 `cdb27e5023a188ab36a340497cebe18f1e274013`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `c8eef370`；小程序候选 `f488c6f3`；完整运行包来源 `f488c6f3270514af10b19fdf3c45a47519e1736b`。下文更早候选只作历史追溯。
 
 这是一份扫码前后都能复用的操作清单，固定当前客户端候选，避免把旧开发者工具窗口、旧二维码、模拟器结果或服务端历史日志误当成真机验收。
 本轮只验收微信登录、患者目录/切换、我的挂号、爽约记录、门诊费用只读和普通资料读取；预约写入、支付、医保、退费、报告 Provider、HIS 写入继续关闭。
@@ -11,9 +11,9 @@
 
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
-| 服务端 | `5a31427` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
-| 小程序运行输入 | `cdb27e50` | 当前本地候选，尚未上传线上 |
-| 小程序运行包来源 | `cdb27e5023a188ab36a340497cebe18f1e274013` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
+| 服务端 | `c8eef370` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
+| 小程序运行输入 | `f488c6f3` | 当前本地候选，尚未上传线上 |
+| 小程序运行包来源 | `f488c6f3270514af10b19fdf3c45a47519e1736b` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 真机只能访问公网 API，不直连 Provider 或内网地址 |
 
@@ -82,4 +82,4 @@ Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 [`miniprogram-real-device-login-acceptance-2026-08-20.md`](miniprogram-real-device-login-acceptance-2026-08-20.md)。
 
 下一步必须在最新二维码对应的真机连接中手动点击“新增就诊人/更换就诊人”，按第 4 节采集同一时间窗口的页面、客户端 HTTP 和服务端日志三层证据；
-小程序运行包上传前不替换开发者工具运行根目录，也不修改旧 Python 服务、数据库或 Redis。服务端 `5a31427` 已按独立 release 完成切换。
+小程序运行包上传前不替换开发者工具运行根目录，也不修改旧 Python 服务、数据库或 Redis。服务端 `c8eef370` 已按独立 release 完成切换。

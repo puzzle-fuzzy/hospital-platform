@@ -27,13 +27,13 @@
 > `E:\\__Super_Core__\\hospital-platform`。本文只把源代码和测试证据作为“实现证据”，不把页面存在、接口返回 200
 > 或旧接口曾经可调用误判为真实业务完成。
 
-> 当前发布基线补充（2026-08-21）：服务端为 `5a31427`；小程序候选为 `cdb27e50`，完整运行包来源为
-> `cdb27e5023a188ab36a340497cebe18f1e274013`，尚未上传线上。
+> 当前发布基线补充（2026-08-21）：服务端为 `c8eef370`；小程序候选为 `f488c6f3`，完整运行包来源为
+> `f488c6f3270514af10b19fdf3c45a47519e1736b`，尚未上传线上。
 >
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `cdb27e5023a188ab36a340497cebe18f1e274013`（提交 `cdb27e50`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-21 当前执行顺序：私网监听、数据库/Redis/schema readiness 和新旧服务共存已经完成只读复核；下一步先取得当前小程序候选的真实微信会话、患者显式切换、预约历史和门诊费用只读三层证据，
 > 再验收普通资料写入。报告、患者绑定、门诊病历和二维码必须等各自 Provider contract、权限/归属、脱敏样例和可回滚验收材料齐全后再实现；支付、医保和 HIS 回写最后处理。
@@ -110,7 +110,7 @@
 > `*.test.js`/`*.spec.js`，并重新生成 iOS 真机调试二维码；当前服务端同时间窗口只观察到健康检查，没有
 > `/auth/wechat` 或 `/patients` 请求。因此仍未形成真机登录/患者同步三层证据，旧 `mp-weixin` 项目和旧 Python 服务均未触碰。
 
-> 本文下方保留了切换前的 b7/c26/652/08/398 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `5a31427`。
+> 本文下方保留了切换前的 b7/c26/652/08/398 等历史窗口；其中“当前 release”只表示记录当时的线上指针，不能覆盖上面的 `c8eef370`。
 
 > 2026-08-20 迁移审计更新：重新核对旧端门诊病历页面和 `ZY.ts` 的当前 SHA-256，确认仍只有
 > `POST /msun-middle-aggregate-clinic/v1/out-visit-records` 的历史调用线索；没有 Provider 正式 contract、患者映射确认、
@@ -122,7 +122,7 @@
 > 继续保持未注册；新端只允许已绑定目录同步和显式选择，不迁移旧端写入副作用。详见
 > [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.1 节。
 
-> 2026-08-21 当前仓库门禁复核：服务端发布基线已切换为 `5a31427`，原生小程序运行输入来源已更新为
+> 2026-08-21 历史工作树门禁复核（不覆盖顶部当前基线）：当时服务端发布基线为 `5a31427`，原生小程序运行输入来源已更新为
 > `968a587158289da6a482b3614907bde0a5ad9581`。代码、架构、迁移清单、Provider intake、文档、类型、测试均通过；小程序构建门禁随后以当前候选重新执行，
 > 400 篇 Markdown 文档、Biome、9 个 workspace 的类型检查/测试/构建均通过；当前 API 测试 199 项通过，小程序测试 186 项通过、1463 个断言通过，
 > 配置包新增的空白上游地址回退测试也通过。
@@ -194,12 +194,12 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 
 最新运行复核（2026-08-18 23:54 CST）：误重启后系统 uptime、`current=c26e696`、新旧监听和 `hospital-platform-api-v2.service` 均未漂移，`18082` 无残留；内外网 live/ready 均为 200，ready 依赖为 `database/redis/schema=ok`。当前 P0 日志门禁仍只通过微信登录、患者读取和同步，预约历史、门诊费用、报告和普通资料没有业务链；这次记录不增加真机、多患者切换或 Provider 业务证据，详见 [`../release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md`](../release/current-c26-runtime-and-p0-observation-2026-08-18-2354.md)。
 
-本节优先于下方历史盘点记录。当前服务端 release 为 `5a31427`，生产切换与新旧服务共存证据见
-[`../release/5a31427-production-acceptance-2026-08-21.md`](../release/5a31427-production-acceptance-2026-08-21.md)。下方仍保留
+本节优先于下方历史盘点记录。当前服务端 release 为 `c8eef370`，生产切换与新旧服务共存证据见
+[`../release/c8eef370-production-acceptance-2026-08-21.md`](../release/c8eef370-production-acceptance-2026-08-21.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `cdb27e50`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `cdb27e5023a188ab36a340497cebe18f1e274013`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `f488c6f3`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `f488c6f3270514af10b19fdf3c45a47519e1736b`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
@@ -221,7 +221,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 - 2026-08-18 23:27 CST：P0 业务证据门禁新增同一 `traceId/requestId` 关联链校验；日志聚合只输出 SHA-256
   指纹和事件计数，跨请求拼接的 `requested/success` 总数不再通过。该修正只影响验收工具和 worker bundle，未打开
   预约写入、支付、医保、HIS 或任何新的业务路由。
-- 当前服务器 release 为 `5a31427`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
+- 当前服务器 release 为 `c8eef370`，新 Bun/Elysia API 监听 `10.0.0.3:18081`，旧 Python API 继续监听
   `0.0.0.0:8001`；本轮只重启新 API，没有覆盖、停止或修改旧服务。生产 preflight、隔离 live/ready/system-ping/401 smoke、
   原子切换和 readiness 均通过，MySQL、Redis、schema 为 `ok`，schema 基线为 `0016_patient_directory_sync_owner_index`。
 - `687690e` 切换后的 journald 低敏启动窗口 `parseErrors=0`、`systemdWarningCount=0`，只有服务启动、健康探针和预期未登录 401；
