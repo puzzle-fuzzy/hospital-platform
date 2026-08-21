@@ -239,3 +239,27 @@ journald 只读观察，没有部署、重启、配置写入或业务请求。
 因此当前仓库没有缺失的业务运行文件。微信开发者工具仍报告该绝对路径时，必须关闭真机调试并退出/重新打开
 `E:\\__Super_Core__\\hospital-platform\\apps\\miniprogram\\` 项目，确认 `miniprogramRoot` 为 `dist/`，先普通编译，再生成新二维码。
 不要手工创建测试脚本，也不要继续复用旧二维码；这类做法会把旧增量模块索引重新带入真机调试。
+
+## 当前候选复核（2026-08-22，`4e1b2e2`）
+
+本轮针对用户再次报告的同一路径 ENOENT，先确认 `dist/services/single-flight.js` 存在，
+`dist/services/single-flight.test.js` 不存在，且运行包中 `*.test.js`、`*.spec.js` 数量均为 0。
+这仍然证明测试文件不属于小程序运行包，不应通过复制测试脚本来“修复”。
+
+本轮还复现了另一个会阻断恢复操作的本机边界：微信开发者工具保持打开并占用 `dist/` 时，
+运行包发布在 Windows 上会在原子目录替换阶段返回 `EPERM`。发布器已经正确保留旧运行包并停止，
+没有先删除 `dist/`，因此不会制造半套运行包或新的页面 404。
+
+实际恢复顺序如下：
+
+1. 只关闭新项目 `miniprogram` 的编译/真机调试窗口；旧项目 `mp-weixin` 不操作。
+2. 执行 `pnpm --filter @hospital/miniprogram build`，确认 `4e1b2e2` 和 14 个页面脚本发布成功。
+3. 执行 `pnpm --filter @hospital/miniprogram runtime:verify`，确认运行包没有测试脚本和 workspace 裸模块依赖。
+4. 重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\`，确认项目配置的
+   `miniprogramRoot` 为 `dist/`，等待普通编译完成。
+5. 重新生成二维码再扫码；本轮新二维码为 iOS + 局域网模式，开发者工具显示代码包约 619 KB，
+   并显示约 `2026-08-22 06:36 CST` 失效。旧二维码不能继续复用。
+
+本轮门禁结果：小程序 `205 pass / 0 fail / 1542 expects`，文档链接审计 `457` 个 Markdown 无断链，
+运行包核验通过。该证据只证明本机运行包和开发者工具索引已恢复，不代表手机已经完成微信登录、
+患者同步或只读业务验收；真机扫码后仍须配对页面结果、客户端请求和服务端低敏日志。
