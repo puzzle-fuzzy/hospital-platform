@@ -5,6 +5,8 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（门诊费用患者会话竞态修正）：发现费用页状态切换可能使用上一轮会话的缓存患者对象，已增加患者卡片所属会话代际、请求前断言，以及会话/患者漂移时重新执行 `/me` → 患者目录 → 当前状态查询。小程序完整测试 `177 pass`、API 预约/费用/报告定向测试 `62 pass`；支付、医保、HIS、预约写入和真机证据门禁不变。详见 [`release/miniprogram-outpatient-payment-session-race-audit-2026-08-21.md`](release/miniprogram-outpatient-payment-session-race-audit-2026-08-21.md)。
+
 - 2026-08-21 14:11 CST（再次处理真机 `single-flight.test.js` ENOENT）：重新执行小程序构建和 `runtime:verify`，当前 `dist/` 仍只有运行时 `services/single-flight.js`，不存在 `services/single-flight.test.js` 或任何测试脚本；14 个页面入口和来源指纹均通过。随后只关闭新项目 `miniprogram` 窗口以淘汰开发者工具的旧增量索引，旧项目 `mp-weixin` 窗口未操作。由于开发者工具服务端口处于关闭状态，本轮没有为了自动打开项目而改变工具安全设置；重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\` 后再普通编译、生成二维码即可继续真机验收。该错误仍不是业务代码缺失，不得把测试文件复制进 `dist/`。
 
 - 2026-08-21 14:04 CST（只读业务与真机前置复核）：公网 live/ready/ping 为 `200`，未登录的患者、预约历史和门诊费用路径均为预期 `401`；预约/门诊费用/报告服务定向测试 `62 pass`，小程序标准测试 `176 pass`，当前运行包 14 个页面且不含任何测试脚本。SSH `ps@192.168.112.172` 本轮返回 `Permission denied`，因此没有伪造 journald 业务结论；新 `miniprogram` 窗口已重新生成二维码但仍无手机连接。继续等待当前候选真机三层证据，支付、医保、HIS、预约写入、患者绑定和二维码保持关闭。详见 [`release/readonly-business-and-device-preflight-2026-08-21-1404.md`](release/readonly-business-and-device-preflight-2026-08-21-1404.md)。

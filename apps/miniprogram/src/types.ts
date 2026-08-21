@@ -325,6 +325,8 @@ export type OutpatientPaymentPageData = {
 	/** 门诊费用入口在支付开放前也必须先确认当前平台会话。 */
 	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
+	/** 当前患者卡片所属的会话代际；-1 表示尚未完成本轮患者确认。 */
+	patientSessionGeneration: number;
 	activeStatus: "unpaid" | "paid";
 	/** 完整的当前查询结果；它的总量不能被本地渲染分批改变。 */
 	items: Array<OutpatientPaymentRecordView>;

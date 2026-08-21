@@ -752,7 +752,7 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	);
 	const outpatientPageStart = outpatient.indexOf("loadPage(): Promise<void> {");
 	const outpatientRecordsStart = outpatient.indexOf(
-		"\n\tloadRecords(\n",
+		"\n\tasync loadRecords(\n",
 		outpatientPageStart,
 	);
 	const outpatientPageLoad = outpatient.slice(
@@ -760,7 +760,7 @@ test("report and outpatient pages commit patient cards with read-only results", 
 		outpatientRecordsStart,
 	);
 	const outpatientPatientContextIndex = outpatientPageLoad.indexOf(
-		"this.setData({ selectedPatient: patient });",
+		"patientSessionGeneration: expectedSessionGeneration",
 	);
 	const outpatientInitialLoadIndex = outpatientPageLoad.indexOf(
 		"return this.loadRecords(",
@@ -783,9 +783,7 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	expect(reportProviderIndex).toBeGreaterThanOrEqual(0);
 	expect(reportGateIndex).toBeGreaterThan(reportProviderIndex);
 	expect(reportCommitIndex).toBeGreaterThan(reportGateIndex);
-	expect(outpatientPageLoad).toContain(
-		"this.setData({ selectedPatient: patient });",
-	);
+	expect(outpatientPageLoad).toContain("selectedPatient: patient");
 	expect(outpatientInitialLoadIndex).toBeGreaterThan(
 		outpatientPatientContextIndex,
 	);
@@ -1431,6 +1429,31 @@ test("outpatient payment tab failures refresh the session entry state", async ()
 	expect(errorClearIndex).toBeGreaterThan(errorStateIndex);
 });
 
+test("outpatient payment tabs revalidate the patient session before querying", async () => {
+	const payment = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const statusStart = payment.indexOf("onStatusTap(event)");
+	const statusEnd = payment.indexOf("\n\t},", statusStart);
+	const statusBody = payment.slice(statusStart, statusEnd);
+	const recordsStart = payment.indexOf("async loadRecords(");
+	const recordsEnd = payment.indexOf("\n\t},", recordsStart);
+	const recordsBody = payment.slice(recordsStart, recordsEnd);
+
+	// 页面卡片可能在另一个页面换号后仍短暂存在；状态切换必须先回到
+	// `/me` + 患者目录组合读取，不能把旧患者对象直接发送给费用 API。
+	expect(statusBody).toContain(
+		"this.data.patientSessionGeneration !== getSessionGeneration()",
+	);
+	expect(statusBody).toContain("!isCurrentSelectedPatient(selectedPatient.id)");
+	expect(statusBody).toContain("void this.loadPage()");
+	expect(statusBody).toContain("this.data.patientSessionGeneration,");
+	// 即使未来新增其它 loadRecords 调用方，也必须在网络请求前做代际断言。
+	expect(recordsBody).toContain(
+		"Outpatient payment page session changed before records were requested",
+	);
+});
+
 test("native mini program preserves the legacy static hospital entry boundary", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
@@ -1602,9 +1625,10 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(home).toContain('"/pages/outpatient-payment/outpatient-payment"');
 	expect(home).toContain('url: "/pages/my/my"');
 	expect(outpatient).toContain("loadOutpatientPaymentRecords");
-	// tab 切换必须把用户本次点击的状态作为查询快照传入，不能依赖 setData 的异步回写。
+	// tab 切换必须把用户本次点击的状态和当前患者会话快照传入，不能依赖
+	// setData 的异步回写，也不能把上一轮会话的患者对象直接交给 API。
 	expect(outpatient).toContain(
-		"loadRecords(this.data.selectedPatient, status, requestToken)",
+		"this.loadRecords(\n\t\t\tselectedPatient,\n\t\t\tstatus,\n\t\t\trequestToken,\n\t\t\tthis.data.patientSessionGeneration,",
 	);
 	expect(outpatient).toContain(
 		"loadOutpatientPaymentRecords(patient.id, status)",

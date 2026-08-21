@@ -25,6 +25,7 @@
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |
 | [`release/miniprogram-appointment-readonly-logic-audit-2026-08-20.md`](release/miniprogram-appointment-readonly-logic-audit-2026-08-20.md) | 预约历史/爽约的患者归属、日期窗口、状态筛选、双标签停止条件和并发回写审计 |
 | [`release/miniprogram-outpatient-payment-logic-audit-2026-08-20.md`](release/miniprogram-outpatient-payment-logic-audit-2026-08-20.md) | 门诊费用只读的患者归属、状态、日期、金额精度、页面并发和支付关闭边界 |
+| [`release/miniprogram-outpatient-payment-session-race-audit-2026-08-21.md`](release/miniprogram-outpatient-payment-session-race-audit-2026-08-21.md) | 门诊费用状态切换前的患者会话代际竞态、请求前 fail-closed 修正和验证边界 |
 | [`release/appointment-outpatient-readonly-correctness-audit-2026-08-21.md`](release/appointment-outpatient-readonly-correctness-audit-2026-08-21.md) | 预约与门诊费用只读 service 输入字段、渠道 3/4、状态、患者归属和当前验证证据 |
 | [`release/readonly-business-chain-audit-2026-08-21.md`](release/readonly-business-chain-audit-2026-08-21.md) | 当前候选预约历史、爽约、门诊费用患者上下文复核，以及 `single-flight.test.js` ENOENT 运行包恢复证据 |
 | [`release/current-gated-domains-audit-2026-08-21.md`](release/current-gated-domains-audit-2026-08-21.md) | 当前病历、患者绑定、二维码、报告详情/附件和支付医保门禁，以及公网关闭路由只读证据 |

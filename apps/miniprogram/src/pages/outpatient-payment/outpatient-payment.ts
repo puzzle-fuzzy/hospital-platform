@@ -56,6 +56,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		hasShown: false,
 		sessionState: "checking",
 		selectedPatient: null,
+		patientSessionGeneration: -1,
 		activeStatus: "unpaid",
 		items: [],
 		visibleItems: [],
@@ -92,6 +93,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			error: "",
 			sessionState: "checking",
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			items: [],
 			visibleItems: [],
 			visibleItemCount: 0,
@@ -123,7 +125,10 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				// selectedPatient 还为空而把“已缴/待缴”切换误判成首次加载。
 				// 这样用户在费用请求进行期间切换 tab 时，新的 tab 请求会让
 				// 旧 requestToken 失效，旧状态不会覆盖用户最后一次选择。
-				this.setData({ selectedPatient: patient });
+				this.setData({
+					selectedPatient: patient,
+					patientSessionGeneration: expectedSessionGeneration,
+				});
 				return this.loadRecords(
 					patient,
 					this.data.activeStatus,
@@ -146,7 +151,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			});
 	},
 
-	loadRecords(
+	async loadRecords(
 		patient: Patient,
 		status: "unpaid" | "paid",
 		requestToken?: number,
@@ -155,7 +160,20 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const effectiveRequestToken = requestToken ?? loadGuard.begin();
 		// 查询状态必须来自本次操作的快照，不能依赖 setData 后的异步页面状态。
-		if (!isCurrentSelectedPatient(patient.id)) return Promise.resolve();
+		if (!isCurrentSelectedPatient(patient.id)) {
+			return Promise.reject(
+				new ApiError("Current patient selection changed", {
+					code: "patient-selection-required",
+				}),
+			);
+		}
+		// 代际变化必须在请求发出前阻断。只在响应回来后丢弃，仍可能把
+		// 旧患者 ID 交给新账号的费用查询；服务端 owner 校验不能替代
+		// 客户端的请求前身份隔离。
+		assertSessionGeneration(
+			expectedSessionGeneration,
+			"Outpatient payment page session changed before records were requested",
+		);
 		return loadOutpatientPaymentRecords(patient.id, status).then((items) => {
 			assertSessionGeneration(
 				expectedSessionGeneration,
@@ -174,6 +192,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			);
 			this.setData({
 				selectedPatient: patient,
+				patientSessionGeneration: expectedSessionGeneration,
 				items: mappedItems,
 				visibleItems: mappedItems.slice(0, visibleItemCount),
 				visibleItemCount,
@@ -199,6 +218,18 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			});
 			return;
 		}
+		const selectedPatient = this.data.selectedPatient;
+		if (
+			this.data.patientSessionGeneration !== getSessionGeneration() ||
+			!isCurrentSelectedPatient(selectedPatient.id)
+		) {
+			// 另一个页面可能已经换号或换患者，但旧页面仍短暂保留上一轮
+			// WXML 卡片。先保留用户刚点击的状态意图，再重新完成 `/me`、
+			// 患者目录和当前状态查询；绝不把旧患者对象直接交给 API。
+			this.setData({ activeStatus: status });
+			void this.loadPage();
+			return;
+		}
 		const loadGuard = getPageLatestRequestGuard(this, "outpatient-payment");
 		const requestToken = loadGuard.begin();
 		this.setData({
@@ -211,7 +242,12 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			hasMoreItems: false,
 		});
 		// 显式传入用户刚点击的状态，避免微信 setData 尚未完成时仍查询旧 tab。
-		this.loadRecords(this.data.selectedPatient, status, requestToken)
+		this.loadRecords(
+			selectedPatient,
+			status,
+			requestToken,
+			this.data.patientSessionGeneration,
+		)
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
 					// tab 查询和首次页面加载共用同一会话事实。若切换 tab
@@ -300,6 +336,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			// 即使失败发生在已缴/待缴切换，也不能保留上一轮卡片让用户误以为
 			// 当前列表属于这位患者；WXML 的空态会提供重新选择入口。
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			items: [],
 			visibleItems: [],
 			visibleItemCount: 0,
