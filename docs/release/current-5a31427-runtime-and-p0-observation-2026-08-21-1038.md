@@ -14,6 +14,8 @@
 | Worker | 未启动，本窗口未改变其状态 |
 | readiness | `database=ok`、`redis=ok`、`schema=ok` |
 
+启动日志补充核验：通过 `journalctl` 仅提取低敏字段后，能够看到 `service.started`，其 `environment=production`；同一窗口还出现过 `service.stop.requested`、`service.stopped` 和再次启动事件，说明服务曾经历过受控生命周期变化，但当前状态已经回到 `active/running`。业务请求事件的 `runtimeMode` 字段为空，因此这里只确认生产环境，不把空字段推断成其他运行模式。
+
 ## 2. 最近 30 分钟低敏日志聚合
 
 服务器使用当前 release 自带的 `apps/worker/dist/p0-log-aggregate.js` 聚合 journald JSONL，结果如下：
