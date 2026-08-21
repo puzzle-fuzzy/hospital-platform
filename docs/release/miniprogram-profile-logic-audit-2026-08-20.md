@@ -14,6 +14,8 @@
 
 在服务端 `5a31427`、小程序运行包来源 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed` 上重新复核普通资料相关源码、测试和运行包门禁：资料 service `15 pass / 61 expects`，小程序 `180 pass / 1438 expects`，类型检查、构建和 `runtime:verify` 均通过；14 个注册页面脚本齐全，`dist/` 中没有 `*.test.js` 或 `*.spec.js`。本次没有把历史全仓 `pnpm check` 结果冒充为该候选的全量证据。
 
+本轮又修正了 MySQL 资料行映射的错误边界：此前未知性别、越界年龄或版本会由仓储抛出普通 `Error`，绕过 API 已冻结的 `persistence-invalid` 和 `readModelViolation` 链路；现在统一调用领域层 `normalizeUserProfileReadModel`，并用仓储回归测试锁定该行为。该修复仍属于本地候选代码证据，不改变真实资料写入待验收的结论。
+
 这次复核仍是代码和本地候选证据，不是线上资料写入证据。当前 release 尚未取得匹配候选的真机 `GET/PUT /me/profile`、双会话 `409` 以及页面/HTTP/服务端日志三层链路；在这些证据到齐前，普通资料继续保持“代码已实现、真实写入待验收”。
 
 ## 已核对的不变量

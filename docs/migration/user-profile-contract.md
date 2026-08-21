@@ -106,6 +106,9 @@ MySQL `INT UNSIGNED` 上限时已经没有合法的下一版本，服务层必�
     当前 owner、昵称/邮箱的无控制字符和长度边界、性别枚举、年龄范围以及持久化版本，并按公开资料白名单
     重新投影。读模型错 owner、非法字段或非法版本时返回 `persistence-invalid`，不能降级成默认资料或记录
     `user.profile.loaded` / `user.profile.updated` 成功；成功事件只能发生在读模型门禁通过之后。
+11. MySQL 行映射必须复用领域层 `normalizeUserProfileReadModel`，不能为性别、年龄、版本等字段另抛普通
+    `Error`。这样数据库读模型异常会保持与内存仓储、API service 相同的 `UserProfileReadModelValidationError`、
+    `persistence-invalid` 和有限 `readModelViolation` 语义，避免监控把同一种脏数据拆成不同故障类型。
 
 ## 5. 实现和门禁
 

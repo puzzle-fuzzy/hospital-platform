@@ -32,7 +32,7 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
-	MAX_USER_PROFILE_VERSION,
+	normalizeUserProfileReadModel,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
@@ -399,34 +399,24 @@ function identityUser(row: IdentityUserRow): IdentityUser {
 	};
 }
 
-function userGender(value: string): UserProfile["gender"] {
-	if (value === "male" || value === "female" || value === "unknown") {
-		return value;
-	}
-	throw new Error("Persistence returned an unknown user profile gender");
-}
-
 function userProfile(row: UserProfileRow): UserProfile {
 	const version = Number(row.version);
 	const age = row.age === null ? null : Number(row.age);
-	if (
-		!Number.isSafeInteger(version) ||
-		version < 1 ||
-		version > MAX_USER_PROFILE_VERSION
-	) {
-		throw new Error("Persistence returned an invalid user profile version");
-	}
-	if (age !== null && (!Number.isSafeInteger(age) || age < 0 || age > 150)) {
-		throw new Error("Persistence returned an invalid user profile age");
-	}
-	return {
-		userId: row.user_id,
-		displayName: row.display_name,
-		gender: userGender(row.gender),
-		age,
-		email: row.email,
-		version,
-	};
+	// MySQL 驱动的类型声明不能证明线上行仍符合业务读模型；例如历史脏数据
+	// 可能包含未知 gender 或越界 version。这里必须复用领域层的公开归一化函数，
+	// 让仓储异常统一成为 UserProfileReadModelValidationError，继续进入 API 的
+	// persistence-invalid 响应和 readModelViolation 日志，而不是泄漏成普通 500。
+	return normalizeUserProfileReadModel(
+		{
+			userId: row.user_id,
+			displayName: row.display_name,
+			gender: row.gender,
+			age,
+			email: row.email,
+			version,
+		},
+		row.user_id,
+	);
 }
 
 function patient(row: PatientRow): PatientRecord {

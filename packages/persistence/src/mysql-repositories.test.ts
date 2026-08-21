@@ -8,6 +8,7 @@ import type {
 import {
 	createWechatPaymentNotificationEvent,
 	PatientDirectoryReferenceConflictError,
+	UserProfileReadModelValidationError,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
 import type { Pool } from "mysql2/promise";
@@ -698,7 +699,38 @@ test("MySQL ordinary profile rejects a version beyond INT UNSIGNED", async () =>
 	// 就把它当作可继续递增的正常版本交给资料服务。
 	await expect(
 		repositories.userProfiles.findByUserId("user-profile-version-overflow-001"),
-	).rejects.toThrow("invalid user profile version");
+	).rejects.toMatchObject({
+		name: "UserProfileReadModelValidationError",
+		violation: "profile-version-invalid",
+	});
+});
+
+test("MySQL ordinary profile converts unknown gender into the shared read-model error", async () => {
+	const { pool } = createFakePool([
+		[
+			{
+				user_id: "user-profile-gender-invalid-001",
+				display_name: "性别异常",
+				gender: "other",
+				age: null,
+				email: null,
+				version: 1,
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	// 仓储不能用自己的普通 Error 绕过 API 已冻结的 persistence-invalid 契约；
+	// 领域错误还会携带有限 violation，供请求日志安全关联具体异常字段。
+	const result = repositories.userProfiles.findByUserId(
+		"user-profile-gender-invalid-001",
+	);
+	await expect(result).rejects.toBeInstanceOf(
+		UserProfileReadModelValidationError,
+	);
+	await expect(result).rejects.toMatchObject({
+		violation: "profile-gender-invalid",
+	});
 });
 
 test("MySQL patient snapshot clears missing clinical references by stable internal id", async () => {
