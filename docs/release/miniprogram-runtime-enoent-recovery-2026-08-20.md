@@ -1,7 +1,7 @@
 # 小程序 `single-flight.test.js` ENOENT 恢复记录（2026-08-20）
 
 > 本文记录的 `6e6604f`、`02c18af`、`1d161b7`、`7a6f4df` 及更早候选均为历史窗口。当前小程序候选是
-> [`candidate-cde7bc9-local-build-2026-08-21.md`](candidate-cde7bc9-local-build-2026-08-21.md)，当前桌面项目前置状态见
+> [`candidate-968a587-local-build-2026-08-21.md`](candidate-968a587-local-build-2026-08-21.md)，当前桌面项目前置状态见
 > [`miniprogram-devtools-project-preflight-2026-08-21.md`](miniprogram-devtools-project-preflight-2026-08-21.md)。ENOENT 修复原则不变，二维码必须从当前候选重新生成。
 
 ## 结论
@@ -220,3 +220,22 @@ journald 只读观察，没有部署、重启、配置写入或业务请求。
 这不改变运行包结论。请在开发者工具中手动关闭旧真机调试，重新打开
 `E:\__Super_Core__\hospital-platform\apps\miniprogram\`，确认 `miniprogramRoot=dist/`，普通编译成功后再生成二维码。
 如果工具仍请求 `single-flight.test.js`，停止扫码并重新打开项目，不要创建该测试文件。
+
+## 当前候选复核（2026-08-21，`968a587`）
+
+针对用户再次反馈的同一路径 ENOENT，在当前候选上重新执行了构建和运行包门禁：
+
+| 项目 | 当前结果 |
+| --- | --- |
+| 小程序运行输入来源 | `968a587158289da6a482b3614907bde0a5ad9581`（`968a587`） |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| 注册页面 | 14 个 |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | 0 个 |
+| 旧服务、线上配置、MySQL、Redis | 未修改、未重启 |
+
+因此当前仓库没有缺失的业务运行文件。微信开发者工具仍报告该绝对路径时，必须关闭真机调试并退出/重新打开
+`E:\\__Super_Core__\\hospital-platform\\apps\\miniprogram\\` 项目，确认 `miniprogramRoot` 为 `dist/`，先普通编译，再生成新二维码。
+不要手工创建测试脚本，也不要继续复用旧二维码；这类做法会把旧增量模块索引重新带入真机调试。

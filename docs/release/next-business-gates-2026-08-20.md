@@ -18,7 +18,7 @@
 
 2026-08-21 10:38–10:47 CST 的追加只读核验仍确认新旧服务共存、生产环境启动、MySQL/Redis/schema readiness 正常；最近窗口
 只有健康检查、未登录认证和关闭路由探针，没有 `auth.*`、`patient.*`、`appointment.*` 或 `outpatient.payment.*` 业务事件。
-这不是 Provider 失败，也不是业务成功；下一步仍必须使用当前 `cde7bc9` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
+这不是 Provider 失败，也不是业务成功；下一步仍必须使用当前 `968a587` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
 完整运行窗口见 [`current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md)。
 
 ## 2026-08-21 03:54 CST 后的业务事件观察
@@ -54,7 +54,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 2026-08-21 06:03 CST 再次通过 SSH 只读复核：当前 release 仍为 `5a31427`，新 API `10.0.0.3:18081` 与旧 Python
 `0.0.0.0:8001` 共存，Worker 仍为 inactive；readiness 的 database/Redis/schema 均为 `ok`，最近 30 分钟业务事件计数仍为 `0`。
 本次没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis；由于没有新的微信扫码请求，当前候选的真机登录、患者切换、预约历史和门诊费用
-三层证据仍未变化，下一步应使用当前 `cde7bc9` 重新编译并生成二维码后开始人工操作。
+三层证据仍未变化，下一步应使用当前 `968a587` 重新编译并生成二维码后开始人工操作。
 
 2026-08-21 06:31 CST 通过 SSH 和公网再次只读复核：新 API `5a31427` 为 active，明确以 production mode 启动；
 `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 继续共存，Worker inactive，内网 readiness 的 database/Redis/schema 均为 `ok`，
@@ -77,14 +77,14 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 当前小程序候选随后补充了会话恢复边界修正：GET 重新登录后的二次 `401` 只在同一会话代际、同一 token 时清理，
 写入命令仍禁止自动重放；本地 170 项小程序测试、构建和运行包验证通过。当时本地运行包来源曾更新为历史候选 `9340846`，
-后续真机二维码必须重新基于当前 `cde7bc9` 来源生成；逻辑审计见
+后续真机二维码必须重新基于当前 `968a587` 来源生成；逻辑审计见
 [`miniprogram-session-recovery-logic-audit-2026-08-21.md`](miniprogram-session-recovery-logic-audit-2026-08-21.md)。
 
 2026-08-21 07:20 CST 针对 `dist/services/single-flight.test.js` ENOENT 重新执行历史候选构建、`runtime:verify` 和小程序定向测试：
 运行包仍为 14 个页面，测试脚本为 0，170 项测试全部通过。该结果修复并确认了运行包边界，但不延长 07:23 CST 已过期的旧二维码；
-必须使用当前 `cde7bc9` 重新普通编译并生成新二维码后，才可以开始真机业务证据采集。详见
+必须使用当前 `968a587` 重新普通编译并生成新二维码后，才可以开始真机业务证据采集。详见
 历史证据见 [`candidate-9340846-local-build-2026-08-21.md`](candidate-9340846-local-build-2026-08-21.md)；当前候选请使用
-[`candidate-cde7bc9-local-build-2026-08-21.md`](candidate-cde7bc9-local-build-2026-08-21.md)。
+[`candidate-968a587-local-build-2026-08-21.md`](candidate-968a587-local-build-2026-08-21.md)。
 
 2026-08-21 07:25 CST 的 SSH/公网只读复核确认新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 仍共存，
 新 API active、Worker inactive，内网 `health/live` 与 `health/ready` 依赖均为 `ok`，公网 `/api/v2` live/ready/ping 均为 `200`；
@@ -175,9 +175,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-cde7bc9.md`](miniprogram-real-device-evidence-template-cde7bc9.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-968a587.md`](miniprogram-real-device-evidence-template-968a587.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-cde7bc9-local-build-2026-08-21.md`](candidate-cde7bc9-local-build-2026-08-21.md)
+- 当前候选来源：[`candidate-968a587-local-build-2026-08-21.md`](candidate-968a587-local-build-2026-08-21.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
