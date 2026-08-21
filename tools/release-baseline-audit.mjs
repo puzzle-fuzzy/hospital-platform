@@ -28,6 +28,33 @@ export const currentBaselineDocuments = Object.freeze([
 		path: currentCandidateDocumentPath,
 		label: "当前小程序本地构建候选",
 	},
+	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入
+	// 同一基线集合，文档虽然能打开，执行人员仍可能从旧模板生成可通过格式审计
+	// 的二维码证据。历史候选文档不加入这里，继续只承担追溯职责。
+	{
+		path: "docs/release/next-business-gates-2026-08-20.md",
+		label: "下一阶段业务门禁执行板",
+	},
+	{
+		path: "docs/release/readonly-business-chain-audit-2026-08-21.md",
+		label: "当前只读业务链审计",
+	},
+	{
+		path: "docs/release/current-gated-domains-audit-2026-08-21.md",
+		label: "当前未开放业务门禁审计",
+	},
+	{
+		path: "docs/release/miniprogram-session-recovery-logic-audit-2026-08-21.md",
+		label: "当前小程序会话状态机审计",
+	},
+	{
+		path: "docs/release/personal-center-patient-context-audit-2026-08-21.md",
+		label: "当前个人中心患者上下文审计",
+	},
+	{
+		path: "docs/release/miniprogram-real-device-evidence-template-f085d06.md",
+		label: "当前小程序真机证据模板",
+	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
 	{
 		path: "docs/migration/remaining-migration-inventory.md",

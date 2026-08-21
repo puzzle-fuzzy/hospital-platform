@@ -22,4 +22,4 @@
 pnpm device:evidence:audit -- --file .\path\to\redacted-device-evidence.json
 ```
 
-工具拒绝 token、Bearer、身份证、完整卡号、Provider 患者号、原始报文和敏感查询参数，并只输出安全摘要。退出码 `0` 才表示全部域通过；`1` 表示仍有 pending/failed，`2` 表示格式或脱敏门禁失败。
+命令行入口会先读取仓库当前发布基线，再要求证据中的服务端 release、小程序提交和完整 sourceRevision 三者逐项一致；旧二维码即使三层字段格式完整，也不能通过当前候选审计。工具同时拒绝 token、Bearer、身份证、完整卡号、Provider 患者号、原始报文和敏感查询参数，并只输出安全摘要。退出码 `0` 才表示全部域通过；`1` 表示仍有 pending/failed，`2` 表示格式、候选绑定或脱敏门禁失败。

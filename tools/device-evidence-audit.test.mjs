@@ -90,6 +90,18 @@ describe("device evidence audit", () => {
 		);
 	});
 
+	test("真机清单必须绑定调用方提供的当前发布基线", () => {
+		const manifest = completeManifest();
+		manifest.candidate = {
+			serverRelease: "5a31427",
+			miniProgramCommit: "acf5a85",
+			sourceRevision: "acf5a8596e70e1fb2b8d220a0b41eb69418ae086",
+		};
+		expect(() => auditDeviceEvidence(manifest, candidate)).toThrow(
+			"与当前发布基线不一致",
+		);
+	});
+
 	test("拒绝把 token、身份证、完整卡号或原始报文写进证据", () => {
 		const tokenManifest = completeManifest();
 		tokenManifest.domains.auth = passedEvidence();

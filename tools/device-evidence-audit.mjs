@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { auditCurrentReleaseConsistency } from "./release-baseline-audit.mjs";
 
 /**
  * 真机三层证据的最小业务集合。
@@ -89,7 +90,7 @@ function assertNoSensitiveFields(value, path = "$") {
 	}
 }
 
-function validateCandidate(candidate) {
+function validateCandidate(candidate, expectedCandidate) {
 	const object = requirePlainObject(candidate, "证据文件缺少 candidate");
 	const serverRelease = requireNonEmptyString(
 		object.serverRelease,
@@ -114,6 +115,29 @@ function validateCandidate(candidate) {
 	}
 	if (!sourceRevision.startsWith(miniProgramCommit)) {
 		throw new Error("candidate.sourceRevision 必须以 miniProgramCommit 开头");
+	}
+	if (expectedCandidate) {
+		// 发布基线的公共返回名是 `miniProgramSourceRevision`，证据 JSON 为了
+		// 保持短字段使用 `sourceRevision`。这里显式建立映射，不能用动态字段
+		// 拼接，否则当前候选会因为命名差异被错误拒绝，旧候选也可能绕过比较。
+		const expectedValues = {
+			serverRelease: expectedCandidate.serverRelease,
+			miniProgramCommit: expectedCandidate.miniProgramCommit,
+			sourceRevision:
+				expectedCandidate.sourceRevision ??
+				expectedCandidate.miniProgramSourceRevision,
+		};
+		for (const field of [
+			"serverRelease",
+			"miniProgramCommit",
+			"sourceRevision",
+		]) {
+			if (object[field] !== expectedValues[field]) {
+				throw new Error(
+					`candidate.${field} 与当前发布基线不一致，不能纳入真机证据`,
+				);
+			}
+		}
 	}
 	return { serverRelease, miniProgramCommit, sourceRevision };
 }
@@ -224,10 +248,10 @@ function validateFailedDomain(domain, evidence) {
  * 校验脱敏后的真机证据清单，并只返回可写入文档的安全摘要。
  * `passed` 不是“页面能打开”，而是三层证据和候选来源同时一致。
  */
-export function auditDeviceEvidence(manifest) {
+export function auditDeviceEvidence(manifest, expectedCandidate) {
 	const root = requirePlainObject(manifest, "真机证据必须是 JSON 对象");
 	assertNoSensitiveFields(root);
-	const candidate = validateCandidate(root.candidate);
+	const candidate = validateCandidate(root.candidate, expectedCandidate);
 	const startedAt = requireIsoDate(root.startedAt, "startedAt 必须是 ISO 时间");
 	const domains = requirePlainObject(root.domains, "证据文件缺少 domains");
 	const actualDomains = Object.keys(domains);
@@ -304,7 +328,18 @@ async function readManifest() {
 
 if (import.meta.main) {
 	try {
-		const result = auditDeviceEvidence(await readManifest());
+		/**
+		 * CLI 入口必须绑定仓库当前发布基线；否则旧二维码只要字段格式合法，
+		 * 就可能在脱敏和三层统计都齐全时被误报为当前候选已通过。单元测试
+		 * 仍可传入显式 expectedCandidate，保持纯函数边界和历史样例可复用。
+		 */
+		const baseline = await auditCurrentReleaseConsistency();
+		if (!baseline.passed) {
+			throw new Error(
+				`当前发布基线未通过，不能审计真机证据（${baseline.failures.length} 项）`,
+			);
+		}
+		const result = auditDeviceEvidence(await readManifest(), baseline);
 		console.log(JSON.stringify(result, null, 2));
 		if (!result.passed) process.exitCode = 1;
 	} catch (error) {
