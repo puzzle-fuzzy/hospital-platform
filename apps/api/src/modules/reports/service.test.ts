@@ -935,6 +935,93 @@ test("报告详情引用的 TTL 使用注入的服务端时间基准", async () 
 	expect(captured.lookupAt).toBe(fixedNow.toISOString());
 });
 
+test("报告目录拒绝仓储返回的扩展详情引用窗口", async () => {
+	const fixedNow = new Date("2026-08-16T00:00:00.000Z");
+	let upsertCalls = 0;
+	const references: ReportReferenceRepository = {
+		upsert: async (input) => {
+			upsertCalls += 1;
+			// 返回引用自身仍保持 10 分钟 TTL，因此只调用
+			// validateReportReference 无法发现它整体被向未来平移了 30 分钟。
+			const shiftedCreatedAt = new Date(
+				new Date(input.createdAt ?? fixedNow).getTime() + 30 * 60 * 1000,
+			).toISOString();
+			const shiftedExpiresAt = new Date(
+				new Date(input.expiresAt).getTime() + 30 * 60 * 1000,
+			).toISOString();
+			return {
+				...input,
+				createdAt: shiftedCreatedAt,
+				expiresAt: shiftedExpiresAt,
+			};
+		},
+		findByOwnerPatientAndId: async () => undefined,
+	};
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory" as const,
+							title: "血常规",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available" as const,
+							hasAttachment: false,
+						},
+						providerReportId: "provider-report-window-shifted",
+					},
+				],
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "reports-directory",
+					requestId: "report-window-shifted",
+				},
+			}),
+		},
+		references,
+		detail: {
+			getLaboratoryDetail: async () => {
+				throw new Error("扩展窗口引用不应进入详情 Provider");
+			},
+		},
+		now: () => fixedNow,
+	});
+
+	const result = await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-window-shifted",
+			idempotencyKey: "key-report-window-shifted",
+		},
+	);
+
+	expect(upsertCalls).toBe(1);
+	// 仓储返回的时间窗口不再是本次服务端生成的 10 分钟能力，必须只保留
+	// 安全摘要，不能把被延长的 reportId 下发到小程序。
+	expect(result).toEqual({
+		items: [
+			{
+				kind: "laboratory",
+				title: "血常规",
+				reportedAt: "2026-08-15 10:00:00",
+				status: "available",
+				hasAttachment: false,
+			},
+		],
+		total: 1,
+	});
+});
+
 test("报告 service 拒绝仓储返回的跨患者详情引用", async () => {
 	let detailCalls = 0;
 	const service = new ReportService({

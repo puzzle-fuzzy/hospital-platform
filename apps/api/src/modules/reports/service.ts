@@ -442,8 +442,11 @@ export class ReportService {
 						const reference =
 							await this.dependencies.references.upsert(referenceInput);
 						// 仓储返回值仍是跨层边界，不能只相信 TypeScript 类型。若实现
-						// 返回了另一位患者、另一位 owner 或另一个 Provider 报告引用，
-						// 必须隐藏详情入口并保留安全摘要，不能把错误引用交给客户端。
+						// 返回了另一位患者、另一位 owner、另一个 Provider 报告引用或
+						// 不同的时间窗口，必须隐藏详情入口并保留安全摘要，不能把错误引用
+						// 交给客户端。尤其不能只调用 validateReportReference：它只能证明
+						// 返回引用自身的 TTL 不超过硬上限，不能证明仓储没有把本次 10 分钟
+						// 能力延长成另一段更长或更晚的有效窗口。
 						validateReportReference(reference);
 						if (
 							reference.reportId !== referenceInput.reportId ||
@@ -451,10 +454,12 @@ export class ReportService {
 							reference.patientId !== referenceInput.patientId ||
 							reference.provider !== referenceInput.provider ||
 							reference.kind !== referenceInput.kind ||
-							reference.providerReportId !== referenceInput.providerReportId
+							reference.providerReportId !== referenceInput.providerReportId ||
+							reference.createdAt !== referenceInput.createdAt ||
+							reference.expiresAt !== referenceInput.expiresAt
 						) {
 							throw new Error(
-								"Report reference repository returned a mismatched scope",
+								"Report reference repository returned a mismatched scope or window",
 							);
 						}
 						return { reportId: reference.reportId, ...entry.summary };
