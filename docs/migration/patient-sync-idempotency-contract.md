@@ -1,10 +1,10 @@
 # 患者目录同步幂等契约
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `7a6f4df34fac5975c6012a30d2c137953a892059`（提交 `7a6f4df`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `f19e4717c01948d12fdcc62040a0bd4ab0ac060f`（提交 `f19e471`）。
 
-> 当前基线更新：服务端 `5a31427`；小程序候选 `7a6f4df`；完整运行包来源 `7a6f4df34fac5975c6012a30d2c137953a892059`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `5a31427`；小程序候选 `f19e471`；完整运行包来源 `f19e4717c01948d12fdcc62040a0bd4ab0ac060f`。下文更早候选只作历史追溯。
 
-> 状态：代码已实现，`0015` operation ledger 和 `0016` owner/provider 查询索引组成当前生产 schema；当前公网 release 为 `5a31427`，当前本地小程序候选构建来源为 `7a6f4df34fac5975c6012a30d2c137953a892059`（提交 `7a6f4df`），尚未上传线上；`0016` 已完成 migration、marker/index postcondition 和 schema probe。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
+> 状态：代码已实现，`0015` operation ledger 和 `0016` owner/provider 查询索引组成当前生产 schema；当前公网 release 为 `5a31427`，当前本地小程序候选构建来源为 `f19e4717c01948d12fdcc62040a0bd4ab0ac060f`（提交 `f19e471`），尚未上传线上；`0016` 已完成 migration、marker/index postcondition 和 schema probe。真实患者并发/多患者切换/真机业务验收待完成。本文件是实现和发布的冻结边界；
 > 当前线上已经具备本轮跨幂等键并发保护所需的 schema 运行前置，但这不等于真实 Provider 并发、失效恢复或真机业务已经验收。
 >
 > 适用接口：`POST /api/v2/patients/sync`。本契约只处理“从 provider 读取完整患者目录并
