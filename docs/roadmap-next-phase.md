@@ -7,6 +7,11 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 16:04 CST（当前候选全仓复核）：`pnpm check` 全部通过；API 测试 `199 pass/829 expects`，小程序测试
+  `181 pass/1444 expects`，运行包仍为 14 个页面且不含测试脚本，来源指纹仍为
+  `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`。本次仅做本地与仓库只读核验，SSH 公钥仍未获服务器接受，
+  因此没有新增线上日志、真机或 Provider 证据；旧 Python 服务和并行工作树修改均未触碰。
+
 - 2026-08-21（只读列表本地加载窗口事件边界）：当前代码提交为 `9c582a1`，完整运行包来源为 `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`。预约历史、爽约记录、报告目录和门诊费用的“加载更多”现在要求页面不在加载中、当前患者和会话代际仍有效、结果确实还有未展示记录，并限制展示数量严格递增；刷新、切换患者或会话漂移期间的旧事件直接失效。小程序 `181 pass`、`1444 expects`、typecheck、Biome、构建和 `runtime:verify` 均通过。该修正只保护本地读模型渲染边界，不代表 Provider、支付、医保或真机业务验收完成，详见 [`release/miniprogram-readonly-list-load-more-boundary-audit-2026-08-21.md`](release/miniprogram-readonly-list-load-more-boundary-audit-2026-08-21.md)。
 
 - 2026-08-21（预约目录本地加载窗口事件边界）：当前代码提交为 `9c582a1`，完整运行包来源为 `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`。预约目录的“加载更多”只是对已取得读模型做本地分批展示；现在要求当前日期分组仍存在、页面不在加载中、读模型仍有未展示号源，并将展示数量限制在当前分组总数内，刷新或切换期间抵达的旧按钮事件直接忽略。小程序 `181 pass`、`1444 expects`、typecheck、Biome、构建和 `runtime:verify` 均通过。该修正不代表 Provider 分页、预约写入或真机业务验收完成，详见 [`release/candidate-9c582a1-local-build-2026-08-21.md`](release/candidate-9c582a1-local-build-2026-08-21.md)。

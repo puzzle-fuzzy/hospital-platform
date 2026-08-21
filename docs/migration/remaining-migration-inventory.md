@@ -7,6 +7,11 @@
 > 2026-08-21 当前候选代码门禁复核：`9c582a1` 小程序测试 `181 pass`、`1444 expects`，构建、运行包来源和全仓门禁均通过；
 > `dist/` 仍只有 14 个页面入口且不包含 `*.test.js`/`*.spec.js`。这只证明代码与运行包边界，预约历史、门诊费用、报告 Provider、真机和支付/医保/HIS 仍按下方准入条件处理。
 
+> 2026-08-21 16:04 CST 当前工作树复核：再次执行 `pnpm check`，架构、迁移清单、Provider intake、文档链接、Biome、工具测试、
+> 9 个 workspace 的类型检查/测试/构建均通过；小程序 `181 pass/1444 expects`、API `199 pass/829 expects`，运行包来源仍为
+> `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`，且 `dist/` 中测试脚本为 0。SSH 读取 `ps@192.168.112.172` 和阿里云中转机
+> 本轮均被公钥拒绝，因此没有新增线上日志或真机三层证据；旧项目、旧服务、数据库和 Redis 未触碰。
+
 > 2026-08-21 14:04 CST 当前复核：预约/门诊费用/报告定向测试 `62 pass`，小程序标准测试 `176 pass`，公网运行层和未登录鉴权边界通过；SSH 日志读取本轮被拒绝，且新小程序二维码仍未出现手机连接。因此代码门禁已通过，但预约历史、门诊费用、报告 Provider 和真机页面仍不能标记为当前 release 的真实业务完成。详见 [`../release/readonly-business-and-device-preflight-2026-08-21-1404.md`](../release/readonly-business-and-device-preflight-2026-08-21-1404.md)。
 
 > 当前盘点基准：2026-08-21；旧端初始扫描基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app`，新端来源为
