@@ -59,4 +59,3 @@
 ## 5. 回滚边界
 
 若后续完成切换且新 API readiness、公网路径或业务读模型异常，只把 `current` 原子恢复到切换前实际读取的 release，并只重启 `hospital-platform-api-v2.service`；禁止停止/重启旧 Python、删除旧 release、清空 Redis 或回滚数据库 schema。
-
