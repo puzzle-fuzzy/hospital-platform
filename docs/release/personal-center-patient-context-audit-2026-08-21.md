@@ -1,6 +1,6 @@
 # 个人中心与患者上下文逻辑审计（2026-08-21）
 
-> 审计对象：服务端 release `5a31427`、当前仓库提交 `a945da7`、小程序运行包来源 `667767123efdb5b3a0bedbe423ab1797f16b1247`。本记录只覆盖代码、测试和本地运行包证据；不把静态检查替代为微信真机业务验收。
+> 审计对象：服务端 release `5a31427`、当前仓库提交 `8f8eb15`、小程序运行包来源 `acf5a8596e70e1fb2b8d220a0b41eb69418ae086`（候选 `acf5a85`）。本记录只覆盖代码、测试和本地运行包证据；不把静态检查替代为微信真机业务验收。
 
 ## 结论
 
@@ -103,4 +103,3 @@ pnpm --filter @hospital/miniprogram runtime:verify
 pnpm release:baseline:audit
 pnpm check
 ```
-

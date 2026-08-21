@@ -1,6 +1,6 @@
 # 当前只读业务链审计（2026-08-21）
 
-> 本记录以服务端 `5a31427` 和小程序本地候选 `6ce1272` 为基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
+> 本记录以服务端 `5a31427` 和小程序本地候选 `acf5a85` 为基线，复核预约历史、爽约记录、门诊费用和小程序运行包边界。完整运行包来源为 `acf5a8596e70e1fb2b8d220a0b41eb69418ae086`。没有修改旧 Python 服务、线上配置、MySQL、Redis 或并行会话维护的众阳自动化代码。
 >
 > 本地代码和测试通过不等于真实 Provider、HTTPS、真机页面或业务日志三层验收完成。
 
@@ -40,9 +40,9 @@
 
 | 范围 | 命令 | 结果 |
 | --- | --- | --- |
-| 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 169 项通过，0 项失败，1359 个断言 |
+| 小程序患者、预约、费用、会话和运行包边界 | `pnpm --filter @hospital/miniprogram test` | 171 项通过，0 项失败，1366 个断言 |
 | API 预约记录和门诊费用 service | `pnpm --filter @hospital/api exec bun test src/modules/appointments/service.test.ts src/modules/outpatient-payments/service.test.ts` | 37 项通过，0 项失败，142 个断言 |
-| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `6ce1272`，不含测试脚本 |
+| 小程序运行包 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面齐全，来源 `acf5a85`，不含测试脚本 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.js` | 存在 |
 | 当前运行目录 | `apps/miniprogram/dist/services/single-flight.test.js` | 不存在 |
 
