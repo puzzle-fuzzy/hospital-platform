@@ -47,15 +47,15 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 2026-08-21 06:03 CST 再次通过 SSH 只读复核：当前 release 仍为 `5a31427`，新 API `10.0.0.3:18081` 与旧 Python
 `0.0.0.0:8001` 共存，Worker 仍为 inactive；readiness 的 database/Redis/schema 均为 `ok`，最近 30 分钟业务事件计数仍为 `0`。
 本次没有修改配置、重启服务、调用 Provider 或写入 MySQL/Redis；由于没有新的微信扫码请求，当前候选的真机登录、患者切换、预约历史和门诊费用
-三层证据仍未变化，下一步仍需使用 `9340846` 新二维码开始人工操作。
+三层证据仍未变化，下一步应使用当前 `6677671` 重新编译并生成二维码后开始人工操作。
 
 2026-08-21 06:31 CST 通过 SSH 和公网再次只读复核：新 API `5a31427` 为 active，明确以 production mode 启动；
 `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 继续共存，Worker inactive，内网 readiness 的 database/Redis/schema 均为 `ok`，
 公网 live/ready/ping 均为 `200`。本次没有业务请求或 Provider 调用，详细证据见
 [`current-5a31427-coexistence-readonly-2026-08-21-0631.md`](current-5a31427-coexistence-readonly-2026-08-21-0631.md)。
 
-2026-08-21 06:58 CST 在正确的 `miniprogram` 项目中重新打开当前候选的 iOS/局域网二维码；07:02 CST 复核时工具显示代码包约
-607 KB、14 个页面，二维码有效期至 07:23 CST，`dist/` 仍不含任何测试运行脚本。该操作只确认开发者工具当前使用
+2026-08-21 06:58 CST 在正确的 `miniprogram` 项目中重新打开历史候选的 iOS/局域网二维码；07:02 CST 复核时工具显示代码包约
+607 KB、14 个页面，二维码有效期至 07:23 CST，`dist/` 仍不含任何测试运行脚本。该历史操作只确认开发者工具当时使用
 `9340846` 运行包，不增加真实微信或业务证据；详细记录见
 [`miniprogram-device-qr-session-2026-08-21-0705.md`](miniprogram-device-qr-session-2026-08-21-0705.md)。
 
@@ -69,14 +69,15 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 当前 P0 仍等待真机二维码扫码。
 
 当前小程序候选随后补充了会话恢复边界修正：GET 重新登录后的二次 `401` 只在同一会话代际、同一 token 时清理，
-写入命令仍禁止自动重放；本地 170 项小程序测试、构建和运行包验证通过。当前本地运行包来源已更新为 `9340846`，
-后续真机二维码必须重新基于该来源生成；逻辑审计见
+写入命令仍禁止自动重放；本地 170 项小程序测试、构建和运行包验证通过。当时本地运行包来源曾更新为历史候选 `9340846`，
+后续真机二维码必须重新基于当前 `6677671` 来源生成；逻辑审计见
 [`miniprogram-session-recovery-logic-audit-2026-08-21.md`](miniprogram-session-recovery-logic-audit-2026-08-21.md)。
 
-2026-08-21 07:20 CST 针对 `dist/services/single-flight.test.js` ENOENT 重新执行当前候选构建、`runtime:verify` 和小程序定向测试：
+2026-08-21 07:20 CST 针对 `dist/services/single-flight.test.js` ENOENT 重新执行历史候选构建、`runtime:verify` 和小程序定向测试：
 运行包仍为 14 个页面，测试脚本为 0，170 项测试全部通过。该结果修复并确认了运行包边界，但不延长 07:23 CST 已过期的旧二维码；
-必须重新普通编译并生成新二维码后，才可以开始真机业务证据采集。详见
-[`candidate-9340846-local-build-2026-08-21.md`](candidate-9340846-local-build-2026-08-21.md)。
+必须使用当前 `6677671` 重新普通编译并生成新二维码后，才可以开始真机业务证据采集。详见
+历史证据见 [`candidate-9340846-local-build-2026-08-21.md`](candidate-9340846-local-build-2026-08-21.md)；当前候选请使用
+[`candidate-6677671-local-build-2026-08-21.md`](candidate-6677671-local-build-2026-08-21.md)。
 
 2026-08-21 07:25 CST 的 SSH/公网只读复核确认新 API `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 仍共存，
 新 API active、Worker inactive，内网 `health/live` 与 `health/ready` 依赖均为 `ok`，公网 `/api/v2` live/ready/ping 均为 `200`；

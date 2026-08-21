@@ -9,8 +9,8 @@
   `667767123efdb5b3a0bedbe423ab1797f16b1247`；`dist/` 仍为 14 个页面且不包含测试脚本，`single-flight.test.js` 不会进入运行包。
   `pnpm --filter @hospital/miniprogram runtime:verify` 已通过；真机业务三层证据仍待扫码采集。
 
-- 2026-08-21 07:32 CST（当前候选扫码等待窗口）：SSH 只读复核确认服务端 `5a31427` active，新 API `10.0.0.3:18081` 与旧 Python
-  `8001` 继续共存，内网 readiness 的 database/Redis/schema 均为 `ok`；当前 `9340846` 小程序运行包为 14 个页面、约 607 KB，
+- 2026-08-21 07:32 CST（历史候选 `9340846` 扫码等待窗口）：SSH 只读复核确认服务端 `5a31427` active，新 API `10.0.0.3:18081` 与旧 Python
+  `8001` 继续共存，内网 readiness 的 database/Redis/schema 均为 `ok`；当时 `9340846` 小程序运行包为 14 个页面、约 607 KB，
   `dist/` 中没有测试脚本，开发者工具二维码显示有效至 07:56。`07:22–07:32` 没有新的 `auth.*`、`patient.*`、
   `appointment.*`、`outpatient.payment.*` 或 `user.profile.*` 事件，因此尚未形成当前候选的真机三层业务证据；详见
   [`release/current-5a31427-p0-business-observation-2026-08-21-0732.md`](release/current-5a31427-p0-business-observation-2026-08-21-0732.md)。
@@ -47,11 +47,11 @@
   调用 Provider 或写入 MySQL/Redis，因此仍没有当前候选的真机三层业务证据。详见
   [`release/current-5a31427-p0-business-observation-2026-08-21-0451.md`](release/current-5a31427-p0-business-observation-2026-08-21-0451.md)。
 
-- 2026-08-21（首页患者目录并发边界）：发现并修复首页目录读取在“旧请求已被淘汰”时返回 `[]` 的语义缺陷。
-  业务修正已包含在当前 `9340846` 运行包中；登录恢复链只有在 `loaded` 时才会继续患者同步。
+- 2026-08-21（历史候选 `9340846` 首页患者目录并发边界）：发现并修复首页目录读取在“旧请求已被淘汰”时返回 `[]` 的语义缺陷。
+  业务修正已包含在当时的 `9340846` 运行包中；登录恢复链只有在 `loaded` 时才会继续患者同步。
   小程序业务测试、运行包构建和 `runtime:verify` 已通过。未修改旧 Python 服务；真实设备和线上新包仍待重新取证。
 
-- 2026-08-21（当前候选全仓门禁复核）：基于服务端 `5a31427` 和小程序来源 `9340846`，API 188/188、众阳及通用
+- 2026-08-21（历史候选全仓门禁复核）：基于服务端 `5a31427` 和小程序来源 `9340846`，API 188/188、众阳及通用
   adapter 105/105、domain 57/57、persistence 83/83、小程序 169/169 全部通过，所有 typecheck、架构审计、迁移清单、
   Provider intake、文档断链和 release baseline 审计均通过。该结果只证明当前代码和文档边界一致，不增加 Provider、
   公网或真机三层业务证据；健康知识、病历、患者绑定、报告资源、支付/医保/HIS 继续按各自契约门禁关闭。详细当前审计见
@@ -67,12 +67,12 @@
   或业务失败，当前仍需真机扫码取得三层证据。详见
   [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md)。
 
-- 2026-08-21（会话恢复状态机修正）：发现 GET 重新登录后第二次 `401` 未清理同代无效 token，已在 `9340846` 增加双重代际/token
+- 2026-08-21（历史候选 `9340846` 会话恢复状态机修正）：发现 GET 重新登录后第二次 `401` 未清理同代无效 token，已在 `9340846` 增加双重代际/token
   清理条件；并保持 PUT/POST/支付命令不自动重放。小程序 170/170 测试、构建、14 页运行包和测试脚本隔离验证通过。真实微信和 P0
   只读三层证据仍待当前运行包重新扫码，详细规则见
   [`release/miniprogram-session-recovery-logic-audit-2026-08-21.md`](release/miniprogram-session-recovery-logic-audit-2026-08-21.md)。
 
-- 2026-08-21 07:05 CST（当前候选真机扫码前置）：格式修正后重新构建的小程序来源为 `9340846`，完整来源
+- 2026-08-21 07:05 CST（历史候选 `9340846` 真机扫码前置）：格式修正后重新构建的小程序来源为 `9340846`，完整来源
   `93408462f3eeadffed172f1ea3b10c043d461b1b`；开发者工具重新普通编译并打开 iOS/局域网二维码，显示约 607 KB、14 个页面，
   `dist/` 测试脚本数量为 0。07:00 CST 之后线上没有新的登录、患者、预约、费用或资料事件，因此当前仍只有扫码前运行包证据，
   尚未形成真机业务三层证据。详见 [`release/miniprogram-device-qr-session-2026-08-21-0705.md`](release/miniprogram-device-qr-session-2026-08-21-0705.md)。
