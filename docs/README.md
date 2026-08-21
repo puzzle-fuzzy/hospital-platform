@@ -4,7 +4,7 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前权威运行基线（2026-08-21）为：服务端 `5a314275e9bae43730eab5b32638a8baecda5869`（提交 `5a31427`）、最新本地小程序候选来源
-`f66514de81c051cb8ade1477f758700b2837b9b7`（提交 `f66514d`，尚未上传线上）、新 API `10.0.0.3:18081`、旧 Python `8001`。
+`d4d65b735da8630e9b6795d9e105192713297474`（提交 `d4d65b7`，尚未上传线上）、新 API `10.0.0.3:18081`、旧 Python `8001`。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 ## 首先阅读
@@ -39,7 +39,8 @@
 | [`release/miniprogram-patient-session-composition-boundary-2026-08-21.md`](release/miniprogram-patient-session-composition-boundary-2026-08-21.md) | 患者范围页面跨 `/me`、患者目录和业务列表的会话代际组合门禁、报告详情深链复核和验证证据 |
 | [`release/candidate-c86a788-local-build-2026-08-21.md`](release/candidate-c86a788-local-build-2026-08-21.md) | 历史 `c86a788` 小程序本地构建来源和运行包隔离记录；当前候选请使用 [`candidate-f66514d-local-build-2026-08-21.md`](release/candidate-f66514d-local-build-2026-08-21.md) |
 | [`release/candidate-4e82313-local-build-2026-08-21.md`](release/candidate-4e82313-local-build-2026-08-21.md) | 历史 `4e82313` 小程序运行包、会话组合边界修正和来源指纹；当前候选请使用 [`candidate-f66514d-local-build-2026-08-21.md`](release/candidate-f66514d-local-build-2026-08-21.md) |
-| [`release/candidate-f66514d-local-build-2026-08-21.md`](release/candidate-f66514d-local-build-2026-08-21.md) | 当前 `f66514d` 小程序运行包、个人中心会话门禁、来源指纹和真机验收边界 |
+| [`release/candidate-d4d65b7-local-build-2026-08-21.md`](release/candidate-d4d65b7-local-build-2026-08-21.md) | 当前 `d4d65b7` 小程序运行包、门诊费用会话竞态修正、来源指纹和真机验收边界 |
+| [`release/candidate-f66514d-local-build-2026-08-21.md`](release/candidate-f66514d-local-build-2026-08-21.md) | 历史 `f66514d` 小程序运行包和个人中心会话门禁记录；不能替代当前 `d4d65b7` 候选 |
 | [`release/current-public-runtime-smoke-2026-08-21-1112.md`](release/current-public-runtime-smoke-2026-08-21-1112.md) | 11:12 CST 公网 `/api/v2` live/ready、未登录鉴权和未开放路由只读复核；不替代真机业务证据 |
 | [`release/current-public-runtime-smoke-2026-08-21-1136.md`](release/current-public-runtime-smoke-2026-08-21-1136.md) | 11:36 CST 公网 `/api/v2` 生产模式、普通资料独立鉴权和未开放能力边界复核；不替代真机业务证据 |
 | [`release/current-5a31427-runtime-p0-observation-2026-08-21-1121.md`](release/current-5a31427-runtime-p0-observation-2026-08-21-1121.md) | 11:21 CST 新旧服务共存、Worker、端口和 P0 业务日志空窗口只读复核；不替代真机业务证据 |
@@ -108,7 +109,8 @@
 | [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `f66514d` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
 | [`release/miniprogram-real-device-evidence-template-c86a788.md`](release/miniprogram-real-device-evidence-template-c86a788.md) | 历史 `c86a788` 候选的真机证据模板；当前模板请使用 [`miniprogram-real-device-evidence-template-f66514d.md`](release/miniprogram-real-device-evidence-template-f66514d.md) |
 | [`release/miniprogram-real-device-evidence-template-4e82313.md`](release/miniprogram-real-device-evidence-template-4e82313.md) | 历史 `4e82313` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-f66514d.md`](release/miniprogram-real-device-evidence-template-f66514d.md) |
-| [`release/miniprogram-real-device-evidence-template-f66514d.md`](release/miniprogram-real-device-evidence-template-f66514d.md) | 当前 `f66514d` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；空白模板不代表验收通过 |
+| [`release/miniprogram-real-device-evidence-template-d4d65b7.md`](release/miniprogram-real-device-evidence-template-d4d65b7.md) | 当前 `d4d65b7` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；空白模板不代表验收通过 |
+| [`release/miniprogram-real-device-evidence-template-f66514d.md`](release/miniprogram-real-device-evidence-template-f66514d.md) | 历史 `f66514d` 候选真机证据模板；不能替代当前 `d4d65b7` 候选 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0903-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0903-acf5a85.md) | 历史 `acf5a85` 候选 09:03 CST 的 iOS/局域网二维码会话；不能用于当前 `f66514d` 真机验收，仅记录当时缓存清理、普通编译和扫码前运行包状态 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0854-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0854-acf5a85.md) | `acf5a85` 候选的上一二维码会话历史；已被新候选替代，不得用于当前真机验收 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0842-acf5a85.md) | `acf5a85` 候选的历史二维码会话；已被新候选替代，不得用于当前真机验收 |
