@@ -6,6 +6,18 @@
 
 本记录只描述新项目的当前准入边界，不修改旧 Python 项目，不重启旧服务，也不把旧项目的业务日志并入新项目证据。
 
+## 2026-08-22 06:30–06:43 CST 当前候选再次复核
+
+针对 `dist/services/single-flight.test.js` 的真机调试错误，当前候选再次完成构建、运行包校验和全仓门禁：
+
+- `pnpm check` 通过：架构规则 67 条、API 测试 `206 pass / 0 fail`、工具测试 `51 pass / 0 fail`，9 个 workspace 的 typecheck/test/build 全部通过；
+- 小程序来源仍为 `4e1b2e224964797c103eba832323ee7074c7ad2b`，注册页面 14 个，`dist/` 中测试运行脚本数量为 0；
+- `pnpm --filter @hospital/miniprogram runtime:verify` 通过；
+- 新 `miniprogram` 项目窗口仍指向 `apps/miniprogram/dist/`，普通编译完成，当前二维码界面显示有效至 `2026-08-22 06:56 CST`；
+- 旧 `mp-weixin` 窗口未操作，线上服务、旧 Python 服务、数据库、Redis 和 Provider 均未触碰。
+
+这次复核只证明运行包可以进入真机验收，仍没有手机扫码、微信会话、患者切换或 Provider 业务日志，因此不增加任何业务完成声明。下一步仍是使用当前二维码扫码，随后按“微信登录 → 患者目录 → 显式切换 → 预约/报告/门诊费用只读”的顺序采集页面、客户端请求和服务端同链日志。
+
 ## 当前发布基线
 
 | 项目 | 当前值 |
