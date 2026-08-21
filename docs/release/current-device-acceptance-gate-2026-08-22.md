@@ -52,6 +52,20 @@
 pnpm workspace 裸模块名造成的真实运行包问题，已在前一候选 `47be0bc` 中改为小程序本地的无第三方依赖时间校验模块，
 并增加了与共享契约边界一致性的测试。当前重新编译后的控制台不再出现该错误；不能通过向 `dist/` 手工复制 workspace 包来规避。
 
+## 2026-08-22 05:50 CST `single-flight.test.js` 复核后的新二维码
+
+针对真机再次报告的 `E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight.test.js`，
+本地重新执行 `pnpm --filter @hospital/miniprogram build` 和 `pnpm --filter @hospital/miniprogram runtime:verify`：
+
+- 构建和运行包门禁通过，当前来源仍为 `4e1b2e224964797c103eba832323ee7074c7ad2b`；
+- `dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在；
+- `dist/` 递归扫描仍为 0 个 `*.test.js` / `*.spec.js`；
+- 新项目 `miniprogram` 窗口重新完成普通编译，并重新生成代码包约 `619 KB` 的真机调试二维码，界面显示有效至
+  `2026-08-22 06:15 CST`；调试器显示 `Errors: 0`，没有出现测试脚本或 workspace 裸模块错误。
+
+当前仍没有手机扫码连接或业务请求三层证据。这一步只证明旧增量模块索引已经被新编译会话替换；请使用这张新二维码扫码，
+不要继续复用旧二维码，也不要把 `single-flight.test.js` 手工复制进运行包。
+
 ## 2026-08-22 05:43 CST 真机扫码前复核
 
 通过桌面只读核对目标开发者工具窗口：窗口标题为 `miniprogram - 微信开发者工具 Stable v2.01.2510290`，资源树根节点为
