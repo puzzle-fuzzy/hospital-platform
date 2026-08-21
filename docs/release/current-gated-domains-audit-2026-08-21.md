@@ -1,17 +1,17 @@
 # 当前未开放业务门禁审计（2026-08-21）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `4f80bc2f313fbcac9fc4e976006ae2c356ce2729`（提交 `4f80bc2`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`（提交 `03d9d25`）。
 
-> 当前基线更新：服务端 `5a31427`；小程序候选 `4f80bc2`；完整运行包来源 `4f80bc2f313fbcac9fc4e976006ae2c356ce2729`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `5a31427`；小程序候选 `03d9d25`；完整运行包来源 `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`。下文更早候选只作历史追溯。
 
-> 本文是当前服务端 `5a31427` 与小程序候选 `4f80bc2` 的门禁快照，完整来源为 `4f80bc2f313fbcac9fc4e976006ae2c356ce2729`。它用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
+> 本文是当前服务端 `5a31427` 与小程序候选 `03d9d25` 的门禁快照，完整来源为 `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`。它用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
 
 ## 1. 当前基线与公网只读证据
 
 | 项目 | 当前事实 |
 | --- | --- |
 | 服务端 release | `5a314275e9bae43730eab5b32638a8baecda5869`（`5a31427`） |
-| 小程序本地候选 | `4f80bc2f313fbcac9fc4e976006ae2c356ce2729`（`4f80bc2`），尚未上传线上 |
+| 小程序本地候选 | `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`（`03d9d25`），尚未上传线上 |
 | 新服务 | `https://test-hp.meiyi.pro/api/v2`，生产模式、数据库/Redis/schema readiness 为 ready |
 | 小程序运行包 | `apps/miniprogram/dist/`，14 个页面；不包含 `*.test.js`/`*.spec.js` |
 | `GET /health/live` | `200` |
@@ -70,8 +70,8 @@
 | `pnpm provider:audit` | 通过；3 份 Provider 接收记录、26 个 `documentId`，其中没有病历或报告正式脱敏样例 intake |
 | `pnpm architecture:audit` | 通过；67 项架构/安全边界规则 |
 | `pnpm --filter @hospital/api test src/app.test.ts src/plugins/error-handler.test.ts` | 通过；56 项测试、316 个断言 |
-| `pnpm docs:audit` | 通过；371 个 Markdown 文档、无断链 |
-| `pnpm release:baseline:audit` | 已通过；服务端 `5a31427` 与小程序候选 `4f80bc2` 指针一致 |
+| `pnpm docs:audit` | 通过；395 个 Markdown 文档、无断链 |
+| `pnpm release:baseline:audit` | 已通过；服务端 `5a31427` 与小程序候选 `03d9d25` 指针一致 |
 
 这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。SSH 运行层只读复核本轮未建立连接，因此不据此新增线上日志结论。
 
