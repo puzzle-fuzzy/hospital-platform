@@ -40,6 +40,36 @@
 显示迁移提示。只有 PB-01 至 PB-16 获得书面 contract、脱敏成功/未找到/拒绝/超时样例和可回滚测试环境后，才进入
 “查档只读 → 绑定状态机 → 建档”分阶段实现。旧仓库、线上服务、数据库和 Redis 均未修改。
 
+## 0.2 2026-08-22 患者目录与新增入口边界复核
+
+本轮继续对照旧端患者切换逻辑与新端 `pages/patient-select`，没有收到新的医院/provider
+绑定契约，也没有调用正在由其他会话整理的众阳自动化接口。当前源码指纹仍为：
+
+| 文件 | 当前 SHA-256 | 本轮新增确认 |
+| --- | --- | --- |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\patient\\patientAdd.vue` | `4d1e382e88e12a967a2ff4da2e27fc88fb2a9102f128670bf0187e1b06c197b5` | 新增入口仍把查档、建档和绑卡串成一个提交动作，不能作为新端写入 contract |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\patient\\patientChange.vue` | `726d8a97433dfec1f09089268676b5b196f34275579ab2ef975c87bacf794e1e` | 手动选择与首次默认选择对档案卡号字段的回写不一致 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\ZY.ts` | `659408140db42dd1705a143850dd568d8f286285cf31b58dfa7ae865607bfe38` | 仍只有旧 Provider 调用声明，没有最终确认、幂等或 owner 绑定语义 |
+
+旧端存在一个会影响数据正确性的字段边界问题：
+
+- 用户手动选择已有患者时，使用 `patInfosFind(type=3)`，请求中的 `cardNo` 来自
+  `medicalCardNo`；返回后却把 `archives.idCardNo` 写入本地 `patCardNo`；
+- 首次自动选择第一位患者时，同样查询 `type=3`，回写则优先使用 `archives.cardNo`，
+  缺失时才退回目录中的 `patCardNo`；
+- 因此旧端的 `patCardNo` 可能表示医疗卡号，也可能表示身份证号。它不能作为新端
+  的医疗卡号、临床 `patId` 或绑定关系事实，必须由 provider contract 重新定义字段来源。
+
+新端当前行为与该旧端边界保持隔离：`onAddPatient` 只显示迁移提示，不注册患者写入路由；
+选择页读取 owner-scoped 平台目录并完成临床映射后，只把平台内部 opaque `patientId`
+写入本地选择；点击已有患者不会由小程序再次拼接 `patInfosFind`，也不会保存 `patId`、
+`thirdPatientId`、完整身份证号或 provider 原始卡号。该行为已通过小程序源码、API 路由
+登记和运行包门禁复核。
+
+结论不变：患者新增、已有档案绑定、修改和解绑继续保持关闭；在新的 provider 文档和
+脱敏样例到达前，不新增兼容字段、不猜测卡号语义、不改动旧服务，也不修改其他会话正在
+建设的 provider 自动化。
+
 ## 1. 结论先行
 
 患者新增、已有档案绑定、修改资料和解绑不是一个简单的“保存表单”接口，而是
