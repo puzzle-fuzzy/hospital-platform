@@ -10,6 +10,7 @@ import {
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryGeneratedIdValidationError,
+	PatientDirectoryReferenceConflictError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotStaleError,
@@ -275,6 +276,23 @@ test("stale patient snapshots return a retryable conflict contract", async () =>
 		error: {
 			code: "patient-sync-stale",
 			message: "本次同步结果已过期，请刷新后重试",
+		},
+	});
+});
+
+test("患者外部档案映射冲突返回安全的 502 契约", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new PatientDirectoryReferenceConflictError();
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(502);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "patient-directory-reference-conflict",
+			message: "患者医院档案映射存在冲突，当前就诊人未更新，请稍后重试",
 		},
 	});
 });

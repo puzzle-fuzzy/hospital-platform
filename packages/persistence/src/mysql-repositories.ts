@@ -33,6 +33,7 @@ import type {
 } from "@hospital/domain";
 import {
 	MAX_USER_PROFILE_VERSION,
+	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
@@ -283,7 +284,17 @@ async function withTransaction<T>(
 	pool: Pool,
 	operation: (connection: PoolConnection) => Promise<T>,
 ): Promise<T> {
-	const connection = await pool.getConnection();
+	let connection: PoolConnection;
+	try {
+		connection = await pool.getConnection();
+	} catch (error) {
+		// 事务连接申请失败时还没有可 rollback 的连接，但它仍然属于
+		// 持久化瞬态故障；统一包装成 transaction，避免调用方看到驱动原文。
+		if (isTransientPersistenceError(error)) {
+			throw new PersistenceUnavailableError("transaction", error);
+		}
+		throw error;
+	}
 	try {
 		await connection.beginTransaction();
 		const result = await operation(connection);
@@ -478,19 +489,63 @@ async function persistPatientProviderReferences(
 	);
 	for (const [referenceKind, providerPatientId] of references) {
 		const now = mysqlDateTime(new Date());
-		await execute<ResultSetHeader>(
+		try {
+			// 这里故意不用 ON DUPLICATE KEY UPDATE：该表同时有当前患者主键和
+			// 外部患者号唯一约束，通用 upsert 会把“另一位患者占用了同一个
+			// patId”的数据冲突静默吞掉，导致上层误以为临床映射已同步成功。
+			await execute<ResultSetHeader>(
+				pool,
+				"INSERT INTO hp_patient_provider_references (owner_user_id, patient_id, provider_name, reference_kind, provider_patient_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+				[
+					input.ownerUserId,
+					patientId,
+					input.provider,
+					referenceKind,
+					providerPatientId,
+					now,
+					now,
+				],
+			);
+			continue;
+		} catch (error) {
+			if (!isDuplicateEntry(error)) throw error;
+		}
+
+		// 重复键可能来自同一患者的幂等重放，也可能来自另一位患者的
+		// provider_patient_id。必须按当前主键加锁判别，不能直接更新冲突行。
+		const existingRows = await execute<PatientProviderReferenceRow[]>(
 			pool,
-			"INSERT INTO hp_patient_provider_references (owner_user_id, patient_id, provider_name, reference_kind, provider_patient_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE provider_patient_id = VALUES(provider_patient_id), updated_at = VALUES(updated_at)",
-			[
-				input.ownerUserId,
-				patientId,
-				input.provider,
-				referenceKind,
-				providerPatientId,
-				now,
-				now,
-			],
+			"SELECT patient_id, provider_patient_id FROM hp_patient_provider_references WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND reference_kind = ? LIMIT 1 FOR UPDATE",
+			[input.ownerUserId, patientId, input.provider, referenceKind],
 		);
+		const existing = existingRows[0];
+		if (!existing) throw new PatientDirectoryReferenceConflictError();
+		if (existing.provider_patient_id === providerPatientId) continue;
+
+		try {
+			const updated = await execute<ResultSetHeader>(
+				pool,
+				"UPDATE hp_patient_provider_references SET provider_patient_id = ?, updated_at = ? WHERE owner_user_id = ? AND patient_id = ? AND provider_name = ? AND reference_kind = ?",
+				[
+					providerPatientId,
+					now,
+					input.ownerUserId,
+					patientId,
+					input.provider,
+					referenceKind,
+				],
+			);
+			if (updated.affectedRows !== 1) {
+				throw new PatientDirectoryReferenceConflictError();
+			}
+		} catch (error) {
+			// 更新时若二级唯一约束仍被其他患者占用，保持同一公共错误，
+			// 不把 MySQL 的内部约束名泄露给客户端。
+			if (isDuplicateEntry(error)) {
+				throw new PatientDirectoryReferenceConflictError();
+			}
+			throw error;
+		}
 	}
 }
 
@@ -1374,7 +1429,13 @@ export function createMySqlRepositories(
 			});
 		},
 		async upsertFromDirectory(input) {
-			return upsertPatientFromDirectory(pool, input, new Date().toISOString());
+			// 单条 upsert 也必须具备原子性：患者主表更新和临床 patId
+			// 映射写入不能一成功一失败，否则会留下“资料已更新但临床身份未
+			// 同步”的半状态。完整快照路径同样使用这个 helper，但有自己的
+			// 更大事务，不会重复套事务。
+			return withTransaction(pool, async (connection) =>
+				upsertPatientFromDirectory(connection, input, new Date().toISOString()),
+			);
 		},
 		async replaceDirectorySnapshot(
 			input: PatientDirectorySnapshotInput,

@@ -47,3 +47,19 @@ export class PatientDirectorySnapshotStaleError extends Error {
 		this.name = "PatientDirectorySnapshotStaleError";
 	}
 }
+
+/**
+ * 同一 owner/provider/用途下的外部患者身份已经被另一位内部患者占用。
+ *
+ * 这不是可以静默覆盖的普通重复写入：例如历史失效患者仍保留同一个 HIS
+ * `patId` 时，当前同步结果不能把这两个内部患者合并，也不能把冲突当成
+ * 成功。持久化层会回滚本次患者更新，API 只返回安全的可重试错误。
+ */
+export class PatientDirectoryReferenceConflictError extends Error {
+	constructor() {
+		super(
+			"Patient directory provider reference conflicts with another patient",
+		);
+		this.name = "PatientDirectoryReferenceConflictError";
+	}
+}

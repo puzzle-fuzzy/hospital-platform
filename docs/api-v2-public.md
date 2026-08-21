@@ -366,6 +366,7 @@ query schema 的内部任务传入未知值，也只能返回 `400 outpatient-pa
 | 409 | `patient-sync-stale` | 本次患者目录结果早于已经提交的新快照，服务端拒绝旧结果回写 |
 | 409 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
 | 502 | `patient-directory-snapshot-unsafe` | Provider 返回空患者目录但当前已有就诊人，服务端拒绝执行不确定的批量失效 |
+| 502 | `patient-directory-reference-conflict` | 同一用户的医院档案映射与另一位就诊人冲突，本次就诊人未更新 |
 | 502 | `provider-request-rejected` | provider 明确拒绝请求，不能盲目重试 |
 | 502 | `provider-response-invalid` | provider 返回的数据违反平台读模型，不能作为患者端业务事实 |
 | 503 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |

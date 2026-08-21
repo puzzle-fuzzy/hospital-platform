@@ -325,6 +325,7 @@ test("public API documentation lists every stable public error code", async () =
 		"patient-query-invalid",
 		"patient-sync-in-progress",
 		"patient-directory-snapshot-unsafe",
+		"patient-directory-reference-conflict",
 		"user-profile-invalid",
 		"user-profile-conflict",
 	] as const;

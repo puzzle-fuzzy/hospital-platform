@@ -7,6 +7,13 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（患者医院档案映射冲突）：复核 `hp_patient_provider_references` 的患者主键与外部患者号双重唯一约束时，发现
+  `ON DUPLICATE KEY UPDATE` 会把历史失效患者占用同一 HIS `patId` 的冲突静默当成成功；当前就诊人可能已经写入目录资料，
+  但临床映射实际没有落库。现已改为显式 INSERT，重复时按当前患者主键加锁判别：同一患者保持幂等，跨患者冲突返回稳定的
+  `patient-directory-reference-conflict` 并回滚整条单患者事务；补充 MySQL 回归测试、API/小程序错误码和中文注释。该修正
+  尚未部署，真实 MySQL 历史冲突数据、Provider 同步和真机业务仍待验收；旧 Python 服务未修改、未重启，详见
+  [`patient-provider-reference-conflict-2026-08-21.md`](release/patient-provider-reference-conflict-2026-08-21.md)。
+
 - 2026-08-21（微信身份重复键竞争）：审计发现 MySQL 身份首次创建发生重复键竞争时，后到请求虽有
   `unionId` 却会直接返回并发胜出行，若胜出行暂时为空，后续患者目录同步会被错误判定为身份依赖未配置。
   现已让重复键分支与已存在分支共用“仅补齐 NULL、失败后权威回读”的流程，并补充回归测试；该修正尚未部署，

@@ -72,6 +72,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"patient-sync-stale": "本次同步结果已过期，请刷新后重试",
 		"patient-directory-snapshot-unsafe":
 			"外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
+		"patient-directory-reference-conflict":
+			"患者医院档案映射存在冲突，当前就诊人未更新，请稍后重试",
 		"provider-request-rejected": "外部服务拒绝了本次请求，请稍后重试",
 		"provider-response-invalid": "外部服务返回数据异常，请稍后重试",
 		"provider-temporarily-unavailable": "外部服务暂时不可用，请稍后重试",

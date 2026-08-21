@@ -12,6 +12,7 @@ import {
 	InvalidReportKindError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryGeneratedIdValidationError,
+	PatientDirectoryReferenceConflictError,
 	PatientDirectoryResultValidationError,
 	PatientDirectorySnapshotResultValidationError,
 	PatientDirectorySnapshotStaleError,
@@ -146,6 +147,17 @@ export function errorHandlerPlugin() {
 					error: {
 						code: "patient-sync-stale",
 						message: "本次同步结果已过期，请刷新后重试",
+					},
+				};
+			}
+
+			if (error instanceof PatientDirectoryReferenceConflictError) {
+				set.status = 502;
+				return {
+					success: false,
+					error: {
+						code: "patient-directory-reference-conflict",
+						message: "患者医院档案映射存在冲突，当前就诊人未更新，请稍后重试",
 					},
 				};
 			}

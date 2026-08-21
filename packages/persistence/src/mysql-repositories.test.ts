@@ -7,6 +7,7 @@ import type {
 } from "@hospital/domain";
 import {
 	createWechatPaymentNotificationEvent,
+	PatientDirectoryReferenceConflictError,
 	UserProfileVersionConflictError,
 } from "@hospital/domain";
 import type { Pool } from "mysql2/promise";
@@ -204,7 +205,7 @@ test("MySQL 微信身份重复键竞争后仍补齐迟到的 unionId", async () 
 test("MySQL transient write failures become a safe persistence error", async () => {
 	const pool = {
 		async getConnection() {
-			throw new Error("transaction connection is not used");
+			throw protocolConnectionLostError();
 		},
 		async execute() {
 			throw protocolConnectionLostError();
@@ -276,6 +277,92 @@ test("MySQL patient directory upsert stores provider mapping but returns interna
 		"INSERT INTO hp_patient_provider_references",
 	);
 	expect(state.values[2]).toContain("his-patient-001");
+});
+
+test("MySQL patient directory upsert keeps same-patient mapping idempotent", async () => {
+	const existingPatient = {
+		patient_id: "internal-patient-001",
+		owner_user_id: "user-001",
+		display_name: "旧姓名",
+		relationship: "self",
+		card_number_masked: "******7890",
+		source: "hospital-his",
+		clinical_access: "ready",
+		provider_name: "zhongyang",
+		provider_patient_id: "provider-patient-001",
+		directory_last_seen_at: "2026-08-15 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([
+		[existingPatient],
+		{ affectedRows: 1 },
+		duplicateEntryError(),
+		[
+			{
+				patient_id: "internal-patient-001",
+				provider_patient_id: "old-his-patient-001",
+			},
+		],
+		{ affectedRows: 1 },
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.upsertFromDirectory({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-001",
+			provider: "zhongyang",
+			profile: {
+				providerPatientId: "provider-patient-001",
+				providerReferences: { "his-patient": "new-his-patient-001" },
+				displayName: "新姓名",
+				relationship: "self",
+				cardNumberMasked: "******7890",
+			},
+		}),
+	).resolves.toMatchObject({
+		id: "internal-patient-001",
+		displayName: "新姓名",
+		clinicalAccess: "ready",
+	});
+	expect(state.statements[2]).toContain(
+		"INSERT INTO hp_patient_provider_references",
+	);
+	expect(state.statements[3]).toContain("FOR UPDATE");
+	expect(state.statements[4]).toContain(
+		"UPDATE hp_patient_provider_references",
+	);
+	expect(state.committed).toBe(true);
+	expect(state.rolledBack).toBe(false);
+});
+
+test("MySQL patient directory mapping collision rolls back the whole upsert", async () => {
+	const { pool, state } = createFakePool([
+		[],
+		{ affectedRows: 1 },
+		duplicateEntryError(),
+		[],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.patients.upsertFromDirectory({
+			ownerUserId: "user-001",
+			patientId: "internal-patient-new",
+			provider: "zhongyang",
+			profile: {
+				providerPatientId: "provider-patient-new",
+				providerReferences: { "his-patient": "his-patient-owned-by-old" },
+				displayName: "张三",
+				relationship: "self",
+				cardNumberMasked: "******7890",
+			},
+		}),
+	).rejects.toBeInstanceOf(PatientDirectoryReferenceConflictError);
+	// 患者主表 INSERT 已经发生，但事务没有提交；否则后续列表会看到一个
+	// 没有临床 patId 的半成品患者，业务层无法区分冲突和暂不可查。
+	expect(state.committed).toBe(false);
+	expect(state.rolledBack).toBe(true);
+	expect(state.statements[3]).toContain("FOR UPDATE");
 });
 
 test("MySQL patient sync operation uses owner-scoped lease and replay states", async () => {
