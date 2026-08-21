@@ -49,3 +49,25 @@
 2. 真机扫码后先记录微信登录、`GET /me`、患者目录读取和同步，再验证显式切换患者、预约历史和门诊费用只读页。
 3. 若真机操作后服务端仍只有 `infrastructure` 事件，应先检查开发者工具项目根、`miniprogramRoot`、公网 API 前缀和二维码来源，不通过猜测修改业务代码。
 4. 预约写入、患者绑定、二维码、报告详情、支付、医保和 HIS 回写继续遵守各自 contract 缺口门禁。
+
+## 4. 启动模式与依赖状态日志
+
+通过 SSH 只读检索当前 API unit 的结构化 `service.started` 事件，最近一次记录为
+`2026-08-21 03:54:12 CST`（原始日志时间为 UTC）。日志明确包含以下字段：
+
+| 字段 | 结果 |
+| --- | --- |
+| `runtimeMode` | `production` |
+| `host` / `port` | `10.0.0.3` / `18081` |
+| `persistenceDatabaseProbe` | `ok` |
+| `persistenceRedisProbe` | `ok` |
+| `persistenceSchemaProbe` | `ok` |
+| `persistenceRepositories` | `enabled` |
+| `authRuntimeStatus` | `ready` |
+| `authIdentityGateway` / `authSessionStore` | `injected` / `injected` |
+| 微信身份 / 患者目录 / 预约目录 / 预约记录 / 门诊费用 | `configured` |
+| 微信支付 / 报告目录 / 报告详情 | `disabled` |
+
+因此，启动日志能够直接区分开发/生产模式、依赖 readiness 和业务 gate；后续真机请求
+若没有进入 `auth.*` 或患者业务事件，应先检查候选二维码和公网请求路径，不把启动成功
+误判为微信业务成功，也不因页面需要而打开支付或报告 gate。
