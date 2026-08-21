@@ -33,7 +33,7 @@
 
 ## 4. 本轮门禁结果
 
-- 小程序测试：203 pass、0 fail、1534 个 expect；
+- 小程序测试：204 pass、0 fail、1539 个 expect；
 - 小程序 typecheck、build、runtime:verify 通过；
 - 生成 14 个页面脚本，运行包不含 `*.test.js`、`*.spec.js` 或 workspace 裸模块运行时引用；
 - `dist/build-info.json.sourceRevision` 已固定为 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`，真机前必须在正确的 `apps/miniprogram/` 项目重新普通编译。

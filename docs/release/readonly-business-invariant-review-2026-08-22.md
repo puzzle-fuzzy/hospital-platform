@@ -51,7 +51,7 @@
 - API 全量：`204 pass / 0 fail / 846 expects`；
 - domain 预约与门诊费用：`7 pass / 0 fail / 15 expects`；
 - 众阳预约与门诊费用 adapter：`33 pass / 0 fail / 74 expects`；
-- 原生小程序：`203 pass / 0 fail / 1534 expects`；
+- 原生小程序：`204 pass / 0 fail / 1539 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
 - 文档链接审计：451 篇文档无断链；生产基线审计指向 `84fac75c` 和 `90fd783`。
 
@@ -65,7 +65,7 @@
 - `GET https://test-hp.meiyi.pro/api/v2/health/ready`：`200`，`database/redis/schema` 均为 `ok`；
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
-- `pnpm --filter @hospital/miniprogram test`：`203 pass / 0 fail / 1534 expects`；
+- `pnpm --filter @hospital/miniprogram test`：`204 pass / 0 fail / 1539 expects`；
 - `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `84fac75c`、小程序 `90fd783`。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
