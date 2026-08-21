@@ -10,6 +10,10 @@
   退款中、已退款或作废误报为已缴费。本轮没有发现需要修改的业务逻辑，也没有打开支付/医保/结算 gate；
   `pnpm architecture:audit`、`migration:audit`、`provider:audit`、`docs:audit` 和 `release:baseline:audit` 均通过。
 
+- 2026-08-21（报告患者上下文复核）：报告 service `20 pass`、持久化 owner/TTL 测试 `46 pass`、小程序客户端
+  相关测试 `174 pass`；确认目录只用 owner-scoped `his-patient`，详情引用绑定 owner/patient/reportId/TTL，
+  LIS 之外不生成详情引用，未配置详情依赖不会伪装成空报告。本轮没有 Provider、公网业务或真机证据，报告 gate 继续关闭。
+
 - 2026-08-21 11:34 CST（线上只读复核）：当前 release `5a31427` 的新 API 为 active，监听 `10.0.0.3:18081`；旧 Python
   `8001` 继续监听，Worker 按设计 inactive。最近一小时日志解析 `19` 条、解析错误 `0`，仅有基础设施探针（HTTP 200/401/404），
   没有新的微信、患者、预约、门诊费用或普通资料业务事件。本次没有部署、重启或写入，不能把空窗口解释为业务失败或真机完成；详见
