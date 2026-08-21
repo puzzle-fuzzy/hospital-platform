@@ -1,17 +1,17 @@
 # 当前未开放业务门禁审计（2026-08-21）
 
-> 当前候选：服务端 release `002acc1b`；小程序运行包来源 `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`（提交 `47be0bc`）。
+> 当前候选：服务端 release `002acc1b`；小程序运行包来源 `f3074243e136621d64f296a687c0fb2ca8230991`（提交 `f307424`）。
 
-> 当前基线更新：服务端 `002acc1b`；小程序候选 `47be0bc`；完整运行包来源 `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `002acc1b`；小程序候选 `f307424`；完整运行包来源 `f3074243e136621d64f296a687c0fb2ca8230991`。下文更早候选只作历史追溯。
 
-> 本文是前一轮服务端 `9f491cb5` 门禁快照的当前延续，当前服务端 release 已为 `002acc1b`，小程序候选已更新为 `47be0bc`，完整来源为 `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`。它用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
+> 本文是前一轮服务端 `9f491cb5` 门禁快照的当前延续，当前服务端 release 已为 `002acc1b`，小程序候选已更新为 `f307424`，完整来源为 `f3074243e136621d64f296a687c0fb2ca8230991`。它用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
 
 ## 1. 当前基线与公网只读证据
 
 | 项目 | 当前事实 |
 | --- | --- |
 | 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`（`002acc1b`） |
-| 小程序本地候选 | `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`（`47be0bc`），尚未上传线上 |
+| 小程序本地候选 | `f3074243e136621d64f296a687c0fb2ca8230991`（`f307424`），尚未上传线上 |
 | 新服务 | `https://test-hp.meiyi.pro/api/v2`，生产模式、数据库/Redis/schema readiness 为 ready |
 | 小程序运行包 | `apps/miniprogram/dist/`，14 个页面；不包含 `*.test.js`/`*.spec.js` |
 | `GET /health/live` | `200` |
@@ -77,7 +77,7 @@
 | `pnpm architecture:audit` | 通过；67 项架构/安全边界规则 |
 | `pnpm --filter @hospital/api test src/app.test.ts src/plugins/error-handler.test.ts` | 通过；56 项测试、316 个断言 |
 | `pnpm docs:audit` | 通过；395 个 Markdown 文档、无断链 |
-| `pnpm release:baseline:audit` | 服务端 `002acc1b` 与小程序候选 `47be0bc` 指针一致；当前运行层发布证据见 [`002acc1b-production-acceptance-2026-08-22.md`](002acc1b-production-acceptance-2026-08-22.md) |
+| `pnpm release:baseline:audit` | 服务端 `002acc1b` 与小程序候选 `f307424` 指针一致；当前运行层发布证据见 [`002acc1b-production-acceptance-2026-08-22.md`](002acc1b-production-acceptance-2026-08-22.md) |
 
 这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。
 本轮 SSH 只读复核只确认运行层和空业务窗口，不新增任何业务完成结论。
