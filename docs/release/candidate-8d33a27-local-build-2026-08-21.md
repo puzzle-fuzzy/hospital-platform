@@ -11,17 +11,17 @@
 
 ## 本地验证
 
-本候选先完成小程序定向测试、typecheck、Biome format 和 lint；全仓 `pnpm check`、构建及 `runtime:verify` 将在候选文档指针更新后执行，并在本页补录最终结果。并行会话维护的 `apps/miniprogram/project.config.json` 和 `.codegraph/` 未纳入本候选。
+2026-08-21 本候选已完成全仓 `pnpm check`、小程序构建和独立 `runtime:verify`。并行会话维护的 `apps/miniprogram/project.config.json` 和 `.codegraph/` 未纳入本候选。
 
 | 项目 | 结果 |
 | --- | --- |
 | 小程序全量测试 | 182 项通过，0 项失败，1445 个断言 |
 | 小程序 typecheck | 通过 |
 | 小程序 Biome | 通过 |
-| 小程序 build | 待候选基线更新后复核 |
-| `runtime:verify` | 待候选基线更新后复核 |
-| `dist/services/single-flight.js` | 应存在 |
-| `dist/services/single-flight.test.js` | 不应存在 |
+| 小程序 build | 通过；14 个页面运行脚本已发布 |
+| `runtime:verify` | 通过；来源为完整 `8d33a27e5aa4c5808449116bd3c3740d7a823e80` |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
 | `dist/` 中 `*.test.js` / `*.spec.js` | 0 个 |
 
 ## 业务边界
