@@ -54,6 +54,44 @@ test("永久会话、扫描后消失和截断结果都不能通过 TTL 审计", 
 	expect(result.ttlErrorCount).toBe(1);
 });
 
+test("最后一页超过 maxKeys 时仍严格限制审计集合并标记截断", async () => {
+	const ttlByKey = new Map([
+		["hospital:session:one", 120],
+		["hospital:session:two", 90],
+		["hospital:session:three", 60],
+	]);
+	const result = await auditRedisSessionTtl(
+		{
+			async scan() {
+				// Redis 的最后一页可以比 COUNT 更大；不能假设服务端会替
+				// 客户端切片到 maxKeys。
+				return [
+					"0",
+					[
+						"hospital:session:one",
+						"hospital:session:two",
+						"hospital:session:three",
+					],
+				];
+			},
+			async ttl(key) {
+				return ttlByKey.get(key) ?? -2;
+			},
+		},
+		{ maxKeys: 2 },
+	);
+
+	expect(result).toEqual({
+		sessionCount: 2,
+		ttlMin: 90,
+		ttlMax: 120,
+		noExpiryCount: 0,
+		ttlErrorCount: 0,
+		truncated: true,
+		verified: false,
+	});
+});
+
 test("Redis 会话 TTL 审计隐藏 SCAN 原始错误并校验有界参数", async () => {
 	await expect(
 		auditRedisSessionTtl({

@@ -19,6 +19,7 @@
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
 | [`release/miniprogram-devtools-project-preflight-2026-08-21.md`](release/miniprogram-devtools-project-preflight-2026-08-21.md) | 当前候选运行包和微信开发者工具项目选择前置检查；防止误用旧 `mp-weixin` 窗口 |
 | [`release/redis-readiness-concurrency-audit-2026-08-20.md`](release/redis-readiness-concurrency-audit-2026-08-20.md) | Redis readiness、会话读写和 TTL 维护的连接单飞边界；不重放业务命令，失败后允许安全重试 |
+| [`release/redis-session-ttl-audit-hard-cap-2026-08-21.md`](release/redis-session-ttl-audit-hard-cap-2026-08-21.md) | Redis 会话 TTL 只读审计 `maxKeys` 硬上限、最后一页超量返回和当前线上未验证边界 |
 | [`release/observability-redaction-casing-audit-2026-08-20.md`](release/observability-redaction-casing-audit-2026-08-20.md) | Pino 日志脱敏的 HTTP 头大小写、幂等键和患者身份字段变体边界；仅为本地新项目代码审计，不代表线上已切换 |
 | [`release/observability-deep-redaction-audit-2026-08-21.md`](release/observability-deep-redaction-audit-2026-08-21.md) | Pino 10 固定层级路径的深层泄露缺口、递归 JSON 输出门禁、合成探针和未部署边界 |
 | [`release/patient-relationship-unknown-boundary-2026-08-20.md`](release/patient-relationship-unknown-boundary-2026-08-20.md) | 患者关系明确“其他”和关系缺失/未知的契约、adapter 映射、小程序文案与验收边界 |

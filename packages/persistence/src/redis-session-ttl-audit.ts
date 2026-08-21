@@ -114,11 +114,21 @@ export async function auditRedisSessionTtl(
 					"Redis session key scan returned an invalid key",
 				);
 			}
-			keys.add(key);
-			if (keys.size >= maxKeys && cursor !== "0") {
+			// `COUNT` 只是 Redis 的分页提示，最后一页仍可能一次返回超过
+			// maxKeys 个 key。先判断容量再写入，才能让 maxKeys 真正成为硬
+			// 上限；超出部分不读取 TTL，并明确把结果标记为截断，避免把
+			// 一份超出预算的部分扫描伪装成完整审计。
+			if (!keys.has(key) && keys.size >= maxKeys) {
 				truncated = true;
 				break;
 			}
+			keys.add(key);
+		}
+		// 即使当前页没有超过上限，只要游标仍未回到 0，就说明还有
+		// 未扫描的 keyspace；达到硬上限后必须停止并把结果标记为截断，
+		// 否则会继续扫描超过预算，甚至在异常 Redis 响应下无限循环。
+		if (keys.size >= maxKeys && cursor !== "0") {
+			truncated = true;
 		}
 	} while (cursor !== "0" && !truncated);
 

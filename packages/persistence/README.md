@@ -44,7 +44,8 @@ MySQL repository 每次读取先选择当前有效的 `published content_version
 基础连接探针的 `ok` 只证明 MySQL `SELECT 1` 与 Redis `PING` 可用；schema readiness 还必须通过 migration history 以及关键表、列、索引和 owner 外键的只读结构检查，不代表微信、医保、HIS 或支付 provider 已接通。
 
 Redis 会话 TTL 审计通过 `auditRedisSessionTtl` 提供独立的只读聚合：它只扫描固定的
-`hospital:session:*` 前缀，在内存中去重并读取 TTL，不返回 key 或凭证；扫描上限、永久 key、
+`hospital:session:*` 前缀，在内存中去重并读取 TTL，不返回 key 或凭证；`maxKeys` 是严格的
+内存集合硬上限，Redis 最后一页超量返回或游标尚未归零时都会标记为截断，扫描上限、永久 key、
 扫描后消失的 key 和权限错误都会让结果保持未验证。正常 API 只使用 `GET/SET EX`，不应为该维护
 命令扩展常驻 API 的 ACL；需要审计时优先注入单独的 `REDIS_SESSION_AUDIT_URL`。
 
