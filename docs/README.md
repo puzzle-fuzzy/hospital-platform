@@ -76,6 +76,7 @@
 | [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `968a587` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界；当前线上请以 `c8eef370` 为准 |
 | [`release/c8eef370-production-acceptance-2026-08-21.md`](release/c8eef370-production-acceptance-2026-08-21.md) | 当前 `c8eef370` 真实生产切换、隔离候选验收、新旧服务共存和未完成真机业务边界 |
+| [`release/current-c8eef370-runtime-observation-2026-08-21-2310.md`](release/current-c8eef370-runtime-observation-2026-08-21-2310.md) | 当前 `c8eef370` 新旧服务共存、readiness 和最近 30 分钟低敏日志只读观察；没有新的真机业务事件 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md) | `5a31427` 切换后 P0 日志空窗口的安全计数、门禁缺失项和下一次真机取证顺序 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0451.md`](release/current-5a31427-p0-business-observation-2026-08-21-0451.md) | `5a31427` 04:51 CST 线上只读观测：新旧服务共存正常，但最近 30 分钟没有新的微信/患者/预约/费用/资料业务事件 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0409.md`](release/current-5a31427-p0-business-observation-2026-08-21-0409.md) | `5a31427` 04:09 CST 线上只读复核；新旧端口正常、日志解析无误，但仍没有新的真机业务请求 |

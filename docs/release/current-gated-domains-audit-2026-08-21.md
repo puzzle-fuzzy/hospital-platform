@@ -23,6 +23,12 @@
 
 上述请求未携带 Bearer、微信身份、患者标识或 Provider 凭证，也未写入 MySQL/Redis；关闭路由的 `404` 是预期门禁证据，不是需要用兼容转发填补的故障。
 
+2026-08-21 23:10 CST 通过内网只读 SSH 复核当前 `c8eef370`：API service 为 `active`，Worker 为 `inactive`，新 API
+`10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，readiness 的 database/Redis/schema 均为 `ok`。
+最近 30 分钟低敏聚合为 `parsedRecords=5`、`parseErrors=0`、HTTP `200=4`/`404=1`，事件域仅为
+`infrastructure`，没有新的认证、患者、预约、费用或 Provider 业务事件。完整结果见
+[`current-c8eef370-runtime-observation-2026-08-21-2310.md`](current-c8eef370-runtime-observation-2026-08-21-2310.md)。
+
 2026-08-21 后续只读业务复核又对照了已登记的众阳 `2.6.33` 门诊待支付材料：adapter 只接受
 `tradeStatus=1`（待支付）和 `tradeStatus=3`（已支付），并拒绝 `2`（已生成结算）、`4`（退款中）、
 `5`（已退款）和 `9`（作废）。因此没有发现把中间态误报为“已缴费”的代码缺口；支付/医保/结算 gate
@@ -71,9 +77,10 @@
 | `pnpm architecture:audit` | 通过；67 项架构/安全边界规则 |
 | `pnpm --filter @hospital/api test src/app.test.ts src/plugins/error-handler.test.ts` | 通过；56 项测试、316 个断言 |
 | `pnpm docs:audit` | 通过；395 个 Markdown 文档、无断链 |
-| `pnpm release:baseline:audit` | 本轮文档同步后通过；服务端 `c8eef370` 与小程序候选 `f488c6f3` 指针一致 |
+| `pnpm release:baseline:audit` | 服务端 `c8eef370` 与小程序候选 `f488c6f3` 指针一致；当前运行层只读观察另见 [`current-c8eef370-runtime-observation-2026-08-21-2310.md`](current-c8eef370-runtime-observation-2026-08-21-2310.md) |
 
-这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。SSH 运行层只读复核本轮未建立连接，因此不据此新增线上日志结论。
+这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。
+本轮 SSH 只读复核只确认运行层和空业务窗口，不新增任何业务完成结论。
 
 ## 6. 日志与旧服务边界
 

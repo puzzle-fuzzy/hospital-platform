@@ -10,6 +10,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 23:10 CST（当前 `c8eef370` 运行层只读复核）：新 API service 为 `active`，Worker 为 `inactive`，新 API
+  `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，readiness 的 database/Redis/schema 均为 `ok`。最近 30 分钟
+  journald 低敏聚合为 `parsedRecords=5`、`parseErrors=0`、HTTP `200=4`/`404=1`，只出现 infrastructure 事件，
+  没有新的微信、患者、预约、费用或 Provider 业务事件；旧 Python 未修改、未重启。下一步仍需重新打开新小程序项目、
+  普通编译并从当前二维码开始三层真机验收，详见 [`release/current-c8eef370-runtime-observation-2026-08-21-2310.md`](release/current-c8eef370-runtime-observation-2026-08-21-2310.md)。
+
 - 2026-08-21（普通资料 MySQL 读模型错误边界）：继续复核资料 service 之外的 MySQL 行映射，发现未知性别、越界年龄或版本此前会抛出普通 `Error`，绕过统一的 `persistence-invalid` 响应和 `readModelViolation` 请求日志。现已让仓储复用领域层 `normalizeUserProfileReadModel`，并补充版本、性别回归测试和中文边界注释；本地 persistence `93 pass / 0 fail`，全仓 `pnpm check` 通过。候选服务端为 `160e7c85`，尚未部署、未修改旧 Python 服务、数据库或 Redis；真实资料 GET/PUT、双会话 409 和真机三层证据仍待完成，详见 [`profile-mysql-read-model-validation-2026-08-21.md`](release/profile-mysql-read-model-validation-2026-08-21.md)。
 
 - 2026-08-21（Worker 启动失败日志模式）：发现 Worker 在配置不完整或 MySQL/schema 探针失败后会提前退出，原有
