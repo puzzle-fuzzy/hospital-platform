@@ -48,12 +48,12 @@
 
 本轮定向回归结果：
 
-- API 全量：`204 pass / 0 fail / 846 expects`；
+- API 全量：`206 pass / 0 fail / 849 expects`；
 - domain 预约与门诊费用：`7 pass / 0 fail / 15 expects`；
 - 众阳预约与门诊费用 adapter：`33 pass / 0 fail / 74 expects`；
 - 原生小程序：`204 pass / 0 fail / 1539 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：451 篇文档无断链；生产基线审计指向 `84fac75c` 和 `90fd783`。
+- 文档链接审计：453 篇文档无断链；生产基线审计指向 `84fac75c` 和 `90fd783`。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 

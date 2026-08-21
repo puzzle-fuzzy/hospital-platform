@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { ProviderRequestError } from "@hospital/adapters";
 import {
-	DependencyNotConfiguredError,
 	IdentityUserReadModelValidationError,
 	WechatIdentityResultValidationError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
+import { PersistenceUnavailableError } from "@hospital/persistence";
 import {
 	AuthService,
 	createRedisSessionTokenService,
@@ -31,7 +31,7 @@ test("Redis session service issues and verifies a TTL-backed token", async () =>
 	expect((await service.verify(issued.accessToken)).userId).toBe("user-001");
 });
 
-test("Redis session service fails closed when Redis is unavailable", async () => {
+test("Redis session service 将已配置 Redis 的传输故障标记为持久化暂不可用", async () => {
 	const service = createRedisSessionTokenService({
 		async save() {
 			throw new Error("redis unavailable");
@@ -42,11 +42,26 @@ test("Redis session service fails closed when Redis is unavailable", async () =>
 	});
 
 	expect(service.issue("user-001")).rejects.toBeInstanceOf(
-		DependencyNotConfiguredError,
+		PersistenceUnavailableError,
 	);
 	expect(service.verify("token-001")).rejects.toBeInstanceOf(
-		DependencyNotConfiguredError,
+		PersistenceUnavailableError,
 	);
+});
+
+test("统一鉴权入口不会把 Redis 暂时故障降级为 401", async () => {
+	const sessions = {
+		async issue() {
+			return { accessToken: "token-001", expiresInSeconds: 3600 };
+		},
+		async verify() {
+			throw new PersistenceUnavailableError("read");
+		},
+	};
+
+	await expect(
+		requirePrincipal("Bearer token-001", sessions),
+	).rejects.toBeInstanceOf(PersistenceUnavailableError);
 });
 
 test("Redis session 读模型返回异常 userId 时拒绝进入业务", async () => {

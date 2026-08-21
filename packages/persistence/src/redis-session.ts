@@ -1,3 +1,5 @@
+import { PersistenceUnavailableError } from "./errors";
+
 /**
  * 新平台会话的唯一 Redis key 前缀。
  *
@@ -40,10 +42,30 @@ export function createRedisSessionStore(
 ): RedisSessionStore {
 	return {
 		async save(accessToken, userId, expiresInSeconds) {
-			await client.set(sessionKey(accessToken), userId, "EX", expiresInSeconds);
+			try {
+				await client.set(
+					sessionKey(accessToken),
+					userId,
+					"EX",
+					expiresInSeconds,
+				);
+			} catch (error) {
+				// Redis 已经注入但本次 SET 失败，事实是持久化暂时不可用，
+				// 不是“没有配置”。统一在 persistence 边界投影，避免 API
+				// 把登录失败错误地返回为 dependency-not-configured。
+				if (error instanceof PersistenceUnavailableError) throw error;
+				throw new PersistenceUnavailableError("write", error);
+			}
 		},
 		async findUserId(accessToken) {
-			return (await client.get(sessionKey(accessToken))) ?? undefined;
+			try {
+				return (await client.get(sessionKey(accessToken))) ?? undefined;
+			} catch (error) {
+				// GET 失败不能被当成“没有这个 token”：前者代表基础设施故障，
+				// 后者才是正常的会话过期/主动退出，分别对应 503 和 401。
+				if (error instanceof PersistenceUnavailableError) throw error;
+				throw new PersistenceUnavailableError("read", error);
+			}
 		},
 	};
 }

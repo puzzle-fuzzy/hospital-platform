@@ -24,11 +24,11 @@
 在仓库根目录 `E:\__Super_Core__\hospital-platform` 执行 `pnpm check`，结果为通过：
 
 - 架构边界审计通过，共 67 条规则；
-- 14 页迁移台账、Provider 文档接收审计和 443 篇 Markdown 链接审计通过；
+- 14 页迁移台账、Provider 文档接收审计和 453 篇 Markdown 链接审计通过；
 - 发布基线与当前服务端/小程序来源一致；
 - Biome 格式检查和 lint 通过；
 - 9 个 workspace 包 typecheck/test/build 全部通过；
-- API 测试 204 pass、0 fail；
+- API 测试 206 pass、0 fail；
 - 小程序构建再次生成完整 `dist/`，并通过运行时页面清单门禁。
 
 这些结果只证明代码和运行包候选可进入验收，不证明微信登录、患者切换、预约、报告或门诊费用已经在真机完成。
@@ -191,7 +191,7 @@ LIS/PACS/ECG 只读目录；未指定来源时三路 Provider 必须全部成功
 仍等于本次服务端生成的 10 分钟窗口。现在 owner、patient、Provider 报告号和两个时间字段都必须与输入完全一致，否则隐藏详情入口、
 保留安全目录摘要并记录低敏告警；报告详情读取仍按 owner + patient + reportId + TTL 查询，错范围引用不会访问 Provider。
 
-新增回归测试覆盖“仓储将完整引用窗口整体平移 30 分钟但自身仍保持 10 分钟 TTL”的情况；API 全量测试 `205 pass / 0 fail`，
+新增回归测试覆盖“仓储将完整引用窗口整体平移 30 分钟但自身仍保持 10 分钟 TTL”的情况；API 全量测试 `206 pass / 0 fail`，
 报告领域/adapter/service 定向测试 `46 pass / 0 fail`，小程序 API/页面验收测试保持通过。本轮没有调用真实报告 Provider、没有写数据库/Redis、
 没有修改旧项目；报告目录/详情的公网、Provider、日志和真机证据仍未完成，附件下载、影像详情、体检报告、报告解读继续关闭。
 

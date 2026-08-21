@@ -474,7 +474,7 @@ test("会话 Redis 失效时返回 401，而不是把缺失 token 当作依赖�
 	});
 });
 
-test("会话 Redis 读取故障保持 503，不能误报为登录失效", async () => {
+test("会话 Redis 读取故障保持持久化暂不可用 503，不能误报为登录失效", async () => {
 	const services = createDefaultApplicationServices({
 		sessionStore: {
 			async save() {},
@@ -490,13 +490,14 @@ test("会话 Redis 读取故障保持 503，不能误报为登录失效", async 
 	);
 
 	// 网络、ACL 或连接池故障不能触发客户端清理仍可能恢复的会话，
-	// 否则用户会被错误地当成退出状态，且诊断日志会丢失真实依赖故障。
+	// 也不能伪装成“服务未配置”；否则用户会被错误地当成退出状态，
+	// 且运维无法区分配置缺失与 Redis 瞬态故障。
 	expect(response.status).toBe(503);
 	expect(await response.json()).toEqual({
 		success: false,
 		error: {
-			code: "dependency-not-configured",
-			message: "该服务暂未配置完成，请稍后重试",
+			code: "persistence-temporarily-unavailable",
+			message: "数据服务暂时不可用，请稍后重试",
 		},
 	});
 });

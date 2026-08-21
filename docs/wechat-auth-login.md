@@ -349,6 +349,7 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | 现象 | 结论 | 处理 |
 | --- | --- | --- |
 | `dependency-not-configured` | provider、MySQL、schema 或 Redis gate 未打开 | 看启动日志，不要重试真机 |
+| `persistence-temporarily-unavailable` | 已配置的 MySQL/Redis 在本次请求中连接或传输失败 | 保留本地会话，不把它当作退出登录；使用 requestId 排查后重试 |
 | `provider-request-rejected` | code 无效、过期或微信拒绝 | 重新触发 `wx.login`，核对 AppID/域名 |
 | `provider-temporarily-unavailable` | 微信接口超时、限流或 5xx | 使用 requestId 排查，按 retryable 处理 |
 | `unauthorized` | Redis 中 token 不存在或已过期 | 重新登录，检查 Redis TTL 和实例连通性 |

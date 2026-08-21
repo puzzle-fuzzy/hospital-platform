@@ -22,7 +22,10 @@ import {
 	createNoopLogger,
 	providerFailureMetadata,
 } from "@hospital/observability";
-import type { RedisSessionStore } from "@hospital/persistence";
+import {
+	PersistenceUnavailableError,
+	type RedisSessionStore,
+} from "@hospital/persistence";
 import { HttpError } from "../../errors";
 
 export type SessionPrincipal = {
@@ -283,6 +286,7 @@ export async function requirePrincipal(
 	} catch (error) {
 		if (
 			error instanceof DependencyNotConfiguredError ||
+			error instanceof PersistenceUnavailableError ||
 			error instanceof SessionPrincipalReadModelValidationError
 		)
 			throw error;
@@ -335,8 +339,16 @@ export function createRedisSessionTokenService(
 			const accessToken = crypto.randomUUID();
 			try {
 				await store.save(accessToken, principal.userId, expiresInSeconds);
-			} catch {
-				throw new DependencyNotConfiguredError("session-token");
+			} catch (error) {
+				// 生产 persistence adapter 已把 Redis 传输错误投影为
+				// PersistenceUnavailableError；这里仍保护可替换的测试/未来实现，
+				// 防止一个未遵守 port 约定的 store 把故障误报成配置缺失。
+				if (
+					error instanceof DependencyNotConfiguredError ||
+					error instanceof PersistenceUnavailableError
+				)
+					throw error;
+				throw new PersistenceUnavailableError("write", error);
 			}
 			return { accessToken, expiresInSeconds };
 		},
@@ -355,10 +367,12 @@ export function createRedisSessionTokenService(
 			} catch (error) {
 				if (
 					error instanceof HttpError ||
+					error instanceof DependencyNotConfiguredError ||
+					error instanceof PersistenceUnavailableError ||
 					error instanceof SessionPrincipalReadModelValidationError
 				)
 					throw error;
-				throw new DependencyNotConfiguredError("session-token");
+				throw new PersistenceUnavailableError("read", error);
 			}
 		},
 	};

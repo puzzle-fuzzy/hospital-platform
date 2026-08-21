@@ -332,9 +332,10 @@ query schema 的内部任务传入未知值，也只能返回 `400 outpatient-pa
 {"success":false,"error":{"code":"unauthorized","message":"请先登录后再继续操作"}}
 ```
 
-缺少 `Authorization` 时返回“请先登录后再继续操作”；Bearer 会话无法在 Redis 中找到或已经过期时，
-返回“登录状态已失效，请重新登录”。两种情况的稳定错误码都是 `unauthorized`，小程序必须按错误码处理，
-不能根据 message 文案分支。
+缺少 `Authorization` 时返回“请先登录后再继续操作”；Bearer 会话在 Redis 正常可读但找不到或已经过期时，
+返回“登录状态已失效，请重新登录”。Redis 未配置/未注入时返回 `503 dependency-not-configured`；
+Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-temporarily-unavailable`，不能把这类故障
+伪装成 401。小程序必须按错误码处理，不能根据 message 文案分支。
 
 当前已注册公共路由会使用以下稳定错误码。`message` 是可记录和排障文本，页面展示应由
 小程序按错误码映射，不能依赖英文 message 做业务判断。

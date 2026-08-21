@@ -184,7 +184,7 @@ Provider 结果或页面展示已经成功。
   和固定 `readModelViolation=user-id-invalid`，不记录原始值。
 - 该异常表示持久化/运行时边界损坏，不是用户凭证自然过期；公共响应固定为 500 `persistence-invalid`，不得转换成
   401，也不得继续调用患者、预约、报告、门诊费用或支付 service。
-- 只有 Redis 没有找到 token 时才返回 401；Redis 连接/传输失败仍保持 503 `dependency-not-configured`，三种事实不能混淆。
+- 只有 Redis 正常返回“没有找到 token”时才返回 401；Redis 未注入/未配置返回 503 `dependency-not-configured`，已配置 Redis 的连接/传输失败返回 503 `persistence-temporarily-unavailable`，三种事实不能混淆。
 
 Provider trace 读模型也遵循同一条规则：
 
