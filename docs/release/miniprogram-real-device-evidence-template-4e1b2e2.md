@@ -16,6 +16,13 @@
 每个域都必须同时具备页面结果、客户端无敏感查询参数的 `/api/v2/` 请求、有限的
 `requestId/traceId` 和服务端低敏同链日志。缺少任一层，状态保持 `pending`。
 
+单请求域还必须命中对应的真实入口：`auth` 使用 `POST /api/v2/auth/wechat`，
+`patientDirectory` 与 `patientSelection` 使用 `GET /api/v2/patients`，
+`appointmentRecords` 与 `missedAppointments` 使用 `GET /api/v2/appointments/records`，
+`outpatientPayment` 使用 `GET /api/v2/payments/outpatient/records`。
+证据文档不记录查询参数，但服务端同链摘要仍必须证明该请求属于对应业务域；
+不能用 `/me` 或其它 200 响应替代目标接口。
+
 | 域 | 状态 | 页面证据 | 客户端 requestId | 服务端 traceId/低敏日志 | 备注 |
 | --- | --- | --- | --- | --- | --- |
 | auth | pending |  |  |  |  |

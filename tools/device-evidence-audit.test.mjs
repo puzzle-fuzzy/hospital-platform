@@ -27,7 +27,26 @@ function pendingDomains() {
 	);
 }
 
-function passedEvidence() {
+const singleRequestPaths = {
+	auth: { method: "POST", path: "/api/v2/auth/wechat" },
+	patientDirectory: { method: "GET", path: "/api/v2/patients" },
+	patientSelection: { method: "GET", path: "/api/v2/patients" },
+	appointmentRecords: {
+		method: "GET",
+		path: "/api/v2/appointments/records",
+	},
+	missedAppointments: {
+		method: "GET",
+		path: "/api/v2/appointments/records",
+	},
+	outpatientPayment: {
+		method: "GET",
+		path: "/api/v2/payments/outpatient/records",
+	},
+};
+
+function passedEvidence(domain = "auth") {
+	const request = singleRequestPaths[domain];
 	return {
 		result: "passed",
 		page: {
@@ -37,7 +56,8 @@ function passedEvidence() {
 		},
 		client: {
 			requestId: "123e4567-e89b-12d3-a456-426614174000",
-			path: "/api/v2/me",
+			method: request.method,
+			path: request.path,
 			statusCode: 200,
 		},
 		server: {
@@ -196,10 +216,26 @@ describe("device evidence audit", () => {
 		expect(result.passed).toBe(false);
 		expect(result.domains.auth.result).toBe("passed");
 
-		manifest.domains.patientDirectory = passedEvidence();
+		manifest.domains.patientDirectory = passedEvidence("patientDirectory");
 		manifest.domains.patientDirectory.client.statusCode = 401;
 		expect(() => auditDeviceEvidence(manifest)).toThrow(
 			"客户端 HTTP 必须为 2xx",
+		);
+	});
+
+	test("单请求业务域不能用其它公共接口的成功响应冒充", () => {
+		const manifest = completeManifest();
+		manifest.domains.patientDirectory = passedEvidence("patientDirectory");
+		manifest.domains.patientDirectory.client.path = "/api/v2/me";
+		expect(() => auditDeviceEvidence(manifest)).toThrow(
+			"patientDirectory.client.path 必须是 /api/v2/patients",
+		);
+
+		const methodManifest = completeManifest();
+		methodManifest.domains.auth = passedEvidence("auth");
+		methodManifest.domains.auth.client.method = "GET";
+		expect(() => auditDeviceEvidence(methodManifest)).toThrow(
+			"auth.client.method 必须是 POST",
 		);
 	});
 

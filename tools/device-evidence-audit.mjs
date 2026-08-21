@@ -20,6 +20,32 @@ const DOMAIN_LABELS = Object.freeze({
 });
 
 /**
+ * 单请求域的公共入口白名单。
+ *
+ * 证据清单只保存不带查询参数的路径，避免把患者标识、日期和其它业务
+ * 参数写入文档；但这不意味着可以接受任意 `/api/v2/` 请求。每个域仍然
+ * 必须命中自己的真实路由，才能避免用 `/me` 的成功响应冒充患者目录或
+ * 挂号结果。双请求域（预约目录、普通资料）在各自的专用校验中处理。
+ */
+const DOMAIN_CLIENT_REQUESTS = Object.freeze({
+	auth: { method: "POST", path: "/api/v2/auth/wechat" },
+	patientDirectory: { method: "GET", path: "/api/v2/patients" },
+	patientSelection: { method: "GET", path: "/api/v2/patients" },
+	appointmentRecords: {
+		method: "GET",
+		path: "/api/v2/appointments/records",
+	},
+	missedAppointments: {
+		method: "GET",
+		path: "/api/v2/appointments/records",
+	},
+	outpatientPayment: {
+		method: "GET",
+		path: "/api/v2/payments/outpatient/records",
+	},
+});
+
+/**
  * 与 API request-context 的 requestIdPattern 保持同一安全边界。
  *
  * 小程序会主动发送 `mp-时间-随机串` 作为 x-request-id，服务端校验通过后
@@ -466,9 +492,32 @@ function validateFailedProfileDomain(domain, evidence) {
 	};
 }
 
+/** 校验普通单请求域的真实 HTTP 方法和路由，不接受其它业务的成功响应。 */
+function validateDomainClientEvidence(client, domain, requireSuccess) {
+	const expected = DOMAIN_CLIENT_REQUESTS[domain];
+	if (!expected) {
+		throw new Error(`${domain} 没有单请求入口 contract`);
+	}
+	const source = requirePlainObject(client, `${domain}.client 缺失`);
+	const evidence = validateClientEvidence(source, `${domain}.client`);
+	if (source.method !== expected.method) {
+		throw new Error(`${domain}.client.method 必须是 ${expected.method}`);
+	}
+	if (source.path !== expected.path) {
+		throw new Error(`${domain}.client.path 必须是 ${expected.path}`);
+	}
+	if (
+		requireSuccess &&
+		(evidence.statusCode < 200 || evidence.statusCode > 299)
+	) {
+		throw new Error(`${domain} 标记 passed 时客户端 HTTP 必须为 2xx`);
+	}
+	return evidence;
+}
+
 function validatePassedDomain(domain, evidence) {
 	const page = validatePageEvidence(evidence.page, domain);
-	const client = validateClientEvidence(evidence.client, domain);
+	const client = validateDomainClientEvidence(evidence.client, domain, true);
 	const server = validateServerEvidence(evidence.server, domain);
 	if (client.statusCode < 200 || client.statusCode > 299) {
 		throw new Error(`${domain} 标记 passed 时客户端 HTTP 必须为 2xx`);
@@ -489,7 +538,7 @@ function validatePassedDomain(domain, evidence) {
 
 function validateFailedDomain(domain, evidence) {
 	validatePageEvidence(evidence.page, domain);
-	const client = validateClientEvidence(evidence.client, domain);
+	const client = validateDomainClientEvidence(evidence.client, domain, false);
 	const server = validateServerEvidence(evidence.server, domain);
 	if (
 		client.statusCode >= 200 &&
