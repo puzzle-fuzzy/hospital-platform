@@ -12,7 +12,7 @@
 | 运行包目录 | `apps/miniprogram/dist/` |
 
 六个 P0 业务域必须严格记录 `auth`、`patientDirectory`、`patientSelection`、`appointmentRecords`、`missedAppointments`、`outpatientPayment`。审计工具要求 `domains` 恰好覆盖这六项，不能把普通资料域追加到同一个 JSON，否则会被拒绝。
-每个 P0 域只能填写 `pending`、`passed` 或 `failed`；`passed` 必须同时具备页面截图、客户端无查询参数的 `/api/v2/` 请求、UUID requestId/traceId、HTTP 状态和服务端低敏同链统计。
+每个 P0 域只能填写 `pending`、`passed` 或 `failed`；`passed` 必须同时具备页面截图、客户端无查询参数的 `/api/v2/` 请求、安全有界的 requestId/traceId、HTTP 状态和服务端低敏同链统计。小程序真实发送的值通常是 `mp-时间-随机串`，服务端会校验并原样回传；服务端在缺少合法客户端值时才会生成 UUID，因此不能把验收工具错误限定为 UUID。
 
 普通资料的 `GET`、首次 `PUT` 和旧版本 `409` 使用 [`user-profile-readonly-device-acceptance-2026-08-18.md`](user-profile-readonly-device-acceptance-2026-08-18.md) 单独记录；它们不属于当前六域 P0 JSON，避免把普通资料写入证据误算成患者/费用业务已完成。
 

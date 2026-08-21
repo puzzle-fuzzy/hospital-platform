@@ -81,6 +81,14 @@ describe("device evidence audit", () => {
 		);
 	});
 
+	test("接受小程序真实生成的有界 requestId，不错误要求 UUID", () => {
+		const manifest = completeManifest();
+		manifest.domains.auth = passedEvidence();
+		manifest.domains.auth.client.requestId = "mp-m123abc-abcdef12";
+		const result = auditDeviceEvidence(manifest);
+		expect(result.domains.auth.result).toBe("passed");
+	});
+
 	test("拒绝候选来源错配", () => {
 		const manifest = completeManifest();
 		manifest.candidate.sourceRevision =

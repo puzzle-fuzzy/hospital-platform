@@ -17,8 +17,14 @@ const DOMAIN_LABELS = Object.freeze({
 	outpatientPayment: "门诊缴费只读",
 });
 
-const UUID_PATTERN =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+/**
+ * 与 API request-context 的 requestIdPattern 保持同一安全边界。
+ *
+ * 小程序会主动发送 `mp-时间-随机串` 作为 x-request-id，服务端校验通过后
+ * 原样回传并写入 traceId；服务端仅在客户端值缺失或非法时才生成 UUID。
+ * 因此真机证据不能错误地只接受 UUID，也不能退化成接受任意可打印字符串。
+ */
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
 const SOURCE_REVISION_PATTERN = /^[0-9a-f]{40}$/u;
 const RELEASE_PATTERN = /^[0-9a-f]{7,40}$/u;
@@ -161,10 +167,8 @@ function validatePageEvidence(page, domain) {
 function validateClientEvidence(client, domain) {
 	const object = requirePlainObject(client, `${domain}.client 缺失`);
 	const requestId = object.requestId ?? object.traceId;
-	if (typeof requestId !== "string" || !UUID_PATTERN.test(requestId)) {
-		throw new Error(
-			`${domain}.client 必须提供 UUID 形状的 requestId 或 traceId`,
-		);
+	if (typeof requestId !== "string" || !REQUEST_ID_PATTERN.test(requestId)) {
+		throw new Error(`${domain}.client 必须提供安全有界的 requestId 或 traceId`);
 	}
 	const path = requireNonEmptyString(object.path, `${domain}.client.path 缺失`);
 	if (!path.startsWith("/api/v2/") || path.includes("?")) {
