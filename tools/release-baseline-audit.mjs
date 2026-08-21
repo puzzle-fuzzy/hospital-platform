@@ -48,6 +48,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前未开放业务门禁审计",
 	},
 	{
+		path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
+		label: "当前只读业务不变量审计",
+	},
+	{
 		path: "docs/release/current-device-acceptance-gate-2026-08-22.md",
 		label: "当前真机准入记录",
 	},
