@@ -22,4 +22,3 @@
 4. 病历、患者绑定、二维码、支付、医保和 HIS 回写继续保持未开放。
 
 本次 SSH 只读连接 `ps@192.168.112.172` 仍返回 `Permission denied (publickey,password)`，因此没有在本记录中声称线上 `current` 已切换到本地候选 `e5ef94a`；候选发布准备和前置条件见 [`candidate-e5ef94a-server-local-build-2026-08-21.md`](candidate-e5ef94a-server-local-build-2026-08-21.md)。
-
