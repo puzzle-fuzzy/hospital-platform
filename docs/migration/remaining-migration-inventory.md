@@ -1,8 +1,8 @@
 # 剩余迁移盘点与下一步计划
 
-> 当前候选：服务端 release `002acc1b`（完整提交 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`）；小程序运行包来源为 `ec26f41f8575871972ac63a8074a9beaec1df55b`（提交 `ec26f41`），真机前必须重新构建并核对来源。
+> 当前候选：服务端 release `002acc1b`（完整提交 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`）；小程序运行包来源为 `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`（提交 `47be0bc`），真机前必须重新构建并核对来源。
 
-> 当前基线更新：服务端 `002acc1b`；小程序候选 `ec26f41`，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `002acc1b`；小程序候选 `47be0bc`，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
 
 > 2026-08-21 报告只读 adapter 已收紧 LIS `pdfUrlList`：数组元素必须为无控制字符字符串，异常对象、数字、布尔值和控制字符会整批拒绝；当前仍只返回附件存在性，不返回地址、不开放下载或授权。详见 [`../release/report-attachment-boundary-2026-08-21.md`](../release/report-attachment-boundary-2026-08-21.md)。
 
@@ -10,7 +10,7 @@
 
 > 2026-08-21 排班只读快照边界已加固：进入内存/MySQL persistence 前统一校验 `zhongyang` 来源、排班嵌套字段、号源数量和不超过 5 分钟的观察 TTL；这只保证只读观察事实不被错误调用方写入，不开放预约写入或锁号。详见 [`../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md`](../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md)。
 
-> 2026-08-22 00:32–00:44 CST 当前服务端已从 `9f491cb5` 原子切换到 `002acc1b`；新 API 与旧 Python `8001` 共存，生产 preflight、隔离 smoke、公网 runtime smoke 和切换后低敏日志聚合通过，旧 Python PID 未变化。当前小程序候选已更新为 `ec26f41`，运行包不含测试脚本；`single-flight.test.js` ENOENT 必须按开发者工具旧增量索引恢复，不得把测试脚本复制进 `dist/`。详见 [`../release/002acc1b-production-acceptance-2026-08-22.md`](../release/002acc1b-production-acceptance-2026-08-22.md) 和 [`../release/candidate-ec26f41-local-build-2026-08-22.md`](../release/candidate-ec26f41-local-build-2026-08-22.md)。
+> 2026-08-22 00:32–00:44 CST 当前服务端已从 `9f491cb5` 原子切换到 `002acc1b`；新 API 与旧 Python `8001` 共存，生产 preflight、隔离 smoke、公网 runtime smoke 和切换后低敏日志聚合通过，旧 Python PID 未变化。当前小程序候选已更新为 `47be0bc`，运行包不含测试脚本；`single-flight.test.js` ENOENT 必须按开发者工具旧增量索引恢复，不得把测试脚本复制进 `dist/`。详见 [`../release/002acc1b-production-acceptance-2026-08-22.md`](../release/002acc1b-production-acceptance-2026-08-22.md) 和 [`../release/candidate-47be0bc-local-build-2026-08-22.md`](../release/candidate-47be0bc-local-build-2026-08-22.md)。
 
 > 上一条 `9f491cb5` 切换记录仅作历史追溯；当前服务端指针以本节的 `002acc1b` 为准。
 
@@ -37,13 +37,13 @@
 > `E:\\__Super_Core__\\hospital-platform`。本文只把源代码和测试证据作为“实现证据”，不把页面存在、接口返回 200
 > 或旧接口曾经可调用误判为真实业务完成。
 
-> 当前发布基线补充（2026-08-22）：服务端为 `002acc1b`；小程序候选为 `ec26f41`，完整运行包来源为
-> `ec26f41f8575871972ac63a8074a9beaec1df55b`，必须由开发者工具重新编译后再进行真机验收。
+> 当前发布基线补充（2026-08-22）：服务端为 `002acc1b`；小程序候选为 `47be0bc`，完整运行包来源为
+> `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`，必须由开发者工具重新编译后再进行真机验收。
 >
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `ec26f41f8575871972ac63a8074a9beaec1df55b`（提交 `ec26f41`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`（提交 `47be0bc`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-21 当前执行顺序：私网监听、数据库/Redis/schema readiness 和新旧服务共存已经完成只读复核；下一步先取得当前小程序候选的真实微信会话、患者显式切换、预约历史和门诊费用只读三层证据，
 > 再验收普通资料写入。报告、患者绑定、门诊病历和二维码必须等各自 Provider contract、权限/归属、脱敏样例和可回滚验收材料齐全后再实现；支付、医保和 HIS 回写最后处理。
@@ -210,8 +210,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/002acc1b-production-acceptance-2026-08-22.md`](../release/002acc1b-production-acceptance-2026-08-22.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `ec26f41`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `ec26f41f8575871972ac63a8074a9beaec1df55b`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `47be0bc`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `47be0bc5d80ec64ffafab7c2acb333a416fe8d49`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，
