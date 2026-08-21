@@ -38,13 +38,35 @@ Python 服务。历史快照中的 `******7890` 不能反推出被隐藏的前�
 - domain：`69 pass / 0 fail`；
 - adapters：`107 pass / 0 fail`；
 - 小程序：`205 pass / 0 fail`；
-- API：`206 pass / 0 fail`（提交前定向运行）；
+- Worker：`53 pass / 0 fail`；
+- API：最新定向运行 `205 pass / 1 fail`；唯一失败是 `P0 acceptance documents share the current release baseline`，
+  因 `b0e09356` 尚未部署而按设计阻断，业务测试本身没有新增失败；
 - 文档断链、Biome、lint、9 个 workspace typecheck/test/build：通过；
 - 小程序 `build` 和 `runtime:verify`：通过，来源为 `b0e09356`。
 
 根 `pnpm check` 的 release-baseline 项按设计阻止通过，因为 `packages/contracts/src/index.ts`
 尚未进入线上 `7181e99e`；API 测试中的当前 release 一致性断言也因此保持失败。这是未部署
 候选的真实状态，不应通过修改基线文档绕过。
+
+## 2026-08-22 07:26 本地发布产物复核
+
+API 与 Worker 均使用仓库构建脚本生成，没有在 release 目录临时安装 workspace 依赖：
+
+| 产物 | SHA-256 |
+| --- | --- |
+| `apps/api/dist/index.js` | `889a2bb7b059c8417e1faf44b11775dc23d785991f6244429cd42b7a42bfb1b4` |
+| `apps/worker/dist/index.js` | `a878a89f927ceb3f6994fa1ee305db6d0074aed296db06672a97d2aef69db368` |
+| `apps/worker/dist/preflight.js` | `44bb4332b6db1a6f596f36a03c6431a6928bb08de8607c1a87ebcb3656085447` |
+| `apps/worker/dist/provider-directory-smoke.js` | `1138c0f9fa06d398ef463cf9fd8836e873e892ca54094cd146dc27570f28a` |
+| `apps/worker/dist/api-runtime-smoke.js` | `82fde0f81e4dc5783eb50dc6f08dfd8a8cf0706a9f914be2115961fed098d295` |
+| `apps/worker/dist/p0-log-aggregate.js` | `280b175341c2794290ab61bf6175295922c79bd588972732f05caefa0bd54746` |
+| `apps/worker/dist/p0-business-evidence-audit.js` | `afa687b6e52021237f275e808466800433bd8d48a344c7c879f944e5a2a1eb9e` |
+| `apps/worker/dist/redis-session-ttl-audit.js` | `bacb3293d4f229299ddf035e89e010dc3dd3af2b9b592e477e91b58f88fb78ff` |
+
+使用上述同一份 `api-runtime-smoke.js`、生产模式变量、`/api/v2` 公网前缀和 `requireReady=true`
+执行只读运行层 smoke，结果为通过。该 smoke 只访问健康、认证边界和关闭路由，没有登录、患者参数、
+Provider 调用或数据库/Redis 业务写入；它不能替代服务器真实 env preflight、临时 `18082` smoke、旧
+Python `8001` 共存检查或真机三层业务验收。
 
 ## 下一步
 
