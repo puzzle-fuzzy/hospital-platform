@@ -1,6 +1,6 @@
 # 下一阶段实施路线图
 
-> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`），真机前仍需重新普通编译并核对来源。生产运行层证据见 [`release/002acc1b-production-acceptance-2026-08-22.md`](release/002acc1b-production-acceptance-2026-08-22.md)。
+> 当前候选：服务端 release `84fac75ceeb2247b252cf7e160eedbda220378f8`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`），真机前仍需重新普通编译并核对来源。生产运行层证据见 [`release/84fac75c-production-acceptance-2026-08-22.md`](release/84fac75c-production-acceptance-2026-08-22.md)。
 
 > 本轮本地验证使用的新项目服务端代码为 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`，小程序运行包来源为
 > `90fd7832e3ad1031c9c916f118f90cc0f2840aff`；这只是未发布验证证据，不能替代上方发布基线，也未因本路线图记录自动部署线上。
@@ -2042,6 +2042,9 @@ available -> hold_pending -> held -> booking_pending -> booked
 静态检查、单元测试和本地集成测试不能替代真实 provider、生产代理或真机证据。旧服务在新业务逐项通过验收前保持运行。
 
 ## 本次立即执行项
+
+当前执行项绑定服务端 release `84fac75ceeb2247b252cf7e160eedbda220378f8` 与小程序来源
+`90fd7832e3ad1031c9c916f118f90cc0f2840aff`；下方历史 release 不得作为本轮真机或业务证据。
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；

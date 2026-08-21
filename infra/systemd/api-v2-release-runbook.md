@@ -191,6 +191,14 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-22 04:44–04:48 CST：候选 `84fac75c` 已完成远端 bundle checksum、真实生产 env preflight、
+`127.0.0.1:18082` 隔离 runtime smoke，并从 `002acc1b` 原子切换到当前
+`84fac75ceeb2247b252cf7e160eedbda220378f8`，只重启 `hospital-platform-api-v2.service`。
+切换后内网/公网 live、ready、system-ping 和未登录认证边界通过；新 API `18081` 与旧 Python `8001`
+同时监听，旧 Python PID 未变化，Worker 保持 inactive。当前发布仍不包含真机或 Provider 业务成功证据，
+支付、医保、HIS 写回和报告 Provider 继续关闭。完整记录见
+[`../../docs/release/84fac75c-production-acceptance-2026-08-22.md`](../../docs/release/84fac75c-production-acceptance-2026-08-22.md)。
+
 2026-08-22 00:32–00:44 CST：候选 `002acc1b` 已完成本地全仓门禁、远端八个 bundle checksum、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `9f491cb5` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。切换后内网/公网 readiness 和公网 runtime smoke 通过，新 API `18081` 与旧 Python

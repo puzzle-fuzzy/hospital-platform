@@ -1,12 +1,12 @@
 # 小程序当前候选 `90fd783` 本地构建记录（2026-08-22）
 
-> 本记录对应当前本地运行包。服务端配套线上 release 为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，本候选不代表微信、Provider 或真机业务已经验收。
+> 本记录对应当前本地运行包。服务端配套线上 release 为 `84fac75ceeb2247b252cf7e160eedbda220378f8`，本候选不代表微信、Provider 或真机业务已经验收。
 
 ## 1. 候选边界
 
 | 项目 | 结果 |
 | --- | --- |
-| 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
+| 服务端 release | `84fac75ceeb2247b252cf7e160eedbda220378f8` |
 | 小程序客户端 | `90fd783` |
 | 小程序构建来源 | `90fd7832e3ad1031c9c916f118f90cc0f2840aff` |
 | 运行包目录 | `apps/miniprogram/dist/` |

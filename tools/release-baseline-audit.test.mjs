@@ -204,7 +204,9 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	// 不能让历史 release 继续伪装成当前基线。
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10",
+		// 该断言必须与当前候选文档同步；它防止只更新正文而遗漏路线图、真机模板或
+		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
+		serverRelease: "84fac75ceeb2247b252cf7e160eedbda220378f8",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
 		miniProgramCommit: "90fd783",

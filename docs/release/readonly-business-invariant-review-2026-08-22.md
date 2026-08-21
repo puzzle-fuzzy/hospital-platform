@@ -4,7 +4,7 @@
 
 ## 1. 当前版本与运行边界
 
-- 服务端当前 release：`002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`。
+- 服务端当前 release：`84fac75ceeb2247b252cf7e160eedbda220378f8`。
 - 小程序运行包来源：`90fd7832e3ad1031c9c916f118f90cc0f2840aff`，14 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
 - 新 API：`10.0.0.3:18081`，systemd 状态为 `active`。
 - 旧 Python API：`0.0.0.0:8001`，仍在监听，旧 Gunicorn PID 未发生变化。
@@ -53,7 +53,7 @@
 - 众阳预约与门诊费用 adapter：`33 pass / 0 fail / 74 expects`；
 - 原生小程序：`203 pass / 0 fail / 1534 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：451 篇文档无断链；生产基线审计指向 `002acc1b` 和 `90fd783`。
+- 文档链接审计：451 篇文档无断链；生产基线审计指向 `84fac75c` 和 `90fd783`。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
@@ -73,7 +73,7 @@
 ### 2026-08-22 01:43 CST 服务器业务事件窗口
 
 随后通过已授权的只读 SSH 连接复核了当前生产服务的最近两小时 journald。该窗口与当前
-`002acc1b` release 对齐，并确认新旧服务仍然共存：新 Bun API 监听 `10.0.0.3:18081`，
+`84fac75c` release 对齐，并确认新旧服务仍然共存：新 Bun API 监听 `10.0.0.3:18081`，
 旧 Gunicorn 继续监听 `0.0.0.0:8001`。服务端已经产生一组可关联但尚不完整的真实业务证据：
 
 | 业务链 | 服务器低敏日志事实 | 当前结论 |

@@ -10,7 +10,7 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 服务端生产 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
+| 服务端生产 release | `84fac75ceeb2247b252cf7e160eedbda220378f8` |
 | 小程序运行包来源 | `90fd7832e3ad1031c9c916f118f90cc0f2840aff` |
 | 小程序短提交 | `90fd783` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` |
@@ -105,7 +105,7 @@ pnpm workspace 裸模块名造成的真实运行包问题，已在前一候选 `
 ## 2026-08-22 04:20 CST SSH 只读运行层复核
 
 SSH 检查入口已恢复。本次只读快照确认：当前新服务 release 为
-`002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，`hospital-platform-api-v2.service` 为 `active`，主进程为 Bun
+`84fac75ceeb2247b252cf7e160eedbda220378f8`，`hospital-platform-api-v2.service` 为 `active`，主进程为 Bun
 PID `2765512`，监听 `10.0.0.3:18081`；Worker 为 `inactive`。在绑定地址请求 `/health/ready` 返回 200，
 MySQL、Redis 和 schema 均为 `ok`。`127.0.0.1:18081` 不接受连接是因为新 API 没有绑定 loopback，而不是 readiness 失败。
 

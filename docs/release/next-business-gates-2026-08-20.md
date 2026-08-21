@@ -1,19 +1,19 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
-> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。
+> 当前候选：服务端 release `84fac75ceeb2247b252cf7e160eedbda220378f8`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`，当前本地小程序候选为 `90fd783`，完整运行包来源为
+> 当前服务端候选为 `84fac75ceeb2247b252cf7e160eedbda220378f8`，当前本地小程序候选为 `90fd783`，完整运行包来源为
 > `90fd7832e3ad1031c9c916f118f90cc0f2840aff`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
 
-## 2026-08-22 `002acc1b` 当前候选运行层复核
+## 2026-08-22 `84fac75c` 当前候选运行层复核
 
-服务端已从 `9f491cb5` 原子切换到 `002acc1b`，只重启新 API；新 API `18081`、旧 Python `8001` 共存，Worker 保持 inactive。
+服务端已从 `002acc1b` 原子切换到 `84fac75c`，只重启新 API；新 API `18081`、旧 Python `8001` 共存，Worker 保持 inactive。
 真实 production preflight、隔离 `18082` runtime smoke 和公网 `/api/v2` smoke 均通过；完整发布证据见
-[`002acc1b-production-acceptance-2026-08-22.md`](002acc1b-production-acceptance-2026-08-22.md)。
+[`84fac75c-production-acceptance-2026-08-22.md`](84fac75c-production-acceptance-2026-08-22.md)。
 这只证明新候选运行边界，不能替代微信、患者、预约或门诊费用的真机三层业务证据。
 
 `release:baseline:audit` 现在还会检查当前服务端 release 之后的运行时代码是否发生
@@ -109,7 +109,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核
 
-当前验收基线为服务端 `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`、小程序候选 `90fd783`（完整来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`）；
+当前验收基线为服务端 `84fac75ceeb2247b252cf7e160eedbda220378f8`、小程序候选 `90fd783`（完整来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`）；
 下方历史代码复核原始记录当时基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 不代表当前线上服务端 release。当前线上服务端和真机候选以本文顶部基线为准，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
