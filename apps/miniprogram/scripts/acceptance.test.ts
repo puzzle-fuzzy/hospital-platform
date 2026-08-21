@@ -954,6 +954,22 @@ test("native my page separates ordinary profile from family patient selection", 
 test("native profile clears stale fields after session ownership is lost", async () => {
 	const page = await source("pages/profile/profile.ts");
 	const saveStart = page.indexOf("onSave(): Promise<void>");
+	const updateRequestStart = page.indexOf(
+		"return updateUserProfile({",
+		saveStart,
+	);
+	const responseStart = page.indexOf(
+		".then((response) => {",
+		updateRequestStart,
+	);
+	const responseSessionMismatchStart = page.indexOf(
+		"if (!isCurrentSessionGeneration(profileSessionGeneration))",
+		responseStart,
+	);
+	const responseClearIndex = page.indexOf(
+		"this.clearDisplayedProfileContext();",
+		responseSessionMismatchStart,
+	);
 	const saveCatchStart = page.indexOf(".catch((error) => {", saveStart);
 	const clearIndex = page.indexOf(
 		"this.clearDisplayedProfileContext();",
@@ -969,6 +985,13 @@ test("native profile clears stale fields after session ownership is lost", async
 	expect(page).toContain("shouldClearProfileDisplay");
 	expect(page).toContain('error.code === "session-changed"');
 	expect(page).toContain("if (!hasPlatformSession()) return true;");
+	// 响应返回后的会话代际竞态发生在 reLaunch 之前，必须先释放 saving；
+	// 不能只依赖页面最终卸载来收敛按钮状态。
+	expect(responseSessionMismatchStart).toBeGreaterThan(responseStart);
+	expect(responseClearIndex).toBeGreaterThan(responseSessionMismatchStart);
+	expect(
+		page.slice(responseSessionMismatchStart, responseClearIndex),
+	).toContain("this.setData({ saving: false });");
 	expect(clearIndex).toBeGreaterThan(saveCatchStart);
 	expect(showErrorIndex).toBeGreaterThan(clearIndex);
 
@@ -978,6 +1001,7 @@ test("native profile clears stale fields after session ownership is lost", async
 	expect(clearMethodBody).toContain('gender: "unknown"');
 	expect(clearMethodBody).toContain("version: 0");
 	expect(clearMethodBody).toContain("loaded: false");
+	expect(clearMethodBody).toContain("saving: false");
 });
 
 test("native profile save keeps validation, version and conflict boundaries ordered", async () => {

@@ -8,11 +8,11 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import { hasPlatformSession } from "../../services/session-service";
 import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "../../services/session-generation";
+import { hasPlatformSession } from "../../services/session-service";
 import type { ProfilePageData, UserProfileResponse } from "../../types";
 
 type ProfilePageMethods = {
@@ -275,6 +275,10 @@ Page<
 				// 固定下来，不能把成功提示显示给错误账号。
 				if (!isCurrentSessionGeneration(profileSessionGeneration)) {
 					const error = profileSessionChangedError();
+					// 此处虽然随后会重新回到登录入口，但 reLaunch 是异步的；
+					// 在页面真正卸载前必须先释放 saving，否则页面可能停留在
+					// “保存中”且无法再次操作的半失效状态。
+					this.setData({ saving: false });
 					this.clearDisplayedProfileContext();
 					this.showError(error, "个人资料保存失败");
 					return;
@@ -356,6 +360,9 @@ Page<
 			version: 0,
 			sessionGeneration: -1,
 			loaded: false,
+			// 清理资料上下文也必须释放异步保存状态；否则会话失效后
+			// 页面即使没有马上被 reLaunch 卸载，也不能继续卡在保存中。
+			saving: false,
 			navigationPending: false,
 		});
 	},
