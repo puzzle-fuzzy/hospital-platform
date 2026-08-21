@@ -54,7 +54,13 @@
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
-## 4. 下一步准入顺序
+## 4. 当前开发者工具边界
+
+本轮只读观察到的微信开发者工具窗口标题为 `mp-weixin`，资源树包含旧端 `pagesB`、`stores`、`jsonData` 等目录；它不是新项目 `E:\__Super_Core__\hospital-platform\apps\miniprogram`。因此没有在该窗口执行编译、真机调试、清缓存或生成二维码，也没有把旧窗口的页面、日志或设备状态计入新项目验收证据。
+
+当前必须先打开新项目目录并核对 `project.config.json` 的 `miniprogramRoot=dist/`，再进行任何真机业务操作。这样可以避免旧端窗口继续加载旧页面，或把旧增量索引误认为新运行包问题。
+
+## 5. 下一步准入顺序
 
 1. 在微信开发者工具关闭旧真机调试，重新打开 `apps/miniprogram/`，普通编译并确认 `dist/build-info.json` 来源为 `13b86a5a400ca0ccbee67abdfed726476a4749d4`。
 2. 以同一二维码取得微信登录、患者目录、显式切换第二位患者的页面截图、HTTP `requestId` 和服务端低敏日志；没有三层配对证据，不标记患者切换完成。
