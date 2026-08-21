@@ -18,6 +18,19 @@
 
 这次复核只证明运行包可以进入真机验收，仍没有手机扫码、微信会话、患者切换或 Provider 业务日志，因此不增加任何业务完成声明。下一步仍是使用当前二维码扫码，随后按“微信登录 → 患者目录 → 显式切换 → 预约/报告/门诊费用只读”的顺序采集页面、客户端请求和服务端同链日志。
 
+## 2026-08-22 06:44–06:45 CST 线上只读探针
+
+本轮尝试通过现有 SSH 检查入口读取 `ps@192.168.112.172` 时返回 `Permission denied (publickey,password)`；因此没有把新 API、旧 Python `8001`、Worker 或 journald 状态写成已确认事实，也没有修改 SSH 配置。
+
+公网只读探针结果如下：
+
+- `/api/v2/health/live`：HTTP `200`；
+- `/api/v2/health/ready`：HTTP `200`，`database`、`redis`、`schema` 均为 `ok`；
+- `/api/v2/system/ping`：HTTP `200`；
+- `/api/v2/patients`（无 Bearer）：HTTP `401`，错误码 `unauthorized`。
+
+这些结果只证明公网运行层健康和未登录鉴权边界，不包含微信会话、患者目录、Provider、旧服务日志或真机业务证据；探针没有写入 MySQL/Redis，也没有调用 Provider。后续需先恢复只读 SSH 检查入口，再配对手机扫码产生的页面、客户端请求和服务端日志。
+
 ## 当前发布基线
 
 | 项目 | 当前值 |
