@@ -47,6 +47,16 @@ const singleRequestPaths = {
 	},
 };
 
+const singleRequestBusinessDomains = {
+	auth: "auth",
+	patientDirectory: "patientRead",
+	patientDirectorySync: "patientSync",
+	patientSelection: "patientRead",
+	appointmentRecords: "appointmentRecords",
+	missedAppointments: "appointmentRecords",
+	outpatientPayment: "outpatientPaymentRecords",
+};
+
 function passedEvidence(domain = "auth") {
 	const request = singleRequestPaths[domain];
 	return {
@@ -64,6 +74,7 @@ function passedEvidence(domain = "auth") {
 		},
 		server: {
 			auditPassed: true,
+			businessDomain: singleRequestBusinessDomains[domain],
 			correlationFingerprint:
 				"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 			requested: 1,
@@ -75,15 +86,16 @@ function passedEvidence(domain = "auth") {
 }
 
 function profilePassedEvidence() {
-	const serverEvidence = {
+	const serverEvidence = (businessDomain) => ({
 		auditPassed: true,
+		businessDomain,
 		correlationFingerprint:
 			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		requested: 1,
 		succeeded: 1,
 		http2xx: 1,
 		failed: 0,
-	};
+	});
 	return {
 		result: "passed",
 		page: {
@@ -107,22 +119,23 @@ function profilePassedEvidence() {
 		},
 		server: {
 			auditPassed: true,
-			read: { ...serverEvidence },
-			update: { ...serverEvidence },
+			read: serverEvidence("profileRead"),
+			update: serverEvidence("profileUpdate"),
 		},
 	};
 }
 
 function appointmentDirectoryPassedEvidence() {
-	const serverEvidence = {
+	const serverEvidence = (businessDomain) => ({
 		auditPassed: true,
+		businessDomain,
 		correlationFingerprint:
 			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		requested: 1,
 		succeeded: 1,
 		http2xx: 1,
 		failed: 0,
-	};
+	});
 	return {
 		result: "passed",
 		page: {
@@ -146,8 +159,8 @@ function appointmentDirectoryPassedEvidence() {
 		},
 		server: {
 			auditPassed: true,
-			departments: { ...serverEvidence },
-			schedules: { ...serverEvidence },
+			departments: serverEvidence("appointmentDepartments"),
+			schedules: serverEvidence("appointmentSchedules"),
 		},
 	};
 }
@@ -249,6 +262,14 @@ describe("device evidence audit", () => {
 		syncManifest.domains.patientDirectorySync.client.method = "GET";
 		expect(() => auditDeviceEvidence(syncManifest)).toThrow(
 			"patientDirectorySync.client.method 必须是 POST",
+		);
+
+		const serverManifest = completeManifest();
+		serverManifest.domains.patientDirectory =
+			passedEvidence("patientDirectory");
+		serverManifest.domains.patientDirectory.server.businessDomain = "auth";
+		expect(() => auditDeviceEvidence(serverManifest)).toThrow(
+			"patientDirectory.server.businessDomain 必须是 patientRead",
 		);
 	});
 

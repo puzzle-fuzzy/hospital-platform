@@ -24,6 +24,12 @@
 证据文档不记录查询参数，但服务端同链摘要仍必须证明该请求属于对应业务域；
 不能用 `/me` 或其它 200 响应替代目标接口。
 
+每个服务端摘要还必须填写与 `p0-business-evidence-audit` 一致的
+`businessDomain`：患者目录读取为 `patientRead`，患者同步为 `patientSync`，
+预约记录为 `appointmentRecords`，门诊费用为 `outpatientPaymentRecords`；
+预约目录的科室/排班分别为 `appointmentDepartments`/`appointmentSchedules`，
+普通资料读取/更新分别为 `profileRead`/`profileUpdate`。计数相同但 contract 不同，不能互相替代。
+
 | 域 | 状态 | 页面证据 | 客户端 requestId | 服务端 traceId/低敏日志 | 备注 |
 | --- | --- | --- | --- | --- | --- |
 | auth | pending |  |  |  |  |

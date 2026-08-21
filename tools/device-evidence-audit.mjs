@@ -48,6 +48,23 @@ const DOMAIN_CLIENT_REQUESTS = Object.freeze({
 });
 
 /**
+ * 客户端域与 `p0-business-evidence-audit` contract 的一一映射。
+ *
+ * 只校验请求路径仍不够：同一公共路径可能被不同页面以不同业务语义
+ * 使用，服务端摘要必须明确来自哪个日志 contract，才能阻止人工整理时
+ * 把另一个业务域的计数复制过来。
+ */
+const DOMAIN_SERVER_BUSINESS_DOMAINS = Object.freeze({
+	auth: "auth",
+	patientDirectory: "patientRead",
+	patientDirectorySync: "patientSync",
+	patientSelection: "patientRead",
+	appointmentRecords: "appointmentRecords",
+	missedAppointments: "appointmentRecords",
+	outpatientPayment: "outpatientPaymentRecords",
+});
+
+/**
  * 与 API request-context 的 requestIdPattern 保持同一安全边界。
  *
  * 小程序会主动发送 `mp-时间-随机串` 作为 x-request-id，服务端校验通过后
@@ -216,8 +233,13 @@ function validateClientEvidence(client, domain) {
 	return { statusCode: object.statusCode };
 }
 
-function validateServerEvidence(server, domain) {
+function validateServerEvidence(server, domain, expectedBusinessDomain) {
 	const object = requirePlainObject(server, `${domain}.server 缺失`);
+	if (object.businessDomain !== expectedBusinessDomain) {
+		throw new Error(
+			`${domain}.server.businessDomain 必须是 ${expectedBusinessDomain}`,
+		);
+	}
 	if (typeof object.auditPassed !== "boolean") {
 		throw new Error(`${domain}.server.auditPassed 必须为布尔值`);
 	}
@@ -299,10 +321,15 @@ function validateProfileServerEvidence(server, domain) {
 	if (typeof object.auditPassed !== "boolean") {
 		throw new Error(`${domain}.server.auditPassed 必须为布尔值`);
 	}
-	const read = validateServerEvidence(object.read, `${domain}.server.read`);
+	const read = validateServerEvidence(
+		object.read,
+		`${domain}.server.read`,
+		"profileRead",
+	);
 	const update = validateServerEvidence(
 		object.update,
 		`${domain}.server.update`,
+		"profileUpdate",
 	);
 	return { auditPassed: object.auditPassed, read, update };
 }
@@ -374,10 +401,12 @@ function validateAppointmentDirectoryServerEvidence(server, domain) {
 	const departments = validateServerEvidence(
 		object.departments,
 		`${domain}.server.departments`,
+		"appointmentDepartments",
 	);
 	const schedules = validateServerEvidence(
 		object.schedules,
 		`${domain}.server.schedules`,
+		"appointmentSchedules",
 	);
 	return { auditPassed: object.auditPassed, departments, schedules };
 }
@@ -520,7 +549,11 @@ function validateDomainClientEvidence(client, domain, requireSuccess) {
 function validatePassedDomain(domain, evidence) {
 	const page = validatePageEvidence(evidence.page, domain);
 	const client = validateDomainClientEvidence(evidence.client, domain, true);
-	const server = validateServerEvidence(evidence.server, domain);
+	const server = validateServerEvidence(
+		evidence.server,
+		domain,
+		DOMAIN_SERVER_BUSINESS_DOMAINS[domain],
+	);
 	if (client.statusCode < 200 || client.statusCode > 299) {
 		throw new Error(`${domain} 标记 passed 时客户端 HTTP 必须为 2xx`);
 	}
@@ -541,7 +574,11 @@ function validatePassedDomain(domain, evidence) {
 function validateFailedDomain(domain, evidence) {
 	validatePageEvidence(evidence.page, domain);
 	const client = validateDomainClientEvidence(evidence.client, domain, false);
-	const server = validateServerEvidence(evidence.server, domain);
+	const server = validateServerEvidence(
+		evidence.server,
+		domain,
+		DOMAIN_SERVER_BUSINESS_DOMAINS[domain],
+	);
 	if (
 		client.statusCode >= 200 &&
 		client.statusCode <= 299 &&
