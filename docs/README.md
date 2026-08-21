@@ -31,6 +31,7 @@
 | [`release/miniprogram-patient-directory-superseded-2026-08-21.md`](release/miniprogram-patient-directory-superseded-2026-08-21.md) | 首页患者目录请求被淘汰时的显式生命周期结果、禁止误启动同步的并发修正与验证证据 |
 | [`release/candidate-c86a788-local-build-2026-08-21.md`](release/candidate-c86a788-local-build-2026-08-21.md) | 当前小程序本地构建来源、患者初始化测试门禁、test/spec 运行包隔离和真机前置条件；小程序尚未上传线上，服务端基线为 `5a31427` |
 | [`release/current-public-runtime-smoke-2026-08-21-1112.md`](release/current-public-runtime-smoke-2026-08-21-1112.md) | 11:12 CST 公网 `/api/v2` live/ready、未登录鉴权和未开放路由只读复核；不替代真机业务证据 |
+| [`release/current-public-runtime-smoke-2026-08-21-1136.md`](release/current-public-runtime-smoke-2026-08-21-1136.md) | 11:36 CST 公网 `/api/v2` 生产模式、普通资料独立鉴权和未开放能力边界复核；不替代真机业务证据 |
 | [`release/current-5a31427-runtime-p0-observation-2026-08-21-1121.md`](release/current-5a31427-runtime-p0-observation-2026-08-21-1121.md) | 11:21 CST 新旧服务共存、Worker、端口和 P0 业务日志空窗口只读复核；不替代真机业务证据 |
 | [`release/current-5a31427-runtime-p0-observation-2026-08-21-1134.md`](release/current-5a31427-runtime-p0-observation-2026-08-21-1134.md) | 11:34 CST 新旧服务共存与最近一小时 P0 业务日志空窗口只读复核；不替代真机业务证据 |
 | [`release/current-5a31427-coexistence-readonly-2026-08-21-0631.md`](release/current-5a31427-coexistence-readonly-2026-08-21-0631.md) | 06:31 CST 新旧服务共存、生产模式、内网依赖和公网 live/ready/ping 只读复核；不替代真机业务证据 |

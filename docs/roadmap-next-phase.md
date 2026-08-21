@@ -10,6 +10,10 @@
   没有新的微信、患者、预约、门诊费用或普通资料业务事件。本次没有部署、重启或写入，不能把空窗口解释为业务失败或真机完成；详见
   [`release/current-5a31427-runtime-p0-observation-2026-08-21-1134.md`](release/current-5a31427-runtime-p0-observation-2026-08-21-1134.md)。
 
+- 2026-08-21 11:36 CST（公网运行层复核）：使用生产模式 smoke 对 `https://test-hp.meiyi.pro/api/v2` 验证 live/ready/ping 为 `200`、
+  ready 连续 `3/3`，包含普通资料在内的鉴权路径为 `401/unauthorized`，关闭能力为 `404/not-found`。本次没有 Bearer、Provider 调用或业务写入，
+  结果只证明路由边界；详见 [`release/current-public-runtime-smoke-2026-08-21-1136.md`](release/current-public-runtime-smoke-2026-08-21-1136.md)。
+
 - 2026-08-21（普通资料运行时鉴权门禁）：worker runtime smoke 新增 `GET /me/profile` 的独立未登录检查，并在 v1/v2
   测试夹具中明确断言该路径必须返回 `401/unauthorized`。普通资料不再只通过 `/me` 间接覆盖；worker 测试 `53/53`、类型检查、
   构建和文档断链审计通过。本次仅修改本地门禁代码与文档，尚未部署，不增加线上或真机业务证据，也未触碰旧 Python 服务。
