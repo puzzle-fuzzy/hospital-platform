@@ -14,12 +14,16 @@
 - 未知格式、无效日历日期和窗口外时间整批拒绝，不能过滤坏行、排序后保留或降级为空列表；
 - 失败日志只记录固定的 `reported-at-invalid` 或 `reported-at-outside-query`，不记录 Provider 原文。
 
+本轮同时把同一时间解析门禁应用到 LIS 详情：详情的 `reportedAt` 无法解析时返回 `detail-reported-at-invalid`，
+避免目录是可审计时间而详情页却展示不可解释的临床时间。目录与详情标题/时间的精确关联仍需要 Provider 在详情响应中
+提供稳定回显字段；当前不通过猜测或新增未验证的数据库字段来补齐这一 contract。
+
 ## 代码与测试
 
 - `packages/domain/src/reports.ts`：新增报告时间解析和目录结果窗口校验；
 - `apps/api/src/modules/reports/service.ts`：在来源筛选后、短期引用创建前调用窗口校验；
 - `packages/domain/src/reports.test.ts`：覆盖日期格式、无效日期、窗口首尾和窗口外结果；
-- `apps/api/src/modules/reports/service.test.ts`：覆盖窗口外/未知时间整批失败、无成功日志和固定失败原因。
+- `apps/api/src/modules/reports/service.test.ts`：覆盖窗口外/未知时间整批失败、详情时间非法、无成功日志和固定失败原因。
 
 ## 证据边界
 

@@ -1381,6 +1381,93 @@ test("报告 service 二次校验并重新投影目录和 LIS 详情", async () 
 	expect(detailOutput).not.toContain("provider.invalid");
 });
 
+test("报告详情 service 拒绝无法解析的临床时间并记录固定原因", async () => {
+	const lines: string[] = [];
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => ({
+				reports: [
+					{
+						summary: {
+							kind: "laboratory" as const,
+							title: "血常规",
+							reportedAt: "2026-08-15 10:00:00",
+							status: "available" as const,
+							hasAttachment: false,
+						},
+						providerReportId: "provider-report-invalid-time",
+					},
+				],
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "reports-directory",
+					requestId: "report-detail-invalid-time-directory",
+				},
+			}),
+		},
+		detail: {
+			getLaboratoryDetail: async () => ({
+				detail: {
+					kind: "laboratory",
+					title: "血常规",
+					reportedAt: "未知时间",
+					items: [{ name: "白细胞", result: "10.2", flag: "normal" }],
+					hasAttachment: false,
+				},
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "reports-detail",
+					requestId: "report-detail-invalid-time",
+				},
+			}),
+		},
+		references: createInMemoryReportReferenceRepository(),
+		logger: createLogger({
+			service: "report-detail-time-test",
+			environment: "test",
+			level: "info",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	const list = await service.list(
+		"user-001",
+		"patient-001",
+		{ startDate: "2026-08-01", endDate: "2026-08-15" },
+		{
+			traceId: "trace-report-detail-invalid-time-list",
+			idempotencyKey: "key-report-detail-invalid-time-list",
+		},
+	);
+	const reportId = list.items[0]?.reportId;
+	if (!reportId) throw new Error("report reference was not created");
+
+	await expect(
+		service.detail("user-001", "patient-001", reportId, {
+			traceId: "trace-report-detail-invalid-time",
+			idempotencyKey: "key-report-detail-invalid-time",
+		}),
+	).rejects.toMatchObject({
+		violation: "detail-reported-at-invalid",
+	});
+	const events = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(events).toContainEqual(
+		expect.objectContaining({
+			event: "report.detail.failed",
+			resultViolation: "detail-reported-at-invalid",
+		}),
+	);
+});
+
 test("报告 service 拒绝异常目录和详情读模型并记录有限原因", async () => {
 	const lines: string[] = [];
 	const logger = createLogger({

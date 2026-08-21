@@ -85,3 +85,17 @@ test("LIS 明细读模型超过资源上限时整批拒绝", () => {
 		new ReportResultValidationError("detail-items-too-many"),
 	);
 });
+
+test("LIS 详情时间必须使用与目录一致的可审计格式", () => {
+	const detail = {
+		kind: "laboratory" as const,
+		title: "血常规",
+		reportedAt: "未知时间",
+		items: [{ name: "白细胞", result: "10.2", flag: "normal" as const }],
+		hasAttachment: false,
+	};
+
+	expect(() => normalizeLaboratoryReportDetail(detail)).toThrow(
+		new ReportResultValidationError("detail-reported-at-invalid"),
+	);
+});

@@ -470,6 +470,11 @@ export function normalizeLaboratoryReportDetail(
 	if (!hasSafeReportText(record.reportedAt, 64)) {
 		invalidReportResult("detail-reported-at-invalid");
 	}
+	if (parseReportTimestamp(record.reportedAt) === undefined) {
+		// 目录和详情的时间必须使用同一套可审计格式；只校验非空会让
+		// 详情页出现无法和目录窗口、旧端时间事实对照的临床时间文本。
+		invalidReportResult("detail-reported-at-invalid");
+	}
 	if (!Array.isArray(record.items)) {
 		invalidReportResult("detail-items-not-array");
 	}

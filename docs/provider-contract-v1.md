@@ -53,6 +53,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 报告目录使用独立的 `ZHONGYANG_REPORT_DIRECTORY_READY` gate，和患者/预约目录共享连接配置但分别验收；configured 只表示配置字段完整，不代表真实 provider 已联调。
 - 报告目录的日期参数目前由平台校验为起止日期差值最多 366 天；provider `endDate` 的包含规则、同日查询和分页一致性仍未冻结，不能把平台近 30 天窗口写成 provider 的条目数量语义。
 - 报告目录返回后，平台还会逐条校验 `reportedAt`：接受已审计的自然日/本地时间/带明确时区 ISO 格式，并要求其落在本次请求的首尾自然日内；无法解析或窗口外的任何一条都会让整批返回 `provider-response-invalid`，不会排序后保留、过滤坏行或伪装为空结果。该门禁用于证明响应属于当前查询，不等于 Provider `endDate` 包含规则已经冻结。
+- LIS 详情的 `reportedAt` 也必须通过同一套可审计时间解析；详情时间无法解析时整次详情返回 `provider-response-invalid`。目录摘要与详情标题/时间的逐字段关联尚未由 Provider 响应稳定回显，正式 contract 到达前不能自行扩展短期引用表或把文本相等当作医院侧身份证明。
 - 即使 provider 患者号来自 owner-scoped 仓储映射，报告 adapter 仍会在发起 HTTP 请求前拒绝空引用；这样可防止任务、回放器或错误仓储把 `patId=` 发给 Provider，不能把 service 层校验当作唯一边界。
 - LIS 详情使用独立的 `ZHONGYANG_REPORT_DETAIL_READY` gate，并额外依赖 `0009_report_references`、owner 复合外键和 TTL 查询；configured 不代表真实 provider 资源授权或真机可用。
 - 报告引用的创建、过期和 owner + patient 查询统一使用服务端应用时钟；不能让不同机器的本地时区或时钟漂移改变短期引用的有效性，测试必须注入固定时间覆盖 TTL 边界。
