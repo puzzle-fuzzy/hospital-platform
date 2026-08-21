@@ -7,6 +7,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 19:44–19:46 CST（当前 release 业务观察与开发者工具边界）：`c8eef370` 的 journald 低敏聚合为
+  `parsedRecords=0`、`parseErrors=0`、`eventCounts={}`，尚未产生新的微信/患者/预约/门诊费用事件。桌面可见的
+  可操作开发者工具窗口仍是旧 `mp-weixin`；`miniprogram` 条目句柄失效，刷新后无法取得，本轮没有操作旧项目。
+  因此下一步必须重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\`、普通编译并生成新二维码，
+  再采集当前 `c8eef370` 的真机三层证据。
+
 - 2026-08-21 19:36–19:44 CST（`c8eef370` 生产切换）：上一轮 request logging 修复已完成本地构建、远端 SHA-256
   对照、真实生产 env preflight 和 `127.0.0.1:18082` 隔离 runtime smoke；随后将新 API `current` 从 `5a31427`
   原子切换到 `c8eef370`，只重启 `hospital-platform-api-v2.service`。切换后新 API production 启动日志确认
