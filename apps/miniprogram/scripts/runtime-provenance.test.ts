@@ -1,16 +1,17 @@
+import { expect, test } from "bun:test";
 import {
 	access,
-	mkdtemp,
 	mkdir,
+	mkdtemp,
 	readdir,
 	rm,
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "bun:test";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
+	findForbiddenWorkspaceImports,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
@@ -186,6 +187,29 @@ test("运行包发布失败时保留旧 live 目录", async () => {
 		expect(await Bun.file(join(liveRuntime, "app.js")).text()).toBe(
 			"old-runtime",
 		);
+	} finally {
+		await rm(workspace, { recursive: true, force: true });
+	}
+});
+
+test("运行包拒绝 pnpm workspace 裸模块依赖", async () => {
+	const workspace = await mkdtemp(
+		join(tmpdir(), "hospital-mini-runtime-workspace-import-"),
+	);
+	try {
+		await mkdir(workspace, { recursive: true });
+		await writeFile(
+			join(workspace, "page.js"),
+			'const contracts = require("@hospital/contracts");\n',
+			"utf8",
+		);
+		await writeFile(
+			join(workspace, "safe-page.js"),
+			'const local = require("./local");\n',
+			"utf8",
+		);
+
+		expect(await findForbiddenWorkspaceImports(workspace)).toEqual(["page.js"]);
 	} finally {
 		await rm(workspace, { recursive: true, force: true });
 	}

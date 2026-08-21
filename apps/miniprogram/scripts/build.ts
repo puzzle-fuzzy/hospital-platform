@@ -1,10 +1,11 @@
 import { access, cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
+import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
+	findForbiddenWorkspaceImports,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
-import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 
 const root = join(import.meta.dir, "..");
 const repositoryRoot = join(root, "..", "..");
@@ -365,6 +366,14 @@ try {
 	if (forbiddenTestRuntimeFiles.length > 0) {
 		throw new Error(
 			`Mini program runtime must not contain test scripts: ${forbiddenTestRuntimeFiles.join(", ")}`,
+		);
+	}
+
+	const forbiddenWorkspaceImports =
+		await findForbiddenWorkspaceImports(stagingRuntime);
+	if (forbiddenWorkspaceImports.length > 0) {
+		throw new Error(
+			`Mini program runtime must not import pnpm workspace modules: ${forbiddenWorkspaceImports.join(", ")}`,
 		);
 	}
 

@@ -31,6 +31,8 @@ workspace 裸模块名，当前候选已改为小程序本地无第三方依赖�
 - `pnpm --filter @hospital/miniprogram runtime:verify`；
 - `pnpm check` 全量门禁；
 - 使用微信开发者工具 CLI 按 `apps/miniprogram/` 项目根目录打开并确认资源树为 `MINIPROGRAM`。
+- 构建和运行包校验都会拒绝 `require("@hospital/*")`、`from "@hospital/*"` 等
+  workspace 裸模块依赖，避免微信 CommonJS 运行时再次出现模块未定义。
 
 ## 3. 当前验收边界
 

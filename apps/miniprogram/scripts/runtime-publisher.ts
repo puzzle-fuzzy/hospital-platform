@@ -134,3 +134,27 @@ export async function listRuntimeFiles(
 ): Promise<readonly string[]> {
 	return listFiles(runtime);
 }
+
+/**
+ * 找出微信运行包中仍然依赖 workspace 裸模块的 JavaScript 文件。
+ *
+ * 小程序的 CommonJS 运行时不会执行 pnpm workspace 的解析规则；像
+ * `require("@hospital/contracts")` 这样的代码在 TypeScript 编译阶段可能
+ * 没有报错，却会在开发者工具或真机加载模块时失败。类型文件可以继续
+ * 引用共享契约，但真正进入 dist 的 JavaScript 必须只依赖本地运行模块。
+ */
+export async function findForbiddenWorkspaceImports(
+	runtime: string,
+): Promise<readonly string[]> {
+	const runtimeFiles = await listRuntimeFiles(runtime);
+	const forbiddenFiles: string[] = [];
+	const workspaceImportPattern =
+		/(?:require\s*\(\s*["']@hospital\/|(?:from\s+|import\s*\(\s*)["']@hospital\/)/u;
+
+	for (const file of runtimeFiles.filter((entry) => entry.endsWith(".js"))) {
+		const contents = await Bun.file(join(runtime, file)).text();
+		if (workspaceImportPattern.test(contents)) forbiddenFiles.push(file);
+	}
+
+	return forbiddenFiles;
+}
