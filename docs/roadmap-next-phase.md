@@ -18,7 +18,7 @@
   普通编译后再生成二维码。详见 [`release/miniprogram-devtools-project-preflight-2026-08-21.md`](release/miniprogram-devtools-project-preflight-2026-08-21.md)。
 
 - 2026-08-21 当前候选全仓复核：`pnpm check` 全部通过；API 测试 `199 pass/829 expects`，小程序测试
-  `186 pass/1461 expects`，运行包为 14 个页面且不含测试脚本，来源指纹为
+  `186 pass/1463 expects`，运行包为 14 个页面且不含测试脚本，来源指纹为
   `cde7bc90a23698398e9474944adf42b36f37982c`。本次仅做本地与仓库只读核验，SSH 公钥仍未获服务器接受，
   因此没有新增线上日志、真机或 Provider 证据；旧 Python 服务和并行工作树修改均未触碰。
 
