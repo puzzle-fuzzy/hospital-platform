@@ -1689,6 +1689,44 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).not.toContain("outTradeOrderId");
 });
 
+test("patient list load-more events cannot mutate stale read-model windows", async () => {
+	const pages = [
+		{
+			file: "pages/appointment-records/appointment-records.ts",
+			more: "!this.data.hasMoreRecords",
+		},
+		{
+			file: "pages/missed-appointments/missed-appointments.ts",
+			more: "!this.data.hasMoreRecords",
+		},
+		{
+			file: "pages/report-directory/report-directory.ts",
+			more: "!this.data.hasMoreReports",
+		},
+		{
+			file: "pages/outpatient-payment/outpatient-payment.ts",
+			more: "!this.data.hasMoreItems",
+		},
+	] as const;
+
+	for (const item of pages) {
+		const page = await source(item.file);
+		const start = page.indexOf("onLoadMore(): void {");
+		const end = page.indexOf("\n\t},", start);
+		const handler = page.slice(start, end);
+
+		// 这些页面的分批展示不是 Provider 分页。旧事件必须在加载中、
+		// 没有患者、会话/患者已漂移或已经没有更多记录时失效，且展示数量
+		// 必须严格递增，不能通过重复点击把新状态误写回旧读模型。
+		expect(handler).toContain(
+			"if (this.data.loading || !this.data.selectedPatient)",
+		);
+		expect(handler).toContain(item.more);
+		expect(handler).toContain("Math.min(");
+		expect(handler).toContain("if (nextCount <= this.data.visible");
+	}
+});
+
 test("patient-scoped empty states keep a reachable patient selector", async () => {
 	for (const file of [
 		"pages/appointment-records/appointment-records.wxml",

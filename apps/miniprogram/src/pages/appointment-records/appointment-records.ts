@@ -261,12 +261,16 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/** 只展开当前 owner-scoped 查询已经取得的结果，不重新请求 provider。 */
 	onLoadMore(): void {
-		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
+		// 旧 WXML 事件可能在刷新、切换患者或切换标签期间抵达；加载中
+		// 不处理，避免重复触发组合读取或将半成品快照写回可见列表。
+		if (this.data.loading || !this.data.selectedPatient) return;
+		if (!this.isPatientContextCurrent()) {
 			// 页面停留期间若另一页完成了换号，不能继续展开旧患者的本地快照；
 			// 重新走 `/me` → 患者目录 → 记录组合读取，避免视觉状态先于业务事实漂移。
 			void this.loadRecords();
 			return;
 		}
+		if (!this.data.hasMoreRecords) return;
 		const filteredRecords = filterAppointmentRecords(
 			this.data.records,
 			this.data.activeTab,
@@ -275,6 +279,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			this.data.visibleRecordCount + APPOINTMENT_RECORD_PAGE_SIZE,
 			filteredRecords.length,
 		);
+		if (nextCount <= this.data.visibleRecordCount) return;
 		this.setData({
 			visibleRecords: filteredRecords.slice(0, nextCount),
 			visibleRecordCount: nextCount,

@@ -185,16 +185,21 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 
 	/** 只展开当前已筛选的 missed 结果，不重新查询或改变状态判定。 */
 	onLoadMore(): void {
-		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
+		// 刷新或切换就诊人时，旧 WXML 事件可能晚于当前页面状态抵达；
+		// 加载中和没有患者时都没有可安全展开的已确认读模型。
+		if (this.data.loading || !this.data.selectedPatient) return;
+		if (!this.isPatientContextCurrent()) {
 			// 旧患者的本地分页窗口不能跨会话继续展开；重新读取当前 owner
 			// 的患者和爽约派生结果，避免把视觉分页误当作仍然有效的业务事实。
 			void this.loadRecords();
 			return;
 		}
+		if (!this.data.hasMoreRecords) return;
 		const nextCount = Math.min(
 			this.data.visibleRecordCount + MISSED_APPOINTMENT_PAGE_SIZE,
 			this.data.records.length,
 		);
+		if (nextCount <= this.data.visibleRecordCount) return;
 		this.setData({
 			visibleRecords: this.data.records.slice(0, nextCount),
 			visibleRecordCount: nextCount,

@@ -272,10 +272,27 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	 * 用户只是继续查看同一次 owner-scoped、状态固定的只读查询结果。
 	 */
 	onLoadMore(): void {
+		// “加载更多”事件可能在刷新、切换缴费状态或更换就诊人之后才
+		// 抵达。先阻断加载中的旧事件和没有患者上下文的事件，避免旧按钮
+		// 把当前页面的渲染窗口从空态重新改写成不完整的费用视图。
+		if (this.data.loading || !this.data.selectedPatient) return;
+		const selectedPatient = this.data.selectedPatient;
+		if (
+			this.data.patientSessionGeneration !== getSessionGeneration() ||
+			!isCurrentSelectedPatient(selectedPatient.id)
+		) {
+			// 会话或显式患者已经变化时，不能继续展开上一轮费用快照；
+			// 重新执行 `/me` → 患者目录 → 当前 tab 查询，保留服务端
+			// owner 校验，同时不让旧 UI 事件携带旧患者进入请求。
+			void this.loadPage();
+			return;
+		}
+		if (!this.data.hasMoreItems) return;
 		const nextCount = Math.min(
 			this.data.visibleItemCount + OUTPATIENT_PAYMENT_PAGE_SIZE,
 			this.data.items.length,
 		);
+		if (nextCount <= this.data.visibleItemCount) return;
 		this.setData({
 			visibleItems: this.data.items.slice(0, nextCount),
 			visibleItemCount: nextCount,

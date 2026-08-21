@@ -228,16 +228,21 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	},
 
 	onLoadMore(): void {
-		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
+		// 报告目录的“加载更多”只改变已取得读模型的本地窗口。刷新、
+		// 患者切换或初次加载期间没有稳定的当前窗口，旧事件必须直接失效。
+		if (this.data.loading || !this.data.selectedPatient) return;
+		if (!this.isPatientContextCurrent()) {
 			// 报告分页只改变本地窗口，但窗口仍属于患者范围读模型；会话
 			// 漂移时必须先重建目录，不能把旧报告继续暴露给新会话。
 			void this.loadPage();
 			return;
 		}
+		if (!this.data.hasMoreReports) return;
 		const nextCount = Math.min(
 			this.data.visibleReportCount + REPORT_PAGE_SIZE,
 			this.data.reports.length,
 		);
+		if (nextCount <= this.data.visibleReportCount) return;
 		this.setData({
 			visibleReports: this.data.reports.slice(0, nextCount),
 			visibleReportCount: nextCount,
