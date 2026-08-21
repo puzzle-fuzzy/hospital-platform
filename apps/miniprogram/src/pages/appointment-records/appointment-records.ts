@@ -7,7 +7,7 @@ import {
 } from "../../services/appointment-record-view";
 import {
 	loadAppointmentRecords,
-	loadCurrentPatient,
+	loadCurrentPatientForOwner,
 } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
@@ -183,6 +183,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		// `/me`、患者目录和预约记录必须属于同一会话代际；页面守卫只隔离
 		// 当前实例的刷新，不能覆盖另一个页面完成换号后的跨请求组合问题。
 		let expectedSessionGeneration = -1;
+		let expectedOwnerId = "";
 		// 患者切换或从选择页返回时，旧记录不能继续和新一轮目录读取并存；
 		// 只有当前患者和当前请求都确认成功后，页面才重新展示记录。
 		this.setData({
@@ -202,14 +203,17 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		// 患者业务页不能把 loadCurrentPatient 内部自动登录当作入口授权事实；
 		// 先单独完成 `/me` 验证，页面上的“更换就诊人”才有可传递的四态状态。
 		return getCurrentUser()
-			.then(() => {
+			.then((currentUser) => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedOwnerId = currentUser.data.user.id;
 				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
-				return loadCurrentPatient();
+				return loadCurrentPatientForOwner(expectedOwnerId);
 			})
-			.then((patient) => {
-				if (!patient) return;
+			.then((patientContext) => {
+				if (!patientContext) return;
+				expectedSessionGeneration = patientContext.sessionGeneration;
+				const { patient } = patientContext;
 				assertSessionGeneration(
 					expectedSessionGeneration,
 					"Appointment page session changed before patient context was committed",
@@ -220,6 +224,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 				) {
 					return;
 				}
+				// 代际可能在患者目录 helper 返回后、业务请求开始前发生变化；
+				// 先在请求前失败，不能把旧患者 ID 交给新会话再等待服务端拒绝。
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Appointment page session changed before records were requested",
+				);
 				return loadAppointmentRecords(patient.id).then((records) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,

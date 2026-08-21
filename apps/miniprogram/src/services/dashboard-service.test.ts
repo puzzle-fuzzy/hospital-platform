@@ -6,6 +6,7 @@ import {
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
 	loadAppointmentSchedules,
+	loadCurrentPatientForOwner,
 	loadOutpatientPaymentRecords,
 	requireAppointmentDepartmentListData,
 	requireAppointmentRecordListData,
@@ -15,6 +16,7 @@ import {
 	requirePatientListData,
 	syncPatientsFromHospital,
 } from "./dashboard-service";
+import { getSessionGeneration } from "./session-generation";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
 const BEIJING_MIDNIGHT = new Date("2026-08-14T16:00:00.000Z");
@@ -267,6 +269,199 @@ test("患者同步先建立会话证明，再进入 POST 协调器", async () =>
 			"/api/v2/me",
 			"/api/v2/patients/sync",
 		]);
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("患者目录读取在同一 owner 的 GET 会话恢复后继续使用最新代际", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		method?: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const requestPaths: string[] = [];
+	const storage: Record<string, unknown> = {
+		selected_patient_id: "patient-read-owner-001",
+		access_token: "session-read-owner-old",
+	};
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "session-read-owner-old",
+		sessionStatus: "signed_in",
+	};
+	const patient = {
+		id: "patient-read-owner-001",
+		displayName: "目录患者",
+		relationship: "self" as const,
+		cardNumberMasked: "12345******0001",
+		source: "hospital-his" as const,
+		clinicalAccess: "ready" as const,
+	};
+	let patientRequestCount = 0;
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) => storage[key] ?? "",
+		setStorageSync: (key: string, value: unknown) => {
+			storage[key] = value;
+			if (key === "access_token") globalData.accessToken = String(value);
+		},
+		removeStorageSync: (key: string) => {
+			delete storage[key];
+			if (key === "access_token") globalData.accessToken = "";
+		},
+		login: (options: { success: (value: { code: string }) => void }) =>
+			options.success({ code: "wechat-code-read-owner" }),
+		request: (options: RequestOptions) => {
+			const path = new URL(options.url).pathname;
+			requestPaths.push(path);
+			if (path.endsWith("/auth/wechat")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							accessToken: "session-read-owner-new",
+							tokenType: "Bearer",
+							expiresInSeconds: 3600,
+							user: { id: "user-read-owner" },
+						},
+					},
+				});
+				return;
+			}
+			if (path.endsWith("/me")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: { user: { id: "user-read-owner" } },
+					},
+				});
+				return;
+			}
+			if (path.endsWith("/patients")) {
+				patientRequestCount += 1;
+				if (patientRequestCount === 1) {
+					options.success({
+						statusCode: 401,
+						data: {
+							success: false,
+							error: {
+								code: "unauthorized",
+								message: "expired",
+							},
+						},
+					});
+					return;
+				}
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: { items: [patient], total: 1 },
+					},
+				});
+				return;
+			}
+			throw new Error(`unexpected request: ${path}`);
+		},
+	};
+
+	try {
+		const startingGeneration = getSessionGeneration();
+		const context = await loadCurrentPatientForOwner("user-read-owner");
+		expect(context.patient).toEqual(patient);
+		expect(context.sessionGeneration).toBeGreaterThan(startingGeneration);
+		expect(requestPaths).toEqual([
+			"/api/v2/patients",
+			"/api/v2/auth/wechat",
+			"/api/v2/patients",
+			"/api/v2/me",
+		]);
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("患者目录读取期间 owner 变化必须在业务请求前 fail-closed", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const requestPaths: string[] = [];
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "session-owner-switch",
+		sessionStatus: "signed_in",
+	};
+	const patient = {
+		id: "patient-owner-switch-001",
+		displayName: "切换患者",
+		relationship: "self" as const,
+		cardNumberMasked: "12345******0002",
+		source: "hospital-his" as const,
+		clinicalAccess: "ready" as const,
+	};
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "selected_patient_id" ? patient.id : globalData.accessToken,
+		setStorageSync: () => undefined,
+		removeStorageSync: () => undefined,
+		request: (options: RequestOptions) => {
+			const path = new URL(options.url).pathname;
+			requestPaths.push(path);
+			if (path.endsWith("/patients")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: { items: [patient], total: 1 },
+					},
+				});
+				return;
+			}
+			if (path.endsWith("/me")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							user: { id: "user-owner-after-switch" },
+						},
+					},
+				});
+				return;
+			}
+			throw new Error(`unexpected request: ${path}`);
+		},
+	};
+
+	try {
+		await expect(
+			loadCurrentPatientForOwner("user-owner-before-switch"),
+		).rejects.toMatchObject({ code: "session-changed" });
+		expect(requestPaths).toEqual(["/api/v2/patients", "/api/v2/me"]);
 	} finally {
 		testGlobal.getApp = previousGetApp;
 		testGlobal.wx = previousWx;

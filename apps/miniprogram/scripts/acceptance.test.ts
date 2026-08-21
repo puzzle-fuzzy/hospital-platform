@@ -629,6 +629,8 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 	// 这四个页面都属于患者上下文业务页：只能读取最新 owner 目录并解析
 	// ready 患者，不能各自复制默认/stale/unavailable 分支或偷偷触发同步。
 	expect(dashboard).toContain("export function loadCurrentPatient");
+	expect(dashboard).toContain("export function loadCurrentPatientForOwner");
+	expect(dashboard).toContain("Current owner changed while reading patients");
 	expect(dashboard).toContain("requireStoredPatientSelection(patients)");
 	expect(dashboard).toContain("不隐式调用");
 	for (const item of pages) {
@@ -638,10 +640,13 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 		// 从方法起点截取到文件末尾即可：业务加载调用只会出现在该方法后，
 		// 不依赖具体缩进和对象结束符，避免格式化后静态断言失效。
 		const loadBody = page.slice(loadStart);
-		const patientGateIndex = loadBody.indexOf("loadCurrentPatient()");
+		const patientGateIndex = loadBody.indexOf(
+			"loadCurrentPatientForOwner(expectedOwnerId)",
+		);
 		const businessLoaderIndex = loadBody.indexOf(item.call);
 
 		expect(page).toContain("loadCurrentPatient");
+		expect(page).toContain("expectedOwnerId");
 		expect(page).toContain("patientContextErrorMessage");
 		// 页面实例守卫只能防同页刷新；跨页面更换就诊人后，旧请求还必须
 		// 通过本地 opaque patientId 快照校验，才能把结果写回当前页面。
@@ -862,7 +867,9 @@ test("患者范围页面把会话代际贯穿到患者和业务结果提交", as
 	// 详情深链也要先重建当前 owner 的患者目录，不能只用 URL 和旧 storage
 	// 中的 patientId 直接请求报告详情。
 	expect(detail).toContain("getCurrentUser()");
-	expect(detail).toContain("return loadCurrentPatient()");
+	expect(detail).toContain(
+		"return loadCurrentPatientForOwner(expectedOwnerId)",
+	);
 	expect(detail).toContain("currentPatient.id !== patientId");
 	expect(detail).toContain("assertSessionGeneration(");
 });

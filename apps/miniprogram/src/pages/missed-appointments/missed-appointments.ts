@@ -5,7 +5,7 @@ import {
 } from "../../services/appointment-record-view";
 import {
 	loadAppointmentRecords,
-	loadCurrentPatient,
+	loadCurrentPatientForOwner,
 } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
@@ -91,6 +91,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		// 爽约记录和普通预约历史共享患者上下文，但页面实例不同；必须把
 		// `/me`、患者目录和筛选结果绑定在同一会话代际，防止跨页换号串快照。
 		let expectedSessionGeneration = -1;
+		let expectedOwnerId = "";
 		this.setData({
 			loading: true,
 			error: "",
@@ -108,14 +109,17 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		// 先验证平台会话，再读取患者和预约历史；这让页面入口与请求使用同一
 		// 四态会话事实，避免本地 token 存在时错误放行“更换就诊人”。
 		return getCurrentUser()
-			.then(() => {
+			.then((currentUser) => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedOwnerId = currentUser.data.user.id;
 				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
-				return loadCurrentPatient();
+				return loadCurrentPatientForOwner(expectedOwnerId);
 			})
-			.then((patient) => {
-				if (!patient) return undefined;
+			.then((patientContext) => {
+				if (!patientContext) return undefined;
+				expectedSessionGeneration = patientContext.sessionGeneration;
+				const { patient } = patientContext;
 				assertSessionGeneration(
 					expectedSessionGeneration,
 					"Missed appointment page session changed before patient context was committed",
@@ -126,6 +130,12 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				) {
 					return undefined;
 				}
+				// 患者目录返回后仍要在业务请求前确认会话没有漂移；否则旧
+				// patientId 会先进入预约查询，再由服务端被动拒绝。
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Missed appointment page session changed before records were requested",
+				);
 
 				// 患者卡片不能先于爽约记录提交。否则患者切换发生在 Provider
 				// 请求期间时，旧响应虽然会被丢弃，旧患者卡片仍可能短暂留在页面，

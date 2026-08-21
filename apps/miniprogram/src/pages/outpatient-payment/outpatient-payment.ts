@@ -2,7 +2,7 @@ import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
-	loadCurrentPatient,
+	loadCurrentPatientForOwner,
 	loadOutpatientPaymentRecords,
 } from "../../services/dashboard-service";
 import {
@@ -110,6 +110,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		// 费用页面的患者卡片、状态标签和金额必须来自同一会话代际；
 		// 另一个页面换号时，不能只靠当前页面 requestToken 继续拼接旧快照。
 		let expectedSessionGeneration = -1;
+		let expectedOwnerId = "";
 		// 患者切换期间不展示上一位患者的费用，避免身份和金额短暂错配。
 		this.setData({
 			loading: true,
@@ -125,14 +126,17 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		// 先完成服务端 `/me` 验证，再读取患者目录；否则页面入口会在本地
 		// token 已过期时仍被误认为可切换患者，随后才在费用请求中暴露 401。
 		return getCurrentUser()
-			.then(() => {
+			.then((currentUser) => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedOwnerId = currentUser.data.user.id;
 				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
-				return loadCurrentPatient();
+				return loadCurrentPatientForOwner(expectedOwnerId);
 			})
-			.then((patient) => {
-				if (!patient) return;
+			.then((patientContext) => {
+				if (!patientContext) return;
+				expectedSessionGeneration = patientContext.sessionGeneration;
+				const { patient } = patientContext;
 				assertSessionGeneration(
 					expectedSessionGeneration,
 					"Outpatient payment page session changed before patient context was committed",

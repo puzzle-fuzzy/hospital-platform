@@ -3,7 +3,7 @@ import {
 	getCurrentUser,
 	requestReportDetail,
 } from "../../services/api-client";
-import { loadCurrentPatient } from "../../services/dashboard-service";
+import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -83,15 +83,19 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 		// patientId。先重新取得当前 owner，再读取其患者目录；这样即使本地
 		// selected_patient_id 仍是旧账号的值，也不会直接把引用送进详情 API。
 		let expectedSessionGeneration = -1;
+		let expectedOwnerId = "";
 		getCurrentUser()
-			.then(() => {
+			.then((currentUser) => {
 				if (!detailGuard.isCurrent(detailToken)) return undefined;
+				expectedOwnerId = currentUser.data.user.id;
 				expectedSessionGeneration = getSessionGeneration();
-				return loadCurrentPatient();
+				return loadCurrentPatientForOwner(expectedOwnerId);
 			})
-			.then((currentPatient) => {
-				if (!currentPatient || !detailGuard.isCurrent(detailToken))
+			.then((patientContext) => {
+				if (!patientContext || !detailGuard.isCurrent(detailToken))
 					return undefined;
+				expectedSessionGeneration = patientContext.sessionGeneration;
+				const { patient: currentPatient } = patientContext;
 				assertSessionGeneration(
 					expectedSessionGeneration,
 					"Report detail session changed before patient context was confirmed",
@@ -104,6 +108,12 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 						code: "patient-selection-required",
 					});
 				}
+				// 详情请求会携带 opaque patientId；在发出前再确认组合读取
+				// 的 owner 代际，避免旧深链在账号切换窗口进入服务端。
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Report detail session changed before detail was requested",
+				);
 				return requestReportDetail({ patientId, reportId });
 			})
 			.then((payload) => {

@@ -1,6 +1,6 @@
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
-	loadCurrentPatient,
+	loadCurrentPatientForOwner,
 	loadReports,
 } from "../../services/dashboard-service";
 import {
@@ -110,6 +110,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		// 报告目录是 `/me`、患者和临床列表的组合读模型；所有阶段必须属于
 		// 同一会话代际，不能只依赖单个请求的 HTTP 成功状态。
 		let expectedSessionGeneration = -1;
+		let expectedOwnerId = "";
 		// 切换患者后先清掉旧患者的结果，避免新请求期间出现患者和列表不一致。
 		this.setData({
 			loading: true,
@@ -126,14 +127,17 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		// 报告属于患者范围业务；只有 `/me` 已验证成功，才能把“更换患者”
 		// 入口视为可用，不能把请求层的自动登录隐藏成页面授权状态。
 		return getCurrentUser()
-			.then(() => {
+			.then((currentUser) => {
 				if (!loadGuard.isCurrent(requestToken)) return undefined;
+				expectedOwnerId = currentUser.data.user.id;
 				expectedSessionGeneration = getSessionGeneration();
 				this.setData({ sessionState: "valid" });
-				return loadCurrentPatient();
+				return loadCurrentPatientForOwner(expectedOwnerId);
 			})
-			.then((patient) => {
-				if (!patient) return undefined;
+			.then((patientContext) => {
+				if (!patientContext) return undefined;
+				expectedSessionGeneration = patientContext.sessionGeneration;
+				const { patient } = patientContext;
 				assertSessionGeneration(
 					expectedSessionGeneration,
 					"Report directory session changed before patient context was committed",
@@ -144,6 +148,12 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				) {
 					return undefined;
 				}
+				// 业务列表请求前也要检查最新代际，避免账号刚切换时把
+				// 上一轮患者 ID 带入报告查询；响应后的断言仍不可省略。
+				assertSessionGeneration(
+					expectedSessionGeneration,
+					"Report directory session changed before reports were requested",
+				);
 				// 患者卡片必须和同一轮报告目录一起提交；只确认目录患者后就
 				// 先展示卡片，会在切换患者或报告请求失败时形成错误的上下文暗示。
 				return loadReports(patient.id).then((payload) => {

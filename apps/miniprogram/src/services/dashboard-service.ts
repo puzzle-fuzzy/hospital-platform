@@ -28,6 +28,7 @@ import {
 	requireStoredPatientSelection,
 } from "./patient-selection-service";
 import { runPatientSync } from "./patient-sync-coordinator";
+import { getSessionGeneration } from "./session-generation";
 
 type ExactListData<T> = {
 	items: Array<T>;
@@ -753,6 +754,46 @@ export function loadPatients(): Promise<Array<Patient>> {
 export function loadCurrentPatient(): Promise<Patient> {
 	return loadPatients().then((patients) =>
 		requireStoredPatientSelection(patients),
+	);
+}
+
+/**
+ * 在当前 owner 证明下读取可用于只读临床查询的患者上下文。
+ *
+ * 患者范围页面通常先请求 `/me`，再请求 `/patients`。中间的 GET 可能因
+ * token 过期触发一次安全会话恢复；此时 token 和会话代际会变化，但只要
+ * `/me` 最终仍属于同一平台用户，就不应该把正常恢复误判成混合快照。
+ * 反过来，如果账号在患者目录读取期间发生切换，只比较代际无法说明新旧
+ * owner 是否相同；这里在患者目录完成后重新验证 `/me`，把 owner 身份和
+ * 最新会话代际一起交给页面。业务列表请求前仍必须再调用
+ * `assertSessionGeneration`，防止这个 helper 返回后页面才发现会话已经漂移。
+ *
+ * `expectedOwnerId` 只能来自调用方刚刚通过 canonical `/me` 校验的结果；本
+ * 函数不会接受 provider 患者号，也不会把 owner 标识写入小程序存储或页面。
+ */
+export function loadCurrentPatientForOwner(
+	expectedOwnerId: string,
+): Promise<{ patient: Patient; sessionGeneration: number }> {
+	if (typeof expectedOwnerId !== "string" || expectedOwnerId.length === 0) {
+		return Promise.reject(
+			new ApiError("Current owner identity is missing", {
+				code: "session-changed",
+			}),
+		);
+	}
+
+	return loadCurrentPatient().then((patient) =>
+		getCurrentUser().then((currentUser) => {
+			if (currentUser.data.user.id !== expectedOwnerId) {
+				throw new ApiError("Current owner changed while reading patients", {
+					code: "session-changed",
+				});
+			}
+			return {
+				patient,
+				sessionGeneration: getSessionGeneration(),
+			};
+		}),
 	);
 }
 
