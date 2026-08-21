@@ -197,6 +197,12 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
     不自动登录、不重放旧患者查询；请求等待期间代际变化时丢弃响应，当前代际收到 401 时只清理失效会话。
     页面必须重新完成 `/me`、患者目录和业务查询，不能把响应层的丢弃当作“旧 patientId 从未发出”的证明。
 
+22. 首页会话状态只有在当前目录读取返回 `loaded` 后才能收敛为“已恢复会话”。`loadPatients()` 返回
+    `superseded` 时表示这轮读取已被更新的目录周期淘汰，不能把它当作 `/patients` 成功；否则下拉刷新、
+    页面返回和会话恢复并发时，首页会在患者上下文尚未确认前开放患者范围入口。`onShow`、下拉刷新和
+    主动登录必须分别检查目录周期结果、页面生命周期和会话 guard；真正被淘汰的旧回调只能结束，不能
+    改写最新周期的会话状态或错误文案。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的

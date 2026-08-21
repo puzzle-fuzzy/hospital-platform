@@ -2139,7 +2139,8 @@ test("native homepage reloads the owner directory after returning from patient s
 	expect(home).toContain("if (!hasPlatformSession())");
 	expect(showBody).toContain("this.clearDisplayedPatientContext();");
 	expect(showBody).not.toContain("clearSelectedPatientId();");
-	expect(home).toContain("this.loadPatients().catch((error) =>");
+	expect(home).toContain("this.loadPatients()");
+	expect(showBody).toContain("shouldContinueAfterPatientLoad(patientLoadResult)");
 	expect(home).not.toContain(
 		"selectedPatientId === this.data.selectedPatientId",
 	);
@@ -2175,6 +2176,28 @@ test("native homepage clears the patient card before validating an existing toke
 	expect(showBody).toContain("sessionStatus: SESSION_LABELS.restoring");
 	expect(showBody).toContain("sessionStatus: SESSION_LABELS.restored");
 	expect(showBody).toContain("!hasPlatformSession()");
+});
+
+test("native homepage marks session restored only after the current patient read is loaded", async () => {
+	const home = await source("pages/index/index.ts");
+	const showStart = home.indexOf("onShow() {");
+	const showEnd = home.indexOf("\n\t},", showStart);
+	const showBody = home.slice(showStart, showEnd);
+	const refreshStart = home.lastIndexOf("\n\tonRefresh(): Promise<void> {");
+	const refreshEnd = home.indexOf("\n\t},", refreshStart);
+	const refreshBody = home.slice(refreshStart, refreshEnd);
+
+	// 同一首页可能同时收到 onShow、下拉刷新和其它页面返回；被最新目录
+	// 周期淘汰的旧请求不能把“验证中”提前改成“已恢复会话”。
+	expect(showBody).toContain("patientLoadResult");
+	expect(showBody).toContain(
+		"shouldContinueAfterPatientLoad(patientLoadResult)",
+	);
+	expect(refreshBody).toContain("const sessionGuard");
+	expect(refreshBody).toContain("sessionGuard.isCurrent(sessionToken)");
+	expect(refreshBody).toContain(
+		"shouldContinueAfterPatientLoad(patientLoadResult)",
+	);
 });
 
 test("native homepage does not restore a patient before clinical sync completes", async () => {

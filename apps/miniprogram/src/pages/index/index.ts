@@ -345,10 +345,17 @@ Page<IndexPageData, IndexPageMethods>({
 		});
 		const pageLifecycle = getPageLifecycle(this);
 		this.loadPatients()
-			.then(() => {
-				if (!sessionGuard.isCurrent(sessionToken)) return;
+			.then((patientLoadResult) => {
+				if (
+					!sessionGuard.isCurrent(sessionToken) ||
+					!pageLifecycle.isActive() ||
+					!shouldContinueAfterPatientLoad(patientLoadResult)
+				)
+					return;
 				// /patients 成功表示当前 token 已被服务端接受；如果请求期间
 				// 发生 401，requestWithSession 已完成一次受控微信登录后才会到达这里。
+				// `superseded` 只表示本轮读取被更新的目录周期淘汰，不能把它
+				// 当成“会话已恢复”；真正的最新读取由它自己的调用方负责收敛状态。
 				this.setData({ sessionStatus: SESSION_LABELS.restored });
 			})
 			.catch((error) => {
@@ -684,11 +691,49 @@ Page<IndexPageData, IndexPageMethods>({
 	onRefresh(): Promise<void> {
 		// 下拉刷新结束必须等待健康检查和患者目录读取都完成；否则用户看到的
 		// “刷新完成”并不代表当前患者上下文已经更新，后续业务页可能读到旧映射。
-		const patientRefresh = hasPlatformSession()
-			? this.loadPatients().catch((error) => {
-					if (!getPageLifecycle(this).isActive()) return;
-					this.showError(error, "就诊人刷新失败");
-				})
+		const pageLifecycle = getPageLifecycle(this);
+		const sessionAvailable = hasPlatformSession();
+		const sessionGuard = sessionAvailable
+			? getPageLatestRequestGuard(this, "session")
+			: undefined;
+		const sessionToken = sessionGuard?.begin();
+		if (sessionAvailable) {
+			// 下拉刷新本身也是一次会话验证周期；它可能淘汰 onShow 的旧
+			// 目录读取，因此必须由自己的最新周期负责恢复入口状态。
+			this.setData({ sessionStatus: SESSION_LABELS.restoring });
+		}
+		const patientRefresh = sessionAvailable
+			? this.loadPatients()
+					.then((patientLoadResult) => {
+						if (
+							!sessionGuard ||
+							sessionToken === undefined ||
+							!sessionGuard.isCurrent(sessionToken) ||
+							!pageLifecycle.isActive() ||
+							!shouldContinueAfterPatientLoad(patientLoadResult)
+						)
+							return;
+						// 只有当前刷新周期真正提交了目录，才能把首页从“验证中”
+						// 收敛为“已恢复”；被淘汰的旧周期不能伪造成功。
+						this.setData({ sessionStatus: SESSION_LABELS.restored });
+					})
+					.catch((error) => {
+						if (
+							!sessionGuard ||
+							sessionToken === undefined ||
+							!sessionGuard.isCurrent(sessionToken) ||
+							!pageLifecycle.isActive()
+						)
+							return;
+						this.setData({
+							sessionStatus:
+								sessionVerificationStateFromError(error) === "invalid" ||
+								!hasPlatformSession()
+									? SESSION_LABELS.signedOut
+									: SESSION_LABELS.unavailable,
+						});
+						this.showError(error, "就诊人刷新失败");
+					})
 			: Promise.resolve();
 		return Promise.all([this.checkHealth(), patientRefresh]).then(
 			() => undefined,
