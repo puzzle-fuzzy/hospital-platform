@@ -57,6 +57,7 @@
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0545.md`](release/current-5a31427-p0-business-observation-2026-08-21-0545.md) | 05:45 CST SSH 只读复核当前 release、新旧服务共存、实际内网 readiness 地址与 P0 业务空窗口；不代表真机业务完成 |
 | [`release/current-public-readonly-smoke-2026-08-21-0547.md`](release/current-public-readonly-smoke-2026-08-21-0547.md) | 05:47 CST 公网 HTTPS 健康、认证和关闭能力只读复核；不代表 Provider 或真机业务完成 |
 | [`release/current-public-readonly-smoke-2026-08-21-1021.md`](release/current-public-readonly-smoke-2026-08-21-1021.md) | 10:21 CST 当前 `39ad2c5` 候选的公网 HTTPS 健康、认证和关闭能力只读复核；不代表 Provider 或真机业务完成 |
+| [`release/current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](release/current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md) | 10:38 CST 服务器新旧服务共存、readiness、P0 低敏日志和公网只读 smoke；业务域仍为空窗口，不代表真机业务完成 |
 | [`release/miniprogram-device-qr-session-2026-08-20-2004.md`](release/miniprogram-device-qr-session-2026-08-20-2004.md) | 历史 `3a89312` 候选的 iOS 真机二维码会话；仅记录当时运行层和扫码前状态，不代表当前候选登录或业务验收成功 |
 | [`release/candidate-767ed9c-local-build-2026-08-20.md`](release/candidate-767ed9c-local-build-2026-08-20.md) | 历史 `767ed9c` 小程序候选构建记录；不能替代当前 `39ad2c5` 候选 |
 | [`release/candidate-d772f09-local-build-2026-08-20.md`](release/candidate-d772f09-local-build-2026-08-20.md) | 历史 `d772f09` 小程序候选构建记录；不能替代当前 `39ad2c5` 候选 |

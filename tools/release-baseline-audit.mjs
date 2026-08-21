@@ -93,6 +93,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "10:21 公网只读边界复核",
 	},
 	{
+		path: "docs/release/current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md",
+		label: "10:38 运行层与 P0 业务观察",
+	},
+	{
 		path: "docs/release/user-profile-readonly-device-acceptance-2026-08-18.md",
 		label: "普通资料验收手册",
 	},
