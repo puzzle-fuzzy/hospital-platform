@@ -385,6 +385,36 @@ test("普通资料服务拒绝绕过 HTTP schema 的畸形更新体", async () =
 	expect(JSON.stringify(records)).not.toContain("profile-secret-user");
 });
 
+test("普通资料 service 拒绝未知字段而不是静默丢弃旧端意图", async () => {
+	let updateCalls = 0;
+	const service = new UserProfileService({
+		findByUserId: async () => undefined,
+		update: async () => {
+			updateCalls += 1;
+			throw new Error("profile update must not run");
+		},
+	});
+
+	// 该调用绕过 Elysia，模拟组合根或未来 Worker 直接传入旧端字段；
+	// service 仍必须和 HTTP contract 保持同一条 fail-closed 边界。
+	await expect(
+		service.update(
+			"profile-unknown-field-001",
+			{
+				version: 0,
+				displayName: "正常昵称",
+				avatar: "https://legacy.example/avatar.png",
+			} as never,
+			{
+				traceId: "profile-unknown-field-trace",
+				idempotencyKey: "profile-unknown-field-key",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+
+	expect(updateCalls).toBe(0);
+});
+
 test("清空普通资料字段时日志字段数量仍反映实际修改", async () => {
 	const lines: string[] = [];
 	const service = new UserProfileService(

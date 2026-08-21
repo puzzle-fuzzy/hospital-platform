@@ -14,6 +14,11 @@
   相关测试 `174 pass`；确认目录只用 owner-scoped `his-patient`，详情引用绑定 owner/patient/reportId/TTL，
   LIS 之外不生成详情引用，未配置详情依赖不会伪装成空报告。本轮没有 Provider、公网业务或真机证据，报告 gate 继续关闭。
 
+- 2026-08-21（普通资料 service 字段边界修正）：发现 HTTP 层虽已用 `additionalProperties=false` 拒绝旧端
+  `avatar/openid`，但直接调用 `UserProfileService.update` 会在解构时静默丢弃未知字段。现已在 service 层增加固定
+  字段白名单，绕过 Elysia 的调用方也会在仓储写入前返回 `user-profile-invalid`；API 路由测试 `40 pass`、资料
+  service `14 pass`、类型检查通过。本次不扩大普通资料范围，不部署，不触碰旧 Python 服务。
+
 - 2026-08-21 11:34 CST（线上只读复核）：当前 release `5a31427` 的新 API 为 active，监听 `10.0.0.3:18081`；旧 Python
   `8001` 继续监听，Worker 按设计 inactive。最近一小时日志解析 `19` 条、解析错误 `0`，仅有基础设施探针（HTTP 200/401/404），
   没有新的微信、患者、预约、门诊费用或普通资料业务事件。本次没有部署、重启或写入，不能把空窗口解释为业务失败或真机完成；详见

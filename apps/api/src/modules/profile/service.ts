@@ -58,6 +58,31 @@ function isProfileUpdateObject(
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * service 也必须独立拒绝未知资料字段。
+ *
+ * HTTP 路由已经通过 TypeBox 的 `additionalProperties=false` 保护了请求体，
+ * 但组合根、回放任务或未来 Worker 可以绕过 Elysia 直接调用 service。若只在
+ * 路由层校验，`avatar`、`openid` 等旧端字段会在解构时被静默丢弃，却仍返回
+ * 更新成功；调用方会误以为完整意图已保存。未知字段只报告固定输入错误，不能
+ * 把字段名或字段值写进日志。
+ */
+const PROFILE_UPDATE_FIELDS = new Set([
+	"version",
+	"displayName",
+	"gender",
+	"age",
+	"email",
+]);
+
+function rejectUnknownProfileUpdateFields(
+	value: Record<string, unknown>,
+): void {
+	if ([...Object.keys(value)].some((key) => !PROFILE_UPDATE_FIELDS.has(key))) {
+		throw new UserProfileInputError("Profile update contains an unknown field");
+	}
+}
+
 function normalizeDisplayName(value: unknown): string | undefined {
 	if (value === undefined) return undefined;
 	if (typeof value !== "string") {
@@ -204,6 +229,7 @@ export class UserProfileService {
 				// 变成 TypeError/500，必须保持资料域的 400 错误语义。
 				throw new UserProfileInputError("Profile update input is invalid");
 			}
+			rejectUnknownProfileUpdateFields(input);
 			const { version, displayName, gender, age, email } = input;
 			const normalizedVersion = normalizeVersion(version);
 			if (
