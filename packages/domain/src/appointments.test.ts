@@ -52,6 +52,27 @@ test("预约历史读模型超过资源上限时整批拒绝", () => {
 	);
 });
 
+test("预约历史只接受合法时间点或不倒序的时间段", () => {
+	const base = { workDate: "2026-08-20", status: "scheduled" as const };
+	expect(
+		normalizeAppointmentRecordResults([
+			{ ...base, workTime: "08:00" },
+			{ ...base, workTime: "08:00-12:00" },
+		]),
+	).toHaveLength(2);
+
+	for (const workTime of [
+		"上午",
+		"08:60",
+		"12:00-08:00",
+		"2026-08-20 08:00:00",
+	]) {
+		expect(() =>
+			normalizeAppointmentRecordResults([{ ...base, workTime }]),
+		).toThrow(new AppointmentRecordResultValidationError("work-time-invalid"));
+	}
+});
+
 function appointmentSnapshotInput() {
 	return {
 		schedule: {

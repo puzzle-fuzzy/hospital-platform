@@ -224,12 +224,40 @@ export const AppointmentRecordStatusSchema = Type.Union([
 	Type.Literal("unknown"),
 ]);
 
+/**
+ * 预约记录时间只允许旧端已经确认的“时间点/时间段”形态。
+ *
+ * Provider 的 `groupStart/groupEnd` 会在 adapter 中先归一化为这个公开格式；
+ * 不能把“上午”、完整日期时间或任意文本放进公共 contract，否则小程序会
+ * 按小时错误推导上午/下午，患者看到的就诊时间也无法和旧端对应。
+ */
+export const APPOINTMENT_RECORD_WORK_TIME_PATTERN =
+	"^(?:[01]\\d|2[0-3]):[0-5]\\d(?:-(?:[01]\\d|2[0-3]):[0-5]\\d)?$";
+
+/** 运行时校验预约记录时间，并拒绝结束时间早于开始时间的区间。 */
+export function isAppointmentRecordWorkTime(value: unknown): value is string {
+	if (typeof value !== "string") return false;
+	const match =
+		/^(?:[01]\d|2[0-3]):[0-5]\d(?:-(?:[01]\d|2[0-3]):[0-5]\d)?$/.exec(value);
+	if (!match) return false;
+	const [start, end] = value.split("-");
+	if (!start || !end) return true;
+	const toMinutes = (clock: string): number =>
+		Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+	return toMinutes(end) >= toMinutes(start);
+}
+
 /** 预约记录摘要不包含 provider appointmentInfoId、费用、支付或患者身份字段。 */
 export const AppointmentRecordSchema = Type.Object({
 	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
-	workTime: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+	workTime: Type.Optional(
+		Type.String({
+			pattern: APPOINTMENT_RECORD_WORK_TIME_PATTERN,
+			maxLength: 11,
+		}),
+	),
 	location: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
 	serialNumber: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
 	status: AppointmentRecordStatusSchema,

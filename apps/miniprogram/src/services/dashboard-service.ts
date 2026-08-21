@@ -1,3 +1,4 @@
+import { isAppointmentRecordWorkTime } from "@hospital/contracts";
 import type {
 	AppointmentDepartment,
 	AppointmentRecord,
@@ -557,6 +558,13 @@ export function requireAppointmentRecordListData(
 			64,
 			"Appointment record response item is invalid",
 		);
+		if (workTime !== undefined && !isAppointmentRecordWorkTime(workTime)) {
+			// 服务端已经执行同一校验；客户端仍需防御代理、旧缓存或回放数据，
+			// 不能因 TypeScript 类型声明而把任意文本交给页面的时段推导逻辑。
+			throw new ApiError("Appointment record response item is invalid", {
+				code: "provider-response-invalid",
+			});
+		}
 		const location = optionalDisplayText(
 			item.location,
 			256,

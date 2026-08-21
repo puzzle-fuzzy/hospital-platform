@@ -1,3 +1,4 @@
+import { isAppointmentRecordWorkTime } from "@hospital/contracts";
 import { parseIsoCalendarDate } from "./date-range";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
@@ -552,6 +553,7 @@ export type AppointmentRecordResultViolation =
 	| "work-date-invalid"
 	| "work-date-outside-query"
 	| "status-invalid"
+	| "work-time-invalid"
 	| "display-text-invalid";
 
 /** Provider 结果二次校验错误；它属于上游读模型异常，不是患者输入错误。 */
@@ -614,6 +616,24 @@ function optionalRecordText(
 }
 
 /**
+ * 预约时间是旧端已经确认的业务字段，不是普通备注文本。
+ *
+ * 这里与 contracts 的公开 schema 共用同一个运行时判定：即使 gateway 绕过
+ * Elysia 或 adapter 直接返回对象，也不能把完整日期、任意中文或倒序时段
+ * 交给页面。缺失时间仍然合法，因为部分历史记录没有可展示的时间字段。
+ */
+function optionalRecordWorkTime(
+	record: Record<string, unknown>,
+): string | undefined {
+	const value = record.workTime;
+	if (value === undefined) return undefined;
+	if (!isAppointmentRecordWorkTime(value)) {
+		invalidRecordResult("work-time-invalid");
+	}
+	return value;
+}
+
+/**
  * 校验并重新投影预约记录读模型。
  *
  * 不能只返回 `result.records` 的浅拷贝：网关对象即使被 TypeScript 标注为
@@ -647,7 +667,7 @@ export function normalizeAppointmentRecordResults(
 
 		const departmentName = optionalRecordText(record, "departmentName", 128);
 		const doctorName = optionalRecordText(record, "doctorName", 128);
-		const workTime = optionalRecordText(record, "workTime", 64);
+		const workTime = optionalRecordWorkTime(record);
 		const location = optionalRecordText(record, "location", 256);
 		const serialNumber = optionalRecordText(record, "serialNumber", 64);
 

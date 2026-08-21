@@ -7,6 +7,8 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（预约记录时间字段边界）：对照旧端 `workTime` 的 `HH:mm` 定义和 `groupStart/groupEnd` 时间段逻辑，发现新端 domain/client 之前只校验非空文本，可能把任意时间文本交给页面时段推导。现已在公共 contract、domain 读模型和小程序响应边界统一限制为合法时间点/不倒序时间段，并新增 `work-time-invalid` 回归测试；未修改另一会话维护的众阳自动化 adapter。详见 [`appointment-work-time-boundary-audit-2026-08-21.md`](release/appointment-work-time-boundary-audit-2026-08-21.md)。
+
 - 2026-08-21（日志最终脱敏边界）：日志业务调用已经只保留低敏元数据，但最终递归脱敏清单此前主要覆盖 camelCase 字段，未来 Provider 原始响应使用
   `patient_name`、`id_card_no`、`mobile_phone` 或 `response_body` 时存在兜底缺口。现已补充常见 snake_case/移动端别名和原始报文容器，新增观测层回归测试；
   `7 pass / 0 fail / 28 expects`、类型检查和 Biome 通过。该修正不开放任何业务能力，也不替代真实 Provider、真机或线上日志证据，详见

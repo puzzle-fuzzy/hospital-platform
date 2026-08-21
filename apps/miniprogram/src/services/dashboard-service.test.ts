@@ -7,8 +7,8 @@ import {
 	formatOutpatientBillDateLabel,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
-	loadPatientsForOwner,
 	loadOutpatientPaymentRecords,
+	loadPatientsForOwner,
 	requireAppointmentDepartmentListData,
 	requireAppointmentRecordListData,
 	requireAppointmentScheduleListData,
@@ -644,6 +644,8 @@ test("我的挂号列表必须保持公共状态、日期和展示字段一致",
 	for (const invalid of [
 		{ items: [{ ...valid.items[0], status: "not-a-status" }], total: 1 },
 		{ items: [{ ...valid.items[0], workDate: "2026-02-31" }], total: 1 },
+		{ items: [{ ...valid.items[0], workTime: "上午" }], total: 1 },
+		{ items: [{ ...valid.items[0], workTime: "12:00-08:00" }], total: 1 },
 		{ items: [{ ...valid.items[0], departmentName: null }], total: 1 },
 		{ items: [{ ...valid.items[0], serialNumber: "" }], total: 1 },
 	]) {
