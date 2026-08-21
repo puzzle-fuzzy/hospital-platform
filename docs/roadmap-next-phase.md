@@ -16,6 +16,11 @@
   GET/PUT/409 仍待验收，旧 Python 服务未修改、未重启。详见
   [`release/profile-service-version-postcondition-audit-2026-08-22.md`](release/profile-service-version-postcondition-audit-2026-08-22.md)。
 
+- 2026-08-22（候选追踪补齐）：普通资料 service 修正的本地候选固定为
+  `9bc1638d718d90cc222452530212881745b6a5045`，并新增
+  [`release/candidate-9bc1638d-local-build-2026-08-22.md`](release/candidate-9bc1638d-local-build-2026-08-22.md)。
+  该候选与线上 `9f491cb5` 明确分离；本轮没有上传、切换、重启新 API，也没有修改旧 Python、数据库或 Redis。
+
 - 2026-08-22 00:07 CST（当前运行层只读观察）：新 API `hospital-platform-api-v2.service` 仍为
   `active`，旧 Python `8001` 继续共存，Worker 仍为 `inactive`。从 `2026-08-21 23:53:00` 到
   当前日志聚合为 `parsedRecords=0`、`parseErrors=0`、`eventCounts={}`、
