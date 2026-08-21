@@ -91,6 +91,17 @@ pnpm workspace 裸模块名造成的真实运行包问题，已在前一候选 `
 扫码后应先保存首页最终状态，再按登录 → 患者目录 → 显式切换 → 预约历史/费用的顺序操作，并配对客户端请求与服务端日志。
 本次没有操作旧 `mp-weixin` 窗口，没有清除小程序本地数据，也没有修改旧服务、数据库或 Redis。
 
+## 2026-08-22 04:18 CST 公网只读探针复核
+
+从本地对当前公网地址执行了三项只读请求：`/api/v2/health/live`、`/api/v2/health/ready` 和
+`/api/v2/system/ping` 均返回 HTTP 200；ready 响应中的 `database`、`redis` 和 `schema` 均为 `ok`。
+这只能证明新 API 的公网健康入口可达，不能证明微信会话、患者同步、Provider 业务或真机页面成功。
+
+同一窗口使用现有 SSH 检查密钥访问 `ps@192.168.112.172` 被服务器返回 `Permission denied (publickey,password)`。
+因此本次没有把新服务 systemd 状态、旧 Python `8001` 监听/PID、Worker 状态或 journald 业务日志写成已确认事实；
+也没有重试写入、重启服务、调用 Provider、修改数据库或 Redis。待用户恢复该 SSH 检查入口后，再补做线上进程共存和
+业务日志三层关联复核。
+
 ## 当前未形成的证据
 
 当前没有以下新项目三层证据：
