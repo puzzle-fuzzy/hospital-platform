@@ -50,6 +50,10 @@
 
 > 2026-08-21 首页二维码字段审计补充：旧端源码注释声称二维码包含 `patId`，但实际运行代码读取并外发的是 `medicalCardNo`，通过第三方 `api.qrserver.com` 生成图片；该旧行为缺少签名、受众、有效期、防重放、撤销和扫码回执。新端不得直接复用卡号或 `patId` 生成二维码，入口继续关闭。详见 [`../release/miniprogram-qr-contract-audit-2026-08-21.md`](../release/miniprogram-qr-contract-audit-2026-08-21.md)。
 
+> 2026-08-22 患者绑定字段边界复核：旧端手动选择已有患者时把 `patInfosFind(type=3)` 返回的 `idCardNo` 写入
+> `patCardNo`，首次默认选择却优先写入 `cardNo`；该字段在旧缓存中可能混用身份证号和医疗卡号。新端继续只保存
+> 平台 opaque `patientId`，新增/绑卡/修改/解绑保持关闭。详见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.2 节。
+
 > 2026-08-21 状态机复审补充：普通资料与就诊人选择的代码门禁已重新执行，未发现可在不扩大
 > contract 的前提下安全修复的缺口；标准测试、类型检查和运行包校验通过。开发者工具已在
 > 正确的 `miniprogram` 窗口生成新二维码，但尚无设备页面、HTTP 链和服务端日志三层配对证据，
@@ -132,7 +136,7 @@
 > 2026-08-20 患者绑定审计更新：复核旧端 `patientAdd.vue`、`patientChange.vue` 和 `ZY.ts` 后确认，旧流程会把查档异常
 > 降级为建档、把身份证号当卡号、把患者身份写入旧用户资料接口，且缺少幂等/最终状态查询/协议版本校验。新增、绑卡、修改和解绑
 > 继续保持未注册；新端只允许已绑定目录同步和显式选择，不迁移旧端写入副作用。详见
-> [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.1 节。
+> [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) 的 0.2 节。
 
 > 2026-08-21 历史工作树门禁复核（不覆盖顶部当前基线）：当时服务端发布基线为 `5a31427`，原生小程序运行输入来源已更新为
 > `968a587158289da6a482b3614907bde0a5ad9581`。代码、架构、迁移清单、Provider intake、文档、类型、测试均通过；小程序构建门禁随后以当前候选重新执行，
