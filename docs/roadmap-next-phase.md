@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（患者目录全链路正确性审计）：沿“会话 owner → 众阳目录 → `patInfosFind` 临床映射 → 完整快照 →
+  小程序显式选择”复核双层 Provider ID、稳定内部 `patientId`、空快照保护、租约/乱序响应、临床可用性和会话代际。
+  API 患者 service 与 app 测试 `61 pass`、persistence `46 pass`、小程序全量 `174 pass/1378 expects`；未发现可在不猜
+  Provider contract 的前提下安全修复的业务缺口，因此不修改众阳 adapter、不扩大患者绑定/二维码能力。真实微信、多患者切换、
+  inactive/recovery、Redis TTL 和当前候选三层证据仍未完成，详细审计见 [`release/patient-directory-correctness-audit-2026-08-21.md`](release/patient-directory-correctness-audit-2026-08-21.md)。
+
 - 2026-08-21（门诊只读状态复核）：对照已登记的众阳 `2.6.33` 材料核查门诊待支付 adapter，确认公共
   `unpaid/paid` 只接受 Provider 明确的 `tradeStatus=1/3`；`2/4/5/9` 均整批拒绝，不会把“已生成结算”、
   退款中、已退款或作废误报为已缴费。本轮没有发现需要修改的业务逻辑，也没有打开支付/医保/结算 gate；
