@@ -145,6 +145,25 @@ worker（`3687419`–`3687422`）仍监听 `0.0.0.0:8001`；主进程自 `2026-0
 共 `60 pass / 0 fail`。当前仍不开放“全部挂号”渠道 4、详情、取消、预问诊写入和支付；本轮没有调用真实 Provider、没有改旧项目，
 也没有产生线上业务数据，因此仍需真机三层证据验证正常结果和真实失败链。
 
+## 2026-08-22 04:32 CST `single-flight.test.js` ENOENT 恢复复核
+
+针对真机再次报告的
+`E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight.test.js`，先重新执行构建和运行包门禁：
+
+- `pnpm --filter @hospital/miniprogram build` 通过，当前运行包来源为
+  `90fd7832e3ad1031c9c916f118f90cc0f2840aff`；
+- `pnpm --filter @hospital/miniprogram runtime:verify` 通过，14 个页面入口齐全；
+- `dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在；
+- `dist/` 递归扫描没有任何 `*.test.js` 或 `*.spec.js`，符合测试代码与微信运行包隔离边界。
+
+随后只关闭并重新打开新的 `miniprogram` 项目窗口，旧 `mp-weixin` 窗口未操作；重新普通编译后，模拟器首页正常加载，
+开发者工具调试器显示 `Errors: 0`。CLI 打开项目时额外打印的 `TypeError: d.on is not a function` 是该版本工具的已知打开项目提示，
+窗口实际已成功载入新项目，不能据此把测试脚本加入 `dist/`。
+
+本次已从重新编译后的运行包生成新的二维码，代码包约 `619 KB`，有效期至 `2026-08-22 04:57 CST`。当前只证明旧增量索引已被
+重新建立，尚未计入微信真机登录或业务成功证据；真机必须扫描这张新二维码，不能继续复用此前二维码。旧项目、旧服务、数据库、Redis
+和 Provider 均未修改。
+
 ## 当前未形成的证据
 
 当前没有以下新项目三层证据：
