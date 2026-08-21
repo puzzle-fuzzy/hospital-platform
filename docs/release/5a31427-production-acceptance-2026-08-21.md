@@ -96,7 +96,7 @@ runtime smoke 解释为预约或费用业务已验收。
 `hospital-platform-api-v2.service`；旧 Python `8001` 不参与回滚。发布 runbook 见
 [`infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)。
 
-小程序仍必须使用 `6e6604f8089e45ceeaaf4bcbbd57065174a59a31` 运行包；微信开发者工具若再次报告
+小程序当前必须使用 `7a6f4df34fac5975c6012a30d2c137953a892059` 运行包；微信开发者工具若再次报告
 `dist/services/single-flight.test.js`，按 [`miniprogram-runtime-enoent-recovery-2026-08-20.md`](miniprogram-runtime-enoent-recovery-2026-08-20.md)
 关闭旧真机调试、重开 `apps/miniprogram/`、普通编译后重新生成二维码，不得把测试文件复制到 `dist/`。
 支付、医保、退款、报告 Provider、患者绑定和 HIS 写回继续保持关闭。
