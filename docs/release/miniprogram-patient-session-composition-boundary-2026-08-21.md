@@ -1,8 +1,8 @@
 # 小程序患者页面会话组合边界审计（2026-08-21）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `f19e4717c01948d12fdcc62040a0bd4ab0ac060f`（提交 `f19e471`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`（提交 `aafccf5`）。
 
-> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `f19e471`，完整运行包来源为 `f19e4717c01948d12fdcc62040a0bd4ab0ac060f`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
+> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `aafccf5`，完整运行包来源为 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
 
 ## 发现的问题
 
