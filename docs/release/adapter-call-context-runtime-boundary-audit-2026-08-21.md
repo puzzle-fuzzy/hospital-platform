@@ -37,7 +37,7 @@ schema 当作唯一边界。
 | 检查 | 结果 |
 | --- | --- |
 | domain 全量测试 | 61 pass / 127 expects |
-| API 全量测试 | 199 pass / 823 expects |
+| API 全量测试 | 199 pass / 829 expects |
 | API/domain typecheck | 通过 |
 | Biome 定向检查 | 通过 |
 | `git diff --check`（排除并行 `project.config.json`） | 通过 |

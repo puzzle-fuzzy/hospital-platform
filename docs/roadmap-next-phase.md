@@ -8,8 +8,15 @@
 - 2026-08-21（非支付 service 共享调用上下文边界）：复核发现预约、门诊费用、报告、普通资料和微信登录仍主要依赖
   TypeScript 上下文类型；现已在 domain 提供固定字段/标识/timeout/signal 运行时投影，并接入微信登录、患者、预约、门诊费用、
   报告和普通资料 service。非法上下文不会触达 Provider、仓储、租约或会话下游，失败日志使用安全 trace；支付/医保/HIS
-  继续冻结。domain `61 pass/127 expects`、API `199 pass/823 expects`、typecheck、Biome 均通过，详见
+  继续冻结。domain `61 pass/127 expects`、API `199 pass/829 expects`、typecheck、Biome 均通过，详见
   [`release/adapter-call-context-runtime-boundary-audit-2026-08-21.md`](release/adapter-call-context-runtime-boundary-audit-2026-08-21.md)。
+
+- 2026-08-21（owner/userId 运行时授权边界）：继续沿 direct-call、组合根和未来 Worker 入口审计，确认患者目录已有 owner
+  校验，但预约历史、门诊费用、报告目录/详情和普通资料仍可能把非法 owner/userId 交给仓储或短期引用逻辑。现已在各自
+  service 的下游访问前复用 bounded opaque 校验，保留原有 `appointment-record-query-invalid`、
+  `outpatient-payment-query-invalid`、`report-query-invalid` 和 `user-profile-invalid` 错误契约；新增定向测试
+  `77 pass/313 expects`，支付/医保/HIS 继续冻结。详见
+  [`release/owner-runtime-boundary-audit-2026-08-21.md`](release/owner-runtime-boundary-audit-2026-08-21.md)。
 
 - 2026-08-21（当前小程序运行包刷新）：针对真机调试报告的 `dist/services/single-flight.test.js` ENOENT，已用提交
   `5c069290e8f26f1e4d22742a8c7a4b4ad18ca3d6` 重新构建并通过 `runtime:verify`。当前 `dist` 有 14 个页面、真实运行模块

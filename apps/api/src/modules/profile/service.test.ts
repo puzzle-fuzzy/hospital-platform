@@ -72,6 +72,22 @@ test("普通资料 service 在仓储前拒绝非法调用上下文且失败日�
 			null as never,
 		),
 	).rejects.toBeInstanceOf(UserProfileInputError);
+	await expect(
+		service.get("\u0000profile-user", {
+			traceId: "profile-owner-invalid-read",
+			idempotencyKey: "profile-owner-invalid-read",
+		}),
+	).rejects.toBeInstanceOf(UserProfileInputError);
+	await expect(
+		service.update(
+			" ",
+			{ version: 0, displayName: "资料" },
+			{
+				traceId: "profile-owner-invalid-update",
+				idempotencyKey: "profile-owner-invalid-update",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileInputError);
 	expect(readCalls).toBe(0);
 	expect(updateCalls).toBe(0);
 });

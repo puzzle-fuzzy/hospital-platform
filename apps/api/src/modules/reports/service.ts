@@ -326,6 +326,11 @@ export class ReportService {
 		let resultViolation: string | undefined;
 		try {
 			context = requireReportContext(context);
+			// owner 是报告引用和 Provider 患者映射的授权根；不能因为 HTTP
+			// 已从 session 解析 owner，就让 direct-call 绕过运行时形状校验。
+			if (!isBoundedOpaqueIdentifier(ownerUserId)) {
+				throw new ReportQueryError("Report owner identifier is invalid");
+			}
 			// 查询校验也必须进入统一失败出口。否则非法日期虽然会正确返回
 			// 400，但没有 `report.directory.failed`，日志链路会缺少业务模块事实。
 			const normalizedQuery = normalizeReportDirectoryQuery(query);
@@ -514,6 +519,11 @@ export class ReportService {
 		let resultViolation: string | undefined;
 		try {
 			context = requireReportContext(context);
+			// 详情引用必须同时绑定 owner、patient 和 reportId；先校验 owner
+			// 的形状，避免非法值进入引用仓储或成为错误的授权条件。
+			if (!isBoundedOpaqueIdentifier(ownerUserId)) {
+				throw new ReportQueryError("Report owner identifier is invalid");
+			}
 			if (!isBoundedOpaqueIdentifier(patientId)) {
 				throw new ReportQueryError("Report patient identifier is invalid");
 			}

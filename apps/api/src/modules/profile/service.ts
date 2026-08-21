@@ -6,6 +6,7 @@ import {
 	type AdapterCallContext,
 	adapterContextTraceId,
 	emptyUserProfile,
+	isBoundedOpaqueIdentifier,
 	MAX_USER_PROFILE_VERSION,
 	normalizeAdapterCallContext,
 	normalizeUserProfileReadModel,
@@ -190,6 +191,11 @@ export class UserProfileService {
 		);
 		try {
 			context = requireProfileContext(context);
+			// userId 由 HTTP principal 提供，但普通资料 service 仍可能被组合根
+			// 直接调用。它决定仓储 owner 范围，必须在任何 SQL 读取前做运行时校验。
+			if (!isBoundedOpaqueIdentifier(userId)) {
+				throw new UserProfileInputError("Profile user identifier is invalid");
+			}
 			const storedProfile = await this.repository.findByUserId(userId);
 			const profile = storedProfile
 				? normalizeUserProfileReadModel(storedProfile, userId)
@@ -242,6 +248,11 @@ export class UserProfileService {
 		);
 		try {
 			context = requireProfileContext(context);
+			// 更新路径和读取路径使用同一 owner 边界；否则非法 userId 可能在
+			// 条件更新前被仓储接受，形成与 GET 不一致的授权语义。
+			if (!isBoundedOpaqueIdentifier(userId)) {
+				throw new UserProfileInputError("Profile user identifier is invalid");
+			}
 			if (!isProfileUpdateObject(input)) {
 				// Elysia 会在 HTTP 层校验请求体，但 service 还可能被组合根、
 				// 回放任务或未来 Worker 直接调用。不能让 null/数组在解构处

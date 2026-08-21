@@ -187,6 +187,20 @@ test("报告 service 在 owner 映射、引用仓储和 Provider 前拒绝非法
 	await expect(
 		service.detail("user-001", "patient-001", "report-001", null as never),
 	).rejects.toBeInstanceOf(ReportQueryError);
+	await expect(
+		service.list(
+			"\u0000owner",
+			"patient-001",
+			{ startDate: "2026-08-01", endDate: "2026-08-02" },
+			{ traceId: "trace-owner-invalid", idempotencyKey: "key-owner-invalid" },
+		),
+	).rejects.toBeInstanceOf(ReportQueryError);
+	await expect(
+		service.detail("\u0000owner", "patient-001", "report-001", {
+			traceId: "trace-owner-invalid-detail",
+			idempotencyKey: "key-owner-invalid-detail",
+		}),
+	).rejects.toBeInstanceOf(ReportQueryError);
 	expect(repositoryCalls).toBe(0);
 	expect(directoryCalls).toBe(0);
 	expect(detailCalls).toBe(0);

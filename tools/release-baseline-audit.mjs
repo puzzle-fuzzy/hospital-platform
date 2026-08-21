@@ -48,6 +48,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前小程序会话状态机审计",
 	},
 	{
+		path: "docs/release/owner-runtime-boundary-audit-2026-08-21.md",
+		label: "当前 owner 运行时边界审计",
+	},
+	{
 		path: "docs/release/personal-center-patient-context-audit-2026-08-21.md",
 		label: "当前个人中心患者上下文审计",
 	},

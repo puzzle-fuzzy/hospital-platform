@@ -126,6 +126,14 @@ test("预约 service 在 Provider 和快照仓储前拒绝非法调用上下文"
 			null as never,
 		),
 	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
+	await expect(
+		service.listRecords(
+			"\u0000owner",
+			"patient-001",
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			{ traceId: "trace-owner-invalid", idempotencyKey: "key-owner-invalid" },
+		),
+	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
 
 	expect(directoryCalls).toBe(0);
 });

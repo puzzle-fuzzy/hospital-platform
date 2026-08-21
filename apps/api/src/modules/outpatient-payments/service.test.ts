@@ -115,6 +115,12 @@ test("门诊费用 service 在 owner 映射和 Provider 前拒绝非法调用上
 	await expect(
 		service.list("user-001", "patient-001", "unpaid", null as never),
 	).rejects.toBeInstanceOf(OutpatientPaymentQueryError);
+	await expect(
+		service.list(" ", "patient-001", "unpaid", {
+			traceId: "trace-owner-invalid",
+			idempotencyKey: "key-owner-invalid",
+		}),
+	).rejects.toBeInstanceOf(OutpatientPaymentQueryError);
 	expect(repositoryCalls).toBe(0);
 	expect(gatewayCalls).toBe(0);
 });

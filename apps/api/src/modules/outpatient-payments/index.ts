@@ -242,6 +242,12 @@ export class OutpatientPaymentService {
 		let trace: ExternalTrace | undefined;
 		try {
 			context = requireOutpatientContext(context);
+			// ownerUserId 是当前会话的内部授权边界。HTTP 层虽然只从 principal
+			// 传入它，但直接调用 service 时仍必须在患者映射和 Provider 前复核，
+			// 避免非法 owner 被误当成“没有门诊映射”或进入错误的仓储查询。
+			if (!isBoundedOpaqueIdentifier(ownerUserId)) {
+				throw new OutpatientPaymentQueryError();
+			}
 			if (!isOutpatientPaymentStatus(status)) {
 				// 不能把未知状态交给 adapter；adapter 的历史实现会把非 unpaid
 				// 值映射成 Provider 的 paid 查询，运行时必须在这里先 fail-closed。

@@ -658,6 +658,14 @@ export class AppointmentService {
 					"Appointment record call context is invalid",
 				),
 			);
+			// HTTP 路由的 owner 来自已验证 session，但 service 也可能被组合根、
+			// 回放任务或 Worker 直接调用。owner 是仓储授权条件的一部分，不能只
+			// 依赖 TypeScript 的 string 声明；在患者映射前拒绝空白、数组或控制字符。
+			if (!isBoundedOpaqueIdentifier(ownerUserId)) {
+				throw new AppointmentRecordQueryError(
+					"Appointment record owner identifier is invalid",
+				);
+			}
 			// 输入校验、依赖检查、owner 映射和 Provider 请求必须共用同一个
 			// 失败出口。否则“未配置”或非法日期虽然已经返回错误，业务日志却
 			// 没有 `appointment.records.failed`，排障时会误以为请求从未进入该模块。
