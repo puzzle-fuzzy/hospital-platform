@@ -136,6 +136,9 @@ function responseErrorCode(body: unknown): unknown {
  */
 const AUTH_BOUNDARY_ROUTES = [
 	{ name: "me", path: "/me" },
+	// 普通资料是“我的”页按当前用户隔离的独立路由，不能只依赖 /me 间接覆盖。
+	// 未携带会话时必须先命中认证边界，不能被资料参数校验或业务读取逻辑吞掉。
+	{ name: "profile", path: "/me/profile" },
 	{ name: "patients", path: "/patients" },
 	{ name: "appointment-departments", path: "/appointments/departments" },
 	{
