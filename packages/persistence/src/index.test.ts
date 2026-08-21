@@ -575,6 +575,81 @@ test("患者目录旧租约被接管后不能留下部分快照修改", async ()
 	]);
 });
 
+test("患者目录不同幂等键接管后旧响应不能提交过期快照", async () => {
+	const patients = createInMemoryPatientRepository();
+	const begin = patients.beginDirectorySync;
+	const snapshot = patients.replaceDirectorySnapshot;
+	if (!begin || !snapshot)
+		throw new Error("patient sync repository unavailable");
+
+	await patients.upsertFromDirectory({
+		ownerUserId: "user-different-key-001",
+		patientId: "patient-different-key-001",
+		provider: "zhongyang",
+		profile: {
+			providerPatientId: "provider-different-key-001",
+			displayName: "原始资料",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+		},
+	});
+
+	const first = await begin({
+		ownerUserId: "user-different-key-001",
+		provider: "zhongyang",
+		idempotencyKey: "old-page-key",
+		now: "2026-08-16T00:00:00.000Z",
+		leaseUntil: "2026-08-16T00:00:01.000Z",
+	});
+	const takeover = await begin({
+		ownerUserId: "user-different-key-001",
+		provider: "zhongyang",
+		idempotencyKey: "new-page-key",
+		now: "2026-08-16T00:00:01.001Z",
+		leaseUntil: "2026-08-16T00:00:02.001Z",
+	});
+
+	expect(first).toMatchObject({ outcome: "started", attemptCount: 1 });
+	expect(takeover).toMatchObject({ outcome: "started", attemptCount: 1 });
+	expect(takeover.operationId).not.toBe(first.operationId);
+
+	await expect(
+		snapshot({
+			ownerUserId: "user-different-key-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T00:00:00.000Z",
+			operationId: first.operationId,
+			operationAttemptCount: first.attemptCount,
+			completedAt: "2026-08-16T00:00:01.001Z",
+			patients: [
+				{
+					patientId: "stale-patient-id",
+					profile: {
+						providerPatientId: "provider-different-key-001",
+						displayName: "旧租约资料",
+						relationship: "self",
+						cardNumberMasked: "******9999",
+					},
+				},
+			],
+		}),
+	).rejects.toMatchObject({ name: "PatientDirectorySnapshotStaleError" });
+
+	// 不同幂等键的新页面接管后，旧页面的响应既不能改名，也不能替换
+	// provider 患者号或脱敏卡号；它必须在内存实现中和 MySQL 一样 fail-closed。
+	expect(await patients.listByOwner("user-different-key-001")).toEqual([
+		{
+			id: "patient-different-key-001",
+			ownerUserId: "user-different-key-001",
+			displayName: "原始资料",
+			relationship: "self",
+			cardNumberMasked: "******0001",
+			source: "hospital-his",
+			clinicalAccess: "unavailable",
+		},
+	]);
+});
+
 test("appointment schedule snapshots reject stale observations and expire", async () => {
 	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
 	const schedule = {

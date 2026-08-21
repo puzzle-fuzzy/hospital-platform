@@ -39,6 +39,7 @@
 | [`release/report-directory-service-input-boundary-audit-2026-08-21.md`](release/report-directory-service-input-boundary-audit-2026-08-21.md) | 报告目录 service 未知字段拒绝、owner/患者映射、详情引用和 Provider gate 边界 |
 | [`release/miniprogram-patient-directory-superseded-2026-08-21.md`](release/miniprogram-patient-directory-superseded-2026-08-21.md) | 首页患者目录请求被淘汰时的显式生命周期结果、禁止误启动同步的并发修正与验证证据 |
 | [`release/patient-directory-correctness-audit-2026-08-21.md`](release/patient-directory-correctness-audit-2026-08-21.md) | 患者目录 owner、双层 Provider ID、完整快照、临床映射、会话代际和显式切换的全链路正确性审计 |
+| [`release/patient-sync-lease-fencing-2026-08-21.md`](release/patient-sync-lease-fencing-2026-08-21.md) | 不同幂等键接管后旧患者同步响应的提交租约栅栏、回归测试和真实并发验收边界 |
 | [`release/patient-service-input-boundary-audit-2026-08-21.md`](release/patient-service-input-boundary-audit-2026-08-21.md) | 患者目录 service 直接调用的 owner/上下文运行时校验、公共错误契约和仓储前 fail-closed 证据 |
 | [`release/adapter-call-context-runtime-boundary-audit-2026-08-21.md`](release/adapter-call-context-runtime-boundary-audit-2026-08-21.md) | 非支付 service 共享 AdapterCallContext 运行时校验、失败日志安全投影和下游访问停止条件 |
 | [`release/owner-runtime-boundary-audit-2026-08-21.md`](release/owner-runtime-boundary-audit-2026-08-21.md) | 预约、门诊费用、报告和普通资料 service 的 owner/userId 运行时校验及下游停止条件 |

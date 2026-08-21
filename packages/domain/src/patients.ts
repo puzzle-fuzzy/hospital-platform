@@ -1,5 +1,5 @@
-import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import { normalizeExternalTrace } from "./external-trace";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /**
@@ -432,6 +432,14 @@ export type PatientDirectorySnapshotInput = {
 	operationId?: string;
 	/** 租约代次；防止旧请求在 lease takeover 后完成新一轮 operation。 */
 	operationAttemptCount?: number;
+	/**
+	 * Provider 响应返回后、提交快照前由服务端生成的时间。
+	 *
+	 * 只有携带 operationId 的同步快照要求该字段。持久化层用它和
+	 * lease_until 比较，拒绝租约已经过期的旧响应；不能用 observedAt
+	 * 代替，因为 observedAt 是请求发出时间，不是响应提交时间。
+	 */
+	completedAt?: string;
 	/**
 	 * `complete=true` 时，profile.providerReferences 的存在与缺失都是本次
 	 * 快照事实：缺少临床引用就必须清理旧的 `his-patient` 映射，不能把上次

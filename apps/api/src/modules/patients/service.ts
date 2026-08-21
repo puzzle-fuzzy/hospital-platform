@@ -367,6 +367,9 @@ export class PatientService {
 					observedAt,
 					operationId: operation.operationId,
 					operationAttemptCount: operation.attemptCount,
+					// observedAt 是 Provider 请求发起时间；completedAt 必须在响应
+					// 返回后重新取得，用来判断当前租约是否已经被不同幂等键接管。
+					completedAt: this.now().toISOString(),
 					patients: snapshotPatients,
 				},
 			);

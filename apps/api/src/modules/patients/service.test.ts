@@ -735,7 +735,7 @@ test("已有医院目录时拒绝把歧义空快照应用成批量失效", async
 	).toBe(false);
 });
 
-test("患者目录快照使用 provider 请求发起时间，避免乱序响应覆盖新快照", async () => {
+test("患者目录快照区分 provider 发起时间和提交时间，避免乱序响应覆盖新快照", async () => {
 	const identityUsers = createInMemoryIdentityUserRepository();
 	await identityUsers.findOrCreateByWechat({
 		providerSubject: "fixture-openid-patient-order",
@@ -770,10 +770,14 @@ test("患者目录快照使用 provider 请求发起时间，避免乱序响应�
 		identityUsers,
 		directory,
 		now: () => {
-			// 如果时间是在 provider 返回后才采样，本断言会在真实竞态位置失败。
-			expect(providerRequestStarted).toBe(false);
 			nowCalls += 1;
-			return new Date("2026-08-16T00:00:00.000Z");
+			if (nowCalls === 1) {
+				// observedAt 必须在 Provider 请求前采样，才能按发起顺序
+				// 处理乱序返回；第二次采样只用于租约提交时刻校验。
+				expect(providerRequestStarted).toBe(false);
+				return new Date("2026-08-16T00:00:00.000Z");
+			}
+			return new Date("2026-08-16T00:00:00.500Z");
 		},
 		createPatientId: () => "internal-patient-order",
 	});
@@ -784,7 +788,7 @@ test("患者目录快照使用 provider 请求发起时间，避免乱序响应�
 			idempotencyKey: "patient-order-key",
 		}),
 	).resolves.toMatchObject({ total: 1 });
-	expect(nowCalls).toBe(1);
+	expect(nowCalls).toBe(2);
 });
 
 test("患者目录同步成功后使用 durable operation replay，不重复访问 provider", async () => {

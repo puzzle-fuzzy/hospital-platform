@@ -1332,8 +1332,14 @@ export function createMySqlRepositories(
 			) {
 				throw new Error("Patient sync operation attempt is required");
 			}
+			if (input.operationId && !input.completedAt) {
+				throw new Error("Patient directory sync completion time is required");
+			}
 			return withTransaction(pool, async (connection) => {
 				const observedAt = mysqlDateTime(input.observedAt);
+				const completedAt = input.operationId
+					? mysqlDateTime(input.completedAt ?? "")
+					: undefined;
 				if (input.operationId) {
 					// beginDirectorySync 只在请求 Provider 前锁 owner 行；Provider
 					// 响应返回后必须再次锁同一行，才能把“检查最新快照、修改目录、
@@ -1348,6 +1354,45 @@ export function createMySqlRepositories(
 						throw new Error(
 							"Patient sync owner disappeared before snapshot commit",
 						);
+					}
+					// 不同幂等键接管后，旧 operation 记录仍可能暂时是
+					// in_progress。这里必须在任何患者写入前锁定并核对“当前代次
+					// 仍在租约内”，不能只依赖最后的 UPDATE affectedRows：后者
+					// 发生在患者 upsert/deactivate 之后，无法阻止过期快照短暂可见。
+					const activeOperationRows = await execute<
+						PatientDirectorySyncOperationRow[]
+					>(
+						connection,
+						"SELECT operation_id, status, attempt_count, lease_until FROM hp_patient_directory_sync_operations WHERE operation_id = ? AND owner_user_id = ? AND provider_name = ? AND status = 'in_progress' AND attempt_count = ? AND lease_until > ? LIMIT 1 FOR UPDATE",
+						[
+							input.operationId,
+							input.ownerUserId,
+							input.provider,
+							input.operationAttemptCount,
+							completedAt,
+						],
+					);
+					const activeOperation = activeOperationRows[0];
+					if (!activeOperation) {
+						throw new PatientDirectorySnapshotStaleError();
+					}
+					// SQL 条件已经做了第一次筛选；这里再按返回值核对一次，
+					// 防止驱动、测试替身或未来查询改动把过期 operation 当成
+					// 活跃租约继续使用。双重校验仍然必须发生在患者写入之前。
+					const leaseUntilMilliseconds = timestampMilliseconds(
+						activeOperation.lease_until,
+					);
+					const completedAtMilliseconds = timestampMilliseconds(completedAt);
+					if (
+						leaseUntilMilliseconds === undefined ||
+						completedAtMilliseconds === undefined
+					) {
+						throw new Error(
+							"Persistence returned an invalid patient sync lease",
+						);
+					}
+					if (leaseUntilMilliseconds <= completedAtMilliseconds) {
+						throw new PatientDirectorySnapshotStaleError();
 					}
 					const newerRows = await execute<
 						(RowDataPacket & { observed_at: string | null })[]
@@ -1398,15 +1443,15 @@ export function createMySqlRepositories(
 					[input.ownerUserId],
 				);
 				if (input.operationId) {
-					const completedAt = mysqlDateTime(new Date());
+					const operationCompletedAt = completedAt ?? mysqlDateTime(new Date());
 					const completed = await execute<ResultSetHeader>(
 						connection,
 						"UPDATE hp_patient_directory_sync_operations SET status = 'succeeded', observed_at = ?, completed_at = ?, result_digest = ?, updated_at = ? WHERE operation_id = ? AND owner_user_id = ? AND provider_name = ? AND attempt_count = ? AND status = 'in_progress'",
 						[
 							observedAt,
-							completedAt,
+							operationCompletedAt,
 							patientDirectoryResultDigest(currentRows),
-							completedAt,
+							operationCompletedAt,
 							input.operationId,
 							input.ownerUserId,
 							input.provider,

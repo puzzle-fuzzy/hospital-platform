@@ -345,6 +345,26 @@ export function createInMemoryPatientRepository(
 			) {
 				throw new Error("Patient directory sync operation is not active");
 			}
+			if (input.operationId) {
+				if (!input.completedAt) {
+					throw new Error("Patient directory sync completion time is required");
+				}
+				const leaseUntilMilliseconds = Date.parse(operation?.leaseUntil ?? "");
+				const completedAtMilliseconds = Date.parse(input.completedAt ?? "");
+				if (
+					!Number.isFinite(leaseUntilMilliseconds) ||
+					!Number.isFinite(completedAtMilliseconds)
+				) {
+					throw new Error("Patient directory sync timestamp is invalid");
+				}
+				if (leaseUntilMilliseconds <= completedAtMilliseconds) {
+					// 不同幂等键接管时，旧 operation 仍可能保留为 in_progress；
+					// 仅校验 status 和 attemptCount 会让旧响应继续修改患者目录。
+					// 必须在任何 upsert/deactivate 前按提交时刻检查租约，避免留下
+					// 一次短暂但真实可见的过期快照。
+					throw new PatientDirectorySnapshotStaleError();
+				}
+			}
 			const snapshotKey = directorySnapshotKey(input);
 			const latestObservedAt = latestDirectorySnapshotAt.get(snapshotKey);
 			if (

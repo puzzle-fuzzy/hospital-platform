@@ -241,7 +241,7 @@ test("MySQL patient sync operation uses owner-scoped lease and replay states", a
 				operation_id: "operation-001",
 				status: "succeeded",
 				attempt_count: 2,
-				lease_until: "2026-08-16 00:01:00.000",
+				lease_until: "2026-08-16 02:00:00.000",
 			},
 		],
 	]);
@@ -368,6 +368,14 @@ test("MySQL patient snapshot marks sync operation succeeded in the same transact
 	};
 	const { pool, state } = createFakePool([
 		[{ user_id: "user-001" }],
+		[
+			{
+				operation_id: "operation-001",
+				status: "in_progress",
+				attempt_count: 1,
+				lease_until: "2026-08-16 00:01:00.000",
+			},
+		],
 		[],
 		[],
 		{ affectedRows: 1 },
@@ -387,6 +395,7 @@ test("MySQL patient snapshot marks sync operation succeeded in the same transact
 			observedAt: "2026-08-16T00:00:00.000Z",
 			operationId: "operation-001",
 			operationAttemptCount: 1,
+			completedAt: "2026-08-16T00:00:00.500Z",
 			patients: [
 				{
 					patientId: "patient-sync-001",
@@ -728,6 +737,14 @@ test("MySQL patient directory ignores a stale snapshot without reactivating or o
 test("MySQL patient snapshot rejects an older committed operation before writes", async () => {
 	const { pool, state } = createFakePool([
 		[{ user_id: "user-stale-001" }],
+		[
+			{
+				operation_id: "operation-stale-001",
+				status: "in_progress",
+				attempt_count: 1,
+				lease_until: "2026-08-16 02:00:00.000",
+			},
+		],
 		[{ observed_at: "2026-08-16 02:00:00.000" }],
 	]);
 	const repositories = createMySqlRepositories(pool);
@@ -741,6 +758,7 @@ test("MySQL patient snapshot rejects an older committed operation before writes"
 			observedAt: "2026-08-16T01:00:00.000Z",
 			operationId: "operation-stale-001",
 			operationAttemptCount: 1,
+			completedAt: "2026-08-16T01:00:00.500Z",
 			patients: [],
 		}),
 	).rejects.toMatchObject({ name: "PatientDirectorySnapshotStaleError" });
@@ -751,7 +769,61 @@ test("MySQL patient snapshot rejects an older committed operation before writes"
 			statement.includes("SET directory_active"),
 		),
 	).toBe(false);
-	expect(state.statements[1]).toContain("status = 'succeeded'");
+	expect(
+		state.statements.some((statement) =>
+			statement.includes(
+				"SELECT observed_at FROM hp_patient_directory_sync_operations",
+			),
+		),
+	).toBe(true);
+});
+
+test("MySQL patient snapshot rejects a late response after a different key takeover", async () => {
+	const { pool, state } = createFakePool([
+		[{ user_id: "user-lease-takeover-001" }],
+		[
+			{
+				operation_id: "operation-old-001",
+				status: "in_progress",
+				attempt_count: 1,
+				// 不同幂等键已经在租约到期后接管；旧 operation 的 ledger
+				// 行仍可能保留 in_progress，不能以此证明旧请求仍有写权限。
+				lease_until: "2026-08-16 00:00:01.000",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+	const snapshot = repositories.patients.replaceDirectorySnapshot;
+	if (!snapshot) throw new Error("snapshot unavailable");
+
+	await expect(
+		snapshot({
+			ownerUserId: "user-lease-takeover-001",
+			provider: "zhongyang",
+			observedAt: "2026-08-16T00:00:00.000Z",
+			operationId: "operation-old-001",
+			operationAttemptCount: 1,
+			completedAt: "2026-08-16T00:00:01.001Z",
+			patients: [
+				{
+					patientId: "stale-patient-id",
+					profile: {
+						providerPatientId: "provider-stale-patient-001",
+						displayName: "旧租约资料",
+						relationship: "self",
+						cardNumberMasked: "******9999",
+					},
+				},
+			],
+		}),
+	).rejects.toMatchObject({ name: "PatientDirectorySnapshotStaleError" });
+
+	expect(state.rolledBack).toBe(true);
+	expect(
+		state.statements.some((statement) =>
+			statement.includes("INSERT INTO hp_patients"),
+		),
+	).toBe(false);
 });
 
 test("MySQL patient provider lookup is owner-scoped and server-only", async () => {
