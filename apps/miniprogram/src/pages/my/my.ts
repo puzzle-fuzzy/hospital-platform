@@ -5,7 +5,10 @@ import {
 	getUserProfile,
 	safeApiErrorMessage,
 } from "../../services/api-client";
-import { loadPatients } from "../../services/dashboard-service";
+import {
+	loadPatientsForOwner,
+	revalidateCurrentOwner,
+} from "../../services/dashboard-service";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -171,9 +174,11 @@ Page<MyPageData, MyPageMethods>({
 		const requestToken = pageLoadGuard.begin();
 		// 页面组合开始时只记录代际号，不记录 token。`/me` 成功后会重新取
 		// 一次代际，因为首次 GET 可能安全地触发一次会话恢复；从那以后，
-		// 个人资料和患者目录必须属于同一代际，不能把账号切换后的结果拼回
-		// 这一次页面加载。请求级 guard 负责单个响应，这里负责跨请求组合。
+		// 个人资料和患者目录必须经过同一 owner 的重验证，并以重验证后的最新
+		// 代际组合，不能把账号切换后的结果拼回这一次页面加载。请求级 guard
+		// 负责单个响应，这里负责跨请求组合。
 		let expectedSessionGeneration = getSessionGeneration();
+		let expectedOwnerId = "";
 		const assertPageSessionCurrent = (): void => {
 			assertSessionGeneration(
 				expectedSessionGeneration,
@@ -195,6 +200,7 @@ Page<MyPageData, MyPageMethods>({
 		const sessionResult = getCurrentUser().then(
 			(payload) => {
 				if (pageLoadGuard.isCurrent(requestToken)) {
+					expectedOwnerId = payload.data.user.id;
 					// `/me` 是当前页面组合的 owner 证明。若它内部因旧 token
 					// 失效而完成了一次安全 GET 重登，以返回后的代际作为后续
 					// 资料/患者读取的起点；不能把请求开始时的旧代际继续沿用。
@@ -252,7 +258,11 @@ Page<MyPageData, MyPageMethods>({
 				return getUserProfile()
 					.then((response) => {
 						if (!pageLoadGuard.isCurrent(requestToken)) return;
-						assertPageSessionCurrent();
+						// 资料 GET 可能刚刚完成同一 owner 的安全 token 恢复；
+						// 这里不能先拿旧代际 fail-closed，后续的
+						// `revalidateCurrentOwner` 会用 canonical `/me` 同时确认
+						// owner 身份并捕获恢复后的最新代际。若 owner 已切换，
+						// 重验证会拒绝，资料不会进入患者目录组合快照。
 						const displayName = response.data.displayName.trim();
 						this.setData({
 							userLabel: displayName || "微信用户",
@@ -260,6 +270,17 @@ Page<MyPageData, MyPageMethods>({
 							// 当前就诊人不可用的业务提示。
 							error: this.data.error,
 						});
+					})
+					.then(() => {
+						if (!pageLoadGuard.isCurrent(requestToken)) return;
+						return revalidateCurrentOwner(expectedOwnerId).then(
+							(sessionGeneration) => {
+								// `/me/profile` 也是受保护 GET，可能在响应期间安全轮换
+								// token。owner 重验证成功后采用最新代际，不能把同一用户
+								// 的正常恢复误报成“登录状态已变化”。
+								expectedSessionGeneration = sessionGeneration;
+							},
+						);
 					})
 					.catch(applyProfileError);
 			})
@@ -270,15 +291,18 @@ Page<MyPageData, MyPageMethods>({
 				// 目录；这是页面级 owner 边界，不能只依赖单个 HTTP 请求成功。
 				assertPageSessionCurrent();
 				// 只有资料请求完成或已降级后才读取患者目录。这样即使资料
-				// GET 触发了自动登录，患者关键读模型也一定从最新代际开始。
-				return loadPatients();
+				// GET 触发了自动登录，患者关键读模型也一定从最新代际开始；
+				// helper 还会在目录返回后重新确认 owner，防止账号切换期间
+				// 把旧目录和新页面组合在一起。
+				return loadPatientsForOwner(expectedOwnerId);
 			})
 			.then((result) => {
 				if (!result) return;
 				// 患者请求在 Promise 完成后、setData 前仍可能遇到另一个
 				// 页面换号；响应级 guard 已无法替代这里的组合一致性检查。
+				expectedSessionGeneration = result.sessionGeneration;
 				assertPageSessionCurrent();
-				const patients = result;
+				const { patients } = result;
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);
 				const selectedPatient = resolution.patient ?? null;

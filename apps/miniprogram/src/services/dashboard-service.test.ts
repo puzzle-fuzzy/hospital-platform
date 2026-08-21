@@ -7,6 +7,7 @@ import {
 	formatOutpatientBillDateLabel,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
+	loadPatientsForOwner,
 	loadOutpatientPaymentRecords,
 	requireAppointmentDepartmentListData,
 	requireAppointmentRecordListData,
@@ -131,6 +132,13 @@ test("患者端列表响应 total 不一致时 fail-closed，不伪装成空列�
 	]) {
 		expect(() => requireExactListData(value)).toThrow("Patient list response");
 	}
+});
+
+test("完整患者目录 owner helper 缺少 owner 证明时在网络请求前 fail-closed", async () => {
+	// “我的”页读取完整目录也必须由刚刚通过 `/me` 的 owner 证明驱动；
+	// 缺少该证明时不能把目录请求交给 API，再依赖服务端返回 unauthorized。
+	await expect(loadPatientsForOwner(""))
+		.rejects.toMatchObject({ code: "session-changed" });
 });
 
 test("患者目录响应必须保持脱敏读模型和唯一患者标识", () => {

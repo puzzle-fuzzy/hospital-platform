@@ -918,6 +918,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("hasPlatformSession");
 	expect(my).toContain("getSessionGeneration");
 	expect(my).toContain("assertSessionGeneration");
+	expect(my).toContain("revalidateCurrentOwner(expectedOwnerId)");
+	expect(my).toContain("loadPatientsForOwner(expectedOwnerId)");
 	expect(my).toContain("登录状态已变化，请下拉刷新后重试");
 	// 必须先完成 `/me` 会话确认，再启动患者目录和普通资料读取；否则无效
 	// token 会额外制造受保护请求，旧页面周期也可能扩大为新的业务读取。
@@ -926,7 +928,10 @@ test("native my page separates ordinary profile from family patient selection", 
 		"const sessionResult = getCurrentUser()",
 		myLoadStart,
 	);
-	const dependentReadsStart = my.indexOf("return loadPatients();", myLoadStart);
+	const dependentReadsStart = my.indexOf(
+		"return loadPatientsForOwner(expectedOwnerId)",
+		myLoadStart,
+	);
 	expect(dependentReadsStart).toBeGreaterThan(sessionStart);
 	// 普通资料 GET 可能触发自动会话轮换，必须在患者目录之前完成或降级；
 	// 否则两个并行读取可能把旧患者目录和新资料混成一个页面快照。
@@ -941,7 +946,10 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("assertPageSessionCurrent()");
 	expect(my).toContain("患者请求在 Promise 完成后、setData 前");
 	const profileStart = my.indexOf("return getUserProfile()", sessionStart);
-	const patientReadStart = my.indexOf("return loadPatients();", sessionStart);
+	const patientReadStart = my.indexOf(
+		"return loadPatientsForOwner(expectedOwnerId)",
+		sessionStart,
+	);
 	expect(profileStart).toBeGreaterThan(sessionStart);
 	expect(patientReadStart).toBeGreaterThan(profileStart);
 	expect(my).toContain(
