@@ -1078,6 +1078,69 @@ test("预约服务层拒绝越过 HTTP schema 的非法 opaque 标识", async ()
 	expect(JSON.stringify(records)).not.toContain(oversizedPatientId);
 });
 
+test("预约 service 拒绝未知字段而不是静默丢弃渠道意图", async () => {
+	let providerCalls = 0;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => {
+				providerCalls += 1;
+				throw new Error("schedule provider must not be called");
+			},
+		},
+		repository: {
+			resolveProviderReference: async () => {
+				providerCalls += 1;
+				return undefined;
+			},
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => {
+				providerCalls += 1;
+				throw new Error("record provider must not be called");
+			},
+		},
+	});
+	const context = {
+		traceId: "trace-unknown-query-field",
+		idempotencyKey: "key-unknown-query-field",
+	};
+
+	// `requestChannel=4` 目前不是公开查询字段；如果未来调用方把它带进
+	// service，必须明确失败，不能静默使用已固定的微信渠道 3。
+	await expect(
+		service.listSchedules(
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-02",
+				requestChannel: "4",
+			} as never,
+			context,
+		),
+	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-02",
+				requestChannel: "4",
+			} as never,
+			context,
+		),
+	).rejects.toBeInstanceOf(AppointmentRecordQueryError);
+
+	expect(providerCalls).toBe(0);
+});
+
 test("预约记录 service 二次校验并只投影公共字段", async () => {
 	const lines: string[] = [];
 	const service = new AppointmentService({

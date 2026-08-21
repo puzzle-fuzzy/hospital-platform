@@ -190,9 +190,39 @@ function hasDateRangeShape(
 	);
 }
 
+/**
+ * service 也必须拒绝未知预约查询字段。
+ *
+ * Elysia 的 TypeBox schema 已经限制 HTTP query，但组合根、回放任务或未来
+ * Worker 可以直接调用 service。若这里只解构已知字段，旧端传入的
+ * `requestChannel=4` 等意图会被静默丢弃，service 仍按固定渠道 3 查询，
+ * 调用方会把另一种业务意图误认为已经生效。字段名本身不进入错误日志，
+ * 只返回稳定的输入错误，避免把 Provider 参数扩散到日志。
+ */
+function hasOnlyQueryFields(
+	value: Record<string, unknown>,
+	allowedFields: ReadonlySet<string>,
+): boolean {
+	return Object.keys(value).every((field) => allowedFields.has(field));
+}
+
+const APPOINTMENT_SCHEDULE_QUERY_FIELDS = new Set([
+	"startDate",
+	"endDate",
+	"departmentId",
+	"doctorId",
+]);
+
+const APPOINTMENT_RECORD_QUERY_FIELDS = new Set(["startDate", "endDate"]);
+
 function validateScheduleQuery(input: AppointmentScheduleQuery): void {
 	if (!hasDateRangeShape(input)) {
 		throw new AppointmentScheduleQueryError("Schedule date range is invalid");
+	}
+	if (!hasOnlyQueryFields(input, APPOINTMENT_SCHEDULE_QUERY_FIELDS)) {
+		throw new AppointmentScheduleQueryError(
+			"Schedule query contains an unknown field",
+		);
 	}
 	if (
 		(input.departmentId !== undefined &&
@@ -269,6 +299,11 @@ function validateRecordQuery(input: AppointmentRecordQuery): void {
 	if (!hasDateRangeShape(input)) {
 		throw new AppointmentRecordQueryError(
 			"Appointment record date range is invalid",
+		);
+	}
+	if (!hasOnlyQueryFields(input, APPOINTMENT_RECORD_QUERY_FIELDS)) {
+		throw new AppointmentRecordQueryError(
+			"Appointment record query contains an unknown field",
 		);
 	}
 	const start = parseIsoCalendarDate(input.startDate);

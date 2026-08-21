@@ -5,6 +5,14 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（预约与门诊费用只读 service 边界修正）：复核预约历史、爽约和门诊费用的 owner-scoped 患者映射、
+  中国标准时间窗口、Provider 状态、渠道边界和小程序并发。发现 HTTP schema 之外，直接调用预约 service 时未知字段会被
+  静默丢弃，可能把 `requestChannel=4` 意图误认为已按已确认渠道 `3` 生效；现已在排班/预约记录 service 增加固定字段白名单，
+  未知字段在 Provider 前 fail-closed。预约 service `24 pass/94 expects`、门诊费用 service `14 pass/51 expects`、众阳两个
+  只读 adapter `32 pass/71 expects`、领域模型 `5 pass/7 expects`、小程序相关全量门禁 `174 pass/1378 expects`、API typecheck
+  和 Biome 均通过。支付、医保、结算、退款、HIS 写回与全部挂号 contract 仍关闭，详见
+  [`release/appointment-outpatient-readonly-correctness-audit-2026-08-21.md`](release/appointment-outpatient-readonly-correctness-audit-2026-08-21.md)。
+
 - 2026-08-21（患者目录全链路正确性审计）：沿“会话 owner → 众阳目录 → `patInfosFind` 临床映射 → 完整快照 →
   小程序显式选择”复核双层 Provider ID、稳定内部 `patientId`、空快照保护、租约/乱序响应、临床可用性和会话代际。
   API 患者 service 与 app 测试 `61 pass`、persistence `46 pass`、小程序全量 `174 pass/1378 expects`；未发现可在不猜
