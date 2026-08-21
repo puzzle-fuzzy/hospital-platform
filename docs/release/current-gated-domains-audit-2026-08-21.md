@@ -1,17 +1,17 @@
 # 当前未开放业务门禁审计（2026-08-21）
 
-> 当前候选：服务端 release `c8eef370`；小程序运行包来源 `f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`）。
+> 当前候选：服务端 release `9f491cb5`；小程序运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`）。
 
-> 当前基线更新：服务端 `c8eef370`；小程序候选 `f488c6f3`；完整运行包来源 `f488c6f3270514af10b19fdf3c45a47519e1736b`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `9f491cb5`；小程序候选 `13b86a5`；完整运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`。下文更早候选只作历史追溯。
 
-> 本文是当前服务端 `c8eef370` 与小程序候选 `f488c6f3` 的门禁快照，完整来源为 `f488c6f3270514af10b19fdf3c45a47519e1736b`。它用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
+> 本文是当前服务端 `9f491cb5` 与小程序候选 `13b86a5` 的门禁快照，完整来源为 `13b86a5a400ca0ccbee67abdfed726476a4749d4`。它用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
 
 ## 1. 当前基线与公网只读证据
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 服务端 release | `c8eef370c82e358205ee032af41ba2b23576af06`（`c8eef370`） |
-| 小程序本地候选 | `f488c6f3270514af10b19fdf3c45a47519e1736b`（`f488c6f3`），尚未上传线上 |
+| 服务端 release | `9f491cb5ac813acf89ed1f2f4afb361517e82324`（`9f491cb5`） |
+| 小程序本地候选 | `13b86a5a400ca0ccbee67abdfed726476a4749d4`（`13b86a5`），尚未上传线上 |
 | 新服务 | `https://test-hp.meiyi.pro/api/v2`，生产模式、数据库/Redis/schema readiness 为 ready |
 | 小程序运行包 | `apps/miniprogram/dist/`，14 个页面；不包含 `*.test.js`/`*.spec.js` |
 | `GET /health/live` | `200` |
@@ -23,11 +23,11 @@
 
 上述请求未携带 Bearer、微信身份、患者标识或 Provider 凭证，也未写入 MySQL/Redis；关闭路由的 `404` 是预期门禁证据，不是需要用兼容转发填补的故障。
 
-2026-08-21 23:10 CST 通过内网只读 SSH 复核当前 `c8eef370`：API service 为 `active`，Worker 为 `inactive`，新 API
+2026-08-21 23:34 CST 通过内网只读 SSH 复核当前 `9f491cb5`：API service 为 `active`，Worker 为 `inactive`，新 API
 `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，readiness 的 database/Redis/schema 均为 `ok`。
-最近 30 分钟低敏聚合为 `parsedRecords=5`、`parseErrors=0`、HTTP `200=4`/`404=1`，事件域仅为
+切换窗口低敏聚合为 `parsedRecords=26`、`parseErrors=0`、HTTP `200=8`/`401=8`/`404=7`，事件域仅为
 `infrastructure`，没有新的认证、患者、预约、费用或 Provider 业务事件。完整结果见
-[`current-c8eef370-runtime-observation-2026-08-21-2310.md`](current-c8eef370-runtime-observation-2026-08-21-2310.md)。
+[`9f491cb5-production-acceptance-2026-08-21.md`](9f491cb5-production-acceptance-2026-08-21.md)。
 
 2026-08-21 后续只读业务复核又对照了已登记的众阳 `2.6.33` 门诊待支付材料：adapter 只接受
 `tradeStatus=1`（待支付）和 `tradeStatus=3`（已支付），并拒绝 `2`（已生成结算）、`4`（退款中）、
@@ -77,7 +77,7 @@
 | `pnpm architecture:audit` | 通过；67 项架构/安全边界规则 |
 | `pnpm --filter @hospital/api test src/app.test.ts src/plugins/error-handler.test.ts` | 通过；56 项测试、316 个断言 |
 | `pnpm docs:audit` | 通过；395 个 Markdown 文档、无断链 |
-| `pnpm release:baseline:audit` | 服务端 `c8eef370` 与小程序候选 `f488c6f3` 指针一致；当前运行层只读观察另见 [`current-c8eef370-runtime-observation-2026-08-21-2310.md`](current-c8eef370-runtime-observation-2026-08-21-2310.md) |
+| `pnpm release:baseline:audit` | 服务端 `9f491cb5` 与小程序候选 `13b86a5` 指针一致；当前运行层发布证据见 [`9f491cb5-production-acceptance-2026-08-21.md`](9f491cb5-production-acceptance-2026-08-21.md) |
 
 这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。
 本轮 SSH 只读复核只确认运行层和空业务窗口，不新增任何业务完成结论。

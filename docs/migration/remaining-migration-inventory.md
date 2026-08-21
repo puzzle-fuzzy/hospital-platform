@@ -1,14 +1,16 @@
 # 剩余迁移盘点与下一步计划
 
-> 当前候选：服务端 release `c8eef370`（完整提交 `c8eef370c82e358205ee032af41ba2b23576af06`）；小程序真机前必须重新构建并核对运行包来源。
+> 当前候选：服务端 release `9f491cb5`（完整提交 `9f491cb5ac813acf89ed1f2f4afb361517e82324`）；小程序运行包来源为 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`），真机前必须重新构建并核对来源。
 
-> 当前基线更新：服务端 `c8eef370`；小程序候选不沿用历史运行包，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `9f491cb5`；小程序候选 `13b86a5`，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
 
 > 2026-08-21 报告只读 adapter 已收紧 LIS `pdfUrlList`：数组元素必须为无控制字符字符串，异常对象、数字、布尔值和控制字符会整批拒绝；当前仍只返回附件存在性，不返回地址、不开放下载或授权。详见 [`../release/report-attachment-boundary-2026-08-21.md`](../release/report-attachment-boundary-2026-08-21.md)。
 
 > 2026-08-21 门诊费用只读 adapter 已收紧稳定身份字段：字段存在但为对象、数组、布尔值、非有限数字、控制字符或超过 256 个 UTF-16 单元时整批拒绝，不再静默忽略并生成可能漂移的 `recordId`；账单时间使用同一边界校验。该修正不开放支付、医保或结算，详见 [`../release/outpatient-payment-identity-boundary-2026-08-21.md`](../release/outpatient-payment-identity-boundary-2026-08-21.md)。
 
 > 2026-08-21 排班只读快照边界已加固：进入内存/MySQL persistence 前统一校验 `zhongyang` 来源、排班嵌套字段、号源数量和不超过 5 分钟的观察 TTL；这只保证只读观察事实不被错误调用方写入，不开放预约写入或锁号。详见 [`../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md`](../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md)。
+
+> 2026-08-21 23:34 CST 当前服务端已从 `c8eef370` 原子切换到 `9f491cb5`；新 API 与旧 Python `8001` 共存，生产 preflight、隔离 smoke 和公网 runtime smoke 通过，旧 Python PID 未变化。当前小程序候选为 `13b86a5`，运行包不含测试脚本；`single-flight.test.js` ENOENT 必须按开发者工具旧增量索引恢复，不得把测试脚本复制进 `dist/`。详见 [`../release/9f491cb5-production-acceptance-2026-08-21.md`](../release/9f491cb5-production-acceptance-2026-08-21.md) 和 [`../release/candidate-13b86a5-local-build-2026-08-21.md`](../release/candidate-13b86a5-local-build-2026-08-21.md)。
 
 > 2026-08-21 19:36–19:44 CST 当前服务端已从 `5a31427` 原子切换到 `c8eef370`；新 API 与旧 Python `8001` 共存，
 > readiness、生产模式和依赖探针通过。当前 release 仍没有新的微信真机、预约 Provider 或门诊费用三层业务证据，详见
@@ -39,7 +41,7 @@
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
 
-> 当前配套小程序候选构建来源为 `f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
+> 当前配套小程序候选构建来源为 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`），尚未上传线上；用户已有的开发者工具配置修改不属于本次候选代码。
 
 > 2026-08-21 当前执行顺序：私网监听、数据库/Redis/schema readiness 和新旧服务共存已经完成只读复核；下一步先取得当前小程序候选的真实微信会话、患者显式切换、预约历史和门诊费用只读三层证据，
 > 再验收普通资料写入。报告、患者绑定、门诊病历和二维码必须等各自 Provider contract、权限/归属、脱敏样例和可回滚验收材料齐全后再实现；支付、医保和 HIS 回写最后处理。

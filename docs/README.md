@@ -3,9 +3,8 @@
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前发布基线（2026-08-21）仍为：服务端线上 `c8eef370c82e358205ee032af41ba2b23576af06`（提交 `c8eef370`）、待真机复核的小程序候选来源
-`f488c6f3270514af10b19fdf3c45a47519e1736b`（提交 `f488c6f3`，尚未上传线上）。本轮本地验证另生成了未发布运行包来源
-`13b86a5a400ca0ccbee67abdfed726476a4749d4`，以及未发布服务端候选 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`；二者不能替代上述发布基线；旧 Python `8001` 未因本轮修改而改变。
+当前发布基线（2026-08-21）为：服务端线上 `9f491cb5ac813acf89ed1f2f4afb361517e82324`（提交 `9f491cb5`）、待真机复核的小程序候选来源
+`13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`，尚未上传线上）。上一服务端 release `c8eef370` 和小程序候选 `f488c6f3` 仅作历史追溯；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 ## 首先阅读
@@ -14,11 +13,11 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `c8eef370`、最新本地小程序候选来源以 `f488c6f3270514af10b19fdf3c45a47519e1736b` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `9f491cb5`、最新本地小程序候选来源以 `13b86a5a400ca0ccbee67abdfed726476a4749d4` 为准 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
-| [`release/candidate-f488c6f-local-build-2026-08-21.md`](release/candidate-f488c6f-local-build-2026-08-21.md) | 当前 `f488c6f3` 小程序运行包、患者 owner 重验证和 ENOENT 真机前恢复边界 |
+| [`release/candidate-13b86a5-local-build-2026-08-21.md`](release/candidate-13b86a5-local-build-2026-08-21.md) | 当前 `13b86a5` 小程序运行包、`single-flight.test.js` ENOENT 恢复和真机前运行包边界 |
 | [`release/miniprogram-devtools-project-preflight-2026-08-21.md`](release/miniprogram-devtools-project-preflight-2026-08-21.md) | 当前候选运行包和微信开发者工具项目选择前置检查；防止误用旧 `mp-weixin` 窗口 |
 | [`release/redis-readiness-concurrency-audit-2026-08-20.md`](release/redis-readiness-concurrency-audit-2026-08-20.md) | Redis readiness、会话读写和 TTL 维护的连接单飞边界；不重放业务命令，失败后允许安全重试 |
 | [`release/redis-session-ttl-audit-hard-cap-2026-08-21.md`](release/redis-session-ttl-audit-hard-cap-2026-08-21.md) | Redis 会话 TTL 只读审计 `maxKeys` 硬上限、最后一页超量返回和当前线上未验证边界 |
@@ -75,7 +74,7 @@
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md) | 06:47 CST 二维码等待期间的新旧服务、readiness 和 P0 业务日志空窗口；不把健康检查或空窗口当作业务成功 |
 | [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `968a587` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界；当前线上请以 `c8eef370` 为准 |
-| [`release/c8eef370-production-acceptance-2026-08-21.md`](release/c8eef370-production-acceptance-2026-08-21.md) | 当前 `c8eef370` 真实生产切换、隔离候选验收、新旧服务共存和未完成真机业务边界 |
+| [`release/9f491cb5-production-acceptance-2026-08-21.md`](release/9f491cb5-production-acceptance-2026-08-21.md) | 当前 `9f491cb5` 真实生产切换、隔离候选验收、新旧服务共存和未完成真机业务边界 |
 | [`release/current-c8eef370-runtime-observation-2026-08-21-2310.md`](release/current-c8eef370-runtime-observation-2026-08-21-2310.md) | 当前 `c8eef370` 新旧服务共存、readiness 和最近 30 分钟低敏日志只读观察；没有新的真机业务事件 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0402.md`](release/current-5a31427-p0-business-observation-2026-08-21-0402.md) | `5a31427` 切换后 P0 日志空窗口的安全计数、门禁缺失项和下一次真机取证顺序 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0451.md`](release/current-5a31427-p0-business-observation-2026-08-21-0451.md) | `5a31427` 04:51 CST 线上只读观测：新旧服务共存正常，但最近 30 分钟没有新的微信/患者/预约/费用/资料业务事件 |
@@ -132,10 +131,10 @@
 | [`release/current-b7c9451-database-transient-observation-2026-08-19.md`](release/current-b7c9451-database-transient-observation-2026-08-19.md) | 历史 `b7c9451` 远端 MySQL 瞬态断连、readiness 恢复、双服务共存和磁盘风险观察；不代表业务验收 |
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前验收候选请改读 `cde7bc9`，本记录不替代真机、Provider 或服务端日志证据 |
 | [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `f488c6f3` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
-| [`release/miniprogram-real-device-evidence-template-c86a788.md`](release/miniprogram-real-device-evidence-template-c86a788.md) | 历史 `c86a788` 候选的真机证据模板；当前模板请使用 [`miniprogram-real-device-evidence-template-f488c6f.md`](release/miniprogram-real-device-evidence-template-f488c6f.md) |
-| [`release/miniprogram-real-device-evidence-template-4e82313.md`](release/miniprogram-real-device-evidence-template-4e82313.md) | 历史 `4e82313` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-f488c6f.md`](release/miniprogram-real-device-evidence-template-f488c6f.md) |
-| [`release/miniprogram-real-device-evidence-template-8d33a27.md`](release/miniprogram-real-device-evidence-template-8d33a27.md) | 历史 `8d33a27` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-f488c6f.md`](release/miniprogram-real-device-evidence-template-f488c6f.md) |
-| [`release/miniprogram-real-device-evidence-template-9c582a1.md`](release/miniprogram-real-device-evidence-template-9c582a1.md) | 历史 `9c582a1` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-f488c6f.md`](release/miniprogram-real-device-evidence-template-f488c6f.md) |
+| [`release/miniprogram-real-device-evidence-template-c86a788.md`](release/miniprogram-real-device-evidence-template-c86a788.md) | 历史 `c86a788` 候选的真机证据模板；当前模板请使用 [`miniprogram-real-device-evidence-template-13b86a5.md`](release/miniprogram-real-device-evidence-template-13b86a5.md) |
+| [`release/miniprogram-real-device-evidence-template-4e82313.md`](release/miniprogram-real-device-evidence-template-4e82313.md) | 历史 `4e82313` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-13b86a5.md`](release/miniprogram-real-device-evidence-template-13b86a5.md) |
+| [`release/miniprogram-real-device-evidence-template-8d33a27.md`](release/miniprogram-real-device-evidence-template-8d33a27.md) | 历史 `8d33a27` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-13b86a5.md`](release/miniprogram-real-device-evidence-template-13b86a5.md) |
+| [`release/miniprogram-real-device-evidence-template-9c582a1.md`](release/miniprogram-real-device-evidence-template-9c582a1.md) | 历史 `9c582a1` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-13b86a5.md`](release/miniprogram-real-device-evidence-template-13b86a5.md) |
 | [`release/miniprogram-real-device-evidence-template-7a6f4df.md`](release/miniprogram-real-device-evidence-template-7a6f4df.md) | 历史 `7a6f4df` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；不能替代当前 `cde7bc9` 候选 |
 | [`release/miniprogram-real-device-evidence-template-f66514d.md`](release/miniprogram-real-device-evidence-template-f66514d.md) | 历史 `f66514d` 候选真机证据模板；不能替代当前 `cde7bc9` 候选 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0903-acf5a85.md`](release/miniprogram-device-qr-session-2026-08-21-0903-acf5a85.md) | 历史 `acf5a85` 候选 09:03 CST 的 iOS/局域网二维码会话；不能用于当前 `cde7bc9` 真机验收，仅记录当时缓存清理、普通编译和扫码前运行包状态 |

@@ -182,11 +182,11 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	// 不能让历史 release 继续伪装成当前基线。
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "c8eef370c82e358205ee032af41ba2b23576af06",
+		serverRelease: "9f491cb5ac813acf89ed1f2f4afb361517e82324",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "f488c6f3",
-		miniProgramSourceRevision: "f488c6f3270514af10b19fdf3c45a47519e1736b",
+		miniProgramCommit: "13b86a5",
+		miniProgramSourceRevision: "13b86a5a400ca0ccbee67abdfed726476a4749d4",
 	});
 	expect(result.failures).toEqual([]);
 });
