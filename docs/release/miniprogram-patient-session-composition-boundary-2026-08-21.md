@@ -1,8 +1,8 @@
 # 小程序患者页面会话组合边界审计（2026-08-21）
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`（提交 `aafccf5`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`（提交 `9c582a1`）。
 
-> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `aafccf5`，完整运行包来源为 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
+> 当前配套服务端 release 为 `5a31427`；当前小程序候选为 `9c582a1`，完整运行包来源为 `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`。本轮只修改本地新项目代码和文档，未部署、未重启旧 Python 服务或新 API，未调用 Provider、医保、支付或 HIS。
 
 ## 发现的问题
 
@@ -59,7 +59,7 @@
 | 小程序 typecheck | 通过 |
 | Biome | 通过 |
 | 小程序 build | 通过；14 个页面运行脚本存在 |
-| `runtime:verify` | 通过；来源 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`，不含测试脚本 |
+| `runtime:verify` | 通过；来源 `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`，不含测试脚本 |
 | 真机、Provider、公网业务 | 尚未由本轮证明 |
 
 ## 后续停止条件

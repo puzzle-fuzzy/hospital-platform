@@ -14,7 +14,7 @@ const repositoryRoot = resolve(scriptDirectory, "..");
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-aafccf5-local-build-2026-08-21.md";
+	"docs/release/candidate-9c582a1-local-build-2026-08-21.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -60,7 +60,7 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前个人中心患者上下文审计",
 	},
 	{
-		path: "docs/release/miniprogram-real-device-evidence-template-aafccf5.md",
+		path: "docs/release/miniprogram-real-device-evidence-template-9c582a1.md",
 		label: "当前小程序真机证据模板",
 	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
