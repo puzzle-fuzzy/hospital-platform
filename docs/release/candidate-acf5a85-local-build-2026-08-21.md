@@ -11,7 +11,7 @@
 | 小程序构建来源 | `acf5a8596e70e1fb2b8d220a0b41eb69418ae086` |
 | 运行包目录 | `apps/miniprogram/dist/` |
 | 页面入口 | 14 个 |
-| `dist/build-info.json` | `sourceRevision` 与上述完整来源一致 |
+| `dist/build-info.json` | `sourceRevision` 与上述完整来源一致；当前生成时间 `2026-08-21T00:48:02.507Z`（08:48:02 CST） |
 | 运行包测试脚本 | 0 个 `*.test.js` / `*.spec.js` |
 | `single-flight.js` | 存在 |
 | `single-flight.test.js` | 不存在，符合运行包边界 |
