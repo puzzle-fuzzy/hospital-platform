@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（报告目录 service 输入边界修正）：复核报告目录 HTTP schema 与直接 service 调用的一致性，发现 service
+  归一化时会静默丢弃未知 query 字段；现已增加 `startDate/endDate/kind` 固定白名单，误传 Provider 报告号或患者字段时在
+  患者映射和 Provider 前返回 `ReportQueryError`，且不记录原始字段。报告 service `21 pass/91 expects`、domain `6 pass/10 expects`、
+  API typecheck、小程序全量 `174 pass/1378 expects` 和 Biome 均通过。报告 Provider、详情/附件和真机 gate 继续关闭，详见
+  [`release/report-directory-service-input-boundary-audit-2026-08-21.md`](release/report-directory-service-input-boundary-audit-2026-08-21.md)。
+
 - 2026-08-21（预约与门诊费用只读 service 边界修正）：复核预约历史、爽约和门诊费用的 owner-scoped 患者映射、
   中国标准时间窗口、Provider 状态、渠道边界和小程序并发。发现 HTTP schema 之外，直接调用预约 service 时未知字段会被
   静默丢弃，可能把 `requestChannel=4` 意图误认为已按已确认渠道 `3` 生效；现已在排班/预约记录 service 增加固定字段白名单，

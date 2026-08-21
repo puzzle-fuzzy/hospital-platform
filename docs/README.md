@@ -29,6 +29,7 @@
 | [`release/readonly-business-chain-audit-2026-08-21.md`](release/readonly-business-chain-audit-2026-08-21.md) | 当前候选预约历史、爽约、门诊费用患者上下文复核，以及 `single-flight.test.js` ENOENT 运行包恢复证据 |
 | [`release/current-gated-domains-audit-2026-08-21.md`](release/current-gated-domains-audit-2026-08-21.md) | 当前病历、患者绑定、二维码、报告详情/附件和支付医保门禁，以及公网关闭路由只读证据 |
 | [`release/miniprogram-report-readonly-logic-audit-2026-08-20.md`](release/miniprogram-report-readonly-logic-audit-2026-08-20.md) | 报告目录/详情的患者归属、多来源聚合、opaque 引用、附件存在性和关闭门禁 |
+| [`release/report-directory-service-input-boundary-audit-2026-08-21.md`](release/report-directory-service-input-boundary-audit-2026-08-21.md) | 报告目录 service 未知字段拒绝、owner/患者映射、详情引用和 Provider gate 边界 |
 | [`release/miniprogram-patient-directory-superseded-2026-08-21.md`](release/miniprogram-patient-directory-superseded-2026-08-21.md) | 首页患者目录请求被淘汰时的显式生命周期结果、禁止误启动同步的并发修正与验证证据 |
 | [`release/patient-directory-correctness-audit-2026-08-21.md`](release/patient-directory-correctness-audit-2026-08-21.md) | 患者目录 owner、双层 Provider ID、完整快照、临床映射、会话代际和显式切换的全链路正确性审计 |
 | [`release/candidate-c86a788-local-build-2026-08-21.md`](release/candidate-c86a788-local-build-2026-08-21.md) | 当前小程序本地构建来源、患者初始化测试门禁、test/spec 运行包隔离和真机前置条件；小程序尚未上传线上，服务端基线为 `5a31427` |

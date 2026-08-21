@@ -89,6 +89,8 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
  */
 const REPORT_REFERENCE_CONCURRENCY = 4;
 
+const REPORT_DIRECTORY_QUERY_FIELDS = new Set(["startDate", "endDate", "kind"]);
+
 /**
  * 以固定并发度映射目录项并保留输入顺序。
  *
@@ -142,6 +144,21 @@ function normalizeReportDirectoryQuery(value: unknown): ReportDirectoryQuery {
 		throw new ReportQueryError("Report query is invalid");
 	}
 	const record = value as Record<string, unknown>;
+	/**
+	 * HTTP 的 TypeBox schema 不是 service 的唯一输入边界。
+	 *
+	 * 组合根、回放任务或未来 Worker 可以直接调用 service；如果这里只
+	 * 解构已知字段，调用方带入 `providerReportId`、`patientId` 等错误意图
+	 * 时会被静默丢弃，随后仍以当前患者和日期发起报告查询。报告查询必须
+	 * 明确拒绝未知字段，不能把“输入被忽略”伪装成“查询已按调用方意图执行”。
+	 */
+	if (
+		Object.keys(record).some(
+			(field) => !REPORT_DIRECTORY_QUERY_FIELDS.has(field),
+		)
+	) {
+		throw new ReportQueryError("Report query contains an unknown field");
+	}
 	if (
 		typeof record.startDate !== "string" ||
 		typeof record.endDate !== "string"

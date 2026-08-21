@@ -196,6 +196,45 @@ test("报告目录拒绝异常 Provider trace 并只记录固定原因", async (
 	expect(output).not.toContain("bad\\n-request-id");
 });
 
+test("报告目录 service 拒绝未知字段而不是静默丢弃查询意图", async () => {
+	let providerCalls = 0;
+	const service = new ReportService({
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		directory: {
+			listReports: async () => {
+				providerCalls += 1;
+				throw new Error("report provider must not be called");
+			},
+		},
+	});
+
+	// 这类字段不属于报告目录公共查询 contract；不能因为 service 只读取
+	// 日期和 kind，就把调用方的另一种患者/Provider 意图静默丢弃。
+	await expect(
+		service.list(
+			"user-001",
+			"patient-001",
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				providerReportId: "provider-report-001",
+			} as never,
+			{
+				traceId: "trace-report-unknown-query-field",
+				idempotencyKey: "key-report-unknown-query-field",
+			},
+		),
+	).rejects.toBeInstanceOf(ReportQueryError);
+
+	expect(providerCalls).toBe(0);
+});
+
 test("报告目录接受多 Provider 的有界请求号列表并完整写入低敏日志", async () => {
 	const lines: string[] = [];
 	const requestIds = ["a".repeat(70), "b".repeat(70), "c".repeat(70)];
