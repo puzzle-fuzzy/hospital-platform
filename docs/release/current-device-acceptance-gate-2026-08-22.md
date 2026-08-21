@@ -11,8 +11,8 @@
 | 项目 | 当前值 |
 | --- | --- |
 | 服务端生产 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
-| 小程序运行包来源 | `13b86a5a400ca0ccbee67abdfed726476a4749d4` |
-| 小程序短提交 | `13b86a5` |
+| 小程序运行包来源 | `ec26f41f8575871972ac63a8074a9beaec1df55b` |
+| 小程序短提交 | `ec26f41` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` |
 | 注册页面数 | 14 |
 | 运行包测试脚本 | 0 个 `*.test.js` / `*.spec.js` |
@@ -47,6 +47,10 @@
 5. 再生成二维码并开始真机验收。
 
 禁止手工新增 `dist/services/single-flight.test.js`，否则会把测试代码混入运行包，并掩盖开发者工具来源错配。
+
+本次重新加载新项目时还发现过 `module 'services/@hospital/contracts.js' is not defined`：这是微信运行时不解析
+pnpm workspace 裸模块名造成的真实运行包问题，已在当前候选 `ec26f41` 中改为小程序本地的无第三方依赖时间校验模块，
+并增加了与共享契约边界一致性的测试。当前重新编译后的控制台不再出现该错误；不能通过向 `dist/` 手工复制 workspace 包来规避。
 
 ## 当前未形成的证据
 

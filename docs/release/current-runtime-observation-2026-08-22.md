@@ -26,7 +26,7 @@
 
 ## 2. 当前候选与真机入口
 
-当前新小程序候选运行包来源为 `13b86a5a400ca0ccbee67abdfed726476a4749d4`，
+当前新小程序候选运行包来源为 `ec26f41f8575871972ac63a8074a9beaec1df55b`，
 构建目录为 `apps/miniprogram/dist/`。该运行包已通过 `runtime:verify`，注册的 14 个
 页面均有对应 JavaScript 文件，且 `*.test.js`、`*.spec.js` 均为零。
 

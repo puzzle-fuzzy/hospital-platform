@@ -1,8 +1,8 @@
 # 原生小程序当前候选真机验收清单（2026-08-19）
 
-> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`（提交 `13b86a5`）。
+> 当前候选：服务端 release `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10`；小程序运行包来源 `ec26f41f8575871972ac63a8074a9beaec1df55b`（提交 `ec26f41`）。
 
-> 当前基线更新：服务端 `002acc1b`；小程序候选 `13b86a5`；完整运行包来源 `13b86a5a400ca0ccbee67abdfed726476a4749d4`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `002acc1b`；小程序候选 `ec26f41`；完整运行包来源 `ec26f41f8575871972ac63a8074a9beaec1df55b`。下文更早候选只作历史追溯。
 
 这是一份扫码前后都能复用的操作清单，固定当前客户端候选，避免把旧开发者工具窗口、旧二维码、模拟器结果或服务端历史日志误当成真机验收。
 本轮只验收微信登录、患者目录/切换、我的挂号、爽约记录、门诊费用只读和普通资料读取；预约写入、支付、医保、退费、报告 Provider、HIS 写入继续关闭。
@@ -12,8 +12,8 @@
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
 | 服务端 | `002acc1b` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
-| 小程序运行输入 | `13b86a5` | 当前本地候选，尚未上传线上 |
-| 小程序运行包来源 | `13b86a5a400ca0ccbee67abdfed726476a4749d4` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
+| 小程序运行输入 | `ec26f41` | 当前本地候选，尚未上传线上 |
+| 小程序运行包来源 | `ec26f41f8575871972ac63a8074a9beaec1df55b` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 真机只能访问公网 API，不直连 Provider 或内网地址 |
 

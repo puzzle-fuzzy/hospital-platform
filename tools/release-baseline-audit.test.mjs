@@ -185,8 +185,8 @@ test("仓库当前发布文档保持同一套候选", async () => {
 		serverRelease: "002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "13b86a5",
-		miniProgramSourceRevision: "13b86a5a400ca0ccbee67abdfed726476a4749d4",
+		miniProgramCommit: "ec26f41",
+		miniProgramSourceRevision: "ec26f41f8575871972ac63a8074a9beaec1df55b",
 	});
 	expect(result.failures).toEqual([]);
 });

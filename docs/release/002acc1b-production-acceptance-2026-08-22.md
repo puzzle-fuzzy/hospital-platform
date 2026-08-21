@@ -8,7 +8,7 @@
 | --- | --- |
 | 服务端 release | `002acc1be5cdd1b16c2c249f5dbbf9f7c65dbd10` |
 | 发布前线上 release | `9f491cb5ac813acf89ed1f2f4afb361517e82324` |
-| 小程序运行包来源 | `13b86a5a400ca0ccbee67abdfed726476a4749d4` |
+| 小程序运行包来源 | `ec26f41f8575871972ac63a8074a9beaec1df55b` |
 | 新 API systemd unit | 仅重启 `hospital-platform-api-v2.service` |
 | 旧 Python 服务 | 未修改、未停止、未重启；`8001` 持续监听 |
 | Worker | `hospital-platform-worker-v2.service` 保持 `inactive` |
@@ -105,7 +105,7 @@
 
 下一步按业务风险顺序进行：
 
-1. 小程序从当前源码重新普通编译，确认运行包来源为 `13b86a5`，清除旧增量索引后再处理 `single-flight.test.js` 一类开发者工具缓存报错；
+1. 小程序从当前源码重新普通编译，确认运行包来源为 `ec26f41`，清除旧增量索引后再处理 `single-flight.test.js` 一类开发者工具缓存报错；
 2. 用真机微信会话取得登录、就诊人列表、切换就诊人和首页二维码的请求/成功/页面证据；
 3. 再取得预约目录、预约历史、报告目录/详情、门诊费用的只读业务证据，并核对低敏日志中的 requestId/traceId；
 4. 支付、医保授权、退款和 HIS 写回继续最后专项，未取得真实协议和金额边界证据前不打开 gate。
