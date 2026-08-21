@@ -7,10 +7,9 @@ import {
 } from "mysql2/promise";
 
 /**
- * MySQL migration files currently contain DDL. MySQL DDL can implicitly
- * commit, so these migrations must never pretend to be transactionally
- * rollbackable. The runner records a durable execution marker before DDL and
- * requires manual inspection after an interrupted or failed run.
+ * 当前 MySQL 迁移文件包含 DDL。MySQL DDL 可能隐式提交，因此迁移执行器不能
+ * 把它伪装成可以通过事务回滚的操作。执行器会在 DDL 前记录持久化执行标记；
+ * 如果进程中断或执行失败，必须由运维人工检查后再决定如何继续。
  */
 export type PersistenceMigration = {
 	readonly id: string;
@@ -102,9 +101,9 @@ export const PERSISTENCE_MIGRATIONS = [
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
- * Schema objects required by the current repository boundary. Migration
- * history alone is not proof that these objects still exist, so readiness
- * probes the MySQL data dictionary as well as hp_schema_migrations.
+ * 当前 repository 边界必须存在的 schema 对象。迁移历史本身不能证明这些对象
+ * 仍然存在，因此 readiness 除了检查 `hp_schema_migrations`，还会读取 MySQL
+ * 数据字典进行结构探针。
  */
 export const PERSISTENCE_SCHEMA_TABLES = [
 	"hp_schema_migrations",
@@ -361,7 +360,7 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 	},
 ] as const;
 
-/** Security-critical indexes and their column order for owner-scoped lookups and leases. */
+/** 保护 owner 隔离查询和租约竞争的安全关键索引及其列顺序。 */
 export const PERSISTENCE_SCHEMA_INDEXES = [
 	{
 		table: "hp_patients",
@@ -506,7 +505,7 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 	},
 ] as const;
 
-/** Composite foreign keys prevent a patient/order from crossing user owners. */
+/** 复合外键防止患者或订单跨越 owner，关联到另一位用户的数据。 */
 export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 	{
 		table: "hp_user_profiles",
@@ -681,9 +680,9 @@ export const PERSISTENCE_SCHEMA_FOREIGN_KEYS = [
 type MigrationRunStatus = "started" | "failed" | "succeeded";
 
 /**
- * Separate control table for migration execution state. It is intentionally
- * not the schema gate: a `started`/`failed` row means the next run must stop
- * for manual inspection instead of blindly replaying potentially partial DDL.
+ * 独立记录迁移执行状态的控制表。它不会直接充当 schema gate：如果存在
+ * `started`/`failed` 记录，下一次执行必须先停止并等待人工检查，不能盲目重放
+ * 可能只执行了一半的 DDL。
  */
 const MIGRATION_RUNS_TABLE_SQL = `
 	CREATE TABLE IF NOT EXISTS hp_schema_migration_runs (
@@ -729,9 +728,8 @@ function isLocalDatabaseHost(hostname: string): boolean {
 }
 
 /**
- * Protect the explicit migration command from an accidental remote/production
- * target. Local Compose remains frictionless; remote and production targets
- * require separate, visible deployment intent instead of a silent URL typo.
+ * 防止显式迁移命令误指向远程或生产数据库。本地 Compose 保持低摩擦；远程和
+ * 生产目标必须通过独立且可见的部署意图确认，不能因为 URL 拼写错误而静默执行。
  */
 export function assertMigrationTargetAllowed(
 	databaseUrl: string,
@@ -823,9 +821,9 @@ function placeholders(count: number): string {
 }
 
 /**
- * Verify the static schema objects that protect repository correctness.
- * INFORMATION_SCHEMA is read-only; this probe never repairs or mutates the
- * target database. The returned names are safe diagnostics, not raw SQL.
+ * 验证保护 repository 正确性的静态 schema 对象。`INFORMATION_SCHEMA` 查询是
+ * 只读的，本探针不会修复或修改目标数据库；返回的对象名称是安全诊断信息，
+ * 不是原始 SQL。
  */
 async function readMissingSchemaObjects(
 	pool: Pick<Pool, "execute">,
@@ -1028,8 +1026,8 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 				PRIMARY KEY (migration_id)
 			) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
 		`);
-		// DDL is not transactionally rollbackable in MySQL. Persisting this marker
-		// before each migration gives operators durable evidence after a crash.
+		// MySQL DDL 不能通过事务可靠回滚。每个迁移开始前先持久化执行标记，
+		// 这样进程崩溃后运维仍有 durable evidence 可以判断迁移停在何处。
 		await connection.query(MIGRATION_RUNS_TABLE_SQL);
 		let appliedAny = false;
 		for (const migration of PERSISTENCE_MIGRATIONS) {
@@ -1041,8 +1039,8 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 				[migration.id],
 			);
 			if (Array.isArray(appliedRows) && appliedRows.length > 0) {
-				// If the process died after recording schema history but before
-				// recording success, history is authoritative and can be reconciled.
+				// 如果进程已经写入 schema history、但还没记录成功就退出，迁移历史
+				// 仍是权威事实；这里将执行状态补齐为成功，供后续 readiness 对账。
 				await connection.execute(
 					"UPDATE hp_schema_migration_runs SET status = 'succeeded', completed_at = COALESCE(completed_at, ?), error_message = NULL WHERE migration_id = ? AND status <> 'succeeded'",
 					[new Date(), migration.id],
@@ -1088,8 +1086,8 @@ export async function runCoreMigration(databaseUrl = Bun.env.DATABASE_URL) {
 				[migration.id, migration.executionMode, new Date()],
 			);
 			migrationRunStarted = true;
-			// Do not wrap this in beginTransaction/rollback. MySQL DDL can commit
-			// implicitly, so an apparent rollback would provide false safety.
+			// 这里不能包在 beginTransaction/rollback 中。MySQL DDL 可能隐式提交，
+			// 表面上的 rollback 不能撤销结构变更，反而会制造虚假的安全感。
 			await connection.query(migrationSql);
 			await connection.execute(
 				"INSERT INTO hp_schema_migrations (migration_id, applied_at) VALUES (?, ?)",

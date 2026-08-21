@@ -37,7 +37,7 @@ export function createFixtureWechatIdentityGateway(): WechatIdentityGateway {
 	};
 }
 
-/** Test-only deterministic provider responses. Never register this in production. */
+/** 仅供测试使用的确定性 Provider 响应；绝不能在生产组合根中注册。 */
 export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway {
 	return {
 		authorize: async (_input, context) => ({
