@@ -7,6 +7,12 @@
 `4e1b2e224964797c103eba832323ee7074c7ad2b`（提交 `4e1b2e2`，仍需在正确的开发者工具项目重新编译）。上一小程序候选 `90fd783`、`341524a`、`f307424`、`47be0bc`、服务端 release `84fac75c`、`9f491cb5` 和更早版本仅作历史追溯；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
+工作树运行包补充状态（2026-08-22）：本轮患者卡号公共 contract 收口后，`apps/miniprogram/dist/`
+已重新生成，`build-info.json.sourceRevision` 当前为未部署候选 `b0e093565493285de07fe549879f8b87eda649cc7`。
+它只用于本地构建边界和 ENOENT 修复复核，不能替代当前线上 `7181e99e` 配套的 `4e1b2e2` 真机候选；
+若要继续真实验收，必须先按 [`release/candidate-b0e0935-local-build-2026-08-22.md`](release/candidate-b0e0935-local-build-2026-08-22.md)
+完成受控服务端发布，或从已部署基线重新生成运行包。
+
 ## 首先阅读
 
 | 文档 | 用途 |
