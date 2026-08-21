@@ -10,7 +10,7 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 服务端生产 release | `84fac75ceeb2247b252cf7e160eedbda220378f8` |
+| 服务端生产 release | `7181e99e3a352244102f5591279528b3b66332c9` |
 | 小程序运行包来源 | `90fd7832e3ad1031c9c916f118f90cc0f2840aff` |
 | 小程序短提交 | `90fd783` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` |
@@ -204,7 +204,16 @@ LIS/PACS/ECG 只读目录；未指定来源时三路 Provider 必须全部成功
 - 预约目录/历史、报告目录、门诊费用的真实 Provider 请求号和真机结果；
 - 支付、医保、HIS 写回等副作用证据。
 
-## 2026-08-22 04:44–04:50 CST `84fac75c` 切换后观察
+## 2026-08-22 `7181e99e` 切换后观察
+
+最新生产切换已从 `84fac75c` 原子切换到 `7181e99e`，只重启新 API；旧 Python `8001` 仍保持监听，
+Worker 保持 inactive。生产 preflight、隔离 runtime smoke、bundle checksum、公网 live/ready/system-ping
+和未登录认证边界均通过，启动日志明确为 production，数据库/Redis/schema 均为 `ok`。完整切换证据见
+[`7181e99e-production-acceptance-2026-08-22.md`](7181e99e-production-acceptance-2026-08-22.md)。
+
+本节仍只证明运行层，尚无新的真机微信、患者切换、预约、报告或门诊费用业务事件；支付、医保和 HIS 写回继续关闭。
+
+## 历史：2026-08-22 04:44–04:50 CST `84fac75c` 切换后观察
 
 新 API 已从 `002acc1b` 原子切换到 `84fac75c`，仅重启 `hospital-platform-api-v2.service`；旧 Python `8001` 保持监听，
 Worker 保持 inactive。切换后内网和公网 live/ready/system-ping 通过，ready 的 MySQL、Redis、schema 均为 `ok`。

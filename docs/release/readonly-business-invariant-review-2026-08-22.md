@@ -4,7 +4,7 @@
 
 ## 1. 当前版本与运行边界
 
-- 服务端当前 release：`84fac75ceeb2247b252cf7e160eedbda220378f8`。
+- 服务端当前 release：`7181e99e3a352244102f5591279528b3b66332c9`。
 - 小程序运行包来源：`90fd7832e3ad1031c9c916f118f90cc0f2840aff`，14 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
 - 新 API：`10.0.0.3:18081`，systemd 状态为 `active`。
 - 旧 Python API：`0.0.0.0:8001`，仍在监听，旧 Gunicorn PID 未发生变化。
@@ -53,7 +53,7 @@
 - 众阳预约与门诊费用 adapter：`33 pass / 0 fail / 74 expects`；
 - 原生小程序：`204 pass / 0 fail / 1539 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：453 篇文档无断链；生产基线审计指向 `84fac75c` 和 `90fd783`。
+- 文档链接审计：453 篇文档无断链；生产基线审计指向 `7181e99e` 和 `90fd783`。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
@@ -66,7 +66,7 @@
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
 - `pnpm --filter @hospital/miniprogram test`：`204 pass / 0 fail / 1539 expects`；
-- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `84fac75c`、小程序 `90fd783`。
+- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `7181e99e`、小程序 `90fd783`。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
 

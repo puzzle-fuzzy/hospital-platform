@@ -3,8 +3,8 @@
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前发布基线（2026-08-22）为：服务端线上 `84fac75ceeb2247b252cf7e160eedbda220378f8`（提交 `84fac75c`）、待真机复核的小程序候选来源
-`90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`，仍需在正确的开发者工具项目重新编译）。上一小程序候选 `341524a`、`f307424`、`47be0bc`、服务端 release `9f491cb5` 和更早版本仅作历史追溯；旧 Python `8001` 未因本轮修改而改变。
+当前发布基线（2026-08-22）为：服务端线上 `7181e99e3a352244102f5591279528b3b66332c9`（提交 `7181e99e`）、待真机复核的小程序候选来源
+`90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`，仍需在正确的开发者工具项目重新编译）。上一小程序候选 `341524a`、`f307424`、`47be0bc`、服务端 release `84fac75c`、`9f491cb5` 和更早版本仅作历史追溯；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 ## 首先阅读
@@ -13,14 +13,14 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `84fac75c`、最新本地小程序候选来源以 `90fd7832e3ad1031c9c916f118f90cc0f2840aff` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前线上服务端 release 以 `7181e99e`、最新本地小程序候选来源以 `90fd7832e3ad1031c9c916f118f90cc0f2840aff` 为准 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
 | [`release/candidate-90fd783-local-build-2026-08-22.md`](release/candidate-90fd783-local-build-2026-08-22.md) | 当前 `90fd783` 小程序运行包、患者范围只读请求和首页会话状态竞态修复、`single-flight.test.js` ENOENT 恢复和真机前运行包边界 |
 | [`release/miniprogram-devtools-project-preflight-2026-08-21.md`](release/miniprogram-devtools-project-preflight-2026-08-21.md) | 当前候选运行包和微信开发者工具项目选择前置检查；防止误用旧 `mp-weixin` 窗口 |
 | [`release/redis-readiness-concurrency-audit-2026-08-20.md`](release/redis-readiness-concurrency-audit-2026-08-20.md) | Redis readiness、会话读写和 TTL 维护的连接单飞边界；不重放业务命令，失败后允许安全重试 |
-| [`release/redis-session-error-classification-2026-08-22.md`](release/redis-session-error-classification-2026-08-22.md) | 区分 Redis 未配置、会话自然失效和已配置 Redis 瞬态读写故障的 HTTP/日志边界；当前仅完成本地修复与回归 |
+| [`release/redis-session-error-classification-2026-08-22.md`](release/redis-session-error-classification-2026-08-22.md) | 区分 Redis 未配置、会话自然失效和已配置 Redis 瞬态读写故障的 HTTP/日志边界；修复已随 `7181e99e` 发布 |
 | [`release/redis-session-ttl-audit-hard-cap-2026-08-21.md`](release/redis-session-ttl-audit-hard-cap-2026-08-21.md) | Redis 会话 TTL 只读审计 `maxKeys` 硬上限、最后一页超量返回和当前线上未验证边界 |
 | [`release/observability-redaction-casing-audit-2026-08-20.md`](release/observability-redaction-casing-audit-2026-08-20.md) | Pino 日志脱敏的 HTTP 头大小写、幂等键和患者身份字段变体边界；仅为本地新项目代码审计，不代表线上已切换 |
 | [`release/observability-deep-redaction-audit-2026-08-21.md`](release/observability-deep-redaction-audit-2026-08-21.md) | Pino 10 固定层级路径的深层泄露缺口、递归 JSON 输出门禁、合成探针和未部署边界 |

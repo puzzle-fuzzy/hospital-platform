@@ -1,6 +1,6 @@
 # P0 只读业务 contract 审计（2026-08-18）
 
-> 当前候选：服务端 release `84fac75ceeb2247b252cf7e160eedbda220378f8`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。
+> 当前候选：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。
 
 > 当前基线更新：服务端 `84fac75c`；小程序候选 `90fd783`；完整运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`。下文更早候选只作历史追溯。
 
@@ -36,10 +36,10 @@
 - `packages/domain/src/outpatient-payments.ts`
 - `packages/domain/src/patients.ts`
 
-当前线上 release 以 [`84fac75c-production-acceptance-2026-08-22.md`](84fac75c-production-acceptance-2026-08-22.md)
+当前线上 release 以 [`7181e99e-production-acceptance-2026-08-22.md`](7181e99e-production-acceptance-2026-08-22.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选为
-`90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 `84fac75c` 只读发布已完成，历史 `0e360d3` release 的窄观察窗口没有新的
+`90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 `7181e99e` 只读发布已完成，历史 `0e360d3` release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 

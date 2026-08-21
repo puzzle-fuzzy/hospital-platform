@@ -44,9 +44,14 @@ typecheck、Biome：通过
 
 ## 生产边界
 
-本轮只修改新项目代码和文档，未修改旧 Python 项目、Nginx、线上 MySQL/Redis、Redis ACL，
-也未重启任何服务。当前生产 release 仍是 `84fac75c`；本修复需要后续在新 API 隔离候选端口
-完成 preflight、runtime smoke、原子切换和旧 `8001` 共存复核后，才能成为线上证据。
+本轮只修改新项目代码和文档，未修改旧 Python 项目、Nginx、线上 MySQL/Redis、Redis ACL。
+修复已随 `7181e99e3a352244102f5591279528b3b66332c9` 完成隔离候选 preflight、runtime smoke、
+原子切换和旧 `8001` 共存复核；当前生产 release 已是 `7181e99e`。详细的 checksum、切换前后
+监听和启动日志证据见 [`7181e99e-production-acceptance-2026-08-22.md`](7181e99e-production-acceptance-2026-08-22.md)。
+
+本次发布只重启新 `hospital-platform-api-v2.service`，没有重启旧 Python、Worker，也没有执行
+数据库 migration 或业务写入；`PersistenceUnavailableError` 的真实 Redis 故障路径仍需通过
+受控故障注入或真实故障日志继续观察，不能用健康探针代替。
 
 即使修复部署，真实微信登录、患者切换、预约/门诊费用 Provider 和真机链路仍需按当前准入记录
 单独验收；支付、医保、HIS 写回继续保持最后专项。
