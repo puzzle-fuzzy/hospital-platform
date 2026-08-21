@@ -9,6 +9,12 @@
   `39ad2c5937af2fdc735ffb223c0648464af3a48c`；`dist/` 仍为 14 个页面且不包含测试脚本，`single-flight.test.js` 不会进入运行包。
   `pnpm --filter @hospital/miniprogram runtime:verify` 已通过；真机业务三层证据仍待扫码采集。
 
+- 2026-08-21 10:38–10:47 CST（当前运行层与 P0 业务窗口）：服务器只读核验确认 `5a31427` 的新 API
+  `10.0.0.3:18081` 与旧 Python `8001` 继续共存，`hospital-platform-api-v2.service` 为 `active/running`，启动事件的
+  `environment=production`，readiness 的 database/Redis/schema 均为 `ok`。后续 10 分钟只有健康检查、未登录认证和关闭路由探针，
+  没有新的微信、患者、预约、门诊费用或普通资料业务事件；因此当前候选仍没有真机三层业务证据。详见
+  [`release/current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](release/current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md)。
+
 - 2026-08-21 07:32 CST（历史候选 `9340846` 扫码等待窗口）：SSH 只读复核确认服务端 `5a31427` active，新 API `10.0.0.3:18081` 与旧 Python
   `8001` 继续共存，内网 readiness 的 database/Redis/schema 均为 `ok`；当时 `9340846` 小程序运行包为 14 个页面、约 607 KB，
   `dist/` 中没有测试脚本，开发者工具二维码显示有效至 07:56。`07:22–07:32` 没有新的 `auth.*`、`patient.*`、

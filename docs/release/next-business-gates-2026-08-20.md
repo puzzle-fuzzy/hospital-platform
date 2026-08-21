@@ -14,6 +14,11 @@
 [`5a31427-production-acceptance-2026-08-21.md`](5a31427-production-acceptance-2026-08-21.md)。
 这只证明新候选运行边界，不能替代微信、患者、预约或门诊费用的真机三层业务证据。
 
+2026-08-21 10:38–10:47 CST 的追加只读核验仍确认新旧服务共存、生产环境启动、MySQL/Redis/schema readiness 正常；最近窗口
+只有健康检查、未登录认证和关闭路由探针，没有 `auth.*`、`patient.*`、`appointment.*` 或 `outpatient.payment.*` 业务事件。
+这不是 Provider 失败，也不是业务成功；下一步仍必须使用当前 `39ad2c5` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
+完整运行窗口见 [`current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md)。
+
 ## 2026-08-21 03:54 CST 后的业务事件观察
 
 `5a31427` 切换完成后，SSH 只读窗口只观察到服务启动和 readiness 请求，没有新的
