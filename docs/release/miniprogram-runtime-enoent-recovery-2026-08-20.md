@@ -1,6 +1,8 @@
 # 小程序 `single-flight.test.js` ENOENT 恢复记录（2026-08-20）
 
-> 本文记录的 `6e6604f`、`02c18af`、`1d161b7` 及更早候选均为历史窗口。当前真机入口是 [`candidate-7a6f4df-local-build-2026-08-21.md`](candidate-7a6f4df-local-build-2026-08-21.md)，ENOENT 修复原则不变，但二维码必须从当前候选重新生成。
+> 本文记录的 `6e6604f`、`02c18af`、`1d161b7`、`7a6f4df` 及更早候选均为历史窗口。当前小程序候选是
+> [`candidate-cde7bc9-local-build-2026-08-21.md`](candidate-cde7bc9-local-build-2026-08-21.md)，当前桌面项目前置状态见
+> [`miniprogram-devtools-project-preflight-2026-08-21.md`](miniprogram-devtools-project-preflight-2026-08-21.md)。ENOENT 修复原则不变，二维码必须从当前候选重新生成。
 
 ## 结论
 

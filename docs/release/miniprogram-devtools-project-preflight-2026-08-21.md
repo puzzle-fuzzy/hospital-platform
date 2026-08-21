@@ -17,6 +17,12 @@
 | `app.json` 页面脚本 | 14 个 |
 | `runtime:verify` | 通过 |
 
+2026-08-21 17:21 CST 又基于当前工作树重新执行了小程序构建与运行包校验：`build`、`typecheck` 和
+`runtime:verify` 均通过，`dist/build-info.json.sourceRevision` 为完整提交号
+`cde7bc90a23698398e9474944adf42b36f37982c`，`generatedAt` 为 `2026-08-21T09:21:51.425Z`。
+本次扫描仍确认 `services/single-flight.js` 存在、`services/single-flight.test.js` 不存在，运行包内测试脚本数量为 0。
+这只能证明当前本地产物边界正确；开发者工具仍需重新打开新项目并普通编译，不能把旧窗口或旧二维码当作当前候选。
+
 ## 桌面窗口观察
 
 2026-08-21 当前只读观察到微信开发者工具窗口标题为 `mp-weixin - 微信开发者工具 Stable v2.01.2510290`；没有发现标题为 `miniprogram` 的新项目窗口。旧项目窗口不属于新候选验收范围，本轮没有点击、编译、扫码或修改旧项目。
