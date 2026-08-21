@@ -17,6 +17,10 @@
   必须重开 `apps/miniprogram/`、普通编译并生成新二维码。详见 [`release/9f491cb5-production-acceptance-2026-08-21.md`](release/9f491cb5-production-acceptance-2026-08-21.md)
   和 [`release/candidate-13b86a5-local-build-2026-08-21.md`](release/candidate-13b86a5-local-build-2026-08-21.md)。
 
+- 2026-08-21 23:53 CST（当前 release 业务窗口复核）：新旧服务监听和 Worker 状态未变化；最近 6 小时日志聚合为
+  `parsedRecords=47`、`parseErrors=0`、HTTP `200=21`/`401=12`/`404=8`，只有 `infrastructure` 事件且没有 Provider 请求号。
+  当前候选仍没有新的微信、患者、预约、门诊费用或普通资料业务流量，因此不能把运行层健康或空日志窗口计作业务成功；下一步仍是用户在当前 `13b86a5` 小程序候选中重新编译、扫码并取得三层业务证据。
+
 - 2026-08-21 23:10 CST（当前 `c8eef370` 运行层只读复核）：新 API service 为 `active`，Worker 为 `inactive`，新 API
   `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，readiness 的 database/Redis/schema 均为 `ok`。最近 30 分钟
   journald 低敏聚合为 `parsedRecords=5`、`parseErrors=0`、HTTP `200=4`/`404=1`，只出现 infrastructure 事件，

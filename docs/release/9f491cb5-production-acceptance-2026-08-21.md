@@ -74,6 +74,8 @@
 
 因此业务证据审计没有通过不是发布故障，而是本轮只做了运行层 smoke，没有用真实微信会话制造业务流量。下一步必须在当前小程序候选 `13b86a5` 中重新普通编译并扫码，按页面、客户端请求、服务端低敏日志三层取得微信登录、患者同步和显式患者选择证据；支付、医保、报告、二维码、患者绑定和预约写入继续后置或关闭。
 
+2026-08-21 23:53 CST 再次进行只读 SSH 复核：`current` 仍指向本 release，新 API 与旧 Python `8001` 的监听 PID 未变化，Worker 仍 inactive。最近 6 小时低敏聚合为 `parsedRecords=47`、`parseErrors=0`、HTTP `200=21`/`401=12`/`404=8`，`providerRequestIdCount=0`、`systemdWarningCount=0`，事件域仍只有 `infrastructure`。这次窗口包含健康检查和关闭路由探针，没有新增真实业务流量，不能提升任何业务域的验收等级。
+
 ## 7. 回滚手册（本轮未执行）
 
 若新 API 出现启动或公网运行层回归，只允许按无损 runbook 将 `current` 指回上一份完整 release `c8eef370`，只重启 `hospital-platform-api-v2.service`，然后重新执行 preflight、ready、旧 Python `8001` 监听和公网 smoke。不得停止旧 Python、删除数据库/Redis 数据或用业务请求验证回滚。
