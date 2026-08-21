@@ -2409,6 +2409,24 @@ test("appointment directory ignores stale department events after a cascade refr
 	);
 });
 
+test("appointment directory load-more events cannot expand a stale local window", async () => {
+	const page = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const loadMoreStart = page.indexOf("onLoadMore(): void {");
+	const loadMoreEnd = page.indexOf("\n\t},", loadMoreStart);
+	const loadMoreHandler = page.slice(loadMoreStart, loadMoreEnd);
+
+	// 加载更多不是 Provider 分页；旧按钮事件只能展开当前日期分组中尚未
+	// 展示的安全读模型。刷新或切换期间必须直接忽略，不能把旧点击写入新状态。
+	expect(loadMoreHandler).toContain("if (!group || this.data.loading");
+	expect(loadMoreHandler).toContain("!this.data.hasMoreSchedules");
+	expect(loadMoreHandler).toContain("Math.min(");
+	expect(loadMoreHandler).toContain(
+		"if (nextCount <= this.data.visibleScheduleCount)",
+	);
+});
+
 test("page request guard only permits the latest patient read to update state", () => {
 	const guard = createLatestRequestGuard();
 	const first = guard.begin();

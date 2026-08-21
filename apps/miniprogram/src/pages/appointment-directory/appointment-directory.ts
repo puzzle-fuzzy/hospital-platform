@@ -260,10 +260,19 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 	},
 
 	onLoadMore(): void {
-		const nextCount = this.data.visibleScheduleCount + SCHEDULE_PAGE_SIZE;
 		const group = this.data.dateGroups.find(
 			(item) => item.workDate === this.data.selectedDate,
 		);
+		// “加载更多”是旧 WXML 事件，可能在刷新、切换科室或切换日期后才
+		// 抵达。不能只相信按钮当时曾经显示过：当前页面必须仍处于可展开的
+		// 日期分组、非加载状态，并且服务端本次读模型确实还有未展示的号源。
+		// 这只是本地渲染窗口门禁，不把旧事件误认为 Provider 分页事实。
+		if (!group || this.data.loading || !this.data.hasMoreSchedules) return;
+		const nextCount = Math.min(
+			this.data.visibleScheduleCount + SCHEDULE_PAGE_SIZE,
+			group.count,
+		);
+		if (nextCount <= this.data.visibleScheduleCount) return;
 		this.setData({
 			visibleScheduleCount: nextCount,
 			visibleSchedules: visibleSchedules(
