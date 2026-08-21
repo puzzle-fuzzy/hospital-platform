@@ -52,6 +52,17 @@
 pnpm workspace 裸模块名造成的真实运行包问题，已在前一候选 `47be0bc` 中改为小程序本地的无第三方依赖时间校验模块，
 并增加了与共享契约边界一致性的测试。当前重新编译后的控制台不再出现该错误；不能通过向 `dist/` 手工复制 workspace 包来规避。
 
+## 2026-08-22 03:48 CST 线上只读窗口
+
+通过 SSH 只读核对当前运行边界：新 API `hospital-platform-api-v2.service` 为 `active`，监听
+`10.0.0.3:18081`；旧 Python 服务继续监听 `0.0.0.0:8001`；新 Worker 保持 `inactive`。随后查询新 API
+最近 30 分钟的 journald，仅按 `auth.*`、`patient.*`、`appointment.*`、`outpatient.payment.*`、`profile.*`、
+`report.*` 和 `http.request.*` 业务事件筛选，没有发现新的业务请求事件。
+
+这个窗口只能证明“当前没有新的业务流量”和新旧监听仍共存，不能证明微信登录、患者切换或只读页面成功；下一次
+必须从当前 `90fd783` 运行包重新普通编译、扫码，并保存页面、客户端 HTTP 和服务端同链日志三层证据。此次检查
+没有修改旧 Python、没有重启旧服务、没有写入 MySQL/Redis，也没有调用 Provider。
+
 ## 当前未形成的证据
 
 当前没有以下新项目三层证据：
