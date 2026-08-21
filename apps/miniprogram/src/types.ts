@@ -71,6 +71,8 @@ export type AppointmentRecord =
 export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
 export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
+	/** 仅用于当前费用查询批次的 WXML 事件回查，不是账单号或支付业务引用。 */
+	viewKey: string;
 	amountLabel: string;
 	/** 旧端列表只显示账单自然日；原始 billDate 仍保留用于业务校验。 */
 	billDateLabel: string;

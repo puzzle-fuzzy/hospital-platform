@@ -48,6 +48,20 @@
 这与 HTTP 层的 TypeBox `additionalProperties=false` 是两层边界：HTTP 防止网络请求进入，service 防止组合根、回放任务
 或未来 Worker 绕过 HTTP 后改变已确认的业务语义。
 
+### 3.2 门诊费用卡片事件的患者范围边界
+
+门诊费用页此前只从 WXML `dataset.status` 读取点击状态。虽然当前点击仍只展示“支付流程正在迁移中”的提示、不会调起
+支付，但这个事件没有证明卡片仍属于当前患者、当前会话代际和当前渲染批次；换号或刷新后抵达的旧事件仍可能被消费。
+
+现在费用展示模型增加仅供 WXML 回查的 `viewKey`，由本次费用查询令牌和数组位置组成；卡片点击按以下顺序处理：
+
+1. 先确认 `selectedPatient`、会话代际和本地显式患者选择仍一致；
+2. 再按 `viewKey` 从当前 `visibleItems` 回查费用记录；
+3. 只使用回查得到的记录状态生成只读迁移提示，拒绝直接相信事件里的状态字符串。
+
+`viewKey` 不是账单号、Provider 订单号、支付引用或未来支付幂等键；支付开放时必须另建稳定订单 contract，不能把本次渲染 key
+升级为业务主键。
+
 ## 4. 本地验证证据
 
 以下命令均在 `E:\__Super_Core__\hospital-platform` 执行：
@@ -58,7 +72,7 @@
 | `pnpm --filter @hospital/api test src/modules/outpatient-payments/service.test.ts` | 14 pass，51 个断言 |
 | `pnpm --filter @hospital/adapters test src/zhongyang-appointments.test.ts src/zhongyang-outpatient-payments.test.ts` | 32 pass，71 个断言 |
 | `pnpm --filter @hospital/domain test src/appointments.test.ts src/outpatient-payments.test.ts` | 5 pass，7 个断言 |
-| `pnpm --filter @hospital/miniprogram test src/services/appointment-record-view.test.ts src/services/dashboard-service.test.ts` | 174 pass，1378 个断言 |
+| `pnpm --filter @hospital/miniprogram test` | 181 pass，1444 个断言 |
 | `pnpm --filter @hospital/api typecheck` | 通过 |
 | `pnpm exec biome check apps/api/src/modules/appointments/service.ts apps/api/src/modules/appointments/service.test.ts` | 通过 |
 

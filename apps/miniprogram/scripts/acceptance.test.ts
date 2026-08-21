@@ -1477,6 +1477,27 @@ test("outpatient payment tabs revalidate the patient session before querying", a
 	);
 });
 
+test("outpatient payment cards reject stale status events", async () => {
+	const payment = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const template = await source(
+		"pages/outpatient-payment/outpatient-payment.wxml",
+	);
+
+	// 费用页面当前不开放支付，但旧卡片事件仍不能只凭 dataset.status
+	// 继续被消费。必须先确认当前患者/会话，再用本次查询批次的 viewKey
+	// 回查记录，避免换号后把旧卡片当成新患者的费用状态。
+	expect(payment).toContain("findVisiblePayment");
+	expect(payment).toContain("isPatientContextCurrent()");
+	expect(payment).toContain("event.currentTarget?.dataset?.viewKey");
+	expect(payment).toMatch(
+		/viewKey: `outpatient-payment-\$\{renderGeneration\}-\$\{index\}`/,
+	);
+	expect(template).toContain('data-view-key="{{item.viewKey}}"');
+	expect(template).not.toContain('data-status="{{item.status}}"');
+});
+
 test("native mini program preserves the legacy static hospital entry boundary", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
@@ -1662,7 +1683,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).toContain("visibleItems: mappedItems.slice");
 	expect(outpatient).toContain("onLoadMore(): void");
 	expect(outpatientTemplate).toContain("待缴费");
-	expect(outpatientTemplate).toContain('data-status="{{item.status}}"');
+	expect(outpatientTemplate).toContain('data-view-key="{{item.viewKey}}"');
 	expect(outpatientTemplate).toContain("visibleItems");
 	expect(outpatientTemplate).toContain("加载更多缴费记录");
 	expect(outpatientTemplate).toContain("{{item.billDateLabel}}");

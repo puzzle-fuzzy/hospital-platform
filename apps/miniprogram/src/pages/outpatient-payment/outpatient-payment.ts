@@ -22,6 +22,7 @@ import type {
 	OutpatientPaymentRecord,
 	OutpatientPaymentRecordView,
 	Patient,
+	ViewKeyEvent,
 } from "../../types";
 
 /**
@@ -32,6 +33,20 @@ import type {
  * 控制 WXML 首帧和后续渲染成本。支付、医保和结算状态不由这个批次推导。
  */
 const OUTPATIENT_PAYMENT_PAGE_SIZE = 10;
+
+/**
+ * 费用卡片事件必须回查当前可见批次，而不是相信 WXML 传来的状态。
+ *
+ * 患者切换、状态切换或刷新后，旧卡片事件仍可能在微信事件队列中抵达；
+ * `viewKey` 会随本次查询令牌变化，因此旧事件无法命中新批次的费用记录。
+ */
+function findVisiblePayment(
+	items: readonly OutpatientPaymentRecordView[],
+	viewKey: unknown,
+): OutpatientPaymentRecordView | undefined {
+	if (typeof viewKey !== "string" || !viewKey) return undefined;
+	return items.find((item) => item.viewKey === viewKey);
+}
 
 type OutpatientPaymentPageMethods = {
 	loadPage(): Promise<void>;
@@ -48,7 +63,12 @@ type OutpatientPaymentPageMethods = {
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
-	toView(record: OutpatientPaymentRecord): OutpatientPaymentRecordView;
+	toView(
+		record: OutpatientPaymentRecord,
+		index: number,
+		renderGeneration: number,
+	): OutpatientPaymentRecordView;
+	isPatientContextCurrent(): boolean;
 };
 
 Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
@@ -185,7 +205,9 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			) {
 				return;
 			}
-			const mappedItems = items.map((item) => this.toView(item));
+			const mappedItems = items.map((item, index) =>
+				this.toView(item, index, effectiveRequestToken),
+			);
 			const visibleItemCount = Math.min(
 				OUTPATIENT_PAYMENT_PAGE_SIZE,
 				mappedItems.length,
@@ -311,8 +333,14 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	 * 提示支付契约未开放，后者不能再次提示“支付”，避免把已缴状态误导成
 	 * 待支付。两种情况都不调用 `wx.requestPayment`，也不修改服务端状态。
 	 */
-	onRecordTap(event): void {
-		const status = event.currentTarget?.dataset?.status;
+	onRecordTap(event: ViewKeyEvent): void {
+		if (!this.isPatientContextCurrent()) return;
+		const record = findVisiblePayment(
+			this.data.visibleItems,
+			event.currentTarget?.dataset?.viewKey,
+		);
+		if (!record) return;
+		const status = record.status;
 		const title =
 			status === "paid"
 				? "已缴费记录详情正在迁移中"
@@ -322,9 +350,14 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		wx.showToast({ title, icon: "none" });
 	},
 
-	toView(record): OutpatientPaymentRecordView {
+	toView(
+		record: OutpatientPaymentRecord,
+		index: number,
+		renderGeneration: number,
+	): OutpatientPaymentRecordView {
 		return {
 			...record,
+			viewKey: `outpatient-payment-${renderGeneration}-${index}`,
 			amountLabel: formatOutpatientAmountLabel(record.amountFen),
 			billDateLabel: formatOutpatientBillDateLabel(record.billDate),
 		};
@@ -359,5 +392,15 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			visibleItemCount: 0,
 			hasMoreItems: false,
 		});
+	},
+
+	/** 费用卡片的展示和事件都必须属于当前患者、当前会话代际。 */
+	isPatientContextCurrent(): boolean {
+		const patientId = this.data.selectedPatient?.id;
+		return (
+			typeof patientId === "string" &&
+			this.data.patientSessionGeneration === getSessionGeneration() &&
+			isCurrentSelectedPatient(patientId)
+		);
 	},
 });
