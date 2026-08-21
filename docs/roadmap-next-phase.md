@@ -7,6 +7,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（普通资料 MySQL 写入响应一致性）：审计发现资料仓储在条件更新后于事务外回读，存在另一个设备在回读前提交时让
+  `PUT /me/profile` 返回后续设备快照的竞态。现已把首次插入/版本锁定/条件更新/本次 canonical 回读收进同一事务，并要求返回版本严格为
+  `expectedVersion + 1`；异常版本直接回滚并返回 409 冲突。persistence `87 pass / 0 fail`、API 资料 service `15 pass / 0 fail`、
+  类型检查通过，新增回归锁定后续版本快照不得伪装成功。该修正尚未部署，真实 MySQL 双会话并发和真机资料写入仍待验收；旧 Python 服务未修改、未重启，详见
+  [`profile-mysql-write-response-atomicity-2026-08-21.md`](release/profile-mysql-write-response-atomicity-2026-08-21.md)。
+
 - 2026-08-21 21:02 CST（真机 `single-flight.test.js` ENOENT 复核）：重新构建并核对当前小程序运行包，来源指纹为
   `24d84099eafe48e6438508f4e060c7ed701c0102`，14 个页面入口齐全，`single-flight.js` 存在，`single-flight.test.js`
   和所有 `*.test.js`/`*.spec.js` 均不存在；小程序定向测试 `197 pass / 0 fail`，`runtime:verify` 通过。

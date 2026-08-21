@@ -1065,6 +1065,27 @@ export function createMySqlRepositories(
 		},
 	};
 
+	/**
+	 * 在资料写事务内读取并锁定当前用户行。
+	 *
+	 * 资料 service 已经用 version 做了输入校验，但“读当前版本 → 条件更新 →
+	 * 回读响应”如果跨越多个连接池语句，另一个设备可以在最后一次 SELECT 前
+	 * 抢先更新，导致本次 PUT 返回别人的 canonical 快照。这个 helper 只接收
+	 * 已经从当前事务连接发起的查询，确保版本判断、写入和响应快照属于同一锁
+	 * 保护范围；它不接受客户端 owner，也不把个人资料正文写进日志。
+	 */
+	async function selectUserProfileForUpdate(
+		connection: PoolConnection,
+		userId: string,
+	): Promise<UserProfile | undefined> {
+		const rows = await execute<UserProfileRow[]>(
+			connection,
+			"SELECT user_id, display_name, gender, age, email, version FROM hp_user_profiles WHERE user_id = ? LIMIT 1 FOR UPDATE",
+			[userId],
+		);
+		return rows[0] ? userProfile(rows[0]) : undefined;
+	}
+
 	const userProfiles: UserProfileRepository = {
 		async findByUserId(userId) {
 			const rows = await execute<UserProfileRow[]>(
@@ -1075,55 +1096,71 @@ export function createMySqlRepositories(
 			return rows[0] ? userProfile(rows[0]) : undefined;
 		},
 		async update(input: UserProfileUpdate) {
-			const now = mysqlDateTime(new Date());
-			if (input.expectedVersion === 0) {
-				try {
-					await execute<ResultSetHeader>(
-						pool,
-						"INSERT INTO hp_user_profiles (user_id, display_name, gender, age, email, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			return withTransaction(pool, async (connection) => {
+				const now = mysqlDateTime(new Date());
+				if (input.expectedVersion === 0) {
+					try {
+						await execute<ResultSetHeader>(
+							connection,
+							"INSERT INTO hp_user_profiles (user_id, display_name, gender, age, email, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+							[
+								input.userId,
+								input.displayName ?? "微信用户",
+								input.gender ?? "unknown",
+								input.age ?? null,
+								input.email ?? null,
+								1,
+								now,
+								now,
+							],
+						);
+					} catch (error) {
+						if (!isDuplicateEntry(error)) throw error;
+						// 两个设备都拿到 version=0 时，只有一个可以完成首次插入；
+						// 另一个必须收到冲突，不能覆盖已经保存的资料。
+						throw new UserProfileVersionConflictError();
+					}
+				} else {
+					// 版本判断和字段补全必须在同一行锁内完成；否则两个设备可能
+					// 同时读取同一个旧版本，再让其中一个在 UPDATE 前改变资料。
+					const current = await selectUserProfileForUpdate(
+						connection,
+						input.userId,
+					);
+					if (!current || current.version !== input.expectedVersion) {
+						throw new UserProfileVersionConflictError();
+					}
+					const result = await execute<ResultSetHeader>(
+						connection,
+						"UPDATE hp_user_profiles SET display_name = ?, gender = ?, age = ?, email = ?, version = version + 1, updated_at = ? WHERE user_id = ? AND version = ?",
 						[
+							input.displayName ?? current.displayName,
+							input.gender ?? current.gender,
+							input.age !== undefined ? input.age : current.age,
+							input.email !== undefined ? input.email : current.email,
+							now,
 							input.userId,
-							input.displayName ?? "微信用户",
-							input.gender ?? "unknown",
-							input.age ?? null,
-							input.email ?? null,
-							1,
-							now,
-							now,
+							input.expectedVersion,
 						],
 					);
-				} catch (error) {
-					if (!isDuplicateEntry(error)) throw error;
-					// 两个设备都拿到 version=0 时，只有一个可以完成首次插入；
-					// 另一个必须收到冲突，不能覆盖已经保存的资料。
-					throw new UserProfileVersionConflictError();
+					if (result.affectedRows !== 1) {
+						throw new UserProfileVersionConflictError();
+					}
 				}
-			} else {
-				const current = await userProfiles.findByUserId(input.userId);
-				if (!current || current.version !== input.expectedVersion) {
-					throw new UserProfileVersionConflictError();
-				}
-				const result = await execute<ResultSetHeader>(
-					pool,
-					"UPDATE hp_user_profiles SET display_name = ?, gender = ?, age = ?, email = ?, version = version + 1, updated_at = ? WHERE user_id = ? AND version = ?",
-					[
-						input.displayName ?? current.displayName,
-						input.gender ?? current.gender,
-						input.age !== undefined ? input.age : current.age,
-						input.email !== undefined ? input.email : current.email,
-						now,
-						input.userId,
-						input.expectedVersion,
-					],
-				);
-				if (result.affectedRows !== 1) {
-					throw new UserProfileVersionConflictError();
-				}
-			}
 
-			const updated = await userProfiles.findByUserId(input.userId);
-			if (!updated) throw new Error("User profile was not stored");
-			return updated;
+				// 返回快照也必须在同一事务中读取。事务提交前当前用户行仍被本次
+				// 事务锁定，因此响应不会漂移到另一个设备随后提交的版本。
+				const updated = await selectUserProfileForUpdate(
+					connection,
+					input.userId,
+				);
+				if (!updated || updated.version !== input.expectedVersion + 1) {
+					// 数据库实际版本与本次条件更新不一致时宁可返回冲突，不能把
+					// 不确定的资料快照包装成成功响应。
+					throw new UserProfileVersionConflictError();
+				}
+				return updated;
+			});
 		},
 	};
 

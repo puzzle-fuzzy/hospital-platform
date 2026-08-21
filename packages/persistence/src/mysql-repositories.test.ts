@@ -5,7 +5,10 @@ import type {
 	PaymentPrepayAttempt,
 	WechatPaymentNotification,
 } from "@hospital/domain";
-import { createWechatPaymentNotificationEvent } from "@hospital/domain";
+import {
+	createWechatPaymentNotificationEvent,
+	UserProfileVersionConflictError,
+} from "@hospital/domain";
 import type { Pool } from "mysql2/promise";
 import { PersistenceUnavailableError } from "./errors";
 import { createMySqlRepositories } from "./mysql-repositories";
@@ -456,6 +459,44 @@ test("MySQL ordinary profile uses insert-once and conditional version updates", 
 	expect(state.statements[3]).toContain("version = version + 1");
 	expect(state.statements[3]).toContain("AND version = ?");
 	expect(state.values[3]?.at(-1)).toBe(1);
+});
+
+test("MySQL ordinary profile rejects a response snapshot from a later version", async () => {
+	const currentRow = {
+		user_id: "user-profile-response-race-001",
+		display_name: "当前资料",
+		gender: "unknown",
+		age: null,
+		email: null,
+		version: 1,
+	};
+	const laterRow = {
+		...currentRow,
+		display_name: "另一个设备的资料",
+		version: 3,
+	};
+	const { pool, state } = createFakePool([
+		[currentRow],
+		{ affectedRows: 1 },
+		[laterRow],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	// 真实事务会用 FOR UPDATE 阻塞后来的设备；测试替身故意返回更晚版本，
+	// 用来锁定“不能把非本次写入的 canonical 快照包装成成功”的最后一道门禁。
+	await expect(
+		repositories.userProfiles.update({
+			userId: currentRow.user_id,
+			expectedVersion: 1,
+			displayName: "本次资料",
+		}),
+	).rejects.toBeInstanceOf(UserProfileVersionConflictError);
+
+	expect(state.committed).toBe(false);
+	expect(state.rolledBack).toBe(true);
+	expect(
+		state.statements.filter((statement) => statement.includes("FOR UPDATE")),
+	).toHaveLength(2);
 });
 
 test("MySQL ordinary profile preserves null as the explicit clear value", async () => {
