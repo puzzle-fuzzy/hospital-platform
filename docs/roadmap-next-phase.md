@@ -18,6 +18,8 @@
 
 - 2026-08-22 06:44–06:45 CST（线上只读入口复核）：SSH 检查 `ps@192.168.112.172` 返回 `Permission denied`，因此不记录新 API、旧 Python `8001`、Worker 或 journald 状态；公网 live/ready/ping 均为 `200`，ready 的 database/Redis/schema 均为 `ok`，无 Bearer 的患者目录请求为预期 `401 unauthorized`。该窗口没有调用 Provider、写入 MySQL/Redis 或修改旧服务，仍不能替代真机三层业务证据。
 
+- 2026-08-22 06:46–06:48 CST（SSH 恢复后的服务端 P0 证据）：只读快照确认新 API `active` 并监听 `10.0.0.3:18081`，旧 Gunicorn 仍监听 `0.0.0.0:8001`，Worker 为 `inactive`；06:00 起 journald 经服务器端聚合后，微信登录 `1/1`、患者目录读取 `4/4`、患者同步 `2/2` 均具备同链 HTTP 2xx，`parseErrors=0`、`systemdWarningCount=0`。该结果只形成服务端证据，仍需手机页面和客户端请求配对；预约、报告、门诊费用本窗口无业务事件。
+
 - 2026-08-22（当前真机准入复核）：仓库根目录 `pnpm check` 全部通过，包含 67 条架构规则、14 页迁移台账、Provider 文档审计、81 个静态日志事件登记、发布基线、Biome、9 个 workspace 包的类型检查/测试/构建；API 为 `204 pass / 0 fail`，小程序运行包来源为 `4e1b2e224964797c103eba832323ee7074c7ad2b`，仍为 14 页且不含任何 `*.test.js`/`*.spec.js`。已在微信开发者工具开启服务端口，并使用官方 CLI 的 `--project E:\__Super_Core__\hospital-platform\apps\miniprogram` 打开新项目；资源树确认是 `MINIPROGRAM`，旧 `mp-weixin`、`single-flight.test.js` 和 `@hospital/contracts` 裸模块错误均未计入新项目证据，控制台当前仅有未登录状态下预期的 `/api/v2/me` `401`。后续仍需从该来源生成二维码并取得真实业务证据；详见 [`current-device-acceptance-gate-2026-08-22.md`](release/current-device-acceptance-gate-2026-08-22.md)。
 
 - 2026-08-22（患者绑定契约继续复核）：提交 `ef9b71f5` 补充旧端患者切换的字段边界证据；确认手动选择与首次默认选择对 `patCardNo` 的回写语义不一致，不能据此猜测医疗卡号或开放绑卡。新端仍只保存平台 opaque `patientId`，`patInfosFind/patCards` 不由小程序直接调用，新增/绑卡/修改/解绑继续保持关闭；详见 [`migration/patient-binding-contract-draft.md`](migration/patient-binding-contract-draft.md) 第 0.2 节。该提交未修改旧项目、旧服务、数据库或 Redis。
