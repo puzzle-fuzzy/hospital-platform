@@ -68,7 +68,25 @@
 - `pnpm --filter @hospital/miniprogram test`：`203 pass / 0 fail / 1534 expects`；
 - `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源仍为服务端 `002acc1b`、小程序 `90fd783`。
 
-本轮尝试对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接，均因当前环境返回 `Permission denied` 未进入服务器；因此没有新增线上服务状态、旧 `8001` 进程或业务日志结论，也没有执行任何线上写入、部署或重启。真实微信、患者切换、预约和门诊费用的三层证据仍待当前候选重新扫码后产生。
+本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
+
+### 2026-08-22 01:43 CST 服务器业务事件窗口
+
+随后通过已授权的只读 SSH 连接复核了当前生产服务的最近两小时 journald。该窗口与当前
+`002acc1b` release 对齐，并确认新旧服务仍然共存：新 Bun API 监听 `10.0.0.3:18081`，
+旧 Gunicorn 继续监听 `0.0.0.0:8001`。服务端已经产生一组可关联但尚不完整的真实业务证据：
+
+| 业务链 | 服务器低敏日志事实 | 当前结论 |
+| --- | --- | --- |
+| 微信登录 | `auth.wechat.login.requested=1`、`auth.wechat.login.succeeded=1`；对应 HTTP `POST /api/v1/auth/wechat=200` | 服务端登录兑换成功；仍缺页面和客户端同链证据 |
+| 会话恢复 | `GET /api/v1/me=401` 后出现两次 `GET /api/v1/me=200` | 观察到失效会话与后续恢复，不能仅凭日志确认页面最终状态 |
+| 患者目录 | `GET /api/v1/patients=200`，并出现 `patient.directory.read.requested → loaded` | 当前窗口读取成功 |
+| 患者同步 | `POST /api/v1/patients/sync=200`，出现 `snapshot.committed` 和 `patient.directory.synced`，提交条目数为 1 | 服务端同步成功；仍缺真机页面截图和客户端响应记录 |
+| 预约/费用/报告 | 最近两小时未出现对应业务事件或 HTTP 路径 | 尚未开始这些业务域验收 |
+
+日志中的 `/api/v1` 是 Elysia 的内部路由。公网 `https://test-hp.meiyi.pro/api/v2/*` 经 Nginx
+精确映射到内部 `/api/v1/*`，因此该路径差异本身不是版本漂移，也不能据此认为小程序绕过了公网 v2。
+当前窗口只证明服务端一层；在取得页面结果和客户端 `requestId/traceId` 前，不把微信登录、患者同步或患者切换标记为完整真机验收。
 
 ## 4. 当前开发者工具边界
 
