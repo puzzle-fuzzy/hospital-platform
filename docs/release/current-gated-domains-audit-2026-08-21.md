@@ -48,7 +48,19 @@
 4. 病历、患者绑定和二维码继续分别等待各自契约；不因报告目录或 `patInfosFind` 曾经成功，就共用 `patId`、卡号或二维码载荷。
 5. 任一域出现“HTTP 200 但字段不完整”“空数组无法区分故障”“患者映射不唯一”“日志无法按 trace 关联”或“真机页面与响应患者不一致”，立即停止该域并回到契约修正。
 
-## 5. 日志与旧服务边界
+## 5. 本轮回归证据
+
+| 检查 | 结果 |
+| --- | --- |
+| `pnpm provider:audit` | 通过；3 份 Provider 接收记录、26 个 `documentId`，其中没有病历或报告正式脱敏样例 intake |
+| `pnpm architecture:audit` | 通过；67 项架构/安全边界规则 |
+| `pnpm --filter @hospital/api test src/app.test.ts src/plugins/error-handler.test.ts` | 通过；56 项测试、316 个断言 |
+| `pnpm docs:audit` | 通过；334 个 Markdown 文档、无断链 |
+| `pnpm release:baseline:audit` | 通过；服务端 `5a31427` 与小程序候选 `6677671` 指针一致 |
+
+这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。SSH 运行层只读复核本轮未建立连接，因此不据此新增线上日志结论。
+
+## 6. 日志与旧服务边界
 
 新服务只记录 `event`、内部 request/trace 关联、provider 名、HTTP 状态、耗时、固定错误码和安全计数；不记录 Authorization、openid、unionid、session_key、身份证、手机号、姓名与证件组合、`patId`、卡号或 Provider 原始 JSON。任何后续 Provider 取证都必须沿用这个边界，并明确区分“没有请求发生”和“请求返回空结果”。
 
