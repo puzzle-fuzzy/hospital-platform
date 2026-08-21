@@ -18,6 +18,7 @@
 
 单请求域还必须命中对应的真实入口：`auth` 使用 `POST /api/v2/auth/wechat`，
 `patientDirectory` 与 `patientSelection` 使用 `GET /api/v2/patients`，
+`patientDirectorySync` 使用 `POST /api/v2/patients/sync`，
 `appointmentRecords` 与 `missedAppointments` 使用 `GET /api/v2/appointments/records`，
 `outpatientPayment` 使用 `GET /api/v2/payments/outpatient/records`。
 证据文档不记录查询参数，但服务端同链摘要仍必须证明该请求属于对应业务域；
@@ -27,12 +28,17 @@
 | --- | --- | --- | --- | --- | --- |
 | auth | pending |  |  |  |  |
 | patientDirectory | pending |  |  |  |  |
+| patientDirectorySync | pending |  |  |  |  |
 | patientSelection | pending |  |  |  |  |
 | appointmentDirectory | pending |  |  |  |  |
 | appointmentRecords | pending |  |  |  |  |
 | missedAppointments | pending |  |  |  |  |
 | outpatientPayment | pending |  |  |  |  |
 | profileReadonlyWrite | pending |  |  |  |  |
+
+`patientDirectory` 与 `patientDirectorySync` 必须分开记录：前者证明当前 owner 能读取
+服务端白名单目录，后者证明当前登录会话确实完成了患者同步及临床映射刷新。目录读取成功
+不能替代同步成功；同步失败时，预约、报告和门诊费用等患者范围页面仍必须保持 fail-closed。
 
 ### `profileReadonlyWrite` 的双请求证据格式
 

@@ -11,6 +11,7 @@ import { auditCurrentReleaseConsistency } from "./release-baseline-audit.mjs";
 const DOMAIN_LABELS = Object.freeze({
 	auth: "微信登录与当前用户",
 	patientDirectory: "首页患者目录",
+	patientDirectorySync: "患者目录与临床映射同步",
 	patientSelection: "显式更换就诊人",
 	appointmentDirectory: "预约科室与排班",
 	appointmentRecords: "我的挂号",
@@ -30,6 +31,7 @@ const DOMAIN_LABELS = Object.freeze({
 const DOMAIN_CLIENT_REQUESTS = Object.freeze({
 	auth: { method: "POST", path: "/api/v2/auth/wechat" },
 	patientDirectory: { method: "GET", path: "/api/v2/patients" },
+	patientDirectorySync: { method: "POST", path: "/api/v2/patients/sync" },
 	patientSelection: { method: "GET", path: "/api/v2/patients" },
 	appointmentRecords: {
 		method: "GET",

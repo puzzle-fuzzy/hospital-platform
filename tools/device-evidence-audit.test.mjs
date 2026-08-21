@@ -10,6 +10,7 @@ const candidate = {
 const domainNames = [
 	"auth",
 	"patientDirectory",
+	"patientDirectorySync",
 	"patientSelection",
 	"appointmentDirectory",
 	"appointmentRecords",
@@ -30,6 +31,7 @@ function pendingDomains() {
 const singleRequestPaths = {
 	auth: { method: "POST", path: "/api/v2/auth/wechat" },
 	patientDirectory: { method: "GET", path: "/api/v2/patients" },
+	patientDirectorySync: { method: "POST", path: "/api/v2/patients/sync" },
 	patientSelection: { method: "GET", path: "/api/v2/patients" },
 	appointmentRecords: {
 		method: "GET",
@@ -163,7 +165,7 @@ describe("device evidence audit", () => {
 	test("允许当前候选的全量 pending 清单，并安全输出摘要", () => {
 		const result = auditDeviceEvidence(completeManifest());
 		expect(result.passed).toBe(false);
-		expect(Object.keys(result.domains)).toHaveLength(8);
+		expect(Object.keys(result.domains)).toHaveLength(9);
 		expect(result.domains.auth.reasonRecorded).toBe(true);
 	});
 
@@ -236,6 +238,17 @@ describe("device evidence audit", () => {
 		methodManifest.domains.auth.client.method = "GET";
 		expect(() => auditDeviceEvidence(methodManifest)).toThrow(
 			"auth.client.method 必须是 POST",
+		);
+
+		const syncManifest = completeManifest();
+		syncManifest.domains.patientDirectorySync = passedEvidence(
+			"patientDirectorySync",
+		);
+		const syncResult = auditDeviceEvidence(syncManifest);
+		expect(syncResult.domains.patientDirectorySync.result).toBe("passed");
+		syncManifest.domains.patientDirectorySync.client.method = "GET";
+		expect(() => auditDeviceEvidence(syncManifest)).toThrow(
+			"patientDirectorySync.client.method 必须是 POST",
 		);
 	});
 
