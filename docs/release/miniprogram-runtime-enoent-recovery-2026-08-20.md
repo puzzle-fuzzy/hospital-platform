@@ -200,3 +200,23 @@ journald 只读观察，没有部署、重启、配置写入或业务请求。
 `7a6f4df34fac5975c6012a30d2c137953a892059`。重新检查后，`dist/services/single-flight.js`
 存在，`dist/services/single-flight.test.js` 不存在，运行包内 `*.test.js`/`*.spec.js` 数量为 0；
 因此真机再次出现同一路径时，仍应按开发者工具旧增量索引恢复，不应把测试脚本加入运行包。
+
+## 当前候选复核（2026-08-21，`b02594a`）
+
+针对再次出现的同一路径报错，当前仓库已重新构建并核对运行包：
+
+| 项目 | 当前结果 |
+| --- | --- |
+| 当前小程序提交 | `b02594a521cae2d12b991d2361c80224572c79b0` |
+| `pnpm --filter @hospital/miniprogram build` | 通过；14 个页面脚本已发布 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | 0 个 |
+| 旧项目 `mp-weixin` | 未操作 |
+| 旧 Python 服务、线上配置、MySQL、Redis | 未修改、未重启 |
+
+本轮尝试通过桌面工具重新打开新 `miniprogram` 项目时，工具进程中的窗口句柄不稳定，未能执行普通编译或重新扫码；
+这不改变运行包结论。请在开发者工具中手动关闭旧真机调试，重新打开
+`E:\__Super_Core__\hospital-platform\apps\miniprogram\`，确认 `miniprogramRoot=dist/`，普通编译成功后再生成二维码。
+如果工具仍请求 `single-flight.test.js`，停止扫码并重新打开项目，不要创建该测试文件。
