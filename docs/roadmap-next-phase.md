@@ -7,6 +7,8 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（只读业务不变量复核）：再次核对患者目录的 `thirdPatientId`/HIS `patId` 分离、临床映射缺失语义、预约历史/爽约日期窗口和门诊费用状态/金额边界；没有发现可以在不扩大 Provider contract 的前提下安全放宽的逻辑。当前众阳目录对档案查询异常继续整批 fail-closed，不能把超时、权限过滤或异常响应降级为 `unavailable`。详见 [`readonly-business-invariant-review-2026-08-21.md`](release/readonly-business-invariant-review-2026-08-21.md)。
+
 - 2026-08-21（普通资料写入口的运行时鉴权门禁）：发现 release smoke 原先只检查 `GET /me/profile` 的未登录边界，
   没有检查真正的 `PUT /me/profile` 写入口。现已补充带最小合法请求体的无会话 `PUT` 检查，要求认证先于资料校验和
   持久化执行；该 smoke 不携带 Bearer、不创建资料、不递增 version，也不写 MySQL。Worker 全量 `53 pass / 148 expects`、
