@@ -20,6 +20,8 @@ const OUTPATIENT_PAYMENT_PATH =
 	"/msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-records";
 /** 低敏日志中的稳定操作名，用于与 Provider 原始路径解耦并关联请求链。 */
 const OPERATION = "outpatient-payment-records";
+/** 费用内部身份字段的单字段长度上限，避免异常 Provider 值放大哈希计算。 */
+const MAX_PAYMENT_IDENTITY_FIELD_LENGTH = 256;
 
 /**
  * 2.6.33 文档明确冻结了 amount、billDeptName、billDocName、billDate 和费用标识等字段。
@@ -238,10 +240,43 @@ function verifyTradeStatus(
 	}
 }
 
-function identityText(value: unknown): string | undefined {
+/**
+ * 解析参与费用 opaque recordId 的 Provider 身份字段。
+ *
+ * 这些字段不进入公共响应，但它们决定同一费用在返回顺序变化、状态切换
+ * 或未来支付详情引用中的稳定性。字段“存在但格式异常”不能静默当作缺失，
+ * 否则另一组字段可能生成一个看似合法但指向错误账单的 recordId；同时必须
+ * 限制长度和控制字符，避免未经审计的上游值进入哈希输入和关联链。
+ */
+function identityText(
+	value: unknown,
+	field: string,
+	requestId: string,
+): string | undefined {
 	if (value === undefined || value === null || value === "") return undefined;
-	if (typeof value !== "string" && typeof value !== "number") return undefined;
-	const normalized = String(value).trim();
+	if (
+		typeof value !== "string" &&
+		(typeof value !== "number" || !Number.isFinite(value))
+	) {
+		throw providerError(
+			`Zhongyang outpatient identity field ${field} is invalid`,
+			requestId,
+		);
+	}
+	const raw = String(value);
+	const normalized = raw.trim();
+	if (
+		raw.length > MAX_PAYMENT_IDENTITY_FIELD_LENGTH ||
+		Array.from(raw).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	) {
+		throw providerError(
+			`Zhongyang outpatient identity field ${field} is invalid`,
+			requestId,
+		);
+	}
 	return normalized || undefined;
 }
 
@@ -256,13 +291,19 @@ function identityText(value: unknown): string | undefined {
  */
 function opaqueRecordId(item: ProviderPaymentItem, requestId: string): string {
 	const identityParts = [
-		["outTradeOrderId", identityText(item.outTradeOrderId)],
-		["registerId", identityText(item.registerId)],
-		["visitRecordId", identityText(item.visitRecordId)],
-		["mainId", identityText(item.mainId)],
-		["chargeId", identityText(item.chargeId)],
-		["chargeCode", identityText(item.chargeCode)],
-		["presCode", identityText(item.presCode)],
+		[
+			"outTradeOrderId",
+			identityText(item.outTradeOrderId, "outTradeOrderId", requestId),
+		],
+		["registerId", identityText(item.registerId, "registerId", requestId)],
+		[
+			"visitRecordId",
+			identityText(item.visitRecordId, "visitRecordId", requestId),
+		],
+		["mainId", identityText(item.mainId, "mainId", requestId)],
+		["chargeId", identityText(item.chargeId, "chargeId", requestId)],
+		["chargeCode", identityText(item.chargeCode, "chargeCode", requestId)],
+		["presCode", identityText(item.presCode, "presCode", requestId)],
 	]
 		.filter((entry): entry is [string, string] => entry[1] !== undefined)
 		.map(([field, value]) => `${field}=${value}`);
@@ -276,7 +317,7 @@ function opaqueRecordId(item: ProviderPaymentItem, requestId: string): string {
 		identityParts,
 		// 账单时间用于区分同一项目在不同开单时刻产生的记录；金额故意不参与，
 		// 防止待缴金额与结算后金额变化造成同一业务记录换 ID。
-		identityText(item.billDate) ?? "",
+		identityText(item.billDate, "billDate", requestId) ?? "",
 	];
 	return createHash("sha256")
 		.update(JSON.stringify(canonicalIdentity))

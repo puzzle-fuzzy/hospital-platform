@@ -7,6 +7,8 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（门诊费用稳定身份字段边界）：门诊费用 adapter 不再把存在但形状异常的 `outTradeOrderId`、就诊/费用 ID 等字段静默当作缺失；对象、数组、布尔值、非有限数字、控制字符和超长值会整批以 `responseInvalid` 拒绝，账单时间也经过同一边界校验。该修正防止内部 `recordId` 随 Provider 字段漂移，不增加支付、医保或结算能力，详见 [`outpatient-payment-identity-boundary-2026-08-21.md`](release/outpatient-payment-identity-boundary-2026-08-21.md)。
+
 - 2026-08-21（排班只读快照 persistence 边界）：复核发现排班快照 domain validator 之前没有验证 Provider 来源、嵌套排班展示字段和最大有效期；现已在进入内存/MySQL 仓储前统一拒绝未知来源、坏排班和超过 5 分钟的观察窗口，并补充中文注释与回归测试。该修正只加固只读观察事实，不开放预约写入，也不增加当前 Provider 或真机业务证据，详见 [`appointment-schedule-snapshot-runtime-validation-2026-08-21.md`](release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md)。
 
 - 2026-08-21（只读业务不变量复核）：再次核对患者目录的 `thirdPatientId`/HIS `patId` 分离、临床映射缺失语义、预约历史/爽约日期窗口和门诊费用状态/金额边界；没有发现可以在不扩大 Provider contract 的前提下安全放宽的逻辑。当前众阳目录对档案查询异常继续整批 fail-closed，不能把超时、权限过滤或异常响应降级为 `unavailable`。详见 [`readonly-business-invariant-review-2026-08-21.md`](release/readonly-business-invariant-review-2026-08-21.md)。

@@ -571,6 +571,48 @@ test("众阳门诊费用 adapter 拒绝缺少稳定标识或重复费用", async
 	});
 });
 
+test("众阳门诊费用 adapter 不静默忽略异常的稳定身份字段", async () => {
+	const createGateway = (item: unknown, requestId: string) =>
+		createZhongyangOutpatientPaymentGateway({
+			baseUrl: "https://zhongyang.example.test",
+			authSysCode: "thirdSelfMachine",
+			fetcher: async () =>
+				new Response(JSON.stringify({ success: true, data: [item] }), {
+					status: 200,
+					headers: { "x-request-id": requestId },
+				}),
+		});
+	const input = {
+		providerPatientId: "provider-patient-secret",
+		startTime: "2026-08-16 00:00:00",
+		endTime: "2026-08-16 23:59:59",
+		status: "unpaid" as const,
+	};
+
+	for (const [identity, requestId] of [
+		["valid-order\n-invalid", "identity-control-character"],
+		[{ nested: true }, "identity-object"],
+		["x".repeat(257), "identity-too-long"],
+	] as const) {
+		await expect(
+			createGateway(
+				{
+					outTradeOrderId: identity,
+					amount: "1.00",
+					tradeStatus: "1",
+					billDate: "2026-08-16 09:00:00",
+				},
+				requestId,
+			).listRecords(input, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "outpatient-payment-records",
+			requestId,
+			responseInvalid: true,
+		});
+	}
+});
+
 test("众阳门诊费用 adapter 拒绝缺失或错配的 tradeStatus", async () => {
 	const createGateway = (item: unknown, requestId: string) =>
 		createZhongyangOutpatientPaymentGateway({
