@@ -61,6 +61,10 @@ gate、fail-closed 组合根、预约只读路线以及原生小程序 provider 
 `pnpm docs:audit` 会检查 `docs/` 下所有 Markdown 的本地链接是否仍指向仓库内存在的文件；
 它不访问外部网站，不能替代 Provider 文档来源、版本和真实接口可用性验收。
 
+`pnpm logging:audit` 会扫描 API、worker 和 packages 的生产 TypeScript/JavaScript 源码，
+确认静态 `event` 字面量均已登记在 [`docs/logging.md`](docs/logging.md)；插值事件必须在文档中说明稳定前缀或事件表，
+该审计不会读取或回显真实日志内容，也不能替代敏感字段和线上采集链路验收。
+
 本地真实持久化验收：
 
 ```powershell

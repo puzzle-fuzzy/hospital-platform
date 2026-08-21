@@ -45,6 +45,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `runtime.preflight.succeeded` / `runtime.preflight.failed` | 发布前只读 preflight | 记录 MySQL、Redis、schemaStatus、缺失 migration/结构对象和 provider 配置状态；不记录连接串或密钥 |
 | `runtime.smoke.check.passed` / `runtime.smoke.check.warning` / `runtime.smoke.check.failed` | API runtime smoke 单项检查 | 记录检查名（包括 `auth-boundary` 和 `closed-boundary`）、HTTP 状态码（没有收到 HTTP 响应时为 `0`）、错误类型和请求 `traceId`；不记录 URL、请求头、请求体或原始响应 |
 | `runtime.smoke.completed` / `runtime.smoke.failed` | API runtime smoke 汇总 | 记录所有检查的安全摘要；每个失败项必须能通过其 `traceId` 关联反向代理和 API 日志，不能用重试次数掩盖 readiness 瞬态故障 |
+| `runtime.smoke.configuration.failed` | API runtime smoke 启动配置 | 记录固定错误类型，表示 smoke 尚未发起业务请求就因配置或参数不完整退出；不记录环境变量值、URL、凭证或异常原文 |
 | `provider.smoke.configuration.failed` | Provider 只读 smoke 启动配置 | 只记录错误类型和固定的 `configurationReason`（例如 `access-token-missing`、`patient-id-missing`、`base-url-https-required`）；不记录 token、患者 ID、URL 原文、环境变量值或异常消息 |
 | `provider.smoke.capability.passed` / `provider.smoke.capability.failed` | Provider 只读 smoke 业务能力 | 记录能力名、错误类型、低敏数量和请求 `traceId`；不记录患者凭证、Provider 原始响应或完整请求 URL |
 | `provider.smoke.completed` / `provider.smoke.failed` | Provider 只读 smoke 汇总 | 记录各能力的安全结果；配置未通过时不发送任何业务请求，也不能把配置失败计为 Provider 拒绝 |
@@ -52,8 +53,13 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `persistence.probe.unavailable` / `persistence.probe.recovered` | API/worker persistence readiness 探针 | 仅在数据库、Redis 或 Schema 从正常变为不可用、或从不可用恢复时记录依赖名、有限操作名、错误类型；两类事件都可记录本次只读探针的 `attempts`、`durationMs`，Schema 还记录状态和缺失数量；不记录连接串、原始异常、SQL、参数或第三方报文 |
 | `persistence.migration.target_rejected` | migration CLI 安全闸门 | 记录远程/生产目标未通过显式确认；不记录 DATABASE_URL |
 | `persistence.integration.dependencies` / `persistence.integration.schema_probe` / `persistence.integration.succeeded` / `persistence.integration.failed` / `persistence.integration.cleanup_failed` | 本地真实 MySQL/Redis 集成验收 | 记录依赖状态、schema 缺失、验收检查名和清理错误类型；不记录连接串、token 或 provider 原始报文 |
+| `persistence.migration.started` / `persistence.migration.succeeded` | 持久化 migration 执行器 | 记录迁移 ID、非事务 DDL 执行模式和恢复策略；成功事件只在 DDL 与迁移记录都完成后输出，不记录 SQL 正文 |
+| `persistence.migration.skipped` | 持久化 migration 执行器 | 记录已存在的迁移被对账跳过；表示执行历史已具备，不代表本事件修改了数据库结构 |
+| `persistence.migration.failed` | 持久化 migration 执行器 | 记录迁移 ID、执行模式、是否已写入开始标记和固定错误类型；MySQL DDL 可能隐式提交，失败后必须人工检查，不能盲目重放 |
 | `http.request.completed` | API 请求生命周期 | 查询成功请求、状态码和耗时 |
 | `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
+| `worker.loop.failed` | Worker 单次轮询 | 记录单次 outbox/查单轮询异常类型；不会把异常原文写入日志，也不代表进程已经停止 |
+| `log.redaction.failed` | Pino 安全序列化边界 | 记录日志记录因序列化或脱敏边界异常被丢弃；只允许固定错误类型，不能回退输出原始日志正文 |
 | `persistence-temporarily-unavailable` | API 持久化错误响应 | MySQL 连接/传输层短暂异常；连接池内的幂等读最多执行初始请求加两次短退避恢复尝试（25ms、100ms），写入和事务不会盲目重试；响应只返回 503 安全错误码，日志最多增加 `persistenceOperation` 和允许列表中的 `persistenceErrorCode`，不记录原始协议报文 |
 | `auth.wechat.login.requested` | 微信授权登录应用服务 | 记录登录开始、traceId、provider 和是否携带幂等键；不记录 code |
 | `auth.wechat.login.succeeded` | 微信授权登录应用服务 | 记录内部 userId、provider request id 和会话 TTL；不记录 openid、unionId 或 access token |
@@ -89,6 +95,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `user.profile.updated` | 普通个人资料更新 | 记录 trace、修改字段数量和新版本，不记录 userId、昵称、邮箱或请求正文 |
 | `user.profile.conflict` | 普通个人资料版本冲突 | 记录 trace 和固定错误类型，保留 409 并发事实的可检索性；不记录 userId、版本值、字段值或请求正文 |
 | `user.profile.update_failed` | 普通个人资料更新失败（包括输入校验拒绝） | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
+| `health-knowledge.read.requested` / `health-knowledge.read.completed` | 健康知识只读服务 | 记录操作名、已发布内容版本和条目数量等低敏元数据；不记录疾病、药品正文或患者信息 |
+| `health-knowledge.read.failed` | 健康知识只读服务 | 记录操作名、固定错误类型和有限读模型违规原因；不把未审核内容或底层异常原文当作 API 返回 |
+| `health-knowledge.read.not_found` | 健康知识详情查询 | 区分合法的内容不存在与系统失败；只记录资源类型和操作名，不记录查询正文 |
 
 低敏分布统计可以记录固定枚举值的数量（例如预约成功结果中的 `statusCounts`），用于解释筛选、分页或状态转换；
 这类字段只能是服务端白名单枚举到整数的聚合结果，不得包含逐条业务标识、患者标识、Provider 原始文本或任意调用方原值。

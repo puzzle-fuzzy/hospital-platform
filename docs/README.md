@@ -309,3 +309,4 @@
 5. 旧服务仍由原项目和 `8001` 管理；新服务只使用 `api-v2` systemd、`18081` 和 `/api/v2` 公网路由。
 6. 新增或删除原生页面后必须运行 `pnpm migration:audit`；页面注册、TypeScript 源码、构建生成的 JavaScript 和迁移台账必须同步。
 7. 新增或移动 Markdown 文档后必须运行 `pnpm docs:audit`；本地链接必须指向仓库内现有文件，外部链接不由该门禁代替联网验收。
+8. 新增日志事件或修改事件名后必须运行 `pnpm logging:audit`；静态事件必须登记在 `docs/logging.md`，动态事件必须说明稳定前缀或明确事件表边界。
