@@ -7,6 +7,11 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21 当前桌面前置检查：微信开发者工具只打开了旧的 `mp-weixin` 项目，没有打开新候选的
+  `miniprogram` 窗口；本地 `dist/` 已通过 `runtime:verify`，但本轮没有点击、编译、扫码或修改旧项目。
+  真机验收必须重新打开 `E:\\__Super_Core__\\hospital-platform\\apps\\miniprogram`，确认 `miniprogramRoot=dist/`，
+  普通编译后再生成二维码。详见 [`release/miniprogram-devtools-project-preflight-2026-08-21.md`](release/miniprogram-devtools-project-preflight-2026-08-21.md)。
+
 - 2026-08-21 当前候选全仓复核：`pnpm check` 全部通过；API 测试 `199 pass/829 expects`，小程序测试
   `186 pass/1461 expects`，运行包为 14 个页面且不含测试脚本，来源指纹为
   `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`。本次仅做本地与仓库只读核验，SSH 公钥仍未获服务器接受，
