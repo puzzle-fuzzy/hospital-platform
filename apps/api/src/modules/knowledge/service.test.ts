@@ -4,6 +4,7 @@ import {
 	HEALTH_KNOWLEDGE_DISCLAIMER,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgeResultValidationError,
+	HealthKnowledgeValidationError,
 } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
 import {
@@ -80,6 +81,61 @@ test("health knowledge service returns a stable publication envelope and logs me
 		contentVersion: "health-2026-08-15",
 		itemCount: 1,
 	});
+});
+
+test("health knowledge service validates direct inputs before repository access", async () => {
+	let repositoryCalls = 0;
+	const service = new HealthKnowledgeService({
+		repository: createRepository({
+			listCatalog: async () => {
+				repositoryCalls += 1;
+				throw new Error("catalog repository must not be called");
+			},
+			listDiseasesByRelation: async () => {
+				repositoryCalls += 1;
+				throw new Error("relation repository must not be called");
+			},
+			listSymptomsByPart: async () => {
+				repositoryCalls += 1;
+				throw new Error("symptom repository must not be called");
+			},
+			listDiseasesBySymptoms: async () => {
+				repositoryCalls += 1;
+				throw new Error("symptom disease repository must not be called");
+			},
+			getDiseaseDetail: async () => {
+				repositoryCalls += 1;
+				throw new Error("disease repository must not be called");
+			},
+			getDrugDetail: async () => {
+				repositoryCalls += 1;
+				throw new Error("drug repository must not be called");
+			},
+		}),
+	});
+
+	// 这些调用绕过 HTTP schema，必须仍然在 repository 前失败；否则错误的
+	// 分类、关联对象或条目 id 会进入数据库查询，错误结果可能被当成合法空结果。
+	await expect(service.listCatalog("unknown" as never)).rejects.toBeInstanceOf(
+		HealthKnowledgeValidationError,
+	);
+	await expect(
+		service.listDiseasesByRelation({ kind: "unknown", id: "part-1" } as never),
+	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
+	await expect(
+		service.listSymptomsByPart("part-1\u0000" as never),
+	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
+	await expect(
+		service.listDiseasesBySymptoms(null as never),
+	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
+	await expect(
+		service.getDiseaseDetail("\n disease-1" as never),
+	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
+	await expect(
+		service.getDrugDetail("drug-1\u007f" as never),
+	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
+
+	expect(repositoryCalls).toBe(0);
 });
 
 test("health knowledge service maps disease details and rejects missing documents", async () => {

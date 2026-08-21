@@ -73,6 +73,7 @@ export {
 	normalizeHealthKnowledgeDrugDocument,
 	normalizeHealthKnowledgeLetterItems,
 	normalizeHealthKnowledgeSymptomListSnapshot,
+	validateHealthKnowledgeCatalogKind,
 	validateHealthKnowledgeIdentifier,
 	validateHealthKnowledgeLetter,
 	validateHealthKnowledgePublication,

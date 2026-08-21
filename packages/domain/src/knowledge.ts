@@ -91,6 +91,7 @@ export type HealthKnowledgeValidationReason =
 	| "invalid_publication"
 	| "invalid_identifier"
 	| "invalid_initial_letter"
+	| "invalid_catalog_kind"
 	| "invalid_symptom_query";
 
 export class HealthKnowledgeValidationError extends Error {
@@ -647,6 +648,20 @@ export function validateHealthKnowledgePublication(
 /** 所有对外引用先经过统一长度校验，避免把数据库任意字段当成公开资源 id。 */
 export function validateHealthKnowledgeIdentifier(value: string): void {
 	assertBoundedText(value, 128, "invalid_identifier");
+}
+
+/**
+ * 分类值是 repository 查询语义的一部分，不能只依赖 TypeScript 联合类型。
+ *
+ * HTTP 路由和导入器都可能有自己的入口；把运行时校验放在领域层，才能
+ * 防止组合根、回放任务或错误的管理端调用把未知分类传给数据库查询。
+ */
+export function validateHealthKnowledgeCatalogKind(
+	value: unknown,
+): asserts value is HealthKnowledgeCatalogKind {
+	if (value !== "crowd" && value !== "department" && value !== "part") {
+		throw new HealthKnowledgeValidationError("invalid_catalog_kind");
+	}
 }
 
 export function validateHealthKnowledgeLetter(

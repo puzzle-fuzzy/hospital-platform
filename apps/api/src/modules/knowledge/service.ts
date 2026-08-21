@@ -12,11 +12,15 @@ import type {
 } from "@hospital/domain";
 import {
 	HealthKnowledgeResultValidationError,
+	HealthKnowledgeValidationError,
 	normalizeHealthKnowledgeCatalogSnapshot,
 	normalizeHealthKnowledgeDiseaseDocument,
 	normalizeHealthKnowledgeDiseaseListSnapshot,
 	normalizeHealthKnowledgeDrugDocument,
 	normalizeHealthKnowledgeSymptomListSnapshot,
+	validateHealthKnowledgeCatalogKind,
+	validateHealthKnowledgeIdentifier,
+	validateHealthKnowledgeSymptomIds,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
 
@@ -56,7 +60,11 @@ export class HealthKnowledgeService {
 	): Promise<HealthKnowledgeCatalogResponsePayload["data"]> {
 		const snapshot = await this.read(
 			"catalog",
-			() => this.dependencies.repository.listCatalog(kind),
+			() => {
+				// 分类决定 repository 查询的表/关系语义，不能只依赖编译期联合类型。
+				validateHealthKnowledgeCatalogKind(kind);
+				return this.dependencies.repository.listCatalog(kind);
+			},
 			normalizeHealthKnowledgeCatalogSnapshot,
 		);
 		return {
@@ -71,7 +79,18 @@ export class HealthKnowledgeService {
 	): Promise<HealthKnowledgeDiseaseListResponsePayload["data"]> {
 		const snapshot = await this.read(
 			"disease-relation",
-			() => this.dependencies.repository.listDiseasesByRelation(relation),
+			() => {
+				if (
+					typeof relation !== "object" ||
+					relation === null ||
+					Array.isArray(relation)
+				) {
+					throw new HealthKnowledgeValidationError("invalid_identifier");
+				}
+				validateHealthKnowledgeCatalogKind(relation.kind);
+				validateHealthKnowledgeIdentifier(relation.id);
+				return this.dependencies.repository.listDiseasesByRelation(relation);
+			},
 			normalizeHealthKnowledgeDiseaseListSnapshot,
 		);
 		return this.diseaseList(snapshot);
@@ -82,7 +101,10 @@ export class HealthKnowledgeService {
 	): Promise<HealthKnowledgeSymptomListResponsePayload["data"]> {
 		const snapshot = await this.read(
 			"symptoms-by-part",
-			() => this.dependencies.repository.listSymptomsByPart(partId),
+			() => {
+				validateHealthKnowledgeIdentifier(partId);
+				return this.dependencies.repository.listSymptomsByPart(partId);
+			},
 			normalizeHealthKnowledgeSymptomListSnapshot,
 		);
 		return {
@@ -97,7 +119,13 @@ export class HealthKnowledgeService {
 	): Promise<HealthKnowledgeDiseaseListResponsePayload["data"]> {
 		const snapshot = await this.read(
 			"disease-symptoms",
-			() => this.dependencies.repository.listDiseasesBySymptoms(symptomIds),
+			() => {
+				if (!Array.isArray(symptomIds)) {
+					throw new HealthKnowledgeValidationError("invalid_symptom_query");
+				}
+				validateHealthKnowledgeSymptomIds(symptomIds);
+				return this.dependencies.repository.listDiseasesBySymptoms(symptomIds);
+			},
 			normalizeHealthKnowledgeDiseaseListSnapshot,
 		);
 		return this.diseaseList(snapshot);
@@ -108,7 +136,10 @@ export class HealthKnowledgeService {
 	): Promise<HealthKnowledgeDiseaseDetailResponsePayload["data"]> {
 		const document = await this.read(
 			"disease-detail",
-			() => this.dependencies.repository.getDiseaseDetail(diseaseId),
+			() => {
+				validateHealthKnowledgeIdentifier(diseaseId);
+				return this.dependencies.repository.getDiseaseDetail(diseaseId);
+			},
 			(value) => normalizeHealthKnowledgeDiseaseDocument(value, diseaseId),
 		);
 		if (!document) {
@@ -129,7 +160,10 @@ export class HealthKnowledgeService {
 	): Promise<HealthKnowledgeDrugDetailResponsePayload["data"]> {
 		const document = await this.read(
 			"drug-detail",
-			() => this.dependencies.repository.getDrugDetail(drugId),
+			() => {
+				validateHealthKnowledgeIdentifier(drugId);
+				return this.dependencies.repository.getDrugDetail(drugId);
+			},
 			(value) => normalizeHealthKnowledgeDrugDocument(value, drugId),
 		);
 		if (!document) {

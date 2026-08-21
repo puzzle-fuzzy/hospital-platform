@@ -5,6 +5,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（健康知识 service 输入边界修正）：发现健康知识 HTTP 路由虽有参数 schema，但直接调用 service 时分类、
+  关联对象、条目 ID 和症状数组仍依赖 TypeScript 类型；现已在 domain 增加分类运行时校验，并在 service 的统一日志范围内
+  对所有 repository 入口 fail-closed。API 健康知识 service `6 pass/24 expects`、domain `15 pass/31 expects`、persistence
+  `9 pass/33 expects`、API typecheck 和 Biome 均通过。健康知识内容未导入、API 未挂载、患者页面未开放，详见
+  [`release/health-knowledge-service-input-boundary-audit-2026-08-21.md`](release/health-knowledge-service-input-boundary-audit-2026-08-21.md)。
+
 - 2026-08-21（报告目录 service 输入边界修正）：复核报告目录 HTTP schema 与直接 service 调用的一致性，发现 service
   归一化时会静默丢弃未知 query 字段；现已增加 `startDate/endDate/kind` 固定白名单，误传 Provider 报告号或患者字段时在
   患者映射和 Provider 前返回 `ReportQueryError`，且不记录原始字段。报告 service `21 pass/91 expects`、domain `6 pass/10 expects`、

@@ -7,6 +7,7 @@ import {
 	normalizeHealthKnowledgeCatalogSnapshot,
 	normalizeHealthKnowledgeDiseaseDocument,
 	normalizeHealthKnowledgeDrugDocument,
+	validateHealthKnowledgeCatalogKind,
 	validateHealthKnowledgePublication,
 	validateHealthKnowledgeSymptomIds,
 } from "./knowledge";
@@ -65,6 +66,13 @@ test("health knowledge symptom queries reject empty, duplicate and oversized inp
 			Array.from({ length: 11 }, (_, index) => `s-${index}`),
 		),
 	).toThrow(HealthKnowledgeValidationError);
+});
+
+test("health knowledge catalog kinds reject unknown runtime values", () => {
+	expect(() => validateHealthKnowledgeCatalogKind("part")).not.toThrow();
+	expect(() => validateHealthKnowledgeCatalogKind("provider" as never)).toThrow(
+		HealthKnowledgeValidationError,
+	);
 });
 
 test("health knowledge read models are re-projected to the public allowlist", () => {
