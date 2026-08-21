@@ -2102,6 +2102,23 @@ test("native homepage clears the patient card before validating an existing toke
 	expect(showBody).toContain("!hasPlatformSession()");
 });
 
+test("native homepage does not restore a patient before clinical sync completes", async () => {
+	const home = await source("pages/index/index.ts");
+
+	// 登录恢复和主动登录都先读取平台目录，再执行医院侧临床同步；
+	// 预同步只能作为流程前置条件，不能把旧目录直接当成当前患者。
+	expect(home).toContain("return this.loadPatients(false);");
+	expect(home).toContain(
+		"return this.loadPatients(false).then((patientLoadResult) => {",
+	);
+	const preSyncStart = home.indexOf("if (!restoreSelection) {");
+	const preSyncEnd = home.indexOf("\n\t\t}\n\t\t// 空目录", preSyncStart);
+	const preSyncBody = home.slice(preSyncStart, preSyncEnd);
+	expect(preSyncBody).toContain('selectedPatientId: ""');
+	expect(preSyncBody).toContain("selectedPatient: null");
+	expect(preSyncBody).toContain("本轮");
+});
+
 test("native appointment history pages clear old patient data before reload", async () => {
 	for (const file of [
 		"pages/appointment-records/appointment-records.ts",
@@ -2177,7 +2194,7 @@ test("native homepage clears displayed patient context after directory failures"
 	const home = await source("pages/index/index.ts");
 	const pageStart = home.indexOf("Page<IndexPageData");
 	const loadStart = home.indexOf(
-		"loadPatients(): Promise<PatientDirectoryLoadResult>",
+		"loadPatients(restoreSelection = true): Promise<PatientDirectoryLoadResult>",
 		pageStart,
 	);
 	const loadEnd = home.indexOf("\n\t},", loadStart);

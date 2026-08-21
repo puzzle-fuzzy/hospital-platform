@@ -191,7 +191,7 @@ type IndexPageMethods = {
 	executeQuickAction(action?: string): void;
 	onServiceTabChange(event: IndexEvent): void;
 	onServiceItemTap(event: ActionEvent): void;
-	loadPatients(): Promise<PatientDirectoryLoadResult>;
+	loadPatients(restoreSelection?: boolean): Promise<PatientDirectoryLoadResult>;
 	onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">>;
 	onLoadAppointments(): void;
 	onLoadOutpatientPayment(): void;
@@ -203,7 +203,10 @@ type IndexPageMethods = {
 	showError(error: unknown, fallback: string): void;
 	clearDisplayedPatientContext(): void;
 	clearPatientContext(): void;
-	setPatientsFromPayload(patients: Array<Patient>): void;
+	setPatientsFromPayload(
+		patients: Array<Patient>,
+		restoreSelection?: boolean,
+	): void;
 };
 
 type LoginOptions = {
@@ -270,7 +273,9 @@ Page<IndexPageData, IndexPageMethods>({
 			.then(() => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
 				this.setData({ sessionStatus: SESSION_LABELS.restored });
-				return this.loadPatients();
+				// 恢复链的第一次目录读取只确认当前 owner 能读到目录；本轮
+				// 临床映射尚未同步完成前，不能把旧目录里的患者画成首页当前患者。
+				return this.loadPatients(false);
 			})
 			.then((patientLoadResult) => {
 				if (
@@ -403,7 +408,9 @@ Page<IndexPageData, IndexPageMethods>({
 				// 不额外索取与医疗业务无关的头像和昵称权限。
 				wx.showToast({ title: "微信登录成功", icon: "success" });
 				if (options.skipPatientBootstrap) return "skipped" as const;
-				return this.loadPatients().then((patientLoadResult) => {
+				// 登录后的第一次目录读取同样只是同步前置检查；等医院侧映射
+				// 成功后，下面的 onSyncPatients 才允许恢复 selectedPatient。
+				return this.loadPatients(false).then((patientLoadResult) => {
 					if (!shouldContinueAfterPatientLoad(patientLoadResult)) {
 						return "superseded" as const;
 					}
@@ -574,7 +581,7 @@ Page<IndexPageData, IndexPageMethods>({
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
 	},
 
-	loadPatients(): Promise<PatientDirectoryLoadResult> {
+	loadPatients(restoreSelection = true): Promise<PatientDirectoryLoadResult> {
 		const patientDataGuard = getPageLatestRequestGuard(this, "patients");
 		const requestToken = patientDataGuard.begin();
 		return loadPatients()
@@ -585,7 +592,7 @@ Page<IndexPageData, IndexPageMethods>({
 					// 当前目录读取成功，更不能让登录链继续启动患者同步。
 					return "superseded" as const;
 				}
-				this.setPatientsFromPayload(patients);
+				this.setPatientsFromPayload(patients, restoreSelection);
 				return "loaded" as const;
 			})
 			.catch((error) => {
@@ -793,7 +800,24 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	/** 统一接收服务端脱敏读模型；页面不保存 provider 患者号。 */
-	setPatientsFromPayload(patients: Array<Patient>): void {
+	setPatientsFromPayload(
+		patients: Array<Patient>,
+		restoreSelection = true,
+	): void {
+		if (!restoreSelection) {
+			// bootstrap 的预同步读取只证明平台目录可读，不能证明本轮
+			// his-patient 映射已经完成。保留列表数量供页面状态使用，但
+			// 不恢复 selectedPatient / selectedPatientId；后续同步成功时
+			// 会再次调用本方法并完成 owner-scoped 选择解析。
+			this.setData({
+				patients,
+				selectedPatientId: "",
+				selectedPatient: null,
+				hasPatients: patients.length > 0,
+				error: "",
+			});
+			return;
+		}
 		// 空目录只清空当前页面的展示上下文，不删除本地已选 ID。否则 provider
 		// 短暂空响应恢复后，解析器会把用户误当作“从未选择”，自动切换到第一位。
 		// 会话失效和明确清理仍由 clearPatientContext 负责。
