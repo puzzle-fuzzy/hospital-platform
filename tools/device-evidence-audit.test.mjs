@@ -3,8 +3,8 @@ import { auditDeviceEvidence } from "./device-evidence-audit.mjs";
 
 const candidate = {
 	serverRelease: "5a31427",
-	miniProgramCommit: "acf5a85",
-	sourceRevision: "acf5a8596e70e1fb2b8d220a0b41eb69418ae086",
+	miniProgramCommit: "f085d06",
+	sourceRevision: "f085d06d8e4b9695274f93b5a6b56f2af3faac91",
 };
 
 const domainNames = [
