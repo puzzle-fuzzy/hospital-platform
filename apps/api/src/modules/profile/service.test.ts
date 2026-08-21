@@ -231,6 +231,56 @@ test("普通资料更新返回损坏读模型时不记录 updated 成功", async
 	);
 });
 
+test("普通资料更新拒绝仓储返回的后续版本并记录冲突", async () => {
+	const lines: string[] = [];
+	const service = new UserProfileService(
+		{
+			findByUserId: async () => undefined,
+			update: async () => ({
+				userId: "profile-version-drift-001",
+				displayName: "本次资料",
+				gender: "unknown",
+				age: null,
+				email: null,
+				// 模拟仓储错误地返回了另一个并发请求已经写出的版本。
+				version: 2,
+			}),
+		},
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
+		},
+	);
+
+	await expect(
+		service.update(
+			"profile-version-drift-001",
+			{ version: 0, displayName: "本次资料" },
+			{
+				traceId: "profile-version-drift-trace",
+				idempotencyKey: "profile-version-drift-key",
+			},
+		),
+	).rejects.toBeInstanceOf(UserProfileVersionConflictError);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(
+		records.some((record) => record.event === "user.profile.updated"),
+	).toBe(false);
+	expect(records).toContainEqual(
+		expect.objectContaining({
+			event: "user.profile.conflict",
+			traceId: "profile-version-drift-trace",
+			errorType: "UserProfileVersionConflictError",
+		}),
+	);
+});
+
 test("普通资料更新会归一化字段并只记录低敏事件元数据", async () => {
 	const lines: string[] = [];
 	const logger = createLogger({

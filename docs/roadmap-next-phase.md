@@ -10,6 +10,12 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-22（普通资料 service 版本后置条件）：补齐仓储返回快照的 service 级门禁，要求
+  `version === expectedVersion + 1`；版本漂移按既有 409 冲突处理，不能记录 `updated` 成功。
+  API 全量 `204 pass`、全仓 `pnpm check` 通过；该修正尚未部署，真实 MySQL 双会话和真机资料
+  GET/PUT/409 仍待验收，旧 Python 服务未修改、未重启。详见
+  [`release/profile-service-version-postcondition-audit-2026-08-22.md`](release/profile-service-version-postcondition-audit-2026-08-22.md)。
+
 - 2026-08-22 00:07 CST（当前运行层只读观察）：新 API `hospital-platform-api-v2.service` 仍为
   `active`，旧 Python `8001` 继续共存，Worker 仍为 `inactive`。从 `2026-08-21 23:53:00` 到
   当前日志聚合为 `parsedRecords=0`、`parseErrors=0`、`eventCounts={}`、

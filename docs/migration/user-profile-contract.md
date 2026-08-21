@@ -87,7 +87,7 @@ MySQL `INT UNSIGNED` 上限时已经没有合法的下一版本，服务层必�
 3. MySQL 首次插入遇到并发重复键时返回冲突；不能把重复键当作“再次更新”或静默覆盖。
 4. 普通资料不存在时 GET 返回默认值，但不会制造持久化副作用。
 5. 读取和更新都必须记录资料域事件：读取区分 `requested`、`loaded`、`read_failed`，更新区分 `user.profile.update.requested`、成功、冲突和失败；日志只记录事件名、traceId、是否已有持久化记录、修改字段数量、版本和错误类型，禁止记录 userId、昵称、邮箱和完整请求体。更新开始事件只证明请求进入资料 service，不能替代成功写入；`conflict` 仍代表明确的 409 并发结果。昵称和邮箱的控制字符校验必须在 API service 边界执行，不能只依赖小程序输入控件或数据库列类型；昵称长度按 Unicode code point 计数，不能使用 UTF-16 code unit 造成中文或 emoji 被错误拒绝。版本上限与 `INT UNSIGNED` 一致，越界输入在进入数据库前返回 `user-profile-invalid`。
-   非法输入也属于更新失败，必须记录固定错误类型；`age: null` 和 `email: null` 是合法清空操作，日志字段数量按请求中明确出现的字段统计，不能按归一化后的非空值统计。HTTP 的 `additionalProperties=false` 之外，资料 service 还必须独立拒绝未知字段，防止组合根或 Worker 绕过 Elysia 后静默丢弃 `avatar`/`openid` 等旧端意图。
+   非法输入也属于更新失败，必须记录固定错误类型；`age: null` 和 `email: null` 是合法清空操作，日志字段数量按请求中明确出现的字段统计，不能按归一化后的非空值统计。HTTP 的 `additionalProperties=false` 之外，资料 service 还必须独立拒绝未知字段，防止组合根或 Worker 绕过 Elysia 后静默丢弃 `avatar`/`openid` 等旧端意图。service 在仓储返回后还必须确认版本严格等于 `expectedVersion + 1`；后置版本漂移按既有 409 冲突处理，不能记录 `updated` 成功。
 6. 选择就诊人仍然进入独立的 `patient-select` 页面；普通个人资料不改变当前患者上下文。
 7. 小程序资料页的并发 GET 必须由最后一次请求获胜；刷新期间禁止保存，不能让旧响应覆盖较新的 `version`。
 

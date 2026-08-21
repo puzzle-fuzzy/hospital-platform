@@ -34,6 +34,27 @@ function toPayload(profile: UserProfile): UserProfilePayload["data"] {
 }
 
 /**
+ * 校验资料仓储返回的“本次更新后快照”。
+ *
+ * MySQL 实现会在事务内用行锁保证这个后置条件，但 service 不能把
+ * `UserProfileRepository` 的 TypeScript 返回类型当成运行时事实：未来新增的
+ * 仓储、回放任务或测试替身都可能错误返回一个更晚版本。若只做普通读模型
+ * 校验，就会把别的请求的快照记录成 `updated` 并返回 200。版本不等于本次
+ * 期望值加一时，按已有并发冲突语义终止成功路径，禁止伪造 canonical 响应。
+ */
+function normalizeUpdatedProfile(
+	value: unknown,
+	userId: string,
+	expectedVersion: number,
+): UserProfile {
+	const profile = normalizeUserProfileReadModel(value, userId);
+	if (profile.version !== expectedVersion + 1) {
+		throw new UserProfileVersionConflictError();
+	}
+	return profile;
+}
+
+/**
  * 普通资料会被页面展示、写入数据库并参与日志关联；控制字符即使没有
  * 超过字段长度，也可能破坏排版、检索和导出边界。这里不静默删除，
  * 而是在服务端输入边界拒绝，避免绕过小程序页面的调用方写入脏资料。
@@ -292,7 +313,7 @@ export class UserProfileService {
 				email !== undefined ? "email" : undefined,
 			].filter((field): field is string => Boolean(field));
 
-			const profile = normalizeUserProfileReadModel(
+			const profile = normalizeUpdatedProfile(
 				await this.repository.update({
 					userId,
 					expectedVersion: normalizedVersion,
@@ -306,6 +327,7 @@ export class UserProfileService {
 					...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
 				}),
 				userId,
+				normalizedVersion,
 			);
 			this.logger.info(
 				{
