@@ -48,4 +48,3 @@
 若要部署，只能按新 API 的 release runbook 上传独立 release、执行真实生产配置 preflight、
 用临时端口隔离 smoke，再原子切换新 API `current` 并重启 `hospital-platform-api-v2.service`。
 旧 Python `8001` 不参与切换、回滚或重启；支付、医保、退款和 HIS 写回仍保持关闭。
-
