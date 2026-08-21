@@ -14,7 +14,7 @@ const repositoryRoot = resolve(scriptDirectory, "..");
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-39ad2c5-local-build-2026-08-21.md";
+	"docs/release/candidate-b629380-local-build-2026-08-21.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -52,7 +52,7 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前个人中心患者上下文审计",
 	},
 	{
-		path: "docs/release/miniprogram-real-device-evidence-template-39ad2c5.md",
+		path: "docs/release/miniprogram-real-device-evidence-template-b629380.md",
 		label: "当前小程序真机证据模板",
 	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
@@ -67,30 +67,6 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		path: "docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
 		label: "P0 只读业务验收手册",
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0402.md",
-		label: "04:02 P0 业务空窗口观察",
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0409.md",
-		label: "04:09 P0 业务空窗口观察",
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0429.md",
-		label: "04:29 P0 业务空窗口观察",
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0451.md",
-		label: "04:51 P0 业务空窗口观察",
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0545.md",
-		label: "05:45 P0 业务空窗口观察",
-	},
-	{
-		path: "docs/release/current-public-readonly-smoke-2026-08-21-1021.md",
-		label: "10:21 公网只读边界复核",
 	},
 	{
 		path: "docs/release/current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md",
@@ -193,72 +169,6 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "## 2026-08-21 当前候选只读业务复核",
 				end: "## 1. 当前门禁状态",
 				phrases: [{ text: "本次代码复核基于服务端", expected: "short" }],
-			},
-		],
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0402.md",
-		label: "04:02 P0 业务空窗口观察",
-		sections: [
-			{
-				start: "## 1. 运行边界",
-				end: "## 2. P0 聚合结果",
-				phrases: [{ text: "当前小程序候选来源", expected: "full" }],
-			},
-		],
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0409.md",
-		label: "04:09 P0 业务空窗口观察",
-		sections: [
-			{
-				start: "## 1. 观察范围与运行状态",
-				end: "## 2. 日志聚合结果",
-				phrases: [{ text: "当前小程序候选来源为完整 SHA", expected: "full" }],
-			},
-		],
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0429.md",
-		label: "04:29 P0 业务空窗口观察",
-		sections: [
-			{
-				start: "## 结论",
-				end: "支付、医保、预约写入",
-				phrases: [{ text: "当前候选固定为服务端", expected: "full" }],
-			},
-		],
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0451.md",
-		label: "04:51 P0 业务空窗口观察",
-		sections: [
-			{
-				start: "## 结论",
-				end: "在三层证据形成前",
-				phrases: [{ text: "当前小程序候选", expected: "short" }],
-			},
-		],
-	},
-	{
-		path: "docs/release/current-5a31427-p0-business-observation-2026-08-21-0545.md",
-		label: "05:45 P0 业务空窗口观察",
-		sections: [
-			{
-				start: "## 1. 运行边界",
-				end: "## 2. 低敏业务事件",
-				phrases: [{ text: "当前小程序候选来源", expected: "full" }],
-			},
-		],
-	},
-	{
-		path: "docs/release/current-public-readonly-smoke-2026-08-21-1021.md",
-		label: "10:21 公网只读边界复核",
-		sections: [
-			{
-				start: "## 1. 当前候选",
-				end: "## 2. 公网响应边界",
-				phrases: [{ text: "小程序完整来源", expected: "full" }],
 			},
 		],
 	},

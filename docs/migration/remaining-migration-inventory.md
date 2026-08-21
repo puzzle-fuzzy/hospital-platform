@@ -3,6 +3,9 @@
 > 当前盘点基准：2026-08-21；旧端初始扫描基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app`，新端来源为
 > `E:\\__Super_Core__\\hospital-platform`。本文只把源代码和测试证据作为“实现证据”，不把页面存在、接口返回 200
 > 或旧接口曾经可调用误判为真实业务完成。
+
+> 当前发布基线补充（2026-08-21 10:52 CST）：服务端为 `5a31427`；小程序候选为 `b629380`，完整运行包来源为
+> `b629380162aa8275418b643e10a16e96a65d0b36`，尚未上传线上。
 >
 > 逐页完整清单见 [`legacy-page-matrix.md`](legacy-page-matrix.md)；本文件负责优先级、业务不变量和 provider 文档冻结规则。
 > 旧小程序和旧 FastAPI 的逐接口快照见 [`legacy-api-endpoint-inventory.md`](legacy-api-endpoint-inventory.md)。
@@ -167,8 +170,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 [`../release/5a31427-production-acceptance-2026-08-21.md`](../release/5a31427-production-acceptance-2026-08-21.md)。下方仍保留
 `687690e`、`4ae2a31`、`bf67b96`、`52e9624`、`0995f7c` 等历史窗口，引用它们时必须按历史证据理解，不能覆盖本节的当前状态。
 
-- 当前小程序运行输入来源为 `39ad2c5`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
-  `39ad2c5937af2fdc735ffb223c0648464af3a48c`，注册页面和生成脚本均为 14 个；本轮患者上下文
+- 当前小程序运行输入来源为 `b629380`，本轮完整构建已生成并通过 `runtime:verify`；`dist/build-info.json` 的来源指纹为
+  `b629380162aa8275418b643e10a16e96a65d0b36`，注册页面和生成脚本均为 14 个；本轮患者上下文
   将患者目录与普通资料拆成关键路径和可降级增强；用户已有的
   `apps/miniprogram/project.config.json` 修改仍未触碰、暂存或提交。
 - 2026-08-19：小程序微信登录与 `/me` 会话恢复已增加客户端 canonical 运行时响应门禁；登录只在完整校验后写入 token，

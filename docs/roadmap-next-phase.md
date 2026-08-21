@@ -9,6 +9,10 @@
   `39ad2c5937af2fdc735ffb223c0648464af3a48c`；`dist/` 仍为 14 个页面且不包含测试脚本，`single-flight.test.js` 不会进入运行包。
   `pnpm --filter @hospital/miniprogram runtime:verify` 已通过；真机业务三层证据仍待扫码采集。
 
+- 2026-08-21 10:52 CST（当前运行包构建门禁修正）：小程序候选更新为 `b629380`，完整来源
+  `b629380162aa8275418b643e10a16e96a65d0b36`；构建、类型检查和运行包验证通过，14 个页面齐全，`*.test.js`/`*.spec.js` 均为 0。
+  这次只统一测试/规格文件的运行包隔离，不改变业务 contract；此前 `39ad2c5` 记录保留为历史候选。
+
 - 2026-08-21 10:38–10:47 CST（当前运行层与 P0 业务窗口）：服务器只读核验确认 `5a31427` 的新 API
   `10.0.0.3:18081` 与旧 Python `8001` 继续共存，`hospital-platform-api-v2.service` 为 `active/running`，启动事件的
   `environment=production`，readiness 的 database/Redis/schema 均为 `ok`。后续 10 分钟只有健康检查、未登录认证和关闭路由探针，
@@ -1756,7 +1760,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `5a31427` 和最新小程序候选 `39ad2c5`（完整构建来源：`39ad2c5937af2fdc735ffb223c0648464af3a48c`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `5a31427` 和最新小程序候选 `b629380`（完整构建来源：`b629380162aa8275418b643e10a16e96a65d0b36`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -1767,7 +1771,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 当前服务端 release `5a31427` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `39ad2c5` 小程序候选（完整构建来源：`39ad2c5937af2fdc735ffb223c0648464af3a48c`）。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `b629380` 小程序候选（完整构建来源：`b629380162aa8275418b643e10a16e96a65d0b36`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 

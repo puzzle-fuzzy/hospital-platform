@@ -1,8 +1,8 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `5a31427`，当前本地小程序候选为 `39ad2c5`，完整运行包来源为
-> `39ad2c5937af2fdc735ffb223c0648464af3a48c`。小程序尚未上传线上。
+> 当前服务端候选为 `5a31427`，当前本地小程序候选为 `b629380`，完整运行包来源为
+> `b629380162aa8275418b643e10a16e96a65d0b36`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -91,7 +91,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核
 
-本次代码复核基于服务端 `5a31427`、小程序候选 `39ad2c5`；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
+本次代码复核基于服务端 `5a31427`、小程序候选 `b629380`（完整来源 `b629380162aa8275418b643e10a16e96a65d0b36`）；本节只检查代码、领域 contract、adapter、页面状态机和本地测试，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
 本轮更新后的详细审计见 [`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)。
 
@@ -173,9 +173,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-39ad2c5.md`](miniprogram-real-device-evidence-template-39ad2c5.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-b629380.md`](miniprogram-real-device-evidence-template-b629380.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-20.md`](readonly-business-chain-audit-2026-08-20.md)
-- 当前候选来源：[`candidate-39ad2c5-local-build-2026-08-21.md`](candidate-39ad2c5-local-build-2026-08-21.md)
+- 当前候选来源：[`candidate-b629380-local-build-2026-08-21.md`](candidate-b629380-local-build-2026-08-21.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)

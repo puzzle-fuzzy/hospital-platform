@@ -35,7 +35,7 @@
 当前线上 release 以 [`5a31427-production-acceptance-2026-08-21.md`](5a31427-production-acceptance-2026-08-21.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选为
-`39ad2c5937af2fdc735ffb223c0648464af3a48c`（提交 `39ad2c5`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。历史 `0e360d3` release 的窄观察窗口没有新的
+`b629380162aa8275418b643e10a16e96a65d0b36`（提交 `b629380`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。历史 `0e360d3` release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -124,8 +124,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 本节记录的历史审计候选为小程序 `d2086d8`，完整运行包来源为
 `d2086d819b3e393da2e8c5c39d7704012854214b`；这些数字仅用于追溯，不能作为当前真机包。当前真机候选以
-`39ad2c5937af2fdc735ffb223c0648464af3a48c`（提交 `39ad2c5`）为准。当前真机候选以
-`5a31427` 配套的 `39ad2c5` 和完整来源指纹 `39ad2c5937af2fdc735ffb223c0648464af3a48c` 为准。
+`b629380162aa8275418b643e10a16e96a65d0b36`（提交 `b629380`）为准。当前真机候选以
+`5a31427` 配套的 `b629380` 和完整来源指纹 `b629380162aa8275418b643e10a16e96a65d0b36` 为准。
 
 本节对应的当前服务端生产候选为 `5a31427`；下方保留的 `398be8e`、`687690e`、`c26e696` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 
