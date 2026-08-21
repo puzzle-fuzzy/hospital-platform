@@ -89,7 +89,19 @@
 
 这证明反向代理已把新 `current` 的 API 正确转发到 `18081`，但不等于真实微信登录、就诊人切换、预约历史、报告或门诊费用业务已经完成验收。
 
-## 5. 下一步与停止条件
+## 5. 切换后低敏日志观察
+
+切换后从 `2026-08-22 00:42 CST` 起读取新 API unit 的 journald JSON，并通过当前 release 的低敏聚合器处理：
+
+- `parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`；
+- 事件只包含 `service.started`、`http.request.completed`、`http.request.failed`、`service.stop.requested` 和 `service.stopped`；
+- `domainCounts` 只有 `infrastructure`，`providerRequestIdCount=0`；
+- HTTP `200=7`、`401=8`、`404=7`，均与本次运行层 smoke 的健康、认证和关闭边界一致；
+- 未出现微信登录、患者同步/切换、预约历史、爽约、报告、门诊费用或 Provider 业务事件。
+
+因此当前服务端还没有收到可绑定到小程序真机候选的业务流量；该结果是“业务证据为空窗口”，不是业务失败，也不升级任何业务域验收等级。
+
+## 6. 下一步与停止条件
 
 下一步按业务风险顺序进行：
 
