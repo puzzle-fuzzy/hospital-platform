@@ -340,7 +340,6 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	syncPatientDirectoryForLoad(loadToken: number): Promise<void> {
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
 		if (!listLoadGuard.isCurrent(loadToken)) return Promise.resolve();
-		const sessionGeneration = markPatientSelectionSession(this);
 
 		const patientSyncFlight = getPageSingleFlight<Array<Patient>>(
 			this,
@@ -363,23 +362,21 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		return patientSyncFlight
 			.run(() => syncPatientsFromHospital("patient-selection-sync"))
 			.then((patients) => {
-				if (!isCurrentSessionGeneration(sessionGeneration)) {
-					// 同步 Promise 已经完成也不能放宽会话边界：账号可能恰好在
-					// Provider 返回与页面回写之间发生切换。统一交给 catch 走
-					// owner 失效清理，不让旧快照进入当前选择页。
-					throw new ApiError(
-						"Session changed while patient directory was pending",
-						{
-							code: "session-changed",
-						},
-					);
-				}
 				if (
 					!listLoadGuard.isCurrent(loadToken) ||
 					!syncGuard.isCurrent(syncToken)
 				) {
 					return;
 				}
+				/**
+				 * `syncPatientsFromHospital` 内部会先验证 `/me`，GET 在 401 时
+				 * 可以安全换取新平台会话并推进代际。因此不能在 Promise 发起前
+				 * 固定旧代际，否则“旧 token → 自动恢复 → 新 token”的正常成功
+				 * 路径会被误判为旧结果。requestWithSession 已在同一请求的响应
+				 * 边界校验代际和 token；此处只在当前页面令牌仍有效时记录成功
+				 * 快照所属代际，供后续点击患者时做 owner 校验。
+				 */
+				markPatientSelectionSession(this);
 				this.setPatientList(patients);
 				this.setData({
 					selectionReady: hasClinicallyReadyPatients(patients),

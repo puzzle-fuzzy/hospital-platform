@@ -551,6 +551,21 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	expect(selection).toContain('"patient-list-load"');
 	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken)");
 	expect(selection).toContain("后发调用方仍要消费同一个患者数组");
+	// 同步内部的 /me 可能在 401 后安全恢复会话并推进代际；页面只能在
+	// 成功快照和当前页面令牌均确认后记录代际，不能在 Promise 发起前固定旧代际。
+	const syncBodyStart = selection.indexOf(
+		"syncPatientDirectoryForLoad(loadToken: number)",
+	);
+	const syncBody = selection.slice(syncBodyStart);
+	const sessionMarkIndex = syncBody.indexOf(
+		"markPatientSelectionSession(this)",
+	);
+	const syncResultIndex = syncBody.indexOf(".then((patients) => {");
+	const pageGuardIndex = syncBody.indexOf(
+		"!listLoadGuard.isCurrent(loadToken)",
+	);
+	expect(sessionMarkIndex).toBeGreaterThan(syncResultIndex);
+	expect(sessionMarkIndex).toBeGreaterThan(pageGuardIndex);
 	expect(home).toContain("patient-sync:");
 	expect(home).toContain("getSessionGeneration()");
 	expect(selection).toContain("patient-sync:");
