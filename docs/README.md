@@ -88,6 +88,7 @@
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前验收候选请改读 `6677671`，本记录不替代真机、Provider 或服务端日志证据 |
 | [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 当前 `6677671` 候选的扫码前门禁、真机操作顺序和三层证据清单 |
 | [`release/miniprogram-real-device-evidence-template-6677671.md`](release/miniprogram-real-device-evidence-template-6677671.md) | 当前 `6677671` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；空白模板不代表验收通过 |
+| [`release/miniprogram-device-qr-session-2026-08-21-0810.md`](release/miniprogram-device-qr-session-2026-08-21-0810.md) | 当前 `6677671` 候选 08:10 CST 重新编译后的 iOS/局域网二维码扫码前记录；尚未形成真机业务证据 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0705.md`](release/miniprogram-device-qr-session-2026-08-21-0705.md) | 历史 `9340846` 候选的 iOS/局域网真机二维码会话；当前二维码必须从 `6677671` 候选重新生成，仅证明二维码与运行包边界，不代表手机业务验收成功 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0658.md`](release/miniprogram-device-qr-session-2026-08-21-0658.md) | 历史 `c08378b` 候选的二维码会话；已被当前 `6677671` 候选替代，不得用于当前真机验收 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0644.md`](release/miniprogram-device-qr-session-2026-08-21-0644.md) | 历史 `6ce1272` 候选的 iOS/局域网二维码会话；已被当前 `6677671` 候选替代，不得用于当前真机验收 |
