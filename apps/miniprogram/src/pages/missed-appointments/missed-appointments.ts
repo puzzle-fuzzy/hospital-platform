@@ -34,6 +34,7 @@ type MissedAppointmentsPageMethods = {
 	onChangePatient(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
+	isPatientContextCurrent(): boolean;
 	showError(error: unknown, fallback: string): void;
 	toRecordView(
 		record: AppointmentRecord,
@@ -47,6 +48,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		hasShown: false,
 		sessionState: "checking",
 		selectedPatient: null,
+		patientSessionGeneration: -1,
 		records: [],
 		visibleRecords: [],
 		visibleRecordCount: 0,
@@ -93,6 +95,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			// 爽约记录是当前患者预约历史的派生结果；新患者查询开始后不能继续
 			// 展示上一位患者的卡片或记录，避免身份和列表短暂错配。
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],
 			visibleRecordCount: 0,
@@ -159,6 +162,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 					visibleRecordCount,
 					hasMoreRecords: visibleRecordCount < missedRecords.length,
 					selectedPatient: patient,
+					patientSessionGeneration: expectedSessionGeneration,
 					error: "",
 				});
 			})
@@ -181,6 +185,12 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 
 	/** 只展开当前已筛选的 missed 结果，不重新查询或改变状态判定。 */
 	onLoadMore(): void {
+		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
+			// 旧患者的本地分页窗口不能跨会话继续展开；重新读取当前 owner
+			// 的患者和爽约派生结果，避免把视觉分页误当作仍然有效的业务事实。
+			void this.loadRecords();
+			return;
+		}
 		const nextCount = Math.min(
 			this.data.visibleRecordCount + MISSED_APPOINTMENT_PAGE_SIZE,
 			this.data.records.length,
@@ -219,6 +229,16 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		disposePageInstance(this);
 	},
 
+	/** 爽约列表的本地展开和患者入口必须与提交列表时的会话代际一致。 */
+	isPatientContextCurrent(): boolean {
+		const patientId = this.data.selectedPatient?.id;
+		return (
+			typeof patientId === "string" &&
+			this.data.patientSessionGeneration === getSessionGeneration() &&
+			isCurrentSelectedPatient(patientId)
+		);
+	},
+
 	showError(error: unknown, fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
@@ -227,6 +247,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		this.setData({
 			error: message,
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],
 			visibleRecordCount: 0,

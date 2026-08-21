@@ -821,6 +821,29 @@ test("患者范围页面把会话代际贯穿到患者和业务结果提交", as
 	expect(detail).toContain("assertSessionGeneration(");
 });
 
+test("患者范围只读页面阻断跨会话本地列表事件", async () => {
+	const pageFiles = [
+		"pages/appointment-records/appointment-records.ts",
+		"pages/missed-appointments/missed-appointments.ts",
+		"pages/report-directory/report-directory.ts",
+	] as const;
+
+	for (const file of pageFiles) {
+		const page = await source(file);
+		// 患者卡片提交时必须保存会话代际，不能只保存 patientId；账号切换后
+		// 即使偶然复用同一个 opaque patientId，旧页面也必须失去本地事件资格。
+		expect(page).toContain("patientSessionGeneration: -1");
+		expect(page).toContain(
+			"patientSessionGeneration: expectedSessionGeneration",
+		);
+		expect(page).toContain("isPatientContextCurrent(): boolean");
+		expect(page).toContain(
+			"this.data.patientSessionGeneration === getSessionGeneration()",
+		);
+		expect(page).toContain("void this.load");
+	}
+});
+
 test("native my page separates ordinary profile from family patient selection", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");

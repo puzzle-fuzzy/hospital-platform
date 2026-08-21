@@ -61,6 +61,7 @@ type ReportDirectoryPageMethods = {
 	onLoadMore(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
+	isPatientContextCurrent(): boolean;
 	showError(error: unknown, fallback: string): void;
 	toView(
 		report: Report,
@@ -74,6 +75,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		hasShown: false,
 		sessionState: "checking",
 		selectedPatient: null,
+		patientSessionGeneration: -1,
 		reports: [],
 		visibleReports: [],
 		reportCount: 0,
@@ -111,6 +113,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			error: "",
 			sessionState: "checking",
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			reports: [],
 			visibleReports: [],
 			reportCount: 0,
@@ -163,6 +166,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				const visibleReportCount = Math.min(REPORT_PAGE_SIZE, reports.length);
 				this.setData({
 					selectedPatient: patient,
+					patientSessionGeneration: expectedSessionGeneration,
 					reports,
 					visibleReports: reports.slice(0, visibleReportCount),
 					reportCount: payload.total,
@@ -211,7 +215,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			wx.showToast({ title: "请先选择就诊人", icon: "none" });
 			return;
 		}
-		if (!isCurrentSelectedPatient(patientId)) {
+		if (!this.isPatientContextCurrent()) {
 			// 另一个页面可能已经切换了就诊人，但旧报告卡片的事件仍然晚到。
 			// 这里先在客户端阻断旧 patientId，避免把合法但属于上一位患者的
 			// opaque 详情引用带入详情页；服务端 owner 校验仍是最后一道边界。
@@ -224,6 +228,12 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	},
 
 	onLoadMore(): void {
+		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
+			// 报告分页只改变本地窗口，但窗口仍属于患者范围读模型；会话
+			// 漂移时必须先重建目录，不能把旧报告继续暴露给新会话。
+			void this.loadPage();
+			return;
+		}
 		const nextCount = Math.min(
 			this.data.visibleReportCount + REPORT_PAGE_SIZE,
 			this.data.reports.length,
@@ -242,6 +252,16 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	/** 页面卸载后让报告目录请求失去回写资格。 */
 	onUnload(): void {
 		disposePageInstance(this);
+	},
+
+	/** 报告目录和详情入口必须同时满足患者选择与会话代际门禁。 */
+	isPatientContextCurrent(): boolean {
+		const patientId = this.data.selectedPatient?.id;
+		return (
+			typeof patientId === "string" &&
+			this.data.patientSessionGeneration === getSessionGeneration() &&
+			isCurrentSelectedPatient(patientId)
+		);
 	},
 
 	toView(
@@ -266,6 +286,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		this.setData({
 			error: message,
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			reports: [],
 			visibleReports: [],
 			// 计数和分页标记都是同一份临床列表读模型的派生状态；请求失败

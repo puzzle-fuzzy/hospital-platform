@@ -254,6 +254,8 @@ export type AppointmentRecordsPageData = {
 	/** 只有 `/me` 验证成功后，页面才允许进入就诊人选择入口。 */
 	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
+	/** 当前预约记录卡片所属的会话代际；-1 表示本轮患者读模型尚未提交。 */
+	patientSessionGeneration: number;
 	/** 当前查询得到的完整预约记录；总数和状态事实不能被本地分批改变。 */
 	records: Array<AppointmentRecordView>;
 	/** 当前真正交给 WXML 的预约记录窗口，避免历史数据过多时一次性渲染。 */
@@ -280,6 +282,8 @@ export type MissedAppointmentsPageData = {
 	/** 爽约记录属于受保护患者业务，入口必须消费真实会话验证状态。 */
 	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
+	/** 当前爽约记录所属的会话代际；避免页面停留时继续消费旧账号快照。 */
+	patientSessionGeneration: number;
 	/** 完整的 missed 派生结果；它不是 provider 分页，也不能被截断后误报为空。 */
 	records: Array<AppointmentRecordView>;
 	/** 当前交给 WXML 的局部窗口；只影响渲染成本，不改变 missed 筛选规则。 */
@@ -309,6 +313,8 @@ export type ReportDirectoryPageData = {
 	/** 报告目录的更换患者入口不能用本地 token 存在替代 `/me` 验证。 */
 	sessionState: SessionVerificationState;
 	selectedPatient: Patient | null;
+	/** 当前报告目录所属的会话代际；详情事件必须和这代患者上下文一致。 */
+	patientSessionGeneration: number;
 	reports: Array<ReportDirectoryView>;
 	visibleReports: Array<ReportDirectoryView>;
 	reportCount: number;

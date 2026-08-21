@@ -58,6 +58,7 @@ type AppointmentRecordsPageMethods = {
 	stopLocationPropagation(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
+	isPatientContextCurrent(): boolean;
 	showError(error: unknown, fallback: string): void;
 	toRecordView(
 		record: AppointmentRecord,
@@ -143,6 +144,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		hasShown: false,
 		sessionState: "checking",
 		selectedPatient: null,
+		patientSessionGeneration: -1,
 		records: [],
 		visibleRecords: [],
 		visibleRecordCount: 0,
@@ -185,6 +187,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			error: "",
 			sessionState: "checking",
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],
 			visibleRecordCount: 0,
@@ -234,6 +237,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					);
 					this.setData({
 						selectedPatient: patient,
+						patientSessionGeneration: expectedSessionGeneration,
 						records: mappedRecords,
 						...visibleState,
 						error: "",
@@ -257,6 +261,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/** 只展开当前 owner-scoped 查询已经取得的结果，不重新请求 provider。 */
 	onLoadMore(): void {
+		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
+			// 页面停留期间若另一页完成了换号，不能继续展开旧患者的本地快照；
+			// 重新走 `/me` → 患者目录 → 记录组合读取，避免视觉状态先于业务事实漂移。
+			void this.loadRecords();
+			return;
+		}
 		const filteredRecords = filterAppointmentRecords(
 			this.data.records,
 			this.data.activeTab,
@@ -286,6 +296,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		const activeTab = tab as AppointmentRecordTab;
 		if (!isAppointmentRecordTabAvailable(activeTab)) {
 			wx.showToast({ title: "全部挂号查询正在迁移中", icon: "none" });
+			return;
+		}
+		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
+			// 标签切换虽然是本地动作，但它会改变当前列表视图；旧会话的列表
+			// 不应在新会话已经建立后继续被用户消费。
+			void this.loadRecords();
 			return;
 		}
 		this.setData({
@@ -339,6 +355,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	 * 所以这里必须给出明确的迁移状态，不能把 WXML 的列表索引拼成详情 URL。
 	 */
 	onRecordTap(event: ViewKeyEvent): void {
+		if (!this.isPatientContextCurrent()) return;
 		const record = findVisibleRecord(
 			this.data.visibleRecords,
 			event.currentTarget?.dataset?.viewKey,
@@ -354,6 +371,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/** 旧端预问诊目标页尚未完成独立 contract，保留入口位置但不伪造跳转。 */
 	onPreVisit(event: ViewKeyEvent): void {
+		if (!this.isPatientContextCurrent()) return;
 		if (
 			!findVisibleRecord(
 				this.data.visibleRecords,
@@ -369,6 +387,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	 * 不把科室名称拼接成未经审核的楼层或诊室。
 	 */
 	onHospitalGuide(event: ViewKeyEvent): void {
+		if (!this.isPatientContextCurrent()) return;
 		const record = findVisibleRecord(
 			this.data.visibleRecords,
 			event.currentTarget?.dataset?.viewKey,
@@ -398,6 +417,22 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		disposePageInstance(this);
 	},
 
+	/**
+	 * 本地列表动作也要绑定页面提交时的会话代际。
+	 *
+	 * `isCurrentSelectedPatient` 只能确认当前 storage 选择仍是同一个患者；
+	 * 账号切换后即使恰好复用了相同的 opaque patientId，也必须由代际检查阻断
+	 * 旧页面事件，避免把旧账号的视图当作新账号事实继续展示或导航。
+	 */
+	isPatientContextCurrent(): boolean {
+		const patientId = this.data.selectedPatient?.id;
+		return (
+			typeof patientId === "string" &&
+			this.data.patientSessionGeneration === getSessionGeneration() &&
+			isCurrentSelectedPatient(patientId)
+		);
+	},
+
 	showError(error: unknown, fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
@@ -406,6 +441,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		this.setData({
 			error: message,
 			selectedPatient: null,
+			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],
 			visibleRecordCount: 0,
