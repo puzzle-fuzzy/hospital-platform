@@ -654,6 +654,25 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 	}
 });
 
+test("患者范围页面区分会话失效与业务读取失败", async () => {
+	const pages = [
+		"pages/appointment-records/appointment-records.ts",
+		"pages/missed-appointments/missed-appointments.ts",
+		"pages/report-directory/report-directory.ts",
+		"pages/outpatient-payment/outpatient-payment.ts",
+		"pages/my/my.ts",
+	] as const;
+
+	for (const file of pages) {
+		const page = await source(file);
+		// `/me` 成功后的患者/报告/费用读取失败，不能把“未选患者”或
+		// Provider 暂时故障错误地降级成不可导航的 unavailable；只有 401、
+		// session-changed 或恢复后确实没有 token 才改变入口门禁。
+		expect(page).toContain("sessionStateAfterAuthenticatedReadError");
+		expect(page).toContain("hasPlatformSession()");
+	}
+});
+
 test("患者范围只读页面开始新查询前统一清空旧读模型", async () => {
 	const pages = [
 		{
@@ -1466,7 +1485,7 @@ test("outpatient payment tab failures refresh the session entry state", async ()
 	const statusEnd = payment.indexOf("\n\t},", statusStart);
 	const statusBody = payment.slice(statusStart, statusEnd);
 	const errorStateIndex = statusBody.indexOf(
-		"sessionState: sessionVerificationStateFromError(error)",
+		"sessionState: sessionStateAfterAuthenticatedReadError(",
 	);
 	const errorClearIndex = statusBody.indexOf(
 		'this.showError(error, "门诊缴费记录加载失败")',

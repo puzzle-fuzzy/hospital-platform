@@ -24,6 +24,7 @@ import { assertSessionGeneration } from "../../services/session-boundary";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
+	sessionStateAfterAuthenticatedReadError,
 	sessionVerificationStateFromError,
 } from "../../services/session-service";
 import type { ActionEvent, MyPageData } from "../../types";
@@ -308,6 +309,13 @@ Page<MyPageData, MyPageMethods>({
 						});
 						return;
 					}
+					this.setData({
+						sessionState: sessionStateAfterAuthenticatedReadError(
+							error,
+							this.data.sessionState,
+							hasPlatformSession(),
+						),
+					});
 					this.showError(error, "我的页面加载失败");
 				}
 			})

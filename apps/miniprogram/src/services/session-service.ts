@@ -1,15 +1,15 @@
-import {
-	ApiError,
-	getCurrentUser,
-	isUsableAccessToken,
-	login,
-} from "./api-client";
 import type {
 	AuthSessionResponse,
 	CurrentUserResponse,
 	SessionLabel,
 	SessionVerificationState,
 } from "../types";
+import {
+	ApiError,
+	getCurrentUser,
+	isUsableAccessToken,
+	login,
+} from "./api-client";
 
 /** 会话状态只在这一层写入全局，页面层只消费本地化后的显示文案。 */
 export const SESSION_STATES = Object.freeze({
@@ -27,6 +27,35 @@ export function sessionVerificationStateFromError(
 		return "invalid";
 	}
 	return "unavailable";
+}
+
+/**
+ * 将“完成 `/me` 验证后的后续读取错误”映射为页面入口状态。
+ *
+ * `sessionVerificationStateFromError` 只适合 `/me` 或登录恢复本身：那时
+ * 请求失败就是会话验证没有完成。患者目录、报告、挂号和费用读取不同，
+ * 它们可能只因为没有患者、没有临床映射、Provider 暂时不可用或返回空
+ * 结果而失败；这些业务错误不能覆盖已经确认的 `valid`，否则“更换就诊人”
+ * 会被错误地拦截。只有明确的 401、会话代际变化，或恢复过程中已经没有
+ * 可用 token 时，才允许改变入口门禁。
+ */
+export function sessionStateAfterAuthenticatedReadError(
+	error: unknown,
+	currentState: SessionVerificationState,
+	sessionStillPresent: boolean,
+): SessionVerificationState {
+	// `/me` 已经失败时，调用方在前置 Promise 的 rejection 分支中写入了
+	// 权威状态；后续 catch 不能再用业务错误把 invalid 改成
+	// unavailable，也不能把 unavailable 误报成 valid。
+	if (currentState !== "valid") return currentState;
+	if (error instanceof ApiError && error.code === "unauthorized") {
+		return "invalid";
+	}
+	if (error instanceof ApiError && error.code === "session-changed") {
+		return "checking";
+	}
+	if (!sessionStillPresent) return sessionVerificationStateFromError(error);
+	return "valid";
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ApiError } from "./api-client";
 import {
+	sessionStateAfterAuthenticatedReadError,
 	sessionVerificationStateFromError,
 	sessionVerificationStateFromLabel,
 } from "./session-service";
@@ -26,6 +27,50 @@ describe("会话验证错误状态", () => {
 		expect(sessionVerificationStateFromError(new Error("network"))).toBe(
 			"unavailable",
 		);
+	});
+});
+
+describe("已验证会话后的业务读取状态", () => {
+	test("患者未选择等业务错误不能覆盖 valid", () => {
+		expect(
+			sessionStateAfterAuthenticatedReadError(
+				new ApiError("patient is required", {
+					code: "patient-selection-required",
+				}),
+				"valid",
+				true,
+			),
+		).toBe("valid");
+	});
+
+	test("后续读取再次收到 401 时标记为 invalid", () => {
+		expect(
+			sessionStateAfterAuthenticatedReadError(
+				new ApiError("expired", { code: "unauthorized", statusCode: 401 }),
+				"valid",
+				false,
+			),
+		).toBe("invalid");
+	});
+
+	test("会话代际变化要求重新验证，而不是继续使用旧页面快照", () => {
+		expect(
+			sessionStateAfterAuthenticatedReadError(
+				new ApiError("changed", { code: "session-changed" }),
+				"valid",
+				true,
+			),
+		).toBe("checking");
+	});
+
+	test("恢复失败且本地没有 token 时保持暂不可用", () => {
+		expect(
+			sessionStateAfterAuthenticatedReadError(
+				new ApiError("network", { code: "network-failed" }),
+				"valid",
+				false,
+			),
+		).toBe("unavailable");
 	});
 });
 

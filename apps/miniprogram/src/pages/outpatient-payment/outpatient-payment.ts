@@ -16,7 +16,10 @@ import {
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import { getSessionGeneration } from "../../services/session-generation";
-import { sessionVerificationStateFromError } from "../../services/session-service";
+import {
+	hasPlatformSession,
+	sessionStateAfterAuthenticatedReadError,
+} from "../../services/session-service";
 import type {
 	OutpatientPaymentPageData,
 	OutpatientPaymentRecord,
@@ -159,7 +162,11 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
 					this.setData({
-						sessionState: sessionVerificationStateFromError(error),
+						sessionState: sessionStateAfterAuthenticatedReadError(
+							error,
+							this.data.sessionState,
+							hasPlatformSession(),
+						),
 					});
 				}
 				if (loadGuard.isCurrent(requestToken)) {
@@ -277,7 +284,11 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 					// invalid/unavailable，再清空费用列表；否则页面虽然显示
 					// 错误，后续“更换就诊人”仍会拿旧的 valid 放行。
 					this.setData({
-						sessionState: sessionVerificationStateFromError(error),
+						sessionState: sessionStateAfterAuthenticatedReadError(
+							error,
+							this.data.sessionState,
+							hasPlatformSession(),
+						),
 					});
 					this.showError(error, "门诊缴费记录加载失败");
 				}

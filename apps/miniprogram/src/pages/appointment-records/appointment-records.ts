@@ -20,7 +20,10 @@ import {
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import { getSessionGeneration } from "../../services/session-generation";
-import { sessionVerificationStateFromError } from "../../services/session-service";
+import {
+	hasPlatformSession,
+	sessionStateAfterAuthenticatedReadError,
+} from "../../services/session-service";
 import type {
 	AppointmentRecord,
 	AppointmentRecordsPageData,
@@ -247,7 +250,11 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
 					this.setData({
-						sessionState: sessionVerificationStateFromError(error),
+						sessionState: sessionStateAfterAuthenticatedReadError(
+							error,
+							this.data.sessionState,
+							hasPlatformSession(),
+						),
 					});
 				}
 				if (loadGuard.isCurrent(requestToken)) {
