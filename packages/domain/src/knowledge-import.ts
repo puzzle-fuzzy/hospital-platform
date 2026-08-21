@@ -82,6 +82,337 @@ function fail(path: string): never {
 	throw new HealthKnowledgeImportValidationError(path);
 }
 
+function asRecord(value: unknown, path: string): Record<string, unknown> {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		fail(path);
+	}
+	return value as Record<string, unknown>;
+}
+
+/**
+ * 导入 JSON 不允许静默丢字段。
+ *
+ * 内容导出如果混入患者姓名、身份证号或未来尚未纳入版本契约的字段，
+ * 直接忽略会让导入人员误以为“数据完整”。这里先拒绝未知字段，再进入
+ * 领域关系校验；错误只暴露字段路径，不打印字段值或正文。
+ */
+function assertAllowedKeys(
+	record: Record<string, unknown>,
+	allowedKeys: readonly string[],
+	path: string,
+): void {
+	for (const key of Object.keys(record)) {
+		if (!allowedKeys.includes(key)) fail(`${path}.${key}`);
+	}
+}
+
+function requiredString(value: unknown, path: string): string {
+	if (typeof value !== "string") fail(path);
+	return value;
+}
+
+function optionalString(value: unknown, path: string): string | undefined {
+	if (value === undefined) return undefined;
+	return requiredString(value, path);
+}
+
+function requiredBoolean(value: unknown, path: string): boolean {
+	if (typeof value !== "boolean") fail(path);
+	return value;
+}
+
+function requiredArray(value: unknown, path: string): readonly unknown[] {
+	if (!Array.isArray(value)) fail(path);
+	return value;
+}
+
+function parsePublication(
+	value: unknown,
+	path: string,
+): HealthKnowledgeImportPublication {
+	const record = asRecord(value, path);
+	assertAllowedKeys(
+		record,
+		[
+			"contentVersion",
+			"status",
+			"reviewedAt",
+			"sourceLabel",
+			"disclaimer",
+			"reviewerRef",
+			"effectiveFrom",
+			"effectiveTo",
+		],
+		path,
+	);
+	const publication: HealthKnowledgeImportPublication = {
+		contentVersion: requiredString(
+			record.contentVersion,
+			`${path}.contentVersion`,
+		),
+		status: requiredString(
+			record.status,
+			`${path}.status`,
+		) as HealthKnowledgeImportStatus,
+		reviewedAt: requiredString(record.reviewedAt, `${path}.reviewedAt`),
+		sourceLabel: requiredString(record.sourceLabel, `${path}.sourceLabel`),
+		disclaimer: requiredString(record.disclaimer, `${path}.disclaimer`),
+	};
+	const reviewerRef = optionalString(record.reviewerRef, `${path}.reviewerRef`);
+	const effectiveFrom = optionalString(
+		record.effectiveFrom,
+		`${path}.effectiveFrom`,
+	);
+	const effectiveTo = optionalString(record.effectiveTo, `${path}.effectiveTo`);
+	if (reviewerRef !== undefined) publication.reviewerRef = reviewerRef;
+	if (effectiveFrom !== undefined) publication.effectiveFrom = effectiveFrom;
+	if (effectiveTo !== undefined) publication.effectiveTo = effectiveTo;
+	return publication;
+}
+
+function parseItem(value: unknown, path: string): HealthKnowledgeImportItem {
+	const record = asRecord(value, path);
+	assertAllowedKeys(record, ["id", "kind", "name", "initialLetter"], path);
+	const item: HealthKnowledgeImportItem = {
+		id: requiredString(record.id, `${path}.id`),
+		kind: requiredString(
+			record.kind,
+			`${path}.kind`,
+		) as HealthKnowledgeImportItemKind,
+		name: requiredString(record.name, `${path}.name`),
+	};
+	const initialLetter = optionalString(
+		record.initialLetter,
+		`${path}.initialLetter`,
+	);
+	if (initialLetter !== undefined) item.initialLetter = initialLetter;
+	return item;
+}
+
+function parseDrugReference(
+	value: unknown,
+	path: string,
+): HealthKnowledgeDrugReference {
+	const record = asRecord(value, path);
+	assertAllowedKeys(record, ["drugId", "drugName", "isClickable"], path);
+	const reference: HealthKnowledgeDrugReference = {
+		drugName: requiredString(record.drugName, `${path}.drugName`),
+		isClickable: requiredBoolean(record.isClickable, `${path}.isClickable`),
+	};
+	const drugId = optionalString(record.drugId, `${path}.drugId`);
+	if (drugId !== undefined) reference.drugId = drugId;
+	return reference;
+}
+
+function parseDiseaseDetail(
+	value: unknown,
+	path: string,
+): HealthKnowledgeImportDisease {
+	const record = asRecord(value, path);
+	assertAllowedKeys(
+		record,
+		[
+			"id",
+			"diseaseName",
+			"diseaseAlias",
+			"affectedPart",
+			"treatmentDepartment",
+			"susceptibleCrowd",
+			"availableDrugs",
+			"cause",
+			"symptoms",
+			"examination",
+			"prevention",
+			"treatment",
+		],
+		path,
+	);
+	const availableDrugs = requiredArray(
+		record.availableDrugs,
+		`${path}.availableDrugs`,
+	).map((drug, index) =>
+		parseDrugReference(drug, `${path}.availableDrugs[${index}]`),
+	);
+	const detail: HealthKnowledgeImportDisease = {
+		id: requiredString(record.id, `${path}.id`),
+		diseaseName: requiredString(record.diseaseName, `${path}.diseaseName`),
+		availableDrugs,
+	};
+	const optionalFields = {
+		diseaseAlias: optionalString(record.diseaseAlias, `${path}.diseaseAlias`),
+		affectedPart: optionalString(record.affectedPart, `${path}.affectedPart`),
+		treatmentDepartment: optionalString(
+			record.treatmentDepartment,
+			`${path}.treatmentDepartment`,
+		),
+		susceptibleCrowd: optionalString(
+			record.susceptibleCrowd,
+			`${path}.susceptibleCrowd`,
+		),
+		cause: optionalString(record.cause, `${path}.cause`),
+		symptoms: optionalString(record.symptoms, `${path}.symptoms`),
+		examination: optionalString(record.examination, `${path}.examination`),
+		prevention: optionalString(record.prevention, `${path}.prevention`),
+		treatment: optionalString(record.treatment, `${path}.treatment`),
+	};
+	for (const [key, value] of Object.entries(optionalFields)) {
+		if (value !== undefined) {
+			(detail as Record<string, unknown>)[key] = value;
+		}
+	}
+	return detail;
+}
+
+function parseDrugDetail(
+	value: unknown,
+	path: string,
+): HealthKnowledgeDrugDetail {
+	const record = asRecord(value, path);
+	assertAllowedKeys(
+		record,
+		[
+			"id",
+			"drugName",
+			"manufacturer",
+			"chineseName",
+			"specifications",
+			"treatableDiseases",
+			"indications",
+			"usageDosage",
+			"adverseReactions",
+			"contraindications",
+			"interactions",
+			"precautions",
+		],
+		path,
+	);
+	const detail: HealthKnowledgeDrugDetail = {
+		id: requiredString(record.id, `${path}.id`),
+		drugName: requiredString(record.drugName, `${path}.drugName`),
+	};
+	const optionalFields = {
+		manufacturer: optionalString(record.manufacturer, `${path}.manufacturer`),
+		chineseName: optionalString(record.chineseName, `${path}.chineseName`),
+		specifications: optionalString(
+			record.specifications,
+			`${path}.specifications`,
+		),
+		treatableDiseases: optionalString(
+			record.treatableDiseases,
+			`${path}.treatableDiseases`,
+		),
+		indications: optionalString(record.indications, `${path}.indications`),
+		usageDosage: optionalString(record.usageDosage, `${path}.usageDosage`),
+		adverseReactions: optionalString(
+			record.adverseReactions,
+			`${path}.adverseReactions`,
+		),
+		contraindications: optionalString(
+			record.contraindications,
+			`${path}.contraindications`,
+		),
+		interactions: optionalString(record.interactions, `${path}.interactions`),
+		precautions: optionalString(record.precautions, `${path}.precautions`),
+	};
+	for (const [key, value] of Object.entries(optionalFields)) {
+		if (value !== undefined) {
+			(detail as Record<string, unknown>)[key] = value;
+		}
+	}
+	return detail;
+}
+
+function parseDiseaseRelation(
+	value: unknown,
+	path: string,
+): HealthKnowledgeImportDiseaseRelation {
+	const record = asRecord(value, path);
+	assertAllowedKeys(record, ["kind", "relationId", "diseaseId"], path);
+	return {
+		kind: requiredString(
+			record.kind,
+			`${path}.kind`,
+		) as HealthKnowledgeImportDiseaseRelation["kind"],
+		relationId: requiredString(record.relationId, `${path}.relationId`),
+		diseaseId: requiredString(record.diseaseId, `${path}.diseaseId`),
+	};
+}
+
+function parsePair(
+	value: unknown,
+	path: string,
+): { partId: string; symptomId: string } {
+	const record = asRecord(value, path);
+	assertAllowedKeys(record, ["partId", "symptomId"], path);
+	return {
+		partId: requiredString(record.partId, `${path}.partId`),
+		symptomId: requiredString(record.symptomId, `${path}.symptomId`),
+	};
+}
+
+function parseSymptomDisease(
+	value: unknown,
+	path: string,
+): { symptomId: string; diseaseId: string } {
+	const record = asRecord(value, path);
+	assertAllowedKeys(record, ["symptomId", "diseaseId"], path);
+	return {
+		symptomId: requiredString(record.symptomId, `${path}.symptomId`),
+		diseaseId: requiredString(record.diseaseId, `${path}.diseaseId`),
+	};
+}
+
+/**
+ * JSON 文件进入领域校验前，先变成明确的导入结构。
+ *
+ * 这一步不做任何 SQL、网络或日志副作用；它只是把运行时 unknown 解析成
+ * 允许的字段集合，避免缺字段时出现普通 TypeError，也避免未知字段被静默
+ * 丢弃后继续写库。
+ */
+function parseImportBundle(value: unknown): HealthKnowledgeImportBundle {
+	const record = asRecord(value, "bundle");
+	assertAllowedKeys(
+		record,
+		[
+			"publication",
+			"items",
+			"diseaseDetails",
+			"drugDetails",
+			"diseaseRelations",
+			"partSymptoms",
+			"symptomDiseases",
+		],
+		"bundle",
+	);
+	return {
+		publication: parsePublication(record.publication, "publication"),
+		items: requiredArray(record.items, "items").map((item, index) =>
+			parseItem(item, `items[${index}]`),
+		),
+		diseaseDetails: requiredArray(record.diseaseDetails, "diseaseDetails").map(
+			(detail, index) => parseDiseaseDetail(detail, `diseaseDetails[${index}]`),
+		),
+		drugDetails: requiredArray(record.drugDetails, "drugDetails").map(
+			(detail, index) => parseDrugDetail(detail, `drugDetails[${index}]`),
+		),
+		diseaseRelations: requiredArray(
+			record.diseaseRelations,
+			"diseaseRelations",
+		).map((relation, index) =>
+			parseDiseaseRelation(relation, `diseaseRelations[${index}]`),
+		),
+		partSymptoms: requiredArray(record.partSymptoms, "partSymptoms").map(
+			(relation, index) => parsePair(relation, `partSymptoms[${index}]`),
+		),
+		symptomDiseases: requiredArray(
+			record.symptomDiseases,
+			"symptomDiseases",
+		).map((relation, index) =>
+			parseSymptomDisease(relation, `symptomDiseases[${index}]`),
+		),
+	};
+}
+
 type ImportTextOptions = {
 	/** 医疗正文允许换行，导入规则必须与患者端读模型保持一致。 */
 	allowLineBreaks?: boolean;
@@ -361,7 +692,7 @@ function validateRelations(
  * 在任何 SQL 写入之前校验完整 bundle 的引用、版本和发布状态。
  * 该函数不判断医学正文的正确性；临床审核证据必须由导入调用方提供。
  */
-export function validateHealthKnowledgeImportBundle(
+function validateParsedHealthKnowledgeImportBundle(
 	bundle: HealthKnowledgeImportBundle,
 ): HealthKnowledgeImportSummary {
 	validatePublication(bundle.publication);
@@ -390,4 +721,18 @@ export function validateHealthKnowledgeImportBundle(
 			bundle.partSymptoms.length +
 			bundle.symptomDiseases.length,
 	};
+}
+
+/**
+ * 导入边界只接受 unknown，而不是相信调用方的 TypeScript 断言。
+ *
+ * 这样 CLI、后台任务和未来管理端即使直接传入 JSON，也会得到统一的字段
+ * 路径错误；不会因为缺少数组而泄露普通运行时异常，更不会在校验前拿到
+ * 数据库连接。医疗正文的临床正确性仍必须由审核流程负责，本函数只负责
+ * 结构、版本、引用和安全字段边界。
+ */
+export function validateHealthKnowledgeImportBundle(
+	value: unknown,
+): HealthKnowledgeImportSummary {
+	return validateParsedHealthKnowledgeImportBundle(parseImportBundle(value));
 }

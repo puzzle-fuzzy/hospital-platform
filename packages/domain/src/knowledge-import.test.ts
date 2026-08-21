@@ -158,3 +158,38 @@ test("health knowledge import keeps reviewed multiline正文 readable and reject
 		"diseaseDetails[0].symptoms",
 	);
 });
+
+test("health knowledge import turns malformed runtime JSON into stable field errors", () => {
+	expect(() => validateHealthKnowledgeImportBundle(null)).toThrow("bundle");
+	expect(() =>
+		validateHealthKnowledgeImportBundle({
+			...validBundle(),
+			items: undefined,
+		}),
+	).toThrow("items");
+});
+
+test("health knowledge import rejects unknown fields instead of silently dropping them", () => {
+	const bundle = validBundle();
+	const [firstItem, ...restItems] = bundle.items;
+	const withPatientField = {
+		...bundle,
+		items: [
+			{
+				...firstItem,
+				patientName: "不应进入健康知识导入",
+			},
+			...restItems,
+		],
+	};
+
+	expect(() => validateHealthKnowledgeImportBundle(withPatientField)).toThrow(
+		"items[0].patientName",
+	);
+	try {
+		validateHealthKnowledgeImportBundle(withPatientField);
+	} catch (error) {
+		expect(error).toBeInstanceOf(HealthKnowledgeImportValidationError);
+		expect((error as Error).message).not.toContain("不应进入健康知识导入");
+	}
+});

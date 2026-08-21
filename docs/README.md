@@ -275,6 +275,7 @@
 | [`migration/convenience-service-boundaries.md`](migration/convenience-service-boundaries.md) | 便民服务 13 个旧路由、旧表风险、新领域边界、幂等、日志和验收门禁 |
 | [`migration/health-calculator-contract-draft.md`](migration/health-calculator-contract-draft.md) | BMI/血压旧端规则审计、临床确认项、版本化规则和迁移门禁 |
 | [`migration/health-knowledge-content-mapping.md`](migration/health-knowledge-content-mapping.md) | 健康知识旧表映射、版本化导入、审核发布和患者端路由准入边界 |
+| [`migration/health-knowledge-import-runbook.md`](migration/health-knowledge-import-runbook.md) | 脱敏 bundle 的只读检查、审核、staging 事务导入和失败处理顺序 |
 | [`adr/0004-health-knowledge-content-boundary.md`](adr/0004-health-knowledge-content-boundary.md) | 健康知识内容审核、撤回、免责声明和 AI/自测隔离决策 |
 | [`release/health-knowledge-readiness-audit-2026-08-20.md`](release/health-knowledge-readiness-audit-2026-08-20.md) | 当前健康知识代码、内容输入、发布证据和未挂载状态审计 |
 | [`release/health-knowledge-service-input-boundary-audit-2026-08-21.md`](release/health-knowledge-service-input-boundary-audit-2026-08-21.md) | 健康知识 service 分类、关联、ID、症状数组的运行时输入门禁和未挂载边界 |
