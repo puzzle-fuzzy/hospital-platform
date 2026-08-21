@@ -156,7 +156,11 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				);
 				// 患者卡片必须和同一轮报告目录一起提交；只确认目录患者后就
 				// 先展示卡片，会在切换患者或报告请求失败时形成错误的上下文暗示。
-				return loadReports(patient.id).then((payload) => {
+				return loadReports(
+					patient.id,
+					new Date(),
+					expectedSessionGeneration,
+				).then((payload) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,
 						"Report directory session changed before reports were committed",

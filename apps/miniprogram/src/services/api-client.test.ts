@@ -4,6 +4,7 @@ import {
 	isUsableAccessToken,
 	normalizeApiPrefix,
 	request,
+	requestWithStableSession,
 	requestWithSession,
 	requireAuthSessionResponse,
 	requireCanonicalUserProfileResponse,
@@ -98,6 +99,122 @@ test("异常本地 token 不得进入登录前或受保护请求的 Authorizatio
 		await requestWithSession({ url: "/patients" });
 		expect(authorizationHeaders).toEqual(["", "Bearer fresh-session-0001"]);
 		expect(authorizationHeaders).not.toContain("Bearer  token-with-padding ");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("患者范围固定代际读取不自动登录或重放旧 patientId", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let completeRequest: ((response: unknown) => void) | undefined;
+	let requestCount = 0;
+	let loginCount = 0;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "patient-scope-session",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		setStorageSync: (_key: string, value: string) => {
+			globalData.accessToken = value;
+		},
+		removeStorageSync: (_key: string) => {
+			globalData.accessToken = "";
+		},
+		login: () => {
+			loginCount += 1;
+		},
+		request: (options: RequestOptions) => {
+			requestCount += 1;
+			completeRequest = options.success;
+		},
+	};
+
+	try {
+		const expectedGeneration = getSessionGeneration();
+		const pending = requestWithStableSession(
+			{ url: "/appointments/records?patientId=old-patient" },
+			expectedGeneration,
+		);
+		await Promise.resolve();
+		if (!completeRequest) throw new Error("测试请求没有进入微信请求层");
+		completeRequest({
+			statusCode: 401,
+			data: { success: false, error: { code: "unauthorized" } },
+		});
+
+		await expect(pending).rejects.toMatchObject({
+			code: "unauthorized",
+			statusCode: 401,
+		});
+		expect(requestCount).toBe(1);
+		expect(loginCount).toBe(0);
+		expect(globalData.accessToken).toBe("");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("患者范围固定代际读取在真正发出请求前发现会话变化", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let getAppCalls = 0;
+	let requestCount = 0;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "patient-scope-old-session",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => {
+		getAppCalls += 1;
+		if (getAppCalls === 2) {
+			// `requestWithStableSession` 在调用微信请求前仍会复核一次配置；
+			// 这里模拟另一个页面正好在该边界完成账号切换。
+			globalData.accessToken = "patient-scope-new-session";
+			advanceSessionGeneration();
+		}
+		return { globalData };
+	};
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		request: () => {
+			requestCount += 1;
+		},
+	};
+
+	try {
+		const expectedGeneration = getSessionGeneration();
+		await expect(
+			requestWithStableSession(
+				{ url: "/reports?patientId=old-patient" },
+				expectedGeneration,
+			),
+		).rejects.toMatchObject({ code: "session-changed" });
+		expect(requestCount).toBe(0);
 	} finally {
 		testGlobal.getApp = previousGetApp;
 		testGlobal.wx = previousWx;

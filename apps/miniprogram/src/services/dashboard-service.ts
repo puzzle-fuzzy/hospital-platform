@@ -936,6 +936,7 @@ export function loadAppointmentSchedules(
 export function loadOutpatientPaymentRecords(
 	patientId: string,
 	status: "unpaid" | "paid",
+	expectedSessionGeneration: number,
 ): Promise<Array<OutpatientPaymentRecord>> {
 	if (!isOutpatientPaymentStatus(status)) {
 		return Promise.reject(
@@ -946,10 +947,13 @@ export function loadOutpatientPaymentRecords(
 	}
 	// 门诊费用和预约、报告一样属于患者范围查询；即使调用方来自已选患者页面，
 	// 也必须在服务层再次拒绝空标识，不能把“当前页面没有患者”转换成一次无效 API 请求。
-	return requestOutpatientPaymentRecords({
-		patientId: requirePatientId(patientId),
-		status,
-	}).then(
+	return requestOutpatientPaymentRecords(
+		{
+			patientId: requirePatientId(patientId),
+			status,
+		},
+		expectedSessionGeneration,
+	).then(
 		(payload) => requireOutpatientPaymentListData(payload.data, status).items,
 	);
 }
@@ -1043,9 +1047,11 @@ export function loadAppointmentRecords(
 	patientId: string,
 	now = new Date(),
 	window: AppointmentRecordQueryWindow = "history",
+	expectedSessionGeneration: number,
 ): Promise<Array<AppointmentRecord>> {
 	return requestAppointmentRecords(
 		createAppointmentRecordQuery(patientId, now, window),
+		expectedSessionGeneration,
 	).then((payload) => requireAppointmentRecordListData(payload.data).items);
 }
 
@@ -1053,6 +1059,7 @@ export function loadAppointmentRecords(
 export function loadReports(
 	patientId: string,
 	now = new Date(),
+	expectedSessionGeneration: number,
 ): Promise<ReportListResponse["data"]> {
 	const range: ReportQuery = {
 		patientId: requirePatientId(patientId),
@@ -1060,5 +1067,7 @@ export function loadReports(
 	};
 	// 报告响应在 API client 边界已经完成 canonical 校验和白名单投影；
 	// 这里仅取同一份已验证读模型，不再使用泛型把未知 JSON 当作临床事实。
-	return requestReports(range).then((payload) => payload.data);
+	return requestReports(range, expectedSessionGeneration).then(
+		(payload) => payload.data,
+	);
 }

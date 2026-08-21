@@ -1063,6 +1063,61 @@ export async function requestWithSession<TResponse>(
 	}
 }
 
+/**
+ * 在已经确认患者上下文后，使用固定会话代际执行一次只读请求。
+ *
+ * 普通 `requestWithSession` 允许 GET 在 401 后重新登录并重试，这对独立的
+ * `/me`、患者目录等入口读取是安全的；但预约记录、报告和门诊费用请求还
+ * 携带了上一阶段解析出的 opaque `patientId`。如果页面刚完成 `/me` + 患者
+ * 目录确认，随后 token 在真正发请求前被另一页面轮换，自动登录会让旧
+ * `patientId` 在新会话下发出。即使服务端最终按 owner 拒绝，旧患者标识也
+ * 已经越过了错误会话边界。
+ *
+ * 这个入口只接受 GET，且不会自动登录或重放。它在同一个同步调用栈中同时
+ * 固定当前 token 和代际，再交给 `requestForSession`；请求等待期间若会话
+ * 变化，响应会被丢弃。401 只清理仍属于本代的失效 token，调用方必须重新
+ * 完成 `/me`、患者目录和业务查询，不能拿旧 patientId 继续尝试。
+ */
+export async function requestWithStableSession<TResponse>(
+	options: ApiRequestOptions,
+	expectedSessionGeneration: number,
+): Promise<TResponse> {
+	if ((options.method ?? "GET") !== "GET") {
+		throw new ApiError(
+			"Stable session request only supports authenticated GET reads",
+			{ code: "session-changed" },
+		);
+	}
+
+	const config = getAppConfig();
+	const accessToken = config.accessToken;
+	if (!accessToken || !isCurrentSessionGeneration(expectedSessionGeneration)) {
+		throw new ApiError("Session changed before patient-scoped read", {
+			code: "session-changed",
+		});
+	}
+
+	try {
+		return await requestForSession(
+			{ ...options, method: "GET", authenticated: true },
+			expectedSessionGeneration,
+			accessToken,
+		);
+	} catch (error) {
+		// 只有当前 token 和代际都没有被其它登录流程替换时，才能清理失效
+		// 会话；否则不能误删另一个账号刚建立的新 token。
+		if (
+			error instanceof ApiError &&
+			error.statusCode === 401 &&
+			isCurrentSessionGeneration(expectedSessionGeneration) &&
+			getAppConfig().accessToken === accessToken
+		) {
+			setAccessToken("");
+		}
+		throw error;
+	}
+}
+
 /** 验证当前平台会话；响应只包含内部用户 id。 */
 export function getCurrentUser(): Promise<CurrentUserResponse> {
 	return requestWithSession<unknown>({ url: "/me" }).then(
@@ -1147,65 +1202,83 @@ export function requestAppointmentSchedules(options: {
 }
 
 /** 读取指定内部 patientId 的预约历史。 */
-export function requestAppointmentRecords(options: {
-	patientId: string;
-	startDate: string;
-	endDate: string;
-}): Promise<AppointmentRecordListResponse> {
+export function requestAppointmentRecords(
+	options: {
+		patientId: string;
+		startDate: string;
+		endDate: string;
+	},
+	expectedSessionGeneration: number,
+): Promise<AppointmentRecordListResponse> {
 	const query = [
 		`patientId=${encodeURIComponent(options.patientId)}`,
 		`startDate=${encodeURIComponent(options.startDate)}`,
 		`endDate=${encodeURIComponent(options.endDate)}`,
 	].join("&");
-	return requestWithSession<unknown>({
-		url: `/appointments/records?${query}`,
-	}).then((payload) =>
+	return requestWithStableSession<unknown>(
+		{ url: `/appointments/records?${query}` },
+		expectedSessionGeneration,
+	).then((payload) =>
 		requireSuccessDataResponse<AppointmentRecordListResponse["data"]>(payload),
 	);
 }
 
 /** 读取当前用户所选就诊人的门诊费用摘要；临床患者映射只在服务端解析。 */
-export function requestOutpatientPaymentRecords(options: {
-	patientId: string;
-	status: "unpaid" | "paid";
-}): Promise<OutpatientPaymentListResponse> {
+export function requestOutpatientPaymentRecords(
+	options: {
+		patientId: string;
+		status: "unpaid" | "paid";
+	},
+	expectedSessionGeneration: number,
+): Promise<OutpatientPaymentListResponse> {
 	const query = [
 		`patientId=${encodeURIComponent(options.patientId)}`,
 		`status=${encodeURIComponent(options.status)}`,
 	].join("&");
-	return requestWithSession<unknown>({
-		url: `/payments/outpatient/records?${query}`,
-	}).then((payload) =>
+	return requestWithStableSession<unknown>(
+		{ url: `/payments/outpatient/records?${query}` },
+		expectedSessionGeneration,
+	).then((payload) =>
 		requireSuccessDataResponse<OutpatientPaymentListResponse["data"]>(payload),
 	);
 }
 
 /** 读取指定内部 patientId 的报告目录。 */
-export function requestReports(options: {
-	patientId: string;
-	startDate: string;
-	endDate: string;
-	kind?: "laboratory" | "imaging" | "ecg";
-}): Promise<ReportListResponse> {
+export function requestReports(
+	options: {
+		patientId: string;
+		startDate: string;
+		endDate: string;
+		kind?: "laboratory" | "imaging" | "ecg";
+	},
+	expectedSessionGeneration: number,
+): Promise<ReportListResponse> {
 	const query = [
 		`patientId=${encodeURIComponent(options.patientId)}`,
 		`startDate=${encodeURIComponent(options.startDate)}`,
 		`endDate=${encodeURIComponent(options.endDate)}`,
 		...(options.kind ? [`kind=${encodeURIComponent(options.kind)}`] : []),
 	].join("&");
-	return requestWithSession<unknown>({
-		url: `/reports?${query}`,
-	}).then(requireReportListResponse);
+	return requestWithStableSession<unknown>(
+		{ url: `/reports?${query}` },
+		expectedSessionGeneration,
+	).then(requireReportListResponse);
 }
 
 /** 读取服务端生成的短期 LIS 详情引用。 */
-export function requestReportDetail(options: {
-	patientId: string;
-	reportId: string;
-}): Promise<ReportDetailResponse> {
-	return requestWithSession<unknown>({
-		url: `/reports/${encodeURIComponent(options.reportId)}?patientId=${encodeURIComponent(options.patientId)}`,
-	}).then((payload) => requireReportDetailResponse(payload, options.reportId));
+export function requestReportDetail(
+	options: {
+		patientId: string;
+		reportId: string;
+	},
+	expectedSessionGeneration: number,
+): Promise<ReportDetailResponse> {
+	return requestWithStableSession<unknown>(
+		{
+			url: `/reports/${encodeURIComponent(options.reportId)}?patientId=${encodeURIComponent(options.patientId)}`,
+		},
+		expectedSessionGeneration,
+	).then((payload) => requireReportDetailResponse(payload, options.reportId));
 }
 
 /** 读取服务端生成的微信调起参数。 */

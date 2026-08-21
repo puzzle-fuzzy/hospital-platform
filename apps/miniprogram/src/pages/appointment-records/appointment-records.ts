@@ -230,7 +230,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					expectedSessionGeneration,
 					"Appointment page session changed before records were requested",
 				);
-				return loadAppointmentRecords(patient.id).then((records) => {
+				return loadAppointmentRecords(
+					patient.id,
+					new Date(),
+					"history",
+					expectedSessionGeneration,
+				).then((records) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,
 						"Appointment page session changed before records were committed",

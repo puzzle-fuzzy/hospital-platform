@@ -114,7 +114,10 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 					expectedSessionGeneration,
 					"Report detail session changed before detail was requested",
 				);
-				return requestReportDetail({ patientId, reportId });
+				return requestReportDetail(
+					{ patientId, reportId },
+					expectedSessionGeneration,
+				);
 			})
 			.then((payload) => {
 				if (!payload || !detailGuard.isCurrent(detailToken)) return;

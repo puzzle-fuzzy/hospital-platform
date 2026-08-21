@@ -205,7 +205,11 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			expectedSessionGeneration,
 			"Outpatient payment page session changed before records were requested",
 		);
-		return loadOutpatientPaymentRecords(patient.id, status).then((items) => {
+		return loadOutpatientPaymentRecords(
+			patient.id,
+			status,
+			expectedSessionGeneration,
+		).then((items) => {
 			assertSessionGeneration(
 				expectedSessionGeneration,
 				"Outpatient payment page session changed before records were committed",

@@ -140,15 +140,18 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				// 患者卡片不能先于爽约记录提交。否则患者切换发生在 Provider
 				// 请求期间时，旧响应虽然会被丢弃，旧患者卡片仍可能短暂留在页面，
 				// 形成“卡片属于 A、列表等待 B”的错误业务快照。
-				return loadAppointmentRecords(patient.id, new Date(), "missed").then(
-					(records) => {
-						assertSessionGeneration(
-							expectedSessionGeneration,
-							"Missed appointment page session changed before records were committed",
-						);
-						return { patient, records };
-					},
-				);
+				return loadAppointmentRecords(
+					patient.id,
+					new Date(),
+					"missed",
+					expectedSessionGeneration,
+				).then((records) => {
+					assertSessionGeneration(
+						expectedSessionGeneration,
+						"Missed appointment page session changed before records were committed",
+					);
+					return { patient, records };
+				});
 			})
 			.then((result) => {
 				if (

@@ -606,22 +606,22 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 	const pages = [
 		{
 			file: "pages/appointment-records/appointment-records.ts",
-			call: "loadAppointmentRecords(patient.id",
+			call: "loadAppointmentRecords(",
 			method: "loadRecords(): Promise<void>",
 		},
 		{
 			file: "pages/missed-appointments/missed-appointments.ts",
-			call: "loadAppointmentRecords(patient.id",
+			call: "loadAppointmentRecords(",
 			method: "loadRecords(): Promise<void>",
 		},
 		{
 			file: "pages/report-directory/report-directory.ts",
-			call: "loadReports(patient.id",
+			call: "loadReports(",
 			method: "loadPage(): Promise<void>",
 		},
 		{
 			file: "pages/outpatient-payment/outpatient-payment.ts",
-			call: "loadOutpatientPaymentRecords(patient.id",
+			call: "loadOutpatientPaymentRecords(",
 			method: "loadPage(): Promise<void>",
 		},
 	] as const;
@@ -657,6 +657,33 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 		expect(patientGateIndex).toBeGreaterThanOrEqual(0);
 		expect(businessLoaderIndex).toBeGreaterThan(patientGateIndex);
 	}
+});
+
+test("patient-scoped API reads pin the session generation at the request boundary", async () => {
+	const client = await source("services/api-client.ts");
+	const dashboard = await source("services/dashboard-service.ts");
+	const detail = await source("pages/report-detail/report-detail.ts");
+
+	// 页面先做断言并不足够：普通 GET 可能在两次同步调用之间自动换号，
+	// 把上一轮解析出的 patientId 带入新会话。患者范围 API 必须统一进入
+	// 固定代际的只读请求入口，且报告详情也不能遗漏这一层。
+	expect(client).toContain("export async function requestWithStableSession");
+	expect(client).toContain(
+		"Stable session request only supports authenticated GET reads",
+	);
+	for (const functionName of [
+		"requestAppointmentRecords",
+		"requestOutpatientPaymentRecords",
+		"requestReports",
+		"requestReportDetail",
+	] as const) {
+		const functionStart = client.indexOf(`export function ${functionName}`);
+		const functionBody = client.slice(functionStart);
+		expect(functionBody).toContain("requestWithStableSession");
+		expect(functionBody).toContain("expectedSessionGeneration");
+	}
+	expect(dashboard).toContain("expectedSessionGeneration: number");
+	expect(detail).toContain("expectedSessionGeneration,\n\t\t\t\t);");
 });
 
 test("患者范围页面区分会话失效与业务读取失败", async () => {
@@ -773,9 +800,7 @@ test("missed appointments commit the patient card with the filtered result", asy
 	const page = await source("pages/missed-appointments/missed-appointments.ts");
 	const loadStart = page.indexOf("loadRecords(): Promise<void>");
 	const loadBody = page.slice(loadStart);
-	const providerIndex = loadBody.indexOf(
-		'loadAppointmentRecords(patient.id, new Date(), "missed")',
-	);
+	const providerIndex = loadBody.indexOf("loadAppointmentRecords(");
 	const resultGateIndex = loadBody.indexOf(
 		"isCurrentSelectedPatient(result.patient.id)",
 	);
@@ -792,7 +817,7 @@ test("missed appointments commit the patient card with the filtered result", asy
 test("report and outpatient pages commit patient cards with read-only results", async () => {
 	const report = await source("pages/report-directory/report-directory.ts");
 	const reportLoad = report.slice(report.indexOf("loadPage(): Promise<void>"));
-	const reportProviderIndex = reportLoad.indexOf("loadReports(patient.id)");
+	const reportProviderIndex = reportLoad.indexOf("loadReports(");
 	const reportGateIndex = reportLoad.indexOf(
 		"isCurrentSelectedPatient(result.patient.id)",
 	);
@@ -818,7 +843,7 @@ test("report and outpatient pages commit patient cards with read-only results", 
 	);
 	const outpatientRecordsLoad = outpatient.slice(outpatientRecordsStart);
 	const outpatientProviderIndex = outpatientRecordsLoad.indexOf(
-		"loadOutpatientPaymentRecords(patient.id, status)",
+		"loadOutpatientPaymentRecords(",
 	);
 	const outpatientGateIndex = outpatientRecordsLoad.lastIndexOf(
 		"isCurrentSelectedPatient(patient.id)",
@@ -1736,7 +1761,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 		"this.loadRecords(\n\t\t\tselectedPatient,\n\t\t\tstatus,\n\t\t\trequestToken,\n\t\t\tthis.data.patientSessionGeneration,",
 	);
 	expect(outpatient).toContain(
-		"loadOutpatientPaymentRecords(patient.id, status)",
+		"loadOutpatientPaymentRecords(\n\t\t\tpatient.id,\n\t\t\tstatus,\n\t\t\texpectedSessionGeneration,",
 	);
 	// 服务端仍返回完整只读结果；小程序只分批建立渲染树，不能把这个行为
 	// 描述成 provider 分页，也不能因为首批记录少就推导费用已支付。
@@ -2652,7 +2677,9 @@ test("native report detail page consumes only the opaque platform reference", as
 	const template = await source("pages/report-detail/report-detail.wxml");
 
 	expect(client).toContain("requestReportDetail");
-	expect(page).toContain("requestReportDetail({ patientId, reportId })");
+	expect(page).toContain(
+		"requestReportDetail(\n\t\t\t\t\t{ patientId, reportId },\n\t\t\t\t\texpectedSessionGeneration,",
+	);
 	expect(page).toContain('typeof patientId !== "string"');
 	expect(page).toContain("report-detail-id-missing");
 	expect(template).toContain("report-actions");

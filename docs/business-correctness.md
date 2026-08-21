@@ -190,6 +190,13 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
     `401` 才收敛为 `invalid`，`session-changed` 收敛为 `checking`，恢复后无 token 才按会话验证错误处理。
     这条规则由 `sessionStateAfterAuthenticatedReadError()` 统一实现，不能由各页面再次复制判断。
 
+21. 患者范围业务请求必须把“患者目录解析完成时的会话代际”传入请求层，不能只在页面
+    `assertSessionGeneration()` 之后再调用普通 `requestWithSession()`。普通 GET 可以在 401 后自动换取
+    新 token，但这会把上一阶段解析出的 `patientId` 带到新会话下；因此预约记录、爽约记录、报告目录/详情和
+    门诊费用统一使用 `requestWithStableSession()`：在同一个同步调用栈内固定 token 与代际，只允许 GET，
+    不自动登录、不重放旧患者查询；请求等待期间代际变化时丢弃响应，当前代际收到 401 时只清理失效会话。
+    页面必须重新完成 `/me`、患者目录和业务查询，不能把响应层的丢弃当作“旧 patientId 从未发出”的证明。
+
 预约历史状态按旧端源码明确使用的业务含义保留：`0=scheduled`、`1=cancelled`、`3=completed`、
 `4=missed`、`5=stopped`、`6=substituted`、`7=registered`；该映射的来源是旧端
 `src/pagesB/hospital/registration_detail.vue` 和 `src/api/modules/companion.ts`，它是当前只读迁移的

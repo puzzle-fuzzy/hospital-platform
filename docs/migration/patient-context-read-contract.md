@@ -64,6 +64,20 @@
 `isCurrentSelectedPatient`。页面实例级 latest-request guard 只能识别同一个页面的刷新顺序，不能识别用户在另一个页面
 显式更换就诊人；本地 opaque `patientId` 快照不匹配时必须丢弃旧响应，不能把旧患者的预约、报告或费用卡片写回当前页面。
 
+### 2.1 患者 ID 与会话代际必须在请求层成对固定
+
+页面在目录 helper 返回后会拿到 `patientId` 和 `sessionGeneration` 两项事实。仅在页面代码中先调用
+`assertSessionGeneration()`、再调用普通 `requestWithSession()` 仍有时间检查/使用竞态：另一个页面可以在两次
+同步调用之间轮换 token，普通 GET 随后会自动登录并携带旧 `patientId` 发出。响应即使最终被页面丢弃，旧患者标识
+已经越过了错误会话边界；因此“响应不回写”不足以证明请求边界正确。
+
+预约记录、爽约记录、报告目录、报告详情和门诊费用必须通过
+`apps/miniprogram/src/services/api-client.ts` 的 `requestWithStableSession()` 发起，并把页面捕获的
+`expectedSessionGeneration` 作为显式参数继续传入 dashboard service。该请求入口在真正调用微信请求前同步固定当前
+token 和期望代际，只接受 GET；请求等待期间代际变化时由认证响应门禁丢弃结果。401 不触发新的微信 code 兑换，
+只在 token 仍属于该代际时清理失效会话，页面随后重新走完整的 owner/患者组合读取。普通 `requestWithSession()`
+仍用于独立的 `/me`、患者目录和其它不携带上一阶段患者 ID 的认证读取，不能把稳定入口泛化成所有 GET 的默认行为。
+
 报告详情还必须在 `onLoad` 发起请求前校验页面参数中的 `patientId` 与本地当前选择一致，
 并在详情响应准备回写前再次校验。服务端的 owner + patient + reportId + TTL 查询仍是最终授权边界；
 小程序校验只负责阻止旧页面栈和慢响应在患者切换后继续展示，不能因此省略服务端复核。
@@ -85,6 +99,8 @@
 - `apps/miniprogram/scripts/acceptance.test.ts` 必须确保四个患者目录列表页使用统一患者门禁，且报告详情页单独复用同一患者错误翻译入口；五个患者范围页面都不得各自重新实现目录解析或错误语义；
 - 同一静态门禁还必须确保患者范围页面复用 `patientContextErrorMessage` 或 `patientSelectionResolutionMessage`，避免患者状态文案随页面迁移发生漂移；
 - 同一静态门禁还必须确保五个页面复用 `isCurrentSelectedPatient`，避免跨页面切换后的旧异步响应或详情响应覆盖当前患者；
+- 同一静态门禁还必须确保五个页面把 `expectedSessionGeneration` 传入患者范围业务 loader；API client 的预约、报告和费用读取必须复用
+  `requestWithStableSession()`，防止普通 GET 自动恢复把旧 `patientId` 带入新会话；
 - 小程序测试只能证明调用顺序和失败边界，不能替代真实 Provider、生产公网和真机证据；
 - 真机验收仍需逐个页面确认：选择患者 → 返回页面 → 目录重新读取 → 业务查询使用新患者 → 旧响应不会覆盖新列表；
 - 任何未来新增患者端只读页面，必须先加入本契约和静态门禁，再注册业务 API。
