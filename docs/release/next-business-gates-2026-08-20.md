@@ -1,10 +1,10 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
-> 当前候选：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`；小程序运行包来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（提交 `90fd783`）。
+> 当前候选：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`；小程序运行包来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`（提交 `4e1b2e2`）。
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `7181e99e3a352244102f5591279528b3b66332c9`，当前本地小程序候选为 `90fd783`，完整运行包来源为
-> `90fd7832e3ad1031c9c916f118f90cc0f2840aff`。小程序尚未上传线上。
+> 当前服务端候选为 `7181e99e3a352244102f5591279528b3b66332c9`，当前本地小程序候选为 `4e1b2e2`，完整运行包来源为
+> `4e1b2e224964797c103eba832323ee7074c7ad2b`。小程序尚未上传线上。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -30,7 +30,7 @@ persistence 等真正进入 Bun 运行包的语句、常量或导入发生变化
 
 2026-08-21 10:38–10:47 CST 的追加只读核验仍确认新旧服务共存、生产环境启动、MySQL/Redis/schema readiness 正常；最近窗口
 只有健康检查、未登录认证和关闭路由探针，没有 `auth.*`、`patient.*`、`appointment.*` 或 `outpatient.payment.*` 业务事件。
-该窗口发生在 `9f491cb5` 切换前，下面的旧候选只作为历史观察；当前下一步必须使用顶部声明的 `90fd783` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
+该窗口发生在 `9f491cb5` 切换前，下面的旧候选只作为历史观察；当前下一步必须使用顶部声明的 `4e1b2e2` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
 完整运行窗口见 [`current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md)。
 
 ### `c8eef370` 切换前历史观察（仅供追溯）
@@ -109,7 +109,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核
 
-当前验收基线为服务端 `7181e99e3a352244102f5591279528b3b66332c9`、小程序候选 `90fd783`（完整来源 `90fd7832e3ad1031c9c916f118f90cc0f2840aff`）；
+当前验收基线为服务端 `7181e99e3a352244102f5591279528b3b66332c9`、小程序候选 `4e1b2e2`（完整来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`）；
 下方历史代码复核原始记录当时基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 不代表当前线上服务端 release。当前线上服务端和真机候选以本文顶部基线为准，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
@@ -193,9 +193,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-90fd783.md`](miniprogram-real-device-evidence-template-90fd783.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-4e1b2e2.md`](miniprogram-real-device-evidence-template-4e1b2e2.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)
-- 当前候选来源：[`candidate-90fd783-local-build-2026-08-22.md`](candidate-90fd783-local-build-2026-08-22.md)
+- 当前候选来源：[`candidate-4e1b2e2-local-build-2026-08-22.md`](candidate-4e1b2e2-local-build-2026-08-22.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)

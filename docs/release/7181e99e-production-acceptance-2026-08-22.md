@@ -16,14 +16,14 @@ Redis、Nginx 和 Worker 均未被本次发布重启或改写。
 | 项目 | 结果 |
 | --- | --- |
 | 服务端 commit | `7181e99e3a352244102f5591279528b3b66332c9` |
-| 小程序配套来源 | `90fd7832e3ad1031c9c916f118f90cc0f2840aff`（`90fd783`） |
+| 小程序配套来源 | `4e1b2e224964797c103eba832323ee7074c7ad2b`（`4e1b2e2`） |
 | 本地发布包 SHA-256 | `A3D397FF1D984A2E2BF119AEB18A5CD9159BBD1933E86E3624D9C8D7FDFC2A1A` |
 | 远端发布包 SHA-256 | 与本地一致 |
 | API bundle | 远端 hash 与本地构建产物一致 |
 | Worker bundle | 8 个 bundle 均完成远端/本地 hash 比对；本次不启动 Worker |
 
 本地 `pnpm check` 已通过，包含类型检查、Biome、API/持久化/小程序测试、构建、文档和发布基线门禁。
-小程序运行包仍由 `90fd7832e3ad1031c9c916f118f90cc0f2840aff` 生成，14 个页面入口齐全，
+当前小程序运行包由 `4e1b2e224964797c103eba832323ee7074c7ad2b` 生成，14 个页面入口齐全，
 `dist/` 不含 `*.test.js` 或 `*.spec.js`；开发者工具报出的 `single-flight.test.js` 仍应按旧增量索引
 清理流程处理，不能把测试脚本复制进运行包。
 
