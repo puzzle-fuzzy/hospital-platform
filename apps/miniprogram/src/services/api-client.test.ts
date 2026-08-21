@@ -910,3 +910,90 @@ test("GET 重新登录后的第二次 401 会清理同一代无效 token", async
 		testGlobal.wx = previousWx;
 	}
 });
+
+test("GET 首次 401 后重新登录成功时返回恢复后的最终响应", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		header?: Record<string, string>;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let loginCount = 0;
+	let requestCount = 0;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "expired-token",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		setStorageSync: (key: string, value: string) => {
+			if (key === "access_token") globalData.accessToken = value;
+		},
+		removeStorageSync: (key: string) => {
+			if (key === "access_token") globalData.accessToken = "";
+		},
+		login: (options: { success: (value: { code: string }) => void }) => {
+			loginCount += 1;
+			options.success({ code: `wechat-code-${loginCount}` });
+		},
+		request: (options: RequestOptions) => {
+			requestCount += 1;
+			if (options.url.endsWith("/auth/wechat")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							accessToken: "recovered-token",
+							tokenType: "Bearer",
+							expiresInSeconds: 3600,
+							user: { id: "user-001" },
+						},
+					},
+				});
+				return;
+			}
+			if (options.header?.Authorization === "Bearer expired-token") {
+				// 开发者工具控制台会保留这次 401；它只是触发一次受控 GET 恢复，
+				// 不能单独被页面或验收脚本解释为最终会话失败。
+				options.success({
+					statusCode: 401,
+					data: { success: false, error: { code: "unauthorized" } },
+				});
+				return;
+			}
+			options.success({
+				statusCode: 200,
+				data: { success: true, data: { userId: "user-001" } },
+			});
+		},
+	};
+
+	try {
+		const response = await requestWithSession({ url: "/me" });
+		expect(response).toEqual({
+			success: true,
+			data: { userId: "user-001" },
+		});
+		expect(loginCount).toBe(1);
+		// 原始 /me 401、微信登录兑换和恢复后的 /me 200，三次请求必须各自
+		// 出现在同一受控恢复链中，不能无限重试或把 401 当成空患者目录。
+		expect(requestCount).toBe(3);
+		expect(globalData.accessToken).toBe("recovered-token");
+		expect(globalData.sessionStatus).toBe("signed_in");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
