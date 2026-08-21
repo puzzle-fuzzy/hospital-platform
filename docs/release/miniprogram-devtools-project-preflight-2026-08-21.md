@@ -8,8 +8,8 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 小程序候选提交 | `03d9d25` |
-| 运行包来源指纹 | `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f` |
+| 小程序候选提交 | `cde7bc9` |
+| 运行包来源指纹 | `cde7bc90a23698398e9474944adf42b36f37982c` |
 | 运行包目录 | `E:\\__Super_Core__\\hospital-platform\\apps\\miniprogram\\dist` |
 | `services/single-flight.js` | 存在 |
 | `services/single-flight.test.js` | 不存在 |

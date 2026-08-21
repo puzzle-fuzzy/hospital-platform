@@ -1,11 +1,16 @@
 # 下一阶段实施路线图
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`（提交 `03d9d25`）。
+> 当前候选：服务端 release `5a31427`；小程序运行包来源 `cde7bc90a23698398e9474944adf42b36f37982c`（提交 `cde7bc9`）。
 
 本文档是新会话继续工作的入口，描述当前真实边界、业务优先级、工程治理和上线验收顺序。
 其中“已完成”只表示代码、测试或部署证据，不代表微信、众阳、医保、HIS、支付或真机已经完成真实验收。
 
 ## 当前执行检查点（2026-08-21）
+
+- 2026-08-21 当前小程序会话恢复竞态修正：选择页患者同步先验证 `/me`，过期 token 的安全恢复会推进会话代际；
+  旧实现提前记录代际会把正常恢复误判为 `session-changed`。提交 `cde7bc9` 已改为仅在同步成功且页面令牌仍有效后记录成功快照代际，
+  小程序测试 `186 pass/1463 expects`、构建和 `runtime:verify` 均通过。详见
+  [`release/miniprogram-patient-selection-session-recovery-race-audit-2026-08-21.md`](release/miniprogram-patient-selection-session-recovery-race-audit-2026-08-21.md)。
 
 - 2026-08-21 当前桌面前置检查：微信开发者工具只打开了旧的 `mp-weixin` 项目，没有打开新候选的
   `miniprogram` 窗口；本地 `dist/` 已通过 `runtime:verify`，但本轮没有点击、编译、扫码或修改旧项目。
@@ -14,7 +19,7 @@
 
 - 2026-08-21 当前候选全仓复核：`pnpm check` 全部通过；API 测试 `199 pass/829 expects`，小程序测试
   `186 pass/1461 expects`，运行包为 14 个页面且不含测试脚本，来源指纹为
-  `03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`。本次仅做本地与仓库只读核验，SSH 公钥仍未获服务器接受，
+  `cde7bc90a23698398e9474944adf42b36f37982c`。本次仅做本地与仓库只读核验，SSH 公钥仍未获服务器接受，
   因此没有新增线上日志、真机或 Provider 证据；旧 Python 服务和并行工作树修改均未触碰。
 
 - 2026-08-21 16:06 CST（公网只读复核）：新 API `/api/v2/health/live`、`health/ready`、`system/ping` 均返回 `200`，
@@ -1885,7 +1890,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `5a31427` 和最新小程序候选 `03d9d25`（完整构建来源：`03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `5a31427` 和最新小程序候选 `cde7bc9`（完整构建来源：`cde7bc90a23698398e9474944adf42b36f37982c`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -1896,7 +1901,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
 13. 当前服务端 release `5a31427` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `03d9d25` 小程序候选（完整构建来源：`03d9d25d80d5a5d872a9137c7df0aa19a91ba38f`）。
+14. 当前公网 runtime 与 P0 日志 bundle 已能证明请求进入 `5a31427` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用最新本地 `cde7bc9` 小程序候选（完整构建来源：`cde7bc90a23698398e9474944adf42b36f37982c`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 
