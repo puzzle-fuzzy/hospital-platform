@@ -55,7 +55,7 @@ owner-scoped 快照 → 小程序显式选择 → 预约/报告/门诊费用只�
 | `pnpm --filter @hospital/persistence test src/index.test.ts src/mysql-repositories.test.ts` | 46 pass，163 个断言 |
 | `pnpm --filter @hospital/miniprogram test`（包含患者初始化、选择、同步、导航和全量验收） | 174 pass，1378 个断言 |
 | `pnpm --filter @hospital/miniprogram build` | 通过；14 个页面运行脚本生成，测试脚本不进入 `dist/` |
-| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；运行包来源为 `d4d65b7`，无 `*.test.js`/`*.spec.js` |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；运行包来源为 `7a6f4df`，无 `*.test.js`/`*.spec.js` |
 | `pnpm docs:audit` | 通过；371 个 Markdown 文档无断链 |
 
 这些结果证明本地代码边界和测试夹具一致，但不能替代 Provider 返回样例、线上 trace、微信真机页面或多患者切换。
@@ -64,7 +64,7 @@ owner-scoped 快照 → 小程序显式选择 → 预约/报告/门诊费用只�
 
 患者目录 gate 仍不能标记为“真实完成”，缺口是：
 
-1. 当前小程序候选 `d4d65b7` 的真实微信扫码、登录、患者同步和页面结果三层同链证据。
+1. 当前小程序候选 `7a6f4df` 的真实微信扫码、登录、患者同步和页面结果三层同链证据。
 2. 至少两位可用就诊人的显式切换证据：选择前后页面患者姓名/脱敏卡片、请求的内部患者上下文和服务端日志必须一致。
 3. Provider 返回空目录、患者 inactive 后恢复、HIS 映射暂时失败等受控样例；不能用模拟器空列表替代。
 4. Redis 会话 TTL、过期后重新登录和患者目录重新确认的真实运行证据。
