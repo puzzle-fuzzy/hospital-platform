@@ -12,6 +12,10 @@
 > `9c582a1c38b3b3cdecf7145c6b126b185fe474c2`，且 `dist/` 中测试脚本为 0。SSH 读取 `ps@192.168.112.172` 和阿里云中转机
 > 本轮均被公钥拒绝，因此没有新增线上日志或真机三层证据；旧项目、旧服务、数据库和 Redis 未触碰。
 
+> 2026-08-21 16:06 CST 公网只读复核：新 API 的 live、ready、system-ping 均为 `200`，ready 的 database/redis/schema 均为 `ok`；
+> 无会话的患者、预约历史和门诊费用读取均为预期 `401/unauthorized`，刻意关闭的门诊病历为 `404/not-found`。这只证明公网运行层和
+> 关闭/鉴权边界，没有产生微信、患者、预约、门诊费用或真机三层业务证据，详见 [`../release/current-public-readonly-smoke-2026-08-21-1606.md`](../release/current-public-readonly-smoke-2026-08-21-1606.md)。
+
 > 2026-08-21 14:04 CST 当前复核：预约/门诊费用/报告定向测试 `62 pass`，小程序标准测试 `176 pass`，公网运行层和未登录鉴权边界通过；SSH 日志读取本轮被拒绝，且新小程序二维码仍未出现手机连接。因此代码门禁已通过，但预约历史、门诊费用、报告 Provider 和真机页面仍不能标记为当前 release 的真实业务完成。详见 [`../release/readonly-business-and-device-preflight-2026-08-21-1404.md`](../release/readonly-business-and-device-preflight-2026-08-21-1404.md)。
 
 > 当前盘点基准：2026-08-21；旧端初始扫描基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app`，新端来源为
