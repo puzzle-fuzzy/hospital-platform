@@ -1,11 +1,18 @@
 # 下一阶段实施路线图
 
-> 当前候选：服务端 release `5a31427`；小程序运行包来源 `cdb27e5023a188ab36a340497cebe18f1e274013`（提交 `cdb27e50`）。
+> 当前候选：服务端 release `c8eef370c82e358205ee032af41ba2b23576af06`；小程序真机前必须重新构建并核对运行包来源。
 
 本文档是新会话继续工作的入口，描述当前真实边界、业务优先级、工程治理和上线验收顺序。
 其中“已完成”只表示代码、测试或部署证据，不代表微信、众阳、医保、HIS、支付或真机已经完成真实验收。
 
 ## 当前执行检查点（2026-08-21）
+
+- 2026-08-21 19:36–19:44 CST（`c8eef370` 生产切换）：上一轮 request logging 修复已完成本地构建、远端 SHA-256
+  对照、真实生产 env preflight 和 `127.0.0.1:18082` 隔离 runtime smoke；随后将新 API `current` 从 `5a31427`
+  原子切换到 `c8eef370`，只重启 `hospital-platform-api-v2.service`。切换后新 API production 启动日志确认
+  database/Redis/schema 为 `ok`，内网/公网 readiness 200；旧 Python `8001` 的监听和 PID 未变化，Worker 仍 inactive。
+  详见 [`c8eef370-production-acceptance-2026-08-21.md`](release/c8eef370-production-acceptance-2026-08-21.md)。
+  这仍不构成微信真机、预约 Provider 或门诊费用业务完成证据。
 
 - 2026-08-21 19:31 CST（HTTP 失败日志读模型原因补齐）：发现普通资料、身份、患者、预约、报告和门诊费用等
   domain 读模型异常虽会映射成稳定错误响应，但请求层 `http.request.failed` 只保留了部分固定违规原因，排查时

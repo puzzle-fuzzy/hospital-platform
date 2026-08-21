@@ -191,6 +191,12 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 
 ## 6. 当前状态
 
+2026-08-21 19:36–19:44 CST：候选 `c8eef370` 已完成本地构建、远端 checksum、真实生产 env preflight、
+`127.0.0.1:18082` 隔离 runtime smoke，并从 `5a31427` 原子切换到当前 `current`，只重启
+`hospital-platform-api-v2.service`。切换后内网/公网 readiness 通过，新 API `18081` 与旧 Python `8001` 同时监听，
+Worker 保持 inactive；当前发布不包含真机或 Provider 业务成功证据。完整记录见
+[`../../docs/release/c8eef370-production-acceptance-2026-08-21.md`](../../docs/release/c8eef370-production-acceptance-2026-08-21.md)。
+
 2026-08-21 02:41–02:46 CST：候选 `6038560` 已完成本地全仓门禁、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `0e360d3` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。切换后内网 `/health/ready` 和公网 `/api/v2` runtime smoke 均通过，
