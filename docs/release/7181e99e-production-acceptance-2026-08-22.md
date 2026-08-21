@@ -85,7 +85,24 @@ stop_failures=0
 503 `dependency-not-configured`。这条故障注入路径还需要后续受控验证，不能把本次 readiness 通过解释为
 Redis 故障场景已完成验收。
 
-## 5. 未完成与停止条件
+## 5. 切换后低敏日志观察（2026-08-22 05:03–05:23 CST）
+
+使用当前 release 自带的 `p0-log-aggregate.js` 读取新 API journald，仅输出聚合计数：
+
+| 指标 | 结果 |
+| --- | --- |
+| `parsedRecords` / `parseErrors` | `29 / 0` |
+| 事件 | `service.started=1`、`service.stop.requested=1`、`service.stopped=1`、`http.request.completed=10`、`http.request.failed=16` |
+| HTTP | `200=10`、`401=9`、`404=7` |
+| 业务域 | 仅 `infrastructure` |
+| `providerRequestIdCount` | `0` |
+| systemd warning | `0` |
+
+该窗口包含切换后的启动和运行层 smoke，没有新的微信登录、患者目录/切换、预约、报告或门诊费用事件。
+因此“日志能正常收集”与“真机业务已验收”仍然是两件事；下一步必须由当前小程序候选产生真实会话，
+再用页面结果、客户端 requestId 和服务端低敏事件完成三层关联。
+
+## 6. 未完成与停止条件
 
 本次只证明新服务运行层、发布产物来源、生产模式日志和新旧服务共存，不能替代以下证据：
 
