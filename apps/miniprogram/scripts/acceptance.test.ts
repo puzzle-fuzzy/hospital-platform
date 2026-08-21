@@ -1354,6 +1354,27 @@ test("outpatient payment tabs cannot cancel the initial patient load", async () 
 	expect(statusBody).toContain("请先登录并选择就诊人");
 });
 
+test("outpatient payment tab failures refresh the session entry state", async () => {
+	const payment = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const statusStart = payment.indexOf("onStatusTap(event)");
+	const statusEnd = payment.indexOf("\n\t},", statusStart);
+	const statusBody = payment.slice(statusStart, statusEnd);
+	const errorStateIndex = statusBody.indexOf(
+		"sessionState: sessionVerificationStateFromError(error)",
+	);
+	const errorClearIndex = statusBody.indexOf(
+		'this.showError(error, "门诊缴费记录加载失败")',
+	);
+
+	// 待缴/已缴 tab 是独立的患者范围请求；它收到 401 或依赖故障时，
+	// 不能只清空费用卡片而保留旧的 valid。否则下一次“更换就诊人”
+	// 会错误进入选择页，而不是按最新会话事实等待或回登录页。
+	expect(errorStateIndex).toBeGreaterThanOrEqual(0);
+	expect(errorClearIndex).toBeGreaterThan(errorStateIndex);
+});
+
 test("native mini program preserves the legacy static hospital entry boundary", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");

@@ -193,6 +193,13 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		this.loadRecords(this.data.selectedPatient, status, requestToken)
 			.catch((error) => {
 				if (loadGuard.isCurrent(requestToken)) {
+					// tab 查询和首次页面加载共用同一会话事实。若切换 tab
+					// 时服务端已经拒绝旧 token，必须先把入口状态收敛为
+					// invalid/unavailable，再清空费用列表；否则页面虽然显示
+					// 错误，后续“更换就诊人”仍会拿旧的 valid 放行。
+					this.setData({
+						sessionState: sessionVerificationStateFromError(error),
+					});
 					this.showError(error, "门诊缴费记录加载失败");
 				}
 			})
