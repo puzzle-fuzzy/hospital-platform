@@ -7,6 +7,14 @@
 
 ## 当前执行检查点（2026-08-21）
 
+- 2026-08-21（健康知识导入运行时边界）：提交 `5d8b9c44` 将健康知识 bundle 校验改为
+  `unknown -> 严格字段解析 -> 版本/关系/完整详情集校验`，缺失数组、错误类型和患者敏感字段不会再被
+  普通 TypeError 或静默丢字段掩盖；提交 `f488c6f3` 将只读检查命令归属到
+  `@hospital/domain`，执行 `pnpm --filter @hospital/domain knowledge:bundle:check -- <file>` 时不连接
+  MySQL/Redis、不执行 migration、不写库。domain `63 pass/132 expects`、全仓库 typecheck/test、
+  构建、架构审计和文档断链审计均通过。当前没有脱敏内容 bundle、医学审核或 staging 发布证据，
+  健康知识 API 仍不挂载；服务端 `5a31427` 与小程序 `cdb27e50` 的部署基线不变。
+
 - 2026-08-21（历史候选预约目录展示边界）：提交 `968a587` 将医院日期标签、日期分组和本地号源展示窗口抽为纯展示服务，
   用行为测试覆盖时区稳定性、非法日期、同日统计和异常窗口，避免页面源码字符串测试掩盖真实逻辑。小程序 `189 pass/1465 expects`、
   typecheck、Biome、构建和 `runtime:verify` 均通过；运行包来源为 `968a587158289da6a482b3614907bde0a5ad9581`，14 个页面齐全且不含测试脚本。
