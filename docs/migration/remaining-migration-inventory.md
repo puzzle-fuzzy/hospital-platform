@@ -4,6 +4,8 @@
 
 > 当前基线更新：服务端 `c8eef370`；小程序候选不沿用历史运行包，必须在开发者工具重新编译后以 `build-info.json` 固定来源。下文更早候选只作历史追溯。
 
+> 2026-08-21 排班只读快照边界已加固：进入内存/MySQL persistence 前统一校验 `zhongyang` 来源、排班嵌套字段、号源数量和不超过 5 分钟的观察 TTL；这只保证只读观察事实不被错误调用方写入，不开放预约写入或锁号。详见 [`../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md`](../release/appointment-schedule-snapshot-runtime-validation-2026-08-21.md)。
+
 > 2026-08-21 19:36–19:44 CST 当前服务端已从 `5a31427` 原子切换到 `c8eef370`；新 API 与旧 Python `8001` 共存，
 > readiness、生产模式和依赖探针通过。当前 release 仍没有新的微信真机、预约 Provider 或门诊费用三层业务证据，详见
 > [`../release/c8eef370-production-acceptance-2026-08-21.md`](../release/c8eef370-production-acceptance-2026-08-21.md)。

@@ -25,6 +25,7 @@ export {
 	MAX_APPOINTMENT_DEPARTMENT_ITEMS,
 	MAX_APPOINTMENT_RECORD_ITEMS,
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
+	MAX_APPOINTMENT_SNAPSHOT_TTL_MS,
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,

@@ -51,6 +51,17 @@ export const MAX_APPOINTMENT_SCHEDULE_ITEMS = 512;
 export const MAX_APPOINTMENT_RECORD_ITEMS = 512;
 
 /**
+ * 排班快照的服务端安全有效期上限。
+ *
+ * 当前只读目录 service 实际使用 60 秒，但 persistence/domain 入口不能只
+ * 相信某一个调用方的常量。快照未来可能被预约命令复核；如果任意直接调用
+ * 方把它写成数小时有效，过期的号源就会被误当成近期观察事实。这个上限是
+ * 平台资源与安全边界，不是 Provider 的分页或预约合同；未来合同需要更长
+ * 有效期时，必须同时重新审计预约写入前置条件和补充回归测试。
+ */
+export const MAX_APPOINTMENT_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+
+/**
  * 预约目录/排班 gateway 结果违反公共读模型时使用的低敏原因。
  *
  * adapter 是 Provider 的第一道边界，但目录 gateway 仍然可以由回放实现、
@@ -357,6 +368,8 @@ export type AppointmentScheduleSnapshotInput = {
 
 export type AppointmentScheduleSnapshotValidationReason =
 	| "invalid_reference"
+	| "invalid_provider"
+	| "invalid_schedule"
 	| "invalid_work_date"
 	| "invalid_slot_counts"
 	| "invalid_observation_window";
@@ -379,10 +392,55 @@ export class AppointmentScheduleSnapshotValidationError extends Error {
 export function validateAppointmentScheduleSnapshot(
 	input: AppointmentScheduleSnapshotInput,
 ): void {
+	// persistence 入口也可能被任务、回放器或错误的组合根直接调用；不能
+	// 依赖 TypeScript 的非空类型，否则 null/数组会在读取字段时抛出无上下文
+	// 的 TypeError，或者把不完整的排班事实交给 SQL 层自行截断。
+	if (typeof input !== "object" || input === null || Array.isArray(input)) {
+		throw new AppointmentScheduleSnapshotValidationError("invalid_reference");
+	}
+	const runtimeInput = input as unknown as Record<string, unknown>;
+	if (runtimeInput.provider !== "zhongyang") {
+		throw new AppointmentScheduleSnapshotValidationError("invalid_provider");
+	}
+	const runtimeSchedule = runtimeInput.schedule;
+	if (
+		typeof runtimeSchedule !== "object" ||
+		runtimeSchedule === null ||
+		Array.isArray(runtimeSchedule)
+	) {
+		throw new AppointmentScheduleSnapshotValidationError("invalid_schedule");
+	}
+	const schedule = runtimeSchedule as Record<string, unknown>;
+	const requiredScheduleTexts: readonly [unknown, number][] = [
+		[schedule.scheduleId, 128],
+		[schedule.departmentId, 128],
+		[schedule.departmentName, 256],
+		[schedule.doctorId, 128],
+		[schedule.doctorName, 256],
+		[schedule.workDate, 32],
+		[schedule.shiftName, 128],
+	];
+	if (
+		requiredScheduleTexts.some(
+			([value, maxLength]) => !hasSafeAppointmentText(value, maxLength),
+		) ||
+		(schedule.startTime !== undefined &&
+			!hasSafeAppointmentText(schedule.startTime, 32)) ||
+		(schedule.endTime !== undefined &&
+			!hasSafeAppointmentText(schedule.endTime, 32)) ||
+		(schedule.timeGroup !== "point" &&
+			schedule.timeGroup !== "range" &&
+			schedule.timeGroup !== "unknown")
+	) {
+		// 这些字段会被保存并在未来复核/展示；快照边界必须和 adapter/service
+		// 的公开读模型使用同一套文本、时间分组规则，不能只依赖 VARCHAR 列型。
+		throw new AppointmentScheduleSnapshotValidationError("invalid_schedule");
+	}
+
 	const references = [
-		{ value: input.schedule.scheduleId, maxLength: 128 },
-		{ value: input.providerScheduleId, maxLength: 128 },
-		{ value: input.providerRequestId, maxLength: 256 },
+		{ value: schedule.scheduleId, maxLength: 128 },
+		{ value: runtimeInput.providerScheduleId, maxLength: 128 },
+		{ value: runtimeInput.providerRequestId, maxLength: 256 },
 	];
 	if (
 		references.some(
@@ -401,25 +459,35 @@ export function validateAppointmentScheduleSnapshot(
 		// 检索、日志关联和下游请求边界，不能只依赖列长度把它保存下来。
 		throw new AppointmentScheduleSnapshotValidationError("invalid_reference");
 	}
-	if (parseIsoCalendarDate(input.schedule.workDate) === undefined) {
+	if (parseIsoCalendarDate(schedule.workDate as string) === undefined) {
 		throw new AppointmentScheduleSnapshotValidationError("invalid_work_date");
 	}
 	if (
-		!Number.isSafeInteger(input.schedule.totalSlots) ||
-		!Number.isSafeInteger(input.schedule.availableSlots) ||
-		input.schedule.totalSlots < 0 ||
-		input.schedule.availableSlots < 0 ||
-		input.schedule.availableSlots > input.schedule.totalSlots
+		!Number.isSafeInteger(schedule.totalSlots) ||
+		!Number.isSafeInteger(schedule.availableSlots) ||
+		(schedule.totalSlots as number) < 0 ||
+		(schedule.availableSlots as number) < 0 ||
+		(schedule.availableSlots as number) > (schedule.totalSlots as number)
 	) {
 		throw new AppointmentScheduleSnapshotValidationError("invalid_slot_counts");
 	}
-	const observedAt = Date.parse(input.observedAt);
-	const expiresAt = Date.parse(input.expiresAt);
+	const observedAt =
+		typeof runtimeInput.observedAt === "string"
+			? Date.parse(runtimeInput.observedAt)
+			: Number.NaN;
+	const expiresAt =
+		typeof runtimeInput.expiresAt === "string"
+			? Date.parse(runtimeInput.expiresAt)
+			: Number.NaN;
 	if (
 		!Number.isFinite(observedAt) ||
 		!Number.isFinite(expiresAt) ||
-		expiresAt <= observedAt
+		expiresAt <= observedAt ||
+		expiresAt - observedAt > MAX_APPOINTMENT_SNAPSHOT_TTL_MS
 	) {
+		// 过长 TTL 和非递进时间都属于同一观察窗口错误：它们都不能形成
+		// “近期 Provider 事实”。服务层当前写入 60 秒，domain 再加上硬上限，
+		// 防止未来新增调用方绕过服务层常量延长快照寿命。
 		throw new AppointmentScheduleSnapshotValidationError(
 			"invalid_observation_window",
 		);
