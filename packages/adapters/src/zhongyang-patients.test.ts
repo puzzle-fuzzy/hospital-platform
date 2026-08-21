@@ -884,6 +884,48 @@ test("众阳患者目录对 15 位卡号保留前五位和后四位", async () =
 	expect(JSON.stringify(result)).not.toContain("123456789012345");
 });
 
+test("众阳患者目录拒绝超长卡号而不是伪装成未绑定", async () => {
+	let archiveCalls = 0;
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			const requestUrl = String(input);
+			if (requestUrl.includes("patInfosFind")) {
+				archiveCalls += 1;
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: requestUrl.includes("patInfosFind")
+						? { patId: "his-patient-overlong-card" }
+						: [
+								{
+									thirdPatientId: "1004",
+									patientName: "超长卡号患者",
+									medicalCardNo: "1".repeat(65),
+									relation: "本人",
+								},
+							],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "zhongyang-request-overlong-card" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		gateway.listByIdentity({ unionId: "union-overlong-card" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		responseInvalid: true,
+	});
+	// 卡号在目录字段映射阶段就应被拒绝，不能先带着异常卡号调用 patInfosFind。
+	expect(archiveCalls).toBe(0);
+});
+
 test("众阳患者目录拒绝业务失败响应", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",

@@ -20,6 +20,15 @@ const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
  */
 const PATIENT_ARCHIVE_CONCURRENCY = 4;
 
+/**
+ * 患者卡号进入查询和脱敏展示前的最大平台长度。
+ *
+ * 这是平台资源与公共读模型的边界，不是对医院卡号业务规则的猜测；常见
+ * 15/18 位卡号都在范围内。超出边界的 Provider 值必须判定为响应异常，
+ * 不能在脱敏函数里伪装成“未绑定”，否则页面会把脏数据解释成真实业务事实。
+ */
+const MAX_PATIENT_CARD_LENGTH = 64;
+
 type ZhongyangPatientResponse = {
 	thirdPatientId?: unknown;
 	patientName?: unknown;
@@ -142,13 +151,28 @@ function requiredCardText(
 			responseInvalid,
 		);
 	}
-	return requiredText(value, field, 128, operation, requestId, responseInvalid);
+	return requiredText(
+		value,
+		field,
+		MAX_PATIENT_CARD_LENGTH,
+		operation,
+		requestId,
+		responseInvalid,
+	);
 }
 
-function maskCardNumber(value: unknown): string {
-	if (value === undefined || value === null) return "未绑定";
-	const normalized = String(value).trim();
-	if (!normalized || normalized.length > 64) return "未绑定";
+function maskCardNumber(value: string, requestId: string): string {
+	const normalized = value.trim();
+	if (!normalized || normalized.length > MAX_PATIENT_CARD_LENGTH) {
+		// `requiredCardText` 已经做过同一校验；这里保留第二道边界，防止
+		// 未来其它 adapter 分支直接调用格式化函数时把超长值伪装成未绑定。
+		throw providerError(
+			"Zhongyang patient card number was invalid",
+			requestId,
+			"patient-list",
+			true,
+		);
+	}
 	if (normalized.length <= 4) return "*".repeat(normalized.length);
 	// 患者选择页需要可核对卡号，但不能暴露完整卡号：最多展示前五位和后四位。
 	const suffixLength = Math.min(4, normalized.length);
@@ -421,7 +445,7 @@ function mapPatient(
 		providerPatientId,
 		displayName,
 		relationship: relationship(value.relation),
-		cardNumberMasked: maskCardNumber(card),
+		cardNumberMasked: maskCardNumber(card, requestId),
 	};
 }
 
