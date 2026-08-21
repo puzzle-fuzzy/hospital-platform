@@ -30,6 +30,32 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 | 真机二维码 | iOS + 局域网模式，显示约 `2026-08-22 06:36 CST` 失效 |
 | 旧项目/旧服务 | `mp-weixin` 未操作；旧 Python 服务未修改、未重启 |
 
+## 06:59 重新构建复核
+
+针对用户反馈的：
+
+```text
+ENOENT: no such file or directory, open
+E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight.test.js
+```
+
+已在当前候选重新执行：
+
+```powershell
+pnpm --filter @hospital/miniprogram build
+pnpm --filter @hospital/miniprogram runtime:verify
+```
+
+结果：
+
+- 构建成功，当前小程序来源仍为 `4e1b2e2`。
+- `dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在。
+- `dist/` 内 `*.test.js` / `*.spec.js` 数量为 `0`。
+- `dist/pages/report-directory/report-directory.js` 存在，14 个注册页面入口均通过运行包检查。
+- 开发者工具新项目窗口重新观察后，真机调试二维码正常，模拟器首页正常，未出现 `ENOENT` 或运行时错误。
+
+这次复核不修改 `apps/miniprogram/project.config.json`、旧项目或旧服务。工作树中的该配置文件格式化改动、`.codegraph/` 和发布压缩包仍保持原样，未纳入本次提交。
+
 ## 已执行的恢复顺序
 
 1. 重新执行 `pnpm --filter @hospital/miniprogram build`，由 staging 运行包原子发布到 `dist/`。
