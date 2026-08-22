@@ -1,9 +1,9 @@
 # 小程序运行包 `single-flight.test.js` ENOENT 恢复记录（2026-08-22）
 
 > 本文保留多个历史候选的恢复证据，不是当前发布基线。当前小程序候选以
-> [`candidate-5e43aed-local-build-2026-08-22.md`](candidate-5e43aed-local-build-2026-08-22.md) 和
+> [`candidate-7f09bbb-local-build-2026-08-22.md`](candidate-7f09bbb-local-build-2026-08-22.md) 和
 > [`miniprogram-devtools-reimport-2026-08-22-1314.md`](miniprogram-devtools-reimport-2026-08-22-1314.md) 为准；当前完整来源为
-> `5e43aed0e026cd48d980d58c468223b9a5ee8744`。
+> `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`。
 
 ## 结论
 
