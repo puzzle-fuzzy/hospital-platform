@@ -1,10 +1,10 @@
 > 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本次静态反馈行为修正已进入最新本地候选，真实真机证据仍待。
 
 # 原生小程序 TypeScript 运行包审计（2026-08-22）
-> 当前服务端发布基线（2026-08-22 18:55 CST）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。运行包不包含测试脚本。
+> 当前服务端发布基线（2026-08-22）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`。运行包不包含测试脚本。
 
-> 当前候选：服务端 release `84370077024762d92050cf077c27f3c60302e8f8`；小程序运行包来源
-> `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。本文只记录源码、构建产物和门禁事实，
+> 当前候选：服务端 release `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
+> `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本文只记录源码、构建产物和门禁事实，
 > 不代表微信真机、众阳 Provider、支付、医保或 HIS 业务已经验收。
 
 ## 审计结论
@@ -16,7 +16,7 @@
 - `apps/miniprogram/dist/` 只承载微信开发者工具运行包，不承载 TypeScript 源码或测试源码；
 - 运行包中没有 `*.test.js`、`*.spec.js` 或 `*.ts`，并且存在 `services/single-flight.js`；
 - `dist/build-info.json.sourceRevision` 与本候选完整来源一致：
-  `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。
+  `ba1dd23e0f40191745a60997939b31b4c47795cd`。
 
 因此，微信开发者工具再次请求 `dist/services/single-flight.test.js` 时，问题属于旧增量索引、错误项目窗口或文件句柄竞争，
 不能通过复制测试脚本进入运行包解决。正确恢复方式仍是关闭旧真机调试、打开

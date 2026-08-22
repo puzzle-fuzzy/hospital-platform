@@ -7,8 +7,8 @@
 > 当前候选：服务端 release `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `84370077`，当前小程序候选为 `a64fe023`，完整运行包来源为
-> `ba1dd23e0f40191745a60997939b31b4c47795cd`。服务端已切换；小程序已从正确项目普通编译并生成二维码，当前等待扫码。
+> 当前服务端候选为 `0e2a366e`，当前小程序候选为 `ba1dd23`，完整运行包来源为
+> `ba1dd23e0f40191745a60997939b31b4c47795cd`。服务端已切换；小程序运行包已通过构建与运行包门禁，等待从当前候选重新生成二维码并扫码。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -38,7 +38,7 @@ persistence 等真正进入 Bun 运行包的语句、常量或导入发生变化
 
 2026-08-21 10:38–10:47 CST 的追加只读核验仍确认新旧服务共存、生产环境启动、MySQL/Redis/schema readiness 正常；最近窗口
 只有健康检查、未登录认证和关闭路由探针，没有 `auth.*`、`patient.*`、`appointment.*` 或 `outpatient.payment.*` 业务事件。
-该窗口发生在 `9f479c9a` 切换前，下面的旧候选只作为历史观察；当前下一步必须使用顶部声明的 `a64fe023` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
+该窗口发生在 `9f479c9a` 切换前，下面的旧候选只作为历史观察；当前下一步必须使用顶部声明的 `ba1dd23` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
 完整运行窗口见 [`current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md)。
 
 ### `c8eef370` 切换前历史观察（仅供追溯）
@@ -204,7 +204,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
 - 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-7f09bbb.md`](miniprogram-real-device-evidence-template-7f09bbb.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)
-- 当前候选来源：[`candidate-a64fe023-local-build-2026-08-22.md`](candidate-a64fe023-local-build-2026-08-22.md)
+- 当前候选来源：[`candidate-ba1dd23-local-build-2026-08-22.md`](candidate-ba1dd23-local-build-2026-08-22.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)

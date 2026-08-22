@@ -204,22 +204,6 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前候选下一步审计",
 	},
 	{
-		path: "docs/release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md",
-		label: "上一轮小程序二维码会话",
-	},
-	{
-		path: "docs/release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md",
-		label: "上一轮小程序二维码会话",
-	},
-	{
-		path: "docs/release/miniprogram-device-qr-session-2026-08-22-1825-a64fe023.md",
-		label: "上一轮小程序二维码会话",
-	},
-	{
-		path: "docs/release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md",
-		label: "当前小程序运行包 ENOENT 复核",
-	},
-	{
 		path: "docs/release/appointment-record-status-mapping-audit-2026-08-22.md",
 		label: "当前预约历史状态映射审计",
 	},
@@ -302,10 +286,6 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		path: "docs/release/miniprogram-readonly-list-load-more-boundary-audit-2026-08-21.md",
 		label: "小程序只读列表窗口审计",
-	},
-	{
-		path: "docs/release/miniprogram-runtime-enoent-recovery-2026-08-22.md",
-		label: "小程序运行包 ENOENT 恢复记录",
 	},
 ]);
 
