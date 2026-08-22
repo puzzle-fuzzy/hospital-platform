@@ -1,4 +1,10 @@
 # 项目文档导航
+> 2026-08-22 18:30 CST ENOENT 运行包复核：重新构建当前 `a64fe023` 小程序候选后，
+> `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
+> `runtime:verify` 通过，开发者工具新项目窗口普通编译显示 `Errors: 0`。若真机仍请求该路径，
+> 按 [`release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md`](release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md)
+> 关闭旧增量模块图后重新编译，不要复制测试脚本。
+
 > 2026-08-22 18:25 CST ENOENT 缓存恢复：新项目只清理了开发者工具“文件缓存”，随后普通编译显示 `Errors: 0` 并重新生成二维码；
 > 未清理登录/授权/业务数据，`dist/` 仍不含测试脚本。详细现场见
 > [`release/miniprogram-device-qr-session-2026-08-22-1825-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1825-a64fe023.md)。
@@ -52,6 +58,7 @@
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md) | 历史 `single-flight.test.js` ENOENT 恢复记录；当前候选以 `candidate-a64fe023` 和最新开发者工具准入记录为准 |
+| [`release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md`](release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md) | 当前 `a64fe023` 运行包重建、测试模块 0 引用和开发者工具旧增量缓存恢复顺序 |
 | [`release/current-public-health-observation-2026-08-22.md`](release/current-public-health-observation-2026-08-22.md) | 当前公网 live/ready/ping 低敏探针；明确它不替代真机、Provider 或旧服务共存证据 |
 | [`release/current-public-health-observation-2026-08-22-1811.md`](release/current-public-health-observation-2026-08-22-1811.md) | 18:11 CST 当前公网 live/ready/system-ping 只读结果；SSH 进程现场与真机业务仍单独取证 |
 | [`release/device-evidence-redaction-phone-audit-2026-08-22.md`](release/device-evidence-redaction-phone-audit-2026-08-22.md) | 真机验收摘要中的手机号脱敏门禁、回归测试和不影响业务/旧服务的边界 |
