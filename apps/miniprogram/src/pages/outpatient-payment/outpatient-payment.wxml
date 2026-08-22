@@ -65,6 +65,19 @@
 		<view wx:if="{{hasMoreItems}}" class="load-more" bindtap="onLoadMore">加载更多缴费记录</view>
 	</view>
 
+	<!--
+		错误态不能沿用“未查询到费用”的空态。依赖未配置、患者映射失败或
+		会话异常都不是“没有账单”的证明，重新加载和重新选择患者都必须回到
+		完整的 owner-scoped 只读查询链路。
+	-->
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>本次门诊费用未加载成功</text>
+		<text class="state-hint">请根据上方提示处理后重试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+	</view>
+
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
 		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
 		<text wx:if="{{selectedPatient}}">{{activeStatus === 'unpaid' ? '未查询到待缴费记录' : '未查询到已缴费记录'}}</text>

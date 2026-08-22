@@ -140,6 +140,22 @@
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多挂号记录</view>
 	</view>
 
+	<!--
+		错误态必须在空列表之前截断渲染分支。依赖未配置、会话失效或网络异常
+		都不能被解释成“暂无挂号记录”；用户可以重新读取，也可以重新选择患者。
+	-->
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+		<image
+			class="state-empty-icon"
+			src="/assets/legacy-user/empty-record.svg"
+			mode="aspectFit"
+		/>
+		<text>本次挂号记录未加载成功</text>
+		<text class="state-hint">请根据上方提示处理后重试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+	</view>
+
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
 		<!-- 旧端空列表使用 48rpx 的 file-text 图标，不能套用首页的大型服务插图。 -->
 		<image

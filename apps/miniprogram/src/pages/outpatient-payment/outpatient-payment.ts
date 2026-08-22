@@ -70,6 +70,7 @@ type OutpatientPaymentPageMethods = {
 	): Promise<void>;
 	onStatusTap(event: WechatMiniprogram.TouchEvent): void;
 	onLoadMore(): void;
+	onRetry(): void;
 	onChangePatient(): void;
 	onHospitalTap(): void;
 	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
@@ -354,6 +355,14 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector(this.data.sessionState);
+	},
+
+	/**
+	 * 费用错误态不能通过局部清除恢复。重试必须重新确认会话、患者映射和
+	 * 当前费用状态，避免把上一位患者或上一轮状态快照再次带入查询。
+	 */
+	onRetry(): void {
+		void this.loadPage();
 	},
 
 	/**

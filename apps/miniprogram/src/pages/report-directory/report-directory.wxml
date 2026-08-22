@@ -47,6 +47,19 @@
 		<view wx:if="{{hasMoreReports}}" class="load-more" bindtap="onLoadMore">加载更多报告</view>
 	</view>
 
+	<!--
+		报告 Provider 或患者上下文失败时，不能落入“未查询到相关报告”。
+		这里保留重新读取和重新选择患者两个恢复动作，避免把错误态伪装成
+		临床空结果，也避免页面因清空患者上下文后失去切换入口。
+	-->
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>本次报告目录未加载成功</text>
+		<text class="state-hint">请根据上方提示处理后重试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+	</view>
+
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
 		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
 		<text wx:if="{{selectedPatient}}">未查询到相关报告</text>

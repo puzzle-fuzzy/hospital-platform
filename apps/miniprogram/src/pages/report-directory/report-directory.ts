@@ -59,6 +59,7 @@ function findVisibleReport(
 
 type ReportDirectoryPageMethods = {
 	loadPage(): Promise<void>;
+	onRetry(): void;
 	onChangePatient(): void;
 	onReportTap(event: ViewKeyEvent): void;
 	onLoadMore(): void;
@@ -213,6 +214,14 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector(this.data.sessionState);
+	},
+
+	/**
+	 * 报告错误态的重试重新建立患者范围目录；不能只把 error 置空，
+	 * 否则页面会在没有新 Provider 结果时短暂呈现上一轮或伪造的空目录。
+	 */
+	onRetry(): void {
+		void this.loadPage();
 	},
 
 	/**

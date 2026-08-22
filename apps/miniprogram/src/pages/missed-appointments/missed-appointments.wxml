@@ -41,6 +41,18 @@
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多爽约记录</view>
 	</view>
 
+	<!--
+		爽约列表是预约历史的派生读模型。查询异常时不能显示“暂无爽约记录”，
+		否则会把 Provider 失败误报成用户没有爽约；恢复动作必须重新读取当前患者。
+	-->
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<text>本次爽约记录未加载成功</text>
+		<text class="state-hint">请根据上方提示处理后重试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+	</view>
+
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
 		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
 		<text wx:if="{{selectedPatient}}">暂无爽约记录</text>

@@ -47,6 +47,7 @@ const DEFAULT_HOSPITAL_NAME = "高平市人民医院";
 type AppointmentRecordsPageMethods = {
 	loadRecords(): Promise<void>;
 	onLoadMore(): void;
+	onRetry(): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
 	onChangePatient(): void;
 	onHospitalTap(): void;
@@ -353,6 +354,15 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector(this.data.sessionState);
+	},
+
+	/**
+	 * 错误态的重试必须重新执行 `/me`、患者目录和预约记录完整链路，
+	 * 不能只清空 error 或复用上一轮患者快照；这样才能重新建立同一会话
+	 * 代际下的患者与挂号记录组合事实。
+	 */
+	onRetry(): void {
+		void this.loadRecords();
 	},
 
 	/**

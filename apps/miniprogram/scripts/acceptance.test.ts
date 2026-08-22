@@ -112,6 +112,48 @@ test("native patient selectors do not report a selection error during loading", 
 	}
 });
 
+test("native patient-scoped list errors do not fall through to empty patient state", async () => {
+	// 服务端错误已经在页面顶部展示，但 WXML 仍会继续选择后续分支；
+	// 错误分支必须排在空列表前面，避免 dependency-not-configured、401 或
+	// Provider 暂时不可用被渲染成“请先选择就诊人/暂无数据”。
+	const pages = [
+		[
+			"pages/appointment-records/appointment-records.wxml",
+			"pages/appointment-records/appointment-records.ts",
+		],
+		[
+			"pages/outpatient-payment/outpatient-payment.wxml",
+			"pages/outpatient-payment/outpatient-payment.ts",
+		],
+		[
+			"pages/report-directory/report-directory.wxml",
+			"pages/report-directory/report-directory.ts",
+		],
+		[
+			"pages/missed-appointments/missed-appointments.wxml",
+			"pages/missed-appointments/missed-appointments.ts",
+		],
+	] as const;
+
+	for (const [templatePath, pagePath] of pages) {
+		const [template, page] = await Promise.all([
+			source(templatePath),
+			source(pagePath),
+		]);
+		const errorBranch =
+			'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+		const emptyBranch =
+			'<view wx:elif="{{!loading}}" class="state-card state-card-empty">';
+		expect(template).toContain(errorBranch);
+		expect(template.indexOf(errorBranch)).toBeLessThan(
+			template.indexOf(emptyBranch),
+		);
+		expect(template).toContain('bindtap="onRetry"');
+		expect(template).toContain('bindtap="onChangePatient"');
+		expect(page).toContain("onRetry(): void");
+	}
+});
+
 test("native client single-flights login and preserves a newer concurrent token", async () => {
 	const client = await source("services/api-client.ts");
 

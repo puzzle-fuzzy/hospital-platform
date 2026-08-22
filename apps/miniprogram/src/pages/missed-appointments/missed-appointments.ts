@@ -34,6 +34,7 @@ const MISSED_APPOINTMENT_PAGE_SIZE = 10;
 type MissedAppointmentsPageMethods = {
 	loadRecords(): Promise<void>;
 	onLoadMore(): void;
+	onRetry(): void;
 	onChangePatient(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
@@ -243,6 +244,14 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector(this.data.sessionState);
+	},
+
+	/**
+	 * 爽约记录来自当前患者的预约历史派生结果；错误态重试必须重新完成
+	 * 患者上下文和历史读取，不能在本地把旧列表清空后假装得到空结果。
+	 */
+	onRetry(): void {
+		void this.loadRecords();
 	},
 
 	onPullDownRefresh(): void {
