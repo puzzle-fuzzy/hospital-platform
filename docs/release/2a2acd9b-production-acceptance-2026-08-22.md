@@ -58,3 +58,6 @@ P0 聚合和业务审计工具得到：
 本次只推进日志可维护性与预约目录只读证据。微信真机页面截图、预约历史/爽约、门诊费用只读和报告目录仍按三层证据逐项验收；
 支付、医保授权、退款、预约写入和 HIS 回写继续最后处理。若新 API readiness 或公网路径异常，只回滚 `current` 并重启新 API，
 不触碰旧 Python `8001`。
+
+下一项预约历史/爽约验收按 [`next-appointment-records-acceptance-2026-08-22.md`](next-appointment-records-acceptance-2026-08-22.md)
+执行；在真实 Provider 和真机三层证据齐全前，不能把代码闭环标记为业务完成。
