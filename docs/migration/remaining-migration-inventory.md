@@ -31,6 +31,12 @@
 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。因此可以继续进行真机准入，但只有页面、客户端 HTTP 和 Pino 同链证据齐全时
 才能把只读业务标记为已验收。
 
+> 2026-08-22 18:34 CST 状态语义复核：旧端预约历史声明使用 `status`，但在线列表曾用未声明的
+> `statusCode` 排除取消；新端已将 `0/1/3/4/5/6/7` 集中映射为稳定公共枚举，并由 domain/service
+> 二次校验。预约历史 adapter、API service 和小程序展示边界定向测试分别为 `15/25/8 pass`；
+> “全部挂号”渠道 4 contract 仍未冻结，继续保持迁移提示。详细边界见
+> [`../release/appointment-record-status-mapping-audit-2026-08-22.md`](../release/appointment-record-status-mapping-audit-2026-08-22.md)。
+
 2026-08-22 09:18 CST 的历史线上低敏观察显示当时已验证 release 曾出现微信登录、患者目录和预约历史事件，但门诊费用事件为 0；
 该窗口不属于当前候选证据，也不替代真机页面和同链 requestId 证据。详细统计见
 [`../release/current-2a2acd9-business-observation-2026-08-22-0918.md`](../release/current-2a2acd9-business-observation-2026-08-22-0918.md)。
