@@ -4,6 +4,10 @@
 
 > 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端已验证 release：`1e58bb66bf24021d2b680eb5fd03abfec467989a`。
 
+> 2026-08-22 15:16 CST 运行复核：新 API `active`、内网 `18081` 和旧 Python `8001` 继续共存，Worker 为 `inactive`，
+> live/ready 均为 `200`；最近 60 分钟没有当前候选的业务请求/成功事件。该窗口不替代真机三层证据，详见
+> [`release/current-business-observation-2026-08-22-1510.md`](release/current-business-observation-2026-08-22-1510.md)。
+
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
