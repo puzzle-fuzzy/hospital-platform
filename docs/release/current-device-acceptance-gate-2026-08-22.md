@@ -6,6 +6,26 @@
 > 当前已记录与 `4ba492a` 配套的有效二维码现场状态（2026-08-22 20:50 CST，面板显示有效至 21:15）；手机扫码前仍不得宣称真机业务完成。
 
 
+## 2026-08-22 21:01 CST `single-flight.test.js` ENOENT 复核
+
+针对真机调试再次报告的
+`E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight.test.js`
+缺失错误，已在当前候选重新执行构建和运行包门禁：
+
+- `pnpm --filter @hospital/miniprogram build`：通过；TypeScript 类型检查通过，14 个页面脚本完整发布；
+- `pnpm --filter @hospital/miniprogram runtime:verify`：通过；来源为
+  `4ba492a3fdae8283409bd2ab4a0a45247c46600c`；
+- `pnpm --filter @hospital/miniprogram test`：`221 pass / 0 fail / 1640 expect()`；
+- `dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在；运行包内
+  `*.test.js` 和 `*.spec.js` 数量均为 `0`；
+- 生成的 JavaScript 依赖扫描未发现指向 `single-flight.test` 的相对模块引用。
+
+因此，该错误不是当前运行包缺少生产模块，而是微信开发者工具仍持有旧增量模块索引，或当前真机调试会话没有重新加载本候选。禁止把测试脚本复制到 `dist/`。
+处理顺序仍是：停止真机调试 → 关闭指向该项目的开发者工具窗口 → 重新打开
+`E:/__Super_Core__/hospital-platform/apps/miniprogram/` → 确认 `miniprogramRoot=dist/` → 普通编译 →
+重新生成二维码。若重开后仍报错，应记录开发者工具项目路径、`dist/build-info.json` 和完整错误时间，再停止本次真机业务验收。
+
+
 > 当前完整小程序来源校验值：`4ba492a3fdae8283409bd2ab4a0a45247c46600c`；当前服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
 
 ## 当前候选覆盖（2026-08-22）
