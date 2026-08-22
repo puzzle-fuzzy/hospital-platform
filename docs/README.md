@@ -1,5 +1,5 @@
 # 项目文档导航
-> 当前候选更新（2026-08-22 17:50 CST）：服务端 release 为 `84370077024762d92050cf077c27f3c60302e8f8`（提交 `84370077`）；小程序运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22 18:04 CST）：服务端 release 为 `84370077024762d92050cf077c27f3c60302e8f8`（提交 `84370077`）；小程序运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。历史候选仅作追溯。
 
 
 > 当前完整小程序来源校验值：`a64fe023bc34fe6e44f93846c39e202fe02d64a5`；当前服务端已验证 release：`84370077024762d92050cf077c27f3c60302e8f8`。
@@ -11,20 +11,20 @@
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前发布基线（2026-08-22 17:50 CST）为：服务端已验证 `84370077024762d92050cf077c27f3c60302e8f8`，当前小程序候选来源
+当前发布基线（2026-08-22 18:04 CST）为：服务端已验证 `84370077024762d92050cf077c27f3c60302e8f8`，当前小程序候选来源
 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。服务端已完成新 API 的原子切换与 production smoke；小程序已重新构建、
 验证运行包并在正确项目中重新生成二维码，但仍需手机页面、客户端 requestId 和服务端日志三层业务证据。旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
-工作树运行包补充状态（2026-08-22 17:50 CST）：`apps/miniprogram/dist/build-info.json.sourceRevision` 当前为
+工作树运行包补充状态（2026-08-22 18:04 CST）：`apps/miniprogram/dist/build-info.json.sourceRevision` 当前为
 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`，对应本次小程序候选。该运行包不含任何测试 JS；针对
 `single-flight.test.js` 的 ENOENT 已重新构建、普通编译并通过运行包门禁确认；若开发者工具仍报错，应关闭工具释放 `dist/` 文件句柄后重开正确项目。
 本轮还补齐成功请求的低敏 requestId 观测，便于与服务端 Pino 日志对齐；不增加微信登录、患者、Provider 或真机业务证据。
 
-2026-08-22 17:50 CST 从当前源码重建运行包：`dist/build-info.json` 指向
+2026-08-22 18:04 CST 从当前源码重建运行包：`dist/build-info.json` 指向
 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`，14 个页面入口和 `services/single-flight.js` 均存在，
 `dist/` 中 `*.test.js`/`*.spec.js` 为 0 个；运行包门禁通过，小程序全量测试为 `220 pass / 0 fail / 1634 expect()`。
-如果真机仍请求 `services/single-flight.test.js`，只能按开发者工具旧增量索引处理：结束当前新项目真机调试、
+当前二维码会话的详细现场见 [`release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md)。如果真机仍请求 `services/single-flight.test.js`，只能按开发者工具旧增量索引处理：结束当前新项目真机调试、
 关闭并重新打开 `apps/miniprogram/`，普通编译一次后再生成新二维码。不要使用旧二维码，也不要在 `dist/`
 中手工创建测试脚本。
 
@@ -56,6 +56,7 @@
 | [`release/miniprogram-devtools-reimport-2026-08-22-1314.md`](release/miniprogram-devtools-reimport-2026-08-22-1314.md) | 当前候选重新导入、普通编译、运行包测试脚本边界和新二维码准入证据 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1327.md`](release/miniprogram-device-qr-session-2026-08-22-1327.md) | 历史 `41c708e1` 候选二维码现场与三层证据交接边界；当前二维码必须以 `a64fe023` 项目开发者工具现场为准 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1348.md`](release/miniprogram-device-qr-session-2026-08-22-1348.md) | 历史 `41c708e1` 候选二维码会话；已过期，不能替代当前三层业务证据 |
+| [`release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md) | 当前 `a64fe023` 候选二维码现场、运行包边界和扫码后三层证据顺序 |
 | [`release/patient-context-consistency-audit-2026-08-22.md`](release/patient-context-consistency-audit-2026-08-22.md) | 当前候选患者范围页面的 owner、会话代际、显式选择和旧结果淘汰审计；该记录中的测试数字属于记录当时的候选，当前构建以 `candidate-a64fe023` 为准 |
 | [`release/current-runtime-coexistence-readonly-audit-2026-08-22-1335.md`](release/current-runtime-coexistence-readonly-audit-2026-08-22-1335.md) | 发布前 `9f479c9a` 新旧服务共存、内外网 readiness 和排班快照持久化降级边界的只读观察；当前切换见 `84370077` |
 | [`release/current-runtime-coexistence-readonly-audit-2026-08-22-1406.md`](release/current-runtime-coexistence-readonly-audit-2026-08-22-1406.md) | 当前运行层实际监听地址、公网 `/api/v2` 前缀映射、病历关闭路由和旧 Python `8001` 共存的最新只读复核 |
@@ -102,7 +103,7 @@
 | [`release/outpatient-payment-identity-boundary-2026-08-21.md`](release/outpatient-payment-identity-boundary-2026-08-21.md) | 门诊费用 Provider 稳定身份字段的严格形状、长度、控制字符和 `recordId` 唯一性边界 |
 | [`release/miniprogram-outpatient-payment-session-race-audit-2026-08-21.md`](release/miniprogram-outpatient-payment-session-race-audit-2026-08-21.md) | 门诊费用状态切换前的患者会话代际竞态、请求前 fail-closed 修正和验证边界 |
 | [`release/appointment-outpatient-readonly-correctness-audit-2026-08-21.md`](release/appointment-outpatient-readonly-correctness-audit-2026-08-21.md) | 预约与门诊费用只读 service 输入字段、渠道 3/4、状态、患者归属和当前验证证据 |
-| [`release/appointment-outpatient-current-candidate-audit-2026-08-22.md`](release/appointment-outpatient-current-candidate-audit-2026-08-22.md) | 历史 `5b4b066` 候选的预约历史 Provider 日志证据、门诊费用只读边界和停止条件；当前基线请以 `7f09bbb` 文档为准 |
+| [`release/appointment-outpatient-current-candidate-audit-2026-08-22.md`](release/appointment-outpatient-current-candidate-audit-2026-08-22.md) | 历史 `5b4b066` 候选的预约历史 Provider 日志证据、门诊费用只读边界和停止条件；当前基线请以 `a64fe023` 文档为准 |
 | [`release/report-attachment-boundary-2026-08-21.md`](release/report-attachment-boundary-2026-08-21.md) | 报告 LIS 附件标记的元素类型、控制字符和下载授权关闭边界 |
 | [`release/readonly-business-chain-audit-2026-08-21.md`](release/readonly-business-chain-audit-2026-08-21.md) | 当前候选预约历史、爽约、门诊费用患者上下文复核，以及 `single-flight.test.js` ENOENT 运行包恢复证据 |
 | [`release/current-gated-domains-audit-2026-08-21.md`](release/current-gated-domains-audit-2026-08-21.md) | 当前病历、患者绑定、二维码、报告详情/附件和支付医保门禁，以及公网关闭路由只读证据 |
@@ -199,11 +200,11 @@
 | [`release/current-public-readonly-smoke-2026-08-19-1329.md`](release/current-public-readonly-smoke-2026-08-19-1329.md) | 13:29 CST 公网 live/ready/ping 与未登录患者接口复核；不代表微信、Provider 或真机业务验收 |
 | [`release/current-b7c9451-database-transient-observation-2026-08-19.md`](release/current-b7c9451-database-transient-observation-2026-08-19.md) | 历史 `b7c9451` 远端 MySQL 瞬态断连、readiness 恢复、双服务共存和磁盘风险观察；不代表业务验收 |
 | [`release/miniprogram-current-candidate-simulator-observation-2026-08-19.md`](release/miniprogram-current-candidate-simulator-observation-2026-08-19.md) | 历史模拟器只读页面观察（当时候选为 `b451cc6`）；当前验收候选请改读 `cde7bc9`，本记录不替代真机、Provider 或服务端日志证据 |
-| [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 真机扫码前门禁、操作顺序和三层证据清单；当前候选以 `7f09bbb` 为准 |
-| [`release/miniprogram-real-device-evidence-template-c86a788.md`](release/miniprogram-real-device-evidence-template-c86a788.md) | 历史 `c86a788` 候选的真机证据模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) |
-| [`release/miniprogram-real-device-evidence-template-4e82313.md`](release/miniprogram-real-device-evidence-template-4e82313.md) | 历史 `4e82313` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) |
-| [`release/miniprogram-real-device-evidence-template-8d33a27.md`](release/miniprogram-real-device-evidence-template-8d33a27.md) | 历史 `8d33a27` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) |
-| [`release/miniprogram-real-device-evidence-template-9c582a1.md`](release/miniprogram-real-device-evidence-template-9c582a1.md) | 历史 `9c582a1` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) |
+| [`release/miniprogram-real-device-acceptance-checklist-2026-08-19.md`](release/miniprogram-real-device-acceptance-checklist-2026-08-19.md) | 真机扫码前门禁、操作顺序和三层证据清单；当前候选以 `a64fe023` 为准 |
+| [`release/miniprogram-real-device-evidence-template-c86a788.md`](release/miniprogram-real-device-evidence-template-c86a788.md) | 历史 `c86a788` 候选的真机证据模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md)，候选来源以 `a64fe023` 为准 |
+| [`release/miniprogram-real-device-evidence-template-4e82313.md`](release/miniprogram-real-device-evidence-template-4e82313.md) | 历史 `4e82313` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md)，候选来源以 `a64fe023` 为准 |
+| [`release/miniprogram-real-device-evidence-template-8d33a27.md`](release/miniprogram-real-device-evidence-template-8d33a27.md) | 历史 `8d33a27` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md)，候选来源以 `a64fe023` 为准 |
+| [`release/miniprogram-real-device-evidence-template-9c582a1.md`](release/miniprogram-real-device-evidence-template-9c582a1.md) | 历史 `9c582a1` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；当前模板请使用 [`miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md)，候选来源以 `a64fe023` 为准 |
 | [`release/miniprogram-stable-patient-read-session-2026-08-22.md`](release/miniprogram-stable-patient-read-session-2026-08-22.md) | 患者范围只读请求固定会话代际的竞态修复、回归证据和真机边界 |
 | [`release/miniprogram-homepage-session-state-2026-08-22.md`](release/miniprogram-homepage-session-state-2026-08-22.md) | 首页目录读取被淘汰时的会话状态竞态、刷新 guard 和回归边界 |
 | [`release/miniprogram-real-device-evidence-template-7a6f4df.md`](release/miniprogram-real-device-evidence-template-7a6f4df.md) | 历史 `7a6f4df` 候选的真机页面、客户端 trace 和服务端低敏日志记录模板；不能替代当前 `cde7bc9` 候选 |
@@ -215,7 +216,7 @@
 | [`release/miniprogram-device-qr-session-2026-08-21-0705.md`](release/miniprogram-device-qr-session-2026-08-21-0705.md) | 历史 `9340846` 候选的 iOS/局域网真机二维码会话；当前二维码必须从 `cde7bc9` 候选重新生成，仅证明二维码与运行包边界，不代表手机业务验收成功 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0658.md`](release/miniprogram-device-qr-session-2026-08-21-0658.md) | 历史 `c08378b` 候选的二维码会话；已被当前 `cde7bc9` 候选替代，不得用于当前真机验收 |
 | [`release/miniprogram-device-qr-session-2026-08-21-0644.md`](release/miniprogram-device-qr-session-2026-08-21-0644.md) | 历史 `6ce1272` 候选的 iOS/局域网真机二维码会话；已被当前 `cde7bc9` 候选替代，不得用于当前真机验收 |
-| [`release/miniprogram-session-recovery-logic-audit-2026-08-21.md`](release/miniprogram-session-recovery-logic-audit-2026-08-21.md) | 历史会话失效恢复、GET 二次 401 清理、命令禁止重放和患者代际隔离规则；当前代码候选以顶部 `7f09bbb` 基线为准 |
+| [`release/miniprogram-session-recovery-logic-audit-2026-08-21.md`](release/miniprogram-session-recovery-logic-audit-2026-08-21.md) | 历史会话失效恢复、GET 二次 401 清理、命令禁止重放和患者代际隔离规则；当前代码候选以本页顶部当前基线 `a64fe023` 为准 |
 | [`release/miniprogram-device-session-2026-08-19-1651.md`](release/miniprogram-device-session-2026-08-19-1651.md) | 历史 `398be8e + 48ba22f` 候选的二维码/设备连接状态复核；当前尚无有效手机连接，不代表真机业务验收 |
 | [`release/miniprogram-device-session-lan-2026-08-19.md`](release/miniprogram-device-session-lan-2026-08-19.md) | 历史 `474b044` 候选的局域网二维码重试、传输层错误边界；新的扫码必须使用当前 `cde7bc9` 候选 |
 | [`release/miniprogram-my-page-session-generation-order-2026-08-19.md`](release/miniprogram-my-page-session-generation-order-2026-08-19.md) | “我的”页资料与患者目录的会话代际顺序、降级和旧患者清理边界 |

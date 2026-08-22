@@ -1,6 +1,6 @@
 # 当前候选下一步审计（2026-08-22）
 
-> 当前候选基线（2026-08-22 17:50 CST）：服务端 release 为
+> 当前候选基线（2026-08-22 18:04 CST）：服务端 release 为
 > `84370077024762d92050cf077c27f3c60302e8f8`（`84370077`），小程序运行包来源为
 > `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（`a64fe023`）。本文记录当前小程序候选的业务边界和下一步交接，
 > 不把本地测试通过误写成真实微信业务完成。旧 Python 服务、旧数据库和旧 Redis 不在本轮修改范围内。
@@ -16,7 +16,7 @@
 | `dist/` 测试脚本 | `*.test.js` / `*.spec.js` 均为 0 |
 | 运行包校验 | `runtime:verify` 通过 |
 | 小程序门禁 | 全量测试 `220 pass / 0 fail / 1634 expect()`、typecheck、build、runtime:verify 均通过 |
-| 真机连接 | 17:50 CST 重开新项目、普通编译并重新生成当前候选二维码，仍未检测到手机连接；二维码预计 18:14 CST 失效 |
+| 真机连接 | 18:04 CST 在新项目中重新生成当前候选二维码，记录时仍未检测到手机连接；二维码预计 18:14 CST 失效 |
 
 历史 release 的服务端低敏观察曾在 `2026-08-22 10:42–14:42 CST` 窗口内形成微信授权、就诊人读取/同步、预约科室/排班/历史和门诊费用只读链路；
 该记录不属于当前 `84370077` 验收证据，不能替代当前候选的真机页面和客户端 requestId。当前候选最近的低敏观察没有新的真机业务流量，
@@ -66,7 +66,7 @@ E:\__Super_Core__\hospital-platform\apps\miniprogram
 不要导入旧的 `mp-weixin`，也不要把 `dist/` 之外的 TypeScript 源目录作为小程序运行根目录。若仍出现
 `dist/services/single-flight.test.js`，应关闭旧真机调试、清理文件/编译缓存、重新打开上述项目并普通编译；不得手工复制测试脚本到 `dist/`。
 
-## 2026-08-22 17:50 CST 运行包错误恢复
+## 2026-08-22 18:04 CST 运行包错误恢复与二维码交接
 
 本轮针对真机报告的 `dist/services/single-flight.test.js` ENOENT 完成了当前候选恢复：
 
@@ -75,6 +75,8 @@ E:\__Super_Core__\hospital-platform\apps\miniprogram
 - 只关闭并重新打开新项目 `miniprogram` 窗口，旧项目 `mp-weixin` 窗口未操作；
 - 新项目普通编译完成，构建面板列出 `services/single-flight.js`，没有同一路径 ENOENT 或页面脚本缺失；
 - 重新生成当前候选 iOS/局域网真机二维码，等待手机扫码，尚未形成真机三层业务证据；成功请求的客户端 requestId 已纳入低敏观测，可与服务端 Pino 日志对齐。
+
+当前二维码现场记录见 [`miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md`](miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md)。
 
 结论仍是开发者工具旧增量模块索引/文件句柄导致的历史路径请求，不是业务代码缺少 `single-flight.test.js`。禁止将测试脚本复制到
 `dist/`，后续真机必须扫描本轮重新生成的二维码。
