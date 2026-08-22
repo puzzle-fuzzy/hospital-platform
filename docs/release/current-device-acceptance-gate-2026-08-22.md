@@ -1,7 +1,7 @@
 # 当前真机准入记录（2026-08-22）
 > 当前候选更新（2026-08-22 14:31 CST）：服务端 release 为 `1e58bb66`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
 
-> 最新二维码现场记录见 [`miniprogram-device-qr-session-2026-08-22-1348.md`](miniprogram-device-qr-session-2026-08-22-1348.md)；在手机扫码前仍不得宣称真机业务完成。
+> 最新二维码现场记录见 [`miniprogram-device-qr-session-2026-08-22-1450.md`](miniprogram-device-qr-session-2026-08-22-1450.md)；在手机扫码前仍不得宣称真机业务完成。
 
 
 > 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端已验证 release：`1e58bb66bf24021d2b680eb5fd03abfec467989a`。
