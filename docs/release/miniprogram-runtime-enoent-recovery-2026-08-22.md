@@ -13,6 +13,26 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 
 本次根因仍是微信开发者工具旧的增量模块索引或旧真机调试会话残留，不是当前业务模块缺失。
 
+## 09:47 当前候选复核
+
+本轮针对再次报告的同一路径 ENOENT，重新从当前源码构建运行包并执行运行包门禁：
+
+| 项目 | 结果 |
+| --- | --- |
+| 当前小程序候选 | `dc8cd5b8bbf99411831cc5112bc39683108cd990`（`dc8cd5b8`） |
+| 运行包生成时间 | `2026-08-22 09:47:31 CST` |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| 页面运行包 | `14/14` |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | `0` 个 |
+| 预约历史/爽约/门诊费用定向测试 | `135 pass / 0 fail` |
+
+本轮观察到开发者工具仍保留旧的“真机调试”独立窗口，窗口显示未收到手机消息并持续出现
+`received error code -1`；这说明旧调试会话的传输/增量索引尚未被工具彻底淘汰，不能把该窗口状态当成当前候选的业务结果。
+本轮没有生成新的二维码，也没有取得手机页面、客户端 requestId 或服务端业务日志三层证据。
+
 ## 当前候选证据
 
 | 项目 | 结果 |
@@ -30,7 +50,7 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 | 真机二维码 | iOS + 局域网模式，显示约 `2026-08-22 06:36 CST` 失效 |
 | 旧项目/旧服务 | `mp-weixin` 未操作；旧 Python 服务未修改、未重启 |
 
-## 06:59 重新构建复核
+## 06:59 历史候选重新构建复核
 
 针对用户反馈的：
 
