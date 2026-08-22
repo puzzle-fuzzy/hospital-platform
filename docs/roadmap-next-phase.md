@@ -82,17 +82,17 @@ Biome、9 个 workspace 的类型检查/测试/构建均通过；小程序运行
 
 - 2026-08-22 07:25 CST（公网健康只读观察）：`/api/v2/health/live`、`/api/v2/health/ready` 和 `/api/v2/system/ping` 均为 `200`；ready 的 database/Redis/schema 均为 `ok`。本窗口没有会话、患者或 Provider 参数，不能替代真机三层业务证据，也没有 SSH 旧服务共存快照；详见 [`release/current-public-health-observation-2026-08-22.md`](release/current-public-health-observation-2026-08-22.md)。
 
-- 2026-08-22 06:30–06:31 CST（当前小程序候选运行包恢复）：针对再次出现的 `dist/services/single-flight.test.js` ENOENT，重新构建并验证候选 `4e1b2e2`；`single-flight.js` 存在、测试脚本为 0、14 个页面齐全，`runtime:verify` 通过。新 `miniprogram` 项目普通编译成功，调试器错误数为 0，并重新生成 iOS/局域网二维码。该记录仍不增加真实手机业务证据，不得把二维码或模拟器状态当作微信登录、患者或只读业务完成；详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md)。
+- 2026-08-22 06:30–06:31 CST（历史小程序候选运行包恢复）：针对再次出现的 `dist/services/single-flight.test.js` ENOENT，重新构建并验证历史候选 `4e1b2e2`；该记录不覆盖当前 `41c708e1`，也不增加真实手机业务证据。详见 [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md)。
 
-- 2026-08-22 06:30–06:43 CST（当前候选全仓门禁复核）：再次执行 `pnpm check`，架构规则 67 条、API 测试 `206 pass / 0 fail`、工具测试 `51 pass / 0 fail`，9 个 workspace 的 typecheck/test/build 全部通过；运行包来源仍为 `4e1b2e2`，14 个页面完整且不含测试脚本，二维码界面显示有效至 06:56。该复核未产生手机扫码、微信会话或 Provider 业务证据；旧 `mp-weixin`、旧 Python 服务、数据库和 Redis 均未修改。
+- 2026-08-22 06:30–06:43 CST（历史候选全仓门禁复核）：再次执行 `pnpm check`，该历史候选来源为 `4e1b2e2`，不覆盖当前 `41c708e1`；该复核未产生手机扫码、微信会话或 Provider 业务证据。
 
 - 2026-08-22 06:44–06:45 CST（线上只读入口复核）：SSH 检查 `ps@192.168.112.172` 返回 `Permission denied`，因此不记录新 API、旧 Python `8001`、Worker 或 journald 状态；公网 live/ready/ping 均为 `200`，ready 的 database/Redis/schema 均为 `ok`，无 Bearer 的患者目录请求为预期 `401 unauthorized`。该窗口没有调用 Provider、写入 MySQL/Redis 或修改旧服务，仍不能替代真机三层业务证据。
 
-- 2026-08-22（本轮当前小程序候选与页面错误态收口）：当前候选已更新为提交 `937bb2ad`，运行包来源为 `937bb2ad2c71a2e83fac679939d31ed6bb3f0996`；14 个页面入口齐全，`dist/` 中 `*.test.js`/`*.spec.js` 数量为 0，`runtime:verify` 通过。小程序测试 `215 pass / 0 fail`，定向 Biome 检查通过，文档链接审计为 497 个文档无断链。预约历史、门诊费用、报告目录、爽约、患者选择、预约目录和个人资料页在依赖失败、会话失效或网络错误时不再落入成功空态，而是提供重新加载入口；患者范围页仍提供重新选择就诊人入口。详见 [`release/candidate-937bb2a-local-build-2026-08-22.md`](release/candidate-937bb2a-local-build-2026-08-22.md) 与 [`release/readonly-page-error-state-2026-08-22.md`](release/readonly-page-error-state-2026-08-22.md)。本轮没有修改旧 Python 服务、数据库或 Redis；真机仍需从该来源重新导入/普通编译后取得新的二维码和三层业务证据。
+- 2026-08-22（历史小程序候选与页面错误态收口）：历史候选 `937bb2ad` 的运行包来源为 `937bb2ad2c71a2e83fac679939d31ed6bb3f0996`；该记录只用于追溯。当前候选以 `41c708e1` 及其 `build-info.json` 为准。历史候选的 14 个页面、测试脚本隔离和错误态结论不能替代当前真机三层证据。详见 [`release/candidate-937bb2a-local-build-2026-08-22.md`](release/candidate-937bb2a-local-build-2026-08-22.md) 与 [`release/readonly-page-error-state-2026-08-22.md`](release/readonly-page-error-state-2026-08-22.md)。
 
 - 2026-08-22 06:46–06:48 CST（SSH 恢复后的服务端 P0 证据）：只读快照确认新 API `active` 并监听 `10.0.0.3:18081`，旧 Gunicorn 仍监听 `0.0.0.0:8001`，Worker 为 `inactive`；06:00 起 journald 经服务器端聚合后，微信登录 `1/1`、患者目录读取 `4/4`、患者同步 `2/2` 均具备同链 HTTP 2xx，`parseErrors=0`、`systemdWarningCount=0`。该结果只形成服务端证据，仍需手机页面和客户端请求配对；预约、报告、门诊费用本窗口无业务事件。
 
-- 2026-08-22（当前真机准入复核）：仓库根目录 `pnpm check` 全部通过，包含 67 条架构规则、14 页迁移台账、Provider 文档审计、81 个静态日志事件登记、发布基线、Biome、9 个 workspace 包的类型检查/测试/构建；API 为 `204 pass / 0 fail`，小程序运行包来源为 `4e1b2e224964797c103eba832323ee7074c7ad2b`，仍为 14 页且不含任何 `*.test.js`/`*.spec.js`。已在微信开发者工具开启服务端口，并使用官方 CLI 的 `--project E:\__Super_Core__\hospital-platform\apps\miniprogram` 打开新项目；资源树确认是 `MINIPROGRAM`，旧 `mp-weixin`、`single-flight.test.js` 和 `@hospital/contracts` 裸模块错误均未计入新项目证据，控制台当前仅有未登录状态下预期的 `/api/v2/me` `401`。后续仍需从该来源生成二维码并取得真实业务证据；详见 [`current-device-acceptance-gate-2026-08-22.md`](release/current-device-acceptance-gate-2026-08-22.md)。
+- 2026-08-22（历史真机准入复核）：该记录对应历史 `4e1b2e2`，不覆盖当前 `41c708e1`；当前真机准入以 [`current-device-acceptance-gate-2026-08-22.md`](release/current-device-acceptance-gate-2026-08-22.md) 和最新二维码会话记录为准。
 
 - 2026-08-22（患者绑定契约继续复核）：提交 `ef9b71f5` 补充旧端患者切换的字段边界证据；确认手动选择与首次默认选择对 `patCardNo` 的回写语义不一致，不能据此猜测医疗卡号或开放绑卡。新端仍只保存平台 opaque `patientId`，`patInfosFind/patCards` 不由小程序直接调用，新增/绑卡/修改/解绑继续保持关闭；详见 [`migration/patient-binding-contract-draft.md`](migration/patient-binding-contract-draft.md) 第 0.2 节。该提交未修改旧项目、旧服务、数据库或 Redis。
 
@@ -128,7 +128,7 @@ Biome、9 个 workspace 的类型检查/测试/构建均通过；小程序运行
 
 - 2026-08-21 23:53 CST（当前 release 业务窗口复核）：新旧服务监听和 Worker 状态未变化；最近 6 小时日志聚合为
   `parsedRecords=47`、`parseErrors=0`、HTTP `200=21`/`401=12`/`404=8`，只有 `infrastructure` 事件且没有 Provider 请求号。
-  当前候选仍没有新的微信、患者、预约、门诊费用或普通资料业务流量，因此不能把运行层健康或空日志窗口计作业务成功；下一步仍是用户在当前 `4e1b2e2` 小程序候选中重新编译、扫码并取得三层业务证据。
+  历史候选仍没有新的微信、患者、预约、门诊费用或普通资料业务流量，因此不能把运行层健康或空日志窗口计作业务成功；当前应使用 `41c708e1` 二维码会话取得三层业务证据。
 
 - 2026-08-21 23:10 CST（当前 `c8eef370` 运行层只读复核）：新 API service 为 `active`，Worker 为 `inactive`，新 API
   `10.0.0.3:18081` 与旧 Python `0.0.0.0:8001` 同时监听，readiness 的 database/Redis/schema 均为 `ok`。最近 30 分钟

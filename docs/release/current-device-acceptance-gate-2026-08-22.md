@@ -1,7 +1,7 @@
 # 当前真机准入记录（2026-08-22）
 > 当前候选更新（2026-08-22）：服务端 release 为 `9f479c9a`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
 
-> 最新二维码现场记录见 [`miniprogram-device-qr-session-2026-08-22-1327.md`](miniprogram-device-qr-session-2026-08-22-1327.md)；在手机扫码前仍不得宣称真机业务完成。
+> 最新二维码现场记录见 [`miniprogram-device-qr-session-2026-08-22-1348.md`](miniprogram-device-qr-session-2026-08-22-1348.md)；在手机扫码前仍不得宣称真机业务完成。
 
 
 > 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端已验证 release：`9f479c9a`。
@@ -13,8 +13,8 @@
 不覆盖本节当前事实。
 
 当前 `dist/build-info.json` 已验证为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`，14 个页面齐全，运行包没有
-`*.test.js`/`*.spec.js`。开发者工具中仍需关闭旧“真机调试”会话、清理编译缓存、普通编译并重新生成二维码；当前尚无手机页面与
-服务端同链业务证据，不能标记真机验收完成。
+`*.test.js`/`*.spec.js`。正确项目已经完成重新导入、普通编译并生成最新二维码；当前仍无手机页面与服务端同链业务证据，
+不能标记真机验收完成。
 
 本轮已在正确的 `miniprogram` 项目中完成重新导入、普通编译和新二维码生成；调试器显示 `Errors: 0`，具体现场证据见
 [`miniprogram-devtools-reimport-2026-08-22-1314.md`](miniprogram-devtools-reimport-2026-08-22-1314.md)。该动作仍只属于真机准入，

@@ -240,7 +240,7 @@ journald 只读观察，没有部署、重启、配置写入或业务请求。
 `E:\\__Super_Core__\\hospital-platform\\apps\\miniprogram\\` 项目，确认 `miniprogramRoot` 为 `dist/`，先普通编译，再生成新二维码。
 不要手工创建测试脚本，也不要继续复用旧二维码；这类做法会把旧增量模块索引重新带入真机调试。
 
-## 当前候选复核（2026-08-22，`4e1b2e2`）
+## 历史候选复核（2026-08-22，`4e1b2e2`）
 
 本轮针对用户再次报告的同一路径 ENOENT，先确认 `dist/services/single-flight.js` 存在，
 `dist/services/single-flight.test.js` 不存在，且运行包中 `*.test.js`、`*.spec.js` 数量均为 0。
