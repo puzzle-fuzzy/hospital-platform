@@ -7,7 +7,14 @@
 		<view class="selector-row selector-row-border" bindtap="onChangePatient">
 			<text class="selector-label">就诊人</text>
 			<view class="selector-value">
-				<text class="selector-name">{{selectedPatient ? selectedPatient.displayName : "请先选择就诊人"}}</text>
+				<text wx:if="{{selectedPatient}}" class="selector-name">{{selectedPatient.displayName}}</text>
+				<!--
+					目录和预约记录是两个连续的异步读阶段。loading 期间尚未形成
+					当前患者事实，不能把临时的 null 显示成“请先选择就诊人”；
+					只有本轮读取结束且没有患者时，才进入真正的选择状态。
+				-->
+				<text wx:elif="{{loading}}" class="selector-name">正在加载就诊人...</text>
+				<text wx:else class="selector-name">请先选择就诊人</text>
 				<!-- 旧端在姓名后显示括号编号；新端只放服务端生成的脱敏卡号，不能恢复 Provider 患者号。 -->
 				<text wx:if="{{selectedPatient}}" class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>
 				<!-- 原版使用灰色 arrow-right 图标，不能用字符箭头导致字形和垂直位置漂移。 -->

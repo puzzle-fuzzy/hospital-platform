@@ -94,6 +94,24 @@ test("native patient, appointment and outpatient reads validate the platform env
 	expect(dashboard).toContain("isOutpatientBillDateTime");
 });
 
+test("native patient selectors do not report a selection error during loading", async () => {
+	// 预约记录和门诊费用都会先清空旧患者，再依次完成 `/me`、患者目录
+	// 和业务列表读取。页面的 null 只表示“本轮事实尚未提交”，不能在
+	// loading 期间被渲染成“请先选择就诊人”，否则用户会把等待误判为失败。
+	for (const pagePath of [
+		"pages/appointment-records/appointment-records.wxml",
+		"pages/outpatient-payment/outpatient-payment.wxml",
+	]) {
+		const page = await source(pagePath);
+		expect(page).toContain(
+			'<text wx:elif="{{loading}}" class="selector-name">正在加载就诊人...</text>',
+		);
+		expect(page).toContain(
+			'<text wx:else class="selector-name">请先选择就诊人</text>',
+		);
+	}
+});
+
 test("native client single-flights login and preserves a newer concurrent token", async () => {
 	const client = await source("services/api-client.ts");
 
