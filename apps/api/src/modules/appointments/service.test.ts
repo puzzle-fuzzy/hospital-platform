@@ -56,9 +56,15 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 		}),
 	};
 	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
+	const lines: string[] = [];
 	const service = new AppointmentService({
 		directory,
 		snapshots,
+		logger: createLogger({
+			service: "appointment-test",
+			environment: "test",
+			destination: { write: (chunk: string) => lines.push(chunk) },
+		}),
 		now: () => new Date("2026-08-15T00:00:00.000Z"),
 		createScheduleId: () => "platform-schedule-001",
 	});
@@ -79,6 +85,13 @@ test("appointment schedule reads persist a short-lived server snapshot", async (
 		providerRequestId: "provider-request-001",
 		expiresAt: "2026-08-15T00:01:00.000Z",
 	});
+
+	expect(lines.map((line) => JSON.parse(line))).toContainEqual(
+		expect.objectContaining({
+			event: "appointment.schedule_snapshots.persisted",
+			traceId: "trace-001",
+		}),
+	);
 });
 
 test("预约 service 在 Provider 和快照仓储前拒绝非法调用上下文", async () => {
@@ -850,6 +863,7 @@ test("snapshot persistence failure does not turn a read directory into fake succ
 	expect(records).toContainEqual(
 		expect.objectContaining({
 			event: "appointment.schedule_snapshots.failed",
+			traceId: "trace-002",
 			errorType: "Error",
 		}),
 	);

@@ -548,6 +548,7 @@ export class AppointmentService {
 			const snapshotPersistenceStatus = await this.persistScheduleSnapshots(
 				observedSchedules,
 				trace,
+				adapterContextTraceId(context),
 			);
 			this.logger.info(
 				{
@@ -583,6 +584,7 @@ export class AppointmentService {
 			providerScheduleId: string;
 		}[],
 		trace: Pick<ExternalTrace, "provider" | "requestId" | "requestIds">,
+		traceId: string,
 	): Promise<ScheduleSnapshotPersistenceStatus> {
 		const snapshots = this.dependencies.snapshots;
 		if (!snapshots || schedules.length === 0) return "not-required";
@@ -614,6 +616,9 @@ export class AppointmentService {
 			this.logger.info(
 				{
 					event: "appointment.schedule_snapshots.persisted",
+					// 快照持久化是目录请求的一部分，必须沿用同一条平台链路，
+					// 否则 P0 聚合会把“目录成功”和“快照结果”拆成无主日志。
+					traceId,
 					provider: trace.provider,
 					...traceLogFields(trace),
 					itemCount: schedules.length,
@@ -626,6 +631,9 @@ export class AppointmentService {
 			this.logger.warn(
 				{
 					event: "appointment.schedule_snapshots.failed",
+					// 即使快照写入失败，也必须保留目录请求的 traceId，便于
+					// 区分“只读目录成功但观察快照失败”和 Provider 请求失败。
+					traceId,
 					provider: trace.provider,
 					...traceLogFields(trace),
 					errorType: error instanceof Error ? error.name : "unknown",
