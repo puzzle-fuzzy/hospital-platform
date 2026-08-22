@@ -1,13 +1,15 @@
 # 原生小程序当前候选真机验收清单（2026-08-19）
 
-> 当前完整小程序来源校验值：`b0e093565493285e07fe549879f8b87eda649cc7`；当前服务端 release：`2a2acd9bcc89c35988b75fc03304dbd48078c9d5`。
+> 当前完整小程序来源校验值：`dc8cd5b8bbf99411831cc5112bc39683108cd990`；当前服务端上一次已验证 release：`2a2acd9bcc89c35988b75fc03304dbd48078c9d5`。
 
 > 当前发布基线（2026-08-22）：服务端 `2a2acd9bcc89c35988b75fc03304dbd48078c9d5`；小程序运行包来源
-> `b0e093565493285e07fe549879f8b87eda649cc7`。执行前必须从该来源重新普通编译并核对 `dist/build-info.json`。
+> `dc8cd5b8bbf99411831cc5112bc39683108cd990`。执行前必须从该来源重新普通编译并核对 `dist/build-info.json`。
 
-> 当前候选：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`；小程序运行包来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`（提交 `4e1b2e2`）。
+> 本清单下方较早时间段中的 `b0e0935`、`4e1b2e2`、`7181e99e` 等仅作历史追溯；当前执行不得混用旧二维码、旧运行包或旧服务端日志。
 
-> 当前基线更新：服务端 `7181e99e`；小程序候选 `4e1b2e2`；完整运行包来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`。下文更早候选只作历史追溯。
+> 历史候选（仅供追溯）：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`；小程序运行包来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`（提交 `4e1b2e2`）。
+
+> 上述历史候选不覆盖当前执行表；当前执行以本页顶部 `2a2acd9b` / `dc8cd5b8` 为准。
 
 这是一份扫码前后都能复用的操作清单，固定当前客户端候选，避免把旧开发者工具窗口、旧二维码、模拟器结果或服务端历史日志误当成真机验收。
 本轮只验收微信登录、患者目录/切换、我的挂号、爽约记录、门诊费用只读和普通资料读取；预约写入、支付、医保、退费、报告 Provider、HIS 写入继续关闭。
@@ -16,9 +18,9 @@
 
 | 层级 | 必须固定为 | 说明 |
 | --- | --- | --- |
-| 服务端 | `7181e99e` | 线上新 Bun/Elysia 服务；旧 Python 服务继续运行 |
-| 小程序运行输入 | `4e1b2e2` | 当前本地候选，尚未上传线上 |
-| 小程序运行包来源 | `4e1b2e224964797c103eba832323ee7074c7ad2b` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
+| 服务端 | `2a2acd9b` | 上一次已验证的新 Bun/Elysia 服务；旧 Python 服务继续运行 |
+| 小程序运行输入 | `dc8cd5b8` | 当前本地候选，尚未上传线上 |
+| 小程序运行包来源 | `dc8cd5b8bbf99411831cc5112bc39683108cd990` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 真机只能访问公网 API，不直连 Provider 或内网地址 |
 
@@ -30,7 +32,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 ```
 
-如果 `sourceRevision` 不是完整的 `4e1b2e224964797c103eba832323ee7074c7ad2b`，立即停止，不得打开二维码。
+如果 `sourceRevision` 不是完整的 `dc8cd5b8bbf99411831cc5112bc39683108cd990`，立即停止，不得打开二维码。
 开发者工具必须使用新 `miniprogram` 项目窗口；旧 `mp-weixin` 窗口不属于本次验收范围。二维码只能现场重新生成，不保存、不复制、不写入文档。
 
 ## 2. 扫码前运行层检查
