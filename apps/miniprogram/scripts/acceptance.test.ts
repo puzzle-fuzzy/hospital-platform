@@ -635,6 +635,29 @@ test("native profile distinguishes invalid read models from session loss", async
 	expect(showErrorBody).toContain("shouldReturnToLogin(error)");
 });
 
+test("native profile loading errors expose an explicit canonical reload", async () => {
+	const profile = await source("pages/profile/profile.ts");
+	const template = await source("pages/profile/profile.wxml");
+	const loadingBranch = '<view wx:if="{{loading}}" class="state-card">';
+	const errorBranch =
+		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+	const formBranch =
+		'<view wx:elif="{{!loading && loaded}}" class="form-card">';
+
+	// GET 失败后没有可信的 version 和会话代际；页面必须提供重新读取入口，
+	// 不能把错误直接落入可编辑表单，也不能要求用户只能使用下拉刷新。
+	expect(template.indexOf(loadingBranch)).toBeGreaterThanOrEqual(0);
+	expect(template.indexOf(errorBranch)).toBeGreaterThan(
+		template.indexOf(loadingBranch),
+	);
+	expect(template.indexOf(errorBranch)).toBeLessThan(
+		template.indexOf(formBranch),
+	);
+	expect(template).toContain('bindtap="onRetry"');
+	expect(profile).toContain("onRetry(): void");
+	expect(profile).toContain("void this.loadProfile()");
+});
+
 test("patient selection hides the current badge while directory confirmation is pending", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 

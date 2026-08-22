@@ -5,6 +5,17 @@
 		<text>正在加载个人资料...</text>
 	</view>
 
+	<!--
+		资料读取失败不是“没有资料”，也不能让用户只能依赖下拉刷新。
+		错误态独立于编辑表单：此时没有可信的 version 和会话代际，必须先
+		重新取得服务端 canonical 快照，不能显示保存按钮或提交旧资料。
+	-->
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+		<text>本次个人资料未加载成功</text>
+		<text class="state-hint">请根据上方提示处理后重试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+	</view>
+
 	<view wx:elif="{{!loading && loaded}}" class="form-card">
 		<view class="form-row">
 			<text class="form-label">昵称</text>

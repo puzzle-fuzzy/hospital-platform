@@ -18,6 +18,7 @@ import type { ProfilePageData, UserProfileResponse } from "../../types";
 
 type ProfilePageMethods = {
 	loadProfile(): Promise<void>;
+	onRetry(): void;
 	onShow(): void;
 	onDisplayNameInput(event: WechatMiniprogram.Input): void;
 	onGenderChange(event: WechatMiniprogram.PickerChange): void;
@@ -208,6 +209,15 @@ Page<
 					this.setData({ loading: false });
 				}
 			});
+	},
+
+	/**
+	 * 资料错误态的重试必须重新读取服务端 canonical 快照，不能只清除 error。
+	 * 失败后 `loaded=false`，页面没有可安全编辑的 version；只有完整 GET 成功
+	 * 并重新绑定当前会话代际后，保存入口才可以恢复。
+	 */
+	onRetry(): void {
+		void this.loadProfile();
 	},
 
 	onDisplayNameInput(event): void {
