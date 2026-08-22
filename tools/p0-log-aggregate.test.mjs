@@ -152,6 +152,40 @@ test("关联链只保留 HTTP 完成状态码，不输出原始链路标识", ()
 	expect(JSON.stringify(summary)).not.toContain("trace-http-success");
 });
 
+test("患者和费用日志聚合不会输出患者标识、卡号或金额", () => {
+	const summary = aggregateLines([
+		JSON.stringify({
+			event: "outpatient.payment.records.requested",
+			traceId: "sensitive-trace-001",
+			patientId: "platform-patient-001",
+			providerPatientId: "his-patient-001",
+			cardNo: "001000305367027",
+			amountFen: 12800,
+		}),
+		JSON.stringify({
+			event: "outpatient.payment.records.loaded",
+			traceId: "sensitive-trace-001",
+			patientId: "platform-patient-001",
+			providerRequestId: "provider-request-001",
+		}),
+		JSON.stringify({
+			event: "http.request.completed",
+			traceId: "sensitive-trace-001",
+			statusCode: 200,
+		}),
+	]);
+
+	// 聚合摘要只用于判断事件链是否完整；即使原始日志中存在排障字段，
+	// 也不能把患者、Provider、卡号或金额复制到交接文件和验收工具输出。
+	const serialized = JSON.stringify(summary);
+	expect(serialized).not.toContain("platform-patient-001");
+	expect(serialized).not.toContain("his-patient-001");
+	expect(serialized).not.toContain("001000305367027");
+	expect(serialized).not.toContain("12800");
+	expect(serialized).not.toContain("sensitive-trace-001");
+	expect(summary.eventCounts["outpatient.payment.records.loaded"]).toBe(1);
+});
+
 test("systemd 停止超时只记录稳定 warning，不把 PID 和进程名带入聚合", () => {
 	const summary = aggregateLines([
 		JSON.stringify({
