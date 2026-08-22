@@ -220,6 +220,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前小程序运行包 ENOENT 复核",
 	},
 	{
+		path: "docs/release/appointment-record-status-mapping-audit-2026-08-22.md",
+		label: "当前预约历史状态映射审计",
+	},
+	{
 		path: "docs/release/current-public-health-observation-2026-08-22-1811.md",
 		label: "当前公网健康探针观察",
 	},
