@@ -19,6 +19,10 @@
 当前服务端 release 为 `2a2acd9bcc89c35988b75fc03304dbd48078c9d5`，小程序运行包来源为
 `b0e093565493285e07fe549879f8b87eda649cc7`。因此可以继续进行真机准入，但只有页面、客户端 HTTP 和 Pino 同链证据齐全时
 才能把只读业务标记为已验收。
+
+2026-08-22 09:18 CST 线上低敏观察显示当前 release 已出现微信登录、患者目录和预约历史事件，但门诊费用事件为 0；
+这只推进运行观察，不替代真机页面和同链 requestId 证据。详细统计见
+[`../release/current-2a2acd9-business-observation-2026-08-22-0918.md`](../release/current-2a2acd9-business-observation-2026-08-22-0918.md)。
 本轮已确认 `pnpm migration:audit`、`pnpm architecture:audit` 和 `pnpm provider:audit` 通过；这三项只证明台账、架构边界和
 Provider 文档接收记录完整，不替代 SSH、部署、真机或真实 Provider 证据。
 
