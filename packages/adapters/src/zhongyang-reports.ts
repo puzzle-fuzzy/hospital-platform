@@ -415,8 +415,11 @@ function mapLaboratory(
 			requestId,
 		) ??
 		"检验报告";
+	// `reportedAt` 是患者端的报告时间，不是采样时间或登记时间。
+	// 旧端对 LIS 明确展示 `reportTime`；缺失时不能退回 `collectTime/regTime`
+	// 猜测，否则日期窗口、排序和患者看到的医疗事实都会被改写。
 	const reportedAt = requiredText(
-		value.reportTime ?? value.collectTime ?? value.regTime,
+		value.reportTime,
 		"reportTime",
 		operation,
 		requestId,
@@ -492,9 +495,11 @@ function mapEcg(
 		summary: {
 			kind: "ecg",
 			title,
+			// 旧端报告列表的可见时间使用 `diagnoseTime`。审核时间是另一
+			// 个 Provider 字段，不能在缺少诊断时间时静默冒充报告时间。
 			reportedAt: requiredText(
-				value.auditDocTime ?? value.diagnoseTime,
-				"auditDocTime",
+				value.diagnoseTime,
+				"diagnoseTime",
 				operation,
 				requestId,
 				64,
@@ -537,8 +542,10 @@ function mapLaboratoryDetail(
 			requestId,
 		) ??
 		"检验报告";
+	// 详情和目录必须使用同一报告时间事实；不能因为详情接口缺少
+	// `reportTime` 就用采样/登记时间补齐，避免目录与详情时间互相矛盾。
 	const reportedAt = requiredText(
-		value.reportTime ?? value.collectTime ?? value.regTime,
+		value.reportTime,
 		"reportTime",
 		operation,
 		requestId,

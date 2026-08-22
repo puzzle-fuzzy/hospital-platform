@@ -76,6 +76,95 @@ test("众阳报告目录按来源查询并映射为安全摘要", async () => {
 	expect(JSON.stringify(result)).not.toContain("不应返回");
 });
 
+test("众阳报告时间缺失时不使用其它时间字段猜测医疗事实", async () => {
+	const createGateway = (kind: "laboratory" | "ecg", data: unknown) =>
+		createZhongyangReportGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(JSON.stringify([data]), {
+					status: 200,
+					headers: { "x-request-id": `missing-${kind}-report-time` },
+				}),
+		});
+
+	await expect(
+		createGateway("laboratory", {
+			testList: "血常规",
+			collectTime: "2026-08-15 09:00:00",
+			regTime: "2026-08-15 09:30:00",
+		}).listReports(
+			{
+				providerPatientId: "provider-patient-report-time",
+				query: {
+					startDate: "2026-08-01",
+					endDate: "2026-08-15",
+					kind: "laboratory",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory",
+		responseInvalid: true,
+	});
+
+	await expect(
+		createGateway("ecg", {
+			diagnosis: "窦性心律",
+			auditDocTime: "2026-08-15 11:00:00",
+		}).listReports(
+			{
+				providerPatientId: "provider-patient-report-time",
+				query: {
+					startDate: "2026-08-01",
+					endDate: "2026-08-15",
+					kind: "ecg",
+				},
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-ecg",
+		responseInvalid: true,
+	});
+});
+
+test("众阳心电报告优先使用旧端展示的诊断时间", async () => {
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						diagnosis: "窦性心律",
+						diagnoseTime: "2026-08-15 10:00:00",
+						auditDocTime: "2026-08-15 11:00:00",
+					},
+				]),
+				{
+					status: 200,
+					headers: { "x-request-id": "ecg-report-time-priority" },
+				},
+			),
+	});
+
+	const result = await gateway.listReports(
+		{
+			providerPatientId: "provider-patient-report-time-priority",
+			query: {
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				kind: "ecg",
+			},
+		},
+		context,
+	);
+
+	expect(result.reports[0]?.summary.reportedAt).toBe("2026-08-15 10:00:00");
+});
+
 test("众阳报告目录默认读取 LIS、PACS 和 ECG 三个来源", async () => {
 	const requestUrls: string[] = [];
 	const gateway = createZhongyangReportGateway({
