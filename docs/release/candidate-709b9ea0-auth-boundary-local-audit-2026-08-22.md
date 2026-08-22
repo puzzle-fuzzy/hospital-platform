@@ -17,15 +17,16 @@
 ## 本地验证
 
 ```text
-API 全量测试：211 pass / 0 fail / 870 expect()
+API 全量测试：210 pass / 1 fail / 869 expect()
+唯一失败：P0 release baseline gate（线上仍为 0e2a366e，709b9ea0 尚未部署）
 API typecheck：通过
 Biome（两个变更文件）：通过
 pnpm build：9 个 workspace 全部成功；服务端 bundle 重新生成
 ```
 
-根 `pnpm check` 在发布基线审计处按预期停止：线上 release 仍为 `0e2a366e`，而
+API 测试中的唯一失败和根 `pnpm check` 的停止点都是同一个发布保护：线上 release 仍为 `0e2a366e`，而
 `apps/api/src/plugins/request-authentication.ts` 已存在未部署运行时代码。这个失败是发布保护，
-不是测试失败；在候选完成生产 preflight、隔离 smoke 和无损切换前，不能把本地修正写成线上事实。
+不是业务逻辑测试失败；在候选完成生产 preflight、隔离 smoke 和无损切换前，不能把本地修正写成线上事实。
 
 ## 发布阻断与安全边界
 
