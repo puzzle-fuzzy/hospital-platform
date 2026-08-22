@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
 	findForbiddenWorkspaceImports,
+	findMissingRelativeImports,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
@@ -208,8 +209,32 @@ test("运行包拒绝 pnpm workspace 裸模块依赖", async () => {
 			'const local = require("./local");\n',
 			"utf8",
 		);
+		await writeFile(
+			join(workspace, "local.js"),
+			"module.exports = true;\n",
+			"utf8",
+		);
 
 		expect(await findForbiddenWorkspaceImports(workspace)).toEqual(["page.js"]);
+	} finally {
+		await rm(workspace, { recursive: true, force: true });
+	}
+});
+
+test("运行包拒绝指向缺失文件的相对模块引用", async () => {
+	const workspace = await mkdtemp(
+		join(tmpdir(), "hospital-mini-runtime-missing-import-"),
+	);
+	try {
+		await writeFile(
+			join(workspace, "page.js"),
+			'const testOnly = require("./single-flight.test");\n',
+			"utf8",
+		);
+
+		expect(await findMissingRelativeImports(workspace)).toEqual([
+			"page.js -> ./single-flight.test",
+		]);
 	} finally {
 		await rm(workspace, { recursive: true, force: true });
 	}

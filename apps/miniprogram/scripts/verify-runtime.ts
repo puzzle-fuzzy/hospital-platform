@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
 	findForbiddenWorkspaceImports,
+	findMissingRelativeImports,
 	listRuntimeFiles,
 } from "./runtime-publisher";
 
@@ -87,6 +88,13 @@ const forbiddenTestRuntimeFiles = (await listRuntimeFiles(runtime)).filter(
 if (forbiddenTestRuntimeFiles.length > 0) {
 	throw new Error(
 		`Mini program runtime must not contain test scripts: ${forbiddenTestRuntimeFiles.join(", ")}`,
+	);
+}
+
+const missingRelativeImports = await findMissingRelativeImports(runtime);
+if (missingRelativeImports.length > 0) {
+	throw new Error(
+		`Mini program runtime contains missing relative imports: ${missingRelativeImports.join(", ")}`,
 	);
 }
 

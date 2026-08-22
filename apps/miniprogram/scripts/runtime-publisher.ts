@@ -158,3 +158,49 @@ export async function findForbiddenWorkspaceImports(
 
 	return forbiddenFiles;
 }
+
+/**
+ * 找出运行包中无法解析的相对 CommonJS 模块引用。
+ *
+ * TypeScript 页面脚本会被编译成 `require("./module")`。微信运行时不会像
+ * Node 一样替我们补齐不存在的文件；如果旧 dist、增量编译缓存或错误的构建
+ * 排除规则留下了 `require("./single-flight.test")`，真机只会在加载页面时给出
+ * ENOENT，开发阶段很难从页面源码直接看出根因。把相对引用完整性放在发布门禁
+ * 中，可以在构建阶段报告“哪个运行文件引用了哪个缺失模块”。
+ */
+export async function findMissingRelativeImports(
+	runtime: string,
+): Promise<readonly string[]> {
+	const runtimeFiles = await listRuntimeFiles(runtime);
+	const missing: string[] = [];
+	const requirePattern = /require\s*\(\s*["'](\.[^"']+)["']\s*\)/gu;
+
+	for (const file of runtimeFiles
+		.filter((entry) => entry.endsWith(".js"))
+		.sort()) {
+		const contents = await Bun.file(join(runtime, file)).text();
+		requirePattern.lastIndex = 0;
+		for (const match of contents.matchAll(requirePattern)) {
+			const specifier = match[1];
+			if (!specifier) continue;
+
+			const target = join(dirname(file), specifier);
+			const candidates = [
+				target,
+				`${target}.js`,
+				`${target}.json`,
+				join(target, "index.js"),
+			];
+			let resolved = false;
+			for (const candidate of candidates) {
+				if (await pathExists(join(runtime, candidate))) {
+					resolved = true;
+					break;
+				}
+			}
+			if (!resolved) missing.push(`${file} -> ${specifier}`);
+		}
+	}
+
+	return missing;
+}
