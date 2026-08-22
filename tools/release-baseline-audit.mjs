@@ -155,7 +155,7 @@ export function auditServerSourceRelease(baseline, options = {}) {
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-b0e0935-current-build-2026-08-22.md";
+	"docs/release/candidate-5b4b066-current-build-2026-08-22.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -170,7 +170,7 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前小程序本地构建候选",
 	},
 	{
-		path: "docs/release/2a2acd9b-production-acceptance-2026-08-22.md",
+		path: "docs/release/9f479c9a-production-acceptance-2026-08-22.md",
 		label: "当前服务端生产切换记录",
 	},
 	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入
@@ -197,7 +197,7 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前真机准入记录",
 	},
 	{
-		path: "docs/release/miniprogram-real-device-evidence-template-b0e0935.md",
+		path: "docs/release/miniprogram-real-device-evidence-template-5b4b066.md",
 		label: "当前小程序真机证据模板",
 	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
