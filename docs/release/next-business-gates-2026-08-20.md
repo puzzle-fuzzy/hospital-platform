@@ -1,19 +1,19 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
-> 当前候选：服务端 release `49f74e0209778836db41bef6249758b4f590792a`；小程序运行包来源 `b0e093565493285e07fe549879f8b87eda649cc7`（提交 `b0e0935`）。
+> 当前候选：服务端 release `2a2acd9bcc89c35988b75fc03304dbd48078c9d5`；小程序运行包来源 `b0e093565493285e07fe549879f8b87eda649cc7`（提交 `b0e0935`）。
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `49f74e0209778836db41bef6249758b4f590792a`，当前小程序候选为 `b0e0935`，完整运行包来源为
+> 当前服务端候选为 `2a2acd9bcc89c35988b75fc03304dbd48078c9d5`，当前小程序候选为 `b0e0935`，完整运行包来源为
 > `b0e093565493285e07fe549879f8b87eda649cc7`。服务端已切换；小程序仍需从正确项目普通编译并生成二维码。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
 
-## 2026-08-22 `49f74e0` 当前候选运行层复核
+## 2026-08-22 `2a2acd9` 当前候选运行层复核
 
-服务端已从 `7181e99e` 原子切换到 `49f74e0`，只重启新 API；新 API `18081`、旧 Python `8001` 共存，Worker 保持 inactive。
+服务端已从 `49f74e0` 原子切换到 `2a2acd9`，只重启新 API；新 API `18081`、旧 Python `8001` 共存，Worker 保持 inactive。
 真实 production preflight、隔离 `18082` runtime smoke 和公网 `/api/v2` smoke 均通过；完整发布证据见
-[`49f74e0-production-acceptance-2026-08-22.md`](49f74e0-production-acceptance-2026-08-22.md)。
+[`2a2acd9b-production-acceptance-2026-08-22.md`](2a2acd9b-production-acceptance-2026-08-22.md)。
 这只证明新候选运行边界，不能替代微信、患者、预约或门诊费用的真机三层业务证据。
 
 `release:baseline:audit` 现在还会检查当前服务端 release 之后的运行时代码是否发生
@@ -23,7 +23,7 @@ persistence 等真正进入 Bun 运行包的语句、常量或导入发生变化
 
 ### `7181e99e` 切换前历史观察（仅供追溯）
 
-上面的 `49f74e0` 是当前运行层事实；此前 `7181e99e` 的日志和小程序 `4e1b2e2` 只作为历史追溯，不能与当前候选混用。
+上面的 `2a2acd9` 是当前运行层事实；此前 `49f74e0`、`7181e99e` 的日志和小程序 `4e1b2e2` 只作为历史追溯，不能与当前候选混用。
 
 ### `9f491cb5` 切换前历史观察（仅供追溯）
 
@@ -113,7 +113,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核（历史候选）
 
-当前验收基线为服务端 `49f74e0209778836db41bef6249758b4f590792a`、小程序候选 `b0e0935`（完整来源 `b0e093565493285e07fe549879f8b87eda649cc7`）；
+当前验收基线为服务端 `2a2acd9bcc89c35988b75fc03304dbd48078c9d5`、小程序候选 `b0e0935`（完整来源 `b0e093565493285e07fe549879f8b87eda649cc7`）；
 下方历史代码复核原始记录当时基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 不代表当前线上服务端 release。当前线上服务端和真机候选以本文顶部基线为准，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
@@ -205,3 +205,4 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
 - 患者绑定准入草案：[`../migration/patient-binding-contract-draft.md`](../migration/patient-binding-contract-draft.md)
 - 医保/支付最后专项：[`../migration/payment-contract.md`](../migration/payment-contract.md)
+

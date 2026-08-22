@@ -2,15 +2,15 @@
 
 > 当前完整小程序来源校验值：`b0e093565493285e07fe549879f8b87eda649cc7`。
 
-> 当前候选：服务端 release `49f74e0209778836db41bef6249758b4f590792a`；小程序运行包来源 `b0e093565493285e07fe549879f8b87eda649cc7`（提交 `b0e0935`）。
+> 当前候选：服务端 release `2a2acd9bcc89c35988b75fc03304dbd48078c9d5`；小程序运行包来源 `b0e093565493285e07fe549879f8b87eda649cc7`（提交 `b0e0935`）。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
 
 ## 当前结论
 
-当前线上新 API release 为 `49f74e0`，旧 Python `8001` 保持共存；生产切换和运行边界见
-[`release/49f74e0-production-acceptance-2026-08-22.md`](release/49f74e0-production-acceptance-2026-08-22.md)。
+当前线上新 API release 为 `2a2acd9`，旧 Python `8001` 保持共存；生产切换和运行边界见
+[`release/2a2acd9b-production-acceptance-2026-08-22.md`](release/2a2acd9b-production-acceptance-2026-08-22.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
 当前小程序候选为 `b0e0935`，运行包来源指纹为
@@ -386,3 +386,4 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `apps/miniprogram/scripts/build.ts` | 编译 TypeScript 页面、复制静态资源并验证真实 `.js` 页面文件 |
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |
+
