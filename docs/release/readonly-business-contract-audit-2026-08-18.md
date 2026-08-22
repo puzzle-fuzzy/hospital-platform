@@ -1,22 +1,24 @@
+> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本次静态反馈行为修正已进入最新本地候选，真实真机证据仍待。
+
 # P0 只读业务 contract 审计（2026-08-18）
-> 当前候选更新（2026-08-22 18:55 CST）：服务端 release 为 `0e2a366e`；小程序运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22）：服务端 release 为 `0e2a366e`；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。历史候选仅作追溯。
 
 
-> 当前完整小程序来源校验值：`a64fe023bc34fe6e44f93846c39e202fe02d64a5`；当前服务端 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
+> 当前完整小程序来源校验值：`ba1dd23e0f40191745a60997939b31b4c47795cd`；当前服务端 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
 
 > 当前发布基线（2026-08-22 18:55 CST）：服务端 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
-> `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。历史 contract 审计仍保留，但业务证据必须重新绑定当前候选。
+> `ba1dd23e0f40191745a60997939b31b4c47795cd`。历史 contract 审计仍保留，但业务证据必须重新绑定当前候选。
 
 > 历史候选：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`；小程序运行包来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`（提交 `4e1b2e2`）。
 
-> 当前基线更新：服务端 `84370077024762d92050cf077c27f3c60302e8f8`；小程序候选 `a64fe023`；完整运行包来源 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。下文更早候选只作历史追溯。
+> 当前基线更新：服务端 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序候选 `ba1dd23`；完整运行包来源 `ba1dd23e0f40191745a60997939b31b4c47795cd`。下文更早候选只作历史追溯。
 
 本文记录当前源码对“预约历史 / 爽约记录 / 门诊缴费只读查询”的逻辑审计结果。
 它用于新会话、代码评审和真机验收前的边界复核；“代码和测试通过”不等于
 真实微信会话、Provider、公网 HTTPS 或真机业务已经验收。
 
 当前线上服务端 release 为 `84370077`，小程序构建来源为
-`a64fe023bc34fe6e44f93846c39e202fe02d64a5`（当前候选 `a64fe023`）；线上只证明运行层和认证边界，域级 Provider/真机证据仍需独立闭环。
+`ba1dd23e0f40191745a60997939b31b4c47795cd`（当前候选 `ba1dd23`）；线上只证明运行层和认证边界，域级 Provider/真机证据仍需独立闭环。
 
 ## 1. 证据范围与当前发布边界
 
@@ -43,10 +45,10 @@
 - `packages/domain/src/outpatient-payments.ts`
 - `packages/domain/src/patients.ts`
 
-当前线上 release 以 [`84370077-production-acceptance-2026-08-22.md`](84370077-production-acceptance-2026-08-22.md)
+当前线上 release 以 [`0e2a366e-production-acceptance-2026-08-22.md`](0e2a366e-production-acceptance-2026-08-22.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选为
-`a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 `84370077` 只读发布已完成，历史 `0e360d3` release 的窄观察窗口没有新的
+`ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前 `0e2a366e` 只读发布已完成，历史 `0e360d3` release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -135,8 +137,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 本节记录的历史审计候选为小程序 `d2086d8`，完整运行包来源为
 `d2086d819b3e393da2e8c5c39d7704012854214b`；这些数字仅用于追溯，不能作为当前真机包。当前真机候选以
-`a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）为准。当前真机候选以
-`84370077` 配套的 `a64fe023` 和完整来源指纹 `a64fe023bc34fe6e44f93846c39e202fe02d64a5` 为准。
+`ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）为准。当前真机候选以
+`0e2a366e` 配套的 `ba1dd23` 和完整来源指纹 `ba1dd23e0f40191745a60997939b31b4c47795cd` 为准。
 
 本节对应的当前服务端生产候选为 `c8eef370`；下方保留的 `398be8e`、`687690e`、`c26e696` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 

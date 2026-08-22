@@ -1,3 +1,5 @@
+> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本次静态反馈行为修正已进入最新本地候选，真实真机证据仍待。
+
 # 项目文档导航
 > 2026-08-22 18:30 CST ENOENT 运行包复核：重新构建当前 `a64fe023` 小程序候选后，
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
@@ -17,10 +19,10 @@
 > `dist/services/single-flight.js` 存在，`single-flight.test.js` 和全部 `*.test.js`/`*.spec.js` 均不存在，`runtime:verify` 通过。
 > 详细记录见 [`release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md)。
 
-> 当前候选更新（2026-08-22 18:55 CST）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。历史候选仅作追溯。
 
 
-> 当前完整小程序来源校验值：`a64fe023bc34fe6e44f93846c39e202fe02d64a5`；当前服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
+> 当前完整小程序来源校验值：`ba1dd23e0f40191745a60997939b31b4c47795cd`；当前服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
 
 > 2026-08-22 15:16 CST 运行复核：新 API `active`、内网 `18081` 和旧 Python `8001` 继续共存，Worker 为 `inactive`，
 > live/ready 均为 `200`；最近 60 分钟没有当前候选的业务请求/成功事件。该窗口不替代真机三层证据，详见
@@ -30,17 +32,17 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前发布基线（2026-08-22 18:55 CST）为：服务端已验证 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`，当前小程序候选来源
-`a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。服务端已完成新 API 的原子切换与 production smoke；小程序已重新构建、
+`ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。服务端已完成新 API 的原子切换与 production smoke；小程序已重新构建、
 验证运行包并在正确项目中重新生成二维码，但仍需手机页面、客户端 requestId 和服务端日志三层业务证据。旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 工作树运行包补充状态（2026-08-22 18:04 CST）：`apps/miniprogram/dist/build-info.json.sourceRevision` 当前为
-`a64fe023bc34fe6e44f93846c39e202fe02d64a5`，对应本次小程序候选。该运行包不含任何测试 JS；针对
+`ba1dd23e0f40191745a60997939b31b4c47795cd`，对应本次小程序候选。该运行包不含任何测试 JS；针对
 `single-flight.test.js` 的 ENOENT 已重新构建、普通编译并通过运行包门禁确认；若开发者工具仍报错，应关闭工具释放 `dist/` 文件句柄后重开正确项目。
 本轮还补齐成功请求的低敏 requestId 观测，便于与服务端 Pino 日志对齐；不增加微信登录、患者、Provider 或真机业务证据。
 
 2026-08-22 18:04 CST 从当前源码重建运行包：`dist/build-info.json` 指向
-`a64fe023bc34fe6e44f93846c39e202fe02d64a5`，14 个页面入口和 `services/single-flight.js` 均存在，
+`ba1dd23e0f40191745a60997939b31b4c47795cd`，14 个页面入口和 `services/single-flight.js` 均存在，
 `dist/` 中 `*.test.js`/`*.spec.js` 为 0 个；运行包门禁通过，小程序全量测试为 `220 pass / 0 fail / 1634 expect()`。
 当前二维码会话的详细现场见 [`release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md)。如果真机仍请求 `services/single-flight.test.js`，只能按开发者工具旧增量索引处理：结束当前新项目真机调试、
 关闭并重新打开 `apps/miniprogram/`，普通编译一次后再生成新二维码。不要使用旧二维码，也不要在 `dist/`
@@ -57,7 +59,7 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前已验证服务端 release 以 `0e2a366e`、当前小程序候选来源以 `a64fe023bc34fe6e44f93846c39e202fe02d64a5` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前已验证服务端 release 以 `0e2a366e`、当前小程序候选来源以 `ba1dd23e0f40191745a60997939b31b4c47795cd` 为准 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
@@ -161,7 +163,7 @@
 | [`release/current-5a31427-coexistence-readonly-2026-08-21-0725.md`](release/current-5a31427-coexistence-readonly-2026-08-21-0725.md) | 07:25 CST 新旧服务共存、正确内外网探针路径和 P0 业务日志空窗口；不替代真机业务证据 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0732.md`](release/current-5a31427-p0-business-observation-2026-08-21-0732.md) | 07:32 CST 当前候选二维码、运行包来源、新旧服务和 P0 业务日志空窗口；不替代真机业务证据 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md) | 06:47 CST 二维码等待期间的新旧服务、readiness 和 P0 业务日志空窗口；不把健康检查或空窗口当作业务成功 |
-| [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `a64fe023bc34fe6e44f93846c39e202fe02d64a5` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
+| [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `ba1dd23e0f40191745a60997939b31b4c47795cd` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
 | [`release/84fac75c-production-acceptance-2026-08-22.md`](release/84fac75c-production-acceptance-2026-08-22.md) | 历史 `84fac75c` 真实生产切换、隔离候选验收、新旧服务共存、公网 smoke 和切换后低敏日志窗口；不覆盖当前 `84370077` |
 | [`release/readonly-business-invariant-review-2026-08-22.md`](release/readonly-business-invariant-review-2026-08-22.md) | 当前 release 的就诊人归属、预约历史/爽约、门诊费用只读、日志关联和真机准入不变量审计；不替代真实真机业务证据 |
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界 |
