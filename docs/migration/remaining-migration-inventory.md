@@ -457,6 +457,15 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | 健康知识 | contract/domain/repository、版本化 schema、导入校验和旧表映射文档已具备 | 明确 fail-closed，患者路由未挂载；真实内容未导入 | 内容来源/临床审核、staging 发布撤回、患者端页面和真机证据仍未完成 |
 | 管理端/Worker | Worker 与持久化基础部分存在 | 运维边界和支付补偿基础存在 | RBAC 管理端、监控、通用任务管理、文件管理和后台日志查询未迁移为新 API；详见 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md) |
 
+### 2026-08-22 剩余 P2 与健康知识复核
+
+本轮再次对照旧端页面矩阵、接口清单和新端组合根检查后，没有找到可以在不猜 Provider/HIS contract 的情况下安全扩大范围的 P2
+功能。门诊病历、患者绑定、二维码、健康知识和支付/医保分别缺少正式 contract、内容/权限/状态证据或真实验收材料，继续保持未注册或
+关闭状态。健康知识的具体判断、代码事实和开放顺序见
+[`../release/next-safe-migration-audit-2026-08-22.md`](../release/next-safe-migration-audit-2026-08-22.md)。
+
+这条记录的含义是“停止条件已确认”，不是“剩余功能已经完成”；当前执行顺序仍优先补齐已开放只读业务的真机三层证据。
+
 ## 2. 按旧端页面的剩余清单
 
 ### P0：当前纵向切片必须先完成的验收
