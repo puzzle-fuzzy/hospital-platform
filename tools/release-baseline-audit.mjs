@@ -208,6 +208,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前小程序二维码会话",
 	},
 	{
+		path: "docs/release/current-public-health-observation-2026-08-22-1811.md",
+		label: "当前公网健康探针观察",
+	},
+	{
 		path: "docs/release/miniprogram-real-device-evidence-template-7f09bbb.md",
 		label: "当前小程序真机证据模板",
 	},
