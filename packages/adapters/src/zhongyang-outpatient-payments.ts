@@ -267,6 +267,7 @@ function identityText(
 	const normalized = raw.trim();
 	if (
 		raw.length > MAX_PAYMENT_IDENTITY_FIELD_LENGTH ||
+		!normalized ||
 		Array.from(raw).some((character) => {
 			const code = character.charCodeAt(0);
 			return code <= 0x1f || code === 0x7f;
@@ -281,15 +282,21 @@ function identityText(
 }
 
 /**
- * 费用记录 ID 必须在不同查询排序和待缴/已缴状态之间保持稳定。
+ * 费用记录 ID 必须在不同患者、查询排序和待缴/已缴状态之间保持稳定。
  *
  * 数组下标只能作为渲染辅助，不能进入业务引用：Provider 对同一账单的
  * 返回顺序可能变化，支付后 `tradeStatus` 也会改变。这里使用单据、就诊
- * 和项目标识组成内部哈希；`itemName` 只是展示文本，不属于稳定身份，不能
- * 作为最后 fallback。缺少单据、就诊或费用 ID 时拒绝响应，避免把不可定位
- * 的费用伪装成可供后续详情/支付使用的 recordId。
+ * 和项目标识组成内部哈希；同时把 Provider 患者引用作为哈希作用域，避免
+ * 两位患者恰好拥有相同 Provider 单据字段时得到相同的公开 recordId。患者
+ * 引用只参与服务端哈希，不进入响应。`itemName` 只是展示文本，不属于稳定
+ * 身份，不能作为最后 fallback。缺少单据、就诊或费用 ID 时拒绝响应，避免
+ * 把不可定位的费用伪装成可供后续详情/支付使用的 recordId。
  */
-function opaqueRecordId(item: ProviderPaymentItem, requestId: string): string {
+function opaqueRecordId(
+	item: ProviderPaymentItem,
+	providerPatientId: string,
+	requestId: string,
+): string {
 	const identityParts = [
 		[
 			"outTradeOrderId",
@@ -313,7 +320,21 @@ function opaqueRecordId(item: ProviderPaymentItem, requestId: string): string {
 			requestId,
 		);
 	}
+	const scopedProviderPatientId = identityText(
+		providerPatientId,
+		"providerPatientId",
+		requestId,
+	);
+	if (!scopedProviderPatientId) {
+		throw providerError(
+			"Zhongyang outpatient provider patient identity is missing",
+			requestId,
+		);
+	}
 	const canonicalIdentity = [
+		// 这是内部作用域，不是要返回给小程序的患者号；把它放进哈希只为
+		// 让同一费用字段在不同患者之间不会产生可混淆的 recordId。
+		scopedProviderPatientId,
 		identityParts,
 		// 账单时间用于区分同一项目在不同开单时刻产生的记录；金额故意不参与，
 		// 防止待缴金额与结算后金额变化造成同一业务记录换 ID。
@@ -384,6 +405,7 @@ function responseItems(
 
 function mapRecord(
 	item: ProviderPaymentItem,
+	providerPatientId: string,
 	status: OutpatientPaymentStatus,
 	requestId: string,
 ): OutpatientPaymentRecord {
@@ -399,7 +421,7 @@ function mapRecord(
 	);
 	const doctorName = textField(item.billDocName, "doctorName", requestId, 128);
 	return {
-		recordId: opaqueRecordId(item, requestId),
+		recordId: opaqueRecordId(item, providerPatientId, requestId),
 		status,
 		...(departmentName ? { departmentName } : {}),
 		...(doctorName ? { doctorName } : {}),
@@ -493,7 +515,7 @@ export class ZhongyangOutpatientPaymentApiGateway
 		);
 		const items = responseItems(response.data, response.requestId);
 		const records = items.map((item) =>
-			mapRecord(item, input.status, response.requestId),
+			mapRecord(item, providerPatientId, input.status, response.requestId),
 		);
 		ensureUniqueRecordIds(records, response.requestId);
 		return {
