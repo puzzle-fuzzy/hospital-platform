@@ -1,18 +1,18 @@
 # 微信授权登录实施与验收手册
-> 当前候选更新（2026-08-22 15:49 CST）：服务端 release 为 `1e58bb66`；小程序运行包来源为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22 16:37 CST）：服务端 release 为 `84370077`；小程序运行包来源为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。历史候选仅作追溯。
 
 
 > 当前完整小程序来源校验值：`7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`。
 
-> 当前候选：服务端 release `1e58bb66bf24021d2b680eb5fd03abfec467989a`；小程序运行包来源 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。
+> 当前候选：服务端 release `84370077024762d92050cf077c27f3c60302e8f8`；小程序运行包来源 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
 
 ## 当前结论
 
-当前线上新 API release 为 `1e58bb66`，旧 Python `8001` 保持共存；生产切换和运行边界见
-[`release/1e58bb66-production-acceptance-2026-08-22.md`](release/1e58bb66-production-acceptance-2026-08-22.md)。
+当前线上新 API release 为 `84370077`，旧 Python `8001` 保持共存；生产切换和运行边界见
+[`release/84370077-production-acceptance-2026-08-22.md`](release/84370077-production-acceptance-2026-08-22.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
 当前小程序候选为 `7f09bbb`，运行包来源指纹为

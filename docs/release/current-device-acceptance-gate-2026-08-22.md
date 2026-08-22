@@ -1,15 +1,15 @@
 # 当前真机准入记录（2026-08-22）
-> 当前候选更新（2026-08-22 15:49 CST）：服务端 release 为 `1e58bb66`；小程序运行包来源为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22 16:37 CST）：服务端 release 为 `84370077`；小程序运行包来源为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。历史候选仅作追溯。
 
 > 最新二维码现场记录见 [`miniprogram-device-qr-session-2026-08-22-1450.md`](miniprogram-device-qr-session-2026-08-22-1450.md)；在手机扫码前仍不得宣称真机业务完成。
 
 
-> 当前完整小程序来源校验值：`7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`；当前服务端已验证 release：`1e58bb66bf24021d2b680eb5fd03abfec467989a`。
+> 当前完整小程序来源校验值：`7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`；当前服务端已验证 release：`84370077024762d92050cf077c27f3c60302e8f8`。
 
 ## 当前候选覆盖（2026-08-22）
 
 后续真机验收只接受小程序源码/运行包来源 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`，服务端配套基线为
-`1e58bb66bf24021d2b680eb5fd03abfec467989a`。前文 `b0e0935`、`4e1b2e2`、`1b621f07` 和 `7181e99e` 的具体时间段均为历史证据，
+`84370077024762d92050cf077c27f3c60302e8f8`。前文 `b0e0935`、`4e1b2e2`、`1b621f07` 和 `7181e99e` 的具体时间段均为历史证据，
 不覆盖本节当前事实。
 
 当前 `dist/build-info.json` 已验证为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`，14 个页面齐全，运行包没有
@@ -109,7 +109,7 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 服务端生产 release | `1e58bb66bf24021d2b680eb5fd03abfec467989a` |
+| 服务端生产 release | `84370077024762d92050cf077c27f3c60302e8f8` |
 | 小程序运行包来源 | `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6` |
 | 小程序短提交 | `7f09bbb` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` |
