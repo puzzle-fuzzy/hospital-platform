@@ -1,4 +1,5 @@
 # 小程序运行包 `single-flight.test.js` ENOENT 恢复记录（2026-08-22）
+> 当前服务端发布基线（2026-08-22 18:55 CST）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。本记录只证明运行包恢复，不证明真机业务验收。
 
 > 本文保留多个历史候选的恢复证据，不是当前发布基线。当前小程序候选以
 > [`candidate-a64fe023-local-build-2026-08-22.md`](candidate-a64fe023-local-build-2026-08-22.md) 和

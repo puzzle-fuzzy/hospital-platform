@@ -262,7 +262,7 @@ test("仓库当前发布文档保持同一套候选", async () => {
 		passed: true,
 		// 该断言必须与当前候选文档同步；它防止只更新正文而遗漏路线图、真机模板或
 		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
-		serverRelease: "84370077024762d92050cf077c27f3c60302e8f8",
+		serverRelease: "0e2a366efcca8da25d7edd4a286781f2d3dfdbec",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
 		miniProgramCommit: "a64fe023",

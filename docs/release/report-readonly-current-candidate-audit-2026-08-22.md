@@ -1,4 +1,5 @@
 # 报告只读当前候选业务审计（2026-08-22）
+> 当前服务端发布基线（2026-08-22 18:55 CST）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。报告 Provider 仍保持 fail-closed。
 
 ## 结论
 

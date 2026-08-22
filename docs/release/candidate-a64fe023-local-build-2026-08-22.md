@@ -7,7 +7,7 @@
 | 项目 | 值 |
 | --- | --- |
 | 小程序客户端 | `a64fe023` |
-| 服务端 release | `84370077024762d92050cf077c27f3c60302e8f8` |
+| 服务端 release | `0e2a366efcca8da25d7edd4a286781f2d3dfdbec` |
 | 小程序构建来源 | `a64fe023bc34fe6e44f93846c39e202fe02d64a5` |
 | 页面入口 | 14 个，全部生成 `.js/.json/.wxml/.wxss` |
 | 运行包测试脚本 | `*.test.js`、`*.spec.js` 均为 0 |

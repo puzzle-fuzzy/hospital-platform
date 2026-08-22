@@ -1,16 +1,16 @@
 # 门诊缴费只读当前候选审计（2026-08-22）
 
-> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `84370077`、小程序来源 `a64fe023`；
+> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `0e2a366e`、小程序来源 `a64fe023`；
 > 文中更早提交只作历史追溯。它不是支付、医保结算或真实 Provider 非空业务验收报告。
 > 本轮没有修改旧 Python 项目、旧端口 `8001`、旧数据库或旧 Redis，也没有打开微信支付、医保授权、6202/6301
 > 结算、退款、通知或 HIS 写回。
-> 本轮 `recordId` 作用域修正和稳定身份字段校验只在当前工作树完成并通过全仓门禁，尚未包含在已部署的
-> `84370077` release；真实线上门诊费用验收必须在新 API 独立发布后重新取证，旧 Python 服务不受影响。
+> 本轮 `recordId` 作用域修正和稳定身份字段校验已随 `0e2a366e` 独立发布到新 API；真实 Provider 非空和微信真机
+> 门诊费用验收仍未完成，旧 Python 服务不受影响。
 
 ## 1. 当前候选与结论
 
 - 小程序运行包来源：`a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。
-- 服务端已验证 release：`84370077024762d92050cf077c27f3c60302e8f8`。
+- 服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
 - 当前页面入口：`/pages/outpatient-payment/outpatient-payment`。
 - 当前 API：`GET /api/v2/payments/outpatient/records?patientId=<platform-patient-id>&status=unpaid|paid`。
 
@@ -67,11 +67,20 @@
 | 众阳门诊费用 adapter | `20 pass / 0 fail / 46 expect()` |
 | 门诊费用领域校验 | `3 pass / 0 fail / 5 expect()` |
 | 小程序全量验收与运行包门禁 | `220 pass / 0 fail / 1634 expect()` |
-| 文档链接审计 | `530` 个 Markdown 文档，无断链 |
+| 文档链接审计 | `531` 个 Markdown 文档，无断链 |
+
+## 6. 当前线上发布与验收状态
+
+- `0e2a366e` 的八个生产 bundle 已完成本地/远端 SHA-256 对照；真实生产 env 的 MySQL、Redis、schema preflight 通过。
+- 候选先在 `127.0.0.1:18082` 隔离 smoke，再原子切换 `current` 并只重启 `hospital-platform-api-v2.service`；内网和公网 live/ready、system ping、未授权 `401`、关闭能力 `404` 均通过。
+- 旧 Python `8001` 的 Gunicorn PID 集合保持不变，Worker 仍为 `inactive`；没有执行 migration、支付、医保、HIS 写回或 Provider 门诊费用请求。
+- 切换窗口低敏日志为 `parseErrors=0`、`systemdWarningCount=0`，门诊费用 requested/success 事件均为 `0`。因此当前状态是“代码和运行层已发布，真实门诊费用业务证据待补”，不是“门诊缴费已完成”。详见 [`0e2a366e-production-acceptance-2026-08-22.md`](0e2a366e-production-acceptance-2026-08-22.md)。
+
+## 7. 当前 `dist/` 运行包门禁
 
 当前 `dist/` 运行包仍没有 `*.test.js` 或 `*.spec.js`；真机调试必须关闭旧调试会话、清理文件/编译缓存后重新编译当前 `dist/`，不能使用旧二维码或旧增量缓存。
 
-## 6. 后续停止条件
+## 8. 后续停止条件
 
 门诊费用只读链路完成真实 Provider/真机验收后，才进入下一阶段。支付和医保仍必须最后单独设计并验收：
 
