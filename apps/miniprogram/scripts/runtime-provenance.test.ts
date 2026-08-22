@@ -13,6 +13,7 @@ import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
+	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
@@ -191,6 +192,14 @@ test("运行包发布失败时保留旧 live 目录", async () => {
 	} finally {
 		await rm(workspace, { recursive: true, force: true });
 	}
+});
+
+test("运行包目录被开发者工具占用时识别为可恢复锁定错误", () => {
+	expect(isMiniProgramRuntimeLockError({ code: "EPERM" })).toBe(true);
+	expect(isMiniProgramRuntimeLockError({ code: "EBUSY" })).toBe(true);
+	expect(isMiniProgramRuntimeLockError({ code: "EACCES" })).toBe(true);
+	expect(isMiniProgramRuntimeLockError({ code: "ENOENT" })).toBe(false);
+	expect(isMiniProgramRuntimeLockError(new Error("locked"))).toBe(false);
 });
 
 test("运行包拒绝 pnpm workspace 裸模块依赖", async () => {

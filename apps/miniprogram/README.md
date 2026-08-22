@@ -122,4 +122,5 @@ pnpm --filter @hospital/miniprogram runtime:verify
 若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
 如果错误路径包含 `dist/services/*.test.js` 或其他 `*.test.js`，先关闭当前真机调试和开发者工具，再执行一次 `pnpm --filter @hospital/miniprogram build`，重新打开 `apps/miniprogram/` 后再“编译/真机调试”。这是开发者工具增量缓存指向旧测试产物的表现，不应在 `src/` 或 `dist/` 中手工补测试脚本；构建与 `runtime:verify` 都会阻止测试脚本进入运行包。
 构建与 `runtime:verify` 还会扫描运行包中的相对 `require`；若出现 `single-flight.test.js` 等缺失模块引用，会在发布前直接报告引用方，不能用复制测试脚本的方式绕过。
+如果构建输出 `dist/ is locked by WeChat DevTools` 或 Windows 的 `EPERM/EBUSY`，说明开发者工具仍持有 `dist/` 文件句柄：先停止真机调试，关闭所有指向该项目的开发者工具窗口，等待 `wechatdevtools.exe` 完全退出后再重新执行构建。构建失败会保留上一份完整 `dist/`，不要在工具仍运行时手工删除或移动该目录。
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。

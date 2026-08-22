@@ -10,6 +10,24 @@ function isMissingPath(error: unknown): boolean {
 	);
 }
 
+/**
+ * 判断运行包目录替换是否被操作系统拒绝。
+ *
+ * 微信开发者工具会同时监听并加载 dist/。在 Windows 上，如果此时仍处于
+ * 编译、真机调试或增量热更新状态，目录 rename 可能返回 EPERM/EBUSY；这
+ * 不是应该删除 dist 或复制测试脚本来绕过的业务错误，而是需要先释放工具
+ * 文件句柄后再重试原子发布。把判断集中在发布层，构建脚本和回归测试可以
+ * 对同一组平台错误码保持一致的维护提示。
+ */
+export function isMiniProgramRuntimeLockError(error: unknown): boolean {
+	if (typeof error !== "object" || error === null || !("code" in error)) {
+		return false;
+	}
+
+	const code = (error as { code?: unknown }).code;
+	return code === "EPERM" || code === "EBUSY" || code === "EACCES";
+}
+
 async function pathExists(path: string): Promise<boolean> {
 	try {
 		await access(path);

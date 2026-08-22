@@ -4,6 +4,7 @@ import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
+	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
@@ -421,5 +422,11 @@ try {
 	// 发布前的任意校验/编译失败都只清理 staging；live dist 保留上一份完整运行包，
 	// 让开发者工具继续使用旧候选，而不是把失败构建暴露成页面 404。
 	await rm(stagingRuntime, { recursive: true, force: true });
+	if (isMiniProgramRuntimeLockError(error)) {
+		throw new Error(
+			"Mini program dist/ is locked by WeChat DevTools. Close the current mini-program window and any real-device debugging session, then rerun build; the previous complete dist/ runtime was preserved.",
+			{ cause: error },
+		);
+	}
 	throw error;
 }
