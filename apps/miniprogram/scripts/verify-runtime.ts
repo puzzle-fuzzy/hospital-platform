@@ -76,6 +76,9 @@ await assertFile("sitemap.json");
 await assertFile("build-info.json");
 // 预约历史页面通过 TypeScript 模块读取静态科室位置，运行包必须带上编译后的 JS。
 await assertFile("data/department-location.js");
+// 页面级请求守卫和患者同步依赖该生产模块；显式检查它，避免只检查页面入口而
+// 漏掉间接依赖，导致开发者工具沿用旧增量索引去寻找不存在的测试脚本。
+await assertFile("services/single-flight.js");
 
 /**
  * 运行包只允许承载微信页面运行时脚本；测试文件即使不是页面入口，

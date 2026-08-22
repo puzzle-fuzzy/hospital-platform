@@ -70,6 +70,9 @@ const requiredTypeScriptFiles = [
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
 	"services/patient-selection-service.ts",
+	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
+	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。
+	"services/single-flight.ts",
 	"pages/patient-select/patient-select.ts",
 	"pages/official-account/official-account.ts",
 	"pages/feedback/feedback.ts",
