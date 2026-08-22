@@ -1,4 +1,8 @@
 # 项目文档导航
+> 2026-08-22 18:15 CST ENOENT 恢复现场：当前候选已在正确的新 `miniprogram` 项目中重新普通编译并生成有效至 18:39 的新二维码；
+> `dist/services/single-flight.js` 存在，`single-flight.test.js` 和全部 `*.test.js`/`*.spec.js` 均不存在，`runtime:verify` 通过。
+> 详细记录见 [`release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md)。
+
 > 当前候选更新（2026-08-22 18:04 CST）：服务端 release 为 `84370077024762d92050cf077c27f3c60302e8f8`（提交 `84370077`）；小程序运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。历史候选仅作追溯。
 
 

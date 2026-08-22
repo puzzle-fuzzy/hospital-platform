@@ -205,6 +205,10 @@ export const currentBaselineDocuments = Object.freeze([
 	},
 	{
 		path: "docs/release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md",
+		label: "上一轮小程序二维码会话",
+	},
+	{
+		path: "docs/release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md",
 		label: "当前小程序二维码会话",
 	},
 	{
