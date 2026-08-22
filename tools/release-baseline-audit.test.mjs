@@ -208,6 +208,31 @@ test("只读业务不变量审计的当前章节不能漂移到历史候选", ()
 	]);
 });
 
+test("剩余迁移清单的执行入口不能漂移到历史候选", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const documents = [
+		{
+			path: "docs/migration/remaining-migration-inventory.md",
+			content: `
+## 2026-08-22 当前执行决策
+| P1 | 真机只读验收 | 当前进行中：\`old-candidate\` 已构建 |
+当前服务端已验证 release 为 \`old-server\`，小程序运行包来源为 \`old-candidate-full\`。
+## 历史记录（仅供追溯）
+旧候选不应参与当前执行。
+`,
+		},
+	];
+
+	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
+		"剩余迁移清单 的“当前进行中：”未指向当前完整小程序 sourceRevision",
+		"剩余迁移清单 的“小程序运行包来源为”未指向当前完整小程序 sourceRevision",
+	]);
+});
+
 test("文档导航的历史窗口说明必须跟随当前小程序候选", () => {
 	const baseline = {
 		serverRelease: "1b94c46",

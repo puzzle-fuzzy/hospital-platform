@@ -333,6 +333,20 @@ const currentCandidateReferenceRules = Object.freeze([
 			},
 		],
 	},
+	{
+		path: "docs/migration/remaining-migration-inventory.md",
+		label: "剩余迁移清单",
+		sections: [
+			{
+				start: "## 2026-08-22 当前执行决策",
+				end: "## 历史记录（仅供追溯）",
+				phrases: [
+					{ text: "当前进行中：", expected: "short" },
+					{ text: "小程序运行包来源为", expected: "full" },
+				],
+			},
+		],
+	},
 ]);
 
 /** 从验收候选的表格中提取当前服务端和小程序来源指纹。 */
