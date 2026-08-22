@@ -8,7 +8,7 @@
 当前配套候选固定为：
 
 - 服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；
-- 小程序运行包来源：`ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）；
+- 小程序运行包来源：`171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）；
 - 小程序运行包已经通过 `runtime:verify`，测试脚本不会进入 `dist/`。
 
 本轮对照以下事实源检查剩余迁移：
@@ -30,7 +30,7 @@
 | 健康知识 | 新端已有 schema、domain、service、repository 和导入校验 | 真实脱敏内容、临床审核、发布/撤回演练、患者页面和真机证据 | 保持 API 未挂载 |
 | 支付/医保/HIS | 基础设施和规则部分存在 | 金额与状态机、授权、回调、查单、退款、回写和真实验收 | 最后处理，运行闸门关闭 |
 
-结论：当前最合适的下一步仍是使用 `0e2a366e + ba1dd23` 完成已存在只读业务的真机三层验收，
+结论：当前最合适的下一步仍是使用 `0e2a366e + 171a874` 完成已存在只读业务的真机三层验收，
 不是继续增加一个缺少正式业务契约的页面或接口。
 
 ## 3. 健康知识代码现状与“未开放”原因
@@ -86,7 +86,7 @@
 | 检查 | 结果 |
 | --- | --- |
 | `pnpm --filter @hospital/miniprogram build` | 通过；14 个页面运行脚本生成 |
-| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；来源为 `ba1dd23` |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；来源为 `171a874` |
 | `dist/services/single-flight.js` | 存在 |
 | `dist/services/single-flight.test.js` | 不存在；测试源码未进入运行包 |
 | `dist/` 测试脚本/缺失相对引用 | 均为 0 |

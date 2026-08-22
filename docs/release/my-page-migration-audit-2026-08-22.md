@@ -11,7 +11,7 @@
 
 ## 1. 对照结论
 
-当前小程序候选源码基线为 `ba1dd23`。`apps/miniprogram/src/pages/my/`
+当前小程序候选源码基线为 `171a874`。`apps/miniprogram/src/pages/my/`
 已经按旧端 `src/pages/user/user.vue` 和 `src/jsonData/userNavData.json` 保留了页面骨架：
 
 - 顶部本地背景图、头像区和昵称入口；
