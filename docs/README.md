@@ -1,17 +1,17 @@
 # 项目文档导航
 
-> 当前完整小程序来源校验值：`5b4b0667d76ce443290116352d27f5eb94eba49c`；当前服务端已验证 release：`9f479c9a`。
+> 当前完整小程序来源校验值：`4f067e7bb8b04e41a734ae4e6605f30c28a9c790`；当前服务端已验证 release：`9f479c9a`。
 
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前发布基线（2026-08-22）为：服务端已验证 `9f479c9a`，当前小程序候选来源
-`5b4b0667d76ce443290116352d27f5eb94eba49c`（提交 `5b4b066`）。服务端已完成新 API 的原子切换与 production smoke；小程序已重新构建、
+`4f067e7bb8b04e41a734ae4e6605f30c28a9c790`（提交 `4f067e7b`）。服务端已完成新 API 的原子切换与 production smoke；小程序已重新构建、
 验证运行包并在正确项目中重新生成二维码，但仍需手机页面、客户端 requestId 和服务端日志三层业务证据。旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 工作树运行包补充状态（2026-08-22）：`apps/miniprogram/dist/build-info.json.sourceRevision` 当前为
-`5b4b0667d76ce443290116352d27f5eb94eba49c`，对应本次小程序候选。该运行包不含任何测试 JS；针对
+`4f067e7bb8b04e41a734ae4e6605f30c28a9c790`，对应本次小程序候选。该运行包不含任何测试 JS；针对
 `single-flight.test.js` 的 ENOENT 已重新构建并通过开发者工具 CLI 清理 compile 缓存、关闭后重开正确项目。
 这只修复工具旧增量索引并恢复门诊缴费旧版选择器布局，不增加微信登录、患者、Provider 或真机业务证据。
 
@@ -21,7 +21,7 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前已验证服务端 release 以 `9f479c9a`、当前小程序候选来源以 `5b4b0667d76ce443290116352d27f5eb94eba49c` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前已验证服务端 release 以 `9f479c9a`、当前小程序候选来源以 `4f067e7bb8b04e41a734ae4e6605f30c28a9c790` 为准 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
@@ -29,7 +29,8 @@
 | [`release/current-public-health-observation-2026-08-22.md`](release/current-public-health-observation-2026-08-22.md) | 当前公网 live/ready/ping 低敏探针；明确它不替代真机、Provider 或旧服务共存证据 |
 | [`release/device-evidence-redaction-phone-audit-2026-08-22.md`](release/device-evidence-redaction-phone-audit-2026-08-22.md) | 真机验收摘要中的手机号脱敏门禁、回归测试和不影响业务/旧服务的边界 |
 | [`release/device-evidence-distinct-chain-audit-2026-08-22.md`](release/device-evidence-distinct-chain-audit-2026-08-22.md) | 普通资料与预约目录双请求必须使用独立客户端 requestId 和服务端关联指纹的证据门禁 |
-| [`release/candidate-5b4b066-current-build-2026-08-22.md`](release/candidate-5b4b066-current-build-2026-08-22.md) | 当前 `5b4b066` 小程序运行包、`single-flight.test.js` ENOENT 恢复、开发者工具缓存处理和真机前运行包边界 |
+| [`release/candidate-4f067e7-local-build-2026-08-22.md`](release/candidate-4f067e7-local-build-2026-08-22.md) | 当前 `4f067e7b` 小程序运行包、年龄输入修正、ENOENT 恢复和真机前运行包边界 |
+| [`release/miniprogram-real-device-evidence-template-4f067e7.md`](release/miniprogram-real-device-evidence-template-4f067e7.md) | 当前 `4f067e7b` 真机页面、客户端 requestId 和服务端低敏日志三层证据模板 |
 | [`release/candidate-c01b1af-local-build-2026-08-22.md`](release/candidate-c01b1af-local-build-2026-08-22.md) | 未部署 `c01b1af` 预约排班快照日志 traceId 关联修正、本地测试和上线后缺失关联计数门禁 |
 | [`release/9f479c9a-production-acceptance-2026-08-22.md`](release/9f479c9a-production-acceptance-2026-08-22.md) | 当前服务端原子切换、production preflight、旧 Python `8001` 共存、报告时间字段纠偏和关闭门禁证据 |
 | [`release/next-appointment-records-acceptance-2026-08-22.md`](release/next-appointment-records-acceptance-2026-08-22.md) | 下一项预约历史/爽约只读验收顺序、三层低敏证据、停止条件和代码入口 |
