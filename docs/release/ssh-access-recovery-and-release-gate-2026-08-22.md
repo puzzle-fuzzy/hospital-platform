@@ -1,13 +1,19 @@
 # SSH 恢复与新 API 发布门禁（2026-08-22）
 
+> 当前复核（2026-08-22 21:13 CST）：`root@8.130.127.184` 的批处理公钥登录正常，且该主机到
+> `10.0.0.3` 网络可达；`10.0.0.3` 的主机指纹与此前信任的 `192.168.112.172` 完全一致。
+> 但内网 `ps` 账号拒绝本机专用公钥 `SHA256:UfHO+cT8BpJqMhQQm9t4anfLuXXIWxlNim+fhkb6hcQ`，因此当前仍不能发布。
+> 服务端线上继续保持 `0e2a366e`，本地候选 `709b9ea0` 未上传、未切换、未重启任何服务。
+
 ## 目的与边界
 
 本文只解决“恢复受控 SSH 后如何安全进入发布流程”，不替代 [`api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)。
 它不授权修改旧 Python 项目、不停止或重启旧服务、不修改旧端口 `8001`、不执行数据库 migration、不清理 Redis，也不打开支付、医保、
 退款或 HIS worker。
 
-当前已知目标为阿里云中转机 `8.130.127.184`；内网服务地址为 `192.168.112.172`。本轮两个地址均返回 SSH 公钥拒绝，
-所以没有上传、读取日志、切换 release 或重启任何服务。恢复权限必须由服务器管理员通过阿里云控制台、既有带外终端或其它受控管理员通道完成。
+当前已知目标为阿里云中转机 `8.130.127.184`；新 API 内网地址为 `10.0.0.3:18081`，对应此前的内网主机
+`192.168.112.172`。阿里云 root 到内网网络可达，但应用发布账号 `ps` 的公钥认证尚未授权，所以没有上传、读取日志、
+切换 release 或重启任何服务。恢复权限必须由服务器管理员通过阿里云控制台、既有带外终端或其它受控管理员通道完成。
 
 ## 1. 恢复公钥，不传私钥
 
@@ -24,13 +30,14 @@ chown -R ps:ps /home/ps/.ssh
 必须由管理员先确认该公钥没有重复、来源可信，并遵守服务器既有 SSH 审计规则。不要把公钥追加命令输入到旧服务进程、旧 Python
 工作目录或应用日志中；`authorized_keys` 只属于 SSH 账号配置，不是应用环境变量。
 
-本机查看公钥时只读取 `.pub` 文件：
+本机查看“内网 ps 发布账号”公钥时只读取专用 `.pub` 文件：
 
 ```powershell
-Get-Content -Raw "$env:USERPROFILE\.ssh\remote-8-130-127-184.pem.pub"
+Get-Content -Raw "$env:USERPROFILE\.ssh\hospital-internal-inspection-ed25519.pub"
 ```
 
-如果当前没有对应 `.pub` 文件，应从同一私钥重新导出公钥或由管理员生成新的密钥对；不能把私钥内容当作公钥发送。
+阿里云中转机使用的 `remote-8-130-127-184.pem` 只用于登录中转机，不能误当成内网 `ps` 的授权公钥。
+如果当前没有对应 `.pub` 文件，应从同一内网私钥重新导出公钥或由管理员生成新的密钥对；不能把私钥内容当作公钥发送。
 
 ## 2. 恢复后第一轮只读检查
 
@@ -39,8 +46,18 @@ Get-Content -Raw "$env:USERPROFILE\.ssh\remote-8-130-127-184.pem.pub"
 ```powershell
 ssh -o BatchMode=yes -o ConnectTimeout=8 `
   -i "$env:USERPROFILE\.ssh\remote-8-130-127-184.pem" `
-  ps@8.130.127.184 "printf 'ssh-ok\n'; hostname; date -Is"
+  root@8.130.127.184 "printf 'relay-ssh-ok\n'; hostname; date -Is"
 ```
+
+中转机登录成功后，再验证内网发布账号：
+
+```powershell
+ssh -i "$env:USERPROFILE\.ssh\remote-8-130-127-184.pem" `
+  -o IdentitiesOnly=yes -o BatchMode=yes root@8.130.127.184 `
+  "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 ps@10.0.0.3 hostname"
+```
+
+只有这两跳都成功，才允许进入后面的只读检查。密码登录、自动输入密码和跳过主机指纹校验都不属于发布门禁。
 
 登录成功后，第一条远端检查必须只读取当前 release、服务状态和监听端口：
 
