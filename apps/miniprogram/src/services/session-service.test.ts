@@ -4,6 +4,7 @@ import {
 	sessionStateAfterAuthenticatedReadError,
 	sessionVerificationStateFromError,
 	sessionVerificationStateFromLabel,
+	signInPlatformSession,
 } from "./session-service";
 
 describe("会话验证错误状态", () => {
@@ -90,4 +91,83 @@ describe("首页会话文案门禁", () => {
 			"unavailable",
 		);
 	});
+});
+
+test("主动登录必须在 code 兑换后完成 /me owner 校验才能返回", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		success: (response: unknown) => void;
+		fail?: () => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const requestUrls: string[] = [];
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "",
+		sessionStatus: "signed_out" as "signed_out" | "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		setStorageSync: (key: string, value: string) => {
+			if (key === "access_token") globalData.accessToken = value;
+		},
+		removeStorageSync: (key: string) => {
+			if (key === "access_token") globalData.accessToken = "";
+		},
+		login: (options: { success: (value: { code: string }) => void }) => {
+			options.success({ code: "wechat-code-owner-check" });
+		},
+		request: (options: RequestOptions) => {
+			requestUrls.push(options.url);
+			if (options.url.endsWith("/auth/wechat")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							accessToken: "session-after-code-exchange",
+							tokenType: "Bearer",
+							expiresInSeconds: 3600,
+							user: { id: "owner-001" },
+						},
+					},
+				});
+				return;
+			}
+			if (options.url.endsWith("/me")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: { user: { id: "owner-001" } },
+					},
+				});
+				return;
+			}
+			throw new Error(`unexpected request: ${options.url}`);
+		},
+	};
+
+	try {
+		const currentUser = await signInPlatformSession();
+		expect(currentUser.data.user.id).toBe("owner-001");
+		expect(requestUrls.map((url) => new URL(url).pathname)).toEqual([
+			"/api/v2/auth/wechat",
+			"/api/v2/me",
+		]);
+		expect(globalData.sessionStatus).toBe("signed_in");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
 });

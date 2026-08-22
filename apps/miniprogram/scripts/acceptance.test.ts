@@ -2266,12 +2266,18 @@ test("native homepage blocks patient selection while its sync snapshot is in fli
 
 test("native homepage uses the same verified session state for every business entry", async () => {
 	const home = await source("pages/index/index.ts");
+	const sessionService = await source("services/session-service.ts");
 
 	// 首页不能因为本地 token 存在就绕过正在进行的 /me 验证；所有入口都必须
 	// 消费同一份 sessionStatus，患者范围页还要继续经过当前患者门禁。
 	expect(home).toContain("sessionVerificationStateFromLabel");
 	expect(home).toContain("navigateToAuthenticatedPage");
 	expect(home).toContain("navigateToPatientScopedPage");
+	// 主动登录不能把 code2session 的 token 直接当作入口 owner 证明；
+	// session service 必须先复用 `/me` 校验，首页才能把“已登录”交给导航门禁。
+	expect(sessionService).toContain(
+		"return login().then(() => restorePlatformSession());",
+	);
 	expect(home).toContain('case "hospital-list":');
 	expect(home).toContain("this.onLoadAppointments();");
 	expect(home).not.toContain(

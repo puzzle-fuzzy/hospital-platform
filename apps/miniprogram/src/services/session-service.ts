@@ -1,5 +1,4 @@
 import type {
-	AuthSessionResponse,
 	CurrentUserResponse,
 	SessionLabel,
 	SessionVerificationState,
@@ -110,10 +109,17 @@ export function restorePlatformSession(): Promise<CurrentUserResponse> {
 	});
 }
 
-/** 完成微信临时 code 兑换后标记平台会话。 */
-export function signInPlatformSession(): Promise<AuthSessionResponse> {
-	return login().then((payload) => {
-		setSessionState(SESSION_STATES.signedIn);
-		return payload;
-	});
+/**
+ * 完成微信登录并重新取得当前 owner 证明。
+ *
+ * `code2session` 成功只说明平台为本次微信 code 签发了一个 Bearer 会话；
+ * 它还没有把“当前页面可以安全进入受保护业务”这件事和 `/me` 的 owner
+ * 读模型闭合。首页的预约、资料和患者范围入口都要求最近一次 `/me` 验证，
+ * 因此主动登录必须沿用恢复会话的同一条 GET 校验链，不能在 token 落盘后
+ * 直接把页面状态写成 `valid`。`restorePlatformSession` 只执行安全读取，
+ * 不会重放资料保存、患者同步、支付或其它命令；校验失败时会把错误交给
+ * 首页的 invalid/unavailable 状态机处理。
+ */
+export function signInPlatformSession(): Promise<CurrentUserResponse> {
+	return login().then(() => restorePlatformSession());
 }
