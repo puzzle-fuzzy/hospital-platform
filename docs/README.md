@@ -33,6 +33,8 @@
 | [`release/candidate-c01b1af-local-build-2026-08-22.md`](release/candidate-c01b1af-local-build-2026-08-22.md) | 未部署 `c01b1af` 预约排班快照日志 traceId 关联修正、本地测试和上线后缺失关联计数门禁 |
 | [`release/2a2acd9b-production-acceptance-2026-08-22.md`](release/2a2acd9b-production-acceptance-2026-08-22.md) | 当前服务端原子切换、production preflight、旧 Python `8001` 共存、日志链路修正和只读预约证据 |
 | [`release/next-appointment-records-acceptance-2026-08-22.md`](release/next-appointment-records-acceptance-2026-08-22.md) | 下一项预约历史/爽约只读验收顺序、三层低敏证据、停止条件和代码入口 |
+| [`release/outpatient-payment-readonly-audit-2026-08-22.md`](release/outpatient-payment-readonly-audit-2026-08-22.md) | 门诊缴费只读当前候选、旧端差异、金额/状态/患者边界和支付医保停止条件 |
+| [`release/my-page-migration-audit-2026-08-22.md`](release/my-page-migration-audit-2026-08-22.md) | “我的”页面背景、菜单、图标、固定底栏和未迁移入口审计 |
 | [`release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md`](release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md) | 当前小程序候选来源、门诊缴费旧版选择器布局、ENOENT 修复和真机准入边界 |
 | [`release/current-2a2acd9-runtime-observation-2026-08-22-0935.md`](release/current-2a2acd9-runtime-observation-2026-08-22-0935.md) | 新旧服务共存运行层观察与 journald 权限不足边界；不把空日志当作业务结论 |
 | [`release/current-2a2acd9-business-observation-2026-08-22-0918.md`](release/current-2a2acd9-business-observation-2026-08-22-0918.md) | 当前 `2a2acd9` 线上低敏业务观察、预约已有事件、门诊费用未触发和下一次真机顺序 |
@@ -312,6 +314,7 @@
 | [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 14 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/medical-record-and-hospital-boundary.md`](migration/medical-record-and-hospital-boundary.md) | 门诊病历、住院、医院列表和院内导航的旧接口审计与 contract 边界 |
 | [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) | 门诊就诊记录目录的旧字段差异、候选 contract、provider 确认问题和实现门禁 |
+| [`migration/electronic-consultation-contract-draft.md`](migration/electronic-consultation-contract-draft.md) | 电子导诊单旧端实际复用预约渠道 4 的证据、独立 contract 缺口和停止条件 |
 | [`migration/directory-contract-diff-2026-08-17.md`](migration/directory-contract-diff-2026-08-17.md) | 2.1.9 科室基础目录与 2.1.13 院内用户资料和当前预约/患者域的差异、敏感字段和实现门禁 |
 | [`migration/convenience-service-boundaries.md`](migration/convenience-service-boundaries.md) | 便民服务 13 个旧路由、旧表风险、新领域边界、幂等、日志和验收门禁 |
 | [`migration/health-calculator-contract-draft.md`](migration/health-calculator-contract-draft.md) | BMI/血压旧端规则审计、临床确认项、版本化规则和迁移门禁 |
