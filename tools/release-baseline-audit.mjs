@@ -196,6 +196,17 @@ export const currentBaselineDocuments = Object.freeze([
 		path: "docs/release/current-device-acceptance-gate-2026-08-22.md",
 		label: "当前真机准入记录",
 	},
+	// 当前下一步审计和最新二维码会话是人工操作的直接入口；把它们纳入
+	// 发布基线后，服务端或小程序候选变化时，旧二维码交接记录会立即被门禁
+	// 拦住，避免下一次会话沿用已经失效的运行包和二维码。
+	{
+		path: "docs/release/current-next-step-audit-2026-08-22.md",
+		label: "当前候选下一步审计",
+	},
+	{
+		path: "docs/release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md",
+		label: "当前小程序二维码会话",
+	},
 	{
 		path: "docs/release/miniprogram-real-device-evidence-template-7f09bbb.md",
 		label: "当前小程序真机证据模板",
