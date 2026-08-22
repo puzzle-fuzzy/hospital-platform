@@ -22,7 +22,11 @@ test("客户端观测路径会去掉患者和账单查询参数", () => {
 test("客户端观测环只保留最近固定数量的低敏请求元数据", () => {
 	clearApiRequestObservations();
 	try {
-		for (let index = 0; index < MAX_RECENT_API_REQUEST_OBSERVATIONS + 2; index += 1) {
+		for (
+			let index = 0;
+			index < MAX_RECENT_API_REQUEST_OBSERVATIONS + 2;
+			index += 1
+		) {
 			recordApiRequestObservation({
 				requestId: `request-${index}`,
 				method: "GET",
@@ -37,8 +41,8 @@ test("客户端观测环只保留最近固定数量的低敏请求元数据", ()
 		expect(observations).toHaveLength(MAX_RECENT_API_REQUEST_OBSERVATIONS);
 		expect(observations[0]?.requestId).toBe("request-2");
 		expect(observations.at(-1)?.requestId).toBe(
-		`request-${MAX_RECENT_API_REQUEST_OBSERVATIONS + 1}`,
-	);
+			`request-${MAX_RECENT_API_REQUEST_OBSERVATIONS + 1}`,
+		);
 		expect(observations.every((item) => item.path === "/patients")).toBe(true);
 		const copy = getRecentApiRequestObservations();
 		copy.pop();

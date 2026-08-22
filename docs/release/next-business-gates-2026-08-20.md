@@ -1,12 +1,12 @@
 # 下一阶段业务门禁执行板（2026-08-20）
-> 当前候选更新（2026-08-22 16:37 CST）：服务端 release 为 `84370077`；小程序运行包来源为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22 16:37 CST）：服务端 release 为 `84370077`；小程序运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。历史候选仅作追溯。
 
 
-> 当前候选：服务端 release `84370077024762d92050cf077c27f3c60302e8f8`；小程序运行包来源 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。
+> 当前候选：服务端 release `84370077024762d92050cf077c27f3c60302e8f8`；小程序运行包来源 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `84370077`，当前小程序候选为 `7f09bbb`，完整运行包来源为
-> `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`。服务端已切换；小程序已从正确项目普通编译并生成二维码，当前等待扫码。
+> 当前服务端候选为 `84370077`，当前小程序候选为 `a64fe023`，完整运行包来源为
+> `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。服务端已切换；小程序已从正确项目普通编译并生成二维码，当前等待扫码。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -36,7 +36,7 @@ persistence 等真正进入 Bun 运行包的语句、常量或导入发生变化
 
 2026-08-21 10:38–10:47 CST 的追加只读核验仍确认新旧服务共存、生产环境启动、MySQL/Redis/schema readiness 正常；最近窗口
 只有健康检查、未登录认证和关闭路由探针，没有 `auth.*`、`patient.*`、`appointment.*` 或 `outpatient.payment.*` 业务事件。
-该窗口发生在 `9f479c9a` 切换前，下面的旧候选只作为历史观察；当前下一步必须使用顶部声明的 `7f09bbb` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
+该窗口发生在 `9f479c9a` 切换前，下面的旧候选只作为历史观察；当前下一步必须使用顶部声明的 `a64fe023` 候选重新扫码，取得同一会话的页面、客户端请求和服务端日志三层证据。
 完整运行窗口见 [`current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md`](current-5a31427-runtime-and-p0-observation-2026-08-21-1038.md)。
 
 ### `c8eef370` 切换前历史观察（仅供追溯）
@@ -115,7 +115,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核（历史候选）
 
-当前验收基线为服务端 `84370077024762d92050cf077c27f3c60302e8f8`、小程序候选 `7f09bbb`（完整来源 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`）；
+当前验收基线为服务端 `84370077024762d92050cf077c27f3c60302e8f8`、小程序候选 `a64fe023`（完整来源 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`）；
 下方历史代码复核原始记录当时基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 不代表当前线上服务端 release。当前线上服务端和真机候选以本文顶部基线为准，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
@@ -202,10 +202,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
 - 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-7f09bbb.md`](miniprogram-real-device-evidence-template-7f09bbb.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)
-- 当前候选来源：[`candidate-7f09bbb-local-build-2026-08-22.md`](candidate-7f09bbb-local-build-2026-08-22.md)
+- 当前候选来源：[`candidate-a64fe023-local-build-2026-08-22.md`](candidate-a64fe023-local-build-2026-08-22.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
 - 患者绑定准入草案：[`../migration/patient-binding-contract-draft.md`](../migration/patient-binding-contract-draft.md)
 - 医保/支付最后专项：[`../migration/payment-contract.md`](../migration/payment-contract.md)
-

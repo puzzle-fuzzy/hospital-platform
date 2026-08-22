@@ -1,9 +1,9 @@
 # 小程序运行包 `single-flight.test.js` ENOENT 恢复记录（2026-08-22）
 
 > 本文保留多个历史候选的恢复证据，不是当前发布基线。当前小程序候选以
-> [`candidate-7f09bbb-local-build-2026-08-22.md`](candidate-7f09bbb-local-build-2026-08-22.md) 和
+> [`candidate-a64fe023-local-build-2026-08-22.md`](candidate-a64fe023-local-build-2026-08-22.md) 和
 > [`miniprogram-devtools-reimport-2026-08-22-1314.md`](miniprogram-devtools-reimport-2026-08-22-1314.md) 为准；当前完整来源为
-> `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`；配套服务端 release 为
+> `a64fe023bc34fe6e44f93846c39e202fe02d64a5`；配套服务端 release 为
 > `84370077024762d92050cf077c27f3c60302e8f8`。
 
 ## 结论
@@ -73,7 +73,7 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 
 | 项目 | 结果 |
 | --- | --- |
-| 小程序运行输入来源 | `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（`7f09bbb`） |
+| 小程序运行输入来源 | `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（`a64fe023`） |
 | `pnpm --filter @hospital/miniprogram build` | 通过，类型检查通过 |
 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
 | 小程序定向测试 | `217 pass / 0 fail / 1624 expect()` |

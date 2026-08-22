@@ -1,10 +1,10 @@
 # 微信授权登录实施与验收手册
-> 当前候选更新（2026-08-22 16:37 CST）：服务端 release 为 `84370077`；小程序运行包来源为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22 17:50 CST）：服务端 release 为 `84370077`；小程序运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。历史候选仅作追溯。
 
 
-> 当前完整小程序来源校验值：`7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`。
+> 当前完整小程序来源校验值：`a64fe023bc34fe6e44f93846c39e202fe02d64a5`。
 
-> 当前候选：服务端 release `84370077024762d92050cf077c27f3c60302e8f8`；小程序运行包来源 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。
+> 当前候选：服务端 release `84370077024762d92050cf077c27f3c60302e8f8`；小程序运行包来源 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`）。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
@@ -15,8 +15,8 @@
 [`release/84370077-production-acceptance-2026-08-22.md`](release/84370077-production-acceptance-2026-08-22.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
-当前小程序候选为 `7f09bbb`，运行包来源指纹为
-`7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`。本候选包含运行包 test/spec 文件边界，
+当前小程序候选为 `a64fe023`，运行包来源指纹为
+`a64fe023bc34fe6e44f93846c39e202fe02d64a5`。本候选包含运行包 test/spec 文件边界和成功请求低敏 requestId 观测，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
@@ -44,7 +44,7 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试；当前候选
-全量小程序测试为 217 项通过、1624 个断言，当前运行包来源为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`，登录后患者初始化边界见
+全量小程序测试为 220 项通过、1634 个断言，当前运行包来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 
@@ -387,4 +387,3 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `apps/miniprogram/scripts/build.ts` | 编译 TypeScript 页面、复制静态资源并验证真实 `.js` 页面文件 |
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |
-

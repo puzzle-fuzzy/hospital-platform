@@ -9,7 +9,7 @@
 | --- | --- |
 | 服务端 release | `84370077024762d92050cf077c27f3c60302e8f8` |
 | 发布前线上 release | `1e58bb66` |
-| 配套小程序运行包来源 | `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`） |
+| 配套小程序运行包来源 | `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`） |
 | 新 API | 仅切换并重启 `hospital-platform-api-v2.service` |
 | 旧 Python | 未修改、未停止、未重启；`8001` 持续监听，PID 集合复核未变化 |
 | Worker | `hospital-platform-worker-v2.service` 未启动，保持 inactive |
@@ -76,5 +76,5 @@ requestId/HTTP、服务端低敏日志三层同链规则验收；不能用本窗
 ## 当前业务停止条件
 
 本次发布没有打开患者新增/绑定、二维码、病历、预约写入、支付、医保授权、退款、HIS 写回或报告 Provider。
-当前下一步仍是使用配套 `7f09bbb` 小程序候选取得微信登录、显式就诊人切换、预约历史和门诊费用的页面、客户端
+当前下一步仍是使用配套 `a64fe023` 小程序候选取得微信登录、显式就诊人切换、预约历史和门诊费用的页面、客户端
 requestId、Provider requestId（如有）与服务端 Pino 日志三层证据；真实支付、医保和结算继续最后处理。
