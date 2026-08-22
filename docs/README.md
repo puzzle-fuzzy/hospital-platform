@@ -47,6 +47,7 @@
 | [`release/miniprogram-simulator-readonly-flow-2026-08-22.md`](release/miniprogram-simulator-readonly-flow-2026-08-22.md) | 当前 `41c708e1` 候选的预约目录、门诊费用和就诊人切换模拟器只读验收；不替代真机或 Provider 证据 |
 | [`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md) | 当前候选患者上下文、只读页面错误边界和真机人工交接审计 |
 | [`release/current-business-observation-2026-08-22-1442.md`](release/current-business-observation-2026-08-22-1442.md) | 当前 `1e58bb66` 服务端低敏业务聚合、只读门禁、失败边界和真机三层取证要求 |
+| [`release/current-business-observation-2026-08-22-1510.md`](release/current-business-observation-2026-08-22-1510.md) | 15:10 CST 新 API 低敏事件名观察；无新的真机业务流量，不把空窗口误判为成功或 Provider 故障 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1450.md`](release/miniprogram-device-qr-session-2026-08-22-1450.md) | 当前 `41c708e1` 候选二维码、开发者工具错误边界和扫码后低敏三层取证顺序 |
 | [`release/current-readonly-business-observation-2026-08-22-1423.md`](release/current-readonly-business-observation-2026-08-22-1423.md) | 当前 13:23–14:23 CST 服务器端门诊费用只读同链证据；不替代手机页面和客户端 requestId |
 | [`release/candidate-c01b1af-local-build-2026-08-22.md`](release/candidate-c01b1af-local-build-2026-08-22.md) | 未部署 `c01b1af` 预约排班快照日志 traceId 关联修正、本地测试和上线后缺失关联计数门禁 |
