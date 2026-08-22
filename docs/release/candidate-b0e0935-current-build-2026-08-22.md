@@ -60,6 +60,10 @@ CLI 最后返回了微信工具侧未细化的 `code 10 / 错误 undefined`，�
 “普通编译 → 预览”。不要把测试脚本复制到 `dist/`，也不要切回旧 `mp-weixin` 项目。切换后线上低敏日志观察窗口只有健康探针，
 没有 `auth.*`、`patient.*`、`appointment.*` 或 `outpatient.payment.*` 业务事件，所以目前没有可误判为业务失败的请求。
 
+随后对线上 `49f74e0` 的 `08:23–08:30 CST` journald 做低敏聚合：`parseErrors=0`、`systemdWarningCount=0`，仅有
+`http.request.completed=1` 且状态为 `200` 的基础设施请求；没有登录、患者、预约或门诊费用业务事件。该结果证明当前窗口
+没有产生可用于三层验收的设备业务流量，不证明这些业务接口已经完成真机验收。
+
 ## 4. 真机验收停止条件
 
 重新生成二维码后，必须使用当前 `b0e0935` 运行包采集：页面结果、客户端 `/api/v2/` 请求与 requestId/traceId、服务端 Pino
