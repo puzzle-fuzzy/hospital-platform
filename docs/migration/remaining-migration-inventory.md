@@ -1,9 +1,11 @@
 # 剩余迁移盘点与下一步计划
+> 当前候选更新（2026-08-22）：服务端 release 为 `9f479c9a`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
 
-> 当前完整小程序来源校验值：`937bb2ad2c71a2e83fac679939d31ed6bb3f0996`；当前服务端已验证 release：`9f479c9a`。
+
+> 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端已验证 release：`9f479c9a`。
 
 > 当前发布基线（2026-08-22）：服务端已验证 `9f479c9a`；小程序运行包来源
-> `937bb2ad2c71a2e83fac679939d31ed6bb3f0996`。P0 运行层切换已完成，P1 真机/Provider 三层证据仍未完成。
+> `41c708e12c71a2e83fac679939d31ed6bb3f0996`。P0 运行层切换已完成，P1 真机/Provider 三层证据仍未完成。
 
 ## 2026-08-22 当前执行决策
 
@@ -12,12 +14,12 @@
 | 优先级 | 当前动作 | 放行条件 | 当前决定 |
 | --- | --- | --- | --- |
 | P0 | 恢复受控发布链 | 阿里云 SSH 可用；服务端候选可在不停止旧 Python `8001` 的情况下切换；公网 live/ready、旧端口和新端口均有证据 | 已完成：`9f479c9a` 原子切换，新 API 重启，旧 Python PID 不变；详见 [`../release/9f479c9a-production-acceptance-2026-08-22.md`](../release/9f479c9a-production-acceptance-2026-08-22.md) |
-| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：`937bb2ad` 已构建，运行包校验通过，但尚无手机页面与当前服务端的完整三层业务证据，不能宣称业务完成 |
+| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：`41c708e1` 已构建，运行包校验通过，但尚无手机页面与当前服务端的完整三层业务证据，不能宣称业务完成 |
 | P2 | 门诊病历、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 继续保持未注册或迁移提示；不写兼容转发、不猜 `patId`/卡号用途 |
 | P3 | 微信支付、医保授权、结算、退款和 HIS 写回 | 金额/状态机、授权、回调/查单、幂等、回滚及真实沙箱/生产验收全部冻结 | 最后处理；只读费用列表不能触发支付或医保流程 |
 
 当前服务端已验证 release 为 `9f479c9a`，小程序运行包来源为
-`937bb2ad2c71a2e83fac679939d31ed6bb3f0996`。因此可以继续进行真机准入，但只有页面、客户端 HTTP 和 Pino 同链证据齐全时
+`41c708e1adf864ef6fef1f788e97aa8fb4371227`。因此可以继续进行真机准入，但只有页面、客户端 HTTP 和 Pino 同链证据齐全时
 才能把只读业务标记为已验收。
 
 2026-08-22 09:18 CST 的历史线上低敏观察显示当时已验证 release 曾出现微信登录、患者目录和预约历史事件，但门诊费用事件为 0；
@@ -26,7 +28,7 @@
 本轮已确认 `pnpm migration:audit`、`pnpm architecture:audit` 和 `pnpm provider:audit` 通过；这三项只证明台账、架构边界和
 Provider 文档接收记录完整，不替代 SSH、部署、真机或真实 Provider 证据。
 
-> 2026-08-22 当前工作树补充：小程序提交 `937bb2ad` 的运行包已重新构建，个人资料错误态和候选来源门禁已收口；门诊费用继续只读，未开放支付、医保、结算或 HIS 写回。`dist/` 中测试脚本为 0，`runtime:verify` 通过。详细证据见 [`../release/candidate-937bb2a-local-build-2026-08-22.md`](../release/candidate-937bb2a-local-build-2026-08-22.md)。
+> 2026-08-22 当前工作树补充：小程序提交 `41c708e1` 的运行包已重新构建，个人资料错误态和候选来源门禁已收口；门诊费用继续只读，未开放支付、医保、结算或 HIS 写回。`dist/` 中测试脚本为 0，`runtime:verify` 通过。详细证据见 [`../release/candidate-41c708e-local-build-2026-08-22.md`](../release/candidate-41c708e-local-build-2026-08-22.md)。
 
 > 2026-08-22 09:35 CST 历史运行层只读观察确认当时新 API `active`、`10.0.0.3:18081` 和旧 Python `8001` 继续共存，Worker 为 `inactive`；该观察不作为当前候选业务证据。详见 [`../release/current-2a2acd9-runtime-observation-2026-08-22-0935.md`](../release/current-2a2acd9-runtime-observation-2026-08-22-0935.md)。
 

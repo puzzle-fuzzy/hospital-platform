@@ -1,8 +1,10 @@
 # 微信授权登录实施与验收手册
+> 当前候选更新（2026-08-22）：服务端 release 为 `9f479c9a`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
 
-> 当前完整小程序来源校验值：`937bb2ad2c71a2e83fac679939d31ed6bb3f0996`。
 
-> 当前候选：服务端 release `9f479c9a`；小程序运行包来源 `937bb2ad2c71a2e83fac679939d31ed6bb3f0996`（提交 `937bb2ad`）。
+> 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`。
+
+> 当前候选：服务端 release `9f479c9a`；小程序运行包来源 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
@@ -13,8 +15,8 @@
 [`release/9f479c9a-production-acceptance-2026-08-22.md`](release/9f479c9a-production-acceptance-2026-08-22.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
-当前小程序候选为 `937bb2ad`，运行包来源指纹为
-`937bb2ad2c71a2e83fac679939d31ed6bb3f0996`。本候选包含运行包 test/spec 文件边界，
+当前小程序候选为 `41c708e1`，运行包来源指纹为
+`41c708e1adf864ef6fef1f788e97aa8fb4371227`。本候选包含运行包 test/spec 文件边界，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
