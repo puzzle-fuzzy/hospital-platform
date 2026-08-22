@@ -838,6 +838,76 @@ test("患者目录同步成功后使用 durable operation replay，不重复访�
 	expect(providerCalls).toBe(1);
 });
 
+test("患者目录不同次同步沿用同一 provider 患者的平台内部 ID", async () => {
+	const identityUsers = createInMemoryIdentityUserRepository();
+	await identityUsers.findOrCreateByWechat({
+		providerSubject: "fixture-openid-patient-stable-id",
+		unionId: "fixture-union-patient-stable-id",
+	});
+	const repository = createInMemoryPatientRepository();
+	const generatedPatientIds = [
+		"generated-patient-id-first",
+		"generated-patient-id-second",
+	];
+	let providerCalls = 0;
+	let nowCalls = 0;
+	const service = new PatientService(repository, {
+		identityUsers,
+		directory: {
+			async listByIdentity() {
+				providerCalls += 1;
+				return {
+					complete: true,
+					patients: [
+						{
+							providerPatientId: "provider-patient-stable-id",
+							providerReferences: {
+								"his-patient": "his-patient-stable-id",
+							},
+							displayName: "稳定患者",
+							relationship: "self",
+							cardNumberMasked: "******0001",
+						},
+					],
+					trace: {
+						provider: "zhongyang",
+						operation: "patient-list",
+						requestId: `patient-stable-id-request-${providerCalls}`,
+					},
+				};
+			},
+		},
+		createPatientId: () => {
+			const generated = generatedPatientIds.shift();
+			if (!generated) throw new Error("test patient id generator exhausted");
+			return generated;
+		},
+		now: () => {
+			// 每次同步会采样“请求发起”和“事务提交”两个时间点；第二次
+			// 同步必须晚于第一次，才能同时覆盖目录水位和稳定身份两个边界。
+			const observation = nowCalls++ < 2 ? "00:00:00" : "00:01:00";
+			return new Date(`2026-08-16T${observation}.000Z`);
+		},
+	});
+
+	const first = await service.sync("fixture-user-0001", {
+		traceId: "patient-stable-id-first-trace",
+		idempotencyKey: "patient-stable-id-first-key",
+	});
+	const second = await service.sync("fixture-user-0001", {
+		traceId: "patient-stable-id-second-trace",
+		idempotencyKey: "patient-stable-id-second-key",
+	});
+
+	// service 每次同步都会生成候选内部 ID，但 repository 必须按
+	// owner + provider + providerPatientId 找回既有患者；否则刷新目录会
+	// 产生第二条患者记录，导致预约/报告/费用绑定到旧选择或错误患者。
+	expect(first.items[0]?.id).toBe("generated-patient-id-first");
+	expect(second.items[0]?.id).toBe("generated-patient-id-first");
+	expect(await repository.listByOwner("fixture-user-0001")).toHaveLength(1);
+	expect(providerCalls).toBe(2);
+});
+
 test("患者目录同步租约未到期时返回处理中冲突且不触发第二次 provider 请求", async () => {
 	const identityUsers = createInMemoryIdentityUserRepository();
 	await identityUsers.findOrCreateByWechat({

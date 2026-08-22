@@ -52,6 +52,7 @@
 | [`release/worker-startup-mode-log-audit-2026-08-21.md`](release/worker-startup-mode-log-audit-2026-08-21.md) | Worker 启动探针失败时的 development/test/production 模式日志边界、回归测试和未部署说明 |
 | [`release/patient-relationship-unknown-boundary-2026-08-20.md`](release/patient-relationship-unknown-boundary-2026-08-20.md) | 患者关系明确“其他”和关系缺失/未知的契约、adapter 映射、小程序文案与验收边界 |
 | [`release/patient-card-masking-contract-2026-08-22.md`](release/patient-card-masking-contract-2026-08-22.md) | 患者卡号公共 contract、前五位/后四位展示边界、历史掩码兼容和重新同步停止条件 |
+| [`release/patient-id-stability-contract-2026-08-22.md`](release/patient-id-stability-contract-2026-08-22.md) | 患者目录重复同步沿用平台内部 `patientId` 的服务层、仓储层和验收边界 |
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
 | [`release/profile-age-input-boundary-2026-08-22.md`](release/profile-age-input-boundary-2026-08-22.md) | 普通资料年龄输入保留原文、保存边界严格解析和真机验证要求 |
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |

@@ -25,6 +25,11 @@
 新表应用前必须通过 migration 和 schema probe；不能因为新旧服务共用数据库就把该表当成旧
 Python 服务可以读取或修改的兼容表。
 
+患者目录刷新时，`PatientService` 可以生成新的候选 ID，但仓储必须按
+`ownerUserId + provider + providerPatientId` 找回并沿用既有平台内部
+`patientId`；不得按姓名、卡号展示值或身份证脱敏值猜测同一患者。该稳定身份契约和
+回归证据见 [`patient-id-stability-contract-2026-08-22.md`](../release/patient-id-stability-contract-2026-08-22.md)。
+
 ## 2. 已看到的支付相关表候选
 
 旧 Alembic 迁移 `9f5c4e2d1a7b_新增医保支付订单与回调事件表.py` 明确创建：
