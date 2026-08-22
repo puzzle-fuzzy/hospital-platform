@@ -155,7 +155,7 @@ export function auditServerSourceRelease(baseline, options = {}) {
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-ba1dd23-local-build-2026-08-22.md";
+	"docs/release/candidate-171a874-local-build-2026-08-22.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档

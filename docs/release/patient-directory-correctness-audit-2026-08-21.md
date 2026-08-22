@@ -1,10 +1,10 @@
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本次静态反馈行为修正已进入最新本地候选，真实真机证据仍待。
+> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。本次主动登录 owner 校验修正已进入最新本地候选，真实真机证据仍待。
 
 # 患者目录同步与显式选择正确性审计（2026-08-21）
-> 当前服务端发布基线（2026-08-22）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`。本审计仍要求真实多患者/真机证据。
+> 当前服务端发布基线（2026-08-22）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`。本审计仍要求真实多患者/真机证据。
 
 > 当前验收基线：服务端 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
-> `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本文只记录代码级不变量，
+> `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。本文只记录代码级不变量，
 > 不替代当前候选的真机、HTTP 和服务端日志三层证据。
 
 > 本文只记录新项目当前代码和本地测试证据。它不代表新的 Provider、线上当前 release 或微信真机已经完成业务验收。
@@ -62,7 +62,7 @@ owner-scoped 快照 → 小程序显式选择 → 预约/报告/门诊费用只�
 | `pnpm --filter @hospital/persistence test src/index.test.ts src/mysql-repositories.test.ts` | 46 pass，163 个断言 |
 | `pnpm --filter @hospital/miniprogram test`（包含患者初始化、选择、同步、导航和全量验收） | 180 pass，1438 个断言 |
 | `pnpm --filter @hospital/miniprogram build` | 通过；14 个页面运行脚本生成，测试脚本不进入 `dist/` |
-| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；运行包来源为 `ba1dd23`，无 `*.test.js`/`*.spec.js` |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；运行包来源为 `171a874`，无 `*.test.js`/`*.spec.js` |
 | `pnpm docs:audit` | 通过；384 个 Markdown 文档无断链 |
 
 这些结果证明本地代码边界和测试夹具一致，但不能替代 Provider 返回样例、线上 trace、微信真机页面或多患者切换。
@@ -71,7 +71,7 @@ owner-scoped 快照 → 小程序显式选择 → 预约/报告/门诊费用只�
 
 患者目录 gate 仍不能标记为“真实完成”，缺口是：
 
-1. 当前小程序候选 `ba1dd23` 的真实微信扫码、登录、患者同步和页面结果三层同链证据。
+1. 当前小程序候选 `171a874` 的真实微信扫码、登录、患者同步和页面结果三层同链证据。
 2. 至少两位可用就诊人的显式切换证据：选择前后页面患者姓名/脱敏卡片、请求的内部患者上下文和服务端日志必须一致。
 3. Provider 返回空目录、患者 inactive 后恢复、HIS 映射暂时失败等受控样例；不能用模拟器空列表替代。
 4. Redis 会话 TTL、过期后重新登录和患者目录重新确认的真实运行证据。

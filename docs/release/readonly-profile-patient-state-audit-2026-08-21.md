@@ -1,10 +1,10 @@
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本次静态反馈行为修正已进入最新本地候选，真实真机证据仍待。
+> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。本次主动登录 owner 校验修正已进入最新本地候选，真实真机证据仍待。
 
 # 普通资料与就诊人选择状态机审计（2026-08-21）
-> 当前服务端发布基线（2026-08-22）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`。本审计仍要求真机患者切换证据。
+> 当前服务端发布基线（2026-08-22）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`。本审计仍要求真机患者切换证据。
 
 > 当前验收基线：服务端 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
-> `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本文主体为代码级审计，历史测试数字不替代当前真机证据。
+> `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。本文主体为代码级审计，历史测试数字不替代当前真机证据。
 
 > 本文记录当前新项目对普通资料修改、就诊人目录读取和显式切换的代码级复核结果。
 > 它不代表真实微信真机写入、多患者切换或众阳 Provider 已完成验收；旧 Python 服务、
@@ -84,7 +84,7 @@ GET canonical snapshot
 | `pnpm --filter @hospital/api typecheck` | 通过 |
 | `pnpm --filter @hospital/miniprogram test` | 217 项通过，1624 个断言 |
 | `pnpm --filter @hospital/miniprogram typecheck` | 通过 |
-| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面，来源 `ba1dd23` |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面，来源 `171a874` |
 | `dist` 测试脚本扫描 | `*.test.js`/`*.spec.js` 为 0；`single-flight.test.js` 不存在 |
 
 一次将额外测试文件参数附加到已经固定测试清单的命令出现了运行包来源测试超时；按
@@ -93,7 +93,7 @@ GET canonical snapshot
 
 ## 5. 下一条真机门禁
 
-当前候选为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（`ba1dd23`），服务端配套 release 为
+当前候选为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（`171a874`），服务端配套 release 为
 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。开发者工具必须在正确的 `miniprogram` 窗口重新编译并生成新的 iOS 真机二维码。二维码生成不等于真机验收；必须
 按以下顺序保存证据：
 

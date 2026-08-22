@@ -1,8 +1,8 @@
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。本次静态反馈行为修正已进入最新本地候选，真实真机证据仍待。
+> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。本次主动登录 owner 校验修正已进入最新本地候选，真实真机证据仍待。
 
 # 门诊缴费只读当前候选审计（2026-08-22）
 
-> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `0e2a366e`、小程序来源 `ba1dd23`；
+> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `0e2a366e`、小程序来源 `171a874`；
 > 文中更早提交只作历史追溯。它不是支付、医保结算或真实 Provider 非空业务验收报告。
 > 本轮没有修改旧 Python 项目、旧端口 `8001`、旧数据库或旧 Redis，也没有打开微信支付、医保授权、6202/6301
 > 结算、退款、通知或 HIS 写回。
@@ -11,7 +11,7 @@
 
 ## 1. 当前候选与结论
 
-- 小程序运行包来源：`ba1dd23e0f40191745a60997939b31b4c47795cd`（提交 `ba1dd23`）。
+- 小程序运行包来源：`171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。
 - 服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
 - 当前页面入口：`/pages/outpatient-payment/outpatient-payment`。
 - 当前 API：`GET /api/v2/payments/outpatient/records?patientId=<platform-patient-id>&status=unpaid|paid`。
@@ -68,7 +68,7 @@
 | API 门诊费用 service | `15 pass / 0 fail / 55 expect()` |
 | 众阳门诊费用 adapter | `20 pass / 0 fail / 46 expect()` |
 | 门诊费用领域校验 | `3 pass / 0 fail / 5 expect()` |
-| 小程序全量验收与运行包门禁 | `220 pass / 0 fail / 1634 expect()` |
+| 小程序全量验收与运行包门禁 | `221 pass / 0 fail / 1640 expect()` |
 | 文档链接审计 | `531` 个 Markdown 文档，无断链 |
 
 ## 6. 当前线上发布与验收状态
