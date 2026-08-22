@@ -1,0 +1,56 @@
+# 当前小程序候选 `b0e0935` 构建与真机准入记录（2026-08-22）
+
+> 本记录是当前唯一小程序候选入口。它证明构建产物和开发者工具缓存边界，不代表微信、众阳 Provider、真机业务、支付或医保已经验收。
+
+| 项目 | 值 |
+| --- | --- |
+| 服务端 release | `49f74e0209778836db41bef6249758b4f590792a` |
+| 小程序客户端 | `b0e0935` |
+| 小程序构建来源 | `b0e093565493285e07fe549879f8b87eda649cc7` |
+| 运行包目录 | `apps/miniprogram/dist/` |
+| 页面入口 | 14 个 |
+| 运行包测试脚本 | 0 个 `*.test.js` / `*.spec.js` |
+| `single-flight.js` | 存在 |
+| `single-flight.test.js` | 不存在，符合运行包边界 |
+| 真机业务状态 | 尚未取得当前 release 的三层同链证据 |
+
+## 1. 构建与运行包证据
+
+本候选已通过：
+
+- `pnpm --filter @hospital/miniprogram typecheck`；
+- `pnpm --filter @hospital/miniprogram build`；
+- `pnpm --filter @hospital/miniprogram runtime:verify`；
+- 小程序定向测试 `205 pass / 0 fail / 1543 expect()`（以本轮实际命令输出为准）。
+
+构建发布器把 `src/**/*.test.ts` 和 `src/**/*.spec.ts` 排除，并在 staging 发布前再次扫描 JS 文件；发现测试运行脚本会直接失败。
+这条边界是有意设计的：`src/services/single-flight.test.ts` 只属于 Bun 测试输入，微信运行包只需要
+`dist/services/single-flight.js`。
+
+## 2. `single-flight.test.js` ENOENT 恢复
+
+真机调试报错：
+
+```text
+ENOENT ... apps/miniprogram/dist/services/single-flight.test.js
+```
+
+对当前 `dist/` 的只读复核结果为：`single-flight.js` 存在，`single-flight.test.js` 不存在，全部 `*.test.js`/`*.spec.js`
+为 0，源码和运行包也没有对测试文件的运行时引用。因此不能把测试文件手工复制到 `dist/`；那会让开发工具把测试代码当成
+业务模块，并破坏构建与真机包隔离。
+
+本轮已重新构建完整运行包，并通过微信开发者工具 CLI 依次执行：
+
+1. 关闭 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 项目；
+2. 清理该项目的 `compile` 缓存；
+3. 重新打开同一项目根目录；
+4. 保持 `project.config.json.miniprogramRoot` 为 `dist/`，再执行一次普通编译后生成新二维码。
+
+这只修复开发者工具旧增量模块索引；若普通编译后仍出现同一错误，应再次确认打开的是新项目根目录，而不是旧 `mp-weixin`
+项目，并重新核对 `dist/build-info.json`。不能修改旧项目，也不能因为工具缓存错误去改变业务 import。
+
+## 3. 真机验收停止条件
+
+重新生成二维码后，必须使用当前 `b0e0935` 运行包采集：页面结果、客户端 `/api/v2/` 请求与 requestId/traceId、服务端 Pino
+低敏同链事件。缺少任何一层，都只能记录为 `pending`。微信登录、患者同步/切换、预约历史和门诊费用按既有 P0 手册逐域执行；
+报告、患者绑定、病历、二维码协议、支付、医保和 HIS 回写继续关闭或最后处理。

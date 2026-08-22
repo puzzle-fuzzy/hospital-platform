@@ -38,7 +38,7 @@ pnpm --filter @hospital/miniprogram test
 205 pass / 0 fail / 1543 expect()
 
 pnpm --filter @hospital/miniprogram runtime:verify
-通过；sourceRevision=b0e093565493285de07fe549879f8b87eda649cc7；14 个页面；运行包不含 test/spec JavaScript
+通过；sourceRevision=b0e093565493285e07fe549879f8b87eda649cc7；14 个页面；运行包不含 test/spec JavaScript
 ```
 
 本地运行包中确认：`dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在。
