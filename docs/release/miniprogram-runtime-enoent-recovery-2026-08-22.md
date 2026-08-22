@@ -15,11 +15,11 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 
 ## 2026-08-22 11:43 CST 当前候选复核
 
-针对再次出现的同一路径错误，已从当前 `a33416d8` 小程序源码重新执行构建和运行包门禁：
+针对再次出现的同一路径错误，已从当前 `1b621f07` 小程序源码重新执行构建和运行包门禁：
 
 | 项目 | 结果 |
 | --- | --- |
-| 当前小程序来源 | `a33416d8417661fa5256deb22df55a97456cc608` |
+| 当前小程序来源 | `1b621f07ab8cec04f76fc8b682d0b3114ef6e3a1` |
 | `pnpm --filter @hospital/miniprogram build` | 通过 |
 | `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
 | 页面运行包 | `14/14` |
