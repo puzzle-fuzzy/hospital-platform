@@ -34,6 +34,7 @@
 | [`release/2a2acd9b-production-acceptance-2026-08-22.md`](release/2a2acd9b-production-acceptance-2026-08-22.md) | 当前服务端原子切换、production preflight、旧 Python `8001` 共存、日志链路修正和只读预约证据 |
 | [`release/next-appointment-records-acceptance-2026-08-22.md`](release/next-appointment-records-acceptance-2026-08-22.md) | 下一项预约历史/爽约只读验收顺序、三层低敏证据、停止条件和代码入口 |
 | [`release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md`](release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md) | 当前小程序候选来源、门诊缴费旧版选择器布局、ENOENT 修复和真机准入边界 |
+| [`release/current-2a2acd9-runtime-observation-2026-08-22-0935.md`](release/current-2a2acd9-runtime-observation-2026-08-22-0935.md) | 新旧服务共存运行层观察与 journald 权限不足边界；不把空日志当作业务结论 |
 | [`release/current-2a2acd9-business-observation-2026-08-22-0918.md`](release/current-2a2acd9-business-observation-2026-08-22-0918.md) | 当前 `2a2acd9` 线上低敏业务观察、预约已有事件、门诊费用未触发和下一次真机顺序 |
 | [`release/candidate-b0e0935-local-build-2026-08-22.md`](release/candidate-b0e0935-local-build-2026-08-22.md) | 未部署 `b0e0935` 候选的患者卡号 contract、运行包来源、本地门禁和线上切换停止条件 |
 | [`release/candidate-4f2d890-local-build-2026-08-22.md`](release/candidate-4f2d890-local-build-2026-08-22.md) | 未部署 `4f2d890` 众阳卡号超长响应 fail-closed 修正、服务端/小程序来源区分和发布停止条件 |

@@ -28,6 +28,8 @@ Provider 文档接收记录完整，不替代 SSH、部署、真机或真实 Pro
 
 > 2026-08-22 当前工作树补充：小程序提交 `dc8cd5b8` 恢复门诊缴费页旧版就诊人/医院两行选择器，顶部异常提示仍在选择器上方；门诊费用继续只读，未开放支付、医保、结算或 HIS 写回。`dist/` 中测试脚本为 0，`runtime:verify` 通过。详细证据见 [`../release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md`](../release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md)。
 
+> 2026-08-22 09:35 CST 运行层只读观察确认新 API `active`、`10.0.0.3:18081` 和旧 Python `8001` 继续共存，Worker 为 `inactive`；当前账号无法无密码读取 journald，因此没有新增有效业务事件计数，不能把空聚合解释为没有真机请求。详见 [`../release/current-2a2acd9-runtime-observation-2026-08-22-0935.md`](../release/current-2a2acd9-runtime-observation-2026-08-22-0935.md)。
+
 SSH 已恢复；后续线上步骤仍须遵守“只重启新 API、不触碰旧 Python/旧数据库/旧 Redis”的边界。
 
 > 历史候选记录：服务端 release `2a2acd9`（完整提交 `2a2acd9bcc89c35988b75fc03304dbd48078c9d5`）；当时小程序运行包来源为 `b0e093565493285e07fe549879f8b87eda649cc7`（提交 `b0e0935`）。当前小程序候选以本页顶部 `dc8cd5b8` 为准。
