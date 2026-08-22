@@ -306,6 +306,33 @@ const currentCandidateReferenceRules = Object.freeze([
 			},
 		],
 	},
+	{
+		path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
+		label: "当前只读业务不变量审计",
+		sections: [
+			{
+				start: "## 1. 当前版本与运行边界",
+				end: "## 2. 业务不变量审计结论",
+				phrases: [{ text: "小程序运行包来源：", expected: "full" }],
+			},
+			{
+				start: "## 3. 本轮验证证据",
+				end: "### 2026-08-22 继续复核",
+				phrases: [
+					{
+						text: "发布基线指向服务端",
+						expected: "short",
+						serverExpected: "full",
+					},
+				],
+			},
+			{
+				start: "## 5. 下一步准入顺序",
+				end: "开发者工具若",
+				phrases: [{ text: "来源为", expected: "full" }],
+			},
+		],
+	},
 ]);
 
 /** 从验收候选的表格中提取当前服务端和小程序来源指纹。 */

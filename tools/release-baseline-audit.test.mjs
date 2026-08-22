@@ -177,6 +177,37 @@ test("业务门禁执行板的当前候选不能漂移到历史小程序包", ()
 	]);
 });
 
+test("只读业务不变量审计的当前章节不能漂移到历史候选", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const documents = [
+		{
+			path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
+			content: `
+## 1. 当前版本与运行边界
+小程序运行包来源：\`old-candidate\`。
+## 2. 业务不变量审计结论
+## 3. 本轮验证证据
+发布基线指向服务端 \`old-server\` 和小程序 \`old-candidate\`。
+### 2026-08-22 继续复核
+## 5. 下一步准入顺序
+来源为 \`old-candidate\`。
+开发者工具若再次报错。
+`,
+		},
+	];
+
+	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
+		"当前只读业务不变量审计 的“小程序运行包来源：”未指向当前完整小程序 sourceRevision",
+		"当前只读业务不变量审计 的“发布基线指向服务端”未指向当前服务端 release",
+		"当前只读业务不变量审计 的“发布基线指向服务端”未指向当前完整小程序 sourceRevision",
+		"当前只读业务不变量审计 的“来源为”未指向当前完整小程序 sourceRevision",
+	]);
+});
+
 test("文档导航的历史窗口说明必须跟随当前小程序候选", () => {
 	const baseline = {
 		serverRelease: "1b94c46",
