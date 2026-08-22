@@ -21,6 +21,13 @@
 `single-flight.test.js` 的 ENOENT 已重新构建并通过运行包门禁确认；若开发者工具仍报错，应关闭工具释放 `dist/` 文件句柄后重开正确项目。
 这只修复工具旧增量索引并恢复门诊缴费旧版选择器布局，同时修正预约记录/门诊缴费加载期间的患者状态文案；不增加微信登录、患者、Provider 或真机业务证据。
 
+2026-08-22 16:16 CST 再次从当前源码重建运行包：`dist/build-info.json` 仍指向
+`7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`，14 个页面入口和 `services/single-flight.js` 均存在，
+`dist/` 中 `*.test.js`/`*.spec.js` 为 0 个；运行包门禁通过，小程序定向测试为 `217 pass / 0 fail`。
+如果真机仍请求 `services/single-flight.test.js`，只能按开发者工具旧增量索引处理：结束当前新项目真机调试、
+关闭并重新打开 `apps/miniprogram/`，普通编译一次后再生成新二维码。不要使用旧二维码，也不要在 `dist/`
+中手工创建测试脚本。
+
 本轮 13:44 CST 又完成一次运行包重建、运行包校验和正确项目普通编译：`14/14` 页面、`single-flight.js`
 存在、运行包测试脚本为 `0` 个，小程序定向测试为 `216 pass / 0 fail`。模拟器首页正常加载；若控制台出现
 `__subPageFrameEndTime__`，应按微信基础库内部告警处理，不要把它误判为 `single-flight.test.js` 缺失，也不要向

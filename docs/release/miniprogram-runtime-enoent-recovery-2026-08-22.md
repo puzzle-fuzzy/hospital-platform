@@ -66,6 +66,27 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 必须在正确的新项目中结束旧真机调试、关闭并重开项目、普通编译后重新生成二维码；不得复制测试脚本
 到 `dist/`，也不得通过修改或重启旧服务刷新本地工具缓存。
 
+## 2026-08-22 16:16 CST 当前工作树再次构建
+
+针对仍可能由旧真机调试会话上报的同一路径，本轮只在新项目工作树执行构建和只读运行包检查：
+
+| 项目 | 结果 |
+| --- | --- |
+| 小程序运行输入来源 | `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（`7f09bbb`） |
+| `pnpm --filter @hospital/miniprogram build` | 通过，类型检查通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| 小程序定向测试 | `217 pass / 0 fail / 1624 expect()` |
+| 页面运行包 | `14/14` |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | `0` 个 |
+| 缺失相对模块引用 | 未发现 |
+| 旧项目、旧 Python 服务 | 未操作、未重启 |
+
+因此当前代码和运行包不需要、也不允许补入 `single-flight.test.js`。如果开发者工具仍报错，
+必须结束新项目的真机调试，关闭并重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram`，
+确认 `miniprogramRoot=dist/`，先普通编译，再从当前运行包生成新二维码；旧 `mp-weixin` 项目保持不动。
+
 ## 2026-08-22 13:44 CST 当前运行包重建与开发者工具重导入
 
 针对用户再次报告的同一路径 ENOENT，本轮从当前源码重新生成运行包，并只操作新项目
