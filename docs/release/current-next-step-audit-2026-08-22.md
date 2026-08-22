@@ -6,12 +6,16 @@
 
 | 项目 | 当前值 |
 | --- | --- |
+| 服务端 release | `1e58bb66bf24021d2b680eb5fd03abfec467989a` |
 | 小程序提交 | `41c708e1` |
 | 运行包来源 | `41c708e1adf864ef6fef1f788e97aa8fb4371227` |
 | 页面数量 | 14 |
 | `dist/` 测试脚本 | `*.test.js` / `*.spec.js` 均为 0 |
 | 运行包校验 | `runtime:verify` 通过 |
 | 全仓门禁 | `pnpm check` 通过 |
+
+当前 release 的服务端低敏观察已补齐：约 `2026-08-22 10:42–14:42 CST` 窗口内，微信授权、就诊人读取/同步、预约科室/排班/历史和门诊费用只读均通过服务端同链门禁；报告目录和普通资料没有请求。
+详细计数与失败边界见 [`current-business-observation-2026-08-22-1442.md`](current-business-observation-2026-08-22-1442.md)。这仍不替代真机页面和客户端 requestId 证据。
 
 ## 本轮业务审计结论
 

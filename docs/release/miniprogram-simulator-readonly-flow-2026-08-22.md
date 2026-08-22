@@ -8,7 +8,7 @@
 | --- | --- |
 | 小程序源码/运行包来源 | `41c708e1adf864ef6fef1f788e97aa8fb4371227` |
 | 小程序短提交 | `41c708e1` |
-| 服务端配套 release | `9f479c9a` |
+| 服务端配套 release | `1e58bb66bf24021d2b680eb5fd03abfec467989a` |
 | 开发者工具项目 | 新项目 `miniprogram` |
 | 运行根目录 | `apps/miniprogram/dist/` |
 | 注册页面数 | 14 |
