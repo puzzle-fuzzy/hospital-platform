@@ -1,11 +1,12 @@
 # “我的”页面与未迁移入口审计（2026-08-22）
 
+> 当前执行候选为服务端 `9f479c9a`、小程序运行包来源 `41c708e1`；文中更早候选只作历史追溯。
 > 本文只记录当前原生小程序的页面结构、入口语义和迁移边界。旧项目
 > `G:\\fuck\\hospital` 仅作为只读对照，本轮没有修改旧 Python 服务、旧端口、数据库或 Redis。
 
 ## 1. 对照结论
 
-当前小程序候选源码为 `dc8cd5b8bbf99411831cc5112bc39683108cd990`。`apps/miniprogram/src/pages/my/`
+当前小程序候选源码基线为 `41c708e1`。`apps/miniprogram/src/pages/my/`
 已经按旧端 `src/pages/user/user.vue` 和 `src/jsonData/userNavData.json` 保留了页面骨架：
 
 - 顶部本地背景图、头像区和昵称入口；

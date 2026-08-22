@@ -1,15 +1,16 @@
 # 门诊缴费只读当前候选审计（2026-08-22）
 
-> 本文记录当前新项目候选的门诊费用查询边界。它不是支付、医保结算或真实 Provider 非空业务验收报告。
+> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `9f479c9a`、小程序来源 `41c708e1`；
+> 文中更早提交只作历史追溯。它不是支付、医保结算或真实 Provider 非空业务验收报告。
 > 本轮没有修改旧 Python 项目、旧端口 `8001`、旧数据库或旧 Redis，也没有打开微信支付、医保授权、6202/6301
 > 结算、退款、通知或 HIS 写回。
 
 ## 1. 当前候选与结论
 
-- 小程序源码候选：`dc8cd5b8bbf99411831cc5112bc39683108cd990`。
-- 服务端已验证 release：`2a2acd9bcc89c35988b75fc03304dbd48078c9d5`。
+- 小程序运行包来源：`41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。
+- 服务端已验证 release：`9f479c9a`。
 - 当前页面入口：`/pages/outpatient-payment/outpatient-payment`。
-- 当前 API：`GET /api/v1/payments/outpatient/records?patientId=<platform-patient-id>&status=unpaid|paid`。
+- 当前 API：`GET /api/v2/payments/outpatient/records?patientId=<platform-patient-id>&status=unpaid|paid`。
 
 结论：门诊缴费已经具备可审计的只读查询链路，但不能标记为“门诊缴费业务全部完成”。查询结果只允许进入费用展示；支付、医保、退费和结算仍按停止条件关闭。
 
