@@ -1,8 +1,13 @@
-# 预约历史与门诊费用当前候选审计（2026-08-22）
+# 预约历史与门诊费用候选审计（历史记录，2026-08-22）
+
+> 历史候选声明：本文中的业务页面与服务端日志证据使用小程序运行包来源
+> `5b4b0667d76ce443290116352d27f5eb94eba49c`，不能升级为当前候选 `41c708e1adf864ef6fef1f788e97aa8fb4371227` 的真机或业务证据。
+> 当前发布基线请阅读 [`current-device-acceptance-gate-2026-08-22.md`](current-device-acceptance-gate-2026-08-22.md) 和
+> [`current-runtime-coexistence-readonly-audit-2026-08-22-1335.md`](current-runtime-coexistence-readonly-audit-2026-08-22-1335.md)。
 
 ## 当前结论
 
-本轮以服务端 release `9f479c9a` 和小程序运行包来源 `5b4b0667d76ce443290116352d27f5eb94eba49c` 为当前候选。
+本历史记录以服务端 release `9f479c9a` 和小程序运行包来源 `5b4b0667d76ce443290116352d27f5eb94eba49c` 为当时的配对候选。
 预约历史只读链路已经取得一次真实 Provider 请求和真实服务日志证据；门诊费用只读代码仍保持严格 gate，
 本轮没有发现费用 Provider 请求日志，因此不能把门诊费用页面或支付流程宣称为真实验收完成。
 
