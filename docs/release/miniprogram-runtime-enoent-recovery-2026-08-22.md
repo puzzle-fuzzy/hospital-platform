@@ -18,6 +18,32 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 
 本次根因仍是微信开发者工具旧的增量模块索引或旧真机调试会话残留，不是当前业务模块缺失。
 
+## 2026-08-22 13:44 CST 当前运行包重建与开发者工具重导入
+
+针对用户再次报告的同一路径 ENOENT，本轮从当前源码重新生成运行包，并只操作新项目
+`E:\__Super_Core__\hospital-platform\apps\miniprogram`：
+
+| 项目 | 结果 |
+| --- | --- |
+| 小程序运行输入来源 | `41c708e1adf864ef6fef1f788e97aa8fb4371227`（`41c708e1`） |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| 小程序定向测试 | `216 pass / 0 fail / 1619 expect()` |
+| 页面运行包 | `14/14` |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | `0` 个 |
+| 正确项目普通编译 | 完成，模拟器首页正常加载 |
+| 旧项目 `mp-weixin`、旧 Python 服务 | 未操作、未重启 |
+
+随后关闭并重新打开新项目，开发者工具的旧真机调试会话和增量索引被淘汰；当前界面没有再观察到
+`single-flight.test.js` ENOENT。普通编译后控制台出现的
+`Cannot read property '__subPageFrameEndTime__' of null` 来自微信开发者工具基础库
+`3.17.1` 的内部计时逻辑，模拟器页面仍已成功渲染；它不是本项目缺失文件或业务请求错误，暂不以此
+修改业务代码。
+
+本轮没有生成新的二维码，也没有把模拟器加载成功当成真机登录、患者、预约或费用业务验收。
+
 ## 2026-08-22 11:43 CST 当前候选复核
 
 针对再次出现的同一路径错误，已从当前 `1b621f07` 小程序源码重新执行构建和运行包门禁：
