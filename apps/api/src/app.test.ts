@@ -43,6 +43,7 @@ import {
 } from "./modules/payments";
 import { UserProfileService } from "./modules/profile";
 import { ReportService } from "./modules/reports";
+import { adapterContextFromHeaders } from "./plugins/request-context";
 
 async function flushAfterResponseHooks(): Promise<void> {
 	await new Promise<void>((resolve) => setImmediate(resolve));
@@ -914,6 +915,20 @@ test("不安全的 request id 不得回显到响应或日志", async () => {
 		traceId: responseRequestId,
 		statusCode: 200,
 	});
+});
+
+test("Provider 上下文对非法关联号使用同一个安全回退值", () => {
+	const context = adapterContextFromHeaders({
+		"x-request-id": "trace id with spaces",
+		"idempotency-key": "idem\nwith-control",
+	});
+
+	// Provider 只应收到经过同一形状校验的关联号；非法幂等键回退到本次 trace，
+	// 既避免日志链分叉，也避免把未经验证的调用方值误当作跨请求幂等事实。
+	expect(context.traceId).toMatch(
+		/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+	);
+	expect(context.idempotencyKey).toBe(context.traceId);
 });
 
 test("错误响应同样保留 request id，客户端才能关联服务端失败日志", async () => {

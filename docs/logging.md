@@ -32,6 +32,11 @@ Provider 只读 gateway 的 trace 也必须先经过 service 二次投影；若 
 和 Pino HTTP 日志；小程序读取响应头时按 HTTP 规范进行大小写无关匹配，避免代理或运行时
 改写 `X-Request-Id` 的拼写后丢失服务端链路。服务端错误返回的 request id 会保留在 `ApiError`
 中，便于用户反馈“请求失败”时从日志平台反查链路。该 id 只用于关联，不是 token、幂等键或患者标识。
+服务端 HTTP 请求和 Provider 上下文共用同一套关联值形状校验：调用方传入空白、控制字符或超长值时，
+HTTP 响应头、Pino 日志和 Provider `traceId` 都使用新生成的安全值；非法 `idempotency-key` 回退到本次
+安全 `traceId`，不会把未经验证的值当作幂等事实。该规则由 `request-context.ts` 的集中归一化函数实现，
+并由 API 回归测试覆盖，防止不同入口日后出现日志链分叉或日志注入。
+
 Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts`。这些字段用于按请求、订单或异步事件还原一条完整故障链。
 
 ## 当前事件名
