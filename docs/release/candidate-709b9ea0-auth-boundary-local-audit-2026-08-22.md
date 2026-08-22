@@ -29,7 +29,8 @@ pnpm build：9 个 workspace 全部成功；服务端 bundle 重新生成
 
 ## 发布阻断与安全边界
 
-本机使用批处理 SSH 只读检查 `ps@192.168.112.172` 时返回 `Permission denied (publickey,password)`。
+本机使用批处理 SSH 只读检查 `ps@192.168.112.172` 时返回 `Permission denied (publickey,password)`；经阿里云中转到
+`10.0.0.3` 时，目标主机指纹与本机此前信任的 `192.168.112.172` 完全一致，但 `ps` 公钥认证仍被拒绝。
 本轮没有写入密码、没有自动操作 Xshell、没有上传文件、没有切换 `current`、没有重启服务，也没有
 触碰旧 Python、MySQL、Redis 或 Provider。
 
