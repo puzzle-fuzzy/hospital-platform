@@ -1,7 +1,7 @@
 # 普通资料当前候选读写验收协议（2026-08-22）
 
-> 当前配套服务端 release：`1e58bb66bf24021d2b680eb5fd03abfec467989a`；当前小程序运行包来源：
-> `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。本协议只适用于重新构建并通过
+> 当前配套服务端 release：`84370077024762d92050cf077c27f3c60302e8f8`；当前小程序运行包来源：
+> `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。本协议只适用于重新构建并通过
 > `runtime:verify` 的新项目运行包，不能使用旧 `mp-weixin` 项目、旧二维码或历史 token。
 
 ## 当前结论
@@ -42,7 +42,7 @@
 ```text
 pnpm --filter @hospital/miniprogram build       通过
 pnpm --filter @hospital/miniprogram runtime:verify 通过
-pnpm --filter @hospital/miniprogram test        216 pass / 0 fail
+pnpm --filter @hospital/miniprogram test        217 pass / 0 fail / 1624 expect()
 dist/ 页面入口                              14/14
 dist/ 测试运行脚本                           0 个
 ```
@@ -119,4 +119,3 @@ dist/ 测试运行脚本                           0 个
 - 尚未取得当前二维码对应的真机 `GET /me/profile` 页面、客户端和服务端三层证据；
 - 尚未获得用户对受控资料写入/恢复的明确授权，因此没有执行真实 `PUT /me/profile`；
 - 尚未取得同一 owner 的双会话 `409 user-profile-conflict` 真机证据。
-

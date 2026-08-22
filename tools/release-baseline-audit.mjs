@@ -225,6 +225,57 @@ export const currentBaselineDocuments = Object.freeze([
 		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
 		label: "报告只读契约审计",
 	},
+	// 这些业务审计/验收协议会被新会话直接用于准备真机操作；它们虽然不是
+	// 发布切换记录，但一旦继续引用旧的服务端或小程序来源，就会把有效的
+	// 页面证据绑定到错误的运行包，因此必须纳入同一套当前基线检查。
+	{
+		path: "docs/release/current-profile-read-write-acceptance-2026-08-22.md",
+		label: "普通资料当前读写验收协议",
+	},
+	{
+		path: "docs/release/next-appointment-records-acceptance-2026-08-22.md",
+		label: "预约历史与爽约验收清单",
+	},
+	{
+		path: "docs/release/outpatient-payment-readonly-audit-2026-08-22.md",
+		label: "门诊费用只读审计",
+	},
+	{
+		path: "docs/release/report-readonly-current-candidate-audit-2026-08-22.md",
+		label: "报告只读当前候选审计",
+	},
+	{
+		path: "docs/release/readonly-profile-patient-state-audit-2026-08-21.md",
+		label: "普通资料与患者状态机审计",
+	},
+	{
+		path: "docs/release/patient-directory-correctness-audit-2026-08-21.md",
+		label: "患者目录正确性审计",
+	},
+	{
+		path: "docs/release/miniprogram-typescript-runtime-audit-2026-08-22.md",
+		label: "小程序 TypeScript 运行包审计",
+	},
+	{
+		path: "docs/release/my-page-migration-audit-2026-08-22.md",
+		label: "我的页面迁移审计",
+	},
+	{
+		path: "docs/release/miniprogram-profile-logic-audit-2026-08-20.md",
+		label: "小程序资料逻辑审计",
+	},
+	{
+		path: "docs/release/profile-read-model-display-fail-closed-2026-08-22.md",
+		label: "资料读模型 fail-closed 审计",
+	},
+	{
+		path: "docs/release/miniprogram-readonly-list-load-more-boundary-audit-2026-08-21.md",
+		label: "小程序只读列表窗口审计",
+	},
+	{
+		path: "docs/release/miniprogram-runtime-enoent-recovery-2026-08-22.md",
+		label: "小程序运行包 ENOENT 恢复记录",
+	},
 ]);
 
 /**

@@ -271,6 +271,13 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	expect(result.failures).toEqual([]);
 });
 
+test("当前业务验收协议也必须绑定已部署服务端和小程序来源", async () => {
+	const result = await auditCurrentReleaseConsistency();
+
+	expect(result.passed).toBe(true);
+	expect(result.failures).toEqual([]);
+});
+
 test("历史候选不被当前发布基线强制重写", () => {
 	const result = auditCurrentBaselineDocuments(
 		{

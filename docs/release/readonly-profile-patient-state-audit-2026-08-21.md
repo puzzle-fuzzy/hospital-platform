@@ -1,5 +1,8 @@
 # 普通资料与就诊人选择状态机审计（2026-08-21）
 
+> 当前验收基线：服务端 `84370077024762d92050cf077c27f3c60302e8f8`；小程序运行包来源
+> `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。本文主体为代码级审计，历史测试数字不替代当前真机证据。
+
 > 本文记录当前新项目对普通资料修改、就诊人目录读取和显式切换的代码级复核结果。
 > 它不代表真实微信真机写入、多患者切换或众阳 Provider 已完成验收；旧 Python 服务、
 > 旧数据库、旧 Redis、线上旧域名和并行会话维护的文件均不在本轮修改范围内。
@@ -76,9 +79,9 @@ GET canonical snapshot
 | --- | --- |
 | `pnpm --filter @hospital/api test src/modules/profile/service.test.ts src/app.test.ts` | 55 项通过，302 个断言 |
 | `pnpm --filter @hospital/api typecheck` | 通过 |
-| `pnpm --filter @hospital/miniprogram test` | 180 项通过，1438 个断言 |
+| `pnpm --filter @hospital/miniprogram test` | 217 项通过，1624 个断言 |
 | `pnpm --filter @hospital/miniprogram typecheck` | 通过 |
-| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面，来源 `aafccf5` |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过；14 个页面，来源 `7f09bbb` |
 | `dist` 测试脚本扫描 | `*.test.js`/`*.spec.js` 为 0；`single-flight.test.js` 不存在 |
 
 一次将额外测试文件参数附加到已经固定测试清单的命令出现了运行包来源测试超时；按
@@ -87,8 +90,8 @@ GET canonical snapshot
 
 ## 5. 下一条真机门禁
 
-当前候选为 `aafccf53d1e0eaac5ddaf98b1d850b084e4f78ed`（`aafccf5`），开发者工具必须在正确的
-`miniprogram` 窗口重新编译并生成新的 iOS 真机二维码。二维码生成不等于真机验收；必须
+当前候选为 `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（`7f09bbb`），服务端配套 release 为
+`84370077024762d92050cf077c27f3c60302e8f8`。开发者工具必须在正确的 `miniprogram` 窗口重新编译并生成新的 iOS 真机二维码。二维码生成不等于真机验收；必须
 按以下顺序保存证据：
 
 1. 扫码后确认窗口和运行包来源是 `E:\__Super_Core__\hospital-platform` 的 `dist/`。

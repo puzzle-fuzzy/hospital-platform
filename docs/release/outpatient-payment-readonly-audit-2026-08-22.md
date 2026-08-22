@@ -1,14 +1,14 @@
 # 门诊缴费只读当前候选审计（2026-08-22）
 
-> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `1e58bb66`、小程序来源 `41c708e1`；
+> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `84370077`、小程序来源 `7f09bbb`；
 > 文中更早提交只作历史追溯。它不是支付、医保结算或真实 Provider 非空业务验收报告。
 > 本轮没有修改旧 Python 项目、旧端口 `8001`、旧数据库或旧 Redis，也没有打开微信支付、医保授权、6202/6301
 > 结算、退款、通知或 HIS 写回。
 
 ## 1. 当前候选与结论
 
-- 小程序运行包来源：`41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。
-- 服务端已验证 release：`1e58bb66bf24021d2b680eb5fd03abfec467989a`。
+- 小程序运行包来源：`7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`（提交 `7f09bbb`）。
+- 服务端已验证 release：`84370077024762d92050cf077c27f3c60302e8f8`。
 - 当前页面入口：`/pages/outpatient-payment/outpatient-payment`。
 - 当前 API：`GET /api/v2/payments/outpatient/records?patientId=<platform-patient-id>&status=unpaid|paid`。
 

@@ -3,7 +3,8 @@
 > 本文保留多个历史候选的恢复证据，不是当前发布基线。当前小程序候选以
 > [`candidate-7f09bbb-local-build-2026-08-22.md`](candidate-7f09bbb-local-build-2026-08-22.md) 和
 > [`miniprogram-devtools-reimport-2026-08-22-1314.md`](miniprogram-devtools-reimport-2026-08-22-1314.md) 为准；当前完整来源为
-> `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`。
+> `7f09bbb2cf32d4753795bcbc91fe23ec05eeeee6`；配套服务端 release 为
+> `84370077024762d92050cf077c27f3c60302e8f8`。
 
 ## 结论
 
