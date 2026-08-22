@@ -1,4 +1,8 @@
 # 项目文档导航
+> 2026-08-22 18:25 CST ENOENT 缓存恢复：新项目只清理了开发者工具“文件缓存”，随后普通编译显示 `Errors: 0` 并重新生成二维码；
+> 未清理登录/授权/业务数据，`dist/` 仍不含测试脚本。详细现场见
+> [`release/miniprogram-device-qr-session-2026-08-22-1825-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1825-a64fe023.md)。
+
 > 2026-08-22 18:15 CST ENOENT 恢复现场：当前候选已在正确的新 `miniprogram` 项目中重新普通编译并生成有效至 18:39 的新二维码；
 > `dist/services/single-flight.js` 存在，`single-flight.test.js` 和全部 `*.test.js`/`*.spec.js` 均不存在，`runtime:verify` 通过。
 > 详细记录见 [`release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md)。
