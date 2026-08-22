@@ -9,15 +9,15 @@
 
 ## 1. 当前版本与运行边界
 
-- 服务端当前 release：`2a2acd9bcc89c35988b75fc03304dbd48078c9d5`。
-- 小程序运行包来源：`b0e093565493285e07fe549879f8b87eda649cc7`，14 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
+- 服务端当前已验证 release：`9f479c9a`。
+- 小程序运行包来源：`e9ffd8276a33bd69d850618b37ed041ecc4b65cd`，14 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
 - 新 API：`10.0.0.3:18081`，systemd 状态为 `active`。
 - 旧 Python API：`0.0.0.0:8001`，仍在监听，旧 Gunicorn PID 未发生变化。
 - Worker：保持 `inactive`，没有因为本轮审计被启动。
 - 支付、医保授权、退款、报告 Provider 和 HIS 写回仍保持关闭。
 
 本轮运行包门禁追加了测试脚本与 workspace 裸模块依赖扫描，当前客户端运行来源为
-`4e1b2e224964797c103eba832323ee7074c7ad2b`；真实微信、患者切换和只读业务三层证据仍未产生。
+`e9ffd8276a33bd69d850618b37ed041ecc4b65cd`；真实微信、患者切换和只读业务三层证据仍未产生。
 
 ## 2. 业务不变量审计结论
 
@@ -53,12 +53,11 @@
 
 本轮定向回归结果：
 
-- API 全量：`206 pass / 0 fail / 849 expects`；
-- domain 预约与门诊费用：`7 pass / 0 fail / 15 expects`；
-- 众阳预约与门诊费用 adapter：`33 pass / 0 fail / 74 expects`；
-- 原生小程序：`205 pass / 0 fail / 1542 expects`；
+- 全仓 `pnpm check`：通过；架构、迁移台账、Provider 接收、日志、发布基线、格式、Lint、工具测试、类型检查、测试和构建均通过；
+- 工具测试：`53 pass / 0 fail / 133 expects`；
+- 原生小程序：`214 pass / 0 fail / 1605 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：`457` 个 Markdown 文档无断链；生产基线审计指向 `7181e99e` 和 `4e1b2e2`。
+- 文档链接审计：`497` 个 Markdown 文档无断链；发布基线指向服务端 `9f479c9a` 和小程序 `e9ffd827`。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
@@ -70,8 +69,8 @@
 - `GET https://test-hp.meiyi.pro/api/v2/health/ready`：`200`，`database/redis/schema` 均为 `ok`；
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
-- `pnpm --filter @hospital/miniprogram test`：`205 pass / 0 fail / 1542 expects`；
-- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `7181e99e`、小程序 `4e1b2e2`。
+- `pnpm --filter @hospital/miniprogram test`：`214 pass / 0 fail / 1605 expects`；
+- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `9f479c9a`、小程序 `e9ffd827`。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
 
@@ -100,11 +99,12 @@
 `miniprogram` 窗口，资源树确认包含 `dist/` 运行根目录，没有把旧窗口的页面、日志或设备状态计入新项目验收证据。
 
 当前仍必须在新项目窗口普通编译并核对 `project.config.json` 的 `miniprogramRoot=dist/` 和
-`build-info.json.sourceRevision`，再进行任何真机业务操作。这样可以避免旧端窗口继续加载旧页面，或把旧增量索引误认为新运行包问题。
+`build-info.json.sourceRevision=e9ffd8276a33bd69d850618b37ed041ecc4b65cd`，再进行任何真机业务操作。
+这样可以避免旧端窗口继续加载旧页面，或把旧增量索引误认为新运行包问题。
 
 ## 5. 下一步准入顺序
 
-1. 在微信开发者工具关闭旧真机调试，切换到已打开的 `apps/miniprogram/` 新项目窗口，普通编译并确认 `dist/build-info.json` 来源为 `4e1b2e224964797c103eba832323ee7074c7ad2b`。
+1. 在微信开发者工具关闭旧真机调试，切换到已打开的 `apps/miniprogram/` 新项目窗口，普通编译并确认 `dist/build-info.json` 来源为 `e9ffd8276a33bd69d850618b37ed041ecc4b65cd`。
 2. 以同一二维码取得微信登录、患者目录、显式切换第二位患者的页面截图、HTTP `requestId` 和服务端低敏日志；没有三层配对证据，不标记患者切换完成。
 3. 在同一会话中按“预约科室/排班 → 我的挂号 → 爽约 → 门诊费用待缴/已缴”的顺序验收，并核对每个请求的 owner、患者映射、Provider request id 和页面读模型。
 4. 只有 Provider 文档、金额边界、幂等、回调、查单和失败恢复契约齐全后，才进入现金支付；医保授权、6202/6301、退款和 HIS 回写最后专项处理。
