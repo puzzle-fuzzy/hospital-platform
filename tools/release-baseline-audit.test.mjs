@@ -206,11 +206,11 @@ test("仓库当前发布文档保持同一套候选", async () => {
 		passed: true,
 		// 该断言必须与当前候选文档同步；它防止只更新正文而遗漏路线图、真机模板或
 		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
-		serverRelease: "2a2acd9bcc89c35988b75fc03304dbd48078c9d5",
+		serverRelease: "9f479c9a",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "b0e0935",
-		miniProgramSourceRevision: "b0e093565493285e07fe549879f8b87eda649cc7",
+		miniProgramCommit: "a33416d8",
+		miniProgramSourceRevision: "a33416d8417661fa5256deb22df55a97456cc608",
 	});
 	expect(result.failures).toEqual([]);
 });

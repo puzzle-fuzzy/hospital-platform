@@ -1,10 +1,10 @@
 # 下一阶段业务门禁执行板（2026-08-20）
 
-> 当前候选：服务端 release `9f479c9a`；小程序运行包来源 `9eb672b1296f282fc536f72bb897631683e4532f`（提交 `9eb672b1`）。
+> 当前候选：服务端 release `9f479c9a`；小程序运行包来源 `a33416d8417661fa5256deb22df55a97456cc608`（提交 `a33416d8`）。
 
 > 本文是新会话继续工作的短入口，不替代各业务域的详细 contract、代码测试或真实验收记录。
-> 当前服务端候选为 `9f479c9a`，当前小程序候选为 `9eb672b1`，完整运行包来源为
-> `9eb672b1296f282fc536f72bb897631683e4532f`。服务端已切换；小程序仍需从正确项目普通编译并生成二维码。
+> 当前服务端候选为 `9f479c9a`，当前小程序候选为 `a33416d8`，完整运行包来源为
+> `a33416d8417661fa5256deb22df55a97456cc608`。服务端已切换；小程序仍需从正确项目普通编译并生成二维码。
 >
 > 本轮只维护新项目文档和执行顺序；不修改旧 Python 服务、不中断旧 `8001`、不写线上 MySQL/Redis，
 > 也不触碰并行会话正在维护的众阳自动化代码。
@@ -113,7 +113,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核（历史候选）
 
-当前验收基线为服务端 `9f479c9a`、小程序候选 `9eb672b1`（完整来源 `9eb672b1296f282fc536f72bb897631683e4532f`）；
+当前验收基线为服务端 `9f479c9a`、小程序候选 `a33416d8`（完整来源 `a33416d8417661fa5256deb22df55a97456cc608`）；
 下方历史代码复核原始记录当时基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 不代表当前线上服务端 release。当前线上服务端和真机候选以本文顶部基线为准，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
@@ -136,7 +136,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 | 众阳及通用 adapter 全量测试 | 110 项通过，239 个断言 |
 | domain 全量测试 | 69 项通过，151 个断言 |
 | persistence 全量测试 | 94 项通过，607 个断言 |
-| 原生小程序 | 210 项通过，1571 个断言 |
+| 原生小程序 | 211 项通过，1575 个断言 |
 | 运行包 | `runtime:verify` 通过；14 个页面齐全，`dist/` 不含测试脚本 |
 
 以上统计由当前工作树串行执行各 workspace 测试得到；小程序运行包来源仍以当前候选文档和
@@ -198,9 +198,9 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-9eb672b.md`](miniprogram-real-device-evidence-template-9eb672b.md)
+- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-a33416d.md`](miniprogram-real-device-evidence-template-a33416d.md)
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)
-- 当前候选来源：[`candidate-9eb672b-local-build-2026-08-22.md`](candidate-9eb672b-local-build-2026-08-22.md)
+- 当前候选来源：[`candidate-a33416d-local-build-2026-08-22.md`](candidate-a33416d-local-build-2026-08-22.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
 - 报告 Provider 门禁：[`report-readonly-contract-audit-2026-08-18.md`](report-readonly-contract-audit-2026-08-18.md)
 - 病历准入草案：[`../migration/medical-record-directory-contract-draft.md`](../migration/medical-record-directory-contract-draft.md)
