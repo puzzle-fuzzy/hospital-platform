@@ -1,5 +1,10 @@
 # 小程序运行包 `single-flight.test.js` ENOENT 恢复记录（2026-08-22）
 
+> 本文保留多个历史候选的恢复证据，不是当前发布基线。当前小程序候选以
+> [`candidate-41c708e-local-build-2026-08-22.md`](candidate-41c708e-local-build-2026-08-22.md) 和
+> [`miniprogram-devtools-reimport-2026-08-22-1314.md`](miniprogram-devtools-reimport-2026-08-22-1314.md) 为准；当前完整来源为
+> `41c708e1adf864ef6fef1f788e97aa8fb4371227`。
+
 ## 结论
 
 本次重新复核的错误路径为：
