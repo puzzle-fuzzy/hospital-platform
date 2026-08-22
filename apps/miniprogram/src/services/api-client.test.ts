@@ -17,6 +17,10 @@ import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 } from "./session-generation";
+import {
+	clearApiRequestObservations,
+	getRecentApiRequestObservations,
+} from "./api-request-observability";
 
 test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本", () => {
 	expect(isAllowedApiPrefix("/api/v1")).toBe(true);
@@ -993,6 +997,57 @@ test("GET 首次 401 后重新登录成功时返回恢复后的最终响应", as
 		expect(globalData.accessToken).toBe("recovered-token");
 		expect(globalData.sessionStatus).toBe("signed_in");
 	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("成功请求记录服务端 requestId 且不记录查询参数", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "observability-session",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: () => "",
+		request: (options: RequestOptions) => {
+			options.success({
+				statusCode: 200,
+				header: { "X-Request-Id": "server-success-trace-001" },
+				data: { success: true, data: { items: [], total: 0 } },
+			});
+		},
+	};
+
+	clearApiRequestObservations();
+	try {
+		await request({
+			url: "/patients?patientId=patient-must-not-enter-observation",
+		});
+		const observation = getRecentApiRequestObservations().at(-1);
+		expect(observation).toMatchObject({
+			requestId: "server-success-trace-001",
+			method: "GET",
+			path: "/patients",
+			statusCode: 200,
+			outcome: "success",
+		});
+		expect(observation?.path).not.toContain("patient-must-not-enter");
+	} finally {
+		clearApiRequestObservations();
 		testGlobal.getApp = previousGetApp;
 		testGlobal.wx = previousWx;
 	}

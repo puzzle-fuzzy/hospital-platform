@@ -20,6 +20,10 @@ import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "./session-generation";
+import {
+	recordApiRequestObservation,
+	sanitizeApiRequestPath,
+} from "./api-request-observability";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
@@ -829,12 +833,17 @@ function responseRequestId(
 	response: WechatMiniprogram.RequestSuccessCallbackResult,
 ): string {
 	const headers = response.header || {};
+	const requestIdPattern = /^[A-Za-z0-9._:-]{1,128}$/u;
 	// HTTP Header 名称大小写不敏感，但微信运行时、Nginx 和不同 mock 实现
 	// 不一定使用同一种拼写。逐项按小写比较，避免混合大小写时丢失服务端
 	// requestId，导致页面错误只能关联到客户端生成的备用 ID。值仍只接受
 	// 字符串，不把异常 header 对象/数字转换后写入 ApiError 或日志链。
 	for (const [name, value] of Object.entries(headers)) {
-		if (name.toLowerCase() === "x-request-id" && typeof value === "string") {
+		if (
+			name.toLowerCase() === "x-request-id" &&
+			typeof value === "string" &&
+			requestIdPattern.test(value)
+		) {
 			return value;
 		}
 	}
@@ -896,9 +905,27 @@ function requestWithConfig<TResponse = unknown>(
 	}
 
 	const requestUrl = buildApiRequestUrl(apiBaseUrl, apiPrefix, url);
+	const requestPath = sanitizeApiRequestPath(url);
+	const startedAt = Date.now();
 
 	return new Promise<TResponse>((resolve, reject) => {
 		const requestId = createRequestId();
+		const observe = (
+			statusCode: number,
+			outcome: "success" | "http-error" | "network-error",
+			errorCode?: string,
+			resolvedRequestId = requestId,
+		) => {
+			recordApiRequestObservation({
+				requestId: resolvedRequestId,
+				method,
+				path: requestPath,
+				statusCode,
+				durationMs: Math.max(0, Date.now() - startedAt),
+				outcome,
+				...(errorCode ? { errorCode } : {}),
+			});
+		};
 		wx.request<WechatMiniprogram.IAnyObject>({
 			url: requestUrl,
 			method,
@@ -912,26 +939,37 @@ function requestWithConfig<TResponse = unknown>(
 					: {}),
 			},
 			success: (response) => {
+				const resolvedRequestId = responseRequestId(response) || requestId;
 				if (response.statusCode >= 200 && response.statusCode < 300) {
+					observe(response.statusCode, "success", undefined, resolvedRequestId);
 					resolve(response.data as TResponse);
 					return;
 				}
 				const errorData = response.data || {};
+				const errorCode = parseErrorCode(errorData);
+				observe(
+					response.statusCode,
+					"http-error",
+					errorCode,
+					resolvedRequestId,
+				);
 				reject(
 					new ApiError(parseErrorMessage(errorData), {
 						statusCode: response.statusCode,
-						code: parseErrorCode(errorData),
-						requestId: responseRequestId(response) || requestId,
+						code: errorCode,
+						requestId: resolvedRequestId,
 					}),
 				);
 			},
-			fail: () =>
+			fail: () => {
+				observe(0, "network-error", "network-failed");
 				reject(
 					new ApiError("网络请求失败，请检查网络或服务地址", {
 						code: "network-failed",
 						requestId,
 					}),
-				),
+				);
+			},
 		});
 	});
 }
