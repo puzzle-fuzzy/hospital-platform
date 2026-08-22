@@ -208,6 +208,7 @@ function hasOnlyQueryFields(
 	return Object.keys(value).every((field) => allowedFields.has(field));
 }
 
+/** 排班目录的 canonical 查询字段；不包含旧端未确认的渠道或患者字段。 */
 const APPOINTMENT_SCHEDULE_QUERY_FIELDS = new Set([
 	"startDate",
 	"endDate",
@@ -215,6 +216,7 @@ const APPOINTMENT_SCHEDULE_QUERY_FIELDS = new Set([
 	"doctorId",
 ]);
 
+/** 挂号历史只读查询的 canonical 字段；渠道筛选需单独完成 contract 后再开放。 */
 const APPOINTMENT_RECORD_QUERY_FIELDS = new Set(["startDate", "endDate"]);
 
 /**

@@ -17,6 +17,13 @@ export type PersistenceMigration = {
 	readonly executionMode: "non_transactional_ddl";
 };
 
+/**
+ * 平台认可的迁移顺序与文件清单。
+ *
+ * 迁移执行器只能按这里的不可变顺序推进，不能通过读取目录名或“最新文件”
+ * 猜测目标版本。每一项都是非事务 DDL：MySQL 可能隐式提交，所以执行失败
+ * 后必须先核对数据库事实和迁移运行记录，再决定是否继续，不能盲目重放。
+ */
 export const PERSISTENCE_MIGRATIONS = [
 	{
 		id: "0001_core",

@@ -77,6 +77,7 @@ export class ReportNotFoundError extends Error {
 	}
 }
 
+/** 报告目录允许的最大自然日窗口；这是平台资源边界，不是 Provider 历史查询上限。 */
 const MAX_REPORT_RANGE_DAYS = 366;
 /** 报告详情引用是短期能力，避免 provider 资源引用长期留在平台库中。 */
 const REPORT_REFERENCE_TTL_MS = Math.min(
@@ -92,6 +93,13 @@ const REPORT_REFERENCE_TTL_MS = Math.min(
  */
 const REPORT_REFERENCE_CONCURRENCY = 4;
 
+/**
+ * 报告目录 service 的 canonical 查询字段。
+ *
+ * HTTP schema 会先做同样的限制，但内部回放、Worker 或组合根也能直接调用
+ * service；未知字段必须拒绝，不能把旧端未确认的来源、渠道或患者参数静默
+ * 丢弃后继续查询，避免调用方误以为完整意图已经生效。
+ */
 const REPORT_DIRECTORY_QUERY_FIELDS = new Set(["startDate", "endDate", "kind"]);
 
 /**

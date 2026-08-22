@@ -10,6 +10,13 @@ export type AdapterCallContext = {
 	timeoutMs?: number;
 };
 
+/**
+ * Adapter 调用上下文的字段白名单。
+ *
+ * trace、幂等键和超时会进入日志、租约或 Provider 请求；未知字段若被原样
+ * 透传，未来调用方可能把患者号、卡号或未审核的 Provider 参数带过领域边界。
+ * 这里与 `normalizeAdapterCallContext` 配套，确保返回对象只保留已审计字段。
+ */
 const ADAPTER_CALL_CONTEXT_FIELDS = new Set([
 	"traceId",
 	"idempotencyKey",
