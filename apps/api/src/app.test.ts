@@ -881,6 +881,41 @@ test("request context preserves a safe incoming request id", async () => {
 	expect(response.headers.get("x-request-id")).toBe("test-trace-001");
 });
 
+test("不安全的 request id 不得回显到响应或日志", async () => {
+	const lines: string[] = [];
+	const logger = createLogger({
+		service: "hospital-api-test",
+		environment: "test",
+		level: "info",
+		destination: {
+			write(chunk: string) {
+				lines.push(chunk);
+			},
+		},
+	});
+	const response = await createApp({ logger }).handle(
+		new Request("http://localhost/health/live", {
+			headers: { "x-request-id": "request id with spaces" },
+		}),
+	);
+	await flushAfterResponseHooks();
+
+	const responseRequestId = response.headers.get("x-request-id");
+	const record = JSON.parse(lines[0] ?? "{}") as Record<string, unknown>;
+	// 非法值不能原样进入响应头或 journald；生成的新 UUID 同时作为客户端
+	// 后续错误关联号和服务端 request/trace 日志关联号，避免日志注入和链路分叉。
+	expect(responseRequestId).toMatch(
+		/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+	);
+	expect(responseRequestId).not.toBe("request id with spaces");
+	expect(record).toMatchObject({
+		event: "http.request.completed",
+		requestId: responseRequestId,
+		traceId: responseRequestId,
+		statusCode: 200,
+	});
+});
+
 test("错误响应同样保留 request id，客户端才能关联服务端失败日志", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/route-does-not-exist", {
