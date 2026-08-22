@@ -5,6 +5,10 @@
 > 按 [`release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md`](release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md)
 > 关闭旧增量模块图后重新编译，不要复制测试脚本。
 
+> 2026-08-22 报告只读迁移审计：已对照旧端 LIS/PACS/ECG/PEIS 请求链，确认当前新端只开放安全摘要和受限
+> LIS 详情骨架；体检、影像/心电详情、附件下载和报告解读继续关闭。详见
+> [`release/report-readonly-migration-audit-2026-08-22.md`](release/report-readonly-migration-audit-2026-08-22.md)。
+
 > 2026-08-22 18:25 CST ENOENT 缓存恢复：新项目只清理了开发者工具“文件缓存”，随后普通编译显示 `Errors: 0` 并重新生成二维码；
 > 未清理登录/授权/业务数据，`dist/` 仍不含测试脚本。详细现场见
 > [`release/miniprogram-device-qr-session-2026-08-22-1825-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1825-a64fe023.md)。

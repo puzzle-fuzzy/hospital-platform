@@ -243,6 +243,11 @@ SSH 已恢复；后续线上步骤仍须遵守“只重启新 API、不触碰旧
 详情骨架，PEIS 仍需要完整身份证号和独立患者归属 contract，PACS/ECG 详情、附件和报告解读也未冻结。旧端非 LIS 报告对象会写入
 本地缓存的做法不迁移。详细停止条件见 [`report-provider-contract-audit-2026-08-19.md`](report-provider-contract-audit-2026-08-19.md)。
 
+补充记录（2026-08-22，当前候选报告只读复核）：对照旧端真实报告查询链后，确认新端当前实现只把 LIS/PACS/ECG 投影为安全目录摘要，
+并仅在服务端建立 owner + patient + TTL 短期引用时开放 LIS 详情；PEIS 身份证查询、PACS/ECG 详情、附件下载和报告解读继续保持关闭。
+本轮报告 domain、adapter、API service、小程序 API client 和静态验收均通过，未打开真实 Provider gate。详见
+[`../release/report-readonly-migration-audit-2026-08-22.md`](../release/report-readonly-migration-audit-2026-08-22.md)。
+
 门诊病历的 `/api/v2/medical-records` 仍刻意未注册。旧端 `out-visit-records` 只有历史调用线索，尚未获得正式请求/响应 contract、
 患者映射确认、字段脱敏白名单和权限/错误样例；本轮不新增 schema、adapter、service、页面或兼容转发。待 Provider/HIS 材料齐全后，
 必须先完成 intake 和差异表，再按 contract → adapter → API → 小程序 → 测试 → 验收手册顺序推进。
