@@ -11,6 +11,28 @@
 
 这两处不是格式兼容问题。错误回退会改变报告日期窗口、倒序排序以及报告页的“报告时间”，因此按 Provider 响应异常整批 fail-closed。
 
+## 2026-08-22 当前候选契约复核
+
+本次按当前服务端 `1e58bb66bf24021d2b680eb5fd03abfec467989a` 和小程序运行包来源
+`41c708e1adf864ef6fef1f788e97aa8fb4371227` 重新执行报告相关回归，并复核了报告目录、详情、附件和页面
+并发边界。没有发现需要在缺少 Provider 正式契约时贸然修改的业务缺口，因此本轮不改报告代码、不调用真实
+Provider，也不打开任何报告 gate。
+
+| 范围 | 当前结果 |
+| --- | --- |
+| API `reports/service.test.ts` | `25 pass / 0 fail / 108 expect()` |
+| 众阳报告 adapter | `18 pass / 0 fail / 35 expect()` |
+| 报告 domain | `5 pass / 0 fail / 11 expect()` |
+| 小程序报告相关 client/acceptance | `132 pass / 0 fail / 1376 expect()` |
+| `ZHONGYANG_REPORT_DIRECTORY_READY` | `false` |
+| `ZHONGYANG_REPORT_DETAIL_READY` | `false` |
+| 真实 Provider、真机报告链 | 未执行、未验收 |
+
+本次复核确认：患者 owner/临床映射、日期窗口、来源错配、报告时间优先级、详情短期 opaque 引用、
+附件存在性、页面患者切换和旧请求淘汰均已有代码与回归覆盖。当前剩余工作是 Provider 脱敏样例、正式字段/授权
+契约以及同一真机会话的页面—HTTP—Provider requestId—服务端日志证据；在这些证据到齐前，报告页面只能保持
+摘要/迁移提示和 fail-closed 行为。
+
 ## 1. 旧端真实来源与字段事实
 
 旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\ZY.ts` 和
