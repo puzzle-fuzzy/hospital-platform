@@ -5,7 +5,7 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 服务端 release | `9f479c9a` |
+| 服务端 release | `1e58bb66bf24021d2b680eb5fd03abfec467989a` |
 | 小程序客户端 | `41c708e1` |
 | 小程序构建来源 | `41c708e1adf864ef6fef1f788e97aa8fb4371227` |
 | 运行包目录 | `apps/miniprogram/dist/` |

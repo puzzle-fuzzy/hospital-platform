@@ -1,23 +1,23 @@
 # 当前未开放业务门禁审计（2026-08-21）
-> 当前候选更新（2026-08-22）：服务端 release 为 `9f479c9a`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22 14:31 CST）：服务端 release 为 `1e58bb66`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
 
 
-> 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端 release：`9f479c9a`。
+> 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端 release：`1e58bb66bf24021d2b680eb5fd03abfec467989a`。
 
-> 当前发布基线（2026-08-22）：服务端 `9f479c9a`；小程序运行包来源
+> 当前发布基线（2026-08-22 14:31 CST）：服务端 `1e58bb66bf24021d2b680eb5fd03abfec467989a`；小程序运行包来源
 > `41c708e1adf864ef6fef1f788e97aa8fb4371227`。本次只更新运行层基线，支付、医保、报告、绑定和 HIS 仍关闭。
 
 > 历史候选：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`（`7181e99e`）；小程序运行包来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`（提交 `4e1b2e2`）。
 
-> 上述历史基线仅作追溯；当前执行以本页顶部 `9f479c9a + 41c708e1` 为准。
+> 上述历史基线仅作追溯；当前执行以本页顶部 `1e58bb66 + 41c708e1` 为准。
 
-> 本文正文中的旧门禁快照仅作历史追溯；当前服务端和小程序基线以本页顶部 `9f479c9a + 41c708e1` 为准。本文用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
+> 本文正文中的旧门禁快照仅作历史追溯；当前服务端和小程序基线以本页顶部 `1e58bb66 + 41c708e1` 为准。本文用于区分“已有代码骨架”“已注册路由”“具备 Provider 契约”和“真实业务已验收”，不能把其中任一层单独当作迁移完成。旧 Python 服务、旧数据库、旧 Redis 和旧域名本轮均未修改。
 
 ## 1. 当前基线与公网只读证据
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 服务端 release | `9f479c9a` |
+| 服务端 release | `1e58bb66bf24021d2b680eb5fd03abfec467989a` |
 | 小程序本地候选 | `41c708e1adf864ef6fef1f788e97aa8fb4371227`（`41c708e1`），尚未上传线上 |
 | 新服务 | `https://test-hp.meiyi.pro/api/v2`，生产模式、数据库/Redis/schema readiness 为 ready |
 | 小程序运行包 | `apps/miniprogram/dist/`，14 个页面；不包含 `*.test.js`/`*.spec.js` |
@@ -84,7 +84,7 @@
 | `pnpm architecture:audit` | 通过；67 项架构/安全边界规则 |
 | `pnpm --filter @hospital/api test src/app.test.ts src/plugins/error-handler.test.ts` | 通过；56 项测试、316 个断言 |
 | `pnpm docs:audit` | 通过；当前仓库 507 个 Markdown 文档、无断链 |
-| `pnpm release:baseline:audit` | 当前服务端 `9f479c9a` 与小程序候选 `41c708e1` 指针已分别核对；服务端运行层发布证据见 [`9f479c9a-production-acceptance-2026-08-22.md`](9f479c9a-production-acceptance-2026-08-22.md)，小程序运行包证据见 [`candidate-41c708e-local-build-2026-08-22.md`](candidate-41c708e-local-build-2026-08-22.md) |
+| `pnpm release:baseline:audit` | 当前服务端 `1e58bb66` 与小程序候选 `41c708e1` 指针已分别核对；服务端运行层发布证据见 [`1e58bb66-production-acceptance-2026-08-22.md`](1e58bb66-production-acceptance-2026-08-22.md)，小程序运行包证据见 [`candidate-41c708e-local-build-2026-08-22.md`](candidate-41c708e-local-build-2026-08-22.md) |
 
 这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。
 本轮 SSH 只读复核只确认运行层和空业务窗口，不新增任何业务完成结论。

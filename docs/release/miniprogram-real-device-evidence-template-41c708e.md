@@ -1,11 +1,11 @@
 # 小程序当前候选真机三层证据记录模板（`41c708e1`）
 
-> 当前服务端 release 为 `9f479c9a`；小程序完整运行包来源为
+> 当前服务端 release 为 `1e58bb66bf24021d2b680eb5fd03abfec467989a`；小程序完整运行包来源为
 > `41c708e1adf864ef6fef1f788e97aa8fb4371227`。空白模板不代表真机或业务验收通过。
 
 | 项目 | 值 |
 | --- | --- |
-| 服务端 release | `9f479c9a` |
+| 服务端 release | `1e58bb66bf24021d2b680eb5fd03abfec467989a` |
 | 小程序客户端 | `41c708e1` |
 | 小程序构建来源 | `41c708e1adf864ef6fef1f788e97aa8fb4371227` |
 | 微信开发者工具项目 | `E:\__Super_Core__\hospital-platform\apps\miniprogram` |

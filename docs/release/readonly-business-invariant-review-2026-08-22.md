@@ -1,10 +1,10 @@
 # 只读业务不变量审计记录（2026-08-22）
-> 当前候选更新（2026-08-22）：服务端 release 为 `9f479c9a`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22 14:31 CST）：服务端 release 为 `1e58bb66`；小程序运行包来源为 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。历史候选仅作追溯。
 
 
-> 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端 release：`9f479c9a`。
+> 当前完整小程序来源校验值：`41c708e1adf864ef6fef1f788e97aa8fb4371227`；当前服务端 release：`1e58bb66bf24021d2b680eb5fd03abfec467989a`。
 
-> 当前发布基线：服务端 `9f479c9a`；小程序运行包来源
+> 当前发布基线：服务端 `1e58bb66bf24021d2b680eb5fd03abfec467989a`；小程序运行包来源
 > `41c708e1adf864ef6fef1f788e97aa8fb4371227`。本次不把历史 journald 窗口升级为当前业务证据。
 
 > 本记录只覆盖新项目 `hospital-platform`。旧 Python 项目、旧 API、旧数据库表和旧服务进程均未修改。
@@ -59,7 +59,7 @@
 - 工具测试：`53 pass / 0 fail / 133 expects`；
 - 原生小程序：`215 pass / 0 fail / 1611 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：`501` 个 Markdown 文档无断链；发布基线指向服务端 `9f479c9a` 和小程序 `41c708e1`。
+- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `1e58bb66bf24021d2b680eb5fd03abfec467989a` 和小程序 `41c708e1`。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
@@ -72,7 +72,7 @@
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
 - `pnpm --filter @hospital/miniprogram test`：`215 pass / 0 fail / 1611 expects`；
-- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `9f479c9a`、小程序 `41c708e1`。
+- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `1e58bb66`、小程序 `41c708e1`。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
 
