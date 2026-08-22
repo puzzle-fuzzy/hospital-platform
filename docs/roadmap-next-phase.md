@@ -37,7 +37,7 @@ Biome、9 个 workspace 的类型检查/测试/构建均通过；小程序运行
 下一步仍需人工确认正确小程序项目并取得真实手机三层证据。具体边界见
 [`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md)。
 
-> 当前候选：服务端已验证 release `9f479c9a`；小程序运行包来源 `937bb2ad2c71a2e83fac679939d31ed6bb3f0996`（提交 `937bb2ad`）。生产运行层证据见 [`release/9f479c9a-production-acceptance-2026-08-22.md`](release/9f479c9a-production-acceptance-2026-08-22.md)，小程序候选证据见 [`release/candidate-937bb2a-local-build-2026-08-22.md`](release/candidate-937bb2a-local-build-2026-08-22.md)。
+> 当前候选：服务端已验证 release `9f479c9a`；小程序运行包来源 `41c708e1adf864ef6fef1f788e97aa8fb4371227`（提交 `41c708e1`）。生产运行层证据见 [`release/9f479c9a-production-acceptance-2026-08-22.md`](release/9f479c9a-production-acceptance-2026-08-22.md)，小程序候选证据见 [`release/candidate-41c708e-local-build-2026-08-22.md`](release/candidate-41c708e-local-build-2026-08-22.md)。
 
 > 下方较早的 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`、`4e1b2e2` 和其它候选记录均为历史验证证据，不能覆盖上方当前事实源，
 > 也未因路线图记录自动部署线上。

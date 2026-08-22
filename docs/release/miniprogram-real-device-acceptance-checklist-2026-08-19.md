@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | 服务端 | `9f479c9a` | 当前已验证的新 Bun/Elysia 服务；旧 Python 服务继续运行 |
 | 小程序运行输入 | `41c708e1` | 当前本地候选，尚未上传线上 |
-| 小程序运行包来源 | `41c708e16a33bd69d850618b37ed041ecc4b65cd` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
+| 小程序运行包来源 | `41c708e1adf864ef6fef1f788e97aa8fb4371227` | 必须等于 `apps/miniprogram/dist/build-info.json.sourceRevision` |
 | 小程序运行根目录 | `apps/miniprogram/dist/` | 开发者工具项目根仍是 `apps/miniprogram/`，公共配置的 `miniprogramRoot` 必须为 `dist/` |
 | 公网 API | `https://test-hp.meiyi.pro/api/v2` | 真机只能访问公网 API，不直连 Provider 或内网地址 |
 
