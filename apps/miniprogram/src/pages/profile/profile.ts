@@ -8,6 +8,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { parseProfileAgeInput } from "../../services/profile-form";
 import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
@@ -235,7 +236,10 @@ Page<
 	},
 
 	onAgeInput(event): void {
-		this.setData({ age: event.detail.value.replace(/\D/g, "") });
+		// 输入阶段必须保留原文，不能把非法字符“修正”为另一组合法数字：
+		// `-1` 变成 `1`、`1.5` 变成 `15` 都会掩盖用户错误。真正的业务校验
+		// 在 onSave 的命令边界执行，并向用户展示明确的失败原因。
+		this.setData({ age: event.detail.value });
 	},
 
 	onEmailInput(event): void {
@@ -272,12 +276,12 @@ Page<
 			this.setData({ error: "请输入昵称" });
 			return Promise.resolve();
 		}
-		const ageText = this.data.age.trim();
-		const age = ageText ? Number(ageText) : null;
-		if (age !== null && (!Number.isInteger(age) || age < 0 || age > 150)) {
+		const ageResult = parseProfileAgeInput(this.data.age);
+		if (ageResult.kind === "invalid") {
 			this.setData({ error: "请输入 0 到 150 之间的年龄" });
 			return Promise.resolve();
 		}
+		const age = ageResult.value;
 		const saveGuard = getPageLatestRequestGuard(this, "profile-save");
 		const saveToken = saveGuard.begin();
 		const email = this.data.email.trim();
