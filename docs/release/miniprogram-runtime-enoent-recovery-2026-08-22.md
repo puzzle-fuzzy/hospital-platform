@@ -18,6 +18,30 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 
 本次根因仍是微信开发者工具旧的增量模块索引或旧真机调试会话残留，不是当前业务模块缺失。
 
+## 2026-08-22 14:56 CST 再次本地复核
+
+针对用户再次报告的同一路径错误，本轮重新执行了当前候选的构建和运行包门禁。结果只证明本地
+运行包边界正确；本轮没有把旧真机调试会话当成已恢复，也没有生成新的真机业务证据。
+
+| 项目 | 结果 |
+| --- | --- |
+| 当前仓库提交 | `1e527f8361bd49b7bf77f07e0873ae9772bad64a` |
+| 小程序运行输入来源 | `41c708e1adf864ef6fef1f788e97aa8fb4371227`（`41c708e1`） |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| 小程序定向测试 | `216 pass / 0 fail / 1619 expect()` |
+| 页面运行包 | `14/14` |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | `0` 个 |
+| 当前运行包相对引用 | 未发现指向缺失文件的引用 |
+| 旧项目、旧 Python 服务 | 未操作、未重启 |
+
+因此，当前再次出现该错误时，恢复动作必须在微信开发者工具中完成：结束旧的真机调试会话，
+关闭并重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram`，确认运行根目录为
+`dist/`，先执行一次普通编译，再从当前运行包重新生成二维码。不能在 `dist/` 中手工创建或复制
+`single-flight.test.js`；那会把测试代码重新带进运行包，并掩盖开发者工具旧模块索引问题。
+
 ## 2026-08-22 13:44 CST 当前运行包重建与开发者工具重导入
 
 针对用户再次报告的同一路径 ENOENT，本轮从当前源码重新生成运行包，并只操作新项目
