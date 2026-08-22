@@ -72,6 +72,7 @@
 | [`release/patient-card-masking-contract-2026-08-22.md`](release/patient-card-masking-contract-2026-08-22.md) | 患者卡号公共 contract、前五位/后四位展示边界、历史掩码兼容和重新同步停止条件 |
 | [`release/patient-id-stability-contract-2026-08-22.md`](release/patient-id-stability-contract-2026-08-22.md) | 患者目录重复同步沿用平台内部 `patientId` 的服务层、仓储层和验收边界 |
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
+| [`release/current-profile-read-write-acceptance-2026-08-22.md`](release/current-profile-read-write-acceptance-2026-08-22.md) | 当前 `1e58bb66`/`41c708e1` 普通资料读写、版本冲突、日志证据和真实写入授权协议 |
 | [`release/profile-age-input-boundary-2026-08-22.md`](release/profile-age-input-boundary-2026-08-22.md) | 普通资料年龄输入保留原文、保存边界严格解析和真机验证要求 |
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |
 | [`release/profile-mysql-write-response-atomicity-2026-08-21.md`](release/profile-mysql-write-response-atomicity-2026-08-21.md) | 普通资料 MySQL 行锁、版本条件更新和 canonical 响应回读的事务原子性修正 |
