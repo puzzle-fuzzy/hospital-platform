@@ -372,21 +372,21 @@ Page<MyPageData, MyPageMethods>({
 				navigateToPatientScopedPage(
 					"/pages/appointment-records/appointment-records",
 					this.data.sessionState,
-					Boolean(this.data.selectedPatient),
+					this.data.selectedPatient,
 				);
 				break;
 			case "missed-appointments":
 				navigateToPatientScopedPage(
 					"/pages/missed-appointments/missed-appointments",
 					this.data.sessionState,
-					Boolean(this.data.selectedPatient),
+					this.data.selectedPatient,
 				);
 				break;
 			case "outpatient-payment":
 				navigateToPatientScopedPage(
 					"/pages/outpatient-payment/outpatient-payment",
 					this.data.sessionState,
-					Boolean(this.data.selectedPatient),
+					this.data.selectedPatient,
 				);
 				break;
 			case "medical-record":

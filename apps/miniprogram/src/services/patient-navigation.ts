@@ -1,5 +1,6 @@
+import type { Patient, SessionVerificationState } from "../types";
+import { isCurrentSelectedPatient } from "./patient-selection-service";
 import { isPatientSyncInFlight } from "./patient-sync-coordinator";
-import type { SessionVerificationState } from "../types";
 
 /**
  * 所有受保护入口必须使用最近一次 `/me` 验证结果。
@@ -47,6 +48,29 @@ export function resolvePatientScopedEntry(
 	if (!hasSession) return "redirect-to-login";
 	if (!hasPatient) return "select-patient";
 	return "open";
+}
+
+/**
+ * 患者范围入口必须使用“当前可临床查询”的显式选择。
+ *
+ * 页面对象存在不等于患者上下文仍然有效：目录刷新可能已经把临床映射
+ * 置为 unavailable，另一个页面也可能刚刚把 storage 中的显式选择换成了
+ * 另一位患者。入口层先拦截这两种中间态，避免用户先进入业务页再看到一
+ * 个必然失败的请求；业务页自己的 owner、会话代际和响应校验仍然保留，
+ * 这里不是对服务端授权的替代。
+ *
+ * 第二个参数仅供纯测试传入 storage 快照，生产调用省略它并读取微信
+ * storage 中的当前 opaque patientId。
+ */
+export function hasCurrentPatientContext(
+	patient: Pick<Patient, "id" | "clinicalAccess"> | null,
+	storedPatientId?: string,
+): boolean {
+	return Boolean(
+		patient &&
+			patient.clinicalAccess === "ready" &&
+			isCurrentSelectedPatient(patient.id, storedPatientId),
+	);
 }
 
 /**
@@ -112,14 +136,17 @@ export function navigateToPatientSelector(
 export function navigateToPatientScopedPage(
 	url: string,
 	state: AuthenticatedEntryState,
-	hasPatient: boolean,
+	patient: Pick<Patient, "id" | "clinicalAccess"> | null,
 ): void {
 	const sessionDecision = resolveAuthenticatedEntry(state);
 	if (sessionDecision !== "open") {
 		navigateToAuthenticatedPage(url, state);
 		return;
 	}
-	const decision = resolvePatientScopedEntry(true, hasPatient);
+	const decision = resolvePatientScopedEntry(
+		true,
+		hasCurrentPatientContext(patient),
+	);
 	if (decision === "select-patient") {
 		navigateToPatientSelector(state);
 		return;

@@ -1,8 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
+	hasCurrentPatientContext,
 	resolveAuthenticatedEntry,
 	resolvePatientScopedEntry,
 } from "./patient-navigation";
+
+const readyPatient = { id: "patient-a", clinicalAccess: "ready" as const };
+const unavailablePatient = {
+	id: "patient-a",
+	clinicalAccess: "unavailable" as const,
+};
 
 describe("会话验证入口门禁", () => {
 	test("只有服务端验证成功才允许打开页面", () => {
@@ -31,5 +38,14 @@ describe("患者范围页面入口门禁", () => {
 
 	test("已登录且有当前就诊人时才允许打开业务页", () => {
 		expect(resolvePatientScopedEntry(true, true)).toBe("open");
+	});
+
+	test("入口只接受临床可用且与显式选择一致的患者", () => {
+		expect(hasCurrentPatientContext(readyPatient, "patient-a")).toBe(true);
+		expect(hasCurrentPatientContext(unavailablePatient, "patient-a")).toBe(
+			false,
+		);
+		expect(hasCurrentPatientContext(readyPatient, "patient-b")).toBe(false);
+		expect(hasCurrentPatientContext(null, "patient-a")).toBe(false);
 	});
 });

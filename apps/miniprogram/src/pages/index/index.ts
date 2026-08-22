@@ -783,7 +783,7 @@ Page<IndexPageData, IndexPageMethods>({
 		navigateToPatientScopedPage(
 			"/pages/report-directory/report-directory",
 			sessionVerificationStateFromLabel(this.data.sessionStatus),
-			Boolean(this.data.selectedPatient),
+			this.data.selectedPatient,
 		);
 	},
 
@@ -798,7 +798,7 @@ Page<IndexPageData, IndexPageMethods>({
 		navigateToPatientScopedPage(
 			"/pages/appointment-records/appointment-records",
 			sessionVerificationStateFromLabel(this.data.sessionStatus),
-			Boolean(this.data.selectedPatient),
+			this.data.selectedPatient,
 		);
 	},
 
@@ -814,7 +814,7 @@ Page<IndexPageData, IndexPageMethods>({
 		navigateToPatientScopedPage(
 			"/pages/outpatient-payment/outpatient-payment",
 			sessionVerificationStateFromLabel(this.data.sessionStatus),
-			Boolean(this.data.selectedPatient),
+			this.data.selectedPatient,
 		);
 	},
 
