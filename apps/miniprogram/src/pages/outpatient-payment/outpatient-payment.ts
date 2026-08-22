@@ -38,6 +38,15 @@ import type {
 const OUTPATIENT_PAYMENT_PAGE_SIZE = 10;
 
 /**
+ * 旧端门诊缴费页只展示已核对的高平市人民医院单院区。
+ *
+ * 这里不能把院区名称当成 Provider 动态返回，也不能让页面参数覆盖它；
+ * 在医院/院区正式 contract 到达前，点击院区行只给出明确提示，不发起
+ * 未注册的院区查询或把未知院区 ID 传给费用 Provider。
+ */
+const DEFAULT_HOSPITAL_NAME = "高平市人民医院";
+
+/**
  * 费用卡片事件必须回查当前可见批次，而不是相信 WXML 传来的状态。
  *
  * 患者切换、状态切换或刷新后，旧卡片事件仍可能在微信事件队列中抵达；
@@ -62,6 +71,7 @@ type OutpatientPaymentPageMethods = {
 	onStatusTap(event: WechatMiniprogram.TouchEvent): void;
 	onLoadMore(): void;
 	onChangePatient(): void;
+	onHospitalTap(): void;
 	onRecordTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
@@ -78,6 +88,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	data: {
 		hasShown: false,
 		sessionState: "checking",
+		hospitalName: DEFAULT_HOSPITAL_NAME,
 		selectedPatient: null,
 		patientSessionGeneration: -1,
 		activeStatus: "unpaid",
@@ -343,6 +354,14 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 
 	onChangePatient(): void {
 		navigateToPatientSelector(this.data.sessionState);
+	},
+
+	/**
+	 * 旧端允许打开院区选择器；当前只确认一个院区，不能伪造可切换数据。
+	 * 等正式院区 contract 到齐后，只替换这里的受控选项和后续查询边界。
+	 */
+	onHospitalTap(): void {
+		wx.showToast({ title: "当前仅支持高平市人民医院", icon: "none" });
 	},
 
 	/**

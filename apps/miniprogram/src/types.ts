@@ -332,6 +332,8 @@ export type OutpatientPaymentPageData = {
 	hasShown: boolean;
 	/** 门诊费用入口在支付开放前也必须先确认当前平台会话。 */
 	sessionState: SessionVerificationState;
+	/** 当前院区是已核对的单院区展示配置，不代表 Provider 动态院区列表。 */
+	hospitalName: string;
 	selectedPatient: Patient | null;
 	/** 当前患者卡片所属的会话代际；-1 表示尚未完成本轮患者确认。 */
 	patientSessionGeneration: number;

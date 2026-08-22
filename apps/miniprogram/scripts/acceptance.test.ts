@@ -1603,6 +1603,32 @@ test("outpatient payment cards reject stale status events", async () => {
 	expect(template).not.toContain('data-status="{{item.status}}"');
 });
 
+test("outpatient payment preserves the legacy patient and hospital selector rows", async () => {
+	const payment = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
+	const template = await source(
+		"pages/outpatient-payment/outpatient-payment.wxml",
+	);
+	const style = await source(
+		"pages/outpatient-payment/outpatient-payment.wxss",
+	);
+
+	// 这是展示/入口迁移，不是院区业务扩展：患者仍进入独立选择页，
+	// 单院区点击只提示，不把未知院区 ID 或 Provider 参数交给费用查询。
+	expect(payment).toContain('const DEFAULT_HOSPITAL_NAME = "高平市人民医院"');
+	expect(payment).toContain("onHospitalTap(): void");
+	expect(payment).toContain("当前仅支持高平市人民医院");
+	expect(template).toContain('class="selector-card"');
+	expect(template).toContain('bindtap="onChangePatient"');
+	expect(template).toContain('bindtap="onHospitalTap"');
+	expect(template).toContain(
+		'src="/assets/legacy-user/selector-arrow-right.svg"',
+	);
+	expect(style).toContain(".selector-row");
+	expect(style).toContain(".selector-card-number");
+});
+
 test("native mini program preserves the legacy static hospital entry boundary", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");

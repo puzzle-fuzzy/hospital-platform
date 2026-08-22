@@ -9,8 +9,8 @@ page {
 }
 
 .error-message,
-.patient-strip,
 .notice,
+.selector-card,
 .tabs,
 .record-list,
 .state-card,
@@ -32,59 +32,71 @@ page {
 	text-align: center;
 }
 
-.patient-strip {
-	display: flex;
-	align-items: center;
-	padding: 18rpx 22rpx;
-	border: 1rpx solid #dbe5ff;
-	border-radius: 18rpx;
-	background: #f2f6ff;
-}
-
-.patient-strip image {
-	flex-shrink: 0;
-	width: 56rpx;
-	height: 56rpx;
-}
-
-.patient-copy {
-	display: flex;
-	min-width: 0;
-	margin-left: 18rpx;
-	flex-direction: column;
-}
-
-.patient-name {
-	overflow: hidden;
-	color: #222222;
-	font-size: 30rpx;
-	font-weight: 700;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.patient-card {
-	margin-top: 5rpx;
-	color: #777777;
-	font-size: 23rpx;
-}
-
-.patient-change {
-	margin-left: auto;
-	padding-left: 20rpx;
-	color: #3d6df6;
-	font-size: 25rpx;
-	white-space: nowrap;
-}
-
 .notice {
-	margin-top: 18rpx;
+	margin-bottom: 18rpx;
 	padding: 18rpx 20rpx;
 	border-radius: 14rpx;
 	background: #fff3e9;
 	color: #fe7527;
 	font-size: 25rpx;
 	line-height: 1.6;
+}
+
+/* 旧端 PatientHospitalSelector：白色两行、分割线和右侧灰色箭头。 */
+.selector-card {
+	overflow: hidden;
+	background: #ffffff;
+}
+
+.selector-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 92rpx;
+	padding: 26rpx 30rpx;
+	color: #333333;
+}
+
+.selector-row-border {
+	border-bottom: 1rpx solid #f0f0f0;
+}
+
+.selector-label {
+	flex: 0 0 150rpx;
+	font-size: 28rpx;
+}
+
+.selector-value {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 1;
+	min-width: 0;
+	color: #333333;
+	font-size: 30rpx;
+	text-align: right;
+}
+
+.selector-name {
+	overflow: hidden;
+	min-width: 0;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.selector-card-number {
+	margin-left: 10rpx;
+	color: #999999;
+	font-size: 23rpx;
+}
+
+.selector-arrow-image {
+	display: block;
+	margin-left: 14rpx;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
 }
 
 .tabs {
