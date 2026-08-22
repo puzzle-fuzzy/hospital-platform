@@ -13,6 +13,23 @@ E:/__Super_Core__/hospital-platform/apps/miniprogram/dist/services/single-flight
 
 本次根因仍是微信开发者工具旧的增量模块索引或旧真机调试会话残留，不是当前业务模块缺失。
 
+## 2026-08-22 11:43 CST 当前候选复核
+
+针对再次出现的同一路径错误，已从当前 `a33416d8` 小程序源码重新执行构建和运行包门禁：
+
+| 项目 | 结果 |
+| --- | --- |
+| 当前小程序来源 | `a33416d8417661fa5256deb22df55a97456cc608` |
+| `pnpm --filter @hospital/miniprogram build` | 通过 |
+| `pnpm --filter @hospital/miniprogram runtime:verify` | 通过 |
+| 页面运行包 | `14/14` |
+| `dist/services/single-flight.js` | 存在 |
+| `dist/services/single-flight.test.js` | 不存在 |
+| `dist/` 中 `*.test.js` / `*.spec.js` | `0` 个 |
+
+本次只刷新本地 `dist/`，没有修改旧 Python 服务、数据库、Redis 或 Provider。若开发者工具仍请求该测试路径，必须结束旧真机调试、关闭并重新打开
+`E:\__Super_Core__\hospital-platform\apps\miniprogram`，普通编译后再生成二维码；不可手工创建测试脚本。
+
 ## 09:47 当前候选复核
 
 本轮针对再次报告的同一路径 ENOENT，重新从当前源码构建运行包并执行运行包门禁：
