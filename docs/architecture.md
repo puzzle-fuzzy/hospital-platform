@@ -172,7 +172,9 @@ migration 的持久化边界。
 - APIv3 请求签名使用发送前的原始 JSON 字节；响应必须校验证书序列号、时间窗口、nonce 和 RSA-SHA256 签名。
 - 通知必须先校验 APIv3 签名，再解密 `AEAD_AES_256_GCM` resource；解密结果还需要由 callback mapper 做业务字段白名单校验。
 - `prepay_id` 只代表微信预支付凭证；小程序调起成功、查单成功和业务订单完成仍是不同事实，最终状态必须由回调/查单/HIS 回写编排。
-- `POST .../wechat-prepay` 只在完整支付配置显式打开后调用微信下单；默认组合根使用 fail-closed gateway，未配置时返回 503。
+- 支付订单、订单查询、`POST/GET .../wechat-prepay` 和微信通知共用显式运行时闸门；默认组合根关闭闸门，
+  在访问报价、订单、通知仓储或微信 provider 之前返回 503。只有完整支付配置、通知解密器和真实验收放行后才可打开，
+  不能只依赖 `PaymentOrderService` 或 fail-closed gateway 推断支付已可用。
 - `hp_payment_prepay_attempts` 不把 `prepay_id` 明文写入数据库；`payParams` 使用部署注入的 AES-256-GCM 密钥保护，没有 `PAYMENT_DATA_ENCRYPTION_KEY` 时 repository fail-closed。
 - `hp_wechat_payment_notifications` 只保存验签解密后的白名单摘要；同一 `notification_id` 或微信交易号不会重复制造 outbox 事件。
 - 查单响应中的 provider `amount.total` 必须与订单 `cashFen` 一致；不一致只能进入 `awaiting_confirmation`，不能标记为已支付。

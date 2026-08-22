@@ -145,7 +145,8 @@ Phase 6B 已加入 `WechatPrepayService` 和 `POST /api/v1/payments/orders/:orde
 - 订单和服务端报价仓储结果在领域层还要二次投影，校验 owner、患者、金额守恒、状态、版本、有效期和数据库列宽；
   读模型异常返回 `persistence-invalid`，不能伪装成订单不存在，也不能回退到客户端金额；
 - 返回值只包含服务端生成的 `payParams`，不返回 provider 原始报文，不改变订单状态；
-- 预支付闸门由 `WECHAT_PAYMENT_READY` 控制，默认关闭；真实环境还需要补齐通知入站、查单补偿和设备验收后，才能宣称支付链路完成。
+- 支付订单、订单查询、预支付和通知入口共用服务端运行时闸门，由 `WECHAT_PAYMENT_READY`、完整 adapter/解密器和组合根共同决定，默认关闭；
+  关闭时在报价/订单/通知仓储之前返回 503，不会留下半成品订单或通知事实。真实环境还需要补齐通知入站、查单补偿和设备验收后，才能宣称支付链路完成。
 - 预支付成功后，`prepay_id` 只保存摘要，`payParams` 只以 AES-256-GCM 密文保存；`PAYMENT_DATA_ENCRYPTION_KEY` 缺失时不得调用 provider。
 - 同一幂等键可以通过 GET 读出 `not_started`、`pending`、`ready` 或 `unknown`；`unknown` 必须等待查单/人工对账，不能被小程序回调改写成支付成功。
 - 单元测试使用进程内生成的 RSA/AES 材料，证明协议实现和失败分支，不证明商户号、证书、微信产品权限或公网回调已经可用。

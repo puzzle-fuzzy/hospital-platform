@@ -1134,7 +1134,7 @@ test("wechat login and patient list keep identity ownership on the server", asyn
 		reports: unusedReportService(),
 		sessions,
 	};
-	const app = createApp({ services });
+	const app = createApp({ services, wechatPaymentEnabled: true });
 
 	const loginResponse = await app.handle(
 		new Request("http://localhost/api/v1/auth/wechat", {
@@ -2406,6 +2406,97 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 	});
 });
 
+test("payment routes fail closed before persistence while the payment gate is disabled", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	const orderRepository = createInMemoryPaymentOrderRepository();
+	let quoteLookups = 0;
+	const paymentOrders = new PaymentOrderService({
+		orders: orderRepository,
+		quotes: {
+			async findByOwnerAndId() {
+				quoteLookups += 1;
+				return {
+					quoteId: "quote-disabled-001",
+					ownerUserId: "fixture-user-0001",
+					patientId: "patient-001",
+					amounts: { totalFen: 1000, insuranceFen: 700, cashFen: 300 },
+					expiresAt: "2099-08-15T00:00:00.000Z",
+					source: "fixture",
+				};
+			},
+		},
+	});
+	const app = createApp({
+		services: {
+			auth: new AuthService({
+				identityGateway: createFixtureWechatIdentityGateway(),
+				identityUsers: createInMemoryIdentityUserRepository(),
+				sessions,
+			}),
+			patients: new PatientService(createInMemoryPatientRepository()),
+			paymentOrders,
+			wechatPrepay: new WechatPrepayService({
+				orders: paymentOrders,
+				identityUsers: createInMemoryIdentityUserRepository(),
+				attempts: createInMemoryPaymentPrepayAttemptRepository(),
+				wechatPayment: createNotConfiguredGateways().wechatPayment,
+			}),
+			wechatPaymentNotifications: unusedWechatNotificationService(),
+			appointments: unusedAppointmentService(),
+			reports: unusedReportService(),
+			sessions,
+		},
+	});
+	const authorization = `Bearer ${issued.accessToken}`;
+
+	const createResponse = await app.handle(
+		new Request("http://localhost/api/v1/payments/orders", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				authorization,
+				"idempotency-key": "disabled-payment-order-001",
+			},
+			body: JSON.stringify({
+				patientId: "patient-001",
+				quoteId: "quote-disabled-001",
+			}),
+		}),
+	);
+	const readResponse = await app.handle(
+		new Request("http://localhost/api/v1/payments/orders/order-never-created", {
+			headers: { authorization },
+		}),
+	);
+
+	// 支付关闭时必须在 quote 读取、订单写入和订单读取之前失败；否则即使
+	// 预支付后续被拒绝，也会留下用户看得到但无法完成的半成品订单。
+	expect(createResponse.status).toBe(503);
+	expect(await createResponse.json()).toEqual({
+		success: false,
+		error: {
+			code: "dependency-not-configured",
+			message: "该服务暂未配置完成，请稍后重试",
+		},
+	});
+	expect(readResponse.status).toBe(503);
+	expect(await readResponse.json()).toEqual({
+		success: false,
+		error: {
+			code: "dependency-not-configured",
+			message: "该服务暂未配置完成，请稍后重试",
+		},
+	});
+	expect(quoteLookups).toBe(0);
+	expect(
+		await orderRepository.findByOwnerAndIdempotencyKey(
+			"fixture-user-0001",
+			"disabled-payment-order-001",
+		),
+	).toBeUndefined();
+});
+
 test("wechat payment notification route preserves the raw body and returns provider ack", async () => {
 	const sessions = createInMemorySessionTokenService();
 	const identityUsers = createInMemoryIdentityUserRepository();
@@ -2449,6 +2540,7 @@ test("wechat payment notification route preserves the raw body and returns provi
 			reports: unusedReportService(),
 			sessions,
 		},
+		wechatPaymentEnabled: true,
 	});
 	const request = () =>
 		new Request("http://localhost/api/v1/payments/wechat/notifications", {

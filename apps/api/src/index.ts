@@ -181,6 +181,14 @@ const wechatPaymentNotificationDecoder:
 					: {}),
 			})
 		: undefined;
+/**
+ * 支付模块的最终开关必须同时依赖真实支付 adapter 和通知解密器。
+ * 仅凭环境变量字段完整不能放行订单写入：没有回调入口时，订单状态无法
+ * 形成闭环，生产 API 必须继续保持 fail-closed。
+ */
+const wechatPaymentEnabled = Boolean(
+	wechatPaymentGateway && wechatPaymentNotificationDecoder,
+);
 
 // 启动时只执行只读探针，确认数据库、Redis 和 schema 的真实状态；这些探针不会写业务数据。
 // 任一探针失败时 API 仍可监听 health/readiness，但登录和业务持久化保持 fail-closed。
@@ -225,6 +233,7 @@ const app = createApp({
 			? { wechatPaymentNotificationDecoder }
 			: {}),
 	}),
+	wechatPaymentEnabled,
 	readiness: createReadinessService({
 		databaseConfigured: Boolean(config.databaseUrl),
 		redisConfigured: Boolean(config.redisUrl),
@@ -292,6 +301,7 @@ logger.info(
 		authSessionStore: persistence.sessions ? "injected" : "fail_closed",
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
+		wechatPaymentRuntime: wechatPaymentEnabled ? "enabled" : "fail_closed",
 		patientDirectoryConfiguration: patientDirectoryStatus,
 		appointmentDirectoryConfiguration: appointmentDirectoryStatus,
 		appointmentRecordsConfiguration: appointmentRecordsStatus,

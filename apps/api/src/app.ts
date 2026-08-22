@@ -29,6 +29,14 @@ export type AppOptions = {
 	services?: ApplicationServices;
 	/** 运行入口注入 Pino；测试默认使用 silent logger。 */
 	logger?: AppLogger;
+	/**
+	 * 微信支付订单模块的显式运行闸门；默认关闭。
+	 *
+	 * 生产组合根只有在 `WECHAT_PAYMENT_READY`、完整商户配置、回调解密器和
+	 * 真实验收条件同时满足后才传入 true。关闭时路由仍保留在 OpenAPI 中，
+	 * 但所有支付入口在仓储/provider 之前返回 503，避免误删公共契约或产生副作用。
+	 */
+	wechatPaymentEnabled?: boolean;
 };
 
 function openApiPlugin() {
@@ -111,6 +119,7 @@ export function createApp(options: AppOptions = {}) {
 						services.wechatPrepay,
 						services.wechatPaymentNotifications,
 						services.sessions,
+						options.wechatPaymentEnabled === true,
 					),
 				),
 		);
