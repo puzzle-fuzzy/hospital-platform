@@ -35,6 +35,7 @@
 | [`release/miniprogram-real-device-evidence-template-41c708e.md`](release/miniprogram-real-device-evidence-template-41c708e.md) | 当前 `41c708e1` 真机页面、客户端 requestId 和服务端低敏日志三层证据模板 |
 | [`release/miniprogram-devtools-reimport-2026-08-22-1314.md`](release/miniprogram-devtools-reimport-2026-08-22-1314.md) | 当前候选重新导入、普通编译、运行包测试脚本边界和新二维码准入证据 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1327.md`](release/miniprogram-device-qr-session-2026-08-22-1327.md) | 当前 `41c708e1` 候选重新生成真机二维码的现场与三层证据交接边界 |
+| [`release/patient-context-consistency-audit-2026-08-22.md`](release/patient-context-consistency-audit-2026-08-22.md) | 当前候选患者范围页面的 owner、会话代际、显式选择和旧结果淘汰审计；216 个定向测试通过 |
 | [`release/miniprogram-simulator-readonly-flow-2026-08-22.md`](release/miniprogram-simulator-readonly-flow-2026-08-22.md) | 当前 `41c708e1` 候选的预约目录、门诊费用和就诊人切换模拟器只读验收；不替代真机或 Provider 证据 |
 | [`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md) | 当前候选患者上下文、只读页面错误边界和真机人工交接审计 |
 | [`release/candidate-c01b1af-local-build-2026-08-22.md`](release/candidate-c01b1af-local-build-2026-08-22.md) | 未部署 `c01b1af` 预约排班快照日志 traceId 关联修正、本地测试和上线后缺失关联计数门禁 |
