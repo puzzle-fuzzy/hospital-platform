@@ -8,7 +8,7 @@
 | --- | --- |
 | 服务端 release | `9f479c9a` |
 | 发布前线上 release | `2a2acd9bcc89c35988b75fc03304dbd48078c9d5` |
-| 配套小程序运行包来源 | `1b621f07ab8cec04f76fc8b682d0b3114ef6e3a1`（提交 `1b621f07`） |
+| 配套小程序运行包来源 | `e9ffd8276a33bd69d850618b37ed041ecc4b65cd`（提交 `e9ffd827`） |
 | 新 API | 仅重启 `hospital-platform-api-v2.service` |
 | 旧 Python | 未修改、未停止、未重启；`8001` 持续监听，Gunicorn PID 集合前后未变化 |
 | Worker | `hospital-platform-worker-v2.service` 保持 `inactive` |

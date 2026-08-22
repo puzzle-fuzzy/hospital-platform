@@ -1,0 +1,22 @@
+# 小程序当前候选真机三层证据记录模板（`e9ffd827`）
+
+> 当前服务端 release 为 `9f479c9a`；小程序完整运行包来源为
+> `e9ffd8276a33bd69d850618b37ed041ecc4b65cd`。空白模板不代表真机或业务验收通过。
+
+| 项目 | 值 |
+| --- | --- |
+| 服务端 release | `9f479c9a` |
+| 小程序客户端 | `e9ffd827` |
+| 小程序构建来源 | `e9ffd8276a33bd69d850618b37ed041ecc4b65cd` |
+| 微信开发者工具项目 | `E:\__Super_Core__\hospital-platform\apps\miniprogram` |
+| 运行根目录 | `dist/` |
+| 真机二维码生成时间 | 待填写 |
+| 手机页面结果 | 待填写 |
+| 客户端 requestId/traceId | 待填写 |
+| 服务端低敏 Pino 事件 | 待填写 |
+| Provider requestId | 待填写或不适用 |
+
+## 记录要求
+
+页面、客户端 HTTP 和服务端日志必须来自同一次扫码会话，并且使用本表声明的两份来源指纹。只看到二维码、模拟器或健康检查，不足以完成真实业务验收。
+不得记录 openid、session_key、完整身份证、完整卡号、token、支付密钥或 Provider 原始报文。

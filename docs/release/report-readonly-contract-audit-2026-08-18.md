@@ -1,9 +1,9 @@
 # 报告目录与详情只读契约审计（2026-08-18）
 
-> 当前完整小程序来源校验值：`1b621f07ab8cec04f76fc8b682d0b3114ef6e3a1`；当前服务端 release：`9f479c9a`。
+> 当前完整小程序来源校验值：`e9ffd8276a33bd69d850618b37ed041ecc4b65cd`；当前服务端 release：`9f479c9a`。
 
 > 当前发布基线（2026-08-22）：服务端 `9f479c9a`；小程序运行包来源
-> `1b621f07ab8cec04f76fc8b682d0b3114ef6e3a1`。报告目录/详情 gate 仍关闭，本次不进行真实报告数据验收。
+> `e9ffd8276a33bd69d850618b37ed041ecc4b65cd`。报告目录/详情 gate 仍关闭，本次不进行真实报告数据验收。
 
 > 当前候选：服务端 release `7181e99e3a352244102f5591279528b3b66332c9`；小程序运行包来源 `4e1b2e224964797c103eba832323ee7074c7ad2b`（提交 `4e1b2e2`）。
 
@@ -15,7 +15,7 @@
 ## 0. 当前检查点（2026-08-19）
 
 - 当前线上服务端 release 为 `9f479c9a`，配套小程序构建来源为
-  `1b621f07ab8cec04f76fc8b682d0b3114ef6e3a1`（当前候选 `1b621f07`）；本文件的 Provider 材料门禁不因 release 切换而放宽。
+  `e9ffd8276a33bd69d850618b37ed041ecc4b65cd`（当前候选 `e9ffd827`）；本文件的 Provider 材料门禁不因 release 切换而放宽。
 
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
   `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
@@ -30,7 +30,7 @@
 ## 1. 当前链路
 
 当前服务端 release 为 `9f479c9a`，配套小程序构建来源为
-`1b621f07ab8cec04f76fc8b682d0b3114ef6e3a1`（当前候选 `1b621f07`）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
+`e9ffd8276a33bd69d850618b37ed041ecc4b65cd`（当前候选 `e9ffd827`）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
 
 ```text
 小程序报告目录
