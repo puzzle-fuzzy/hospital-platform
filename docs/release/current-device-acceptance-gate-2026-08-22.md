@@ -16,7 +16,9 @@
 `*.test.js`/`*.spec.js`。正确项目已经完成重新导入、普通编译并生成最新二维码；当前仍无手机页面与服务端同链业务证据，
 不能标记真机验收完成。
 
-本轮已在正确的 `miniprogram` 项目中完成重新导入、普通编译和新二维码生成；调试器显示 `Errors: 0`，具体现场证据见
+本轮已在正确的 `miniprogram` 项目中完成重新导入、普通编译和新二维码生成；普通编译错误数为 `0`。
+二维码生成后的模拟器调试控制台另观察到 1 个只来自微信 `WeChatLib 3.17.1` 的
+`__subPageFrameEndTime__` 内部空引用，未指向运行包或业务代码；具体现场证据见
 [`miniprogram-devtools-reimport-2026-08-22-1314.md`](miniprogram-devtools-reimport-2026-08-22-1314.md)。该动作仍只属于真机准入，
 不替代手机页面、客户端 requestId/traceId 和服务端低敏日志三层业务证据。
 
