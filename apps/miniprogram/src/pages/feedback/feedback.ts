@@ -49,13 +49,13 @@ Page<FeedbackPageData, FeedbackPageMethods>({
 		hotIssues: HOT_ISSUES,
 	},
 
-	/** 旧端只有 Toast，没有真实提交接口；明确提示迁移状态而不是显示成功。 */
+	/**
+	 * 旧端点击后只显示“跳转到意见反馈页面”的 Toast，实际跳转代码被注释。
+	 * 这里必须保留旧端的可见行为，但不能把 Toast 当作工单已受理；真正的
+	 * 工单能力需要另行冻结字段、权限、内容安全和持久化 contract。
+	 */
 	onFeedbackTap() {
-		wx.showModal({
-			title: "意见反馈",
-			content: "在线意见反馈功能正在迁移中，如需帮助请拨打咨询电话。",
-			showCancel: false,
-		});
+		wx.showToast({ title: "跳转到意见反馈页面", icon: "none" });
 	},
 
 	/** 展示旧端客服电话，用户确认后才调用系统拨号，不在页面加载时触发外部副作用。 */

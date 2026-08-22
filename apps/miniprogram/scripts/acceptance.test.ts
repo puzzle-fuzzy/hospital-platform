@@ -1839,7 +1839,8 @@ test("native mini program exposes feedback as a safe static help page", async ()
 	expect(app).toContain('"pages/feedback/feedback"');
 	expect(my).toContain('case "feedback"');
 	expect(my).toContain('url: "/pages/feedback/feedback"');
-	expect(page).toContain("在线意见反馈功能正在迁移中");
+	expect(page).toContain('title: "跳转到意见反馈页面"');
+	expect(page).toContain("wx.showToast");
 	expect(page).toContain("wx.makePhoneCall");
 	expect(page).toContain("SERVICE_PHONE");
 	expect(template).toContain("热点问题");
@@ -1861,7 +1862,8 @@ test("native mini program does not turn legacy static or fake settings into busi
 
 	// 旧反馈页没有真实提交接口，旧订阅页也只有内存开关；迁移时必须保留事实边界，
 	// 不能把 Toast、打开静态说明页或本地状态当成工单/微信授权成功。
-	expect(feedback).toContain("在线意见反馈功能正在迁移中");
+	expect(feedback).toContain('title: "跳转到意见反馈页面"');
+	expect(feedback).toContain("wx.showToast");
 	expect(feedback).not.toContain("提交成功");
 	expect(feedback).not.toContain("设置已保存");
 	expect(officialAccount).toContain("只维护静态展示");
