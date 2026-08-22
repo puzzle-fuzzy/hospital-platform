@@ -31,6 +31,7 @@
 | [`release/device-evidence-distinct-chain-audit-2026-08-22.md`](release/device-evidence-distinct-chain-audit-2026-08-22.md) | 普通资料与预约目录双请求必须使用独立客户端 requestId 和服务端关联指纹的证据门禁 |
 | [`release/candidate-1b621f0-local-build-2026-08-22.md`](release/candidate-1b621f0-local-build-2026-08-22.md) | 当前 `1b621f07` 小程序运行包、测试脚本隔离、患者加载和错误态语义以及真机前运行包边界 |
 | [`release/miniprogram-real-device-evidence-template-1b621f0.md`](release/miniprogram-real-device-evidence-template-1b621f0.md) | 当前 `1b621f07` 真机页面、客户端 requestId 和服务端低敏日志三层证据模板 |
+| [`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md) | 当前候选患者上下文正确性、只读页面错误边界、真机人工交接和下一条业务顺序 |
 | [`release/candidate-c01b1af-local-build-2026-08-22.md`](release/candidate-c01b1af-local-build-2026-08-22.md) | 未部署 `c01b1af` 预约排班快照日志 traceId 关联修正、本地测试和上线后缺失关联计数门禁 |
 | [`release/9f479c9a-production-acceptance-2026-08-22.md`](release/9f479c9a-production-acceptance-2026-08-22.md) | 当前服务端原子切换、production preflight、旧 Python `8001` 共存、报告时间字段纠偏和关闭门禁证据 |
 | [`release/next-appointment-records-acceptance-2026-08-22.md`](release/next-appointment-records-acceptance-2026-08-22.md) | 下一项预约历史/爽约只读验收顺序、三层低敏证据、停止条件和代码入口 |

@@ -31,6 +31,10 @@ Biome、9 个 workspace 的类型检查/测试/构建均通过；小程序运行
 门诊费用只读 → 报告目录。病历、二维码、患者绑定、支付、医保和 HIS 回写在各自 contract/权限/回滚证据齐全前继续保持关闭。
 之前的 SSH 恢复、服务端原子切换和新旧端口共存证据见 [`release/ssh-access-recovery-and-release-gate-2026-08-22.md`](release/ssh-access-recovery-and-release-gate-2026-08-22.md)。
 
+本轮对患者选择、患者范围只读页面和当前候选运行包做了独立交接审计：未发现可以绕过 Provider/HIS contract 安全开放的新业务；
+下一步仍需人工确认正确小程序项目并取得真实手机三层证据。具体边界见
+[`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md)。
+
 > 当前候选：服务端已验证 release `9f479c9a`；小程序运行包来源 `1b621f07ab8cec04f76fc8b682d0b3114ef6e3a1`（提交 `1b621f07`）。生产运行层证据见 [`release/9f479c9a-production-acceptance-2026-08-22.md`](release/9f479c9a-production-acceptance-2026-08-22.md)，小程序候选证据见 [`release/candidate-1b621f0-local-build-2026-08-22.md`](release/candidate-1b621f0-local-build-2026-08-22.md)。
 
 > 下方较早的 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`、`4e1b2e2` 和其它候选记录均为历史验证证据，不能覆盖上方当前事实源，
