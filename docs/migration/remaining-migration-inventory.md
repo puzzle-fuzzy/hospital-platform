@@ -7,6 +7,11 @@
 > 当前发布基线（2026-08-22 14:31 CST）：服务端已验证 `1e58bb66bf24021d2b680eb5fd03abfec467989a`；小程序运行包来源
 > `41c708e1adf864ef6fef1f788e97aa8fb4371227`。P0 运行层切换已完成，P1 真机/Provider 三层证据仍未完成。
 
+> 2026-08-22 15:16 CST 当前运行复核：新 API `active` 并监听 `10.0.0.3:18081`，旧 Python 仍监听 `8001`，
+> Worker 为 `inactive`，新 API live/ready 均为 `200`；最近 60 分钟没有任何指定业务域的请求/成功事件。
+> 本地当前工作树 `pnpm check` 全部通过。该窗口只证明新旧服务共存和代码门禁正常，不替代真机页面、客户端 requestId
+> 与服务端业务事件三层证据。详见 [`../release/current-business-observation-2026-08-22-1510.md`](../release/current-business-observation-2026-08-22-1510.md)。
+
 ## 2026-08-22 当前执行决策
 
 本节是本轮继续推进时的唯一执行顺序入口；下方历史记录保留证据，但不能覆盖这里的当前状态。
