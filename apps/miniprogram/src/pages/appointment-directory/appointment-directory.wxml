@@ -11,6 +11,13 @@
 		<text>正在加载预约科室...</text>
 	</view>
 
+	<!-- 错误必须先于级联和空态判断，避免 Provider 失败被显示成无科室/无排班。 -->
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+		<text>本次预约目录未加载成功</text>
+		<text class="state-hint">请根据上方提示处理后重试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+	</view>
+
 	<view wx:elif="{{departments.length}}" class="cascade-shell">
 		<!-- 左栏：旧版一级科室导航；只负责改变右栏上下文。 -->
 		<scroll-view class="department-panel" scroll-y>

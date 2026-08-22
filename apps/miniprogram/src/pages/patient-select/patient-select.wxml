@@ -16,6 +16,13 @@
 		<text>正在加载就诊人...</text>
 	</view>
 
+	<!-- 错误不是空目录：独立分支阻止“暂无就诊人”掩盖登录、网络或同步故障。 -->
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+		<text>本次就诊人目录未加载成功</text>
+		<text class="state-hint">请根据上方提示处理后重试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+	</view>
+
 	<view wx:elif="{{patients.length}}" class="patient-list">
 		<view
 			wx:for="{{patients}}"

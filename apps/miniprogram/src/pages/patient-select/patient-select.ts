@@ -31,6 +31,7 @@ import type {
 
 type PatientSelectionPageMethods = {
 	loadPatientList(): Promise<void>;
+	onRetry(): void;
 	onShow(): void;
 	onPatientTap(event: PatientEvent): void;
 	onAddPatient(): void;
@@ -215,6 +216,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 					this.setData({ loading: false });
 				}
 			});
+	},
+
+	/**
+	 * 错误态重试必须重新执行“平台目录读取 + 临床映射同步”完整链路。
+	 * 不能只清除 error 或复用上一轮 patients，否则页面会把旧目录误当成
+	 * 当前会话的可选患者；真正的选择资格只能由本轮同步成功恢复。
+	 */
+	onRetry(): void {
+		void this.loadPatientList();
 	},
 
 	/**

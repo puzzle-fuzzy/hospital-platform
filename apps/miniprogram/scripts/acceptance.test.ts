@@ -154,6 +154,48 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 	}
 });
 
+test("patient selection errors do not fall through to an unbound-patient empty state", async () => {
+	const selection = await source("pages/patient-select/patient-select.ts");
+	const template = await source("pages/patient-select/patient-select.wxml");
+
+	// 目录同步失败可能是会话失效、网络故障或临床映射依赖不可用；这些事实
+	// 不能被渲染成“当前账号暂无就诊人”，否则用户会误以为需要重新绑定患者。
+	const errorBranch =
+		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+	expect(template.indexOf(errorBranch)).toBeGreaterThan(-1);
+	expect(template.indexOf(errorBranch)).toBeLessThan(
+		template.indexOf(
+			'<view wx:elif="{{patients.length}}" class="patient-list">',
+		),
+	);
+	expect(template).toContain('bindtap="onRetry"');
+	expect(selection).toContain("onRetry(): void");
+	expect(selection).toContain("void this.loadPatientList()");
+});
+
+test("appointment directory errors do not fall through to cascade or empty schedule state", async () => {
+	const directory = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const template = await source(
+		"pages/appointment-directory/appointment-directory.wxml",
+	);
+
+	// 科室读取和排班读取都属于同一只读目录链；任一层失败时统一回到完整
+	// 目录重试，不能把旧快照或空数组解释成“没有可预约内容”。
+	const errorBranch =
+		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+	expect(template.indexOf(errorBranch)).toBeGreaterThan(-1);
+	expect(template.indexOf(errorBranch)).toBeLessThan(
+		template.indexOf(
+			'<view wx:elif="{{departments.length}}" class="cascade-shell">',
+		),
+	);
+	expect(template).toContain('bindtap="onRetry"');
+	expect(directory).toContain("onRetry(): void");
+	expect(directory).toContain("void this.loadDirectory()");
+});
+
 test("native client single-flights login and preserves a newer concurrent token", async () => {
 	const client = await source("services/api-client.ts");
 

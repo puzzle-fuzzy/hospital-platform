@@ -24,6 +24,7 @@ const SCHEDULE_PAGE_SIZE = 12;
 type AppointmentDirectoryPageMethods = {
 	loadDirectory(): Promise<void>;
 	loadDepartmentSchedules(departmentId: string): Promise<void>;
+	onRetry(): void;
 	onDepartmentTap(event: WechatMiniprogram.TouchEvent): void;
 	onDateTap(event: WechatMiniprogram.TouchEvent): void;
 	onLoadMore(): void;
@@ -171,6 +172,15 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 					this.setData({ loading: false });
 				}
 			});
+	},
+
+	/**
+	 * 预约目录错误态只允许从头重读科室和排班两层目录。
+	 * 局部保留的旧科室/排班不能在错误恢复时直接使用，否则用户看到的
+	 * 可能是上一轮 Provider 快照，重试也无法证明当前目录已经重新收敛。
+	 */
+	onRetry(): void {
+		void this.loadDirectory();
 	},
 
 	onDepartmentTap(event): void {
