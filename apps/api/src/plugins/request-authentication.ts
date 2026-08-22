@@ -19,6 +19,29 @@ export type RequestPrincipalResolver = {
 };
 
 /**
+ * 判断请求是否恰好命中当前模块声明的公开入口。
+ *
+ * 模块被挂在 `/api/v1` 或 `/api/v2` 分组下时，公开入口配置只保留模块
+ * 相对路径（例如 `/auth/wechat`）。不能直接使用 `endsWith`：否则一个
+ * 未注册的 `/api/v1/other/auth/wechat` 也会因为尾缀相同而跳过认证。
+ * 这里仅允许无分组前缀的单元测试路径，或当前 API 版本分组的精确路径；
+ * 其它路径一律进入 Bearer 校验，保持 fail-closed。
+ */
+export function isPublicRequestPath(
+	pathname: string,
+	publicPathSuffixes: readonly string[],
+): boolean {
+	return publicPathSuffixes.some((suffix) => {
+		const normalizedSuffix = suffix.startsWith("/") ? suffix : `/${suffix}`;
+		if (pathname === normalizedSuffix) return true;
+		if (!pathname.endsWith(normalizedSuffix)) return false;
+
+		const groupPrefix = pathname.slice(0, -normalizedSuffix.length);
+		return /^\/api\/v\d+$/.test(groupPrefix);
+	});
+}
+
+/**
  * 创建模块级认证边界。
  * `publicPathSuffixes` 只用于同一模块中明确存在的公开入口，例如微信登录
  * 和微信支付回调；其它路径默认全部要求平台 Bearer 会话。
@@ -31,7 +54,7 @@ export function createRequestPrincipalResolver(
 
 	const isPublicPath = (request: Request): boolean => {
 		const pathname = new URL(request.url).pathname;
-		return publicPathSuffixes.some((suffix) => pathname.endsWith(suffix));
+		return isPublicRequestPath(pathname, publicPathSuffixes);
 	};
 
 	return {
