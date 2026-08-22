@@ -1,12 +1,12 @@
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。本次主动登录 owner 校验修正已进入最新本地候选，真实真机证据仍待。
+> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本次运行包显式校验修正已进入最新本地候选，真实真机证据仍待。
 
 # 微信授权登录实施与验收手册
-> 当前候选更新（2026-08-22）：服务端 release 为 `0e2a366e`；小程序运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-22）：服务端 release 为 `0e2a366e`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。历史候选仅作追溯。
 
 
-> 当前完整小程序来源校验值：`171a8743185fb4ecc1696851662659c1a0ee7ebf`。
+> 当前完整小程序来源校验值：`4ba492a3fdae8283409bd2ab4a0a45247c46600c`。
 
-> 当前候选：服务端 release `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。
+> 当前候选：服务端 release `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
@@ -17,8 +17,8 @@
 [`release/0e2a366e-production-acceptance-2026-08-22.md`](release/0e2a366e-production-acceptance-2026-08-22.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
-当前小程序候选为 `171a874`，运行包来源指纹为
-`171a8743185fb4ecc1696851662659c1a0ee7ebf`。本候选包含运行包 test/spec 文件边界和成功请求低敏 requestId 观测，
+当前小程序候选为 `4ba492a`，运行包来源指纹为
+`4ba492a3fdae8283409bd2ab4a0a45247c46600c`。本候选包含运行包 test/spec 文件边界和成功请求低敏 requestId 观测，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
@@ -46,7 +46,7 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试；当前候选
-全量小程序测试为 221 项通过、1640 个断言，当前运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`，登录后患者初始化边界见
+全量小程序测试为 221 项通过、1640 个断言，当前运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 

@@ -1,4 +1,4 @@
-> 历史现场记录（2026-08-22）：本记录对应小程序运行包来源 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`），不代表当前候选；当前候选为服务端 `0e2a366e` 与小程序 `171a874`，真实真机证据仍待。
+> 历史现场记录（2026-08-22）：本记录对应小程序运行包来源 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`（提交 `a64fe023`），不代表当前候选；当前候选为服务端 `0e2a366e` 与小程序 `4ba492a`，真实真机证据仍待。
 
 # 小程序运行包 `single-flight.test.js` ENOENT 恢复记录（2026-08-22）
 > 记录时服务端发布基线（2026-08-22 18:55 CST）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；本记录对应的历史小程序来源为 `a64fe023bc34fe6e44f93846c39e202fe02d64a5`。本记录只证明运行包恢复，不证明真机业务验收。
@@ -6,8 +6,8 @@
 > 本文保留多个历史候选的恢复证据，不是当前发布基线。本文记录时的小程序候选以
 > [`candidate-a64fe023-local-build-2026-08-22.md`](candidate-a64fe023-local-build-2026-08-22.md) 和
 > [`miniprogram-devtools-reimport-2026-08-22-1314.md`](miniprogram-devtools-reimport-2026-08-22-1314.md) 为准；当前候选请改用
-> [`candidate-171a874-local-build-2026-08-22.md`](candidate-171a874-local-build-2026-08-22.md)，完整来源为
-> `171a8743185fb4ecc1696851662659c1a0ee7ebf`；配套服务端 release 为
+> [`candidate-4ba492a-local-build-2026-08-22.md`](candidate-4ba492a-local-build-2026-08-22.md)，完整来源为
+> `4ba492a3fdae8283409bd2ab4a0a45247c46600c`；配套服务端 release 为
 > `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
 
 ## 结论

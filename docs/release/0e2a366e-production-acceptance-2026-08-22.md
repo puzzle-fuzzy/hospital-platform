@@ -1,4 +1,4 @@
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。本次主动登录 owner 校验修正已进入最新本地候选，真实真机证据仍待。
+> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本次运行包显式校验修正已进入最新本地候选，真实真机证据仍待。
 
 # `0e2a366e` 新 API 生产共存发布验收记录（2026-08-22）
 
@@ -11,7 +11,7 @@
 | --- | --- |
 | 服务端 release | `0e2a366efcca8da25d7edd4a286781f2d3dfdbec` |
 | 发布前线上 release | `84370077024762d92050cf077c27f3c60302e8f8` |
-| 配套小程序运行包来源 | `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`） |
+| 配套小程序运行包来源 | `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`） |
 | 新 API | 仅切换并重启 `hospital-platform-api-v2.service` |
 | 旧 Python | 未修改、未停止、未重启；`8001` 持续监听，Gunicorn PID 集合保持不变 |
 | Worker | `hospital-platform-worker-v2.service` 未启动，保持 `inactive` |
