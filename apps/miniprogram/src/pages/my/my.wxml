@@ -8,7 +8,10 @@
 	/>
 
 	<view class="page-content">
-		<view wx:if="{{error}}" class="error-message">{{error}}</view>
+		<view wx:if="{{error}}" class="error-message">
+			<text class="error-message-text">{{error}}</text>
+			<text class="error-message-retry" bindtap="onRetry">重新加载</text>
+		</view>
 
 		<!-- 旧端头像区：点击整行进入普通资料编辑，不把头像误当作微信授权结果。 -->
 		<view class="profile-head" bindtap="onHeaderTap">

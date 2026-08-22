@@ -37,7 +37,23 @@ page {
 	color: #ff4444;
 	font-size: 26rpx;
 	line-height: 1.5;
-	text-align: center;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: left;
+}
+
+.error-message-text {
+	min-width: 0;
+	flex: 1;
+}
+
+.error-message-retry {
+	flex: 0 0 auto;
+	margin-left: 16rpx;
+	color: #d9363e;
+	font-weight: 700;
+	white-space: nowrap;
 }
 
 .profile-head {

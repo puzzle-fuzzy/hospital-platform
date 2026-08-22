@@ -1,6 +1,9 @@
 <view class="page">
 	<!-- 网络异常必须出现在页面首部，避免用户先看到不可用的业务入口。 -->
-	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+	<view wx:if="{{error}}" class="error-message">
+		<text class="error-message-text">{{error}}</text>
+		<text class="error-message-retry" bindtap="onRetry">重新加载</text>
+	</view>
 
 	<!-- 顶部卡片：尺寸、层级和内容顺序与旧端首页保持一致。 -->
 	<view class="con-main patient-area">

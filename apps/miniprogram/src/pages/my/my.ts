@@ -38,6 +38,7 @@ type MyPageMethods = {
 	onFamilyTap(): void;
 	onAction(event: ActionEvent): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
+	onRetry(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
@@ -428,6 +429,15 @@ Page<MyPageData, MyPageMethods>({
 
 	onPullDownRefresh(): void {
 		this.loadPage().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/**
+	 * “我的”页错误态的显式恢复入口必须重新组合 `/me`、资料和患者目录。
+	 * 不单独补读某一张卡片，避免资料、当前用户和就诊人数量来自不同会话代际。
+	 */
+	onRetry(): void {
+		if (this.data.loading) return;
+		void this.loadPage();
 	},
 
 	/** 页面卸载后让会话/患者目录读取失去回写资格。 */

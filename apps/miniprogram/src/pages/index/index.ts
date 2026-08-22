@@ -196,6 +196,7 @@ type IndexPageMethods = {
 	onLoadAppointments(): void;
 	onLoadOutpatientPayment(): void;
 	onRefresh(): Promise<void>;
+	onRetry(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	onLoadReports(): void;
@@ -742,6 +743,19 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onPullDownRefresh() {
 		this.onRefresh().finally(() => wx.stopPullDownRefresh());
+	},
+
+	/**
+	 * 首页顶部错误条的显式恢复入口。
+	 *
+	 * 首页错误可能只来自健康检查，也可能来自已登录会话的患者目录；
+	 * 统一复用现有刷新编排，避免另起一条会绕过请求代际和会话守卫的
+	 * “重试”路径。未登录时仍由首页原有登录入口负责建立微信会话，
+	 * 这里只重试当前页面已经展示的可恢复请求。
+	 */
+	onRetry(): void {
+		if (this.data.loading || this.data.syncingPatients) return;
+		void this.onRefresh();
 	},
 
 	/** 页面卸载后让首页的健康、患者目录和同步请求失去回写资格。 */

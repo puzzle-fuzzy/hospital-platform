@@ -658,6 +658,22 @@ test("native profile loading errors expose an explicit canonical reload", async 
 	expect(profile).toContain("void this.loadProfile()");
 });
 
+test("homepage and my page expose explicit retry actions for top errors", async () => {
+	const home = await source("pages/index/index.ts");
+	const homeTemplate = await source("pages/index/index.wxml");
+	const my = await source("pages/my/my.ts");
+	const myTemplate = await source("pages/my/my.wxml");
+
+	expect(home).toContain("onRetry(): void");
+	expect(home).toContain("void this.onRefresh()");
+	expect(homeTemplate).toContain('class="error-message-retry"');
+	expect(homeTemplate).toContain('bindtap="onRetry"');
+	expect(my).toContain("onRetry(): void");
+	expect(my).toContain("void this.loadPage()");
+	expect(myTemplate).toContain('class="error-message-retry"');
+	expect(myTemplate).toContain('bindtap="onRetry"');
+});
+
 test("patient selection hides the current badge while directory confirmation is pending", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 
