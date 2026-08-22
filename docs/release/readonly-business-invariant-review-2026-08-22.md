@@ -59,7 +59,7 @@
 
 - 全仓 `pnpm check`：通过；架构、迁移台账、Provider 接收、日志、发布基线、格式、Lint、工具测试、类型检查、测试和构建均通过；
 - 工具测试：`53 pass / 0 fail / 133 expects`；
-- 原生小程序：`215 pass / 0 fail / 1611 expects`；
+- 原生小程序：`220 pass / 0 fail / 1636 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
 - 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec` 和小程序 `ba1dd23`。
 
@@ -73,7 +73,7 @@
 - `GET https://test-hp.meiyi.pro/api/v2/health/ready`：`200`，`database/redis/schema` 均为 `ok`；
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
-- `pnpm --filter @hospital/miniprogram test`：`215 pass / 0 fail / 1611 expects`；
+- `pnpm --filter @hospital/miniprogram test`：`220 pass / 0 fail / 1636 expects`；
 - `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `0e2a366e`、小程序 `ba1dd23`。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
