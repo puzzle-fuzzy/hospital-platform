@@ -396,8 +396,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 
 ### 2026-08-16 二次盘点证据
 
-- 旧端 `hospital-app/src/pages` 与 `src/pagesB` 共扫描到 64 个 Vue/页面源文件；新端
-  `apps/miniprogram/src/pages` 当前共 16 个 TypeScript 页面源文件，`src/app.json` 也注册 16 个页面，
+- 旧端 `hospital-app/src/pages` 与 `src/pagesB` 共扫描到 64 个 Vue/页面源文件；当时新端
+  `apps/miniprogram/src/pages` 共 14 个 TypeScript 页面源文件，`src/app.json` 也注册 14 个页面，
   本次没有发现漏登记页面。
 - 新端构建会动态读取 `app.json`，检查每个注册页面的 `.json/.wxml/.wxss/.ts` 源文件和 `dist/*.js` 是否生成；
   API 测试会检查 OpenAPI 的每个 method/path 是否出现在 [`api-v2-public.md`](../api-v2-public.md)，因此“页面存在但
