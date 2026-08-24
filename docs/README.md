@@ -37,11 +37,12 @@
 > `hospital-platform-api-v2.service=active`、Worker=`inactive`；内网和公网 readiness 均为 200，database/redis/schema 均为 `ok`，启动日志为 production。
 > 本次没有执行重启或配置/数据写入，详见 [`release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md)。
 
-> 当前本地未发布小程序候选的页面代码基线为 `dc287a4a82ceaded88909250cd9c8f13741670ab`（提交 `dc287a4a`）。
-> 本轮在原生 `tabBar.custom=false` 和四个主 Tab 页面级滚动隔离的基础上，统一挂号、报告、门诊缴费错误态的患者选择入口：只有明确患者上下文错误才显示“选择就诊人”，服务故障只允许重试；构建产物位于 `apps/miniprogram/dist/`。
-> 当前运行包已完成构建与 `runtime:verify`；不得把本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。
+> 当前本地未发布小程序候选的页面代码基线为 `ce3d4b964546317f6c3a658b1b14b31ace39ed94`（提交 `ce3d4b96`）。
+> 本轮在原生 `tabBar.custom=false` 和四个主 Tab 页面级滚动隔离的基础上，锁定主 Tab 只能使用 `switchTab`，防止普通页面栈导航导致底栏闪动和选中态丢失；构建产物位于 `apps/miniprogram/dist/`。
+> 当前运行包已完成构建与 `runtime:verify`；不得把本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。详见
+> [`release/candidate-ce3d4b96-native-tab-route-lock-2026-08-24.md`](release/candidate-ce3d4b96-native-tab-route-lock-2026-08-24.md)。
 
-> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册当前绑定 `dc287a4a`，只覆盖原生主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
+> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册的业务范围仍只覆盖原生主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回；运行包来源应以 `ce3d4b96` 为准。
 > 当前候选构建和错误态修正记录：[`release/candidate-dc287a4a-patient-error-gate-2026-08-24.md`](release/candidate-dc287a4a-patient-error-gate-2026-08-24.md)。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
 > [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。

@@ -25,7 +25,16 @@
 本机 `project.private.config.json` 必须保持 `ignoreDevUnusedFiles=false`。运行目录使用
 TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文件”分析可能无法识别页面脚本的间接
 `require` 依赖；开启该选项会把实际存在的 `services/*.js` 从调试模块图排除，造成
-`module ... is not defined`。修改源码后先执行构建，再在开发者工具中执行一次普通编译。
+`module ... is not defined`。同时建议保持 `compileHotReLoad=false`：热重载会在 `dist/`
+替换或页面重新编译时制造短暂的底部导航闪动，不能作为真机 Tab 共享行为验收依据。
+修改源码后先执行构建，再在开发者工具中执行一次普通编译。
+
+四个主入口使用微信原生 `tabBar.custom=false`，因此底部导航不属于任何一个页面的 WXML，
+也不能在首页或“我的”页面复制一份自绘底栏。用户直接点击底部导航时由微信维护共享实例和
+选中图标；业务代码若需要程序化打开主 Tab，必须调用
+`src/services/patient-navigation.ts` 的 `switchToPrimaryTab`（内部使用 `wx.switchTab`），
+普通业务页才使用 `wx.navigateTo`。这样不会把“我的”压进普通页面栈，也不会出现每页重新创建
+底栏导致的闪动或选中态丢失。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的
