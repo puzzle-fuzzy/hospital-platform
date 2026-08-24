@@ -333,8 +333,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		}
 		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
 			// 标签切换虽然是本地动作，但它会改变当前列表视图；旧会话的列表
-			// 不应在新会话已经建立后继续被用户消费。
-			void this.loadRecords();
+			// 不应在新会话已经建立后继续被用户消费。这里必须把用户刚点击的
+			// activeTab 显式传给下一轮组合读取；如果只调用无参 loadRecords，
+			// 它会捕获旧的 this.data.activeTab，造成“标签显示全部但请求仍是在线”
+			// 的业务事实错配。
+			this.setData({ activeTab });
+			void this.loadRecords(activeTab);
 			return;
 		}
 		this.setData({ activeTab });

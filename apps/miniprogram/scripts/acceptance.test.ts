@@ -71,7 +71,9 @@ test("native DevTools project isolates dist runtime from TypeScript source", asy
 	});
 
 	const runtimeProjectConfig = JSON.parse(
-		await Bun.file(join(import.meta.dir, "..", "dist", "project.config.json")).text(),
+		await Bun.file(
+			join(import.meta.dir, "..", "dist", "project.config.json"),
+		).text(),
 	) as {
 		miniprogramRoot?: string;
 		setting?: {
@@ -1894,6 +1896,24 @@ test("native appointment tabs use server-owned read scopes", async () => {
 	expect(records).not.toContain("requestChannel");
 	expect(client).toContain("scope=all");
 	expect(template).not.toContain("status-tab-disabled");
+});
+
+test("native appointment tab intent survives a stale patient reload", async () => {
+	const records = await source(
+		"pages/appointment-records/appointment-records.ts",
+	);
+	const stalePatientStart = records.indexOf(
+		"if (this.data.selectedPatient && !this.isPatientContextCurrent())",
+	);
+	const stalePatientBody = records.slice(
+		stalePatientStart,
+		stalePatientStart + 520,
+	);
+
+	// 患者代际失效时，重建 `/me` → 患者目录 → 记录查询链路不能丢掉用户
+	// 刚点击的标签意图；否则页面标签和服务端查询范围会暂时不一致。
+	expect(stalePatientBody).toContain("this.setData({ activeTab });");
+	expect(stalePatientBody).toContain("void this.loadRecords(activeTab);");
 });
 
 test("outpatient payment tabs cannot cancel the initial patient load", async () => {
