@@ -33,12 +33,12 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
-> 当前本地未发布小程序候选的页面代码基线为 `4d1684c449228b86674f85fffdd873cde151792e`（提交 `4d1684c4`）。
-> 本轮在原生 `tabBar.custom=false` 和四个主 Tab 页面级滚动隔离的基础上，收紧挂号错误态的患者选择入口：只有明确患者上下文错误才显示“选择就诊人”，服务故障只允许重试；构建产物位于 `apps/miniprogram/dist/`。
+> 当前本地未发布小程序候选的页面代码基线为 `dc287a4a82ceaded88909250cd9c8f13741670ab`（提交 `dc287a4a`）。
+> 本轮在原生 `tabBar.custom=false` 和四个主 Tab 页面级滚动隔离的基础上，统一挂号、报告、门诊缴费错误态的患者选择入口：只有明确患者上下文错误才显示“选择就诊人”，服务故障只允许重试；构建产物位于 `apps/miniprogram/dist/`。
 > 当前运行包已完成构建与 `runtime:verify`；不得把本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。
 
-> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册当前绑定 `4d1684c4`，只覆盖原生主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
-> 当前候选构建和错误态修正记录：[`release/candidate-4d1684c4-appointment-error-gate-2026-08-24.md`](release/candidate-4d1684c4-appointment-error-gate-2026-08-24.md)。
+> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册当前绑定 `dc287a4a`，只覆盖原生主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
+> 当前候选构建和错误态修正记录：[`release/candidate-dc287a4a-patient-error-gate-2026-08-24.md`](release/candidate-dc287a4a-patient-error-gate-2026-08-24.md)。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
 > [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。
 
