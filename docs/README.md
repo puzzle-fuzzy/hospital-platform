@@ -3,7 +3,7 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1903 expect()` 已通过。本轮继续把开发者工具工程的 `src/`/`scripts/` 与 `dist/` 运行层隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对这份完整 revision，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
+> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=46563fe2e05c49c5899fca93e1dd60831c3d4017`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1903 expect()` 已通过。本轮继续把开发者工具工程的 `src/`/`scripts/` 与 `dist/` 运行层隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对这份完整 revision，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 本轮又针对主 Tab 闪动和选中态消失重置、关闭并重新打开了正确的微信工程，重新构建和校验 `dist/`；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
@@ -47,9 +47,9 @@
 > `hospital-platform-api-v2.service=active`、Worker=`inactive`；内网和公网 readiness 均为 200，database/redis/schema 均为 `ok`，启动日志为 production。
 > 本次没有执行重启或配置/数据写入，详见 [`release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md)。
 
-> 当前本地未发布小程序候选的运行输入为 `46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884`（提交 `46563fe`）。公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，项目忽略清单不允许工具把 `src/` 和 `scripts/` 当运行层监听，当前源码 `app.json` 注册 16 个页面；`dist/build-info.json` 已与该运行输入一致。
+> 当前本地未发布小程序候选的运行输入为 `46563fe2e05c49c5899fca93e1dd60831c3d4017`（提交 `46563fe`）。公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，项目忽略清单不允许工具把 `src/` 和 `scripts/` 当运行层监听，当前源码 `app.json` 注册 16 个页面；`dist/build-info.json` 已与该运行输入一致。
 > 本轮继续使用微信原生 `tabBar`：四项路由和选中图标统一由 `app.json.tabBar.list` 管理，构建产物位于 `apps/miniprogram/dist/`；本次构建和 `runtime:verify` 均已通过。
-> 本地候选仍未上传微信或替换线上 `13f597e`，真机验收必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884`。历史 `0f40ab9`、`7a85dce8` 和 `f4c844c1` 仅作候选追溯，当前执行入口见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
+> 本地候选仍未上传微信或替换线上 `13f597e`，真机验收必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `46563fe2e05c49c5899fca93e1dd60831c3d4017`。历史 `0f40ab9`、`7a85dce8` 和 `f4c844c1` 仅作候选追溯，当前执行入口见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 患者错误态基础修正记录（历史代码候选 `dc287a4a`）：[`release/candidate-dc287a4a-patient-error-gate-2026-08-24.md`](release/candidate-dc287a4a-patient-error-gate-2026-08-24.md)；上一轮原生 Tab 结构记录见 [`release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md`](release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md)，上一轮运行包配置门禁见 [`release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md`](release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md)。
 > 当前线上只读业务关联观察：[`release/current-business-correlation-observation-2026-08-24-1737.md`](release/current-business-correlation-observation-2026-08-24-1737.md)。预约历史、预约目录和门诊费用服务器链路已通过同链 HTTP 2xx，但页面/客户端证据仍待补齐。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见

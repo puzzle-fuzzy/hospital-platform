@@ -1,5 +1,5 @@
 > 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端独立 adapter 发布已完成，真机业务三层证据仍待。
-> 当前下一步只读核对（2026-08-24）：通过内网专用 inspection key 对 `192.168.112.172` 做只读检查，新 API `hospital-platform-api-v2.service` 仍为 `active`、监听 `10.0.0.3:18081`，旧 Python Gunicorn 仍监听 `0.0.0.0:8001`，Worker 保持 `inactive`；`/health/ready` 返回 200，database/redis/schema 均为 `ok`。最近 30 分钟没有新的 `outpatient.payment.records.*` 事件，不能把服务器“无请求”解释为费用页面成功或失败；下一步必须先对本地未发布服务端候选 `4404c556` 做受控 preflight，再使用小程序运行包 `46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884` 取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 的同链证据。本次没有重启、写配置、写 MySQL/Redis 或修改旧 Python 服务。
+> 当前下一步只读核对（2026-08-24）：通过内网专用 inspection key 对 `192.168.112.172` 做只读检查，新 API `hospital-platform-api-v2.service` 仍为 `active`、监听 `10.0.0.3:18081`，旧 Python Gunicorn 仍监听 `0.0.0.0:8001`，Worker 保持 `inactive`；`/health/ready` 返回 200，database/redis/schema 均为 `ok`。最近 30 分钟没有新的 `outpatient.payment.records.*` 事件，不能把服务器“无请求”解释为费用页面成功或失败；下一步必须先对本地未发布服务端候选 `4404c556` 做受控 preflight，再使用小程序运行包 `46563fe2e05c49c5899fca93e1dd60831c3d4017` 取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 的同链证据。本次没有重启、写配置、写 MySQL/Redis 或修改旧 Python 服务。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 > 当前业务修正（2026-08-24）：已确认生产 Provider 的渠道 3 在线记录与渠道 4 全部历史均可只读返回；“我的挂号”使用服务端拥有的 `scope=online|all` 双查询，全部标签重新请求渠道 4 并保留取消记录。该修正已随此前服务端候选进入线上，当前 `8eb51b5f` 仅补强四个只读 adapter 的运行时输入门禁，支付、医保、预约写入、取消和 HIS 回写仍不受影响。
 > 当前健康域复核（2026-08-24）：健康百科工程骨架已具备，但没有真实脱敏内容 bundle、临床审核和 staging 发布/撤回证据；旧端自测评分、BMI/血压分类存在规则版本与适用人群缺口。健康百科、自测、风险评估和计算器继续保持关闭态，不导入 fixture、不挂载患者路由。详见 [`migration/health-content-and-self-test-audit-2026-08-24.md`](migration/health-content-and-self-test-audit-2026-08-24.md)。
@@ -12,7 +12,7 @@
 > 上一轮开发者工具复核（2026-08-24）曾加载旧运行包；该段只保留缓存隔离历史，不代表当前运行包。当前正确结构不包含 `custom-tab-bar/`、页面级底栏或第二套 selected 状态；会话失效回首页也已从 `reLaunch` 收口到 `switchTab`。
 > 当前开发者工具执行要求：必须打开 `apps/miniprogram/` 根工程并普通编译当前 `dist/build-info.json` 对应 revision，再确认首页和“就诊”页只有一份微信原生底栏，切换后当前图标/文字变蓝。历史线上 `13f597e` 不能作为本次 Tab 行为证据，不能打开 `src/` 或 `dist/` 子目录，也不能新增页面级底栏。
 
-> 本轮后续唯一执行入口：先按本地服务端候选 `4404c556` 的受控发布门禁完成新旧服务共存 preflight，再使用小程序运行包 `46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884` 在正确项目中普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
+> 本轮后续唯一执行入口：先按本地服务端候选 `4404c556` 的受控发布门禁完成新旧服务共存 preflight，再使用小程序运行包 `46563fe2e05c49c5899fca93e1dd60831c3d4017` 在正确项目中普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
 > 当前小程序会话/导航门禁（2026-08-24，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，底栏由微信原生 `tabBar` 统一维护，会话恢复期间患者卡片只显示固定占位。本轮小程序回归为 `238/238` 通过、`1903` 个断言，运行包来源为 `46563fe`；真机页面证据仍待。
 > 当前日志链路审计（2026-08-24，服务端已随 `8eb51b5f` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
@@ -22,7 +22,7 @@
 
 # 下一阶段实施路线图
 
-> 当前本地小程序候选为 `46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884`（提交 `46563fe`），`dist/` 原子发布与 `runtime:verify` 已通过；本轮继续使用微信原生 `tabBar`，普通/选中资源使用独立 `-native` 路径。此前的 `acfacc83`、`0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`39b50d5`、`22dd3532` 仅保留为历史来源记录，不能再作为当前二维码或真机验收入口。当前小程序候选仍未上传微信，必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884`；服务端本地未发布修正另见 `4404c556`。
+> 当前本地小程序候选为 `46563fe2e05c49c5899fca93e1dd60831c3d4017`（提交 `46563fe`），`dist/` 原子发布与 `runtime:verify` 已通过；本轮继续使用微信原生 `tabBar`，普通/选中资源使用独立 `-native` 路径。此前的 `acfacc83`、`0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`39b50d5`、`22dd3532` 仅保留为历史来源记录，不能再作为当前二维码或真机验收入口。当前小程序候选仍未上传微信，必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `46563fe2e05c49c5899fca93e1dd60831c3d4017`；服务端本地未发布修正另见 `4404c556`。
 > 当前执行基线（2026-08-24）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。下方带历史日期的候选只作追溯。
 
 

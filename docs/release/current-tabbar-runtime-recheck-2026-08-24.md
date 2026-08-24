@@ -47,7 +47,7 @@ Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
 控制台应出现：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=46563fe2b7c832e2fca3f0a40bd2ca1a1b2a6884
+[医院小程序] 运行包来源：微信原生 tabBar；revision=46563fe2e05c49c5899fca93e1dd60831c3d4017
 ```
 
 随后依次点击四个主 Tab，必须确认：
