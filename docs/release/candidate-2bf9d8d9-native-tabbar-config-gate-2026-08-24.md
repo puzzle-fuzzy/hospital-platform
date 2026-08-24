@@ -31,6 +31,18 @@
 - 当前 `dist/app.json` 使用原生 `tabBar.custom=false`、`position=bottom`，四项页面和八个图标资源均存在；
 - `dist/` 不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。
 
+## 2026-08-24 现场工具观察
+
+本次通过微信开发者工具 Stable `2.01.2510290` 打开的项目根目录为
+`E:\__Super_Core__\hospital-platform\apps\miniprogram`，模拟器实际页面路径依次观察到
+`pages/index/index`、`pages/my/my` 和 `pages/consult/consult`。切换过程中底部始终只有
+一份原生 TabBar；“医疗服务”“我的”“就诊”当前项分别显示蓝色选中图标，其余项保持灰色，
+未观察到页面级第二套底栏或选中图标丢失。
+
+随后从同一项目重新生成二维码真机调试候选。二维码有效期为 `2026-08-24 19:11`，
+这只代表本机候选已重新编译并可供扫码，不代表真机已经完成验收；真机仍需扫码后重复
+四项 Tab 切换并记录是否仍然出现闪动。
+
 ## 真机导入边界
 
 1. 关闭所有指向旧 `src/`、旧 `mp-weixin` 或线上包的微信开发者工具窗口和真机调试会话；
