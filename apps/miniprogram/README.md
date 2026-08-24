@@ -1,6 +1,6 @@
 # Native WeChat Mini Program
 
-> 当前运行包（2026-08-25）：`0a8567b143d16611a02b693e0602b410ab04d108`。四个主入口使用微信官方 `custom-tab-bar` 唯一组件；选中态由点击即时态和当前页面 route 双重校正，不在页面模板内复制底栏。真机验收必须直接打开 `apps/miniprogram/dist/`，详见 [`../../docs/release/current-custom-tabbar-runtime-recheck-2026-08-25.md`](../../docs/release/current-custom-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前运行包（2026-08-25）：`0dd1b65b`。四个主入口使用微信官方 `custom-tab-bar` 唯一组件；选中态由点击即时态、当前页面 route 和四个主页面 onShow 三处校正，不在页面模板内复制底栏。真机验收必须直接打开 `apps/miniprogram/dist/`，详见 [`../../docs/release/current-custom-tabbar-runtime-recheck-2026-08-25.md`](../../docs/release/current-custom-tabbar-runtime-recheck-2026-08-25.md)。
 
 ## Visual baseline
 

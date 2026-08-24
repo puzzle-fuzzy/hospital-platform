@@ -10,6 +10,8 @@
 - `src/custom-tab-bar/` 是四个主 Tab 的唯一底栏组件，普通业务页不渲染它；
 - 页面仍只能通过 `wx.switchTab` 切换主 Tab，不能用 `navigateTo` 压入普通页面栈；
 - 点击时先在唯一组件实例中更新选中图标，路由成功后由当前页面 route 再校正；
+- 四个主 Tab 的 `onShow` 都通过 `getTabBar().syncSelectedTab()` 再同步一次完整菜单模型，
+  不只更新一个数字字段，避免 active 图标仍停留在上一项；
 - 读取页面栈失败时不再错误回退到“医疗服务”，避免选中态在切换中间帧消失；
 - 路由失败才回滚上一次选中项，点击锁释放后不主动覆盖目标页的 selected 状态；
 - 四个页面自身没有 `legacy-tabbar`，页面滚动区仍只预留一份固定底栏高度。
@@ -18,15 +20,15 @@
 
 ## 当前候选与运行包证据
 
-- 源码提交：`0a8567b143d16611a02b693e0602b410ab04d108`，已提交到本地 `main`；
+- 源码提交：`0dd1b65bfda3a3aab96dace551a47150b5ba7fe8`，已推送到 `origin/main`；
 - 运行包：`apps/miniprogram/dist/`；
-- 新预览二维码：`.local/hospital-miniprogram/tabbar-preview-0a8567b.png`；
-- `dist/build-info.json.sourceRevision=0a8567b143d16611a02b693e0602b410ab04d108`；
+- 新预览二维码：`.local/hospital-miniprogram/tabbar-preview-0dd1b65.png`；
+- `dist/build-info.json.sourceRevision=0dd1b65bfda3a3aab96dace551a47150b5ba7fe8`；
 - `dist/app.json.tabBar.custom=true`、`position=bottom`；
 - `dist/custom-tab-bar/index.js/index.json/index.wxml/index.wxss` 均存在；
 - 16 个页面脚本存在，`*.test.js` 和 `*.spec.js` 为 0；
 - `pnpm --filter @hospital/miniprogram runtime:verify` 已通过；
-- 小程序 240 个测试通过，0 个失败，1933 个断言；
+- 小程序 241 个测试通过，0 个失败，1934 个断言；
 - 构建时开发者工具曾锁住旧 `dist`，候选先保存在 `.local/hospital-miniprogram/pending`，关闭开发者工具后台进程后通过 `runtime:publish-pending` 原子发布；旧完整运行包不会在构建中被清空。
 
 ## 真机验收要求
@@ -40,7 +42,7 @@ E:\__Super_Core__\hospital-platform\apps\miniprogram\dist
 启动日志应包含：
 
 ```text
-[医院小程序] 运行包来源：微信 custom-tab-bar；revision=0a8567b143d16611a02b693e0602b410ab04d108
+[医院小程序] 运行包来源：微信 custom-tab-bar；revision=0dd1b65bfda3a3aab96dace551a47150b5ba7fe8
 ```
 
 依次点击“医疗服务、就诊、互联网医院、我的”，记录以下结果：

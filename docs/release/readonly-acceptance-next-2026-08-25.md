@@ -1,9 +1,9 @@
 # 当前候选只读业务验收手册（2026-08-25）
 
-> 当前本地小程序运行候选：`21cddff8`。开发者工具必须直接打开
+> 当前本地小程序运行候选：`0dd1b65b`。开发者工具必须直接打开
 > `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist\`，不能打开父目录、`src/` 或历史
-> `mp-weixin` 工程。运行包已经通过 `runtime:verify`，四个主 Tab 使用同一个原生 `tabBar`，
-> `custom=false`；本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。
+> `mp-weixin` 工程。运行包已经通过 `runtime:verify`，四个主 Tab 使用同一个微信官方
+> `custom-tab-bar`；本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。
 
 ## 1. 本轮允许验收的范围
 
@@ -22,9 +22,9 @@
 1. 关闭旧的 `src/`、父目录和历史 `mp-weixin` 工程，只保留 `apps/miniprogram/dist/`。
 2. 清理开发者工具编译缓存后重新编译；如果工具仍显示旧页面脚本或旧图标，关闭项目并重新打开 `dist/`，不要通过继续刷新旧窗口解决。
 3. 检查底部栏：四个主页面必须是 `pages/index/index`、`pages/consult/consult`、`pages/hospital/hospital`、
-   `pages/my/my`；点击它们必须使用原生 `switchTab`，底部栏不能由页面 WXML 自己绘制。
-4. 预览/真机扫码时记录运行包候选 `21cddff8` 和微信开发者工具显示的项目根；当前二维码为
-   `.local/hospital-miniprogram/tabbar-preview-21cddff8.png`，不能把旧二维码或历史运行包证据归入本候选。
+   `pages/my/my`；点击它们必须使用 `switchTab`，底部栏只能由根目录 `custom-tab-bar/` 组件绘制，不能由页面 WXML 自己复制。
+4. 预览/真机扫码时记录运行包候选 `0dd1b65b` 和微信开发者工具显示的项目根；当前二维码为
+   `.local/hospital-miniprogram/tabbar-preview-0dd1b65.png`，不能把旧二维码或历史运行包证据归入本候选。
 
 ## 3. 设备操作顺序
 
