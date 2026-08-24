@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { MAX_APPOINTMENT_SCHEDULE_ITEMS } from "@hospital/domain";
+import { ProviderRequestError } from "./errors";
 import { createZhongyangAppointmentGateway } from "./zhongyang-appointments";
 
 const context = {
@@ -448,6 +449,39 @@ test("众阳全部预约记录使用渠道 4 且不附带日期窗口", async ()
 	expect(result.records).toEqual([
 		{ workDate: "2026-01-05", status: "cancelled" },
 	]);
+});
+
+test("众阳预约记录 adapter 在触网前拒绝未知范围和混合日期", async () => {
+	let providerCalls = 0;
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			providerCalls += 1;
+			return new Response(JSON.stringify({ success: true, data: [] }), {
+				status: 200,
+			});
+		},
+	});
+
+	const cases = [
+		{ scope: "provider-4" },
+		{ scope: "all", startDate: "2026-08-01" },
+		{ scope: "online", startDate: "2026-08-31", endDate: "2026-08-01" },
+	] as const;
+
+	for (const query of cases) {
+		await expect(
+			gateway.listRecords(
+				{
+					providerPatientId: "provider-patient-001",
+					query: query as never,
+				},
+				context,
+			),
+		).rejects.toBeInstanceOf(ProviderRequestError);
+	}
+	// 任何不明确的范围都必须在 Provider 请求之前失败，不能依赖上游返回错误。
+	expect(providerCalls).toBe(0);
 });
 
 test("众阳预约记录从 group 时间段归一化 workTime，不透传原始日期时间", async () => {

@@ -142,6 +142,123 @@ function responseItems(
 	return envelope.data.map((item) => objectValue(item, operation, requestId));
 }
 
+const RECORD_QUERY_FIELDS = new Set(["scope", "startDate", "endDate"]);
+
+function invalidRecordQuery(operation: string, message: string): never {
+	// service 层已经校验过 HTTP 输入，但 adapter 也可能被回放任务、Worker
+	// 或未来组合根直接调用。这里把调用方错误挡在 Provider 之前，不能让
+	// 未知 scope 变成 `requestChannel=undefined`，也不能让 all 意图带上
+	// 日期后被 Provider 按另一种默认语义解释。
+	throw providerError(operation, message, undefined, false);
+}
+
+/**
+ * 预约记录 adapter 的运行时查询门禁。
+ *
+ * TypeScript 的 `AppointmentRecordQuery` 只在编译期存在；直接调用方仍可能
+ * 传入 null、未知字段、非法日期或混合范围。这里重新投影为 canonical query，
+ * 保证发给众阳的渠道和日期语义只有两种明确组合：在线 + 合法日期窗口，或
+ * 全部 + 不带日期。HTTP/service 已经做过一次校验，但不能把 adapter 当作
+ * 永远可信的最后一层。
+ */
+function normalizeRecordQuery(
+	value: unknown,
+	operation: string,
+): AppointmentRecordQuery {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return invalidRecordQuery(
+			operation,
+			"Zhongyang appointment query is invalid",
+		);
+	}
+	const record = value as Record<string, unknown>;
+	if (Object.keys(record).some((field) => !RECORD_QUERY_FIELDS.has(field))) {
+		return invalidRecordQuery(
+			operation,
+			"Zhongyang appointment query contains an unknown field",
+		);
+	}
+
+	const rawScope = record.scope;
+	const scope: AppointmentRecordScope =
+		rawScope === undefined
+			? "online"
+			: rawScope === "online" || rawScope === "all"
+				? rawScope
+				: invalidRecordQuery(
+						operation,
+						"Zhongyang appointment query scope is invalid",
+					);
+
+	if (scope === "all") {
+		if (record.startDate !== undefined || record.endDate !== undefined) {
+			return invalidRecordQuery(
+				operation,
+				"Zhongyang appointment all-scope query cannot include a date range",
+			);
+		}
+		return { scope: "all" };
+	}
+
+	const startDate = record.startDate;
+	const endDate = record.endDate;
+	const start =
+		typeof startDate === "string" ? parseIsoCalendarDate(startDate) : undefined;
+	const end =
+		typeof endDate === "string" ? parseIsoCalendarDate(endDate) : undefined;
+	if (
+		typeof startDate !== "string" ||
+		typeof endDate !== "string" ||
+		start === undefined ||
+		end === undefined ||
+		start > end
+	) {
+		return invalidRecordQuery(
+			operation,
+			"Zhongyang appointment online date range is invalid",
+		);
+	}
+	return {
+		...(rawScope === "online" ? { scope: "online" } : {}),
+		startDate,
+		endDate,
+	};
+}
+
+/** 先校验 adapter 入参外壳，避免错误对象在属性读取时变成普通 TypeError。 */
+function normalizeRecordInput(
+	value: unknown,
+	operation: string,
+): { providerPatientId: string; query: AppointmentRecordQuery } {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return invalidRecordQuery(
+			operation,
+			"Zhongyang appointment record input is invalid",
+		);
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		Object.keys(record).some(
+			(field) => field !== "providerPatientId" && field !== "query",
+		)
+	) {
+		return invalidRecordQuery(
+			operation,
+			"Zhongyang appointment record input contains an unknown field",
+		);
+	}
+	if (typeof record.providerPatientId !== "string") {
+		return invalidRecordQuery(
+			operation,
+			"Zhongyang appointment provider patient reference is invalid",
+		);
+	}
+	return {
+		providerPatientId: record.providerPatientId,
+		query: normalizeRecordQuery(record.query, operation),
+	};
+}
+
 function requiredText(
 	value: unknown,
 	field: string,
@@ -634,18 +751,20 @@ export class ZhongyangAppointmentApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-records";
-		const providerPatientId = requiredConfig(input.providerPatientId);
+		const normalizedInput = normalizeRecordInput(input, operation);
+		const providerPatientId = requiredConfig(normalizedInput.providerPatientId);
 		const url = new URL(
 			`${RECORD_PATH}${encodeURIComponent(providerPatientId)}`,
 			this.baseUrl,
 		);
-		const scope = input.query.scope ?? "online";
+		const query = normalizedInput.query;
+		const scope = query.scope ?? "online";
 		url.searchParams.set("requestChannel", RECORD_REQUEST_CHANNELS[scope]);
 		// 旧端的全部挂号调用渠道 4 时省略日期参数，Provider 才会返回
 		// 完整历史；在线渠道仍必须携带平台限制的日期窗口。
 		if (scope === "online") {
-			url.searchParams.set("startDate", input.query.startDate ?? "");
-			url.searchParams.set("endDate", input.query.endDate ?? "");
+			url.searchParams.set("startDate", query.startDate ?? "");
+			url.searchParams.set("endDate", query.endDate ?? "");
 		}
 		url.searchParams.set("isMzFlag", "1");
 		url.searchParams.set("dateFlag", "1");
