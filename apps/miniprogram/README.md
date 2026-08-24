@@ -15,7 +15,9 @@
 
 页面只能通过 `src/services/api-client.ts` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
-微信开发者工具的 `src/project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
+微信开发者工具的 `project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
+
+仓库内只能存在 `apps/miniprogram/project.config.json` 这一套微信项目配置。不要在 `src/` 下创建或恢复 `project.config.json`、`project.private.config.json`：嵌套配置会让开发者工具同时监听源码和 `dist/`，旧的增量页面图可能造成主 Tab 闪动、选中态丢失和页面脚本 404。若本机已经存在这两个文件，请先关闭开发者工具后删除，再重新打开 `apps/miniprogram/`。
 
 打开项目时请选择 `apps/miniprogram/`，不要直接把 `apps/miniprogram/src/` 作为微信项目根目录。
 公共配置中的 `miniprogramRoot` 指向构建生成的 `dist/`，源码仍位于 `src/`；这样开发者工具和真机

@@ -15,7 +15,7 @@ const source = join(root, "src");
 const runtime = join(root, "dist");
 const projectConfigPath = join(root, "project.config.json");
 const privateProjectConfigPath = join(root, "project.private.config.json");
-const legacySourceProjectConfigPath = join(source, "project.config.json");
+const nestedSourceProjectConfigPath = join(source, "project.config.json");
 const buildConfigPath = join(root, "tsconfig.build.json");
 const requiredStaticFiles = [
 	"app.json",
@@ -168,34 +168,19 @@ if (
 }
 
 /**
- * 开发者工具曾经可以直接把 `src/` 当作小程序根目录，并在其中生成一份
- * project.config.json。这个本机文件一旦继续使用，工具会绕过完整的 dist
- * 运行包，重新编译源码或加载旧的增量页面图，正是“底栏闪动/选中态丢失”
- * 和页面脚本 404 反复出现的共同来源。若文件存在，只允许它兼容性地指向
- * ../dist/；干净 CI 没有这个本机文件时不受影响。
+ * 开发者工具不能同时看到“仓库根项目”和嵌套在 src/ 里的第二个项目。
+ *
+ * 之前为了兼容误打开 src/ 的场景，在 src/ 下保留过一份被忽略的
+	 * project.config.json。它会让微信工具监听并增量编译 src/app.json、旧的
+	 * 自绘底栏目录以及生成的 *.js；即使 dist/ 已经是完整运行包，工具仍可能
+ * 把两套页面图拼在一起，表现为主 Tab 闪动、选中图标消失和页面 404。
+ * 现在只允许 apps/miniprogram/project.config.json 作为微信项目入口；发现
+ * 嵌套配置就直接阻断构建，避免把不确定的开发者工具状态带入真机验收。
  */
-try {
-	const legacySourceProjectConfig = JSON.parse(
-		await Bun.file(legacySourceProjectConfigPath).text(),
-	) as { miniprogramRoot?: unknown };
-	if (legacySourceProjectConfig.miniprogramRoot !== "../dist/") {
-		throw new Error(
-			"apps/miniprogram/src/project.config.json must point to ../dist/; open apps/miniprogram as the DevTools project root",
-		);
-	}
-} catch (error) {
-	if (error instanceof SyntaxError) {
-		throw new Error(
-			"apps/miniprogram/src/project.config.json is invalid; remove the stale DevTools project or point it to ../dist/",
-			{ cause: error },
-		);
-	}
-	if (
-		error instanceof Error &&
-		error.message.startsWith("apps/miniprogram/src/project.config.json")
-	) {
-		throw error;
-	}
+if (await Bun.file(nestedSourceProjectConfigPath).exists()) {
+	throw new Error(
+		"apps/miniprogram/src/project.config.json must be removed; open apps/miniprogram as the only DevTools project root",
+	);
 }
 
 const appConfig = JSON.parse(
