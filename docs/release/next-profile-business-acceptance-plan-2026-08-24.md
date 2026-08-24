@@ -11,7 +11,7 @@
 | 项目 | 当前事实 | 说明 |
 | --- | --- | --- |
 | 新 API | 生产 release `8eb51b5f` | 只读复核显示与旧 Python `8001` 共存；本轮不切换服务 |
-| 小程序候选 | `ecff1f9ca97a1fb47ee090810a92a5fe533779f9` | 使用微信原生共享 `tabBar`，直接打开 `apps/miniprogram/dist/` 独立工程；不含页面级底栏，构建与运行包校验已通过 |
+| 小程序候选 | `45742ff4450b223b8db3b36e4a3859e3fc86e1c5` | 使用微信原生共享 `tabBar`，直接打开 `apps/miniprogram/dist/` 独立工程；不含页面级底栏，构建与运行包校验已通过 |
 | 资料字段 | 昵称、性别、年龄、邮箱、`version` | 不接受头像、手机号、身份证、实名字段、`openid`、`unionid` 或患者字段 |
 | 写入策略 | `version` 条件更新 | 成功后必须返回 `expectedVersion + 1`；旧版本返回 `user-profile-conflict` |
 | 日志 | `user.profile.*` + HTTP `x-request-id`/`traceId` | 不记录 userId、昵称、邮箱、Authorization 或请求正文 |
@@ -34,12 +34,27 @@
 `http.request.failed`、`requestId`、`traceId`、路径、状态码和错误码，没有记录 Authorization 或请求正文。
 这只能证明认证边界和日志链路正常，不能替代微信登录后的资料 GET，更不能替代 PUT/409 验收。
 
+## 当前 SSH 只读复核（2026-08-25 00:54 CST）
+
+通过 `ps@192.168.112.172` 的 inspection key 只读核对，没有修改配置、重启服务、写入数据库/Redis 或读取患者/Provider 原始数据：
+
+| 检查项 | 结果 |
+| --- | --- |
+| `current` 发布目录 | `/home/ps/code/hospital-platform/releases/8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 新 API | `hospital-platform-api-v2.service=active`，监听 `10.0.0.3:18081` |
+| 旧服务边界 | `hospital-backend.service=inactive`；旧端口 `0.0.0.0:8001` 仍在监听，本轮未触碰 |
+| 内部健康检查 | `/health/ready=200`，`/api/v1/system/ping=200` |
+| 未登录资料接口 | `/api/v1/me/profile=401 unauthorized`；内部服务不直接挂 `/api/v2` 前缀 |
+
+这组结果只证明新旧端口和认证边界仍在预期状态；不能把未登录 401、健康检查 200 或服务 active
+当作资料真实读取、写入成功或并发 409 的业务证据。
+
 ## 真机操作顺序
 
 必须使用当前二维码重新编译后的运行包，并先在控制台确认来源：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9
+[医院小程序] 运行包来源：微信原生 tabBar；revision=45742ff4450b223b8db3b36e4a3859e3fc86e1c5
 ```
 
 随后使用专用测试微信账号执行：

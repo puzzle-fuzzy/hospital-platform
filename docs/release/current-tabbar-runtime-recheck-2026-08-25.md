@@ -25,7 +25,7 @@
 当前运行包来源仍为：
 
 ```text
-3b8a04e59ae0c733e3cbb6d425119e498a8d79c7
+45742ff4450b223b8db3b36e4a3859e3fc86e1c5
 ```
 
 `dist/build-info.json`、`dist/app.json` 和 `dist/project.config.json` 均已现场核对。独立工程的 `miniprogramRoot=./`、`compileHotReLoad=false`、`ignoreDevUnusedFiles=false`，不会主动监听仓库的 TypeScript 源码和测试脚本。
@@ -49,7 +49,7 @@
 真机必须在本次重新普通编译后重新预览，不能继续使用旧二维码或旧真机调试会话。启动控制台应出现：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=3b8a04e59ae0c733e3cbb6d425119e498a8d79c7
+[医院小程序] 运行包来源：微信原生 tabBar；revision=45742ff4450b223b8db3b36e4a3859e3fc86e1c5
 ```
 
 随后依次点击“医疗服务、就诊、互联网医院、我的”，必须同时满足：
