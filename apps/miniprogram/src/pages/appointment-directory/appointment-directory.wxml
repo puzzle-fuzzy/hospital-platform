@@ -7,16 +7,24 @@
 		<view class="page-description">未来 7 天可预约科室与排班</view>
 	</view>
 
-	<!-- 首层目录的加载、错误和合法空结果共用固定容器，避免状态收敛时页面跳高。 -->
-	<view wx:if="{{loading && !departments.length}}" class="state-card query-state-shell query-state-shell-column">
-		<text>正在加载预约科室...</text>
-	</view>
-
-	<!-- 错误必须先于级联和空态判断，避免 Provider 失败被显示成无科室/无排班。 -->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
-		<text>本次预约目录未加载成功</text>
-		<text class="state-hint">请根据上方提示处理后重试</text>
-		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+	<!--
+		首层目录的状态必须复用同一个外壳。错误必须先于级联和空态判断，
+		避免 Provider 失败被显示成无科室；空科室和加载中也不能改变页面高度。
+	-->
+	<view wx:if="{{error || !departments.length}}" class="state-card query-state-shell query-state-shell-column">
+		<block wx:if="{{loading}}">
+			<text>正在加载预约科室...</text>
+		</block>
+		<block wx:elif="{{error}}">
+			<text>本次预约目录未加载成功</text>
+			<text class="state-hint">请根据上方提示处理后重试</text>
+			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		</block>
+		<block wx:else>
+			<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+			<text>当前暂无可预约科室</text>
+			<text class="state-hint">请稍后刷新，或联系医院确认排班安排</text>
+		</block>
 	</view>
 
 	<view wx:elif="{{departments.length}}" class="cascade-shell">
@@ -42,9 +50,16 @@
 			</view>
 
 			<scroll-view class="schedule-scroll" scroll-y>
-				<!-- 排班两种状态必须共用高度；切换科室时不能因空态插图把右栏撑高。 -->
-				<view wx:if="{{loading}}" class="panel-loading query-state-shell query-state-shell-column">
-					<text>正在加载排班...</text>
+				<!-- 排班状态复用外壳；切换科室时不能因空态插图把右栏撑高。 -->
+				<view wx:if="{{loading || !dateGroups.length}}" class="panel-state-shell query-state-shell query-state-shell-column">
+					<view wx:if="{{loading}}" class="panel-loading query-state-shell query-state-shell-column">
+						<text>正在加载排班...</text>
+					</view>
+					<view wx:else class="panel-empty query-state-shell query-state-shell-column">
+						<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+						<text>当前科室暂无排班</text>
+						<text class="state-hint">请切换其他科室或稍后刷新</text>
+					</view>
 				</view>
 
 				<block wx:elif="{{dateGroups.length}}">
@@ -92,19 +107,8 @@
 					</button>
 				</block>
 
-				<view wx:elif="{{!loading}}" class="panel-empty query-state-shell query-state-shell-column">
-					<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-					<text>当前科室暂无排班</text>
-					<text class="state-hint">请切换其他科室或稍后刷新</text>
-				</view>
 			</scroll-view>
 		</view>
-	</view>
-
-	<view wx:elif="{{!loading && !departments.length}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-		<text>当前暂无可预约科室</text>
-		<text class="state-hint">请稍后刷新，或联系医院确认排班安排</text>
 	</view>
 
 	<view class="readonly-note">

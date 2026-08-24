@@ -46,9 +46,32 @@
 		<view class="tab {{activeStatus === 'paid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="paid">已缴费</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
-		<view class="state-loading-icon" aria-hidden="true"></view>
-		<text>正在加载门诊缴费记录...</text>
+	<!--
+		加载、错误和空结果共用同一个状态节点。费用查询是患者最容易
+		反复点击的页面之一，不能让空态插图在请求完成时重新撑开卡片。
+	-->
+	<view
+		wx:if="{{loading || error || !visibleItems.length}}"
+		class="state-card query-state-shell query-state-shell-column"
+	>
+		<block wx:if="{{loading}}">
+			<view class="state-loading-icon" aria-hidden="true"></view>
+			<text>正在加载门诊缴费记录...</text>
+		</block>
+		<block wx:elif="{{error}}">
+			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<text>本次门诊费用未加载成功</text>
+			<text class="state-hint">请根据上方提示处理后重试</text>
+			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+			<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+		</block>
+		<block wx:else>
+			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<text wx:if="{{selectedPatient}}">{{activeStatus === 'unpaid' ? '未查询到待缴费记录' : '未查询到已缴费记录'}}</text>
+			<text wx:else>请先选择就诊人</text>
+			<text wx:if="{{selectedPatient}}" class="state-hint">如需查询其他就诊人，请点击上方更换</text>
+			<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
+		</block>
 	</view>
 
 	<view wx:elif="{{visibleItems.length}}" class="record-list">
@@ -66,26 +89,6 @@
 		<view wx:if="{{hasMoreItems}}" class="load-more" bindtap="onLoadMore">加载更多缴费记录</view>
 	</view>
 
-	<!--
-		错误态不能沿用“未查询到费用”的空态。依赖未配置、患者映射失败或
-		会话异常都不是“没有账单”的证明，重新加载和重新选择患者都必须回到
-		完整的 owner-scoped 只读查询链路。
-	-->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
-		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-		<text>本次门诊费用未加载成功</text>
-		<text class="state-hint">请根据上方提示处理后重试</text>
-		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
-		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
-	</view>
-
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
-		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-		<text wx:if="{{selectedPatient}}">{{activeStatus === 'unpaid' ? '未查询到待缴费记录' : '未查询到已缴费记录'}}</text>
-		<text wx:else>请先选择就诊人</text>
-		<text wx:if="{{selectedPatient}}" class="state-hint">如需查询其他就诊人，请点击上方更换</text>
-		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
-	</view>
 
 	<view class="readonly-note">当前已接入门诊费用查询。支付调起、医保授权和结算回写将在独立业务契约验收后开放。</view>
 </view>

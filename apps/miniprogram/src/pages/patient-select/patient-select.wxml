@@ -12,16 +12,28 @@
 		<text>添加就诊人</text>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
-		<view class="state-loading-icon" aria-hidden="true"></view>
-		<text>正在加载就诊人...</text>
-	</view>
-
-	<!-- 错误不是空目录：独立分支阻止“暂无就诊人”掩盖登录、网络或同步故障。 -->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
-		<text>本次就诊人目录未加载成功</text>
-		<text class="state-hint">请根据上方提示处理后重试</text>
-		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+	<!--
+		目录状态保持同一个固定高度的外壳。刷新失败不能落入空目录，
+		而加载完成后空插图也不能把下方刷新按钮突然推远。
+	-->
+	<view
+		wx:if="{{loading || error || !patients.length}}"
+		class="state-card query-state-shell query-state-shell-column"
+	>
+		<block wx:if="{{loading}}">
+			<view class="state-loading-icon" aria-hidden="true"></view>
+			<text>正在加载就诊人...</text>
+		</block>
+		<block wx:elif="{{error}}">
+			<text>本次就诊人目录未加载成功</text>
+			<text class="state-hint">请根据上方提示处理后重试</text>
+			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		</block>
+		<block wx:else>
+			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<text>当前微信账号暂无已绑定的就诊人</text>
+			<text class="state-hint">请先完成医院侧就诊人绑定，再点击下方刷新</text>
+		</block>
 	</view>
 
 	<view wx:elif="{{patients.length}}" class="patient-list">
@@ -48,12 +60,6 @@
 				</view>
 			</view>
 		</view>
-	</view>
-
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
-		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-		<text>当前微信账号暂无已绑定的就诊人</text>
-		<text class="state-hint">请先完成医院侧就诊人绑定，再点击下方刷新</text>
 	</view>
 
 	<view class="page-actions">

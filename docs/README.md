@@ -90,6 +90,7 @@
 | [`release/candidate-1a87ab3-local-build-2026-08-24.md`](release/candidate-1a87ab3-local-build-2026-08-24.md) | 未发布 `1a87ab3` 小程序候选的挂号卡片、爽约入口、稳定状态容器、构建来源和真机停止边界 |
 | [`release/candidate-8863f09-miniprogram-build-2026-08-24.md`](release/candidate-8863f09-miniprogram-build-2026-08-24.md) | 当前未发布 `8863f09` 小程序候选的预约目录状态容器、构建来源和真机停止边界 |
 | [`release/candidate-ace4845-miniprogram-build-2026-08-24.md`](release/candidate-ace4845-miniprogram-build-2026-08-24.md) | 当前未发布 `ace4845` 小程序候选的挂号标签范围竞态修正、构建来源和真机停止边界 |
+| [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md) | 挂号卡片旧端层级、爽约入口不自动选择患者、查询状态固定外壳和本轮回归门禁 |
 | [`release/miniprogram-typescript-runtime-audit-2026-08-22.md`](release/miniprogram-typescript-runtime-audit-2026-08-22.md) | 当前原生小程序 TypeScript 源码收口、14 个页面、运行包测试脚本隔离和 ENOENT 恢复边界 |
 | [`release/payment-runtime-gate-audit-2026-08-22.md`](release/payment-runtime-gate-audit-2026-08-22.md) | 支付订单、预支付、通知统一运行时闸门，关闭状态无仓储/provider 副作用 |
 | [`release/candidate-41c708e-local-build-2026-08-22.md`](release/candidate-41c708e-local-build-2026-08-22.md) | 历史 `41c708e1` 小程序运行包、个人资料错误态和测试脚本隔离证据 |

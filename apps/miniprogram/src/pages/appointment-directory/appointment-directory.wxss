@@ -256,12 +256,20 @@ page {
 	font-size: 26rpx;
 }
 
+.panel-state-shell {
+	/* 外壳固定为右栏空态所需空间，内层状态切换不会改变级联布局。 */
+	height: 500rpx;
+	min-height: 500rpx;
+}
+
 .panel-loading {
 	/* 与带插图的空态保持同一高度，切换科室时右栏不会发生二次跳动。 */
+	height: 500rpx;
 	min-height: 500rpx;
 }
 
 .panel-empty {
+	height: 500rpx;
 	min-height: 500rpx;
 	flex-direction: column;
 }

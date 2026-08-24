@@ -152,7 +152,7 @@ page {
 }
 
 /* 空态图固定为正方形，避免图片原始比例让空态卡片高度随状态变化。 */
-.state-card-empty image {
+.state-card image {
 	display: block;
 	width: 150rpx;
 	height: 150rpx;
@@ -172,18 +172,4 @@ page {
 .missed-record-card {
 	position: relative;
 	overflow: hidden;
-}
-
-.missed-stamp {
-	position: absolute;
-	right: -48rpx;
-	bottom: 30rpx;
-	padding: 8rpx 58rpx;
-	transform: rotate(-18deg);
-	border: 3rpx solid #e88980;
-	border-radius: 8rpx;
-	color: #d2443c;
-	font-size: 24rpx;
-	font-weight: 700;
-	opacity: 0.72;
 }

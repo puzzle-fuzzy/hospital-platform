@@ -191,7 +191,7 @@ page {
 	flex-direction: column;
 }
 
-.state-card-empty image {
+.state-card image {
 	display: block;
 	width: 150rpx;
 	height: 150rpx;

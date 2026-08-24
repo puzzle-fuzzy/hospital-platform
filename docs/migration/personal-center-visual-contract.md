@@ -48,6 +48,11 @@
 无记录空态继续使用旧端 `wd-icon name="file-text"` 的 48rpx 文件图标；原生端落为本地
 `assets/legacy-user/empty-record.svg`，不复用首页的大型空服务插图，避免两个页面的空态层级发生视觉漂移。
 
+挂号记录和爽约记录的卡片共用“科室/状态 → 医生与院区 → 日期/时段 → 号序 → 操作”的阅读层级；
+爽约页只替换服务端已确认的状态文案，不增加客户端状态推断。查询加载、错误和合法空结果共用固定的
+`query-state-shell` 外壳，内部内容切换不能改变卡片空间或把 Provider 错误降级为空结果。实现记录见
+[`release/appointment-records-visual-state-shell-2026-08-24.md`](../release/appointment-records-visual-state-shell-2026-08-24.md)。
+
 患者/院区行的灰色右箭头、院内导航弹窗的关闭和搜索图标也必须通过 `<image>` 使用本地资源：
 `selector-arrow-right.svg`、`location-close.svg` 和 `location-search.svg`。家庭成员卡片使用的
 `arrow-right.svg` 是白色圆形资源，只能用于蓝色家庭成员卡片，不能误用于挂号页的白色选择行。

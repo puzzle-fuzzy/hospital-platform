@@ -1,7 +1,16 @@
 <view class="page">
 	<!-- 加载、错误和合法空结果共用同一高度，避免临床读模型收敛时页面突然撑高。 -->
-	<view wx:if="{{loading}}" class="report-state-card loading-state query-state-shell">
-		<text>加载中...</text>
+	<view
+		wx:if="{{loading || error}}"
+		class="report-state-card query-state-shell query-state-shell-column {{error ? 'error-state' : 'loading-state'}}"
+	>
+		<block wx:if="{{loading}}">
+			<text>加载中...</text>
+		</block>
+		<block wx:else>
+			<text class="error-title">报告详情不可用</text>
+			<text class="error-message">{{error}}</text>
+		</block>
 	</view>
 
 	<block wx:elif="{{!error}}">
@@ -60,11 +69,6 @@
 			<text>暂无云影像</text>
 		</view>
 	</block>
-
-	<view wx:if="{{error}}" class="report-state-card error-state query-state-shell query-state-shell-column">
-		<text class="error-title">报告详情不可用</text>
-		<text class="error-message">{{error}}</text>
-	</view>
 
 	<view wx:if="{{!loading && !error}}" class="bottom-action-wrap">
 		<view class="bottom-action">

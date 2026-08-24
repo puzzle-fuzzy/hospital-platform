@@ -21,42 +21,67 @@
 		<view class="page-description">展示当前就诊人过去 90 天的爽约记录</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
-		<view class="state-loading-icon" aria-hidden="true"></view>
-		<text>正在加载爽约记录...</text>
+	<!--
+		爽约列表是预约历史的派生读模型。查询异常时不能显示“暂无爽约记录”，
+		否则会把 Provider 失败误报成用户没有爽约；恢复动作必须重新读取当前患者。
+		这个状态外壳在 loading/error/empty 之间复用，避免插图加载造成页面跳动。
+	-->
+	<view
+		wx:if="{{loading || error || !visibleRecords.length}}"
+		class="state-card query-state-shell query-state-shell-column"
+	>
+		<block wx:if="{{loading}}">
+			<view class="state-loading-icon" aria-hidden="true"></view>
+			<text>正在加载爽约记录...</text>
+		</block>
+		<block wx:elif="{{error}}">
+			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<text>本次爽约记录未加载成功</text>
+			<text class="state-hint">请根据上方提示处理后重试</text>
+			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		</block>
+		<block wx:else>
+			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<text>暂无爽约记录</text>
+			<text class="state-hint">请继续保持按时就诊的好习惯</text>
+		</block>
 	</view>
 
 	<view wx:elif="{{visibleRecords.length}}" class="record-list">
 		<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="record-card missed-record-card">
-			<view class="record-header">
-				<text class="record-date">{{item.workDate}}</text>
-				<text class="record-status record-status-missed">已爽约</text>
+			<!-- 爽约页沿用挂号卡片的层级，只替换状态事实，避免两页视觉语言分裂。 -->
+			<view class="record-card-header">
+				<view class="record-card-title-wrap">
+					<text class="record-department">{{item.departmentName || "门诊挂号"}}</text>
+					<text class="record-card-caption">预约挂号</text>
+				</view>
+				<view class="record-status-badge record-status-missed">已爽约</view>
 			</view>
-			<view class="record-department">{{item.departmentName || "门诊挂号"}}</view>
-			<view wx:if="{{item.doctorName}}" class="record-line">医生：{{item.doctorName}}</view>
-			<view wx:if="{{item.workTime}}" class="record-line">时间：{{item.workTime}}</view>
-			<view wx:if="{{item.location}}" class="record-line">地点：{{item.location}}</view>
-			<view wx:if="{{item.serialNumber}}" class="record-number">流水号：{{item.serialNumber}}</view>
-			<text class="missed-stamp">已爽约</text>
+			<view wx:if="{{item.doctorName || item.location}}" class="record-meta">
+				<view wx:if="{{item.doctorName}}" class="record-meta-item">
+					<text class="record-meta-label">医生</text>
+					<text class="record-meta-value">{{item.doctorName}}</text>
+				</view>
+				<view wx:if="{{item.location}}" class="record-meta-item">
+					<text class="record-meta-label">院区</text>
+					<text class="record-meta-value">{{item.location}}</text>
+				</view>
+			</view>
+			<view class="record-schedule">
+				<view class="record-schedule-item">
+					<text class="record-schedule-label">就诊日期</text>
+					<text class="record-date">{{item.workDate}}</text>
+				</view>
+				<view wx:if="{{item.workTime}}" class="record-schedule-item record-schedule-time">
+					<text class="record-schedule-label">就诊时段</text>
+					<text class="record-time">{{item.workTime}}</text>
+				</view>
+			</view>
+			<view wx:if="{{item.serialNumber}}" class="record-number">
+				<text>第 </text><text class="record-number-emphasis">{{item.serialNumber}}</text><text> 号</text>
+			</view>
 		</view>
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多爽约记录</view>
-	</view>
-
-	<!--
-		爽约列表是预约历史的派生读模型。查询异常时不能显示“暂无爽约记录”，
-		否则会把 Provider 失败误报成用户没有爽约；恢复动作必须重新读取当前患者。
-	-->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
-		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-		<text>本次爽约记录未加载成功</text>
-		<text class="state-hint">请根据上方提示处理后重试</text>
-		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
-	</view>
-
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
-		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-		<text>暂无爽约记录</text>
-		<text class="state-hint">请继续保持按时就诊的好习惯</text>
 	</view>
 
 	<view class="readonly-note">

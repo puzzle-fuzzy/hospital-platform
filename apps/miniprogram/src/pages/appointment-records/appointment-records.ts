@@ -256,10 +256,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					const mappedRecords = records.map((record, index) =>
 						this.toRecordView(record, index, requestToken),
 					);
-					const visibleState = getVisibleRecords(
-						mappedRecords,
-						requestedTab,
-					);
+					const visibleState = getVisibleRecords(mappedRecords, requestedTab);
 					this.setData({
 						selectedPatient: patient,
 						patientSessionGeneration: expectedSessionGeneration,

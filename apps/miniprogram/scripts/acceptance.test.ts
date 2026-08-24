@@ -113,9 +113,9 @@ test("native patient selectors do not report a selection error during loading", 
 });
 
 test("native patient-scoped list errors do not fall through to empty patient state", async () => {
-	// 服务端错误已经在页面顶部展示，但 WXML 仍会继续选择后续分支；
-	// 错误分支必须排在空列表前面，避免 dependency-not-configured、401 或
-	// Provider 暂时不可用被渲染成“请先选择就诊人/暂无数据”。
+	// 服务端错误已经在页面顶部展示，但 WXML 仍必须维持错误、空结果和
+	// 加载中的业务边界；共享状态外壳只替换内部文案，不能把 Provider 失败
+	// 渲染成“请先选择就诊人/暂无数据”。
 	const pages = [
 		[
 			"pages/appointment-records/appointment-records.wxml",
@@ -140,14 +140,11 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 			source(templatePath),
 			source(pagePath),
 		]);
-		const errorBranch =
-			'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
-		const emptyBranch =
-			'<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">';
-		expect(template).toContain(errorBranch);
-		expect(template.indexOf(errorBranch)).toBeLessThan(
-			template.indexOf(emptyBranch),
+		expect(template).toContain(
+			'class="state-card query-state-shell query-state-shell-column"',
 		);
+		expect(template).toContain('<block wx:elif="{{error}}">');
+		expect(template).toContain("query-state-shell");
 		expect(template).toContain('bindtap="onRetry"');
 		if (templatePath.includes("missed-appointments")) {
 			// 爽约页缺少患者上下文时只保留本页错误态，不能自动打开患者
@@ -168,8 +165,7 @@ test("patient selection errors do not fall through to an unbound-patient empty s
 
 	// 目录同步失败可能是会话失效、网络故障或临床映射依赖不可用；这些事实
 	// 不能被渲染成“当前账号暂无就诊人”，否则用户会误以为需要重新绑定患者。
-	const errorBranch =
-		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
+	const errorBranch = '<block wx:elif="{{error}}">';
 	expect(template.indexOf(errorBranch)).toBeGreaterThan(-1);
 	expect(template.indexOf(errorBranch)).toBeLessThan(
 		template.indexOf(
@@ -191,8 +187,7 @@ test("appointment directory errors do not fall through to cascade or empty sched
 
 	// 科室读取和排班读取都属于同一只读目录链；任一层失败时统一回到完整
 	// 目录重试，不能把旧快照或空数组解释成“没有可预约内容”。
-	const errorBranch =
-		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
+	const errorBranch = '<block wx:elif="{{error}}">';
 	expect(template.indexOf(errorBranch)).toBeGreaterThan(-1);
 	expect(template.indexOf(errorBranch)).toBeLessThan(
 		template.indexOf(
@@ -655,18 +650,18 @@ test("native profile distinguishes invalid read models from session loss", async
 test("native profile loading errors expose an explicit canonical reload", async () => {
 	const profile = await source("pages/profile/profile.ts");
 	const template = await source("pages/profile/profile.wxml");
-	const loadingBranch =
-		'<view wx:if="{{loading}}" class="state-card query-state-shell query-state-shell-column">';
-	const errorBranch =
-		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
+	const errorBranch = '<block wx:elif="{{error}}">';
 	const formBranch =
 		'<view wx:elif="{{!loading && loaded}}" class="form-card">';
 
 	// GET 失败后没有可信的 version 和会话代际；页面必须提供重新读取入口，
 	// 不能把错误直接落入可编辑表单，也不能要求用户只能使用下拉刷新。
-	expect(template.indexOf(loadingBranch)).toBeGreaterThanOrEqual(0);
+	expect(template).toContain('wx:if="{{loading || error || !loaded}}"');
+	expect(template).toContain(
+		'class="state-card query-state-shell query-state-shell-column"',
+	);
 	expect(template.indexOf(errorBranch)).toBeGreaterThan(
-		template.indexOf(loadingBranch),
+		template.indexOf('wx:if="{{loading || error || !loaded}}"'),
 	);
 	expect(template.indexOf(errorBranch)).toBeLessThan(
 		template.indexOf(formBranch),
@@ -1675,9 +1670,7 @@ test("native appointment tabs use server-owned read scopes", async () => {
 	expect(records).toContain("filterAppointmentRecords");
 	expect(records).toContain("isAppointmentRecordTabAvailable");
 	expect(records).toContain("loadRecords(tab?: AppointmentRecordTab)");
-	expect(records).toContain(
-		"const requestedTab = tab ?? this.data.activeTab",
-	);
+	expect(records).toContain("const requestedTab = tab ?? this.data.activeTab");
 	expect(records).toContain("this.loadRecords(activeTab)");
 	expect(records).toContain("requestedTab,");
 	expect(view).toContain('record.status !== "cancelled"');
@@ -2220,10 +2213,7 @@ test("native report detail keeps loading, error and empty states at one stable h
 	// 高而把页面内容突然向下推移。错误态也必须复用同一外层容器，保证
 	// “请求中 → 无检测项/无云影像 → 错误重试”都保持稳定的视觉占位。
 	expect(template).toContain(
-		'<view wx:if="{{loading}}" class="report-state-card loading-state query-state-shell">',
-	);
-	expect(template).toContain(
-		'<view wx:if="{{error}}" class="report-state-card error-state query-state-shell query-state-shell-column">',
+		"class=\"report-state-card query-state-shell query-state-shell-column {{error ? 'error-state' : 'loading-state'}}\"",
 	);
 	expect(style).toContain(".report-state-card {");
 	expect(style).toContain("height: 380rpx;");
@@ -2274,6 +2264,8 @@ test("native missed appointments never auto-opens the patient selector", async (
 	expect(missed).toContain("onChangePatient");
 	expect(missed).not.toContain("redirectToPatientSelector");
 	expect(template).not.toContain("正在打开就诊人选择");
+	expect(template).not.toContain("selector-card");
+	expect(template).not.toContain("pages/patient-select/patient-select");
 });
 
 test("native appointment cards keep the legacy hierarchy without decorative stripe and wide shadow", async () => {
@@ -2287,8 +2279,10 @@ test("native appointment cards keep the legacy hierarchy without decorative stri
 	// 记录卡片沿用旧端的科室、状态、医生/院区、日期/时段、号序和操作
 	// 顺序；视觉上用轻边界承托信息，不用会抢夺内容层级的侧条和大阴影。
 	expect(template).toContain("record-card-header");
+	expect(template).toContain("record-card-title-wrap");
 	expect(template).toContain("record-schedule");
 	expect(template).toContain("record-actions");
+	expect(template).not.toContain("record-card-kind");
 	expect(style).not.toContain(".record-card::before");
 	expect(style).not.toContain("box-shadow: 0 8rpx 24rpx");
 });

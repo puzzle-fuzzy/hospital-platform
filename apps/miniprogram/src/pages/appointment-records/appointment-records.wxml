@@ -76,9 +76,41 @@
 		</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
-		<view class="state-loading-icon" aria-hidden="true"></view>
-		<text>加载中...</text>
+	<!--
+		状态外壳在“加载中→空列表”之间保持同一个 WXML 节点。
+		即使公共高度已经固定，也不能让两个不同节点交替挂载；微信渲染层
+		会重新计算图片和文字布局，外壳复用后页面滚动位置更稳定。
+	-->
+	<view
+		wx:if="{{loading || error || !visibleRecords.length}}"
+		class="state-card query-state-shell query-state-shell-column"
+	>
+		<block wx:if="{{loading}}">
+			<view class="state-loading-icon" aria-hidden="true"></view>
+			<text>加载中...</text>
+		</block>
+		<block wx:elif="{{error}}">
+			<image
+				class="state-empty-icon"
+				src="/assets/legacy-user/empty-record.svg"
+				mode="aspectFit"
+			/>
+			<text>本次挂号记录未加载成功</text>
+			<text class="state-hint">请根据上方提示处理后重试</text>
+			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+			<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+		</block>
+		<block wx:else>
+			<!-- 旧端空列表使用 48rpx 的 file-text 图标，不能套用首页的大型服务插图。 -->
+			<image
+				class="state-empty-icon"
+				src="/assets/legacy-user/empty-record.svg"
+				mode="aspectFit"
+			/>
+			<text>{{selectedPatient ? "暂无挂号记录" : "请先选择就诊人"}}</text>
+			<text wx:if="{{selectedPatient}}" class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
+			<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
+		</block>
 	</view>
 
 	<view wx:elif="{{visibleRecords.length}}" class="record-list">
@@ -90,14 +122,14 @@
 			data-view-key="{{item.viewKey}}"
 		>
 			<!--
-				卡片按“业务类型 → 状态 → 科室 → 就诊时间 → 操作”分层，
-				让用户先知道这是一条挂号，再快速找到最重要的日期和状态。
-				这些字段全部来自已归一化的 AppointmentRecordView，不新增业务判断。
+				卡片恢复旧端的阅读顺序：科室/状态 → 医生与院区 → 日期时段 →
+				号序 → 操作。业务类型不再占一整行，减少装饰性信息，把视觉焦点
+				留给患者真正需要确认的就诊时间和当前状态。
 			-->
 			<view class="record-card-header">
-				<view class="record-card-kind">
-					<view class="record-card-kind-dot"></view>
-					<text>预约挂号</text>
+				<view class="record-card-title-wrap">
+					<text class="record-department">{{item.departmentName || "门诊挂号"}}</text>
+					<text class="record-card-caption">预约挂号</text>
 				</view>
 				<view class="record-status-badge {{item.statusClass}}">
 					<!-- 原版已预约状态使用蓝色业务图标，其余状态继续显示服务端归一化文案。 -->
@@ -111,8 +143,7 @@
 				</view>
 			</view>
 
-			<view class="record-department">{{item.departmentName || "门诊挂号"}}</view>
-			<view class="record-meta">
+			<view wx:if="{{item.doctorName || item.location}}" class="record-meta">
 				<view wx:if="{{item.doctorName}}" class="record-meta-item">
 					<text class="record-meta-label">医生</text>
 					<text class="record-meta-value">{{item.doctorName}}</text>
@@ -136,7 +167,7 @@
 					<text class="record-time">{{item.workTime}}</text>
 				</view>
 			</view>
-			<view wx:if="{{item.workTime || item.serialNumber}}" class="record-number">
+			<view wx:if="{{item.serialNumber}}" class="record-number">
 				<text wx:if="{{item.serialNumber}}">第 </text>
 				<text wx:if="{{item.serialNumber}}" class="record-number-emphasis">{{item.serialNumber}}</text>
 				<text wx:if="{{item.serialNumber}}"> 号</text>
@@ -163,34 +194,6 @@
 			</view>
 		</view>
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多挂号记录</view>
-	</view>
-
-	<!--
-		错误态必须在空列表之前截断渲染分支。依赖未配置、会话失效或网络异常
-		都不能被解释成“暂无挂号记录”；用户可以重新读取，也可以重新选择患者。
-	-->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
-		<image
-			class="state-empty-icon"
-			src="/assets/legacy-user/empty-record.svg"
-			mode="aspectFit"
-		/>
-		<text>本次挂号记录未加载成功</text>
-		<text class="state-hint">请根据上方提示处理后重试</text>
-		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
-		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
-	</view>
-
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
-		<!-- 旧端空列表使用 48rpx 的 file-text 图标，不能套用首页的大型服务插图。 -->
-		<image
-			class="state-empty-icon"
-			src="/assets/legacy-user/empty-record.svg"
-			mode="aspectFit"
-		/>
-		<text>{{selectedPatient ? "暂无挂号记录" : "请先选择就诊人"}}</text>
-		<text wx:if="{{selectedPatient}}" class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
-		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
 	</view>
 
 	<!--
