@@ -60,3 +60,14 @@
 - 新端关闭态逻辑：`apps/miniprogram/src/pages/index/index.ts` 的 `onPatientQr`。
 - 新端公共患者边界：`packages/contracts/src/index.ts` 的 `PatientSchema` 和 `PatientCardNumberMaskedSchema`。
 - 当前剩余迁移总表：[`remaining-migration-inventory.md`](remaining-migration-inventory.md)。
+
+## 7. 2026-08-25 当前候选复核
+
+本轮重新对照旧端源码和当前小程序运行候选，结论没有被“首页看起来有二维码图标”改变：
+
+- 旧端 `patientQrUrl` 仍然读取 `patientInfo.medicalCardNo`，并拼接第三方二维码图片地址；旧端注释中的 `patId` 只是注释，不是扫码协议证据。
+- 新端首页只保留受控的本地二维码入口图标；`onPatientQr` 先检查当前页面的 owner-scoped 患者、`clinicalAccess=ready` 和本地显式选择一致性，随后明确提示“二维码暂未开放”，不生成二维码、不请求第三方图片服务。
+- 患者新增/绑定仍只有 `GET /patients` 与显式同步目录能力；没有注册建档、绑卡或解绑路由，不能因为旧端 `patInfosFind` 返回过一次 `patId` 就打开写入。
+- 本轮没有读取真实患者、Provider 原始卡号、数据库或 Redis，也没有修改旧项目；另一个会话负责的众阳接口自动化边界保持不变。
+
+当前小程序运行候选为 `ad7b079`，二维码关闭态测试和患者选择边界测试继续纳入构建门禁。正式开放前仍必须补齐扫码方、载荷、签名、TTL、撤销、防重放和医院设备验收证据。

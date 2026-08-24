@@ -10,7 +10,18 @@
 
 # 剩余迁移盘点与下一步计划
 
-> 当前本地小程序候选（2026-08-25）为 `45742ff4450b223b8db3b36e4a3859e3fc86e1c5`，`dist/` 已原子发布并通过 `runtime:verify`，16 个页面脚本完整；开发者工具应直接打开 `apps/miniprogram/dist/` 的独立工程。之前的 `0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`ecff1f9`、`49c641b6`、`e039e99f`、`3b8a04e5` 仅为历史来源；线上仍是 `13f597e`，两者不能混用。
+## 2026-08-25 患者中心审计补充
+
+本轮完成首页患者卡片、患者选择、旧端二维码和新增就诊人流程的只读对照，当前小程序运行候选为 `ad7b079`，
+小程序测试为 `240 pass / 0 fail`，`runtime:verify` 已确认 `dist/` 的 16 个页面脚本完整。旧端二维码实际使用
+`medicalCardNo` 调用第三方二维码图片服务，不能从代码注释推断为医院所需的 `patId`；新版二维码继续保持关闭，
+不把完整卡号、身份证号、HIS `patId` 或 `thirdPatientId` 放进小程序或第三方 URL。旧端新增就诊人存在查档异常继续建档、
+身份证号复制为卡号、无幂等/最终确认等问题；新版仍不注册建档、绑卡、解绑写入路由。详见
+[`patient-qr-contract-audit-2026-08-24.md`](patient-qr-contract-audit-2026-08-24.md) 和
+[`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。本轮未修改旧项目、线上服务、数据库、Redis，
+也未触碰另一会话负责的众阳自动化。
+
+> 历史执行基线（2026-08-25 早前窗口）为 `45742ff4450b223b8db3b36e4a3859e3fc86e1c5`；当前候选以本节上方的 `ad7b079` 为准。早前候选已经通过当时的 `runtime:verify`，但不能继续作为当前运行包来源；开发者工具应直接打开 `apps/miniprogram/dist/` 的独立工程。之前的 `0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`ecff1f9`、`49c641b6`、`e039e99f`、`3b8a04e5` 仅为历史来源；线上仍是 `13f597e`，两者不能混用。
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本段仅作追溯。
 
 
