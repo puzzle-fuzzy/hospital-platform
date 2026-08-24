@@ -1,3 +1,7 @@
+> **最新事实源（2026-08-25，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。当前本地未发布小程序候选为 `7fc22fae975d207d66cd248de01ac0287492f800`，运行包位于 `apps/miniprogram/dist/`，使用微信原生 `app.json.tabBar`，不包含 `custom-tab-bar/`，真机仍需重新普通编译验收。线上小程序仍是分层发布的 `13f597ea9ee3f65b9be858117826d948339d904a`，不能用线上包证明本地底栏修正。
+> 本轮业务推进顺序：先完成当前候选的四 Tab/患者显式切换/预约历史与爽约/门诊费用只读/普通资料读写证据；客户端 requestId、服务端 Pino trace/业务事件和 Provider 低敏请求号缺一不可。报告详情、门诊病历、二维码、患者绑定、健康内容、实时就诊、互联网医院、支付医保、预约写入、取消和 HIS 回写继续按各自 contract、权限和回滚证据保持关闭。
+> 本地服务端工作树仍受另一会话未部署的 `packages/adapters/src/zhongyang-appointments.ts` 变更影响，`release:baseline:audit` 因此会 fail-closed；本会话不修改、不暂存该文件，也不把本地 adapter 变更宣称为线上能力。
+
 > 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端独立 adapter 发布已完成，真机业务三层证据仍待。
 > 当前小程序底栏候选（2026-08-25）：用户反馈自定义底栏仍出现闪动且选中态不明显；本轮切回微信原生 TabBar，由平台统一维护四项底栏和 selectedIconPath。当前运行包 revision 为 `7fc22fae`，已原子发布到 `apps/miniprogram/dist/`，预览二维码为 `.local/hospital-miniprogram/tabbar-native-preview-7fc22fa.png`，真机仍需重新普通编译验收。旧 Python `8001`、线上服务、数据库和 Redis 未修改。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
 > 当前下一步只读核对（2026-08-24）：通过内网专用 inspection key 对 `192.168.112.172` 做只读检查，新 API `hospital-platform-api-v2.service` 仍为 `active`、监听 `10.0.0.3:18081`，旧 Python Gunicorn 仍监听 `0.0.0.0:8001`，Worker 保持 `inactive`；`/health/ready` 返回 200，database/redis/schema 均为 `ok`。最近 30 分钟没有新的 `outpatient.payment.records.*` 事件，不能把服务器“无请求”解释为费用页面成功或失败；业务验收必须使用当前小程序运行包 `7fc22fae` 取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 的同链证据。本次没有重启、写配置、写 MySQL/Redis 或修改旧 Python 服务。
@@ -2334,7 +2338,3 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-24：补齐报告详情页的状态容器边界。加载、错误、无检测项和无云影像现在共享 `360rpx` 的稳定占位，
   避免报告读模型返回合法空结果时页面突然撑高；新增中文界面注释和静态视觉门禁。该修正只影响原生小程序展示，
   不改变报告 Provider、患者引用、附件授权、支付、医保或 HIS 的关闭状态。
-> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。
-> **最新事实源（2026-08-25，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。当前本地未发布小程序候选为 `7fc22fae975d207d66cd248de01ac0287492f800`，运行包位于 `apps/miniprogram/dist/`，使用微信原生 `app.json.tabBar`，不包含 `custom-tab-bar/`，真机仍需重新普通编译验收。线上小程序仍是分层发布的 `13f597ea9ee3f65b9be858117826d948339d904a`，不能用线上包证明本地底栏修正。
-> 本轮业务推进顺序：先完成当前候选的四 Tab/患者显式切换/预约历史与爽约/门诊费用只读/普通资料读写证据；客户端 requestId、服务端 Pino trace/业务事件和 Provider 低敏请求号缺一不可。报告详情、门诊病历、二维码、患者绑定、健康内容、实时就诊、互联网医院、支付医保、预约写入、取消和 HIS 回写继续按各自 contract、权限和回滚证据保持关闭。
-> 本地服务端工作树仍受另一会话未部署的 `packages/adapters/src/zhongyang-appointments.ts` 变更影响，`release:baseline:audit` 因此会 fail-closed；本会话不修改、不暂存该文件，也不把本地 adapter 变更宣称为线上能力。
