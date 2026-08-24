@@ -1,7 +1,7 @@
 > 当前服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
 
-> 当前本地未发布候选的运行输入基线为 `0f40ab92c1c1fdb59b40b41d580bbc95c65c6022`（提交 `0f40ab9`；上一候选配置基线为 `bdf4ac57`）。该候选继续使用原生共享四 Tab，并把开发者工具私有配置、运行包来源日志和 `dist` 运行包一致性纳入门禁；真机控制台可通过启动日志核对候选来源。
-> 本地 `dist/` 必须在每次运行输入提交后重新构建，并由 `build-info.json.sourceRevision` 绑定当前运行输入提交；当前因微信开发者工具仍占用目录，`dist/` 暂保持上一份完整候选 `bdf4ac57`，不能把它误写成 `0f40ab9`。
+> 当前本地未发布候选的运行输入为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`（提交 `4ea15b8`）。该候选继续使用原生共享四 Tab，并把开发者工具私有配置、运行包来源日志和 `dist` 运行包一致性纳入门禁；真机控制台可通过启动日志核对候选来源。
+> 本地 `dist/` 已完成原子构建，`build-info.json.sourceRevision` 与上述运行输入一致；构建后的运行包已通过 `runtime:verify`，不能再把旧 `0f40ab9` 或 `bdf4ac57` 写成当前候选。
 > 当前本地源码的 `app.json` 已注册 16 个页面，其中四个主入口由原生 `tabBar` 统一维护；这个数字不应与线上历史运行包 `13f597e` 的 14 页记录混用。
 > 这份本地候选不能替代线上 `13f597e`，
 > 也不能产生当前真机三层业务证据。
@@ -47,8 +47,8 @@
 | 优先级 | 当前动作 | 放行条件 | 当前决定 |
 | --- | --- | --- | --- |
 | P0 | 恢复受控发布链 | 阿里云 SSH 可用；服务端候选可在不停止旧 Python `8001` 的情况下切换；公网 live/ready、旧端口和新端口均有证据 | 已完成：线上 `28a5c0c1` 已稳定运行，切换后 runtime smoke 通过；旧 Python `8001` 继续共存 |
-| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，本地未发布候选为 `0f40ab92c1c1fdb59b40b41d580bbc95c65c6022`；但新候选尚未完成 `dist` 原子替换，不能扫码验收。显式患者切换、页面截图、预约历史和门诊费用三层证据仍待，详见 [`../release/current-real-device-login-patient-observation-2026-08-24.md`](../release/current-real-device-login-patient-observation-2026-08-24.md) |
-| P2 | 门诊病历、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 继续保持未注册或迁移提示；不写兼容转发、不猜 `patId`/卡号用途 |
+| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，本地未发布候选为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`；`dist` 原子构建和运行包校验已通过，但显式患者切换、页面截图、预约历史和门诊费用三层证据仍待，详见 [`../release/current-real-device-login-patient-observation-2026-08-24.md`](../release/current-real-device-login-patient-observation-2026-08-24.md) |
+| P2 | 门诊病历、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 继续保持未注册或迁移提示；不写兼容转发、不猜 `patId`/卡号用途。二维码停止条件详见 [`patient-qr-contract-audit-2026-08-24.md`](patient-qr-contract-audit-2026-08-24.md) |
 | P3 | 微信支付、医保授权、结算、退款和 HIS 写回 | 金额/状态机、授权、回调/查单、幂等、回滚及真实沙箱/生产验收全部冻结 | 最后处理；当前已统一关闭支付运行闸门，订单/预支付/通知不会访问仓储或 provider；只读费用列表不能触发支付或医保流程 |
 
 当前线上服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，小程序运行包来源为

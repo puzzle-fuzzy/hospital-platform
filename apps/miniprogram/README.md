@@ -33,6 +33,20 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 因此构建脚本会在公共配置和本机配置任一开启时直接失败，不能作为真机 Tab 共享行为验收依据。
 修改源码后先执行构建，再在开发者工具中执行一次普通编译。
 
+如果普通编译后仍出现底部 Tab 闪动、四项同时未选中、或页面看起来混入旧的
+`static/tabbar` 资源，先不要修改页面代码。开发者工具可能保留了旧项目或旧增量
+文件图；确认安全服务端口已经开启后，只重置本项目的文件缓存并重新打开本项目：
+
+```powershell
+& 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
+```
+
+随后在工具中执行一次“普通编译”。这两条命令只处理当前新项目的开发者工具文件
+缓存，不删除仓库文件、不清理旧项目缓存，也不影响旧服务。验收时必须看到四项底栏
+始终只有一份，当前项的图标和文字为蓝色；如果仍不一致，应先检查工具窗口标题和
+项目根目录，再检查 `dist/build-info.json`，不能通过新增页面级底栏来掩盖缓存问题。
+
 四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在
 `src/app.json` 的 `tabBar.list` 中；页面 WXML 不得复制一份自绘底栏。原生 tabBar
 由微信统一持有页面生命周期和选中态，避免自定义组件在真机切换时闪动或丢失激活图标。
