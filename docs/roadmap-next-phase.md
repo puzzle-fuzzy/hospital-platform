@@ -13,7 +13,7 @@
 > 当前正确结构不包含 `custom-tab-bar/`、没有页面级底栏或第二套 selected 状态；会话失效回首页也已从 `reLaunch` 收口到 `switchTab`。上一轮开发者工具复核和自定义候选只保留历史记录。
 > 当前开发者工具执行要求：必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译 `a5ff0001edf20beab29583e5101ee34bb9ff0c5c`，再确认首页和“就诊”页只有一份固定原生底栏，切换后当前图标/文字变蓝。历史线上 `13f597e` 和自定义候选不能作为本次 Tab 行为证据，不能打开父目录、`src/` 或另一个旧 `dist/` 工程，也不能新增页面级底栏。
 
-> 本轮后续唯一执行入口：先按本地服务端候选 `4404c556` 的受控发布门禁完成新旧服务共存 preflight，再使用小程序运行包 `c4eb3587d0126458f7210fee134f96b51dce7b6c` 在独立 `dist/` 工程普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
+> 本轮后续唯一执行入口：先按新旧服务共存边界完成只读 preflight，再使用小程序运行包 `a5ff0001edf20beab29583e5101ee34bb9ff0c5c` 在独立 `dist/` 工程普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
 > 当前小程序会话/导航门禁（2026-08-25，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，底栏由微信原生 `tabBar` 统一维护，会话恢复期间患者卡片只显示固定占位。本轮小程序回归为 `240/240` 通过、`1929` 个断言，运行包来源为 `a5ff000`；真机页面证据仍待。
 > 当前日志链路审计（2026-08-24，服务端已随 `8eb51b5f` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
@@ -26,9 +26,9 @@
 > `10.0.0.3:18081`；旧 Python 服务继续监听 `0.0.0.0:8001`，本轮未停止、未重启、未修改。
 > 内网 `/health/ready` 返回 `database=ok`、`redis=ok`、`schema=ok`。Worker 继续保持 inactive。
 >
-> 小程序最新本地运行包来源为 `21cddff8c4bf79c5e7d06aaef8f36e75d5eb85fd`，仅用于新项目独立
+> 小程序最新本地运行包来源为 `a5ff0001edf20beab29583e5101ee34bb9ff0c5c`，仅用于新项目独立
 > `apps/miniprogram/dist/` 的预览和真机验收，尚未替换线上正式小程序；新二维码为
-> `.local/hospital-miniprogram/tabbar-preview-21cddff8.png`。四个主 Tab 仍由微信原生 `tabBar`
+> `.local/hospital-miniprogram/tabbar-preview-a5ff0001.png`。四个主 Tab 仍由微信原生 `tabBar`
 > 唯一托管，支付、医保、结算、预约写入、取消、患者绑定、二维码、病历和 HIS 回写均关闭。
 >
 > 为真实只读验收准备的 wrapper 已 staging 到服务器：
