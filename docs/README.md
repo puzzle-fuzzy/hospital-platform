@@ -33,6 +33,10 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
+> 2026-08-24 17:27 CST 最新只读复核：内网审计 SSH 确认 `current` 仍指向 `28a5c0c1`，新服务 `10.0.0.3:18081` 与旧 Python `8001` 同时监听，
+> `hospital-platform-api-v2.service=active`、Worker=`inactive`；内网和公网 readiness 均为 200，database/redis/schema 均为 `ok`，启动日志为 production。
+> 本次没有执行重启或配置/数据写入，详见 [`release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md)。
+
 > 当前本地未发布小程序候选的页面代码基线为 `dc287a4a82ceaded88909250cd9c8f13741670ab`（提交 `dc287a4a`）。
 > 本轮在原生 `tabBar.custom=false` 和四个主 Tab 页面级滚动隔离的基础上，统一挂号、报告、门诊缴费错误态的患者选择入口：只有明确患者上下文错误才显示“选择就诊人”，服务故障只允许重试；构建产物位于 `apps/miniprogram/dist/`。
 > 当前运行包已完成构建与 `runtime:verify`；不得把本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。
@@ -119,6 +123,7 @@
 | [`release/0e2a366e-production-acceptance-2026-08-22.md`](release/0e2a366e-production-acceptance-2026-08-22.md) | 当前服务端原子切换、production preflight、旧 Python `8001` 共存、支付关闭闸门和低敏日志证据 |
 | [`release/candidate-28a5c0c1-server-release-2026-08-24.md`](release/candidate-28a5c0c1-server-release-2026-08-24.md) | 当前服务端独立候选、Bun bundle 校验、生产 preflight 和小程序 `13f597e` 分层配套边界 |
 | [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md) | 当前服务端生产切换、内部/公网 readiness、旧 Python `8001` 共存、结构化日志和关闭边界验收；真机业务证据仍待 |
+| [`release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md) | 17:27 CST 最新只读运行层复核；不替代真机业务验收 |
 | [`release/1e58bb66-production-acceptance-2026-08-22.md`](release/1e58bb66-production-acceptance-2026-08-22.md) | 历史 `1e58bb66` 服务端原子切换、production preflight、旧 Python `8001` 共存和关闭门禁证据；不覆盖当前 release |
 | [`release/next-appointment-records-acceptance-2026-08-22.md`](release/next-appointment-records-acceptance-2026-08-22.md) | 下一项预约历史/爽约只读验收顺序、三层低敏证据、停止条件和代码入口 |
 | [`release/outpatient-payment-readonly-audit-2026-08-22.md`](release/outpatient-payment-readonly-audit-2026-08-22.md) | 门诊缴费只读当前候选、旧端差异、金额/状态/患者边界和支付医保停止条件 |
