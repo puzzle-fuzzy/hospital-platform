@@ -132,19 +132,19 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 
 构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，该命令执行 TypeScript 类型检查、CommonJS
 JavaScript 生成，并动态校验 `app.json` 的每个页面同时存在 `.json/.wxml/.wxss/.ts` 以及最终的 `.js`；
-同时验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须打开
-`apps/miniprogram/`，由公共 `project.config.json` 将 `dist/` 作为运行根目录；不要直接打开 `src/`。
+同时验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须直接打开
+`apps/miniprogram/dist/`；该目录包含独立的 `project.config.json`，不要打开父目录、`src/` 或待发布候选目录。
 
 如果开发者工具最近打开记录经常恢复到旧项目，Windows 可以使用工具自带的 CLI 明确指定项目根目录：
 
 ```powershell
-<微信开发者工具安装目录>\cli.bat open --project E:\__Super_Core__\hospital-platform\apps\miniprogram
+<微信开发者工具安装目录>\cli.bat open --project E:\__Super_Core__\hospital-platform\apps\miniprogram\dist
 ```
 
 首次使用 CLI 前，在开发者工具“设置 → 安全”中开启“服务端口”。命令的 `--project` 必须指向
-`apps/miniprogram/`，不能指向 `dist/`、`src/` 或旧项目的 `mp-weixin`；公共配置会继续把 `dist/`
-作为实际运行根目录。部分旧版工具在打开项目后仍会输出一次 `TypeError: d.on is not a function`，
-但只要窗口标题为 `miniprogram` 且资源管理器显示新项目根目录，就应以窗口实际项目为准，并手动执行一次“编译”。
+`apps/miniprogram/dist/`，不能指向父目录、`src/` 或旧项目的 `mp-weixin`；运行包自己的配置使用
+`miniprogramRoot=./`，不会再把源码和构建脚本带入 watcher。部分旧版工具在打开项目后仍会输出一次
+`TypeError: d.on is not a function`，但只要资源管理器显示的是 `dist` 独立运行根，就应手动执行一次“编译”。
 
 ### 真机调试前验证运行包
 
@@ -157,7 +157,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 `runtime:verify` 只读检查 `src/app.json` 注册的全部页面，以及 `dist/` 中对应的
 `.js/.json/.wxml/.wxss` 文件；它不会修改文件。开发者工具必须打开
-`apps/miniprogram/`，并保持 `project.config.json` 的 `miniprogramRoot` 为 `dist/`。
+`apps/miniprogram/dist/`，并保持该运行包 `project.config.json` 的 `miniprogramRoot` 为 `./`。
 不要把 `src/` 作为小程序根目录，也不要只上传单个页面目录，否则会重新出现页面
 脚本缺失、页面 404 或模板/样式不一致的问题。
 构建还会生成 `dist/build-info.json`，其中只有 schema 版本、完整 Git 提交号、
@@ -166,8 +166,8 @@ pnpm --filter @hospital/miniprogram runtime:verify
 请设置 `HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION` 为完整 40 位提交号。指纹不一致时
 必须重新构建，不能继续导入开发者工具；
 该文件不包含密钥、会话、就诊人或服务商数据。
-若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
-如果错误路径包含 `dist/services/*.test.js` 或其他 `*.test.js`，先关闭当前真机调试和开发者工具，再执行一次 `pnpm --filter @hospital/miniprogram build`，重新打开 `apps/miniprogram/` 后再“编译/真机调试”。这是开发者工具增量缓存指向旧测试产物的表现，不应在 `src/` 或 `dist/` 中手工补测试脚本；构建与 `runtime:verify` 都会阻止测试脚本进入运行包。
+若刷新后仍请求旧地址或提示 `.js` 文件缺失，先重新执行构建并在开发者工具中重新导入 `apps/miniprogram/dist/`，再确认 `src/app.ts` 中的 `apiBaseUrl/apiPrefix`；
+如果错误路径包含 `dist/services/*.test.js` 或其他 `*.test.js`，先关闭当前真机调试和开发者工具，再执行一次 `pnpm --filter @hospital/miniprogram build`，重新打开 `apps/miniprogram/dist/` 后再“编译/真机调试”。这是开发者工具增量缓存指向旧测试产物的表现，不应在 `src/` 或 `dist/` 中手工补测试脚本；构建与 `runtime:verify` 都会阻止测试脚本进入运行包。
 构建与 `runtime:verify` 还会扫描运行包中的相对 `require`；若出现 `single-flight.test.js` 等缺失模块引用，会在发布前直接报告引用方，不能用复制测试脚本的方式绕过。
 如果构建输出 `dist/ is locked by WeChat DevTools` 或 Windows 的 `EPERM/EBUSY`，说明开发者工具仍持有 `dist/` 文件句柄：先停止真机调试，关闭所有指向该项目的开发者工具窗口，等待 `wechatdevtools.exe` 完全退出后再重新执行构建。构建失败会保留上一份完整 `dist/`，不要在工具仍运行时手工删除或移动该目录。
 代码配置优先于旧的本地缓存，不会再拼出 `/api/v1/api/v2/...`。

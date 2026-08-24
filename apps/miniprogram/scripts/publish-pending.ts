@@ -1,10 +1,13 @@
 import { access, cp, mkdtemp, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { publishMiniProgramRuntime } from "./runtime-publisher";
+import {
+	getMiniProgramPendingRuntimePath,
+	publishMiniProgramRuntime,
+} from "./runtime-publisher";
 
 const root = join(import.meta.dir, "..");
 const liveRuntime = join(root, "dist");
-const pendingRuntime = join(dirname(root), ".hospital-miniprogram-pending");
+const pendingRuntime = getMiniProgramPendingRuntimePath(root);
 
 try {
 	await access(join(pendingRuntime, "build-info.json"));

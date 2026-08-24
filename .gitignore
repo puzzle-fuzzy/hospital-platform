@@ -8,6 +8,9 @@ coverage/
 *.log
 .DS_Store
 .local/zhongyang-docs/
+.local/hospital-miniprogram/
+# 构建被旧版本工具锁定时产生的历史待发布目录，不再位于当前标准路径。
+apps/.hospital-miniprogram-pending/
 # 本地代码图数据库、发布暂存目录和临时 release 压缩包只服务于开发机，不能进入版本库。
 .codegraph/
 .release-stage-*/

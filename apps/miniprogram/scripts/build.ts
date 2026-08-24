@@ -12,6 +12,7 @@ import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
+	getMiniProgramPendingRuntimePath,
 	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
@@ -519,7 +520,7 @@ const stagingRuntime = await mkdtemp(
 );
 // 该目录位于小程序项目根之外，不会被微信工具当作运行包；只有完整构建
 // 校验通过、但 `dist/` 被工具锁定时，才会短暂保留它作为待发布候选。
-const pendingRuntime = join(dirname(root), ".hospital-miniprogram-pending");
+const pendingRuntime = getMiniProgramPendingRuntimePath(root);
 try {
 	/**
 	 * tsconfig.build.json 会继续检查同一份 src 类型树，但明确排除 *.test.ts 和
@@ -701,6 +702,7 @@ try {
 		// workspace 引用和来源指纹校验。保留它可以让工具关闭后直接原子
 		// 发布，避免反复编译期间继续触发旧页面/新页面混用。
 		try {
+			await mkdir(dirname(pendingRuntime), { recursive: true });
 			await rm(pendingRuntime, { recursive: true, force: true });
 			await rename(stagingRuntime, pendingRuntime);
 		} catch (preserveError) {

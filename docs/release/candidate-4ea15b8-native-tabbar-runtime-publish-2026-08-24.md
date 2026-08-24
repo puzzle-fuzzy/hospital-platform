@@ -18,7 +18,7 @@
 
 ## 本轮修正的运行链
 
-构建脚本现在会先完成页面、资源和来源指纹校验，再原子替换 `dist/`。如果 Windows 开发者工具锁定旧 `dist/`，构建不会删除旧运行包，而会把完整候选保留到仓库内受控的 `apps/.hospital-miniprogram-pending/`；释放工具后可执行：
+构建脚本现在会先完成页面、资源和来源指纹校验，再原子替换 `dist/`。如果 Windows 开发者工具锁定旧 `dist/`，构建不会删除旧运行包，而会把完整候选保留到仓库 `.local/hospital-miniprogram/pending/`；该目录只属于本机临时状态，不是小程序工程；释放工具后可执行：
 
 ```powershell
 pnpm --filter @hospital/miniprogram runtime:publish-pending

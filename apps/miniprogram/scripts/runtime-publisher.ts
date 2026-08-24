@@ -1,6 +1,25 @@
 import { access, mkdir, readdir, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+/**
+ * 获取小程序待发布候选的本机隔离路径。
+ *
+ * 待发布候选只是在微信开发者工具锁住 `dist/` 时的临时副本，不是源码，
+ * 不能放在 `apps/` 下，否则根目录 Biome、Git 或开发者工具都可能把它当成
+ * 第二套小程序工程。统一放到仓库 `.local/` 下，既保留故障恢复能力，也
+ * 让候选与正式运行包、TypeScript 源码和文档完全隔离。
+ */
+export function getMiniProgramPendingRuntimePath(packageRoot: string): string {
+	return join(
+		packageRoot,
+		"..",
+		"..",
+		".local",
+		"hospital-miniprogram",
+		"pending",
+	);
+}
+
 function isMissingPath(error: unknown): boolean {
 	return (
 		typeof error === "object" &&
