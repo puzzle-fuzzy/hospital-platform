@@ -20,7 +20,7 @@
 1. 针对独立运行根 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` 清理编译缓存；
 2. 重置该运行根的 file-utils 索引；
 3. 退出后重新打开独立 `dist` 工程；
-4. 从当前 `dist` 重新执行预览，预览包大小为 `671087` 字节。
+4. 从当前 `dist` 重新执行预览，预览包大小为 `696935` 字节。
 
 当前运行包来源仍为：
 
@@ -61,6 +61,24 @@
 当前没有修改旧项目、旧服务、服务器、数据库、Redis 或线上小程序。后续真机验收仍必须确认工具窗口根目录正是
 `apps/miniprogram/dist`，并在启动日志看到完整的 `45742ff4450b223b8db3b36e4a3859e3fc86e1c5`；不要继续使用父目录、
 `src` 或历史二维码。
+
+## 2026-08-25 运行包锁定补充
+
+重新构建时，构建脚本发现 `apps/miniprogram/dist` 仍被微信开发者工具占用，因而没有覆盖已验证的完整运行包，
+而是把候选保存在 `.local/hospital-miniprogram/pending`。这不是业务代码编译错误，但如果此时继续热编译或继续使用旧
+真机调试会话，工具可能把旧增量页面图和当前 `app.json` 混合加载，表现为底栏闪动、选中图标不更新或页面文件来自旧候选。
+
+本次针对新项目执行了以下恢复动作：
+
+1. 关闭 `dist`、`apps/miniprogram` 父目录和 `src` 三个新项目入口；
+2. 退出仍持有文件锁的微信开发者工具主进程；
+3. 执行 `pnpm --filter @hospital/miniprogram runtime:publish-pending`，将待发布候选安全替换到 `dist`；
+4. 执行 `pnpm --filter @hospital/miniprogram runtime:verify`，确认 `16` 个页面脚本和 `revision=45742ff`；
+5. 只重新打开 `apps/miniprogram/dist`，并重新生成新的预览二维码。
+
+这组操作没有删除患者缓存、登录状态或线上数据，也没有触碰旧项目和旧服务。之后若再次需要修改源码，必须先关闭
+这个唯一的 `dist` 工程和真机调试会话；如果构建输出提示 `dist is locked`，应先完成上述发布流程，不能手工复制文件到
+`dist` 或继续使用旧二维码。
 
 ## 业务链路复核补充
 
