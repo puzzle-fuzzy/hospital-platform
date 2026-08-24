@@ -1,5 +1,5 @@
-> 当前服务端发布更新（2026-08-24）：服务端 release 已切换为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；小程序运行包来源仍为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本次运行包显式校验修正已进入最新本地候选，真实真机证据仍待。
+> 当前服务端发布更新（2026-08-24 11:32 CST）：服务端 release 已切换为 `13f597ea9ee3f65b9be858117826d948339d904a`；小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
+> 当前服务端与小程序已经同源配套，真实真机业务三层证据仍待；下方旧候选只作历史追溯。
 
 # 项目文档导航
 > 当前 `4ba492a` 运行包 ENOENT 复核：
@@ -20,36 +20,36 @@
 > `dist/services/single-flight.js` 存在，`single-flight.test.js` 和全部 `*.test.js`/`*.spec.js` 均不存在，`runtime:verify` 通过。
 > 详细记录见 [`release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md)。
 
-> 当前候选更新（2026-08-24）：线上服务端仍为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；本地待切换候选为 `13f597ea9ee3f65b9be858117826d948339d904a`。小程序运行包来源仍为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。候选未切换边界见 [`release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md`](release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md)。
+> 当前候选更新（2026-08-24）：线上服务端已为 `13f597ea9ee3f65b9be858117826d948339d904a`；同源小程序运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。生产切换记录见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
 
 
-> 当前完整小程序来源校验值：`4ba492a3fdae8283409bd2ab4a0a45247c46600c`；当前服务端已验证 release：`6db3217bd3c990b009571ffd85b7da55d9ea7338`。
+> 当前完整小程序来源校验值：`13f597ea9ee3f65b9be858117826d948339d904a`；当前服务端已验证 release：`13f597ea9ee3f65b9be858117826d948339d904a`。
 
 > 2026-08-22 15:16 CST 运行复核：新 API `active`、内网 `18081` 和旧 Python `8001` 继续共存，Worker 为 `inactive`，
 > live/ready 均为 `200`；最近 60 分钟没有当前候选的业务请求/成功事件。该窗口不替代真机三层证据，详见
 > [`release/current-business-observation-2026-08-22-1510.md`](release/current-business-observation-2026-08-22-1510.md)。
 
-> 2026-08-24 当前运行态只读观察：线上 `6db3217b`、新 Bun `18081`、旧 Python `8001` 继续共存，Worker 保持 `inactive`，公网
-> readiness 返回 `200` 且 database/redis/schema 均为 `ok`；候选 `13f597ea` 未切换。详见
-> [`release/current-6db3217b-runtime-coexistence-observation-2026-08-24.md`](release/current-6db3217b-runtime-coexistence-observation-2026-08-24.md)。
+> 2026-08-24 当前运行态只读观察：线上 `13f597ea`、新 Bun `18081`、旧 Python `8001` 继续共存，Worker 保持 `inactive`，公网
+> readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
+> [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
 
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前发布基线（2026-08-24 09:49 CST）为：服务端已验证 `6db3217bd3c990b009571ffd85b7da55d9ea7338`，当前小程序候选来源
-`4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。服务端已完成新 API 的原子切换与 production smoke；小程序已重新构建、
+当前发布基线（2026-08-24 11:33 CST）为：服务端已验证 `13f597ea9ee3f65b9be858117826d948339d904a`，当前小程序运行包来源
+`13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端已完成新 API 的原子切换与 production smoke；小程序已重新构建、
 验证运行包并在正确项目中重新生成二维码，但仍需手机页面、客户端 requestId 和服务端日志三层业务证据。旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
-工作树运行包补充状态（2026-08-22 18:04 CST）：`apps/miniprogram/dist/build-info.json.sourceRevision` 当前为
-`4ba492a3fdae8283409bd2ab4a0a45247c46600c`，对应本次小程序候选。该运行包不含任何测试 JS；针对
+当前运行包状态（2026-08-24）：`apps/miniprogram/dist/build-info.json.sourceRevision` 为
+`13f597ea9ee3f65b9be858117826d948339d904a`，与线上服务端同源。该运行包不含任何测试 JS；针对
 `single-flight.test.js` 的 ENOENT 已重新构建、普通编译并通过运行包门禁确认；若开发者工具仍报错，应关闭工具释放 `dist/` 文件句柄后重开正确项目。
 本轮还补齐成功请求的低敏 requestId 观测，便于与服务端 Pino 日志对齐；不增加微信登录、患者、Provider 或真机业务证据。
 
-2026-08-22 18:04 CST 从当前源码重建运行包：`dist/build-info.json` 指向
-`4ba492a3fdae8283409bd2ab4a0a45247c46600c`，14 个页面入口和 `services/single-flight.js` 均存在，
-`dist/` 中 `*.test.js`/`*.spec.js` 为 0 个；运行包门禁通过，小程序全量测试为 `221 pass / 0 fail / 1640 expect()`。
-当前运行包构建记录见 [`release/candidate-4ba492a-local-build-2026-08-22.md`](release/candidate-4ba492a-local-build-2026-08-22.md)。如果真机仍请求 `services/single-flight.test.js`，只能按开发者工具旧增量索引处理：结束当前新项目真机调试、
+2026-08-24 从当前源码重建运行包：`dist/build-info.json` 指向
+`13f597ea9ee3f65b9be858117826d948339d904a`，14 个页面入口和 `services/single-flight.js` 均存在，
+`dist/` 中 `*.test.js`/`*.spec.js` 为 0 个；运行包门禁通过，小程序全量测试为 `222 pass / 0 fail / 1643 expect()`。
+当前运行包构建记录见 [`release/candidate-13f597ea-miniprogram-build-2026-08-24.md`](release/candidate-13f597ea-miniprogram-build-2026-08-24.md)。如果真机仍请求 `services/single-flight.test.js`，只能按开发者工具旧增量索引处理：结束当前新项目真机调试、
 关闭并重新打开 `apps/miniprogram/`，普通编译一次后再生成新二维码。不要使用旧二维码，也不要在 `dist/`
 中手工创建测试脚本。
 
@@ -64,46 +64,46 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前已验证服务端 release 以 `6db3217b`、当前小程序候选来源以 `4ba492a3fdae8283409bd2ab4a0a45247c46600c` 为准 |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；当前已验证服务端 release 以 `13f597ea`、当前小程序候选来源以 `13f597ea9ee3f65b9be858117826d948339d904a` 为准 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
-| [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md) | 历史 `single-flight.test.js` ENOENT 恢复记录；当前候选以 `candidate-4ba492a` 和最新开发者工具准入记录为准 |
+| [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md) | 历史 `single-flight.test.js` ENOENT 恢复记录；当前候选以 `candidate-13f597ea` 和最新开发者工具准入记录为准 |
 | [`release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md`](release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md) | 历史 `a64fe023` 运行包重建和开发者工具旧增量缓存恢复记录 |
 | [`release/appointment-record-status-mapping-audit-2026-08-22.md`](release/appointment-record-status-mapping-audit-2026-08-22.md) | 预约历史状态映射、旧端 `statusCode` 风险、爽约筛选和渠道 4 关闭边界 |
 | [`release/current-public-health-observation-2026-08-22.md`](release/current-public-health-observation-2026-08-22.md) | 当前公网 live/ready/ping 低敏探针；明确它不替代真机、Provider 或旧服务共存证据 |
 | [`release/current-public-health-observation-2026-08-22-1811.md`](release/current-public-health-observation-2026-08-22-1811.md) | 18:11 CST 当前公网 live/ready/system-ping 只读结果；SSH 进程现场与真机业务仍单独取证 |
 | [`release/device-evidence-redaction-phone-audit-2026-08-22.md`](release/device-evidence-redaction-phone-audit-2026-08-22.md) | 真机验收摘要中的手机号脱敏门禁、回归测试和不影响业务/旧服务的边界 |
 | [`release/device-evidence-distinct-chain-audit-2026-08-22.md`](release/device-evidence-distinct-chain-audit-2026-08-22.md) | 普通资料与预约目录双请求必须使用独立客户端 requestId 和服务端关联指纹的证据门禁 |
-| [`release/candidate-4ba492a-local-build-2026-08-22.md`](release/candidate-4ba492a-local-build-2026-08-22.md) | 当前 `4ba492a` 小程序运行包、请求 requestId 观测、患者范围入口门禁、测试脚本隔离和真机前运行包边界 |
+| [`release/candidate-13f597ea-miniprogram-build-2026-08-24.md`](release/candidate-13f597ea-miniprogram-build-2026-08-24.md) | 当前 `13f597e` 小程序运行包、请求 requestId 观测、患者范围入口门禁、测试脚本隔离和真机前运行包边界 |
 | [`release/miniprogram-typescript-runtime-audit-2026-08-22.md`](release/miniprogram-typescript-runtime-audit-2026-08-22.md) | 当前原生小程序 TypeScript 源码收口、14 个页面、运行包测试脚本隔离和 ENOENT 恢复边界 |
 | [`release/payment-runtime-gate-audit-2026-08-22.md`](release/payment-runtime-gate-audit-2026-08-22.md) | 支付订单、预支付、通知统一运行时闸门，关闭状态无仓储/provider 副作用 |
 | [`release/candidate-41c708e-local-build-2026-08-22.md`](release/candidate-41c708e-local-build-2026-08-22.md) | 历史 `41c708e1` 小程序运行包、个人资料错误态和测试脚本隔离证据 |
-| [`release/miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) | 真机页面、客户端 requestId 和服务端低敏日志三层证据模板；当前候选来源以 `4ba492a` 为准 |
+| [`release/miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) | 真机页面、客户端 requestId 和服务端低敏日志三层证据模板；当前候选来源以 `13f597e` 为准 |
 | [`release/miniprogram-real-device-evidence-template-41c708e.md`](release/miniprogram-real-device-evidence-template-41c708e.md) | 历史 `41c708e1` 真机三层证据模板 |
 | [`release/miniprogram-devtools-reimport-2026-08-22-1314.md`](release/miniprogram-devtools-reimport-2026-08-22-1314.md) | 当前候选重新导入、普通编译、运行包测试脚本边界和新二维码准入证据 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1327.md`](release/miniprogram-device-qr-session-2026-08-22-1327.md) | 历史 `41c708e1` 候选二维码现场与三层证据交接边界；当前二维码必须以 `4ba492a` 项目开发者工具现场为准 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1348.md`](release/miniprogram-device-qr-session-2026-08-22-1348.md) | 历史 `41c708e1` 候选二维码会话；已过期，不能替代当前三层业务证据 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1804-a64fe023.md) | 历史 `a64fe023` 候选二维码现场；当前二维码必须从 `4ba492a` 运行包重新生成 |
 | [`release/patient-context-consistency-audit-2026-08-22.md`](release/patient-context-consistency-audit-2026-08-22.md) | 当前候选患者范围页面的 owner、会话代际、显式选择和旧结果淘汰审计；该记录中的测试数字属于记录当时的候选，当前构建以 `candidate-4ba492a` 为准 |
-| [`release/current-runtime-coexistence-readonly-audit-2026-08-22-1335.md`](release/current-runtime-coexistence-readonly-audit-2026-08-22-1335.md) | 发布前 `9f479c9a` 新旧服务共存、内外网 readiness 和排班快照持久化降级边界的只读观察；当前切换见 [`6db3217b-production-acceptance-2026-08-24.md`](release/6db3217b-production-acceptance-2026-08-24.md) |
+| [`release/current-runtime-coexistence-readonly-audit-2026-08-22-1335.md`](release/current-runtime-coexistence-readonly-audit-2026-08-22-1335.md) | 发布前 `9f479c9a` 新旧服务共存、内外网 readiness 和排班快照持久化降级边界的只读观察；当前切换见 [`13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md) |
 | [`release/current-runtime-coexistence-readonly-audit-2026-08-22-1406.md`](release/current-runtime-coexistence-readonly-audit-2026-08-22-1406.md) | 当前运行层实际监听地址、公网 `/api/v2` 前缀映射、病历关闭路由和旧 Python `8001` 共存的最新只读复核 |
 | [`release/miniprogram-simulator-readonly-flow-2026-08-22.md`](release/miniprogram-simulator-readonly-flow-2026-08-22.md) | 历史 `41c708e1` 候选的预约目录、门诊费用和就诊人切换模拟器只读验收；不替代当前真机或 Provider 证据 |
 | [`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md) | 当前候选患者上下文、只读页面错误边界和真机人工交接审计 |
-| [`release/current-business-observation-2026-08-22-1442.md`](release/current-business-observation-2026-08-22-1442.md) | 切换前 `1e58bb66` 服务端低敏业务聚合、只读门禁、失败边界和真机三层取证要求；当前发布见 [`6db3217b-production-acceptance-2026-08-24.md`](release/6db3217b-production-acceptance-2026-08-24.md) |
+| [`release/current-business-observation-2026-08-22-1442.md`](release/current-business-observation-2026-08-22-1442.md) | 切换前 `1e58bb66` 服务端低敏业务聚合、只读门禁、失败边界和真机三层取证要求；当前发布见 [`13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md) |
 | [`release/current-business-observation-2026-08-22-1510.md`](release/current-business-observation-2026-08-22-1510.md) | 15:10 CST 新 API 低敏事件名观察；无新的真机业务流量，不把空窗口误判为成功或 Provider 故障 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1450.md`](release/miniprogram-device-qr-session-2026-08-22-1450.md) | 历史 `41c708e1` 候选二维码、开发者工具错误边界和扫码后低敏三层取证顺序 |
 | [`release/current-readonly-business-observation-2026-08-22-1423.md`](release/current-readonly-business-observation-2026-08-22-1423.md) | 当前 13:23–14:23 CST 服务器端门诊费用只读同链证据；不替代手机页面和客户端 requestId |
 | [`release/candidate-c01b1af-local-build-2026-08-22.md`](release/candidate-c01b1af-local-build-2026-08-22.md) | 未部署 `c01b1af` 预约排班快照日志 traceId 关联修正、本地测试和上线后缺失关联计数门禁 |
 | [`release/0e2a366e-production-acceptance-2026-08-22.md`](release/0e2a366e-production-acceptance-2026-08-22.md) | 当前服务端原子切换、production preflight、旧 Python `8001` 共存、支付关闭闸门和低敏日志证据 |
-| [`release/6db3217b-production-acceptance-2026-08-24.md`](release/6db3217b-production-acceptance-2026-08-24.md) | 当前服务端生产切换、内部/公网 readiness、旧 Python `8001` 共存、结构化日志和关闭边界验收；真机业务证据仍待 |
+| [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md) | 当前服务端生产切换、内部/公网 readiness、旧 Python `8001` 共存、结构化日志和关闭边界验收；真机业务证据仍待 |
 | [`release/1e58bb66-production-acceptance-2026-08-22.md`](release/1e58bb66-production-acceptance-2026-08-22.md) | 历史 `1e58bb66` 服务端原子切换、production preflight、旧 Python `8001` 共存和关闭门禁证据；不覆盖当前 release |
 | [`release/next-appointment-records-acceptance-2026-08-22.md`](release/next-appointment-records-acceptance-2026-08-22.md) | 下一项预约历史/爽约只读验收顺序、三层低敏证据、停止条件和代码入口 |
 | [`release/outpatient-payment-readonly-audit-2026-08-22.md`](release/outpatient-payment-readonly-audit-2026-08-22.md) | 门诊缴费只读当前候选、旧端差异、金额/状态/患者边界和支付医保停止条件 |
 | [`release/my-page-migration-audit-2026-08-22.md`](release/my-page-migration-audit-2026-08-22.md) | “我的”页面背景、菜单、图标、固定底栏和未迁移入口审计 |
 | [`release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md`](release/candidate-dc8cd5b8-miniprogram-build-2026-08-22.md) | 历史 `dc8cd5b8` 小程序候选来源、门诊缴费旧版选择器布局、ENOENT 修复和真机准入边界；当前候选见 [`release/candidate-4ba492a-local-build-2026-08-22.md`](release/candidate-4ba492a-local-build-2026-08-22.md) |
 | [`release/current-2a2acd9-runtime-observation-2026-08-22-0935.md`](release/current-2a2acd9-runtime-observation-2026-08-22-0935.md) | 新旧服务共存运行层观察与 journald 权限不足边界；不把空日志当作业务结论 |
-| [`release/current-2a2acd9-business-observation-2026-08-22-0918.md`](release/current-2a2acd9-business-observation-2026-08-22-0918.md) | 历史 `2a2acd9` 线上低敏业务观察；当前运行层以 [`6db3217b-production-acceptance-2026-08-24.md`](release/6db3217b-production-acceptance-2026-08-24.md) 为准 |
+| [`release/current-2a2acd9-business-observation-2026-08-22-0918.md`](release/current-2a2acd9-business-observation-2026-08-22-0918.md) | 历史 `2a2acd9` 线上低敏业务观察；当前运行层以 [`13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md) 为准 |
 | [`release/candidate-b0e0935-local-build-2026-08-22.md`](release/candidate-b0e0935-local-build-2026-08-22.md) | 未部署 `b0e0935` 候选的患者卡号 contract、运行包来源、本地门禁和线上切换停止条件 |
 | [`release/candidate-4f2d890-local-build-2026-08-22.md`](release/candidate-4f2d890-local-build-2026-08-22.md) | 未部署 `4f2d890` 众阳卡号超长响应 fail-closed 修正、服务端/小程序来源区分和发布停止条件 |
 | [`release/readonly-page-state-audit-2026-08-22.md`](release/readonly-page-state-audit-2026-08-22.md) | 预约记录、门诊费用、报告目录的只读成功/空/异常语义、页面清理边界、日志证据和开发者工具占用处理 |
@@ -119,7 +119,7 @@
 | [`release/patient-card-masking-contract-2026-08-22.md`](release/patient-card-masking-contract-2026-08-22.md) | 患者卡号公共 contract、前五位/后四位展示边界、历史掩码兼容和重新同步停止条件 |
 | [`release/patient-id-stability-contract-2026-08-22.md`](release/patient-id-stability-contract-2026-08-22.md) | 患者目录重复同步沿用平台内部 `patientId` 的服务层、仓储层和验收边界 |
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
-| [`release/current-profile-read-write-acceptance-2026-08-22.md`](release/current-profile-read-write-acceptance-2026-08-22.md) | 切换前 `1e58bb66`/`7f09bbb` 普通资料读写、版本冲突、日志证据和真实写入授权协议；当前发布见 [`6db3217b-production-acceptance-2026-08-24.md`](release/6db3217b-production-acceptance-2026-08-24.md) |
+| [`release/current-profile-read-write-acceptance-2026-08-22.md`](release/current-profile-read-write-acceptance-2026-08-22.md) | 切换前 `1e58bb66`/`7f09bbb` 普通资料读写、版本冲突、日志证据和真实写入授权协议；当前发布见 [`13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md) |
 | [`release/profile-age-input-boundary-2026-08-22.md`](release/profile-age-input-boundary-2026-08-22.md) | 普通资料年龄输入保留原文、保存边界严格解析和真机验证要求 |
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |
 | [`release/profile-mysql-write-response-atomicity-2026-08-21.md`](release/profile-mysql-write-response-atomicity-2026-08-21.md) | 普通资料 MySQL 行锁、版本条件更新和 canonical 响应回读的事务原子性修正 |
@@ -169,7 +169,7 @@
 | [`release/current-5a31427-coexistence-readonly-2026-08-21-0725.md`](release/current-5a31427-coexistence-readonly-2026-08-21-0725.md) | 07:25 CST 新旧服务共存、正确内外网探针路径和 P0 业务日志空窗口；不替代真机业务证据 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0732.md`](release/current-5a31427-p0-business-observation-2026-08-21-0732.md) | 07:32 CST 当前候选二维码、运行包来源、新旧服务和 P0 业务日志空窗口；不替代真机业务证据 |
 | [`release/current-5a31427-p0-business-observation-2026-08-21-0647.md`](release/current-5a31427-p0-business-observation-2026-08-21-0647.md) | 06:47 CST 二维码等待期间的新旧服务、readiness 和 P0 业务日志空窗口；不把健康检查或空窗口当作业务成功 |
-| [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `4ba492a` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
+| [`release/current-5a31427-real-business-event-window-2026-08-21.md`](release/current-5a31427-real-business-event-window-2026-08-21.md) | 服务器真实微信登录/患者同步事件窗口；因早于当前 `13f597e` 构建且来源未匹配，只作为历史观察，不计入当前候选验收 |
 | [`release/84fac75c-production-acceptance-2026-08-22.md`](release/84fac75c-production-acceptance-2026-08-22.md) | 历史 `84fac75c` 真实生产切换、隔离候选验收、新旧服务共存、公网 smoke 和切换后低敏日志窗口；不覆盖当前 `84370077` |
 | [`release/readonly-business-invariant-review-2026-08-22.md`](release/readonly-business-invariant-review-2026-08-22.md) | 当前 release 的就诊人归属、预约历史/爽约、门诊费用只读、日志关联和真机准入不变量审计；不替代真实真机业务证据 |
 | [`release/6038560-production-acceptance-2026-08-21.md`](release/6038560-production-acceptance-2026-08-21.md) | 历史 `6038560` 服务端生产切换、真实 env preflight、隔离 runtime smoke、新旧服务共存和未完成真机业务边界 |
@@ -265,9 +265,9 @@
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
-| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `6db3217b` |
+| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 14 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `13f597ea` |
 | [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c8eef370`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表；旧 release 仅作历史追溯 |
-| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；文档内旧 release 仅作历史证据，当前服务端以 `6db3217b` 为准 |
+| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；文档内旧 release 仅作历史证据，当前服务端以 `13f597ea` 为准 |
 | [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | `7181e99e` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/profile-read-model-display-fail-closed-2026-08-22.md`](release/profile-read-model-display-fail-closed-2026-08-22.md) | 普通资料读模型损坏、会话失效和暂时不可用的前端错误分流；避免把数据故障误判成登录失效 |

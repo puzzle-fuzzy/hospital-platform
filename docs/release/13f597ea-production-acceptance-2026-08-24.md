@@ -1,0 +1,67 @@
+# `13f597ea` 新 API 生产共存发布验收记录（2026-08-24）
+
+> 本记录证明 `13f597ea` 已完成受控切换、启动窗口等待、生产依赖 readiness、公网 runtime smoke 和旧 Python 共存复核。
+> 它不把健康检查误写成微信、患者、预约、门诊费用、Provider 或真机业务成功。
+
+## 发布来源
+
+| 项目 | 值 |
+| --- | --- |
+| 服务端 release | `13f597ea9ee3f65b9be858117826d948339d904a` |
+| 小程序客户端 | `13f597e` |
+| 小程序构建来源 | `13f597ea9ee3f65b9be858117826d948339d904a` |
+| 切换后新 API | `10.0.0.3:18081` |
+| 旧 Python API | `0.0.0.0:8001` |
+| Worker | `hospital-platform-worker-v2.service=inactive`，未启动 |
+| 切换后新 API 主 PID | `896697` |
+| 切换后启动时间 | `2026-08-24 11:32:55 CST` |
+
+切换前线上 release 为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`。候选目录已提前完成真实生产 env
+preflight、隔离 `18082` runtime smoke 和远端产物校验；生产 env 文件权限仍为 `600`。
+
+## 切换过程与安全边界
+
+1. 第一次切换后，systemd 很快返回 `active`，但立即端口探测撞上 Bun 启动窗口；脚本没有等待 readiness，随后按安全边界回滚到 `6db3217b`。这次过程中旧 Python `8001` 始终保持监听。
+2. 修正发布手册，要求 `restart` 后最多等待 15 秒，并在每次轮询中同时确认新 API readiness 和旧 `8001`。
+3. 第二次使用修正后的流程原子替换同目录 `current.next -> current`，只执行 `sudo -n systemctl restart hospital-platform-api-v2.service`。
+4. 第二次在第 2 次轮询通过 readiness，`current` 指向 `13f597ea`；没有停止、重启或修改旧 Python，没有启动 Worker，没有执行数据库 migration、Redis 清理、支付、医保、退款或 HIS 写回。
+
+## 切换后运行态
+
+| 检查 | 结果 |
+| --- | --- |
+| `current` | `/home/ps/code/hospital-platform/releases/13f597ea9ee3f65b9be858117826d948339d904a` |
+| 新 API systemd | `active/running`，`NRestarts=0` |
+| 新 API 监听 | `10.0.0.3:18081`，Bun PID `896697` |
+| 旧 Python 监听 | `0.0.0.0:8001`，Gunicorn PID `3687390`、`3687419`–`3687422` |
+| Worker | `inactive` |
+| 内网 readiness | `200`，database/redis/schema 均为 `ok` |
+| 公网 readiness | `200`，database/redis/schema 均为 `ok` |
+| 公网 system ping | `200`，service=`hospital-api` |
+
+旧 Python 进程集合在切换前后保持不变；新 API 的短暂重启窗口没有改变旧服务监听或流量入口。
+
+## 公网 runtime smoke
+
+使用 `13f597ea` release 自带的 `api-runtime-smoke.js`，注入服务器既有 production env，目标为公网
+`https://test-hp.meiyi.pro/api/v2`，没有携带会话、患者标识、微信 code、Provider 原始参数或支付字段。
+
+| 检查 | 结果 |
+| --- | --- |
+| `health-live` | passed，HTTP `200` |
+| `health-ready` | passed，连续 `3` 个样本 |
+| `system-ping` | passed，HTTP `200` |
+| `auth-boundary` | passed，未登录业务路由返回 `401 unauthorized` |
+| `closed-boundary` | passed，关闭能力路由返回 `404 not-found` |
+
+runtime smoke 日志明确记录 `environment=production`，并为每个检查保留低敏 `traceId`；不把这些探针升级为真实业务证据。
+
+## 当前业务验收状态
+
+服务端和小程序的运行来源已配套，但当前仍缺少同一 `13f597ea` 会话的手机页面、小程序客户端 `requestId`、服务端
+Pino/Provider requestId 三层证据。因此下一步按以下顺序进行只读真机验收：微信登录 → 患者同步与显式切换 → 预约历史在线/全部 → 爽约 → 门诊费用只读。
+
+报告 Provider、支付、医保、退款、预约写入、HIS 写回和 Worker 继续保持关闭；没有正式 contract、授权、状态机、幂等和回滚证据，不能为了页面完整而开放。
+
+若新 API 后续 readiness 或业务运行异常，只允许把 `current` 原子回滚到 `6db3217bd3c990b009571ffd85b7da55d9ea7338` 并只重启
+`hospital-platform-api-v2.service`，再次核对 `18081`、公网 readiness 和旧 `8001`；禁止停止旧 Python、删除旧 release、清理 Redis 或回滚 schema。

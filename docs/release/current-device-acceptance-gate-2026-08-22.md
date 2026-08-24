@@ -1,11 +1,9 @@
-> 当前服务端发布更新（2026-08-24）：服务端 release 已切换为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；小程序运行包来源仍为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
-
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本次运行包显式校验修正已进入最新本地候选，真实真机证据仍待。
+> 当前发布基线更新（2026-08-24 11:33 CST）：线上服务端 release 为 `13f597ea9ee3f65b9be858117826d948339d904a`；当前小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端与小程序已完成同源配套切换，真机业务三层证据仍待。
+> 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
+> 当前服务端与小程序运行包均已切换到 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）；下方 2026-08-22 二维码和运行包只作历史追溯，必须重新构建并生成当前二维码。
 
 # 当前真机准入记录（2026-08-22）
-> 当前候选更新（2026-08-22）：服务端 release 为 `0e2a366e`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。历史候选仅作追溯。
-
-> 当前已记录与 `4ba492a` 配套的有效二维码现场状态（2026-08-22 20:50 CST，面板显示有效至 21:15）；手机扫码前仍不得宣称真机业务完成。
+> 当前二维码尚未形成新的三层业务证据；旧二维码已过期，不能继续用于验收。
 
 
 ## 2026-08-22 21:01 CST `single-flight.test.js` ENOENT 复核
@@ -15,9 +13,9 @@
 缺失错误，已在当前候选重新执行构建和运行包门禁：
 
 - `pnpm --filter @hospital/miniprogram build`：通过；TypeScript 类型检查通过，14 个页面脚本完整发布；
-- `pnpm --filter @hospital/miniprogram runtime:verify`：通过；来源为
-  `4ba492a3fdae8283409bd2ab4a0a45247c46600c`；
-- `pnpm --filter @hospital/miniprogram test`：`221 pass / 0 fail / 1640 expect()`；
+- `pnpm --filter @hospital/miniprogram runtime:verify`：通过；当前来源为
+  `13f597ea9ee3f65b9be858117826d948339d904a`；
+- `pnpm --filter @hospital/miniprogram test`：当前全量为 `222 pass / 0 fail / 1643 expect()`；
 - `dist/services/single-flight.js` 存在，`dist/services/single-flight.test.js` 不存在；运行包内
   `*.test.js` 和 `*.spec.js` 数量均为 `0`；
 - 生成的 JavaScript 依赖扫描未发现指向 `single-flight.test` 的相对模块引用。
@@ -28,12 +26,11 @@
 重新生成二维码。若重开后仍报错，应记录开发者工具项目路径、`dist/build-info.json` 和完整错误时间，再停止本次真机业务验收。
 
 
-> 当前完整小程序来源校验值：`4ba492a3fdae8283409bd2ab4a0a45247c46600c`；当前服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
+> 当前完整小程序来源校验值与当前服务端 release 均为 `13f597ea9ee3f65b9be858117826d948339d904a`。
 
 ## 当前候选覆盖（2026-08-22）
 
-后续真机验收只接受小程序源码/运行包来源 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`，服务端配套基线为
-`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。前文 `b0e0935`、`4e1b2e2`、`1b621f07` 和 `7181e99e` 的具体时间段均为历史证据，
+后续真机验收只接受小程序源码/运行包来源 `13f597ea9ee3f65b9be858117826d948339d904a`，服务端配套基线为同一 release。前文旧候选的具体时间段均为历史证据，
 不覆盖本节当前事实。
 
 当前 `dist/build-info.json` 已验证为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`，14 个页面齐全，运行包没有
