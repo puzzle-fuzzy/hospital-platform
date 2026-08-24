@@ -273,7 +273,20 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		) {
 			wx.nextTick(() => {
 				if (this.data.redirectingToPatientSelector) {
-					navigateToPatientSelector(this.data.sessionState);
+					const navigationResult = navigateToPatientSelector(
+						this.data.sessionState,
+					);
+					if (navigationResult !== "navigated") {
+						// 同步进行中时统一导航会主动阻止第二个选择页；此时
+						// 必须退出 redirecting 状态，否则用户会看到永久 loading。
+						this.setData({
+							redirectingToPatientSelector: false,
+							error:
+								navigationResult === "sync-in-flight"
+									? "就诊人正在同步，请稍后重试"
+									: "登录状态已变化，请重新加载",
+						});
+					}
 				}
 			});
 		}

@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	hasCurrentPatientContext,
+	navigateToPatientSelector,
 	resolveAuthenticatedEntry,
 	resolvePatientScopedEntry,
 } from "./patient-navigation";
+import { runPatientSync } from "./patient-sync-coordinator";
 
 const readyPatient = { id: "patient-a", clinicalAccess: "ready" as const };
 const unavailablePatient = {
@@ -47,5 +49,44 @@ describe("患者范围页面入口门禁", () => {
 		);
 		expect(hasCurrentPatientContext(readyPatient, "patient-b")).toBe(false);
 		expect(hasCurrentPatientContext(null, "patient-a")).toBe(false);
+	});
+
+	test("患者同步进行中时选择页入口返回明确结果，调用方不能永久 loading", async () => {
+		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
+		const originalWx = runtime.wx;
+		let navigateCalls = 0;
+		let resolvePending: ((value: []) => void) | undefined;
+		runtime.wx = {
+			showToast: () => undefined,
+			navigateTo: () => {
+				navigateCalls += 1;
+			},
+			reLaunch: () => undefined,
+		} as unknown as typeof wx;
+
+		try {
+			const pending = runPatientSync(
+				() =>
+					new Promise<[]>((resolve) => {
+						resolvePending = resolve;
+					}),
+			);
+			expect(navigateToPatientSelector("valid")).toBe("sync-in-flight");
+			expect(navigateCalls).toBe(0);
+			// single-flight 会在微任务中启动 factory；先让测试 Promise 建立完成，
+			// 再释放它，避免测试本身因过早 resolve 而永久等待。
+			await Promise.resolve();
+			resolvePending?.([]);
+			await pending;
+			await Promise.resolve();
+			expect(navigateToPatientSelector("valid")).toBe("navigated");
+			expect(navigateCalls).toBe(1);
+		} finally {
+			if (originalWx) {
+				runtime.wx = originalWx;
+			} else {
+				delete runtime.wx;
+			}
+		}
 	});
 });

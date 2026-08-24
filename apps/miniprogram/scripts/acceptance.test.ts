@@ -2275,6 +2275,16 @@ test("native homepage blocks patient selection while its sync snapshot is in fli
 	);
 	expect(navigation).toContain("isPatientSyncInFlight");
 	expect(navigation).toContain("就诊人正在同步，请稍后");
+	expect(navigation).toContain("PatientSelectorNavigationResult");
+	expect(navigation).toContain('return "sync-in-flight"');
+	const missed = await source(
+		"pages/missed-appointments/missed-appointments.ts",
+	);
+	// 爽约页在统一导航被同步门禁拦截时必须离开 redirecting 状态，
+	// 否则用户会看到无法结束的 loading，而不是可重试错误。
+	expect(missed).toContain("navigationResult");
+	expect(missed).toContain("redirectingToPatientSelector: false");
+	expect(missed).toContain("就诊人正在同步，请稍后重试");
 	const patientScopedPages = [
 		"pages/my/my.ts",
 		"pages/appointment-records/appointment-records.ts",

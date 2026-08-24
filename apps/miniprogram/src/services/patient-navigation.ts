@@ -24,6 +24,23 @@ export type AuthenticatedEntryDecision =
 	| "open";
 
 /**
+ * 实际导航动作的结果，供需要维持页面状态的调用方消费。
+ *
+ * `open` 只描述门禁判断，不代表微信导航已经启动；这里把“等待验证”、
+ * “回首页”和“已发起 navigateTo”区分开，避免页面在入口被拦截后继续显示
+ * 永久 loading。尤其是患者同步进行中时，调用方必须回到可重试的错误态。
+ */
+export type AuthenticatedNavigationResult =
+	| "waiting-for-session"
+	| "redirected-to-login"
+	| "navigated";
+
+/** 患者选择页入口的具体结果，额外保留跨页面同步阻塞这一种业务状态。 */
+export type PatientSelectorNavigationResult =
+	| AuthenticatedNavigationResult
+	| "sync-in-flight";
+
+/**
  * 只有明确验证成功才允许进入需要会话的页面。
  */
 export function resolveAuthenticatedEntry(
@@ -83,7 +100,7 @@ export function hasCurrentPatientContext(
 export function navigateToAuthenticatedPage(
 	url: string,
 	state: AuthenticatedEntryState,
-): void {
+): AuthenticatedNavigationResult {
 	const decision = resolveAuthenticatedEntry(state);
 	if (decision === "wait-for-session") {
 		wx.showToast({
@@ -93,14 +110,15 @@ export function navigateToAuthenticatedPage(
 					: "登录状态验证中，请稍后",
 			icon: "none",
 		});
-		return;
+		return "waiting-for-session";
 	}
 	if (decision === "redirect-to-login") {
 		wx.showToast({ title: "请先登录", icon: "none" });
 		wx.reLaunch({ url: "/pages/index/index" });
-		return;
+		return "redirected-to-login";
 	}
 	wx.navigateTo({ url });
+	return "navigated";
 }
 
 /**
@@ -113,17 +131,20 @@ export function navigateToAuthenticatedPage(
  */
 export function navigateToPatientSelector(
 	state: AuthenticatedEntryState,
-): void {
+): PatientSelectorNavigationResult {
 	const decision = resolveAuthenticatedEntry(state);
 	if (decision !== "open") {
-		navigateToAuthenticatedPage("/pages/patient-select/patient-select", state);
-		return;
+		return navigateToAuthenticatedPage(
+			"/pages/patient-select/patient-select",
+			state,
+		);
 	}
 	if (isPatientSyncInFlight()) {
 		wx.showToast({ title: "就诊人正在同步，请稍后", icon: "none" });
-		return;
+		return "sync-in-flight";
 	}
 	wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+	return "navigated";
 }
 
 /**
