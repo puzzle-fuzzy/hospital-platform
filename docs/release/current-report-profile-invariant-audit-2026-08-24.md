@@ -4,10 +4,11 @@
 > `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本记录审计代码、持久化边界和运行配置，
 > 不把本地回归或 readiness 当作 Provider/真机业务完成。
 
-> 本轮补充（2026-08-24，本地审计）：当前工作树提交为 `205c4c38b322fcf23fbb836aa03d174b9de97f42`，
+> 本轮补充（2026-08-24，本地审计）：当前工作树提交为 `d450c56c`（普通资料日志边界修正），
 > 小程序本地 `dist/build-info.json.sourceRevision` 为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`；
 > 该运行包仍未替换线上 `13f597e`。报告配置、众阳报告 adapter、报告 service 和 Provider smoke
-> 专项回归共 `74 pass / 0 fail / 265 expect()`。这只证明当前代码与关闭态 contract 一致，
+> 专项回归共 `74 pass / 0 fail / 265 expect()`；API 全量回归为 `211 pass / 0 fail / 882 expect()`。
+> 这只证明当前代码与关闭态 contract 一致，
 > 不产生真实 Provider、微信真机或线上日志三层证据。
 
 ## 结论
@@ -63,6 +64,8 @@ LIS 目录项的详情引用由 `ownerUserId + patientId + providerReportId` 生
 - 首次 `version=0` 使用唯一键竞争保护；已有资料使用行锁和版本条件更新，成功后必须得到 `N+1` 的 canonical 快照。
 - `null` 是年龄/邮箱的明确清空语义；非法年龄、邮箱、控制字符、超长 Unicode 昵称和版本溢出在数据库写入前拒绝。
 - 版本冲突返回 `409 user-profile-conflict`，不自动覆盖、不无限重试，也不记录资料正文。
+- `user.profile.requested` / `user.profile.update.requested` 只在调用上下文和 owner
+  形状通过基础校验后记录；畸形 direct-call 只记录对应失败事件，不能被日志误判为已经进入资料业务。
 - 成功日志只记录 trace、字段数量和版本结果；失败日志只记录固定错误类型/读模型原因，不记录 userId、邮箱、昵称、
   token 或原始请求体。
 - 小程序在 PUT 前和成功回写前都检查会话代际；成功页面只使用服务端 canonical 快照，401/会话切换清除旧资料，
