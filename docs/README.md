@@ -33,11 +33,12 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
-> 当前本地未发布小程序候选的页面代码基线为 `68279dad7ef8e855070bf20abb2205696f50c584`（提交 `68279dad`）。
-> 本轮修复四个主入口的共享内容滚动视口，并继续由 `wx.switchTab` 切换；构建产物位于 `apps/miniprogram/dist/`。
-> 上一次成功构建记录见 [`release/candidate-ff931d7c-miniprogram-build-2026-08-24.md`](release/candidate-ff931d7c-miniprogram-build-2026-08-24.md)，当前候选需关闭开发者工具后重新构建。不得把任何本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。
+> 当前本地未发布小程序候选的页面代码基线为 `09f96ab464bcf30d8359a8eeb0365d8a33851618`（提交 `09f96ab`）。
+> 本轮改用微信原生 `tabBar`，消除自定义 Tab 实例切换时的闪动和选中态丢失；四个主入口仍使用内容滚动视口，构建产物位于 `apps/miniprogram/dist/`。
+> 当前运行包已完成构建与 `runtime:verify`；不得把本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。
 
-> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册当前绑定 `68279dad`，只覆盖共享主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
+> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册当前绑定 `09f96ab`，只覆盖原生主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
+> 当前候选构建和原生 TabBar 修正记录：[`release/candidate-09f96ab-native-tabbar-build-2026-08-24.md`](release/candidate-09f96ab-native-tabbar-build-2026-08-24.md)。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
 > [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。
 
