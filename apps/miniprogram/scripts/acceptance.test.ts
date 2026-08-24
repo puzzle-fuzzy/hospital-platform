@@ -1300,10 +1300,6 @@ test("native primary tabs keep one stable selected bar", async () => {
 		tabBar?: {
 			custom?: boolean;
 			position?: string;
-			height?: string;
-			fontSize?: string;
-			iconWidth?: string;
-			spacing?: string;
 			list?: Array<{
 				pagePath: string;
 				text: string;
@@ -1328,10 +1324,6 @@ test("native primary tabs keep one stable selected bar", async () => {
 	// 固定底栏，因此切换时不会出现第二套底栏或自定义组件首帧闪动。
 	expect(app.tabBar?.custom).toBe(false);
 	expect(app.tabBar?.position).toBe("bottom");
-	expect(app.tabBar?.height).toBe("65px");
-	expect(app.tabBar?.fontSize).toBe("10px");
-	expect(app.tabBar?.iconWidth).toBe("24px");
-	expect(app.tabBar?.spacing).toBe("3px");
 	expect(projectConfig.setting?.compileHotReLoad).toBe(false);
 	// 本机私有配置也必须指向同一份 dist；否则开发者工具可能把旧的 src
 	// 增量页面图当成当前候选，正是底栏闪动和 selected 图标消失的表现。

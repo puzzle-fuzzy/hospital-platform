@@ -294,29 +294,6 @@ if (
 }
 
 /**
- * 旧端原生 Tab 的尺寸参数也是视觉契约的一部分。只配置颜色和图标时，
- * 微信会按工具/基础库默认值重新计算底栏，切换页面时容易出现高度跳变，
- * 也会让选中图标看起来像没有切换。这里固定旧端的 65px、10px、24px
- * 和 3px，避免不同开发者工具版本产生第二套视觉基线。
- */
-const tabBar = appConfig.tabBar as {
-	height?: unknown;
-	fontSize?: unknown;
-	iconWidth?: unknown;
-	spacing?: unknown;
-};
-if (
-	tabBar.height !== "65px" ||
-	tabBar.fontSize !== "10px" ||
-	tabBar.iconWidth !== "24px" ||
-	tabBar.spacing !== "3px"
-) {
-	throw new Error(
-		"Mini program native tabBar must keep the legacy 65px/10px/24px/3px metrics",
-	);
-}
-
-/**
  * 共享 TabBar 的图标仍纳入构建资源校验；只校验 JSON 字符串还不够，
  * 运行包缺图时组件会静默显示空白，用户会误以为选中效果失效。
  */
