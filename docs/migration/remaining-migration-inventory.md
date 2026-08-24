@@ -28,6 +28,9 @@
 [`report-provider-contract-audit-2026-08-19.md`](report-provider-contract-audit-2026-08-19.md) 和
 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)。
 
+下一阶段已有患者/预约/门诊费用只读验收顺序固定在 [`readonly-acceptance-next-2026-08-25.md`](../release/readonly-acceptance-next-2026-08-25.md)，
+先使用当前 `dist/` 候选和真实微信设备采集 requestId，再与服务端低敏业务日志配对；支付、医保、二维码、患者绑定和 HIS 回写不在该手册范围。
+
 > 历史执行基线（2026-08-25 早前窗口）为 `45742ff4450b223b8db3b36e4a3859e3fc86e1c5`；当前候选以本节上方的 `ad7b079` 为准。早前候选已经通过当时的 `runtime:verify`，但不能继续作为当前运行包来源；开发者工具应直接打开 `apps/miniprogram/dist/` 的独立工程。之前的 `0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`ecff1f9`、`49c641b6`、`e039e99f`、`3b8a04e5` 仅为历史来源；线上仍是 `13f597e`，两者不能混用。
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本段仅作追溯。
 
