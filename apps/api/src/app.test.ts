@@ -302,6 +302,7 @@ test("public API documentation lists every stable public error code", async () =
 		"appointment-query-invalid",
 		"appointment-record-query-invalid",
 		"appointment-record-patient-not-found",
+		"outpatient-payment-query-invalid",
 		"report-query-invalid",
 		"report-patient-not-found",
 		"report-not-found",
@@ -325,8 +326,10 @@ test("public API documentation lists every stable public error code", async () =
 		"payment-prepay-unknown",
 		"patient-query-invalid",
 		"patient-sync-in-progress",
+		"patient-sync-stale",
 		"patient-directory-snapshot-unsafe",
 		"patient-directory-reference-conflict",
+		"persistence-invalid",
 		"user-profile-invalid",
 		"user-profile-conflict",
 	] as const;
@@ -334,6 +337,22 @@ test("public API documentation lists every stable public error code", async () =
 	for (const code of publicErrorCodes) {
 		expect(documentation).toContain(`\`${code}\``);
 	}
+
+	/**
+	 * 仅检查“列表中的 code 都出现在文档”仍然可能漏掉新增的文档行。
+	 * 这里反向解析公共错误表并比较完整集合，让文档、API 测试和小程序
+	 * 错误文案门禁共享同一份可复核事实，避免新增错误码只改了一侧。
+	 */
+	const documentedCodes = new Set<string>();
+	const errorTable = documentation.split("## 5. 当前实现边界")[0] ?? "";
+	for (const line of errorTable.split("\n")) {
+		if (!/^\| \d+ \|/.test(line)) continue;
+		for (const match of line.matchAll(/`([a-z0-9-]+)`/g)) {
+			const code = match[1];
+			if (code) documentedCodes.add(code);
+		}
+	}
+	expect([...documentedCodes].sort()).toEqual([...publicErrorCodes].sort());
 });
 
 test("public API documentation freezes list and rendering semantics", async () => {
