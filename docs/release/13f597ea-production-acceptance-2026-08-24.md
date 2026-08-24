@@ -102,3 +102,18 @@ Pino/Provider requestId 三层证据。因此下一步按以下顺序进行只�
 `dashboard-service.ts` 生成不带在线日期窗口的 `scope=all` 请求，`api-client.ts` 只把明确的 `all` 范围编码到 query，
 不能把在线数组复制成本地全部列表。由于本次 journald 记录的是带日期窗口的在线请求，仍不能把“全部标签已在手机上显示 61 条”
 写成真机完成证据；还需要一次真机点击“全部挂号”的页面、客户端 requestId、服务端日志和 Provider requestId 同链记录。
+
+## 2026-08-24 12:46 CST 线上当前进程窗口复核
+
+本次再次通过显式指定的内网检查私钥只读 SSH，复核当前 `hospital-platform-api-v2.service`，没有执行重启、配置修改、
+数据库写入或 Redis 操作。当前 `current` 仍解析到 `13f597ea9ee3f65b9be858117826d948339d904a`，Bun 主 PID 为
+`896697`，旧 Gunicorn `8001` 仍由父 PID `3687390` 和四个 worker 监听。
+
+以当前 Bun 进程启动时间 `2026-08-24 11:32:55 CST` 为窗口起点，低敏 journald 聚合得到：
+
+- `service.started` 明确为 `runtimeMode=production`；MySQL、Redis 和 schema probe 均为 `ok`，微信身份、患者目录、预约目录/历史和门诊费用配置为 `configured`；微信支付与报告目录/详情仍为 `disabled` 或 `fail_closed`。
+- 患者、预约、门诊费用、普通资料和报告业务事件均为 `0`；当前只看到健康检查、系统 ping、无会话 `401` 和关闭路由 `404`。这些请求不构成业务成功证据。
+- 日志中的 `09:59–10:00` 患者同步事件早于当前 PID 的启动窗口，不能与当前进程的真机页面或 Provider requestId 直接合并；需要从当前候选重新触发并关联。
+
+因此当前线上结论仍是“新旧服务共存且运行依赖正常，当前候选业务真机证据待补”，不把更早窗口的患者同步或无会话探针升级为
+`13f597ea` 的当前真机验收。旧 Python `8001` 未修改、未停止、未重启。

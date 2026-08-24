@@ -5,6 +5,7 @@
 > 当前线上观察（2026-08-24 12:23 CST）：旧 Python `8001` 与新 Bun `18081` 仍共存；预约在线查询曾从众阳返回 61 条且全部为 `cancelled`，在线标签为空符合筛选语义，不等于历史数据为空。全部标签的 `scope=all` 仍需真机点击和四方链路证据确认，普通资料当前只观察到默认值读取，真实 PUT/409 未发生。详见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
 > 当前预约 adapter 门禁（2026-08-24）：直接调用众阳预约记录 adapter 时也会在触网前拒绝未知 `scope`、`all` 混入日期、倒序日期和未知字段，避免组合根绕过 service 后把未定义渠道发送给 Provider。该修正只收紧错误输入，不扩大预约写入、取消、支付、医保或 HIS 能力。
 > 当前只读 adapter 门禁（2026-08-24，本地未部署）：门诊费用 adapter `21/21`、报告 adapter `19/19` 定向测试通过；患者与预约 adapter 定向回归 `46/46` 通过，全量 adapters `118/118` 通过。费用时间/状态/未知字段、报告目录日期/来源/患者引用、患者 `unionId`、预约科室/排班日期与筛选标识均在触网前 fail-closed。生产仍是 `13f597ea`，旧 Python `8001` 未修改；详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
+> 当前线上窗口复核（2026-08-24 12:46 CST）：显式 SSH 只读确认 `current=13f597ea`、Bun `18081` PID `896697` 与旧 Python `8001` 共存；当前 PID 自 `11:32:55` 启动后未出现患者、预约、门诊费用、普通资料或报告业务事件，只有健康/认证边界探针。更早 `09:59–10:00` 的患者同步属于旧进程窗口，不能合并为当前候选真机证据；详见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
 
 > 当前服务端与小程序已完成同源配套切换，旧 Python `8001` 继续共存；下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
 
