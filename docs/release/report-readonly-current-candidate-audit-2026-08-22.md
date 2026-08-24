@@ -5,6 +5,29 @@
 # 报告只读当前候选业务审计（2026-08-22）
 > 当前服务端发布基线（2026-08-22）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`。报告 Provider 仍保持 fail-closed。
 
+## 当前 13f 候选复核覆盖（2026-08-24）
+
+本文原有章节记录 2026-08-22 的历史候选，不改写历史证据。当前执行入口以顶部发布提示和本节为准：
+
+- 当前服务端 release：`13f597ea9ee3f65b9be858117826d948339d904a`；当前小程序运行包来源与其同源，提交短 SHA 为 `13f597e`。
+- 当前线上 `ZHONGYANG_REPORT_DIRECTORY_READY=false`、`ZHONGYANG_REPORT_DETAIL_READY=false`；报告目录和 LIS 详情都没有被打开。
+- 当前 13f 候选没有发生报告 Provider 请求，也没有形成手机页面—客户端 requestId—服务端 Pino/Provider requestId 三层业务证据；历史 release 的日志不能替代当前验收。
+- 本轮只做代码和契约审计，没有修改旧 Python 项目、旧服务、反向代理、MySQL、Redis 或报告 Provider 自动化采集文件。
+
+当前候选回归结果：
+
+| 范围 | 结果 |
+| --- | --- |
+| API `src/modules/reports/service.test.ts` | `25 pass / 0 fail / 108 expect()` |
+| `packages/adapters/src/zhongyang-reports.test.ts` | `18 pass / 0 fail / 35 expect()` |
+| domain 报告与 external trace | `9 pass / 0 fail / 19 expect()` |
+| 小程序当前选定验收集 | `222 pass / 0 fail / 1643 expect()` |
+
+结论没有改变：现有报告代码已经具备归属、患者映射、时间窗口、Provider 响应包络、资源上限、详情短期引用和
+失败即关闭边界，但正式 Provider 字段/授权契约和当前候选真实样例尚未冻结，因此本轮不新增兼容字段、不打开 gate、
+不调用真实 Provider。下一步必须先取得脱敏成功/空结果/业务失败/字段异常样例，再按“报告目录 → LIS 详情 →
+PACS/ECG 资源 → PEIS/报告解读”的顺序分别验收。
+
 ## 结论
 
 本轮继续按旧端真实请求链审计报告目录和详情，没有打开报告 Provider gate，没有修改旧 Python 项目、旧服务、线上反向代理、MySQL 或 Redis。
