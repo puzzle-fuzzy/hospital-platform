@@ -785,7 +785,7 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 		{
 			file: "pages/appointment-records/appointment-records.ts",
 			call: "loadAppointmentRecords(",
-			method: "loadRecords(): Promise<void>",
+			method: "loadRecords(tab?: AppointmentRecordTab): Promise<void>",
 		},
 		{
 			file: "pages/missed-appointments/missed-appointments.ts",
@@ -887,7 +887,7 @@ test("患者范围只读页面开始新查询前统一清空旧读模型", async
 	const pages = [
 		{
 			file: "pages/appointment-records/appointment-records.ts",
-			method: "loadRecords(): Promise<void>",
+			method: "loadRecords(tab?: AppointmentRecordTab): Promise<void>",
 			fields: [
 				"selectedPatient: null",
 				"records: []",
@@ -1674,7 +1674,12 @@ test("native appointment tabs use server-owned read scopes", async () => {
 	// 由服务端选择已确认的渠道 4，避免把在线结果本地复制成全部结果。
 	expect(records).toContain("filterAppointmentRecords");
 	expect(records).toContain("isAppointmentRecordTabAvailable");
-	expect(records).toContain("this.data.activeTab");
+	expect(records).toContain("loadRecords(tab?: AppointmentRecordTab)");
+	expect(records).toContain(
+		"const requestedTab = tab ?? this.data.activeTab",
+	);
+	expect(records).toContain("this.loadRecords(activeTab)");
+	expect(records).toContain("requestedTab,");
 	expect(view).toContain('record.status !== "cancelled"');
 	expect(records).not.toContain("requestChannel");
 	expect(client).toContain("scope=all");
@@ -2543,7 +2548,9 @@ test("native appointment history pages clear old patient data before reload", as
 		"pages/missed-appointments/missed-appointments.ts",
 	] as const) {
 		const page = await source(file);
-		const loadStart = page.indexOf("loadRecords(): Promise<void>");
+		const loadStart = file.includes("appointment-records")
+			? page.indexOf("loadRecords(tab?: AppointmentRecordTab): Promise<void>")
+			: page.indexOf("loadRecords(): Promise<void>");
 		const loadEnd = page.indexOf("\n\t},", loadStart);
 		const loadBody = page.slice(loadStart, loadEnd);
 

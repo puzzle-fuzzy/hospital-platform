@@ -45,7 +45,7 @@ const APPOINTMENT_RECORD_PAGE_SIZE = 10;
 const DEFAULT_HOSPITAL_NAME = "高平市人民医院";
 
 type AppointmentRecordsPageMethods = {
-	loadRecords(): Promise<void>;
+	loadRecords(tab?: AppointmentRecordTab): Promise<void>;
 	onLoadMore(): void;
 	onRetry(): void;
 	onTabTap(event: WechatMiniprogram.TouchEvent): void;
@@ -178,9 +178,14 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/** 先从平台目录确认当前患者，再以内部 patientId 请求记录。 */
-	loadRecords(): Promise<void> {
+	loadRecords(tab?: AppointmentRecordTab): Promise<void> {
 		const loadGuard = getPageLatestRequestGuard(this, "appointment-records");
 		const requestToken = loadGuard.begin();
+		// 标签切换先更新 WXML 状态，再等待 `/me`、患者目录和预约请求；
+		// 不能在异步链中反复读取可变的 `this.data.activeTab`，否则用户快速
+		// 切换时，已经开始的请求可能把“全部”误发成“在线”或反过来。由
+		// onTabTap 显式传入本轮 tab，其他刷新入口则在启动时捕获当前 tab。
+		const requestedTab = tab ?? this.data.activeTab;
 		// `/me`、患者目录和预约记录必须属于同一会话代际；页面守卫只隔离
 		// 当前实例的刷新，不能覆盖另一个页面完成换号后的跨请求组合问题。
 		let expectedSessionGeneration = -1;
@@ -236,7 +241,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					new Date(),
 					"history",
 					expectedSessionGeneration,
-					this.data.activeTab,
+					requestedTab,
 				).then((records) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,
@@ -253,7 +258,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					);
 					const visibleState = getVisibleRecords(
 						mappedRecords,
-						this.data.activeTab,
+						requestedTab,
 					);
 					this.setData({
 						selectedPatient: patient,
@@ -333,7 +338,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		}
 		this.setData({ activeTab });
 		// 切换标签必须重新请求对应 Provider 范围，不能把在线结果复制成全部。
-		void this.loadRecords();
+		void this.loadRecords(activeTab);
 	},
 
 	/** 记录状态在页面边界翻译，服务端 contract 仍保持稳定英文枚举。 */
