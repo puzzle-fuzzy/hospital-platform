@@ -76,3 +76,19 @@
 - 门诊费用：可以继续做只读页面/字段验收；支付、医保、结算、退款和 HIS 回写保持关闭。
 - 报告：没有成功 Provider 证据，目录/详情 gate 继续关闭，不因页面骨架或单元测试通过而开放。
 - 业务验收下一步必须由同一当前小程序运行包产生客户端 requestId，再在公网、Elysia/Pino 和 Provider 三层对齐；不能只依赖服务器总计数。
+
+## 5. 2026-08-25 03:43 CST 最新运行层复核
+
+本轮再次通过受控 SSH 和公网 HTTPS 做只读复核，结果与上方边界一致：
+
+| 检查项 | 结果 |
+| --- | --- |
+| 新 API systemd | `hospital-platform-api-v2.service=active` |
+| 新 API 监听 | `10.0.0.3:18081`，Bun 进程仍在监听 |
+| 旧 Python 监听 | `0.0.0.0:8001`，Gunicorn worker 仍在监听 |
+| 新 API release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 内网 readiness | HTTP 200，`database/redis/schema=ok` |
+| 公网 readiness | `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 HTTP 200，依赖均为 `ok` |
+
+本次没有重启服务、读取环境变量或凭据、访问患者/Provider 原始数据、写入 MySQL/Redis，
+也没有修改旧 Python 服务。该结果只证明新旧运行层继续共存和依赖就绪，不增加任何真机或 Provider 业务验收证据。
