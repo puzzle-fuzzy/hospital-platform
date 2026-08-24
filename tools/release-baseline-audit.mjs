@@ -170,7 +170,7 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前小程序本地构建候选",
 	},
 	{
-		path: "docs/release/0e2a366e-production-acceptance-2026-08-22.md",
+		path: "docs/release/6db3217b-production-acceptance-2026-08-24.md",
 		label: "当前服务端生产切换记录",
 	},
 	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入

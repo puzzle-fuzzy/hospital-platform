@@ -1,3 +1,5 @@
+> 当前服务端发布更新（2026-08-24）：服务端 release 已切换为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；小程序运行包来源仍为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
+
 > 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本次运行包显式校验修正已进入最新本地候选，真实真机证据仍待。
 
 # 只读业务不变量审计记录（2026-08-22）
@@ -61,7 +63,7 @@
 - 工具测试：`53 pass / 0 fail / 133 expects`；
 - 原生小程序：`221 pass / 0 fail / 1640 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec` 和小程序 `4ba492a`。
+- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `6db3217bd3c990b009571ffd85b7da55d9ea7338` 和小程序 `4ba492a`。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
