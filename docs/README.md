@@ -33,6 +33,10 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
+> 当前本地未发布小程序候选：`1a87ab3e232973dbe0ac0774f341cb4c6eec463e`（提交 `1a87ab3`）。
+> 它只修正挂号卡片、爽约入口和查询状态容器，构建产物位于 `apps/miniprogram/dist/`；不得把它当作线上
+> `13f597e` 运行包，也不得用它生成的本地结果替代真机三层业务证据。旧 Python 服务、线上 API、数据库和 Redis 未触碰。
+
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
@@ -80,6 +84,7 @@
 | [`release/device-evidence-redaction-phone-audit-2026-08-22.md`](release/device-evidence-redaction-phone-audit-2026-08-22.md) | 真机验收摘要中的手机号脱敏门禁、回归测试和不影响业务/旧服务的边界 |
 | [`release/device-evidence-distinct-chain-audit-2026-08-22.md`](release/device-evidence-distinct-chain-audit-2026-08-22.md) | 普通资料与预约目录双请求必须使用独立客户端 requestId 和服务端关联指纹的证据门禁 |
 | [`release/candidate-13f597ea-miniprogram-build-2026-08-24.md`](release/candidate-13f597ea-miniprogram-build-2026-08-24.md) | 当前 `13f597e` 小程序运行包、请求 requestId 观测、患者范围入口门禁、测试脚本隔离和真机前运行包边界 |
+| [`release/candidate-1a87ab3-local-build-2026-08-24.md`](release/candidate-1a87ab3-local-build-2026-08-24.md) | 未发布 `1a87ab3` 小程序候选的挂号卡片、爽约入口、稳定状态容器、构建来源和真机停止边界 |
 | [`release/miniprogram-typescript-runtime-audit-2026-08-22.md`](release/miniprogram-typescript-runtime-audit-2026-08-22.md) | 当前原生小程序 TypeScript 源码收口、14 个页面、运行包测试脚本隔离和 ENOENT 恢复边界 |
 | [`release/payment-runtime-gate-audit-2026-08-22.md`](release/payment-runtime-gate-audit-2026-08-22.md) | 支付订单、预支付、通知统一运行时闸门，关闭状态无仓储/provider 副作用 |
 | [`release/candidate-41c708e-local-build-2026-08-22.md`](release/candidate-41c708e-local-build-2026-08-22.md) | 历史 `41c708e1` 小程序运行包、个人资料错误态和测试脚本隔离证据 |

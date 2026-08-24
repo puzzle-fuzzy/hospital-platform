@@ -6,6 +6,7 @@
 > 当前预约 adapter 门禁（2026-08-24）：直接调用众阳预约记录 adapter 时也会在触网前拒绝未知 `scope`、`all` 混入日期、倒序日期和未知字段，避免组合根绕过 service 后把未定义渠道发送给 Provider。该修正只收紧错误输入，不扩大预约写入、取消、支付、医保或 HIS 能力。
 > 当前只读 adapter 门禁（2026-08-24，已随 `28a5c0c1` 部署）：门诊费用 adapter `21/21`、报告 adapter `19/19` 定向测试通过；患者与预约 adapter 定向回归 `46/46` 通过，全量 adapters `118/118` 通过。费用时间/状态/未知字段、报告目录日期/来源/患者引用、患者 `unionId`、预约科室/排班日期与筛选标识均在触网前 fail-closed。小程序运行包仍为 `13f597e`，旧 Python `8001` 未修改；详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
 > 当前线上窗口复核（2026-08-24 13:01 CST 后）：显式 SSH 只读确认 `current=28a5c0c1`、Bun `18081` 与旧 Python `8001` 共存；当前进程窗口只有健康/认证边界探针，尚无患者、预约、门诊费用、普通资料或报告业务事件。更早窗口的患者同步不能合并为当前候选真机证据；详见 [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
+> 当前本地未发布小程序候选（2026-08-24）：`1a87ab3e232973dbe0ac0774f341cb4c6eec463e`。它只收口“我的挂号”卡片、爽约入口和查询状态稳定高度，未部署、未替换线上 `13f597e`，也未修改旧 Python、数据库或 Redis；本地构建和运行包验证见 [`release/candidate-1a87ab3-local-build-2026-08-24.md`](release/candidate-1a87ab3-local-build-2026-08-24.md)。
 > 当前小程序会话门禁（2026-08-24，本地未部署）：新增回归锁定患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；全套小程序回归 `223/223` 通过。`401` 的一次受控恢复和同代二次 401 清理规则不变，详见 [`release/miniprogram-session-dependency-error-boundary-2026-08-24.md`](release/miniprogram-session-dependency-error-boundary-2026-08-24.md)。
 > 当前日志链路审计（2026-08-24，服务端已随 `28a5c0c1` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
@@ -2298,6 +2299,9 @@ available -> hold_pending -> held -> booking_pending -> booked
   同步进行中”结果；爽约页收到同步门禁时会退出 `redirectingToPatientSelector` 并进入可重试错误态，
   不再停留在永久“正在打开就诊人选择”加载状态。补充了中文注释、跨页面同步回归测试和静态验收断言；本轮仅修改原生小程序及文档，
   未触碰旧 Python 服务、线上 API、数据库、Redis 或部署 release，支付、医保、预约写入和 HIS 继续关闭。
+- 2026-08-24（后续本地候选 `1a87ab3`）：根据实际产品交互重新收口爽约入口。爽约页不再因患者上下文错误自动打开
+  “选择就诊人”模块，也不再维护 `redirectingToPatientSelector`；从“我的”页先以已验证会话进入本页，缺少患者时展示稳定错误态，
+  只有用户明确点击“更换就诊人”才导航。上条导航状态机记录保留为历史候选，不覆盖本条当前语义。
 - 2026-08-24：补齐报告详情页的状态容器边界。加载、错误、无检测项和无云影像现在共享 `360rpx` 的稳定占位，
   避免报告读模型返回合法空结果时页面突然撑高；新增中文界面注释和静态视觉门禁。该修正只影响原生小程序展示，
   不改变报告 Provider、患者引用、附件授权、支付、医保或 HIS 的关闭状态。
