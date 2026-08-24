@@ -1,4 +1,4 @@
-# `dc287a4a` 本地候选四 Tab 与只读业务验收手册（2026-08-24）
+# `ce3d4b96` 本地候选四 Tab 与只读业务验收手册（2026-08-24）
 
 > 本手册只用于下一轮本地候选验收，不代表候选已经发布到线上。线上仍使用小程序运行包 `13f597e` 与服务端 release `28a5c0c1`；本地候选必须重新编译、重新生成二维码，不能复用线上或旧开发者工具缓存。
 
@@ -6,14 +6,14 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 页面代码候选 | `dc287a4a82ceaded88909250cd9c8f13741670ab` |
+| 页面代码候选 | `ce3d4b964546317f6c3a658b1b14b31ace39ed94` |
 | 运行包目录 | `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` |
-| 运行包来源 | `dist/build-info.json.sourceRevision` 应为 `dc287a4a82ceaded88909250cd9c8f13741670ab` |
+| 运行包来源 | `dist/build-info.json.sourceRevision` 应为 `ce3d4b964546317f6c3a658b1b14b31ace39ed94` |
 | 页面入口 | 16 个，四个主 Tab 为医疗服务、就诊、互联网医院、我的 |
 | 服务端配套 | 线上 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，本轮不切换 |
 | 旧服务 | Python `8001`，本轮不修改、不停止、不重启 |
 
-本地候选使用显式 `custom=false` 的微信原生 `app.json.tabBar` 统一持有四个主 Tab 和选中态；四个主 Tab 同时关闭页面级滚动，内容只在各自 `scroll-view` 内滚动。“就诊”和“互联网医院”虽然已经是正式页面入口，但具体未迁移业务仍显示迁移状态。普通业务页面仍可使用 `navigateTo`，会话失效后的 `reLaunch` 仍是有意的安全回首页行为，不能把这两类导航混为同一问题。
+本地候选使用显式 `custom=false` 的微信原生 `app.json.tabBar` 统一持有四个主 Tab 和选中态；四个主 Tab 同时关闭页面级滚动，内容只在各自 `scroll-view` 内滚动。主 Tab 的程序化跳转由 `switchToPrimaryTab` 强制使用 `wx.switchTab`，不会把主入口压入普通页面栈。“就诊”和“互联网医院”虽然已经是正式页面入口，但具体未迁移业务仍显示迁移状态。普通业务页面仍可使用 `navigateTo`，会话失效后的 `reLaunch` 仍是有意的安全回首页行为，不能把这两类导航混为同一问题。
 
 四个主 Tab 的页面内容使用独立 `scroll-view`，微信原生 `tabBar` 固定在视口底部；真机验收时应看到只有内容区域滚动，底栏不能随页面内容移动。
 
