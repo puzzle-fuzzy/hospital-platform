@@ -149,8 +149,8 @@ const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
 };
 
 /**
- * 热重载适合普通前端页面开发，但不适合这个“完整 dist 运行包 + 微信原生
- * TabBar”的验收边界。它会在开发者工具仍持有旧页面实例时增量替换单个页面，
+ * 热重载适合普通前端页面开发，但不适合这个“完整 dist 运行包 + 微信官方
+ * custom-tab-bar”的验收边界。它会在开发者工具仍持有旧页面实例时增量替换单个页面，
  * 造成底栏首帧闪动或暂时回到旧的普通图标。公共配置先固定关闭；下面还会
  * 对本机 private 配置重复校验，防止开发者工具用本机覆盖值把它重新打开。
  */
@@ -609,7 +609,7 @@ try {
 	await publishMiniProgramRuntime(stagingRuntime, runtime);
 
 	console.log(
-		`Native tabBar mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
+		`Shared custom-tab-bar mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
 	);
 } catch (error) {
 	if (isMiniProgramRuntimeLockError(error)) {
