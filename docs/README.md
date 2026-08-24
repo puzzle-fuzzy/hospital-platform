@@ -33,11 +33,11 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
-> 当前本地未发布小程序候选的代码基线为 `8863f09a62364b77701b255b30a92a8fa166d436`（提交 `8863f09`）。
-> 它继承挂号卡片、爽约入口和查询状态容器修正，并补齐预约目录科室/排班状态容器；构建产物位于
+> 当前本地未发布小程序候选的代码基线为 `ace48459407586aa2c0f8ef2a9ab7083793dc25f`（提交 `ace4845`）。
+> 它继承挂号卡片、爽约入口和查询状态容器修正，补齐预约目录科室/排班状态容器，并固定“在线/全部”标签的请求范围快照；构建产物位于
 > `apps/miniprogram/dist/`。不得把它当作线上 `13f597e` 运行包，也不得用它生成的本地结果替代真机三层业务证据。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
-> [`release/candidate-8863f09-miniprogram-build-2026-08-24.md`](release/candidate-8863f09-miniprogram-build-2026-08-24.md)。
+> [`release/candidate-ace4845-miniprogram-build-2026-08-24.md`](release/candidate-ace4845-miniprogram-build-2026-08-24.md)。
 
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
@@ -89,6 +89,7 @@
 | [`release/candidate-13f597ea-miniprogram-build-2026-08-24.md`](release/candidate-13f597ea-miniprogram-build-2026-08-24.md) | 当前 `13f597e` 小程序运行包、请求 requestId 观测、患者范围入口门禁、测试脚本隔离和真机前运行包边界 |
 | [`release/candidate-1a87ab3-local-build-2026-08-24.md`](release/candidate-1a87ab3-local-build-2026-08-24.md) | 未发布 `1a87ab3` 小程序候选的挂号卡片、爽约入口、稳定状态容器、构建来源和真机停止边界 |
 | [`release/candidate-8863f09-miniprogram-build-2026-08-24.md`](release/candidate-8863f09-miniprogram-build-2026-08-24.md) | 当前未发布 `8863f09` 小程序候选的预约目录状态容器、构建来源和真机停止边界 |
+| [`release/candidate-ace4845-miniprogram-build-2026-08-24.md`](release/candidate-ace4845-miniprogram-build-2026-08-24.md) | 当前未发布 `ace4845` 小程序候选的挂号标签范围竞态修正、构建来源和真机停止边界 |
 | [`release/miniprogram-typescript-runtime-audit-2026-08-22.md`](release/miniprogram-typescript-runtime-audit-2026-08-22.md) | 当前原生小程序 TypeScript 源码收口、14 个页面、运行包测试脚本隔离和 ENOENT 恢复边界 |
 | [`release/payment-runtime-gate-audit-2026-08-22.md`](release/payment-runtime-gate-audit-2026-08-22.md) | 支付订单、预支付、通知统一运行时闸门，关闭状态无仓储/provider 副作用 |
 | [`release/candidate-41c708e-local-build-2026-08-22.md`](release/candidate-41c708e-local-build-2026-08-22.md) | 历史 `41c708e1` 小程序运行包、个人资料错误态和测试脚本隔离证据 |
