@@ -352,8 +352,8 @@ HTTP 响应、真机页面及同一时间窗口的低敏 trace 交叉核对。�
 
 2026-08-19 00:48 CST 起的历史运行窗口中，线上新 API 曾使用 `b7c9451` 的关联链 bundle；后续历史窗口曾切换为
 `398be8e`，对应记录见 [`release/398be8e-production-acceptance-2026-08-19.md`](release/398be8e-production-acceptance-2026-08-19.md)。
-当前新 API release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，当前切换记录见
-[`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
+当前新 API release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，当前切换记录见
+[`release/8eb51b5f-production-acceptance-2026-08-24.md`](release/8eb51b5f-production-acceptance-2026-08-24.md)。
 生产审计必须使用当前 release 同版本的 `p0-log-aggregate.mjs` 与 `p0-business-evidence-audit.mjs`，不能把历史窗口的
 “当前线上”措辞或旧版本摘要当作当前状态。
 从 `b7c9451` 这一版本开始，生产 P0 证据必须由同一 release 的 `p0-log-aggregate.js` 生成 `correlation` 摘要，

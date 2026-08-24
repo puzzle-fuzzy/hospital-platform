@@ -1,25 +1,25 @@
-> 当前服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
+> 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
-> 当前本地未发布候选的运行输入为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`（提交 `4ea15b8`）。该候选继续使用原生共享四 Tab，并把开发者工具私有配置、运行包来源日志和 `dist` 运行包一致性纳入门禁；真机控制台可通过启动日志核对候选来源。
-> 本地 `dist/` 已完成原子构建，`build-info.json.sourceRevision` 与上述运行输入一致；构建后的运行包已通过 `runtime:verify`，不能再把旧 `0f40ab9` 或 `bdf4ac57` 写成当前候选。
+> 当前本地未发布候选的运行输入为 `4e8f6877edd045333400c9bb506c7bbaf146eac2`（提交 `4e8f687`）。该候选继续使用原生共享四 Tab，并把开发者工具私有配置、运行包来源日志和 `dist` 运行包一致性纳入门禁；真机控制台可通过启动日志核对候选来源。
+> 本地 `dist/` 已完成原子构建，`build-info.json.sourceRevision` 与上述运行输入一致；构建后的运行包已通过 `runtime:verify`，不能再把旧 `0f40ab9`、`bdf4ac57` 或 `4ea15b8` 写成当前候选。
 > 当前本地源码的 `app.json` 已注册 16 个页面，其中四个主入口由原生 `tabBar` 统一维护；这个数字不应与线上历史运行包 `13f597e` 的 14 页记录混用。
 > 这份本地候选不能替代线上 `13f597e`，
 > 也不能产生当前真机三层业务证据。
 
-> 上方版本信息优先于下方历史记录。`28a5c0c1` 已完成生产 env preflight、隔离 runtime smoke、原子切换和切换后公网 runtime smoke；旧 Python `8001` 未修改、未停止。
+> 上方版本信息优先于下方历史记录。`8eb51b5f` 已完成生产 env preflight、隔离 runtime smoke、原子切换和切换后公网 runtime smoke；旧 Python `8001` 未修改、未停止。
 
 # 剩余迁移盘点与下一步计划
 
-> 当前本地小程序候选（2026-08-24 19:10 CST）为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`，`dist/` 已原子发布并通过 `runtime:verify`，16 个页面脚本完整。之前的 `0f40ab9` 仅为构建链修改前的历史来源；线上仍是 `13f597e`，两者不能混用。
+> 当前本地小程序候选（2026-08-24 20:25 CST）为 `4e8f6877edd045333400c9bb506c7bbaf146eac2`，`dist/` 已原子发布并通过 `runtime:verify`，16 个页面脚本完整。之前的 `0f40ab9`、`4ea15b8` 仅为历史来源；线上仍是 `13f597e`，两者不能混用。
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本段仅作追溯。
 
 
-> 当前完整小程序来源校验值：`13f597ea9ee3f65b9be858117826d948339d904a`；线上服务端 release：`28a5c0c131794ce9dcc5f94bd3809402188ac87a`。两者为有意分层发布，不要求同源。
+> 当前完整小程序来源校验值：`13f597ea9ee3f65b9be858117826d948339d904a`；线上服务端 release：`8eb51b5ffe85b0b8f8a032783f893117d3df549d`。两者为有意分层发布，不要求同源。
 
 > 历史发布基线（2026-08-22 18:55 CST）：服务端当时为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
 > `4ba492a3fdae8283409bd2ab4a0a45247c46600c`。P0 运行层切换已完成，P1 真机/Provider 三层证据仍未完成。
 
-> 当前执行基线（2026-08-24）：线上新 API 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，线上配套小程序运行包为 `13f597e`（来源 `13f597ea9ee3f65b9be858117826d948339d904a`）；本轮 adapter 门禁已随服务端切换进入线上，渠道 4 “全部挂号”查询仍待真机三层证据。未发布的本地候选只用于代码和运行包验证。
+> 当前执行基线（2026-08-24）：线上新 API 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，线上配套小程序运行包为 `13f597e`（来源 `13f597ea9ee3f65b9be858117826d948339d904a`）；本轮 adapter 门禁已随服务端切换进入线上，渠道 4 “全部挂号”查询仍待真机三层证据。未发布的本地候选 `4e8f6877` 只用于代码和运行包验证。
 
 > 历史观察（2026-08-22 18:04 CST）小程序运行包恢复：重新构建和 `runtime:verify` 通过，关闭/重开新项目窗口并普通编译后重新生成
 > iOS/局域网真机二维码；`dist/` 没有 `single-flight.test.js` 或其它测试脚本，旧 `mp-weixin` 窗口未操作，手机仍未连接。成功请求的低敏
@@ -32,9 +32,9 @@
 
 > 历史发布复核（2026-08-22 18:55 CST）：门诊费用只读 adapter 的公开 `recordId` 已加入不可见的 Provider 患者作用域，Provider 稳定身份字段若只有空白字符则按格式异常拒绝；补丁已按无损手册发布到当时的 `0e2a366e`。门诊费用真实 Provider/真机业务证据仍为 0。
 
-> 历史发布通道复核（2026-08-22 21:13 CST）：当时阿里云到内网可达，但 `ps@10.0.0.3` 拒绝现有公钥；该状态已在后续恢复。当前候选已完成服务端切换，具体运行态以 [`../release/28a5c0c1-production-acceptance-2026-08-24.md`](../release/28a5c0c1-production-acceptance-2026-08-24.md) 为准。
+> 历史发布通道复核（2026-08-22 21:13 CST）：当时阿里云到内网可达，但 `ps@10.0.0.3` 拒绝现有公钥；该状态已在后续恢复。该段只保留历史 SSH 证据，当前运行态以 [`../release/8eb51b5f-production-acceptance-2026-08-24.md`](../release/8eb51b5f-production-acceptance-2026-08-24.md) 为准。
 
-> 当前线上运行层只读复核（2026-08-24）：新 API release `28a5c0c1` 为 production，监听
+> 当前线上运行层只读复核（2026-08-24）：新 API release `8eb51b5f` 为 production，监听
 > `10.0.0.3:18081`；旧 Gunicorn 继续监听 `0.0.0.0:8001`，Worker 为 `inactive`。内网 live/ready/
 > `/api/v1/system/ping` 和公网 `/api/v2` 对应探针均为 200，ready 的 database/redis/schema 均为 `ok`。
 > 本次没有重启、配置修改、业务写入或患者/Provider 原始数据读取；由于 `sudo journalctl` 需要密码，未把日志
@@ -46,12 +46,12 @@
 
 | 优先级 | 当前动作 | 放行条件 | 当前决定 |
 | --- | --- | --- | --- |
-| P0 | 恢复受控发布链 | 阿里云 SSH 可用；服务端候选可在不停止旧 Python `8001` 的情况下切换；公网 live/ready、旧端口和新端口均有证据 | 已完成：线上 `28a5c0c1` 已稳定运行，切换后 runtime smoke 通过；旧 Python `8001` 继续共存 |
-| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，本地未发布候选为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`；`dist` 原子构建和运行包校验已通过，但显式患者切换、页面截图、预约历史和门诊费用三层证据仍待，详见 [`../release/current-real-device-login-patient-observation-2026-08-24.md`](../release/current-real-device-login-patient-observation-2026-08-24.md) |
+| P0 | 恢复受控发布链 | 阿里云 SSH 可用；服务端候选可在不停止旧 Python `8001` 的情况下切换；公网 live/ready、旧端口和新端口均有证据 | 已完成：线上 `8eb51b5f` 已稳定运行，切换后 runtime smoke 通过；旧 Python `8001` 继续共存 |
+| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，本地未发布候选为 `4e8f6877edd045333400c9bb506c7bbaf146eac2`；`dist` 原子构建和运行包校验已通过，但显式患者切换、页面截图、预约历史和门诊费用三层证据仍待，详见 [`../release/current-real-device-login-patient-observation-2026-08-24.md`](../release/current-real-device-login-patient-observation-2026-08-24.md) |
 | P2 | 门诊病历、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 继续保持未注册或迁移提示；不写兼容转发、不猜 `patId`/卡号用途。二维码停止条件详见 [`patient-qr-contract-audit-2026-08-24.md`](patient-qr-contract-audit-2026-08-24.md) |
 | P3 | 微信支付、医保授权、结算、退款和 HIS 写回 | 金额/状态机、授权、回调/查单、幂等、回滚及真实沙箱/生产验收全部冻结 | 最后处理；当前已统一关闭支付运行闸门，订单/预支付/通知不会访问仓储或 provider；只读费用列表不能触发支付或医保流程 |
 
-当前线上服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，小程序运行包来源为
+当前线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，小程序运行包来源为
 `13f597ea9ee3f65b9be858117826d948339d904a`。因此可以继续进行真机准入，但只有页面、客户端 HTTP 和 Pino 同链证据齐全时
 才能把只读业务标记为已验收；本地测试仍不能代替部署后的页面和 Provider 证据。
 
@@ -71,7 +71,7 @@ Provider 文档接收记录完整，不替代 SSH、部署、真机或真实 Pro
 
 > 2026-08-22 09:35 CST 历史运行层只读观察确认当时新 API `active`、`10.0.0.3:18081` 和旧 Python `8001` 继续共存，Worker 为 `inactive`；该观察不作为当前候选业务证据。详见 [`../release/current-2a2acd9-runtime-observation-2026-08-22-0935.md`](../release/current-2a2acd9-runtime-observation-2026-08-22-0935.md)。
 
-当前受控 SSH 发布通道已可使用；`28a5c0c1` 已按启动窗口门禁完成切换。后续线上步骤仍须遵守“只重启新 API、不触碰旧 Python/旧数据库/旧 Redis”的边界；当前不影响线上 `28a5c0c1` 和旧 Python `8001`。
+当前受控 SSH 发布通道已可使用；`8eb51b5f` 已按启动窗口门禁完成切换。后续线上步骤仍须遵守“只重启新 API、不触碰旧 Python/旧数据库/旧 Redis”的边界；当前不影响线上 `8eb51b5f` 和旧 Python `8001`。
 
 ## 历史记录（仅供追溯）
 
@@ -478,7 +478,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 
 ### 当前新端能力的准确状态
 
-> 本表的当前验收基线为服务端 `28a5c0c131794ce9dcc5f94bd3809402188ac87a` 与小程序 `13f597ea9ee3f65b9be858117826d948339d904a`（`13f597e`）的分层配套。表内更早提交或历史线上窗口只用于说明实现来源，
+> 本表的当前验收基线为服务端 `8eb51b5ffe85b0b8f8a032783f893117d3df549d` 与小程序 `13f597ea9ee3f65b9be858117826d948339d904a`（`13f597e`）的分层配套。表内更早提交或历史线上窗口只用于说明实现来源，
 > 不能替代当前 release 的页面、客户端 HTTP 和服务端 Pino 三层证据。
 
 | 能力 | 新端代码 | 业务状态 | 不能宣称的内容 |
