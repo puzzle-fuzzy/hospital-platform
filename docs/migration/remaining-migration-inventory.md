@@ -47,6 +47,8 @@
 > P1 仍必须由真实小程序页面、客户端 requestId 和服务端低敏日志三层配对完成，详见
 > [`../release/current-readonly-business-observation-2026-08-24-2134.md`](../release/current-readonly-business-observation-2026-08-24-2134.md)。
 
+> 2026-08-24 21:19–21:49 CST 后续只读窗口：新旧服务继续共存，live/ready/system-ping 均为 200；窗口内出现 1 次微信登录成功、3 次患者同步和 6 次患者目录读取，但预约历史、预约目录、门诊费用和普通资料均为 `requested=0/success=0`。本轮首次错误版本前缀探针返回的 404 已单独标明为操作员探针，不计入业务失败。详见 [`../release/current-readonly-business-observation-2026-08-24-2149.md`](../release/current-readonly-business-observation-2026-08-24-2149.md)。
+
 本节是本轮继续推进时的唯一执行顺序入口；下方历史记录保留证据，但不能覆盖这里的当前状态。
 
 | 优先级 | 当前动作 | 放行条件 | 当前决定 |
