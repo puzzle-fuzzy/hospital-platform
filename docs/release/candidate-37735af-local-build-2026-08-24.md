@@ -8,7 +8,7 @@
 | 项目 | 值 |
 | --- | --- |
 | 原生小程序运行输入提交 | `37735af1525e4ff23e96d21bbaecb5dedf5ae557` |
-| 当前仓库文档提交 | `b405cb0e1c7768259bdfb253a45ab216b588fbc5` |
+| 构建时文档提交 | `b405cb0e1c7768259bdfb253a45ab216b588fbc5` |
 | 构建入口 | `apps/miniprogram/` |
 | 运行包目录 | `apps/miniprogram/dist/` |
 | 页面数量 | 14 |
