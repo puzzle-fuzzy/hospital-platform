@@ -1,33 +1,37 @@
-# 当前共享 custom-tab-bar 运行包复核（2026-08-25）
+# 当前微信原生 tabBar 运行包复核（2026-08-25）
 
 ## 结论
 
-本次反馈的“底部 Tab 仍然闪动、选中效果消失”经静态审计确认没有页面级第二套底栏；
-但原生 `selectedIconPath` 在真机上仍未稳定呈现，因此当前候选改为微信官方单实例
-`custom-tab-bar`，把 selected 状态收回到一份明确的组件状态中：
+本次反馈的“底部 Tab 仍然闪动、选中效果消失”最终收口为：不再使用页面生命周期内的
+自定义底栏组件，恢复微信原生 `tabBar`。原生底栏由微信运行时在页面栈之外统一持有，
+四个主入口不会各自创建底栏，选中态由 `selectedIconPath` 交给微信维护：
 
-- `src/app.json` 和 `dist/app.json` 都是微信官方共享 `tabBar`，`custom=true`、`position=bottom`；
+- `src/app.json` 和 `dist/app.json` 都是微信原生 `tabBar`，`custom=false`、`position=bottom`；
 - 四个主入口只在 `app.json.tabBar.list` 声明一次；
 - 四个主入口同时位于 `app.json.pages` 前四项，首屏和 Tab 切换使用同一组根页面注册；
-- 页面 WXML 和导航服务都没有页面级固定底栏，唯一渲染入口是 `src/custom-tab-bar/index.*`；
+- 页面 WXML、页面 WXSS 和导航服务都没有第二套页面级底栏；
 - 主 Tab 的程序化入口只允许 `wx.switchTab`，普通业务页仍使用 `wx.navigateTo`；
-- 组件根据当前页面 route 同步 selected，点击时先更新 selected，路由失败时回滚；
 - 底部内容区只预留一份 `130rpx + safe-area`，页面自身不再滚动到底栏下面。
 
-这不是页面复制底栏：`custom-tab-bar` 是微信约定的全局共享组件，四个主 Tab 页面只负责内容。
-旧原生候选保留在下方历史段落，不再作为当前真机验收入口。
+这次不再保留 `custom-tab-bar` 源文件，避免开发者工具增量索引再次载入旧组件或旧
+selected 状态。下方关于 custom-tab-bar 的内容只作失败候选的历史追溯，不能作为当前验收入口。
 
-## 当前候选：c4eb3587
+## 当前候选：a5ff0001
 
-本轮源码提交为 `c4eb3587d0126458f7210fee134f96b51dce7b6c`，已推送 `origin/main`。
+本轮源码提交为 `a5ff0001edf20beab29583e5101ee34bb9ff0c5c`，已推送 `origin/main`。
 小程序回归为 `240 pass / 0 fail / 1929 expect()`；`runtime:verify` 通过，`dist/` 包含
-16 个页面运行脚本和完整 `custom-tab-bar/index.js|json|wxml|wxss`。
+16 个页面运行脚本，且不包含 `custom-tab-bar`、`legacy-tabbar` 或 `*.test.js`。
+
+本轮构建第一次遇到微信开发者工具持有 `dist` 文件锁，构建脚本保留了完整待发布候选；
+关闭当前新项目开发者工具后执行 `runtime:publish-pending`，再由 `runtime:verify` 确认
+`revision=a5ff0001`。这证明发布是原子替换，不是手工向运行包复制文件。
 
 本轮只修改新项目的小程序导航源代码、构建门禁和文档；没有修改旧 Python 服务、线上 API、
 服务器、MySQL、Redis 或另一会话负责的众阳 Provider 自动化。支付、医保授权/结算、患者绑定、
 二维码和 HIS 回写仍保持关闭。
 
-> 以下“原生 Tab”段落是前一候选的历史记录，不能作为本轮真机验收入口。
+> 本轮真机验收必须重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`，
+> 普通编译并扫描新二维码；不能继续使用 `c4eb3587` 的自定义底栏二维码。
 
 ## 2026-08-25 当前续发布：运行包来源与图标缓存重新隔离
 
@@ -140,7 +144,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 真机必须在本次重新普通编译后重新预览，不能继续使用旧二维码或旧真机调试会话。启动控制台应出现：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=45742ff4450b223b8db3b36e4a3859e3fc86e1c5
+[医院小程序] 运行包来源：微信原生 tabBar；revision=a5ff0001edf20beab29583e5101ee34bb9ff0c5c
 ```
 
 随后依次点击“医疗服务、就诊、互联网医院、我的”，必须同时满足：

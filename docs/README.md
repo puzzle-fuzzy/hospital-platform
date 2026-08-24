@@ -3,9 +3,9 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-25）：`dist/build-info.json.sourceRevision=c4eb3587d0126458f7210fee134f96b51dce7b6c`，16 个页面脚本
-> 完整，`runtime:verify` 已通过。微信开发者工具历史中曾同时保留父目录和 `src/` 入口；当前只能打开
-> `apps/miniprogram/dist/`，本次已清理新项目的编译/file-utils 缓存并关闭两个错误入口。详见
+> 当前本地候选（2026-08-25）：`dist/build-info.json.sourceRevision=a5ff0001edf20beab29583e5101ee34bb9ff0c5c`，16 个页面脚本
+> 完整，`runtime:verify` 已通过。四个主入口使用微信原生 `tabBar`，源码已移除自定义底栏组件；当前只能打开
+> `apps/miniprogram/dist/`，本次构建锁定后已安全发布待发布候选。详见
 > [`release/current-tabbar-runtime-recheck-2026-08-25.md`](release/current-tabbar-runtime-recheck-2026-08-25.md)。
 
 > 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1909 expect()` 已通过。本轮继续把开发者工具 watcher 根与 `src/`/`scripts/` 源码隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
