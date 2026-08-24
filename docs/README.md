@@ -46,6 +46,10 @@
 `single-flight.test.js` 的 ENOENT 已重新构建、普通编译并通过运行包门禁确认；若开发者工具仍报错，应关闭工具释放 `dist/` 文件句柄后重开正确项目。
 本轮还补齐成功请求的低敏 requestId 观测，便于与服务端 Pino 日志对齐；不增加微信登录、患者、Provider 或真机业务证据。
 
+2026-08-24 客户端又产生了本地候选 `27f209b44d20ecd991ac283e4a8194ce8f18b63f`：只收紧医院列表深链进入预约目录前的 `/me` 会话门禁，
+不改变线上服务端和旧 Python。该候选已通过构建与运行包校验，但尚未生成新的真机二维码；当前线上真机基线仍以 `13f597e` 为准，
+详情见 [`release/candidate-27f209b4-miniprogram-build-2026-08-24.md`](release/candidate-27f209b4-miniprogram-build-2026-08-24.md)。
+
 2026-08-24 从当前源码重建运行包：`dist/build-info.json` 指向
 `13f597ea9ee3f65b9be858117826d948339d904a`，14 个页面入口和 `services/single-flight.js` 均存在，
 `dist/` 中 `*.test.js`/`*.spec.js` 为 0 个；运行包门禁通过，小程序全量测试为 `222 pass / 0 fail / 1643 expect()`。
@@ -402,6 +406,8 @@
 | [`release/current-runtime-coexistence-readonly-observation-2026-08-24-1342.md`](release/current-runtime-coexistence-readonly-observation-2026-08-24-1342.md) | 当前服务端 release、新旧端口共存、readiness、公网探针和低敏日志窗口观察 |
 | [`release/current-appointment-outpatient-invariant-audit-2026-08-24.md`](release/current-appointment-outpatient-invariant-audit-2026-08-24.md) | 当前预约历史、爽约和门诊费用只读链业务不变量、回归证据和真机缺口 |
 | [`release/current-report-profile-invariant-audit-2026-08-24.md`](release/current-report-profile-invariant-audit-2026-08-24.md) | 当前报告与普通资料链的归属、引用、版本、日志和 gate 不变量 |
+| [`release/current-static-entry-boundary-audit-2026-08-24.md`](release/current-static-entry-boundary-audit-2026-08-24.md) | 当前静态入口、医院列表深链会话门禁、二维码和外部能力边界 |
+| [`release/candidate-27f209b4-miniprogram-build-2026-08-24.md`](release/candidate-27f209b4-miniprogram-build-2026-08-24.md) | 最新客户端本地候选、运行包门禁和真机来源边界；尚未替换当前 `13f597e` 基线 |
 | [`release/next-safe-migration-audit-2026-08-22.md`](release/next-safe-migration-audit-2026-08-22.md) | 当前剩余 P2 领域复核、健康知识未开放原因和唯一放行顺序 |
 | [`migration/patient-center-and-external-entry-boundaries.md`](migration/patient-center-and-external-entry-boundaries.md) | 个人资料、绑卡、协议、签名、订阅、WebView、医院列表和采血预约的旧行为与安全边界 |
 | [`migration/patient-binding-contract-draft.md`](migration/patient-binding-contract-draft.md) | 患者查档、建档、绑卡、协议、幂等、超时恢复和 provider 待确认问题；当前写入路由保持关闭 |
