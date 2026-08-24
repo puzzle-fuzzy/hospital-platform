@@ -306,6 +306,36 @@ if (!Array.isArray(primaryTabList) || primaryTabList.length !== 4) {
 		"Mini program native tabBar must declare exactly four primary entries",
 	);
 }
+
+/**
+ * 微信原生 tabBar 的图标使用 81×81 PNG 作为稳定输入。
+ *
+ * 旧资源虽然能被部分基础库缩放，但在真机缓存/渲染层切换时可能出现
+ * selectedIconPath 不更新。构建阶段直接读取 PNG 的 IHDR，避免把尺寸不合规
+ * 的资源再次发布；这只约束导航图标，不影响页面内其它插图的原始尺寸。
+ */
+async function readPngDimensions(filePath: string): Promise<{
+	height: number;
+	width: number;
+}> {
+	const bytes = await Bun.file(filePath).bytes();
+	if (
+		bytes.length < 24 ||
+		bytes[0] !== 0x89 ||
+		bytes[1] !== 0x50 ||
+		bytes[2] !== 0x4e ||
+		bytes[3] !== 0x47
+	) {
+		throw new Error(`Mini program tabBar asset must be a PNG: ${filePath}`);
+	}
+	const readUint32 = (offset: number): number =>
+		(bytes[offset] ?? 0) * 16_777_216 +
+		(bytes[offset + 1] ?? 0) * 65_536 +
+		(bytes[offset + 2] ?? 0) * 256 +
+		(bytes[offset + 3] ?? 0);
+	return { width: readUint32(16), height: readUint32(20) };
+}
+
 for (const item of primaryTabList) {
 	if (
 		typeof item !== "object" ||
@@ -336,6 +366,12 @@ for (const item of primaryTabList) {
 			);
 		}
 		await access(join(source, assetPath));
+		const dimensions = await readPngDimensions(join(source, assetPath));
+		if (dimensions.width !== 81 || dimensions.height !== 81) {
+			throw new Error(
+				`Mini program native tabBar asset must be 81x81: ${assetPath} (${dimensions.width}x${dimensions.height})`,
+			);
+		}
 	}
 	const normalIconBytes = await Bun.file(join(source, tab.iconPath)).bytes();
 	const selectedIconBytes = await Bun.file(

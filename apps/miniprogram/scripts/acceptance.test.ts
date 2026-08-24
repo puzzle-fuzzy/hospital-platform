@@ -1253,7 +1253,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(app).toContain('"custom": false');
 	expect(app).toContain('"position": "bottom"');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active-v2.png"',
 	);
 	expect(template).not.toContain('wx:for="{{tabBarItems}}"');
 	expect(await source("pages/index/index.wxss")).not.toContain(
@@ -2196,7 +2196,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(app).toContain('"custom": false');
 	expect(app).toContain('"position": "bottom"');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active-v2.png"',
 	);
 	expect(outpatient).toContain("loadOutpatientPaymentRecords");
 	// tab 切换必须把用户本次点击的状态和当前患者会话快照传入，不能依赖
@@ -3013,7 +3013,7 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(await source("app.json")).toContain('"custom": false');
 	expect(await source("app.json")).toContain('"position": "bottom"');
 	expect(await source("app.json")).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active-v2.png"',
 	);
 	expect(homeTemplate).toContain("微信已登录");
 	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");
