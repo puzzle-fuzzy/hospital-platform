@@ -36,6 +36,8 @@
 > 当前本地未发布小程序候选的页面代码基线为 `ff931d7cbbc50e18649a38e14cd93f389d7487e3`（提交 `ff931d7c`）。
 > 本轮将四个主入口收口到共享 `custom-tab-bar`，由 `wx.switchTab` 切换；构建产物位于 `apps/miniprogram/dist/`。
 > 构建记录见 [`release/candidate-ff931d7c-miniprogram-build-2026-08-24.md`](release/candidate-ff931d7c-miniprogram-build-2026-08-24.md)。不得把它当作线上 `13f597e` 运行包，也不得用它生成的本地结果替代真机三层业务证据。
+
+> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册只覆盖共享主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
 > [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。
 
@@ -403,7 +405,7 @@
 | [`migration/data-map.md`](migration/data-map.md) | 旧数据和新表/领域字段的映射 |
 | [`migration/legacy-inventory.md`](migration/legacy-inventory.md) | 旧项目能力清单和未迁移风险 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
-| [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 14 个原生页面业务状态、边界和下一步门禁 |
+| [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 16 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/medical-record-and-hospital-boundary.md`](migration/medical-record-and-hospital-boundary.md) | 门诊病历、住院、医院列表和院内导航的旧接口审计与 contract 边界 |
 | [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) | 门诊就诊记录目录的旧字段差异、候选 contract、provider 确认问题和实现门禁 |
 | [`migration/electronic-consultation-contract-draft.md`](migration/electronic-consultation-contract-draft.md) | 电子导诊单旧端实际复用预约渠道 4 的证据、独立 contract 缺口和停止条件 |
