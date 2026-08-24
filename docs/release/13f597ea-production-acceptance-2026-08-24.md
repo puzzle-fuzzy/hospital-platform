@@ -84,3 +84,21 @@ Pino/Provider requestId 三层证据。因此下一步按以下顺序进行只�
 
 若新 API 后续 readiness 或业务运行异常，只允许把 `current` 原子回滚到 `6db3217bd3c990b009571ffd85b7da55d9ea7338` 并只重启
 `hospital-platform-api-v2.service`，再次核对 `18081`、公网 readiness 和旧 `8001`；禁止停止旧 Python、删除旧 release、清理 Redis 或回滚 schema。
+
+## 2026-08-24 12:23 CST 线上预约/资料只读观察
+
+本次通过受控 SSH 只读取监听状态和低敏 journald，没有重启、配置修改、数据库写入或 Redis 操作。
+
+| 观察项 | 结果 |
+| --- | --- |
+| 新 API | `10.0.0.3:18081` 仍由 Bun 监听 |
+| 旧 Python | `0.0.0.0:8001` 仍由 Gunicorn 监听，旧进程继续共存 |
+| 普通资料 | 观察到 `GET /api/v1/me/profile` 的 `requested → loaded`，`persisted=false`；没有观察到真实 `PUT` 或 `409` |
+| 患者目录 | 观察到 owner-scoped 读取 `itemCount=1` |
+| 预约在线查询 | 观察到 Provider `zhongyang` 返回 `itemCount=61`，`statusCounts.cancelled=61`，日期窗口为在线历史窗口 |
+
+这说明当前“在线挂号”为空是服务端记录全部被明确取消后，客户端在线筛选排除 `cancelled` 的结果，不能解释为
+“Provider 没有返回历史数据”。源码同时确认“全部挂号”使用独立的 `scope=all` 查询并保留取消记录：
+`dashboard-service.ts` 生成不带在线日期窗口的 `scope=all` 请求，`api-client.ts` 只把明确的 `all` 范围编码到 query，
+不能把在线数组复制成本地全部列表。由于本次 journald 记录的是带日期窗口的在线请求，仍不能把“全部标签已在手机上显示 61 条”
+写成真机完成证据；还需要一次真机点击“全部挂号”的页面、客户端 requestId、服务端日志和 Provider requestId 同链记录。
