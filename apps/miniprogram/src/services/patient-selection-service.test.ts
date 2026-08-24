@@ -4,6 +4,7 @@ import { ApiError } from "./api-client";
 import {
 	isBoundedPatientId,
 	isCurrentSelectedPatient,
+	isPatientSelectionError,
 	normalizeStoredPatientIdForResolution,
 	patientContextErrorMessage,
 	patientSelectionResolutionError,
@@ -219,6 +220,31 @@ test("患者范围业务页使用统一的上下文错误文案", () => {
 	expect(
 		patientContextErrorMessage(new Error("内部原文不应展示"), "备用错误"),
 	).toBe("备用错误");
+});
+
+test("患者选择动作只由明确的患者上下文错误触发", () => {
+	for (const code of [
+		"patient-selection-required",
+		"patient-selection-stale",
+		"patient-not-bound",
+		"patient-clinical-unavailable",
+	]) {
+		expect(isPatientSelectionError(new ApiError("内部错误", { code }))).toBe(
+			true,
+		);
+	}
+
+	for (const code of [
+		"network-failed",
+		"provider-request-rejected",
+		"persistence-temporarily-unavailable",
+		"dependency-not-configured",
+	]) {
+		expect(isPatientSelectionError(new ApiError("内部错误", { code }))).toBe(
+			false,
+		);
+	}
+	expect(isPatientSelectionError(new Error("网络失败"))).toBe(false);
 });
 
 test("异步患者结果必须匹配当前显式选择", () => {

@@ -1650,6 +1650,14 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(directoryTemplate).toContain("当前暂无可预约科室");
 	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
 	expect(recordsTemplate).toContain('bindtap="onChangePatient"');
+	// 错误态的换人按钮不能成为所有失败的默认出口：只有患者上下文明确
+	// 缺失/失效时才显示，Provider、网络、持久化和依赖配置失败只允许重试。
+	expect(records).toContain("canSelectPatient: false");
+	expect(records).toContain(
+		"const canSelectPatient = isPatientSelectionError(error)",
+	);
+	expect(recordsTemplate).toContain('wx:if="{{canSelectPatient}}"');
+	expect(recordsTemplate).toContain('bindtap="onRetry"');
 	// 旧端挂号页使用 default layout；固定四项底栏只属于首页和“我的”页。
 	expect(recordsTemplate).not.toContain('wx:for="{{tabBarItems}}"');
 	expect(recordsTemplate).not.toContain('bindtap="onTabBarTap"');

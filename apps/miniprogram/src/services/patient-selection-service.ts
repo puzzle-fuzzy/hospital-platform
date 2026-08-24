@@ -26,6 +26,20 @@ export const MAX_PATIENT_ID_LENGTH = 128;
  */
 const CORRUPTED_STORED_PATIENT_ID = "\u0000corrupted-selected-patient-id";
 
+/**
+	只有这些错误明确说明“当前业务需要用户重新确认就诊人”。
+
+	网络、Provider、持久化或依赖配置故障不能复用这个集合；它们代表查询
+	失败，不代表患者选择失败。页面据此决定是否展示“选择就诊人”动作，避免
+	把服务异常误导成用户没有选人。
+ */
+const PATIENT_SELECTION_ERROR_CODES: ReadonlySet<string> = new Set([
+	"patient-selection-required",
+	"patient-selection-stale",
+	"patient-not-bound",
+	"patient-clinical-unavailable",
+]);
+
 export function isBoundedPatientId(value: unknown): value is string {
 	return (
 		typeof value === "string" &&
@@ -52,6 +66,19 @@ export function patientContextErrorMessage(
 	fallback: string,
 ): string {
 	return safeApiErrorMessage(error, fallback);
+}
+
+/**
+	判断错误是否需要把用户引导到就诊人选择页。
+
+	该判断必须基于平台稳定错误码，而不能根据中文 message、HTTP 状态码或
+	Provider 原文猜测。只有患者上下文已经被服务端明确判定为缺失、失效或
+	临床不可用时，页面才显示选择动作；其它错误只允许重试。
+ */
+export function isPatientSelectionError(error: unknown): boolean {
+	return (
+		error instanceof ApiError && PATIENT_SELECTION_ERROR_CODES.has(error.code)
+	);
 }
 
 /**

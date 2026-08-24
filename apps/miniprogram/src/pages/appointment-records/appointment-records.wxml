@@ -99,7 +99,11 @@
 			<text>本次挂号记录未加载成功</text>
 			<text class="state-hint">请根据上方提示处理后重试</text>
 			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
-			<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+			<view
+				wx:if="{{canSelectPatient}}"
+				class="state-hint state-hint-action"
+				bindtap="onChangePatient"
+			>选择就诊人</view>
 		</block>
 		<block wx:else>
 			<!-- 旧端空列表使用 48rpx 的 file-text 图标，不能套用首页的大型服务插图。 -->

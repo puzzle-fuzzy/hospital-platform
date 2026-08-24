@@ -16,6 +16,7 @@ import {
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
+	isPatientSelectionError,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
@@ -160,6 +161,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		locationResults: [],
 		loading: true,
 		error: "",
+		canSelectPatient: false,
 	},
 
 	onLoad() {
@@ -195,6 +197,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		this.setData({
 			loading: true,
 			error: "",
+			canSelectPatient: false,
 			sessionState: "checking",
 			selectedPatient: null,
 			patientSessionGeneration: -1,
@@ -263,6 +266,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 						records: mappedRecords,
 						...visibleState,
 						error: "",
+						canSelectPatient: false,
 					});
 				});
 			})
@@ -475,8 +479,13 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			error instanceof ApiError && error.code === "dependency-not-configured"
 				? "预约记录服务暂未配置完成，请联系管理员"
 				: patientContextErrorMessage(error, fallback);
+		const canSelectPatient = isPatientSelectionError(error);
 		this.setData({
 			error: message,
+			// “选择就诊人”只处理服务端明确返回的患者上下文错误；网络、
+			// Provider、持久化和依赖配置故障必须留在当前错误态，避免用户
+			// 被错误引导去换人而掩盖真正的服务问题。
+			canSelectPatient,
 			selectedPatient: null,
 			patientSessionGeneration: -1,
 			records: [],

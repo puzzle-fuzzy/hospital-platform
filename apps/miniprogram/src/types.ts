@@ -272,6 +272,8 @@ export type AppointmentRecordsPageData = {
 	locationResults: Array<DepartmentLocationView>;
 	loading: boolean;
 	error: string;
+	/** 只有明确的患者上下文错误才显示错误态中的“选择就诊人”动作。 */
+	canSelectPatient: boolean;
 };
 
 /**
