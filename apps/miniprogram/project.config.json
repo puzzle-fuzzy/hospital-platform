@@ -17,7 +17,20 @@
 		"useCompilerPlugins": ["typescript"]
 	},
 	"packOptions": {
-		"ignore": [],
+		"ignore": [
+			{
+				"type": "folder",
+				"value": "src"
+			},
+			{
+				"type": "folder",
+				"value": "scripts"
+			},
+			{
+				"type": "file",
+				"value": "README.md"
+			}
+		],
 		"include": []
 	}
 }

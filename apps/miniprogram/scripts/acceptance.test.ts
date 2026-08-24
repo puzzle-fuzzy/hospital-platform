@@ -47,6 +47,30 @@ test("native client keeps WeChat identity exchange on the Hospital API", async (
 	expect(client).not.toContain("api.weixin.qq.com");
 });
 
+test("native DevTools project isolates dist runtime from TypeScript source", async () => {
+	const projectConfig = JSON.parse(
+		await Bun.file(join(import.meta.dir, "..", "project.config.json")).text(),
+	) as {
+		miniprogramRoot?: string;
+		packOptions?: {
+			ignore?: Array<{ type?: string; value?: string }>;
+		};
+	};
+
+	// `src/` 和 `dist/` 同时处于小程序项目根目录时，开发者工具可能监听
+	// 两层文件并把源配置重新带入运行图。运行入口必须固定在 dist/，同时
+	// 忽略源码和构建脚本，才能保证原生 TabBar 与页面脚本来自同一份候选。
+	expect(projectConfig.miniprogramRoot).toBe("dist/");
+	expect(projectConfig.packOptions?.ignore).toContainEqual({
+		type: "folder",
+		value: "src",
+	});
+	expect(projectConfig.packOptions?.ignore).toContainEqual({
+		type: "folder",
+		value: "scripts",
+	});
+});
+
 test("native App entry does not trust a cached token before session verification", async () => {
 	const app = await source("app.ts");
 
@@ -1343,6 +1367,21 @@ test("native primary tabs keep one stable selected bar", async () => {
 	expect(build).not.toContain("custom-tab-bar");
 	expect(build).toContain("selectedIconPath");
 	expect(build).toContain("compileHotReLoad=false");
+});
+
+test("native primary tab pages keep a stable patient header during session refresh", async () => {
+	const home = await source("pages/index/index.wxml");
+	const homeStyle = await source("pages/index/index.wxss");
+	const my = await source("pages/my/my.wxml");
+	const homeScript = await source("pages/index/index.ts");
+
+	// 会话恢复时必须先撤销旧患者，再以固定两行占位承接异步读取；不能为了
+	// 消除闪动而继续展示上一账号的患者，也不能让患者卡片发生高度跳变。
+	expect(home).toContain("patient-card-pending");
+	expect(homeStyle).toContain("min-height: 72rpx");
+	expect(homeScript).toContain("sessionStatus: SESSION_LABELS.restoring");
+	expect(homeScript).toContain("selectedPatient: null");
+	expect(my).toContain('loading ? "正在验证当前账号..." : userLabel');
 });
 
 test("shared primary tabs keep scrolling inside the content viewport", async () => {

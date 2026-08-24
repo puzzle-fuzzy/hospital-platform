@@ -66,16 +66,32 @@ page {
 .patient-card-copy {
 	position: relative;
 	z-index: 1;
+	box-sizing: border-box;
+	min-width: 0;
+	min-height: 72rpx;
 	color: #ffffff;
 	font-size: 28rpx;
 }
 
 .patient-name {
+	overflow: hidden;
 	font-size: 32rpx;
+	line-height: 1.25;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .patient-id {
+	overflow: hidden;
 	font-size: 28rpx;
+	line-height: 1.25;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* 验证态只替换文字，不改变患者卡片的两行高度，避免 Tab 切回时跳动。 */
+.patient-card-pending {
+	color: rgba(255, 255, 255, 0.86);
 }
 
 .patient-change {

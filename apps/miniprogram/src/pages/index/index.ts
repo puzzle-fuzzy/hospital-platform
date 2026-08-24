@@ -264,10 +264,17 @@ Page<IndexPageData, IndexPageMethods>({
 		// 过期、微信 code 兑换失败或 Redis 暂时不可用时继续展示上一位患者。
 		// 这里不删除本地 selectedPatientId；恢复成功后仍需按 owner-scoped
 		// 目录重新解析，失效选择进入 stale，而不是静默切到第一位患者。
-		this.clearDisplayedPatientContext();
+		this.setData({
+			// 在一次 setData 中同时撤销旧患者并进入验证态，避免中间帧先出现
+			// “匿名/----”再切换到“正在验证”，保证卡片高度和内容状态稳定。
+			patients: [],
+			selectedPatient: null,
+			selectedPatientId: "",
+			hasPatients: false,
+			sessionStatus: SESSION_LABELS.restoring,
+		});
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
-		this.setData({ sessionStatus: SESSION_LABELS.restoring });
 		restorePlatformSession()
 			.then(() => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
@@ -335,10 +342,15 @@ Page<IndexPageData, IndexPageMethods>({
 		// onShow 可能发生在其他页面收到 401 但全局 token 尚未清理、或 token
 		// 即将被 requestWithSession 自动轮换的窗口内。目录请求完成前不能沿用
 		// 旧卡片；否则页面会同时出现“旧患者 + 新会话验证中”的不一致快照。
-		this.clearDisplayedPatientContext();
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
 		this.setData({
+			// 和首次恢复一样，在同一次更新中撤销旧患者并进入验证态；否则
+			// 原生 Tab 切回首页时会先绘制一帧空卡片，再绘制加载状态。
+			patients: [],
+			selectedPatient: null,
+			selectedPatientId: "",
+			hasPatients: false,
 			sessionStatus: SESSION_LABELS.restoring,
 			error: "",
 		});

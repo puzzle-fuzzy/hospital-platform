@@ -4,8 +4,8 @@ import {
 	mkdir,
 	mkdtemp,
 	readdir,
-	rm,
 	rename,
+	rm,
 } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
@@ -134,6 +134,9 @@ function resolveSourceRevision(): string {
  */
 const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
 	miniprogramRoot?: unknown;
+	packOptions?: {
+		ignore?: unknown;
+	};
 	setting?: {
 		compileHotReLoad?: unknown;
 		useCompilerPlugins?: unknown;
@@ -197,6 +200,31 @@ if (privateProjectConfigExists) {
 if (projectConfig.miniprogramRoot !== "dist/") {
 	throw new Error(
 		"Mini program project.config.json must point to the generated dist/ runtime",
+	);
+}
+
+/**
+ * 微信开发者工具会监听项目根目录，而不是只监听 `miniprogramRoot`。
+ * `src/` 是 TypeScript 唯一源码层，`dist/` 才是小程序唯一运行层；如果
+ * 不把源码目录加入忽略清单，工具可能在完整运行包之外继续响应
+ * `src/app.json` 或旧资源变化，出现页面 404、底栏闪动和选中资源失效。
+ * 这里把该工程边界变成构建硬门禁，避免只依赖人工记忆配置。
+ */
+const ignoredProjectFolders = new Set(
+	Array.isArray(projectConfig.packOptions?.ignore)
+		? projectConfig.packOptions.ignore
+				.filter(
+					(item): item is { type?: unknown; value?: unknown } =>
+						typeof item === "object" && item !== null,
+				)
+				.filter((item) => item.type === "folder")
+				.map((item) => item.value)
+				.filter((value): value is string => typeof value === "string")
+		: [],
+);
+if (!ignoredProjectFolders.has("src")) {
+	throw new Error(
+		"Mini program project.config.json must ignore the TypeScript src/ folder; DevTools must compile only dist/",
 	);
 }
 
