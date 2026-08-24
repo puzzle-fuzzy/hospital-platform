@@ -1815,10 +1815,22 @@ test("appointment records resolve internal patient ownership and return only sum
 			cardNumberMasked: "******0001",
 		},
 	});
-	let recordsInput: { providerPatientId: string } | undefined;
+	let recordsInput:
+		| {
+				providerPatientId: string;
+				query: {
+					scope?: "online" | "all";
+					startDate?: string;
+					endDate?: string;
+				};
+		  }
+		| undefined;
 	const records: AppointmentRecordDirectoryGateway = {
 		listRecords: async (input, context) => {
-			recordsInput = { providerPatientId: input.providerPatientId };
+			recordsInput = {
+				providerPatientId: input.providerPatientId,
+				query: input.query,
+			};
 			return {
 				records: [
 					{
@@ -1906,7 +1918,47 @@ test("appointment records resolve internal patient ownership and return only sum
 			total: 1,
 		},
 	});
-	expect(recordsInput).toEqual({ providerPatientId: "his-patient-001" });
+	expect(recordsInput).toEqual({
+		providerPatientId: "his-patient-001",
+		query: {
+			startDate: "2026-08-01",
+			endDate: "2026-08-31",
+		},
+	});
+
+	const allHistoryResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/records?patientId=internal-patient-001&scope=all",
+			{
+				headers: {
+					authorization: `Bearer ${loginBody.data.accessToken}`,
+				},
+			},
+		),
+	);
+
+	// “全部挂号”是独立的 Provider 查询范围：HTTP 只表达业务 scope，不能
+	// 让客户端伪造 requestChannel，也不能悄悄沿用在线查询的日期窗口。这个
+	// 集成断言把路由、service 和 gateway 之间最容易被误改的边界固定下来。
+	expect(allHistoryResponse.status).toBe(200);
+	expect(await allHistoryResponse.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					departmentName: "心内科",
+					doctorName: "李医生",
+					workDate: "2026-08-20",
+					status: "scheduled",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(recordsInput).toEqual({
+		providerPatientId: "his-patient-001",
+		query: { scope: "all" },
+	});
 });
 
 test("explicit second patient selection keeps appointment and outpatient mappings aligned", async () => {

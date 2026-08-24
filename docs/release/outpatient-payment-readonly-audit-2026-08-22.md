@@ -1,10 +1,13 @@
 > 当前服务端发布更新（2026-08-24）：服务端 release 已切换为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；小程序运行包来源仍为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
 
-> 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本次运行包显式校验修正已进入最新本地候选，真实真机证据仍待。
+> 当前本地候选（2026-08-24）：线上服务端 release 为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；本地待切换服务端候选为
+> `13f597ea9ee3f65b9be858117826d948339d904a`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
+> 候选尚未切换，真实 Provider 非空和真机门诊费用验收仍待。
 
 # 门诊缴费只读当前候选审计（2026-08-22）
 
-> 本文记录当前新项目候选的门诊费用查询边界。当前执行候选为服务端 `0e2a366e`、小程序来源 `171a874`；
+> 本文记录当前新项目候选的门诊费用查询边界。线上执行基线为服务端 `6db3217b`、小程序来源 `4ba492a`；
+> 本地待切换服务端候选为 `13f597ea`。若验证候选，必须先完成受控切换；
 > 文中更早提交只作历史追溯。它不是支付、医保结算或真实 Provider 非空业务验收报告。
 > 本轮没有修改旧 Python 项目、旧端口 `8001`、旧数据库或旧 Redis，也没有打开微信支付、医保授权、6202/6301
 > 结算、退款、通知或 HIS 写回。
@@ -13,8 +16,8 @@
 
 ## 1. 当前候选与结论
 
-- 小程序运行包来源：`171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。
-- 服务端已验证 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
+- 小程序运行包来源：`4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
+- 线上已验证服务端 release：`6db3217bd3c990b009571ffd85b7da55d9ea7338`；待切换候选为 `13f597ea`。
 - 当前页面入口：`/pages/outpatient-payment/outpatient-payment`。
 - 当前 API：`GET /api/v2/payments/outpatient/records?patientId=<platform-patient-id>&status=unpaid|paid`。
 
@@ -75,10 +78,10 @@
 
 ## 6. 当前线上发布与验收状态
 
-- `0e2a366e` 的八个生产 bundle 已完成本地/远端 SHA-256 对照；真实生产 env 的 MySQL、Redis、schema preflight 通过。
-- 候选先在 `127.0.0.1:18082` 隔离 smoke，再原子切换 `current` 并只重启 `hospital-platform-api-v2.service`；内网和公网 live/ready、system ping、未授权 `401`、关闭能力 `404` 均通过。
+- 线上 `6db3217b` 已完成生产运行层验收；本地 `13f597ea` 的八个生产 bundle 已完成本地/远端 SHA-256 对照，真实生产 env 的 MySQL、Redis、schema preflight 通过。
+- `13f597ea` 已在 `127.0.0.1:18082` 完成隔离 smoke，但尚未原子切换 `current`；切换前不能把候选代码证据写成线上业务证据。
 - 旧 Python `8001` 的 Gunicorn PID 集合保持不变，Worker 仍为 `inactive`；没有执行 migration、支付、医保、HIS 写回或 Provider 门诊费用请求。
-- 切换窗口低敏日志为 `parseErrors=0`、`systemdWarningCount=0`，门诊费用 requested/success 事件均为 `0`。因此当前状态是“代码和运行层已发布，真实门诊费用业务证据待补”，不是“门诊缴费已完成”。详见 [`0e2a366e-production-acceptance-2026-08-22.md`](0e2a366e-production-acceptance-2026-08-22.md)。
+- 线上当前窗口仍缺门诊费用 requested/success 的真机三层业务证据。因此当前状态是“只读代码已实现，线上业务证据待补”，不是“门诊缴费已完成”。详见 [`6db3217b-production-acceptance-2026-08-24.md`](6db3217b-production-acceptance-2026-08-24.md)。
 
 ## 7. 当前 `dist/` 运行包门禁
 
