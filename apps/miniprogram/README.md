@@ -52,7 +52,9 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 的根工程；`dist/` 是它的
 运行目录，不是另一个工程，`src/` 也不是可直接编译的微信项目。2026-08-24 的本机
 复核已确认根工程页面路径为 `pages/index/index`，切换到“我的”后仍只有一份原生底栏，
-且“我的”图标和文字呈蓝色选中态；当前最新运行输入为 `7a85dce83fbef08794b0cc0966b2aa40d532b3d7`。
+且“我的”图标和文字呈蓝色选中态；当前最新运行输入为
+`f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`，
+并额外避免对当前 Tab 重复调用 `switchTab`。
 若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
 
@@ -60,7 +62,7 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 `src/app.json` 的 `tabBar.list` 中；页面 WXML 不得复制一份自绘底栏。原生 tabBar
 由微信统一持有页面生命周期和选中态，避免自定义组件在真机切换时闪动或丢失激活图标。
 业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的
-`switchToPrimaryTab`（内部使用 `wx.switchTab`），普通业务页才使用 `wx.navigateTo`。
+`switchToPrimaryTab`（内部使用 `wx.switchTab`，当前页目标会安全 no-op），普通业务页才使用 `wx.navigateTo`。
 主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`，底栏由微信固定在窗口底部，
 页面不再为自定义底栏额外增加底部占位。
 原生 TabBar 图标使用 `*-native.png` 与 `*-native-active.png` 独立资源名；它们与旧端

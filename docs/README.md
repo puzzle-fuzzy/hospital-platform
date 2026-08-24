@@ -3,7 +3,7 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=7a85dce83fbef08794b0cc0966b2aa40d532b3d7`，16 个页面脚本完整，`runtime:verify` 和小程序 `235 pass / 0 fail / 1896 expect()` 已通过。开发者工具已重置当前工程缓存并重开，运行包的原生 TabBar 图标已切换到新的 `*-native` 资源路径，以隔离旧选中图标缓存；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对完整 `7a85dce8`，详见 [`release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md`](release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md)。
+> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`，16 个页面脚本完整，`runtime:verify` 和小程序 `236 pass / 0 fail / 1898 expect()` 已通过。开发者工具已重置当前工程缓存并重开，本轮增加了当前主 Tab 重复 `switchTab` 的 no-op 防闪边界；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对这份完整 revision，详见 [`release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md`](release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
 > `runtime:verify` 通过，开发者工具新项目窗口普通编译显示 `Errors: 0`。若真机仍请求该路径，
