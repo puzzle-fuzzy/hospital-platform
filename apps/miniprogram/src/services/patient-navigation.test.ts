@@ -89,7 +89,7 @@ describe("原生主 Tab 路由边界", () => {
 		}
 	});
 
-	test("会话失效回首页也必须复用共享 TabBar", () => {
+	test("会话失效回首页也必须复用原生 TabBar", () => {
 		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
 		const originalWx = runtime.wx;
 		const switchedUrls: string[] = [];

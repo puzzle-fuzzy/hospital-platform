@@ -57,22 +57,21 @@ CLI 必须从 `apps/miniprogram` 目录执行；如果从 monorepo 根目录执�
 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 的根工程；`dist/` 是它的
 运行目录，不是另一个工程，`src/` 也不是可直接编译的微信项目。2026-08-24 的本机
 历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
-选中态消失，改为微信官方单实例 `custom-tab-bar`，不再让页面各自绘制或维护底栏。
-当前最新运行输入以
-`dist/build-info.json` 的完整 revision 为准，
+选中态消失，已收回到微信原生 `tabBar`，不再把主导航交给会随页面生命周期重建的自定义组件。
+当前最新运行输入为
+`acfacc83`（完整 revision 写入 `dist/build-info.json`），
 并额外隔离 `src/`/`scripts/` 源码监听、避免对当前 Tab 重复调用 `switchTab`，以及在会话恢复期间保持患者卡片高度稳定。
 本候选的真实手机选中态仍需重新普通编译后复核；若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
 
-四个主入口使用微信官方 `custom-tab-bar`，四项路由、图标、选中图标和顺序唯一声明在
-`src/app.json.tabBar.list` 中，并显式设置 `custom: true`、`position: bottom`。
-页面 WXML 不得复制一份底栏；四个主入口统一使用微信官方 `custom-tab-bar`，
-选中态由共享组件根据当前页面 route 维护，避免组件生命周期重建造成先显示“医疗服务”
-再切换到“我的”的闪动。组件切换前先更新选中态，`switchTab` 失败时回滚。
+四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在
+`src/app.json.tabBar.list` 中，并显式设置 `custom: false`、`position: bottom`。
+页面 WXML 不得复制一份底栏，也不得新增 `custom-tab-bar`；选中态由微信根据
+`selectedIconPath` 统一维护，避免组件生命周期重建造成先显示“医疗服务”再切换到“我的”的闪动。
 业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的
 `switchToPrimaryTab`（内部使用 `wx.switchTab`，当前页目标会安全 no-op），普通业务页才使用 `wx.navigateTo`。
-主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；共享 `custom-tab-bar` 由微信固定
-在窗口底部，页面自身不绘制底栏，`scroll-view` 只预留一份底栏高度，因此只有内容区域滚动。
+主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；微信原生 `tabBar` 由微信固定
+在内容视口之外，页面自身不绘制底栏，也不为自绘底栏额外预留高度，因此只有内容区域滚动。
 后续替换图标时必须同时保留普通态和选中态两份实际不同的资源，并确保
 `selectedIconPath` 不复用 `iconPath`；构建脚本会同时检查路径和文件字节。
 

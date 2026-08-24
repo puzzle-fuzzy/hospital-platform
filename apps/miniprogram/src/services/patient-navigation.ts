@@ -36,7 +36,7 @@ function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
 /**
  * 判断目标是否已经是当前正在展示的共享主 Tab。
  *
- * 微信官方 custom-tab-bar 会维护四项共享底栏，但业务代码在会话失效、登录恢复
+ * 微信原生 tabBar 会维护四项共享底栏，但业务代码在会话失效、登录恢复
  * 和快捷入口中仍可能重复调用 `switchTab`。对当前页再次 switchTab 会让
  * 页面重新触发生命周期，在低端真机上表现为内容和底栏同时闪一下；它也
  * 没有任何业务收益。因此这里只在确实需要跨 Tab 切换时调用微信 API。
@@ -54,7 +54,7 @@ function isCurrentPrimaryTab(url: string): boolean {
 /**
  * 主 Tab 的唯一程序化入口。
  *
- * 当前四个主 Tab 主要由微信官方共享底栏直接触发；保留这个小函数是为了
+ * 当前四个主 Tab 主要由微信原生底栏直接触发；保留这个小函数是为了
  * 约束快捷入口、登录恢复或深链回跳。只要目标是主 Tab，就必须走
  * `switchTab`，绝不能退化成普通页面导航；底栏的激活图标由微信根据
  * `app.json.tabBar.list[].selectedIconPath` 统一维护。
