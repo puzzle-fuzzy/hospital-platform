@@ -11,18 +11,35 @@
 | 项目 | 当前事实 | 说明 |
 | --- | --- | --- |
 | 新 API | 生产 release `8eb51b5f` | 只读复核显示与旧 Python `8001` 共存；本轮不切换服务 |
-| 小程序候选 | `a8191c4dce5b50e7554743cf977b7d0f2a633e03` | 使用微信原生共享 `tabBar`，不含页面级底栏 |
+| 小程序候选 | `46563fe2e05c49c5899fca93e1dd60831c3d4017` | 使用微信原生共享 `tabBar`，不含页面级底栏；当前候选已重新构建并清理新项目缓存 |
 | 资料字段 | 昵称、性别、年龄、邮箱、`version` | 不接受头像、手机号、身份证、实名字段、`openid`、`unionid` 或患者字段 |
 | 写入策略 | `version` 条件更新 | 成功后必须返回 `expectedVersion + 1`；旧版本返回 `user-profile-conflict` |
 | 日志 | `user.profile.*` + HTTP `x-request-id`/`traceId` | 不记录 userId、昵称、邮箱、Authorization 或请求正文 |
 | 旧服务 | 不修改、不停止、不重启 | 资料验收只走新 API `/api/v2` |
+
+## 当前运行层只读证据（2026-08-24）
+
+本轮只通过内网 SSH inspection key 读取运行状态，没有写入配置、切换 release、重启服务或访问数据库内容：
+
+| 检查项 | 结果 |
+| --- | --- |
+| 新 API release | `/home/ps/code/hospital-platform/releases/8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 新 API 服务 | `hospital-platform-api-v2.service=active`，日志环境为 `production` |
+| 旧 Python 服务 | `hospital-backend.service=inactive`（旧进程仍监听 `0.0.0.0:8001`，未被本轮操作触碰） |
+| 新 API 内网监听 | `10.0.0.3:18081` |
+| 公网 ready | `/api/v2/health/ready` 返回 `200`，`database/redis/schema=ok` |
+| 未授权资料读取 | `/api/v2/me/profile` 返回 `401 unauthorized`，未触发 profile 业务事件 |
+
+公网未授权探针的 requestId 为 `01a67c25-5870-4f33-b159-36c22c313038`；服务端只记录了低敏的
+`http.request.failed`、`requestId`、`traceId`、路径、状态码和错误码，没有记录 Authorization 或请求正文。
+这只能证明认证边界和日志链路正常，不能替代微信登录后的资料 GET，更不能替代 PUT/409 验收。
 
 ## 真机操作顺序
 
 必须使用当前二维码重新编译后的运行包，并先在控制台确认来源：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=a8191c4dce5b50e7554743cf977b7d0f2a633e03
+[医院小程序] 运行包来源：微信原生 tabBar；revision=46563fe2e05c49c5899fca93e1dd60831c3d4017
 ```
 
 随后使用专用测试微信账号执行：
