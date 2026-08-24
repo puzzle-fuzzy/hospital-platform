@@ -3,7 +3,7 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=0bf2bf828b107c7b65b26ac5457edfa2b4e1ac9e`，16 个页面脚本完整，`runtime:verify` 和小程序 `235 pass / 0 fail / 1888 expect()` 已通过。开发者工具清理文件缓存并重开根工程后，控制台已核对该 revision，模拟器切换“就诊”仍只有一份原生底栏且选中图标/文字变蓝。该候选仍未上传微信或替换线上 `13f597e`；真机验收必须重新普通编译并核对完整 `0bf2bf8`，详见 [`release/candidate-0bf2bf8-native-tabbar-runtime-2026-08-24.md`](release/candidate-0bf2bf8-native-tabbar-runtime-2026-08-24.md)。
+> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=7a85dce83fbef08794b0cc0966b2aa40d532b3d7`，16 个页面脚本完整，`runtime:verify` 和小程序 `235 pass / 0 fail / 1896 expect()` 已通过。开发者工具已重置当前工程缓存并重开，运行包的原生 TabBar 图标已切换到新的 `*-native` 资源路径，以隔离旧选中图标缓存；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对完整 `7a85dce8`，详见 [`release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md`](release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
 > `runtime:verify` 通过，开发者工具新项目窗口普通编译显示 `Errors: 0`。若真机仍请求该路径，
@@ -39,7 +39,7 @@
 > `hospital-platform-api-v2.service=active`、Worker=`inactive`；内网和公网 readiness 均为 200，database/redis/schema 均为 `ok`，启动日志为 production。
 > 本次没有执行重启或配置/数据写入，详见 [`release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md)。
 
-> 当前本地未发布小程序候选的运行输入为 `0bf2bf828b107c7b65b26ac5457edfa2b4e1ac9e`（提交 `0bf2bf8`）。公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，当前源码 `app.json` 注册 16 个页面；`dist/build-info.json` 已与该运行输入一致。
+> 当前本地未发布小程序候选的运行输入为 `7a85dce83fbef08794b0cc0966b2aa40d532b3d7`（提交 `7a85dce8`）。公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，当前源码 `app.json` 注册 16 个页面；`dist/build-info.json` 已与该运行输入一致。
 > 本轮继续使用微信原生 `tabBar`：四项路由和选中图标统一由 `app.json.tabBar.list` 管理，构建产物位于 `apps/miniprogram/dist/`；本次构建和 `runtime:verify` 均已通过。
 > 本地候选仍未上传微信或替换线上 `13f597e`，真机验收必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `4e8f6877`。历史 `0f40ab9` 仅见 [`release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md`](release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md)，上一候选见 [`release/candidate-4ea15b8-native-tabbar-runtime-publish-2026-08-24.md`](release/candidate-4ea15b8-native-tabbar-runtime-publish-2026-08-24.md)，当前执行入口见 [`release/candidate-4e8f6877-native-tabbar-switchtab-2026-08-24.md`](release/candidate-4e8f6877-native-tabbar-switchtab-2026-08-24.md)。
 > 患者错误态基础修正记录（历史代码候选 `dc287a4a`）：[`release/candidate-dc287a4a-patient-error-gate-2026-08-24.md`](release/candidate-dc287a4a-patient-error-gate-2026-08-24.md)；上一轮原生 Tab 结构记录见 [`release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md`](release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md)，上一轮运行包配置门禁见 [`release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md`](release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md)。

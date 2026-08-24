@@ -52,7 +52,7 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 的根工程；`dist/` 是它的
 运行目录，不是另一个工程，`src/` 也不是可直接编译的微信项目。2026-08-24 的本机
 复核已确认根工程页面路径为 `pages/index/index`，切换到“我的”后仍只有一份原生底栏，
-且“我的”图标和文字呈蓝色选中态；当前最新运行输入为 `0bf2bf828b107c7b65b26ac5457edfa2b4e1ac9e`。
+且“我的”图标和文字呈蓝色选中态；当前最新运行输入为 `7a85dce83fbef08794b0cc0966b2aa40d532b3d7`。
 若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
 

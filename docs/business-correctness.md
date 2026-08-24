@@ -1,7 +1,7 @@
 # 患者端业务正确性规则
 
 > 当前生产配套基线（2026-08-24）：服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，线上配套小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
-> 当前本地未发布候选为小程序运行包来源 `0bf2bf828b107c7b65b26ac5457edfa2b4e1ac9e`（提交 `0bf2bf8`），包含原生主导航、四个正式 Tab 入口、内容滚动视口、挂号卡片、爽约入口、患者上下文错误态分流、查询状态容器和报告目录加载占位收口；运行包已通过构建和来源校验，仍不能替代生产运行包或真机三层证据。TabBar 缓存复核见 [`release/candidate-0bf2bf8-native-tabbar-runtime-2026-08-24.md`](release/candidate-0bf2bf8-native-tabbar-runtime-2026-08-24.md)。
+> 当前本地未发布候选为小程序运行包来源 `7a85dce83fbef08794b0cc0966b2aa40d532b3d7`（提交 `7a85dce8`），包含原生主导航、四个正式 Tab 入口、内容滚动视口、挂号卡片、爽约入口、患者上下文错误态分流、查询状态容器和报告目录加载占位收口；运行包已通过构建和来源校验，仍不能替代生产运行包或真机三层证据。TabBar 资源缓存隔离复核见 [`release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md`](release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md)。
 
 > 当前验收基线（2026-08-24）：服务端已验证 release 为
 > `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（`8eb51b5f`），线上小程序运行包来源为
