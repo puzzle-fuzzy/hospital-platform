@@ -20,6 +20,26 @@
 
 > 历史候选刷新（2026-08-22）：服务端 release 曾为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本行仅作追溯，不能覆盖上方当前 `13f597ea` 的线上边界。
 
+> **当前事实源（2026-08-25，优先于本文全部历史段落）**：新 Elysia API 当前运行 release 为
+> `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，`hospital-platform-api-v2.service=active`，监听
+> `10.0.0.3:18081`；旧 Python 服务继续监听 `0.0.0.0:8001`，本轮未停止、未重启、未修改。
+> 内网 `/health/ready` 返回 `database=ok`、`redis=ok`、`schema=ok`。Worker 继续保持 inactive。
+>
+> 小程序最新本地运行包来源为 `0b1df915a0051cd84c52bcdb2cc679cec1ab0664`，仅用于新项目独立
+> `apps/miniprogram/dist/` 的预览和真机验收，尚未替换线上正式小程序；新二维码为
+> `.local/hospital-miniprogram/tabbar-preview-0b1df915.png`。四个主 Tab 仍由微信原生 `tabBar`
+> 唯一托管，支付、医保、结算、预约写入、取消、患者绑定、二维码、病历和 HIS 回写均关闭。
+>
+> 为真实只读验收准备的 wrapper 已 staging 到服务器：
+> `/home/ps/code/hospital-platform/releases/82c5e9e34775e4078fc891625a4b94110dde4451-readonly`。
+> staging 不被 `current` 或 systemd 引用；默认只读 smoke 覆盖会话、普通资料、患者目录、预约目录/历史
+> 和门诊费用，不包含 `patient-sync`、支付、医保或任何 HIS 写回。当前尚未注入短时 Bearer token 与
+> 内部 opaque `patientId`，所以还没有患者/预约/费用 Provider 业务请求证据，不能把这部分标记为已验收。
+>
+> **当前执行顺序**：先取得短时凭据并完成“客户端 requestId + 服务端 traceId/业务事件 + Provider 低敏请求号”
+> 三层只读证据；再处理普通资料写入（仅限受控测试值授权）；随后分别冻结报告详情、健康内容审核 bundle、
+> 患者绑定、二维码、病历和支付/医保的独立 contract。任何缺少 provider/HIS/权限/回滚证据的入口继续关闭。
+
 # 下一阶段实施路线图
 
 > 当前本地小程序候选为 `ecff1f9ca97a1fb47ee090810a92a5fe533779f9`（提交 `ecff1f9`），`dist/` 原子发布与 `runtime:verify` 已通过；本轮继续使用微信原生 `tabBar`，普通/选中资源使用独立 `-native` 路径，并把 `dist/` 生成成可独立打开的微信工程，避免父目录 watcher 把源码重新带入增量图。此前的 `acfacc83`、`0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`39b50d5`、`22dd3532` 仅保留为历史来源记录，不能再作为当前二维码或真机验收入口。当前小程序候选仍未上传微信，必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译后核对完整 `ecff1f9ca97a1fb47ee090810a92a5fe533779f9`；服务端本地未发布修正另见 `4404c556`。
