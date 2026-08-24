@@ -20,6 +20,11 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
+	// 四个主 Tab 共用的底栏由微信 custom-tab-bar 管理，不能只依赖开发者
+	// 工具的隐式扫描；显式列入运行包门禁，避免真机拿到没有底栏的半包。
+	"custom-tab-bar/index.json",
+	"custom-tab-bar/index.wxml",
+	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -71,6 +76,8 @@ const requiredStaticFiles = [
 ];
 const requiredTypeScriptFiles = [
 	"app.ts",
+	"constants/legacy-tabbar.ts",
+	"custom-tab-bar/index.ts",
 	"data/department-location.ts",
 	"services/api-client.ts",
 	"services/dashboard-service.ts",
