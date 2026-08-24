@@ -33,9 +33,9 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
-> 当前本地未发布小程序候选的代码基线为 `ae0cc11a4c4147436d8097b15ef00a3e54be8bda`（提交 `ae0cc11`）。
-> 它继续收敛挂号卡片为旧端阅读层级，保证爽约入口不自动打开患者选择模块，并让预约、报告、费用、患者选择、资料和目录页复用固定查询状态外壳；构建产物位于
-> `apps/miniprogram/dist/`。构建记录见 [`release/candidate-ae0cc11-miniprogram-build-2026-08-24.md`](release/candidate-ae0cc11-miniprogram-build-2026-08-24.md)。不得把它当作线上 `13f597e` 运行包，也不得用它生成的本地结果替代真机三层业务证据。
+> 当前本地未发布小程序候选的代码基线为 `d32c5ce9653935e6f66bead9526bc8d0fa639b37`（提交 `d32c5ce`）。
+> 它在挂号卡片、爽约入口和多页面固定查询状态外壳基础上，继续为报告目录保留不可点击的患者加载占位；构建产物位于
+> `apps/miniprogram/dist/`。构建记录见 [`release/candidate-d32c5ce-miniprogram-build-2026-08-24.md`](release/candidate-d32c5ce-miniprogram-build-2026-08-24.md)。不得把它当作线上 `13f597e` 运行包，也不得用它生成的本地结果替代真机三层业务证据。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
 > [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。
 

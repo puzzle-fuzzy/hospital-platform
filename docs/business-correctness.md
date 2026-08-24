@@ -1,7 +1,7 @@
 # 患者端业务正确性规则
 
 > 当前生产配套基线（2026-08-24）：服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，线上配套小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
-> 当前本地未发布候选为小程序 `ae0cc11a4c4147436d8097b15ef00a3e54be8bda`（提交 `ae0cc11`），包含挂号卡片、爽约入口和查询状态容器收口，不能替代生产运行包或真机三层证据。构建记录见 [`release/candidate-ae0cc11-miniprogram-build-2026-08-24.md`](release/candidate-ae0cc11-miniprogram-build-2026-08-24.md)。
+> 当前本地未发布候选为小程序 `d32c5ce9653935e6f66bead9526bc8d0fa639b37`（提交 `d32c5ce`），包含挂号卡片、爽约入口、查询状态容器和报告目录加载占位收口，不能替代生产运行包或真机三层证据。构建记录见 [`release/candidate-d32c5ce-miniprogram-build-2026-08-24.md`](release/candidate-d32c5ce-miniprogram-build-2026-08-24.md)。
 
 > 当前验收基线（2026-08-24）：服务端已验证 release 为
 > `28a5c0c131794ce9dcc5f94bd3809402188ac87a`（`28a5c0c1`），线上小程序运行包来源为
