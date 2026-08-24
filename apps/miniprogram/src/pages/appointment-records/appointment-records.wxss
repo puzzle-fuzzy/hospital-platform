@@ -139,11 +139,23 @@ page {
 	position: relative;
 	box-sizing: border-box;
 	margin-bottom: 32rpx;
-	padding: 32rpx;
+	padding: 28rpx 28rpx 24rpx;
+	border: 1rpx solid #edf1f8;
 	border-radius: 16rpx;
 	background: #ffffff;
-	box-shadow: 0 4rpx 14rpx rgba(0, 0, 0, 0.03);
+	box-shadow: 0 8rpx 24rpx rgba(48, 76, 140, 0.07);
 	transition: transform 0.3s ease;
+}
+
+.record-card::before {
+	position: absolute;
+	top: 20rpx;
+	bottom: 20rpx;
+	left: 0;
+	width: 6rpx;
+	border-radius: 0 6rpx 6rpx 0;
+	background: #3d6df6;
+	content: "";
 }
 
 /* 旧端卡片点击会短暂缩小；只反馈触摸，不代表详情或任何写入操作成功。 */
@@ -152,13 +164,35 @@ page {
 }
 
 .record-status-badge {
-	position: absolute;
-	top: 24rpx;
-	right: 24rpx;
+	position: relative;
 	padding: 8rpx 16rpx;
 	border-radius: 8rpx;
 	font-size: 24rpx;
 	line-height: 1.2;
+}
+
+.record-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 48rpx;
+}
+
+.record-card-kind {
+	display: flex;
+	align-items: center;
+	color: #8a94a6;
+	font-size: 24rpx;
+	line-height: 1.3;
+}
+
+.record-card-kind-dot {
+	margin-right: 10rpx;
+	width: 12rpx;
+	height: 12rpx;
+	border-radius: 50%;
+	background: #3d6df6;
+	box-shadow: 0 0 0 5rpx #eaf0ff;
 }
 
 .record-status-icon {
@@ -185,37 +219,89 @@ page {
 }
 
 .record-department {
-	padding-right: 96rpx;
+	margin-top: 18rpx;
+	overflow: hidden;
 	color: #1f2937;
-	font-size: 32rpx;
+	font-size: 34rpx;
 	font-weight: 700;
 	line-height: 1.45;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .record-meta {
 	display: flex;
 	flex-wrap: wrap;
-	/* 对齐旧端详情区的 mb-3，医生类型和院区不能贴住科室标题。 */
-	margin-top: 24rpx;
+	gap: 12rpx 24rpx;
+	margin-top: 16rpx;
 	color: #4b5563;
 	font-size: 24rpx;
-	line-height: 1.6;
+	line-height: 1.4;
 }
 
-.record-meta text + text {
-	margin-left: 16rpx;
+.record-meta-item {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.record-meta-label {
+	margin-right: 8rpx;
+	color: #9aa4b2;
+}
+
+.record-meta-value {
+	overflow: hidden;
+	max-width: 300rpx;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.record-schedule {
+	display: flex;
+	align-items: stretch;
+	margin-top: 24rpx;
+	padding: 18rpx 20rpx;
+	border-radius: 12rpx;
+	background: #f4f7ff;
+}
+
+.record-schedule-item {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.record-schedule-time {
+	margin-left: auto;
+	padding-left: 24rpx;
+	border-left: 1rpx solid #dfe7fb;
+}
+
+.record-schedule-label {
+	color: #8995aa;
+	font-size: 22rpx;
+	line-height: 1.3;
 }
 
 .record-date {
-	/* 旧端日期区使用 mb-4 的 32rpx 节奏。 */
-	margin-top: 32rpx;
-	color: #1f2937;
-	font-size: 24rpx;
-	line-height: 1.5;
+	margin-top: 8rpx;
+	color: #203b78;
+	font-size: 28rpx;
+	font-weight: 700;
+	line-height: 1.45;
+}
+
+.record-time {
+	margin-top: 8rpx;
+	color: #203b78;
+	font-size: 26rpx;
+	font-weight: 600;
+	line-height: 1.45;
 }
 
 .record-number {
-	margin-top: 32rpx;
+	margin-top: 18rpx;
 	color: #4b5563;
 	font-size: 24rpx;
 	line-height: 1.5;
@@ -230,8 +316,9 @@ page {
 .record-actions {
 	display: flex;
 	justify-content: flex-end;
-	/* 与旧端按钮区域 mt-4 保持一致，避免卡片底部显得拥挤。 */
-	margin-top: 32rpx;
+	margin-top: 22rpx;
+	padding-top: 20rpx;
+	border-top: 1rpx solid #f0f2f6;
 }
 
 .record-action-button {
@@ -273,8 +360,12 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	margin-top: 0;
-	/* 空态不在 record-list 容器内，沿用旧端 pb-20 的纵向节奏。 */
-	padding: 80rpx 32rpx 160rpx;
+	/*
+		加载、空数据和错误共用同一块视觉容器，避免请求结束后卡片突然变高。
+		这里保留旧端列表背景，不把迁移状态误做成新的白色整页占位。
+	*/
+	min-height: 380rpx;
+	padding: 40rpx 32rpx;
 	border-radius: 0;
 	background: #f5f5f5;
 	color: #777777;
@@ -292,7 +383,7 @@ page {
 /* 旧端使用 loading 图标；原生端用纯 WXSS 复刻同样的中性旋转指示器。 */
 .state-loading-icon {
 	box-sizing: border-box;
-	margin-bottom: 24rpx;
+	margin-bottom: 20rpx;
 	width: 48rpx;
 	height: 48rpx;
 	border: 6rpx solid #e5e7eb;
@@ -309,9 +400,9 @@ page {
 
 .state-empty-icon {
 	display: block;
-	margin-bottom: 20rpx;
-	width: 48rpx;
-	height: 48rpx;
+	margin-bottom: 18rpx;
+	width: 64rpx;
+	height: 64rpx;
 }
 
 .state-hint {

@@ -142,18 +142,20 @@ page {
 }
 
 .state-card {
-	min-height: 220rpx;
+	/* 爽约页与预约/报告/费用页使用相同状态容器，加载结束不改变版面高度。 */
+	min-height: 380rpx;
 	margin-top: 60rpx;
-	padding: 44rpx 30rpx;
+	padding: 40rpx 30rpx;
 	border-radius: 20rpx;
 	background: #ffffff;
 }
 
-/* 空态图必须限制在业务卡片内，避免 widthFix 直接撑满小程序视口。 */
+/* 空态图固定为正方形，避免图片原始比例让空态卡片高度随状态变化。 */
 .state-card-empty image {
 	display: block;
-	margin-bottom: 16rpx;
-	width: 200rpx;
+	width: 150rpx;
+	height: 150rpx;
+	margin-bottom: 18rpx;
 }
 
 .readonly-note {

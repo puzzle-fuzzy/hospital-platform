@@ -12,7 +12,8 @@
 		<text>添加就诊人</text>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card">
+	<view wx:if="{{loading}}" class="state-card state-card-loading">
+		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>正在加载就诊人...</text>
 	</view>
 
@@ -50,7 +51,7 @@
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text>当前微信账号暂无已绑定的就诊人</text>
 		<text class="state-hint">请先完成医院侧就诊人绑定，再点击下方刷新</text>
 	</view>

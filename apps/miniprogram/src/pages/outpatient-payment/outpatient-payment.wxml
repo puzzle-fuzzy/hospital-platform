@@ -46,7 +46,8 @@
 		<view class="tab {{activeStatus === 'paid' ? 'tab-active' : ''}}" bindtap="onStatusTap" data-status="paid">已缴费</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card">
+	<view wx:if="{{loading}}" class="state-card state-card-loading">
+		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>正在加载门诊缴费记录...</text>
 	</view>
 
@@ -71,7 +72,7 @@
 		完整的 owner-scoped 只读查询链路。
 	-->
 	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text>本次门诊费用未加载成功</text>
 		<text class="state-hint">请根据上方提示处理后重试</text>
 		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
@@ -79,7 +80,7 @@
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text wx:if="{{selectedPatient}}">{{activeStatus === 'unpaid' ? '未查询到待缴费记录' : '未查询到已缴费记录'}}</text>
 		<text wx:else>请先选择就诊人</text>
 		<text wx:if="{{selectedPatient}}" class="state-hint">如需查询其他就诊人，请点击上方更换</text>

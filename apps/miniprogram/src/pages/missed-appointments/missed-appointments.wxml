@@ -21,8 +21,15 @@
 		<view class="page-description">展示当前就诊人过去 90 天的爽约记录</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card">
+	<view wx:if="{{loading}}" class="state-card state-card-loading">
+		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>正在加载爽约记录...</text>
+	</view>
+
+	<!-- 患者上下文失效时会由页面逻辑直接进入选择页，不把选择模块嵌在爽约空态中。 -->
+	<view wx:elif="{{redirectingToPatientSelector}}" class="state-card state-card-loading">
+		<view class="state-loading-icon" aria-hidden="true"></view>
+		<text>正在打开就诊人选择...</text>
 	</view>
 
 	<view wx:elif="{{visibleRecords.length}}" class="record-list">
@@ -46,19 +53,16 @@
 		否则会把 Provider 失败误报成用户没有爽约；恢复动作必须重新读取当前患者。
 	-->
 	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text>本次爽约记录未加载成功</text>
 		<text class="state-hint">请根据上方提示处理后重试</text>
 		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
-		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
 	</view>
 
 	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
-		<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-		<text wx:if="{{selectedPatient}}">暂无爽约记录</text>
-		<text wx:else>请先选择就诊人</text>
-		<text wx:if="{{selectedPatient}}" class="state-hint">请继续保持按时就诊的好习惯</text>
-		<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
+		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+		<text>暂无爽约记录</text>
+		<text class="state-hint">请继续保持按时就诊的好习惯</text>
 	</view>
 
 	<view class="readonly-note">

@@ -89,29 +89,54 @@
 			bindtap="onRecordTap"
 			data-view-key="{{item.viewKey}}"
 		>
-			<view class="record-status-badge {{item.statusClass}}">
-				<!-- 原版已预约状态使用蓝色业务图标，其余状态继续显示服务端归一化文案。 -->
-				<image
-					wx:if="{{item.status === 'scheduled'}}"
-					class="record-status-icon"
-					src="/assets/legacy-user/appointment-status.svg"
-					mode="aspectFit"
-				/>
-				<text wx:else>{{item.statusLabel}}</text>
+			<!--
+				卡片按“业务类型 → 状态 → 科室 → 就诊时间 → 操作”分层，
+				让用户先知道这是一条挂号，再快速找到最重要的日期和状态。
+				这些字段全部来自已归一化的 AppointmentRecordView，不新增业务判断。
+			-->
+			<view class="record-card-header">
+				<view class="record-card-kind">
+					<view class="record-card-kind-dot"></view>
+					<text>预约挂号</text>
+				</view>
+				<view class="record-status-badge {{item.statusClass}}">
+					<!-- 原版已预约状态使用蓝色业务图标，其余状态继续显示服务端归一化文案。 -->
+					<image
+						wx:if="{{item.status === 'scheduled'}}"
+						class="record-status-icon"
+						src="/assets/legacy-user/appointment-status.svg"
+						mode="aspectFit"
+					/>
+					<text wx:else>{{item.statusLabel}}</text>
+				</view>
 			</view>
 
 			<view class="record-department">{{item.departmentName || "门诊挂号"}}</view>
 			<view class="record-meta">
-				<text wx:if="{{item.doctorName}}">{{item.doctorName}}</text>
-				<text wx:if="{{item.location}}">{{item.location}}</text>
+				<view wx:if="{{item.doctorName}}" class="record-meta-item">
+					<text class="record-meta-label">医生</text>
+					<text class="record-meta-value">{{item.doctorName}}</text>
+				</view>
+				<view wx:if="{{item.location}}" class="record-meta-item">
+					<text class="record-meta-label">院区</text>
+					<text class="record-meta-value">{{item.location}}</text>
+				</view>
 			</view>
-			<!-- 旧端把日期/上午下午与时段分成两行，避免时间信息挤在同一行。 -->
-			<view class="record-date">
-				<text>{{item.workDate}}</text>
-				<text wx:if="{{item.periodLabel}}"> {{item.periodLabel}}</text>
+
+			<!-- 日期、时段和时刻放进同一块浅色信息区，减少卡片内的视觉跳跃。 -->
+			<view class="record-schedule">
+				<view class="record-schedule-item">
+					<text class="record-schedule-label">就诊日期</text>
+					<text class="record-date">
+						{{item.workDate}}<text wx:if="{{item.periodLabel}}"> {{item.periodLabel}}</text>
+					</text>
+				</view>
+				<view wx:if="{{item.workTime}}" class="record-schedule-item record-schedule-time">
+					<text class="record-schedule-label">就诊时段</text>
+					<text class="record-time">{{item.workTime}}</text>
+				</view>
 			</view>
 			<view wx:if="{{item.workTime || item.serialNumber}}" class="record-number">
-				<text wx:if="{{item.workTime}}">{{item.workTime}} </text>
 				<text wx:if="{{item.serialNumber}}">第 </text>
 				<text wx:if="{{item.serialNumber}}" class="record-number-emphasis">{{item.serialNumber}}</text>
 				<text wx:if="{{item.serialNumber}}"> 号</text>

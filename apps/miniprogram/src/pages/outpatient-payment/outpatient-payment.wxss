@@ -203,9 +203,10 @@ page {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	min-height: 220rpx;
+	/* 统一记录页状态容器，加载到空数据时不让业务卡片突然跳高。 */
+	min-height: 380rpx;
 	margin-top: 60rpx;
-	padding: 44rpx 30rpx;
+	padding: 40rpx 30rpx;
 	border-radius: 20rpx;
 	background: #ffffff;
 	color: #777777;
@@ -218,8 +219,30 @@ page {
 
 .state-card-empty image {
 	display: block;
-	width: 200rpx;
-	margin-bottom: 16rpx;
+	width: 150rpx;
+	height: 150rpx;
+	margin-bottom: 18rpx;
+}
+
+.state-card-loading {
+	flex-direction: column;
+}
+
+.state-loading-icon {
+	box-sizing: border-box;
+	width: 48rpx;
+	height: 48rpx;
+	margin-bottom: 20rpx;
+	border: 6rpx solid #e5e7eb;
+	border-top-color: #9ca3af;
+	border-radius: 50%;
+	animation: outpatient-payment-loading 900ms linear infinite;
+}
+
+@keyframes outpatient-payment-loading {
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .state-hint {

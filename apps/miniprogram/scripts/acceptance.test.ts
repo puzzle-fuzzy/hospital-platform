@@ -149,7 +149,15 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 			template.indexOf(emptyBranch),
 		);
 		expect(template).toContain('bindtap="onRetry"');
-		expect(template).toContain('bindtap="onChangePatient"');
+		if (templatePath.includes("missed-appointments")) {
+			// 爽约页缺少患者上下文时会直接转入选择页，空态不能再重复出现
+			// “请先选择就诊人”模块，避免和入口门禁产生两套交互。
+			expect(template).not.toContain("请先选择就诊人");
+			expect(template).not.toContain("点击这里选择就诊人");
+			expect(page).toContain("redirectToPatientSelector");
+		} else {
+			expect(template).toContain('bindtap="onChangePatient"');
+		}
 		expect(page).toContain("onRetry(): void");
 	}
 });
@@ -1596,7 +1604,8 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsStyle).toContain("width: 100%;");
 	expect(recordsStyle).toContain("background: #f5f5f5;");
 	expect(recordsStyle).toContain("padding: 32rpx 32rpx 160rpx;");
-	expect(recordsStyle).toContain("padding: 80rpx 32rpx 160rpx;");
+	expect(recordsStyle).toContain("min-height: 380rpx;");
+	expect(recordsStyle).toContain("padding: 40rpx 32rpx;");
 	expect(recordsStyle).not.toContain("legacy-tabbar");
 	// 旧端 py-4 的标签高度和 pb-20 的底部节奏必须固定，避免页面视觉逐步漂移。
 	expect(recordsStyle).toContain("height: 112rpx;");
@@ -1928,6 +1937,11 @@ test("native mini program derives missed appointments from the normalized record
 	expect(style).toContain(
 		'@import "../appointment-records/appointment-records.wxss"',
 	);
+	// 患者上下文错误会由页面逻辑统一导航到选择页，爽约空态只代表当前
+	// 已确认患者确实没有 missed 记录，不能把“选择就诊人”当作查询结果。
+	expect(template).not.toContain("请先选择就诊人");
+	expect(template).not.toContain("点击这里选择就诊人");
+	expect(page).toContain("redirectToPatientSelector");
 });
 
 test("native mini program exposes outpatient payment and my pages through platform APIs", async () => {
@@ -2034,7 +2048,6 @@ test("patient list load-more events cannot mutate stale read-model windows", asy
 test("patient-scoped empty states keep a reachable patient selector", async () => {
 	for (const file of [
 		"pages/appointment-records/appointment-records.wxml",
-		"pages/missed-appointments/missed-appointments.wxml",
 		"pages/report-directory/report-directory.wxml",
 		"pages/outpatient-payment/outpatient-payment.wxml",
 	] as const) {

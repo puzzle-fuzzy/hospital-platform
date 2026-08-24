@@ -176,8 +176,10 @@ page {
 	align-items: center;
 	justify-content: center;
 	box-sizing: border-box;
-	margin-top: 80rpx;
-	padding: 44rpx 30rpx;
+	/* 选择页也使用固定状态容器，目录加载完成后不会把下方刷新区推移。 */
+	min-height: 380rpx;
+	margin-top: 60rpx;
+	padding: 40rpx 30rpx;
 	border-radius: 20rpx;
 	background: #ffffff;
 	color: #777777;
@@ -190,8 +192,30 @@ page {
 
 .state-card-empty image {
 	display: block;
+	width: 150rpx;
+	height: 150rpx;
+	margin-bottom: 18rpx;
+}
+
+.state-card-loading {
+	flex-direction: column;
+}
+
+.state-loading-icon {
+	box-sizing: border-box;
+	width: 48rpx;
+	height: 48rpx;
 	margin-bottom: 20rpx;
-	width: 220rpx;
+	border: 6rpx solid #e5e7eb;
+	border-top-color: #9ca3af;
+	border-radius: 50%;
+	animation: patient-select-loading 900ms linear infinite;
+}
+
+@keyframes patient-select-loading {
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .state-hint {
