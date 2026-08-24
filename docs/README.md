@@ -96,6 +96,7 @@
 | [`release/candidate-41c708e-local-build-2026-08-22.md`](release/candidate-41c708e-local-build-2026-08-22.md) | 历史 `41c708e1` 小程序运行包、个人资料错误态和测试脚本隔离证据 |
 | [`release/miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) | 真机页面、客户端 requestId 和服务端低敏日志三层证据模板；当前候选来源以 `13f597e` 为准 |
 | [`release/current-13f-real-device-acceptance-runbook-2026-08-24.md`](release/current-13f-real-device-acceptance-runbook-2026-08-24.md) | 当前 `13f597e` 真机操作顺序、日志取证、脱敏规则和停止条件 |
+| [`release/current-real-device-login-patient-observation-2026-08-24.md`](release/current-real-device-login-patient-observation-2026-08-24.md) | 2026-08-24 当前真机微信登录、患者目录和同步的低敏观察；明确预约/费用/报告仍未验收 |
 | [`release/device-evidence-13f597e-pending.json`](release/device-evidence-13f597e-pending.json) | 当前候选真机证据的安全 pending 起始清单；未填写真实三层证据前不能视为通过 |
 | [`release/miniprogram-real-device-evidence-template-41c708e.md`](release/miniprogram-real-device-evidence-template-41c708e.md) | 历史 `41c708e1` 真机三层证据模板 |
 | [`release/miniprogram-devtools-reimport-2026-08-22-1314.md`](release/miniprogram-devtools-reimport-2026-08-22-1314.md) | 当前候选重新导入、普通编译、运行包测试脚本边界和新二维码准入证据 |
