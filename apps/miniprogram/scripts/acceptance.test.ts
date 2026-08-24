@@ -1237,7 +1237,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(app).toContain('"custom": false');
 	expect(app).toContain('"position": "bottom"');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
 	);
 	expect(template).not.toContain('wx:for="{{tabBarItems}}"');
 	expect(await source("pages/index/index.wxss")).not.toContain(
@@ -1300,6 +1300,10 @@ test("native primary tabs keep one stable selected bar", async () => {
 		tabBar?: {
 			custom?: boolean;
 			position?: string;
+			height?: string;
+			fontSize?: string;
+			iconWidth?: string;
+			spacing?: string;
 			list?: Array<{
 				pagePath: string;
 				text: string;
@@ -1324,6 +1328,10 @@ test("native primary tabs keep one stable selected bar", async () => {
 	// 固定底栏，因此切换时不会出现第二套底栏或自定义组件首帧闪动。
 	expect(app.tabBar?.custom).toBe(false);
 	expect(app.tabBar?.position).toBe("bottom");
+	expect(app.tabBar?.height).toBe("65px");
+	expect(app.tabBar?.fontSize).toBe("10px");
+	expect(app.tabBar?.iconWidth).toBe("24px");
+	expect(app.tabBar?.spacing).toBe("3px");
 	expect(projectConfig.setting?.compileHotReLoad).toBe(false);
 	// 本机私有配置也必须指向同一份 dist；否则开发者工具可能把旧的 src
 	// 增量页面图当成当前候选，正是底栏闪动和 selected 图标消失的表现。
@@ -2160,7 +2168,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(app).toContain('"custom": false');
 	expect(app).toContain('"position": "bottom"');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
 	);
 	expect(outpatient).toContain("loadOutpatientPaymentRecords");
 	// tab 切换必须把用户本次点击的状态和当前患者会话快照传入，不能依赖
@@ -2977,7 +2985,7 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(await source("app.json")).toContain('"custom": false');
 	expect(await source("app.json")).toContain('"position": "bottom"');
 	expect(await source("app.json")).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
 	);
 	expect(homeTemplate).toContain("微信已登录");
 	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");
