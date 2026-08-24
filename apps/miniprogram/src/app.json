@@ -30,29 +30,33 @@
 		"selectedColor": "#3d6df6",
 		"backgroundColor": "#ffffff",
 		"borderStyle": "black",
+		"height": "65px",
+		"fontSize": "10px",
+		"iconWidth": "24px",
+		"spacing": "3px",
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"iconPath": "assets/legacy-home/tab-01-native-v4.png",
-				"selectedIconPath": "assets/legacy-home/tab-01-native-active-v4.png",
+				"iconPath": "assets/legacy-home/tab-01-native-v5.png",
+				"selectedIconPath": "assets/legacy-home/tab-01-native-active-v5.png",
 				"text": "医疗服务"
 			},
 			{
 				"pagePath": "pages/consult/consult",
-				"iconPath": "assets/legacy-home/tab-02-native-v4.png",
-				"selectedIconPath": "assets/legacy-home/tab-02-native-active-v4.png",
+				"iconPath": "assets/legacy-home/tab-02-native-v5.png",
+				"selectedIconPath": "assets/legacy-home/tab-02-native-active-v5.png",
 				"text": "就诊"
 			},
 			{
 				"pagePath": "pages/hospital/hospital",
-				"iconPath": "assets/legacy-home/tab-03-native-v4.png",
-				"selectedIconPath": "assets/legacy-home/tab-03-native-active-v4.png",
+				"iconPath": "assets/legacy-home/tab-03-native-v5.png",
+				"selectedIconPath": "assets/legacy-home/tab-03-native-active-v5.png",
 				"text": "互联网医院"
 			},
 			{
 				"pagePath": "pages/my/my",
-				"iconPath": "assets/legacy-home/tab-04-native-v4.png",
-				"selectedIconPath": "assets/legacy-home/tab-04-native-active-v4.png",
+				"iconPath": "assets/legacy-home/tab-04-native-v5.png",
+				"selectedIconPath": "assets/legacy-home/tab-04-native-active-v5.png",
 				"text": "我的"
 			}
 		]
