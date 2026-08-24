@@ -53,9 +53,9 @@
 | `pagesB/health/` | `gift_health_praise.vue`、`list_health_praise.vue`、`record_health_praise.vue` | 待 provider contract | 表扬信提交、审核、脱敏公开展示、幂等、撤回、文件上传和管理端权限未确认 |
 | `pagesB/user/` | `edit_profile.vue` | 普通资料子集已迁移 | 原生 `pages/profile` 已迁移昵称、性别、年龄、邮箱并使用版本并发；头像、实名、微信身份和患者绑定仍关闭；详见 [`user-profile-contract.md`](user-profile-contract.md) |
 | `pagesB/user/` | `feedback.vue` | 静态行为已迁移 | 旧端只有热点问题、咨询电话和 Toast，没有真实提交 API；原生端已迁移安全提示和拨号。真实意见提交、客服工单和受控配置属于未来新增 contract |
-| `pagesB/user/` | `miss_appointment.vue` | 部分迁移 | 新端以预约历史读模型的 `status=missed` 派生只读页面，当前固定展示过去 90 天并支持切换就诊人；真实 provider 状态、公网和真机证据仍待完成，不能使用客户端 `status=4` 或把未知状态推断为爽约 |
+| `pagesB/user/` | `miss_appointment.vue` | 部分迁移 | 新端以预约历史读模型的 `status=missed` 派生只读页面，当前固定展示过去 90 天并支持切换就诊人；代码和服务端状态映射已完成，当前 13f 仍待真实 provider/公网/真机四方证据，不能使用客户端 `status=4` 或把未知状态推断为爽约 |
 | `pagesB/user/` | `my_consultation.vue` | 待 provider contract | 需要 AI/陪诊会话索引、患者归属、内容保留和脱敏策略；账单/病历/住院预约/就诊码按钮当前只是 Toast |
-| `pagesB/user/` | `my_registration.vue` | 部分迁移 | 新端已接入预约历史只读；取消、退号、支付状态和 provider 患者用途映射仍待验收 |
+| `pagesB/user/` | `my_registration.vue` | 部分迁移 | 新端已接入预约历史在线/全部只读，服务端固定渠道 3/4 并保留全部历史取消记录；取消、退号、支付状态、详情和当前 13f 真机四方证据仍待验收 |
 | `pagesB/user/` | `subscription_message.vue` | 待 provider contract | 旧端只维护本地开关且未调用微信授权 API；需确认模板 ID、用户授权时机、业务事件、发送结果和撤销状态 |
 
 ## 盘点结论

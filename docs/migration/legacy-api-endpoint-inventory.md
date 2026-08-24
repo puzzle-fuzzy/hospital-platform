@@ -52,7 +52,7 @@
 | `GET /msun-middle-business-appointment-server/v1/appointment-infos/fact-register-fee` | `api/modules/appointment.ts` | 待 provider contract | 费用单位和报价有效期未知，不能把旧页面金额作为支付金额。 |
 | `POST /msun-middle-business-appointment-server/v1/appointment-infos` | `api/modules/appointment.ts` | 待 provider contract | 旧 payload 混合 provider 患者号、身份证、电话、挂号费、支付状态和渠道字段；新端必须重新编排。 |
 | `POST /msun-middle-business-appointment-server/v1/appointment-infos/d` | `api/modules/appointment.ts` | 待 provider contract | 取消必须使用服务端保存的预约映射，并明确已支付、已就诊、停诊和重复取消分支。 |
-| `GET /msun-middle-business-appointment-server/v1/appointment-infos/{pat-id}` | `api/modules/appointment.ts`、`ZY.ts` | 代码已迁移（只读） | 新端固定预约历史查询渠道和日期语义；provider 专用预约患者映射仍需真实环境证据。 |
+| `GET /msun-middle-business-appointment-server/v1/appointment-infos/{pat-id}` | `api/modules/appointment.ts`、`ZY.ts` | 代码已迁移（在线/全部只读） | 新端只接收 owner-scoped 内部 `patientId` 和 `scope=online|all`；服务端固定渠道 3/4、日期语义和状态映射，provider 患者号不出端；当前 13f 仍待真机四方链路证据。 |
 | `GET /msun-middle-business-appointment-server/v1/appointment-infos/{id}` | `api/modules/appointment.ts` | 待 provider contract | 详情字段包含支付、HIS 挂号号和患者敏感字段，不能直接映射到患者端。 |
 
 旧端还声明了 `/msun-websocket-server/**` 的停诊推送基础路径。该路径没有在新端迁移；如
