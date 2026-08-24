@@ -1,5 +1,10 @@
+import {
+	sessionVerificationStateFromError,
+	restorePlatformSession,
+} from "../../services/session-service";
+
 type HospitalListPageMethods = {
-	onRegisterTap(): void;
+	onRegisterTap(): Promise<void>;
 	onRouteTap(): void;
 };
 
@@ -18,18 +23,46 @@ const STATIC_HOSPITAL = Object.freeze({
 
 type HospitalListPageData = {
 	hospital: typeof STATIC_HOSPITAL;
+	registerLoading: boolean;
 };
 
 Page<HospitalListPageData, HospitalListPageMethods>({
 	data: {
 		hospital: STATIC_HOSPITAL,
+		registerLoading: false,
 	},
 
-	/** 选择院区后进入既有的预约只读目录，不在此页创建预约或锁定号源。 */
-	onRegisterTap() {
-		wx.navigateTo({
-			url: "/pages/appointment-directory/appointment-directory",
-		});
+	/**
+	 * 选择院区后进入既有的预约只读目录，不在此页创建预约或锁定号源。
+	 *
+	 * 首页进入本页时通常已经验证过会话，但医院列表也可能被开发者工具
+	 * 深链、历史页面栈或旧入口直接打开。这里必须重新走一次安全的 `/me`
+	 * 读取：不能把“页面能打开”当成已登录，更不能让预约目录先发出一个
+	 * 必然得到 401 的请求。`restorePlatformSession` 只会恢复/验证平台会话，
+	 * 不会同步患者、创建预约、锁定号源或触发支付等业务副作用。
+	 */
+	onRegisterTap(): Promise<void> {
+		if (this.data.registerLoading) return Promise.resolve();
+		this.setData({ registerLoading: true });
+		return restorePlatformSession()
+			.then(() => {
+				wx.navigateTo({
+					url: "/pages/appointment-directory/appointment-directory",
+				});
+			})
+			.catch((error) => {
+				const verificationState = sessionVerificationStateFromError(error);
+				wx.showToast({
+					title:
+						verificationState === "invalid"
+							? "登录已失效，请返回首页重试"
+							: "登录服务暂不可用，请稍后重试",
+					icon: "none",
+				});
+			})
+			.finally(() => {
+				this.setData({ registerLoading: false });
+			});
 	},
 
 	/**

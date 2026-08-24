@@ -1796,6 +1796,11 @@ test("native mini program preserves the legacy static hospital entry boundary", 
 	expect(page).toContain(
 		'url: "/pages/appointment-directory/appointment-directory"',
 	);
+	// 医院列表可能被深链直接打开；点击预约前仍必须验证平台会话，
+	// 不能让预约目录先发起一个必然得到 401 的请求。
+	expect(page).toContain("restorePlatformSession");
+	expect(page).toContain("sessionVerificationStateFromError");
+	expect(page).toContain("registerLoading");
 	expect(page).toContain("/assets/hospital-list/gaoping-hospital.jpg");
 	expect(page).toContain("路线服务暂未开放");
 	expect(page).not.toContain("openLocation");
