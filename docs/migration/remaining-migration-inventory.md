@@ -21,6 +21,13 @@
 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。本轮未修改旧项目、线上服务、数据库、Redis，
 也未触碰另一会话负责的众阳自动化。
 
+报告与门诊病历本轮复核结果：报告目录/LIS 详情已有 owner、患者、来源和短期引用的安全代码骨架，但生产 gate 仍关闭，
+不能把关闭态、测试桩或空列表当成真实报告迁移；PEIS、PACS/ECG 详情、附件和报告解读继续独立等待授权。旧端“门诊病历”
+实际只调用 `out-visit-records` 摘要，病历正文/住院病历是另一域；由于仍没有正式 contract、字段白名单、患者映射和
+脱敏失败样例，新端 `/api/v2/medical-records` 继续未注册。详见 [`current-report-profile-invariant-audit-2026-08-24.md`](../release/current-report-profile-invariant-audit-2026-08-24.md)、
+[`report-provider-contract-audit-2026-08-19.md`](report-provider-contract-audit-2026-08-19.md) 和
+[`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)。
+
 > 历史执行基线（2026-08-25 早前窗口）为 `45742ff4450b223b8db3b36e4a3859e3fc86e1c5`；当前候选以本节上方的 `ad7b079` 为准。早前候选已经通过当时的 `runtime:verify`，但不能继续作为当前运行包来源；开发者工具应直接打开 `apps/miniprogram/dist/` 的独立工程。之前的 `0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`ecff1f9`、`49c641b6`、`e039e99f`、`3b8a04e5` 仅为历史来源；线上仍是 `13f597e`，两者不能混用。
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本段仅作追溯。
 
