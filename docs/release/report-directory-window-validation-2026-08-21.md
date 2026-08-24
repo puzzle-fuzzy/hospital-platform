@@ -18,6 +18,15 @@
 避免目录是可审计时间而详情页却展示不可解释的临床时间。目录与详情标题/时间的精确关联仍需要 Provider 在详情响应中
 提供稳定回显字段；当前不通过猜测或新增未验证的数据库字段来补齐这一 contract。
 
+## 2026-08-24 adapter 输入门禁补充
+
+服务层的日期和来源校验不能替代 adapter 自身的运行时输入校验。报告目录 adapter 现在会在三路 Provider 请求前拒绝
+`null`/数组、未知字段、非法或倒序自然日、非字符串患者引用和异常 `kind`；LIS 详情 adapter 会在请求前拒绝
+畸形或带未知字段的报告引用。未知字符串来源仍保持 `InvalidReportKindError`，不会静默落入默认 ECG 分支。
+
+本轮 `zhongyang-reports.test.ts` 为 `19 pass / 0 fail / 41 expect()`，畸形目录和详情输入均验证 Provider 调用次数为 `0`。
+本修正只进入本地 `main` 候选，未调用真实 Provider、未部署生产、未修改旧 Python 服务。
+
 ## 代码与测试
 
 - `packages/domain/src/reports.ts`：新增报告时间解析和目录结果窗口校验；

@@ -10,6 +10,7 @@ import {
 	InvalidOutpatientPaymentStatusError,
 	isOutpatientPaymentStatus,
 	MAX_OUTPATIENT_PAYMENT_RECORDS,
+	parseOutpatientBillDateTime,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
@@ -22,6 +23,19 @@ const OUTPATIENT_PAYMENT_PATH =
 const OPERATION = "outpatient-payment-records";
 /** 费用内部身份字段的单字段长度上限，避免异常 Provider 值放大哈希计算。 */
 const MAX_PAYMENT_IDENTITY_FIELD_LENGTH = 256;
+const OUTPATIENT_PAYMENT_INPUT_FIELDS = new Set([
+	"providerPatientId",
+	"startTime",
+	"endTime",
+	"status",
+]);
+
+type OutpatientPaymentAdapterInput = {
+	providerPatientId: string;
+	startTime: string;
+	endTime: string;
+	status: OutpatientPaymentStatus;
+};
 
 /**
  * 2.6.33 文档明确冻结了 amount、billDeptName、billDocName、billDate 和费用标识等字段。
@@ -79,6 +93,62 @@ function providerError(
 		responseInvalid,
 		...(requestId ? { requestId } : {}),
 	});
+}
+
+function invalidInput(message: string): never {
+	// service 层已经生成并校验最近 30 个中国标准时间日窗口，但 adapter
+	// 也可能被回放任务、Worker 或未来组合根直接调用。这里拒绝错误输入，
+	// 不能让 `undefined`、非法日期或未知字段进入 Provider 查询帧。
+	throw providerError(message, undefined, false);
+}
+
+/**
+ * 门诊费用 adapter 的运行时请求门禁。
+ *
+ * TypeScript 的 `OutpatientPaymentAdapterInput` 只在编译期存在；直接调用方
+ * 仍可能传入 null、未知字段、非法自然日或倒序时间。Provider 接口使用完整
+ * 的中国标准时间文本，因此这里将输入收敛为唯一的合法请求形状，保持状态、
+ * 患者引用和时间窗口语义与 service 一致。
+ */
+function normalizeInput(value: unknown): OutpatientPaymentAdapterInput {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return invalidInput("Zhongyang outpatient request input is invalid");
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		Object.keys(record).some(
+			(field) => !OUTPATIENT_PAYMENT_INPUT_FIELDS.has(field),
+		)
+	) {
+		return invalidInput(
+			"Zhongyang outpatient request input contains an unknown field",
+		);
+	}
+	if (typeof record.providerPatientId !== "string") {
+		return invalidInput(
+			"Zhongyang outpatient provider patient reference is invalid",
+		);
+	}
+	if (!isOutpatientPaymentStatus(record.status)) {
+		throw new InvalidOutpatientPaymentStatusError();
+	}
+	if (
+		typeof record.startTime !== "string" ||
+		typeof record.endTime !== "string"
+	) {
+		return invalidInput("Zhongyang outpatient time range is invalid");
+	}
+	const start = parseOutpatientBillDateTime(record.startTime);
+	const end = parseOutpatientBillDateTime(record.endTime);
+	if (start === undefined || end === undefined || start > end) {
+		return invalidInput("Zhongyang outpatient time range is invalid");
+	}
+	return {
+		providerPatientId: record.providerPatientId,
+		startTime: record.startTime,
+		endTime: record.endTime,
+		status: record.status,
+	};
 }
 
 function textField(
@@ -476,29 +546,23 @@ export class ZhongyangOutpatientPaymentApiGateway
 	}
 
 	async listRecords(
-		input: {
-			providerPatientId: string;
-			startTime: string;
-			endTime: string;
-			status: OutpatientPaymentStatus;
-		},
+		input: OutpatientPaymentAdapterInput,
 		context: AdapterCallContext,
 	) {
-		if (!isOutpatientPaymentStatus(input.status)) {
-			// Provider 查询参数不能把未知值按“非 unpaid”降级为 paid；adapter
-			// 也必须独立守住边界，因为它可能被 API 以外的任务直接调用。
-			throw new InvalidOutpatientPaymentStatusError();
-		}
+		const normalizedInput = normalizeInput(input);
 		// Provider 患者号通常来自 service 的 owner-scoped 映射，但费用
 		// adapter 也必须独立拒绝空引用。任务、回放器或错误仓储不能仅凭
 		// TypeScript 类型把 `patId=` 发给 Provider；这与预约和报告 adapter
 		// 使用同一条患者引用边界。
-		const providerPatientId = requiredConfig(input.providerPatientId);
+		const providerPatientId = requiredConfig(normalizedInput.providerPatientId);
 		const url = new URL(OUTPATIENT_PAYMENT_PATH, this.baseUrl);
 		url.searchParams.set("patId", providerPatientId);
-		url.searchParams.set("startTime", input.startTime);
-		url.searchParams.set("endTime", input.endTime);
-		url.searchParams.set("tradeStatus", input.status === "unpaid" ? "1" : "3");
+		url.searchParams.set("startTime", normalizedInput.startTime);
+		url.searchParams.set("endTime", normalizedInput.endTime);
+		url.searchParams.set(
+			"tradeStatus",
+			normalizedInput.status === "unpaid" ? "1" : "3",
+		);
 		url.searchParams.set("authSysCode", this.authSysCode);
 		const response = await requestJson<unknown>(
 			{
@@ -515,7 +579,12 @@ export class ZhongyangOutpatientPaymentApiGateway
 		);
 		const items = responseItems(response.data, response.requestId);
 		const records = items.map((item) =>
-			mapRecord(item, providerPatientId, input.status, response.requestId),
+			mapRecord(
+				item,
+				providerPatientId,
+				normalizedInput.status,
+				response.requestId,
+			),
 		);
 		ensureUniqueRecordIds(records, response.requestId);
 		return {

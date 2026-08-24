@@ -6,10 +6,12 @@ import {
 	type LaboratoryReportDetail,
 	MAX_REPORT_DETAIL_ITEMS,
 	MAX_REPORT_DIRECTORY_ITEMS,
+	parseIsoCalendarDate,
 	type ReportDetailGateway,
 	type ReportDirectoryEntry,
 	type ReportDirectoryGateway,
 	type ReportDirectoryInput,
+	type ReportDirectoryQuery,
 	type ReportKind,
 	type ReportSummary,
 } from "@hospital/domain";
@@ -23,6 +25,8 @@ const LABORATORY_DETAIL_PATH =
 const IMAGING_PATH =
 	"/msun-middle-business-pacs/v1/exclude-privacy-patient-reports";
 const ECG_PATH = "/msun-middle-business-ecg/v2/ecg-reports";
+const REPORT_DIRECTORY_INPUT_FIELDS = new Set(["providerPatientId", "query"]);
+const REPORT_DIRECTORY_QUERY_FIELDS = new Set(["startDate", "endDate", "kind"]);
 
 type ProviderObject = Record<string, unknown>;
 
@@ -47,6 +51,130 @@ function requiredConfig(value: string): string {
 	const normalized = value.trim();
 	if (!normalized) throw new AdapterNotConfiguredError("zhongyang");
 	return normalized;
+}
+
+function invalidInput(operation: string, message: string): never {
+	// service 层已经校验过报告日期和来源，但 adapter 也会被回放任务、Worker
+	// 或未来组合根直接调用。错误输入必须在 Provider 请求之前停止，不能让
+	// 缺失日期、未知字段或 undefined 患者号改变三路报告查询语义。
+	throw providerError(operation, message, undefined, false);
+}
+
+function normalizeProviderReportInput(
+	value: unknown,
+	operation: string,
+): { providerReportId: string } {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return invalidInput(operation, "Zhongyang report input is invalid");
+	}
+	const record = value as Record<string, unknown>;
+	if (Object.keys(record).some((field) => field !== "providerReportId")) {
+		return invalidInput(
+			operation,
+			"Zhongyang report input contains an unknown field",
+		);
+	}
+	if (typeof record.providerReportId !== "string") {
+		return invalidInput(
+			operation,
+			"Zhongyang report provider report reference is invalid",
+		);
+	}
+	return { providerReportId: record.providerReportId };
+}
+
+/**
+ * 报告目录 adapter 的运行时查询门禁。
+ *
+ * `ReportDirectoryInput` 是 TypeScript 类型，不会在运行时阻止组合根传入
+ * null、未知字段、非法自然日或倒序日期。这里保留未知字符串 kind 给下面
+ * 的 `InvalidReportKindError`，这样现有错误分类不变；其它形状错误统一在
+ * 触网前以不可重试的 ProviderRequestError 结束。
+ */
+function normalizeDirectoryInput(value: unknown): ReportDirectoryInput {
+	const operation = "reports-directory";
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return invalidInput(
+			operation,
+			"Zhongyang report directory input is invalid",
+		);
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		Object.keys(record).some(
+			(field) => !REPORT_DIRECTORY_INPUT_FIELDS.has(field),
+		)
+	) {
+		return invalidInput(
+			operation,
+			"Zhongyang report directory input contains an unknown field",
+		);
+	}
+	if (typeof record.providerPatientId !== "string") {
+		return invalidInput(
+			operation,
+			"Zhongyang report provider patient reference is invalid",
+		);
+	}
+	const queryValue = record.query;
+	if (
+		typeof queryValue !== "object" ||
+		queryValue === null ||
+		Array.isArray(queryValue)
+	) {
+		return invalidInput(
+			operation,
+			"Zhongyang report directory query is invalid",
+		);
+	}
+	const queryRecord = queryValue as Record<string, unknown>;
+	if (
+		Object.keys(queryRecord).some(
+			(field) => !REPORT_DIRECTORY_QUERY_FIELDS.has(field),
+		)
+	) {
+		return invalidInput(
+			operation,
+			"Zhongyang report directory query contains an unknown field",
+		);
+	}
+	if (
+		typeof queryRecord.startDate !== "string" ||
+		typeof queryRecord.endDate !== "string"
+	) {
+		return invalidInput(
+			operation,
+			"Zhongyang report directory date range is invalid",
+		);
+	}
+	const start = parseIsoCalendarDate(queryRecord.startDate);
+	const end = parseIsoCalendarDate(queryRecord.endDate);
+	if (start === undefined || end === undefined || start > end) {
+		return invalidInput(
+			operation,
+			"Zhongyang report directory date range is invalid",
+		);
+	}
+	if (queryRecord.kind !== undefined && typeof queryRecord.kind !== "string") {
+		return invalidInput(
+			operation,
+			"Zhongyang report directory kind is invalid",
+		);
+	}
+	const query: ReportDirectoryQuery = {
+		startDate: queryRecord.startDate,
+		endDate: queryRecord.endDate,
+	};
+	if (queryRecord.kind !== undefined) {
+		query.kind = queryRecord.kind as Exclude<
+			ReportDirectoryQuery["kind"],
+			undefined
+		>;
+	}
+	return {
+		providerPatientId: record.providerPatientId,
+		query,
+	};
 }
 
 function objectValue(
@@ -702,8 +830,12 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		trace: ExternalTrace;
 	}> {
 		const operation = "reports-laboratory-detail";
+		const normalizedInput = normalizeProviderReportInput(input, operation);
 		const url = new URL(LABORATORY_DETAIL_PATH, this.baseUrl);
-		url.searchParams.set("reportId", requiredConfig(input.providerReportId));
+		url.searchParams.set(
+			"reportId",
+			requiredConfig(normalizedInput.providerReportId),
+		);
 		const response = await requestJson<unknown>(
 			{
 				provider: "zhongyang",
@@ -738,20 +870,24 @@ export class ZhongyangReportApiGateway implements ReportDirectoryGateway {
 		reports: readonly ReportDirectoryEntry[];
 		trace: ExternalTrace;
 	}> {
-		if (input.query.kind !== undefined && !isReportKind(input.query.kind)) {
+		const normalizedInput = normalizeDirectoryInput(input);
+		if (
+			normalizedInput.query.kind !== undefined &&
+			!isReportKind(normalizedInput.query.kind)
+		) {
 			// 不能把未知来源交给下面的三路分支；默认 ECG 只适用于“未指定 kind”，
 			// 不适用于调用方传入了一个不认识的值。
 			throw new InvalidReportKindError();
 		}
-		const kinds: readonly ReportKind[] = input.query.kind
-			? [input.query.kind]
+		const kinds: readonly ReportKind[] = normalizedInput.query.kind
+			? [normalizedInput.query.kind]
 			: ["laboratory", "imaging", "ecg"];
 		// 未指定 kind 时，调用方请求的是完整报告目录。公共 contract 没有
 		// partial 状态或逐来源错误字段，因此任一来源失败都必须让整批失败；
 		// 不能用 Promise.allSettled 只返回成功来源，否则页面会把不完整目录
 		// 当成“患者没有其他类型报告”，形成静默漏数据。
 		const results = await Promise.all(
-			kinds.map((kind) => this.requestKind(kind, input, context)),
+			kinds.map((kind) => this.requestKind(kind, normalizedInput, context)),
 		);
 		const reports = results
 			.flatMap((result) => result.reports)

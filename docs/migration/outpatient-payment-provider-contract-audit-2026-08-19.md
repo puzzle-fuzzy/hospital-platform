@@ -80,6 +80,7 @@ GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-
 - `waitPayAmount`、`registerDept`、`registerDoctor` 等只在旧端出现、尚未冻结的新契约字段不会参与展示、金额计算或支付编排。
 - `tradeStatus` 只接受请求对应的 `1` 或 `3`；未知状态、缺失状态和状态错配整批拒绝。
 - 账单时间必须是严格有效的 `YYYY-MM-DD HH:mm:ss`，并且落在服务端生成的闭区间内。
+- adapter 还会独立校验调用输入：只接受患者引用、起止时间和状态四个字段；非法/倒序时间、未知字段和畸形对象在触网前拒绝，不能只依赖 service 的 HTTP schema。
 - 费用记录必须有稳定内部引用；重复引用、缺少稳定标识和 Provider 原始字段不会出现在公共响应。
 - 公共接口只返回 `recordId`、状态、科室、医生、账单时间和 `amountFen`，不返回 Provider 订单号、患者卡号、身份证号、医保字段或原始对象。
 
@@ -108,9 +109,10 @@ GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-
 
 ## 6. 本轮验证结果
 
-- `pnpm --filter @hospital/adapters test src/zhongyang-outpatient-payments.test.ts`：15 项通过，35 个断言通过。
+- `pnpm --filter @hospital/adapters test src/zhongyang-outpatient-payments.test.ts`：21 项通过，51 个断言通过。
 - `pnpm --filter @hospital/api test src/modules/outpatient-payments/service.test.ts`：12 项通过，47 个断言通过。
 - 回归覆盖金额单位、状态映射、响应包络、稳定引用、重复记录、窗口边界、患者映射、日志脱敏和公共字段白名单。
+- 2026-08-24 又补充 adapter 直接调用的畸形输入门禁；本轮测试确认非法对象、日期和字段均未触发 Provider 请求。该修正已进入本地 `main`，尚未部署生产。
 - 本轮未调用真实 Provider，未执行支付、医保授权、结算、退款或 HIS 写回，未修改旧 Python 项目。
 
 ## 7. 下一步与停止条件

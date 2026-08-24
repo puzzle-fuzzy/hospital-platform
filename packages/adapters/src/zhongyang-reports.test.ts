@@ -694,6 +694,54 @@ test("众阳报告 adapter 拒绝运行时未知来源且不访问 Provider", as
 	expect(fetchCalled).toBe(false);
 });
 
+test("众阳报告 adapter 在触网前拒绝畸形目录和详情输入", async () => {
+	let providerCalls = 0;
+	const gateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			providerCalls += 1;
+			return new Response(JSON.stringify([]), { status: 200 });
+		},
+	});
+
+	const directoryCases = [
+		null,
+		{
+			providerPatientId: "provider-patient-invalid-report-query",
+			query: { startDate: "2026-02-30", endDate: "2026-03-01" },
+		},
+		{
+			providerPatientId: "provider-patient-invalid-report-query",
+			query: { startDate: "2026-08-16", endDate: "2026-08-01" },
+		},
+		{
+			providerPatientId: "provider-patient-invalid-report-query",
+			query: {
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				unexpected: true,
+			},
+		},
+	] as const;
+
+	for (const input of directoryCases) {
+		await expect(
+			gateway.listReports(input as never, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			responseInvalid: false,
+		});
+	}
+	await expect(
+		gateway.getLaboratoryDetail(null as never, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		responseInvalid: false,
+	});
+	// 报告目录三路查询和 LIS 详情都必须在患者/日期/引用形状明确后才触网。
+	expect(providerCalls).toBe(0);
+});
+
 test("众阳报告 adapter 拒绝空 Provider 患者引用且不发起请求", async () => {
 	let fetchCalled = false;
 	const gateway = createZhongyangReportGateway({

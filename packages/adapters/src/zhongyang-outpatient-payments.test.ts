@@ -829,6 +829,55 @@ test("众阳门诊费用 adapter 拒绝运行时未知状态且不访问 Provide
 	expect(fetchCalled).toBe(false);
 });
 
+test("众阳门诊费用 adapter 在触网前拒绝畸形输入", async () => {
+	let providerCalls = 0;
+	const gateway = createZhongyangOutpatientPaymentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		authSysCode: "thirdSelfMachine",
+		fetcher: async () => {
+			providerCalls += 1;
+			return new Response(JSON.stringify({ success: true, data: [] }), {
+				status: 200,
+			});
+		},
+	});
+
+	const cases = [
+		null,
+		{
+			providerPatientId: "provider-patient-secret",
+			startTime: "2026-02-31 00:00:00",
+			endTime: "2026-03-01 00:00:00",
+			status: "unpaid",
+		},
+		{
+			providerPatientId: "provider-patient-secret",
+			startTime: "2026-08-17 00:00:00",
+			endTime: "2026-08-16 23:59:59",
+			status: "unpaid",
+		},
+		{
+			providerPatientId: "provider-patient-secret",
+			startTime: "2026-08-16 00:00:00",
+			endTime: "2026-08-16 23:59:59",
+			status: "unpaid",
+			unexpected: true,
+		},
+	] as const;
+
+	for (const input of cases) {
+		await expect(
+			gateway.listRecords(input as never, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			responseInvalid: false,
+		});
+	}
+	// 费用窗口是服务端固定生成的业务事实；adapter 不能把畸形窗口交给上游
+	// 再等待 Provider 用另一种默认范围解释。
+	expect(providerCalls).toBe(0);
+});
+
 test("众阳门诊费用 adapter 拒绝空 Provider 患者引用且不发起请求", async () => {
 	let fetchCalled = false;
 	const gateway = createZhongyangOutpatientPaymentGateway({

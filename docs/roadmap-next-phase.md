@@ -4,6 +4,7 @@
 > 当前健康域复核（2026-08-24）：健康百科工程骨架已具备，但没有真实脱敏内容 bundle、临床审核和 staging 发布/撤回证据；旧端自测评分、BMI/血压分类存在规则版本与适用人群缺口。健康百科、自测、风险评估和计算器继续保持关闭态，不导入 fixture、不挂载患者路由。详见 [`migration/health-content-and-self-test-audit-2026-08-24.md`](migration/health-content-and-self-test-audit-2026-08-24.md)。
 > 当前线上观察（2026-08-24 12:23 CST）：旧 Python `8001` 与新 Bun `18081` 仍共存；预约在线查询曾从众阳返回 61 条且全部为 `cancelled`，在线标签为空符合筛选语义，不等于历史数据为空。全部标签的 `scope=all` 仍需真机点击和四方链路证据确认，普通资料当前只观察到默认值读取，真实 PUT/409 未发生。详见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
 > 当前预约 adapter 门禁（2026-08-24）：直接调用众阳预约记录 adapter 时也会在触网前拒绝未知 `scope`、`all` 混入日期、倒序日期和未知字段，避免组合根绕过 service 后把未定义渠道发送给 Provider。该修正只收紧错误输入，不扩大预约写入、取消、支付、医保或 HIS 能力。
+> 当前只读 adapter 门禁（2026-08-24，本地未部署）：门诊费用 adapter `21/21`、报告 adapter `19/19` 定向测试通过；费用时间/状态/未知字段、报告目录日期/来源/患者引用及 LIS 详情引用均在触网前 fail-closed。生产仍是 `13f597ea`，旧 Python `8001` 未修改；详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
 
 > 当前服务端与小程序已完成同源配套切换，旧 Python `8001` 继续共存；下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
 
