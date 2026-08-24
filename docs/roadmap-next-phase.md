@@ -1,23 +1,23 @@
-> 当前发布基线更新（2026-08-24 12:23 CST）：线上服务端 release 为 `13f597ea9ee3f65b9be858117826d948339d904a`；当前小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端与小程序已完成同源配套切换，生产只读日志已观测到预约查询，真机业务三层证据仍待。
+> 当前发布基线更新（2026-08-24 13:01 CST）：线上服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；当前小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端独立 adapter 发布已完成，真机业务三层证据仍待。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
-> 当前业务修正（2026-08-24）：已确认生产 Provider 的渠道 3 在线记录与渠道 4 全部历史均可只读返回；“我的挂号”使用服务端拥有的 `scope=online|all` 双查询，全部标签重新请求渠道 4 并保留取消记录。该修正已随 `13f597ea` 切换，支付、医保、预约写入、取消和 HIS 回写仍不受影响。
+> 当前业务修正（2026-08-24）：已确认生产 Provider 的渠道 3 在线记录与渠道 4 全部历史均可只读返回；“我的挂号”使用服务端拥有的 `scope=online|all` 双查询，全部标签重新请求渠道 4 并保留取消记录。该修正已随此前服务端候选进入线上，当前 `28a5c0c1` 仅补强四个只读 adapter 的运行时输入门禁，支付、医保、预约写入、取消和 HIS 回写仍不受影响。
 > 当前健康域复核（2026-08-24）：健康百科工程骨架已具备，但没有真实脱敏内容 bundle、临床审核和 staging 发布/撤回证据；旧端自测评分、BMI/血压分类存在规则版本与适用人群缺口。健康百科、自测、风险评估和计算器继续保持关闭态，不导入 fixture、不挂载患者路由。详见 [`migration/health-content-and-self-test-audit-2026-08-24.md`](migration/health-content-and-self-test-audit-2026-08-24.md)。
-> 当前线上观察（2026-08-24 12:23 CST）：旧 Python `8001` 与新 Bun `18081` 仍共存；预约在线查询曾从众阳返回 61 条且全部为 `cancelled`，在线标签为空符合筛选语义，不等于历史数据为空。全部标签的 `scope=all` 仍需真机点击和四方链路证据确认，普通资料当前只观察到默认值读取，真实 PUT/409 未发生。详见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
+> 当前线上观察（2026-08-24）：旧 Python `8001` 与新 Bun `18081` 仍共存；此前预约在线查询曾从众阳返回 61 条且全部为 `cancelled`，在线标签为空符合筛选语义，不等于历史数据为空。全部标签的 `scope=all` 仍需真机点击和四方链路证据确认，普通资料当前只观察到默认值读取，真实 PUT/409 未发生。详见 [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 > 当前预约 adapter 门禁（2026-08-24）：直接调用众阳预约记录 adapter 时也会在触网前拒绝未知 `scope`、`all` 混入日期、倒序日期和未知字段，避免组合根绕过 service 后把未定义渠道发送给 Provider。该修正只收紧错误输入，不扩大预约写入、取消、支付、医保或 HIS 能力。
-> 当前只读 adapter 门禁（2026-08-24，本地未部署）：门诊费用 adapter `21/21`、报告 adapter `19/19` 定向测试通过；患者与预约 adapter 定向回归 `46/46` 通过，全量 adapters `118/118` 通过。费用时间/状态/未知字段、报告目录日期/来源/患者引用、患者 `unionId`、预约科室/排班日期与筛选标识均在触网前 fail-closed。生产仍是 `13f597ea`，旧 Python `8001` 未修改；详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
-> 当前线上窗口复核（2026-08-24 12:46 CST）：显式 SSH 只读确认 `current=13f597ea`、Bun `18081` PID `896697` 与旧 Python `8001` 共存；当前 PID 自 `11:32:55` 启动后未出现患者、预约、门诊费用、普通资料或报告业务事件，只有健康/认证边界探针。更早 `09:59–10:00` 的患者同步属于旧进程窗口，不能合并为当前候选真机证据；详见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
+> 当前只读 adapter 门禁（2026-08-24，已随 `28a5c0c1` 部署）：门诊费用 adapter `21/21`、报告 adapter `19/19` 定向测试通过；患者与预约 adapter 定向回归 `46/46` 通过，全量 adapters `118/118` 通过。费用时间/状态/未知字段、报告目录日期/来源/患者引用、患者 `unionId`、预约科室/排班日期与筛选标识均在触网前 fail-closed。小程序运行包仍为 `13f597e`，旧 Python `8001` 未修改；详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
+> 当前线上窗口复核（2026-08-24 13:01 CST 后）：显式 SSH 只读确认 `current=28a5c0c1`、Bun `18081` 与旧 Python `8001` 共存；当前进程窗口只有健康/认证边界探针，尚无患者、预约、门诊费用、普通资料或报告业务事件。更早窗口的患者同步不能合并为当前候选真机证据；详见 [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 > 当前小程序会话门禁（2026-08-24，本地未部署）：新增回归锁定患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；全套小程序回归 `223/223` 通过。`401` 的一次受控恢复和同代二次 401 清理规则不变，详见 [`release/miniprogram-session-dependency-error-boundary-2026-08-24.md`](release/miniprogram-session-dependency-error-boundary-2026-08-24.md)。
-> 当前日志链路审计（2026-08-24，本地未部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。完整 API 测试仍被发布基线门禁阻止，因为四个 adapter 输入门禁尚未部署到线上 `13f597ea`；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
+> 当前日志链路审计（2026-08-24，服务端已随 `28a5c0c1` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
 > 当前服务端与小程序已完成同源配套切换，旧 Python `8001` 继续共存；下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
 
 > 历史候选刷新（2026-08-22）：服务端 release 曾为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本行仅作追溯，不能覆盖上方当前 `13f597ea` 的线上边界。
 
 # 下一阶段实施路线图
-> 当前执行基线（2026-08-24）：线上服务端 release 与小程序运行包来源均为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。下方带历史日期的候选只作追溯。
+> 当前执行基线（2026-08-24）：线上服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。下方带历史日期的候选只作追溯。
 
 
-> 当前完整小程序来源校验值与线上服务端 release 均为 `13f597ea9ee3f65b9be858117826d948339d904a`；预约历史双范围修正已进入线上，仍待真机页面与服务端同链业务证据。
+> 当前完整小程序来源校验值为 `13f597ea9ee3f65b9be858117826d948339d904a`；线上服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，预约历史双范围修正已进入线上，仍待真机页面与服务端同链业务证据。
 
 ## 历史事实源（2026-08-22，仅供追溯）
 
@@ -47,7 +47,7 @@ Biome、9 个 workspace 的类型检查/测试/构建均通过；小程序运行
 病历目录、患者新增/绑定、二维码、住院、动态外部入口、健康内容和风险评估继续保持关闭；下一步顺序固定为：
 真机微信登录 → 患者目录同步/显式切换 → 我的挂号/爽约 → 门诊费用只读。支付、医保、结算、退款和 HIS 写回仍最后处理。
 
-当前下一步顺序固定为：从 `13f597e` 正确项目重新普通编译/扫码 → 微信登录 → 患者目录同步与显式切换 → 预约历史/爽约 →
+当前下一步顺序固定为：使用 `13f597e` 正确项目运行包扫码，对线上 `28a5c0c1` 服务端进行微信登录 → 患者目录同步与显式切换 → 预约历史/爽约 →
 门诊费用只读 → 普通资料读写（仅在获得测试资料授权时）。报告目录、病历、二维码、患者绑定、支付、医保和 HIS 回写在各自 contract/权限/回滚证据齐全前继续保持关闭。
 之前的 SSH 恢复、服务端原子切换和新旧端口共存证据见 [`release/ssh-access-recovery-and-release-gate-2026-08-22.md`](release/ssh-access-recovery-and-release-gate-2026-08-22.md)。
 
@@ -55,7 +55,7 @@ Biome、9 个 workspace 的类型检查/测试/构建均通过；小程序运行
 下一步仍需人工确认正确小程序项目并取得真实手机三层证据。具体边界见
 [`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md)。
 
-> 当前候选：服务端已验证 release `13f597ea9ee3f65b9be858117826d948339d904a`；小程序运行包来源 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。生产运行层证据见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)，小程序候选证据见 [`release/candidate-13f597ea-miniprogram-build-2026-08-24.md`](release/candidate-13f597ea-miniprogram-build-2026-08-24.md)，真机操作见 [`release/current-13f-real-device-acceptance-runbook-2026-08-24.md`](release/current-13f-real-device-acceptance-runbook-2026-08-24.md)。
+> 当前候选：服务端已验证 release `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；小程序运行包来源 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。生产运行层证据见 [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)，服务端候选边界见 [`release/candidate-28a5c0c1-server-release-2026-08-24.md`](release/candidate-28a5c0c1-server-release-2026-08-24.md)，小程序运行包记录见 [`release/candidate-13f597ea-miniprogram-build-2026-08-24.md`](release/candidate-13f597ea-miniprogram-build-2026-08-24.md)，真机操作见 [`release/current-13f-real-device-acceptance-runbook-2026-08-24.md`](release/current-13f-real-device-acceptance-runbook-2026-08-24.md)。
 
 > 下方较早的 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`、`4e1b2e2` 和其它候选记录均为历史验证证据，不能覆盖上方当前事实源，
 > 也未因路线图记录自动部署线上。
@@ -2143,12 +2143,12 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 ## 本次立即执行项
 
-当前执行项绑定服务端 release `13f597ea9ee3f65b9be858117826d948339d904a` 与小程序来源
+当前执行项绑定服务端 release `28a5c0c131794ce9dcc5f94bd3809402188ac87a` 与小程序来源
 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）；下方历史 release 不得作为本轮真机或业务证据。
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `13f597ea9ee3f65b9be858117826d948339d904a` 和同源小程序候选 `13f597e`（完整构建来源：`13f597ea9ee3f65b9be858117826d948339d904a`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `28a5c0c131794ce9dcc5f94bd3809402188ac87a` 和小程序候选 `13f597e`（完整构建来源：`13f597ea9ee3f65b9be858117826d948339d904a`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -2158,8 +2158,8 @@ available -> hold_pending -> held -> booking_pending -> booked
 10. 旧生产 env 文件权限已收紧到 `0700/0600` 且旧进程存活；新 API Redis 会话已切换至 DB3/`hospital_v2` 最小 ACL 并完成公网 readiness 验收；0014 普通资料已完成生产 schema/API 运行验收，但真实微信资料读写和真机证据仍待完成。下一步完成历史读取风险/秘密轮换判断，再继续报告、病历和文件资源 contract；旧 DB1 全权限账号、旧任务和其他基础设施仍不得视为已迁移。
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
-13. 当前服务端 release `13f597ea` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 只证明请求进入 `13f597ea` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并始终使用同源 `13f597e` 小程序候选（完整构建来源：`13f597ea9ee3f65b9be858117826d948339d904a`）。
+13. 当前服务端 release `28a5c0c1` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
+14. 当前公网 runtime 与 P0 日志 bundle 只证明请求进入 `28a5c0c1` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并使用 `13f597e` 小程序候选（完整构建来源：`13f597ea9ee3f65b9be858117826d948339d904a`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 

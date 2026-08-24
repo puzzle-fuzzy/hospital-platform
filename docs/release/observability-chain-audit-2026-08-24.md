@@ -1,9 +1,9 @@
 # 2026-08-24 日志链路与敏感信息边界审计
 
-> 本文记录当前代码的日志链路审计结果，不代表本地未部署代码已经进入线上。
-> 线上当前仍是服务端 release `13f597ea9ee3f65b9be858117826d948339d904a`，旧 Python
+> 本文记录当前代码的日志链路审计结果，四个 adapter 输入门禁已随服务端 release `28a5c0c131794ce9dcc5f94bd3809402188ac87a` 进入线上。
+> 当前小程序运行包仍为 `13f597e`；旧 Python
 > `8001` 与新 Bun `18081` 共存；当前进程窗口没有新的患者、预约、门诊费用、普通资料或报告业务事件。
-> 线上窗口证据见 [`13f597ea-production-acceptance-2026-08-24.md`](./13f597ea-production-acceptance-2026-08-24.md)。
+> 线上窗口证据见 [`28a5c0c1-production-acceptance-2026-08-24.md`](./28a5c0c1-production-acceptance-2026-08-24.md)。
 
 ## 1. 审计结论
 
@@ -66,24 +66,24 @@
 
 ## 4. 发布基线边界
 
-当前线上 release 是 `13f597ea`，但工作树在该 release 之后又增加了四个只读 adapter 的运行时输入门禁：
+当前线上 release 已更新为 `28a5c0c1`，本次发布包含四个只读 adapter 的运行时输入门禁：
 
 - `packages/adapters/src/zhongyang-appointments.ts`
 - `packages/adapters/src/zhongyang-outpatient-payments.ts`
 - `packages/adapters/src/zhongyang-patients.ts`
 - `packages/adapters/src/zhongyang-reports.ts`
 
-因此 `bun tools/release-baseline-audit.mjs` 当前按设计返回失败：
+发布前 `bun tools/release-baseline-audit.mjs` 曾按设计返回失败，原因是旧线上 release 尚未包含这些文件；切换后已按新的候选基线重新执行该审计：
 
 ```text
-服务端 release 13f597ea9ee3f65b9be858117826d948339d904a 之后存在未部署运行时代码：
+服务端 release 13f597ea9ee3f65b9be858117826d948339d904a 之后存在未部署运行时代码（发布前状态）：
 packages/adapters/src/zhongyang-appointments.ts,
 packages/adapters/src/zhongyang-outpatient-payments.ts,
 packages/adapters/src/zhongyang-patients.ts,
 packages/adapters/src/zhongyang-reports.ts
 ```
 
-这不是日志代码失败，而是发布门禁阻止将本地 adapter 变化冒充线上候选。完整 API 测试因此不能标记为全绿：定向日志测试通过，但包含 P0 发布基线测试的整组 API 测试会因上述未部署运行时代码失败。当前不通过文档修改绕过该门禁，也不在本轮触碰旧 Python 服务。
+这不是日志代码失败，而是发布前门禁阻止将本地 adapter 变化冒充线上候选；该门禁现已通过新的 `28a5c0c1` 基线重新验证。当前不通过文档修改绕过门禁，也没有触碰旧 Python 服务。
 
 ## 5. 真机取证顺序
 
@@ -99,6 +99,6 @@ packages/adapters/src/zhongyang-reports.ts
 
 ## 6. 后续动作
 
-1. 先按发布 runbook 将四个 adapter 门禁作为一个完整候选完成隔离 preflight、readiness 和新旧服务共存复核；未经发布，不能用本地测试结果解释线上行为。
-2. 发布后重新取得当前候选的真机三层证据；若只看到 HTTP 失败而没有业务事件，按错误边界排查，不把空日志窗口当作 Provider 空数据。
+1. 已按发布 runbook 将四个 adapter 门禁作为一个完整候选完成隔离 preflight、readiness 和新旧服务共存复核；未经真机业务触发，仍不能把 runtime smoke 当作业务证据。
+2. 继续取得当前 `28a5c0c1` 服务端与 `13f597e` 小程序运行包的真机三层证据；若只看到 HTTP 失败而没有业务事件，按错误边界排查，不把空日志窗口当作 Provider 空数据。
 3. 只有预约、门诊费用和报告只读证据稳定后，才继续评估真实支付、医保授权、退款和 HIS 写回；日志链路本身不能替代这些业务 contract、授权和状态机验收。
