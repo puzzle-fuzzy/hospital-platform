@@ -1,4 +1,6 @@
 page {
+	height: 100%;
+	overflow: hidden;
 	background: #f8f8f8;
 }
 

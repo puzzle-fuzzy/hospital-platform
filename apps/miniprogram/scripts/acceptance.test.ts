@@ -1326,17 +1326,18 @@ test("native primary tabs keep scrolling inside the content viewport", async () 
 	// 页面滚动时底栏会进入同一滚动边界。四个主页面必须统一使用内容 scroll-view，
 	// 防止某个页面日后又回退成“整页滚动 + 底栏跟着漂移”。
 	expect(tabPages).toHaveLength(4);
-	expect(appStyle).toContain("height: 100%;");
-	expect(appStyle).toContain("overflow: hidden;");
 	expect(appStyle).toContain(".tab-page-scroll {");
 	for (const pagePath of tabPages) {
 		const template = await source(`${pagePath}.wxml`);
+		const pageStyle = await source(`${pagePath}.wxss`);
 		expect(
 			template.startsWith("\n<scroll-view") ||
 				template.startsWith("<scroll-view"),
 		).toBe(true);
 		expect(template).toContain('class="tab-page-scroll"');
 		expect(template).toContain('scroll-y="true"');
+		expect(pageStyle).toContain("height: 100%;");
+		expect(pageStyle).toContain("overflow: hidden;");
 	}
 });
 

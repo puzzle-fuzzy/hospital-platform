@@ -3,8 +3,6 @@
  * 页面样式只能消费这些 token，避免原生小程序逐页出现新的蓝色和灰色。
  */
 page {
-	height: 100%;
-	overflow: hidden;
 	--hospital-primary: #3d6df6;
 	--hospital-primary-strong: #4b8eff;
 	--hospital-primary-soft: #f2f6ff;
@@ -23,11 +21,7 @@ page {
 	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
 }
 
-/*
-	四个主 Tab 使用独立的内容滚动视口。微信默认会让 page 根节点整体滚动，
-	这会把固定 custom-tab-bar 一并带入滚动边界，表现为页面和底栏同时出现
-	滚动条。根节点锁住后，只有这个 scroll-view 滚动，底栏始终覆盖在视口底部。
-*/
+/* 四个主 Tab 共同使用的内容视口尺寸；根 page 的 overflow 只在四个主 Tab 页面内锁定。 */
 .tab-page-scroll {
 	box-sizing: border-box;
 	width: 100%;

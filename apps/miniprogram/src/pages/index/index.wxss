@@ -1,3 +1,9 @@
+/* 主 Tab 由独立 scroll-view 承担滚动，固定 custom-tab-bar 不进入页面滚动边界。 */
+page {
+	height: 100%;
+	overflow: hidden;
+}
+
 .page {
 	box-sizing: border-box;
 	min-height: 100vh;
