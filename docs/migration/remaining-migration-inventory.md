@@ -1,6 +1,6 @@
 > 当前服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
 
-> 当前本地未发布候选的页面代码基线为 `ff931d7cbbc50e18649a38e14cd93f389d7487e3`；该候选新增共享四 Tab 架构，同时继续补齐挂号卡片层级、爽约页面的患者上下文边界、多页面查询状态外壳和报告目录患者加载占位。
+> 当前本地未发布候选的运行输入基线为 `4da9cc093c2b510bf8b48ff2c589df9302c367e0`（提交 `4da9cc09`；功能修正基线为 `e48cfe42`）。该候选收紧了微信开发者工具的单一项目边界，新增 16 页面运行包并保留共享四 Tab、挂号卡片层级、爽约患者上下文边界和多页面查询状态外壳。
 > 本地 `dist/` 必须在每次提交后重新构建，并由 `build-info.json.sourceRevision` 绑定当前 `HEAD`；它不能替代线上 `13f597e`，
 > 也不能产生当前真机三层业务证据。
 
@@ -43,7 +43,7 @@
 | 优先级 | 当前动作 | 放行条件 | 当前决定 |
 | --- | --- | --- | --- |
 | P0 | 恢复受控发布链 | 阿里云 SSH 可用；服务端候选可在不停止旧 Python `8001` 的情况下切换；公网 live/ready、旧端口和新端口均有证据 | 已完成：线上 `28a5c0c1` 已稳定运行，切换后 runtime smoke 通过；旧 Python `8001` 继续共存 |
-| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，已取得微信登录/患者同步的服务端与真机调试网络观察；本地未发布页面候选为 `ff931d7cbbc50e18649a38e14cd93f389d7487e3`。显式患者切换、页面截图、预约历史和门诊费用三层证据仍待，详见 [`../release/current-real-device-login-patient-observation-2026-08-24.md`](../release/current-real-device-login-patient-observation-2026-08-24.md) |
+| P1 | 真机只读验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，已取得微信登录/患者同步的服务端与真机调试网络观察；本地未发布页面候选为 `4da9cc093c2b510bf8b48ff2c589df9302c367e0`。显式患者切换、页面截图、预约历史和门诊费用三层证据仍待，详见 [`../release/current-real-device-login-patient-observation-2026-08-24.md`](../release/current-real-device-login-patient-observation-2026-08-24.md) |
 | P2 | 门诊病历、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 继续保持未注册或迁移提示；不写兼容转发、不猜 `patId`/卡号用途 |
 | P3 | 微信支付、医保授权、结算、退款和 HIS 写回 | 金额/状态机、授权、回调/查单、幂等、回滚及真实沙箱/生产验收全部冻结 | 最后处理；当前已统一关闭支付运行闸门，订单/预支付/通知不会访问仓储或 provider；只读费用列表不能触发支付或医保流程 |
 
@@ -378,7 +378,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 
 ## 1. 盘点结论
 
-旧端当前有 64 个 Vue 页面，新原生小程序有 14 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
+旧端当前有 64 个 Vue 页面，新原生小程序有 16 个 TypeScript 页面源文件。新端已经形成患者端的第一条纵向切片，
 但还不是旧端的功能等价替换：
 
 页面之外的旧端请求封装、WebSocket、状态仓储、问卷/随访组件和静态业务配置，不能按“公共工具”视为已迁移；
@@ -397,7 +397,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 ### 2026-08-16 二次盘点证据
 
 - 旧端 `hospital-app/src/pages` 与 `src/pagesB` 共扫描到 64 个 Vue/页面源文件；新端
-  `apps/miniprogram/src/pages` 共 14 个 TypeScript 页面源文件，`src/app.json` 也注册 14 个页面，
+  `apps/miniprogram/src/pages` 当前共 16 个 TypeScript 页面源文件，`src/app.json` 也注册 16 个页面，
   本次没有发现漏登记页面。
 - 新端构建会动态读取 `app.json`，检查每个注册页面的 `.json/.wxml/.wxss/.ts` 源文件和 `dist/*.js` 是否生成；
   API 测试会检查 OpenAPI 的每个 method/path 是否出现在 [`api-v2-public.md`](../api-v2-public.md)，因此“页面存在但
