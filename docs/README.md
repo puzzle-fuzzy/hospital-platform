@@ -33,11 +33,11 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
-> 当前本地未发布小程序候选的代码基线为 `ace48459407586aa2c0f8ef2a9ab7083793dc25f`（提交 `ace4845`）。
-> 它继承挂号卡片、爽约入口和查询状态容器修正，补齐预约目录科室/排班状态容器，并固定“在线/全部”标签的请求范围快照；构建产物位于
+> 当前本地未发布小程序候选的代码基线为 `356705e41852e585b07296c5e6e3dec52bce1381`（提交 `356705e`）。
+> 它收敛挂号卡片为旧端阅读层级，保证爽约入口不自动打开患者选择模块，并让预约、报告、费用、患者选择、资料和目录页复用固定查询状态外壳；构建产物位于
 > `apps/miniprogram/dist/`。不得把它当作线上 `13f597e` 运行包，也不得用它生成的本地结果替代真机三层业务证据。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
-> [`release/candidate-ace4845-miniprogram-build-2026-08-24.md`](release/candidate-ace4845-miniprogram-build-2026-08-24.md)。
+> [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。
 
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
