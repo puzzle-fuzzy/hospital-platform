@@ -62,3 +62,24 @@
 
 任何一层缺失，都必须在验收记录中写成“待补证据”，不能写成“业务已完成”。旧 Python 服务、旧数据库表和旧端口保持原状，
 本手册不要求重启或修改旧服务。
+
+## 6. 本轮 SSH 前置复核（2026-08-25）
+
+本轮通过受控 SSH 只读取服务状态、监听端口、当前 release 指向和 readiness 响应，未读取或输出任何环境变量值、
+微信密钥、数据库连接串、Redis 凭证、Bearer token 或患者标识：
+
+| 检查项 | 结果 | 可证明的范围 |
+| --- | --- | --- |
+| `hospital-platform-api-v2.service` | `active` | 新 Elysia API 进程仍在运行 |
+| 新 API 内网监听 | `10.0.0.3:18081` | 新服务有独立内网监听边界 |
+| 旧服务监听 | `0.0.0.0:8001` | 旧服务端口仍在监听，本轮未停止或重启 |
+| `/health/ready` | `database=ok`、`redis=ok`、`schema=ok` | 新服务基础依赖和 schema 就绪 |
+| 当前 release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | systemd 当前指向的代码版本 |
+
+随后按本手册启动当前 release 的只读 smoke。runner 在发送第一个业务 HTTP 请求前以
+`configurationReason=access-token-missing` 停止；因此本轮没有发出患者目录、预约历史、门诊费用或 Provider 请求，
+也没有产生可供关联的业务 `requestId`。这不是“患者数据为空”、不是“Provider 拒绝”，更不是新服务业务链路已验收。
+
+真实验收的下一前置条件是：由运维人员在单次进程环境中临时注入一个短时有效的平台 Bearer 会话和对应的内部
+opaque `patientId`，运行结束后销毁；严禁把它们写入 `shared/api.env`、常驻 systemd 环境、Git、命令历史、日志或聊天。
+凭据注入完成后，必须重新执行本手册的完整顺序，并同时保存客户端 requestId、服务端同链日志和受控 Provider 脱敏结果。
