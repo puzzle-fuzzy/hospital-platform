@@ -60,6 +60,25 @@ function requiredConfig(value: string): string {
 	return normalized;
 }
 
+function normalizeIdentityInput(value: unknown): { unionId: string } {
+	// HTTP/service 已经拥有 owner 和身份边界，但 PatientDirectoryGateway 也可能
+	// 被同步任务或回放器直接调用。这里拒绝 null、未知字段和非字符串 unionId，
+	// 让错误在任何 Provider 请求前保持为稳定的不可重试输入失败。
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw providerError("Zhongyang patient identity input is invalid");
+	}
+	const record = value as Record<string, unknown>;
+	if (Object.keys(record).some((field) => field !== "unionId")) {
+		throw providerError(
+			"Zhongyang patient identity input contains an unknown field",
+		);
+	}
+	if (typeof record.unionId !== "string") {
+		throw providerError("Zhongyang patient unionId is invalid");
+	}
+	return { unionId: record.unionId };
+}
+
 /**
  * 患者目录字段会进入查询 URL、内部映射和页面展示，不能只依赖 URL 编码或
  * 数据库转义兜底。控制字符可能破坏日志检索、页面排版和后续引用边界；这里
@@ -762,7 +781,8 @@ export class ZhongyangPatientApiGateway implements PatientDirectoryGateway {
 		patients: readonly PatientDirectoryProfile[];
 		trace: ExternalTrace;
 	}> {
-		const unionId = requiredText(input.unionId, "unionId", 128);
+		const normalizedInput = normalizeIdentityInput(input);
+		const unionId = requiredText(normalizedInput.unionId, "unionId", 128);
 		const url = new URL(PATIENT_INFO_BY_UNION_ID_PATH, this.baseUrl);
 		url.searchParams.set("unionId", unionId);
 		const response = await requestJson<unknown>(

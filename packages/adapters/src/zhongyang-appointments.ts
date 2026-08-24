@@ -11,6 +11,7 @@ import {
 	type AppointmentSchedule,
 	type AppointmentScheduleQuery,
 	type ExternalTrace,
+	isBoundedOpaqueIdentifier,
 	MAX_APPOINTMENT_DEPARTMENT_ITEMS,
 	MAX_APPOINTMENT_RECORD_ITEMS,
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
@@ -31,6 +32,13 @@ const DEPARTMENT_PATH =
 const SCHEDULE_PATH = "/msun-middle-business-amc-server/v1/schedulings";
 const RECORD_PATH =
 	"/msun-middle-business-appointment-server/v1/appointment-infos/";
+const DEPARTMENT_QUERY_FIELDS = new Set(["startDate", "endDate"]);
+const SCHEDULE_QUERY_FIELDS = new Set([
+	"startDate",
+	"endDate",
+	"departmentId",
+	"doctorId",
+]);
 
 type ProviderObject = Record<string, unknown>;
 
@@ -55,6 +63,79 @@ function requiredConfig(value: string): string {
 	const normalized = value.trim();
 	if (!normalized) throw new AdapterNotConfiguredError("zhongyang");
 	return normalized;
+}
+
+function invalidQuery(operation: string, message: string): never {
+	// service 层负责生成预约日期窗口，但 adapter 也可能被回放任务、Worker
+	// 或未来组合根直接调用。未知字段、非法日期或过滤标识必须在 Provider
+	// 请求前拒绝，不能把 undefined 或错误渠道意图拼进上游 URL。
+	throw providerError(operation, message, undefined, false);
+}
+
+function normalizeDateRange(
+	value: unknown,
+	operation: string,
+	allowedFields: ReadonlySet<string>,
+): { startDate: string; endDate: string } & Record<string, unknown> {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return invalidQuery(operation, "Zhongyang appointment query is invalid");
+	}
+	const record = value as Record<string, unknown>;
+	if (Object.keys(record).some((field) => !allowedFields.has(field))) {
+		return invalidQuery(
+			operation,
+			"Zhongyang appointment query contains an unknown field",
+		);
+	}
+	if (
+		typeof record.startDate !== "string" ||
+		typeof record.endDate !== "string"
+	) {
+		return invalidQuery(
+			operation,
+			"Zhongyang appointment date range is invalid",
+		);
+	}
+	const start = parseIsoCalendarDate(record.startDate);
+	const end = parseIsoCalendarDate(record.endDate);
+	if (start === undefined || end === undefined || start > end) {
+		return invalidQuery(
+			operation,
+			"Zhongyang appointment date range is invalid",
+		);
+	}
+	return record as Record<string, unknown> & {
+		startDate: string;
+		endDate: string;
+	};
+}
+
+function normalizeDepartmentQuery(value: unknown): AppointmentDepartmentQuery {
+	const operation = "appointment-departments";
+	const record = normalizeDateRange(value, operation, DEPARTMENT_QUERY_FIELDS);
+	return { startDate: record.startDate, endDate: record.endDate };
+}
+
+function normalizeScheduleQuery(value: unknown): AppointmentScheduleQuery {
+	const operation = "appointment-schedules";
+	const record = normalizeDateRange(value, operation, SCHEDULE_QUERY_FIELDS);
+	const query: AppointmentScheduleQuery = {
+		startDate: record.startDate,
+		endDate: record.endDate,
+	};
+	for (const field of ["departmentId", "doctorId"] as const) {
+		const candidate = record[field];
+		if (candidate !== undefined) {
+			if (!isBoundedOpaqueIdentifier(candidate)) {
+				return invalidQuery(
+					operation,
+					"Zhongyang appointment filter identifier is invalid",
+				);
+			}
+			query[field] = candidate;
+		}
+	}
+	return query;
 }
 
 function objectValue(value: unknown, operation: string, requestId: string) {
@@ -682,12 +763,13 @@ export class ZhongyangAppointmentApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-departments";
+		const normalizedInput = normalizeDepartmentQuery(input);
 		const url = new URL(DEPARTMENT_PATH, this.baseUrl);
 		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
 		// 众阳 AMC 的科室接口虽然返回科室列表，但仍要求带上有效的日期窗口；
 		// 日期由 API 服务端生成，不能让小程序拼接 provider 查询参数。
-		url.searchParams.set("startDate", input.startDate);
-		url.searchParams.set("endDate", input.endDate);
+		url.searchParams.set("startDate", normalizedInput.startDate);
+		url.searchParams.set("endDate", normalizedInput.endDate);
 		const headers = this.headers();
 		const response = await requestJson<unknown>(
 			{
@@ -715,12 +797,15 @@ export class ZhongyangAppointmentApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-schedules";
+		const normalizedInput = normalizeScheduleQuery(input);
 		const url = new URL(SCHEDULE_PATH, this.baseUrl);
 		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
-		url.searchParams.set("startDate", input.startDate);
-		url.searchParams.set("endDate", input.endDate);
-		if (input.departmentId) url.searchParams.set("deptId", input.departmentId);
-		if (input.doctorId) url.searchParams.set("docId", input.doctorId);
+		url.searchParams.set("startDate", normalizedInput.startDate);
+		url.searchParams.set("endDate", normalizedInput.endDate);
+		if (normalizedInput.departmentId)
+			url.searchParams.set("deptId", normalizedInput.departmentId);
+		if (normalizedInput.doctorId)
+			url.searchParams.set("docId", normalizedInput.doctorId);
 		const headers = this.headers();
 		const response = await requestJson<unknown>(
 			{

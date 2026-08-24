@@ -378,7 +378,7 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
   不能让同一费用记录更换平台引用，否则后续详情、订单和支付编排无法安全关联。
 - Provider 费用文本必须在 adapter 边界按公开 contract 的长度拒绝：科室名和医生名最多 128 个字符，账单日期最多 64 个字符；不能让超长 Provider 文本先进入业务读模型，再依赖响应序列化阶段兜底。
 - 门诊费用 `billDate` 不是任意展示文本，必须严格符合 `YYYY-MM-DD HH:mm:ss`，并校验真实自然日及时分秒范围；带时区的 ISO 文本、非法日期和越界时间必须在 adapter 边界整批拒绝，不能交给小程序按设备时区猜测。服务层还必须再次确认每条账单落在本次服务端生成的最近 30 个中国标准时间日闭区间内，不能只依赖 Provider 筛选。
-- 门诊费用 adapter 不能只相信 service 的 TypeScript 输入：直接调用时也必须拒绝 `null`、未知字段、非法/倒序中国标准时间和未知状态，确认输入 canonical 后才允许生成 Provider 查询 URL。报告目录 adapter 同样必须在三路请求前拒绝畸形输入、未知字段、非法/倒序自然日和未知患者引用；LIS 详情必须拒绝畸形报告引用。所有这些形状错误都必须在触网前结束，不能让上游默认范围替代调用方意图，详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
+- 门诊费用 adapter 不能只相信 service 的 TypeScript 输入：直接调用时也必须拒绝 `null`、未知字段、非法/倒序中国标准时间和未知状态，确认输入 canonical 后才允许生成 Provider 查询 URL。报告目录 adapter 同样必须在三路请求前拒绝畸形输入、未知字段、非法/倒序自然日和未知患者引用；LIS 详情必须拒绝畸形报告引用。患者目录 `listByIdentity` 必须只接受字符串 `unionId`，预约科室/排班必须拒绝未知字段、非法/倒序日期和无界筛选标识。所有这些形状错误都必须在触网前结束，不能让上游默认范围替代调用方意图，详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
 - 门诊费用金额和展示字段只能使用 Provider 已确认的 contract 字段；旧端遗留的 `waitPayAmount`、`registerDept`、`registerDoctor` 未确认前必须忽略，不能作为 `amountFen` 或科室/医生名称的 fallback。
 - 2.6.33 的 `tradeStatus` 不能压扁成二值支付状态：只有 `1=待支付` 映射为公共 `unpaid`、`3=已支付` 映射为公共 `paid`；
   `2=已生成结算`、`4=退款中`、`5=已退款`、`9=作废` 在独立结算/退款 contract 确认前必须整批 fail-closed，不能显示为已支付或可支付。

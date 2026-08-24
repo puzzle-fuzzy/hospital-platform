@@ -5,7 +5,7 @@
 
 ## 1. 为什么补这一层
 
-Elysia 的 HTTP schema 和业务 service 已经校验了门诊费用、报告目录的请求参数，
+Elysia 的 HTTP schema 和业务 service 已经校验了门诊费用、报告目录、患者目录和预约查询参数，
 但 `Gateway` 是可注入的端口，也可能被回放任务、Worker 或未来组合根直接调用。仅依赖
 TypeScript 类型会留下两类风险：
 
@@ -23,10 +23,14 @@ TypeScript 类型会留下两类风险：
 | 门诊费用 `listRecords` | `providerPatientId`、`startTime`、`endTime`、`status`；时间为严格 `YYYY-MM-DD HH:mm:ss` 且不倒序 | `null`/数组、未知字段、空或非字符串患者引用、非法日历时间、倒序时间、未知状态 |
 | 报告目录 `listReports` | `providerPatientId` + `startDate/endDate`；日期为合法 ISO 自然日且不倒序；`kind` 只能是已确认来源或未提供 | `null`/数组、未知字段、缺失/非法日期、倒序日期、非字符串来源、空或非字符串患者引用、未知来源 |
 | LIS 详情 `getLaboratoryDetail` | 只接受 `providerReportId` 字符串 | `null`/数组、未知字段、非字符串或空报告引用 |
+| 预约科室 `listDepartments` | `startDate/endDate`；日期为合法 ISO 自然日且不倒序 | `null`/数组、未知字段、缺失/非法日期、倒序日期 |
+| 预约排班 `listSchedules` | `startDate/endDate`，可选有界 `departmentId/doctorId`；日期为合法 ISO 自然日且不倒序 | `null`/数组、未知字段、缺失/非法日期、倒序日期、空白/超界/非字符串筛选标识 |
+| 患者目录 `listByIdentity` | 只接受字符串 `unionId` | `null`/数组、未知字段、非字符串或空身份标识 |
 
 门诊费用输入错误和报告目录/详情形状错误使用不可重试的 `ProviderRequestError`，并标记
 `responseInvalid=false`；未知门诊状态继续使用领域层的 `InvalidOutpatientPaymentStatusError`，
-未知报告来源继续使用 `InvalidReportKindError`。这些错误都不会调用 Provider。
+未知报告来源继续使用 `InvalidReportKindError`。患者和预约查询的形状错误同样使用不可重试的
+`ProviderRequestError`，且所有这些错误都不会调用 Provider。
 
 ## 3. 中文注释与测试证据
 
@@ -34,13 +38,17 @@ TypeScript 类型会留下两类风险：
 
 - `packages/adapters/src/zhongyang-outpatient-payments.ts`；
 - `packages/adapters/src/zhongyang-reports.ts`。
+- `packages/adapters/src/zhongyang-appointments.ts`；
+- `packages/adapters/src/zhongyang-patients.ts`。
 
 本轮定向门禁：
 
 - 门诊费用 adapter：`21 pass / 0 fail / 51 expect()`；
 - 报告 adapter：`19 pass / 0 fail / 41 expect()`；
+- 患者与预约 adapter 定向回归：`46 pass / 0 fail / 104 expect()`；
+- `@hospital/adapters` 全量回归：`118 pass / 0 fail / 268 expect()`；
 - `@hospital/adapters` TypeScript `typecheck` 通过；
-- 四个修改文件 Biome 检查通过；
+- 本轮四个源文件和测试文件的 Biome 检查通过；
 - 畸形输入测试均断言 Provider 调用次数为 `0`。
 
 ## 4. 发布与旧服务边界
@@ -51,4 +59,3 @@ TypeScript 类型会留下两类风险：
 把本次代码测试写成已部署结果。
 
 支付、医保授权、退款、预约写入、取消和 HIS 回写不属于本次范围，继续保持关闭。
-

@@ -129,6 +129,47 @@ test("众阳排班目录固定请求渠道并只返回已验证的号源读模�
 	expect(JSON.stringify(result)).not.toContain("registrationFee");
 });
 
+test("众阳预约目录和排班 adapter 在触网前拒绝畸形查询", async () => {
+	let providerCalls = 0;
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			providerCalls += 1;
+			return new Response(JSON.stringify([]), { status: 200 });
+		},
+	});
+
+	const invalidCalls = [
+		gateway.listDepartments(null as never, context),
+		gateway.listDepartments(
+			{
+				startDate: "2026-02-30",
+				endDate: "2026-03-01",
+			},
+			context,
+		),
+		gateway.listSchedules(
+			{
+				startDate: "2026-08-01",
+				endDate: "2026-08-15",
+				departmentId: " ",
+				unexpected: true,
+			} as never,
+			context,
+		),
+	];
+
+	for (const call of invalidCalls) {
+		await expect(call).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			responseInvalid: false,
+		});
+	}
+	// 日期和筛选标识是 Provider 请求语义的一部分；任何畸形输入都必须
+	// 在本地结束，不能让上游按默认日期或默认科室解释它。
+	expect(providerCalls).toBe(0);
+});
+
 test("众阳排班以 usableSourceNum 为真实号源字段并拒绝重复排班号", async () => {
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",

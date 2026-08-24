@@ -80,6 +80,31 @@ test("众阳患者目录只返回白名单字段并脱敏卡号", async () => {
 	expect(serialized).not.toContain("13800000000");
 });
 
+test("众阳患者目录 adapter 在触网前拒绝畸形身份输入", async () => {
+	let providerCalls = 0;
+	const gateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			providerCalls += 1;
+			return new Response(JSON.stringify([]), { status: 200 });
+		},
+	});
+
+	for (const input of [
+		null as never,
+		{ unionId: 123 } as never,
+		{ unionId: "union-valid", unexpected: true } as never,
+	]) {
+		await expect(gateway.listByIdentity(input, context)).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			responseInvalid: false,
+		});
+	}
+	// 身份输入未形成安全的查询对象前，不能产生目录请求，更不能进入后续
+	// patInfosFind 临床档案查询和 owner 映射链路。
+	expect(providerCalls).toBe(0);
+});
+
 test("众阳关系缺失与明确其他必须保持不同语义", async () => {
 	let archiveRequestCount = 0;
 	const gateway = createZhongyangPatientGateway({
