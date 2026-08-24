@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	hasCurrentPatientContext,
+	navigateToAuthenticatedPage,
 	navigateToMissedAppointmentsPage,
 	navigateToPatientSelector,
 	resolveAuthenticatedEntry,
@@ -47,6 +48,34 @@ describe("原生主 Tab 路由边界", () => {
 				switchToPrimaryTab("/pages/appointment-records/appointment-records"),
 			).toBe(false);
 			expect(switchedUrls).toEqual(["/pages/my/my"]);
+		} finally {
+			if (originalWx) {
+				runtime.wx = originalWx;
+			} else {
+				delete runtime.wx;
+			}
+		}
+	});
+
+	test("会话失效回首页也必须复用原生 TabBar", () => {
+		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
+		const originalWx = runtime.wx;
+		const switchedUrls: string[] = [];
+		runtime.wx = {
+			showToast: () => undefined,
+			switchTab: ({ url }: { url: string }) => {
+				switchedUrls.push(url);
+			},
+			reLaunch: () => {
+				throw new Error("primary tab must not use reLaunch");
+			},
+		} as unknown as typeof wx;
+
+		try {
+			expect(
+				navigateToAuthenticatedPage("/pages/profile/profile", "invalid"),
+			).toBe("redirected-to-login");
+			expect(switchedUrls).toEqual(["/pages/index/index"]);
 		} finally {
 			if (originalWx) {
 				runtime.wx = originalWx;

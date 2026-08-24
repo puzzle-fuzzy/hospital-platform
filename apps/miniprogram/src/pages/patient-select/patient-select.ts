@@ -8,6 +8,7 @@ import {
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
+import { switchToPrimaryTab } from "../../services/patient-navigation";
 import {
 	getSelectedPatientId,
 	isBoundedPatientId,
@@ -167,7 +168,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			// 选择页没有独立登录入口，回首页由用户明确确认微信账号。
 			this.clearDisplayedPatientDirectory();
 			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });
-			wx.reLaunch({ url: "/pages/index/index" });
+			// 首页是原生主 Tab，回首页必须复用微信 TabBar 生命周期，不能
+			// 用 reLaunch 重建页面树导致底栏闪烁或 selected 状态丢失。
+			switchToPrimaryTab("/pages/index/index");
 			return;
 		}
 
@@ -451,7 +454,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			// 不能在当前页面自动重登并重放；清理 owner-scoped 目录后回首页，
 			// 由用户明确确认当前微信账号，再重新发起同步动作。
 			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });
-			wx.reLaunch({ url: "/pages/index/index" });
+			// 即使是错误恢复也必须沿用原生 TabBar，避免 reLaunch 造成底栏
+			// 短暂消失后重新创建。
+			switchToPrimaryTab("/pages/index/index");
 			return;
 		}
 		this.setData({

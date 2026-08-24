@@ -447,7 +447,7 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("hasShown: false");
 	expect(selection).toContain("onShow(): void");
 	expect(selection).toContain("this.clearDisplayedPatientDirectory();");
-	expect(selection).toContain('wx.reLaunch({ url: "/pages/index/index" });');
+	expect(selection).toContain('switchToPrimaryTab("/pages/index/index");');
 	expect(selection).toContain("onPatientTap");
 	expect(selection).toContain("setSelectedPatientId");
 	expect(selection).toContain("onUnload");
@@ -610,7 +610,7 @@ test("patient selection clears the old directory after session ownership is lost
 	expect(clearDirectoryIndex).toBeGreaterThan(showErrorStart);
 	expect(patientListClearIndex).toBeGreaterThan(clearDirectoryIndex);
 	expect(selection).toContain("clearDisplayedPatientDirectory(): void");
-	expect(selection).toContain('wx.reLaunch({ url: "/pages/index/index" });');
+	expect(selection).toContain('switchToPrimaryTab("/pages/index/index");');
 	expect(selection).toContain("不能在当前页面自动重登并重放");
 });
 
@@ -625,7 +625,7 @@ test("native profile returns to login after the session owner is lost", async ()
 	// 资料 GET 的自动恢复或资料 PUT 的明确失效都不能把用户留在旧页面；
 	// 返回首页后由用户确认当前微信账号，避免自动重放普通资料命令。
 	expect(errorBody).toContain("shouldReturnToLogin(error)");
-	expect(errorBody).toContain('wx.reLaunch({ url: "/pages/index/index" });');
+	expect(errorBody).toContain('switchToPrimaryTab("/pages/index/index");');
 	expect(errorBody).toContain("不能把用户留在旧页面");
 });
 

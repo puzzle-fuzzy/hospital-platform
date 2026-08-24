@@ -151,7 +151,10 @@ export function navigateToAuthenticatedPage(
 	}
 	if (decision === "redirect-to-login") {
 		wx.showToast({ title: "请先登录", icon: "none" });
-		wx.reLaunch({ url: "/pages/index/index" });
+		// 首页本身就是原生主 Tab；使用 switchTab 可以清理普通页面栈，
+		// 但不会像 reLaunch 一样重建整棵小程序页面树，避免底栏出现闪帧
+		// 或暂时丢失 selectedIconPath。
+		switchToPrimaryTab("/pages/index/index");
 		return "redirected-to-login";
 	}
 	if (switchToPrimaryTab(url)) return "navigated";

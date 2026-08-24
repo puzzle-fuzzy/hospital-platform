@@ -8,6 +8,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { switchToPrimaryTab } from "../../services/patient-navigation";
 import { parseProfileAgeInput } from "../../services/profile-form";
 import {
 	getSessionGeneration,
@@ -414,7 +415,9 @@ Page<
 			// 资料 GET 的自动恢复或资料 PUT 的明确失效都不能把用户留在旧页面；
 			// 返回首页后由用户确认当前微信账号，避免自动重放普通资料命令。
 			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });
-			wx.reLaunch({ url: "/pages/index/index" });
+			// 首页是原生主 Tab，使用 switchTab 保留微信对共享底栏和选中态的
+			// 生命周期管理，避免 reLaunch 先销毁再重建底栏产生闪动。
+			switchToPrimaryTab("/pages/index/index");
 			return;
 		}
 		this.setData({ error: message });
