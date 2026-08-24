@@ -27,8 +27,8 @@
 ## 重新发布与验收顺序
 
 1. 关闭所有微信开发者工具窗口和真机调试会话，确保不再占用 `dist`；
-2. 在仓库根目录执行 `pnpm --filter @hospital/miniprogram build`；
-3. 执行 `pnpm --filter @hospital/miniprogram runtime:verify`，确认输出 `revision=0f40ab9`；
+2. 在仓库根目录执行 `pnpm --filter @hospital/miniprogram build`；如果构建提示 `dist/` 被占用但显示已保留 validated pending runtime，不要删除旧 `dist/`；
+3. 关闭工具后执行 `pnpm --filter @hospital/miniprogram runtime:publish-pending`，再执行 `pnpm --filter @hospital/miniprogram runtime:verify`，确认输出 `revision=0f40ab9`；如果普通构建没有生成 pending 目录，才重新执行普通构建；
 4. 打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram`，不要打开 `src` 或直接打开旧 `mp-weixin`；
 5. 普通编译一次，再生成新的真机调试二维码；
 6. 在真机控制台确认 `[医院小程序] 运行包来源：原生 TabBar` 和完整 revision；

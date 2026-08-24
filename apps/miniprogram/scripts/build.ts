@@ -1,4 +1,12 @@
-import { access, cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import {
+	access,
+	cp,
+	mkdir,
+	mkdtemp,
+	readdir,
+	rm,
+	rename,
+} from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
@@ -432,6 +440,9 @@ async function copyStaticFiles(
 const stagingRuntime = await mkdtemp(
 	join(dirname(root), ".hospital-miniprogram-staging-"),
 );
+// 该目录位于小程序项目根之外，不会被微信工具当作运行包；只有完整构建
+// 校验通过、但 `dist/` 被工具锁定时，才会短暂保留它作为待发布候选。
+const pendingRuntime = join(dirname(root), ".hospital-miniprogram-pending");
 try {
 	/**
 	 * tsconfig.build.json 会继续检查同一份 src 类型树，但明确排除 *.test.ts 和
@@ -562,14 +573,27 @@ try {
 		`Native mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
 	);
 } catch (error) {
-	// 发布前的任意校验/编译失败都只清理 staging；live dist 保留上一份完整运行包，
-	// 让开发者工具继续使用旧候选，而不是把失败构建暴露成页面 404。
-	await rm(stagingRuntime, { recursive: true, force: true });
 	if (isMiniProgramRuntimeLockError(error)) {
+		// 此时 staging 已完成 TypeScript、静态文件、页面入口、相对依赖、
+		// workspace 引用和来源指纹校验。保留它可以让工具关闭后直接原子
+		// 发布，避免反复编译期间继续触发旧页面/新页面混用。
+		try {
+			await rm(pendingRuntime, { recursive: true, force: true });
+			await rename(stagingRuntime, pendingRuntime);
+		} catch (preserveError) {
+			await rm(stagingRuntime, { recursive: true, force: true });
+			throw new Error(
+				`Mini program dist/ is locked and the validated pending runtime could not be preserved: ${String(preserveError)}`,
+				{ cause: error },
+			);
+		}
 		throw new Error(
-			"Mini program dist/ is locked by WeChat DevTools. Close the current mini-program window and any real-device debugging session, then rerun build; the previous complete dist/ runtime was preserved.",
+			`Mini program dist/ is locked by WeChat DevTools. The validated candidate was preserved at ${pendingRuntime}. Close the current mini-program window and any real-device debugging session, then run pnpm --filter @hospital/miniprogram runtime:publish-pending; the previous complete dist/ runtime was preserved.`,
 			{ cause: error },
 		);
 	}
+	// 发布前的任意非锁定编译/校验失败都只清理 staging；live dist 保留上一份
+	// 完整运行包，让开发者工具继续使用旧候选，而不是暴露页面 404。
+	await rm(stagingRuntime, { recursive: true, force: true });
 	throw error;
 }

@@ -95,6 +95,7 @@ export async function publishMiniProgramRuntime(
 	);
 	let liveMoved = false;
 	let newRuntimeInstalled = false;
+	let preserveStagingAfterLock = false;
 
 	try {
 		await mkdir(liveParent, { recursive: true });
@@ -110,6 +111,10 @@ export async function publishMiniProgramRuntime(
 		// 会递归清理它，因此旧的未注册文件不会泄漏到新的 dist，也不会触发开发者
 		// 工具对项目根的临时文件监听。
 	} catch (error) {
+		// 目录被微信工具占用时，调用方可能希望把已经完成全部校验的
+		// staging 留给后续“只发布、不重编译”的命令。非锁定错误仍按原逻辑
+		// 清理 staging，避免失败产物长期留在工作区。
+		preserveStagingAfterLock = isMiniProgramRuntimeLockError(error);
 		// 新目录没有安装成功时，恢复旧目录；恢复失败必须把两个错误都带出，
 		// 让发布人员知道不能继续启动开发者工具或上传当前 dist。
 		if (liveMoved && !newRuntimeInstalled) {
@@ -131,7 +136,7 @@ export async function publishMiniProgramRuntime(
 	} finally {
 		// stagingRuntime 成功 rename 后路径已经不存在；失败时这里只清理未发布的
 		// 临时目录，不触碰 liveRuntime 或恢复后的旧目录。备份同样在项目根之外。
-		if (await pathExists(stagingRuntime)) {
+		if (!preserveStagingAfterLock && (await pathExists(stagingRuntime))) {
 			await rm(stagingRuntime, { recursive: true, force: true });
 		}
 		if (newRuntimeInstalled && (await pathExists(backupRuntime))) {
