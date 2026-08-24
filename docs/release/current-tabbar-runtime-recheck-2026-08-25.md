@@ -13,6 +13,27 @@
 
 因此不能通过重新添加自绘底栏来掩盖现象。自绘底栏会随页面生命周期产生第二套实例，反而会重新制造闪动和 selected 状态竞态。本次按工具缓存/旧增量运行包边界处理。
 
+## 2026-08-25 当前续发布：运行包来源与图标缓存重新隔离
+
+本轮复核时发现仓库已进入新的提交，但 `dist/build-info.json` 仍停留在旧的
+`ad7b079`，`runtime:verify` 因此阻断了验收。已将四组原生 Tab 的普通态和选中态
+图标路径升级为全新的 `*-v4.png`，图形内容保持与旧视觉基线一致，只改变资源路径
+以撤销微信开发者工具/真机对旧 `v3` 路径的增量缓存；普通态和选中态仍是两份不同的
+81×81 PNG，选中态仍由微信原生 `selectedIconPath` 维护。
+
+当前候选必须在本次构建完成后，以 `dist/build-info.json` 的完整 `sourceRevision` 为准。
+若 `dist/` 被开发者工具占用，构建会把候选保留到 `.local/hospital-miniprogram/pending`，
+此时必须关闭新项目的开发者工具窗口和真机调试会话，再执行：
+
+```powershell
+pnpm --filter @hospital/miniprogram runtime:publish-pending
+pnpm --filter @hospital/miniprogram runtime:verify
+```
+
+这次缓存隔离不改变旧服务、线上 API、数据库或 Redis；也不重新引入自绘底栏。真机
+仍需从 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` 重新普通编译并
+扫描新预览，启动日志中的 revision 必须与 `dist/build-info.json` 完全一致。
+
 ## 本次现场处理
 
 在不接触旧 Python 服务、服务器、数据库、Redis 或线上小程序的前提下，只对新项目的微信开发者工具执行了以下动作：
