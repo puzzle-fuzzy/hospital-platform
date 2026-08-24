@@ -399,6 +399,7 @@
 | [`release/health-knowledge-readiness-audit-2026-08-20.md`](release/health-knowledge-readiness-audit-2026-08-20.md) | 当前健康知识代码、内容输入、发布证据和未挂载状态审计 |
 | [`release/health-knowledge-service-input-boundary-audit-2026-08-21.md`](release/health-knowledge-service-input-boundary-audit-2026-08-21.md) | 健康知识 service 分类、关联、ID、症状数组的运行时输入门禁和未挂载边界 |
 | [`release/current-health-payment-boundary-audit-2026-08-24.md`](release/current-health-payment-boundary-audit-2026-08-24.md) | 当前候选健康内容、自测/计算器与支付运行闸门的一致性审计 |
+| [`release/current-runtime-coexistence-readonly-observation-2026-08-24-1342.md`](release/current-runtime-coexistence-readonly-observation-2026-08-24-1342.md) | 当前服务端 release、新旧端口共存、readiness、公网探针和低敏日志窗口观察 |
 | [`release/next-safe-migration-audit-2026-08-22.md`](release/next-safe-migration-audit-2026-08-22.md) | 当前剩余 P2 领域复核、健康知识未开放原因和唯一放行顺序 |
 | [`migration/patient-center-and-external-entry-boundaries.md`](migration/patient-center-and-external-entry-boundaries.md) | 个人资料、绑卡、协议、签名、订阅、WebView、医院列表和采血预约的旧行为与安全边界 |
 | [`migration/patient-binding-contract-draft.md`](migration/patient-binding-contract-draft.md) | 患者查档、建档、绑卡、协议、幂等、超时恢复和 provider 待确认问题；当前写入路由保持关闭 |

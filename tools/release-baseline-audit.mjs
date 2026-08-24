@@ -197,6 +197,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前健康与支付边界审计",
 	},
 	{
+		path: "docs/release/current-runtime-coexistence-readonly-observation-2026-08-24-1342.md",
+		label: "当前线上共存只读观察",
+	},
+	{
 		path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
 		label: "当前只读业务不变量审计",
 	},
