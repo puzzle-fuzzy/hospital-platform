@@ -29,6 +29,9 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
+	"custom-tab-bar/index.json",
+	"custom-tab-bar/index.wxml",
+	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -88,6 +91,8 @@ const requiredTypeScriptFiles = [
 	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
 	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。
 	"services/single-flight.ts",
+	"constants/legacy-tabbar.ts",
+	"custom-tab-bar/index.ts",
 	"pages/patient-select/patient-select.ts",
 	"pages/official-account/official-account.ts",
 	"pages/feedback/feedback.ts",
@@ -279,30 +284,26 @@ if (
 const appPagePaths = appConfig.pages as string[];
 
 /**
- * 四个主入口必须使用微信原生 tabBar。自定义 tabBar 会把激活态和底栏
- * 生命周期交给页面组件，真机切换时容易出现重复实例或首帧闪动；原生
- * tabBar 才是微信负责维护的共享导航。这里在构建阶段阻断回退到 custom=true。
+ * 四个主入口必须交给同一个 custom-tab-bar 共享组件渲染。原生 tabBar
+ * 虽然配置简单，但在本项目的真实运行包切换中出现过底栏重建、选中图标
+ * 丢失和首帧闪动；自定义组件可以在首次渲染时根据当前 route 直接确定
+ * selected，且底栏只在一个组件中固定定位。这里阻断回退到原生 tabBar，
+ * 防止页面和构建门禁再次形成两套互相矛盾的导航实现。
  */
-if (appConfig.tabBar?.custom === true) {
+if (appConfig.tabBar?.custom !== true) {
 	throw new Error(
-		"Mini program primary tabs must use the native tabBar; custom=true is not allowed",
-	);
-}
-if (appConfig.tabBar?.position !== "bottom") {
-	throw new Error(
-		"Mini program native tabBar must explicitly use position=bottom",
+		"Mini program primary tabs must use the shared custom-tab-bar; custom=true is required",
 	);
 }
 
 /**
- * 原生 TabBar 的选中效果完全依赖这组资源。只校验 JSON 字符串还不够：
- * 开发者工具对不存在的图标有时只给出运行时警告，页面仍能打开但所有项
- * 看起来都是未选中状态。构建时直接读取四项资源，保证上传包和源码一致。
+ * 共享 TabBar 的图标仍纳入构建资源校验；只校验 JSON 字符串还不够，
+ * 运行包缺图时组件会静默显示空白，用户会误以为选中效果失效。
  */
 const primaryTabList = appConfig.tabBar?.list;
 if (!Array.isArray(primaryTabList) || primaryTabList.length !== 4) {
 	throw new Error(
-		"Mini program native tabBar must declare exactly four primary entries",
+		"Mini program shared tabBar must declare exactly four primary entries",
 	);
 }
 for (const item of primaryTabList) {
@@ -315,7 +316,7 @@ for (const item of primaryTabList) {
 			"string"
 	) {
 		throw new Error(
-			"Mini program native tabBar entries must include pagePath, iconPath and selectedIconPath",
+			"Mini program shared tabBar entries must include pagePath, iconPath and selectedIconPath",
 		);
 	}
 	const tab = item as {
@@ -597,7 +598,7 @@ try {
 	await publishMiniProgramRuntime(stagingRuntime, runtime);
 
 	console.log(
-		`Native mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
+		`Shared custom-tab-bar mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
 	);
 } catch (error) {
 	if (isMiniProgramRuntimeLockError(error)) {

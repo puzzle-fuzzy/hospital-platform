@@ -1231,13 +1231,12 @@ test("native my page separates ordinary profile from family patient selection", 
 		expect(my).toContain(`icon: "/assets/legacy-user/${icon}"`);
 		expect(my).toContain(`title: "${title}"`);
 	}
-	// 四个主入口交给微信原生 tabBar 管理；页面自身不能复制底栏，
-	// 激活态由微信根据 app.json 的 selectedIconPath 统一维护，避免每个页面各自闪动。
+	// 四个主入口交给同一个 custom-tab-bar 管理；页面自身不能复制底栏，
+	// 激活态由共享组件根据真实路由统一维护，避免每个页面各自闪动。
 	expect(template).not.toContain("legacy-tabbar");
-	expect(app).toContain('"custom": false');
-	expect(app).toContain('"position": "bottom"');
+	expect(app).toContain('"custom": true');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
 	);
 	expect(my).not.toContain("LEGACY_TAB_BAR_ITEMS");
 	expect(template).not.toContain('wx:for="{{tabBarItems}}"');
@@ -1247,7 +1246,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(await source("pages/my/my.wxss")).not.toContain(".legacy-tabbar {");
 	expect(app).toContain('"pages/consult/consult"');
 	expect(app).toContain('"pages/hospital/hospital"');
-	expect(build).not.toContain('"custom-tab-bar/index.ts"');
+	expect(build).toContain('"custom-tab-bar/index.ts"');
 	expect(my).toContain('title: "电子导诊单"');
 	expect(my).toContain('action: "electronic-consultation"');
 	expect(my).toContain('action: "smart-customer"');
@@ -1295,12 +1294,11 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(build).toContain("profile/profile.js");
 });
 
-test("native primary tabs keep one stable selected bar", async () => {
+test("shared custom primary tabs keep one stable selected bar", async () => {
 	const app = JSON.parse(await source("app.json")) as {
 		pages: string[];
 		tabBar?: {
 			custom?: boolean;
-			position?: string;
 			list?: Array<{
 				pagePath: string;
 				text: string;
@@ -1311,6 +1309,9 @@ test("native primary tabs keep one stable selected bar", async () => {
 	};
 	const indexTemplate = await source("pages/index/index.wxml");
 	const myTemplate = await source("pages/my/my.wxml");
+	const customTabScript = await source("custom-tab-bar/index.ts");
+	const customTabTemplate = await source("custom-tab-bar/index.wxml");
+	const customTabStyle = await source("custom-tab-bar/index.wxss");
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 	const projectConfig = JSON.parse(
 		await Bun.file(join(import.meta.dir, "..", "project.config.json")).text(),
@@ -1321,10 +1322,9 @@ test("native primary tabs keep one stable selected bar", async () => {
 		).text(),
 	) as { miniprogramRoot?: string; setting?: { compileHotReLoad?: boolean } };
 	const tabList = app.tabBar?.list ?? [];
-	// 原生 tabBar 是微信四个 tab 页共享的唯一底栏；页面自身不再创建
-	// 固定底栏，因此切换时不会出现第二套底栏或自定义组件首帧闪动。
-	expect(app.tabBar?.custom).toBe(false);
-	expect(app.tabBar?.position).toBe("bottom");
+	// custom-tab-bar 是微信四个 tab 页共享的唯一底栏；页面自身不再创建
+	// 固定底栏，因此切换时不会出现第二套底栏。
+	expect(app.tabBar?.custom).toBe(true);
 	expect(projectConfig.setting?.compileHotReLoad).toBe(false);
 	// 本机私有配置也必须指向同一份 dist；否则开发者工具可能把旧的 src
 	// 增量页面图当成当前候选，正是底栏闪动和 selected 图标消失的表现。
@@ -1341,10 +1341,6 @@ test("native primary tabs keep one stable selected bar", async () => {
 		expect(app.pages).toContain(item.pagePath);
 		expect(item.iconPath).toContain("assets/legacy-home/");
 		expect(item.selectedIconPath).toContain("assets/legacy-home/");
-		// 运行包使用独立的 native 资源名，避免微信开发者工具或真机按旧
-		// 路径继续命中历史灰色图标；这只是缓存隔离，不改变旧端视觉资源。
-		expect(item.iconPath).toContain("-native.png");
-		expect(item.selectedIconPath).toContain("-native-active.png");
 		expect(item.selectedIconPath).not.toBe(item.iconPath);
 	}
 	// 主 Tab 即使被未来快捷入口程序化打开，也必须走 switchTab；普通业务页
@@ -1355,16 +1351,30 @@ test("native primary tabs keep one stable selected bar", async () => {
 			expect(page).not.toContain(`wx.navigateTo({ url: "/${path}"`);
 		}
 	}
-	// 页面只负责自己的内容；底栏由微信原生 tabBar 统一渲染。
+	// 页面只负责自己的内容；底栏由共享 custom-tab-bar 统一渲染。
 	expect(indexTemplate).not.toContain("legacy-tabbar");
 	expect(myTemplate).not.toContain("legacy-tabbar");
+	expect(customTabTemplate).toContain('wx:for="{{items}}"');
+	expect(customTabTemplate).toContain('bindtap="onTabTap"');
+	expect(customTabTemplate).toContain("item.activeIcon");
+	expect(customTabTemplate).toContain("item.icon");
+	expect(customTabStyle).toContain("position: fixed;");
+	expect(customTabStyle).toContain(
+		"height: calc(130rpx + env(safe-area-inset-bottom));",
+	);
+	expect(customTabScript).toContain("selected: resolveSelectedTab()");
+	expect(customTabScript).toContain(
+		"if (selected === this.data.selected) return;",
+	);
+	expect(customTabScript).toContain("wx.switchTab({ url: item.route });");
+	expect(customTabScript).not.toContain("wx.navigateTo");
 	expect(await source("pages/index/index.ts")).not.toContain("onTabBarAction");
 	expect(await source("pages/my/my.ts")).not.toContain("onTabTap");
-	expect(await source("app.json")).not.toContain('"custom": true');
-	expect(await source("app.wxss")).not.toContain(
+	expect(await source("app.json")).toContain('"custom": true');
+	expect(await source("app.wxss")).toContain(
 		"padding-bottom: calc(130rpx + env(safe-area-inset-bottom));",
 	);
-	expect(build).not.toContain("custom-tab-bar");
+	expect(build).toContain("custom-tab-bar");
 	expect(build).toContain("selectedIconPath");
 	expect(build).toContain("compileHotReLoad=false");
 });
@@ -2133,7 +2143,7 @@ test("native mini program derives missed appointments from the normalized record
 	expect(page).not.toContain("redirectToPatientSelector");
 });
 
-test("native mini program exposes outpatient payment and my pages through platform APIs", async () => {
+test("shared mini program exposes outpatient payment and my pages through platform APIs", async () => {
 	const app = await source("app.json");
 	const client = await source("services/api-client.ts");
 	const home = await source("pages/index/index.ts");
@@ -2153,10 +2163,9 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(client).toContain("/payments/outpatient/records?");
 	expect(home).toContain("navigateToPatientScopedPage");
 	expect(home).toContain('"/pages/outpatient-payment/outpatient-payment"');
-	expect(app).toContain('"custom": false');
-	expect(app).toContain('"position": "bottom"');
+	expect(app).toContain('"custom": true');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
 	);
 	expect(outpatient).toContain("loadOutpatientPaymentRecords");
 	// tab 切换必须把用户本次点击的状态和当前患者会话快照传入，不能依赖
@@ -2970,10 +2979,9 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(homeTemplate).toContain("quick-banner");
 	expect(homeTemplate).toContain("service-tabs-shell");
 	expect(homeTemplate).not.toContain("legacy-tabbar");
-	expect(await source("app.json")).toContain('"custom": false');
-	expect(await source("app.json")).toContain('"position": "bottom"');
+	expect(await source("app.json")).toContain('"custom": true');
 	expect(await source("app.json")).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
 	);
 	expect(homeTemplate).toContain("微信已登录");
 	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");

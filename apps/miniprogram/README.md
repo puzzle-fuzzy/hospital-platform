@@ -56,23 +56,23 @@ CLI 必须从 `apps/miniprogram` 目录执行；如果从 monorepo 根目录执�
 `src/`，以及旧 `mp-weixin` 工程卡片。只能打开标题为 `miniprogram`、路径为
 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 的根工程；`dist/` 是它的
 运行目录，不是另一个工程，`src/` 也不是可直接编译的微信项目。2026-08-24 的本机
-历史本机复核已确认根工程页面路径为 `pages/index/index`，切换到“我的”时只有一份原生底栏，
-且“我的”图标和文字呈蓝色选中态；当前最新运行输入为
+历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
+选中态消失，已恢复为单一共享 `custom-tab-bar`，不再让原生底栏和页面级实现互相竞争。
+当前最新运行输入为
 `39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`，
 并额外隔离 `src/`/`scripts/` 源码监听、避免对当前 Tab 重复调用 `switchTab`，以及在会话恢复期间保持患者卡片高度稳定。
 本候选的真实手机选中态仍需重新普通编译后复核；若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
 
-四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在
-`src/app.json` 的 `tabBar.list` 中；页面 WXML 不得复制一份自绘底栏。原生 tabBar
-由微信统一持有页面生命周期和选中态，避免自定义组件在真机切换时闪动或丢失激活图标。
+四个主入口使用微信官方 `custom-tab-bar` 共享组件，四项路由、图标、选中图标和顺序唯一声明在
+`src/constants/legacy-tabbar.ts` 中；`src/app.json` 只保留四个 tab 页注册和 `custom: true`。
+页面 WXML 不得复制一份底栏。共享组件首次渲染直接从 `getCurrentPages()` 推导选中项，
+并在当前项不变时跳过 `setData`，避免先显示“医疗服务”再切换到“我的”的闪动。
 业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的
 `switchToPrimaryTab`（内部使用 `wx.switchTab`，当前页目标会安全 no-op），普通业务页才使用 `wx.navigateTo`。
-主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`，底栏由微信固定在窗口底部，
-页面不再为自定义底栏额外增加底部占位。
-原生 TabBar 图标使用 `*-native.png` 与 `*-native-active.png` 独立资源名；它们与旧端
-图标内容一致，但通过新路径隔离开发者工具/真机对历史灰色图标的路径缓存。后续替换图标时
-必须同时保留普通态和选中态两份资源，并确保 `selectedIconPath` 不复用 `iconPath`。
+主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；共享底栏固定在窗口底部，
+`app.wxss` 统一预留 `130rpx + safe-area`，因此只有内容区域滚动。后续替换图标时必须
+同时保留普通态和选中态两份资源，并确保 `selectedIconPath` 不复用 `iconPath`。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的

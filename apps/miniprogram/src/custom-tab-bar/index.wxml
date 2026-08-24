@@ -1,0 +1,24 @@
+<!--
+	这是四个主 Tab 唯一的底栏实例。普通业务页不属于 tabBar 页面，
+	因此不会渲染本组件；页面 WXML 也不得复制这段结构。
+-->
+<view class="legacy-tabbar" role="tablist">
+	<view
+		wx:for="{{items}}"
+		wx:key="route"
+		class="legacy-tabbar-item {{index === selected ? 'legacy-tabbar-item-active' : ''}}"
+		bindtap="onTabTap"
+		data-index="{{index}}"
+		aria-label="{{item.text}}"
+		aria-current="{{index === selected ? 'page' : false}}"
+		role="tab"
+	>
+		<image
+			class="legacy-tabbar-icon"
+			src="{{index === selected ? item.activeIcon : item.icon}}"
+			mode="aspectFit"
+			aria-hidden="true"
+		/>
+		<text>{{item.text}}</text>
+	</view>
+</view>

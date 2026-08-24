@@ -24,8 +24,7 @@
 		"backgroundColor": "#ffffff"
 	},
 	"tabBar": {
-		"custom": false,
-		"position": "bottom",
+		"custom": true,
 		"color": "#2c2c2c",
 		"selectedColor": "#3d6df6",
 		"backgroundColor": "#ffffff",
@@ -33,26 +32,26 @@
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"iconPath": "assets/legacy-home/tab-01-native.png",
-				"selectedIconPath": "assets/legacy-home/tab-01-native-active.png",
+				"iconPath": "assets/legacy-home/tab-01.png",
+				"selectedIconPath": "assets/legacy-home/tab-01-active.png",
 				"text": "医疗服务"
 			},
 			{
 				"pagePath": "pages/consult/consult",
-				"iconPath": "assets/legacy-home/tab-02-native.png",
-				"selectedIconPath": "assets/legacy-home/tab-02-native-active.png",
+				"iconPath": "assets/legacy-home/tab-02.png",
+				"selectedIconPath": "assets/legacy-home/tab-02-active.png",
 				"text": "就诊"
 			},
 			{
 				"pagePath": "pages/hospital/hospital",
-				"iconPath": "assets/legacy-home/tab-03-native.png",
-				"selectedIconPath": "assets/legacy-home/tab-03-native-active.png",
+				"iconPath": "assets/legacy-home/tab-03.png",
+				"selectedIconPath": "assets/legacy-home/tab-03-active.png",
 				"text": "互联网医院"
 			},
 			{
 				"pagePath": "pages/my/my",
-				"iconPath": "assets/legacy-home/tab-04-native.png",
-				"selectedIconPath": "assets/legacy-home/tab-04-native-active.png",
+				"iconPath": "assets/legacy-home/tab-04.png",
+				"selectedIconPath": "assets/legacy-home/tab-04-active.png",
 				"text": "我的"
 			}
 		]
