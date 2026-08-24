@@ -20,6 +20,7 @@
 
 - 源码提交：`0a8567b143d16611a02b693e0602b410ab04d108`，已提交到本地 `main`；
 - 运行包：`apps/miniprogram/dist/`；
+- 新预览二维码：`.local/hospital-miniprogram/tabbar-preview-0a8567b.png`；
 - `dist/build-info.json.sourceRevision=0a8567b143d16611a02b693e0602b410ab04d108`；
 - `dist/app.json.tabBar.custom=true`、`position=bottom`；
 - `dist/custom-tab-bar/index.js/index.json/index.wxml/index.wxss` 均存在；
