@@ -26,6 +26,7 @@
 		"logging:audit": "bun tools/logging-event-audit.mjs",
 		"migration:audit": "bun tools/migration-inventory-audit.mjs",
 		"provider:audit": "bun tools/provider-intake-audit.mjs",
+		"provider:smoke:secure": "bun tools/provider-smoke-secure.ts",
 		"release:baseline:audit": "bun tools/release-baseline-audit.mjs",
 		"runtime:preflight": "pnpm --filter @hospital/worker preflight",
 		"runtime:verify": "pnpm --filter @hospital/miniprogram runtime:verify",

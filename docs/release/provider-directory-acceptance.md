@@ -188,6 +188,26 @@ HOSPITAL_SMOKE_CAPABILITIES="session,profile-read,patients,appointment-directory
 本地 HTTP 仅可在明确设置 `HOSPITAL_ALLOW_LOCAL_HTTP=true` 后用于本机调试；公网 smoke
 仍必须使用 HTTPS。工具输出使用 Pino 结构化事件：
 
+如果不希望把 token 直接写入 shell 环境，可以使用仓库提供的交互式 wrapper。它要求真实 TTY，
+逐字符隐藏读取 token 和内部 `patientId`，然后只将两者注入 smoke 子进程；不会把凭据放入 argv、
+文件、Git、systemd 或命令历史：
+
+```bash
+set -a
+. /home/ps/code/hospital-platform/shared/worker.env
+set +a
+HOSPITAL_API_BASE_URL="https://test-hp.meiyi.pro" \
+HOSPITAL_API_PREFIX="/api/v2" \
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/<sha>/tools/provider-smoke-secure.ts" \
+  --bundle \
+  "/home/ps/code/hospital-platform/releases/<sha>/apps/worker/dist/provider-directory-smoke.js"
+```
+
+该 wrapper 只适用于已经通过受控 SSH/终端登录的运维人员；不要通过 `echo token | ...`、CI 普通
+日志变量或聊天传递凭据。smoke 能力仍由 `HOSPITAL_SMOKE_CAPABILITIES` 控制，默认只包含会话、
+普通资料、患者目录、预约只读和门诊费用只读，不包含 `patient-sync`、支付、医保或任何 HIS 写回。
+
 ```text
 provider.smoke.capability.passed / failed
 provider.smoke.completed / failed
