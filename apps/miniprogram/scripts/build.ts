@@ -30,6 +30,9 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
+	"custom-tab-bar/index.json",
+	"custom-tab-bar/index.wxml",
+	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -86,6 +89,8 @@ const requiredTypeScriptFiles = [
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
 	"services/patient-selection-service.ts",
+	"constants/legacy-tabbar.ts",
+	"custom-tab-bar/index.ts",
 	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
 	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。
 	"services/single-flight.ts",
@@ -283,17 +288,16 @@ if (
 const appPagePaths = appConfig.pages as string[];
 
 /**
- * 四个主入口必须交给微信原生 tabBar 统一维护。自定义 tabBar 虽然只有一
- * 个源码目录，但微信仍会按 Tab 页面生命周期创建/恢复组件实例，切换时
- * 可能出现底栏闪动或 selected 状态丢失；原生 tabBar 才是跨四个 Tab 页面
- * 的真正共享导航层。这里把原生模式变成构建硬门禁，阻断页面自绘底栏回归。
+ * 四个主入口必须交给微信官方 custom-tab-bar 统一维护。页面自身不能复制
+ * 底栏，组件在切换前先更新 selected，switchTab 失败时再回滚；这样选中态
+ * 不依赖微信原生 selectedIconPath 在不同真机缓存中的隐式切换。
  */
 if (
-	appConfig.tabBar?.custom !== false ||
+	appConfig.tabBar?.custom !== true ||
 	appConfig.tabBar?.position !== "bottom"
 ) {
 	throw new Error(
-		"Mini program primary tabs must use the native tabBar; custom=false and position=bottom are required",
+		"Mini program primary tabs must use the shared custom-tab-bar; custom=true and position=bottom are required",
 	);
 }
 
@@ -304,15 +308,15 @@ if (
 const primaryTabList = appConfig.tabBar?.list;
 if (!Array.isArray(primaryTabList) || primaryTabList.length !== 4) {
 	throw new Error(
-		"Mini program native tabBar must declare exactly four primary entries",
+		"Mini program shared custom tabBar must declare exactly four primary entries",
 	);
 }
 
 /**
- * 微信原生 tabBar 的图标使用 81×81 PNG 作为稳定输入。
+ * 共享 custom-tab-bar 使用的图标保留 81×81 PNG 作为稳定输入。
  *
  * 旧资源虽然能被部分基础库缩放，但在真机缓存/渲染层切换时可能出现
- * selectedIconPath 不更新。构建阶段直接读取 PNG 的 IHDR，避免把尺寸不合规
+ * custom-tab-bar 读取到不合规资源。构建阶段直接读取 PNG 的 IHDR，避免把尺寸不合规
  * 的资源再次发布；这只约束导航图标，不影响页面内其它插图的原始尺寸。
  */
 async function readPngDimensions(filePath: string): Promise<{
@@ -347,7 +351,7 @@ for (const item of primaryTabList) {
 			"string"
 	) {
 		throw new Error(
-			"Mini program native tabBar entries must include pagePath, iconPath and selectedIconPath",
+			"Mini program shared tabBar entries must include pagePath, iconPath and selectedIconPath",
 		);
 	}
 	const tab = item as {
@@ -363,14 +367,14 @@ for (const item of primaryTabList) {
 	for (const assetPath of [tab.iconPath, tab.selectedIconPath]) {
 		if (assetPath.startsWith("/") || assetPath.includes("..")) {
 			throw new Error(
-				`Mini program native tabBar asset must be a relative path without traversal: ${assetPath}`,
+				`Mini program shared tabBar asset must be a relative path without traversal: ${assetPath}`,
 			);
 		}
 		await access(join(source, assetPath));
 		const dimensions = await readPngDimensions(join(source, assetPath));
 		if (dimensions.width !== 81 || dimensions.height !== 81) {
 			throw new Error(
-				`Mini program native tabBar asset must be 81x81: ${assetPath} (${dimensions.width}x${dimensions.height})`,
+				`Mini program shared tabBar asset must be 81x81: ${assetPath} (${dimensions.width}x${dimensions.height})`,
 			);
 		}
 	}
@@ -383,7 +387,7 @@ for (const item of primaryTabList) {
 		normalIconBytes.every((byte, index) => byte === selectedIconBytes[index]);
 	if (sameIconBytes) {
 		throw new Error(
-			`Mini program native tabBar icon and selectedIconPath must be different files: ${tab.iconPath}`,
+			`Mini program shared tabBar icon and selectedIconPath must be different files: ${tab.iconPath}`,
 		);
 	}
 }
