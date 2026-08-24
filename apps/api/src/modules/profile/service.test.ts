@@ -49,18 +49,28 @@ test("普通资料不存在时返回默认值且不产生持久化副作用", as
 });
 
 test("普通资料 service 在仓储前拒绝非法调用上下文且失败日志不崩溃", async () => {
+	const lines: string[] = [];
 	let readCalls = 0;
 	let updateCalls = 0;
-	const service = new UserProfileService({
-		findByUserId: async () => {
-			readCalls += 1;
-			return undefined;
+	const service = new UserProfileService(
+		{
+			findByUserId: async () => {
+				readCalls += 1;
+				return undefined;
+			},
+			update: async () => {
+				updateCalls += 1;
+				throw new Error("must not be called");
+			},
 		},
-		update: async () => {
-			updateCalls += 1;
-			throw new Error("must not be called");
+		{
+			logger: createLogger({
+				service: "profile-test",
+				environment: "test",
+				destination: { write: (chunk: string) => lines.push(chunk) },
+			}),
 		},
-	});
+	);
 
 	await expect(
 		service.get("profile-user-invalid-context", null as never),
@@ -90,6 +100,25 @@ test("普通资料 service 在仓储前拒绝非法调用上下文且失败日�
 	).rejects.toBeInstanceOf(UserProfileInputError);
 	expect(readCalls).toBe(0);
 	expect(updateCalls).toBe(0);
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	// 畸形 direct-call 只允许留下失败事实，不能先写入 requested，避免
+	// 日志把“尚未通过资料 service 基础门禁”的调用误判为正常业务请求。
+	expect(records.map((record) => record.event)).toEqual([
+		"user.profile.read_failed",
+		"user.profile.update_failed",
+		"user.profile.read_failed",
+		"user.profile.update_failed",
+	]);
+	expect(records[0]).toMatchObject({ traceId: "invalid" });
+	expect(records[1]).toMatchObject({ traceId: "invalid" });
+	expect(records[2]).toMatchObject({
+		traceId: "profile-owner-invalid-read",
+	});
+	expect(records[3]).toMatchObject({
+		traceId: "profile-owner-invalid-update",
+	});
 });
 
 test("普通资料读取失败记录安全事件而不泄露底层错误", async () => {

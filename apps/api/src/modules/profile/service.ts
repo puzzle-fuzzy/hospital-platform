@@ -203,13 +203,6 @@ export class UserProfileService {
 		userId: string,
 		context: AdapterCallContext,
 	): Promise<UserProfilePayload["data"]> {
-		this.logger.info(
-			{
-				event: "user.profile.requested",
-				traceId: adapterContextTraceId(context),
-			},
-			"User profile requested",
-		);
 		try {
 			context = requireProfileContext(context);
 			// userId 由 HTTP principal 提供，但普通资料 service 仍可能被组合根
@@ -217,6 +210,16 @@ export class UserProfileService {
 			if (!isBoundedOpaqueIdentifier(userId)) {
 				throw new UserProfileInputError("Profile user identifier is invalid");
 			}
+			// requested 只表示调用已经通过上下文和 owner 的基础形状校验，
+			// 即将进入资料仓储；畸形 direct-call 只能留下 failed 事件，不能被
+			// 误记成已经进入正常资料业务链。
+			this.logger.info(
+				{
+					event: "user.profile.requested",
+					traceId: adapterContextTraceId(context),
+				},
+				"User profile requested",
+			);
 			const storedProfile = await this.repository.findByUserId(userId);
 			const profile = storedProfile
 				? normalizeUserProfileReadModel(storedProfile, userId)
@@ -257,16 +260,6 @@ export class UserProfileService {
 		input: UserProfileUpdatePayload,
 		context: AdapterCallContext,
 	): Promise<UserProfilePayload["data"]> {
-		// 更新请求必须先留下独立的开始事件，再进入字段校验和版本条件写入。
-		// 这样日志才能区分“请求没有到达资料服务”“到达后输入被拒绝/版本冲突”
-		// 和“已经成功写入”，而不是用 updated 或 conflict 反推请求是否发生。
-		this.logger.info(
-			{
-				event: "user.profile.update.requested",
-				traceId: adapterContextTraceId(context),
-			},
-			"User profile update requested",
-		);
 		try {
 			context = requireProfileContext(context);
 			// 更新路径和读取路径使用同一 owner 边界；否则非法 userId 可能在
@@ -274,6 +267,16 @@ export class UserProfileService {
 			if (!isBoundedOpaqueIdentifier(userId)) {
 				throw new UserProfileInputError("Profile user identifier is invalid");
 			}
+			// 通过上下文和 owner 形状校验后，才记录“已进入资料更新服务”。
+			// 后续字段校验、版本冲突和仓储异常分别使用自己的结果事件，不能
+			// 用一个过早的 requested 事件掩盖调用根本没有进入业务边界的事实。
+			this.logger.info(
+				{
+					event: "user.profile.update.requested",
+					traceId: adapterContextTraceId(context),
+				},
+				"User profile update requested",
+			);
 			if (!isProfileUpdateObject(input)) {
 				// Elysia 会在 HTTP 层校验请求体，但 service 还可能被组合根、
 				// 回放任务或未来 Worker 直接调用。不能让 null/数组在解构处
