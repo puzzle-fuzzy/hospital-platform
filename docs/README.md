@@ -3,6 +3,11 @@
 
 # 项目文档导航
 
+> 当前本地候选（2026-08-25）：`dist/build-info.json.sourceRevision=45742ff4450b223b8db3b36e4a3859e3fc86e1c5`，16 个页面脚本
+> 完整，`runtime:verify` 已通过。微信开发者工具历史中曾同时保留父目录和 `src/` 入口；当前只能打开
+> `apps/miniprogram/dist/`，本次已清理新项目的编译/file-utils 缓存并关闭两个错误入口。详见
+> [`release/current-tabbar-runtime-recheck-2026-08-25.md`](release/current-tabbar-runtime-recheck-2026-08-25.md)。
+
 > 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1909 expect()` 已通过。本轮继续把开发者工具 watcher 根与 `src/`/`scripts/` 源码隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 本轮又针对主 Tab 闪动和选中态消失重新生成独立运行配置、关闭并重新打开 `dist/` 工程，重新构建和校验运行包；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：

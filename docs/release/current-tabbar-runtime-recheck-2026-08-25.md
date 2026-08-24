@@ -37,6 +37,31 @@
 并由验收测试锁定。它不能替代重新普通编译；若启动日志仍不是本候选 revision，
 真机看到的仍然是旧运行包。
 
+## 2026-08-25 现场补充：开发者工具入口混用
+
+用户反馈仍出现底栏闪动且没有选中态后，对本机微信开发者工具的项目记录做了只读核对，
+发现同一个新项目历史上同时存在以下三个入口：
+
+- `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`（唯一正确运行根）；
+- `E:\__Super_Core__\hospital-platform\apps\miniprogram`（构建父目录，不应直接打开）；
+- `E:\__Super_Core__\hospital-platform\apps\miniprogram\src`（TypeScript 源目录，不应作为小程序工程）。
+
+后两个入口会让开发者工具重新读取源码 `app.json` 或旧增量页面图，足以造成“看起来有两套底栏”、
+页面切换闪动和选中资源没有更新；这与当前源码中不存在第二套底栏并不矛盾。
+
+本次只对新项目开发者工具执行了以下动作：
+
+1. 清理 `dist` 工程的编译缓存；
+2. 重置 `dist` 工程的 file-utils 索引；
+3. 关闭历史中的父目录和 `src` 错误入口；
+4. 重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`；
+5. 重新生成预览包，包大小为 `696935` 字节；
+6. 运行 `pnpm --filter @hospital/miniprogram runtime:verify`，结果为 `16 pages`、`revision=45742ff`。
+
+当前没有修改旧项目、旧服务、服务器、数据库、Redis 或线上小程序。后续真机验收仍必须确认工具窗口根目录正是
+`apps/miniprogram/dist`，并在启动日志看到完整的 `45742ff4450b223b8db3b36e4a3859e3fc86e1c5`；不要继续使用父目录、
+`src` 或历史二维码。
+
 ## 业务链路复核补充
 
 预约记录页的两个标签不是前端本地筛选的同一份数据：`在线挂号`和`全部挂号`
