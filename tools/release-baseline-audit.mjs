@@ -170,6 +170,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前小程序本地构建候选",
 	},
 	{
+		path: "docs/release/candidate-13f597ea-miniprogram-build-2026-08-24.md",
+		label: "当前小程序运行包记录",
+	},
+	{
 		path: "docs/release/28a5c0c1-production-acceptance-2026-08-24.md",
 		label: "当前服务端生产切换记录",
 	},

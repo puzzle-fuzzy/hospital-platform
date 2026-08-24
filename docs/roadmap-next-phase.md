@@ -9,7 +9,7 @@
 > 当前小程序会话门禁（2026-08-24，本地未部署）：新增回归锁定患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；全套小程序回归 `223/223` 通过。`401` 的一次受控恢复和同代二次 401 清理规则不变，详见 [`release/miniprogram-session-dependency-error-boundary-2026-08-24.md`](release/miniprogram-session-dependency-error-boundary-2026-08-24.md)。
 > 当前日志链路审计（2026-08-24，服务端已随 `28a5c0c1` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
-> 当前服务端与小程序已完成同源配套切换，旧 Python `8001` 继续共存；下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
+> 当前服务端与小程序已完成分层配套切换：服务端 release 为 `28a5c0c1`，小程序运行包来源为 `13f597e`；旧 Python `8001` 继续共存。下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
 
 > 历史候选刷新（2026-08-22）：服务端 release 曾为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本行仅作追溯，不能覆盖上方当前 `13f597ea` 的线上边界。
 
