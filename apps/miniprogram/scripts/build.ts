@@ -284,7 +284,10 @@ const appPagePaths = appConfig.pages as string[];
  * 可能出现底栏闪动或 selected 状态丢失；原生 tabBar 才是跨四个 Tab 页面
  * 的真正共享导航层。这里把原生模式变成构建硬门禁，阻断页面自绘底栏回归。
  */
-if (appConfig.tabBar?.custom !== false || appConfig.tabBar?.position !== "bottom") {
+if (
+	appConfig.tabBar?.custom !== false ||
+	appConfig.tabBar?.position !== "bottom"
+) {
 	throw new Error(
 		"Mini program primary tabs must use the native tabBar; custom=false and position=bottom are required",
 	);
@@ -326,7 +329,7 @@ for (const item of primaryTabList) {
 	for (const assetPath of [tab.iconPath, tab.selectedIconPath]) {
 		if (assetPath.startsWith("/") || assetPath.includes("..")) {
 			throw new Error(
-			`Mini program native tabBar asset must be a relative path without traversal: ${assetPath}`,
+				`Mini program native tabBar asset must be a relative path without traversal: ${assetPath}`,
 			);
 		}
 		await access(join(source, assetPath));
