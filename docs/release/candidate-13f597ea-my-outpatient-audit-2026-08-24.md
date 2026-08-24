@@ -43,9 +43,12 @@
 
 旧端页面仍包含支付、医保和退费文案；这些文案不能原样复制到新端，因为当前新端没有经过正式授权、订单、回调和回写 contract。真实非空 Provider 样例、费用详情和真机三层证据仍待补齐，空列表不能被解释为“没有业务问题”。
 
+本轮又补充了 API 集成回归：在线范围请求继续携带日期窗口；`scope=all` 只携带完整历史范围，路由不会接受客户端的
+`requestChannel`，也不会把在线日期窗口误带入全部历史查询。该回归只使用内存 Provider，不代表线上候选已经切换。
+
 ## 四、下一步
 
-1. 继续在本地完成已开放只读页面的逻辑审计和测试，不扩大到支付、医保、病历、患者绑定、二维码或 HIS 写回。
+1. 继续在本地完成已开放只读页面的逻辑审计和测试，不扩大到支付、医保、病历、患者绑定、二维码或 HIS 写回；当前预约范围 HTTP 集成边界已锁定。
 2. 若要让 `13f597ea` 进入线上，先由服务器管理员恢复窄权限 sudoers 或人工执行仅针对新 API 的切换；切换前后必须再次核对旧 Python `8001`。
 3. 候选真正切换后，重新生成正确小程序运行包并取同一版本的手机页面、客户端 requestId、服务端 Pino 三层证据；旧 release 或历史二维码不能替代当前证据。
 
@@ -55,4 +58,3 @@
 - 我的页面：`apps/miniprogram/src/pages/my/`。
 - 门诊缴费：`apps/api/src/modules/outpatient-payments/`、`packages/adapters/src/zhongyang-outpatient-payments.ts`、`apps/miniprogram/src/pages/outpatient-payment/`。
 - 运行路线图：`docs/roadmap-next-phase.md`。
-
