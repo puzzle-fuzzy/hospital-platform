@@ -29,6 +29,10 @@
 > live/ready 均为 `200`；最近 60 分钟没有当前候选的业务请求/成功事件。该窗口不替代真机三层证据，详见
 > [`release/current-business-observation-2026-08-22-1510.md`](release/current-business-observation-2026-08-22-1510.md)。
 
+> 2026-08-24 当前运行态只读观察：线上 `6db3217b`、新 Bun `18081`、旧 Python `8001` 继续共存，Worker 保持 `inactive`，公网
+> readiness 返回 `200` 且 database/redis/schema 均为 `ok`；候选 `13f597ea` 未切换。详见
+> [`release/current-6db3217b-runtime-coexistence-observation-2026-08-24.md`](release/current-6db3217b-runtime-coexistence-observation-2026-08-24.md)。
+
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
