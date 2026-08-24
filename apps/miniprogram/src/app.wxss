@@ -22,14 +22,15 @@ page {
 }
 
 /*
-	四个主 Tab 共同使用的内容视口尺寸。原生 tabBar 由微信放在可用窗口之外，
-	这里不能再按自定义底栏额外减高度或绘制占位；页面级滚动由各 Tab 的
-	`disableScroll` 关闭，真正的滚动边界只交给这个 scroll-view。
+	四个主 Tab 共同使用的内容视口尺寸。底栏由微信官方 custom-tab-bar 固定
+	在窗口底部；页面级滚动由各 Tab 的 `disableScroll` 关闭，真正的滚动边界
+	只交给这个 scroll-view。底部 padding 是内容占位，不是第二套底栏。
 */
 .tab-page-scroll {
 	box-sizing: border-box;
 	width: 100%;
 	height: 100%;
+	padding-bottom: calc(130rpx + env(safe-area-inset-bottom));
 }
 
 button::after {

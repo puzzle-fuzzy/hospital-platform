@@ -1,4 +1,6 @@
-# `acfacc83` 原生 TabBar 图标缓存隔离候选（2026-08-24）
+# `acfacc83` 原生 TabBar 图标缓存隔离候选（历史，2026-08-24）
+
+> 本候选已被后续的共享 `custom-tab-bar` 修正替代。它保留原生 TabBar 的缓存隔离证据，但不再是当前真机验收入口；当前入口见 [`candidate-shared-custom-tabbar-2026-08-24.md`](candidate-shared-custom-tabbar-2026-08-24.md)。
 
 > 本记录只描述本地重制小程序候选，不代表已经上传微信或完成真机验收。旧 Python 服务、线上 API、数据库、Redis 和另一会话负责的众阳 Provider 自动化均未修改。
 

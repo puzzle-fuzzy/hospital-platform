@@ -29,6 +29,9 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
+	"custom-tab-bar/index.json",
+	"custom-tab-bar/index.wxml",
+	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -88,6 +91,8 @@ const requiredTypeScriptFiles = [
 	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
 	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。
 	"services/single-flight.ts",
+	"constants/legacy-tabbar.ts",
+	"custom-tab-bar/index.ts",
 	"pages/patient-select/patient-select.ts",
 	"pages/official-account/official-account.ts",
 	"pages/feedback/feedback.ts",
@@ -279,17 +284,14 @@ if (
 const appPagePaths = appConfig.pages as string[];
 
 /**
- * 四个主入口必须交给微信原生 tabBar 统一维护。自定义 tabBar 虽然只有一
- * 个源码目录，但微信仍会按 Tab 页面生命周期创建/恢复组件实例，切换时
- * 可能出现底栏闪动或 selected 状态丢失；原生 tabBar 才是跨四个 Tab 页面
- * 的真正共享导航层。这里把原生模式变成构建硬门禁，阻断页面自绘底栏回归。
+ * 四个主入口必须交给微信官方 custom-tab-bar 统一维护。组件只有一个源码
+ * 和一个固定定位的渲染边界；页面自身不能再复制底栏。组件在切换前先更新
+ * selected，switchTab 失败时再回滚，避免旧页面销毁与新底栏创建之间出现
+ * 闪帧，也避免原生 selectedIconPath 在真机缓存或基础库差异下失效。
  */
-if (
-	appConfig.tabBar?.custom !== false ||
-	appConfig.tabBar?.position !== "bottom"
-) {
+if (appConfig.tabBar?.custom !== true) {
 	throw new Error(
-		"Mini program primary tabs must use the native tabBar; custom=false and position=bottom are required",
+		"Mini program primary tabs must use the shared custom-tab-bar; custom=true is required",
 	);
 }
 
@@ -300,7 +302,7 @@ if (
 const primaryTabList = appConfig.tabBar?.list;
 if (!Array.isArray(primaryTabList) || primaryTabList.length !== 4) {
 	throw new Error(
-		"Mini program native tabBar must declare exactly four primary entries",
+		"Mini program shared tabBar must declare exactly four primary entries",
 	);
 }
 for (const item of primaryTabList) {
@@ -313,7 +315,7 @@ for (const item of primaryTabList) {
 			"string"
 	) {
 		throw new Error(
-			"Mini program native tabBar entries must include pagePath, iconPath and selectedIconPath",
+			"Mini program shared tabBar entries must include pagePath, iconPath and selectedIconPath",
 		);
 	}
 	const tab = item as {
@@ -329,7 +331,7 @@ for (const item of primaryTabList) {
 	for (const assetPath of [tab.iconPath, tab.selectedIconPath]) {
 		if (assetPath.startsWith("/") || assetPath.includes("..")) {
 			throw new Error(
-				`Mini program native tabBar asset must be a relative path without traversal: ${assetPath}`,
+				`Mini program shared tabBar asset must be a relative path without traversal: ${assetPath}`,
 			);
 		}
 		await access(join(source, assetPath));
@@ -343,7 +345,7 @@ for (const item of primaryTabList) {
 		normalIconBytes.every((byte, index) => byte === selectedIconBytes[index]);
 	if (sameIconBytes) {
 		throw new Error(
-			`Mini program native tabBar icon and selectedIconPath must be different files: ${tab.iconPath}`,
+			`Mini program shared tabBar icon and selectedIconPath must be different files: ${tab.iconPath}`,
 		);
 	}
 }

@@ -1,4 +1,6 @@
-# 当前原生 Tab 运行包复核（2026-08-24）
+# 历史原生 Tab 运行包复核（2026-08-24）
+
+> 本文记录已撤回的原生 `tabBar` 候选，不再代表当前实现。针对真机仍反馈的底栏闪动和选中态消失，当前候选已改为微信官方单实例 `custom-tab-bar`，请以 [`candidate-shared-custom-tabbar-2026-08-24.md`](candidate-shared-custom-tabbar-2026-08-24.md) 和 [`miniprogram-tabbar-architecture-audit-2026-08-24.md`](miniprogram-tabbar-architecture-audit-2026-08-24.md) 为准。
 
 ## 结论
 
