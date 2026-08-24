@@ -40,6 +40,8 @@
 > [`release/current-readonly-business-observation-2026-08-24-2134.md`](release/current-readonly-business-observation-2026-08-24-2134.md)。
 > 2026-08-24 21:19–21:49 CST 后续窗口仍只有微信登录/患者目录链；正确内网 live/ready/ping 均为 200，预约、费用和普通资料仍没有业务事件。详见
 > [`release/current-readonly-business-observation-2026-08-24-2149.md`](release/current-readonly-business-observation-2026-08-24-2149.md)。
+> 2026-08-24 21:37–22:07 CST 最新只读窗口仍只有会话校验和患者目录同步/读取；新旧服务与 database/redis/schema readiness 正常，普通资料、预约历史、预约目录和门诊费用均为 `0 / 0`，详见
+> [`release/current-readonly-business-observation-2026-08-24-2207.md`](release/current-readonly-business-observation-2026-08-24-2207.md)。
 
 > 历史观察（2026-08-24 17:27 CST）：内网审计 SSH 当时确认 `current` 指向 `28a5c0c1`，新服务 `10.0.0.3:18081` 与旧 Python `8001` 同时监听，
 > `hospital-platform-api-v2.service=active`、Worker=`inactive`；内网和公网 readiness 均为 200，database/redis/schema 均为 `ok`，启动日志为 production。

@@ -49,6 +49,8 @@
 
 > 2026-08-24 21:19–21:49 CST 后续只读窗口：新旧服务继续共存，live/ready/system-ping 均为 200；窗口内出现 1 次微信登录成功、3 次患者同步和 6 次患者目录读取，但预约历史、预约目录、门诊费用和普通资料均为 `requested=0/success=0`。本轮首次错误版本前缀探针返回的 404 已单独标明为操作员探针，不计入业务失败。详见 [`../release/current-readonly-business-observation-2026-08-24-2149.md`](../release/current-readonly-business-observation-2026-08-24-2149.md)。
 
+> 2026-08-24 21:37–22:07 CST 最新只读窗口：`8eb51b5f`、新 API `18081`、旧 Python `8001` 和 database/redis/schema readiness 均正常；观察到 9 次完整患者同步链、18 次患者目录读取，普通资料、预约历史、预约目录和门诊费用均为 `0 / 0`。窗口内唯一 404 是操作员误用 `/api/v2/health/ready` 的内网探针，不计入业务失败。详见 [`../release/current-readonly-business-observation-2026-08-24-2207.md`](../release/current-readonly-business-observation-2026-08-24-2207.md)。
+
 本节是本轮继续推进时的唯一执行顺序入口；下方历史记录保留证据，但不能覆盖这里的当前状态。
 
 | 优先级 | 当前动作 | 放行条件 | 当前决定 |
