@@ -7,7 +7,7 @@
 > 本轮补充（2026-08-24，本地审计）：普通资料日志边界代码修正提交为 `d450c56c`，服务端已于 19:54 CST 切换到 `8eb51b5f`，
 > 小程序本地 `dist/build-info.json.sourceRevision` 为 `39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`；
 > 该运行包仍未替换线上 `13f597e`。报告配置、众阳报告 adapter、报告 service 和 Provider smoke
-> 专项回归共 `74 pass / 0 fail / 265 expect()`；小程序全量回归为 `237 pass / 0 fail / 1901 expect()`。
+> 专项回归共 `74 pass / 0 fail / 265 expect()`；小程序全量回归为 `238 pass / 0 fail / 1906 expect()`。
 > 这只证明当前代码与关闭态 contract 一致，
 > 不产生真实 Provider、微信真机或线上日志三层证据。
 
