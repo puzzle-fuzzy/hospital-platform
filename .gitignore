@@ -8,6 +8,10 @@ coverage/
 *.log
 .DS_Store
 .local/zhongyang-docs/
+# 本地代码图数据库、发布暂存目录和临时 release 压缩包只服务于开发机，不能进入版本库。
+.codegraph/
+.release-stage-*/
+*-release.tar.gz
 .idea/
 .vscode/
 apps/miniprogram/dist/
