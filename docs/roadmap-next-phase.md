@@ -25,9 +25,9 @@
 > `10.0.0.3:18081`；旧 Python 服务继续监听 `0.0.0.0:8001`，本轮未停止、未重启、未修改。
 > 内网 `/health/ready` 返回 `database=ok`、`redis=ok`、`schema=ok`。Worker 继续保持 inactive。
 >
-> 小程序最新本地运行包来源为 `0b1df915a0051cd84c52bcdb2cc679cec1ab0664`，仅用于新项目独立
+> 小程序最新本地运行包来源为 `21cddff8c4bf79c5e7d06aaef8f36e75d5eb85fd`，仅用于新项目独立
 > `apps/miniprogram/dist/` 的预览和真机验收，尚未替换线上正式小程序；新二维码为
-> `.local/hospital-miniprogram/tabbar-preview-0b1df915.png`。四个主 Tab 仍由微信原生 `tabBar`
+> `.local/hospital-miniprogram/tabbar-preview-21cddff8.png`。四个主 Tab 仍由微信原生 `tabBar`
 > 唯一托管，支付、医保、结算、预约写入、取消、患者绑定、二维码、病历和 HIS 回写均关闭。
 >
 > 为真实只读验收准备的 wrapper 已 staging 到服务器：

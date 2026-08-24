@@ -159,3 +159,19 @@ pnpm --filter @hospital/miniprogram runtime:verify
 因此下一次真机复核必须扫描本轮重新生成的预览，不得继续使用旧二维码；启动日志应出现完整
 `0b1df915a0051cd84c52bcdb2cc679cec1ab0664`。若新预览仍发生同样现象，必须同时提供真机系统、基础库版本、
 当前 route、启动 revision 和切换录屏，才能区分工具缓存与微信原生 Tab 的平台过渡动画。
+
+## 2026-08-25 21cddff8 候选
+
+本轮继续保持微信原生 `tabBar`，没有新增自绘底栏。为避免真机继续命中旧的原生图标缓存，四组普通态/选中态资源
+切换为全新的 `*-native-v5.png` 路径；图形内容取自旧端实际 Tab 图标，并按构建门禁缩放为 81×81 PNG。
+同时补齐旧端原生底栏的 `height=65px`、`fontSize=10px`、`iconWidth=24px` 和 `spacing=3px` 配置。
+
+- 运行包来源：`21cddff8c4bf79c5e7d06aaef8f36e75d5eb85fd`；
+- 运行包：`apps/miniprogram/dist/`，`runtime:verify` 通过，16 个页面脚本完整；
+- 微信开发者工具已清理 `compile` 缓存并重新预览；预览包为 774473 字节；
+- 新二维码：`.local/hospital-miniprogram/tabbar-preview-21cddff8.png`；
+- 旧服务、服务器、数据库和 Redis 均未修改。
+
+本候选仍未上传正式微信版本。真机必须扫描本轮二维码并确认启动日志中的完整 revision；若仍出现闪动或选中态丢失，
+需要同时记录真机系统、基础库版本、当前 route、完整 revision 和切换录屏，才能判断是否为微信基础库过渡动画，不能继续
+通过增加页面级底栏或第二套 selected 状态处理。
