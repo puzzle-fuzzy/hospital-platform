@@ -37,13 +37,13 @@
 > `hospital-platform-api-v2.service=active`、Worker=`inactive`；内网和公网 readiness 均为 200，database/redis/schema 均为 `ok`，启动日志为 production。
 > 本次没有执行重启或配置/数据写入，详见 [`release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md)。
 
-> 当前本地未发布小程序候选的运行输入基线为 `2bf9d8d9f67521067d761b48cc2bfec449ef1348`（提交 `2bf9d8d9`；功能修正基线为 `e48cfe42`）。本轮继续收紧微信开发者工具项目边界：公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，避免源码增量图与 `dist/` 运行包混合。
+> 当前本地未发布小程序候选的运行输入基线为 `0f40ab92c1c1fdb59b40b41d580bbc95c65c6022`（提交 `0f40ab9`；上一候选配置基线为 `bdf4ac57`）。本轮继续收紧微信开发者工具项目边界：公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，避免源码增量图与 `dist/` 运行包混合；当前源码 `app.json` 注册 16 个页面。
 > 本轮继续使用微信原生 `tabBar`：四项路由和选中图标统一由 `app.json.tabBar.list` 管理，并把开发者工具的旧 `src/` 项目配置强制指向 `dist/`，避免错误运行旧页面图造成切换闪动；构建产物位于 `apps/miniprogram/dist/`。
-> 当前运行包已完成构建与 `runtime:verify`；不得把本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。详见
-> [`release/candidate-e48cfe42-native-tabbar-project-boundary-2026-08-24.md`](release/candidate-e48cfe42-native-tabbar-project-boundary-2026-08-24.md)。
+> 当前候选尚未完成 `dist` 原子替换：开发者工具仍占用目录，现有 `dist/build-info.json` 仍指向上一候选 `bdf4ac57`，不能把它写成 `0f40ab9` 或据此生成真机二维码。详见
+> [`release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md`](release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md)。
 
-> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册的业务范围仍只覆盖原生主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回；运行包来源应以 `2bf9d8d9`（完整值见候选记录）为准。
-> 患者错误态基础修正记录（历史代码候选 `dc287a4a`）：[`release/candidate-dc287a4a-patient-error-gate-2026-08-24.md`](release/candidate-dc287a4a-patient-error-gate-2026-08-24.md)；上一轮原生 Tab 结构记录见 [`release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md`](release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md)，当前运行包配置门禁见 [`release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md`](release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md)。
+> 本地候选下一步执行入口：[`release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md`](release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md)。该记录的业务范围仍只覆盖原生主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回；运行包来源应以 `0f40ab92`（完整值见候选记录）为准。
+> 患者错误态基础修正记录（历史代码候选 `dc287a4a`）：[`release/candidate-dc287a4a-patient-error-gate-2026-08-24.md`](release/candidate-dc287a4a-patient-error-gate-2026-08-24.md)；上一轮原生 Tab 结构记录见 [`release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md`](release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md)，上一轮运行包配置门禁见 [`release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md`](release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md)。
 > 当前线上只读业务关联观察：[`release/current-business-correlation-observation-2026-08-24-1737.md`](release/current-business-correlation-observation-2026-08-24-1737.md)。预约历史、预约目录和门诊费用服务器链路已通过同链 HTTP 2xx，但页面/客户端证据仍待补齐。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
 > [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。

@@ -1,6 +1,6 @@
 # 旧端逐页迁移矩阵
 
-> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端原生小程序当前有 14 个 TypeScript 页面源文件。
+> 盘点基准：2026-08-16。旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；该基准当时新端有 14 个 TypeScript 页面源文件，当前 `app.json` 已注册 16 个页面。
 > 本矩阵用于防止页面遗漏，不把“有旧代码”或“新端有占位入口”当作业务完成证据。
 >
 > `pnpm migration:audit` 在本机能访问旧仓库时，会把 `src/pages`、`src/pagesB` 下的实际 `.vue` 文件与本矩阵逐项比对；
