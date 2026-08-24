@@ -4,7 +4,7 @@
 
 > 当前服务端与小程序已完成同源配套切换，旧 Python `8001` 继续共存；下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
 
-> 历史候选刷新（2026-08-22）：服务端 release 曾为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本行仅作追溯，不能覆盖上方线上 `6db3217b` 与待切换 `13f597ea` 的当前边界。
+> 历史候选刷新（2026-08-22）：服务端 release 曾为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本行仅作追溯，不能覆盖上方当前 `13f597ea` 的线上边界。
 
 # 下一阶段实施路线图
 > 当前执行基线（2026-08-24）：线上服务端 release 与小程序运行包来源均为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。下方带历史日期的候选只作追溯。
@@ -40,15 +40,15 @@ Biome、9 个 workspace 的类型检查/测试/构建均通过；小程序运行
 病历目录、患者新增/绑定、二维码、住院、动态外部入口、健康内容和风险评估继续保持关闭；下一步顺序固定为：
 真机微信登录 → 患者目录同步/显式切换 → 我的挂号/爽约 → 门诊费用只读。支付、医保、结算、退款和 HIS 写回仍最后处理。
 
-当前下一步顺序固定为：从 `4ba492a` 正确项目重新普通编译/扫码 → 微信登录 → 患者目录同步与显式切换 → 预约历史/爽约 →
-门诊费用只读 → 报告目录。病历、二维码、患者绑定、支付、医保和 HIS 回写在各自 contract/权限/回滚证据齐全前继续保持关闭。
+当前下一步顺序固定为：从 `13f597e` 正确项目重新普通编译/扫码 → 微信登录 → 患者目录同步与显式切换 → 预约历史/爽约 →
+门诊费用只读 → 普通资料读写（仅在获得测试资料授权时）。报告目录、病历、二维码、患者绑定、支付、医保和 HIS 回写在各自 contract/权限/回滚证据齐全前继续保持关闭。
 之前的 SSH 恢复、服务端原子切换和新旧端口共存证据见 [`release/ssh-access-recovery-and-release-gate-2026-08-22.md`](release/ssh-access-recovery-and-release-gate-2026-08-22.md)。
 
 本轮对患者选择、患者范围只读页面和当前候选运行包做了独立交接审计：未发现可以绕过 Provider/HIS contract 安全开放的新业务；
 下一步仍需人工确认正确小程序项目并取得真实手机三层证据。具体边界见
 [`release/current-next-step-audit-2026-08-22.md`](release/current-next-step-audit-2026-08-22.md)。
 
-> 当前候选：服务端已验证 release `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。生产运行层证据见 [`release/0e2a366e-production-acceptance-2026-08-22.md`](release/0e2a366e-production-acceptance-2026-08-22.md)，小程序候选证据见 [`release/candidate-4ba492a-local-build-2026-08-22.md`](release/candidate-4ba492a-local-build-2026-08-22.md)。
+> 当前候选：服务端已验证 release `13f597ea9ee3f65b9be858117826d948339d904a`；小程序运行包来源 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。生产运行层证据见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)，小程序候选证据见 [`release/candidate-13f597ea-miniprogram-build-2026-08-24.md`](release/candidate-13f597ea-miniprogram-build-2026-08-24.md)，真机操作见 [`release/current-13f-real-device-acceptance-runbook-2026-08-24.md`](release/current-13f-real-device-acceptance-runbook-2026-08-24.md)。
 
 > 下方较早的 `160e7c8533c3a1d42c832184c90e274c6a4a1e9e`、`4e1b2e2` 和其它候选记录均为历史验证证据，不能覆盖上方当前事实源，
 > 也未因路线图记录自动部署线上。

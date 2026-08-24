@@ -1,0 +1,43 @@
+{
+	"candidate": {
+		"serverRelease": "13f597ea9ee3f65b9be858117826d948339d904a",
+		"miniProgramCommit": "13f597e",
+		"sourceRevision": "13f597ea9ee3f65b9be858117826d948339d904a"
+	},
+	"startedAt": "2026-08-24T00:00:00+08:00",
+	"domains": {
+		"auth": { "result": "pending", "reason": "等待当前候选新的微信登录会话" },
+		"patientDirectory": {
+			"result": "pending",
+			"reason": "等待当前候选患者目录页面与日志配对"
+		},
+		"patientDirectorySync": {
+			"result": "pending",
+			"reason": "等待当前候选患者同步页面与 Provider 日志配对"
+		},
+		"patientSelection": {
+			"result": "pending",
+			"reason": "等待当前候选显式更换就诊人并确认业务刷新"
+		},
+		"appointmentDirectory": {
+			"result": "pending",
+			"reason": "等待当前候选预约科室与排班的双请求证据"
+		},
+		"appointmentRecords": {
+			"result": "pending",
+			"reason": "等待当前候选我的挂号在线/全部记录证据"
+		},
+		"missedAppointments": {
+			"result": "pending",
+			"reason": "等待当前候选爽约记录页面与日志配对"
+		},
+		"outpatientPayment": {
+			"result": "pending",
+			"reason": "等待当前候选门诊缴费只读页面与日志配对"
+		},
+		"profileReadonlyWrite": {
+			"result": "pending",
+			"reason": "等待当前候选个人资料读写授权与双请求证据"
+		}
+	}
+}
