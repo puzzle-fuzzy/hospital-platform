@@ -1,13 +1,15 @@
 # `13f597e` 真机三层业务验收执行手册（2026-08-24）
 
-> 本手册只用于收集当前同源候选的业务证据，不会打开支付、医保、退款、预约写入、患者绑定或 HIS 写回。
-> 当前服务端和小程序运行包都必须来自 `13f597ea9ee3f65b9be858117826d948339d904a`；旧二维码、旧开发者工具窗口和旧 release 的日志不能混入本次验收。
+> 本手册只用于收集当前候选的业务证据，不会打开支付、医保、退款、预约写入、患者绑定或 HIS 写回。
+> 当前服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，小程序运行包来源为
+> `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）；两者是服务端独立发布后的有意分层配套。
+> 旧二维码、旧开发者工具窗口和旧 release 的日志不能混入本次验收。
 
 ## 当前准入基线
 
 | 项目 | 当前值 |
 | --- | --- |
-| 服务端 release | `13f597ea9ee3f65b9be858117826d948339d904a` |
+| 服务端 release | `28a5c0c131794ce9dcc5f94bd3809402188ac87a` |
 | 小程序提交 | `13f597e` |
 | 小程序运行包来源 | `13f597ea9ee3f65b9be858117826d948339d904a` |
 | 微信开发者工具项目 | `E:\__Super_Core__\hospital-platform\apps\miniprogram` |
@@ -66,7 +68,8 @@ journalctl -u hospital-platform-api-v2.service --since "开始时间" --until "�
 pnpm device:evidence:audit -- --file <脱敏证据文件>
 ```
 
-当前可直接复制的 pending 起始清单见 [`device-evidence-13f597e-pending.json`](device-evidence-13f597e-pending.json)。
+当前可直接复制的 pending 起始清单见 [`device-evidence-13f597e-pending.json`](device-evidence-13f597e-pending.json)；其中服务端字段绑定
+`28a5c0c131794ce9dcc5f94bd3809402188ac87a`，小程序字段绑定 `13f597e`。
 它只能帮助开始记录，审计结果仍会是未完成；只有所有 P0 域都具备三层 `passed` 证据，才允许把真机验收标记为通过。
 
 以下任一情况必须停止并回退到“待处理”，不能通过猜测修复：来源指纹不一致、服务端日志找不到同一 requestId、患者切换后仍展示旧业务数据、Provider 返回未冻结字段/状态、

@@ -215,6 +215,10 @@ export const currentBaselineDocuments = Object.freeze([
 		path: "docs/release/miniprogram-real-device-evidence-template-7f09bbb.md",
 		label: "当前小程序真机证据模板",
 	},
+	{
+		path: "docs/release/current-13f-real-device-acceptance-runbook-2026-08-24.md",
+		label: "当前小程序真机执行手册",
+	},
 	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
 	{
 		path: "docs/migration/remaining-migration-inventory.md",
