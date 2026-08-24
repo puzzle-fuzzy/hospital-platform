@@ -56,6 +56,25 @@ preflight、隔离 `18082` runtime smoke 和远端产物校验；生产 env 文�
 
 runtime smoke 日志明确记录 `environment=production`，并为每个检查保留低敏 `traceId`；不把这些探针升级为真实业务证据。
 
+## 2026-08-24 12:08 CST 线上只读复核
+
+本次通过受控 SSH 只读取 `hospital-platform-api-v2.service` 和其 journald，不执行重启、配置修改、数据库写入或 Redis
+清理。结果如下：
+
+| 检查 | 结果 |
+| --- | --- |
+| 新 API systemd | `active/running`，主 PID `896697`，启动时间 `2026-08-24 11:32:55 CST` |
+| 新 API 监听 | `10.0.0.3:18081` |
+| 旧 Python 监听 | `0.0.0.0:8001`，仍保持共存 |
+| 公网 `/api/v2/health/live` | `200` |
+| 公网 `/api/v2/health/ready` | `200` |
+| journald 格式 | JSON Pino，含 `event`、`requestId`、`traceId`、路径、状态和 `environment=production` |
+| 当前候选业务成功事件 | 未发现可接收的微信登录、患者、预约、普通资料或 Provider 成功事件 |
+
+启动后的日志只观察到健康检查、系统 ping、运行层关闭边界和无会话 `401` 探针；即使路径落在患者、预约、报告或资料
+模块，也不能把无 token 的 `401` 当作业务成功。当前仍缺同一 13f 真机会话的页面截图、客户端 requestId、服务端业务事件和
+Provider requestId 四方关联证据，因此本次只读复核不会改变真机验收状态。
+
 ## 当前业务验收状态
 
 服务端和小程序的运行来源已配套，但当前仍缺少同一 `13f597ea` 会话的手机页面、小程序客户端 `requestId`、服务端
