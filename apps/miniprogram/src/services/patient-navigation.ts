@@ -29,8 +29,48 @@ export const PRIMARY_TAB_PAGE_PATHS = Object.freeze([
 
 type PrimaryTabPagePath = (typeof PRIMARY_TAB_PAGE_PATHS)[number];
 
+type SharedTabBarInstance = {
+	syncSelectedTab(): void;
+};
+
+type PageWithSharedTabBar = {
+	getTabBar?: () => SharedTabBarInstance | undefined;
+};
+
 function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
 	return (PRIMARY_TAB_PAGE_PATHS as readonly string[]).includes(url);
+}
+
+/**
+ * 由主 Tab 页面把当前路由同步给微信唯一的 custom-tab-bar 实例。
+ *
+ * custom-tab-bar 自己的 `pageLifetimes.show` 在不同微信基础库/开发者工具
+ * 版本中触发时机并不完全一致，因此四个主页面在 onShow 再做一次同实例同步。
+ * 这里调用的是页面的 `getTabBar()`，不会创建页面级底栏，也不会新增第二套
+ * WXML；它只是把页面路由事实写回官方共享组件，收敛首帧和切换后的选中态。
+ */
+export function syncPrimaryTabSelected(index: number): void {
+	if (
+		!Number.isInteger(index) ||
+		index < 0 ||
+		index >= PRIMARY_TAB_PAGE_PATHS.length
+	) {
+		return;
+	}
+	try {
+		if (typeof getCurrentPages !== "function") return;
+		const pages = getCurrentPages();
+		const currentPage = pages[pages.length - 1] as
+			| PageWithSharedTabBar
+			| undefined;
+		// 通过组件公开方法同步，而不是直接只写 selected：当前组件还维护
+		// 每个 item 的 selected 标记和 activeIcon，直接 setData 会让数字状态
+		// 变化但图标仍停留在上一项。
+		currentPage?.getTabBar?.()?.syncSelectedTab();
+	} catch {
+		// 页面刚创建/正在销毁时微信可能暂时拿不到共享组件；组件自身的
+		// attached/show 同步会在下一个稳定生命周期补齐，不把异常扩散到业务页。
+	}
 }
 
 /**

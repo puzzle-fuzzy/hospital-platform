@@ -17,6 +17,7 @@ import {
 	navigateToMissedAppointmentsPage,
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
+	syncPrimaryTabSelected,
 } from "../../services/patient-navigation";
 import {
 	patientContextErrorMessage,
@@ -160,6 +161,7 @@ Page<MyPageData, MyPageMethods>({
 
 	/** 页面恢复时重新读取患者数量和当前选择，避免与患者选择页脱节。 */
 	onShow() {
+		syncPrimaryTabSelected(3);
 		if (!this.data.hasShown) {
 			this.setData({ hasShown: true });
 			return;

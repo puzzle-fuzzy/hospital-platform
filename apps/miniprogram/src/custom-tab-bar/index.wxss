@@ -10,7 +10,7 @@
 	left: 0;
 	z-index: 20;
 	display: flex;
-	align-items: flex-start;
+	align-items: stretch;
 	justify-content: space-around;
 	box-sizing: border-box;
 	height: calc(130rpx + env(safe-area-inset-bottom));
@@ -27,11 +27,12 @@
 	flex: 1 1 0;
 	width: auto;
 	height: 130rpx;
-	padding-top: 18rpx;
+	padding: 0;
 	color: #2c2c2c;
 	flex-direction: column;
 	font-size: 20rpx;
 	line-height: 1;
+	justify-content: center;
 }
 
 .legacy-tabbar-item-active {

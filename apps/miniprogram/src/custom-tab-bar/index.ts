@@ -1,7 +1,7 @@
 import { LEGACY_TAB_BAR_ITEMS } from "../constants/legacy-tabbar";
 
 type SharedTabBarData = {
-	items: typeof LEGACY_TAB_BAR_ITEMS;
+	items: Array<(typeof LEGACY_TAB_BAR_ITEMS)[number] & { selected: boolean }>;
 	selected: number;
 	switching: boolean;
 };
@@ -36,10 +36,22 @@ function resolveSelectedTab(): number | null {
 	}
 }
 
+/** WXML 直接消费每一项的 selected 字段，避免切换首帧依赖索引比较表达式。 */
+function createRuntimeItems(selected: number) {
+	return LEGACY_TAB_BAR_ITEMS.map((item, index) => ({
+		...item,
+		selected: index === selected,
+	}));
+}
+
+function runtimeSelectedOrDefault(): number {
+	return resolveSelectedTab() ?? 0;
+}
+
 Component<SharedTabBarData, Record<never, never>, SharedTabBarMethods>({
 	data: {
-		items: LEGACY_TAB_BAR_ITEMS,
-		selected: 0,
+		selected: runtimeSelectedOrDefault(),
+		items: createRuntimeItems(runtimeSelectedOrDefault()),
 		switching: false,
 	},
 
@@ -60,7 +72,11 @@ Component<SharedTabBarData, Record<never, never>, SharedTabBarMethods>({
 			const selected = resolveSelectedTab();
 			if (selected === null) return;
 			if (selected === this.data.selected && !this.data.switching) return;
-			this.setData({ selected, switching: false });
+			this.setData({
+				items: createRuntimeItems(selected),
+				selected,
+				switching: false,
+			});
 		},
 
 		onTabTap(event) {
@@ -76,7 +92,11 @@ Component<SharedTabBarData, Record<never, never>, SharedTabBarMethods>({
 			// 先更新唯一底栏实例的选中图标，再切换页面。由于底栏由微信
 			// custom-tab-bar 持有，页面切换不会创建第二份底栏，也不会先
 			// 让用户看到“无选中态”的中间帧。
-			this.setData({ selected: index, switching: true });
+			this.setData({
+				items: createRuntimeItems(index),
+				selected: index,
+				switching: true,
+			});
 			wx.switchTab({
 				url: item.route,
 				success: () => {
@@ -88,7 +108,11 @@ Component<SharedTabBarData, Record<never, never>, SharedTabBarMethods>({
 				fail: () => {
 					// 路由失败时回滚视觉状态；不能让底栏看起来已经进入
 					// 新页面，避免用户继续点击时产生错误的业务暗示。
-					this.setData({ selected: previous, switching: false });
+					this.setData({
+						items: createRuntimeItems(previous),
+						selected: previous,
+						switching: false,
+					});
 					this.syncSelectedTab();
 				},
 			});
