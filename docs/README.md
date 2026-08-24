@@ -2,6 +2,8 @@
 > 服务端与小程序来源不同是有意的分层发布，真实真机业务三层证据仍待；下方旧候选只作历史追溯。
 
 # 项目文档导航
+
+> 当前本地候选（2026-08-24 19:10 CST）：`dist/build-info.json.sourceRevision=4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`，16 个页面脚本完整，`runtime:verify` 和小程序 `234 pass / 0 fail / 1886 expect()` 已通过。该候选仍未上传微信或替换线上 `13f597e`；真机验收必须先在开发者工具重新普通编译并核对 `4ea15b8`，详见 [`release/candidate-4ea15b8-native-tabbar-runtime-publish-2026-08-24.md`](release/candidate-4ea15b8-native-tabbar-runtime-publish-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
 > `runtime:verify` 通过，开发者工具新项目窗口普通编译显示 `Errors: 0`。若真机仍请求该路径，

@@ -1,5 +1,7 @@
 # `0f40ab92` 原生 Tab 候选来源日志记录（2026-08-24）
 
+> 历史记录：本候选已被 [`candidate-4ea15b8-native-tabbar-runtime-publish-2026-08-24.md`](candidate-4ea15b8-native-tabbar-runtime-publish-2026-08-24.md) 取代。下面保留当时“开发者工具锁定 `dist`”的排障证据；当前验收不得再使用本文件中的 `0f40ab9` 作为运行包来源。
+
 > 本记录描述本地未发布候选，不代表线上小程序已经更新。线上配套运行包仍为 `13f597e`，服务端仍为 `28a5c0c1`；旧 Python `8001`、旧数据库和旧 Redis 未修改。
 
 ## 本轮目的
