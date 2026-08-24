@@ -1,6 +1,6 @@
 > 当前服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
 
-> 当前本地未发布候选的代码基线为 `ace48459407586aa2c0f8ef2a9ab7083793dc25f`；该候选继承 `1a87ab3` 的挂号/爽约/状态容器修正，补齐预约目录状态容器，并固定挂号标签请求范围快照。
+> 当前本地未发布候选的代码基线为 `356705e41852e585b07296c5e6e3dec52bce1381`；该候选补齐挂号卡片层级、爽约页面的患者上下文边界和多页面查询状态外壳，并固定挂号标签请求范围快照。
 > 本地 `dist/` 必须在每次提交后重新构建，并由 `build-info.json.sourceRevision` 绑定当前 `HEAD`；它不能替代线上 `13f597e`，
 > 也不能产生当前真机三层业务证据。
 
@@ -29,6 +29,12 @@
 > 历史发布复核（2026-08-22 18:55 CST）：门诊费用只读 adapter 的公开 `recordId` 已加入不可见的 Provider 患者作用域，Provider 稳定身份字段若只有空白字符则按格式异常拒绝；补丁已按无损手册发布到当时的 `0e2a366e`。门诊费用真实 Provider/真机业务证据仍为 0。
 
 > 历史发布通道复核（2026-08-22 21:13 CST）：当时阿里云到内网可达，但 `ps@10.0.0.3` 拒绝现有公钥；该状态已在后续恢复。当前候选已完成服务端切换，具体运行态以 [`../release/28a5c0c1-production-acceptance-2026-08-24.md`](../release/28a5c0c1-production-acceptance-2026-08-24.md) 为准。
+
+> 当前线上运行层只读复核（2026-08-24）：新 API release `28a5c0c1` 为 production，监听
+> `10.0.0.3:18081`；旧 Gunicorn 继续监听 `0.0.0.0:8001`，Worker 为 `inactive`。内网 live/ready/
+> `/api/v1/system/ping` 和公网 `/api/v2` 对应探针均为 200，ready 的 database/redis/schema 均为 `ok`。
+> 本次没有重启、配置修改、业务写入或患者/Provider 原始数据读取；由于 `sudo journalctl` 需要密码，未把日志
+> 不可读误写为“没有业务请求”。详见 [`../release/current-runtime-coexistence-readonly-2026-08-24.md`](../release/current-runtime-coexistence-readonly-2026-08-24.md)。
 
 ## 2026-08-24 当前执行决策
 
