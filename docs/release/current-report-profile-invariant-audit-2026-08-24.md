@@ -4,6 +4,12 @@
 > `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本记录审计代码、持久化边界和运行配置，
 > 不把本地回归或 readiness 当作 Provider/真机业务完成。
 
+> 本轮补充（2026-08-24，本地审计）：当前工作树提交为 `205c4c38b322fcf23fbb836aa03d174b9de97f42`，
+> 小程序本地 `dist/build-info.json.sourceRevision` 为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`；
+> 该运行包仍未替换线上 `13f597e`。报告配置、众阳报告 adapter、报告 service 和 Provider smoke
+> 专项回归共 `74 pass / 0 fail / 265 expect()`。这只证明当前代码与关闭态 contract 一致，
+> 不产生真实 Provider、微信真机或线上日志三层证据。
+
 ## 结论
 
 本轮没有发现需要直接修改运行时代码的真实逻辑缺口，因此没有在缺少正式 Provider 合同和用户写入授权时
@@ -83,6 +89,20 @@ LIS 目录项的详情引用由 `ownerUserId + patientId + providerReportId` 生
 本次只读检查没有重启、上传、切换 release、写 MySQL/Redis、修改反向代理或修改旧 Python 服务。
 
 ## 回归证据
+
+### 当前候选专项回归（2026-08-24）
+
+本轮使用当前工作树直接执行：
+
+```text
+bun test packages/config/src/index.test.ts packages/adapters/src/zhongyang-reports.test.ts apps/api/src/modules/reports/service.test.ts apps/worker/src/provider-directory-smoke.test.ts
+74 pass / 0 fail / 265 expect()
+```
+
+回归覆盖报告 gate 默认关闭、三来源聚合的整体失败语义、Provider 包络和 trace 校验、
+时间窗口、来源错配、重复报告号、资源上限、短期详情引用的 owner/patient/TTL 边界，
+以及 smoke 层对平台安全响应和错误脱敏的检查。并行会话的众阳文档自动化和 Provider 采集代码
+没有被本轮修改或调用。
 
 针对本轮审计运行：
 
