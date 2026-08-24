@@ -1372,6 +1372,9 @@ test("native primary tabs keep one stable selected bar", async () => {
 		"我的",
 	]);
 	expect(tabList).toHaveLength(4);
+	// 主 Tab 固定在页面注册表最前面：这样首屏和四项切换都沿用同一组
+	// 根页面，不让开发者工具把“我的”当成普通业务页重新创建底栏实例。
+	expect(app.pages.slice(0, 4)).toEqual(tabList.map((item) => item.pagePath));
 	for (const item of tabList) {
 		expect(app.pages).toContain(item.pagePath);
 		expect(item.iconPath).toContain("assets/legacy-home/");

@@ -6,6 +6,7 @@
 
 - `src/app.json` 和 `dist/app.json` 都是微信原生 `tabBar`，`custom=false`、`position=bottom`；
 - 四个主入口只在 `app.json.tabBar.list` 声明一次；
+- 四个主入口同时位于 `app.json.pages` 前四项，首屏和 Tab 切换使用同一组根页面注册；
 - 页面 WXML、运行包和导航服务都没有 `legacy-tabbar`、`custom-tab-bar` 或页面级固定底栏；
 - 主 Tab 的程序化入口只允许 `wx.switchTab`，普通业务页仍使用 `wx.navigateTo`；
 - 普通态和选中态图标路径不同，且构建包中的文件字节与源码一致。
@@ -30,6 +31,11 @@
 `dist/build-info.json`、`dist/app.json` 和 `dist/project.config.json` 均已现场核对。独立工程的 `miniprogramRoot=./`、`compileHotReLoad=false`、`ignoreDevUnusedFiles=false`，不会主动监听仓库的 TypeScript 源码和测试脚本。
 
 本轮进一步把原生 Tab 图标改为独立的 `*-v2.png` 资源：普通态和选中态保持原视觉内容，统一为 `81×81` PNG，并由构建脚本读取 PNG 的 IHDR 做尺寸门禁。这样可以同时避开开发者工具/真机对旧资源路径的缓存，并符合原生 tabBar 的稳定输入边界；没有重新引入 `custom-tab-bar`。
+
+本轮再收紧页面注册顺序：`pages/index/index`、`pages/consult/consult`、
+`pages/hospital/hospital`、`pages/my/my` 固定为 `app.json.pages` 的前四项，
+并由验收测试锁定。它不能替代重新普通编译；若启动日志仍不是本候选 revision，
+真机看到的仍然是旧运行包。
 
 ## 真机验收准入
 

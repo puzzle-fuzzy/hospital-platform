@@ -63,6 +63,8 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 
 四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在
 `src/app.json.tabBar.list` 中，并显式设置 `custom: false`、`position: bottom`。
+这四个页面同时固定为 `src/app.json.pages` 的前四项；这是运行入口的结构约束，
+不是页面展示顺序偏好，避免开发者工具增量编译时把“我的”识别成普通页面。
 页面 WXML 不得复制一份底栏，也不得新增 `custom-tab-bar`；选中态由微信根据
 `selectedIconPath` 统一维护，避免组件生命周期重建造成先显示“医疗服务”再切换到“我的”的闪动。
 业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的

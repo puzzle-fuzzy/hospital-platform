@@ -3,6 +3,7 @@
 		"pages/index/index",
 		"pages/consult/consult",
 		"pages/hospital/hospital",
+		"pages/my/my",
 		"pages/official-account/official-account",
 		"pages/feedback/feedback",
 		"pages/patient-select/patient-select",
@@ -14,7 +15,6 @@
 		"pages/report-detail/report-detail",
 		"pages/outpatient-payment/outpatient-payment",
 		"pages/profile/profile",
-		"pages/my/my",
 		"pages/hospital-navigation/hospital-navigation"
 	],
 	"window": {
