@@ -43,7 +43,7 @@ pnpm --filter @hospital/miniprogram test
 - `dist/app.json` 的 `tabBar.custom=false`、`position=bottom`；
 - 四项均拥有不同的 `iconPath` 和 `selectedIconPath`；
 - `dist/custom-tab-bar/` 不存在，运行包没有 `*.test.js` 或 `*.spec.js`；
-- 小程序回归 `234 pass / 0 fail / 1875 expect()`；
+- 小程序回归 `234 pass / 0 fail / 1878 expect()`；
 - `runtime:verify` 通过，16 个页面的 JavaScript、JSON、WXML、WXSS 均存在。
 
 ## 开发者工具操作顺序
