@@ -23,7 +23,8 @@
 2. 清理开发者工具编译缓存后重新编译；如果工具仍显示旧页面脚本或旧图标，关闭项目并重新打开 `dist/`，不要通过继续刷新旧窗口解决。
 3. 检查底部栏：四个主页面必须是 `pages/index/index`、`pages/consult/consult`、`pages/hospital/hospital`、
    `pages/my/my`；点击它们必须使用原生 `switchTab`，底部栏不能由页面 WXML 自己绘制。
-4. 预览/真机扫码时记录运行包候选 `ad7b079` 和微信开发者工具显示的项目根；不能把旧二维码或历史运行包证据归入本候选。
+4. 预览/真机扫码时记录运行包候选 `0b1df915` 和微信开发者工具显示的项目根；当前二维码为
+   `.local/hospital-miniprogram/tabbar-preview-0b1df915.png`，不能把旧二维码或历史运行包证据归入本候选。
 
 ## 3. 设备操作顺序
 
@@ -83,3 +84,42 @@
 真实验收的下一前置条件是：由运维人员在单次进程环境中临时注入一个短时有效的平台 Bearer 会话和对应的内部
 opaque `patientId`，运行结束后销毁；严禁把它们写入 `shared/api.env`、常驻 systemd 环境、Git、命令历史、日志或聊天。
 凭据注入完成后，必须重新执行本手册的完整顺序，并同时保存客户端 requestId、服务端同链日志和受控 Provider 脱敏结果。
+
+## 7. 本轮服务端只读工具 staging（2026-08-25）
+
+为执行上述真实只读 smoke，本轮没有替换服务端 `current`，而是在服务器新建了独立的
+验收工具目录：
+
+```text
+/home/ps/code/hospital-platform/releases/82c5e9e34775e4078fc891625a4b94110dde4451-readonly
+```
+
+该目录由当前运行 release 的只读 API/Worker bundle 复制而来，仅额外放入
+`tools/provider-smoke-secure.ts`。本轮复核结果如下：
+
+| 检查项 | 结果 |
+| --- | --- |
+| 新 API `current` | 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 新 API systemd | `hospital-platform-api-v2.service=active` |
+| 旧 Python | `0.0.0.0:8001` 继续监听 |
+| 验收 wrapper | 已存在，远端 SHA-256 与本地 `21dfd669...` 一致 |
+| 真实业务 smoke | 尚未启动，未注入 token/patientId，未发出业务请求 |
+
+受控终端执行入口如下；`<短时凭据>` 不得通过命令参数、聊天、文件、systemd 或 shell history
+传递，wrapper 会在交互式 TTY 中隐藏读取：
+
+```bash
+set -a
+. /home/ps/code/hospital-platform/shared/worker.env
+set +a
+HOSPITAL_API_BASE_URL="https://test-hp.meiyi.pro" \
+HOSPITAL_API_PREFIX="/api/v2" \
+/home/ps/.bun/bin/bun \
+  "/home/ps/code/hospital-platform/releases/82c5e9e34775e4078fc891625a4b94110dde4451-readonly/tools/provider-smoke-secure.ts" \
+  --bundle \
+  "/home/ps/code/hospital-platform/releases/82c5e9e34775e4078fc891625a4b94110dde4451-readonly/apps/worker/dist/provider-directory-smoke.js"
+```
+
+默认只读能力不包含 `patient-sync`、支付、医保、预约写入、退款和 HIS 写回。执行结束后，验收
+记录必须同时保存客户端 `requestId`、服务端 `traceId`/业务事件和 Provider 脱敏请求号；任一层缺失，
+只能记录为“待补证据”。
