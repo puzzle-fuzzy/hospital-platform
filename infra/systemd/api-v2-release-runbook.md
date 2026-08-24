@@ -41,6 +41,11 @@ sudoers、仓库、聊天记录或日志。若 `visudo` 校验失败，必须删
 2026-08-16 已在目标主机安装并验证该规则；安装、校验和无密码 smoke 的证据见
 [`docs/release/systemd-narrow-permission-acceptance-2026-08-16.md`](../../docs/release/systemd-narrow-permission-acceptance-2026-08-16.md)。
 
+> 重要的当前性边界：上面的内容是 2026-08-16 的历史安装证据，不代表今天的 sudoers 仍然生效。
+> 2026-08-24 候选 `13f597ea` 的发布复核中，`sudo -n` 仍不能完成 systemd 操作，因此下一次切换前必须由管理员
+> 重新现场执行 `visudo -cf`、`sudo -n -l -U ps` 和新 API 的最小命令 smoke；在复核通过前只能使用管理员明确提供的
+> 交互式 sudo，不能把旧记录当作无密码授权，也不能为了发布临时放宽到 `systemctl *`。
+
 ## 2. 切换前检查
 
 以下命令由 `ps` 执行。`<sha>` 必须是已经通过本地 `pnpm check` 和独立生产 env smoke 的候选 commit，
@@ -160,13 +165,31 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 这里只允许重启新 API unit。旧 Python 服务不需要也不允许重启；API unit 的 `WorkingDirectory` 会在新请求
 到达前读取新的 `current`。
 
+`systemctl restart` 返回成功只代表 systemd 接受了重启命令，不代表 Bun 已经完成监听和依赖初始化。
+切换脚本不能紧接着只探测一次端口；必须在不超过 15 秒的窗口内每秒轮询新 API 的内网 readiness，
+并同时确认 `systemctl is-active`、`10.0.0.3:18081` 和 `database/redis/schema=ok`。窗口内暂时连接拒绝
+属于启动过渡态，不能立即触发回滚；超过窗口仍未 ready 才按第 5 节回滚。旧 `8001` 必须在每次轮询中保持监听。
+
 ## 4. 切换后验收
 
 ```bash
 sudo -n systemctl is-active hospital-platform-api-v2.service
 readlink -f current
 ss -ltnp | grep -E ':18081|:8001'
-curl -fsS http://10.0.0.3:18081/health/ready
+
+# restart 后给 Bun 进程留出有限的启动窗口；失败只在 15 次轮询后判定。
+ready=0
+for attempt in $(seq 1 15); do
+    if curl -fsS --max-time 2 http://10.0.0.3:18081/health/ready \
+        | grep -q '"database":"ok".*"redis":"ok".*"schema":"ok"' \
+        && ss -ltn | grep -Eq '10\.0\.0\.3:18081|:18081'; then
+        ready=1
+        break
+    fi
+    test "$attempt" -eq 15 || sleep 1
+done
+test "$ready" -eq 1
+ss -ltn | grep -Eq ':8001'
 curl -fsS https://test-hp.meiyi.pro/api/v2/health/ready
 ```
 
