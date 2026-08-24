@@ -167,7 +167,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{ path: "docs/wechat-auth-login.md", label: "微信授权登录手册" },
 	{
 		path: currentCandidateDocumentPath,
-		label: "当前小程序本地构建候选",
+		label: "当前服务端独立候选",
 	},
 	{
 		path: "docs/release/candidate-13f597ea-miniprogram-build-2026-08-24.md",
@@ -191,6 +191,10 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		path: "docs/release/current-gated-domains-audit-2026-08-21.md",
 		label: "当前未开放业务门禁审计",
+	},
+	{
+		path: "docs/release/current-health-payment-boundary-audit-2026-08-24.md",
+		label: "当前健康与支付边界审计",
 	},
 	{
 		path: "docs/release/readonly-business-invariant-review-2026-08-22.md",

@@ -88,7 +88,7 @@
 | `pnpm provider:audit` | 通过；3 份 Provider 接收记录、26 个 `documentId`，其中没有病历或报告正式脱敏样例 intake |
 | `pnpm architecture:audit` | 通过；67 项架构/安全边界规则 |
 | `pnpm --filter @hospital/api test src/app.test.ts src/plugins/error-handler.test.ts` | 通过；56 项测试、316 个断言 |
-| `pnpm docs:audit` | 通过；当前仓库 507 个 Markdown 文档、无断链 |
+| `pnpm docs:audit` | 通过；当前仓库 550 个 Markdown 文档、无断链 |
 | `pnpm release:baseline:audit` | 当前服务端 `28a5c0c1` 与小程序候选 `13f597e` 指针已分别核对；服务端运行层发布证据见 [`28a5c0c1-production-acceptance-2026-08-24.md`](28a5c0c1-production-acceptance-2026-08-24.md)，小程序运行包证据见 [`candidate-13f597ea-miniprogram-build-2026-08-24.md`](candidate-13f597ea-miniprogram-build-2026-08-24.md) |
 
 这些检查证明代码和文档门禁保持一致，但不替代真实 Provider 响应、线上 journald 业务事件、微信真机页面或多患者切换证据。
