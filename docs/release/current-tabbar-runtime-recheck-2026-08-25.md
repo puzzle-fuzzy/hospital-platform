@@ -24,17 +24,19 @@
 当前运行包来源仍为：
 
 ```text
-ecff1f9ca97a1fb47ee090810a92a5fe533779f9
+49c641b69b44c1cc40b610a534893346389e2cf9
 ```
 
 `dist/build-info.json`、`dist/app.json` 和 `dist/project.config.json` 均已现场核对。独立工程的 `miniprogramRoot=./`、`compileHotReLoad=false`、`ignoreDevUnusedFiles=false`，不会主动监听仓库的 TypeScript 源码和测试脚本。
+
+本轮进一步把原生 Tab 图标改为独立的 `*-v2.png` 资源：普通态和选中态保持原视觉内容，统一为 `81×81` PNG，并由构建脚本读取 PNG 的 IHDR 做尺寸门禁。这样可以同时避开开发者工具/真机对旧资源路径的缓存，并符合原生 tabBar 的稳定输入边界；没有重新引入 `custom-tab-bar`。
 
 ## 真机验收准入
 
 真机必须在本次重新普通编译后重新预览，不能继续使用旧二维码或旧真机调试会话。启动控制台应出现：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9
+[医院小程序] 运行包来源：微信原生 tabBar；revision=49c641b69b44c1cc40b610a534893346389e2cf9
 ```
 
 随后依次点击“医疗服务、就诊、互联网医院、我的”，必须同时满足：
