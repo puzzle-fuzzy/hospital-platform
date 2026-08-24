@@ -20,3 +20,6 @@ apps/miniprogram/project.private.config.json
 apps/miniprogram/src/project.private.config.json
 # 开发者工具可能在小程序根目录下生成旧版配置副本，公共配置以根目录 project.config.json 为准。
 apps/miniprogram/src/project.config.json
+# 微信开发者工具生成的本机预览大小/截图证据只用于验收，不作为源码或发布资产提交。
+docs/release/wechat-preview-*.json
+docs/release/wechat-preview-*.png

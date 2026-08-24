@@ -541,8 +541,7 @@ try {
 	 */
 	const runtimeAppPath = join(stagingRuntime, "app.js");
 	const runtimeApp = await Bun.file(runtimeAppPath).text();
-	const buildRevisionPlaceholder =
-		"0000000000000000000000000000000000000000";
+	const buildRevisionPlaceholder = "0000000000000000000000000000000000000000";
 	if (!runtimeApp.includes(buildRevisionPlaceholder)) {
 		throw new Error(
 			"Mini program app.js is missing the build revision placeholder",

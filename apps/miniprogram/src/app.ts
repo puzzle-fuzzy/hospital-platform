@@ -16,8 +16,7 @@ type AppGlobalData = {
  * 真机调试日志因此可以直接区分“当前候选”与开发者工具/手机缓存的旧包，
  * 不需要把患者、会话或 provider 信息写入日志。
  */
-const MINI_PROGRAM_BUILD_REVISION =
-	"0000000000000000000000000000000000000000";
+const MINI_PROGRAM_BUILD_REVISION = "0000000000000000000000000000000000000000";
 
 /** 原生小程序全局状态只保存平台地址和 opaque 会话，不保存 provider 身份。 */
 App<{ globalData: AppGlobalData }>({
