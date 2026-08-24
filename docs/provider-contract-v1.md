@@ -84,6 +84,7 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 两个范围都由服务端固定请求参数，公网只接受 `scope=online|all`；不能让小程序透传 `requestChannel`，也不能用在线结果伪装全部历史。旧的渠道 4 未开放审计仅作为历史记录保留，详见 [`migration/request-channel-4-all-records-contract-audit-2026-08-18.md`](migration/request-channel-4-all-records-contract-audit-2026-08-18.md)；
 - 新 contract 只返回科室、医生、就诊日期/时间、地点、序号和规范化状态；`appointmentInfoId`、患者身份字段、电话、挂号费、支付状态、HIS 挂号号和 provider 原始字段全部丢弃；
 - Provider 包络必须带有已确认的成功事实：新链路接受 `success=true`（可配 `code=0`），旧预约记录链路接受 `code=0000`；HTTP 200、存在 `data` 或返回空数组都不能单独代表成功。业务失败空列表必须转换为 Provider 错误，不能让小程序误显示“暂无预约”；
+- 预约包络的失败分类也必须保持类型安全：`success=false`，或在没有 `success` 字段时返回标量非成功业务 `code`，才可标记为 `provider-request-rejected`；如果 `success` 字段存在但不是布尔值，即使同时带有非成功 `code`，也必须标记为 `provider-response-invalid`。当前没有完整 Provider 错误码表，因此未知码只能保留为低敏错误事实，不能据此新增重试、自动换人或任何写入行为；
 - adapter 完成第一道白名单映射后，预约 service 仍会对可注入网关结果做第二次运行时校验，并重新投影公共字段；非法日期、未知状态、非法展示文本或夹带的 Provider 字段不会进入 API，读模型异常返回 `502/provider-response-invalid`，不降级为空列表；
 - 线上只读审计发现患者目录返回的 `thirdPatientId` 直接用于该接口时会得到 `smcAppointment@1301 / 患者信息不存在`；预约历史不能沿用患者目录的单一 provider id，必须先确认预约专用 `pat-id` 来源并建立独立映射；
 - 旧项目的预约写入/取消请求仍未作为新 contract 依据，因为它们把 provider 患者号、完整身份信息、挂号费、结算方式和支付状态混在小程序 payload 中，且缺少当前 provider 的金额单位、幂等和状态回写证据；

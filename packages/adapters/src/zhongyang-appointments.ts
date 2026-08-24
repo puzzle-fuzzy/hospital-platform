@@ -174,7 +174,13 @@ function hasSuccessfulBusinessEnvelope(envelope: ProviderObject): boolean {
  * 和真实业务拒绝混在一起，否则前端会给出错误的重试/提示语义。
  */
 function hasExplicitBusinessFailure(envelope: ProviderObject): boolean {
-	if (envelope.success === false) return true;
+	const hasSuccess = Object.hasOwn(envelope, "success");
+	const success = envelope.success;
+	// Provider 一旦返回 success 字段，它必须是布尔值。即使同时带有
+	// 非成功 code，`success: "false"` 仍然是包络格式错误，不能把错误的
+	// 类型当成明确业务拒绝，否则页面会收到错误的“外部服务拒绝”提示。
+	if (hasSuccess && success !== false && success !== true) return false;
+	if (success === false) return true;
 	if (!Object.hasOwn(envelope, "code")) return false;
 	const code = envelope.code;
 	if (typeof code !== "string" && typeof code !== "number") return false;

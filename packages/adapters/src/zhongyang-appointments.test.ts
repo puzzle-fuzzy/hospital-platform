@@ -315,6 +315,36 @@ test("众阳预约记录拒绝 HTTP 200 下的业务失败空列表", async () =
 	});
 });
 
+test("众阳预约记录不会把错误类型的 success 字段误判为业务拒绝", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: "false",
+					code: "5000",
+					data: [],
+				}),
+				{ status: 200, headers: { "x-request-id": "record-invalid-success" } },
+			),
+	});
+
+	await expect(
+		gateway.listRecords(
+			{
+				providerPatientId: "provider-patient-001",
+				query: { startDate: "2026-08-20", endDate: "2026-08-21" },
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-records",
+		requestId: "record-invalid-success",
+		responseInvalid: true,
+	});
+});
+
 test("众阳预约记录接受已确认的旧 code=0000 空结果", async () => {
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",
