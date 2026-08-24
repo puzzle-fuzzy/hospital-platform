@@ -20,7 +20,7 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 来源提交 | `ae5ab202`（完整 revision 由构建包写入） |
+| 来源提交 | `8963e777`（完整 revision 由构建包写入） |
 | 页面入口 | 16 个页面脚本完整 |
 | TabBar 模式 | `custom=false`、`position=bottom`，由微信原生 `tabBar` 渲染 |
 | Tab 数量 | 4 项：医疗服务、就诊、互联网医院、我的 |
@@ -47,7 +47,7 @@ Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
 控制台应出现：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=ae5ab202435f2f484b64fb0b3f5ef48f1ed2912c
+[医院小程序] 运行包来源：微信原生 tabBar；revision=8963e7777dde3b618b063c61909e84768ea45e90
 ```
 
 随后依次点击四个主 Tab，必须确认：
