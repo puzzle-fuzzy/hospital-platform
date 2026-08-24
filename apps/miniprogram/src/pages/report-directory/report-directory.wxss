@@ -76,6 +76,52 @@ page {
 	white-space: nowrap;
 }
 
+/* 加载期间保留患者条带的版面高度，但不让占位块成为可交互的选择入口。 */
+.patient-strip-loading {
+	min-height: 92rpx;
+}
+
+.patient-strip-loading-icon {
+	box-sizing: border-box;
+	flex: 0 0 56rpx;
+	width: 56rpx;
+	height: 56rpx;
+	border: 6rpx solid #dbe5ff;
+	border-top-color: #85aeff;
+	border-radius: 50%;
+	animation: report-directory-patient-loading 900ms linear infinite;
+}
+
+.patient-strip-loading-copy {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	margin-left: 18rpx;
+	flex-direction: column;
+}
+
+.patient-strip-loading-line {
+	height: 20rpx;
+	border-radius: 10rpx;
+	background: #e8eefc;
+}
+
+.patient-strip-loading-line-name {
+	width: 180rpx;
+}
+
+.patient-strip-loading-line-card {
+	margin-top: 10rpx;
+	width: 240rpx;
+	height: 14rpx;
+}
+
+@keyframes report-directory-patient-loading {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 .notice {
 	margin-top: 20rpx;
 	padding: 20rpx;

@@ -2193,6 +2193,24 @@ test("native report detail actions reject stale directory events", async () => {
 	expect(detail).not.toContain("items || []");
 });
 
+test("native report directory reserves the patient strip during loading", async () => {
+	const template = await source("pages/report-directory/report-directory.wxml");
+	const style = await source("pages/report-directory/report-directory.wxss");
+
+	// 报告页的患者上下文要等报告目录读模型确认后才能提交；加载期间必须
+	// 预留同等高度，但占位块不能绑定更换患者事件或误导成选择模块。
+	expect(template).toContain(
+		'class="patient-strip patient-strip-loading" aria-hidden="true"',
+	);
+	expect(template).toContain('wx:elif="{{loading}}"');
+	expect(template).not.toContain(
+		'class="patient-strip patient-strip-loading" bindtap="onChangePatient"',
+	);
+	expect(style).toContain(".patient-strip-loading {");
+	expect(style).toContain("min-height: 92rpx;");
+	expect(style).toContain(".patient-strip-loading-icon {");
+});
+
 test("native report detail errors clear the previous clinical read model", async () => {
 	const detail = await source("pages/report-detail/report-detail.ts");
 	const showErrorStart = detail.indexOf("showError(error: unknown): void");

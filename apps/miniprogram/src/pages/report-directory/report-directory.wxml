@@ -9,6 +9,18 @@
 		</view>
 		<text class="patient-change">更换就诊人</text>
 	</view>
+	<!--
+		报告查询要先完成 owner、患者和报告目录三段读取，加载期间 selectedPatient
+		必然暂时为空。这里保留与真实患者条带相同的高度，但不提供点击入口，
+		避免报告目录成功后突然插入患者卡片，把下面的提示和状态卡整体推移。
+	-->
+	<view wx:elif="{{loading}}" class="patient-strip patient-strip-loading" aria-hidden="true">
+		<view class="patient-strip-loading-icon"></view>
+		<view class="patient-strip-loading-copy">
+			<view class="patient-strip-loading-line patient-strip-loading-line-name"></view>
+			<view class="patient-strip-loading-line patient-strip-loading-line-card"></view>
+		</view>
+	</view>
 
 	<view class="notice">仅展示已接入的检验、影像和心电报告摘要；详情需由服务端生成安全引用后开放。</view>
 
