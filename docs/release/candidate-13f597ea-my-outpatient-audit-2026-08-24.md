@@ -46,13 +46,26 @@
 本轮又补充了 API 集成回归：在线范围请求继续携带日期窗口；`scope=all` 只携带完整历史范围，路由不会接受客户端的
 `requestChannel`，也不会把在线日期窗口误带入全部历史查询。该回归只使用内存 Provider，不代表线上候选已经切换。
 
-## 四、下一步
+## 四、最新完整门禁复核
+
+本轮在当前工作树重新执行了完整类型、测试和构建检查：
+
+| 检查项 | 结果 | 说明 |
+| --- | --- | --- |
+| `pnpm typecheck` | 9/9 workspace 通过 | 类型检查无失败 |
+| `pnpm build` | 9/9 workspace 通过 | 小程序运行包 14 个页面齐全，来源为当前构建提交 `13f597e` |
+| `pnpm test` | API 210 pass / 1 fail | 唯一失败是 `P0 acceptance documents share the current release baseline`，由未部署候选保护主动阻断；业务测试本身无新增失败 |
+| `pnpm release:baseline:audit` | 按预期未通过 | 仅报告预约运行时代码相对线上 `6db3217b` 尚未部署，不得把本地候选当成线上事实 |
+
+该失败不能通过修改测试或把线上 release 文档改成候选版本来消除；只有完成受控切换并重新取得新旧服务共存证据后，发布基线才应恢复通过。
+
+## 五、下一步
 
 1. 继续在本地完成已开放只读页面的逻辑审计和测试，不扩大到支付、医保、病历、患者绑定、二维码或 HIS 写回；当前预约范围 HTTP 集成边界已锁定。
 2. 若要让 `13f597ea` 进入线上，先由服务器管理员恢复窄权限 sudoers 或人工执行仅针对新 API 的切换；切换前后必须再次核对旧 Python `8001`。
 3. 候选真正切换后，重新生成正确小程序运行包并取同一版本的手机页面、客户端 requestId、服务端 Pino 三层证据；旧 release 或历史二维码不能替代当前证据。
 
-## 五、相关代码与文档
+## 六、相关代码与文档
 
 - 预约历史范围：`apps/api/src/modules/appointments/`、`packages/adapters/src/zhongyang-appointments.ts`、`apps/miniprogram/src/pages/appointment-records/`。
 - 我的页面：`apps/miniprogram/src/pages/my/`。
