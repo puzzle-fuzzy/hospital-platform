@@ -38,8 +38,8 @@ function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
  *
  * 当前四个主 Tab 主要由微信共享底栏直接触发；保留这个小函数是为了
  * 约束快捷入口、登录恢复或深链回跳。只要目标是主 Tab，就必须走
- * `switchTab`，绝不能退化成普通页面导航；底栏的激活图标由共享
- * `custom-tab-bar` 根据当前路由统一推导。
+ * `switchTab`，绝不能退化成普通页面导航；底栏的激活图标由微信原生
+ * `tabBar.list[].selectedIconPath` 根据当前路由统一维护。
  */
 export function switchToPrimaryTab(url: string): boolean {
 	if (!isPrimaryTabPagePath(url)) return false;

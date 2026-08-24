@@ -29,12 +29,13 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 替换或页面重新编译时制造短暂的底部导航闪动，不能作为真机 Tab 共享行为验收依据。
 修改源码后先执行构建，再在开发者工具中执行一次普通编译。
 
-四个主入口使用微信官方 `custom-tab-bar` 共享组件，因此底部导航只存在于
-`src/custom-tab-bar/`，不属于首页或“我的”页面的 WXML；页面不能再复制一份自绘底栏。
-共享组件在初始化时直接按当前 route 计算选中项，并且只有选中项发生变化时才 `setData`，
-避免页面切换先闪出首页激活图标再纠正。业务代码若需要程序化打开主 Tab，必须调用
-`src/services/patient-navigation.ts` 的 `switchToPrimaryTab`（内部使用 `wx.switchTab`），
-普通业务页才使用 `wx.navigateTo`。这样四个主页面共用同一组件，激活图标和固定高度由一处维护。
+四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在
+`src/app.json` 的 `tabBar.list` 中；页面 WXML 不得复制一份自绘底栏。原生 tabBar
+由微信统一持有页面生命周期和选中态，避免自定义组件在真机切换时闪动或丢失激活图标。
+业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的
+`switchToPrimaryTab`（内部使用 `wx.switchTab`），普通业务页才使用 `wx.navigateTo`。
+主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`，底栏由微信固定在窗口底部，
+页面不再为自定义底栏额外增加底部占位。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的

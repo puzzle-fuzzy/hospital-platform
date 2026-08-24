@@ -20,11 +20,6 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
-	// 四个主 Tab 共用的底栏由微信 custom-tab-bar 管理，不能只依赖开发者
-	// 工具的隐式扫描；显式列入运行包门禁，避免真机拿到没有底栏的半包。
-	"custom-tab-bar/index.json",
-	"custom-tab-bar/index.wxml",
-	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -76,8 +71,6 @@ const requiredStaticFiles = [
 ];
 const requiredTypeScriptFiles = [
 	"app.ts",
-	"constants/legacy-tabbar.ts",
-	"custom-tab-bar/index.ts",
 	"data/department-location.ts",
 	"services/api-client.ts",
 	"services/dashboard-service.ts",
@@ -175,7 +168,10 @@ if (
 
 const appConfig = JSON.parse(
 	await Bun.file(join(source, "app.json")).text(),
-) as { pages?: unknown };
+) as {
+	pages?: unknown;
+	tabBar?: { custom?: unknown; position?: unknown; list?: unknown };
+};
 if (
 	!Array.isArray(appConfig.pages) ||
 	appConfig.pages.length === 0 ||
@@ -189,6 +185,22 @@ if (
 ) {
 	throw new Error(
 		"Mini program app.json pages must be non-empty, relative paths without parent traversal",
+	);
+}
+
+/**
+ * 四个主入口必须使用微信原生 tabBar。自定义 tabBar 会把激活态和底栏
+ * 生命周期交给页面组件，真机切换时容易出现重复实例或首帧闪动；原生
+ * tabBar 才是微信负责维护的共享导航。这里在构建阶段阻断回退到 custom=true。
+ */
+if (appConfig.tabBar?.custom === true) {
+	throw new Error(
+		"Mini program primary tabs must use the native tabBar; custom=true is not allowed",
+	);
+}
+if (appConfig.tabBar?.position !== "bottom") {
+	throw new Error(
+		"Mini program native tabBar must explicitly use position=bottom",
 	);
 }
 
