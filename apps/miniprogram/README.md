@@ -39,6 +39,7 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 
 ```powershell
 Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
+& 'D:\software\微信web开发者工具\cli.bat' cache --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --clean compile --port 25799
 & 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
 & 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
 ```

@@ -9,6 +9,7 @@
 ## 本轮实际动作
 
 - 重置 `apps/miniprogram/` 对应的微信开发者工具文件缓存；
+- 清理当前工程的编译缓存，防止旧的 Tab 页面图继续参与普通编译；
 - 关闭并重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 根工程；
 - 复核开发者工具日志时发现，之前 CLI 从 monorepo 根目录启动，工具同时保留了
   `E:\__Super_Core__\hospital-platform` 根目录 watcher；该 watcher 曾把 `src/`、`.turbo/`
@@ -54,6 +55,7 @@ PowerShell 重开时固定从小程序目录执行：
 ```powershell
 Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
 & 'D:\software\微信web开发者工具\cli.bat' quit --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' cache --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --clean compile --port 25799
 & 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
 & 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
 ```
