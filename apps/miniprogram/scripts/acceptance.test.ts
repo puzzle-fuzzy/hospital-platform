@@ -684,12 +684,13 @@ test("native profile loading errors expose an explicit canonical reload", async 
 
 	// GET 失败后没有可信的 version 和会话代际；页面必须提供重新读取入口，
 	// 不能把错误直接落入可编辑表单，也不能要求用户只能使用下拉刷新。
-	expect(template).toContain('wx:if="{{loading || error || !loaded}}"');
+	// 保存阶段的暂时失败仍保留 loaded=true，因此 error 本身不能成为隐藏表单的条件。
+	expect(template).toContain('wx:if="{{loading || !loaded}}"');
 	expect(template).toContain(
 		'class="state-card query-state-shell query-state-shell-column"',
 	);
 	expect(template.indexOf(errorBranch)).toBeGreaterThan(
-		template.indexOf('wx:if="{{loading || error || !loaded}}"'),
+		template.indexOf('wx:if="{{loading || !loaded}}"'),
 	);
 	expect(template.indexOf(errorBranch)).toBeLessThan(
 		template.indexOf(formBranch),
@@ -1287,6 +1288,12 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).not.toContain("idCard");
 	expect(profile).not.toContain("avatar");
 	expect(profileTemplate).toContain("头像、手机号、真实姓名和身份证");
+	// 暂时保存失败会保留已确认的 canonical 资料；不能让一个 error 字符串
+	// 把表单隐藏，导致页面状态与 profile.ts 的安全重试语义相互矛盾。
+	expect(profileTemplate).toContain('wx:if="{{loading || !loaded}}"');
+	expect(profileTemplate).not.toContain(
+		'wx:if="{{loading || error || !loaded}}"',
+	);
 	expect(profileTemplate).toContain(
 		'disabled="{{saving || loading || navigationPending}}"',
 	);

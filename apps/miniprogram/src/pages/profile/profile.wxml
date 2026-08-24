@@ -2,13 +2,15 @@
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
 	<!--
-		资料读取失败不是“没有资料”，也不能让用户只能依赖下拉刷新。
-		错误态独立于编辑表单：此时没有可信的 version 和会话代际，必须先
-		重新取得服务端 canonical 快照，不能显示保存按钮或提交旧资料。
-		同一状态外壳还负责稳定 loading/error 之间的页面高度。
+		只有 loading 或没有可信 canonical 快照时才隐藏编辑表单。
+		资料读取失败通常会把 loaded 置为 false，必须先重新取得服务端
+		version 和会话代际；但保存阶段的暂时网络错误会保留最近一次已确认
+		快照，顶部 error-message 负责提示，表单仍然可见并可按 version 安全重试。
+		不能因为 error 字符串存在就把两种业务状态混成“没有资料”。
+		同一状态外壳还负责稳定 loading/未加载之间的页面高度。
 	-->
 	<view
-		wx:if="{{loading || error || !loaded}}"
+		wx:if="{{loading || !loaded}}"
 		class="state-card query-state-shell query-state-shell-column"
 	>
 		<block wx:if="{{loading}}">
