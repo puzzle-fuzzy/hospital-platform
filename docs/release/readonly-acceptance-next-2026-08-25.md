@@ -1,6 +1,6 @@
 # 当前候选只读业务验收手册（2026-08-25）
 
-> 当前本地小程序运行候选：`ad7b079`。开发者工具必须直接打开
+> 当前本地小程序运行候选：`0b1df915`。开发者工具必须直接打开
 > `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist\`，不能打开父目录、`src/` 或历史
 > `mp-weixin` 工程。运行包已经通过 `runtime:verify`，四个主 Tab 使用同一个原生 `tabBar`，
 > `custom=false`；本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。

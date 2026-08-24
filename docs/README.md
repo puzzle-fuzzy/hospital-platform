@@ -3,7 +3,7 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-25）：`dist/build-info.json.sourceRevision=45742ff4450b223b8db3b36e4a3859e3fc86e1c5`，16 个页面脚本
+> 当前本地候选（2026-08-25）：`dist/build-info.json.sourceRevision=0b1df915a0051cd84c52bcdb2cc679cec1ab0664`，16 个页面脚本
 > 完整，`runtime:verify` 已通过。微信开发者工具历史中曾同时保留父目录和 `src/` 入口；当前只能打开
 > `apps/miniprogram/dist/`，本次已清理新项目的编译/file-utils 缓存并关闭两个错误入口。详见
 > [`release/current-tabbar-runtime-recheck-2026-08-25.md`](release/current-tabbar-runtime-recheck-2026-08-25.md)。
