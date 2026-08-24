@@ -205,6 +205,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前预约与门诊费用不变量审计",
 	},
 	{
+		path: "docs/release/current-report-profile-invariant-audit-2026-08-24.md",
+		label: "当前报告与普通资料不变量审计",
+	},
+	{
 		path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
 		label: "当前只读业务不变量审计",
 	},
