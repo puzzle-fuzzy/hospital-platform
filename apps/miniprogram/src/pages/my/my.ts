@@ -1,4 +1,3 @@
-import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import {
 	ApiError,
 	getCurrentUser,
@@ -38,7 +37,6 @@ type MyPageMethods = {
 	onHeaderTap(): void;
 	onFamilyTap(): void;
 	onAction(event: ActionEvent): void;
-	onTabTap(event: WechatMiniprogram.TouchEvent): void;
 	onRetry(): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
@@ -149,8 +147,6 @@ Page<MyPageData, MyPageMethods>({
 		selectedPatient: null,
 		patientCount: 0,
 		menuSections: MY_MENU_SECTIONS,
-		// 底部导航与首页共用旧端资源，确保切换页面时文案和激活态不漂移。
-		tabBarItems: LEGACY_TAB_BAR_ITEMS,
 		loading: true,
 		error: "",
 	},
@@ -414,16 +410,6 @@ Page<MyPageData, MyPageMethods>({
 			default:
 				wx.showToast({ title: "该服务正在迁移中", icon: "none" });
 		}
-	},
-
-	onTabTap(event): void {
-		const index = Number(event.currentTarget?.dataset?.index);
-		if (index === 0) {
-			wx.reLaunch({ url: "/pages/index/index" });
-			return;
-		}
-		if (index === 3) return;
-		wx.showToast({ title: "该页面正在迁移中", icon: "none" });
 	},
 
 	onPullDownRefresh(): void {

@@ -1,4 +1,3 @@
-import { LEGACY_TAB_BAR_ITEMS } from "../../constants/legacy-tabbar";
 import { ApiError } from "../../services/api-client";
 import {
 	loadHealth,
@@ -187,7 +186,6 @@ type IndexPageMethods = {
 	onPatientQr(): void;
 	onTopAction(event: ActionEvent): void;
 	onRightAction(event: ActionEvent): void;
-	onTabBarAction(event: IndexEvent): void;
 	onFloatingGuide(): void;
 	executeQuickAction(action?: string): void;
 	onServiceTabChange(event: IndexEvent): void;
@@ -238,7 +236,6 @@ Page<IndexPageData, IndexPageMethods>({
 		topTabList: TOP_TAB_LIST,
 		bannerList: BANNER_LIST,
 		rightList: RIGHT_LIST,
-		tabBarItems: LEGACY_TAB_BAR_ITEMS,
 		serviceTabs: SERVICE_TABS,
 		activeServiceTab: 0,
 		// 单独维护当前分组，避免 WXML 依赖嵌套数组下标表达式，提升真机兼容性。
@@ -523,16 +520,6 @@ Page<IndexPageData, IndexPageMethods>({
 
 	onRightAction(event: ActionEvent): void {
 		this.executeQuickAction(event.currentTarget?.dataset?.action);
-	},
-
-	onTabBarAction(event: IndexEvent): void {
-		const index = Number(event.currentTarget?.dataset?.index);
-		if (index === 0) return;
-		if (index === 3) {
-			wx.navigateTo({ url: "/pages/my/my" });
-			return;
-		}
-		wx.showToast({ title: "该页面正在迁移中", icon: "none" });
 	},
 
 	onFloatingGuide() {

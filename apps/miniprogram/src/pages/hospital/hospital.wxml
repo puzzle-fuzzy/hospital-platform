@@ -1,0 +1,17 @@
+<view class="page">
+	<view class="hero-card">
+		<view class="hero-title">互联网医院</view>
+		<view class="hero-copy">线上问诊、医生服务和互联网医院能力将在独立域名及授权 contract 完成后接入。</view>
+	</view>
+
+	<!--
+		旧端此处会打开外部 web-view。新端不能因为入口名称相同就直接复用
+		未完成域名、登录态和回跳验收的外部地址；先把主 Tab 结构做正确，
+		能力开放留给后续具备 contract、域名和真机证据的独立任务。
+	-->
+	<view class="state-card query-state-shell query-state-shell-column">
+		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+		<text>互联网医院服务正在迁移中</text>
+		<text class="state-hint">当前不会打开未经验收的外部页面</text>
+	</view>
+</view>

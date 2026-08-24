@@ -171,6 +171,7 @@ export type BannerItem = {
 export type TabBarItem = {
 	activeIcon: string;
 	icon: string;
+	route: string;
 	text: string;
 };
 
@@ -184,7 +185,6 @@ export type IndexPageData = {
 	topTabList: ReadonlyArray<TopTabItem>;
 	bannerList: ReadonlyArray<BannerItem>;
 	rightList: ReadonlyArray<BannerItem>;
-	tabBarItems: ReadonlyArray<TabBarItem>;
 	serviceTabs: ReadonlyArray<ServiceTab>;
 	activeServiceTab: number;
 	activeServiceItems: ReadonlyArray<ServiceItem>;
@@ -371,8 +371,6 @@ export type MyPageData = {
 	selectedPatient: Patient | null;
 	patientCount: number;
 	menuSections: ReadonlyArray<MyMenuSection>;
-	/** 底部四 Tab 与首页共用同一组旧端图标和文案。 */
-	tabBarItems: ReadonlyArray<TabBarItem>;
 	loading: boolean;
 	error: string;
 };

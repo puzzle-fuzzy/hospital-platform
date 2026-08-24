@@ -1,0 +1,61 @@
+page {
+	background: #f5f5f5;
+}
+
+.page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 24rpx 20rpx calc(160rpx + env(safe-area-inset-bottom));
+}
+
+.intro-card,
+.state-card {
+	box-sizing: border-box;
+	width: 710rpx;
+	margin-right: auto;
+	margin-left: auto;
+}
+
+.intro-card {
+	padding: 28rpx 30rpx;
+	border-radius: 20rpx;
+	background: #eaeffd;
+	color: #3d6df6;
+}
+
+.intro-title {
+	font-size: 34rpx;
+	font-weight: 700;
+}
+
+.intro-copy {
+	margin-top: 12rpx;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.state-card {
+	display: flex;
+	height: 380rpx;
+	min-height: 380rpx;
+	margin-top: 20rpx;
+	padding: 40rpx 30rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	color: #777777;
+	font-size: 28rpx;
+}
+
+.state-card image {
+	display: block;
+	width: 150rpx;
+	height: 150rpx;
+	margin-bottom: 18rpx;
+}
+
+.state-hint {
+	display: block;
+	margin-top: 12rpx;
+	color: #aaaaaa;
+	font-size: 23rpx;
+}

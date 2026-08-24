@@ -56,22 +56,4 @@
 			</view>
 		</view>
 	</view>
-
-	<!-- 自定义底部栏固定在视口底部，并为安全区预留空间。 -->
-	<view class="legacy-tabbar">
-		<view
-			wx:for="{{tabBarItems}}"
-			wx:key="text"
-			class="legacy-tabbar-item {{index === 3 ? 'legacy-tabbar-item-current' : ''}}"
-			bindtap="onTabTap"
-			data-index="{{index}}"
-		>
-			<image
-				class="legacy-tabbar-icon"
-				src="{{index === 3 ? item.activeIcon : item.icon}}"
-				mode="aspectFit"
-			/>
-			<text>{{item.text}}</text>
-		</view>
-	</view>
 </view>

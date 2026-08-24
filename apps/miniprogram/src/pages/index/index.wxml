@@ -121,21 +121,4 @@
 		bindtap="onFloatingGuide"
 	/>
 
-	<!-- 旧端四 Tab 底栏；用原生 WXML 保持视觉资产一致，未迁移页面不伪造跳转。 -->
-	<view class="legacy-tabbar">
-		<view
-			wx:for="{{tabBarItems}}"
-			wx:key="text"
-			class="legacy-tabbar-item {{index === 0 ? 'legacy-tabbar-item-active' : ''}}"
-			bindtap="onTabBarAction"
-			data-index="{{index}}"
-		>
-			<image
-				class="legacy-tabbar-icon"
-				src="{{index === 0 ? item.activeIcon : item.icon}}"
-				mode="aspectFit"
-			/>
-			<text>{{item.text}}</text>
-		</view>
-	</view>
 </view>

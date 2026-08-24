@@ -1,0 +1,44 @@
+/*
+	底栏的视觉和安全区只在共享组件声明一次。页面不再各自复制 position:fixed
+	和激活态，避免“我的”打开后出现另一套看似相同、实际独立的底栏。
+*/
+.legacy-tabbar {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 20;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-around;
+	box-sizing: border-box;
+	height: calc(130rpx + env(safe-area-inset-bottom));
+	padding-bottom: env(safe-area-inset-bottom);
+	border-top: 1rpx solid #eeeeee;
+	background: #ffffff;
+}
+
+.legacy-tabbar-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	flex: 1 1 0;
+	width: auto;
+	height: 130rpx;
+	gap: 6rpx;
+	color: #2c2c2c;
+	flex-direction: column;
+	font-size: 20rpx;
+	line-height: 1;
+}
+
+.legacy-tabbar-item-active {
+	color: #3d6df6;
+}
+
+.legacy-tabbar-icon {
+	display: block;
+	width: 48rpx;
+	height: 48rpx;
+}

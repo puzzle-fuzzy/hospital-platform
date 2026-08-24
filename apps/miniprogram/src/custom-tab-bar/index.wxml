@@ -1,0 +1,25 @@
+<!--
+	微信 custom-tab-bar 是四个主入口唯一的底栏实例。
+	普通业务页不会渲染这段 WXML；切换主入口必须走 switchTab，避免把
+	“我的”或其它 tab 页面误当成普通 navigateTo 页面继续叠加。
+-->
+<view class="legacy-tabbar" role="tablist">
+	<view
+		wx:for="{{items}}"
+		wx:key="route"
+		class="legacy-tabbar-item {{index === selected ? 'legacy-tabbar-item-active' : ''}}"
+		bindtap="onTabTap"
+		data-index="{{index}}"
+		aria-label="{{item.text}}"
+		aria-current="{{index === selected ? 'page' : false}}"
+		role="tab"
+	>
+		<image
+			class="legacy-tabbar-icon"
+			src="{{index === selected ? item.activeIcon : item.icon}}"
+			mode="aspectFit"
+			aria-hidden="true"
+		/>
+		<text>{{item.text}}</text>
+	</view>
+</view>
