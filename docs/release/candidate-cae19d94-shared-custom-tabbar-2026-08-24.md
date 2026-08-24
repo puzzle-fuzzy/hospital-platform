@@ -1,4 +1,6 @@
-# `cae19d94` 共享 custom-tab-bar 候选记录（2026-08-24）
+# `cae19d94` 共享 custom-tab-bar 候选记录（已被 `fd9b0ca6` supersede）
+
+> 历史候选记录：该方案已因真机仍观察到切换闪动和选中态不稳定而撤回，当前候选恢复为微信原生 `tabBar`，请以 [`candidate-fd9b0ca6-native-tabbar-2026-08-24.md`](candidate-fd9b0ca6-native-tabbar-2026-08-24.md) 为准。本文件保留当时的验证证据，不再作为验收入口。
 
 ## 结论
 

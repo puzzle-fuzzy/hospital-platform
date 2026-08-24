@@ -1,4 +1,4 @@
-# `cae19d94` 本地候选四 Tab 与只读业务验收手册（2026-08-24）
+# `fd9b0ca6` 本地原生 TabBar 与只读业务验收手册（2026-08-24）
 
 > 本手册只用于下一轮本地候选验收，不代表候选已经发布到线上。线上仍使用小程序运行包 `13f597e` 与服务端 release `28a5c0c1`；本地候选必须重新编译、重新生成二维码，不能复用线上或旧开发者工具缓存。
 
@@ -6,16 +6,16 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 页面代码候选 | `cae19d941110b2ba45e65b39d45ef466521c64e1` |
+| 页面代码候选 | `fd9b0ca62d57111f2905be05a16c9b25b1e0ea30` |
 | 运行包目录 | `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` |
-| 运行包来源 | `dist/build-info.json.sourceRevision` 应为 `cae19d941110b2ba45e65b39d45ef466521c64e1` |
+| 运行包来源 | `dist/build-info.json.sourceRevision` 应为 `fd9b0ca62d57111f2905be05a16c9b25b1e0ea30` |
 | 页面入口 | 16 个，四个主 Tab 为医疗服务、就诊、互联网医院、我的 |
 | 服务端配套 | 线上 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，本轮不切换 |
 | 旧服务 | Python `8001`，本轮不修改、不停止、不重启 |
 
-本地候选使用微信官方 `custom=true` 的 `custom-tab-bar` 共享组件统一持有四个主 Tab 和选中态；组件初始状态直接按当前 route 推导，状态不变化时不重复 `setData`，避免切换闪动。四个主 Tab 同时关闭页面级滚动，内容只在各自 `scroll-view` 内滚动。主 Tab 的程序化跳转由 `switchToPrimaryTab` 强制使用 `wx.switchTab`，不会把主入口压入普通页面栈。“就诊”和“互联网医院”虽然已经是正式页面入口，但具体未迁移业务仍显示迁移状态。普通业务页面仍可使用 `navigateTo`，会话失效后的 `reLaunch` 仍是有意的安全回首页行为，不能把这两类导航混为同一问题。
+本地候选使用微信原生 `tabBar` 统一持有四个主 Tab 和选中态；路由、普通图标和选中图标只来自 `app.json.tabBar.list`，不再存在 `custom-tab-bar` 组件或页面级自绘底栏。四个主 Tab 同时关闭页面级滚动，内容只在各自 `scroll-view` 内滚动。主 Tab 的程序化跳转由 `switchToPrimaryTab` 强制使用 `wx.switchTab`，不会把主入口压入普通页面栈。“就诊”和“互联网医院”虽然已经是正式页面入口，但具体未迁移业务仍显示迁移状态。普通业务页面仍可使用 `navigateTo`，会话失效后的 `reLaunch` 仍是有意的安全回首页行为，不能把这两类导航混为同一问题。
 
-四个主 Tab 的页面内容使用独立 `scroll-view`，共享 `custom-tab-bar` 固定在视口底部并为安全区预留空间；真机验收时应看到只有内容区域滚动，底栏不能随页面内容移动。
+四个主 Tab 的页面内容使用独立 `scroll-view`，微信原生 TabBar 固定在视口底部并由系统处理安全区；真机验收时应看到只有内容区域滚动，底栏不能随页面内容移动。
 
 本轮明确不执行：预约下单、取消预约、详情/预问诊、支付、医保授权/结算、退款、患者新增绑定、二维码扫码协议、病历详情/附件、外部 WebView 和 HIS 写回。
 
@@ -37,9 +37,9 @@ pnpm --filter @hospital/miniprogram runtime:verify
 必须确认：
 
 1. `build-info.json.sourceRevision` 与上表一致；
-2. `dist/app.json` 的 `tabBar.custom` 必须为 `true`，`dist/custom-tab-bar/index.js|json|wxml|wxss` 必须存在，四项均有 `iconPath` 和 `selectedIconPath`；
+2. `dist/app.json` 的 `tabBar.custom` 必须为 `false`，`position` 必须为 `bottom`，`dist/custom-tab-bar/` 必须不存在，四项均有 `iconPath` 和 `selectedIconPath`；
 3. `dist/pages/consult/consult.js|json|wxml|wxss` 和 `dist/pages/hospital/hospital.js|json|wxml|wxss` 均存在；
-4. `dist/custom-tab-bar/` 必须作为唯一底栏运行输入存在；`dist/` 不得包含 `*.test.js`、`*.spec.js`；四个主 Tab 的页面配置必须为 `disableScroll:true`；
+4. `dist/` 不得包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`；四个主 Tab 的页面配置必须为 `disableScroll:true`；
 5. 普通编译无页面脚本缺失或 `single-flight.test.js` ENOENT；出现旧测试脚本路径时停止，不向 `dist/` 手工复制文件。
 
 如果开发者工具提示 `dist/app.json` 注册了页面但找不到 `pages/consult/consult.wxml`，先关闭当前小程序窗口和真机调试，再重新执行构建与 `runtime:verify`。不要直接删除 `dist/`：构建脚本会先在项目外 staging 目录完成完整产物，再原子替换，避免开发者工具监听到半套运行包。
