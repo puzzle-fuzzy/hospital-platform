@@ -1,4 +1,4 @@
-# `148ee1d3` 本地候选四 Tab 与只读业务验收手册（2026-08-24）
+# `4d1684c4` 本地候选四 Tab 与只读业务验收手册（2026-08-24）
 
 > 本手册只用于下一轮本地候选验收，不代表候选已经发布到线上。线上仍使用小程序运行包 `13f597e` 与服务端 release `28a5c0c1`；本地候选必须重新编译、重新生成二维码，不能复用线上或旧开发者工具缓存。
 
@@ -6,9 +6,9 @@
 
 | 项目 | 值 |
 | --- | --- |
-| 页面代码候选 | `148ee1d336dd8b0e22a30aeea560510ddc6b35c0` |
+| 页面代码候选 | `4d1684c449228b86674f85fffdd873cde151792e` |
 | 运行包目录 | `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` |
-| 运行包来源 | `dist/build-info.json.sourceRevision` 应为 `148ee1d336dd8b0e22a30aeea560510ddc6b35c0` |
+| 运行包来源 | `dist/build-info.json.sourceRevision` 应为 `4d1684c449228b86674f85fffdd873cde151792e` |
 | 页面入口 | 16 个，四个主 Tab 为医疗服务、就诊、互联网医院、我的 |
 | 服务端配套 | 线上 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，本轮不切换 |
 | 旧服务 | Python `8001`，本轮不修改、不停止、不重启 |
