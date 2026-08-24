@@ -126,6 +126,18 @@ if (
 	);
 }
 
+/** 启动日志中的来源必须与独立 build-info.json 一致，避免真机只显示静态标记。 */
+const runtimeApp = await Bun.file(join(runtime, "app.js")).text();
+if (
+	!runtimeApp.includes(
+		`MINI_PROGRAM_BUILD_REVISION = "${String(buildInfo.sourceRevision)}"`,
+	)
+) {
+	throw new Error(
+		"Mini program app.js build revision does not match dist/build-info.json",
+	);
+}
+
 const expectedSourceRevision = resolveMiniProgramSourceRevision(
 	repositoryRoot,
 	process.env.HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION,

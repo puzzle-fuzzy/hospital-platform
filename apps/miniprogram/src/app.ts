@@ -11,6 +11,14 @@ type AppGlobalData = {
 	sessionStatus: "signed_out" | "signed_in";
 };
 
+/**
+ * 构建脚本会把这个 40 位占位提交号替换为运行包的真实来源。
+ * 真机调试日志因此可以直接区分“当前候选”与开发者工具/手机缓存的旧包，
+ * 不需要把患者、会话或 provider 信息写入日志。
+ */
+const MINI_PROGRAM_BUILD_REVISION =
+	"0000000000000000000000000000000000000000";
+
 /** 原生小程序全局状态只保存平台地址和 opaque 会话，不保存 provider 身份。 */
 App<{ globalData: AppGlobalData }>({
 	globalData: {
@@ -21,6 +29,10 @@ App<{ globalData: AppGlobalData }>({
 	},
 
 	onLaunch() {
+		console.info(
+			"[医院小程序] 运行包来源：原生 TabBar；revision=",
+			MINI_PROGRAM_BUILD_REVISION,
+		);
 		// App 入口不能把本地缓存直接当成已登录事实：缓存可能来自旧版本、
 		// 开发者工具手工写入或异常中断，也没有经过当前服务端的 owner 验证。
 		// token 保留在 storage，由 api-client/session-service 在真正请求前按同一

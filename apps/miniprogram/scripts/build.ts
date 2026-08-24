@@ -524,6 +524,23 @@ try {
 		pageCount: appPagePaths.length,
 		generatedAt: new Date().toISOString(),
 	};
+	/**
+	 * 把来源指纹写入 app.js 的启动日志。占位符和 Git 提交号长度相同，
+	 * 不改变生成脚本的行偏移；真机控制台可据此确认是否运行了本次候选。
+	 */
+	const runtimeAppPath = join(stagingRuntime, "app.js");
+	const runtimeApp = await Bun.file(runtimeAppPath).text();
+	const buildRevisionPlaceholder =
+		"0000000000000000000000000000000000000000";
+	if (!runtimeApp.includes(buildRevisionPlaceholder)) {
+		throw new Error(
+			"Mini program app.js is missing the build revision placeholder",
+		);
+	}
+	await Bun.write(
+		runtimeAppPath,
+		runtimeApp.replaceAll(buildRevisionPlaceholder, buildInfo.sourceRevision),
+	);
 	await Bun.write(
 		join(stagingRuntime, "build-info.json"),
 		`${JSON.stringify(buildInfo, null, 2)}\n`,

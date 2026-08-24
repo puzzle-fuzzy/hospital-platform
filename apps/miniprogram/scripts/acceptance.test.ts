@@ -1532,6 +1532,8 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("runtime must not contain test scripts");
 	expect(build).toContain("build-info.json");
 	expect(build).toContain("sourceRevision");
+	expect(build).toContain("buildRevisionPlaceholder");
+	expect(await source("app.ts")).toContain("MINI_PROGRAM_BUILD_REVISION");
 	// build-info.json 写入 Git 来源指纹；如果 Turbo 复用提交前的缓存产物，
 	// 开发者工具可能打开旧页面。小程序构建因此必须关闭缓存，不能只依赖
 	// 源文件内容命中来推断来源提交已经同步。
