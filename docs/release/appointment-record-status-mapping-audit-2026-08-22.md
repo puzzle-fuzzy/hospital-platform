@@ -5,6 +5,24 @@
 # 预约历史状态映射审计（2026-08-22 18:34 CST）
 > 当前服务端发布基线（2026-08-22 18:55 CST）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`。本记录的代码结论已随当前 API 发布，但真实预约 Provider/真机证据仍待补。
 
+## 当前 13f 候选复核（2026-08-24）
+
+本文下方的 `0e2a366e`、`171a874` 和更早的“当前”描述属于历史审计快照；当前执行以本节和顶部发布提示为准。
+
+| 项目 | 当前结论 |
+| --- | --- |
+| 服务端/小程序来源 | 同源 `13f597ea9ee3f65b9be858117826d948339d904a`，小程序提交 `13f597e` |
+| 在线挂号 | 服务端只接受 `scope=online`，映射 Provider `requestChannel=3`，固定 `isMzFlag=1`、`dateFlag=1` 和日期窗口 |
+| 全部挂号 | 服务端只接受 `scope=all`，映射 Provider `requestChannel=4`，按已确认语义省略日期参数，不复制在线结果 |
+| 患者归属 | 先按当前 owner + 内部 `patientId` 解析 `his-patient` 映射，再在 adapter 请求帧内使用 Provider 患者号 |
+| 状态 | `0/1/3/4/5/6/7` 分别映射为 scheduled/cancelled/completed/missed/stopped/substituted/registered，未知值保留 `unknown` |
+| 写入能力 | 预约写入、锁号、取消、详情、预问诊、支付、医保和 HIS 回写继续关闭 |
+| 当前线上真机证据 | 13f 启动后的日志没有可接收的微信登录、患者或预约成功事件；历史 release 证据不计入当前候选 |
+
+本轮定向回归：众阳预约 adapter `16 pass / 0 fail / 34 expect()`；API appointment service
+`25 pass / 0 fail / 100 expect()`；domain `4 pass / 0 fail / 10 expect()`；小程序当前选定验收集
+`222 pass / 0 fail / 1643 expect()`。代码—旧端参数—页面状态边界一致，没有发现需要在缺少新 Provider 样例时贸然修改的逻辑缺口。
+
 > 本记录只审计“我的挂号/爽约记录”的只读状态语义，不打开预约写入、取消、预问诊、
 > 支付、医保或 HIS 回写。旧项目只读对照，不做任何修改。
 
