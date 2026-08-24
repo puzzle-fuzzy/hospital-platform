@@ -97,3 +97,4 @@ Get-Content apps/miniprogram/dist/build-info.json -Encoding utf8
 
 下一步必须在最新二维码对应的真机连接中手动点击“新增就诊人/更换就诊人”，按第 4 节采集同一时间窗口的页面、客户端 HTTP 和服务端日志三层证据；
 小程序运行包上传前不替换开发者工具运行根目录，也不修改旧 Python 服务、数据库或 Redis。服务端 `c8eef370` 已按独立 release 完成切换。
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。

@@ -1,13 +1,13 @@
 # 当前报告与普通资料不变量审计（2026-08-24）
 
-> 当前服务端 release：`28a5c0c131794ce9dcc5f94bd3809402188ac87a`；当前小程序运行包来源：
+> 当前服务端 release：`8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序运行包来源：
 > `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本记录审计代码、持久化边界和运行配置，
 > 不把本地回归或 readiness 当作 Provider/真机业务完成。
 
-> 本轮补充（2026-08-24，本地审计）：当前工作树提交为 `d450c56c`（普通资料日志边界修正），
-> 小程序本地 `dist/build-info.json.sourceRevision` 为 `4ea15b8cdfe285c62f4fb37c7432a2229f8d30c8`；
+> 本轮补充（2026-08-24，本地审计）：普通资料日志边界代码修正提交为 `d450c56c`，服务端已于 19:54 CST 切换到 `8eb51b5f`，
+> 小程序本地 `dist/build-info.json.sourceRevision` 为 `4e8f6877edd045333400c9bb506c7bbaf146eac2`；
 > 该运行包仍未替换线上 `13f597e`。报告配置、众阳报告 adapter、报告 service 和 Provider smoke
-> 专项回归共 `74 pass / 0 fail / 265 expect()`；API 全量回归为 `211 pass / 0 fail / 882 expect()`。
+> 专项回归共 `74 pass / 0 fail / 265 expect()`；小程序全量回归为 `235 pass / 0 fail / 1888 expect()`。
 > 这只证明当前代码与关闭态 contract 一致，
 > 不产生真实 Provider、微信真机或线上日志三层证据。
 
@@ -82,7 +82,7 @@ LIS 目录项的详情引用由 `ownerUserId + patientId + providerReportId` 生
 | --- | --- |
 | 新 API | `active` |
 | Worker | `inactive`，当前报告/资料只读验收不依赖 Worker |
-| 当前 release | `28a5c0c131794ce9dcc5f94bd3809402188ac87a` |
+| 当前 release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
 | 新 API 监听 | `10.0.0.3:18081` |
 | 旧 Python 监听 | `0.0.0.0:8001`，保持共存 |
 | readiness | `database=ok`、`redis=ok`、`schema=ok` |
@@ -90,6 +90,22 @@ LIS 目录项的详情引用由 `ownerUserId + patientId + providerReportId` 生
 | 报告详情 gate | `false` |
 
 本次只读检查没有重启、上传、切换 release、写 MySQL/Redis、修改反向代理或修改旧 Python 服务。
+
+## 当前线上普通资料只读关联观察
+
+2026-08-24 18:45–19:31 CST 通过 SSH 中转机对新 API 做了只读日志核对，未执行资料写入、数据库操作、服务重启或 release 切换：
+
+| requestId/traceId | HTTP 结果 | 业务链 | 持久化事实 |
+| --- | --- | --- | --- |
+| `mp-mt740y8k-te4m85n9` | `GET /api/v1/me/profile`，`200` | `requested → loaded` | `persisted=false` |
+| `mp-mt75ftwv-nfph6efg` | `GET /api/v1/me/profile`，`200` | `requested → loaded` | `persisted=false` |
+| `mp-mt75ooqi-0y9ozak9` | `GET /api/v1/me/profile`，`200` | `requested → loaded` | `persisted=false` |
+
+同一日志链同时确认 `hospital-platform-api-v2.service` 为 `active`，旧 Python 服务仍为 `active`，新 API
+监听 `10.0.0.3:18081`，旧服务监听 `0.0.0.0:8001`，当前 release 为
+`8eb51b5ffe85b0b8f8a032783f893117d3df549d`。本次窗口没有 `user.profile.updated`、`user.profile.conflict`
+或真实 `PUT` 事件，因此只能把普通资料 GET 标记为“线上只读链路已观察”，首次写入、版本冲突和真机页面
+仍保持 pending；`persisted=false` 表示该 owner 当前没有资料行，不表示写入失败。
 
 ## 回归证据
 
@@ -129,3 +145,4 @@ bun test packages/config/src/index.test.ts packages/adapters/src/zhongyang-repor
 
 本轮没有修改旧项目、旧 Python 服务、线上数据库、Redis 或并行会话维护的众阳文档自动化，也保留了用户未提交的
 `apps/miniprogram/project.config.json`。
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。

@@ -54,3 +54,4 @@ pnpm --filter @hospital/miniprogram runtime:verify
 需要在当前 `apps/miniprogram/` 项目普通编译后，用同一微信会话分别观察：正常资料读取、Redis 暂时不可用、资料读模型失效、会话过期，以及资料保存期间会话代际变化。每条都要同时保存页面结果、客户端 `requestId` 和服务端低敏日志；在此之前只能标记为代码和本地测试完成，不能标记为生产业务完成。
 
 本次没有修改旧 Python 服务、旧域名、旧 MySQL、旧 Redis 或并行会话维护的众阳自动化代码。
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。

@@ -106,3 +106,4 @@ ENOENT .../apps/miniprogram/dist/services/single-flight.test.js
 5. 二维码载荷、签名、有效期、受众和防重放规则的医院确认。
 
 后续仍按“真实微信会话 → 患者显式选择 → 预约历史/爽约 → 门诊费用只读 → 普通资料 → 报告 contract → 支付医保最后专项”推进。任一环节出现患者归属、状态、日期、金额或 trace 不一致，立即停止该业务域并回到 contract 审计。
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。

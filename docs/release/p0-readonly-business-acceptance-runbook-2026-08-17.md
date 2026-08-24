@@ -293,3 +293,4 @@ Redis 连通性或 HTTP 登录成功误认为 TTL 证据。
 2. Redis 实际 TTL 尚未保存为本 release 的直接证据；`expiresInSeconds` 不能替代远端 Redis TTL 聚合。
 3. 多患者切换、inactive/恢复和跨页面患者上下文尚未取得真实 Provider 事实。
 4. Provider 新版文档尚未收到；医疗病历、费用明细/电子票据、患者新增绑定、动态院区路由、二维码、住院、输血和其他高风险写入继续保持待合同状态。
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。

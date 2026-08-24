@@ -386,3 +386,4 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `apps/miniprogram/scripts/build.ts` | 编译 TypeScript 页面、复制静态资源并验证真实 `.js` 页面文件 |
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。

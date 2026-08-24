@@ -70,3 +70,4 @@
 
 本轮没有 SSH 写入、部署、重启或修改旧 Python 服务，也没有触碰并行会话维护的众阳自动化代码和用户未
 提交的 `apps/miniprogram/project.config.json`。
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。

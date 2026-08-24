@@ -100,3 +100,4 @@ Provider 数字状态只在 `packages/adapters/src/zhongyang-appointments.ts` �
 确认；当前剩余的是一次真实小程序点击“全部挂号”的四方链路证据：页面结果、客户端
 `requestId`、服务端日志和 Provider `requestId` 必须能互相对应。预约详情、取消、预问诊、
 预约写入、支付、医保和 HIS 回写仍保持关闭，不能因为只读历史查询成功而顺带开放。
+> 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。
