@@ -33,11 +33,11 @@
 > readiness 返回 `200` 且 database/redis/schema 均为 `ok`；完整切换证据见
 > [`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。
 
-> 当前本地未发布小程序候选的页面代码基线为 `ff931d7cbbc50e18649a38e14cd93f389d7487e3`（提交 `ff931d7c`）。
-> 本轮将四个主入口收口到共享 `custom-tab-bar`，由 `wx.switchTab` 切换；构建产物位于 `apps/miniprogram/dist/`。
-> 构建记录见 [`release/candidate-ff931d7c-miniprogram-build-2026-08-24.md`](release/candidate-ff931d7c-miniprogram-build-2026-08-24.md)。不得把它当作线上 `13f597e` 运行包，也不得用它生成的本地结果替代真机三层业务证据。
+> 当前本地未发布小程序候选的页面代码基线为 `916d2a83be959e924a17172266b90a5d29971a36`（提交 `916d2a83`）。
+> 本轮修复四个主入口的共享内容滚动视口，并继续由 `wx.switchTab` 切换；构建产物位于 `apps/miniprogram/dist/`。
+> 上一次成功构建记录见 [`release/candidate-ff931d7c-miniprogram-build-2026-08-24.md`](release/candidate-ff931d7c-miniprogram-build-2026-08-24.md)，当前候选需关闭开发者工具后重新构建。不得把任何本地候选当作线上 `13f597e` 运行包，也不得用本地结果替代真机三层业务证据。
 
-> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册只覆盖共享主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
+> 本地候选下一步执行入口：[`release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md`](release/ff931d7c-real-device-business-acceptance-runbook-2026-08-24.md)。该手册当前绑定 `916d2a83`，只覆盖共享主导航和已经具备只读 contract 的患者/预约/费用/普通资料验收，不打开支付、医保、患者绑定或 HIS 写回。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
 > [`release/appointment-records-visual-state-shell-2026-08-24.md`](release/appointment-records-visual-state-shell-2026-08-24.md)。
 

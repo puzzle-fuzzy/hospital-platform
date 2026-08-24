@@ -20,7 +20,7 @@
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
-本地尚未发布的页面候选代码为 `ff931d7cbbc50e18649a38e14cd93f389d7487e3`；它只用于本地回归和后续真机验收准备，不能与线上 `13f597e` 的运行包证据混写。构建记录见 [`release/candidate-ff931d7c-miniprogram-build-2026-08-24.md`](release/candidate-ff931d7c-miniprogram-build-2026-08-24.md)。
+本地尚未发布的页面候选代码为 `916d2a83be959e924a17172266b90a5d29971a36`；它只用于本地回归和后续真机验收准备，不能与线上 `13f597e` 的运行包证据混写。上一次成功构建记录见 [`release/candidate-ff931d7c-miniprogram-build-2026-08-24.md`](release/candidate-ff931d7c-miniprogram-build-2026-08-24.md)，当前候选需关闭开发者工具后重新构建。
 
 2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见
 [`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。
