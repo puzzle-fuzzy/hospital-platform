@@ -14,6 +14,30 @@
 支付、医保授权、医保结算、微信支付、退款和 HIS 写回仍然关闭。本审计没有修改旧 Python 项目、旧服务、
 数据库或 Redis，也没有发起新的业务写入。
 
+## 当前 13f 候选门诊费用复核（2026-08-24）
+
+本节只描述当前候选 `13f597ea9ee3f65b9be858117826d948339d904a` 和小程序提交 `13f597e`，不继承历史运行包的
+Provider 或真机证据。通过 SSH 只读检查新服务的 systemd 环境文件，确认当前线上配置为：
+
+| 项目 | 当前值/结论 |
+| --- | --- |
+| `ZHONGYANG_OUTPATIENT_PAYMENT_READY` | `true` |
+| `OUTPATIENT_PAYMENT_AUTH_SYS_CODE` | `thirdSelfMachine` |
+| 旧端门诊费用查询渠道 | `internetHospital` |
+| 当前 13f Provider 成功链 | 未观察到可接受的 `requested → loaded` 业务证据 |
+| 当前 13f 真机三层证据 | 未提供，不能标记为通过 |
+
+这里存在必须保留的业务阻断：旧端“门诊子费用查询”使用 `internetHospital`，旧端后续支付流程又使用过
+`thirdSelfMachine`。两个值不能仅凭名称或支付代码推断为同一渠道。新端已经把渠道码固定在服务端配置，并且
+没有提供 `internetHospital` 或 `thirdSelfMachine` 的代码默认值；因此本轮没有覆盖线上环境，也没有为了让页面
+显示数据而把支付渠道值套到只读查询上。只有 Provider/医院正式确认“门诊子费用查询”的渠道权限、排序分页、
+状态语义和时间窗口后，才能改写生产配置并执行真实只读验收。
+
+当前代码门禁与回归测试结果如下：adapter `20 pass / 0 fail / 46 expect`，API service `15 pass / 0 fail /
+55 expect`，domain `3 pass / 0 fail / 5 expect`，配置 `8 pass / 0 fail / 45 expect`。测试证明缺少渠道码、
+未知状态、错配状态、越界账单和非法金额都会在 Provider 请求前或公共响应边界 fail-closed；这些测试通过不等于
+当前生产渠道已获授权。
+
 ## 1. 运行包与服务共存基线
 
 | 项目 | 当前事实 |
