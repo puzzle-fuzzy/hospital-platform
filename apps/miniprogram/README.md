@@ -1,5 +1,7 @@
 # Native WeChat Mini Program
 
+> 当前运行包（2026-08-25）：`0a8567b143d16611a02b693e0602b410ab04d108`。四个主入口使用微信官方 `custom-tab-bar` 唯一组件；选中态由点击即时态和当前页面 route 双重校正，不在页面模板内复制底栏。真机验收必须直接打开 `apps/miniprogram/dist/`，详见 [`../../docs/release/current-custom-tabbar-runtime-recheck-2026-08-25.md`](../../docs/release/current-custom-tabbar-runtime-recheck-2026-08-25.md)。
+
 ## Visual baseline
 
 首页和报告详情按旧端页面逐项复刻，而不是重新设计：保留旧端的 710rpx 主宽度、580rpx
@@ -53,23 +55,23 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` 的独立运行工程；父目录是构建工程，
 `src/` 不是可直接编译的微信项目。2026-08-24 的本机
 历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
-选中态消失，改为微信原生 `tabBar` 统一持有底栏，不再依赖页面组件生命周期，也不
-允许页面重复绘制底栏。
+选中态消失，改为微信官方 `custom-tab-bar` 唯一组件统一持有底栏；组件只在点击时更新
+即时选中态，并在目标页面 show 时按当前 route 校正，不允许页面重复绘制底栏。
 当前最新运行输入以
 `dist/build-info.json` 的完整 `sourceRevision` 为准；本轮为避免开发者工具继续命中
-旧的 Tab 图标增量缓存，普通态/选中态资源路径使用独立的 `*-native-v5.png` 文件名，
+旧的 Tab 图标增量缓存，普通态/选中态资源路径使用独立的 `*-native-v6.png` 文件名，
 并额外隔离 `src/`/`scripts/` 源码监听、避免对当前 Tab 重复调用 `switchTab`，以及在会话恢复期间保持患者卡片高度稳定。
 本候选还将四组原生 Tab 普通态/选中态图标固定为微信建议的
 `81×81` PNG；真实手机选中态仍需重新普通编译后复核。若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
 
-四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在
-`src/app.json.tabBar.list` 中，并显式设置 `custom: false`、`position: bottom`；真正的
-视觉底栏由微信运行时统一渲染，页面代码不再创建第二套底栏。
+四个主入口使用微信官方 `custom-tab-bar`，四项路由、图标、选中图标和顺序唯一声明在
+`src/app.json.tabBar.list` 中，并显式设置 `custom: true`、`position: bottom`；真正的
+视觉底栏只由 `src/custom-tab-bar/` 组件渲染，页面代码不再创建第二套底栏。
 这四个页面同时固定为 `src/app.json.pages` 的前四项；这是运行入口的结构约束，
 不是页面展示顺序偏好，避免开发者工具增量编译时把“我的”识别成普通页面。
-页面 WXML 不得复制一份底栏；微信根据当前页面 route 和 `selectedIconPath` 统一维护
-selected，业务侧只允许用 `switchTab`，避免页面生命周期重建造成先显示“医疗服务”再切换到“我的”的闪动。
+页面 WXML 不得复制一份底栏；组件根据当前页面 route 和点击即时态维护 selected，业务侧
+只允许用 `switchTab`，避免页面生命周期重建造成先显示“医疗服务”再切换到“我的”的闪动。
 业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的
 `switchToPrimaryTab`（内部使用 `wx.switchTab`，当前页目标会安全 no-op），普通业务页才使用 `wx.navigateTo`。
 主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；共享底栏由组件固定在窗口底部，

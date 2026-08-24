@@ -3,12 +3,9 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-25）：运行包来源为 `04e238e454091691a5aab2d244b4abea43c61d0a`，本轮保持微信原生共享 `tabBar`，清理旧自定义尺寸字段，并将 8 个导航图标切换为 `*-native-v6.png` 缓存隔离路径；图形内容不变。新预览二维码为 `.local/hospital-miniprogram/tabbar-preview-04e238e.png`，不能用 `a5ff0001` 的旧预览包判断本轮结果。
+> 当前本地候选（2026-08-25）：运行包来源为 `0a8567b143d16611a02b693e0602b410ab04d108`，本轮改用微信官方共享 `custom-tab-bar`，由唯一组件实例维护点击即时选中态和当前 route 校正；四个页面没有第二套页面级底栏。运行包已原子发布到 `apps/miniprogram/dist/`，真机仍需重新普通编译验收。详见 [`release/current-custom-tabbar-runtime-recheck-2026-08-25.md`](release/current-custom-tabbar-runtime-recheck-2026-08-25.md)。
 
-> 当前本地候选（2026-08-25）：`dist/build-info.json.sourceRevision=a5ff0001edf20beab29583e5101ee34bb9ff0c5c`，16 个页面脚本
-> 完整，`runtime:verify` 已通过。四个主入口使用微信原生 `tabBar`，源码已移除自定义底栏组件；当前只能打开
-> `apps/miniprogram/dist/`，本次构建锁定后已安全发布待发布候选。详见
-> [`release/current-tabbar-runtime-recheck-2026-08-25.md`](release/current-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前本地候选：`dist/build-info.json.sourceRevision=0a8567b143d16611a02b693e0602b410ab04d108`，16 个页面脚本完整，`runtime:verify` 已通过。四个主入口使用微信官方 `custom-tab-bar`，源码和运行包均包含唯一 `custom-tab-bar/index.js`；当前只能打开 `apps/miniprogram/dist/`。详见 [`release/current-custom-tabbar-runtime-recheck-2026-08-25.md`](release/current-custom-tabbar-runtime-recheck-2026-08-25.md)。
 
 > 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1909 expect()` 已通过。本轮继续把开发者工具 watcher 根与 `src/`/`scripts/` 源码隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 本轮又针对主 Tab 闪动和选中态消失重新生成独立运行配置、关闭并重新打开 `dist/` 工程，重新构建和校验运行包；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
