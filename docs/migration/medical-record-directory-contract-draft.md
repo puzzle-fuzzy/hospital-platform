@@ -97,6 +97,25 @@ service、API、页面或兼容转发，不把旧端异常清空列表的行为�
 在 MR-01 至 MR-15 和最小 Provider 交付包完成前，保持 404/迁移提示是正确的业务状态；下一项应继续选择不依赖
 病历临床数据的静态或已有只读入口，不为填充页面而创造病历假数据。
 
+## 0.6 2026-08-25 当前复核：仍然停止在 contract 边界
+
+本轮在继续迁移“就诊”和“互联网医院”之前，重新核对门诊病历是否可以作为下一个只读能力实现。旧端四个关键文件的
+当前 SHA-256 与本文历史审计指纹一致：
+
+| 文件 | 当前 SHA-256 | 当前结论 |
+| --- | --- | --- |
+| `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\health\\electronic_record.vue` | `7e9842d10fce9e954a059c9dba9827fda66cb0ce629360e89a9333df4b10f669` | 仍只调用门诊 `out-visit-records` 摘要，使用旧 `patId` 和本地时间窗口；异常仍不能作为新端空态语义 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\ZY.ts` | `659408140db42dd1705a143850dd568d8f286285cf31b58dfa7ae865607bfe38` | 仍只有历史接口声明，未提供新端可用的请求/响应 contract |
+| `G:\\fuck\\hospital\\hospital-app\\src\\api\\modules\\medicalRecord.ts` | `1a0db15d194e468ec2ef8b8502f9687322d07007b1c8a447d9a53d3cf61ef801` | 住院病历接口与门诊摘要仍是不同域，不能交叉复用患者输入或记录字段 |
+| `G:\\fuck\\hospital\\hospital-app\\src\\components\\health\\patient-hospital-selector.vue` | `e45e4d911f1d29eb86637857df20e2984663d7fd382db0a472c3ebc83d1ce02` | 旧选择器仍会把 provider 患者号写入缓存，不能迁移到新端客户端状态 |
+
+当前 `docs/provider-intake/` 仍只有已登记的预约/支付/结算材料，没有新增 `out-visit-records` 的正式确认包、
+四类脱敏响应、分页/时区说明、字段白名单或病历资源授权说明。新端首页和“我的”页继续只显示“门诊病历正在迁移中”，
+`/api/v2/medical-records` 继续不注册；本轮没有修改旧项目、旧服务、服务器、数据库、Redis 或并行会话维护的众阳自动化。
+
+因此下一步不进入病历代码实现，继续优先选择已有正式只读 contract 的能力，并要求每个领域分别取得
+“服务端 owner 隔离 → provider 脱敏结果 → 公网请求 → 真机页面”的配对证据。
+
 ## 1. 业务范围
 
 本草案只覆盖“门诊就诊记录目录”，不覆盖：

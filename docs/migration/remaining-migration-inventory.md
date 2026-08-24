@@ -51,6 +51,11 @@
 > `8eb51b5f` 新 API 与旧 Python `8001` 共存，小程序线上运行包仍为 `13f597e`。
 > 支付、医保、结算、退款、二维码真实协议、患者新增绑定和 HIS 写回继续关闭。
 
+> 2026-08-25 门诊病历准入复核：旧端 `electronic_record.vue`、`ZY.ts`、`medicalRecord.ts` 和患者院区选择器的
+> 当前 SHA-256 与既有审计指纹一致，`docs/provider-intake/` 没有新增 `out-visit-records` 正式确认包、脱敏样例、
+> 字段白名单或资源授权说明。`/api/v2/medical-records` 继续保持未注册/404；本轮没有新增病历 schema、adapter、
+> 页面或兼容转发。详见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md) 的 0.6 节。
+
 > 2026-08-25 00:54 CST 只读 SSH 复核：新 API release `8eb51b5f` active，监听 `10.0.0.3:18081`；
 > 旧端口 `0.0.0.0:8001` 仍监听，本轮未修改或重启旧服务；内部 `/health/ready` 与
 > `/api/v1/system/ping` 为 200，未登录 `/api/v1/me/profile` 为预期 401。该证据只覆盖运行层和认证边界，
