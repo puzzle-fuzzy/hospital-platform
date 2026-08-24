@@ -34,6 +34,24 @@ function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
 }
 
 /**
+ * 判断目标是否已经是当前正在展示的原生主 Tab。
+ *
+ * 微信原生 TabBar 自己会维护四项底栏，但业务代码在会话失效、登录恢复
+ * 和快捷入口中仍可能重复调用 `switchTab`。对当前页再次 switchTab 会让
+ * 页面重新触发生命周期，在低端真机上表现为内容和底栏同时闪一下；它也
+ * 没有任何业务收益。因此这里只在确实需要跨 Tab 切换时调用微信 API。
+ * 测试环境没有微信全局 `getCurrentPages` 时按“未知”处理，不能因为测试
+ * 替身缺少页面栈而错误跳过真实导航。
+ */
+function isCurrentPrimaryTab(url: string): boolean {
+	if (typeof getCurrentPages !== "function") return false;
+	const pages = getCurrentPages();
+	const currentPage = pages[pages.length - 1] as { route?: string } | undefined;
+	const targetRoute = url.startsWith("/") ? url.slice(1) : url;
+	return currentPage?.route === targetRoute;
+}
+
+/**
  * 主 Tab 的唯一程序化入口。
  *
  * 当前四个主 Tab 主要由微信共享底栏直接触发；保留这个小函数是为了
@@ -43,6 +61,7 @@ function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
  */
 export function switchToPrimaryTab(url: string): boolean {
 	if (!isPrimaryTabPagePath(url)) return false;
+	if (isCurrentPrimaryTab(url)) return true;
 	wx.switchTab({ url });
 	return true;
 }

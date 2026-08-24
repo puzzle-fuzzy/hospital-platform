@@ -57,6 +57,38 @@ describe("原生主 Tab 路由边界", () => {
 		}
 	});
 
+	test("当前主 Tab 不重复 switchTab，避免重复生命周期造成闪动", () => {
+		const runtime = globalThis as typeof globalThis & {
+			wx?: typeof wx;
+			getCurrentPages?: () => Array<{ route?: string }>;
+		};
+		const originalWx = runtime.wx;
+		const originalGetCurrentPages = runtime.getCurrentPages;
+		const switchedUrls: string[] = [];
+		runtime.wx = {
+			switchTab: ({ url }: { url: string }) => {
+				switchedUrls.push(url);
+			},
+		} as unknown as typeof wx;
+		runtime.getCurrentPages = () => [{ route: "pages/my/my" }];
+
+		try {
+			expect(switchToPrimaryTab("/pages/my/my")).toBe(true);
+			expect(switchedUrls).toEqual([]);
+		} finally {
+			if (originalWx) {
+				runtime.wx = originalWx;
+			} else {
+				delete runtime.wx;
+			}
+			if (originalGetCurrentPages) {
+				runtime.getCurrentPages = originalGetCurrentPages;
+			} else {
+				delete runtime.getCurrentPages;
+			}
+		}
+	});
+
 	test("会话失效回首页也必须复用原生 TabBar", () => {
 		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
 		const originalWx = runtime.wx;
