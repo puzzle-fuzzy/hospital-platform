@@ -1288,11 +1288,15 @@ test("native primary tabs keep one stable selected bar", async () => {
 	const indexTemplate = await source("pages/index/index.wxml");
 	const myTemplate = await source("pages/my/my.wxml");
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
+	const projectConfig = JSON.parse(
+		await Bun.file(join(import.meta.dir, "..", "project.config.json")).text(),
+	) as { setting?: { compileHotReLoad?: boolean } };
 	const tabList = app.tabBar?.list ?? [];
 	// 原生 tabBar 是微信四个 tab 页共享的唯一底栏；页面自身不再创建
 	// 固定底栏，因此切换时不会出现第二套底栏或自定义组件首帧闪动。
 	expect(app.tabBar?.custom).toBe(false);
 	expect(app.tabBar?.position).toBe("bottom");
+	expect(projectConfig.setting?.compileHotReLoad).toBe(false);
 	expect(tabList.map((item) => item.text)).toEqual([
 		"医疗服务",
 		"就诊",
@@ -1324,6 +1328,8 @@ test("native primary tabs keep one stable selected bar", async () => {
 		"padding-bottom: calc(130rpx + env(safe-area-inset-bottom));",
 	);
 	expect(build).not.toContain("custom-tab-bar");
+	expect(build).toContain("selectedIconPath");
+	expect(build).toContain("compileHotReLoad=false");
 });
 
 test("shared primary tabs keep scrolling inside the content viewport", async () => {

@@ -126,8 +126,23 @@ function resolveSourceRevision(): string {
  */
 const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
 	miniprogramRoot?: unknown;
-	setting?: { useCompilerPlugins?: unknown };
+	setting?: {
+		compileHotReLoad?: unknown;
+		useCompilerPlugins?: unknown;
+	};
 };
+
+/**
+ * 热重载适合普通前端页面开发，但不适合这个“完整 dist 运行包 + 微信原生
+ * TabBar”的验收边界。它会在开发者工具仍持有旧页面实例时增量替换单个页面，
+ * 造成底栏首帧闪动或暂时回到旧的普通图标。公共配置先固定关闭；下面还会
+ * 对本机 private 配置重复校验，防止开发者工具用本机覆盖值把它重新打开。
+ */
+if (projectConfig.setting?.compileHotReLoad !== false) {
+	throw new Error(
+		"Mini program project.config.json must keep setting.compileHotReLoad=false",
+	);
+}
 
 /**
  * CommonJS 页面脚本的间接依赖不能交给开发者工具的“未使用文件”推断。
@@ -144,7 +159,17 @@ try {
 if (privateProjectConfigExists) {
 	const privateProjectConfig = JSON.parse(
 		await Bun.file(privateProjectConfigPath).text(),
-	) as { setting?: { ignoreDevUnusedFiles?: unknown } };
+	) as {
+		setting?: {
+			compileHotReLoad?: unknown;
+			ignoreDevUnusedFiles?: unknown;
+		};
+	};
+	if (privateProjectConfig.setting?.compileHotReLoad !== false) {
+		throw new Error(
+			"Mini program project.private.config.json must keep setting.compileHotReLoad=false",
+		);
+	}
 	if (privateProjectConfig.setting?.ignoreDevUnusedFiles !== false) {
 		throw new Error(
 			"Mini program project.private.config.json must keep setting.ignoreDevUnusedFiles=false",
@@ -205,6 +230,9 @@ if (
 	);
 }
 
+/** app.json pages 是 Tab 路由和所有页面运行时完整性校验的唯一注册表。 */
+const appPagePaths = appConfig.pages as string[];
+
 /**
  * 四个主入口必须使用微信原生 tabBar。自定义 tabBar 会把激活态和底栏
  * 生命周期交给页面组件，真机切换时容易出现重复实例或首帧闪动；原生
@@ -222,12 +250,54 @@ if (appConfig.tabBar?.position !== "bottom") {
 }
 
 /**
+ * 原生 TabBar 的选中效果完全依赖这组资源。只校验 JSON 字符串还不够：
+ * 开发者工具对不存在的图标有时只给出运行时警告，页面仍能打开但所有项
+ * 看起来都是未选中状态。构建时直接读取四项资源，保证上传包和源码一致。
+ */
+const primaryTabList = appConfig.tabBar?.list;
+if (!Array.isArray(primaryTabList) || primaryTabList.length !== 4) {
+	throw new Error(
+		"Mini program native tabBar must declare exactly four primary entries",
+	);
+}
+for (const item of primaryTabList) {
+	if (
+		typeof item !== "object" ||
+		item === null ||
+		typeof (item as { pagePath?: unknown }).pagePath !== "string" ||
+		typeof (item as { iconPath?: unknown }).iconPath !== "string" ||
+		typeof (item as { selectedIconPath?: unknown }).selectedIconPath !==
+			"string"
+	) {
+		throw new Error(
+			"Mini program native tabBar entries must include pagePath, iconPath and selectedIconPath",
+		);
+	}
+	const tab = item as {
+		pagePath: string;
+		iconPath: string;
+		selectedIconPath: string;
+	};
+	if (!appPagePaths.includes(tab.pagePath)) {
+		throw new Error(
+			`Mini program tabBar page is not registered in app.json pages: ${tab.pagePath}`,
+		);
+	}
+	for (const assetPath of [tab.iconPath, tab.selectedIconPath]) {
+		if (assetPath.startsWith("/") || assetPath.includes("..")) {
+			throw new Error(
+				`Mini program tabBar asset must be a relative path without traversal: ${assetPath}`,
+			);
+		}
+		await access(join(source, assetPath));
+	}
+}
+
+/**
  * app.json 是小程序真正的页面入口，不能只依赖下面手工维护的“重点文件”列表。
  * 每个入口必须同时拥有页面配置、模板、样式和 TypeScript 源码，构建完成后还
  * 必须拥有同名 JavaScript 运行文件，从源代码到真机上传包形成闭环门禁。
  */
-const appPagePaths = appConfig.pages as string[];
-
 /** 对正则字面量中的页面方法名做最小转义，避免特殊字符影响门禁表达式。 */
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

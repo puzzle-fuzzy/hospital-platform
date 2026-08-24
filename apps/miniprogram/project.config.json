@@ -13,6 +13,7 @@
 		"minifyWXML": true,
 		"minifyWXSS": true,
 		"uploadWithSourceMap": true,
+		"compileHotReLoad": false,
 		"useCompilerPlugins": ["typescript"]
 	},
 	"packOptions": {
