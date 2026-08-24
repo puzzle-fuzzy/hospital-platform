@@ -10,6 +10,11 @@
 
 - 重置 `apps/miniprogram/` 对应的微信开发者工具文件缓存；
 - 关闭并重新打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 根工程；
+- 复核开发者工具日志时发现，之前 CLI 从 monorepo 根目录启动，工具同时保留了
+  `E:\__Super_Core__\hospital-platform` 根目录 watcher；该 watcher 曾把 `src/`、`.turbo/`
+  和 README 的变化送入增量编译，这正是“旧页面图混入、底栏闪动、选中资源暂时丢失”的运行层风险；
+- 后续重开必须以 `apps/miniprogram` 作为 CLI 工作目录，并先关闭管理页中所有根工程、`src/`
+  和 `dist/` 的隐藏窗口，只保留 `apps/miniprogram` 这一套工程；
 - 保持 `miniprogramRoot=dist/`、`compileHotReLoad=false`、`ignoreDevUnusedFiles=false`；
 - 重新执行小程序 TypeScript 构建和运行包校验；
 - 没有修改旧 Python 服务、服务器、数据库、Redis 或线上小程序。
@@ -43,3 +48,16 @@
 4. 进入预约记录、患者选择等普通业务页后底栏按微信规则隐藏，回到主 Tab 后不新增第二套底栏。
 
 如果普通编译后的控制台 revision 不是上面的完整值，或仍出现旧 `static/tabbar`、`custom-tab-bar`、测试脚本路径，必须停止真机业务验收，先关闭错误的 DevTools 项目和旧二维码。
+
+PowerShell 重开时固定从小程序目录执行：
+
+```powershell
+Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
+& 'D:\software\微信web开发者工具\cli.bat' quit --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
+```
+
+本轮只处理开发者工具运行边界；未将环境 watcher 当成业务代码问题，也没有恢复
+`custom-tab-bar`。关闭后重新普通编译并扫码，仍需以控制台完整 `sourceRevision` 和四项
+蓝色选中态作为真机验收证据。

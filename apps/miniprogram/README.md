@@ -38,11 +38,15 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 文件图；确认安全服务端口已经开启后，只重置本项目的文件缓存并重新打开本项目：
 
 ```powershell
+Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
 & 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
 & 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
 ```
 
-随后在工具中执行一次“普通编译”。这两条命令只处理当前新项目的开发者工具文件
+CLI 必须从 `apps/miniprogram` 目录执行；如果从 monorepo 根目录执行，微信工具可能额外
+启动根目录 watcher，把 `.turbo/`、README 或 `src/` 的变化带入增量编译。若管理页仍保留
+根工程、`src/` 或 `dist/` 的窗口，先执行一次 `quit` 关闭全部开发者工具窗口，再从上述目录
+只打开这一套工程。随后在工具中执行一次“普通编译”。这两条命令只处理当前新项目的开发者工具文件
 缓存，不删除仓库文件、不清理旧项目缓存，也不影响旧服务。验收时必须看到四项底栏
 始终只有一份，当前项的图标和文字为蓝色；如果仍不一致，应先检查工具窗口标题和
 项目根目录，再检查 `dist/build-info.json`，不能通过新增页面级底栏来掩盖缓存问题。
