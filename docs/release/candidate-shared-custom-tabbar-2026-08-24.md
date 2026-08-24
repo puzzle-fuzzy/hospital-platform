@@ -14,6 +14,8 @@
 
 ## 运行包边界
 
+当前运行包来源为 `192cb75d64fb11bb431b6a003def7a0516b13b64`（提交 `192cb75d`）。
+
 构建时必须确认：
 
 1. `dist/app.json` 为 `custom=true`，四个主 Tab 路径依次是医疗服务、就诊、互联网医院、我的；
@@ -28,7 +30,9 @@
 | --- | --- |
 | 小程序 TypeScript | `pnpm --filter @hospital/miniprogram typecheck` 通过 |
 | 小程序导航验收 | 覆盖单实例组件、route selected、switchTab 失败回滚和无页面复制底栏 |
-| 小程序回归 | 238 项测试，1908 个断言；构建前需先提交运行输入 |
+| 小程序回归 | 238 项测试，1909 个断言 |
+| 运行包构建 | `dist/build-info.json` 来源为 `192cb75d64fb11bb431b6a003def7a0516b13b64` |
+| 运行包门禁 | `runtime:verify` 通过 |
 | 服务端/旧服务 | 未上传、未切换、未重启；旧 Python `8001` 不受影响 |
 
 本地构建脚本故意要求运行输入处于已提交状态，避免 `dist/build-info.json` 把未提交的底栏代码伪装成旧 revision。提交后重新执行：
