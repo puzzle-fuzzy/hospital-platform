@@ -9,10 +9,11 @@
 > 当前只读 adapter 门禁（2026-08-24，已随 `8eb51b5f` 部署）：门诊费用 adapter `21/21`、报告 adapter `19/19` 定向测试通过；患者与预约 adapter 定向回归 `46/46` 通过，全量 adapters `118/118` 通过。费用时间/状态/未知字段、报告目录日期/来源/患者引用、患者 `unionId`、预约科室/排班日期与筛选标识均在触网前 fail-closed。小程序运行包仍为 `13f597e`，旧 Python `8001` 未修改；详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
 > 当前线上窗口复核（2026-08-24）：15:50–15:52 CST 的微信登录/患者同步观察仍是历史真机窗口；17:37 CST 的新增只读审计确认预约历史、预约目录和门诊费用形成同链 HTTP 2xx，但没有把日志成功误写成页面验收。真机页面截图、显式第二患者切换和客户端 requestId 仍待补齐，详见 [`release/current-business-correlation-observation-2026-08-24-1737.md`](release/current-business-correlation-observation-2026-08-24-1737.md)。
 > 当前本地未发布小程序候选（2026-08-24）：运行输入为 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`。当前源码 `app.json` 注册 16 个页面，四个主 Tab 继续由微信原生 `tabBar` 统一维护路由和选中图标；公共/本机配置均关闭热重载，`dist` 运行包已完成原子替换并通过 `runtime:verify`，本轮补上当前主 Tab 重复 `switchTab` 的 no-op 防闪边界。该候选未部署、未替换线上 `13f597e`，也未修改旧 Python、数据库或 Redis；当前验收入口见 [`release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md`](release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md)。
-> 当前开发者工具复核（2026-08-24）：首次现场控制台仍是旧 `4e8f6877`，清理当前工程文件缓存、关闭并重开同一根工程后，当前运行包已更新为 `7a85dce8`，并将 native 图标资源路径作为缓存隔离边界；模拟器复核仍应确认首页和“就诊”页只有一份原生 `tabBar`，切换后当前图标/文字变蓝。当前源码/运行包仍是 16 个页面、无 `custom-tab-bar` 和无测试脚本，底栏由微信原生 `tabBar` 统一维护；会话失效回首页也已从 `reLaunch` 收口到 `switchTab`。真机必须扫描本次候选并核对完整 `sourceRevision`；历史线上 `13f597e` 不能作为本次 Tab 行为证据，不能打开 `src/` 或 `dist/` 子目录，也不能新增页面级底栏。
+> 上一轮开发者工具复核（2026-08-24）：首次现场控制台仍是旧 `4e8f6877`，清理当前工程文件缓存、关闭并重开同一根工程后，工具曾加载 `7a85dce8`；该段只保留缓存隔离历史，不代表当前运行包。当前源码/运行包仍是 16 个页面、无 `custom-tab-bar` 和无测试脚本，底栏由微信原生 `tabBar` 统一维护；会话失效回首页也已从 `reLaunch` 收口到 `switchTab`。
+> 当前开发者工具执行要求：必须打开 `apps/miniprogram/` 根工程并普通编译当前 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`，再确认首页和“就诊”页只有一份原生 `tabBar`，切换后当前图标/文字变蓝。历史线上 `13f597e` 不能作为本次 Tab 行为证据，不能打开 `src/` 或 `dist/` 子目录，也不能新增页面级底栏。
 
 > 本轮后续唯一执行入口：按 [`release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md`](release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md) 在正确项目中普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
-> 当前小程序会话/导航门禁（2026-08-24，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，原生底栏由微信统一维护。当前小程序回归为 `235/235` 通过，共 `1888` 个断言；运行包来源为 `4e8f6877edd045333400c9bb506c7bbaf146eac2`，但真机页面证据仍待。
+> 当前小程序会话/导航门禁（2026-08-24，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，原生底栏由微信统一维护。当前小程序回归为 `236/236` 通过，共 `1898` 个断言；运行包来源为 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`，但真机页面证据仍待。
 > 当前日志链路审计（2026-08-24，服务端已随 `8eb51b5f` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
 > 当前服务端与小程序已完成分层配套切换：服务端 release 为 `8eb51b5f`，小程序运行包来源为 `13f597e`；旧 Python `8001` 继续共存。下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
@@ -21,7 +22,7 @@
 
 # 下一阶段实施路线图
 
-> 当前本地候选已推进到 `7a85dce83fbef08794b0cc0966b2aa40d532b3d7`（提交 `7a85dce8`），`dist/` 原子发布与 `runtime:verify` 已通过；文档中原先的 `0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8` 仅保留为历史来源记录，不能再作为当前二维码或真机验收入口。当前候选仍未上传微信，必须在正确的 `apps/miniprogram/` 项目普通编译后核对 `7a85dce8`。
+> 当前本地候选已推进到 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`（提交 `f4c844c1`），`dist/` 原子发布与 `runtime:verify` 已通过；文档中原先的 `0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8` 仅保留为历史来源记录，不能再作为当前二维码或真机验收入口。当前候选仍未上传微信，必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`。
 > 当前执行基线（2026-08-24）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。下方带历史日期的候选只作追溯。
 
 
