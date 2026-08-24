@@ -1,59 +1,66 @@
-<view class="page">
-	<!-- 微信 WXSS 不支持可靠地读取本地 background-image；用 image 还原旧端顶部背景。 -->
-	<image
-		class="page-background"
-		src="/assets/legacy-user/legacy-user-background.png"
-		mode="widthFix"
-		aria-hidden="true"
-	/>
+<scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
+	<view class="page">
+		<!-- 微信 WXSS 不支持可靠地读取本地 background-image；用 image 还原旧端顶部背景。 -->
+		<image
+			class="page-background"
+			src="/assets/legacy-user/legacy-user-background.png"
+			mode="widthFix"
+			aria-hidden="true"
+		/>
 
-	<view class="page-content">
-		<view wx:if="{{error}}" class="error-message">
-			<text class="error-message-text">{{error}}</text>
-			<text class="error-message-retry" bindtap="onRetry">重新加载</text>
-		</view>
+		<view class="page-content">
+			<view wx:if="{{error}}" class="error-message">
+				<text class="error-message-text">{{error}}</text>
+				<text class="error-message-retry" bindtap="onRetry">重新加载</text>
+			</view>
 
-		<!-- 旧端头像区：点击整行进入普通资料编辑，不把头像误当作微信授权结果。 -->
-		<view class="profile-head" bindtap="onHeaderTap">
-			<image
-				class="profile-avatar"
-				src="/assets/legacy-user/default-avatar.svg"
-				mode="aspectFill"
-			/>
-			<text class="profile-name">{{userLabel}}</text>
-		</view>
+			<!-- 旧端头像区：点击整行进入普通资料编辑，不把头像误当作微信授权结果。 -->
+			<view class="profile-head" bindtap="onHeaderTap">
+				<image
+					class="profile-avatar"
+					src="/assets/legacy-user/default-avatar.svg"
+					mode="aspectFill"
+				/>
+				<text class="profile-name">{{userLabel}}</text>
+			</view>
 
-		<!-- 旧端家庭成员管理卡片；真实切换仍进入独立患者选择页。 -->
-		<view class="family-card" bindtap="onFamilyTap">
-			<text class="family-title">家庭成员管理</text>
-			<image
-				class="family-arrow"
-				src="/assets/legacy-user/arrow-right.svg"
-				mode="aspectFill"
-			/>
-		</view>
+			<!-- 旧端家庭成员管理卡片；真实切换仍进入独立患者选择页。 -->
+			<view class="family-card" bindtap="onFamilyTap">
+				<text class="family-title">家庭成员管理</text>
+				<image
+					class="family-arrow"
+					src="/assets/legacy-user/arrow-right.svg"
+					mode="aspectFill"
+				/>
+			</view>
 
-		<!--
-			分组和图标顺序来自旧端 userNavData。每个入口仍经过 onAction，
-			已迁移能力正常跳转，未完成能力只提示迁移状态，不能伪造成功。
-		-->
-		<view wx:for="{{menuSections}}" wx:for-item="section" wx:key="index" class="menu-section">
-			<text class="section-title">{{section.title}}</text>
-		<view class="menu-grid">
-			<!-- 未迁移入口没有 action；使用 title 作为稳定展示 key，避免多个 undefined key 让真机复用错位。 -->
+			<!--
+				分组和图标顺序来自旧端 userNavData。每个入口仍经过 onAction，
+				已迁移能力正常跳转，未完成能力只提示迁移状态，不能伪造成功。
+			-->
 			<view
-				wx:for="{{section.items}}"
-				wx:for-item="item"
-				wx:key="title"
-					class="menu-item"
-					bindtap="onAction"
-					data-action="{{item.action}}"
-				>
-					<!-- 旧端使用 aspectFill；这些 SVG 都是方形 viewBox，保留模式可避免后续资源替换时布局漂移。 -->
-					<image src="{{item.icon}}" mode="aspectFill" />
-					<text>{{item.title}}</text>
+				wx:for="{{menuSections}}"
+				wx:for-item="section"
+				wx:key="index"
+				class="menu-section"
+			>
+				<text class="section-title">{{section.title}}</text>
+				<view class="menu-grid">
+					<!-- 未迁移入口没有 action；使用 title 作为稳定展示 key，避免多个 undefined key 让真机复用错位。 -->
+					<view
+						wx:for="{{section.items}}"
+						wx:for-item="item"
+						wx:key="title"
+						class="menu-item"
+						bindtap="onAction"
+						data-action="{{item.action}}"
+					>
+						<!-- 旧端使用 aspectFill；这些 SVG 都是方形 viewBox，保留模式可避免后续资源替换时布局漂移。 -->
+						<image src="{{item.icon}}" mode="aspectFill" />
+						<text>{{item.title}}</text>
+					</view>
 				</view>
 			</view>
 		</view>
 	</view>
-</view>
+</scroll-view>

@@ -15,6 +15,8 @@
 
 本地候选的 `custom-tab-bar` 只负责主 Tab 的共享展示和 `wx.switchTab`；“就诊”和“互联网医院”虽然已经是正式页面入口，但具体未迁移业务仍显示迁移状态。普通业务页面仍可使用 `navigateTo`，会话失效后的 `reLaunch` 仍是有意的安全回首页行为，不能把这两类导航混为同一问题。
 
+四个主 Tab 的页面内容使用独立 `scroll-view`，`custom-tab-bar` 固定在视口底部；真机验收时应看到只有内容区域滚动，底栏不能随页面内容移动。
+
 本轮明确不执行：预约下单、取消预约、详情/预问诊、支付、医保授权/结算、退款、患者新增绑定、二维码扫码协议、病历详情/附件、外部 WebView 和 HIS 写回。
 
 ## 2. 编译前门禁
@@ -36,9 +38,11 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 1. `build-info.json.sourceRevision` 与上表一致；
 2. `dist/custom-tab-bar/index.js|json|wxml|wxss` 均存在；
-3. `dist/pages/consult/consult.js` 和 `dist/pages/hospital/hospital.js` 均存在；
+3. `dist/pages/consult/consult.js|json|wxml|wxss` 和 `dist/pages/hospital/hospital.js|json|wxml|wxss` 均存在；
 4. `dist/` 中 `*.test.js`、`*.spec.js` 数量为 0；
 5. 普通编译无页面脚本缺失或 `single-flight.test.js` ENOENT；出现旧测试脚本路径时停止，不向 `dist/` 手工复制文件。
+
+如果开发者工具提示 `dist/app.json` 注册了页面但找不到 `pages/consult/consult.wxml`，先关闭当前小程序窗口和真机调试，再重新执行构建与 `runtime:verify`。不要直接删除 `dist/`：构建脚本会先在项目外 staging 目录完成完整产物，再原子替换，避免开发者工具监听到半套运行包。
 
 ## 3. 四 Tab 页面验收
 

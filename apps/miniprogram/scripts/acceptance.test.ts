@@ -1315,6 +1315,31 @@ test("native primary tabs use one shared custom component and switchTab", async 
 	expect(tabbar).not.toContain("wx.navigateTo");
 });
 
+test("native primary tabs keep scrolling inside the content viewport", async () => {
+	const app = JSON.parse(await source("app.json")) as {
+		tabBar?: { list?: Array<{ pagePath: string }> };
+	};
+	const tabPages = app.tabBar?.list?.map((item) => item.pagePath) ?? [];
+	const appStyle = await source("app.wxss");
+
+	// 微信 page 默认负责整体滚动；如果主 Tab 只靠 fixed 底栏而不隔离内容，
+	// 页面滚动时底栏会进入同一滚动边界。四个主页面必须统一使用内容 scroll-view，
+	// 防止某个页面日后又回退成“整页滚动 + 底栏跟着漂移”。
+	expect(tabPages).toHaveLength(4);
+	expect(appStyle).toContain("height: 100%;");
+	expect(appStyle).toContain("overflow: hidden;");
+	expect(appStyle).toContain(".tab-page-scroll {");
+	for (const pagePath of tabPages) {
+		const template = await source(`${pagePath}.wxml`);
+		expect(
+			template.startsWith("\n<scroll-view") ||
+				template.startsWith("<scroll-view"),
+		).toBe(true);
+		expect(template).toContain('class="tab-page-scroll"');
+		expect(template).toContain('scroll-y="true"');
+	}
+});
+
 test("native profile clears stale fields after session ownership is lost", async () => {
 	const page = await source("pages/profile/profile.ts");
 	const saveStart = page.indexOf("onSave(): Promise<void>");
@@ -1532,6 +1557,10 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(verify).toContain('assertFile("build-info.json")');
 	expect(verify).toContain("runtime must not contain test scripts");
 	expect(verify).toContain("buildInfo.pageCount");
+	expect(verify).toContain(
+		'for (const extension of [".js", ".json", ".wxml", ".wxss"] as const)',
+	);
+	expect(verify).toContain("appConfig.pages as string[]");
 	expect(verify).toContain("sourceRevision");
 	expect(verify).toContain("HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION");
 	expect(verify).toContain("build provenance mismatch");

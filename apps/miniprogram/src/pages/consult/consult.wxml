@@ -1,19 +1,22 @@
-<view class="page">
-	<view class="intro-card">
-		<view class="intro-title">智能陪诊</view>
-		<view class="intro-copy">
-			就诊引导、排队动态和检查进度会在独立业务契约完成后接入。
+
+<scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
+	<view class="page">
+		<view class="intro-card">
+			<view class="intro-title">智能陪诊</view>
+			<view class="intro-copy">
+				就诊引导、排队动态和检查进度会在独立业务契约完成后接入。
+			</view>
+		</view>
+
+		<!--
+			这里是旧端“就诊”主 Tab 的真实落点，不把预约历史或静态文字伪装成
+			实时陪诊数据。能力尚未迁移时保留稳定状态，避免用户进入后又被推到
+			一个普通页面并产生第二套底栏。
+		-->
+		<view class="state-card query-state-shell query-state-shell-column">
+			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<text>智能陪诊功能正在迁移中</text>
+			<text class="state-hint">当前不会读取或猜测实时就诊状态</text>
 		</view>
 	</view>
-
-	<!--
-		这里是旧端“就诊”主 Tab 的真实落点，不把预约历史或静态文字伪装成
-		实时陪诊数据。能力尚未迁移时保留稳定状态，避免用户进入后又被推到
-		一个普通页面并产生第二套底栏。
-	-->
-	<view class="state-card query-state-shell query-state-shell-column">
-		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-		<text>智能陪诊功能正在迁移中</text>
-		<text class="state-hint">当前不会读取或猜测实时就诊状态</text>
-	</view>
-</view>
+</scroll-view>

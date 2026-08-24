@@ -1,4 +1,5 @@
-<view class="page">
+<scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
+	<view class="page">
 	<!-- 网络异常必须出现在页面首部，避免用户先看到不可用的业务入口。 -->
 	<view wx:if="{{error}}" class="error-message">
 		<text class="error-message-text">{{error}}</text>
@@ -121,4 +122,5 @@
 		bindtap="onFloatingGuide"
 	/>
 
-</view>
+	</view>
+</scroll-view>
