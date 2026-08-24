@@ -104,3 +104,22 @@
 5. 进入普通业务页时底栏按微信规则隐藏，返回主 Tab 后仍恢复为同一套原生底栏。
 
 如果这次重新普通编译、并确认完整 revision 后仍然出现同样现象，下一步应记录真机系统、基础库版本、当前 route、启动 revision 和切换录屏，再判断是否属于微信基础库的原生过渡动画；在取得这组证据前不切换到第二种底栏架构。
+
+## 2026-08-25 本轮再次发布与回归
+
+本轮用户再次反馈“底栏闪动、选中态消失”后，构建先检测到 `dist/` 仍被微信开发者工具占用，
+没有覆盖旧运行包；完整候选已保存在 `.local/hospital-miniprogram/pending`。随后只关闭占用该新项目的
+微信开发者工具进程，执行 `runtime:publish-pending`，再打开唯一运行根
+`E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`。
+
+本轮再次执行了以下门禁：
+
+- 清理 `compile` 缓存并重置 file-utils 索引；
+- CLI 预览包大小为 `696935` 字节；
+- `pnpm --filter @hospital/miniprogram test`：`240 pass / 0 fail / 1929 expect()`；
+- `pnpm --filter @hospital/miniprogram runtime:verify`：`16 pages`、`revision=45742ff`；
+- 当前源码和 `dist` 仍只有微信原生 `tabBar`，没有 `legacy-tabbar`、`custom-tab-bar` 或页面级底栏。
+
+因此下一次真机复核必须扫描本轮重新生成的预览，不得继续使用旧二维码；启动日志仍应出现完整
+`45742ff4450b223b8db3b36e4a3859e3fc86e1c5`。若新预览仍发生同样现象，必须同时提供真机系统、基础库版本、
+当前 route、启动 revision 和切换录屏，才能区分工具缓存与微信原生 Tab 的平台过渡动画。
