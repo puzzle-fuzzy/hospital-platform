@@ -8,9 +8,60 @@
 - 当前实际开放的患者端业务以“登录、患者目录同步、预约只读目录、预约历史/爽约只读、报告目录/部分检验详情、门诊费用只读、普通资料”为主。
 - 预约下单、锁号、取消、挂号费、医保结算、门诊缴费调起、报告下载/分享/复诊、健康百科公共挂载、智能服务等没有被当前代码证明为可用。
 - 支付 API、微信通知验签解密、outbox 和查单 worker 已有代码边界，但 `WECHAT_PAYMENT_READY`/完整配置/真实验收同时满足前，运行时保持 fail-closed；当前小程序门诊费用页面不调用 `wx.requestPayment`。
-- `.codegraph/` 当前不存在，也没有可调用的 codeGraph 服务；本文的“调用图”由实际 import、路由注册、页面事件和跨层方法调用重建。
+- `.codegraph/codegraph.db` 当前已存在；本文同时使用 codeGraph 的静态节点/边和源码实际逻辑。对于同名方法产生的歧义边，必须回到源码和真实 HTTP 路径确认，不能把“有边”直接等同于“有业务调用”。
 
-## 2. 图例
+## 2. CodeGraph 静态调用证据与解释边界
+
+当前 `.codegraph/codegraph.db` 的本机索引快照如下：
+
+| 指标 | 数量或版本 | 解释 |
+| --- | ---: | --- |
+| indexed extraction version | `24` | 当前提取器版本 |
+| files | `230` | TypeScript 213、JavaScript 14、YAML 3 |
+| nodes | `4,475` | 文件、函数、方法、类型、属性等 |
+| edges | `15,337` | calls 5,609；imports 2,056；references 2,724；contains 4,248 |
+| unresolved refs | `0` | 符号解析没有留下未解析引用；不等于业务语义已经验证 |
+
+CodeGraph 能直接证明组合根的注册关系：
+
+```mermaid
+flowchart LR
+    CreateApp[createApp\napps/api/src/app.ts] --> AuthModule[authModule]
+    CreateApp --> PatientModule[patientsModule]
+    CreateApp --> AppointmentModule[appointmentsModule]
+    CreateApp --> ReportModule[reportsModule]
+    CreateApp --> OutpatientModule[outpatientPaymentsModule]
+    CreateApp --> PaymentModule[paymentsModule]
+    CreateApp --> ProfileModule[profileModule]
+    CreateApp --> HealthModule[healthModule]
+    CreateApp --> SystemModule[systemModule]
+
+    AuthModule --> AuthLogin[AuthService.login]
+    PatientModule --> PatientList[PatientService.list]
+    PatientModule --> PatientSync[PatientService.sync]
+    AppointmentModule --> AppointmentRead[AppointmentService.listDepartments\nlistSchedules\nlistRecords]
+    ReportModule --> ReportRead[ReportService.list\nReportService.detail]
+    OutpatientModule --> OutpatientRead[OutpatientPaymentService.list]
+    PaymentModule --> PaymentGate[ensureWechatPaymentEnabled]
+    PaymentModule --> PaymentOps[PaymentOrderService.create/read\nnotification.receive]
+
+    CreateApp -. 未发现注册调用 .-> Knowledge[healthKnowledgeModule\napps/api/src/modules/knowledge]
+
+    classDef root fill:#e8f1ff,stroke:#4a78c2,color:#17345f;
+    classDef module fill:#e8f7ed,stroke:#3d8d5d,color:#1f4d30;
+    classDef gate fill:#fff8c9,stroke:#a98b00,color:#5e4d00;
+    classDef absent fill:#ffe8e8,stroke:#c75252,color:#681e1e;
+    class CreateApp root;
+    class AuthModule,PatientModule,AppointmentModule,ReportModule,OutpatientModule,PaymentModule,ProfileModule,HealthModule,SystemModule module;
+    class PaymentGate gate;
+    class Knowledge absent;
+```
+
+小程序 service 层的静态关系则是：`api-client.login → performLogin`；`syncPatients → requestWithSession`；`requestWithSession → login / requestForSession / requestAfterSessionRecovery`；`launchWechatPayment → requestWechatPrepay → toWechatPaymentParams`。对 `launchWechatPayment` 做反向 `calls` 查询没有找到页面或 service 调用者，这与源码中“仅定义支付调起函数、当前门诊费用页面不调用它”的结论一致。
+
+CodeGraph 仍然需要语义复核：当前索引会把 `performLogin` 内部的 HTTP `request` 按同名符号误连到服务端 `AuthService.login`，也会把门诊费用 service 的 `list` 误连到预约 service 的 `listRecords`。源码实际分别是 `POST /auth/wechat` 和门诊费用 Provider 查询。因此本文采用“CodeGraph 发现候选调用边 → 源码确认函数体/路由 → Provider 与运行闸门确认可达性”的证据顺序。
+
+## 3. 图例
 
 ```mermaid
 flowchart LR
@@ -30,7 +81,7 @@ flowchart LR
     classDef guard fill:#fff8c9,stroke:#a98b00,color:#5e4d00;
 ```
 
-## 3. 总体架构与真实可达边界
+## 4. 总体架构与真实可达边界
 
 ```mermaid
 flowchart LR
@@ -117,7 +168,7 @@ flowchart LR
     classDef provider fill:#ffe8e8,stroke:#c75252,color:#681e1e;
 ```
 
-## 4. 启动、健康检查与 API 运行时闸门
+## 5. 启动、健康检查与 API 运行时闸门
 
 ```mermaid
 flowchart TD
@@ -150,7 +201,7 @@ flowchart TD
 
 关键事实：readiness 不是业务成功证明；schema 未通过时，API 可以继续提供 health/readiness，但业务 repositories 不会被伪装成可用。每个受保护请求还要经过 Bearer session 校验，Redis 故障返回暂时不可用，不能被错误映射成“用户未登录”。
 
-## 5. 用户登录与会话恢复
+## 6. 用户登录与会话恢复
 
 ```mermaid
 sequenceDiagram
@@ -232,7 +283,7 @@ flowchart TD
 - 众阳目录通常先走 `/api/public/patientInfoByUnionId`，再按患者资料走 `/msun-middle-aggregate-patient/v1/patInfosFind`；`his-patient` 映射只保存在服务端。
 - 完整快照缺失的患者会被标记 inactive，不物理删除，以保留历史订单/报告等外键语义；缺失 `his-patient` 映射的患者 `clinicalAccess` 不再是 ready。
 
-## 6. 首页点击分流
+## 7. 首页点击分流
 
 ```mermaid
 flowchart TD
@@ -276,7 +327,7 @@ flowchart TD
 
 页面侧所有受保护业务读取都遵循同一组合原则：先 `GET /me` 确认 owner，再 `GET /patients` 解析当前显式选择，再以同一 session generation 发起 patient-scoped 查询；请求前后都检查页面 request guard、会话代际和当前 `patientId`，过期响应不得回写页面。
 
-## 7. 预约只读目录
+## 8. 预约只读目录
 
 ```mermaid
 flowchart TD
@@ -306,7 +357,7 @@ flowchart TD
 
 当前没有从该页面触发的预约写入 API。`POST /appointments`、锁号、取消和挂号费在 runtime smoke 中属于刻意关闭边界，不能把 `scheduleId` 解释成已经获得 Provider 写入授权。
 
-## 8. 我的挂号与爽约记录
+## 9. 我的挂号与爽约记录
 
 ```mermaid
 flowchart LR
@@ -327,7 +378,7 @@ flowchart LR
 
 “我的挂号”覆盖中国标准时间前后各 90 天；“爽约记录”只覆盖过去 90 天。两者复用 Provider 记录接口，但页面和 service 的窗口语义不同，未知窗口不会静默降级为普通历史查询。
 
-## 9. 报告目录与检验详情
+## 10. 报告目录与检验详情
 
 ```mermaid
 flowchart TD
@@ -369,7 +420,7 @@ flowchart TD
 
 影像与心电当前只证明目录适配器存在；详情页的已接入路径是检验详情。报告目录请求的 Provider 结果不是“有一条成功就返回”，未指定 `kind` 时三路结果会合并，任一路响应异常都保持整批 fail-closed，避免把缺失报告伪装成空列表。
 
-## 10. 门诊费用只读链路
+## 11. 门诊费用只读链路
 
 ```mermaid
 flowchart TD
@@ -391,7 +442,7 @@ flowchart TD
 
 该 adapter 明确是“门诊费用只读”，不承载支付调起、医保结算或退款。Provider 返回窗口外账单时整批拒绝，而不是静默过滤，以免用户看到不完整的账本。
 
-## 11. 普通资料与“我的”页面
+## 12. 普通资料与“我的”页面
 
 ```mermaid
 flowchart LR
@@ -416,7 +467,7 @@ flowchart LR
 
 头像、手机号、真实姓名、身份证等字段不会借普通资料接口写入；“我的挂号、爽约记录、门诊缴费”在没有当前 ready 患者时会进入就诊人选择页，而不是先发一个必然失败的业务请求。
 
-## 12. 支付、微信通知与 worker 补偿链路（代码存在，默认关闭）
+## 13. 支付、微信通知与 worker 补偿链路（代码存在，默认关闭）
 
 ```mermaid
 flowchart TD
@@ -453,7 +504,7 @@ flowchart TD
 
 支付状态只能沿 `packages/domain/src/payment-state.ts` 的显式边迁移；前端调起成功、一次 HTTP 200 或未验签的 Provider 结果都不等于业务完成。Worker 只有在完整支付配置、持久化密钥、DB/schema 探针全部通过后才进入 provider 循环。
 
-## 13. 统一错误与旧响应保护
+## 14. 统一错误与旧响应保护
 
 ```mermaid
 flowchart LR
@@ -486,7 +537,7 @@ flowchart LR
 
 保护规则贯穿各层：HTTP 层不静默吞掉未知字段，service 不依赖 TypeScript 类型作为运行时事实，adapter 白名单投影 Provider 响应，页面不把旧患者/旧账号响应写回当前页面，错误文案不直接展示 Provider 原文。
 
-## 14. 当前页面和 API 能力矩阵
+## 15. 当前页面和 API 能力矩阵
 
 | 用户入口 / 动作 | 实际调用 | 当前状态 | 关键边界 |
 | --- | --- | --- | --- |
@@ -512,7 +563,7 @@ flowchart LR
 | 院内导航 | 本地地图 + `wx.previewImage` | 静态已实现 | 无实时路线、楼层定位或导航 API |
 | 意见反馈 | 静态问题 + 电话拨号 | 无在线工单 | 点击反馈只 Toast，不代表已提交 |
 
-## 15. 源码索引
+## 16. 源码索引
 
 | 层 | 关键入口 |
 | --- | --- |
@@ -523,4 +574,5 @@ flowchart LR
 | 外部适配器 | [`packages/adapters/src/wechat-identity.ts`](../../packages/adapters/src/wechat-identity.ts)、[`wechat-pay.ts`](../../packages/adapters/src/wechat-pay.ts)、[`zhongyang-patients.ts`](../../packages/adapters/src/zhongyang-patients.ts)、[`zhongyang-appointments.ts`](../../packages/adapters/src/zhongyang-appointments.ts)、[`zhongyang-reports.ts`](../../packages/adapters/src/zhongyang-reports.ts)、[`zhongyang-outpatient-payments.ts`](../../packages/adapters/src/zhongyang-outpatient-payments.ts) |
 | 持久化 | [`packages/persistence/src/runtime.ts`](../../packages/persistence/src/runtime.ts)、[`mysql-repositories.ts`](../../packages/persistence/src/mysql-repositories.ts)、[`redis-session.ts`](../../packages/persistence/src/redis-session.ts)、[`migrations/`](../../packages/persistence/migrations/) |
 | Worker | [`apps/worker/src/runtime.ts`](../../apps/worker/src/runtime.ts)、[`outbox-worker.ts`](../../apps/worker/src/outbox-worker.ts)、[`payment-reconciliation-worker.ts`](../../apps/worker/src/payment-reconciliation-worker.ts)、[`wechat-payment-notification-handler.ts`](../../apps/worker/src/wechat-payment-notification-handler.ts) |
+| CodeGraph | `.codegraph/codegraph.db`（本机静态索引快照；不是业务运行时依赖） |
 | 运行边界 | [`infra/nginx/test-hp.meiyi.pro.conf.example`](../../infra/nginx/test-hp.meiyi.pro.conf.example)、[`README.md`](../../README.md)、[`docs/migration/api-matrix.md`](../migration/api-matrix.md) |
