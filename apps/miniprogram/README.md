@@ -24,8 +24,9 @@
 始终读取真实存在的 `.js` 页面文件，不依赖工具隐式编译 TypeScript。不要直接打开 `src/`，否则本机配置副本
 可能覆盖公共配置并再次按纯 JavaScript 查找错误的源码目录。
 
-公共 `project.config.json` 和本机 `project.private.config.json` 都必须保持
-`compileHotReLoad=false`；本机配置还必须保持 `ignoreDevUnusedFiles=false`。运行目录使用
+公共 `project.config.json` 和本机 `project.private.config.json` 都必须把
+`miniprogramRoot` 指向同一个 `dist/`，并保持 `compileHotReLoad=false`；本机配置还必须保持
+`ignoreDevUnusedFiles=false`。运行目录使用
 TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文件”分析可能无法识别页面脚本的间接
 `require` 依赖；开启该选项会把实际存在的 `services/*.js` 从调试模块图排除，造成
 `module ... is not defined`。热重载会在 `dist/` 替换或页面重新编译时制造短暂的底部导航闪动，

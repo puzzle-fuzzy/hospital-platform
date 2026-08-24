@@ -160,11 +160,20 @@ if (privateProjectConfigExists) {
 	const privateProjectConfig = JSON.parse(
 		await Bun.file(privateProjectConfigPath).text(),
 	) as {
+		miniprogramRoot?: unknown;
 		setting?: {
 			compileHotReLoad?: unknown;
 			ignoreDevUnusedFiles?: unknown;
 		};
 	};
+	if (
+		privateProjectConfig.miniprogramRoot !== undefined &&
+		privateProjectConfig.miniprogramRoot !== "dist/"
+	) {
+		throw new Error(
+			"Mini program project.private.config.json must point to the generated dist/ runtime",
+		);
+	}
 	if (privateProjectConfig.setting?.compileHotReLoad !== false) {
 		throw new Error(
 			"Mini program project.private.config.json must keep setting.compileHotReLoad=false",
