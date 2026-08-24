@@ -63,6 +63,9 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 `switchToPrimaryTab`（内部使用 `wx.switchTab`），普通业务页才使用 `wx.navigateTo`。
 主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`，底栏由微信固定在窗口底部，
 页面不再为自定义底栏额外增加底部占位。
+原生 TabBar 图标使用 `*-native.png` 与 `*-native-active.png` 独立资源名；它们与旧端
+图标内容一致，但通过新路径隔离开发者工具/真机对历史灰色图标的路径缓存。后续替换图标时
+必须同时保留普通态和选中态两份资源，并确保 `selectedIconPath` 不复用 `iconPath`。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的

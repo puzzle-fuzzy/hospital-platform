@@ -1213,7 +1213,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(app).toContain('"custom": false');
 	expect(app).toContain('"position": "bottom"');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
 	);
 	expect(my).not.toContain("LEGACY_TAB_BAR_ITEMS");
 	expect(template).not.toContain('wx:for="{{tabBarItems}}"');
@@ -1317,6 +1317,10 @@ test("native primary tabs keep one stable selected bar", async () => {
 		expect(app.pages).toContain(item.pagePath);
 		expect(item.iconPath).toContain("assets/legacy-home/");
 		expect(item.selectedIconPath).toContain("assets/legacy-home/");
+		// 运行包使用独立的 native 资源名，避免微信开发者工具或真机按旧
+		// 路径继续命中历史灰色图标；这只是缓存隔离，不改变旧端视觉资源。
+		expect(item.iconPath).toContain("-native.png");
+		expect(item.selectedIconPath).toContain("-native-active.png");
 		expect(item.selectedIconPath).not.toBe(item.iconPath);
 	}
 	// 主 Tab 即使被未来快捷入口程序化打开，也必须走 switchTab；普通业务页
@@ -2113,7 +2117,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(app).toContain('"custom": false');
 	expect(app).toContain('"position": "bottom"');
 	expect(app).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
 	);
 	expect(outpatient).toContain("loadOutpatientPaymentRecords");
 	// tab 切换必须把用户本次点击的状态和当前患者会话快照传入，不能依赖
@@ -2930,7 +2934,7 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(await source("app.json")).toContain('"custom": false');
 	expect(await source("app.json")).toContain('"position": "bottom"');
 	expect(await source("app.json")).toContain(
-		'"selectedIconPath": "assets/legacy-home/tab-04-active.png"',
+		'"selectedIconPath": "assets/legacy-home/tab-04-native-active.png"',
 	);
 	expect(homeTemplate).toContain("微信已登录");
 	expect(homeTemplate).toContain("/assets/legacy-home/patient-qr.svg");
