@@ -121,6 +121,7 @@
 | [`release/candidate-b0e0935-local-build-2026-08-22.md`](release/candidate-b0e0935-local-build-2026-08-22.md) | 未部署 `b0e0935` 候选的患者卡号 contract、运行包来源、本地门禁和线上切换停止条件 |
 | [`release/candidate-4f2d890-local-build-2026-08-22.md`](release/candidate-4f2d890-local-build-2026-08-22.md) | 未部署 `4f2d890` 众阳卡号超长响应 fail-closed 修正、服务端/小程序来源区分和发布停止条件 |
 | [`release/readonly-page-state-audit-2026-08-22.md`](release/readonly-page-state-audit-2026-08-22.md) | 预约记录、门诊费用、报告目录的只读成功/空/异常语义、页面清理边界、日志证据和开发者工具占用处理 |
+| [`release/appointment-directory-state-shell-audit-2026-08-24.md`](release/appointment-directory-state-shell-audit-2026-08-24.md) | 预约目录科室/排班加载态、空态和错误态的固定高度与级联边界 |
 | [`release/ssh-access-recovery-and-release-gate-2026-08-22.md`](release/ssh-access-recovery-and-release-gate-2026-08-22.md) | SSH 公钥恢复、发布前只读确认、新 API 原子切换、旧 Python `8001` 共存和回滚门禁 |
 | [`release/miniprogram-devtools-project-preflight-2026-08-21.md`](release/miniprogram-devtools-project-preflight-2026-08-21.md) | 当前候选运行包和微信开发者工具项目选择前置检查；防止误用旧 `mp-weixin` 窗口 |
 | [`release/redis-readiness-concurrency-audit-2026-08-20.md`](release/redis-readiness-concurrency-audit-2026-08-20.md) | Redis readiness、会话读写和 TTL 维护的连接单飞边界；不重放业务命令，失败后允许安全重试 |

@@ -192,7 +192,7 @@ test("appointment directory errors do not fall through to cascade or empty sched
 	// 科室读取和排班读取都属于同一只读目录链；任一层失败时统一回到完整
 	// 目录重试，不能把旧快照或空数组解释成“没有可预约内容”。
 	const errorBranch =
-		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
 	expect(template.indexOf(errorBranch)).toBeGreaterThan(-1);
 	expect(template.indexOf(errorBranch)).toBeLessThan(
 		template.indexOf(
@@ -200,6 +200,16 @@ test("appointment directory errors do not fall through to cascade or empty sched
 		),
 	);
 	expect(template).toContain('bindtap="onRetry"');
+	// 首层目录和右栏排班都必须固定状态高度，避免加载完成切到图片空态时跳动。
+	expect(template).toContain(
+		'class="state-card query-state-shell query-state-shell-column"',
+	);
+	expect(template).toContain(
+		'class="panel-loading query-state-shell query-state-shell-column"',
+	);
+	expect(template).toContain(
+		'class="panel-empty query-state-shell query-state-shell-column"',
+	);
 	expect(directory).toContain("onRetry(): void");
 	expect(directory).toContain("void this.loadDirectory()");
 });

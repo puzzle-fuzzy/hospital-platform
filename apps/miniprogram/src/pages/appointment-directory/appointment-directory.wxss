@@ -257,7 +257,8 @@ page {
 }
 
 .panel-loading {
-	min-height: 420rpx;
+	/* 与带插图的空态保持同一高度，切换科室时右栏不会发生二次跳动。 */
+	min-height: 500rpx;
 }
 
 .panel-empty {
