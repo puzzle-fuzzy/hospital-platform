@@ -23,26 +23,27 @@
 
 ## 2. 当前修正方案
 
-重制端现在采用微信官方的 `custom-tab-bar` 结构：
+重制端现在采用微信原生 `tabBar` 结构：
 
 ```text
 app.json
-  └─ tabBar.custom = true
+  └─ tabBar.custom = false（省略 custom 字段，使用默认值）
        ├─ pages/index/index       医疗服务
        ├─ pages/consult/consult    就诊
        ├─ pages/hospital/hospital  互联网医院
        └─ pages/my/my              我的
 
-custom-tab-bar/index.ts
-  ├─ 从当前 route 推导激活项
-  └─ 只用 wx.switchTab 切换四个主入口
+微信框架
+  ├─ 统一持有四个 Tab 页面底栏
+  ├─ 根据当前页面自动维护激活项
+  └─ 负责 Tab 切换和页面栈清理
 ```
 
-唯一展示组件为 [`apps/miniprogram/src/custom-tab-bar/index.ts`](../../apps/miniprogram/src/custom-tab-bar/index.ts) 及其 WXML/WXSS。四项展示配置和路由唯一来源为 [`apps/miniprogram/src/constants/legacy-tabbar.ts`](../../apps/miniprogram/src/constants/legacy-tabbar.ts)。首页和“我的”不再包含 `legacy-tabbar` WXML、样式或页面级点击处理。
+四项展示配置、路由和选中资源唯一写入 `app.json.tabBar.list`。首页和“我的”不再包含 `legacy-tabbar` WXML、样式或页面级点击处理；运行源码中不再保留 `custom-tab-bar/`，避免微信为每个 Tab 页面创建独立自定义实例。
 
 ### 为什么使用 `switchTab`
 
-微信 Tab 页面必须用 `wx.switchTab`。`navigateTo` 适用于普通业务页，例如预约记录、患者选择和报告详情；它不应该被用来打开四个主 Tab。共享组件中如果未来出现 `navigateTo`，应当视为导航架构回归，而不是普通重构。
+微信 Tab 页面由原生 `tabBar` 负责切换。普通业务页仍使用 `navigateTo`，例如预约记录、患者选择和报告详情；登录失效回首页使用 `reLaunch`。业务代码不再自行实现主 Tab 点击处理，避免再次把 Tab 页面堆进普通页面栈。
 
 ## 3. 尚未迁移的两个主入口
 
@@ -57,21 +58,21 @@ custom-tab-bar/index.ts
 
 本轮检查了重制端所有 `wx.navigateTo`、`wx.reLaunch`、`wx.redirectTo` 和 `wx.switchTab` 调用：
 
-- 主 Tab 路由只出现在共享组件的 `wx.switchTab` 中；
+- 主 Tab 路由只出现在 `app.json.tabBar.list` 中，由微信原生能力管理；
 - 患者选择、预约、报告、反馈和资料页仍使用普通页面导航；
 - 登录失效回首页使用 `wx.reLaunch`，避免在无效页面栈中继续发起受保护请求；
-- 首页和“我的”不再自行维护底栏激活态；
+- 首页和“我的”不再自行维护底栏或激活态；
 - 未发现其它页面复制四项 `legacy-tabbar` 结构。
 
 ## 5. 验收门禁
 
 当前代码门禁要求：
 
-1. `app.json.tabBar.custom` 必须为 `true`，且四项文案顺序为“医疗服务、就诊、互联网医院、我的”；
+1. `app.json.tabBar.custom` 不得为 `true`，且四项文案顺序为“医疗服务、就诊、互联网医院、我的”；
 2. 四个 `pagePath` 必须同时注册在 `app.json.pages`；
 3. 首页和“我的”不能包含 `legacy-tabbar`；
-4. `custom-tab-bar` 必须包含 `switchTab`，不能包含 `navigateTo`；
-5. 运行包构建必须同时包含 `custom-tab-bar/index.js` 和四个 Tab 页面脚本；
+4. 运行包不得包含 `custom-tab-bar/` 目录或页面级重复底栏；
+5. 运行包构建必须包含四个 Tab 页面脚本和所有 `iconPath/selectedIconPath` 资源；
 6. 真机需要分别点击四项，确认激活图标、页面 route 和返回行为一致；普通业务页返回时不能新增第二套底栏。
 
 本轮没有修改线上服务、旧 Python 服务、数据库、Redis 或正式小程序发布包。

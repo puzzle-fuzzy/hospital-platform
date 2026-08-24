@@ -20,9 +20,6 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
-	"custom-tab-bar/index.json",
-	"custom-tab-bar/index.wxml",
-	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -74,7 +71,6 @@ const requiredStaticFiles = [
 ];
 const requiredTypeScriptFiles = [
 	"app.ts",
-	"custom-tab-bar/index.ts",
 	"data/department-location.ts",
 	"services/api-client.ts",
 	"services/dashboard-service.ts",
