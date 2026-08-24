@@ -7,6 +7,7 @@
 > 当前只读 adapter 门禁（2026-08-24，本地未部署）：门诊费用 adapter `21/21`、报告 adapter `19/19` 定向测试通过；患者与预约 adapter 定向回归 `46/46` 通过，全量 adapters `118/118` 通过。费用时间/状态/未知字段、报告目录日期/来源/患者引用、患者 `unionId`、预约科室/排班日期与筛选标识均在触网前 fail-closed。生产仍是 `13f597ea`，旧 Python `8001` 未修改；详见 [`release/readonly-provider-adapter-input-boundary-2026-08-24.md`](release/readonly-provider-adapter-input-boundary-2026-08-24.md)。
 > 当前线上窗口复核（2026-08-24 12:46 CST）：显式 SSH 只读确认 `current=13f597ea`、Bun `18081` PID `896697` 与旧 Python `8001` 共存；当前 PID 自 `11:32:55` 启动后未出现患者、预约、门诊费用、普通资料或报告业务事件，只有健康/认证边界探针。更早 `09:59–10:00` 的患者同步属于旧进程窗口，不能合并为当前候选真机证据；详见 [`release/13f597ea-production-acceptance-2026-08-24.md`](release/13f597ea-production-acceptance-2026-08-24.md)。
 > 当前小程序会话门禁（2026-08-24，本地未部署）：新增回归锁定患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；全套小程序回归 `223/223` 通过。`401` 的一次受控恢复和同代二次 401 清理规则不变，详见 [`release/miniprogram-session-dependency-error-boundary-2026-08-24.md`](release/miniprogram-session-dependency-error-boundary-2026-08-24.md)。
+> 当前日志链路审计（2026-08-24，本地未部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。完整 API 测试仍被发布基线门禁阻止，因为四个 adapter 输入门禁尚未部署到线上 `13f597ea`；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
 > 当前服务端与小程序已完成同源配套切换，旧 Python `8001` 继续共存；下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
 

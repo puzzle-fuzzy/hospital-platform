@@ -16,14 +16,14 @@ import type {
 	WechatPrepayStatusResponse,
 } from "../types";
 import {
+	recordApiRequestObservation,
+	sanitizeApiRequestPath,
+} from "./api-request-observability";
+import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "./session-generation";
-import {
-	recordApiRequestObservation,
-	sanitizeApiRequestPath,
-} from "./api-request-observability";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";

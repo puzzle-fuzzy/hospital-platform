@@ -285,6 +285,7 @@
 | [`release/report-readonly-contract-audit-2026-08-18.md`](release/report-readonly-contract-audit-2026-08-18.md) | 报告目录/详情的患者归属、短期 opaque 引用、Provider 文本边界、日志和真实验收缺口 |
 | [`migration/report-provider-contract-audit-2026-08-19.md`](migration/report-provider-contract-audit-2026-08-19.md) | LIS/PACS/ECG/体检四类旧报告来源与新端覆盖边界；身份证、详情、附件和报告解读停止条件 |
 | [`release/current-public-readonly-smoke-2026-08-18-2025.md`](release/current-public-readonly-smoke-2026-08-18-2025.md) | 重启后的公网 live/ready/system-ping 与未登录认证边界复核；不代表真实业务验收 |
+| [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md) | 当前小程序 requestId、API Pino、业务事件和 Provider 低敏链路审计；明确本地未部署 adapter 与线上业务证据边界 |
 | [`release/current-release-p0-observation-2026-08-17-2129.md`](release/current-release-p0-observation-2026-08-17-2129.md) | `bf67b96` 21:29 CST 当前 release 的新旧服务共存、公网 ready 和只读业务事件增量观察 |
 | [`logging.md`](logging.md) | Pino 事件、脱敏字段、requestId/traceId 和 journald 检索 |
 | [`../README.md`](../README.md) | 项目状态、开发命令和公开 API 概览 |
