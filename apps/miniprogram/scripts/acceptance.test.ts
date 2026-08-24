@@ -1322,9 +1322,13 @@ test("shared custom primary tabs keep one stable selected component", async () =
 	expect(tabBarTemplate).toContain("item.activeIcon");
 	expect(tabBarTemplate).toContain("item.icon");
 	expect(tabBarStyle).toContain("position: fixed;");
-	expect(tabBarStyle).toContain("height: calc(130rpx + env(safe-area-inset-bottom));");
+	expect(tabBarStyle).toContain(
+		"height: calc(130rpx + env(safe-area-inset-bottom));",
+	);
 	expect(tabBarScript).toContain("selected: resolveSelectedTab()");
-	expect(tabBarScript).toContain("if (selected === this.data.selected) return;");
+	expect(tabBarScript).toContain(
+		"if (selected === this.data.selected) return;",
+	);
 	expect(tabBarScript).toContain("wx.switchTab({ url: item.route });");
 	expect(tabBarScript).not.toContain("wx.navigateTo");
 });
