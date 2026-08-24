@@ -1,7 +1,7 @@
 # 历史只读业务关联观察（2026-08-24 17:37 CST）
 
 > 本文只记录通过 SSH 对生产新 API journald 做的只读、脱敏关联审计。没有重启、配置写入、数据库/Redis 写入，也没有修改旧 Python 服务。服务器当前 release、端口共存和 production readiness 事实以 [`current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](current-runtime-coexistence-readonly-audit-2026-08-24-1727.md) 为准。
-> 本文是历史日志窗口，不是当前小程序候选的业务验收证明。观察记录中的本地候选 `ce3d4b96` 已过期；当前线上配套小程序为 `13f597ea`，当前未发布本地候选为 `4da9cc093c2b510bf8b48ff2c589df9302c367e0`。服务器日志本身不能反推出调用方运行包来源。
+> 本文是历史日志窗口，不是当前小程序候选的业务验收证明。观察记录中的本地候选 `ce3d4b96` 已过期；当前线上配套小程序为 `13f597ea`，当前未发布本地候选为 `2bf9d8d9f67521067d761b48cc2bfec449ef1348`。服务器日志本身不能反推出调用方运行包来源。
 
 ## 1. 证据边界
 

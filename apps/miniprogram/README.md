@@ -24,11 +24,12 @@
 始终读取真实存在的 `.js` 页面文件，不依赖工具隐式编译 TypeScript。不要直接打开 `src/`，否则本机配置副本
 可能覆盖公共配置并再次按纯 JavaScript 查找错误的源码目录。
 
-本机 `project.private.config.json` 必须保持 `ignoreDevUnusedFiles=false`。运行目录使用
+公共 `project.config.json` 和本机 `project.private.config.json` 都必须保持
+`compileHotReLoad=false`；本机配置还必须保持 `ignoreDevUnusedFiles=false`。运行目录使用
 TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文件”分析可能无法识别页面脚本的间接
 `require` 依赖；开启该选项会把实际存在的 `services/*.js` 从调试模块图排除，造成
-`module ... is not defined`。同时建议保持 `compileHotReLoad=false`：热重载会在 `dist/`
-替换或页面重新编译时制造短暂的底部导航闪动，不能作为真机 Tab 共享行为验收依据。
+`module ... is not defined`。热重载会在 `dist/` 替换或页面重新编译时制造短暂的底部导航闪动，
+因此构建脚本会在公共配置和本机配置任一开启时直接失败，不能作为真机 Tab 共享行为验收依据。
 修改源码后先执行构建，再在开发者工具中执行一次普通编译。
 
 四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在
