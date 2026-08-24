@@ -6,7 +6,7 @@
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本段仅作追溯。
 
 
-> 当前完整小程序来源校验值：`13f597ea9ee3f65b9be858117826d948339d904a`；线上服务端 release：`28a5c0c131794ce9dcc5f94bd3809402188ac87a`。
+> 当前完整小程序来源校验值：`13f597ea9ee3f65b9be858117826d948339d904a`；线上服务端 release：`28a5c0c131794ce9dcc5f94bd3809402188ac87a`。两者为有意分层发布，不要求同源。
 
 > 历史发布基线（2026-08-22 18:55 CST）：服务端当时为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
 > `4ba492a3fdae8283409bd2ab4a0a45247c46600c`。P0 运行层切换已完成，P1 真机/Provider 三层证据仍未完成。
@@ -24,7 +24,7 @@
 
 > 历史发布复核（2026-08-22 18:55 CST）：门诊费用只读 adapter 的公开 `recordId` 已加入不可见的 Provider 患者作用域，Provider 稳定身份字段若只有空白字符则按格式异常拒绝；补丁已按无损手册发布到当时的 `0e2a366e`。门诊费用真实 Provider/真机业务证据仍为 0。
 
-> 历史发布通道复核（2026-08-22 21:13 CST）：当时阿里云到内网可达，但 `ps@10.0.0.3` 拒绝现有公钥；该状态已在后续恢复。本轮当前候选的实际阻塞是 sudo systemd 操作需要密码，详见 [`../release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md`](../release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md)。
+> 历史发布通道复核（2026-08-22 21:13 CST）：当时阿里云到内网可达，但 `ps@10.0.0.3` 拒绝现有公钥；该状态已在后续恢复。当前候选已完成服务端切换，具体运行态以 [`../release/28a5c0c1-production-acceptance-2026-08-24.md`](../release/28a5c0c1-production-acceptance-2026-08-24.md) 为准。
 
 ## 2026-08-24 当前执行决策
 

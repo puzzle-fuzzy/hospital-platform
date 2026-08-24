@@ -82,7 +82,7 @@ service、API、页面或兼容转发，不把旧端异常清空列表的行为�
 
 ## 0.5 2026-08-24 当前 13f 候选复核
 
-当前候选服务端为 `13f597ea9ee3f65b9be858117826d948339d904a`，小程序提交为 `13f597e`。重新核对旧端
+当前服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，小程序提交为 `13f597e`。重新核对旧端
 `electronic_record.vue`、`medicalRecord.ts` 与原生首页动作后，结论没有放宽：
 
 - 旧端实际页面调用的是门诊摘要 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，发送
