@@ -59,7 +59,7 @@ CLI 必须从 `apps/miniprogram` 目录执行；如果从 monorepo 根目录执�
 历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
 选中态消失，已恢复为单一共享 `custom-tab-bar`，不再让原生底栏和页面级实现互相竞争。
 当前最新运行输入为
-`39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`，
+`75993e82`（完整 revision 写入 `dist/build-info.json`），
 并额外隔离 `src/`/`scripts/` 源码监听、避免对当前 Tab 重复调用 `switchTab`，以及在会话恢复期间保持患者卡片高度稳定。
 本候选的真实手机选中态仍需重新普通编译后复核；若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
