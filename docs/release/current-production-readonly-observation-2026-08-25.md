@@ -45,6 +45,17 @@
 `401` 只能说明请求未通过当前会话认证，不能被解释为 provider 空列表；`200` 也只说明当次平台读取成功，
 不能自动证明客户端展示、患者切换、Provider 字段白名单或真机视觉正确。
 
+### 2.1 日志关联约定
+
+本次同时核对了 HTTP 请求日志和业务事件日志的字段语义：
+
+- `http.request.completed` / `http.request.failed` 同时记录 `requestId` 和 `traceId`，两者在 HTTP 边界上是同一个经过安全归一化的 `x-request-id`；
+- 预约、门诊费用等 service 通过 `adapterContextFromHeaders` 继承同一个 `traceId`，因此业务事件可以直接按 `traceId` 与 HTTP 完成/失败事件关联；
+- `providerRequestId` / `providerRequestIds` 只代表 Provider 外部请求链，不能当作平台请求号；
+- 业务事件不重复写 `requestId`，也不写 HTTP `statusCode`：前者避免两个同义字段造成检索歧义，后者只属于 HTTP 响应事实。业务排障统一先用 `traceId` 聚合，再读取同一 trace 的 HTTP 状态与 Provider 低敏请求号。
+
+因此，本轮没有为了“看起来字段齐全”增加重复字段，也没有修改旧服务或线上日志格式。
+
 ## 3. `/api/v2` 404 日志噪声边界
 
 同一时间窗口中，新服务曾收到少量直接访问内部 `/api/v2/health/live|ready` 的 404（低敏统计为 live 2 次、ready 7 次）。
@@ -65,4 +76,3 @@
 - 门诊费用：可以继续做只读页面/字段验收；支付、医保、结算、退款和 HIS 回写保持关闭。
 - 报告：没有成功 Provider 证据，目录/详情 gate 继续关闭，不因页面骨架或单元测试通过而开放。
 - 业务验收下一步必须由同一当前小程序运行包产生客户端 requestId，再在公网、Elysia/Pino 和 Provider 三层对齐；不能只依赖服务器总计数。
-
