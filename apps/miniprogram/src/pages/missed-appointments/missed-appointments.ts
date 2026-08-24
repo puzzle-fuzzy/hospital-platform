@@ -40,7 +40,6 @@ type MissedAppointmentsPageMethods = {
 	onUnload(): void;
 	isPatientContextCurrent(): boolean;
 	showError(error: unknown, fallback: string): void;
-	redirectToPatientSelector(error: unknown, requestToken: number): boolean;
 	toRecordView(
 		record: AppointmentRecord,
 		index: number,
@@ -58,7 +57,6 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		visibleRecords: [],
 		visibleRecordCount: 0,
 		hasMoreRecords: false,
-		redirectingToPatientSelector: false,
 		loading: true,
 		error: "",
 	},
@@ -99,7 +97,6 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			loading: true,
 			error: "",
 			sessionState: "checking",
-			redirectingToPatientSelector: false,
 			// 爽约记录是当前患者预约历史的派生结果；新患者查询开始后不能继续
 			// 展示上一位患者的卡片或记录，避免身份和列表短暂错配。
 			selectedPatient: null,
@@ -187,7 +184,6 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				});
 			})
 			.catch((error) => {
-				if (this.redirectToPatientSelector(error, requestToken)) return;
 				if (loadGuard.isCurrent(requestToken)) {
 					this.setData({
 						sessionState: sessionStateAfterAuthenticatedReadError(
@@ -230,67 +226,6 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			visibleRecordCount: nextCount,
 			hasMoreRecords: nextCount < this.data.records.length,
 		});
-	},
-
-	/**
-	 * 爽约页没有独立的“未选择患者”业务空态。
-	 *
-	 * 直接访问、旧患者失效或患者临床映射暂不可用时，页面无法产生可信的
-	 * 过去 90 天爽约结果；继续渲染一个“选择就诊人”模块会让用户误以为这
-	 * 是查询结果的一部分，并且与“我的”入口门禁产生两套行为。因此只在
-	 * 会话已经验证成功、且错误明确属于患者上下文时，统一跳转到选择页。
-	 * Provider、持久化和网络错误仍留在本页错误态，避免把未知故障误导成换人。
-	 */
-	redirectToPatientSelector(error: unknown, requestToken: number): boolean {
-		if (
-			!(error instanceof ApiError) ||
-			![
-				"patient-selection-required",
-				"patient-not-bound",
-				"patient-selection-stale",
-				"patient-clinical-unavailable",
-			].includes(error.code) ||
-			this.data.sessionState !== "valid"
-		) {
-			return false;
-		}
-
-		this.setData({
-			error: "",
-			redirectingToPatientSelector: true,
-			selectedPatient: null,
-			patientSessionGeneration: -1,
-			records: [],
-			visibleRecords: [],
-			visibleRecordCount: 0,
-			hasMoreRecords: false,
-		});
-		// 只有当前请求仍然有效时才导航，避免旧请求的患者错误把新页面带走。
-		if (
-			getPageLatestRequestGuard(this, "missed-appointments").isCurrent(
-				requestToken,
-			)
-		) {
-			wx.nextTick(() => {
-				if (this.data.redirectingToPatientSelector) {
-					const navigationResult = navigateToPatientSelector(
-						this.data.sessionState,
-					);
-					if (navigationResult !== "navigated") {
-						// 同步进行中时统一导航会主动阻止第二个选择页；此时
-						// 必须退出 redirecting 状态，否则用户会看到永久 loading。
-						this.setData({
-							redirectingToPatientSelector: false,
-							error:
-								navigationResult === "sync-in-flight"
-									? "就诊人正在同步，请稍后重试"
-									: "登录状态已变化，请重新加载",
-						});
-					}
-				}
-			});
-		}
-		return true;
 	},
 
 	/** 页面边界只负责把稳定状态枚举翻译成中文显示文案。 */
@@ -345,7 +280,6 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 				: patientContextErrorMessage(error, fallback);
 		this.setData({
 			error: message,
-			redirectingToPatientSelector: false,
 			selectedPatient: null,
 			patientSessionGeneration: -1,
 			records: [],

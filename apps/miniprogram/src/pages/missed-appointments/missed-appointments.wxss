@@ -143,6 +143,7 @@ page {
 
 .state-card {
 	/* 爽约页与预约/报告/费用页使用相同状态容器，加载结束不改变版面高度。 */
+	height: 380rpx;
 	min-height: 380rpx;
 	margin-top: 60rpx;
 	padding: 40rpx 30rpx;

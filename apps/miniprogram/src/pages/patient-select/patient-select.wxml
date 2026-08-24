@@ -12,13 +12,13 @@
 		<text>添加就诊人</text>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading">
+	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
 		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>正在加载就诊人...</text>
 	</view>
 
 	<!-- 错误不是空目录：独立分支阻止“暂无就诊人”掩盖登录、网络或同步故障。 -->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
 		<text>本次就诊人目录未加载成功</text>
 		<text class="state-hint">请根据上方提示处理后重试</text>
 		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
@@ -50,7 +50,7 @@
 		</view>
 	</view>
 
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
 		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text>当前微信账号暂无已绑定的就诊人</text>
 		<text class="state-hint">请先完成医院侧就诊人绑定，再点击下方刷新</text>

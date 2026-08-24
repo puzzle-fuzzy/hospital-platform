@@ -204,6 +204,7 @@ page {
 	align-items: center;
 	justify-content: center;
 	/* 统一记录页状态容器，加载到空数据时不让业务卡片突然跳高。 */
+	height: 380rpx;
 	min-height: 380rpx;
 	margin-top: 60rpx;
 	padding: 40rpx 30rpx;

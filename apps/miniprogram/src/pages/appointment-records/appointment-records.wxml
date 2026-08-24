@@ -76,7 +76,7 @@
 		</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading">
+	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
 		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>加载中...</text>
 	</view>
@@ -169,7 +169,7 @@
 		错误态必须在空列表之前截断渲染分支。依赖未配置、会话失效或网络异常
 		都不能被解释成“暂无挂号记录”；用户可以重新读取，也可以重新选择患者。
 	-->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
 		<image
 			class="state-empty-icon"
 			src="/assets/legacy-user/empty-record.svg"
@@ -181,7 +181,7 @@
 		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
 	</view>
 
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
 		<!-- 旧端空列表使用 48rpx 的 file-text 图标，不能套用首页的大型服务插图。 -->
 		<image
 			class="state-empty-icon"

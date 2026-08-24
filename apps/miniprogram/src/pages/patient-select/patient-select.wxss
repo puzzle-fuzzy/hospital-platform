@@ -177,6 +177,7 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	/* 选择页也使用固定状态容器，目录加载完成后不会把下方刷新区推移。 */
+	height: 380rpx;
 	min-height: 380rpx;
 	margin-top: 60rpx;
 	padding: 40rpx 30rpx;

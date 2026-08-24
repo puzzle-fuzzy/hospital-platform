@@ -34,7 +34,8 @@ page {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	min-height: 180rpx;
+	height: 380rpx;
+	min-height: 380rpx;
 	border-radius: 20rpx;
 	background: #ffffff;
 	color: #777777;

@@ -21,15 +21,9 @@
 		<view class="page-description">展示当前就诊人过去 90 天的爽约记录</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading">
+	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
 		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>正在加载爽约记录...</text>
-	</view>
-
-	<!-- 患者上下文失效时会由页面逻辑直接进入选择页，不把选择模块嵌在爽约空态中。 -->
-	<view wx:elif="{{redirectingToPatientSelector}}" class="state-card state-card-loading">
-		<view class="state-loading-icon" aria-hidden="true"></view>
-		<text>正在打开就诊人选择...</text>
 	</view>
 
 	<view wx:elif="{{visibleRecords.length}}" class="record-list">
@@ -52,14 +46,14 @@
 		爽约列表是预约历史的派生读模型。查询异常时不能显示“暂无爽约记录”，
 		否则会把 Provider 失败误报成用户没有爽约；恢复动作必须重新读取当前患者。
 	-->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
 		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text>本次爽约记录未加载成功</text>
 		<text class="state-hint">请根据上方提示处理后重试</text>
 		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
 	</view>
 
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
 		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text>暂无爽约记录</text>
 		<text class="state-hint">请继续保持按时就诊的好习惯</text>

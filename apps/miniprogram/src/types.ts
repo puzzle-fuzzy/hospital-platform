@@ -292,8 +292,6 @@ export type MissedAppointmentsPageData = {
 	visibleRecords: Array<AppointmentRecordView>;
 	visibleRecordCount: number;
 	hasMoreRecords: boolean;
-	/** 患者上下文失效时直接转入选择页，不在爽约空态中重复展示选择模块。 */
-	redirectingToPatientSelector: boolean;
 	loading: boolean;
 	error: string;
 };

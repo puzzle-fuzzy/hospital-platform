@@ -1,7 +1,7 @@
 <view class="page">
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
-	<view wx:if="{{loading}}" class="state-card">
+	<view wx:if="{{loading}}" class="state-card query-state-shell query-state-shell-column">
 		<text>正在加载个人资料...</text>
 	</view>
 
@@ -10,7 +10,7 @@
 		错误态独立于编辑表单：此时没有可信的 version 和会话代际，必须先
 		重新取得服务端 canonical 快照，不能显示保存按钮或提交旧资料。
 	-->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
 		<text>本次个人资料未加载成功</text>
 		<text class="state-hint">请根据上方提示处理后重试</text>
 		<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>

@@ -203,6 +203,7 @@ page {
 	justify-content: center;
 	box-sizing: border-box;
 	/* 报告读取状态与费用/预约页保持同高，避免空目录替换 loading 时跳动。 */
+	height: 380rpx;
 	min-height: 380rpx;
 	margin-top: 60rpx;
 	padding: 40rpx 30rpx;

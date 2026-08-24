@@ -17,7 +17,7 @@
 		<view wx:if="{{reportCount > 0}}" class="page-description">近 30 天共 {{reportCount}} 份报告</view>
 	</view>
 
-	<view wx:if="{{loading}}" class="state-card state-card-loading">
+	<view wx:if="{{loading}}" class="state-card state-card-loading query-state-shell query-state-shell-column">
 		<view class="state-loading-icon" aria-hidden="true"></view>
 		<text>正在加载报告目录...</text>
 	</view>
@@ -53,7 +53,7 @@
 		这里保留重新读取和重新选择患者两个恢复动作，避免把错误态伪装成
 		临床空结果，也避免页面因清空患者上下文后失去切换入口。
 	-->
-	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">
+	<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">
 		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text>本次报告目录未加载成功</text>
 		<text class="state-hint">请根据上方提示处理后重试</text>
@@ -61,7 +61,7 @@
 		<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
 	</view>
 
-	<view wx:elif="{{!loading}}" class="state-card state-card-empty">
+	<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">
 		<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 		<text wx:if="{{selectedPatient}}">未查询到相关报告</text>
 		<text wx:else>请先选择就诊人</text>

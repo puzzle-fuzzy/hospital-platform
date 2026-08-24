@@ -141,20 +141,20 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 			source(pagePath),
 		]);
 		const errorBranch =
-			'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+			'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
 		const emptyBranch =
-			'<view wx:elif="{{!loading}}" class="state-card state-card-empty">';
+			'<view wx:elif="{{!loading}}" class="state-card state-card-empty query-state-shell query-state-shell-column">';
 		expect(template).toContain(errorBranch);
 		expect(template.indexOf(errorBranch)).toBeLessThan(
 			template.indexOf(emptyBranch),
 		);
 		expect(template).toContain('bindtap="onRetry"');
 		if (templatePath.includes("missed-appointments")) {
-			// 爽约页缺少患者上下文时会直接转入选择页，空态不能再重复出现
-			// “请先选择就诊人”模块，避免和入口门禁产生两套交互。
+			// 爽约页缺少患者上下文时只保留本页错误态，不能自动打开患者
+			// 选择模块；入口门禁和爽约查询的语义必须保持分离。
 			expect(template).not.toContain("请先选择就诊人");
 			expect(template).not.toContain("点击这里选择就诊人");
-			expect(page).toContain("redirectToPatientSelector");
+			expect(page).not.toContain("redirectToPatientSelector");
 		} else {
 			expect(template).toContain('bindtap="onChangePatient"');
 		}
@@ -169,7 +169,7 @@ test("patient selection errors do not fall through to an unbound-patient empty s
 	// 目录同步失败可能是会话失效、网络故障或临床映射依赖不可用；这些事实
 	// 不能被渲染成“当前账号暂无就诊人”，否则用户会误以为需要重新绑定患者。
 	const errorBranch =
-		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
 	expect(template.indexOf(errorBranch)).toBeGreaterThan(-1);
 	expect(template.indexOf(errorBranch)).toBeLessThan(
 		template.indexOf(
@@ -645,9 +645,10 @@ test("native profile distinguishes invalid read models from session loss", async
 test("native profile loading errors expose an explicit canonical reload", async () => {
 	const profile = await source("pages/profile/profile.ts");
 	const template = await source("pages/profile/profile.wxml");
-	const loadingBranch = '<view wx:if="{{loading}}" class="state-card">';
+	const loadingBranch =
+		'<view wx:if="{{loading}}" class="state-card query-state-shell query-state-shell-column">';
 	const errorBranch =
-		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error">';
+		'<view wx:elif="{{error}}" class="state-card state-card-empty state-card-error query-state-shell query-state-shell-column">';
 	const formBranch =
 		'<view wx:elif="{{!loading && loaded}}" class="form-card">';
 
@@ -1609,8 +1610,10 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsStyle).not.toContain("legacy-tabbar");
 	// 旧端 py-4 的标签高度和 pb-20 的底部节奏必须固定，避免页面视觉逐步漂移。
 	expect(recordsStyle).toContain("height: 112rpx;");
-	expect(recordsStyle).toContain("transition: transform 0.3s ease;");
-	expect(recordsStyle).toContain("transform: scale(0.98);");
+	expect(recordsStyle).toContain(
+		"transition: background-color 0.2s ease, transform 0.2s ease;",
+	);
+	expect(recordsStyle).toContain("transform: scale(0.99);");
 	expect(recordsTemplate).toContain(
 		"/assets/legacy-user/appointment-status.svg",
 	);
@@ -1904,9 +1907,9 @@ test("native mini program derives missed appointments from the normalized record
 
 	expect(app).toContain('"pages/missed-appointments/missed-appointments"');
 	expect(my).toContain('case "missed-appointments"');
-	// 入口统一经过患者范围门禁；URL 仍必须保留在页面源中，防止静态迁移时
-	// 只保留菜单 action 却丢失真实页面目标。
-	expect(my).toContain("navigateToPatientScopedPage");
+	// 爽约记录不自动打开患者选择模块；URL 仍必须保留在页面源中，防止
+	// 静态迁移时只保留菜单 action 却丢失真实页面目标。
+	expect(my).toContain("navigateToAuthenticatedPage");
 	expect(my).toContain('"/pages/missed-appointments/missed-appointments"');
 	expect(myTemplate).toContain('data-action="{{item.action}}"');
 	expect(my).toContain('action: "missed-appointments"');
@@ -1937,11 +1940,11 @@ test("native mini program derives missed appointments from the normalized record
 	expect(style).toContain(
 		'@import "../appointment-records/appointment-records.wxss"',
 	);
-	// 患者上下文错误会由页面逻辑统一导航到选择页，爽约空态只代表当前
-	// 已确认患者确实没有 missed 记录，不能把“选择就诊人”当作查询结果。
+	// 患者上下文错误留在本页可重试错误态，爽约空态只代表当前已确认患者
+	// 确实没有 missed 记录，不能把“选择就诊人”当作查询结果。
 	expect(template).not.toContain("请先选择就诊人");
 	expect(template).not.toContain("点击这里选择就诊人");
-	expect(page).toContain("redirectToPatientSelector");
+	expect(page).not.toContain("redirectToPatientSelector");
 });
 
 test("native mini program exposes outpatient payment and my pages through platform APIs", async () => {
@@ -2202,15 +2205,77 @@ test("native report detail keeps loading, error and empty states at one stable h
 	// 高而把页面内容突然向下推移。错误态也必须复用同一外层容器，保证
 	// “请求中 → 无检测项/无云影像 → 错误重试”都保持稳定的视觉占位。
 	expect(template).toContain(
-		'<view wx:if="{{loading}}" class="report-state-card loading-state">',
+		'<view wx:if="{{loading}}" class="report-state-card loading-state query-state-shell">',
 	);
 	expect(template).toContain(
-		'<view wx:if="{{error}}" class="report-state-card error-state">',
+		'<view wx:if="{{error}}" class="report-state-card error-state query-state-shell query-state-shell-column">',
 	);
 	expect(style).toContain(".report-state-card {");
+	expect(style).toContain("height: 380rpx;");
 	expect(style).toContain("min-height: 360rpx;");
 	expect(style).toContain(".report-empty,");
 	expect(style).toContain(".cloud-empty {");
+});
+
+test("native query pages keep loading and empty result shells at one fixed height", async () => {
+	const appStyle = await source("app.wxss");
+	const pages = [
+		"pages/appointment-records/appointment-records",
+		"pages/missed-appointments/missed-appointments",
+		"pages/outpatient-payment/outpatient-payment",
+		"pages/report-directory/report-directory",
+		"pages/patient-select/patient-select",
+		"pages/profile/profile",
+	] as const;
+
+	// 仅靠 min-height 会让空态图片和恢复动作把卡片继续撑高；所有患者
+	// 查询页必须使用公共空间类，并在页面样式中保留 380rpx 的兜底高度。
+	expect(appStyle).toContain(".query-state-shell {");
+	expect(appStyle).toContain("height: 380rpx;");
+	for (const pagePath of pages) {
+		const template = await source(`${pagePath}.wxml`);
+		const style = await source(`${pagePath}.wxss`);
+		expect(template).toContain("query-state-shell");
+		expect(style).toContain("height: 380rpx;");
+	}
+});
+
+test("native missed appointments never auto-opens the patient selector", async () => {
+	const my = await source("pages/my/my.ts");
+	const missed = await source(
+		"pages/missed-appointments/missed-appointments.ts",
+	);
+	const template = await source(
+		"pages/missed-appointments/missed-appointments.wxml",
+	);
+
+	// “我的”页点击爽约记录时直接进入本页；只有已有患者卡片上的主动
+	// 更换动作才可以调用统一患者选择导航，避免入口意外展示选择模块。
+	const actionStart = my.indexOf('case "missed-appointments"');
+	const actionEnd = my.indexOf("\n\t\t\t\tbreak;", actionStart);
+	const action = my.slice(actionStart, actionEnd);
+	expect(action).toContain("navigateToAuthenticatedPage");
+	expect(action).not.toContain("navigateToPatientScopedPage");
+	expect(missed).toContain("onChangePatient");
+	expect(missed).not.toContain("redirectToPatientSelector");
+	expect(template).not.toContain("正在打开就诊人选择");
+});
+
+test("native appointment cards keep the legacy hierarchy without decorative stripe and wide shadow", async () => {
+	const template = await source(
+		"pages/appointment-records/appointment-records.wxml",
+	);
+	const style = await source(
+		"pages/appointment-records/appointment-records.wxss",
+	);
+
+	// 记录卡片沿用旧端的科室、状态、医生/院区、日期/时段、号序和操作
+	// 顺序；视觉上用轻边界承托信息，不用会抢夺内容层级的侧条和大阴影。
+	expect(template).toContain("record-card-header");
+	expect(template).toContain("record-schedule");
+	expect(template).toContain("record-actions");
+	expect(style).not.toContain(".record-card::before");
+	expect(style).not.toContain("box-shadow: 0 8rpx 24rpx");
 });
 
 test("native homepage keeps patient identity and QR data within the safe boundary", async () => {
@@ -2296,24 +2361,22 @@ test("native homepage blocks patient selection while its sync snapshot is in fli
 	expect(navigation).toContain("就诊人正在同步，请稍后");
 	expect(navigation).toContain("PatientSelectorNavigationResult");
 	expect(navigation).toContain('return "sync-in-flight"');
-	const missed = await source(
-		"pages/missed-appointments/missed-appointments.ts",
-	);
-	// 爽约页在统一导航被同步门禁拦截时必须离开 redirecting 状态，
-	// 否则用户会看到无法结束的 loading，而不是可重试错误。
-	expect(missed).toContain("navigationResult");
-	expect(missed).toContain("redirectingToPatientSelector: false");
-	expect(missed).toContain("就诊人正在同步，请稍后重试");
 	const patientScopedPages = [
 		"pages/my/my.ts",
 		"pages/appointment-records/appointment-records.ts",
-		"pages/missed-appointments/missed-appointments.ts",
 		"pages/outpatient-payment/outpatient-payment.ts",
 		"pages/report-directory/report-directory.ts",
 	];
 	for (const pagePath of patientScopedPages) {
 		expect(await source(pagePath)).toContain("navigateToPatientSelector");
 	}
+	const missed = await source(
+		"pages/missed-appointments/missed-appointments.ts",
+	);
+	// 爽约页仍允许用户在已有患者卡片上主动更换就诊人，但不再因为查询
+	// 缺少患者上下文而自动导航到选择页。
+	expect(missed).toContain("onChangePatient");
+	expect(missed).not.toContain("redirectToPatientSelector");
 });
 
 test("native homepage uses the same verified session state for every business entry", async () => {

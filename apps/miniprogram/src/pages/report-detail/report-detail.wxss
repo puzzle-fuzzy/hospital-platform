@@ -7,6 +7,7 @@
 
 .report-state-card {
 	box-sizing: border-box;
+	height: 380rpx;
 	min-height: 360rpx;
 	margin: 20rpx;
 	border-radius: 16rpx;

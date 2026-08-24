@@ -376,10 +376,12 @@ Page<MyPageData, MyPageMethods>({
 				);
 				break;
 			case "missed-appointments":
-				navigateToPatientScopedPage(
+				// 爽约记录没有独立的“选择就诊人”入口。即使当前页面还没有
+				// 可用患者，也先进入爽约页展示稳定错误/空结果；只有用户在
+				// 页面内明确点击已有患者卡片时，才进入独立患者选择页。
+				navigateToAuthenticatedPage(
 					"/pages/missed-appointments/missed-appointments",
 					this.data.sessionState,
-					this.data.selectedPatient,
 				);
 				break;
 			case "outpatient-payment":
