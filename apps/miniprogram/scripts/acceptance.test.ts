@@ -1507,6 +1507,11 @@ test("native mini program build guards the DevTools TypeScript configuration", a
 	expect(build).toContain("missed-appointments/missed-appointments.ts");
 	expect(build).toContain("project.private.config.json");
 	expect(build).toContain("ignoreDevUnusedFiles");
+	// 兼容开发者工具在 src/ 下留下的旧配置，但不能让它再次把源码目录
+	// 当作运行根目录；否则真机看到的会是另一份页面图和旧的增量缓存。
+	expect(build).toContain("legacySourceProjectConfigPath");
+	expect(build).toContain('miniprogramRoot !== "../dist/"');
+	expect(build).toContain("open apps/miniprogram as the DevTools project root");
 	expect(build).toContain("src 仍是唯一业务源码");
 	expect(build).toContain("runtime must not contain test scripts");
 	expect(build).toContain("build-info.json");

@@ -15,6 +15,7 @@ const source = join(root, "src");
 const runtime = join(root, "dist");
 const projectConfigPath = join(root, "project.config.json");
 const privateProjectConfigPath = join(root, "project.private.config.json");
+const legacySourceProjectConfigPath = join(source, "project.config.json");
 const buildConfigPath = join(root, "tsconfig.build.json");
 const requiredStaticFiles = [
 	"app.json",
@@ -164,6 +165,37 @@ if (
 	throw new Error(
 		"Mini program project.config.json must keep the TypeScript compiler plugin enabled",
 	);
+}
+
+/**
+ * 开发者工具曾经可以直接把 `src/` 当作小程序根目录，并在其中生成一份
+ * project.config.json。这个本机文件一旦继续使用，工具会绕过完整的 dist
+ * 运行包，重新编译源码或加载旧的增量页面图，正是“底栏闪动/选中态丢失”
+ * 和页面脚本 404 反复出现的共同来源。若文件存在，只允许它兼容性地指向
+ * ../dist/；干净 CI 没有这个本机文件时不受影响。
+ */
+try {
+	const legacySourceProjectConfig = JSON.parse(
+		await Bun.file(legacySourceProjectConfigPath).text(),
+	) as { miniprogramRoot?: unknown };
+	if (legacySourceProjectConfig.miniprogramRoot !== "../dist/") {
+		throw new Error(
+			"apps/miniprogram/src/project.config.json must point to ../dist/; open apps/miniprogram as the DevTools project root",
+		);
+	}
+} catch (error) {
+	if (error instanceof SyntaxError) {
+		throw new Error(
+			"apps/miniprogram/src/project.config.json is invalid; remove the stale DevTools project or point it to ../dist/",
+			{ cause: error },
+		);
+	}
+	if (
+		error instanceof Error &&
+		error.message.startsWith("apps/miniprogram/src/project.config.json")
+	) {
+		throw error;
+	}
 }
 
 const appConfig = JSON.parse(
