@@ -13,7 +13,7 @@ import { isPatientSyncInFlight } from "./patient-sync-coordinator";
 type AuthenticatedEntryState = SessionVerificationState;
 
 /**
- * 四个主入口只能由微信官方共享 tabBar 切换。
+ * 四个主入口只能由微信原生共享 tabBar 切换。
  *
  * 这组路径必须与 `app.json.tabBar.list` 保持一一对应：主 Tab 如果误用
  * `navigateTo`，微信会把它当作普通页面压入页面栈，表现为共享底栏重新创建、
@@ -36,8 +36,8 @@ function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
 /**
  * 判断目标是否已经是当前正在展示的共享主 Tab。
  *
- * 微信官方 custom-tab-bar 会维护四项共享底栏，但业务代码在会话失效、登录恢复
- * 和快捷入口中仍可能重复调用 `switchTab`。对当前页再次 switchTab 会让
+ * 微信原生 tabBar 会维护四项共享底栏，但业务代码在会话失效、登录恢复和快捷入口
+ * 中仍可能重复调用 `switchTab`。对当前页再次 switchTab 会让
  * 页面重新触发生命周期，在低端真机上表现为内容和底栏同时闪一下；它也
  * 没有任何业务收益。因此这里只在确实需要跨 Tab 切换时调用微信 API。
  * 测试环境没有微信全局 `getCurrentPages` 时按“未知”处理，不能因为测试
@@ -54,11 +54,9 @@ function isCurrentPrimaryTab(url: string): boolean {
 /**
  * 主 Tab 的唯一程序化入口。
  *
- * 当前四个主 Tab 主要由共享底栏直接触发；保留这个小函数是为了
- * 约束快捷入口、登录恢复或深链回跳。只要目标是主 Tab，就必须走
- * `switchTab`，绝不能退化成普通页面导航；底栏的激活图标由微信根据
- * `custom-tab-bar` 根据当前 route 统一维护 selected；这里仍然只允许
- * `switchTab`，不能退化成普通页面导航。
+ * 当前四个主 Tab 主要由原生底栏直接触发；保留这个小函数是为了约束快捷入口、
+ * 登录恢复或深链回跳。只要目标是主 Tab，就必须走 `switchTab`，绝不能退化成
+ * 普通页面导航；底栏的激活图标由微信根据 `selectedIconPath` 统一维护。
  */
 export function switchToPrimaryTab(url: string): boolean {
 	if (!isPrimaryTabPagePath(url)) return false;

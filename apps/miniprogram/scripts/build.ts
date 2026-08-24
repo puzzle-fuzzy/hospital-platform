@@ -30,9 +30,6 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
-	"custom-tab-bar/index.json",
-	"custom-tab-bar/index.wxml",
-	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -89,8 +86,6 @@ const requiredTypeScriptFiles = [
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
 	"services/patient-selection-service.ts",
-	"constants/legacy-tabbar.ts",
-	"custom-tab-bar/index.ts",
 	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
 	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。
 	"services/single-flight.ts",
@@ -288,35 +283,35 @@ if (
 const appPagePaths = appConfig.pages as string[];
 
 /**
- * 四个主入口必须交给微信官方 custom-tab-bar 统一维护。页面自身不能复制
- * 底栏，组件在切换前先更新 selected，switchTab 失败时再回滚；这样选中态
- * 不依赖微信原生 selectedIconPath 在不同真机缓存中的隐式切换。
+ * 四个主入口必须交给微信原生 tabBar 统一维护。页面自身不能复制底栏，
+ * 业务代码也不能使用 navigateTo 打开主 Tab；这样底栏由微信在页面栈之外
+ * 持有，切换时不会创建第二套页面级底栏。
  */
 if (
-	appConfig.tabBar?.custom !== true ||
+	appConfig.tabBar?.custom !== false ||
 	appConfig.tabBar?.position !== "bottom"
 ) {
 	throw new Error(
-		"Mini program primary tabs must use the shared custom-tab-bar; custom=true and position=bottom are required",
+		"Mini program primary tabs must use the native tabBar; custom=false and position=bottom are required",
 	);
 }
 
 /**
- * 共享 TabBar 的图标仍纳入构建资源校验；只校验 JSON 字符串还不够，
+ * 原生 TabBar 的图标仍纳入构建资源校验；只校验 JSON 字符串还不够，
  * 运行包缺图时组件会静默显示空白，用户会误以为选中效果失效。
  */
 const primaryTabList = appConfig.tabBar?.list;
 if (!Array.isArray(primaryTabList) || primaryTabList.length !== 4) {
 	throw new Error(
-		"Mini program shared custom tabBar must declare exactly four primary entries",
+		"Mini program native tabBar must declare exactly four primary entries",
 	);
 }
 
 /**
- * 共享 custom-tab-bar 使用的图标保留 81×81 PNG 作为稳定输入。
+ * 原生 tabBar 使用的图标保留 81×81 PNG 作为稳定输入。
  *
  * 旧资源虽然能被部分基础库缩放，但在真机缓存/渲染层切换时可能出现
- * custom-tab-bar 读取到不合规资源。构建阶段直接读取 PNG 的 IHDR，避免把尺寸不合规
+ * 原生 tabBar 读取到不合规资源。构建阶段直接读取 PNG 的 IHDR，避免把尺寸不合规
  * 的资源再次发布；这只约束导航图标，不影响页面内其它插图的原始尺寸。
  */
 async function readPngDimensions(filePath: string): Promise<{
@@ -374,7 +369,7 @@ for (const item of primaryTabList) {
 		const dimensions = await readPngDimensions(join(source, assetPath));
 		if (dimensions.width !== 81 || dimensions.height !== 81) {
 			throw new Error(
-				`Mini program shared tabBar asset must be 81x81: ${assetPath} (${dimensions.width}x${dimensions.height})`,
+				`Mini program native tabBar asset must be 81x81: ${assetPath} (${dimensions.width}x${dimensions.height})`,
 			);
 		}
 	}
