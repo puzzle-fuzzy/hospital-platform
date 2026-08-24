@@ -418,6 +418,38 @@ test("众阳预约记录只固定微信查询参数并移除患者和支付字�
 	expect(JSON.stringify(result)).not.toContain("registFree");
 });
 
+test("众阳全部预约记录使用渠道 4 且不附带日期窗口", async () => {
+	let requestUrl = "";
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrl = String(input);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [{ workDate: "2026-01-05", status: 1 }],
+				}),
+				{ status: 200, headers: { "x-request-id": "all-record-request" } },
+			);
+		},
+	});
+
+	const result = await gateway.listRecords(
+		{
+			providerPatientId: "provider-patient-001",
+			query: { scope: "all" },
+		},
+		context,
+	);
+
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-middle-business-appointment-server/v1/appointment-infos/provider-patient-001?requestChannel=4&isMzFlag=1&dateFlag=1",
+	);
+	expect(result.records).toEqual([
+		{ workDate: "2026-01-05", status: "cancelled" },
+	]);
+});
+
 test("众阳预约记录从 group 时间段归一化 workTime，不透传原始日期时间", async () => {
 	const gateway = createZhongyangAppointmentGateway({
 		baseUrl: "https://zhongyang.example.test",

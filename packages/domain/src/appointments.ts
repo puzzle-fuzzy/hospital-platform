@@ -683,10 +683,20 @@ export function normalizeAppointmentRecordResults(
 	});
 }
 
-/** 预约记录查询必须有明确日期范围，避免把 provider 历史表当作无限导出接口。 */
+/** 预约记录对应旧端的两个只读渠道；渠道由服务端选择，不能透传 Provider 数字。 */
+export type AppointmentRecordScope = "online" | "all";
+
+/**
+ * 预约记录查询契约。
+ *
+ * 在线挂号使用微信渠道并带有服务端限制的日期窗口；全部挂号使用旧端
+ * 已核实的渠道 4，Provider 端点不带日期参数，以保留历史记录。两种意图
+ * 在领域层明确区分，避免把同一批在线结果在客户端复制成“全部挂号”。
+ */
 export type AppointmentRecordQuery = {
-	startDate: string;
-	endDate: string;
+	scope?: AppointmentRecordScope;
+	startDate?: string;
+	endDate?: string;
 };
 
 /** 服务端先解析内部 patientId，再把短生命周期的 provider 引用交给 adapter。 */

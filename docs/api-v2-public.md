@@ -123,7 +123,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/patients` | Bearer | 返回当前用户 owner-scoped 的脱敏患者目录 |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/schedules` | Bearer；幂等键可选 | 必填 `startDate`、`endDate`；可选 `departmentId`、`doctorId` |
-| `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`、`startDate`、`endDate`；只读预约历史 |
+| `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
 | `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg` |
 | `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；只返回已开放的检验详情白名单，不返回文件 URL |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
@@ -206,6 +206,11 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 边界；这只是只读迁移 evidence，不构成预约写入或支付状态契约。新 Provider 文档/脱敏 fixture 若确认不同枚举，必须先更新
 adapter、contract 和测试，不能由小程序根据文字猜测最终状态。Provider 返回重复 `appointmentInfoId` 时，
 服务端拒绝整批结果；没有预约号的摘要不会被服务端根据数组位置伪造业务 ID。
+
+预约历史有两个服务端拥有的读取范围：省略 `scope` 或传 `scope=online` 时使用旧端在线渠道，
+必须带起止日期，默认由小程序计算当前中国标准时间前后各 90 天；传 `scope=all` 时使用已核实的
+完整历史渠道，不传日期，服务端不会把在线结果复制或拼接成全部记录。Provider 渠道码不进入公共
+请求参数，客户端只能选择这两个业务范围。
 
 预约目录的服务层在进入 Provider 前校验日期；非法日期会返回稳定查询错误并记录对应的
 `appointment.directory.*.failed`，不会产生 `requested`，也不会访问 Provider。
@@ -313,7 +318,7 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 | `GET /api/v2/patients`、`POST /api/v2/patients/sync` | 当前 owner 的有效目录；同步必须是完整快照 | 使用服务端读模型顺序；第一项只能作为“从未选择过时的展示默认值”，不能解释为本人关系 | 选择页展示完整目录 |
 | `GET /api/v2/appointments/departments` | 服务端生成的预约目录日期窗口 | 保留 adapter 返回的 provider 顺序；顺序不是科室优先级事实 | 左栏直接展示目录 |
 | `GET /api/v2/appointments/schedules` | 起止日期差值最多 31 天；当前小程序请求未来 7 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序；页面按 `workDate` 升序分组，同一天内保留返回顺序 | 右栏每次最多渲染 12 条；这是本地渲染分页，不减少 provider 请求量 |
-| `GET /api/v2/appointments/records` | 起止日期差值最多 366 天；“我的挂号”请求当前日前后各 90 天，“爽约记录”请求过去 90 天；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取结果首批渲染 10 条，点击“加载更多”继续展示；这是本地渲染分批，不代表 provider 分页 |
+| `GET /api/v2/appointments/records` | `scope=online` 时起止日期差值最多 366 天；“我的挂号”请求当前日前后各 90 天，“爽约记录”请求过去 90 天；`scope=all` 不传日期；provider `endDate` 包含规则待确认 | 保留 adapter 返回顺序，客户端不得从文字或数组位置推断最终状态 | 当前完整读取结果首批渲染 10 条，点击“加载更多”继续展示；这是本地渲染分批，不代表 provider 分页 |
 | `GET /api/v2/reports` | 起止日期差值最多 366 天；当前小程序请求近 30 天；Provider `endDate` 包含规则待确认；每条返回摘要的 `reportedAt` 必须可解析且落在本次请求的首尾自然日内 | 服务端仅对通过时间窗口校验的结果按 `reportedAt` 时间倒序；同时间再按 `reportedAt`、`kind`、`title` 升序稳定排序 | 当前完整读取后每次渲染 10 条；这是本地渲染分页 |
 | `GET /api/v2/payments/outpatient/records` | 服务端固定最近 30 个中国标准时间日 | 保留 provider adapter 返回顺序；金额和状态已在服务端映射 | 当前完整读取结果首批渲染 10 条，点击“加载更多缴费记录”继续展示；这是本地渲染分批，不代表支付或 provider 分页 |
 

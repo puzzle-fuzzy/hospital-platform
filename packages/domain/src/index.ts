@@ -8,6 +8,7 @@ export type {
 	AppointmentRecordDirectoryGateway,
 	AppointmentRecordDirectoryInput,
 	AppointmentRecordQuery,
+	AppointmentRecordScope,
 	AppointmentRecordResultViolation,
 	AppointmentRecordStatus,
 	AppointmentSchedule,

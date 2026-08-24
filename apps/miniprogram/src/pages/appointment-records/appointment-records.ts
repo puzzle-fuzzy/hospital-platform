@@ -236,6 +236,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					new Date(),
 					"history",
 					expectedSessionGeneration,
+					this.data.activeTab,
 				).then((records) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,
@@ -311,19 +312,17 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/**
-	 * 保留旧端双标签的视觉位置，但只开放当前已确认的微信渠道查询。
+	 * 旧端双标签分别对应两个 Provider 只读查询范围。
 	 *
-	 * 旧端“全部挂号”需要另一个 Provider 渠道请求；新 API 当前只实现已确认的
-	 * 微信在线查询，不能把在线结果在页面内复制成全部结果。等服务端
-	 * contract、owner 映射和失败/超时语义冻结后，再新增独立查询，不在这里
-	 * 通过切换标签修改现有请求或猜测数据范围。
+	 * 服务端已确认“全部挂号”的渠道 4 成功包络和历史返回语义；页面不接触
+	 * 渠道数字，只表达 `all` 业务范围，并在切换时重新读取对应数据。
 	 */
 	onTabTap(event: WechatMiniprogram.TouchEvent): void {
 		const tab = event.currentTarget?.dataset?.tab;
 		if (tab !== "online" && tab !== "all") return;
 		const activeTab = tab as AppointmentRecordTab;
 		if (!isAppointmentRecordTabAvailable(activeTab)) {
-			wx.showToast({ title: "全部挂号查询正在迁移中", icon: "none" });
+			wx.showToast({ title: "挂号范围暂不可用", icon: "none" });
 			return;
 		}
 		if (this.data.selectedPatient && !this.isPatientContextCurrent()) {
@@ -332,10 +331,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			void this.loadRecords();
 			return;
 		}
-		this.setData({
-			activeTab,
-			...getVisibleRecords(this.data.records, activeTab),
-		});
+		this.setData({ activeTab });
+		// 切换标签必须重新请求对应 Provider 范围，不能把在线结果复制成全部。
+		void this.loadRecords();
 	},
 
 	/** 记录状态在页面边界翻译，服务端 contract 仍保持稳定英文枚举。 */

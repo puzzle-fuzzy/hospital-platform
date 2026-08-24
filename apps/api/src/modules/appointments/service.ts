@@ -216,8 +216,25 @@ const APPOINTMENT_SCHEDULE_QUERY_FIELDS = new Set([
 	"doctorId",
 ]);
 
-/** 挂号历史只读查询的 canonical 字段；渠道筛选需单独完成 contract 后再开放。 */
-const APPOINTMENT_RECORD_QUERY_FIELDS = new Set(["startDate", "endDate"]);
+/** 挂号历史只读查询的 canonical 字段；Provider 渠道只由服务端解释。 */
+const APPOINTMENT_RECORD_QUERY_FIELDS = new Set([
+	"scope",
+	"startDate",
+	"endDate",
+]);
+
+/** 失败日志只记录已知的业务范围；畸形输入不得在日志构造阶段再次抛错。 */
+function recordQueryScope(value: unknown): "online" | "all" {
+	if (
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value) &&
+		(value as Record<string, unknown>).scope === "all"
+	) {
+		return "all";
+	}
+	return "online";
+}
 
 /**
  * 预约 service 的所有入口共用同一份上下文门禁。
@@ -316,9 +333,9 @@ function validateAppointmentScheduleResult(
 }
 
 function validateRecordQuery(input: AppointmentRecordQuery): void {
-	if (!hasDateRangeShape(input)) {
+	if (typeof input !== "object" || input === null || Array.isArray(input)) {
 		throw new AppointmentRecordQueryError(
-			"Appointment record date range is invalid",
+			"Appointment record query is invalid",
 		);
 	}
 	if (!hasOnlyQueryFields(input, APPOINTMENT_RECORD_QUERY_FIELDS)) {
@@ -326,8 +343,40 @@ function validateRecordQuery(input: AppointmentRecordQuery): void {
 			"Appointment record query contains an unknown field",
 		);
 	}
-	const start = parseIsoCalendarDate(input.startDate);
-	const end = parseIsoCalendarDate(input.endDate);
+	const rawScope =
+		typeof input === "object" && input !== null && !Array.isArray(input)
+			? (input as Record<string, unknown>).scope
+			: undefined;
+	if (rawScope !== undefined && rawScope !== "online" && rawScope !== "all") {
+		throw new AppointmentRecordQueryError(
+			"Appointment record query scope is invalid",
+		);
+	}
+	const scope = recordQueryScope(input);
+	// 全部挂号使用 Provider 的历史查询语义，不允许同时携带日期窗口，
+	// 否则调用方无法判断这是完整历史还是窗口内历史。
+	if (scope === "all") {
+		if (input.startDate !== undefined || input.endDate !== undefined) {
+			throw new AppointmentRecordQueryError(
+				"Appointment record all-scope query cannot include a date range",
+			);
+		}
+		return;
+	}
+	if (!hasDateRangeShape(input)) {
+		throw new AppointmentRecordQueryError(
+			"Appointment record date range is invalid",
+		);
+	}
+	const startDate = input.startDate;
+	const endDate = input.endDate;
+	if (typeof startDate !== "string" || typeof endDate !== "string") {
+		throw new AppointmentRecordQueryError(
+			"Appointment record date range is invalid",
+		);
+	}
+	const start = parseIsoCalendarDate(startDate);
+	const end = parseIsoCalendarDate(endDate);
 	// 保持与排班查询一致：按起止日期差值限制查询跨度，避免不同只读接口
 	// 对“最大日期范围”的理解不一致。provider 的端点包含规则由合同冻结。
 	const maxRangeMs = MAX_RECORD_RANGE_DAYS * 24 * 60 * 60 * 1000;
@@ -355,8 +404,16 @@ function validateAppointmentRecordWindow(
 	records: readonly AppointmentRecord[],
 	query: AppointmentRecordQuery,
 ): void {
-	const start = parseIsoCalendarDate(query.startDate);
-	const end = parseIsoCalendarDate(query.endDate);
+	if (recordQueryScope(query) === "all") return;
+	const startDate = query.startDate;
+	const endDate = query.endDate;
+	if (typeof startDate !== "string" || typeof endDate !== "string") {
+		throw new AppointmentRecordQueryError(
+			"Appointment record date range is invalid",
+		);
+	}
+	const start = parseIsoCalendarDate(startDate);
+	const end = parseIsoCalendarDate(endDate);
 	if (start === undefined || end === undefined || end < start) {
 		// `validateRecordQuery` 已经负责这个入口校验；这里保留防御性分支，
 		// 避免未来其它调用路径绕过入口后把无效窗口当作有效事实比较。
@@ -691,6 +748,7 @@ export class AppointmentService {
 					event: "appointment.records.requested",
 					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
+					scope: recordQueryScope(query),
 					patientId,
 					startDate: query.startDate,
 					endDate: query.endDate,
@@ -750,6 +808,7 @@ export class AppointmentService {
 					event: "appointment.records.synced",
 					traceId: adapterContextTraceId(context),
 					provider: trace.provider,
+					scope: recordQueryScope(query),
 					...traceLogFields(trace),
 					patientId,
 					itemCount: normalizedRecords.length,
@@ -767,6 +826,7 @@ export class AppointmentService {
 					event: "appointment.records.failed",
 					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
+					scope: recordQueryScope(query),
 					patientId: isBoundedOpaqueIdentifier(patientId)
 						? patientId
 						: "invalid",

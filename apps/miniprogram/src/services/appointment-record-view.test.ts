@@ -58,12 +58,12 @@ test("在线挂号展示边界拒绝绕过响应校验的未知状态", () => {
 	expect(filterAppointmentRecords([invalid], "online")).toEqual([]);
 });
 
-test("全部挂号在独立渠道 contract 到齐前不可用", () => {
+test("全部挂号使用独立渠道结果并保留已取消记录", () => {
 	const records = [record("scheduled"), record("cancelled")];
 
 	expect(isAppointmentRecordTabAvailable("online")).toBe(true);
-	expect(isAppointmentRecordTabAvailable("all")).toBe(false);
-	expect(filterAppointmentRecords(records, "all")).toEqual([]);
+	expect(isAppointmentRecordTabAvailable("all")).toBe(true);
+	expect(filterAppointmentRecords(records, "all")).toEqual(records);
 });
 
 test("预约摘要视图 key 只用于渲染且不改变业务状态", () => {

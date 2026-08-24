@@ -118,11 +118,6 @@ page {
 	font-weight: 500;
 }
 
-/* 全部渠道尚无独立 Provider contract；保留原版位置但明确它不是当前可用查询。 */
-.status-tab-disabled {
-	color: #b8b8b8;
-}
-
 .status-tab-indicator {
 	position: absolute;
 	bottom: 0;

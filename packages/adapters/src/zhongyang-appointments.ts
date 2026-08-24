@@ -7,6 +7,7 @@ import {
 	type AppointmentRecord,
 	type AppointmentRecordDirectoryGateway,
 	type AppointmentRecordQuery,
+	type AppointmentRecordScope,
 	type AppointmentSchedule,
 	type AppointmentScheduleQuery,
 	type ExternalTrace,
@@ -20,8 +21,11 @@ import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
 const REQUEST_CHANNEL = "4";
-/** 旧 provider 记录接口把微信端渠道编码定义为 3；仅在 adapter 内固定。 */
-const RECORD_REQUEST_CHANNEL = "3";
+/** 旧 provider 记录接口的两个已核实只读渠道；数字不进入公共 API。 */
+const RECORD_REQUEST_CHANNELS: Record<AppointmentRecordScope, string> = {
+	online: "3",
+	all: "4",
+};
 const DEPARTMENT_PATH =
 	"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts";
 const SCHEDULE_PATH = "/msun-middle-business-amc-server/v1/schedulings";
@@ -635,9 +639,14 @@ export class ZhongyangAppointmentApiGateway
 			`${RECORD_PATH}${encodeURIComponent(providerPatientId)}`,
 			this.baseUrl,
 		);
-		url.searchParams.set("requestChannel", RECORD_REQUEST_CHANNEL);
-		url.searchParams.set("startDate", input.query.startDate);
-		url.searchParams.set("endDate", input.query.endDate);
+		const scope = input.query.scope ?? "online";
+		url.searchParams.set("requestChannel", RECORD_REQUEST_CHANNELS[scope]);
+		// 旧端的全部挂号调用渠道 4 时省略日期参数，Provider 才会返回
+		// 完整历史；在线渠道仍必须携带平台限制的日期窗口。
+		if (scope === "online") {
+			url.searchParams.set("startDate", input.query.startDate ?? "");
+			url.searchParams.set("endDate", input.query.endDate ?? "");
+		}
 		url.searchParams.set("isMzFlag", "1");
 		url.searchParams.set("dateFlag", "1");
 		const headers = this.headers();

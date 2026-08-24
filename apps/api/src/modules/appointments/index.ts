@@ -28,11 +28,16 @@ const AppointmentScheduleQuery = t.Object({
 	doctorId: t.Optional(t.String({ minLength: 1, maxLength: 128 })),
 });
 
-/** 记录查询只接受内部 patientId 和有限日期范围，不能透传 provider 参数。 */
+/**
+ * 记录查询只接受内部 patientId 和两个明确的业务范围；Provider 渠道码、
+ * 患者号和其它原始参数不能从公网透传。在线范围需要日期，全部范围由
+ * 服务端按旧端已核实语义查询完整历史，具体一致性由 service 再校验。
+ */
 const AppointmentRecordQuery = t.Object({
 	patientId: t.String({ minLength: 1, maxLength: 128 }),
-	startDate: t.String({ pattern: DatePattern }),
-	endDate: t.String({ pattern: DatePattern }),
+	scope: t.Optional(t.Union([t.Literal("online"), t.Literal("all")])),
+	startDate: t.Optional(t.String({ pattern: DatePattern })),
+	endDate: t.Optional(t.String({ pattern: DatePattern })),
 });
 
 /** 预约目录必须经过平台会话，provider 授权只存在服务端组合根。 */

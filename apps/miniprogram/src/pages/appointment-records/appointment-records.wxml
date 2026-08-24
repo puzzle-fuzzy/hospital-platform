@@ -42,7 +42,7 @@
 		</view>
 	</view>
 
-	<!-- 保留旧端双标签布局；全部渠道尚未取得独立 contract，点击时明确提示迁移中。 -->
+	<!-- 保留旧端双标签布局；两个标签分别触发服务端已确认的只读查询范围。 -->
 	<view class="status-tabs">
 		<view
 			class="status-tab {{activeTab === 'online' ? 'status-tab-active' : ''}}"
@@ -53,7 +53,7 @@
 			<view wx:if="{{activeTab === 'online'}}" class="status-tab-indicator"></view>
 		</view>
 		<view
-			class="status-tab status-tab-disabled {{activeTab === 'all' ? 'status-tab-active' : ''}}"
+			class="status-tab {{activeTab === 'all' ? 'status-tab-active' : ''}}"
 			bindtap="onTabTap"
 			data-tab="all"
 		>

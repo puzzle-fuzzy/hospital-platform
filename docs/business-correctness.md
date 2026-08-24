@@ -234,12 +234,13 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 快照写入成功就推导出已具备锁号、预约或支付授权。非法目录结果记录固定 `resultViolation` 并返回
 `provider-response-invalid`，不能筛掉坏科室/坏排班后伪装成完整级联目录。
 
-“我的挂号”的“在线挂号/全部挂号”标签必须区分渠道事实和状态筛选：旧端的在线查询
-固定使用 `requestChannel=3`，并在页面排除明确的 `cancelled`；全部挂号则需要独立的
-`requestChannel=4` 请求。新端当前只完成前者，因此保留全部标签的视觉位置，但点击只提示
-“查询正在迁移中”，不能把同一批在线结果复制成全部记录，也不能在小程序内猜测渠道参数。
-只有 `requestChannel=4` 的 provider contract、owner 映射、日期窗口、失败/超时语义和脱敏样例
-冻结后，才允许开放全部标签；当前缺口与停止条件见
+“我的挂号”的“在线挂号/全部挂号”标签必须区分渠道事实和状态筛选：在线查询固定使用
+`requestChannel=3`，并在页面排除明确的 `cancelled`；全部查询固定使用独立的
+`requestChannel=4`，省略日期参数并保留完整历史中的取消记录。新端公网只接受
+`scope=online|all`，渠道参数、患者号和 Provider 原始字段始终由服务端持有；切换标签必须
+重新请求对应范围，不能把同一批在线结果复制成全部记录。
+当前生产只读核对已确认渠道 4 的成功包络和历史结果；真实小程序发布验收仍必须同时保存页面、
+客户端 requestId 和服务端 trace 三层低敏证据。历史缺口与停止条件见
 [`migration/request-channel-4-all-records-contract-audit-2026-08-18.md`](migration/request-channel-4-all-records-contract-audit-2026-08-18.md)。
 
 ## 2. 同步和历史数据

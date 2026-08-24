@@ -1243,15 +1243,21 @@ export function requestAppointmentSchedules(options: {
 export function requestAppointmentRecords(
 	options: {
 		patientId: string;
-		startDate: string;
-		endDate: string;
+		scope?: "online" | "all";
+		startDate?: string;
+		endDate?: string;
 	},
 	expectedSessionGeneration: number,
 ): Promise<AppointmentRecordListResponse> {
 	const query = [
 		`patientId=${encodeURIComponent(options.patientId)}`,
-		`startDate=${encodeURIComponent(options.startDate)}`,
-		`endDate=${encodeURIComponent(options.endDate)}`,
+		...(options.scope === "all" ? ["scope=all"] : []),
+		...(options.startDate
+			? [`startDate=${encodeURIComponent(options.startDate)}`]
+			: []),
+		...(options.endDate
+			? [`endDate=${encodeURIComponent(options.endDate)}`]
+			: []),
 	].join("&");
 	return requestWithStableSession<unknown>(
 		{ url: `/appointments/records?${query}` },

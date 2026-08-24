@@ -32,6 +32,20 @@ test("预约历史查询使用中国标准时间前后各 90 天", () => {
 	});
 });
 
+test("全部挂号查询使用独立的完整历史范围", () => {
+	expect(
+		createAppointmentRecordQuery(
+			"patient-internal-001",
+			BEIJING_MIDNIGHT,
+			"history",
+			"all",
+		),
+	).toEqual({
+		patientId: "patient-internal-001",
+		scope: "all",
+	});
+});
+
 test("爽约查询只使用过去 90 天，不把未来预约混入派生视图", () => {
 	expect(
 		createAppointmentRecordQuery(

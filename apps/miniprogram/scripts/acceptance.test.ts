@@ -1638,20 +1638,25 @@ test("native appointment record actions reject stale index events", async () => 
 	expect(template).not.toContain('data-index="{{index}}"');
 });
 
-test("native appointment tabs do not fabricate provider channel semantics", async () => {
+test("native appointment tabs use server-owned read scopes", async () => {
 	const records = await source(
 		"pages/appointment-records/appointment-records.ts",
+	);
+	const template = await source(
+		"pages/appointment-records/appointment-records.wxml",
 	);
 	const view = await source("services/appointment-record-view.ts");
 	const client = await source("services/api-client.ts");
 
-	// 旧端全部标签需要另一条 provider 渠道查询；新端页面只能使用服务端
-	// 已确认的在线读模型，并在 contract 未到齐前把全部标签保持为迁移提示。
+	// 页面不接触 Provider 数字渠道；切换到全部标签时只发送业务范围，
+	// 由服务端选择已确认的渠道 4，避免把在线结果本地复制成全部结果。
 	expect(records).toContain("filterAppointmentRecords");
 	expect(records).toContain("isAppointmentRecordTabAvailable");
+	expect(records).toContain("this.data.activeTab");
 	expect(view).toContain('record.status !== "cancelled"');
 	expect(records).not.toContain("requestChannel");
-	expect(client).not.toContain("requestChannel");
+	expect(client).toContain("scope=all");
+	expect(template).not.toContain("status-tab-disabled");
 });
 
 test("outpatient payment tabs cannot cancel the initial patient load", async () => {
