@@ -3,13 +3,13 @@
 > 下方 2026-08-22 的 release 与运行包只作历史追溯；当前执行使用顶部 `13f597e` 配套基线。
 
 # 只读业务不变量审计记录（2026-08-22）
-> 当前候选更新（2026-08-22）：服务端 release 为 `0e2a366e`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。历史候选仅作追溯。
+> 下方 2026-08-22 的候选只作历史追溯；当前执行使用顶部 `13f597e` 配套基线。
 
 
-> 当前完整小程序来源校验值：`4ba492a3fdae8283409bd2ab4a0a45247c46600c`；当前服务端 release：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`。
+> 当前完整小程序来源校验值与服务端 release：`13f597ea9ee3f65b9be858117826d948339d904a`。
 
 > 当前发布基线：服务端 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
-> `4ba492a3fdae8283409bd2ab4a0a45247c46600c`。本次不把历史 journald 窗口升级为当前业务证据。
+> `13f597ea9ee3f65b9be858117826d948339d904a`。本次不把历史 journald 窗口升级为当前业务证据。
 
 > 本记录只覆盖新项目 `hospital-platform`。旧 Python 项目、旧 API、旧数据库表和旧服务进程均未修改。
 
@@ -76,7 +76,7 @@
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
 - `pnpm --filter @hospital/miniprogram test`：`221 pass / 0 fail / 1640 expects`；
-- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `0e2a366e`、小程序 `4ba492a`。
+- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端与小程序 `13f597e`。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
 
