@@ -4,6 +4,7 @@
 # 项目文档导航
 
 > 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`，16 个页面脚本完整，`runtime:verify` 和小程序 `237 pass / 0 fail / 1901 expect()` 已通过。本轮还把开发者工具工程的 `src/`/`scripts/` 与 `dist/` 运行层隔离，并为会话恢复保留固定患者卡片占位；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对这份完整 revision，详见 [`release/candidate-39b50d5c-runtime-isolation-2026-08-24.md`](release/candidate-39b50d5c-runtime-isolation-2026-08-24.md)。
+> 本轮又针对主 Tab 闪动和选中态消失重置、关闭并重新打开了正确的微信工程，重新构建和校验 `dist/`；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
 > `runtime:verify` 通过，开发者工具新项目窗口普通编译显示 `Errors: 0`。若真机仍请求该路径，
