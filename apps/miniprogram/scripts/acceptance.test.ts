@@ -642,9 +642,12 @@ test("native profile distinguishes invalid read models from session loss", async
 	const showErrorBody = profile.slice(showErrorStart, showErrorEnd);
 
 	// persistence-invalid 说明服务端无法确认资料读模型，旧资料必须清空；
-	// 但它不是 unauthorized，不能通过 reLaunch 把数据层故障伪装成登录失效。
+	// 成功包络/字段校验失败的 provider-response-invalid 也必须清空旧资料；
+	// 但它们都不是 unauthorized，不能通过 reLaunch 把数据层故障伪装成登录失效。
 	expect(clearBody).toContain('error.code === "persistence-invalid"');
+	expect(clearBody).toContain('error.code === "provider-response-invalid"');
 	expect(loginBody).not.toContain('error.code === "persistence-invalid"');
+	expect(loginBody).not.toContain('error.code === "provider-response-invalid"');
 	expect(showErrorBody).toContain("shouldReturnToLogin(error)");
 });
 

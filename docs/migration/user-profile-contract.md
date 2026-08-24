@@ -114,6 +114,10 @@ MySQL `INT UNSIGNED` 上限时已经没有合法的下一版本，服务层必�
 11. MySQL 行映射必须复用领域层 `normalizeUserProfileReadModel`，不能为性别、年龄、版本等字段另抛普通
     `Error`。这样数据库读模型异常会保持与内存仓储、API service 相同的 `UserProfileReadModelValidationError`、
     `persistence-invalid` 和有限 `readModelViolation` 语义，避免监控把同一种脏数据拆成不同故障类型。
+12. 小程序收到 `/me/profile` 的 2xx 响应后仍要运行时校验完整 canonical 快照；缺少字段、错误枚举、错误版本或
+    非法邮箱统一归类为 `provider-response-invalid`。这不是登录失效，也不允许沿用上一账号/上一版本的昵称、年龄或邮箱：
+    资料页必须清空当前编辑快照并保留“重新加载”入口，但不能因此 `reLaunch` 到登录页。网络暂时失败仍可保留最近一次已确认
+    的资料，直到下一次成功读取或明确收到上述读模型损坏错误。
 
 ## 5. 实现和门禁
 

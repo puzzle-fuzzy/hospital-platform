@@ -54,8 +54,10 @@ const GENDER_VALUES = ["male", "female", "unknown"] as const;
  * session-changed、自动重新登录失败后已经没有 token，或者服务端明确说读模型
  * 已损坏，都不能继续把旧资料展示成当前账号的可编辑事实。
  *
- * `persistence-invalid` 与会话失效不是同一件事：前者需要清空旧资料并阻止保存，
- * 但不能把仍可能有效的登录态误判为未登录并强制跳转首页。
+ * `persistence-invalid` 与 `provider-response-invalid` 都表示当前资料快照
+ * 不能通过数据边界；它们需要清空旧资料并阻止保存，但不能把仍可能有效的
+ * 登录态误判为未登录并强制跳转首页。后者来自客户端对 `/me/profile` 成功
+ * 包络和 canonical 字段的运行时校验，不代表真的调用了外部 provider。
  */
 function shouldClearProfileDisplay(error: unknown): boolean {
 	if (!hasPlatformSession()) return true;
@@ -63,7 +65,8 @@ function shouldClearProfileDisplay(error: unknown): boolean {
 		error instanceof ApiError &&
 		(error.code === "unauthorized" ||
 			error.code === "session-changed" ||
-			error.code === "persistence-invalid")
+			error.code === "persistence-invalid" ||
+			error.code === "provider-response-invalid")
 	);
 }
 
