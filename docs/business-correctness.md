@@ -1,11 +1,11 @@
 # 患者端业务正确性规则
 
 > 当前生产配套基线（2026-08-24）：服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`，线上配套小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
-> 当前本地未发布候选为小程序 `1a87ab3e232973dbe0ac0774f341cb4c6eec463e`（提交 `1a87ab3`），只包含页面状态和入口语义收口，不能替代生产运行包或真机三层证据。
+> 当前本地未发布候选为小程序 `356705e41852e585b07296c5e6e3dec52bce1381`（提交 `356705e`），包含挂号卡片、爽约入口和查询状态容器收口，不能替代生产运行包或真机三层证据。构建记录见 [`release/candidate-356705e-miniprogram-build-2026-08-24.md`](release/candidate-356705e-miniprogram-build-2026-08-24.md)。
 
-> 当前验收基线（2026-08-22）：服务端已验证 release 为
-> `6db3217bd3c990b009571ffd85b7da55d9ea7338`（`6db3217b`），小程序运行包来源为
-> `171a8743185fb4ecc1696851662659c1a0ee7ebf`（`171a874`）。本文中的历史候选只用于追溯，
+> 当前验收基线（2026-08-24）：服务端已验证 release 为
+> `28a5c0c131794ce9dcc5f94bd3809402188ac87a`（`28a5c0c1`），线上小程序运行包来源为
+> `13f597ea9ee3f65b9be858117826d948339d904a`（`13f597e`）。本文中的历史候选只用于追溯，
 > 不能替代当前运行包、当前服务端日志或真机三层证据。
 
 本文档把患者端当前已经实现的业务不变量集中记录下来，供新会话、代码评审和真实 provider 验收使用。
@@ -274,8 +274,8 @@ legacy evidence，不等于已经取得新的 Provider 写入契约。只有新 
 
 当前代码通过 `0015_patient_directory_sync_operations` 形成跨进程、跨重启的 operation ledger、租约代次和
 当前读模型重放能力，并通过已应用的 `0016_patient_directory_sync_owner_index` 增加同一 owner/provider 的
-跨幂等键活跃租约索引。当前服务器新 API 的线上 release 是 `687690e`，schema marker、索引列和 schema probe 均已核对通过；发布与共存证据见
-[`release/687690e-production-acceptance-2026-08-18.md`](release/687690e-production-acceptance-2026-08-18.md)。此前 release 的运行记录只作为历史证据保留。真实患者并发、provider 和真机证据仍缺，
+跨幂等键活跃租约索引。历史服务器新 API release `687690e` 的 schema marker、索引列和 schema probe 曾核对通过；当前发布与共存证据见
+[`release/28a5c0c1-production-acceptance-2026-08-24.md`](release/28a5c0c1-production-acceptance-2026-08-24.md)。此前 release 的运行记录只作为历史证据保留。真实患者并发、provider 和真机证据仍缺，
 不能把基础 runtime smoke 当作线上业务验收。因此不能把患者同步的重复请求语义直接当作预约写入、患者绑定或支付命令的
 幂等实现；高风险命令开放前仍必须分别冻结各自的持久化操作状态、处理中结果和 key 冲突规则。
 具体实现边界、租约接管和“患者快照与操作成功同事务”要求见
@@ -470,7 +470,7 @@ Provider 原始错误文本。
 
 代码和单元测试通过不等于真实业务完成。当前仍需在受控测试身份上分别完成：
 
-- 重新打开 `apps/miniprogram/` 的正确开发者工具项目并使用当前 `171a874` 运行包完成真机三层证据；
+- 重新打开 `apps/miniprogram/` 的正确开发者工具项目并使用当前本地候选 `356705e`，或明确记录线上运行包 `13f597e`，完成真机三层证据；
   近期复扫只形成健康检查日志，尚未形成微信登录、患者同步和页面 HTTP 的同链证据；
 - 患者重新同步后的 `his-patient` 映射证据；
 - 公网 API 和真机的预约历史、报告、门诊费用只读验收；

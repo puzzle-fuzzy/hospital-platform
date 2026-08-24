@@ -20,6 +20,8 @@
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
+本地尚未发布的页面候选为 `356705e41852e585b07296c5e6e3dec52bce1381`；它只用于本地回归和后续真机验收准备，不能与线上 `13f597e` 的运行包证据混写。
+
 2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见
 [`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。
 
