@@ -22,8 +22,8 @@ page {
 }
 
 /*
-	四个主 Tab 共同使用的内容视口尺寸。原生 tabBar 由微信放在可用窗口之外，
-	这里由共享 custom-tab-bar 负责底栏固定定位；页面级滚动由各 Tab 的
+	四个主 Tab 共同使用的内容视口尺寸。共享 custom-tab-bar 负责底栏固定定位，
+	页面级滚动由各 Tab 的
 	`disableScroll` 关闭，内容 scroll-view 预留底栏和安全区后成为唯一滚动边界。
 */
 .tab-page-scroll {

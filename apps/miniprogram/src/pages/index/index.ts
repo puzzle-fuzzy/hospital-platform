@@ -346,7 +346,7 @@ Page<IndexPageData, IndexPageMethods>({
 		const sessionToken = sessionGuard.begin();
 		this.setData({
 			// 和首次恢复一样，在同一次更新中撤销旧患者并进入验证态；否则
-			// 原生 Tab 切回首页时会先绘制一帧空卡片，再绘制加载状态。
+			// 共享 Tab 切回首页时会先绘制一帧空卡片，再绘制加载状态。
 			patients: [],
 			selectedPatient: null,
 			selectedPatientId: "",

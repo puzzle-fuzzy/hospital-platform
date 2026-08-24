@@ -59,7 +59,7 @@ test("native DevTools project isolates dist runtime from TypeScript source", asy
 
 	// `src/` 和 `dist/` 同时处于小程序项目根目录时，开发者工具可能监听
 	// 两层文件并把源配置重新带入运行图。运行入口必须固定在 dist/，同时
-	// 忽略源码和构建脚本，才能保证原生 TabBar 与页面脚本来自同一份候选。
+	// 忽略源码和构建脚本，才能保证共享 TabBar 与页面脚本来自同一份候选。
 	expect(projectConfig.miniprogramRoot).toBe("dist/");
 	expect(projectConfig.packOptions?.ignore).toContainEqual({
 		type: "folder",
@@ -1379,7 +1379,7 @@ test("shared custom primary tabs keep one stable selected bar", async () => {
 	expect(build).toContain("compileHotReLoad=false");
 });
 
-test("native primary tab pages keep a stable patient header during session refresh", async () => {
+test("shared primary tab pages keep a stable patient header during session refresh", async () => {
 	const home = await source("pages/index/index.wxml");
 	const homeStyle = await source("pages/index/index.wxss");
 	const my = await source("pages/my/my.wxml");

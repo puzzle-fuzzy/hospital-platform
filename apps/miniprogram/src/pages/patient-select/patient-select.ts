@@ -454,7 +454,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			// 不能在当前页面自动重登并重放；清理 owner-scoped 目录后回首页，
 			// 由用户明确确认当前微信账号，再重新发起同步动作。
 			wx.showToast({ title: "登录状态已失效，请重新登录", icon: "none" });
-			// 即使是错误恢复也必须沿用原生 TabBar，避免 reLaunch 造成底栏
+			// 即使是错误恢复也必须沿用共享 TabBar，避免 reLaunch 造成底栏
 			// 短暂消失后重新创建。
 			switchToPrimaryTab("/pages/index/index");
 			return;
