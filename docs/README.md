@@ -3,7 +3,7 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`，16 个页面脚本完整，`runtime:verify` 和小程序 `236 pass / 0 fail / 1898 expect()` 已通过。开发者工具已重置当前工程缓存并重开，本轮增加了当前主 Tab 重复 `switchTab` 的 no-op 防闪边界；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对这份完整 revision，详见 [`release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md`](release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md)。
+> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`，16 个页面脚本完整，`runtime:verify` 和小程序 `237 pass / 0 fail / 1901 expect()` 已通过。本轮还把开发者工具工程的 `src/`/`scripts/` 与 `dist/` 运行层隔离，并为会话恢复保留固定患者卡片占位；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对这份完整 revision，详见 [`release/candidate-39b50d5c-runtime-isolation-2026-08-24.md`](release/candidate-39b50d5c-runtime-isolation-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
 > `runtime:verify` 通过，开发者工具新项目窗口普通编译显示 `Errors: 0`。若真机仍请求该路径，
@@ -39,9 +39,9 @@
 > `hospital-platform-api-v2.service=active`、Worker=`inactive`；内网和公网 readiness 均为 200，database/redis/schema 均为 `ok`，启动日志为 production。
 > 本次没有执行重启或配置/数据写入，详见 [`release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md`](release/current-runtime-coexistence-readonly-audit-2026-08-24-1727.md)。
 
-> 当前本地未发布小程序候选的运行输入为 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`（提交 `f4c844c1`）。公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，当前源码 `app.json` 注册 16 个页面；`dist/build-info.json` 已与该运行输入一致。
+> 当前本地未发布小程序候选的运行输入为 `39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`（提交 `39b50d5c`）。公共/本机配置均关闭热重载，`src/` 下不允许嵌套 `project.config.json`，项目忽略清单不允许工具把 `src/` 和 `scripts/` 当运行层监听，当前源码 `app.json` 注册 16 个页面；`dist/build-info.json` 已与该运行输入一致。
 > 本轮继续使用微信原生 `tabBar`：四项路由和选中图标统一由 `app.json.tabBar.list` 管理，构建产物位于 `apps/miniprogram/dist/`；本次构建和 `runtime:verify` 均已通过。
-> 本地候选仍未上传微信或替换线上 `13f597e`，真机验收必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`。历史 `0f40ab9` 仅见 [`release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md`](release/candidate-0f40ab92-native-tabbar-source-log-2026-08-24.md)，上一候选见 [`release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md`](release/candidate-7a85dce8-native-tabbar-cache-bust-2026-08-24.md)，当前执行入口见 [`release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md`](release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md)。
+> 本地候选仍未上传微信或替换线上 `13f597e`，真机验收必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`。历史 `0f40ab9`、`7a85dce8` 和 `f4c844c1` 仅作候选追溯，当前执行入口见 [`release/candidate-39b50d5c-runtime-isolation-2026-08-24.md`](release/candidate-39b50d5c-runtime-isolation-2026-08-24.md)。
 > 患者错误态基础修正记录（历史代码候选 `dc287a4a`）：[`release/candidate-dc287a4a-patient-error-gate-2026-08-24.md`](release/candidate-dc287a4a-patient-error-gate-2026-08-24.md)；上一轮原生 Tab 结构记录见 [`release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md`](release/candidate-fd9b0ca6-native-tabbar-2026-08-24.md)，上一轮运行包配置门禁见 [`release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md`](release/candidate-2bf9d8d9-native-tabbar-config-gate-2026-08-24.md)。
 > 当前线上只读业务关联观察：[`release/current-business-correlation-observation-2026-08-24-1737.md`](release/current-business-correlation-observation-2026-08-24-1737.md)。预约历史、预约目录和门诊费用服务器链路已通过同链 HTTP 2xx，但页面/客户端证据仍待补齐。
 > 旧 Python 服务、线上 API、数据库和 Redis 未触碰。详见
@@ -294,7 +294,7 @@
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
-| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 16 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上小程序来源为 `13f597ea`，本地候选为 `4e8f6877` |
+| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 16 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上小程序来源为 `13f597ea`，本地候选为 `39b50d5c` |
 | [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c8eef370`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表；旧 release 仅作历史追溯 |
 | [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；文档内旧 release 仅作历史证据，当前服务端以 `8eb51b5f`、小程序来源以 `13f597ea` 为准 |
 | [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | `7181e99e` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |

@@ -51,11 +51,11 @@ TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文�
 `src/`，以及旧 `mp-weixin` 工程卡片。只能打开标题为 `miniprogram`、路径为
 `E:\__Super_Core__\hospital-platform\apps\miniprogram` 的根工程；`dist/` 是它的
 运行目录，不是另一个工程，`src/` 也不是可直接编译的微信项目。2026-08-24 的本机
-复核已确认根工程页面路径为 `pages/index/index`，切换到“我的”后仍只有一份原生底栏，
+历史本机复核已确认根工程页面路径为 `pages/index/index`，切换到“我的”时只有一份原生底栏，
 且“我的”图标和文字呈蓝色选中态；当前最新运行输入为
-`f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`，
-并额外避免对当前 Tab 重复调用 `switchTab`。
-若工具标题或控制台来源 revision 不符合本候选，
+`39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`，
+并额外隔离 `src/`/`scripts/` 源码监听、避免对当前 Tab 重复调用 `switchTab`，以及在会话恢复期间保持患者卡片高度稳定。
+本候选的真实手机选中态仍需重新普通编译后复核；若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
 
 四个主入口使用微信原生 `tabBar`，四项路由、图标、选中图标和顺序唯一声明在

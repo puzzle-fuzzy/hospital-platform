@@ -1,7 +1,7 @@
 # 患者端业务正确性规则
 
 > 当前生产配套基线（2026-08-24）：服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，线上配套小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
-> 当前本地未发布候选为小程序运行包来源 `f4c844c1c68f9cbe957b3d8fd3627d4ddc241e91`，包含原生主导航、四个正式 Tab 入口、内容滚动视口、挂号卡片、爽约入口、患者上下文错误态分流、查询状态容器和报告目录加载占位收口；本轮还增加了当前主 Tab 重复 `switchTab` 的 no-op 防闪边界。运行包已通过构建和来源校验，仍不能替代生产运行包或真机三层证据。详见 [`release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md`](release/candidate-f4c844c1-native-tabbar-navigation-2026-08-24.md)。
+> 当前本地未发布候选为小程序运行包来源 `39b50d5c4287f54ecc24e8564e2dc811a55c1d1b`，包含原生主导航、四个正式 Tab 入口、内容滚动视口、挂号卡片、爽约入口、患者上下文错误态分流、查询状态容器和报告目录加载占位收口；本轮还增加了开发者工具 `src/`/`scripts/` 监听隔离、当前主 Tab 重复 `switchTab` 的 no-op 防闪边界，以及会话恢复期间的固定患者卡片占位。运行包已通过构建和来源校验，仍不能替代生产运行包或真机三层证据。详见 [`release/candidate-39b50d5c-runtime-isolation-2026-08-24.md`](release/candidate-39b50d5c-runtime-isolation-2026-08-24.md)。
 
 > 当前验收基线（2026-08-24）：服务端已验证 release 为
 > `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（`8eb51b5f`），线上小程序运行包来源为
