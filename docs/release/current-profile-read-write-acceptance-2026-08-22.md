@@ -7,6 +7,22 @@
 > `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本协议只适用于重新构建并通过
 > `runtime:verify` 的新项目运行包，不能使用旧 `mp-weixin` 项目、旧二维码或历史 token。
 
+## 当前 13f 候选代码复核（2026-08-24）
+
+本节只更新当前候选的代码门禁，不把本地回归冒充真机完成；下方历史候选数字保留为追溯证据。
+
+| 范围 | 结果 |
+| --- | --- |
+| contracts 普通资料 schema | `3 pass / 0 fail / 43 expect()` |
+| domain 普通资料与读模型 | `2 pass / 0 fail / 6 expect()` |
+| API profile service 与 application | `59 pass / 0 fail / 320 expect()` |
+| persistence 内存/MySQL profile 相关回归 | `55 pass / 0 fail / 196 expect()` |
+| 小程序当前选定验收集 | `222 pass / 0 fail / 1643 expect()` |
+
+代码审计确认：普通资料仍只允许展示名、性别、年龄、邮箱和 version；MySQL 使用首次插入竞争保护与版本条件
+更新；服务端成功响应是页面唯一 canonical 快照；失败日志不包含 userId、资料正文或 token。当前仍未执行真实 `PUT
+/me/profile`，也没有把任何线上资料改成测试值；下一步只有在用户明确指定可恢复测试值后，才进行受控写入，随后再做同一 owner 的双会话 409 冲突验收。
+
 ## 当前结论
 
 普通资料的服务端 contract、小程序页面状态和本地回归已经完成；真实微信会话下的资料读取、受控写入、
