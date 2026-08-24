@@ -427,6 +427,7 @@
 | [`migration/legacy-inventory.md`](migration/legacy-inventory.md) | 旧项目能力清单和未迁移风险 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
 | [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 16 个原生页面业务状态、边界和下一步门禁 |
+| [`migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md`](migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md) | 旧端“就诊”实时消息/预约历史/叫号链路与互联网医院 WebView 的事实审计、契约缺口和停止条件 |
 | [`migration/medical-record-and-hospital-boundary.md`](migration/medical-record-and-hospital-boundary.md) | 门诊病历、住院、医院列表和院内导航的旧接口审计与 contract 边界 |
 | [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) | 门诊就诊记录目录的旧字段差异、候选 contract、provider 确认问题和实现门禁 |
 | [`migration/electronic-consultation-contract-draft.md`](migration/electronic-consultation-contract-draft.md) | 电子导诊单旧端实际复用预约渠道 4 的证据、独立 contract 缺口和停止条件 |

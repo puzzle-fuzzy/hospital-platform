@@ -582,8 +582,8 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | --- | --- | --- |
 | `pages/index/index.vue` | 已被原生首页替换 | 保留首页患者上下文、服务入口和底部导航；不保留旧端 provider 直连 |
 | `pages/user/user.vue` | 已被原生“我的”页部分替换 | 患者选择、挂号记录和普通个人资料已接入；头像、实名、反馈、订阅消息等扩展入口仍未迁移 |
-| `pages/consult/consult.vue` | 未迁移 | 智能陪诊/导诊需要独立会话、免责声明、内容审计和外部服务 contract |
-| `pages/hospital/hospital.vue` | 未迁移 | 互联网医院入口需要外部小程序/医院服务协议，不能伪造站内页面 |
+| `pages/consult/consult.vue` | 未迁移 | 智能陪诊/导诊需要独立会话、免责声明、内容审计和外部服务 contract；旧端实时消息、预约历史和叫号队列的拆分见 [`consult-and-internet-hospital-boundary-audit-2026-08-25.md`](consult-and-internet-hospital-boundary-audit-2026-08-25.md) |
+| `pages/hospital/hospital.vue` | 未迁移 | 互联网医院入口需要外部小程序/医院服务协议，不能伪造站内页面；固定 WebView、通用 URL 代理和短期票据边界见 [`consult-and-internet-hospital-boundary-audit-2026-08-25.md`](consult-and-internet-hospital-boundary-audit-2026-08-25.md) |
 | `pages/setting/setData.vue` | 开发辅助页，不纳入生产迁移 | 不进入生产 `app.json`，保留在旧端作为测试工具即可 |
 
 ### P1：取得新的 provider 文档后迁移

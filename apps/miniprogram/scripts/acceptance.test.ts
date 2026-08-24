@@ -1429,6 +1429,40 @@ test("native primary tab pages keep a stable patient header during session refre
 	expect(my).toContain('loading ? "正在验证当前账号..." : userLabel');
 });
 
+test("consult and internet hospital tabs keep unfinished external contracts closed", async () => {
+	const app = JSON.parse(await source("app.json")) as {
+		tabBar?: { list?: Array<{ pagePath: string }> };
+	};
+	const consult = await source("pages/consult/consult.ts");
+	const consultTemplate = await source("pages/consult/consult.wxml");
+	const hospital = await source("pages/hospital/hospital.ts");
+	const hospitalTemplate = await source("pages/hospital/hospital.wxml");
+
+	// 这两个页面虽然已经是正式主 Tab，但页面入口存在不等于业务 contract
+	// 已冻结。门禁直接阻止旧端 WebSocket、队列直连和 provider 患者号回到新端。
+	const tabPages = app.tabBar?.list?.map((item) => item.pagePath) ?? [];
+	expect(tabPages).toContain("pages/consult/consult");
+	expect(tabPages).toContain("pages/hospital/hospital");
+	expect(consult).not.toContain("connectWebSocket");
+	expect(consult).not.toContain("VITE_APP_WS_API");
+	expect(consult).not.toContain("shift-scheduling/queue-position");
+	expect(consult).not.toContain("msun-middle-business-appointment-server");
+	expect(consult).not.toContain("thirdPatientId");
+	expect(consultTemplate).not.toContain("<web-view");
+	expect(consultTemplate).toContain("智能陪诊功能正在迁移中");
+	expect(consultTemplate).toContain("query-state-shell");
+
+	// 互联网医院属于独立外部 audience：没有 resourceKey、allowlist、短期
+	// 一次性引用和回调审计之前，不能把旧固定地址或万能 WebView 复活。
+	expect(hospital).not.toContain("webViewUrl");
+	expect(hospital).not.toContain("cx.o2o.bailingjk.net");
+	expect(hospital).not.toContain("system/auth/ticket");
+	expect(hospital).not.toContain("navigateToMiniProgram");
+	expect(hospitalTemplate).not.toContain("<web-view");
+	expect(hospitalTemplate).toContain("互联网医院服务正在迁移中");
+	expect(hospitalTemplate).toContain("query-state-shell");
+});
+
 test("native primary tabs keep scrolling inside the content viewport", async () => {
 	const app = JSON.parse(await source("app.json")) as {
 		tabBar?: { list?: Array<{ pagePath: string }> };
