@@ -32,6 +32,17 @@
 
 本轮进一步把原生 Tab 图标改为独立的 `*-v2.png` 资源：普通态和选中态保持原视觉内容，统一为 `81×81` PNG，并由构建脚本读取 PNG 的 IHDR 做尺寸门禁。这样可以同时避开开发者工具/真机对旧资源路径的缓存，并符合原生 tabBar 的稳定输入边界；没有重新引入 `custom-tab-bar`。
 
+## 2026-08-25 再次反馈后的资源缓存隔离
+
+源码和运行包结构审计仍确认只有微信原生 `tabBar`，但本机开发者工具日志曾在同一历史会话
+中同时监听过 `apps/miniprogram/dist`、父目录 `apps/miniprogram` 和 `apps/miniprogram/src`，
+并出现过已经撤回的 `src/constants/legacy-tabbar.js` 增量文件。为避免真机继续命中旧预览包或旧图标
+缓存，本轮不改变图形内容，只将四组普通/选中图标的路径升级为唯一的 `*-v3.png`，并重新生成完整运行包。
+这不是新增自绘底栏；选中态仍完全由 `app.json.tabBar.list[].selectedIconPath` 交给微信维护。
+
+重新生成预览后，必须确认开发者工具窗口标题为 `hospital-platform-runtime`，工程根为
+`E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`，并扫描本轮新的预览二维码。
+
 本轮再收紧页面注册顺序：`pages/index/index`、`pages/consult/consult`、
 `pages/hospital/hospital`、`pages/my/my` 固定为 `app.json.pages` 的前四项，
 并由验收测试锁定。它不能替代重新普通编译；若启动日志仍不是本候选 revision，
