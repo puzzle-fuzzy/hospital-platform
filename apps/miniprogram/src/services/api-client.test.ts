@@ -4,8 +4,8 @@ import {
 	isUsableAccessToken,
 	normalizeApiPrefix,
 	request,
-	requestWithStableSession,
 	requestWithSession,
+	requestWithStableSession,
 	requireAuthSessionResponse,
 	requireCanonicalUserProfileResponse,
 	requireCurrentUserResponse,
@@ -14,13 +14,13 @@ import {
 	requireSuccessDataResponse,
 } from "./api-client";
 import {
-	advanceSessionGeneration,
-	getSessionGeneration,
-} from "./session-generation";
-import {
 	clearApiRequestObservations,
 	getRecentApiRequestObservations,
 } from "./api-request-observability";
+import {
+	advanceSessionGeneration,
+	getSessionGeneration,
+} from "./session-generation";
 
 test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本", () => {
 	expect(isAllowedApiPrefix("/api/v1")).toBe(true);
@@ -169,6 +169,81 @@ test("患者范围固定代际读取不自动登录或重放旧 patientId", asyn
 		expect(requestCount).toBe(1);
 		expect(loginCount).toBe(0);
 		expect(globalData.accessToken).toBe("");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("患者范围固定代际读取遇到持久化暂时故障时保留会话且不重放", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	let completeRequest: ((response: unknown) => void) | undefined;
+	let requestCount = 0;
+	let loginCount = 0;
+	let removeTokenCount = 0;
+	const globalData = {
+		apiBaseUrl: "https://test-hp.meiyi.pro",
+		apiPrefix: "/api/v2",
+		accessToken: "patient-scope-persistence-session",
+		sessionStatus: "signed_in",
+	};
+
+	testGlobal.getApp = () => ({ globalData });
+	testGlobal.wx = {
+		getStorageSync: (key: string) =>
+			key === "access_token" ? globalData.accessToken : "",
+		removeStorageSync: () => {
+			removeTokenCount += 1;
+			globalData.accessToken = "";
+		},
+		login: () => {
+			loginCount += 1;
+		},
+		request: (options: RequestOptions) => {
+			requestCount += 1;
+			completeRequest = options.success;
+		},
+	};
+
+	try {
+		const expectedGeneration = getSessionGeneration();
+		const pending = requestWithStableSession(
+			{ url: "/appointments/records?patientId=patient-001" },
+			expectedGeneration,
+		);
+		await Promise.resolve();
+		if (!completeRequest) throw new Error("测试请求没有进入微信请求层");
+
+		completeRequest({
+			statusCode: 503,
+			data: {
+				success: false,
+				error: {
+					code: "persistence-temporarily-unavailable",
+				},
+			},
+		});
+
+		await expect(pending).rejects.toMatchObject({
+			code: "persistence-temporarily-unavailable",
+			statusCode: 503,
+		});
+		// 503 只表示本次数据依赖暂时不可用；它不能证明 Bearer 已失效，
+		// 更不能让固定 patientId 在新会话下自动重放，避免把临时故障扩大
+		// 成跨账号患者上下文错误或持续的“Invalid or expired session”。
+		expect(requestCount).toBe(1);
+		expect(loginCount).toBe(0);
+		expect(removeTokenCount).toBe(0);
+		expect(globalData.accessToken).toBe("patient-scope-persistence-session");
 	} finally {
 		testGlobal.getApp = previousGetApp;
 		testGlobal.wx = previousWx;

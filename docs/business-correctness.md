@@ -208,8 +208,9 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
     `assertSessionGeneration()` 之后再调用普通 `requestWithSession()`。普通 GET 可以在 401 后自动换取
     新 token，但这会把上一阶段解析出的 `patientId` 带到新会话下；因此预约记录、爽约记录、报告目录/详情和
     门诊费用统一使用 `requestWithStableSession()`：在同一个同步调用栈内固定 token 与代际，只允许 GET，
-    不自动登录、不重放旧患者查询；请求等待期间代际变化时丢弃响应，当前代际收到 401 时只清理失效会话。
-    页面必须重新完成 `/me`、患者目录和业务查询，不能把响应层的丢弃当作“旧 patientId 从未发出”的证明。
+    不自动登录、不重放旧患者查询；请求等待期间代际变化时丢弃响应，当前代际收到 401 时只清理失效会话；503、网络和 Provider
+    暂时故障必须原样保留稳定错误码，不能清理仍有效的 token、自动重新登录或重放旧 patientId。页面必须重新完成 `/me`、患者目录和
+    业务查询，不能把响应层的丢弃当作“旧 patientId 从未发出”的证明，详见 [`release/miniprogram-session-dependency-error-boundary-2026-08-24.md`](release/miniprogram-session-dependency-error-boundary-2026-08-24.md)。
 
 22. 首页会话状态只有在当前目录读取返回 `loaded` 后才能收敛为“已恢复会话”。`loadPatients()` 返回
     `superseded` 时表示这轮读取已被更新的目录周期淘汰，不能把它当作 `/patients` 成功；否则下拉刷新、
