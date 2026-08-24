@@ -1,5 +1,6 @@
 <view class="page">
-	<view wx:if="{{loading}}" class="loading-state">
+	<!-- 加载、错误和合法空结果共用同一高度，避免临床读模型收敛时页面突然撑高。 -->
+	<view wx:if="{{loading}}" class="report-state-card loading-state">
 		<text>加载中...</text>
 	</view>
 
@@ -60,7 +61,7 @@
 		</view>
 	</block>
 
-	<view wx:if="{{error}}" class="error-state">
+	<view wx:if="{{error}}" class="report-state-card error-state">
 		<text class="error-title">报告详情不可用</text>
 		<text class="error-message">{{error}}</text>
 	</view>

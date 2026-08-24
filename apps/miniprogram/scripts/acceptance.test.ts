@@ -2194,6 +2194,25 @@ test("native report detail errors clear the previous clinical read model", async
 	expect(showErrorBody).toContain("hasAttachment: false");
 });
 
+test("native report detail keeps loading, error and empty states at one stable height", async () => {
+	const template = await source("pages/report-detail/report-detail.wxml");
+	const style = await source("pages/report-detail/report-detail.wxss");
+
+	// 报告详情的合法空结果来自已确认的服务端读模型；它不能因为比加载态
+	// 高而把页面内容突然向下推移。错误态也必须复用同一外层容器，保证
+	// “请求中 → 无检测项/无云影像 → 错误重试”都保持稳定的视觉占位。
+	expect(template).toContain(
+		'<view wx:if="{{loading}}" class="report-state-card loading-state">',
+	);
+	expect(template).toContain(
+		'<view wx:if="{{error}}" class="report-state-card error-state">',
+	);
+	expect(style).toContain(".report-state-card {");
+	expect(style).toContain("min-height: 360rpx;");
+	expect(style).toContain(".report-empty,");
+	expect(style).toContain(".cloud-empty {");
+});
+
 test("native homepage keeps patient identity and QR data within the safe boundary", async () => {
 	const home = await source("pages/index/index.ts");
 	const template = await source("pages/index/index.wxml");
