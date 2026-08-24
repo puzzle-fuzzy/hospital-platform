@@ -334,6 +334,18 @@ for (const item of primaryTabList) {
 		}
 		await access(join(source, assetPath));
 	}
+	const normalIconBytes = await Bun.file(join(source, tab.iconPath)).bytes();
+	const selectedIconBytes = await Bun.file(
+		join(source, tab.selectedIconPath),
+	).bytes();
+	const sameIconBytes =
+		normalIconBytes.byteLength === selectedIconBytes.byteLength &&
+		normalIconBytes.every((byte, index) => byte === selectedIconBytes[index]);
+	if (sameIconBytes) {
+		throw new Error(
+			`Mini program native tabBar icon and selectedIconPath must be different files: ${tab.iconPath}`,
+		);
+	}
 }
 
 /**

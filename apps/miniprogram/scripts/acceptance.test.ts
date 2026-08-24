@@ -1341,6 +1341,15 @@ test("native primary tabs keep one stable selected bar", async () => {
 		expect(item.iconPath).toContain("assets/legacy-home/");
 		expect(item.selectedIconPath).toContain("assets/legacy-home/");
 		expect(item.selectedIconPath).not.toBe(item.iconPath);
+		const normalIcon = await Bun.file(
+			join(import.meta.dir, "..", "src", item.iconPath),
+		).bytes();
+		const selectedIcon = await Bun.file(
+			join(import.meta.dir, "..", "src", item.selectedIconPath),
+		).bytes();
+		// 不能只比较路径：复制同一张 PNG 后，微信仍会正常加载资源，
+		// 但用户切换 Tab 时永远看不到选中态。
+		expect(normalIcon).not.toEqual(selectedIcon);
 	}
 	// 主 Tab 即使被未来快捷入口程序化打开，也必须走 switchTab；普通业务页
 	// 继续使用 navigateTo，不能用一个全局替换把两类页面混在一起。

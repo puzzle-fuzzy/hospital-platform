@@ -70,9 +70,10 @@ CLI 必须从 `apps/miniprogram` 目录执行；如果从 monorepo 根目录执�
 `selectedIconPath` 统一维护，避免组件生命周期重建造成先显示“医疗服务”再切换到“我的”的闪动。
 业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的
 `switchToPrimaryTab`（内部使用 `wx.switchTab`，当前页目标会安全 no-op），普通业务页才使用 `wx.navigateTo`。
-主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；共享底栏固定在窗口底部，
-`app.wxss` 统一预留 `130rpx + safe-area`，因此只有内容区域滚动。后续替换图标时必须
-同时保留普通态和选中态两份资源，并确保 `selectedIconPath` 不复用 `iconPath`。
+主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；微信原生 `tabBar` 由微信固定
+在内容视口之外，页面自身不绘制底栏，也不为自绘底栏额外预留高度，因此只有内容区域滚动。
+后续替换图标时必须同时保留普通态和选中态两份实际不同的资源，并确保
+`selectedIconPath` 不复用 `iconPath`；构建脚本会同时检查路径和文件字节。
 
 当前首页已经完成最小纵向切片：健康检查、`wx.login()` 换取服务端会话、会话恢复、服务端归属的就诊人列表和显式的就诊人同步。
 首页默认使用服务端目录第一位患者，但点击顶部“更换就诊人”会进入独立的
