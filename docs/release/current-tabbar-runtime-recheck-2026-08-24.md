@@ -25,7 +25,7 @@
 | TabBar 模式 | `custom=false`、`position=bottom`，由微信原生 `tabBar` 渲染 |
 | Tab 数量 | 4 项：医疗服务、就诊、互联网医院、我的 |
 | 选中资源 | 4 对独立普通态/选中态图标，由微信按当前 Tab 切换 |
-| 运行包组件 | 不包含 `dist/custom-tab-bar/` |
+| 运行包组件 | 不包含 `custom-tab-bar/`，并随包生成独立 `project.config.json` |
 | 测试脚本 | `dist/` 不包含 `*.test.js` 或 `*.spec.js` |
 | 小程序回归 | 238 pass / 0 fail，1903 个断言 |
 | 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
@@ -34,14 +34,14 @@
 
 ## 开发者工具与真机验收
 
-运行包已经在本地生成，但本轮不能把源码测试当作真机验收。当前二维码文件为 `C:\Users\18267\AppData\Local\Temp\hospital-platform-tabbar-46563fe2.png`；必须从唯一工程根目录打开并执行一次普通编译：
+运行包已经在本地生成，但本轮不能把源码测试当作真机验收。当前应以构建后生成的二维码文件为准；必须关闭父工程窗口，直接打开 `apps/miniprogram/dist/` 独立工程并执行一次普通编译：
 
 ```powershell
-Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
+Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
 & 'D:\software\微信web开发者工具\cli.bat' quit --port 25799
-& 'D:\software\微信web开发者工具\cli.bat' cache --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --clean compile --port 25799
-& 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
-& 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' cache --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --clean compile --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --port 25799
 ```
 
 控制台应出现：
@@ -58,4 +58,4 @@ Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
 4. 内容长时只有内容 `scroll-view` 滚动，底栏保持固定；
 5. 进入患者选择、预约记录等普通业务页时底栏按微信规则隐藏，返回主 Tab 后仍只有一套共享底栏。
 
-如果控制台 revision 不是当前 `dist/build-info.json` 的完整值，或者出现旧 `static/tabbar`、自定义底栏残留、缺失页面脚本或测试脚本路径，应停止验收，先关闭错误工程和旧二维码。
+如果控制台 revision 不是当前 `dist/build-info.json` 的完整值，或者出现旧 `static/tabbar`、自定义底栏残留、缺失页面脚本或测试脚本路径，应停止验收，先关闭错误工程和旧二维码。独立运行配置必须保持 `miniprogramRoot=./`、`compileHotReLoad=false`、`ignoreDevUnusedFiles=false`；否则不能把本次结果当作当前候选证据。

@@ -3,8 +3,8 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=46563fe2e05c49c5899fca93e1dd60831c3d4017`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1903 expect()` 已通过。本轮继续把开发者工具工程的 `src/`/`scripts/` 与 `dist/` 运行层隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须重新普通编译并核对这份完整 revision，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
-> 本轮又针对主 Tab 闪动和选中态消失重置、关闭并重新打开了正确的微信工程，重新构建和校验 `dist/`；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
+> 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=46563fe2e05c49c5899fca93e1dd60831c3d4017`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1903 expect()` 已通过。本轮继续把开发者工具 watcher 根与 `src/`/`scripts/` 源码隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
+> 本轮又针对主 Tab 闪动和选中态消失重新生成独立运行配置、关闭并重新打开 `dist/` 工程，重新构建和校验运行包；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
 > `runtime:verify` 通过，开发者工具新项目窗口普通编译显示 `Errors: 0`。若真机仍请求该路径，

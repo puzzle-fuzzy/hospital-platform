@@ -18,6 +18,10 @@ type MiniProgramAppConfig = {
 
 type MiniProgramProjectConfig = {
 	miniprogramRoot?: unknown;
+	setting?: {
+		compileHotReLoad?: unknown;
+		ignoreDevUnusedFiles?: unknown;
+	};
 };
 
 type MiniProgramBuildInfo = {
@@ -74,6 +78,28 @@ await assertFile("app.json");
 await assertFile("app.wxss");
 await assertFile("sitemap.json");
 await assertFile("build-info.json");
+await assertFile("project.config.json");
+
+/**
+ * `dist/` 是真机/开发者工具唯一运行根，不能再依赖父目录的
+ * `miniprogramRoot=dist/` 做间接隔离；否则工具仍可能监听旁边的 src/。
+ */
+const runtimeProjectConfig = JSON.parse(
+	await Bun.file(join(runtime, "project.config.json")).text(),
+) as MiniProgramProjectConfig;
+if (runtimeProjectConfig.miniprogramRoot !== "./") {
+	throw new Error(
+		"Mini program dist/project.config.json must use miniprogramRoot=./ so dist is a standalone runtime project",
+	);
+}
+if (
+	runtimeProjectConfig.setting?.compileHotReLoad !== false ||
+	runtimeProjectConfig.setting?.ignoreDevUnusedFiles !== false
+) {
+	throw new Error(
+		"Mini program dist/project.config.json must disable hot reload and unused-file pruning",
+	);
+}
 // 预约历史页面通过 TypeScript 模块读取静态科室位置，运行包必须带上编译后的 JS。
 await assertFile("data/department-location.js");
 // 页面级请求守卫和患者同步依赖该生产模块；显式检查它，避免只检查页面入口而

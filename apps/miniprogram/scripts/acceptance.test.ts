@@ -69,6 +69,21 @@ test("native DevTools project isolates dist runtime from TypeScript source", asy
 		type: "folder",
 		value: "scripts",
 	});
+
+	const runtimeProjectConfig = JSON.parse(
+		await Bun.file(join(import.meta.dir, "..", "dist", "project.config.json")).text(),
+	) as {
+		miniprogramRoot?: string;
+		setting?: {
+			compileHotReLoad?: boolean;
+			ignoreDevUnusedFiles?: boolean;
+		};
+	};
+	// 父目录配置只负责构建约束；开发者工具和真机必须直接打开 dist，
+	// 这样工具的 watcher 根不会再覆盖旁边的 TypeScript 源码目录。
+	expect(runtimeProjectConfig.miniprogramRoot).toBe("./");
+	expect(runtimeProjectConfig.setting?.compileHotReLoad).toBe(false);
+	expect(runtimeProjectConfig.setting?.ignoreDevUnusedFiles).toBe(false);
 });
 
 test("native App entry does not trust a cached token before session verification", async () => {
@@ -1332,6 +1347,20 @@ test("native primary tabs keep one stable selected bar", async () => {
 	expect(app.tabBar?.custom).toBe(false);
 	expect(app.tabBar?.position).toBe("bottom");
 	expect(projectConfig.setting?.compileHotReLoad).toBe(false);
+	const runtimeProjectConfig = JSON.parse(
+		await Bun.file(
+			join(import.meta.dir, "..", "dist", "project.config.json"),
+		).text(),
+	) as {
+		miniprogramRoot?: string;
+		setting?: {
+			compileHotReLoad?: boolean;
+			ignoreDevUnusedFiles?: boolean;
+		};
+	};
+	expect(runtimeProjectConfig.miniprogramRoot).toBe("./");
+	expect(runtimeProjectConfig.setting?.compileHotReLoad).toBe(false);
+	expect(runtimeProjectConfig.setting?.ignoreDevUnusedFiles).toBe(false);
 	// 本机私有配置也必须指向同一份 dist；否则开发者工具可能把旧的 src
 	// 增量页面图当成当前候选，正是底栏闪动和 selected 图标消失的表现。
 	expect(privateProjectConfig.miniprogramRoot).toBe("dist/");

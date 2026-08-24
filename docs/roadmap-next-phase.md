@@ -10,7 +10,7 @@
 > 当前线上窗口复核（2026-08-24）：15:50–15:52 CST 的微信登录/患者同步观察仍是历史真机窗口；17:37 CST 的新增只读审计确认预约历史、预约目录和门诊费用形成同链 HTTP 2xx，但没有把日志成功误写成页面验收。真机页面截图、显式第二患者切换和客户端 requestId 仍待补齐，详见 [`release/current-business-correlation-observation-2026-08-24-1737.md`](release/current-business-correlation-observation-2026-08-24-1737.md)。
 > 当前本地未发布小程序候选（2026-08-24）：本轮已撤回会随页面生命周期重建的 `custom-tab-bar`，恢复微信原生 `tabBar`；同时将普通/选中图标切换到独立 `-native` 资源路径，排除微信工具和真机按历史路径复用缓存。完整运行 revision 以 `apps/miniprogram/dist/build-info.json` 为准。当前源码 `app.json` 注册 16 个页面，四个主 Tab 显式使用 `custom=false`、`position=bottom`，公共/本机配置均关闭热重载，项目忽略清单隔离 `src/`/`scripts/` 源码监听，`dist` 运行包通过 `runtime:verify` 后才可验收。该候选未部署、未替换线上 `13f597e`，也未修改旧 Python、数据库或 Redis；当前验收入口见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 上一轮开发者工具复核（2026-08-24）曾加载旧运行包；该段只保留缓存隔离历史，不代表当前运行包。当前正确结构不包含 `custom-tab-bar/`、页面级底栏或第二套 selected 状态；会话失效回首页也已从 `reLaunch` 收口到 `switchTab`。
-> 当前开发者工具执行要求：必须打开 `apps/miniprogram/` 根工程并普通编译当前 `dist/build-info.json` 对应 revision，再确认首页和“就诊”页只有一份微信原生底栏，切换后当前图标/文字变蓝。历史线上 `13f597e` 不能作为本次 Tab 行为证据，不能打开 `src/` 或 `dist/` 子目录，也不能新增页面级底栏。
+> 当前开发者工具执行要求：必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译当前 `build-info.json` 对应 revision，再确认首页和“就诊”页只有一份微信原生底栏，切换后当前图标/文字变蓝。历史线上 `13f597e` 不能作为本次 Tab 行为证据，不能打开父目录、`src/` 或另一个旧 `dist/` 工程，也不能新增页面级底栏。
 
 > 本轮后续唯一执行入口：先按本地服务端候选 `4404c556` 的受控发布门禁完成新旧服务共存 preflight，再使用小程序运行包 `46563fe2e05c49c5899fca93e1dd60831c3d4017` 在正确项目中普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
 > 当前小程序会话/导航门禁（2026-08-24，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，底栏由微信原生 `tabBar` 统一维护，会话恢复期间患者卡片只显示固定占位。本轮小程序回归为 `238/238` 通过、`1903` 个断言，运行包来源为 `46563fe`；真机页面证据仍待。
@@ -22,7 +22,7 @@
 
 # 下一阶段实施路线图
 
-> 当前本地小程序候选为 `46563fe2e05c49c5899fca93e1dd60831c3d4017`（提交 `46563fe`），`dist/` 原子发布与 `runtime:verify` 已通过；本轮继续使用微信原生 `tabBar`，普通/选中资源使用独立 `-native` 路径。此前的 `acfacc83`、`0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`39b50d5`、`22dd3532` 仅保留为历史来源记录，不能再作为当前二维码或真机验收入口。当前小程序候选仍未上传微信，必须在正确的 `apps/miniprogram/` 项目普通编译后核对完整 `46563fe2e05c49c5899fca93e1dd60831c3d4017`；服务端本地未发布修正另见 `4404c556`。
+> 当前本地小程序候选为 `46563fe2e05c49c5899fca93e1dd60831c3d4017`（提交 `46563fe`），`dist/` 原子发布与 `runtime:verify` 已通过；本轮继续使用微信原生 `tabBar`，普通/选中资源使用独立 `-native` 路径，并把 `dist/` 生成成可独立打开的微信工程，避免父目录 watcher 把源码重新带入增量图。此前的 `acfacc83`、`0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`39b50d5`、`22dd3532` 仅保留为历史来源记录，不能再作为当前二维码或真机验收入口。当前小程序候选仍未上传微信，必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译后核对完整 `46563fe2e05c49c5899fca93e1dd60831c3d4017`；服务端本地未发布修正另见 `4404c556`。
 > 当前执行基线（2026-08-24）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。下方带历史日期的候选只作追溯。
 
 

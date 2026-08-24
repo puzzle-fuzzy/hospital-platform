@@ -17,45 +17,41 @@
 
 微信开发者工具的 `project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
 
-仓库内只能存在 `apps/miniprogram/project.config.json` 这一套微信项目配置。不要在 `src/` 下创建或恢复 `project.config.json`、`project.private.config.json`：嵌套配置会让开发者工具同时监听源码和 `dist/`，旧的增量页面图可能造成主 Tab 闪动、选中态丢失和页面脚本 404。若本机已经存在这两个文件，请先关闭开发者工具后删除，再重新打开 `apps/miniprogram/`。
+仓库内的微信公共构建配置是 `apps/miniprogram/project.config.json`，构建生成的
+`apps/miniprogram/dist/project.config.json` 是交给开发者工具打开的独立运行配置。不要在
+`src/` 下创建或恢复任何微信项目配置：嵌套配置会让开发者工具同时监听源码和 `dist/`，旧的增量页面图
+可能造成主 Tab 闪动、选中态丢失和页面脚本 404。若本机已经存在这类嵌套配置，请先关闭开发者工具后删除。
 
-打开项目时请选择 `apps/miniprogram/`，不要直接把 `apps/miniprogram/src/` 作为微信项目根目录。
-公共配置中的 `miniprogramRoot` 指向构建生成的 `dist/`，源码仍位于 `src/`；这样开发者工具和真机
-始终读取真实存在的 `.js` 页面文件，不依赖工具隐式编译 TypeScript。不要直接打开 `src/`，否则本机配置副本
-可能覆盖公共配置并再次按纯 JavaScript 查找错误的源码目录。
-
-公共 `project.config.json` 和本机 `project.private.config.json` 都必须把
-`miniprogramRoot` 指向同一个 `dist/`，并保持 `compileHotReLoad=false`；本机配置还必须保持
-`ignoreDevUnusedFiles=false`。运行目录使用
-TypeScript 生成的 CommonJS 页面脚本，开发者工具的“未使用文件”分析可能无法识别页面脚本的间接
-`require` 依赖；开启该选项会把实际存在的 `services/*.js` 从调试模块图排除，造成
-`module ... is not defined`。热重载会在 `dist/` 替换或页面重新编译时制造短暂的底部导航闪动，
-因此构建脚本会在公共配置和本机配置任一开启时直接失败，不能作为真机 Tab 共享行为验收依据。
-修改源码后先执行构建，再在开发者工具中执行一次普通编译。
+修改源码后先执行构建，再直接打开 `apps/miniprogram/dist/`，不要打开父目录、`src/` 或把父目录的
+`miniprogramRoot=dist/` 当成开发者工具工程。运行包自己的 `project.config.json` 使用
+`miniprogramRoot=./`，并关闭 `compileHotReLoad` 与 `ignoreDevUnusedFiles`；这样 watcher 根只包含真实
+JavaScript/WXML/WXSS 运行文件，不会再把 TypeScript 源码、构建脚本或旧增量页面图带入模块图。
+父目录配置仍用于构建约束和发布前检查，不是本机开发者工具的打开入口。
 
 如果普通编译后仍出现底部 Tab 闪动、四项同时未选中、或页面看起来混入旧的
 `static/tabbar` 资源，先不要修改页面代码。开发者工具可能保留了旧项目或旧增量
 文件图；确认安全服务端口已经开启后，只重置本项目的文件缓存并重新打开本项目：
 
 ```powershell
-Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram'
-& 'D:\software\微信web开发者工具\cli.bat' cache --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --clean compile --port 25799
-& 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
-& 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram' --port 25799
+Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
+& 'D:\software\微信web开发者工具\cli.bat' cache --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --clean compile --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' reset-fileutils --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --port 25799
+& 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --port 25799
 ```
 
-CLI 必须从 `apps/miniprogram` 目录执行；如果从 monorepo 根目录执行，微信工具可能额外
-启动根目录 watcher，把 `.turbo/`、README 或 `src/` 的变化带入增量编译。若管理页仍保留
-根工程、`src/` 或 `dist/` 的窗口，先执行一次 `quit` 关闭全部开发者工具窗口，再从上述目录
-只打开这一套工程。随后在工具中执行一次“普通编译”。这两条命令只处理当前新项目的开发者工具文件
+CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从 monorepo 根目录或
+`apps/miniprogram` 父目录打开，微信工具可能额外启动 watcher，把 `.turbo/`、README、`src/`
+或构建脚本的变化带入增量编译。若管理页仍保留父工程、`src/` 或旧 `dist/` 窗口，先执行一次
+`quit` 关闭全部开发者工具窗口，再从上述目录只打开这一套工程。随后在工具中执行一次“普通编译”。
+这两条命令只处理当前新项目的开发者工具文件
 缓存，不删除仓库文件、不清理旧项目缓存，也不影响旧服务。验收时必须看到四项底栏
 始终只有一份，当前项的图标和文字为蓝色；如果仍不一致，应先检查工具窗口标题和
 项目根目录，再检查 `dist/build-info.json`，不能通过新增页面级底栏来掩盖缓存问题。
 
 开发者工具“管理”页可能同时保留 `apps/miniprogram/`、其下的 `dist/`、其下的
-`src/`，以及旧 `mp-weixin` 工程卡片。只能打开标题为 `miniprogram`、路径为
-`E:\__Super_Core__\hospital-platform\apps\miniprogram` 的根工程；`dist/` 是它的
-运行目录，不是另一个工程，`src/` 也不是可直接编译的微信项目。2026-08-24 的本机
+`src/`，以及旧 `mp-weixin` 工程卡片。当前只能打开路径为
+`E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` 的独立运行工程；父目录是构建工程，
+`src/` 不是可直接编译的微信项目。2026-08-24 的本机
 历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
 选中态消失，已收回到微信原生 `tabBar`，不再把主导航交给会随页面生命周期重建的自定义组件。
 当前最新运行输入为

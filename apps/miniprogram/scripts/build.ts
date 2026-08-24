@@ -133,7 +133,10 @@ function resolveSourceRevision(): string {
  * 也不会再因为缺少 `pages/report-directory/report-directory.js` 而在运行时失败。
  */
 const projectConfig = JSON.parse(await Bun.file(projectConfigPath).text()) as {
+	appid?: unknown;
+	description?: unknown;
 	miniprogramRoot?: unknown;
+	projectname?: unknown;
 	packOptions?: {
 		ignore?: unknown;
 	};
@@ -529,6 +532,53 @@ try {
 		);
 	}
 	await copyStaticFiles(source, stagingRuntime);
+
+	/**
+	 * 运行包必须可以作为一个“只包含 dist 内容”的独立微信工程打开。
+	 *
+	 * 之前只在父目录放 `project.config.json`，再通过 `miniprogramRoot=dist/`
+	 * 指向运行目录；但开发者工具仍会以父目录为 watcher 根，扫描旁边的
+	 * `src/` 和 `scripts/`。当历史自定义底栏或隐式 TypeScript 输出残留时，
+	 * 它们就可能重新进入增量模块图，导致底栏闪动、selected 图标丢失和
+	 * 页面脚本 404。把配置随完整运行包一起生成，真机工程直接打开 `dist/`
+	 * 后，运行层与 TypeScript 源码在文件系统上彻底隔离。
+	 *
+	 * 这里不复制开发者工具的 private 配置，也不把源码路径写入运行包；
+	 * `dist/project.private.config.json` 由工具按本机状态自行生成，并且
+	 * 因为 dist 已被 Git 忽略，不会污染提交。
+	 */
+	const runtimeProjectConfig = {
+		description: "高平医院原生微信小程序运行包",
+		compileType: "miniprogram",
+		miniprogramRoot: "./",
+		projectname: `${String(projectConfig.projectname ?? "hospital-platform")}-runtime`,
+		appid: String(projectConfig.appid ?? ""),
+		setting: {
+			urlCheck: true,
+			es6: true,
+			enhance: true,
+			postcss: true,
+			minified: true,
+			minifyWXML: true,
+			minifyWXSS: true,
+			uploadWithSourceMap: true,
+			compileHotReLoad: false,
+			ignoreDevUnusedFiles: false,
+		},
+		packOptions: {
+			ignore: [],
+			include: [],
+		},
+	};
+	if (runtimeProjectConfig.appid.length === 0) {
+		throw new Error(
+			"Mini program runtime project.config.json requires a non-empty appid",
+		);
+	}
+	await Bun.write(
+		join(stagingRuntime, "project.config.json"),
+		`${JSON.stringify(runtimeProjectConfig, null, 2)}\n`,
+	);
 
 	/**
 	 * 测试源码已经在 tsconfig.build.json 排除，但发布目录还必须再做一次
