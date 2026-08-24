@@ -56,7 +56,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 本轮已完成：小程序回归测试 `229 pass / 0 fail / 1708 expect()`，TypeScript、Biome、文档链接审计通过；
 构建和运行包校验通过，`apps/miniprogram/dist/build-info.json.sourceRevision` 为
-`356705e41852e585b07296c5e6e3dec52bce1381`，14 个页面入口存在，运行包中的测试 JS 为 0 个。
+`ae0cc11a4c4147436d8097b15ef00a3e54be8bda`，14 个页面入口存在，运行包中的测试 JS 为 0 个。
 它只是运行包来源证明，不代表已经上传线上或完成真机三层业务验收。
 
 ## 未完成边界
