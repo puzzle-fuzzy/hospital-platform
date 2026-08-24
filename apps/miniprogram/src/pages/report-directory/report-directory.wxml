@@ -46,7 +46,11 @@
 			<text>本次报告目录未加载成功</text>
 			<text class="state-hint">请根据上方提示处理后重试</text>
 			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
-			<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+			<view
+				wx:if="{{canSelectPatient}}"
+				class="state-hint state-hint-action"
+				bindtap="onChangePatient"
+			>选择就诊人</view>
 		</block>
 		<block wx:else>
 			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />

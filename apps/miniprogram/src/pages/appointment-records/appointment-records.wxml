@@ -14,7 +14,9 @@
 					只有本轮读取结束且没有患者时，才进入真正的选择状态。
 				-->
 				<text wx:elif="{{loading}}" class="selector-name">正在加载就诊人...</text>
-				<text wx:else class="selector-name">请先选择就诊人</text>
+				<text wx:elif="{{canSelectPatient}}" class="selector-name">请先选择就诊人</text>
+				<!-- 服务异常时患者上下文被安全清空，但不能把故障伪装成未选患者。 -->
+				<text wx:else class="selector-name">当前就诊人信息暂不可用</text>
 				<!-- 旧端在姓名后显示括号编号；新端只放服务端生成的脱敏卡号，不能恢复 Provider 患者号。 -->
 				<text wx:if="{{selectedPatient}}" class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>
 				<!-- 原版使用灰色 arrow-right 图标，不能用字符箭头导致字形和垂直位置漂移。 -->

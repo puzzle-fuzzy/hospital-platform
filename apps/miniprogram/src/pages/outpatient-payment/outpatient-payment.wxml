@@ -19,7 +19,9 @@
 					先展示加载状态，避免把网络等待误导成业务拒绝。
 				-->
 				<text wx:elif="{{loading}}" class="selector-name">正在加载就诊人...</text>
-				<text wx:else class="selector-name">请先选择就诊人</text>
+				<text wx:elif="{{canSelectPatient}}" class="selector-name">请先选择就诊人</text>
+				<!-- 服务异常会清空旧患者快照，但不能把故障误显示成未选患者。 -->
+				<text wx:else class="selector-name">当前就诊人信息暂不可用</text>
 				<text wx:if="{{selectedPatient}}" class="selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>
 				<image
 					class="selector-arrow-image"
@@ -63,7 +65,11 @@
 			<text>本次门诊费用未加载成功</text>
 			<text class="state-hint">请根据上方提示处理后重试</text>
 			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
-			<view class="state-hint state-hint-action" bindtap="onChangePatient">选择就诊人</view>
+			<view
+				wx:if="{{canSelectPatient}}"
+				class="state-hint state-hint-action"
+				bindtap="onChangePatient"
+			>选择就诊人</view>
 		</block>
 		<block wx:else>
 			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />

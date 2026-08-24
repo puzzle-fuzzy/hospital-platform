@@ -326,6 +326,8 @@ export type ReportDirectoryPageData = {
 	visibleReportCount: number;
 	loading: boolean;
 	error: string;
+	/** 只有明确的患者上下文错误才允许错误态引导用户重新选择。 */
+	canSelectPatient: boolean;
 };
 
 /** 门诊缴费页只读状态；支付写入仍需独立医保/微信结算契约。 */
@@ -348,6 +350,8 @@ export type OutpatientPaymentPageData = {
 	hasMoreItems: boolean;
 	loading: boolean;
 	error: string;
+	/** 服务异常时保持重试语义；只有患者上下文错误才显示换人动作。 */
+	canSelectPatient: boolean;
 };
 
 /** “我的”页菜单项；图标与分组顺序保持旧端 userNavData 的事实顺序。 */

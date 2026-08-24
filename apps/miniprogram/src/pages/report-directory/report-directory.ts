@@ -10,6 +10,7 @@ import {
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
+	isPatientSelectionError,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
@@ -87,6 +88,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		visibleReportCount: 0,
 		loading: true,
 		error: "",
+		canSelectPatient: false,
 	},
 
 	onLoad() {
@@ -124,6 +126,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			reportCount: 0,
 			visibleReportCount: 0,
 			hasMoreReports: false,
+			canSelectPatient: false,
 		});
 		// 报告属于患者范围业务；只有 `/me` 已验证成功，才能把“更换患者”
 		// 入口视为可用，不能把请求层的自动登录隐藏成页面授权状态。
@@ -191,6 +194,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 					visibleReportCount,
 					hasMoreReports: visibleReportCount < reports.length,
 					error: "",
+					canSelectPatient: false,
 				});
 			})
 			.catch((error) => {
@@ -318,8 +322,12 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			error instanceof ApiError && error.code === "dependency-not-configured"
 				? "报告服务暂未配置完成，请联系管理员"
 				: patientContextErrorMessage(error, fallback);
+		const canSelectPatient = isPatientSelectionError(error);
 		this.setData({
 			error: message,
+			// 只有明确的患者上下文错误才允许错误态引导换人；网络、Provider、
+			// 持久化和依赖配置失败只保留重试，避免把服务故障误判成未选患者。
+			canSelectPatient,
 			selectedPatient: null,
 			patientSessionGeneration: -1,
 			reports: [],

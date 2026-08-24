@@ -12,6 +12,7 @@ import {
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
+	isPatientSelectionError,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
@@ -99,6 +100,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		hasMoreItems: false,
 		loading: true,
 		error: "",
+		canSelectPatient: false,
 	},
 
 	onLoad() {
@@ -134,6 +136,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			visibleItems: [],
 			visibleItemCount: 0,
 			hasMoreItems: false,
+			canSelectPatient: false,
 		});
 		// 先完成服务端 `/me` 验证，再读取患者目录；否则页面入口会在本地
 		// token 已过期时仍被误认为可切换患者，随后才在费用请求中暴露 401。
@@ -247,6 +250,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 				visibleItemCount,
 				hasMoreItems: visibleItemCount < mappedItems.length,
 				error: "",
+				canSelectPatient: false,
 			});
 		});
 	},
@@ -263,7 +267,14 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			// 只展示明确提示，不凭空发起费用查询。
 			this.setData({
 				activeStatus: status,
-				...(this.data.loading ? {} : { error: "请先登录并选择就诊人" }),
+				...(this.data.loading
+					? {}
+					: {
+							error: "请先登录并选择就诊人",
+							// 这是页面在没有患者上下文时主动产生的业务状态，
+							// 与服务端的 patient-not-bound 语义相同，应提供选择入口。
+							canSelectPatient: true,
+						}),
 			});
 			return;
 		}
@@ -289,6 +300,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			visibleItems: [],
 			visibleItemCount: 0,
 			hasMoreItems: false,
+			canSelectPatient: false,
 		});
 		// 显式传入用户刚点击的状态，避免微信 setData 尚未完成时仍查询旧 tab。
 		this.loadRecords(
@@ -427,8 +439,12 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 						error.code === "outpatient-payment-patient-not-found"
 					? "当前就诊人暂未建立门诊缴费映射"
 					: patientContextErrorMessage(error, fallback);
+		const canSelectPatient = isPatientSelectionError(error);
 		this.setData({
 			error: message,
+			// “outpatient-payment-patient-not-found” 表示当前患者没有费用映射，
+			// 不等于应该换人；只有统一患者上下文错误才显示选择动作。
+			canSelectPatient,
 			// 费用查询失败时，当前页面没有一份与患者卡片同时确认的费用读模型。
 			// 即使失败发生在已缴/待缴切换，也不能保留上一轮卡片让用户误以为
 			// 当前列表属于这位患者；WXML 的空态会提供重新选择入口。

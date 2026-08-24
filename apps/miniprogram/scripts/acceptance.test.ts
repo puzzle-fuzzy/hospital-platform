@@ -107,8 +107,9 @@ test("native patient selectors do not report a selection error during loading", 
 			'<text wx:elif="{{loading}}" class="selector-name">正在加载就诊人...</text>',
 		);
 		expect(page).toContain(
-			'<text wx:else class="selector-name">请先选择就诊人</text>',
+			'<text wx:elif="{{canSelectPatient}}" class="selector-name">请先选择就诊人</text>',
 		);
+		expect(page).toContain("当前就诊人信息暂不可用");
 	}
 });
 
@@ -1787,7 +1788,8 @@ test("outpatient payment tabs cannot cancel the initial patient load", async () 
 	// 新 guard 再把 owner-scoped 患者目录请求判为过期。
 	expect(patientGuardIndex).toBeGreaterThanOrEqual(0);
 	expect(requestGuardIndex).toBeGreaterThan(patientGuardIndex);
-	expect(statusBody).toContain("this.data.loading ? {} :");
+	expect(statusBody).toContain("...(this.data.loading");
+	expect(statusBody).toContain("canSelectPatient: true");
 	expect(statusBody).toContain("请先登录并选择就诊人");
 });
 
@@ -2164,6 +2166,7 @@ test("patient-scoped empty states keep a reachable patient selector", async () =
 		expect(page).toContain('class="state-hint state-hint-action"');
 		expect(page).toContain('bindtap="onChangePatient"');
 		expect(page).toContain("wx:else");
+		expect(page).toContain('wx:if="{{canSelectPatient}}"');
 	}
 	const appointmentStyle = await source(
 		"pages/appointment-records/appointment-records.wxss",
@@ -2183,6 +2186,10 @@ test("patient-scoped empty states keep a reachable patient selector", async () =
 	// 门诊费用失败时不能保留上一轮患者卡片；否则空态与当前患者事实不成对，
 	// 也会让“更换就诊人”入口消失，必须回到可重新选择的状态。
 	expect(outpatientPage).toContain("selectedPatient: null");
+	expect(outpatientPage).toContain(
+		"const canSelectPatient = isPatientSelectionError(error)",
+	);
+	expect(outpatientPage).toContain("outpatient-payment-patient-not-found");
 });
 
 test("native mini program migrates the legacy static indoor navigation page", async () => {
