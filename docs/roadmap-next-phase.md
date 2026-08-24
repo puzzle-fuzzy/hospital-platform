@@ -13,7 +13,7 @@
 > 当前开发者工具执行要求：必须打开 `apps/miniprogram/` 根工程并普通编译当前 `dist/build-info.json` 对应 revision，再确认首页和“就诊”页只有一份微信原生底栏，切换后当前图标/文字变蓝。历史线上 `13f597e` 不能作为本次 Tab 行为证据，不能打开 `src/` 或 `dist/` 子目录，也不能新增页面级底栏。
 
 > 本轮后续唯一执行入口：按 [`release/candidate-39b50d5c-runtime-isolation-2026-08-24.md`](release/candidate-39b50d5c-runtime-isolation-2026-08-24.md) 在正确项目中普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
-> 当前小程序会话/导航门禁（2026-08-24，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，底栏由微信原生 `tabBar` 统一维护，会话恢复期间患者卡片只显示固定占位。本轮小程序回归为 `238/238` 通过、`1897` 个断言，运行包来源为 `8963e777`；真机页面证据仍待。
+> 当前小程序会话/导航门禁（2026-08-24，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，底栏由微信原生 `tabBar` 统一维护，会话恢复期间患者卡片只显示固定占位。本轮小程序回归为 `238/238` 通过、`1901` 个断言，运行包来源为 `22dd3532`；真机页面证据仍待。
 > 当前日志链路审计（2026-08-24，服务端已随 `8eb51b5f` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
 > 当前服务端与小程序已完成分层配套切换：服务端 release 为 `8eb51b5f`，小程序运行包来源为 `13f597e`；旧 Python `8001` 继续共存。下一步只采集当前项目真机业务三层证据，不把运行层 smoke 当作业务完成。
