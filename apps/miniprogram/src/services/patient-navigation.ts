@@ -12,6 +12,40 @@ import { isPatientSyncInFlight } from "./patient-sync-coordinator";
  */
 type AuthenticatedEntryState = SessionVerificationState;
 
+/**
+ * 四个主入口只能由微信原生 tabBar 切换。
+ *
+ * 这组路径必须与 `app.json.tabBar.list` 保持一一对应：主 Tab 如果误用
+ * `navigateTo`，微信会把它当作普通页面压入页面栈，表现为底栏重新创建、
+ * 切换时闪动以及 selectedIconPath 丢失。普通业务页仍然保留 navigateTo，
+ * 因此这里集中做一次路由边界判断，避免后续页面复制错误写法。
+ */
+export const PRIMARY_TAB_PAGE_PATHS = Object.freeze([
+	"/pages/index/index",
+	"/pages/consult/consult",
+	"/pages/hospital/hospital",
+	"/pages/my/my",
+] as const);
+
+type PrimaryTabPagePath = (typeof PRIMARY_TAB_PAGE_PATHS)[number];
+
+function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
+	return (PRIMARY_TAB_PAGE_PATHS as readonly string[]).includes(url);
+}
+
+/**
+ * 主 Tab 的唯一程序化入口。
+ *
+ * 当前四个主 Tab 主要由微信底部原生控件直接触发；保留这个小函数是为了
+ * 约束未来的快捷入口、登录恢复或深链回跳。只要目标是主 Tab，就必须走
+ * `switchTab`，绝不能退化成普通页面导航。
+ */
+export function switchToPrimaryTab(url: string): boolean {
+	if (!isPrimaryTabPagePath(url)) return false;
+	wx.switchTab({ url });
+	return true;
+}
+
 /** 患者范围页面进入前的三态门禁，页面不能把它们混成一个跳转结果。 */
 export type PatientScopedEntryDecision =
 	| "redirect-to-login"
@@ -119,6 +153,7 @@ export function navigateToAuthenticatedPage(
 		wx.reLaunch({ url: "/pages/index/index" });
 		return "redirected-to-login";
 	}
+	if (switchToPrimaryTab(url)) return "navigated";
 	wx.navigateTo({ url });
 	return "navigated";
 }
@@ -191,5 +226,6 @@ export function navigateToPatientScopedPage(
 		navigateToPatientSelector(state);
 		return;
 	}
+	if (switchToPrimaryTab(url)) return;
 	wx.navigateTo({ url });
 }

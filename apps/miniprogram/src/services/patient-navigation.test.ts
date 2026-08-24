@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	hasCurrentPatientContext,
-	navigateToPatientSelector,
 	navigateToMissedAppointmentsPage,
+	navigateToPatientSelector,
 	resolveAuthenticatedEntry,
 	resolvePatientScopedEntry,
+	switchToPrimaryTab,
 } from "./patient-navigation";
 import { runPatientSync } from "./patient-sync-coordinator";
 
@@ -26,6 +27,33 @@ describe("会话验证入口门禁", () => {
 
 	test("服务端明确拒绝会话时才回首页重新登录", () => {
 		expect(resolveAuthenticatedEntry("invalid")).toBe("redirect-to-login");
+	});
+});
+
+describe("原生主 Tab 路由边界", () => {
+	test("主 Tab 只使用 switchTab，普通业务页不被误判", () => {
+		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
+		const originalWx = runtime.wx;
+		const switchedUrls: string[] = [];
+		runtime.wx = {
+			switchTab: ({ url }: { url: string }) => {
+				switchedUrls.push(url);
+			},
+		} as unknown as typeof wx;
+
+		try {
+			expect(switchToPrimaryTab("/pages/my/my")).toBe(true);
+			expect(
+				switchToPrimaryTab("/pages/appointment-records/appointment-records"),
+			).toBe(false);
+			expect(switchedUrls).toEqual(["/pages/my/my"]);
+		} finally {
+			if (originalWx) {
+				runtime.wx = originalWx;
+			} else {
+				delete runtime.wx;
+			}
+		}
 	});
 });
 

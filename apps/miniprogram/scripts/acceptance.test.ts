@@ -1302,6 +1302,14 @@ test("native primary tabs use the platform tabBar and stable selected assets", a
 		expect(item.selectedIconPath).toContain("assets/legacy-home/");
 		expect(item.selectedIconPath).not.toBe(item.iconPath);
 	}
+	// 主 Tab 即使被未来快捷入口程序化打开，也必须走 switchTab；普通业务页
+	// 继续使用 navigateTo，不能用一个全局替换把两类页面混在一起。
+	for (const path of tabList.map((item) => item.pagePath)) {
+		for (const pagePath of app.pages) {
+			const page = await source(`${pagePath}.ts`);
+			expect(page).not.toContain(`wx.navigateTo({ url: "/${path}"`);
+		}
+	}
 	// 页面只负责自己的内容；底栏由 app.json 的平台能力统一渲染。
 	expect(indexTemplate).not.toContain("legacy-tabbar");
 	expect(myTemplate).not.toContain("legacy-tabbar");
