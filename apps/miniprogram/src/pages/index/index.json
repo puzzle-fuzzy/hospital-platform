@@ -1,5 +1,6 @@
 {
 	"navigationBarTitleText": "医疗服务",
+	"disableScroll": true,
 	"enablePullDownRefresh": true,
 	"backgroundColor": "#4b8eff",
 	"backgroundTextStyle": "light"

@@ -1271,6 +1271,7 @@ test("native primary tabs use the platform tabBar and stable selected assets", a
 		pages: string[];
 		tabBar?: {
 			custom?: boolean;
+			position?: string;
 			list?: Array<{
 				pagePath: string;
 				text: string;
@@ -1285,7 +1286,8 @@ test("native primary tabs use the platform tabBar and stable selected assets", a
 	const tabList = app.tabBar?.list ?? [];
 	// 原生 tabBar 由微信框架持有，不会为每个页面创建独立 custom-tab-bar
 	// 实例，因此切换 Tab 时不会出现底栏闪动或 selected 状态丢失。
-	expect(app.tabBar?.custom).not.toBe(true);
+	expect(app.tabBar?.custom).toBe(false);
+	expect(app.tabBar?.position).toBe("bottom");
 	expect(tabList.map((item) => item.text)).toEqual([
 		"医疗服务",
 		"就诊",
@@ -1321,6 +1323,12 @@ test("native primary tabs keep scrolling inside the content viewport", async () 
 	for (const pagePath of tabPages) {
 		const template = await source(`${pagePath}.wxml`);
 		const pageStyle = await source(`${pagePath}.wxss`);
+		const pageConfig = JSON.parse(await source(`${pagePath}.json`)) as {
+			disableScroll?: boolean;
+		};
+		// 原生 tabBar 已经是独立系统层；如果页面自身仍可滚动，切换时会出现
+		// 整页滚动边界与内容 scroll-view 竞争，表现为底栏闪动或页面整体滚动条。
+		expect(pageConfig.disableScroll).toBe(true);
 		expect(
 			template.startsWith("\n<scroll-view") ||
 				template.startsWith("<scroll-view"),

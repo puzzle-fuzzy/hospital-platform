@@ -6,8 +6,8 @@ page {
 
 .page {
 	box-sizing: border-box;
-	min-height: 100vh;
-	padding-bottom: calc(150rpx + env(safe-area-inset-bottom));
+	min-height: 100%;
+	padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 	background: #ffffff;
 }
 

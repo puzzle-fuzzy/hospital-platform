@@ -7,8 +7,8 @@ page {
 .page {
 	position: relative;
 	box-sizing: border-box;
-	min-height: 100vh;
-	padding: 1rpx 20rpx calc(150rpx + env(safe-area-inset-bottom));
+	min-height: 100%;
+	padding: 1rpx 20rpx calc(24rpx + env(safe-area-inset-bottom));
 	background: #f8f8f8;
 }
 

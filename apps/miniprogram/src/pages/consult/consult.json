@@ -1,5 +1,6 @@
 {
 	"navigationBarTitleText": "就诊",
+	"disableScroll": true,
 	"navigationBarBackgroundColor": "#f8f8f8",
 	"navigationBarTextStyle": "black",
 	"backgroundColor": "#f5f5f5",

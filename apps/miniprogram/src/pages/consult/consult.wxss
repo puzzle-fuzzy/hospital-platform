@@ -6,8 +6,8 @@ page {
 
 .page {
 	box-sizing: border-box;
-	min-height: 100vh;
-	padding: 24rpx 20rpx calc(160rpx + env(safe-area-inset-bottom));
+	min-height: 100%;
+	padding: 24rpx 20rpx calc(24rpx + env(safe-area-inset-bottom));
 }
 
 .intro-card,
