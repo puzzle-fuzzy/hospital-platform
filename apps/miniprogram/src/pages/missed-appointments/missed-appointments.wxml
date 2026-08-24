@@ -15,6 +15,18 @@
 		</view>
 		<text class="patient-strip-change">更换就诊人</text>
 	</view>
+	<!--
+		患者卡片属于爽约查询快照的一部分。加载期间先保留同样的空间，避免
+		查询完成后突然插入“就诊人”模块；这只是稳定占位，不提供选择入口，
+		爽约页仍然不会自动跳转或嵌入患者选择页。
+	-->
+	<view wx:elif="{{loading}}" class="patient-strip patient-strip-loading" aria-hidden="true">
+		<view class="patient-strip-loading-icon"></view>
+		<view class="patient-strip-loading-copy">
+			<view class="patient-strip-loading-line patient-strip-loading-line-name"></view>
+			<view class="patient-strip-loading-line patient-strip-loading-line-card"></view>
+		</view>
+	</view>
 
 	<view class="page-header">
 		<view class="page-title">爽约记录</view>
@@ -26,28 +38,29 @@
 		否则会把 Provider 失败误报成用户没有爽约；恢复动作必须重新读取当前患者。
 		这个状态外壳在 loading/error/empty 之间复用，避免插图加载造成页面跳动。
 	-->
-	<view
-		wx:if="{{loading || error || !visibleRecords.length}}"
-		class="state-card query-state-shell query-state-shell-column"
-	>
+	<view class="record-list">
+		<view
+			wx:if="{{loading || error || !visibleRecords.length}}"
+			class="state-card query-state-shell query-state-shell-column {{loading ? 'state-card-loading' : 'state-card-empty'}}"
+		>
 		<block wx:if="{{loading}}">
 			<view class="state-loading-icon" aria-hidden="true"></view>
 			<text>正在加载爽约记录...</text>
 		</block>
 		<block wx:elif="{{error}}">
-			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<image src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
 			<text>本次爽约记录未加载成功</text>
 			<text class="state-hint">请根据上方提示处理后重试</text>
 			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
 		</block>
 		<block wx:else>
-			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+			<image src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
 			<text>暂无爽约记录</text>
 			<text class="state-hint">请继续保持按时就诊的好习惯</text>
 		</block>
-	</view>
+		</view>
 
-	<view wx:elif="{{visibleRecords.length}}" class="record-list">
+		<view wx:elif="{{visibleRecords.length}}" class="record-items">
 		<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="record-card missed-record-card">
 			<!-- 爽约页沿用挂号卡片的层级，只替换状态事实，避免两页视觉语言分裂。 -->
 			<view class="record-card-header">
@@ -55,7 +68,7 @@
 					<text class="record-department">{{item.departmentName || "门诊挂号"}}</text>
 					<text class="record-card-caption">预约挂号</text>
 				</view>
-				<view class="record-status-badge record-status-missed">已爽约</view>
+				<view class="record-status-badge record-status-missed record-status-stamp">已爽约</view>
 			</view>
 			<view wx:if="{{item.doctorName || item.location}}" class="record-meta">
 				<view wx:if="{{item.doctorName}}" class="record-meta-item">
@@ -82,6 +95,7 @@
 			</view>
 		</view>
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多爽约记录</view>
+		</view>
 	</view>
 
 	<view class="readonly-note">

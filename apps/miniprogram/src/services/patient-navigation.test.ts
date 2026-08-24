@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	hasCurrentPatientContext,
 	navigateToPatientSelector,
+	navigateToMissedAppointmentsPage,
 	resolveAuthenticatedEntry,
 	resolvePatientScopedEntry,
 } from "./patient-navigation";
@@ -29,6 +30,32 @@ describe("会话验证入口门禁", () => {
 });
 
 describe("患者范围页面入口门禁", () => {
+	test("爽约入口不因缺少患者而转入患者选择页", () => {
+		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
+		const originalWx = runtime.wx;
+		const navigateUrls: string[] = [];
+		runtime.wx = {
+			showToast: () => undefined,
+			navigateTo: ({ url }: { url: string }) => {
+				navigateUrls.push(url);
+			},
+			reLaunch: () => undefined,
+		} as unknown as typeof wx;
+
+		try {
+			expect(navigateToMissedAppointmentsPage("valid")).toBe("navigated");
+			expect(navigateUrls).toEqual([
+				"/pages/missed-appointments/missed-appointments",
+			]);
+		} finally {
+			if (originalWx) {
+				runtime.wx = originalWx;
+			} else {
+				delete runtime.wx;
+			}
+		}
+	});
+
 	test("未登录时必须回首页建立平台会话", () => {
 		expect(resolvePatientScopedEntry(false, false)).toBe("redirect-to-login");
 		expect(resolvePatientScopedEntry(false, true)).toBe("redirect-to-login");

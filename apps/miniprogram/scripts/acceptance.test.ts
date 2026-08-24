@@ -141,7 +141,7 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 			source(pagePath),
 		]);
 		expect(template).toContain(
-			'class="state-card query-state-shell query-state-shell-column"',
+			'class="state-card query-state-shell query-state-shell-column',
 		);
 		expect(template).toContain('<block wx:elif="{{error}}">');
 		expect(template).toContain("query-state-shell");
@@ -1906,6 +1906,7 @@ test("native mini program derives missed appointments from the normalized record
 	const my = await source("pages/my/my.ts");
 	const myTemplate = await source("pages/my/my.wxml");
 	const page = await source("pages/missed-appointments/missed-appointments.ts");
+	const navigation = await source("services/patient-navigation.ts");
 	const template = await source(
 		"pages/missed-appointments/missed-appointments.wxml",
 	);
@@ -1917,8 +1918,10 @@ test("native mini program derives missed appointments from the normalized record
 	expect(my).toContain('case "missed-appointments"');
 	// 爽约记录不自动打开患者选择模块；URL 仍必须保留在页面源中，防止
 	// 静态迁移时只保留菜单 action 却丢失真实页面目标。
-	expect(my).toContain("navigateToAuthenticatedPage");
-	expect(my).toContain('"/pages/missed-appointments/missed-appointments"');
+	expect(my).toContain("navigateToMissedAppointmentsPage");
+	expect(navigation).toContain(
+		'"/pages/missed-appointments/missed-appointments"',
+	);
 	expect(myTemplate).toContain('data-action="{{item.action}}"');
 	expect(my).toContain('action: "missed-appointments"');
 	expect(page).toContain("loadAppointmentRecords");
@@ -2259,7 +2262,7 @@ test("native missed appointments never auto-opens the patient selector", async (
 	const actionStart = my.indexOf('case "missed-appointments"');
 	const actionEnd = my.indexOf("\n\t\t\t\tbreak;", actionStart);
 	const action = my.slice(actionStart, actionEnd);
-	expect(action).toContain("navigateToAuthenticatedPage");
+	expect(action).toContain("navigateToMissedAppointmentsPage");
 	expect(action).not.toContain("navigateToPatientScopedPage");
 	expect(missed).toContain("onChangePatient");
 	expect(missed).not.toContain("redirectToPatientSelector");

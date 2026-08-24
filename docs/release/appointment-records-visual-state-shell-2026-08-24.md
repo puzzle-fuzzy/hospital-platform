@@ -18,7 +18,7 @@
 
 - 顶部左侧为科室，右侧为服务端归一化状态；“预约挂号”降为辅助文案，不再独占一行；
 - 第二层仅在有数据时展示医生和院区，并用轻分隔线承托上下文；
-- 日期与时段放在浅蓝信息区内，号序单独展示；
+- 日期、时段和号序改为旧端式紧凑信息块，取消偏重的蓝色整块背景，避免视觉焦点从就诊时间移开；
 - 继续保留“预问诊 / 院内导航”按钮位置和旧端触摸反馈；
 - 只在存在 `serialNumber` 时展示号序，避免缺少号序时出现空白行。
 
@@ -26,13 +26,13 @@
 
 ### 2. 爽约记录不自动打开患者选择
 
-`apps/miniprogram/src/pages/my/my.ts` 的 `missed-appointments` 入口继续使用只要求已验证平台会话的导航；它不调用 `navigateToPatientScopedPage`，因此没有当前患者时也先进入爽约页，由页面展示本页错误/空态。
+`apps/miniprogram/src/pages/my/my.ts` 的 `missed-appointments` 入口继续使用只要求已验证平台会话的专用导航；它不调用 `navigateToPatientScopedPage`，因此没有当前患者时也先进入爽约页，由页面展示本页错误/空态。专用函数和 URL 断言位于 `patient-navigation.ts` 与验收测试中，避免后续入口重构时误复用普通患者门禁。
 
-`apps/miniprogram/src/pages/missed-appointments/missed-appointments.wxml` 不包含患者选择器模块，也没有“点击这里选择就诊人”的空态动作。页面只有在已提交可信患者卡片后，用户主动点击“更换就诊人”才调用统一患者选择导航。这个限制由 `apps/miniprogram/scripts/acceptance.test.ts` 静态门禁覆盖。
+`apps/miniprogram/src/pages/missed-appointments/missed-appointments.wxml` 不包含患者选择器模块，也没有“点击这里选择就诊人”的空态动作。查询期间显示的是不可点击的患者骨架，只为预留患者快照空间；查询成功后，用户主动点击已提交的“更换就诊人”卡片才调用统一患者选择导航。这个限制由 `apps/miniprogram/scripts/acceptance.test.ts` 和 `patient-navigation.test.ts` 双重门禁覆盖。
 
 ### 3. 查询状态复用固定外壳
 
-预约记录、爽约记录、报告目录、门诊费用、患者选择、普通资料、报告详情和预约目录均使用 `query-state-shell` 固定空间；加载、错误和合法空结果的内部内容在同一个外壳内切换。
+预约记录、爽约记录、报告目录、门诊费用、患者选择、普通资料、报告详情和预约目录均使用 `query-state-shell` 固定空间；加载、错误和合法空结果的内部内容在同一个外壳内切换。预约记录和爽约记录进一步让状态外壳与记录列表共用外层容器，减少列表背景、内边距和状态卡片互相替换造成的滚动抖动。
 
 这解决了两个不同问题：
 
@@ -54,7 +54,7 @@ pnpm --filter @hospital/miniprogram build
 pnpm --filter @hospital/miniprogram runtime:verify
 ```
 
-本轮已完成：小程序回归测试 `228 pass / 0 fail / 1706 expect()`，TypeScript、Biome、文档链接审计通过；
+本轮已完成：小程序回归测试 `229 pass / 0 fail / 1708 expect()`，TypeScript、Biome、文档链接审计通过；
 构建和运行包校验通过，`apps/miniprogram/dist/build-info.json.sourceRevision` 为
 `356705e41852e585b07296c5e6e3dec52bce1381`，14 个页面入口存在，运行包中的测试 JS 为 0 个。
 它只是运行包来源证明，不代表已经上传线上或完成真机三层业务验收。

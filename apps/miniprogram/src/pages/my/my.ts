@@ -15,6 +15,7 @@ import {
 } from "../../services/page-instance-state";
 import {
 	navigateToAuthenticatedPage,
+	navigateToMissedAppointmentsPage,
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
 } from "../../services/patient-navigation";
@@ -376,13 +377,9 @@ Page<MyPageData, MyPageMethods>({
 				);
 				break;
 			case "missed-appointments":
-				// 爽约记录没有独立的“选择就诊人”入口。即使当前页面还没有
-				// 可用患者，也先进入爽约页展示稳定错误/空结果；只有用户在
-				// 页面内明确点击已有患者卡片时，才进入独立患者选择页。
-				navigateToAuthenticatedPage(
-					"/pages/missed-appointments/missed-appointments",
-					this.data.sessionState,
-				);
+				// 爽约页只要求已验证会话，不能经过患者范围入口自动弹出
+				// “选择就诊人”模块；患者上下文由页面自己的只读查询处理。
+				navigateToMissedAppointmentsPage(this.data.sessionState);
 				break;
 			case "outpatient-payment":
 				navigateToPatientScopedPage(

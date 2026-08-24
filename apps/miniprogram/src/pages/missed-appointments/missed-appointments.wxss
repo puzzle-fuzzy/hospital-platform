@@ -136,16 +136,20 @@ page {
 
 /* 预约记录基础样式的 record-list 带有全宽定义，这里补齐爽约页的内容宽度。 */
 .record-list {
-	padding-right: 0;
-	padding-left: 0;
+	box-sizing: border-box;
+	padding: 20rpx 0 32rpx;
 	background: transparent;
+}
+
+.record-items {
+	box-sizing: border-box;
 }
 
 .state-card {
 	/* 爽约页与预约/报告/费用页使用相同状态容器，加载结束不改变版面高度。 */
 	height: 380rpx;
 	min-height: 380rpx;
-	margin-top: 60rpx;
+	margin-top: 0;
 	padding: 40rpx 30rpx;
 	border-radius: 20rpx;
 	background: #ffffff;
@@ -154,9 +158,74 @@ page {
 /* 空态图固定为正方形，避免图片原始比例让空态卡片高度随状态变化。 */
 .state-card image {
 	display: block;
-	width: 150rpx;
-	height: 150rpx;
+	width: 112rpx;
+	height: 112rpx;
 	margin-bottom: 18rpx;
+}
+
+/* 查询中先保留患者卡的高度，但不把爽约页变成患者选择模块。 */
+.patient-strip-loading {
+	min-height: 92rpx;
+}
+
+.patient-strip-loading-icon {
+	box-sizing: border-box;
+	flex: 0 0 56rpx;
+	width: 56rpx;
+	height: 56rpx;
+	border: 6rpx solid #dbe5ff;
+	border-top-color: #85aeff;
+	border-radius: 50%;
+	animation: missed-patient-loading 900ms linear infinite;
+}
+
+.patient-strip-loading-copy {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	margin-left: 18rpx;
+	flex-direction: column;
+}
+
+.patient-strip-loading-line {
+	height: 20rpx;
+	border-radius: 10rpx;
+	background: #e8eefc;
+}
+
+.patient-strip-loading-line-name {
+	width: 180rpx;
+}
+
+.patient-strip-loading-line-card {
+	margin-top: 10rpx;
+	width: 240rpx;
+	height: 14rpx;
+}
+
+@keyframes missed-patient-loading {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* 爽约页沿用旧端右上角的圆形印章语义，不再用普通灰色胶囊抢占标题空间。 */
+.missed-record-card .record-status-stamp {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 76rpx;
+	height: 76rpx;
+	padding: 0;
+	border: 3rpx solid #a8adb7;
+	border-radius: 50%;
+	background: #f7f7f8;
+	color: #737985;
+	font-size: 22rpx;
+	font-weight: 700;
+	line-height: 1.2;
+	transform: rotate(8deg);
 }
 
 .readonly-note {

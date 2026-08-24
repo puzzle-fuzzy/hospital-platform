@@ -81,10 +81,11 @@
 		即使公共高度已经固定，也不能让两个不同节点交替挂载；微信渲染层
 		会重新计算图片和文字布局，外壳复用后页面滚动位置更稳定。
 	-->
-	<view
-		wx:if="{{loading || error || !visibleRecords.length}}"
-		class="state-card query-state-shell query-state-shell-column"
-	>
+	<view class="record-list">
+		<view
+			wx:if="{{loading || error || !visibleRecords.length}}"
+			class="state-card query-state-shell query-state-shell-column {{loading ? 'state-card-loading' : 'state-card-empty'}}"
+		>
 		<block wx:if="{{loading}}">
 			<view class="state-loading-icon" aria-hidden="true"></view>
 			<text>加载中...</text>
@@ -111,9 +112,9 @@
 			<text wx:if="{{selectedPatient}}" class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
 			<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
 		</block>
-	</view>
+		</view>
 
-	<view wx:elif="{{visibleRecords.length}}" class="record-list">
+		<view wx:elif="{{visibleRecords.length}}" class="record-items">
 		<view
 			wx:for="{{visibleRecords}}"
 			wx:key="viewKey"
@@ -194,6 +195,7 @@
 			</view>
 		</view>
 		<view wx:if="{{hasMoreRecords}}" class="load-more" bindtap="onLoadMore">加载更多挂号记录</view>
+		</view>
 	</view>
 
 	<!--

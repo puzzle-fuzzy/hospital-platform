@@ -124,6 +124,23 @@ export function navigateToAuthenticatedPage(
 }
 
 /**
+ * 打开爽约记录页的专用入口。
+ *
+ * 爽约记录是一个只读派生页，缺少当前患者时也必须先进入页面展示稳定的
+ * 错误/空状态，不能复用 `navigateToPatientScopedPage` 把入口改造成“选择就诊人”。
+ * 这样用户点击“爽约记录”时不会偶发落入患者选择页；页面内的“更换就诊人”
+ * 仍然保留为用户明确点击后的独立动作。
+ */
+export function navigateToMissedAppointmentsPage(
+	state: AuthenticatedEntryState,
+): AuthenticatedNavigationResult {
+	return navigateToAuthenticatedPage(
+		"/pages/missed-appointments/missed-appointments",
+		state,
+	);
+}
+
+/**
  * 统一进入就诊人选择页。
  *
  * 任何页面都可能在首页后台同步尚未结束时发起“更换就诊人”。统一门禁
