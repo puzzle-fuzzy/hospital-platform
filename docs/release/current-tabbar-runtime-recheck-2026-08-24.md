@@ -20,7 +20,7 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 来源提交 | `46563fe`（完整 revision 由构建包写入） |
+| 来源提交 | `ecff1f9`（完整 revision 由构建包写入） |
 | 页面入口 | 16 个页面脚本完整 |
 | TabBar 模式 | `custom=false`、`position=bottom`，由微信原生 `tabBar` 渲染 |
 | Tab 数量 | 4 项：医疗服务、就诊、互联网医院、我的 |
@@ -34,7 +34,7 @@
 
 ## 开发者工具与真机验收
 
-运行包已经在本地生成，但本轮不能把源码测试当作真机验收。当前应以构建后生成的二维码文件为准；必须关闭父工程窗口，直接打开 `apps/miniprogram/dist/` 独立工程并执行一次普通编译：
+运行包已经在本地生成，但本轮不能把源码测试当作真机验收。当前二维码文件为 `C:\Users\18267\AppData\Local\Temp\hospital-platform-tabbar-runtime-ecff1f9.png`；必须关闭父工程窗口，直接打开 `apps/miniprogram/dist/` 独立工程并执行一次普通编译：
 
 ```powershell
 Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
@@ -47,7 +47,7 @@ Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
 控制台应出现：
 
 ```text
-[医院小程序] 运行包来源：微信原生 tabBar；revision=46563fe2e05c49c5899fca93e1dd60831c3d4017
+[医院小程序] 运行包来源：微信原生 tabBar；revision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9
 ```
 
 随后依次点击四个主 Tab，必须确认：
