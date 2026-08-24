@@ -1,17 +1,33 @@
-# 当前原生 Tab 运行包复核（2026-08-25）
+# 当前共享 custom-tab-bar 运行包复核（2026-08-25）
 
 ## 结论
 
-本次反馈的“底部 Tab 仍然闪动、选中效果消失”没有在当前源码中复现出第二套底栏：
+本次反馈的“底部 Tab 仍然闪动、选中效果消失”经静态审计确认没有页面级第二套底栏；
+但原生 `selectedIconPath` 在真机上仍未稳定呈现，因此当前候选改为微信官方单实例
+`custom-tab-bar`，把 selected 状态收回到一份明确的组件状态中：
 
-- `src/app.json` 和 `dist/app.json` 都是微信原生 `tabBar`，`custom=false`、`position=bottom`；
+- `src/app.json` 和 `dist/app.json` 都是微信官方共享 `tabBar`，`custom=true`、`position=bottom`；
 - 四个主入口只在 `app.json.tabBar.list` 声明一次；
 - 四个主入口同时位于 `app.json.pages` 前四项，首屏和 Tab 切换使用同一组根页面注册；
-- 页面 WXML、运行包和导航服务都没有 `legacy-tabbar`、`custom-tab-bar` 或页面级固定底栏；
+- 页面 WXML 和导航服务都没有页面级固定底栏，唯一渲染入口是 `src/custom-tab-bar/index.*`；
 - 主 Tab 的程序化入口只允许 `wx.switchTab`，普通业务页仍使用 `wx.navigateTo`；
-- 普通态和选中态图标路径不同，且构建包中的文件字节与源码一致。
+- 组件根据当前页面 route 同步 selected，点击时先更新 selected，路由失败时回滚；
+- 底部内容区只预留一份 `130rpx + safe-area`，页面自身不再滚动到底栏下面。
 
-因此不能通过重新添加自绘底栏来掩盖现象。自绘底栏会随页面生命周期产生第二套实例，反而会重新制造闪动和 selected 状态竞态。本次按工具缓存/旧增量运行包边界处理。
+这不是页面复制底栏：`custom-tab-bar` 是微信约定的全局共享组件，四个主 Tab 页面只负责内容。
+旧原生候选保留在下方历史段落，不再作为当前真机验收入口。
+
+## 当前候选：c4eb3587
+
+本轮源码提交为 `c4eb3587d0126458f7210fee134f96b51dce7b6c`，已推送 `origin/main`。
+小程序回归为 `240 pass / 0 fail / 1929 expect()`；`runtime:verify` 通过，`dist/` 包含
+16 个页面运行脚本和完整 `custom-tab-bar/index.js|json|wxml|wxss`。
+
+本轮只修改新项目的小程序导航源代码、构建门禁和文档；没有修改旧 Python 服务、线上 API、
+服务器、MySQL、Redis 或另一会话负责的众阳 Provider 自动化。支付、医保授权/结算、患者绑定、
+二维码和 HIS 回写仍保持关闭。
+
+> 以下“原生 Tab”段落是前一候选的历史记录，不能作为本轮真机验收入口。
 
 ## 2026-08-25 当前续发布：运行包来源与图标缓存重新隔离
 
