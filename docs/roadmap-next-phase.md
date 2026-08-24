@@ -1,5 +1,7 @@
 > 当前业务修正（2026-08-24，代码待发布）：已确认生产 Provider 的渠道 3 在线记录与渠道 4 全部历史均可只读返回；本轮将“我的挂号”改为服务端拥有的 `scope=online|all` 双查询，全部标签重新请求渠道 4 并保留取消记录。支付、医保、预约写入、取消和 HIS 回写仍不受影响。
 
+> 当前候选交接（2026-08-24）：本地 `13f597ea` 已完成生产配置 preflight、隔离 runtime smoke 和远端产物校验，但未切换 `current`；线上仍为 `6db3217b`，旧 Python `8001` 继续共存。下一步继续做已开放只读业务审计和真机证据准备，不把未切换候选写成线上事实。详见 [`release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md`](release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md)。
+
 > 当前服务端发布更新（2026-08-24）：服务端 release 已切换为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；小程序运行包来源仍为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。
 
 > 当前候选刷新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本次运行包显式校验修正已进入最新本地候选，真实真机证据仍待。

@@ -20,7 +20,7 @@
 > `dist/services/single-flight.js` 存在，`single-flight.test.js` 和全部 `*.test.js`/`*.spec.js` 均不存在，`runtime:verify` 通过。
 > 详细记录见 [`release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md)。
 
-> 当前候选更新（2026-08-24）：服务端 release 为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`（提交 `6db3217b`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。历史候选仅作追溯。
+> 当前候选更新（2026-08-24）：线上服务端仍为 `6db3217bd3c990b009571ffd85b7da55d9ea7338`；本地待切换候选为 `13f597ea9ee3f65b9be858117826d948339d904a`。小程序运行包来源仍为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。候选未切换边界见 [`release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md`](release/candidate-13f597ea-my-outpatient-audit-2026-08-24.md)。
 
 
 > 当前完整小程序来源校验值：`4ba492a3fdae8283409bd2ab4a0a45247c46600c`；当前服务端已验证 release：`6db3217bd3c990b009571ffd85b7da55d9ea7338`。
