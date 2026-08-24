@@ -48,7 +48,7 @@ try {
 	await publishMiniProgramRuntime(stagingRuntime, liveRuntime);
 	await rm(pendingRuntime, { recursive: true, force: true });
 	console.log(
-		`Custom tabBar mini program pending runtime published; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
+		`Native TabBar mini program pending runtime published; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
 	);
 } finally {
 	try {
