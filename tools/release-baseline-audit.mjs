@@ -400,7 +400,9 @@ const currentCandidateReferenceRules = Object.freeze([
 		label: "剩余迁移清单",
 		sections: [
 			{
-				start: "## 2026-08-22 当前执行决策",
+				// 当前执行章节随每次发布窗口更新日期；用整行标题匹配，
+				// 避免文档已经正确更新到新日期后，审计仍锁死旧窗口。
+				start: /^## \d{4}-\d{2}-\d{2} 当前执行决策$/mu,
 				end: "## 历史记录（仅供追溯）",
 				phrases: [
 					{ text: "当前进行中：", expected: "short" },
@@ -481,14 +483,27 @@ export function auditCurrentExecutionSection(baseline, roadmapDocument) {
 /** 检查当前语义短语附近的候选来源，避免旧 hash 伪装成当前运行包。 */
 export function auditCurrentCandidateReferences(baseline, documents) {
 	const failures = [];
+	/**
+	 * 当前文档的执行章节会随发布窗口更换日期，不能用固定旧日期定位。
+	 * 字符串标记继续使用 indexOf；正则标记只允许匹配标题行，并把相对
+	 * 偏移换算回全文位置，避免历史正文中的同名文字被误当作章节起点。
+	 */
+	const findMarker = (content, marker, fromIndex = 0) => {
+		if (marker instanceof RegExp) {
+			const match = content.slice(fromIndex).match(marker);
+			return match?.index === undefined ? -1 : fromIndex + match.index;
+		}
+		return content.indexOf(marker, fromIndex);
+	};
 	for (const rule of currentCandidateReferenceRules) {
 		const document = documents.find((item) => item.path === rule.path);
 		if (!document) {
 			continue;
 		}
 		for (const section of rule.sections) {
-			const sectionStart = document.content.indexOf(section.start);
-			const sectionEnd = document.content.indexOf(
+			const sectionStart = findMarker(document.content, section.start);
+			const sectionEnd = findMarker(
+				document.content,
 				section.end,
 				sectionStart + 1,
 			);
