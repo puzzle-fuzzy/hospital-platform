@@ -3,5 +3,6 @@
 	尚未冻结前只提供稳定迁移状态，不调用旧 WebSocket、不猜测排队状态。
 */
 type ConsultPageData = Record<string, never>;
+type ConsultPageMethods = Record<never, never>;
 
-Page<ConsultPageData, {}>({ data: {} });
+Page<ConsultPageData, ConsultPageMethods>({ data: {} });

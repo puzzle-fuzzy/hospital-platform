@@ -4,5 +4,6 @@
 	因此这里不复制旧地址，也不把静态提示包装成已可用的互联网医院服务。
 */
 type HospitalPageData = Record<string, never>;
+type HospitalPageMethods = Record<never, never>;
 
-Page<HospitalPageData, {}>({ data: {} });
+Page<HospitalPageData, HospitalPageMethods>({ data: {} });
