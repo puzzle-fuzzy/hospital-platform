@@ -3,7 +3,7 @@ import {
 	HealthKnowledgeImportValidationError,
 	validateHealthKnowledgeImportBundle,
 } from "../src/index.ts";
-import { normalizeHealthKnowledgeBundleCliArguments } from "../src/knowledge-bundle-cli.ts";
+import { normalizeHealthKnowledgeBundleCliArguments } from "./knowledge-bundle-cli.ts";
 
 const USAGE =
 	"用法：pnpm --filter @hospital/domain knowledge:bundle:check -- <脱敏健康知识 bundle.json>";
