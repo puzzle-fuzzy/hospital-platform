@@ -1,13 +1,13 @@
 # 广度优先迁移计划（2026-08-25）
 
 > 当前跨域执行工作板见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
-> 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前小程序功能候选为 `3cf828ed`，运行输入/pending 候选为 `3cf828ed`；服务端本地代码候选为 `b42922f4`，本轮文档提交不代表线上服务已更新。
+> 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前小程序功能候选为 `28c0d9ef`，运行输入/pending 候选为 `28c0d9ef`；服务端本地代码候选为 `b42922f4`，本轮文档提交不代表线上服务已更新。
 
-> **当前事实优先（2026-08-25，后续历史段落不覆盖本段）**：小程序功能源码候选为 `3cf828ed185f0e745138db04011d26c6db62fa8a`，当前运行输入/pending 来源一致，当前回归为 `284 pass / 0 fail / 3129 expect()`；pending 尚未发布。被微信开发者工具占用的 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，必须先释放锁再执行原子发布和 `runtime:verify`。服务端本地候选仍按 `b42922f4` 识别，线上 release 漂移由 `pnpm release:baseline:audit` fail-closed 报告；旧 Python `8001` 和另一会话负责的众阳预约适配器不在本轮修改范围。
+> **当前事实优先（2026-08-25，后续历史段落不覆盖本段）**：小程序功能源码候选为 `28c0d9ef71cf72f1ac079a6e5c7a18469134f2c8`，当前运行输入/pending 来源一致，当前回归为 `285 pass / 0 fail / 3210 expect()`；pending 尚未发布。被微信开发者工具占用的 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，必须先释放锁再执行原子发布和 `runtime:verify`。服务端本地候选仍按 `b42922f4` 识别，线上 release 漂移由 `pnpm release:baseline:audit` fail-closed 报告；旧 Python `8001` 和另一会话负责的众阳预约适配器不在本轮修改范围。
 
 > **历史候选补充（提交 `99c7e8fd`）**：原生页面从 17 个扩展到 20 个，新增健康百科目录、症状查疾病结果、疾病/药品详情三个页面；服务端健康路由已挂载但无审核发布 bundle 时 fail-closed。该候选仍保留在历史交接中，当前 pending 以本段上方 `3cf828ed` 为准。
 
-> **当前运行包来源刷新**：当前 pending 运行输入为 `3cf828ed185f0e745138db04011d26c6db62fa8a`；本轮补齐迁移入口覆盖视图和 A–F 迁移批次展示，不新增支付、医保或临床写入范围，仍必须先释放开发者工具锁并通过 `runtime:verify` 后才能生成真机证据。
+> **当前运行包来源刷新**：当前 pending 运行输入为 `28c0d9ef71cf72f1ac079a6e5c7a18469134f2c8`；本轮补充迁移状态页契约族展示，不新增支付、医保或临床写入范围，仍必须先释放开发者工具锁并通过 `runtime:verify` 后才能生成真机证据。
 
 > **历史候选（2026-08-25）**：提交 `b91af7bc597a8ba66fcfe303cc3af0f1cdde6948` 曾补齐健康百科搜索/详情固定高度错误态和重试，20 页面、259 项小程序测试通过；该候选仅作历史追溯，当前 pending 以本段上方 `3cf828ed` 为准。
 
@@ -23,7 +23,7 @@
 | --- | --- |
 | 旧端页面扫描 | 64 个 Vue 页面 |
 | 新端页面注册 | 20 个页面；前 4 个由微信原生 TabBar 管理，新增 3 个健康百科只读页面 |
-| 当前 pending 候选 | `3cf828ed185f0e745138db04011d26c6db62fa8a` |
+| 当前 pending 候选 | `28c0d9ef71cf72f1ac079a6e5c7a18469134f2c8` |
 | 候选位置 | `.local/hospital-miniprogram/pending/`；开发者工具释放 `dist/` 后再原子发布 |
 | 当前 live 运行包 | 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，开发者工具释放后再原子发布 |
 | 旧服务 | Python `8001` 未修改、未停止；本轮只修改新项目 |
@@ -41,7 +41,7 @@
 | 小程序运行包发布 | 暂停 | 候选已保存在 pending；微信开发者工具锁住 live `dist`，原子发布返回 `EBUSY`，旧运行包已保留 |
 | 入口/边界/只读/Provider/日志审计 | 通过 | 64 个旧页面、34 个冻结入口 gate、5 个只读域和 84 个日志事件均有登记 |
 | 跨页面入口分发审计 | 通过 | 首页 22 个、我的 9 个可见 action 均有固定分支；状态页 key、四个主 Tab 和 20 个页面的 WXML 事件方法均已校验 |
-| 全量测试 | 发布基线阻断 | 小程序当前 `284 pass / 0 fail / 3129 expect()`；全仓工具测试仍因线上 release 漂移停止，不能改门禁迎合当前状态 |
+| 全量测试 | 发布基线阻断 | 小程序当前 `285 pass / 0 fail / 3210 expect()`；全仓工具测试仍因线上 release 漂移停止，不能改门禁迎合当前状态 |
 
 冻结入口 gate 现在还按 A–F 批次机器归类：A=3、B=0（健康内容独立审核队列）、C=4、D=12、E=8、F=7。任何 gate 缺少批次都会让 `migration:boundary:audit` 和 `migration:readiness` 失败，避免后续只更新文档范围而漏掉执行队列。
 
@@ -58,7 +58,7 @@
 
 ## 二、入口覆盖层已经完成
 
-> 当前候选补充（2026-08-25）：`3cf828ed` 在原有四 Tab、全局资料初始化、入口状态页和患者只读链路基础上，继续保留旧端 64 页面逐页台账、业务域摘要和“就诊”主 Tab 的患者上下文；新增迁移状态页关联旧入口、业务域和 A–F 批次展示，今日实时队列、WebSocket 与旧端缓存协议仍关闭。候选回归为 `284 pass / 0 fail / 3129 expect()`，构建产物因开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。
+> 当前候选补充（2026-08-25）：`28c0d9ef` 在原有四 Tab、全局资料初始化、入口状态页和患者只读链路基础上，继续保留旧端 64 页面逐页台账、业务域摘要和“就诊”主 Tab 的患者上下文；新增迁移状态页契约族展示，今日实时队列、WebSocket 与旧端缓存协议仍关闭。候选回归为 `285 pass / 0 fail / 3210 expect()`，构建产物因开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。
 
 本轮在 `pages/feature-status/feature-status` 和 `services/feature-navigation.ts` 的基础上继续收紧入口分发，并把二级动作也纳入统一状态路由：
 
