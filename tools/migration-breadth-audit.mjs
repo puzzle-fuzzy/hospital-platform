@@ -146,15 +146,23 @@ function extractPageMethods(source) {
 	];
 
 	/**
-	 * 临床只读页面由同一个页面工厂注册 Page 对象；这些方法真实存在于
-	 * clinical-entry-surface.ts，而不是重复复制到四个页面入口文件中。
-	 * 审计这里显式识别工厂注册，避免把合法的共享实现误报成 WXML 断链。
+	 * 页面外壳由共享工厂注册 Page 对象；这些方法真实存在于对应的
+	 * service 文件，而不是重复复制到每个页面入口中。审计这里显式识别
+	 * 两种安全外壳工厂，避免把合法复用误报成 WXML 断链。
 	 */
 	if (source.includes("registerClinicalSurfacePage(")) {
 		methods.push(
 			"onOpenPatientSelector",
 			"onOpenMigrationStatus",
 			"onBackHome",
+		);
+	}
+	if (source.includes("registerPatientContractSurfacePage(")) {
+		methods.push(
+			"onOpenPatientSelector",
+			"onBackPatientSelector",
+			"onOpenMigrationStatus",
+			"onBackMy",
 		);
 	}
 

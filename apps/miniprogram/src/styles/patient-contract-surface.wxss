@@ -1,0 +1,134 @@
+.patient-contract-surface-scroll {
+	height: 100vh;
+	background: #f6f8fc;
+}
+
+.patient-contract-surface-page {
+	box-sizing: border-box;
+	min-height: 100%;
+	padding: 28rpx 24rpx 52rpx;
+}
+
+.patient-contract-surface-hero,
+.patient-contract-surface-card {
+	box-sizing: border-box;
+	border-radius: 20rpx;
+	background: #fff;
+	box-shadow: 0 8rpx 26rpx rgba(40, 74, 150, 0.06);
+}
+
+.patient-contract-surface-hero {
+	display: flex;
+	align-items: center;
+	padding: 34rpx 30rpx;
+}
+
+.patient-contract-surface-icon {
+	flex: 0 0 auto;
+	width: 82rpx;
+	height: 82rpx;
+	margin-right: 22rpx;
+}
+
+.patient-contract-surface-hero-copy {
+	display: flex;
+	flex-direction: column;
+}
+
+.patient-contract-surface-title {
+	color: #222b45;
+	font-size: 36rpx;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.patient-contract-surface-label {
+	display: inline-block;
+	margin-top: 12rpx;
+	color: #3d6df6;
+	font-size: 24rpx;
+	line-height: 1.5;
+}
+
+.patient-contract-surface-card {
+	margin-top: 22rpx;
+	padding: 30rpx;
+}
+
+.patient-contract-surface-card-title {
+	display: block;
+	color: #222b45;
+	font-size: 30rpx;
+	font-weight: 600;
+	line-height: 1.5;
+}
+
+.patient-contract-surface-card-copy {
+	display: block;
+	margin-top: 16rpx;
+	color: #68738a;
+	font-size: 27rpx;
+	line-height: 1.7;
+}
+
+.patient-contract-surface-list {
+	margin-top: 20rpx;
+}
+
+.patient-contract-surface-list-row {
+	display: flex;
+	align-items: flex-start;
+	margin-top: 12rpx;
+}
+
+.patient-contract-surface-list-dot {
+	width: 28rpx;
+	color: #3d6df6;
+	font-size: 30rpx;
+	line-height: 1.4;
+}
+
+.patient-contract-surface-list-text {
+	flex: 1;
+	color: #68738a;
+	font-size: 26rpx;
+	line-height: 1.7;
+}
+
+.patient-contract-surface-coverage {
+	display: block;
+	margin-top: 22rpx;
+	padding-top: 18rpx;
+	border-top: 1rpx solid #edf0f5;
+	color: #8791a5;
+	font-size: 23rpx;
+	line-height: 1.6;
+}
+
+.patient-contract-surface-primary-button,
+.patient-contract-surface-secondary-button,
+.patient-contract-surface-plain-button {
+	box-sizing: border-box;
+	width: 100%;
+	border-radius: 16rpx;
+	font-size: 28rpx;
+	line-height: 84rpx;
+}
+
+.patient-contract-surface-primary-button {
+	margin-top: 28rpx;
+	background: #3d6df6;
+	color: #fff;
+}
+
+.patient-contract-surface-secondary-button {
+	margin-top: 28rpx;
+	background: #edf3ff;
+	color: #3d6df6;
+}
+
+.patient-contract-surface-plain-button {
+	margin-top: 14rpx;
+	background: transparent;
+	color: #68738a;
+}

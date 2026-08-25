@@ -8,7 +8,7 @@ import {
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
+import { navigateToFeatureEntry } from "../../services/feature-navigation";
 import { switchToPrimaryTab } from "../../services/patient-navigation";
 import {
 	getSelectedPatientId,
@@ -316,9 +316,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		patientNavigationTimers.set(this, navigationTimer);
 	},
 
-	/** 绑定写入接口尚未通过真实医院契约验收，统一进入状态页而不是伪造成功。 */
+	/** 绑定写入接口尚未通过真实医院契约验收，进入原生关闭态而不是伪造成功。 */
 	onAddPatient(): void {
-		navigateToFeatureStatus("patient-binding");
+		navigateToFeatureEntry("patient-binding");
 	},
 
 	/**

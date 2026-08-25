@@ -725,10 +725,10 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 		),
 	).text();
 
-	// provider 文档和最终状态查询未冻结前，页面只能给出迁移提示，不能产生
-	// “查档失败后继续建档”的旧端副作用，也不能把医院患者号带回小程序。
+	// provider 文档和最终状态查询未冻结前，页面只能进入安全的迁移外壳，
+	// 不能产生“查档失败后继续建档”的旧端副作用，也不能把医院患者号带回小程序。
 	expect(selection).toContain("onAddPatient");
-	expect(selection).toContain("navigateToFeatureStatus");
+	expect(selection).toContain("navigateToFeatureEntry");
 	expect(selection).toContain('"patient-binding"');
 	expect(selection).not.toContain("getArchivesInfoApi");
 	expect(selection).not.toContain("createPatientApi");
@@ -1693,7 +1693,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 主 Tab 与二级页面都必须关闭微信默认的页面级滚动；前者使用共享
 	// tab-page-scroll，后者使用统一的 secondary-page-scroll。这样用户只会
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
-	expect(app.pages).toHaveLength(25);
+	expect(app.pages).toHaveLength(28);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);

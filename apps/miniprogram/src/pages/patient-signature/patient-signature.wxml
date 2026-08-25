@@ -1,0 +1,42 @@
+<scroll-view class="patient-contract-surface-scroll" scroll-y="true" enhanced="true">
+	<view class="patient-contract-surface-page">
+		<view class="patient-contract-surface-hero">
+			<image class="patient-contract-surface-icon" src="{{icon}}" mode="aspectFit" />
+			<view class="patient-contract-surface-hero-copy">
+				<text class="patient-contract-surface-title">{{title}}</text>
+				<text class="patient-contract-surface-label">{{surfaceLabel}}</text>
+			</view>
+		</view>
+
+		<view class="patient-contract-surface-card">
+			<text class="patient-contract-surface-card-title">{{scopeTitle}}</text>
+			<text class="patient-contract-surface-card-copy">{{scopeDescription}}</text>
+			<view class="patient-contract-surface-list">
+				<view wx:for="{{boundaryItems}}" wx:key="*this" class="patient-contract-surface-list-row">
+					<text class="patient-contract-surface-list-dot">·</text>
+					<text class="patient-contract-surface-list-text">{{item}}</text>
+				</view>
+			</view>
+			<button class="patient-contract-surface-secondary-button" bindtap="onOpenPatientSelector">选择就诊人</button>
+		</view>
+
+		<view class="patient-contract-surface-card">
+			<text class="patient-contract-surface-card-title">当前迁移状态</text>
+			<text class="patient-contract-surface-card-copy">{{description}}</text>
+			<text class="patient-contract-surface-coverage">{{coverageLabel}}</text>
+		</view>
+
+		<view class="patient-contract-surface-card">
+			<text class="patient-contract-surface-card-title">开放前还需确认</text>
+			<view class="patient-contract-surface-list">
+				<view wx:for="{{contractItems}}" wx:key="*this" class="patient-contract-surface-list-row">
+					<text class="patient-contract-surface-list-dot">·</text>
+					<text class="patient-contract-surface-list-text">{{item}}</text>
+				</view>
+			</view>
+		</view>
+
+		<button class="patient-contract-surface-primary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+		<button class="patient-contract-surface-plain-button" bindtap="onBackMy">返回我的</button>
+	</view>
+</scroll-view>

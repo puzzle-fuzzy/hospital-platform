@@ -479,22 +479,34 @@ async function validatePageRuntimeBoundaries(
 		const usesClinicalSurfaceFactory = script.includes(
 			"registerClinicalSurfacePage(",
 		);
-		if (pageEntryIndex < 0 && !usesClinicalSurfaceFactory) {
+		const usesPatientContractSurfaceFactory = script.includes(
+			"registerPatientContractSurfacePage(",
+		);
+		if (
+			pageEntryIndex < 0 &&
+			!usesClinicalSurfaceFactory &&
+			!usesPatientContractSurfaceFactory
+		) {
 			throw new Error(`${pagePath}.ts must contain a Page implementation`);
 		}
 		/**
-		 * 四个临床页面共用一个安全外壳注册器，页面入口文件只声明自己的
-		 * FeatureKey，实际 Page 方法集中在 clinical-entry-surface.ts。这里把
-		 * 工厂源码纳入同一条静态事件门禁，既允许复用，又不放松 WXML 方法检查。
+		 * 页面外壳入口只声明自己的 FeatureKey，实际 Page 方法集中在共享
+		 * service 中。这里把对应工厂源码纳入同一条静态事件门禁，既允许复用，
+		 * 又不放松 WXML 方法检查。
 		 */
 		const sharedPageFactory = usesClinicalSurfaceFactory
 			? await Bun.file(
 					join(source, "services", "clinical-entry-surface.ts"),
 				).text()
-			: "";
-		const pageImplementation = usesClinicalSurfaceFactory
-			? `${script}\n${sharedPageFactory}`
-			: script.slice(pageEntryIndex);
+			: usesPatientContractSurfaceFactory
+				? await Bun.file(
+						join(source, "services", "patient-contract-surface.ts"),
+					).text()
+				: "";
+		const pageImplementation =
+			usesClinicalSurfaceFactory || usesPatientContractSurfaceFactory
+				? `${script}\n${sharedPageFactory}`
+				: script.slice(pageEntryIndex);
 		for (const match of template.matchAll(bindingPattern)) {
 			const handler = match[1];
 			if (!handler) continue;

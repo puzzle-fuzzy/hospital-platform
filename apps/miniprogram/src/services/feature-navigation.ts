@@ -18,6 +18,7 @@ export type FeatureKey =
 	| "doctor-directory"
 	| "electronic-consultation"
 	| "electronic-bill"
+	| "patient-express"
 	| "patient-agreement"
 	| "patient-address"
 	| "patient-qr"
@@ -175,6 +176,15 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 			"联系地址正在迁移中，当前不会保存或展示未经归属校验的地址信息。",
 		contractHint:
 			"等待字段白名单、owner/患者归属、版本并发、脱敏和删除规则确认。",
+		icon: "/assets/legacy-home/service-patient.svg",
+	},
+	"patient-express": {
+		title: "我的快递",
+		readiness: "待 provider contract",
+		description:
+			"快递记录正在迁移中，当前不会使用旧端空列表或未经归属校验的物流信息。",
+		contractHint:
+			"等待快递来源、患者归属、物流字段白名单、状态映射和查询失败语义确认。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"patient-qr": {
@@ -416,6 +426,9 @@ const FEATURE_SURFACE_TARGETS: Readonly<Partial<Record<FeatureKey, string>>> =
 		doctor: "/pages/my-doctor/my-doctor",
 		"electronic-consultation":
 			"/pages/electronic-consultation/electronic-consultation",
+		"patient-binding": "/pages/patient-binding/patient-binding",
+		"patient-signature": "/pages/patient-signature/patient-signature",
+		"patient-express": "/pages/patient-express/patient-express",
 	});
 
 export function navigateToFeatureEntry(feature: FeatureKey): void {
