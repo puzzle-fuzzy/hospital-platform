@@ -35,9 +35,9 @@
 
 > **当前事实源（2026-08-26，优先于本页旧候选段落）**：小程序 pending 运行输入为 `3b42b86`，当前源码回归为 `293 pass / 0 fail / 3237 expect()`，共 21 个页面。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前健康内容仍保持 fail-closed；使用条款仅为静态只读页，协议同意能力和外部互联网医院能力继续关闭。完整交接和 64 页推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
 
-> 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前候选以本页顶部 `a6319d7` 为准。
+> 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前候选以本页顶部 `3b42b86` 为准。
 
-> 历史运行包观察：当时 live `dist/build-info.sourceRevision` 为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，`baa31df0` 在 pending staging 中完成 17 个页面脚本、类型检查、旧端 64 页面台账、迁移状态路由回归和就诊记录分批展示回归。当前 pending 候选请以本页上方 `a6319d7` 事实为准；开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。
+> 历史运行包观察：当时 live `dist/build-info.sourceRevision` 为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，`baa31df0` 在 pending staging 中完成 17 个页面脚本、类型检查、旧端 64 页面台账、迁移状态路由回归和就诊记录分批展示回归。当前 pending 候选请以本页上方 `3b42b86` 事实为准；开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。
 
 > 当前迁移主线已经切换为“先广度覆盖、再深入 contract”：首页、“我的”和服务清单所有可见入口均有业务页或统一迁移状态页；状态页不代表真实业务完成，只用于消除无响应/404，并明确记录未开放原因。完整顺序见 [`migration/breadth-first-migration-plan-2026-08-25.md`](migration/breadth-first-migration-plan-2026-08-25.md)。
 
@@ -73,7 +73,7 @@
 > `dist/services/single-flight.js` 存在，`single-flight.test.js` 和全部 `*.test.js`/`*.spec.js` 均不存在，`runtime:verify` 通过。
 > 详细记录见 [`release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md`](release/miniprogram-device-qr-session-2026-08-22-1815-a64fe023.md)。
 
-> 历史候选更新（2026-08-24）：线上服务端当时为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包当时为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。生产切换记录见 [`release/8eb51b5f-production-acceptance-2026-08-24.md`](release/8eb51b5f-production-acceptance-2026-08-24.md)。当前 pending 以顶部 `a6319d7` 为准。
+> 历史候选更新（2026-08-24）：线上服务端当时为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包当时为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。生产切换记录见 [`release/8eb51b5f-production-acceptance-2026-08-24.md`](release/8eb51b5f-production-acceptance-2026-08-24.md)。当前 pending 以顶部 `3b42b86` 为准。
 
 
 > 历史完整小程序来源校验值：`13f597ea9ee3f65b9be858117826d948339d904a`；当时服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`。当前服务端与 pending 运行包以顶部事实源为准。
@@ -149,7 +149,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
-| [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md) | 历史 `single-flight.test.js` ENOENT 恢复记录；当前候选以 pending `a6319d7` 和最新开发者工具准入记录为准 |
+| [`release/miniprogram-runtime-enoent-recovery-2026-08-22.md`](release/miniprogram-runtime-enoent-recovery-2026-08-22.md) | 历史 `single-flight.test.js` ENOENT 恢复记录；当前候选以 pending `3b42b86` 和最新开发者工具准入记录为准 |
 | [`release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md`](release/miniprogram-runtime-enoent-recheck-2026-08-22-1830-a64fe023.md) | 历史 `a64fe023` 运行包重建和开发者工具旧增量缓存恢复记录 |
 | [`release/appointment-record-status-mapping-audit-2026-08-22.md`](release/appointment-record-status-mapping-audit-2026-08-22.md) | 预约历史状态映射、旧端 `statusCode` 风险、爽约筛选和渠道 4 关闭边界 |
 | [`release/current-public-health-observation-2026-08-22.md`](release/current-public-health-observation-2026-08-22.md) | 当前公网 live/ready/ping 低敏探针；明确它不替代真机、Provider 或旧服务共存证据 |
@@ -167,8 +167,8 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/miniprogram-real-device-evidence-template-13f597e.md`](release/miniprogram-real-device-evidence-template-13f597e.md) | 当前线上 `13f597e` 运行包的真机页面、客户端 requestId 和服务端低敏日志三层证据模板 |
 | [`release/current-13f-real-device-acceptance-runbook-2026-08-24.md`](release/current-13f-real-device-acceptance-runbook-2026-08-24.md) | 当前线上 `13f597e` 真机操作顺序、日志取证、脱敏规则和停止条件；本地 pending 另见最新候选记录 |
 | [`release/current-real-device-login-patient-observation-2026-08-24.md`](release/current-real-device-login-patient-observation-2026-08-24.md) | 2026-08-24 当前真机微信登录、患者目录和同步的低敏观察；明确预约/费用/报告仍未验收 |
-| [`release/candidate-a6319d7-miniprogram-runtime-2026-08-26.md`](release/candidate-a6319d7-miniprogram-runtime-2026-08-26.md) | 当前 `a6319d7` 小程序 pending 运行包、全量回归、dist 锁定保护和后续发布边界 |
-| [`release/device-evidence-a6319d7-pending.json`](release/device-evidence-a6319d7-pending.json) | 当前本地 `a6319d7` 候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
+| [`release/candidate-3b42b86-miniprogram-runtime-2026-08-26.md`](release/candidate-3b42b86-miniprogram-runtime-2026-08-26.md) | 当前 `3b42b86` 小程序 pending 运行包、全量回归、dist 锁定保护和后续发布边界 |
+| [`release/device-evidence-3b42b86-pending.json`](release/device-evidence-3b42b86-pending.json) | 当前本地 `3b42b86` 候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
 | [`release/miniprogram-real-device-evidence-template-41c708e.md`](release/miniprogram-real-device-evidence-template-41c708e.md) | 历史 `41c708e1` 真机三层证据模板 |
 | [`release/miniprogram-devtools-reimport-2026-08-22-1314.md`](release/miniprogram-devtools-reimport-2026-08-22-1314.md) | 当前候选重新导入、普通编译、运行包测试脚本边界和新二维码准入证据 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1327.md`](release/miniprogram-device-qr-session-2026-08-22-1327.md) | 历史 `41c708e1` 候选二维码现场与三层证据交接边界；当前二维码必须从 pending `a6319d7` 发布后重新生成 |
@@ -365,7 +365,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/device-evidence-0ae674e-pending.json`](release/device-evidence-0ae674e-pending.json) | 历史 `0ae674e5` 小程序候选的安全真机证据 pending 起始清单；不能替代当前候选 |
 | [`release/candidate-68902677-miniprogram-runtime-2026-08-25.md`](release/candidate-68902677-miniprogram-runtime-2026-08-25.md) | 当前 `68902677` 源码对应的 20 页面 pending 运行包、统一页面滚动边界和九域真机证据入口 |
 | [`release/device-evidence-6890267-pending.json`](release/device-evidence-6890267-pending.json) | 当前 `68902677` 小程序候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
-| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 20 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上历史小程序来源为 `13f597ea`，最新本地 pending 候选为 `a6319d7`，当前 live `dist` 为 `fcc6630e` |
+| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 21 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上历史小程序来源为 `13f597ea`，最新本地 pending 候选为 `3b42b86`，当前 live `dist` 为 `fcc6630e` |
 | [`migration/domain-migration-summary-2026-08-25.md`](migration/domain-migration-summary-2026-08-25.md) | 旧端 64 个页面按首页、就诊、预约、患者、健康、用户和互联网医院分域统计，以及各状态的后续推进顺序 |
 | [`migration/breadth-execution-board-2026-08-25.md`](migration/breadth-execution-board-2026-08-25.md) | 广度优先的跨域工作板：入口覆盖、只读业务、临床材料、患者写入、外部入口和支付医保分开推进 |
 | [`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md) | 64 个旧页面到新端落点的当前状态分布和自动化边界门禁 |
