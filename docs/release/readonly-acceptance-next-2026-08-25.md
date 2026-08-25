@@ -72,6 +72,9 @@
 本轮通过受控 SSH 只读取服务状态、监听端口、当前 release 指向和 readiness 响应，未读取或输出任何环境变量值、
 微信密钥、数据库连接串、Redis 凭证、Bearer token 或患者标识：
 
+> 服务器侧探针必须访问新 API 实际绑定地址 `10.0.0.3:18081`；`127.0.0.1:18081` 被拒绝是绑定地址不匹配，
+> 不能据此判断服务停止。当前运行层复核见 [`current-runtime-coexistence-readonly-2026-08-25-1452.md`](current-runtime-coexistence-readonly-2026-08-25-1452.md)。
+
 | 检查项 | 结果 | 可证明的范围 |
 | --- | --- | --- |
 | `hospital-platform-api-v2.service` | `active` | 新 Elysia API 进程仍在运行 |
