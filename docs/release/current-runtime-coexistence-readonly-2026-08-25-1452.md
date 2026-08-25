@@ -43,3 +43,19 @@
 - 新旧服务端口仍然共存，本次没有触碰旧 Python `8001`。
 - 新 API 的依赖 readiness 正常，但这只代表运行层就绪，不增加任何业务完成度。
 - 下一步仍按当前候选验收手册采集页面、客户端 `requestId`、服务端 `traceId`/业务日志和 Provider 低敏请求号；支付、医保、二维码、患者绑定和 HIS 回写继续关闭。
+
+## 2026-08-25 15:05 CST 复核刷新
+
+为避免后续会话继续依赖 14:52 的旧观察，本次再次使用同一个 inspection key 做只读检查：
+
+| 检查项 | 当前结果 |
+| --- | --- |
+| 服务器时间 | `2026-08-25 15:05:44 CST` |
+| 新 API systemd | `active` |
+| 新 API 监听 | `10.0.0.3:18081` |
+| 旧 Python 监听 | `0.0.0.0:8001` |
+| 当前 release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 内网 `/health/ready` | `200`，database/redis/schema 均为 `ok` |
+| 公网 `/api/v2/health/ready` | `200`，database/redis/schema 均为 `ok` |
+
+本次仍未重启服务、切换 release、修改 env、读取数据库/Redis 业务内容、调用 Provider 或触发小程序业务请求。
