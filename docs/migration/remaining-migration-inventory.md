@@ -1,5 +1,9 @@
 > 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
+> **当前仓库事实（2026-08-25）**：服务端源码最新提交为 `a2e496e58ecc8f027e8d9ebcd54f3f8d212fdcf5`；
+> 小程序 pending 运行包来源为 `eef550012e071d2891f990035a9b40041f314e5d`，包含 20 个页面；
+> `apps/miniprogram/dist/` 仍由开发者工具锁定，当前 live dist 来源为 `fcc6630e`。本地候选、pending、live dist 和线上包必须分开记录。
+
 > 当前功能里程碑为 `eef550012e071d2891f990035a9b40041f314e5d`；最新 pending 运行包来源同为该提交，包含 20 个页面脚本和 259 项小程序测试。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src/`/`scripts/` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性、可见 action 分发回归、就诊记录 8 条分批展示和 `dist` 独立运行工程一致性纳入门禁。
 > 紧随其后的 `485c0892` 构建记录是历史候选；当前验收、发布和回滚只认本页顶部的 `b587c7ea` 运行包候选。
 > `485c0892` 已完成 staging 构建并通过类型检查、页面入口、旧端 64 页面台账、action 分发回归和运行包静态门禁，但微信开发者工具锁定了当前 `dist/`，候选暂存于 `.local/hospital-miniprogram/pending/`；当前可运行 `dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。候选均不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。

@@ -1,8 +1,8 @@
 # 当前候选只读业务验收手册（2026-08-25）
 
-> 当前功能候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，最新 pending 运行包来源为 `b587c7ea8479e38d47055f3f5b672263f32aec41`，已构建到 `.local/hospital-miniprogram/pending/`；
+> 当前小程序功能候选为 `eef550012e071d2891f990035a9b40041f314e5d`，pending 运行包来源也为该提交，已构建到 `.local/hospital-miniprogram/pending/`，包含 20 个页面；服务端仓库最新提交为 `a2e496e58ecc8f027e8d9ebcd54f3f8d212fdcf5`，尚未替换线上 `8eb51b5f`。
 > 当前 live `dist` 仍为上一份完整运行包 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因为微信开发者工具仍锁定目录而尚未发布。
-> 必须关闭开发者工具后先发布 `b587c7ea` pending，再从新运行包生成二维码；历史 `baa31df0`、`c4dc00b9`、`b3436c24`、`90d5ab03`、`485c0892`、`a002353b` 和 `fcc6630e` 不能作为本候选证据。
+> 必须关闭开发者工具后先发布 `eef55001` pending，再从新运行包生成二维码；历史 `99c7e8fd`、`b587c7ea`、`baa31df0`、`c4dc00b9`、`b3436c24`、`90d5ab03`、`485c0892`、`a002353b` 和 `fcc6630e` 不能作为本候选证据。
 > 开发者工具必须直接打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist\`，不能打开父目录、`src/` 或历史 `mp-weixin` 工程。
 > 本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。
 
@@ -26,7 +26,7 @@
    `pages/my/my`；点击它们必须使用 `switchTab`，底部栏只允许由微信原生 `tabBar.list` 渲染，
    页面 WXML 不得复制；当前项的蓝色图标和文字由微信根据当前路由维护。
   4. 只有发布 pending 候选并重新执行 `runtime:verify` 后才生成新的预览/真机二维码；记录运行包候选
-    `b587c7ea` 和微信开发者工具显示的项目根，不能使用旧 `fcc6630e` 二维码验证本次修复。
+    `eef55001` 和微信开发者工具显示的项目根，不能使用旧 `fcc6630e` 二维码验证本次修复。
 
 ## 3. 设备操作顺序
 
