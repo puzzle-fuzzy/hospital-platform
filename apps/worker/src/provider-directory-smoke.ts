@@ -20,7 +20,8 @@ import {
 
 /**
  * 目录 smoke 支持的能力；`patient-sync` 是显式开启的幂等 POST，除此之外只读。
- * 这里不包含预约写入、取消、锁号或支付。
+ * 预约历史能力会同时验证在线范围和全部历史范围；这里不包含预约写入、
+ * 取消、锁号或支付。
  */
 export type ProviderSmokeCapability =
 	| "session"
@@ -955,11 +956,28 @@ export async function runProviderDirectorySmoke(
 		}
 		const scopedPatientId = requirePatientId(patientId);
 		if (capability === "appointment-records") {
-			await check("appointment-records", async () => {
+			/**
+			 * 在线范围和全部范围虽然共用一条 HTTP 路由，但属于两个不同的
+			 * 服务端读取 contract：在线范围必须带日期并显式使用 online，
+			 * 全部范围必须显式使用 all 且不能带日期。smoke 不能只请求一次
+			 * 默认范围，否则“全部挂号”页面可能一直没有真实链路证据，也不能
+			 * 把在线结果复制成全部历史。
+			 */
+			await check("appointment-records-online", async () => {
 				const query = new URLSearchParams({
 					patientId: scopedPatientId,
+					scope: "online",
 					startDate: recordStartDate,
 					endDate: recordEndDate,
+				});
+				return readSafe(
+					`${apiRoute(apiPrefix, "/appointments/records")}?${query}`,
+				);
+			});
+			await check("appointment-records-all", async () => {
+				const query = new URLSearchParams({
+					patientId: scopedPatientId,
+					scope: "all",
 				});
 				return readSafe(
 					`${apiRoute(apiPrefix, "/appointments/records")}?${query}`,

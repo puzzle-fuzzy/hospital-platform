@@ -9,7 +9,7 @@
 | 普通资料只读 | `GET /api/v1/me/profile` | 按当前 Bearer 会话读取昵称、性别、年龄、邮箱和版本的类型/版本事实；smoke 不输出资料正文 | `PUT` 写入、409 冲突、头像、手机号、实名资料和微信身份 |
 | 患者目录 | `POST /api/v1/patients/sync`、`GET /api/v1/patients` | 服务端使用已绑定身份读取目录，并分别保存目录引用与临床 `his-patient` 引用 | 建档、绑卡、修改患者、把 unionId/provider 患者号交给小程序 |
 | 预约目录 | `GET /api/v1/appointments/departments`、`GET /api/v1/appointments/schedules` | 读取科室、排班和号源数量 | 锁号、预约写入、取消、挂号费和支付 |
-| 预约历史 | `GET /api/v1/appointments/records` | 按内部 patientId 读取有限日期范围内的脱敏记录摘要 | 详情、取消、重试写入、挂号费、支付状态和 HIS 回写 |
+| 预约历史 | `GET /api/v1/appointments/records` | 分别验证 `scope=online` 的前后 90 天窗口和 `scope=all` 的完整历史范围；两者都只返回按内部 patientId 归属的脱敏记录摘要 | 详情、取消、重试写入、挂号费、支付状态和 HIS 回写 |
 | 报告目录 | `GET /api/v1/reports` | 读取 LIS/PACS/ECG 摘要 | 体检报告、LIS 详情、诊断全文、解读、文件下载、门诊病历 |
 | LIS 报告详情 | `GET /api/v1/reports/:reportId` | 通过服务端短期 opaque 引用读取白名单检测项 | 真实详情资源授权、文件下载、解读、PACS/ECG/体检详情 |
 | 门诊费用目录 | `GET /api/v1/payments/outpatient/records` | 按内部 patientId 分别读取 `unpaid`/`paid` 费用展示目录 | 创建支付订单、微信调起、医保授权/结算、退款和 HIS 回写 |
@@ -122,6 +122,8 @@ pnpm check
 - API 测试证明会话 owner 隔离，且 provider 患者号不会进入 API 响应；
 - Provider smoke 测试证明患者同步后会重新读取当前会话目录，未归属的内部 patientId 会在
   `patient-owner` 检查失败并停止，provider 不会收到后续患者作用域请求；
+- 预约历史 smoke 同时证明 `scope=online` 带前后 90 天日期、`scope=all` 不带日期，不能只用
+  默认在线范围冒充“全部挂号”验收；
 - Provider smoke 测试证明 `profile-read` 只请求 `GET /me/profile`，只校验普通资料字段类型和
   非负版本，不输出昵称/邮箱，不执行资料写入；资料域异常也不会被误记为患者域证据；
 - 原生小程序 acceptance test 证明只调用 Hospital API，不包含众阳 provider URL；
