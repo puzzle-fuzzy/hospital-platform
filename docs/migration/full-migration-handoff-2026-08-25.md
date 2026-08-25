@@ -4,6 +4,8 @@
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
+> **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；异常 getter/proxy 不会再遮蔽原始业务错误，验证和说明见 [`../release/adapter-call-context-failure-path-audit-2026-08-25.md`](../release/adapter-call-context-failure-path-audit-2026-08-25.md)。本轮只读核验 pending 小程序运行包通过（20 页、来源 `e5345c4`），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
+
 > **当前仓库事实（2026-08-25）**：本轮业务代码基线为 `7bc5956`，当前小程序运行输入/pending 来源为 `e5345c423a4cd44801e0b3e0a202063cad882c50`；后者包含该业务代码以及共享构建/门禁输入。本轮补齐跨会话微信资料授权拒绝回调的状态保护并重新构建到 pending，但微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。服务端本地候选仍以 `b42922f4` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
 
 ## 1. 当前真实基线
@@ -94,6 +96,8 @@ pnpm migration:boundary:audit
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
 5. `pnpm release:baseline:audit` 当前应继续 fail-closed：线上 release 之后存在未部署运行时代码，且包含另一会话负责的众阳预约适配器。不能通过修改审计器或只部署半套代码来“变绿”。
+
+本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次等待运行包发布后采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
 
 ## 5. 交接时必须运行的门禁
 
