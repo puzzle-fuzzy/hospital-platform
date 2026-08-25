@@ -20,6 +20,7 @@
 		"docs:audit": "bun tools/docs-link-audit.mjs",
 		"error:contract:audit": "bun tools/error-contract-audit.mjs",
 		"health:source:audit": "bun tools/health-knowledge-source-audit.mjs",
+		"health:quality:findings": "bun tools/health-knowledge-quality-findings.mjs",
 		"health:review:queue": "bun tools/health-knowledge-review-queue.mjs",
 		"format": "biome format --write .",
 		"format:check": "biome format .",

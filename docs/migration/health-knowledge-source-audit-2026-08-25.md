@@ -33,6 +33,14 @@ pnpm health:source:audit
 如需把质量告警作为失败条件，可执行 `pnpm health:source:audit -- --strict`；当前源快照预期会因未处理的
 重复关系、控制字符和未定义来源而失败，这正是阻止它进入正式 bundle 的门禁。
 
+内容责任人可在不暴露正文的前提下定位私有快照中的问题位置：
+
+```powershell
+pnpm health:quality:findings
+```
+
+该命令只输出 JSON 路径、数组索引和数量，不会修改源快照、生成审核 bundle 或改变 `not-approved` 状态。
+
 ## 3. 聚合规模
 
 | 数据集 | 数量 |
