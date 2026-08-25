@@ -1,6 +1,6 @@
 # 旧端逐页迁移矩阵
 
-> 当前事实（2026-08-26）：旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端 `app.json` 已注册 21 个 TypeScript 页面。使用条款已新增原文只读页；`feature-status` 仍是迁移期间的统一状态页，健康百科三个页面和协议页都不代表真实业务 contract 已全部完成。
+> 当前事实（2026-08-26）：旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端 `app.json` 已注册 40 个 TypeScript 页面。使用条款已新增原文只读页，采血预约已补齐旧端真实空态；`feature-status` 仍是迁移期间的统一状态页，健康百科三个页面和协议页都不代表真实业务 contract 已全部完成。
 > 本矩阵用于防止页面遗漏，不把“有旧代码”或“新端有占位入口”当作业务完成证据。
 >
 > `pnpm migration:audit` 在本机能访问旧仓库时，会把 `src/pages`、`src/pagesB` 下的实际 `.vue` 文件与本矩阵逐项比对；
@@ -32,7 +32,7 @@
 | `pages/` | `setting/setData.vue` | 不纳入生产 | 仅旧端测试数据工具，不进入新端 `app.json` |
 | `pagesB/account/` | `follow.vue` | 静态行为已迁移 | 旧端运行时只有静态公众号通知说明，二维码区域为注释代码；真实二维码、关注状态、模板消息授权和外部跳转属于未来独立 contract |
 | `pagesB/patient/` | `agreement.vue`、`doctor.vue`、`express.vue`、`patient_signature.vue`、`patientAdd.vue`、`patientChange.vue` | `agreement` 已迁移原文只读页，`patientChange` 已被安全的患者选择页替换；其余待 contract | 协议版本/同意/撤回/审计、新增/绑定、签名、地址和我的医生必须分别确认 owner、授权与审计规则；我的医生旧表/接口风险见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md)，患者绑定见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)，绑卡/协议/签名总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
-| `pagesB/hospital/` | `bloodAppointment.vue` | 待 provider contract | 需要采血号源、预约写入、取消和患者映射规则 |
+| `pagesB/hospital/` | `bloodAppointment.vue` | 原生真实空态已迁移，待 provider contract | 已迁移当前就诊人、院区占位、无可预约项目空态、错误重试和统一选人；仍需要采血号源、预约写入、取消和患者映射规则 |
 | `pagesB/hospital/` | `confirm_registration.vue`、`registration.vue`、`registration_detail.vue` | 部分迁移 | 目录/历史只读页面已存在；锁号、预约写入、最终状态查询、取消、费用和 HIS 回写未开放 |
 | `pagesB/hospital/` | `department_select.vue`、`doctor_card.vue`、`timeslot_source.vue` | 部分迁移 | 新端统一预约目录已覆盖科室/排班只读；医生详情、分时段字段白名单和写入前确认仍待 provider contract |
 | `pagesB/hospital/` | `registration_medical_pay.vue` | 待 provider contract | 归入挂号支付专项，必须等待医保/微信支付状态机、金额和查单证据；不能由只读排班页面跳转伪造支付 |
