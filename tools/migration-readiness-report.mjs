@@ -181,6 +181,43 @@ async function runtimeProvenance(root) {
 }
 
 /**
+ * 汇总健康内容的发布前事实。
+ *
+ * 健康百科的路由已经存在，但“路由存在”与“审核内容可读”是两件事。
+ * 只检查约定的本机审核 bundle 是否到位，不读取或输出正文；即使 bundle
+ * 到位，仍需 staging 导入、发布/撤回演练和真机证据才能进入业务完成态。
+ */
+async function healthContentCoverage(root) {
+	const reviewedBundlePath = ".local/health-knowledge/reviewed-bundle.json";
+	const absolutePath = resolve(root, reviewedBundlePath);
+	const file = Bun.file(absolutePath);
+	const present = await file.exists();
+	const bundle = present ? await readJsonIfExists(absolutePath) : null;
+	const jsonValid = present && bundle !== null && bundle.invalid !== true;
+	const publication =
+		jsonValid && bundle.publication && typeof bundle.publication === "object"
+			? bundle.publication
+			: null;
+	const publicationStatus =
+		publication && typeof publication.status === "string"
+			? publication.status
+			: null;
+
+	return {
+		routeRegistered: true,
+		codeReady: true,
+		reviewedBundlePath,
+		reviewedBundlePresent: present,
+		reviewedBundleJsonValid: jsonValid,
+		publicationStatus,
+		businessReady: false,
+		reason: present
+			? "审核 bundle 已进入本机证据目录，但仍需 bundle 校验、staging 导入、发布/撤回演练和真机证据"
+			: "当前未发现正式审核 bundle；健康知识路由保持 fail-closed",
+	};
+}
+
+/**
  * 汇总当前候选的真机三层证据清单。
  *
  * 清单中的 `pending` 只表示验收尚未开始或尚未留下证据，不能被当成失败；
@@ -241,6 +278,7 @@ function breadthMigrationQueue({
 	clinicalContract,
 	runtime,
 	deviceEvidence,
+	healthContent,
 }) {
 	const statusCounts = legacy.statusCounts;
 	const runtimeReady = runtime.candidateRuntimeAligned;
@@ -260,15 +298,20 @@ function breadthMigrationQueue({
 		{
 			id: "B-health-content",
 			name: "健康内容发布",
-			stage: "awaiting-reviewed-bundle",
+			stage: healthContent.reviewedBundlePresent
+				? "awaiting-staging-and-device-evidence"
+				: "awaiting-reviewed-bundle",
 			scope: [
 				"health-encyclopedia",
 				"health-knowledge-search",
 				"health-knowledge-detail",
 			],
-			codeReady: true,
-			nextAction:
-				"取得脱敏审核 bundle，完成 staging 导入、发布/撤回演练和真机证据",
+			codeReady: healthContent.codeReady,
+			businessReady: healthContent.businessReady,
+			reviewedBundlePresent: healthContent.reviewedBundlePresent,
+			nextAction: healthContent.reviewedBundlePresent
+				? "先运行 bundle check，再完成 staging 导入、发布/撤回演练和真机证据"
+				: "取得脱敏审核 bundle，放入约定证据目录后完成 bundle check 和 staging 导入",
 			stopCondition:
 				"没有内容责任人、审核元数据和撤回证据时，不开放疾病/药品内容，也不新增自测或临床结论",
 		},
@@ -359,6 +402,7 @@ export async function buildMigrationReadinessReport(
 	const providerIntake = await providerIntakeCoverage(root);
 	const runtime = await runtimeProvenance(root);
 	const deviceEvidence = await deviceEvidenceCoverage(root, runtime.pending);
+	const healthContent = await healthContentCoverage(root);
 	const clinicalContract = await buildClinicalContractAudit(root);
 	const nativePageCount = Array.isArray(appConfig.pages)
 		? appConfig.pages.length
@@ -376,6 +420,7 @@ export async function buildMigrationReadinessReport(
 		legacy,
 		readOnly,
 		clinicalContract,
+		healthContent,
 		runtime,
 		deviceEvidence,
 	});
@@ -392,6 +437,7 @@ export async function buildMigrationReadinessReport(
 		readOnly,
 		providerIntake,
 		clinicalContract,
+		healthContent,
 		runtime,
 		deviceEvidence,
 		migrationQueue,

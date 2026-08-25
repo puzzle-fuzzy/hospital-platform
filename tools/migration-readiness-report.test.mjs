@@ -22,6 +22,10 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.clinicalContract.structuredGate.passed).toBe(true);
 		expect(report.clinicalContract.structuredGate.domains).toHaveLength(4);
 		expect(report.clinicalContract.passed).toBe(true);
+		expect(report.healthContent.routeRegistered).toBe(true);
+		expect(report.healthContent.codeReady).toBe(true);
+		expect(report.healthContent.reviewedBundlePresent).toBe(false);
+		expect(report.healthContent.businessReady).toBe(false);
 		expect(report.runtime.candidateRuntimeAligned).toBe(false);
 		expect(report.runtime.publicationRequired).toBe(true);
 		expect(report.deviceEvidence.domainCount).toBe(9);
@@ -39,6 +43,8 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[0].stage).toBe("awaiting-evidence");
 		expect(report.migrationQueue[0].codeReady).toBe(true);
 		expect(report.migrationQueue[1].stage).toBe("awaiting-reviewed-bundle");
+		expect(report.migrationQueue[1].reviewedBundlePresent).toBe(false);
+		expect(report.migrationQueue[1].businessReady).toBe(false);
 		expect(report.migrationQueue[2].codeReady).toBe(false);
 		expect(report.migrationQueue[3].blockedPageCount).toBe(4);
 		expect(report.migrationQueue[4].blockedPageCount).toBe(10);

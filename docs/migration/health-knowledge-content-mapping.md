@@ -2,16 +2,17 @@
 
 ## 状态
 
-当前状态：`mapping-only`。本文已经完成旧端表、接口和新端 schema 的静态映射，
-但没有把旧数据库正文直接复制到生产，也没有注册患者端健康知识路由。
+当前状态：`mapping-and-route-ready`。本文已经完成旧端表、接口和新端 schema 的静态映射，
+健康知识只读路由已经注册，但没有把旧数据库正文直接复制到生产；没有有效 published 版本时路由保持 fail-closed。
 
 健康知识属于“医疗内容”而不是普通字典。没有脱敏导出、内容来源、临床审核、版本发布和撤回证据时，
 不能因为新端已经有 repository 或测试 fixture 就宣称该域完成迁移。
 
 ## 0. 2026-08-20 readiness 复核
 
-本轮只读盘点新仓库，未发现可供导入的脱敏内容 bundle；当前可见的是 schema、domain、导入器、repository、测试和文档。
-这不能推断生产 MySQL 一定没有内容，但足以证明当前仓库没有可以直接执行的审核发布输入。患者端健康知识路由继续不挂载，
+本轮只读盘点新仓库，未发现可供导入的正式脱敏内容 bundle；当前可见的是 schema、domain、导入器、repository、测试和文档。
+这不能推断生产 MySQL 一定没有内容，但足以证明当前仓库没有可以直接执行的审核发布输入。患者端健康知识路由虽然已经注册，
+但在没有有效 published 版本时保持 fail-closed，
 健康百科页面、自测、风险评估、AI 导诊和报告解读不共享本域的“已完成”状态。
 
 代码/测试完成的部分和医疗内容上线是两个独立门槛。需要真实内容责任人提供来源、脱敏导出、审核记录、版本发布和撤回演练后，
@@ -45,7 +46,7 @@
 
 ### 症状查询参数命名边界
 
-旧 FastAPI 接口的查询参数名是 `symptoms_ids`；新平台的未挂载 route 使用新的统一
+旧 FastAPI 接口的查询参数名是 `symptoms_ids`；新平台的已挂载 route 使用新的统一
 camelCase 参数 `symptomIds`（重复 query key）。这不是旧接口的透明兼容层：原生小程序
 未来接入时必须使用 `symptomIds`，不能让服务端同时猜测两个参数或把缺失参数默默当成空查询。
 如果后续确实需要服务旧客户端，应单独设计带迁移期限、日志和回归测试的 compatibility route，
@@ -89,15 +90,15 @@ camelCase 参数 `symptomIds`（重复 query key）。这不是旧接口的透�
 - `packages/persistence/src/health-knowledge-import.ts`：单事务导入，失败回滚；
 - `packages/persistence/src/mysql-health-knowledge-repository.ts`：先选一个 published 版本，
   后续查询全部携带该版本；
-- `apps/api/src/modules/knowledge`：未挂载的 GET service/module 和响应 contract。
+- `apps/api/src/modules/knowledge`：已挂载但受 Bearer 会话保护的 GET service/module 和响应 contract；没有有效 published 版本时保持 fail-closed。
 
 尚未完成：
 
 - 旧数据库脱敏导出、行数/关系数/孤儿引用校验和转换报告；
 - 内容来源、审核人、审核时间和固定免责声明的真实责任记录；
 - staging 导入、发布、撤回和再次发布的真实数据库证据；
-- 生产 content publication 和小程序健康百科页面；
-- 搜索结果、疾病/药品详情的真机页面证据；
+- 生产 content publication 和正式发布窗口证据；
+- 搜索结果、疾病/药品详情的真机页面证据；页面代码已进入当前候选，但无 published bundle 时不展示正文；
 - 健康自测、风险评估、AI 导诊和报告解读，它们必须走各自 contract，不能借用百科数据。
 
 ## 4. 正确导入顺序

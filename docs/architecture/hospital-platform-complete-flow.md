@@ -817,7 +817,7 @@ flowchart LR
 | 微信支付订单/预支付 | `/payments/orders*`、`/wechat-prepay` | 代码存在、默认关闭 | quote 金额、幂等、APIv3 签名/验签、通知闭环 |
 | 微信支付通知 | `POST /payments/wechat/notifications` | 代码存在、默认关闭 | 验签、解密、白名单、去重、outbox |
 | 支付补偿 worker | outbox + 查单 | 代码存在、默认 inactive | 完整配置/DB/schema/密钥 gate |
-| 健康百科 | `apps/api/src/modules/knowledge` 文件存在 | 当前不可达 | `app.ts` 未挂载 module，不能写成公共 API 已开放 |
+| 健康百科 | `apps/api/src/modules/knowledge` 已挂载只读 module | 当前受保护且 fail-closed | 没有有效 published bundle 时返回稳定不可用错误；不能写成内容已发布 |
 | 智能客服/导诊/互联网医院 | 页面入口或迁移提示 | 未迁移/静态 | 不把 UI 占位当作后端能力 |
 | 院内导航 | 本地地图 + `wx.previewImage` | 静态已实现 | 无实时路线、楼层定位或导航 API |
 | 意见反馈 | 静态问题 + 电话拨号 | 无在线工单 | 点击反馈只 Toast，不代表已提交 |

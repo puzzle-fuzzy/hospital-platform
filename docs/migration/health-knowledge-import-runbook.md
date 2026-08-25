@@ -45,6 +45,10 @@ pnpm --filter @hospital/persistence health:export-legacy -- `
 
 ## 3. 只读 bundle 检查
 
+为了让全项目 readiness 能区分“代码具备”和“内容材料已到位”，正式审核 bundle 的本机交接文件约定为
+`.local/health-knowledge/reviewed-bundle.json`。该目录已被 Git 忽略，报告只读取文件是否存在和极少量发布元数据，
+不会把正文、患者字段或文件内容写入 readiness 输出；文件存在也不跳过下面的只读检查。
+
 把脱敏 JSON 文件交给只读检查命令：
 
 ```powershell
@@ -94,8 +98,9 @@ pnpm --filter @hospital/persistence health:import-staging -- `
 ```
 
 `draft`、`withdrawn`、没有审核引用或没有明确生效起点的版本不能被患者 repository 读取。若同一时刻有多个
-已发布版本的生效窗口重叠，repository 必须整体 fail-closed，不能按排序静默选一个。当前健康知识 API 仍未注册，
-所以即使 staging 导入获得批准，也必须另行完成路由、缓存、响应白名单和真机验收后才能进入生产。
+已发布版本的生效窗口重叠，repository 必须整体 fail-closed，不能按排序静默选一个。当前健康知识 API 已注册为
+受保护的只读路由，但 repository 在没有有效 published 版本时返回稳定的不可用错误；因此 staging 导入获得批准后，
+仍需另行完成发布/撤回演练、响应白名单、日志审计和真机验收，不能把导入成功直接当作患者端内容已上线。
 
 ## 5. 失败处理
 

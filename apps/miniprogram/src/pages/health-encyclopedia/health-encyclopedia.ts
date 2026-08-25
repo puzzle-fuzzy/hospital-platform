@@ -4,6 +4,7 @@ import {
 	requestHealthKnowledgeCatalog,
 	requestHealthSymptomsByPart,
 } from "../../services/api-client";
+import { resolveKnowledgePanelState } from "../../services/health-knowledge-view";
 import type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeDiseaseSummary,
@@ -130,7 +131,9 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 			if (requestSerial !== this.requestSerial) return;
 			this.setData({
 				rightItems: response.data.items,
-				state: response.data.items.length > 0 ? "ready" : "empty",
+				// 左侧目录仍然存在时，右侧空结果必须保持 ready；否则
+				// 页面级 empty 会把左侧分类一起隐藏，用户无法继续切换。
+				state: resolveKnowledgePanelState(this.data.leftItems.length),
 				publicationVersion: response.data.publication.contentVersion,
 				disclaimer: response.data.publication.disclaimer,
 			});
@@ -179,7 +182,9 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 			if (requestSerial !== this.requestSerial) return;
 			this.setData({
 				rightItems: response.data.items,
-				state: response.data.items.length > 0 ? "ready" : "empty",
+				// 分类目录有内容但当前关系为空属于右栏空态，不能升级为
+				// 整页空态；WXML 会继续显示左栏和“暂无该分类内容”。
+				state: resolveKnowledgePanelState(this.data.leftItems.length),
 				publicationVersion: response.data.publication.contentVersion,
 				disclaimer: response.data.publication.disclaimer,
 			});

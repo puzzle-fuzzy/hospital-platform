@@ -569,7 +569,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | 院内导航 | `pages/hospital-navigation/hospital-navigation` | 旧端静态地图、背景色、`aspectFit` 和点击预览已迁移 | 楼层/科室定位、实时路线和地图服务未迁移 |
 | 微信支付 | 订单、预支付、通知、查单基础设施 | 代码基础和 gate 已具备 | 商户、回调、公网和真机支付未验收；gate 必须关闭 |
 | 医保/HIS | domain/规则层部分存在 | 规则边界和文档基础存在 | 真实加密、授权、6201/6202/6301/6203/6401、HIS 回写均未迁移 |
-| 健康知识 | contract/domain/repository、版本化 schema、导入校验和旧表映射文档已具备 | 明确 fail-closed，患者路由未挂载；真实内容未导入 | 内容来源/临床审核、staging 发布撤回、患者端页面和真机证据仍未完成 |
+| 健康知识 | contract/domain/repository、版本化 schema、导入校验、旧表映射文档、受保护只读路由和原生页面已具备 | 明确 fail-closed，正式内容未发布 | 内容来源/临床审核、staging 发布撤回、内容真机证据仍未完成 |
 | 管理端/Worker | Worker 与持久化基础部分存在 | 运维边界和支付补偿基础存在 | RBAC 管理端、监控、通用任务管理、文件管理和后台日志查询未迁移为新 API；详见 [`infrastructure-and-operations-boundaries.md`](infrastructure-and-operations-boundaries.md) |
 
 ### 2026-08-22 剩余 P2 与健康知识复核
@@ -652,7 +652,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 
 | 旧页面组 | 页面范围 | 当前状态 | 迁移方式 |
 | --- | --- | --- | --- |
-| 健康百科/药品 | `health_encyclopedia`、`disease_detail`、`drug_detail`、`search_result` | 新端未挂载患者路由 | 只迁移审核后的版本化内容；不能直接复制旧数据库正文 |
+| 健康百科/药品 | `health_encyclopedia`、`disease_detail`、`drug_detail`、`search_result` | 新端已挂载受保护的版本化只读路由和原生页面；无 published bundle 时 fail-closed | 只迁移审核后的版本化内容；不能直接复制旧数据库正文 |
 | 健康自测 | `health_test`、`self_test_question`、`self_test_result`、BMI/血压计算 | 未迁移 | 题目、分值和结果必须版本化并经临床复核；BMI/血压计算还需确认适用人群、阈值、输入边界和免责声明；先不开放自动风险判断，详见 [`health-calculator-contract-draft.md`](health-calculator-contract-draft.md) |
 | 风险评估 | `risk_self_evaluation`、`risk_form_*` | 未迁移 | 题目、分值、风险分级和建议必须版本化并经临床复核；未知版本拒绝写入，不能把客户端风险结论当权威；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 预问诊/随访 | `pre_visit`、`admission_preconsultation`、`discharge_followup*` | 未迁移 | 旧端按原始 `pat_id` 和 JSON 数组保存，且不同表单可能按 `(user_id, pat_id)` 互相覆盖；必须先绑定预约/住院/随访任务、问卷版本、患者授权、幂等和医护读取权限；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |

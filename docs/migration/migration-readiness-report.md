@@ -29,6 +29,7 @@ pnpm migration:readiness -- --strict
 | `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个只读域的页面/API/实现/日志/文档是否断链 | Provider 返回、生产流量或真机链路是否成功 |
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
 | `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档、结构化准入卡片和 API 源码 | 门诊记录、住院、医生关系、问诊/电子导诊四域是否仍独立、未注册且没有误加通用路由 | 不会因为材料登记就自动生成临床页面或接口 |
+| `healthContent` | 健康知识路由、约定的本机审核 bundle 证据目录和发布状态元数据 | 健康百科代码是否具备、正式审核 bundle 是否已经进入当前证据目录 | 不代表 bundle 已通过临床审核、已导入 staging、已发布或已完成真机验收 |
 | `runtime` | live/pending `build-info.json` | 当前开发者工具目录和待发布候选的源码来源是否一致 | 当前微信设备一定运行了哪个版本；锁定目录时必须保留现场证据 |
 | `deviceEvidence` | `docs/release/device-evidence-296516a5-pending.json` | 当前候选的真机证据域数量、状态和候选指纹是否匹配 | `pending` 不等于失败；清单结构通过也不等于真实业务成功 |
 | `migrationQueue` | 旧页面状态、只读域、临床准入、运行包和真机证据 | A-F 六个业务批次当前停在哪个门槛、下一动作和停止条件 | 不会自动打开状态页，也不会把 contract 缺失解释成业务完成 |
@@ -50,7 +51,7 @@ pnpm migration:readiness -- --strict
 
 报告中的 `codeReadyDomainCount` 和 `realEvidenceReadyDomainCount` 必须分开读取：前者表示仓库结构和代码闭环通过，后者只在真机证据清单中对应域全部达到 `passed` 时增加。两者都不等于支付、医保或其它阻塞域已经开放。
 
-`migrationQueue` 固定包含六个批次：A 安全只读真实取证、B 健康内容发布、C 临床只读契约、D 患者与便民写入、E 外部入口与实时能力、F 支付/医保/HIS 回写。A、B 可以在已有代码基础上并行收集真实证据；C-E 先收集各自 contract；F 始终最后处理。队列中的 `nextAction` 和 `stopCondition` 是执行提示，不是把状态页变成业务页的授权。
+`migrationQueue` 固定包含六个批次：A 安全只读真实取证、B 健康内容发布、C 临床只读契约、D 患者与便民写入、E 外部入口与实时能力、F 支付/医保/HIS 回写。A、B 可以在已有代码基础上并行收集真实证据；C-E 先收集各自 contract；F 始终最后处理。B 批次的 `reviewedBundlePresent` 只表示约定本机证据目录中存在文件，仍必须完成 bundle 校验、staging、发布/撤回和真机验收。队列中的 `nextAction` 和 `stopCondition` 是执行提示，不是把状态页变成业务页的授权。
 
 ## 与后续迁移的关系
 
