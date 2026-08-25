@@ -5,7 +5,7 @@
 上一轮自定义底栏在真机扫码后完全没有呈现。静态构建只能证明文件存在，不能证明微信设备端自定义组件层已经挂载；
 继续叠加页面级底栏会重新引入重复实例、滚动遮挡和选中态分叉。
 
-当前候选改用微信原生 tabBar：
+项目最终固定使用微信原生 tabBar；`custom-tab-bar` 仅保留在历史记录中，不再作为实现候选：
 
 - `app.json.tabBar.custom=false`、`position=bottom`；
 - 原生尺寸沿用旧端基线：`height=65px`、`fontSize=10px`、`iconWidth=24px`、`spacing=3px`；
@@ -21,9 +21,9 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 修正提交 | `21af93b4d398e3d424aba9506c7bfbef9a3cfbd8` |
+| 修正提交 | `c3c7eec30e9303ff9b8996876f452c05e3bd310d` |
 | 运行包目录 | `apps/miniprogram/dist/` |
-| `dist/build-info.json.sourceRevision` | `21af93b4d398e3d424aba9506c7bfbef9a3cfbd8` |
+| `dist/build-info.json.sourceRevision` | `c3c7eec30e9303ff9b8996876f452c05e3bd310d` |
 | 页面数量 | 16 |
 | TabBar | `custom=false`、`position=bottom`、四项共享路由 |
 | `dist/custom-tab-bar/` | 不存在 |

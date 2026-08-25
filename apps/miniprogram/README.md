@@ -1,6 +1,6 @@
 # Native WeChat Mini Program
 
-> 当前运行包：本轮根据真机反馈回退到微信原生 `tabBar`。四个主入口由微信运行时统一持有，选中态不再依赖自定义组件生命周期；真机验收必须直接打开 `apps/miniprogram/dist/`。
+> 当前运行包：项目最终固定使用微信原生 `tabBar`。四个主入口由微信运行时统一持有，选中态不再依赖自定义组件生命周期；真机验收必须直接打开 `apps/miniprogram/dist/`。
 
 ## Visual baseline
 
