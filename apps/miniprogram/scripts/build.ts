@@ -75,6 +75,9 @@ const requiredStaticFiles = [
 	"pages/hospital-navigation/hospital-navigation.json",
 	"pages/hospital-navigation/hospital-navigation.wxml",
 	"pages/hospital-navigation/hospital-navigation.wxss",
+	"pages/feature-status/feature-status.json",
+	"pages/feature-status/feature-status.wxml",
+	"pages/feature-status/feature-status.wxss",
 	"pages/my/my.json",
 	"pages/my/my.wxml",
 	"pages/my/my.wxss",
@@ -104,6 +107,7 @@ const requiredTypeScriptFiles = [
 	"pages/outpatient-payment/outpatient-payment.ts",
 	"pages/profile/profile.ts",
 	"pages/hospital-navigation/hospital-navigation.ts",
+	"pages/feature-status/feature-status.ts",
 	"pages/my/my.ts",
 ];
 const requiredAssetDirectories = ["assets"];

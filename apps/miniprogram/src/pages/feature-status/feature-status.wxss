@@ -1,0 +1,89 @@
+.feature-status-scroll {
+	height: 100vh;
+	background: #f6f8fc;
+}
+
+.feature-status-page {
+	box-sizing: border-box;
+	min-height: 100%;
+	padding: 32rpx 24rpx 48rpx;
+}
+
+.feature-status-card,
+.feature-status-panel {
+	box-sizing: border-box;
+	border-radius: 20rpx;
+	background: #ffffff;
+	box-shadow: 0 8rpx 26rpx rgba(40, 74, 150, 0.06);
+}
+
+.feature-status-card {
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	padding: 56rpx 36rpx 48rpx;
+}
+
+.feature-status-icon {
+	width: 96rpx;
+	height: 96rpx;
+	margin-bottom: 24rpx;
+}
+
+.feature-status-title {
+	color: #222b45;
+	font-size: 36rpx;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.feature-status-badge {
+	margin-top: 18rpx;
+	padding: 8rpx 20rpx;
+	border-radius: 999rpx;
+	background: #edf3ff;
+	color: #3d6df6;
+	font-size: 24rpx;
+	line-height: 1.4;
+}
+
+.feature-status-description {
+	margin-top: 28rpx;
+	color: #68738a;
+	font-size: 28rpx;
+	line-height: 1.7;
+	text-align: center;
+}
+
+.feature-status-panel {
+	margin-top: 24rpx;
+	padding: 32rpx;
+}
+
+.feature-status-panel-title {
+	color: #222b45;
+	font-size: 30rpx;
+	font-weight: 600;
+	line-height: 1.5;
+}
+
+.feature-status-panel-copy {
+	display: block;
+	margin-top: 18rpx;
+	color: #68738a;
+	font-size: 27rpx;
+	line-height: 1.7;
+}
+
+.feature-status-notice {
+	display: flex;
+	flex-direction: column;
+	gap: 12rpx;
+	margin-top: 28rpx;
+	padding: 24rpx;
+	border-radius: 14rpx;
+	background: #f7f9fd;
+	color: #8791a5;
+	font-size: 24rpx;
+	line-height: 1.6;
+}

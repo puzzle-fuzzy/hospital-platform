@@ -4,6 +4,7 @@ import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	refreshGlobalUserProfile,
 	waitForGlobalUserProfile,
@@ -98,7 +99,8 @@ const RIGHT_LIST = Object.freeze([
 	{ action: "reports", image: "/assets/legacy-home/report.png" },
 ] satisfies ReadonlyArray<{ action: string; image: string }>);
 
-/** 门诊/住院/便民服务清单按旧端原始顺序和图标复刻，未开放动作保持空值。 */
+/** 门诊/住院/便民服务清单按旧端原始顺序和图标复刻；未开放入口也保留
+ * 固定 action，点击后进入统一状态页，避免出现“看得见但点了没反应”。 */
 const SERVICE_TABS = Object.freeze([
 	{
 		title: "门诊",
@@ -114,14 +116,17 @@ const SERVICE_TABS = Object.freeze([
 				title: "就诊人绑定",
 			},
 			{
+				action: "consultation",
 				icon: "/assets/legacy-home/service-consultation.svg",
 				title: "我的问诊",
 			},
 			{
+				action: "medical-record",
 				icon: "/assets/legacy-home/service-record.svg",
 				title: "门诊病历",
 			},
 			{
+				action: "electronic-consultation",
 				icon: "/assets/legacy-home/service-consultation-form.svg",
 				title: "电子导诊单",
 			},
@@ -131,22 +136,27 @@ const SERVICE_TABS = Object.freeze([
 		title: "住院",
 		items: [
 			{
+				action: "inpatient-center",
 				icon: "/assets/legacy-home/service-inpatient.svg",
 				title: "住院信息查询",
 			},
 			{
+				action: "inpatient-payment",
 				icon: "/assets/legacy-home/service-inpatient-payment.svg",
 				title: "住院预缴",
 			},
 			{
+				action: "admission-preconsultation",
 				icon: "/assets/legacy-home/service-admission.svg",
 				title: "入院预问诊",
 			},
 			{
+				action: "discharge-followup",
 				icon: "/assets/legacy-home/service-followup.svg",
 				title: "出院随访",
 			},
 			{
+				action: "risk-evaluation",
 				icon: "/assets/legacy-home/service-risk.svg",
 				title: "风险自评",
 			},
@@ -161,18 +171,22 @@ const SERVICE_TABS = Object.freeze([
 				title: "院内导航",
 			},
 			{
+				action: "health-test",
 				icon: "/assets/legacy-home/service-test.svg",
 				title: "健康自测",
 			},
 			{
+				action: "health-encyclopedia",
 				icon: "/assets/legacy-home/service-encyclopedia.svg",
 				title: "健康百科",
 			},
 			{
+				action: "gift-banner",
 				icon: "/assets/legacy-home/service-banner.svg",
 				title: "电子锦旗",
 			},
 			{
+				action: "health-praise",
 				icon: "/assets/legacy-home/service-praise.svg",
 				title: "表扬信",
 			},
@@ -571,8 +585,47 @@ Page<IndexPageData, IndexPageMethods>({
 				this.onLoadReports();
 				break;
 			case "medical-record":
-				// 报告目录不能冒充门诊病历；病历 contract 完成前明确提示迁移状态。
-				wx.showToast({ title: "门诊病历正在迁移中", icon: "none" });
+				// 报告目录不能冒充门诊病历；病历 contract 完成前进入稳定状态页。
+				navigateToFeatureStatus("medical-record");
+				break;
+			case "guide":
+				navigateToFeatureStatus("guide");
+				break;
+			case "companion":
+				navigateToFeatureStatus("companion");
+				break;
+			case "consultation":
+				navigateToFeatureStatus("consultation");
+				break;
+			case "electronic-consultation":
+				navigateToFeatureStatus("electronic-consultation");
+				break;
+			case "inpatient-center":
+				navigateToFeatureStatus("inpatient-center");
+				break;
+			case "inpatient-payment":
+				navigateToFeatureStatus("inpatient-payment");
+				break;
+			case "admission-preconsultation":
+				navigateToFeatureStatus("admission-preconsultation");
+				break;
+			case "discharge-followup":
+				navigateToFeatureStatus("discharge-followup");
+				break;
+			case "risk-evaluation":
+				navigateToFeatureStatus("risk-evaluation");
+				break;
+			case "health-test":
+				navigateToFeatureStatus("health-test");
+				break;
+			case "health-encyclopedia":
+				navigateToFeatureStatus("health-encyclopedia");
+				break;
+			case "gift-banner":
+				navigateToFeatureStatus("gift-banner");
+				break;
+			case "health-praise":
+				navigateToFeatureStatus("health-praise");
 				break;
 			case "hospital-navigation":
 				wx.navigateTo({
@@ -580,7 +633,9 @@ Page<IndexPageData, IndexPageMethods>({
 				});
 				break;
 			default:
-				wx.showToast({ title: "该服务正在建设中", icon: "none" });
+				// 所有首页可见入口都应在 SERVICE_TABS 或固定动作目录中声明；
+				// 未识别值只提示错误，不把任意字符串拼到导航 URL。
+				wx.showToast({ title: "该服务入口暂不可用", icon: "none" });
 		}
 	},
 

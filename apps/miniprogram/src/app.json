@@ -15,7 +15,8 @@
 		"pages/report-detail/report-detail",
 		"pages/outpatient-payment/outpatient-payment",
 		"pages/profile/profile",
-		"pages/hospital-navigation/hospital-navigation"
+		"pages/hospital-navigation/hospital-navigation",
+		"pages/feature-status/feature-status"
 	],
 	"window": {
 		"navigationBarTitleText": "高平医院",

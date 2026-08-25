@@ -1197,6 +1197,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	const profileTemplate = await source("pages/profile/profile.wxml");
 	const client = await source("services/api-client.ts");
 	const navigation = await source("services/patient-navigation.ts");
+	const featureNavigation = await source("services/feature-navigation.ts");
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 
 	expect(app).toContain('"pages/profile/profile"');
@@ -1267,8 +1268,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(await source("pages/my/my.wxss")).toContain("column-gap: 20rpx;");
 	expect(my).toContain('title: "我的订单"');
 	expect(template).toContain('data-action="{{item.action}}"');
-	// 未迁移菜单项故意没有 action；不能拿 action 做 WXML key，否则同一分组
-	// 的多个 undefined key 会让渲染层错误复用节点，出现图标/文案错位。
+	// 每个菜单入口都有稳定 action，未完成能力进入统一状态页；不能拿 action
+	// 做 WXML key，因为后续业务扩展可能出现同 action 的不同展示项。
 	expect(template).toContain('wx:key="title"');
 	expect(template).not.toContain('wx:key="action"');
 	// 原版菜单的顺序、标题和图标属于可见业务契约；这里只允许使用仓库内
@@ -1311,7 +1312,10 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('title: "智能客服"');
 	expect(my).toContain('case "electronic-consultation"');
 	expect(my).toContain('case "smart-customer"');
-	expect(my).toContain("医保电子凭证需要独立授权");
+	expect(my).toContain("navigateToFeatureStatus");
+	expect(featureNavigation).toContain("医保电子凭证需要独立授权");
+	expect(featureNavigation).toContain("FEATURE_STATUS_CATALOG");
+	expect(featureNavigation).toContain("encodeURIComponent(feature)");
 	expect(profile).toContain("waitForGlobalUserProfile");
 	expect(profile).toContain("applyServerUserProfile");
 	expect(profile).toContain("updateUserProfile");
@@ -2790,13 +2794,15 @@ test("native patient center does not mislabel reports as outpatient medical reco
 	const home = await source("pages/index/index.ts");
 	const myTemplate = await source("pages/my/my.wxml");
 	const myPage = await source("pages/my/my.ts");
+	const featureNavigation = await source("services/feature-navigation.ts");
 
 	expect(home).toContain('action: "medical-record"');
-	expect(home).toContain("门诊病历正在迁移中");
+	expect(home).toContain('navigateToFeatureStatus("medical-record")');
 	expect(myTemplate).toContain('data-action="{{item.action}}"');
 	expect(myPage).toContain('action: "medical-record"');
 	expect(myTemplate).not.toContain('data-action="reports"');
 	expect(myPage).toContain('case "medical-record"');
+	expect(featureNavigation).toContain("门诊病历正在迁移中");
 });
 
 test("native homepage and my page reject stale patient directory responses", async () => {
