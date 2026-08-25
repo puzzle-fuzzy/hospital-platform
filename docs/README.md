@@ -10,7 +10,7 @@
 
 > **当前运行层只读复核（2026-08-25 14:52 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；使用实际绑定地址访问 readiness/system-ping 均为 `200`，database/redis/schema 为 `ok`。`127.0.0.1:18081` 不是该服务的有效探针地址。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
-> **当前发布门禁（2026-08-25）**：本地 `main` 已推进到 `0dd51a7a`，但 `release:baseline:audit` 仍拒绝发布，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
+> **当前发布门禁（2026-08-25）**：本地 `main` 已推进到 `50291ad7`，但 `release:baseline:audit` 仍拒绝发布，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
 
 > **最新事实源（2026-08-25，优先于本页旧候选段落）**：小程序候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，pending 已生成 20 个页面脚本；当前工作树复跑为 `259 pass / 0 fail / 2525 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前保持 fail-closed。候选记录见 [`release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md`](release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md)。
 

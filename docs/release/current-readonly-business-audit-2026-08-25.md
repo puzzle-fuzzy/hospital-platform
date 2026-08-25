@@ -10,7 +10,7 @@
  > `b587c7ea8479e38d47055f3f5b672263f32aec41` 已完成构建但因微信开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。四个主 Tab 使用微信原生
 > `tabBar`；上一候选 custom-tab-bar 因真机未呈现已撤回，当前原生候选仍需扫码普通编译后验收。线上服务端 `8eb51b5f` 和旧 Python `8001` 的边界不变。
 
-> **当前服务端发布门禁补充（2026-08-25）**：本地 `main` 已到 `0dd51a7a`，但
+> **当前服务端发布门禁补充（2026-08-25）**：本地 `main` 已到 `50291ad7`，但
 > `pnpm release:baseline:audit` fail-closed，检测到 `apps/api/src/app.ts`、`apps/api/src/application.ts`、
 > 健康知识发布门禁以及另一会话负责的众阳预约适配器尚未进入线上 release。该状态不是服务故障；它表示候选尚未完成
 > 统一发布，因此不执行新 API 重启，也不影响旧 Python `8001`。
