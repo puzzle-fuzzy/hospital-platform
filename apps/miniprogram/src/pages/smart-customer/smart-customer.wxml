@@ -39,4 +39,3 @@
 		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>
-
