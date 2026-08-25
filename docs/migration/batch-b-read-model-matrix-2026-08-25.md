@@ -57,6 +57,7 @@ provider/HIS 文档登记
 - 就诊与互联网医院：[`consult-and-internet-hospital-boundary-audit-2026-08-25.md`](consult-and-internet-hospital-boundary-audit-2026-08-25.md)
 - 健康内容与自测：[`health-content-and-self-test-audit-2026-08-24.md`](health-content-and-self-test-audit-2026-08-24.md)
 - 知识内容导入：[`health-knowledge-import-runbook.md`](health-knowledge-import-runbook.md)
+- 旧知识源质量审计：[`health-knowledge-source-audit-2026-08-25.md`](health-knowledge-source-audit-2026-08-25.md)
 - 统一迁移入口：[`../../apps/miniprogram/src/services/feature-navigation.ts`](../../apps/miniprogram/src/services/feature-navigation.ts)
 
 本矩阵的下一次更新条件不是“页面又能打开”，而是某个业务域获得正式 contract、脱敏样例和可复核

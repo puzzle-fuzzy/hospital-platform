@@ -41,7 +41,9 @@ pnpm --filter @hospital/persistence health:export-legacy -- `
 
 源快照完成后，必须先做字段/关系复核和临床审核，再转换成包含
 `publication.status`、`reviewedAt`、`reviewerRef`、明确的 `effectiveFrom` 和免责声明的正式 bundle。
-这一步不能通过默认状态、旧页面可渲染或接口转发替代。
+这一步不能通过默认状态、旧页面可渲染或接口转发替代。当前快照的聚合质量结果见
+[`health-knowledge-source-audit-2026-08-25.md`](health-knowledge-source-audit-2026-08-25.md)。只有内容责任人处理完重复关系、
+控制字符和未定义来源后，才可以进入正式 bundle 的只读校验。
 
 ## 3. 只读 bundle 检查
 

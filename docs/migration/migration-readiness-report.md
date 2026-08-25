@@ -53,7 +53,7 @@ pnpm migration:readiness -- --strict
 
 报告中的 `codeReadyDomainCount` 和 `realEvidenceReadyDomainCount` 必须分开读取：前者表示仓库结构和代码闭环通过，后者只在真机证据清单中对应域全部达到 `passed` 时增加。两者都不等于支付、医保或其它阻塞域已经开放。
 
-`migrationQueue` 固定包含六个批次：A 安全只读真实取证、B 健康内容发布、C 临床只读契约、D 患者与便民写入、E 外部入口与实时能力、F 支付/医保/HIS 回写。A、B 可以在已有代码基础上并行收集真实证据；C-E 先收集各自 contract；F 始终最后处理。B 批次的 `reviewedBundlePresent` 只表示约定本机证据目录中存在文件，仍必须完成 bundle 校验、staging、发布/撤回和真机验收。队列中的 `nextAction` 和 `stopCondition` 是执行提示，不是把状态页变成业务页的授权。
+`migrationQueue` 固定包含六个批次：A 安全只读真实取证、B 健康内容发布、C 临床只读契约、D 患者与便民写入、E 外部入口与实时能力、F 支付/医保/HIS 回写。A、B 可以在已有代码基础上并行收集真实证据；C-E 先收集各自 contract；F 始终最后处理。B 批次的 `reviewedBundlePresent` 只表示约定本机证据目录中存在文件，仍必须完成 bundle 校验、staging、发布/撤回和真机验收。旧库源快照的聚合质量审计见 [`health-knowledge-source-audit-2026-08-25.md`](health-knowledge-source-audit-2026-08-25.md)，不改变 `reviewedBundlePresent` 的判定。队列中的 `nextAction` 和 `stopCondition` 是执行提示，不是把状态页变成业务页的授权。
 
 ## 与后续迁移的关系
 
