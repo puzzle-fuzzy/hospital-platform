@@ -6,13 +6,13 @@
 当前全量入口状态、64 个旧页面的真实分布和下一批推进顺序见
 [`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md)。
 
-> **当前全量迁移交接单（2026-08-25）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前仓库为 `2afd7ed9`，小程序 pending 候选来源为 `296516a5`，64 个旧页面均有明确落点，但只有 7 个已替换、16 个安全子集，其余入口仍按阻断原因关闭；本页下方历史候选只作追溯。
+> **当前全量迁移交接单（2026-08-25）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前仓库为 `8653758c`，小程序 pending 候选来源为 `296516a5`，64 个旧页面均有明确落点，但只有 7 个已替换、16 个安全子集，其余入口仍按阻断原因关闭；本页下方历史候选只作追溯。
 
 > **当前 pending 运行包**：`build-info.json.sourceRevision=296516a5f255c563ec5eac40f2a3439632b143b8`，20 页、261 项小程序测试通过。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，详见 [`release/candidate-296516a5-miniprogram-runtime-2026-08-25.md`](release/candidate-296516a5-miniprogram-runtime-2026-08-25.md)。
 
 > **当前运行层只读复核（2026-08-25 14:52 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；使用实际绑定地址访问 readiness/system-ping 均为 `200`，database/redis/schema 为 `ok`。`127.0.0.1:18081` 不是该服务的有效探针地址。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
-> **当前发布门禁（2026-08-25）**：本地 `main` 已推进到 `2afd7ed9`，但 `release:baseline:audit` 仍拒绝发布，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
+> **当前发布门禁（2026-08-25）**：本地 `main` 已推进到 `8653758c`，但 `release:baseline:audit` 仍拒绝发布，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
 
 > **当前事实源（2026-08-25，优先于本页旧候选段落）**：小程序 pending 候选已固定为 `296516a5`，当前工作树小程序回归为 `261 pass / 0 fail / 2531 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，客户端运行时 contract 校验已补齐，但正式审核 bundle 未发布前保持 fail-closed。完整交接和 64 页推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
 
@@ -140,7 +140,7 @@
 | [`release/miniprogram-real-device-evidence-template-7f09bbb.md`](release/miniprogram-real-device-evidence-template-7f09bbb.md) | 真机页面、客户端 requestId 和服务端低敏日志三层证据模板；当前候选来源以 `13f597e` 为准 |
 | [`release/current-13f-real-device-acceptance-runbook-2026-08-24.md`](release/current-13f-real-device-acceptance-runbook-2026-08-24.md) | 当前 `13f597e` 真机操作顺序、日志取证、脱敏规则和停止条件 |
 | [`release/current-real-device-login-patient-observation-2026-08-24.md`](release/current-real-device-login-patient-observation-2026-08-24.md) | 2026-08-24 当前真机微信登录、患者目录和同步的低敏观察；明确预约/费用/报告仍未验收 |
-| [`release/device-evidence-13f597e-pending.json`](release/device-evidence-13f597e-pending.json) | 当前候选真机证据的安全 pending 起始清单；未填写真实三层证据前不能视为通过 |
+| [`release/device-evidence-296516a5-pending.json`](release/device-evidence-296516a5-pending.json) | 当前 `296516a5` 小程序候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
 | [`release/miniprogram-real-device-evidence-template-41c708e.md`](release/miniprogram-real-device-evidence-template-41c708e.md) | 历史 `41c708e1` 真机三层证据模板 |
 | [`release/miniprogram-devtools-reimport-2026-08-22-1314.md`](release/miniprogram-devtools-reimport-2026-08-22-1314.md) | 当前候选重新导入、普通编译、运行包测试脚本边界和新二维码准入证据 |
 | [`release/miniprogram-device-qr-session-2026-08-22-1327.md`](release/miniprogram-device-qr-session-2026-08-22-1327.md) | 历史 `41c708e1` 候选二维码现场与三层证据交接边界；当前二维码必须以 `13f597e` 项目开发者工具现场为准 |
