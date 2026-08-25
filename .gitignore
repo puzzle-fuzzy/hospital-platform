@@ -8,6 +8,8 @@ coverage/
 *.log
 .DS_Store
 .local/zhongyang-docs/
+# 旧健康知识源快照可能包含医疗正文，只允许在本机忽略目录中暂存。
+.local/health-knowledge/
 .local/hospital-miniprogram/
 # 构建被旧版本工具锁定时产生的历史待发布目录，不再位于当前标准路径。
 apps/.hospital-miniprogram-pending/
