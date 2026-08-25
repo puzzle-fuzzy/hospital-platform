@@ -4,6 +4,8 @@
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
+> **最新候选事实（2026-08-25）**：提交 `7627843a` 补齐了统一状态页的迁移阶段、旧入口覆盖数量、下一步材料和返回共享主 Tab；当前 pending 来源为 `7627843aa48ffe18651a5e5162202cbd0fd5d594`，20 个页面，`276 pass / 0 fail / 2915 expect()`。构建已生成 pending，但 live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致发布返回 `EBUSY`；上一候选 `fc70fa0b` 仅作历史追溯。
+
 > **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；提交 `f97f9f03` 补齐健康知识错误码的服务端、客户端和文档契约；提交 `fc70fa0b` 修正未知/过期 `feature` 进入状态页时被误归类为“医疗记录”的错误语义。当前 pending 小程序运行包已重新构建为 `fc70fa0b`（20 页），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
 
 > **当前仓库事实（2026-08-25）**：本轮小程序功能候选为 `fc70fa0b`，当前小程序运行输入/pending 来源为 `fc70fa0b78a29f564c4e3e4b35ab28ae4afb3fde`；该运行输入包含前序业务候选、健康知识错误码契约、未知入口错误语义和共享门禁输入。微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。服务端本地候选仍以 `b42922f4` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
@@ -12,14 +14,14 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 功能候选代码基线 | `fc70fa0b`（未知/过期入口使用独立无效状态） |
-| 当前功能基线 | `fc70fa0b`（文档更新不改变 live `dist`） |
-| 小程序业务代码候选 | `fc70fa0b78a29f564c4e3e4b35ab28ae4afb3fde` |
-| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=fc70fa0b78a29f564c4e3e4b35ab28ae4afb3fde` |
+| 功能候选代码基线 | `7627843a`（统一状态页补齐迁移覆盖信息） |
+| 当前功能基线 | `7627843a`（文档更新不改变 live `dist`） |
+| 小程序业务代码候选 | `7627843aa48ffe18651a5e5162202cbd0fd5d594` |
+| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=7627843aa48ffe18651a5e5162202cbd0fd5d594` |
 | pending 页面数 | 20 个；每个页面具备 `.js/.json/.wxml/.wxss` |
-| 小程序回归 | 当前源码 272 pass / 0 fail / 2679 expect()；pending 已包含当前运行输入；入口分发广度审计通过 |
+| 小程序回归 | 当前源码 276 pass / 0 fail / 2915 expect()；pending 已包含当前运行输入；入口分发广度审计通过 |
 | pending 静态验证 | 已通过；20 页、根文件、相对依赖、workspace 依赖、测试脚本和来源指纹均已校验 |
-| 当前 live `dist` | 仍被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
+| 当前 live `dist` | 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
 | 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
 
