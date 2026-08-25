@@ -144,6 +144,14 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 			"user.profile.requested",
 			"user.profile.loaded",
 			"user.profile.read_failed",
+			// 普通资料标记为 read-write 后，更新链路也必须进入同一份闭环
+			// 清单；否则 readiness 只证明 GET 存在，无法发现 PUT 的日志
+			// 文档或运行实现被遗漏。事件本身仍由 profile service 负责，
+			// 这里不把用户资料正文、userId 或版本值加入审计清单。
+			"user.profile.update.requested",
+			"user.profile.updated",
+			"user.profile.conflict",
+			"user.profile.update_failed",
 		],
 		boundary:
 			"只读普通展示资料；实名、微信身份、患者身份和头像资源不混入该契约。",

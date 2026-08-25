@@ -23,6 +23,17 @@ describe("低风险业务域闭环清单", () => {
 			READ_ONLY_DOMAIN_CATALOG.find((domain) => domain.id === "user-profile")
 				?.operationClass,
 		).toBe("read-write");
+		const profileLogEvents = READ_ONLY_DOMAIN_CATALOG.find(
+			(domain) => domain.id === "user-profile",
+		)?.logEvents;
+		expect(profileLogEvents).toEqual(
+			expect.arrayContaining([
+				"user.profile.update.requested",
+				"user.profile.updated",
+				"user.profile.conflict",
+				"user.profile.update_failed",
+			]),
+		);
 	});
 
 	test("仓库当前的页面、API、实现、日志和文档闭环通过", async () => {
