@@ -3,6 +3,9 @@
 
 # 项目文档导航
 
+当前全量入口状态、64 个旧页面的真实分布和下一批推进顺序见
+[`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md)。
+
 > **当前 pending 运行包来源刷新（2026-08-25）**：实际 `build-info.json.sourceRevision` 已更新为 `b587c7ea8479e38d47055f3f5b672263f32aec41`；功能里程碑仍对应 `99c7e8fd`，pending 为 20 页、259 项小程序测试通过。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，详见 [`release/candidate-b587c7ea-miniprogram-runtime-refresh-2026-08-25.md`](release/candidate-b587c7ea-miniprogram-runtime-refresh-2026-08-25.md)。
 
 > **当前运行层只读复核（2026-08-25 14:52 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；使用实际绑定地址访问 readiness/system-ping 均为 `200`，database/redis/schema 为 `ok`。`127.0.0.1:18081` 不是该服务的有效探针地址。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
