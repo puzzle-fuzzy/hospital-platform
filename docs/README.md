@@ -1,9 +1,9 @@
-> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `896a83cfb9d8b4350664cfe97f8bee643cbca434`（提交 `896a83cf`）。本候选增加首页二维码安全展示壳，pending 尚未替换微信开发者工具正在使用的 live `dist`，真实真机业务证据仍待采集。
-> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e` 和本地 pending `0d28b72` 不得互相替代。本文以下旧候选编号均只作历史追溯。
+> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `5493659ead8a70fcc9a2ad6ad4619a155b8a362a`（提交 `5493659e`）。本候选修正健康百科分类加载状态，pending 尚未替换微信开发者工具正在使用的 live `dist`，真实真机业务证据仍待采集。
+> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e` 和本地 pending `5493659e` 不得互相替代。本文以下旧候选编号均只作历史追溯。
 
-> **本轮最新修正**：首页二维码入口已迁移为同版安全展示壳，旧端第三方二维码实现因协议和隐私边界不完整而保持关闭；详见 [`migration/patient-qr-safe-shell-audit-2026-08-26.md`](migration/patient-qr-safe-shell-audit-2026-08-26.md)。就诊页业务日快照和运行包历史见 [`release/consult-business-date-snapshot-audit-2026-08-26.md`](release/consult-business-date-snapshot-audit-2026-08-26.md) 与 [`release/candidate-896a83c-miniprogram-runtime-2026-08-26.md`](release/candidate-896a83c-miniprogram-runtime-2026-08-26.md)。
+> **本轮最新修正**：健康百科分类切换在无目录缓存时重新加载目录，不把未加载/失败误判为空态；详见 [`migration/health-knowledge-state-audit-2026-08-26.md`](migration/health-knowledge-state-audit-2026-08-26.md)。二维码安全展示壳、就诊页业务日快照和运行包历史见 [`migration/patient-qr-safe-shell-audit-2026-08-26.md`](migration/patient-qr-safe-shell-audit-2026-08-26.md)、[`release/consult-business-date-snapshot-audit-2026-08-26.md`](release/consult-business-date-snapshot-audit-2026-08-26.md) 与 [`release/candidate-5493659-miniprogram-runtime-2026-08-26.md`](release/candidate-5493659-miniprogram-runtime-2026-08-26.md)。
 
-> **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；当前小程序候选、pending 证据清单和运行包记录统一以 [`release/candidate-896a83c-miniprogram-runtime-2026-08-26.md`](release/candidate-896a83c-miniprogram-runtime-2026-08-26.md) 与 [`release/device-evidence-896a83c-pending.json`](release/device-evidence-896a83c-pending.json) 为准。
+> **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；当前小程序候选、pending 证据清单和运行包记录统一以 [`release/candidate-5493659-miniprogram-runtime-2026-08-26.md`](release/candidate-5493659-miniprogram-runtime-2026-08-26.md) 与 [`release/device-evidence-5493659-pending.json`](release/device-evidence-5493659-pending.json) 为准。
 
 # 项目文档导航
 
@@ -109,12 +109,12 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前发布基线（2026-08-26）为：线上服务端仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，当前本地 pending 运行输入为
-`a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
+`5493659ead8a70fcc9a2ad6ad4619a155b8a362a`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
 pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成当前候选业务证据；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 当前运行包规则（2026-08-26）：pending 候选的 `build-info.json.sourceRevision` 必须与显式构建输入一致；当前为
-`a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
+`5493659ead8a70fcc9a2ad6ad4619a155b8a362a`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
 `runtime:verify`，再把 `dist/` 导入开发者工具；该来源校验只证明包一致，不增加微信登录、患者、Provider 或真机业务证据。
 针对 `single-flight.test.js` 的 ENOENT 仍按运行包门禁处理：运行包不允许含测试 JS，工具报错时应关闭工具释放
 `dist/` 文件句柄后重开正确项目。
