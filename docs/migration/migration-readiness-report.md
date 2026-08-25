@@ -43,7 +43,7 @@ pnpm migration:readiness -- --strict
 - 原生小程序注册 20 个页面，四个主入口继续使用微信原生 `tabBar`。
 - 五个只读域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
-- live `dist` 来源为 `fcc6630e`，pending 来源为 `1404a03`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。
+- live `dist` 来源为 `fcc6630e`，pending 来源为 `7bc5956`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
 - 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 

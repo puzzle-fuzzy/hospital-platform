@@ -31,7 +31,7 @@ journalctl -u hospital-platform-api-v2.service --since '24 hours ago' --no-pager
 | 运行模式 | `production` | journald 中的 Pino 事件包含 `environment=production` |
 
 最近可见的低敏日志包括 `/api/v1/me`、`/api/v1/me/profile` 成功读取和 `/health/ready` 成功探针；
-这些日志属于线上旧 release 的运行观察，不能证明 pending 小程序 `1404a03` 或本地服务端候选已经产生业务请求。
+这些日志属于线上旧 release 的运行观察，不能证明 pending 小程序 `7bc5956` 或本地服务端候选已经产生业务请求。
 
 ## 3. 发布结论
 
