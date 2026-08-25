@@ -261,7 +261,12 @@ const appConfig = JSON.parse(
 	await Bun.file(join(source, "app.json")).text(),
 ) as {
 	pages?: unknown;
-	tabBar?: { custom?: unknown; position?: unknown; list?: unknown };
+	tabBar?: {
+		[key: string]: unknown;
+		custom?: unknown;
+		position?: unknown;
+		list?: unknown;
+	};
 };
 if (
 	!Array.isArray(appConfig.pages) ||
@@ -293,6 +298,34 @@ if (
 ) {
 	throw new Error(
 		"Mini program primary tabs must use the official native tabBar; custom=false and position=bottom are required",
+	);
+}
+
+/**
+ * 原生 tabBar 只能使用微信官方字段。
+ *
+ * `height`、`fontSize`、`iconWidth`、`spacing` 是其他小程序框架常见的
+ * 配置项，不是微信原生 `app.json.tabBar` 的尺寸控制字段。它们即使被
+ * 开发者工具暂时忽略，也会让源码产生“原生和自定义配置混用”的歧义；
+ * 真机又无法按这些字段调整原生底栏，最终就会出现源码与设备表现不一致。
+ * 原生底栏的高度、字体和安全区由微信运行时管理，视觉一致性只通过官方
+ * 颜色字段、页面顺序和 81×81 图标资源保证。
+ */
+const nativeTabBarKeys = new Set([
+	"custom",
+	"position",
+	"color",
+	"selectedColor",
+	"backgroundColor",
+	"borderStyle",
+	"list",
+]);
+const unsupportedNativeTabBarKeys = Object.keys(appConfig.tabBar ?? {}).filter(
+	(key) => !nativeTabBarKeys.has(key),
+);
+if (unsupportedNativeTabBarKeys.length > 0) {
+	throw new Error(
+		`Mini program native tabBar contains unsupported fields: ${unsupportedNativeTabBarKeys.join(", ")}. Use only official native tabBar fields; do not mix framework sizing fields into app.json.`,
 	);
 }
 

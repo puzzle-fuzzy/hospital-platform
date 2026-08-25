@@ -30,10 +30,6 @@
 		"selectedColor": "#3d6df6",
 		"backgroundColor": "#ffffff",
 		"borderStyle": "black",
-		"height": "65px",
-		"fontSize": "10px",
-		"iconWidth": "24px",
-		"spacing": "3px",
 		"list": [
 			{
 				"pagePath": "pages/index/index",

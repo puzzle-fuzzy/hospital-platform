@@ -8,7 +8,7 @@
 项目最终固定使用微信原生 tabBar；`custom-tab-bar` 仅保留在历史记录中，不再作为实现候选：
 
 - `app.json.tabBar.custom=false`、`position=bottom`；
-- 原生尺寸沿用旧端基线：`height=65px`、`fontSize=10px`、`iconWidth=24px`、`spacing=3px`；
+- 不混入其他框架的 `height`、`fontSize`、`iconWidth`、`spacing` 字段；原生底栏尺寸和安全区由微信运行时管理；
 - 四个主入口、普通图标、选中图标和顺序只在 `app.json.tabBar.list` 声明；
 - 页面不渲染底栏，也不维护页面级 selected；
 - 主 Tab 的程序化跳转仍统一经过 `switchTab`，普通业务页仍使用 `navigateTo`；
@@ -16,6 +16,8 @@
 - 自定义 `custom-tab-bar` 源码和运行文件已从候选中移除。
 
 这是针对真机事实的稳定性收敛。支付、医保、患者绑定、二维码、预约写入和 HIS 回写仍保持原有关闭边界。
+
+> 这条约束很重要：微信原生 `tabBar` 与其他框架的 tab 配置不是同一套协议。为了保证真机只加载一套确定的导航实现，构建门禁会拒绝原生协议之外的尺寸字段；不能再通过“看起来像原生”的字段调整底栏。
 
 ## 运行包证据
 
@@ -28,7 +30,7 @@
 | TabBar | `custom=false`、`position=bottom`、四项共享路由 |
 | `dist/custom-tab-bar/` | 不存在 |
 | 运行包测试脚本 | `*.test.js`、`*.spec.js` 均不存在 |
-| 小程序测试 | 本轮 240 pass、0 fail、1937 assertions |
+| 小程序测试 | 本轮 240 pass、0 fail、1938 assertions |
 | 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
 | 运行包校验 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
 | 预览二维码 | 已生成 `c3c7eec3` 临时预览二维码（仅保存在本机 `.local/device-acceptance/`，不入 Git）；真机扫码验收仍待 |
