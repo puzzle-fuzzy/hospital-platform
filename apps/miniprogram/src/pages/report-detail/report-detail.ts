@@ -20,12 +20,23 @@ import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
 type ReportDetailPageMethods = {
+	loadDetail(patientId: string, reportId: string): Promise<void>;
+	onRetry(): void;
 	onTabChange(event: ReportTabEvent): void;
 	onDownloadCloudImage(): void;
 	onShareReport(): void;
 	onGotoConsultation(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
+};
+
+/**
+ * 详情页保留本次深链引用，仅用于重试前的患者范围校验。
+ * 这些 opaque ID 不是授权凭证，也不能替代服务端的 owner 校验。
+ */
+type ReportDetailPageState = ReportDetailPageData & {
+	sourcePatientId: string;
+	sourceReportId: string;
 };
 
 /**
@@ -37,7 +48,7 @@ function parseReportCount(value: string | undefined): number {
 	return Number.isSafeInteger(count) && count > 0 ? count : 0;
 }
 
-Page<ReportDetailPageData, ReportDetailPageMethods>({
+Page<ReportDetailPageState, ReportDetailPageMethods>({
 	data: {
 		loading: true,
 		title: "报告详情",
@@ -48,6 +59,8 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 		hasItems: false,
 		hasAttachment: false,
 		error: "",
+		sourcePatientId: "",
+		sourceReportId: "",
 	},
 
 	onLoad(options: Record<string, string | undefined>): void {
@@ -66,6 +79,7 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 			);
 			return;
 		}
+		this.setData({ sourcePatientId: patientId, sourceReportId: reportId });
 		// 服务端仍会再次校验 owner + patientId + reportId + TTL；这里的客户端门禁
 		// 不是授权替代品，而是阻止旧页面栈/手工深链在当前设备已经切换患者后，
 		// 继续展示另一位患者的合法详情。详情页只能消费当前本地明确选择的患者。
@@ -78,14 +92,23 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 			return;
 		}
 
+		void this.loadDetail(patientId, reportId);
+	},
+
+	/**
+	 * 重新执行完整的 owner、会话代际和当前就诊人校验。
+	 * 重试不能只重放旧请求，否则切换账号/就诊人后，旧详情引用可能被重新写回页面。
+	 */
+	loadDetail(patientId: string, reportId: string): Promise<void> {
 		const detailGuard = getPageLatestRequestGuard(this, "report-detail");
 		const detailToken = detailGuard.begin();
+		this.setData({ loading: true, error: "" });
 		// 详情页可能被旧页面栈或手工深链直接打开，不能只相信 URL 中的
 		// patientId。先重新取得当前 owner，再读取其患者目录；这样即使本地
 		// selected_patient_id 仍是旧账号的值，也不会直接把引用送进详情 API。
 		let expectedSessionGeneration = -1;
 		let expectedOwnerId = "";
-		getCurrentUser()
+		return getCurrentUser()
 			.then((currentUser) => {
 				if (!detailGuard.isCurrent(detailToken)) return undefined;
 				expectedOwnerId = currentUser.data.user.id;
@@ -160,6 +183,22 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 					this.setData({ loading: false });
 				}
 			});
+	},
+
+	/** 只允许在本页保存过合法引用时重试，避免按钮成为任意深链入口。 */
+	onRetry(): void {
+		if (this.data.loading) return;
+		const { sourcePatientId, sourceReportId } = this.data;
+		if (!sourcePatientId || !sourceReportId) return;
+		if (!isCurrentSelectedPatient(sourcePatientId)) {
+			this.showError(
+				new ApiError("当前就诊人已变更，请重新选择后查看报告", {
+					code: "patient-selection-required",
+				}),
+			);
+			return;
+		}
+		void this.loadDetail(sourcePatientId, sourceReportId);
 	},
 
 	/** 页面卸载后让报告详情请求失去回写资格。 */

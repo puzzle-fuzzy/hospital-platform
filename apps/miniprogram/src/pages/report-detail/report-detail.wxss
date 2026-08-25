@@ -249,6 +249,23 @@
 	text-align: center;
 }
 
+.report-retry {
+	box-sizing: border-box;
+	min-width: 180rpx;
+	margin-top: 24rpx;
+	padding: 0 24rpx;
+	border: 0;
+	border-radius: 10rpx;
+	background: #3d6df6;
+	color: #ffffff;
+	font-size: 26rpx;
+	line-height: 64rpx;
+}
+
+.report-retry::after {
+	border: 0;
+}
+
 .bottom-action-wrap {
 	position: fixed;
 	right: 0;

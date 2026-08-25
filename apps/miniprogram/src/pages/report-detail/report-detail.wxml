@@ -10,6 +10,12 @@
 		<block wx:else>
 			<text class="error-title">报告详情不可用</text>
 			<text class="error-message">{{error}}</text>
+			<button
+				wx:if="{{sourcePatientId && sourceReportId}}"
+				class="report-retry"
+				size="mini"
+				bindtap="onRetry"
+			>重新加载</button>
 		</block>
 	</view>
 
