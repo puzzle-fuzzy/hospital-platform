@@ -7,6 +7,7 @@ import { buildHealthKnowledgeReviewQueue } from "./health-knowledge-review-queue
 import { auditLegacyHealthKnowledgeSourceFile } from "./health-knowledge-source-audit.mjs";
 import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
 import { auditReadOnlyDomains } from "./read-only-domain-audit.mjs";
+import { FROZEN_DOMAIN_GATE_CATALOG } from "./migration-boundary-catalog.mjs";
 import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -99,6 +100,60 @@ function legacyCoverage() {
 		featureStatusKeyCount: knownFeatureKeys.size,
 		invalidBlockedEntries,
 		passed: invalidBlockedEntries.length === 0,
+	};
+}
+
+/**
+ * 汇总所有阻断入口的准入目录。
+ *
+ * 入口台账只说明页面去了哪里；这里进一步检查 14 个冻结域的 FeatureKey、
+ * 状态页落点和旧页面映射是否仍然一致，并把 contract 家族和材料数量放进
+ * readiness。这样总报告不会只显示“有状态页”，却漏掉某个域已经误指向真实页。
+ */
+function frozenBoundaryCoverage() {
+	const legacyByPath = new Map(
+		LEGACY_PAGE_MIGRATION_CATALOG.map((entry) => [entry.legacyPath, entry]),
+	);
+	const failures = [];
+	const contractFamilyCounts = {};
+	let legacyEntryCount = 0;
+
+	for (const gate of FROZEN_DOMAIN_GATE_CATALOG) {
+		contractFamilyCounts[gate.contractFamily] =
+			(contractFamilyCounts[gate.contractFamily] ?? 0) + 1;
+		for (const legacyPath of gate.legacyPaths) {
+			legacyEntryCount += 1;
+			const entry = legacyByPath.get(legacyPath);
+			if (!entry) {
+				failures.push(`${gate.id}: 旧页面未登记：${legacyPath}`);
+				continue;
+			}
+			if (entry.nativeTarget !== "pages/feature-status/feature-status") {
+				failures.push(`${gate.id}: 旧页面越过统一状态页：${legacyPath}`);
+			}
+			if (entry.featureKey !== gate.featureKey) {
+				failures.push(`${gate.id}: FeatureKey 不一致：${legacyPath}`);
+			}
+			if (!entry.status.startsWith("blocked-")) {
+				failures.push(`${gate.id}: 旧页面不是 blocked 状态：${legacyPath}`);
+			}
+		}
+		if (!Object.hasOwn(FEATURE_STATUS_CATALOG, gate.featureKey)) {
+			failures.push(`${gate.id}: FeatureKey 不存在：${gate.featureKey}`);
+		}
+	}
+
+	return {
+		domainCount: FROZEN_DOMAIN_GATE_CATALOG.length,
+		legacyEntryCount,
+		contractFamilyCounts,
+		requiredMaterialCount: FROZEN_DOMAIN_GATE_CATALOG.reduce(
+			(total, gate) =>
+				total + gate.commonMaterials.length + gate.requiredMaterials.length,
+			0,
+		),
+		failures,
+		passed: failures.length === 0,
 	};
 }
 
@@ -489,6 +544,7 @@ export async function buildMigrationReadinessReport(
 		resolve(root, "apps/miniprogram/src/app.json"),
 	).json();
 	const legacy = legacyCoverage();
+	const frozenBoundary = frozenBoundaryCoverage();
 	const readOnly = await readOnlyCoverage(root);
 	const providerIntake = await providerIntakeCoverage(root);
 	const runtime = await runtimeProvenance(root);
@@ -506,6 +562,7 @@ export async function buildMigrationReadinessReport(
 		appConfig.pages.includes("pages/feature-status/feature-status");
 	const structuralAuditPassed =
 		legacy.passed &&
+		frozenBoundary.passed &&
 		readOnly.passed &&
 		providerIntake.passed &&
 		clinicalContract.passed &&
@@ -525,9 +582,10 @@ export async function buildMigrationReadinessReport(
 		generatedAt,
 		entryCoverage: {
 			legacy,
+			frozenBoundary,
 			nativePageCount,
 			featureStatusRegistered,
-			passed: legacy.passed && featureStatusRegistered,
+			passed: legacy.passed && frozenBoundary.passed && featureStatusRegistered,
 		},
 		readOnly,
 		providerIntake,

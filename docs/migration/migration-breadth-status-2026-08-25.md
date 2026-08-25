@@ -6,6 +6,8 @@
 > 本文是当前重构版本的入口总览，不把“已经有页面落点”误记为“业务已经完成”。
 > 旧 Python 服务、旧数据库、旧 Redis 和线上旧进程不在本文的修改范围内。
 
+> **阻断域准入事实源补充**：14 个冻结域已从边界审计脚本抽为 [`tools/migration-boundary-catalog.mjs`](../../tools/migration-boundary-catalog.mjs)，其 contract 家族、通用材料、域特有材料和明确关闭能力见 [`frozen-domain-contract-matrix-2026-08-25.md`](frozen-domain-contract-matrix-2026-08-25.md)。这只强化准入审计，不打开任何阻断业务。
+
 > **当前仓库交接基线（2026-08-25）**：本轮小程序功能候选为 `7627843a`，当前运行输入/pending 来源为 `7627843aa48ffe18651a5e5162202cbd0fd5d594`。本轮补齐统一状态页迁移阶段、旧入口覆盖数量、下一步材料和返回共享主 Tab；没有发布服务端或小程序运行包。
 
 ## 1. 当前结论

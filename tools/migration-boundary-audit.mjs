@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { FROZEN_DOMAIN_GATE_CATALOG } from "./migration-boundary-catalog.mjs";
 
 /**
  * 广度迁移边界审计。
@@ -27,120 +28,41 @@ const featureNavigation = await import(
  * 这些域的旧页面虽然已经纳入导航，但真实 contract 尚未冻结。
  * 一个域中的多个旧页面可以共享状态页，但不能共享旧端内部标识或响应。
  */
-const FROZEN_DOMAIN_GATES = [
-	{
-		name: "门诊病历",
-		featureKey: "medical-record",
-		readiness: "待 provider contract",
-		legacyPaths: ["pagesB/health/electronic_record.vue"],
-	},
-	{
-		name: "住院信息",
-		featureKey: "inpatient-center",
-		readiness: "待 provider contract",
-		legacyPaths: ["pagesB/health/inpatient_center.vue"],
-	},
-	{
-		name: "住院支付",
-		featureKey: "inpatient-payment",
-		readiness: "待支付与回写 contract",
-		legacyPaths: ["pagesB/health/inpatient_payment.vue"],
-	},
-	{
-		name: "我的医生",
-		featureKey: "doctor",
-		readiness: "待 provider contract",
-		legacyPaths: ["pagesB/patient/doctor.vue"],
-	},
-	{
-		name: "我的问诊",
-		featureKey: "consultation",
-		readiness: "待外部入口 contract",
-		legacyPaths: ["pagesB/user/my_consultation.vue"],
-	},
-	{
-		name: "电子导诊单",
-		featureKey: "electronic-consultation",
-		readiness: "待 provider contract",
-		legacyPaths: ["pagesB/health/electronic_consultation.vue"],
-	},
-	{
-		name: "患者新增绑定",
-		featureKey: "patient-binding",
-		readiness: "待患者绑定 contract",
-		legacyPaths: ["pagesB/patient/patientAdd.vue"],
-	},
-	// 便民与健康评估页面必须一起冻结：它们会产生临床问卷、风险结论或
-	// 对外公开内容，不能因为页面数量较少就跳过题库版本、审核和授权边界。
-	{
-		name: "入院预问诊",
-		featureKey: "admission-preconsultation",
-		readiness: "待临床审核",
-		legacyPaths: ["pagesB/health/admission_preconsultation.vue"],
-	},
-	{
-		name: "出院随访",
-		featureKey: "discharge-followup",
-		readiness: "待临床审核",
-		legacyPaths: [
-			"pagesB/health/discharge_followup.vue",
-			"pagesB/health/discharge_followup_detail.vue",
-		],
-	},
-	{
-		name: "风险评估",
-		featureKey: "risk-evaluation",
-		readiness: "待临床审核",
-		legacyPaths: [
-			"pagesB/health/risk_form_fall.vue",
-			"pagesB/health/risk_form_pain.vue",
-			"pagesB/health/risk_form_pressure.vue",
-			"pagesB/health/risk_self_evaluation.vue",
-		],
-	},
-	{
-		name: "健康自测与计算器",
-		featureKey: "health-test",
-		readiness: "待临床审核",
-		legacyPaths: [
-			"pagesB/health/blood_pressure_calc.vue",
-			"pagesB/health/bmi_calc.vue",
-			"pagesB/health/health_test.vue",
-			"pagesB/health/self_test_question.vue",
-			"pagesB/health/self_test_result.vue",
-		],
-	},
-	{
-		name: "预约前预问诊",
-		featureKey: "pre-visit",
-		readiness: "待临床审核",
-		legacyPaths: ["pagesB/health/pre_visit.vue"],
-	},
-	{
-		name: "电子锦旗",
-		featureKey: "gift-banner",
-		readiness: "待临床审核",
-		legacyPaths: [
-			"pagesB/health/gift_electronic_banner.vue",
-			"pagesB/health/list_electronic_banner.vue",
-			"pagesB/health/record_electronic_banner.vue",
-		],
-	},
-	{
-		name: "表扬信",
-		featureKey: "health-praise",
-		readiness: "待临床审核",
-		legacyPaths: [
-			"pagesB/health/gift_health_praise.vue",
-			"pagesB/health/list_health_praise.vue",
-			"pagesB/health/record_health_praise.vue",
-		],
-	},
-];
+const FROZEN_DOMAIN_GATES = FROZEN_DOMAIN_GATE_CATALOG;
 
 const expectedStatusPage = "pages/feature-status/feature-status";
 const failures = [];
 const gateFailureCounts = new Map();
+const seenGateIds = new Set();
+const allowedContractFamilies = new Set([
+	"provider-read-only",
+	"payment-write",
+	"external-session",
+	"patient-write",
+	"clinical-content-write",
+	"external-content",
+]);
+const requiredSemanticStates = new Set([
+	"requesting",
+	"success-non-empty",
+	"success-empty",
+	"unauthorized",
+	"invalid-input",
+	"temporary-failure",
+	"contract-invalid",
+]);
+const requiredCommonMaterials = new Set([
+	"request",
+	"response",
+	"success-empty",
+	"rejected",
+	"timeout",
+	"owner-mapping",
+	"field-allowlist",
+	"redaction",
+	"logging",
+	"rollback",
+]);
 
 function fail(message) {
 	failures.push(message);
@@ -152,6 +74,35 @@ if (!appConfig.pages.includes(expectedStatusPage)) {
 
 for (const gate of FROZEN_DOMAIN_GATES) {
 	const failureCountBeforeGate = failures.length;
+	if (seenGateIds.has(gate.id)) {
+		fail(`${gate.name} 使用了重复的冻结域 id：${gate.id}`);
+	}
+	seenGateIds.add(gate.id);
+	if (!allowedContractFamilies.has(gate.contractFamily)) {
+		fail(`${gate.name} 的 contractFamily 无效：${gate.contractFamily}`);
+	}
+	for (const state of requiredSemanticStates) {
+		if (!gate.semanticStates?.includes(state)) {
+			fail(`${gate.name} 缺少统一业务语义状态：${state}`);
+		}
+	}
+	for (const material of requiredCommonMaterials) {
+		if (!gate.commonMaterials?.includes(material)) {
+			fail(`${gate.name} 缺少通用 contract 材料：${material}`);
+		}
+	}
+	if (
+		!Array.isArray(gate.requiredMaterials) ||
+		gate.requiredMaterials.length === 0
+	) {
+		fail(`${gate.name} 缺少该域特有的 contract 材料`);
+	}
+	if (
+		!Array.isArray(gate.forbiddenCapabilities) ||
+		gate.forbiddenCapabilities.length === 0
+	) {
+		fail(`${gate.name} 缺少明确关闭能力`);
+	}
 	const feature = featureNavigation.FEATURE_STATUS_CATALOG[gate.featureKey];
 	if (!feature) {
 		fail(`${gate.name} 缺少 FeatureKey 目录项：${gate.featureKey}`);
