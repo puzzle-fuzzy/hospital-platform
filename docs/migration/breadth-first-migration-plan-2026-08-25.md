@@ -45,7 +45,7 @@
 | 跨页面入口分发审计 | 通过 | 首页 22 个、我的 9 个可见 action 均有固定分支；状态页 key、四个主 Tab 和 40 个页面的 WXML 事件方法均已校验 |
 | 全量测试 | 通过 | 小程序当前 `309 pass / 0 fail / 3522 expect()`；全仓测试通过，发布基线仍按线上未部署运行时代码 fail-closed |
 
-冻结入口 gate 现在还按 A–F 批次机器归类：A=3、B=0（健康内容独立审核队列）、C=4、D=12、E=8、F=7。任何 gate 缺少批次都会让 `migration:boundary:audit` 和 `migration:readiness` 失败，避免后续只更新文档范围而漏掉执行队列。
+冻结入口 gate 现在还按 A–F 批次机器归类：A=4、B=0（健康内容独立审核队列）、C=4、D=11、E=8、F=7。D 的患者写入领域基础另覆盖 12 个计划能力，其中 `patient-address` 尚未暴露旧页面或 action，因此不计入冻结 gate。任何 gate 缺少批次都会让 `migration:boundary:audit` 和 `migration:readiness` 失败，避免后续只更新文档范围而漏掉执行队列。
 
 因此下一步不再继续重复加固同一页面，而是按以下并行队列推进：
 

@@ -11,7 +11,7 @@
 	"scripts": {
 		"architecture:audit": "bun tools/architecture-audit.mjs",
 		"build": "turbo run build",
-		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm migration:boundary:audit && pnpm migration:contract:audit && pnpm migration:breadth:audit && pnpm miniprogram:navigation:audit && pnpm clinical:contract:audit && pnpm readonly:audit && pnpm provider:audit && pnpm docs:audit && pnpm logging:audit && pnpm error:contract:audit && pnpm release:baseline:audit && pnpm format:check && pnpm lint && pnpm test:tools && pnpm typecheck && pnpm test && pnpm build",
+		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm migration:boundary:audit && pnpm migration:contract:audit && pnpm migration:fact:audit && pnpm migration:breadth:audit && pnpm miniprogram:navigation:audit && pnpm clinical:contract:audit && pnpm readonly:audit && pnpm provider:audit && pnpm docs:audit && pnpm logging:audit && pnpm error:contract:audit && pnpm release:baseline:audit && pnpm format:check && pnpm lint && pnpm test:tools && pnpm typecheck && pnpm test && pnpm build",
 		"db:integration": "pnpm --filter @hospital/persistence integration",
 		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"db:schema": "pnpm --filter @hospital/persistence schema",
@@ -33,6 +33,7 @@
 		"migration:audit": "bun tools/migration-inventory-audit.mjs",
 		"migration:boundary:audit": "bun tools/migration-boundary-audit.mjs",
 		"migration:contract:audit": "bun tools/migration-contract-intake-catalog.mjs",
+		"migration:fact:audit": "bun tools/migration-fact-audit.mjs",
 		"migration:breadth:audit": "bun tools/migration-breadth-audit.mjs",
 		"clinical:contract:audit": "bun tools/clinical-contract-audit.mjs",
 		"clinical:packet:audit": "bun tools/clinical-contract-packet-audit.mjs",

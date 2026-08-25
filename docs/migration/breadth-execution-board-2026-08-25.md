@@ -35,7 +35,7 @@ Elysia 路由、不生成外部 URL、不接入 WebView、不写 Redis/MySQL，�
 
 ### 2026-08-26 推进记录：D 批次统一写入命令状态基础
 
-D 批次的 12 个患者/便民入口现在共用 `@hospital/domain` 的患者写入命令状态机，
+D 批次的 12 个患者/便民计划能力（其中 11 个已有冻结入口，`patient-address` 尚未暴露旧页面或 action）现在共用 `@hospital/domain` 的患者写入命令状态机，
 固定 `requested`、`awaiting_confirmation`、`pending`、`submitted`、`duplicate` 和
 `rejected` 的允许转换、显式时区、追加式状态轨迹和终态不可回退规则。未知 Provider
 结果保持 `pending`，后续必须用同一 `commandId` 查询最终事实，不能通过换幂等键重放

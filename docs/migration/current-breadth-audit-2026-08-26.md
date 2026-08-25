@@ -32,7 +32,7 @@
 - `pnpm migration:boundary:audit`：34 个冻结业务入口门禁通过；
 - `pnpm migration:breadth:audit`：首页/“我的”可见 action、40 个页面事件方法、四个主 Tab 和统一状态页入口通过；共享临床/患者/外部/Provider 页面工厂的事件方法由审计显式识别；
 - `pnpm readonly:audit`：5 个低风险域、8 个页面、10 个公共路由和 35 个语义状态通过；
-- `pnpm migration:contract:audit`：C/D/E 三批次 24 个 FeatureKey 全部覆盖，仍正确保持 `businessReady=false`；
+- `pnpm migration:contract:audit`：C/D/E 三批次 23 个已暴露 FeatureKey 全部覆盖，仍正确保持 `businessReady=false`；D 的领域状态机另外覆盖尚未暴露入口的 `patient-address` 计划能力；
 - `pnpm provider:audit`、`pnpm clinical:contract:audit`、`pnpm docs:audit`、`pnpm logging:audit`：材料、临床边界、文档链接和日志注册结构通过。
 
 ## 3. 全仓检查的唯一当前阻断
@@ -57,7 +57,7 @@
 | E 外部入口 | 已有共用短期会话领域基础，业务仍关闭 | 收集各外部主体的 allowlist、受众、回跳、退出和撤回材料 | 不恢复任意 WebView、长期 ticket 或本地订阅开关 |
 | F 支付/医保/回写 | 最后批次 | 只做状态机、金额、查单、回调、补偿设计 | 不创建订单、不调起微信/医保支付、不修改旧 FSI 转发 |
 
-> D 批次已先完成 12 个入口共用的命令状态基础，但这不改变 D 的业务准入状态。
+> D 批次已先完成 12 个计划能力共用的命令状态基础，但当前只有 11 个进入冻结入口；这不改变 D 的业务准入状态。
 > `pending` 只能通过同一命令的最终事实查询收敛，不能用重放副作用的方式“补偿成功”。
 > 具体规则见 [`patient-write-command-domain-contract-2026-08-26.md`](patient-write-command-domain-contract-2026-08-26.md)。
 
