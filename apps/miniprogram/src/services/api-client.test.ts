@@ -17,6 +17,7 @@ import {
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
+	localizedApiErrorMessage,
 	requestHealthDiseasesByRelation,
 	requestHealthDiseasesBySymptoms,
 	requestHealthDiseaseDetail,
@@ -45,6 +46,20 @@ test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本"
 	expect(normalizeApiPrefix(" /api/v2/ ", "/api/v1")).toBe("/api/v2");
 	expect(normalizeApiPrefix("/api/v999", "/api/v2")).toBe("/api/v2");
 	expect(normalizeApiPrefix(undefined)).toBe("/api/v1");
+});
+
+test("健康知识公共错误码使用稳定中文文案，不回退到内部英文信息", () => {
+	const messages = [
+		["health-knowledge-unavailable", "健康知识内容暂时不可用，请稍后重试"],
+		["health-knowledge-query-invalid", "健康知识查询条件不合法"],
+		["health-knowledge-not-found", "未找到对应的健康知识内容"],
+	] as const;
+
+	for (const [code, message] of messages) {
+		expect(localizedApiErrorMessage(code, "internal provider error")).toBe(
+			message,
+		);
+	}
 });
 
 test("本地缓存 token 必须通过与登录响应相同的安全边界", () => {

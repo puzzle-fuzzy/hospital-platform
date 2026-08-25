@@ -377,6 +377,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 400 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
 | 400 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
 | 400 | `report-query-invalid` | 报告查询条件不合法 |
+| 400 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
 | 400 | `patient-query-invalid` | 就诊人查询上下文不合法 |
 | 400 | `payment-order-invalid` | 创建订单输入不合法 |
 | 400 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |
@@ -387,6 +388,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | `report-not-found` | 报告详情不可用或尚未通过 gate |
+| 404 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |
 | 404 | `payment-order-not-found` | 订单不存在或不属于当前用户 |
 | 404 | `payment-quote-not-found` | 服务端报价不存在 |
 | 409 | `payment-quote-expired` | 服务端报价已过期，必须重新获取报价 |
@@ -405,6 +407,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 502 | `provider-request-rejected` | provider 明确拒绝请求，不能盲目重试 |
 | 502 | `provider-response-invalid` | provider 返回的数据违反平台读模型，不能作为患者端业务事实 |
 | 503 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |
+| 503 | `health-knowledge-unavailable` | 健康知识没有可用的已发布版本，或发布窗口发生冲突 |
 | 503 | `persistence-temporarily-unavailable` | 数据库、Redis 或 schema 暂时不可用 |
 | 503 | `provider-temporarily-unavailable` | provider 暂时不可用，可按策略重试 |
 | 500 | `unknown` | 未分类服务异常；页面不得根据此码推断业务结果 |
