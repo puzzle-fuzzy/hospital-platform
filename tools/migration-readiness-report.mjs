@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
 import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
+import { buildHealthKnowledgeReviewQueue } from "./health-knowledge-review-queue.mjs";
+import { auditLegacyHealthKnowledgeSourceFile } from "./health-knowledge-source-audit.mjs";
 import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
 import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
@@ -232,9 +234,13 @@ async function runtimeProvenance(root) {
  */
 async function healthContentCoverage(root) {
 	const reviewedBundlePath = ".local/health-knowledge/reviewed-bundle.json";
+	const sourceSnapshotPath =
+		".local/health-knowledge/legacy-source-snapshot.json";
 	const absolutePath = resolve(root, reviewedBundlePath);
+	const sourceSnapshotFile = Bun.file(resolve(root, sourceSnapshotPath));
 	const file = Bun.file(absolutePath);
 	const present = await file.exists();
+	const sourceSnapshotPresent = await sourceSnapshotFile.exists();
 	const bundle = present ? await readJsonIfExists(absolutePath) : null;
 	const jsonValid = present && bundle !== null && bundle.invalid !== true;
 	const publication =
@@ -246,9 +252,37 @@ async function healthContentCoverage(root) {
 			? publication.status
 			: null;
 
+	/**
+	 * 源快照只用于审核盘点，不能因为它存在就进入患者端发布链。
+	 * 审核失败时只输出稳定的 `invalid-source`，不把底层解析错误或正文带入
+	 * readiness 报告；没有快照的 CI/新环境则明确标记为 `missing`。
+	 */
+	let sourceSnapshotAudit = null;
+	let reviewQueue = null;
+	let sourceSnapshotStatus = sourceSnapshotPresent
+		? "pending-audit"
+		: "missing";
+	if (sourceSnapshotPresent) {
+		try {
+			sourceSnapshotAudit = await auditLegacyHealthKnowledgeSourceFile(
+				root,
+				sourceSnapshotPath,
+			);
+			reviewQueue = buildHealthKnowledgeReviewQueue(sourceSnapshotAudit);
+			sourceSnapshotStatus = "audited";
+		} catch {
+			sourceSnapshotStatus = "invalid-source";
+		}
+	}
+
 	return {
 		routeRegistered: true,
 		codeReady: true,
+		sourceSnapshotPath,
+		sourceSnapshotPresent,
+		sourceSnapshotStatus,
+		sourceSnapshotAudit,
+		reviewQueue,
 		reviewedBundlePath,
 		reviewedBundlePresent: present,
 		reviewedBundleJsonValid: jsonValid,

@@ -43,6 +43,19 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.healthContent.codeReady).toBe(true);
 		expect(report.healthContent.reviewedBundlePresent).toBe(false);
 		expect(report.healthContent.businessReady).toBe(false);
+		if (report.healthContent.sourceSnapshotPresent) {
+			expect(report.healthContent.sourceSnapshotStatus).toBe("audited");
+			expect(report.healthContent.reviewQueue).toMatchObject({
+				publishable: false,
+				passed: false,
+			});
+			expect(
+				report.healthContent.reviewQueue.unresolvedGateCount,
+			).toBeGreaterThan(0);
+		} else {
+			expect(report.healthContent.sourceSnapshotStatus).toBe("missing");
+			expect(report.healthContent.reviewQueue).toBeNull();
+		}
 		expect(report.runtime.candidateRuntimeAligned).toBe(false);
 		expect(report.runtime.publicationRequired).toBe(true);
 		expect(report.deviceEvidence.domainCount).toBe(9);
