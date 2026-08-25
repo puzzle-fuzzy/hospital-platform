@@ -76,6 +76,15 @@ describe("全量阻断业务域准入目录", () => {
 				?.contractFamily,
 		).toBe("external-session");
 		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "consultation")
+				?.migrationBatch,
+		).toBe("E-external-entry");
+		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find(
+				(gate) => gate.id === "electronic-consultation",
+			)?.migrationBatch,
+		).toBe("C-clinical-readonly-contracts");
+		expect(
 			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "health-test")
 				?.contractFamily,
 		).toBe("clinical-content-write");

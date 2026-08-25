@@ -39,8 +39,8 @@ describe("全项目迁移 readiness 报告", () => {
 			},
 			{
 				batchId: "C-clinical-readonly-contracts",
-				gateCount: 5,
-				legacyEntryCount: 5,
+				gateCount: 4,
+				legacyEntryCount: 4,
 				legacyActionCount: 0,
 			},
 			{
@@ -51,8 +51,8 @@ describe("全项目迁移 readiness 报告", () => {
 			},
 			{
 				batchId: "E-external-entry",
-				gateCount: 7,
-				legacyEntryCount: 2,
+				gateCount: 8,
+				legacyEntryCount: 3,
 				legacyActionCount: 6,
 			},
 			{
@@ -92,6 +92,34 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.clinicalContract.structuredGate.passed).toBe(true);
 		expect(report.clinicalContract.structuredGate.domains).toHaveLength(4);
 		expect(report.clinicalContract.passed).toBe(true);
+		expect(report.contractIntake).toMatchObject({
+			laneCount: 3,
+			coveredFeatureKeyCount: 24,
+			duplicatedFeatureKeys: [],
+			uncoveredFeatureKeys: [],
+			businessReady: false,
+			passed: true,
+		});
+		expect(report.contractIntake.lanes).toMatchObject([
+			{
+				batchId: "C-clinical-readonly-contracts",
+				status: "awaiting-formal-contract",
+				gateCount: 4,
+				businessReady: false,
+			},
+			{
+				batchId: "D-patient-and-convenience-write",
+				status: "awaiting-formal-contract",
+				gateCount: 12,
+				businessReady: false,
+			},
+			{
+				batchId: "E-external-entry",
+				status: "awaiting-formal-contract",
+				gateCount: 8,
+				businessReady: false,
+			},
+		]);
 		expect(report.healthContent.routeRegistered).toBe(true);
 		expect(report.healthContent.codeReady).toBe(true);
 		expect(report.healthContent.reviewedBundlePresent).toBe(false);
@@ -136,9 +164,9 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[4].blockedPageCount).toBe(9);
 		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
 		expect(report.migrationQueue[0].frozenGateCount).toBe(3);
-		expect(report.migrationQueue[2].frozenGateCount).toBe(5);
+		expect(report.migrationQueue[2].frozenGateCount).toBe(4);
 		expect(report.migrationQueue[3].frozenGateCount).toBe(12);
-		expect(report.migrationQueue[4].frozenGateCount).toBe(7);
+		expect(report.migrationQueue[4].frozenGateCount).toBe(8);
 		expect(report.migrationQueue[5].frozenGateCount).toBe(7);
 		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
 		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);

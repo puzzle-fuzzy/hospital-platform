@@ -6,6 +6,7 @@ import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
 import { buildHealthKnowledgeReviewQueue } from "./health-knowledge-review-queue.mjs";
 import { auditLegacyHealthKnowledgeSourceFile } from "./health-knowledge-source-audit.mjs";
 import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
+import { auditMigrationContractIntake } from "./migration-contract-intake-catalog.mjs";
 import { auditReadOnlyDomains } from "./read-only-domain-audit.mjs";
 import {
 	FROZEN_DOMAIN_GATE_CATALOG,
@@ -587,7 +588,7 @@ function breadthMigrationQueue({
 			nextAction:
 				"分别收集请求、响应、空、拒绝、超时、owner 映射和字段白名单材料",
 			stopCondition:
-				"未确认 Provider contract 前，不注册病历、住院、医生关系或问诊通用 API",
+				"未确认 Provider contract 前，不注册病历、住院、医生关系或电子导诊通用 API",
 		},
 		{
 			id: "D-patient-and-convenience-write",
@@ -612,11 +613,14 @@ function breadthMigrationQueue({
 			...gateCoverageFor("E-external-entry"),
 			stage: "awaiting-external-contract",
 			scope: [
+				"guide",
+				"companion",
 				"smart-customer",
 				"consultation",
 				"patient-subscription",
-				"cloud-image",
+				"report-cloud-image",
 				"report-share",
+				"report-follow-up",
 			],
 			blockedPageCount: statusCounts["blocked-external"] ?? 0,
 			codeReady: false,
@@ -672,6 +676,7 @@ export async function buildMigrationReadinessReport(
 	const deviceEvidence = await deviceEvidenceCoverage(root, runtime.pending);
 	const healthContent = await healthContentCoverage(root);
 	const clinicalContract = await buildClinicalContractAudit(root);
+	const contractIntake = auditMigrationContractIntake();
 	// 入口广度必须进入总结构门禁：只登记了 action 而没有真实分发分支，
 	// 会把“能看见入口”误报成“已经接入业务”，因此这里统一 fail-closed。
 	const nativePageCount = Array.isArray(appConfig.pages)
@@ -686,6 +691,7 @@ export async function buildMigrationReadinessReport(
 		readOnly.passed &&
 		providerIntake.passed &&
 		clinicalContract.passed &&
+		contractIntake.passed &&
 		migrationBreadth.passed &&
 		featureStatusRegistered;
 	const migrationQueue = breadthMigrationQueue({
@@ -711,6 +717,7 @@ export async function buildMigrationReadinessReport(
 		readOnly,
 		providerIntake,
 		clinicalContract,
+		contractIntake,
 		migrationBreadth,
 		healthContent,
 		runtime,
