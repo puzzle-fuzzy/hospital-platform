@@ -552,7 +552,9 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onFloatingGuide() {
-		wx.showToast({ title: "智能客服功能迁移中", icon: "none" });
+		// 悬浮按钮也是首页可见入口，不能只弹 Toast 后停留在原页；统一进入
+		// 固定 key 的状态页，保证用户知道入口仍在迁移，并避免误打开旧 WebView。
+		navigateToFeatureStatus("smart-customer");
 	},
 
 	executeQuickAction(action?: string): void {

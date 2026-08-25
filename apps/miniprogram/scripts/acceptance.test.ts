@@ -1191,6 +1191,7 @@ test("患者范围只读页面阻断跨会话本地列表事件", async () => {
 
 test("native my page separates ordinary profile from family patient selection", async () => {
 	const app = await source("app.json");
+	const home = await source("pages/index/index.ts");
 	const my = await source("pages/my/my.ts");
 	const template = await source("pages/my/my.wxml");
 	const profile = await source("pages/profile/profile.ts");
@@ -1313,6 +1314,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('case "electronic-consultation"');
 	expect(my).toContain('case "smart-customer"');
 	expect(my).toContain("navigateToFeatureStatus");
+	expect(home).toContain("onFloatingGuide");
+	expect(home).toContain('navigateToFeatureStatus("smart-customer")');
+	expect(home).not.toContain('title: "智能客服功能迁移中"');
 	expect(featureNavigation).toContain("医保电子凭证需要独立授权");
 	expect(featureNavigation).toContain("FEATURE_STATUS_CATALOG");
 	expect(featureNavigation).toContain("encodeURIComponent(feature)");
