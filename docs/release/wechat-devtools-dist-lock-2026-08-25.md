@@ -4,13 +4,15 @@
 
 当前 `apps/miniprogram/dist` 无法被候选运行包原子替换，原因是微信开发者工具仍将该目录作为本地小程序项目打开。构建脚本已经完成编译、类型检查、运行包生成和候选留存；失败发生在最后的目录替换阶段，错误为 Windows `EBUSY`。
 
+> **当前候选事实（2026-08-25）**：本文下方如果出现 `f97f9f0`，仅表示上一历史候选；当前待发布运行包是 `7627843a`，完整来源为 `7627843aa48ffe18651a5e5162202cbd0fd5d594`，共 20 个页面。发布和真机取证只能使用当前候选，不能使用历史候选的证据清单。
+
 这不是服务端故障，也不是小程序业务代码编译失败。它只阻止“把已验证候选发布到开发者工具当前打开的 dist 目录”，不影响旧服务、数据库、Redis 或当前已打开的旧运行包。
 
 ## 证据
 
-- `pnpm --filter @hospital/miniprogram test`：`271 pass / 0 fail`。
+- `pnpm --filter @hospital/miniprogram test`：当前候选 `276 pass / 0 fail / 2915 expect()`。
 - `pnpm --filter @hospital/miniprogram typecheck`：通过。
-- `pnpm --filter @hospital/miniprogram runtime:verify:pending`：通过，候选来源为 `f97f9f0`，包含 20 个页面和根文件。
+- `pnpm --filter @hospital/miniprogram runtime:verify:pending`：通过，候选来源为 `7627843a`，包含 20 个页面和根文件。
 - `pnpm --filter @hospital/miniprogram build`：编译和候选生成通过；发布阶段因为 `EBUSY` 保留候选，没有覆盖旧 `dist`。
 - Windows 微信开发者工具本地工作区记录显示，当前项目路径为：
   `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`。
@@ -33,7 +35,7 @@ pnpm --filter @hospital/miniprogram runtime:publish-pending
 pnpm --filter @hospital/miniprogram runtime:verify
 ```
 
-若仍然返回 `EBUSY`，只做只读诊断并重新确认工作区路径，不删除 `dist`，也不回滚源码。发布成功后，按 `docs/release/device-evidence-f97f9f0-pending.json` 中的 9 个业务域逐项采集页面、客户端 requestId、服务端日志和 Provider 低敏 requestId；未采集的域仍保持 `pending`。
+若仍然返回 `EBUSY`，只做只读诊断并重新确认工作区路径，不删除 `dist`，也不回滚源码。发布成功后，按 `docs/release/device-evidence-7627843-pending.json` 中的 9 个业务域逐项采集页面、客户端 requestId、服务端日志和 Provider 低敏 requestId；未采集的域仍保持 `pending`。
 
 ## 当前迁移边界
 
