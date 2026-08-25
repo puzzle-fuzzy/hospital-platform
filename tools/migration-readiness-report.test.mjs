@@ -24,6 +24,9 @@ describe("全项目迁移 readiness 报告", () => {
 			),
 		).toMatchObject({ pageCount: 2, blockedPageCount: 0 });
 		expect(report.entryCoverage.passed).toBe(true);
+		expect(report.migrationBreadth.passed).toBe(true);
+		expect(report.migrationBreadth.pages).toHaveLength(2);
+		expect(report.migrationBreadth.tabBarPageCount).toBe(4);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.passed).toBe(true);
 		expect(report.providerIntake.documentCount).toBe(4);

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
 import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
+import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
 import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -452,6 +453,9 @@ export async function buildMigrationReadinessReport(
 	const deviceEvidence = await deviceEvidenceCoverage(root, runtime.pending);
 	const healthContent = await healthContentCoverage(root);
 	const clinicalContract = await buildClinicalContractAudit(root);
+	// 入口广度必须进入总结构门禁：只登记了 action 而没有真实分发分支，
+	// 会把“能看见入口”误报成“已经接入业务”，因此这里统一 fail-closed。
+	const migrationBreadth = await auditMigrationBreadth(root);
 	const nativePageCount = Array.isArray(appConfig.pages)
 		? appConfig.pages.length
 		: 0;
@@ -463,6 +467,7 @@ export async function buildMigrationReadinessReport(
 		readOnly.passed &&
 		providerIntake.passed &&
 		clinicalContract.passed &&
+		migrationBreadth.passed &&
 		featureStatusRegistered;
 	const migrationQueue = breadthMigrationQueue({
 		legacy,
@@ -485,6 +490,7 @@ export async function buildMigrationReadinessReport(
 		readOnly,
 		providerIntake,
 		clinicalContract,
+		migrationBreadth,
 		healthContent,
 		runtime,
 		deviceEvidence,
