@@ -7,6 +7,14 @@ describe("临床四域合同门禁", () => {
 
 		expect(report.domainCount).toBe(4);
 		expect(report.intakeStatus).toBe("normalized");
+		expect(report.structuredGate.status).toBe("normalized");
+		expect(report.structuredGate.domains).toHaveLength(4);
+		expect(
+			report.structuredGate.domains.every(
+				(domain) => domain.contractStatus === "pending",
+			),
+		).toBe(true);
+		expect(report.structuredGate.passed).toBe(true);
 		expect(report.domains.every((domain) => domain.passed)).toBe(true);
 		expect(report.forbiddenRuntimeEntries).toEqual([]);
 		expect(report.passed).toBe(true);

@@ -1,6 +1,7 @@
 # 临床只读域并行准入清单（2026-08-25）
 
 > 当前状态：`normalized`（旧端事实已登记和标准化，Provider contract 未确认、接口未注册、业务未开放）
+> 结构化准入状态见 [`clinical-read-models-contract-gate.json`](clinical-read-models-contract-gate.json)。该文件只记录各域证据材料是否到位，不是患者端 fixture，也不授权注册 API；当前四域必须保持 `contractStatus=pending`。
 > 文档版本/发布日期：`v1.0` / `2026-08-25`
 > 适用环境：旧项目源码审计与新项目迁移设计；不代表 sandbox、staging、production 或当前医院环境已授权。
 

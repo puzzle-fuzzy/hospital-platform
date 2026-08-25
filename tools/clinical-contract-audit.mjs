@@ -3,12 +3,126 @@ import { fileURLToPath } from "node:url";
 import { CLINICAL_DOMAIN_CATALOG } from "./clinical-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+const STRUCTURED_GATE_PATH =
+	"docs/provider-intake/clinical-read-models-contract-gate.json";
+const REQUIRED_GATE_FIELDS = [
+	"contractStatus",
+	"requestSample",
+	"successSample",
+	"emptySample",
+	"rejectedSample",
+	"timeoutSample",
+	"ownerMapping",
+	"fieldAllowlist",
+	"redactionRule",
+];
 
 /** 读取新仓库文件；该审计不访问旧项目、数据库、Redis 或 Provider。 */
 async function readText(root, relativePath) {
 	const file = Bun.file(resolve(root, relativePath));
 	if (!(await file.exists())) return null;
 	return file.text();
+}
+
+/** 读取结构化准入记录；JSON 损坏必须进入审计失败，不能降级为空对象。 */
+async function readJson(root, relativePath) {
+	const file = Bun.file(resolve(root, relativePath));
+	if (!(await file.exists())) return null;
+	try {
+		return await file.json();
+	} catch {
+		return { __invalidJson: true };
+	}
+}
+
+function isPlainObject(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyText(value) {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * 审计四域结构化准入卡片。
+ *
+ * narrative 文档用于保留旧端事实和业务解释，JSON 卡片用于固定每个域的
+ * 证据状态。只有 `pending/missing` 才能保持当前未注册门禁；如果有人把某
+ * 个字段直接改成 `confirmed`，审计会失败，必须先走正式 contract、adapter
+ * 和 API 的独立准入流程，不能只改一行状态文字。
+ */
+function buildStructuredGateAudit(value) {
+	const failures = [];
+	if (!isPlainObject(value) || value.__invalidJson === true) {
+		return {
+			status: "missing",
+			domains: [],
+			failures: [`缺少或无法解析结构化准入记录：${STRUCTURED_GATE_PATH}`],
+			passed: false,
+		};
+	}
+	if (value.schemaVersion !== 1) {
+		failures.push("结构化临床准入记录 schemaVersion 必须为 1");
+	}
+	if (value.status !== "normalized") {
+		failures.push("结构化临床准入记录 status 必须保持 normalized");
+	}
+	if (value.registration !== "unregistered") {
+		failures.push("结构化临床准入记录 registration 必须保持 unregistered");
+	}
+	if (!Array.isArray(value.domains)) {
+		return {
+			status: typeof value.status === "string" ? value.status : "invalid",
+			domains: [],
+			failures: [...failures, "结构化临床准入记录 domains 必须为数组"],
+			passed: false,
+		};
+	}
+
+	const expectedIds = new Set(
+		CLINICAL_DOMAIN_CATALOG.map((domain) => domain.id),
+	);
+	const seenIds = new Set();
+	for (const [index, domain] of value.domains.entries()) {
+		if (!isPlainObject(domain) || typeof domain.id !== "string") {
+			failures.push(`结构化临床准入记录 domains[${index}] 缺少 id`);
+			continue;
+		}
+		if (!expectedIds.has(domain.id)) {
+			failures.push(`结构化临床准入记录出现未知域：${domain.id}`);
+		}
+		if (seenIds.has(domain.id)) {
+			failures.push(`结构化临床准入记录重复域：${domain.id}`);
+		}
+		seenIds.add(domain.id);
+		if (domain.contractStatus !== "pending") {
+			failures.push(`${domain.id}.contractStatus 必须保持 pending`);
+		}
+		for (const field of REQUIRED_GATE_FIELDS.slice(1)) {
+			if (domain[field] !== "missing" && domain[field] !== "pending") {
+				failures.push(`${domain.id}.${field} 必须是 missing 或 pending`);
+			}
+		}
+		if (!nonEmptyText(domain.nextAction)) {
+			failures.push(`${domain.id}.nextAction 不能为空`);
+		}
+	}
+	for (const domain of CLINICAL_DOMAIN_CATALOG) {
+		if (!seenIds.has(domain.id)) {
+			failures.push(`结构化临床准入记录缺少域：${domain.id}`);
+		}
+	}
+
+	return {
+		status: typeof value.status === "string" ? value.status : "invalid",
+		domains: value.domains.filter(isPlainObject).map((domain) => ({
+			id: domain.id,
+			contractStatus: domain.contractStatus,
+			nextAction: domain.nextAction,
+		})),
+		failures,
+		passed: failures.length === 0,
+	};
 }
 
 function findLegacyEntry(catalog, path) {
@@ -35,8 +149,14 @@ export async function buildClinicalContractAudit(root = repositoryRoot) {
 		root,
 		"docs/provider-intake/clinical-read-models-2026-08-25.md",
 	);
+	const structuredGate = buildStructuredGateAudit(
+		await readJson(root, STRUCTURED_GATE_PATH),
+	);
 	const failures = [];
 	const domains = [];
+	failures.push(
+		...structuredGate.failures.map((failure) => `结构化准入卡片：${failure}`),
+	);
 
 	if (!intakeDocument) {
 		failures.push("缺少临床 Provider 接收记录");
@@ -154,6 +274,7 @@ export async function buildClinicalContractAudit(root = repositoryRoot) {
 		schemaVersion: 1,
 		domainCount: CLINICAL_DOMAIN_CATALOG.length,
 		intakeStatus: intakeDocument ? "normalized" : "missing",
+		structuredGate,
 		domains,
 		forbiddenRuntimeEntries,
 		passed: failures.length === 0,
