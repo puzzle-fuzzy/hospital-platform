@@ -2497,6 +2497,7 @@ test("native blocked domains keep one explicit current-patient context", async (
 			"services/clinical-entry-surface.ts",
 			"services/clinical-content-surface.ts",
 			"services/provider-entry-surface.ts",
+			"services/external-entry-surface.ts",
 		].map((file) => source(file)),
 	);
 	const templates = await Promise.all(
@@ -2504,6 +2505,7 @@ test("native blocked domains keep one explicit current-patient context", async (
 			"pages/medical-record/medical-record.wxml",
 			"pages/admission-preconsultation/admission-preconsultation.wxml",
 			"pages/appointment-detail/appointment-detail.wxml",
+			"pages/consultation/consultation.wxml",
 		].map((file) => source(file)),
 	);
 
@@ -2521,6 +2523,8 @@ test("native blocked domains keep one explicit current-patient context", async (
 		expect(factory).toContain("onRetry");
 		expect(factory).toContain("onUnload");
 	}
+	expect(factorySources[3]).toContain("showPatientSelector: true");
+	expect(factorySources[3]).toContain('feature === "consultation"');
 	for (const template of templates) {
 		expect(template).toContain("当前就诊人");
 		expect(template).toContain("currentPatientName");

@@ -1,8 +1,14 @@
+import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
 } from "./migration-coverage";
-import { navigateToFeatureStatus, type FeatureKey } from "./feature-navigation";
+import {
+	disposePatientSurfaceContext,
+	INITIAL_PATIENT_SURFACE_CONTEXT,
+	loadPatientSurfaceContext,
+	type PatientSurfaceContextData,
+} from "./patient-surface-context";
 
 export type ExternalEntrySurfaceFeature =
 	| "smart-customer"
@@ -10,6 +16,7 @@ export type ExternalEntrySurfaceFeature =
 	| "patient-subscription";
 
 type ExternalEntrySurfaceDefinition = {
+	showPatientSelector: boolean;
 	scopeTitle: string;
 	scopeDescription: string;
 	boundaryItems: ReadonlyArray<string>;
@@ -25,6 +32,7 @@ const EXTERNAL_ENTRY_SURFACE_DEFINITIONS: Readonly<
 	Record<ExternalEntrySurfaceFeature, ExternalEntrySurfaceDefinition>
 > = Object.freeze({
 	"smart-customer": {
+		showPatientSelector: false,
 		scopeTitle: "智能客服入口范围",
 		scopeDescription:
 			"智能客服可能承载外部会话或 WebView，当前只展示迁移状态，不会打开旧域名或转交登录态。",
@@ -40,6 +48,7 @@ const EXTERNAL_ENTRY_SURFACE_DEFINITIONS: Readonly<
 		],
 	},
 	consultation: {
+		showPatientSelector: true,
 		scopeTitle: "问诊记录入口范围",
 		scopeDescription:
 			"问诊记录涉及外部会话和患者归属，当前不会把问诊会话当成普通就诊人列表。",
@@ -55,6 +64,7 @@ const EXTERNAL_ENTRY_SURFACE_DEFINITIONS: Readonly<
 		],
 	},
 	"patient-subscription": {
+		showPatientSelector: false,
 		scopeTitle: "微信消息订阅范围",
 		scopeDescription:
 			"本地勾选只能表达页面意图，不能代表微信订阅授权或消息发送成功，当前不修改授权状态。",
@@ -71,9 +81,10 @@ const EXTERNAL_ENTRY_SURFACE_DEFINITIONS: Readonly<
 	},
 });
 
-export type ExternalEntrySurfacePageData = {
+export type ExternalEntrySurfacePageData = PatientSurfaceContextData & {
 	title: string;
 	icon: string;
+	showPatientSelector: boolean;
 	surfaceLabel: string;
 	description: string;
 	scopeTitle: string;
@@ -89,8 +100,10 @@ function toPageData(
 ): ExternalEntrySurfacePageData {
 	const definition = EXTERNAL_ENTRY_SURFACE_DEFINITIONS[feature];
 	return {
+		...INITIAL_PATIENT_SURFACE_CONTEXT,
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
+		showPatientSelector: definition.showPatientSelector,
 		surfaceLabel: "原生入口已迁移 · 外部会话仍关闭",
 		description:
 			"当前页面只承接入口和安全说明，不会打开任意外部地址，不会传递平台 token，也不会把本地状态伪装成授权成功。",
@@ -113,6 +126,16 @@ export function registerExternalEntrySurfacePage(
 			const coverage = getFeatureMigrationCoverage(feature);
 			this.setData(toPageData(feature, coverage));
 			wx.setNavigationBarTitle({ title: coverage.feature.title });
+			if (feature === "consultation") void this.loadPatientContext();
+		},
+		onShow() {
+			if (this.data.patientContextLoaded) void this.loadPatientContext();
+		},
+		loadPatientContext() {
+			return loadPatientSurfaceContext(this, `external-surface-${feature}`);
+		},
+		onOpenPatientSelector() {
+			wx.navigateTo({ url: "/pages/patient-select/patient-select" });
 		},
 		onOpenMigrationStatus() {
 			navigateToFeatureStatus(feature as FeatureKey);
@@ -120,10 +143,20 @@ export function registerExternalEntrySurfacePage(
 		onBackHome() {
 			wx.switchTab({ url: "/pages/index/index" });
 		},
+		onRetry() {
+			if (!this.data.patientContextLoading) void this.loadPatientContext();
+		},
+		onUnload() {
+			disposePatientSurfaceContext(this);
+		},
 	});
 }
 
 type ExternalEntrySurfacePageMethods = {
+	loadPatientContext(): Promise<void>;
+	onOpenPatientSelector(): void;
 	onOpenMigrationStatus(): void;
 	onBackHome(): void;
+	onRetry(): void;
+	onUnload(): void;
 };

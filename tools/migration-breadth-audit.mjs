@@ -175,7 +175,12 @@ function extractPageMethods(source) {
 		);
 	}
 	if (source.includes("registerExternalEntrySurfacePage(")) {
-		methods.push("onOpenMigrationStatus", "onBackHome");
+		methods.push(
+			"onOpenPatientSelector",
+			"onRetry",
+			"onOpenMigrationStatus",
+			"onBackHome",
+		);
 	}
 	if (source.includes("registerProviderEntrySurfacePage(")) {
 		methods.push(
