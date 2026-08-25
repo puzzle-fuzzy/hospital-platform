@@ -30,6 +30,8 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(20);
 		expect(report.migrationBreadth.interactionAudit.failures).toEqual([]);
 		expect(report.readOnly.domainCount).toBe(5);
+		expect(report.readOnly.semanticStateCount).toBe(35);
+		expect(report.readOnly.semanticFailures).toEqual([]);
 		expect(report.readOnly.passed).toBe(true);
 		expect(report.providerIntake.documentCount).toBe(4);
 		expect(report.providerIntake.documentIdCount).toBe(31);

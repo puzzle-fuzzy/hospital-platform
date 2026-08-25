@@ -6,6 +6,7 @@ import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
 import { buildHealthKnowledgeReviewQueue } from "./health-knowledge-review-queue.mjs";
 import { auditLegacyHealthKnowledgeSourceFile } from "./health-knowledge-source-audit.mjs";
 import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
+import { auditReadOnlyDomains } from "./read-only-domain-audit.mjs";
 import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -103,6 +104,7 @@ function legacyCoverage() {
 
 async function readOnlyCoverage(root) {
 	const domains = [];
+	const semanticAudit = await auditReadOnlyDomains();
 	for (const domain of READ_ONLY_DOMAIN_CATALOG) {
 		const pageFiles = domain.pages.flatMap((page) =>
 			["ts", "json", "wxml", "wxss"].map(
@@ -138,7 +140,13 @@ async function readOnlyCoverage(root) {
 	}
 	return {
 		domainCount: domains.length,
-		passed: domains.every((domain) => domain.passed),
+		// readiness 必须复用 readonly:audit 的业务语义结果；否则单独审计
+		// 已经阻止“错误伪装为空”，总报告却可能仍把结构标成通过。
+		semanticStateCount: semanticAudit.semanticStateCount,
+		semanticFailures: semanticAudit.failures,
+		passed:
+			domains.every((domain) => domain.passed) &&
+			semanticAudit.failures.length === 0,
 		domains,
 	};
 }
