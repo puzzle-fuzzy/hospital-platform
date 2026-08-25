@@ -99,6 +99,25 @@ describe("临床 contract 材料包审计", () => {
 		expect(() => validateClinicalContractPacket(inlinePayload)).toThrow(
 			"unknown field",
 		);
+
+		const traversalLocation = buildPacket();
+		traversalLocation.samples[0].payloadLocation =
+			"secure-store/../raw/provider";
+		expect(() => validateClinicalContractPacket(traversalLocation)).toThrow(
+			"controlled relative storage location",
+		);
+
+		const absoluteLocation = buildPacket();
+		absoluteLocation.samples[0].payloadLocation = "C:/secure-store/provider";
+		expect(() => validateClinicalContractPacket(absoluteLocation)).toThrow(
+			"controlled relative storage location",
+		);
+
+		const controlCharacterLocation = buildPacket();
+		controlCharacterLocation.samples[0].payloadLocation = `secure-store/clinical/${String.fromCharCode(0)}`;
+		expect(() =>
+			validateClinicalContractPacket(controlCharacterLocation),
+		).toThrow("controlled relative storage location");
 	});
 
 	test("客户端 owner 输入和 Provider 身份边界不能被放宽", () => {

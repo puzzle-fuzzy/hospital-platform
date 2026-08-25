@@ -84,6 +84,39 @@ function requiredBoolean(value, path) {
 	return value;
 }
 
+/** 控制字符不能出现在外部材料引用中，使用码点检查避免正则 lint 放行歧义。 */
+function hasControlCharacter(value) {
+	return [...value].some((character) => {
+		const codePoint = character.codePointAt(0);
+		return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+	});
+}
+
+/**
+ * 校验脱敏材料的外部引用，而不是校验材料正文。
+ *
+ * 材料包会进入公开仓库，`payloadLocation` 只能是受控材料库中的相对
+ * opaque 路径。绝对路径、URL、路径穿越和控制字符都会让后续工具有机会
+ * 读取仓库外的文件或把外部资源当成审计证据，因此在最早的准入层拒绝。
+ */
+function controlledPayloadLocation(value, path) {
+	const location = requiredString(value, path, { maxLength: 512 });
+	if (
+		hasControlCharacter(location) ||
+		/^(?:[\\/]|[A-Za-z]:[\\/]|~[\\/])/u.test(location) ||
+		/^[A-Za-z][A-Za-z0-9+.-]*:\/\//u.test(location) ||
+		location
+			.split("/")
+			.some(
+				(segment) => segment === "" || segment === "." || segment === "..",
+			) ||
+		!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(location)
+	) {
+		fail(path, "must reference a controlled relative storage location");
+	}
+	return location;
+}
+
 function assertSha256(value, path) {
 	if (
 		!/^[a-f0-9]{64}$/iu.test(requiredString(value, path, { maxLength: 64 }))
@@ -128,19 +161,12 @@ function parseSamples(value) {
 			kind,
 			documentId: requiredString(sample.documentId, `${path}.documentId`),
 			sha256: sample.sha256,
-			payloadLocation: requiredString(
+			payloadLocation: controlledPayloadLocation(
 				sample.payloadLocation,
 				`${path}.payloadLocation`,
 			),
 		};
 		assertSha256(result.sha256, `${path}.sha256`);
-		// payloadLocation 只能指向受控外部材料库，禁止 data、inline 和 URL。
-		if (/^(?:data:|inline:|https?:\/\/)/iu.test(result.payloadLocation)) {
-			fail(
-				`${path}.payloadLocation`,
-				"must reference controlled external storage",
-			);
-		}
 		return result;
 	});
 	for (const kind of REQUIRED_SAMPLE_KINDS) {

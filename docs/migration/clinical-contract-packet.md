@@ -23,7 +23,7 @@ pnpm clinical:packet:audit -- C:\secure\clinical\outpatient-records.packet.json
 | `domainId` | 四个临床域之一 | 不允许自定义通用 `clinical` 域 |
 | `contractStatus` | `pending` | 工具不能把材料自行升级成 `confirmed` |
 | `source` | documentId、SHA-256、版本、环境 | 只记录来源指纹，不保存原始报文 |
-| `samples` | request、success-non-empty、success-empty、rejected、timeout | 每种恰好一份，正文放受控外部存储 |
+| `samples` | request、success-non-empty、success-empty、rejected、timeout | 每种恰好一份，正文放受控外部存储；`payloadLocation` 只能是无控制字符的 ASCII 相对路径 |
 | `ownerMapping` | 客户端输入和 Provider 身份边界 | 客户端只能提交 `platform-patient-id`，Provider 身份只能 server-only |
 | `fieldAllowlist` | 字段名、公开策略、类型、空值语义、来源引用 | 没有白名单不能进入公共 response |
 | `redactionRule` | response、logs、storage | 必须明确禁止患者身份、Provider ID、正文和原始报文泄露 |
@@ -33,6 +33,7 @@ pnpm clinical:packet:audit -- C:\secure\clinical\outpatient-records.packet.json
 ## 不允许的材料
 
 - 不在 JSON 中放原始请求体、原始响应体、Authorization、token、姓名、身份证号、手机号、卡号、`patId`、`patInHosId` 或医生内部 ID；
+- `payloadLocation` 不得是 URL、`data:`/`inline:`、绝对路径、Windows 盘符、`~` 路径或包含 `.`/`..` 路径段；它只用于引用受控材料库中的相对 opaque 路径；
 - 不把旧接口路径复制成新端公共路由；
 - 不把 `contractStatus` 改成 `confirmed` 来替代 Provider 责任人确认；
 - 不把成功空列表、HTTP 200 或测试 fixture 当成真实业务成功；
