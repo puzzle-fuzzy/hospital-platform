@@ -2,7 +2,7 @@
 
 ## 说明
 
-全量迁移当前不是“把 64 个旧页面都做成能点击”，而是先保证每个入口都有明确落点，再为每个高风险入口冻结独立的 contract。当前有 34 个冻结入口 gate：覆盖 39 个旧页面入口和 13 个 action-only 引用；其中既包括首页/“我的”入口，也包括预约、报告、费用、患者二级动作。它们统一进入 `pages/feature-status/feature-status`，但 Provider、患者身份、临床审核、支付状态机和外部主体不同，不能共用一个兼容接口。
+全量迁移当前不是“把 64 个旧页面都做成能点击”，而是先保证每个入口都有明确落点，再为每个高风险入口冻结独立的 contract。当前有 34 个冻结入口 gate：覆盖 39 个旧页面入口和 13 个 action-only 引用；其中既包括首页/“我的”入口，也包括预约、报告、费用、患者二级动作。大多数入口进入 `pages/feature-status/feature-status`，已经具备安全页面外壳的入口则进入各自原生关闭态；Provider、患者身份、临床审核、支付状态机和外部主体不同，不能共用一个兼容接口。
 
 唯一机器事实源是 [`tools/migration-boundary-catalog.mjs`](../../tools/migration-boundary-catalog.mjs)，入口审计是：
 
@@ -42,7 +42,7 @@ pnpm migration:readiness
 | 智能客服 | `external-session` | `webview.vue`、`我的:smart-customer` | 域名 allowlist、外部受众、短期会话、回跳、退出 | 任意 URL、向 WebView 交付平台 token、长期 ticket |
 | 我的问诊 | `external-session` | `my_consultation.vue` | 外部主体、白名单、短期会话、回跳、退出、撤回 | 任意 WebView、长期 ticket、伪造问诊列表 |
 | 电子导诊单 | `provider-read-only` | `electronic_consultation.vue` | 来源系统、患者上下文、短期会话、回跳 | 伪造导诊单、跨患者读取、未经确认的临床结论 |
-| 患者新增绑定 | `patient-write` | `patientAdd.vue` | 同意、身份核验、幂等、撤回、医护读取 | 仅凭姓名绑定、客户端提交 Provider 患者号、无同意建档 |
+| 患者新增绑定 | `patient-write` | `patientAdd.vue` → `patient-binding` 页面外壳 | 同意、身份核验、幂等、撤回、医护读取 | 仅凭姓名绑定、客户端提交 Provider 患者号、无同意建档 |
 | 入院预问诊 | `clinical-content-write` | `admission_preconsultation.vue` | 题卷版本、授权、幂等、临床审核 | 旧题库结论、无授权提交、问卷当诊断 |
 | 出院随访 | `clinical-content-write` | `discharge_followup*.vue` | 出院事件、随访任务、答案版本、撤回、临床审核 | 跨任务提交、覆盖历史随访、无医护读取规则发布 |
 | 风险评估 | `clinical-content-write` | `risk_*.vue` | 规则版本、适用人群、免责声明、临床审核 | 客户端阈值、个体化诊断、无版本回滚 |
@@ -61,7 +61,7 @@ pnpm migration:readiness
 | 支付收银台 | `payment-write` | `payment_cashier.vue` | 订单归属、金额单位、回调/查单、回滚 | 恢复旧 WebView、任意外部支付地址、客户端确认成功 |
 | 电子账单 | `payment-write` | `electronic_bill.vue` | 账单引用、金额单位、短期资源链接、过期 | 返回原始账单 URL、跨患者读取、把账单当支付成功 |
 | 就诊人协议 | `patient-write` | `agreement.vue` | 协议版本、同意记录、撤回、审计 | 无版本接受、把本地勾选当同意、跨 owner 复用 |
-| 就诊人联系地址 | `patient-write` | `express.vue` | 字段白名单、owner、版本、脱敏 | 仅凭姓名保存、完整地址写日志、覆盖其他患者 |
+| 我的快递 | `provider-read-only` | `express.vue` → `patient-express` 页面外壳 | 物流来源、患者上下文、字段白名单、状态枚举 | 使用旧端空列表冒充成功、跨患者读取、完整单号写日志 |
 | 就诊二维码 | `patient-write` | `首页:patient-qr` | 签名载荷、受众、TTL、防重放、撤销 | 外发 `patId`/卡号、永久二维码、无签名生成 |
 | 就诊人签名 | `patient-write` | `patient_signature.vue` | 用途、文件安全、同意、撤回 | 复用旧端签名、无用途上传、跨患者读取 |
 | 消息订阅 | `external-session` | `subscription_message.vue` | 模板 ID、业务事件、授权结果、撤销 | 把本地开关当授权、未经事件发送、跨用户复用 |

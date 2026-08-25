@@ -1,6 +1,6 @@
 # 全量迁移广度状态（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前源码与 pending 运行包均为 25 个页面，新增四个 `surface-only` 临床页面外壳，`293 pass / 0 fail / 3269 expect()`；pending 已通过 `runtime:verify:pending`，但仍需释放微信开发者工具 `dist` 锁后原子发布，不能把静态校验当作真机业务验收。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；二维码、就诊页及更早候选只作历史追溯，线上服务和旧 Python 服务未修改。
+> **最新候选纠正（2026-08-26）**：当前源码与 pending 运行包均为 28 个页面，新增四个临床和三个患者域 `surface-only` 页面外壳，`293 pass / 0 fail / 3305 expect()`；pending 已通过 `runtime:verify:pending`，但仍需释放微信开发者工具 `dist` 锁后原子发布，不能把静态校验当作真机业务验收。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；二维码、就诊页及更早候选只作历史追溯，线上服务和旧 Python 服务未修改。
 
 > 本轮按广度优先执行的跨域工作板见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
 > 当前不再把单个页面的加固当作项目迁移进度；入口覆盖、只读代码、运行包证据和真实业务 contract 分开统计。
@@ -10,15 +10,15 @@
 
 > **阻断入口准入事实源补充**：34 个冻结入口 gate 已从边界审计脚本抽为 [`tools/migration-boundary-catalog.mjs`](../../tools/migration-boundary-catalog.mjs)，覆盖 39 个旧页面入口和 13 个 action-only 引用；其 contract 家族、通用材料、域特有材料和明确关闭能力见 [`frozen-domain-contract-matrix-2026-08-25.md`](frozen-domain-contract-matrix-2026-08-25.md)。这只强化准入审计，不打开任何阻断业务。
 
-> **当前仓库交接基线（2026-08-26）**：本轮源码和 pending 运行包均为 25 个页面，并保留四个临床 `surface-only` 外壳、显式内容滚动边界、64 个旧入口的显式 A–F 迁移批次归属、逐批次计数和 readiness 覆盖报告；当前没有发布服务端或替换 live 小程序运行包。
+> **当前仓库交接基线（2026-08-26）**：本轮源码和 pending 运行包均为 28 个页面，并保留四个临床和三个患者域 `surface-only` 外壳、显式内容滚动边界、64 个旧入口的显式 A–F 迁移批次归属、逐批次计数和 readiness 覆盖报告；当前没有发布服务端或替换 live 小程序运行包。
 
 ## 1. 当前结论
 
 当前已经完成的是“入口不遗漏、页面不 404、阻塞原因可见”这一层：
 
 - 旧小程序共发现 64 个 Vue 页面，逐页台账覆盖率为 64/64；
-- 新原生小程序当前注册 25 个页面，前 4 个由同一个微信原生 `tabBar` 管理；其中四个临床入口已进入 `surface-only` 页面外壳；
-- 除四个 `surface-only` 外，所有 `blocked-*` 页面统一进入 `pages/feature-status/feature-status`，并绑定固定 `FeatureKey`；
+- 新原生小程序当前注册 28 个页面，前 4 个由同一个微信原生 `tabBar` 管理；其中四个临床和三个患者域入口已进入 `surface-only` 页面外壳；
+- 除七个 `surface-only` 外，所有 `blocked-*` 页面统一进入 `pages/feature-status/feature-status`，并绑定固定 `FeatureKey`；
 - 17 个 `partial` 页面都有安全的原生子集，但不代表旧页面的全部功能已完成；协议静态页另以 `replaced` 计入安全覆盖，真实同意能力仍关闭；
 - 支付、医保、患者新增/绑定、二维码、临床问卷、住院、问诊和外部 WebView 继续关闭；
 - 当前 pending 运行包仍需先释放微信开发者工具对 `dist/` 的文件锁，不能把旧 live 包当作新候选验收证据。
@@ -30,17 +30,17 @@
 > **健康知识 staging 补充（2026-08-25）**：`14fcce5c` 已增加只允许 `DEPLOY_ENV=staging`、必须显式确认、
 > 单事务回滚和低敏 Pino 事件的 bundle 导入命令；当前没有真实 bundle、没有执行 staging/生产导入，健康知识只读路由保持受保护且 fail-closed。
 
-> **广度执行补充（2026-08-26）**：历史候选 `296516a5` 曾补齐健康百科客户端运行时响应校验和报告详情的可恢复读取，后续候选补齐跨会话授权拒绝回调状态保护和未知/过期入口错误语义；当前源码入口状态分布为 `replaced=8 / partial=17 / surface-only=4 / blocked=34 / excluded=1`；
+> **广度执行补充（2026-08-26）**：历史候选 `296516a5` 曾补齐健康百科客户端运行时响应校验和报告详情的可恢复读取，后续候选补齐跨会话授权拒绝回调状态保护和未知/过期入口错误语义；当前源码入口状态分布为 `replaced=8 / partial=17 / surface-only=7 / blocked=31 / excluded=1`；
 > 报告重试会重新验证 owner、会话代际、当前就诊人和服务端 opaque 引用。当前仍按六个业务批次并行推进，
 > 不把一次页面加固误记为全量迁移完成。
 
 机器门禁当前结果：
 
 ```text
-pnpm migration:audit           通过：64 个旧页面、25 个新页面、195 个旧服务路由、87 个旧端接口字面量
+pnpm migration:audit           通过：64 个旧页面、28 个新页面、195 个旧服务路由、87 个旧端接口字面量
 pnpm migration:boundary:audit  通过：34 个冻结入口 gate，39 个旧页面 + 13 个 action-only 引用均有统一状态页和 FeatureKey 门禁；31 次二级/主入口状态调用也纳入审计
-pnpm migration:breadth:audit   通过：首页 22 个、我的 9 个可见 action 均有固定分发；四个主 Tab 均已注册；25 个页面 WXML 事件均有 TS 方法或共享页面工厂
-pnpm migration:readiness       报告生成：A–F gate 批次覆盖为 3/0/4/12/8/7，未分配 gate=0；完整 64 页批次为 A=22、B=4、C=4、D=22、E=4、F=7，另排除 1 页；pending 已为 25 页但健康/contract/真机材料未齐，整体 readiness 继续 fail-closed
+pnpm migration:breadth:audit   通过：首页 22 个、我的 9 个可见 action 均有固定分发；四个主 Tab 均已注册；28 个页面 WXML 事件均有 TS 方法或共享页面工厂
+pnpm migration:readiness       报告生成：A–F gate 批次覆盖为 3/0/4/12/8/7，未分配 gate=0；完整 64 页批次为 A=22、B=4、C=4、D=22、E=4、F=7，另排除 1 页；pending 已为 28 页但健康/contract/真机材料未齐，整体 readiness 继续 fail-closed
 ```
 
 ## 2. 64 个旧入口的真实状态分布
@@ -49,11 +49,11 @@ pnpm migration:readiness       报告生成：A–F gate 批次覆盖为 3/0/4/1
 | --- | ---: | --- | --- |
 | `replaced` | 8 | 已由安全的原生页面或静态页面替换 | 只做真实验收和细节修正 |
 | `partial` | 17 | 已有低风险只读/静态子集，仍有明确未完成边界 | 先补验收，不扩大旧端字段 |
-| `surface-only` | 4 | 页面外壳、患者选择入口和关闭态已经迁移；真实业务仍未开放 | 否 |
+| `surface-only` | 7 | 页面外壳、必要的患者选择入口和关闭态已经迁移；真实业务仍未开放 | 否 |
 | `blocked-provider` | 2 | 等待 HIS/Provider 请求、响应、映射和脱敏 contract | 否 |
 | `blocked-clinical` | 19 | 等待临床审核、题库/规则版本和撤回策略；锦旗/表扬信也必须经过内容审核 | 否 |
 | `blocked-payment` | 7 | 等待金额、订单、支付、查单和 HIS 回写状态机 | 否 |
-| `blocked-patient-contract` | 3 | 等待新增/绑定/地址/签名的 owner、同意和幂等规则；协议正文已可读但同意动作仍关闭 | 否 |
+| `blocked-patient-contract` | 0 | 患者新增绑定、签名和旧端快递页面已经有安全外壳；真实 contract 仍关闭但不再用通用状态页承接 | 否 |
 | `blocked-external` | 3 | 等待外部主体、域名白名单、短期会话和回跳协议 | 否 |
 | `excluded` | 1 | 旧端开发辅助页，不进入生产小程序 | 不迁移 |
 | **合计** | **64** | 逐页有明确落点或明确排除原因 | - |

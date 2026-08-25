@@ -57,6 +57,7 @@
 | `patient-binding` | 新增/绑定就诊人 | 查档、建档、绑定拆成独立命令；异常不能降级为未找到 |
 | `patient-agreement` | 就诊人协议 | 记录版本、同意主体、时间和撤回，不接受本地勾选代替同意 |
 | `patient-address` | 联系地址 | owner 作用域、字段白名单、版本冲突和删除语义先冻结 |
+| `patient-express` | 我的快递 | 旧端只有预留空列表；先冻结物流来源、患者归属、状态枚举和脱敏字段，不把它误当联系地址 |
 | `patient-qr` | 就诊二维码 | 使用签名 opaque payload、受众、TTL、防重放和撤回；不外发 `patId`/卡号 |
 | `patient-signature` | 就诊人签名 | 用途绑定、文件安全、授权、撤回和医护访问分开定义 |
 | `admission-preconsultation` | 入院预问诊 | 版本化问卷、授权、幂等提交和医护读取规则 |
