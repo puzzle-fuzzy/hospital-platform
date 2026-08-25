@@ -10,6 +10,8 @@
 
 # 剩余迁移盘点与下一步计划
 
+> 当前事实源（2026-08-25，优先于下方历史交接）：最新小程序候选为 `c4dc00b9bea82375d79d13eb7c6e78e14e0a569d`，位于 `.local/hospital-miniprogram/pending/`；“就诊”主 Tab 已补齐患者上下文、今日/待就诊/历史三标签和固定高度查询状态壳，但实时队列/WebSocket 仍按 contract 关闭。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。本轮小程序回归为 `253 pass / 0 fail / 2115 expect()`；下方 `b3436c24`、`90d5ab03` 等版本仅作历史交接。
+
 > 当前事实源（2026-08-25）：最新小程序候选为 `b3436c24075063fa36e4c31c04ed28c2ad8a93bd`，位于 `.local/hospital-miniprogram/pending/`；当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。下方早于本条的 `90d5ab03` 等版本仅作历史交接。
 
  > 当前最新小程序候选已推进到 `b3436c24075063fa36e4c31c04ed28c2ad8a93bd`（短提交 `b3436c24`）；候选位于 `.local/hospital-miniprogram/pending/`，当前 live `dist/` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。本页更早的 90d5 和 d54 候选段落仅作历史交接。
