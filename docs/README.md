@@ -1,5 +1,7 @@
-> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`（提交 `a6319d7`）。pending 尚未替换微信开发者工具正在使用的 live `dist`，真实真机业务证据仍待采集。
-> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e` 和本地 pending `a6319d7` 不得互相替代。本文以下旧候选编号均只作历史追溯。
+> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `0d28b7241f40de95f4049d7d2a18e07f6f162268`（提交 `0d28b72`）。pending 尚未替换微信开发者工具正在使用的 live `dist`，真实真机业务证据仍待采集。
+> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e` 和本地 pending `0d28b72` 不得互相替代。本文以下旧候选编号均只作历史追溯。
+
+> **本轮最新修正**：就诊页预约历史固定中国标准时间业务日快照，标签切换和加载更多不再因跨零点重新解释同一批结果；详见 [`release/consult-business-date-snapshot-audit-2026-08-26.md`](release/consult-business-date-snapshot-audit-2026-08-26.md)。运行包、测试和发布锁定边界详见 [`release/candidate-0d28b72-miniprogram-runtime-2026-08-26.md`](release/candidate-0d28b72-miniprogram-runtime-2026-08-26.md)。
 
 > **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；当前小程序候选、pending 证据清单和运行包记录统一以 [`release/candidate-a6319d7-miniprogram-runtime-2026-08-26.md`](release/candidate-a6319d7-miniprogram-runtime-2026-08-26.md) 为准。
 

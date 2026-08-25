@@ -1,4 +1,5 @@
 > **最新事实源（2026-08-26，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。当前小程序 pending 运行输入为 `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`，已完成 20 个页面脚本、`286 pass / 0 fail / 3217 expect()` 和静态门禁；因微信开发者工具锁定 live `dist/`，尚未原子发布，当前 live dist 仍为 `fcc6630e`，不能用旧二维码证明本候选。健康百科只读页面已接入但正式审核 bundle 仍 fail-closed；就诊页未来/历史预约摘要只读展示和分批展开，今日实时队列仍关闭；互联网医院旧入口目前只有独立安全壳，外部 web-view、任意 URL 和万能 ticket 仍关闭；旧端 64 页面逐页落点台账和 34 个冻结入口门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
+> **最新事实源（2026-08-26，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。当前小程序 pending 运行输入为 `0d28b7241f40de95f4049d7d2a18e07f6f162268`，已完成 20 个页面脚本、`288 pass / 0 fail / 3225 expect()` 和静态门禁；因微信开发者工具锁定 live `dist/`，尚未原子发布，当前 live dist 仍为 `fcc6630e`，不能用旧二维码证明本候选。健康百科只读页面已接入但正式审核 bundle 仍 fail-closed；就诊页未来/历史预约摘要只读展示和分批展开，今日实时队列仍关闭，并已固定跨零点业务日快照；互联网医院旧入口目前只有独立安全壳，外部 web-view、任意 URL 和万能 ticket 仍关闭；旧端 64 页面逐页落点台账和 34 个冻结入口门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
 > 2026-08-25 广度迁移补充：健康知识已完成旧库真实源快照的只读导出、稳定 opaque id 映射和质量告警，但 `publicationState` 仍为 `not-approved`；患者端只读 API 已注册但在没有有效 published 版本时 fail-closed。便民旧库存量也已盘点（预问诊 2、随访 4、风险评估 7、我的医生 21、表扬信 4、电子锦旗 4），新端未导入旧正文或快照。详见 [`migration/health-knowledge-import-runbook.md`](migration/health-knowledge-import-runbook.md)、[`release/health-knowledge-source-snapshot-2026-08-25.md`](release/health-knowledge-source-snapshot-2026-08-25.md) 和 [`release/convenience-source-inventory-2026-08-25.md`](release/convenience-source-inventory-2026-08-25.md)。
 > 本轮业务推进顺序：先完成当前候选的四 Tab/患者显式切换/预约历史与爽约/门诊费用只读/普通资料读写证据；客户端 requestId、服务端 Pino trace/业务事件和 Provider 低敏请求号缺一不可。报告详情、门诊病历、二维码、患者绑定、健康内容、实时就诊、互联网医院、支付医保、预约写入、取消和 HIS 回写继续按各自 contract、权限和回滚证据保持关闭。
 > 本地服务端工作树包含另一会话已提交但尚未部署的预约适配器提交 `4404c556`（`packages/adapters/src/zhongyang-appointments.ts`），`release:baseline:audit` 因此会 fail-closed；本会话不修改、不暂存、不部署该文件，也不把本地 adapter 变更宣称为线上能力。
@@ -48,17 +49,17 @@
 
 # 下一阶段实施路线图
 
-> **最新小程序候选事实（2026-08-26）**：当前 pending 来源为 `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`（提交 `a6319d7`），20 个页面，`286 pass / 0 fail / 3217 expect()`；本轮补强全局微信资料授权回调的 owner/会话代际保护。live `dist` 仍为 `fcc6630e`，发布被微信开发者工具锁定；上一候选 `7f7a7a18` 仅作历史追溯。支付、医保、临床、外部 WebView 和预约写入仍按各自 contract 关闭。
+> **最新小程序候选事实（2026-08-26）**：当前 pending 来源为 `0d28b7241f40de95f4049d7d2a18e07f6f162268`（提交 `0d28b72`），20 个页面，`288 pass / 0 fail / 3225 expect()`；本轮补强就诊页业务日快照，跨零点切换标签和加载更多不重新解释同一批预约结果。live `dist` 仍为 `fcc6630e`，发布被微信开发者工具锁定；上一候选 `a6319d7` 仅作历史追溯。支付、医保、临床、外部 WebView 和预约写入仍按各自 contract 关闭。
 
-> **当前广度事实源（2026-08-26，pending `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`）**：旧端 64 个页面已全部登记；新端现有 20 个注册页面，健康百科三个只读页面已接入，统一状态页已展示迁移阶段与旧入口覆盖范围。当前候选 `286 pass / 0 fail / 3217 expect()`，pending 构建等待释放微信开发者工具锁；正式健康内容、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
+> **当前广度事实源（2026-08-26，pending `0d28b7241f40de95f4049d7d2a18e07f6f162268`）**：旧端 64 个页面已全部登记；新端现有 20 个注册页面，健康百科三个只读页面已接入，统一状态页已展示迁移阶段与旧入口覆盖范围。当前候选 `288 pass / 0 fail / 3225 expect()`，pending 构建等待释放微信开发者工具锁；正式健康内容、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
 
-> **当前仓库事实补充（2026-08-26）**：本轮功能交接基线为 `a6319d7`，小程序回归已推进到 `286 pass / 0 fail / 3217 expect()`，pending 来源为 `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`，服务端本地候选仍为 `b42922f4`。本轮修复全局微信资料授权回调边界，不改变线上 `8eb51b5f`、live `dist` 或任何旧服务；上方旧候选段落保留为历史追溯。
+> **当前仓库事实补充（2026-08-26）**：本轮功能交接基线为 `0d28b72`，小程序回归已推进到 `288 pass / 0 fail / 3225 expect()`，pending 来源为 `0d28b7241f40de95f4049d7d2a18e07f6f162268`，服务端本地候选仍为 `b42922f4`。本轮修复就诊页业务日快照边界，不改变线上 `8eb51b5f`、live `dist` 或任何旧服务；上方旧候选段落保留为历史追溯。
 
 > **2026-08-25 广度检查点（提交 `7732c843`）**：旧端 64 个页面的逐页落点、17 个原生页面和五个低风险只读域的闭环审计已经纳入仓库门禁。执行 `pnpm readonly:audit` 会同时检查就诊人、预约、报告、门诊费用、普通资料的页面、Elysia 路由、service/domain/adapter、日志和文档；通过只代表代码闭环完整，不代表 Provider、生产公网或真机业务已经验收。详细矩阵见 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md)。
 
 > 本检查点没有打开新的临床、外部或支付能力：门诊病历、住院、问诊实时、互联网医院、健康内容、患者绑定、二维码、预约写入、支付、医保和 HIS 回写仍按各自 contract 保持关闭。全仓测试当前唯一已知失败仍是另一会话未部署的 `packages/adapters/src/zhongyang-appointments.ts` 触发发布基线门禁；本会话不修改、不暂存、不部署该文件。
 
- > 当前最新小程序代码候选为 `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`，`dist/` 发布被开发者工具锁定，候选已通过 staging 构建、类型检查、旧端 64 页面台账和自动化测试；项目最终固定使用微信原生 `tabBar`。关闭工具后必须先执行 `runtime:publish-pending`，再直接打开独立工程并普通编译核对完整来源指纹。线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序仍未上传微信，真实页面与服务端同链业务证据仍待。本页下方带历史日期的候选只作追溯。
+ > 当前最新小程序代码候选为 `0d28b7241f40de95f4049d7d2a18e07f6f162268`，`dist/` 发布被开发者工具锁定，候选已通过 staging 构建、类型检查、旧端 64 页面台账和自动化测试；项目最终固定使用微信原生 `tabBar`。关闭工具后必须先执行 `runtime:publish-pending`，再直接打开独立工程并普通编译核对完整来源指纹。线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序仍未上传微信，真实页面与服务端同链业务证据仍待。本页下方带历史日期的候选只作追溯。
 
 ## 历史事实源（2026-08-22，仅供追溯）
 

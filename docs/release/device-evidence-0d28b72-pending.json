@@ -1,8 +1,8 @@
 {
 	"candidate": {
 		"serverRelease": "8eb51b5f",
-		"miniProgramCommit": "a6319d7",
-		"sourceRevision": "a6319d79f9f1e940ea5bcbd2ab7fe6500345466f"
+		"miniProgramCommit": "0d28b72",
+		"sourceRevision": "0d28b7241f40de95f4049d7d2a18e07f6f162268"
 	},
 	"startedAt": "2026-08-26T00:00:00+08:00",
 	"domains": {
@@ -52,12 +52,13 @@
 		},
 		"appointmentRecords": {
 			"result": "pending",
-			"reason": "等待预约历史四方链路证据",
+			"reason": "等待预约历史四方链路证据，并核对跨零点业务日快照",
 			"requiredScenarios": [
 				"success-non-empty",
 				"success-empty",
 				"unauthorized",
-				"patient-mapping-failure"
+				"patient-mapping-failure",
+				"tab-switch-after-midnight"
 			]
 		},
 		"missedAppointments": {
