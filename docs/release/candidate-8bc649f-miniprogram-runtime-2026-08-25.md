@@ -1,17 +1,19 @@
-# 小程序候选运行包 `39cbf021`（2026-08-25）
+# 小程序候选运行包 `8bc649f`（2026-08-25）
 
-> 历史候选记录：当前 pending 已更新为 `8bc649f98565ae0caabf219e00426efe2dcaec7e`，本文件只保留 `39cbf021` 的构建追溯，不能作为当前二维码、真机验收或发布依据。
-
-> 本记录只描述本次源码候选的构建和隔离暂存结果，不代表已经发布到微信开发者工具、上传微信或完成真机业务验收。
+> 本记录只描述互联网医院安全壳分类修正后的源码候选构建和隔离暂存结果，不代表已经发布到微信开发者工具、上传微信或完成真机业务验收。
 
 ## 构建事实
 
-- 源码候选：`39cbf0214cbc1506c7a830386185c5d6c69599f0`；
+- 源码候选：`8bc649f98565ae0caabf219e00426efe2dcaec7e`；
 - 运行包来源：`.local/hospital-miniprogram/pending/build-info.json`；
-- pending 来源：`39cbf0214cbc1506c7a830386185c5d6c69599f0`；
+- pending 来源：`8bc649f98565ae0caabf219e00426efe2dcaec7e`；
 - 页面数量：20；
 - 当前 live `apps/miniprogram/dist/`：仍由微信开发者工具锁定，未被覆盖；
 - 旧 Python 服务、线上新 API、数据库和 Redis：本次均未修改。
+
+## 本轮业务边界
+
+互联网医院旧入口已经在迁移台账中准确归类为“部分迁移”：新端主 Tab 只展示安全壳，明确不加载外部 WebView、不接受任意 URL、不复用旧 ticket；外部 audience、HTTPS allowlist、短期会话、回跳和退出 contract 仍未开放。
 
 ## 门禁结果
 
@@ -21,7 +23,7 @@
 验证命令：
 
 ```powershell
-$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "39cbf0214cbc1506c7a830386185c5d6c69599f0"
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "8bc649f98565ae0caabf219e00426efe2dcaec7e"
 pnpm --filter @hospital/miniprogram runtime:verify:pending
 Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
 ```
@@ -37,5 +39,5 @@ pnpm --filter @hospital/miniprogram runtime:publish-pending
 pnpm --filter @hospital/miniprogram runtime:verify
 ```
 
-发布完成后，必须从新的 `dist` 重新编译并使用
-[`device-evidence-39cbf02-pending.json`](device-evidence-39cbf02-pending.json) 记录 9 个只读业务域的页面、客户端 requestId 和服务端同链证据。当前清单全部为 `pending`，不构成业务通过。
+发布完成后，必须从新的 `dist` 重新编译，并使用
+[`device-evidence-8bc649f-pending.json`](device-evidence-8bc649f-pending.json) 记录 9 个只读业务域的页面、客户端 requestId 和服务端同链证据。当前清单全部为 `pending`，不构成业务通过。

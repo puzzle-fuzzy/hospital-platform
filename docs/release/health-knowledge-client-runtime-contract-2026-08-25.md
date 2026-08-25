@@ -1,6 +1,6 @@
 # 健康百科客户端运行时 contract 验收（2026-08-25）
 
-> 历史代码提交：`296516a5`。本记录只覆盖小程序收到 JSON 后的客户端边界，不代表健康内容已经发布、临床审核已经完成，也不代表线上运行包已经替换；当前候选源码为 `39cbf021`，需要按当前 pending 运行包重新取证。
+> 历史代码提交：`296516a5`。本记录只覆盖小程序收到 JSON 后的客户端边界，不代表健康内容已经发布、临床审核已经完成，也不代表线上运行包已经替换；当前候选源码为 `8bc649f`，需要按当前 pending 运行包重新取证。
 
 ## 结论
 
@@ -20,7 +20,7 @@
 
 ```text
 pnpm --filter @hospital/miniprogram typecheck   通过
-pnpm --filter @hospital/miniprogram test        261 pass / 0 fail / 2531 expect()
+pnpm --filter @hospital/miniprogram test        264 pass / 0 fail / 2535 expect()
 pnpm format:check                               通过
 git diff --check                                通过
 ```

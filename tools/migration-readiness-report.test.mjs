@@ -33,7 +33,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.deviceEvidence.passed).toBe(false);
 		expect(report.deviceEvidence.candidateMatchesPendingRuntime).toBe(true);
 		expect(report.deviceEvidence.manifestPath).toBe(
-			"docs/release/device-evidence-39cbf02-pending.json",
+			"docs/release/device-evidence-8bc649f-pending.json",
 		);
 		expect(report.migrationQueue.map((batch) => batch.id)).toEqual([
 			"A-readonly-evidence",
