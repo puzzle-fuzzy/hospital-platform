@@ -31,6 +31,8 @@ pnpm --filter @hospital/miniprogram runtime:verify:pending 通过
 
 构建尝试发现 `dist/` 被微信开发者工具占用；发布器保留了旧 live 目录和当前 pending 候选，没有清空或半替换运行包。
 
+随后再次执行 `runtime:publish-pending` 仍收到 `EBUSY`：当前微信开发者工具窗口或真机调试会话继续持有 `apps/miniprogram/dist/`。本次没有删除、覆盖或强制终止占用进程，旧 live 目录和 pending 候选状态不变。
+
 关闭微信开发者工具和真机调试会话后，按顺序执行：
 
 ```powershell
