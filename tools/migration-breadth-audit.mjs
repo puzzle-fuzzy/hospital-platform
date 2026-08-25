@@ -182,6 +182,14 @@ function extractPageMethods(source) {
 			"onBackHome",
 		);
 	}
+	if (source.includes("registerConvenienceSurfacePage(")) {
+		methods.push(
+			"onRetry",
+			"onOpenPatientSelector",
+			"onOpenMigrationStatus",
+			"onBackHome",
+		);
+	}
 
 	return [...new Set(methods)];
 }

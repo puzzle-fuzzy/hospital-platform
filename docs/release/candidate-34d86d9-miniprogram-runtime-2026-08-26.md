@@ -1,4 +1,6 @@
-# 小程序当前 pending 运行包候选（34d86d9）
+# 小程序历史 pending 运行包候选（34d86d9）
+
+> 本候选已被 `87ad1092` 替代；当前真机验收只认 [`candidate-87ad1092-miniprogram-runtime-2026-08-26.md`](candidate-87ad1092-miniprogram-runtime-2026-08-26.md)。
 
 > 本文记录采血预约原生空态迁移后的运行包候选。它只证明源码、自动化测试和 pending 运行包来源，不代表已经发布到微信开发者工具、线上版本或完成真机业务验收。
 
