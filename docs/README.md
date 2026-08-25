@@ -434,6 +434,7 @@
 | [`migration/data-map.md`](migration/data-map.md) | 旧数据和新表/领域字段的映射 |
 | [`migration/legacy-inventory.md`](migration/legacy-inventory.md) | 旧项目能力清单和未迁移风险 |
 | [`release/breadth-first-page-coverage-2026-08-25.md`](release/breadth-first-page-coverage-2026-08-25.md) | 旧端 64 个页面逐页落点、分类统计和广度优先验收边界 |
+| [`release/candidate-093e112e-breadth-page-catalog-2026-08-25.md`](release/candidate-093e112e-breadth-page-catalog-2026-08-25.md) | 当前小程序 `093e112e` pending 构建来源、页面台账和发布前置 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
 | [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 16 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md`](migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md) | 旧端“就诊”实时消息/预约历史/叫号链路与互联网医院 WebView 的事实审计、契约缺口和停止条件 |

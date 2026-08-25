@@ -11,7 +11,7 @@
 | 项目 | 当前事实 | 说明 |
 | --- | --- | --- |
 | 新 API | 生产 release `8eb51b5f` | 只读复核显示与旧 Python `8001` 共存；本轮不切换服务 |
-| 小程序候选 | `00924a4a83e41066756d979b7273dc491df1e686` | 项目最终固定使用微信原生 `tabBar`，直接打开 `apps/miniprogram/dist/` 独立工程；自定义底栏不再引入，仍需真机验收 |
+| 小程序候选 | `093e112e4ea5e4406924f84b6cc708e2ab1a386b`（pending，尚未发布） | 项目最终固定使用微信原生 `tabBar`，关闭开发者工具后发布 pending，再直接打开 `apps/miniprogram/dist/` 独立工程；当前仍需真机验收 |
 | 资料字段 | 昵称、性别、年龄、邮箱、`version` | 不接受头像、手机号、身份证、实名字段、`openid`、`unionid` 或患者字段 |
 | 写入策略 | `version` 条件更新 | 成功后必须返回 `expectedVersion + 1`；旧版本返回 `user-profile-conflict` |
 | 日志 | `user.profile.*` + HTTP `x-request-id`/`traceId` | 不记录 userId、昵称、邮箱、Authorization 或请求正文 |
