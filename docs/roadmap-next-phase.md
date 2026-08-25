@@ -1,10 +1,10 @@
-> **最新事实源（2026-08-25，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`，当前本地运行包为 `c3c7eec30e9303ff9b8996876f452c05e3bd310d`，已重新构建并通过 `runtime:verify`，真机仍需普通编译验收。线上小程序仍是分层发布的 `13f597ea9ee3f65b9be858117826d948339d904a`，不能用线上包证明本地底栏修正。
+> **最新事实源（2026-08-25，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`，当前本地运行包为 `407b80dff0bc33f575711dbb44ff8f04523d8db6`，已重新构建并通过 `runtime:verify`，真机仍需普通编译验收。线上小程序仍是分层发布的 `13f597ea9ee3f65b9be858117826d948339d904a`，不能用线上包证明本地底栏修正。
 > 本轮业务推进顺序：先完成当前候选的四 Tab/患者显式切换/预约历史与爽约/门诊费用只读/普通资料读写证据；客户端 requestId、服务端 Pino trace/业务事件和 Provider 低敏请求号缺一不可。报告详情、门诊病历、二维码、患者绑定、健康内容、实时就诊、互联网医院、支付医保、预约写入、取消和 HIS 回写继续按各自 contract、权限和回滚证据保持关闭。
 > 本地服务端工作树包含另一会话已提交但尚未部署的预约适配器提交 `4404c556`（`packages/adapters/src/zhongyang-appointments.ts`），`release:baseline:audit` 因此会 fail-closed；本会话不修改、不暂存、不部署该文件，也不把本地 adapter 变更宣称为线上能力。
 
 > 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端独立 adapter 发布已完成，真机业务三层证据仍待。
-> 当前小程序底栏修正（2026-08-25）：上一候选 custom-tab-bar 在真机扫码后完全未呈现，项目已最终固定为微信原生 `tabBar` 的单一 `list` 声明；页面不再同步 selected，也不再保留第二套底栏。候选 `c3c7eec3` 已重新构建并通过 `runtime:verify`，真机仍需普通编译验收。旧 Python `8001`、线上服务、数据库和 Redis 未修改。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
-> 当前下一步只读核对（2026-08-24）：通过内网专用 inspection key 对 `192.168.112.172` 做只读检查，新 API `hospital-platform-api-v2.service` 仍为 `active`、监听 `10.0.0.3:18081`，旧 Python Gunicorn 仍监听 `0.0.0.0:8001`，Worker 保持 `inactive`；`/health/ready` 返回 200，database/redis/schema 均为 `ok`。最近 30 分钟没有新的 `outpatient.payment.records.*` 事件，不能把服务器“无请求”解释为费用页面成功或失败；业务验收必须使用当前小程序运行包 `c3c7eec3` 取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 的同链证据。本次没有重启、写配置、写 MySQL/Redis 或修改旧 Python 服务。
+> 当前小程序底栏修正（2026-08-25）：上一候选 custom-tab-bar 在真机扫码后完全未呈现，项目已最终固定为微信原生 `tabBar` 的单一 `list` 声明；页面不再同步 selected，也不再保留第二套底栏。候选 `407b80df` 已重新构建并通过 `runtime:verify`，真机仍需普通编译验收。旧 Python `8001`、线上服务、数据库和 Redis 未修改。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前下一步只读核对（2026-08-24）：通过内网专用 inspection key 对 `192.168.112.172` 做只读检查，新 API `hospital-platform-api-v2.service` 仍为 `active`、监听 `10.0.0.3:18081`，旧 Python Gunicorn 仍监听 `0.0.0.0:8001`，Worker 保持 `inactive`；`/health/ready` 返回 200，database/redis/schema`均为 `ok`。最近 30 分钟没有新的 `outpatient.payment.records.*` 事件，不能把服务器“无请求”解释为费用页面成功或失败；业务验收必须使用当前小程序运行包 `407b80df` 取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 的同链证据。本次没有重启、写配置、写 MySQL/Redis 或修改旧 Python 服务。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 > 当前业务修正（2026-08-24）：已确认生产 Provider 的渠道 3 在线记录与渠道 4 全部历史均可只读返回；“我的挂号”使用服务端拥有的 `scope=online|all` 双查询，全部标签重新请求渠道 4 并保留取消记录。该修正已随此前服务端候选进入线上，当前 `8eb51b5f` 仅补强四个只读 adapter 的运行时输入门禁，支付、医保、预约写入、取消和 HIS 回写仍不受影响。
 > 当前健康域复核（2026-08-24）：健康百科工程骨架已具备，但没有真实脱敏内容 bundle、临床审核和 staging 发布/撤回证据；旧端自测评分、BMI/血压分类存在规则版本与适用人群缺口。健康百科、自测、风险评估和计算器继续保持关闭态，不导入 fixture、不挂载患者路由。详见 [`migration/health-content-and-self-test-audit-2026-08-24.md`](migration/health-content-and-self-test-audit-2026-08-24.md)。
@@ -17,7 +17,7 @@
 > 当前正确结构为微信原生 `tabBar`，不包含页面级第二份底栏或第二套 selected 状态；会话失效回首页仍收口到 `switchTab`。
 > 当前开发者工具执行要求：必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译 `c3c7eec3`，再确认四项共享底栏只有一份、切换后当前图标/文字变蓝。历史线上 `13f597e` 和旧候选不能作为本次 Tab 行为证据，不能打开父目录、`src/` 或另一个旧 `dist/` 工程，也不能新增页面级底栏。
 
-> 本轮后续唯一执行入口：先按新旧服务共存边界完成只读 preflight，再使用小程序运行包 `c3c7eec3` 在独立 `dist` 工程普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
+> 本轮后续唯一执行入口：先按新旧服务共存边界完成只读 preflight，再使用小程序运行包 `407b80df` 在独立 `dist` 工程普通编译并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用只读和普通资料的同链证据；未取得页面、客户端 requestId、服务端 Pino 和 Provider 低敏 requestId 四方关联前，不把代码测试或健康检查写成业务完成。
 > 当前小程序会话/导航门禁（2026-08-25，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，底栏由微信原生 `tabBar` 统一维护，会话恢复期间患者卡片只显示固定占位。本轮小程序回归为 `240/240` 通过、`1938` 个断言，运行包来源为本次构建提交；真机页面证据仍待。
 > 当前日志链路审计（2026-08-24，服务端已随 `8eb51b5f` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 81 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
@@ -30,7 +30,7 @@
 > `10.0.0.3:18081`；旧 Python 服务继续监听 `0.0.0.0:8001`，本轮未停止、未重启、未修改。
 > 内网 `/health/ready` 返回 `database=ok`、`redis=ok`、`schema=ok`。Worker 继续保持 inactive。
 >
-> 小程序当前本地运行包来源为 `c3c7eec30e9303ff9b8996876f452c05e3bd310d`，仅用于新项目独立
+> 小程序当前本地运行包来源为 `407b80dff0bc33f575711dbb44ff8f04523d8db6`，仅用于新项目独立
 > `apps/miniprogram/dist/` 的预览和真机验收，尚未替换线上正式小程序；本轮已生成临时预览二维码，二维码仅保存在本机
 > `.local/device-acceptance/`，不入 Git。四个主 Tab 由微信原生运行时统一渲染，支付、医保、结算、预约写入、取消、患者绑定、二维码、病历和 HIS 回写均关闭。
 >

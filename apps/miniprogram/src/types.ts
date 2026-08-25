@@ -367,13 +367,19 @@ export type MyMenuSection = {
 	items: ReadonlyArray<MyMenuItem>;
 };
 
-/** “我的”页只展示平台会话和已迁移的安全入口。 */
+/** “我的”页只展示平台会话、显式授权资料和已迁移的安全入口。 */
 export type MyPageData = {
 	/** 只属于当前“我的”页面实例；首次 onShow 不重复 onLoad 已发起的读取。 */
 	hasShown: boolean;
 	/** 入口门禁使用最近一次 `/me` 结果，而不是仅凭本地 token 存在与否。 */
 	sessionState: SessionVerificationState;
 	userLabel: string;
+	/** 当前 owner 设备上经过微信手势授权后可展示的头像 URL。 */
+	avatarUrl: string;
+	/** 头像昵称授权必须由用户主动触发，不能混入登录 loading。 */
+	wechatProfileState: "idle" | "loading" | "ready" | "declined";
+	/** 授权状态的低敏提示，不包含微信原始回调或 URL。 */
+	wechatProfileHint: string;
 	selectedPatient: Patient | null;
 	patientCount: number;
 	menuSections: ReadonlyArray<MyMenuSection>;

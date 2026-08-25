@@ -1,6 +1,6 @@
 # 当前候选只读业务验收手册（2026-08-25）
 
-> 当前本地小程序运行候选：`c3c7eec30e9303ff9b8996876f452c05e3bd310d`（提交 `c3c7eec`）。开发者工具必须直接打开
+> 当前本地小程序运行候选：`407b80dff0bc33f575711dbb44ff8f04523d8db6`（提交 `407b80d`）。开发者工具必须直接打开
 > `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist\`，不能打开父目录、`src/` 或历史
 > `mp-weixin` 工程。运行包已经通过 `runtime:verify`，四个主 Tab 使用微信原生 `tabBar`，
 > `dist/` 不包含自定义底栏组件；本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。

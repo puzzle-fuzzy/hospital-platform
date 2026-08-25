@@ -77,11 +77,34 @@ page {
 	background: #ffffff;
 }
 
-.profile-name {
+.profile-copy {
+	display: flex;
+	flex: 1;
+	min-width: 0;
 	margin-left: 20rpx;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.profile-name {
+	max-width: 560rpx;
 	color: #222222;
 	font-size: 45rpx;
 	line-height: 1.25;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.profile-auth-hint {
+	margin-top: 10rpx;
+	max-width: 560rpx;
+	color: #5570a8;
+	font-size: 23rpx;
+	line-height: 1.4;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .family-card {

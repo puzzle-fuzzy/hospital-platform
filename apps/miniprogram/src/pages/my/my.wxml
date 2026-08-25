@@ -14,15 +14,28 @@
 				<text class="error-message-retry" bindtap="onRetry">重新加载</text>
 			</view>
 
-			<!-- 旧端头像区：点击整行进入普通资料编辑，不把头像误当作微信授权结果。 -->
-			<view class="profile-head" bindtap="onHeaderTap">
+			<!--
+				旧端头像区仍保持原布局；头像昵称授权必须由用户主动点击，
+				不能在 onShow/登录时自动弹窗，也不能把“微信用户”当成真实昵称。
+			-->
+			<view class="profile-head">
 				<image
 					class="profile-avatar"
-					src="/assets/legacy-user/default-avatar.svg"
+					src="{{avatarUrl || '/assets/legacy-user/default-avatar.svg'}}"
 					mode="aspectFill"
+					bindtap="onWechatProfileTap"
 				/>
-				<!-- 资料请求期间撤销旧昵称但保留单行占位，避免切回“我的”时头像区跳动。 -->
-				<text class="profile-name">{{loading ? "正在验证当前账号..." : userLabel}}</text>
+				<view class="profile-copy" bindtap="onHeaderTap">
+					<!-- 资料请求期间撤销旧昵称但保留单行占位，避免切回“我的”时头像区跳动。 -->
+					<text class="profile-name">{{loading ? "正在验证当前账号..." : userLabel}}</text>
+					<text
+						wx:if="{{!loading}}"
+						class="profile-auth-hint"
+						catchtap="onWechatProfileTap"
+					>
+						{{wechatProfileState === 'ready' ? wechatProfileHint : '点击获取头像和昵称'}}
+					</text>
+				</view>
 			</view>
 
 			<!-- 旧端家庭成员管理卡片；真实切换仍进入独立患者选择页。 -->

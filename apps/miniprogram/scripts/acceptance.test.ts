@@ -99,14 +99,18 @@ test("native App entry does not trust a cached token before session verification
 	expect(app).not.toContain('this.globalData.sessionStatus = "signed_in"');
 });
 
-test("native login does not request WeChat profile consent", async () => {
+test("native login keeps WeChat profile consent separate from session exchange", async () => {
 	const client = await source("services/api-client.ts");
+	const consent = await source("services/wechat-user-profile.ts");
 
-	// `wx.login` 的 code 交换本身不会弹出头像/昵称授权；项目内部的
-	// `getUserProfile` 只表示 `/me/profile`，不能把它误写成微信资料授权。
+	// `wx.login` 的 code 交换本身不会弹出头像/昵称授权；个人资料只能由
+	// 用户手势触发独立的授权服务，不能混入登录或患者初始化请求。
 	expect(client).toContain("wx.login");
 	expect(client).not.toMatch(/\bwx\.getUserProfile\s*\(/u);
 	expect(client).not.toMatch(/\bwx\.getUserInfo\s*\(/u);
+	expect(consent).toContain("wx.getUserProfile");
+	expect(consent).toContain("用于完善个人中心的头像、昵称和性别");
+	expect(consent).toContain("requestWechatUserProfile");
 });
 
 test("native client restores a platform session through the current-user endpoint", async () => {
@@ -1216,8 +1220,17 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(app).toContain('"pagePath": "pages/my/my"');
 	expect(template).toContain('bindtap="onFamilyTap"');
 	expect(template).toContain('bindtap="onHeaderTap"');
-	// 视觉以旧端为准：头像区不再增加新端提示文案，背景和头像使用本地原始资源。
+	// 视觉以旧端为准；头像资源仍使用本地默认图，真实头像只能来自用户
+	// 主动授权后的当前 owner 快照，不能在登录 loading 中偷偷请求。
 	expect(template).toContain("/assets/legacy-user/legacy-user-background.png");
+	expect(template).toContain('bindtap="onWechatProfileTap"');
+	expect(template).toContain(
+		"avatarUrl || '/assets/legacy-user/default-avatar.svg'",
+	);
+	expect(my).toContain("requestWechatUserProfile");
+	expect(my).toContain("storeWechatUserProfile");
+	expect(my).toContain("myPageProfileContexts");
+	expect(my).toContain("头像和昵称已显示，资料同步失败");
 	expect(template).toContain('mode="widthFix"');
 	expect(await source("pages/my/my.wxss")).toContain("height: 566rpx");
 	expect(template).toContain("/assets/legacy-user/default-avatar.svg");
