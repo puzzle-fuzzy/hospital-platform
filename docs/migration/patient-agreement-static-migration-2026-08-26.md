@@ -21,14 +21,14 @@
 
 - 注册页面：`apps/miniprogram/src/app.json` 的 `pages/patient-agreement/patient-agreement`。
 - 页面源码：`apps/miniprogram/src/pages/patient-agreement/`。
-- 迁移台账：`pagesB/patient/agreement.vue` 标记为 `replaced`，说明中明确“协议版本、同意记录、撤回和审计仍未开放”。
+- 迁移台账：`pagesB/patient/agreement.vue` 标记为 `replaced` 并保留 `patient-agreement` 契约关联键；说明中明确“协议版本、同意记录、撤回和审计仍未开放”。
 - 页面滚动：使用唯一的外层 `scroll-view`，避免协议正文引入页面级滚动条；该页面不渲染底部主 Tab。
 - 文本与样式：保留旧端 11 个章节、条款编号、提示语和主要视觉规则；移除旧端无效的 Vue 深层选择器和未挂载按钮样式。
 
 ## 两层状态必须分开
 
 1. **静态阅读页已迁移**：用户可以查看旧端已有的协议正文，属于 A 安全静态/只读覆盖。
-2. **协议同意能力未开放**：真正用于新增/绑定就诊人的版本确认、同意主体、时间、撤回、审计和幂等写入仍属于 D 患者 contract 队列；不能因为页面可打开就解除 `patient-agreement` 准入门禁。
+2. **协议同意能力未开放**：真正用于新增/绑定就诊人的版本确认、同意主体、时间、撤回、审计和幂等写入仍属于 D 患者 contract 队列；关联键只用于追踪，不代表页面已记录同意，也不能因为页面可打开就解除 `patient-agreement` 准入门禁。
 
 这种拆分是有意的：它既补齐了旧入口的可读页面，又避免把法律文本展示误报成用户已经完成授权。
 

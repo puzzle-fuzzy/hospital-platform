@@ -163,9 +163,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"patient-agreement": {
 		title: "就诊人协议",
 		readiness: "待患者绑定 contract",
-		description:
-			"就诊人协议正在迁移中，当前不会接受未确认版本的实名或授权操作。",
-		contractHint: "等待协议版本、展示主体、用户同意记录、撤回和审计规则确认。",
+		description: "协议原文已可查看；当前不会接受未确认版本的实名或授权操作。",
+		contractHint:
+			"阅读页已迁移，仍等待协议版本、展示主体、用户同意记录、撤回和审计规则确认。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"patient-address": {

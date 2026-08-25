@@ -26,6 +26,17 @@ describe("迁移入口覆盖聚合", () => {
 		expect(coverage.coverageLabel).toContain("新端新增入口");
 	});
 
+	test("协议静态页保留未来 contract 关联但不被误报为新入口", () => {
+		const coverage = getFeatureMigrationCoverage("patient-agreement");
+		expect(coverage.stage).toBe("replaced");
+		expect(coverage.legacyPaths).toEqual(["pagesB/patient/agreement.vue"]);
+		expect(coverage.nativeTarget).toBe(
+			"pages/patient-agreement/patient-agreement",
+		);
+		expect(coverage.feature.description).toContain("原文");
+		expect(coverage.feature.contractHint).toContain("同意记录");
+	});
+
 	test("健康自测保留临床阻塞，不因多个旧入口共用 key 而误开放", () => {
 		const coverage = getFeatureMigrationCoverage("health-test");
 		expect(coverage.stage as MigrationCoverageStage).toBe("blocked-clinical");

@@ -163,17 +163,17 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			);
 		}
 		// 静态原文页可以在真实协议写入 contract 之前上线，但只能是
-		// 明确的 replaced 只读页面；它不应继续携带状态页 FeatureKey，
-		// 否则会把“可阅读原文”和“已记录同意”混成一个入口。
+		// 明确的 replaced 只读页面；它仍保留 contract FeatureKey 用于
+		// 迁移追踪，但不能因此被解释成已经记录了同意。
 		if (gate.safeReadOnlyTarget) {
 			if (entry.status !== "replaced") {
 				fail(
 					`${gate.name} 的 ${legacyPath} 静态只读落点必须是 replaced，实际 ${entry.status}`,
 				);
 			}
-			if (entry.featureKey) {
+			if (entry.featureKey !== gate.featureKey) {
 				fail(
-					`${gate.name} 的 ${legacyPath} 静态只读页不应携带阻塞 FeatureKey：${entry.featureKey}`,
+					`${gate.name} 的 ${legacyPath} 静态只读页契约 FeatureKey 不一致：期望 ${gate.featureKey}，实际 ${entry.featureKey}`,
 				);
 			}
 			continue;

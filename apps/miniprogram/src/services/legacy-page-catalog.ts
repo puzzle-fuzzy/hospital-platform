@@ -25,7 +25,10 @@ export type LegacyPageMigration = {
 	status: LegacyPageMigrationStatus;
 	/** 新端最终落点；状态页和真实页面都必须是 app.json 中的已注册页面。 */
 	nativeTarget: string | null;
-	/** 阻塞页面统一进入 feature-status 时使用的固定 key。 */
+	/**
+	 * 入口准入目录 key。阻塞页面用它进入统一状态页；已经迁移安全只读
+	 * 子集的页面也可以保留它，用于连接未来 contract 和迁移覆盖视图。
+	 */
 	featureKey?: FeatureKey;
 	/** 迁移边界，供测试和新会话快速判断，不当作用户文案。 */
 	note: string;
@@ -442,6 +445,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "患者",
 			status: "replaced",
 			nativeTarget: "pages/patient-agreement/patient-agreement",
+			featureKey: "patient-agreement",
 			note: "已迁移为原文只读页；协议版本、同意记录、撤回和审计仍未开放。",
 		},
 		{
