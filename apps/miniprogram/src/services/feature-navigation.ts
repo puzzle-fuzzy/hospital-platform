@@ -57,7 +57,8 @@ export type FeatureStatus = {
 		| "待临床审核"
 		| "待支付与回写 contract"
 		| "待患者绑定 contract"
-		| "待外部入口 contract";
+		| "待外部入口 contract"
+		| "入口校验失败";
 	/** 明确告诉用户当前为什么不能继续，避免“系统坏了”的误解。 */
 	description: string;
 	/** 说明后续需要哪一类真实 contract，便于产品和后端继续接入。 */
@@ -351,6 +352,46 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		icon: "/assets/legacy-user/smart-customer.svg",
 	},
 });
+
+export type FeatureStatusKey = FeatureKey | "invalid-entry";
+
+/**
+ * 非法或过期的动态入口必须有独立状态，不能默认落到某个具体业务。
+ *
+ * 默认显示“门诊病历”看似安全，实际上会把入口参数错误伪装成病历业务，
+ * 用户会误以为病历服务不可用，后续日志和问题反馈也会被错误归类。这个
+ * fallback 只解释入口校验失败，不读取缓存、不访问 Provider，也不改变业务
+ * readiness 统计。
+ */
+export const INVALID_FEATURE_STATUS: FeatureStatus = Object.freeze({
+	title: "服务入口不可用",
+	readiness: "入口校验失败",
+	description: "该服务入口无效，请返回首页后重新选择服务。",
+	contractHint:
+		"当前页面不会读取旧缓存、调用业务接口或发起支付，请从首页重新进入。",
+	icon: "/assets/legacy-home/service-record.svg",
+});
+
+/**
+ * 将外部 query 收敛为可信状态目录中的 key；未知值进入专用错误状态。
+ * 返回值同时供页面标题和渲染数据使用，避免两处分别解析造成标题/内容错位。
+ */
+export function resolveFeatureStatus(value?: string): {
+	featureKey: FeatureStatusKey;
+	feature: FeatureStatus;
+} {
+	if (value && Object.hasOwn(FEATURE_STATUS_CATALOG, value)) {
+		const featureKey = value as FeatureKey;
+		return {
+			featureKey,
+			feature: FEATURE_STATUS_CATALOG[featureKey],
+		};
+	}
+	return {
+		featureKey: "invalid-entry",
+		feature: INVALID_FEATURE_STATUS,
+	};
+}
 
 /**
  * 迁移状态页只接受代码内固定 key，禁止把旧端 URL 或任意 provider 参数

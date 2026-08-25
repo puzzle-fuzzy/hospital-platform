@@ -34,6 +34,11 @@ pnpm miniprogram:navigation:audit
 动态 URL 由具体导航服务的单元测试负责；本门禁不把 `feature-status` 的业务状态
 误判为已完成。Provider、支付、临床审核和患者绑定仍由各自 contract 门禁控制。
 
+统一状态页的 `feature` query 只接受 `feature-navigation.ts` 中的固定 key；缺失、
+非法或已过期的 key 会进入“服务入口不可用”专用状态，不会默认显示门诊病历或其它
+具体业务。这样入口参数错误不会污染业务统计、日志分类和用户反馈，也不会触发任何
+Provider、旧缓存或支付调用。
+
 ## 与全量迁移的关系
 
 这是一层入口覆盖护栏，不是业务完成证明。旧端 64 个页面仍以

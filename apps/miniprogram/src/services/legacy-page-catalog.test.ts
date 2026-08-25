@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { FEATURE_STATUS_CATALOG } from "./feature-navigation";
+import {
+	FEATURE_STATUS_CATALOG,
+	resolveFeatureStatus,
+} from "./feature-navigation";
 import {
 	isKnownLegacyFeatureKey,
 	LEGACY_PAGE_COUNT,
@@ -69,6 +72,20 @@ describe("旧端页面全量迁移台账", () => {
 			).toBe(true);
 			expect(featureKey.length).toBeGreaterThan(0);
 		}
+	});
+
+	test("非法状态页参数不会伪装成具体业务", () => {
+		expect(resolveFeatureStatus("medical-record")).toMatchObject({
+			featureKey: "medical-record",
+			feature: { title: "门诊病历" },
+		});
+		expect(resolveFeatureStatus("expired-feature")).toMatchObject({
+			featureKey: "invalid-entry",
+			feature: {
+				title: "服务入口不可用",
+				readiness: "入口校验失败",
+			},
+		});
 	});
 
 	test("互联网医院旧入口只迁移安全壳，不伪造外部业务完成", async () => {
