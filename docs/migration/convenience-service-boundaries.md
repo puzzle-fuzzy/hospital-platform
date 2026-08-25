@@ -6,6 +6,12 @@
 > 便民服务涉及患者反馈、临床问卷、随访、预问诊和医生关系。它们的共同特点是：数据既可能包含个人信息，
 > 也可能被医护或管理端继续使用。因此不能以页面能打开、旧接口返回 200 或旧表已经存在作为迁移完成证据。
 
+> 2026-08-25 服务器只读存量核对：旧库 `admission_preconsultation` 2 条、
+> `commendatory_letter` 4 条、`discharge_follow_up` 4 条、`my_doctor` 21 条、
+> `risk_assessment` 7 条、`silk_banner` 4 条；新端尚未注册对应的便民 persistence/API。
+> 本次只读取数量，没有修改旧 Python 服务、旧表、Redis 或线上配置。旧表有数据不等于
+> 可以直接把历史内容展示给新用户，仍需完成 owner/患者映射、字段脱敏和内容审核。
+
 ## 1. 旧服务真实路由快照
 
 旧 FastAPI `module_convenience` 实际挂载 13 个叶子路由，均要求旧平台登录态：
