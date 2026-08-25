@@ -3,9 +3,11 @@
 
 # 项目文档导航
 
-> 当前小程序候选：`8bd3898a7841404cb69d9c091f5f59a7530eb3cf`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本候选已完成 staging 校验，但因开发者工具占用 live `dist/` 尚未原子发布；发布与验收边界见 [`release/candidate-8bd3898a-app-launch-profile-2026-08-25.md`](release/candidate-8bd3898a-app-launch-profile-2026-08-25.md)。
+> 当前小程序候选：`2f4b136f30b87d6eb0c9ec91915e2942d28118e0`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本候选已完成 staging 校验，并新增统一迁移状态页覆盖旧端未完成入口；因开发者工具占用 live `dist/` 尚未原子发布，详见 [`release/candidate-2f4b136f-breadth-entry-status-2026-08-25.md`](release/candidate-2f4b136f-breadth-entry-status-2026-08-25.md)。
 
-> 当前 live `dist/build-info.json.sourceRevision` 仍为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；新候选 `8bd3898a` 已在 pending staging 中完成 16 个页面脚本和无测试脚本校验。开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包；释放目录后必须重新发布并生成二维码。详见 [`release/candidate-8bd3898a-app-launch-profile-2026-08-25.md`](release/candidate-8bd3898a-app-launch-profile-2026-08-25.md)。
+> 当前 live `dist/build-info.json.sourceRevision` 仍为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；新候选 `2f4b136f` 已在 pending staging 中完成 17 个页面脚本、相对依赖和无测试脚本校验。开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包；释放目录后必须重新发布并生成二维码。此前 `8bd3898a` 仅作历史候选追溯。
+
+> 当前迁移主线已经切换为“先广度覆盖、再深入 contract”：首页、“我的”和服务清单所有可见入口均有业务页或统一迁移状态页；状态页不代表真实业务完成，只用于消除无响应/404，并明确记录未开放原因。完整顺序见 [`migration/breadth-first-migration-plan-2026-08-25.md`](migration/breadth-first-migration-plan-2026-08-25.md)。
 
 > 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的新构建运行包和最新共享底栏手册，不能使用旧二维码、旧 `dist/` 或旧底栏说明。
 

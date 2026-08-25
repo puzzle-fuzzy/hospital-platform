@@ -1,8 +1,8 @@
 > 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
-> 当前本地最新候选为 `8bd3898a`。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src/`/`scripts/` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性和 `dist` 独立运行工程一致性纳入门禁。
-> `8bd3898a` 已完成原子候选构建并通过 `runtime:verify`，但微信开发者工具锁定了当前 `dist/`，候选暂存于 `.local/hospital-miniprogram/pending/`；当前可运行 `dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。候选均不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。
-> 当前本地源码的 `app.json` 已注册 16 个页面，四个主入口由微信原生 TabBar 统一固定在窗口底部；这个数字不应与线上历史运行包 `13f597e` 的 14 页记录混用。
+> 当前本地最新候选为 `2f4b136f30b87d6eb0c9ec91915e2942d28118e0`。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src/`/`scripts/` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性和 `dist` 独立运行工程一致性纳入门禁。
+> `2f4b136f` 已完成 staging 构建并通过类型检查、页面入口和运行包静态门禁，但微信开发者工具锁定了当前 `dist/`，候选暂存于 `.local/hospital-miniprogram/pending/`；当前可运行 `dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。候选均不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。
+> 当前本地源码的 `app.json` 已注册 17 个页面，四个主入口由微信原生 TabBar 统一固定在窗口底部；这个数字不应与线上历史运行包 `13f597e` 的 14 页记录混用。
 > 这份本地候选不能替代线上 `13f597e`，
 > 也不能产生当前真机三层业务证据。
 
