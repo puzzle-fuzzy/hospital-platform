@@ -8,17 +8,18 @@
 | --- | --- |
 | 旧端页面扫描 | 64 个 Vue 页面 |
 | 新端页面注册 | 17 个页面；前 4 个由微信原生 TabBar 管理 |
-| 已完成候选 | `d59dc8fe1369cfb251710c6b6fcf6447857c9448` |
+| 已完成候选 | `5a2214e7be1f558994e108f63caed38a887626ff` |
 | 候选位置 | `.local/hospital-miniprogram/pending/` |
 | 当前 live 运行包 | 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，开发者工具释放后再原子发布 |
 | 旧服务 | Python `8001` 未修改、未停止；本轮只修改新项目 |
 
 ## 二、入口覆盖层已经完成
 
-本轮增加 `pages/feature-status/feature-status` 和 `services/feature-navigation.ts`：
+本轮增加 `pages/feature-status/feature-status` 和 `services/feature-navigation.ts`，并把二级动作也纳入统一状态路由：
 
 - 首页顶部快捷入口、门诊/住院/便民服务清单中的未完成项目都有固定 action；
 - “我的”中的问诊、医生、门诊病历、电子导诊单、智能客服和医保电子凭证都有页面落点；
+- 预约下单、挂号详情、预约前预问诊、云影像、报告分享和报告复诊都有固定页面落点；
 - 状态页使用代码内固定目录，不接受旧端 URL、provider ID 或任意 query 拼接；
 - 页面只解释“正在迁移”和需要的 contract，不调用旧接口、不读旧缓存、不发起支付；
 - 已迁移的预约、患者、报告、门诊费用、静态医院卡片、院内导航、公众号说明和反馈帮助不经过状态页。
