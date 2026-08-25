@@ -43,7 +43,7 @@ pnpm format:check / pnpm lint / pnpm typecheck
 1. `apps/miniprogram/dist/` 仍被微信开发者工具占用，pending 运行包不能原子替换 live 目录；旧 live 包必须保留，不能清空目录硬发。
 2. 当前 pending 小程序来源为 `8bc649f`、20 页；当前 live dist 来源为 `fcc6630e`、16 页；两者不能混用验收。
 3. P0 发布基线审计发现线上服务端 release 后存在未部署的运行时代码，其中包含另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`；本会话不修改、不暂存、不部署该文件。
-4. API 的 P0 基线测试已把默认超时从 5 秒延长为 15 秒，只是让失败显示真实漂移文件，未放宽 `passed=true` 要求。当前该测试仍应失败，直到候选完成统一发布。
+4. 发布基线审计已从 API 普通单元测试中拆出，统一由 `pnpm check`、`pnpm release:baseline:audit` 和工具测试执行；普通业务单元测试不再启动真实 Git 审计，但发布门禁仍严格要求 `passed=true`。
 
 ## 3. 业务迁移分批决定
 
