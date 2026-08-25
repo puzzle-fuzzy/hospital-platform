@@ -8,14 +8,14 @@
 | --- | --- |
 | 旧端页面扫描 | 64 个 Vue 页面 |
 | 新端页面注册 | 17 个页面；前 4 个由微信原生 TabBar 管理 |
-| 已完成候选 | `90d5ab0323b33fb620c83b86a8248b31c0ae3341` |
+| 已完成候选 | `b3436c24075063fa36e4c31c04ed28c2ad8a93bd` |
 | 候选位置 | `.local/hospital-miniprogram/pending/` |
 | 当前 live 运行包 | 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，开发者工具释放后再原子发布 |
 | 旧服务 | Python `8001` 未修改、未停止；本轮只修改新项目 |
 
 ## 二、入口覆盖层已经完成
 
-本轮增加 `pages/feature-status/feature-status` 和 `services/feature-navigation.ts`，并把二级动作也纳入统一状态路由：
+本轮在 `pages/feature-status/feature-status` 和 `services/feature-navigation.ts` 的基础上继续收紧入口分发，并把二级动作也纳入统一状态路由：
 
 - 首页顶部快捷入口、门诊/住院/便民服务清单中的未完成项目都有固定 action；
 - “我的”中的问诊、医生、门诊病历、电子导诊单、智能客服和医保电子凭证都有页面落点；

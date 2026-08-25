@@ -192,6 +192,26 @@ test("native homepage and my-page actions all have explicit dispatch branches", 
 	}
 });
 
+test("consult tab keeps the old three-tab shell while realtime remains closed", async () => {
+	const page = await source("pages/consult/consult.ts");
+	const template = await source("pages/consult/consult.wxml");
+	const style = await source("pages/consult/consult.wxss");
+
+	// 先迁移患者栏、三个标签和稳定状态容器，避免实时 contract 未到时整页无入口；
+	// 旧 WebSocket/队列字段不能因为页面复刻而偷偷重新接入。
+	expect(page).toContain('id: "today"');
+	expect(page).toContain('id: "upcoming"');
+	expect(page).toContain('id: "history"');
+	expect(page).toContain("navigateToPatientSelector");
+	expect(page).not.toContain("connectWebSocket");
+	expect(page).not.toContain("getQueuePositionApi");
+	expect(template).toContain('bindtap="onChangePatient"');
+	expect(template).toContain('bindtap="onTabTap"');
+	expect(template).toContain("query-state-shell");
+	expect(style).toContain(".consult-patient-card");
+	expect(style).toContain(".consult-tab-active");
+});
+
 test("native profile consent remains clickable while patient data is loading", async () => {
 	const my = await source("pages/my/my.ts");
 	const template = await source("pages/my/my.wxml");
@@ -1589,7 +1609,8 @@ test("consult and internet hospital tabs keep unfinished external contracts clos
 	expect(consult).not.toContain("msun-middle-business-appointment-server");
 	expect(consult).not.toContain("thirdPatientId");
 	expect(consultTemplate).not.toContain("<web-view");
-	expect(consultTemplate).toContain("智能陪诊功能正在迁移中");
+	expect(consultTemplate).toContain("智能陪诊");
+	expect(consultTemplate).toContain("实时就诊 contract 尚未完成");
 	expect(consultTemplate).toContain("query-state-shell");
 
 	// 互联网医院属于独立外部 audience：没有 resourceKey、allowlist、短期

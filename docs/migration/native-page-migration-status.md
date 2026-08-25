@@ -18,7 +18,7 @@
 | 页面路径 | 当前状态 | 当前真实能力 | 必须保持的业务边界 | 下一步验收/输入 |
 | --- | --- | --- | --- | --- |
 | `pages/index/index` | `部分迁移` | 首页布局、健康探针、患者读模型、服务入口和底部导航已接入。 | 首页选择的是平台内部 opaque `patientId`；未有患者时不能把微信用户直接当作就诊人；二维码、门诊病历和未迁移服务不能伪造成功。 | 真实微信登录、患者同步、真机视觉与路由验收。 |
-| `pages/consult/consult` | `部分迁移` | 旧端“智能陪诊”入口的安全静态说明和迁移状态已接入正式主 Tab；页面不调用旧端 WebSocket 或队列接口。详细旧链路和 C-01 至 C-12 准入条件见 [`consult-and-internet-hospital-boundary-audit-2026-08-25.md`](consult-and-internet-hospital-boundary-audit-2026-08-25.md)。 | 静态说明不代表已经取得叫号、排队、就诊动态或患者临床状态；不能把患者 ID、队列位置或旧端消息字段直接迁入页面。 | 陪诊/叫号 Provider contract、患者与就诊事件映射、实时连接生命周期、断线重连和真机证据。 |
+| `pages/consult/consult` | `部分迁移` | 已复刻旧端患者栏、今日/未来/历史三标签和稳定查询状态容器；页面接入全局会话与当前患者读模型，切换就诊人回到统一选择页，但不调用旧端 WebSocket 或队列接口。详细旧链路和 C-01 至 C-12 准入条件见 [`consult-and-internet-hospital-boundary-audit-2026-08-25.md`](consult-and-internet-hospital-boundary-audit-2026-08-25.md)。 | 页面结构和患者上下文已迁移不等于已经取得叫号、排队、就诊动态或患者临床状态；不能把患者 ID、队列位置或旧端消息字段直接迁入页面。 | 陪诊/叫号 Provider contract、患者与就诊事件映射、实时连接生命周期、断线重连和真机证据。 |
 | `pages/hospital/hospital` | `待 contract` | 正式主 Tab 入口已注册，并明确展示互联网医院业务迁移状态。旧端固定 WebView、通用 WebView 和票据边界已完成只读审计，详见 [`consult-and-internet-hospital-boundary-audit-2026-08-25.md`](consult-and-internet-hospital-boundary-audit-2026-08-25.md)。 | 旧端依赖外部 WebView；未冻结 audience、域名 allowlist、短期引用、回调和退出策略前，不加载外部 URL，不把打开页面解释成互联网医院登录或服务成功。 | 外部入口安全 contract、主体授权、短期会话、回调审计、失败/撤回策略和真机证据。 |
 | `pages/official-account/official-account` | `静态已迁移` | 公众号通知说明和受控本地图标。 | 打开静态说明页不等于已关注；不能生成伪二维码或把订阅消息开关当作微信授权事实。 | 公众号主体、二维码、关注状态、模板消息文档。 |
 | `pages/feedback/feedback` | `静态已迁移` | 热点问题、客服电话和迁移提示。 | 当前不写工单、不承诺客服受理、不把拨号成功当作医院处理结果。 | 工单字段、受理状态、工作时间和审计 contract。 |

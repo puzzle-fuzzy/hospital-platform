@@ -1,22 +1,40 @@
 
 <scroll-view class="tab-page-scroll" scroll-y="true" enhanced="true">
-	<view class="page">
-		<view class="intro-card">
-			<view class="intro-title">智能陪诊</view>
-			<view class="intro-copy">
-				就诊引导、排队动态和检查进度会在独立业务契约完成后接入。
+	<view class="consult-page">
+		<view class="consult-intro">
+			<text class="consult-intro-title">智能陪诊</text>
+			<text class="consult-intro-copy">就诊引导、排队叫号、缴费、查报告和取药进度将在独立 contract 完成后接入。</text>
+		</view>
+
+		<view class="consult-patient-card">
+			<image class="consult-patient-icon" src="/assets/legacy-home/patient-qr.svg" mode="aspectFit" />
+			<view class="consult-patient-copy">
+				<text class="consult-patient-name">{{selectedPatientName}}</text>
+				<text class="consult-patient-id">{{selectedPatientIdLabel}}</text>
+			</view>
+			<button class="consult-patient-switch" bindtap="onChangePatient">切换就诊人</button>
+		</view>
+
+		<view class="consult-tabs">
+			<view wx:for="{{tabs}}" wx:key="id" class="consult-tab {{activeTab === item.id ? 'consult-tab-active' : ''}}" data-tab="{{item.id}}" bindtap="onTabTap">
+				<text>{{item.title}}</text>
 			</view>
 		</view>
 
-		<!--
-			这里是旧端“就诊”主 Tab 的真实落点，不把预约历史或静态文字伪装成
-			实时陪诊数据。能力尚未迁移时保留稳定状态，避免用户进入后又被推到
-			一个普通页面并产生第二套底栏。
-		-->
-		<view class="state-card query-state-shell query-state-shell-column">
-			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-			<text>智能陪诊功能正在迁移中</text>
-			<text class="state-hint">当前不会读取或猜测实时就诊状态</text>
+		<view class="consult-state query-state-shell query-state-shell-column">
+			<block wx:if="{{loading}}">
+				<text class="consult-state-title">正在获取就诊信息...</text>
+				<text class="consult-state-hint">页面结构已准备好，请稍候</text>
+			</block>
+			<block wx:elif="{{error}}">
+				<text class="consult-state-title">{{error}}</text>
+				<button class="consult-retry" bindtap="onRetry">重新查询</button>
+			</block>
+			<block wx:else>
+				<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
+				<text class="consult-state-title">{{activeTab === 'today' ? '今日暂无就诊动态' : activeTab === 'upcoming' ? '暂无未来就诊记录' : '暂无历史就诊记录'}}</text>
+				<text class="consult-state-hint">实时就诊 contract 尚未完成，当前不会猜测叫号或排队状态</text>
+			</block>
 		</view>
 	</view>
 </scroll-view>

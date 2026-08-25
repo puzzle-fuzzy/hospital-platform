@@ -16,7 +16,7 @@
 | 住院预缴 | `inpatient_payment.vue` | 首页固定 `inpatient-payment` 状态页 | 待支付与回写 contract | 住院账单、金额单位、订单状态机、查单和 HIS 回写 |
 | 健康百科 | `health_encyclopedia.vue`、详情/搜索页 | 首页固定 `health-encyclopedia` 状态页；服务端知识骨架未挂载 | 待临床审核 | 脱敏内容 bundle、来源/版本、审核责任、发布/撤回和搜索字段 |
 | 健康自测/风险自评 | `health_test.vue`、风险问卷和计算器 | 首页固定 `health-test`/`risk-evaluation` 状态页 | 待临床审核 | 不可变题库版本、评分规则、适用人群、免责声明和结果撤回策略 |
-| 就诊实时动态 | `consult.vue`、旧 WebSocket/队列查询 | “就诊”主 Tab稳定状态外壳 | 待外部入口 contract | 事件 schema、连接认证、患者订阅、游标补偿、队列关联和真机断线证据 |
+| 就诊实时动态 | `consult.vue`、旧 WebSocket/队列查询 | “就诊”主 Tab已完成患者栏、三标签和稳定状态容器；实时内容保持关闭 | 待外部入口 contract | 事件 schema、连接认证、患者订阅、游标补偿、队列关联和真机断线证据 |
 | 互联网医院/客服 | `hospital.vue`、旧 web-view | “互联网医院”主 Tab或固定 `smart-customer` 状态页 | 待外部入口 contract | audience、HTTPS allowlist、短期引用、回跳/退出和外部主体授权 |
 
 ## 统一放行顺序

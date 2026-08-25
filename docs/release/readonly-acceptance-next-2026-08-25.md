@@ -1,7 +1,9 @@
 # 当前候选只读业务验收手册（2026-08-25）
 
+> 当前候选已更新为 `b3436c24075063fa36e4c31c04ed28c2ad8a93bd`；此前 `90d5ab03` 仅作历史交接。发布前仍不能使用旧 `fcc6630e` 二维码验收。
+
 > 当前可运行的小程序仍是上一候选：`fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`（提交 `fcc6630e`）。最新候选
-> `90d5ab0323b33fb620c83b86a8248b31c0ae3341` 已构建到 `.local/hospital-miniprogram/pending/`，待关闭开发者工具后发布。开发者工具必须直接打开
+ > `b3436c24075063fa36e4c31c04ed28c2ad8a93bd` 已构建到 `.local/hospital-miniprogram/pending/`，待关闭开发者工具后发布。开发者工具必须直接打开
 > `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist\`，不能打开父目录、`src/` 或历史
 > `mp-weixin` 工程。运行包已经通过 `runtime:verify`，四个主 Tab 使用微信原生 `tabBar`，
 > `dist/` 不包含自定义底栏组件；本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。
@@ -26,7 +28,7 @@
    `pages/my/my`；点击它们必须使用 `switchTab`，底部栏只允许由微信原生 `tabBar.list` 渲染，
    页面 WXML 不得复制；当前项的蓝色图标和文字由微信根据当前路由维护。
 4. 只有发布 pending 候选并重新执行 `runtime:verify` 后才生成新的预览/真机二维码；记录运行包候选
-   `90d5ab03` 和微信开发者工具显示的项目根，不能使用旧 `fcc6630e` 二维码验证本次修复。
+   `b3436c24` 和微信开发者工具显示的项目根，不能使用旧 `fcc6630e` 二维码验证本次修复。
 
 ## 3. 设备操作顺序
 
