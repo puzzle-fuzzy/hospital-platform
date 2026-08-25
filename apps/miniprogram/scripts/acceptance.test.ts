@@ -1908,6 +1908,8 @@ test("native mini program build guards runtime page boundaries", async () => {
 	expect(build).toContain("localAssetPattern");
 	expect(build).toContain("cannot load local assets with background-image");
 	expect(build).toContain("navigates to unregistered mini-program page");
+	expect(build).toContain("registerClinicalSurfacePage(");
+	expect(build).toContain("clinical-entry-surface.ts");
 });
 
 test("native mini program runtime verification checks build provenance", async () => {
