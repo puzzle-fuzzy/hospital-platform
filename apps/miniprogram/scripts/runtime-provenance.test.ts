@@ -13,6 +13,7 @@ import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
+	createMiniProgramRuntimeLockError,
 	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
@@ -200,6 +201,20 @@ test("运行包目录被开发者工具占用时识别为可恢复锁定错误",
 	expect(isMiniProgramRuntimeLockError({ code: "EACCES" })).toBe(true);
 	expect(isMiniProgramRuntimeLockError({ code: "ENOENT" })).toBe(false);
 	expect(isMiniProgramRuntimeLockError(new Error("locked"))).toBe(false);
+});
+
+test("运行包锁定提示明确保留候选和下一步命令", () => {
+	const error = createMiniProgramRuntimeLockError(
+		"E:/hospital-platform/.local/hospital-miniprogram/pending",
+		{ code: "EBUSY" },
+	);
+
+	expect(error.message).toContain("validated candidate was preserved");
+	expect(error.message).toContain("runtime:publish-pending");
+	expect(error.message).toContain(
+		"previous complete dist/ runtime was preserved",
+	);
+	expect(error.cause).toEqual({ code: "EBUSY" });
 });
 
 test("运行包拒绝 pnpm workspace 裸模块依赖", async () => {

@@ -45,6 +45,8 @@ pnpm format:check / pnpm lint / pnpm typecheck
 3. P0 发布基线审计发现线上服务端 release 后存在未部署的运行时代码，其中包含另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`；本会话不修改、不暂存、不部署该文件。
 4. 发布基线审计已从 API 普通单元测试中拆出，统一由 `pnpm check`、`pnpm release:baseline:audit` 和工具测试执行；普通业务单元测试不再启动真实 Git 审计，但发布门禁仍严格要求 `passed=true`。
 
+本轮已验证 `pnpm --filter @hospital/miniprogram runtime:publish-pending` 在该锁定状态下不会删除旧 live 或 pending 候选，并统一输出“候选已保留、关闭开发者工具后重试”的可操作错误。这个结果只证明发布保护逻辑，不证明新候选已经进入微信开发者工具。
+
 ## 3. 业务迁移分批决定
 
 ### A 批：安全只读，先做统一验收

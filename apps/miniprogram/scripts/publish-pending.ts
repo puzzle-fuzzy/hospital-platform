@@ -1,7 +1,9 @@
 import { access, cp, mkdtemp, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+	createMiniProgramRuntimeLockError,
 	getMiniProgramPendingRuntimePath,
+	isMiniProgramRuntimeLockError,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
 
@@ -45,7 +47,16 @@ const stagingRuntime = await mkdtemp(
 try {
 	await rm(stagingRuntime, { recursive: true, force: true });
 	await cp(pendingRuntime, stagingRuntime, { recursive: true });
-	await publishMiniProgramRuntime(stagingRuntime, liveRuntime);
+	try {
+		await publishMiniProgramRuntime(stagingRuntime, liveRuntime);
+	} catch (error) {
+		// pending 目录本身已经通过构建校验；锁定时只清理临时复制目录，
+		// 保留 pending 候选，并返回与正常 build 入口一致的下一步提示。
+		if (isMiniProgramRuntimeLockError(error)) {
+			throw createMiniProgramRuntimeLockError(pendingRuntime, error);
+		}
+		throw error;
+	}
 	await rm(pendingRuntime, { recursive: true, force: true });
 	console.log(
 		`Native TabBar mini program pending runtime published; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,

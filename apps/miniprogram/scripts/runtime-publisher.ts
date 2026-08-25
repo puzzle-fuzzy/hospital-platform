@@ -47,6 +47,24 @@ export function isMiniProgramRuntimeLockError(error: unknown): boolean {
 	return code === "EPERM" || code === "EBUSY" || code === "EACCES";
 }
 
+/**
+ * 生成所有发布入口共用的锁定提示。
+ *
+ * `build` 和 `runtime:publish-pending` 都可能遇到同一个 Windows 文件句柄
+ * 错误；如果两个入口各自拼接文案，维护人员会看到不同的下一步，甚至误以为
+ * pending 候选已经丢失。这里集中说明三个事实：旧 dist 保留、候选已保留、
+ * 关闭开发者工具后只需要执行一次发布命令。
+ */
+export function createMiniProgramRuntimeLockError(
+	pendingRuntime: string,
+	cause: unknown,
+): Error {
+	return new Error(
+		`Mini program dist/ is locked by WeChat DevTools. The validated candidate was preserved at ${pendingRuntime}. Close the current mini-program window and any real-device debugging session, then run pnpm --filter @hospital/miniprogram runtime:publish-pending; the previous complete dist/ runtime was preserved.`,
+		{ cause },
+	);
+}
+
 async function pathExists(path: string): Promise<boolean> {
 	try {
 		await access(path);
