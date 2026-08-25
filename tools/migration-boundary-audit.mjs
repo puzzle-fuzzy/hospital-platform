@@ -187,6 +187,32 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 }
 
 /**
+ * 重点冻结域之外的 blocked 页面也不能绕过统一状态页。
+ * FROZEN_DOMAIN_GATES 记录的是需要逐域检查的业务语义；这里检查全部
+ * 台账状态，防止后续新增一个支付、患者或外部入口时只更新台账，却把
+ * 它错误地指向半成品真实页面。
+ */
+for (const entry of catalog.LEGACY_PAGE_MIGRATION_CATALOG) {
+	if (!entry.status.startsWith("blocked-")) continue;
+	if (entry.nativeTarget !== expectedStatusPage) {
+		fail(
+			`blocked 页面 ${entry.legacyPath} 必须进入统一状态页：${entry.nativeTarget}`,
+		);
+	}
+	if (!entry.featureKey) {
+		fail(`blocked 页面 ${entry.legacyPath} 缺少 FeatureKey`);
+		continue;
+	}
+	if (
+		!Object.hasOwn(featureNavigation.FEATURE_STATUS_CATALOG, entry.featureKey)
+	) {
+		fail(
+			`blocked 页面 ${entry.legacyPath} 引用了未知 FeatureKey：${entry.featureKey}`,
+		);
+	}
+}
+
+/**
  * 这里重复声明最容易被误带回小程序的内部字段，作为广度迁移的最后一道
  * 防线。详细实现边界仍由 architecture:audit 负责，本工具只关注冻结域。
  */

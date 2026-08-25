@@ -31,6 +31,12 @@ describe("旧端页面全量迁移台账", () => {
 				expect(entry.featureKey).toBeUndefined();
 				continue;
 			}
+			// 所有 blocked 页面都代表 contract 尚未冻结的真实入口，必须
+			// 进入统一状态页；不能只给当前重点域加门禁，遗漏其它旧入口。
+			if (entry.status.startsWith("blocked-")) {
+				expect(entry.nativeTarget).toBe("pages/feature-status/feature-status");
+				expect(isKnownLegacyFeatureKey(entry.featureKey)).toBe(true);
+			}
 			expect(nativePages.has(entry.nativeTarget ?? "")).toBe(true);
 			if (entry.nativeTarget === "pages/feature-status/feature-status") {
 				expect(isKnownLegacyFeatureKey(entry.featureKey)).toBe(true);
