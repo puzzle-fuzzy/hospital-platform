@@ -109,7 +109,7 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前发布基线（2026-08-26）为：线上服务端仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，当前本地 pending 运行输入为
-`ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
+`c7220d733b95d393030af9826c2ca305a7fc1f8e`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
 pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成当前候选业务证据；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 

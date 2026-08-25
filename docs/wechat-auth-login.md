@@ -1,9 +1,9 @@
-> 当前事实（2026-08-26）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`，共 40 个页面，回归为 `299 pass / 0 fail / 3407 expect()`。pending 尚未发布，真机业务三层证据仍待。
+> 当前事实（2026-08-26）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `c7220d733b95d393030af9826c2ca305a7fc1f8e`，共 40 个页面，回归为 `301 pass / 0 fail / 3435 expect()`。pending 尚未发布，真机业务三层证据仍待。
 
-> 当前候选已继续推进到 `ed20c52`：在全量入口覆盖基础上加入旧端“我的快递”真实空态和患者切换链路；今日预约摘要窗口只展示服务端已确认的预约事实，不推断叫号/队列状态；协议原文只读页保留 `patient-agreement` 契约关联键，但版本、同意、撤回和审计仍关闭。正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`migration/express-placeholder-native-migration-2026-08-26.md`](migration/express-placeholder-native-migration-2026-08-26.md)。
+> 当前候选已继续推进到 `c7220d7`：在全量入口覆盖基础上补齐患者签名和消息订阅的原生安全展示层；签名不调用未知外部小程序，订阅不调用微信授权或保存本地开关；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`migration/signature-subscription-safe-surface-migration-2026-08-26.md`](migration/signature-subscription-safe-surface-migration-2026-08-26.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 # 微信授权登录实施与验收手册
-> 当前验收配套基线：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`（功能提交 `ed20c52`），共 40 个页面。pending 尚未发布，真实微信业务三层证据仍待；29 个跨域页面当前只处于 `surface-only`，健康自测另有安全数值子集。候选详情见 [`release/candidate-ed20c52-miniprogram-runtime-2026-08-26.md`](release/candidate-ed20c52-miniprogram-runtime-2026-08-26.md)。
+> 当前验收配套基线：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `c7220d733b95d393030af9826c2ca305a7fc1f8e`（功能提交 `c7220d7`），共 40 个页面。pending 尚未发布，真实微信业务三层证据仍待；29 个跨域页面当前只处于 `surface-only`，健康自测另有安全数值子集。候选详情见 [`release/candidate-c7220d73-miniprogram-runtime-2026-08-26.md`](release/candidate-c7220d73-miniprogram-runtime-2026-08-26.md)。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
@@ -14,8 +14,8 @@
 [`release/8eb51b5f-production-acceptance-2026-08-24.md`](release/8eb51b5f-production-acceptance-2026-08-24.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
-当前本地 pending 运行输入为 `ed20c52`，完整指纹为
-`ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`；线上历史小程序包为 `13f597e`。本候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康自测安全数值子集、6 个临床内容入口、3 个外部入口、2 个预约 Provider 入口、3 个患者域页面外壳、共享页面工厂构建校验、旧端“我的快递”真实空态和患者切换链路、今日预约摘要边界和成功请求低敏 requestId 观测，
+当前本地 pending 运行输入为 `c7220d7`，完整指纹为
+`c7220d733b95d393030af9826c2ca305a7fc1f8e`；线上历史小程序包为 `13f597e`。本候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康自测安全数值子集、6 个临床内容入口、3 个外部入口、2 个预约 Provider 入口、患者签名和消息订阅安全展示页、共享页面工厂构建校验、旧端“我的快递”真实空态和患者切换链路、今日预约摘要边界和成功请求低敏 requestId 观测，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
