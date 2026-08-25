@@ -5,6 +5,10 @@ import {
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
 import {
+	ensureGlobalUserProfile,
+	refreshGlobalUserProfile,
+} from "../../services/global-user-profile";
+import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 	getPageLifecycle,
@@ -32,10 +36,8 @@ import {
 import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
-	restorePlatformSession,
 	sessionVerificationStateFromError,
 	sessionVerificationStateFromLabel,
-	signInPlatformSession,
 } from "../../services/session-service";
 import type {
 	ActionEvent,
@@ -257,13 +259,10 @@ Page<IndexPageData, IndexPageMethods>({
 		this.checkHealth();
 		const selectedPatientId = getSelectedPatientId();
 		if (selectedPatientId) this.setData({ selectedPatientId });
-		if (!hasPlatformSession()) return;
 
-		// 本地 token 只能说明“存在一个待验证的会话”，不能证明它仍属于当前
-		// principal。恢复 /me 期间先撤销页面上的患者派生数据，避免旧 token
-		// 过期、微信 code 兑换失败或 Redis 暂时不可用时继续展示上一位患者。
-		// 这里不删除本地 selectedPatientId；恢复成功后仍需按 owner-scoped
-		// 目录重新解析，失效选择进入 stale，而不是静默切到第一位患者。
+		// 首页是四个主 Tab 共用的启动根：只在这里启动一次 App 级用户资料
+		// 仓库。仓库内部会单飞恢复微信会话并读取 `/me/profile`，后续“我的”
+		// 和资料页只订阅这份快照，不会在每次切 Tab 时重复获取用户信息。
 		this.setData({
 			// 在一次 setData 中同时撤销旧患者并进入验证态，避免中间帧先出现
 			// “匿名/----”再切换到“正在验证”，保证卡片高度和内容状态稳定。
@@ -275,9 +274,13 @@ Page<IndexPageData, IndexPageMethods>({
 		});
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
-		restorePlatformSession()
-			.then(() => {
+		ensureGlobalUserProfile()
+			.then((profileState) => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
+				if (!profileState.ownerId || !hasPlatformSession()) {
+					this.setData({ sessionStatus: SESSION_LABELS.signedOut });
+					return;
+				}
 				this.setData({ sessionStatus: SESSION_LABELS.restored });
 				// 恢复链的第一次目录读取只确认当前 owner 能读到目录；本轮
 				// 临床映射尚未同步完成前，不能把旧目录里的患者画成首页当前患者。
@@ -418,7 +421,7 @@ Page<IndexPageData, IndexPageMethods>({
 			error: "",
 			sessionStatus: SESSION_LABELS.restoring,
 		});
-		signInPlatformSession()
+		refreshGlobalUserProfile()
 			.then(() => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
 				this.setData({ sessionStatus: SESSION_LABELS.signedIn });

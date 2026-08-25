@@ -1,0 +1,118 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import {
+	authorizeGlobalWechatProfile,
+	getGlobalUserProfile,
+	subscribeGlobalUserProfile,
+} from "./global-user-profile";
+import { getSessionGeneration } from "./session-generation";
+
+describe("App 全局个人资料仓库", () => {
+	const runtime = globalThis as typeof globalThis & {
+		getApp?: () => unknown;
+		wx?: typeof wx;
+	};
+	const originalGetApp = runtime.getApp;
+	const originalWx = runtime.wx;
+
+	afterEach(() => {
+		if (originalGetApp) runtime.getApp = originalGetApp;
+		else delete runtime.getApp;
+		if (originalWx) runtime.wx = originalWx;
+		else delete runtime.wx;
+	});
+
+	test("微信资料授权在 App 内单飞并同步给订阅页面", async () => {
+		const storage = new Map<string, unknown>();
+		let updateRequestCount = 0;
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "global-profile-test-token",
+			sessionStatus: "signed_in",
+			userProfile: {
+				status: "ready" as const,
+				ownerId: "owner-global-profile-test",
+				sessionGeneration: getSessionGeneration(),
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		runtime.wx = {
+			getStorageSync: (key: string) => storage.get(key),
+			setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+			removeStorageSync: (key: string) => storage.delete(key),
+			getUserProfile: (options: WechatMiniprogram.GetUserProfileOption) => {
+				const success = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+				success?.({
+					userInfo: {
+						nickName: "测试昵称",
+						avatarUrl: "https://wx.qlogo.cn/test-avatar/132",
+						gender: 1,
+						city: "",
+						country: "",
+						language: "zh_CN",
+						province: "",
+					},
+				});
+			},
+			request: (options: WechatMiniprogram.RequestOption) => {
+				updateRequestCount += 1;
+				const success = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+				success?.({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							displayName: "测试昵称",
+							gender: "male",
+							age: null,
+							email: null,
+							version: 1,
+						},
+					},
+					header: {},
+				} as unknown);
+			},
+		} as unknown as typeof wx;
+
+		const observedStates: Array<string> = [];
+		const unsubscribe = subscribeGlobalUserProfile((state) => {
+			observedStates.push(`${state.wechatProfileState}:${state.displayName}`);
+		});
+		const first = authorizeGlobalWechatProfile();
+		const second = authorizeGlobalWechatProfile();
+		expect(first).toBe(second);
+		const state = await first;
+		unsubscribe();
+
+		expect(state.displayName).toBe("测试昵称");
+		expect(state.avatarUrl).toBe("https://wx.qlogo.cn/test-avatar/132");
+		expect(state.wechatProfileState).toBe("ready");
+		expect(updateRequestCount).toBe(1);
+		expect(observedStates).toContain("loading:微信用户");
+		expect(observedStates.at(-1)).toBe("ready:测试昵称");
+		expect(
+			storage.get("wechat-user-profile:owner-global-profile-test"),
+		).toEqual({
+			ownerId: "owner-global-profile-test",
+			nickName: "测试昵称",
+			avatarUrl: "https://wx.qlogo.cn/test-avatar/132",
+			gender: "male",
+		});
+
+		expect(getGlobalUserProfile().displayName).toBe("测试昵称");
+	});
+});

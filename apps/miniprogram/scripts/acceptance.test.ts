@@ -113,6 +113,24 @@ test("native login keeps WeChat profile consent separate from session exchange",
 	expect(consent).toContain("requestWechatUserProfile");
 });
 
+test("native user profile is bootstrapped once and shared across primary tabs", async () => {
+	const globalProfile = await source("services/global-user-profile.ts");
+	const home = await source("pages/index/index.ts");
+	const my = await source("pages/my/my.ts");
+	const profile = await source("pages/profile/profile.ts");
+
+	// 首页是启动根，只启动 App 级资料 Promise；“我的”和资料编辑页只消费
+	// 这份快照，避免每次切换 Tab 都重新请求 `/me/profile` 或重置旧资料。
+	expect(home).toContain("ensureGlobalUserProfile()");
+	expect(globalProfile).toContain("profileBootstrapInFlight");
+	expect(globalProfile).toContain("subscribeGlobalUserProfile");
+	expect(my).toContain("subscribeGlobalUserProfile");
+	expect(my).not.toContain("return getUserProfile()");
+	expect(profile).toContain("ensureGlobalUserProfile()");
+	expect(globalProfile).toContain("profileConsentInFlight");
+	expect(globalProfile).toContain("authorizeGlobalWechatProfileInternal");
+});
+
 test("native client restores a platform session through the current-user endpoint", async () => {
 	const client = await source("services/api-client.ts");
 	const page = await source("pages/index/index.ts");
@@ -1160,49 +1178,32 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('"/pages/profile/profile"');
 	expect(my).toContain('sessionState: "checking"');
 	expect(my).toContain("sessionVerificationStateFromError");
-	expect(my).toContain('this.setData({ sessionState: "valid" })');
-	expect(my).toContain("getUserProfile");
+	expect(my).toContain('sessionState: "valid"');
+	expect(my).toContain("ensureGlobalUserProfile");
+	expect(my).toContain("subscribeGlobalUserProfile");
 	expect(my).toContain("hasPlatformSession");
-	expect(my).toContain("getSessionGeneration");
-	expect(my).toContain("assertSessionGeneration");
-	expect(my).toContain("revalidateCurrentOwner(expectedOwnerId)");
+	expect(my).toContain("getGlobalUserProfile");
 	expect(my).toContain("loadPatientsForOwner(expectedOwnerId)");
 	expect(my).toContain("登录状态已变化，请下拉刷新后重试");
-	// 必须先完成 `/me` 会话确认，再启动患者目录和普通资料读取；否则无效
-	// token 会额外制造受保护请求，旧页面周期也可能扩大为新的业务读取。
+	// `/me` 和 `/me/profile` 已经由 App 全局仓库单飞完成；“我的”页只等待
+	// 这份快照，再独立刷新患者目录，避免每次切换 Tab 重复获取个人资料。
 	const myLoadStart = my.indexOf("loadPage(): Promise<void>");
-	const sessionStart = my.indexOf(
-		"const sessionResult = getCurrentUser()",
-		myLoadStart,
-	);
 	const dependentReadsStart = my.indexOf(
 		"return loadPatientsForOwner(expectedOwnerId)",
 		myLoadStart,
 	);
-	expect(dependentReadsStart).toBeGreaterThan(sessionStart);
-	// 普通资料 GET 可能触发自动会话轮换，必须在患者目录之前完成或降级；
-	// 否则两个并行读取可能把旧患者目录和新资料混成一个页面快照。
-	expect(my).toContain("return getUserProfile()");
-	expect(my).toContain(".catch(applyProfileError)");
+	expect(dependentReadsStart).toBeGreaterThan(myLoadStart);
+	expect(my).not.toContain("return getUserProfile()");
+	expect(my).not.toContain("myPageProfileContexts");
 	expect(my).toContain("!hasPlatformSession()");
 	expect(my).toContain("patientCount: 0");
 	expect(my).not.toContain("Promise.all([loadPatients(), profileResult])");
-	expect(my).toContain("只有资料请求完成或已降级后才读取患者目录");
-	// `/me`、资料和患者目录是一个页面组合快照；任何中途换号都必须
-	// 停止后续读取或页面回写，不能把旧 owner 证明和新 owner 患者拼接。
-	expect(my).toContain("assertPageSessionCurrent()");
+	// 全局资料和患者目录仍分别经过 owner/代际边界，任何中途换号都必须
+	// 停止页面回写，不能把旧 owner 资料和新 owner 患者拼接。
 	expect(my).toContain("患者请求在 Promise 完成后、setData 前");
-	const profileStart = my.indexOf("return getUserProfile()", sessionStart);
-	const patientReadStart = my.indexOf(
-		"return loadPatientsForOwner(expectedOwnerId)",
-		sessionStart,
-	);
-	expect(profileStart).toBeGreaterThan(sessionStart);
-	expect(patientReadStart).toBeGreaterThan(profileStart);
 	expect(my).toContain(
 		"if (!pageLoadGuard.isCurrent(requestToken)) return undefined;",
 	);
-	expect(my).toContain("患者关键读模型也一定从最新代际开始");
 	expect(my).toContain("patientSelectionResolutionMessage");
 	expect(my).toContain("patientContextErrorMessage");
 	expect(my).toContain("patientContextError || this.data.error");
@@ -1227,10 +1228,10 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(template).toContain(
 		"avatarUrl || '/assets/legacy-user/default-avatar.svg'",
 	);
-	expect(my).toContain("requestWechatUserProfile");
-	expect(my).toContain("storeWechatUserProfile");
-	expect(my).toContain("myPageProfileContexts");
-	expect(my).toContain("头像和昵称已显示，资料同步失败");
+	expect(my).toContain("authorizeGlobalWechatProfile");
+	expect(await source("services/global-user-profile.ts")).toContain(
+		"头像和昵称已显示，资料同步失败",
+	);
 	expect(template).toContain('mode="widthFix"');
 	expect(await source("pages/my/my.wxss")).toContain("height: 566rpx");
 	expect(template).toContain("/assets/legacy-user/default-avatar.svg");
@@ -1285,7 +1286,8 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('case "electronic-consultation"');
 	expect(my).toContain('case "smart-customer"');
 	expect(my).toContain("医保电子凭证需要独立授权");
-	expect(profile).toContain("getUserProfile");
+	expect(profile).toContain("ensureGlobalUserProfile");
+	expect(profile).toContain("applyServerUserProfile");
 	expect(profile).toContain("updateUserProfile");
 	expect(profile).toContain("getPageLatestRequestGuard");
 	expect(profile).toContain("hasShown: false");
@@ -1296,7 +1298,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(profile).toContain("profileLoadGuard.isCurrent(requestToken)");
 	expect(profile).toContain("this.data.version");
 	expect(profile).toContain("sessionGeneration");
-	expect(profile).toContain("getSessionGeneration");
+	expect(profile).toContain("state.sessionGeneration");
 	expect(profile).toContain("isCurrentSessionGeneration");
 	expect(profile).toContain("profileSessionChangedError");
 	expect(profile).toContain(
@@ -1462,7 +1464,8 @@ test("native primary tab pages keep a stable patient header during session refre
 	expect(homeStyle).toContain("min-height: 72rpx");
 	expect(homeScript).toContain("sessionStatus: SESSION_LABELS.restoring");
 	expect(homeScript).toContain("selectedPatient: null");
-	expect(my).toContain('loading ? "正在验证当前账号..." : userLabel');
+	expect(my).toContain('{{userLabel || "微信用户"}}');
+	expect(my).toContain("全局资料仓库");
 });
 
 test("consult and internet hospital tabs keep unfinished external contracts closed", async () => {
@@ -3011,10 +3014,10 @@ test("native my page clears stale patient context when owner reads fail", async 
 
 	// 依赖暂时不可用时不能继续展示上一轮患者卡片；同时不删除本地选择，
 	// 让下一次成功的 owner-scoped 目录读取仍有机会恢复用户的显式选择。
-	expect(my).toContain('userLabel: "微信用户"');
+	expect(my).toContain("全局资料仍然是当前账号的已确认");
 	expect(my).toContain("selectedPatient: null");
 	expect(my).toContain("patientCount: 0");
-	expect(my).toContain("不删除本地 selectedPatientId");
+	expect(my).toContain("患者目录仍然需要在本页面重新确认");
 	expect(my).toContain("patientContextErrorMessage(error, fallback)");
 });
 

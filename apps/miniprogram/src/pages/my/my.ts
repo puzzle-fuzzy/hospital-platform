@@ -1,14 +1,12 @@
+import { ApiError } from "../../services/api-client";
+import { loadPatientsForOwner } from "../../services/dashboard-service";
 import {
-	ApiError,
-	getCurrentUser,
-	getUserProfile,
-	safeApiErrorMessage,
-	updateUserProfile,
-} from "../../services/api-client";
-import {
-	loadPatientsForOwner,
-	revalidateCurrentOwner,
-} from "../../services/dashboard-service";
+	authorizeGlobalWechatProfile,
+	ensureGlobalUserProfile,
+	type GlobalUserProfileState,
+	getGlobalUserProfile,
+	subscribeGlobalUserProfile,
+} from "../../services/global-user-profile";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -24,23 +22,12 @@ import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
-import { assertSessionGeneration } from "../../services/session-boundary";
-import {
-	getSessionGeneration,
-	isCurrentSessionGeneration,
-} from "../../services/session-generation";
+import { isCurrentSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
 	sessionStateAfterAuthenticatedReadError,
 	sessionVerificationStateFromError,
 } from "../../services/session-service";
-import {
-	readStoredWechatUserProfile,
-	requestWechatUserProfile,
-	storeWechatUserProfile,
-	WechatUserProfileAuthorizationError,
-	WechatUserProfileUnavailableError,
-} from "../../services/wechat-user-profile";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -55,22 +42,31 @@ type MyPageMethods = {
 	showError(error: unknown, fallback: string): void;
 };
 
-/**
- * “我的”页的微信资料同步上下文只属于当前页面实例。
- *
- * 头像昵称授权成功后，昵称/性别可能需要用普通资料 version 回写服务端；
- * 不能把 version 或 ownerId 放进模块级变量，否则多个页面实例或账号切换
- * 会把上一账号的授权结果提交到当前账号。
- */
-type MyPageProfileContext = {
-	ownerId: string;
-	sessionGeneration: number;
-	profileVersion: number;
-	displayName: string;
-	profileLoaded: boolean;
-};
+/** 页面实例只保存取消订阅函数；资料事实归 App 全局仓库所有。 */
+const myPageProfileSubscriptions = new WeakMap<object, () => void>();
 
-const myPageProfileContexts = new WeakMap<object, MyPageProfileContext>();
+function applyGlobalProfileToPage(
+	page: WechatMiniprogram.Page.Instance<MyPageData, MyPageMethods>,
+	state: GlobalUserProfileState,
+): void {
+	if (state.status === "loading" && !state.ownerId) {
+		page.setData({
+			userLabel: "微信用户",
+			avatarUrl: "",
+			wechatProfileState: "idle",
+			wechatProfileHint: "正在获取用户信息...",
+		});
+		return;
+	}
+	page.setData({
+		userLabel: state.displayName || "微信用户",
+		avatarUrl: state.avatarUrl,
+		wechatProfileState: state.wechatProfileState,
+		wechatProfileHint:
+			state.wechatProfileHint ||
+			(state.status === "error" ? "个人资料暂不可用，点击重新加载" : ""),
+	});
+}
 
 /**
  * 旧端 `userNavData.json` 的事实顺序和图标资源。
@@ -187,6 +183,10 @@ Page<MyPageData, MyPageMethods>({
 		// 首次 onShow 只消费 onLoad 已发起的读取；该状态必须属于当前
 		// 页面实例，不能用 loading 推断，否则快速响应时会重复请求。
 		this.setData({ hasShown: false });
+		const unsubscribe = subscribeGlobalUserProfile((state) =>
+			applyGlobalProfileToPage(this, state),
+		);
+		myPageProfileSubscriptions.set(this, unsubscribe);
 		this.loadPage();
 	},
 
@@ -202,161 +202,42 @@ Page<MyPageData, MyPageMethods>({
 	loadPage(): Promise<void> {
 		const pageLoadGuard = getPageLatestRequestGuard(this, "my-page");
 		const requestToken = pageLoadGuard.begin();
-		// 新一轮页面组合开始时先丢弃上一轮授权上下文；在新的 `/me` owner
-		// 证明完成前，任何头像昵称结果都不能继续绑定到当前页面实例。
-		myPageProfileContexts.delete(this);
-		// 页面组合开始时只记录代际号，不记录 token。`/me` 成功后会重新取
-		// 一次代际，因为首次 GET 可能安全地触发一次会话恢复；从那以后，
-		// 个人资料和患者目录必须经过同一 owner 的重验证，并以重验证后的最新
-		// 代际组合，不能把账号切换后的结果拼回这一次页面加载。请求级 guard
-		// 负责单个响应，这里负责跨请求组合。
-		let expectedSessionGeneration = getSessionGeneration();
+		// 全局资料仓库负责 `/me`、`/me/profile` 和本机微信资料缓存；本页面
+		// 只等待同一个 Promise，再读取患者目录。这样切换 Tab 不会重新获取
+		// 用户昵称/头像，也不会在每次 onShow 时把资料卡清成默认值。
+		let expectedSessionGeneration = -1;
 		let expectedOwnerId = "";
-		const assertPageSessionCurrent = (): void => {
-			assertSessionGeneration(
-				expectedSessionGeneration,
-				"Session changed while composing my page",
-			);
-		};
 		this.setData({
 			loading: true,
 			error: "",
 			sessionState: "checking",
-			avatarUrl: "",
-			wechatProfileState: "idle",
-			wechatProfileHint: "",
-			// 新一轮会话读取开始时先清除上一轮普通资料的展示结果；
-			// 否则资料请求失败时，旧昵称会被误认为当前会话资料。
-			userLabel: "微信用户",
 			// 患者目录必须和本轮会话重新绑定；在新目录完成前不能保留
 			// 上一轮患者卡片或数量，避免资料/患者读取失败时出现混合快照。
 			selectedPatient: null,
 			patientCount: 0,
 		});
-		const sessionResult = getCurrentUser().then(
-			(payload) => {
-				if (pageLoadGuard.isCurrent(requestToken)) {
-					expectedOwnerId = payload.data.user.id;
-					myPageProfileContexts.set(this, {
-						ownerId: expectedOwnerId,
-						sessionGeneration: getSessionGeneration(),
-						profileVersion: 0,
-						displayName: "",
-						profileLoaded: false,
-					});
-					// `/me` 是当前页面组合的 owner 证明。若它内部因旧 token
-					// 失效而完成了一次安全 GET 重登，以返回后的代际作为后续
-					// 资料/患者读取的起点；不能把请求开始时的旧代际继续沿用。
-					expectedSessionGeneration = getSessionGeneration();
-					this.setData({ sessionState: "valid" });
-				}
-				return payload;
-			},
-			(error) => {
-				if (pageLoadGuard.isCurrent(requestToken)) {
-					this.setData({
-						sessionState: sessionVerificationStateFromError(error),
-					});
-				}
-				throw error;
-			},
-		);
-		// `/me` 和患者目录决定“我的”页的核心会话上下文，资料只是头像区域的
-		// 展示增强。必须先确认 `/me`，再启动患者目录和资料读取：会话失效时不
-		// 应额外制造两条必然失败的受保护请求，也不能让依赖读取在会话状态尚未
-		// 收敛时抢先进入日志和页面状态。
-		return sessionResult
-			.then(() => {
-				// 当前页面周期已经被新的 onShow/下拉刷新淘汰时，不再启动后续
-				// 读取。微信请求本身无法取消，但至少不让旧周期扩大为新的业务请求。
+		return ensureGlobalUserProfile()
+			.then((profileState) => {
 				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
-				assertPageSessionCurrent();
-				// 普通资料虽然只是头像区的展示增强，但 GET 也允许在 401 时
-				// 自动换取新平台会话。它必须在患者目录之前完成；否则两个并行
-				// GET 可能分别属于旧/新会话，页面会把旧患者目录和新资料混在
-				// 一起，或者把 session-changed 误显示成患者目录失败。
-				const applyProfileError = (error: unknown): void => {
-					if (!pageLoadGuard.isCurrent(requestToken)) return;
-					// 个人资料失败不能被普通降级逻辑吞掉会话代际变化；否则
-					// 后面的患者目录会使用新 token，和旧 `/me` 证明拼成混合快照。
-					// 没有 token 时保留原始认证错误，让外层按失效会话收敛；
-					// 仍有新 token 时统一中止本轮，要求下一轮完整 `/me` 重建。
-					if (hasPlatformSession()) {
-						assertPageSessionCurrent();
-					}
-					if (error instanceof ApiError && error.code === "session-changed") {
-						throw error;
-					}
-					// 患者目录已经有更重要的错误时，不要用资料失败覆盖它。
-					if (this.data.error) return;
+				if (!profileState.ownerId || !hasPlatformSession()) {
 					this.setData({
-						error: safeApiErrorMessage(error, "个人资料暂时不可用"),
+						sessionState: sessionVerificationStateFromError(
+							new ApiError("No verified platform session", {
+								code: "unauthorized",
+							}),
+						),
+						error: profileState.error || "登录状态已失效，请重新登录",
 					});
-					if (!hasPlatformSession()) {
-						this.setData({
-							sessionState: sessionVerificationStateFromError(error),
-						});
-					}
-				};
-				return getUserProfile()
-					.then((response) => {
-						if (!pageLoadGuard.isCurrent(requestToken)) return;
-						// 资料 GET 可能刚刚完成同一 owner 的安全 token 恢复；
-						// 这里不能先拿旧代际 fail-closed，后续的
-						// `revalidateCurrentOwner` 会用 canonical `/me` 同时确认
-						// owner 身份并捕获恢复后的最新代际。若 owner 已切换，
-						// 重验证会拒绝，资料不会进入患者目录组合快照。
-						const displayName = response.data.displayName.trim();
-						const storedWechatProfile =
-							readStoredWechatUserProfile(expectedOwnerId);
-						const context = myPageProfileContexts.get(this);
-						if (context) {
-							context.profileVersion = response.data.version;
-							context.displayName = displayName;
-							context.profileLoaded = true;
-						}
-						this.setData({
-							// 服务端明确保存过的普通资料优先；只有默认资料时，
-							// 才使用同一 owner 设备上已获用户授权的微信昵称。
-							userLabel:
-								displayName !== "微信用户"
-									? displayName
-									: (storedWechatProfile?.nickName ?? "微信用户"),
-							avatarUrl: storedWechatProfile?.avatarUrl ?? "",
-							wechatProfileState: storedWechatProfile ? "ready" : "idle",
-							wechatProfileHint: storedWechatProfile ? "已授权头像和昵称" : "",
-							// 患者目录错误优先于资料增强错误；资料成功也不能清除
-							// 当前就诊人不可用的业务提示。
-							error: this.data.error,
-						});
-					})
-					.then(() => {
-						if (!pageLoadGuard.isCurrent(requestToken)) return;
-						return revalidateCurrentOwner(expectedOwnerId).then(
-							(sessionGeneration) => {
-								// `/me/profile` 也是受保护 GET，可能在响应期间安全轮换
-								// token。owner 重验证成功后采用最新代际，不能把同一用户
-								// 的正常恢复误报成“登录状态已变化”。
-								expectedSessionGeneration = sessionGeneration;
-								const context = myPageProfileContexts.get(this);
-								if (context) {
-									context.sessionGeneration = sessionGeneration;
-								}
-							},
-						);
-					})
-					.catch(applyProfileError);
-			})
-			.then(() => {
-				if (!pageLoadGuard.isCurrent(requestToken) || !hasPlatformSession())
 					return undefined;
-				// 只有与 `/me` 同一代际的资料读取完成后，才允许启动患者
-				// 目录；这是页面级 owner 边界，不能只依赖单个 HTTP 请求成功。
-				assertPageSessionCurrent();
-				// 只有资料请求完成或已降级后才读取患者目录。这样即使资料
-				// GET 触发了自动登录，患者关键读模型也一定从最新代际开始；
-				// helper 还会在目录返回后重新确认 owner，防止账号切换期间
-				// 把旧目录和新页面组合在一起。
+				}
+				expectedOwnerId = profileState.ownerId;
+				expectedSessionGeneration = profileState.sessionGeneration;
+				this.setData({
+					sessionState: "valid",
+					error: profileState.error || "",
+				});
+				// 个人资料是全局共享的；患者目录仍然需要在本页面重新确认，
+				// 因为用户可能刚从患者选择页返回，当前选择不能由全局资料代替。
 				return loadPatientsForOwner(expectedOwnerId);
 			})
 			.then((result) => {
@@ -364,7 +245,11 @@ Page<MyPageData, MyPageMethods>({
 				// 患者请求在 Promise 完成后、setData 前仍可能遇到另一个
 				// 页面换号；响应级 guard 已无法替代这里的组合一致性检查。
 				expectedSessionGeneration = result.sessionGeneration;
-				assertPageSessionCurrent();
+				if (!isCurrentSessionGeneration(expectedSessionGeneration)) {
+					throw new ApiError("Session changed while reading patients", {
+						code: "session-changed",
+					});
+				}
 				const { patients } = result;
 				if (!pageLoadGuard.isCurrent(requestToken)) return;
 				const resolution = resolveStoredPatientSelection(patients);
@@ -387,13 +272,8 @@ Page<MyPageData, MyPageMethods>({
 						// 不把混合快照伪装成普通网络错误，也不在当前页面自动
 						// 重放；清理派生数据后由用户下拉刷新，先重新取得完整
 						// `/me` owner 证明，再读取资料和患者目录。
-						myPageProfileContexts.delete(this);
 						this.setData({
 							sessionState: "checking",
-							userLabel: "微信用户",
-							avatarUrl: "",
-							wechatProfileState: "idle",
-							wechatProfileHint: "",
 							selectedPatient: null,
 							patientCount: 0,
 							error: "登录状态已变化，请下拉刷新后重试",
@@ -441,116 +321,45 @@ Page<MyPageData, MyPageMethods>({
 			wx.showToast({ title: "请先完成登录验证", icon: "none" });
 			return Promise.resolve();
 		}
-		const context = myPageProfileContexts.get(this);
-		if (!context?.profileLoaded) {
+		const globalProfile = getGlobalUserProfile();
+		if (
+			globalProfile.status !== "ready" ||
+			!globalProfile.ownerId ||
+			!isCurrentSessionGeneration(globalProfile.sessionGeneration)
+		) {
 			this.setData({
 				wechatProfileState: "idle",
-				wechatProfileHint: "个人资料尚未加载完成，请重新加载后再授权",
+				wechatProfileHint: "个人资料尚未加载完成，请稍后重试",
 			});
 			return Promise.resolve();
 		}
-		if (!isCurrentSessionGeneration(context.sessionGeneration)) {
-			this.setData({
-				wechatProfileState: "idle",
-				wechatProfileHint: "登录状态已变化，请重新加载后再授权",
-			});
-			return Promise.resolve();
-		}
 
-		this.setData({
-			wechatProfileState: "loading",
-			wechatProfileHint: "正在获取头像和昵称...",
-			error: "",
-		});
-		return requestWechatUserProfile()
-			.then(async (profile) => {
-				assertSessionGeneration(
-					context.sessionGeneration,
-					"Session changed while authorizing WeChat profile",
-				);
-				storeWechatUserProfile(context.ownerId, profile);
-
-				// 服务端已经保存的自定义昵称是更稳定的普通资料事实；微信
-				// 授权只补全默认“微信用户”，不能在页面层临时覆盖自定义昵称。
-				let userLabel =
-					context.displayName && context.displayName !== "微信用户"
-						? context.displayName
-						: profile.nickName;
-				let syncHint = "头像和昵称已获取";
-				// 默认资料才允许被首次授权结果补全；用户已经在资料页
-				// 保存过的自定义昵称不能被一次微信授权静默覆盖。
-				if (!context.displayName || context.displayName === "微信用户") {
-					try {
-						const response = await updateUserProfile({
-							version: context.profileVersion,
-							displayName: profile.nickName,
-							gender: profile.gender,
-						});
-						context.profileVersion = response.data.version;
-						context.displayName = response.data.displayName;
-						userLabel = response.data.displayName;
-					} catch (error) {
-						if (error instanceof ApiError && error.code === "session-changed") {
-							throw error;
-						}
-						// 不能吞掉同步失败；但也不能因为普通资料写入失败
-						// 而抹掉用户刚刚明确授权的本机展示结果。
-						syncHint = `头像和昵称已显示，资料同步失败：${safeApiErrorMessage(error, "请稍后重试")}`;
-					}
-				}
-
-				this.setData({
-					userLabel,
-					avatarUrl: profile.avatarUrl,
-					wechatProfileState: "ready",
-					wechatProfileHint: syncHint,
-				});
+		return authorizeGlobalWechatProfile()
+			.then(() => {
 				wx.showToast({ title: "头像昵称已更新", icon: "success" });
 			})
-			.catch((error) => {
+			.catch((error: unknown) => {
 				if (error instanceof ApiError && error.code === "session-changed") {
-					myPageProfileContexts.delete(this);
-					this.setData({
-						wechatProfileState: "idle",
-						wechatProfileHint: "登录状态已变化，请重新加载后再授权",
-						error: "登录状态已变化，请下拉刷新后重试",
-					});
+					this.setData({ error: "登录状态已变化，请下拉刷新后重试" });
 					return;
 				}
-				if (error instanceof WechatUserProfileAuthorizationError) {
-					this.setData({
-						wechatProfileState: "declined",
-						wechatProfileHint: "未授权，可点击此处重新获取",
-					});
-					return;
-				}
-				if (error instanceof WechatUserProfileUnavailableError) {
-					this.setData({
-						wechatProfileState: "idle",
-						wechatProfileHint: "当前微信版本暂不支持资料授权，请升级后重试",
-					});
+				if (
+					error instanceof Error &&
+					error.name === "WechatUserProfileUnavailableError"
+				) {
 					wx.showToast({
 						title: "当前微信版本不支持资料授权",
 						icon: "none",
 					});
 					return;
 				}
-				this.setData({
-					wechatProfileState: "idle",
-					wechatProfileHint: safeApiErrorMessage(
-						error,
-						"微信个人资料暂时不可用",
-					),
-				});
-				wx.showToast({
-					title: "获取头像昵称失败，请重试",
-					icon: "none",
-				});
-			})
-			.finally(() => {
-				if (this.data.wechatProfileState === "loading") {
-					this.setData({ wechatProfileState: "idle" });
+				if (
+					error instanceof Error &&
+					error.name === "WechatUserProfileAuthorizationError"
+				) {
+					return;
 				}
+				wx.showToast({ title: "获取头像昵称失败，请重试", icon: "none" });
 			});
 	},
 
@@ -626,21 +435,16 @@ Page<MyPageData, MyPageMethods>({
 
 	/** 页面卸载后让会话/患者目录读取失去回写资格。 */
 	onUnload(): void {
-		myPageProfileContexts.delete(this);
+		myPageProfileSubscriptions.get(this)?.();
+		myPageProfileSubscriptions.delete(this);
 		disposePageInstance(this);
 	},
 
 	showError(error: unknown, fallback: string): void {
-		// `/me` 或患者目录失败时，旧卡片不能继续充当当前会话证据。
-		// 这里只清理本页面的派生展示状态，不删除本地 selectedPatientId，
-		// 也不清理仍可重试的 token；下一次成功读取目录后仍可恢复原选择，
-		// 但在恢复前不会把旧患者数量或资料标签展示给用户。
+		// 患者目录失败不等于个人资料失败；全局资料仍然是当前账号的已确认
+		// 快照，不能因为某个业务列表暂时不可用就把昵称头像清成匿名状态。
 		this.setData({
 			error: patientContextErrorMessage(error, fallback),
-			userLabel: "微信用户",
-			avatarUrl: "",
-			wechatProfileState: "idle",
-			wechatProfileHint: "",
 			selectedPatient: null,
 			patientCount: 0,
 		});

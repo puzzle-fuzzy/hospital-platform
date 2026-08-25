@@ -91,7 +91,11 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 页面只负责状态和交互事件；会话生命周期集中在 `src/services/session-service.ts` 和 `src/services/api-client.ts`，
 其中并发登录请求使用单飞机制，日期窗口和患者/预约/报告
 读模型编排集中在 `src/services/dashboard-service.ts`。新增页面应优先复用领域服务，不要在 WXML 页面里直接拼接 provider 参数。
+首页启动时只调用一次 `src/services/global-user-profile.ts` 的 App 级资料仓库；它统一恢复微信会话、读取
+`/me/profile`、绑定当前 owner，并把服务端普通资料和当前设备已授权的头像昵称发布给所有页面。切换“医疗服务、
+就诊、互联网医院、我的”四个原生 Tab 时，页面只订阅全局快照，不重新获取用户资料；资料编辑成功也会立即回写这份快照。
 `wx.login()` 不会弹出头像/昵称授权框；登录成功后首页会显示“微信已登录”，头像昵称不属于当前医疗登录契约。
+首次微信头像昵称授权仍必须由用户点击头像或授权提示触发，不能在 `onLaunch`/`onShow` 中自动弹窗。
 登录后如果本地没有患者映射，页面会主动执行一次服务端患者目录同步；同步失败必须按配置或 provider 错误提示，不能展示假患者。
 同步按钮只调用平台 API 的 `POST /patients/sync`；生产前缀由 `app.ts` 的 `apiPrefix=/api/v2` 注入，
 本地 API 使用默认 `/api/v1`。unionId 从服务端会话解析，provider 患者号只在服务端映射表内使用。

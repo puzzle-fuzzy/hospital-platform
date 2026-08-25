@@ -9,6 +9,26 @@ type AppGlobalData = {
 	apiPrefix: "/api/v2" | "/api/v1";
 	accessToken: string;
 	sessionStatus: "signed_out" | "signed_in";
+	/**
+	 * App 级个人资料快照由 global-user-profile service 原子替换。
+	 * App 入口保持无 import 的微信全局脚本形态，因此这里显式声明初始结构，
+	 * 页面启动时再由统一仓库填充服务端资料和本机已授权头像昵称。
+	 */
+	userProfile: {
+		status: "idle" | "loading" | "ready" | "error";
+		ownerId: string;
+		sessionGeneration: number;
+		serverDisplayName: string;
+		displayName: string;
+		gender: "male" | "female" | "unknown";
+		age: number | null;
+		email: string | null;
+		version: number;
+		avatarUrl: string;
+		wechatProfileState: "idle" | "loading" | "ready" | "declined";
+		wechatProfileHint: string;
+		error: string;
+	};
 };
 
 /**
@@ -25,6 +45,21 @@ App<{ globalData: AppGlobalData }>({
 		apiPrefix: "/api/v2",
 		accessToken: "",
 		sessionStatus: "signed_out",
+		userProfile: {
+			status: "idle",
+			ownerId: "",
+			sessionGeneration: -1,
+			serverDisplayName: "微信用户",
+			displayName: "微信用户",
+			gender: "unknown",
+			age: null,
+			email: null,
+			version: 0,
+			avatarUrl: "",
+			wechatProfileState: "idle",
+			wechatProfileHint: "",
+			error: "",
+		},
 	},
 
 	onLaunch() {

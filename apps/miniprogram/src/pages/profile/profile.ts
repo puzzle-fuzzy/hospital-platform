@@ -1,19 +1,19 @@
 import {
 	ApiError,
-	getUserProfile,
 	safeApiErrorMessage,
 	updateUserProfile,
 } from "../../services/api-client";
+import {
+	applyServerUserProfile,
+	ensureGlobalUserProfile,
+} from "../../services/global-user-profile";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { switchToPrimaryTab } from "../../services/patient-navigation";
 import { parseProfileAgeInput } from "../../services/profile-form";
-import {
-	getSessionGeneration,
-	isCurrentSessionGeneration,
-} from "../../services/session-generation";
+import { isCurrentSessionGeneration } from "../../services/session-generation";
 import { hasPlatformSession } from "../../services/session-service";
 import type { ProfilePageData, UserProfileResponse } from "../../types";
 
@@ -188,14 +188,28 @@ Page<
 		const profileLoadGuard = getPageLatestRequestGuard(this, "profile");
 		const requestToken = profileLoadGuard.begin();
 		this.setData({ loading: true, error: "" });
-		return getUserProfile()
-			.then((response) => {
+		return ensureGlobalUserProfile()
+			.then((state) => {
 				if (!profileLoadGuard.isCurrent(requestToken)) return;
+				if (state.status !== "ready") {
+					throw new ApiError("User profile is not available", {
+						code: "persistence-temporarily-unavailable",
+					});
+				}
+				// 资料页编辑的是服务端普通资料，不是本机微信展示昵称；
+				// 微信昵称授权同步失败时，不能把未持久化的本机昵称当成服务端事实。
+				const serverProfile = {
+					displayName: state.serverDisplayName,
+					gender: state.gender,
+					age: state.age,
+					email: state.email,
+					version: state.version,
+				};
 				this.setData({
-					...toProfilePageFields(response.data),
+					...toProfilePageFields(serverProfile),
 					// GET 可能在没有 token 时安全地完成一次登录；必须记录
 					// 响应所属的最新代际，不能沿用请求开始前的旧数字。
-					sessionGeneration: getSessionGeneration(),
+					sessionGeneration: state.sessionGeneration,
 					loaded: true,
 					error: "",
 				});
@@ -329,6 +343,9 @@ Page<
 					saving: false,
 					navigationPending: true,
 				});
+				// 资料页保存成功后同步全局仓库，返回“我的”时直接显示服务端
+				// canonical 昵称/性别，不再等待下一次页面级 GET。
+				applyServerUserProfile(response.data);
 				wx.showToast({ title: "保存成功", icon: "success" });
 				const navigationTimer = setTimeout(() => {
 					profileNavigationTimers.delete(this);
