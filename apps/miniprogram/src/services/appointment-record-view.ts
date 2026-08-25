@@ -92,7 +92,7 @@ function toPeriodLabel(workTime?: string): string {
 export function toAppointmentRecordView(
 	record: AppointmentRecord,
 	index: number,
-	prefix: "appointment-record" | "missed-appointment-record",
+	prefix: "appointment-record" | "missed-appointment-record" | "consult-record",
 	renderGeneration = 0,
 ): AppointmentRecordView {
 	return {

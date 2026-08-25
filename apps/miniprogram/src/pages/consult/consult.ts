@@ -1,6 +1,11 @@
 import { ApiError } from "../../services/api-client";
-import { loadPatientsForOwner } from "../../services/dashboard-service";
+import {
+	formatPlatformDate,
+	loadAppointmentRecords,
+	loadPatientsForOwner,
+} from "../../services/dashboard-service";
 import { waitForGlobalUserProfile } from "../../services/global-user-profile";
+import { toAppointmentRecordView } from "../../services/appointment-record-view";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -11,7 +16,14 @@ import {
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
 import { hasPlatformSession } from "../../services/session-service";
-import type { Patient, SessionVerificationState } from "../../types";
+import { assertSessionGeneration } from "../../services/session-boundary";
+import { getSessionGeneration } from "../../services/session-generation";
+import { filterConsultRecords } from "../../services/consult-record-view";
+import type {
+	AppointmentRecordView,
+	Patient,
+	SessionVerificationState,
+} from "../../types";
 
 /** 旧端就诊页的三个固定标签；标签切换只改变展示状态，不代表已经读取实时数据。 */
 const CONSULT_TABS = Object.freeze([
@@ -30,6 +42,8 @@ type ConsultPageData = {
 	selectedPatientIdLabel: string;
 	tabs: typeof CONSULT_TABS;
 	activeTab: ConsultTabId;
+	records: Array<AppointmentRecordView>;
+	visibleRecords: Array<AppointmentRecordView>;
 	loading: boolean;
 	error: string;
 };
@@ -59,6 +73,19 @@ function applyPatientContext(
 	});
 }
 
+/** 当前标签只在本地切换已经取得的预约读模型；today 继续由实时状态壳承载。 */
+function visibleRecordsForTab(
+	records: readonly AppointmentRecordView[],
+	tab: ConsultTabId,
+	today: string,
+): Array<AppointmentRecordView> {
+	if (tab === "today") return [];
+	return filterConsultRecords(records, today, tab).map((record, index) => ({
+		...record,
+		viewKey: `consult-record-${tab}-${index}`,
+	}));
+}
+
 Page<ConsultPageData, ConsultPageMethods>({
 	data: {
 		hasShown: false,
@@ -68,6 +95,8 @@ Page<ConsultPageData, ConsultPageMethods>({
 		selectedPatientIdLabel: "ID：----",
 		tabs: CONSULT_TABS,
 		activeTab: "today",
+		records: [],
+		visibleRecords: [],
 		loading: true,
 		error: "",
 	},
@@ -87,10 +116,9 @@ Page<ConsultPageData, ConsultPageMethods>({
 	},
 
 	/**
-	 * 就诊页只加载当前 owner 的患者读模型，不加载旧端 WebSocket。
-	 * 旧实现把 WebSocket、历史预约和患者缓存混在同一个生命周期里，
-	 * 容易在切换患者后继续显示上一位患者的队列消息。本轮先把页面级
-	 * 会话/患者快照和稳定空态迁移完整，实时 contract 冻结后再接入。
+	 * 就诊页把稳定的预约历史和实时动态拆成两个生命周期。
+	 * 未来/历史只读取已存在的 owner-scoped 预约摘要；今日仍不创建
+	 * WebSocket，也不调用队列接口，避免把预约记录误报成实时就诊事实。
 	 */
 	loadContext(): Promise<void> {
 		const guard = getPageLatestRequestGuard(this, "consult-context");
@@ -102,6 +130,8 @@ Page<ConsultPageData, ConsultPageMethods>({
 			selectedPatient: null,
 			selectedPatientName: "正在获取就诊人...",
 			selectedPatientIdLabel: "ID：----",
+			records: [],
+			visibleRecords: [],
 		});
 		return waitForGlobalUserProfile()
 			.then((profileState) => {
@@ -119,13 +149,66 @@ Page<ConsultPageData, ConsultPageMethods>({
 			.then((result) => {
 				if (!result || !guard.isCurrent(token)) return;
 				const resolution = resolveStoredPatientSelection(result.patients);
-				applyPatientContext(this, resolution.patient ?? null);
-				this.setData({ error: patientSelectionResolutionMessage(resolution) });
+				const patient = resolution.patient ?? null;
+				applyPatientContext(this, patient);
+				const selectionMessage = patientSelectionResolutionMessage(resolution);
+				if (!patient) {
+					this.setData({
+						error: selectionMessage,
+						records: [],
+						visibleRecords: [],
+					});
+					return;
+				}
+
+				const sessionGeneration = result.sessionGeneration;
+				// 一轮读取必须固定业务日，避免请求跨越中国标准时间零点时，
+				// 服务端记录和页面分组分别使用两个“今天”。
+				const requestNow = new Date();
+				assertSessionGeneration(
+					sessionGeneration,
+					"Consult page session changed before appointment records were requested",
+				);
+				return loadAppointmentRecords(
+					patient.id,
+					requestNow,
+					"history",
+					sessionGeneration,
+					"all",
+				).then((records) => {
+					assertSessionGeneration(
+						sessionGeneration,
+						"Consult page session changed before appointment records were committed",
+					);
+					if (
+						!guard.isCurrent(token) ||
+						!hasPlatformSession() ||
+						getSessionGeneration() !== sessionGeneration
+					) {
+						return;
+					}
+					const mappedRecords = records.map((record, index) =>
+						toAppointmentRecordView(record, index, "consult-record", token),
+					);
+					const today = formatPlatformDate(requestNow);
+					this.setData({
+						selectedPatient: patient,
+						records: mappedRecords,
+						visibleRecords: visibleRecordsForTab(
+							mappedRecords,
+							this.data.activeTab,
+							today,
+						),
+						error: selectionMessage,
+					});
+				});
 			})
 			.catch((error: unknown) => {
 				if (!guard.isCurrent(token)) return;
 				applyPatientContext(this, null);
 				this.setData({
+					records: [],
+					visibleRecords: [],
 					sessionState: sessionStateFromError(error),
 					error:
 						error instanceof ApiError
@@ -141,7 +224,12 @@ Page<ConsultPageData, ConsultPageMethods>({
 	onTabTap(event): void {
 		const tab = event.currentTarget?.dataset?.tab;
 		if (tab !== "today" && tab !== "upcoming" && tab !== "history") return;
-		this.setData({ activeTab: tab });
+		const activeTab = tab as ConsultTabId;
+		const today = formatPlatformDate(new Date());
+		this.setData({
+			activeTab,
+			visibleRecords: visibleRecordsForTab(this.data.records, activeTab, today),
+		});
 	},
 
 	onChangePatient(): void {

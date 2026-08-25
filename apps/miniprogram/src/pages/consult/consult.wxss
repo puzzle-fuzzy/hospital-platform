@@ -135,6 +135,118 @@ page {
 	font-size: 28rpx;
 }
 
+.consult-record-list {
+	box-sizing: border-box;
+	width: 710rpx;
+	margin: 20rpx auto 0;
+}
+
+.consult-record-card {
+	box-sizing: border-box;
+	margin-bottom: 18rpx;
+	padding: 26rpx 28rpx;
+	border-radius: 18rpx;
+	background: #ffffff;
+	box-shadow: 0 4rpx 16rpx rgba(35, 55, 95, 0.05);
+}
+
+.consult-record-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 18rpx;
+}
+
+.consult-record-title-wrap {
+	min-width: 0;
+}
+
+.consult-record-department,
+.consult-record-caption,
+.consult-record-label,
+.consult-record-date,
+.consult-record-time,
+.consult-record-number,
+.consult-record-footnote {
+	display: block;
+}
+
+.consult-record-department {
+	overflow: hidden;
+	color: #1f2937;
+	font-size: 30rpx;
+	font-weight: 700;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.consult-record-caption {
+	margin-top: 5rpx;
+	color: #9aa4b2;
+	font-size: 22rpx;
+}
+
+.consult-record-status {
+	flex: 0 0 auto;
+	padding: 7rpx 14rpx;
+	border-radius: 8rpx;
+	background: #f5f5f5;
+	color: #666666;
+	font-size: 23rpx;
+}
+
+.consult-record-status.record-status-scheduled {
+	background: #edf3ff;
+	color: #3d6df6;
+}
+
+.consult-record-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8rpx 22rpx;
+	margin-top: 18rpx;
+	color: #6b7280;
+	font-size: 23rpx;
+}
+
+.consult-record-schedule {
+	margin-top: 20rpx;
+	padding-top: 18rpx;
+	border-top: 1rpx solid #f0f0f0;
+}
+
+.consult-record-label {
+	color: #8995aa;
+	font-size: 22rpx;
+}
+
+.consult-record-date {
+	margin-top: 7rpx;
+	color: #333333;
+	font-size: 28rpx;
+	font-weight: 600;
+}
+
+.consult-record-time {
+	margin-top: 6rpx;
+	color: #4c4c4c;
+	font-size: 25rpx;
+}
+
+.consult-record-number {
+	margin-top: 14rpx;
+	color: #4b5563;
+	font-size: 23rpx;
+}
+
+.consult-record-footnote {
+	padding: 4rpx 6rpx 12rpx;
+	color: #a0a7b4;
+	font-size: 22rpx;
+	line-height: 1.5;
+	text-align: center;
+}
+
 .consult-state image {
 	display: block;
 	width: 150rpx;

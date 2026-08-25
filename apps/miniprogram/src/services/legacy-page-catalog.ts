@@ -46,7 +46,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "就诊",
 			status: "partial",
 			nativeTarget: "pages/consult/consult",
-			note: "已迁移患者上下文和三标签状态壳；实时队列与 WebSocket 待 contract。",
+			note: "已迁移患者上下文、未来/历史预约只读摘要和三标签状态壳；实时队列与 WebSocket 待 contract。",
 		},
 		{
 			legacyPath: "pages/hospital/hospital.vue",

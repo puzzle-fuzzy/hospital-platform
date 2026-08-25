@@ -1611,6 +1611,8 @@ test("consult and internet hospital tabs keep unfinished external contracts clos
 	expect(consultTemplate).not.toContain("<web-view");
 	expect(consultTemplate).toContain("智能陪诊");
 	expect(consultTemplate).toContain("实时就诊 contract 尚未完成");
+	expect(consult).toContain("loadAppointmentRecords");
+	expect(consultTemplate).toContain("当前仅展示预约摘要");
 	expect(consultTemplate).toContain("query-state-shell");
 
 	// 互联网医院属于独立外部 audience：没有 resourceKey、allowlist、短期
