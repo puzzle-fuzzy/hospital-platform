@@ -398,6 +398,20 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 		}
 		return nextState;
 	} catch (error) {
+		// 微信授权弹窗可能在会话已经切换后才回调失败。此时当前全局状态
+		// 已经属于新账号或已退出状态，不能把旧请求的“用户拒绝”写回去；
+		// 否则新账号会看到旧账号的 declined 提示，甚至误以为仍可继续
+		// 使用旧资料。这里同时校验代际、owner 和状态，覆盖真实运行时
+		// 的 token 轮换以及测试/容器主动清理全局快照但尚未推进代际的情况。
+		const latest = getGlobalUserProfile();
+		if (
+			!isCurrentSessionGeneration(current.sessionGeneration) ||
+			latest.ownerId !== current.ownerId ||
+			latest.sessionGeneration !== current.sessionGeneration ||
+			latest.status !== "ready"
+		) {
+			throw profileSessionChangedError();
+		}
 		if (error instanceof WechatUserProfileAuthorizationError) {
 			publishProfileState({
 				wechatProfileState: "declined",

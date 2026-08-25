@@ -7,7 +7,10 @@ import {
 } from "./global-user-profile";
 import type { GlobalUserProfileState } from "./global-user-profile";
 import { notifySessionChanged } from "./session-events";
-import { getSessionGeneration } from "./session-generation";
+import {
+	advanceSessionGeneration,
+	getSessionGeneration,
+} from "./session-generation";
 
 describe("App 全局个人资料仓库", () => {
 	const runtime = globalThis as typeof globalThis & {
@@ -244,5 +247,57 @@ describe("App 全局个人资料仓库", () => {
 		expect(state.displayName).toBe("微信用户");
 		expect(state.avatarUrl).toBe("");
 		expect(observedStates.at(-1)).toBe("idle:微信用户");
+	});
+
+	test("旧授权回调不能把新会话污染成授权拒绝", async () => {
+		let rejectWechatProfile: (() => void) | undefined;
+		const generation = getSessionGeneration();
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "old-account-token",
+			sessionStatus: "signed_in" as const,
+			sessionGeneration: generation,
+			userProfile: {
+				status: "ready" as const,
+				ownerId: "owner-stale-consent-test",
+				sessionGeneration: generation,
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		runtime.wx = {
+			getUserProfile: (options: WechatMiniprogram.GetUserProfileOption) => {
+				rejectWechatProfile = options.fail as () => void;
+			},
+			getStorageSync: () => undefined,
+			removeStorageSync: () => undefined,
+			setStorageSync: () => undefined,
+		} as unknown as typeof wx;
+
+		const pendingAuthorization = authorizeGlobalWechatProfile();
+		// 模拟 API 客户端完成 token 轮换：先推进共享代际，再通知资料仓库
+		// 清理旧快照。旧微信弹窗稍后才失败，不能覆盖这次清理结果。
+		advanceSessionGeneration();
+		notifySessionChanged();
+		rejectWechatProfile?.();
+
+		await expect(pendingAuthorization).rejects.toMatchObject({
+			code: "session-changed",
+		});
+		const state = getGlobalUserProfile();
+		expect(state.status).toBe("idle");
+		expect(state.ownerId).toBe("");
+		expect(state.wechatProfileState).toBe("idle");
+		expect(state.wechatProfileHint).toBe("");
 	});
 });
