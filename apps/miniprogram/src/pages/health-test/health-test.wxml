@@ -1,42 +1,65 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
+<scroll-view class="health-test-scroll" scroll-y="true" enhanced="true">
+	<view class="health-test-page">
+		<view class="health-test-hero">
+			<text class="health-test-title">健康自测</text>
+			<text class="health-test-subtitle">先提供不带临床结论的本地数值工具</text>
+		</view>
+
+		<view class="health-test-tabs">
+			<view class="health-test-tab {{mode === 'bmi' ? 'is-active' : ''}}" data-mode="bmi" bindtap="onModeTap">
+				<text>BMI 计算</text>
+			</view>
+			<view class="health-test-tab {{mode === 'blood-pressure' ? 'is-active' : ''}}" data-mode="blood-pressure" bindtap="onModeTap">
+				<text>血压记录</text>
 			</view>
 		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
-			<button wx:if="{{showPatientSelector}}" class="migration-surface-secondary-button" bindtap="onOpenPatientSelector">选择就诊人</button>
-		</view>
-
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">当前迁移状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
-				</view>
+		<view wx:if="{{mode === 'bmi'}}" class="health-test-card">
+			<text class="health-test-card-title">BMI 数值计算</text>
+			<text class="health-test-card-copy">输入身高和体重，计算公式结果。这里不提供体重分类或疾病风险判断。</text>
+			<view class="health-test-field">
+				<text class="health-test-label">身高</text>
+				<input class="health-test-input" type="digit" value="{{height}}" data-field="height" bindinput="onInput" placeholder="请输入身高" />
+				<text class="health-test-unit">cm</text>
+			</view>
+			<view class="health-test-field">
+				<text class="health-test-label">体重</text>
+				<input class="health-test-input" type="digit" value="{{weight}}" data-field="weight" bindinput="onInput" placeholder="请输入体重" />
+				<text class="health-test-unit">kg</text>
+			</view>
+			<button class="health-test-primary-button" bindtap="onCalculateBmi">计算 BMI</button>
+			<view wx:if="{{hasBmiResult}}" class="health-test-result">
+				<text class="health-test-result-label">本次 BMI</text>
+				<text class="health-test-result-value">{{bmiDisplay}}</text>
 			</view>
 		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">开放前还需确认</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
-				</view>
+		<view wx:if="{{mode === 'blood-pressure'}}" class="health-test-card">
+			<text class="health-test-card-title">血压读数记录</text>
+			<text class="health-test-card-copy">输入一次测量值，仅做格式校验和展示，不提供血压分级。</text>
+			<view class="health-test-field">
+				<text class="health-test-label">收缩压</text>
+				<input class="health-test-input" type="number" value="{{systolic}}" data-field="systolic" bindinput="onInput" placeholder="请输入收缩压" />
+				<text class="health-test-unit">mmHg</text>
 			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
+			<view class="health-test-field">
+				<text class="health-test-label">舒张压</text>
+				<input class="health-test-input" type="number" value="{{diastolic}}" data-field="diastolic" bindinput="onInput" placeholder="请输入舒张压" />
+				<text class="health-test-unit">mmHg</text>
+			</view>
+			<button class="health-test-primary-button" bindtap="onRecordBloodPressure">记录读数</button>
+			<view wx:if="{{hasBloodPressureResult}}" class="health-test-result">
+				<text class="health-test-result-label">本次读数</text>
+				<text class="health-test-result-value">{{bloodPressureDisplay}}</text>
+			</view>
 		</view>
 
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+		<view wx:if="{{message}}" class="health-test-message">{{message}}</view>
+		<view class="health-test-notice">
+			<text>重要提示</text>
+			<text>本页面不替代医生诊断、处方或就医建议。题库、风险评估和临床解释仍需审核后的业务规则。</text>
+		</view>
+		<button class="health-test-secondary-button" bindtap="onOpenMigrationStatus">查看完整迁移状态</button>
+		<button class="health-test-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

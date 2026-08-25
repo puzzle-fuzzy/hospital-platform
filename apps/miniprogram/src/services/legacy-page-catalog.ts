@@ -100,18 +100,18 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/blood_pressure_calc.vue",
 			domain: "健康",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/health-test/health-test",
 			featureKey: "health-test",
-			note: "已迁移健康自测统一原生外壳；旧端血压阈值和标准版本未完成临床确认，暂不迁移计算结论。",
+			note: "已迁移不带临床分级的血压读数校验和展示；旧端血压阈值、参考均值和风险结论不迁移，等待临床规则确认。",
 		},
 		{
 			legacyPath: "pagesB/health/bmi_calc.vue",
 			domain: "健康",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/health-test/health-test",
 			featureKey: "health-test",
-			note: "已迁移健康自测统一原生外壳；旧端 BMI 分类存在版本差异，等待适用人群、阈值和免责声明确认。",
+			note: "已迁移 BMI 公式数值计算；旧端人群分类、风险解释和参考表不迁移，等待临床规则确认。",
 		},
 		{
 			legacyPath: "pagesB/health/discharge_followup_detail.vue",

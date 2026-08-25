@@ -1,1 +1,181 @@
-@import "../../styles/migration-surface.wxss";
+.health-test-scroll {
+	height: 100vh;
+	background: #f7f9fd;
+}
+
+.health-test-page {
+	box-sizing: border-box;
+	min-height: 100%;
+	padding: 32rpx 24rpx 48rpx;
+}
+
+.health-test-hero {
+	padding: 20rpx 8rpx 28rpx;
+}
+
+.health-test-title {
+	display: block;
+	color: #222b45;
+	font-size: 40rpx;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.health-test-subtitle,
+.health-test-card-copy,
+.health-test-message,
+.health-test-notice {
+	color: #68738a;
+	font-size: 25rpx;
+	line-height: 1.7;
+}
+
+.health-test-subtitle {
+	display: block;
+	margin-top: 10rpx;
+}
+
+.health-test-tabs {
+	display: flex;
+	margin-bottom: 24rpx;
+	padding: 8rpx;
+	border-radius: 16rpx;
+	background: #eaf0ff;
+}
+
+.health-test-tab {
+	flex: 1;
+	padding: 20rpx 0;
+	border-radius: 12rpx;
+	color: #68738a;
+	font-size: 28rpx;
+	line-height: 1.4;
+	text-align: center;
+}
+
+.health-test-tab.is-active {
+	background: #ffffff;
+	box-shadow: 0 4rpx 14rpx rgba(61, 109, 246, 0.12);
+	color: #3d6df6;
+	font-weight: 600;
+}
+
+.health-test-card,
+.health-test-notice {
+	box-sizing: border-box;
+	border-radius: 18rpx;
+	background: #ffffff;
+}
+
+.health-test-card {
+	padding: 32rpx;
+}
+
+.health-test-card-title {
+	display: block;
+	color: #222b45;
+	font-size: 32rpx;
+	font-weight: 600;
+	line-height: 1.5;
+}
+
+.health-test-card-copy {
+	display: block;
+	margin-top: 12rpx;
+}
+
+.health-test-field {
+	display: flex;
+	align-items: center;
+	margin-top: 28rpx;
+	padding-bottom: 18rpx;
+	border-bottom: 1rpx solid #e9edf5;
+}
+
+.health-test-label {
+	width: 132rpx;
+	color: #333d56;
+	font-size: 28rpx;
+}
+
+.health-test-input {
+	flex: 1;
+	min-width: 0;
+	color: #222b45;
+	font-size: 30rpx;
+}
+
+.health-test-unit {
+	margin-left: 16rpx;
+	color: #8791a5;
+	font-size: 24rpx;
+}
+
+.health-test-primary-button,
+.health-test-secondary-button,
+.health-test-plain-button {
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 28rpx;
+	border-radius: 14rpx;
+	font-size: 28rpx;
+	line-height: 84rpx;
+}
+
+.health-test-primary-button {
+	background: #3d6df6;
+	color: #ffffff;
+}
+
+.health-test-secondary-button {
+	background: #edf3ff;
+	color: #3d6df6;
+}
+
+.health-test-plain-button {
+	background: transparent;
+	color: #68738a;
+}
+
+.health-test-result {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin-top: 24rpx;
+	padding: 24rpx;
+	border-radius: 14rpx;
+	background: #f7f9fd;
+}
+
+.health-test-result-label {
+	color: #68738a;
+	font-size: 26rpx;
+}
+
+.health-test-result-value {
+	color: #3d6df6;
+	font-size: 42rpx;
+	font-weight: 600;
+}
+
+.health-test-message {
+	margin-top: 20rpx;
+	padding: 20rpx 24rpx;
+	border-radius: 14rpx;
+	background: #fff8e8;
+	color: #a66b00;
+}
+
+.health-test-notice {
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+	margin-top: 24rpx;
+	padding: 24rpx;
+	background: #f0f4ff;
+}
+
+.health-test-notice text:first-child {
+	color: #3d6df6;
+	font-weight: 600;
+}

@@ -244,8 +244,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"health-test": {
 		title: "健康自测",
 		readiness: "待临床审核",
-		description: "健康自测正在迁移中，当前不会把旧题库结果当作医疗结论。",
-		contractHint: "等待题库版本、临床审核、评分规则和免责声明确认。",
+		description:
+			"当前仅开放不带临床结论的 BMI 数值计算和血压读数校验，旧题库与风险分级仍关闭。",
+		contractHint: "等待题库版本、临床审核、评分规则、适用人群和免责声明确认。",
 		icon: "/assets/legacy-home/service-test.svg",
 	},
 	"inpatient-center": {

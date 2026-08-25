@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { FEATURE_STATUS_CATALOG } from "./feature-navigation";
+import { LEGACY_PAGE_MIGRATION_CATALOG } from "./legacy-page-catalog";
 import {
 	getFeatureMigrationCoverage,
 	getLegacyPageMigrationBatch,
 	type MigrationCoverageStage,
 } from "./migration-coverage";
-import { LEGACY_PAGE_MIGRATION_CATALOG } from "./legacy-page-catalog";
 
 describe("迁移入口覆盖聚合", () => {
 	test("台账中的每个 feature key 都能生成稳定覆盖信息", () => {
@@ -37,10 +37,10 @@ describe("迁移入口覆盖聚合", () => {
 		expect(coverage.feature.contractHint).toContain("同意记录");
 	});
 
-	test("健康自测保留临床关闭态，不因多个旧入口共用 key 而误开放", () => {
+	test("健康自测只开放安全数值子集，不因多个旧入口共用 key 而误开放临床能力", () => {
 		const coverage = getFeatureMigrationCoverage("health-test");
-		expect(coverage.stage as MigrationCoverageStage).toBe("surface-only");
-		expect(coverage.stageLabel).toBe("页面外壳已迁移，业务仍关闭");
+		expect(coverage.stage as MigrationCoverageStage).toBe("partial");
+		expect(coverage.stageLabel).toBe("已接入安全子集");
 		expect(coverage.feature.contractHint).toContain("临床审核");
 	});
 

@@ -1,8 +1,8 @@
+import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
 } from "./migration-coverage";
-import { navigateToFeatureStatus, type FeatureKey } from "./feature-navigation";
 
 export type ClinicalContentSurfaceFeature =
 	| "admission-preconsultation"
@@ -48,7 +48,7 @@ const CLINICAL_CONTENT_SURFACE_DEFINITIONS: Readonly<
 	"health-test": {
 		scopeTitle: "健康自测范围",
 		scopeDescription:
-			"血压、BMI、健康自测题目和结果必须使用经审核的规则版本，当前不输出任何医疗等级或建议。",
+			"题目、结果和临床解释必须使用经审核的规则版本；当前页面只开放不带结论的本地数值工具。",
 		boundaryItems: [
 			"题库、阈值和适用人群必须版本化",
 			"自测结果不能替代诊断、处方或就医建议",
