@@ -55,6 +55,9 @@
 - 健康百科：版本化内容、临床审核、搜索和下线审计。
 
 每个域都必须完成 `contract → adapter → domain → persistence（如需要）→ API → 小程序 → 日志 → 验收`，不允许直接从页面调用旧 provider。
+病历、住院、医生关系和问诊的并行材料入口固定为
+[`../provider-intake/clinical-read-models-2026-08-25.md`](../provider-intake/clinical-read-models-2026-08-25.md)，
+收到材料后按域独立推进，不因为同属“健康”就共用 `patId`、通用响应或 WebView。
 
 ### 批次 C：写入与敏感医疗业务
 

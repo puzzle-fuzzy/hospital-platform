@@ -7,6 +7,8 @@
 旧端 64 个页面的逐页落点见
 [`../release/breadth-first-page-coverage-2026-08-25.md`](../release/breadth-first-page-coverage-2026-08-25.md)。
 本页继续按业务域管理后续 contract，不把 64 个入口都能打开误写为 64 个业务已经完成。
+病历、住院、医生关系和问诊的材料入口统一见
+[`../provider-intake/clinical-read-models-2026-08-25.md`](../provider-intake/clinical-read-models-2026-08-25.md)。
 
 ## 当前总览
 
@@ -51,6 +53,7 @@ provider/HIS 文档登记
 
 - 门诊病历：[`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)
 - 门诊/住院边界：[`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md)
+- 临床只读域并行准入：[`../provider-intake/clinical-read-models-2026-08-25.md`](../provider-intake/clinical-read-models-2026-08-25.md)
 - 就诊与互联网医院：[`consult-and-internet-hospital-boundary-audit-2026-08-25.md`](consult-and-internet-hospital-boundary-audit-2026-08-25.md)
 - 健康内容与自测：[`health-content-and-self-test-audit-2026-08-24.md`](health-content-and-self-test-audit-2026-08-24.md)
 - 知识内容导入：[`health-knowledge-import-runbook.md`](health-knowledge-import-runbook.md)
