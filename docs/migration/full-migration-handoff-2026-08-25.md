@@ -30,12 +30,12 @@
 | 状态 | 数量 | 含义 |
 | --- | ---: | --- |
 | `replaced` | 7 | 已有原生页面或等价静态能力；仍需真实链路/真机证据才能称为完成 |
-| `partial` | 16 | 已有安全只读或静态子集；旧页面中的写入、详情、实时或外部能力仍关闭 |
+| `partial` | 17 | 已有安全只读或静态子集；旧页面中的写入、详情、实时或外部能力仍关闭 |
 | `blocked-provider` | 6 | 等待 HIS/Provider 的请求、响应、映射、脱敏和错误样例 |
 | `blocked-clinical` | 13 | 等待题库、阈值、内容、随访或问诊规则版本及临床审核 |
 | `blocked-payment` | 7 | 等待金额、订单、支付、查单、退款和 HIS 回写状态机 |
 | `blocked-patient-contract` | 4 | 等待新增/绑定、协议、地址、签名的 owner、同意和幂等规则 |
-| `blocked-external` | 10 | 等待 WebView、客服、问诊、分享、订阅等外部主体和回跳协议 |
+| `blocked-external` | 9 | 等待 WebView、客服、问诊、分享、订阅等外部主体和回跳协议 |
 | `excluded` | 1 | 旧端开发辅助页，不进入生产小程序 |
 | **合计** | **64** | 每个旧页面有一个明确落点；不等于 64 个业务都已开放 |
 
@@ -46,7 +46,7 @@ pnpm migration:audit
 pnpm migration:boundary:audit
 ```
 
-所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
+所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；互联网医院旧顶层入口已有独立安全壳，但外部能力仍关闭。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
 
 全项目 readiness 汇总可以通过 `pnpm migration:readiness` 生成，字段说明见 [`migration-readiness-report.md`](migration-readiness-report.md)。该报告明确拆分入口结构、五个只读域、Provider 材料状态、四个临床域准入状态、pending/live 运行包来源、九个真机证据域和真实业务完成状态；默认结构审计通过不代表 Provider、公网或真机验收通过，`--strict` 才会把运行包未对齐作为命令失败。
 

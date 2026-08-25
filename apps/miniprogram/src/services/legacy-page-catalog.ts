@@ -51,10 +51,9 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pages/hospital/hospital.vue",
 			domain: "互联网医院",
-			status: "blocked-external",
-			nativeTarget: "pages/feature-status/feature-status",
-			featureKey: "smart-customer",
-			note: "旧端是外部 web-view 入口，不能恢复任意 URL 或万能 ticket。",
+			status: "partial",
+			nativeTarget: "pages/hospital/hospital",
+			note: "新端已迁移独立主 Tab 安全壳；外部 web-view、任意 URL 和万能 ticket 仍等待互联网医院 contract。",
 		},
 		{
 			legacyPath: "pages/index/index.vue",

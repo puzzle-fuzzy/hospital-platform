@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { FEATURE_STATUS_CATALOG } from "./feature-navigation";
 import {
-	LEGACY_PAGE_DOMAIN_SUMMARY,
-	LEGACY_PAGE_COUNT,
-	LEGACY_PAGE_MIGRATION_CATALOG,
 	isKnownLegacyFeatureKey,
+	LEGACY_PAGE_COUNT,
+	LEGACY_PAGE_DOMAIN_SUMMARY,
+	LEGACY_PAGE_MIGRATION_CATALOG,
 } from "./legacy-page-catalog";
 
 describe("旧端页面全量迁移台账", () => {
@@ -54,6 +54,25 @@ describe("旧端页面全量迁移台账", () => {
 			if (!entry.featureKey) continue;
 			expect(FEATURE_STATUS_CATALOG[entry.featureKey]).toBeTruthy();
 		}
+	});
+
+	test("互联网医院旧入口只迁移安全壳，不伪造外部业务完成", async () => {
+		const entry = LEGACY_PAGE_MIGRATION_CATALOG.find(
+			(item) => item.legacyPath === "pages/hospital/hospital.vue",
+		);
+		expect(entry).toMatchObject({
+			status: "partial",
+			nativeTarget: "pages/hospital/hospital",
+		});
+		expect(entry?.featureKey).toBeUndefined();
+
+		const pageWxml = await Bun.file(
+			new URL("../pages/hospital/hospital.wxml", import.meta.url),
+		).text();
+		// 主 Tab 的安全壳只说明 contract 尚未完成；真正的 web-view 和外部
+		// URL 必须等 audience、allowlist、短期会话和回跳证据齐全后再加入。
+		expect(pageWxml).not.toContain("<web-view");
+		expect(pageWxml).toContain("互联网医院服务正在迁移中");
 	});
 
 	test("每个旧业务域都有可追溯的状态分布，且总量与逐页台账一致", () => {

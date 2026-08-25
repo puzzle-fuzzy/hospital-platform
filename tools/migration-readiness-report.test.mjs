@@ -10,7 +10,7 @@ describe("全项目迁移 readiness 报告", () => {
 
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
 		expect(report.entryCoverage.nativePageCount).toBe(20);
-		expect(report.entryCoverage.legacy.blockedPageCount).toBe(40);
+		expect(report.entryCoverage.legacy.blockedPageCount).toBe(39);
 		expect(report.entryCoverage.passed).toBe(true);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.passed).toBe(true);
@@ -50,7 +50,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[1].businessReady).toBe(false);
 		expect(report.migrationQueue[2].codeReady).toBe(false);
 		expect(report.migrationQueue[3].blockedPageCount).toBe(4);
-		expect(report.migrationQueue[4].blockedPageCount).toBe(10);
+		expect(report.migrationQueue[4].blockedPageCount).toBe(9);
 		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
 		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
 		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);

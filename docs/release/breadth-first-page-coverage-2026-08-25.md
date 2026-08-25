@@ -2,7 +2,7 @@
 
 > **当前事实源补充（2026-08-25）**：本页的旧候选段落保留历史交接信息；当前逐页机器台账以
 > `pnpm migration:audit` 为准：64 个旧页面、20 个原生页面，状态分布为
-> `partial=16`、`blocked-clinical=13`、`blocked-external=10`、`blocked-payment=7`、
+> `partial=17`、`blocked-clinical=13`、`blocked-external=9`、`blocked-payment=7`、
 > `blocked-provider=6`、`blocked-patient-contract=4`、`replaced=7`、`excluded=1`。
 > 这份覆盖证据证明入口没有遗漏，不证明阻塞入口的真实业务已经开放。
 
@@ -15,12 +15,12 @@
 | 分类 | 数量 | 含义 |
 | --- | ---: | --- |
 | `replaced` | 7 | 已由原生页面或等价静态能力替换，不代表旧端所有隐含 provider 能力都存在 |
-| `partial` | 16 | 已有安全只读/静态子集，详情、写入、支付或外部回写仍关闭 |
+| `partial` | 17 | 已有安全只读/静态子集，详情、写入、支付或外部回写仍关闭 |
 | `blocked-provider` | 6 | 等待众阳/HIS/云健康正式请求响应、字段白名单和错误样例 |
 | `blocked-clinical` | 13 | 等待题库、阈值、医疗内容或问卷的版本与临床审核 |
 | `blocked-payment` | 7 | 等待金额守恒、支付状态机、查单、医保和 HIS 回写 contract |
 | `blocked-patient-contract` | 4 | 等待患者绑定、协议、地址或签名的归属、授权和撤回规则 |
-| `blocked-external` | 10 | 等待 HTTPS allowlist、短期引用、外部主体授权或内容审核 |
+| `blocked-external` | 9 | 等待 HTTPS allowlist、短期引用、外部主体授权或内容审核 |
 | `excluded` | 1 | 旧端开发辅助页，不进入生产小程序 |
 | **合计** | **64** | 每个旧页面只有一个明确落点 |
 
@@ -36,7 +36,7 @@
 ```text
 Legacy page inventory passed: 64 old page(s) match the migration matrix
 Native legacy page catalog passed: 64 page(s)
-partial=16, blocked-external=10, replaced=7, excluded=1,
+partial=17, blocked-external=9, replaced=7, excluded=1,
 blocked-clinical=13, blocked-payment=7, blocked-provider=6,
 blocked-patient-contract=4
 ```
