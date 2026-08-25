@@ -9,11 +9,19 @@ export type FeatureKey =
 	| "admission-preconsultation"
 	| "appointment-detail"
 	| "appointment-write"
+	| "blood-appointment"
+	| "cashier"
 	| "companion"
 	| "consultation"
 	| "discharge-followup"
 	| "doctor"
+	| "doctor-directory"
 	| "electronic-consultation"
+	| "electronic-bill"
+	| "patient-agreement"
+	| "patient-address"
+	| "patient-signature"
+	| "patient-subscription"
 	| "gift-banner"
 	| "guide"
 	| "health-encyclopedia"
@@ -29,6 +37,7 @@ export type FeatureKey =
 	| "pre-visit"
 	| "report-cloud-image"
 	| "report-detail"
+	| "report-peis"
 	| "report-follow-up"
 	| "report-share"
 	| "risk-evaluation"
@@ -84,6 +93,21 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		contractHint: "等待锁号、幂等、取消、费用、支付前置和 HIS 回写规则确认。",
 		icon: "/assets/legacy-home/service-registration.svg",
 	},
+	"blood-appointment": {
+		title: "采血预约",
+		readiness: "待 provider contract",
+		description: "采血预约正在迁移中，当前不会读取号源或提交预约。",
+		contractHint: "等待采血号源、患者映射、预约写入、取消和最终状态查询确认。",
+		icon: "/assets/legacy-home/service-registration.svg",
+	},
+	cashier: {
+		title: "支付收银台",
+		readiness: "待支付与回写 contract",
+		description: "收银台正在迁移中，当前不会打开旧端 WebView 或任意外部地址。",
+		contractHint:
+			"等待 HTTPS allowlist、订单 owner、回调、查单和失败回退规则确认。",
+		icon: "/assets/legacy-home/top-payment.svg",
+	},
 	companion: {
 		title: "陪诊服务",
 		readiness: "待外部入口 contract",
@@ -112,12 +136,60 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		contractHint: "等待医生关系来源、患者归属、展示白名单和失效规则确认。",
 		icon: "/assets/legacy-user/doctor.svg",
 	},
+	"doctor-directory": {
+		title: "医生目录",
+		readiness: "待 provider contract",
+		description: "医生目录正在迁移中，当前不会展示未经审核的医生快照。",
+		contractHint: "等待科室/医生目录来源、字段白名单、更新时间和失效规则确认。",
+		icon: "/assets/legacy-user/doctor.svg",
+	},
 	"electronic-consultation": {
 		title: "电子导诊单",
 		readiness: "待 provider contract",
 		description: "电子导诊单正在迁移中，当前不会读取旧缓存或生成虚假的导诊单。",
 		contractHint: "等待导诊单来源、患者上下文和读写权限确认。",
 		icon: "/assets/legacy-user/electronic-consultation.svg",
+	},
+	"electronic-bill": {
+		title: "电子账单",
+		readiness: "待支付与回写 contract",
+		description: "电子账单正在迁移中，当前不会展示未经引用校验的账单文件。",
+		contractHint:
+			"等待账单资源授权、金额单位、患者归属、短期链接和过期规则确认。",
+		icon: "/assets/legacy-home/top-payment.svg",
+	},
+	"patient-agreement": {
+		title: "就诊人协议",
+		readiness: "待患者绑定 contract",
+		description:
+			"就诊人协议正在迁移中，当前不会接受未确认版本的实名或授权操作。",
+		contractHint: "等待协议版本、展示主体、用户同意记录、撤回和审计规则确认。",
+		icon: "/assets/legacy-home/service-patient.svg",
+	},
+	"patient-address": {
+		title: "就诊人联系地址",
+		readiness: "待患者绑定 contract",
+		description:
+			"联系地址正在迁移中，当前不会保存或展示未经归属校验的地址信息。",
+		contractHint:
+			"等待字段白名单、owner/患者归属、版本并发、脱敏和删除规则确认。",
+		icon: "/assets/legacy-home/service-patient.svg",
+	},
+	"patient-signature": {
+		title: "就诊人签名",
+		readiness: "待患者绑定 contract",
+		description: "患者签名正在迁移中，当前不会上传或复用旧端签名文件。",
+		contractHint:
+			"等待签名用途、文件安全、授权确认、撤回和医护侧审计规则确认。",
+		icon: "/assets/legacy-home/service-patient.svg",
+	},
+	"patient-subscription": {
+		title: "消息订阅",
+		readiness: "待外部入口 contract",
+		description:
+			"消息订阅正在迁移中，当前不会把本地开关当作微信授权或发送成功。",
+		contractHint: "等待模板 ID、授权时机、业务事件、发送结果和撤销状态确认。",
+		icon: "/assets/legacy-user/insurance.svg",
 	},
 	"gift-banner": {
 		title: "电子锦旗",
@@ -228,6 +300,14 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		readiness: "待 provider contract",
 		description: "报告详情正在迁移中，当前不会打开未经授权的临床报告资源。",
 		contractHint: "等待来源详情合同、患者归属、脱敏字段和资源授权确认。",
+		icon: "/assets/legacy-home/report-tab.svg",
+	},
+	"report-peis": {
+		title: "体检报告",
+		readiness: "待 provider contract",
+		description: "体检报告正在迁移中，当前不会使用身份证号直连第三方报告系统。",
+		contractHint:
+			"等待 PEIS 患者映射、报告资源授权、脱敏字段和附件下载规则确认。",
 		icon: "/assets/legacy-home/report-tab.svg",
 	},
 	"report-follow-up": {

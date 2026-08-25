@@ -123,6 +123,51 @@ if (!(await Bun.file(legacySentinel).exists())) {
 			`Legacy page inventory passed: ${actualLegacyPages.size} old page(s) match the migration matrix`,
 		);
 	}
+
+	/**
+	 * 页面矩阵解决“文档有没有登记”，原生台账解决“每个旧页面实际落到哪里”。
+	 * 两者必须同时通过：只登记 Markdown 仍可能漏掉状态页、排除项或真实原生
+	 * 路径；只写 TypeScript 台账又可能与旧仓库新增页面脱节。此处只读导入
+	 * 新端清单，不执行页面、接口或数据库迁移。
+	 */
+	const nativeCatalog = await import(
+		"../apps/miniprogram/src/services/legacy-page-catalog.ts"
+	);
+	const catalogPages = new Set(
+		nativeCatalog.LEGACY_PAGE_MIGRATION_CATALOG.map(
+			(entry) => entry.legacyPath,
+		),
+	);
+	const missingCatalogPages = [...actualLegacyPages]
+		.filter((pagePath) => !catalogPages.has(pagePath))
+		.sort();
+	const staleCatalogPages = [...catalogPages]
+		.filter((pagePath) => !actualLegacyPages.has(pagePath))
+		.sort();
+	if (missingCatalogPages.length > 0 || staleCatalogPages.length > 0) {
+		if (missingCatalogPages.length > 0) {
+			console.error("Native legacy page catalog is missing actual page(s):");
+			for (const pagePath of missingCatalogPages)
+				console.error(`- ${pagePath}`);
+		}
+		if (staleCatalogPages.length > 0) {
+			console.error("Native legacy page catalog contains stale page(s):");
+			for (const pagePath of staleCatalogPages) console.error(`- ${pagePath}`);
+		}
+		process.exitCode = 1;
+	} else {
+		const statusSummary = Object.entries(
+			Object.groupBy(
+				nativeCatalog.LEGACY_PAGE_MIGRATION_CATALOG,
+				(entry) => entry.status,
+			),
+		)
+			.map(([status, entries]) => `${status}=${entries?.length ?? 0}`)
+			.join(", ");
+		console.log(
+			`Native legacy page catalog passed: ${catalogPages.size} page(s), ${statusSummary}`,
+		);
+	}
 }
 
 /**

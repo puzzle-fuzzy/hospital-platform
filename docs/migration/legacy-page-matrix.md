@@ -5,6 +5,11 @@
 >
 > `pnpm migration:audit` 在本机能访问旧仓库时，会把 `src/pages`、`src/pagesB` 下的实际 `.vue` 文件与本矩阵逐项比对；
 > 没有旧仓库时会明确跳过外部清单检查，不把跳过当作迁移完成。
+>
+> 机器可校验的逐页落点同时维护在
+> [`apps/miniprogram/src/services/legacy-page-catalog.ts`](../../apps/miniprogram/src/services/legacy-page-catalog.ts)。
+> Markdown 矩阵负责解释业务边界，TypeScript 台账负责保证 64 个旧页面分别落到原生页、统一状态页或明确排除项；
+> 两者不互相替代，也不把状态页当作业务完成。
 
 ## 状态定义
 
