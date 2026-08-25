@@ -120,6 +120,11 @@ pnpm migration:contract:audit
 
 在这些材料到达前，继续保留原生安全页面和中文边界说明，不提交真实写入。
 
+2026-08-26 服务器只读盘点已确认旧便民六张表共 42 行，但旧 `system_users.openid` 到新微信 owner
+没有一行桥接成功，患者引用也为 0；直接 join 还暴露出旧新表 collation 不一致，已在新项目只读审计工具中
+使用 `utf8mb4_bin` 显式比较修正。详细数量、权限边界和停止条件见
+[`legacy-convenience-source-audit-2026-08-26.md`](legacy-convenience-source-audit-2026-08-26.md)。
+
 ### E：外部入口与实时能力
 
 范围：智能导诊、陪诊、智能客服、我的问诊、订阅消息、云影像、报告分享/复诊。
