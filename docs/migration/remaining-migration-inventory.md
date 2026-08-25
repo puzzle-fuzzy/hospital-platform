@@ -1,11 +1,11 @@
 > 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
-> **当前功能候选事实（2026-08-26）**：本轮小程序功能候选为 `77cebe54149e4ab8552229e809dca707fcd83c0d`，当前运行输入/pending 来源与该候选一致；后者包含全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、前序业务候选、协议静态页、7 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳以及共享构建/门禁输入。服务端本地候选按 `apps/api` 最新提交为 `b42922f4`；后续文档提交不改变已构建的 pending 运行包，源码或构建输入更新时必须重新生成来源记录；
+> **当前功能候选事实（2026-08-26）**：本轮小程序功能候选为 `77cebe54149e4ab8552229e809dca707fcd83c0d`，当前运行输入/pending 来源与该候选一致；后者包含全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、前序业务候选、协议静态页、7 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳以及共享构建/门禁输入。服务端当前生产 release 仍为 `8eb51b5f`，本地工作树不代表已部署 release；后续文档提交不改变已构建的 pending 运行包，源码或构建输入更新时必须重新生成来源记录；
 > 小程序 pending 运行包来源为 `77cebe54149e4ab8552229e809dca707fcd83c0d`，包含 40 个页面；
 > `apps/miniprogram/dist/` 仍由开发者工具锁定，当前 live dist 来源为 `fcc6630e`。本地候选、pending、live dist 和线上包必须分开记录。
 
-> 当前功能里程碑为 `77cebe54149e4ab8552229e809dca707fcd83c0d`；当前 pending 运行输入来源一致，包含 40 个页面脚本和当前源码 `293 pass / 0 fail / 3378 expect()`。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src`/`scripts` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性、可见 action 分发回归、40 个页面 WXML 事件方法闭环、就诊记录 8 条分批展示和 `dist` 独立运行工程一致性纳入门禁。
-> 紧随其后的 `485c0892`、`296516a5`、`39cbf021`、`8bc649f`、`1404a03`、`e5345c4`、`f97f9f0`、`fc70fa0b`、`7627843a`、`cd26a01`、`ad793c80` 和 `7f7a7a18` 构建记录是历史候选；当前验收、发布和回滚只认本页顶部的 `3b42b86` 运行包候选。
+> 当前功能里程碑为 `77cebe54149e4ab8552229e809dca707fcd83c0d`；当前 pending 运行输入来源一致，包含 40 个页面脚本和当前源码 `293 pass / 0 fail / 3378 expect()`。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src`/`scripts` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性、可见 action 分发回归、40 个页面 WXML 事件方法闭环、就诊记录分批展示和 `dist` 独立运行工程一致性纳入门禁。
+> 紧随其后的 `485c0892`、`296516a5`、`39cbf021`、`8bc649f`、`1404a03`、`e5345c4`、`f97f9f0`、`fc70fa0b`、`7627843a`、`cd26a01`、`ad793c80`、`7f7a7a18` 和 `3b42b86` 构建记录是历史候选；当前验收、发布和回滚只认本页顶部的 `77cebe5` 运行包候选。
 > `485c0892` 已完成 staging 构建并通过类型检查、页面入口、旧端 64 页面台账、action 分发回归和运行包静态门禁，但微信开发者工具锁定了当前 `dist/`，候选暂存于 `.local/hospital-miniprogram/pending/`；当前可运行 `dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。候选均不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。
 > 当前本地源码的 `app.json` 已注册 40 个页面，四个主入口由微信原生 TabBar 统一固定在窗口底部；这个数字不应与线上历史运行包 `13f597e` 的历史页面记录混用。
 > 这份本地候选不能替代线上 `13f597e`，
@@ -22,7 +22,7 @@
 
 > **最新候选覆盖补充（2026-08-26）**：当前源码原生页面注册数为 40 个，除既有四 Tab、健康百科和协议静态页外，还纳入 7 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳；首页/我的 31 个可见 action 与全部 40 个页面 WXML 事件通过广度审计。页面接入不等于临床 Provider、外部会话、患者域真实 contract、健康内容、协议同意、支付医保开放；正式审核 bundle、发布/撤回演练、协议审计和真机证据仍待。
 
-> 当前事实源（2026-08-26，优先于下方历史交接）：小程序功能源码候选为 `3b42b867ae19f6dd23bacd88648d1f5917dabf26`，当前运行输入/pending 来源一致，位于 `.local/hospital-miniprogram/pending/`；
+> 当前事实源（2026-08-26，优先于下方历史交接）：小程序功能源码候选为 `77cebe54149e4ab8552229e809dca707fcd83c0d`，当前运行输入/pending 来源一致，位于 `.local/hospital-miniprogram/pending/`；
 > 当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因为开发者工具锁定目录尚未发布。本轮小程序回归为 `293 pass / 0 fail / 3378 expect()`；更早候选仅作历史交接。
 
 > 本候选新增旧端 64 页面逐页机器台账、健康百科客户端运行时响应校验、分类级空态修复和迁移入口覆盖视图，不改变线上服务或旧项目；当前交接与运行包来源详情见
@@ -562,9 +562,9 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | 患者目录与切换 | `patients`、独立选择页 | 目录同步、脱敏、owner 隔离、`0013` 快照 schema 和代码级完整快照状态模型已实现；此前受控窗口曾同步 1 条 active 患者并建立 1 条 `his-patient` 映射，但该历史事实不能替代当前 release 的真机证据；页面首帧、读取/同步期间及失败时均不绘制未经确认的当前标记并保持 fail-closed | 真实失效/恢复数据、多患者显式切换、切换后的真机页面证据和新增/绑定家属仍未完成；绑定写入草案见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md) |
 | 普通个人资料 | `profile`、`pages/profile/profile` | 0014 表、owner/version API、小程序资料页、生产未登录 401，以及 2026-08-18 配对模拟器的 `GET /me/profile` 200 已验证；`ca46091` 又补充了 service 对仓储读模型的 owner、字段、版本二次校验和白名单投影，避免脏资料先记录成功事件 | 本轮未执行 PUT；真实微信默认值/首次更新/409 冲突和真机证据仍未完成；头像、实名、手机号不属于本能力 |
 | 预约科室/排班 | `appointments/departments`、`schedules` | 历史 `41c9c18` 曾取得真实 Provider 科室/排班只读结果并出现 `snapshotPersistenceStatus=persisted`；当前代码仍只接受已确认的 `usableSourceNum`，页面两列级联和排班分批渲染正常 | `13f597ea` 尚待重新取得当前候选的多次稳定、公网/真机网络证据；缺少 `usableSourceNum` 的响应会 fail-closed；不能锁号、不能把 `scheduleId` 当成写入授权 |
-| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；在线范围固定 `requestChannel=3` 并排除服务端明确的 `cancelled`，全部范围固定 `requestChannel=4` 并保留完整历史中的取消记录；当前 `8eb51b5` 服务端最近 24 小时出现 9 次成功只读同步事件，详见 [`current-production-readonly-observation-2026-08-25.md`](../release/current-production-readonly-observation-2026-08-25.md) | 当前 release 尚未完成同一运行包的客户端、公网、Provider 和真机三层证据；未知状态不能推导为爽约，详情/取消/预问诊/预约写入仍关闭；历史渠道审计见 [`request-channel-4-all-records-contract-audit-2026-08-18.md`](request-channel-4-all-records-contract-audit-2026-08-18.md) |
-| 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现；跨 LIS/PACS/ECG 合并目录按严格可解析时间倒序，未知 Provider 时间放到末尾；当前服务最近 24 小时报告请求均为 `401`，没有成功 Provider 观察，详见 [`current-production-readonly-observation-2026-08-25.md`](../release/current-production-readonly-observation-2026-08-25.md) | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收；Provider 新时间格式仍须先取得脱敏样例，目录/详情 gate 继续关闭 |
-| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；当前 `8eb51b5` 服务端最近 24 小时出现 4 次 `requested → loaded` 成功观察，但尚未取得金额非空样例和同一运行包的客户端/公网/真机闭环，详见 [`current-production-readonly-observation-2026-08-25.md`](../release/current-production-readonly-observation-2026-08-25.md) | 真实微信真机证据、费用详情、金额非空样例、支付、医保、结算回写和退费未开放；空列表或低敏 loaded 事件不能替代费用字段和支付链路验收 |
+| 预约历史/爽约筛选 | `appointments/records`、`missed-appointments` | contract、服务端状态映射、挂号记录页和 `missed` 派生页已实现；在线范围固定 `requestChannel=3` 并排除服务端明确的 `cancelled`，全部范围固定 `requestChannel=4` 并保留完整历史中的取消记录；本次 `8eb51b5` 服务端最近 24 小时观察到 `5 requested / 5 synced`，详见 [`current-production-readonly-observation-2026-08-25.md`](../release/current-production-readonly-observation-2026-08-25.md) | 当前 release 尚未完成同一运行包的客户端、公网、Provider 和真机三层证据；未知状态不能推导为爽约，详情/取消/预问诊/预约写入仍关闭；历史渠道审计见 [`request-channel-4-all-records-contract-audit-2026-08-18.md`](request-channel-4-all-records-contract-audit-2026-08-18.md) |
+| 报告目录/详情 | `reports`、目录/详情页 | 目录和短期 opaque 详情引用骨架已实现；跨 LIS/PACS/ECG 合并目录按严格可解析时间倒序，未知 Provider 时间放到末尾；本次最近 24 小时未观察到报告业务事件，公开未认证探针返回 `401`，没有成功 Provider 观察，详见 [`current-production-readonly-observation-2026-08-25.md`](../release/current-production-readonly-observation-2026-08-25.md) | 报告真实 provider、文件下载、PACS/ECG/体检详情未验收；Provider 新时间格式仍须先取得脱敏样例，目录/详情 gate 继续关闭 |
+| 门诊费用 | `payments/outpatient/records` | 只读目录已实现，查询时间显式使用 `Asia/Shanghai`；本次 `8eb51b5` 服务端最近 24 小时观察到 `7 requested / 7 loaded`，但尚未取得金额非空样例和同一运行包的客户端/公网/真机闭环，详见 [`current-production-readonly-observation-2026-08-25.md`](../release/current-production-readonly-observation-2026-08-25.md) | 真实微信真机证据、费用详情、金额非空样例、支付、医保、结算回写和退费未开放；空列表或低敏 loaded 事件不能替代费用字段和支付链路验收 |
 | 医院列表 | `pages/hospital-list/hospital-list` | 单医院静态卡片、受控本地原图、顶部院区提示和预约前置跳转已迁移 | 动态医院/院区目录、多院区选择、真实坐标/路线和版本化机构数据未迁移 |
 | 公众号说明 | `pages/official-account/official-account` | 旧端运行时静态通知说明已迁移；旧端二维码区域本身是注释代码，未有关注 API | 二维码、关注状态、订阅消息授权和真实发送结果属于未来新增能力 |
 | 意见反馈帮助 | `pages/feedback/feedback` | 旧端实际只有热点问题、客服电话和 Toast；新端保留静态内容并明确提示未开放，拨号需用户确认 | 真实反馈写入、客服工单、电话/工作时间受控配置属于未来新增能力 |

@@ -138,3 +138,34 @@
 
 本节服务端日志观察不构成当前 `7bc5956` pending 小程序的真机证据；客户端 requestId、公网链路、服务端 trace、
 Provider requestId 和页面结果仍必须来自同一候选配对。
+
+## 8. 2026-08-26 03:09 CST 当前运行层与 A 批次判断
+
+本次使用内网 inspection key 和公网 HTTPS 做只读复核，没有重启服务、读取环境变量/令牌、写入 MySQL/Redis，
+也没有修改旧 Python 项目。当前事实如下：
+
+| 检查项 | 结果 |
+| --- | --- |
+| 新 API release | `/home/ps/code/hospital-platform/releases/8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 新 API | `hospital-platform-api-v2.service=active`，监听 `10.0.0.3:18081` |
+| 旧 Python | `0.0.0.0:8001` 仍监听，未触碰 |
+| Worker | `hospital-platform-worker-v2.service=inactive` |
+| 内网 readiness | `database=ok`、`redis=ok`、`schema=ok` |
+| 公网 readiness | `/api/v2/health/ready` 返回 `200`，依赖均为 `ok` |
+| 公网受保护报告接口 | 未带会话返回 `401 unauthorized`，没有把未认证误报为空报告 |
+
+新服务最近 24 小时的低敏业务事件计数为：患者目录读取 `65 requested / 65 loaded`，患者同步 `11`，
+预约历史 `5 requested / 5 synced`，门诊费用 `7 requested / 7 loaded`，普通资料 `20 requested / 20 loaded`；
+报告目录没有观察到成功事件。这里的计数只用于决定验收顺序，不是业务成功证明：尤其不能从“有 loaded 事件”推导页面、
+患者切换和 Provider 字段已经在当前小程序候选上验收。
+
+本轮 A 批次判断：
+
+1. 患者目录、预约历史、门诊费用可以进入同一候选配对的只读验收队列；先收集客户端 `requestId`、公网 HTTP、
+   服务端 `traceId`、Provider `requestId` 和页面状态。
+2. 报告目录继续保持关闭。当前运行层没有成功报告事件，且服务配置明确为 disabled；不能因为报告页面和 adapter
+   的代码存在就打开报告 gate。
+3. 支付、医保、结算、退款、预约写入和 HIS 回写仍属于最后批次，不能借用本次只读观察结果开放。
+
+当前服务端 release 与本地 `77cebe5` 小程序 pending 仍不是同一候选，且微信开发者工具仍锁定 live `dist`；
+因此本节不写入任何真机完成状态，也不替代下一步的候选发布和设备验收。
