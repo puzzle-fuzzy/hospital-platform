@@ -2441,6 +2441,30 @@ test("native mini program migrates the legacy express placeholder without fake l
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native blood appointment keeps the legacy empty state without fake slots", async () => {
+	const catalog = await source("services/legacy-page-catalog.ts");
+	const page = await source("pages/blood-appointment/blood-appointment.ts");
+	const template = await source(
+		"pages/blood-appointment/blood-appointment.wxml",
+	);
+	const style = await source("pages/blood-appointment/blood-appointment.wxss");
+
+	// 旧端采血页没有号源请求，患者和院区都是硬编码；迁移时只能保留真实
+	// 空态和可解释的患者切换，不能把普通门诊号源或硬编码患者冒充采血业务。
+	expect(catalog).toContain('featureKey: "blood-appointment"');
+	expect(page).toContain("loadCurrentPatient");
+	expect(page).toContain('navigateToFeatureStatus("blood-appointment")');
+	expect(page).toContain("不复用普通门诊号源");
+	expect(page).not.toContain("hasProjects");
+	expect(page).not.toContain("providerPatientId");
+	expect(template).toContain("无可预约项目！");
+	expect(template).toContain("院区信息待采血服务接入");
+	expect(template).toContain("选择就诊人");
+	expect(template).toContain("/assets/legacy-home/empty-services.png");
+	expect(style).toContain(".blood-appointment-empty-card");
+	expect(style).toContain(".blood-appointment-error");
+});
+
 test("native patient signature keeps the patient boundary without fake external launch", async () => {
 	const page = await source("pages/patient-signature/patient-signature.ts");
 	const template = await source(

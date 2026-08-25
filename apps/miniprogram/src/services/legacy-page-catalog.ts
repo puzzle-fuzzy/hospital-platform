@@ -368,7 +368,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/blood-appointment/blood-appointment",
 			featureKey: "blood-appointment",
-			note: "已迁移采血预约原生页面外壳和患者入口；采血号源、预约写入、取消和最终状态查询仍关闭。",
+			note: "已按旧端真实行为迁移当前就诊人、院区位置和无可预约项目空态；旧端没有采血号源请求，采血号源、预约写入、取消和最终状态查询仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/hospital/confirm_registration.vue",

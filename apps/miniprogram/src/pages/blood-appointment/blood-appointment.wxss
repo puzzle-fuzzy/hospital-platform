@@ -1,1 +1,215 @@
-@import "../../styles/migration-surface.wxss";
+page {
+	background: #f8f8f8;
+}
+
+.blood-appointment-scroll {
+	height: 100vh;
+}
+
+.blood-appointment-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding-bottom: 48rpx;
+}
+
+.blood-appointment-error {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 76rpx;
+	padding: 16rpx 24rpx;
+	background: #fff0f0;
+	color: #c53b36;
+	font-size: 25rpx;
+	line-height: 1.5;
+}
+
+.blood-appointment-retry {
+	flex-shrink: 0;
+	margin: 0 0 0 18rpx;
+	padding: 0;
+	background: transparent;
+	color: #3d6df6;
+	font-size: 25rpx;
+	line-height: 1.5;
+}
+
+.blood-appointment-retry::after,
+.blood-appointment-status-button::after,
+.blood-appointment-back-button::after {
+	border: 0;
+}
+
+.blood-appointment-patient {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin: 20rpx 30rpx 0;
+	padding: 22rpx 24rpx;
+	border-radius: 16rpx;
+	background: #eaf2ff;
+}
+
+.blood-appointment-patient-copy {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 6rpx;
+	min-width: 0;
+}
+
+.blood-appointment-label {
+	color: #6d82a7;
+	font-size: 23rpx;
+}
+
+.blood-appointment-patient-title {
+	display: flex;
+	align-items: center;
+}
+
+.blood-appointment-patient-name {
+	max-width: 420rpx;
+	overflow: hidden;
+	color: #333333;
+	font-size: 32rpx;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.blood-appointment-patient-relation {
+	margin-left: 16rpx;
+	padding: 4rpx 12rpx;
+	border-radius: 8rpx;
+	background: rgba(61, 109, 246, 0.1);
+	color: #3d6df6;
+	font-size: 23rpx;
+}
+
+.blood-appointment-muted {
+	color: #8d99ad;
+	font-weight: 400;
+}
+
+.blood-appointment-arrow {
+	margin-left: 16rpx;
+	color: #7f8fae;
+	font-size: 46rpx;
+	font-weight: 300;
+	line-height: 1;
+}
+
+.blood-appointment-location {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	margin: 16rpx 30rpx 0;
+	padding: 22rpx 24rpx;
+	border: 1rpx solid #f0f0f0;
+	border-radius: 16rpx;
+	background: #ffffff;
+}
+
+.blood-appointment-location-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 42rpx;
+	height: 42rpx;
+	border-radius: 50%;
+	background: #eaf2ff;
+	color: #4a90e2;
+	font-size: 30rpx;
+}
+
+.blood-appointment-location-copy {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 5rpx;
+	margin-left: 16rpx;
+	min-width: 0;
+}
+
+.blood-appointment-location-title {
+	color: #6d82a7;
+	font-size: 23rpx;
+}
+
+.blood-appointment-location-value {
+	overflow: hidden;
+	color: #555f71;
+	font-size: 27rpx;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.blood-appointment-location-state {
+	margin-left: 12rpx;
+	color: #a7adb8;
+	font-size: 22rpx;
+	white-space: nowrap;
+}
+
+.blood-appointment-empty-card {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 620rpx;
+	margin: 16rpx 30rpx 0;
+	padding: 30rpx;
+	border-radius: 16rpx;
+	background: #ffffff;
+}
+
+.blood-appointment-empty-content {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	text-align: center;
+}
+
+.blood-appointment-empty-content image {
+	width: 330rpx;
+	height: 250rpx;
+	margin-bottom: 34rpx;
+}
+
+.blood-appointment-empty-title {
+	color: #999999;
+	font-size: 32rpx;
+}
+
+.blood-appointment-empty-note {
+	margin-top: 14rpx;
+	color: #aaaaaa;
+	font-size: 24rpx;
+}
+
+.blood-appointment-status-button,
+.blood-appointment-back-button {
+	box-sizing: border-box;
+	display: block;
+	width: calc(100% - 96rpx);
+	margin: 24rpx auto 0;
+	font-size: 27rpx;
+}
+
+.blood-appointment-status-button {
+	background: #eef3ff;
+	border: 1rpx solid #dce6ff;
+	color: #3d6df6;
+}
+
+.blood-appointment-back-button {
+	margin-top: 16rpx;
+	background: #ffffff;
+	border: 1rpx solid #e5e5e5;
+	color: #666666;
+}
