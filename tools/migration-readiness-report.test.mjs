@@ -20,6 +20,12 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.providerIntake.businessReady).toBe(false);
 		expect(report.runtime.candidateRuntimeAligned).toBe(false);
 		expect(report.runtime.publicationRequired).toBe(true);
+		expect(report.deviceEvidence.domainCount).toBe(9);
+		expect(report.deviceEvidence.allPending).toBe(true);
+		expect(report.deviceEvidence.passed).toBe(false);
+		expect(report.deviceEvidence.candidateMatchesPendingRuntime).toBe(true);
+		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
+		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);
 		expect(report.businessCompletion.passed).toBe(false);
 		expect(report.structuralAuditPassed).toBe(true);
 	});

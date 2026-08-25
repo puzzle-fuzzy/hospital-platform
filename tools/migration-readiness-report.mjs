@@ -180,6 +180,53 @@ async function runtimeProvenance(root) {
 }
 
 /**
+ * 汇总当前候选的真机三层证据清单。
+ *
+ * 清单中的 `pending` 只表示验收尚未开始或尚未留下证据，不能被当成失败；
+ * 但在所有域仍为 pending 时，也绝不能把代码测试或 HTTP smoke 升级成真实
+ * 业务完成。这里仅汇总状态和候选指纹，不写入页面截图、患者标识或请求正文。
+ */
+async function deviceEvidenceCoverage(root, pendingRuntime) {
+	const evidence = await readJsonIfExists(
+		resolve(root, "docs/release/device-evidence-296516a5-pending.json"),
+	);
+	const domains =
+		evidence &&
+		typeof evidence.domains === "object" &&
+		evidence.domains !== null
+			? Object.entries(evidence.domains)
+			: [];
+	const resultCounts = {};
+	for (const [, value] of domains) {
+		const result =
+			value && typeof value.result === "string" ? value.result : "unknown";
+		resultCounts[result] = (resultCounts[result] ?? 0) + 1;
+	}
+	const pendingSourceRevision = pendingRuntime?.sourceRevision ?? null;
+	const evidenceSourceRevision =
+		evidence?.candidate && typeof evidence.candidate.sourceRevision === "string"
+			? evidence.candidate.sourceRevision
+			: null;
+	return {
+		present: domains.length > 0,
+		domainCount: domains.length,
+		resultCounts,
+		allPending:
+			domains.length > 0 &&
+			domains.every(([, value]) => value?.result === "pending"),
+		passed:
+			domains.length > 0 &&
+			domains.every(([, value]) => value?.result === "passed"),
+		candidate: evidence?.candidate ?? null,
+		candidateMatchesPendingRuntime: Boolean(
+			pendingSourceRevision &&
+				evidenceSourceRevision &&
+				pendingSourceRevision === evidenceSourceRevision,
+		),
+	};
+}
+
+/**
  * 生成全项目迁移 readiness 报告。
  *
  * `structuralAuditPassed` 只代表台账、状态页、只读域清单和仓库文件没有
@@ -198,6 +245,7 @@ export async function buildMigrationReadinessReport(
 	const readOnly = await readOnlyCoverage(root);
 	const providerIntake = await providerIntakeCoverage(root);
 	const runtime = await runtimeProvenance(root);
+	const deviceEvidence = await deviceEvidenceCoverage(root, runtime.pending);
 	const nativePageCount = Array.isArray(appConfig.pages)
 		? appConfig.pages.length
 		: 0;
@@ -219,8 +267,14 @@ export async function buildMigrationReadinessReport(
 		readOnly,
 		providerIntake,
 		runtime,
+		deviceEvidence,
 		businessCompletion: {
 			completedClaimableDomainCount: 0,
+			codeReadyDomainCount: readOnly.domains.filter((domain) => domain.passed)
+				.length,
+			realEvidenceReadyDomainCount: deviceEvidence.passed
+				? deviceEvidence.domainCount
+				: 0,
 			blockedPageCount: legacy.blockedPageCount,
 			passed: false,
 			reason:

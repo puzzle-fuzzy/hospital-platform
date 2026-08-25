@@ -29,6 +29,7 @@ pnpm migration:readiness -- --strict
 | `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个只读域的页面/API/实现/日志/文档是否断链 | Provider 返回、生产流量或真机链路是否成功 |
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
 | `runtime` | live/pending `build-info.json` | 当前开发者工具目录和待发布候选的源码来源是否一致 | 当前微信设备一定运行了哪个版本；锁定目录时必须保留现场证据 |
+| `deviceEvidence` | `docs/release/device-evidence-296516a5-pending.json` | 当前候选的真机证据域数量、状态和候选指纹是否匹配 | `pending` 不等于失败；清单结构通过也不等于真实业务成功 |
 | `businessCompletion` | 固定 fail-closed 判定 | 明确当前不能声称全项目业务完成 | 不会因为页面或状态页存在就伪造完成结论 |
 
 ## 当前基线（2026-08-25）
@@ -40,6 +41,9 @@ pnpm migration:readiness -- --strict
 - 五个只读域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
 - live `dist` 来源为 `fcc6630e`，pending 来源为 `296516a5`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。
+- 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
+
+报告中的 `codeReadyDomainCount` 和 `realEvidenceReadyDomainCount` 必须分开读取：前者表示仓库结构和代码闭环通过，后者只在真机证据清单中对应域全部达到 `passed` 时增加。两者都不等于支付、医保或其它阻塞域已经开放。
 
 ## 与后续迁移的关系
 
