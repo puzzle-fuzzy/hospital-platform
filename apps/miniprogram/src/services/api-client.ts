@@ -225,6 +225,338 @@ export function requireSuccessDataResponse<TData>(value: unknown): {
 }
 
 /**
+ * 健康百科是审核后的医疗内容，不能只依赖 TypeScript 泛型读取微信 JSON。
+ * 服务端已经完成一次 contract 校验，但小程序仍处在不可信的网络边界：
+ * 代理、旧缓存、错误发布包或接口错配都可能返回结构合法但字段错误的内容。
+ * 这里重新投影公开字段，坏响应整批失败，不过滤坏行后伪装成“部分内容”。
+ */
+function isKnowledgeObject(value: unknown): value is Record<string, unknown> {
+	return isRecord(value) && !Array.isArray(value);
+}
+
+function hasKnowledgeText(value: unknown, maxLength: number): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function hasKnowledgeBodyText(
+	value: unknown,
+	maxLength: number,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= maxLength &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			const isLineBreak = code === 0x0a || code === 0x0d;
+			return (code <= 0x1f && !isLineBreak) || code === 0x7f;
+		})
+	);
+}
+
+function invalidKnowledgeResponse(): never {
+	throw new ApiError("Health knowledge response is invalid", {
+		code: "provider-response-invalid",
+	});
+}
+
+type KnowledgePublication =
+	HealthKnowledgeCatalogResponse["data"]["publication"];
+
+function requireKnowledgePublication(value: unknown): KnowledgePublication {
+	if (
+		!isKnowledgeObject(value) ||
+		!hasKnowledgeText(value.contentVersion, 64) ||
+		!hasKnowledgeText(value.reviewedAt, 64) ||
+		!hasKnowledgeText(value.sourceLabel, 128) ||
+		!hasKnowledgeText(value.disclaimer, 512)
+	) {
+		return invalidKnowledgeResponse();
+	}
+	return {
+		contentVersion: value.contentVersion,
+		reviewedAt: value.reviewedAt,
+		sourceLabel: value.sourceLabel,
+		disclaimer: value.disclaimer,
+	};
+}
+
+function optionalKnowledgeText(
+	value: Record<string, unknown>,
+	field: string,
+	maxLength: number,
+	allowLineBreaks = false,
+): string | undefined {
+	const fieldValue = value[field];
+	if (fieldValue === undefined) return undefined;
+	if (allowLineBreaks) {
+		if (!hasKnowledgeBodyText(fieldValue, maxLength)) {
+			return invalidKnowledgeResponse();
+		}
+		return fieldValue;
+	}
+	if (!hasKnowledgeText(fieldValue, maxLength))
+		return invalidKnowledgeResponse();
+	return fieldValue;
+}
+
+function requireKnowledgeCatalogItem(
+	value: unknown,
+): HealthKnowledgeCatalogResponse["data"]["items"][number] {
+	if (
+		!isKnowledgeObject(value) ||
+		!hasKnowledgeText(value.id, 128) ||
+		!hasKnowledgeText(value.name, 256)
+	) {
+		return invalidKnowledgeResponse();
+	}
+	return { id: value.id, name: value.name };
+}
+
+function requireKnowledgeLetterItem(
+	value: unknown,
+): HealthKnowledgeSymptomListResponse["data"]["items"][number] {
+	if (
+		!isKnowledgeObject(value) ||
+		!hasKnowledgeText(value.id, 128) ||
+		!hasKnowledgeText(value.name, 256) ||
+		!hasKnowledgeText(value.initialLetter, 8)
+	) {
+		return invalidKnowledgeResponse();
+	}
+	return {
+		id: value.id,
+		name: value.name,
+		initialLetter: value.initialLetter,
+	};
+}
+
+function requireKnowledgeDiseaseSummary(
+	value: unknown,
+): HealthKnowledgeDiseaseListResponse["data"]["items"][number] {
+	if (
+		!isKnowledgeObject(value) ||
+		!hasKnowledgeText(value.id, 128) ||
+		!hasKnowledgeText(value.name, 256) ||
+		!hasKnowledgeText(value.initialLetter, 8)
+	) {
+		return invalidKnowledgeResponse();
+	}
+	const treatmentDepartment = optionalKnowledgeText(
+		value,
+		"treatmentDepartment",
+		500,
+	);
+	const symptoms = optionalKnowledgeText(value, "symptoms", 10_000, true);
+	return {
+		id: value.id,
+		name: value.name,
+		initialLetter: value.initialLetter,
+		...(treatmentDepartment === undefined ? {} : { treatmentDepartment }),
+		...(symptoms === undefined ? {} : { symptoms }),
+	};
+}
+
+function requireKnowledgeListResponse<TItem>(
+	value: unknown,
+	parseItem: (item: unknown) => TItem,
+): { publication: KnowledgePublication; items: TItem[]; total: number } {
+	if (!isKnowledgeObject(value) || value.success !== true) {
+		return invalidKnowledgeResponse();
+	}
+	const data = value.data;
+	if (
+		!isKnowledgeObject(data) ||
+		!Array.isArray(data.items) ||
+		!Number.isSafeInteger(data.total) ||
+		(data.total as number) < 0 ||
+		(data.total as number) !== data.items.length
+	) {
+		return invalidKnowledgeResponse();
+	}
+	const items = data.items.map(parseItem);
+	const ids = new Set<string>();
+	for (const item of items) {
+		const id = (item as { id?: unknown }).id;
+		if (typeof id !== "string" || ids.has(id)) {
+			return invalidKnowledgeResponse();
+		}
+		ids.add(id);
+	}
+	return {
+		publication: requireKnowledgePublication(data.publication),
+		items,
+		total: data.total as number,
+	};
+}
+
+/** 健康知识目录/症状/疾病列表分别使用自己的字段白名单。 */
+export function requireHealthKnowledgeCatalogResponse(
+	value: unknown,
+): HealthKnowledgeCatalogResponse {
+	const data = requireKnowledgeListResponse(value, requireKnowledgeCatalogItem);
+	return { success: true, data };
+}
+
+export function requireHealthKnowledgeSymptomListResponse(
+	value: unknown,
+): HealthKnowledgeSymptomListResponse {
+	const data = requireKnowledgeListResponse(value, requireKnowledgeLetterItem);
+	return { success: true, data };
+}
+
+export function requireHealthKnowledgeDiseaseListResponse(
+	value: unknown,
+): HealthKnowledgeDiseaseListResponse {
+	const data = requireKnowledgeListResponse(
+		value,
+		requireKnowledgeDiseaseSummary,
+	);
+	return { success: true, data };
+}
+
+function requireKnowledgeDrugReference(
+	value: unknown,
+): HealthKnowledgeDiseaseDetailResponse["data"]["item"]["availableDrugs"][number] {
+	if (
+		!isKnowledgeObject(value) ||
+		(value.drugId !== undefined && !hasKnowledgeText(value.drugId, 128)) ||
+		!hasKnowledgeText(value.drugName, 256) ||
+		typeof value.isClickable !== "boolean" ||
+		(value.isClickable === true && value.drugId === undefined)
+	) {
+		return invalidKnowledgeResponse();
+	}
+	return {
+		...(value.drugId !== undefined ? { drugId: value.drugId } : {}),
+		drugName: value.drugName,
+		isClickable: value.isClickable,
+	};
+}
+
+export function requireHealthKnowledgeDiseaseDetailResponse(
+	value: unknown,
+): HealthKnowledgeDiseaseDetailResponse {
+	if (!isKnowledgeObject(value) || value.success !== true) {
+		return invalidKnowledgeResponse();
+	}
+	const data = value.data;
+	if (
+		!isKnowledgeObject(data) ||
+		!isKnowledgeObject(data.item) ||
+		!hasKnowledgeText(data.item.id, 128) ||
+		!hasKnowledgeText(data.item.diseaseName, 256) ||
+		!Array.isArray(data.item.availableDrugs)
+	) {
+		return invalidKnowledgeResponse();
+	}
+	const itemRecord = data.item;
+	const availableDrugsInput = itemRecord.availableDrugs;
+	if (!Array.isArray(availableDrugsInput)) return invalidKnowledgeResponse();
+	const drugNames = new Set<string>();
+	const availableDrugs = availableDrugsInput.map((drug: unknown) => {
+		const normalized = requireKnowledgeDrugReference(drug);
+		if (drugNames.has(normalized.drugName)) return invalidKnowledgeResponse();
+		drugNames.add(normalized.drugName);
+		return normalized;
+	});
+	const item = {
+		id: itemRecord.id,
+		diseaseName: itemRecord.diseaseName,
+		availableDrugs,
+		...Object.fromEntries(
+			[
+				["diseaseAlias", 500],
+				["affectedPart", 500],
+				["treatmentDepartment", 500],
+				["susceptibleCrowd", 500],
+				["cause", 100_000, true],
+				["symptoms", 100_000, true],
+				["examination", 100_000, true],
+				["prevention", 100_000, true],
+				["treatment", 100_000, true],
+			].flatMap(([field, maxLength, allowLineBreaks]) => {
+				const text = optionalKnowledgeText(
+					itemRecord,
+					field as string,
+					maxLength as number,
+					allowLineBreaks === true,
+				);
+				return text === undefined ? [] : [[field, text]];
+			}),
+		),
+	};
+	return {
+		success: true,
+		data: {
+			publication: requireKnowledgePublication(data.publication),
+			item,
+		},
+	};
+}
+
+export function requireHealthKnowledgeDrugDetailResponse(
+	value: unknown,
+): HealthKnowledgeDrugDetailResponse {
+	if (!isKnowledgeObject(value) || value.success !== true) {
+		return invalidKnowledgeResponse();
+	}
+	const data = value.data;
+	if (
+		!isKnowledgeObject(data) ||
+		!isKnowledgeObject(data.item) ||
+		!hasKnowledgeText(data.item.id, 128) ||
+		!hasKnowledgeText(data.item.drugName, 256)
+	) {
+		return invalidKnowledgeResponse();
+	}
+	const itemRecord = data.item;
+	const item = {
+		id: itemRecord.id,
+		drugName: itemRecord.drugName,
+		...Object.fromEntries(
+			[
+				["manufacturer", 256],
+				["chineseName", 256],
+				["specifications", 256],
+				["treatableDiseases", 500],
+				["indications", 100_000, true],
+				["usageDosage", 100_000, true],
+				["adverseReactions", 100_000, true],
+				["contraindications", 100_000, true],
+				["interactions", 100_000, true],
+				["precautions", 100_000, true],
+			].flatMap(([field, maxLength, allowLineBreaks]) => {
+				const text = optionalKnowledgeText(
+					itemRecord,
+					field as string,
+					maxLength as number,
+					allowLineBreaks === true,
+				);
+				return text === undefined ? [] : [[field, text]];
+			}),
+		),
+	};
+	return {
+		success: true,
+		data: {
+			publication: requireKnowledgePublication(data.publication),
+			item,
+		},
+	};
+}
+
+/**
  * 资料接口的成功响应必须是完整的服务端 canonical 快照。
  *
  * TypeScript 泛型只在编译期存在，微信请求收到的 JSON 仍然是运行时未知值；
@@ -1234,9 +1566,7 @@ export function requestHealthKnowledgeCatalog(
 ): Promise<HealthKnowledgeCatalogResponse> {
 	return requestWithSession<unknown>({
 		url: `/knowledge/health/${kind}/list`,
-	}).then((payload) =>
-		requireSuccessDataResponse<HealthKnowledgeCatalogResponse["data"]>(payload),
-	);
+	}).then(requireHealthKnowledgeCatalogResponse);
 }
 
 /** 读取指定身体部位的症状目录；symptom id 只用于后续服务端查询。 */
@@ -1245,11 +1575,7 @@ export function requestHealthSymptomsByPart(
 ): Promise<HealthKnowledgeSymptomListResponse> {
 	return requestWithSession<unknown>({
 		url: `/knowledge/health/symptoms/list/part/${encodeURIComponent(partId)}`,
-	}).then((payload) =>
-		requireSuccessDataResponse<HealthKnowledgeSymptomListResponse["data"]>(
-			payload,
-		),
-	);
+	}).then(requireHealthKnowledgeSymptomListResponse);
 }
 
 /** 按已审核目录关系读取疾病摘要，不把 provider 参数传入小程序。 */
@@ -1259,11 +1585,7 @@ export function requestHealthDiseasesByRelation(
 ): Promise<HealthKnowledgeDiseaseListResponse> {
 	return requestWithSession<unknown>({
 		url: `/knowledge/health/disease/list/${kind}/${encodeURIComponent(id)}`,
-	}).then((payload) =>
-		requireSuccessDataResponse<HealthKnowledgeDiseaseListResponse["data"]>(
-			payload,
-		),
-	);
+	}).then(requireHealthKnowledgeDiseaseListResponse);
 }
 
 /** 根据已选择症状查询疾病摘要；服务端负责版本一致性和数量上限。 */
@@ -1275,11 +1597,7 @@ export function requestHealthDiseasesBySymptoms(
 		.join("&");
 	return requestWithSession<unknown>({
 		url: `/knowledge/health/disease/list/symptoms?${query}`,
-	}).then((payload) =>
-		requireSuccessDataResponse<HealthKnowledgeDiseaseListResponse["data"]>(
-			payload,
-		),
-	);
+	}).then(requireHealthKnowledgeDiseaseListResponse);
 }
 
 /** 读取疾病详情；药品引用必须由详情页再次通过服务端查询。 */
@@ -1288,11 +1606,7 @@ export function requestHealthDiseaseDetail(
 ): Promise<HealthKnowledgeDiseaseDetailResponse> {
 	return requestWithSession<unknown>({
 		url: `/knowledge/health/disease/detail/${encodeURIComponent(diseaseId)}`,
-	}).then((payload) =>
-		requireSuccessDataResponse<HealthKnowledgeDiseaseDetailResponse["data"]>(
-			payload,
-		),
-	);
+	}).then(requireHealthKnowledgeDiseaseDetailResponse);
 }
 
 /** 读取药品详情；页面必须保留免责声明，不把内容渲染为处方建议。 */
@@ -1301,11 +1615,7 @@ export function requestHealthDrugDetail(
 ): Promise<HealthKnowledgeDrugDetailResponse> {
 	return requestWithSession<unknown>({
 		url: `/knowledge/health/drug/detail/${encodeURIComponent(drugId)}`,
-	}).then((payload) =>
-		requireSuccessDataResponse<HealthKnowledgeDrugDetailResponse["data"]>(
-			payload,
-		),
-	);
+	}).then(requireHealthKnowledgeDrugDetailResponse);
 }
 
 /** 读取服务端白名单后的排班目录。 */

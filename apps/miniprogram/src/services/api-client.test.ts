@@ -9,6 +9,11 @@ import {
 	requireAuthSessionResponse,
 	requireCanonicalUserProfileResponse,
 	requireCurrentUserResponse,
+	requireHealthKnowledgeCatalogResponse,
+	requireHealthKnowledgeDiseaseDetailResponse,
+	requireHealthKnowledgeDiseaseListResponse,
+	requireHealthKnowledgeDrugDetailResponse,
+	requireHealthKnowledgeSymptomListResponse,
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
@@ -623,6 +628,12 @@ test("健康百科客户端只通过平台 API 构造版本化只读路径", asy
 	const previousGetApp = testGlobal.getApp;
 	const previousWx = testGlobal.wx;
 	const requestUrls: string[] = [];
+	const publication = {
+		contentVersion: "health-2026-08-15",
+		reviewedAt: "2026-08-15T00:00:00.000Z",
+		sourceLabel: "医院健康科普审核组",
+		disclaimer: "本内容仅供健康知识参考，不能替代医生诊断、处方或面对面就医。",
+	};
 
 	testGlobal.getApp = () => ({
 		globalData: {
@@ -635,10 +646,42 @@ test("健康百科客户端只通过平台 API 构造版本化只读路径", asy
 	testGlobal.wx = {
 		getStorageSync: () => "",
 		request: (options: RequestOptions) => {
-			requestUrls.push(
-				new URL(options.url).pathname + new URL(options.url).search,
-			);
-			options.success({ statusCode: 200, data: { success: true, data: {} } });
+			const requestUrl = new URL(options.url);
+			requestUrls.push(requestUrl.pathname + requestUrl.search);
+			if (requestUrl.pathname.includes("/disease/detail/")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							publication,
+							item: {
+								id: "disease-001",
+								diseaseName: "普通感冒",
+								availableDrugs: [],
+							},
+						},
+					},
+				});
+				return;
+			}
+			if (requestUrl.pathname.includes("/drug/detail/")) {
+				options.success({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							publication,
+							item: { id: "drug-001", drugName: "示例药物" },
+						},
+					},
+				});
+				return;
+			}
+			options.success({
+				statusCode: 200,
+				data: { success: true, data: { publication, items: [], total: 0 } },
+			});
 		},
 	};
 
@@ -662,6 +705,127 @@ test("健康百科客户端只通过平台 API 构造版本化只读路径", asy
 		testGlobal.getApp = previousGetApp;
 		testGlobal.wx = previousWx;
 	}
+});
+
+test("健康百科客户端只接受完整列表 contract，并丢弃未公开字段", () => {
+	const publication = {
+		contentVersion: "health-2026-08-15",
+		reviewedAt: "2026-08-15T00:00:00.000Z",
+		sourceLabel: "医院健康科普审核组",
+		disclaimer: "本内容仅供健康知识参考，不能替代医生诊断、处方或面对面就医。",
+	};
+	const result = requireHealthKnowledgeDiseaseListResponse({
+		success: true,
+		data: {
+			publication,
+			items: [
+				{
+					id: "disease-001",
+					name: "普通感冒",
+					initialLetter: "P",
+					treatmentDepartment: "呼吸内科",
+					providerId: "must-not-reach-page",
+				},
+			],
+			total: 1,
+		},
+	});
+
+	expect(result.data.items).toEqual([
+		{
+			id: "disease-001",
+			name: "普通感冒",
+			initialLetter: "P",
+			treatmentDepartment: "呼吸内科",
+		},
+	]);
+	expect(() =>
+		requireHealthKnowledgeCatalogResponse({
+			success: true,
+			data: {
+				publication,
+				items: [
+					{ id: "part-001", name: "呼吸系统" },
+					{ id: "part-001", name: "循环系统" },
+				],
+				total: 2,
+			},
+		}),
+	).toThrow("Health knowledge response is invalid");
+	expect(() =>
+		requireHealthKnowledgeSymptomListResponse({
+			success: true,
+			data: { publication, items: [], total: 1 },
+		}),
+	).toThrow("Health knowledge response is invalid");
+});
+
+test("健康百科详情拒绝不完整药品引用和危险正文", () => {
+	const publication = {
+		contentVersion: "health-2026-08-15",
+		reviewedAt: "2026-08-15T00:00:00.000Z",
+		sourceLabel: "医院健康科普审核组",
+		disclaimer: "本内容仅供健康知识参考，不能替代医生诊断、处方或面对面就医。",
+	};
+	const result = requireHealthKnowledgeDiseaseDetailResponse({
+		success: true,
+		data: {
+			publication,
+			item: {
+				id: "disease-001",
+				diseaseName: "普通感冒",
+				cause: "第一行\n第二行",
+				availableDrugs: [
+					{
+						drugId: "drug-001",
+						drugName: "示例药物",
+						isClickable: true,
+						internalNote: "must-not-reach-page",
+					},
+				],
+			},
+		},
+	});
+
+	expect(result.data.item).toEqual({
+		id: "disease-001",
+		diseaseName: "普通感冒",
+		cause: "第一行\n第二行",
+		availableDrugs: [
+			{ drugId: "drug-001", drugName: "示例药物", isClickable: true },
+		],
+	});
+	const drugResult = requireHealthKnowledgeDrugDetailResponse({
+		success: true,
+		data: {
+			publication,
+			item: {
+				id: "drug-001",
+				drugName: "示例药物",
+				usageDosage: "第一行\n第二行",
+				internalNote: "must-not-reach-page",
+			},
+		},
+	});
+	expect(drugResult.data.item).toEqual({
+		id: "drug-001",
+		drugName: "示例药物",
+		usageDosage: "第一行\n第二行",
+	});
+	expect(() =>
+		requireHealthKnowledgeDiseaseDetailResponse({
+			success: true,
+			data: {
+				publication,
+				item: {
+					id: "disease-001",
+					diseaseName: "普通感冒",
+					cause: "含有\t制表符",
+					availableDrugs: [{ drugName: "示例药物", isClickable: true }],
+				},
+			},
+		}),
+	).toThrow("Health knowledge response is invalid");
 });
 
 test("错误响应按大小写无关方式读取 X-Request-Id，保持客户端与服务端同链", async () => {
