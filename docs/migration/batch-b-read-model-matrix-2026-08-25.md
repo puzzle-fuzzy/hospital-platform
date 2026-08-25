@@ -20,7 +20,7 @@
 | 我的医生 | `doctor.vue` | “我的”固定 `doctor` 状态页；旧库有 21 条历史关系但新端未导入 | 旧存量已盘点，待 provider contract | owner/医生目录映射、展示白名单、关系失效规则和历史数据策略 |
 | 住院信息 | `inpatient_center.vue` | 首页固定 `inpatient-center` 状态页 | 待 provider contract | 独立住院 episode/患者标识、在院状态、权限和脱敏字段 |
 | 住院预缴 | `inpatient_payment.vue` | 首页固定 `inpatient-payment` 状态页 | 待支付与回写 contract | 住院账单、金额单位、订单状态机、查单和 HIS 回写 |
-| 健康百科 | `health_encyclopedia.vue`、详情/搜索页 | 首页固定 `health-encyclopedia` 状态页；已具备旧库只读源快照导出器，服务端知识骨架仍未挂载 | 源数据已盘点，待临床审核 | 处理重复/孤儿关系、定义 `knowledge_tips` 映射、脱敏内容 bundle、来源/版本、审核责任、发布/撤回和搜索字段 |
+| 健康百科 | `health_encyclopedia.vue`、详情/搜索页 | 原生目录、症状查疾病结果、疾病/药品详情页已接入；服务端 `/knowledge/health/*` 已挂载并在无发布 bundle 时 fail-closed | 页面/路由已迁移，内容待临床审核 | 处理重复/孤儿关系、定义 `knowledge_tips` 映射、脱敏内容 bundle、来源/版本、审核责任、发布/撤回和搜索字段 |
 | 健康自测/风险自评 | `health_test.vue`、风险问卷和计算器 | 首页固定 `health-test`/`risk-evaluation` 状态页；旧库有 7 条风险评估历史记录但新端未导入 | 旧存量已盘点，待临床审核 | 旧答案脱敏、不可变题库版本、评分规则、适用人群、免责声明和结果撤回策略 |
 | 就诊实时动态 | `consult.vue`、旧 WebSocket/队列查询 | “就诊”主 Tab已完成患者栏、未来/历史预约摘要和三标签；当天实时内容保持关闭 | 待外部入口 contract | 事件 schema、连接认证、患者订阅、游标补偿、队列关联和真机断线证据 |
 | 互联网医院/客服 | `hospital.vue`、旧 web-view | “互联网医院”主 Tab或固定 `smart-customer` 状态页 | 待外部入口 contract | audience、HTTPS allowlist、短期引用、回跳/退出和外部主体授权 |

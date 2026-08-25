@@ -32,7 +32,7 @@
 | 旧端 `pagesB/account/follow` | 无服务端 API；原生页面 `pages/official-account/official-account` | 只迁移静态公众号通知说明和本地图标；不把打开页面解释为已关注，不生成伪二维码 | 静态页面已实现并纳入构建/源代码验收；二维码、关注状态、模板消息授权和外部主体仍待独立 contract |
 | 旧端 `pagesB/hospital/hospitalList` | 无服务端 API；原生页面 `pages/hospital-list/hospital-list` | 迁移已核对的单院区静态卡片，图片使用本地受控资源；“去挂号”进入预约只读目录，“查看路线”不猜坐标、不调用外部地图 | 静态入口已实现并纳入构建/源代码验收；动态机构/院区目录、多院区选择和真实路线仍待独立 contract |
 | 旧端 `pagesB/hospital/navigation` | 无服务端 API；原生页面 `pages/hospital-navigation/hospital-navigation` | 只迁移旧端静态 `map.jpg`、背景色、`aspectFit` 和点击预览；不把静态地图伪装成实时路线服务 | 静态页面已实现并纳入构建验收；动态医院列表、楼层/科室定位和实时路线待取得独立 contract |
-| `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | ADR 0004、contract/domain port、0010 schema、fail-closed repository 和未挂载 service 已完成；旧库源快照导出器已完成，但内容脱敏导入、重复/控制字符复核、临床审核、真实 schema 执行、内容审核和 API 挂载待实现 |
+| `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | 健康百科 contract/domain/persistence、fail-closed repository、服务端挂载和原生目录/详情页面已完成；旧库源快照导出器已完成，但内容脱敏导入、重复/控制字符复核、临床审核、真实 schema 执行和内容发布仍待实现 |
 | `POST /intelligent/*` | `/api/v1/assistant/*` | 后续迁移 AI 导诊和报告解读 | 后续 |
 | 旧个人中心扩展、外部 WebView、公众号、签名、订阅和采血 | 普通 profile 已独立实现；其余仍使用独立的 consent/external-entry/notification contract | 公众号说明和反馈帮助页只有静态页面，不复用患者目录或预约目录的字段和 token；外部入口使用 audience/allowlist/一次性引用 | 普通 profile 已注册但生产/真机待验收；真实头像、反馈写入、关注/订阅、签名、WebView 和采血能力未注册；详见 [`user-profile-contract.md`](user-profile-contract.md) 与 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
 
@@ -51,7 +51,7 @@
 | `/common/yunhealth/*` | 云健康挂号结算与 HIS 回写 | 未注册为患者端 API | 内部回调鉴权、最终结算状态、幂等和失败补偿；不能开放给小程序 |
 | `/convenience/*` | 锦旗、表扬信、风险评估、我的医生、出院随访、入院预问诊 | 未注册 | 旧端共 13 个路由；按 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) 拆为反馈、临床问卷、医生关系和预问诊四个领域；必须先完成 owner、版本、幂等、审核和医护侧权限 contract |
 | `/knowledge/tips/*` | 指标解读 | 新端 knowledge 领域骨架存在，患者路由未挂载 | 审核后的版本化内容、发布/下线记录和内容审计 |
-| `/knowledge/health/*` | 健康百科、疾病和药品内容 | 新端 knowledge 领域骨架存在，患者路由未挂载；映射见 [`health-knowledge-content-mapping.md`](health-knowledge-content-mapping.md) | 临床审核、内容版本、药品关联、搜索和脱敏导入 |
+| `/knowledge/health/*` | 健康百科、疾病和药品内容 | 新端已挂载版本化只读路由，并接入原生目录/搜索/详情页；无已发布 bundle 时 fail-closed；映射见 [`health-knowledge-content-mapping.md`](health-knowledge-content-mapping.md) | 临床审核、内容版本、药品关联、搜索和脱敏导入 |
 | `/knowledge/selftest/*` | 健康自测题目与结果 | 未注册 | 题库版本、评分算法、临床复核、免责声明、授权和结果保留规则 |
 | `/knowledge/report/*` | 报告解读 | 未注册 | 报告资源授权、解读模型/知识版本、免责声明和审计；不能从报告目录顺手开放 |
 | `/intelligent/*` | AI 导诊、客服、文本/音频会话和 RAG 文档 | 未注册 | 会话 owner、模型/知识版本、内容安全、免责声明、音频存储和限流 |
