@@ -1,7 +1,8 @@
 .knowledge-detail-scroll { height: 100vh; background: #f8f8f8; }
 .knowledge-detail-page { min-height: 100%; padding-bottom: 40rpx; color: #222; }
 .knowledge-detail-state { min-height: 700rpx; display: flex; align-items: center; justify-content: center; color: #999; font-size: 28rpx; }
-.knowledge-detail-error { color: #d45b5b; }
+.knowledge-detail-error { flex-direction: column; gap: 18rpx; color: #d45b5b; }
+.knowledge-detail-retry { margin: 0; color: #3d6df6; background: #f2f5ff; font-size: 26rpx; line-height: 64rpx; }
 .knowledge-detail-hero { padding: 34rpx 28rpx 28rpx; background: linear-gradient(135deg, #eef4ff, #fff); }
 .knowledge-detail-title { display: block; font-size: 38rpx; font-weight: 600; }
 .knowledge-detail-subtitle { display: block; margin-top: 12rpx; color: #777; font-size: 26rpx; }

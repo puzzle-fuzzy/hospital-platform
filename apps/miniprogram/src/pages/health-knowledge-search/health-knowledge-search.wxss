@@ -3,7 +3,8 @@
 .knowledge-search-header { margin-bottom: 16rpx; color: #222; font-size: 34rpx; font-weight: 600; }
 .knowledge-search-meta { margin-bottom: 20rpx; padding: 16rpx; border-radius: 10rpx; color: #888; background: #fff; font-size: 22rpx; line-height: 34rpx; }
 .knowledge-search-state { min-height: 500rpx; display: flex; align-items: center; justify-content: center; color: #999; font-size: 28rpx; }
-.knowledge-search-error { color: #d45b5b; }
+.knowledge-search-error { flex-direction: column; gap: 18rpx; color: #d45b5b; }
+.knowledge-search-retry { margin: 0; color: #3d6df6; background: #f2f5ff; font-size: 26rpx; line-height: 64rpx; }
 .knowledge-disease-card { position: relative; margin-bottom: 18rpx; padding: 24rpx 56rpx 24rpx 24rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, .04); }
 .knowledge-disease-title { color: #222; font-size: 32rpx; }
 .knowledge-disease-department, .knowledge-disease-symptoms { margin-top: 10rpx; color: #888; font-size: 25rpx; line-height: 38rpx; }

@@ -12,6 +12,8 @@ type DetailKind = "disease" | "drug";
 type DetailState = "loading" | "ready" | "error";
 type DetailPageData = {
 	kind: DetailKind;
+	/** 错误态重试需要保留服务端 opaque 内容 ID，不能重新读取任意外部参数。 */
+	contentId: string;
 	state: DetailState;
 	errorMessage: string;
 	disclaimer: string;
@@ -23,6 +25,7 @@ type DetailPageData = {
 type DetailPageMethods = {
 	load(kind: DetailKind, id: string): Promise<void>;
 	onDrugTap(event: WechatMiniprogram.TouchEvent): void;
+	onRetry(): void;
 };
 
 function detailErrorMessage(error: unknown): string {
@@ -38,6 +41,7 @@ function detailErrorMessage(error: unknown): string {
 Page<DetailPageData, DetailPageMethods>({
 	data: {
 		kind: "disease",
+		contentId: "",
 		state: "loading",
 		errorMessage: "",
 		disclaimer: "",
@@ -53,7 +57,7 @@ Page<DetailPageData, DetailPageMethods>({
 			this.setData({ state: "error", errorMessage: "缺少内容标识" });
 			return;
 		}
-		this.setData({ kind });
+		this.setData({ kind, contentId: id });
 		void this.load(kind, id);
 	},
 
@@ -91,5 +95,11 @@ Page<DetailPageData, DetailPageMethods>({
 		wx.navigateTo({
 			url: `/pages/health-knowledge-detail/health-knowledge-detail?kind=drug&id=${encodeURIComponent(id)}`,
 		});
+	},
+
+	/** 详情失败时只重试当前已经通过页面入口校验的内容引用。 */
+	onRetry() {
+		if (this.data.state === "loading" || !this.data.contentId) return;
+		void this.load(this.data.kind, this.data.contentId);
 	},
 });

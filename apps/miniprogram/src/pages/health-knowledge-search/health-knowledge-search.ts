@@ -11,11 +11,14 @@ type SearchPageData = {
 	errorMessage: string;
 	disclaimer: string;
 	publicationVersion: string;
+	/** 保存本次查询条件，错误态重试不能依赖页面重新 onLoad。 */
+	queryIds: string[];
 };
 
 type SearchPageMethods = {
 	load(ids: string[]): Promise<void>;
 	onDiseaseTap(event: WechatMiniprogram.TouchEvent): void;
+	onRetry(): void;
 };
 
 function searchErrorMessage(error: unknown): string {
@@ -32,6 +35,7 @@ Page<SearchPageData, SearchPageMethods>({
 		errorMessage: "",
 		disclaimer: "",
 		publicationVersion: "",
+		queryIds: [],
 	},
 
 	onLoad(options: Record<string, string | undefined>) {
@@ -43,6 +47,7 @@ Page<SearchPageData, SearchPageMethods>({
 			this.setData({ state: "error", errorMessage: "缺少症状查询条件" });
 			return;
 		}
+		this.setData({ queryIds: ids });
 		void this.load(ids);
 	},
 
@@ -67,5 +72,12 @@ Page<SearchPageData, SearchPageMethods>({
 		wx.navigateTo({
 			url: `/pages/health-knowledge-detail/health-knowledge-detail?kind=disease&id=${encodeURIComponent(id)}`,
 		});
+	},
+
+	/** 查询失败时复用已验证的症状 ID；不从页面文本或外部 query 重新拼接。 */
+	onRetry() {
+		if (this.data.state === "loading" || this.data.queryIds.length === 0)
+			return;
+		void this.load(this.data.queryIds);
 	},
 });

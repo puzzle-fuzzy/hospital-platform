@@ -1,7 +1,10 @@
 <scroll-view class="knowledge-detail-scroll" scroll-y="true" enhanced="true">
 	<view class="knowledge-detail-page">
 		<view class="knowledge-detail-state" wx:if="{{state === 'loading'}}">正在加载详情…</view>
-		<view class="knowledge-detail-state knowledge-detail-error" wx:elif="{{state === 'error'}}">{{errorMessage}}</view>
+		<view class="knowledge-detail-state knowledge-detail-error" wx:elif="{{state === 'error'}}">
+			<text>{{errorMessage}}</text>
+			<button class="knowledge-detail-retry" size="mini" bindtap="onRetry">重新加载</button>
+		</view>
 		<view wx:else>
 			<view class="knowledge-detail-hero">
 				<text class="knowledge-detail-title">{{kind === 'drug' ? drug.drugName : disease.diseaseName}}</text>

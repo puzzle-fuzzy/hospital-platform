@@ -3,7 +3,10 @@
 		<view class="knowledge-search-header">症状查找结果</view>
 		<view class="knowledge-search-meta" wx:if="{{disclaimer}}">内容版本 {{publicationVersion}} · {{disclaimer}}</view>
 		<view class="knowledge-search-state" wx:if="{{state === 'loading'}}">正在查找疾病…</view>
-		<view class="knowledge-search-state knowledge-search-error" wx:elif="{{state === 'error'}}">{{errorMessage}}</view>
+		<view class="knowledge-search-state knowledge-search-error" wx:elif="{{state === 'error'}}">
+			<text>{{errorMessage}}</text>
+			<button class="knowledge-search-retry" size="mini" bindtap="onRetry">重新加载</button>
+		</view>
 		<view class="knowledge-search-state" wx:elif="{{state === 'empty'}}">暂无匹配疾病</view>
 		<view wx:else>
 			<view class="knowledge-disease-card" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="onDiseaseTap">
