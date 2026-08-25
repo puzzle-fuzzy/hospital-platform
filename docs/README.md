@@ -3,15 +3,15 @@
 
 # 项目文档导航
 
-> 当前小程序候选：`5a2214e7be1f558994e108f63caed38a887626ff`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本候选已完成 staging 校验，并把预约、挂号和报告详情的二级迁移入口统一收口到状态页；因开发者工具占用 live `dist/` 尚未原子发布，详见 [`release/candidate-5a2214e7-secondary-entry-routes-2026-08-25.md`](release/candidate-5a2214e7-secondary-entry-routes-2026-08-25.md)。
+> 当前小程序候选：`410447b4ee7f19413fb3b3c790c52d51f5806ccb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本候选已完成 staging 校验，并把预约、挂号、门诊缴费和报告详情的二级迁移入口统一收口到状态页；因开发者工具占用 live `dist/` 尚未原子发布，详见 [`release/candidate-410447b4-billing-report-entry-routes-2026-08-25.md`](release/candidate-410447b4-billing-report-entry-routes-2026-08-25.md)。
 
-> 当前 live `dist/build-info.json.sourceRevision` 仍为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；新候选 `5a2214e7` 已在 pending staging 中完成 17 个页面脚本、相对依赖和无测试脚本校验。开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包；释放目录后必须重新发布并生成二维码。此前 `d59dc8fe`、`2f4b136f` 和 `8bd3898a` 仅作历史候选追溯。
+> 当前 live `dist/build-info.json.sourceRevision` 仍为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；新候选 `410447b4` 已在 pending staging 中完成 17 个页面脚本、相对依赖和无测试脚本校验。开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包；释放目录后必须重新发布并生成二维码。此前 `5a2214e7`、`d59dc8fe`、`2f4b136f` 和 `8bd3898a` 仅作历史候选追溯。
 
 > 当前迁移主线已经切换为“先广度覆盖、再深入 contract”：首页、“我的”和服务清单所有可见入口均有业务页或统一迁移状态页；状态页不代表真实业务完成，只用于消除无响应/404，并明确记录未开放原因。完整顺序见 [`migration/breadth-first-migration-plan-2026-08-25.md`](migration/breadth-first-migration-plan-2026-08-25.md)。
 
 > 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的新构建运行包和最新共享底栏手册，不能使用旧二维码、旧 `dist/` 或旧底栏说明。
 
-> 历史候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，当时 16 个页面脚本完整；该记录不覆盖当前 `5a2214e7` 的 17 页 pending 候选。
+> 历史候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，当时 16 个页面脚本完整；该记录不覆盖当前 `410447b4` 的 17 页 pending 候选。
 > 本轮又针对主 Tab 闪动和选中态消失重新生成独立运行配置、关闭并重新打开 `dist/` 工程，重新构建和校验运行包；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 历史 `4ba492a` 运行包 ENOENT 复核：
 > `single-flight.js` 存在，`single-flight.test.js`/全部测试运行脚本和测试引用均为 0，
@@ -99,9 +99,9 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上配套仍以服务端 `8eb51b5f` + 小程序 `13f597e` 为准，最新本地 pending 候选为 `5a2214e7`，当前 live `dist` 为 `fcc6630e` |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上配套仍以服务端 `8eb51b5f` + 小程序 `13f597e` 为准，最新本地 pending 候选为 `410447b4`，当前 live `dist` 为 `fcc6630e` |
 | [`release/current-readonly-business-audit-2026-08-25.md`](release/current-readonly-business-audit-2026-08-25.md) | 当前只读业务迁移审计、服务器共存核对、未注册能力和下一步真实证据顺序 |
-| [`release/candidate-5a2214e7-secondary-entry-routes-2026-08-25.md`](release/candidate-5a2214e7-secondary-entry-routes-2026-08-25.md) | 最新小程序 pending 候选的二级入口状态路由、17 页运行包、测试和 EBUSY 发布边界 |
+| [`release/candidate-410447b4-billing-report-entry-routes-2026-08-25.md`](release/candidate-410447b4-billing-report-entry-routes-2026-08-25.md) | 最新小程序 pending 候选的费用/报告二级入口状态路由、17 页运行包、测试和 EBUSY 发布边界 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
 | [`release/miniprogram-runtime-enoent-recovery-2026-08-20.md`](release/miniprogram-runtime-enoent-recovery-2026-08-20.md) | `single-flight.test.js` 真机 ENOENT 的运行包边界、开发者工具旧增量索引根因和普通编译恢复顺序 |
@@ -314,7 +314,7 @@
 | [`business-correctness.md`](business-correctness.md) | 患者上下文、映射、时间窗口、只读边界和错误处理不变量 |
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
-| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 17 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上小程序来源为 `13f597ea`，最新本地 pending 候选为 `5a2214e7`，当前 live `dist` 为 `fcc6630e` |
+| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 17 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上小程序来源为 `13f597ea`，最新本地 pending 候选为 `410447b4`，当前 live `dist` 为 `fcc6630e` |
 | [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c8eef370`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表；旧 release 仅作历史追溯 |
 | [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；文档内旧 release 仅作历史证据，当前服务端以 `8eb51b5f`、小程序来源以 `13f597ea` 为准 |
 | [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | `7181e99e` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
