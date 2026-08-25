@@ -36,6 +36,46 @@ function countByStatus(entries) {
 	}, {});
 }
 
+/**
+ * 按旧端业务域汇总迁移面，而不是只看全局总数。
+ *
+ * 全局的 64/64 很容易让人误以为所有业务都已经完成；按域拆开后，
+ * 可以同时看到哪些页面只是安全子集、哪些页面仍被 contract 阻断，
+ * 后续会话就不会围绕一个页面反复加固而漏掉其它业务域。
+ */
+function legacyDomainCoverage() {
+	const grouped = new Map();
+	for (const entry of LEGACY_PAGE_MIGRATION_CATALOG) {
+		const current = grouped.get(entry.domain) ?? {
+			domain: entry.domain,
+			pageCount: 0,
+			statusCounts: {},
+			blockedPageCount: 0,
+			featureKeys: new Set(),
+			nativeTargets: new Set(),
+		};
+		current.pageCount += 1;
+		current.statusCounts[entry.status] =
+			(current.statusCounts[entry.status] ?? 0) + 1;
+		if (entry.status.startsWith("blocked-")) current.blockedPageCount += 1;
+		if (entry.featureKey) current.featureKeys.add(entry.featureKey);
+		if (entry.nativeTarget) current.nativeTargets.add(entry.nativeTarget);
+		grouped.set(entry.domain, current);
+	}
+
+	return [...grouped.values()]
+		.sort((left, right) => left.domain.localeCompare(right.domain, "zh-CN"))
+		.map((domain) => ({
+			domain: domain.domain,
+			pageCount: domain.pageCount,
+			statusCounts: domain.statusCounts,
+			blockedPageCount: domain.blockedPageCount,
+			featureKeys: [...domain.featureKeys].sort(),
+			nativeTargets: [...domain.nativeTargets].sort(),
+			stage: domain.blockedPageCount > 0 ? "并行补齐 contract" : "进入验收",
+		}));
+}
+
 function legacyCoverage() {
 	const blockedEntries = LEGACY_PAGE_MIGRATION_CATALOG.filter((entry) =>
 		entry.status.startsWith("blocked-"),
@@ -50,6 +90,7 @@ function legacyCoverage() {
 	return {
 		legacyPageCount: LEGACY_PAGE_MIGRATION_CATALOG.length,
 		statusCounts: countByStatus(LEGACY_PAGE_MIGRATION_CATALOG),
+		domainCoverage: legacyDomainCoverage(),
 		blockedPageCount: blockedEntries.length,
 		featureStatusKeyCount: knownFeatureKeys.size,
 		invalidBlockedEntries,

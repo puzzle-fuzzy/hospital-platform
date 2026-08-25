@@ -25,6 +25,7 @@ pnpm migration:readiness -- --strict
 | 字段 | 来源 | 可以说明什么 | 不能说明什么 |
 | --- | --- | --- | --- |
 | `entryCoverage.legacy` | `legacy-page-catalog.ts`、`feature-navigation.ts` | 64 个旧页面是否都有迁移状态和固定落点 | 页面业务是否已经实现、接口是否可用 |
+| `entryCoverage.legacy.domainCoverage` | `legacy-page-catalog.ts` | 按首页、就诊、互联网医院、预约、患者、健康、用户七个旧端业务域查看页面数、阻断数、状态分布和下一阶段 | 业务域内的页面数不等于业务功能完成数；`进入验收` 仍需要真实链路证据 |
 | `entryCoverage.nativePageCount` | `apps/miniprogram/src/app.json` | 原生小程序注册了多少页面 | 微信开发者工具是否加载了这些页面 |
 | `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个低风险域的页面/API/实现/日志/文档是否断链，并给出 `read-only`、`read-model-sync` 或 `read-write` 操作边界 | Provider 返回、生产流量或真机链路是否成功 |
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
@@ -40,6 +41,7 @@ pnpm migration:readiness -- --strict
 当前报告应体现以下事实：
 
 - 旧页面共 64 个，其中 `replaced=7`、`partial=17`、`blocked=39`、`excluded=1`；所有阻断入口都进入固定迁移状态页，互联网医院旧顶层入口已有独立安全壳但外部能力仍关闭。
+- 旧端七个业务域已按台账拆开汇总：互联网医院 2 页/1 阻断、患者 7 页/5 阻断、健康 34 页/27 阻断、就诊 1 页/0 阻断、首页 2 页/0 阻断、用户 8 页/2 阻断、预约 10 页/4 阻断；有阻断的域并行补 contract，无阻断的域进入真实验收，不再用一个页面的修复代表全项目进度。
 - 原生小程序注册 20 个页面，四个主入口继续使用微信原生 `tabBar`。
 - 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。

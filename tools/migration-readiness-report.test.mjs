@@ -11,6 +11,17 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
 		expect(report.entryCoverage.nativePageCount).toBe(20);
 		expect(report.entryCoverage.legacy.blockedPageCount).toBe(39);
+		expect(report.entryCoverage.legacy.domainCoverage).toHaveLength(7);
+		expect(
+			report.entryCoverage.legacy.domainCoverage.find(
+				(domain) => domain.domain === "健康",
+			),
+		).toMatchObject({ pageCount: 34, blockedPageCount: 27 });
+		expect(
+			report.entryCoverage.legacy.domainCoverage.find(
+				(domain) => domain.domain === "首页",
+			),
+		).toMatchObject({ pageCount: 2, blockedPageCount: 0 });
 		expect(report.entryCoverage.passed).toBe(true);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.passed).toBe(true);
