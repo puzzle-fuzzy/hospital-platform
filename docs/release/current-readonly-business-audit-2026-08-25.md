@@ -1,10 +1,10 @@
 # 当前只读业务迁移审计（2026-08-25）
 
-> **当前本地源码候选纠正（2026-08-25）**：功能候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，最新 pending 运行包来源为 `b587c7ea8479e38d47055f3f5b672263f32aec41`，原生页面 20 个，小程序回归为 `259 pass / 0 fail / 2445 expect()`；当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，线上配套小程序仍为 `13f597e`。下方 `baa31df0`/17 页/`258 pass` 内容只作历史交接。
+> **当前本地源码候选纠正（2026-08-25）**：功能候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，最新 pending 运行包来源为 `b587c7ea8479e38d47055f3f5b672263f32aec41`，原生页面 20 个，当前工作树复跑为 `259 pass / 0 fail / 2525 expect()`；当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，线上配套小程序仍为 `13f597e`。下方 `baa31df0`/17 页/`258 pass` 内容只作历史交接。
 
-> **最新候选事实源（2026-08-25，提交 `99c7e8fd`）**：小程序 pending 已扩展为 20 个页面，健康百科目录、症状查疾病结果、疾病/药品详情三个只读页面已经接入；回归为 `259 pass / 0 fail / 2445 expect()`。当前 live `dist` 仍为旧候选 `fcc6630e`，发布被微信开发者工具锁定；健康内容 bundle 未发布前继续 fail-closed。
+> **最新候选事实源（2026-08-25，提交 `99c7e8fd`）**：小程序 pending 已扩展为 20 个页面，健康百科目录、症状查疾病结果、疾病/药品详情三个只读页面已经接入；当前工作树复跑为 `259 pass / 0 fail / 2525 expect()`。当前 live `dist` 仍为旧候选 `fcc6630e`，发布被微信开发者工具锁定；健康内容 bundle 未发布前继续 fail-closed。
 
-> 当前事实源（2026-08-25，优先于下方历史交接）：最新 pending 运行包来源为 `b587c7ea8479e38d47055f3f5b672263f32aec41`，位于 `.local/hospital-miniprogram/pending/`；旧端 64 页面逐页迁移台账、可见入口状态收口和“就诊”主 Tab 患者栏已落地，未来/历史预约摘要已接入只读读模型并按 8 条分批展开，实时队列仍关闭。小程序回归为 `259 pass / 0 fail / 2445 expect()`；live 运行包仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，待开发者工具释放 `dist/` 后发布。下方 `baa31df0`、`c4dc00b9`、`b3436c24`、`90d5ab03` 仅作历史交接。
+> 当前事实源（2026-08-25，优先于下方历史交接）：最新 pending 运行包来源为 `b587c7ea8479e38d47055f3f5b672263f32aec41`，位于 `.local/hospital-miniprogram/pending/`；旧端 64 页面逐页迁移台账、可见入口状态收口和“就诊”主 Tab 患者栏已落地，未来/历史预约摘要已接入只读读模型并按 8 条分批展开，实时队列仍关闭。当前工作树复跑为 `259 pass / 0 fail / 2525 expect()`；live 运行包仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，待开发者工具释放 `dist/` 后发布。下方 `baa31df0`、`c4dc00b9`、`b3436c24`、`90d5ab03` 仅作历史交接。
 
 > 当前小程序只读验收入口：`apps/miniprogram/dist/`，当前可运行包仍为上一候选 `sourceRevision=fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；最新运行包候选
  > `b587c7ea8479e38d47055f3f5b672263f32aec41` 已完成构建但因微信开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。四个主 Tab 使用微信原生
@@ -63,7 +63,7 @@
 `8eb51b5f` 之后仍有未部署运行时代码（`apps/api/src/app.ts`、`apps/api/src/application.ts` 和另一会话负责的
 `packages/adapters/src/zhongyang-appointments.ts`），因此该失败是发布基线保护，不是把它改成通过的理由；在未完成受控发布前，不能宣称全仓测试完全通过。
 
-> 当前功能执行入口为 `99c7e8fd`，运行包执行入口为 `b587c7ea`；旧的 `baa31df0`、`485c0892`、`b3436c24`、`90d5ab03` 文字仅作历史交接。当前回归为 `259 pass / 0 fail / 2445 expect()`，仍需发布 pending 后重新取得真机证据。
+> 当前功能执行入口为 `99c7e8fd`，运行包执行入口为 `b587c7ea`；旧的 `baa31df0`、`485c0892`、`b3436c24`、`90d5ab03` 文字仅作历史交接。当前工作树复跑为 `259 pass / 0 fail / 2525 expect()`，仍需发布 pending 后重新取得真机证据。
 
 ## 下一步顺序
 
