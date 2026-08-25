@@ -8,7 +8,7 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 当前仓库提交 | `923074bc128606b7f1504ad0e8e6ea354c4afa34` |
+| 功能候选代码基线 | `923074bc128606b7f1504ad0e8e6ea354c4afa34` |
 | 小程序源码候选 | `296516a5f255c563ec5eac40f2a3439632b143b8` |
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=296516a5f255c563ec5eac40f2a3439632b143b8` |
 | pending 页面数 | 20 个；每个页面具备 `.js/.json/.wxml/.wxss` |

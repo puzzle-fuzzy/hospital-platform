@@ -1,7 +1,7 @@
 # 广度优先迁移计划（2026-08-25）
 
 > 当前跨域执行工作板见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
-> 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前 Git `main` 为 `923074bc`；服务端本地代码候选按 Git 的 `apps/api` 最新提交 `b42922f4` 识别，本轮文档提交不代表线上服务已更新。
+> 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前功能候选代码基线为 `923074bc`；服务端本地代码候选按 Git 的 `apps/api` 最新提交 `b42922f4` 识别，本轮文档提交不代表线上服务已更新。
 
 > **最新候选补充（提交 `99c7e8fd`）**：原生页面从 17 个扩展到 20 个，新增健康百科目录、症状查疾病结果、疾病/药品详情三个页面；服务端健康路由已挂载但无审核发布 bundle 时 fail-closed。构建候选仍在 pending，live `dist` 未被覆盖。
 
