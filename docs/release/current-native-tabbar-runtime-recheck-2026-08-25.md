@@ -31,7 +31,7 @@
 | 小程序测试 | 本轮 240 pass、0 fail、1937 assertions |
 | 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
 | 运行包校验 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
-| 预览二维码 | 本轮未生成二维码；请直接打开 `apps/miniprogram/dist/` |
+| 预览二维码 | 已生成 `c3c7eec3` 临时预览二维码（仅保存在本机 `.local/device-acceptance/`，不入 Git）；真机扫码验收仍待 |
 
 ## 真机验收
 

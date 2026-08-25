@@ -26,3 +26,5 @@ apps/miniprogram/src/project.config.json
 # 微信开发者工具生成的本机预览大小/截图证据只用于验收，不作为源码或发布资产提交。
 docs/release/wechat-preview-*.json
 docs/release/wechat-preview-*.png
+# 当前真机预览二维码只在本机临时使用，不进入源码、发布包或文档归档。
+.local/device-acceptance/

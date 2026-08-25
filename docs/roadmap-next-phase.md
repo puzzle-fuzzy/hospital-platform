@@ -31,8 +31,8 @@
 > 内网 `/health/ready` 返回 `database=ok`、`redis=ok`、`schema=ok`。Worker 继续保持 inactive。
 >
 > 小程序当前本地运行包来源为 `c3c7eec30e9303ff9b8996876f452c05e3bd310d`，仅用于新项目独立
-> `apps/miniprogram/dist/` 的预览和真机验收，尚未替换线上正式小程序；本轮未生成二维码，请直接打开
-> `dist/` 工程普通编译。四个主 Tab 由微信原生运行时统一渲染，支付、医保、结算、预约写入、取消、患者绑定、二维码、病历和 HIS 回写均关闭。
+> `apps/miniprogram/dist/` 的预览和真机验收，尚未替换线上正式小程序；本轮已生成临时预览二维码，二维码仅保存在本机
+> `.local/device-acceptance/`，不入 Git。四个主 Tab 由微信原生运行时统一渲染，支付、医保、结算、预约写入、取消、患者绑定、二维码、病历和 HIS 回写均关闭。
 >
 > 为真实只读验收准备的 wrapper 已 staging 到服务器：
 > `/home/ps/code/hospital-platform/releases/82c5e9e34775e4078fc891625a4b94110dde4451-readonly`。
