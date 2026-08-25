@@ -3,8 +3,8 @@
 > 本文回答“还有哪些没有迁移、下一步先做什么”，不把页面能打开误记为业务完成。
 > 审计对象是新项目 `hospital-platform`；旧 Python 服务、旧数据库、旧 Redis 和线上旧进程不在本轮修改范围。
 
-> **当前候选纠正（2026-08-26）**：当前源码和 pending 运行包均以 `e01796d` 为准，共 40 个原生页面，回归为
-> `297 pass / 0 fail / 3390 expect()`；旧 live `dist` 仍为 `fcc6630e` 且被微信开发者工具锁定。旧页面统计为
+> **当前候选纠正（2026-08-26）**：当前源码和 pending 运行包均以 `d204425` 为准，共 40 个原生页面，回归为
+> `298 pass / 0 fail / 3394 expect()`；旧 live `dist` 仍为 `fcc6630e` 且被微信开发者工具锁定。旧页面统计为
 > `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。本文下方早期候选数字只作历史交接。
 
 ## 1. 结论先行
@@ -43,13 +43,13 @@ pnpm format:check / pnpm lint / pnpm typecheck
   全部通过
 
 小程序定向回归
-  297 pass / 0 fail / 3390 expect()
+  298 pass / 0 fail / 3394 expect()
 ```
 
 ### 当前仍然阻断发布的事实
 
 1. `apps/miniprogram/dist/` 仍被微信开发者工具占用，pending 运行包不能原子替换 live 目录；旧 live 包必须保留，不能清空目录硬发。
-2. 当前 pending 小程序来源为 `e01796d`、40 页；当前 live dist 来源为 `fcc6630e`、16 页；两者不能混用验收。
+2. 当前 pending 小程序来源为 `d204425`、40 页；当前 live dist 来源为 `fcc6630e`、16 页；两者不能混用验收。
 3. P0 发布基线审计发现线上服务端 release 后存在未部署的运行时代码，其中包含另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`；本会话不修改、不暂存、不部署该文件。
 4. 发布基线审计已从 API 普通单元测试中拆出，统一由 `pnpm check`、`pnpm release:baseline:audit` 和工具测试执行；普通业务单元测试不再启动真实 Git 审计，但发布门禁仍严格要求 `passed=true`。
 
