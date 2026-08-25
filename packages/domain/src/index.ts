@@ -47,6 +47,25 @@ export {
 	normalizeExternalTrace,
 } from "./external-trace";
 export type {
+	ExternalEntryAudience,
+	ExternalEntrySession,
+	ExternalEntrySessionConsumeContext,
+	ExternalEntrySessionDecision,
+	ExternalEntrySessionRejectionReason,
+	ExternalEntrySessionStatus,
+	ExternalEntrySessionViolation,
+} from "./external-entry-session";
+export {
+	consumeExternalEntrySession,
+	EXTERNAL_ENTRY_AUDIENCES,
+	ExternalEntrySessionConsumeError,
+	ExternalEntrySessionValidationError,
+	MAX_EXTERNAL_ENTRY_SESSION_TTL_MS,
+	evaluateExternalEntrySession,
+	normalizeExternalEntrySession,
+	revokeExternalEntrySession,
+} from "./external-entry-session";
+export type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeCatalogKind,
 	HealthKnowledgeDiseaseDetail,
