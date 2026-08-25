@@ -1,0 +1,37 @@
+# 当前线上小程序真机三层证据模板（`13f597e`）
+
+> 本模板只对应当前线上已发布的小程序运行包，不适用于本地 pending 候选。
+> 当前线上配套服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，
+> 小程序来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
+> 本模板是记录格式，不代表任何业务域已经完成真实验收。
+
+| 项目 | 值 |
+| --- | --- |
+| 服务端 release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 小程序客户端 | `13f597e` |
+| 小程序构建来源 | `13f597ea9ee3f65b9be858117826d948339d904a` |
+| 微信开发者工具项目 | `E:\__Super_Core__\hospital-platform\apps\miniprogram` |
+| 运行根目录 | `dist/` |
+| 真机二维码生成时间 | 待填写 |
+| 手机页面结果 | 待填写 |
+| 客户端 requestId/traceId | 待填写 |
+| 服务端低敏 Pino 事件 | 待填写 |
+| Provider requestId | 待填写或不适用 |
+
+## 记录要求
+
+页面、客户端 HTTP 和服务端日志必须来自同一次扫码会话，并且使用本表声明的两份来源指纹。
+空白模板、二维码、模拟器或健康检查不足以完成真实业务验收。不得记录 openid、session_key、
+完整身份证、完整卡号、token、支付密钥或 Provider 原始报文。
+
+业务域的成功、空结果、未授权、依赖故障、患者切换和版本冲突等场景，以
+[`device-evidence-audit.mjs`](../../tools/device-evidence-audit.mjs) 的固定场景集合为准。
+只有页面结果、客户端 requestId、服务端同链事件和 Provider 低敏 requestId 同时一致，才能将域标记为
+`passed`；否则保持 `pending` 或 `failed`。
+
+## 与 pending 候选的边界
+
+本地最新源码候选 `7f7a7a18` 使用独立的
+[`candidate-7f7a7a18-miniprogram-runtime-2026-08-25.md`](candidate-7f7a7a18-miniprogram-runtime-2026-08-25.md)
+和 [`device-evidence-7f7a7a1-pending.json`](device-evidence-7f7a7a1-pending.json)。
+在 pending 候选完成构建发布、服务端配套发布和来源一致性审计前，不能把其页面或 requestId 填入本模板。

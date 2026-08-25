@@ -1,5 +1,6 @@
-> 当前候选事实（2026-08-25）：服务端候选为 `b42922f4`，小程序 pending 来源为 `7f7a7a1844f5269c88f814d7d97d805fe4b8aeca`（提交 `7f7a7a18`）。服务端候选尚未替换线上 release，小程序 pending 尚未替换微信开发者工具正在使用的 live `dist`；本文不把历史运行包、静态检查或健康检查当作真机业务通过。
-> 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
+> 历史模板：本文曾用于本地 pending 候选的取证格式。当前线上已发布运行包请使用
+> [`miniprogram-real-device-evidence-template-13f597e.md`](miniprogram-real-device-evidence-template-13f597e.md)，
+> 最新本地 pending 候选请使用 `candidate-7f7a7a18-miniprogram-runtime-2026-08-25.md` 和对应的 pending 清单。
 
 # 小程序当前候选真机三层证据记录模板（`7f7a7a18`）
 > 当前服务端候选：`b42922f4`；小程序来源：`7f7a7a1844f5269c88f814d7d97d805fe4b8aeca`。模板不把运行层 smoke 当作业务验收。

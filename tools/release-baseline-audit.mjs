@@ -235,8 +235,8 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前公网健康探针观察",
 	},
 	{
-		path: "docs/release/miniprogram-real-device-evidence-template-7f09bbb.md",
-		label: "当前小程序真机证据模板",
+		path: "docs/release/miniprogram-real-device-evidence-template-13f597e.md",
+		label: "当前线上小程序真机证据模板",
 	},
 	{
 		path: "docs/release/current-13f-real-device-acceptance-runbook-2026-08-24.md",

@@ -203,7 +203,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 ## 4. 关联文档
 
 - 真机操作与三层证据：[`miniprogram-real-device-acceptance-checklist-2026-08-19.md`](miniprogram-real-device-acceptance-checklist-2026-08-19.md)
-- 当前候选证据记录模板：[`miniprogram-real-device-evidence-template-7f09bbb.md`](miniprogram-real-device-evidence-template-7f09bbb.md)
+- 当前线上候选证据记录模板：[`miniprogram-real-device-evidence-template-13f597e.md`](miniprogram-real-device-evidence-template-13f597e.md)；本地 pending 候选另见候选记录和 pending 清单。
 - 只读业务不变量：[`readonly-business-chain-audit-2026-08-21.md`](readonly-business-chain-audit-2026-08-21.md)
 - 当前候选来源：[`candidate-13f597ea-miniprogram-build-2026-08-24.md`](candidate-13f597ea-miniprogram-build-2026-08-24.md)
 - 当前公网关闭边界与 smoke 证据：[`current-public-closed-boundary-2026-08-21.md`](current-public-closed-boundary-2026-08-21.md)
