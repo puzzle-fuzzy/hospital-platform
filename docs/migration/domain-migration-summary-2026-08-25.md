@@ -1,5 +1,7 @@
 # 旧端业务域迁移覆盖摘要（2026-08-25）
 
+> 跨业务域并行执行顺序见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
+
 > 本页回答“旧端还有哪些入口没有迁移”这个范围问题，不把统一状态页误写成真实业务完成。数据由
 > `apps/miniprogram/src/services/legacy-page-catalog.ts` 派生，并由 `legacy-page-catalog.test.ts`
 > 和 `pnpm migration:audit` 校验；新增旧页面时必须同时补逐页记录、业务域摘要和对应的 contract 说明。
