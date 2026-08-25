@@ -14,6 +14,7 @@
 | 类型检查 | 通过 |
 | 构建前置 | 通过；发布阶段因 `dist/` 被微信开发者工具锁定返回 `EBUSY` |
 | pending 运行包校验 | 待文档提交后以 `runtime:verify:pending` 复核，运行输入来源为 `c7220d73` |
+| 真机证据清单 | [`device-evidence-c7220d7-pending.json`](device-evidence-c7220d7-pending.json)，9 个域均为 `pending` |
 | live `dist` | 未替换；旧完整运行包保留 |
 | 线上服务 | 未修改；仍为 `8eb51b5f`，旧 Python `8001` 继续共存 |
 
