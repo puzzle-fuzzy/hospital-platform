@@ -312,7 +312,7 @@ test("微信登录手册和路线图顶部当前候选不能漂移到旧运行�
 	]);
 });
 
-test("仓库当前发布文档保持同一套候选", async () => {
+test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 	// 这里固定当前线上候选的来源，并明确记录服务端 release 漂移为失败。
 	// 线上仍运行旧 release 时，本地运行代码不能被测试结果“带绿”；只有
@@ -348,7 +348,9 @@ test("仓库当前发布文档保持同一套候选", async () => {
 	});
 });
 
-test("当前业务验收协议也必须绑定已部署服务端和小程序来源", async () => {
+test("当前业务验收协议也必须绑定已部署服务端和小程序来源", {
+	timeout: 15_000,
+}, async () => {
 	const result = await auditCurrentReleaseConsistency();
 
 	// 当前 release 漂移存在时，业务验收必须保持关闭；不能因为页面和

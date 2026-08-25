@@ -59,3 +59,18 @@
 | 公网 `/api/v2/health/ready` | `200`，database/redis/schema 均为 `ok` |
 
 本次仍未重启服务、切换 release、修改 env、读取数据库/Redis 业务内容、调用 Provider 或触发小程序业务请求。
+
+## 2026-08-26 07:36 CST 只读复核刷新
+
+为确认重构迭代期间没有误触旧服务，本次再次通过同一个 inspection key 执行服务器侧只读检查：
+
+| 检查项 | 当前结果 |
+| --- | --- |
+| 服务器时间 | `2026-08-26T07:36:21+08:00` |
+| 新 API systemd | `hospital-platform-api-v2.service=active` |
+| 新 API 监听 | `10.0.0.3:18081` |
+| 旧 Python 监听 | `0.0.0.0:8001`，仍与新 API 共存 |
+| 旧服务 systemd 单元查询 | `inactive`（不等同于旧进程已停止；旧 Python 仍占用 `8001`） |
+
+本次只读取主机名、systemd 状态、监听端口和服务器时间；没有重启、停止、切换 release、修改旧代码/配置，
+也没有读取数据库或 Redis 业务内容。`inactive` 的 systemd 查询结果不能覆盖端口事实，后续判断旧服务仍以实际监听和公网请求链为准。

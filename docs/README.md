@@ -29,6 +29,8 @@
 
 > **当前运行层只读复核（2026-08-25 17:16 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；内网 `/health/ready`、`/api/v1/system/ping` 与公网 `/api/v2/health/ready`、`/api/v2/system/ping` 均为 `200`，database/redis/schema 为 `ok`。内网探针必须使用实际绑定地址，公网路径由 `/api/v2` 反向代理提供。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
+> **当前运行层复核刷新（2026-08-26 07:36 CST）**：只读 SSH 检查确认新 API 仍为 `active`、监听 `10.0.0.3:18081`，旧 Python 仍实际监听 `0.0.0.0:8001`；本次没有重启、停止、切换 release、修改旧代码/配置或读取数据库/Redis 业务内容。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
+
 > **当前公网探针复核（2026-08-25 23:35 CST）**：公网 `/api/v2/health/live`、`/api/v2/health/ready` 和 `/api/v2/system/ping` 均返回 200；ready 的 database/redis/schema 均为 `ok`。本次只读观察不替代线上进程、旧服务共存或业务真机证据，详见 [`release/current-public-runtime-readonly-2026-08-25.md`](release/current-public-runtime-readonly-2026-08-25.md)。
 
 > **当前发布门禁（2026-08-26）**：功能候选代码基线为 `de9c5b99`；`release:baseline:audit` 仍拒绝把本地服务端候选当作线上候选，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
@@ -504,6 +506,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/candidate-296516a5-miniprogram-runtime-2026-08-25.md`](release/candidate-296516a5-miniprogram-runtime-2026-08-25.md) | 历史小程序代码提交 `296516a5` 的 pending 构建和 `dist` 锁定保护证据，仅作追溯 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
 | [`migration/readonly-surface-logic-audit-2026-08-26.md`](migration/readonly-surface-logic-audit-2026-08-26.md) | 五个低风险业务域的横向逻辑审计、会话/就诊人/状态/日志共用不变量和 A–F 并行迁移队列 |
+| [`migration/legacy-convenience-source-audit-2026-08-26.md`](migration/legacy-convenience-source-audit-2026-08-26.md) | 旧便民六张表的只读 owner/患者映射审计、缺口分类和禁止直接迁移边界 |
 | [`migration/miniprogram-navigation-boundary.md`](migration/miniprogram-navigation-boundary.md) | 小程序 40 个页面落点、404 防护和四个原生主 Tab 共享底栏门禁 |
 | [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 40 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md`](migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md) | 旧端“就诊”实时消息/预约历史/叫号链路与互联网医院 WebView 的事实审计、契约缺口和停止条件 |

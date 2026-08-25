@@ -6,6 +6,7 @@
 	"scripts": {
 		"build": "tsc --noEmit false --declaration --emitDeclarationOnly --outDir dist -p tsconfig.json",
 		"integration": "bun run src/integration.ts",
+		"legacy:convenience:audit": "bun run scripts/legacy-convenience-source-audit.ts",
 		"health:export-legacy": "bun run scripts/export-legacy-health-knowledge.ts",
 		"health:import-staging": "bun run scripts/health-knowledge-bundle-import.ts",
 		"migrate": "bun run src/migrate.ts",
