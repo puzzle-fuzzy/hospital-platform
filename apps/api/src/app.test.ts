@@ -254,26 +254,37 @@ test("migration inventory labels production observations as evidence snapshots",
 	expect(inventory).not.toContain("当前生产只读复核仍为");
 });
 
-test("P0 acceptance documents share the current release baseline", async () => {
-	// 当前候选文档集中声明版本，其余当前状态文档由同一个工具统一核对；
-	// 历史 release 可以保留，但不能让当前验收继续引用已经下线的运行包。
-	const auditProcess = Bun.spawn(
-		["bun", join(import.meta.dir, "../../../tools/release-baseline-audit.mjs")],
-		{
-			cwd: join(import.meta.dir, "../../.."),
-			stdout: "pipe",
-			stderr: "pipe",
-		},
-	);
-	const output = await new Response(auditProcess.stdout).text();
-	const error = await new Response(auditProcess.stderr).text();
-	const exitCode = await auditProcess.exited;
-	expect(exitCode).toBe(0);
-	expect({ error, result: JSON.parse(output) }).toEqual({
-		error: "",
-		result: expect.objectContaining({ passed: true, failures: [] }),
-	});
-});
+test(
+	"P0 acceptance documents share the current release baseline",
+	async () => {
+		// 当前候选文档集中声明版本，其余当前状态文档由同一个工具统一核对；
+		// 历史 release 可以保留，但不能让当前验收继续引用已经下线的运行包。
+		const auditProcess = Bun.spawn(
+			[
+				"bun",
+				join(import.meta.dir, "../../../tools/release-baseline-audit.mjs"),
+			],
+			{
+				cwd: join(import.meta.dir, "../../.."),
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		const output = await new Response(auditProcess.stdout).text();
+		const error = await new Response(auditProcess.stderr).text();
+		const exitCode = await auditProcess.exited;
+		expect(exitCode).toBe(0);
+		expect({ error, result: JSON.parse(output) }).toEqual({
+			error: "",
+			result: expect.objectContaining({ passed: true, failures: [] }),
+		});
+	},
+	// 发布基线审计会读取当前验收文档，并逐个比较 release 后的服务端运行时代码。
+	// 它是发布门禁，不是单元级纯函数；5 秒默认超时会把“代码尚未发布”的
+	// 真实失败伪装成 timeout，后续维护者看不到具体漂移文件。这里延长的是
+	// 诊断窗口，不放宽 passed=true 的要求，也不允许未部署候选进入验收。
+	{ timeout: 15_000 },
+);
 
 test("medical record draft preserves source evidence and fail-closed semantics", async () => {
 	const draft = await Bun.file(
