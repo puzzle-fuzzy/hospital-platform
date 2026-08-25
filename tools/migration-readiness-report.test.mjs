@@ -144,7 +144,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.deviceEvidence.passed).toBe(false);
 		expect(report.deviceEvidence.candidateMatchesPendingRuntime).toBe(true);
 		expect(report.deviceEvidence.manifestPath).toBe(
-			`docs/release/device-evidence-${report.runtime.pending.sourceRevision.slice(0, 7)}-pending.json`,
+			`docs/release/device-evidence-${report.deviceEvidence.candidate.miniProgramCommit}-pending.json`,
 		);
 		expect(report.migrationQueue.map((batch) => batch.id)).toEqual([
 			"A-readonly-evidence",

@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
@@ -568,15 +569,41 @@ async function healthContentCoverage(root) {
  * 业务完成。这里仅汇总状态和候选指纹，不写入页面截图、患者标识或请求正文。
  */
 async function deviceEvidenceCoverage(root, pendingRuntime) {
-	// 真机证据必须与 pending 运行包一一对应。固定读取上一候选的清单会把
-	// 新页面、旧二维码和旧 requestId 混成一条“当前证据”，因此这里按完整
-	// 来源指纹的短前缀选择清单；没有匹配文件时宁可报告 evidence 缺失。
+	// 真机证据必须与 pending 运行包一一对应。仅按文件名的 7/8 位前缀
+	// 选择清单不可靠：历史候选的命名长度并不统一，且同一目录可能同时
+	// 存在多轮 pending 清单。因此这里扫描候选文件，并以 manifest 内的
+	// 完整 sourceRevision 做唯一匹配，避免新页面、旧二维码和旧 requestId
+	// 被误合并成一条“当前证据”。
 	const pendingSourceRevision = pendingRuntime?.sourceRevision ?? null;
-	const evidenceFileName = pendingSourceRevision
-		? `device-evidence-${pendingSourceRevision.slice(0, 7)}-pending.json`
-		: "device-evidence-missing-pending.json";
-	const evidencePath = `docs/release/${evidenceFileName}`;
-	const evidence = await readJsonIfExists(resolve(root, evidencePath));
+	const expectedEvidencePath = pendingSourceRevision
+		? `docs/release/device-evidence-${pendingSourceRevision.slice(0, 8)}-pending.json`
+		: "docs/release/device-evidence-missing-pending.json";
+	const releaseDirectory = resolve(root, "docs/release");
+	let evidenceFiles = [];
+	try {
+		evidenceFiles = (await readdir(releaseDirectory))
+			.filter((fileName) =>
+				/^device-evidence-[0-9a-f]+-pending\.json$/iu.test(fileName),
+			)
+			.sort();
+	} catch {
+		// 缺失 release 目录时保持 fail-closed；报告仍需返回稳定结构。
+		evidenceFiles = [];
+	}
+	let evidencePath = expectedEvidencePath;
+	let evidence = null;
+	for (const fileName of evidenceFiles) {
+		const candidatePath = `docs/release/${fileName}`;
+		const candidate = await readJsonIfExists(resolve(root, candidatePath));
+		if (
+			pendingSourceRevision &&
+			candidate?.candidate?.sourceRevision === pendingSourceRevision
+		) {
+			evidencePath = candidatePath;
+			evidence = candidate;
+			break;
+		}
+	}
 	const domains =
 		evidence &&
 		typeof evidence.domains === "object" &&
