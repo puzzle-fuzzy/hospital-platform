@@ -110,6 +110,44 @@ function collectBatchGates(batchId) {
 	);
 }
 
+/**
+ * 把批次级材料要求展开到每个 FeatureKey。
+ *
+ * C/D/E 的入口数量较多，只看批次摘要容易让“已有一份材料”被误认为
+ * “同批次所有功能都具备契约”。这里明确保留每个入口自己的旧路径、
+ * action、额外材料和禁止能力；公共材料只做去重合并，不改变 pending 状态。
+ */
+export function buildFeatureContractIntakeRows() {
+	const laneByBatchId = new Map(
+		MIGRATION_CONTRACT_INTAKE_CATALOG.map((lane) => [lane.batchId, lane]),
+	);
+	return FROZEN_DOMAIN_GATE_CATALOG.filter((gate) =>
+		laneByBatchId.has(gate.migrationBatch),
+	)
+		.map((gate) => {
+			const lane = laneByBatchId.get(gate.migrationBatch);
+			const requiredMaterials = [
+				...gate.commonMaterials,
+				...lane.requiredEvidence,
+				...gate.requiredMaterials,
+			].filter((value, index, values) => values.indexOf(value) === index);
+			return {
+				featureKey: gate.featureKey,
+				name: gate.name,
+				batchId: gate.migrationBatch,
+				contractFamily: gate.contractFamily,
+				status: lane.status,
+				legacyPaths: gate.legacyPaths,
+				legacyActions: gate.legacyActions ?? [],
+				requiredMaterials,
+				forbiddenCapabilities: gate.forbiddenCapabilities,
+				businessReady: false,
+				nextInput: lane.nextInput,
+			};
+		})
+		.sort((left, right) => left.featureKey.localeCompare(right.featureKey));
+}
+
 function duplicateValues(values) {
 	const counts = new Map();
 	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
@@ -205,6 +243,7 @@ export function auditMigrationContractIntake() {
 		schemaVersion: 1,
 		laneCount: lanes.length,
 		coveredFeatureKeyCount: new Set(coveredFeatureKeys).size,
+		featureIntakeRows: buildFeatureContractIntakeRows(),
 		duplicatedFeatureKeys,
 		uncoveredFeatureKeys,
 		businessReady: false,

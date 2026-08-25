@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	auditMigrationContractIntake,
+	buildFeatureContractIntakeRows,
 	MIGRATION_CONTRACT_INTAKE_CATALOG,
 } from "./migration-contract-intake-catalog.mjs";
 
@@ -20,8 +21,30 @@ describe("C/D/E 契约材料入口", () => {
 			passed: true,
 		});
 		expect(report.lanes.map((lane) => lane.gateCount)).toEqual([4, 12, 8]);
+		expect(report.featureIntakeRows).toHaveLength(24);
 		expect(report.lanes[0].featureKeys).not.toContain("consultation");
 		expect(report.lanes[2].featureKeys).toContain("consultation");
+		expect(buildFeatureContractIntakeRows()).toEqual(report.featureIntakeRows);
+		expect(
+			report.featureIntakeRows.find((row) => row.featureKey === "patient-qr"),
+		).toMatchObject({
+			batchId: "D-patient-and-convenience-write",
+			contractFamily: "patient-write",
+			status: "awaiting-formal-contract",
+			businessReady: false,
+		});
+		expect(
+			report.featureIntakeRows.find((row) => row.featureKey === "patient-qr")
+				.requiredMaterials,
+		).toEqual(
+			expect.arrayContaining([
+				"signed-payload",
+				"audience",
+				"ttl",
+				"anti-replay",
+				"revocation",
+			]),
+		);
 		for (const lane of report.lanes) {
 			expect(lane.status).toBe("awaiting-formal-contract");
 			expect(lane.requiredEvidence.length).toBeGreaterThanOrEqual(5);
