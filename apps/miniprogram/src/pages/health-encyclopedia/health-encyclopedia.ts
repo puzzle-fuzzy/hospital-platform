@@ -4,7 +4,10 @@ import {
 	requestHealthKnowledgeCatalog,
 	requestHealthSymptomsByPart,
 } from "../../services/api-client";
-import { resolveKnowledgePanelState } from "../../services/health-knowledge-view";
+import {
+	resolveKnowledgePanelState,
+	resolveKnowledgeTabSource,
+} from "../../services/health-knowledge-view";
 import type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeDiseaseSummary,
@@ -198,6 +201,19 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 		const tab = event.currentTarget.dataset.tab as KnowledgeTab;
 		if (tab === this.data.activeTab) return;
 		this.setData({ activeTab: tab, rightItems: [], state: "loading" });
+		const source = resolveKnowledgeTabSource(tab, this.data.parts.length);
+		if (source === "reload-symptom-catalog") {
+			// 没有已确认的部位目录时，必须重新读取目录；不能把空数组
+			// 当成有效的 partId 传给关联查询，否则会把加载失败伪装成空态。
+			void this.loadParts();
+			return;
+		}
+		if (source === "reload-disease-catalog") {
+			// 疾病 Tab 的默认“按部位”关系需要独立取得目录。旧的
+			// symptom 请求失败不应让疾病 Tab 直接落入“暂无内容”。
+			void this.loadDiseaseCatalog("part");
+			return;
+		}
 		if (tab === "symptom") {
 			const partId = this.data.parts[0]?.id ?? "";
 			this.setData({
