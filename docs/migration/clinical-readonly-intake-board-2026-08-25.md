@@ -22,6 +22,11 @@
 
 ## 2. 当前状态与下一动作
 
+2026-08-26 已补齐四条线共用的临床只读结果摘要基础：统一 owner/患者作用域、`ready`/
+`empty`/`rejected`/`unavailable` 语义、来源版本和显式时区时间。该基础不包含临床条目
+字段，不注册 API，不改变四个入口的 `blocked-provider` 状态；具体规则见
+[`clinical-read-contract-domain-foundation-2026-08-26.md`](clinical-read-contract-domain-foundation-2026-08-26.md)。
+
 | 队列 | 新端状态 | 当前材料 | 本周可执行工作 | 放行前必须补齐 |
 | --- | --- | --- | --- | --- |
 | A：门诊记录 | `blocked-provider` | [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md) | 固定目录/正文分层、字段白名单模板、分页与日期窗口样例、越权测试矩阵 | `out-visit-records` 脱敏成功/空/拒绝/超时样例，正文授权与引用 TTL |

@@ -3,6 +3,10 @@
 > 本文是本轮广度迁移的事实记录，不把“入口已经有落点”写成“业务已经完成”。
 > 旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话维护的众阳预约适配器不在本轮修改范围内。
 
+2026-08-26 横向推进记录：C 批次四条临床只读线已补齐共用结果摘要契约基础，仍未注册
+临床 API、未接入 Provider、未改变 `blocked-provider` 状态；详见
+[`clinical-read-contract-domain-foundation-2026-08-26.md`](clinical-read-contract-domain-foundation-2026-08-26.md)。
+
 ## 1. 当前总结果
 
 | 项目 | 当前事实 | 结论 |

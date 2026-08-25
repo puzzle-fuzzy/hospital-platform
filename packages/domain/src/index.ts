@@ -18,6 +18,21 @@ export type {
 	AppointmentScheduleSnapshotInput,
 	AppointmentScheduleSnapshotRepository,
 } from "./appointments";
+export type {
+	ClinicalReadErrorCode,
+	ClinicalReadFeature,
+	ClinicalReadResult,
+	ClinicalReadResultViolation,
+	ClinicalReadState,
+} from "./clinical-read-contract";
+export {
+	CLINICAL_READ_ERROR_CODES,
+	CLINICAL_READ_FEATURES,
+	CLINICAL_READ_STATES,
+	ClinicalReadResultValidationError,
+	createClinicalReadResult,
+	normalizeClinicalReadResult,
+} from "./clinical-read-contract";
 export {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
