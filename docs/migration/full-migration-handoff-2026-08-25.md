@@ -4,11 +4,14 @@
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
+> **当前仓库事实（2026-08-25）**：本轮交接基线为 `0e1a94a1`。本轮提交只更新真机证据清单的结构审计与交接说明，不代表已经发布新的服务端或小程序运行包；服务端本地候选仍以 `apps/api` 的 `b42922f4` 为准，小程序 pending 仍以 `296516a5` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
+
 ## 1. 当前真实基线
 
 | 项目 | 当前事实 |
 | --- | --- |
 | 功能候选代码基线 | `923074bc128606b7f1504ad0e8e6ea354c4afa34` |
+| 当前仓库 HEAD | `0e1a94a1`（真机证据结构审计与交接说明；不改变业务运行包） |
 | 小程序源码候选 | `296516a5f255c563ec5eac40f2a3439632b143b8` |
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=296516a5f255c563ec5eac40f2a3439632b143b8` |
 | pending 页面数 | 20 个；每个页面具备 `.js/.json/.wxml/.wxss` |
