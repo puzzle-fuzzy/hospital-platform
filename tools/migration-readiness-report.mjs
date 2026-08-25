@@ -225,9 +225,15 @@ async function healthContentCoverage(root) {
  * 业务完成。这里仅汇总状态和候选指纹，不写入页面截图、患者标识或请求正文。
  */
 async function deviceEvidenceCoverage(root, pendingRuntime) {
-	const evidence = await readJsonIfExists(
-		resolve(root, "docs/release/device-evidence-296516a5-pending.json"),
-	);
+	// 真机证据必须与 pending 运行包一一对应。固定读取上一候选的清单会把
+	// 新页面、旧二维码和旧 requestId 混成一条“当前证据”，因此这里按完整
+	// 来源指纹的短前缀选择清单；没有匹配文件时宁可报告 evidence 缺失。
+	const pendingSourceRevision = pendingRuntime?.sourceRevision ?? null;
+	const evidenceFileName = pendingSourceRevision
+		? `device-evidence-${pendingSourceRevision.slice(0, 7)}-pending.json`
+		: "device-evidence-missing-pending.json";
+	const evidencePath = `docs/release/${evidenceFileName}`;
+	const evidence = await readJsonIfExists(resolve(root, evidencePath));
 	const domains =
 		evidence &&
 		typeof evidence.domains === "object" &&
@@ -240,12 +246,12 @@ async function deviceEvidenceCoverage(root, pendingRuntime) {
 			value && typeof value.result === "string" ? value.result : "unknown";
 		resultCounts[result] = (resultCounts[result] ?? 0) + 1;
 	}
-	const pendingSourceRevision = pendingRuntime?.sourceRevision ?? null;
 	const evidenceSourceRevision =
 		evidence?.candidate && typeof evidence.candidate.sourceRevision === "string"
 			? evidence.candidate.sourceRevision
 			: null;
 	return {
+		manifestPath: evidencePath,
 		present: domains.length > 0,
 		domainCount: domains.length,
 		resultCounts,

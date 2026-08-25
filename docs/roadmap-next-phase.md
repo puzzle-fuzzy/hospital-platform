@@ -1,4 +1,4 @@
-> **最新事实源（2026-08-25，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。当前功能候选代码基线为 `923074bc`，小程序 pending 运行包来源为 `296516a5f255c563ec5eac40f2a3439632b143b8`，已完成 20 个页面脚本、261 项小程序测试和静态门禁；因微信开发者工具锁定 live `dist/`，尚未原子发布，当前 live dist 仍为 `fcc6630e`，不能用旧二维码证明本候选。健康百科只读页面已接入但正式审核 bundle 仍 fail-closed；就诊页未来/历史预约摘要只读展示和分批展开，今日实时队列仍关闭；旧端 64 页面逐页落点台账和 14 个冻结域门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
+> **最新事实源（2026-08-25，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。当前小程序 pending 运行包来源为 `39cbf0214cbc1506c7a830386185c5d6c69599f0`，已完成 20 个页面脚本、263 项小程序测试和静态门禁；因微信开发者工具锁定 live `dist/`，尚未原子发布，当前 live dist 仍为 `fcc6630e`，不能用旧二维码证明本候选。健康百科只读页面已接入但正式审核 bundle 仍 fail-closed；就诊页未来/历史预约摘要只读展示和分批展开，今日实时队列仍关闭；旧端 64 页面逐页落点台账和 14 个冻结域门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
 > 2026-08-25 广度迁移补充：健康知识已完成旧库真实源快照的只读导出、稳定 opaque id 映射和质量告警，但 `publicationState` 仍为 `not-approved`；患者端只读 API 已注册但在没有有效 published 版本时 fail-closed。便民旧库存量也已盘点（预问诊 2、随访 4、风险评估 7、我的医生 21、表扬信 4、电子锦旗 4），新端未导入旧正文或快照。详见 [`migration/health-knowledge-import-runbook.md`](migration/health-knowledge-import-runbook.md)、[`release/health-knowledge-source-snapshot-2026-08-25.md`](release/health-knowledge-source-snapshot-2026-08-25.md) 和 [`release/convenience-source-inventory-2026-08-25.md`](release/convenience-source-inventory-2026-08-25.md)。
 > 本轮业务推进顺序：先完成当前候选的四 Tab/患者显式切换/预约历史与爽约/门诊费用只读/普通资料读写证据；客户端 requestId、服务端 Pino trace/业务事件和 Provider 低敏请求号缺一不可。报告详情、门诊病历、二维码、患者绑定、健康内容、实时就诊、互联网医院、支付医保、预约写入、取消和 HIS 回写继续按各自 contract、权限和回滚证据保持关闭。
 > 本地服务端工作树包含另一会话已提交但尚未部署的预约适配器提交 `4404c556`（`packages/adapters/src/zhongyang-appointments.ts`），`release:baseline:audit` 因此会 fail-closed；本会话不修改、不暂存、不部署该文件，也不把本地 adapter 变更宣称为线上能力。
@@ -47,9 +47,9 @@
 
 # 下一阶段实施路线图
 
-> **最新广度事实源（2026-08-25，提交 `99c7e8fd`）**：旧端 64 个页面已全部登记；新端现有 20 个注册页面，健康百科三个只读页面已接入。当前候选 259 项小程序测试通过，pending 构建等待释放微信开发者工具锁；正式健康内容、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
+> **当前广度事实源（2026-08-25，提交 `39cbf021`）**：旧端 64 个页面已全部登记；新端现有 20 个注册页面，健康百科三个只读页面已接入。当前候选 263 项小程序测试通过，pending 构建等待释放微信开发者工具锁；正式健康内容、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
 
-> **当前仓库事实补充（2026-08-25）**：本轮交接基线为 `0e1a94a1`，小程序回归已推进到 `261 pass / 0 fail / 2531 expect()`，pending 来源仍为 `296516a5`，服务端本地候选仍为 `b42922f4`。`0e1a94a1` 只更新真机证据预审和交接文档，不改变线上 `8eb51b5f`、live `dist` 或任何旧服务；上方 `99c7e8fd` 和本文下方旧候选段落保留为历史追溯。
+> **当前仓库事实补充（2026-08-25）**：本轮功能交接基线为 `39cbf021`，小程序回归已推进到 `263 pass / 0 fail / 2534 expect()`，pending 来源同为 `39cbf021`，服务端本地候选仍为 `b42922f4`。本轮只更新 pending 候选和交接文档，不改变线上 `8eb51b5f`、live `dist` 或任何旧服务；上方旧候选段落保留为历史追溯。
 
 > **2026-08-25 广度检查点（提交 `7732c843`）**：旧端 64 个页面的逐页落点、17 个原生页面和五个低风险只读域的闭环审计已经纳入仓库门禁。执行 `pnpm readonly:audit` 会同时检查就诊人、预约、报告、门诊费用、普通资料的页面、Elysia 路由、service/domain/adapter、日志和文档；通过只代表代码闭环完整，不代表 Provider、生产公网或真机业务已经验收。详细矩阵见 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md)。
 
@@ -2342,5 +2342,5 @@ available -> hold_pending -> held -> booking_pending -> booked
 - 2026-08-24：补齐报告详情页的状态容器边界。加载、错误、无检测项和无云影像现在共享 `360rpx` 的稳定占位，
   避免报告读模型返回合法空结果时页面突然撑高；新增中文界面注释和静态视觉门禁。该修正只影响原生小程序展示，
   不改变报告 Provider、患者引用、附件授权、支付、医保或 HIS 的关闭状态。
-> **当前事实源覆盖旧段落（2026-08-25）**：请以提交 `99c7e8fd`、20 个原生页面、健康百科三个只读页面和当前工作树复跑的 `259 pass / 2525 expect()` 为准；本页前置的 `baa31df0`/17 页文字只作历史交接。
-> **当前本地源码候选纠正（2026-08-25，优先级高于本文下方旧交接段落）**：最新本地候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，pending 运行包包含 20 个页面；当前工作树复跑为 `259 pass / 0 fail / 2525 expect()`；当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，线上配套运行包仍为 `13f597e`。本文下方出现的 `baa31df0`、`90d5ab03` 等候选只作历史交接，不能生成当前二维码或作为真机证据。
+> **当前事实源覆盖旧段落（2026-08-25）**：请以提交 `39cbf021`、20 个原生页面、健康百科三个只读页面和当前工作树复跑的 `263 pass / 2534 expect()` 为准；本页前置的 `baa31df0`/17 页文字只作历史交接。
+> **当前本地源码候选纠正（2026-08-25，优先级高于本文下方旧交接段落）**：最新本地候选为 `39cbf0214cbc1506c7a830386185c5d6c69599f0`，pending 运行包包含 20 个页面；当前工作树复跑为 `263 pass / 0 fail / 2534 expect()`；当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，线上配套运行包仍为 `13f597e`。本文下方出现的旧候选只作历史交接，不能生成当前二维码或作为真机证据。
