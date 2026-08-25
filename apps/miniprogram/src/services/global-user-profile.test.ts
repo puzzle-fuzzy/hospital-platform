@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
 	authorizeGlobalWechatProfile,
+	ensureGlobalUserProfile,
 	getGlobalUserProfile,
 	subscribeGlobalUserProfile,
 } from "./global-user-profile";
@@ -114,5 +115,82 @@ describe("App 全局个人资料仓库", () => {
 		});
 
 		expect(getGlobalUserProfile().displayName).toBe("测试昵称");
+	});
+
+	test("多个主 Tab 启动时只读取一次服务端资料并复用全局快照", async () => {
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "bootstrap-session-token",
+			sessionStatus: "signed_in" as const,
+			userProfile: {
+				status: "idle" as const,
+				ownerId: "",
+				sessionGeneration: -1,
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		let currentUserRequestCount = 0;
+		let profileRequestCount = 0;
+		runtime.wx = {
+			getStorageSync: (key: string) =>
+				key === "access_token" ? "bootstrap-session-token" : undefined,
+			setStorageSync: () => undefined,
+			removeStorageSync: () => undefined,
+			request: (options: WechatMiniprogram.RequestOption) => {
+				const isProfileRequest = options.url.endsWith("/me/profile");
+				if (isProfileRequest) profileRequestCount += 1;
+				else if (options.url.endsWith("/me")) currentUserRequestCount += 1;
+				setTimeout(() => {
+					const success = options.success as
+						| ((result: unknown) => void)
+						| undefined;
+					success?.({
+						statusCode: 200,
+						data: isProfileRequest
+							? {
+									success: true,
+									data: {
+										displayName: "服务端昵称",
+										gender: "female",
+										age: 32,
+										email: "profile@example.test",
+										version: 3,
+									},
+								}
+							: {
+									success: true,
+									data: { user: { id: "owner-bootstrap-test" } },
+								},
+					} as unknown);
+				}, 5);
+			},
+		} as unknown as typeof wx;
+
+		// 首页、我的页或资料页可能在首帧同时触发；这里必须复用同一个
+		// Promise，而不是仅仅依赖“最后结果相同”来掩盖重复请求。
+		const first = ensureGlobalUserProfile();
+		const second = ensureGlobalUserProfile();
+		expect(first).toBe(second);
+		const firstState = await first;
+		const thirdState = await ensureGlobalUserProfile();
+
+		expect(firstState.status).toBe("ready");
+		expect(firstState.ownerId).toBe("owner-bootstrap-test");
+		expect(firstState.displayName).toBe("服务端昵称");
+		expect(firstState.email).toBe("profile@example.test");
+		expect(thirdState).toBe(firstState);
+		expect(currentUserRequestCount).toBe(2);
+		expect(profileRequestCount).toBe(1);
 	});
 });

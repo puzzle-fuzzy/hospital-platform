@@ -186,12 +186,12 @@ export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
 					if (!isCurrentSessionGeneration(getSessionGeneration())) {
 						throw profileSessionChangedError();
 					}
-					const nextState = profileStateFromServer(
-						expectedOwnerId,
-						response.data,
+					// 必须返回已经写入 App.globalData 的冻结快照，而不是返回
+					// 发布前的临时对象；否则调用方拿到的结果和订阅页面读到的
+					// 全局对象字段相同但引用不同，破坏单一状态源的不变量。
+					return publishProfileState(
+						profileStateFromServer(expectedOwnerId, response.data),
 					);
-					publishProfileState(nextState);
-					return nextState;
 				}),
 			);
 		})
