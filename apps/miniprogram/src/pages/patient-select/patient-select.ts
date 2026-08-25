@@ -8,6 +8,7 @@ import {
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import { switchToPrimaryTab } from "../../services/patient-navigation";
 import {
 	getSelectedPatientId,
@@ -315,13 +316,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		patientNavigationTimers.set(this, navigationTimer);
 	},
 
-	/** 绑定写入接口尚未通过真实医院契约验收，先明确提示而不是伪造成功。 */
+	/** 绑定写入接口尚未通过真实医院契约验收，统一进入状态页而不是伪造成功。 */
 	onAddPatient(): void {
-		wx.showModal({
-			title: "添加就诊人",
-			content: "医院绑定接口正在迁移中，请先在医院侧完成绑定后刷新目录。",
-			showCancel: false,
-		});
+		navigateToFeatureStatus("patient-binding");
 	},
 
 	/**

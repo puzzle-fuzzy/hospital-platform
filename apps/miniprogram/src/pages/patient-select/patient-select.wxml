@@ -6,7 +6,7 @@
 		<view class="page-description">请选择要进行预约、查询报告或查看挂号记录的就诊人</view>
 	</view>
 
-	<!-- 保留旧端“添加就诊人”入口位置；真实绑定接口接入前只展示迁移提示。 -->
+	<!-- 保留旧端“添加就诊人”入口位置；真实绑定接口接入前进入统一状态页。 -->
 	<view class="add-patient-bar" bindtap="onAddPatient">
 		<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
 		<text>添加就诊人</text>

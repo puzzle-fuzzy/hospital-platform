@@ -25,6 +25,7 @@ export type FeatureKey =
 	| "medical-record"
 	| "outpatient-payment-detail"
 	| "outpatient-payment-write"
+	| "patient-binding"
 	| "pre-visit"
 	| "report-cloud-image"
 	| "report-detail"
@@ -168,6 +169,13 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		contractHint:
 			"等待订单归属、金额守恒、支付状态机、医保授权、查单和结算回写确认。",
 		icon: "/assets/legacy-home/top-payment.svg",
+	},
+	"patient-binding": {
+		title: "添加就诊人",
+		description: "新增或绑定就诊人正在迁移中，当前不会提交实名或绑卡资料。",
+		contractHint:
+			"等待查档、建档、绑卡、协议、幂等、最终状态查询和撤回规则确认。",
+		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"pre-visit": {
 		title: "预约前预问诊",

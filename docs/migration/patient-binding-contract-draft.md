@@ -60,7 +60,7 @@
 - 因此旧端的 `patCardNo` 可能表示医疗卡号，也可能表示身份证号。它不能作为新端
   的医疗卡号、临床 `patId` 或绑定关系事实，必须由 provider contract 重新定义字段来源。
 
-新端当前行为与该旧端边界保持隔离：`onAddPatient` 只显示迁移提示，不注册患者写入路由；
+新端当前行为与该旧端边界保持隔离：`onAddPatient` 只进入统一迁移状态页，不注册患者写入路由；
 选择页读取 owner-scoped 平台目录并完成临床映射后，只把平台内部 opaque `patientId`
 写入本地选择；点击已有患者不会由小程序再次拼接 `patInfosFind`，也不会保存 `patId`、
 `thirdPatientId`、完整身份证号或 provider 原始卡号。该行为已通过小程序源码、API 路由
@@ -326,7 +326,7 @@ GET /api/v2/patient-binding/commands/{commandId}
 在契约冻结前，新端必须保持以下状态：
 
 - `POST /api/v2/patient-binding/*` 不注册；
-- `pages/patient-select` 的“添加就诊人”只显示迁移提示；
+- `pages/patient-select` 的“添加就诊人”只进入固定 `patient-binding` 状态页；
 - 页面只保存平台 `patientId`，不保存 `patId`、`thirdPatientId` 或完整患者资料；
 - `/patients/sync` 只负责已绑定目录的服务端同步，不承担新增、绑卡或解绑；
 - 任何 provider 写入凭证、证件正文和原始响应只存在于服务端受控边界。

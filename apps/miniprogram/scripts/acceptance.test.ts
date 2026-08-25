@@ -637,12 +637,13 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	// provider 文档和最终状态查询未冻结前，页面只能给出迁移提示，不能产生
 	// “查档失败后继续建档”的旧端副作用，也不能把医院患者号带回小程序。
 	expect(selection).toContain("onAddPatient");
-	expect(selection).toContain("医院绑定接口正在迁移中");
+	expect(selection).toContain("navigateToFeatureStatus");
+	expect(selection).toContain('"patient-binding"');
 	expect(selection).not.toContain("getArchivesInfoApi");
 	expect(selection).not.toContain("createPatientApi");
 	expect(selection).not.toContain("bindCardApi");
 	expect(template).toContain("添加就诊人");
-	expect(template).toContain("真实绑定接口接入前只展示迁移提示");
+	expect(template).toContain("真实绑定接口接入前进入统一状态页");
 	expect(bindingContract).toContain("查找异常不得转成“没有档案”");
 	expect(bindingContract).toContain("PB-01");
 });
@@ -1325,6 +1326,7 @@ test("native my page separates ordinary profile from family patient selection", 
 		'"appointment-write"',
 		'"outpatient-payment-detail"',
 		'"outpatient-payment-write"',
+		'"patient-binding"',
 		'"pre-visit"',
 		'"report-cloud-image"',
 		'"report-detail"',
