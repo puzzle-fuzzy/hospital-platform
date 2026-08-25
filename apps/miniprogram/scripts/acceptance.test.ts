@@ -1334,6 +1334,9 @@ test("native primary tabs keep one stable selected bar", async () => {
 	};
 	const indexTemplate = await source("pages/index/index.wxml");
 	const myTemplate = await source("pages/my/my.wxml");
+	const sharedTabBar = await source("custom-tab-bar/index.ts");
+	const sharedTabBarTemplate = await source("custom-tab-bar/index.wxml");
+	const sharedTabBarStyle = await source("custom-tab-bar/index.wxss");
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 	const projectConfig = JSON.parse(
 		await Bun.file(join(import.meta.dir, "..", "project.config.json")).text(),
@@ -1348,6 +1351,20 @@ test("native primary tabs keep one stable selected bar", async () => {
 	// 底栏，因此切换时不会出现第二套底栏或页面级底栏首帧闪动。
 	expect(app.tabBar?.custom).toBe(true);
 	expect(app.tabBar?.position).toBe("bottom");
+	expect(sharedTabBar).toContain("createRuntimeItems");
+	expect(sharedTabBar).toContain("if (this.data.switching) return");
+	expect(sharedTabBar).toContain("items: createRuntimeItems(index)");
+	expect(sharedTabBarTemplate).toContain("item.selected");
+	expect(sharedTabBarStyle).toContain("position: fixed");
+	expect(sharedTabBarStyle).toContain("justify-content: center");
+	for (const page of [
+		"pages/index/index.ts",
+		"pages/consult/consult.ts",
+		"pages/hospital/hospital.ts",
+		"pages/my/my.ts",
+	] as const) {
+		expect(await source(page)).toContain("syncPrimaryTabSelected");
+	}
 	expect(projectConfig.setting?.compileHotReLoad).toBe(false);
 	const runtimeProjectConfig = JSON.parse(
 		await Bun.file(

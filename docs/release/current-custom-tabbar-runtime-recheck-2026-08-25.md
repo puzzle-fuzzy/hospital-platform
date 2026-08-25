@@ -20,10 +20,10 @@
 
 ## 当前候选与运行包证据
 
-- 源码提交：`0dd1b65bfda3a3aab96dace551a47150b5ba7fe8`，已推送到 `origin/main`；
+- 源码提交：`4ae9c29663eafa757df39c23a11007b3040ccb96`，已提交到 `main`；
 - 运行包：`apps/miniprogram/dist/`；
-- 新预览二维码：`.local/hospital-miniprogram/tabbar-preview-0dd1b65.png`；
-- `dist/build-info.json.sourceRevision=0dd1b65bfda3a3aab96dace551a47150b5ba7fe8`；
+- 本轮没有生成预览二维码，请直接打开 `apps/miniprogram/dist/`；
+- `dist/build-info.json.sourceRevision=4ae9c29663eafa757df39c23a11007b3040ccb96`；
 - `dist/app.json.tabBar.custom=true`、`position=bottom`；
 - `dist/custom-tab-bar/index.js/index.json/index.wxml/index.wxss` 均存在；
 - 16 个页面脚本存在，`*.test.js` 和 `*.spec.js` 为 0；
@@ -42,7 +42,7 @@ E:\__Super_Core__\hospital-platform\apps\miniprogram\dist
 启动日志应包含：
 
 ```text
-[医院小程序] 运行包来源：微信 custom-tab-bar；revision=0dd1b65bfda3a3aab96dace551a47150b5ba7fe8
+[医院小程序] 运行包来源：微信 custom-tab-bar；revision=4ae9c29663eafa757df39c23a11007b3040ccb96
 ```
 
 依次点击“医疗服务、就诊、互联网医院、我的”，记录以下结果：

@@ -3,9 +3,9 @@
 
 # 项目文档导航
 
-> 当前本地候选：底栏切换修正后需要重新构建。四个入口由微信官方 `custom-tab-bar` 共享组件统一渲染，切换锁防止旧页面生命周期覆盖选中态；运行包必须重新发布到 `apps/miniprogram/dist/` 后再真机验收。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前本地候选：`4ae9c29663eafa757df39c23a11007b3040ccb96`。四个入口由微信官方 `custom-tab-bar` 共享组件统一渲染，切换锁防止旧页面生命周期覆盖选中态；运行包已发布到 `apps/miniprogram/dist/`，真机仍需普通编译验收。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
 
-> 当前本地候选：底栏源码已切换为共享 `custom-tab-bar`，待重新构建后以 `dist/build-info.json` 的完整来源指纹为准。开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前本地候选：`dist/build-info.json.sourceRevision=4ae9c29663eafa757df39c23a11007b3040ccb96`，16 个页面脚本和共享 `custom-tab-bar` 运行文件完整；开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
 
 > 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的新构建运行包和最新共享底栏手册，不能使用旧二维码、旧 `dist/` 或旧底栏说明。
 

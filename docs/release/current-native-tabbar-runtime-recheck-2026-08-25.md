@@ -20,17 +20,17 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 修正提交 | `7fc22fae975d207d66cd248de01ac0287492f800` |
+| 修正提交 | `4ae9c29663eafa757df39c23a11007b3040ccb96` |
 | 运行包目录 | `apps/miniprogram/dist/` |
-| `dist/build-info.json.sourceRevision` | `7fc22fae975d207d66cd248de01ac0287492f800` |
+| `dist/build-info.json.sourceRevision` | `4ae9c29663eafa757df39c23a11007b3040ccb96` |
 | 页面数量 | 16 |
 | TabBar | `custom=true`、`position=bottom`、四项共享路由 |
 | `dist/custom-tab-bar/` | 存在且只包含一套组件 |
 | 运行包测试脚本 | `*.test.js`、`*.spec.js` 均不存在 |
-| 小程序测试 | 240 pass、0 fail、1933 assertions |
+| 小程序测试 | 241 pass、0 fail、1934 assertions |
 | 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
 | 运行包校验 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
-| 预览二维码 | `.local/hospital-miniprogram/tabbar-native-preview-7fc22fa.png` |
+| 预览二维码 | 本轮未生成二维码；请直接打开 `apps/miniprogram/dist/` |
 
 ## 真机验收
 
@@ -40,7 +40,7 @@
 E:\__Super_Core__\hospital-platform\apps\miniprogram\dist
 ```
 
-普通编译后依次点击“医疗服务、就诊、互联网医院、我的”，确认：
+普通编译后先确认启动日志为 `revision=4ae9c29`，再依次点击“医疗服务、就诊、互联网医院、我的”，确认：
 
 1. 底部始终只有一套四项导航；
 2. 当前项显示蓝色图标和文字，其余项保持灰色；
