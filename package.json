@@ -26,6 +26,7 @@
 		"logging:audit": "bun tools/logging-event-audit.mjs",
 		"migration:audit": "bun tools/migration-inventory-audit.mjs",
 		"migration:boundary:audit": "bun tools/migration-boundary-audit.mjs",
+		"migration:readiness": "bun tools/migration-readiness-report.mjs",
 		"provider:audit": "bun tools/provider-intake-audit.mjs",
 		"readonly:audit": "bun tools/read-only-domain-audit.mjs",
 		"provider:smoke:secure": "bun tools/provider-smoke-secure.ts",

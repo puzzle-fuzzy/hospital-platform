@@ -47,6 +47,8 @@ pnpm migration:boundary:audit
 
 所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
 
+全项目 readiness 汇总可以通过 `pnpm migration:readiness` 生成，字段说明见 [`migration-readiness-report.md`](migration-readiness-report.md)。该报告明确拆分入口结构、五个只读域、Provider 材料状态、pending/live 运行包来源和真实业务完成状态；默认结构审计通过不代表 Provider、公网或真机验收通过，`--strict` 才会把运行包未对齐作为命令失败。
+
 ## 3. 当前可继续推进的业务队列
 
 ### A：安全只读队列
