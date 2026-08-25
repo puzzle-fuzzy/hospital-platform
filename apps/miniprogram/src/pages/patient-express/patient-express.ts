@@ -1,4 +1,104 @@
-import { registerPatientContractSurfacePage } from "../../services/patient-contract-surface";
+import { ApiError } from "../../services/api-client";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
+import { loadCurrentPatient } from "../../services/dashboard-service";
+import type { Patient } from "../../types";
 
-/** 我的快递是旧端预留空壳，先保留正确的患者范围和关闭态，不伪造物流记录。 */
-registerPatientContractSurfacePage("patient-express");
+type PatientExpressPageData = {
+	loading: boolean;
+	patient: Patient | null;
+	error: string;
+	hasShown: boolean;
+};
+
+type PatientExpressPageMethods = {
+	loadCurrentPatient(): Promise<void>;
+	onOpenPatientSelector(): void;
+	onOpenMigrationStatus(): void;
+	onRetry(): void;
+	onBackMy(): void;
+	onUnload(): void;
+};
+
+function errorMessage(error: unknown): string {
+	if (error instanceof ApiError && error.code === "dependency-not-configured") {
+		return "就诊人服务暂不可用，请稍后重试";
+	}
+	if (error instanceof ApiError && error.code === "unauthorized") {
+		return "登录状态已失效，请返回首页重新登录";
+	}
+	return "就诊人信息暂时无法加载，请重试";
+}
+
+/**
+ * 旧端“我的快递”没有真实物流请求：预留列表永远初始化为空数组，
+ * 页面实际可迁移的行为只有“展示当前就诊人 + 空态”。
+ *
+ * 这里先把这段真实旧行为迁移到原生页面，同时保留“物流来源/归属/字段
+ * 脱敏”作为未来 contract 门禁。不能为了让页面看起来完整而读取旧缓存、
+ * 拼接快递单号或把空数组包装成 provider 查询成功。
+ */
+Page<PatientExpressPageData, PatientExpressPageMethods>({
+	data: {
+		loading: true,
+		patient: null,
+		error: "",
+		hasShown: false,
+	},
+
+	onLoad() {
+		this.setData({ hasShown: false });
+		void this.loadCurrentPatient();
+	},
+
+	onShow() {
+		if (!this.data.hasShown) {
+			this.setData({ hasShown: true });
+			return;
+		}
+		// 从选择页返回后必须重新读取当前显式患者，不能继续显示旧姓名。
+		void this.loadCurrentPatient();
+	},
+
+	loadCurrentPatient() {
+		const guard = getPageLatestRequestGuard(this, "patient-express");
+		const token = guard.begin();
+		this.setData({ loading: true, error: "" });
+		return loadCurrentPatient()
+			.then((patient) => {
+				if (!guard.isCurrent(token)) return;
+				this.setData({ patient });
+			})
+			.catch((error) => {
+				if (!guard.isCurrent(token)) return;
+				this.setData({ patient: null, error: errorMessage(error) });
+			})
+			.finally(() => {
+				if (guard.isCurrent(token)) this.setData({ loading: false });
+			});
+	},
+
+	onOpenPatientSelector() {
+		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+	},
+
+	/** 物流真实 contract 到达前，只允许进入说明页，不发起任何外部请求。 */
+	onOpenMigrationStatus() {
+		navigateToFeatureStatus("patient-express");
+	},
+
+	onRetry() {
+		if (!this.data.loading) void this.loadCurrentPatient();
+	},
+
+	onBackMy() {
+		wx.switchTab({ url: "/pages/my/my" });
+	},
+
+	onUnload() {
+		disposePageInstance(this);
+	},
+});

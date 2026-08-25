@@ -6,8 +6,7 @@ import { navigateToFeatureStatus, type FeatureKey } from "./feature-navigation";
 
 export type PatientContractSurfaceFeature =
 	| "patient-binding"
-	| "patient-signature"
-	| "patient-express";
+	| "patient-signature";
 
 type PatientContractSurfaceDefinition = {
 	scopeTitle: string;
@@ -58,22 +57,6 @@ const PATIENT_CONTRACT_SURFACE_DEFINITIONS: Readonly<
 			"签名用途、授权文案和撤回语义",
 			"文件类型、大小、病毒扫描和短期访问策略",
 			"医护侧读取范围、审计字段和失败回退",
-		],
-		showPatientSelector: true,
-	},
-	"patient-express": {
-		scopeTitle: "快递记录查询范围",
-		scopeDescription:
-			"快递记录属于当前选择的就诊人；旧端只有预留空列表，不能直接当成真实物流数据。",
-		boundaryItems: [
-			"必须按当前 owner 和就诊人过滤",
-			"物流单号等敏感字段只展示必要脱敏部分",
-			"成功空结果、拒绝、超时和 provider 异常分开呈现",
-		],
-		contractItems: [
-			"快递来源、查询参数和响应状态枚举",
-			"患者归属、字段白名单和展示脱敏规则",
-			"查询超时、重试、日志和数据保留周期",
 		],
 		showPatientSelector: true,
 	},

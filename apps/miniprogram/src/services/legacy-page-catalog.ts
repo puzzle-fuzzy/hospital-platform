@@ -465,7 +465,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/patient-express/patient-express",
 			featureKey: "patient-express",
-			note: "旧端实际是“我的快递”空壳，不是联系地址；已迁移页面外壳，真实物流来源、患者归属和状态字段仍待 provider contract。",
+			note: "旧端实际只有患者选择和预留空列表，已迁移为原生空态；真实物流来源、患者归属和状态字段仍待 provider contract。",
 		},
 		{
 			legacyPath: "pagesB/patient/patient_signature.vue",

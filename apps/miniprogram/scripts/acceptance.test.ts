@@ -2421,6 +2421,26 @@ test("native mini program does not turn legacy static or fake settings into busi
 	expect(app).not.toContain("subscription-message");
 });
 
+test("native mini program migrates the legacy express placeholder without fake logistics", async () => {
+	const catalog = await source("services/legacy-page-catalog.ts");
+	const page = await source("pages/patient-express/patient-express.ts");
+	const template = await source("pages/patient-express/patient-express.wxml");
+	const style = await source("pages/patient-express/patient-express.wxss");
+
+	// 旧端 express.vue 没有物流请求，预留列表始终为空；这里迁移的是
+	// 已存在的患者栏和空态，不把“页面能打开”误写成物流服务已接通。
+	expect(catalog).toContain('status: "surface-only"');
+	expect(catalog).toContain("旧端实际只有患者选择和预留空列表");
+	expect(page).toContain("loadCurrentPatient");
+	expect(page).toContain('navigateToFeatureStatus("patient-express")');
+	expect(template).toContain("未查询到相关记录!");
+	expect(template).toContain("选择就诊人");
+	expect(template).toContain("旧端当前没有接入物流记录服务");
+	expect(template).toContain("/assets/legacy-user/empty-record.svg");
+	expect(style).toContain(".patient-express-empty");
+	expect(page).not.toContain("providerPatientId");
+});
+
 test("native mini program derives missed appointments from the normalized record status", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");

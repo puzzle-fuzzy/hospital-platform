@@ -1,1 +1,124 @@
-@import "../../styles/patient-contract-surface.wxss";
+page {
+	background: #f8f8f8;
+}
+
+.patient-express-page {
+	min-height: 100vh;
+	box-sizing: border-box;
+	padding-bottom: 56rpx;
+}
+
+.patient-express-patient-card {
+	display: flex;
+	align-items: center;
+	padding: 28rpx 32rpx;
+	background: #fff;
+	border-bottom: 1rpx solid #f0f0f0;
+}
+
+.patient-express-avatar {
+	width: 64rpx;
+	height: 64rpx;
+	margin-right: 20rpx;
+}
+
+.patient-express-patient-copy {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 6rpx;
+}
+
+.patient-express-patient-label {
+	color: #999;
+	font-size: 24rpx;
+}
+
+.patient-express-patient-name {
+	color: #333;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.patient-express-muted {
+	color: #999;
+	font-weight: 400;
+}
+
+.patient-express-arrow {
+	color: #b5b5b5;
+	font-size: 48rpx;
+	font-weight: 300;
+	line-height: 1;
+}
+
+.patient-express-error {
+	margin: 20rpx 24rpx 0;
+	padding: 20rpx 24rpx;
+	color: #bd3b35;
+	background: #fff1f0;
+	border-radius: 12rpx;
+	font-size: 25rpx;
+}
+
+.patient-express-retry {
+	margin: 16rpx 0 0;
+	padding: 0;
+	color: #3d6df6;
+	background: transparent;
+	border: 0;
+	font-size: 25rpx;
+	line-height: 1.4;
+}
+
+.patient-express-retry::after,
+.patient-express-back::after {
+	border: 0;
+}
+
+.patient-express-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 150rpx 24rpx 80rpx;
+	flex-direction: column;
+}
+
+.patient-express-empty-image {
+	width: 220rpx;
+	height: 180rpx;
+	opacity: 0.9;
+}
+
+.patient-express-empty-text {
+	margin-top: 32rpx;
+	color: #333;
+	font-size: 30rpx;
+}
+
+.patient-express-empty-note {
+	margin-top: 16rpx;
+	color: #aaa;
+	font-size: 24rpx;
+}
+
+.patient-express-link,
+.patient-express-back {
+	display: block;
+	width: calc(100% - 96rpx);
+	margin: 0 auto 20rpx;
+	box-sizing: border-box;
+	font-size: 27rpx;
+}
+
+.patient-express-link {
+	color: #3d6df6;
+	background: #eef3ff;
+	border: 1rpx solid #dce6ff;
+}
+
+.patient-express-back {
+	color: #666;
+	background: #fff;
+	border: 1rpx solid #e5e5e5;
+}
