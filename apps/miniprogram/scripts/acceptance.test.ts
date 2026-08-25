@@ -2441,6 +2441,56 @@ test("native mini program migrates the legacy express placeholder without fake l
 	expect(page).not.toContain("providerPatientId");
 });
 
+test("native patient signature keeps the patient boundary without fake external launch", async () => {
+	const page = await source("pages/patient-signature/patient-signature.ts");
+	const template = await source(
+		"pages/patient-signature/patient-signature.wxml",
+	);
+	const style = await source("pages/patient-signature/patient-signature.wxss");
+	const catalog = await source("services/legacy-page-catalog.ts");
+
+	// 旧端使用本地示例患者并把患者 ID 透传给固定外部 AppID；新端只能消费
+	// owner-scoped 脱敏目录，签名 contract 未完成前不能伪造跳转或成功。
+	expect(catalog).toContain('featureKey: "patient-signature"');
+	expect(page).toContain("loadPatients");
+	expect(page).toContain("getSelectedPatientId");
+	expect(page).toContain('navigateToFeatureStatus("patient-signature")');
+	expect(page).not.toContain("navigateToMiniProgram");
+	expect(page).not.toContain("wx0b76c9904392518f");
+	expect(template).toContain("选择其他就诊人");
+	expect(template).toContain("当前不会上传文件");
+	expect(template).toContain("电子就诊卡（脱敏）");
+	expect(style).toContain(".signature-error");
+	expect(style).toContain(".signature-state-card");
+});
+
+test("native subscription page preserves legacy presentation but never claims WeChat authorization", async () => {
+	const page = await source(
+		"pages/patient-subscription/patient-subscription.ts",
+	);
+	const template = await source(
+		"pages/patient-subscription/patient-subscription.wxml",
+	);
+	const style = await source(
+		"pages/patient-subscription/patient-subscription.wxss",
+	);
+	const catalog = await source("services/legacy-page-catalog.ts");
+
+	// 旧端的“确定修改”没有服务端保存或微信授权调用；本页只迁移搜索、分类、
+	// 折叠和患者上下文，所有开关关闭并明确展示“暂未接入”。
+	expect(catalog).toContain('featureKey: "patient-subscription"');
+	expect(page).toContain("loadCurrentPatient");
+	expect(page).toContain("buildSections");
+	expect(page).toContain('navigateToFeatureStatus("patient-subscription")');
+	expect(page).not.toContain("requestSubscribeMessage");
+	expect(page).not.toContain("设置已保存");
+	expect(template).toContain("请输入消息标题进行查询");
+	expect(template).toContain("暂未接入");
+	expect(template).toContain("查看完整迁移说明");
+	expect(style).toContain("position: fixed");
+	expect(style).toContain(".subscription-result-state");
+});
+
 test("native mini program derives missed appointments from the normalized record status", async () => {
 	const app = await source("app.json");
 	const my = await source("pages/my/my.ts");
