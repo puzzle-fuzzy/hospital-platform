@@ -19,7 +19,7 @@
 | 旧端接口字面量 | 87 个 | 已纳入新旧接口语义清单 |
 | 新端四个主 Tab | 原生 `tabBar` 单一声明 | 页面不重复渲染底栏 |
 | 当前小程序源码 | 提交 `b4120bac`（四个临床页面外壳） | 25 页，`293 pass / 0 fail / 3269 expect()` |
-| 当前 pending 运行包 | `b4120bac70b081c235ad9d50423712b2d782d57d` | 25 页，`runtime:verify:pending` 通过；尚未发布到 live `dist`，不能作为真机完成证据 |
+| 当前 pending 运行包 | `25cd7c4a323c9767b9367d319be14a82f681b37b`（功能提交 `b4120bac`） | 25 页，`runtime:verify:pending` 通过；尚未发布到 live `dist`，不能作为真机完成证据 |
 | 线上服务端 | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | 与旧 Python `8001` 共存，未因本轮文档而改变 |
 
 ## 2. 本轮门禁结果

@@ -1,5 +1,5 @@
 > **历史事实源覆盖说明**：上方第二行已更新为当前 `3b42b86` 候选；本行旧的 `5493659e` 只保留为上一候选记录，不作为当前运行包或验收依据。
-> **最新事实源（2026-08-26，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。当前小程序 pending 运行输入为 `b4120bac70b081c235ad9d50423712b2d782d57d`，已完成 25 个页面脚本、`293 pass / 0 fail / 3269 expect()` 和静态门禁；四个临床页面仍是 `surface-only`，因微信开发者工具锁定 live `dist/` 尚未原子发布。健康百科正式审核 bundle、协议同意/撤回/审计、二维码真实能力、支付医保、临床真实读取、实时就诊和外部 web-view 继续关闭；旧端 64 页面逐页落点台账和 34 个冻结入口门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
+> **最新事实源（2026-08-26，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。当前小程序 pending 运行输入为 `25cd7c4a323c9767b9367d319be14a82f681b37b`（功能提交 `b4120bac`），已完成 25 个页面脚本、`293 pass / 0 fail / 3269 expect()` 和静态门禁；四个临床页面仍是 `surface-only`，因微信开发者工具锁定 live `dist/` 尚未原子发布。健康百科正式审核 bundle、协议同意/撤回/审计、二维码真实能力、支付医保、临床真实读取、实时就诊和外部 web-view 继续关闭；旧端 64 页面逐页落点台账和 34 个冻结入口门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
 > **本轮迁移补充**：旧端使用条款已迁移为原文只读页，但未新增任何同意写入或本地授权状态；详见 [`migration/patient-agreement-static-migration-2026-08-26.md`](migration/patient-agreement-static-migration-2026-08-26.md)。
 > 2026-08-25 广度迁移补充：健康知识已完成旧库真实源快照的只读导出、稳定 opaque id 映射和质量告警，但 `publicationState` 仍为 `not-approved`；患者端只读 API 已注册但在没有有效 published 版本时 fail-closed。便民旧库存量也已盘点（预问诊 2、随访 4、风险评估 7、我的医生 21、表扬信 4、电子锦旗 4），新端未导入旧正文或快照。详见 [`migration/health-knowledge-import-runbook.md`](migration/health-knowledge-import-runbook.md)、[`release/health-knowledge-source-snapshot-2026-08-25.md`](release/health-knowledge-source-snapshot-2026-08-25.md) 和 [`release/convenience-source-inventory-2026-08-25.md`](release/convenience-source-inventory-2026-08-25.md)。
 > 本轮业务推进顺序：先完成当前候选的四 Tab/患者显式切换/预约历史与爽约/门诊费用只读/普通资料读写证据；客户端 requestId、服务端 Pino trace/业务事件和 Provider 低敏请求号缺一不可。报告详情、门诊病历、二维码、患者绑定、健康内容、实时就诊、互联网医院、支付医保、预约写入、取消和 HIS 回写继续按各自 contract、权限和回滚证据保持关闭。
@@ -50,17 +50,17 @@
 
 # 下一阶段实施路线图
 
-> **最新小程序候选事实（2026-08-26）**：当前 pending 来源为 `b4120bac70b081c235ad9d50423712b2d782d57d`（提交 `b4120bac`），25 个页面，`293 pass / 0 fail / 3269 expect()`；本轮新增四个临床 `surface-only` 页面外壳，正式健康审核 bundle 缺失时仍保持 fail-closed，协议同意/撤回/审计仍关闭。live `dist` 仍被微信开发者工具锁定，上一候选及更早候选仅作历史追溯。支付、医保、临床真实读取、外部 WebView 和预约写入仍按各自 contract 关闭。
+> **最新小程序候选事实（2026-08-26）**：当前 pending 来源为 `25cd7c4a323c9767b9367d319be14a82f681b37b`（功能提交 `b4120bac`），25 个页面，`293 pass / 0 fail / 3269 expect()`；本轮新增四个临床 `surface-only` 页面外壳，正式健康审核 bundle 缺失时仍保持 fail-closed，协议同意/撤回/审计仍关闭。live `dist` 仍被微信开发者工具锁定，上一候选及更早候选仅作历史追溯。支付、医保、临床真实读取、外部 WebView 和预约写入仍按各自 contract 关闭。
 
-> **当前广度事实源（2026-08-26，pending `b4120bac70b081c235ad9d50423712b2d782d57d`）**：旧端 64 个页面已全部登记；新端现有 25 个注册页面，其中四个临床页面为 `surface-only`，健康百科三个只读页面和协议原文只读页已接入，统一状态页已展示迁移阶段与旧入口覆盖范围。当前候选 `293 pass / 0 fail / 3269 expect()`，pending 已完成构建和运行包校验，仍待释放微信开发者工具锁；正式健康内容、协议同意、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
+> **当前广度事实源（2026-08-26，pending `25cd7c4a323c9767b9367d319be14a82f681b37b`）**：旧端 64 个页面已全部登记；新端现有 25 个注册页面，其中四个临床页面为 `surface-only`，健康百科三个只读页面和协议原文只读页已接入，统一状态页已展示迁移阶段与旧入口覆盖范围。当前候选 `293 pass / 0 fail / 3269 expect()`，pending 已完成构建和运行包校验，仍待释放微信开发者工具锁；正式健康内容、协议同意、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
 
-> **当前仓库事实补充（2026-08-26）**：本轮功能交接基线为 `b4120bac`，小程序回归已推进到 `293 pass / 0 fail / 3269 expect()`，pending 来源为 `b4120bac70b081c235ad9d50423712b2d782d57d`。本轮新增四个临床页面外壳和共享页面工厂构建校验，不改变线上 `8eb51b5f`、live `dist` 或任何旧服务；协议同意、撤回、临床真实读取和支付医保继续关闭，上方旧候选段落保留为历史追溯。
+> **当前仓库事实补充（2026-08-26）**：本轮功能交接基线为 `b4120bac`，小程序回归已推进到 `293 pass / 0 fail / 3269 expect()`，pending 来源为 `25cd7c4a323c9767b9367d319be14a82f681b37b`。本轮新增四个临床页面外壳和共享页面工厂构建校验，不改变线上 `8eb51b5f`、live `dist` 或任何旧服务；协议同意、撤回、临床真实读取和支付医保继续关闭，上方旧候选段落保留为历史追溯。
 
 > **2026-08-25 广度检查点（提交 `7732c843`）**：旧端 64 个页面的逐页落点、17 个原生页面和五个低风险只读域的闭环审计已经纳入仓库门禁。执行 `pnpm readonly:audit` 会同时检查就诊人、预约、报告、门诊费用、普通资料的页面、Elysia 路由、service/domain/adapter、日志和文档；通过只代表代码闭环完整，不代表 Provider、生产公网或真机业务已经验收。详细矩阵见 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md)。
 
 > 本检查点没有打开新的临床、外部或支付能力：门诊病历、住院、问诊实时、互联网医院、健康内容、患者绑定、二维码、预约写入、支付、医保和 HIS 回写仍按各自 contract 保持关闭。全仓测试当前唯一已知失败仍是另一会话未部署的 `packages/adapters/src/zhongyang-appointments.ts` 触发发布基线门禁；本会话不修改、不暂存、不部署该文件。
 
- > 当前最新小程序代码候选为 `b4120bac70b081c235ad9d50423712b2d782d57d`，共 25 个注册页面，`dist/` 发布被微信开发者工具锁定，候选已通过 staging 构建、类型检查、旧端 64 页面台账和自动化测试；项目最终固定使用微信原生 `tabBar`。关闭工具后必须先执行 `runtime:publish-pending`，再直接打开独立工程并普通编译核对完整来源指纹。线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序仍未上传微信，真实页面与服务端同链业务证据仍待。本页下方带历史日期的候选只作追溯。
+ > 当前最新小程序代码候选为 `25cd7c4a323c9767b9367d319be14a82f681b37b`（功能提交 `b4120bac`），共 25 个注册页面，`dist/` 发布被微信开发者工具锁定，候选已通过 staging 构建、类型检查、旧端 64 页面台账和自动化测试；项目最终固定使用微信原生 `tabBar`。关闭工具后必须先执行 `runtime:publish-pending`，再直接打开独立工程并普通编译核对完整来源指纹。线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序仍未上传微信，真实页面与服务端同链业务证据仍待。本页下方带历史日期的候选只作追溯。
 
 ## 历史事实源（2026-08-22，仅供追溯）
 

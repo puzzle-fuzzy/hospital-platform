@@ -1,4 +1,4 @@
-> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `b4120bac70b081c235ad9d50423712b2d782d57d`（提交 `b4120bac`），25 个页面，`293 pass / 0 fail / 3269 expect()`。本候选新增四个临床 `surface-only` 页面外壳，真实 Provider/临床业务仍关闭；微信开发者工具占用 live `dist` 导致尚未原子替换，真实真机业务证据仍待采集。
+> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `25cd7c4a323c9767b9367d319be14a82f681b37b`（功能提交 `b4120bac`），25 个页面，`293 pass / 0 fail / 3269 expect()`。本候选新增四个临床 `surface-only` 页面外壳，真实 Provider/临床业务仍关闭；微信开发者工具占用 live `dist` 导致尚未原子替换，真实真机业务证据仍待采集。
 > 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e` 和本地 pending `3b42b86` 不得互相替代。本文以下旧候选编号均只作历史追溯。
 
 > **本轮最新修正**：在已有入口覆盖基础上新增门诊病历、住院信息、我的医生和电子导诊单四个 `surface-only` 页面外壳，并修正共享页面工厂的构建门禁。它们只展示真实边界、患者选择入口和关闭态，不读取 Provider、不生成假数据。当前运行包事实见 [`release/candidate-b4120bac-miniprogram-runtime-2026-08-26.md`](release/candidate-b4120bac-miniprogram-runtime-2026-08-26.md)。
@@ -25,7 +25,7 @@
 
 > **当前仓库交接基线（2026-08-26）**：本轮功能候选为 `3b42b86`，当前 pending 运行输入为 `3b42b86`。该候选已完成独立静态校验；全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
 
-> **当前 pending 运行包**：`build-info.json.sourceRevision=b4120bac70b081c235ad9d50423712b2d782d57d`，25 页、当前源码 `293 pass / 0 fail / 3269 expect()`。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，pending 来源和四个临床页面外壳说明见 [`release/candidate-b4120bac-miniprogram-runtime-2026-08-26.md`](release/candidate-b4120bac-miniprogram-runtime-2026-08-26.md)。
+> **当前 pending 运行包**：`build-info.json.sourceRevision=25cd7c4a323c9767b9367d319be14a82f681b37b`，25 页、当前源码 `293 pass / 0 fail / 3269 expect()`。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，pending 来源和四个临床页面外壳说明见 [`release/candidate-b4120bac-miniprogram-runtime-2026-08-26.md`](release/candidate-b4120bac-miniprogram-runtime-2026-08-26.md)。
 
 > **当前运行层只读复核（2026-08-25 17:16 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；内网 `/health/ready`、`/api/v1/system/ping` 与公网 `/api/v2/health/ready`、`/api/v2/system/ping` 均为 `200`，database/redis/schema 为 `ok`。内网探针必须使用实际绑定地址，公网路径由 `/api/v2` 反向代理提供。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
