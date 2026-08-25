@@ -1,6 +1,6 @@
 > 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
-> 当前本地最新候选为 `baa31df08f63af30266664f9fef9224653cf52bb`。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src/`/`scripts/` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性、可见 action 分发回归、就诊记录 8 条分批展示和 `dist` 独立运行工程一致性纳入门禁。
+> 当前功能里程碑为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`；最新 pending 运行包来源为 `b587c7ea8479e38d47055f3f5b672263f32aec41`，包含 20 个页面脚本和 259 项小程序测试。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src/`/`scripts/` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性、可见 action 分发回归、就诊记录 8 条分批展示和 `dist` 独立运行工程一致性纳入门禁。
 > 紧随其后的 `485c0892` 构建记录是历史候选；当前验收、发布和回滚只认本页顶部的 `baa31df0`。
 > `485c0892` 已完成 staging 构建并通过类型检查、页面入口、旧端 64 页面台账、action 分发回归和运行包静态门禁，但微信开发者工具锁定了当前 `dist/`，候选暂存于 `.local/hospital-miniprogram/pending/`；当前可运行 `dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。候选均不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。
 > 当前本地源码的 `app.json` 已注册 17 个页面，四个主入口由微信原生 TabBar 统一固定在窗口底部；这个数字不应与线上历史运行包 `13f597e` 的 14 页记录混用。
@@ -13,9 +13,9 @@
 
 > **最新候选覆盖补充（2026-08-25）**：提交 `99c7e8fd` 已将原生页面注册数推进到 20 个，新增健康百科目录、搜索、疾病/药品详情三个只读落点；构建候选位于 `.local/hospital-miniprogram/pending/`，259 项小程序测试通过。页面接入不等于健康内容开放，正式审核 bundle、发布/撤回演练和真机证据仍待。
 
-> 当前事实源（2026-08-25，优先于下方历史交接）：最新小程序候选为 `baa31df08f63af30266664f9fef9224653cf52bb`，位于 `.local/hospital-miniprogram/pending/`；
+> 当前事实源（2026-08-25，优先于下方历史交接）：功能候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，最新运行包候选为 `b587c7ea8479e38d47055f3f5b672263f32aec41`，位于 `.local/hospital-miniprogram/pending/`；
 > 当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因为开发者工具锁定目录尚未发布。本轮小程序回归为
-> `258 pass / 0 fail / 2432 expect()`；`c4dc00b9`、`b3436c24`、`90d5ab03`、`485c0892` 等版本仅作历史交接。
+> `259 pass / 0 fail / 2445 expect()`；`baa31df0`、`c4dc00b9`、`b3436c24`、`90d5ab03`、`485c0892` 等版本仅作历史交接。
 
 > 本候选新增旧端 64 页面逐页机器台账和缺失状态入口，不改变线上服务或旧项目；候选详情见
 > [`../release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md`](../release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md)。
