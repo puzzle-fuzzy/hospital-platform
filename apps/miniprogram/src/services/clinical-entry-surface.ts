@@ -1,8 +1,14 @@
+import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
 } from "./migration-coverage";
-import { navigateToFeatureStatus, type FeatureKey } from "./feature-navigation";
+import {
+	disposePatientSurfaceContext,
+	INITIAL_PATIENT_SURFACE_CONTEXT,
+	loadPatientSurfaceContext,
+	type PatientSurfaceContextData,
+} from "./patient-surface-context";
 
 export type ClinicalSurfaceFeature =
 	| "medical-record"
@@ -89,7 +95,7 @@ const CLINICAL_SURFACE_DEFINITIONS: Readonly<
 	},
 });
 
-export type ClinicalSurfacePageData = {
+export type ClinicalSurfacePageData = PatientSurfaceContextData & {
 	title: string;
 	icon: string;
 	readiness: string;
@@ -108,6 +114,7 @@ function toPageData(
 ): ClinicalSurfacePageData {
 	const definition = CLINICAL_SURFACE_DEFINITIONS[feature];
 	return {
+		...INITIAL_PATIENT_SURFACE_CONTEXT,
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
 		readiness: coverage.feature.readiness,
@@ -137,6 +144,15 @@ export function registerClinicalSurfacePage(
 			const coverage = getFeatureMigrationCoverage(feature);
 			this.setData(toPageData(feature, coverage));
 			wx.setNavigationBarTitle({ title: coverage.feature.title });
+			void this.loadPatientContext();
+		},
+		onShow() {
+			// 选择页返回后，当前患者可能已经被显式替换；只有首轮读取结束后
+			// 才在 onShow 重读，避免 onLoad/onShow 同时制造两次目录请求。
+			if (this.data.patientContextLoaded) void this.loadPatientContext();
+		},
+		loadPatientContext() {
+			return loadPatientSurfaceContext(this, `clinical-surface-${feature}`);
 		},
 		onOpenPatientSelector() {
 			wx.navigateTo({ url: "/pages/patient-select/patient-select" });
@@ -147,11 +163,20 @@ export function registerClinicalSurfacePage(
 		onBackHome() {
 			wx.switchTab({ url: "/pages/index/index" });
 		},
+		onRetry() {
+			if (!this.data.patientContextLoading) void this.loadPatientContext();
+		},
+		onUnload() {
+			disposePatientSurfaceContext(this);
+		},
 	});
 }
 
 type ClinicalSurfacePageMethods = {
+	loadPatientContext(): Promise<void>;
 	onOpenPatientSelector(): void;
 	onOpenMigrationStatus(): void;
 	onBackHome(): void;
+	onRetry(): void;
+	onUnload(): void;
 };

@@ -3,6 +3,12 @@ import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
 } from "./migration-coverage";
+import {
+	disposePatientSurfaceContext,
+	INITIAL_PATIENT_SURFACE_CONTEXT,
+	loadPatientSurfaceContext,
+	type PatientSurfaceContextData,
+} from "./patient-surface-context";
 
 export type ClinicalContentSurfaceFeature =
 	| "admission-preconsultation"
@@ -143,7 +149,7 @@ const CLINICAL_CONTENT_SURFACE_DEFINITIONS: Readonly<
 	},
 });
 
-export type ClinicalContentSurfacePageData = {
+export type ClinicalContentSurfacePageData = PatientSurfaceContextData & {
 	title: string;
 	icon: string;
 	surfaceLabel: string;
@@ -162,6 +168,7 @@ function toPageData(
 ): ClinicalContentSurfacePageData {
 	const definition = CLINICAL_CONTENT_SURFACE_DEFINITIONS[feature];
 	return {
+		...INITIAL_PATIENT_SURFACE_CONTEXT,
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
 		surfaceLabel: "页面外壳已迁移 · 临床业务仍关闭",
@@ -187,6 +194,20 @@ export function registerClinicalContentSurfacePage(
 			const coverage = getFeatureMigrationCoverage(feature);
 			this.setData(toPageData(feature, coverage));
 			wx.setNavigationBarTitle({ title: coverage.feature.title });
+			if (CLINICAL_CONTENT_SURFACE_DEFINITIONS[feature].showPatientSelector) {
+				void this.loadPatientContext();
+			}
+		},
+		onShow() {
+			if (
+				CLINICAL_CONTENT_SURFACE_DEFINITIONS[feature].showPatientSelector &&
+				this.data.patientContextLoaded
+			) {
+				void this.loadPatientContext();
+			}
+		},
+		loadPatientContext() {
+			return loadPatientSurfaceContext(this, `clinical-content-${feature}`);
 		},
 		onOpenPatientSelector() {
 			wx.navigateTo({ url: "/pages/patient-select/patient-select" });
@@ -197,11 +218,20 @@ export function registerClinicalContentSurfacePage(
 		onBackHome() {
 			wx.switchTab({ url: "/pages/index/index" });
 		},
+		onRetry() {
+			if (!this.data.patientContextLoading) void this.loadPatientContext();
+		},
+		onUnload() {
+			disposePatientSurfaceContext(this);
+		},
 	});
 }
 
 type ClinicalContentSurfacePageMethods = {
+	loadPatientContext(): Promise<void>;
 	onOpenPatientSelector(): void;
 	onOpenMigrationStatus(): void;
 	onBackHome(): void;
+	onRetry(): void;
+	onUnload(): void;
 };

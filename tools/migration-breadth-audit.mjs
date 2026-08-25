@@ -152,6 +152,7 @@ function extractPageMethods(source) {
 	 */
 	if (source.includes("registerClinicalSurfacePage(")) {
 		methods.push(
+			"onRetry",
 			"onOpenPatientSelector",
 			"onOpenMigrationStatus",
 			"onBackHome",
@@ -167,6 +168,7 @@ function extractPageMethods(source) {
 	}
 	if (source.includes("registerClinicalContentSurfacePage(")) {
 		methods.push(
+			"onRetry",
 			"onOpenPatientSelector",
 			"onOpenMigrationStatus",
 			"onBackHome",
@@ -177,6 +179,7 @@ function extractPageMethods(source) {
 	}
 	if (source.includes("registerProviderEntrySurfacePage(")) {
 		methods.push(
+			"onRetry",
 			"onOpenPatientSelector",
 			"onOpenMigrationStatus",
 			"onBackHome",

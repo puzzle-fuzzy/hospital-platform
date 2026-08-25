@@ -76,6 +76,84 @@
 	line-height: 1.7;
 }
 
+/*
+ * 关闭态页面也必须明确当前业务上下文，但这个卡片只展示 owner-scoped
+ * 脱敏患者目录，不代表病历、住院或 Provider 数据已经开放。固定卡片结构
+ * 让加载、失败和成功状态共用同一高度，避免返回选择页后布局跳变。
+ */
+.migration-surface-patient-card {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 18rpx;
+	min-height: 142rpx;
+	margin-top: 22rpx;
+	padding: 24rpx 26rpx;
+	border-radius: 20rpx;
+	background: #f0f5ff;
+}
+
+.migration-surface-patient-copy {
+	min-width: 0;
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+}
+
+.migration-surface-patient-label {
+	color: #8791a5;
+	font-size: 23rpx;
+	line-height: 1.5;
+}
+
+.migration-surface-patient-name {
+	margin-top: 6rpx;
+	overflow: hidden;
+	color: #222b45;
+	font-size: 29rpx;
+	font-weight: 600;
+	line-height: 1.5;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.migration-surface-patient-meta,
+.migration-surface-patient-error {
+	margin-top: 4rpx;
+	color: #68738a;
+	font-size: 23rpx;
+	line-height: 1.5;
+}
+
+.migration-surface-patient-error {
+	color: #d84a4a;
+}
+
+.migration-surface-patient-action,
+.migration-surface-patient-retry {
+	flex: 0 0 auto;
+	box-sizing: border-box;
+	min-width: 154rpx;
+	margin: 0;
+	padding: 0 18rpx;
+	border: 0;
+	border-radius: 12rpx;
+	background: #3d6df6;
+	color: #fff;
+	font-size: 24rpx;
+	line-height: 66rpx;
+}
+
+.migration-surface-patient-retry {
+	align-self: flex-start;
+	min-width: 132rpx;
+	margin-top: 10rpx;
+	background: #fff;
+	color: #d84a4a;
+	line-height: 54rpx;
+}
+
 .migration-surface-list {
 	margin-top: 20rpx;
 }

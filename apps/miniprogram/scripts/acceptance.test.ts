@@ -2490,6 +2490,45 @@ test("native convenience pages keep patient context without fake public records"
 	expect(service).not.toContain("createCommendatoryLetter");
 });
 
+test("native blocked domains keep one explicit current-patient context", async () => {
+	const context = await source("services/patient-surface-context.ts");
+	const factorySources = await Promise.all(
+		[
+			"services/clinical-entry-surface.ts",
+			"services/clinical-content-surface.ts",
+			"services/provider-entry-surface.ts",
+		].map((file) => source(file)),
+	);
+	const templates = await Promise.all(
+		[
+			"pages/medical-record/medical-record.wxml",
+			"pages/admission-preconsultation/admission-preconsultation.wxml",
+			"pages/appointment-detail/appointment-detail.wxml",
+		].map((file) => source(file)),
+	);
+
+	// 这些页面都还没有正式 Provider/临床 contract，但用户从选择页返回后
+	// 必须能看到当前上下文、失败原因和重试入口；不能只有一个“选择就诊人”
+	// 按钮，却让用户无法判断后续业务究竟针对谁。
+	expect(context).toContain("loadCurrentPatient");
+	expect(context).toContain("patient-selection-required");
+	expect(context).toContain("patient-clinical-unavailable");
+	expect(context).toContain("disposePageInstance");
+	expect(context).toContain("不调用同步 Provider");
+	for (const factory of factorySources) {
+		expect(factory).toContain("loadPatientSurfaceContext");
+		expect(factory).toContain("patientContextLoaded");
+		expect(factory).toContain("onRetry");
+		expect(factory).toContain("onUnload");
+	}
+	for (const template of templates) {
+		expect(template).toContain("当前就诊人");
+		expect(template).toContain("currentPatientName");
+		expect(template).toContain('bindtap="onRetry"');
+		expect(template).toContain('bindtap="onOpenPatientSelector"');
+	}
+});
+
 test("native patient signature keeps the patient boundary without fake external launch", async () => {
 	const page = await source("pages/patient-signature/patient-signature.ts");
 	const template = await source(

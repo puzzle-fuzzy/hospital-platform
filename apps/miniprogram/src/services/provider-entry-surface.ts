@@ -1,8 +1,14 @@
+import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
 } from "./migration-coverage";
-import { navigateToFeatureStatus, type FeatureKey } from "./feature-navigation";
+import {
+	disposePatientSurfaceContext,
+	INITIAL_PATIENT_SURFACE_CONTEXT,
+	loadPatientSurfaceContext,
+	type PatientSurfaceContextData,
+} from "./patient-surface-context";
 
 export type ProviderEntrySurfaceFeature =
 	| "blood-appointment"
@@ -54,7 +60,7 @@ const PROVIDER_ENTRY_SURFACE_DEFINITIONS: Readonly<
 	},
 });
 
-export type ProviderEntrySurfacePageData = {
+export type ProviderEntrySurfacePageData = PatientSurfaceContextData & {
 	title: string;
 	icon: string;
 	surfaceLabel: string;
@@ -72,6 +78,7 @@ function toPageData(
 ): ProviderEntrySurfacePageData {
 	const definition = PROVIDER_ENTRY_SURFACE_DEFINITIONS[feature];
 	return {
+		...INITIAL_PATIENT_SURFACE_CONTEXT,
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
 		surfaceLabel: "原生入口已迁移 · Provider 读取仍关闭",
@@ -96,6 +103,13 @@ export function registerProviderEntrySurfacePage(
 			const coverage = getFeatureMigrationCoverage(feature);
 			this.setData(toPageData(feature, coverage));
 			wx.setNavigationBarTitle({ title: coverage.feature.title });
+			void this.loadPatientContext();
+		},
+		onShow() {
+			if (this.data.patientContextLoaded) void this.loadPatientContext();
+		},
+		loadPatientContext() {
+			return loadPatientSurfaceContext(this, `provider-surface-${feature}`);
 		},
 		onOpenPatientSelector() {
 			wx.navigateTo({ url: "/pages/patient-select/patient-select" });
@@ -106,11 +120,20 @@ export function registerProviderEntrySurfacePage(
 		onBackHome() {
 			wx.switchTab({ url: "/pages/index/index" });
 		},
+		onRetry() {
+			if (!this.data.patientContextLoading) void this.loadPatientContext();
+		},
+		onUnload() {
+			disposePatientSurfaceContext(this);
+		},
 	});
 }
 
 type ProviderEntrySurfacePageMethods = {
+	loadPatientContext(): Promise<void>;
 	onOpenPatientSelector(): void;
 	onOpenMigrationStatus(): void;
 	onBackHome(): void;
+	onRetry(): void;
+	onUnload(): void;
 };
