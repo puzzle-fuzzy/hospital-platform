@@ -57,6 +57,7 @@
 				</view>
 				<text wx:if="{{item.serialNumber}}" class="consult-record-number">就诊序号：{{item.serialNumber}}</text>
 			</view>
+			<view wx:if="{{hasMoreRecords}}" class="consult-record-load-more" bindtap="onLoadMore">加载更多就诊记录</view>
 			<text class="consult-record-footnote">记录来自预约只读服务；实时就诊状态将在独立 contract 完成后接入。</text>
 		</view>
 	</view>

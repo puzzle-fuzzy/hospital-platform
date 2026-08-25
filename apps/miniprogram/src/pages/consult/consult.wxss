@@ -247,6 +247,18 @@ page {
 	text-align: center;
 }
 
+.consult-record-load-more {
+	box-sizing: border-box;
+	margin: 4rpx 0 18rpx;
+	padding: 20rpx;
+	border-radius: 14rpx;
+	background: #ffffff;
+	color: #3d6df6;
+	font-size: 25rpx;
+	line-height: 1.4;
+	text-align: center;
+}
+
 .consult-state image {
 	display: block;
 	width: 150rpx;

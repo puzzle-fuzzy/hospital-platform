@@ -34,6 +34,9 @@ const CONSULT_TABS = Object.freeze([
 
 type ConsultTabId = (typeof CONSULT_TABS)[number]["id"];
 
+/** 就诊页只分批展开已取得的摘要，避免历史记录过多时一次性创建大量 WXML 节点。 */
+const CONSULT_RECORD_PAGE_SIZE = 8;
+
 type ConsultPageData = {
 	hasShown: boolean;
 	sessionState: SessionVerificationState;
@@ -44,6 +47,8 @@ type ConsultPageData = {
 	activeTab: ConsultTabId;
 	records: Array<AppointmentRecordView>;
 	visibleRecords: Array<AppointmentRecordView>;
+	visibleRecordCount: number;
+	hasMoreRecords: boolean;
 	loading: boolean;
 	error: string;
 };
@@ -51,6 +56,7 @@ type ConsultPageData = {
 type ConsultPageMethods = {
 	loadContext(): Promise<void>;
 	onTabTap(event: { currentTarget?: { dataset?: { tab?: string } } }): void;
+	onLoadMore(): void;
 	onChangePatient(): void;
 	onRetry(): void;
 	onUnload(): void;
@@ -78,12 +84,21 @@ function visibleRecordsForTab(
 	records: readonly AppointmentRecordView[],
 	tab: ConsultTabId,
 	today: string,
+	limit: number,
 ): Array<AppointmentRecordView> {
 	if (tab === "today") return [];
-	return filterConsultRecords(records, today, tab).map((record, index) => ({
-		...record,
-		viewKey: `consult-record-${tab}-${index}`,
-	}));
+	return filterConsultRecords(records, today, tab).slice(0, limit);
+}
+
+/** 计算当前标签是否还有本地已取得、但尚未展开的摘要。 */
+function hasMoreRecordsForTab(
+	records: readonly AppointmentRecordView[],
+	tab: ConsultTabId,
+	today: string,
+	visibleCount: number,
+): boolean {
+	if (tab === "today") return false;
+	return filterConsultRecords(records, today, tab).length > visibleCount;
 }
 
 Page<ConsultPageData, ConsultPageMethods>({
@@ -97,6 +112,8 @@ Page<ConsultPageData, ConsultPageMethods>({
 		activeTab: "today",
 		records: [],
 		visibleRecords: [],
+		visibleRecordCount: 0,
+		hasMoreRecords: false,
 		loading: true,
 		error: "",
 	},
@@ -132,6 +149,8 @@ Page<ConsultPageData, ConsultPageMethods>({
 			selectedPatientIdLabel: "ID：----",
 			records: [],
 			visibleRecords: [],
+			visibleRecordCount: 0,
+			hasMoreRecords: false,
 		});
 		return waitForGlobalUserProfile()
 			.then((profileState) => {
@@ -191,13 +210,30 @@ Page<ConsultPageData, ConsultPageMethods>({
 						toAppointmentRecordView(record, index, "consult-record", token),
 					);
 					const today = formatPlatformDate(requestNow);
+					const activeTab = this.data.activeTab;
+					const activeRecords =
+						activeTab === "today"
+							? []
+							: filterConsultRecords(mappedRecords, today, activeTab);
+					const visibleRecordCount = Math.min(
+						CONSULT_RECORD_PAGE_SIZE,
+						activeRecords.length,
+					);
 					this.setData({
 						selectedPatient: patient,
 						records: mappedRecords,
 						visibleRecords: visibleRecordsForTab(
 							mappedRecords,
-							this.data.activeTab,
+							activeTab,
 							today,
+							visibleRecordCount,
+						),
+						visibleRecordCount,
+						hasMoreRecords: hasMoreRecordsForTab(
+							mappedRecords,
+							activeTab,
+							today,
+							visibleRecordCount,
 						),
 						error: selectionMessage,
 					});
@@ -209,6 +245,8 @@ Page<ConsultPageData, ConsultPageMethods>({
 				this.setData({
 					records: [],
 					visibleRecords: [],
+					visibleRecordCount: 0,
+					hasMoreRecords: false,
 					sessionState: sessionStateFromError(error),
 					error:
 						error instanceof ApiError
@@ -226,9 +264,51 @@ Page<ConsultPageData, ConsultPageMethods>({
 		if (tab !== "today" && tab !== "upcoming" && tab !== "history") return;
 		const activeTab = tab as ConsultTabId;
 		const today = formatPlatformDate(new Date());
+		const activeRecords =
+			activeTab === "today"
+				? []
+				: filterConsultRecords(this.data.records, today, activeTab);
+		const visibleRecordCount = Math.min(
+			CONSULT_RECORD_PAGE_SIZE,
+			activeRecords.length,
+		);
 		this.setData({
 			activeTab,
-			visibleRecords: visibleRecordsForTab(this.data.records, activeTab, today),
+			visibleRecordCount,
+			visibleRecords: visibleRecordsForTab(
+				this.data.records,
+				activeTab,
+				today,
+				visibleRecordCount,
+			),
+			hasMoreRecords: hasMoreRecordsForTab(
+				this.data.records,
+				activeTab,
+				today,
+				visibleRecordCount,
+			),
+		});
+	},
+
+	/** 只展开当前患者已经取得的摘要，不重复调用 Provider。 */
+	onLoadMore(): void {
+		if (this.data.loading || !this.data.hasMoreRecords) return;
+		const today = formatPlatformDate(new Date());
+		const nextCount = this.data.visibleRecordCount + CONSULT_RECORD_PAGE_SIZE;
+		this.setData({
+			visibleRecordCount: nextCount,
+			visibleRecords: visibleRecordsForTab(
+				this.data.records,
+				this.data.activeTab,
+				today,
+				nextCount,
+			),
+			hasMoreRecords: hasMoreRecordsForTab(
+				this.data.records,
+				this.data.activeTab,
+				today,
+				nextCount,
+			),
 		});
 	},
 
