@@ -83,3 +83,17 @@ apps/miniprogram/dist -> apps/.hospital-miniprogram-backup-*
 - 旧 `dist` 没有被删除、清空或半替换。
 
 因此本次仍不能执行 `runtime:verify` 通过，也不能打开旧运行包生成的二维码作为新候选证据。关闭微信开发者工具及真机调试会话后，仍需从 `runtime:publish-pending` 重新开始。
+
+## pending 候选的独立静态验证
+
+在 `dist/` 仍被开发者工具锁定时，可以直接验证隔离候选，不需要覆盖 live 运行包：
+
+```powershell
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "296516a5f255c563ec5eac40f2a3439632b143b8"
+pnpm --filter @hospital/miniprogram runtime:verify:pending
+Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
+```
+
+该命令只读检查 `.local/hospital-miniprogram/pending/` 的独立工程配置、20 个页面文件、相对模块引用、workspace 依赖、测试脚本和
+`build-info.json` 来源。完整来源指纹必须由调用者显式传入，不能由脚本从 pending 元数据自动推断；因此通过只证明候选包静态完整，
+不证明它已经替换 `dist`、上传微信或完成真机业务验收。

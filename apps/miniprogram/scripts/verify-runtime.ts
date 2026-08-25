@@ -10,7 +10,24 @@ import {
 const root = join(import.meta.dir, "..");
 const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
-const runtime = join(root, "dist");
+const verifyPending = process.argv.includes("--pending");
+const runtime = verifyPending
+	? join(repositoryRoot, ".local", "hospital-miniprogram", "pending")
+	: join(root, "dist");
+const runtimeLabel = verifyPending ? "pending" : "dist";
+
+/**
+ * 保留 live 运行包既有的错误前缀，避免工具和验收测试只能因为 pending
+ * 校验增加而失去稳定的诊断关键词；pending 模式只在前缀中明确候选范围。
+ */
+const runtimeTestScriptErrorPrefix =
+	"Mini program runtime must not contain test scripts";
+const runtimeMissingImportErrorPrefix =
+	"Mini program runtime contains missing relative imports";
+const runtimeWorkspaceImportErrorPrefix =
+	"Mini program runtime must not import pnpm workspace modules";
+const withRuntimeScope = (message: string): string =>
+	verifyPending ? message.replace("runtime", "pending runtime") : message;
 
 type MiniProgramAppConfig = {
 	pages?: unknown;
@@ -32,16 +49,17 @@ type MiniProgramBuildInfo = {
 };
 
 /**
- * 真机调试只应该打开构建产物 `dist/`，而不是直接打开 TypeScript 源目录。
- * 这个脚本只读检查现有运行包，不会重新编译、删除或修改任何文件，适合在
- * 微信开发者工具点击“编译/真机调试”前执行。
+ * 真机调试最终应该打开构建产物 `dist/`，但当微信开发者工具锁住 `dist/`
+ * 时，可以用 `--pending` 只读检查隔离的待发布候选。两种模式都不会重新
+ * 编译、删除或修改运行包；pending 模式还必须显式传入候选完整来源指纹，
+ * 防止把旧候选误当成当前源码的验证结果。
  */
 async function assertFile(relativePath: string): Promise<void> {
 	try {
 		await access(join(runtime, relativePath));
 	} catch {
 		throw new Error(
-			`Mini program runtime file is missing: dist/${relativePath}. Run pnpm --filter @hospital/miniprogram build first.`,
+			`Mini program ${runtimeLabel} file is missing: ${runtimeLabel}/${relativePath}. Run pnpm --filter @hospital/miniprogram build first.`,
 		);
 	}
 }
@@ -65,13 +83,15 @@ if (
 	);
 }
 
-const projectConfig = JSON.parse(
-	await Bun.file(join(root, "project.config.json")).text(),
-) as MiniProgramProjectConfig;
-if (projectConfig.miniprogramRoot !== "dist/") {
-	throw new Error(
-		"Mini program project.config.json must point to the generated dist/ runtime",
-	);
+if (!verifyPending) {
+	const projectConfig = JSON.parse(
+		await Bun.file(join(root, "project.config.json")).text(),
+	) as MiniProgramProjectConfig;
+	if (projectConfig.miniprogramRoot !== "dist/") {
+		throw new Error(
+			"Mini program project.config.json must point to the generated dist/ runtime",
+		);
+	}
 }
 
 await assertFile("app.json");
@@ -81,15 +101,16 @@ await assertFile("build-info.json");
 await assertFile("project.config.json");
 
 /**
- * `dist/` 是真机/开发者工具唯一运行根，不能再依赖父目录的
- * `miniprogramRoot=dist/` 做间接隔离；否则工具仍可能监听旁边的 src/。
+ * 运行包自身必须是独立工程，不能再依赖父目录的 `miniprogramRoot=dist/`
+ * 做间接隔离；否则工具仍可能监听旁边的 src/。pending 和 live 都必须
+ * 使用 `./`，这样候选工程可以在不替换 live 的情况下独立打开检查。
  */
 const runtimeProjectConfig = JSON.parse(
 	await Bun.file(join(runtime, "project.config.json")).text(),
 ) as MiniProgramProjectConfig;
 if (runtimeProjectConfig.miniprogramRoot !== "./") {
 	throw new Error(
-		"Mini program dist/project.config.json must use miniprogramRoot=./ so dist is a standalone runtime project",
+		`Mini program ${runtimeLabel}/project.config.json must use miniprogramRoot=./ so the runtime is a standalone project`,
 	);
 }
 if (
@@ -97,7 +118,7 @@ if (
 	runtimeProjectConfig.setting?.ignoreDevUnusedFiles !== false
 ) {
 	throw new Error(
-		"Mini program dist/project.config.json must disable hot reload and unused-file pruning",
+		`Mini program ${runtimeLabel}/project.config.json must disable hot reload and unused-file pruning`,
 	);
 }
 // 预约历史页面通过 TypeScript 模块读取静态科室位置，运行包必须带上编译后的 JS。
@@ -116,21 +137,21 @@ const forbiddenTestRuntimeFiles = (await listRuntimeFiles(runtime)).filter(
 );
 if (forbiddenTestRuntimeFiles.length > 0) {
 	throw new Error(
-		`Mini program runtime must not contain test scripts: ${forbiddenTestRuntimeFiles.join(", ")}`,
+		`${withRuntimeScope(runtimeTestScriptErrorPrefix)}: ${forbiddenTestRuntimeFiles.join(", ")}`,
 	);
 }
 
 const missingRelativeImports = await findMissingRelativeImports(runtime);
 if (missingRelativeImports.length > 0) {
 	throw new Error(
-		`Mini program runtime contains missing relative imports: ${missingRelativeImports.join(", ")}`,
+		`${withRuntimeScope(runtimeMissingImportErrorPrefix)}: ${missingRelativeImports.join(", ")}`,
 	);
 }
 
 const forbiddenWorkspaceImports = await findForbiddenWorkspaceImports(runtime);
 if (forbiddenWorkspaceImports.length > 0) {
 	throw new Error(
-		`Mini program runtime must not import pnpm workspace modules: ${forbiddenWorkspaceImports.join(", ")}`,
+		`${withRuntimeScope(runtimeWorkspaceImportErrorPrefix)}: ${forbiddenWorkspaceImports.join(", ")}`,
 	);
 }
 
@@ -148,7 +169,7 @@ if (
 	buildInfo.generatedAt.trim().length === 0
 ) {
 	throw new Error(
-		"Mini program dist/build-info.json has an invalid build provenance record",
+		`Mini program ${runtimeLabel}/build-info.json has an invalid build provenance record`,
 	);
 }
 
@@ -160,7 +181,7 @@ if (
 	)
 ) {
 	throw new Error(
-		"Mini program app.js build revision does not match dist/build-info.json",
+		`Mini program ${runtimeLabel}/app.js build revision does not match ${runtimeLabel}/build-info.json`,
 	);
 }
 
@@ -171,7 +192,7 @@ const expectedSourceRevision = resolveMiniProgramSourceRevision(
 );
 if (buildInfo.sourceRevision !== expectedSourceRevision) {
 	throw new Error(
-		`Mini program build provenance mismatch: dist=${buildInfo.sourceRevision}, expected=${expectedSourceRevision}`,
+		`Mini program build provenance mismatch: ${runtimeLabel}=${buildInfo.sourceRevision}, expected=${expectedSourceRevision}`,
 	);
 }
 
@@ -191,5 +212,5 @@ if (buildInfo.pageCount !== appConfig.pages.length) {
 }
 
 console.log(
-	`Mini program runtime verified: revision=${buildInfo.sourceRevision.slice(0, 7)}; ${appConfig.pages.length} pages and required root files are present in dist/`,
+	`Mini program ${runtimeLabel} verified: revision=${buildInfo.sourceRevision.slice(0, 7)}; ${appConfig.pages.length} pages and required root files are present`,
 );
