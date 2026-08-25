@@ -9,7 +9,7 @@ import { stdin, stdout } from "node:process";
  * 支付、医保、退款、预约写入和 HIS 回写也不属于这个工具的能力范围。
  */
 const DEFAULT_CAPABILITIES =
-	"session,profile-read,patients,appointment-directory,appointment-records,outpatient-payments";
+	"session,profile-read,patients,appointment-directory,appointment-records,outpatient-payments,reports";
 
 type SmokeEnvironment = NodeJS.ProcessEnv & {
 	HOSPITAL_ACCESS_TOKEN: string;

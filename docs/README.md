@@ -371,6 +371,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`migration/domain-migration-summary-2026-08-25.md`](migration/domain-migration-summary-2026-08-25.md) | 旧端 64 个页面按首页、就诊、预约、患者、健康、用户和互联网医院分域统计，以及各状态的后续推进顺序 |
 | [`migration/breadth-execution-board-2026-08-25.md`](migration/breadth-execution-board-2026-08-25.md) | 广度优先的跨域工作板：入口覆盖、只读业务、临床材料、患者写入、外部入口和支付医保分开推进 |
 | [`migration/overall-migration-wave-2026-08-26.md`](migration/overall-migration-wave-2026-08-26.md) | 当前全项目并行迁移波次、入口覆盖与真实业务完成定义、A–F 六条工作线和遇阻切换规则 |
+| [`release/readonly-wide-smoke-2026-08-26.md`](release/readonly-wide-smoke-2026-08-26.md) | A 线一次覆盖患者、预约、费用、报告目录和资料的受控只读验收批次及凭据/日志边界 |
 - [`migration/health-knowledge-remediation-ledger-2026-08-26.md`](migration/health-knowledge-remediation-ledger-2026-08-26.md) | B 批次健康源质量整改台账、临床审核 gate、发布元数据和真机验收边界 |
 | [`migration/cross-domain-invariant-hardening-2026-08-26.md`](migration/cross-domain-invariant-hardening-2026-08-26.md) | B/C/D/E 四条迁移线共用的时间、状态、患者写入和外部会话运行时不变量加固记录 |
 | [`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md) | 64 个旧页面到新端落点的当前状态分布和自动化边界门禁 |
