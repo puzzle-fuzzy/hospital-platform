@@ -168,7 +168,7 @@ function toSafeCount(value: number | string | null | undefined): number {
  * `system_users.openid` 与新 `hp_identity_users.provider_subject` 对上时，
  * 才能证明这行记录属于当前平台 owner；任何缺桥接行都必须单独计为缺口。
  */
-function aggregateSql(table: LegacyConvenienceTable): string {
+export function aggregateSql(table: LegacyConvenienceTable): string {
 	const patientReferenceExpression = table.patientColumn
 		? `SUM(CASE WHEN hp.user_id IS NOT NULL
 			AND ref.provider_patient_id IS NOT NULL THEN 1 ELSE 0 END)`
@@ -178,7 +178,8 @@ function aggregateSql(table: LegacyConvenienceTable): string {
 			ON ref.owner_user_id = hp.user_id
 			AND ref.provider_name = 'zhongyang'
 			AND ref.reference_kind = 'his-patient'
-			AND ref.provider_patient_id = CAST(legacy.${table.patientColumn} AS CHAR)`
+			AND CONVERT(ref.provider_patient_id USING utf8mb4) COLLATE utf8mb4_bin =
+				CONVERT(legacy.${table.patientColumn} USING utf8mb4) COLLATE utf8mb4_bin`
 		: "";
 	return `SELECT
 		COUNT(*) AS total,
@@ -188,7 +189,8 @@ function aggregateSql(table: LegacyConvenienceTable): string {
 	FROM \`${table.table}\` AS legacy
 	LEFT JOIN system_users AS old_user ON old_user.id = legacy.user_id
 	LEFT JOIN hp_identity_users AS hp
-		ON hp.provider_subject = old_user.openid
+		ON CONVERT(hp.provider_subject USING utf8mb4) COLLATE utf8mb4_bin =
+			CONVERT(old_user.openid USING utf8mb4) COLLATE utf8mb4_bin
 	${patientJoin}`;
 }
 

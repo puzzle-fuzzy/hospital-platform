@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	aggregateSql,
 	classifyLegacyConvenienceTableAudit,
 	LEGACY_CONVENIENCE_TABLES,
 } from "./legacy-convenience-source-audit";
@@ -55,5 +56,15 @@ describe("旧便民库存只读审计", () => {
 
 		expect(result.status).toBe("owner-mapped-patient-contract-pending");
 		expect(result.missingReason).toContain("旧 user_id");
+	});
+
+	test("跨旧新表 join 必须显式固定 utf8mb4 二进制比较规则", () => {
+		const sql = aggregateSql(LEGACY_CONVENIENCE_TABLES[0]);
+
+		expect(sql).toContain("CONVERT(hp.provider_subject USING utf8mb4)");
+		expect(sql).toContain("CONVERT(old_user.openid USING utf8mb4)");
+		expect(sql).toContain("CONVERT(legacy.pat_id USING utf8mb4)");
+		expect(sql).toContain("COLLATE utf8mb4_bin");
+		expect(sql).not.toContain("hp.provider_subject = old_user.openid");
 	});
 });

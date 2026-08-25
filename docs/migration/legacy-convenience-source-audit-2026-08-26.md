@@ -22,6 +22,11 @@ pnpm --filter @hospital/persistence legacy:convenience:audit
 
 输出中禁止出现旧 `user_id`、原始 `pat_id`、患者姓名、问卷正文、医护信息、完整卡号和数据库连接串。
 
+旧库和新库的字符串列可能使用不同的 MySQL collation（当前线上旧 `openid/pat_id` 与新映射列
+就存在差异）。审计 SQL 对 owner/provider 标识和患者引用统一使用 `utf8mb4` + `utf8mb4_bin` 的
+显式比较规则：只解决字符集比较错误，不做大小写折叠或模糊匹配；因此“无法桥接”不会被错误地
+当成成功映射。该处理只作用于只读审计查询，不修改任何表的字符集、排序规则或数据。
+
 ## 业务判定边界
 
 即使某张表全部 owner 映射成功，也不能直接把页面从关闭态改为真实业务：
@@ -51,3 +56,25 @@ owner/patient 映射
 也不能被页面降级成“暂无记录”。便民领域的最终 contract 仍以
 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) 和
 [`contract-intake-catalog-2026-08-25.md`](contract-intake-catalog-2026-08-25.md) 为准。
+
+## 2026-08-26 07:51 CST 服务器只读结果
+
+通过 `ps@192.168.112.172` 的 inspection key，读取新服务使用的 `shared/api.env` 中的数据库连接配置，
+仅执行固定白名单 `SELECT`；没有读取或输出连接串，没有写入数据库，没有重启服务，也没有调用旧 API 或 Provider。
+
+首次直接 join 时发现旧表与新映射表的 collation 不一致，查询被 MySQL 拒绝为 `collation-mismatch`；
+修正为显式 `CONVERT(... USING utf8mb4) COLLATE utf8mb4_bin` 后，六张表均可完成聚合。该事实已同步到审计 SQL 和单元测试。
+
+| 旧表 | 总行数 | owner 桥接成功 | 患者引用成功 | 患者引用是否适用 |
+| --- | ---: | ---: | ---: | --- |
+| `admission_preconsultation` | 2 | 0 | 0 | 是 |
+| `commendatory_letter` | 4 | 0 | 0 | 否 |
+| `discharge_follow_up` | 4 | 0 | 0 | 是 |
+| `my_doctor` | 21 | 0 | 0 | 否 |
+| `risk_assessment` | 7 | 0 | 0 | 是 |
+| `silk_banner` | 4 | 0 | 0 | 否 |
+
+结论：当前旧便民库存共 42 行，但没有一行能通过旧 `system_users.openid` 到新微信 owner 的桥接，
+也没有患者引用可以进入新域。因此不能把这些记录导入、展示为新用户记录或降级成成功空列表；当前仍保持
+`owner-mapped-patient-contract-pending`。下一步需要先完成身份桥接规则和各业务 contract，再做隔离区抽样，
+而不是直接向新 API 增加兼容读取。
