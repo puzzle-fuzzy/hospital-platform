@@ -35,7 +35,8 @@
 			</view>
 		</view>
 
-		<button class="patient-contract-surface-primary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+		<button class="patient-contract-surface-primary-button" bindtap="onOpenPatientAgreement">查看患者协议原文</button>
+		<button class="patient-contract-surface-secondary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
 		<button class="patient-contract-surface-secondary-button" bindtap="onBackPatientSelector">返回选择就诊人</button>
 		<button class="patient-contract-surface-plain-button" bindtap="onBackMy">返回我的</button>
 	</view>

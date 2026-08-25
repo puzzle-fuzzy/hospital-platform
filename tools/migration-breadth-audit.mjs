@@ -163,6 +163,7 @@ function extractPageMethods(source) {
 			"onOpenPatientSelector",
 			"onBackPatientSelector",
 			"onOpenMigrationStatus",
+			"onOpenPatientAgreement",
 			"onBackMy",
 		);
 	}

@@ -121,6 +121,10 @@ export function registerPatientContractSurfacePage(
 		onOpenMigrationStatus() {
 			navigateToFeatureStatus(feature as FeatureKey);
 		},
+		onOpenPatientAgreement() {
+			// 只能打开静态协议原文；协议同意、撤回和审计仍等待独立 contract。
+			wx.navigateTo({ url: "/pages/patient-agreement/patient-agreement" });
+		},
 		onBackMy() {
 			wx.switchTab({ url: "/pages/my/my" });
 		},
@@ -131,5 +135,6 @@ type PatientContractSurfacePageMethods = {
 	onOpenPatientSelector(): void;
 	onBackPatientSelector(): void;
 	onOpenMigrationStatus(): void;
+	onOpenPatientAgreement(): void;
 	onBackMy(): void;
 };

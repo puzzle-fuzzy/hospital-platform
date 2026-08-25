@@ -24,6 +24,7 @@ type PatientSignaturePageMethods = {
 	loadPatientList(): Promise<void>;
 	onPatientTap(event: PatientEvent): void;
 	onOpenPatientSelector(): void;
+	onOpenPatientAgreement(): void;
 	onOpenMigrationStatus(): void;
 	onRetry(): void;
 	onBackMy(): void;
@@ -132,6 +133,11 @@ Page<PatientSignaturePageData, PatientSignaturePageMethods>({
 
 	onOpenPatientSelector() {
 		wx.navigateTo({ url: "/pages/patient-select/patient-select" });
+	},
+
+	onOpenPatientAgreement() {
+		// 只查看已迁移的协议原文，不记录同意、不上传签名，也不改变患者关系。
+		wx.navigateTo({ url: "/pages/patient-agreement/patient-agreement" });
 	},
 
 	onOpenMigrationStatus() {

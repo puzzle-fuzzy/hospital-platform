@@ -2358,6 +2358,8 @@ test("native mini program migrates the legacy agreement as read-only text", asyn
 		"pages/patient-agreement/patient-agreement.wxml",
 	);
 	const style = await source("pages/patient-agreement/patient-agreement.wxss");
+	const navigation = await source("services/feature-navigation.ts");
+	const contractSurface = await source("services/patient-contract-surface.ts");
 
 	expect(app).toContain('"pages/patient-agreement/patient-agreement"');
 	expect(catalog).toContain('legacyPath: "pagesB/patient/agreement.vue"');
@@ -2373,6 +2375,11 @@ test("native mini program migrates the legacy agreement as read-only text", asyn
 	expect(template).toContain('scroll-y="true"');
 	expect(style).toContain(".policy-scroll");
 	expect(style).toContain(".chapter-title");
+	// 绑定/签名页面只能跳转到静态原文，不能把查看协议当作同意授权。
+	expect(navigation).toContain(
+		'"patient-agreement": "/pages/patient-agreement/patient-agreement"',
+	);
+	expect(contractSurface).toContain("onOpenPatientAgreement");
 	// 旧端协议没有可靠的版本和同意记录契约，静态页不能伪造提交动作。
 	expect(page).not.toContain("agreementVersion");
 	expect(page).not.toContain("handleAccept");

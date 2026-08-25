@@ -428,6 +428,9 @@ const FEATURE_SURFACE_TARGETS: Readonly<Partial<Record<FeatureKey, string>>> =
 		"electronic-consultation":
 			"/pages/electronic-consultation/electronic-consultation",
 		"patient-binding": "/pages/patient-binding/patient-binding",
+		// 协议原文是已迁移的静态只读页面；查看协议不会写入同意状态，
+		// 也不会把“看过协议”误判为实名绑定或授权完成。
+		"patient-agreement": "/pages/patient-agreement/patient-agreement",
 		"patient-signature": "/pages/patient-signature/patient-signature",
 		"patient-express": "/pages/patient-express/patient-express",
 		"admission-preconsultation":

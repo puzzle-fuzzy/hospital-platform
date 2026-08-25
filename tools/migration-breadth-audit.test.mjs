@@ -40,4 +40,14 @@ describe("跨业务域入口广度审计", () => {
 		expect(result.missingHandlers).toEqual(["onInput"]);
 		expect(result.passed).toBe(false);
 	});
+
+	test("共享患者页面工厂注册的协议入口不能被误判为缺失", () => {
+		const result = auditPageInteractionSource(
+			'<button bindtap="onOpenPatientAgreement"></button>',
+			'\nregisterPatientContractSurfacePage("patient-binding");',
+		);
+
+		expect(result.missingHandlers).toEqual([]);
+		expect(result.passed).toBe(true);
+	});
 });

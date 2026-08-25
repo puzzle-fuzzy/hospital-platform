@@ -62,6 +62,7 @@
 			<text>· 若需更换或新增就诊人，请点击“选择其他就诊人”。</text>
 		</view>
 
+		<button class="signature-status-button" bindtap="onOpenPatientAgreement">查看患者协议原文</button>
 		<button class="signature-status-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
 		<button class="signature-back-button" bindtap="onBackMy">返回我的</button>
 	</view>
