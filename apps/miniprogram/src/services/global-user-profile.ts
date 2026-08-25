@@ -67,12 +67,13 @@ const EMPTY_PROFILE_STATE: GlobalUserProfileState = Object.freeze({
 type ProfileListener = (state: GlobalUserProfileState) => void;
 
 let profileBootstrapInFlight: Promise<GlobalUserProfileState> | null = null;
-let profileConsentInFlight: Promise<GlobalUserProfileState> | null = null;
 type AppGlobalDataWithProfile = {
 	globalData: {
 		userProfile: GlobalUserProfileState;
 		/** App.onLaunch 与页面模块共享的唯一资料初始化 Promise。 */
 		userProfileBootstrapPromise?: Promise<GlobalUserProfileState> | null;
+		/** 微信资料授权也必须跨 app.js 与页面 bundle 共享单飞 Promise。 */
+		userProfileConsentPromise?: Promise<GlobalUserProfileState> | null;
 		/** 监听器也必须跨 app.js bundle 与页面 CommonJS 模块共享。 */
 		userProfileListeners?: Set<ProfileListener>;
 		/** 保证同一个微信 App 容器只注册一次会话清理监听。 */
@@ -424,17 +425,30 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 	}
 }
 
-/** 微信授权弹窗和普通资料 PUT 也必须单飞，避免多个页面同时发起两次授权或 409。 */
+/**
+ * 微信授权弹窗和普通资料 PUT 也必须单飞，避免多个页面同时发起两次授权或
+ * 409。这里的 Promise 必须放在 App.globalData，而不是只放模块变量：App.js
+ * 会被构建成 IIFE，页面脚本则由微信按 CommonJS 模块加载，两边可能各自拥有
+ * 一份本文件实例。只用模块变量时，两个 bundle 会同时弹出授权并竞争同一份
+ * 服务端资料版本，表现为授权闪动或偶发 409。
+ */
 export function authorizeGlobalWechatProfile(): Promise<GlobalUserProfileState> {
-	if (profileConsentInFlight) return profileConsentInFlight;
+	const appData = globalData();
+	if (appData.userProfileConsentPromise) {
+		return appData.userProfileConsentPromise;
+	}
 	const promise = authorizeGlobalWechatProfileInternal();
-	profileConsentInFlight = promise;
+	appData.userProfileConsentPromise = promise;
 	void promise.then(
 		() => {
-			if (profileConsentInFlight === promise) profileConsentInFlight = null;
+			if (appData.userProfileConsentPromise === promise) {
+				appData.userProfileConsentPromise = null;
+			}
 		},
 		() => {
-			if (profileConsentInFlight === promise) profileConsentInFlight = null;
+			if (appData.userProfileConsentPromise === promise) {
+				appData.userProfileConsentPromise = null;
+			}
 		},
 	);
 	return promise;
@@ -459,7 +473,8 @@ export function applyServerUserProfile(
 /** 会话失效时清理全局资料，但不删除用户明确保存的患者选择。 */
 export function clearGlobalUserProfile(): void {
 	profileBootstrapInFlight = null;
-	profileConsentInFlight = null;
-	globalData().userProfileBootstrapPromise = null;
+	const appData = globalData();
+	appData.userProfileBootstrapPromise = null;
+	appData.userProfileConsentPromise = null;
 	publishProfileState({ ...EMPTY_PROFILE_STATE });
 }

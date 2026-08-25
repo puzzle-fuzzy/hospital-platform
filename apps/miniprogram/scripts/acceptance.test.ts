@@ -136,7 +136,8 @@ test("native user profile is bootstrapped once and shared across primary tabs", 
 	expect(my).not.toContain("return getUserProfile()");
 	expect(profile).toContain("waitForGlobalUserProfile()");
 	expect(profile).not.toContain("ensureGlobalUserProfile()");
-	expect(globalProfile).toContain("profileConsentInFlight");
+	expect(globalProfile).toContain("userProfileConsentPromise");
+	expect(globalProfile).not.toContain("profileConsentInFlight");
 	expect(globalProfile).toContain("authorizeGlobalWechatProfileInternal");
 });
 

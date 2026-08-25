@@ -38,6 +38,8 @@ type AppGlobalData = {
 	};
 	/** App.onLaunch 与页面模块共享的单一资料初始化 Promise。 */
 	userProfileBootstrapPromise: Promise<GlobalUserProfileState> | null;
+	/** App 与页面 bundle 共享微信资料授权 Promise，避免重复弹窗和并发 PUT。 */
+	userProfileConsentPromise: Promise<GlobalUserProfileState> | null;
 	/** 资料仓库运行时用于跨 bundle 共享订阅集合。 */
 	userProfileListeners?: Set<(state: GlobalUserProfileState) => void>;
 	/** token 轮换/失效时通知资料等派生快照清理旧账号数据。 */
@@ -75,6 +77,7 @@ App<{ globalData: AppGlobalData }>({
 			error: "",
 		},
 		userProfileBootstrapPromise: null,
+		userProfileConsentPromise: null,
 		sessionChangedListeners: new Set(),
 	},
 

@@ -5,6 +5,7 @@ import {
 	getGlobalUserProfile,
 	subscribeGlobalUserProfile,
 } from "./global-user-profile";
+import type { GlobalUserProfileState } from "./global-user-profile";
 import { notifySessionChanged } from "./session-events";
 import { getSessionGeneration } from "./session-generation";
 
@@ -31,6 +32,7 @@ describe("App 全局个人资料仓库", () => {
 			apiPrefix: "/api/v2",
 			accessToken: "global-profile-test-token",
 			sessionStatus: "signed_in",
+			userProfileConsentPromise: null as Promise<GlobalUserProfileState> | null,
 			userProfile: {
 				status: "ready" as const,
 				ownerId: "owner-global-profile-test",
@@ -97,6 +99,9 @@ describe("App 全局个人资料仓库", () => {
 		const first = authorizeGlobalWechatProfile();
 		const second = authorizeGlobalWechatProfile();
 		expect(first).toBe(second);
+		// 授权中的 Promise 必须进入 globalData，页面 CommonJS bundle 才能和
+		// App IIFE bundle 共享同一个锁；模块变量单飞只能覆盖单个 bundle。
+		expect(globalData.userProfileConsentPromise).toBe(first);
 		const state = await first;
 		unsubscribe();
 
@@ -116,6 +121,7 @@ describe("App 全局个人资料仓库", () => {
 		});
 
 		expect(getGlobalUserProfile().displayName).toBe("测试昵称");
+		expect(globalData.userProfileConsentPromise).toBeNull();
 	});
 
 	test("多个主 Tab 启动时只读取一次服务端资料并复用全局快照", async () => {
