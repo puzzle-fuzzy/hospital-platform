@@ -3,7 +3,7 @@
 > 当前候选已继续推进到 `3b42b86`：协议原文只读页保留 `patient-agreement` 契约关联键，静态阅读已迁移但版本、同意、撤回和审计仍关闭；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`migration/patient-agreement-static-migration-2026-08-26.md`](migration/patient-agreement-static-migration-2026-08-26.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 # 微信授权登录实施与验收手册
-> 当前验收配套基线：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `3b42b867ae19f6dd23bacd88648d1f5917dabf26`。pending 尚未发布，真实微信业务三层证据仍待。
+> 当前验收配套基线：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `b4120bac70b081c235ad9d50423712b2d782d57d`，共 25 个页面。pending 尚未发布，真实微信业务三层证据仍待；四个临床页面当前只处于 `surface-only`。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
@@ -14,15 +14,15 @@
 [`release/8eb51b5f-production-acceptance-2026-08-24.md`](release/8eb51b5f-production-acceptance-2026-08-24.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
-当前本地 pending 运行输入为 `3b42b86`，完整指纹为
-`3b42b867ae19f6dd23bacd88648d1f5917dabf26`；线上历史小程序包为 `13f597e`。本候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康百科分类状态修正、协议静态页契约关联修正和成功请求低敏 requestId 观测，
+当前本地 pending 运行输入为 `b4120bac`，完整指纹为
+`b4120bac70b081c235ad9d50423712b2d782d57d`；线上历史小程序包为 `13f597e`。本候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、四个临床页面外壳、共享页面工厂构建校验、协议静态页契约关联修正和成功请求低敏 requestId 观测，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
-本地尚未发布的页面候选运行输入为 `3b42b867ae19f6dd23bacd88648d1f5917dabf26`；它只用于本地回归和后续真机验收准备，不能与线上历史 `13f597e` 的运行包证据混写。当前候选已完成 staging 构建和 `runtime:verify:pending`，原子替换因 `dist` 锁保留 pending，真机验收仍需先释放 `dist` 锁，再按独立手册执行。
+本地尚未发布的页面候选运行输入为 `b4120bac70b081c235ad9d50423712b2d782d57d`；它只用于本地回归和后续真机验收准备，不能与线上历史 `13f597e` 的运行包证据混写。当前候选已完成 staging 构建和 `runtime:verify:pending`，原子替换因 `dist` 锁保留 pending，真机验收仍需先释放 `dist` 锁，再按独立手册执行。
 
 2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见
 [`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。

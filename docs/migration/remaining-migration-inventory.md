@@ -15,7 +15,7 @@
 
 # 剩余迁移盘点与下一步计划
 
-> **当前事实覆盖（2026-08-26，优先于下方历史交接）**：源码工作树已注册 25 个原生页面，新增门诊病历、住院信息、我的医生和电子导诊单四个 `surface-only` 页面外壳；源码回归为 `293 pass / 0 fail / 3267 expect()`。`.local/hospital-miniprogram/pending/` 仍是旧的 21 页运行包，必须在释放微信开发者工具锁后重新构建，不能生成四个新页面的真机证据。健康内容仍因审核 bundle 缺失保持 fail-closed，协议版本/同意/撤回/审计、临床 Provider 和支付医保仍未开放。
+> **当前事实覆盖（2026-08-26，优先于下方历史交接）**：源码和 `.local/hospital-miniprogram/pending/` 均已更新到 `b4120bac`，注册/构建 25 个原生页面，新增门诊病历、住院信息、我的医生和电子导诊单四个 `surface-only` 页面外壳；源码回归为 `293 pass / 0 fail / 3269 expect()`，pending 已通过运行包校验但尚未替换 live `dist`。健康内容仍因审核 bundle 缺失保持 fail-closed，协议版本/同意/撤回/审计、临床 Provider 和支付医保仍未开放。
 
 > 全量 64 个旧页面的状态分布、已替换子集、阻塞原因和批次顺序集中见
 > [`migration-breadth-status-2026-08-25.md`](migration-breadth-status-2026-08-25.md)。本页继续保留更细的历史证据和逐域说明。

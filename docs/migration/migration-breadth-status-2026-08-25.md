@@ -1,6 +1,6 @@
 # 全量迁移广度状态（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前源码工作树为 25 个页面，新增四个 `surface-only` 临床页面外壳，`293 pass / 0 fail / 3267 expect()`；pending 运行包仍为旧的 21 页候选，必须释放微信开发者工具 `dist` 锁后重新构建，不能用旧运行包验收新页面。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；二维码、就诊页及更早候选只作历史追溯，线上服务和旧 Python 服务未修改。
+> **最新候选纠正（2026-08-26）**：当前源码与 pending 运行包均为 25 个页面，新增四个 `surface-only` 临床页面外壳，`293 pass / 0 fail / 3269 expect()`；pending 已通过 `runtime:verify:pending`，但仍需释放微信开发者工具 `dist` 锁后原子发布，不能把静态校验当作真机业务验收。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；二维码、就诊页及更早候选只作历史追溯，线上服务和旧 Python 服务未修改。
 
 > 本轮按广度优先执行的跨域工作板见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
 > 当前不再把单个页面的加固当作项目迁移进度；入口覆盖、只读代码、运行包证据和真实业务 contract 分开统计。
@@ -10,7 +10,7 @@
 
 > **阻断入口准入事实源补充**：34 个冻结入口 gate 已从边界审计脚本抽为 [`tools/migration-boundary-catalog.mjs`](../../tools/migration-boundary-catalog.mjs)，覆盖 39 个旧页面入口和 13 个 action-only 引用；其 contract 家族、通用材料、域特有材料和明确关闭能力见 [`frozen-domain-contract-matrix-2026-08-25.md`](frozen-domain-contract-matrix-2026-08-25.md)。这只强化准入审计，不打开任何阻断业务。
 
-> **当前仓库交接基线（2026-08-26）**：本轮源码新增四个临床页面外壳，并保留 25 个页面的显式内容滚动边界、64 个旧入口的显式 A–F 迁移批次归属、逐批次计数和 readiness 覆盖报告；当前没有发布服务端或新的小程序运行包。
+> **当前仓库交接基线（2026-08-26）**：本轮源码和 pending 运行包均为 25 个页面，并保留四个临床 `surface-only` 外壳、显式内容滚动边界、64 个旧入口的显式 A–F 迁移批次归属、逐批次计数和 readiness 覆盖报告；当前没有发布服务端或替换 live 小程序运行包。
 
 ## 1. 当前结论
 
@@ -40,7 +40,7 @@
 pnpm migration:audit           通过：64 个旧页面、25 个新页面、195 个旧服务路由、87 个旧端接口字面量
 pnpm migration:boundary:audit  通过：34 个冻结入口 gate，39 个旧页面 + 13 个 action-only 引用均有统一状态页和 FeatureKey 门禁；31 次二级/主入口状态调用也纳入审计
 pnpm migration:breadth:audit   通过：首页 22 个、我的 9 个可见 action 均有固定分发；四个主 Tab 均已注册；25 个页面 WXML 事件均有 TS 方法或共享页面工厂
-pnpm migration:readiness       报告生成：A–F gate 批次覆盖为 3/0/4/12/8/7，未分配 gate=0；完整 64 页批次为 A=22、B=4、C=4、D=22、E=4、F=7，另排除 1 页；因 pending 运行包仍为旧 21 页且健康/contract/真机材料未齐，整体 readiness 继续 fail-closed
+pnpm migration:readiness       报告生成：A–F gate 批次覆盖为 3/0/4/12/8/7，未分配 gate=0；完整 64 页批次为 A=22、B=4、C=4、D=22、E=4、F=7，另排除 1 页；pending 已为 25 页但健康/contract/真机材料未齐，整体 readiness 继续 fail-closed
 ```
 
 ## 2. 64 个旧入口的真实状态分布

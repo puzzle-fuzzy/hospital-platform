@@ -2,7 +2,7 @@
 
 > 跨业务域并行执行顺序见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
 
-> **当前事实源（2026-08-26）**：源码已扩展到 25 个原生页面，新增门诊病历、住院信息、我的医生和电子导诊单四个 `surface-only` 页面外壳；工作树回归为 `293 pass / 0 fail / 3267 expect()`。四个页面的真实 Provider/临床业务仍未开放；pending 运行包仍是旧的 21 页候选，不能作为本轮真机证据。以下表格已按当前机器台账修正，旧日期段落只作追溯。
+> **当前事实源（2026-08-26）**：源码和 pending 运行包已更新到 `b4120bac`，共 25 个原生页面，新增门诊病历、住院信息、我的医生和电子导诊单四个 `surface-only` 页面外壳；回归为 `293 pass / 0 fail / 3269 expect()`。四个页面的真实 Provider/临床业务仍未开放，pending 已校验但尚未发布到 live `dist`。以下表格已按当前机器台账修正，旧日期段落只作追溯。
 
 > 本页回答“旧端还有哪些入口没有迁移”这个范围问题，不把统一状态页误写成真实业务完成。数据由
 > `apps/miniprogram/src/services/legacy-page-catalog.ts` 派生，并由 `legacy-page-catalog.test.ts`

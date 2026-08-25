@@ -6,8 +6,8 @@ import { FEATURE_STATUS_CATALOG, type FeatureKey } from "./feature-navigation";
  * 这里的 `partial` 只表示新端已经有安全的只读或静态子集，绝不等价于
  * 旧页面的全部功能已经完成；`blocked-*` 则表示入口已经有稳定状态页，
  * 但因为外部协议、临床审核或支付回写尚未确认，不能继续猜测实现。
-	* `surface-only` 表示页面外壳和关闭态已经迁移，但真实业务读取仍未开放；
-	* 它是入口覆盖阶段，不得计入 `replaced`。
+ * `surface-only` 表示页面外壳和关闭态已经迁移，但真实业务读取仍未开放；
+ * 它是入口覆盖阶段，不得计入 `replaced`。
  */
 export type LegacyPageMigrationStatus =
 	| "replaced"
