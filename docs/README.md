@@ -219,6 +219,7 @@
 | [`release/patient-sync-lease-fencing-2026-08-21.md`](release/patient-sync-lease-fencing-2026-08-21.md) | 不同幂等键接管后旧患者同步响应的提交租约栅栏、回归测试和真实并发验收边界 |
 | [`release/patient-service-input-boundary-audit-2026-08-21.md`](release/patient-service-input-boundary-audit-2026-08-21.md) | 患者目录 service 直接调用的 owner/上下文运行时校验、公共错误契约和仓储前 fail-closed 证据 |
 | [`release/adapter-call-context-runtime-boundary-audit-2026-08-21.md`](release/adapter-call-context-runtime-boundary-audit-2026-08-21.md) | 非支付 service 共享 AdapterCallContext 运行时校验、失败日志安全投影和下游访问停止条件 |
+| [`release/adapter-call-context-failure-path-audit-2026-08-25.md`](release/adapter-call-context-failure-path-audit-2026-08-25.md) | AdapterCallContext 异常 getter/proxy 的失败日志兜底、原始错误保留和跨模块安全边界 |
 | [`release/owner-runtime-boundary-audit-2026-08-21.md`](release/owner-runtime-boundary-audit-2026-08-21.md) | 预约、门诊费用、报告和普通资料 service 的 owner/userId 运行时校验及下游停止条件 |
 | [`release/miniprogram-patient-session-composition-boundary-2026-08-21.md`](release/miniprogram-patient-session-composition-boundary-2026-08-21.md) | 患者范围页面跨 `/me`、患者目录和业务列表的会话代际组合门禁、报告详情深链复核和验证证据 |
 | [`release/miniprogram-session-domain-error-boundary-audit-2026-08-21.md`](release/miniprogram-session-domain-error-boundary-audit-2026-08-21.md) | 已验证会话与患者/报告/挂号/费用业务读取错误的状态边界、修正范围和真机前门禁 |

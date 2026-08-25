@@ -35,62 +35,77 @@ const ADAPTER_CALL_CONTEXT_FIELDS = new Set([
 export function normalizeAdapterCallContext(
 	value: unknown,
 ): AdapterCallContext | undefined {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
-		return undefined;
-	}
-	const record = value as Record<string, unknown>;
-	if (
-		Object.keys(record).some((field) => !ADAPTER_CALL_CONTEXT_FIELDS.has(field))
-	) {
-		return undefined;
-	}
-	if (
-		!isBoundedOpaqueIdentifier(record.traceId) ||
-		!isBoundedOpaqueIdentifier(record.idempotencyKey)
-	) {
-		return undefined;
-	}
-	if (
-		record.timeoutMs !== undefined &&
-		(typeof record.timeoutMs !== "number" ||
-			!Number.isSafeInteger(record.timeoutMs) ||
-			record.timeoutMs <= 0)
-	) {
-		return undefined;
-	}
-	if (record.signal !== undefined) {
+	try {
+		if (typeof value !== "object" || value === null || Array.isArray(value)) {
+			return undefined;
+		}
+		const record = value as Record<string, unknown>;
 		if (
-			typeof record.signal !== "object" ||
-			record.signal === null ||
-			typeof (record.signal as { aborted?: unknown }).aborted !== "boolean" ||
-			typeof (record.signal as { addEventListener?: unknown })
-				.addEventListener !== "function" ||
-			typeof (record.signal as { removeEventListener?: unknown })
-				.removeEventListener !== "function"
+			Object.keys(record).some(
+				(field) => !ADAPTER_CALL_CONTEXT_FIELDS.has(field),
+			)
 		) {
 			return undefined;
 		}
-	}
+		if (
+			!isBoundedOpaqueIdentifier(record.traceId) ||
+			!isBoundedOpaqueIdentifier(record.idempotencyKey)
+		) {
+			return undefined;
+		}
+		if (
+			record.timeoutMs !== undefined &&
+			(typeof record.timeoutMs !== "number" ||
+				!Number.isSafeInteger(record.timeoutMs) ||
+				record.timeoutMs <= 0)
+		) {
+			return undefined;
+		}
+		if (record.signal !== undefined) {
+			if (
+				typeof record.signal !== "object" ||
+				record.signal === null ||
+				typeof (record.signal as { aborted?: unknown }).aborted !== "boolean" ||
+				typeof (record.signal as { addEventListener?: unknown })
+					.addEventListener !== "function" ||
+				typeof (record.signal as { removeEventListener?: unknown })
+					.removeEventListener !== "function"
+			) {
+				return undefined;
+			}
+		}
 
-	return {
-		traceId: record.traceId,
-		idempotencyKey: record.idempotencyKey,
-		...(record.signal !== undefined
-			? { signal: record.signal as AbortSignal }
-			: {}),
-		...(record.timeoutMs !== undefined
-			? { timeoutMs: record.timeoutMs as number }
-			: {}),
-	};
+		return {
+			traceId: record.traceId,
+			idempotencyKey: record.idempotencyKey,
+			...(record.signal !== undefined
+				? { signal: record.signal as AbortSignal }
+				: {}),
+			...(record.timeoutMs !== undefined
+				? { timeoutMs: record.timeoutMs as number }
+				: {}),
+		};
+	} catch {
+		// 组合根或测试夹具可能传入带异常 getter/proxy 的损坏对象。它不是
+		// 合法上下文；验证器必须把它收敛为 undefined，不能让输入读取异常
+		// 越过边界并遮蔽真正的业务错误。
+		return undefined;
+	}
 }
 
 /** 失败日志读取上下文时使用安全投影，避免坏上下文让错误处理再次抛异常。 */
 export function adapterContextTraceId(value: unknown): string {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+	try {
+		if (typeof value !== "object" || value === null || Array.isArray(value)) {
+			return "invalid";
+		}
+		const traceId = (value as Record<string, unknown>).traceId;
+		return isBoundedOpaqueIdentifier(traceId) ? traceId : "invalid";
+	} catch {
+		// 错误日志是故障兜底路径；即使损坏上下文的 getter 自身抛错，也必须
+		// 保留原始异常的记录机会，而不是让日志构造覆盖业务异常。
 		return "invalid";
 	}
-	const traceId = (value as Record<string, unknown>).traceId;
-	return isBoundedOpaqueIdentifier(traceId) ? traceId : "invalid";
 }
 
 /**

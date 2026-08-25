@@ -48,4 +48,23 @@ test("损坏上下文只能产生安全 trace 投影", () => {
 	expect(adapterContextTraceId(null)).toBe("invalid");
 	expect(adapterContextTraceId({ traceId: "trace-safe" })).toBe("trace-safe");
 	expect(adapterContextTraceId({ traceId: "trace-safe\n" })).toBe("invalid");
+	expect(
+		adapterContextTraceId({
+			get traceId(): string {
+				throw new Error("broken trace getter");
+			},
+		}),
+	).toBe("invalid");
+});
+
+test("上下文校验器不会让损坏 getter 覆盖原始输入错误", () => {
+	const brokenContext = {
+		traceId: "trace-safe",
+		idempotencyKey: "key-safe",
+		get timeoutMs(): number {
+			throw new Error("broken timeout getter");
+		},
+	};
+
+	expect(normalizeAdapterCallContext(brokenContext)).toBeUndefined();
 });
