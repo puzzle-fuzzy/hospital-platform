@@ -311,6 +311,9 @@ Page<MyPageData, MyPageMethods>({
 		// 用户在页面显示“未授权，可点击此处重新获取”时，恰好因为目录请求
 		// 尚未结束而点击无效，表现为提示闪动却没有任何反馈。
 		if (this.data.wechatProfileState === "loading") {
+			// 授权弹窗或资料同步正在进行时不重复发起请求，但必须给出
+			// 可见反馈；无声 return 会让用户误以为点击事件没有绑定。
+			wx.showToast({ title: "正在获取头像和昵称，请稍候", icon: "none" });
 			return Promise.resolve();
 		}
 		if (this.data.sessionState !== "valid") {
