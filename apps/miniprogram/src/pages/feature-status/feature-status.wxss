@@ -107,6 +107,24 @@
 }
 
 /*
+ * 迁移批次是跨页面的执行坐标，单独留出一层，避免把“下一步”误解为
+ * 当前页面马上可用；所有批次都只展示输入要求，不触发任何业务请求。
+ */
+.feature-status-batch {
+	margin-top: 20rpx;
+	padding-top: 18rpx;
+	border-top: 1rpx solid #e9edf5;
+}
+
+.feature-status-batch-next {
+	display: block;
+	margin-top: 10rpx;
+	color: #8791a5;
+	font-size: 23rpx;
+	line-height: 1.6;
+}
+
+/*
  * 状态页不仅解释“为什么暂未开放”，还要把旧端覆盖范围展示出来。
  * 这里使用低对比度的等宽文本，方便排查入口映射，同时避免把路径误认成
  * 可直接访问的微信页面或 Provider 地址。

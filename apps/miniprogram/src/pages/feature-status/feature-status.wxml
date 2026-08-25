@@ -20,6 +20,13 @@
 					<text class="feature-status-coverage-value">{{coverage.coverageLabel}}</text>
 				</view>
 				<text class="feature-status-next-step">下一步：{{coverage.nextStep}}</text>
+				<view class="feature-status-batch">
+					<view class="feature-status-coverage-row">
+						<text>迁移批次</text>
+						<text class="feature-status-coverage-value">{{coverage.migrationBatch.label}}</text>
+					</view>
+					<text class="feature-status-batch-next">批次输入：{{coverage.migrationBatch.nextInput}}</text>
+				</view>
 				<view wx:if="{{coverage.legacyPaths.length}}" class="feature-status-entry-list">
 					<text class="feature-status-detail-title">关联旧端入口</text>
 					<view wx:for="{{coverage.legacyPaths}}" wx:key="*this" class="feature-status-entry-row">

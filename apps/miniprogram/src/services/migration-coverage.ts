@@ -18,6 +18,26 @@ import {
  */
 export type MigrationCoverageStage = LegacyPageMigrationStatus | "new-entry";
 
+/**
+ * 全量迁移的六条执行队列。
+ *
+ * 这是迁移编排信息，不是业务开放开关：页面显示某个批次，只代表后续
+ * 应该收集哪类 contract/证据，不能把状态页误当成已经可以调用的服务。
+ */
+export type MigrationBatchId =
+	| "A-readonly-evidence"
+	| "B-health-content"
+	| "C-clinical-readonly-contracts"
+	| "D-patient-and-convenience-write"
+	| "E-external-entry"
+	| "F-payment-and-writeback";
+
+export type MigrationBatchInfo = {
+	id: MigrationBatchId;
+	label: string;
+	nextInput: string;
+};
+
 export type MigrationCoverage = {
 	featureKey: FeatureKey;
 	feature: FeatureStatus;
@@ -31,6 +51,7 @@ export type MigrationCoverage = {
 	legacyPaths: ReadonlyArray<string>;
 	notes: ReadonlyArray<string>;
 	nativeTarget: string;
+	migrationBatch: MigrationBatchInfo;
 };
 
 const STAGE_LABELS: Readonly<Record<MigrationCoverageStage, string>> =
@@ -61,6 +82,93 @@ const NEXT_STEPS: Readonly<Record<MigrationCoverageStage, string>> =
 		excluded: "该入口是旧端开发辅助能力，不纳入生产迁移范围。",
 	});
 
+/**
+ * 状态页所需的批次映射与工具侧 gate 目录保持同一顺序。
+ *
+ * `health-encyclopedia` 单独归入 B，是因为它的准入条件是审核 bundle，
+ * 不能混入临床问卷/写入队列；其余入口按 provider、患者写入、外部会话
+ * 和支付回写分别归队。缺少映射时宁可让测试失败，也不能默默落到错误批次。
+ */
+const MIGRATION_BATCH_BY_FEATURE_KEY: Readonly<
+	Record<FeatureKey, MigrationBatchId>
+> = Object.freeze({
+	"health-encyclopedia": "B-health-content",
+	"appointment-detail": "A-readonly-evidence",
+	"blood-appointment": "A-readonly-evidence",
+	"report-detail": "A-readonly-evidence",
+	"report-peis": "A-readonly-evidence",
+	"medical-record": "C-clinical-readonly-contracts",
+	"inpatient-center": "C-clinical-readonly-contracts",
+	doctor: "C-clinical-readonly-contracts",
+	"doctor-directory": "C-clinical-readonly-contracts",
+	"electronic-consultation": "C-clinical-readonly-contracts",
+	"patient-binding": "D-patient-and-convenience-write",
+	"patient-agreement": "D-patient-and-convenience-write",
+	"patient-address": "D-patient-and-convenience-write",
+	"patient-qr": "D-patient-and-convenience-write",
+	"patient-signature": "D-patient-and-convenience-write",
+	"admission-preconsultation": "D-patient-and-convenience-write",
+	"discharge-followup": "D-patient-and-convenience-write",
+	"risk-evaluation": "D-patient-and-convenience-write",
+	"health-test": "D-patient-and-convenience-write",
+	"pre-visit": "D-patient-and-convenience-write",
+	"gift-banner": "D-patient-and-convenience-write",
+	"health-praise": "D-patient-and-convenience-write",
+	guide: "E-external-entry",
+	companion: "E-external-entry",
+	consultation: "E-external-entry",
+	"smart-customer": "E-external-entry",
+	"patient-subscription": "E-external-entry",
+	"report-cloud-image": "E-external-entry",
+	"report-share": "E-external-entry",
+	"report-follow-up": "E-external-entry",
+	"inpatient-payment": "F-payment-and-writeback",
+	insurance: "F-payment-and-writeback",
+	"appointment-write": "F-payment-and-writeback",
+	cashier: "F-payment-and-writeback",
+	"electronic-bill": "F-payment-and-writeback",
+	"outpatient-payment-detail": "F-payment-and-writeback",
+	"outpatient-payment-write": "F-payment-and-writeback",
+});
+
+const MIGRATION_BATCH_INFO: Readonly<
+	Record<MigrationBatchId, MigrationBatchInfo>
+> = Object.freeze({
+	"A-readonly-evidence": {
+		id: "A-readonly-evidence",
+		label: "A · 安全只读真实取证",
+		nextInput:
+			"同一候选下收集客户端 requestId、服务端同链日志和 Provider 脱敏结果。",
+	},
+	"B-health-content": {
+		id: "B-health-content",
+		label: "B · 健康内容发布",
+		nextInput:
+			"取得审核 bundle，完成 bundle 校验、staging 导入、撤回演练和真机证据。",
+	},
+	"C-clinical-readonly-contracts": {
+		id: "C-clinical-readonly-contracts",
+		label: "C · 临床只读契约",
+		nextInput:
+			"分别确认 Provider 请求、空/拒绝/超时、患者映射、字段白名单和脱敏样例。",
+	},
+	"D-patient-and-convenience-write": {
+		id: "D-patient-and-convenience-write",
+		label: "D · 患者与便民写入",
+		nextInput: "冻结 owner、同意、幂等、撤回、文件安全和医护读取规则。",
+	},
+	"E-external-entry": {
+		id: "E-external-entry",
+		label: "E · 外部入口与实时能力",
+		nextInput: "确认域名 allowlist、短期会话、受众、退出、回跳和撤回协议。",
+	},
+	"F-payment-and-writeback": {
+		id: "F-payment-and-writeback",
+		label: "F · 支付、医保与 HIS 回写",
+		nextInput: "最后冻结金额、订单状态机、回调查单、幂等补偿和 HIS 回写。",
+	},
+});
+
 function mergeStage(
 	entries: ReadonlyArray<LegacyPageMigration>,
 ): MigrationCoverageStage {
@@ -83,6 +191,10 @@ export function getFeatureMigrationCoverage(
 	featureKey: FeatureKey,
 ): MigrationCoverage {
 	const feature = FEATURE_STATUS_CATALOG[featureKey];
+	const migrationBatchId = MIGRATION_BATCH_BY_FEATURE_KEY[featureKey];
+	if (!migrationBatchId) {
+		throw new Error(`迁移入口缺少批次映射：${featureKey}`);
+	}
 	const entries = LEGACY_PAGE_MIGRATION_CATALOG.filter(
 		(entry) => entry.featureKey === featureKey,
 	);
@@ -106,5 +218,6 @@ export function getFeatureMigrationCoverage(
 		notes: Object.freeze(notes),
 		nativeTarget:
 			entries[0]?.nativeTarget ?? "pages/feature-status/feature-status",
+		migrationBatch: MIGRATION_BATCH_INFO[migrationBatchId],
 	});
 }

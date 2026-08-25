@@ -52,4 +52,24 @@ describe("迁移入口覆盖聚合", () => {
 			expect(coverage.stageLabel.length).toBeGreaterThan(0);
 		}
 	});
+
+	test("所有状态入口都进入明确的 A-F 迁移批次", () => {
+		for (const featureKey of Object.keys(FEATURE_STATUS_CATALOG) as Array<
+			keyof typeof FEATURE_STATUS_CATALOG
+		>) {
+			const coverage = getFeatureMigrationCoverage(featureKey);
+			expect(coverage.migrationBatch.id).toMatch(/^[A-F]-/u);
+			expect(coverage.migrationBatch.label.length).toBeGreaterThan(0);
+			expect(coverage.migrationBatch.nextInput.length).toBeGreaterThan(0);
+		}
+	});
+
+	test("健康内容和支付入口不会混入同一迁移批次", () => {
+		expect(
+			getFeatureMigrationCoverage("health-encyclopedia").migrationBatch.id,
+		).toBe("B-health-content");
+		expect(getFeatureMigrationCoverage("insurance").migrationBatch.id).toBe(
+			"F-payment-and-writeback",
+		);
+	});
 });
