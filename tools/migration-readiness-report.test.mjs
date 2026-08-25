@@ -165,8 +165,26 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
 		expect(report.migrationQueue[0].frozenGateCount).toBe(3);
 		expect(report.migrationQueue[2].frozenGateCount).toBe(4);
+		expect(report.migrationQueue[2]).toMatchObject({
+			contractIntakeStatus: "awaiting-formal-contract",
+			contractBusinessReady: false,
+			contractRequiredEvidenceCount: 6,
+			contractImplementationStepCount: 7,
+		});
 		expect(report.migrationQueue[3].frozenGateCount).toBe(12);
+		expect(report.migrationQueue[3]).toMatchObject({
+			contractIntakeStatus: "awaiting-formal-contract",
+			contractBusinessReady: false,
+			contractRequiredEvidenceCount: 6,
+			contractImplementationStepCount: 8,
+		});
 		expect(report.migrationQueue[4].frozenGateCount).toBe(8);
+		expect(report.migrationQueue[4]).toMatchObject({
+			contractIntakeStatus: "awaiting-formal-contract",
+			contractBusinessReady: false,
+			contractRequiredEvidenceCount: 6,
+			contractImplementationStepCount: 6,
+		});
 		expect(report.migrationQueue[5].frozenGateCount).toBe(7);
 		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
 		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);

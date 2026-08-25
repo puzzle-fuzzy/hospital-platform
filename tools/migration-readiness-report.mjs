@@ -526,6 +526,7 @@ function breadthMigrationQueue({
 	deviceEvidence,
 	healthContent,
 	frozenBoundary,
+	contractIntake,
 }) {
 	const statusCounts = legacy.statusCounts;
 	const runtimeReady = runtime.candidateRuntimeAligned;
@@ -539,6 +540,16 @@ function breadthMigrationQueue({
 			frozenLegacyEntryCount: coverage?.legacyEntryCount ?? 0,
 			frozenLegacyActionCount: coverage?.legacyActionCount ?? 0,
 			frozenFeatureKeys: coverage?.featureKeys ?? [],
+		};
+	};
+	const contractCoverageFor = (batchId) => {
+		const lane = contractIntake.lanes.find((item) => item.batchId === batchId);
+		return {
+			contractIntakeStatus: lane?.status ?? null,
+			contractBusinessReady: lane?.businessReady ?? false,
+			contractRequiredEvidenceCount: lane?.requiredEvidence.length ?? 0,
+			contractImplementationStepCount: lane?.implementationSequence.length ?? 0,
+			contractNextInput: lane?.nextInput ?? null,
 		};
 	};
 	return [
@@ -580,6 +591,7 @@ function breadthMigrationQueue({
 			id: "C-clinical-readonly-contracts",
 			name: "临床只读契约",
 			...gateCoverageFor("C-clinical-readonly-contracts"),
+			...contractCoverageFor("C-clinical-readonly-contracts"),
 			stage: clinicalContract.passed
 				? "awaiting-provider-confirmation"
 				: "contract-audit-failed",
@@ -594,6 +606,7 @@ function breadthMigrationQueue({
 			id: "D-patient-and-convenience-write",
 			name: "患者与便民写入",
 			...gateCoverageFor("D-patient-and-convenience-write"),
+			...contractCoverageFor("D-patient-and-convenience-write"),
 			stage: "awaiting-patient-contract",
 			scope: [
 				"patient-binding",
@@ -611,6 +624,7 @@ function breadthMigrationQueue({
 			id: "E-external-entry",
 			name: "外部入口与实时能力",
 			...gateCoverageFor("E-external-entry"),
+			...contractCoverageFor("E-external-entry"),
 			stage: "awaiting-external-contract",
 			scope: [
 				"guide",
@@ -702,6 +716,7 @@ export async function buildMigrationReadinessReport(
 		runtime,
 		deviceEvidence,
 		frozenBoundary,
+		contractIntake,
 	});
 
 	return {
