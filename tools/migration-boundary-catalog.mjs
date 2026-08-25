@@ -7,6 +7,10 @@
  * 这样可以避免不同旧页面共用一个“万能接口”，也避免把空列表误认为迁移完成。
  */
 
+/**
+ * 所有阻断域必须先具备同一组页面状态，尤其不能遗漏成功空结果与契约异常；
+ * 统一状态机让后续真实实现不会把 Provider 故障渲染成“暂无记录”。
+ */
 const COMMON_SEMANTIC_STATES = Object.freeze([
 	"requesting",
 	"success-non-empty",
@@ -17,6 +21,10 @@ const COMMON_SEMANTIC_STATES = Object.freeze([
 	"contract-invalid",
 ]);
 
+/**
+ * 所有阻断域共有的 contract 材料。域特有材料在各自条目中补充，不能用
+ * 这组通用字段代替金额、临床审核、患者同意或外部短期会话等专项规则。
+ */
 const COMMON_CONTRACT_MATERIALS = Object.freeze([
 	"request",
 	"response",
@@ -30,6 +38,7 @@ const COMMON_CONTRACT_MATERIALS = Object.freeze([
 	"rollback",
 ]);
 
+/** 为每个域注入不可缺少的状态机和通用材料，避免条目漏填。 */
 function createGate(gate) {
 	return Object.freeze({
 		...gate,
