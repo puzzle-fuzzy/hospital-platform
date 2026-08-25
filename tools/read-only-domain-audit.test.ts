@@ -14,6 +14,21 @@ describe("低风险业务域闭环清单", () => {
 			expect(["read-only", "read-model-sync", "read-write"]).toContain(
 				domain.operationClass,
 			);
+			expect(domain.semanticStates).toEqual(
+				expect.arrayContaining([
+					"requesting",
+					"success-non-empty",
+					"success-empty",
+					"unauthorized",
+					"temporary-failure",
+				]),
+			);
+			expect(domain.emptyResult).toMatchObject({
+				state: "success-empty",
+				mustNotMaskError: true,
+			});
+			expect(domain.errorCodes.length).toBeGreaterThan(0);
+			expect(domain.forbiddenCapabilities.length).toBeGreaterThan(0);
 		}
 		expect(
 			READ_ONLY_DOMAIN_CATALOG.find((domain) => domain.id === "patients")
@@ -41,5 +56,6 @@ describe("低风险业务域闭环清单", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.pageCount).toBeGreaterThanOrEqual(8);
 		expect(result.routeCount).toBe(10);
+		expect(result.semanticStateCount).toBe(35);
 	});
 });

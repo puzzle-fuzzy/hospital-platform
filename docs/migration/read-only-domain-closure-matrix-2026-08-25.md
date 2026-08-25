@@ -2,7 +2,7 @@
 
 ## 结论
 
-本轮先完成广度迁移的基础闭环，不继续在某一个页面或某一个 Provider 上反复深挖。预约、报告、门诊费用、就诊人和普通个人资料五个已开放低风险域，统一登记了页面、API、服务实现、领域模型、适配器、日志和文档落点，并由 `pnpm readonly:audit` 自动检查。
+本轮先完成广度迁移的基础闭环，不继续在某一个页面或某一个 Provider 上反复深挖。预约、报告、门诊费用、就诊人和普通个人资料五个已开放低风险域，统一登记了页面、API、服务实现、领域模型、适配器、日志和文档落点，并由 `pnpm readonly:audit` 自动检查。审计同时要求每个域声明请求中、成功非空、成功空结果、鉴权失败、输入非法、暂时故障和契约异常七类语义，避免把故障伪装成空列表。
 
 这里的“低风险”不是把所有操作都称为纯读取：就诊人目录的 POST 只负责受控同步患者读模型，普通个人资料包含版本化的普通字段 PUT；两者都不等于新增患者、实名绑定、支付或临床写入。
 
@@ -10,13 +10,14 @@
 
 ## 机器事实源
 
-机器清单位于 [`tools/read-only-domain-catalog.mjs`](../../tools/read-only-domain-catalog.mjs)，审计器位于 [`tools/read-only-domain-audit.mjs`](../../tools/read-only-domain-audit.mjs)。每个域必须同时具备：
+机器清单位于 [`tools/read-only-domain-catalog.mjs`](../../tools/read-only-domain-catalog.mjs)，审计器位于 [`tools/read-only-domain-audit.mjs`](../../tools/read-only-domain-audit.mjs)，语义细则见 [`read-only-domain-semantics-contract-2026-08-25.md`](read-only-domain-semantics-contract-2026-08-25.md)。每个域必须同时具备：
 
 1. 原生小程序已注册页面及四类页面源文件；
 2. 对外 `/api/v2` 路由文档和 Elysia 实际路由 token；同一页面实际使用的同步命令也必须登记，不能只登记列表 GET；
 3. API module、service、domain、适配器（无 Provider 的普通资料除外）；
 4. 低敏日志事件在 [`docs/logging.md`](../logging.md) 有说明；
 5. 至少一份迁移契约和一份当前正确性/验收边界文档。
+6. 成功空结果规则、域级错误码和明确关闭能力；错误码必须同步服务端错误处理、小程序文案表和公共 API 文档。
 
 ## 当前闭环范围
 

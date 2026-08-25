@@ -6,6 +6,10 @@
  * 可机器校验的清单里，防止广度迁移时只补了页面却漏掉后端或验收依据。
  * `operationClass` 额外区分纯读取、读模型同步和普通资料读写，避免把
  * 患者目录同步或资料 PUT 误报成高风险业务已经开放。
+ * `semanticStates`、`emptyResult`、`errorCodes` 和 `forbiddenCapabilities`
+ * 是低风险域的业务语义门禁：它们要求每个域明确区分成功、成功空结果、
+ * 鉴权失败、暂时故障和契约异常，并把尚未迁移的副作用能力写在事实源里。
+ * 这几项不是运行时开关，不能用来绕过 Provider、真机或生产验收。
  */
 export const READ_ONLY_DOMAIN_CATALOG = [
 	{
@@ -32,6 +36,38 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 			"patient.directory.read.failed",
 		],
 		boundary: "只读 owner-scoped 脱敏目录；新增绑定和实名关系继续关闭。",
+		semanticStates: [
+			"requesting",
+			"success-non-empty",
+			"success-empty",
+			"unauthorized",
+			"invalid-input",
+			"temporary-failure",
+			"contract-invalid",
+		],
+		emptyResult: {
+			state: "success-empty",
+			mustNotMaskError: true,
+			meaning: "Provider 或读模型明确确认当前 owner 没有可展示的就诊人",
+		},
+		errorCodes: [
+			"patient-query-invalid",
+			"patient-sync-in-progress",
+			"patient-sync-stale",
+			"patient-directory-snapshot-unsafe",
+			"patient-directory-reference-conflict",
+			"dependency-not-configured",
+			"provider-request-rejected",
+			"provider-response-invalid",
+			"provider-temporarily-unavailable",
+			"persistence-temporarily-unavailable",
+			"persistence-invalid",
+		],
+		forbiddenCapabilities: [
+			"新增就诊人绑定",
+			"实名关系变更",
+			"Provider 患者档案写入",
+		],
 	},
 	{
 		id: "appointments",
@@ -72,6 +108,36 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 			"appointment.records.failed",
 		],
 		boundary: "科室、排班和历史只读；锁号、预约写入、取消及 HIS 回写继续关闭。",
+		semanticStates: [
+			"requesting",
+			"success-non-empty",
+			"success-empty",
+			"unauthorized",
+			"invalid-input",
+			"temporary-failure",
+			"contract-invalid",
+		],
+		emptyResult: {
+			state: "success-empty",
+			mustNotMaskError: true,
+			meaning: "预约目录或历史查询明确返回当前筛选范围内没有记录",
+		},
+		errorCodes: [
+			"appointment-query-invalid",
+			"appointment-record-query-invalid",
+			"appointment-record-patient-not-found",
+			"dependency-not-configured",
+			"provider-request-rejected",
+			"provider-response-invalid",
+			"provider-temporarily-unavailable",
+			"persistence-temporarily-unavailable",
+			"persistence-invalid",
+		],
+		forbiddenCapabilities: [
+			"锁号或预约写入",
+			"取消预约",
+			"预约结果主动回写 HIS",
+		],
 	},
 	{
 		id: "reports",
@@ -102,6 +168,36 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 		],
 		boundary:
 			"只开放摘要和白名单 LIS 详情；体检、影像/心电详情、附件下载和解读继续关闭。",
+		semanticStates: [
+			"requesting",
+			"success-non-empty",
+			"success-empty",
+			"unauthorized",
+			"invalid-input",
+			"temporary-failure",
+			"contract-invalid",
+		],
+		emptyResult: {
+			state: "success-empty",
+			mustNotMaskError: true,
+			meaning: "报告目录明确返回当前就诊人没有可展示报告",
+		},
+		errorCodes: [
+			"report-query-invalid",
+			"report-patient-not-found",
+			"report-not-found",
+			"dependency-not-configured",
+			"provider-request-rejected",
+			"provider-response-invalid",
+			"provider-temporarily-unavailable",
+			"persistence-temporarily-unavailable",
+			"persistence-invalid",
+		],
+		forbiddenCapabilities: [
+			"影像、心电和体检详情扩展",
+			"原始报告附件下载",
+			"自动报告解读或临床建议",
+		],
 	},
 	{
 		id: "outpatient-payments",
@@ -124,6 +220,35 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 			"outpatient.payment.records.failed",
 		],
 		boundary: "只读费用记录；支付订单、微信调起、医保授权和结算写回继续关闭。",
+		semanticStates: [
+			"requesting",
+			"success-non-empty",
+			"success-empty",
+			"unauthorized",
+			"invalid-input",
+			"temporary-failure",
+			"contract-invalid",
+		],
+		emptyResult: {
+			state: "success-empty",
+			mustNotMaskError: true,
+			meaning: "费用 Provider 明确确认当前就诊人没有可展示的门诊费用记录",
+		},
+		errorCodes: [
+			"outpatient-payment-query-invalid",
+			"outpatient-payment-patient-not-found",
+			"dependency-not-configured",
+			"provider-request-rejected",
+			"provider-response-invalid",
+			"provider-temporarily-unavailable",
+			"persistence-temporarily-unavailable",
+			"persistence-invalid",
+		],
+		forbiddenCapabilities: [
+			"微信支付调起",
+			"医保身份授权和医保结算",
+			"退费及 HIS 费用状态写回",
+		],
 	},
 	{
 		id: "user-profile",
@@ -155,5 +280,30 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 		],
 		boundary:
 			"只读普通展示资料；实名、微信身份、患者身份和头像资源不混入该契约。",
+		semanticStates: [
+			"requesting",
+			"success-non-empty",
+			"success-empty",
+			"unauthorized",
+			"invalid-input",
+			"temporary-failure",
+			"contract-invalid",
+		],
+		emptyResult: {
+			state: "success-empty",
+			mustNotMaskError: true,
+			meaning: "普通资料接口明确返回当前用户尚未填写可选资料",
+		},
+		errorCodes: [
+			"user-profile-invalid",
+			"user-profile-conflict",
+			"persistence-temporarily-unavailable",
+			"persistence-invalid",
+		],
+		forbiddenCapabilities: [
+			"修改实名身份和微信身份",
+			"修改就诊人档案或绑定关系",
+			"上传或替换头像资源",
+		],
 	},
 ];

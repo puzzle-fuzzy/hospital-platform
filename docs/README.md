@@ -35,6 +35,8 @@
 
 > 预约、报告、门诊费用、就诊人和普通资料五个低风险域的页面、API、实现、日志和文档闭环由 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md) 统一维护，并可通过 `pnpm readonly:audit` 校验；其中患者目录是读模型同步、普通资料包含版本化 PUT，通过不等于 Provider 或真机验收完成。
 
+> 五个低风险域的请求中、成功空结果、错误和关闭能力语义由 [`migration/read-only-domain-semantics-contract-2026-08-25.md`](migration/read-only-domain-semantics-contract-2026-08-25.md) 统一维护；任何暂时故障、契约异常和 owner 映射缺失都不能降级为空列表。
+
 > 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的新构建运行包和最新共享底栏手册，不能使用旧二维码、旧 `dist/` 或旧底栏说明。
 
 > 历史候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，当时 16 个页面脚本完整；该记录不覆盖当前 `baa31df0` 的 17 页 pending 候选。
@@ -350,6 +352,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md) | 64 个旧页面到新端落点的当前状态分布和自动化边界门禁 |
 | [`migration/clinical-readonly-intake-board-2026-08-25.md`](migration/clinical-readonly-intake-board-2026-08-25.md) | 门诊记录、住院、医生关系、问诊/导诊四个临床只读域的独立材料和执行队列 |
 | [`migration/clinical-domain-batch-contract-gates-2026-08-25.md`](migration/clinical-domain-batch-contract-gates-2026-08-25.md) | 临床只读域从资料登记到 contract、adapter、页面、日志和真机验收的逐域放行条件 |
+| [`migration/read-only-domain-semantics-contract-2026-08-25.md`](migration/read-only-domain-semantics-contract-2026-08-25.md) | 五个低风险域统一的请求、成功空结果、错误和关闭能力语义 |
 | [`migration/health-knowledge-route-contract-2026-08-25.md`](migration/health-knowledge-route-contract-2026-08-25.md) | 健康百科只读后端入口、版本化审核 bundle、关闭条件和与自测/病历/报告/AI 的边界 |
 | [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c8eef370`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表；旧 release 仅作历史追溯 |
 | [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 历史迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；当前服务端以 `8eb51b5f`、小程序 pending 以 `7627843a` 为准 |

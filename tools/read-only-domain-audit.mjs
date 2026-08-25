@@ -4,6 +4,16 @@ import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
+const REQUIRED_SEMANTIC_STATES = [
+	"requesting",
+	"success-non-empty",
+	"success-empty",
+	"unauthorized",
+	"invalid-input",
+	"temporary-failure",
+	"contract-invalid",
+];
+
 async function readRepositoryFile(relativePath) {
 	return Bun.file(join(repositoryRoot, relativePath)).text();
 }
@@ -32,6 +42,12 @@ export async function auditReadOnlyDomains() {
 	const publicApiDocumentation = await readRepositoryFile(
 		"docs/api-v2-public.md",
 	);
+	const errorHandlerSource = await readRepositoryFile(
+		"apps/api/src/plugins/error-handler.ts",
+	);
+	const clientErrorSource = await readRepositoryFile(
+		"apps/miniprogram/src/services/api-client.ts",
+	);
 	const loggingDocumentation = await readRepositoryFile("docs/logging.md");
 
 	for (const domain of READ_ONLY_DOMAIN_CATALOG) {
@@ -53,6 +69,51 @@ export async function auditReadOnlyDomains() {
 			domain.operationClass !== "read-write"
 		) {
 			failures.push("user-profile: 普通资料 PUT 必须标记为 read-write");
+		}
+
+		const semanticStates = new Set(domain.semanticStates ?? []);
+		for (const state of REQUIRED_SEMANTIC_STATES) {
+			if (!semanticStates.has(state)) {
+				failures.push(`${domain.id}: 缺少业务语义状态：${state}`);
+			}
+		}
+		if (domain.emptyResult?.state !== "success-empty") {
+			failures.push(`${domain.id}: 空结果必须明确标记为 success-empty`);
+		}
+		if (domain.emptyResult?.mustNotMaskError !== true) {
+			failures.push(
+				`${domain.id}: 空结果必须声明不能掩盖鉴权、依赖、Provider 或持久化错误`,
+			);
+		}
+		if (!domain.emptyResult?.meaning) {
+			failures.push(`${domain.id}: 缺少成功空结果的业务含义`);
+		}
+		if (!Array.isArray(domain.errorCodes) || domain.errorCodes.length === 0) {
+			failures.push(`${domain.id}: 至少登记一个域级稳定错误码`);
+		} else {
+			for (const code of domain.errorCodes) {
+				if (!errorHandlerSource.includes(`"${code}"`)) {
+					failures.push(`${domain.id}: 服务端错误处理器缺少错误码：${code}`);
+				}
+				if (!clientErrorSource.includes(`"${code}"`)) {
+					failures.push(`${domain.id}: 小程序错误文案表缺少错误码：${code}`);
+				}
+				if (!publicApiDocumentation.includes(`\`${code}\``)) {
+					failures.push(`${domain.id}: 公网 API 文档缺少错误码：${code}`);
+				}
+			}
+		}
+		if (
+			!Array.isArray(domain.forbiddenCapabilities) ||
+			domain.forbiddenCapabilities.length === 0
+		) {
+			failures.push(`${domain.id}: 必须登记当前明确关闭的能力`);
+		} else {
+			for (const capability of domain.forbiddenCapabilities) {
+				if (typeof capability !== "string" || capability.trim().length === 0) {
+					failures.push(`${domain.id}: 存在空的关闭能力说明`);
+				}
+			}
 		}
 
 		for (const page of domain.pages) {
@@ -116,6 +177,10 @@ export async function auditReadOnlyDomains() {
 			(total, domain) => total + domain.publicRoutes.length,
 			0,
 		),
+		semanticStateCount: READ_ONLY_DOMAIN_CATALOG.reduce(
+			(total, domain) => total + (domain.semanticStates?.length ?? 0),
+			0,
+		),
 	};
 }
 
@@ -128,6 +193,6 @@ if (import.meta.main) {
 	}
 
 	console.log(
-		`低风险业务域闭环审计通过：${result.domainCount} 个业务域、${result.pageCount} 个页面、${result.routeCount} 条公网路由；页面、API、实现、日志和文档均有落点`,
+		`低风险业务域闭环审计通过：${result.domainCount} 个业务域、${result.pageCount} 个页面、${result.routeCount} 条公网路由、${result.semanticStateCount} 个语义状态；页面、API、实现、错误、日志和文档均有落点`,
 	);
 }
