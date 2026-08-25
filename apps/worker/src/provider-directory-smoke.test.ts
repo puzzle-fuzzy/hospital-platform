@@ -543,7 +543,7 @@ test("provider directory smoke verifies both outpatient payment read statuses", 
 	).toBe(true);
 });
 
-test("预约历史 smoke 覆盖在线与全部范围", async () => {
+test("预约历史 smoke 覆盖在线、全部和爽约范围", async () => {
 	const requests: string[] = [];
 	const result = await runProviderDirectorySmoke({
 		baseUrl: "https://hospital.example.test",
@@ -588,7 +588,12 @@ test("预约历史 smoke 覆盖在线与全部范围", async () => {
 	const onlineRecordsUrl = requests.find(
 		(url) =>
 			url.includes("/api/v1/appointments/records?") &&
-			url.includes("scope=online"),
+			url.includes("endDate=2026-11-13"),
+	);
+	const missedRecordsUrl = requests.find(
+		(url) =>
+			url.includes("/api/v1/appointments/records?") &&
+			url.includes("endDate=2026-08-15"),
 	);
 	const allRecordsUrl = requests.find(
 		(url) =>
@@ -596,13 +601,21 @@ test("预约历史 smoke 覆盖在线与全部范围", async () => {
 			url.includes("scope=all"),
 	);
 	expect(onlineRecordsUrl).toBeDefined();
+	expect(missedRecordsUrl).toBeDefined();
 	expect(allRecordsUrl).toBeDefined();
 	const query = new URL(onlineRecordsUrl ?? "https://hospital.example.test")
 		.searchParams;
 	expect(query.get("patientId")).toBe("patient-001");
-	expect(query.get("scope")).toBe("online");
+	expect(query.has("scope")).toBe(false);
 	expect(query.get("startDate")).toBe("2026-05-17");
 	expect(query.get("endDate")).toBe("2026-11-13");
+	const missedQuery = new URL(
+		missedRecordsUrl ?? "https://hospital.example.test",
+	).searchParams;
+	expect(missedQuery.get("patientId")).toBe("patient-001");
+	expect(missedQuery.has("scope")).toBe(false);
+	expect(missedQuery.get("startDate")).toBe("2026-05-17");
+	expect(missedQuery.get("endDate")).toBe("2026-08-15");
 	const allQuery = new URL(allRecordsUrl ?? "https://hospital.example.test")
 		.searchParams;
 	expect(allQuery.get("patientId")).toBe("patient-001");
