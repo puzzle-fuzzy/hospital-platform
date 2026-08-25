@@ -317,6 +317,41 @@ export const currentBaselineDocuments = Object.freeze([
 ]);
 
 /**
+ * live 运行包和 pending 候选是两个有意并存的发布事实：前者用于线上
+ * 真机证据，后者用于开发者工具释放后发布。读取 pending 的完整来源指纹，
+ * 让当前手册可以同时校验两者，避免把尚未发布的候选误当成线上版本。
+ */
+async function readPendingMiniProgramSourceRevision(rootDirectory) {
+	try {
+		const content = await readFile(
+			join(
+				rootDirectory,
+				".local/hospital-miniprogram/pending/build-info.json",
+			),
+			"utf8",
+		);
+		const sourceRevision = JSON.parse(content)?.sourceRevision;
+		if (
+			typeof sourceRevision !== "string" ||
+			!/^[0-9a-f]{40}$/u.test(sourceRevision)
+		) {
+			throw new Error("pending build-info.json 缺少有效 sourceRevision");
+		}
+		return sourceRevision;
+	} catch (error) {
+		if (
+			error &&
+			typeof error === "object" &&
+			"code" in error &&
+			error.code === "ENOENT"
+		) {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+/**
  * 当前基线文档中容易被历史发布记录污染的“当前候选”短语。
  *
  * 仅检查文档包含完整 sourceRevision 不够：同一文件可能在顶部写对当前候选，
@@ -324,6 +359,38 @@ export const currentBaselineDocuments = Object.freeze([
  * 检查所有匹配短语附近的完整来源，历史段落不使用这些当前语义短语即可保留。
  */
 const currentCandidateReferenceRules = Object.freeze([
+	{
+		path: "docs/wechat-auth-login.md",
+		label: "微信授权登录手册",
+		sections: [
+			{
+				start: "# 微信授权登录实施与验收手册",
+				end: "2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见",
+				phrases: [
+					{
+						text: "当前本地 pending 运行输入为",
+						expected: "pending-full",
+					},
+				],
+			},
+		],
+	},
+	{
+		path: "docs/roadmap-next-phase.md",
+		label: "下一阶段实施路线图",
+		sections: [
+			{
+				start: "# 下一阶段实施路线图",
+				end: "## 历史事实源（2026-08-22，仅供追溯）",
+				phrases: [
+					{ text: "最新小程序候选事实", expected: "pending-full" },
+					{ text: "当前广度事实源", expected: "pending-full" },
+					{ text: "当前仓库事实补充", expected: "pending-full" },
+					{ text: "当前最新小程序代码候选为", expected: "pending-full" },
+				],
+			},
+		],
+	},
 	{
 		path: "docs/README.md",
 		label: "文档导航",
@@ -508,7 +575,11 @@ export function auditCurrentExecutionSection(baseline, roadmapDocument) {
 }
 
 /** 检查当前语义短语附近的候选来源，避免旧 hash 伪装成当前运行包。 */
-export function auditCurrentCandidateReferences(baseline, documents) {
+export function auditCurrentCandidateReferences(
+	baseline,
+	documents,
+	options = {},
+) {
 	const failures = [];
 	/**
 	 * 当前文档的执行章节会随发布窗口更换日期，不能用固定旧日期定位。
@@ -564,7 +635,15 @@ export function auditCurrentCandidateReferences(baseline, documents) {
 					const expected =
 						phraseDefinition.expected === "short"
 							? baseline.miniProgramCommit
-							: baseline.miniProgramSourceRevision;
+							: phraseDefinition.expected === "pending-full"
+								? options.pendingMiniProgramSourceRevision
+								: baseline.miniProgramSourceRevision;
+					if (!expected) {
+						failures.push(
+							`${rule.label} 的“${phrase}”缺少当前 pending 小程序 sourceRevision`,
+						);
+						continue;
+					}
 					if (!nearbyText.includes(expected)) {
 						failures.push(
 							`${rule.label} 的“${phrase}”未指向当前完整小程序 sourceRevision`,
@@ -622,7 +701,11 @@ export function auditCurrentReadonlyBusinessBoundaries(
  * 检查一组文档是否都写明同一套当前候选。
  * 返回低敏失败信息，便于本地门禁和测试复用，不输出 token、患者或 Provider 内容。
  */
-export function auditCurrentBaselineDocuments(baseline, documents) {
+export function auditCurrentBaselineDocuments(
+	baseline,
+	documents,
+	options = {},
+) {
 	const failures = [];
 	for (const document of documents) {
 		if (!document.content.includes(baseline.serverRelease)) {
@@ -653,7 +736,9 @@ export function auditCurrentBaselineDocuments(baseline, documents) {
 			),
 		);
 	}
-	failures.push(...auditCurrentCandidateReferences(baseline, documents));
+	failures.push(
+		...auditCurrentCandidateReferences(baseline, documents, options),
+	);
 	return {
 		passed: failures.length === 0,
 		serverRelease: baseline.serverRelease,
@@ -670,6 +755,8 @@ export async function auditCurrentReleaseConsistency(
 	const candidatePath = join(rootDirectory, currentCandidateDocumentPath);
 	const candidateDocument = await readFile(candidatePath, "utf8");
 	const baseline = extractCurrentBaseline(candidateDocument);
+	const pendingMiniProgramSourceRevision =
+		await readPendingMiniProgramSourceRevision(rootDirectory);
 	const documents = [];
 
 	for (const document of currentBaselineDocuments) {
@@ -677,7 +764,9 @@ export async function auditCurrentReleaseConsistency(
 		documents.push({ ...document, content });
 	}
 
-	const documentAudit = auditCurrentBaselineDocuments(baseline, documents);
+	const documentAudit = auditCurrentBaselineDocuments(baseline, documents, {
+		pendingMiniProgramSourceRevision,
+	});
 	const serverSourceAudit = auditServerSourceRelease(baseline, {
 		rootDirectory,
 	});

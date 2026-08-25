@@ -274,6 +274,44 @@ test("文档导航的历史窗口说明必须跟随当前小程序候选", () =>
 	]);
 });
 
+test("微信登录手册和路线图顶部当前候选不能漂移到旧运行包", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const documents = [
+		{
+			path: "docs/wechat-auth-login.md",
+			content: `# 微信授权登录实施与验收手册
+当前本地 pending 运行输入为 \`old-candidate\`。
+2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见`,
+		},
+		{
+			path: "docs/roadmap-next-phase.md",
+			content: `# 下一阶段实施路线图
+最新小程序候选事实：\`old-candidate\`
+当前广度事实源：\`old-candidate\`
+当前仓库事实补充：\`old-candidate\`
+当前最新小程序代码候选为 \`old-candidate\`
+## 历史事实源（2026-08-22，仅供追溯）`,
+		},
+	];
+
+	expect(
+		auditCurrentCandidateReferences(baseline, documents, {
+			pendingMiniProgramSourceRevision:
+				"4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+		}),
+	).toEqual([
+		"微信授权登录手册 的“当前本地 pending 运行输入为”未指向当前完整小程序 sourceRevision",
+		"下一阶段实施路线图 的“最新小程序候选事实”未指向当前完整小程序 sourceRevision",
+		"下一阶段实施路线图 的“当前广度事实源”未指向当前完整小程序 sourceRevision",
+		"下一阶段实施路线图 的“当前仓库事实补充”未指向当前完整小程序 sourceRevision",
+		"下一阶段实施路线图 的“当前最新小程序代码候选为”未指向当前完整小程序 sourceRevision",
+	]);
+});
+
 test("仓库当前发布文档保持同一套候选", async () => {
 	const result = await auditCurrentReleaseConsistency();
 	// 这里固定当前验收候选，而不是只断言 passed=true：候选文档、运行包来源
