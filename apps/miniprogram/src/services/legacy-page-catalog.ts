@@ -173,7 +173,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/gift-banner/gift-banner",
 			featureKey: "gift-banner",
-			note: "已迁移电子锦旗原生页面外壳和患者入口；内容审核、文件安全、脱敏公开和撤回规则仍关闭。",
+			note: "已迁移电子锦旗原生列表/记录空态、当前就诊人和患者入口；内容审核、文件安全、脱敏公开和撤回规则仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/gift_health_praise.vue",
@@ -181,7 +181,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/health-praise/health-praise",
 			featureKey: "health-praise",
-			note: "已迁移表扬信原生页面外壳和患者入口；内容审核、文件安全、脱敏展示和幂等仍关闭。",
+			note: "已迁移表扬信原生列表/记录空态、当前就诊人和患者入口；内容审核、文件安全、脱敏展示和幂等仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/health_encyclopedia.vue",
@@ -220,7 +220,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/gift-banner/gift-banner",
 			featureKey: "gift-banner",
-			note: "已迁移电子锦旗列表原生外壳；列表必须基于审核后的公开视图，不能直接展示旧快照。",
+			note: "已迁移电子锦旗列表原生空态；列表必须基于审核后的公开视图，不能直接展示旧快照。",
 		},
 		{
 			legacyPath: "pagesB/health/list_health_praise.vue",
@@ -228,7 +228,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/health-praise/health-praise",
 			featureKey: "health-praise",
-			note: "已迁移表扬信列表原生外壳；列表必须基于审核后的公开视图，不能直读旧表。",
+			note: "已迁移表扬信列表原生空态；列表必须基于审核后的公开视图，不能直读旧表。",
 		},
 		{
 			legacyPath: "pagesB/health/medical_insurance_pay.vue",
@@ -275,7 +275,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/gift-banner/gift-banner",
 			featureKey: "gift-banner",
-			note: "已迁移电子锦旗详情原生外壳；详情仅能读取审核后的公开记录，不能复用旧端患者快照。",
+			note: "已迁移电子锦旗详情原生关闭态；详情仅能读取审核后的公开记录，不能复用旧端患者快照。",
 		},
 		{
 			legacyPath: "pagesB/health/record_health_praise.vue",
@@ -283,7 +283,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "surface-only",
 			nativeTarget: "pages/health-praise/health-praise",
 			featureKey: "health-praise",
-			note: "已迁移表扬信详情原生外壳；详情仅能读取审核后的公开记录，不能复用旧端患者快照。",
+			note: "已迁移表扬信详情原生关闭态；详情仅能读取审核后的公开记录，不能复用旧端患者快照。",
 		},
 		{
 			legacyPath: "pagesB/health/report_detail.vue",

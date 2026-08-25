@@ -1,4 +1,4 @@
-import { registerClinicalContentSurfacePage } from "../../services/clinical-content-surface";
+import { registerConvenienceSurfacePage } from "../../services/convenience-surface";
 
-/** 电子锦旗先接入原生页面外壳；真实业务 contract 完成前保持关闭态，不复制旧端数据。 */
-registerClinicalContentSurfacePage("gift-banner");
+/** 电子锦旗先迁移真实页面结构和患者上下文，提交/查询仍等待独立 contract。 */
+registerConvenienceSurfacePage("gift-banner");

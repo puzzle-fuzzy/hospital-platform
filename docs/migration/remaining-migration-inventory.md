@@ -665,7 +665,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | 健康自测 | `health_test`、`self_test_question`、`self_test_result`、BMI/血压计算 | BMI/血压安全数值子集已迁移 | 题目、分值和结果必须版本化并经临床复核；当前只做 BMI 公式和血压读数校验，不开放适用人群、阈值、风险判断或结果写入，详见 [`health-calculator-contract-draft.md`](health-calculator-contract-draft.md) |
 | 风险评估 | `risk_self_evaluation`、`risk_form_*` | 未迁移 | 题目、分值、风险分级和建议必须版本化并经临床复核；未知版本拒绝写入，不能把客户端风险结论当权威；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 预问诊/随访 | `pre_visit`、`admission_preconsultation`、`discharge_followup*` | 未迁移 | 旧端按原始 `pat_id` 和 JSON 数组保存，且不同表单可能按 `(user_id, pat_id)` 互相覆盖；必须先绑定预约/住院/随访任务、问卷版本、患者授权、幂等和医护读取权限；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
-| 电子锦旗/表扬信 | `list_*`、`gift_*`、`record_*` | 未迁移 | 旧端可提交伪造的患者/医生/就诊字段，且 `display_type=1` 不等于已审核公开；必须完成内容安全、审核、脱敏展示、撤回和幂等；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
+| 电子锦旗/表扬信 | `list_*`、`gift_*`、`record_*` | 页面结构已迁移，业务未开放 | 新端已迁移当前就诊人、列表/记录稳定关闭态和统一入口；“公开记录暂未开放”不等于真实空记录。旧端可提交伪造的患者/医生/就诊字段，且 `display_type=1` 不等于已审核公开；必须完成内容安全、审核、脱敏展示、撤回和幂等；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 我的医生 | `pagesB/patient/doctor.vue` | 未迁移 | 旧端保存客户端医生快照，重复关注非幂等且使用 GET 删除；必须依赖受控医生目录、owner 关系、命令语义、唯一约束和审计；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 智能陪诊/导诊 | `consult`、`webview`、`my_consultation` | 未迁移 | 独立 AI/会话 contract、免责声明、模型和知识版本审计 |
 

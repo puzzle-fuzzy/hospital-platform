@@ -2465,6 +2465,31 @@ test("native blood appointment keeps the legacy empty state without fake slots",
 	expect(style).toContain(".blood-appointment-error");
 });
 
+test("native convenience pages keep patient context without fake public records", async () => {
+	const service = await source("services/convenience-surface.ts");
+	const gift = await source("pages/gift-banner/gift-banner.wxml");
+	const praise = await source("pages/health-praise/health-praise.wxml");
+	const giftScript = await source("pages/gift-banner/gift-banner.ts");
+	const praiseScript = await source("pages/health-praise/health-praise.ts");
+
+	// 锦旗和表扬信都要先绑定当前就诊人，但 provider contract 未确认前，
+	// “公开记录暂未开放”不能降级成“暂无记录”，也不能出现提交成功。
+	expect(service).toContain("loadCurrentPatient");
+	expect(service).toContain("公开记录查询");
+	expect(service).toContain("不读取、不提交任何内容");
+	expect(service).toContain("disposePageInstance");
+	expect(gift).toContain("选择就诊人");
+	expect(praise).toContain("选择就诊人");
+	expect(gift).toContain("公开记录暂未开放");
+	expect(praise).toContain("公开记录暂未开放");
+	expect(giftScript).toContain('registerConvenienceSurfacePage("gift-banner")');
+	expect(praiseScript).toContain(
+		'registerConvenienceSurfacePage("health-praise")',
+	);
+	expect(service).not.toContain("submitGift");
+	expect(service).not.toContain("createCommendatoryLetter");
+});
+
 test("native patient signature keeps the patient boundary without fake external launch", async () => {
 	const page = await source("pages/patient-signature/patient-signature.ts");
 	const template = await source(

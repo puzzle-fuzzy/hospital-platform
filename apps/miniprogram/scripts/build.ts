@@ -10,9 +10,9 @@ import {
 import { dirname, extname, join, relative } from "node:path";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
+	createMiniProgramRuntimeLockError,
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
-	createMiniProgramRuntimeLockError,
 	getMiniProgramPendingRuntimePath,
 	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
@@ -491,13 +491,17 @@ async function validatePageRuntimeBoundaries(
 		const usesProviderEntrySurfaceFactory = script.includes(
 			"registerProviderEntrySurfacePage(",
 		);
+		const usesConvenienceSurfaceFactory = script.includes(
+			"registerConvenienceSurfacePage(",
+		);
 		if (
 			pageEntryIndex < 0 &&
 			!usesClinicalSurfaceFactory &&
 			!usesPatientContractSurfaceFactory &&
 			!usesClinicalContentSurfaceFactory &&
 			!usesExternalEntrySurfaceFactory &&
-			!usesProviderEntrySurfaceFactory
+			!usesProviderEntrySurfaceFactory &&
+			!usesConvenienceSurfaceFactory
 		) {
 			throw new Error(`${pagePath}.ts must contain a Page implementation`);
 		}
@@ -526,13 +530,18 @@ async function validatePageRuntimeBoundaries(
 							? await Bun.file(
 									join(source, "services", "provider-entry-surface.ts"),
 								).text()
-							: "";
+							: usesConvenienceSurfaceFactory
+								? await Bun.file(
+										join(source, "services", "convenience-surface.ts"),
+									).text()
+								: "";
 		const pageImplementation =
 			usesClinicalSurfaceFactory ||
 			usesPatientContractSurfaceFactory ||
 			usesClinicalContentSurfaceFactory ||
 			usesExternalEntrySurfaceFactory ||
-			usesProviderEntrySurfaceFactory
+			usesProviderEntrySurfaceFactory ||
+			usesConvenienceSurfaceFactory
 				? `${script}\n${sharedPageFactory}`
 				: script.slice(pageEntryIndex);
 		for (const match of template.matchAll(bindingPattern)) {

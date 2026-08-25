@@ -1,0 +1,191 @@
+page {
+	background: #f7f8fc;
+}
+
+.convenience-surface-scroll {
+	height: 100vh;
+}
+
+.convenience-surface-page {
+	box-sizing: border-box;
+	min-height: 100%;
+	padding-bottom: 64rpx;
+}
+
+.convenience-surface-error {
+	margin: 20rpx 24rpx 0;
+	padding: 20rpx 24rpx;
+	color: #b42318;
+	background: #fff1f0;
+	border-radius: 14rpx;
+	font-size: 25rpx;
+}
+
+.convenience-surface-retry {
+	margin: 14rpx 0 0;
+	padding: 0;
+	color: #3d6df6;
+	background: transparent;
+	border: 0;
+	font-size: 25rpx;
+	line-height: 1.4;
+}
+
+.convenience-surface-retry::after,
+.convenience-surface-plain::after,
+.convenience-surface-primary::after {
+	border: 0;
+}
+
+.convenience-surface-patient {
+	display: flex;
+	align-items: center;
+	padding: 28rpx 32rpx;
+	background: #fff;
+	border-bottom: 1rpx solid #f0f1f5;
+}
+
+.convenience-surface-avatar {
+	width: 64rpx;
+	height: 64rpx;
+	margin-right: 20rpx;
+}
+
+.convenience-surface-patient-copy {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 6rpx;
+}
+
+.convenience-surface-label {
+	color: #9aa0ad;
+	font-size: 24rpx;
+}
+
+.convenience-surface-name {
+	color: #252a35;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.convenience-surface-muted {
+	color: #9aa0ad;
+	font-weight: 400;
+}
+
+.convenience-surface-arrow {
+	color: #b6bcc8;
+	font-size: 48rpx;
+	font-weight: 300;
+	line-height: 1;
+}
+
+.convenience-surface-hero {
+	padding: 42rpx 32rpx 30rpx;
+	background: linear-gradient(135deg, #eef3ff 0%, #f7f9ff 100%);
+}
+
+.convenience-surface-title {
+	display: block;
+	color: #202632;
+	font-size: 42rpx;
+	font-weight: 700;
+}
+
+.convenience-surface-subtitle {
+	display: block;
+	margin-top: 14rpx;
+	color: #687184;
+	font-size: 26rpx;
+	line-height: 1.6;
+}
+
+.convenience-surface-card {
+	margin: 20rpx 24rpx 0;
+	padding: 28rpx;
+	background: #fff;
+	border-radius: 18rpx;
+	box-shadow: 0 8rpx 24rpx rgba(40, 63, 115, 0.04);
+}
+
+.convenience-surface-card-title {
+	display: block;
+	color: #2a2f3a;
+	font-size: 30rpx;
+	font-weight: 650;
+}
+
+.convenience-surface-empty {
+	display: flex;
+	align-items: center;
+	padding: 58rpx 12rpx 42rpx;
+	flex-direction: column;
+}
+
+.convenience-surface-empty-image {
+	width: 210rpx;
+	height: 170rpx;
+}
+
+.convenience-surface-empty-title {
+	margin-top: 24rpx;
+	color: #3a404d;
+	font-size: 29rpx;
+}
+
+.convenience-surface-empty-note {
+	margin-top: 14rpx;
+	color: #9298a5;
+	font-size: 24rpx;
+	line-height: 1.6;
+	text-align: center;
+}
+
+.convenience-surface-row {
+	display: flex;
+	margin-top: 20rpx;
+	color: #687184;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.convenience-surface-dot {
+	width: 30rpx;
+	color: #3d6df6;
+	font-size: 32rpx;
+}
+
+.convenience-surface-row-text {
+	flex: 1;
+}
+
+.convenience-surface-coverage {
+	display: block;
+	margin-top: 24rpx;
+	padding-top: 20rpx;
+	color: #8b92a2;
+	border-top: 1rpx solid #f0f1f5;
+	font-size: 23rpx;
+}
+
+.convenience-surface-primary,
+.convenience-surface-plain {
+	display: block;
+	width: calc(100% - 96rpx);
+	margin: 24rpx auto 0;
+	box-sizing: border-box;
+	font-size: 27rpx;
+}
+
+.convenience-surface-primary {
+	color: #fff;
+	background: #3d6df6;
+}
+
+.convenience-surface-plain {
+	margin-top: 16rpx;
+	color: #687184;
+	background: #fff;
+	border: 1rpx solid #e4e7ee;
+}
