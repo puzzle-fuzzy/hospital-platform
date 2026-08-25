@@ -29,7 +29,13 @@ pnpm --filter @hospital/miniprogram test        256 pass / 0 fail / 2426 expect(
 pnpm migration:audit                            64 old page(s) + 64 catalog page(s) 通过
 pnpm docs:audit                                 677 docs，无断链
 pnpm format:check                               通过
+pnpm test                                       API 210 pass / 1 fail；唯一失败为发布基线保护
 ```
+
+根 `pnpm test` 的唯一失败来自另一会话尚未部署的
+`packages/adapters/src/zhongyang-appointments.ts` 运行时代码漂移；本会话不修改、不暂存、
+不部署该文件，也不通过修改发布基线门禁掩盖它。小程序、domain、config、contracts、observability、
+persistence、worker 和其余 API 业务测试均未出现新的业务失败。
 
 构建已生成并校验 pending 运行包，但发布阶段因为微信开发者工具锁定 live `dist/` 安全停止；旧完整运行包没有被半替换。
 
@@ -45,4 +51,3 @@ pnpm --filter @hospital/miniprogram runtime:verify
 随后必须从新的 `485c0892` 运行包重新编译、扫码，再按
 [`readonly-acceptance-next-2026-08-25.md`](readonly-acceptance-next-2026-08-25.md) 采集页面、客户端 requestId、服务端 trace 和 Provider 低敏请求号。
 旧 `fcc6630e`、线上 `13f597ea` 或任何历史候选不能作为本候选证据。
-
