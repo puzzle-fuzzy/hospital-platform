@@ -13,13 +13,13 @@
 | 项目 | 当前事实 | 结论 |
 | --- | --- | --- |
 | 旧端页面 | 64 个 Vue 页面 | 64/64 已进入逐页迁移台账 |
-| 新端页面 | 40 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环；其中 31 个为 `surface-only` 页面外壳 |
-| 入口状态 | `replaced=8`、`partial=17`、`surface-only=31`、`blocked-payment=7`、排除=1 | 64 个旧入口均有落点；支付/医保/回写仍关闭 |
+| 新端页面 | 40 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环；其中 29 个为 `surface-only` 页面外壳 |
+| 入口状态 | `replaced=8`、`partial=19`、`surface-only=29`、`blocked-payment=7`、排除=1 | 64 个旧入口均有落点；支付/医保/回写仍关闭 |
 | 旧服务端路由 | 195 个已挂载路由，另有 1 个未挂载路由文件 | 已纳入旧 API 盘点 |
 | 旧端接口字面量 | 87 个 | 已纳入新旧接口语义清单 |
 | 新端四个主 Tab | 原生 `tabBar` 单一声明 | 页面不重复渲染底栏 |
-| 当前小程序源码 | `77cebe54149e4ab8552229e809dca707fcd83c0d`（7 个临床内容 + 3 个外部入口 + 2 个预约 Provider 页面外壳） | 40 页，`293 pass / 0 fail / 3378 expect()` |
-| 当前 pending 运行包 | `77cebe54149e4ab8552229e809dca707fcd83c0d` | 40 页，`runtime:verify:pending` 通过；尚未发布到 live `dist`，不能作为真机完成证据 |
+| 当前小程序源码 | `e01796d9b22d92cba4cb8492835f18d0323bb5c9`（健康自测安全数值子集 + 6 个临床内容外壳 + 3 个外部入口 + 2 个预约 Provider 页面外壳） | 40 页，`297 pass / 0 fail / 3390 expect()` |
+| 当前 pending 运行包 | `e01796d9b22d92cba4cb8492835f18d0323bb5c9` | 40 页，`runtime:verify:pending` 通过；尚未发布到 live `dist`，不能作为真机完成证据 |
 | 线上服务端 | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | 与旧 Python `8001` 共存，未因本轮文档而改变 |
 
 ## 2. 本轮门禁结果

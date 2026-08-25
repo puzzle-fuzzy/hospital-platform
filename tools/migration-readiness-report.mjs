@@ -1,18 +1,18 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
-import { getLegacyPageMigrationBatch } from "../apps/miniprogram/src/services/migration-coverage.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
+import { getLegacyPageMigrationBatch } from "../apps/miniprogram/src/services/migration-coverage.ts";
 import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
 import { buildHealthKnowledgeReviewQueue } from "./health-knowledge-review-queue.mjs";
 import { auditLegacyHealthKnowledgeSourceFile } from "./health-knowledge-source-audit.mjs";
-import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
-import { auditMigrationContractIntake } from "./migration-contract-intake-catalog.mjs";
-import { auditReadOnlyDomains } from "./read-only-domain-audit.mjs";
 import {
 	FROZEN_DOMAIN_GATE_CATALOG,
 	MIGRATION_BATCH_IDS,
 } from "./migration-boundary-catalog.mjs";
+import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
+import { auditMigrationContractIntake } from "./migration-contract-intake-catalog.mjs";
+import { auditReadOnlyDomains } from "./read-only-domain-audit.mjs";
 import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -275,8 +275,13 @@ function frozenBoundaryCoverage(migrationBreadth) {
 					);
 				}
 			} else if (gate.safeSurfaceTarget) {
-				if (entry.status !== "surface-only") {
-					failures.push(`${gate.id}: 页面外壳不是 surface-only：${legacyPath}`);
+				const isSafePartial =
+					gate.safePartialPaths?.includes(legacyPath) === true;
+				const expectedStatus = isSafePartial ? "partial" : "surface-only";
+				if (entry.status !== expectedStatus) {
+					failures.push(
+						`${gate.id}: 页面落点不是 ${expectedStatus}：${legacyPath}`,
+					);
 				}
 				if (entry.featureKey !== gate.featureKey) {
 					failures.push(

@@ -15,6 +15,7 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 				path: "pagesB/health/electronic_record.vue",
 				featureKey: "medical-record",
 				status: "blocked-provider",
+				surfaceOnlyTarget: "pages/medical-record/medical-record",
 			},
 		],
 		documents: [
@@ -34,6 +35,7 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 				path: "pagesB/health/inpatient_center.vue",
 				featureKey: "inpatient-center",
 				status: "blocked-provider",
+				surfaceOnlyTarget: "pages/inpatient-center/inpatient-center",
 			},
 		],
 		documents: [
@@ -57,6 +59,7 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 				path: "pagesB/patient/doctor.vue",
 				featureKey: "doctor",
 				status: "blocked-provider",
+				surfaceOnlyTarget: "pages/my-doctor/my-doctor",
 			},
 		],
 		documents: [
@@ -77,12 +80,15 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 				featureKey: "consultation",
 				status: "blocked-external",
 				readiness: "待外部入口 contract",
+				surfaceOnlyTarget: "pages/consultation/consultation",
 			},
 			{
 				path: "pagesB/health/electronic_consultation.vue",
 				featureKey: "electronic-consultation",
 				status: "blocked-provider",
 				readiness: "待 provider contract",
+				surfaceOnlyTarget:
+					"pages/electronic-consultation/electronic-consultation",
 			},
 		],
 		documents: [

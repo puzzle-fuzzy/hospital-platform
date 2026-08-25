@@ -25,6 +25,8 @@
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
 
+当前待采集清单绑定最新 pending 运行包：[`device-evidence-e01796d-pending.json`](device-evidence-e01796d-pending.json)。九个业务域目前全部为 `pending`，不能把结构校验结果写成真机完成。
+
 候选切换前必须先释放开发者工具的 `dist` 文件锁；不能删除 live 运行包、覆盖锁定目录或把 pending 目录直接当成真机包。
 
 ## 统一业务链路

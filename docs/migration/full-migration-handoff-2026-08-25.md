@@ -1,6 +1,6 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，本轮新增 7 个临床内容、3 个外部入口和 2 个预约 Provider `surface-only` 页面外壳；旧 28 页 pending 不包含本轮新增入口，需要重新构建。当前统计为 `replaced=8 / partial=17 / surface-only=31 / blocked-payment=7 / excluded=1`；真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`；当前统计为 `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。pending 运行包已绑定最新源码但仍受微信开发者工具锁定影响，需要重新发布；真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
@@ -12,20 +12,20 @@
 
 > **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；提交 `f97f9f03` 补齐健康知识错误码的服务端、客户端和文档契约；提交 `fc70fa0b` 修正未知/过期 `feature` 进入状态页时被误归类为“医疗记录”的错误语义；提交 `7627843a` 补齐状态页的迁移阶段，提交 `cd26a01` 补齐旧入口、业务域和下一步准入展示。以上候选均保留作历史追溯；当时 pending 小程序运行包为 `7f7a7a18`（20 页），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
 
-> **当前仓库事实（2026-08-26）**：本轮小程序功能候选为 `77cebe5`，当前小程序运行输入/pending 来源为 `77cebe54149e4ab8552229e809dca707fcd83c0d`；该运行输入包含前序业务候选、全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、7 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳、共享 Tab、统一页面滚动边界、全局资料授权边界、owner 回调保护和协议静态页。微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
+> **当前仓库事实（2026-08-26）**：本轮小程序功能候选为 `e01796d`，当前小程序运行输入/pending 来源为 `e01796d9b22d92cba4cb8492835f18d0323bb5c9`；该运行输入包含前序业务候选、全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、健康自测安全数值子集、6 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳、共享 Tab、统一页面滚动边界、全局资料授权边界、owner 回调保护和协议静态页。微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
 
 ## 1. 当前真实基线
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 功能候选代码基线 | `77cebe5`（跨域页面外壳与迁移边界） |
-| 当前功能基线 | `77cebe5`（文档更新不改变 live `dist`） |
-| 小程序业务代码候选 | 功能提交 `77cebe5`；运行来源 `77cebe54149e4ab8552229e809dca707fcd83c0d` |
-| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=77cebe54149e4ab8552229e809dca707fcd83c0d` |
+| 功能候选代码基线 | `e01796d`（健康自测安全数值子集与迁移边界） |
+| 当前功能基线 | `e01796d`（文档更新不改变 live `dist`） |
+| 小程序业务代码候选 | 功能提交 `e01796d`；运行来源 `e01796d9b22d92cba4cb8492835f18d0323bb5c9` |
+| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=e01796d9b22d92cba4cb8492835f18d0323bb5c9` |
 | 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
-| pending 页面数 | 待本轮 40 页候选构建；旧 pending 不包含新增入口 |
-| 小程序回归 | 本轮测试和入口分发审计待最终构建后记录；当前源码静态门禁已通过 |
-| pending 静态验证 | 待本轮构建后重新执行 `runtime:verify:pending`；发布到 live `dist` 仍等待释放微信工具锁 |
+| pending 页面数 | 40 个；`runtime:verify:pending` 已通过 |
+| 小程序回归 | `297 pass / 0 fail / 3390 expect()`；入口分发审计通过 |
+| pending 静态验证 | `runtime:verify:pending` 已通过；发布到 live `dist` 仍等待释放微信工具锁 |
 | 当前 live `dist` | 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
 | 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
@@ -56,7 +56,7 @@ pnpm migration:audit
 pnpm migration:boundary:audit
 ```
 
-除 31 个 `surface-only` 外壳外，剩余支付/医保/结算入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；这些外壳只展示页面边界和关闭态，不读取 Provider、不打开外部地址。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
+除 29 个 `surface-only` 外壳外，剩余支付/医保/结算入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；这些外壳只展示页面边界和关闭态，不读取 Provider、不打开外部地址。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成；健康自测的 BMI/血压安全数值子集已单独进入 `partial`。
 
 首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 40 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法或共享页面工厂中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
 

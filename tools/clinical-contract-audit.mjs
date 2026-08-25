@@ -201,12 +201,19 @@ export async function buildClinicalContractAudit(root = repositoryRoot) {
 				domainFailures.push(`未登记旧页面：${expected.path}`);
 				continue;
 			}
-			if (entry.status !== expected.status) {
+			const isExpectedBlockedEntry = entry.status === expected.status;
+			const isDeclaredSurfaceOnlyEntry =
+				entry.status === "surface-only" &&
+				expected.surfaceOnlyTarget === entry.nativeTarget;
+			if (!isExpectedBlockedEntry && !isDeclaredSurfaceOnlyEntry) {
 				domainFailures.push(
-					`${expected.path} 状态漂移：期望 ${expected.status}，实际 ${entry.status}`,
+					`${expected.path} 状态漂移：期望 ${expected.status} 或声明的 surface-only 外壳，实际 ${entry.status}`,
 				);
 			}
-			if (entry.nativeTarget !== "pages/feature-status/feature-status") {
+			if (
+				!isDeclaredSurfaceOnlyEntry &&
+				entry.nativeTarget !== "pages/feature-status/feature-status"
+			) {
 				domainFailures.push(
 					`${expected.path} 越过状态页进入了未确认业务页：${entry.nativeTarget}`,
 				);

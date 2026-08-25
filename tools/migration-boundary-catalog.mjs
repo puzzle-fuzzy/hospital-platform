@@ -417,6 +417,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/self_test_result.vue",
 		],
 		safeSurfaceTarget: "pages/health-test/health-test",
+		// 这里只允许不产生临床结论的本地数值工具进入 partial；题库、
+		// 阈值、风险分级和结果写入仍必须按整域 contract 继续关闭。
+		safePartialPaths: [
+			"pagesB/health/blood_pressure_calc.vue",
+			"pagesB/health/bmi_calc.vue",
+		],
 		requiredMaterials: [
 			"question-bank-version",
 			"threshold-version",

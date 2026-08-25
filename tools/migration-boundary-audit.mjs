@@ -1,9 +1,9 @@
 import { fileURLToPath } from "node:url";
-import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
 import {
 	FROZEN_DOMAIN_GATE_CATALOG,
 	MIGRATION_BATCH_IDS,
 } from "./migration-boundary-catalog.mjs";
+import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
 
 /**
  * 广度迁移边界审计。
@@ -180,11 +180,15 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			continue;
 		}
 		// 页面外壳已经迁移，但真实读取仍关闭。它必须明确标记为
-		// surface-only，不能混入 replaced，也不能继续伪装成状态页遗漏。
+		// surface-only；只有 gate 显式列出的安全子集才允许是 partial，
+		// 不能因为同一页面还存在未确认能力就整体宣称已完成。
 		if (gate.safeSurfaceTarget) {
-			if (entry.status !== "surface-only") {
+			const isSafePartial =
+				gate.safePartialPaths?.includes(legacyPath) === true;
+			const expectedStatus = isSafePartial ? "partial" : "surface-only";
+			if (entry.status !== expectedStatus) {
 				fail(
-					`${gate.name} 的 ${legacyPath} 页面外壳落点必须是 surface-only，实际 ${entry.status}`,
+					`${gate.name} 的 ${legacyPath} 页面落点必须是 ${expectedStatus}，实际 ${entry.status}`,
 				);
 			}
 			if (entry.featureKey !== gate.featureKey) {
@@ -322,7 +326,7 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 	const targetDescription = gate.safeReadOnlyTarget
 		? `${gate.safeReadOnlyTarget}（静态只读已迁移，真实 contract 仍关闭）`
 		: gate.safeSurfaceTarget
-			? `${gate.safeSurfaceTarget}（页面外壳已迁移，真实 contract 仍关闭）`
+			? `${gate.safeSurfaceTarget}（页面外壳/安全子集已迁移，真实 contract 仍关闭）`
 			: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
 	console.log(
 		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${targetDescription}`,
