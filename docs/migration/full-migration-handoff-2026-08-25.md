@@ -1,12 +1,12 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；当前统计为 `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。最新小程序 pending 运行包来源为 `de9c5b996c6735ced9684bce72e493834fe9325e`，但仍受微信开发者工具锁定影响，需要重新发布；本轮补齐公共日期窗口输入边界，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；当前统计为 `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。40 页业务候选仍为 `de9c5b996c6735ced9684bce72e493834fe9325e`，最新 pending 运行包因根 `package.json` 属于运行输入而刷新为 `e1adbf7af682a3dbc58a7616196af4b66871aabd`，但仍受微信开发者工具锁定影响，需要重新发布；本轮补齐公共日期窗口输入边界，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
-> **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；当前 `de9c5b99` 的 40 页 pending 运行包已经生成并通过静态校验，页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并补齐公共日期窗口边界，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。发布仍须先处理微信开发者工具对 live `dist` 的锁定，不能把旧 pending 或旧 live 包写成新候选真机证据。当前候选证据见 [`../release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md`](../release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md)。
+> **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；40 页业务候选仍为 `de9c5b99`，pending 运行包来源已刷新为 `e1adbf7` 并通过静态校验，页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并补齐公共日期窗口边界，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。发布仍须先处理微信开发者工具对 live `dist` 的锁定，不能把旧 pending 或旧 live 包写成新候选真机证据。当前候选证据见 [`../release/candidate-e1adbf7-miniprogram-runtime-2026-08-26.md`](../release/candidate-e1adbf7-miniprogram-runtime-2026-08-26.md)。
 
 > **广度复核补充（2026-08-26）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁通过。`pnpm check` 当前仅在发布基线阶段因线上 `8eb51b5f` 落后于本地运行时代码而 fail-closed，其中包含另一会话维护的众阳预约适配器；这不是业务测试失败，也不能通过忽略差异代替完整发布。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
 
@@ -20,8 +20,8 @@
 | --- | --- |
 | 功能候选代码基线 | `de9c5b99`（公共日期窗口边界与既有迁移边界） |
 | 当前功能基线 | `de9c5b99`（文档更新不改变 live `dist`） |
-| 小程序业务代码候选 | 功能提交 `de9c5b99`；运行来源 `de9c5b996c6735ced9684bce72e493834fe9325e` |
-| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=de9c5b996c6735ced9684bce72e493834fe9325e` |
+| 小程序业务代码候选 | 功能提交 `de9c5b99`；运行来源刷新提交 `e1adbf7` |
+| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=e1adbf7af682a3dbc58a7616196af4b66871aabd` |
 | 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
 | pending 页面数 | 40 个；`runtime:verify:pending` 已通过 |
 | 小程序回归 | `309 pass / 0 fail / 3522 expect()`；入口分发审计通过 |

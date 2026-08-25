@@ -18,6 +18,9 @@
 | 真机证据清单 | [`device-evidence-de9c5b99-pending.json`](device-evidence-de9c5b99-pending.json)，9 个域均为 `pending` |
 | 线上服务 | 未修改；旧 Python `8001` 继续共存 |
 
+安全发布的逐步操作、`EBUSY` 保留策略和发布后取证顺序见
+[`pending-runtime-publication-runbook-2026-08-26.md`](pending-runtime-publication-runbook-2026-08-26.md)。
+
 ## 本候选新增的跨业务修正
 
 - 预约、爽约、报告和就诊摘要共用的日期窗口拒绝 `Invalid Date`、无穷大、负数和非整数天数；

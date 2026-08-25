@@ -1,9 +1,9 @@
-> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序源码已注册 40 个页面，源码最新提交为 `de9c5b99`，本地回归为 `309 pass / 0 fail / 3522 expect()`。微信 pending 运行包来源已更新为 `de9c5b996c6735ced9684bce72e493834fe9325e`，已通过 40 页运行包校验并包含本轮日期窗口边界修正；微信开发者工具仍占用 live `dist`，真实真机业务证据仍待采集。29 个页面外壳及支付/医保入口仍保持关闭，健康自测仅开放安全数值子集，今日预约摘要已补齐但实时叫号仍关闭。本轮继续横向迁移，不伪造临床 Provider、物流、采血号源或公开记录数据。
-> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e`、前一 pending `ad7bd1f` 和当前 pending `de9c5b99` 不得互相替代。本文以下旧候选编号均只作历史追溯。
+> 最新事实（2026-08-26）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序业务候选仍是 `de9c5b99`，共注册 40 个页面，本地回归为 `309 pass / 0 fail / 3522 expect()`。因根 `package.json` 属于运行输入，pending 运行包已重新生成，来源指纹为 `e1adbf7af682a3dbc58a7616196af4b66871aabd`，已通过 40 页运行包校验；微信开发者工具仍占用 live `dist`，真实真机业务证据仍待采集。29 个页面外壳及支付/医保入口仍保持关闭，健康自测仅开放安全数值子集，今日预约摘要已补齐但实时叫号仍关闭。本轮继续横向迁移，不伪造临床 Provider、物流、采血号源或公开记录数据。
+> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e`、前一 pending `ad7bd1f`、业务候选 `de9c5b99` 和当前运行包来源 `e1adbf7` 不得互相替代。本文以下旧候选编号均只作历史追溯。
 
 > **本轮最新修正**：在全量入口覆盖基础上新增 BMI/血压安全数值子集，并保留临床内容、外部入口和预约 Provider 的关闭态页面外壳。它们只展示真实边界、必要的患者选择入口和关闭态，不读取 Provider、不生成假数据。当前运行包事实以本页顶部和 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md) 为准。
 
-> **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；当前源码和 pending 运行包均以 `de9c5b99` 为准。该 pending 已通过静态校验，但尚未替换被微信开发者工具锁定的 live `dist`；40 个页面仍无本轮真机证据，不能沿用旧候选清单。
+> **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；当前业务源码候选为 `de9c5b99`，pending 运行包来源为 `e1adbf7`。该 pending 已通过静态校验，但尚未替换被微信开发者工具锁定的 live `dist`；40 个页面仍无本轮真机证据，不能沿用旧候选清单。
 
 # 项目文档导航
 
@@ -21,11 +21,11 @@
 全局微信资料在跨账号、跨 bundle 授权回调下的 owner/会话代际边界，见
 [`release/global-profile-owner-race-audit-2026-08-26.md`](release/global-profile-owner-race-audit-2026-08-26.md)。
 
-> **当前全量迁移交接单（2026-08-26）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前功能候选和 pending 运行输入为 `de9c5b99`，且已通过独立静态验证；64 个旧页面均有明确落点，其中 8 个已替换、19 个安全子集、29 个页面外壳、7 个支付/回写入口仍按阻断原因关闭；健康自测仅开放 BMI/血压安全数值子集，今日预约摘要不冒充实时状态，协议正文已可读，但同意/撤回/审计仍关闭。本轮补齐公共日期窗口边界并保留患者绑定/签名页查看协议原文安全入口；本页下方历史候选只作追溯。完整候选证据见 [`release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md`](release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md)。
+> **当前全量迁移交接单（2026-08-26）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前业务功能候选为 `de9c5b99`，pending 运行输入为 `e1adbf7`，且已通过独立静态验证；64 个旧页面均有明确落点，其中 8 个已替换、19 个安全子集、29 个页面外壳、7 个支付/回写入口仍按阻断原因关闭；健康自测仅开放 BMI/血压安全数值子集，今日预约摘要不冒充实时状态，协议正文已可读，但同意/撤回/审计仍关闭。本轮补齐公共日期窗口边界并保留患者绑定/签名页查看协议原文安全入口；本页下方历史候选只作追溯。完整候选证据见 [`release/candidate-e1adbf7-miniprogram-runtime-2026-08-26.md`](release/candidate-e1adbf7-miniprogram-runtime-2026-08-26.md)。
 
-> **当前仓库交接基线（2026-08-26）**：本轮功能候选和当前 pending 运行输入为 `de9c5b996c6735ced9684bce72e493834fe9325e`。该候选已完成独立静态校验；全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
+> **当前仓库交接基线（2026-08-26）**：本轮业务候选为 `de9c5b996c6735ced9684bce72e493834fe9325e`，当前 pending 运行输入为 `e1adbf7af682a3dbc58a7616196af4b66871aabd`。该运行包已完成独立静态校验；全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
 
-> **当前 pending 运行包**：`build-info.json.sourceRevision=de9c5b996c6735ced9684bce72e493834fe9325e`，40 页、当前源码 `309 pass / 0 fail / 3522 expect()`。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，公共日期窗口边界修正和 pending 来源说明见 [`release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md`](release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md)。
+> **当前 pending 运行包**：`build-info.json.sourceRevision=e1adbf7af682a3dbc58a7616196af4b66871aabd`，40 页、当前源码 `309 pass / 0 fail / 3522 expect()`。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，运行包来源刷新和发布步骤见 [`release/candidate-e1adbf7-miniprogram-runtime-2026-08-26.md`](release/candidate-e1adbf7-miniprogram-runtime-2026-08-26.md)。
 
 > **当前运行层只读复核（2026-08-25 17:16 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；内网 `/health/ready`、`/api/v1/system/ping` 与公网 `/api/v2/health/ready`、`/api/v2/system/ping` 均为 `200`，database/redis/schema 为 `ok`。内网探针必须使用实际绑定地址，公网路径由 `/api/v2` 反向代理提供。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
