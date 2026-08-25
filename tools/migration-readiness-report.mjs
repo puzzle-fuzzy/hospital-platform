@@ -228,6 +228,118 @@ async function deviceEvidenceCoverage(root, pendingRuntime) {
 }
 
 /**
+ * 把全量迁移拆成可以并行推进的业务批次。
+ *
+ * 这部分不是“把状态页改成完成”的快捷路径，而是给后续会话一个机器可读
+ * 的执行队列：每个批次都明确当前停在哪个证据或 contract 门槛，以及在门槛
+ * 未满足时什么事情不能做。这样 readiness 既能回答“覆盖到哪里”，也能回答
+ * “下一步做什么”，避免继续围绕某一个页面重复加固。
+ */
+function breadthMigrationQueue({
+	legacy,
+	readOnly,
+	clinicalContract,
+	runtime,
+	deviceEvidence,
+}) {
+	const statusCounts = legacy.statusCounts;
+	const runtimeReady = runtime.candidateRuntimeAligned;
+	return [
+		{
+			id: "A-readonly-evidence",
+			name: "安全只读真实取证",
+			stage: deviceEvidence.passed ? "evidence-passed" : "awaiting-evidence",
+			scope: readOnly.domains.map((domain) => domain.id),
+			codeReady: readOnly.passed,
+			nextAction: runtimeReady
+				? "按九个真机域采集页面、客户端 requestId 和服务端同链日志"
+				: "先释放 dist 锁并原子发布 pending 候选，再开始九个真机域取证",
+			stopCondition:
+				"没有候选来源一致性、页面截图、客户端 requestId 和服务端同链事件时，不得宣称只读业务完成",
+		},
+		{
+			id: "B-health-content",
+			name: "健康内容发布",
+			stage: "awaiting-reviewed-bundle",
+			scope: [
+				"health-encyclopedia",
+				"health-knowledge-search",
+				"health-knowledge-detail",
+			],
+			codeReady: true,
+			nextAction:
+				"取得脱敏审核 bundle，完成 staging 导入、发布/撤回演练和真机证据",
+			stopCondition:
+				"没有内容责任人、审核元数据和撤回证据时，不开放疾病/药品内容，也不新增自测或临床结论",
+		},
+		{
+			id: "C-clinical-readonly-contracts",
+			name: "临床只读契约",
+			stage: clinicalContract.passed
+				? "awaiting-provider-confirmation"
+				: "contract-audit-failed",
+			scope: clinicalContract.domains.map((domain) => domain.id),
+			codeReady: false,
+			nextAction:
+				"分别收集请求、响应、空、拒绝、超时、owner 映射和字段白名单材料",
+			stopCondition:
+				"未确认 Provider contract 前，不注册病历、住院、医生关系或问诊通用 API",
+		},
+		{
+			id: "D-patient-and-convenience-write",
+			name: "患者与便民写入",
+			stage: "awaiting-patient-contract",
+			scope: [
+				"patient-binding",
+				"patient-agreement",
+				"patient-address",
+				"patient-signature",
+			],
+			blockedPageCount: statusCounts["blocked-patient-contract"] ?? 0,
+			codeReady: false,
+			nextAction: "冻结 owner、同意、幂等、撤回、文件安全和医护读取规则",
+			stopCondition:
+				"没有上述规则时，不新增建档、绑卡、地址、签名或问卷提交接口",
+		},
+		{
+			id: "E-external-entry",
+			name: "外部入口与实时能力",
+			stage: "awaiting-external-contract",
+			scope: [
+				"smart-customer",
+				"consultation",
+				"patient-subscription",
+				"cloud-image",
+				"report-share",
+			],
+			blockedPageCount: statusCounts["blocked-external"] ?? 0,
+			codeReady: false,
+			nextAction: "确认 allowlist、短期会话、受众、退出、回跳和撤回协议",
+			stopCondition:
+				"没有外部主体和短期会话契约时，不恢复任意 WebView、长期 ticket 或本地订阅开关",
+		},
+		{
+			id: "F-payment-and-writeback",
+			name: "支付、医保与 HIS 回写",
+			stage: "last-batch",
+			scope: [
+				"appointment-write",
+				"outpatient-payment-detail",
+				"insurance",
+				"inpatient-payment",
+				"cashier",
+			],
+			blockedPageCount: statusCounts["blocked-payment"] ?? 0,
+			codeReady: false,
+			nextAction:
+				"最后冻结金额单位、订单状态机、查单/回调、幂等、补偿和真实环境验收",
+			stopCondition:
+				"支付和医保必须与只读费用列表隔离，未完成状态机前不创建订单、不调起支付、不改旧 FSI 转发",
+		},
+	];
+}
+
+/**
  * 生成全项目迁移 readiness 报告。
  *
  * `structuralAuditPassed` 只代表台账、状态页、只读域清单和仓库文件没有
@@ -260,6 +372,13 @@ export async function buildMigrationReadinessReport(
 		providerIntake.passed &&
 		clinicalContract.passed &&
 		featureStatusRegistered;
+	const migrationQueue = breadthMigrationQueue({
+		legacy,
+		readOnly,
+		clinicalContract,
+		runtime,
+		deviceEvidence,
+	});
 
 	return {
 		schemaVersion: 1,
@@ -275,6 +394,7 @@ export async function buildMigrationReadinessReport(
 		clinicalContract,
 		runtime,
 		deviceEvidence,
+		migrationQueue,
 		businessCompletion: {
 			completedClaimableDomainCount: 0,
 			codeReadyDomainCount: readOnly.domains.filter((domain) => domain.passed)

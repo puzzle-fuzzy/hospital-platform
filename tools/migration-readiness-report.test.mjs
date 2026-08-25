@@ -26,6 +26,21 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.deviceEvidence.allPending).toBe(true);
 		expect(report.deviceEvidence.passed).toBe(false);
 		expect(report.deviceEvidence.candidateMatchesPendingRuntime).toBe(true);
+		expect(report.migrationQueue.map((batch) => batch.id)).toEqual([
+			"A-readonly-evidence",
+			"B-health-content",
+			"C-clinical-readonly-contracts",
+			"D-patient-and-convenience-write",
+			"E-external-entry",
+			"F-payment-and-writeback",
+		]);
+		expect(report.migrationQueue[0].stage).toBe("awaiting-evidence");
+		expect(report.migrationQueue[0].codeReady).toBe(true);
+		expect(report.migrationQueue[1].stage).toBe("awaiting-reviewed-bundle");
+		expect(report.migrationQueue[2].codeReady).toBe(false);
+		expect(report.migrationQueue[3].blockedPageCount).toBe(4);
+		expect(report.migrationQueue[4].blockedPageCount).toBe(10);
+		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
 		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
 		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);
 		expect(report.businessCompletion.passed).toBe(false);

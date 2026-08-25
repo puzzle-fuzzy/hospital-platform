@@ -31,6 +31,7 @@ pnpm migration:readiness -- --strict
 | `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档和 API 源码 | 门诊记录、住院、医生关系、问诊/电子导诊四域是否仍独立、未注册且没有误加通用路由 | 不会因为材料登记就自动生成临床页面或接口 |
 | `runtime` | live/pending `build-info.json` | 当前开发者工具目录和待发布候选的源码来源是否一致 | 当前微信设备一定运行了哪个版本；锁定目录时必须保留现场证据 |
 | `deviceEvidence` | `docs/release/device-evidence-296516a5-pending.json` | 当前候选的真机证据域数量、状态和候选指纹是否匹配 | `pending` 不等于失败；清单结构通过也不等于真实业务成功 |
+| `migrationQueue` | 旧页面状态、只读域、临床准入、运行包和真机证据 | A-F 六个业务批次当前停在哪个门槛、下一动作和停止条件 | 不会自动打开状态页，也不会把 contract 缺失解释成业务完成 |
 | `businessCompletion` | 固定 fail-closed 判定 | 明确当前不能声称全项目业务完成 | 不会因为页面或状态页存在就伪造完成结论 |
 
 ## 当前基线（2026-08-25）
@@ -46,6 +47,8 @@ pnpm migration:readiness -- --strict
 - 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 
 报告中的 `codeReadyDomainCount` 和 `realEvidenceReadyDomainCount` 必须分开读取：前者表示仓库结构和代码闭环通过，后者只在真机证据清单中对应域全部达到 `passed` 时增加。两者都不等于支付、医保或其它阻塞域已经开放。
+
+`migrationQueue` 固定包含六个批次：A 安全只读真实取证、B 健康内容发布、C 临床只读契约、D 患者与便民写入、E 外部入口与实时能力、F 支付/医保/HIS 回写。A、B 可以在已有代码基础上并行收集真实证据；C-E 先收集各自 contract；F 始终最后处理。队列中的 `nextAction` 和 `stopCondition` 是执行提示，不是把状态页变成业务页的授权。
 
 ## 与后续迁移的关系
 
