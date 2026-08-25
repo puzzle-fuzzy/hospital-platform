@@ -62,6 +62,7 @@ export type ExternalEntrySessionConsumeContext = {
 
 export type ExternalEntrySessionRejectionReason =
 	| "expired"
+	| "not-yet-valid"
 	| "revoked"
 	| "consumed"
 	| "owner-mismatch"
@@ -180,6 +181,20 @@ function parseTimestamp(
 	return timestamp;
 }
 
+/**
+ * 消费/撤回时间来自服务层而不是持久化对象，但仍要在领域边界校验。
+ *
+ * 如果 Invalid Date 直接进入 `getTime()`，比较结果会变成 false，随后
+ * 可能把一个无效时间当作合法消费时间，直到 `toISOString()` 才抛出不稳定
+ * 的 RangeError。这里统一转换为领域层固定错误，便于 API 和日志分类。
+ */
+function parseContextNow(now: Date): number {
+	if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+		invalid("timestamp-invalid");
+	}
+	return now.getTime();
+}
+
 function parseStatus(value: unknown): ExternalEntrySessionStatus {
 	if (value !== "issued" && value !== "consumed" && value !== "revoked") {
 		invalid("status-invalid");
@@ -244,6 +259,17 @@ export function normalizeExternalEntrySession(
 	if (status !== "revoked" && revokedAt !== undefined) {
 		invalid("revoked-at-invalid");
 	}
+	const issuedTimestamp = issuedAt;
+	if (consumedAt !== undefined) {
+		// 已消费引用必须证明消费发生在签发之后且未过期；否则一条被篡改的
+		// 终态记录可能绕过一次性和 TTL 语义。
+		if (consumedAt < issuedTimestamp || consumedAt > expiresAt) {
+			invalid("timestamp-order-invalid");
+		}
+	}
+	if (revokedAt !== undefined && revokedAt < issuedTimestamp) {
+		invalid("timestamp-order-invalid");
+	}
 
 	return {
 		sessionId: value.sessionId,
@@ -276,14 +302,24 @@ export function evaluateExternalEntrySession(
 	context: ExternalEntrySessionConsumeContext,
 ): ExternalEntrySessionDecision {
 	const session = normalizeExternalEntrySession(value);
+	const nowTimestamp = parseContextNow(context.now);
 	if (session.status === "revoked") {
 		return { allowed: false, reason: "revoked" };
 	}
 	if (session.status === "consumed") {
 		return { allowed: false, reason: "consumed" };
 	}
+	const issuedAt = parseInstant(session.issuedAt);
 	const expiresAt = parseInstant(session.expiresAt);
-	if (expiresAt === undefined || expiresAt <= context.now.getTime()) {
+	if (issuedAt === undefined || expiresAt === undefined) {
+		// `normalizeExternalEntrySession` 已经保证这里不会发生；保留防御分支，
+		// 避免未来修改归一化逻辑后把 NaN 带进有效期判断。
+		invalid("timestamp-invalid");
+	}
+	if (nowTimestamp < issuedAt) {
+		return { allowed: false, reason: "not-yet-valid" };
+	}
+	if (expiresAt <= nowTimestamp) {
 		return { allowed: false, reason: "expired" };
 	}
 	if (session.ownerUserId !== context.ownerUserId) {
@@ -328,6 +364,11 @@ export function revokeExternalEntrySession(
 	now: Date,
 ): ExternalEntrySession {
 	const session = normalizeExternalEntrySession(value);
+	const nowTimestamp = parseContextNow(now);
+	const issuedAt = parseInstant(session.issuedAt);
+	if (issuedAt === undefined || nowTimestamp < issuedAt) {
+		invalid("timestamp-order-invalid");
+	}
 	if (session.status === "consumed") {
 		throw new ExternalEntrySessionConsumeError("consumed");
 	}

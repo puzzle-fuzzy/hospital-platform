@@ -491,13 +491,16 @@ function assertItemKind(
 function validatePublication(
 	publication: HealthKnowledgeImportPublication,
 ): void {
+	// 先保留导入器的字段级时间错误，再执行公共 publication 结构校验。
+	// 如果顺序反过来，通用校验会把“不带时区”吞成笼统的 `publication`，
+	// 管理端无法准确定位 bundle 的修复位置，也会让导入审计和 API 读取的
+	// 错误语义不一致。
+	assertTimestamp(publication.reviewedAt, "publication.reviewedAt");
 	try {
 		validateHealthKnowledgePublication(publication);
 	} catch {
 		fail("publication");
 	}
-	// 基础 publication 校验只负责结构；导入还要拒绝无时区时间，保证跨环境一致。
-	assertTimestamp(publication.reviewedAt, "publication.reviewedAt");
 	if (!["draft", "published", "withdrawn"].includes(publication.status)) {
 		fail("publication.status");
 	}

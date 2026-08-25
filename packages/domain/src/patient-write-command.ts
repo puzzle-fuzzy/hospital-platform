@@ -214,6 +214,12 @@ function assertValidTransition(
 	from: PatientWriteCommandState,
 	to: PatientWriteCommandState,
 ): void {
+	// 这个函数会被仓储恢复和未来 worker 共同调用，不能只依赖调用方的
+	// TypeScript 类型。运行时传入未知状态时，必须返回统一领域校验错误，
+	// 而不是对 undefined 调用 includes 产生不可分类的 TypeError。
+	if (!isPatientWriteCommandState(from) || !isPatientWriteCommandState(to)) {
+		invalid("state-invalid");
+	}
 	if (!PATIENT_WRITE_COMMAND_TRANSITIONS[from].includes(to)) {
 		throw new InvalidPatientWriteCommandTransitionError(from, to);
 	}
@@ -335,6 +341,9 @@ export function canTransitionPatientWriteCommand(
 	from: PatientWriteCommandState,
 	to: PatientWriteCommandState,
 ): boolean {
+	if (!isPatientWriteCommandState(from) || !isPatientWriteCommandState(to)) {
+		return false;
+	}
 	return PATIENT_WRITE_COMMAND_TRANSITIONS[from].includes(to);
 }
 

@@ -30,6 +30,12 @@ test("health knowledge publication requires traceable review metadata", () => {
 	expect(() =>
 		validateHealthKnowledgePublication({
 			...publication,
+			reviewedAt: "2026-08-15T00:00:00",
+		}),
+	).toThrow(HealthKnowledgeValidationError);
+	expect(() =>
+		validateHealthKnowledgePublication({
+			...publication,
 			disclaimer: "可由内容导入覆盖的文案",
 		}),
 	).toThrow(HealthKnowledgeValidationError);

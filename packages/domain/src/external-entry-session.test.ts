@@ -82,6 +82,12 @@ test("外部会话在到期时拒绝，并且 issuedAt 到 expiresAt 不能超�
 	expect(() => normalizeExternalEntrySession(tooLong)).toThrow(
 		ExternalEntrySessionValidationError,
 	);
+
+	const beforeIssued = evaluateExternalEntrySession(
+		validSession(),
+		context({ now: new Date("2026-08-25T23:59:59.999Z") }),
+	);
+	expect(beforeIssued).toEqual({ allowed: false, reason: "not-yet-valid" });
 });
 
 test("外部会话只能成功消费一次，消费结果不修改输入对象", () => {
@@ -108,6 +114,43 @@ test("撤回会话后不能消费，已消费会话不能被撤回伪装成可�
 	expect(() => revokeExternalEntrySession(consumed, now)).toThrow(
 		ExternalEntrySessionConsumeError,
 	);
+});
+
+test("会话终态时间必须落在签发后的合法时间线上", () => {
+	expect(() =>
+		normalizeExternalEntrySession({
+			...validSession(),
+			status: "consumed",
+			consumedAt: "2026-08-25T23:59:59.000Z",
+		}),
+	).toThrow(ExternalEntrySessionValidationError);
+
+	expect(() =>
+		normalizeExternalEntrySession({
+			...validSession(),
+			status: "consumed",
+			consumedAt: "2026-08-26T00:06:00.000Z",
+		}),
+	).toThrow(ExternalEntrySessionValidationError);
+
+	expect(() =>
+		revokeExternalEntrySession(
+			validSession(),
+			new Date("2026-08-25T23:59:59.000Z"),
+		),
+	).toThrow(ExternalEntrySessionValidationError);
+});
+
+test("消费和撤回拒绝 Invalid Date，不把 NaN 当成有效时间", () => {
+	expect(() =>
+		evaluateExternalEntrySession(
+			validSession(),
+			context({ now: new Date(Number.NaN) }),
+		),
+	).toThrow(ExternalEntrySessionValidationError);
+	expect(() =>
+		revokeExternalEntrySession(validSession(), new Date(Number.NaN)),
+	).toThrow(ExternalEntrySessionValidationError);
 });
 
 test("会话材料拒绝未知字段、不带时区的时间和不完整终态", () => {

@@ -57,6 +57,16 @@ test("命令必须先经过请求态，未知结果保持 pending", () => {
 	).toThrow(InvalidPatientWriteCommandTransitionError);
 });
 
+test("公开状态函数对运行时非法状态保持稳定语义", () => {
+	expect(canTransitionPatientWriteCommand("unknown" as never, "pending")).toBe(
+		false,
+	);
+	const command = createCommand();
+	expect(() =>
+		transitionPatientWriteCommand(command, "unknown" as never, FIRST_TIME),
+	).toThrow(PatientWriteCommandValidationError);
+});
+
 test("pending 只能由最终事实推进到提交、重复或权威拒绝", () => {
 	const pending = transitionPatientWriteCommand(
 		createCommand(),
