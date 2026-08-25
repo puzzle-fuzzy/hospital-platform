@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	normalizeWechatUserProfile,
 	WechatUserProfileAuthorizationError,
+	WechatUserProfileUnavailableError,
 } from "./wechat-user-profile";
 
 describe("微信个人资料授权边界", () => {
@@ -61,5 +62,11 @@ describe("微信个人资料授权边界", () => {
 		const error = new WechatUserProfileAuthorizationError();
 		expect(error.code).toBe("wechat-profile-authorization-denied");
 		expect(error.name).toBe("WechatUserProfileAuthorizationError");
+	});
+
+	test("微信基础库缺少资料接口时不伪装成用户拒绝", () => {
+		const error = new WechatUserProfileUnavailableError();
+		expect(error.code).toBe("wechat-profile-unavailable");
+		expect(error.name).toBe("WechatUserProfileUnavailableError");
 	});
 });

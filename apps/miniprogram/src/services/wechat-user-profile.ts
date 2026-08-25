@@ -25,6 +25,16 @@ export class WechatUserProfileAuthorizationError extends Error {
 	}
 }
 
+/** 当前微信基础库不提供资料授权接口时，属于运行能力缺失，不是用户拒绝。 */
+export class WechatUserProfileUnavailableError extends Error {
+	readonly code = "wechat-profile-unavailable" as const;
+
+	constructor() {
+		super("Wechat user profile API is unavailable");
+		this.name = "WechatUserProfileUnavailableError";
+	}
+}
+
 /** 微信回调的头像地址只能作为展示输入，拒绝非 HTTPS URL，避免注入任意资源。 */
 function normalizeAvatarUrl(value: unknown): string | null {
 	if (typeof value !== "string") return null;
@@ -77,7 +87,7 @@ export function normalizeWechatUserProfile(
 export function requestWechatUserProfile(): Promise<WechatUserProfileSnapshot> {
 	return new Promise((resolve, reject) => {
 		if (typeof wx.getUserProfile !== "function") {
-			reject(new WechatUserProfileAuthorizationError());
+			reject(new WechatUserProfileUnavailableError());
 			return;
 		}
 		wx.getUserProfile({

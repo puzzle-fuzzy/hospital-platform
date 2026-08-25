@@ -39,6 +39,7 @@ import {
 	requestWechatUserProfile,
 	storeWechatUserProfile,
 	WechatUserProfileAuthorizationError,
+	WechatUserProfileUnavailableError,
 } from "../../services/wechat-user-profile";
 import type { ActionEvent, MyPageData } from "../../types";
 
@@ -441,16 +442,17 @@ Page<MyPageData, MyPageMethods>({
 			return Promise.resolve();
 		}
 		const context = myPageProfileContexts.get(this);
-		if (
-			!context ||
-			!context.profileLoaded ||
-			!isCurrentSessionGeneration(context.sessionGeneration)
-		) {
+		if (!context?.profileLoaded) {
 			this.setData({
 				wechatProfileState: "idle",
-				wechatProfileHint: context?.profileLoaded
-					? "登录状态已变化，请重新加载后再授权"
-					: "个人资料尚未加载完成，请重新加载后再授权",
+				wechatProfileHint: "个人资料尚未加载完成，请重新加载后再授权",
+			});
+			return Promise.resolve();
+		}
+		if (!isCurrentSessionGeneration(context.sessionGeneration)) {
+			this.setData({
+				wechatProfileState: "idle",
+				wechatProfileHint: "登录状态已变化，请重新加载后再授权",
 			});
 			return Promise.resolve();
 		}
@@ -488,10 +490,7 @@ Page<MyPageData, MyPageMethods>({
 						context.displayName = response.data.displayName;
 						userLabel = response.data.displayName;
 					} catch (error) {
-						if (
-							error instanceof ApiError &&
-							error.code === "session-changed"
-						) {
+						if (error instanceof ApiError && error.code === "session-changed") {
 							throw error;
 						}
 						// 不能吞掉同步失败；但也不能因为普通资料写入失败
@@ -522,6 +521,17 @@ Page<MyPageData, MyPageMethods>({
 					this.setData({
 						wechatProfileState: "declined",
 						wechatProfileHint: "未授权，可点击此处重新获取",
+					});
+					return;
+				}
+				if (error instanceof WechatUserProfileUnavailableError) {
+					this.setData({
+						wechatProfileState: "idle",
+						wechatProfileHint: "当前微信版本暂不支持资料授权，请升级后重试",
+					});
+					wx.showToast({
+						title: "当前微信版本不支持资料授权",
+						icon: "none",
 					});
 					return;
 				}
