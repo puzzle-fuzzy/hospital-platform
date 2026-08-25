@@ -1,0 +1,73 @@
+# 全量迁移当前检查点（2026-08-26）
+
+> 本文是本轮广度迁移的事实记录，不把“入口已经有落点”写成“业务已经完成”。
+> 旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话维护的众阳预约适配器不在本轮修改范围内。
+
+## 1. 当前总结果
+
+| 项目 | 当前事实 | 结论 |
+| --- | --- | --- |
+| 旧端页面 | 64 个 Vue 页面 | 64/64 已进入逐页迁移台账 |
+| 新端页面 | 21 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环 |
+| 入口状态 | `replaced=8`、`partial=17`、阻塞=38、排除=1 | 没有遗漏入口；真实业务仍未全量开放 |
+| 旧服务端路由 | 195 个已挂载路由，另有 1 个未挂载路由文件 | 已纳入旧 API 盘点 |
+| 旧端接口字面量 | 87 个 | 已纳入新旧接口语义清单 |
+| 新端四个主 Tab | 原生 `tabBar` 单一声明 | 页面不重复渲染底栏 |
+| 当前小程序候选 | `3b42b867ae19f6dd23bacd88648d1f5917dabf26` | 21 页，`293 pass / 0 fail / 3237 expect()`，仍为 pending |
+| 线上服务端 | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | 与旧 Python `8001` 共存，未因本轮文档而改变 |
+
+## 2. 本轮门禁结果
+
+以下门禁已经通过，证明的是结构、契约覆盖和代码边界：
+
+- `pnpm migration:audit`：64 个旧页面、21 个新页面、195 个旧服务端路由、87 个旧端接口字面量均有登记；
+- `pnpm migration:boundary:audit`：34 个冻结业务入口门禁通过；
+- `pnpm migration:breadth:audit`：首页/“我的”可见 action、21 个页面事件方法、四个主 Tab 和统一状态页入口通过；
+- `pnpm readonly:audit`：5 个低风险域、8 个页面、10 个公共路由和 35 个语义状态通过；
+- `pnpm migration:contract:audit`：C/D/E 三批次 24 个 FeatureKey 全部覆盖，仍正确保持 `businessReady=false`；
+- `pnpm provider:audit`、`pnpm clinical:contract:audit`、`pnpm docs:audit`、`pnpm logging:audit`：材料、临床边界、文档链接和日志注册结构通过。
+
+## 3. 全仓检查的唯一当前阻断
+
+`pnpm check` 在 `release:baseline:audit` 阶段按设计失败。失败原因不是测试失败，而是线上服务端 release 之后本地运行时代码继续变化，当前未重新部署：
+
+- `apps/api/src/app.ts`、`application.ts`、错误处理插件；
+- `packages/domain/src/external-entry-session.ts`、`knowledge.ts`、`knowledge-import.ts`、`ports.ts`；
+- `packages/persistence/src/mysql-health-knowledge-repository.ts`；
+- 另一会话维护的 `packages/adapters/src/zhongyang-appointments.ts`。
+
+这项失败必须保持 fail-closed。不能通过修改发布基线、忽略运行时代码差异或只发布部分工作树来伪造线上与本地一致。下一次服务端发布必须先取得完整工作树协调结果，并在不影响旧 Python `8001` 的前提下完成新的生产 preflight、原子切换和公网/内网 smoke。
+
+## 4. 各批次当前动作
+
+| 批次 | 当前状态 | 继续推进的内容 | 暂停内容 |
+| --- | --- | --- | --- |
+| A 安全只读 | 代码就绪，等待候选发布和真实证据 | 患者切换、预约历史/爽约、报告目录、门诊费用、普通资料统一采证 | 未拿到配套运行包前不宣称真机完成 |
+| B 健康内容 | 代码就绪，审核 bundle 缺失 | 处理 133 个源快照质量告警，等待内容责任人提供审核 bundle | 不开放疾病/药品正式内容，不新增自测和医疗结论 |
+| C 临床只读 | 4 个域均 `normalized / unregistered` | 分别收集门诊记录、住院 episode、医生关系、电子导诊材料 | 不注册通用病历/住院/医生/导诊 API，不跨域复用 `patientId` |
+| D 患者与便民写入 | 等待正式 contract | 整理 owner、同意、幂等、撤回、文件安全和医护读取要求 | 不新增建档、绑卡、地址、签名、问卷提交 |
+| E 外部入口 | 已有共用短期会话领域基础，业务仍关闭 | 收集各外部主体的 allowlist、受众、回跳、退出和撤回材料 | 不恢复任意 WebView、长期 ticket 或本地订阅开关 |
+| F 支付/医保/回写 | 最后批次 | 只做状态机、金额、查单、回调、补偿设计 | 不创建订单、不调起微信/医保支付、不修改旧 FSI 转发 |
+
+## 5. 继续执行规则
+
+1. 每个旧入口必须保持一个明确落点；统一状态页是迁移边界，不是业务完成。
+2. 已有安全子集的域先整体采证；某一个详情页的细节不能阻塞其他业务域。
+3. 缺少正式 Provider、临床、外部主体或支付材料时，停止该域实现并切换到其他可推进批次。
+4. 任何新业务域都必须经过 `contract → adapter → domain → API → 页面状态机 → 低敏日志 → 真实证据`，不能把旧接口兼容转发直接暴露给小程序。
+5. 任何发布前都必须重新通过发布基线；线上未部署的运行时代码不能作为真机或生产证据。
+
+## 6. 自动复核命令
+
+```powershell
+pnpm migration:audit
+pnpm migration:boundary:audit
+pnpm migration:breadth:audit
+pnpm migration:contract:audit
+pnpm migration:readiness
+pnpm docs:audit
+pnpm format:check
+pnpm check
+```
+
+其中 `pnpm check` 当前预期会在发布基线阶段报告“线上 release 落后于本地运行时代码”；该结果表示需要完整发布协调，不允许用门禁豁免代替部署。
