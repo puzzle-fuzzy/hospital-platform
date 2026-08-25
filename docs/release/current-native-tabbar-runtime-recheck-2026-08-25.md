@@ -23,9 +23,9 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 修正提交 | `407b80dff0bc33f575711dbb44ff8f04523d8db6` |
+| 修正提交 | `cb4027e3f889c2378f17b321f26fd4156f4d3231` |
 | 运行包目录 | `apps/miniprogram/dist/` |
-| `dist/build-info.json.sourceRevision` | `407b80dff0bc33f575711dbb44ff8f04523d8db6` |
+| `dist/build-info.json.sourceRevision` | `cb4027e3f889c2378f17b321f26fd4156f4d3231` |
 | 页面数量 | 16 |
 | TabBar | `custom=false`、`position=bottom`、四项共享路由 |
 | `dist/custom-tab-bar/` | 不存在 |
@@ -33,7 +33,7 @@
 | 小程序测试 | 本轮 240 pass、0 fail、1938 assertions |
 | 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
 | 运行包校验 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
-| 预览二维码 | 已生成 `407b80df` 临时预览二维码（仅保存在本机 `.local/device-acceptance/`，不入 Git）；真机扫码验收仍待 |
+| 预览二维码 | 已生成 `cb4027e3` 临时预览二维码（仅保存在本机 `.local/device-acceptance/`，不入 Git）；真机扫码验收仍待 |
 
 ## 真机验收
 
