@@ -21,6 +21,63 @@ const DOMAIN_LABELS = Object.freeze({
 });
 
 /**
+ * 每个真机域必须覆盖的业务场景。
+ *
+ * 这些只是脱敏场景名称，不包含患者号、卡号或响应正文。单次成功请求
+ * 不能证明空结果、会话失效、暂时故障、患者切换或版本冲突处理正确；
+ * 因此只有通过项需要提交完整场景集合，pending 清单则先保存这份待办。
+ */
+export const DOMAIN_REQUIRED_SCENARIOS = Object.freeze({
+	auth: Object.freeze(["success", "unauthorized"]),
+	patientDirectory: Object.freeze([
+		"success-non-empty",
+		"success-empty",
+		"unauthorized",
+		"temporary-failure",
+	]),
+	patientDirectorySync: Object.freeze([
+		"success",
+		"success-empty-guard",
+		"sync-conflict",
+		"temporary-failure",
+	]),
+	patientSelection: Object.freeze([
+		"initial-selection",
+		"explicit-switch",
+		"stale-selection",
+	]),
+	appointmentDirectory: Object.freeze([
+		"departments-success",
+		"schedules-success",
+		"success-empty",
+		"provider-failure",
+	]),
+	appointmentRecords: Object.freeze([
+		"success-non-empty",
+		"success-empty",
+		"unauthorized",
+		"patient-mapping-failure",
+	]),
+	missedAppointments: Object.freeze([
+		"success-non-empty",
+		"success-empty",
+		"patient-switch",
+	]),
+	outpatientPayment: Object.freeze([
+		"success-non-empty",
+		"success-empty",
+		"unauthorized",
+		"patient-mapping-failure",
+	]),
+	profileReadonlyWrite: Object.freeze([
+		"read-success",
+		"update-success",
+		"version-conflict",
+		"unauthorized",
+	]),
+});
+
+/**
  * 单请求域的公共入口白名单。
  *
  * 证据清单只保存不带查询参数的路径，避免把患者标识、日期和其它业务
@@ -119,6 +176,39 @@ function requireIsoDate(value, message) {
 	const text = requireNonEmptyString(value, message);
 	if (Number.isNaN(Date.parse(text))) throw new Error(message);
 	return text;
+}
+
+/**
+ * 校验业务场景清单。
+ * `pending` 使用 `requiredScenarios` 保存待采集清单；真实 `passed` 记录
+ * 使用 `scenarios` 保存已观察场景，并且必须覆盖该域的完整要求。场景名
+ * 是固定枚举，避免验收人员用“已测试”这种无法审计的泛化描述。
+ */
+function validateScenarioCoverage(domain, evidence, complete) {
+	const required = DOMAIN_REQUIRED_SCENARIOS[domain];
+	if (!required) throw new Error(`${domain} 缺少业务场景定义`);
+	const field = complete ? evidence.scenarios : evidence.requiredScenarios;
+	if (!Array.isArray(field) || field.length === 0) {
+		throw new Error(
+			`${domain}.${complete ? "scenarios" : "requiredScenarios"} 必须是非空数组`,
+		);
+	}
+	if (
+		field.some(
+			(scenario) => typeof scenario !== "string" || scenario.length === 0,
+		)
+	) {
+		throw new Error(`${domain} 的业务场景名称必须是非空字符串`);
+	}
+	const scenarios = new Set(field);
+	for (const scenario of required) {
+		if (!scenarios.has(scenario)) {
+			throw new Error(
+				`${domain}.${complete ? "scenarios" : "requiredScenarios"} 缺少 ${scenario}`,
+			);
+		}
+	}
+	return complete ? [...scenarios] : required;
 }
 
 /**
@@ -453,6 +543,7 @@ function validateAppointmentDirectoryServerEvidence(server, domain) {
 }
 
 function validatePassedAppointmentDirectoryDomain(domain, evidence) {
+	const scenarios = validateScenarioCoverage(domain, evidence, true);
 	const page = validatePageEvidence(evidence.page, domain);
 	const client = validateAppointmentDirectoryClientEvidence(
 		evidence.client,
@@ -478,10 +569,11 @@ function validatePassedAppointmentDirectoryDomain(domain, evidence) {
 			);
 		}
 	}
-	return { result: "passed", page, client, server };
+	return { result: "passed", scenarios, page, client, server };
 }
 
 function validateFailedAppointmentDirectoryDomain(domain, evidence) {
+	const scenarios = validateScenarioCoverage(domain, evidence, false);
 	validatePageEvidence(evidence.page, domain);
 	const client = validateAppointmentDirectoryClientEvidence(
 		evidence.client,
@@ -505,6 +597,7 @@ function validateFailedAppointmentDirectoryDomain(domain, evidence) {
 	}
 	return {
 		result: "failed",
+		scenarios,
 		pageObserved: true,
 		departmentsStatusCode: client.departments.statusCode,
 		schedulesStatusCode: client.schedules.statusCode,
@@ -512,6 +605,7 @@ function validateFailedAppointmentDirectoryDomain(domain, evidence) {
 }
 
 function validatePassedProfileDomain(domain, evidence) {
+	const scenarios = validateScenarioCoverage(domain, evidence, true);
 	const page = validatePageEvidence(evidence.page, domain);
 	const client = validateProfileClientEvidence(evidence.client, domain);
 	const server = validateProfileServerEvidence(evidence.server, domain);
@@ -533,6 +627,7 @@ function validatePassedProfileDomain(domain, evidence) {
 	}
 	return {
 		result: "passed",
+		scenarios,
 		page,
 		client,
 		server,
@@ -540,6 +635,7 @@ function validatePassedProfileDomain(domain, evidence) {
 }
 
 function validateFailedProfileDomain(domain, evidence) {
+	const scenarios = validateScenarioCoverage(domain, evidence, false);
 	validatePageEvidence(evidence.page, domain);
 	const client = validateProfileClientEvidence(evidence.client, domain, false);
 	const { read, update } = client;
@@ -558,6 +654,7 @@ function validateFailedProfileDomain(domain, evidence) {
 	}
 	return {
 		result: "failed",
+		scenarios,
 		pageObserved: true,
 		readStatusCode: read.statusCode,
 		updateStatusCode: update.statusCode,
@@ -588,6 +685,7 @@ function validateDomainClientEvidence(client, domain, requireSuccess) {
 }
 
 function validatePassedDomain(domain, evidence) {
+	const scenarios = validateScenarioCoverage(domain, evidence, true);
 	const page = validatePageEvidence(evidence.page, domain);
 	const client = validateDomainClientEvidence(evidence.client, domain, true);
 	const server = validateServerEvidence(
@@ -609,10 +707,11 @@ function validatePassedDomain(domain, evidence) {
 			`${domain} 缺少同链 requested/succeeded/http2xx 或存在失败事件`,
 		);
 	}
-	return { result: "passed", page, statusCode: client.statusCode };
+	return { result: "passed", scenarios, page, statusCode: client.statusCode };
 }
 
 function validateFailedDomain(domain, evidence) {
+	const scenarios = validateScenarioCoverage(domain, evidence, false);
 	validatePageEvidence(evidence.page, domain);
 	const client = validateDomainClientEvidence(evidence.client, domain, false);
 	const server = validateServerEvidence(
@@ -631,6 +730,7 @@ function validateFailedDomain(domain, evidence) {
 	}
 	return {
 		result: "failed",
+		scenarios,
 		pageObserved: true,
 		statusCode: client.statusCode,
 	};
@@ -664,10 +764,16 @@ export function auditDeviceEvidence(manifest, expectedCandidate) {
 				evidence.reason,
 				`${domain}.reason 缺失`,
 			);
+			const requiredScenarios = validateScenarioCoverage(
+				domain,
+				evidence,
+				false,
+			);
 			results[domain] = {
 				label: DOMAIN_LABELS[domain],
 				result,
 				reasonRecorded: reason.length > 0,
+				requiredScenarios,
 			};
 			continue;
 		}

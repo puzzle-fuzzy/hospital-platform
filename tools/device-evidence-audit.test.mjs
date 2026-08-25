@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	auditDeviceEvidence,
+	DOMAIN_REQUIRED_SCENARIOS,
 	isPendingDeviceEvidenceManifest,
 } from "./device-evidence-audit.mjs";
 
@@ -26,7 +27,11 @@ function pendingDomains() {
 	return Object.fromEntries(
 		domainNames.map((domain) => [
 			domain,
-			{ result: "pending", reason: "等待当前候选真机操作" },
+			{
+				result: "pending",
+				reason: "等待当前候选真机操作",
+				requiredScenarios: [...DOMAIN_REQUIRED_SCENARIOS[domain]],
+			},
 		]),
 	);
 }
@@ -64,6 +69,7 @@ function passedEvidence(domain = "auth") {
 	const request = singleRequestPaths[domain];
 	return {
 		result: "passed",
+		scenarios: [...DOMAIN_REQUIRED_SCENARIOS[domain]],
 		page: {
 			observedAt: "2026-08-21T08:00:00+08:00",
 			screenshot: true,
@@ -100,6 +106,7 @@ function profilePassedEvidence() {
 	});
 	return {
 		result: "passed",
+		scenarios: [...DOMAIN_REQUIRED_SCENARIOS.profileReadonlyWrite],
 		page: {
 			observedAt: "2026-08-21T08:00:00+08:00",
 			screenshot: true,
@@ -145,6 +152,7 @@ function appointmentDirectoryPassedEvidence() {
 	});
 	return {
 		result: "passed",
+		scenarios: [...DOMAIN_REQUIRED_SCENARIOS.appointmentDirectory],
 		page: {
 			observedAt: "2026-08-21T08:00:00+08:00",
 			screenshot: true,
@@ -219,6 +227,9 @@ describe("device evidence audit", () => {
 		const failedManifest = completeManifest();
 		failedManifest.domains.profileReadonlyWrite = profilePassedEvidence();
 		failedManifest.domains.profileReadonlyWrite.result = "failed";
+		failedManifest.domains.profileReadonlyWrite.requiredScenarios = [
+			...DOMAIN_REQUIRED_SCENARIOS.profileReadonlyWrite,
+		];
 		failedManifest.domains.profileReadonlyWrite.client.update.method = "GET";
 		expect(() => auditDeviceEvidence(failedManifest)).toThrow(
 			"method 必须是 PUT",
@@ -261,6 +272,9 @@ describe("device evidence audit", () => {
 		failedManifest.domains.appointmentDirectory =
 			appointmentDirectoryPassedEvidence();
 		failedManifest.domains.appointmentDirectory.result = "failed";
+		failedManifest.domains.appointmentDirectory.requiredScenarios = [
+			...DOMAIN_REQUIRED_SCENARIOS.appointmentDirectory,
+		];
 		failedManifest.domains.appointmentDirectory.client.schedules.statusCode = 503;
 		const failedResult = auditDeviceEvidence(failedManifest);
 		expect(failedResult.domains.appointmentDirectory.result).toBe("failed");
@@ -399,5 +413,22 @@ describe("device evidence audit", () => {
 		manifest.domains.auth = passedEvidence();
 		manifest.domains.auth.client.path = "/auth/wechat";
 		expect(() => auditDeviceEvidence(manifest)).toThrow("公共 /api/v2 路径");
+	});
+
+	test("通过项必须覆盖该业务域的全部固定场景", () => {
+		const manifest = completeManifest();
+		manifest.domains.auth = passedEvidence();
+		manifest.domains.auth.scenarios = ["success"];
+		expect(() => auditDeviceEvidence(manifest)).toThrow(
+			"auth.scenarios 缺少 unauthorized",
+		);
+	});
+
+	test("pending 项必须保留可执行的固定场景待办", () => {
+		const manifest = completeManifest();
+		manifest.domains.patientDirectory.requiredScenarios = ["success-non-empty"];
+		expect(() => auditDeviceEvidence(manifest)).toThrow(
+			"patientDirectory.requiredScenarios 缺少 success-empty",
+		);
 	});
 });
