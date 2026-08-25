@@ -12,6 +12,7 @@ import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import { toLaboratoryReportItemView } from "../../services/report-presenter";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import { getSessionGeneration } from "../../services/session-generation";
@@ -173,15 +174,15 @@ Page<ReportDetailPageData, ReportDetailPageMethods>({
 	},
 
 	onDownloadCloudImage() {
-		wx.showToast({ title: "云影像功能迁移中", icon: "none" });
+		navigateToFeatureStatus("report-cloud-image");
 	},
 
 	onShareReport() {
-		wx.showToast({ title: "分享功能迁移中", icon: "none" });
+		navigateToFeatureStatus("report-share");
 	},
 
 	onGotoConsultation() {
-		wx.showToast({ title: "复诊功能迁移中", icon: "none" });
+		navigateToFeatureStatus("report-follow-up");
 	},
 
 	showError(error: unknown): void {

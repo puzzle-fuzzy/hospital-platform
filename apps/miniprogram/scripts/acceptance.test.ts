@@ -1320,6 +1320,16 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(featureNavigation).toContain("医保电子凭证需要独立授权");
 	expect(featureNavigation).toContain("FEATURE_STATUS_CATALOG");
 	expect(featureNavigation).toContain("encodeURIComponent(feature)");
+	for (const feature of [
+		'"appointment-detail"',
+		'"appointment-write"',
+		'"pre-visit"',
+		'"report-cloud-image"',
+		'"report-follow-up"',
+		'"report-share"',
+	] as const) {
+		expect(featureNavigation).toContain(feature);
+	}
 	expect(profile).toContain("waitForGlobalUserProfile");
 	expect(profile).toContain("applyServerUserProfile");
 	expect(profile).toContain("updateUserProfile");
@@ -1907,7 +1917,7 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).not.toContain('data-index="{{index}}"');
 	expect(records).toContain("findVisibleRecord");
 	expect(records).toContain("requestToken),");
-	expect(records).toContain("挂号详情暂未开放");
+	expect(records).toContain('navigateToFeatureStatus("appointment-detail")');
 	// 我的挂号必须保留旧端的患者/院区选择区、状态标签和卡片操作位置。
 	expect(recordsTemplate).toContain("当前院区");
 	// 旧端院区行有右侧箭头和底部选择面板；新端只展示一个受控院区，
@@ -1955,7 +1965,7 @@ test("native mini program exposes read-only appointment directory and records pa
 		"/assets/legacy-home/empty-services.png",
 	);
 	expect(records).toContain("filterAppointmentRecords");
-	expect(records).toContain("预问诊功能正在迁移中");
+	expect(records).toContain('navigateToFeatureStatus("pre-visit")');
 	// 预约写入、provider 患者标识和支付字段均不得进入小程序页面。
 	expect(directory).not.toContain("providerPatientId");
 	expect(records).not.toContain("providerPatientId");
@@ -2792,6 +2802,38 @@ test("native homepage uses the same verified session state for every business en
 	]) {
 		expect(home).toContain(url);
 	}
+});
+
+test("native secondary actions use fixed migration routes instead of dead toasts", async () => {
+	const appointmentDirectory = await source(
+		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const appointmentRecords = await source(
+		"pages/appointment-records/appointment-records.ts",
+	);
+	const reportDetail = await source("pages/report-detail/report-detail.ts");
+
+	expect(appointmentDirectory).toContain(
+		'navigateToFeatureStatus("appointment-write")',
+	);
+	expect(appointmentRecords).toContain(
+		'navigateToFeatureStatus("appointment-detail")',
+	);
+	expect(appointmentRecords).toContain('navigateToFeatureStatus("pre-visit")');
+	expect(reportDetail).toContain(
+		'navigateToFeatureStatus("report-cloud-image")',
+	);
+	expect(reportDetail).toContain('navigateToFeatureStatus("report-share")');
+	expect(reportDetail).toContain('navigateToFeatureStatus("report-follow-up")');
+
+	// 迁移边界的反馈必须能进入稳定页面，不能因为 Toast 消失而让用户
+	// 误以为点击没有生效；真实 contract 完成前仍不允许创建业务数据。
+	expect(appointmentDirectory).not.toContain("预约下单功能迁移中");
+	expect(appointmentRecords).not.toContain("挂号详情暂未开放");
+	expect(appointmentRecords).not.toContain("预问诊功能正在迁移中");
+	expect(reportDetail).not.toContain("云影像功能迁移中");
+	expect(reportDetail).not.toContain("分享功能迁移中");
+	expect(reportDetail).not.toContain("复诊功能迁移中");
 });
 
 test("native patient center does not mislabel reports as outpatient medical records", async () => {

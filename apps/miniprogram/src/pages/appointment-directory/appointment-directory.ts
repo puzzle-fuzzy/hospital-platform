@@ -7,6 +7,7 @@ import {
 	loadAppointmentDepartments,
 	loadAppointmentSchedules,
 } from "../../services/dashboard-service";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -253,9 +254,9 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		});
 	},
 
-	/** 预约写入契约尚未开放，先保留号源点击反馈，不伪造预约成功。 */
+	/** 预约写入契约尚未开放，统一进入状态页，不伪造预约成功。 */
 	onScheduleTap(): void {
-		wx.showToast({ title: "预约下单功能迁移中", icon: "none" });
+		navigateToFeatureStatus("appointment-write");
 	},
 
 	onPullDownRefresh(): void {

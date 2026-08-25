@@ -9,6 +9,7 @@ import {
 	loadAppointmentRecords,
 	loadCurrentPatientForOwner,
 } from "../../services/dashboard-service";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -397,7 +398,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/**
 	 * 旧端卡片点击会打开挂号详情；新 contract 没有稳定的详情引用，
-	 * 所以这里必须给出明确的迁移状态，不能把 WXML 的列表索引拼成详情 URL。
+	 * 所以这里必须进入固定迁移状态页，不能把 WXML 的列表索引拼成详情 URL。
 	 */
 	onRecordTap(event: ViewKeyEvent): void {
 		if (!this.isPatientContextCurrent()) return;
@@ -406,7 +407,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			event.currentTarget?.dataset?.viewKey,
 		);
 		if (!record) return;
-		wx.showToast({ title: "挂号详情暂未开放", icon: "none" });
+		navigateToFeatureStatus("appointment-detail");
 	},
 
 	/** 操作按钮只执行自身动作，不能继续冒泡触发卡片详情提示。 */
@@ -414,7 +415,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		// `catchtap` 已经完成阻止冒泡；保留方法让 WXML 的交互边界可审计。
 	},
 
-	/** 旧端预问诊目标页尚未完成独立 contract，保留入口位置但不伪造跳转。 */
+	/** 旧端预问诊目标页尚未完成独立 contract，统一进入状态页。 */
 	onPreVisit(event: ViewKeyEvent): void {
 		if (!this.isPatientContextCurrent()) return;
 		if (
@@ -424,7 +425,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			)
 		)
 			return;
-		wx.showToast({ title: "预问诊功能正在迁移中", icon: "none" });
+		navigateToFeatureStatus("pre-visit");
 	},
 
 	/**

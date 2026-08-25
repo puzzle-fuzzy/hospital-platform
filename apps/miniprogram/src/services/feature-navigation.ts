@@ -7,6 +7,8 @@
  */
 export type FeatureKey =
 	| "admission-preconsultation"
+	| "appointment-detail"
+	| "appointment-write"
 	| "companion"
 	| "consultation"
 	| "discharge-followup"
@@ -21,6 +23,10 @@ export type FeatureKey =
 	| "inpatient-payment"
 	| "insurance"
 	| "medical-record"
+	| "pre-visit"
+	| "report-cloud-image"
+	| "report-follow-up"
+	| "report-share"
 	| "risk-evaluation"
 	| "smart-customer";
 
@@ -47,6 +53,18 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		description: "问卷版本和提交接口正在迁移中，当前不会提交医疗问诊数据。",
 		contractHint: "等待版本化问卷、患者授权、幂等提交和医护端读取规则确认。",
 		icon: "/assets/legacy-home/service-admission.svg",
+	},
+	"appointment-detail": {
+		title: "挂号详情",
+		description: "挂号详情正在迁移中，当前不会展示未经引用校验的预约明细。",
+		contractHint: "等待挂号详情引用、患者归属、状态映射和敏感字段白名单确认。",
+		icon: "/assets/legacy-user/appointment-status.svg",
+	},
+	"appointment-write": {
+		title: "预约下单",
+		description: "预约下单正在迁移中，当前不会锁号、创建预约或发起支付。",
+		contractHint: "等待锁号、幂等、取消、费用、支付前置和 HIS 回写规则确认。",
+		icon: "/assets/legacy-home/service-registration.svg",
 	},
 	companion: {
 		title: "陪诊服务",
@@ -132,6 +150,32 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		description: "门诊病历正在迁移中，当前不会把报告或旧缓存冒充病历正文。",
 		contractHint: "等待 HIS/EMR 只读资源、患者归属、脱敏字段和详情授权确认。",
 		icon: "/assets/legacy-user/medical-record.svg",
+	},
+	"pre-visit": {
+		title: "预约前预问诊",
+		description: "预问诊正在迁移中，当前不会提交或覆盖问诊答案。",
+		contractHint:
+			"等待问卷版本、患者授权、提交幂等、撤回和医护端读取规则确认。",
+		icon: "/assets/legacy-home/service-admission.svg",
+	},
+	"report-cloud-image": {
+		title: "云影像",
+		description: "云影像正在迁移中，当前不会向第三方地址传递报告或患者标识。",
+		contractHint: "等待影像受众、短期授权、资源范围、过期和审计规则确认。",
+		icon: "/assets/legacy-home/report-cloud.svg",
+	},
+	"report-follow-up": {
+		title: "报告复诊",
+		description: "报告复诊入口正在迁移中，当前不会根据报告自动创建就诊或预约。",
+		contractHint: "等待复诊目标、患者上下文、预约关系和医疗责任边界确认。",
+		icon: "/assets/legacy-home/report-tab.svg",
+	},
+	"report-share": {
+		title: "报告分享",
+		description: "报告分享正在迁移中，当前不会生成可外传的临床报告链接。",
+		contractHint:
+			"等待分享受众、脱敏字段、有效期、防重放、撤销和访问审计确认。",
+		icon: "/assets/legacy-home/report-share.svg",
 	},
 	"risk-evaluation": {
 		title: "风险自评",
