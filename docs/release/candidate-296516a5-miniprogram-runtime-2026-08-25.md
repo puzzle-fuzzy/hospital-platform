@@ -59,3 +59,27 @@ apps/miniprogram/dist is locked by WeChat DevTools
 - Provider、数据库、Redis、日志链或支付/医保业务已验收。
 
 本次没有修改旧 Python 项目、旧服务、旧数据库、Redis 或线上运行进程。
+
+## 2026-08-25 再次发布尝试
+
+本轮按既定命令再次执行：
+
+```text
+pnpm --filter @hospital/miniprogram runtime:publish-pending
+```
+
+发布器在原子替换前尝试把旧 `dist` 重命名为备份目录时收到更具体的 Windows 锁定错误：
+
+```text
+EBUSY: resource busy or locked, rename
+apps/miniprogram/dist -> apps/.hospital-miniprogram-backup-*
+```
+
+失败后的只读核对结果：
+
+- `apps/miniprogram/dist/build-info.json.sourceRevision` 仍为旧运行包来源 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；
+- `.local/hospital-miniprogram/pending/build-info.json` 仍为 `296516a5f255c563ec5eac40f2a3439632b143b8`；
+- 没有发现残留的发布备份目录；
+- 旧 `dist` 没有被删除、清空或半替换。
+
+因此本次仍不能执行 `runtime:verify` 通过，也不能打开旧运行包生成的二维码作为新候选证据。关闭微信开发者工具及真机调试会话后，仍需从 `runtime:publish-pending` 重新开始。
