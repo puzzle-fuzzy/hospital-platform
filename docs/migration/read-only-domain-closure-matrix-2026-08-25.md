@@ -11,7 +11,7 @@
 机器清单位于 [`tools/read-only-domain-catalog.mjs`](../../tools/read-only-domain-catalog.mjs)，审计器位于 [`tools/read-only-domain-audit.mjs`](../../tools/read-only-domain-audit.mjs)。每个域必须同时具备：
 
 1. 原生小程序已注册页面及四类页面源文件；
-2. 对外 `/api/v2` 路由文档和 Elysia 实际路由 token；
+2. 对外 `/api/v2` 路由文档和 Elysia 实际路由 token；同一页面实际使用的同步命令也必须登记，不能只登记列表 GET；
 3. API module、service、domain、适配器（无 Provider 的普通资料除外）；
 4. 低敏日志事件在 [`docs/logging.md`](../logging.md) 有说明；
 5. 至少一份迁移契约和一份当前正确性/验收边界文档。
@@ -20,11 +20,11 @@
 
 | 业务域 | 页面入口 | 只读 API | 当前边界 |
 | --- | --- | --- | --- |
-| 就诊人目录 | 选择就诊人 | `GET /api/v2/patients` | owner-scoped 脱敏目录；新增绑定和实名关系关闭 |
+| 就诊人目录 | 选择就诊人 | `POST /api/v2/patients/sync`、`GET /api/v2/patients` | owner-scoped 同步和脱敏目录；新增绑定和实名关系关闭 |
 | 预约目录与历史 | 预约挂号、我的挂号、爽约记录 | 3 条预约 GET | 科室、排班、历史只读；锁号、写入、取消关闭 |
 | 检查报告 | 报告目录、报告详情 | 2 条报告 GET | 摘要和受限 LIS 详情；附件、解读、多来源详情关闭 |
 | 门诊费用 | 门诊缴费 | `GET /api/v2/payments/outpatient/records` | 只读费用列表；支付、医保、结算关闭 |
-| 普通个人资料 | 个人资料 | `GET /api/v2/me/profile` | 普通展示资料；实名、微信身份、患者身份和头像资源分离 |
+| 普通个人资料 | 个人资料 | `GET /api/v2/me/profile`、`PUT /api/v2/me/profile` | 版本化普通资料读写；实名、微信身份、患者身份和头像资源分离 |
 
 ## 执行方式
 

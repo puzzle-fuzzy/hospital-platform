@@ -18,6 +18,6 @@ describe("只读业务域闭环清单", () => {
 		const result = await auditReadOnlyDomains();
 		expect(result.failures).toEqual([]);
 		expect(result.pageCount).toBeGreaterThanOrEqual(8);
-		expect(result.routeCount).toBe(8);
+		expect(result.routeCount).toBe(10);
 	});
 });

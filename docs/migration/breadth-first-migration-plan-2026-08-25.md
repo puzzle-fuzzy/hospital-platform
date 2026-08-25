@@ -1,11 +1,11 @@
 # 广度优先迁移计划（2026-08-25）
 
 > 当前跨域执行工作板见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
-> 当前 Git `main` 为 `ae483ffe`；服务端功能代码候选为 `a2e496e5`，本轮文档提交不代表线上服务已更新。
+> 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前 Git `main` 为 `2afd7ed9`；服务端本地代码候选按 Git 的 `apps/api` 最新提交 `b42922f4` 识别，本轮文档提交不代表线上服务已更新。
 
 > **最新候选补充（提交 `99c7e8fd`）**：原生页面从 17 个扩展到 20 个，新增健康百科目录、症状查疾病结果、疾病/药品详情三个页面；服务端健康路由已挂载但无审核发布 bundle 时 fail-closed。构建候选仍在 pending，live `dist` 未被覆盖。
 
-> **当前运行包来源刷新**：上述功能里程碑生成的实际 pending 运行包来源已推进为 `b587c7ea8479e38d47055f3f5b672263f32aec41`；页面内容未新增业务范围，仍必须先释放开发者工具锁并通过 `runtime:verify` 后才能生成真机证据。
+> **当前运行包来源刷新**：上述功能里程碑生成的实际 pending 运行包来源为 `296516a5f255c563ec5eac40f2a3439632b143b8`；页面内容未新增支付、医保或临床写入范围，仍必须先释放开发者工具锁并通过 `runtime:verify` 后才能生成真机证据。
 
 > **最新候选（2026-08-25）**：提交 `b91af7bc597a8ba66fcfe303cc3af0f1cdde6948` 已补齐健康百科搜索/详情固定高度错误态和重试，20 页面、259 项小程序测试通过；构建候选已保存在 pending，但 live `dist` 仍被微信开发者工具锁定。来源与边界见 [`../release/candidate-b91af7bc-health-retry-clinical-gates-2026-08-25.md`](../release/candidate-b91af7bc-health-retry-clinical-gates-2026-08-25.md)。
 
