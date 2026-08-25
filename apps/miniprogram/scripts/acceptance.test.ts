@@ -173,6 +173,25 @@ test("native migration entries expose a typed blocking reason instead of a gener
 	}
 });
 
+test("native homepage and my-page actions all have explicit dispatch branches", async () => {
+	const home = await source("pages/index/index.ts");
+	const my = await source("pages/my/my.ts");
+
+	// 配置数组和事件分发是两份容易漂移的事实：只新增图标/action 而忘记
+	// switch 分支时，页面仍然能渲染，但点击会落入默认 Toast。这里逐项检查
+	// 首页快捷入口、服务栅格和“我的”菜单，保证每个可见 action 都有明确
+	// 的业务页面或 FeatureKey 状态页落点。
+	for (const page of [home, my]) {
+		const actions = new Set(
+			[...page.matchAll(/action: "([^"]+)"/gu)].map((match) => match[1]),
+		);
+		for (const action of actions) {
+			if (!action) continue;
+			expect(page).toContain(`case "${action}"`);
+		}
+	}
+});
+
 test("native profile consent remains clickable while patient data is loading", async () => {
 	const my = await source("pages/my/my.ts");
 	const template = await source("pages/my/my.wxml");

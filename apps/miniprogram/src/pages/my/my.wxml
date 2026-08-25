@@ -62,7 +62,7 @@
 			>
 				<text class="section-title">{{section.title}}</text>
 				<view class="menu-grid">
-					<!-- 未迁移入口没有 action；使用 title 作为稳定展示 key，避免多个 undefined key 让真机复用错位。 -->
+					<!-- 所有可见入口都带固定 action；title 只作为稳定展示 key，避免真机复用错位。 -->
 					<view
 						wx:for="{{section.items}}"
 						wx:for-item="item"
