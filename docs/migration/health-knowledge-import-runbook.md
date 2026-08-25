@@ -45,6 +45,15 @@ pnpm --filter @hospital/persistence health:export-legacy -- `
 [`health-knowledge-source-audit-2026-08-25.md`](health-knowledge-source-audit-2026-08-25.md)。只有内容责任人处理完重复关系、
 控制字符和未定义来源后，才可以进入正式 bundle 的只读校验。
 
+导出完成后可以先生成不含正文的审核队列，查看质量、临床审核、版本、staging、发布撤回和真机门：
+
+```powershell
+pnpm health:review:queue
+```
+
+该报告只输出聚合数量、固定门状态和下一项材料，不会把源快照转换成 `draft` 或 `published`。
+`--strict` 只用于把源质量告警变成命令失败，不能代替临床审核。
+
 ## 3. 只读 bundle 检查
 
 为了让全项目 readiness 能区分“代码具备”和“内容材料已到位”，正式审核 bundle 的本机交接文件约定为

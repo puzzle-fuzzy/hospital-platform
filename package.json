@@ -19,6 +19,7 @@
 		"device:evidence:audit": "bun tools/device-evidence-audit.mjs",
 		"docs:audit": "bun tools/docs-link-audit.mjs",
 		"health:source:audit": "bun tools/health-knowledge-source-audit.mjs",
+		"health:review:queue": "bun tools/health-knowledge-review-queue.mjs",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"infra:down": "docker compose -f infra/docker-compose.yml stop",
