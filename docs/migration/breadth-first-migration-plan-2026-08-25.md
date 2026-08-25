@@ -8,7 +8,7 @@
 | --- | --- |
 | 旧端页面扫描 | 64 个 Vue 页面 |
 | 新端页面注册 | 17 个页面；前 4 个由微信原生 TabBar 管理 |
-| 已完成候选 | `d54a53a58bde9f71e60ca453ac96c8e39016ad6c` |
+| 已完成候选 | `90d5ab0323b33fb620c83b86a8248b31c0ae3341` |
 | 候选位置 | `.local/hospital-miniprogram/pending/` |
 | 当前 live 运行包 | 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，开发者工具释放后再原子发布 |
 | 旧服务 | Python `8001` 未修改、未停止；本轮只修改新项目 |
