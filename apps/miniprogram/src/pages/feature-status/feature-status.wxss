@@ -106,6 +106,46 @@
 	line-height: 1.6;
 }
 
+/*
+ * 状态页不仅解释“为什么暂未开放”，还要把旧端覆盖范围展示出来。
+ * 这里使用低对比度的等宽文本，方便排查入口映射，同时避免把路径误认成
+ * 可直接访问的微信页面或 Provider 地址。
+ */
+.feature-status-entry-list,
+.feature-status-domain-list {
+	margin-top: 24rpx;
+	padding-top: 22rpx;
+	border-top: 1rpx solid #e9edf5;
+}
+
+.feature-status-detail-title {
+	display: block;
+	color: #8791a5;
+	font-size: 24rpx;
+	font-weight: 600;
+	line-height: 1.6;
+}
+
+.feature-status-entry-row {
+	margin-top: 10rpx;
+}
+
+.feature-status-entry-path {
+	color: #68738a;
+	font-family: monospace;
+	font-size: 22rpx;
+	line-height: 1.6;
+	word-break: break-all;
+}
+
+.feature-status-domain-value {
+	display: block;
+	margin-top: 10rpx;
+	color: #3d6df6;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
 .feature-status-notice {
 	display: flex;
 	flex-direction: column;

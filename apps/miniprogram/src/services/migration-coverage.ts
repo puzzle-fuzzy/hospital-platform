@@ -26,6 +26,8 @@ export type MigrationCoverage = {
 	coverageLabel: string;
 	nextStep: string;
 	domains: ReadonlyArray<LegacyPageMigration["domain"]>;
+	/** 预先生成展示文本，避免 WXML 调用 JS 方法导致真机渲染差异。 */
+	domainsLabel: string;
 	legacyPaths: ReadonlyArray<string>;
 	notes: ReadonlyArray<string>;
 	nativeTarget: string;
@@ -99,6 +101,7 @@ export function getFeatureMigrationCoverage(
 				: "新端新增入口，暂无旧端对应页面",
 		nextStep: NEXT_STEPS[stage],
 		domains: Object.freeze(domains),
+		domainsLabel: domains.join("、"),
 		legacyPaths: Object.freeze(legacyPaths),
 		notes: Object.freeze(notes),
 		nativeTarget:

@@ -32,6 +32,14 @@ describe("迁移入口覆盖聚合", () => {
 		expect(coverage.nextStep).toContain("临床审核");
 	});
 
+	test("电子锦旗覆盖视图保留全部旧端入口和临床阻塞语义", () => {
+		const coverage = getFeatureMigrationCoverage("gift-banner");
+		expect(coverage.stage as MigrationCoverageStage).toBe("blocked-clinical");
+		expect(coverage.legacyPaths).toHaveLength(3);
+		expect(coverage.domains).toEqual(["健康"]);
+		expect(coverage.nextStep).toContain("临床审核");
+	});
+
 	test("所有状态目录 key 都能被页面安全解析", () => {
 		const featureKeys = Object.keys(FEATURE_STATUS_CATALOG) as Array<
 			keyof typeof FEATURE_STATUS_CATALOG

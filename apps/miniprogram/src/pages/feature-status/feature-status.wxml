@@ -20,6 +20,16 @@
 					<text class="feature-status-coverage-value">{{coverage.coverageLabel}}</text>
 				</view>
 				<text class="feature-status-next-step">下一步：{{coverage.nextStep}}</text>
+				<view wx:if="{{coverage.legacyPaths.length}}" class="feature-status-entry-list">
+					<text class="feature-status-detail-title">关联旧端入口</text>
+					<view wx:for="{{coverage.legacyPaths}}" wx:key="*this" class="feature-status-entry-row">
+						<text class="feature-status-entry-path">{{item}}</text>
+					</view>
+				</view>
+				<view wx:if="{{coverage.domains.length}}" class="feature-status-domain-list">
+					<text class="feature-status-detail-title">所属业务域</text>
+					<text class="feature-status-domain-value">{{coverage.domainsLabel}}</text>
+				</view>
 			</view>
 			<view class="feature-status-notice">
 				<text>已完成的医疗服务仍可从首页或“我的”进入。</text>
