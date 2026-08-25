@@ -20,15 +20,15 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 修正提交 | 本轮原生 tabBar 变更提交后更新 |
+| 修正提交 | `21af93b4d398e3d424aba9506c7bfbef9a3cfbd8` |
 | 运行包目录 | `apps/miniprogram/dist/` |
-| `dist/build-info.json.sourceRevision` | 本轮提交后重新构建生成 |
+| `dist/build-info.json.sourceRevision` | `21af93b4d398e3d424aba9506c7bfbef9a3cfbd8` |
 | 页面数量 | 16 |
 | TabBar | `custom=false`、`position=bottom`、四项共享路由 |
 | `dist/custom-tab-bar/` | 不存在 |
 | 运行包测试脚本 | `*.test.js`、`*.spec.js` 均不存在 |
 | 小程序测试 | 本轮 240 pass、0 fail、1937 assertions |
-| 构建 | 本轮提交后重新执行 |
+| 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
 | 运行包校验 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
 | 预览二维码 | 本轮未生成二维码；请直接打开 `apps/miniprogram/dist/` |
 

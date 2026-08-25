@@ -20,7 +20,6 @@ describe("会话验证入口门禁", () => {
 	test("只有服务端验证成功才允许打开页面", () => {
 		expect(resolveAuthenticatedEntry("valid")).toBe("open");
 	});
-
 	test("验证中和暂不可用时必须等待，不能把故障当作退出登录", () => {
 		expect(resolveAuthenticatedEntry("checking")).toBe("wait-for-session");
 		expect(resolveAuthenticatedEntry("unavailable")).toBe("wait-for-session");
@@ -116,7 +115,6 @@ describe("微信原生 Tab 路由边界", () => {
 			}
 		}
 	});
-
 });
 
 describe("患者范围页面入口门禁", () => {
