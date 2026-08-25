@@ -2,7 +2,7 @@
 
 > 本文说明 `pnpm migration:readiness` 的数据来源和判定边界。报告用于广度迁移交接，不是上线批准单，也不替代 Provider、公网、真机或临床审核证据。
 
-> **当前运行事实（2026-08-25）**：pending 小程序来源为 `0ae674e5ceb353434ad2e52e375927e4b788222e`（提交 `0ae674e5`），20 个页面；当前 live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致 pending 尚未发布。当前源码回归为 `281 pass / 0 fail / 3037 expect()`，真机证据清单为 `device-evidence-0ae674e-pending.json`，9 个域仍为 `pending`。
+> **当前运行事实（2026-08-25）**：最新 pending 小程序来源为 `689026770a9f68837ba60f1d7bf1ad9f073d547e`（提交 `68902677`），20 个页面；当前 live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致 pending 尚未发布。当前源码回归为 `282 pass / 0 fail / 3119 expect()`，真机证据清单为 `device-evidence-68902677-pending.json`，9 个域仍为 `pending`。此前 `0ae674e5` 仅作历史追溯。
 
 ## 生成方式
 

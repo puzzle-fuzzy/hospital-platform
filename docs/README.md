@@ -348,8 +348,10 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`migration/patient-sync-idempotency-contract.md`](migration/patient-sync-idempotency-contract.md) | 患者目录同步的 durable operation ledger、租约代次、重放语义和生产验收门禁 |
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
 | [`release/health-knowledge-error-contract-audit-2026-08-25.md`](release/health-knowledge-error-contract-audit-2026-08-25.md) | 健康知识错误码在 API、客户端文案、公共文档和自动门禁之间的同步审计 |
-| [`release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md`](release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md) | 当前 `0ae674e5` 源码对应的 20 页面 pending 运行包、迁移批次视图、发布锁边界和九域真机证据入口 |
-| [`release/device-evidence-0ae674e-pending.json`](release/device-evidence-0ae674e-pending.json) | 当前 `0ae674e5` 小程序候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
+| [`release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md`](release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md) | 历史 `0ae674e5` 源码对应的 20 页面 pending 运行包和九域真机证据入口；当前候选见下方 `68902677` |
+| [`release/device-evidence-0ae674e-pending.json`](release/device-evidence-0ae674e-pending.json) | 历史 `0ae674e5` 小程序候选的安全真机证据 pending 起始清单；不能替代当前候选 |
+| [`release/candidate-68902677-miniprogram-runtime-2026-08-25.md`](release/candidate-68902677-miniprogram-runtime-2026-08-25.md) | 当前 `68902677` 源码对应的 20 页面 pending 运行包、统一页面滚动边界和九域真机证据入口 |
+| [`release/device-evidence-6890267-pending.json`](release/device-evidence-6890267-pending.json) | 当前 `68902677` 小程序候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 20 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上历史小程序来源为 `13f597ea`，最新本地 pending 候选为 `0ae674e5`，当前 live `dist` 为 `fcc6630e` |
 | [`migration/domain-migration-summary-2026-08-25.md`](migration/domain-migration-summary-2026-08-25.md) | 旧端 64 个页面按首页、就诊、预约、患者、健康、用户和互联网医院分域统计，以及各状态的后续推进顺序 |
 | [`migration/breadth-execution-board-2026-08-25.md`](migration/breadth-execution-board-2026-08-25.md) | 广度优先的跨域工作板：入口覆盖、只读业务、临床材料、患者写入、外部入口和支付医保分开推进 |

@@ -8,7 +8,7 @@
 
 > **阻断入口准入事实源补充**：34 个冻结入口 gate 已从边界审计脚本抽为 [`tools/migration-boundary-catalog.mjs`](../../tools/migration-boundary-catalog.mjs)，覆盖 39 个旧页面入口和 13 个 action-only 引用；其 contract 家族、通用材料、域特有材料和明确关闭能力见 [`frozen-domain-contract-matrix-2026-08-25.md`](frozen-domain-contract-matrix-2026-08-25.md)。这只强化准入审计，不打开任何阻断业务。
 
-> **当前仓库交接基线（2026-08-25）**：本轮小程序功能候选为 `0ae674e5`，当前运行输入/pending 来源为 `0ae674e5ceb353434ad2e52e375927e4b788222e`。本轮补齐 64 个旧入口的显式 A–F 迁移批次归属、逐批次计数和 readiness 覆盖报告；没有发布服务端或小程序运行包。
+> **当前仓库交接基线（2026-08-25）**：本轮小程序功能候选为 `68902677`，当前运行输入/pending 来源为 `689026770a9f68837ba60f1d7bf1ad9f073d547e`。本轮统一 20 个页面的显式内容滚动边界，并保留 64 个旧入口的显式 A–F 迁移批次归属、逐批次计数和 readiness 覆盖报告；没有发布服务端或小程序运行包。
 
 ## 1. 当前结论
 
