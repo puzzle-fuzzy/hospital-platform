@@ -17,7 +17,7 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序候选 | `c7db7f04a0dee5a8aad6ba149f17bd413b0d1d5d`（`c7db7f04`） |
+| 小程序候选 | `dee4803fb94ad50c59c9ef8fda996bc0f37427c6`（`dee4803f`） |
 | pending 运行包 | `.local/hospital-miniprogram/pending/`，40 个页面，已通过 `runtime:verify:pending` |
 | live 小程序运行包 | 仍为旧来源；微信开发者工具锁定 `apps/miniprogram/dist/`，候选尚未发布 |
 | 服务端 | 生产 `8eb51b5f`，新 Elysia 监听 `10.0.0.3:18081` |
@@ -25,7 +25,7 @@
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
 
-当前待采集清单绑定最新 pending 运行包：[`device-evidence-c7db7f0-pending.json`](device-evidence-c7db7f0-pending.json)。九个业务域目前全部为 `pending`，不能把结构校验结果写成真机完成。
+当前待采集清单绑定最新 pending 运行包：[`device-evidence-dee4803-pending.json`](device-evidence-dee4803-pending.json)。九个业务域目前全部为 `pending`，不能把结构校验结果写成真机完成。
 
 候选切换前必须先释放开发者工具的 `dist` 文件锁；不能删除 live 运行包、覆盖锁定目录或把 pending 目录直接当成真机包。
 
