@@ -12,7 +12,7 @@
 
 > **当前发布门禁（2026-08-25）**：本地 `main` 已推进到 `50291ad7`，但 `release:baseline:audit` 仍拒绝发布，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
 
-> **最新事实源（2026-08-25，优先于本页旧候选段落）**：小程序候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，pending 已生成 20 个页面脚本；当前工作树复跑为 `259 pass / 0 fail / 2525 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前保持 fail-closed。候选记录见 [`release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md`](release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md)。
+> **最新事实源（2026-08-25，优先于本页旧候选段落）**：小程序 pending 候选仍以对应构建记录为准，已生成 20 个页面脚本；当前工作树代码提交 `296516a5` 的小程序回归为 `261 pass / 0 fail / 2531 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，客户端运行时 contract 校验已补齐，但正式审核 bundle 未发布前保持 fail-closed。候选记录见 [`release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md`](release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md)，客户端校验见 [`release/health-knowledge-client-runtime-contract-2026-08-25.md`](release/health-knowledge-client-runtime-contract-2026-08-25.md)。
 
  > 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前候选以本页顶部 `99c7e8fd` 为准。
 
@@ -331,6 +331,10 @@
 | [`api-v2-public.md`](api-v2-public.md) | 当前 Elysia 公共 `/api/v2` 路由、请求规则、响应字段和稳定错误码 |
 | [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 20 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上小程序来源为 `13f597ea`，最新本地 pending 候选为 `b587c7ea`，当前 live `dist` 为 `fcc6630e` |
 | [`migration/domain-migration-summary-2026-08-25.md`](migration/domain-migration-summary-2026-08-25.md) | 旧端 64 个页面按首页、就诊、预约、患者、健康、用户和互联网医院分域统计，以及各状态的后续推进顺序 |
+| [`migration/breadth-execution-board-2026-08-25.md`](migration/breadth-execution-board-2026-08-25.md) | 广度优先的跨域工作板：入口覆盖、只读业务、临床材料、患者写入、外部入口和支付医保分开推进 |
+| [`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md) | 64 个旧页面到新端落点的当前状态分布和自动化边界门禁 |
+| [`migration/clinical-readonly-intake-board-2026-08-25.md`](migration/clinical-readonly-intake-board-2026-08-25.md) | 门诊记录、住院、医生关系、问诊/导诊四个临床只读域的独立材料和执行队列 |
+| [`migration/clinical-domain-batch-contract-gates-2026-08-25.md`](migration/clinical-domain-batch-contract-gates-2026-08-25.md) | 临床只读域从资料登记到 contract、adapter、页面、日志和真机验收的逐域放行条件 |
 | [`migration/health-knowledge-route-contract-2026-08-25.md`](migration/health-knowledge-route-contract-2026-08-25.md) | 健康百科只读后端入口、版本化审核 bundle、关闭条件和与自测/病历/报告/AI 的边界 |
 | [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c8eef370`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表；旧 release 仅作历史追溯 |
 | [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 当前迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；文档内旧 release 仅作历史证据，当前服务端以 `8eb51b5f`、小程序来源以 `13f597ea` 为准 |
@@ -452,7 +456,7 @@
 | [`release/breadth-first-page-coverage-2026-08-25.md`](release/breadth-first-page-coverage-2026-08-25.md) | 旧端 64 个页面逐页落点、分类统计和广度优先验收边界 |
 | [`release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md`](release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md) | 当前小程序 `baa31df0` pending 构建来源、页面台账、就诊记录分批展示和发布前置 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
-| [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 16 个原生页面业务状态、边界和下一步门禁 |
+| [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 20 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md`](migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md) | 旧端“就诊”实时消息/预约历史/叫号链路与互联网医院 WebView 的事实审计、契约缺口和停止条件 |
 | [`migration/medical-record-and-hospital-boundary.md`](migration/medical-record-and-hospital-boundary.md) | 门诊病历、住院、医院列表和院内导航的旧接口审计与 contract 边界 |
 | [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) | 门诊就诊记录目录的旧字段差异、候选 contract、provider 确认问题和实现门禁 |
