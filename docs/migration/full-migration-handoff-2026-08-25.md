@@ -4,18 +4,18 @@
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
-> **当前仓库事实（2026-08-25）**：当前仓库 HEAD 为 `2789470f`。本轮只补充 pending 小程序运行包的独立静态验证，不替换 live `dist`、不发布线上服务，也不改变旧 Python 服务；服务端本地候选仍以 `apps/api` 的 `b42922f4` 为准，小程序 pending 仍以 `296516a5` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
+> **当前仓库事实（2026-08-25）**：当前仓库 HEAD 为 `39cbf021`。本轮修复健康百科分类级空态并补充健康内容发布 readiness；不替换 live `dist`、不发布线上服务，也不改变旧 Python 服务；服务端本地候选仍以 `apps/api` 的 `b42922f4` 为准，小程序 pending 仍以 `296516a5` 为准。健康百科修复尚未进入 pending 运行包，必须重新构建后才能真机验证。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
 
 ## 1. 当前真实基线
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 功能候选代码基线 | `923074bc128606b7f1504ad0e8e6ea354c4afa34` |
-| 当前仓库 HEAD | `2789470f`（补充 pending 独立静态验证；不改变 live 运行包） |
+| 功能候选代码基线 | `39cbf021`（健康百科分类空态修复和全项目 readiness 更新） |
+| 当前仓库 HEAD | `39cbf021`（源码已更新；不改变 live/pending 运行包） |
 | 小程序源码候选 | `296516a5f255c563ec5eac40f2a3439632b143b8` |
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=296516a5f255c563ec5eac40f2a3439632b143b8` |
 | pending 页面数 | 20 个；每个页面具备 `.js/.json/.wxml/.wxss` |
-| 小程序回归 | 261 pass / 0 fail / 2531 expect() |
+| 小程序回归 | 当前源码 263 pass / 0 fail / 2534 expect()；pending 运行包仍为旧候选的 261 pass / 0 fail / 2531 expect() |
 | pending 静态验证 | 已通过；20 页、根文件、相对依赖、workspace 依赖、测试脚本和来源指纹均已校验 |
 | 当前 live `dist` | 仍被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
