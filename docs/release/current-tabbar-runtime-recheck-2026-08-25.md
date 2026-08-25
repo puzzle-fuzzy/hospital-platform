@@ -1,6 +1,6 @@
 # 当前微信原生 tabBar 运行包复核（2026-08-25）
 
-> 本文记录的是上一份原生 `tabBar` 候选，已被 [`current-custom-tabbar-runtime-recheck-2026-08-25.md`](current-custom-tabbar-runtime-recheck-2026-08-25.md) supersede。用户继续观察到闪动和选中态失效后，当前验收入口已改为官方 `custom-tab-bar`，本文只保留历史过程，不作为当前运行包依据。
+> 本文记录的是上一份原生 `tabBar` 候选，已被 [`current-native-tabbar-runtime-recheck-2026-08-25.md`](current-native-tabbar-runtime-recheck-2026-08-25.md) supersede。后续 custom-tab-bar 候选因真机未呈现已撤回，当前验收入口恢复为微信原生 `tabBar`，本文只保留历史过程，不作为当前运行包依据。
 
 > 2026-08-25 后续修正：上一份 `a5ff0001` 运行包的源码门禁仍正确，但用户在设备上继续观察到闪动/选中态不明显。本轮不恢复 `custom-tab-bar`，只清理原生配置中的旧自定义尺寸字段，并将普通/选中图标换成全新的 `*-native-v6.png` 路径。当前运行包为 `04e238e454091691a5aab2d244b4abea43c61d0a`，二维码为 `.local/hospital-miniprogram/tabbar-preview-04e238e.png`；这两个来源是本轮唯一验收入口。
 
