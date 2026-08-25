@@ -25,17 +25,19 @@ const REQUIRED_COMMON_MATERIALS = [
 ];
 
 describe("全量阻断业务域准入目录", () => {
-	test("14 个冻结域都有唯一身份和旧页面落点", () => {
-		expect(FROZEN_DOMAIN_GATE_CATALOG).toHaveLength(14);
+	test("18 个冻结域都有唯一身份和页面或 action-only 入口来源", () => {
+		expect(FROZEN_DOMAIN_GATE_CATALOG).toHaveLength(18);
 		expect(
 			new Set(FROZEN_DOMAIN_GATE_CATALOG.map((gate) => gate.id)).size,
-		).toBe(14);
+		).toBe(18);
 		for (const gate of FROZEN_DOMAIN_GATE_CATALOG) {
 			expect(gate.name.length).toBeGreaterThan(0);
 			expect(gate.featureKey.length).toBeGreaterThan(0);
 			expect(gate.readiness.length).toBeGreaterThan(0);
 			expect(gate.contractFamily.length).toBeGreaterThan(0);
-			expect(gate.legacyPaths.length).toBeGreaterThan(0);
+			expect(
+				gate.legacyPaths.length + (gate.legacyActions?.length ?? 0),
+			).toBeGreaterThan(0);
 		}
 	});
 
@@ -69,5 +71,18 @@ describe("全量阻断业务域准入目录", () => {
 			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "health-test")
 				?.contractFamily,
 		).toBe("clinical-content-write");
+		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "insurance")
+				?.contractFamily,
+		).toBe("payment-write");
+		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "smart-guide")
+				?.legacyActions,
+		).toEqual(["首页:guide"]);
+		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find(
+				(gate) => gate.id === "treatment-companion",
+			)?.legacyActions,
+		).toEqual(["首页:companion"]);
 	});
 });

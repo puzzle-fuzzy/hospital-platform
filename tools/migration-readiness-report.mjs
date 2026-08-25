@@ -106,17 +106,35 @@ function legacyCoverage() {
 /**
  * 汇总所有阻断入口的准入目录。
  *
- * 入口台账只说明页面去了哪里；这里进一步检查 14 个冻结域的 FeatureKey、
- * 状态页落点和旧页面映射是否仍然一致，并把 contract 家族和材料数量放进
- * readiness。这样总报告不会只显示“有状态页”，却漏掉某个域已经误指向真实页。
+ * 入口台账只说明页面去了哪里；这里进一步检查冻结域的 FeatureKey、状态页
+ * 落点、旧页面映射和 action-only 映射是否仍然一致，并把 contract 家族和
+ * 材料数量放进 readiness。这样总报告不会只显示“有状态页”，却漏掉某个
+ * 可见 action 没有业务准入边界。
  */
-function frozenBoundaryCoverage() {
+function frozenBoundaryCoverage(migrationBreadth) {
 	const legacyByPath = new Map(
 		LEGACY_PAGE_MIGRATION_CATALOG.map((entry) => [entry.legacyPath, entry]),
 	);
 	const failures = [];
 	const contractFamilyCounts = {};
 	let legacyEntryCount = 0;
+	let legacyActionCount = 0;
+	const actionFeatureKeys = new Set(
+		migrationBreadth.pages.flatMap((page) => page.featureKeys),
+	);
+	const gateFeatureKeys = new Set(
+		FROZEN_DOMAIN_GATE_CATALOG.map((gate) => gate.featureKey),
+	);
+	const uncoveredActionFeatureKeys = [...actionFeatureKeys].filter(
+		(featureKey) => !gateFeatureKeys.has(featureKey),
+	);
+	const actionPages = new Map(
+		migrationBreadth.pages.map((page) => [page.id, page]),
+	);
+
+	for (const featureKey of uncoveredActionFeatureKeys) {
+		failures.push(`可见 action FeatureKey 缺少冻结域准入门禁：${featureKey}`);
+	}
 
 	for (const gate of FROZEN_DOMAIN_GATE_CATALOG) {
 		contractFamilyCounts[gate.contractFamily] =
@@ -138,6 +156,27 @@ function frozenBoundaryCoverage() {
 				failures.push(`${gate.id}: 旧页面不是 blocked 状态：${legacyPath}`);
 			}
 		}
+		for (const actionReference of gate.legacyActions ?? []) {
+			legacyActionCount += 1;
+			if (typeof actionReference !== "string") {
+				failures.push(`${gate.id}: action-only 入口必须是字符串`);
+				continue;
+			}
+			const [pageId, action, ...extraParts] = actionReference.split(":");
+			const page = actionPages.get(pageId);
+			if (!pageId || !action || extraParts.length > 0 || !page) {
+				failures.push(`${gate.id}: action-only 入口无效：${actionReference}`);
+				continue;
+			}
+			if (!page.actions.includes(action)) {
+				failures.push(`${gate.id}: action-only 入口不存在：${actionReference}`);
+			}
+			if (!page.featureKeys.includes(gate.featureKey)) {
+				failures.push(
+					`${gate.id}: action-only 入口未指向 FeatureKey：${actionReference}`,
+				);
+			}
+		}
 		if (!Object.hasOwn(FEATURE_STATUS_CATALOG, gate.featureKey)) {
 			failures.push(`${gate.id}: FeatureKey 不存在：${gate.featureKey}`);
 		}
@@ -146,6 +185,10 @@ function frozenBoundaryCoverage() {
 	return {
 		domainCount: FROZEN_DOMAIN_GATE_CATALOG.length,
 		legacyEntryCount,
+		legacyActionCount,
+		coveredEntryCount: legacyEntryCount + legacyActionCount,
+		actionFeatureKeyCount: actionFeatureKeys.size,
+		uncoveredActionFeatureKeys,
 		contractFamilyCounts,
 		requiredMaterialCount: FROZEN_DOMAIN_GATE_CATALOG.reduce(
 			(total, gate) =>
@@ -544,7 +587,10 @@ export async function buildMigrationReadinessReport(
 		resolve(root, "apps/miniprogram/src/app.json"),
 	).json();
 	const legacy = legacyCoverage();
-	const frozenBoundary = frozenBoundaryCoverage();
+	// 入口广度只执行一次，既供 readiness 展示，也供冻结域检查 action-only
+	// 能力，防止两个报告各自读取源码后产生不一致的覆盖数字。
+	const migrationBreadth = await auditMigrationBreadth(root);
+	const frozenBoundary = frozenBoundaryCoverage(migrationBreadth);
 	const readOnly = await readOnlyCoverage(root);
 	const providerIntake = await providerIntakeCoverage(root);
 	const runtime = await runtimeProvenance(root);
@@ -553,7 +599,6 @@ export async function buildMigrationReadinessReport(
 	const clinicalContract = await buildClinicalContractAudit(root);
 	// 入口广度必须进入总结构门禁：只登记了 action 而没有真实分发分支，
 	// 会把“能看见入口”误报成“已经接入业务”，因此这里统一 fail-closed。
-	const migrationBreadth = await auditMigrationBreadth(root);
 	const nativePageCount = Array.isArray(appConfig.pages)
 		? appConfig.pages.length
 		: 0;

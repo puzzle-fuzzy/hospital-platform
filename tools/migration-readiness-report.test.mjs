@@ -12,8 +12,12 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.entryCoverage.nativePageCount).toBe(20);
 		expect(report.entryCoverage.legacy.blockedPageCount).toBe(39);
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
-			domainCount: 14,
-			legacyEntryCount: 26,
+			domainCount: 18,
+			legacyEntryCount: 29,
+			legacyActionCount: 4,
+			coveredEntryCount: 33,
+			actionFeatureKeyCount: 16,
+			uncoveredActionFeatureKeys: [],
 			passed: true,
 		});
 		expect(report.entryCoverage.frozenBoundary.failures).toEqual([]);

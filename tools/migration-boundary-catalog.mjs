@@ -1,5 +1,5 @@
 /**
- * 全量迁移中尚未放行的 14 个业务域准入目录。
+ * 全量迁移中尚未放行的 18 个业务域准入目录。
  *
  * 这份目录只描述“要满足什么条件才可以离开统一状态页”，不是运行时
  * 路由配置，也不是 Provider 的兼容层。所有域都必须先完成自己的 contract、
@@ -98,6 +98,31 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		],
 	}),
 	createGate({
+		id: "insurance",
+		name: "医保电子凭证与挂号医保支付",
+		featureKey: "insurance",
+		readiness: "待支付与回写 contract",
+		contractFamily: "payment-write",
+		legacyPaths: [
+			"pagesB/health/medical_insurance_pay.vue",
+			"pagesB/hospital/registration_medical_pay.vue",
+		],
+		legacyActions: ["我的:insurance"],
+		requiredMaterials: [
+			"authorization-code-ttl",
+			"patient-and-order-owner",
+			"medical-insurance-protocol",
+			"query-and-callback",
+			"idempotency",
+		],
+		forbiddenCapabilities: [
+			"把授权成功当作结算成功",
+			"小程序提交 provider token 或金额",
+			"绕过平台订单直接调用医保接口",
+			"医保结果未经查单写回 HIS",
+		],
+	}),
+	createGate({
 		id: "doctor-relationship",
 		name: "我的医生",
 		featureKey: "doctor",
@@ -113,6 +138,70 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"客户端自行指定医生关系",
 			"医生资料写入",
 			"跨 owner 查看医生",
+		],
+	}),
+	createGate({
+		id: "smart-guide",
+		name: "智能导诊",
+		featureKey: "guide",
+		readiness: "待外部入口 contract",
+		contractFamily: "external-session",
+		legacyPaths: [],
+		legacyActions: ["首页:guide"],
+		requiredMaterials: [
+			"model-and-knowledge-version",
+			"disclaimer",
+			"risk-routing",
+			"session-owner",
+			"session-audit",
+		],
+		forbiddenCapabilities: [
+			"未经版本管理返回医疗建议",
+			"把导诊会话当诊断或预约成功",
+			"跨用户复用会话上下文",
+		],
+	}),
+	createGate({
+		id: "treatment-companion",
+		name: "陪诊服务",
+		featureKey: "companion",
+		readiness: "待外部入口 contract",
+		contractFamily: "external-session",
+		legacyPaths: [],
+		legacyActions: ["首页:companion"],
+		requiredMaterials: [
+			"external-subject",
+			"session-owner",
+			"short-session",
+			"retention",
+			"exit",
+			"revocation",
+		],
+		forbiddenCapabilities: [
+			"把预约历史当陪诊记录",
+			"长期保存外部 ticket",
+			"跨患者创建陪诊会话",
+		],
+	}),
+	createGate({
+		id: "smart-customer",
+		name: "智能客服",
+		featureKey: "smart-customer",
+		readiness: "待外部入口 contract",
+		contractFamily: "external-session",
+		legacyPaths: ["pagesB/health/webview.vue"],
+		legacyActions: ["我的:smart-customer"],
+		requiredMaterials: [
+			"domain-allowlist",
+			"external-audience",
+			"short-session",
+			"redirect",
+			"exit",
+		],
+		forbiddenCapabilities: [
+			"任意外部 URL",
+			"把平台 token 交给 WebView",
+			"长期 ticket 或无受众回跳",
 		],
 	}),
 	createGate({

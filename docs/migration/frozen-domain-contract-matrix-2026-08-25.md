@@ -2,7 +2,7 @@
 
 ## 说明
 
-全量迁移当前不是“把 64 个旧页面都做成能点击”，而是先保证每个入口都有明确落点，再为每个高风险域冻结独立的 contract。14 个域统一进入 `pages/feature-status/feature-status`，但它们的 Provider、患者身份、临床审核、支付状态机和外部主体不同，不能共用一个兼容接口。
+全量迁移当前不是“把 64 个旧页面都做成能点击”，而是先保证每个入口都有明确落点，再为每个高风险域冻结独立的 contract。当前有 18 个冻结入口域：其中 16 个包含旧页面映射，2 个是只有首页 action 的能力；共登记 4 个 action-only 引用。它们统一进入 `pages/feature-status/feature-status`，但 Provider、患者身份、临床审核、支付状态机和外部主体不同，不能共用一个兼容接口。
 
 唯一机器事实源是 [`tools/migration-boundary-catalog.mjs`](../../tools/migration-boundary-catalog.mjs)，入口审计是：
 
@@ -26,14 +26,18 @@ pnpm migration:readiness
 
 各域还必须补充自己的特有材料，完成后才能按 `contract -> adapter -> domain -> persistence -> API -> 页面 -> 日志 -> 真机` 顺序实现。
 
-## 14 个域
+## 18 个域
 
 | 域 | Contract 家族 | 当前入口 | 特有准入材料 | 仍然关闭的能力 |
 | --- | --- | --- | --- | --- |
 | 门诊病历 | `provider-read-only` | `electronic_record.vue` | Provider 版本、患者引用 | 病历写入、跨患者查询、临床建议 |
 | 住院信息 | `provider-read-only` | `inpatient_center.vue` | episode、`patInHosId`、状态枚举 | 门诊/住院标识混用、住院写入、住院结算 |
 | 住院支付 | `payment-write` | `inpatient_payment.vue` | 金额单位、订单状态机、回调/查单、幂等、补偿 | 创建订单、支付调起、医保结算、HIS 回写 |
+| 医保电子凭证与挂号医保支付 | `payment-write` | `medical_insurance_pay.vue`、`registration_medical_pay.vue`、`我的:insurance` | 授权码 TTL、订单归属、医保协议、查单/回调、幂等 | 把授权当结算成功、前端提交 token/金额、绕过平台订单、未经查单写回 HIS |
 | 我的医生 | `provider-read-only` | `doctor.vue` | 医生关系来源、展示白名单、失效规则 | 客户端指定关系、医生资料写入、跨 owner 查询 |
+| 智能导诊 | `external-session` | `首页:guide`（action-only） | 模型/知识版本、免责声明、风险分流、会话 owner、会话审计 | 未版本化医疗建议、把导诊当诊断/预约成功、跨用户复用上下文 |
+| 陪诊服务 | `external-session` | `首页:companion`（action-only） | 外部主体、会话 owner、短期会话、保留、退出、撤回 | 把预约历史当陪诊记录、长期 ticket、跨患者创建会话 |
+| 智能客服 | `external-session` | `webview.vue`、`我的:smart-customer` | 域名 allowlist、外部受众、短期会话、回跳、退出 | 任意 URL、向 WebView 交付平台 token、长期 ticket |
 | 我的问诊 | `external-session` | `my_consultation.vue` | 外部主体、白名单、短期会话、回跳、退出、撤回 | 任意 WebView、长期 ticket、伪造问诊列表 |
 | 电子导诊单 | `provider-read-only` | `electronic_consultation.vue` | 来源系统、患者上下文、短期会话、回跳 | 伪造导诊单、跨患者读取、未经确认的临床结论 |
 | 患者新增绑定 | `patient-write` | `patientAdd.vue` | 同意、身份核验、幂等、撤回、医护读取 | 仅凭姓名绑定、客户端提交 Provider 患者号、无同意建档 |

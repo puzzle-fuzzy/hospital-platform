@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
 import { FROZEN_DOMAIN_GATE_CATALOG } from "./migration-boundary-catalog.mjs";
 
 /**
@@ -64,6 +65,17 @@ const requiredCommonMaterials = new Set([
 	"rollback",
 ]);
 
+// 首页/“我的”中的 action-only 能力不一定对应旧端 Vue 页面，但同样会
+// 触发状态页。先读取入口广度审计结果，再检查它们是否拥有独立 gate，
+// 避免“页面有提示、准入目录却没有业务边界”的漏网情况。
+const migrationBreadth = await auditMigrationBreadth();
+const actionPages = new Map(
+	migrationBreadth.pages.map((page) => [page.id, page]),
+);
+const actionFeatureKeys = new Set(
+	migrationBreadth.pages.flatMap((page) => page.featureKeys),
+);
+
 function fail(message) {
 	failures.push(message);
 }
@@ -103,6 +115,13 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 	) {
 		fail(`${gate.name} 缺少明确关闭能力`);
 	}
+	const legacyPaths = Array.isArray(gate.legacyPaths) ? gate.legacyPaths : [];
+	const legacyActions = Array.isArray(gate.legacyActions)
+		? gate.legacyActions
+		: [];
+	if (legacyPaths.length === 0 && legacyActions.length === 0) {
+		fail(`${gate.name} 缺少旧页面或 action-only 入口来源`);
+	}
 	const feature = featureNavigation.FEATURE_STATUS_CATALOG[gate.featureKey];
 	if (!feature) {
 		fail(`${gate.name} 缺少 FeatureKey 目录项：${gate.featureKey}`);
@@ -134,7 +153,38 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			);
 		}
 	}
+	for (const actionReference of legacyActions) {
+		if (typeof actionReference !== "string") {
+			fail(`${gate.name} 的 action-only 入口必须是“页面:action”字符串`);
+			continue;
+		}
+		const [pageId, action, ...extraParts] = actionReference.split(":");
+		const page = actionPages.get(pageId);
+		if (!pageId || !action || extraParts.length > 0 || !page) {
+			fail(`${gate.name} 的 action-only 入口无效：${actionReference}`);
+			continue;
+		}
+		if (!page.actions.includes(action)) {
+			fail(`${gate.name} 引用了不存在的 action：${actionReference}`);
+		}
+		if (!page.featureKeys.includes(gate.featureKey)) {
+			fail(
+				`${gate.name} 的 action 未指向对应 FeatureKey：${actionReference} -> ${gate.featureKey}`,
+			);
+		}
+	}
 	gateFailureCounts.set(gate.name, failures.length - failureCountBeforeGate);
+}
+
+// 每个当前可见的状态页 action 都必须有 gate；以后真正实现某个能力时，
+// 应先移除其状态页分发，再同步删除或替换对应 gate，而不是留下裸入口。
+const gateFeatureKeys = new Set(
+	FROZEN_DOMAIN_GATES.map((gate) => gate.featureKey),
+);
+for (const featureKey of actionFeatureKeys) {
+	if (!gateFeatureKeys.has(featureKey)) {
+		fail(`可见 action FeatureKey 缺少冻结域准入门禁：${featureKey}`);
+	}
 }
 
 /**
@@ -193,7 +243,7 @@ for await (const file of miniprogramGlob.scan({
 for (const gate of FROZEN_DOMAIN_GATES) {
 	const failureCount = gateFailureCounts.get(gate.name) ?? 1;
 	console.log(
-		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧入口 -> ${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`,
+		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`,
 	);
 }
 
