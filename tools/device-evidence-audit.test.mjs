@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { auditDeviceEvidence } from "./device-evidence-audit.mjs";
+import {
+	auditDeviceEvidence,
+	isPendingDeviceEvidenceManifest,
+} from "./device-evidence-audit.mjs";
 
 const candidate = {
 	serverRelease: "5a31427",
@@ -185,6 +188,17 @@ function completeManifest() {
 }
 
 describe("device evidence audit", () => {
+	test("全部域 pending 时允许先做清单结构审计，但不产生通过结论", () => {
+		const manifest = completeManifest();
+		expect(isPendingDeviceEvidenceManifest(manifest)).toBe(true);
+		expect(auditDeviceEvidence(manifest, manifest.candidate).passed).toBe(
+			false,
+		);
+
+		manifest.domains.auth = passedEvidence();
+		expect(isPendingDeviceEvidenceManifest(manifest)).toBe(false);
+	});
+
 	test("允许当前候选的全量 pending 清单，并安全输出摘要", () => {
 		const result = auditDeviceEvidence(completeManifest());
 		expect(result.passed).toBe(false);

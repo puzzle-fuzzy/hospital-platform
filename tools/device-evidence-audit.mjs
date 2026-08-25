@@ -726,6 +726,24 @@ export function auditDeviceEvidence(manifest, expectedCandidate) {
 	};
 }
 
+/**
+ * 判断当前证据是否仍处于“尚未开始真机取证”的安全阶段。
+ *
+ * 全部域都是 pending 时，工具可以先校验候选指纹、字段脱敏和清单完整性，
+ * 这不会产生任何业务成功结论；一旦出现 passed/failed，说明已经写入真实
+ * 链路证据，必须同时绑定当前线上 release，不能用 pending 自身的 candidate
+ * 绕过部署基线。把这个判断单独抽出来，避免 CLI 的发布门禁和纯证据结构校验
+ * 混成一个无法定位的失败。
+ */
+export function isPendingDeviceEvidenceManifest(manifest) {
+	if (!isPlainObject(manifest) || !isPlainObject(manifest.domains)) {
+		return false;
+	}
+	return Object.keys(DOMAIN_LABELS).every(
+		(domain) => manifest.domains[domain]?.result === "pending",
+	);
+}
+
 function flagValue(flag) {
 	const index = process.argv.indexOf(flag);
 	return index >= 0 ? process.argv[index + 1] : undefined;
@@ -748,20 +766,37 @@ async function readManifest() {
 
 if (import.meta.main) {
 	try {
+		const manifest = await readManifest();
 		/**
 		 * CLI 入口必须绑定仓库当前发布基线；否则旧二维码只要字段格式合法，
 		 * 就可能在脱敏和三层统计都齐全时被误报为当前候选已通过。单元测试
 		 * 仍可传入显式 expectedCandidate，保持纯函数边界和历史样例可复用。
 		 */
 		const baseline = await auditCurrentReleaseConsistency();
-		if (!baseline.passed) {
+		const pendingOnly = isPendingDeviceEvidenceManifest(manifest);
+		if (!baseline.passed && !pendingOnly) {
 			throw new Error(
 				`当前发布基线未通过，不能审计真机证据（${baseline.failures.length} 项）`,
 			);
 		}
-		const result = auditDeviceEvidence(await readManifest(), baseline);
-		console.log(JSON.stringify(result, null, 2));
-		if (!result.passed) process.exitCode = 1;
+		/**
+		 * 全部 pending 时只用证据文件自己的候选做结构一致性校验；它不能
+		 * 生成 passed 结果，且输出仍保留 release 基线失败，提醒发布前必须
+		 * 重新执行同一工具。任何已写入 passed/failed 的清单都不会走这里。
+		 */
+		const expectedCandidate = baseline.passed ? baseline : manifest.candidate;
+		const result = auditDeviceEvidence(manifest, expectedCandidate);
+		const output = baseline.passed
+			? result
+			: {
+					...result,
+					releaseBaseline: {
+						passed: false,
+						failures: baseline.failures,
+					},
+				};
+		console.log(JSON.stringify(output, null, 2));
+		if (!baseline.passed || !result.passed) process.exitCode = 1;
 	} catch (error) {
 		console.error(
 			`真机证据审计失败：${error instanceof Error ? error.message : "未知错误"}`,
