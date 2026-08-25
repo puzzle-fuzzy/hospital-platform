@@ -51,6 +51,10 @@ describe("旧健康知识源快照审计", () => {
 	test("默认模式保留质量告警，strict 模式拒绝带告警的源快照", () => {
 		const base = sourceSnapshot();
 		const snapshot = sourceSnapshot({
+			items: [
+				{ id: "legacy-hk-disease-1", kind: "disease", name: "示\u0001例" },
+				{ id: "legacy-hk-drug-1", kind: "drug", name: "示例药品" },
+			],
 			quality: {
 				...base.quality,
 				legacyControlCharacterCount: 1,
@@ -61,6 +65,23 @@ describe("旧健康知识源快照审计", () => {
 		expect(
 			auditLegacyHealthKnowledgeSource(snapshot, { strict: true }).strictPassed,
 		).toBe(false);
+	});
+
+	test("质量摘要与源投影不一致时立即拒绝", () => {
+		const base = sourceSnapshot({
+			diseaseDetails: [
+				{
+					id: "legacy-hk-disease-1",
+					diseaseName: "示例",
+					availableDrugs: [{ drugName: "示例药品", isClickable: false }],
+				},
+			],
+		});
+		base.quality.legacyControlCharacterCount = 1;
+
+		expect(() => auditLegacyHealthKnowledgeSource(base)).toThrow(
+			"quality summary does not match source projection",
+		);
 	});
 
 	test("发现患者或 Provider 标识字段时立即失败", () => {

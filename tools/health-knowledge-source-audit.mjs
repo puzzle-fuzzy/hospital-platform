@@ -90,6 +90,101 @@ function countKinds(items) {
 }
 
 /**
+ * 从已经导出的正文投影重新计算控制字符数量。
+ *
+ * 质量摘要和正文属于同一份不可信输入，不能只相信摘要里的数字；否则
+ * 人工审核 bundle 之前有人改掉计数，就可能把含控制字符的内容误判为干净。
+ * 这里只返回数量，不返回正文、名称或具体位置，避免审计命令扩大内容暴露。
+ */
+function countLegacyControlCharacters(value) {
+	let count = 0;
+	if (typeof value === "string") {
+		for (const character of value) {
+			const code = character.charCodeAt(0);
+			if ((code <= 0x1f && code !== 0x0a && code !== 0x0d) || code === 0x7f) {
+				count += 1;
+			}
+		}
+		return count;
+	}
+	if (Array.isArray(value)) {
+		for (const item of value) count += countLegacyControlCharacters(item);
+		return count;
+	}
+	if (isRecord(value)) {
+		for (const child of Object.values(value)) {
+			count += countLegacyControlCharacters(child);
+		}
+	}
+	return count;
+}
+
+/**
+ * 重算会影响导入器的两类关系问题。
+ *
+ * 重复关系按“同一疾病下同一药品名称的分组数”计算；可点击但没有 opaque
+ * drugId 的引用按实际 detail 投影计算。只比较数量，不把药品名称写入日志。
+ */
+function countRelationshipQualityIssues(value) {
+	let duplicateDiseaseDrugNames = 0;
+	let clickableDrugReferencesWithoutId = 0;
+	for (const detail of Array.isArray(value.diseaseDetails)
+		? value.diseaseDetails
+		: []) {
+		if (!isRecord(detail) || !Array.isArray(detail.availableDrugs)) continue;
+		const names = new Map();
+		for (const reference of detail.availableDrugs) {
+			if (!isRecord(reference)) continue;
+			if (reference.isClickable === true && reference.drugId === undefined) {
+				clickableDrugReferencesWithoutId += 1;
+			}
+			if (typeof reference.drugName !== "string") continue;
+			const count = names.get(reference.drugName) ?? 0;
+			names.set(reference.drugName, count + 1);
+		}
+		for (const count of names.values()) {
+			if (count > 1) duplicateDiseaseDrugNames += 1;
+		}
+	}
+	return {
+		duplicateDiseaseDrugNames,
+		clickableDrugReferencesWithoutId,
+		legacyControlCharacterCount: countLegacyControlCharacters([
+			value.items,
+			value.diseaseDetails,
+			value.drugDetails,
+		]),
+	};
+}
+
+/**
+ * 源快照的 quality 区域是导出器生成的摘要，审核前必须证明摘要没有与正文
+ * 脱节。差异只报告字段名；具体值继续留在私有快照，不进入终端或日志。
+ */
+function assertQualityConsistency(value) {
+	const observed = countRelationshipQualityIssues(value);
+	const expected = {
+		duplicateDiseaseDrugNames: value.quality.duplicateDiseaseDrugNames.length,
+		clickableDrugReferencesWithoutId:
+			value.quality.clickableDrugReferencesWithoutId.length,
+		legacyControlCharacterCount: value.quality.legacyControlCharacterCount,
+	};
+	const mismatches = Object.keys(expected).filter(
+		(key) => observed[key] !== expected[key],
+	);
+	if (mismatches.length > 0) {
+		fail(
+			"quality.consistency",
+			`quality summary does not match source projection (${mismatches.join(",")})`,
+		);
+	}
+	return {
+		consistent: true,
+		observed,
+	};
+}
+
+/**
  * 审计已解析的旧健康知识源快照。
  *
  * `sourceValid` 只说明快照符合“未审核源数据”的结构；`publishable` 永远
@@ -133,6 +228,7 @@ export function auditLegacyHealthKnowledgeSource(value, options = {}) {
 	if (forbiddenKeys.length > 0) {
 		fail("sensitive-fields", `forbidden keys found (${forbiddenKeys.length})`);
 	}
+	const qualityConsistency = assertQualityConsistency(value);
 
 	const qualityWarnings = {
 		duplicateDiseaseDrugNames: value.quality.duplicateDiseaseDrugNames.length,
@@ -168,6 +264,7 @@ export function auditLegacyHealthKnowledgeSource(value, options = {}) {
 			symptomDiseases: value.symptomDiseases.length,
 		},
 		qualityWarnings,
+		qualityConsistency,
 	};
 }
 

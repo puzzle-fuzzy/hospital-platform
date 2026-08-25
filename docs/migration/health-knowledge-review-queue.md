@@ -19,6 +19,7 @@ pnpm health:review:queue
 - 源系统、映射版本和 `not-approved` 状态；
 - 各类条目和关系的数量；
 - 质量告警数量；
+- 源快照质量摘要与正文投影的一致性结果；
 - 固定审核门的 `ready`、`blocked`、`pending-input` 或 `pending-validation` 状态；
 - 下一项需要的材料。
 

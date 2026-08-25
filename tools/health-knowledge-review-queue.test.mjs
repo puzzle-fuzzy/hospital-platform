@@ -32,7 +32,9 @@ function sourceSnapshot(overrides = {}) {
 
 describe("健康知识迁移审核队列", () => {
 	test("质量告警和未审核状态会形成明确的阻断门", () => {
-		const source = sourceSnapshot();
+		const source = sourceSnapshot({
+			items: [{ id: "disease-1", kind: "disease", name: "示\u0001例\u0002" }],
+		});
 		source.quality.legacyControlCharacterCount = 2;
 		const report = buildHealthKnowledgeReviewQueue(
 			auditLegacyHealthKnowledgeSource(source),
