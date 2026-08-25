@@ -51,3 +51,22 @@ journalctl -u hospital-platform-api-v2.service --since '24 hours ago' --no-pager
 - 门诊病历、住院、医生关系、问诊分别等待独立 Provider contract；
 - 患者绑定、临床问卷、外部 WebView、预约写入、支付和医保继续保持各自状态页与 fail-closed 门禁。
 
+## 5. 2026-08-25 17:16 CST 只读复核刷新
+
+本次仍只执行运行层探针，没有重启服务、切换 release、修改环境变量、读取业务数据或触发 Provider 请求。
+
+| 检查项 | 当前结果 |
+| --- | --- |
+| 服务器时间 | `2026-08-25T17:16:06+08:00` |
+| 新 API systemd | `active` |
+| Worker | `inactive` |
+| 新 API 监听 | `10.0.0.3:18081` |
+| 旧 Python 监听 | `0.0.0.0:8001`，继续共存 |
+| 当前 release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 内网 `/health/ready` | `200`，database/redis/schema 均为 `ok` |
+| 内网 `/api/v1/system/ping` | `200`，`service=hospital-api`，`apiVersion=0.1.0` |
+| 公网 `/api/v2/health/ready` | `200`，database/redis/schema 均为 `ok` |
+| 公网 `/api/v2/system/ping` | `200`，`service=hospital-api`，`apiVersion=0.1.0` |
+
+探针路径必须区分内外层：内网使用 `/health/*` 和 `/api/v1/system/ping`，公网反向代理使用 `/api/v2/health/*` 和
+`/api/v2/system/ping`。`/health/system-ping` 不是已注册路由，返回 404 属于错误探测路径，不代表服务异常。

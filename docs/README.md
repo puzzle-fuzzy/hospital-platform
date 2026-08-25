@@ -17,7 +17,7 @@
 
 > **当前 pending 运行包**：`build-info.json.sourceRevision=296516a5f255c563ec5eac40f2a3439632b143b8`，20 页、261 项小程序测试通过。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，详见 [`release/candidate-296516a5-miniprogram-runtime-2026-08-25.md`](release/candidate-296516a5-miniprogram-runtime-2026-08-25.md)。
 
-> **当前运行层只读复核（2026-08-25 14:52 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；使用实际绑定地址访问 readiness/system-ping 均为 `200`，database/redis/schema 为 `ok`。`127.0.0.1:18081` 不是该服务的有效探针地址。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
+> **当前运行层只读复核（2026-08-25 17:16 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；内网 `/health/ready`、`/api/v1/system/ping` 与公网 `/api/v2/health/ready`、`/api/v2/system/ping` 均为 `200`，database/redis/schema 为 `ok`。内网探针必须使用实际绑定地址，公网路径由 `/api/v2` 反向代理提供。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
 > **当前发布门禁（2026-08-25）**：功能候选代码基线为 `923074bc`，但 `release:baseline:audit` 仍拒绝发布，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
 
