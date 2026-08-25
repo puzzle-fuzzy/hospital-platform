@@ -32,7 +32,7 @@
 | 旧端 `pagesB/account/follow` | 无服务端 API；原生页面 `pages/official-account/official-account` | 只迁移静态公众号通知说明和本地图标；不把打开页面解释为已关注，不生成伪二维码 | 静态页面已实现并纳入构建/源代码验收；二维码、关注状态、模板消息授权和外部主体仍待独立 contract |
 | 旧端 `pagesB/hospital/hospitalList` | 无服务端 API；原生页面 `pages/hospital-list/hospital-list` | 迁移已核对的单院区静态卡片，图片使用本地受控资源；“去挂号”进入预约只读目录，“查看路线”不猜坐标、不调用外部地图 | 静态入口已实现并纳入构建/源代码验收；动态机构/院区目录、多院区选择和真实路线仍待独立 contract |
 | 旧端 `pagesB/hospital/navigation` | 无服务端 API；原生页面 `pages/hospital-navigation/hospital-navigation` | 只迁移旧端静态 `map.jpg`、背景色、`aspectFit` 和点击预览；不把静态地图伪装成实时路线服务 | 静态页面已实现并纳入构建验收；动态医院列表、楼层/科室定位和实时路线待取得独立 contract |
-| `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | ADR 0004、contract/domain port、0010 schema、fail-closed repository 和未挂载 service 已完成；旧内容脱敏导入、真实 schema 执行、内容审核和 API 挂载待实现 |
+| `GET /knowledge/*` | `/api/v1/knowledge/*` | 先迁移已审核健康百科只读内容；自测另行版本化 | ADR 0004、contract/domain port、0010 schema、fail-closed repository 和未挂载 service 已完成；旧库源快照导出器已完成，但内容脱敏导入、重复/控制字符复核、临床审核、真实 schema 执行、内容审核和 API 挂载待实现 |
 | `POST /intelligent/*` | `/api/v1/assistant/*` | 后续迁移 AI 导诊和报告解读 | 后续 |
 | 旧个人中心扩展、外部 WebView、公众号、签名、订阅和采血 | 普通 profile 已独立实现；其余仍使用独立的 consent/external-entry/notification contract | 公众号说明和反馈帮助页只有静态页面，不复用患者目录或预约目录的字段和 token；外部入口使用 audience/allowlist/一次性引用 | 普通 profile 已注册但生产/真机待验收；真实头像、反馈写入、关注/订阅、签名、WebView 和采血能力未注册；详见 [`user-profile-contract.md`](user-profile-contract.md) 与 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md) |
 
