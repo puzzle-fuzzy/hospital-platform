@@ -2,7 +2,7 @@
 
 > 本文说明 `pnpm migration:readiness` 的数据来源和判定边界。报告用于广度迁移交接，不是上线批准单，也不替代 Provider、公网、真机或临床审核证据。
 
-> **当前运行事实（2026-08-25）**：pending 小程序来源为 `ad793c80b0d05b74ee0cee76058b32bd25b4ce38`（提交 `ad793c80`），20 个页面；当前 live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致 pending 尚未发布。当前源码回归为 `279 pass / 0 fail / 3031 expect()`，真机证据清单为 `device-evidence-ad793c8-pending.json`，9 个域仍为 `pending`。
+> **当前运行事实（2026-08-25）**：pending 小程序来源为 `0ae674e5ceb353434ad2e52e375927e4b788222e`（提交 `0ae674e5`），20 个页面；当前 live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致 pending 尚未发布。当前源码回归为 `281 pass / 0 fail / 3037 expect()`，真机证据清单为 `device-evidence-0ae674e-pending.json`，9 个域仍为 `pending`。
 
 ## 生成方式
 
@@ -56,7 +56,7 @@ pnpm migration:readiness -- --strict
 - 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
 - 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明；另外 20 个已注册页面的 WXML 事件均能找到对应 TS 方法。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
-- live `dist` 来源为 `fcc6630e`，当前 pending 来源为 `ad793c80`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。`ad793c80` 包含统一状态页迁移阶段、旧入口覆盖数量、业务域、所属 A–F 批次和下一步材料；当前小程序回归为 `279 pass / 0 fail / 3031 expect()`。
+- live `dist` 来源为 `fcc6630e`，当前 pending 来源为 `0ae674e5`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。`0ae674e5` 包含统一状态页迁移阶段、旧入口覆盖数量、业务域、所属 A–F 批次和下一步材料；当前小程序回归为 `281 pass / 0 fail / 3037 expect()`。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
 - 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 
