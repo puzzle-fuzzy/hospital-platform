@@ -5,7 +5,8 @@ import {
 } from "../../services/api-client";
 import {
 	applyServerUserProfile,
-	ensureGlobalUserProfile,
+	refreshGlobalUserProfile,
+	waitForGlobalUserProfile,
 } from "../../services/global-user-profile";
 import {
 	disposePageInstance,
@@ -18,7 +19,7 @@ import { hasPlatformSession } from "../../services/session-service";
 import type { ProfilePageData, UserProfileResponse } from "../../types";
 
 type ProfilePageMethods = {
-	loadProfile(): Promise<void>;
+	loadProfile(forceProfileRefresh?: boolean): Promise<void>;
 	onRetry(): void;
 	onShow(): void;
 	onDisplayNameInput(event: WechatMiniprogram.Input): void;
@@ -184,11 +185,14 @@ Page<
 		this.loadProfile();
 	},
 
-	loadProfile(): Promise<void> {
+	loadProfile(forceProfileRefresh = false): Promise<void> {
 		const profileLoadGuard = getPageLatestRequestGuard(this, "profile");
 		const requestToken = profileLoadGuard.begin();
 		this.setData({ loading: true, error: "" });
-		return ensureGlobalUserProfile()
+		const profilePromise = forceProfileRefresh
+			? refreshGlobalUserProfile()
+			: waitForGlobalUserProfile();
+		return profilePromise
 			.then((state) => {
 				if (!profileLoadGuard.isCurrent(requestToken)) return;
 				if (state.status !== "ready") {
@@ -235,7 +239,7 @@ Page<
 	 * 并重新绑定当前会话代际后，保存入口才可以恢复。
 	 */
 	onRetry(): void {
-		void this.loadProfile();
+		void this.loadProfile(true);
 	},
 
 	onDisplayNameInput(event): void {
@@ -386,7 +390,7 @@ Page<
 			wx.stopPullDownRefresh();
 			return;
 		}
-		this.loadProfile().finally(() => wx.stopPullDownRefresh());
+		this.loadProfile(true).finally(() => wx.stopPullDownRefresh());
 	},
 
 	onUnload(): void {

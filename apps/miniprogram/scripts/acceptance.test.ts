@@ -97,6 +97,8 @@ test("native App entry does not trust a cached token before session verification
 	expect(app).not.toContain('wx.getStorageSync("access_token")');
 	expect(app).not.toContain("this.globalData.accessToken = storedToken");
 	expect(app).not.toContain('this.globalData.sessionStatus = "signed_in"');
+	expect(app).toContain("ensureGlobalUserProfile()");
+	expect(app).toContain("onLaunch()");
 });
 
 test("native login keeps WeChat profile consent separate from session exchange", async () => {
@@ -118,17 +120,41 @@ test("native user profile is bootstrapped once and shared across primary tabs", 
 	const home = await source("pages/index/index.ts");
 	const my = await source("pages/my/my.ts");
 	const profile = await source("pages/profile/profile.ts");
+	const app = await source("app.ts");
 
-	// 首页是启动根，只启动 App 级资料 Promise；“我的”和资料编辑页只消费
-	// 这份快照，避免每次切换 Tab 都重新请求 `/me/profile` 或重置旧资料。
-	expect(home).toContain("ensureGlobalUserProfile()");
+	// App.onLaunch 是唯一自动初始化入口；首页、“我的”和资料编辑页只等待
+	// 这份全局快照，避免每次切换 Tab 都重新请求 `/me/profile` 或重置旧资料。
+	expect(app).toContain("ensureGlobalUserProfile()");
+	expect(home).toContain("waitForGlobalUserProfile()");
+	expect(home).not.toContain("ensureGlobalUserProfile()");
 	expect(globalProfile).toContain("profileBootstrapInFlight");
+	expect(globalProfile).toContain("userProfileBootstrapPromise");
 	expect(globalProfile).toContain("subscribeGlobalUserProfile");
 	expect(my).toContain("subscribeGlobalUserProfile");
+	expect(my).toContain("waitForGlobalUserProfile()");
+	expect(my).not.toContain("ensureGlobalUserProfile()");
 	expect(my).not.toContain("return getUserProfile()");
-	expect(profile).toContain("ensureGlobalUserProfile()");
+	expect(profile).toContain("waitForGlobalUserProfile()");
+	expect(profile).not.toContain("ensureGlobalUserProfile()");
 	expect(globalProfile).toContain("profileConsentInFlight");
 	expect(globalProfile).toContain("authorizeGlobalWechatProfileInternal");
+});
+
+test("native profile consent remains clickable while patient data is loading", async () => {
+	const my = await source("pages/my/my.ts");
+	const template = await source("pages/my/my.wxml");
+	const style = await source("pages/my/my.wxss");
+
+	// 患者目录和微信资料授权是两条独立的用户动作；目录 loading 不能吞掉
+	// 用户对“未授权”提示的点击，否则真机会表现为提示闪动但没有授权弹窗。
+	expect(my).toContain('if (this.data.wechatProfileState === "loading")');
+	expect(my).not.toContain(
+		'this.data.loading || this.data.wechatProfileState === "loading"',
+	);
+	expect(template).toContain(
+		'class="profile-auth-action" catchtap="onWechatProfileTap"',
+	);
+	expect(style).toContain("扩大授权提示的可点击区域");
 });
 
 test("native client restores a platform session through the current-user endpoint", async () => {
@@ -736,7 +762,7 @@ test("native profile loading errors expose an explicit canonical reload", async 
 	);
 	expect(template).toContain('bindtap="onRetry"');
 	expect(profile).toContain("onRetry(): void");
-	expect(profile).toContain("void this.loadProfile()");
+	expect(profile).toContain("void this.loadProfile(true)");
 });
 
 test("homepage and my page expose explicit retry actions for top errors", async () => {
@@ -750,7 +776,7 @@ test("homepage and my page expose explicit retry actions for top errors", async 
 	expect(homeTemplate).toContain('class="error-message-retry"');
 	expect(homeTemplate).toContain('bindtap="onRetry"');
 	expect(my).toContain("onRetry(): void");
-	expect(my).toContain("void this.loadPage()");
+	expect(my).toContain("void this.loadPage(true)");
 	expect(myTemplate).toContain('class="error-message-retry"');
 	expect(myTemplate).toContain('bindtap="onRetry"');
 });
@@ -1179,7 +1205,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('sessionState: "checking"');
 	expect(my).toContain("sessionVerificationStateFromError");
 	expect(my).toContain('sessionState: "valid"');
-	expect(my).toContain("ensureGlobalUserProfile");
+	expect(my).toContain("waitForGlobalUserProfile");
 	expect(my).toContain("subscribeGlobalUserProfile");
 	expect(my).toContain("hasPlatformSession");
 	expect(my).toContain("getGlobalUserProfile");
@@ -1286,7 +1312,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('case "electronic-consultation"');
 	expect(my).toContain('case "smart-customer"');
 	expect(my).toContain("医保电子凭证需要独立授权");
-	expect(profile).toContain("ensureGlobalUserProfile");
+	expect(profile).toContain("waitForGlobalUserProfile");
 	expect(profile).toContain("applyServerUserProfile");
 	expect(profile).toContain("updateUserProfile");
 	expect(profile).toContain("getPageLatestRequestGuard");
@@ -1708,13 +1734,15 @@ test("native mini program app entry remains a global script", async () => {
 	).text();
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 
-	// App 入口由微信直接执行，不能被“仅导出类型”误判为 CommonJS 模块。
+	// App 入口由微信直接执行，源码可以依赖资料仓库，但构建必须把它打包成
+	// 没有 CommonJS 启动壳的全局 IIFE。
 	expect(app).not.toMatch(/export\s+type\s+AppGlobalData/);
 	expect(build).toContain(
 		"app.js must remain a global script without CommonJS bootstrap",
 	);
-	expect(build).toContain("commonJsBootstrapPattern");
-	expect(build).toContain("Object\\.defineProperty\\(exports");
+	expect(build).toContain("Bun.build");
+	expect(build).toContain('format: "iife"');
+	expect(build).toContain("app.ts global-script bundle failed");
 });
 
 test("native mini program build guards runtime page boundaries", async () => {

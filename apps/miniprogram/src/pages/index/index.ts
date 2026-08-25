@@ -5,8 +5,8 @@ import {
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
 import {
-	ensureGlobalUserProfile,
 	refreshGlobalUserProfile,
+	waitForGlobalUserProfile,
 } from "../../services/global-user-profile";
 import {
 	disposePageInstance,
@@ -274,7 +274,7 @@ Page<IndexPageData, IndexPageMethods>({
 		});
 		const sessionGuard = getPageLatestRequestGuard(this, "session");
 		const sessionToken = sessionGuard.begin();
-		ensureGlobalUserProfile()
+		waitForGlobalUserProfile()
 			.then((profileState) => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
 				if (!profileState.ownerId || !hasPlatformSession()) {

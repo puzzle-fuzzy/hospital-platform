@@ -2,10 +2,11 @@ import { ApiError } from "../../services/api-client";
 import { loadPatientsForOwner } from "../../services/dashboard-service";
 import {
 	authorizeGlobalWechatProfile,
-	ensureGlobalUserProfile,
 	type GlobalUserProfileState,
 	getGlobalUserProfile,
+	refreshGlobalUserProfile,
 	subscribeGlobalUserProfile,
+	waitForGlobalUserProfile,
 } from "../../services/global-user-profile";
 import {
 	disposePageInstance,
@@ -31,7 +32,7 @@ import {
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
-	loadPage(): Promise<void>;
+	loadPage(forceProfileRefresh?: boolean): Promise<void>;
 	onHeaderTap(): void;
 	onWechatProfileTap(): Promise<void>;
 	onFamilyTap(): void;
@@ -199,7 +200,7 @@ Page<MyPageData, MyPageMethods>({
 		this.loadPage();
 	},
 
-	loadPage(): Promise<void> {
+	loadPage(forceProfileRefresh = false): Promise<void> {
 		const pageLoadGuard = getPageLatestRequestGuard(this, "my-page");
 		const requestToken = pageLoadGuard.begin();
 		// 全局资料仓库负责 `/me`、`/me/profile` 和本机微信资料缓存；本页面
@@ -216,7 +217,10 @@ Page<MyPageData, MyPageMethods>({
 			selectedPatient: null,
 			patientCount: 0,
 		});
-		return ensureGlobalUserProfile()
+		const profilePromise = forceProfileRefresh
+			? refreshGlobalUserProfile()
+			: waitForGlobalUserProfile();
+		return profilePromise
 			.then((profileState) => {
 				if (!pageLoadGuard.isCurrent(requestToken)) return undefined;
 				if (!profileState.ownerId || !hasPlatformSession()) {
@@ -314,7 +318,10 @@ Page<MyPageData, MyPageMethods>({
 	 * 仍可在本次设备会话中正常显示并允许用户稍后重试。
 	 */
 	onWechatProfileTap(): Promise<void> {
-		if (this.data.loading || this.data.wechatProfileState === "loading") {
+		// `loading` 只表示患者目录还在刷新，不能阻断头像/昵称授权；否则
+		// 用户在页面显示“未授权，可点击此处重新获取”时，恰好因为目录请求
+		// 尚未结束而点击无效，表现为提示闪动却没有任何反馈。
+		if (this.data.wechatProfileState === "loading") {
 			return Promise.resolve();
 		}
 		if (this.data.sessionState !== "valid") {
@@ -347,6 +354,10 @@ Page<MyPageData, MyPageMethods>({
 					error instanceof Error &&
 					error.name === "WechatUserProfileUnavailableError"
 				) {
+					this.setData({
+						wechatProfileState: "idle",
+						wechatProfileHint: "当前微信版本暂不支持资料授权，请升级后重试",
+					});
 					wx.showToast({
 						title: "当前微信版本不支持资料授权",
 						icon: "none",
@@ -357,6 +368,14 @@ Page<MyPageData, MyPageMethods>({
 					error instanceof Error &&
 					error.name === "WechatUserProfileAuthorizationError"
 				) {
+					// 拒绝授权是可重试的用户选择，必须在当前页面保留稳定的
+					// 可点击文案；不能只依赖另一个 bundle 的订阅回调，也不能
+					// 让页面回到无提示的“点击获取”而看起来像没有响应。
+					this.setData({
+						wechatProfileState: "declined",
+						wechatProfileHint: "未授权，可点击此处重新获取",
+					});
+					wx.showToast({ title: "未授权，可再次点击获取", icon: "none" });
 					return;
 				}
 				wx.showToast({ title: "获取头像昵称失败，请重试", icon: "none" });
@@ -421,7 +440,7 @@ Page<MyPageData, MyPageMethods>({
 	},
 
 	onPullDownRefresh(): void {
-		this.loadPage().finally(() => wx.stopPullDownRefresh());
+		this.loadPage(true).finally(() => wx.stopPullDownRefresh());
 	},
 
 	/**
@@ -430,7 +449,7 @@ Page<MyPageData, MyPageMethods>({
 	 */
 	onRetry(): void {
 		if (this.data.loading) return;
-		void this.loadPage();
+		void this.loadPage(true);
 	},
 
 	/** 页面卸载后让会话/患者目录读取失去回写资格。 */

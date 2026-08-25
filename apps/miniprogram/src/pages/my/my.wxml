@@ -32,12 +32,11 @@
 						都会出现一次错误的资料闪烁。
 					-->
 					<text class="profile-name">{{userLabel || "微信用户"}}</text>
-					<text
-						class="profile-auth-hint"
-						catchtap="onWechatProfileTap"
-					>
-						{{wechatProfileHint || (wechatProfileState === 'ready' ? '已授权头像和昵称' : '点击获取头像和昵称')}}
-					</text>
+					<view class="profile-auth-action" catchtap="onWechatProfileTap">
+						<text class="profile-auth-hint">
+							{{wechatProfileHint || (wechatProfileState === 'ready' ? '已授权头像和昵称' : '点击获取头像和昵称')}}
+						</text>
+					</view>
 				</view>
 			</view>
 

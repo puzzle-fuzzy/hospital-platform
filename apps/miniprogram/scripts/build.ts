@@ -575,22 +575,32 @@ try {
 
 	/**
 	 * app.js 是微信小程序的全局脚本，不是可由 CommonJS loader 执行的业务模块。
-	 * 这里把根入口的运行时形态纳入构建门禁，避免“TypeScript 编译成功但 appService
-	 * 因 define/exports 未定义而白屏”的问题再次进入真机候选；页面业务模块仍可按
-	 * 依赖图使用 CommonJS 输出，由微信的页面模块加载器执行。
+	 * App.onLaunch 需要在页面创建前启动全局资料仓库，因此这里对 app.ts 单独做
+	 * IIFE bundle；页面业务模块仍按依赖图使用 CommonJS 输出，由微信的页面模块
+	 * 加载器执行。若只沿用 tsc 的 Node16 输出，App 的 import 会变成 require，
+	 * 真机 appService 会在首帧前因 `require is not defined` 失败。
 	 */
 	const appRuntimePath = join(stagingRuntime, "app.js");
-	const appRuntime = await Bun.file(appRuntimePath).text();
-	const commonJsBootstrapPattern =
-		/^"use strict";\r?\nObject\.defineProperty\(exports, "__esModule", \{ value: true \}\);\r?\n/;
-	if (commonJsBootstrapPattern.test(appRuntime)) {
-		// Node16 模块输出会给没有 import/export 的根脚本也加两行启动壳；保留
-		// 空行而移除壳，既不改变 source map 的行偏移，也不把 CommonJS 运行时带进微信。
-		await Bun.write(
-			appRuntimePath,
-			appRuntime.replace(commonJsBootstrapPattern, "\n\n"),
+	const appBundle = await Bun.build({
+		entrypoints: [join(source, "app.ts")],
+		format: "iife",
+		target: "browser",
+		minify: false,
+		sourcemap: "none",
+		// Bun 1.4 的构建类型通过 outdir 写入 staging；staging 尚未对微信工具
+		// 暴露，且最终仍由下面的完整校验和原子发布接管，不会污染 live dist。
+		outdir: stagingRuntime,
+	});
+	if (!appBundle.success) {
+		throw new Error(
+			`Mini program app.ts global-script bundle failed: ${appBundle.logs.map((log) => log.message).join("; ")}`,
 		);
 	}
+	const appBundleOutput = appBundle.outputs[0];
+	if (!appBundleOutput) {
+		throw new Error("Mini program app.ts bundle produced no app.js output");
+	}
+	await Bun.write(appRuntimePath, await appBundleOutput.text());
 	const normalizedAppRuntime = await Bun.file(appRuntimePath).text();
 	if (
 		/Object\.defineProperty\(exports/.test(normalizedAppRuntime) ||

@@ -97,7 +97,7 @@ page {
 }
 
 .profile-auth-hint {
-	margin-top: 10rpx;
+	display: block;
 	max-width: 560rpx;
 	color: #5570a8;
 	font-size: 23rpx;
@@ -105,6 +105,14 @@ page {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+/* 扩大授权提示的可点击区域，避免用户必须精准点中文字才触发微信弹窗。 */
+.profile-auth-action {
+	margin-top: 10rpx;
+	padding: 8rpx 12rpx;
+	margin-left: -12rpx;
+	border-radius: 10rpx;
 }
 
 .family-card {

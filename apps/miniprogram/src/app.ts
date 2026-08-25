@@ -1,7 +1,12 @@
+import {
+	ensureGlobalUserProfile,
+	type GlobalUserProfileState,
+} from "./services/global-user-profile";
+
 /**
- * App 入口会被微信直接当作全局脚本执行，不能因为仅导出类型而被 TypeScript
- * 包装成 CommonJS 模块；否则开发者工具的 appService 环境没有 `define/exports`
- * 运行时，首页也就不会完成注册。这个类型只服务于本文件，因此不需要导出。
+ * App 入口最终会由构建脚本打包成微信可直接执行的全局脚本。源码可以使用
+ * TypeScript import，但运行包不能携带 CommonJS 的 `define/exports/require`
+ * 启动壳；build.ts 会对 app.ts 做 IIFE bundle，并对产物继续执行全局脚本门禁。
  */
 type AppGlobalData = {
 	// 线上小程序固定访问已备案的 HTTPS 域名，真实业务路由由 apiPrefix 隔离。
@@ -9,10 +14,12 @@ type AppGlobalData = {
 	apiPrefix: "/api/v2" | "/api/v1";
 	accessToken: string;
 	sessionStatus: "signed_out" | "signed_in";
+	/** App 与页面模块共享的会话代际，防止跨 bundle 误判合法响应。 */
+	sessionGeneration: number;
 	/**
 	 * App 级个人资料快照由 global-user-profile service 原子替换。
-	 * App 入口保持无 import 的微信全局脚本形态，因此这里显式声明初始结构，
-	 * 页面启动时再由统一仓库填充服务端资料和本机已授权头像昵称。
+	 * App 入口只声明初始结构，启动时由统一仓库填充服务端资料和本机已授权
+	 * 头像昵称；页面不再承担第一次资料读取职责。
 	 */
 	userProfile: {
 		status: "idle" | "loading" | "ready" | "error";
@@ -29,6 +36,10 @@ type AppGlobalData = {
 		wechatProfileHint: string;
 		error: string;
 	};
+	/** App.onLaunch 与页面模块共享的单一资料初始化 Promise。 */
+	userProfileBootstrapPromise: Promise<GlobalUserProfileState> | null;
+	/** 资料仓库运行时用于跨 bundle 共享订阅集合。 */
+	userProfileListeners?: Set<(state: GlobalUserProfileState) => void>;
 };
 
 /**
@@ -45,6 +56,7 @@ App<{ globalData: AppGlobalData }>({
 		apiPrefix: "/api/v2",
 		accessToken: "",
 		sessionStatus: "signed_out",
+		sessionGeneration: 0,
 		userProfile: {
 			status: "idle",
 			ownerId: "",
@@ -60,6 +72,7 @@ App<{ globalData: AppGlobalData }>({
 			wechatProfileHint: "",
 			error: "",
 		},
+		userProfileBootstrapPromise: null,
 	},
 
 	onLaunch() {
@@ -67,6 +80,16 @@ App<{ globalData: AppGlobalData }>({
 			"[医院小程序] 运行包来源：微信原生 tabBar；revision=",
 			MINI_PROGRAM_BUILD_REVISION,
 		);
+		// 用户进入小程序后立即启动一次静默会话/资料初始化；页面只等待这
+		// 一条 Promise，不再把首页、我的页或资料页的 onLoad 当作初始化入口。
+		// 失败会沉淀到全局 error 状态，页面仍可提供明确的重试，不会形成未处理
+		// Promise，也不会把错误详情或用户资料写入控制台。
+		void ensureGlobalUserProfile().catch((error: unknown) => {
+			console.warn(
+				"[医院小程序] 全局用户资料初始化未完成，页面保留重试状态；errorType=",
+				error instanceof Error ? error.name : "unknown",
+			);
+		});
 		// App 入口不能把本地缓存直接当成已登录事实：缓存可能来自旧版本、
 		// 开发者工具手工写入或异常中断，也没有经过当前服务端的 owner 验证。
 		// token 保留在 storage，由 api-client/session-service 在真正请求前按同一

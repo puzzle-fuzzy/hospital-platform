@@ -67,16 +67,34 @@ type ProfileListener = (state: GlobalUserProfileState) => void;
 
 let profileBootstrapInFlight: Promise<GlobalUserProfileState> | null = null;
 let profileConsentInFlight: Promise<GlobalUserProfileState> | null = null;
-const profileListeners = new Set<ProfileListener>();
 
 type AppGlobalDataWithProfile = {
 	globalData: {
 		userProfile: GlobalUserProfileState;
+		/** App.onLaunch 与页面模块共享的唯一资料初始化 Promise。 */
+		userProfileBootstrapPromise?: Promise<GlobalUserProfileState> | null;
+		/** 监听器也必须跨 app.js bundle 与页面 CommonJS 模块共享。 */
+		userProfileListeners?: Set<ProfileListener>;
 	};
 };
 
 function globalData(): AppGlobalDataWithProfile["globalData"] {
 	return (getApp() as unknown as AppGlobalDataWithProfile).globalData;
+}
+
+/**
+ * app.js 会被构建成独立的全局脚本，页面脚本则由微信按 CommonJS 页面模块
+ * 加载；两边可能各自拥有一份本文件的模块实例。因此启动 Promise 和监听器
+ * 不能只放在模块级变量中，否则页面会看见同一份快照却失去单飞和更新通知。
+ */
+function sharedProfileListeners(): Set<ProfileListener> {
+	const appData = globalData();
+	if (appData.userProfileListeners instanceof Set) {
+		return appData.userProfileListeners;
+	}
+	const listeners = new Set<ProfileListener>();
+	appData.userProfileListeners = listeners;
+	return listeners;
 }
 
 /** 读取当前 App 资料快照；返回同一份状态对象，禁止页面私自改写。 */
@@ -93,7 +111,7 @@ function publishProfileState(
 		...patch,
 	});
 	globalData().userProfile = nextState;
-	for (const listener of profileListeners) {
+	for (const listener of sharedProfileListeners()) {
 		// 页面监听器只负责 setData；单个页面已卸载或调试工具热重载时，
 		// 不能让它的异常阻断其他页面收到最新资料。
 		try {
@@ -112,9 +130,10 @@ function publishProfileState(
 export function subscribeGlobalUserProfile(
 	listener: ProfileListener,
 ): () => void {
-	profileListeners.add(listener);
+	const listeners = sharedProfileListeners();
+	listeners.add(listener);
 	listener(getGlobalUserProfile());
-	return () => profileListeners.delete(listener);
+	return () => listeners.delete(listener);
 }
 
 function profileStateFromServer(
@@ -166,6 +185,25 @@ export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
 		return Promise.resolve(current);
 	}
 	if (profileBootstrapInFlight) return profileBootstrapInFlight;
+	const appBootstrap = globalData().userProfileBootstrapPromise;
+	if (appBootstrap) {
+		// App.onLaunch 已经启动了唯一初始化；页面模块只接管本地引用，
+		// 不能再创建第二个 `/me` + `/me/profile` 请求链。
+		profileBootstrapInFlight = appBootstrap;
+		void appBootstrap.then(
+			() => {
+				if (profileBootstrapInFlight === appBootstrap) {
+					profileBootstrapInFlight = null;
+				}
+			},
+			() => {
+				if (profileBootstrapInFlight === appBootstrap) {
+					profileBootstrapInFlight = null;
+				}
+			},
+		);
+		return appBootstrap;
+	}
 
 	publishProfileState({ status: "loading", error: "" });
 	const bootstrap = restorePlatformSession()
@@ -228,22 +266,48 @@ export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
 			throw error;
 		});
 	profileBootstrapInFlight = bootstrap;
+	globalData().userProfileBootstrapPromise = bootstrap;
 	void bootstrap.then(
 		() => {
 			if (profileBootstrapInFlight === bootstrap)
 				profileBootstrapInFlight = null;
+			if (globalData().userProfileBootstrapPromise === bootstrap) {
+				globalData().userProfileBootstrapPromise = null;
+			}
 		},
 		() => {
 			if (profileBootstrapInFlight === bootstrap)
 				profileBootstrapInFlight = null;
+			if (globalData().userProfileBootstrapPromise === bootstrap) {
+				globalData().userProfileBootstrapPromise = null;
+			}
 		},
 	);
 	return bootstrap;
 }
 
+/**
+ * 页面只等待 App 启动已经建立的资料链，不主动创建网络请求。
+ *
+ * 页面首次创建、原生 Tab 切换和页面栈回显都使用这个入口；只有 App.onLaunch
+ * 或用户明确点击“重试/下拉刷新”时才调用 `ensure/refresh`。这样“等待资料”和
+ * “重新读取资料”在代码层有不同名字，避免以后又把页面生命周期误当成刷新命令。
+ */
+export function waitForGlobalUserProfile(): Promise<GlobalUserProfileState> {
+	return (
+		profileBootstrapInFlight ??
+		globalData().userProfileBootstrapPromise ??
+		Promise.resolve(getGlobalUserProfile())
+	);
+}
+
 /** 强制重新读取当前 owner 的资料，供页面错误态的“重新加载”使用。 */
 export function refreshGlobalUserProfile(): Promise<GlobalUserProfileState> {
 	if (profileBootstrapInFlight) return profileBootstrapInFlight;
+	const appBootstrap = globalData().userProfileBootstrapPromise;
+	if (appBootstrap) {
+		return appBootstrap;
+	}
 	// 主动重新登录可能对应另一位微信账号；开始新一轮 `/me` 之前必须
 	// 原子清空旧 owner 的昵称、头像和资料版本，不能让页面短暂展示上一账号。
 	publishProfileState({ ...EMPTY_PROFILE_STATE, status: "idle" });
@@ -377,5 +441,6 @@ export function applyServerUserProfile(
 export function clearGlobalUserProfile(): void {
 	profileBootstrapInFlight = null;
 	profileConsentInFlight = null;
+	globalData().userProfileBootstrapPromise = null;
 	publishProfileState({ ...EMPTY_PROFILE_STATE });
 }
