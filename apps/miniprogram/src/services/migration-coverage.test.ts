@@ -37,19 +37,19 @@ describe("迁移入口覆盖聚合", () => {
 		expect(coverage.feature.contractHint).toContain("同意记录");
 	});
 
-	test("健康自测保留临床阻塞，不因多个旧入口共用 key 而误开放", () => {
+	test("健康自测保留临床关闭态，不因多个旧入口共用 key 而误开放", () => {
 		const coverage = getFeatureMigrationCoverage("health-test");
-		expect(coverage.stage as MigrationCoverageStage).toBe("blocked-clinical");
-		expect(coverage.stageLabel).toBe("等待临床审核");
-		expect(coverage.nextStep).toContain("临床审核");
+		expect(coverage.stage as MigrationCoverageStage).toBe("surface-only");
+		expect(coverage.stageLabel).toBe("页面外壳已迁移，业务仍关闭");
+		expect(coverage.feature.contractHint).toContain("临床审核");
 	});
 
-	test("电子锦旗覆盖视图保留全部旧端入口和临床阻塞语义", () => {
+	test("电子锦旗覆盖视图保留全部旧端入口和临床关闭语义", () => {
 		const coverage = getFeatureMigrationCoverage("gift-banner");
-		expect(coverage.stage as MigrationCoverageStage).toBe("blocked-clinical");
+		expect(coverage.stage as MigrationCoverageStage).toBe("surface-only");
 		expect(coverage.legacyPaths).toHaveLength(3);
 		expect(coverage.domains).toEqual(["健康"]);
-		expect(coverage.nextStep).toContain("临床审核");
+		expect(coverage.feature.contractHint).toContain("内容审核");
 	});
 
 	test("所有状态目录 key 都能被页面安全解析", () => {

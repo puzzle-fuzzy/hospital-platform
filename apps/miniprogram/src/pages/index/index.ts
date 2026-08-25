@@ -594,9 +594,9 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onFloatingGuide() {
-		// 悬浮按钮也是首页可见入口，不能只弹 Toast 后停留在原页；统一进入
-		// 固定 key 的状态页，保证用户知道入口仍在迁移，并避免误打开旧 WebView。
-		navigateToFeatureStatus("smart-customer");
+		// 悬浮按钮也是首页可见入口；先进入原生外部入口壳，真实 WebView
+		// 仍由 allowlist、短期会话和受众 contract 控制，不能直接恢复旧地址。
+		navigateToFeatureEntry("smart-customer");
 	},
 
 	executeQuickAction(action?: string): void {
@@ -639,7 +639,7 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureStatus("companion");
 				break;
 			case "consultation":
-				navigateToFeatureStatus("consultation");
+				navigateToFeatureEntry("consultation");
 				break;
 			case "electronic-consultation":
 				navigateToFeatureEntry("electronic-consultation");
@@ -651,16 +651,16 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureStatus("inpatient-payment");
 				break;
 			case "admission-preconsultation":
-				navigateToFeatureStatus("admission-preconsultation");
+				navigateToFeatureEntry("admission-preconsultation");
 				break;
 			case "discharge-followup":
-				navigateToFeatureStatus("discharge-followup");
+				navigateToFeatureEntry("discharge-followup");
 				break;
 			case "risk-evaluation":
-				navigateToFeatureStatus("risk-evaluation");
+				navigateToFeatureEntry("risk-evaluation");
 				break;
 			case "health-test":
-				navigateToFeatureStatus("health-test");
+				navigateToFeatureEntry("health-test");
 				break;
 			case "health-encyclopedia":
 				wx.navigateTo({
@@ -668,10 +668,10 @@ Page<IndexPageData, IndexPageMethods>({
 				});
 				break;
 			case "gift-banner":
-				navigateToFeatureStatus("gift-banner");
+				navigateToFeatureEntry("gift-banner");
 				break;
 			case "health-praise":
-				navigateToFeatureStatus("health-praise");
+				navigateToFeatureEntry("health-praise");
 				break;
 			case "hospital-navigation":
 				wx.navigateTo({

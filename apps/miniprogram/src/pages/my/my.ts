@@ -411,13 +411,13 @@ Page<MyPageData, MyPageMethods>({
 				navigateToFeatureEntry("electronic-consultation");
 				break;
 			case "consultation":
-				navigateToFeatureStatus("consultation");
+				navigateToFeatureEntry("consultation");
 				break;
 			case "doctor":
 				navigateToFeatureEntry("doctor");
 				break;
 			case "smart-customer":
-				navigateToFeatureStatus("smart-customer");
+				navigateToFeatureEntry("smart-customer");
 				break;
 			case "insurance":
 				navigateToFeatureStatus("insurance");

@@ -429,6 +429,19 @@ const FEATURE_SURFACE_TARGETS: Readonly<Partial<Record<FeatureKey, string>>> =
 		"patient-binding": "/pages/patient-binding/patient-binding",
 		"patient-signature": "/pages/patient-signature/patient-signature",
 		"patient-express": "/pages/patient-express/patient-express",
+		"admission-preconsultation":
+			"/pages/admission-preconsultation/admission-preconsultation",
+		"health-test": "/pages/health-test/health-test",
+		"discharge-followup": "/pages/discharge-followup/discharge-followup",
+		"gift-banner": "/pages/gift-banner/gift-banner",
+		"health-praise": "/pages/health-praise/health-praise",
+		"pre-visit": "/pages/pre-visit/pre-visit",
+		"risk-evaluation": "/pages/risk-evaluation/risk-evaluation",
+		"smart-customer": "/pages/smart-customer/smart-customer",
+		consultation: "/pages/consultation/consultation",
+		"patient-subscription": "/pages/patient-subscription/patient-subscription",
+		"blood-appointment": "/pages/blood-appointment/blood-appointment",
+		"appointment-detail": "/pages/appointment-detail/appointment-detail",
 	});
 
 export function navigateToFeatureEntry(feature: FeatureKey): void {

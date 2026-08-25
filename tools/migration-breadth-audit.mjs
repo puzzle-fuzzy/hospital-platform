@@ -165,6 +165,23 @@ function extractPageMethods(source) {
 			"onBackMy",
 		);
 	}
+	if (source.includes("registerClinicalContentSurfacePage(")) {
+		methods.push(
+			"onOpenPatientSelector",
+			"onOpenMigrationStatus",
+			"onBackHome",
+		);
+	}
+	if (source.includes("registerExternalEntrySurfacePage(")) {
+		methods.push("onOpenMigrationStatus", "onBackHome");
+	}
+	if (source.includes("registerProviderEntrySurfacePage(")) {
+		methods.push(
+			"onOpenPatientSelector",
+			"onOpenMigrationStatus",
+			"onBackHome",
+		);
+	}
 
 	return [...new Set(methods)];
 }

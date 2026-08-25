@@ -1,0 +1,42 @@
+<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
+	<view class="migration-surface-page">
+		<view class="migration-surface-hero">
+			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
+			<view class="migration-surface-hero-copy">
+				<text class="migration-surface-title">{{title}}</text>
+				<text class="migration-surface-label">{{surfaceLabel}}</text>
+			</view>
+		</view>
+
+		<view class="migration-surface-card">
+			<text class="migration-surface-card-title">{{scopeTitle}}</text>
+			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
+		</view>
+
+		<view class="migration-surface-card">
+			<text class="migration-surface-card-title">当前迁移状态</text>
+			<text class="migration-surface-card-copy">{{description}}</text>
+			<view class="migration-surface-list">
+				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
+					<text class="migration-surface-list-dot">·</text>
+					<text class="migration-surface-list-text">{{item}}</text>
+				</view>
+			</view>
+		</view>
+
+		<view class="migration-surface-card">
+			<text class="migration-surface-card-title">开放前还需确认</text>
+			<view class="migration-surface-list">
+				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
+					<text class="migration-surface-list-dot">·</text>
+					<text class="migration-surface-list-text">{{item}}</text>
+				</view>
+			</view>
+			<text class="migration-surface-coverage">{{coverageLabel}}</text>
+		</view>
+
+		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+	</view>
+</scroll-view>
+

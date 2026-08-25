@@ -3,10 +3,9 @@
 > 本文是本轮广度迁移的事实记录，不把“入口已经有落点”写成“业务已经完成”。
 > 旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话维护的众阳预约适配器不在本轮修改范围内。
 
-2026-08-26 横向推进记录：C 批次四条临床只读线已补齐共用结果摘要契约基础，并完成四个
-原生页面外壳、患者选择入口和稳定关闭态；D 批次同时完成添加就诊人、患者签名和我的快递
-三个患者域页面外壳，并纠正“我的快递”不能归入联系地址的台账错误。真实业务仍未注册临床
-或患者域写入/物流 API、未接入 Provider，业务准入继续保持关闭；详见
+2026-08-26 横向推进记录：在既有患者域和临床只读页面基础上，本轮继续补齐 7 个临床内容、
+3 个外部入口和 2 个预约 Provider 只读入口的原生页面外壳、必要的患者选择入口和稳定关闭态。
+真实业务仍未注册临床问卷/规则、外部会话、采血号源或挂号详情 API，业务准入继续保持关闭；详见
 [`clinical-read-contract-domain-foundation-2026-08-26.md`](clinical-read-contract-domain-foundation-2026-08-26.md)。
 
 ## 1. 当前总结果
@@ -14,22 +13,22 @@
 | 项目 | 当前事实 | 结论 |
 | --- | --- | --- |
 | 旧端页面 | 64 个 Vue 页面 | 64/64 已进入逐页迁移台账 |
-| 新端页面 | 28 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环；其中 7 个为 `surface-only` 页面外壳 |
-| 入口状态 | `replaced=8`、`partial=17`、`surface-only=7`、阻塞=31、排除=1 | 没有遗漏入口；真实业务仍未全量开放 |
+| 新端页面 | 40 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环；其中 31 个为 `surface-only` 页面外壳 |
+| 入口状态 | `replaced=8`、`partial=17`、`surface-only=31`、`blocked-payment=7`、排除=1 | 64 个旧入口均有落点；支付/医保/回写仍关闭 |
 | 旧服务端路由 | 195 个已挂载路由，另有 1 个未挂载路由文件 | 已纳入旧 API 盘点 |
 | 旧端接口字面量 | 87 个 | 已纳入新旧接口语义清单 |
 | 新端四个主 Tab | 原生 `tabBar` 单一声明 | 页面不重复渲染底栏 |
-| 当前小程序源码 | 提交 `cb23124b`（四个临床 + 三个患者域页面外壳） | 28 页，`293 pass / 0 fail / 3305 expect()` |
-| 当前 pending 运行包 | `cb23124b4319666ab0841d23c3f4106704810328`（功能提交 `cb23124b`） | 28 页，`runtime:verify:pending` 通过；尚未发布到 live `dist`，不能作为真机完成证据 |
+| 当前小程序源码 | 当前工作树（7 个临床内容 + 3 个外部入口 + 2 个预约 Provider 页面外壳） | 40 页，测试和构建门禁待本轮最终提交后更新 |
+| 当前 pending 运行包 | 待本轮 40 页候选构建 | 旧 pending 不包含本轮新增页面；发布前必须重新构建并通过 `runtime:verify:pending` |
 | 线上服务端 | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | 与旧 Python `8001` 共存，未因本轮文档而改变 |
 
 ## 2. 本轮门禁结果
 
 以下门禁已经通过，证明的是结构、契约覆盖和代码边界：
 
-- `pnpm migration:audit`：64 个旧页面、28 个新页面、195 个旧服务端路由、87 个旧端接口字面量均有登记；
+- `pnpm migration:audit`：64 个旧页面、40 个新页面、195 个旧服务端路由、87 个旧端接口字面量均有登记；
 - `pnpm migration:boundary:audit`：34 个冻结业务入口门禁通过；
-- `pnpm migration:breadth:audit`：首页/“我的”可见 action、28 个页面事件方法、四个主 Tab 和统一状态页入口通过；共享临床/患者页面工厂的事件方法由审计显式识别；
+- `pnpm migration:breadth:audit`：首页/“我的”可见 action、40 个页面事件方法、四个主 Tab 和统一状态页入口通过；共享临床/患者/外部/Provider 页面工厂的事件方法由审计显式识别；
 - `pnpm readonly:audit`：5 个低风险域、8 个页面、10 个公共路由和 35 个语义状态通过；
 - `pnpm migration:contract:audit`：C/D/E 三批次 24 个 FeatureKey 全部覆盖，仍正确保持 `businessReady=false`；
 - `pnpm provider:audit`、`pnpm clinical:contract:audit`、`pnpm docs:audit`、`pnpm logging:audit`：材料、临床边界、文档链接和日志注册结构通过。

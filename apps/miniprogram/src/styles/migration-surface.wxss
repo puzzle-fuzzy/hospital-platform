@@ -1,0 +1,139 @@
+/*
+ * 临床、外部和 Provider 关闭态页面共用的视觉骨架。
+ * 这是入口迁移样式，不代表三类业务可以共用数据模型；真实页面开放后
+ * 应保留页面语义，但替换为各自的加载、空结果、拒绝和失败状态。
+ */
+.migration-surface-scroll {
+	height: 100vh;
+	background: #f6f8fc;
+}
+
+.migration-surface-page {
+	box-sizing: border-box;
+	min-height: 100%;
+	padding: 28rpx 24rpx 52rpx;
+}
+
+.migration-surface-hero,
+.migration-surface-card {
+	box-sizing: border-box;
+	border-radius: 20rpx;
+	background: #fff;
+	box-shadow: 0 8rpx 26rpx rgba(40, 74, 150, 0.06);
+}
+
+.migration-surface-hero {
+	display: flex;
+	align-items: center;
+	padding: 34rpx 30rpx;
+}
+
+.migration-surface-icon {
+	flex: 0 0 auto;
+	width: 82rpx;
+	height: 82rpx;
+	margin-right: 22rpx;
+}
+
+.migration-surface-hero-copy {
+	display: flex;
+	flex-direction: column;
+}
+
+.migration-surface-title {
+	color: #222b45;
+	font-size: 36rpx;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.migration-surface-label {
+	display: inline-block;
+	margin-top: 12rpx;
+	color: #3d6df6;
+	font-size: 24rpx;
+	line-height: 1.5;
+}
+
+.migration-surface-card {
+	margin-top: 22rpx;
+	padding: 30rpx;
+}
+
+.migration-surface-card-title {
+	display: block;
+	color: #222b45;
+	font-size: 30rpx;
+	font-weight: 600;
+	line-height: 1.5;
+}
+
+.migration-surface-card-copy {
+	display: block;
+	margin-top: 16rpx;
+	color: #68738a;
+	font-size: 27rpx;
+	line-height: 1.7;
+}
+
+.migration-surface-list {
+	margin-top: 20rpx;
+}
+
+.migration-surface-list-row {
+	display: flex;
+	align-items: flex-start;
+	margin-top: 12rpx;
+}
+
+.migration-surface-list-dot {
+	width: 28rpx;
+	color: #3d6df6;
+	font-size: 30rpx;
+	line-height: 1.4;
+}
+
+.migration-surface-list-text {
+	flex: 1;
+	color: #68738a;
+	font-size: 26rpx;
+	line-height: 1.7;
+}
+
+.migration-surface-coverage {
+	display: block;
+	margin-top: 22rpx;
+	padding-top: 18rpx;
+	border-top: 1rpx solid #edf0f5;
+	color: #8791a5;
+	font-size: 23rpx;
+	line-height: 1.6;
+}
+
+.migration-surface-primary-button,
+.migration-surface-secondary-button,
+.migration-surface-plain-button {
+	box-sizing: border-box;
+	width: 100%;
+	border-radius: 16rpx;
+	font-size: 28rpx;
+	line-height: 84rpx;
+}
+
+.migration-surface-primary-button {
+	margin-top: 28rpx;
+	background: #3d6df6;
+	color: #fff;
+}
+
+.migration-surface-secondary-button {
+	margin-top: 24rpx;
+	background: #edf3ff;
+	color: #3d6df6;
+}
+
+.migration-surface-plain-button {
+	margin-top: 14rpx;
+	background: transparent;
+	color: #68738a;
+}

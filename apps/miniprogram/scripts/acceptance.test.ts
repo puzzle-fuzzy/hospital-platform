@@ -1405,9 +1405,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('title: "智能客服"');
 	expect(my).toContain('case "electronic-consultation"');
 	expect(my).toContain('case "smart-customer"');
-	expect(my).toContain("navigateToFeatureStatus");
+	expect(my).toContain("navigateToFeatureEntry");
 	expect(home).toContain("onFloatingGuide");
-	expect(home).toContain('navigateToFeatureStatus("smart-customer")');
+	expect(home).toContain('navigateToFeatureEntry("smart-customer")');
 	expect(home).not.toContain('title: "智能客服功能迁移中"');
 	expect(featureNavigation).toContain("医保电子凭证需要独立授权");
 	expect(featureNavigation).toContain("FEATURE_STATUS_CATALOG");
@@ -1693,7 +1693,9 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 主 Tab 与二级页面都必须关闭微信默认的页面级滚动；前者使用共享
 	// tab-page-scroll，后者使用统一的 secondary-page-scroll。这样用户只会
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
-	expect(app.pages).toHaveLength(28);
+	// app.json 是小程序页面事实源；广度迁移新增的 12 个关闭态入口也必须
+	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
+	expect(app.pages).toHaveLength(40);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);

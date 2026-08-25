@@ -365,7 +365,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/device-evidence-0ae674e-pending.json`](release/device-evidence-0ae674e-pending.json) | 历史 `0ae674e5` 小程序候选的安全真机证据 pending 起始清单；不能替代当前候选 |
 | [`release/candidate-68902677-miniprogram-runtime-2026-08-25.md`](release/candidate-68902677-miniprogram-runtime-2026-08-25.md) | 当前 `68902677` 源码对应的 20 页面 pending 运行包、统一页面滚动边界和九域真机证据入口 |
 | [`release/device-evidence-6890267-pending.json`](release/device-evidence-6890267-pending.json) | 当前 `68902677` 小程序候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
-| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 28 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上历史小程序来源为 `13f597ea`，最新本地 pending 候选为 `cb23124b`，当前 live `dist` 仍由开发者工具锁定 |
+| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 40 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `8eb51b5f`，线上历史小程序来源为 `13f597ea`，本轮新增页面需要重新生成 pending，当前 live `dist` 仍由开发者工具锁定 |
 | [`migration/domain-migration-summary-2026-08-25.md`](migration/domain-migration-summary-2026-08-25.md) | 旧端 64 个页面按首页、就诊、预约、患者、健康、用户和互联网医院分域统计，以及各状态的后续推进顺序 |
 | [`migration/breadth-execution-board-2026-08-25.md`](migration/breadth-execution-board-2026-08-25.md) | 广度优先的跨域工作板：入口覆盖、只读业务、临床材料、患者写入、外部入口和支付医保分开推进 |
 | [`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md) | 64 个旧页面到新端落点的当前状态分布和自动化边界门禁 |
@@ -498,7 +498,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/candidate-296516a5-miniprogram-runtime-2026-08-25.md`](release/candidate-296516a5-miniprogram-runtime-2026-08-25.md) | 历史小程序代码提交 `296516a5` 的 pending 构建和 `dist` 锁定保护证据，仅作追溯 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
 | [`migration/miniprogram-navigation-boundary.md`](migration/miniprogram-navigation-boundary.md) | 小程序 20 个页面落点、404 防护和四个原生主 Tab 共享底栏门禁 |
-| [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 28 个原生页面业务状态、边界和下一步门禁 |
+| [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 40 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md`](migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md) | 旧端“就诊”实时消息/预约历史/叫号链路与互联网医院 WebView 的事实审计、契约缺口和停止条件 |
 | [`migration/medical-record-and-hospital-boundary.md`](migration/medical-record-and-hospital-boundary.md) | 门诊病历、住院、医院列表和院内导航的旧接口审计与 contract 边界 |
 | [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) | 门诊就诊记录目录的旧字段差异、候选 contract、provider 确认问题和实现门禁 |

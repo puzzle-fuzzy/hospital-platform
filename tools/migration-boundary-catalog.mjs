@@ -255,6 +255,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待外部入口 contract",
 		contractFamily: "external-session",
 		legacyPaths: ["pagesB/health/webview.vue"],
+		safeSurfaceTarget: "pages/smart-customer/smart-customer",
 		legacyActions: ["我的:smart-customer"],
 		requiredMaterials: [
 			"domain-allowlist",
@@ -276,6 +277,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待外部入口 contract",
 		contractFamily: "external-session",
 		legacyPaths: ["pagesB/user/my_consultation.vue"],
+		safeSurfaceTarget: "pages/consultation/consultation",
 		requiredMaterials: [
 			"external-subject",
 			"allowlist",
@@ -338,6 +340,8 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待临床审核",
 		contractFamily: "clinical-content-write",
 		legacyPaths: ["pagesB/health/admission_preconsultation.vue"],
+		safeSurfaceTarget:
+			"pages/admission-preconsultation/admission-preconsultation",
 		requiredMaterials: [
 			"questionnaire-version",
 			"authorization",
@@ -360,6 +364,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/discharge_followup.vue",
 			"pagesB/health/discharge_followup_detail.vue",
 		],
+		safeSurfaceTarget: "pages/discharge-followup/discharge-followup",
 		requiredMaterials: [
 			"discharge-event",
 			"followup-task",
@@ -385,6 +390,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/risk_form_pressure.vue",
 			"pagesB/health/risk_self_evaluation.vue",
 		],
+		safeSurfaceTarget: "pages/risk-evaluation/risk-evaluation",
 		requiredMaterials: [
 			"rule-version",
 			"applicable-population",
@@ -410,6 +416,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/self_test_question.vue",
 			"pagesB/health/self_test_result.vue",
 		],
+		safeSurfaceTarget: "pages/health-test/health-test",
 		requiredMaterials: [
 			"question-bank-version",
 			"threshold-version",
@@ -430,6 +437,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待临床审核",
 		contractFamily: "clinical-content-write",
 		legacyPaths: ["pagesB/health/pre_visit.vue"],
+		safeSurfaceTarget: "pages/pre-visit/pre-visit",
 		requiredMaterials: [
 			"appointment-context",
 			"questionnaire-version",
@@ -453,6 +461,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/list_electronic_banner.vue",
 			"pagesB/health/record_electronic_banner.vue",
 		],
+		safeSurfaceTarget: "pages/gift-banner/gift-banner",
 		requiredMaterials: [
 			"content-review",
 			"file-security",
@@ -477,6 +486,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"pagesB/health/list_health_praise.vue",
 			"pagesB/health/record_health_praise.vue",
 		],
+		safeSurfaceTarget: "pages/health-praise/health-praise",
 		requiredMaterials: [
 			"content-review",
 			"file-security",
@@ -497,6 +507,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待 provider contract",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/hospital/registration_detail.vue"],
+		safeSurfaceTarget: "pages/appointment-detail/appointment-detail",
 		legacyActions: ["预约记录:appointment-detail"],
 		requiredMaterials: [
 			"appointment-reference",
@@ -527,6 +538,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待 provider contract",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/hospital/bloodAppointment.vue"],
+		safeSurfaceTarget: "pages/blood-appointment/blood-appointment",
 		legacyActions: [],
 		requiredMaterials: ["blood-slot-source", "patient-owner", "status-enum"],
 		forbiddenCapabilities: [
@@ -660,6 +672,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待外部入口 contract",
 		contractFamily: "external-session",
 		legacyPaths: ["pagesB/user/subscription_message.vue"],
+		safeSurfaceTarget: "pages/patient-subscription/patient-subscription",
 		legacyActions: [],
 		requiredMaterials: [
 			"template-id",

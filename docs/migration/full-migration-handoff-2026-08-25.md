@@ -1,12 +1,12 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：源码和 pending 运行包已更新到 `cb23124b`，当前注册/构建页面均为 28 个，回归为 `293 pass / 0 fail / 3305 expect()`；四个临床和三个患者域页面为 `surface-only` 外壳，真实 Provider/临床/患者写入业务仍未开放。pending 已通过 `runtime:verify:pending`，但尚未替换被微信开发者工具锁定的 live `dist`，因此尚未产生真机证据。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，本轮新增 7 个临床内容、3 个外部入口和 2 个预约 Provider `surface-only` 页面外壳；旧 28 页 pending 不包含本轮新增入口，需要重新构建。当前统计为 `replaced=8 / partial=17 / surface-only=31 / blocked-payment=7 / excluded=1`；真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
-> **最新候选事实（2026-08-26）**：功能提交 `cb23124b` 在既有全量 64 个旧入口 A–F 批次覆盖上新增四个临床和三个患者域 `surface-only` 页面外壳、共享页面工厂构建门禁，并修正“我的快递”契约分类；当前 pending 来源为 `cb23124b4319666ab0841d23c3f4106704810328`，28 个页面，`293 pass / 0 fail / 3305 expect()`。构建已生成并通过 pending 校验，但 live `dist` 仍受微信开发者工具锁定，发布返回 `EBUSY`；此前候选仅作历史追溯。
+> **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续新增 7 个临床内容、3 个外部入口和 2 个预约 Provider `surface-only` 页面外壳、共享页面工厂构建门禁；当前需要重新生成 40 页 pending 运行包，旧 `cb23124b` 候选仅作历史追溯。发布仍须先处理微信开发者工具对 live `dist` 的锁定，不能把旧 pending 或旧 live 包写成新候选真机证据。
 
 > **广度复核补充（2026-08-26）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁通过。`pnpm check` 当前仅在发布基线阶段因线上 `8eb51b5f` 落后于本地运行时代码而 fail-closed，其中包含另一会话维护的众阳预约适配器；这不是业务测试失败，也不能通过忽略差异代替完整发布。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
 
@@ -22,10 +22,10 @@
 | 当前功能基线 | `cb23124b`（文档更新不改变 live `dist`） |
 | 小程序业务代码候选 | 功能提交 `cb23124b`；运行来源 `cb23124b4319666ab0841d23c3f4106704810328` |
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=cb23124b4319666ab0841d23c3f4106704810328` |
-| 当前源码页面数 | 28 个；每个页面具备 TypeScript 源码和页面配置 |
-| pending 页面数 | 28 个；已包含本轮四个临床和三个患者域页面外壳 |
-| 小程序回归 | 当前源码 293 pass / 0 fail / 3305 expect()；入口分发广度审计通过 |
-| pending 静态验证 | 已通过 `runtime:verify:pending`；发布到 live `dist` 仍等待释放微信工具锁 |
+| 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
+| pending 页面数 | 待本轮 40 页候选构建；旧 pending 不包含新增入口 |
+| 小程序回归 | 本轮测试和入口分发审计待最终构建后记录；当前源码静态门禁已通过 |
+| pending 静态验证 | 待本轮构建后重新执行 `runtime:verify:pending`；发布到 live `dist` 仍等待释放微信工具锁 |
 | 当前 live `dist` | 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
 | 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
@@ -40,12 +40,12 @@
 | --- | ---: | --- |
 | `replaced` | 8 | 已有原生页面或等价静态能力；仍需真实链路/真机证据才能称为完成 |
 | `partial` | 17 | 已有安全只读或静态子集；旧页面中的写入、详情、实时或外部能力仍关闭 |
-| `surface-only` | 7 | 页面外壳、必要的患者选择入口和关闭态已迁移；真实业务仍按对应 contract 阻塞 |
-| `blocked-provider` | 2 | 等待 HIS/Provider 的请求、响应、映射、脱敏和错误样例 |
-| `blocked-clinical` | 19 | 等待题库、阈值、内容、随访或问诊规则版本及临床审核；锦旗/表扬信也属于内容审核 |
+| `surface-only` | 31 | 页面外壳、必要的患者选择入口和关闭态已迁移；真实业务仍按对应 contract 阻塞 |
+| `blocked-provider` | 0 | Provider 入口已先迁移安全壳，真实读取仍未开放 |
+| `blocked-clinical` | 0 | 临床入口已先迁移安全壳，题库/阈值/内容业务仍未开放 |
 | `blocked-payment` | 7 | 等待金额、订单、支付、查单、退款和 HIS 回写状态机 |
 | `blocked-patient-contract` | 0 | 患者新增绑定、签名和旧端快递页面已有安全外壳；真实 contract 仍未开放，协议同意能力也仍关闭 |
-| `blocked-external` | 3 | 等待 WebView、客服、问诊、分享、订阅等外部主体和回跳协议 |
+| `blocked-external` | 0 | 外部入口已先迁移安全壳，WebView、客服、问诊、分享、订阅仍未开放 |
 | `excluded` | 1 | 旧端开发辅助页，不进入生产小程序 |
 | **合计** | **64** | 每个旧页面有一个明确落点；不等于 64 个业务都已开放 |
 
@@ -56,7 +56,7 @@ pnpm migration:audit
 pnpm migration:boundary:audit
 ```
 
-除七个 `surface-only` 外壳外，所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；七个外壳只展示页面边界和关闭态，不读取 Provider。互联网医院旧顶层入口已有独立安全壳，但外部能力仍关闭。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
+除 31 个 `surface-only` 外壳外，剩余支付/医保/结算入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；这些外壳只展示页面边界和关闭态，不读取 Provider、不打开外部地址。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
 
 首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 28 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法或共享页面工厂中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
 

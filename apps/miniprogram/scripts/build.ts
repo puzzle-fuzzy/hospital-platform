@@ -482,10 +482,22 @@ async function validatePageRuntimeBoundaries(
 		const usesPatientContractSurfaceFactory = script.includes(
 			"registerPatientContractSurfacePage(",
 		);
+		const usesClinicalContentSurfaceFactory = script.includes(
+			"registerClinicalContentSurfacePage(",
+		);
+		const usesExternalEntrySurfaceFactory = script.includes(
+			"registerExternalEntrySurfacePage(",
+		);
+		const usesProviderEntrySurfaceFactory = script.includes(
+			"registerProviderEntrySurfacePage(",
+		);
 		if (
 			pageEntryIndex < 0 &&
 			!usesClinicalSurfaceFactory &&
-			!usesPatientContractSurfaceFactory
+			!usesPatientContractSurfaceFactory &&
+			!usesClinicalContentSurfaceFactory &&
+			!usesExternalEntrySurfaceFactory &&
+			!usesProviderEntrySurfaceFactory
 		) {
 			throw new Error(`${pagePath}.ts must contain a Page implementation`);
 		}
@@ -502,9 +514,25 @@ async function validatePageRuntimeBoundaries(
 				? await Bun.file(
 						join(source, "services", "patient-contract-surface.ts"),
 					).text()
-				: "";
+				: usesClinicalContentSurfaceFactory
+					? await Bun.file(
+							join(source, "services", "clinical-content-surface.ts"),
+						).text()
+					: usesExternalEntrySurfaceFactory
+						? await Bun.file(
+								join(source, "services", "external-entry-surface.ts"),
+							).text()
+						: usesProviderEntrySurfaceFactory
+							? await Bun.file(
+									join(source, "services", "provider-entry-surface.ts"),
+								).text()
+							: "";
 		const pageImplementation =
-			usesClinicalSurfaceFactory || usesPatientContractSurfaceFactory
+			usesClinicalSurfaceFactory ||
+			usesPatientContractSurfaceFactory ||
+			usesClinicalContentSurfaceFactory ||
+			usesExternalEntrySurfaceFactory ||
+			usesProviderEntrySurfaceFactory
 				? `${script}\n${sharedPageFactory}`
 				: script.slice(pageEntryIndex);
 		for (const match of template.matchAll(bindingPattern)) {
