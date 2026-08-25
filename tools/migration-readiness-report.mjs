@@ -104,12 +104,12 @@ function legacyCoverage() {
 }
 
 /**
- * 汇总所有阻断入口的准入目录。
- *
- * 入口台账只说明页面去了哪里；这里进一步检查冻结域的 FeatureKey、状态页
- * 落点、旧页面映射和 action-only 映射是否仍然一致，并把 contract 家族和
- * 材料数量放进 readiness。这样总报告不会只显示“有状态页”，却漏掉某个
- * 可见 action 没有业务准入边界。
+ * 汇总所有阻断入口的准入目录，包括首页/“我的” action 和二级页面中
+ * 直接进入状态页的调用。入口台账只说明页面去了哪里；这里进一步检查
+ * 冻结入口的 FeatureKey、状态页落点、旧页面映射和 action-only 映射是否
+ * 仍然一致，并把 contract 家族和材料数量放进 readiness。
+ * 这样总报告不会只显示“有状态页”，却漏掉某个可见或二级 action 没有
+ * 业务准入边界。
  */
 function frozenBoundaryCoverage(migrationBreadth) {
 	const legacyByPath = new Map(
@@ -131,9 +131,23 @@ function frozenBoundaryCoverage(migrationBreadth) {
 	const actionPages = new Map(
 		migrationBreadth.pages.map((page) => [page.id, page]),
 	);
+	const featureStatusActions = new Set(
+		migrationBreadth.featureStatusActions ?? [],
+	);
+	const featureStatusFeatureKeys = new Set(
+		[...featureStatusActions].map((reference) =>
+			reference.slice(reference.indexOf(":") + 1),
+		),
+	);
+	const uncoveredFeatureStatusKeys = [...featureStatusFeatureKeys].filter(
+		(featureKey) => !gateFeatureKeys.has(featureKey),
+	);
 
 	for (const featureKey of uncoveredActionFeatureKeys) {
 		failures.push(`可见 action FeatureKey 缺少冻结域准入门禁：${featureKey}`);
+	}
+	for (const featureKey of uncoveredFeatureStatusKeys) {
+		failures.push(`状态页调用 FeatureKey 缺少冻结域准入门禁：${featureKey}`);
 	}
 
 	for (const gate of FROZEN_DOMAIN_GATE_CATALOG) {
@@ -160,6 +174,17 @@ function frozenBoundaryCoverage(migrationBreadth) {
 			legacyActionCount += 1;
 			if (typeof actionReference !== "string") {
 				failures.push(`${gate.id}: action-only 入口必须是字符串`);
+				continue;
+			}
+			if (featureStatusActions.has(actionReference)) {
+				const calledFeatureKey = actionReference.slice(
+					actionReference.indexOf(":") + 1,
+				);
+				if (calledFeatureKey !== gate.featureKey) {
+					failures.push(
+						`${gate.id}: 状态页调用未指向 FeatureKey：${actionReference}`,
+					);
+				}
 				continue;
 			}
 			const [pageId, action, ...extraParts] = actionReference.split(":");
@@ -189,6 +214,9 @@ function frozenBoundaryCoverage(migrationBreadth) {
 		coveredEntryCount: legacyEntryCount + legacyActionCount,
 		actionFeatureKeyCount: actionFeatureKeys.size,
 		uncoveredActionFeatureKeys,
+		featureStatusCallCount: featureStatusActions.size,
+		featureStatusFeatureKeyCount: featureStatusFeatureKeys.size,
+		uncoveredFeatureStatusKeys,
 		contractFamilyCounts,
 		requiredMaterialCount: FROZEN_DOMAIN_GATE_CATALOG.reduce(
 			(total, gate) =>

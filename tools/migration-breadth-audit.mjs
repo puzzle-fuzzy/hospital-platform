@@ -27,6 +27,22 @@ const ACTION_SOURCES = [
 	},
 ];
 
+/**
+ * 二级页面也会直接进入统一状态页，但它们不属于首页/“我的”的 action
+ * 数据目录。这里为这些调用建立稳定的人类可读页面标识，防止只审首页和
+ * “我的”时遗漏预约、报告、费用等页面里的高风险入口。
+ */
+const FEATURE_STATUS_PAGE_LABELS = Object.freeze({
+	"pages/index/index": "首页",
+	"pages/my/my": "我的",
+	"pages/appointment-directory/appointment-directory": "预约目录",
+	"pages/appointment-records/appointment-records": "预约记录",
+	"pages/report-directory/report-directory": "报告目录",
+	"pages/report-detail/report-detail": "报告详情",
+	"pages/outpatient-payment/outpatient-payment": "门诊费用",
+	"pages/patient-select/patient-select": "选择就诊人",
+});
+
 const readSource = (root, relativePath) =>
 	Bun.file(resolve(root, relativePath)).text();
 
@@ -74,6 +90,25 @@ function extractFeatureKeys(source) {
 			),
 		),
 	];
+}
+
+/**
+ * 提取任意页面调用统一状态页时传入的固定 key。
+ *
+ * 大多数调用只有一个字符串；门诊费用还会在三元表达式中根据已缴/待缴
+ * 分别传入两个 key，因此不能只用“调用后紧跟一个字符串”的正则。这里
+ * 只读取调用括号内的字符串字面量，不执行源码，也不接受动态 URL。
+ */
+function extractFeatureStatusCalls(source, pageLabel, knownFeatureKeys) {
+	const calls = [];
+	for (const match of source.matchAll(/navigateToFeatureStatus\(([^)]*)\)/gu)) {
+		for (const featureMatch of match[1].matchAll(/"([^"]+)"/gu)) {
+			if (knownFeatureKeys.has(featureMatch[1])) {
+				calls.push(`${pageLabel}:${featureMatch[1]}`);
+			}
+		}
+	}
+	return [...new Set(calls)];
 }
 
 /**
@@ -202,6 +237,7 @@ export async function auditMigrationBreadth(root = repositoryPath) {
 	const failures = [];
 	const pages = [];
 	const allFeatureKeys = new Set();
+	const featureStatusActions = new Set();
 
 	for (const sourceConfig of ACTION_SOURCES) {
 		const source = await readSource(root, sourceConfig.file);
@@ -237,6 +273,29 @@ export async function auditMigrationBreadth(root = repositoryPath) {
 			unknownFeatureKeys,
 			passed: missingCases.length === 0 && unknownFeatureKeys.length === 0,
 		});
+	}
+
+	/**
+	 * 首页/“我的”之外的页面也必须纳入状态入口审计。页面标签使用固定
+	 * 目录，未知页面不会被静默归类，新增二级页面时需要显式补登记。
+	 */
+	for (const pagePath of appConfig.pages ?? []) {
+		const pageSourcePath = `${pagePath}.ts`;
+		const pageSourceFile = Bun.file(
+			resolve(root, "apps/miniprogram/src", pageSourcePath),
+		);
+		if (!(await pageSourceFile.exists())) continue;
+		const pageLabel = FEATURE_STATUS_PAGE_LABELS[pagePath];
+		if (!pageLabel) continue;
+		const source = await pageSourceFile.text();
+		for (const action of extractFeatureStatusCalls(
+			source,
+			pageLabel,
+			knownFeatureKeys,
+		)) {
+			featureStatusActions.add(action);
+			allFeatureKeys.add(action.slice(action.indexOf(":") + 1));
+		}
 	}
 
 	/**
@@ -283,6 +342,7 @@ export async function auditMigrationBreadth(root = repositoryPath) {
 	return {
 		pages,
 		featureKeyCount: allFeatureKeys.size,
+		featureStatusActions: [...featureStatusActions].sort(),
 		tabBarPageCount: tabBarPages.length,
 		interactionAudit,
 		failures,
@@ -305,7 +365,7 @@ if (import.meta.main) {
 		process.exitCode = 1;
 	} else {
 		console.log(
-			`Migration breadth audit passed: ${result.pages.length} action pages, ${result.interactionAudit.pageCount} interaction pages, ${result.tabBarPageCount} primary tabs`,
+			`Migration breadth audit passed: ${result.pages.length} action pages, ${result.featureStatusActions.length} feature-status calls, ${result.interactionAudit.pageCount} interaction pages, ${result.tabBarPageCount} primary tabs`,
 		);
 	}
 }

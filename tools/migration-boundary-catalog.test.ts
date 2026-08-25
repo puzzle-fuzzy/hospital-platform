@@ -25,11 +25,11 @@ const REQUIRED_COMMON_MATERIALS = [
 ];
 
 describe("全量阻断业务域准入目录", () => {
-	test("18 个冻结域都有唯一身份和页面或 action-only 入口来源", () => {
-		expect(FROZEN_DOMAIN_GATE_CATALOG).toHaveLength(18);
+	test("34 个冻结入口都有唯一身份和页面或 action-only 入口来源", () => {
+		expect(FROZEN_DOMAIN_GATE_CATALOG).toHaveLength(34);
 		expect(
 			new Set(FROZEN_DOMAIN_GATE_CATALOG.map((gate) => gate.id)).size,
-		).toBe(18);
+		).toBe(34);
 		for (const gate of FROZEN_DOMAIN_GATE_CATALOG) {
 			expect(gate.name.length).toBeGreaterThan(0);
 			expect(gate.featureKey.length).toBeGreaterThan(0);
@@ -84,5 +84,14 @@ describe("全量阻断业务域准入目录", () => {
 				(gate) => gate.id === "treatment-companion",
 			)?.legacyActions,
 		).toEqual(["首页:companion"]);
+		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "patient-qr")
+				?.legacyActions,
+		).toEqual(["首页:patient-qr"]);
+		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find(
+				(gate) => gate.id === "outpatient-payment-write",
+			)?.legacyActions,
+		).toEqual(["门诊费用:outpatient-payment-write"]);
 	});
 });

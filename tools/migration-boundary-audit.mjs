@@ -5,7 +5,7 @@ import { FROZEN_DOMAIN_GATE_CATALOG } from "./migration-boundary-catalog.mjs";
 /**
  * 广度迁移边界审计。
  *
- * 旧端页面必须先全部有明确落点，但临床、患者绑定、外部会话和支付域
+ * 旧端页面必须先全部有明确落点，但临床、患者绑定、外部会话和支付入口
  * 不能为了增加“已迁移”数量而猜测 Provider 协议。这个工具把当前已经
  * 识别出的高风险页面逐一绑定到 feature-status 和固定 FeatureKey，后续
  * 若有人新增路由或把占位页改成半成品，提交门禁会立即提醒。
@@ -26,8 +26,8 @@ const featureNavigation = await import(
 );
 
 /**
- * 这些域的旧页面虽然已经纳入导航，但真实 contract 尚未冻结。
- * 一个域中的多个旧页面可以共享状态页，但不能共享旧端内部标识或响应。
+ * 这些入口虽然已经纳入导航，但真实 contract 尚未冻结。
+ * 同一业务域中的多个入口可以共享状态页，但不能共享旧端内部标识或响应。
  */
 const FROZEN_DOMAIN_GATES = FROZEN_DOMAIN_GATE_CATALOG;
 
@@ -75,6 +75,7 @@ const actionPages = new Map(
 const actionFeatureKeys = new Set(
 	migrationBreadth.pages.flatMap((page) => page.featureKeys),
 );
+const featureStatusActions = new Set(migrationBreadth.featureStatusActions);
 
 function fail(message) {
 	failures.push(message);
@@ -159,6 +160,17 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			continue;
 		}
 		const [pageId, action, ...extraParts] = actionReference.split(":");
+		const calledFeatureKey = actionReference.slice(
+			actionReference.indexOf(":") + 1,
+		);
+		if (featureStatusActions.has(actionReference)) {
+			if (calledFeatureKey !== gate.featureKey) {
+				fail(
+					`${gate.name} 的状态页调用未指向对应 FeatureKey：${actionReference} -> ${gate.featureKey}`,
+				);
+			}
+			continue;
+		}
 		const page = actionPages.get(pageId);
 		if (!pageId || !action || extraParts.length > 0 || !page) {
 			fail(`${gate.name} 的 action-only 入口无效：${actionReference}`);
@@ -187,6 +199,15 @@ for (const featureKey of actionFeatureKeys) {
 	}
 }
 
+// 二级页面的状态页调用也必须拥有冻结 gate；否则入口虽然有提示，
+// 但其 contract 家族、禁止能力和后续放行条件仍然没有纳入总目录。
+for (const actionReference of featureStatusActions) {
+	const featureKey = actionReference.slice(actionReference.indexOf(":") + 1);
+	if (!gateFeatureKeys.has(featureKey)) {
+		fail(`状态页调用 FeatureKey 缺少冻结域准入门禁：${actionReference}`);
+	}
+}
+
 /**
  * 重点冻结域之外的 blocked 页面也不能绕过统一状态页。
  * FROZEN_DOMAIN_GATES 记录的是需要逐域检查的业务语义；这里检查全部
@@ -203,6 +224,11 @@ for (const entry of catalog.LEGACY_PAGE_MIGRATION_CATALOG) {
 	if (!entry.featureKey) {
 		fail(`blocked 页面 ${entry.legacyPath} 缺少 FeatureKey`);
 		continue;
+	}
+	if (!gateFeatureKeys.has(entry.featureKey)) {
+		fail(
+			`blocked 页面 ${entry.legacyPath} FeatureKey 缺少冻结域准入门禁：${entry.featureKey}`,
+		);
 	}
 	if (
 		!Object.hasOwn(featureNavigation.FEATURE_STATUS_CATALOG, entry.featureKey)
@@ -253,6 +279,6 @@ if (failures.length > 0) {
 	process.exitCode = 1;
 } else {
 	console.log(
-		`Migration boundary audit passed: ${FROZEN_DOMAIN_GATES.length} frozen domain gate(s)`,
+		`Migration boundary audit passed: ${FROZEN_DOMAIN_GATES.length} frozen entry gate(s)`,
 	);
 }

@@ -2,7 +2,7 @@
 
 ## 说明
 
-全量迁移当前不是“把 64 个旧页面都做成能点击”，而是先保证每个入口都有明确落点，再为每个高风险域冻结独立的 contract。当前有 18 个冻结入口域：其中 16 个包含旧页面映射，2 个是只有首页 action 的能力；共登记 4 个 action-only 引用。它们统一进入 `pages/feature-status/feature-status`，但 Provider、患者身份、临床审核、支付状态机和外部主体不同，不能共用一个兼容接口。
+全量迁移当前不是“把 64 个旧页面都做成能点击”，而是先保证每个入口都有明确落点，再为每个高风险入口冻结独立的 contract。当前有 34 个冻结入口 gate：覆盖 39 个旧页面入口和 13 个 action-only 引用；其中既包括首页/“我的”入口，也包括预约、报告、费用、患者二级动作。它们统一进入 `pages/feature-status/feature-status`，但 Provider、患者身份、临床审核、支付状态机和外部主体不同，不能共用一个兼容接口。
 
 唯一机器事实源是 [`tools/migration-boundary-catalog.mjs`](../../tools/migration-boundary-catalog.mjs)，入口审计是：
 
@@ -26,7 +26,7 @@ pnpm migration:readiness
 
 各域还必须补充自己的特有材料，完成后才能按 `contract -> adapter -> domain -> persistence -> API -> 页面 -> 日志 -> 真机` 顺序实现。
 
-## 18 个域
+## 34 个冻结入口 gate
 
 | 域 | Contract 家族 | 当前入口 | 特有准入材料 | 仍然关闭的能力 |
 | --- | --- | --- | --- | --- |
@@ -48,6 +48,27 @@ pnpm migration:readiness
 | 预约前预问诊 | `clinical-content-write` | `pre_visit.vue` | 预约上下文、题卷版本、幂等、临床审核 | 把问卷当预约成功、跨预约复用答案、未经审核分诊 |
 | 电子锦旗 | `external-content` | `gift_*banner.vue` | 内容审核、文件安全、公开脱敏、幂等、撤回 | 公开患者正文、未校验文件、无撤回内容 |
 | 表扬信 | `external-content` | `gift_*praise.vue` | 内容审核、文件安全、公开脱敏、幂等、撤回 | 公开患者正文、把表扬信当医疗证明、无审核发布 |
+
+### 二级入口与患者/费用补充 gate
+
+| 入口 gate | Contract 家族 | 当前入口 | 特有准入材料 | 仍然关闭的能力 |
+| --- | --- | --- | --- | --- |
+| 挂号详情 | `provider-read-only` | `registration_detail.vue`、`预约记录:appointment-detail` | 预约引用、状态枚举、患者归属 | 用卡片索引读详情、跨患者查看、返回原始挂号号 |
+| 预约下单 | `payment-write` | `confirm_registration.vue`、`预约目录:appointment-write` | 锁号、订单归属、取消、HIS 回写 | 直接锁号、客户端提交金额、无幂等创建 |
+| 采血预约 | `provider-read-only` | `bloodAppointment.vue` | 采血号源、患者归属、状态枚举 | 提交采血预约、复用普通门诊号源 |
+| 支付收银台 | `payment-write` | `payment_cashier.vue` | 订单归属、金额单位、回调/查单、回滚 | 恢复旧 WebView、任意外部支付地址、客户端确认成功 |
+| 电子账单 | `payment-write` | `electronic_bill.vue` | 账单引用、金额单位、短期资源链接、过期 | 返回原始账单 URL、跨患者读取、把账单当支付成功 |
+| 就诊人协议 | `patient-write` | `agreement.vue` | 协议版本、同意记录、撤回、审计 | 无版本接受、把本地勾选当同意、跨 owner 复用 |
+| 就诊人联系地址 | `patient-write` | `express.vue` | 字段白名单、owner、版本、脱敏 | 仅凭姓名保存、完整地址写日志、覆盖其他患者 |
+| 就诊二维码 | `patient-write` | `首页:patient-qr` | 签名载荷、受众、TTL、防重放、撤销 | 外发 `patId`/卡号、永久二维码、无签名生成 |
+| 就诊人签名 | `patient-write` | `patient_signature.vue` | 用途、文件安全、同意、撤回 | 复用旧端签名、无用途上传、跨患者读取 |
+| 消息订阅 | `external-session` | `subscription_message.vue` | 模板 ID、业务事件、授权结果、撤销 | 把本地开关当授权、未经事件发送、跨用户复用 |
+| 费用记录详情 | `payment-write` | `outpatient_pay_detail.vue`、`门诊费用:outpatient-payment-detail` | 账单引用、金额单位、归属、字段白名单 | 把索引当账单号、混用待缴/已缴、未授权明细 |
+| 门诊缴费 | `payment-write` | `门诊费用:outpatient-payment-write` | 订单归属、金额守恒、幂等、回调/查单 | 客户端创建订单、提交金额、绕过只读费用引用 |
+| 报告详情入口 | `provider-read-only` | `报告目录:report-detail` | opaque 引用、患者归属、TTL、脱敏 | 用列表索引直连、返回原始报告号、跨患者打开 |
+| 云影像 | `provider-read-only` | `报告详情:report-cloud-image` | 资源 allowlist、短期会话、受众、过期 | 任意影像 URL、长期资源链接、外发患者标识 |
+| 报告分享 | `external-session` | `报告详情:report-share` | 受众、脱敏、TTL、防重放、撤销 | 分享原始报告、永久链接、无受众生成 |
+| 报告复诊 | `provider-read-only` | `报告详情:report-follow-up` | 患者上下文、预约关系、用途、审计 | 根据报告自动预约、把报告当诊断、跨患者创建 |
 
 ## 统一状态页规则
 
