@@ -1,9 +1,9 @@
 # 广度优先迁移计划（2026-08-25）
 
 > 当前跨域执行工作板见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
-> 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前小程序功能候选为 `68902677`，运行输入/pending 候选为 `68902677`；服务端本地代码候选为 `b42922f4`，本轮文档提交不代表线上服务已更新。
+> 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前小程序功能候选为 `3cf828ed`，运行输入/pending 候选为 `3cf828ed`；服务端本地代码候选为 `b42922f4`，本轮文档提交不代表线上服务已更新。
 
-> **当前事实优先（2026-08-25，后续历史段落不覆盖本段）**：小程序功能源码候选为 `689026770a9f68837ba60f1d7bf1ad9f073d547e`，当前运行输入/pending 来源一致，当前回归为 `282 pass / 0 fail / 3119 expect()`；pending 尚未发布。被微信开发者工具占用的 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，必须先释放锁再执行原子发布和 `runtime:verify`。服务端本地候选仍按 `b42922f4` 识别，线上 release 漂移由 `pnpm release:baseline:audit` fail-closed 报告；旧 Python `8001` 和另一会话负责的众阳预约适配器不在本轮修改范围。
+> **当前事实优先（2026-08-25，后续历史段落不覆盖本段）**：小程序功能源码候选为 `3cf828ed185f0e745138db04011d26c6db62fa8a`，当前运行输入/pending 来源一致，当前回归为 `284 pass / 0 fail / 3129 expect()`；pending 尚未发布。被微信开发者工具占用的 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，必须先释放锁再执行原子发布和 `runtime:verify`。服务端本地候选仍按 `b42922f4` 识别，线上 release 漂移由 `pnpm release:baseline:audit` fail-closed 报告；旧 Python `8001` 和另一会话负责的众阳预约适配器不在本轮修改范围。
 
 > **历史候选补充（提交 `99c7e8fd`）**：原生页面从 17 个扩展到 20 个，新增健康百科目录、症状查疾病结果、疾病/药品详情三个页面；服务端健康路由已挂载但无审核发布 bundle 时 fail-closed。该候选仍保留在历史交接中，当前 pending 以本段上方 `0ae674e5` 为准。
 

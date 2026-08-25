@@ -13,11 +13,11 @@
 
 临床记录、住院、医生关系和问诊/电子导诊的独立准入门禁可用 `pnpm clinical:contract:audit` 校验。
 
- > **当前全量迁移交接单（2026-08-25）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前功能候选为 `0ae674e5`，小程序 pending 运行输入为 `0ae674e5`，且已通过独立静态验证；64 个旧页面均有明确落点，其中 7 个已替换、17 个安全子集、39 个入口仍按阻断原因关闭；本页下方历史候选只作追溯。
+> **当前全量迁移交接单（2026-08-25）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前功能候选为 `3cf828ed`，小程序 pending 运行输入为 `3cf828ed`，且已通过独立静态验证；64 个旧页面均有明确落点，其中 7 个已替换、17 个安全子集、39 个入口仍按阻断原因关闭；本页下方历史候选只作追溯。
 
-> **当前仓库交接基线（2026-08-25）**：本轮功能候选为 `0ae674e5`，当前 pending 运行输入为 `0ae674e5`。该候选已完成独立静态校验；全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
+> **当前仓库交接基线（2026-08-25）**：本轮功能候选为 `3cf828ed`，当前 pending 运行输入为 `3cf828ed`。该候选已完成独立静态校验；全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
 
-> **当前 pending 运行包**：`build-info.json.sourceRevision=0ae674e5ceb353434ad2e52e375927e4b788222e`，20 页、当前源码 `281 pass / 0 fail / 3037 expect()`。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，详见 [`release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md`](release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md)。
+> **当前 pending 运行包**：`build-info.json.sourceRevision=3cf828ed185f0e745138db04011d26c6db62fa8a`，20 页、当前源码 `284 pass / 0 fail / 3129 expect()`。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，详见 [`release/candidate-3cf828ed-miniprogram-runtime-2026-08-25.md`](release/candidate-3cf828ed-miniprogram-runtime-2026-08-25.md)。
 
 > **当前运行层只读复核（2026-08-25 17:16 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；内网 `/health/ready`、`/api/v1/system/ping` 与公网 `/api/v2/health/ready`、`/api/v2/system/ping` 均为 `200`，database/redis/schema 为 `ok`。内网探针必须使用实际绑定地址，公网路径由 `/api/v2` 反向代理提供。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
