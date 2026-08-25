@@ -1,7 +1,7 @@
 # 患者端业务正确性规则
 
 > 当前生产配套基线（2026-08-24）：服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，线上配套小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
-> 当前可运行底栏仍是 `fcc6630e` 对应的微信原生 TabBar；最新代码候选 `8bd3898a` 已包含 App 启动资料初始化和授权点击修复，但因开发者工具锁定 `dist/` 尚未发布。`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。四个主 Tab 由微信运行时统一维护固定位置和 selectedIconPath，页面不渲染自定义底栏，也不手动同步 selected。
+> 当前可运行底栏仍是 `fcc6630e` 对应的微信原生 TabBar；最新本地代码候选 `2f4b136f` 已包含全局启动资料初始化、授权点击修复和未迁移入口统一状态页，但因开发者工具锁定 `dist/` 尚未发布。`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。四个主 Tab 由微信运行时统一维护固定位置和 selectedIconPath，页面不渲染自定义底栏，也不手动同步 selected。
 > 当前本地未发布候选包含四个正式 Tab 入口、内容滚动视口、挂号卡片、爽约入口、患者上下文错误态分流、查询状态容器和报告目录加载占位收口；代码回归不能替代生产运行包或真机三层证据。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
 
 > 当前验收基线（2026-08-24）：服务端已验证 release 为

@@ -37,7 +37,7 @@
 
 ## 当前代码和文档的结论
 
-1. 目前共注册 16 个页面；注册表、页面 TypeScript 源码、构建生成的 JavaScript 和本台账必须同时存在。
+1. 目前共注册 17 个页面；注册表、页面 TypeScript 源码、构建生成的 JavaScript 和本台账必须同时存在。
 2. 当前安全可继续推进的是“真实只读 provider → 服务端脱敏/owner 隔离 → 公网 → 真机”闭环；预约写入、病历、费用支付、医保、退款和 HIS 回写仍然遵守最后处理原则。
 3. 页面跳转存在不等于业务完成。尤其是 `appointment-directory`、`report-directory`、`outpatient-payment` 三类页面，必须把“目录读到了”与“可以执行副作用”分开验收。
 4. 任何新 provider 文档到达后，应先更新本台账的能力和边界，再更新 contract、adapter、domain、persistence、API、小程序、日志和 release 证据；缺字段时保持 `待 contract`。
