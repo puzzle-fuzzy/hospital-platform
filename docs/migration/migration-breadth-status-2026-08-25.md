@@ -38,6 +38,7 @@
 pnpm migration:audit           通过：64 个旧页面、20 个新页面、195 个旧服务路由、87 个旧端接口字面量
 pnpm migration:boundary:audit  通过：34 个冻结入口 gate，39 个旧页面 + 13 个 action-only 引用均有统一状态页和 FeatureKey 门禁；31 次二级/主入口状态调用也纳入审计
 pnpm migration:breadth:audit   通过：首页 22 个、我的 9 个可见 action 均有固定分发；四个主 Tab 均已注册；20 个页面 WXML 事件均有 TS 方法
+pnpm migration:readiness       通过结构门禁：A–F gate 批次覆盖为 3/0/5/12/7/7，未分配 gate=0；真实业务仍保持 fail-closed
 ```
 
 ## 2. 64 个旧入口的真实状态分布

@@ -38,10 +38,71 @@ const COMMON_CONTRACT_MATERIALS = Object.freeze([
 	"rollback",
 ]);
 
-/** 为每个域注入不可缺少的状态机和通用材料，避免条目漏填。 */
+/**
+ * 入口 gate 的唯一迁移批次映射。
+ *
+ * 批次不是页面展示标签，而是后续 contract、验收和发布顺序的边界：A
+ * 只读入口先取证，C 处理临床只读，D 处理患者/便民及临床内容写入，E
+ * 处理外部会话，F 最后处理支付与 HIS 回写。B 的健康内容发布由独立的
+ *审核 bundle 队列维护，因此本目录没有把健康百科误塞进其它 gate。
+ */
+const MIGRATION_BATCH_BY_FEATURE_KEY = Object.freeze({
+	"appointment-detail": "A-readonly-evidence",
+	"blood-appointment": "A-readonly-evidence",
+	"report-detail": "A-readonly-evidence",
+	"medical-record": "C-clinical-readonly-contracts",
+	"inpatient-center": "C-clinical-readonly-contracts",
+	doctor: "C-clinical-readonly-contracts",
+	consultation: "C-clinical-readonly-contracts",
+	"electronic-consultation": "C-clinical-readonly-contracts",
+	"patient-binding": "D-patient-and-convenience-write",
+	"patient-agreement": "D-patient-and-convenience-write",
+	"patient-address": "D-patient-and-convenience-write",
+	"patient-qr": "D-patient-and-convenience-write",
+	"patient-signature": "D-patient-and-convenience-write",
+	"admission-preconsultation": "D-patient-and-convenience-write",
+	"discharge-followup": "D-patient-and-convenience-write",
+	"risk-evaluation": "D-patient-and-convenience-write",
+	"health-test": "D-patient-and-convenience-write",
+	"pre-visit": "D-patient-and-convenience-write",
+	"gift-banner": "D-patient-and-convenience-write",
+	"health-praise": "D-patient-and-convenience-write",
+	guide: "E-external-entry",
+	companion: "E-external-entry",
+	"smart-customer": "E-external-entry",
+	"patient-subscription": "E-external-entry",
+	"report-cloud-image": "E-external-entry",
+	"report-share": "E-external-entry",
+	"report-follow-up": "E-external-entry",
+	"inpatient-payment": "F-payment-and-writeback",
+	insurance: "F-payment-and-writeback",
+	"appointment-write": "F-payment-and-writeback",
+	cashier: "F-payment-and-writeback",
+	"electronic-bill": "F-payment-and-writeback",
+	"outpatient-payment-detail": "F-payment-and-writeback",
+	"outpatient-payment-write": "F-payment-and-writeback",
+});
+
+export const MIGRATION_BATCH_IDS = Object.freeze([
+	"A-readonly-evidence",
+	"B-health-content",
+	"C-clinical-readonly-contracts",
+	"D-patient-and-convenience-write",
+	"E-external-entry",
+	"F-payment-and-writeback",
+]);
+
+/** 为每个入口注入不可缺少的状态机、通用材料和迁移批次，避免条目漏填。 */
 function createGate(gate) {
+	const migrationBatch = MIGRATION_BATCH_BY_FEATURE_KEY[gate.featureKey];
+	if (!migrationBatch) {
+		throw new Error(
+			`Frozen gate ${gate.id} has no migration batch for ${gate.featureKey}`,
+		);
+	}
 	return Object.freeze({
 		...gate,
+		migrationBatch,
 		semanticStates: COMMON_SEMANTIC_STATES,
 		commonMaterials: COMMON_CONTRACT_MATERIALS,
 	});

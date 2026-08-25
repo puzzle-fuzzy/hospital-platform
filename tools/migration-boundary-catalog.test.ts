@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { FROZEN_DOMAIN_GATE_CATALOG } from "./migration-boundary-catalog.mjs";
+import {
+	FROZEN_DOMAIN_GATE_CATALOG,
+	MIGRATION_BATCH_IDS,
+} from "./migration-boundary-catalog.mjs";
 
 const REQUIRED_SEMANTIC_STATES = [
 	"requesting",
@@ -35,10 +38,15 @@ describe("全量阻断业务域准入目录", () => {
 			expect(gate.featureKey.length).toBeGreaterThan(0);
 			expect(gate.readiness.length).toBeGreaterThan(0);
 			expect(gate.contractFamily.length).toBeGreaterThan(0);
+			expect(MIGRATION_BATCH_IDS).toContain(gate.migrationBatch);
 			expect(
 				gate.legacyPaths.length + (gate.legacyActions?.length ?? 0),
 			).toBeGreaterThan(0);
 		}
+		expect(
+			new Set(FROZEN_DOMAIN_GATE_CATALOG.map((gate) => gate.migrationBatch))
+				.size,
+		).toBe(5);
 	});
 
 	test("每个冻结域都声明完整的语义、通用材料和关闭能力", () => {

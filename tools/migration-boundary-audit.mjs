@@ -1,6 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
-import { FROZEN_DOMAIN_GATE_CATALOG } from "./migration-boundary-catalog.mjs";
+import {
+	FROZEN_DOMAIN_GATE_CATALOG,
+	MIGRATION_BATCH_IDS,
+} from "./migration-boundary-catalog.mjs";
 
 /**
  * 广度迁移边界审计。
@@ -93,6 +96,9 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 	seenGateIds.add(gate.id);
 	if (!allowedContractFamilies.has(gate.contractFamily)) {
 		fail(`${gate.name} 的 contractFamily 无效：${gate.contractFamily}`);
+	}
+	if (!MIGRATION_BATCH_IDS.includes(gate.migrationBatch)) {
+		fail(`${gate.name} 的迁移批次无效：${gate.migrationBatch}`);
 	}
 	for (const state of requiredSemanticStates) {
 		if (!gate.semanticStates?.includes(state)) {

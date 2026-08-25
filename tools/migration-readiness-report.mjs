@@ -7,7 +7,10 @@ import { buildHealthKnowledgeReviewQueue } from "./health-knowledge-review-queue
 import { auditLegacyHealthKnowledgeSourceFile } from "./health-knowledge-source-audit.mjs";
 import { auditMigrationBreadth } from "./migration-breadth-audit.mjs";
 import { auditReadOnlyDomains } from "./read-only-domain-audit.mjs";
-import { FROZEN_DOMAIN_GATE_CATALOG } from "./migration-boundary-catalog.mjs";
+import {
+	FROZEN_DOMAIN_GATE_CATALOG,
+	MIGRATION_BATCH_IDS,
+} from "./migration-boundary-catalog.mjs";
 import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -117,6 +120,18 @@ function frozenBoundaryCoverage(migrationBreadth) {
 	);
 	const failures = [];
 	const contractFamilyCounts = {};
+	const batchCoverage = new Map(
+		MIGRATION_BATCH_IDS.map((batchId) => [
+			batchId,
+			{
+				batchId,
+				gateCount: 0,
+				legacyEntryCount: 0,
+				legacyActionCount: 0,
+				featureKeys: [],
+			},
+		]),
+	);
 	let legacyEntryCount = 0;
 	let legacyActionCount = 0;
 	const actionFeatureKeys = new Set(
@@ -151,10 +166,18 @@ function frozenBoundaryCoverage(migrationBreadth) {
 	}
 
 	for (const gate of FROZEN_DOMAIN_GATE_CATALOG) {
+		const batch = batchCoverage.get(gate.migrationBatch);
+		if (!batch) {
+			failures.push(`${gate.id}: 迁移批次未登记：${gate.migrationBatch}`);
+		} else {
+			batch.gateCount += 1;
+			batch.featureKeys.push(gate.featureKey);
+		}
 		contractFamilyCounts[gate.contractFamily] =
 			(contractFamilyCounts[gate.contractFamily] ?? 0) + 1;
 		for (const legacyPath of gate.legacyPaths) {
 			legacyEntryCount += 1;
+			if (batch) batch.legacyEntryCount += 1;
 			const entry = legacyByPath.get(legacyPath);
 			if (!entry) {
 				failures.push(`${gate.id}: 旧页面未登记：${legacyPath}`);
@@ -172,6 +195,7 @@ function frozenBoundaryCoverage(migrationBreadth) {
 		}
 		for (const actionReference of gate.legacyActions ?? []) {
 			legacyActionCount += 1;
+			if (batch) batch.legacyActionCount += 1;
 			if (typeof actionReference !== "string") {
 				failures.push(`${gate.id}: action-only 入口必须是字符串`);
 				continue;
@@ -212,6 +236,10 @@ function frozenBoundaryCoverage(migrationBreadth) {
 		legacyEntryCount,
 		legacyActionCount,
 		coveredEntryCount: legacyEntryCount + legacyActionCount,
+		batchCoverage: [...batchCoverage.values()].map((batch) => ({
+			...batch,
+			featureKeys: [...new Set(batch.featureKeys)].sort(),
+		})),
 		actionFeatureKeyCount: actionFeatureKeys.size,
 		uncoveredActionFeatureKeys,
 		featureStatusCallCount: featureStatusActions.size,
@@ -496,13 +524,27 @@ function breadthMigrationQueue({
 	runtime,
 	deviceEvidence,
 	healthContent,
+	frozenBoundary,
 }) {
 	const statusCounts = legacy.statusCounts;
 	const runtimeReady = runtime.candidateRuntimeAligned;
+	const batchCoverage = new Map(
+		(frozenBoundary.batchCoverage ?? []).map((batch) => [batch.batchId, batch]),
+	);
+	const gateCoverageFor = (batchId) => {
+		const coverage = batchCoverage.get(batchId);
+		return {
+			frozenGateCount: coverage?.gateCount ?? 0,
+			frozenLegacyEntryCount: coverage?.legacyEntryCount ?? 0,
+			frozenLegacyActionCount: coverage?.legacyActionCount ?? 0,
+			frozenFeatureKeys: coverage?.featureKeys ?? [],
+		};
+	};
 	return [
 		{
 			id: "A-readonly-evidence",
 			name: "安全只读真实取证",
+			...gateCoverageFor("A-readonly-evidence"),
 			stage: deviceEvidence.passed ? "evidence-passed" : "awaiting-evidence",
 			scope: readOnly.domains.map((domain) => domain.id),
 			codeReady: readOnly.passed,
@@ -515,6 +557,7 @@ function breadthMigrationQueue({
 		{
 			id: "B-health-content",
 			name: "健康内容发布",
+			...gateCoverageFor("B-health-content"),
 			stage: healthContent.reviewedBundlePresent
 				? "awaiting-staging-and-device-evidence"
 				: "awaiting-reviewed-bundle",
@@ -535,6 +578,7 @@ function breadthMigrationQueue({
 		{
 			id: "C-clinical-readonly-contracts",
 			name: "临床只读契约",
+			...gateCoverageFor("C-clinical-readonly-contracts"),
 			stage: clinicalContract.passed
 				? "awaiting-provider-confirmation"
 				: "contract-audit-failed",
@@ -548,6 +592,7 @@ function breadthMigrationQueue({
 		{
 			id: "D-patient-and-convenience-write",
 			name: "患者与便民写入",
+			...gateCoverageFor("D-patient-and-convenience-write"),
 			stage: "awaiting-patient-contract",
 			scope: [
 				"patient-binding",
@@ -564,6 +609,7 @@ function breadthMigrationQueue({
 		{
 			id: "E-external-entry",
 			name: "外部入口与实时能力",
+			...gateCoverageFor("E-external-entry"),
 			stage: "awaiting-external-contract",
 			scope: [
 				"smart-customer",
@@ -581,6 +627,7 @@ function breadthMigrationQueue({
 		{
 			id: "F-payment-and-writeback",
 			name: "支付、医保与 HIS 回写",
+			...gateCoverageFor("F-payment-and-writeback"),
 			stage: "last-batch",
 			scope: [
 				"appointment-write",
@@ -648,6 +695,7 @@ export async function buildMigrationReadinessReport(
 		healthContent,
 		runtime,
 		deviceEvidence,
+		frozenBoundary,
 	});
 
 	return {

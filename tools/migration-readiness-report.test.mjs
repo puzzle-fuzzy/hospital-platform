@@ -24,6 +24,44 @@ describe("全项目迁移 readiness 报告", () => {
 			passed: true,
 		});
 		expect(report.entryCoverage.frozenBoundary.failures).toEqual([]);
+		expect(report.entryCoverage.frozenBoundary.batchCoverage).toMatchObject([
+			{
+				batchId: "A-readonly-evidence",
+				gateCount: 3,
+				legacyEntryCount: 2,
+				legacyActionCount: 2,
+			},
+			{
+				batchId: "B-health-content",
+				gateCount: 0,
+				legacyEntryCount: 0,
+				legacyActionCount: 0,
+			},
+			{
+				batchId: "C-clinical-readonly-contracts",
+				gateCount: 5,
+				legacyEntryCount: 5,
+				legacyActionCount: 0,
+			},
+			{
+				batchId: "D-patient-and-convenience-write",
+				gateCount: 12,
+				legacyEntryCount: 23,
+				legacyActionCount: 1,
+			},
+			{
+				batchId: "E-external-entry",
+				gateCount: 7,
+				legacyEntryCount: 2,
+				legacyActionCount: 6,
+			},
+			{
+				batchId: "F-payment-and-writeback",
+				gateCount: 7,
+				legacyEntryCount: 7,
+				legacyActionCount: 4,
+			},
+		]);
 		expect(report.entryCoverage.legacy.domainCoverage).toHaveLength(7);
 		expect(report.migrationQueue).toHaveLength(6);
 		expect(
@@ -97,6 +135,11 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[3].blockedPageCount).toBe(4);
 		expect(report.migrationQueue[4].blockedPageCount).toBe(9);
 		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
+		expect(report.migrationQueue[0].frozenGateCount).toBe(3);
+		expect(report.migrationQueue[2].frozenGateCount).toBe(5);
+		expect(report.migrationQueue[3].frozenGateCount).toBe(12);
+		expect(report.migrationQueue[4].frozenGateCount).toBe(7);
+		expect(report.migrationQueue[5].frozenGateCount).toBe(7);
 		expect(report.businessCompletion.codeReadyDomainCount).toBe(5);
 		expect(report.businessCompletion.realEvidenceReadyDomainCount).toBe(0);
 		expect(report.businessCompletion.passed).toBe(false);
