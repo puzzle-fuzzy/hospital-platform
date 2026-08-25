@@ -1,11 +1,12 @@
 import { ApiError } from "../../services/api-client";
+import { toAppointmentRecordView } from "../../services/appointment-record-view";
+import { getConsultRecordWindow } from "../../services/consult-record-view";
 import {
 	formatPlatformDate,
 	loadAppointmentRecords,
 	loadPatientsForOwner,
 } from "../../services/dashboard-service";
 import { waitForGlobalUserProfile } from "../../services/global-user-profile";
-import { toAppointmentRecordView } from "../../services/appointment-record-view";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -15,10 +16,9 @@ import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
-import { hasPlatformSession } from "../../services/session-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import { getSessionGeneration } from "../../services/session-generation";
-import { filterConsultRecords } from "../../services/consult-record-view";
+import { hasPlatformSession } from "../../services/session-service";
 import type {
 	AppointmentRecordView,
 	Patient,
@@ -45,6 +45,8 @@ type ConsultPageData = {
 	selectedPatientIdLabel: string;
 	tabs: typeof CONSULT_TABS;
 	activeTab: ConsultTabId;
+	/** 本轮预约历史读取对应的中国标准时间业务日，标签切换期间保持不变。 */
+	businessDate: string;
 	records: Array<AppointmentRecordView>;
 	visibleRecords: Array<AppointmentRecordView>;
 	visibleRecordCount: number;
@@ -79,28 +81,6 @@ function applyPatientContext(
 	});
 }
 
-/** 当前标签只在本地切换已经取得的预约读模型；today 继续由实时状态壳承载。 */
-function visibleRecordsForTab(
-	records: readonly AppointmentRecordView[],
-	tab: ConsultTabId,
-	today: string,
-	limit: number,
-): Array<AppointmentRecordView> {
-	if (tab === "today") return [];
-	return filterConsultRecords(records, today, tab).slice(0, limit);
-}
-
-/** 计算当前标签是否还有本地已取得、但尚未展开的摘要。 */
-function hasMoreRecordsForTab(
-	records: readonly AppointmentRecordView[],
-	tab: ConsultTabId,
-	today: string,
-	visibleCount: number,
-): boolean {
-	if (tab === "today") return false;
-	return filterConsultRecords(records, today, tab).length > visibleCount;
-}
-
 Page<ConsultPageData, ConsultPageMethods>({
 	data: {
 		hasShown: false,
@@ -110,6 +90,7 @@ Page<ConsultPageData, ConsultPageMethods>({
 		selectedPatientIdLabel: "ID：----",
 		tabs: CONSULT_TABS,
 		activeTab: "today",
+		businessDate: "",
 		records: [],
 		visibleRecords: [],
 		visibleRecordCount: 0,
@@ -140,6 +121,10 @@ Page<ConsultPageData, ConsultPageMethods>({
 	loadContext(): Promise<void> {
 		const guard = getPageLatestRequestGuard(this, "consult-context");
 		const token = guard.begin();
+		// 服务端查询范围和客户端标签分组必须共享同一时间快照。请求即使
+		// 跨过零点完成，也不能让同一批记录在页面停留期间改变归属。
+		const requestNow = new Date();
+		const businessDate = formatPlatformDate(requestNow);
 		this.setData({
 			loading: true,
 			error: "",
@@ -147,6 +132,7 @@ Page<ConsultPageData, ConsultPageMethods>({
 			selectedPatient: null,
 			selectedPatientName: "正在获取就诊人...",
 			selectedPatientIdLabel: "ID：----",
+			businessDate,
 			records: [],
 			visibleRecords: [],
 			visibleRecordCount: 0,
@@ -183,7 +169,6 @@ Page<ConsultPageData, ConsultPageMethods>({
 				const sessionGeneration = result.sessionGeneration;
 				// 一轮读取必须固定业务日，避免请求跨越中国标准时间零点时，
 				// 服务端记录和页面分组分别使用两个“今天”。
-				const requestNow = new Date();
 				assertSessionGeneration(
 					sessionGeneration,
 					"Consult page session changed before appointment records were requested",
@@ -209,32 +194,23 @@ Page<ConsultPageData, ConsultPageMethods>({
 					const mappedRecords = records.map((record, index) =>
 						toAppointmentRecordView(record, index, "consult-record", token),
 					);
-					const today = formatPlatformDate(requestNow);
 					const activeTab = this.data.activeTab;
-					const activeRecords =
-						activeTab === "today"
-							? []
-							: filterConsultRecords(mappedRecords, today, activeTab);
+					const initialWindow = getConsultRecordWindow(
+						mappedRecords,
+						activeTab,
+						businessDate,
+						CONSULT_RECORD_PAGE_SIZE,
+					);
 					const visibleRecordCount = Math.min(
 						CONSULT_RECORD_PAGE_SIZE,
-						activeRecords.length,
+						initialWindow.totalRecords,
 					);
 					this.setData({
 						selectedPatient: patient,
 						records: mappedRecords,
-						visibleRecords: visibleRecordsForTab(
-							mappedRecords,
-							activeTab,
-							today,
-							visibleRecordCount,
-						),
+						visibleRecords: initialWindow.visibleRecords,
 						visibleRecordCount,
-						hasMoreRecords: hasMoreRecordsForTab(
-							mappedRecords,
-							activeTab,
-							today,
-							visibleRecordCount,
-						),
+						hasMoreRecords: initialWindow.hasMoreRecords,
 						error: selectionMessage,
 					});
 				});
@@ -263,52 +239,38 @@ Page<ConsultPageData, ConsultPageMethods>({
 		const tab = event.currentTarget?.dataset?.tab;
 		if (tab !== "today" && tab !== "upcoming" && tab !== "history") return;
 		const activeTab = tab as ConsultTabId;
-		const today = formatPlatformDate(new Date());
-		const activeRecords =
-			activeTab === "today"
-				? []
-				: filterConsultRecords(this.data.records, today, activeTab);
+		const window = getConsultRecordWindow(
+			this.data.records,
+			activeTab,
+			this.data.businessDate,
+			CONSULT_RECORD_PAGE_SIZE,
+		);
 		const visibleRecordCount = Math.min(
 			CONSULT_RECORD_PAGE_SIZE,
-			activeRecords.length,
+			window.totalRecords,
 		);
 		this.setData({
 			activeTab,
 			visibleRecordCount,
-			visibleRecords: visibleRecordsForTab(
-				this.data.records,
-				activeTab,
-				today,
-				visibleRecordCount,
-			),
-			hasMoreRecords: hasMoreRecordsForTab(
-				this.data.records,
-				activeTab,
-				today,
-				visibleRecordCount,
-			),
+			visibleRecords: window.visibleRecords,
+			hasMoreRecords: window.hasMoreRecords,
 		});
 	},
 
 	/** 只展开当前患者已经取得的摘要，不重复调用 Provider。 */
 	onLoadMore(): void {
 		if (this.data.loading || !this.data.hasMoreRecords) return;
-		const today = formatPlatformDate(new Date());
 		const nextCount = this.data.visibleRecordCount + CONSULT_RECORD_PAGE_SIZE;
+		const window = getConsultRecordWindow(
+			this.data.records,
+			this.data.activeTab,
+			this.data.businessDate,
+			nextCount,
+		);
 		this.setData({
-			visibleRecordCount: nextCount,
-			visibleRecords: visibleRecordsForTab(
-				this.data.records,
-				this.data.activeTab,
-				today,
-				nextCount,
-			),
-			hasMoreRecords: hasMoreRecordsForTab(
-				this.data.records,
-				this.data.activeTab,
-				today,
-				nextCount,
-			),
+			visibleRecordCount: Math.min(nextCount, window.totalRecords),
+			visibleRecords: window.visibleRecords,
+			hasMoreRecords: window.hasMoreRecords,
 		});
 	},
 
