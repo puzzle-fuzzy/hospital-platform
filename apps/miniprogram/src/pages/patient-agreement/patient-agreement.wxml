@@ -1,0 +1,450 @@
+<scroll-view class="policy-scroll" scroll-y="true" enhanced="true">
+	<!-- 旧端协议页是纯静态文本；本页不记录同意状态，也不代替实名授权流程。 -->
+	<view class="policy-container">
+        <!-- 顶部通知栏 -->
+        <view class="header-notice">
+            欢迎使用我们的软件和服务！本协议所列条款适用于您使用我们的软件，以及在该软件上或通过它们向您提供的所有信息、建议或服务。在下载我们的软件或使用我们的服务之前，请先仔细并逐条阅读《使用条款和隐私政策》的内容。
+        </view>
+
+        <!-- 核心说明 -->
+        <view class="policy-desc">
+            <view class="desc-item">
+                如果您在本软件或本公司其他软件上使用我们的产品或服务（以下统称为“服务”），则将视为已经接受了以下协议全部内容，请仔细阅读以下内容。
+            </view>
+            <view class="desc-item">
+                如果您对本协议的全部或者部分条款有异议，请您停止访问、使用本程序服务。如果您不同意以下任何内容，请立即停止访问本程序或使用本软件服务。
+                <text class="highlight">
+                    特别提示您审慎、阅读、充分理解各条款内容，特别是免除或者限制责任的条款，并自主选择接受或不接受。
+                </text>
+            </view>
+            <view class="desc-item">
+                如果您未满18周岁，请在法定监护人的陪同下阅读本协议，并特别注意未成年人使用条款。
+            </view>
+        </view>
+
+        <!-- 协议标题 -->
+        <view class="policy-title">使用条款和隐私政策</view>
+
+        <!-- 协议正文（滚动容器） -->
+        <view class="policy-content">
+            <!-- 一、总则 -->
+            <view class="chapter">
+                <view class="chapter-title">一、总则</view>
+                <view class="clause">
+                    <view class="clause-number">1.1</view>
+                    <view class="clause-content">
+                        本协议内容包括协议正文、本软件各单项服务协议及其他本软件已经发布的或将未来可能发布的各类规则，包括但不限于隐私政策条款、免责声明条款、知识产权条款、责任条款等。除另行明确声明外，任何本软件提供的服务均受本协议约束。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">1.2</view>
+                    <view class="clause-content">
+                        本软件如制订、修改本协议或者相关条款的，用户提供基于互联网以及移动端的相关服务的，应在本页面及其相应页面进行公布通知，您应该定期登陆本页面及其他相关页面，了解最新的协议内容。变更后的协议和条款一经在本页面及相关页面公布后，立即自动生效，如您访问、预定或使用我们的产品或服务即表示您已经接受。如您不同意相关变更，应当立即停止使用本软件服务。若您继续使用本软件服务，即表示您接受已经修订的协议和规则。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">1.3</view>
+                    <view class="clause-content">
+                        本软件为您提供基于互联网的信息服务，为充分保护您对于本软件提供的各项服务的知情权，本软件就其提供的各项服务的相关性、有效性以及限制性提供以下注册条款。本软件在此特别提醒您，在您使用注册前已确实仔细阅读了本用户服务协议，如果您对本协议的任何条款或者将来随时可能修改、补充的条款有异议，您可选择不注册成为本软件的用户或者自行卸载并退出使用。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">1.4</view>
+                    <view class="clause-content">
+                        本软件旨在为用户提供一个互联网信息服务平台，方便居民、患者、医生、管理者以及相关第三方获取、开展互联网信息服务。用户在完全同意本协议及本软件规定的情况下，方有权使用本软件的相关服务。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">1.5</view>
+                    <view class="clause-content">
+                        您在进行注册程序过程中，根据声音、文字或图形提示可以选择表示“同意”的操作，当您“同意”后即视为您已仔细阅读本协议，同意接受本协议项下的所有条款，包括接受本软件对本协议条款随时所做的任何修改，并愿意受其拘束；您也当然拥有“不选择”同意”的权利，之后方能按系统提示完成全部注册程序，享受挂号服务及医疗健康信息服务程序。而对应用户的隐私服务如个人报告查询等，需要您另外使用绑定的相关身份证明在，验证通过的情况下，才能享受具体信息查看的服务。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">1.6</view>
+                    <view class="clause-content">
+                        您确认，您在本软件上发生的所有操作，您已经不可撤销地授权我公司按照我公司制定的服务规则进行处理；同时本公司有权从本软件和本公司其他软件获取您的相关信息（包括但不限于健康信息、交易信息、行为信息、账户相关信息等）。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 二、使用规则条款 -->
+            <view class="chapter">
+                <view class="chapter-title">二、使用规则条款</view>
+                <view class="clause">
+                    <view class="clause-number">2.1</view>
+                    <view class="clause-content">
+                        用户点击同意本协议的，即视为用户确认自己具有享受本软件服务、相关支付功能等相应的权利能力和行为能力，能够独立承担法律责任。因此，您的年龄必须在十八周岁或以上，并按本协议要求或本平台要求提供相关身份证明材料审核通过后，才可使用本服务。如不符合本项条件，请您勿使用“本服务”。本软件可随时自行全权决定拒绝向任何人士提供服务。您应当对所提供的相关身份证明的合法性、真实性负责，本平台只承担普通注意义务的形式审查的责任。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">2.2</view>
+                    <view class="clause-content">
+                        您在使用本软件服务时，必须遵守中华人民共和国相关法律法规，您应同意将不会利用该服务进行任何违法、不当或有悖于公序良俗的行为或活动，包括但不限于下列行为：
+                    </view>
+                    <view class="sub-clause">
+                        <view class="clause-number">2.2.1</view>
+                        <view class="clause-content">为任何非法目的而使用网络服务系统；</view>
+                    </view>
+                    <view class="sub-clause">
+                        <view class="clause-number">2.2.2</view>
+                        <view class="clause-content">利用本软件服务从事以下活动：</view>
+                        <view class="sub-clause-list">
+                            <view class="list-item">
+                                (1)
+                                未经允许，进入计算机信息网络或者使用计算机信息网络资源的；未经允许，对计算机信息网络功能进行删除、修改或者增加的；未经允许，对进入计算机信息网络中存储、处理或者传输的数据和软件进行删除、修改或者增加的；故意制作、传播计算机病毒等破坏性程序的；其他危害计算机信息网络安全的行为。
+                            </view>
+                            <view class="list-item">
+                                (2)
+                                对软件上的任何数据进行商业性利用，包括但不限于在未经本软件事先书面同意的情况下，以复制、传播等任何方式使用本软件上展示的资料。
+                            </view>
+                            <view class="list-item">
+                                (3)
+                                使用任何装置、软件或例行程序等其他方式干预或试图干预本软件的正常运作或正在本软件上进行的任何交易、活动，或采取任何将导致不合理的庞大数据负载加诸本软件网络设备的行动。
+                            </view>
+                        </view>
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">2.3</view>
+                    <view class="clause-content">
+                        对于您违反本协议或法律法规、社会公德，致使本软件产生、遭受损害、损失，或者导致、产生任何第三方主张一切索赔、要求或损失，包括但不限于合理的律师费在内的其他维权费用，您同意对此做出赔偿。本软件与合作方对上述损失先行支付的，您同意向本软件与合作方及时、足额支付该笔赔偿费用并使之免受损害。对恶意注册本软件账号或利用本软件账号进行违法活动、捣乱、骚扰、欺骗其他用户以及其他违反本协议及法律法规、社会公德的行为，本软件有权停止其账号进行任何操作。同时，本软件会视同司法部门的要求，协助调查。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">2.4</view>
+                    <view class="clause-content">
+                        您承诺对自己在使用本软件或服务过程中的行为承担法律责任，包括但不限于：侵害他人合法权益时对受到侵害者进行赔偿，以及本软件在先承担了因您的行为导致的行政处罚或侵权损害赔偿责任后，您应给予本软件等额的赔偿。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 三、服务变更、暂停与终止条款 -->
+            <view class="chapter">
+                <view class="chapter-title">三、服务变更、暂停与终止条款</view>
+                <view class="clause">
+                    <view class="clause-number">3.1</view>
+                    <view class="clause-content">
+                        您完全理解并同意，本软件涉及到互联网及移动通信等服务，可能会受到各个环节不稳定因素的影响。因此任何因不可抗力、政府行为、计算机病毒或黑客攻击、系统不稳定、用户所在位置、用户关机、移动通信网络、无线网络、互联网、通信线路、第三人侵权等本软件无法预测或控制的原因，造成的服务中断、取消或终止的风险，您须自行承担以上风险，本软件对服务之及时性、安全性、准确性不做任何保证并豁免前述风险所带来的责任。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">3.2</view>
+                    <view class="clause-content">
+                        本软件需要定期或不定期地对提供信息服务平台或相关的设备进行检修或者维护，如因此类情况而造成服务在合理时间内的中断，本软件无需为此承担任何责任。本软件保留不经事先通知为维修保养、升级或其它目的暂停全部或部分的网络服务的权利。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">3.3</view>
+                    <view class="clause-content">
+                        您完全理解并同意，除本协议另有规定外，鉴于互联网信息服务的特殊性，本软件有权随时变更、中断或终止部分或全部的网络服务，且无需通知您，也无需对您或任何第三方承担任何责任。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">3.4</view>
+                    <view class="clause-content">
+                        本软件有权在必要时修改本协议条款，协议条款一旦发生变动，届时将在您界面提示修改内容，该提示行为视为本软件已经通知您修改内容，如果您不同意所作的修改，可以主动取消获得的网络服务，进行注销。如果您继续享有本软件提供的服务，则被视为接受协议变动。当发生有关争议时，以最新的服务协议为准。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">3.5</view>
+                    <view class="clause-content">
+                        如发生下列任何一种情形，本软件有权随时中断或终止向您提供本协议项下的服务而无需对您或任何第三方承担任何责任：
+                    </view>
+                    <view class="sub-clause-list">
+                        <view class="list-item">(1) 您提供的个人资料不真实；</view>
+                        <view class="list-item">(2) 您违反本协议中的规定；</view>
+                        <view class="list-item">(3) 您违反本软件所发布的政策；</view>
+                        <view class="list-item">(4) 本软件认为其他不合规的地方。</view>
+                    </view>
+                </view>
+            </view>
+
+            <!-- 四、用户信息条款 -->
+            <view class="chapter">
+                <view class="chapter-title">四、用户信息条款</view>
+                <view class="clause">
+                    <view class="clause-number">4.1</view>
+                    <view class="clause-content">
+                        您应自行诚信向本软件提供注册资料，用户承诺其提供的注册资料真实、准确、完整、合法有效，用户注册资料如有变动的，应及时更新其注册资料。如果用户提供的注册资料不合法、不真实、不准确、不详尽的，用户需承担因此引起的相应责任及后果，并且本软件保留终止用户使用本软件各项服务的权利。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">4.2</view>
+                    <view class="clause-content">
+                        您在本软件进行活动时，涉及用户真实姓名、名称、通信地址、联系电话等隐私信息的，本站将予以严格保密，除非得到用户的授权或法律另有规定，本站不会向外界披露用户隐私信息。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">4.3</view>
+                    <view class="clause-content">
+                        您注册成功后，将生成用户名和密码等账户信息，您可以根据本软件规定改变您的密码。用户应谨慎合理的保存、使用其用户名和密码。用户若发现任何非法使用用户账号或存在安全漏洞的情况，请立即通知本软件并向公安机关报案。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">4.4</view>
+                    <view class="clause-content">
+                        您完全理解并同意，本软件拥有通过短信电话等形式，向在本软件注册、接受服务的用户发送挂号提醒等告知信息的权利。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">4.5</view>
+                    <view class="clause-content">
+                        您完全理解并同意，本软件有权使用用户的信息，用户名、密码等信息，登录进入用户的注册账户，进行证据保全，包括但不限于公证、见证等。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">4.6</view>
+                    <view class="clause-content">
+                        因黑客行为或您的保管疏忽等情况导致账号、密码遭他人非法使用，本软件不承担责任。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">4.7</view>
+                    <view class="clause-content">
+                        为向您提供本服务，你同意并授权本软件将您在注册、使用本服务过程中提供、形成的信息传递给为您提供您所要求的商品和服务、而必须和第三方分享您的个人信息，向您提供其他服务的第三方，或从提供其他服务的第三方获取您在注册、使用其他服务期间提供、形成的信息。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">4.8</view>
+                    <view class="clause-content">
+                        本公司将根据法律法规的要求，履行作为互联网信息服务提供者应当履行的义务。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 五、隐私保护条款 -->
+            <view class="chapter">
+                <view class="chapter-title">五、隐私保护条款</view>
+                <view class="clause">
+                    <view class="clause-number">5.1</view>
+                    <view class="clause-content">
+                        保护隐私是本软件的一项基本政策，本软件保证不对外公开或非定向第三方提供您的注册资料及您在使用本软件或通过本软件平台进行相关交易活动时存储在本软件的非公开内容，但下列情况除外：
+                    </view>
+                    <view class="sub-clause-list">
+                        <view class="list-item">(1) 事先获得您的明确授权；</view>
+                        <view class="list-item">(2) 按照相关政府主管部门的要求；</view>
+                        <view class="list-item">(3) 按照相关政府主管部门的要求；</view>
+                        <view class="list-item">(4) 为维护公共的利益；</view>
+                        <view class="list-item">(5) 为维护本软件的合法权益。</view>
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">5.2</view>
+                    <view class="clause-content">
+                        本软件可能会与第三方合作向您提供相关的服务，在此情况下，您同意并授权本软件将您的信息提供给第三方。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">5.3</view>
+                    <view class="clause-content">
+                        在不透露个人隐私资料的前提下，您同意本软件对整个数据库进行分析并对数据库进行商业上的利用。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 六、支付行为条款 -->
+            <view class="chapter">
+                <view class="chapter-title">六、支付行为条款</view>
+                <view class="clause">
+                    <view class="clause-number">6.1</view>
+                    <view class="clause-content">
+                        在您进行支付活动时，请仔细确认支付服务说明信息。非用户本人通过本软件享受本软件提供的服务，其行为和意思表示视为用户的行为和意思表示，用户应对此确认人的行为及意思表示的法律后果承担连带责任，并且不得以与您本人不一致而拒绝承担支付义务。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">6.2</view>
+                    <view class="clause-content">除法律有强制性规定外，双方约定如下：</view>
+                    <view class="clause-content" style="margin-top: 8rpx">
+                        您可以免费使用软件和服务。本软件保留日后收取软件或服务使用费的权利。如果本软件决定收取此类费用，本软件应向您发送通知，并允许您选择继续履行或终止合约。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">6.3</view>
+                    <view class="clause-content">
+                        本软件使用第三方支付处理商（以下简称“支付处理商”），将您的相关支付账户关联到软件和服务处理与您使用软件和服务相关的支付活动时，除受到本条款的约束之外，还要受支付处理商的条款、条件和隐私政策的约束。如果支付处理商发生任何错误，本软件概不负责。本软件将获取与您使用服务相关的特定交易明细，本软件在使用这些信息时将严格遵守其隐私政策。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 七、所有权及知识产权条款 -->
+            <view class="chapter">
+                <view class="chapter-title">七、所有权及知识产权条款</view>
+                <view class="clause">
+                    <view class="clause-number">7.1</view>
+                    <view class="clause-content">
+                        除用户拥有的合作商、第三方所有的信息资料外，本软件拥有网络服务内所有内容，包括但不限于文字、图片、图形、表格、动画、程序、软件等单独或组合的版权。任何被授权的浏览、复制、打印和传播属于本网站内的内容必须符合以下条件：
+                    </view>
+                    <view class="sub-clause-list">
+                        <view class="list-item">(1) 所有的资料和图像均以获得信息为目的；</view>
+                        <view class="list-item">(2) 所有的资料和图像均不得用于商业目的；</view>
+                        <view class="list-item">(3) 所有的资料、图像及其任何部分都必须包括此版权声明。</view>
+                    </view>
+                    <view class="clause-content" style="margin-top: 16rpx">
+                        未经本软件许可，任何人不得擅自，包括但不限于以非法的方式复制、传播、展示、镜像、上载、下载使用，否则本软件将依法追究法律责任。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">7.2</view>
+                    <view class="clause-content">
+                        本软件为提供网络服务而自行开发的软件，包括不限于客户端应用等，拥有完整的知识产权。本软件在此授予您个人非独家、不可转让、可撤销的，并通过在一部拥有所有权或使用权的手机和计算机上使用本软件的权利，且该使用仅限于个人非商业使用之合法目的。
+                    </view>
+                    <view class="clause-content" style="margin-top: 16rpx">
+                        您应当保证合法使用该等软件，并承诺不对该等软件进行如下行为：
+                    </view>
+                    <view class="sub-clause-list">
+                        <view class="list-item">
+                            (1)
+                            开展反向工程、反向编译或反汇编，或以其他方式试图其源代码，以及实施任何侵害著作权等其他知识产权的行为；
+                        </view>
+                        <view class="list-item">
+                            (2)
+                            以出租、租赁、销售、转授权、分配或其他任何方式向第三方转让该等软件或利用该等软件为任何第三方提供相似服务；
+                        </view>
+                        <view class="list-item">(3) 任何复制该等软件的行为；</view>
+                        <view class="list-item">(4) 以移除、规避、破坏、或者其他任何方式干扰该等软件的安全功能；</view>
+                        <view class="list-item">(5) 以不正当手段消除该等软件上权利声明或权利通知的；</view>
+                        <view class="list-item">(6) 其他违反法律规定的行为。</view>
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">7.3</view>
+                    <view class="clause-content">
+                        本软件的LOGO均为本软件的注册商标，受法律的保护。任何用户不得侵犯本软件的注册商标权。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 八、相关责任条款 -->
+            <view class="chapter">
+                <view class="chapter-title">八、相关责任条款</view>
+                <view class="clause">
+                    <view class="clause-number">8.1</view>
+                    <view class="clause-content">
+                        您理解并同意，本软件同大多数软件一样，可能会受多种因素影响，包括但不限于用户原因、网络服务质量、社会环境等；也可能会受各种安全问题的侵扰，包括但不限于他人非法利用用户资料进行现实中的骚扰、用户下载安装的其他软件或访问的其他网站中可能含有病毒、木马程序或其他恶意程序，威胁您的终端设备信息和数据安全，继而影响本软件的正常使用等。因此，您应加强信息安全及个人信息的保护意识，注意密码保护，以避免遭受损失并自行承担相关风险和责任。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">8.2</view>
+                    <view class="clause-content">
+                        您不得制作、发布、使用、传播用于窃取本软件及他人个人信息、财产的恶意程序。维护软件安全与正常使用是本软件和您的共同责任，本软件将按照行业标准合理审慎地采取必要技术措施保护您的终端设备信息和数据安全，但是您承认和同意本软件并不能就此提供完全保证。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">8.3</view>
+                    <view class="clause-content">
+                        在任何情况下，您不应轻信借款、索要密码或其他涉及财产的网络信息，涉及财产操作的，请一定先核实对方身份，并请经常留意本软件有关防范诈骗犯罪的提示。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">8.4</view>
+                    <view class="clause-content">
+                        您同意保障和维护本软件的利益，如果因为您违反有关法律法规或本协议的任何规定而给本软件或任何其他第三方造成任何损失，您同意承担由此产生的全部损害赔偿责任，其中包括本软件为此而支付的律师费等维权费用。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 九、特别问题条款 -->
+            <view class="chapter">
+                <view class="chapter-title">九、特别问题条款</view>
+                <view class="clause">
+                    <view class="clause-number">9.1</view>
+                    <view class="clause-content">
+                        对本软件的使用承担风险，以及因其使用互联网信息服务产生的一切后果，本软件对此不作任何类型的担保，不论是明确的或隐含的，但是不对“商业性的隐含担保、特定目的和不违反规定的适当担保”作限制。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">9.2</view>
+                    <view class="clause-content">
+                        本软件不担保服务一定能完全满足您的要求，也不担保各项服务不会受网络、黑客、通信技术、银行方面的问题等原因而中断，对服务的及时性、安全性、错误程序的发生都不作担保。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">9.3</view>
+                    <view class="clause-content">
+                        本软件因合作医疗机构、银行、电信公司、社保部门、商业保险公司、卫生管理部门等资源限制，就所提供的服务请求不担保服务一定能够成功。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">9.4</view>
+                    <view class="clause-content">
+                        本软件所展示的内容（文、图、视频、音频）可以进行健康资讯为目的，不对其真实性、科学性、严肃性做任何形式的保证。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 十、免责声明及法律适用条款 -->
+            <view class="chapter">
+                <view class="chapter-title">十、免责声明及法律适用条款</view>
+                <view class="clause">
+                    <view class="clause-number">10.1</view>
+                    <view class="clause-content">
+                        本软件所有信息仅供参考，不作诊断、用药和使用的根据。本软件作为互联网信息服务平台致力于尽量提供正确、完整的健康资讯，但不保证信息的绝对正确性和完整性，且不对因信息的不正确或遗漏导致的任何损失或损害承担责任。本软件所展现的任何医药资讯，仅供参考，不能替代医师和其他医务人员的诊疗建议，如自行使用本软件资料发生偏差，本软件不承担任何法律责任。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">10.2</view>
+                    <view class="clause-content">
+                        本协议之效力、解释、执行和争议的解决均适用中华人民共和国之法律。如本协议之任何一部分与中华人民共和国法律相抵触，则该部分条款应按有关法律规定重新解释，部分条款之无效或重新解释不影响其它条款之法律效力。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">10.3</view>
+                    <view class="clause-content">
+                        您和本软件执行本协议发生争议的，双方应尽量友好协商解决；协商不成，您或本软件均可向各自所在地有管辖权的法院提起诉讼。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">10.4</view>
+                    <view class="clause-content">
+                        本协议的每一条款均可分别独立于其他每一条款。如果在任何时候本协议的任何条款成为无效、不合法或不能执行，本协议其他条款的有效性、合法性和可执行性并不因此而受到影响。本软件未行使或执行本协议任何权利或规定，不构成对前述权利之放弃。
+                    </view>
+                </view>
+            </view>
+
+            <!-- 十一、其他条款 -->
+            <view class="chapter">
+                <view class="chapter-title">十一、其他条款</view>
+                <view class="clause">
+                    <view class="clause-number">11.1</view>
+                    <view class="clause-content">
+                        本软件可能不同的设备开发了不同的软件版本，您可以根据实际情况选择下载的版本进行安装。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">11.2</view>
+                    <view class="clause-content">
+                        为了改善用户体验、完善服务内容，本软件将不断努力开发新的服务，并为您不时提供软件版本升级。下载安装程序后，您需要按照该程序提示的步骤正确安装。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">11.3</view>
+                    <view class="clause-content">
+                        为了保证本软件服务的安全性和功能的一致性，本软件有权不经向您特别通知而对软件进行更新，或者对软件的全部或部分功能或效果进行改变或限制。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">11.4</view>
+                    <view class="clause-content">您理解并同意，本软件提供的软件可能有不同的软件版本。</view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">11.5</view>
+                    <view class="clause-content">
+                        为提供更优质、安全的服务，在本软件安装时本软件可能推荐您安装其他软件，您可以选择安装或不安装。
+                    </view>
+                </view>
+                <view class="clause">
+                    <view class="clause-number">11.6</view>
+                    <view class="clause-content">
+                        如果您不再需要使用本软件，可以自行卸载，如果您想暂停本软件改进产品服务，请告知卸载的原因。
+                    </view>
+                </view>
+
+                <!-- 最终声明 -->
+                <view class="final-declare">
+                    本软件的商标及其他标识、更新权及最终解释权，在法律规定的范围内均归本软件所有。
+                </view>
+            </view>
+        </view>
+    </view>
+</scroll-view>

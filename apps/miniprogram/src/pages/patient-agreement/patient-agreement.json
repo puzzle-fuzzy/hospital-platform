@@ -1,0 +1,8 @@
+{
+	"navigationBarTitleText": "使用条款",
+	"navigationBarBackgroundColor": "#f8f8f8",
+	"navigationBarTextStyle": "black",
+	"backgroundColor": "#ffffff",
+	"disableScroll": true,
+	"enablePullDownRefresh": false
+}

@@ -1,0 +1,190 @@
+.policy-scroll {
+	height: 100vh;
+	background-color: #ffffff;
+}
+
+/* 全局容器 */
+.policy-container {
+    padding: 16rpx;
+    background-color: #ffffff;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+/* 顶部通知栏 */
+.header-notice {
+    background-color: #f8f9fa;
+    border-left: 4rpx solid #4299e1;
+    padding: 16rpx 20rpx;
+    margin-bottom: 24rpx;
+    border-radius: 8rpx;
+    font-size: 28rpx;
+    line-height: 1.6;
+    color: #333333;
+}
+
+/* 核心说明 */
+.policy-desc {
+    margin-bottom: 32rpx;
+}
+
+.desc-item {
+    font-size: 28rpx;
+    line-height: 1.8;
+    color: #333333;
+    margin-bottom: 16rpx;
+    text-align: justify;
+}
+
+.highlight {
+    color: #e53e3e;
+    font-weight: 500;
+}
+
+/* 协议标题 */
+.policy-title {
+    font-size: 36rpx;
+    color: #2d3748;
+    text-align: center;
+    margin: 32rpx 0;
+    font-weight: 600;
+}
+
+/* 滚动内容区 */
+.policy-content {
+    font-size: 28rpx;
+    color: #333333;
+    margin-bottom: 24rpx;
+}
+
+/* 章节样式 */
+.chapter {
+    margin-bottom: 40rpx;
+}
+
+.chapter-title {
+    font-size: 32rpx;
+    color: #2d3748;
+    margin-bottom: 24rpx;
+    font-weight: 600;
+    border-bottom: 2rpx solid #e2e8f0;
+    padding-bottom: 12rpx;
+}
+
+/* 条款样式（块级 + 内联编号，避免 flex 导致换行错乱） */
+.clause {
+    margin-bottom: 24rpx;
+    line-height: 1.8;
+    text-align: justify;
+}
+
+.clause-number {
+    display: inline-block;
+    vertical-align: top;
+    font-weight: 600;
+    color: #2d3748;
+    margin-right: 12rpx;
+}
+
+.clause-content {
+    display: inline;
+}
+
+/* 子条款样式：与普通条款基本一致，仅略微缩进内容 */
+.sub-clause {
+    margin-left: 40rpx;
+    margin-top: 12rpx;
+}
+
+.sub-clause .clause-number {
+    width: auto;
+}
+
+.sub-clause-list {
+    margin-left: 60rpx;
+    margin-top: 8rpx;
+}
+
+.list-item {
+    margin-bottom: 12rpx;
+    line-height: 1.8;
+    text-align: justify;
+}
+
+/* 最终声明 */
+.final-declare {
+    margin-top: 32rpx;
+    font-size: 28rpx;
+    color: #718096;
+    text-align: center;
+    padding: 16rpx 0;
+    border-top: 2rpx solid #e2e8f0;
+}
+
+/* 底部按钮组 */
+.btn-group {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20rpx;
+    margin-top: 20rpx;
+}
+
+.reject-btn {
+    width: 340rpx;
+    height: 88rpx;
+    line-height: 88rpx;
+    border: 2rpx solid #e53e3e;
+    color: #e53e3e;
+    background-color: #ffffff;
+    border-radius: 44rpx;
+    font-size: 32rpx;
+}
+
+.accept-btn {
+    width: 340rpx;
+    height: 88rpx;
+    line-height: 88rpx;
+    background-color: #4299e1;
+    color: #ffffff;
+    border-radius: 44rpx;
+    font-size: 32rpx;
+}
+
+/* 适配暗黑模式 */
+@media (prefers-color-scheme: dark) {
+    .policy-container {
+        background-color: #1a1a1a;
+    }
+
+    .header-notice {
+        background-color: #2d2d2d;
+        color: #e5e5e5;
+    }
+
+    .desc-item,
+    .clause-content,
+    .list-item {
+        color: #e5e5e5;
+    }
+
+    .policy-title,
+    .chapter-title,
+    .clause-number {
+        color: #ffffff;
+    }
+
+    .final-declare {
+        color: #a0a0a0;
+        border-top-color: #3d3d3d;
+    }
+
+    .reject-btn {
+        border-color: #ff6b6b;
+        color: #ff6b6b;
+        background-color: #2d2d2d;
+    }
+
+    .accept-btn {
+        background-color: #58b4f8;
+    }
+}

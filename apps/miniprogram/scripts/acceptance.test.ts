@@ -1693,7 +1693,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 主 Tab 与二级页面都必须关闭微信默认的页面级滚动；前者使用共享
 	// tab-page-scroll，后者使用统一的 secondary-page-scroll。这样用户只会
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
-	expect(app.pages).toHaveLength(20);
+	expect(app.pages).toHaveLength(21);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2344,6 +2344,34 @@ test("native mini program migrates the legacy static official-account explanatio
 	expect(style).toContain("padding-top: 113rpx");
 	expect(build).toContain("official-account/official-account.js");
 	expect(await asset.exists()).toBe(true);
+});
+
+test("native mini program migrates the legacy agreement as read-only text", async () => {
+	const app = await source("app.json");
+	const catalog = await source("services/legacy-page-catalog.ts");
+	const page = await source("pages/patient-agreement/patient-agreement.ts");
+	const template = await source(
+		"pages/patient-agreement/patient-agreement.wxml",
+	);
+	const style = await source("pages/patient-agreement/patient-agreement.wxss");
+
+	expect(app).toContain('"pages/patient-agreement/patient-agreement"');
+	expect(catalog).toContain('legacyPath: "pagesB/patient/agreement.vue"');
+	expect(catalog).toContain('status: "replaced"');
+	expect(catalog).toContain(
+		'nativeTarget: "pages/patient-agreement/patient-agreement"',
+	);
+	expect(page).toContain("只展示旧端已存在的静态条款文本");
+	expect(page).toContain("不记录同意状态");
+	expect(template).toContain("使用条款和隐私政策");
+	expect(template).toContain("一、总则");
+	expect(template).toContain("十一、其他条款");
+	expect(template).toContain('scroll-y="true"');
+	expect(style).toContain(".policy-scroll");
+	expect(style).toContain(".chapter-title");
+	// 旧端协议没有可靠的版本和同意记录契约，静态页不能伪造提交动作。
+	expect(page).not.toContain("agreementVersion");
+	expect(page).not.toContain("handleAccept");
 });
 
 test("native mini program exposes feedback as a safe static help page", async () => {

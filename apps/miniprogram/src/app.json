@@ -16,6 +16,7 @@
 		"pages/outpatient-payment/outpatient-payment",
 		"pages/profile/profile",
 		"pages/hospital-navigation/hospital-navigation",
+		"pages/patient-agreement/patient-agreement",
 		"pages/health-encyclopedia/health-encyclopedia",
 		"pages/health-knowledge-search/health-knowledge-search",
 		"pages/health-knowledge-detail/health-knowledge-detail",

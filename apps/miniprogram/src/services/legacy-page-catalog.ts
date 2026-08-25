@@ -440,10 +440,9 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/patient/agreement.vue",
 			domain: "患者",
-			status: "blocked-patient-contract",
-			nativeTarget: "pages/feature-status/feature-status",
-			featureKey: "patient-agreement",
-			note: "等待协议版本、同意记录、撤回和审计规则。",
+			status: "replaced",
+			nativeTarget: "pages/patient-agreement/patient-agreement",
+			note: "已迁移为原文只读页；协议版本、同意记录、撤回和审计仍未开放。",
 		},
 		{
 			legacyPath: "pagesB/patient/doctor.vue",

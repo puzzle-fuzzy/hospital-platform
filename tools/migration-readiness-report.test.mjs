@@ -78,7 +78,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationBreadth.passed).toBe(true);
 		expect(report.migrationBreadth.pages).toHaveLength(2);
 		expect(report.migrationBreadth.tabBarPageCount).toBe(4);
-		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(20);
+		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(21);
 		expect(report.migrationBreadth.interactionAudit.failures).toEqual([]);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.semanticStateCount).toBe(35);
