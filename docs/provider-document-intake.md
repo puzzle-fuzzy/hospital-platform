@@ -24,6 +24,10 @@
 Provider/HIS contract、确认环境或四类脱敏响应样例。本次没有运行另一个会话的自动获取流程，也没有修改其相关文件；病历、报告、
 二维码、患者绑定、支付、医保和 HIS 回写的准入边界保持不变。
 
+临床只读的材料缺口已经拆成门诊记录、住院 episode、医生关系、电子导诊/问诊四条独立队列，见
+[`migration/clinical-readonly-intake-board-2026-08-25.md`](migration/clinical-readonly-intake-board-2026-08-25.md)。
+新材料到达时按单域登记和实现，不等待其他域，也不把预约/报告/费用的已有 adapter 当作临床域 contract。
+
 ## 1. 接收阶段
 
 文档可以来自文件、网页、OpenAPI、接口导出、请求/响应样例、抓包、录屏或 provider 工程师确认；无论来源形式如何，

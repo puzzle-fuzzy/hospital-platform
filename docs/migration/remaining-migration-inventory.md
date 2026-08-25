@@ -1,6 +1,6 @@
 > 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
-> **当前仓库事实（2026-08-25）**：当前 Git `main` 最新提交为 `ae483ffe`；其中服务端功能代码最新候选为 `a2e496e58ecc8f027e8d9ebcd54f3f8d212fdcf5`，本轮后续提交仅更新文档；
+> **当前仓库事实（2026-08-25）**：当前 Git `main` 最新提交为 `8ea1c737`；其中服务端功能代码最新候选为 `a2e496e58ecc8f027e8d9ebcd54f3f8d212fdcf5`，本轮后续提交仅更新验收工具和迁移文档；
 > 小程序 pending 运行包来源为 `eef550012e071d2891f990035a9b40041f314e5d`，包含 20 个页面；
 > `apps/miniprogram/dist/` 仍由开发者工具锁定，当前 live dist 来源为 `fcc6630e`。本地候选、pending、live dist 和线上包必须分开记录。
 
@@ -49,6 +49,9 @@
 
 下一阶段已有患者/预约/门诊费用只读验收顺序固定在 [`readonly-acceptance-next-2026-08-25.md`](../release/readonly-acceptance-next-2026-08-25.md)，
 先使用当前 `dist/` 候选和真实微信设备采集 requestId，再与服务端低敏业务日志配对；支付、医保、二维码、患者绑定和 HIS 回写不在该手册范围。
+
+临床只读的并行推进顺序、停止条件和四条独立队列见
+[`clinical-readonly-intake-board-2026-08-25.md`](clinical-readonly-intake-board-2026-08-25.md)。
 
 > 历史执行基线（2026-08-25 早前窗口）为 `45742ff4450b223b8db3b36e4a3859e3fc86e1c5`，随后曾短暂验证 `ad7b079`；这些候选以及此前的 `7fc22fae` 均为历史来源，当前验收以本页上方的 `b587c7ea` pending 候选为准，live `dist` 仍是 `fcc6630e`。早前候选已经通过当时的 `runtime:verify`，但不能继续作为当前运行包来源；开发者工具应直接打开 `apps/miniprogram/dist/` 的独立工程。之前的 `0f40ab9`、`4ea15b8`、`4e8f6877`、`0bf2bf8`、`7a85dce8`、`f4c844c1`、`ecff1f9`、`49c641b6`、`e039e99f`、`3b8a04e5` 仅为历史来源；线上仍是 `13f597e`，两者不能混用。
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本段仅作追溯。
