@@ -64,6 +64,8 @@ owner/patient 映射
 
 首次直接 join 时发现旧表与新映射表的 collation 不一致，查询被 MySQL 拒绝为 `collation-mismatch`；
 修正为显式 `CONVERT(... USING utf8mb4) COLLATE utf8mb4_bin` 后，六张表均可完成聚合。该事实已同步到审计 SQL 和单元测试。
+owner/patient 数量还使用旧表主键的 `COUNT(DISTINCT ...)`，避免未来某个映射表出现重复行时把一条旧记录
+错误放大成多条映射成功。
 
 | 旧表 | 总行数 | owner 桥接成功 | 患者引用成功 | 患者引用是否适用 |
 | --- | ---: | ---: | ---: | --- |

@@ -65,6 +65,7 @@ describe("旧便民库存只读审计", () => {
 		expect(sql).toContain("CONVERT(old_user.openid USING utf8mb4)");
 		expect(sql).toContain("CONVERT(legacy.pat_id USING utf8mb4)");
 		expect(sql).toContain("COLLATE utf8mb4_bin");
+		expect(sql).toContain("COUNT(DISTINCT CASE WHEN hp.user_id IS NOT NULL");
 		expect(sql).not.toContain("hp.provider_subject = old_user.openid");
 	});
 });

@@ -170,8 +170,8 @@ function toSafeCount(value: number | string | null | undefined): number {
  */
 export function aggregateSql(table: LegacyConvenienceTable): string {
 	const patientReferenceExpression = table.patientColumn
-		? `SUM(CASE WHEN hp.user_id IS NOT NULL
-			AND ref.provider_patient_id IS NOT NULL THEN 1 ELSE 0 END)`
+		? `COUNT(DISTINCT CASE WHEN hp.user_id IS NOT NULL
+			AND ref.provider_patient_id IS NOT NULL THEN legacy.id END)`
 		: "0";
 	const patientJoin = table.patientColumn
 		? `LEFT JOIN hp_patient_provider_references AS ref
@@ -183,9 +183,9 @@ export function aggregateSql(table: LegacyConvenienceTable): string {
 		: "";
 	return `SELECT
 		COUNT(*) AS total,
-		COALESCE(SUM(CASE WHEN hp.user_id IS NOT NULL THEN 1 ELSE 0 END), 0)
+		COUNT(DISTINCT CASE WHEN hp.user_id IS NOT NULL THEN legacy.id END)
 			AS ownerBridgeMapped,
-		COALESCE(${patientReferenceExpression}, 0) AS patientReferenceMapped
+		${patientReferenceExpression} AS patientReferenceMapped
 	FROM \`${table.table}\` AS legacy
 	LEFT JOIN system_users AS old_user ON old_user.id = legacy.user_id
 	LEFT JOIN hp_identity_users AS hp
