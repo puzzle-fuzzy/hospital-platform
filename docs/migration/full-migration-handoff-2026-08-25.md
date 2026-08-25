@@ -4,18 +4,19 @@
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
-> **当前仓库事实（2026-08-25）**：本轮交接基线为 `0e1a94a1`。本轮提交只更新真机证据清单的结构审计与交接说明，不代表已经发布新的服务端或小程序运行包；服务端本地候选仍以 `apps/api` 的 `b42922f4` 为准，小程序 pending 仍以 `296516a5` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
+> **当前仓库事实（2026-08-25）**：当前仓库 HEAD 为 `2789470f`。本轮只补充 pending 小程序运行包的独立静态验证，不替换 live `dist`、不发布线上服务，也不改变旧 Python 服务；服务端本地候选仍以 `apps/api` 的 `b42922f4` 为准，小程序 pending 仍以 `296516a5` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
 
 ## 1. 当前真实基线
 
 | 项目 | 当前事实 |
 | --- | --- |
 | 功能候选代码基线 | `923074bc128606b7f1504ad0e8e6ea354c4afa34` |
-| 当前仓库 HEAD | `0e1a94a1`（真机证据结构审计与交接说明；不改变业务运行包） |
+| 当前仓库 HEAD | `2789470f`（补充 pending 独立静态验证；不改变 live 运行包） |
 | 小程序源码候选 | `296516a5f255c563ec5eac40f2a3439632b143b8` |
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=296516a5f255c563ec5eac40f2a3439632b143b8` |
 | pending 页面数 | 20 个；每个页面具备 `.js/.json/.wxml/.wxss` |
 | 小程序回归 | 261 pass / 0 fail / 2531 expect() |
+| pending 静态验证 | 已通过；20 页、根文件、相对依赖、workspace 依赖、测试脚本和来源指纹均已校验 |
 | 当前 live `dist` | 仍被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
 | 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
@@ -110,5 +111,15 @@ pnpm typecheck
 pnpm --filter @hospital/miniprogram runtime:publish-pending
 pnpm --filter @hospital/miniprogram runtime:verify
 ```
+
+如果微信开发者工具仍锁定 `dist/`，可先只读验证隔离候选，不覆盖 live 运行包：
+
+```powershell
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "296516a5f255c563ec5eac40f2a3439632b143b8"
+pnpm --filter @hospital/miniprogram runtime:verify:pending
+Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
+```
+
+该命令只证明 pending 包静态完整且与显式来源指纹一致，不证明已经发布到 `dist`、上传微信或完成真机业务验收。
 
 发布前仍必须保留旧 live 包，不能复制 `*.test.js`/`*.spec.js`，不能把本地测试结果写成线上真机或 Provider 证据。

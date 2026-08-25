@@ -11,9 +11,9 @@
 
 临床记录、住院、医生关系和问诊/电子导诊的独立准入门禁可用 `pnpm clinical:contract:audit` 校验。
 
-> **当前全量迁移交接单（2026-08-25）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前功能候选代码基线为 `923074bc`，小程序 pending 候选来源为 `296516a5`；64 个旧页面均有明确落点，但只有 7 个已替换、16 个安全子集，其余入口仍按阻断原因关闭；本页下方历史候选只作追溯。
+> **当前全量迁移交接单（2026-08-25）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前仓库 HEAD 为 `2789470f`，功能候选代码基线仍为 `923074bc`，小程序 pending 候选来源为 `296516a5`，且已通过独立静态验证；64 个旧页面均有明确落点，但只有 7 个已替换、16 个安全子集，其余入口仍按阻断原因关闭；本页下方历史候选只作追溯。
 
-> **当前仓库交接基线（2026-08-25）**：本轮基线为 `0e1a94a1`。该提交只补强 pending 真机证据的结构审计：全部域仍为 `pending` 时可以检查清单和候选指纹，但总体仍返回 `passed=false`；任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
+> **当前仓库交接基线（2026-08-25）**：当前 HEAD 为 `2789470f`。本轮已补充 pending 候选的独立静态校验；全部真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
 
 > **当前 pending 运行包**：`build-info.json.sourceRevision=296516a5f255c563ec5eac40f2a3439632b143b8`，20 页、261 项小程序测试通过。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，详见 [`release/candidate-296516a5-miniprogram-runtime-2026-08-25.md`](release/candidate-296516a5-miniprogram-runtime-2026-08-25.md)。
 
