@@ -23,9 +23,9 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 修正提交 | `f18e411e50ed360b5c74ab3e6d86bf1fafd02fd4` |
+| 修正提交 | `00924a4a83e41066756d979b7273dc491df1e686` |
 | 运行包目录 | `apps/miniprogram/dist/` |
-| `dist/build-info.json.sourceRevision` | `f18e411e50ed360b5c74ab3e6d86bf1fafd02fd4` |
+| `dist/build-info.json.sourceRevision` | `00924a4a83e41066756d979b7273dc491df1e686` |
 | 页面数量 | 16 |
 | TabBar | `custom=false`、`position=bottom`、四项共享路由 |
 | `dist/custom-tab-bar/` | 不存在 |
@@ -33,7 +33,7 @@
 | 小程序测试 | 本轮 240 pass、0 fail、1938 assertions |
 | 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
 | 运行包校验 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
-| 预览二维码 | 已生成 `f18e411` 临时预览二维码（仅保存在本机 `.local/device-acceptance/`，不入 Git）；真机扫码验收仍待 |
+| 预览二维码 | 已生成 `00924a4` 临时预览二维码（仅保存在本机 `.local/device-acceptance/`，不入 Git）；真机扫码验收仍待 |
 
 ## 真机验收
 
