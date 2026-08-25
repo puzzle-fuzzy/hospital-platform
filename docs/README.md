@@ -3,6 +3,8 @@
 
 # 项目文档导航
 
+> **当前 pending 运行包来源刷新（2026-08-25）**：实际 `build-info.json.sourceRevision` 已更新为 `b587c7ea8479e38d47055f3f5b672263f32aec41`；功能里程碑仍对应 `99c7e8fd`，pending 为 20 页、259 项小程序测试通过。原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY`，详见 [`release/candidate-b587c7ea-miniprogram-runtime-refresh-2026-08-25.md`](release/candidate-b587c7ea-miniprogram-runtime-refresh-2026-08-25.md)。
+
 > **最新事实源（2026-08-25，优先于本页旧候选段落）**：小程序候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，pending 已生成 20 个页面脚本；小程序回归为 `259 pass / 0 fail / 2445 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前保持 fail-closed。候选记录见 [`release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md`](release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md)。
 
  > 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前候选以本页顶部 `99c7e8fd` 为准。
