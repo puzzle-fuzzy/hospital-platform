@@ -96,6 +96,7 @@ const CLINICAL_READ_RESULT_KEYS = new Set([
 ]);
 
 const MAX_CLINICAL_READ_ITEMS = 10_000;
+const SOURCE_VERSION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -140,6 +141,11 @@ function isClinicalReadErrorCode(
 	);
 }
 
+/** 来源版本不是通用资源引用，禁止把 URL、路径或 query 当作版本号。 */
+function isBoundedSourceVersion(value: unknown): value is string {
+	return typeof value === "string" && SOURCE_VERSION_PATTERN.test(value);
+}
+
 function assertAllowedKeys(record: Record<string, unknown>): void {
 	for (const key of Object.keys(record)) {
 		if (!CLINICAL_READ_RESULT_KEYS.has(key)) invalid("unknown-field");
@@ -170,7 +176,7 @@ export function normalizeClinicalReadResult(
 	) {
 		invalid("item-count-invalid");
 	}
-	if (!isBoundedOpaqueIdentifier(value.sourceVersion)) {
+	if (!isBoundedSourceVersion(value.sourceVersion)) {
 		invalid("source-version-invalid");
 	}
 	const observedAt = parseInstant(value.observedAt);

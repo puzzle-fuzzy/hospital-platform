@@ -78,6 +78,12 @@ describe("clinical read contract", () => {
 				observedAt: "2026-08-26T12:00:00",
 			},
 			{ ...base, state: "empty", itemCount: 0, patientId: "" },
+			{
+				...base,
+				state: "empty",
+				itemCount: 0,
+				sourceVersion: "https://provider.example/v1",
+			},
 		]) {
 			expect(() => normalizeClinicalReadResult(value)).toThrowError(
 				ClinicalReadResultValidationError,
