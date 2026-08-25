@@ -279,12 +279,16 @@ for (const [relativePath, source] of Object.entries(sources).filter(
 	}
 }
 
-/** 健康内容尚未完成真实 schema/审核导入前，患者端 route 必须保持未挂载。 */
-excludes(
-	"knowledge.route-not-registered",
+/**
+ * 健康百科可以先冻结只读公共 contract，但不能越过审核发布闸门。
+ * 路由注册本身用于让旧入口有明确的服务端边界；默认仓储和无发布版本时
+ * 必须 fail-closed，不能因为“路由存在”就把旧库或测试 fixture 当成内容上线。
+ */
+containsAll(
+	"knowledge.route-contract-fail-closed",
 	"apps/api/src/app.ts",
-	"healthKnowledgeModule(",
-	"健康知识路由必须等待真实内容审核与 staging 证据后再注册。",
+	["healthKnowledgeModule(", "services.healthKnowledge"],
+	"健康百科只读 contract 已注册，但内容必须由版本化审核仓储 fail-closed 控制。",
 );
 contains(
 	"knowledge.import-domain-validation",

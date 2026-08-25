@@ -1,6 +1,6 @@
-# 当前健康内容与支付边界审计（2026-08-24）
+# 健康内容与支付边界审计（2026-08-24，历史快照）
 
-> 当前服务端 release：`28a5c0c131794ce9dcc5f94bd3809402188ac87a`；当前小程序运行包来源：
+> 本文是 2026-08-24 的历史审计快照；当前服务端 release：`8eb51b5ffe85b0b8f8a032783f893117d3df549d`，当前小程序运行包来源：
 > `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本记录只审计入口和关闭态，
 > 不代表健康内容、微信支付、医保结算或真机业务已经完成。
 
@@ -9,8 +9,9 @@
 本轮没有发现需要修改运行时代码的真实逻辑缺口：
 
 1. 健康百科、自测、BMI 和血压计算器没有被误认为已迁移。健康百科的 domain/service/repository
-   骨架可以独立测试，但 `healthKnowledgeModule` 没有挂载到 `apps/api/src/app.ts`；公共请求返回
-   `404`，没有真实内容 bundle、临床审核、版本负责人或 staging 发布/撤回证据时不会向患者端开放。
+   骨架可以独立测试；截至 2026-08-25，`healthKnowledgeModule` 已挂载到 `apps/api/src/app.ts` 以冻结
+   只读公共 contract，但默认仓储仍要求已审核发布版本，没有真实内容 bundle、临床审核、版本负责人或
+   staging 发布/撤回证据时不会向患者端返回内容。
 2. 微信支付的订单、订单查询、预支付和通知入口共用 `wechatPaymentEnabled` 闸门。默认值是关闭；
    关闭时认证之后、任何支付仓储/provider 操作之前返回 `503 dependency-not-configured`，不会读取报价、
    写订单、创建预支付尝试、验签解密或写通知去重事实。
@@ -22,11 +23,12 @@
 
 ### 健康内容与自测
 
-- `apps/api/src/modules/knowledge/index.ts` 保留了经过会话认证的只读 HTTP contract，便于后续真实内容
-  完成后独立接入；它当前没有被 `apps/api/src/app.ts` 注册。
-- `apps/api/src/app.test.ts` 固定验证 `/api/v1/knowledge/health/part/list` 为 `404`，防止测试组合根或
-  新会话误把未审核 fixture 当成公共内容。
-- `tools/architecture-audit.mjs` 的 `knowledge.route-not-registered` 规则与上述组合根保持一致；
+- `apps/api/src/modules/knowledge/index.ts` 保留了经过会话认证的只读 HTTP contract，当前已由
+  `apps/api/src/app.ts` 挂载；默认仓储没有审核发布版本时仍 fail-closed。
+- `apps/api/src/app.test.ts` 固定验证未登录访问 `/api/v1/knowledge/health/part/list` 返回 `401`，防止
+  路由注册被误解为内容已公开；健康知识 service/repository 测试继续覆盖未发布版本的关闭语义。
+- `tools/architecture-audit.mjs` 的 `knowledge.route-contract-fail-closed` 规则要求路由可以冻结公共
+  contract，但内容必须由版本化审核仓储控制；
   `docs/migration/health-content-and-self-test-audit-2026-08-24.md` 记录了旧端自测评分、BMI/血压阈值
   和适用人群的未决临床问题。
 
@@ -64,7 +66,7 @@
 
 ## 下一步准入
 
-健康域只有在真实脱敏内容、临床审核、版本发布/撤回演练和患者端页面验收齐全后，才单独评估健康百科；
+健康域只有在真实脱敏内容、临床审核、版本发布/撤回演练和患者端页面验收齐全后，才单独评估健康百科内容；
 自测、BMI/血压必须分别冻结规则版本和适用人群。支付/医保则等待金额权威、授权回跳、回调/查单、幂等、
 补偿和 HIS 写回 contract 全部冻结后，按门诊费用与预约挂号两条独立状态机分别验收。
 

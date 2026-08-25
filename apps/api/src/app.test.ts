@@ -142,6 +142,16 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/appointments/records",
 		"/api/v1/appointments/schedules",
 		"/api/v1/auth/wechat",
+		"/api/v1/knowledge/health/crowd/list",
+		"/api/v1/knowledge/health/department/list",
+		"/api/v1/knowledge/health/disease/detail/{diseaseId}",
+		"/api/v1/knowledge/health/disease/list/crowd/{crowdId}",
+		"/api/v1/knowledge/health/disease/list/department/{departmentId}",
+		"/api/v1/knowledge/health/disease/list/part/{partId}",
+		"/api/v1/knowledge/health/disease/list/symptoms",
+		"/api/v1/knowledge/health/drug/detail/{drugId}",
+		"/api/v1/knowledge/health/part/list",
+		"/api/v1/knowledge/health/symptoms/list/part/{partId}",
 		"/api/v1/me",
 		"/api/v1/me/profile",
 		"/api/v1/patients",
@@ -412,12 +422,14 @@ test("appointment write routes remain absent while provider contract is blocked"
 	}
 });
 
-test("health knowledge routes remain unregistered until reviewed content is ready", async () => {
+test("health knowledge routes remain fail-closed until reviewed content is ready", async () => {
 	const response = await createApp().handle(
 		new Request("http://localhost/api/v1/knowledge/health/part/list"),
 	);
 
-	expect(response.status).toBe(404);
+	// 路由先注册以冻结旧端健康百科的后端入口，但默认组合根没有会话，
+	// 且没有审核发布内容；两道闸门都不能被解释为健康内容已经上线。
+	expect(response.status).toBe(401);
 });
 
 test("provider-contract-dependent patient routes remain unregistered", async () => {

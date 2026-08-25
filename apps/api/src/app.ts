@@ -14,6 +14,7 @@ import {
 import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
+import { healthKnowledgeModule } from "./modules/knowledge";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
@@ -56,6 +57,7 @@ function openApiPlugin() {
 				{ name: "profile", description: "普通个人资料" },
 				{ name: "patients", description: "患者档案" },
 				{ name: "appointments", description: "预约目录" },
+				{ name: "knowledge", description: "审核后的健康百科只读内容" },
 				{ name: "reports", description: "检查检验报告目录" },
 				{ name: "payments", description: "支付订单" },
 			],
@@ -97,6 +99,11 @@ export function createApp(options: AppOptions = {}) {
 			api
 				.use(systemModule())
 				.use(authModule(services.auth, services.sessions))
+				.use(
+					services.healthKnowledge
+						? healthKnowledgeModule(services.healthKnowledge, services.sessions)
+						: new Elysia({ name: "health-knowledge-not-configured" }),
+				)
 				.use(
 					services.profile
 						? profileModule(services.profile, services.sessions)

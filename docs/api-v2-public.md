@@ -124,6 +124,16 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/schedules` | Bearer；幂等键可选 | 必填 `startDate`、`endDate`；可选 `departmentId`、`doctorId` |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
+| `GET` | `/api/v2/knowledge/health/part/list` | Bearer | 返回已发布健康百科的身体部位目录；没有审核发布版本时 fail-closed |
+| `GET` | `/api/v2/knowledge/health/crowd/list` | Bearer | 返回已发布健康百科的人群目录；不接受 provider 或患者参数 |
+| `GET` | `/api/v2/knowledge/health/department/list` | Bearer | 返回已发布健康百科的科室目录；不接受 provider 或患者参数 |
+| `GET` | `/api/v2/knowledge/health/symptoms/list/part/{partId}` | Bearer | 返回指定身体部位下的审核症状目录 |
+| `GET` | `/api/v2/knowledge/health/disease/list/part/{partId}` | Bearer | 返回指定身体部位关联的审核疾病目录 |
+| `GET` | `/api/v2/knowledge/health/disease/list/crowd/{crowdId}` | Bearer | 返回指定人群关联的审核疾病目录 |
+| `GET` | `/api/v2/knowledge/health/disease/list/department/{departmentId}` | Bearer | 返回指定科室关联的审核疾病目录 |
+| `GET` | `/api/v2/knowledge/health/disease/list/symptoms` | Bearer | 根据 1–10 个审核症状标识查询疾病；使用 `symptomIds` 查询参数 |
+| `GET` | `/api/v2/knowledge/health/disease/detail/{diseaseId}` | Bearer | 返回指定审核疾病详情和可审计药品引用 |
+| `GET` | `/api/v2/knowledge/health/drug/detail/{drugId}` | Bearer | 返回指定审核药品详情；不构成个体化用药建议 |
 | `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg` |
 | `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；只返回已开放的检验详情白名单，不返回文件 URL |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
@@ -330,6 +340,14 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 未来要开放真正分页、游标或大结果集查询，必须先在 provider contract 中冻结游标一致性、排序键、重复项、
 快照时间、`total` 语义和失败后的续取方式，再同步修改公共 contract、adapter、页面和验收文档。
 
+### 3.7 健康百科只读路径
+
+健康百科路由已经纳入新 API 的公共 contract，覆盖旧端健康百科、疾病详情、药品详情和症状关联查询的后端入口。
+它只读取通过审核并已发布的版本化 bundle，并在服务端统一返回 `publication`、白名单字段和免责声明；不接收患者号、
+provider 标识或 AI 参数，也不提供健康自测、风险评分、个体化诊断或用药建议。当前环境若没有审核发布版本，仓储返回
+`503 dependency-not-configured` 或等价的 fail-closed 错误，不能把未审核旧库快照当作可展示内容。小程序页面接入仍需先完成
+审核 bundle 的来源、发布和真机只读验收。
+
 ## 4. 统一响应和错误
 
 患者端成功响应统一为：
@@ -399,7 +417,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 ## 5. 当前实现边界
 
 以下内容在旧服务中存在，但当前没有注册为新患者端公共路由：医保 FSI、医保身份授权、云
-健康结算/HIS 回写、文件上传、健康知识、健康自测、报告解读、AI 导诊、管理端 RBAC、监控
+健康结算/HIS 回写、文件上传、健康自测、报告解读、AI 导诊、管理端 RBAC、监控
 和任务管理。旧接口逐项来源和状态见
 [`migration/legacy-api-endpoint-inventory.md`](migration/legacy-api-endpoint-inventory.md)，
 完整前置条件见 [`migration/api-matrix.md`](migration/api-matrix.md)。

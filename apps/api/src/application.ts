@@ -28,6 +28,7 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
+import { HealthKnowledgeService } from "./modules/knowledge";
 import { PatientService } from "./modules/patients";
 import { WechatPrepayService } from "./modules/payments";
 import {
@@ -42,6 +43,8 @@ export type ApplicationServices = {
 	patients: PatientService;
 	appointments: AppointmentService;
 	outpatientPayments?: OutpatientPaymentService;
+	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
+	healthKnowledge?: HealthKnowledgeService;
 	reports: ReportService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
@@ -143,6 +146,10 @@ export function createDefaultApplicationServices(
 			// 渠道码必须来自已确认的运行配置；缺失时由服务层 fail-closed，
 			// 不能在组合根再次猜测 Provider 渠道。
 			authSysCode: options.outpatientPaymentAuthSysCode ?? "",
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		healthKnowledge: new HealthKnowledgeService({
+			repository: repositories.healthKnowledge,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		paymentOrders,
