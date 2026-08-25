@@ -108,3 +108,33 @@
 本次检查没有重启、写配置、读取密钥/令牌/患者原始字段或修改旧服务。最近窗口没有产生新的微信资料授权、
 客户端 requestId 或服务端业务 trace，因此当前 `fcc6630e` 真机候选仍只能记录为“等待设备操作”，不能推断
 微信资料授权失败，也不能推断业务列表为空。
+
+## 7. 2026-08-25 18:42 CST 最新共存与瞬态依赖复核
+
+本轮再次使用内网 inspection key 只读检查，并从公网 HTTPS 读取健康响应；没有重启、修改配置、读取环境变量/令牌，
+也没有写入 MySQL、Redis 或修改旧 Python 项目。
+
+| 检查项 | 结果 |
+| --- | --- |
+| 新 API systemd | `hospital-platform-api-v2.service=active/running`，Bun 主进程仍为当前服务 |
+| 新 API release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，监听 `10.0.0.3:18081` |
+| 旧 Python | Gunicorn 仍监听 `0.0.0.0:8001`；`systemd` unit 状态不能单独代表旧进程状态，本次没有触碰旧进程 |
+| 公网 live/ready/ping | `https://test-hp.meiyi.pro/api/v2/health/live`、`health/ready`、`system/ping` 均返回 HTTP `200`；复核后的 ready body 为 `database=ok`、`redis=ok`、`schema=ok` |
+
+同一窗口的 journald 记录了数据库和 schema 探针一次 `PROTOCOL_CONNECTION_LOST`：
+
+```text
+18:42:20 CST  persistence.probe.unavailable  database/schema
+18:42:47 CST  persistence.probe.recovered    database/schema
+```
+
+这说明探针能够记录“不可用 → 恢复”，但当前只能证明恢复后的瞬时状态，不能把一次公网 `200` 当成持续稳定性或业务验收。
+下一次只读业务验收前仍需连续 readiness 观察，并将异常窗口与业务请求分开关联。
+
+本窗口还抽样到一条服务端预约历史读取链：`scope=online` 的 Provider 结果为 61 条，日志中的状态计数全部为
+`cancelled`。这只能作为“当前服务端映射结果需要复核”的事实，不能直接解释为用户没有预约，也不能把取消记录改成
+有效挂号；应使用同一候选小程序、同一 trace、脱敏 Provider 响应和页面筛选结果复核。另一会话负责的
+`packages/adapters/src/zhongyang-appointments.ts` 本轮不修改、不暂存、不部署。
+
+本节服务端日志观察不构成当前 `7bc5956` pending 小程序的真机证据；客户端 requestId、公网链路、服务端 trace、
+Provider requestId 和页面结果仍必须来自同一候选配对。
