@@ -1,28 +1,28 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前小程序候选已推进到 `5493659e`，完整 sourceRevision 为 `5493659ead8a70fcc9a2ad6ad4619a155b8a362a`，pending 运行包包含 20 个页面，源码回归为 `291 pass / 0 fail / 3233 expect()`。本轮修正健康百科分类加载状态，正式审核 bundle 仍缺失，不能把健康内容标记为已发布；二维码和就诊页修正见前序候选。live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致发布返回 `EBUSY`，旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前小程序候选已推进到 `0bb4877e`，完整 sourceRevision 为 `0bb4877ee890894bdb63e32c4b2b2d9e1167d555`，pending 运行包包含 21 个页面，源码回归为 `292 pass / 0 fail / 3250 expect()`。本轮新增旧端使用条款原文只读页；协议版本、同意记录、撤回和审计仍关闭。正式健康审核 bundle 仍缺失，不能把健康内容标记为已发布；live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致发布返回 `EBUSY`，旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
-> **最新候选事实（2026-08-26）**：提交 `a6319d7` 修复全局微信资料授权回调的 owner/会话代际边界，并保留前序全量 64 个旧入口 A–F 批次覆盖；当前 pending 来源为 `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`，20 个页面，`286 pass / 0 fail / 3217 expect()`。构建已生成 pending，但 live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致发布返回 `EBUSY`；此前候选仅作历史追溯。
+> **最新候选事实（2026-08-26）**：提交 `0bb4877e` 在既有全量 64 个旧入口 A–F 批次覆盖上新增协议静态页；当前 pending 来源为 `0bb4877ee890894bdb63e32c4b2b2d9e1167d555`，21 个页面，`292 pass / 0 fail / 3250 expect()`。构建已生成 pending，但 live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致发布返回 `EBUSY`；此前候选仅作历史追溯。
 
 > **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；提交 `f97f9f03` 补齐健康知识错误码的服务端、客户端和文档契约；提交 `fc70fa0b` 修正未知/过期 `feature` 进入状态页时被误归类为“医疗记录”的错误语义；提交 `7627843a` 补齐状态页的迁移阶段，提交 `cd26a01` 补齐旧入口、业务域和下一步准入展示。以上候选均保留作历史追溯；当时 pending 小程序运行包为 `7f7a7a18`（20 页），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
 
-> **当前仓库事实（2026-08-26）**：本轮小程序功能候选为 `a6319d7`，当前小程序运行输入/pending 来源为 `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f`；该运行输入包含前序业务候选、全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、共享 Tab、统一页面滚动边界、全局资料授权边界和 owner 回调保护。微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。服务端本地候选仍以 `b42922f4` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
+> **当前仓库事实（2026-08-26）**：本轮小程序功能候选为 `0bb4877e`，当前小程序运行输入/pending 来源为 `0bb4877ee890894bdb63e32c4b2b2d9e1167d555`；该运行输入包含前序业务候选、全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、共享 Tab、统一页面滚动边界、全局资料授权边界、owner 回调保护和协议静态页。微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。服务端本地候选仍以 `b42922f4` 为准。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
 
 ## 1. 当前真实基线
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 功能候选代码基线 | `a6319d7`（修复微信资料授权回调 owner 边界） |
-| 当前功能基线 | `a6319d7`（文档更新不改变 live `dist`） |
-| 小程序业务代码候选 | `a6319d79f9f1e940ea5bcbd2ab7fe6500345466f` |
-| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=a6319d79f9f1e940ea5bcbd2ab7fe6500345466f` |
-| pending 页面数 | 20 个；每个页面具备 `.js/.json/.wxml/.wxss` |
-| 小程序回归 | 当前源码 286 pass / 0 fail / 3217 expect()；pending 已包含当前运行输入；入口分发广度审计通过 |
-| pending 静态验证 | 已通过；20 页、根文件、相对依赖、workspace 依赖、测试脚本和来源指纹均已校验 |
+| 功能候选代码基线 | `0bb4877e`（迁移使用条款原文只读页） |
+| 当前功能基线 | `0bb4877e`（文档更新不改变 live `dist`） |
+| 小程序业务代码候选 | `0bb4877ee890894bdb63e32c4b2b2d9e1167d555` |
+| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=0bb4877ee890894bdb63e32c4b2b2d9e1167d555` |
+| pending 页面数 | 21 个；每个页面具备 `.js/.json/.wxml/.wxss` |
+| 小程序回归 | 当前源码 292 pass / 0 fail / 3250 expect()；pending 已包含当前运行输入；入口分发广度审计通过 |
+| pending 静态验证 | 已通过；21 页、根文件、相对依赖、workspace 依赖、测试脚本和来源指纹均已校验 |
 | 当前 live `dist` | 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
 | 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
@@ -35,12 +35,12 @@
 
 | 状态 | 数量 | 含义 |
 | --- | ---: | --- |
-| `replaced` | 7 | 已有原生页面或等价静态能力；仍需真实链路/真机证据才能称为完成 |
+| `replaced` | 8 | 已有原生页面或等价静态能力；仍需真实链路/真机证据才能称为完成 |
 | `partial` | 17 | 已有安全只读或静态子集；旧页面中的写入、详情、实时或外部能力仍关闭 |
 | `blocked-provider` | 6 | 等待 HIS/Provider 的请求、响应、映射、脱敏和错误样例 |
 | `blocked-clinical` | 19 | 等待题库、阈值、内容、随访或问诊规则版本及临床审核；锦旗/表扬信也属于内容审核 |
 | `blocked-payment` | 7 | 等待金额、订单、支付、查单、退款和 HIS 回写状态机 |
-| `blocked-patient-contract` | 4 | 等待新增/绑定、协议、地址、签名的 owner、同意和幂等规则 |
+| `blocked-patient-contract` | 3 | 等待新增/绑定、地址、签名的 owner、同意和幂等规则；协议静态页已迁移，但真实同意能力仍未开放 |
 | `blocked-external` | 3 | 等待 WebView、客服、问诊、分享、订阅等外部主体和回跳协议 |
 | `excluded` | 1 | 旧端开发辅助页，不进入生产小程序 |
 | **合计** | **64** | 每个旧页面有一个明确落点；不等于 64 个业务都已开放 |
@@ -54,7 +54,7 @@ pnpm migration:boundary:audit
 
 所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；互联网医院旧顶层入口已有独立安全壳，但外部能力仍关闭。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
 
-首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 20 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
+首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 21 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
 
 全项目 readiness 汇总可以通过 `pnpm migration:readiness` 生成，字段说明见 [`migration-readiness-report.md`](migration-readiness-report.md)。该报告明确拆分入口结构、五个只读域、Provider 材料状态、四个临床域准入状态、pending/live 运行包来源、九个真机证据域和真实业务完成状态；默认结构审计通过不代表 Provider、公网或真机验收通过，`--strict` 才会把运行包未对齐作为命令失败。
 
@@ -95,8 +95,8 @@ pnpm migration:boundary:audit
 ## 4. 下一步执行规则
 
 1. 先释放微信开发者工具对 `apps/miniprogram/dist/` 的锁，再发布 pending 候选；在此之前不删除或覆盖 live `dist`。
-2. 使用 [`device-evidence-a6319d7-pending.json`](../release/device-evidence-a6319d7-pending.json) 作为 9 个只读验收域的起始清单；一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。
-   `pnpm device:evidence:audit --file docs/release/device-evidence-a6319d7-pending.json` 在全部域仍为 `pending` 时会先完成清单、候选指纹和脱敏边界审计，但总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
+2. 使用 [`device-evidence-0bb4877-pending.json`](../release/device-evidence-0bb4877-pending.json) 作为 9 个只读验收域的起始清单；一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。
+   `pnpm device:evidence:audit --file docs/release/device-evidence-0bb4877-pending.json` 在全部域仍为 `pending` 时会先完成清单、候选指纹和脱敏边界审计，但总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
 5. `pnpm release:baseline:audit` 当前应继续 fail-closed：线上 release 之后存在未部署运行时代码，且包含另一会话负责的众阳预约适配器。不能通过修改审计器或只部署半套代码来“变绿”。
@@ -127,7 +127,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 如果微信开发者工具仍锁定 `dist/`，可先只读验证隔离候选，不覆盖 live 运行包：
 
 ```powershell
-$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "a6319d79f9f1e940ea5bcbd2ab7fe6500345466f"
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "0bb4877ee890894bdb63e32c4b2b2d9e1167d555"
 pnpm --filter @hospital/miniprogram runtime:verify:pending
 Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
 ```
