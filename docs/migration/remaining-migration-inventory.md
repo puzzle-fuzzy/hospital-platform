@@ -1,5 +1,7 @@
 > 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
+> **最新横向迁移补充（2026-08-26）**：患者签名和消息订阅已经完成原生安全展示层迁移，当前候选为 `c7220d733b95d393030af9826c2ca305a7fc1f8e`（`c7220d73`），回归为 `301 pass / 0 fail / 3435 expect()`。签名只读取 owner-scoped 脱敏患者目录，不调用未知外部小程序；订阅只保留旧端搜索/分类/折叠展示，不调用微信授权、不保存本地开关。构建候选位于 `.local/hospital-miniprogram/pending/`，`dist/` 仍被开发者工具锁定，真机证据未完成。详细边界见 [`signature-subscription-safe-surface-migration-2026-08-26.md`](signature-subscription-safe-surface-migration-2026-08-26.md)。
+
 > **当前功能候选事实（2026-08-26）**：本轮小程序功能候选为 `ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`，当前运行输入/pending 来源与该候选一致；后者包含全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、前序业务候选、协议静态页、健康自测安全数值子集、6 个临床内容外壳、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳、旧端“我的快递”真实空态迁移以及共享构建/门禁输入。服务端当前生产 release 仍为 `8eb51b5f`，本地工作树不代表已部署 release；后续文档提交不改变已构建的 pending 运行包，源码或构建输入更新时必须重新生成来源记录；当前候选证据见 [`../release/candidate-ed20c52-miniprogram-runtime-2026-08-26.md`](../release/candidate-ed20c52-miniprogram-runtime-2026-08-26.md)。
 > 小程序 pending 运行包来源为 `ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`，包含 40 个页面；
 > `apps/miniprogram/dist/` 仍由开发者工具锁定，当前 live dist 来源为 `fcc6630e`。本地候选、pending、live dist 和线上包必须分开记录。

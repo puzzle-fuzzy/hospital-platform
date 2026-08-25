@@ -17,7 +17,7 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序候选 | `ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`（`ed20c52`） |
+| 小程序候选 | `c7220d733b95d393030af9826c2ca305a7fc1f8e`（`c7220d73`） |
 | pending 运行包 | `.local/hospital-miniprogram/pending/`，40 个页面，已通过 `runtime:verify:pending` |
 | live 小程序运行包 | 仍为旧来源；微信开发者工具锁定 `apps/miniprogram/dist/`，候选尚未发布 |
 | 服务端 | 生产 `8eb51b5f`，新 Elysia 监听 `10.0.0.3:18081` |
