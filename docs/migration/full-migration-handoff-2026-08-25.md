@@ -15,7 +15,7 @@
 | 小程序业务代码候选 | `7bc595673a6ba41503a751cd38f0beb15ee8f23f` |
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=e5345c423a4cd44801e0b3e0a202063cad882c50` |
 | pending 页面数 | 20 个；每个页面具备 `.js/.json/.wxml/.wxss` |
-| 小程序回归 | 当前源码 266 pass / 0 fail / 2548 expect()；pending 已包含当前源码候选 |
+| 小程序回归 | 当前源码 267 pass / 0 fail / 2659 expect()；pending 已包含当前业务候选；入口分发广度审计通过 |
 | pending 静态验证 | 已通过；20 页、根文件、相对依赖、workspace 依赖、测试脚本和来源指纹均已校验 |
 | 当前 live `dist` | 仍被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
@@ -47,6 +47,8 @@ pnpm migration:boundary:audit
 ```
 
 所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；互联网医院旧顶层入口已有独立安全壳，但外部能力仍关闭。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
+
+首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册。该门禁只保证入口分发完整，不扩大任何真实业务范围。
 
 全项目 readiness 汇总可以通过 `pnpm migration:readiness` 生成，字段说明见 [`migration-readiness-report.md`](migration-readiness-report.md)。该报告明确拆分入口结构、五个只读域、Provider 材料状态、四个临床域准入状态、pending/live 运行包来源、九个真机证据域和真实业务完成状态；默认结构审计通过不代表 Provider、公网或真机验收通过，`--strict` 才会把运行包未对齐作为命令失败。
 

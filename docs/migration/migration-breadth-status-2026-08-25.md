@@ -35,6 +35,7 @@
 ```text
 pnpm migration:audit           通过：64 个旧页面、20 个新页面、195 个旧服务路由、87 个旧端接口字面量
 pnpm migration:boundary:audit  通过：14 个冻结业务域，全部阻塞入口均有统一状态页和 FeatureKey
+pnpm migration:breadth:audit   通过：首页 22 个、我的 9 个可见 action 均有固定分发；四个主 Tab 均已注册
 ```
 
 ## 2. 64 个旧入口的真实状态分布

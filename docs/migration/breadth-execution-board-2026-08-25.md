@@ -103,6 +103,7 @@
 
 1. 先读本文和 [`migration-breadth-status-2026-08-25.md`](migration-breadth-status-2026-08-25.md)，不要从单个页面猜全局状态。
 2. 修改前运行 `pnpm migration:audit`、`pnpm migration:boundary:audit` 和 `pnpm readonly:audit`。
-3. 另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不修改、不暂存、不部署。
-4. `docs/obsidian/.obsidian/` 是用户本地文件，不加入 Git。
-5. 新增真实业务页面前，必须先从对应状态目录移除 `FeatureKey` 分支，并同步矩阵、日志、测试和发布证据。
+3. 修改首页或“我的”可见入口后，必须运行 `pnpm migration:breadth:audit`；它只验证固定 action 分发、状态页 key 和主 Tab 落点，不替代真实业务验收。
+4. 另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不修改、不暂存、不部署。
+5. `docs/obsidian/.obsidian/` 是用户本地文件，不加入 Git。
+6. 新增真实业务页面前，必须先从对应状态目录移除 `FeatureKey` 分支，并同步矩阵、日志、测试和发布证据。

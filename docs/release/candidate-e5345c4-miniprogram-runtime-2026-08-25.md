@@ -10,7 +10,7 @@
 | pending 运行包来源 | `e5345c423a4cd44801e0b3e0a202063cad882c50` |
 | pending 目录 | `.local/hospital-miniprogram/pending/` |
 | pending 页面数 | 20 |
-| 小程序回归 | `266 pass / 0 fail / 2548 expect()` |
+| 小程序回归 | `267 pass / 0 fail / 2659 expect()` |
 | 服务端配套候选 | `b42922f4f83d5018c20f7abc5f9734625306d5a6` |
 | 当前 live `dist` | `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，仍被微信开发者工具锁定 |
 | 真机证据 | [`device-evidence-e5345c4-pending.json`](device-evidence-e5345c4-pending.json)，9 个域均为 `pending` |
@@ -25,7 +25,8 @@
 
 ```text
 pnpm typecheck                                      通过
-pnpm test                                           9 个 workspace 全部通过；小程序 266 pass / 0 fail / 2548 expect()
+pnpm test                                           9 个 workspace 全部通过；小程序 267 pass / 0 fail / 2659 expect()
+pnpm migration:breadth:audit                       首页 22 个、我的 9 个可见 action 全部有固定分发
 pnpm --filter @hospital/miniprogram runtime:verify:pending 通过
 ```
 

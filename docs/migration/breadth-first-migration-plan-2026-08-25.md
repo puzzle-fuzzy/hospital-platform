@@ -3,7 +3,7 @@
 > 当前跨域执行工作板见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
 > 当前全量交接单见 [`full-migration-handoff-2026-08-25.md`](full-migration-handoff-2026-08-25.md)。当前小程序功能候选为 `7bc5956`；服务端本地代码候选为 `b42922f4`，本轮文档提交不代表线上服务已更新。
 
-> **当前事实优先（2026-08-25，后续历史段落不覆盖本段）**：小程序源码和 pending 运行包来源为 `7bc595673a6ba41503a751cd38f0beb15ee8f23f`，当前回归为 `266 pass / 0 fail / 2548 expect()`；pending 尚未发布。被微信开发者工具占用的 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，必须先释放锁再执行原子发布和 `runtime:verify`。服务端本地候选仍按 `b42922f4` 识别，线上 release 漂移由 `pnpm release:baseline:audit` fail-closed 报告；旧 Python `8001` 和另一会话负责的众阳预约适配器不在本轮修改范围。
+> **当前事实优先（2026-08-25，后续历史段落不覆盖本段）**：小程序源码和 pending 运行包来源为 `7bc595673a6ba41503a751cd38f0beb15ee8f23f`，当前回归为 `267 pass / 0 fail / 2659 expect()`；pending 尚未发布。被微信开发者工具占用的 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，必须先释放锁再执行原子发布和 `runtime:verify`。服务端本地候选仍按 `b42922f4` 识别，线上 release 漂移由 `pnpm release:baseline:audit` fail-closed 报告；旧 Python `8001` 和另一会话负责的众阳预约适配器不在本轮修改范围。
 
 > **历史候选补充（提交 `99c7e8fd`）**：原生页面从 17 个扩展到 20 个，新增健康百科目录、症状查疾病结果、疾病/药品详情三个页面；服务端健康路由已挂载但无审核发布 bundle 时 fail-closed。该候选仍保留在历史交接中，当前 pending 以本段上方 `7bc5956` 为准。
 
@@ -40,7 +40,8 @@
 | 小程序类型检查 | 通过 | 20 个页面源码边界有效 |
 | 小程序运行包发布 | 暂停 | 候选已保存在 pending；微信开发者工具锁住 live `dist`，原子发布返回 `EBUSY`，旧运行包已保留 |
 | 入口/边界/只读/Provider/日志审计 | 通过 | 64 个旧页面、14 个冻结域、5 个只读域和 84 个日志事件均有登记 |
-| 全量测试 | 发布基线阻断 | 小程序当前 `266 pass / 0 fail / 2548 expect()`；全仓 API 的 P0 验收测试按设计发现线上 release 漂移并停止，不能改门禁迎合当前状态 |
+| 跨页面入口分发审计 | 通过 | 首页 22 个、我的 9 个可见 action 均有固定分支；状态页 key 和四个主 Tab 均已校验 |
+| 全量测试 | 发布基线阻断 | 小程序当前 `267 pass / 0 fail / 2659 expect()`；全仓 API 的 P0 验收测试按设计发现线上 release 漂移并停止，不能改门禁迎合当前状态 |
 
 因此下一步不再继续重复加固同一页面，而是按以下并行队列推进：
 

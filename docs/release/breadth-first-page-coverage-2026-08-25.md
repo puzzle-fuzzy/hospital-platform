@@ -5,7 +5,7 @@
 > `partial=17`、`blocked-clinical=13`、`blocked-external=9`、`blocked-payment=7`、
 > `blocked-provider=6`、`blocked-patient-contract=4`、`replaced=7`、`excluded=1`。
 > 这份覆盖证据证明入口没有遗漏，不证明阻塞入口的真实业务已经开放。
-> 当前小程序源码/pending 候选为 `7bc5956`（20 个原生页面，`266 pass / 0 fail / 2548 expect()`）；上一候选和旧 live `dist` 只作历史/运行边界记录，不能作为当前真机证据。
+> 当前小程序源码/pending 候选为 `7bc5956`（20 个原生页面，`267 pass / 0 fail / 2659 expect()`）；上一候选和旧 live `dist` 只作历史/运行边界记录，不能作为当前真机证据。
 
 ## 结论
 
@@ -30,6 +30,7 @@
 - 页面落点台账：[`apps/miniprogram/src/services/legacy-page-catalog.ts`](../../apps/miniprogram/src/services/legacy-page-catalog.ts)
 - 页面台账回归：[`apps/miniprogram/src/services/legacy-page-catalog.test.ts`](../../apps/miniprogram/src/services/legacy-page-catalog.test.ts)
 - 总迁移审计：`pnpm migration:audit`
+- 入口分发广度审计：`pnpm migration:breadth:audit`
 - 旧端逐页解释：[`../migration/legacy-page-matrix.md`](../migration/legacy-page-matrix.md)
 
 本轮门禁输出：
@@ -44,7 +45,7 @@ blocked-patient-contract=4
 
 ## 下一步原则
 
-1. 当前 17 个 `partial` 页面已经具备可验证的只读/静态代码落点；下一步是用同一 `7bc5956` 候选为患者、预约历史/目录、报告目录、门诊费用和普通资料分别保存页面、HTTP requestId、服务端低敏日志三层证据。
+1. 当前 17 个 `partial` 页面已经具备可验证的只读/静态代码落点，首页和“我的”可见入口也已通过分发审计；下一步是用同一 `7bc5956` 候选为患者、预约历史/目录、报告目录、门诊费用和普通资料分别保存页面、HTTP requestId、服务端低敏日志三层证据。
 2. 新 Provider 文档到达后，按业务域完成 `contract → adapter → domain → API → 小程序 → 日志 → 验收`，不把一个域的字段复用到另一个域。
 3. 支付、医保、二维码、患者新增绑定、问卷提交、WebSocket、外部 WebView 和 HIS 写回继续保持关闭；状态页存在只代表入口可解释，不代表业务已完成。
 

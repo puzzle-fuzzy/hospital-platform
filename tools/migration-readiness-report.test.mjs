@@ -12,6 +12,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.entryCoverage.nativePageCount).toBe(20);
 		expect(report.entryCoverage.legacy.blockedPageCount).toBe(39);
 		expect(report.entryCoverage.legacy.domainCoverage).toHaveLength(7);
+		expect(report.migrationQueue).toHaveLength(6);
 		expect(
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
