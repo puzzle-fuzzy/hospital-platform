@@ -70,6 +70,72 @@ const FROZEN_DOMAIN_GATES = [
 		readiness: "待患者绑定 contract",
 		legacyPaths: ["pagesB/patient/patientAdd.vue"],
 	},
+	// 便民与健康评估页面必须一起冻结：它们会产生临床问卷、风险结论或
+	// 对外公开内容，不能因为页面数量较少就跳过题库版本、审核和授权边界。
+	{
+		name: "入院预问诊",
+		featureKey: "admission-preconsultation",
+		readiness: "待临床审核",
+		legacyPaths: ["pagesB/health/admission_preconsultation.vue"],
+	},
+	{
+		name: "出院随访",
+		featureKey: "discharge-followup",
+		readiness: "待临床审核",
+		legacyPaths: [
+			"pagesB/health/discharge_followup.vue",
+			"pagesB/health/discharge_followup_detail.vue",
+		],
+	},
+	{
+		name: "风险评估",
+		featureKey: "risk-evaluation",
+		readiness: "待临床审核",
+		legacyPaths: [
+			"pagesB/health/risk_form_fall.vue",
+			"pagesB/health/risk_form_pain.vue",
+			"pagesB/health/risk_form_pressure.vue",
+			"pagesB/health/risk_self_evaluation.vue",
+		],
+	},
+	{
+		name: "健康自测与计算器",
+		featureKey: "health-test",
+		readiness: "待临床审核",
+		legacyPaths: [
+			"pagesB/health/blood_pressure_calc.vue",
+			"pagesB/health/bmi_calc.vue",
+			"pagesB/health/health_test.vue",
+			"pagesB/health/self_test_question.vue",
+			"pagesB/health/self_test_result.vue",
+		],
+	},
+	{
+		name: "预约前预问诊",
+		featureKey: "pre-visit",
+		readiness: "待临床审核",
+		legacyPaths: ["pagesB/health/pre_visit.vue"],
+	},
+	{
+		name: "电子锦旗",
+		featureKey: "gift-banner",
+		readiness: "待临床审核",
+		legacyPaths: [
+			"pagesB/health/gift_electronic_banner.vue",
+			"pagesB/health/list_electronic_banner.vue",
+			"pagesB/health/record_electronic_banner.vue",
+		],
+	},
+	{
+		name: "表扬信",
+		featureKey: "health-praise",
+		readiness: "待临床审核",
+		legacyPaths: [
+			"pagesB/health/gift_health_praise.vue",
+			"pagesB/health/list_health_praise.vue",
+			"pagesB/health/record_health_praise.vue",
+		],
+	},
 ];
 
 const expectedStatusPage = "pages/feature-status/feature-status";
