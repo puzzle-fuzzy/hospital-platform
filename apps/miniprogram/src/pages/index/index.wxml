@@ -133,5 +133,31 @@
 		bindtap="onFloatingGuide"
 	/>
 
+	<!--
+		保留旧首页二维码居中弹层的视觉位置，但不伪造可扫码图片。
+		医院扫码字段、签名、有效期和撤销规则确认后，未来只替换弹层
+		内部的安全 payload，不改变患者上下文门禁和遮罩交互。
+	-->
+	<view wx:if="{{showPatientQr}}" class="patient-qr-overlay" catchtap="closePatientQr">
+		<view class="patient-qr-modal" catchtap="stopPatientQrPropagation">
+			<view class="patient-qr-title">就诊人二维码</view>
+			<view class="patient-qr-preview">
+				<image
+					src="/assets/legacy-home/patient-qr.svg"
+					mode="aspectFit"
+					class="patient-qr-preview-icon"
+				/>
+				<view class="patient-qr-locked">待开放</view>
+			</view>
+			<view class="patient-qr-name">{{patientQrName || "----"}}</view>
+			<view class="patient-qr-card">就诊卡：{{patientQrCardNumber || "----"}}</view>
+			<view class="patient-qr-notice">
+				医院扫码协议尚在确认中，当前不会生成或外发可扫码内容。
+			</view>
+			<view class="patient-qr-status" bindtap="onPatientQrStatus">查看迁移说明</view>
+			<view class="patient-qr-close" bindtap="closePatientQr">关闭</view>
+		</view>
+	</view>
+
 	</view>
 </scroll-view>

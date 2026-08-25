@@ -4,12 +4,12 @@ import type {
 	AppointmentScheduleListPayload,
 	AuthSessionPayload,
 	CurrentUserPayload,
-	HealthPayload,
 	HealthKnowledgeCatalogResponsePayload,
 	HealthKnowledgeDiseaseDetailResponsePayload,
 	HealthKnowledgeDiseaseListResponsePayload,
 	HealthKnowledgeDrugDetailResponsePayload,
 	HealthKnowledgeSymptomListResponsePayload,
+	HealthPayload,
 	OutpatientPaymentListPayload,
 	PatientListPayload,
 	ReportDetailPayload,
@@ -218,6 +218,14 @@ export type IndexPageData = {
 	patients: Array<Patient>;
 	selectedPatient: Patient | null;
 	selectedPatientId: string;
+	/**
+	 * 二维码安全壳是否打开。这里只表示用户查看了迁移说明弹层，
+	 * 不代表已经生成医院可扫码的二维码。
+	 */
+	showPatientQr: boolean;
+	/** 弹层只展示当前已确认患者的脱敏字段，不保存或生成扫码 payload。 */
+	patientQrName: string;
+	patientQrCardNumber: string;
 	hasPatients: boolean;
 	loading: boolean;
 	syncingPatients: boolean;

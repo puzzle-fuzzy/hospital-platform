@@ -312,3 +312,111 @@ page {
 	width: 150rpx;
 	transform: translateY(-50%);
 }
+
+/*
+ * 二维码安全壳沿用旧端居中弹窗的尺寸层级；遮罩是页面级 fixed，
+ * 不会把弹层内容加入主 Tab 的 scroll-view，也不会造成底部 tabBar 滚动。
+ */
+.patient-qr-overlay {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 80;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.45);
+}
+
+.patient-qr-modal {
+	box-sizing: border-box;
+	width: 520rpx;
+	padding: 40rpx;
+	border-radius: 24rpx;
+	background: #ffffff;
+	text-align: center;
+}
+
+.patient-qr-title {
+	color: #222222;
+	font-size: 32rpx;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.patient-qr-preview {
+	position: relative;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 360rpx;
+	height: 360rpx;
+	margin: 24rpx auto 16rpx;
+	border-radius: 16rpx;
+	background: #f4f6fb;
+}
+
+.patient-qr-preview-icon {
+	width: 170rpx;
+	height: 170rpx;
+	opacity: 0.3;
+}
+
+.patient-qr-locked {
+	position: absolute;
+	left: 50%;
+	box-sizing: border-box;
+	padding: 8rpx 20rpx;
+	border-radius: 999rpx;
+	background: rgba(34, 43, 69, 0.82);
+	color: #ffffff;
+	font-size: 26rpx;
+	line-height: 1.4;
+	transform: translateX(-50%);
+}
+
+.patient-qr-name {
+	color: #333333;
+	font-size: 30rpx;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.patient-qr-card {
+	margin-top: 8rpx;
+	color: #666666;
+	font-size: 28rpx;
+	line-height: 1.4;
+}
+
+.patient-qr-notice {
+	margin-top: 18rpx;
+	color: #8a93a6;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.patient-qr-status,
+.patient-qr-close {
+	box-sizing: border-box;
+	width: 100%;
+	height: 80rpx;
+	margin-top: 16rpx;
+	border-radius: 12rpx;
+	font-size: 30rpx;
+	line-height: 80rpx;
+}
+
+.patient-qr-status {
+	background: #edf3ff;
+	color: #3d6df6;
+}
+
+.patient-qr-close {
+	margin-top: 12rpx;
+	background: #3d6df6;
+	color: #ffffff;
+}

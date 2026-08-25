@@ -200,6 +200,9 @@ type IndexPageMethods = {
 	onHeroAction(): void;
 	openPatientSelector(): void;
 	onPatientQr(): void;
+	closePatientQr(): void;
+	stopPatientQrPropagation(): void;
+	onPatientQrStatus(): void;
 	onTopAction(event: ActionEvent): void;
 	onRightAction(event: ActionEvent): void;
 	onFloatingGuide(): void;
@@ -260,6 +263,9 @@ Page<IndexPageData, IndexPageMethods>({
 		selectedPatient: null,
 		// 只保存服务端返回的内部 patientId，后续查询均以它作为业务输入。
 		selectedPatientId: "",
+		showPatientQr: false,
+		patientQrName: "",
+		patientQrCardNumber: "",
 		hasPatients: false,
 		loading: false,
 		syncingPatients: false,
@@ -518,9 +524,10 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	/**
-	 * 旧端注释曾声称二维码包含医院临床患者引用，但实际代码读取的是医疗卡号字段，
-	 * 并交给第三方二维码服务生成图片。当前没有医院扫码协议，因此只给出明确
-	 * 迁移状态，不复制卡号外发行为，也不生成未经签名和有效期保护的伪二维码。
+	 * 旧端实际把医疗卡号直接拼给第三方二维码服务；这既不是医院确认的扫码
+	 * contract，也没有签名、有效期、防重放和撤销边界。当前先保留与旧端一致的
+	 * 居中弹层视觉，把“已确认患者”和“二维码能力未开放”同时说清楚，但不生成
+	 * 图片、不外发卡号、不把内部 patientId 当作扫码内容。
 	 */
 	onPatientQr() {
 		// 本地 opaque patientId 只能用于恢复/stale 判断，不能证明当前页面已经
@@ -529,12 +536,7 @@ Page<IndexPageData, IndexPageMethods>({
 		// 仍会把“有缓存 ID”误报成“有患者可扫码”。这里先把未来开放时必须
 		// 满足的患者上下文门禁固定在当前实现中。
 		const selectedPatient = this.data.selectedPatient;
-		const hasConfirmedPatient = Boolean(
-			selectedPatient &&
-				selectedPatient.clinicalAccess === "ready" &&
-				isCurrentSelectedPatient(selectedPatient.id),
-		);
-		if (!hasConfirmedPatient) {
+		if (!selectedPatient) {
 			wx.showModal({
 				title: "暂无就诊人",
 				content: "请先登录并选择就诊人。",
@@ -542,7 +544,41 @@ Page<IndexPageData, IndexPageMethods>({
 			});
 			return;
 		}
-		// 已确认患者也必须进入统一状态页，不在首页绕过迁移边界生成二维码。
+		if (
+			selectedPatient.clinicalAccess !== "ready" ||
+			!isCurrentSelectedPatient(selectedPatient.id)
+		) {
+			wx.showModal({
+				title: "暂无就诊人",
+				content: "当前就诊人信息尚未确认，请刷新后重试。",
+				showCancel: false,
+			});
+			return;
+		}
+		// 已确认患者只允许打开安全说明壳；真正的医院扫码二维码仍需单独
+		// contract，不能因为当前患者上下文有效就把旧端第三方生成方式复活。
+		this.setData({
+			showPatientQr: true,
+			patientQrName: selectedPatient.displayName,
+			patientQrCardNumber: selectedPatient.cardNumberMasked || "----",
+		});
+	},
+
+	/** 关闭与旧端一致的居中弹层，不改变患者选择和会话状态。 */
+	closePatientQr(): void {
+		this.setData({
+			showPatientQr: false,
+			patientQrName: "",
+			patientQrCardNumber: "",
+		});
+	},
+
+	/** 阻止点击弹层内容时触发遮罩关闭，保持微信原生事件边界清晰。 */
+	stopPatientQrPropagation(): void {},
+
+	/** 从安全壳进入统一迁移说明，不读取缓存、不访问 Provider。 */
+	onPatientQrStatus(): void {
+		this.closePatientQr();
 		navigateToFeatureStatus("patient-qr");
 	},
 
@@ -910,6 +946,9 @@ Page<IndexPageData, IndexPageMethods>({
 			patients: [],
 			selectedPatient: null,
 			selectedPatientId: "",
+			showPatientQr: false,
+			patientQrName: "",
+			patientQrCardNumber: "",
 			hasPatients: false,
 		});
 	},
@@ -927,6 +966,9 @@ Page<IndexPageData, IndexPageMethods>({
 			patients: [],
 			selectedPatient: null,
 			selectedPatientId: "",
+			showPatientQr: false,
+			patientQrName: "",
+			patientQrCardNumber: "",
 			hasPatients: false,
 		});
 	},
@@ -945,6 +987,9 @@ Page<IndexPageData, IndexPageMethods>({
 				patients,
 				selectedPatientId: "",
 				selectedPatient: null,
+				showPatientQr: false,
+				patientQrName: "",
+				patientQrCardNumber: "",
 				hasPatients: patients.length > 0,
 				error: "",
 			});
@@ -961,6 +1006,9 @@ Page<IndexPageData, IndexPageMethods>({
 			patients,
 			selectedPatientId,
 			selectedPatient,
+			showPatientQr: false,
+			patientQrName: "",
+			patientQrCardNumber: "",
 			hasPatients: patients.length > 0,
 			error: patientSelectionResolutionMessage(resolution),
 		});

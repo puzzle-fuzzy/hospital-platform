@@ -575,9 +575,11 @@ test("native patient QR entry requires a confirmed patient snapshot", async () =
 	// 本地缓存的 opaque patientId 可能在会话失效或目录读取失败后仍保留，
 	// 不能把它当作当前患者事实，更不能据此开放或暗示二维码能力。二维码
 	// 入口必须同时校验当前临床映射和 storage 的显式选择，防止旧页面跨会话误判。
-	expect(qrBody).toContain('selectedPatient.clinicalAccess === "ready"');
+	expect(qrBody).toContain('selectedPatient.clinicalAccess !== "ready"');
 	expect(qrBody).toContain("isCurrentSelectedPatient(selectedPatient.id)");
-	expect(qrBody).toContain('navigateToFeatureStatus("patient-qr")');
+	expect(qrBody).toContain("showPatientQr: true");
+	expect(qrBody).toContain("patientQrCardNumber");
+	expect(qrBody).not.toContain("api.qrserver.com");
 	expect(qrBody).toContain('title: "暂无就诊人"');
 	expect(qrBody).not.toContain("this.data.selectedPatientId ?");
 });
@@ -2812,6 +2814,8 @@ test("native homepage keeps patient identity and QR data within the safe boundar
 	expect(template).toContain("selectedPatient.cardNumberMasked");
 	expect(template).not.toContain("ID:{{selectedPatient.id");
 	expect(home).toContain('navigateToFeatureStatus("patient-qr")');
+	expect(template).toContain("patient-qr-overlay");
+	expect(template).toContain("patient-qr-notice");
 	expect(home).not.toContain("api.qrserver.com");
 	expect(home).not.toContain("medicalCardNo");
 });
