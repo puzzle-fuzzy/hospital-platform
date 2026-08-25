@@ -10,10 +10,23 @@
 		<view class="feature-status-panel">
 			<text class="feature-status-panel-title">当前状态</text>
 			<text class="feature-status-panel-copy">{{feature.contractHint}}</text>
+			<view wx:if="{{coverage}}" class="feature-status-coverage">
+				<view class="feature-status-coverage-row">
+					<text>迁移阶段</text>
+					<text class="feature-status-coverage-value">{{coverage.stageLabel}}</text>
+				</view>
+				<view class="feature-status-coverage-row">
+					<text>覆盖范围</text>
+					<text class="feature-status-coverage-value">{{coverage.coverageLabel}}</text>
+				</view>
+				<text class="feature-status-next-step">下一步：{{coverage.nextStep}}</text>
+			</view>
 			<view class="feature-status-notice">
 				<text>已完成的医疗服务仍可从首页或“我的”进入。</text>
 				<text>该入口不会读取旧缓存、调用未确认接口或发起支付。</text>
 			</view>
 		</view>
+
+		<button class="feature-status-home-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

@@ -29,6 +29,8 @@
 
 > 当前迁移主线已经切换为“先广度覆盖、再深入 contract”：首页、“我的”和服务清单所有可见入口均有业务页或统一迁移状态页；状态页不代表真实业务完成，只用于消除无响应/404，并明确记录未开放原因。完整顺序见 [`migration/breadth-first-migration-plan-2026-08-25.md`](migration/breadth-first-migration-plan-2026-08-25.md)。
 
+> 状态页现在还会显示对应旧入口数量、迁移阶段和下一步材料；展示聚合契约见 [`migration/entry-coverage-contract.md`](migration/entry-coverage-contract.md)，它不改变 Provider、临床或支付放行边界。
+
 > 批次 B 的病历、问诊、住院、健康内容、实时就诊和互联网医院已统一登记在 [`migration/batch-b-read-model-matrix-2026-08-25.md`](migration/batch-b-read-model-matrix-2026-08-25.md)；下一步按业务域取得正式 contract 后再逐个开放，不用一个域的结果替代另一个域。
 
 > 预约、报告、门诊费用、就诊人和普通资料五个低风险域的页面、API、实现、日志和文档闭环由 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md) 统一维护，并可通过 `pnpm readonly:audit` 校验；其中患者目录是读模型同步、普通资料包含版本化 PUT，通过不等于 Provider 或真机验收完成。

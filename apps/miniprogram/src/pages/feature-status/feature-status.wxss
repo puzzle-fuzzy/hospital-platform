@@ -75,6 +75,37 @@
 	line-height: 1.7;
 }
 
+.feature-status-coverage {
+	margin-top: 28rpx;
+	padding: 22rpx 24rpx;
+	border-radius: 14rpx;
+	background: #f7f9fd;
+}
+
+.feature-status-coverage-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 44rpx;
+	color: #8791a5;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
+.feature-status-coverage-value {
+	margin-left: 24rpx;
+	color: #3d6df6;
+	text-align: right;
+}
+
+.feature-status-next-step {
+	display: block;
+	margin-top: 14rpx;
+	color: #68738a;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
 .feature-status-notice {
 	display: flex;
 	flex-direction: column;
@@ -86,4 +117,15 @@
 	color: #8791a5;
 	font-size: 24rpx;
 	line-height: 1.6;
+}
+
+.feature-status-home-button {
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 28rpx;
+	border-radius: 16rpx;
+	background: #3d6df6;
+	color: #ffffff;
+	font-size: 28rpx;
+	line-height: 88rpx;
 }
