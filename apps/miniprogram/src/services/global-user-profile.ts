@@ -6,6 +6,7 @@ import {
 	safeApiErrorMessage,
 	updateUserProfile,
 } from "./api-client";
+import { registerSessionChangedListener } from "./session-events";
 import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
@@ -67,7 +68,6 @@ type ProfileListener = (state: GlobalUserProfileState) => void;
 
 let profileBootstrapInFlight: Promise<GlobalUserProfileState> | null = null;
 let profileConsentInFlight: Promise<GlobalUserProfileState> | null = null;
-
 type AppGlobalDataWithProfile = {
 	globalData: {
 		userProfile: GlobalUserProfileState;
@@ -75,11 +75,29 @@ type AppGlobalDataWithProfile = {
 		userProfileBootstrapPromise?: Promise<GlobalUserProfileState> | null;
 		/** 监听器也必须跨 app.js bundle 与页面 CommonJS 模块共享。 */
 		userProfileListeners?: Set<ProfileListener>;
+		/** 保证同一个微信 App 容器只注册一次会话清理监听。 */
+		userProfileSessionCleanupRegistered?: boolean;
 	};
 };
 
 function globalData(): AppGlobalDataWithProfile["globalData"] {
 	return (getApp() as unknown as AppGlobalDataWithProfile).globalData;
+}
+
+/**
+ * 让 token 轮换/失效立即清理旧账号的全局资料。
+ *
+ * 该订阅必须在第一次读取资料快照时建立，而不能只在页面 onLoad 建立：
+ * App.onLaunch 的 IIFE bundle 可能比页面 CommonJS bundle 更早收到 401，
+ * 只有 App 级仓库自己订阅，才能保证旧头像/昵称不会跨账号停留在全局状态。
+ */
+function ensureSessionChangedSubscription(): void {
+	const appData = globalData();
+	if (appData.userProfileSessionCleanupRegistered) return;
+	appData.userProfileSessionCleanupRegistered = true;
+	registerSessionChangedListener(() => {
+		clearGlobalUserProfile();
+	});
 }
 
 /**
@@ -99,6 +117,7 @@ function sharedProfileListeners(): Set<ProfileListener> {
 
 /** 读取当前 App 资料快照；返回同一份状态对象，禁止页面私自改写。 */
 export function getGlobalUserProfile(): GlobalUserProfileState {
+	ensureSessionChangedSubscription();
 	const state = globalData().userProfile;
 	return state ?? EMPTY_PROFILE_STATE;
 }

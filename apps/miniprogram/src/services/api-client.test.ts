@@ -18,6 +18,10 @@ import {
 	getRecentApiRequestObservations,
 } from "./api-request-observability";
 import {
+	getGlobalUserProfile,
+	subscribeGlobalUserProfile,
+} from "./global-user-profile";
+import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 } from "./session-generation";
@@ -872,6 +876,22 @@ test("非 GET 命令失效后只清理旧会话，不自动登录或重放", asy
 		apiPrefix: "/api/v2",
 		accessToken: "expired-token",
 		sessionStatus: "signed_in",
+		sessionGeneration: getSessionGeneration(),
+		userProfile: {
+			status: "ready" as const,
+			ownerId: "owner-command-expired",
+			sessionGeneration: getSessionGeneration(),
+			serverDisplayName: "旧账号昵称",
+			displayName: "旧账号昵称",
+			gender: "unknown" as const,
+			age: null,
+			email: null,
+			version: 0,
+			avatarUrl: "https://wx.qlogo.cn/old-avatar/132",
+			wechatProfileState: "ready" as const,
+			wechatProfileHint: "已授权头像和昵称",
+			error: "",
+		},
 	};
 
 	testGlobal.getApp = () => ({ globalData });
@@ -893,6 +913,7 @@ test("非 GET 命令失效后只清理旧会话，不自动登录或重放", asy
 		},
 	};
 
+	const unsubscribe = subscribeGlobalUserProfile(() => undefined);
 	try {
 		const pending = requestWithSession({
 			url: "/patients/sync",
@@ -911,7 +932,11 @@ test("非 GET 命令失效后只清理旧会话，不自动登录或重放", asy
 		expect(requestCount).toBe(1);
 		expect(loginCount).toBe(0);
 		expect(globalData.accessToken).toBe("");
+		expect(getGlobalUserProfile().ownerId).toBe("");
+		expect(getGlobalUserProfile().displayName).toBe("微信用户");
+		expect(getGlobalUserProfile().avatarUrl).toBe("");
 	} finally {
+		unsubscribe();
 		testGlobal.getApp = previousGetApp;
 		testGlobal.wx = previousWx;
 	}

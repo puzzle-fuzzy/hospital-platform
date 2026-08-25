@@ -5,6 +5,7 @@ import {
 	getGlobalUserProfile,
 	subscribeGlobalUserProfile,
 } from "./global-user-profile";
+import { notifySessionChanged } from "./session-events";
 import { getSessionGeneration } from "./session-generation";
 
 describe("App 全局个人资料仓库", () => {
@@ -192,5 +193,50 @@ describe("App 全局个人资料仓库", () => {
 		expect(thirdState).toBe(firstState);
 		expect(currentUserRequestCount).toBe(2);
 		expect(profileRequestCount).toBe(1);
+	});
+
+	test("会话凭证变化会清理旧账号的全局昵称和头像", () => {
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "old-account-token",
+			sessionStatus: "signed_in" as const,
+			sessionGeneration: getSessionGeneration(),
+			userProfile: {
+				status: "ready" as const,
+				ownerId: "owner-old-account",
+				sessionGeneration: getSessionGeneration(),
+				serverDisplayName: "旧账号昵称",
+				displayName: "旧账号昵称",
+				gender: "female" as const,
+				age: 32,
+				email: "old@example.test",
+				version: 4,
+				avatarUrl: "https://wx.qlogo.cn/old-avatar/132",
+				wechatProfileState: "ready" as const,
+				wechatProfileHint: "已授权头像和昵称",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		runtime.wx = {
+			getStorageSync: () => "old-account-token",
+			removeStorageSync: () => undefined,
+			setStorageSync: () => undefined,
+		} as unknown as typeof wx;
+
+		const observedStates: Array<string> = [];
+		const unsubscribe = subscribeGlobalUserProfile((state) => {
+			observedStates.push(`${state.status}:${state.displayName}`);
+		});
+		notifySessionChanged();
+		unsubscribe();
+
+		const state = getGlobalUserProfile();
+		expect(state.status).toBe("idle");
+		expect(state.ownerId).toBe("");
+		expect(state.displayName).toBe("微信用户");
+		expect(state.avatarUrl).toBe("");
+		expect(observedStates.at(-1)).toBe("idle:微信用户");
 	});
 });

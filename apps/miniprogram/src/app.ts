@@ -40,6 +40,8 @@ type AppGlobalData = {
 	userProfileBootstrapPromise: Promise<GlobalUserProfileState> | null;
 	/** 资料仓库运行时用于跨 bundle 共享订阅集合。 */
 	userProfileListeners?: Set<(state: GlobalUserProfileState) => void>;
+	/** token 轮换/失效时通知资料等派生快照清理旧账号数据。 */
+	sessionChangedListeners?: Set<() => void>;
 };
 
 /**
@@ -73,6 +75,7 @@ App<{ globalData: AppGlobalData }>({
 			error: "",
 		},
 		userProfileBootstrapPromise: null,
+		sessionChangedListeners: new Set(),
 	},
 
 	onLaunch() {

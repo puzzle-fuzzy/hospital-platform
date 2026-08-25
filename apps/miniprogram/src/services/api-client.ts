@@ -19,6 +19,7 @@ import {
 	recordApiRequestObservation,
 	sanitizeApiRequestPath,
 } from "./api-request-observability";
+import { notifySessionChanged } from "./session-events";
 import {
 	advanceSessionGeneration,
 	getSessionGeneration,
@@ -678,6 +679,10 @@ function setAccessToken(accessToken: string): void {
 		// 患者、资料和费用请求不能跨账号复用；只递增不记录 token，避免
 		// 会话代际机制本身成为敏感信息存储点。
 		advanceSessionGeneration();
+		// token 轮换不只影响请求代际，也意味着所有旧账号的 UI 派生资料
+		// 立即失效。先发布清理事件，再写入新 token，避免重新登录期间页面
+		// 继续展示上一账号的昵称、头像或其它全局资料。
+		notifySessionChanged();
 	}
 	appData.accessToken = accessToken;
 	// token 与全局展示状态必须原子地同步；401 清理 token 时不能继续显示“已登录”。
