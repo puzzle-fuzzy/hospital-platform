@@ -55,6 +55,14 @@
 | `GET /msun-middle-business-appointment-server/v1/appointment-infos/{pat-id}` | `api/modules/appointment.ts`、`ZY.ts` | 代码已迁移（在线/全部只读） | 新端只接收 owner-scoped 内部 `patientId` 和 `scope=online|all`；服务端固定渠道 3/4、日期语义和状态映射，provider 患者号不出端；当前 13f 仍待真机四方链路证据。 |
 | `GET /msun-middle-business-appointment-server/v1/appointment-infos/{id}` | `api/modules/appointment.ts` | 待 provider contract | 详情字段包含支付、HIS 挂号号和患者敏感字段，不能直接映射到患者端。 |
 
+旧端的 `getAppointmentRecordListApi`、`getAppointmentInfosApi` 和
+`getAppointmentDetailApi` 实际上都拼接到同一个
+`/appointment-infos/{动态值}` 路径：动态值可能是 `patId/pathPatId`，也可能是
+`appointmentId`。这不是可以由新端用一个通用参数解决的“同一接口”：前者是患者范围
+列表查询，后者是单条预约详情，权限、字段和最终状态语义不同。新端只保留 owner-scoped
+患者列表读模型；在详情 contract、引用类型和患者/预约归属均未冻结前，不注册通用预约
+详情路由，也不把 `patientId`、`appointmentId` 或旧 `patId` 互相替换。
+
 旧端还声明了 `/msun-websocket-server/**` 的停诊推送基础路径。该路径没有在新端迁移；如
 未来需要实时停诊，必须先定义 WebSocket 鉴权、患者/排班归属、断线重连和消息版本。
 
