@@ -56,6 +56,21 @@ describe("旧端页面全量迁移台账", () => {
 		}
 	});
 
+	test("统一状态页目录的图标资源都存在", async () => {
+		for (const [featureKey, feature] of Object.entries(
+			FEATURE_STATUS_CATALOG,
+		)) {
+			const assetPath = feature.icon.replace(/^\/+/, "");
+			// 状态页图标来自小程序本地 assets；这里只校验仓库资源存在，
+			// 不把网络 URL 或旧端第三方图片地址带入迁移运行包。
+			expect(assetPath.startsWith("assets/")).toBe(true);
+			expect(
+				await Bun.file(new URL(`../${assetPath}`, import.meta.url)).exists(),
+			).toBe(true);
+			expect(featureKey.length).toBeGreaterThan(0);
+		}
+	});
+
 	test("互联网医院旧入口只迁移安全壳，不伪造外部业务完成", async () => {
 		const entry = LEGACY_PAGE_MIGRATION_CATALOG.find(
 			(item) => item.legacyPath === "pages/hospital/hospital.vue",
