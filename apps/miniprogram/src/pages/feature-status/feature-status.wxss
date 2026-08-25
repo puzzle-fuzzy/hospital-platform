@@ -164,6 +164,28 @@
 	line-height: 1.6;
 }
 
+/*
+ * 逐入口说明来自迁移台账的 note，不是新的业务状态源。
+ * 状态页必须把“已迁移的安全子集”和“仍然关闭的扩展能力”同时说明，
+ * 防止用户把 partial 或 blocked 入口误解成完整业务已经可用。
+ */
+.feature-status-note-list {
+	margin-top: 24rpx;
+	padding-top: 22rpx;
+	border-top: 1rpx solid #e9edf5;
+}
+
+.feature-status-note-row {
+	margin-top: 10rpx;
+}
+
+.feature-status-note {
+	display: block;
+	color: #68738a;
+	font-size: 24rpx;
+	line-height: 1.7;
+}
+
 .feature-status-notice {
 	display: flex;
 	flex-direction: column;

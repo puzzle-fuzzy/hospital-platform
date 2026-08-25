@@ -41,6 +41,12 @@
 					<text class="feature-status-detail-title">所属业务域</text>
 					<text class="feature-status-domain-value">{{coverage.domainsLabel}}</text>
 				</view>
+				<view wx:if="{{coverage.notes.length}}" class="feature-status-note-list">
+					<text class="feature-status-detail-title">迁移说明</text>
+					<view wx:for="{{coverage.notes}}" wx:key="*this" class="feature-status-note-row">
+						<text class="feature-status-note">{{item}}</text>
+					</view>
+				</view>
 			</view>
 			<view class="feature-status-notice">
 				<text>已完成的医疗服务仍可从首页或“我的”进入。</text>
