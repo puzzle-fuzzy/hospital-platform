@@ -83,6 +83,7 @@ async function readOnlyCoverage(root) {
 		domains.push({
 			id: domain.id,
 			name: domain.name,
+			operationClass: domain.operationClass,
 			pages: domain.pages,
 			publicRoutes: domain.publicRoutes,
 			boundary: domain.boundary,

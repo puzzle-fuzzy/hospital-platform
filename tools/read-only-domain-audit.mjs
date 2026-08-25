@@ -13,13 +13,18 @@ async function fileExists(relativePath) {
 }
 
 /**
- * 校验“只读域闭环”而不是只校验一个列表页。
+ * 校验“低风险域闭环”而不是只校验一个列表页。
  * 页面存在只能说明入口不再 404；真正的迁移闭环还必须能追到 API 路由、
  * service/domain/adapter 实现、日志事件以及对应的契约/验收文档。
  */
 export async function auditReadOnlyDomains() {
 	const failures = [];
 	const seenDomainIds = new Set();
+	const operationClasses = new Set([
+		"read-only",
+		"read-model-sync",
+		"read-write",
+	]);
 	const appJson = JSON.parse(
 		await readRepositoryFile("apps/miniprogram/src/app.json"),
 	);
@@ -34,6 +39,21 @@ export async function auditReadOnlyDomains() {
 			failures.push(`重复的只读业务域 id：${domain.id}`);
 		}
 		seenDomainIds.add(domain.id);
+		if (!operationClasses.has(domain.operationClass)) {
+			failures.push(`${domain.id}: 未知操作边界分类：${domain.operationClass}`);
+		}
+		if (
+			domain.id === "patients" &&
+			domain.operationClass !== "read-model-sync"
+		) {
+			failures.push("patients: 患者目录同步必须标记为 read-model-sync");
+		}
+		if (
+			domain.id === "user-profile" &&
+			domain.operationClass !== "read-write"
+		) {
+			failures.push("user-profile: 普通资料 PUT 必须标记为 read-write");
+		}
 
 		for (const page of domain.pages) {
 			if (!registeredPages.has(page)) {
@@ -102,12 +122,12 @@ export async function auditReadOnlyDomains() {
 if (import.meta.main) {
 	const result = await auditReadOnlyDomains();
 	if (result.failures.length > 0) {
-		console.error("只读业务域闭环审计失败：");
+		console.error("低风险业务域闭环审计失败：");
 		for (const failure of result.failures) console.error(`- ${failure}`);
 		process.exit(1);
 	}
 
 	console.log(
-		`只读业务域闭环审计通过：${result.domainCount} 个业务域、${result.pageCount} 个页面、${result.routeCount} 条公网路由；页面、API、实现、日志和文档均有落点`,
+		`低风险业务域闭环审计通过：${result.domainCount} 个业务域、${result.pageCount} 个页面、${result.routeCount} 条公网路由；页面、API、实现、日志和文档均有落点`,
 	);
 }

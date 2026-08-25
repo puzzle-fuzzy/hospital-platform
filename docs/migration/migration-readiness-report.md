@@ -26,7 +26,7 @@ pnpm migration:readiness -- --strict
 | --- | --- | --- | --- |
 | `entryCoverage.legacy` | `legacy-page-catalog.ts`、`feature-navigation.ts` | 64 个旧页面是否都有迁移状态和固定落点 | 页面业务是否已经实现、接口是否可用 |
 | `entryCoverage.nativePageCount` | `apps/miniprogram/src/app.json` | 原生小程序注册了多少页面 | 微信开发者工具是否加载了这些页面 |
-| `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个只读域的页面/API/实现/日志/文档是否断链 | Provider 返回、生产流量或真机链路是否成功 |
+| `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个低风险域的页面/API/实现/日志/文档是否断链，并给出 `read-only`、`read-model-sync` 或 `read-write` 操作边界 | Provider 返回、生产流量或真机链路是否成功 |
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
 | `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档、结构化准入卡片和 API 源码 | 门诊记录、住院、医生关系、问诊/电子导诊四域是否仍独立、未注册且没有误加通用路由 | 不会因为材料登记就自动生成临床页面或接口 |
 | `healthContent` | 健康知识路由、约定的本机审核 bundle 证据目录和发布状态元数据 | 健康百科代码是否具备、正式审核 bundle 是否已经进入当前证据目录 | 不代表 bundle 已通过临床审核、已导入 staging、已发布或已完成真机验收 |
@@ -41,7 +41,7 @@ pnpm migration:readiness -- --strict
 
 - 旧页面共 64 个，其中 `replaced=7`、`partial=17`、`blocked=39`、`excluded=1`；所有阻断入口都进入固定迁移状态页，互联网医院旧顶层入口已有独立安全壳但外部能力仍关闭。
 - 原生小程序注册 20 个页面，四个主入口继续使用微信原生 `tabBar`。
-- 五个只读域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链。
+- 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
 - live `dist` 来源为 `fcc6630e`，pending 来源为 `7bc5956`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。

@@ -1,14 +1,17 @@
 /**
- * 已开放只读业务域的“闭环事实源”。
+ * 已开放低风险业务域的“闭环事实源”。
  *
  * 这不是业务运行时配置，也不代表真实 Provider/真机已经验收；它只把
  * 页面、公网 API、服务实现、领域模型、适配器、日志和文档的落点放在一张
  * 可机器校验的清单里，防止广度迁移时只补了页面却漏掉后端或验收依据。
+ * `operationClass` 额外区分纯读取、读模型同步和普通资料读写，避免把
+ * 患者目录同步或资料 PUT 误报成高风险业务已经开放。
  */
 export const READ_ONLY_DOMAIN_CATALOG = [
 	{
 		id: "patients",
 		name: "就诊人目录",
+		operationClass: "read-model-sync",
 		pages: ["pages/patient-select/patient-select"],
 		publicRoutes: ["POST /api/v2/patients/sync", "GET /api/v2/patients"],
 		internalRouteTokens: ["/patients/sync", "/patients"],
@@ -33,6 +36,7 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 	{
 		id: "appointments",
 		name: "预约目录与预约历史",
+		operationClass: "read-only",
 		pages: [
 			"pages/appointment-directory/appointment-directory",
 			"pages/appointment-records/appointment-records",
@@ -72,6 +76,7 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 	{
 		id: "reports",
 		name: "检查报告目录与受限详情",
+		operationClass: "read-only",
 		pages: [
 			"pages/report-directory/report-directory",
 			"pages/report-detail/report-detail",
@@ -101,6 +106,7 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 	{
 		id: "outpatient-payments",
 		name: "门诊费用只读列表",
+		operationClass: "read-only",
 		pages: ["pages/outpatient-payment/outpatient-payment"],
 		publicRoutes: ["GET /api/v2/payments/outpatient/records"],
 		internalRouteTokens: ["/payments/outpatient/records"],
@@ -122,6 +128,7 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 	{
 		id: "user-profile",
 		name: "普通个人资料",
+		operationClass: "read-write",
 		pages: ["pages/profile/profile"],
 		publicRoutes: ["GET /api/v2/me/profile", "PUT /api/v2/me/profile"],
 		internalRouteTokens: ["/me/profile"],
