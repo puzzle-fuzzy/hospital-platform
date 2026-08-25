@@ -4,7 +4,10 @@ import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
+import {
+	navigateToFeatureEntry,
+	navigateToFeatureStatus,
+} from "../../services/feature-navigation";
 import {
 	refreshGlobalUserProfile,
 	waitForGlobalUserProfile,
@@ -626,8 +629,8 @@ Page<IndexPageData, IndexPageMethods>({
 				this.onLoadReports();
 				break;
 			case "medical-record":
-				// 报告目录不能冒充门诊病历；病历 contract 完成前进入稳定状态页。
-				navigateToFeatureStatus("medical-record");
+				// 报告目录不能冒充门诊病历；页面外壳已迁移，数据 contract 仍关闭。
+				navigateToFeatureEntry("medical-record");
 				break;
 			case "guide":
 				navigateToFeatureStatus("guide");
@@ -639,10 +642,10 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureStatus("consultation");
 				break;
 			case "electronic-consultation":
-				navigateToFeatureStatus("electronic-consultation");
+				navigateToFeatureEntry("electronic-consultation");
 				break;
 			case "inpatient-center":
-				navigateToFeatureStatus("inpatient-center");
+				navigateToFeatureEntry("inpatient-center");
 				break;
 			case "inpatient-payment":
 				navigateToFeatureStatus("inpatient-payment");

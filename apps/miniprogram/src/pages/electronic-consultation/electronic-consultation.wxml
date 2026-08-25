@@ -1,0 +1,36 @@
+<scroll-view class="clinical-surface-scroll" scroll-y="true" enhanced="true">
+	<view class="clinical-surface-page">
+		<view class="clinical-surface-hero">
+			<image class="clinical-surface-icon" src="{{icon}}" mode="aspectFit" />
+			<view class="clinical-surface-hero-copy">
+				<text class="clinical-surface-title">{{title}}</text>
+				<text class="clinical-surface-label">{{surfaceLabel}}</text>
+			</view>
+		</view>
+		<view class="clinical-surface-card">
+			<text class="clinical-surface-card-title">{{scopeTitle}}</text>
+			<text class="clinical-surface-card-copy">{{scopeDescription}}</text>
+			<button class="clinical-surface-secondary-button" bindtap="onOpenPatientSelector">选择就诊人</button>
+		</view>
+		<view class="clinical-surface-card">
+			<text class="clinical-surface-card-title">当前迁移状态</text>
+			<text class="clinical-surface-card-copy">{{description}}</text>
+			<view class="clinical-surface-list">
+				<view wx:for="{{boundaryItems}}" wx:key="*this" class="clinical-surface-list-row">
+					<text class="clinical-surface-list-dot">·</text><text class="clinical-surface-list-text">{{item}}</text>
+				</view>
+			</view>
+		</view>
+		<view class="clinical-surface-card">
+			<text class="clinical-surface-card-title">开放前还需确认</text>
+			<view class="clinical-surface-list">
+				<view wx:for="{{contractItems}}" wx:key="*this" class="clinical-surface-list-row">
+					<text class="clinical-surface-list-dot">·</text><text class="clinical-surface-list-text">{{item}}</text>
+				</view>
+			</view>
+			<text class="clinical-surface-coverage">{{coverageLabel}}</text>
+		</view>
+		<button class="clinical-surface-primary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+		<button class="clinical-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+	</view>
+</scroll-view>

@@ -24,7 +24,8 @@
 
 2026-08-26 已补齐四条线共用的临床只读结果摘要基础：统一 owner/患者作用域、`ready`/
 `empty`/`rejected`/`unavailable` 语义、来源版本和显式时区时间。该基础不包含临床条目
-字段，不注册 API，不改变四个入口的 `blocked-provider` 状态；具体规则见
+字段，不注册 API；四个入口的业务准入仍为 `blocked-provider`，页面外壳虽已迁移为
+`surface-only`，但不代表真实读取开放；具体规则见
 [`clinical-read-contract-domain-foundation-2026-08-26.md`](clinical-read-contract-domain-foundation-2026-08-26.md)。
 
 | 队列 | 新端状态 | 当前材料 | 本周可执行工作 | 放行前必须补齐 |

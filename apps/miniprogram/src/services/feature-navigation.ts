@@ -403,3 +403,27 @@ export function navigateToFeatureStatus(feature: FeatureKey): void {
 		url: `/pages/feature-status/feature-status?feature=${encodeURIComponent(feature)}`,
 	});
 }
+
+/**
+ * 页面外壳已经迁移的入口走自己的原生页面，尚未具备页面外壳的入口仍
+ * 进入统一状态页。这个分发只改变页面落点，不代表对应 Provider、临床
+ * 数据或外部业务已经开放；原生页面会继续展示关闭态和迁移说明。
+ */
+const FEATURE_SURFACE_TARGETS: Readonly<Partial<Record<FeatureKey, string>>> =
+	Object.freeze({
+		"medical-record": "/pages/medical-record/medical-record",
+		"inpatient-center": "/pages/inpatient-center/inpatient-center",
+		doctor: "/pages/my-doctor/my-doctor",
+		"electronic-consultation":
+			"/pages/electronic-consultation/electronic-consultation",
+	});
+
+export function navigateToFeatureEntry(feature: FeatureKey): void {
+	if (!FEATURE_STATUS_CATALOG[feature]) return;
+	const target = FEATURE_SURFACE_TARGETS[feature];
+	if (target) {
+		wx.navigateTo({ url: target });
+		return;
+	}
+	navigateToFeatureStatus(feature);
+}

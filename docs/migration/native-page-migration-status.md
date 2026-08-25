@@ -12,6 +12,7 @@
 | `读写已实现` | API、服务端 owner/version 隔离和小程序读写链路已有代码；仍需真实会话、冲突场景和真机证据时，不能称为真实完成。 |
 | `部分迁移` | 页面可展示已确认的只读或静态内容，但写入、支付、外部回写或详情能力明确关闭。 |
 | `待 contract` | 旧页面依赖尚未冻结的 provider、HIS、微信能力或外部入口；不得猜字段、拼 URL 或用占位成功响应。 |
+| `页面外壳已迁移` | 已有原生视觉外壳、迁移边界和关闭态，但真实业务数据、Provider 或临床内容仍未开放；不等于只读业务完成。 |
 
 ## 当前注册页面
 
@@ -25,6 +26,10 @@
 | `pages/health-encyclopedia/health-encyclopedia` | `部分迁移` | 已迁移旧端健康百科的身体部位/症状/疾病目录骨架，支持审核内容版本、免责声明、错误态和症状查疾病入口。 | 只消费服务端审核 bundle；无已发布内容时 fail-closed，不导入旧库快照、不写死疾病或药品内容、不生成医疗结论。 | 正式内容 bundle、临床审核、发布/撤回演练和真机证据。 |
 | `pages/health-knowledge-search/health-knowledge-search` | `部分迁移` | 已迁移症状关联疾病的只读结果页和稳定空/错/加载状态。 | 查询条件只允许服务端认可的 opaque 症状 ID；结果不是诊断建议，未发布内容不能伪造空结果。 | 内容索引发布、结果脱敏和真机证据。 |
 | `pages/health-knowledge-detail/health-knowledge-detail` | `部分迁移` | 已迁移疾病/药品审核内容详情的只读展示和关联药品跳转。 | 药品页面不构成处方或个体化用药建议；详情正文、引用关系和版本必须来自同一审核 bundle。 | 正式 bundle、临床审核、撤回审计和真机证据。 |
+| `pages/medical-record/medical-record` | `页面外壳已迁移` | 已迁移门诊病历入口、查询范围说明、患者选择入口和稳定关闭态。 | 不调用旧 HIS/EMR，不把报告、预约或费用记录冒充病历；真实目录/正文 contract 未完成前不显示假列表。 | out-visit-records contract、字段白名单、owner/患者映射、详情授权和真机证据。 |
+| `pages/inpatient-center/inpatient-center` | `页面外壳已迁移` | 已迁移住院信息入口、独立 episode 边界、患者选择入口和稳定关闭态。 | 不用门诊 patientId 推导住院 episode，不静默选择第一条记录，不展示假住院状态或费用。 | episode 权威来源、患者标识映射、状态枚举、错误样例和真机证据。 |
+| `pages/my-doctor/my-doctor` | `页面外壳已迁移` | 已迁移我的医生入口、关系/目录边界、患者选择入口和稳定关闭态。 | 不读取旧端医生快照，不接受客户端提交医生 ID 建立关系，不展示未经授权的联系方式。 | 医生目录、关系 owner、失效规则、字段白名单和真机证据。 |
+| `pages/electronic-consultation/electronic-consultation` | `页面外壳已迁移` | 已迁移电子导诊单入口、独立事实边界、患者选择入口和稳定关闭态。 | 不把预约摘要、实时队列或外部问诊会话冒充导诊单，不恢复万能 WebView。 | 专用来源、患者上下文、读取权限、保留周期、失败回退和真机证据。 |
 | `pages/patient-select/patient-select` | `只读已实现` | owner-scoped 患者列表、选择、刷新和失效选择处理；会话失效或账号切换时清理旧目录；可展示记录与临床可用记录分开标记。 | 页面只保存内部 `patientId`；只有 `clinicalAccess=ready` 才能选择并进入业务页；关系/证件号文案来自服务端规范化读模型；未确认当前 owner 时不能保留上一账号目录；新增家属和绑卡仍关闭。 | 真实账号同步、失效/恢复、真机切换患者证据；新增绑定 provider contract。 |
 | `pages/hospital-list/hospital-list` | `静态已迁移` | 旧端单院区卡片、预约前置和受控本地图片。 | 静态单院区不能冒充动态机构目录；路线按钮不能猜坐标；互联网医院 web-view 不从这里伪造。 | 机构/院区目录、坐标路线和外部入口 allowlist。 |
 | `pages/appointment-directory/appointment-directory` | `只读已实现` | 科室、日期级联和排班只读目录；本地分批渲染。 | 排班快照只是短期观察事实；点击号源不能创建预约、锁号、收费或显示成功。 | provider 排班/锁号/写入/取消完整 contract，公网和真机只读证据。 |
@@ -41,7 +46,7 @@
 
 ## 当前代码和文档的结论
 
-1. 目前共注册 21 个页面；注册表、页面 TypeScript 源码、构建生成的 JavaScript 和本台账必须同时存在。健康百科三个页面已经纳入广度迁移，但仍受审核内容 bundle 闸门约束；使用条款已作为静态只读入口迁移，但协议同意 contract 仍关闭。
+1. 目前共注册 25 个页面；注册表、页面 TypeScript 源码、构建生成的 JavaScript 和本台账必须同时存在。新增四个临床页面目前是“页面外壳已迁移”，不代表 Provider 数据已经开放。健康百科三个页面已经纳入广度迁移，但仍受审核内容 bundle 闸门约束；使用条款已作为静态只读入口迁移，但协议同意 contract 仍关闭。
 2. 当前安全可继续推进的是“真实只读 provider → 服务端脱敏/owner 隔离 → 公网 → 真机”闭环；预约写入、病历、费用支付、医保、退款和 HIS 回写仍然遵守最后处理原则。
 3. 页面跳转存在不等于业务完成。尤其是 `appointment-directory`、`report-directory`、`outpatient-payment` 三类页面，必须把“目录读到了”与“可以执行副作用”分开验收。
 4. 任何新 provider 文档到达后，应先更新本台账的能力和边界，再更新 contract、adapter、domain、persistence、API、小程序、日志和 release 证据；缺字段时保持 `待 contract`。

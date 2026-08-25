@@ -1693,7 +1693,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 主 Tab 与二级页面都必须关闭微信默认的页面级滚动；前者使用共享
 	// tab-page-scroll，后者使用统一的 secondary-page-scroll。这样用户只会
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
-	expect(app.pages).toHaveLength(21);
+	expect(app.pages).toHaveLength(25);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -3018,12 +3018,14 @@ test("native patient center does not mislabel reports as outpatient medical reco
 	const featureNavigation = await source("services/feature-navigation.ts");
 
 	expect(home).toContain('action: "medical-record"');
-	expect(home).toContain('navigateToFeatureStatus("medical-record")');
+	expect(home).toContain('navigateToFeatureEntry("medical-record")');
 	expect(myTemplate).toContain('data-action="{{item.action}}"');
 	expect(myPage).toContain('action: "medical-record"');
 	expect(myTemplate).not.toContain('data-action="reports"');
 	expect(myPage).toContain('case "medical-record"');
-	expect(featureNavigation).toContain("门诊病历正在迁移中");
+	expect(featureNavigation).toContain(
+		'"medical-record": "/pages/medical-record/medical-record"',
+	);
 });
 
 test("native homepage and my page reject stale patient directory responses", async () => {

@@ -6,6 +6,8 @@ import { FEATURE_STATUS_CATALOG, type FeatureKey } from "./feature-navigation";
  * 这里的 `partial` 只表示新端已经有安全的只读或静态子集，绝不等价于
  * 旧页面的全部功能已经完成；`blocked-*` 则表示入口已经有稳定状态页，
  * 但因为外部协议、临床审核或支付回写尚未确认，不能继续猜测实现。
+	* `surface-only` 表示页面外壳和关闭态已经迁移，但真实业务读取仍未开放；
+	* 它是入口覆盖阶段，不得计入 `replaced`。
  */
 export type LegacyPageMigrationStatus =
 	| "replaced"
@@ -15,6 +17,7 @@ export type LegacyPageMigrationStatus =
 	| "blocked-payment"
 	| "blocked-patient-contract"
 	| "blocked-external"
+	| "surface-only"
 	| "excluded";
 
 export type LegacyPageMigration = {
@@ -151,18 +154,18 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/electronic_consultation.vue",
 			domain: "健康",
-			status: "blocked-provider",
-			nativeTarget: "pages/feature-status/feature-status",
+			status: "surface-only",
+			nativeTarget: "pages/electronic-consultation/electronic-consultation",
 			featureKey: "electronic-consultation",
-			note: "等待电子导诊单来源、患者上下文和读写权限。",
+			note: "已迁移电子导诊单页面外壳、患者选择入口和关闭态；真实来源、患者上下文和读写权限仍待 contract。",
 		},
 		{
 			legacyPath: "pagesB/health/electronic_record.vue",
 			domain: "健康",
-			status: "blocked-provider",
-			nativeTarget: "pages/feature-status/feature-status",
+			status: "surface-only",
+			nativeTarget: "pages/medical-record/medical-record",
 			featureKey: "medical-record",
-			note: "等待 HIS/EMR out-visit-records 正式 contract 和字段白名单。",
+			note: "已迁移门诊病历页面外壳、患者选择入口和关闭态；HIS/EMR out-visit-records contract 与字段白名单仍待确认。",
 		},
 		{
 			legacyPath: "pagesB/health/gift_electronic_banner.vue",
@@ -198,10 +201,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/inpatient_center.vue",
 			domain: "健康",
-			status: "blocked-provider",
-			nativeTarget: "pages/feature-status/feature-status",
+			status: "surface-only",
+			nativeTarget: "pages/inpatient-center/inpatient-center",
 			featureKey: "inpatient-center",
-			note: "住院 episode 不复用门诊 patientId，等待独立患者标识。",
+			note: "已迁移住院信息页面外壳、独立 episode 提示和关闭态；不复用门诊 patientId，真实住院标识仍待 contract。",
 		},
 		{
 			legacyPath: "pagesB/health/inpatient_payment.vue",
@@ -451,10 +454,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/patient/doctor.vue",
 			domain: "患者",
-			status: "blocked-provider",
-			nativeTarget: "pages/feature-status/feature-status",
+			status: "surface-only",
+			nativeTarget: "pages/my-doctor/my-doctor",
 			featureKey: "doctor",
-			note: "旧库历史关系已盘点，不能把客户端医生快照当作当前关系。",
+			note: "已迁移我的医生页面外壳和关闭态；医生目录与患者关系必须分离，不能把旧库快照当作当前关系。",
 		},
 		{
 			legacyPath: "pagesB/patient/express.vue",

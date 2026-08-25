@@ -116,6 +116,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待 provider contract",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/health/electronic_record.vue"],
+		safeSurfaceTarget: "pages/medical-record/medical-record",
 		requiredMaterials: ["provider-version", "patient-reference"],
 		forbiddenCapabilities: ["病历明细写入", "跨患者查询", "未经审核的临床建议"],
 	}),
@@ -126,6 +127,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待 provider contract",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/health/inpatient_center.vue"],
+		safeSurfaceTarget: "pages/inpatient-center/inpatient-center",
 		requiredMaterials: [
 			"episode-identity",
 			"patInHosId-mapping",
@@ -190,6 +192,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待 provider contract",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/patient/doctor.vue"],
+		safeSurfaceTarget: "pages/my-doctor/my-doctor",
 		requiredMaterials: [
 			"relationship-source",
 			"display-allowlist",
@@ -293,6 +296,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待 provider contract",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/health/electronic_consultation.vue"],
+		safeSurfaceTarget: "pages/electronic-consultation/electronic-consultation",
 		requiredMaterials: [
 			"source-system",
 			"patient-context",

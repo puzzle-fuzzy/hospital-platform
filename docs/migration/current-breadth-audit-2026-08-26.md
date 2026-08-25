@@ -3,8 +3,9 @@
 > 本文是本轮广度迁移的事实记录，不把“入口已经有落点”写成“业务已经完成”。
 > 旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话维护的众阳预约适配器不在本轮修改范围内。
 
-2026-08-26 横向推进记录：C 批次四条临床只读线已补齐共用结果摘要契约基础，仍未注册
-临床 API、未接入 Provider、未改变 `blocked-provider` 状态；详见
+2026-08-26 横向推进记录：C 批次四条临床只读线已补齐共用结果摘要契约基础，并完成四个
+原生页面外壳、患者选择入口和稳定关闭态；真实业务仍未注册临床 API、未接入 Provider，
+业务准入继续保持 `blocked-provider`；详见
 [`clinical-read-contract-domain-foundation-2026-08-26.md`](clinical-read-contract-domain-foundation-2026-08-26.md)。
 
 ## 1. 当前总结果
@@ -12,21 +13,22 @@
 | 项目 | 当前事实 | 结论 |
 | --- | --- | --- |
 | 旧端页面 | 64 个 Vue 页面 | 64/64 已进入逐页迁移台账 |
-| 新端页面 | 21 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环 |
-| 入口状态 | `replaced=8`、`partial=17`、阻塞=38、排除=1 | 没有遗漏入口；真实业务仍未全量开放 |
+| 新端页面 | 25 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环；其中 4 个为 `surface-only` 页面外壳 |
+| 入口状态 | `replaced=8`、`partial=17`、`surface-only=4`、阻塞=34、排除=1 | 没有遗漏入口；真实业务仍未全量开放 |
 | 旧服务端路由 | 195 个已挂载路由，另有 1 个未挂载路由文件 | 已纳入旧 API 盘点 |
 | 旧端接口字面量 | 87 个 | 已纳入新旧接口语义清单 |
 | 新端四个主 Tab | 原生 `tabBar` 单一声明 | 页面不重复渲染底栏 |
-| 当前小程序候选 | `3b42b867ae19f6dd23bacd88648d1f5917dabf26` | 21 页，`293 pass / 0 fail / 3237 expect()`，仍为 pending |
+| 当前小程序源码 | 当前工作树（四个临床页面外壳） | 25 页，`293 pass / 0 fail / 3267 expect()`，尚未生成新的运行包 |
+| 当前 pending 运行包 | 旧候选 `3b42b867ae19f6dd23bacd88648d1f5917dabf26` | 仍为 21 页；仅代表上一候选，不能作为本轮四个页面的真机证据 |
 | 线上服务端 | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | 与旧 Python `8001` 共存，未因本轮文档而改变 |
 
 ## 2. 本轮门禁结果
 
 以下门禁已经通过，证明的是结构、契约覆盖和代码边界：
 
-- `pnpm migration:audit`：64 个旧页面、21 个新页面、195 个旧服务端路由、87 个旧端接口字面量均有登记；
+- `pnpm migration:audit`：64 个旧页面、25 个新页面、195 个旧服务端路由、87 个旧端接口字面量均有登记；
 - `pnpm migration:boundary:audit`：34 个冻结业务入口门禁通过；
-- `pnpm migration:breadth:audit`：首页/“我的”可见 action、21 个页面事件方法、四个主 Tab 和统一状态页入口通过；
+- `pnpm migration:breadth:audit`：首页/“我的”可见 action、25 个页面事件方法、四个主 Tab 和统一状态页入口通过；共享临床页面工厂的事件方法由审计显式识别；
 - `pnpm readonly:audit`：5 个低风险域、8 个页面、10 个公共路由和 35 个语义状态通过；
 - `pnpm migration:contract:audit`：C/D/E 三批次 24 个 FeatureKey 全部覆盖，仍正确保持 `businessReady=false`；
 - `pnpm provider:audit`、`pnpm clinical:contract:audit`、`pnpm docs:audit`、`pnpm logging:audit`：材料、临床边界、文档链接和日志注册结构通过。

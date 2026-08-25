@@ -77,6 +77,7 @@ const STAGE_LABELS: Readonly<Record<MigrationCoverageStage, string>> =
 		"new-entry": "新端入口已接入",
 		replaced: "已接入原生页面",
 		partial: "已接入安全子集",
+		"surface-only": "页面外壳已迁移，业务仍关闭",
 		"blocked-provider": "等待 provider contract",
 		"blocked-clinical": "等待临床审核",
 		"blocked-payment": "等待支付与回写 contract",
@@ -90,6 +91,8 @@ const NEXT_STEPS: Readonly<Record<MigrationCoverageStage, string>> =
 		"new-entry": "先完成该新入口自身的业务 contract，再进入真实链路验收。",
 		replaced: "继续完成服务端、公网和真机证据；代码页面不单独代表业务完成。",
 		partial: "补齐旧页面尚未接入的详情、写入、实时或外部链路，并单独验收。",
+		"surface-only":
+			"先完成对应 contract、adapter、API 和低敏日志，再把关闭态替换为真实数据状态机。",
 		"blocked-provider":
 			"登记正式 provider/HIS 请求、响应、错误和脱敏字段样例。",
 		"blocked-clinical": "确认版本化内容、题库或规则，并取得临床审核记录。",
@@ -315,6 +318,7 @@ function mergeStage(
 	// 一个 feature key 可能覆盖旧端的安全子集和未完成扩展；展示“部分迁移”
 	// 比选择某一个阻塞类型更准确，避免把已经接入的页面误标成完全关闭。
 	if (stages.has("partial") || stages.has("replaced")) return "partial";
+	if (stages.has("surface-only")) return "surface-only";
 	return entries[0]?.status ?? "new-entry";
 }
 

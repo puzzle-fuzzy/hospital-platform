@@ -1,6 +1,9 @@
 import { ApiError } from "../../services/api-client";
 import { loadPatientsForOwner } from "../../services/dashboard-service";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
+import {
+	navigateToFeatureEntry,
+	navigateToFeatureStatus,
+} from "../../services/feature-navigation";
 import {
 	authorizeGlobalWechatProfile,
 	type GlobalUserProfileState,
@@ -402,16 +405,16 @@ Page<MyPageData, MyPageMethods>({
 				break;
 			case "medical-record":
 				// 报告目录与门诊病历是两类不同医疗事实，不能复用 reports 路由。
-				navigateToFeatureStatus("medical-record");
+				navigateToFeatureEntry("medical-record");
 				break;
 			case "electronic-consultation":
-				navigateToFeatureStatus("electronic-consultation");
+				navigateToFeatureEntry("electronic-consultation");
 				break;
 			case "consultation":
 				navigateToFeatureStatus("consultation");
 				break;
 			case "doctor":
-				navigateToFeatureStatus("doctor");
+				navigateToFeatureEntry("doctor");
 				break;
 			case "smart-customer":
 				navigateToFeatureStatus("smart-customer");

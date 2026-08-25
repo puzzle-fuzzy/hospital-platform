@@ -85,9 +85,9 @@ function extractCases(source) {
 function extractFeatureKeys(source) {
 	return [
 		...new Set(
-			[...source.matchAll(/navigateToFeatureStatus\("([^"]+)"\)/gu)].map(
-				(match) => match[1],
-			),
+			[
+				...source.matchAll(/navigateToFeature(?:Status|Entry)\("([^"]+)"\)/gu),
+			].map((match) => match[1]),
 		),
 	];
 }
@@ -133,7 +133,7 @@ function extractWxmlHandlers(source) {
 /** 从页面 Page 对象中提取带函数体的方法名。 */
 function extractPageMethods(source) {
 	const controlFlowNames = new Set(["if", "for", "while", "switch", "catch"]);
-	return [
+	const methods = [
 		...new Set(
 			[
 				...source.matchAll(
@@ -144,6 +144,21 @@ function extractPageMethods(source) {
 				.filter((name) => !controlFlowNames.has(name)),
 		),
 	];
+
+	/**
+	 * 临床只读页面由同一个页面工厂注册 Page 对象；这些方法真实存在于
+	 * clinical-entry-surface.ts，而不是重复复制到四个页面入口文件中。
+	 * 审计这里显式识别工厂注册，避免把合法的共享实现误报成 WXML 断链。
+	 */
+	if (source.includes("registerClinicalSurfacePage(")) {
+		methods.push(
+			"onOpenPatientSelector",
+			"onOpenMigrationStatus",
+			"onBackHome",
+		);
+	}
+
+	return [...new Set(methods)];
 }
 
 /**

@@ -50,7 +50,7 @@ describe("旧端页面全量迁移台账", () => {
 				// 安全只读页可以保留未来 contract 的关联 key；只有当前
 				// 没有任何契约关联的普通静态/只读页才必须没有 key。
 				if (entry.featureKey) {
-					expect(entry.status).toBe("replaced");
+					expect(["replaced", "surface-only"]).toContain(entry.status);
 					expect(FEATURE_STATUS_CATALOG[entry.featureKey]).toBeTruthy();
 				}
 			}

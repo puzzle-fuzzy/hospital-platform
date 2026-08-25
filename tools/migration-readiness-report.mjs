@@ -252,7 +252,9 @@ function frozenBoundaryCoverage(migrationBreadth) {
 				continue;
 			}
 			const expectedTarget =
-				gate.safeReadOnlyTarget ?? "pages/feature-status/feature-status";
+				gate.safeReadOnlyTarget ??
+				gate.safeSurfaceTarget ??
+				"pages/feature-status/feature-status";
 			if (entry.nativeTarget !== expectedTarget) {
 				failures.push(
 					`${gate.id}: 旧页面落点不符合 contract 边界：${legacyPath}`,
@@ -270,6 +272,15 @@ function frozenBoundaryCoverage(migrationBreadth) {
 				if (entry.featureKey !== gate.featureKey) {
 					failures.push(
 						`${gate.id}: 静态只读页面契约 FeatureKey 不一致：${legacyPath}`,
+					);
+				}
+			} else if (gate.safeSurfaceTarget) {
+				if (entry.status !== "surface-only") {
+					failures.push(`${gate.id}: 页面外壳不是 surface-only：${legacyPath}`);
+				}
+				if (entry.featureKey !== gate.featureKey) {
+					failures.push(
+						`${gate.id}: 页面外壳契约 FeatureKey 不一致：${legacyPath}`,
 					);
 				}
 			} else {

@@ -1,6 +1,6 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前小程序候选已推进到 `3b42b86`，完整 sourceRevision 为 `3b42b867ae19f6dd23bacd88648d1f5917dabf26`，pending 运行包包含 21 个页面，源码回归为 `293 pass / 0 fail / 3237 expect()`。本轮新增旧端使用条款原文只读页；协议版本、同意记录、撤回和审计仍关闭。正式健康审核 bundle 仍缺失，不能把健康内容标记为已发布；live `dist` 仍为 `fcc6630e`，微信开发者工具锁定导致发布返回 `EBUSY`，旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：源码工作树已新增四个 `surface-only` 临床页面外壳，当前源码注册 25 个页面，回归为 `293 pass / 0 fail / 3267 expect()`；原有 pending 运行包仍包含 21 个页面，尚未重新构建发布，因此不能把四个新页面写成真机证据。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；live `dist` 仍为旧来源，微信开发者工具锁定导致新候选发布返回 `EBUSY`，旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
@@ -22,9 +22,10 @@
 | 当前功能基线 | `3b42b86`（文档更新不改变 live `dist`） |
 | 小程序业务代码候选 | `3b42b867ae19f6dd23bacd88648d1f5917dabf26` |
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.json.sourceRevision=3b42b867ae19f6dd23bacd88648d1f5917dabf26` |
-| pending 页面数 | 21 个；每个页面具备 `.js/.json/.wxml/.wxss` |
-| 小程序回归 | 当前源码 293 pass / 0 fail / 3237 expect()；pending 已包含当前运行输入；入口分发广度审计通过 |
-| pending 静态验证 | 已通过；21 页、根文件、相对依赖、workspace 依赖、测试脚本和来源指纹均已校验 |
+| 当前源码页面数 | 25 个；每个页面具备 TypeScript 源码和页面配置 |
+| pending 页面数 | 21 个；仍是上一候选，未包含本轮四个临床页面 |
+| 小程序回归 | 当前源码 293 pass / 0 fail / 3267 expect()；入口分发广度审计通过 |
+| pending 静态验证 | 上一候选已通过；本轮源码必须释放 `dist` 锁后重新生成并验证 |
 | 当前 live `dist` | 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
 | 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
@@ -39,7 +40,8 @@
 | --- | ---: | --- |
 | `replaced` | 8 | 已有原生页面或等价静态能力；仍需真实链路/真机证据才能称为完成 |
 | `partial` | 17 | 已有安全只读或静态子集；旧页面中的写入、详情、实时或外部能力仍关闭 |
-| `blocked-provider` | 6 | 等待 HIS/Provider 的请求、响应、映射、脱敏和错误样例 |
+| `surface-only` | 4 | 页面外壳、患者选择入口和关闭态已迁移；真实业务仍按对应 contract 阻塞 |
+| `blocked-provider` | 2 | 等待 HIS/Provider 的请求、响应、映射、脱敏和错误样例 |
 | `blocked-clinical` | 19 | 等待题库、阈值、内容、随访或问诊规则版本及临床审核；锦旗/表扬信也属于内容审核 |
 | `blocked-payment` | 7 | 等待金额、订单、支付、查单、退款和 HIS 回写状态机 |
 | `blocked-patient-contract` | 3 | 等待新增/绑定、地址、签名的 owner、同意和幂等规则；协议静态页已迁移，但真实同意能力仍未开放 |
@@ -54,9 +56,9 @@ pnpm migration:audit
 pnpm migration:boundary:audit
 ```
 
-所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；互联网医院旧顶层入口已有独立安全壳，但外部能力仍关闭。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
+除四个 `surface-only` 临床外壳外，所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；四个外壳只展示页面边界和关闭态，不读取 Provider。互联网医院旧顶层入口已有独立安全壳，但外部能力仍关闭。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
 
-首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 21 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
+首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 25 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法或共享页面工厂中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
 
 全项目 readiness 汇总可以通过 `pnpm migration:readiness` 生成，字段说明见 [`migration-readiness-report.md`](migration-readiness-report.md)。该报告明确拆分入口结构、五个只读域、Provider 材料状态、四个临床域准入状态、pending/live 运行包来源、九个真机证据域和真实业务完成状态；默认结构审计通过不代表 Provider、公网或真机验收通过，`--strict` 才会把运行包未对齐作为命令失败。
 

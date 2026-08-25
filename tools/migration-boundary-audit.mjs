@@ -10,8 +10,8 @@ import {
  *
  * 旧端页面必须先全部有明确落点，但临床、患者绑定、外部会话和支付入口
  * 不能为了增加“已迁移”数量而猜测 Provider 协议。这个工具把当前已经
- * 识别出的高风险页面逐一绑定到 feature-status 和固定 FeatureKey，后续
- * 若有人新增路由或把占位页改成半成品，提交门禁会立即提醒。
+	* 识别出的高风险页面逐一绑定到 feature-status、固定 FeatureKey 或明确的
+	* `surface-only` 页面外壳，后续若有人新增路由或把占位页改成半成品，提交门禁会立即提醒。
  *
  * 本工具只读源代码和静态配置，不访问旧服务、数据库、Redis 或 Provider。
  */
@@ -156,7 +156,8 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			fail(`${gate.name} 未登记旧页面：${legacyPath}`);
 			continue;
 		}
-		const expectedTarget = gate.safeReadOnlyTarget ?? expectedStatusPage;
+		const expectedTarget =
+			gate.safeReadOnlyTarget ?? gate.safeSurfaceTarget ?? expectedStatusPage;
 		if (entry.nativeTarget !== expectedTarget) {
 			fail(
 				`${gate.name} 的 ${legacyPath} 落点不符合 contract 边界：期望 ${expectedTarget}，实际 ${entry.nativeTarget}`,
@@ -174,6 +175,21 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			if (entry.featureKey !== gate.featureKey) {
 				fail(
 					`${gate.name} 的 ${legacyPath} 静态只读页契约 FeatureKey 不一致：期望 ${gate.featureKey}，实际 ${entry.featureKey}`,
+				);
+			}
+			continue;
+		}
+		// 页面外壳已经迁移，但真实读取仍关闭。它必须明确标记为
+		// surface-only，不能混入 replaced，也不能继续伪装成状态页遗漏。
+		if (gate.safeSurfaceTarget) {
+			if (entry.status !== "surface-only") {
+				fail(
+					`${gate.name} 的 ${legacyPath} 页面外壳落点必须是 surface-only，实际 ${entry.status}`,
+				);
+			}
+			if (entry.featureKey !== gate.featureKey) {
+				fail(
+					`${gate.name} 的 ${legacyPath} 页面外壳 FeatureKey 不一致：期望 ${gate.featureKey}，实际 ${entry.featureKey}`,
 				);
 			}
 			continue;
@@ -305,7 +321,9 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 	const failureCount = gateFailureCounts.get(gate.name) ?? 1;
 	const targetDescription = gate.safeReadOnlyTarget
 		? `${gate.safeReadOnlyTarget}（静态只读已迁移，真实 contract 仍关闭）`
-		: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
+		: gate.safeSurfaceTarget
+			? `${gate.safeSurfaceTarget}（页面外壳已迁移，真实 contract 仍关闭）`
+			: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
 	console.log(
 		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${targetDescription}`,
 	);
