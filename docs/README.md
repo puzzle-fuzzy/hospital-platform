@@ -213,7 +213,8 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/patient-id-stability-contract-2026-08-22.md`](release/patient-id-stability-contract-2026-08-22.md) | 患者目录重复同步沿用平台内部 `patientId` 的服务层、仓储层和验收边界 |
 | [`release/miniprogram-profile-logic-audit-2026-08-20.md`](release/miniprogram-profile-logic-audit-2026-08-20.md) | 普通资料版本更新、409、会话失效清理、低敏日志和真实写入验收缺口的当前逻辑审计 |
 | [`release/current-profile-read-write-acceptance-2026-08-22.md`](release/current-profile-read-write-acceptance-2026-08-22.md) | 切换前 `1e58bb66`/`7f09bbb` 普通资料读写、版本冲突、日志证据和真实写入授权协议；当前发布见 [`8eb51b5f-production-acceptance-2026-08-24.md`](release/8eb51b5f-production-acceptance-2026-08-24.md) |
-| [`release/next-profile-business-acceptance-plan-2026-08-24.md`](release/next-profile-business-acceptance-plan-2026-08-24.md) | 当前普通资料下一业务闭环的真实 GET、受控 PUT、双会话 409、低敏日志和停止条件 |
+| [`release/next-readonly-business-acceptance-plan-2026-08-26.md`](release/next-readonly-business-acceptance-plan-2026-08-26.md) | 当前 A 批次五个低风险域的统一真机验收顺序、同链证据、停止条件和支付/医保关闭边界 |
+| [`release/next-profile-business-acceptance-plan-2026-08-24.md`](release/next-profile-business-acceptance-plan-2026-08-24.md) | 历史普通资料真实 GET、受控 PUT、双会话 409 和低敏日志计划；当前统一计划见上方 2026-08-26 文档 |
 | [`release/profile-age-input-boundary-2026-08-22.md`](release/profile-age-input-boundary-2026-08-22.md) | 普通资料年龄输入保留原文、保存边界严格解析和真机验证要求 |
 | [`release/miniprogram-profile-write-session-race-audit-2026-08-21.md`](release/miniprogram-profile-write-session-race-audit-2026-08-21.md) | 普通资料写入返回后会话代际变化的 `saving` 状态收敛、回归证据和真机写入未完成边界 |
 | [`release/profile-mysql-write-response-atomicity-2026-08-21.md`](release/profile-mysql-write-response-atomicity-2026-08-21.md) | 普通资料 MySQL 行锁、版本条件更新和 canonical 响应回读的事务原子性修正 |
