@@ -626,6 +626,28 @@ export const DASHBOARD_DATE_RANGE_DAYS = Object.freeze({
 const PLATFORM_TIME_ZONE_OFFSET_MS = 8 * 60 * 60 * 1000;
 const CALENDAR_DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * 日期窗口是多个患者端业务共用的输入边界，不能让 Invalid Date 继续进入
+ * `getUTCFullYear()` 和 `Date.UTC()`。如果这里放任 NaN 传播，最后可能生成
+ * `NaN-NaN-NaN` 并被误判成网络异常或合法空结果，预约、爽约和报告页面
+ * 就会失去“本地参数错误”和“外部服务失败”的业务区分。
+ */
+function requireValidPlatformDate(value: Date): void {
+	if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
+		throw new ApiError("查询日期范围不合法", { code: "date-range-invalid" });
+	}
+}
+
+/**
+ * 调用方传入的窗口天数只接受非负安全整数；过去窗口的负向平移只在
+ * `createPastDateRange` 内部完成，避免把方向约定泄漏到页面和缓存层。
+ */
+function requireValidCalendarDays(days: number): void {
+	if (!Number.isSafeInteger(days) || days < 0) {
+		throw new ApiError("查询日期范围不合法", { code: "date-range-invalid" });
+	}
+}
+
 type PlatformCalendarDate = {
 	year: number;
 	month: number;
@@ -633,6 +655,7 @@ type PlatformCalendarDate = {
 };
 
 function platformCalendarDate(value: Date): PlatformCalendarDate {
+	requireValidPlatformDate(value);
 	const shifted = new Date(value.getTime() + PLATFORM_TIME_ZONE_OFFSET_MS);
 	return {
 		year: shifted.getUTCFullYear(),
@@ -670,6 +693,7 @@ export function createPastDateRange(
 	days: number,
 	now = new Date(),
 ): { startDate: string; endDate: string } {
+	requireValidCalendarDays(days);
 	const end = platformCalendarDate(now);
 	const start = shiftCalendarDate(end, -days);
 	return {
@@ -711,6 +735,7 @@ export function createUpcomingDateRange(
 	days: number,
 	now = new Date(),
 ): { startDate: string; endDate: string } {
+	requireValidCalendarDays(days);
 	const start = platformCalendarDate(now);
 	const end = shiftCalendarDate(start, days);
 	return {

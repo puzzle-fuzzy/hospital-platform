@@ -3,8 +3,10 @@ import {
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
 	createPastDateRange,
+	createUpcomingDateRange,
 	formatOutpatientAmountLabel,
 	formatOutpatientBillDateLabel,
+	formatPlatformDate,
 	loadAppointmentSchedules,
 	loadCurrentPatientForOwner,
 	loadOutpatientPaymentRecords,
@@ -96,6 +98,29 @@ test("预约记录查询拒绝未知窗口，不静默降级为历史", () => {
 		return undefined;
 	})();
 	expect(error).toMatchObject({ code: "appointment-record-query-invalid" });
+});
+
+test("公共日期窗口拒绝 Invalid Date 和非法天数，不生成 NaN 查询参数", () => {
+	const invalidDate = new Date(Number.NaN);
+	for (const buildRange of [
+		() => createPastDateRange(90, invalidDate),
+		() => createUpcomingDateRange(7, invalidDate),
+		() => createAppointmentRecordDateRange(invalidDate),
+	]) {
+		expect(buildRange).toThrow("查询日期范围不合法");
+	}
+
+	for (const days of [-1, Number.NaN, Number.POSITIVE_INFINITY, 1.5]) {
+		expect(() => createPastDateRange(days)).toThrow("查询日期范围不合法");
+	}
+
+	expect(() => formatPlatformDate(invalidDate)).toThrow("查询日期范围不合法");
+});
+
+test("预约记录查询在日期无效时先失败，不把错误传给服务端", () => {
+	expect(() =>
+		createAppointmentRecordQuery("patient-internal-001", new Date(Number.NaN)),
+	).toThrow("查询日期范围不合法");
 });
 
 test("门诊费用查询先拒绝空患者标识，不把无效查询交给 API", () => {

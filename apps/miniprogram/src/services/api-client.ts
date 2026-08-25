@@ -96,6 +96,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"user-profile-conflict": "个人资料已被其他设备修改，请刷新后重试",
 		"appointment-query-invalid": "预约排班查询条件不合法",
 		"appointment-record-query-invalid": "预约记录查询条件不合法",
+		"date-range-invalid": "查询日期范围不合法，请稍后重试",
 		"appointment-record-patient-not-found": "当前就诊人暂无可查询的预约记录",
 		"outpatient-payment-query-invalid": "门诊缴费查询条件不合法",
 		"report-query-invalid": "报告查询条件不合法",
