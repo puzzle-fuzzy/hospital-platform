@@ -11,6 +11,8 @@
 
 > 批次 B 的病历、问诊、住院、健康内容、实时就诊和互联网医院已统一登记在 [`migration/batch-b-read-model-matrix-2026-08-25.md`](migration/batch-b-read-model-matrix-2026-08-25.md)；下一步按业务域取得正式 contract 后再逐个开放，不用一个域的结果替代另一个域。
 
+> 预约、报告、门诊费用、就诊人和普通资料五个只读域的页面、API、实现、日志和文档闭环由 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md) 统一维护，并可通过 `pnpm readonly:audit` 校验；通过不等于 Provider 或真机验收完成。
+
 > 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的新构建运行包和最新共享底栏手册，不能使用旧二维码、旧 `dist/` 或旧底栏说明。
 
  > 历史候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，当时 16 个页面脚本完整；该记录不覆盖当前 `485c0892` 的 17 页 pending 候选。
