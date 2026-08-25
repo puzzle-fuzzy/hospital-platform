@@ -1,7 +1,7 @@
-> 最新事实（2026-08-25）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `0ae674e5ceb353434ad2e52e375927e4b788222e`（提交 `0ae674e5`）。pending 尚未替换微信开发者工具正在使用的 live `dist`，真实真机业务证据仍待采集。
-> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e` 和本地 pending `0ae674e5` 不得互相替代。本文以下旧候选编号均只作历史追溯。
+> 最新事实（2026-08-25）：线上服务端 release 仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当前小程序 pending 运行输入为 `3cf828ed185f0e745138db04011d26c6db62fa8a`（提交 `3cf828ed`）。pending 尚未替换微信开发者工具正在使用的 live `dist`，真实真机业务证据仍待采集。
+> 服务端与小程序继续采用分层发布；历史候选、线上 live `13f597e` 和本地 pending `3cf828ed` 不得互相替代。本文以下旧候选编号均只作历史追溯。
 
-> **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；当前小程序候选、pending 证据清单和运行包记录统一以 [`release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md`](release/candidate-0ae674e5-miniprogram-runtime-2026-08-25.md) 为准。
+> **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；当前小程序候选、pending 证据清单和运行包记录统一以 [`release/candidate-3cf828ed-miniprogram-runtime-2026-08-25.md`](release/candidate-3cf828ed-miniprogram-runtime-2026-08-25.md) 为准。
 
 # 项目文档导航
 
@@ -21,11 +21,13 @@
 
 > **当前运行层只读复核（2026-08-25 17:16 CST）**：新 API `8eb51b5f` active，监听 `10.0.0.3:18081`；旧 Python `8001` 继续监听；内网 `/health/ready`、`/api/v1/system/ping` 与公网 `/api/v2/health/ready`、`/api/v2/system/ping` 均为 `200`，database/redis/schema 为 `ok`。内网探针必须使用实际绑定地址，公网路径由 `/api/v2` 反向代理提供。详见 [`release/current-runtime-coexistence-readonly-2026-08-25-1452.md`](release/current-runtime-coexistence-readonly-2026-08-25-1452.md)。
 
-> **当前发布门禁（2026-08-25）**：功能候选代码基线为 `0ae674e5`，pending 运行输入为 `0ae674e5`；`release:baseline:audit` 仍拒绝把本地服务端候选当作线上候选，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
+> **当前公网探针复核（2026-08-25 23:35 CST）**：公网 `/api/v2/health/live`、`/api/v2/health/ready` 和 `/api/v2/system/ping` 均返回 200；ready 的 database/redis/schema 均为 `ok`。本次只读观察不替代线上进程、旧服务共存或业务真机证据，详见 [`release/current-public-runtime-readonly-2026-08-25.md`](release/current-public-runtime-readonly-2026-08-25.md)。
 
-> **当前事实源（2026-08-25，优先于本页旧候选段落）**：小程序 pending 运行输入为 `0ae674e5`，当前源码回归为 `281 pass / 0 fail / 3037 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前健康内容仍保持 fail-closed，外部互联网医院能力继续关闭。完整交接和 64 页推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
+> **当前发布门禁（2026-08-25）**：功能候选代码基线为 `3cf828ed`，pending 运行输入为 `3cf828ed`；`release:baseline:audit` 仍拒绝把本地服务端候选当作线上候选，因为线上 `8eb51b5f` 之后存在未部署运行时代码，其中包括另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`。本会话不修改、不暂存、不部署该文件；在候选完成统一 production preflight、隔离 smoke 和旧 `8001` 共存复核前，不重启新 API。
 
-> 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前候选以本页顶部 `0ae674e5` 为准。
+> **当前事实源（2026-08-25，优先于本页旧候选段落）**：小程序 pending 运行输入为 `3cf828ed`，当前源码回归为 `284 pass / 0 fail / 3129 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前健康内容仍保持 fail-closed，外部互联网医院能力继续关闭。完整交接和 64 页推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
+
+> 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前候选以本页顶部 `3cf828ed` 为准。
 
 > 历史运行包观察：当时 live `dist/build-info.sourceRevision` 为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，`baa31df0` 在 pending staging 中完成 17 个页面脚本、类型检查、旧端 64 页面台账、迁移状态路由回归和就诊记录分批展示回归。当前 pending 候选请以本页上方 `7627843a` 事实为准；开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。
 
