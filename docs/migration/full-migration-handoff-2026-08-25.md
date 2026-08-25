@@ -58,6 +58,8 @@ pnpm migration:boundary:audit
 
 已有患者目录同步/读取、预约目录/历史/爽约、报告目录/受限详情、门诊费用列表和普通资料 GET/PUT 的代码闭环。下一步是同一候选下的页面、客户端 requestId、服务端 Pino 事件和 Provider requestId 配对验收。
 
+跨 Tab 的全局资料初始化也已补齐页面先行启动保护：正常路径由 `App.onLaunch` 负责单飞，页面在明确 `idle` 初始态时才接管同一 Promise，避免把初始化竞态误判成未登录。实现和边界见 [`../release/miniprogram-global-profile-page-first-bootstrap-2026-08-25.md`](../release/miniprogram-global-profile-page-first-bootstrap-2026-08-25.md)。
+
 本队列不扩展到：预约锁号/取消、报告附件、费用明细、支付、医保或 HIS 回写。
 
 ### B：健康内容队列

@@ -4,6 +4,7 @@ import {
 	ensureGlobalUserProfile,
 	getGlobalUserProfile,
 	subscribeGlobalUserProfile,
+	waitForGlobalUserProfile,
 } from "./global-user-profile";
 import type { GlobalUserProfileState } from "./global-user-profile";
 import { notifySessionChanged } from "./session-events";
@@ -202,6 +203,115 @@ describe("App 全局个人资料仓库", () => {
 		expect(thirdState).toBe(firstState);
 		expect(currentUserRequestCount).toBe(2);
 		expect(profileRequestCount).toBe(1);
+	});
+
+	test("页面先于 App 启动时，idle 状态会接管同一条全局初始化链", async () => {
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "page-first-session-token",
+			sessionStatus: "signed_in" as const,
+			userProfileBootstrapPromise:
+				null as Promise<GlobalUserProfileState> | null,
+			userProfile: {
+				status: "idle" as const,
+				ownerId: "",
+				sessionGeneration: -1,
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		let currentUserRequestCount = 0;
+		let profileRequestCount = 0;
+		runtime.wx = {
+			getStorageSync: (key: string) =>
+				key === "access_token" ? "page-first-session-token" : undefined,
+			setStorageSync: () => undefined,
+			removeStorageSync: () => undefined,
+			request: (options: WechatMiniprogram.RequestOption) => {
+				const isProfileRequest = options.url.endsWith("/me/profile");
+				if (isProfileRequest) profileRequestCount += 1;
+				else if (options.url.endsWith("/me")) currentUserRequestCount += 1;
+				const success = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+				success?.({
+					statusCode: 200,
+					data: isProfileRequest
+						? {
+								success: true,
+								data: {
+									displayName: "页面先行昵称",
+									gender: "unknown",
+									age: null,
+									email: null,
+									version: 0,
+								},
+							}
+						: {
+								success: true,
+								data: { user: { id: "owner-page-first-test" } },
+							},
+				} as unknown);
+			},
+		} as unknown as typeof wx;
+
+		const state = await waitForGlobalUserProfile();
+
+		expect(state.status).toBe("ready");
+		expect(state.ownerId).toBe("owner-page-first-test");
+		expect(state.displayName).toBe("页面先行昵称");
+		expect(currentUserRequestCount).toBe(2);
+		expect(profileRequestCount).toBe(1);
+		expect(globalData.userProfileBootstrapPromise).toBeNull();
+	});
+
+	test("资料初始化错误不会在切换页面时静默重试", async () => {
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "profile-error-session-token",
+			sessionStatus: "signed_in" as const,
+			userProfileBootstrapPromise:
+				null as Promise<GlobalUserProfileState> | null,
+			userProfile: {
+				status: "error" as const,
+				ownerId: "owner-profile-error-test",
+				sessionGeneration: getSessionGeneration(),
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "个人资料暂不可用，点击重新加载",
+				error: "依赖暂时不可用",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		let requestCount = 0;
+		runtime.wx = {
+			getStorageSync: () => "profile-error-session-token",
+			request: () => {
+				requestCount += 1;
+			},
+		} as unknown as typeof wx;
+
+		const state = await waitForGlobalUserProfile();
+
+		expect(state).toBe(globalData.userProfile);
+		expect(requestCount).toBe(0);
 	});
 
 	test("会话凭证变化会清理旧账号的全局昵称和头像", () => {

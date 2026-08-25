@@ -314,11 +314,22 @@ export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
  * “重新读取资料”在代码层有不同名字，避免以后又把页面生命周期误当成刷新命令。
  */
 export function waitForGlobalUserProfile(): Promise<GlobalUserProfileState> {
-	return (
-		profileBootstrapInFlight ??
-		globalData().userProfileBootstrapPromise ??
-		Promise.resolve(getGlobalUserProfile())
-	);
+	if (profileBootstrapInFlight) return profileBootstrapInFlight;
+	const appBootstrap = globalData().userProfileBootstrapPromise;
+	if (appBootstrap) return appBootstrap;
+
+	const current = getGlobalUserProfile();
+	if (current.status === "idle") {
+		// 正常启动由 App.onLaunch 提前创建 bootstrap Promise；但开发者工具热
+		// 重载、页面单独恢复或 App bundle 与页面 bundle 初始化交错时，页面
+		// 可能先进入这里。如果 idle 状态只被当作“已完成等待”返回，首页和
+		// 其它 Tab 会把尚未验证的账号误判成未登录，随后也不会自动补启动。
+		// 这里仅在明确的 idle 初始态接管启动，并继续复用 ensure 内部的
+		// 全局单飞；error 状态仍交给用户显式重试，避免故障时每次切 Tab
+		// 都无提示地重复请求。
+		return ensureGlobalUserProfile();
+	}
+	return Promise.resolve(current);
 }
 
 /** 强制重新读取当前 owner 的资料，供页面错误态的“重新加载”使用。 */
