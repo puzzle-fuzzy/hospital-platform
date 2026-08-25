@@ -32,6 +32,11 @@ const sources = Object.fromEntries(
 			"apps/worker/src/api-runtime-smoke.ts",
 			"apps/worker/src/provider-directory-smoke.ts",
 			"apps/miniprogram/src/services/api-client.ts",
+			"apps/miniprogram/src/services/session-service.ts",
+			"apps/miniprogram/src/services/wechat-user-profile.ts",
+			"apps/miniprogram/src/services/global-user-profile.ts",
+			"apps/miniprogram/src/pages/index/index.ts",
+			"apps/miniprogram/src/pages/my/my.ts",
 			"packages/observability/src/index.ts",
 			"packages/persistence/src/runtime.ts",
 			"packages/persistence/src/migrate.ts",
@@ -59,9 +64,18 @@ for await (const file of miniprogramGlob.scan({
 })) {
 	miniprogramSourceFiles.push(file);
 }
+
+/**
+ * 测试源码不属于微信生产运行包，也会故意包含旧患者/异常响应等负向样例。
+ * 生产边界审计必须和构建脚本的运行包边界一致，否则单元测试中的 fixture
+ * 会被误判成真实身份或旧端种子，导致门禁失去可信度。
+ */
+const miniprogramProductionSourceFiles = miniprogramSourceFiles.filter(
+	(file) => !/(?:\.test|\.spec)\.(?:ts|js)$/u.test(file),
+);
 const miniprogramSource = (
 	await Promise.all(
-		miniprogramSourceFiles.map((file) =>
+		miniprogramProductionSourceFiles.map((file) =>
 			Bun.file(new URL(file.replaceAll("\\", "/"), repositoryRoot)).text(),
 		),
 	)
@@ -326,19 +340,39 @@ check(
 );
 
 /**
- * 当前登录只交换 wx.login 的一次性 code，不采集头像/昵称，也不应在页面
- * 初始化时触发微信资料授权弹窗。`getUserProfile` 这个名称在本项目中还
- * 专指 Hospital API 的普通资料读取，因此这里必须检查带 wx 前缀的真实
- * 微信授权调用，避免维护人员把两个概念混在一起。未来若产品确认需要
- * 头像或昵称，必须先完成独立隐私、字段、撤回和页面触发 contract，再有意
- * 更新这条门禁；不能通过删除检查来绕过授权边界。
+ * 登录只交换 wx.login 的一次性 code；头像/昵称授权是独立的用户手势链路。
+ * 不能扫描整个小程序源码来禁止 `wx.getUserProfile`，因为“我的”页已经有
+ * 明确点击授权的产品需求；真正要阻断的是登录/首页初始化把授权弹窗隐式
+ * 混进去。下面同时检查：登录相关源码没有微信资料调用，独立资料模块仍
+ * 保留授权调用，全局仓库只从显式授权函数进入，防止规则被简单删除绕过。
  */
+const wechatProfileConsentPattern = /\bwx\.getUserProfile\s*\(/u;
+const loginSources = [
+	sources["apps/miniprogram/src/services/session-service.ts"],
+	sources["apps/miniprogram/src/services/api-client.ts"],
+	sources["apps/miniprogram/src/pages/index/index.ts"],
+].filter((source) => Boolean(source));
 check(
 	"miniprogram.no-wechat-profile-consent-in-login",
-	![/\bwx\.getUserProfile\s*\(/u, /\bwx\.getUserInfo\s*\(/u].some((pattern) =>
-		pattern.test(miniprogramSource),
+	!loginSources.some((source) =>
+		[wechatProfileConsentPattern, /\bwx\.getUserInfo\s*\(/u].some((pattern) =>
+			pattern.test(source),
+		),
 	),
-	"微信登录只交换 wx.login code，不能在生产小程序中隐式请求头像/昵称资料授权。",
+	"微信登录和首页初始化只交换 wx.login code，不能隐式弹出头像/昵称授权。",
+);
+check(
+	"miniprogram.wechat-profile-consent.explicit-boundary",
+	wechatProfileConsentPattern.test(
+		sources["apps/miniprogram/src/services/wechat-user-profile.ts"] ?? "",
+	) &&
+		(
+			sources["apps/miniprogram/src/services/global-user-profile.ts"] ?? ""
+		).includes("authorizeGlobalWechatProfile") &&
+		(sources["apps/miniprogram/src/pages/my/my.ts"] ?? "").includes(
+			"onWechatProfileTap",
+		),
+	"微信头像昵称授权必须位于独立资料模块，并由“我的”页显式手势入口触发。",
 );
 
 /**
