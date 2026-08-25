@@ -4,6 +4,7 @@ import {
 	AppointmentDirectoryResultValidationError,
 	AppointmentRecordResultValidationError,
 	ExternalTraceReadModelValidationError,
+	HealthKnowledgePublicationConflictError,
 	HealthKnowledgeResultValidationError,
 	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
@@ -148,6 +149,23 @@ test("健康知识读模型损坏使用持久化错误契约", async () => {
 		error: {
 			code: "persistence-invalid",
 			message: "数据服务返回异常，请联系管理员",
+		},
+	});
+});
+
+test("健康知识发布版本窗口冲突保持暂不可用而不静默选版本", async () => {
+	const app = new Elysia().use(errorHandlerPlugin()).get("/probe", () => {
+		throw new HealthKnowledgePublicationConflictError();
+	});
+
+	const response = await app.handle(new Request("http://localhost/probe"));
+
+	expect(response.status).toBe(503);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "health-knowledge-unavailable",
+			message: "健康知识内容暂时不可用，请稍后重试",
 		},
 	});
 });

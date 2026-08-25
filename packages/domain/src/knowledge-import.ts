@@ -508,6 +508,15 @@ function validatePublication(
 	) {
 		fail("publication.reviewerRef");
 	}
+	if (
+		publication.status === "published" &&
+		publication.effectiveFrom === undefined
+	) {
+		// 已发布版本必须有明确的生效起点。否则一个误标为 published 的
+		// bundle 会立即进入患者端，而且发布审计无法判断它何时开始生效。
+		// effectiveTo 仍可为空，表示审核人明确允许持续生效到撤回为止。
+		fail("publication.effectiveFrom");
+	}
 	if (publication.reviewerRef !== undefined) {
 		assertText(publication.reviewerRef, "publication.reviewerRef", 128);
 	}

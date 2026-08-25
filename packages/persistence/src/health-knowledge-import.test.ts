@@ -15,6 +15,7 @@ function validBundle(): HealthKnowledgeImportBundle {
 			sourceLabel: "医院健康科普审核组",
 			disclaimer: HEALTH_KNOWLEDGE_DISCLAIMER,
 			reviewerRef: "reviewer-001",
+			effectiveFrom: "2026-08-15T00:00:00.000Z",
 		},
 		items: [
 			{ id: "crowd-adult", kind: "crowd", name: "成年人" },

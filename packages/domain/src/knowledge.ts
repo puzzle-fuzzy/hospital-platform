@@ -116,6 +116,20 @@ export class HealthKnowledgeContentUnavailableError extends Error {
 }
 
 /**
+ * 当前时刻存在多个同时生效的已发布版本时，患者端不能“随便选一个”。
+ *
+ * 这通常表示发布/撤回操作没有正确收敛窗口；继续返回任意版本会让同一
+ * 个用户在不同请求中看到不一致的医疗内容。应用层将它和无可用版本统一
+ * 映射为暂不可用，但日志仍保留独立错误名，方便发布审计定位。
+ */
+export class HealthKnowledgePublicationConflictError extends Error {
+	constructor() {
+		super("Multiple published health knowledge versions are active");
+		this.name = "HealthKnowledgePublicationConflictError";
+	}
+}
+
+/**
  * 健康知识 repository 结果违反公共读模型时的低敏原因。
  *
  * TypeScript 只约束编译期调用方，不能证明 MySQL、回放实现或未来任务返回

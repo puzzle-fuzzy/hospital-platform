@@ -5,6 +5,7 @@ import {
 	DependencyNotConfiguredError,
 	ExternalTraceReadModelValidationError,
 	HealthKnowledgeContentUnavailableError,
+	HealthKnowledgePublicationConflictError,
 	HealthKnowledgeResultValidationError,
 	HealthKnowledgeValidationError,
 	IdentityUserReadModelValidationError,
@@ -162,7 +163,10 @@ export function errorHandlerPlugin() {
 				};
 			}
 
-			if (error instanceof HealthKnowledgeContentUnavailableError) {
+			if (
+				error instanceof HealthKnowledgeContentUnavailableError ||
+				error instanceof HealthKnowledgePublicationConflictError
+			) {
 				set.status = 503;
 				return {
 					success: false,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	HEALTH_KNOWLEDGE_DISCLAIMER,
 	HealthKnowledgeContentUnavailableError,
+	HealthKnowledgePublicationConflictError,
 } from "@hospital/domain";
 import type { Pool } from "mysql2/promise";
 import { createMySqlHealthKnowledgeRepository } from "./mysql-health-knowledge-repository";
@@ -62,6 +63,8 @@ test("MySQL health knowledge selects one published version before catalog reads"
 		],
 	});
 	expect(state.statements[0]).toContain("status = 'published'");
+	expect(state.statements[0]).toContain("effective_from <= UTC_TIMESTAMP(3)");
+	expect(state.statements[0]).toContain("LIMIT 2");
 	expect(state.statements[1]).toContain("content_version = ?");
 	expect(state.values[1]).toEqual(["health-2026-08-15", "part"]);
 });
@@ -73,6 +76,22 @@ test("MySQL health knowledge fails closed when no published content exists", asy
 	await expect(repository.listCatalog("crowd")).rejects.toBeInstanceOf(
 		HealthKnowledgeContentUnavailableError,
 	);
+	expect(state.statements).toHaveLength(1);
+});
+
+test("MySQL health knowledge fails closed when published windows overlap", async () => {
+	const { pool, state } = createFakePool([
+		[
+			publicationRow,
+			{ ...publicationRow, content_version: "health-2026-08-16" },
+		],
+	]);
+	const repository = createMySqlHealthKnowledgeRepository(pool);
+
+	await expect(repository.listCatalog("part")).rejects.toBeInstanceOf(
+		HealthKnowledgePublicationConflictError,
+	);
+	// 版本冲突必须在读取任何条目之前终止，不能让两个版本的内容被拼接。
 	expect(state.statements).toHaveLength(1);
 });
 

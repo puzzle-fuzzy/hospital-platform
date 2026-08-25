@@ -40,7 +40,7 @@ pnpm --filter @hospital/persistence health:export-legacy -- `
 - 字段首尾空白、缺省首字母和不允许的控制字符分别按规则记录或拒绝。
 
 源快照完成后，必须先做字段/关系复核和临床审核，再转换成包含
-`publication.status`、`reviewedAt`、`reviewerRef` 和免责声明的正式 bundle。
+`publication.status`、`reviewedAt`、`reviewerRef`、明确的 `effectiveFrom` 和免责声明的正式 bundle。
 这一步不能通过默认状态、旧页面可渲染或接口转发替代。
 
 ## 3. 只读 bundle 检查
@@ -62,7 +62,7 @@ pnpm --filter @hospital/domain knowledge:bundle:check -- C:\path\to\health-knowl
 
 - 只读取指定文件；
 - 解析运行时 `unknown`，拒绝缺失对象/数组、错误类型和未知字段；
-- 校验固定免责声明、带时区时间、同版本引用、条目类型和完整详情集；
+- 校验固定免责声明、带时区时间、已发布版本的明确 `effectiveFrom`、同版本引用、条目类型和完整详情集；
 - 不连接 MySQL、Redis 或 Provider；
 - 不执行 migration，不插入、不更新、不发布任何数据库记录。
 
@@ -84,7 +84,8 @@ publication、items、details 和 relations；任一 SQL 或外键失败都必�
   -> 患者端 API 准入评审
 ```
 
-`draft`、`withdrawn` 和没有审核引用的版本不能被患者 repository 读取。当前健康知识 API 仍未注册，
+`draft`、`withdrawn`、没有审核引用或没有明确生效起点的版本不能被患者 repository 读取。若同一时刻有多个
+已发布版本的生效窗口重叠，repository 必须整体 fail-closed，不能按排序静默选一个。当前健康知识 API 仍未注册，
 所以即使 staging 导入获得批准，也必须另行完成路由、缓存、响应白名单和真机验收后才能进入生产。
 
 ## 5. 失败处理

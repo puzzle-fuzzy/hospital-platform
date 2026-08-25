@@ -14,6 +14,7 @@ import type {
 } from "@hospital/domain";
 import {
 	HealthKnowledgeContentUnavailableError,
+	HealthKnowledgePublicationConflictError,
 	HealthKnowledgeValidationError,
 	validateHealthKnowledgeIdentifier,
 	validateHealthKnowledgeLetter,
@@ -253,13 +254,19 @@ export function createMySqlHealthKnowledgeRepository(
 			const rows = await execute<PublishedPublicationRow[]>(
 				pool,
 				`SELECT content_version, status, source_label, reviewed_at, disclaimer
-			 FROM hp_health_knowledge_publications
-			 WHERE status = 'published'
-			   AND (effective_from IS NULL OR effective_from <= UTC_TIMESTAMP(3))
-			   AND (effective_to IS NULL OR effective_to > UTC_TIMESTAMP(3))
-			 ORDER BY reviewed_at DESC, content_version DESC
-			 LIMIT 1`,
+				 FROM hp_health_knowledge_publications
+				 WHERE status = 'published'
+				   AND effective_from <= UTC_TIMESTAMP(3)
+				   AND (effective_to IS NULL OR effective_to > UTC_TIMESTAMP(3))
+				 ORDER BY reviewed_at DESC, content_version DESC
+				 LIMIT 2`,
 			);
+			if (rows.length > 1) {
+				// 读取层不能用 ORDER BY + LIMIT 1 掩盖两个版本的窗口冲突。
+				// 这里主动 fail-closed，等待发布任务修正 effectiveFrom/effectiveTo
+				// 或撤回多余版本后再恢复患者端读取。
+				throw new HealthKnowledgePublicationConflictError();
+			}
 			const row = rows[0];
 			if (!row) throw new HealthKnowledgeContentUnavailableError();
 			return publicationFromRow(row);

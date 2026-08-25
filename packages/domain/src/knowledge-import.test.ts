@@ -15,6 +15,7 @@ function validBundle(): HealthKnowledgeImportBundle {
 			sourceLabel: "医院健康科普审核组",
 			disclaimer: HEALTH_KNOWLEDGE_DISCLAIMER,
 			reviewerRef: "reviewer-001",
+			effectiveFrom: "2026-08-15T00:00:00.000Z",
 		},
 		items: [
 			{ id: "crowd-adult", kind: "crowd", name: "成年人" },
@@ -101,12 +102,18 @@ test("health knowledge import validator rejects cross-kind references before SQL
 	);
 });
 
-test("published health knowledge requires a reviewer reference and clickable drugs need ids", () => {
+test("published health knowledge requires review metadata and clickable drugs need ids", () => {
 	const missingReviewer = validBundle();
 	delete missingReviewer.publication.reviewerRef;
 	expect(() => validateHealthKnowledgeImportBundle(missingReviewer)).toThrow(
 		"publication.reviewerRef",
 	);
+
+	const missingEffectiveFrom = validBundle();
+	delete missingEffectiveFrom.publication.effectiveFrom;
+	expect(() =>
+		validateHealthKnowledgeImportBundle(missingEffectiveFrom),
+	).toThrow("publication.effectiveFrom");
 
 	const missingDrugId = validBundle();
 	missingDrugId.diseaseDetails = missingDrugId.diseaseDetails.map((detail) => ({
