@@ -66,7 +66,9 @@ function applyGlobalProfileToPage(
 		wechatProfileState: state.wechatProfileState,
 		wechatProfileHint:
 			state.wechatProfileHint ||
-			(state.status === "error" ? "个人资料暂不可用，点击重新加载" : ""),
+			(state.status === "error"
+				? "普通资料暂不可用，仍可点击获取头像和昵称"
+				: ""),
 	});
 }
 
@@ -314,13 +316,16 @@ Page<MyPageData, MyPageMethods>({
 		}
 		const globalProfile = getGlobalUserProfile();
 		if (
-			globalProfile.status !== "ready" ||
+			(globalProfile.status !== "ready" && globalProfile.status !== "error") ||
 			!globalProfile.ownerId ||
 			!isCurrentSessionGeneration(globalProfile.sessionGeneration)
 		) {
 			this.setData({
 				wechatProfileState: "idle",
-				wechatProfileHint: "个人资料尚未加载完成，请稍后重试",
+				wechatProfileHint:
+					globalProfile.status === "error"
+						? "普通资料暂不可用，仍可点击获取头像和昵称"
+						: "个人资料尚未加载完成，请稍后重试",
 			});
 			return Promise.resolve();
 		}

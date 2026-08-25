@@ -230,6 +230,20 @@ test("native profile consent remains clickable while patient data is loading", a
 	expect(style).toContain("扩大授权提示的可点击区域");
 });
 
+test("native profile consent remains available when ordinary profile read is temporarily unavailable", async () => {
+	const my = await source("pages/my/my.ts");
+	const globalProfile = await source("services/global-user-profile.ts");
+
+	// `/me` 已确认当前 owner 时，普通资料接口的暂时异常不能把微信资料
+	// 授权入口误判成未登录；用户明确点击后仍应进入独立授权流程。
+	expect(my).toContain(
+		'(globalProfile.status !== "ready" && globalProfile.status !== "error")',
+	);
+	expect(globalProfile).toContain("function canAuthorizeWechatProfile");
+	expect(globalProfile).toContain("普通资料接口暂时失败不等于微信会话失效");
+	expect(globalProfile).toContain('status: "ready"');
+});
+
 test("native client restores a platform session through the current-user endpoint", async () => {
 	const client = await source("services/api-client.ts");
 	const page = await source("pages/index/index.ts");

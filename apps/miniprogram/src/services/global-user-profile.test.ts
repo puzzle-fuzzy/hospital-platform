@@ -314,6 +314,87 @@ describe("App 全局个人资料仓库", () => {
 		expect(requestCount).toBe(0);
 	});
 
+	test("普通资料暂时失败时仍允许当前 owner 主动授权微信资料", async () => {
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "profile-error-consent-token",
+			sessionStatus: "signed_in" as const,
+			userProfileConsentPromise: null as Promise<GlobalUserProfileState> | null,
+			userProfile: {
+				status: "error" as const,
+				ownerId: "owner-profile-error-consent-test",
+				sessionGeneration: getSessionGeneration(),
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "普通资料暂不可用",
+				error: "依赖暂时不可用",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		let updateRequestCount = 0;
+		runtime.wx = {
+			getStorageSync: () => undefined,
+			setStorageSync: () => undefined,
+			removeStorageSync: () => undefined,
+			getUserProfile: (options: WechatMiniprogram.GetUserProfileOption) => {
+				const success = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+				success?.({
+					userInfo: {
+						nickName: "资料故障时昵称",
+						avatarUrl: "https://wx.qlogo.cn/profile-error-consent/132",
+						gender: 1,
+						city: "",
+						country: "",
+						language: "zh_CN",
+						province: "",
+					},
+				});
+			},
+			request: (options: WechatMiniprogram.RequestOption) => {
+				if (options.url.endsWith("/me/profile")) updateRequestCount += 1;
+				const success = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+				success?.({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: {
+							displayName: "资料故障时昵称",
+							gender: "male",
+							age: null,
+							email: null,
+							version: 1,
+						},
+					},
+					header: {},
+				} as unknown);
+			},
+		} as unknown as typeof wx;
+
+		const state = await authorizeGlobalWechatProfile();
+
+		// `/me` 已确认 owner 后，普通资料 GET 的暂时失败不应吞掉用户的
+		// 明确授权手势；PUT 成功后全局状态也必须恢复为可用，而不是长期停留 error。
+		expect(state.status).toBe("ready");
+		expect(state.displayName).toBe("资料故障时昵称");
+		expect(state.avatarUrl).toBe(
+			"https://wx.qlogo.cn/profile-error-consent/132",
+		);
+		expect(state.wechatProfileState).toBe("ready");
+		expect(state.version).toBe(1);
+		expect(updateRequestCount).toBe(1);
+	});
+
 	test("资料读取期间会话代际变化时，旧资料不能回写", async () => {
 		let releaseProfile: ((result: unknown) => void) | undefined;
 		const generation = getSessionGeneration();

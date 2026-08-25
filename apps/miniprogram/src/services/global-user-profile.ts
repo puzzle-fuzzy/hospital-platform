@@ -189,6 +189,18 @@ function profileSessionChangedError(): ApiError {
 }
 
 /**
+ * 普通资料接口暂时失败不等于微信会话失效。
+ *
+ * `/me` 已经证明 owner 和会话代际后，即使 `/me/profile` 因持久化或网络
+ * 暂时不可用，用户仍然可以通过明确手势取得头像昵称。这里不能把 `error`
+ * 当成 `ready`，也不能把它一律当成未登录；授权结果先进入当前 owner 的
+ * 本机展示快照，服务端同步是否成功继续由独立的 PUT 结果决定。
+ */
+function canAuthorizeWechatProfile(state: GlobalUserProfileState): boolean {
+	return state.status === "ready" || state.status === "error";
+}
+
+/**
  * App 启动后的唯一资料读取入口。
  *
  * `restorePlatformSession` 会安全地恢复/建立微信平台会话，随后读取服务端
@@ -358,7 +370,7 @@ export function refreshGlobalUserProfile(): Promise<GlobalUserProfileState> {
 async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfileState> {
 	const current = getGlobalUserProfile();
 	if (
-		current.status !== "ready" ||
+		!canAuthorizeWechatProfile(current) ||
 		!current.ownerId ||
 		!isCurrentSessionGeneration(current.sessionGeneration)
 	) {
@@ -368,7 +380,9 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 	publishProfileState({
 		wechatProfileState: "loading",
 		wechatProfileHint: "正在获取头像和昵称...",
-		error: "",
+		// 普通资料读取失败只是可降级状态；授权过程中保留原错误，避免
+		// 页面把“资料服务暂时不可用”误认为已经恢复。
+		error: current.status === "error" ? current.error : "",
 	});
 	try {
 		const wechatProfile = await requestWechatUserProfile();
@@ -396,6 +410,7 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 					gender: wechatProfile.gender,
 				});
 				nextState = publishProfileState({
+					status: "ready",
 					serverDisplayName: response.data.displayName,
 					displayName: response.data.displayName,
 					gender: response.data.gender,
