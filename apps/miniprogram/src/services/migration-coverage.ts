@@ -38,6 +38,22 @@ export type MigrationBatchInfo = {
 	nextInput: string;
 };
 
+/**
+ * 入口的业务契约族。
+ *
+ * 批次表示迁移执行顺序，契约族表示这个入口最终要遵守的业务边界；
+ * 两者不能互相替代。例如报告云影像属于 E 批次，但仍然是 Provider
+ * 只读资源，不应因为进入外部队列就被当作普通 WebView 会话。
+ */
+export type MigrationContractFamily =
+	| "provider-read-only"
+	| "health-content"
+	| "patient-write"
+	| "clinical-content-write"
+	| "external-content"
+	| "external-session"
+	| "payment-write";
+
 export type MigrationCoverage = {
 	featureKey: FeatureKey;
 	feature: FeatureStatus;
@@ -51,6 +67,8 @@ export type MigrationCoverage = {
 	legacyPaths: ReadonlyArray<string>;
 	notes: ReadonlyArray<string>;
 	nativeTarget: string;
+	contractFamily: MigrationContractFamily;
+	contractFamilyLabel: string;
 	migrationBatch: MigrationBatchInfo;
 };
 
@@ -129,6 +147,66 @@ const MIGRATION_BATCH_BY_FEATURE_KEY: Readonly<
 	"electronic-bill": "F-payment-and-writeback",
 	"outpatient-payment-detail": "F-payment-and-writeback",
 	"outpatient-payment-write": "F-payment-and-writeback",
+});
+
+/**
+ * 逐入口契约族必须显式列出，不能从 readiness 文案或迁移批次推断。
+ *
+ * 这里的完整 Record 让新增 FeatureKey 在 TypeScript 编译期就暴露缺失
+ * 归属，防止页面出现“有状态、无边界”的泛化迁移提示。
+ */
+const MIGRATION_CONTRACT_FAMILY_BY_FEATURE_KEY: Readonly<
+	Record<FeatureKey, MigrationContractFamily>
+> = Object.freeze({
+	"admission-preconsultation": "clinical-content-write",
+	"appointment-detail": "provider-read-only",
+	"appointment-write": "payment-write",
+	"blood-appointment": "provider-read-only",
+	cashier: "payment-write",
+	companion: "external-session",
+	consultation: "external-session",
+	"discharge-followup": "clinical-content-write",
+	doctor: "provider-read-only",
+	"doctor-directory": "provider-read-only",
+	"electronic-consultation": "provider-read-only",
+	"electronic-bill": "payment-write",
+	"patient-agreement": "patient-write",
+	"patient-address": "patient-write",
+	"patient-qr": "patient-write",
+	"patient-signature": "patient-write",
+	"patient-subscription": "external-session",
+	"gift-banner": "external-content",
+	guide: "external-session",
+	"health-encyclopedia": "health-content",
+	"health-praise": "external-content",
+	"health-test": "clinical-content-write",
+	"inpatient-center": "provider-read-only",
+	"inpatient-payment": "payment-write",
+	insurance: "payment-write",
+	"medical-record": "provider-read-only",
+	"outpatient-payment-detail": "payment-write",
+	"outpatient-payment-write": "payment-write",
+	"patient-binding": "patient-write",
+	"pre-visit": "clinical-content-write",
+	"report-cloud-image": "provider-read-only",
+	"report-detail": "provider-read-only",
+	"report-peis": "provider-read-only",
+	"report-follow-up": "provider-read-only",
+	"report-share": "external-session",
+	"risk-evaluation": "clinical-content-write",
+	"smart-customer": "external-session",
+});
+
+const CONTRACT_FAMILY_LABELS: Readonly<
+	Record<MigrationContractFamily, string>
+> = Object.freeze({
+	"provider-read-only": "Provider 只读",
+	"health-content": "健康内容审核",
+	"patient-write": "患者写入",
+	"clinical-content-write": "临床内容与写入",
+	"external-content": "外部内容审核",
+	"external-session": "外部会话",
+	"payment-write": "支付与回写",
 });
 
 const MIGRATION_BATCH_INFO: Readonly<
@@ -261,6 +339,7 @@ export function getFeatureMigrationCoverage(
 	const domains = [...new Set(entries.map((entry) => entry.domain))];
 	const legacyPaths = entries.map((entry) => entry.legacyPath);
 	const notes = entries.map((entry) => entry.note);
+	const contractFamily = MIGRATION_CONTRACT_FAMILY_BY_FEATURE_KEY[featureKey];
 	return Object.freeze({
 		featureKey,
 		feature,
@@ -277,6 +356,8 @@ export function getFeatureMigrationCoverage(
 		notes: Object.freeze(notes),
 		nativeTarget:
 			entries[0]?.nativeTarget ?? "pages/feature-status/feature-status",
+		contractFamily,
+		contractFamilyLabel: CONTRACT_FAMILY_LABELS[contractFamily],
 		migrationBatch: MIGRATION_BATCH_INFO[migrationBatchId],
 	});
 }

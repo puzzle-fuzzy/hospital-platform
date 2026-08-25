@@ -62,7 +62,22 @@ describe("迁移入口覆盖聚合", () => {
 			expect(coverage.migrationBatch.id).toMatch(/^[A-F]-/u);
 			expect(coverage.migrationBatch.label.length).toBeGreaterThan(0);
 			expect(coverage.migrationBatch.nextInput.length).toBeGreaterThan(0);
+			expect(coverage.contractFamily).toBeTruthy();
+			expect(coverage.contractFamilyLabel.length).toBeGreaterThan(0);
 		}
+	});
+
+	test("契约族和迁移批次保持独立，避免把不同风险入口混为一谈", () => {
+		const patientQr = getFeatureMigrationCoverage("patient-qr");
+		const cloudImage = getFeatureMigrationCoverage("report-cloud-image");
+		const insurance = getFeatureMigrationCoverage("insurance");
+
+		expect(patientQr.migrationBatch.id).toBe("D-patient-and-convenience-write");
+		expect(patientQr.contractFamily).toBe("patient-write");
+		expect(cloudImage.migrationBatch.id).toBe("E-external-entry");
+		expect(cloudImage.contractFamily).toBe("provider-read-only");
+		expect(insurance.migrationBatch.id).toBe("F-payment-and-writeback");
+		expect(insurance.contractFamily).toBe("payment-write");
 	});
 
 	test("健康内容和支付入口不会混入同一迁移批次", () => {

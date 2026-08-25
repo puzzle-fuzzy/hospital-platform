@@ -16,6 +16,10 @@
 					<text class="feature-status-coverage-value">{{coverage.stageLabel}}</text>
 				</view>
 				<view class="feature-status-coverage-row">
+					<text>契约族</text>
+					<text class="feature-status-coverage-value">{{coverage.contractFamilyLabel}}</text>
+				</view>
+				<view class="feature-status-coverage-row">
 					<text>覆盖范围</text>
 					<text class="feature-status-coverage-value">{{coverage.coverageLabel}}</text>
 				</view>

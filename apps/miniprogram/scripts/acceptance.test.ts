@@ -156,6 +156,7 @@ test("native migration entries expose a typed blocking reason instead of a gener
 	expect(navigation).toContain('"待患者绑定 contract"');
 	expect(navigation).toContain('"待外部入口 contract"');
 	expect(statusPage).toContain("{{feature.readiness}}");
+	expect(statusPage).toContain("{{coverage.contractFamilyLabel}}");
 	expect(statusPage).not.toContain("功能迁移中</view>");
 
 	for (const page of [home, my]) {
