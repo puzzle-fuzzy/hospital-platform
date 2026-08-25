@@ -31,6 +31,16 @@ pnpm miniprogram:navigation:audit
 3. 固定字面量 URL 是否指向已注册页面；
 4. 主 Tab 是否只由 `switchTab` 打开，普通页面是否误用 `switchTab`。
 
+## 页面滚动边界
+
+所有已注册页面都必须在页面 JSON 中设置 `disableScroll: true`，并让根节点使用显式的
+`scroll-view`。四个主 Tab 使用 `tab-page-scroll`，其它业务页使用统一的
+`secondary-page-scroll`；级联科室、日期选择和弹层列表可以在内部保留独立的固定高度滚动。
+
+这样微信页面层不会再与业务内容层竞争滚动位置，底部原生 TabBar 也不会因为页面整体滚动
+而漂移或闪动。`tools/miniprogram-navigation-audit.mjs` 和小程序验收测试会同时检查这条
+规则，新增页面若退回页面级滚动会直接阻断检查。
+
 动态 URL 由具体导航服务的单元测试负责；本门禁不把 `feature-status` 的业务状态
 误判为已完成。Provider、支付、临床审核和患者绑定仍由各自 contract 门禁控制。
 

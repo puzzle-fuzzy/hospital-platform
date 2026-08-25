@@ -1,4 +1,5 @@
-<view class="hospital-list-page">
+<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<view class="hospital-list-page">
 	<!-- 旧页面的全宽红色提示，必须位于医院卡片之前。 -->
 	<view class="campus-warning">请确认就诊院区，选择对应的院区就诊！</view>
 
@@ -21,3 +22,4 @@
 		</view>
 	</view>
 </view>
+</scroll-view>

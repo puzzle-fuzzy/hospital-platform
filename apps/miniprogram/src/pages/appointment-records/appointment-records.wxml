@@ -1,4 +1,5 @@
-<view class="page">
+<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<view class="page">
 	<!-- 错误区域固定在页面最上方，网络异常时用户无需滚动查找原因。 -->
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
@@ -244,3 +245,4 @@
 	</view>
 
 </view>
+</scroll-view>

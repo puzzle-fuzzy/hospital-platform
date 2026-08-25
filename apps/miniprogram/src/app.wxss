@@ -33,6 +33,18 @@ page {
 	padding-bottom: calc(130rpx + env(safe-area-inset-bottom));
 }
 
+/*
+ * 非主 Tab 页面也关闭微信页面级滚动，避免页面根容器和业务列表同时
+ * 产生滚动边界。二级页面必须把内容放进这个明确的 scroll-view，业务
+ * 内部的级联、日期和弹层列表仍可按各自的固定高度独立滚动。
+ */
+.secondary-page-scroll {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100vh;
+	padding-bottom: env(safe-area-inset-bottom);
+}
+
 button::after {
 	border: 0;
 }

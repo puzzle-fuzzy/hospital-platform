@@ -1,4 +1,5 @@
-<view class="feedback-page">
+<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<view class="feedback-page">
 	<view class="contact-grid">
 		<view class="contact-card" bindtap="onFeedbackTap">
 			<view class="contact-card-inner">
@@ -41,3 +42,4 @@
 
 	<view class="bottom-space" />
 </view>
+</scroll-view>

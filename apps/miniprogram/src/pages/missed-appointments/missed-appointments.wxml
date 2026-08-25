@@ -1,4 +1,5 @@
-<view class="page">
+<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<view class="page">
 	<!-- 错误区域必须在页面最上方，网络异常时用户无需滚动查找原因。 -->
 	<view wx:if="{{error}}" class="error-message">{{error}}</view>
 
@@ -101,4 +102,5 @@
 	<view class="readonly-note">
 		本页面仅展示服务端预约记录中已确认的爽约状态，查询范围为过去 90 天；状态未知或服务异常时不会推断为爽约。
 	</view>
-</view>
+	</view>
+</scroll-view>

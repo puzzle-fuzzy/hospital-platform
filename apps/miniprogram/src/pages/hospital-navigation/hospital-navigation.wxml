@@ -1,4 +1,5 @@
-<view class="navigation-page">
+<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<view class="navigation-page">
 	<!-- 旧端只提供医院静态导览图，不伪造实时路径或科室接口。 -->
 	<image
 		class="navigation-map"
@@ -8,3 +9,4 @@
 		binderror="onMapError"
 	/>
 </view>
+</scroll-view>

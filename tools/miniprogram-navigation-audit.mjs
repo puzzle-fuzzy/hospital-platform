@@ -71,6 +71,31 @@ export async function auditMiniprogramNavigation(root = repositoryPath) {
 				failures.push(`注册页面缺少源文件：${pagePath}${suffix}`);
 			}
 		}
+
+		const pageConfig = JSON.parse(
+			await Bun.file(sourcePath(pagePath, ".json")).text(),
+		);
+		if (pageConfig.disableScroll !== true) {
+			failures.push(
+				`${pagePath}.json 必须关闭微信页面级滚动，统一由页面根 scroll-view 承担`,
+			);
+		}
+
+		const template = await Bun.file(sourcePath(pagePath, ".wxml")).text();
+		const firstElement = template.match(/<([a-z][\w-]*)\b[^>]*>/iu);
+		if (firstElement?.[1] !== "scroll-view") {
+			failures.push(
+				`${pagePath}.wxml 根节点必须是显式 scroll-view，禁止页面级滚动`,
+			);
+		} else if (
+			!firstElement[0].includes('scroll-y="true"') ||
+			!firstElement[0].includes('class="') ||
+			!firstElement[0].match(/class="[^"]*scroll[^"]*"/u)
+		) {
+			failures.push(
+				`${pagePath}.wxml 根 scroll-view 必须声明 scroll-y=true 和明确的 *scroll 样式类`,
+			);
+		}
 	}
 
 	for (const item of tabBarItems) {

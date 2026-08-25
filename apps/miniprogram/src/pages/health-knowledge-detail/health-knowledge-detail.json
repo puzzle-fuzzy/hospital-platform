@@ -2,5 +2,6 @@
 	"navigationBarTitleText": "健康百科详情",
 	"navigationBarBackgroundColor": "#ffffff",
 	"navigationBarTextStyle": "black",
-	"backgroundColor": "#f8f8f8"
+	"backgroundColor": "#f8f8f8",
+	"disableScroll": true
 }

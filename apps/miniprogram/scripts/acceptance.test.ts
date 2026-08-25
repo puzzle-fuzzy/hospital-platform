@@ -1659,6 +1659,38 @@ test("native primary tabs keep scrolling inside the content viewport", async () 
 	}
 });
 
+test("native secondary pages keep scrolling inside one explicit content viewport", async () => {
+	const app = JSON.parse(await source("app.json")) as {
+		pages: string[];
+	};
+	const appStyle = await source("app.wxss");
+	const tabPages = new Set(
+		(
+			JSON.parse(await source("app.json")) as {
+				tabBar?: { list?: Array<{ pagePath: string }> };
+			}
+		).tabBar?.list?.map((item) => item.pagePath) ?? [],
+	);
+
+	// 主 Tab 与二级页面都必须关闭微信默认的页面级滚动；前者使用共享
+	// tab-page-scroll，后者使用统一的 secondary-page-scroll。这样用户只会
+	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
+	expect(app.pages).toHaveLength(20);
+	expect(appStyle).toContain(".secondary-page-scroll {");
+	for (const pagePath of app.pages) {
+		const template = await source(`${pagePath}.wxml`);
+		const pageConfig = JSON.parse(await source(`${pagePath}.json`)) as {
+			disableScroll?: boolean;
+		};
+		const expectedClass = tabPages.has(pagePath) ? "tab-page-scroll" : "scroll";
+
+		expect(pageConfig.disableScroll).toBe(true);
+		expect(template.trimStart().startsWith("<scroll-view")).toBe(true);
+		expect(template).toContain('scroll-y="true"');
+		expect(template).toMatch(new RegExp(`class="[^"]*${expectedClass}`));
+	}
+});
+
 test("native profile clears stale fields after session ownership is lost", async () => {
 	const page = await source("pages/profile/profile.ts");
 	const saveStart = page.indexOf("onSave(): Promise<void>");
