@@ -87,7 +87,7 @@
 ## 2026-08-26 当前执行补充
 
 > 本轮继续只修改新项目；当前小程序功能候选为 `e01796d`，最新本地运行输入/pending 候选为 `e01796d9b22d92cba4cb8492835f18d0323bb5c9`，
-> 已完成原生 tabBar 运行包重建、全局启动资料初始化、授权点击修复、未迁移入口统一状态页、首页悬浮客服入口收口、预约/报告/门诊缴费/新增就诊人二级动作状态路由、就诊预约记录未来/历史摘要的 8 条分批展示、健康百科分类级空态修复、互联网医院安全壳迁移分类修正、全局资料授权跨 bundle 单飞、首页二维码入口状态路由、跨会话授权拒绝状态保护、健康知识错误码契约、未知/过期入口错误语义、迁移入口覆盖视图、7 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳、候选构建和小程序 `293 pass / 0 fail / 3378 expect()`；候选目前因开发者工具锁定 `dist/` 暂存 pending，上一候选 custom-tab-bar 在真机未呈现，已撤回。全局用户资料仓库同时完成多 Tab 单飞和冻结快照引用一致性回归。
+> 已完成原生 tabBar 运行包重建、全局启动资料初始化、授权点击修复、未迁移入口统一状态页、首页悬浮客服入口收口、预约/报告/门诊缴费/新增就诊人二级动作状态路由、就诊预约记录未来/历史摘要的 8 条分批展示、健康百科分类级空态修复、互联网医院安全壳迁移分类修正、全局资料授权跨 bundle 单飞、首页二维码入口状态路由、跨会话授权拒绝状态保护、健康知识错误码契约、未知/过期入口错误语义、迁移入口覆盖视图、健康自测 BMI/血压安全数值子集、临床内容/外部入口/预约 Provider 页面外壳、候选构建和小程序 `297 pass / 0 fail / 3390 expect()`；候选目前因开发者工具锁定 `dist/` 暂存 pending，上一候选 custom-tab-bar 在真机未呈现，已撤回。全局用户资料仓库同时完成多 Tab 单飞和冻结快照引用一致性回归。
 > 预约记录页补齐了一个业务不变量：患者会话或显式就诊人失效后，切换“在线挂号/全部挂号”
 > 必须携带用户刚点击的范围重新查询，不能让标签状态和服务端读取范围短暂错配。
 
@@ -655,7 +655,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | 旧页面组 | 页面范围 | 当前状态 | 迁移方式 |
 | --- | --- | --- | --- |
 | 健康百科/药品 | `health_encyclopedia`、`disease_detail`、`drug_detail`、`search_result` | 新端已挂载受保护的版本化只读路由和原生页面；无 published bundle 时 fail-closed | 只迁移审核后的版本化内容；不能直接复制旧数据库正文 |
-| 健康自测 | `health_test`、`self_test_question`、`self_test_result`、BMI/血压计算 | 未迁移 | 题目、分值和结果必须版本化并经临床复核；BMI/血压计算还需确认适用人群、阈值、输入边界和免责声明；先不开放自动风险判断，详见 [`health-calculator-contract-draft.md`](health-calculator-contract-draft.md) |
+| 健康自测 | `health_test`、`self_test_question`、`self_test_result`、BMI/血压计算 | BMI/血压安全数值子集已迁移 | 题目、分值和结果必须版本化并经临床复核；当前只做 BMI 公式和血压读数校验，不开放适用人群、阈值、风险判断或结果写入，详见 [`health-calculator-contract-draft.md`](health-calculator-contract-draft.md) |
 | 风险评估 | `risk_self_evaluation`、`risk_form_*` | 未迁移 | 题目、分值、风险分级和建议必须版本化并经临床复核；未知版本拒绝写入，不能把客户端风险结论当权威；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 预问诊/随访 | `pre_visit`、`admission_preconsultation`、`discharge_followup*` | 未迁移 | 旧端按原始 `pat_id` 和 JSON 数组保存，且不同表单可能按 `(user_id, pat_id)` 互相覆盖；必须先绑定预约/住院/随访任务、问卷版本、患者授权、幂等和医护读取权限；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 电子锦旗/表扬信 | `list_*`、`gift_*`、`record_*` | 未迁移 | 旧端可提交伪造的患者/医生/就诊字段，且 `display_type=1` 不等于已审核公开；必须完成内容安全、审核、脱敏展示、撤回和幂等；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |

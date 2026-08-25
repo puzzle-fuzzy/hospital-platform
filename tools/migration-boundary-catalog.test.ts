@@ -119,4 +119,20 @@ describe("全量阻断业务域准入目录", () => {
 				?.safeReadOnlyTarget,
 		).toBe("pages/patient-agreement/patient-agreement");
 	});
+
+	test("健康自测只允许显式声明的安全数值子集进入 partial", () => {
+		const gate = FROZEN_DOMAIN_GATE_CATALOG.find(
+			(item) => item.id === "health-test",
+		);
+
+		// 题库、风险评估和结果页仍然必须停留在 surface-only；
+		// 只有已经通过代码边界证明不产生临床结论的两个旧入口可以 partial。
+		expect(gate?.safePartialPaths).toEqual([
+			"pagesB/health/blood_pressure_calc.vue",
+			"pagesB/health/bmi_calc.vue",
+		]);
+		expect(gate?.safePartialPaths).not.toContain(
+			"pagesB/health/self_test_result.vue",
+		);
+	});
 });

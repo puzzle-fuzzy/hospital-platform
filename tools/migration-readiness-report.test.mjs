@@ -9,8 +9,8 @@ describe("全项目迁移 readiness 报告", () => {
 		);
 
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
-		expect(report.entryCoverage.nativePageCount).toBe(21);
-		expect(report.entryCoverage.legacy.blockedPageCount).toBe(38);
+		expect(report.entryCoverage.nativePageCount).toBe(40);
+		expect(report.entryCoverage.legacy.blockedPageCount).toBe(7);
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
 			domainCount: 34,
 			legacyEntryCount: 39,
@@ -18,8 +18,8 @@ describe("全项目迁移 readiness 报告", () => {
 			coveredEntryCount: 52,
 			actionFeatureKeyCount: 16,
 			uncoveredActionFeatureKeys: [],
-			featureStatusCallCount: 31,
-			featureStatusFeatureKeyCount: 27,
+			featureStatusCallCount: 14,
+			featureStatusFeatureKeyCount: 14,
 			uncoveredFeatureStatusKeys: [],
 			passed: true,
 		});
@@ -27,8 +27,8 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.entryCoverage.frozenBoundary.batchCoverage).toMatchObject([
 			{
 				batchId: "A-readonly-evidence",
-				gateCount: 3,
-				legacyEntryCount: 2,
+				gateCount: 4,
+				legacyEntryCount: 3,
 				legacyActionCount: 2,
 			},
 			{
@@ -45,8 +45,8 @@ describe("全项目迁移 readiness 报告", () => {
 			},
 			{
 				batchId: "D-patient-and-convenience-write",
-				gateCount: 12,
-				legacyEntryCount: 23,
+				gateCount: 11,
+				legacyEntryCount: 22,
 				legacyActionCount: 1,
 			},
 			{
@@ -68,7 +68,7 @@ describe("全项目迁移 readiness 报告", () => {
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
 			),
-		).toMatchObject({ pageCount: 34, blockedPageCount: 27 });
+		).toMatchObject({ pageCount: 34, blockedPageCount: 5 });
 		expect(
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "首页",
@@ -78,7 +78,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationBreadth.passed).toBe(true);
 		expect(report.migrationBreadth.pages).toHaveLength(2);
 		expect(report.migrationBreadth.tabBarPageCount).toBe(4);
-		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(21);
+		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(40);
 		expect(report.migrationBreadth.interactionAudit.failures).toEqual([]);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.semanticStateCount).toBe(35);
@@ -94,7 +94,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.clinicalContract.passed).toBe(true);
 		expect(report.contractIntake).toMatchObject({
 			laneCount: 3,
-			coveredFeatureKeyCount: 24,
+			coveredFeatureKeyCount: 23,
 			duplicatedFeatureKeys: [],
 			uncoveredFeatureKeys: [],
 			businessReady: false,
@@ -110,7 +110,7 @@ describe("全项目迁移 readiness 报告", () => {
 			{
 				batchId: "D-patient-and-convenience-write",
 				status: "awaiting-formal-contract",
-				gateCount: 12,
+				gateCount: 11,
 				businessReady: false,
 			},
 			{
@@ -160,10 +160,10 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[1].reviewedBundlePresent).toBe(false);
 		expect(report.migrationQueue[1].businessReady).toBe(false);
 		expect(report.migrationQueue[2].codeReady).toBe(false);
-		expect(report.migrationQueue[3].blockedPageCount).toBe(3);
-		expect(report.migrationQueue[4].blockedPageCount).toBe(3);
+		expect(report.migrationQueue[3].blockedPageCount).toBe(0);
+		expect(report.migrationQueue[4].blockedPageCount).toBe(0);
 		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
-		expect(report.migrationQueue[0].frozenGateCount).toBe(3);
+		expect(report.migrationQueue[0].frozenGateCount).toBe(4);
 		expect(report.migrationQueue[2].frozenGateCount).toBe(4);
 		expect(report.migrationQueue[2]).toMatchObject({
 			contractIntakeStatus: "awaiting-formal-contract",
@@ -171,7 +171,7 @@ describe("全项目迁移 readiness 报告", () => {
 			contractRequiredEvidenceCount: 6,
 			contractImplementationStepCount: 7,
 		});
-		expect(report.migrationQueue[3].frozenGateCount).toBe(12);
+		expect(report.migrationQueue[3].frozenGateCount).toBe(11);
 		expect(report.migrationQueue[3]).toMatchObject({
 			contractIntakeStatus: "awaiting-formal-contract",
 			contractBusinessReady: false,

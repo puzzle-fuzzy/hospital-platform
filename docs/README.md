@@ -109,12 +109,12 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前发布基线（2026-08-26）为：线上服务端仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，当前本地 pending 运行输入为
-`5493659ead8a70fcc9a2ad6ad4619a155b8a362a`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
+`e01796d9b22d92cba4cb8492835f18d0323bb5c9`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
 pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成当前候选业务证据；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 当前运行包规则（2026-08-26）：pending 候选的 `build-info.json.sourceRevision` 必须与显式构建输入一致；当前为
-`5493659ead8a70fcc9a2ad6ad4619a155b8a362a`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
+`e01796d9b22d92cba4cb8492835f18d0323bb5c9`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
 `runtime:verify`，再把 `dist/` 导入开发者工具；该来源校验只证明包一致，不增加微信登录、患者、Provider 或真机业务证据。
 针对 `single-flight.test.js` 的 ENOENT 仍按运行包门禁处理：运行包不允许含测试 JS，工具报错时应关闭工具释放
 `dist/` 文件句柄后重开正确项目。
@@ -141,9 +141,9 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上服务端仍为 `8eb51b5f`，线上历史小程序包为 `13f597e`，最新本地 pending 候选为 `3b42b86`，当前 live `dist` 为 `fcc6630e` |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上服务端仍为 `8eb51b5f`，线上历史小程序包为 `13f597e`，最新本地 pending 候选为 `e01796d`，当前 live `dist` 为 `fcc6630e` |
 | [`migration/patient-agreement-static-migration-2026-08-26.md`](migration/patient-agreement-static-migration-2026-08-26.md) | 使用条款静态迁移、旧端无接口核对、协议同意 contract 的关闭边界和本候选验证记录 |
-| [`release/candidate-3b42b86-miniprogram-runtime-2026-08-26.md`](release/candidate-3b42b86-miniprogram-runtime-2026-08-26.md) | 当前 21 页面 pending 运行包、协议静态页迁移、dist 锁定保护和真机证据入口 |
+| [`release/candidate-e01796d-miniprogram-runtime-2026-08-26.md`](release/candidate-e01796d-miniprogram-runtime-2026-08-26.md) | 当前 40 页面 pending 运行包、全量入口覆盖、dist 锁定保护和真机证据入口 |
 | [`release/current-readonly-business-audit-2026-08-25.md`](release/current-readonly-business-audit-2026-08-25.md) | 当前只读业务迁移审计、服务器共存核对、未注册能力和下一步真实证据顺序 |
 | [`release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md`](release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md) | 历史小程序 pending 候选的旧端 64 页面广度迁移台账、17 页运行包、就诊记录分批展示、测试和 EBUSY 发布边界 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
@@ -498,7 +498,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/candidate-8bc649f-miniprogram-runtime-2026-08-25.md`](release/candidate-8bc649f-miniprogram-runtime-2026-08-25.md) | 历史 `8bc649f` 小程序 20 页面 pending 构建、依赖隔离、测试脚本隔离和 `dist` 锁定保护证据；当前候选为 `a6319d7` |
 | [`release/candidate-296516a5-miniprogram-runtime-2026-08-25.md`](release/candidate-296516a5-miniprogram-runtime-2026-08-25.md) | 历史小程序代码提交 `296516a5` 的 pending 构建和 `dist` 锁定保护证据，仅作追溯 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
-| [`migration/miniprogram-navigation-boundary.md`](migration/miniprogram-navigation-boundary.md) | 小程序 20 个页面落点、404 防护和四个原生主 Tab 共享底栏门禁 |
+| [`migration/miniprogram-navigation-boundary.md`](migration/miniprogram-navigation-boundary.md) | 小程序 40 个页面落点、404 防护和四个原生主 Tab 共享底栏门禁 |
 | [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 40 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md`](migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md) | 旧端“就诊”实时消息/预约历史/叫号链路与互联网医院 WebView 的事实审计、契约缺口和停止条件 |
 | [`migration/medical-record-and-hospital-boundary.md`](migration/medical-record-and-hospital-boundary.md) | 门诊病历、住院、医院列表和院内导航的旧接口审计与 contract 边界 |

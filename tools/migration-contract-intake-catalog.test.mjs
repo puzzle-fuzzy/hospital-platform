@@ -13,15 +13,15 @@ describe("C/D/E 契约材料入口", () => {
 		expect(report).toMatchObject({
 			schemaVersion: 1,
 			laneCount: 3,
-			coveredFeatureKeyCount: 24,
+			coveredFeatureKeyCount: 23,
 			duplicatedFeatureKeys: [],
 			uncoveredFeatureKeys: [],
 			businessReady: false,
 			failures: [],
 			passed: true,
 		});
-		expect(report.lanes.map((lane) => lane.gateCount)).toEqual([4, 12, 8]);
-		expect(report.featureIntakeRows).toHaveLength(24);
+		expect(report.lanes.map((lane) => lane.gateCount)).toEqual([4, 11, 8]);
+		expect(report.featureIntakeRows).toHaveLength(23);
 		expect(report.lanes[0].featureKeys).not.toContain("consultation");
 		expect(report.lanes[2].featureKeys).toContain("consultation");
 		expect(buildFeatureContractIntakeRows()).toEqual(report.featureIntakeRows);

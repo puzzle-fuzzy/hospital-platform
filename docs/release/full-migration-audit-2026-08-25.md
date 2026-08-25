@@ -3,6 +3,10 @@
 > 本文回答“还有哪些没有迁移、下一步先做什么”，不把页面能打开误记为业务完成。
 > 审计对象是新项目 `hospital-platform`；旧 Python 服务、旧数据库、旧 Redis 和线上旧进程不在本轮修改范围。
 
+> **当前候选纠正（2026-08-26）**：当前源码和 pending 运行包均以 `e01796d` 为准，共 40 个原生页面，回归为
+> `297 pass / 0 fail / 3390 expect()`；旧 live `dist` 仍为 `fcc6630e` 且被微信开发者工具锁定。旧页面统计为
+> `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。本文下方早期候选数字只作历史交接。
+
 ## 1. 结论先行
 
 当前迁移已经完成入口覆盖，但没有完成全部真实业务迁移。
@@ -10,8 +14,8 @@
 | 层次 | 当前事实 | 结论 |
 | --- | --- | --- |
 | 旧页面盘点 | 64/64 个旧页面进入机器台账 | 没有发现漏登记页面 |
-| 原生运行入口 | 20 个页面已注册；四个主入口共用微信原生 `tabBar` | 不应再出现这批入口的 404 |
-| 安全状态承接 | 39 个高风险页面进入固定 `FeatureKey` 状态页 | 这是安全关闭，不是业务完成 |
+| 原生运行入口 | 40 个页面已注册；四个主入口共用微信原生 `tabBar` | 不应再出现这批入口的 404 |
+| 安全状态承接 | 34 个冻结 gate 覆盖 39 个旧页面入口和 13 个 action-only 引用 | 这是安全关闭，不是业务完成 |
 | 低风险业务代码 | 患者、预约、报告、门诊费用、普通资料 5 个域具备代码闭环 | 仍缺当前候选的真机/公网/Provider 三层证据 |
 | 健康百科 | 服务端和页面代码已具备 | 没有正式审核 bundle，继续 fail-closed |
 | 临床只读 | 门诊病历、住院、医生关系、问诊/电子导诊均已登记 | Provider contract 未确认，不能注册真实 API |
@@ -27,25 +31,25 @@
 
 ```text
 pnpm migration:audit
-  通过：64 个旧页面、20 个新页面、195 个旧服务路由、87 个旧端接口字面量
+  通过：64 个旧页面、40 个新页面、195 个旧服务路由、87 个旧端接口字面量
 
 pnpm migration:boundary:audit
-  通过：14 个冻结高风险业务域全部有统一状态页和 FeatureKey
+  通过：34 个冻结入口 gate、39 个旧页面入口和 13 个 action-only 引用全部有统一状态页和 FeatureKey
 
 pnpm docs:audit
-  通过：700 个 Markdown 文档无断链
+  通过：751 个 Markdown 文档无断链
 
 pnpm format:check / pnpm lint / pnpm typecheck
   全部通过
 
 小程序定向回归
-  264 pass / 0 fail / 2535 expect()
+  297 pass / 0 fail / 3390 expect()
 ```
 
 ### 当前仍然阻断发布的事实
 
 1. `apps/miniprogram/dist/` 仍被微信开发者工具占用，pending 运行包不能原子替换 live 目录；旧 live 包必须保留，不能清空目录硬发。
-2. 当前 pending 小程序来源为 `7bc5956`、20 页；当前 live dist 来源为 `fcc6630e`、16 页；两者不能混用验收。
+2. 当前 pending 小程序来源为 `e01796d`、40 页；当前 live dist 来源为 `fcc6630e`、16 页；两者不能混用验收。
 3. P0 发布基线审计发现线上服务端 release 后存在未部署的运行时代码，其中包含另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts`；本会话不修改、不暂存、不部署该文件。
 4. 发布基线审计已从 API 普通单元测试中拆出，统一由 `pnpm check`、`pnpm release:baseline:audit` 和工具测试执行；普通业务单元测试不再启动真实 Git 审计，但发布门禁仍严格要求 `passed=true`。
 
