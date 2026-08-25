@@ -129,7 +129,7 @@
 | 优先级 | 当前动作 | 放行条件 | 当前决定 |
 | --- | --- | --- | --- |
 | P0 | 恢复受控发布链 | 阿里云 SSH 可用；服务端候选可在不停止旧 Python `8001` 的情况下切换；公网 live/ready、旧端口和新端口均有证据 | 已完成：线上 `8eb51b5f` 已稳定运行，切换后 runtime smoke 通过；旧 Python `8001` 继续共存 |
-| P1 | 真机只读与普通资料受控验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用、普通资料 GET 分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据；普通资料 PUT/409 仅使用明确授权的可恢复测试值 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地未发布候选运行输入为 `ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`；`dist` 原子发布仍受开发者工具锁定，pending 运行包校验已通过，但显式患者切换、页面截图、预约历史、门诊费用和普通资料三层证据仍待，真实写入尚未执行，详见 [`../release/next-readonly-business-acceptance-plan-2026-08-26.md`](../release/next-readonly-business-acceptance-plan-2026-08-26.md) |
+| P1 | 真机只读与普通资料受控验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用、普通资料 GET 分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据；普通资料 PUT/409 仅使用明确授权的可恢复测试值 | 当前进行中：线上真机配套运行包为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地未发布候选运行输入为 `dee4803fb94ad50c59c9ef8fda996bc0f37427c6`；`dist` 原子发布仍受开发者工具锁定，pending 运行包校验已通过，但显式患者切换、页面截图、预约历史、门诊费用和普通资料三层证据仍待，真实写入尚未执行，详见 [`../release/next-readonly-business-acceptance-plan-2026-08-26.md`](../release/next-readonly-business-acceptance-plan-2026-08-26.md) |
 | P2 | 门诊病历、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 继续保持未注册或迁移提示；不写兼容转发、不猜 `patId`/卡号用途。二维码停止条件详见 [`patient-qr-contract-audit-2026-08-24.md`](patient-qr-contract-audit-2026-08-24.md) |
 | P3 | 微信支付、医保授权、结算、退款和 HIS 写回 | 金额/状态机、授权、回调/查单、幂等、回滚及真实沙箱/生产验收全部冻结 | 最后处理；当前已统一关闭支付运行闸门，订单/预支付/通知不会访问仓储或 provider；只读费用列表不能触发支付或医保流程 |
 
