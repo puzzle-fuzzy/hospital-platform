@@ -127,18 +127,16 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/disease_detail.vue",
 			domain: "健康",
-			status: "blocked-clinical",
-			nativeTarget: "pages/feature-status/feature-status",
-			featureKey: "health-encyclopedia",
-			note: "疾病内容等待临床审核、版本和下线审计。",
+			status: "partial",
+			nativeTarget: "pages/health-knowledge-detail/health-knowledge-detail",
+			note: "已迁移审核内容详情只读页面；真实 bundle 发布、临床审核和下线审计仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/drug_detail.vue",
 			domain: "健康",
-			status: "blocked-clinical",
-			nativeTarget: "pages/feature-status/feature-status",
-			featureKey: "health-encyclopedia",
-			note: "药品内容和疾病关联等待临床审核与来源版本。",
+			status: "partial",
+			nativeTarget: "pages/health-knowledge-detail/health-knowledge-detail",
+			note: "已迁移审核内容药品详情只读页面；不构成处方或个体化用药建议。",
 		},
 		{
 			legacyPath: "pagesB/health/electronic_bill.vue",
@@ -183,10 +181,9 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/health_encyclopedia.vue",
 			domain: "健康",
-			status: "blocked-clinical",
-			nativeTarget: "pages/feature-status/feature-status",
-			featureKey: "health-encyclopedia",
-			note: "旧库内容已完成只读盘点和源快照，临床审核前不挂载。",
+			status: "partial",
+			nativeTarget: "pages/health-encyclopedia/health-encyclopedia",
+			note: "已迁移症状/疾病目录只读页面；无审核发布 bundle 时由服务端和页面共同关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/health_test.vue",
@@ -332,10 +329,9 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/search_result.vue",
 			domain: "健康",
-			status: "blocked-clinical",
-			nativeTarget: "pages/feature-status/feature-status",
-			featureKey: "health-encyclopedia",
-			note: "搜索只能建立在审核后的内容 bundle 和索引之上。",
+			status: "partial",
+			nativeTarget: "pages/health-knowledge-search/health-knowledge-search",
+			note: "已迁移症状关联疾病只读结果；查询仅使用审核 bundle，搜索索引和内容发布仍受版本闸门控制。",
 		},
 		{
 			legacyPath: "pagesB/health/self_test_question.vue",

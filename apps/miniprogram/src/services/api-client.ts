@@ -5,6 +5,11 @@ import type {
 	AppointmentScheduleListResponse,
 	AuthSessionResponse,
 	CurrentUserResponse,
+	HealthKnowledgeCatalogResponse,
+	HealthKnowledgeDiseaseDetailResponse,
+	HealthKnowledgeDiseaseListResponse,
+	HealthKnowledgeDrugDetailResponse,
+	HealthKnowledgeSymptomListResponse,
 	OutpatientPaymentListResponse,
 	PatientListResponse,
 	ReportDetailResponse,
@@ -1213,6 +1218,91 @@ export function requestAppointmentDepartments(): Promise<AppointmentDepartmentLi
 		url: "/appointments/departments",
 	}).then((payload) =>
 		requireSuccessDataResponse<AppointmentDepartmentListResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/**
+ * 读取已审核发布的健康百科目录。
+ *
+ * 页面不能把旧库快照或本地 fixture 当作内容；没有发布版本时服务端会
+ * fail-closed，客户端只展示可重试的内容不可用状态，不渲染伪造空结果。
+ */
+export function requestHealthKnowledgeCatalog(
+	kind: "part" | "crowd" | "department",
+): Promise<HealthKnowledgeCatalogResponse> {
+	return requestWithSession<unknown>({
+		url: `/knowledge/health/${kind}/list`,
+	}).then((payload) =>
+		requireSuccessDataResponse<HealthKnowledgeCatalogResponse["data"]>(payload),
+	);
+}
+
+/** 读取指定身体部位的症状目录；symptom id 只用于后续服务端查询。 */
+export function requestHealthSymptomsByPart(
+	partId: string,
+): Promise<HealthKnowledgeSymptomListResponse> {
+	return requestWithSession<unknown>({
+		url: `/knowledge/health/symptoms/list/part/${encodeURIComponent(partId)}`,
+	}).then((payload) =>
+		requireSuccessDataResponse<HealthKnowledgeSymptomListResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/** 按已审核目录关系读取疾病摘要，不把 provider 参数传入小程序。 */
+export function requestHealthDiseasesByRelation(
+	kind: "part" | "crowd" | "department",
+	id: string,
+): Promise<HealthKnowledgeDiseaseListResponse> {
+	return requestWithSession<unknown>({
+		url: `/knowledge/health/disease/list/${kind}/${encodeURIComponent(id)}`,
+	}).then((payload) =>
+		requireSuccessDataResponse<HealthKnowledgeDiseaseListResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/** 根据已选择症状查询疾病摘要；服务端负责版本一致性和数量上限。 */
+export function requestHealthDiseasesBySymptoms(
+	symptomIds: readonly string[],
+): Promise<HealthKnowledgeDiseaseListResponse> {
+	const query = symptomIds
+		.map((symptomId) => `symptomIds=${encodeURIComponent(symptomId)}`)
+		.join("&");
+	return requestWithSession<unknown>({
+		url: `/knowledge/health/disease/list/symptoms?${query}`,
+	}).then((payload) =>
+		requireSuccessDataResponse<HealthKnowledgeDiseaseListResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/** 读取疾病详情；药品引用必须由详情页再次通过服务端查询。 */
+export function requestHealthDiseaseDetail(
+	diseaseId: string,
+): Promise<HealthKnowledgeDiseaseDetailResponse> {
+	return requestWithSession<unknown>({
+		url: `/knowledge/health/disease/detail/${encodeURIComponent(diseaseId)}`,
+	}).then((payload) =>
+		requireSuccessDataResponse<HealthKnowledgeDiseaseDetailResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/** 读取药品详情；页面必须保留免责声明，不把内容渲染为处方建议。 */
+export function requestHealthDrugDetail(
+	drugId: string,
+): Promise<HealthKnowledgeDrugDetailResponse> {
+	return requestWithSession<unknown>({
+		url: `/knowledge/health/drug/detail/${encodeURIComponent(drugId)}`,
+	}).then((payload) =>
+		requireSuccessDataResponse<HealthKnowledgeDrugDetailResponse["data"]>(
 			payload,
 		),
 	);

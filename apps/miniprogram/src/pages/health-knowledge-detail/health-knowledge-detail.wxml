@@ -1,0 +1,42 @@
+<scroll-view class="knowledge-detail-scroll" scroll-y="true" enhanced="true">
+	<view class="knowledge-detail-page">
+		<view class="knowledge-detail-state" wx:if="{{state === 'loading'}}">正在加载详情…</view>
+		<view class="knowledge-detail-state knowledge-detail-error" wx:elif="{{state === 'error'}}">{{errorMessage}}</view>
+		<view wx:else>
+			<view class="knowledge-detail-hero">
+				<text class="knowledge-detail-title">{{kind === 'drug' ? drug.drugName : disease.diseaseName}}</text>
+				<text class="knowledge-detail-subtitle" wx:if="{{kind === 'disease' && disease.treatmentDepartment}}">就诊科室：{{disease.treatmentDepartment}}</text>
+				<text class="knowledge-detail-subtitle" wx:if="{{kind === 'drug' && drug.chineseName}}">{{drug.chineseName}}</text>
+			</view>
+			<view class="knowledge-detail-meta">内容版本 {{publicationVersion}} · {{disclaimer}}</view>
+
+			<view wx:if="{{kind === 'disease'}}">
+				<view class="knowledge-detail-card">
+					<view class="knowledge-detail-row" wx:if="{{disease.diseaseAlias}}"><text>别名</text><text>{{disease.diseaseAlias}}</text></view>
+					<view class="knowledge-detail-row" wx:if="{{disease.affectedPart}}"><text>发病部位</text><text>{{disease.affectedPart}}</text></view>
+					<view class="knowledge-detail-row" wx:if="{{disease.susceptibleCrowd}}"><text>多发人群</text><text>{{disease.susceptibleCrowd}}</text></view>
+					<view class="knowledge-detail-row" wx:if="{{disease.availableDrugs.length > 0}}"><text>关联药品</text><view class="knowledge-drug-list"><text class="knowledge-drug-chip {{item.isClickable ? 'knowledge-drug-clickable' : ''}}" wx:for="{{disease.availableDrugs}}" wx:key="drugName" data-id="{{item.drugId}}" bindtap="onDrugTap">{{item.drugName}}</text></view></view>
+				</view>
+				<view class="knowledge-detail-section" wx:if="{{disease.cause}}"><view class="knowledge-section-title">病因</view><text>{{disease.cause}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{disease.symptoms}}"><view class="knowledge-section-title">症状</view><text>{{disease.symptoms}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{disease.examination}}"><view class="knowledge-section-title">检查</view><text>{{disease.examination}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{disease.prevention}}"><view class="knowledge-section-title">预防</view><text>{{disease.prevention}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{disease.treatment}}"><view class="knowledge-section-title">治疗</view><text>{{disease.treatment}}</text></view>
+			</view>
+
+			<view wx:else>
+				<view class="knowledge-detail-card">
+					<view class="knowledge-detail-row" wx:if="{{drug.manufacturer}}"><text>生产厂家</text><text>{{drug.manufacturer}}</text></view>
+					<view class="knowledge-detail-row" wx:if="{{drug.specifications}}"><text>规格</text><text>{{drug.specifications}}</text></view>
+					<view class="knowledge-detail-row" wx:if="{{drug.treatableDiseases}}"><text>相关疾病</text><text>{{drug.treatableDiseases}}</text></view>
+				</view>
+				<view class="knowledge-detail-section" wx:if="{{drug.indications}}"><view class="knowledge-section-title">适应症</view><text>{{drug.indications}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{drug.usageDosage}}"><view class="knowledge-section-title">用法用量</view><text>{{drug.usageDosage}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{drug.adverseReactions}}"><view class="knowledge-section-title">不良反应</view><text>{{drug.adverseReactions}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{drug.contraindications}}"><view class="knowledge-section-title">禁忌</view><text>{{drug.contraindications}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{drug.interactions}}"><view class="knowledge-section-title">相互作用</view><text>{{drug.interactions}}</text></view>
+				<view class="knowledge-detail-section" wx:if="{{drug.precautions}}"><view class="knowledge-section-title">注意事项</view><text>{{drug.precautions}}</text></view>
+			</view>
+		</view>
+	</view>
+</scroll-view>

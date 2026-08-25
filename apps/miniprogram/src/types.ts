@@ -5,6 +5,11 @@ import type {
 	AuthSessionPayload,
 	CurrentUserPayload,
 	HealthPayload,
+	HealthKnowledgeCatalogResponsePayload,
+	HealthKnowledgeDiseaseDetailResponsePayload,
+	HealthKnowledgeDiseaseListResponsePayload,
+	HealthKnowledgeDrugDetailResponsePayload,
+	HealthKnowledgeSymptomListResponsePayload,
 	OutpatientPaymentListPayload,
 	PatientListPayload,
 	ReportDetailPayload,
@@ -37,6 +42,16 @@ export type ApiRequestOptions = {
 };
 
 export type HealthResponse = HealthPayload;
+export type HealthKnowledgeCatalogResponse =
+	HealthKnowledgeCatalogResponsePayload;
+export type HealthKnowledgeDiseaseListResponse =
+	HealthKnowledgeDiseaseListResponsePayload;
+export type HealthKnowledgeSymptomListResponse =
+	HealthKnowledgeSymptomListResponsePayload;
+export type HealthKnowledgeDiseaseDetailResponse =
+	HealthKnowledgeDiseaseDetailResponsePayload;
+export type HealthKnowledgeDrugDetailResponse =
+	HealthKnowledgeDrugDetailResponsePayload;
 export type AuthSessionResponse = AuthSessionPayload;
 export type CurrentUserResponse = CurrentUserPayload;
 export type PatientListResponse = PatientListPayload;
@@ -87,6 +102,18 @@ export type ReportDirectoryView = Report & {
 };
 export type ReportDetail = ReportDetailResponse["data"];
 export type LaboratoryReportItem = ReportDetail["items"][number];
+
+/** 健康百科目录项的页面模型；排序和分组只发生在小程序展示层。 */
+export type HealthKnowledgeCatalogItem =
+	HealthKnowledgeCatalogResponse["data"]["items"][number];
+export type HealthKnowledgeSymptomItem =
+	HealthKnowledgeSymptomListResponse["data"]["items"][number];
+export type HealthKnowledgeDiseaseSummary =
+	HealthKnowledgeDiseaseListResponse["data"]["items"][number];
+export type HealthKnowledgeDiseaseDetail =
+	HealthKnowledgeDiseaseDetailResponse["data"]["item"];
+export type HealthKnowledgeDrugDetail =
+	HealthKnowledgeDrugDetailResponse["data"]["item"];
 /** 检验明细的页面显示模型；服务端枚举只在客户端边界转换为患者可读文案。 */
 export type LaboratoryReportItemView = LaboratoryReportItem & {
 	flagLabel: string;

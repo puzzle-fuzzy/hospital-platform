@@ -1,0 +1,17 @@
+<scroll-view class="knowledge-search-scroll" scroll-y="true" enhanced="true">
+	<view class="knowledge-search-page">
+		<view class="knowledge-search-header">症状查找结果</view>
+		<view class="knowledge-search-meta" wx:if="{{disclaimer}}">内容版本 {{publicationVersion}} · {{disclaimer}}</view>
+		<view class="knowledge-search-state" wx:if="{{state === 'loading'}}">正在查找疾病…</view>
+		<view class="knowledge-search-state knowledge-search-error" wx:elif="{{state === 'error'}}">{{errorMessage}}</view>
+		<view class="knowledge-search-state" wx:elif="{{state === 'empty'}}">暂无匹配疾病</view>
+		<view wx:else>
+			<view class="knowledge-disease-card" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="onDiseaseTap">
+				<view class="knowledge-disease-title">{{item.name}}</view>
+				<view class="knowledge-disease-department" wx:if="{{item.treatmentDepartment}}">就诊科室：{{item.treatmentDepartment}}</view>
+				<view class="knowledge-disease-symptoms" wx:if="{{item.symptoms}}">相关症状：{{item.symptoms}}</view>
+				<text class="knowledge-arrow">›</text>
+			</view>
+		</view>
+	</view>
+</scroll-view>

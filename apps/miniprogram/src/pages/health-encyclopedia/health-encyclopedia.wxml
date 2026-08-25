@@ -1,0 +1,66 @@
+<scroll-view class="knowledge-scroll" scroll-y="true" enhanced="true">
+	<view class="knowledge-page">
+		<view class="knowledge-hero">
+			<image class="knowledge-hero-icon" src="/assets/legacy-home/service-encyclopedia.svg" mode="aspectFit" />
+			<view class="knowledge-hero-copy">
+				<text class="knowledge-hero-title">查疾病？找症状</text>
+				<text class="knowledge-hero-subtitle">百科小助手为您服务</text>
+			</view>
+		</view>
+
+		<view class="knowledge-tabs">
+			<view class="knowledge-tab {{activeTab === 'symptom' ? 'knowledge-tab-active' : ''}}" data-tab="symptom" bindtap="onTabChange">症状</view>
+			<view class="knowledge-tab {{activeTab === 'disease' ? 'knowledge-tab-active' : ''}}" data-tab="disease" bindtap="onTabChange">疾病</view>
+		</view>
+
+		<view class="knowledge-disclaimer" wx:if="{{disclaimer}}">内容版本 {{publicationVersion}} · {{disclaimer}}</view>
+
+		<view class="knowledge-state" wx:if="{{state === 'loading'}}"><text>正在加载健康百科…</text></view>
+		<view class="knowledge-state knowledge-state-error" wx:elif="{{state === 'error'}}">
+			<text>{{errorMessage}}</text>
+			<button class="knowledge-retry" size="mini" bindtap="onRetry">重新加载</button>
+		</view>
+		<view class="knowledge-state" wx:elif="{{state === 'empty'}}"><text>暂无已发布内容</text></view>
+
+		<view class="knowledge-body" wx:else>
+			<view class="knowledge-mode-tabs" wx:if="{{activeTab === 'disease'}}">
+				<view class="knowledge-mode {{diseaseMode === 'part' ? 'knowledge-mode-active' : ''}}" data-mode="part" bindtap="onDiseaseModeChange">按部位</view>
+				<view class="knowledge-mode {{diseaseMode === 'crowd' ? 'knowledge-mode-active' : ''}}" data-mode="crowd" bindtap="onDiseaseModeChange">按人群</view>
+				<view class="knowledge-mode {{diseaseMode === 'department' ? 'knowledge-mode-active' : ''}}" data-mode="department" bindtap="onDiseaseModeChange">按科室</view>
+			</view>
+			<view class="knowledge-columns">
+				<scroll-view class="knowledge-left" scroll-y="true">
+					<view wx:for="{{leftItems}}" wx:key="id" class="knowledge-left-item {{item.id === selectedLeftId ? 'knowledge-left-item-active' : ''}}" data-id="{{item.id}}" bindtap="onLeftItemTap">{{item.name}}</view>
+				</scroll-view>
+				<scroll-view class="knowledge-right" scroll-y="true">
+					<view wx:if="{{activeTab === 'symptom'}}">
+						<view wx:for="{{rightItems}}" wx:key="id" class="knowledge-right-item" data-id="{{item.id}}" bindtap="onSymptomTap">
+							<text class="knowledge-item-name">{{item.name}}</text>
+							<text class="knowledge-check" wx:if="{{selectedSymptomIds.indexOf(item.id) >= 0}}">已选</text>
+						</view>
+					</view>
+					<view wx:else>
+						<view wx:for="{{rightItems}}" wx:key="id" class="knowledge-right-item" data-id="{{item.id}}" bindtap="onDiseaseTap">
+							<view>
+								<text class="knowledge-item-name">{{item.name}}</text>
+								<text class="knowledge-item-extra" wx:if="{{item.treatmentDepartment}}">{{item.treatmentDepartment}}</text>
+							</view>
+							<text class="knowledge-arrow">›</text>
+						</view>
+					</view>
+					<view class="knowledge-inline-empty" wx:if="{{rightItems.length === 0}}">暂无该分类内容</view>
+				</scroll-view>
+			</view>
+
+			<view class="knowledge-selected" wx:if="{{activeTab === 'symptom'}}">
+				<view class="knowledge-selected-title">已选症状（{{selectedSymptoms.length}}）</view>
+				<scroll-view class="knowledge-selected-scroll" scroll-x="true">
+					<view class="knowledge-chip" wx:for="{{selectedSymptoms}}" wx:key="id" data-id="{{item.id}}">
+						<text>{{item.name}}</text><text class="knowledge-chip-remove" data-id="{{item.id}}" bindtap="onRemoveSymptom">×</text>
+					</view>
+				</scroll-view>
+				<button class="knowledge-search-button {{selectedSymptoms.length > 0 ? 'knowledge-search-button-active' : ''}}" bindtap="onSearchSymptoms">开始查找</button>
+			</view>
+		</view>
+	</view>
+</scroll-view>

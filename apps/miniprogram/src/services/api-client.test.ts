@@ -12,6 +12,12 @@ import {
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
+	requestHealthDiseasesByRelation,
+	requestHealthDiseasesBySymptoms,
+	requestHealthDiseaseDetail,
+	requestHealthKnowledgeCatalog,
+	requestHealthSymptomsByPart,
+	requestHealthDrugDetail,
 } from "./api-client";
 import {
 	clearApiRequestObservations,
@@ -598,6 +604,60 @@ test("真实请求会把旧缓存前缀回退到当前地址对应的公共版�
 		globalData.apiBaseUrl = "http://127.0.0.1:3000";
 		await request({ url: "/health/live" });
 		expect(requestUrls.at(-1)).toBe("http://127.0.0.1:3000/api/v1/health/live");
+	} finally {
+		testGlobal.getApp = previousGetApp;
+		testGlobal.wx = previousWx;
+	}
+});
+
+test("健康百科客户端只通过平台 API 构造版本化只读路径", async () => {
+	type TestGlobal = typeof globalThis & {
+		getApp: (() => unknown) | undefined;
+		wx: unknown;
+	};
+	type RequestOptions = {
+		url: string;
+		success: (response: unknown) => void;
+	};
+	const testGlobal = globalThis as TestGlobal;
+	const previousGetApp = testGlobal.getApp;
+	const previousWx = testGlobal.wx;
+	const requestUrls: string[] = [];
+
+	testGlobal.getApp = () => ({
+		globalData: {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "health-session-001",
+			sessionStatus: "signed_in",
+		},
+	});
+	testGlobal.wx = {
+		getStorageSync: () => "",
+		request: (options: RequestOptions) => {
+			requestUrls.push(
+				new URL(options.url).pathname + new URL(options.url).search,
+			);
+			options.success({ statusCode: 200, data: { success: true, data: {} } });
+		},
+	};
+
+	try {
+		await requestHealthKnowledgeCatalog("part");
+		await requestHealthSymptomsByPart("part/001");
+		await requestHealthDiseasesByRelation("department", "dept/001");
+		await requestHealthDiseasesBySymptoms(["symptom 1", "symptom/2"]);
+		await requestHealthDiseaseDetail("disease/001");
+		await requestHealthDrugDetail("drug/001");
+
+		expect(requestUrls).toEqual([
+			"/api/v2/knowledge/health/part/list",
+			"/api/v2/knowledge/health/symptoms/list/part/part%2F001",
+			"/api/v2/knowledge/health/disease/list/department/dept%2F001",
+			"/api/v2/knowledge/health/disease/list/symptoms?symptomIds=symptom%201&symptomIds=symptom%2F2",
+			"/api/v2/knowledge/health/disease/detail/disease%2F001",
+			"/api/v2/knowledge/health/drug/detail/drug%2F001",
+		]);
 	} finally {
 		testGlobal.getApp = previousGetApp;
 		testGlobal.wx = previousWx;

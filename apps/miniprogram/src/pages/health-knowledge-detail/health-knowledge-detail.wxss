@@ -1,0 +1,18 @@
+.knowledge-detail-scroll { height: 100vh; background: #f8f8f8; }
+.knowledge-detail-page { min-height: 100%; padding-bottom: 40rpx; color: #222; }
+.knowledge-detail-state { min-height: 700rpx; display: flex; align-items: center; justify-content: center; color: #999; font-size: 28rpx; }
+.knowledge-detail-error { color: #d45b5b; }
+.knowledge-detail-hero { padding: 34rpx 28rpx 28rpx; background: linear-gradient(135deg, #eef4ff, #fff); }
+.knowledge-detail-title { display: block; font-size: 38rpx; font-weight: 600; }
+.knowledge-detail-subtitle { display: block; margin-top: 12rpx; color: #777; font-size: 26rpx; }
+.knowledge-detail-meta { padding: 16rpx 24rpx; color: #888; background: #fff; font-size: 22rpx; line-height: 34rpx; }
+.knowledge-detail-card, .knowledge-detail-section { margin-top: 18rpx; padding: 24rpx; background: #fff; }
+.knowledge-detail-row { display: flex; align-items: flex-start; margin-bottom: 22rpx; color: #222; font-size: 28rpx; line-height: 42rpx; }
+.knowledge-detail-row:last-child { margin-bottom: 0; }
+.knowledge-detail-row > text:first-child { width: 170rpx; flex-shrink: 0; color: #777; }
+.knowledge-detail-row > text:last-child { flex: 1; text-align: left; }
+.knowledge-drug-list { display: flex; flex-wrap: wrap; gap: 12rpx; flex: 1; }
+.knowledge-drug-chip { padding: 6rpx 14rpx; border-radius: 8rpx; color: #999; background: #f5f5f5; font-size: 25rpx; }
+.knowledge-drug-clickable { color: #3d6df6; background: #f2f5ff; }
+.knowledge-detail-section { color: #444; font-size: 28rpx; line-height: 46rpx; white-space: pre-line; }
+.knowledge-section-title { margin-bottom: 10rpx; color: #222; font-size: 30rpx; font-weight: 600; }

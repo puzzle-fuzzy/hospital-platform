@@ -621,7 +621,9 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureStatus("health-test");
 				break;
 			case "health-encyclopedia":
-				navigateToFeatureStatus("health-encyclopedia");
+				wx.navigateTo({
+					url: "/pages/health-encyclopedia/health-encyclopedia",
+				});
 				break;
 			case "gift-banner":
 				navigateToFeatureStatus("gift-banner");

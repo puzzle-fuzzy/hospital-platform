@@ -1,0 +1,10 @@
+.knowledge-search-scroll { height: 100vh; background: #f8f8f8; }
+.knowledge-search-page { min-height: 100%; padding: 24rpx; box-sizing: border-box; }
+.knowledge-search-header { margin-bottom: 16rpx; color: #222; font-size: 34rpx; font-weight: 600; }
+.knowledge-search-meta { margin-bottom: 20rpx; padding: 16rpx; border-radius: 10rpx; color: #888; background: #fff; font-size: 22rpx; line-height: 34rpx; }
+.knowledge-search-state { min-height: 500rpx; display: flex; align-items: center; justify-content: center; color: #999; font-size: 28rpx; }
+.knowledge-search-error { color: #d45b5b; }
+.knowledge-disease-card { position: relative; margin-bottom: 18rpx; padding: 24rpx 56rpx 24rpx 24rpx; border-radius: 16rpx; background: #fff; box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, .04); }
+.knowledge-disease-title { color: #222; font-size: 32rpx; }
+.knowledge-disease-department, .knowledge-disease-symptoms { margin-top: 10rpx; color: #888; font-size: 25rpx; line-height: 38rpx; }
+.knowledge-arrow { position: absolute; top: 50%; right: 22rpx; transform: translateY(-50%); color: #9aa1ad; font-size: 42rpx; }
