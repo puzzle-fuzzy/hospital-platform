@@ -1,7 +1,7 @@
 > 当前服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（提交 `8eb51b5f`）；线上小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。两者是有意分层发布，不能互相替代。
 
-> 当前本地最新候选为 `093e112e4ea5e4406924f84b6cc708e2ab1a386b`。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src/`/`scripts/` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性、可见 action 分发回归和 `dist` 独立运行工程一致性纳入门禁。
-> `093e112e` 已完成 staging 构建并通过类型检查、页面入口、旧端 64 页面台账、action 分发回归和运行包静态门禁，但微信开发者工具锁定了当前 `dist/`，候选暂存于 `.local/hospital-miniprogram/pending/`；当前可运行 `dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。候选均不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。
+> 当前本地最新候选为 `485c0892e6850e43d09443ca6eecd539eea503d8`。项目固定使用微信原生 `tabBar`，四个主入口、普通图标和选中图标只在 `app.json.tabBar.list` 声明一次；页面不渲染 `custom-tab-bar`，也不手动同步 selected。当前候选继续把开发者工具 watcher 根、`src/`/`scripts/` 源码监听隔离、运行包来源日志、81×81 图标尺寸门禁、当前 Tab 重复导航 no-op、主 Tab 前四项注册约束、预约标签重载范围一致性、可见 action 分发回归和 `dist` 独立运行工程一致性纳入门禁。
+> `485c0892` 已完成 staging 构建并通过类型检查、页面入口、旧端 64 页面台账、action 分发回归和运行包静态门禁，但微信开发者工具锁定了当前 `dist/`，候选暂存于 `.local/hospital-miniprogram/pending/`；当前可运行 `dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。候选均不包含 `custom-tab-bar/`、`*.test.js` 或 `*.spec.js`。
 > 当前本地源码的 `app.json` 已注册 17 个页面，四个主入口由微信原生 TabBar 统一固定在窗口底部；这个数字不应与线上历史运行包 `13f597e` 的 14 页记录混用。
 > 这份本地候选不能替代线上 `13f597e`，
 > 也不能产生当前真机三层业务证据。
@@ -10,17 +10,17 @@
 
 # 剩余迁移盘点与下一步计划
 
-> 当前事实源（2026-08-25，优先于下方历史交接）：最新小程序候选为 `093e112e4ea5e4406924f84b6cc708e2ab1a386b`，位于 `.local/hospital-miniprogram/pending/`；
+> 当前事实源（2026-08-25，优先于下方历史交接）：最新小程序候选为 `485c0892e6850e43d09443ca6eecd539eea503d8`，位于 `.local/hospital-miniprogram/pending/`；
 > 当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因为开发者工具锁定目录尚未发布。本轮小程序回归为
-> `255 pass / 0 fail / 2398 expect()`；`c4dc00b9`、`b3436c24`、`90d5ab03` 等版本仅作历史交接。
+> `256 pass / 0 fail / 2426 expect()`；`c4dc00b9`、`b3436c24`、`90d5ab03` 等版本仅作历史交接。
 
 > 本候选新增旧端 64 页面逐页机器台账和缺失状态入口，不改变线上服务或旧项目；候选详情见
-> [`../release/candidate-093e112e-breadth-page-catalog-2026-08-25.md`](../release/candidate-093e112e-breadth-page-catalog-2026-08-25.md)。
+> [`../release/candidate-485c0892-breadth-migration-gate-2026-08-25.md`](../release/candidate-485c0892-breadth-migration-gate-2026-08-25.md)。
 
 
 ## 2026-08-25 患者中心审计补充
 
-本轮完成首页患者卡片、患者选择、旧端二维码和新增就诊人流程的只读对照，并继续补齐首页/服务/“我的”可见入口的 action 分发门禁；最新小程序代码候选为 `093e112e`，
+本轮完成首页患者卡片、患者选择、旧端二维码和新增就诊人流程的只读对照，并继续补齐首页/服务/“我的”可见入口的 action 分发门禁；最新小程序代码候选为 `485c0892`，
 小程序测试为 `250 pass / 0 fail / 2041 expect()`；候选构建已确认 17 个页面脚本完整，待发布到被锁定的 `dist/` 后再生成真机入口。旧端二维码实际使用
 `medicalCardNo` 调用第三方二维码图片服务，不能从代码注释推断为医院所需的 `patId`；新版二维码继续保持关闭，
 不把完整卡号、身份证号、HIS `patId` 或 `thirdPatientId` 放进小程序或第三方 URL。旧端新增就诊人存在查档异常继续建档、
@@ -43,7 +43,7 @@
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`（提交 `0e2a366e`）；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本段仅作追溯。
 
 
-> 当前本地最新小程序来源校验值：`093e112e4ea5e4406924f84b6cc708e2ab1a386b`，候选暂存于 pending；被开发者工具锁定的当前 `dist/` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。线上配套小程序仍为 `13f597ea9ee3f65b9be858117826d948339d904a`；线上服务端 release：`8eb51b5ffe85b0b8f8a032783f893117d3df549d`。两者为有意分层发布，不要求同源。
+> 当前本地最新小程序来源校验值：`485c0892e6850e43d09443ca6eecd539eea503d8`，候选暂存于 pending；被开发者工具锁定的当前 `dist/` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。线上配套小程序仍为 `13f597ea9ee3f65b9be858117826d948339d904a`；线上服务端 release：`8eb51b5ffe85b0b8f8a032783f893117d3df549d`。两者为有意分层发布，不要求同源。
 
 > 历史发布基线（2026-08-22 18:55 CST）：服务端当时为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源
 > `4ba492a3fdae8283409bd2ab4a0a45247c46600c`。P0 运行层切换已完成，P1 真机/Provider 三层证据仍未完成。
