@@ -3,6 +3,8 @@
 
 # 项目文档导航
 
+> **最新事实源（2026-08-25，优先于本页旧候选段落）**：小程序候选为 `99c7e8fd76bd7b38de50d1c5cfdbc7002cba4a15`，pending 已生成 20 个页面脚本；小程序回归为 `259 pass / 0 fail / 2445 expect()`。当前 live `dist` 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因微信开发者工具锁定未发布。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前保持 fail-closed。候选记录见 [`release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md`](release/candidate-99c7e8fd-health-knowledge-breadth-gate-2026-08-25.md)。
+
  > 当前小程序候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本候选已完成旧端 64 页面逐页迁移台账、可见入口状态收口、“就诊”主 Tab 患者栏迁移，以及未来/历史预约摘要的 8 条分批展开；因开发者工具占用 live `dist/` 尚未原子发布，详见 [`release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md`](release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md)。
 
  > 当前 live `dist/build-info.json.sourceRevision` 仍为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；新候选 `baa31df0` 已在 pending staging 中完成 17 个页面脚本、类型检查、旧端 64 页面台账、迁移状态路由回归和就诊记录分批展示回归。开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包；释放目录后必须重新发布并生成二维码。此前 `c4dc00b9`、`b3436c24`、`90d5ab03`、`485c0892` 及更早候选仅作历史追溯。
