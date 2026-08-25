@@ -109,12 +109,12 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前发布基线（2026-08-26）为：线上服务端仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，当前本地 pending 运行输入为
-`c7220d733b95d393030af9826c2ca305a7fc1f8e`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
+`dee4803fb94ad50c59c9ef8fda996bc0f37427c6`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
 pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成当前候选业务证据；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 当前运行包规则（2026-08-26）：pending 候选的 `build-info.json.sourceRevision` 必须与显式构建输入一致；当前为
-`ed20c525de0f0ae0ed3b047b95b7365b39c4dec9`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
+`dee4803fb94ad50c59c9ef8fda996bc0f37427c6`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
 `runtime:verify`，再把 `dist/` 导入开发者工具；该来源校验只证明包一致，不增加微信登录、患者、Provider 或真机业务证据。
 针对 `single-flight.test.js` 的 ENOENT 仍按运行包门禁处理：运行包不允许含测试 JS，工具报错时应关闭工具释放
 `dist/` 文件句柄后重开正确项目。
@@ -499,6 +499,7 @@ pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成�
 | [`release/candidate-8bc649f-miniprogram-runtime-2026-08-25.md`](release/candidate-8bc649f-miniprogram-runtime-2026-08-25.md) | 历史 `8bc649f` 小程序 20 页面 pending 构建、依赖隔离、测试脚本隔离和 `dist` 锁定保护证据；当前候选为 `dee4803f` |
 | [`release/candidate-296516a5-miniprogram-runtime-2026-08-25.md`](release/candidate-296516a5-miniprogram-runtime-2026-08-25.md) | 历史小程序代码提交 `296516a5` 的 pending 构建和 `dist` 锁定保护证据，仅作追溯 |
 | [`migration/legacy-page-matrix.md`](migration/legacy-page-matrix.md) | 64 个旧端页面的逐页状态、风险和下一步边界 |
+| [`migration/readonly-surface-logic-audit-2026-08-26.md`](migration/readonly-surface-logic-audit-2026-08-26.md) | 五个低风险业务域的横向逻辑审计、会话/就诊人/状态/日志共用不变量和 A–F 并行迁移队列 |
 | [`migration/miniprogram-navigation-boundary.md`](migration/miniprogram-navigation-boundary.md) | 小程序 40 个页面落点、404 防护和四个原生主 Tab 共享底栏门禁 |
 | [`migration/native-page-migration-status.md`](migration/native-page-migration-status.md) | 以 `app.json` 为事实源的 40 个原生页面业务状态、边界和下一步门禁 |
 | [`migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md`](migration/consult-and-internet-hospital-boundary-audit-2026-08-25.md) | 旧端“就诊”实时消息/预约历史/叫号链路与互联网医院 WebView 的事实审计、契约缺口和停止条件 |

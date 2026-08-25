@@ -23,7 +23,7 @@
 > 当前小程序会话/导航门禁（2026-08-25，本地未部署）：患者范围 GET 收到 `503 persistence-temporarily-unavailable` 时保留 token、不重新登录、不重放旧 `patientId`；主 Tab 程序化入口强制使用 `switchTab`，当前 Tab 重复导航会 no-op，底栏由微信原生 `tabBar` 统一维护，会话恢复期间患者卡片只显示固定占位。本轮最新候选回归为 `307 pass / 0 fail / 3511 expect()`，运行包来源为 `dee4803f` pending；今日预约摘要只展示预约事实，不展示实时叫号，快递和采血预约页只展示旧端真实空态，电子锦旗和健康表扬信只展示安全关闭态；临床/服务入口和我的问诊共享当前就诊人上下文；真机页面证据仍待。
 > 当前日志链路审计（2026-08-24，服务端已随 `8eb51b5f` 部署）：小程序每个 `wx.request` 生成独立 `x-request-id`，服务端归一化后由 Pino HTTP 事件、业务 service 和 Provider 低敏 request id 共用同一 `traceId`；请求/响应正文、Authorization、患者身份和 Provider 原文均不进入日志。API 日志/错误定向回归 `27/27`、requestId/traceId 回归 `7/7`、`pnpm logging:audit` 的 84 个事件登记均通过。真机日志关联仍待；详见 [`release/observability-chain-audit-2026-08-24.md`](release/observability-chain-audit-2026-08-24.md)。
 
-> 当前服务端与小程序尚未完成 pending 候选切换：线上服务端 release 为 `8eb51b5f`，线上历史小程序运行包来源为 `13f597e`，本地 pending 为 `ed20c52`；旧 Python `8001` 继续共存。释放 `dist` 锁并发布 pending 后，才开始当前候选的真机业务三层证据，不把运行层 smoke 当作业务完成。
+> 当前服务端与小程序尚未完成 pending 候选切换：线上服务端 release 为 `8eb51b5f`，线上历史小程序运行包来源为 `13f597e`，本地 pending 为 `dee4803f`；旧 Python `8001` 继续共存。释放 `dist` 锁并发布 pending 后，才开始当前候选的真机业务三层证据，不把运行层 smoke 当作业务完成。
 
 > 历史候选刷新（2026-08-22）：服务端 release 曾为 `0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序运行包来源为 `4ba492a3fdae8283409bd2ab4a0a45247c46600c`（提交 `4ba492a`）。本行仅作追溯，不能覆盖上方当前 `13f597ea` 的线上边界。
 
