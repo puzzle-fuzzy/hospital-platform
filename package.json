@@ -11,7 +11,7 @@
 	"scripts": {
 		"architecture:audit": "bun tools/architecture-audit.mjs",
 		"build": "turbo run build",
-		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm readonly:audit && pnpm provider:audit && pnpm docs:audit && pnpm logging:audit && pnpm release:baseline:audit && pnpm format:check && pnpm lint && pnpm test:tools && pnpm typecheck && pnpm test && pnpm build",
+		"check": "pnpm architecture:audit && pnpm migration:audit && pnpm migration:boundary:audit && pnpm readonly:audit && pnpm provider:audit && pnpm docs:audit && pnpm logging:audit && pnpm release:baseline:audit && pnpm format:check && pnpm lint && pnpm test:tools && pnpm typecheck && pnpm test && pnpm build",
 		"db:integration": "pnpm --filter @hospital/persistence integration",
 		"db:migrate": "pnpm --filter @hospital/persistence migrate",
 		"db:schema": "pnpm --filter @hospital/persistence schema",
@@ -25,6 +25,7 @@
 		"lint": "biome lint .",
 		"logging:audit": "bun tools/logging-event-audit.mjs",
 		"migration:audit": "bun tools/migration-inventory-audit.mjs",
+		"migration:boundary:audit": "bun tools/migration-boundary-audit.mjs",
 		"provider:audit": "bun tools/provider-intake-audit.mjs",
 		"readonly:audit": "bun tools/read-only-domain-audit.mjs",
 		"provider:smoke:secure": "bun tools/provider-smoke-secure.ts",
