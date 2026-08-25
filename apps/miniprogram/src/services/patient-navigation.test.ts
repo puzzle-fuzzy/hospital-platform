@@ -4,6 +4,7 @@ import {
 	navigateToAuthenticatedPage,
 	navigateToMissedAppointmentsPage,
 	navigateToPatientSelector,
+	syncPrimaryTabSelected,
 	resolveAuthenticatedEntry,
 	resolvePatientScopedEntry,
 	switchToPrimaryTab,
@@ -31,7 +32,7 @@ describe("会话验证入口门禁", () => {
 	});
 });
 
-describe("微信原生 Tab 路由边界", () => {
+describe("微信共享 custom Tab 路由边界", () => {
 	test("主 Tab 只使用 switchTab，普通业务页不被误判", () => {
 		const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
 		const originalWx = runtime.wx;
@@ -113,6 +114,36 @@ describe("微信原生 Tab 路由边界", () => {
 				runtime.wx = originalWx;
 			} else {
 				delete runtime.wx;
+			}
+		}
+	});
+
+	test("主 Tab onShow 只同步同一个 custom-tab-bar 实例", () => {
+		const runtime = globalThis as typeof globalThis & {
+			getCurrentPages?: () => Array<{
+				getTabBar?: () => { syncSelectedTab(): void };
+			}>;
+		};
+		const originalGetCurrentPages = runtime.getCurrentPages;
+		let syncCalls = 0;
+		runtime.getCurrentPages = () => [
+			{
+				getTabBar: () => ({
+					syncSelectedTab: () => {
+						syncCalls += 1;
+					},
+				}),
+			},
+		];
+
+		try {
+			syncPrimaryTabSelected(3);
+			expect(syncCalls).toBe(1);
+		} finally {
+			if (originalGetCurrentPages) {
+				runtime.getCurrentPages = originalGetCurrentPages;
+			} else {
+				delete runtime.getCurrentPages;
 			}
 		}
 	});

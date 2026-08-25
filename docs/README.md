@@ -3,11 +3,11 @@
 
 # 项目文档导航
 
-> 当前本地候选（2026-08-25）：运行包来源为 `7fc22fae975d207d66cd248de01ac0287492f800`，本轮切回微信原生 TabBar；四个入口只由 `app.json.tabBar.list` 声明，页面不渲染自定义底栏，也不维护第二份 selected 状态。运行包已原子发布到 `apps/miniprogram/dist/`，预览二维码为 `.local/hospital-miniprogram/tabbar-native-preview-7fc22fa.png`，真机仍需重新普通编译验收。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前本地候选：底栏切换修正后需要重新构建。四个入口由微信官方 `custom-tab-bar` 共享组件统一渲染，切换锁防止旧页面生命周期覆盖选中态；运行包必须重新发布到 `apps/miniprogram/dist/` 后再真机验收。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
 
-> 当前本地候选：`dist/build-info.json.sourceRevision=7fc22fae975d207d66cd248de01ac0287492f800`，16 个页面脚本完整，`runtime:verify` 已通过。四个主入口使用微信原生 TabBar，运行包不包含 `custom-tab-bar/`；当前只能打开 `apps/miniprogram/dist/`。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前本地候选：底栏源码已切换为共享 `custom-tab-bar`，待重新构建后以 `dist/build-info.json` 的完整来源指纹为准。开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
 
-> 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的线上 `13f597e`、本地 `7fc22fae` 和最新原生 TabBar 手册，不能使用旧二维码、旧 `dist/` 或旧自定义底栏说明。
+> 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的新构建运行包和最新共享底栏手册，不能使用旧二维码、旧 `dist/` 或旧底栏说明。
 
 > 当前本地候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，16 个页面脚本完整，`runtime:verify` 和小程序 `238 pass / 0 fail / 1909 expect()` 已通过。本轮继续把开发者工具 watcher 根与 `src/`/`scripts/` 源码隔离，并恢复微信原生共享 `tabBar`；该候选仍未上传微信或替换线上 `13f597e`，真机验收必须直接打开 `apps/miniprogram/dist/` 独立工程并普通编译，详见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。
 > 本轮又针对主 Tab 闪动和选中态消失重新生成独立运行配置、关闭并重新打开 `dist/` 工程，重新构建和校验运行包；动作与现场验收要求见 [`release/current-tabbar-runtime-recheck-2026-08-24.md`](release/current-tabbar-runtime-recheck-2026-08-24.md)。

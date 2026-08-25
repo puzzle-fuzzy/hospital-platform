@@ -1,6 +1,6 @@
 # Native WeChat Mini Program
 
-> 当前运行包：本轮切回微信原生 TabBar。四个主入口由 `app.json.tabBar.list` 唯一声明，选中图标由微信按当前 Tab 自动维护；真机验收必须直接打开 `apps/miniprogram/dist/`。
+> 当前运行包：本轮恢复微信官方 `custom-tab-bar` 共享组件。四个主入口由唯一的底栏数据源渲染，切换锁保证选中态不被旧页面生命周期覆盖；真机验收必须直接打开 `apps/miniprogram/dist/`。
 
 ## Visual baseline
 
@@ -55,8 +55,8 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` 的独立运行工程；父目录是构建工程，
 `src/` 不是可直接编译的微信项目。2026-08-24 的本机
 历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
-选中态消失时，不能再增加页面级底栏或自定义 selected 状态。本轮使用微信原生 TabBar，
-由平台统一持有底栏和选中资源；源码和运行包均只保留一份 `app.json.tabBar.list`。
+选中态消失时，不能再增加页面级底栏或第二份 selected 状态。本轮使用微信官方 custom-tab-bar，
+由一个共享组件持有底栏和选中资源；旧页面路由在切换锁期间不能覆盖新选中态。
 当前最新运行输入以
 `dist/build-info.json` 的完整 `sourceRevision` 为准；本轮为避免开发者工具继续命中
 旧的 Tab 图标增量缓存，普通态/选中态资源路径使用独立的 `*-native-v6.png` 文件名，
@@ -65,16 +65,16 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 `81×81` PNG；真实手机选中态仍需重新普通编译后复核。若工具标题或控制台来源 revision 不符合本候选，
 先关闭错误工程并按上述缓存步骤重开，再进行真机预览。
 
-四个主入口使用微信原生 TabBar，四项路由、图标、选中图标和顺序唯一声明在
-`src/app.json.tabBar.list` 中，并显式设置 `custom: false`、`position: bottom`；
-页面代码不渲染底栏，也不维护第二份 selected 状态。
+四个主入口使用微信官方 custom-tab-bar，四项路由、图标、选中图标和顺序唯一声明在
+`src/constants/legacy-tabbar.ts` 中，并显式设置 `custom: true`、`position: bottom`；
+页面代码不渲染第二份底栏，也不维护第二份 selected 状态。
 这四个页面同时固定为 `src/app.json.pages` 的前四项；这是运行入口的结构约束，
 不是页面展示顺序偏好，避免开发者工具增量编译时把“我的”识别成普通页面。
 页面 WXML 不得复制一份底栏；业务侧只允许用 `switchTab`，避免把主 Tab 压入普通页面栈。
 业务代码若需要程序化打开主 Tab，必须调用 `src/services/patient-navigation.ts` 的
 `switchToPrimaryTab`（内部使用 `wx.switchTab`，当前页目标会安全 no-op），普通业务页才使用 `wx.navigateTo`。
-主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；原生底栏由微信固定在窗口底部，
-页面不再额外预留自定义底栏高度，因此只有内容区域滚动。
+主 Tab 页面使用 `disableScroll: true` 和独立 `scroll-view`；共享底栏固定在窗口底部，
+统一的 `padding-bottom` 只属于内容滚动区域，因此只有内容区域滚动。
 后续替换图标时必须同时保留普通态和选中态两份实际不同的资源，并确保
 `selectedIconPath` 不复用 `iconPath`；构建脚本会同时检查路径和文件字节。
 

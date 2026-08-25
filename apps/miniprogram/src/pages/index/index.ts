@@ -20,6 +20,7 @@ import {
 	navigateToAuthenticatedPage,
 	navigateToPatientScopedPage,
 	navigateToPatientSelector,
+	syncPrimaryTabSelected,
 } from "../../services/patient-navigation";
 import {
 	clearSelectedPatientId,
@@ -322,6 +323,7 @@ Page<IndexPageData, IndexPageMethods>({
 	 * 之后每次返回都读取最新目录，确保首页不会保留过期的患者上下文。
 	 */
 	onShow() {
+		syncPrimaryTabSelected(0);
 		if (!this.data.hasShown) {
 			this.setData({ hasShown: true });
 			return;

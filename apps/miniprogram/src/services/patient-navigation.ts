@@ -13,7 +13,7 @@ import { isPatientSyncInFlight } from "./patient-sync-coordinator";
 type AuthenticatedEntryState = SessionVerificationState;
 
 /**
- * 四个主入口只能由微信原生 TabBar 切换。
+ * 四个主入口只能由微信官方共享 custom-tab-bar 切换。
  *
  * 这组路径必须与 `app.json.tabBar.list` 保持一一对应：主 Tab 如果误用
  * `navigateTo`，微信会把它当作普通页面压入页面栈，导致页面栈错误、底栏
@@ -29,14 +29,53 @@ export const PRIMARY_TAB_PAGE_PATHS = Object.freeze([
 
 type PrimaryTabPagePath = (typeof PRIMARY_TAB_PAGE_PATHS)[number];
 
+type SharedTabBarInstance = {
+	syncSelectedTab(): void;
+};
+
+type PageWithSharedTabBar = {
+	getTabBar?: () => SharedTabBarInstance | undefined;
+};
+
 function isPrimaryTabPagePath(url: string): url is PrimaryTabPagePath {
 	return (PRIMARY_TAB_PAGE_PATHS as readonly string[]).includes(url);
 }
 
 /**
+	由主 Tab 页面把当前路由同步给微信唯一的 custom-tab-bar 实例。
+
+	custom-tab-bar 自己的 `pageLifetimes.show` 在不同微信基础库/开发者工具
+	版本中触发时机并不完全一致，因此四个主页面在 onShow 再做一次同实例同步。
+	这里调用页面的 `getTabBar()`，不会创建页面级底栏，也不会新增第二套 WXML；
+	它只是把页面路由事实写回共享组件，收敛首帧和切换后的选中态。
+*/
+export function syncPrimaryTabSelected(index: number): void {
+	if (
+		!Number.isInteger(index) ||
+		index < 0 ||
+		index >= PRIMARY_TAB_PAGE_PATHS.length
+	) {
+		return;
+	}
+	try {
+		if (typeof getCurrentPages !== "function") return;
+		const pages = getCurrentPages();
+		const currentPage = pages[pages.length - 1] as
+			| PageWithSharedTabBar
+			| undefined;
+		// 通过组件公开方法同步，而不是直接只写 selected：组件还维护每个
+		// item 的 selected 标记和 activeIcon，直接写数字会让图标停留在旧项。
+		currentPage?.getTabBar?.()?.syncSelectedTab();
+	} catch {
+		// 页面刚创建/正在销毁时微信可能暂时拿不到共享组件；组件自身的
+		// attached/show 同步会在下一个稳定生命周期补齐，不把异常扩散到业务页。
+	}
+}
+
+/**
  * 判断目标是否已经是当前正在展示的共享主 Tab。
  *
- * 微信原生 TabBar 会维护四项共享底栏，但业务代码在会话失效、登录恢复和快捷入口
+ * 微信 custom-tab-bar 会维护四项共享底栏，但业务代码在会话失效、登录恢复和快捷入口
  * 中仍可能重复调用 `switchTab`。对当前页再次 switchTab 会让
  * 页面重新触发生命周期，在低端真机上表现为内容和底栏同时闪一下；它也
  * 没有任何业务收益。因此这里只在确实需要跨 Tab 切换时调用微信 API。
@@ -56,7 +95,7 @@ function isCurrentPrimaryTab(url: string): boolean {
  *
  * 当前四个主 Tab 主要由共享底栏直接触发；保留这个小函数是为了约束快捷入口、
  * 登录恢复或深链回跳。只要目标是主 Tab，就必须走 `switchTab`，绝不能退化成
- * 普通页面导航；底栏的激活图标由微信原生 TabBar 根据当前 route 统一维护。
+ * 普通页面导航；底栏的激活图标由共享 custom-tab-bar 根据当前 route 统一维护。
  */
 export function switchToPrimaryTab(url: string): boolean {
 	if (!isPrimaryTabPagePath(url)) return false;
