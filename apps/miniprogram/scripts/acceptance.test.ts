@@ -1323,8 +1323,11 @@ test("native my page separates ordinary profile from family patient selection", 
 	for (const feature of [
 		'"appointment-detail"',
 		'"appointment-write"',
+		'"outpatient-payment-detail"',
+		'"outpatient-payment-write"',
 		'"pre-visit"',
 		'"report-cloud-image"',
+		'"report-detail"',
 		'"report-follow-up"',
 		'"report-share"',
 	] as const) {
@@ -2366,8 +2369,9 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	// 旧端文案会暗示支付或医保已经可以在此页面执行；只读页面必须明确拒绝这种语义回流。
 	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
 	expect(outpatientTemplate).not.toContain("目前支付宝支持");
-	expect(outpatient).toContain("已缴费记录详情正在迁移中");
-	expect(outpatient).toContain("支付流程正在迁移中");
+	expect(outpatient).toContain("navigateToFeatureStatus");
+	expect(outpatient).toContain('"outpatient-payment-detail"');
+	expect(outpatient).toContain('"outpatient-payment-write"');
 	expect(outpatientTemplate).toContain(
 		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
 	);
@@ -2812,6 +2816,12 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 		"pages/appointment-records/appointment-records.ts",
 	);
 	const reportDetail = await source("pages/report-detail/report-detail.ts");
+	const reportDirectory = await source(
+		"pages/report-directory/report-directory.ts",
+	);
+	const outpatientPayment = await source(
+		"pages/outpatient-payment/outpatient-payment.ts",
+	);
 
 	expect(appointmentDirectory).toContain(
 		'navigateToFeatureStatus("appointment-write")',
@@ -2825,6 +2835,10 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	);
 	expect(reportDetail).toContain('navigateToFeatureStatus("report-share")');
 	expect(reportDetail).toContain('navigateToFeatureStatus("report-follow-up")');
+	expect(reportDirectory).toContain('navigateToFeatureStatus("report-detail")');
+	expect(outpatientPayment).toContain("navigateToFeatureStatus");
+	expect(outpatientPayment).toContain('"outpatient-payment-write"');
+	expect(outpatientPayment).toContain('"outpatient-payment-detail"');
 
 	// 迁移边界的反馈必须能进入稳定页面，不能因为 Toast 消失而让用户
 	// 误以为点击没有生效；真实 contract 完成前仍不允许创建业务数据。
@@ -2834,6 +2848,9 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 	expect(reportDetail).not.toContain("云影像功能迁移中");
 	expect(reportDetail).not.toContain("分享功能迁移中");
 	expect(reportDetail).not.toContain("复诊功能迁移中");
+	expect(reportDirectory).not.toContain("该报告详情暂未开放");
+	expect(outpatientPayment).not.toContain("支付流程正在迁移中");
+	expect(outpatientPayment).not.toContain("已缴费记录详情正在迁移中");
 });
 
 test("native patient center does not mislabel reports as outpatient medical records", async () => {

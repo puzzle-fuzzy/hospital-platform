@@ -23,8 +23,11 @@ export type FeatureKey =
 	| "inpatient-payment"
 	| "insurance"
 	| "medical-record"
+	| "outpatient-payment-detail"
+	| "outpatient-payment-write"
 	| "pre-visit"
 	| "report-cloud-image"
+	| "report-detail"
 	| "report-follow-up"
 	| "report-share"
 	| "risk-evaluation"
@@ -151,6 +154,21 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		contractHint: "等待 HIS/EMR 只读资源、患者归属、脱敏字段和详情授权确认。",
 		icon: "/assets/legacy-user/medical-record.svg",
 	},
+	"outpatient-payment-detail": {
+		title: "费用记录详情",
+		description: "门诊费用详情正在迁移中，当前不会展示未经引用校验的费用明细。",
+		contractHint:
+			"等待账单引用、患者归属、金额单位、明细白名单和短期授权确认。",
+		icon: "/assets/legacy-home/top-payment.svg",
+	},
+	"outpatient-payment-write": {
+		title: "门诊缴费",
+		description:
+			"门诊缴费流程正在迁移中，当前不会创建订单或发起微信/医保支付。",
+		contractHint:
+			"等待订单归属、金额守恒、支付状态机、医保授权、查单和结算回写确认。",
+		icon: "/assets/legacy-home/top-payment.svg",
+	},
 	"pre-visit": {
 		title: "预约前预问诊",
 		description: "预问诊正在迁移中，当前不会提交或覆盖问诊答案。",
@@ -163,6 +181,12 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		description: "云影像正在迁移中，当前不会向第三方地址传递报告或患者标识。",
 		contractHint: "等待影像受众、短期授权、资源范围、过期和审计规则确认。",
 		icon: "/assets/legacy-home/report-cloud.svg",
+	},
+	"report-detail": {
+		title: "报告详情",
+		description: "报告详情正在迁移中，当前不会打开未经授权的临床报告资源。",
+		contractHint: "等待来源详情合同、患者归属、脱敏字段和资源授权确认。",
+		icon: "/assets/legacy-home/report-tab.svg",
 	},
 	"report-follow-up": {
 		title: "报告复诊",

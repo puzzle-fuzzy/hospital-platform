@@ -3,6 +3,7 @@ import {
 	loadCurrentPatientForOwner,
 	loadReports,
 } from "../../services/dashboard-service";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -239,7 +240,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		);
 		const reportId = report?.reportId;
 		if (typeof reportId !== "string" || !reportId) {
-			wx.showToast({ title: "该报告详情暂未开放", icon: "none" });
+			navigateToFeatureStatus("report-detail");
 			return;
 		}
 		const patientId = this.data.selectedPatient?.id;
