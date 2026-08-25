@@ -30,9 +30,6 @@ const requiredStaticFiles = [
 	"app.json",
 	"app.wxss",
 	"sitemap.json",
-	"custom-tab-bar/index.json",
-	"custom-tab-bar/index.wxml",
-	"custom-tab-bar/index.wxss",
 	"pages/index/index.json",
 	"pages/index/index.wxml",
 	"pages/index/index.wxss",
@@ -85,7 +82,6 @@ const requiredStaticFiles = [
 const requiredTypeScriptFiles = [
 	"app.ts",
 	"data/department-location.ts",
-	"constants/legacy-tabbar.ts",
 	"services/api-client.ts",
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
@@ -93,7 +89,6 @@ const requiredTypeScriptFiles = [
 	// 页面实例的单飞依赖曾导致真机误请求 `single-flight.test.js`；
 	// 将生产实现列为显式运行模块，避免间接 import 被构建或开发者工具增量索引遗漏。
 	"services/single-flight.ts",
-	"custom-tab-bar/index.ts",
 	"pages/patient-select/patient-select.ts",
 	"pages/official-account/official-account.ts",
 	"pages/feedback/feedback.ts",
@@ -288,32 +283,32 @@ if (
 const appPagePaths = appConfig.pages as string[];
 
 /**
- * 四个主入口必须交给微信官方 custom-tab-bar 统一维护。页面自身不能复制
- * 底栏，业务代码也不能使用 navigateTo 打开主 Tab；这样底栏生命周期由
- * 同一个组件实例持有，切换时不会创建第二套页面级底栏。
+ * 四个主入口必须交给微信原生 tabBar 统一维护。页面自身不能复制底栏，
+ * 业务代码也不能使用 navigateTo 打开主 Tab；这样底栏由微信运行时统一持有，
+ * 选中图标和切换生命周期不依赖页面代码。
  */
 if (
-	appConfig.tabBar?.custom !== true ||
+	appConfig.tabBar?.custom !== false ||
 	appConfig.tabBar?.position !== "bottom"
 ) {
 	throw new Error(
-		"Mini program primary tabs must use the official custom-tab-bar; custom=true and position=bottom are required",
+		"Mini program primary tabs must use the official native tabBar; custom=false and position=bottom are required",
 	);
 }
 
 /**
- * 共享 custom-tab-bar 的图标仍纳入构建资源校验；只校验 JSON 字符串还不够，
+ * 原生 tabBar 的图标仍纳入构建资源校验；只校验 JSON 字符串还不够，
  * 运行包缺图时组件会静默显示空白，用户会误以为选中效果失效。
  */
 const primaryTabList = appConfig.tabBar?.list;
 if (!Array.isArray(primaryTabList) || primaryTabList.length !== 4) {
 	throw new Error(
-		"Mini program custom-tab-bar must declare exactly four primary entries",
+		"Mini program native tabBar must declare exactly four primary entries",
 	);
 }
 
 /**
- * custom-tab-bar 使用的图标保留 81×81 PNG 作为稳定输入。
+ * 原生 tabBar 使用的图标保留 81×81 PNG 作为稳定输入。
  *
  * 旧资源虽然能被部分基础库缩放，但在真机缓存/渲染层切换时可能出现
  * 微信读取到不合规资源。构建阶段直接读取 PNG 的 IHDR，避免把尺寸不合规
@@ -374,7 +369,7 @@ for (const item of primaryTabList) {
 		const dimensions = await readPngDimensions(join(source, assetPath));
 		if (dimensions.width !== 81 || dimensions.height !== 81) {
 			throw new Error(
-				`Mini program custom-tab-bar asset must be 81x81: ${assetPath} (${dimensions.width}x${dimensions.height})`,
+				`Mini program native tabBar asset must be 81x81: ${assetPath} (${dimensions.width}x${dimensions.height})`,
 			);
 		}
 	}
@@ -698,7 +693,7 @@ try {
 	await publishMiniProgramRuntime(stagingRuntime, runtime);
 
 	console.log(
-		`Custom tabBar mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
+		`Native tabBar mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
 	);
 } catch (error) {
 	if (isMiniProgramRuntimeLockError(error)) {

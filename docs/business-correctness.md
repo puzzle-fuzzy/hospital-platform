@@ -1,8 +1,8 @@
 # 患者端业务正确性规则
 
 > 当前生产配套基线（2026-08-24）：服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，线上配套小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。
-> 当前底栏候选为 `7fc22fae`：切回微信原生 TabBar，四个主 Tab 由平台统一维护固定位置和 selectedIconPath；页面不渲染自定义底栏，也不手动同步 selected。预览二维码为 `.local/hospital-miniprogram/tabbar-native-preview-7fc22fa.png`，真机仍需重新扫码验收。
-> 当前本地未发布候选为小程序运行包来源 `7fc22fae`，包含四个正式 Tab 入口、内容滚动视口、挂号卡片、爽约入口、患者上下文错误态分流、查询状态容器和报告目录加载占位收口；运行包已通过构建和来源校验，仍不能替代生产运行包或真机三层证据。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
+> 当前底栏候选正在从真机未呈现的 `4ae9c296` custom-tab-bar 回退到微信原生 TabBar；本轮代码提交后重新构建 `dist/`，四个主 Tab 由微信运行时统一维护固定位置和 selectedIconPath，页面不渲染自定义底栏，也不手动同步 selected。当前没有可用预览二维码，必须直接打开独立 `dist/` 工程普通编译后重新扫码验收。
+> 当前本地未发布候选仍包含四个正式 Tab 入口、内容滚动视口、挂号卡片、爽约入口、患者上下文错误态分流、查询状态容器和报告目录加载占位收口；代码回归不能替代生产运行包或真机三层证据。详见 [`release/current-native-tabbar-runtime-recheck-2026-08-25.md`](release/current-native-tabbar-runtime-recheck-2026-08-25.md)。
 
 > 当前验收基线（2026-08-24）：服务端已验证 release 为
 > `8eb51b5ffe85b0b8f8a032783f893117d3df549d`（`8eb51b5f`），线上小程序运行包来源为
@@ -475,7 +475,7 @@ Provider 原始错误文本。
 
 代码和单元测试通过不等于真实业务完成。当前仍需在受控测试身份上分别完成：
 
-- 重新打开 `apps/miniprogram/dist/` 的正确开发者工具项目并使用当前本地候选 `7fc22fae`，或明确记录线上运行包 `13f597e`，完成真机三层证据；
+- 重新打开 `apps/miniprogram/dist/` 的正确开发者工具项目并使用本轮原生 tabBar 候选，或明确记录线上运行包 `13f597e`，完成真机三层证据；
   近期复扫只形成健康检查日志，尚未形成微信登录、患者同步和页面 HTTP 的同链证据；
 - 患者重新同步后的 `his-patient` 映射证据；
 - 公网 API 和真机的预约历史、报告、门诊费用只读验收；

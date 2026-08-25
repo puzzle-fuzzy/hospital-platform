@@ -1,16 +1,8 @@
-/**
-	“就诊”是旧端四个主 Tab 之一。实时陪诊依赖独立的消息/队列 contract，
-	尚未冻结前只提供稳定迁移状态，不调用旧 WebSocket、不猜测排队状态。
-	底部导航由微信官方 custom-tab-bar 持有，页面只在 onShow 请求共享实例按路由校正。
-*/
-import { syncPrimaryTabSelected } from "../../services/patient-navigation";
+/** “就诊”是旧端四个主 Tab 之一；实时陪诊 contract 未冻结前保持迁移状态。 */
 
 type ConsultPageData = Record<string, never>;
 type ConsultPageMethods = Record<never, never>;
 
 Page<ConsultPageData, ConsultPageMethods>({
 	data: {},
-	onShow() {
-		syncPrimaryTabSelected(1);
-	},
 });

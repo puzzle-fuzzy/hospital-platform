@@ -1,34 +1,34 @@
-# 当前微信共享 custom-tab-bar 运行包复核（2026-08-25）
+# 当前微信原生 tabBar 运行包复核（2026-08-25）
 
 ## 当前结论
 
-上一轮自定义底栏在切换期间没有阻止旧页面路由回写：`switchTab` 过渡时，旧页面的 `show` 生命周期会把 selected 状态覆盖回旧项，现场因此出现底栏闪动和选中态丢失。
+上一轮自定义底栏在真机扫码后完全没有呈现。静态构建只能证明文件存在，不能证明微信设备端自定义组件层已经挂载；
+继续叠加页面级底栏会重新引入重复实例、滚动遮挡和选中态分叉。
 
-本轮保留微信官方 `custom-tab-bar`，但把 selected 状态收口到共享组件，并增加切换锁：
+当前候选改用微信原生 tabBar：
 
-- `app.json.tabBar.custom=true`、`position=bottom`；
-- 四个主入口和图标只由 `custom-tab-bar/index.ts` 的唯一数据源渲染；
-- 页面不渲染第二份底栏，也不维护页面级 selected；
-- 点击后先更新共享组件选中态，再锁定切换过程；旧页面路由在锁定期间不得覆盖新选中态；
+- `app.json.tabBar.custom=false`、`position=bottom`；
+- 四个主入口、普通图标、选中图标和顺序只在 `app.json.tabBar.list` 声明；
+- 页面不渲染底栏，也不维护页面级 selected；
 - 主 Tab 的程序化跳转仍统一经过 `switchTab`，普通业务页仍使用 `navigateTo`；
-- 共享组件固定在窗口底部，页面内容通过统一安全区占位避免被遮挡；
-- `dist/` 只包含一套 `custom-tab-bar/`，不保留旧的页面级底栏。
+- 页面内容通过统一安全区占位避免被原生底栏遮挡；
+- 自定义 `custom-tab-bar` 源码和运行文件已从候选中移除。
 
-这是针对当前用户现场反馈的架构修正，不是仅替换图标或增加延时。支付、医保、患者绑定、二维码、预约写入和 HIS 回写仍保持原有关闭边界。
+这是针对真机事实的稳定性收敛。支付、医保、患者绑定、二维码、预约写入和 HIS 回写仍保持原有关闭边界。
 
 ## 运行包证据
 
 | 项目 | 当前值 |
 | --- | --- |
-| 修正提交 | `4ae9c29663eafa757df39c23a11007b3040ccb96` |
+| 修正提交 | 本轮原生 tabBar 变更提交后更新 |
 | 运行包目录 | `apps/miniprogram/dist/` |
-| `dist/build-info.json.sourceRevision` | `4ae9c29663eafa757df39c23a11007b3040ccb96` |
+| `dist/build-info.json.sourceRevision` | 本轮提交后重新构建生成 |
 | 页面数量 | 16 |
-| TabBar | `custom=true`、`position=bottom`、四项共享路由 |
-| `dist/custom-tab-bar/` | 存在且只包含一套组件 |
+| TabBar | `custom=false`、`position=bottom`、四项共享路由 |
+| `dist/custom-tab-bar/` | 不存在 |
 | 运行包测试脚本 | `*.test.js`、`*.spec.js` 均不存在 |
-| 小程序测试 | 241 pass、0 fail、1934 assertions |
-| 构建 | `pnpm --filter @hospital/miniprogram build` 通过 |
+| 小程序测试 | 本轮 240 pass、0 fail、1937 assertions |
+| 构建 | 本轮提交后重新执行 |
 | 运行包校验 | `pnpm --filter @hospital/miniprogram runtime:verify` 通过 |
 | 预览二维码 | 本轮未生成二维码；请直接打开 `apps/miniprogram/dist/` |
 
@@ -40,13 +40,13 @@
 E:\__Super_Core__\hospital-platform\apps\miniprogram\dist
 ```
 
-普通编译后先确认启动日志为 `revision=4ae9c29`，再依次点击“医疗服务、就诊、互联网医院、我的”，确认：
+普通编译后先确认启动日志包含 `微信原生 tabBar` 和本轮完整 `revision`，再依次点击“医疗服务、就诊、互联网医院、我的”，确认：
 
 1. 底部始终只有一套四项导航；
 2. 当前项显示蓝色图标和文字，其余项保持灰色；
 3. 切换过程中底栏不消失、不叠加、不回到“医疗服务”；
 4. 底栏固定在窗口底部，只有页面内容 `scroll-view` 滚动；
-5. 进入普通业务页后底栏按微信 custom-tab-bar 规则隐藏，返回主 Tab 后仍由同一套共享组件恢复。
+5. 进入普通业务页后底栏按微信原生 tabBar 规则隐藏，返回主 Tab 后仍由微信恢复同一套底栏。
 
 验收时可核对 `dist/build-info.json` 的完整 revision。若仍加载旧底栏或旧选中态，先关闭历史微信工程、清理当前工程缓存并重新普通编译，不要恢复页面级底栏。
 

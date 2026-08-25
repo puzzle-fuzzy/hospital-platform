@@ -29,7 +29,7 @@ App<{ globalData: AppGlobalData }>({
 
 	onLaunch() {
 		console.info(
-			"[医院小程序] 运行包来源：微信 custom-tab-bar；revision=",
+			"[医院小程序] 运行包来源：微信原生 tabBar；revision=",
 			MINI_PROGRAM_BUILD_REVISION,
 		);
 		// App 入口不能把本地缓存直接当成已登录事实：缓存可能来自旧版本、
