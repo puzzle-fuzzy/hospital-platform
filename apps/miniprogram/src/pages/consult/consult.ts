@@ -25,7 +25,7 @@ import type {
 	SessionVerificationState,
 } from "../../types";
 
-/** 旧端就诊页的三个固定标签；标签切换只改变展示状态，不代表已经读取实时数据。 */
+/** 旧端就诊页的三个固定标签；标签切换只改变预约摘要窗口，不代表已经读取实时数据。 */
 const CONSULT_TABS = Object.freeze([
 	{ id: "today", title: "今日就诊" },
 	{ id: "upcoming", title: "未来就诊" },

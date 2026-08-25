@@ -13,19 +13,36 @@ function record(
 }
 
 describe("就诊页预约历史展示边界", () => {
-	test("当天预约不冒充实时就诊，也不进入未来或历史列表", () => {
+	test("当天预约只作为摘要进入今日列表，不冒充实时就诊", () => {
 		const records = [
 			record("2026-08-25"),
 			record("2026-08-26"),
 			record("2026-08-24", "completed"),
 		];
 
+		expect(filterConsultRecords(records, "2026-08-25", "today")).toEqual([
+			record("2026-08-25"),
+		]);
 		expect(filterConsultRecords(records, "2026-08-25", "upcoming")).toEqual([
 			record("2026-08-26"),
 		]);
 		expect(filterConsultRecords(records, "2026-08-25", "history")).toEqual([
 			record("2026-08-24", "completed"),
 		]);
+	});
+
+	test("今日窗口沿用固定业务日快照并支持分批展开", () => {
+		const records = [
+			record("2026-08-25"),
+			record("2026-08-25", "cancelled"),
+			record("2026-08-26"),
+		];
+
+		const window = getConsultRecordWindow(records, "today", "2026-08-25", 1);
+
+		expect(window.totalRecords).toBe(2);
+		expect(window.visibleRecords).toEqual([record("2026-08-25")]);
+		expect(window.hasMoreRecords).toBe(true);
 	});
 
 	test("取消和爽约仍保留为预约事实，不由客户端改变状态", () => {

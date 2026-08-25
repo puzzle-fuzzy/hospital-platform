@@ -32,8 +32,8 @@
 			</block>
 			<block wx:else>
 				<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-				<text class="consult-state-title">{{activeTab === 'today' ? '今日暂无就诊动态' : activeTab === 'upcoming' ? '暂无未来就诊记录' : '暂无历史就诊记录'}}</text>
-				<text class="consult-state-hint">{{activeTab === 'today' ? '实时就诊 contract 尚未完成，当前不会猜测叫号或排队状态' : '当前仅展示预约摘要，不包含实时叫号或队列状态'}}</text>
+				<text class="consult-state-title">{{activeTab === 'today' ? '今日暂无预约摘要' : activeTab === 'upcoming' ? '暂无未来就诊记录' : '暂无历史就诊记录'}}</text>
+				<text class="consult-state-hint">{{activeTab === 'today' ? '当前没有已确认的今日预约；实时就诊 contract 尚未完成，不会猜测叫号或排队状态' : '当前仅展示预约摘要，不包含实时叫号或队列状态'}}</text>
 			</block>
 		</view>
 

@@ -1,16 +1,16 @@
 import type { AppointmentRecord } from "../types";
 
 /**
- * 就诊页中已经可以安全展示的两个预约历史标签。
+ * 就诊页的三个展示窗口都只读取预约摘要；`today` 不等于实时就诊。
  *
- * `today` 不是这里的一个筛选结果：它依赖实时就诊事件，不能把当天的
- * 预约摘要伪装成叫号、排队或就诊动态。因此当天记录会从未来/历史两个
- * 只读列表中明确排除，继续交给实时 contract 的状态壳。
+ * 当天预约可以安全展示日期、科室和服务端已确认的预约状态，但不能由
+ * 这些静态字段推导叫号、排队、候诊或“已经就诊”。实时事件仍由独立
+ * contract 负责，因此页面会在记录卡片下方明确保留关闭提示。
  */
-export type ConsultRecordTab = "upcoming" | "history";
+export type ConsultRecordTab = "today" | "upcoming" | "history";
 
-/** 就诊页实际可点击的三个标签；today 仍然只是实时状态壳。 */
-export type ConsultPageTab = "today" | ConsultRecordTab;
+/** 就诊页实际可点击的三个标签。 */
+export type ConsultPageTab = ConsultRecordTab;
 
 export type ConsultRecordWindow<T extends AppointmentRecord> = {
 	/** 当前标签下已经允许渲染的记录数量。 */
@@ -22,20 +22,22 @@ export type ConsultRecordWindow<T extends AppointmentRecord> = {
 };
 
 /**
- * 按医院业务日历把预约摘要分为未来和历史。
+ * 按医院业务日历把预约摘要分为今日、未来和历史。
  *
  * `workDate` 是服务端已经校验过的自然日，不是带时区的瞬时点；调用方
  * 必须传入同一中国标准时间自然日，不能用设备本地日期直接比较。当天
- * 记录不进入任何一组，避免“预约成功”被页面误读为“已经就诊/正在叫号”。
+ * 记录只作为预约摘要进入 `today`，不改变服务端返回的预约状态，也不
+ * 生成任何实时叫号或排队结论。
  */
 export function filterConsultRecords<T extends AppointmentRecord>(
 	records: readonly T[],
 	today: string,
 	tab: ConsultRecordTab,
 ): T[] {
-	if (tab !== "upcoming" && tab !== "history") return [];
+	if (tab !== "today" && tab !== "upcoming" && tab !== "history") return [];
 
 	return records.filter((record) => {
+		if (tab === "today") return record.workDate === today;
 		if (record.workDate === today) return false;
 		return tab === "upcoming"
 			? record.workDate > today
@@ -57,7 +59,7 @@ export function getConsultRecordWindow<T extends AppointmentRecord>(
 	businessDate: string,
 	visibleCount: number,
 ): ConsultRecordWindow<T> {
-	if (tab === "today" || !businessDate) {
+	if (!businessDate) {
 		return { visibleRecords: [], totalRecords: 0, hasMoreRecords: false };
 	}
 
