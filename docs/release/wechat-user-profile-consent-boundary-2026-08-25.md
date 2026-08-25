@@ -4,8 +4,10 @@
 > 展示和服务端首次资料写入仍需用户扫码验收。本文记录当前正确边界，避免后续会话把微信登录和微信资料
 > 授权再次混为一个流程。
 
-当前运行包来源：`fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，已构建到
-`apps/miniprogram/dist/` 并通过 `runtime:verify`；该本地候选尚未替换线上正式小程序。
+最新代码候选：`8bd3898a7841404cb69d9c091f5f59a7530eb3cf`，已构建并保存在
+`.local/hospital-miniprogram/pending/`；由于微信开发者工具锁定 `dist/`，当前可运行的
+`apps/miniprogram/dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
+新候选发布前不能用旧运行包验收本次授权点击和 App 启动修复。
 
 ## 1. 问题和结论
 
