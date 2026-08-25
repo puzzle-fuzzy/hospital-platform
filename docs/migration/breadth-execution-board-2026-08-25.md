@@ -21,6 +21,18 @@
 
 入口覆盖层不能替代真实业务层；真实业务层也不能因为一个域已经完成而阻塞其他域的 contract 收集。
 
+### 2026-08-26 推进记录：E 批次先完成共用安全基础
+
+在尚未收到各外部主体正式 contract 前，E 批次已先落地一个不打开业务入口的领域基础：
+`@hospital/domain` 新增外部入口短期会话状态机，统一校验 owner、患者范围、audience、
+resource、有效期、一次性消费和撤回边界，并以中文测试和审计文档固定规则。它不注册
+Elysia 路由、不生成外部 URL、不接入 WebView、不写 Redis/MySQL，也没有改变任何
+`FeatureKey` 的阻塞状态；具体实现见 [`external-entry-session-domain-contract-2026-08-26.md`](external-entry-session-domain-contract-2026-08-26.md)。
+
+这项基础工作与 A/B/C/D 的材料收集并行，不把一个外部入口的细节变成全项目阻塞点。
+后续只有在某个具体主体的正式请求/响应、allowlist、退出/回跳和撤回规则齐全后，才
+基于该基础单独接入对应 adapter、API、页面状态和低敏日志。
+
 ## 二、跨业务域工作板
 
 | 工作流 | 当前范围 | 当前状态 | 可以并行做什么 | 不能提前做什么 |
