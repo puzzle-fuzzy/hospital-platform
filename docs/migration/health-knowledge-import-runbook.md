@@ -51,6 +51,9 @@ pnpm --filter @hospital/persistence health:export-legacy -- `
 pnpm --filter @hospital/domain knowledge:bundle:check -- C:\path\to\health-knowledge-bundle.json
 ```
 
+命令兼容 pnpm 转发的 `--` 分隔符；相对路径按执行 pnpm 命令的目录解析，绝对路径保持不变。
+旧库源快照不是正式 bundle，因缺少正式 schema 和审核状态会被只读门禁拒绝。
+
 成功时只输出 `contentVersion`、`status`、项目数量和关系数量；不会输出正文、患者字段或原始 JSON。
 失败时返回稳定错误分类和字段路径，例如 `publication.reviewerRef` 或
 `items[0].patientName`，方便修正导出而不把敏感值写进终端日志。
