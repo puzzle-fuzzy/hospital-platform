@@ -229,19 +229,25 @@ export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
 	const bootstrap = restorePlatformSession()
 		.then((currentUser) => {
 			const expectedOwnerId = currentUser.data.user.id;
+			// `/me` 成功只证明了这一时刻的 owner；资料请求还会继续跨越
+			// 异步边界，因此必须把成功验证时的会话代际固定下来。不能在
+			// 后面用 `isCurrentSessionGeneration(getSessionGeneration())`
+			// 进行自比较，那只会证明“当前值等于当前值”，无法发现同一
+			// owner 的 token 轮换或其它会话边界变化。
+			const expectedSessionGeneration = getSessionGeneration();
 			// `/me` 已经证明了 owner；即使普通资料接口随后暂时不可用，
 			// 页面仍可以继续读取就诊人目录，同时向资料区显示明确的重试状态。
 			publishProfileState({
 				status: "loading",
 				ownerId: expectedOwnerId,
-				sessionGeneration: getSessionGeneration(),
+				sessionGeneration: expectedSessionGeneration,
 			});
 			return getUserProfile().then((response) =>
 				getCurrentUser().then((verifiedUser) => {
 					if (verifiedUser.data.user.id !== expectedOwnerId) {
 						throw profileSessionChangedError();
 					}
-					if (!isCurrentSessionGeneration(getSessionGeneration())) {
+					if (!isCurrentSessionGeneration(expectedSessionGeneration)) {
 						throw profileSessionChangedError();
 					}
 					// 必须返回已经写入 App.globalData 的冻结快照，而不是返回

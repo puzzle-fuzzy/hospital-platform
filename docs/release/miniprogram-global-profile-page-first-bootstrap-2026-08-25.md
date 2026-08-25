@@ -19,6 +19,8 @@
 4. `/me` owner 证明、普通资料快照和会话代际校验完成前，页面不得把昵称、头像或患者上下文
    当作当前账号事实。
 5. 资料增强失败不能阻断已验证的微信会话；明确会话失效或代际变化时才清理旧账号资料。
+6. `/me` 成功后必须固定 `expectedSessionGeneration`，并在资料读取及再次验证完成前比较它；
+   不能把当前代际与自身比较来伪装成会话隔离。
 
 ## 为什么需要这条边界
 
@@ -30,11 +32,14 @@
 本轮只对明确的 `idle` 初始态接管启动。已经是 `error` 的状态继续等待用户点击重试，避免把依赖
 故障伪装成页面切 Tab 自动恢复；已经存在 Promise 时始终等待原 Promise。
 
+资料请求还增加了固定代际保护：即使 token 轮换前后仍属于同一个平台 owner，只要会话代际已经
+变化，旧请求也不能把旧资料快照回写到全局资料仓库。
+
 ## 代码与测试
 
 - 业务实现：`apps/miniprogram/src/services/global-user-profile.ts`
 - 回归测试：`apps/miniprogram/src/services/global-user-profile.test.ts`
-- 覆盖场景：页面先于 App 启动、多个 Tab 单飞、资料授权单飞、会话切换后旧授权回调隔离。
+- 覆盖场景：页面先于 App 启动、多个 Tab 单飞、资料授权单飞、资料读取期间代际变化、会话切换后旧授权回调隔离。
 - 本地验证：`bun test apps/miniprogram/src/services/global-user-profile.test.ts`
 
 ## 发布边界

@@ -314,6 +314,78 @@ describe("App 全局个人资料仓库", () => {
 		expect(requestCount).toBe(0);
 	});
 
+	test("资料读取期间会话代际变化时，旧资料不能回写", async () => {
+		let releaseProfile: ((result: unknown) => void) | undefined;
+		const generation = getSessionGeneration();
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "rotating-session-token",
+			sessionStatus: "signed_in" as const,
+			userProfileBootstrapPromise:
+				null as Promise<GlobalUserProfileState> | null,
+			userProfile: {
+				status: "idle" as const,
+				ownerId: "",
+				sessionGeneration: -1,
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		runtime.wx = {
+			getStorageSync: () => "rotating-session-token",
+			setStorageSync: () => undefined,
+			removeStorageSync: () => undefined,
+			request: (options: WechatMiniprogram.RequestOption) => {
+				const success = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+				if (options.url.endsWith("/me/profile")) {
+					releaseProfile = success;
+					return;
+				}
+				success?.({
+					statusCode: 200,
+					data: {
+						success: true,
+						data: { user: { id: "owner-rotation-test" } },
+					},
+				} as unknown);
+			},
+		} as unknown as typeof wx;
+
+		const bootstrap = ensureGlobalUserProfile();
+		expect(getSessionGeneration()).toBe(generation);
+		advanceSessionGeneration();
+		notifySessionChanged();
+		releaseProfile?.({
+			statusCode: 200,
+			data: {
+				success: true,
+				data: {
+					displayName: "旧会话昵称",
+					gender: "unknown",
+					age: null,
+					email: null,
+					version: 0,
+				},
+			},
+		} as unknown);
+
+		await expect(bootstrap).rejects.toMatchObject({ code: "session-changed" });
+		expect(getGlobalUserProfile().ownerId).toBe("");
+		expect(getGlobalUserProfile().displayName).toBe("微信用户");
+	});
+
 	test("会话凭证变化会清理旧账号的全局昵称和头像", () => {
 		const globalData = {
 			apiBaseUrl: "https://test-hp.meiyi.pro",
