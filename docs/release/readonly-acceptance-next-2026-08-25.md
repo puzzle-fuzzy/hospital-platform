@@ -25,8 +25,8 @@
 3. 检查底部栏：四个主页面必须是 `pages/index/index`、`pages/consult/consult`、`pages/hospital/hospital`、
    `pages/my/my`；点击它们必须使用 `switchTab`，底部栏只允许由微信原生 `tabBar.list` 渲染，
    页面 WXML 不得复制；当前项的蓝色图标和文字由微信根据当前路由维护。
-4. 只有发布 pending 候选并重新执行 `runtime:verify` 后才生成新的预览/真机二维码；记录运行包候选
-   `b3436c24` 和微信开发者工具显示的项目根，不能使用旧 `fcc6630e` 二维码验证本次修复。
+  4. 只有发布 pending 候选并重新执行 `runtime:verify` 后才生成新的预览/真机二维码；记录运行包候选
+    `093e112e` 和微信开发者工具显示的项目根，不能使用旧 `fcc6630e` 二维码验证本次修复。
 
 ## 3. 设备操作顺序
 

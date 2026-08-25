@@ -164,9 +164,13 @@ if (!(await Bun.file(legacySentinel).exists())) {
 		)
 			.map(([status, entries]) => `${status}=${entries?.length ?? 0}`)
 			.join(", ");
+		const domainSummary = nativeCatalog.LEGACY_PAGE_DOMAIN_SUMMARY.map(
+			(summary) => `${summary.domain}=${summary.total}`,
+		).join(", ");
 		console.log(
 			`Native legacy page catalog passed: ${catalogPages.size} page(s), ${statusSummary}`,
 		);
+		console.log(`Native legacy page domain summary: ${domainSummary}`);
 	}
 }
 

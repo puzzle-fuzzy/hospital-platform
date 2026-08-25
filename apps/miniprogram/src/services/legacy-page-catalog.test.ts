@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { FEATURE_STATUS_CATALOG } from "./feature-navigation";
 import {
+	LEGACY_PAGE_DOMAIN_SUMMARY,
 	LEGACY_PAGE_COUNT,
 	LEGACY_PAGE_MIGRATION_CATALOG,
 	isKnownLegacyFeatureKey,
@@ -46,6 +47,28 @@ describe("旧端页面全量迁移台账", () => {
 		for (const entry of LEGACY_PAGE_MIGRATION_CATALOG) {
 			if (!entry.featureKey) continue;
 			expect(FEATURE_STATUS_CATALOG[entry.featureKey]).toBeTruthy();
+		}
+	});
+
+	test("每个旧业务域都有可追溯的状态分布，且总量与逐页台账一致", () => {
+		expect(LEGACY_PAGE_DOMAIN_SUMMARY).toHaveLength(7);
+		expect(
+			LEGACY_PAGE_DOMAIN_SUMMARY.reduce(
+				(total, summary) => total + summary.total,
+				0,
+			),
+		).toBe(LEGACY_PAGE_COUNT);
+
+		for (const summary of LEGACY_PAGE_DOMAIN_SUMMARY) {
+			const entries = LEGACY_PAGE_MIGRATION_CATALOG.filter(
+				(entry) => entry.domain === summary.domain,
+			);
+			expect(summary.total).toBe(entries.length);
+			for (const [status, count] of Object.entries(summary.byStatus)) {
+				expect(entries.filter((entry) => entry.status === status).length).toBe(
+					count,
+				);
+			}
 		}
 	});
 });

@@ -538,6 +538,49 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 /** 供审计和测试使用的旧页面总数，避免以后新增页面时静默漏登记。 */
 export const LEGACY_PAGE_COUNT = 64;
 
+/**
+ * 旧页面按业务域聚合后的迁移摘要。
+ *
+ * 这里不是产品统计报表，而是“广度优先”阶段的工程护栏：每个旧业务域都
+ * 必须有明确总量和状态分布，后续新增页面时如果只补了逐页台账、没有同步
+ * 业务域摘要，测试就会失败。`blocked-*` 仍代表稳定状态页，不代表业务完成。
+ */
+export type LegacyPageDomainSummary = {
+	domain: LegacyPageMigration["domain"];
+	total: number;
+	byStatus: Readonly<Partial<Record<LegacyPageMigrationStatus, number>>>;
+};
+
+const LEGACY_PAGE_DOMAINS: ReadonlyArray<LegacyPageMigration["domain"]> = [
+	"首页",
+	"就诊",
+	"互联网医院",
+	"预约",
+	"患者",
+	"健康",
+	"用户",
+];
+
+/**
+ * 从逐页事实清单派生业务域摘要，禁止手工维护第二份容易漂移的计数。
+ */
+export const LEGACY_PAGE_DOMAIN_SUMMARY: ReadonlyArray<LegacyPageDomainSummary> =
+	LEGACY_PAGE_DOMAINS.map((domain) => {
+		const byStatus: Partial<Record<LegacyPageMigrationStatus, number>> = {};
+		for (const entry of LEGACY_PAGE_MIGRATION_CATALOG) {
+			if (entry.domain !== domain) continue;
+			byStatus[entry.status] = (byStatus[entry.status] ?? 0) + 1;
+		}
+		return Object.freeze({
+			domain,
+			total: Object.values(byStatus).reduce(
+				(total, count) => total + (count ?? 0),
+				0,
+			),
+			byStatus: Object.freeze(byStatus),
+		});
+	});
+
 /** 仅暴露状态页目录中确实存在的 feature key，避免拼接任意 query。 */
 export function isKnownLegacyFeatureKey(
 	value: FeatureKey | undefined,
