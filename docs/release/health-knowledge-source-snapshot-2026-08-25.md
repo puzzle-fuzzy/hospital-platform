@@ -30,7 +30,7 @@
 
 ## 当前代码边界
 
-- `packages/persistence/src/health-knowledge-source-export.ts`：稳定 opaque id、白名单字段映射、
+- `packages/persistence/scripts/health-knowledge-source-export.ts`：稳定 opaque id、白名单字段映射、
   关系保留和质量报告；重复关系不去重。
 - `packages/persistence/scripts/export-legacy-health-knowledge.ts`：只读 CLI，只输出数量和质量摘要，
   不打印医疗正文，不执行 SQL 写入。
@@ -50,7 +50,7 @@
 ```powershell
 pnpm --filter @hospital/persistence typecheck
 pnpm --filter @hospital/persistence test
-pnpm exec biome check packages/persistence/src/health-knowledge-source-export.ts packages/persistence/src/health-knowledge-source-export.test.ts packages/persistence/scripts/export-legacy-health-knowledge.ts packages/persistence/package.json
+pnpm exec biome check packages/persistence/scripts/health-knowledge-source-export.ts packages/persistence/scripts/health-knowledge-source-export.test.ts packages/persistence/scripts/export-legacy-health-knowledge.ts packages/persistence/package.json
 ```
 
 本次结果：持久化类型检查通过，98 个测试通过、0 个失败，Biome 检查通过。

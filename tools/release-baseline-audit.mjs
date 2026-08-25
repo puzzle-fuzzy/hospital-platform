@@ -81,11 +81,14 @@ export function auditServerRuntimeSourceChanges(
 	const changedRuntimeFiles = [];
 	for (const path of changedFiles) {
 		if (!isRuntimeSourcePath(path)) continue;
-		const before = runtimeComparableSource(
-			path,
-			readSource(baseline.serverRelease, path),
-		);
-		const after = runtimeComparableSource(path, readSource("HEAD", path));
+		const beforeSource = readSource(baseline.serverRelease, path);
+		const afterSource = readSource("HEAD", path);
+		// Git diff 可能包含“路径在 release 和 HEAD 都不存在”的历史重命名残留；
+		// 这种路径没有任何运行时代码，不能被当成新增/删除运行逻辑。只要一侧
+		// 真实存在，新增、删除或内容变化仍然必须阻断未部署验收。
+		if (beforeSource === undefined && afterSource === undefined) continue;
+		const before = runtimeComparableSource(path, beforeSource);
+		const after = runtimeComparableSource(path, afterSource);
 		if (before === undefined || after === undefined || before !== after) {
 			changedRuntimeFiles.push(path);
 		}

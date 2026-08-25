@@ -56,7 +56,7 @@ domain/service/repository/importer 边界。没有导入旧正文、没有注册
 `hp_health_knowledge_items` 当前仍为 0 条。因此“新端没有数据”不是页面问题，而是迁移和审核尚未完成。
 
 本轮已在 `@hospital/persistence` 增加只读源快照映射器和命令：
-`packages/persistence/src/health-knowledge-source-export.ts` 与
+`packages/persistence/scripts/health-knowledge-source-export.ts` 与
 `packages/persistence/scripts/export-legacy-health-knowledge.ts`。它们只做白名单字段读取、
 稳定 opaque id 映射、关系保留和质量告警，不写数据库，也不会把源快照标记为已审核。
 旧表中发现的重复疾病-药品关系、可点击但缺少药品主键的关系和 `knowledge_tips` 未建模来源，

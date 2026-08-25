@@ -12,7 +12,7 @@ import {
 	type LegacySymptomDiseaseRow,
 	type LegacySymptomRow,
 	mapLegacyHealthKnowledgeSource,
-} from "../src/health-knowledge-source-export";
+} from "./health-knowledge-source-export";
 
 /**
  * 旧健康知识只读导出命令。

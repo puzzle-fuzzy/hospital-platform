@@ -361,6 +361,16 @@ test("服务端 release 后的运行逻辑变化必须阻止继续验收", () =>
 	expect(changedRuntimeFiles).toEqual(["apps/api/src/index.ts"]);
 });
 
+test("release 与 HEAD 都不存在的历史路径不构成运行时代码漂移", () => {
+	const changedRuntimeFiles = auditServerRuntimeSourceChanges(
+		{ serverRelease: "release-001" },
+		["packages/persistence/src/removed-maintenance-tool.ts"],
+		() => undefined,
+	);
+
+	expect(changedRuntimeFiles).toEqual([]);
+});
+
 test("服务端 release 漂移审计只输出文件名，不回显源码", () => {
 	const calls = [];
 	const result = auditServerSourceRelease(
