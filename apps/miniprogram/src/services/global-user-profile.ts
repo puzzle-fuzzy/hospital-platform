@@ -189,6 +189,30 @@ function profileSessionChangedError(): ApiError {
 }
 
 /**
+ * 校验微信授权异步回调仍属于当前资料快照。
+ *
+ * 只比较 sessionGeneration 不够：退出、账号切换或测试容器清理资料时，
+ * 全局快照可能先被清空，代际号稍后才推进。若此时授权回调成功，旧回调
+ * 会把头像/昵称重新写回空快照。这里同时校验 owner、代际和状态；允许
+ * `error` 是因为普通资料 GET 暂时失败时，当前 owner 仍然可以主动取得
+ * 微信资料，不能把可降级的资料故障误判为会话失效。
+ */
+function assertCurrentWechatProfileContext(
+	ownerId: string,
+	sessionGeneration: number,
+): void {
+	const latest = getGlobalUserProfile();
+	if (
+		!isCurrentSessionGeneration(sessionGeneration) ||
+		latest.ownerId !== ownerId ||
+		latest.sessionGeneration !== sessionGeneration ||
+		(latest.status !== "ready" && latest.status !== "error")
+	) {
+		throw profileSessionChangedError();
+	}
+}
+
+/**
  * 普通资料接口暂时失败不等于微信会话失效。
  *
  * `/me` 已经证明 owner 和会话代际后，即使 `/me/profile` 因持久化或网络
@@ -386,9 +410,10 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 	});
 	try {
 		const wechatProfile = await requestWechatUserProfile();
-		if (!isCurrentSessionGeneration(current.sessionGeneration)) {
-			throw profileSessionChangedError();
-		}
+		assertCurrentWechatProfileContext(
+			current.ownerId,
+			current.sessionGeneration,
+		);
 		storeWechatUserProfile(current.ownerId, wechatProfile);
 
 		let nextState = publishProfileState({
@@ -409,6 +434,12 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 					displayName: wechatProfile.nickName,
 					gender: wechatProfile.gender,
 				});
+				// PUT 也跨越异步边界；即使 API 客户端没有观察到 token 变化，
+				// 资料仓库被清理后也不能把旧响应提交回新的全局快照。
+				assertCurrentWechatProfileContext(
+					current.ownerId,
+					current.sessionGeneration,
+				);
 				nextState = publishProfileState({
 					status: "ready",
 					serverDisplayName: response.data.displayName,

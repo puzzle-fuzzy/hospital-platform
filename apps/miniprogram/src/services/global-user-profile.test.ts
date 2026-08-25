@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { GlobalUserProfileState } from "./global-user-profile";
 import {
 	authorizeGlobalWechatProfile,
+	clearGlobalUserProfile,
 	ensureGlobalUserProfile,
 	getGlobalUserProfile,
 	subscribeGlobalUserProfile,
 	waitForGlobalUserProfile,
 } from "./global-user-profile";
-import type { GlobalUserProfileState } from "./global-user-profile";
 import { notifySessionChanged } from "./session-events";
 import {
 	advanceSessionGeneration,
@@ -562,5 +563,73 @@ describe("App 全局个人资料仓库", () => {
 		expect(state.ownerId).toBe("");
 		expect(state.wechatProfileState).toBe("idle");
 		expect(state.wechatProfileHint).toBe("");
+	});
+
+	test("资料快照被清理但代际尚未推进时，旧授权成功回调也不能回写", async () => {
+		let resolveWechatProfile: ((result: unknown) => void) | undefined;
+		let updateRequestCount = 0;
+		const generation = getSessionGeneration();
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "stale-consent-success-token",
+			sessionStatus: "signed_in" as const,
+			userProfileConsentPromise: null as Promise<GlobalUserProfileState> | null,
+			userProfile: {
+				status: "ready" as const,
+				ownerId: "owner-stale-consent-success-test",
+				sessionGeneration: generation,
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		runtime.wx = {
+			getUserProfile: (options: WechatMiniprogram.GetUserProfileOption) => {
+				resolveWechatProfile = options.success as
+					| ((result: unknown) => void)
+					| undefined;
+			},
+			getStorageSync: () => undefined,
+			setStorageSync: () => undefined,
+			removeStorageSync: () => undefined,
+			request: () => {
+				updateRequestCount += 1;
+			},
+		} as unknown as typeof wx;
+
+		const pendingAuthorization = authorizeGlobalWechatProfile();
+		// 模拟资料仓库先于会话代际推进被清理；真实运行中这可能发生在
+		// 退出、重新登录或另一个 bundle 收到会话失效事件的交界处。
+		clearGlobalUserProfile();
+		resolveWechatProfile?.({
+			userInfo: {
+				nickName: "旧回调昵称",
+				avatarUrl: "https://wx.qlogo.cn/stale-consent-success/132",
+				gender: 1,
+				city: "",
+				country: "",
+				language: "zh_CN",
+				province: "",
+			},
+		});
+
+		await expect(pendingAuthorization).rejects.toMatchObject({
+			code: "session-changed",
+		});
+		const state = getGlobalUserProfile();
+		expect(state.status).toBe("idle");
+		expect(state.ownerId).toBe("");
+		expect(state.displayName).toBe("微信用户");
+		expect(state.avatarUrl).toBe("");
+		expect(updateRequestCount).toBe(0);
 	});
 });

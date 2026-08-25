@@ -16,6 +16,9 @@
 2026-08-26 对旧端临床四条线的实际请求链、字段风险和阻断材料已完成一次跨域只读审计，见
 [`migration/clinical-readonly-source-audit-2026-08-26.md`](migration/clinical-readonly-source-audit-2026-08-26.md)。
 
+全局微信资料在跨账号、跨 bundle 授权回调下的 owner/会话代际边界，见
+[`release/global-profile-owner-race-audit-2026-08-26.md`](release/global-profile-owner-race-audit-2026-08-26.md)。
+
 > **当前全量迁移交接单（2026-08-25）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。当前功能候选为 `7f7a7a18`，小程序 pending 运行输入为 `7f7a7a18`，且已通过独立静态验证；64 个旧页面均有明确落点，其中 7 个已替换、17 个安全子集、39 个入口仍按阻断原因关闭；本页下方历史候选只作追溯。
 
 > **当前仓库交接基线（2026-08-25）**：本轮功能候选为 `7f7a7a18`，当前 pending 运行输入为 `7f7a7a18`。该候选已完成独立静态校验；全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上部署或小程序上传记录。
