@@ -1414,10 +1414,12 @@ test("native primary tabs keep one stable selected bar", async () => {
 	expect(await source("pages/index/index.ts")).not.toContain("onTabBarAction");
 	expect(await source("pages/my/my.ts")).not.toContain("onTabTap");
 	expect(await source("app.json")).toContain('"custom": false');
-	expect(await source("app.json")).not.toContain('"height": "65px"');
-	expect(await source("app.json")).not.toContain('"fontSize": "10px"');
-	expect(await source("app.json")).not.toContain('"iconWidth": "24px"');
-	expect(await source("app.json")).not.toContain('"spacing": "3px"');
+	// 这四个尺寸来自旧端原生 tabBar 的视觉基线；它们只能写在唯一的
+	// app.json 配置源中，不能通过页面级 WXSS 或第二个底栏组件模拟。
+	expect(await source("app.json")).toContain('"height": "65px"');
+	expect(await source("app.json")).toContain('"fontSize": "10px"');
+	expect(await source("app.json")).toContain('"iconWidth": "24px"');
+	expect(await source("app.json")).toContain('"spacing": "3px"');
 	expect(await source("app.wxss")).toContain(
 		"padding-bottom: calc(130rpx + env(safe-area-inset-bottom));",
 	);

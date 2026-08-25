@@ -8,6 +8,7 @@
 当前候选改用微信原生 tabBar：
 
 - `app.json.tabBar.custom=false`、`position=bottom`；
+- 原生尺寸沿用旧端基线：`height=65px`、`fontSize=10px`、`iconWidth=24px`、`spacing=3px`；
 - 四个主入口、普通图标、选中图标和顺序只在 `app.json.tabBar.list` 声明；
 - 页面不渲染底栏，也不维护页面级 selected；
 - 主 Tab 的程序化跳转仍统一经过 `switchTab`，普通业务页仍使用 `navigateTo`；
