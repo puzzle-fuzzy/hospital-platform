@@ -1,9 +1,9 @@
-> 当前事实（2026-08-26）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `ad7bd1f7148463be5b2f48e6b389108e7ce43531`，共 40 个页面，回归为 `307 pass / 0 fail / 3513 expect()`。pending 尚未发布，真机业务三层证据仍待。
+> 当前事实（2026-08-26）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `de9c5b996c6735ced9684bce72e493834fe9325e`，共 40 个页面，回归为 `309 pass / 0 fail / 3522 expect()`。pending 尚未发布，真机业务三层证据仍待。
 
-> 当前候选已继续推进到 `ad7bd1f`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，补齐“我的问诊”的患者作用域、错误重试和选人入口，并为患者绑定/签名页补充协议原文只读入口；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-ad7bd1f-miniprogram-runtime-2026-08-26.md`](release/candidate-ad7bd1f-miniprogram-runtime-2026-08-26.md)。
+> 当前候选已推进到 `de9c5b99`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，补齐公共日期窗口边界；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md`](release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 # 微信授权登录实施与验收手册
-> 当前验收配套基线：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `ad7bd1f7148463be5b2f48e6b389108e7ce43531`（功能提交 `ad7bd1f`），共 40 个页面。pending 尚未发布，真实微信业务三层证据仍待；29 个跨域页面当前只处于 `surface-only`，健康自测另有安全数值子集。候选详情见 [`release/candidate-ad7bd1f-miniprogram-runtime-2026-08-26.md`](release/candidate-ad7bd1f-miniprogram-runtime-2026-08-26.md)。
+> 当前验收配套基线：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，当前本地 pending 运行输入为 `de9c5b996c6735ced9684bce72e493834fe9325e`（功能提交 `de9c5b99`），共 40 个页面。pending 尚未发布，真实微信业务三层证据仍待；29 个跨域页面当前只处于 `surface-only`，健康自测另有安全数值子集。候选详情见 [`release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md`](release/candidate-de9c5b99-miniprogram-runtime-2026-08-26.md)。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
@@ -14,15 +14,15 @@
 [`release/8eb51b5f-production-acceptance-2026-08-24.md`](release/8eb51b5f-production-acceptance-2026-08-24.md)。
 该 release 切换只补齐新服务的只读 Provider trace 与日志证据，不改变微信登录的业务开放边界。
 
-当前本地 pending 运行输入为 `ad7bd1f`，完整指纹为
-`ad7bd1f7148463be5b2f48e6b389108e7ce43531`；线上历史小程序包为 `13f597e`。本候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康自测安全数值子集、临床与外部入口安全页面、预约 Provider 入口、患者签名和消息订阅安全展示页、患者协议原文只读入口、旧端“我的快递”和采血预约真实空态、电子锦旗和健康表扬信安全页面、共享页面工厂构建校验、统一当前就诊人上下文、“我的问诊”患者作用域、患者切换链路、今日预约摘要边界和成功请求低敏 requestId 观测，
+当前本地 pending 运行输入为 `de9c5b99`，完整指纹为
+`de9c5b996c6735ced9684bce72e493834fe9325e`；线上历史小程序包为 `13f597e`。本候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康自测安全数值子集、临床与外部入口安全页面、预约 Provider 入口、患者签名和消息订阅安全展示页、患者协议原文只读入口、旧端“我的快递”和采血预约真实空态、电子锦旗和健康表扬信安全页面、共享页面工厂构建校验、统一当前就诊人上下文、“我的问诊”患者作用域、患者切换链路、今日预约摘要边界、公共日期窗口错误边界和成功请求低敏 requestId 观测，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
-本地尚未发布的页面候选运行输入为 `ad7bd1f7148463be5b2f48e6b389108e7ce43531`；它只用于本地回归和后续真机验收准备，不能与线上历史 `13f597e` 的运行包证据混写。当前候选已完成 staging 构建和 `runtime:verify:pending`，原子替换因 `dist` 锁保留 pending，真机验收仍需先释放 `dist` 锁，再按独立手册执行。
+本地尚未发布的页面候选运行输入为 `de9c5b996c6735ced9684bce72e493834fe9325e`；它只用于本地回归和后续真机验收准备，不能与线上历史 `13f597e` 的运行包证据混写。当前候选已完成 staging 构建和 `runtime:verify:pending`，原子替换因 `dist` 锁保留 pending，真机验收仍需先释放 `dist` 锁，再按独立手册执行。
 
 2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见
 [`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。
@@ -45,7 +45,7 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试；当前候选
-全量小程序测试为 `307 pass / 0 fail / 3513 expect()`，当前 pending 运行输入为 `ad7bd1f7148463be5b2f48e6b389108e7ce43531`，登录后患者初始化边界见
+全量小程序测试为 `309 pass / 0 fail / 3522 expect()`，当前 pending 运行输入为 `de9c5b996c6735ced9684bce72e493834fe9325e`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 
