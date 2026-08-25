@@ -31,6 +31,7 @@
 		"migration:boundary:audit": "bun tools/migration-boundary-audit.mjs",
 		"migration:breadth:audit": "bun tools/migration-breadth-audit.mjs",
 		"clinical:contract:audit": "bun tools/clinical-contract-audit.mjs",
+		"clinical:packet:audit": "bun tools/clinical-contract-packet-audit.mjs",
 		"migration:readiness": "bun tools/migration-readiness-report.mjs",
 		"provider:audit": "bun tools/provider-intake-audit.mjs",
 		"readonly:audit": "bun tools/read-only-domain-audit.mjs",

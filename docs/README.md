@@ -454,6 +454,7 @@
 | [`provider-intake/2026-08-16-appointment-registration-payment-refund.md`](provider-intake/2026-08-16-appointment-registration-payment-refund.md) | 本轮挂号登记、支付挂号和外部退款文档的 SHA-256、字段、状态、依赖缺口和冻结决策；当前为 `normalized` |
 | [`provider-intake/2026-08-16-outpatient-settlement-insurance.md`](provider-intake/2026-08-16-outpatient-settlement-insurance.md) | 门诊结算、支付查单、关单、取消结算和医保回写材料的指纹、流程顺序和 SET-01 至 SET-08 实现缺口；当前为 `normalized` |
 | [`provider-intake/clinical-read-models-2026-08-25.md`](provider-intake/clinical-read-models-2026-08-25.md) | 门诊病历、住院、医生关系、问诊/导诊的旧端事实指纹、字段边界、未开放 contract 和独立推进顺序；当前为 `normalized` |
+| [`migration/clinical-contract-packet.md`](migration/clinical-contract-packet.md) | 四个临床域正式材料包的脱敏引用、owner 映射、字段白名单和错误/验收门 |
 | [`provider-intake/2026-08-17-legacy-document-discovery.md`](provider-intake/2026-08-17-legacy-document-discovery.md) | 旧项目文档目录中此前未登记的门诊待支付、基础目录、门诊结算、医保规范和微信医保材料；含内部组件文档排除说明；当前为 `normalized` |
 | [`medical-insurance-contract-v1.md`](medical-insurance-contract-v1.md) | 医保金额、状态和回写契约 |
 | [`appointment-write-contract-v1.md`](appointment-write-contract-v1.md) | 预约写入/锁号/取消的冻结边界 |
