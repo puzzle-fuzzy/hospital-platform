@@ -234,6 +234,27 @@ export {
 	transitionPayment,
 } from "./payment-state";
 export type {
+	PatientWriteCommand,
+	PatientWriteCommandInput,
+	PatientWriteCommandState,
+	PatientWriteCommandTransition,
+	PatientWriteFeature,
+	PatientWriteCommandViolation,
+} from "./patient-write-command";
+export {
+	allowedPatientWriteCommandTransitions,
+	canTransitionPatientWriteCommand,
+	createPatientWriteCommand,
+	InvalidPatientWriteCommandTransitionError,
+	isPatientWriteCommandTerminal,
+	MAX_PATIENT_WRITE_COMMAND_HISTORY,
+	PATIENT_WRITE_COMMAND_STATES,
+	PATIENT_WRITE_FEATURES,
+	PatientWriteCommandValidationError,
+	normalizePatientWriteCommand,
+	transitionPatientWriteCommand,
+} from "./patient-write-command";
+export type {
 	AdapterCallContext,
 	ExternalTrace,
 	HospitalSettlementGateway,

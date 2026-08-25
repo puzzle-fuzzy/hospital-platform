@@ -33,6 +33,19 @@ Elysia 路由、不生成外部 URL、不接入 WebView、不写 Redis/MySQL，�
 后续只有在某个具体主体的正式请求/响应、allowlist、退出/回跳和撤回规则齐全后，才
 基于该基础单独接入对应 adapter、API、页面状态和低敏日志。
 
+### 2026-08-26 推进记录：D 批次统一写入命令状态基础
+
+D 批次的 12 个患者/便民入口现在共用 `@hospital/domain` 的患者写入命令状态机，
+固定 `requested`、`awaiting_confirmation`、`pending`、`submitted`、`duplicate` 和
+`rejected` 的允许转换、显式时区、追加式状态轨迹和终态不可回退规则。未知 Provider
+结果保持 `pending`，后续必须用同一 `commandId` 查询最终事实，不能通过换幂等键重放
+可能已经产生副作用的命令。
+
+这只是 D 批次共用领域基础：没有新增 Elysia 路由、MySQL/Redis 表或 Provider 调用，
+没有把任何入口从 `blocked-*` 改成开放；新增就诊人、协议、问卷、签名、锦旗和表扬信
+仍需各自的 contract、字段白名单、owner/患者映射、撤回和医护读取规则。具体状态与
+中文注释见 [`patient-write-command-domain-contract-2026-08-26.md`](patient-write-command-domain-contract-2026-08-26.md)。
+
 ### 2026-08-26 推进记录：完成全量覆盖复核并锁定发布阻断
 
 本轮从旧页面、旧服务端路由、旧端接口字面量、首页/“我的”可见 action、原生页面事件和
