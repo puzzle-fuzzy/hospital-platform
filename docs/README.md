@@ -9,6 +9,8 @@
 
 > 当前迁移主线已经切换为“先广度覆盖、再深入 contract”：首页、“我的”和服务清单所有可见入口均有业务页或统一迁移状态页；状态页不代表真实业务完成，只用于消除无响应/404，并明确记录未开放原因。完整顺序见 [`migration/breadth-first-migration-plan-2026-08-25.md`](migration/breadth-first-migration-plan-2026-08-25.md)。
 
+> 批次 B 的病历、问诊、住院、健康内容、实时就诊和互联网医院已统一登记在 [`migration/batch-b-read-model-matrix-2026-08-25.md`](migration/batch-b-read-model-matrix-2026-08-25.md)；下一步按业务域取得正式 contract 后再逐个开放，不用一个域的结果替代另一个域。
+
 > 下方标注为“当前候选”的旧段落均是历史交接记录；继续验收时只使用本页顶部的新构建运行包和最新共享底栏手册，不能使用旧二维码、旧 `dist/` 或旧底栏说明。
 
 > 历史候选（2026-08-24）：`dist/build-info.json.sourceRevision=ecff1f9ca97a1fb47ee090810a92a5fe533779f9`，当时 16 个页面脚本完整；该记录不覆盖当前 `d54a53a5` 的 17 页 pending 候选。

@@ -140,6 +140,39 @@ test("native user profile is bootstrapped once and shared across primary tabs", 
 	expect(globalProfile).toContain("authorizeGlobalWechatProfileInternal");
 });
 
+test("native migration entries expose a typed blocking reason instead of a generic toast", async () => {
+	const navigation = await source("services/feature-navigation.ts");
+	const statusPage = await source("pages/feature-status/feature-status.wxml");
+	const home = await source("pages/index/index.ts");
+	const my = await source("pages/my/my.ts");
+
+	// 迁移期间“能点击”只是入口完整性，不代表业务已完成。所有状态页都必须
+	// 把当前真正的准入阻塞类型带给用户；同时首页和“我的”里调用固定状态页的
+	// key 必须存在于同一份目录，防止新增入口落入无意义 Toast 或 404。
+	expect(navigation).toContain('"待 provider contract"');
+	expect(navigation).toContain('"待临床审核"');
+	expect(navigation).toContain('"待支付与回写 contract"');
+	expect(navigation).toContain('"待患者绑定 contract"');
+	expect(navigation).toContain('"待外部入口 contract"');
+	expect(statusPage).toContain("{{feature.readiness}}");
+	expect(statusPage).not.toContain("功能迁移中</view>");
+
+	for (const page of [home, my]) {
+		for (const match of page.matchAll(
+			/navigateToFeatureStatus\("([^"]+)"\)/gu,
+		)) {
+			const featureKey = match[1];
+			if (!featureKey) continue;
+			// 目录中的合法 TypeScript 对象键可能是 companion:，也可能是
+			// "patient-binding":；两种写法都必须仍然落在同一份目录中。
+			expect(
+				navigation.includes(`"${featureKey}"`) ||
+					navigation.includes(`${featureKey}:`),
+			).toBe(true);
+		}
+	}
+});
+
 test("native profile consent remains clickable while patient data is loading", async () => {
 	const my = await source("pages/my/my.ts");
 	const template = await source("pages/my/my.wxml");

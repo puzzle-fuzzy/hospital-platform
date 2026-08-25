@@ -3,7 +3,7 @@
 		<view class="feature-status-card">
 			<image class="feature-status-icon" src="{{feature.icon}}" mode="aspectFit" />
 			<text class="feature-status-title">{{feature.title}}</text>
-			<view class="feature-status-badge">功能迁移中</view>
+			<view class="feature-status-badge">{{feature.readiness}}</view>
 			<text class="feature-status-description">{{feature.description}}</text>
 		</view>
 
