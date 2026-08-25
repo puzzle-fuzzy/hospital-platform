@@ -26,15 +26,15 @@ export class WechatUserProfileAuthorizationError extends Error {
 }
 
 /** 微信回调的头像地址只能作为展示输入，拒绝非 HTTPS URL，避免注入任意资源。 */
-function normalizeAvatarUrl(value: unknown): string {
-	if (typeof value !== "string") return "";
+function normalizeAvatarUrl(value: unknown): string | null {
+	if (typeof value !== "string") return null;
 	const avatarUrl = value.trim();
 	if (!avatarUrl) return "";
 	try {
 		const url = new URL(avatarUrl);
-		return url.protocol === "https:" ? avatarUrl : "";
+		return url.protocol === "https:" ? avatarUrl : null;
 	} catch {
-		return "";
+		return null;
 	}
 }
 
@@ -61,7 +61,9 @@ export function normalizeWechatUserProfile(
 	const record = value as Record<string, unknown>;
 	const nickName = normalizeNickName(record.nickName);
 	const avatarUrl = normalizeAvatarUrl(record.avatarUrl);
-	if (!nickName || !avatarUrl) return null;
+	// 微信可能返回空头像地址；这不是资料损坏，页面会回退到默认头像。
+	// 但非字符串、非法 URL 或非 HTTPS URL 必须拒绝，不能把不安全值当作空头像。
+	if (!nickName || avatarUrl === null) return null;
 	const gender: WechatUserGender =
 		record.gender === 1 ? "male" : record.gender === 2 ? "female" : "unknown";
 	return { nickName, avatarUrl, gender };

@@ -5,7 +5,7 @@ import {
 } from "./wechat-user-profile";
 
 describe("微信个人资料授权边界", () => {
-	test("只接受完整的昵称和 HTTPS 头像，并映射微信性别", () => {
+	test("接受昵称和 HTTPS 头像，并映射微信性别", () => {
 		expect(
 			normalizeWechatUserProfile({
 				nickName: "  张三  ",
@@ -25,6 +25,19 @@ describe("微信个人资料授权边界", () => {
 				gender: 2,
 			}),
 		).toBeNull();
+
+		// 没有头像时仍然保留真实昵称；页面会使用安全的默认头像资源。
+		expect(
+			normalizeWechatUserProfile({
+				nickName: "王五",
+				avatarUrl: "",
+				gender: 0,
+			}),
+		).toEqual({
+			nickName: "王五",
+			avatarUrl: "",
+			gender: "unknown",
+		});
 	});
 
 	test("拒绝空昵称、控制字符和超长昵称", () => {
