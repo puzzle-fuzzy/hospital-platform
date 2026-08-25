@@ -1,59 +1,59 @@
 {
-  "schemaVersion": 1,
-  "status": "normalized",
-  "registration": "unregistered",
-  "domains": [
-    {
-      "id": "outpatient-records",
-      "contractStatus": "pending",
-      "requestSample": "missing",
-      "successSample": "missing",
-      "emptySample": "missing",
-      "rejectedSample": "missing",
-      "timeoutSample": "missing",
-      "ownerMapping": "pending",
-      "fieldAllowlist": "pending",
-      "redactionRule": "pending",
-      "nextAction": "补齐 out-visit-records 的脱敏请求、响应、空结果、拒绝和超时材料"
-    },
-    {
-      "id": "inpatient",
-      "contractStatus": "pending",
-      "requestSample": "missing",
-      "successSample": "missing",
-      "emptySample": "missing",
-      "rejectedSample": "missing",
-      "timeoutSample": "missing",
-      "ownerMapping": "pending",
-      "fieldAllowlist": "pending",
-      "redactionRule": "pending",
-      "nextAction": "确认住院 episode 权威来源、患者映射、状态枚举和费用边界"
-    },
-    {
-      "id": "doctor-relationship",
-      "contractStatus": "pending",
-      "requestSample": "missing",
-      "successSample": "missing",
-      "emptySample": "missing",
-      "rejectedSample": "missing",
-      "timeoutSample": "missing",
-      "ownerMapping": "pending",
-      "fieldAllowlist": "pending",
-      "redactionRule": "pending",
-      "nextAction": "取得当前医生目录和 owner 关系的脱敏样例，确认失效语义"
-    },
-    {
-      "id": "consultation",
-      "contractStatus": "pending",
-      "requestSample": "missing",
-      "successSample": "missing",
-      "emptySample": "missing",
-      "rejectedSample": "missing",
-      "timeoutSample": "missing",
-      "ownerMapping": "pending",
-      "fieldAllowlist": "pending",
-      "redactionRule": "pending",
-      "nextAction": "分别确认电子导诊来源、问诊会话主体、短期回跳和退出语义"
-    }
-  ]
+	"schemaVersion": 1,
+	"status": "normalized",
+	"registration": "unregistered",
+	"domains": [
+		{
+			"id": "outpatient-records",
+			"contractStatus": "pending",
+			"requestSample": "missing",
+			"successSample": "missing",
+			"emptySample": "missing",
+			"rejectedSample": "missing",
+			"timeoutSample": "missing",
+			"ownerMapping": "pending",
+			"fieldAllowlist": "pending",
+			"redactionRule": "pending",
+			"nextAction": "补齐 out-visit-records 的脱敏请求、响应、空结果、拒绝和超时材料"
+		},
+		{
+			"id": "inpatient",
+			"contractStatus": "pending",
+			"requestSample": "missing",
+			"successSample": "missing",
+			"emptySample": "missing",
+			"rejectedSample": "missing",
+			"timeoutSample": "missing",
+			"ownerMapping": "pending",
+			"fieldAllowlist": "pending",
+			"redactionRule": "pending",
+			"nextAction": "确认住院 episode 权威来源、患者映射、状态枚举和费用边界"
+		},
+		{
+			"id": "doctor-relationship",
+			"contractStatus": "pending",
+			"requestSample": "missing",
+			"successSample": "missing",
+			"emptySample": "missing",
+			"rejectedSample": "missing",
+			"timeoutSample": "missing",
+			"ownerMapping": "pending",
+			"fieldAllowlist": "pending",
+			"redactionRule": "pending",
+			"nextAction": "取得当前医生目录和 owner 关系的脱敏样例，确认失效语义"
+		},
+		{
+			"id": "consultation",
+			"contractStatus": "pending",
+			"requestSample": "missing",
+			"successSample": "missing",
+			"emptySample": "missing",
+			"rejectedSample": "missing",
+			"timeoutSample": "missing",
+			"ownerMapping": "pending",
+			"fieldAllowlist": "pending",
+			"redactionRule": "pending",
+			"nextAction": "分别确认电子导诊来源、问诊会话主体、短期回跳和退出语义"
+		}
+	]
 }
