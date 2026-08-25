@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { FEATURE_STATUS_CATALOG } from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
+	getLegacyPageMigrationBatch,
 	type MigrationCoverageStage,
 } from "./migration-coverage";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "./legacy-page-catalog";
@@ -70,6 +71,44 @@ describe("迁移入口覆盖聚合", () => {
 		).toBe("B-health-content");
 		expect(getFeatureMigrationCoverage("insurance").migrationBatch.id).toBe(
 			"F-payment-and-writeback",
+		);
+	});
+
+	test("64 个旧入口都归入明确批次或显式排除", () => {
+		const batches = new Map<string, number>();
+		for (const entry of LEGACY_PAGE_MIGRATION_CATALOG) {
+			const batch = getLegacyPageMigrationBatch(entry);
+			batches.set(batch, (batches.get(batch) ?? 0) + 1);
+		}
+
+		expect([...batches.keys()].sort()).toEqual([
+			"A-readonly-evidence",
+			"B-health-content",
+			"C-clinical-readonly-contracts",
+			"D-patient-and-convenience-write",
+			"E-external-entry",
+			"F-payment-and-writeback",
+			"excluded",
+		]);
+		expect([...batches.values()].reduce((sum, count) => sum + count, 0)).toBe(
+			LEGACY_PAGE_MIGRATION_CATALOG.length,
+		);
+	});
+
+	test("没有 featureKey 的健康内容页面进入 B，互联网医院壳进入 E", () => {
+		const healthContent = LEGACY_PAGE_MIGRATION_CATALOG.find(
+			(entry) => entry.legacyPath === "pagesB/health/health_encyclopedia.vue",
+		);
+		const internetHospital = LEGACY_PAGE_MIGRATION_CATALOG.find(
+			(entry) => entry.legacyPath === "pages/hospital/hospital.vue",
+		);
+
+		expect(healthContent).toBeDefined();
+		expect(internetHospital).toBeDefined();
+		if (!healthContent || !internetHospital) throw new Error("测试台账缺失");
+		expect(getLegacyPageMigrationBatch(healthContent)).toBe("B-health-content");
+		expect(getLegacyPageMigrationBatch(internetHospital)).toBe(
+			"E-external-entry",
 		);
 	});
 });

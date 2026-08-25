@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
+import { getLegacyPageMigrationBatch } from "../apps/miniprogram/src/services/migration-coverage.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
 import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
 import { buildHealthKnowledgeReviewQueue } from "./health-knowledge-review-queue.mjs";
@@ -43,6 +44,70 @@ function countByStatus(entries) {
 		counts[entry.status] = (counts[entry.status] ?? 0) + 1;
 		return counts;
 	}, {});
+}
+
+/**
+ * 把 64 个旧页面也放进 A–F 队列，而不是只统计尚未放行的 gate。
+ *
+ * `frozenBoundaryCoverage` 统计的是需要 contract 才能离开状态页的阻断
+ * 入口；这里统计的是完整迁移台账，补上 partial/replaced 页面后，报告才
+ * 能回答“整个项目下一步由哪条队列负责”，同时仍保留 excluded 的明确数量。
+ */
+function legacyCatalogBatchCoverage() {
+	const batches = new Map(
+		MIGRATION_BATCH_IDS.map((batchId) => [
+			batchId,
+			{
+				batchId,
+				pageCount: 0,
+				statusCounts: {},
+				domains: new Set(),
+				featureKeys: new Set(),
+				nativeTargets: new Set(),
+			},
+		]),
+	);
+	const unassignedEntries = [];
+	let excludedPageCount = 0;
+
+	for (const entry of LEGACY_PAGE_MIGRATION_CATALOG) {
+		let batchId;
+		try {
+			batchId = getLegacyPageMigrationBatch(entry);
+		} catch {
+			unassignedEntries.push(entry.legacyPath);
+			continue;
+		}
+		if (batchId === "excluded") {
+			excludedPageCount += 1;
+			continue;
+		}
+		const batch = batches.get(batchId);
+		if (!batch) {
+			unassignedEntries.push(entry.legacyPath);
+			continue;
+		}
+		batch.pageCount += 1;
+		batch.statusCounts[entry.status] =
+			(batch.statusCounts[entry.status] ?? 0) + 1;
+		batch.domains.add(entry.domain);
+		if (entry.featureKey) batch.featureKeys.add(entry.featureKey);
+		if (entry.nativeTarget) batch.nativeTargets.add(entry.nativeTarget);
+	}
+
+	return {
+		batchCoverage: [...batches.values()].map((batch) => ({
+			batchId: batch.batchId,
+			pageCount: batch.pageCount,
+			statusCounts: batch.statusCounts,
+			domains: [...batch.domains].sort(),
+			featureKeys: [...batch.featureKeys].sort(),
+			nativeTargets: [...batch.nativeTargets].sort(),
+		})),
+		excludedPageCount,
+		unassignedEntries,
+		passed: unassignedEntries.length === 0,
+	};
 }
 
 /**
@@ -89,6 +154,7 @@ function legacyCoverage() {
 	const blockedEntries = LEGACY_PAGE_MIGRATION_CATALOG.filter((entry) =>
 		entry.status.startsWith("blocked-"),
 	);
+	const catalogBatchCoverage = legacyCatalogBatchCoverage();
 	const knownFeatureKeys = new Set(Object.keys(FEATURE_STATUS_CATALOG));
 	const invalidBlockedEntries = blockedEntries
 		.filter(
@@ -103,7 +169,8 @@ function legacyCoverage() {
 		blockedPageCount: blockedEntries.length,
 		featureStatusKeyCount: knownFeatureKeys.size,
 		invalidBlockedEntries,
-		passed: invalidBlockedEntries.length === 0,
+		catalogBatchCoverage,
+		passed: invalidBlockedEntries.length === 0 && catalogBatchCoverage.passed,
 	};
 }
 

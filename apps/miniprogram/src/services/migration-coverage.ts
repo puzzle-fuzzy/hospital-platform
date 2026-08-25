@@ -169,6 +169,65 @@ const MIGRATION_BATCH_INFO: Readonly<
 	},
 });
 
+/**
+ * 旧端页面的迁移批次结果。
+ *
+ * `excluded` 是明确排除的开发辅助页面，不属于任何业务批次；其余页面
+ * 必须进入 A–F 中的一条队列。这里的归属描述“当前安全子集或下一步证据
+ * 应由哪条队列负责”，不是把页面标记成已经可用。
+ */
+export type LegacyPageMigrationBatch = MigrationBatchId | "excluded";
+
+/**
+ * 健康百科的四个只读入口由审核 bundle 队列负责。
+ *
+ * 不能仅按 `domain === 健康` 推断 B：同一业务域里的病历、支付、问卷和
+ * 锦旗分别属于 C、F、D。只列出已经存在安全内容子集的旧页面，其他健康
+ * 页面仍必须通过自己的 featureKey 进入对应阻断批次。
+ */
+const HEALTH_CONTENT_LEGACY_PATHS: ReadonlySet<string> = new Set([
+	"pagesB/health/disease_detail.vue",
+	"pagesB/health/drug_detail.vue",
+	"pagesB/health/health_encyclopedia.vue",
+	"pagesB/health/search_result.vue",
+]);
+
+/**
+ * 为逐页迁移台账解析唯一批次。
+ *
+ * 优先使用 featureKey，因为阻断入口的 contract 家族已经在状态目录中
+ * 冻结；没有 featureKey 的安全页面才按“已确认的当前子集”归入 A/B。
+ * 任何未覆盖的新页面都抛错，让测试和 readiness 在新增入口的同一轮失败，
+ * 不能悄悄把它归入一个看似合理但未审计的批次。
+ */
+export function getLegacyPageMigrationBatch(
+	entry: LegacyPageMigration,
+): LegacyPageMigrationBatch {
+	if (entry.status === "excluded") return "excluded";
+
+	if (entry.featureKey) {
+		const batch = MIGRATION_BATCH_BY_FEATURE_KEY[entry.featureKey];
+		if (batch) return batch;
+	}
+
+	if (HEALTH_CONTENT_LEGACY_PATHS.has(entry.legacyPath)) {
+		return "B-health-content";
+	}
+
+	// 旧端互联网医院页面的当前安全子集只是主 Tab 壳，下一步仍由外部
+	// 会话/域名队列负责；不能把它当作普通静态页面纳入 A 的真机证据。
+	if (entry.domain === "互联网医院") return "E-external-entry";
+
+	// 其余没有 featureKey 的 replaced/partial 页面都已有静态或只读安全
+	// 子集，统一由 A 批次完成页面、请求链和四方证据；它们的未迁移扩展仍
+	// 记录在 entry.note 中，不能因此升级为“业务完成”。
+	if (entry.status === "replaced" || entry.status === "partial") {
+		return "A-readonly-evidence";
+	}
+
+	throw new Error(`旧页面缺少迁移批次：${entry.legacyPath}`);
+}
+
 function mergeStage(
 	entries: ReadonlyArray<LegacyPageMigration>,
 ): MigrationCoverageStage {
