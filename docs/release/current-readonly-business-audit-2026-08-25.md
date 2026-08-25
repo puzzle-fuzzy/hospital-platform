@@ -1,6 +1,6 @@
 # 当前只读业务迁移审计（2026-08-25）
 
-> 当前事实源（2026-08-25，优先于下方历史交接）：最新小程序候选为 `485c0892e6850e43d09443ca6eecd539eea503d8`，位于 `.local/hospital-miniprogram/pending/`；旧端 64 页面逐页迁移台账、可见入口状态收口和“就诊”主 Tab 患者栏已落地，实时队列仍关闭。小程序回归为 `256 pass / 0 fail / 2426 expect()`；live 运行包仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，待开发者工具释放 `dist/` 后发布。下方 `c4dc00b9`、`b3436c24`、`90d5ab03` 仅作历史交接。
+> 当前事实源（2026-08-25，优先于下方历史交接）：最新小程序候选为 `a002353b813d5c5a58945f02aa31089efc4df3f4`，位于 `.local/hospital-miniprogram/pending/`；旧端 64 页面逐页迁移台账、可见入口状态收口和“就诊”主 Tab 患者栏已落地，未来/历史预约摘要已接入只读读模型，实时队列仍关闭。小程序回归为 `258 pass / 0 fail / 2432 expect()`；live 运行包仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，待开发者工具释放 `dist/` 后发布。下方 `c4dc00b9`、`b3436c24`、`90d5ab03` 仅作历史交接。
 
 > 当前小程序只读验收入口：`apps/miniprogram/dist/`，当前可运行包仍为上一候选 `sourceRevision=fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；最新代码候选
  > `485c0892e6850e43d09443ca6eecd539eea503d8` 已完成构建但因微信开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。四个主 Tab 使用微信原生

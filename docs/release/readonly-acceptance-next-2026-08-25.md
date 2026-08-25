@@ -1,8 +1,8 @@
 # 当前候选只读业务验收手册（2026-08-25）
 
-> 当前本地最新候选为 `485c0892e6850e43d09443ca6eecd539eea503d8`，已构建到 `.local/hospital-miniprogram/pending/`；
+> 当前本地最新候选为 `a002353b813d5c5a58945f02aa31089efc4df3f4`，已构建到 `.local/hospital-miniprogram/pending/`；
 > 当前 live `dist` 仍为上一份完整运行包 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，因为微信开发者工具仍锁定目录而尚未发布。
-> 必须关闭开发者工具后先发布 `485c0892` pending，再从新运行包生成二维码；历史 `c4dc00b9`、`b3436c24`、`90d5ab03` 和 `fcc6630e` 不能作为本候选证据。
+> 必须关闭开发者工具后先发布 `a002353b` pending，再从新运行包生成二维码；历史 `c4dc00b9`、`b3436c24`、`90d5ab03`、`485c0892` 和 `fcc6630e` 不能作为本候选证据。
 > 开发者工具必须直接打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist\`，不能打开父目录、`src/` 或历史 `mp-weixin` 工程。
 > 本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。
 

@@ -8,14 +8,14 @@
 | --- | --- |
 | 旧端页面扫描 | 64 个 Vue 页面 |
 | 新端页面注册 | 17 个页面；前 4 个由微信原生 TabBar 管理 |
-| 已完成候选 | `485c0892e6850e43d09443ca6eecd539eea503d8` |
+| 已完成候选 | `a002353b813d5c5a58945f02aa31089efc4df3f4` |
 | 候选位置 | `.local/hospital-miniprogram/pending/` |
 | 当前 live 运行包 | 仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，开发者工具释放后再原子发布 |
 | 旧服务 | Python `8001` 未修改、未停止；本轮只修改新项目 |
 
 ## 二、入口覆盖层已经完成
 
-> 当前候选补充（2026-08-25）：`485c0892` 在原有四 Tab、全局资料初始化、入口状态页和患者只读链路基础上，增加了旧端 64 页面逐页台账、业务域摘要、迁移状态原因和“就诊”主 Tab 的患者上下文、今日/待就诊/历史三标签与固定高度查询状态壳；实时队列、WebSocket 与旧端缓存协议仍关闭。候选回归为 `256 pass / 0 fail / 2426 expect()`，构建产物因开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。
+> 当前候选补充（2026-08-25）：`a002353b` 在原有四 Tab、全局资料初始化、入口状态页和患者只读链路基础上，继续保留旧端 64 页面逐页台账、业务域摘要和“就诊”主 Tab 的患者上下文；新增未来/历史预约摘要只读展示，按中国标准时间排除当天记录，今日实时队列、WebSocket 与旧端缓存协议仍关闭。候选回归为 `258 pass / 0 fail / 2432 expect()`，构建产物因开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。
 
 本轮在 `pages/feature-status/feature-status` 和 `services/feature-navigation.ts` 的基础上继续收紧入口分发，并把二级动作也纳入统一状态路由：
 
