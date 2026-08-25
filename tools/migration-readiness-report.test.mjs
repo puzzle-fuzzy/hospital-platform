@@ -18,6 +18,8 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.providerIntake.documentIdCount).toBe(31);
 		expect(report.providerIntake.confirmedDocumentCount).toBe(0);
 		expect(report.providerIntake.businessReady).toBe(false);
+		expect(report.clinicalContract.domainCount).toBe(4);
+		expect(report.clinicalContract.passed).toBe(true);
 		expect(report.runtime.candidateRuntimeAligned).toBe(false);
 		expect(report.runtime.publicationRequired).toBe(true);
 		expect(report.deviceEvidence.domainCount).toBe(9);

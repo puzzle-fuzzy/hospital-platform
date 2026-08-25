@@ -28,6 +28,7 @@ pnpm migration:readiness -- --strict
 | `entryCoverage.nativePageCount` | `apps/miniprogram/src/app.json` | 原生小程序注册了多少页面 | 微信开发者工具是否加载了这些页面 |
 | `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个只读域的页面/API/实现/日志/文档是否断链 | Provider 返回、生产流量或真机链路是否成功 |
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
+| `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档和 API 源码 | 门诊记录、住院、医生关系、问诊/电子导诊四域是否仍独立、未注册且没有误加通用路由 | 不会因为材料登记就自动生成临床页面或接口 |
 | `runtime` | live/pending `build-info.json` | 当前开发者工具目录和待发布候选的源码来源是否一致 | 当前微信设备一定运行了哪个版本；锁定目录时必须保留现场证据 |
 | `deviceEvidence` | `docs/release/device-evidence-296516a5-pending.json` | 当前候选的真机证据域数量、状态和候选指纹是否匹配 | `pending` 不等于失败；清单结构通过也不等于真实业务成功 |
 | `businessCompletion` | 固定 fail-closed 判定 | 明确当前不能声称全项目业务完成 | 不会因为页面或状态页存在就伪造完成结论 |
@@ -42,6 +43,7 @@ pnpm migration:readiness -- --strict
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
 - live `dist` 来源为 `fcc6630e`，pending 来源为 `296516a5`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
+- 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 
 报告中的 `codeReadyDomainCount` 和 `realEvidenceReadyDomainCount` 必须分开读取：前者表示仓库结构和代码闭环通过，后者只在真机证据清单中对应域全部达到 `passed` 时增加。两者都不等于支付、医保或其它阻塞域已经开放。
 

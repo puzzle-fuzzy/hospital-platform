@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
+import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
 import { READ_ONLY_DOMAIN_CATALOG } from "./read-only-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -246,6 +247,7 @@ export async function buildMigrationReadinessReport(
 	const providerIntake = await providerIntakeCoverage(root);
 	const runtime = await runtimeProvenance(root);
 	const deviceEvidence = await deviceEvidenceCoverage(root, runtime.pending);
+	const clinicalContract = await buildClinicalContractAudit(root);
 	const nativePageCount = Array.isArray(appConfig.pages)
 		? appConfig.pages.length
 		: 0;
@@ -253,7 +255,11 @@ export async function buildMigrationReadinessReport(
 		Array.isArray(appConfig.pages) &&
 		appConfig.pages.includes("pages/feature-status/feature-status");
 	const structuralAuditPassed =
-		legacy.passed && readOnly.passed && featureStatusRegistered;
+		legacy.passed &&
+		readOnly.passed &&
+		providerIntake.passed &&
+		clinicalContract.passed &&
+		featureStatusRegistered;
 
 	return {
 		schemaVersion: 1,
@@ -266,6 +272,7 @@ export async function buildMigrationReadinessReport(
 		},
 		readOnly,
 		providerIntake,
+		clinicalContract,
 		runtime,
 		deviceEvidence,
 		businessCompletion: {
