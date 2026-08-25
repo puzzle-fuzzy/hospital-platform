@@ -22,7 +22,7 @@
 | --- | --- | --- | --- |
 | `pages/` | `index/index.vue` | 已替换 | 使用原生首页、服务端患者读模型和平台 API；不恢复旧端 provider 直连、完整卡号或二维码拼接 |
 | `pages/` | `user/user.vue` | 部分迁移 | 原生“我的”、患者选择和挂号记录已接入；资料、反馈、订阅消息、咨询历史等入口逐项建 contract |
-| `pages/` | `consult/consult.vue` | 待 provider contract | 需要独立会话、患者上下文、免责声明、AI/导诊服务和审计日志 |
+| `pages/` | `consult/consult.vue` | 部分迁移 | 新端“就诊”主 Tab 已迁移患者栏、今日/未来/历史三标签和稳定查询状态壳，并接入全局会话与显式就诊人切换；实时叫号、陪诊/导诊会话、队列 WebSocket 和临床动态仍需独立 contract 与审计日志 |
 | `pages/` | `hospital/hospital.vue` | 待 provider contract | 这是 web-view/互联网医院入口，必须确认外部小程序或 HTTPS 域名白名单，不能伪造站内页面 |
 | `pages/` | `setting/setData.vue` | 不纳入生产 | 仅旧端测试数据工具，不进入新端 `app.json` |
 | `pagesB/account/` | `follow.vue` | 静态行为已迁移 | 旧端运行时只有静态公众号通知说明，二维码区域为注释代码；真实二维码、关注状态、模板消息授权和外部跳转属于未来独立 contract |
