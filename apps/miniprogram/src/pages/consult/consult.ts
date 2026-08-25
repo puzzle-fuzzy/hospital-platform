@@ -12,6 +12,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
+import { toPatientSurfaceData } from "../../services/patient-surface-context";
 import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
@@ -74,10 +75,15 @@ function applyPatientContext(
 	page: WechatMiniprogram.Page.Instance<ConsultPageData, ConsultPageMethods>,
 	patient: Patient | null,
 ): void {
+	const surface = toPatientSurfaceData(patient);
 	page.setData({
-		selectedPatient: patient,
-		selectedPatientName: patient?.displayName || "未选择就诊人",
-		selectedPatientIdLabel: patient ? `ID：${patient.id}` : "ID：----",
+		selectedPatient: surface.currentPatient ?? null,
+		selectedPatientName: surface.currentPatientName ?? "未选择就诊人",
+		// 就诊页只展示服务端已经脱敏的卡号。内部 opaque patientId 只用于
+		// 当前请求和 owner 作用域校验，不能因为页面仍沿用旧端“ID”文案而
+		// 进入 WXML、截图或用户转发内容。
+		selectedPatientIdLabel:
+			surface.currentPatientCardLabel ?? "就诊卡信息不可用",
 	});
 }
 
@@ -87,7 +93,7 @@ Page<ConsultPageData, ConsultPageMethods>({
 		sessionState: "checking",
 		selectedPatient: null,
 		selectedPatientName: "正在获取就诊人...",
-		selectedPatientIdLabel: "ID：----",
+		selectedPatientIdLabel: "就诊卡信息加载中",
 		tabs: CONSULT_TABS,
 		activeTab: "today",
 		businessDate: "",
@@ -131,7 +137,7 @@ Page<ConsultPageData, ConsultPageMethods>({
 			sessionState: "checking",
 			selectedPatient: null,
 			selectedPatientName: "正在获取就诊人...",
-			selectedPatientIdLabel: "ID：----",
+			selectedPatientIdLabel: "就诊卡信息加载中",
 			businessDate,
 			records: [],
 			visibleRecords: [],
