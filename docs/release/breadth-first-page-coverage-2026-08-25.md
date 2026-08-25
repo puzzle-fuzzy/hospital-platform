@@ -31,6 +31,7 @@
 - 页面台账回归：[`apps/miniprogram/src/services/legacy-page-catalog.test.ts`](../../apps/miniprogram/src/services/legacy-page-catalog.test.ts)
 - 总迁移审计：`pnpm migration:audit`
 - 入口分发广度审计：`pnpm migration:breadth:audit`
+- 该审计同时验证首页/“我的” action 分支，以及 20 个已注册页面的 WXML 事件方法闭环；它不替代 Provider、真机或真实业务验收。
 - 旧端逐页解释：[`../migration/legacy-page-matrix.md`](../migration/legacy-page-matrix.md)
 
 本轮门禁输出：

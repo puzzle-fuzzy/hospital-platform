@@ -26,7 +26,7 @@
 ```text
 pnpm typecheck                                      通过
 pnpm test                                           9 个 workspace 全部通过；小程序 267 pass / 0 fail / 2659 expect()
-pnpm migration:breadth:audit                       首页 22 个、我的 9 个可见 action 全部有固定分发
+pnpm migration:breadth:audit                       首页 22 个、我的 9 个可见 action 有固定分发；20 个页面 WXML 事件均有 TS 方法
 pnpm --filter @hospital/miniprogram runtime:verify:pending 通过
 ```
 

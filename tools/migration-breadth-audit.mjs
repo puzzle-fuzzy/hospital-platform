@@ -77,6 +77,110 @@ function extractFeatureKeys(source) {
 }
 
 /**
+ * 提取 WXML 上声明的页面事件处理器。
+ *
+ * 原生小程序不会因为 WXML 中的 bindtap/bindinput 拼写错误而让
+ * TypeScript 编译失败；如果只跑 typecheck，用户仍可能遇到点击无响应。
+ * 这里统一读取 bind/catch 事件，覆盖点击、输入、选择和地图错误等入口。
+ */
+function extractWxmlHandlers(source) {
+	return [
+		...new Set(
+			[
+				...source.matchAll(
+					/\b(?:bind|catch)(?::[A-Za-z][\w-]*|[A-Za-z][\w-]*)\s*=\s*(["'])([A-Za-z_$][\w$]*)\1/gu,
+				),
+			].map((match) => match[2]),
+		),
+	];
+}
+
+/** 从页面 Page 对象中提取带函数体的方法名。 */
+function extractPageMethods(source) {
+	const controlFlowNames = new Set(["if", "for", "while", "switch", "catch"]);
+	return [
+		...new Set(
+			[
+				...source.matchAll(
+					/^\s*(?!Page\s*\()(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*(?::[^{}]+)?\s*\{/gmu,
+				),
+			]
+				.map((match) => match[1])
+				.filter((name) => !controlFlowNames.has(name)),
+		),
+	];
+}
+
+/**
+ * 校验单个页面的 WXML 事件是否都有对应的 TS 方法。
+ *
+ * 这是纯函数，测试可以覆盖“事件缺方法”这一类最容易被微信运行时
+ * 静默吞掉的错误；真正的文件遍历由下面的审计入口负责。
+ */
+export function auditPageInteractionSource(wxmlSource, pageSource) {
+	const handlers = extractWxmlHandlers(wxmlSource);
+	const methods = new Set(extractPageMethods(pageSource));
+	const missingHandlers = handlers.filter((handler) => !methods.has(handler));
+	return {
+		handlers,
+		methods: [...methods],
+		missingHandlers,
+		passed: missingHandlers.length === 0,
+	};
+}
+
+/** 对 app.json 注册的全部页面执行 WXML/TS 事件闭环审计。 */
+async function auditPageInteractions(root, appConfig) {
+	const failures = [];
+	const pages = [];
+	for (const pagePath of appConfig.pages ?? []) {
+		const wxmlPath = resolve(root, "apps/miniprogram/src", `${pagePath}.wxml`);
+		const tsPath = resolve(root, "apps/miniprogram/src", `${pagePath}.ts`);
+		const missingFiles = [];
+		if (!(await Bun.file(wxmlPath).exists())) {
+			missingFiles.push(`${pagePath}.wxml`);
+		}
+		if (!(await Bun.file(tsPath).exists())) {
+			missingFiles.push(`${pagePath}.ts`);
+		}
+		if (missingFiles.length > 0) {
+			failures.push(
+				`${pagePath} 缺少页面交互源文件：${missingFiles.join(", ")}`,
+			);
+			pages.push({
+				pagePath,
+				handlerCount: 0,
+				handlers: [],
+				missingHandlers: [],
+				missingFiles,
+				passed: false,
+			});
+			continue;
+		}
+		const wxmlSource = await Bun.file(wxmlPath).text();
+		const pageSource = await Bun.file(tsPath).text();
+		const interaction = auditPageInteractionSource(wxmlSource, pageSource);
+		for (const handler of interaction.missingHandlers) {
+			failures.push(`${pagePath} 的 WXML 事件没有 TS 方法：${handler}`);
+		}
+		pages.push({
+			pagePath,
+			handlerCount: interaction.handlers.length,
+			handlers: interaction.handlers,
+			missingHandlers: interaction.missingHandlers,
+			missingFiles: [],
+			passed: interaction.passed,
+		});
+	}
+	return {
+		pageCount: pages.length,
+		pages,
+		failures,
+		passed: failures.length === 0,
+	};
+}
+
+/**
  * 检查首页、“我的”和统一状态目录之间的静态关系。
  *
  * 返回结构化结果，既可供 CLI 打印，也可由 Bun 测试直接断言，避免只
@@ -158,6 +262,12 @@ export async function auditMigrationBreadth(root = repositoryPath) {
 		}
 	}
 
+	// 入口广度不仅包含首页/我的的 action，也包含每个已注册页面的
+	// WXML 事件。先完成事件闭环，再谈真实 Provider 业务，避免迁移过程中
+	// 出现“页面存在但交互无响应”的假完成状态。
+	const interactionAudit = await auditPageInteractions(root, appConfig);
+	failures.push(...interactionAudit.failures);
+
 	/**
 	 * 原生 app.json 的四个主入口是共享底栏的唯一事实源；广度审计顺手
 	 * 检查它们仍然是注册页面，避免入口分发正确但运行时又回到 404。
@@ -174,6 +284,7 @@ export async function auditMigrationBreadth(root = repositoryPath) {
 		pages,
 		featureKeyCount: allFeatureKeys.size,
 		tabBarPageCount: tabBarPages.length,
+		interactionAudit,
 		failures,
 		passed: failures.length === 0,
 	};
@@ -194,7 +305,7 @@ if (import.meta.main) {
 		process.exitCode = 1;
 	} else {
 		console.log(
-			`Migration breadth audit passed: ${result.pages.length} pages, ${result.tabBarPageCount} primary tabs`,
+			`Migration breadth audit passed: ${result.pages.length} action pages, ${result.interactionAudit.pageCount} interaction pages, ${result.tabBarPageCount} primary tabs`,
 		);
 	}
 }

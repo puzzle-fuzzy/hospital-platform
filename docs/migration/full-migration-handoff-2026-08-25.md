@@ -48,7 +48,7 @@ pnpm migration:boundary:audit
 
 所有 `blocked-*` 入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；互联网医院旧顶层入口已有独立安全壳，但外部能力仍关闭。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成。
 
-首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册。该门禁只保证入口分发完整，不扩大任何真实业务范围。
+首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 20 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
 
 全项目 readiness 汇总可以通过 `pnpm migration:readiness` 生成，字段说明见 [`migration-readiness-report.md`](migration-readiness-report.md)。该报告明确拆分入口结构、五个只读域、Provider 材料状态、四个临床域准入状态、pending/live 运行包来源、九个真机证据域和真实业务完成状态；默认结构审计通过不代表 Provider、公网或真机验收通过，`--strict` 才会把运行包未对齐作为命令失败。
 

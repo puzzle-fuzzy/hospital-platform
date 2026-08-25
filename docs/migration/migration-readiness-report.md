@@ -28,7 +28,7 @@ pnpm migration:readiness -- --strict
 | `entryCoverage.legacy.domainCoverage` | `legacy-page-catalog.ts` | 按首页、就诊、互联网医院、预约、患者、健康、用户七个旧端业务域查看页面数、阻断数、状态分布和下一阶段 | 业务域内的页面数不等于业务功能完成数；`进入验收` 仍需要真实链路证据 |
 | `entryCoverage.nativePageCount` | `apps/miniprogram/src/app.json` | 原生小程序注册了多少页面 | 微信开发者工具是否加载了这些页面 |
 | `migration:breadth:audit` | `tools/migration-breadth-audit.mjs` | 首页和“我的”全部可见 action 是否都有固定分发、状态页 key 和主 Tab 落点 | 不代表对应 Provider、临床或支付业务已经开放 |
-| `migrationBreadth` | `migration-breadth-audit.mjs` 的结果 | 入口广度审计是否已经纳入总结构准入；任一可见 action 缺少固定分发时，`structuralAuditPassed` 直接为 `false` | 不代表入口背后的 Provider、临床或支付业务已经完成 |
+| `migrationBreadth` | `migration-breadth-audit.mjs` 的结果 | 入口广度审计是否已经纳入总结构准入；任一可见 action 缺少固定分发，或 20 个页面的 WXML 事件缺少 TS 方法时，`structuralAuditPassed` 直接为 `false` | 不代表入口背后的 Provider、临床或支付业务已经完成 |
 | `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个低风险域的页面/API/实现/日志/文档是否断链，并给出 `read-only`、`read-model-sync` 或 `read-write` 操作边界 | Provider 返回、生产流量或真机链路是否成功 |
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
 | `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档、结构化准入卡片和 API 源码 | 门诊记录、住院、医生关系、问诊/电子导诊四域是否仍独立、未注册且没有误加通用路由 | 不会因为材料登记就自动生成临床页面或接口 |
@@ -46,7 +46,7 @@ pnpm migration:readiness -- --strict
 - 旧端七个业务域已按台账拆开汇总：互联网医院 2 页/1 阻断、患者 7 页/5 阻断、健康 34 页/27 阻断、就诊 1 页/0 阻断、首页 2 页/0 阻断、用户 8 页/2 阻断、预约 10 页/4 阻断；有阻断的域并行补 contract，无阻断的域进入真实验收，不再用一个页面的修复代表全项目进度。
 - 原生小程序注册 20 个页面，四个主入口继续使用微信原生 `tabBar`。
 - 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
-- 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
+- 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明；另外 20 个已注册页面的 WXML 事件均能找到对应 TS 方法。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
 - live `dist` 来源为 `fcc6630e`，当前 pending 来源为 `e5345c4`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。`e5345c4` 包含 `7bc5956` 的小程序业务代码以及共享构建/门禁输入。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
