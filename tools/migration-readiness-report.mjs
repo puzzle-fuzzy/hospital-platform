@@ -251,14 +251,33 @@ function frozenBoundaryCoverage(migrationBreadth) {
 				failures.push(`${gate.id}: 旧页面未登记：${legacyPath}`);
 				continue;
 			}
-			if (entry.nativeTarget !== "pages/feature-status/feature-status") {
-				failures.push(`${gate.id}: 旧页面越过统一状态页：${legacyPath}`);
+			const expectedTarget =
+				gate.safeReadOnlyTarget ?? "pages/feature-status/feature-status";
+			if (entry.nativeTarget !== expectedTarget) {
+				failures.push(
+					`${gate.id}: 旧页面落点不符合 contract 边界：${legacyPath}`,
+				);
 			}
-			if (entry.featureKey !== gate.featureKey) {
-				failures.push(`${gate.id}: FeatureKey 不一致：${legacyPath}`);
-			}
-			if (!entry.status.startsWith("blocked-")) {
-				failures.push(`${gate.id}: 旧页面不是 blocked 状态：${legacyPath}`);
+			// 静态原文页是已完成的安全子集，不能因为同一页面未来还
+			// 有同意/撤回 contract，就把它重新统计为 blocked 页面。
+			// 这里与 migration-boundary-audit 保持同一判定，避免两个
+			// readiness 来源对同一个入口给出相反结论。
+			if (gate.safeReadOnlyTarget) {
+				if (entry.status !== "replaced") {
+					failures.push(`${gate.id}: 静态只读页面不是 replaced：${legacyPath}`);
+				}
+				if (entry.featureKey) {
+					failures.push(
+						`${gate.id}: 静态只读页面不应携带 FeatureKey：${legacyPath}`,
+					);
+				}
+			} else {
+				if (entry.featureKey !== gate.featureKey) {
+					failures.push(`${gate.id}: FeatureKey 不一致：${legacyPath}`);
+				}
+				if (!entry.status.startsWith("blocked-")) {
+					failures.push(`${gate.id}: 旧页面不是 blocked 状态：${legacyPath}`);
+				}
 			}
 		}
 		for (const actionReference of gate.legacyActions ?? []) {

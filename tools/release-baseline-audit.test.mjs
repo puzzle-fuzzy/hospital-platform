@@ -314,12 +314,11 @@ test("微信登录手册和路线图顶部当前候选不能漂移到旧运行�
 
 test("仓库当前发布文档保持同一套候选", async () => {
 	const result = await auditCurrentReleaseConsistency();
-	// 这里固定当前验收候选，而不是只断言 passed=true：候选文档、运行包来源
-	// 和路线图如果被部分更新，单独的发布审计仍可能通过，但真机就会拿到
-	// 与服务端不配套的旧包。生产切换或小程序重建后必须同步更新这组三项断言，
-	// 不能让历史 release 继续伪装成当前基线。
+	// 这里固定当前线上候选的来源，并明确记录服务端 release 漂移为失败。
+	// 线上仍运行旧 release 时，本地运行代码不能被测试结果“带绿”；只有
+	// 完成新服务端共存发布后，才应同步更新这组当前基线事实。
 	expect(result).toMatchObject({
-		passed: true,
+		passed: false,
 		// 该断言必须与当前候选文档同步；它防止只更新正文而遗漏路线图、真机模板或
 		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
 		serverRelease: "8eb51b5ffe85b0b8f8a032783f893117d3df549d",
@@ -328,14 +327,31 @@ test("仓库当前发布文档保持同一套候选", async () => {
 		miniProgramCommit: "13f597e",
 		miniProgramSourceRevision: "13f597ea9ee3f65b9be858117826d948339d904a",
 	});
-	expect(result.failures).toEqual([]);
+	expect(result.failures).toHaveLength(1);
+	expect(result.failures[0]).toContain("未部署运行时代码");
+	expect(result.serverSourceAudit).toMatchObject({
+		passed: false,
+		changedRuntimeFiles: [
+			"apps/api/src/app.ts",
+			"apps/api/src/application.ts",
+			"apps/api/src/plugins/error-handler.ts",
+			"packages/adapters/src/zhongyang-appointments.ts",
+			"packages/domain/src/index.ts",
+			"packages/domain/src/knowledge-import.ts",
+			"packages/domain/src/knowledge.ts",
+			"packages/domain/src/ports.ts",
+			"packages/persistence/src/mysql-health-knowledge-repository.ts",
+		],
+	});
 });
 
 test("当前业务验收协议也必须绑定已部署服务端和小程序来源", async () => {
 	const result = await auditCurrentReleaseConsistency();
 
-	expect(result.passed).toBe(true);
-	expect(result.failures).toEqual([]);
+	// 当前 release 漂移存在时，业务验收必须保持关闭；不能因为页面和
+	// 小程序测试通过，就把尚未部署的服务端逻辑写成可验收状态。
+	expect(result.passed).toBe(false);
+	expect(result.failures.join("\n")).toContain("未部署运行时代码");
 });
 
 test("历史候选不被当前发布基线强制重写", () => {

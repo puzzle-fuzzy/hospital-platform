@@ -156,10 +156,27 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 			fail(`${gate.name} 未登记旧页面：${legacyPath}`);
 			continue;
 		}
-		if (entry.nativeTarget !== expectedStatusPage) {
+		const expectedTarget = gate.safeReadOnlyTarget ?? expectedStatusPage;
+		if (entry.nativeTarget !== expectedTarget) {
 			fail(
-				`${gate.name} 的 ${legacyPath} 不应越过 contract 进入真实业务页：${entry.nativeTarget}`,
+				`${gate.name} 的 ${legacyPath} 落点不符合 contract 边界：期望 ${expectedTarget}，实际 ${entry.nativeTarget}`,
 			);
+		}
+		// 静态原文页可以在真实协议写入 contract 之前上线，但只能是
+		// 明确的 replaced 只读页面；它不应继续携带状态页 FeatureKey，
+		// 否则会把“可阅读原文”和“已记录同意”混成一个入口。
+		if (gate.safeReadOnlyTarget) {
+			if (entry.status !== "replaced") {
+				fail(
+					`${gate.name} 的 ${legacyPath} 静态只读落点必须是 replaced，实际 ${entry.status}`,
+				);
+			}
+			if (entry.featureKey) {
+				fail(
+					`${gate.name} 的 ${legacyPath} 静态只读页不应携带阻塞 FeatureKey：${entry.featureKey}`,
+				);
+			}
+			continue;
 		}
 		if (entry.featureKey !== gate.featureKey) {
 			fail(
@@ -286,8 +303,11 @@ for await (const file of miniprogramGlob.scan({
 
 for (const gate of FROZEN_DOMAIN_GATES) {
 	const failureCount = gateFailureCounts.get(gate.name) ?? 1;
+	const targetDescription = gate.safeReadOnlyTarget
+		? `${gate.safeReadOnlyTarget}（静态只读已迁移，真实 contract 仍关闭）`
+		: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
 	console.log(
-		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`,
+		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${targetDescription}`,
 	);
 }
 

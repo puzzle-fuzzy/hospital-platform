@@ -37,6 +37,8 @@
 - 小程序回归：`292 pass / 0 fail / 3250 expect()`。
 - 小程序类型检查：通过。
 - `pnpm migration:breadth:audit`：通过，21 个页面、31 个可见/状态入口调用、4 个主 Tab。
+- `pnpm migration:boundary:audit`：通过；协议 gate 明确允许静态只读落点，但仍保留真实同意 contract 的阻断条件。
+- `pnpm test:tools`：通过，`89 pass / 0 fail / 712 expect()`；readiness 与发布基线测试不会把静态页面或未部署服务端代码误报为业务完成。
 - `pnpm format:check`：通过。
 - pending 运行包：`0bb4877ee890894bdb63e32c4b2b2d9e1167d555`，21 个页面；`runtime:verify:pending` 通过。
 - 构建时微信开发者工具仍锁定 live `dist`，构建按保护策略返回 `EBUSY` 并保留 pending；没有覆盖旧运行包。

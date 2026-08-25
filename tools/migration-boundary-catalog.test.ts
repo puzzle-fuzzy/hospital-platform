@@ -114,5 +114,9 @@ describe("全量阻断业务域准入目录", () => {
 				(gate) => gate.id === "outpatient-payment-write",
 			)?.legacyActions,
 		).toEqual(["门诊费用:outpatient-payment-write"]);
+		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "patient-agreement")
+				?.safeReadOnlyTarget,
+		).toBe("pages/patient-agreement/patient-agreement");
 	});
 });

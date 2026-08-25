@@ -588,6 +588,10 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 			"把本地勾选当作同意",
 			"跨 owner 复用同意",
 		],
+		// 协议原文可以先作为静态只读页面迁移；这里的 gate 只约束尚未
+		// 冻结的版本、同意、撤回和审计能力，不能把静态迁移误判为真实
+		// 患者写入已开放，也不能要求它退回通用状态页。
+		safeReadOnlyTarget: "pages/patient-agreement/patient-agreement",
 	}),
 	createGate({
 		id: "patient-address",

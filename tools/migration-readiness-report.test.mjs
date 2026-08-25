@@ -9,8 +9,8 @@ describe("全项目迁移 readiness 报告", () => {
 		);
 
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
-		expect(report.entryCoverage.nativePageCount).toBe(20);
-		expect(report.entryCoverage.legacy.blockedPageCount).toBe(39);
+		expect(report.entryCoverage.nativePageCount).toBe(21);
+		expect(report.entryCoverage.legacy.blockedPageCount).toBe(38);
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
 			domainCount: 34,
 			legacyEntryCount: 39,
@@ -160,7 +160,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[1].reviewedBundlePresent).toBe(false);
 		expect(report.migrationQueue[1].businessReady).toBe(false);
 		expect(report.migrationQueue[2].codeReady).toBe(false);
-		expect(report.migrationQueue[3].blockedPageCount).toBe(4);
+		expect(report.migrationQueue[3].blockedPageCount).toBe(3);
 		expect(report.migrationQueue[4].blockedPageCount).toBe(3);
 		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
 		expect(report.migrationQueue[0].frozenGateCount).toBe(3);
