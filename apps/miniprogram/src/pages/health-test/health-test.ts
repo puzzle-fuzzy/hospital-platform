@@ -2,6 +2,7 @@ import {
 	calculateBmi,
 	recordBloodPressure,
 } from "../../services/health-safe-calculators";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 
 type HealthTestMode = "bmi" | "blood-pressure";
 
@@ -123,9 +124,8 @@ Page<HealthTestPageData, HealthTestPageMethods>({
 	},
 
 	onOpenMigrationStatus() {
-		wx.navigateTo({
-			url: "/pages/feature-status/feature-status?feature=health-test",
-		});
+		// 统一导航函数负责固定 FeatureKey 和编码，构建门禁也能识别其页面落点。
+		navigateToFeatureStatus("health-test");
 	},
 
 	onBackHome() {
