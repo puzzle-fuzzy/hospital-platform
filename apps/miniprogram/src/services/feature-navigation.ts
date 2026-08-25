@@ -20,6 +20,7 @@ export type FeatureKey =
 	| "electronic-bill"
 	| "patient-agreement"
 	| "patient-address"
+	| "patient-qr"
 	| "patient-signature"
 	| "patient-subscription"
 	| "gift-banner"
@@ -174,6 +175,15 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		contractHint:
 			"等待字段白名单、owner/患者归属、版本并发、脱敏和删除规则确认。",
 		icon: "/assets/legacy-home/service-patient.svg",
+	},
+	"patient-qr": {
+		title: "就诊二维码",
+		readiness: "待患者绑定 contract",
+		description:
+			"就诊二维码正在迁移中，当前不会把卡号或临床患者标识交给第三方生成图片。",
+		contractHint:
+			"等待医院扫码字段、签名、有效期、受众、防重放和撤销规则确认。",
+		icon: "/assets/legacy-home/patient-qr.svg",
 	},
 	"patient-signature": {
 		title: "就诊人签名",

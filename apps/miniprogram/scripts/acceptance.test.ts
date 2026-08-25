@@ -561,8 +561,8 @@ test("native patient QR entry requires a confirmed patient snapshot", async () =
 	// 入口必须同时校验当前临床映射和 storage 的显式选择，防止旧页面跨会话误判。
 	expect(qrBody).toContain('selectedPatient.clinicalAccess === "ready"');
 	expect(qrBody).toContain("isCurrentSelectedPatient(selectedPatient.id)");
-	expect(qrBody).toContain("title: hasConfirmedPatient ?");
-	expect(qrBody).toContain("content: hasConfirmedPatient");
+	expect(qrBody).toContain('navigateToFeatureStatus("patient-qr")');
+	expect(qrBody).toContain('title: "暂无就诊人"');
 	expect(qrBody).not.toContain("this.data.selectedPatientId ?");
 });
 
@@ -2763,7 +2763,7 @@ test("native homepage keeps patient identity and QR data within the safe boundar
 	// 首页只能显示服务端脱敏卡号，内部 patientId 只作为后续 API 的 opaque 输入。
 	expect(template).toContain("selectedPatient.cardNumberMasked");
 	expect(template).not.toContain("ID:{{selectedPatient.id");
-	expect(home).toContain("二维码暂未开放");
+	expect(home).toContain('navigateToFeatureStatus("patient-qr")');
 	expect(home).not.toContain("api.qrserver.com");
 	expect(home).not.toContain("medicalCardNo");
 });

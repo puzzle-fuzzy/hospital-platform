@@ -526,21 +526,24 @@ Page<IndexPageData, IndexPageMethods>({
 		// 本地 opaque patientId 只能用于恢复/stale 判断，不能证明当前页面已经
 		// 取得同一会话的最新患者目录。二维码入口必须同时确认页面对象、storage
 		// 中的显式选择和临床映射状态；否则临时故障、账号切换或旧页面停留期间，
-		// 仍会把“有缓存 ID”误报成“有患者可扫码”。虽然二维码当前仍是关闭态，
-		// 这里先把未来开放时必须满足的患者上下文门禁固定在当前实现中。
+		// 仍会把“有缓存 ID”误报成“有患者可扫码”。这里先把未来开放时必须
+		// 满足的患者上下文门禁固定在当前实现中。
 		const selectedPatient = this.data.selectedPatient;
 		const hasConfirmedPatient = Boolean(
 			selectedPatient &&
 				selectedPatient.clinicalAccess === "ready" &&
 				isCurrentSelectedPatient(selectedPatient.id),
 		);
-		wx.showModal({
-			title: hasConfirmedPatient ? "二维码暂未开放" : "暂无就诊人",
-			content: hasConfirmedPatient
-				? "医院扫码字段和有效期协议确认后开放，请先使用实体就诊卡或窗口服务。"
-				: "请先登录并选择就诊人。",
-			showCancel: false,
-		});
+		if (!hasConfirmedPatient) {
+			wx.showModal({
+				title: "暂无就诊人",
+				content: "请先登录并选择就诊人。",
+				showCancel: false,
+			});
+			return;
+		}
+		// 已确认患者也必须进入统一状态页，不在首页绕过迁移边界生成二维码。
+		navigateToFeatureStatus("patient-qr");
 	},
 
 	onTopAction(event: ActionEvent): void {
