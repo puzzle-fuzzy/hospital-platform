@@ -89,6 +89,10 @@ describe("全量阻断业务域准入目录", () => {
 				?.contractFamily,
 		).toBe("clinical-content-write");
 		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "gift-banner")
+				?.readiness,
+		).toBe("待临床审核");
+		expect(
 			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "insurance")
 				?.contractFamily,
 		).toBe("payment-write");

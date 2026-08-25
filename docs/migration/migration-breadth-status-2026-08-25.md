@@ -48,10 +48,10 @@ pnpm migration:readiness       通过结构门禁：A–F gate 批次覆盖为 3
 | `replaced` | 7 | 已由安全的原生页面或静态页面替换 | 只做真实验收和细节修正 |
 | `partial` | 17 | 已有低风险只读/静态子集，仍有明确未完成边界 | 先补验收，不扩大旧端字段 |
 | `blocked-provider` | 6 | 等待 HIS/Provider 请求、响应、映射和脱敏 contract | 否 |
-| `blocked-clinical` | 13 | 等待临床审核、题库/规则版本和撤回策略 | 否 |
+| `blocked-clinical` | 19 | 等待临床审核、题库/规则版本和撤回策略；锦旗/表扬信也必须经过内容审核 | 否 |
 | `blocked-payment` | 7 | 等待金额、订单、支付、查单和 HIS 回写状态机 | 否 |
 | `blocked-patient-contract` | 4 | 等待新增/绑定/地址/签名的 owner、同意和幂等规则 | 否 |
-| `blocked-external` | 9 | 等待外部主体、域名白名单、短期会话和回跳协议 | 否 |
+| `blocked-external` | 3 | 等待外部主体、域名白名单、短期会话和回跳协议 | 否 |
 | `excluded` | 1 | 旧端开发辅助页，不进入生产小程序 | 不迁移 |
 | **合计** | **64** | 逐页有明确落点或明确排除原因 | - |
 

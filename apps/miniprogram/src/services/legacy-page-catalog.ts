@@ -164,7 +164,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/gift_electronic_banner.vue",
 			domain: "健康",
-			status: "blocked-external",
+			status: "blocked-clinical",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "gift-banner",
 			note: "等待内容审核、文件安全、脱敏公开和撤回规则。",
@@ -172,7 +172,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/gift_health_praise.vue",
 			domain: "健康",
-			status: "blocked-external",
+			status: "blocked-clinical",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "health-praise",
 			note: "等待表扬信审核、文件安全、脱敏展示和幂等。",
@@ -211,7 +211,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/list_electronic_banner.vue",
 			domain: "健康",
-			status: "blocked-external",
+			status: "blocked-clinical",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "gift-banner",
 			note: "列表必须基于审核后的公开视图，不能直接展示旧快照。",
@@ -219,7 +219,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/list_health_praise.vue",
 			domain: "健康",
-			status: "blocked-external",
+			status: "blocked-clinical",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "health-praise",
 			note: "列表必须基于审核后的公开视图，不能直读旧表。",
@@ -266,7 +266,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/record_electronic_banner.vue",
 			domain: "健康",
-			status: "blocked-external",
+			status: "blocked-clinical",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "gift-banner",
 			note: "详情仅能读取审核后的公开记录，不能复用旧端患者快照。",
@@ -274,7 +274,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/record_health_praise.vue",
 			domain: "健康",
-			status: "blocked-external",
+			status: "blocked-clinical",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "health-praise",
 			note: "详情仅能读取审核后的公开记录，不能复用旧端患者快照。",

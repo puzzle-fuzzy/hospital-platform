@@ -67,6 +67,13 @@ const requiredCommonMaterials = new Set([
 	"logging",
 	"rollback",
 ]);
+const legacyStatusByReadiness = new Map([
+	["待 provider contract", "blocked-provider"],
+	["待临床审核", "blocked-clinical"],
+	["待支付与回写 contract", "blocked-payment"],
+	["待患者绑定 contract", "blocked-patient-contract"],
+	["待外部入口 contract", "blocked-external"],
+]);
 
 // 首页/“我的”中的 action-only 能力不一定对应旧端 Vue 页面，但同样会
 // 触发状态页。先读取入口广度审计结果，再检查它们是否拥有独立 gate，
@@ -157,6 +164,11 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 		if (entry.featureKey !== gate.featureKey) {
 			fail(
 				`${gate.name} 的 ${legacyPath} FeatureKey 不一致：期望 ${gate.featureKey}，实际 ${entry.featureKey}`,
+			);
+		}
+		if (entry.status !== legacyStatusByReadiness.get(gate.readiness)) {
+			fail(
+				`${gate.name} 的 ${legacyPath} 状态类型不一致：期望 ${legacyStatusByReadiness.get(gate.readiness)}，实际 ${entry.status}`,
 			);
 		}
 	}
