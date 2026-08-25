@@ -4,11 +4,11 @@
 > 展示和服务端首次资料写入仍需用户扫码验收。本文记录当前正确边界，避免后续会话把微信登录和微信资料
 > 授权再次混为一个流程。
 
-最新代码候选：`410447b4ee7f19413fb3b3c790c52d51f5806ccb`，已构建并保存在
+最新代码候选：`d54a53a58bde9f71e60ca453ac96c8e39016ad6c`，已构建并保存在
 `.local/hospital-miniprogram/pending/`；由于微信开发者工具锁定 `dist/`，当前可运行的
 `apps/miniprogram/dist/` 仍是上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
-新候选发布前不能用旧运行包验收本次授权点击和 App 启动修复。费用与报告二级入口的新增状态路由记录见
-[`candidate-410447b4-billing-report-entry-routes-2026-08-25.md`](candidate-410447b4-billing-report-entry-routes-2026-08-25.md)。
+新候选发布前不能用旧运行包验收本次授权点击和 App 启动修复。费用、报告和新增就诊人入口的候选记录见
+[`candidate-d54a53a5-patient-binding-entry-2026-08-25.md`](candidate-d54a53a5-patient-binding-entry-2026-08-25.md)。
 
 ## 1. 问题和结论
 
