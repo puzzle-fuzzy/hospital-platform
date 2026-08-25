@@ -103,6 +103,9 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `health-knowledge.read.requested` / `health-knowledge.read.completed` | 健康知识只读服务 | 记录操作名、已发布内容版本和条目数量等低敏元数据；不记录疾病、药品正文或患者信息 |
 | `health-knowledge.read.failed` | 健康知识只读服务 | 记录操作名、固定错误类型和有限读模型违规原因；不把未审核内容或底层异常原文当作 API 返回 |
 | `health-knowledge.read.not_found` | 健康知识详情查询 | 区分合法的内容不存在与系统失败；只记录资源类型和操作名，不记录查询正文 |
+| `health-knowledge.import.started` | 健康知识 staging 导入命令 | 记录已通过 bundle 校验的内容版本和审核状态；只允许 staging 环境，不记录文件路径、正文或数据库地址 |
+| `health-knowledge.import.completed` | 健康知识 staging 导入命令 | 记录事务完成后的内容版本、状态和各类条目/关系数量；不表示患者端 API 已开放或生产已发布 |
+| `health-knowledge.import.failed` | 健康知识 staging 导入命令 | 记录固定错误类型，bundle 校验失败时可记录字段路径；不记录 SQL、连接串、正文或原始异常消息 |
 
 低敏分布统计可以记录固定枚举值的数量（例如预约成功结果中的 `statusCounts`），用于解释筛选、分页或状态转换；
 这类字段只能是服务端白名单枚举到整数的聚合结果，不得包含逐条业务标识、患者标识、Provider 原始文本或任意调用方原值。

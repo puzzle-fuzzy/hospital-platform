@@ -68,9 +68,18 @@ pnpm --filter @hospital/domain knowledge:bundle:check -- C:\path\to\health-knowl
 
 ## 4. staging 导入顺序
 
-只读检查通过后，仍需人工确认 bundle 的来源和审核证据，再由受控任务显式调用
-`importHealthKnowledgeBundle`。该函数会在获得数据库连接前再次执行领域校验，并在同一个事务内写入
-publication、items、details 和 relations；任一 SQL 或外键失败都必须回滚。
+只读检查通过后，仍需人工确认 bundle 的来源和审核证据，再通过只允许 staging 的受控命令执行导入：
+
+```powershell
+$env:DEPLOY_ENV = "staging"
+$env:DATABASE_URL = "mysql://<staging-user>:<password>@<staging-host>/<schema>"
+pnpm --filter @hospital/persistence health:import-staging -- `
+  --confirm-staging C:\path\to\health-knowledge-bundle.json
+```
+
+命令要求 `DEPLOY_ENV=staging` 和显式 `--confirm-staging` 同时存在，拒绝生产环境、命令行覆盖数据库地址、多个输入文件和未知参数。它会在获得数据库连接前再次执行领域校验，并调用
+`importHealthKnowledgeBundle` 在同一个事务内写入 publication、items、details 和 relations；任一 SQL 或外键失败都必须回滚。
+成功日志只记录内容版本、状态和数量，不记录正文、患者字段、连接串、SQL 或原始异常。
 
 导入顺序固定为：
 
