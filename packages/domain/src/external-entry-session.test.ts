@@ -134,6 +134,14 @@ test("会话终态时间必须落在签发后的合法时间线上", () => {
 	).toThrow(ExternalEntrySessionValidationError);
 
 	expect(() =>
+		normalizeExternalEntrySession({
+			...validSession(),
+			status: "consumed",
+			consumedAt: expiresAt,
+		}),
+	).toThrow(ExternalEntrySessionValidationError);
+
+	expect(() =>
 		revokeExternalEntrySession(
 			validSession(),
 			new Date("2026-08-25T23:59:59.000Z"),

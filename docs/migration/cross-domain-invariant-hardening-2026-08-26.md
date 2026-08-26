@@ -44,7 +44,7 @@ issuedAt <= now < expiresAt
 
 - 签发前消费返回 `not-yet-valid`；
 - 到期消费返回 `expired`；
-- `consumedAt` 必须位于签发时间与过期时间之间；
+- `consumedAt` 必须满足 `issuedAt <= consumedAt < expiresAt`；
 - `revokedAt` 不能早于签发时间；
 - `Invalid Date` 在消费和撤回入口统一转换为 `timestamp-invalid`，不让 `NaN` 参与有效期判断。
 

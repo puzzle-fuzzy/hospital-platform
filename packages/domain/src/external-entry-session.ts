@@ -263,7 +263,10 @@ export function normalizeExternalEntrySession(
 	if (consumedAt !== undefined) {
 		// 已消费引用必须证明消费发生在签发之后且未过期；否则一条被篡改的
 		// 终态记录可能绕过一次性和 TTL 语义。
-		if (consumedAt < issuedTimestamp || consumedAt > expiresAt) {
+		// 过期时刻采用严格右开边界，与 evaluateExternalEntrySession 的
+		// `now < expiresAt` 保持一致；等于 expiresAt 的消费不能被恢复成
+		// 合法终态，否则仓储数据和实时消费判断会出现相反结论。
+		if (consumedAt < issuedTimestamp || consumedAt >= expiresAt) {
 			invalid("timestamp-order-invalid");
 		}
 	}
