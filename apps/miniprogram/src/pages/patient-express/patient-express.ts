@@ -9,6 +9,10 @@ import {
 	type PatientExpressRecordState,
 } from "../../services/patient-express-state";
 import { loadCurrentPatient } from "../../services/dashboard-service";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import type { Patient } from "../../types";
 
 type PatientExpressPageData = {
@@ -47,6 +51,15 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 账号切换后不得把上一账号的快递患者卡片留在页面上。
+			this.setData({
+				patient: null,
+				loading: false,
+				error: "登录账号已切换，请重新读取就诊人",
+				recordState: "error",
+			});
+		});
 		void this.loadCurrentPatient();
 	},
 
@@ -107,6 +120,7 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 	},
 
 	onUnload() {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 });

@@ -6,6 +6,10 @@ import {
 } from "../../services/page-instance-state";
 import { patientScopedErrorMessage } from "../../services/patient-selection-service";
 import type { DatasetEvent, Patient } from "../../types";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 
 type SubscriptionCategory =
 	| "outpatient"
@@ -189,6 +193,14 @@ Page<SubscriptionPageData, SubscriptionPageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 微信订阅开关仍是只读展示；会话变化只清理患者上下文。
+			this.setData({
+				patient: null,
+				loading: false,
+				error: "登录账号已切换，请重新读取就诊人",
+			});
+		});
 		void this.loadPatient();
 	},
 
@@ -257,6 +269,7 @@ Page<SubscriptionPageData, SubscriptionPageMethods>({
 	},
 
 	onUnload() {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 });

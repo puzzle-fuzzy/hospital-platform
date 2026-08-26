@@ -7,6 +7,10 @@ import {
 	getPageLatestRequestGuard,
 } from "./page-instance-state";
 import { patientScopedErrorMessage } from "./patient-selection-service";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "./session-events";
 
 export type ConvenienceSurfaceFeature = "gift-banner" | "health-praise";
 
@@ -133,6 +137,16 @@ export function registerConvenienceSurfacePage(
 
 		onLoad() {
 			this.setData(toPageData(feature));
+			registerPageSessionResetListener(this, () => {
+				// 会话轮换时只清理页面快照，不在旧 token 尚未退出时自动请求。
+				const message = "登录账号已切换，请重新读取就诊人";
+				this.setData({
+					patient: null,
+					loading: false,
+					error: message,
+					recordState: resolveConvenienceSurfaceRecordState(false, message),
+				});
+			});
 			wx.setNavigationBarTitle({ title: DEFINITIONS[feature].title });
 			void this.loadCurrentPatient();
 		},
@@ -191,6 +205,7 @@ export function registerConvenienceSurfacePage(
 		},
 
 		onUnload() {
+			disposePageSessionResetListener(this);
 			disposePageInstance(this);
 		},
 	});
