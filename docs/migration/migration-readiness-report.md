@@ -2,7 +2,7 @@
 
 > 本文说明 `pnpm migration:readiness` 的数据来源和判定边界。报告用于广度迁移交接，不是上线批准单，也不替代 Provider、公网、真机或临床审核证据。
 
-> **当前运行事实（2026-08-26）**：40 页运行相关源码候选 `ded78c58c53923ecf5232a8035b3e790e5959216` 已完成 pending 构建和 `runtime:verify:pending`；当前 live `dist` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，原子发布因开发者工具文件锁尚未完成。当前小程序回归为 `329 pass / 0 fail / 3632 expect()`；本轮统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度，并保留选择页刷新并发门禁和“我的快递”加载/错误/未开放三态；25 个临床/患者/外部/Provider 页面仍是 `surface-only` 外壳，健康自测仅开放不带临床结论的安全数值子集，采血预约、患者签名展示和消息订阅展示已形成安全子集，今日预约摘要不推导实时状态，真实物流/采血号源/便民 Provider/临床/外部/患者业务仍关闭，真机证据尚未采集。协议静态页已迁移，但同意/撤回/审计能力仍关闭。当前候选证据见 [`../release/candidate-ded78c58-miniprogram-runtime-2026-08-26.md`](../release/candidate-ded78c58-miniprogram-runtime-2026-08-26.md)。
+> **当前运行事实（2026-08-26）**：40 页运行相关源码候选 `aae1297baae5fc3c35b38472ce724f10ba82336b` 已完成 pending 构建和 `runtime:verify:pending`；当前 live `dist` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，原子发布因开发者工具文件锁尚未完成。核心小程序回归、二维码会话门禁和健康数值规则版本测试通过；25 个临床/患者/外部/Provider 页面仍是 `surface-only` 外壳，健康自测仅开放不带临床结论的安全数值子集，采血预约、患者签名展示和消息订阅展示已形成安全子集，今日预约摘要不推导实时状态，真实物流/采血号源/便民 Provider/临床/外部/患者业务仍关闭，真机证据尚未采集。协议静态页已迁移，但同意/撤回/审计能力仍关闭。当前候选证据见 [`../release/candidate-aae1297-miniprogram-runtime-2026-08-26.md`](../release/candidate-aae1297-miniprogram-runtime-2026-08-26.md)。
 
 ## 生成方式
 

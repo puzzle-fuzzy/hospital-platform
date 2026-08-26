@@ -249,7 +249,9 @@ export const currentBaselineDocuments = Object.freeze([
 	// 线上小程序。因此跳过“必须包含线上小程序来源”的检查，但仍通过下方的
 	// 当前候选语义规则锁定完整 sourceRevision，避免新会话误用旧二维码或旧包。
 	{
-		path: "docs/release/candidate-ded78c58-miniprogram-runtime-2026-08-26.md",
+		// 当前 pending 候选随源码来源滚动更新；旧候选文档保留为历史追溯，
+		// 不能继续作为发布基线的当前事实源。
+		path: "docs/release/candidate-aae1297-miniprogram-runtime-2026-08-26.md",
 		label: "当前 pending 小程序运行包候选",
 		candidateOnly: true,
 	},
