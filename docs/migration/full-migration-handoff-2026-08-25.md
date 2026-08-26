@@ -1,8 +1,8 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **当前候选覆盖（2026-08-26）**：最新小程序源码和 pending 运行输入为 `ded78c58c53923ecf5232a8035b3e790e5959216`（`ded78c58`），40 页，回归 `329 pass / 0 fail / 3632 expect()`；pending 校验通过但尚未替换 live `dist`，当前 live 仍为 `02dbf10`。本候选新增电子锦旗/表扬信记录区域的加载、失败、未开放三态和固定高度，未新增 Provider 请求或写入。本文下方旧候选数字只作历史追溯，以本段、[`candidate-ded78c58-miniprogram-runtime-2026-08-26.md`](../release/candidate-ded78c58-miniprogram-runtime-2026-08-26.md) 和 [`device-evidence-ded78c58-pending.json`](../release/device-evidence-ded78c58-pending.json) 为准。
+> **当前候选覆盖（2026-08-26）**：最新小程序源码和 pending 运行输入为 `aae1297baae5fc3c35b38472ce724f10ba82336b`（`aae1297b`），40 页；核心回归、就诊二维码会话门禁和健康数值规则版本测试通过。pending 校验通过但尚未替换 live `dist`，当前 live 仍为 `02dbf10`。本候选未新增 Provider 请求或写入；本文下方旧候选数字只作历史追溯，以本段和 [`candidate-aae1297-miniprogram-runtime-2026-08-26.md`](../release/candidate-aae1297-miniprogram-runtime-2026-08-26.md) 为准。
 
-> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。最新 40 页运行相关源码候选 `ded78c58c53923ecf5232a8035b3e790e5959216` 已完成构建和 pending 运行包校验；本地 live `dist` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，因开发者工具文件锁尚未原子切换。九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本轮统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。最新 40 页运行相关源码候选 `aae1297baae5fc3c35b38472ce724f10ba82336b` 已完成构建和 pending 运行包校验；本地 live `dist` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，因开发者工具文件锁尚未原子切换。九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本候选补齐就诊二维码安全壳的有效会话门禁和本地健康数值工具固定规则版本；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
@@ -22,9 +22,9 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序运行相关源码基线 | `ded78c58`（pending 候选） |
+| 小程序运行相关源码基线 | `aae1297b`（pending 候选） |
 | 当前小程序运行基线 | `02dbf10`（live `dist`）；等待切换 `ded78c58` |
-| 小程序运行包候选 | pending 运行来源 `ded78c58`；业务状态沿用全量入口迁移台账 |
+| 小程序运行包候选 | pending 运行来源 `aae1297b`；业务状态沿用全量入口迁移台账 |
 | live 运行包 | `apps/miniprogram/dist/build-info.json`，`sourceRevision=02dbf10419740d96c4445493df019021ac22bcfa`，40 个页面 |
 | 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
 | live 页面数 | 40 个；`runtime:verify` 已通过 |
