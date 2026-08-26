@@ -9,13 +9,13 @@
 | 项目 | 当前事实 |
 | --- | --- |
 | live 运行包来源 | `02dbf10419740d96c4445493df019021ac22bcfa`，40 个页面；旧候选仍通过 `runtime:verify` |
-| pending 候选来源 | `aae1297baae5fc3c35b38472ce724f10ba82336b`（`aae1297b`），40 个页面；已通过 `runtime:verify:pending` |
+| pending 候选来源 | `e059788e7cd9270547077e7d6e6890aa168aacf0`（`e059788e`），40 个页面；已通过 `runtime:verify:pending` |
 | pending 目录 | 当前保留；原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY` |
 | 发布结果 | 尚未切换；旧 live `dist` 完整保留，不能手工覆盖或只替换来源指纹 |
 | 当前阻塞 | 先关闭占用 `dist` 的开发者工具/真机调试，再原子发布新候选；发布后才能开始九个真机证据域 |
 | 旧服务影响 | 无；旧 Python `8001` 和线上服务未修改 |
 
-> 当前 live 仍是 `02dbf10`，待发布候选是 `aae1297b`。根目录文档提交不会改变运行包来源；
+> 当前 live 仍是 `02dbf10`，待发布候选是 `e059788e`。根目录文档提交不会改变运行包来源；
 > 新候选构建已按
 > `build-info.json` 写入该完整来源指纹。当前来源、页面数量和静态校验结果以本机
 > `apps/miniprogram/dist/build-info.json` 与 `runtime:verify` 输出为准，
@@ -88,7 +88,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 ## 发布成功后的验收顺序
 
-发布只证明运行包切换，不证明业务完成。当前仍需先将 `ded78c58` 原子切换到 live；切换后
+发布只证明运行包切换，不证明业务完成。当前仍需先将 `e059788e` 原子切换到 live；切换后
 重新生成二维码，再按以下顺序逐域采证：
 
 ```text
