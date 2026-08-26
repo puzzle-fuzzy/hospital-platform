@@ -137,12 +137,16 @@ describe("全项目迁移 readiness 报告", () => {
 			expect(report.healthContent.sourceSnapshotStatus).toBe("missing");
 			expect(report.healthContent.reviewQueue).toBeNull();
 		}
-		expect(report.runtime.candidateRuntimeAligned).toBe(false);
-		expect(report.runtime.publicationRequired).toBe(true);
+		expect(report.runtime.candidateRuntimeAligned).toBe(true);
+		expect(report.runtime.publicationRequired).toBe(false);
+		expect(report.runtime.expectedSourceRevision).toBe(
+			report.runtime.live.sourceRevision,
+		);
 		expect(report.deviceEvidence.domainCount).toBe(9);
 		expect(report.deviceEvidence.allPending).toBe(true);
 		expect(report.deviceEvidence.passed).toBe(false);
-		expect(report.deviceEvidence.candidateMatchesPendingRuntime).toBe(true);
+		expect(report.deviceEvidence.candidateMatchesCurrentRuntime).toBe(true);
+		expect(report.deviceEvidence.activeRuntime).toBe("live");
 		expect(report.deviceEvidence.manifestPath).toBe(
 			`docs/release/device-evidence-${report.deviceEvidence.candidate.miniProgramCommit}-pending.json`,
 		);

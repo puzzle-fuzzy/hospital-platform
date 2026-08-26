@@ -2,7 +2,7 @@
 
 > 本文说明 `pnpm migration:readiness` 的数据来源和判定边界。报告用于广度迁移交接，不是上线批准单，也不替代 Provider、公网、真机或临床审核证据。
 
-> **当前运行事实（2026-08-26）**：40 页运行相关源码候选和最新 pending 运行包来源均为 `731c95718d26bcf2826987b72f79295413b203d7`；pending 已通过 40 页静态验证，但当前 live `dist` 仍为旧来源，微信开发者工具锁定导致候选尚未发布。当前小程序回归为 `312 pass / 0 fail / 3548 expect()`；25 个临床/患者/外部/Provider 页面仍是 `surface-only` 外壳，健康自测仅开放不带临床结论的安全数值子集，采血预约、我的快递、患者签名展示和消息订阅展示已形成安全子集，今日预约摘要不推导实时状态，电子锦旗和表扬信迁移稳定关闭态，本批又统一临床/服务入口和我的问诊当前就诊人上下文并补充协议原文只读入口和公共日期窗口边界，真实物流/采血号源/便民 Provider/临床/外部/患者业务仍关闭，真机证据尚未采集。协议静态页已迁移，但同意/撤回/审计能力仍关闭。当前候选证据见 [`../release/device-evidence-731c9571-pending.json`](../release/device-evidence-731c9571-pending.json) 和 [`../release/candidate-731c9571-miniprogram-runtime-2026-08-26.md`](../release/candidate-731c9571-miniprogram-runtime-2026-08-26.md)。
+> **当前运行事实（2026-08-26）**：40 页运行相关源码候选 `731c95718d26bcf2826987b72f79295413b203d7` 已原子发布到 live `dist`，并通过 `runtime:verify`；发布后的 pending 目录已清理。当前小程序回归为 `312 pass / 0 fail / 3548 expect()`；25 个临床/患者/外部/Provider 页面仍是 `surface-only` 外壳，健康自测仅开放不带临床结论的安全数值子集，采血预约、我的快递、患者签名展示和消息订阅展示已形成安全子集，今日预约摘要不推导实时状态，电子锦旗和表扬信迁移稳定关闭态，本批又统一临床/服务入口和我的问诊当前就诊人上下文并补充协议原文只读入口和公共日期窗口边界，真实物流/采血号源/便民 Provider/临床/外部/患者业务仍关闭，真机证据尚未采集。协议静态页已迁移，但同意/撤回/审计能力仍关闭。当前候选证据见 [`../release/device-evidence-731c9571-pending.json`](../release/device-evidence-731c9571-pending.json) 和 [`../release/candidate-731c9571-miniprogram-runtime-2026-08-26.md`](../release/candidate-731c9571-miniprogram-runtime-2026-08-26.md)。
 
 ## 生成方式
 
@@ -38,8 +38,8 @@ pnpm migration:readiness -- --strict
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
 | `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档、结构化准入卡片和 API 源码 | 门诊记录、住院、医生关系、问诊/电子导诊四域是否仍独立、未注册且没有误加通用路由 | 不会因为材料登记就自动生成临床页面或接口 |
 | `healthContent` | 健康知识路由、约定的本机审核 bundle 证据目录和发布状态元数据 | 健康百科代码是否具备、正式审核 bundle 是否已经进入当前证据目录 | 不代表 bundle 已通过临床审核、已导入 staging、已发布或已完成真机验收 |
-| `runtime` | live/pending `build-info.json` | 当前开发者工具目录和待发布候选的源码来源是否一致 | 当前微信设备一定运行了哪个版本；锁定目录时必须保留现场证据 |
-| `deviceEvidence` | 按 pending `build-info.json.sourceRevision` 匹配 `docs/release/device-evidence-<commit>-pending.json` | 当前候选的真机证据域数量、状态和候选指纹是否匹配 | `pending` 不等于失败；清单结构通过也不等于真实业务成功 |
+| `runtime` | live/pending `build-info.json` 和当前运行输入指纹；发布前比较 pending/live，发布后比较 live/当前来源 | 当前开发者工具目录和待发布候选的源码来源是否一致 | 当前微信设备一定运行了哪个版本；锁定目录时必须保留现场证据 |
+| `deviceEvidence` | 当前运行包（优先 pending，否则 live）的完整 `sourceRevision` 匹配 `docs/release/device-evidence-<commit>-pending.json` | 当前候选的真机证据域数量、状态和候选指纹是否匹配 | `pending` 不等于失败；清单结构通过也不等于真实业务成功 |
 | `migrationQueue` | 旧页面状态、只读域、临床准入、运行包和真机证据 | A-F 六个业务批次当前停在哪个门槛、下一动作和停止条件 | 不会自动打开状态页，也不会把 contract 缺失解释成业务完成 |
 | `businessCompletion` | 固定 fail-closed 判定 | 明确当前不能声称全项目业务完成 | 不会因为页面或状态页存在就伪造完成结论 |
 
@@ -56,7 +56,7 @@ pnpm migration:readiness -- --strict
 - 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
 - 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明；另外 40 个已注册页面的 WXML 事件均能找到对应 TS 方法或共享页面工厂。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
-- live `dist` 仍为旧来源，当前 pending 来源为 `731c95718d26bcf2826987b72f79295413b203d7`；两者不一致，所以待发布候选仍需在微信开发者工具释放目录锁后原子发布。当前候选包含 40 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、快递/采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界以及微信资料拒绝后的设置页重试；小程序回归为 `312 pass / 0 fail / 3548 expect()`。
+- live `dist` 当前来源为 `731c95718d26bcf2826987b72f79295413b203d7`，40 个页面已通过 `runtime:verify`；发布后的 pending 目录已清理，readiness 现在用 live `build-info.json` 与当前运行输入指纹比对。当前候选包含 40 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、快递/采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界以及微信资料拒绝后的设置页重试；小程序回归为 `312 pass / 0 fail / 3548 expect()`。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
 - 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 

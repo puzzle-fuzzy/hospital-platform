@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { resolveMiniProgramSourceRevision } from "../apps/miniprogram/scripts/runtime-provenance.ts";
 import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
 import { getLegacyPageMigrationBatch } from "../apps/miniprogram/src/services/migration-coverage.ts";
@@ -473,6 +474,22 @@ async function runtimeProvenance(root) {
 		pending && typeof pending.sourceRevision === "string"
 			? pending.sourceRevision
 			: null;
+	let expectedSourceRevision = null;
+	try {
+		/**
+		 * 发布前用 pending 与 live 对比；发布后 pending 目录会被原子发布器
+		 * 删除，此时必须复用运行输入解析规则确认 live 仍是当前源码候选。
+		 * 不能因为 pending 消失就把任意旧 dist 当成“已对齐”。
+		 */
+		expectedSourceRevision = resolveMiniProgramSourceRevision(
+			root,
+			undefined,
+			"HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION",
+		);
+	} catch {
+		// 非 Git 或运行输入未提交时保持 fail-closed；报告仍需返回稳定结构。
+		expectedSourceRevision = null;
+	}
 	return {
 		live: liveRevision
 			? { sourceRevision: liveRevision, pageCount: live.pageCount ?? null }
@@ -483,8 +500,12 @@ async function runtimeProvenance(root) {
 					pageCount: pending.pageCount ?? null,
 				}
 			: null,
+		expectedSourceRevision,
 		candidateRuntimeAligned: Boolean(
-			liveRevision && pendingRevision && liveRevision === pendingRevision,
+			liveRevision &&
+				(pendingRevision
+					? liveRevision === pendingRevision
+					: expectedSourceRevision && liveRevision === expectedSourceRevision),
 		),
 		publicationRequired: Boolean(
 			pendingRevision && liveRevision !== pendingRevision,
@@ -568,16 +589,18 @@ async function healthContentCoverage(root) {
  * 但在所有域仍为 pending 时，也绝不能把代码测试或 HTTP smoke 升级成真实
  * 业务完成。这里仅汇总状态和候选指纹，不写入页面截图、患者标识或请求正文。
  */
-async function deviceEvidenceCoverage(root, pendingRuntime) {
-	// 真机证据必须与 pending 运行包一一对应。仅按文件名的 7/8 位前缀
+async function deviceEvidenceCoverage(root, runtime) {
+	// 真机证据必须与当前候选运行包一一对应：发布前使用 pending，发布后
+	// pending 目录会被删除，必须回退到 live。仅按文件名的 7/8 位前缀
 	// 选择清单不可靠：历史候选的命名长度并不统一，且同一目录可能同时
-	// 存在多轮 pending 清单。因此这里扫描候选文件，并以 manifest 内的
+	// 存在多轮清单。因此这里扫描候选文件，并以 manifest 内的
 	// 完整 sourceRevision 做唯一匹配，避免新页面、旧二维码和旧 requestId
 	// 被误合并成一条“当前证据”。
-	const pendingSourceRevision = pendingRuntime?.sourceRevision ?? null;
-	const expectedEvidencePath = pendingSourceRevision
-		? `docs/release/device-evidence-${pendingSourceRevision.slice(0, 8)}-pending.json`
-		: "docs/release/device-evidence-missing-pending.json";
+	const activeRuntime = runtime.pending ?? runtime.live;
+	const activeSourceRevision = activeRuntime?.sourceRevision ?? null;
+	const expectedEvidencePath = activeSourceRevision
+		? `docs/release/device-evidence-${activeSourceRevision.slice(0, 8)}-pending.json`
+		: "docs/release/device-evidence-missing-current.json";
 	const releaseDirectory = resolve(root, "docs/release");
 	let evidenceFiles = [];
 	try {
@@ -596,8 +619,8 @@ async function deviceEvidenceCoverage(root, pendingRuntime) {
 		const candidatePath = `docs/release/${fileName}`;
 		const candidate = await readJsonIfExists(resolve(root, candidatePath));
 		if (
-			pendingSourceRevision &&
-			candidate?.candidate?.sourceRevision === pendingSourceRevision
+			activeSourceRevision &&
+			candidate?.candidate?.sourceRevision === activeSourceRevision
 		) {
 			evidencePath = candidatePath;
 			evidence = candidate;
@@ -632,11 +655,12 @@ async function deviceEvidenceCoverage(root, pendingRuntime) {
 			domains.length > 0 &&
 			domains.every(([, value]) => value?.result === "passed"),
 		candidate: evidence?.candidate ?? null,
-		candidateMatchesPendingRuntime: Boolean(
-			pendingSourceRevision &&
+		candidateMatchesCurrentRuntime: Boolean(
+			activeSourceRevision &&
 				evidenceSourceRevision &&
-				pendingSourceRevision === evidenceSourceRevision,
+				activeSourceRevision === evidenceSourceRevision,
 		),
+		activeRuntime: runtime.pending ? "pending" : runtime.live ? "live" : null,
 	};
 }
 
@@ -690,9 +714,13 @@ function breadthMigrationQueue({
 			stage: deviceEvidence.passed ? "evidence-passed" : "awaiting-evidence",
 			scope: readOnly.domains.map((domain) => domain.id),
 			codeReady: readOnly.passed,
-			nextAction: runtimeReady
-				? "按九个真机域采集页面、客户端 requestId 和服务端同链日志"
-				: "先释放 dist 锁并原子发布 pending 候选，再开始九个真机域取证",
+			nextAction: deviceEvidence.passed
+				? "A 批次真机证据已齐全，继续复核结果并进入下一批次"
+				: runtimeReady
+					? "从当前 live 候选生成二维码并开始九个真机域取证"
+					: runtime.publicationRequired
+						? "先释放 dist 锁并原子发布 pending 候选，再开始九个真机域取证"
+						: "先生成并校验当前候选运行包，再开始九个真机域取证",
 			stopCondition:
 				"没有候选来源一致性、页面截图、客户端 requestId 和服务端同链事件时，不得宣称只读业务完成",
 		},
@@ -817,7 +845,7 @@ export async function buildMigrationReadinessReport(
 	const readOnly = await readOnlyCoverage(root);
 	const providerIntake = await providerIntakeCoverage(root);
 	const runtime = await runtimeProvenance(root);
-	const deviceEvidence = await deviceEvidenceCoverage(root, runtime.pending);
+	const deviceEvidence = await deviceEvidenceCoverage(root, runtime);
 	const healthContent = await healthContentCoverage(root);
 	const clinicalContract = await buildClinicalContractAudit(root);
 	const contractIntake = auditMigrationContractIntake();

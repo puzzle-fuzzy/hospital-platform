@@ -324,38 +324,39 @@ export const currentBaselineDocuments = Object.freeze([
 ]);
 
 /**
- * live 运行包和 pending 候选是两个有意并存的发布事实：前者用于线上
- * 真机证据，后者用于开发者工具释放后发布。读取 pending 的完整来源指纹，
- * 让当前手册可以同时校验两者，避免把尚未发布的候选误当成线上版本。
+ * live 运行包和 pending 候选是两个有意并存的发布事实：发布前优先读取
+ * pending，发布成功后 pending 会被原子发布器清理，此时必须回退读取 live。
+ * 这里校验的是“当前本地运行候选”的完整来源指纹，不把开发者工具发布
+ * 后 pending 目录的正常消失误判成候选缺失，也不把线上历史小程序来源混入。
  */
 async function readPendingMiniProgramSourceRevision(rootDirectory) {
-	try {
-		const content = await readFile(
-			join(
-				rootDirectory,
-				".local/hospital-miniprogram/pending/build-info.json",
-			),
-			"utf8",
-		);
-		const sourceRevision = JSON.parse(content)?.sourceRevision;
-		if (
-			typeof sourceRevision !== "string" ||
-			!/^[0-9a-f]{40}$/u.test(sourceRevision)
-		) {
-			throw new Error("pending build-info.json 缺少有效 sourceRevision");
+	for (const relativePath of [
+		".local/hospital-miniprogram/pending/build-info.json",
+		"apps/miniprogram/dist/build-info.json",
+	]) {
+		try {
+			const content = await readFile(join(rootDirectory, relativePath), "utf8");
+			const sourceRevision = JSON.parse(content)?.sourceRevision;
+			if (
+				typeof sourceRevision !== "string" ||
+				!/^[0-9a-f]{40}$/u.test(sourceRevision)
+			) {
+				throw new Error(`${relativePath} 缺少有效 sourceRevision`);
+			}
+			return sourceRevision;
+		} catch (error) {
+			if (
+				error &&
+				typeof error === "object" &&
+				"code" in error &&
+				error.code === "ENOENT"
+			) {
+				continue;
+			}
+			throw error;
 		}
-		return sourceRevision;
-	} catch (error) {
-		if (
-			error &&
-			typeof error === "object" &&
-			"code" in error &&
-			error.code === "ENOENT"
-		) {
-			return undefined;
-		}
-		throw error;
 	}
+	return undefined;
 }
 
 /**
@@ -654,7 +655,8 @@ export function auditCurrentCandidateReferences(
 						phraseDefinition.expected === "short"
 							? baseline.miniProgramCommit
 							: phraseDefinition.expected === "pending-full"
-								? options.pendingMiniProgramSourceRevision
+								? (options.activeMiniProgramSourceRevision ??
+									options.pendingMiniProgramSourceRevision)
 								: baseline.miniProgramSourceRevision;
 					if (!expected) {
 						failures.push(

@@ -8,16 +8,16 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| live 运行包来源 | `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，16 个页面 |
-| pending 候选来源 | `731c95718d26bcf2826987b72f79295413b203d7`，40 个页面；对应当前运行输入，包含微信资料拒绝后设置页重试修正 |
-| pending 目录 | `.local/hospital-miniprogram/pending/` |
-| 发布结果 | 尚未替换 live；Windows 返回 `EBUSY` |
-| 阻塞原因 | 微信开发者工具仍占用 `apps/miniprogram/dist/` |
+| live 运行包来源 | `731c95718d26bcf2826987b72f79295413b203d7`，40 个页面；已原子发布并通过 `runtime:verify` |
+| pending 候选来源 | 已发布到 live；发布成功后 pending 目录按设计清理 |
+| pending 目录 | 当前不存在；不能把 pending 缺失误判成运行包缺失 |
+| 发布结果 | `runtime:publish-pending` 成功，live `build-info.json` 已切换为 `731c9571` |
+| 当前阻塞 | 九个真机证据域仍为 `pending`，下一步是生成二维码并按域取证 |
 | 旧服务影响 | 无；旧 Python `8001` 和线上服务未修改 |
 
 > `731c9571` 是当前运行相关源码候选。根目录文档提交不会改变运行包来源；本次构建已按
 > `build-info.json` 写入该完整来源指纹。当前来源、页面数量和静态校验结果以本机
-> `.local/hospital-miniprogram/pending/build-info.json` 与 `runtime:verify:pending` 输出为准，
+> `apps/miniprogram/dist/build-info.json` 与 `runtime:verify` 输出为准，
 > 不再使用旧 `de9c5b99`/`e1adbf7` 候选文档作为验收来源。
 
 `runtime:publish-pending` 使用临时目录和原子替换：候选先复制到临时目录，替换失败时
@@ -46,10 +46,11 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 发布成功后必须同时满足：
 
-- `apps/miniprogram/dist/build-info.json.sourceRevision` 等于 pending 候选的完整 SHA；
+- `apps/miniprogram/dist/build-info.json.sourceRevision` 等于发布前 pending 候选的完整 SHA；
 - `pageCount` 等于当前 `src/app.json` 页面数量；
 - 运行包没有 `.test.js`、`.spec.js` 或 workspace 依赖引用；
 - `project.config.json` 的 `miniprogramRoot` 仍为 `./`，开发者工具打开的是 `dist` 目录内容；
+- 发布后 pending 目录被清理，后续 readiness 必须使用 live `build-info.json` 与当前运行输入指纹比对；
 - 旧服务端 release、旧 Python `8001`、旧数据库和 Redis 没有因为小程序发布而改变。
 
 ## 发布失败时的处理
@@ -58,14 +59,14 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 1. 停止操作，不手工覆盖 live `dist`；
 2. 保留错误输出、live/pending 两份 `build-info.json` 和当前开发者工具现场；
-3. 运行 `pnpm migration:readiness`，确认 `candidateRuntimeAligned=false` 仍然被报告，
-   不把 pending 写成真机证据；
+3. 运行 `pnpm migration:readiness`；若 `publicationRequired=true` 或
+   `candidateRuntimeAligned=false`，不得开始当前候选真机取证；
 4. 业务迁移继续按队列推进：A 等候候选发布后取证，B 等审核 bundle，C/D/E 等正式
    contract，F 支付/医保/HIS 回写最后处理。
 
 ## 发布成功后的验收顺序
 
-发布只证明运行包切换，不证明业务完成。重新生成二维码后，按以下顺序逐域采证：
+发布只证明运行包切换，不证明业务完成。当前 live 候选已切换为 `731c9571`，重新生成二维码后，按以下顺序逐域采证：
 
 ```text
 微信登录
