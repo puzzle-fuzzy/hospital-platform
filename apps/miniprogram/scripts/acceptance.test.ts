@@ -652,6 +652,13 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(template).toContain("patient-card-selected");
 	expect(template).toContain("patient-card-unavailable");
 	expect(template).toContain("暂不可查");
+	// 同步失败时保留已经读取的患者卡片，但通过 selectionReady 将其全部
+	// 标记为不可查询；错误不能把诊断用目录误渲染成成功空态。
+	expect(template).toContain('wx:if="{{loading || !patients.length}}"');
+	expect(template).toContain(
+		"item.clinicalAccess !== 'ready' || !selectionReady",
+	);
+	expect(selection).toContain("就诊人同步未完成，请先刷新");
 	expect(template).toContain("刷新就诊人");
 	// WXML 事件对象不能进入只接受 number 的内部加载 token 流程；
 	// 真机刷新必须经过无参数事件入口再创建本轮 token。

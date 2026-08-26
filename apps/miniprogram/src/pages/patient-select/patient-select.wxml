@@ -18,7 +18,7 @@
 		而加载完成后空插图也不能把下方刷新按钮突然推远。
 	-->
 	<view
-		wx:if="{{loading || error || !patients.length}}"
+		wx:if="{{loading || !patients.length}}"
 		class="state-card query-state-shell query-state-shell-column"
 	>
 		<block wx:if="{{loading}}">
@@ -41,7 +41,7 @@
 		<view
 			wx:for="{{patients}}"
 			wx:key="id"
-			class="patient-card {{item.id === selectedPatientId ? 'patient-card-selected' : ''}} {{item.clinicalAccess !== 'ready' ? 'patient-card-unavailable' : ''}}"
+			class="patient-card {{item.id === selectedPatientId ? 'patient-card-selected' : ''}} {{item.clinicalAccess !== 'ready' || !selectionReady ? 'patient-card-unavailable' : ''}}"
 			bindtap="onPatientTap"
 			data-patient-id="{{item.id}}"
 		>
@@ -51,7 +51,7 @@
 					<text wx:if="{{item.relationshipLabel}}" class="patient-relationship">{{item.relationshipLabel}}</text>
 				</view>
 				<view wx:if="{{item.id === selectedPatientId}}" class="selected-badge">当前</view>
-				<view wx:elif="{{item.clinicalAccess !== 'ready'}}" class="unavailable-badge">暂不可查</view>
+				<view wx:elif="{{item.clinicalAccess !== 'ready' || !selectionReady}}" class="unavailable-badge">暂不可查</view>
 			</view>
 			<view class="patient-card-detail">
 				<image class="patient-card-icon" src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />

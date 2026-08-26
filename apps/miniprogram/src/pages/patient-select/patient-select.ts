@@ -3,12 +3,12 @@ import {
 	loadPatients,
 	syncPatientsFromHospital,
 } from "../../services/dashboard-service";
+import { navigateToFeatureEntry } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
-import { navigateToFeatureEntry } from "../../services/feature-navigation";
 import { switchToPrimaryTab } from "../../services/patient-navigation";
 import {
 	getSelectedPatientId,
@@ -276,13 +276,14 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		// 目录读取成功不等于医院侧临床映射已经完成。同步期间即使页面还显示上一轮
 		// 列表，也必须禁止返回调用页，否则调用页可能在 his-patient 尚未落库时发起
 		// 预约、报告或门诊费用查询；失败后保留列表只用于诊断，不能被当作可用上下文。
-		if (
-			this.data.loading ||
-			this.data.syncing ||
-			!this.data.selectionReady ||
-			this.data.navigationPending
-		) {
+		if (this.data.loading || this.data.syncing || this.data.navigationPending) {
 			wx.showToast({ title: "就诊人正在同步，请稍后", icon: "none" });
+			return;
+		}
+		if (!this.data.selectionReady) {
+			// 目录快照可能已经显示，但本轮临床映射同步失败或尚未确认；
+			// 这时只能让用户重试，不能把上一轮卡片当成可查询上下文带回业务页。
+			wx.showToast({ title: "就诊人同步未完成，请先刷新", icon: "none" });
 			return;
 		}
 		const patientId = event.currentTarget?.dataset?.patientId;
