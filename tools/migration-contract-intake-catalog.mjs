@@ -110,6 +110,11 @@ function collectBatchGates(batchId) {
 	);
 }
 
+/** 材料清单中的值必须是可供人工核对的非空文本。 */
+function nonEmptyText(value) {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
 /**
  * 把批次级材料要求展开到每个 FeatureKey。
  *
@@ -158,6 +163,32 @@ function duplicateValues(values) {
 }
 
 /**
+ * 校验契约材料清单的文本形状。
+ *
+ * 这些清单不是展示文案，而是后续会话选择“能否进入 adapter”的机器输入。
+ * 空字符串、重复材料或把对象误塞进数组，都会让材料状态看起来完整却无法
+ * 逐项验收；因此这里在批次覆盖检查之前 fail-closed。该校验只检查新仓库
+ * 中的准入目录，不读取旧服务、数据库、Redis 或 Provider。
+ */
+function auditNonEmptyTextList(failures, label, values, minimumLength) {
+	if (!Array.isArray(values)) {
+		failures.push(`${label} 必须是数组`);
+		return;
+	}
+	if (values.length < minimumLength) {
+		failures.push(`${label} 至少需要 ${minimumLength} 项`);
+	}
+	const invalidValues = values.filter((value) => !nonEmptyText(value));
+	if (invalidValues.length > 0) {
+		failures.push(`${label} 只能包含非空文本`);
+	}
+	const duplicateItems = duplicateValues(values.filter(nonEmptyText));
+	if (duplicateItems.length > 0) {
+		failures.push(`${label} 不能重复：${duplicateItems.join("、")}`);
+	}
+}
+
+/**
  * 审计 C/D/E 材料入口与冻结 gate 的覆盖关系。
  *
  * 审计通过只表示“下一步知道要收什么材料”，绝不把 pending 改成 ready。
@@ -194,17 +225,50 @@ export function auditMigrationContractIntake() {
 		if (gates.length === 0) {
 			failures.push(`${item.batchId} 没有对应冻结 gate`);
 		}
+		if (!nonEmptyText(item.name)) {
+			failures.push(`${item.batchId} 缺少批次名称`);
+		}
+		if (!nonEmptyText(item.owner)) {
+			failures.push(`${item.batchId} 缺少材料责任人`);
+		}
 		if (item.status !== "awaiting-formal-contract") {
 			failures.push(`${item.batchId} 必须保持 awaiting-formal-contract`);
 		}
-		if (item.requiredEvidence.length < 5) {
-			failures.push(`${item.batchId} 的正式材料清单不完整`);
+		auditNonEmptyTextList(
+			failures,
+			`${item.batchId} 的正式材料清单`,
+			item.requiredEvidence,
+			5,
+		);
+		auditNonEmptyTextList(
+			failures,
+			`${item.batchId} 的实现顺序`,
+			item.implementationSequence,
+			5,
+		);
+		auditNonEmptyTextList(
+			failures,
+			`${item.batchId} 的未确认禁止项`,
+			item.forbiddenUntilConfirmed,
+			3,
+		);
+		if (!nonEmptyText(item.nextInput)) {
+			failures.push(`${item.batchId} 缺少下一项材料说明`);
 		}
-		if (item.implementationSequence.length < 5) {
-			failures.push(`${item.batchId} 的实现顺序不完整`);
-		}
-		if (item.forbiddenUntilConfirmed.length < 3) {
-			failures.push(`${item.batchId} 的未确认禁止项不完整`);
+		for (const gate of gates) {
+			const gateLabel = `${item.batchId}/${gate.featureKey}`;
+			const entryCount =
+				(Array.isArray(gate.legacyPaths) ? gate.legacyPaths.length : 0) +
+				(Array.isArray(gate.legacyActions) ? gate.legacyActions.length : 0);
+			if (entryCount === 0) {
+				failures.push(`${gateLabel} 必须至少保留一个旧页面或 action 入口`);
+			}
+			auditNonEmptyTextList(
+				failures,
+				`${gateLabel} 的禁止能力`,
+				gate.forbiddenCapabilities,
+				1,
+			);
 		}
 		return {
 			batchId: item.batchId,

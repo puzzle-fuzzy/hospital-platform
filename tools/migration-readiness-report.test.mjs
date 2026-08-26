@@ -137,16 +137,38 @@ describe("全项目迁移 readiness 报告", () => {
 			expect(report.healthContent.sourceSnapshotStatus).toBe("missing");
 			expect(report.healthContent.reviewQueue).toBeNull();
 		}
-		expect(report.runtime.candidateRuntimeAligned).toBe(true);
-		expect(report.runtime.publicationRequired).toBe(false);
-		expect(report.runtime.expectedSourceRevision).toBe(
-			report.runtime.live.sourceRevision,
-		);
+		/**
+		 * pending/live 是有意并存的发布状态：pending 存在且来源不同，说明
+		 * 候选尚未原子发布，必须明确要求发布；pending 被发布器清理后，才
+		 * 回退到 live 与当前源码来源的对齐检查。测试不能把某一个窗口的
+		 * 具体 hash 写死成“已发布”，否则会掩盖运行包漂移。
+		 */
+		if (report.runtime.pending) {
+			expect(report.runtime.candidateRuntimeAligned).toBe(
+				report.runtime.live?.sourceRevision ===
+					report.runtime.pending.sourceRevision,
+			);
+			expect(report.runtime.publicationRequired).toBe(
+				report.runtime.live?.sourceRevision !==
+					report.runtime.pending.sourceRevision,
+			);
+			expect(report.runtime.expectedSourceRevision).toBe(
+				report.runtime.pending.sourceRevision,
+			);
+		} else {
+			expect(report.runtime.candidateRuntimeAligned).toBe(true);
+			expect(report.runtime.publicationRequired).toBe(false);
+			expect(report.runtime.expectedSourceRevision).toBe(
+				report.runtime.live?.sourceRevision,
+			);
+		}
 		expect(report.deviceEvidence.domainCount).toBe(9);
 		expect(report.deviceEvidence.allPending).toBe(true);
 		expect(report.deviceEvidence.passed).toBe(false);
 		expect(report.deviceEvidence.candidateMatchesCurrentRuntime).toBe(true);
-		expect(report.deviceEvidence.activeRuntime).toBe("live");
+		expect(report.deviceEvidence.activeRuntime).toBe(
+			report.runtime.pending ? "pending" : "live",
+		);
 		expect(report.deviceEvidence.manifestPath).toBe(
 			`docs/release/device-evidence-${report.deviceEvidence.candidate.miniProgramCommit}-pending.json`,
 		);
