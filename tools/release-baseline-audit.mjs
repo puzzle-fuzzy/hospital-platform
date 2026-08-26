@@ -249,7 +249,7 @@ export const currentBaselineDocuments = Object.freeze([
 	// 线上小程序。因此跳过“必须包含线上小程序来源”的检查，但仍通过下方的
 	// 当前候选语义规则锁定完整 sourceRevision，避免新会话误用旧二维码或旧包。
 	{
-		path: "docs/release/candidate-9e94dc6-miniprogram-runtime-2026-08-26.md",
+		path: "docs/release/candidate-317350e0-miniprogram-runtime-2026-08-26.md",
 		label: "当前 pending 小程序运行包候选",
 		candidateOnly: true,
 	},
@@ -573,7 +573,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-9e94dc6-miniprogram-runtime-2026-08-26.md",
+		path: "docs/release/candidate-317350e0-miniprogram-runtime-2026-08-26.md",
 		label: "当前 pending 小程序运行包候选",
 		sections: [
 			{
