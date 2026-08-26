@@ -4,7 +4,7 @@
 
 当前 `apps/miniprogram/dist` 无法被候选运行包原子替换，原因是微信开发者工具仍将该目录作为本地小程序项目打开。构建脚本已经完成编译、类型检查、运行包生成和候选留存；失败发生在最后的目录替换阶段，错误为 Windows `EBUSY`。
 
-> **当前候选事实（2026-08-26）**：本文下方如果出现 `f97f9f0`、`7f7a7a18`、`3b42b86`、`ed20c52` 或 `e3356e50`，均仅表示历史候选；当前待发布运行包是 `adf536bf`，完整来源为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`，共 40 个页面。发布和真机取证只能使用当前候选，不能使用历史候选的证据清单。
+> **当前候选事实（2026-08-26）**：本文下方如果出现 `f97f9f0`、`7f7a7a18`、`3b42b86`、`ed20c52`、`e3356e50` 或 `adf536bf`，均仅表示历史候选；当前待发布运行包是 `731c9571`，完整来源为 `731c95718d26bcf2826987b72f79295413b203d7`，共 40 个页面。发布和真机取证只能使用当前候选，不能使用历史候选的证据清单。
 
 这不是服务端故障，也不是小程序业务代码编译失败。它只阻止“把已验证候选发布到开发者工具当前打开的 dist 目录”，不影响旧服务、数据库、Redis 或当前已打开的旧运行包。
 
@@ -12,7 +12,7 @@
 
 - `pnpm --filter @hospital/miniprogram test`：当前候选 `309 pass / 0 fail / 3522 expect()`。
 - `pnpm --filter @hospital/miniprogram typecheck`：通过。
-- `pnpm --filter @hospital/miniprogram runtime:verify:pending`：通过，候选来源为 `adf536bf`，包含 40 个页面和根文件。
+- `pnpm --filter @hospital/miniprogram runtime:verify:pending`：通过，候选来源为 `731c9571`，包含 40 个页面和根文件。
 - `pnpm --filter @hospital/miniprogram build`：编译和候选生成通过；发布阶段因为 `EBUSY` 保留候选，没有覆盖旧 `dist`。
 - Windows 微信开发者工具本地工作区记录显示，当前项目路径为：
   `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`。

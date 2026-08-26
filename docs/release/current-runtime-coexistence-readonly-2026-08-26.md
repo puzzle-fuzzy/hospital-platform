@@ -24,7 +24,7 @@ Bearer token、患者标识，也没有重启、切换或修改任何服务。
 - 普通资料 GET/PUT 的 canonical 版本和 409 冲突链路有效；
 - 页面、客户端 `requestId`、服务端 `traceId` 和 Provider 低敏请求号已经形成同链证据。
 
-下一步仍按 A 批次验收计划执行：先发布与 `adf536bf` 绑定的 pending 小程序运行包，再使用一次性短时
+下一步仍按 A 批次验收计划执行：先发布与 `731c9571` 绑定的 pending 小程序运行包，再使用一次性短时
 Bearer 会话和对应的 opaque `patientId` 进行受控只读验收。凭据不得写入仓库、命令行参数、shell history、
 常驻 systemd 环境、日志或验收文档；没有三层/四层证据时继续保持 `pending`，不扩大到支付、医保、二维码、
 患者绑定或 HIS 回写。
