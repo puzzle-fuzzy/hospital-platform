@@ -2,7 +2,7 @@
 
 > 跨业务域并行执行顺序见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
 
-> **当前事实源（2026-08-26）**：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；源码已注册 40 个原生页面，当前 pending 运行候选为 `a9963729`，完整 sourceRevision 为 `a9963729f905030c0982f332625289ff1cd51216`。健康自测中的 BMI/血压安全数值子集已进入 `partial`；新候选尚未替换 live `dist`，旧 live 包不作为本轮真机证据。29 个页面的真实 Provider/临床/外部/患者业务仍未开放；本轮继续保持共享患者外壳、二维码安全壳和健康数值工具边界，并更新候选交接来源。以下表格按当前机器台账修正，旧日期段落只作追溯。
+> **当前事实源（2026-08-26）**：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；源码已注册 40 个原生页面，当前 pending 运行候选为 `d27bddf0`，完整 sourceRevision 为 `d27bddf04a5535520eed2770d7befd447bf61f9b`。健康自测中的 BMI/血压安全数值子集已进入 `partial`；新候选尚未替换 live `dist`，旧 live 包不作为本轮真机证据。29 个页面的真实 Provider/临床/外部/患者业务仍未开放；本轮继续保持共享患者外壳、二维码安全壳和健康数值工具边界，并更新候选交接来源。以下表格按当前机器台账修正，旧日期段落只作追溯。
 
 > 本页回答“旧端还有哪些入口没有迁移”这个范围问题，不把统一状态页误写成真实业务完成。数据由
 > `apps/miniprogram/src/services/legacy-page-catalog.ts` 派生，并由 `legacy-page-catalog.test.ts`
