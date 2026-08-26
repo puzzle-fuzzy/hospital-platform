@@ -97,6 +97,29 @@ test("provider HTTP boundary classifies upstream failures as retryable", async (
 	});
 });
 
+test("provider HTTP boundary rejects unusable response request ids without losing trace correlation", async () => {
+	await expect(
+		requestJson(
+			{
+				provider: "medical-insurance",
+				operation: "6201",
+				url: "https://provider.invalid/6201",
+				method: "POST",
+				context,
+			},
+			async () =>
+				new Response("upstream unavailable", {
+					status: 503,
+					headers: { "x-request-id": "   " },
+				}),
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		requestId: context.traceId,
+		statusCode: 503,
+	});
+});
+
 test("already-aborted provider calls fail without invoking fetch", async () => {
 	const controller = new AbortController();
 	controller.abort();

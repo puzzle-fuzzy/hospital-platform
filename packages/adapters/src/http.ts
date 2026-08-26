@@ -4,6 +4,16 @@ import { ProviderRequestError } from "./errors";
 /** provider 默认超时；具体 adapter 可以按官方协议覆盖，但不得无限等待。 */
 const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
 
+/**
+ * Provider 响应关联号的公共边界。
+ *
+ * 外部响应头不是 TypeScript 类型安全区：空白值、控制字符或超长文本如果
+ * 直接进入 `ProviderRequestError`，后续 service 可能无法生成合法 trace，
+ * 日志也会丢失与本次平台请求的关联。异常响应头回退到服务端 traceId，
+ * 保留可检索性，同时不把未经校验的外部字符串当成业务事实。
+ */
+const MAX_PROVIDER_REQUEST_ID_LENGTH = 128;
+
 /** 统一的 provider 请求输入，禁止让业务层自行拼接认证和幂等请求头。 */
 export type ProviderRequest = {
 	provider: AdapterName;
@@ -39,6 +49,26 @@ function timeoutFor(context: AdapterContext): number {
 	return context.timeoutMs && context.timeoutMs > 0
 		? context.timeoutMs
 		: DEFAULT_PROVIDER_TIMEOUT_MS;
+}
+
+function responseRequestId(headers: Headers, fallback: string): string {
+	for (const headerName of ["x-request-id", "Wechatpay-Request-Id"]) {
+		const value = headers.get(headerName);
+		if (value === null) continue;
+		const normalized = value.trim();
+		if (
+			!normalized ||
+			normalized.length > MAX_PROVIDER_REQUEST_ID_LENGTH ||
+			Array.from(normalized).some((character) => {
+				const code = character.charCodeAt(0);
+				return code < 0x20 || code === 0x7f;
+			})
+		) {
+			continue;
+		}
+		return normalized;
+	}
+	return fallback;
 }
 
 export async function requestJson<T>(
@@ -89,10 +119,10 @@ export async function requestJson<T>(
 		const response = await fetcher(input.url, init);
 		const rawBody = new Uint8Array(await response.arrayBuffer());
 		const raw = new TextDecoder().decode(rawBody);
-		const requestId =
-			response.headers.get("x-request-id") ??
-			response.headers.get("Wechatpay-Request-Id") ??
-			input.context.traceId;
+		const requestId = responseRequestId(
+			response.headers,
+			input.context.traceId,
+		);
 
 		if (!response.ok) {
 			throw new ProviderRequestError({

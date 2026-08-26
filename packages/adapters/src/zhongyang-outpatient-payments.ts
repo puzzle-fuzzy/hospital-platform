@@ -250,6 +250,13 @@ function amountFen(value: unknown, requestId: string): number {
 	if (value === undefined || value === null || value === "") {
 		throw providerError("Zhongyang outpatient amount is missing", requestId);
 	}
+	// 不能直接对 unknown 调用 String：JSON 对象/数组可能被隐式转换成
+	// 看似合法的金额（例如 `["12.30"]`），带有 `toString` 字段的对象还可能
+	// 在转换时抛出原生 TypeError，绕过统一的 Provider 响应异常和低敏日志。
+	// Provider 的金额只接受 JSON 字符串或数字，形状异常必须稳定地 fail-closed。
+	if (typeof value !== "string" && typeof value !== "number") {
+		throw providerError("Zhongyang outpatient amount is invalid", requestId);
+	}
 	const normalized = String(value).trim();
 	if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
 		throw providerError("Zhongyang outpatient amount is invalid", requestId);

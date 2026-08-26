@@ -26,6 +26,13 @@ Elysia API / contracts
 - 回调、查单、重试和 HIS 回写必须支持幂等；未知状态不能自动判定失败。
 - 只读 provider 结果若将来参与写入前置校验，必须先落成带 TTL 的服务端快照；快照本身不等于写入授权。
 
+外部请求的 HTTP 边界也属于业务可观测性的一部分：
+
+- `requestJson` 统一注入服务端生成的 `x-request-id` 和 `idempotency-key`，业务 adapter 不自行拼接这两类关联头。
+- Provider 响应优先读取 `x-request-id`，再读取微信支付使用的 `Wechatpay-Request-Id`；空白、控制字符或超长值不进入日志和领域 trace，而是回退到本次服务端 `traceId`，确保失败请求仍可检索。
+- Provider 金额等关键字段必须先校验 JSON 原始形状，再进行十进制解析；不能依赖 JavaScript 的隐式 `String()`、浮点乘法或前端展示值推导业务金额。
+- Provider 原始 URL、请求体、凭证和敏感患者字段不进入日志；日志只保留操作名、状态码、可重试性和经过边界校验的低敏请求号。
+
 ## 目标代码布局
 
 ```text

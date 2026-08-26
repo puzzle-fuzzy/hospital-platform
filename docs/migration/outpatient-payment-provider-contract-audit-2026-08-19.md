@@ -82,6 +82,7 @@ GET /msun-middle-open-settlepay/v1/outpatient-payments/outpatient-child-payment-
 - 账单时间必须是严格有效的 `YYYY-MM-DD HH:mm:ss`，并且落在服务端生成的闭区间内。
 - adapter 还会独立校验调用输入：只接受患者引用、起止时间和状态四个字段；非法/倒序时间、未知字段和畸形对象在触网前拒绝，不能只依赖 service 的 HTTP schema。
 - 费用记录必须有稳定内部引用；重复引用、缺少稳定标识和 Provider 原始字段不会出现在公共响应。
+- 金额在进入十进制解析前必须是 Provider JSON 字符串或数字；对象、数组和其它可隐式转换形状一律判定为响应异常，不能让 JavaScript 的 `String()` 把错误结构变成合法金额。
 - 公共接口只返回 `recordId`、状态、科室、医生、账单时间和 `amountFen`，不返回 Provider 订单号、患者卡号、身份证号、医保字段或原始对象。
 
 服务层和 adapter 双重校验的目的，是防止未来替换真实网关、回放网关或任务调用方绕过 Elysia HTTP schema

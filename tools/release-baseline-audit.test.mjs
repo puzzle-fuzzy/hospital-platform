@@ -371,6 +371,7 @@ test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async
 			"packages/domain/src/knowledge-import.ts",
 			"packages/domain/src/knowledge.ts",
 			"packages/domain/src/patient-write-command.ts",
+			"packages/domain/src/payment-state.ts",
 			"packages/domain/src/ports.ts",
 			"packages/persistence/src/mysql-health-knowledge-repository.ts",
 		],
