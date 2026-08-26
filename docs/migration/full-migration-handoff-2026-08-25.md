@@ -1,30 +1,30 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **当前候选覆盖（2026-08-26）**：最新小程序源码和 pending 运行输入为 `1d132315dff23c8befdfc867cb62a4227dbb7820`（`1d132315`），40 页，回归 `326 pass / 0 fail / 3622 expect()`；pending 校验通过但尚未替换 live `dist`，当前 live 仍为 `02dbf10`。本候选新增电子锦旗/表扬信记录区域的加载、失败、未开放三态和固定高度，未新增 Provider 请求或写入。本文下方旧候选数字只作历史追溯，以本段、[`candidate-1d132315-miniprogram-runtime-2026-08-26.md`](../release/candidate-1d132315-miniprogram-runtime-2026-08-26.md) 和 [`device-evidence-1d132315-pending.json`](../release/device-evidence-1d132315-pending.json) 为准。
+> **当前候选覆盖（2026-08-26）**：最新小程序源码和 pending 运行输入为 `9ee060bf00c4b5c8c67f0e39e2d5493043a33bb5`（`9ee060bf`），40 页，回归 `327 pass / 0 fail / 3629 expect()`；pending 校验通过但尚未替换 live `dist`，当前 live 仍为 `02dbf10`。本候选新增电子锦旗/表扬信记录区域的加载、失败、未开放三态和固定高度，未新增 Provider 请求或写入。本文下方旧候选数字只作历史追溯，以本段、[`candidate-9ee060bf-miniprogram-runtime-2026-08-26.md`](../release/candidate-9ee060bf-miniprogram-runtime-2026-08-26.md) 和 [`device-evidence-9ee060bf-pending.json`](../release/device-evidence-9ee060bf-pending.json) 为准。
 
-> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。最新 40 页运行相关源码候选 `1d132315dff23c8befdfc867cb62a4227dbb7820` 已完成构建和 pending 运行包校验；本地 live `dist` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，因开发者工具文件锁尚未原子切换。九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本轮统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。最新 40 页运行相关源码候选 `9ee060bf00c4b5c8c67f0e39e2d5493043a33bb5` 已完成构建和 pending 运行包校验；本地 live `dist` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，因开发者工具文件锁尚未原子切换。九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本轮统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
-> **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；40 页运行相关源码候选 `1d132315` 已完成 pending 构建和静态校验，尚未替换 live `dist`。页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并修正健康百科/报告详情已有安全子集的迁移台账映射；同时保留微信资料拒绝后的设置页重试、选择页刷新并发门禁以及“我的快递”加载/错误/未开放状态边界，并统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。当前证据清单仍为九域 `pending`，必须在候选原子发布后取证。当前候选证据见 [`../release/candidate-1d132315-miniprogram-runtime-2026-08-26.md`](../release/candidate-1d132315-miniprogram-runtime-2026-08-26.md)；上一候选的 live 包和证据清单不能直接作为本轮真机完成证据。
+> **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；40 页运行相关源码候选 `9ee060bf` 已完成 pending 构建和静态校验，尚未替换 live `dist`。页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并修正健康百科/报告详情已有安全子集的迁移台账映射；同时保留微信资料拒绝后的设置页重试、选择页刷新并发门禁以及“我的快递”加载/错误/未开放状态边界，并统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。当前证据清单仍为九域 `pending`，必须在候选原子发布后取证。当前候选证据见 [`../release/candidate-9ee060bf-miniprogram-runtime-2026-08-26.md`](../release/candidate-9ee060bf-miniprogram-runtime-2026-08-26.md)；上一候选的 live 包和证据清单不能直接作为本轮真机完成证据。
 
 > **广度复核补充（2026-08-26）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁通过。`pnpm check` 当前仅在发布基线阶段因线上 `8eb51b5f` 落后于本地运行时代码而 fail-closed，其中包含另一会话维护的众阳预约适配器；这不是业务测试失败，也不能通过忽略差异代替完整发布。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
 
 > **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；提交 `f97f9f03` 补齐健康知识错误码的服务端、客户端和文档契约；提交 `fc70fa0b` 修正未知/过期 `feature` 进入状态页时被误归类为“医疗记录”的错误语义；提交 `7627843a` 补齐状态页的迁移阶段，提交 `cd26a01` 补齐旧入口、业务域和下一步准入展示。以上候选均保留作历史追溯；当时 pending 小程序运行包为 `7f7a7a18`（20 页），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
 
-> **当前仓库事实（2026-08-26）**：本轮最新小程序运行包候选来源为 `1d132315dff23c8befdfc867cb62a4227dbb7820`；该运行输入包含全量入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、健康自测安全数值子集、临床/外部安全页面、预约 Provider 入口、统一当前就诊人上下文、我的问诊患者作用域、共享 Tab、统一页面滚动边界、全局资料授权边界、owner 回调保护、协议静态页、协议原文只读入口以及旧端“我的快递”、采血预约、电子锦旗和健康表扬信安全页面迁移，并补齐公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、便民记录三态和固定高度。该候选已完成 pending 校验，尚未发布到 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
+> **当前仓库事实（2026-08-26）**：本轮最新小程序运行包候选来源为 `9ee060bf00c4b5c8c67f0e39e2d5493043a33bb5`；该运行输入包含全量入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、健康自测安全数值子集、临床/外部安全页面、预约 Provider 入口、统一当前就诊人上下文、我的问诊患者作用域、共享 Tab、统一页面滚动边界、全局资料授权边界、owner 回调保护、协议静态页、协议原文只读入口以及旧端“我的快递”、采血预约、电子锦旗和健康表扬信安全页面迁移，并补齐公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、便民记录三态和固定高度。该候选已完成 pending 校验，尚未发布到 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
 
-> **2026-08-26 继续修正**：源码进一步统一 `pages/gift-banner/gift-banner` 和 `pages/health-praise/health-praise` 的记录区域状态。患者目录读取期间只展示固定高度加载壳，读取失败只展示错误和重试，只有读取成功后才展示“公开记录暂未开放”空态；该修正不会新增 Provider 请求，也不改变 `surface-only` 业务边界。相关纯状态测试已纳入小程序包级测试清单并通过，当前 `1d132315` pending 运行包已重新构建并通过 `runtime:verify:pending`，但仍未原子发布到 live `dist`。
+> **2026-08-26 继续修正**：源码进一步统一 `pages/gift-banner/gift-banner` 和 `pages/health-praise/health-praise` 的记录区域状态。患者目录读取期间只展示固定高度加载壳，读取失败只展示错误和重试，只有读取成功后才展示“公开记录暂未开放”空态；该修正不会新增 Provider 请求，也不改变 `surface-only` 业务边界。相关纯状态测试已纳入小程序包级测试清单并通过，当前 `9ee060bf` pending 运行包已重新构建并通过 `runtime:verify:pending`，但仍未原子发布到 live `dist`。
 
 ## 1. 当前真实基线
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序运行相关源码基线 | `1d132315`（pending 候选） |
-| 当前小程序运行基线 | `02dbf10`（live `dist`）；等待切换 `1d132315` |
-| 小程序运行包候选 | pending 运行来源 `1d132315`；业务状态沿用全量入口迁移台账 |
+| 小程序运行相关源码基线 | `9ee060bf`（pending 候选） |
+| 当前小程序运行基线 | `02dbf10`（live `dist`）；等待切换 `9ee060bf` |
+| 小程序运行包候选 | pending 运行来源 `9ee060bf`；业务状态沿用全量入口迁移台账 |
 | live 运行包 | `apps/miniprogram/dist/build-info.json`，`sourceRevision=02dbf10419740d96c4445493df019021ac22bcfa`，40 个页面 |
 | 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
 | live 页面数 | 40 个；`runtime:verify` 已通过 |
@@ -103,13 +103,13 @@ pnpm migration:boundary:audit
 ## 4. 下一步执行规则
 
 1. 当前最新候选仍在 pending 目录；后续重新构建时仍先释放微信开发者工具锁，再通过原子发布器切换运行包，在此之前不删除或覆盖 live `dist`。
-2. 当前候选 `1d132315` 的九域真机清单为 [`device-evidence-1d132315-pending.json`](../release/device-evidence-1d132315-pending.json)，已绑定 `1d132315dff23c8befdfc867cb62a4227dbb7820`；九个域全部为 `pending`，一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。上一候选的 `device-evidence-02dbf10-pending.json`、`device-evidence-731c9571-pending.json`、`device-evidence-de5dea8-pending.json` 和 `device-evidence-ed63a8e-pending.json` 只作历史模板，不能直接提交本轮证据。
-   执行 `pnpm device:evidence:audit --file docs/release/device-evidence-1d132315-pending.json` 时，在全部域仍为 `pending` 的情况下总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
+2. 当前候选 `9ee060bf` 的九域真机清单为 [`device-evidence-9ee060bf-pending.json`](../release/device-evidence-9ee060bf-pending.json)，已绑定 `9ee060bf00c4b5c8c67f0e39e2d5493043a33bb5`；九个域全部为 `pending`，一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。上一候选的 `device-evidence-02dbf10-pending.json`、`device-evidence-731c9571-pending.json`、`device-evidence-de5dea8-pending.json` 和 `device-evidence-ed63a8e-pending.json` 只作历史模板，不能直接提交本轮证据。
+   执行 `pnpm device:evidence:audit --file docs/release/device-evidence-9ee060bf-pending.json` 时，在全部域仍为 `pending` 的情况下总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
 5. `pnpm release:baseline:audit` 当前应继续 fail-closed：线上 release 之后存在未部署运行时代码，且包含另一会话负责的众阳预约适配器。不能通过修改审计器或只部署半套代码来“变绿”。
 
-本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次等待 `1d132315` 运行包发布后采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
+本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次等待 `9ee060bf` 运行包发布后采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
 
 ## 5. 交接时必须运行的门禁
 
@@ -135,7 +135,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 如果微信开发者工具仍锁定 `dist/`，可先只读验证隔离候选，不覆盖 live 运行包：
 
 ```powershell
-$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "1d132315dff23c8befdfc867cb62a4227dbb7820"
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "9ee060bf00c4b5c8c67f0e39e2d5493043a33bb5"
 pnpm --filter @hospital/miniprogram runtime:verify:pending
 Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
 ```
