@@ -31,6 +31,19 @@
 
 本次候选切换已完成。后续重新构建时仍必须先释放开发者工具的 `dist` 文件锁；不能删除 live 运行包、覆盖锁定目录或把 pending 目录直接当成真机包。
 
+## 当前 release baseline 前置门禁
+
+当前九域清单虽然已经正确绑定 `02dbf10`，但 `pnpm device:evidence:audit --file
+docs/release/device-evidence-02dbf10-pending.json` 在进入真机通过判定前会先执行
+`release:baseline:audit`。截至本轮只读核对，该门禁仍失败：线上服务端 release
+`8eb51b5f` 之后存在尚未整体发布的运行时代码，其中包括另一会话负责的
+`packages/adapters/src/zhongyang-appointments.ts`。
+
+这意味着当前可以继续准备二维码和采集材料，但不能把真机结果写成 `passed`，也不能
+为了让审计变绿而跳过预约适配器、拆半发布服务端或改审计器。必须等各会话的服务端
+运行时代码合并为一个可回滚候选并完成整套 release baseline 后，再从同一小程序候选
+重新执行九域验收。旧 Python `8001` 不需要、也不允许为此停机。
+
 ## 统一业务链路
 
 ```text

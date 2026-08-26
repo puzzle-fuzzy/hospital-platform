@@ -15,6 +15,16 @@ Bearer token、患者标识，也没有重启、切换或修改任何服务。
 | 公网 live | `https://test-hp.meiyi.pro/api/v2/health/live` 返回 HTTP 200 | 公网反向代理和新服务健康入口可达 |
 | 公网 ready | `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 HTTP 200 | 公网路径上的数据库、Redis、schema readiness 可达 |
 
+## 健康路径前缀边界
+
+内网服务监听 `10.0.0.3:18081` 时，直接访问的路径是 `/health/live` 和
+`/health/ready`；公网 Nginx 才把 `/api/v2/health/*` 路径转发到该服务的健康路由。
+因此内网直接请求 `http://10.0.0.3:18081/api/v2/health/live` 得到 404 是预期的路由前缀不匹配，
+不能据此判断 Elysia 服务停止；内网探针必须使用不带 `/api/v2` 的路径，公网验收必须使用带 `/api/v2` 的路径。
+
+本次只读核对还确认：服务启动时间为 `2026-08-24 19:54:07 CST`，新服务和旧
+Gunicorn 均保持运行；内网 `/health/*` 及公网 `/api/v2/health/*` 的成功结果不能替代业务请求证据。
+
 ## 业务边界
 
 这次复核没有调用 `/patients`、预约历史、门诊费用、报告或普通资料业务接口，因此不能证明：
