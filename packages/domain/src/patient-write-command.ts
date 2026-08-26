@@ -1,3 +1,4 @@
+import { parseStrictIsoInstant } from "./date-range";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 
 /**
@@ -175,16 +176,9 @@ function isPatientWriteCommandState(
 
 function parseInstant(value: unknown): number | undefined {
 	if (typeof value !== "string") return undefined;
-	// 必须带显式时区，避免服务器时区差异改变命令顺序和审计时间。
-	if (
-		!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u.test(
-			value,
-		)
-	) {
-		return undefined;
-	}
-	const timestamp = Date.parse(value);
-	return Number.isFinite(timestamp) ? timestamp : undefined;
+	// 必须带显式时区，并且拒绝自动进位的非法日期；命令状态顺序和
+	// 审计轨迹都只能建立在真实存在的时间点上。
+	return parseStrictIsoInstant(value);
 }
 
 function parseTimestamp(value: unknown): number {

@@ -1,3 +1,4 @@
+import { parseStrictIsoInstant } from "./date-range";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 
 /**
@@ -145,16 +146,9 @@ function isAudience(value: unknown): value is ExternalEntryAudience {
 
 function parseInstant(value: unknown): number | undefined {
 	if (typeof value !== "string") return undefined;
-	// 必须带显式时区，避免开发机本地时区让会话有效期产生歧义。
-	if (
-		!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/u.test(
-			value,
-		)
-	) {
-		return undefined;
-	}
-	const timestamp = Date.parse(value);
-	return Number.isFinite(timestamp) ? timestamp : undefined;
+	// 必须带显式时区，并且拒绝自动进位的非法日期；否则会话有效期
+	// 可能被运行时悄悄延长或缩短，消费判断就不再对应签发事实。
+	return parseStrictIsoInstant(value);
 }
 
 function assertAllowedKeys(record: Record<string, unknown>): void {

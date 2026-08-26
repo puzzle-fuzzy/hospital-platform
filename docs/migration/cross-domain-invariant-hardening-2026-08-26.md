@@ -51,10 +51,17 @@ issuedAt <= now < expiresAt
 消费仍返回新对象，真实持久化时必须使用条件更新保证一次性消费；本轮没有注册外部 API、生成
 URL、打开 WebView 或写入 Redis/MySQL。
 
+### 时间解析共用规则
+
+患者写入命令和外部会话现在复用 `packages/domain/src/date-range.ts` 的严格 ISO 时间解析器，
+与健康内容导入保持一致。仅有“带时区的正则”还不够，因为 `Date.parse` 可能将非法日历日期
+自动进位；所有相关运行时输入都会在进入状态比较、消费判断或持久化前拒绝该值。
+
 ## 代码与验证
 
 涉及代码：
 
+- `packages/domain/src/date-range.ts`
 - `packages/domain/src/knowledge.ts`
 - `packages/domain/src/external-entry-session.ts`
 - `packages/domain/src/patient-write-command.ts`
@@ -69,5 +76,5 @@ pnpm format:check
 git diff --check
 ```
 
-本轮定向测试结果为 `22 pass / 0 fail / 67 expect()`；这些结果只证明领域不变量和运行时校验，
-不替代 Provider、临床审核、真机或生产证据。
+本轮完整 domain 测试结果为 `95 pass / 0 fail / 240 expect()`；这些结果只证明领域不变量和
+运行时校验，不替代 Provider、临床审核、真机或生产证据。

@@ -192,6 +192,13 @@ test("会话材料拒绝未知字段、不带时区的时间和不完整终态",
 	expect(() =>
 		normalizeExternalEntrySession({
 			...validSession(),
+			issuedAt: "2026-02-30T00:00:00.000Z",
+		}),
+	).toThrow(ExternalEntrySessionValidationError);
+
+	expect(() =>
+		normalizeExternalEntrySession({
+			...validSession(),
 			status: "consumed",
 		}),
 	).toThrow(ExternalEntrySessionValidationError);

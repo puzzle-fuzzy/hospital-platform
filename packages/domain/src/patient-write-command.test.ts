@@ -132,6 +132,12 @@ test("归一化拒绝未知字段、错误轨迹和不带时区的时间", () =>
 	expect(() =>
 		normalizePatientWriteCommand({
 			...command,
+			createdAt: "2026-02-30T10:00:00.000Z",
+		}),
+	).toThrow(PatientWriteCommandValidationError);
+	expect(() =>
+		normalizePatientWriteCommand({
+			...command,
 			history: [{ from: null, to: "submitted", at: command.createdAt }],
 		}),
 	).toThrow(PatientWriteCommandValidationError);
