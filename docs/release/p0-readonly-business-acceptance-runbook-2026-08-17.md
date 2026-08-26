@@ -135,23 +135,31 @@
 在真机操作开始前记录开始时间，完成后只读取该时间窗口：
 
 ```powershell
-ssh ps@192.168.112.172 "sudo journalctl -u hospital-platform-api-v2.service --since '<验收开始时间>' --until '<验收结束时间>' --no-pager" |
+ssh -o BatchMode=yes -o ConnectTimeout=8 -i <inspection-key> -o IdentitiesOnly=yes ps@192.168.112.172 "sudo -n journalctl -u hospital-platform-api-v2.service --since '<验收开始时间>' --until '<验收结束时间>' --no-pager" |
   Select-String -Pattern 'service.started|auth.wechat|patient.directory|appointment.records|outpatient.payment|persistence.probe'
 ```
+
+如果 inspection 账号已经属于 journald 读取组，也可以去掉 `sudo -n` 直接执行 `journalctl`。必须先单独确认读取权限；
+`sudo` 要求密码时不能继续把错误输出接入聚合器，更不能把 `parsedRecords=0` 当作“没有业务请求”。
 
 为避免在聊天或工单中复制原始日志，可在服务器受控环境或本地脱敏副本上进一步生成安全聚合：
 
 ```bash
-sudo journalctl -u hospital-platform-api-v2.service \
+set -o pipefail
+sudo -n journalctl -u hospital-platform-api-v2.service \
   --since '<验收开始时间>' --until '<验收结束时间>' \
   -o json --no-pager | bun tools/p0-log-aggregate.mjs
 ```
+
+生产环境执行前必须确认 `sudo -n journalctl ...` 本身成功；若账号无免密 sudo 权限，应改为直接使用已授权的
+journald 读取账号，不能交互式输入密码，也不能让管道吞掉 journalctl 的失败状态。
 
 生产 release 必须使用同一候选包中的
 `apps/worker/dist/p0-log-aggregate.js`，不在服务器上依赖 workspace 源码：
 
 ```bash
-sudo journalctl -u hospital-platform-api-v2.service \
+set -o pipefail
+sudo -n journalctl -u hospital-platform-api-v2.service \
   --since '<验收开始时间>' --until '<验收结束时间>' \
   -o json --no-pager | \
   /home/ps/.bun/bin/bun \
@@ -173,7 +181,8 @@ token、openid、患者标识、金额或 Provider 原始报文，
 候选 release 中的业务证据门禁：
 
 ```bash
-sudo journalctl -u hospital-platform-api-v2.service \
+set -o pipefail
+sudo -n journalctl -u hospital-platform-api-v2.service \
   --since '<验收开始时间>' --until '<验收结束时间>' \
   -o json --no-pager | \
   /home/ps/.bun/bin/bun \

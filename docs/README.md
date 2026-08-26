@@ -150,6 +150,7 @@
 | [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md) | 当前 `02dbf10` 的运行包发布、dist 锁定保护和真机证据入口；发布后的 live 运行包以 `build-info.json` 为准 |
 | [`release/candidate-02dbf10-miniprogram-runtime-2026-08-26.md`](release/candidate-02dbf10-miniprogram-runtime-2026-08-26.md) | 当前 `02dbf10` 候选的构建、并发门禁修正、回归结果和真机证据边界 |
 | [`release/current-readonly-business-audit-2026-08-25.md`](release/current-readonly-business-audit-2026-08-25.md) | 当前只读业务迁移审计、服务器共存核对、未注册能力和下一步真实证据顺序 |
+| [`release/current-readonly-business-observation-2026-08-26-1144.md`](release/current-readonly-business-observation-2026-08-26-1144.md) | 2026-08-26 24 小时低敏业务观察、服务端门禁结果和 journald 权限/pipefail 失败边界；不替代真机证据 |
 | [`release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md`](release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md) | 历史小程序 pending 候选的旧端 64 页面广度迁移台账、17 页运行包、就诊记录分批展示、测试和 EBUSY 发布边界 |
 | [`release/next-business-gates-2026-08-20.md`](release/next-business-gates-2026-08-20.md) | 当前业务门禁短入口：按微信会话、患者切换、只读业务、契约缺口和支付/医保最后专项排列执行顺序与停止条件 |
 | [`release/miniprogram-runtime-publish-atomicity-2026-08-20.md`](release/miniprogram-runtime-publish-atomicity-2026-08-20.md) | 小程序 `dist/` 发布竞态、开发者工具 404 现场证据、staging/回滚修复和真机前验证要求 |
