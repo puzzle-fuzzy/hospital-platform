@@ -1,4 +1,7 @@
-# 小程序运行包来源刷新（e1adbf7）
+# 小程序历史运行包来源刷新（e1adbf7）
+
+> 本文是历史候选记录；当前源码和 pending 运行输入已更新为 `e3356e50`，当前真机证据清单见
+> [`device-evidence-e3356e50-pending.json`](device-evidence-e3356e50-pending.json)。
 
 > 这是对 40 页业务候选 `de9c5b99` 的运行包来源补充，不代表新增业务开放。
 > 上一提交修改了根 `package.json` 的校验脚本，而该文件属于小程序运行输入指纹，

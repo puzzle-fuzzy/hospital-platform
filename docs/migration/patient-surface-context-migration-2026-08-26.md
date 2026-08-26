@@ -29,7 +29,7 @@
 - `pnpm --filter @hospital/miniprogram test`：`309 pass / 0 fail / 3522 expect()`；
 - `pnpm migration:breadth:audit`：通过，40 个页面事件闭环、4 个主 Tab、首页/我的 action 和状态页引用均通过；
 - `pnpm format:check`：通过；
-- 候选 pending 来源：`de9c5b996c6735ced9684bce72e493834fe9325e`，40 个页面；
+- 候选 pending 来源：`e3356e50f14f77bac9061dcdfa5c42e5d022c188`，40 个页面；
 - 发布阶段因微信开发者工具锁定 `dist/` 返回 `EBUSY`，候选已保存在 `.local/hospital-miniprogram/pending/`。
 
 ## 未完成与下一批
