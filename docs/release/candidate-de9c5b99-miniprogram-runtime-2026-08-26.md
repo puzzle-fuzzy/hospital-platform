@@ -1,7 +1,7 @@
 # 小程序历史 pending 运行包候选（de9c5b99）
 
-> 本文是历史候选记录；当前源码和 pending 运行输入已更新为 `e3356e50`，当前真机证据清单见
-> [`device-evidence-e3356e50-pending.json`](device-evidence-e3356e50-pending.json)。
+> 本文是历史候选记录；当前源码和 pending 运行输入已更新为 `adf536bf`，当前真机证据清单见
+> [`device-evidence-adf536bf-pending.json`](device-evidence-adf536bf-pending.json)。
 
 > 本文记录源码提交 `de9c5b99` 生成的 40 页 pending 运行包。它证明构建、来源和静态门禁，
 > 不代表已经替换微信开发者工具的 live `dist`，也不代表真机业务已经验收。

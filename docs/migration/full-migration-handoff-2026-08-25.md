@@ -1,30 +1,30 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；当前统计为 `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。40 页运行相关源码候选和最新 pending 运行包来源均为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，但仍受微信开发者工具锁定影响，需要重新发布；本轮补齐公共日期窗口输入边界，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；当前统计为 `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。40 页运行相关源码候选和最新 pending 运行包来源均为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`，但仍受微信开发者工具锁定影响，需要重新发布；本轮新增微信资料拒绝后的设置页重试链路，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
 > 本轮只修改新项目；旧 Python 服务、旧数据库、旧 Redis、线上旧进程和另一会话负责的 `packages/adapters/src/zhongyang-appointments.ts` 不在本轮修改范围内。
 
-> **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；40 页运行相关源码候选和 pending 运行包来源均为 `e3356e50` 并通过静态校验，页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并补齐公共日期窗口边界，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。发布仍须先处理微信开发者工具对 live `dist` 的锁定，不能把旧 pending 或旧 live 包写成新候选真机证据。当前候选证据见 [`../release/device-evidence-e3356e50-pending.json`](../release/device-evidence-e3356e50-pending.json) 和 [`../release/pending-runtime-publication-runbook-2026-08-26.md`](../release/pending-runtime-publication-runbook-2026-08-26.md)。
+> **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；40 页运行相关源码候选和 pending 运行包来源均为 `adf536bf` 并通过静态校验，页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并新增微信资料拒绝后的设置页重试，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。发布仍须先处理微信开发者工具对 live `dist` 的锁定，不能把旧 pending 或旧 live 包写成新候选真机证据。当前候选证据见 [`../release/device-evidence-adf536bf-pending.json`](../release/device-evidence-adf536bf-pending.json) 和 [`../release/candidate-adf536bf-miniprogram-runtime-2026-08-26.md`](../release/candidate-adf536bf-miniprogram-runtime-2026-08-26.md)。
 
 > **广度复核补充（2026-08-26）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁通过。`pnpm check` 当前仅在发布基线阶段因线上 `8eb51b5f` 落后于本地运行时代码而 fail-closed，其中包含另一会话维护的众阳预约适配器；这不是业务测试失败，也不能通过忽略差异代替完整发布。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
 
 > **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；提交 `f97f9f03` 补齐健康知识错误码的服务端、客户端和文档契约；提交 `fc70fa0b` 修正未知/过期 `feature` 进入状态页时被误归类为“医疗记录”的错误语义；提交 `7627843a` 补齐状态页的迁移阶段，提交 `cd26a01` 补齐旧入口、业务域和下一步准入展示。以上候选均保留作历史追溯；当时 pending 小程序运行包为 `7f7a7a18`（20 页），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
 
-> **当前仓库事实（2026-08-26）**：本轮小程序运行包来源为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`；该运行输入包含前序业务候选、全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、健康自测安全数值子集、临床/外部安全页面、预约 Provider 入口、统一当前就诊人上下文、我的问诊患者作用域、共享 Tab、统一页面滚动边界、全局资料授权边界、owner 回调保护、协议静态页、协议原文只读入口以及旧端“我的快递”、采血预约、电子锦旗和健康表扬信安全页面迁移，并补齐公共日期窗口边界。微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
+> **当前仓库事实（2026-08-26）**：本轮小程序运行包来源为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`；该运行输入包含前序业务候选、全量迁移入口覆盖视图、A–F 批次展示、契约族边界、逐入口说明、健康自测安全数值子集、临床/外部安全页面、预约 Provider 入口、统一当前就诊人上下文、我的问诊患者作用域、共享 Tab、统一页面滚动边界、全局资料授权边界、owner 回调保护、协议静态页、协议原文只读入口以及旧端“我的快递”、采血预约、电子锦旗和健康表扬信安全页面迁移，并补齐公共日期窗口边界和微信资料拒绝后的设置页重试。微信开发者工具仍锁定 live `dist`，没有发布线上服务，也没有改变旧 Python 服务。历史候选编号只用于追溯，不能替代当前运行包、线上 release 或真机证据。
 
 ## 1. 当前真实基线
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序运行相关源码基线 | `e3356e50`（患者展示边界审计后的运行输入） |
-| 当前小程序运行基线 | `e3356e50`（文档更新不改变 live `dist`） |
-| 小程序运行包候选 | 运行来源 `e3356e50`；业务状态沿用全量入口迁移台账 |
-| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=e3356e50f14f77bac9061dcdfa5c42e5d022c188` |
+| 小程序运行相关源码基线 | `adf536bf`（微信资料拒绝后的设置页重试） |
+| 当前小程序运行基线 | `adf536bf`（文档更新不改变 live `dist`） |
+| 小程序运行包候选 | 运行来源 `adf536bf`；业务状态沿用全量入口迁移台账 |
+| 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=adf536bff5b01a2cd27c664f05b7feae2be6ec3f` |
 | 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
 | pending 页面数 | 40 个；`runtime:verify:pending` 已通过 |
-| 小程序回归 | `309 pass / 0 fail / 3522 expect()`；入口分发审计通过 |
+| 小程序回归 | `311 pass / 0 fail / 3527 expect()`；入口分发审计通过 |
 | pending 静态验证 | `runtime:verify:pending` 已通过；发布到 live `dist` 仍等待释放微信工具锁 |
 | 当前 live `dist` | 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
@@ -99,8 +99,8 @@ pnpm migration:boundary:audit
 ## 4. 下一步执行规则
 
 1. 先释放微信开发者工具对 `apps/miniprogram/dist/` 的锁，再发布 pending 候选；在此之前不删除或覆盖 live `dist`。
-2. 使用 [`device-evidence-e3356e50-pending.json`](../release/device-evidence-e3356e50-pending.json) 作为 9 个只读验收域的起始清单；一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。
-   `pnpm device:evidence:audit --file docs/release/device-evidence-e3356e50-pending.json` 在全部域仍为 `pending` 时会先完成清单、候选指纹和脱敏边界审计，但总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
+2. 使用 [`device-evidence-adf536bf-pending.json`](../release/device-evidence-adf536bf-pending.json) 作为 9 个只读验收域的起始清单；一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。
+   `pnpm device:evidence:audit --file docs/release/device-evidence-adf536bf-pending.json` 在全部域仍为 `pending` 时会先完成清单、候选指纹和脱敏边界审计，但总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
 5. `pnpm release:baseline:audit` 当前应继续 fail-closed：线上 release 之后存在未部署运行时代码，且包含另一会话负责的众阳预约适配器。不能通过修改审计器或只部署半套代码来“变绿”。
@@ -131,7 +131,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 如果微信开发者工具仍锁定 `dist/`，可先只读验证隔离候选，不覆盖 live 运行包：
 
 ```powershell
-$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "e3356e50f14f77bac9061dcdfa5c42e5d022c188"
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "adf536bff5b01a2cd27c664f05b7feae2be6ec3f"
 pnpm --filter @hospital/miniprogram runtime:verify:pending
 Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
 ```
