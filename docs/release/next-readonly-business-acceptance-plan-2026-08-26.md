@@ -18,7 +18,7 @@
 | 项目 | 当前事实 |
 | --- | --- |
 | 小程序业务候选 | `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`（`adf536bf`） |
-| pending 运行包 | `.local/hospital-miniprogram/pending/`，40 个页面，来源为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，已通过 `runtime:verify:pending` |
+| pending 运行包 | `.local/hospital-miniprogram/pending/`，40 个页面，来源为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`，已通过 `runtime:verify:pending` |
 | live 小程序运行包 | 仍为旧来源；微信开发者工具锁定 `apps/miniprogram/dist/`，候选尚未发布 |
 | 服务端 | 生产 `8eb51b5f`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |

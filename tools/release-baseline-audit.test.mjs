@@ -312,6 +312,35 @@ test("微信登录手册和路线图顶部当前候选不能漂移到旧运行�
 	]);
 });
 
+test("A 批次只读验收计划的 pending 运行包不能漂移到历史来源", () => {
+	const baseline = {
+		serverRelease: "1b94c46",
+		miniProgramCommit: "4c9cfb4",
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const documents = [
+		{
+			path: "docs/release/next-readonly-business-acceptance-plan-2026-08-26.md",
+			content: `# A 批次低风险业务统一验收计划（2026-08-26）
+
+## 当前候选与运行边界
+| pending 运行包 | 来源为 \`old-candidate\` |
+
+## 统一业务链路
+`,
+		},
+	];
+
+	expect(
+		auditCurrentCandidateReferences(baseline, documents, {
+			pendingMiniProgramSourceRevision:
+				"4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+		}),
+	).toEqual([
+		"A 批次低风险业务统一验收计划 的“来源为”未指向当前完整小程序 sourceRevision",
+	]);
+});
+
 test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 	// 这里固定当前线上候选的来源，并明确记录服务端 release 漂移为失败。

@@ -188,6 +188,13 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "下一阶段业务门禁执行板",
 	},
 	{
+		path: "docs/release/next-readonly-business-acceptance-plan-2026-08-26.md",
+		label: "A 批次低风险业务统一验收计划",
+		// 该计划锁定的是尚未发布的 pending 候选，不能要求它包含线上 live
+		// 运行包的完整来源；但仍必须参加下方的当前候选语义检查。
+		candidateOnly: true,
+	},
+	{
 		path: "docs/release/readonly-business-chain-audit-2026-08-21.md",
 		label: "当前只读业务链审计",
 	},
@@ -372,6 +379,17 @@ const currentCandidateReferenceRules = Object.freeze([
 						expected: "pending-full",
 					},
 				],
+			},
+		],
+	},
+	{
+		path: "docs/release/next-readonly-business-acceptance-plan-2026-08-26.md",
+		label: "A 批次低风险业务统一验收计划",
+		sections: [
+			{
+				start: "# A 批次低风险业务统一验收计划（2026-08-26）",
+				end: "## 统一业务链路",
+				phrases: [{ text: "来源为", expected: "pending-full" }],
 			},
 		],
 	},
@@ -708,6 +726,7 @@ export function auditCurrentBaselineDocuments(
 ) {
 	const failures = [];
 	for (const document of documents) {
+		if (document.candidateOnly) continue;
 		if (!document.content.includes(baseline.serverRelease)) {
 			failures.push(
 				`${document.label} 缺少当前服务端 release ${baseline.serverRelease}`,
