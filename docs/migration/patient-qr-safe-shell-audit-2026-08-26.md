@@ -53,5 +53,5 @@ https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=<medicalCardNo>
 - 代码提交：`896a83cf`，已推送 `origin/main`；
 - pending 运行包：`.local/hospital-miniprogram/pending/`，来源 `896a83cfb9d8b4350664cfe97f8bee643cbca434`，20 个页面；
 - `runtime:verify:pending` 通过；
-- 原子发布因微信开发者工具锁定 `apps/miniprogram/dist/` 返回 `EBUSY`，因此没有覆盖当前 live `dist`，也没有产生真机验收证据；
+- 实现阶段原子发布曾因微信开发者工具锁定 `apps/miniprogram/dist/` 返回 `EBUSY`；该历史阻塞已解除并完成运行包切换，但仍没有产生真机业务验收证据；
 - 旧 Python 服务、旧数据库、旧 Redis、线上服务和另一会话负责的众阳预约适配器未修改。

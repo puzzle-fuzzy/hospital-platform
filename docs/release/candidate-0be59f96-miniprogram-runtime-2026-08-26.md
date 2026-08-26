@@ -3,8 +3,9 @@
 ## 当前结论
 
 本候选由提交 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 构建，包含 `app.json` 注册的 40 个页面。
-它已经通过 pending 运行包静态校验，但尚未替换微信开发者工具正在使用的 live `dist`，因此本记录不产生真机验收结论。
-运行输入来源必须始终以 pending/live 目录中的 `build-info.json` 为准。
+它已于 2026-08-26 从经过静态校验的 pending 运行包原子切换到
+`apps/miniprogram/dist/` live 目录；这只证明本地运行包来源已切换，不产生真机业务验收结论。
+运行输入来源必须始终以 live 目录中的 `build-info.json` 为准；pending 目录在发布成功后已清理。
 
 本候选只修改新项目，不修改旧 Python 服务、旧数据库、旧 Redis、线上进程，也不修改另一会话维护的众阳预约适配器。
 
@@ -29,16 +30,16 @@
 | pending 校验 | `pnpm --filter @hospital/miniprogram runtime:verify:pending` 通过 |
 | 小程序全量回归 | 336 个测试通过；0 失败；3697 个断言 |
 | TypeScript | `pnpm --filter @hospital/miniprogram typecheck` 通过 |
-| live 运行包 | `02dbf10419740d96c4445493df019021ac22bcfa`，40 页 |
-| 发布状态 | 未切换；微信开发者工具锁定 `apps/miniprogram/dist/`，返回 `EBUSY`；pending 已保留 |
+| live 运行包 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页；`runtime:verify` 通过 |
+| 发布状态 | 已原子切换；发布后 pending 目录已清理；没有修改旧服务、旧数据库或旧 Redis |
 
 ## 下一步
 
-关闭当前微信开发者工具项目和真机调试后，只执行：
+从当前 live `dist` 重新执行普通编译并生成真机二维码，然后按 A 批次开始采证：
 
 ```powershell
-pnpm --filter @hospital/miniprogram runtime:publish-pending
 pnpm --filter @hospital/miniprogram runtime:verify
 ```
 
-发布成功后，重新从 live `dist` 普通编译并生成真机二维码，再采集账号切换、患者目录、预约、报告、费用、外部入口、临床内容和错误恢复证据。不要手工复制部分页面、修改 `build-info.json`，或把旧 live 包当成本候选。
+重新编译后再采集账号切换、患者目录、预约、报告、费用、外部入口、临床内容和错误恢复证据。
+不要手工复制部分页面、修改 `build-info.json`，或把历史二维码当作当前候选证据。

@@ -190,8 +190,8 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		path: "docs/release/next-readonly-business-acceptance-plan-2026-08-26.md",
 		label: "A 批次低风险业务统一验收计划",
-		// 该计划锁定的是尚未发布的 pending 候选，不能要求它包含线上 live
-		// 运行包的完整来源；但仍必须参加下方的当前候选语义检查。
+		// 该计划锁定的是当前小程序候选，不能要求它包含线上微信小程序
+		// 的来源；但仍必须参加下方的当前候选语义检查。
 		candidateOnly: true,
 	},
 	{
@@ -245,14 +245,14 @@ export const currentBaselineDocuments = Object.freeze([
 		path: "docs/release/miniprogram-real-device-evidence-template-13f597e.md",
 		label: "当前线上小程序真机证据模板",
 	},
-	// 这些文档描述的是尚未替换 live dist 的 pending 候选，而不是已经部署的
-	// 线上小程序。因此跳过“必须包含线上小程序来源”的检查，但仍通过下方的
+	// 这些文档描述的是本地 live 候选，而不是已经上传到微信线上环境的
+	// 小程序。因此跳过“必须包含线上小程序来源”的检查，但仍通过下方的
 	// 当前候选语义规则锁定完整 sourceRevision，避免新会话误用旧二维码或旧包。
 	{
-		// 当前 pending 候选随源码来源滚动更新；旧候选文档保留为历史追溯，
+		// 当前小程序候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
 		path: "docs/release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md",
-		label: "当前 pending 小程序运行包候选",
+		label: "当前本地小程序运行包候选",
 		candidateOnly: true,
 	},
 	{
@@ -465,6 +465,7 @@ const currentCandidateReferenceRules = Object.freeze([
 				phrases: [
 					{
 						text: "当前本地 pending 运行输入为",
+						aliases: ["当前本地 live 运行输入为"],
 						expected: "pending-full",
 					},
 				],
@@ -493,7 +494,11 @@ const currentCandidateReferenceRules = Object.freeze([
 					{ text: "最新小程序候选事实", expected: "pending-full" },
 					{ text: "当前广度事实源", expected: "pending-full" },
 					{ text: "当前仓库事实补充", expected: "pending-full" },
-					{ text: "当前最新小程序代码候选为", expected: "pending-full" },
+					{
+						text: "当前最新小程序代码候选为",
+						aliases: ["当前运行相关源码和本地 live 运行输入为"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],
@@ -646,6 +651,7 @@ const currentCandidateReferenceRules = Object.freeze([
 				phrases: [
 					{
 						text: "本轮最新小程序运行包候选来源为",
+						aliases: ["最新小程序源码和本地 live 运行输入为"],
 						expected: "pending-full",
 					},
 				],
@@ -673,6 +679,7 @@ const currentCandidateReferenceRules = Object.freeze([
 				phrases: [
 					{
 						text: "当前最新 40 页运行相关源码候选为",
+						aliases: ["当前候选覆盖"],
 						expected: "pending-full",
 					},
 				],
@@ -700,6 +707,7 @@ const currentCandidateReferenceRules = Object.freeze([
 				phrases: [
 					{
 						text: "本轮 pending 小程序运行包来源为",
+						aliases: ["本轮小程序运行包来源和 live 运行输入均为"],
 						expected: "pending-full",
 					},
 				],
@@ -716,6 +724,7 @@ const currentCandidateReferenceRules = Object.freeze([
 				phrases: [
 					{
 						text: "最新 pending 小程序运行包来源为",
+						aliases: ["最新小程序运行包来源为"],
 						expected: "pending-full",
 					},
 				],
@@ -732,6 +741,7 @@ const currentCandidateReferenceRules = Object.freeze([
 				phrases: [
 					{
 						text: "审计对象为最新 pending 小程序候选",
+						aliases: ["审计对象为已原子发布的本地 live 小程序运行包"],
 						expected: "pending-full",
 					},
 				],
@@ -746,7 +756,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "# 患者端业务正确性规则",
 				end: "## 1. 患者上下文",
 				phrases: [
-					{ text: "当前本地源码候选（2026-08-26）", expected: "pending-full" },
+					{
+						text: "当前本地源码候选（2026-08-26）",
+						aliases: ["当前本地源码与运行包（2026-08-26）"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],
@@ -811,7 +825,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "# 就诊人协议静态页面迁移记录（2026-08-26）",
 				end: "## 结论",
 				phrases: [
-					{ text: "最新小程序 pending 候选以", expected: "pending-full" },
+					{
+						text: "最新小程序 pending 候选以",
+						aliases: ["最新小程序运行包以"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],
@@ -935,19 +953,28 @@ export function auditCurrentCandidateReferences(
 			}
 			const sectionContent = document.content.slice(sectionStart, sectionEnd);
 			for (const phraseDefinition of section.phrases) {
-				const phrase = phraseDefinition.text;
-				const occurrences = [];
-				let offset = sectionContent.indexOf(phrase);
-				while (offset >= 0) {
-					occurrences.push(offset);
-					offset = sectionContent.indexOf(phrase, offset + phrase.length);
-				}
+				const phraseVariants = [
+					phraseDefinition.text,
+					...(phraseDefinition.aliases ?? []),
+				];
+				const occurrences = phraseVariants.flatMap((phrase) => {
+					const matches = [];
+					let offset = sectionContent.indexOf(phrase);
+					while (offset >= 0) {
+						matches.push({ phrase, offset });
+						offset = sectionContent.indexOf(phrase, offset + phrase.length);
+					}
+					return matches;
+				});
 				if (occurrences.length === 0) {
-					failures.push(`${rule.label} 缺少当前候选语义：${phrase}`);
+					failures.push(
+						`${rule.label} 缺少当前候选语义：${phraseDefinition.text}`,
+					);
 					continue;
 				}
 				for (const occurrence of occurrences) {
-					const nearbyText = sectionContent.slice(occurrence, occurrence + 240);
+					const { phrase, offset } = occurrence;
+					const nearbyText = sectionContent.slice(offset, offset + 240);
 					if (
 						phraseDefinition.serverExpected === "full" &&
 						!nearbyText.includes(baseline.serverRelease)

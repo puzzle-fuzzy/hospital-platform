@@ -18,18 +18,18 @@
 | 项目 | 当前事实 |
 | --- | --- |
 | 小程序业务候选 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`） |
-| live 小程序运行包 | `apps/miniprogram/dist/` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，40 个页面，`runtime:verify` 已通过 |
-| pending 运行包 | `.local/hospital-miniprogram/pending/` 为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面，`runtime:verify:pending` 已通过 |
+| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面，`runtime:verify` 已通过 |
+| pending 运行包 | 无；发布前候选已通过 `runtime:verify:pending`，发布成功后目录已清理 |
 | 服务端 | 生产 `8eb51b5f`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
 
-上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前候选已创建新的九域清单 [`device-evidence-0be59f96-pending.json`](device-evidence-0be59f96-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
+上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前 live 候选已创建新的九域清单 [`device-evidence-0be59f96-pending.json`](device-evidence-0be59f96-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
 
 发布前 pending 候选来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，发布后以 live `build-info.json` 的同一来源指纹为准。
 
-本次候选切换尚未完成。微信开发者工具仍持有 `dist` 文件锁；必须先关闭使用该目录的项目和真机调试，再执行原子发布。不能删除 live 运行包、覆盖锁定目录或把 pending 目录直接当成真机包。
+本次候选切换已完成。现在必须从 live `dist` 重新普通编译并生成二维码；不能把历史二维码、旧 live 运行包或已经清理的 pending 目录当成真机包。
 
 ## 当前 release baseline 前置门禁
 

@@ -1,9 +1,9 @@
 # 就诊人协议静态页面迁移记录（2026-08-26）
 
-> 本文记录协议静态页当时的迁移实现，不是当前运行包事实源。文中历史 pending 构建数字
-> 只用于追溯；当前线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；最新小程序 pending 候选以 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 和
+> 本文记录协议静态页当时的迁移实现，不是业务验收证明。文中历史 pending 构建数字
+> 只用于追溯；当前线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；最新小程序运行包以 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 和
 > [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md)
-> 为准，当前 live 仍为 `02dbf10`，协议同意、撤回和审计仍未开放。
+> 为准，已原子发布到本地 live `dist`，协议同意、撤回和审计仍未开放。
 
 ## 结论
 
@@ -46,7 +46,7 @@
 - `pnpm test:tools`：通过，`89 pass / 0 fail / 712 expect()`；readiness 与发布基线测试不会把静态页面或未部署服务端代码误报为业务完成。
 - `pnpm format:check`：通过。
 - pending 运行包：`3b42b867ae19f6dd23bacd88648d1f5917dabf26`，21 个页面；`runtime:verify:pending` 通过。
-- 构建时微信开发者工具仍锁定 live `dist`，构建按保护策略返回 `EBUSY` 并保留 pending；没有覆盖旧运行包。
+- 实现阶段微信开发者工具曾锁定 live `dist`，构建按保护策略返回 `EBUSY` 并保留 pending；该历史阻塞已解除，当前运行包已完成原子切换。
 
 本轮没有修改旧 Python 服务、旧数据库、Redis、线上服务或另一会话负责的众阳预约适配器。
 

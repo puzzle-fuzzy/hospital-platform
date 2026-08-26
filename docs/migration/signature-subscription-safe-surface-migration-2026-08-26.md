@@ -43,7 +43,7 @@
 - 小程序自动化回归：`301 pass / 0 fail / 3435 expect()`；
 - 构建前置：通过；
 - 构建产物：已生成到 `.local/hospital-miniprogram/pending/`；
-- `apps/miniprogram/dist/`：仍由微信开发者工具锁定，原子发布返回 `EBUSY`，旧 live 运行包未被覆盖；
+- `apps/miniprogram/dist/`：实现阶段曾由微信开发者工具锁定并返回 `EBUSY`；当前锁已释放，运行包已原子切换，旧 live 只作历史记录；
 - 真机：本轮未宣称完成，必须关闭开发者工具后发布该 pending 包，再重新扫码验收。
 
 ## 4. 仍未迁移完成的范围

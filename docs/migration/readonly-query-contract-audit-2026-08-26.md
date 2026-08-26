@@ -64,10 +64,10 @@
 | API 路由与 owner 归属 `apps/api/src/app.test.ts` | 43 pass / 0 fail / 273 expect() |
 | 小程序预约/费用读模型 `apps/miniprogram/src/services/dashboard-service.test.ts` | 24 pass / 0 fail / 83 expect() |
 
-此外，当前 pending 小程序运行包通过：
+此外，当前 live 小程序运行包通过：
 
 ```text
-revision=ded78c58c53923ecf5232a8035b3e790e5959216
+revision=0be59f966de2c3a0861cb44e9a526a1ef557f6c7
 40 pages and required root files are present
 ```
 
@@ -76,6 +76,6 @@ revision=ded78c58c53923ecf5232a8035b3e790e5959216
 - 预约锁号、登记、取消、挂号详情和支付写入未开放。
 - 门诊费用支付调起、微信/医保授权、6201/6202/6301/退款和 HIS 回写未开放。
 - 预约、费用的真实 Provider、公网、日志和真机四方证据仍需在候选运行包发布后采集。
-- `apps/miniprogram/dist/` 当前仍由微信开发者工具占用；pending 到 live 的原子发布因 `EBUSY` 保留旧 live，不能手工覆盖或修改 `build-info.json`。
+- `apps/miniprogram/dist/` 在实现阶段曾由微信开发者工具占用；pending 到 live 的原子发布已完成，当前不能手工覆盖或修改 `build-info.json`。
 
-后续应先关闭占用 `dist` 的开发者工具窗口，再执行 `runtime:publish-pending` 和 live 校验；发布成功后按“登录 → 患者目录/切换 → 预约 → 报告 → 门诊费用 → 普通资料”顺序采集证据。支付/医保继续最后处理。
+后续应直接从当前 live `dist` 普通编译并按“登录 → 患者目录/切换 → 预约 → 报告 → 门诊费用 → 普通资料”顺序采集证据。支付/医保继续最后处理。
