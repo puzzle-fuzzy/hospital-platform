@@ -69,6 +69,26 @@ export function patientContextErrorMessage(
 }
 
 /**
+ * 翻译直接读取患者目录的页面错误，并保留两个需要额外操作引导的状态。
+ *
+ * `unauthorized` 要求回首页重新建立平台会话，`dependency-not-configured`
+ * 则只能重试，不能误导用户进入选择页；其余患者选择、映射和持久化错误
+ * 统一交给公共错误码表，避免采血、快递、订阅等页面各自漏掉新状态。
+ */
+export function patientScopedErrorMessage(
+	error: unknown,
+	fallback = "就诊人信息暂时无法加载，请重试",
+): string {
+	if (error instanceof ApiError && error.code === "unauthorized") {
+		return "登录状态已失效，请返回首页重新登录";
+	}
+	if (error instanceof ApiError && error.code === "dependency-not-configured") {
+		return "就诊人服务暂不可用，请稍后重试";
+	}
+	return patientContextErrorMessage(error, fallback);
+}
+
+/**
 	判断错误是否需要把用户引导到就诊人选择页。
 
 	该判断必须基于平台稳定错误码，而不能根据中文 message、HTTP 状态码或

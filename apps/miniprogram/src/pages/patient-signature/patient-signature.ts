@@ -1,11 +1,13 @@
-import { ApiError } from "../../services/api-client";
 import { loadPatients } from "../../services/dashboard-service";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import { getSelectedPatientId } from "../../services/patient-selection-service";
+import {
+	getSelectedPatientId,
+	patientScopedErrorMessage,
+} from "../../services/patient-selection-service";
 import type { Patient, PatientEvent } from "../../types";
 
 type SignaturePatientView = Patient & {
@@ -46,16 +48,6 @@ function toPatientView(patient: Patient): SignaturePatientView {
 		...patient,
 		relationshipLabel: PATIENT_RELATIONSHIP_LABELS[patient.relationship],
 	};
-}
-
-function errorMessage(error: unknown): string {
-	if (error instanceof ApiError && error.code === "unauthorized") {
-		return "登录状态已失效，请返回首页重新登录";
-	}
-	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "就诊人服务暂不可用，请稍后重试";
-	}
-	return "就诊人信息暂时无法加载，请重试";
 }
 
 /**
@@ -111,7 +103,7 @@ Page<PatientSignaturePageData, PatientSignaturePageMethods>({
 				this.setData({
 					patients: [],
 					selectedPatientId: "",
-					error: errorMessage(error),
+					error: patientScopedErrorMessage(error),
 				});
 			})
 			.finally(() => {

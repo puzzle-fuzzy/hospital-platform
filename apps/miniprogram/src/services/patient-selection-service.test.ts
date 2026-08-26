@@ -7,6 +7,7 @@ import {
 	isPatientSelectionError,
 	normalizeStoredPatientIdForResolution,
 	patientContextErrorMessage,
+	patientScopedErrorMessage,
 	patientSelectionResolutionError,
 	patientSelectionResolutionMessage,
 	requirePatientFromResolution,
@@ -220,6 +221,31 @@ test("患者范围业务页使用统一的上下文错误文案", () => {
 	expect(
 		patientContextErrorMessage(new Error("内部原文不应展示"), "备用错误"),
 	).toBe("备用错误");
+});
+
+test("直接读取患者目录的页面共享登录、依赖和选择错误边界", () => {
+	expect(
+		patientScopedErrorMessage(
+			new ApiError("expired", { code: "unauthorized" }),
+		),
+	).toBe("登录状态已失效，请返回首页重新登录");
+	expect(
+		patientScopedErrorMessage(
+			new ApiError("not configured", { code: "dependency-not-configured" }),
+		),
+	).toBe("就诊人服务暂不可用，请稍后重试");
+	expect(
+		patientScopedErrorMessage(
+			new ApiError("stale", { code: "patient-selection-stale" }),
+		),
+	).toBe("上次选择的就诊人已失效，请重新选择");
+	expect(
+		patientScopedErrorMessage(
+			new ApiError("storage unavailable", {
+				code: "persistence-temporarily-unavailable",
+			}),
+		),
+	).toBe("数据服务暂时不可用，请稍后重试");
 });
 
 test("患者选择动作只由明确的患者上下文错误触发", () => {

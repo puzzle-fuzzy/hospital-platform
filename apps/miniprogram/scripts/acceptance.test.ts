@@ -2493,7 +2493,7 @@ test("native convenience pages keep patient context without fake public records"
 	expect(service).toContain("不读取、不提交任何内容");
 	expect(service).toContain("disposePageInstance");
 	expect(service).toContain("convenienceSurfaceErrorMessage");
-	expect(service).toContain("patientContextErrorMessage");
+	expect(service).toContain("patientScopedErrorMessage");
 	expect(gift).toContain("选择就诊人");
 	expect(praise).toContain("选择就诊人");
 	expect(gift).toContain("公开记录暂未开放");
@@ -2504,6 +2504,22 @@ test("native convenience pages keep patient context without fake public records"
 	);
 	expect(service).not.toContain("submitGift");
 	expect(service).not.toContain("createCommendatoryLetter");
+});
+
+test("direct patient directory pages share one error translation boundary", async () => {
+	const pagePaths = [
+		"pages/blood-appointment/blood-appointment.ts",
+		"pages/patient-express/patient-express.ts",
+		"pages/patient-signature/patient-signature.ts",
+		"pages/patient-subscription/patient-subscription.ts",
+	];
+	for (const pagePath of pagePaths) {
+		const page = await source(pagePath);
+		// 这些页面读取的是同一个 owner-scoped 患者目录；错误文案必须复用
+		// 统一边界，不能各自漏掉 stale、临床映射或持久化故障。
+		expect(page).toContain("patientScopedErrorMessage");
+		expect(page).not.toContain("function errorMessage");
+	}
 });
 
 test("native blocked domains keep one explicit current-patient context", async () => {

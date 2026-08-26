@@ -1,5 +1,4 @@
 import type { Patient } from "../types";
-import { ApiError } from "./api-client";
 import { loadCurrentPatient } from "./dashboard-service";
 import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
 import { getFeatureMigrationCoverage } from "./migration-coverage";
@@ -7,7 +6,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "./page-instance-state";
-import { patientContextErrorMessage } from "./patient-selection-service";
+import { patientScopedErrorMessage } from "./patient-selection-service";
 
 export type ConvenienceSurfaceFeature = "gift-banner" | "health-praise";
 
@@ -74,13 +73,7 @@ type ConvenienceSurfacePageMethods = {
  * 登录失效和依赖未配置仍保留本页面的明确引导语义。
  */
 export function convenienceSurfaceErrorMessage(error: unknown): string {
-	if (error instanceof ApiError && error.code === "unauthorized") {
-		return "登录状态已失效，请返回首页重新登录";
-	}
-	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "就诊人服务暂不可用，请稍后重试";
-	}
-	return patientContextErrorMessage(error, "就诊人信息暂时无法加载，请重试");
+	return patientScopedErrorMessage(error);
 }
 
 function toPageData(

@@ -1,9 +1,9 @@
-import { ApiError } from "../../services/api-client";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { patientScopedErrorMessage } from "../../services/patient-selection-service";
 import { loadCurrentPatient } from "../../services/dashboard-service";
 import type { Patient } from "../../types";
 
@@ -22,16 +22,6 @@ type PatientExpressPageMethods = {
 	onBackMy(): void;
 	onUnload(): void;
 };
-
-function errorMessage(error: unknown): string {
-	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "就诊人服务暂不可用，请稍后重试";
-	}
-	if (error instanceof ApiError && error.code === "unauthorized") {
-		return "登录状态已失效，请返回首页重新登录";
-	}
-	return "就诊人信息暂时无法加载，请重试";
-}
 
 /**
  * 旧端“我的快递”没有真实物流请求：预留列表永远初始化为空数组，
@@ -74,7 +64,10 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 			})
 			.catch((error) => {
 				if (!guard.isCurrent(token)) return;
-				this.setData({ patient: null, error: errorMessage(error) });
+				this.setData({
+					patient: null,
+					error: patientScopedErrorMessage(error),
+				});
 			})
 			.finally(() => {
 				if (guard.isCurrent(token)) this.setData({ loading: false });

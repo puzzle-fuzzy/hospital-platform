@@ -1,10 +1,10 @@
-import { ApiError } from "../../services/api-client";
 import { loadCurrentPatient } from "../../services/dashboard-service";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { patientScopedErrorMessage } from "../../services/patient-selection-service";
 import type { DatasetEvent, Patient } from "../../types";
 
 type SubscriptionCategory =
@@ -172,19 +172,6 @@ function buildSections(
 	);
 }
 
-function errorMessage(error: unknown): string {
-	if (error instanceof ApiError && error.code === "unauthorized") {
-		return "登录状态已失效，请返回首页重新登录";
-	}
-	if (error instanceof ApiError && error.code === "patient-not-bound") {
-		return "请先登录并选择就诊人";
-	}
-	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "就诊人服务暂不可用，请稍后重试";
-	}
-	return "当前就诊人信息暂时无法加载，请重试";
-}
-
 /**
  * 旧端“确定修改”只修改内存变量并 Toast 成功，没有调用微信订阅 API 或
  * 服务端保存。本页保留搜索、折叠和患者切换等可验证交互，但将开关和保存
@@ -223,7 +210,10 @@ Page<SubscriptionPageData, SubscriptionPageMethods>({
 			})
 			.catch((error) => {
 				if (guard.isCurrent(token)) {
-					this.setData({ patient: null, error: errorMessage(error) });
+					this.setData({
+						patient: null,
+						error: patientScopedErrorMessage(error),
+					});
 				}
 			})
 			.finally(() => {
