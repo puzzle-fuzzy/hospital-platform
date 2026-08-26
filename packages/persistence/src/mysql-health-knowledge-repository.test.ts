@@ -3,6 +3,7 @@ import {
 	HEALTH_KNOWLEDGE_DISCLAIMER,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgePublicationConflictError,
+	HealthKnowledgeResultValidationError,
 } from "@hospital/domain";
 import type { Pool } from "mysql2/promise";
 import { createMySqlHealthKnowledgeRepository } from "./mysql-health-knowledge-repository";
@@ -93,6 +94,47 @@ test("MySQL health knowledge fails closed when published windows overlap", async
 	);
 	// 版本冲突必须在读取任何条目之前终止，不能让两个版本的内容被拼接。
 	expect(state.statements).toHaveLength(1);
+});
+
+test("MySQL health knowledge classifies a malformed publication row as persistence-invalid", async () => {
+	const { pool } = createFakePool([
+		[
+			{
+				...publicationRow,
+				// 错误的数据库值不能在 `isoUtc` 中变成普通 TypeError，
+				// 否则 API 无法稳定区分内容坏行和查询参数错误。
+				reviewed_at: [],
+			},
+		],
+	]);
+	const repository = createMySqlHealthKnowledgeRepository(pool);
+
+	await expect(repository.listCatalog("part")).rejects.toMatchObject({
+		name: "HealthKnowledgeResultValidationError",
+		violation: "publication-invalid",
+	});
+});
+
+test("MySQL health knowledge rejects malformed catalog rows without returning an empty success", async () => {
+	const { pool } = createFakePool([
+		[publicationRow],
+		[
+			{
+				item_id: "part-respiratory",
+				// 数组没有公开内容语义，不能被 `.trim()` 的异常掩盖。
+				name: [],
+			},
+		],
+	]);
+	const repository = createMySqlHealthKnowledgeRepository(pool);
+
+	const result = repository.listCatalog("part");
+	await expect(result).rejects.toBeInstanceOf(
+		HealthKnowledgeResultValidationError,
+	);
+	await expect(result).rejects.toMatchObject({
+		violation: "catalog-item-invalid",
+	});
 });
 
 test("MySQL disease detail keeps drug references on the selected content version", async () => {

@@ -15,6 +15,7 @@ import type {
 import {
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgePublicationConflictError,
+	HealthKnowledgeResultValidationError,
 	HealthKnowledgeValidationError,
 	validateHealthKnowledgeIdentifier,
 	validateHealthKnowledgeLetter,
@@ -24,12 +25,21 @@ import {
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
 /** MySQL DATETIME 没有时区；repository 边界统一转成领域层的 UTC ISO 字符串。 */
-function isoUtc(value: string | Date): string {
+function invalidHealthKnowledgeResult(
+	violation: ConstructorParameters<
+		typeof HealthKnowledgeResultValidationError
+	>[0],
+): never {
+	throw new HealthKnowledgeResultValidationError(violation);
+}
+
+function isoUtc(value: unknown): string {
+	if (typeof value !== "string" && !(value instanceof Date)) {
+		invalidHealthKnowledgeResult("publication-invalid");
+	}
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) {
-			throw new Error(
-				"Persistence returned an invalid health knowledge timestamp",
-			);
+			invalidHealthKnowledgeResult("publication-invalid");
 		}
 		return value.toISOString();
 	}
@@ -40,27 +50,28 @@ function isoUtc(value: string | Date): string {
 		: `${value.replace(" ", "T")}Z`;
 	const date = new Date(normalized);
 	if (Number.isNaN(date.getTime())) {
-		throw new Error(
-			"Persistence returned an invalid health knowledge timestamp",
-		);
+		invalidHealthKnowledgeResult("publication-invalid");
 	}
 	return date.toISOString();
 }
 
-function optionalText(value: string | null): string | undefined {
+function optionalText(value: unknown): string | undefined {
+	if (value !== null && typeof value !== "string") {
+		invalidHealthKnowledgeResult("document-item-invalid");
+	}
 	return value === null || value.trim().length === 0 ? undefined : value;
 }
 
 function optionalTextField<Key extends string>(
 	key: Key,
-	value: string | null,
+	value: unknown,
 ): { [K in Key]?: string } {
 	const normalized = optionalText(value);
 	return normalized ? ({ [key]: normalized } as { [K in Key]?: string }) : {};
 }
 
 /** MySQL BOOLEAN 通常以 0/1 返回；未知值不能静默当成 false。 */
-function booleanValue(value: boolean | number | string): boolean {
+function booleanValue(value: unknown): boolean {
 	if (typeof value === "boolean") return value;
 	if (typeof value === "number" && (value === 0 || value === 1)) {
 		return value === 1;
@@ -163,10 +174,16 @@ async function execute<T extends RowDataPacket[]>(
 function publicationFromRow(
 	row: PublishedPublicationRow,
 ): HealthKnowledgePublication {
+	if (
+		typeof row.content_version !== "string" ||
+		typeof row.status !== "string" ||
+		typeof row.source_label !== "string" ||
+		typeof row.disclaimer !== "string"
+	) {
+		invalidHealthKnowledgeResult("publication-invalid");
+	}
 	if (row.status !== "published") {
-		throw new Error(
-			"Persistence returned a non-published health knowledge version",
-		);
+		invalidHealthKnowledgeResult("publication-invalid");
 	}
 	const publication: HealthKnowledgePublication = {
 		contentVersion: row.content_version,
@@ -174,24 +191,48 @@ function publicationFromRow(
 		sourceLabel: row.source_label,
 		disclaimer: row.disclaimer,
 	};
-	validateHealthKnowledgePublication(publication);
+	try {
+		validateHealthKnowledgePublication(publication);
+	} catch {
+		// 数据库发布行属于持久化读模型，不是患者提交的查询参数；坏行
+		// 必须映射为 500 persistence-invalid，不能被 API 当作 400 查询错误。
+		invalidHealthKnowledgeResult("publication-invalid");
+	}
 	return publication;
 }
 
 function letterItem(row: LetterRow): HealthKnowledgeLetterItem {
+	if (
+		typeof row.item_id !== "string" ||
+		typeof row.name !== "string" ||
+		(row.initial_letter !== null && typeof row.initial_letter !== "string")
+	) {
+		invalidHealthKnowledgeResult("letter-item-invalid");
+	}
 	const item: HealthKnowledgeLetterItem = {
 		id: row.item_id,
 		name: row.name,
 		initialLetter: row.initial_letter?.trim() || "#",
 	};
-	validateHealthKnowledgeLetter(item);
+	try {
+		validateHealthKnowledgeLetter(item);
+	} catch {
+		invalidHealthKnowledgeResult("letter-item-invalid");
+	}
 	return item;
 }
 
 function catalogItem(row: CatalogRow): HealthKnowledgeCatalogItem {
-	validateHealthKnowledgeIdentifier(row.item_id);
-	if (row.name.trim().length === 0 || row.name.length > 256) {
-		throw new HealthKnowledgeValidationError("invalid_identifier");
+	if (typeof row.item_id !== "string" || typeof row.name !== "string") {
+		invalidHealthKnowledgeResult("catalog-item-invalid");
+	}
+	try {
+		validateHealthKnowledgeIdentifier(row.item_id);
+		if (row.name.trim().length === 0 || row.name.length > 256) {
+			throw new HealthKnowledgeValidationError("invalid_identifier");
+		}
+	} catch {
+		invalidHealthKnowledgeResult("catalog-item-invalid");
 	}
 	return { id: row.item_id, name: row.name };
 }

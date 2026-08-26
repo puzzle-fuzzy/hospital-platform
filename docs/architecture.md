@@ -196,6 +196,12 @@ Provider 事实与未完成项集中记录在 [provider-contract-v1.md](provider
 导入 validator/事务边界已完成，患者端健康知识路由已经注册但在没有有效 published 版本时保持 fail-closed。内容审核、撤回和真实 schema/数据证据完成前，不能用
 内存 fixture 或 AI 输出冒充已上线知识。
 
+健康知识 MySQL repository 还必须把数据库行本身视为不可信输入：发布元数据、目录名称、首字母、正文可选字段和药品关联
+在映射时先确认运行时基本形状，再进入领域层的内容校验。坏行属于持久化读模型损坏，应统一进入
+`HealthKnowledgeResultValidationError`/`persistence-invalid`，不能因为 `.trim()`、日期解析或其它映射异常变成普通
+`TypeError`，也不能被误报为患者的 `health-knowledge-query-invalid` 400。该边界只保护已审核内容的读取一致性，
+不改变“没有正式审核 bundle 就不发布”的准入条件。
+
 ## 支付状态机
 
 ```text
