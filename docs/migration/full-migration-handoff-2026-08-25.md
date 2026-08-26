@@ -99,8 +99,8 @@ pnpm migration:boundary:audit
 ## 4. 下一步执行规则
 
 1. 先释放微信开发者工具对 `apps/miniprogram/dist/` 的锁，再发布 pending 候选；在此之前不删除或覆盖 live `dist`。
-2. 使用 [`device-evidence-dee4803-pending.json`](../release/device-evidence-dee4803-pending.json) 作为 9 个只读验收域的起始清单；一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。
-   `pnpm device:evidence:audit --file docs/release/device-evidence-dee4803-pending.json` 在全部域仍为 `pending` 时会先完成清单、候选指纹和脱敏边界审计，但总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
+2. 使用 [`device-evidence-e3356e50-pending.json`](../release/device-evidence-e3356e50-pending.json) 作为 9 个只读验收域的起始清单；一次记录成功、空结果、401、依赖不可用、Provider 超时和患者切换边界。
+   `pnpm device:evidence:audit --file docs/release/device-evidence-e3356e50-pending.json` 在全部域仍为 `pending` 时会先完成清单、候选指纹和脱敏边界审计，但总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
 5. `pnpm release:baseline:audit` 当前应继续 fail-closed：线上 release 之后存在未部署运行时代码，且包含另一会话负责的众阳预约适配器。不能通过修改审计器或只部署半套代码来“变绿”。
@@ -131,7 +131,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 如果微信开发者工具仍锁定 `dist/`，可先只读验证隔离候选，不覆盖 live 运行包：
 
 ```powershell
-$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "dee4803fb94ad50c59c9ef8fda996bc0f37427c6"
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "e3356e50f14f77bac9061dcdfa5c42e5d022c188"
 pnpm --filter @hospital/miniprogram runtime:verify:pending
 Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
 ```

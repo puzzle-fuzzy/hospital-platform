@@ -113,12 +113,12 @@
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
 当前发布基线（2026-08-26）为：线上服务端仍为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`，当前本地 pending 运行输入为
-`de9c5b996c6735ced9684bce72e493834fe9325e`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
+`e3356e50f14f77bac9061dcdfa5c42e5d022c188`，当前 live `dist` 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`。
 pending 尚未发布到开发者工具，不能用旧 `13f597e` 运行包生成当前候选业务证据；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
 
 当前运行包规则（2026-08-26）：pending 候选的 `build-info.json.sourceRevision` 必须与显式构建输入一致；当前为
-`de9c5b996c6735ced9684bce72e493834fe9325e`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
+`e3356e50f14f77bac9061dcdfa5c42e5d022c188`。不能沿用线上来源或旧二维码。每次小程序源码/构建输入提交后都必须重新执行 build 和
 `runtime:verify`，再把 `dist/` 导入开发者工具；该来源校验只证明包一致，不增加微信登录、患者、Provider 或真机业务证据。
 针对 `single-flight.test.js` 的 ENOENT 仍按运行包门禁处理：运行包不允许含测试 JS，工具报错时应关闭工具释放
 `dist/` 文件句柄后重开正确项目。
