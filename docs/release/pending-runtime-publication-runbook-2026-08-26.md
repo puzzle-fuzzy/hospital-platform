@@ -9,15 +9,16 @@
 | 项目 | 当前事实 |
 | --- | --- |
 | live 运行包来源 | `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，16 个页面 |
-| pending 候选来源 | `e1adbf7af682a3dbc58a7616196af4b66871aabd`，40 个页面；业务候选仍为 `de9c5b996c6735ced9684bce72e493834fe9325e` |
+| pending 候选来源 | `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，40 个页面；对应患者展示边界审计后的运行相关源码 |
 | pending 目录 | `.local/hospital-miniprogram/pending/` |
 | 发布结果 | 尚未替换 live；Windows 返回 `EBUSY` |
 | 阻塞原因 | 微信开发者工具仍占用 `apps/miniprogram/dist/` |
 | 旧服务影响 | 无；旧 Python `8001` 和线上服务未修改 |
 
-> `de9c5b99` 是本轮业务迁移候选，`e1adbf7` 是因根目录 `package.json` 属于运行时输入而
-> 刷新的运行包来源。当前来源、页面数量和静态校验结果见
-> [`candidate-e1adbf7-miniprogram-runtime-2026-08-26.md`](candidate-e1adbf7-miniprogram-runtime-2026-08-26.md)。
+> `e3356e50` 是当前运行相关源码候选。根目录文档提交不会改变运行包来源；本次构建已按
+> `build-info.json` 写入该完整来源指纹。当前来源、页面数量和静态校验结果以本机
+> `.local/hospital-miniprogram/pending/build-info.json` 与 `runtime:verify:pending` 输出为准，
+> 不再使用旧 `de9c5b99`/`e1adbf7` 候选文档作为验收来源。
 
 `runtime:publish-pending` 使用临时目录和原子替换：候选先复制到临时目录，替换失败时
 保留原 `dist` 和完整 pending 候选。因此遇到 `EBUSY` 时不能删除 `dist`、不能手工复制
