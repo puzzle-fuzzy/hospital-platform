@@ -34,4 +34,3 @@ Bearer 会话和对应的 opaque `patientId` 进行受控只读验收。凭据�
 - SSH 只读检查：`ps@192.168.112.172`，使用本机专用 inspection key；仅执行 systemd、监听端口和 readiness 查询。
 - 公网只读检查：`test-hp.meiyi.pro` 的 `/api/v2/health/live` 与 `/api/v2/health/ready`。
 - 相关执行顺序：[`next-readonly-business-acceptance-plan-2026-08-26.md`](next-readonly-business-acceptance-plan-2026-08-26.md)。
-
