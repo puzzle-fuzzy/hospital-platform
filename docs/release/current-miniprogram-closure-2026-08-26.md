@@ -40,6 +40,19 @@
 
 预约写入、取消、支付、医保授权、退款、HIS 回写、患者新增绑定、二维码 Provider 映射、报告 Provider 详情和外部 WebView 仍按迁移台账进入明确状态页或关闭态。
 
+## 线上只读复核
+
+本轮通过 inspection SSH 做了只读核对：
+
+| 项目 | 结果 |
+| --- | --- |
+| 新 Elysia release | `/home/ps/code/hospital-platform/releases/8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 新服务 | `hospital-platform-api-v2.service=active`，Bun 监听 `10.0.0.3:18081` |
+| 旧服务 | Gunicorn 继续监听 `0.0.0.0:8001` |
+| 报告业务事件 | 最近 24 小时未观察到 `report.directory.*`、`report.detail.*` 或 `report.detail_reference.*` |
+
+这次核对没有重启服务、读取环境变量/令牌、写入 MySQL/Redis 或修改旧 Python 项目。报告事件为零只能说明当前窗口没有产生报告业务请求，不能解释为“患者没有报告”；结合报告配置仍关闭的事实，本轮不打开报告 Provider gate。
+
 ## 下一步准入顺序
 
 1. 等预约适配器会话合入后，重新生成一个完整、可回滚的服务端候选，不拆半发布。
