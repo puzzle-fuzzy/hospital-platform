@@ -24,6 +24,6 @@
 ## 与业务验收的边界
 
 - 这些探针只证明公网运行层、依赖 readiness 和认证边界；不能证明患者目录、挂号、爽约、门诊费用或普通资料的页面结果；
-- 当前小程序 pending 候选仍为 `9ee060bf`，live `dist` 仍为 `02dbf10`；候选发布锁和服务端 release baseline 仍按候选交接文档处理；
+- 当前小程序 pending 候选仍为 `ded78c58`，live `dist` 仍为 `02dbf10`；候选发布锁和服务端 release baseline 仍按候选交接文档处理；
 - 真机业务验收仍需同一候选的页面结果、客户端 `requestId`、服务端低敏日志和适用 Provider 关联证据。
 
