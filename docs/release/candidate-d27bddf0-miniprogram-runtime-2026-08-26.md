@@ -1,4 +1,6 @@
-# 小程序候选运行包 `d27bddf0`（2026-08-26）
+# 历史小程序候选运行包 `d27bddf0`（2026-08-26）
+
+> 本候选已被 `6795c2c3` 替代；当前 pending 运行包和真机验收入口请以 [`candidate-6795c2c3-miniprogram-runtime-2026-08-26.md`](candidate-6795c2c3-miniprogram-runtime-2026-08-26.md) 和 [`device-evidence-6795c2c3-pending.json`](device-evidence-6795c2c3-pending.json) 为准。本文件保留上一候选证据，仅作历史追溯。
 
 ## 当前结论
 

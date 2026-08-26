@@ -6,7 +6,7 @@
 
 > 当前运行基线（2026-08-26）：线上服务端 release 为
 > `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；最新 pending 小程序候选为
-> `d27bddf0`，完整 sourceRevision 为 `d27bddf04a5535520eed2770d7befd447bf61f9b`，本地 live
+> `6795c2c3`，完整 sourceRevision 为 `6795c2c3f240d6ec092000d34cf71509d81217ff`，本地 live
 > 仍为 `02dbf10`。本记录只描述患者上下文安全边界，不代表临床 Provider 已开放。
 
 ## 已覆盖页面
@@ -40,10 +40,10 @@
 
 - `pnpm --filter @hospital/miniprogram typecheck`：通过；
 - 本文实现阶段曾验证 `309 pass / 0 fail / 3522 expect()`；本轮共享患者会话边界复核后工作树全量回归为
-  `333 pass / 0 fail / 3667 expect()`；
+  `334 pass / 0 fail / 3691 expect()`；
 - `pnpm migration:breadth:audit`：通过，40 个页面事件闭环、4 个主 Tab、首页/我的 action 和状态页引用均通过；
 - `pnpm format:check`：通过；
-- 最新 pending 运行输入：`d27bddf04a5535520eed2770d7befd447bf61f9b`，40 个页面；当前 live 仍为 `02dbf10419740d96c4445493df019021ac22bcfa`；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；共享患者外壳在账号会话变化时会清理旧卡片并要求重新读取；
+- 最新 pending 运行输入：`6795c2c3f240d6ec092000d34cf71509d81217ff`，40 个页面；当前 live 仍为 `02dbf10419740d96c4445493df019021ac22bcfa`；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；共享患者外壳在账号会话变化时会清理旧卡片并要求重新读取；
 - 本文实现阶段曾因微信开发者工具锁定 `dist/` 返回 `EBUSY`；最新候选已完成 pending 运行包校验，等待释放锁后原子发布，不能手工覆盖 live。
 
 ## 未完成与下一批

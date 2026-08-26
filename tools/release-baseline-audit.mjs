@@ -251,7 +251,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 当前 pending 候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
-		path: "docs/release/candidate-d27bddf0-miniprogram-runtime-2026-08-26.md",
+		path: "docs/release/candidate-6795c2c3-miniprogram-runtime-2026-08-26.md",
 		label: "当前 pending 小程序运行包候选",
 		candidateOnly: true,
 	},
@@ -613,7 +613,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-d27bddf0-miniprogram-runtime-2026-08-26.md",
+		path: "docs/release/candidate-6795c2c3-miniprogram-runtime-2026-08-26.md",
 		label: "当前 pending 小程序运行包候选",
 		sections: [
 			{
