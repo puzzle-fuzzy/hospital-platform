@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { buildMigrationReadinessReport } from "./migration-readiness-report.mjs";
 
 describe("全项目迁移 readiness 报告", () => {
-	test("区分入口结构完成、运行包发布和真实业务完成", async () => {
+	// 报告会扫描旧端台账、40 个原生页面、迁移合同和 pending/live 运行包；
+	// Windows 下单独执行已经超过 Bun 默认 5 秒，但这不是放宽业务断言。
+	test("区分入口结构完成、运行包发布和真实业务完成", {
+		timeout: 30_000,
+	}, async () => {
 		const report = await buildMigrationReadinessReport(
 			process.cwd(),
 			"2026-08-25T00:00:00.000Z",

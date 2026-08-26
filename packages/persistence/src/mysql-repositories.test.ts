@@ -1402,6 +1402,38 @@ test("MySQL appointment schedule snapshots persist provider evidence and enforce
 	expect(state.statements[2]).toContain("expires_at > ?");
 });
 
+test("MySQL appointment snapshot rejects malformed UTC DATETIME without timezone guessing", async () => {
+	const row = {
+		schedule_id: "schedule-invalid-datetime-001",
+		provider: "zhongyang",
+		provider_schedule_id: "provider-schedule-001",
+		department_id: "dept-001",
+		department_name: "心内科",
+		doctor_id: "doctor-001",
+		doctor_name: "李医生",
+		work_date: "2026-08-20",
+		shift_name: "上午",
+		start_time: "08:00",
+		end_time: "12:00",
+		total_slots: 30,
+		available_slots: 12,
+		time_group: "range",
+		provider_request_id: "provider-request-001",
+		// 2 月 30 日不能被 Date.parse 自动进位成另一条有效快照。
+		observed_at: "2026-02-30 00:00:10.000",
+		expires_at: "2026-02-30 00:01:10.000",
+	};
+	const { pool } = createFakePool([[row]]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.appointmentScheduleSnapshots.findActive(
+			"schedule-invalid-datetime-001",
+			"2026-08-15T00:00:30.000Z",
+		),
+	).rejects.toThrow("invalid appointment timestamp");
+});
+
 test("MySQL appointment snapshot validation fails before SQL execution", async () => {
 	const { pool, state } = createFakePool();
 	const repositories = createMySqlRepositories(pool);

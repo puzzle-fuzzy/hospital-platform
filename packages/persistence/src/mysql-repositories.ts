@@ -39,6 +39,7 @@ import {
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
 	UserProfileVersionConflictError,
+	parseStrictIsoInstant,
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
 } from "@hospital/domain";
@@ -150,6 +151,28 @@ type AppointmentScheduleSnapshotRow = RowDataPacket & {
 	observed_at: string;
 	expires_at: string;
 };
+
+/**
+ * 将 dateStrings 模式下的 MySQL DATETIME(3) 读值恢复为领域层 ISO UTC。
+ *
+ * MySQL 的 DATETIME 没有时区后缀，本项目写入时已经统一使用 UTC；读取时
+ * 必须在 persistence 边界明确补上 `T` 和 `Z`，不能让领域层或 Node 进程
+ * 本地时区猜测含义。这里不使用宽松的 `Date.parse`，因为非法自然日可能
+ * 被自动进位，进而改变预约快照的观察窗口和过期时间。
+ */
+function mysqlUtcDateTimeToIso(value: string): string {
+	const match =
+		/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?$/.exec(value);
+	if (!match) {
+		throw new Error("Persistence returned an invalid appointment timestamp");
+	}
+	const milliseconds = (match[3] ?? "").padEnd(3, "0");
+	const iso = `${match[1]}T${match[2]}.${milliseconds}Z`;
+	if (parseStrictIsoInstant(iso) === undefined) {
+		throw new Error("Persistence returned an invalid appointment timestamp");
+	}
+	return iso;
+}
 
 type ReportReferenceRow = RowDataPacket & {
 	report_id: string;
@@ -827,8 +850,10 @@ function appointmentScheduleSnapshot(
 			timeGroup,
 		},
 		providerRequestId: row.provider_request_id,
-		observedAt: row.observed_at,
-		expiresAt: row.expires_at,
+		// MySQL 返回的是没有时区的 DATETIME 文本；先恢复成领域层约定的
+		// ISO UTC，再执行同一套严格观察窗口校验，避免数据库合法值被误判。
+		observedAt: mysqlUtcDateTimeToIso(row.observed_at),
+		expiresAt: mysqlUtcDateTimeToIso(row.expires_at),
 	};
 	validateAppointmentScheduleSnapshot({
 		schedule: snapshot.schedule,

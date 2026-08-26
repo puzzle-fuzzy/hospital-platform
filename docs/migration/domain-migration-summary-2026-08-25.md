@@ -8,6 +8,9 @@
 > `apps/miniprogram/src/services/legacy-page-catalog.ts` 派生，并由 `legacy-page-catalog.test.ts`
 > 和 `pnpm migration:audit` 校验；新增旧页面时必须同时补逐页记录、业务域摘要和对应的 contract 说明。
 
+预约历史与门诊费用只读链路的最新四层复核证据见
+[`readonly-query-contract-audit-2026-08-26.md`](readonly-query-contract-audit-2026-08-26.md)。该复核没有扩大只读边界，支付、医保和写入仍按本文规则冻结。
+
 ## 当前覆盖总览
 
 | 业务域 | 旧页面数 | 已替换 | 部分迁移 | 页面外壳 | 待 provider | 待临床审核 | 待支付/回写 | 待患者绑定 | 待外部入口 | 排除 |
