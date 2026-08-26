@@ -1,6 +1,6 @@
 # 小程序历史候选运行包 `a9963729`（2026-08-26）
 
-> 本候选已被 `6795c2c3` 替代；当前 pending 运行包和真机验收入口请以 [`candidate-6795c2c3-miniprogram-runtime-2026-08-26.md`](candidate-6795c2c3-miniprogram-runtime-2026-08-26.md) 为准。本文保留上一批会话边界修正和运行证据，仅作历史追溯。
+> 本候选已被 `0be59f96` 替代；当前 pending 运行包和真机验收入口请以 [`candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](candidate-0be59f96-miniprogram-runtime-2026-08-26.md) 为准。本文保留上一批会话边界修正和运行证据，仅作历史追溯。
 
 ## 当前结论
 

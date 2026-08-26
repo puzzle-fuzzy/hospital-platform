@@ -1,0 +1,44 @@
+# 小程序候选运行包 `0be59f96`（2026-08-26）
+
+## 当前结论
+
+本候选由提交 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 构建，包含 `app.json` 注册的 40 个页面。
+它已经通过 pending 运行包静态校验，但尚未替换微信开发者工具正在使用的 live `dist`，因此本记录不产生真机验收结论。
+运行输入来源必须始终以 pending/live 目录中的 `build-info.json` 为准。
+
+本候选只修改新项目，不修改旧 Python 服务、旧数据库、旧 Redis、线上进程，也不修改另一会话维护的众阳预约适配器。
+
+## 候选包含的业务边界修正
+
+### 会话切换后的页面与异步请求双重清理
+
+在前序候选已经覆盖患者入口页面即时清理的基础上，本候选进一步让会话事件先淘汰页面实例内所有请求 guard，再执行页面状态清理。这样晚返回的旧 Promise 不能重新填充上一账号的患者列表、资料、费用、预约记录或共享患者外壳。
+
+页面仍然保持可复用；会话通知只清理本地派生状态，不在新 token 写入前自动发起请求。页面重新显示、用户重试或重新进入入口时再读取当前 owner 数据。页面卸载仍使用独立生命周期销毁，避免旧请求跨页面栈回写。
+
+### 既有高风险边界继续保持
+
+就诊二维码仍保持待开放，不生成 payload、不访问第三方二维码服务、不外发卡号或 HIS `patId`。健康数值仍是“不联网、不写患者记录、不输出临床结论”的安全子集，支付、医保、临床 Provider 和外部互联网医院能力继续 fail-closed。
+
+## 构建与验证证据
+
+| 项目 | 结果 |
+| --- | --- |
+| 运行输入来源 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`） |
+| 页面数量 | 40 |
+| pending 校验 | `pnpm --filter @hospital/miniprogram runtime:verify:pending` 通过 |
+| 小程序全量回归 | 336 个测试通过；0 失败；3697 个断言 |
+| TypeScript | `pnpm --filter @hospital/miniprogram typecheck` 通过 |
+| live 运行包 | `02dbf10419740d96c4445493df019021ac22bcfa`，40 页 |
+| 发布状态 | 未切换；微信开发者工具锁定 `apps/miniprogram/dist/`，返回 `EBUSY`；pending 已保留 |
+
+## 下一步
+
+关闭当前微信开发者工具项目和真机调试后，只执行：
+
+```powershell
+pnpm --filter @hospital/miniprogram runtime:publish-pending
+pnpm --filter @hospital/miniprogram runtime:verify
+```
+
+发布成功后，重新从 live `dist` 普通编译并生成真机二维码，再采集账号切换、患者目录、预约、报告、费用、外部入口、临床内容和错误恢复证据。不要手工复制部分页面、修改 `build-info.json`，或把旧 live 包当成本候选。
