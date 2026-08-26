@@ -1,9 +1,9 @@
 # 就诊人协议静态页面迁移记录（2026-08-26）
 
 > 本文记录协议静态页当时的迁移实现，不是当前运行包事实源。文中历史 pending 构建数字
-> 只用于追溯；当前小程序 live 运行包以 `02dbf10419740d96c4445493df019021ac22bcfa` 和
-> [`release/candidate-02dbf10-miniprogram-runtime-2026-08-26.md`](../release/candidate-02dbf10-miniprogram-runtime-2026-08-26.md)
-> 为准，协议同意、撤回和审计仍未开放。
+> 只用于追溯；最新小程序 pending 候选以 `de5dea8df249c2fd1e122df4508bcd6cbb3852a7` 和
+> [`release/candidate-de5dea8-miniprogram-runtime-2026-08-26.md`](../release/candidate-de5dea8-miniprogram-runtime-2026-08-26.md)
+> 为准，当前 live 仍为 `02dbf10`，协议同意、撤回和审计仍未开放。
 
 ## 结论
 
