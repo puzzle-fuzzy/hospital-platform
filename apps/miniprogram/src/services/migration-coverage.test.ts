@@ -132,6 +132,25 @@ describe("迁移入口覆盖聚合", () => {
 		);
 	});
 
+	test("已有原生安全子集的健康页面不能被误报为新端新增入口", () => {
+		const encyclopedia = getFeatureMigrationCoverage("health-encyclopedia");
+		const reportDetail = getFeatureMigrationCoverage("report-detail");
+
+		expect(encyclopedia.stage).toBe("partial");
+		expect(encyclopedia.nativeTarget).toBe(
+			"pages/health-encyclopedia/health-encyclopedia",
+		);
+		expect(encyclopedia.legacyPaths).toEqual([
+			"pagesB/health/health_encyclopedia.vue",
+		]);
+
+		expect(reportDetail.stage).toBe("partial");
+		expect(reportDetail.nativeTarget).toBe("pages/report-detail/report-detail");
+		expect(reportDetail.legacyPaths).toEqual([
+			"pagesB/health/report_detail.vue",
+		]);
+	});
+
 	test("64 个旧入口都归入明确批次或显式排除", () => {
 		const batches = new Map<string, number>();
 		for (const entry of LEGACY_PAGE_MIGRATION_CATALOG) {

@@ -188,6 +188,9 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "健康",
 			status: "partial",
 			nativeTarget: "pages/health-encyclopedia/health-encyclopedia",
+			// 该页面已经有审核内容只读实现，必须接入统一状态目录，
+			// 否则会被错误归类为“新端新增入口”。
+			featureKey: "health-encyclopedia",
 			note: "已迁移症状/疾病目录只读页面；无审核发布 bundle 时由服务端和页面共同关闭。",
 		},
 		{
@@ -290,6 +293,9 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "健康",
 			status: "partial",
 			nativeTarget: "pages/report-detail/report-detail",
+			// 详情页已有 LIS 安全只读子集；未接入的影像、心电和附件能力
+			// 仍由同一个 feature 状态边界明确关闭。
+			featureKey: "report-detail",
 			note: "已建立 owner/patient/TTL 引用骨架；真实详情与附件仍待 provider。",
 		},
 		{

@@ -663,6 +663,8 @@ Page<IndexPageData, IndexPageMethods>({
 				navigateToFeatureEntry("health-test");
 				break;
 			case "health-encyclopedia":
+				// 健康百科属于独立的审核 bundle 队列，不混入通用冻结 gate；
+				// 页面自身仍会在没有发布内容时 fail-closed。
 				wx.navigateTo({
 					url: "/pages/health-encyclopedia/health-encyclopedia",
 				});
