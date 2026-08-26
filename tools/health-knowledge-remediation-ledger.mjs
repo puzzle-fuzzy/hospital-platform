@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { buildHealthKnowledgeQualityFindings } from "./health-knowledge-quality-findings.mjs";
+import { HEALTH_KNOWLEDGE_REVIEW_GATE_IDS } from "./health-knowledge-review-gates.mjs";
 
 /** 默认只读取 Git 忽略的旧健康知识源快照，不访问数据库或线上服务。 */
 export const DEFAULT_SOURCE_PATH =
@@ -12,7 +13,16 @@ export const DEFAULT_SOURCE_PATH =
  * 发布开关。版本化后，新会话可以判断字段含义是否一致，避免把旧报告和
  * 新导出混在一起。
  */
-export const REMEDIATION_LEDGER_SCHEMA_VERSION = 1;
+export const REMEDIATION_LEDGER_SCHEMA_VERSION = 2;
+
+/**
+ * B 批次所有审核工具必须使用同一组 gate ID。
+ *
+ * 导入事务成功只能证明数据进入 staging；发布、撤回、重叠生效窗口和
+ * 患者端 fail-closed 仍是另一组业务事实。这里显式拆开两个 gate，避免
+ * 任何报告把“写入成功”误判成“已经可以发布”。
+ */
+export const REMEDIATION_GATE_IDS = HEALTH_KNOWLEDGE_REVIEW_GATE_IDS;
 
 function sumFindingCounts(counts) {
 	return Object.values(counts ?? {}).reduce(
@@ -56,7 +66,7 @@ export function buildHealthKnowledgeRemediationLedger(source) {
 
 	const gates = [
 		gate(
-			"source-quality",
+			REMEDIATION_GATE_IDS.sourceQuality,
 			"源快照质量",
 			sourceQualityStatus,
 			sourceQualityIssueCount,
@@ -64,7 +74,7 @@ export function buildHealthKnowledgeRemediationLedger(source) {
 			"新的源快照审计结果与质量摘要一致，且不含禁止字段",
 		),
 		gate(
-			"clinical-review",
+			REMEDIATION_GATE_IDS.clinicalReview,
 			"临床内容审核",
 			sourceApproved ? "ready" : "blocked",
 			sourceApproved ? 0 : 1,
@@ -72,7 +82,7 @@ export function buildHealthKnowledgeRemediationLedger(source) {
 			"脱敏审核 bundle、审核责任人引用和审核时间",
 		),
 		gate(
-			"bundle-metadata",
+			REMEDIATION_GATE_IDS.bundleMetadata,
 			"版本与发布元数据",
 			"pending-input",
 			1,
@@ -80,15 +90,23 @@ export function buildHealthKnowledgeRemediationLedger(source) {
 			"通过 domain validator 的独立审核 bundle",
 		),
 		gate(
-			"staging-drill",
-			"staging 导入与撤回演练",
+			REMEDIATION_GATE_IDS.stagingImport,
+			"staging 事务导入",
 			"pending-input",
 			1,
-			"完成重复导入、重叠版本、查询一致性和撤回演练",
-			"staging 操作记录与 fail-closed 查询证据",
+			"在 DEPLOY_ENV=staging 下完成 bundle 校验、单事务导入和失败回滚",
+			"staging 导入日志、事务结果和失败回滚证据",
 		),
 		gate(
-			"device-acceptance",
+			REMEDIATION_GATE_IDS.publicationDrill,
+			"发布与撤回演练",
+			"pending-input",
+			1,
+			"完成重复导入、重叠生效窗口、同版本读取和撤回演练",
+			"staging 发布/撤回操作记录与患者端 fail-closed 查询证据",
+		),
+		gate(
+			REMEDIATION_GATE_IDS.deviceAcceptance,
 			"真机只读验收",
 			"pending-input",
 			1,

@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { auditLegacyHealthKnowledgeSourceFile } from "./health-knowledge-source-audit.mjs";
+import { HEALTH_KNOWLEDGE_REVIEW_GATE_IDS } from "./health-knowledge-review-gates.mjs";
 
 /** 默认只读取被 .gitignore 排除的旧健康知识源快照。 */
 export const DEFAULT_SOURCE_PATH =
@@ -12,14 +13,7 @@ export const DEFAULT_SOURCE_PATH =
  * 每个门只输出状态、数量和下一项输入，不输出疾病名称、药品正文或任何
  * 患者字段；这样新会话可以快速接手，也不会因为报告而扩大敏感数据暴露面。
  */
-const REVIEW_GATE_IDS = Object.freeze({
-	sourceQuality: "source-quality",
-	clinicalReview: "clinical-review",
-	bundleMetadata: "bundle-metadata",
-	stagingImport: "staging-import",
-	publicationDrill: "publication-drill",
-	deviceAcceptance: "device-acceptance",
-});
+const REVIEW_GATE_IDS = HEALTH_KNOWLEDGE_REVIEW_GATE_IDS;
 
 function qualityWarningCount(qualityWarnings) {
 	return Object.values(qualityWarnings ?? {}).reduce(

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	buildHealthKnowledgeRemediationLedger,
+	REMEDIATION_GATE_IDS,
 	REMEDIATION_LEDGER_SCHEMA_VERSION,
 } from "./health-knowledge-remediation-ledger.mjs";
 
@@ -54,11 +55,12 @@ describe("健康知识整改台账", () => {
 			legacyControlCharacterOccurrences: 1,
 		});
 		expect(ledger.gates.map((item) => item.id)).toEqual([
-			"source-quality",
-			"clinical-review",
-			"bundle-metadata",
-			"staging-drill",
-			"device-acceptance",
+			REMEDIATION_GATE_IDS.sourceQuality,
+			REMEDIATION_GATE_IDS.clinicalReview,
+			REMEDIATION_GATE_IDS.bundleMetadata,
+			REMEDIATION_GATE_IDS.stagingImport,
+			REMEDIATION_GATE_IDS.publicationDrill,
+			REMEDIATION_GATE_IDS.deviceAcceptance,
 		]);
 		expect(ledger.gates[0]?.status).toBe("blocked");
 		expect(ledger.gates[1]?.status).toBe("blocked");
