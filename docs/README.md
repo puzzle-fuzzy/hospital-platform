@@ -382,6 +382,7 @@
 | [`release/readonly-wide-smoke-2026-08-26.md`](release/readonly-wide-smoke-2026-08-26.md) | A 线一次覆盖患者、预约、费用、报告目录和资料的受控只读验收批次及凭据/日志边界 |
 - [`migration/health-knowledge-remediation-ledger-2026-08-26.md`](migration/health-knowledge-remediation-ledger-2026-08-26.md) | B 批次健康源质量整改台账、临床审核 gate、发布元数据和真机验收边界 |
 | [`migration/cross-domain-invariant-hardening-2026-08-26.md`](migration/cross-domain-invariant-hardening-2026-08-26.md) | B/C/D/E 四条迁移线共用的时间、状态、患者写入和外部会话运行时不变量加固记录 |
+| [`migration/owner-scope-runtime-invariants-2026-08-26.md`](migration/owner-scope-runtime-invariants-2026-08-26.md) | 普通资料、患者目录、报告引用以及预约/门诊费用的 owner 作用域运行时复核与未完成边界 |
 | [`migration/migration-breadth-status-2026-08-25.md`](migration/migration-breadth-status-2026-08-25.md) | 64 个旧页面到新端落点的当前状态分布和自动化边界门禁 |
 | [`migration/clinical-readonly-intake-board-2026-08-25.md`](migration/clinical-readonly-intake-board-2026-08-25.md) | 门诊记录、住院、医生关系、问诊/导诊四个临床只读域的独立材料和执行队列 |
 | [`migration/clinical-domain-batch-contract-gates-2026-08-25.md`](migration/clinical-domain-batch-contract-gates-2026-08-25.md) | 临床只读域从资料登记到 contract、adapter、页面、日志和真机验收的逐域放行条件 |

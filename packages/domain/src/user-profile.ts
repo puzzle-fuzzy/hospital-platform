@@ -1,4 +1,5 @@
 import { MAX_USER_PROFILE_VERSION as CONTRACT_MAX_USER_PROFILE_VERSION } from "@hospital/contracts";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 
 /** 普通个人资料允许的性别枚举；实名资料不属于这个领域。 */
 export type UserGender = "male" | "female" | "unknown";
@@ -33,6 +34,7 @@ export type UserProfile = {
  */
 export type UserProfileReadModelViolation =
 	| "profile-not-object"
+	| "profile-user-invalid"
 	| "profile-user-mismatch"
 	| "profile-display-name-invalid"
 	| "profile-gender-invalid"
@@ -93,6 +95,13 @@ export function normalizeUserProfileReadModel(
 	value: unknown,
 	expectedUserId: string,
 ): UserProfile {
+	// expectedUserId 是当前会话的授权根，不能只拿它和仓储字段做相等比较。
+	// 直接调用 domain 的回放任务、Worker 或替换仓储可能绕过 API service；
+	// 如果两边同时带控制字符/首尾空白，单纯相等判断会把不可检索的 owner
+	// 带入资料读模型、日志和后续更新链路。先验证授权根，再比较归属字段。
+	if (!isBoundedOpaqueIdentifier(expectedUserId)) {
+		invalidUserProfileReadModel("profile-user-invalid");
+	}
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		invalidUserProfileReadModel("profile-not-object");
 	}

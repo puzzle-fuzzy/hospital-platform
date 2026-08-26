@@ -30,14 +30,32 @@ test("普通资料读模型只返回白名单字段并固定当前 userId", () =
 });
 
 test("普通资料读模型拒绝错 owner、非法正文和错误版本", () => {
-	for (const [profile, violation] of [
-		[{ ...baseProfile, userId: "other-user" }, "profile-user-mismatch"],
-		[{ ...baseProfile, displayName: "张\n三" }, "profile-display-name-invalid"],
-		[{ ...baseProfile, email: "not-an-email" }, "profile-email-invalid"],
-		[{ ...baseProfile, version: 0 }, "profile-version-invalid"],
+	for (const [profile, expectedUserId, violation] of [
+		[baseProfile, " owner-profile-001", "profile-user-invalid"],
+		[baseProfile, "user-profile-001\u0000", "profile-user-invalid"],
+		[
+			{ ...baseProfile, userId: "other-user" },
+			"user-profile-001",
+			"profile-user-mismatch",
+		],
+		[
+			{ ...baseProfile, displayName: "张\n三" },
+			"user-profile-001",
+			"profile-display-name-invalid",
+		],
+		[
+			{ ...baseProfile, email: "not-an-email" },
+			"user-profile-001",
+			"profile-email-invalid",
+		],
+		[
+			{ ...baseProfile, version: 0 },
+			"user-profile-001",
+			"profile-version-invalid",
+		],
 	] as const) {
 		expect(() =>
-			normalizeUserProfileReadModel(profile, "user-profile-001"),
+			normalizeUserProfileReadModel(profile, expectedUserId),
 		).toThrow(new UserProfileReadModelValidationError(violation));
 	}
 });
