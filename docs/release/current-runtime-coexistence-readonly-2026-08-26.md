@@ -11,6 +11,7 @@ Bearer token、患者标识，也没有重启、切换或修改任何服务。
 | 新 Elysia systemd 服务 | `hospital-platform-api-v2.service=active` | 新服务进程仍在运行 |
 | 新服务监听 | `10.0.0.3:18081` | 新服务使用独立内网监听，不占用旧端口 |
 | 旧 Python 监听 | `0.0.0.0:8001` | 旧服务仍在监听，本次没有停止或重启 |
+| 当前服务端 release | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | 当前线上仍是既有候选，未出现完整新 candidate |
 | 内网 readiness | `database=ok`、`redis=ok`、`schema=ok` | 新服务基础依赖和 schema 已就绪 |
 | 公网 live | `https://test-hp.meiyi.pro/api/v2/health/live` 返回 HTTP 200 | 公网反向代理和新服务健康入口可达 |
 | 公网 ready | `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 HTTP 200 | 公网路径上的数据库、Redis、schema readiness 可达 |
@@ -24,6 +25,13 @@ Bearer token、患者标识，也没有重启、切换或修改任何服务。
 
 本次只读核对还确认：服务启动时间为 `2026-08-24 19:54:07 CST`，新服务和旧
 Gunicorn 均保持运行；内网 `/health/*` 及公网 `/api/v2/health/*` 的成功结果不能替代业务请求证据。
+
+## 10:56 CST 再次只读复核
+
+2026-08-26 10:56 CST 通过内网 inspection key 再次核对：服务端 release、监听地址和新旧进程状态未变化，
+内网 `/health/live` 与 `/health/ready` 仍为成功；最近 15 分钟没有观察到新的患者、预约、费用、报告或资料低敏事件。
+这只说明观察窗口内没有可配对的真实业务流量，不能推断 Provider 故障，也不能把 readiness 当作真机验收证据。
+本次仍没有读取 env、数据库/Redis 业务数据或患者标识，没有修改、重启或切换任何服务。
 
 ## 业务边界
 
