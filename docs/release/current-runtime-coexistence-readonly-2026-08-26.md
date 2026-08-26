@@ -26,6 +26,23 @@ Bearer token、患者标识，也没有重启、切换或修改任何服务。
 本次只读核对还确认：服务启动时间为 `2026-08-24 19:54:07 CST`，新服务和旧
 Gunicorn 均保持运行；内网 `/health/*` 及公网 `/api/v2/health/*` 的成功结果不能替代业务请求证据。
 
+## 11:06 CST 进程归属复核
+
+2026-08-26 11:06 CST 进一步通过 inspection key 只读核对进程归属：
+
+- 旧服务实际为 `/home/ps/miniconda3/envs/hospital/bin/gunicorn main:create_app`，工作目录为
+  `/home/ps/code/Hospital-Backend`，4 个 worker 继续监听 `0.0.0.0:8001`；本次未停止、未重启、未修改该进程。
+- 旧 Gunicorn 的 master 进程由 PID 1 直接托管并运行在 `user-1000.slice/session-308823.scope`；系统当前没有匹配
+  `hospital`、`gunicorn`、`backend` 或 `python` 的 systemd service unit。因此某个猜测的旧 unit 显示
+  `inactive`，不能作为旧服务停止的依据；维护时必须同时检查实际进程和 `8001` 监听。
+- 新服务仍由 `hospital-platform-api-v2.service` 启动，ExecStart 指向
+  `/home/ps/code/hospital-platform/current/apps/api/dist/index.js`，使用独立的 `10.0.0.3:18081`。
+- 公网 `GET /api/v2/health/live`、`GET /api/v2/health/ready` 均返回 `200`；未带会话访问
+  `GET /api/v2/me` 返回预期 `401 unauthorized`。内网直接访问 `127.0.0.1:18081` 会拒绝连接，
+  这是监听地址边界，不是新服务故障。
+
+这次复核仍未读取环境变量、数据库/Redis 业务数据、Bearer token 或患者标识，也没有向任一服务写入数据。
+
 ## 10:56 CST 再次只读复核
 
 2026-08-26 10:56 CST 通过内网 inspection key 再次核对：服务端 release、监听地址和新旧进程状态未变化，
