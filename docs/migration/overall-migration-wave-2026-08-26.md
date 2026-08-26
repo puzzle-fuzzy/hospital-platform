@@ -159,7 +159,9 @@ pnpm migration:contract:audit
 `patient-surface-context` 的公共投影，只展示服务端已脱敏的卡号；患者 ID 仍只
 留在请求作用域校验和本地选择键中。该修正不改变就诊页“实时队列/叫号仍关闭”的
 业务边界，也不需要 Provider、数据库或旧服务配合。后续新增患者范围页面必须复用
-同一投影，不能自行拼接 `patient.id`、Provider `patId` 或卡号原文。
+同一投影，不能自行拼接 `patient.id`、Provider `patId` 或卡号原文。新增的
+`pnpm miniprogram:patient-display:audit` 会在完整检查中扫描明显的患者 ID 可见
+拼接模式；它是代码 review 的补充，不替代服务端 contract 和运行时校验。
 
 每一轮按以下顺序处理，避免再次死磕单个页面：
 
