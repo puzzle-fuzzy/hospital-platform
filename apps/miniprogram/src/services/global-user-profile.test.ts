@@ -396,6 +396,47 @@ describe("App 全局个人资料仓库", () => {
 		expect(updateRequestCount).toBe(1);
 	});
 
+	test("普通资料失败时用户拒绝微信授权仍保留可重试的拒绝状态", async () => {
+		const globalData = {
+			apiBaseUrl: "https://test-hp.meiyi.pro",
+			apiPrefix: "/api/v2",
+			accessToken: "profile-error-denied-token",
+			sessionStatus: "signed_in" as const,
+			userProfileConsentPromise: null as Promise<GlobalUserProfileState> | null,
+			userProfile: {
+				status: "error" as const,
+				ownerId: "owner-profile-error-denied-test",
+				sessionGeneration: getSessionGeneration(),
+				serverDisplayName: "微信用户",
+				displayName: "微信用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "普通资料暂不可用",
+				error: "依赖暂时不可用",
+			},
+		};
+		runtime.getApp = () => ({ globalData });
+		runtime.wx = {
+			getStorageSync: () => undefined,
+			getUserProfile: (options: WechatMiniprogram.GetUserProfileOption) => {
+				(options.fail as (() => void) | undefined)?.();
+			},
+		} as unknown as typeof wx;
+
+		await expect(authorizeGlobalWechatProfile()).rejects.toMatchObject({
+			name: "WechatUserProfileAuthorizationError",
+		});
+		expect(getGlobalUserProfile()).toMatchObject({
+			status: "error",
+			wechatProfileState: "declined",
+			wechatProfileHint: "未授权，可点击此处重新获取",
+		});
+	});
+
 	test("资料读取期间会话代际变化时，旧资料不能回写", async () => {
 		let releaseProfile: ((result: unknown) => void) | undefined;
 		const generation = getSessionGeneration();

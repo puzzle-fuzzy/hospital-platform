@@ -471,10 +471,13 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 			!isCurrentSessionGeneration(current.sessionGeneration) ||
 			latest.ownerId !== current.ownerId ||
 			latest.sessionGeneration !== current.sessionGeneration ||
-			latest.status !== "ready"
+			(latest.status !== "ready" && latest.status !== "error")
 		) {
 			throw profileSessionChangedError();
 		}
+		// 普通资料 GET 暂时失败时，当前 owner 和会话代际仍然可能是有效的。
+		// 此时微信授权被用户拒绝必须保留为 declined，让下一次用户点击进入
+		// openSetting 重试链；不能因为资料接口故障把用户选择误报成会话变化。
 		if (error instanceof WechatUserProfileAuthorizationError) {
 			publishProfileState({
 				wechatProfileState: "declined",
