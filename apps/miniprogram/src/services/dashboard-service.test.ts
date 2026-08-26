@@ -29,6 +29,7 @@ test("预约历史查询使用中国标准时间前后各 90 天", () => {
 		createAppointmentRecordQuery("patient-internal-001", BEIJING_MIDNIGHT),
 	).toEqual({
 		patientId: "patient-internal-001",
+		scope: "online",
 		startDate: "2026-05-17",
 		endDate: "2026-11-13",
 	});
@@ -57,6 +58,7 @@ test("爽约查询只使用过去 90 天，不把未来预约混入派生视图"
 		),
 	).toEqual({
 		patientId: "patient-internal-001",
+		scope: "online",
 		...createPastDateRange(90, BEIJING_MIDNIGHT),
 	});
 });

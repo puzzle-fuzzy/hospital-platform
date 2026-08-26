@@ -24,6 +24,7 @@ import {
 	requestHealthKnowledgeCatalog,
 	requestHealthSymptomsByPart,
 	requestHealthDrugDetail,
+	buildAppointmentRecordQuery,
 } from "./api-client";
 import {
 	clearApiRequestObservations,
@@ -37,6 +38,28 @@ import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 } from "./session-generation";
+
+test("预约记录请求显式编码 online 范围和日期窗口", () => {
+	expect(
+		buildAppointmentRecordQuery({
+			patientId: "patient/001",
+			scope: "online",
+			startDate: "2026-08-01",
+			endDate: "2026-08-31",
+		}),
+	).toBe(
+		"patientId=patient%2F001&scope=online&startDate=2026-08-01&endDate=2026-08-31",
+	);
+});
+
+test("预约记录请求的 all 范围不携带在线日期窗口", () => {
+	expect(
+		buildAppointmentRecordQuery({
+			patientId: "patient-001",
+			scope: "all",
+		}),
+	).toBe("patientId=patient-001&scope=all");
+});
 
 test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本", () => {
 	expect(isAllowedApiPrefix("/api/v1")).toBe(true);

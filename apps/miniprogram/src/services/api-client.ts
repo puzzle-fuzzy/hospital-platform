@@ -1648,26 +1648,47 @@ export function requestAppointmentSchedules(options: {
 	);
 }
 
-/** 读取指定内部 patientId 的预约历史。 */
-export function requestAppointmentRecords(
-	options: {
-		patientId: string;
-		scope?: "online" | "all";
-		startDate?: string;
-		endDate?: string;
-	},
-	expectedSessionGeneration: number,
-): Promise<AppointmentRecordListResponse> {
-	const query = [
+/**
+ * 小程序预约记录请求的严格范围契约。
+ *
+ * 在线与全部是两个不同的 Provider 只读渠道；即使服务端仍为兼容旧调用
+ * 保留默认值，小程序也必须显式发送 scope，避免未来新增调用方因为漏传
+ * 参数而把“在线”或“全部”的业务意图交给服务端默认分支决定。
+ */
+export type AppointmentRecordRequestOptions =
+	| {
+			patientId: string;
+			scope: "online";
+			startDate: string;
+			endDate: string;
+	  }
+	| {
+			patientId: string;
+			scope: "all";
+	  };
+
+/** 将预约记录契约编码为 HTTP query；这里不允许省略 scope 或混入错误范围的日期。 */
+export function buildAppointmentRecordQuery(
+	options: AppointmentRecordRequestOptions,
+): string {
+	return [
 		`patientId=${encodeURIComponent(options.patientId)}`,
-		...(options.scope === "all" ? ["scope=all"] : []),
-		...(options.startDate
-			? [`startDate=${encodeURIComponent(options.startDate)}`]
-			: []),
-		...(options.endDate
-			? [`endDate=${encodeURIComponent(options.endDate)}`]
+		`scope=${encodeURIComponent(options.scope)}`,
+		...(options.scope === "online"
+			? [
+					`startDate=${encodeURIComponent(options.startDate)}`,
+					`endDate=${encodeURIComponent(options.endDate)}`,
+				]
 			: []),
 	].join("&");
+}
+
+/** 读取指定内部 patientId 的预约历史。 */
+export function requestAppointmentRecords(
+	options: AppointmentRecordRequestOptions,
+	expectedSessionGeneration: number,
+): Promise<AppointmentRecordListResponse> {
+	const query = buildAppointmentRecordQuery(options);
 	return requestWithStableSession<unknown>(
 		{ url: `/appointments/records?${query}` },
 		expectedSessionGeneration,

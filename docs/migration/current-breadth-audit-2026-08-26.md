@@ -42,8 +42,12 @@
 `pnpm check` 在 `release:baseline:audit` 阶段按设计失败。失败原因不是测试失败，而是线上服务端 release 之后本地运行时代码继续变化，当前未重新部署：
 
 - `apps/api/src/app.ts`、`application.ts`、错误处理插件；
-- `packages/domain/src/external-entry-session.ts`、`knowledge.ts`、`knowledge-import.ts`、`ports.ts`；
-- `packages/persistence/src/mysql-health-knowledge-repository.ts`；
+- `packages/domain/src/appointments.ts`、`clinical-read-contract.ts`、`date-range.ts`、
+  `external-entry-session.ts`、`index.ts`、`knowledge.ts`、`knowledge-import.ts`、
+  `patient-write-command.ts`、`patients.ts`、`payment-state.ts`、`ports.ts`、`reports.ts`、
+  `user-profile.ts`；
+- `packages/persistence/src/health-knowledge-import.ts`、`mysql-health-knowledge-repository.ts`、
+  `mysql-repositories.ts`；
 - 另一会话维护的 `packages/adapters/src/zhongyang-appointments.ts`。
 
 这项失败必须保持 fail-closed。不能通过修改发布基线、忽略运行时代码差异或只发布部分工作树来伪造线上与本地一致。下一次服务端发布必须先取得完整工作树协调结果，并在不影响旧 Python `8001` 的前提下完成新的生产 preflight、原子切换和公网/内网 smoke。

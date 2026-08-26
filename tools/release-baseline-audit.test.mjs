@@ -370,6 +370,7 @@ test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async
 			"packages/adapters/src/zhongyang-outpatient-payments.ts",
 			"packages/adapters/src/zhongyang-patients.ts",
 			"packages/adapters/src/zhongyang-reports.ts",
+			"packages/domain/src/appointments.ts",
 			"packages/domain/src/clinical-read-contract.ts",
 			"packages/domain/src/date-range.ts",
 			"packages/domain/src/external-entry-session.ts",

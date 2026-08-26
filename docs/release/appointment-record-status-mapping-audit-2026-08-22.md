@@ -3,6 +3,12 @@
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 > 下方 2026-08-22 的 release 与运行包只作历史追溯；当前执行使用顶部 `28a5c0c1` 服务端 + `13f597e` 小程序分层基线。
 
+> 工作树边界审计（2026-08-26）：当前源码基线为 `39f60df6`，本次只收紧小程序
+> 预约记录请求的客户端 contract，尚未发布或替换线上运行包。小程序现在对在线和
+> 全部请求都显式发送 `scope=online|all`：在线请求必须同时携带日期窗口，全部请求
+> 明确不携带日期窗口。服务端仍保留未传 scope 时的 online 兼容默认，但新端业务代码
+> 不再依赖该默认分支；这不能替代“全部挂号”真实小程序四方链路验收。
+
 # 预约历史状态映射审计（2026-08-22 18:34 CST）
 > 历史服务端发布基线（2026-08-22 18:55 CST）：`0e2a366efcca8da25d7edd4a286781f2d3dfdbec`；小程序来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`。代码结论已随当前 API 发布，但真实预约 Provider/真机证据仍待补。
 
@@ -15,6 +21,7 @@
 | 服务端/小程序来源 | 服务端 `28a5c0c1`；小程序来源 `13f597ea9ee3f65b9be858117826d948339d904a`，提交 `13f597e` |
 | 在线挂号 | 服务端只接受 `scope=online`，映射 Provider `requestChannel=3`，固定 `isMzFlag=1`、`dateFlag=1` 和日期窗口 |
 | 全部挂号 | 服务端只接受 `scope=all`，映射 Provider `requestChannel=4`，按已确认语义省略日期参数，不复制在线结果 |
+| 小程序请求编码 | 新端显式发送 `scope=online` 或 `scope=all`；online 的日期窗口和 all 的无日期形状由联合类型与请求构造器固定 |
 | 患者归属 | 先按当前 owner + 内部 `patientId` 解析 `his-patient` 映射，再在 adapter 请求帧内使用 Provider 患者号 |
 | 状态 | `0/1/3/4/5/6/7` 分别映射为 scheduled/cancelled/completed/missed/stopped/substituted/registered，未知值保留 `unknown` |
 | 写入能力 | 预约写入、锁号、取消、详情、预问诊、支付、医保和 HIS 回写继续关闭 |

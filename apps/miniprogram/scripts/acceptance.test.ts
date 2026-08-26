@@ -2162,7 +2162,8 @@ test("native appointment tabs use server-owned read scopes", async () => {
 	expect(records).toContain("requestedTab,");
 	expect(view).toContain('record.status !== "cancelled"');
 	expect(records).not.toContain("requestChannel");
-	expect(client).toContain("scope=all");
+	expect(client).toContain("encodeURIComponent(options.scope)");
+	expect(client).toContain("scope=");
 	expect(template).not.toContain("status-tab-disabled");
 });
 

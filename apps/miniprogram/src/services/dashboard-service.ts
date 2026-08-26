@@ -1036,7 +1036,7 @@ export type AppointmentRecordQuery =
 	  }
 	| {
 			patientId: string;
-			scope?: "online";
+			scope: "online";
 			startDate: string;
 			endDate: string;
 	  };
@@ -1056,7 +1056,7 @@ export function createAppointmentRecordQuery(
 	scope?: "online",
 ): {
 	patientId: string;
-	scope?: "online";
+	scope: "online";
 	startDate: string;
 	endDate: string;
 };
@@ -1113,6 +1113,7 @@ export function createAppointmentRecordQuery(
 			: createAppointmentRecordDateRange(now);
 	return {
 		patientId: requirePatientId(patientId),
+		scope: "online",
 		...range,
 	};
 }
