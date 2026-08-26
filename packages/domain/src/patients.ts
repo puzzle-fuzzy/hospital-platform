@@ -137,6 +137,13 @@ export function normalizePatientReadModel(
 	value: unknown,
 	expectedOwnerUserId: string,
 ): PatientRecord[] {
+	// expectedOwnerUserId 是服务端当前会话的授权根，不能只用它和仓储字段
+	// 做字符串相等比较。API service 当前会先校验，但回放任务、Worker 或
+	// 替换仓储可以直接进入 domain；异常 owner 若被原样接受，会让读模型把
+	// 不可检索的归属带入页面、日志和后续 owner-scoped 查询。
+	if (!isBoundedOpaqueIdentifier(expectedOwnerUserId)) {
+		invalidPatientReadModel("patient-owner-mismatch");
+	}
 	if (!Array.isArray(value)) {
 		invalidPatientReadModel("patients-not-array");
 	}

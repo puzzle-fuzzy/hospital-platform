@@ -35,6 +35,18 @@ test("患者读模型只返回白名单字段并固定当前 owner", () => {
 	expect(result[0]).not.toHaveProperty("providerPatientId");
 });
 
+test("患者读模型拒绝带控制字符或空白的 expected owner", () => {
+	for (const expectedOwnerUserId of [
+		"owner-\n001",
+		" owner-001",
+		"owner-001 ",
+	]) {
+		expect(() =>
+			normalizePatientReadModel([basePatient], expectedOwnerUserId),
+		).toThrow(new PatientReadModelValidationError("patient-owner-mismatch"));
+	}
+});
+
 test("患者读模型允许未知关系但不把它当作其他关系", () => {
 	const result = normalizePatientReadModel(
 		[{ ...basePatient, relationship: "unknown" }],
