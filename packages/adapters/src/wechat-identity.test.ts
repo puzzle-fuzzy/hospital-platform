@@ -64,6 +64,50 @@ test("wechat identity adapter classifies invalid code as non-retryable", async (
 	});
 });
 
+test("wechat identity rejects malformed response objects and implicit errcode coercion", async () => {
+	const responseCases = [
+		{ payload: null, requestId: "wechat-null-response" },
+		{
+			payload: { openid: "openid-001", errcode: [] },
+			requestId: "wechat-array-errcode",
+		},
+		{
+			payload: { openid: "openid-001", errcode: false },
+			requestId: "wechat-false-errcode",
+		},
+		{
+			payload: { openid: "openid-001", errcode: null },
+			requestId: "wechat-null-errcode",
+		},
+		{
+			payload: { openid: "openid-001", errcode: "0" },
+			requestId: "wechat-string-errcode",
+		},
+	] as const;
+
+	for (const item of responseCases) {
+		const gateway = createWechatIdentityGateway({
+			appId: "wx-test-app",
+			appSecret: "test-secret",
+			fetcher: async () =>
+				new Response(JSON.stringify(item.payload), {
+					status: 200,
+					headers: { "x-request-id": item.requestId },
+				}),
+		});
+
+		await expect(
+			gateway.exchangeCode({ code: "login-code" }, context),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			provider: "wechat-identity",
+			requestId: item.requestId,
+			retryable: false,
+			responseInvalid: true,
+		});
+	}
+});
+
 test("wechat identity adapter rejects malformed code before network access", async () => {
 	let fetchCalls = 0;
 	const gateway = createWechatIdentityGateway({

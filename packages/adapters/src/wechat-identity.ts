@@ -42,19 +42,56 @@ function providerError(input: {
 	message: string;
 	retryable: boolean;
 	requestId?: string;
+	responseInvalid?: boolean;
 }): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "wechat-identity",
 		operation: "code2session",
 		message: input.message,
 		retryable: input.retryable,
+		...(input.responseInvalid === true ? { responseInvalid: true } : {}),
 		...(input.requestId ? { requestId: input.requestId } : {}),
 	});
 }
 
-function numericErrorCode(value: unknown): number | undefined {
-	const code = typeof value === "number" ? value : Number(value);
-	return Number.isInteger(code) ? code : undefined;
+/**
+ * 微信响应的 errcode 必须保持显式整数形态。
+ *
+ * 不能使用 `Number(value)`：`Number([])`、`Number(false)` 和 `Number(null)`
+ * 都会得到 0，坏响应因此可能绕过错误分支并继续签发平台会话。字段缺失
+ * 代表成功响应没有携带错误码；字段一旦出现却不是安全整数，就必须把整次
+ * Provider 响应标记为无效，而不是猜测它的业务含义。
+ */
+function numericErrorCode(
+	value: unknown,
+	requestId: string,
+): number | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+		throw providerError({
+			message: "Wechat code2session errcode is invalid",
+			retryable: false,
+			requestId,
+			responseInvalid: true,
+		});
+	}
+	return value;
+}
+
+/** code2session 成功/失败包络必须是普通 JSON 对象，避免 null 变成原生 TypeError。 */
+function responseObject(
+	value: unknown,
+	requestId: string,
+): WechatCode2SessionResponse {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw providerError({
+			message: "Wechat code2session response was invalid",
+			retryable: false,
+			requestId,
+			responseInvalid: true,
+		});
+	}
+	return value as WechatCode2SessionResponse;
 }
 
 function isRetryableWechatError(code: number | undefined): boolean {
@@ -173,7 +210,11 @@ export class WechatIdentityApiGateway implements WechatIdentityGateway {
 			},
 			this.fetcher,
 		);
-		const errorCode = numericErrorCode(response.data.errcode);
+		const responseData = responseObject(response.data, response.requestId);
+		const errorCode = numericErrorCode(
+			responseData.errcode,
+			response.requestId,
+		);
 		if (errorCode !== undefined && errorCode !== 0) {
 			throw new ProviderRequestError({
 				provider: "wechat-identity",
@@ -185,7 +226,7 @@ export class WechatIdentityApiGateway implements WechatIdentityGateway {
 		}
 
 		const providerSubject = normalizeWechatIdentityValue(
-			response.data.openid,
+			responseData.openid,
 			"openid",
 			response.requestId,
 		);
@@ -198,7 +239,7 @@ export class WechatIdentityApiGateway implements WechatIdentityGateway {
 		}
 
 		const unionId = normalizeWechatIdentityValue(
-			response.data.unionid,
+			responseData.unionid,
 			"unionid",
 			response.requestId,
 		);

@@ -37,6 +37,10 @@ Provider 扩展字段不得离开 adapter。`AuthService` 在调用 `hp_identity
 空 `unionId` 或 trace 不符合 contract 时，必须 fail-closed 为 `provider-response-invalid`，不能写入身份表、
 不能签发 Redis 会话；日志只记录固定的 `resultViolation`，不记录异常身份值、临时 code 或 provider 原文。
 
+微信响应的 `errcode` 也必须先经过运行时形状校验：字段缺失才表示成功包络没有携带错误码；出现时只接受安全整数。
+不能用 `Number(value)` 把数组、`false`、`null` 或数字字符串隐式转换成 `0`，也不能在响应为 `null` 时让原生
+`TypeError` 越过 Provider 错误分类。形状异常统一返回 `provider-response-invalid`，并且在身份写入和会话签发之前停止。
+
 身份仓储返回值也必须经过第二道读模型门禁：登录时 `providerSubject` 必须等于本次 code2session 的身份，
 患者同步和预支付时 `userId` 必须等于当前 Bearer owner；`userId`、`providerSubject` 和可选 `unionId` 必须
 是有界且无控制字符的 opaque 标识。异常身份读模型统一返回 `persistence-invalid`，不会签发 Redis 会话、
