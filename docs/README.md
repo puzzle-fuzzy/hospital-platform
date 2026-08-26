@@ -51,6 +51,8 @@
 
 > 批次 B 的病历、问诊、住院、健康内容、实时就诊和互联网医院已统一登记在 [`migration/batch-b-read-model-matrix-2026-08-25.md`](migration/batch-b-read-model-matrix-2026-08-25.md)；下一步按业务域取得正式 contract 后再逐个开放，不用一个域的结果替代另一个域。
 
+> 健康内容发布时间的严格日历/时区边界、导入前失败语义和本轮回归证据见 [`migration/health-content-timestamp-invariant-2026-08-26.md`](migration/health-content-timestamp-invariant-2026-08-26.md)。该门禁只保护版本选择正确，不代表健康内容已审核或已开放。
+
 > 预约、报告、门诊费用、就诊人和普通资料五个低风险域的页面、API、实现、日志和文档闭环由 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md) 统一维护，并可通过 `pnpm readonly:audit` 校验；其中患者目录是读模型同步、普通资料包含版本化 PUT，通过不等于 Provider 或真机验收完成。
 
 > 五个低风险域的请求中、成功空结果、错误和关闭能力语义由 [`migration/read-only-domain-semantics-contract-2026-08-25.md`](migration/read-only-domain-semantics-contract-2026-08-25.md) 统一维护；任何暂时故障、契约异常和 owner 映射缺失都不能降级为空列表。

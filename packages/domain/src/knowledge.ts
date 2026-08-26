@@ -1,3 +1,5 @@
+import { parseStrictIsoInstant } from "./date-range";
+
 /**
  * 健康知识域的内容边界。
  *
@@ -652,18 +654,13 @@ export function validateHealthKnowledgePublication(
 	assertBoundedText(publication.disclaimer, 512, "invalid_publication");
 	// 内容审核时间会参与发布审计和版本比较，不能接受只带日期或不带时区的
 	// 字符串。否则 Bun、staging 和生产可能按各自本地时区解释同一份 bundle。
-	const hasExplicitTimezone =
-		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/u.test(
-			publication.reviewedAt,
-		);
 	// 患者端安全文案由代码固定，内容导入不能通过数据库字段覆盖它。
 	if (publication.disclaimer !== HEALTH_KNOWLEDGE_DISCLAIMER) {
 		throw new HealthKnowledgeValidationError("invalid_publication");
 	}
-	if (
-		!hasExplicitTimezone ||
-		!Number.isFinite(Date.parse(publication.reviewedAt))
-	) {
+	// 不能只用正则和 Date.parse：运行时可能把 2 月 30 日自动进位。
+	// 统一使用严格时间解析，避免审核时间在不同机器上变成不同的发布事实。
+	if (parseStrictIsoInstant(publication.reviewedAt) === undefined) {
 		throw new HealthKnowledgeValidationError("invalid_publication");
 	}
 }

@@ -10,6 +10,7 @@ import {
 	validateHealthKnowledgeLetter,
 	validateHealthKnowledgePublication,
 } from "./knowledge";
+import { parseStrictIsoInstant } from "./date-range";
 
 /** 导入器支持草稿、发布和撤回，但患者端 repository 只读取 published。 */
 export type HealthKnowledgeImportStatus = "draft" | "published" | "withdrawn";
@@ -467,11 +468,9 @@ function assertId(value: string, path: string): void {
 function assertTimestamp(value: string | undefined, path: string): void {
 	if (value === undefined) return;
 	assertText(value, path, 64);
-	const hasTimezone =
-		/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})$/u.test(
-			value,
-		);
-	if (!hasTimezone || !Number.isFinite(Date.parse(value))) fail(path);
+	// 导入和读取必须使用同一套严格时间规则；否则 staging 能通过、
+	// MySQL 发布窗口却可能按已进位的日期选中错误版本。
+	if (parseStrictIsoInstant(value) === undefined) fail(path);
 }
 
 function assertUnique(values: readonly string[], path: string): void {

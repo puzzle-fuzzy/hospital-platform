@@ -139,6 +139,12 @@ test("health knowledge publication timestamps must carry an explicit timezone", 
 		validateHealthKnowledgeImportBundle(effectiveWindowWithoutTimezone),
 	).toThrow("publication.effectiveFrom");
 
+	const invalidCalendarDate = validBundle();
+	invalidCalendarDate.publication.effectiveFrom = "2026-02-30T00:00:00.000Z";
+	expect(() =>
+		validateHealthKnowledgeImportBundle(invalidCalendarDate),
+	).toThrow("publication.effectiveFrom");
+
 	const explicitOffset = validBundle();
 	explicitOffset.publication.reviewedAt = "2026-08-15T08:00:00+08:00";
 	explicitOffset.publication.effectiveFrom = "2026-08-15T00:00:00Z";

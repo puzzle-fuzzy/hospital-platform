@@ -13,3 +13,39 @@ export function parseIsoCalendarDate(value: string): number | undefined {
 		? date.getTime()
 		: undefined;
 }
+
+/**
+ * 解析带显式时区的 ISO 8601 时间点，并拒绝 JavaScript 自动进位的非法日期。
+ *
+ * `Date.parse` 对部分输入会把 2 月 30 日变成 3 月的日期；如果这种时间
+ * 进入发布窗口、短期会话或命令轨迹，业务比较结果就会被静默改变。这里
+ * 先校验日期、时分秒和偏移的组成，再交给运行时计算绝对时间戳。调用方
+ * 可以用 `undefined` 统一映射为各自领域的稳定错误，不把原始时间写入日志。
+ */
+export function parseStrictIsoInstant(value: string): number | undefined {
+	const match =
+		/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-]\d{2}:?\d{2})$/u.exec(
+			value,
+		);
+	if (!match) return undefined;
+
+	const calendarDate = `${match[1]}-${match[2]}-${match[3]}`;
+	if (parseIsoCalendarDate(calendarDate) === undefined) return undefined;
+
+	const hour = Number(match[4]);
+	const minute = Number(match[5]);
+	const second = Number(match[6]);
+	if (hour > 23 || minute > 59 || second > 59) return undefined;
+
+	const timezone = match[8];
+	if (timezone === undefined) return undefined;
+	if (timezone !== "Z") {
+		const offset = timezone.slice(1).replace(":", "");
+		const offsetHour = Number(offset.slice(0, 2));
+		const offsetMinute = Number(offset.slice(2, 4));
+		if (offsetHour > 23 || offsetMinute > 59) return undefined;
+	}
+
+	const timestamp = Date.parse(value);
+	return Number.isFinite(timestamp) ? timestamp : undefined;
+}

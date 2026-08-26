@@ -47,7 +47,7 @@ export {
 	normalizeAppointmentScheduleResults,
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
-export { parseIsoCalendarDate } from "./date-range";
+export { parseIsoCalendarDate, parseStrictIsoInstant } from "./date-range";
 export {
 	DependencyNotConfiguredError,
 	PatientDirectoryReferenceConflictError,
