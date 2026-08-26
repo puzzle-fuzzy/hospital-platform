@@ -1,5 +1,5 @@
 import { isAppointmentRecordWorkTime } from "@hospital/contracts";
-import { parseIsoCalendarDate } from "./date-range";
+import { parseIsoCalendarDate, parseStrictIsoInstant } from "./date-range";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 患者端可展示的科室最小读模型；provider 机构字段不直接透传。 */
@@ -472,19 +472,23 @@ export function validateAppointmentScheduleSnapshot(
 	) {
 		throw new AppointmentScheduleSnapshotValidationError("invalid_slot_counts");
 	}
+	// 排班快照的有效期是“最近 Provider 事实”的边界，不能只依赖
+	// Date.parse；非法日历日期被自动进位后会改变 TTL 和页面可见状态。
 	const observedAt =
 		typeof runtimeInput.observedAt === "string"
-			? Date.parse(runtimeInput.observedAt)
-			: Number.NaN;
+			? parseStrictIsoInstant(runtimeInput.observedAt)
+			: undefined;
 	const expiresAt =
 		typeof runtimeInput.expiresAt === "string"
-			? Date.parse(runtimeInput.expiresAt)
-			: Number.NaN;
+			? parseStrictIsoInstant(runtimeInput.expiresAt)
+			: undefined;
+	const observedAtMillis = observedAt ?? Number.NaN;
+	const expiresAtMillis = expiresAt ?? Number.NaN;
 	if (
-		!Number.isFinite(observedAt) ||
-		!Number.isFinite(expiresAt) ||
-		expiresAt <= observedAt ||
-		expiresAt - observedAt > MAX_APPOINTMENT_SNAPSHOT_TTL_MS
+		!Number.isFinite(observedAtMillis) ||
+		!Number.isFinite(expiresAtMillis) ||
+		expiresAtMillis <= observedAtMillis ||
+		expiresAtMillis - observedAtMillis > MAX_APPOINTMENT_SNAPSHOT_TTL_MS
 	) {
 		// 过长 TTL 和非递进时间都属于同一观察窗口错误：它们都不能形成
 		// “近期 Provider 事实”。服务层当前写入 60 秒，domain 再加上硬上限，

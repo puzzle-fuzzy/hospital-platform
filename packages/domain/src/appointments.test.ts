@@ -127,4 +127,15 @@ test("排班快照 persistence 边界拒绝未知来源、坏排班和过长 TTL
 			"invalid_observation_window",
 		),
 	);
+
+	expect(() =>
+		validateAppointmentScheduleSnapshot({
+			...input,
+			observedAt: "2026-02-30T00:00:00.000Z",
+		}),
+	).toThrow(
+		new AppointmentScheduleSnapshotValidationError(
+			"invalid_observation_window",
+		),
+	);
 });
