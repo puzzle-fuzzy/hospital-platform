@@ -2492,6 +2492,8 @@ test("native convenience pages keep patient context without fake public records"
 	expect(service).toContain("公开记录查询");
 	expect(service).toContain("不读取、不提交任何内容");
 	expect(service).toContain("disposePageInstance");
+	expect(service).toContain("convenienceSurfaceErrorMessage");
+	expect(service).toContain("patientContextErrorMessage");
 	expect(gift).toContain("选择就诊人");
 	expect(praise).toContain("选择就诊人");
 	expect(gift).toContain("公开记录暂未开放");

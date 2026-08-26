@@ -7,6 +7,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "./page-instance-state";
+import { patientContextErrorMessage } from "./patient-selection-service";
 
 export type ConvenienceSurfaceFeature = "gift-banner" | "health-praise";
 
@@ -64,14 +65,22 @@ type ConvenienceSurfacePageMethods = {
 	onUnload(): void;
 };
 
-function getErrorMessage(error: unknown): string {
+/**
+ * 将便民页面的患者读取异常转换成稳定文案。
+ *
+ * 这里不能只按“请求失败”处理：`patient-not-bound`、选择过期和医院档案
+ * 未映射都要求用户重新确认就诊人，而持久化/网络故障只允许重试。统一走
+ * 患者上下文翻译入口，才能避免页面把服务故障误导成“没有选择就诊人”。
+ * 登录失效和依赖未配置仍保留本页面的明确引导语义。
+ */
+export function convenienceSurfaceErrorMessage(error: unknown): string {
 	if (error instanceof ApiError && error.code === "unauthorized") {
 		return "登录状态已失效，请返回首页重新登录";
 	}
 	if (error instanceof ApiError && error.code === "dependency-not-configured") {
 		return "就诊人服务暂不可用，请稍后重试";
 	}
-	return "就诊人信息暂时无法加载，请重试";
+	return patientContextErrorMessage(error, "就诊人信息暂时无法加载，请重试");
 }
 
 function toPageData(
@@ -124,7 +133,10 @@ export function registerConvenienceSurfacePage(
 				})
 				.catch((error) => {
 					if (guard.isCurrent(token)) {
-						this.setData({ patient: null, error: getErrorMessage(error) });
+						this.setData({
+							patient: null,
+							error: convenienceSurfaceErrorMessage(error),
+						});
 					}
 				})
 				.finally(() => {
