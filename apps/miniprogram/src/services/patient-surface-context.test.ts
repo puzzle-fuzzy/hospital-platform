@@ -44,6 +44,21 @@ test("患者目录错误保持失效、映射不可用和暂时故障的区别",
 	).toBe("当前就诊人暂不可用于该服务，请更换就诊人");
 	expect(
 		patientSurfaceErrorMessage(
+			new ApiError("not bound", { code: "patient-not-bound" }),
+		),
+	).toBe("当前还没有可用的就诊人，请先选择就诊人");
+	expect(
+		patientSurfaceErrorMessage(
+			new ApiError("stale", { code: "patient-selection-stale" }),
+		),
+	).toBe("上次选择的就诊人已失效，请重新选择");
+	expect(
+		patientSurfaceErrorMessage(
+			new ApiError("dependency", { code: "dependency-not-configured" }),
+		),
+	).toBe("就诊人服务暂不可用，请稍后重试");
+	expect(
+		patientSurfaceErrorMessage(
 			new ApiError("temporary", {
 				code: "persistence-temporarily-unavailable",
 			}),

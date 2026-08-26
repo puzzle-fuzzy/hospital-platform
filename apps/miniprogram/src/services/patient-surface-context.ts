@@ -5,6 +5,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "./page-instance-state";
+import { patientScopedErrorMessage } from "./patient-selection-service";
 
 /**
  * 关闭态页面可以展示的当前就诊人上下文。
@@ -43,17 +44,18 @@ type PatientSurfaceContextPage = {
 export function patientSurfaceErrorMessage(error: unknown): string {
 	if (error instanceof ApiError) {
 		switch (error.code) {
-			case "unauthorized":
-				return "登录状态已失效，请返回首页重新登录";
 			case "patient-selection-required":
+			case "patient-not-bound":
 				return "当前还没有可用的就诊人，请先选择就诊人";
+			case "patient-selection-stale":
+				return "上次选择的就诊人已失效，请重新选择";
 			case "patient-clinical-unavailable":
 				return "当前就诊人暂不可用于该服务，请更换就诊人";
 			case "persistence-temporarily-unavailable":
 				return "就诊人信息暂时不可用，请稍后重试";
 		}
 	}
-	return "就诊人信息暂时无法加载，请重试";
+	return patientScopedErrorMessage(error, "就诊人信息暂时无法加载，请重试");
 }
 
 /** 将已校验患者投影为关闭态页面可以展示的脱敏字段。 */

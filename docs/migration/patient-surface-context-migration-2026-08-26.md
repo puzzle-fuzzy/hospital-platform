@@ -17,9 +17,10 @@
 ## 患者目录错误边界
 
 采血预约、我的快递、消息订阅和患者签名都直接读取同一个 owner-scoped 患者目录，现统一使用
-`patientScopedErrorMessage`：登录失效回首页重新建立会话，依赖未配置只提示重试，患者未绑定/选择
-过期/医院档案未映射/数据服务暂时不可用则分别保留公共错误码语义。页面不再各自维护一份可能
-漏状态的 `errorMessage`，也不会把服务故障误导成“请重新选择就诊人”。
+`patientScopedErrorMessage`；临床入口、服务入口和外部关闭态页面通过 `patientSurfaceErrorMessage`
+复用同一错误码边界。登录失效回首页重新建立会话，依赖未配置只提示重试，患者未绑定/选择过期/
+医院档案未映射/数据服务暂时不可用则分别保留公共错误码语义。页面不再各自维护一份可能漏状态的
+`errorMessage`，也不会把服务故障误导成“请重新选择就诊人”。
 
 ## 逻辑约束
 
@@ -34,7 +35,7 @@
 
 - `pnpm --filter @hospital/miniprogram typecheck`：通过；
 - 本文实现阶段曾验证 `309 pass / 0 fail / 3522 expect()`；本轮横向复核后工作树全量回归为
-  `316 pass / 0 fail / 3571 expect()`；
+  `316 pass / 0 fail / 3574 expect()`；
 - `pnpm migration:breadth:audit`：通过，40 个页面事件闭环、4 个主 Tab、首页/我的 action 和状态页引用均通过；
 - `pnpm format:check`：通过；
 - 当前 live 运行输入：`02dbf10419740d96c4445493df019021ac22bcfa`，40 个页面；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；
