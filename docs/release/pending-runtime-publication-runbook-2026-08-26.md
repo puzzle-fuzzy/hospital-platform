@@ -25,6 +25,27 @@
 保留原 `dist` 和完整 pending 候选。因此遇到 `EBUSY` 时不能删除 `dist`、不能手工复制
 部分页面，也不能把 live 的 `build-info.json` 改成 pending 的来源指纹。
 
+## live 与 pending 的校验区别
+
+运行时校验有意区分两个来源，避免“当前源码还没发布”被误报成“旧 live 包损坏”：
+
+- `runtime:verify:pending` 校验 `.local/hospital-miniprogram/pending/`，来源固定为当前待发布候选；
+- `runtime:verify` 默认使用 `HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION` 或当前源码候选，只有原子发布完成后才应直接执行；
+- 发布前若只想检查旧 live 的完整性，必须显式读取 live 自身的 `build-info.json` 来源，不得修改文件内容：
+
+  ```powershell
+  $liveBuildInfo = Get-Content apps/miniprogram/dist/build-info.json -Raw | ConvertFrom-Json
+  $env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = $liveBuildInfo.sourceRevision
+  try {
+    pnpm --filter @hospital/miniprogram runtime:verify
+  } finally {
+    Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION -ErrorAction SilentlyContinue
+  }
+  ```
+
+如果不显式设置 live 来源，看到 `dist=旧 live`、`expected=当前 pending` 的 mismatch
+是发布尚未发生的事实，不是把 `build-info.json` 手工改成 pending 的理由。
+
 ## 发布前检查
 
 1. 在微信开发者工具中停止真机调试、预览和编译任务。
