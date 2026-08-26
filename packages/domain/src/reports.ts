@@ -1,4 +1,5 @@
 import { parseIsoCalendarDate } from "./date-range";
+import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { AdapterCallContext, ExternalTrace } from "./ports";
 
 /** 当前已取得安全查询边界的报告来源；体检报告需要额外身份证合同，暂不纳入。 */
@@ -142,11 +143,14 @@ export function validateReportReference(input: ReportReferenceInput): void {
 		// 检索、日志关联和 provider 请求边界，必须在 persistence 前 fail-closed。
 		throw new ReportReferenceValidationError("invalid_reference");
 	}
+	// ownerUserId 来自会话通常不代表所有调用方都可信；例如回放任务、
+	// 测试替身或未来 Worker 都可能直接构造引用。必须复用平台 opaque
+	// 标识守卫，拒绝控制字符、首尾空白和空值，才能把 owner 隔离带到
+	// repository 查询与日志链路的下一层。
 	if (
 		input.provider !== "zhongyang" ||
 		input.kind !== "laboratory" ||
-		typeof input.ownerUserId !== "string" ||
-		input.ownerUserId.trim().length === 0 ||
+		!isBoundedOpaqueIdentifier(input.ownerUserId) ||
 		input.ownerUserId.length > 64
 	) {
 		throw new ReportReferenceValidationError("invalid_owner");

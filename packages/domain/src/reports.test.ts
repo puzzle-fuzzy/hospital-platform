@@ -5,8 +5,10 @@ import {
 	normalizeLaboratoryReportDetail,
 	normalizeReportDirectoryResults,
 	parseReportTimestamp,
+	ReportReferenceValidationError,
 	ReportResultValidationError,
 	validateReportDirectoryResultWindow,
+	validateReportReference,
 } from "./reports";
 
 test("报告时间只接受可审计格式并正确处理无效日期", () => {
@@ -98,4 +100,23 @@ test("LIS 详情时间必须使用与目录一致的可审计格式", () => {
 	expect(() => normalizeLaboratoryReportDetail(detail)).toThrow(
 		new ReportResultValidationError("detail-reported-at-invalid"),
 	);
+});
+
+test("报告引用拒绝带控制字符的 owner，避免越过 owner 隔离边界", () => {
+	const reference = {
+		reportId: "report-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		provider: "zhongyang" as const,
+		kind: "laboratory" as const,
+		providerReportId: "provider-report-001",
+		createdAt: "2026-08-15T00:00:00.000Z",
+		expiresAt: "2026-08-15T00:10:00.000Z",
+	};
+
+	for (const ownerUserId of ["user-\n001", " user-001", "user-001 "]) {
+		expect(() =>
+			validateReportReference({ ...reference, ownerUserId }),
+		).toThrow(new ReportReferenceValidationError("invalid_owner"));
+	}
 });
