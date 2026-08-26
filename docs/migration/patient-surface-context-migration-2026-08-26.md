@@ -34,11 +34,11 @@
 ## 验证结果
 
 - `pnpm --filter @hospital/miniprogram typecheck`：通过；
-- 本文实现阶段曾验证 `309 pass / 0 fail / 3522 expect()`；本轮横向复核后工作树全量回归为
-  `316 pass / 0 fail / 3574 expect()`；
+- 本文实现阶段曾验证 `309 pass / 0 fail / 3522 expect()`；本轮预约历史客户端契约复核后工作树全量回归为
+  `329 pass / 0 fail / 3632 expect()`；
 - `pnpm migration:breadth:audit`：通过，40 个页面事件闭环、4 个主 Tab、首页/我的 action 和状态页引用均通过；
 - `pnpm format:check`：通过；
-- 最新 pending 运行输入：`de5dea8df249c2fd1e122df4508bcd6cbb3852a7`，40 个页面；当前 live 仍为 `02dbf10419740d96c4445493df019021ac22bcfa`；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；
+- 最新 pending 运行输入：`ded78c58c53923ecf5232a8035b3e790e5959216`，40 个页面；当前 live 仍为 `02dbf10419740d96c4445493df019021ac22bcfa`；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；
 - 本文实现阶段曾因微信开发者工具锁定 `dist/` 返回 `EBUSY`；最新候选已完成 pending 运行包校验，等待释放锁后原子发布，不能手工覆盖 live。
 
 ## 未完成与下一批
