@@ -245,6 +245,54 @@ export const currentBaselineDocuments = Object.freeze([
 		path: "docs/release/miniprogram-real-device-evidence-template-13f597e.md",
 		label: "当前线上小程序真机证据模板",
 	},
+	// 这些文档描述的是尚未替换 live dist 的 pending 候选，而不是已经部署的
+	// 线上小程序。因此跳过“必须包含线上小程序来源”的检查，但仍通过下方的
+	// 当前候选语义规则锁定完整 sourceRevision，避免新会话误用旧二维码或旧包。
+	{
+		path: "docs/release/candidate-de5dea8-miniprogram-runtime-2026-08-26.md",
+		label: "当前 pending 小程序运行包候选",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/release/current-miniprogram-closure-2026-08-26.md",
+		label: "当前小程序全量闭环复核",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/full-migration-handoff-2026-08-25.md",
+		label: "全量迁移当前交接单",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/migration-readiness-report.md",
+		label: "全项目迁移 readiness 报告说明",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/current-breadth-audit-2026-08-26.md",
+		label: "全量迁移当前检查点",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/overall-migration-wave-2026-08-26.md",
+		label: "全项目迁移并行执行波次",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/breadth-execution-board-2026-08-25.md",
+		label: "全项目广度迁移执行工作板",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/breadth-first-migration-plan-2026-08-25.md",
+		label: "广度优先迁移计划",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/readonly-surface-logic-audit-2026-08-26.md",
+		label: "五个低风险业务域横向逻辑审计",
+		candidateOnly: true,
+	},
 	{
 		path: "docs/release/current-13f-real-device-acceptance-runbook-2026-08-24.md",
 		label: "当前小程序真机执行手册",
@@ -520,6 +568,130 @@ const currentCandidateReferenceRules = Object.freeze([
 				phrases: [
 					{ text: "当前进行中：", expected: "short" },
 					{ text: "小程序运行包来源为", expected: "full" },
+				],
+			},
+		],
+	},
+	{
+		path: "docs/release/candidate-de5dea8-miniprogram-runtime-2026-08-26.md",
+		label: "当前 pending 小程序运行包候选",
+		sections: [
+			{
+				start: "## 当前结论",
+				end: "## 候选包含的业务边界修正",
+				phrases: [{ text: "运行输入来源", expected: "pending-full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-miniprogram-closure-2026-08-26.md",
+		label: "当前小程序全量闭环复核",
+		sections: [
+			{
+				start: "## 已验证事实",
+				end: "## 当前仍未通过的门",
+				phrases: [{ text: "当前小程序候选", expected: "pending-full" }],
+			},
+		],
+	},
+	{
+		path: "docs/migration/full-migration-handoff-2026-08-25.md",
+		label: "全量迁移当前交接单",
+		sections: [
+			{
+				start: "# 全量迁移当前交接单（2026-08-25）",
+				end: "## 1. 当前真实基线",
+				phrases: [
+					{
+						text: "本轮最新小程序运行包候选来源为",
+						expected: "pending-full",
+					},
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/migration-readiness-report.md",
+		label: "全项目迁移 readiness 报告说明",
+		sections: [
+			{
+				start: "# 全项目迁移 readiness 报告说明",
+				end: "## 生成方式",
+				phrases: [{ text: "当前运行事实", expected: "pending-full" }],
+			},
+		],
+	},
+	{
+		path: "docs/migration/current-breadth-audit-2026-08-26.md",
+		label: "全量迁移当前检查点",
+		sections: [
+			{
+				start: "# 全量迁移当前检查点（2026-08-26）",
+				end: "## 1. 当前总结果",
+				phrases: [
+					{
+						text: "当前最新 40 页运行相关源码候选为",
+						expected: "pending-full",
+					},
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/overall-migration-wave-2026-08-26.md",
+		label: "全项目迁移并行执行波次",
+		sections: [
+			{
+				start: "## 一、当前全局事实",
+				end: "## 二、迁移的两层完成定义",
+				phrases: [{ text: "当前源码 / live 小程序", expected: "pending-full" }],
+			},
+		],
+	},
+	{
+		path: "docs/migration/breadth-execution-board-2026-08-25.md",
+		label: "全项目广度迁移执行工作板",
+		sections: [
+			{
+				start: "# 全项目广度迁移执行工作板（2026-08-25）",
+				end: "## 一、这次策略调整",
+				phrases: [
+					{
+						text: "本轮 pending 小程序运行包来源为",
+						expected: "pending-full",
+					},
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/breadth-first-migration-plan-2026-08-25.md",
+		label: "广度优先迁移计划",
+		sections: [
+			{
+				start: "# 广度优先迁移计划（2026-08-25）",
+				end: "## 一、当前基线",
+				phrases: [
+					{
+						text: "最新 pending 小程序运行包来源为",
+						expected: "pending-full",
+					},
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/readonly-surface-logic-audit-2026-08-26.md",
+		label: "五个低风险业务域横向逻辑审计",
+		sections: [
+			{
+				start: "# 五个低风险业务域横向逻辑审计（2026-08-26）",
+				end: "## 1. 审计结论",
+				phrases: [
+					{
+						text: "审计对象为最新 pending 小程序候选",
+						expected: "pending-full",
+					},
 				],
 			},
 		],
