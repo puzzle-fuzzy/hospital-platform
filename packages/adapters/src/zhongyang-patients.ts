@@ -149,6 +149,39 @@ function requiredText(
 }
 
 /**
+ * 患者姓名是展示和档案关联字段，Provider contract 明确要求字符串。
+ *
+ * `requiredText` 为兼容少数旧 ID 字段允许安全整数；姓名不能共享这条
+ * 数字兼容路径，否则 `{ patientName: 123 }` 会被转换成合法展示名，随后
+ * 还可能被拿去查询 `patInfosFind`，把 Provider schema 错误伪装成真实患者。
+ */
+function requiredStringText(
+	value: unknown,
+	field: string,
+	maxLength: number,
+	operation = "patient-list",
+	requestId?: string,
+	responseInvalid = false,
+): string {
+	if (typeof value !== "string") {
+		throw providerError(
+			`Zhongyang patient field ${field} is invalid`,
+			requestId,
+			operation,
+			responseInvalid,
+		);
+	}
+	return requiredText(
+		value,
+		field,
+		maxLength,
+		operation,
+		requestId,
+		responseInvalid,
+	);
+}
+
+/**
  * 卡号必须保持 Provider 原始字符串形态。
  *
  * 与允许安全整数的普通外部 ID 不同，卡号可能有前导零；一旦 JSON 把
@@ -444,7 +477,7 @@ function mapPatient(
 		requestId,
 		true,
 	);
-	const displayName = requiredText(
+	const displayName = requiredStringText(
 		value.patientName,
 		"patientName",
 		128,
@@ -500,6 +533,23 @@ function optionalArchiveText(
 	return requiredText(value, field, 128, "patient-archive", requestId, true);
 }
 
+/** 档案返回的患者姓名同样必须保持字符串，不能走 ID 的数字兼容规则。 */
+function optionalArchiveStringText(
+	value: unknown,
+	field: string,
+	requestId: string,
+): string | undefined {
+	if (value === undefined || value === null) return undefined;
+	return requiredStringText(
+		value,
+		field,
+		128,
+		"patient-archive",
+		requestId,
+		true,
+	);
+}
+
 /** 档案响应中的卡号也必须保持字符串，不能接受丢失前导零的 JSON 数字。 */
 function optionalArchiveCardText(
 	value: unknown,
@@ -547,7 +597,7 @@ function ensureArchiveMatchesQuery(
 	requestedName: string,
 	requestId: string,
 ): void {
-	const returnedName = optionalArchiveText(
+	const returnedName = optionalArchiveStringText(
 		archive.patName,
 		"patName",
 		requestId,
@@ -666,7 +716,7 @@ async function resolveHisPatientId(
 		requestId,
 		true,
 	);
-	const displayName = requiredText(
+	const displayName = requiredStringText(
 		value.patientName,
 		"patientName",
 		128,

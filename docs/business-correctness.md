@@ -99,6 +99,10 @@ MySQL 的 `INT`/`BIGINT` 在不同 `mysql2` 连接配置下可能返回 JavaScri
    报告或门诊费用页面；`unavailable` 记录可以保留脱敏资料帮助用户核对，但不能被选中，不能让页面
    把 `directory` 引用当作 `his-patient` 使用。首次没有历史选择时只能默认第一位 `ready` 患者，
    如果已有选择变为 `unavailable`，必须保留该选择的失效原因并要求用户显式选择其他可用患者。
+   就诊人 Provider 目录和 `patInfosFind` 档案中的姓名必须保持字符串；只有明确属于旧端 ID 的安全整数才允许
+   在对应字段做无损字符串化。数字、数组或对象姓名不能被转换成页面可见名称，也不能继续进入档案查询，
+   否则会把 Provider schema 损坏伪装成真实患者。卡号仍必须保持字符串以保留前导零，档案身份关联失败时整批
+   返回 `provider-response-invalid`，不创建或更新 `his-patient` 映射。
 6. 选择页切换患者后，调用页必须重新读取患者目录并重新请求业务数据，不能沿用上一个患者的报告、挂号记录或缴费列表。首页、我的和患者选择页统一使用 `patient-selection-service.ts` 的目录解析错误码；预约记录、爽约记录、报告目录和门诊费用页统一通过 `dashboard-service.ts` 的 `loadCurrentPatientForOwner` 完成 `/me` owner 重验证、当前患者读取与最新会话代际捕获，并通过 `patientContextErrorMessage` 或 `patientSelectionResolutionMessage` 统一解释患者上下文错误；同一 owner 的 GET 会话恢复可以继续使用最新代际，owner 变化或无法证明时必须 fail-closed。发起查询和写回异步结果前还必须通过 `isCurrentSelectedPatient` 校验当前 opaque patientId，避免跨页面切换后的旧响应覆盖新患者。该函数只重读平台目录，不隐式触发 Provider 同步。同步只由登录恢复和独立患者选择页负责，完整边界见 [`migration/patient-context-read-contract.md`](migration/patient-context-read-contract.md)。
 7. 如果本地已有的 `patientId` 已不在当前 owner 的有效目录中，页面必须进入“请重新选择就诊人”状态；只有本地从未保存过选择时才允许默认目录第一位，不能用 `patients[0]` 静默替换已失效的患者。
 

@@ -287,6 +287,84 @@ test("众阳患者目录拒绝 JSON 数字卡号，避免查询卡号丢失前�
 	expect(archiveRequested).toBe(false);
 });
 
+test("众阳患者目录和档案拒绝数字姓名，不把 schema 错误变成展示名", async () => {
+	let archiveRequested = false;
+	const directoryNameGateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			if (String(input).includes("patInfosFind")) archiveRequested = true;
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-number-name-001",
+							patientName: 123,
+							medicalCardNo: "directory-number-name-card-001",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "directory-number-name" } },
+			);
+		},
+	});
+
+	await expect(
+		directoryNameGateway.listByIdentity(
+			{ unionId: "union-directory-number-name-001" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-list",
+		responseInvalid: true,
+	});
+	expect(archiveRequested).toBe(false);
+
+	const archiveNameGateway = createZhongyangPatientGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			if (String(input).includes("patInfosFind")) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: { patName: 123, patId: "his-number-name-001" },
+					}),
+					{ status: 200, headers: { "x-request-id": "archive-number-name" } },
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							thirdPatientId: "directory-archive-number-name-001",
+							patientName: "张三",
+							medicalCardNo: "archive-number-name-card-001",
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "directory-archive-number-name" },
+				},
+			);
+		},
+	});
+
+	await expect(
+		archiveNameGateway.listByIdentity(
+			{ unionId: "union-archive-number-name-001" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "patient-archive",
+		requestId: "archive-number-name",
+		responseInvalid: true,
+	});
+});
+
 test("patInfosFind 返回数字卡号时拒绝写入 HIS 映射", async () => {
 	const gateway = createZhongyangPatientGateway({
 		baseUrl: "https://zhongyang.example.test",
