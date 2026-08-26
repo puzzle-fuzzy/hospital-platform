@@ -76,6 +76,19 @@ function requiredDocumentFragments(facts) {
 				"当前只有 11 个进入冻结入口",
 			],
 		},
+		{
+			// 这份页面覆盖证据保留了历史候选段落，顶部的当前事实必须
+			// 与机器台账同步；否则新会话很容易拿过期运行包继续生成真机
+			// 证据。这里只校验低敏版本、页数和状态计数，不读取 dist 内容。
+			path: "docs/release/breadth-first-page-coverage-2026-08-25.md",
+			fragments: [
+				"64 个旧页面、40 个原生页面",
+				"partial=23",
+				"surface-only=25",
+				"当前小程序源码与 live 运行输入为 `02dbf10`",
+				"312 pass / 0 fail / 3550 expect()",
+			],
+		},
 	];
 }
 

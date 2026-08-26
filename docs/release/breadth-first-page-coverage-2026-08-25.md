@@ -1,11 +1,11 @@
-# 广度优先页面迁移覆盖证据（2026-08-25）
+# 广度优先页面迁移覆盖证据（2026-08-25，当前复核至 2026-08-26）
 
-> **当前事实源补充（2026-08-25）**：本页的旧候选段落保留历史交接信息；当前逐页机器台账以
-> `pnpm migration:audit` 为准：64 个旧页面、20 个原生页面，状态分布为
-> `partial=17`、`blocked-clinical=19`、`blocked-external=3`、`blocked-payment=7`、
-> `blocked-provider=6`、`blocked-patient-contract=4`、`replaced=7`、`excluded=1`。
+> **当前事实源补充（2026-08-26）**：本页下方的旧候选段落保留历史交接信息；当前逐页机器台账以
+> `pnpm migration:audit` 为准：64 个旧页面、40 个原生页面，状态分布为
+> `partial=23`、`replaced=8`、`surface-only=25`、`blocked-payment=7`、`excluded=1`。
 > 这份覆盖证据证明入口没有遗漏，不证明阻塞入口的真实业务已经开放。
-> 当前小程序源码/pending 候选为 `7bc5956`（20 个原生页面，`267 pass / 0 fail / 2659 expect()`）；上一候选和旧 live `dist` 只作历史/运行边界记录，不能作为当前真机证据。
+> 当前小程序源码与 live 运行输入为 `02dbf10`（40 个原生页面，`312 pass / 0 fail / 3550 expect()`）；
+> 线上历史运行包和下方旧候选只作历史/运行边界记录，不能作为当前真机证据。
 
 ## 结论
 
@@ -15,13 +15,11 @@
 
 | 分类 | 数量 | 含义 |
 | --- | ---: | --- |
-| `replaced` | 7 | 已由原生页面或等价静态能力替换，不代表旧端所有隐含 provider 能力都存在 |
-| `partial` | 17 | 已有安全只读/静态子集，详情、写入、支付或外部回写仍关闭 |
-| `blocked-provider` | 6 | 等待众阳/HIS/云健康正式请求响应、字段白名单和错误样例 |
-| `blocked-clinical` | 19 | 等待题库、阈值、医疗内容或问卷的版本与临床审核；锦旗/表扬信也需内容审核 |
+| `replaced` | 8 | 已由原生页面或等价静态能力替换，不代表旧端所有隐含 provider 能力都存在 |
+| `partial` | 23 | 已有安全只读/静态子集，详情、写入、支付或外部回写仍关闭 |
+| `surface-only` | 25 | 已有原生页面外壳和稳定关闭态，真实业务读取或写入仍未开放 |
 | `blocked-payment` | 7 | 等待金额守恒、支付状态机、查单、医保和 HIS 回写 contract |
-| `blocked-patient-contract` | 4 | 等待患者绑定、协议、地址或签名的归属、授权和撤回规则 |
-| `blocked-external` | 3 | 等待 HTTPS allowlist、短期引用或外部主体授权 |
+| `blocked-provider`、`blocked-clinical`、`blocked-patient-contract`、`blocked-external` | 0（当前页面台账） | 这些阻塞原因由对应 `featureKey` 和 A–E 批次记录，不再重复作为页面状态枚举 |
 | `excluded` | 1 | 旧端开发辅助页，不进入生产小程序 |
 | **合计** | **64** | 每个旧页面只有一个明确落点 |
 
@@ -31,22 +29,21 @@
 - 页面台账回归：[`apps/miniprogram/src/services/legacy-page-catalog.test.ts`](../../apps/miniprogram/src/services/legacy-page-catalog.test.ts)
 - 总迁移审计：`pnpm migration:audit`
 - 入口分发广度审计：`pnpm migration:breadth:audit`
-- 该审计同时验证首页/“我的” action 分支，以及 20 个已注册页面的 WXML 事件方法闭环；它不替代 Provider、真机或真实业务验收。
+- 该审计同时验证首页/“我的” action 分支，以及 40 个已注册页面的 WXML 事件方法闭环；它不替代 Provider、真机或真实业务验收。
 - 旧端逐页解释：[`../migration/legacy-page-matrix.md`](../migration/legacy-page-matrix.md)
 
 本轮门禁输出：
 
 ```text
+Native page migration ledger passed: 40 registered page(s) documented
 Legacy page inventory passed: 64 old page(s) match the migration matrix
-Native legacy page catalog passed: 64 page(s)
-partial=17, blocked-external=3, replaced=7, excluded=1,
-blocked-clinical=19, blocked-payment=7, blocked-provider=6,
-blocked-patient-contract=4
+Native legacy page catalog passed: 64 page(s), partial=23, replaced=8,
+excluded=1, surface-only=25, blocked-payment=7
 ```
 
 ## 下一步原则
 
-1. 当前 17 个 `partial` 页面已经具备可验证的只读/静态代码落点，首页和“我的”可见入口也已通过分发审计；下一步是用同一 `7bc5956` 候选为患者、预约历史/目录、报告目录、门诊费用和普通资料分别保存页面、HTTP requestId、服务端低敏日志三层证据。
+1. 当前 23 个 `partial` 页面已经具备可验证的只读/静态代码落点，首页和“我的”可见入口也已通过分发审计；下一步是用同一 `02dbf10` 候选为患者、预约历史/目录、报告目录、门诊费用和普通资料分别保存页面、HTTP requestId、服务端低敏日志三层证据。
 2. 新 Provider 文档到达后，按业务域完成 `contract → adapter → domain → API → 小程序 → 日志 → 验收`，不把一个域的字段复用到另一个域。
 3. 支付、医保、二维码、患者新增绑定、问卷提交、WebSocket、外部 WebView 和 HIS 写回继续保持关闭；状态页存在只代表入口可解释，不代表业务已完成。
 
