@@ -538,6 +538,22 @@ Page<IndexPageData, IndexPageMethods>({
 		// 中的显式选择和临床映射状态；否则临时故障、账号切换或旧页面停留期间，
 		// 仍会把“有缓存 ID”误报成“有患者可扫码”。这里先把未来开放时必须
 		// 满足的患者上下文门禁固定在当前实现中。
+		const sessionState = sessionVerificationStateFromLabel(
+			this.data.sessionStatus,
+		);
+		if (sessionState !== "valid") {
+			wx.showModal({
+				title: "登录状态未确认",
+				content:
+					sessionState === "checking"
+						? "登录状态正在确认，请稍后重试。"
+						: sessionState === "unavailable"
+							? "登录服务暂不可用，请稍后重试。"
+							: "请先登录并重新选择就诊人。",
+				showCancel: false,
+			});
+			return;
+		}
 		const selectedPatient = this.data.selectedPatient;
 		if (!selectedPatient) {
 			wx.showModal({
