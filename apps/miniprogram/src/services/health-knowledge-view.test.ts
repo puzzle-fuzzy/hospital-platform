@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	isKnowledgeDiseaseMode,
 	parseHealthKnowledgeSymptomIds,
 	resolveKnowledgePanelState,
 	resolveKnowledgeTabSource,
@@ -53,5 +54,14 @@ describe("健康百科症状查询参数", () => {
 				Array.from({ length: 11 }, (_, index) => `symptom-${index}`).join(","),
 			),
 		).toBe(null);
+	});
+});
+
+describe("健康百科疾病目录模式", () => {
+	test("只接受已登记的三种关系模式", () => {
+		expect(isKnowledgeDiseaseMode("part")).toBe(true);
+		expect(isKnowledgeDiseaseMode("crowd")).toBe(true);
+		expect(isKnowledgeDiseaseMode("department")).toBe(true);
+		expect(isKnowledgeDiseaseMode("unknown")).toBe(false);
 	});
 });

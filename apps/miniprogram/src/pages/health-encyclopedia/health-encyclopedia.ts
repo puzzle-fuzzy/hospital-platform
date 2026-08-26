@@ -4,10 +4,16 @@ import {
 	requestHealthKnowledgeCatalog,
 	requestHealthSymptomsByPart,
 } from "../../services/api-client";
+import type { KnowledgeDiseaseMode } from "../../services/health-knowledge-view";
 import {
+	isKnowledgeDiseaseMode,
 	resolveKnowledgePanelState,
 	resolveKnowledgeTabSource,
 } from "../../services/health-knowledge-view";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeDiseaseSummary,
@@ -15,16 +21,25 @@ import type {
 } from "../../types";
 
 type KnowledgeTab = "symptom" | "disease";
-type DiseaseMode = "part" | "crowd" | "department";
+type DiseaseMode = KnowledgeDiseaseMode;
 type PageState = "idle" | "loading" | "ready" | "empty" | "error";
 type LeftItem = HealthKnowledgeCatalogItem;
 
 type KnowledgePageMethods = {
 	requestSerial: number;
 	loadParts(): Promise<void>;
-	loadSymptoms(partId: string, serial?: number): Promise<void>;
+	loadSymptoms(
+		partId: string,
+		serial?: number,
+		requestToken?: number,
+	): Promise<void>;
 	loadDiseaseCatalog(mode: DiseaseMode): Promise<void>;
-	loadDiseases(mode: DiseaseMode, id: string, serial?: number): Promise<void>;
+	loadDiseases(
+		mode: DiseaseMode,
+		id: string,
+		serial?: number,
+		requestToken?: number,
+	): Promise<void>;
 	onTabChange(event: WechatMiniprogram.TouchEvent): void;
 	onDiseaseModeChange(event: WechatMiniprogram.TouchEvent): void;
 	onLeftItemTap(event: WechatMiniprogram.TouchEvent): void;
@@ -33,6 +48,7 @@ type KnowledgePageMethods = {
 	onSearchSymptoms(): void;
 	onDiseaseTap(event: WechatMiniprogram.TouchEvent): void;
 	onRetry(): void;
+	onUnload(): void;
 };
 
 type KnowledgePageData = {
@@ -98,11 +114,22 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 	},
 
 	async loadParts() {
+		const guard = getPageLatestRequestGuard(this, "health-encyclopedia");
+		const requestToken = guard.begin();
 		const serial = ++this.requestSerial;
-		this.setData({ state: "loading", errorMessage: "" });
+		// 重新读取发布目录时，旧症状 ID 可能已经不属于新的内容版本；
+		// 必须清空旧选择，不能把上一版本的医疗内容继续带入查询页。
+		this.setData({
+			state: "loading",
+			errorMessage: "",
+			rightItems: [],
+			selectedSymptoms: [],
+			selectedSymptomIds: [],
+		});
 		try {
 			const response = await requestHealthKnowledgeCatalog("part");
-			if (serial !== this.requestSerial) return;
+			if (!guard.isCurrent(requestToken) || serial !== this.requestSerial)
+				return;
 			const parts = response.data.items;
 			this.setData({
 				parts,
@@ -115,23 +142,28 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 				this.setData({ state: "empty" });
 				return;
 			}
-			await this.loadSymptoms(parts[0]?.id ?? "", serial);
+			await this.loadSymptoms(parts[0]?.id ?? "", serial, requestToken);
 		} catch (error) {
-			if (serial !== this.requestSerial) return;
+			if (!guard.isCurrent(requestToken) || serial !== this.requestSerial)
+				return;
 			this.setData({ state: "error", errorMessage: errorMessage(error) });
 		}
 	},
 
-	async loadSymptoms(partId: string, serial?: number) {
+	async loadSymptoms(partId: string, serial?: number, requestToken?: number) {
+		const guard = getPageLatestRequestGuard(this, "health-encyclopedia");
 		const requestSerial = serial ?? ++this.requestSerial;
+		const token = requestToken ?? guard.begin();
+		if (!guard.isCurrent(token)) return;
 		if (!partId) {
 			this.setData({ state: "empty", rightItems: [] });
 			return;
 		}
-		this.setData({ state: "loading", errorMessage: "" });
+		this.setData({ state: "loading", errorMessage: "", rightItems: [] });
 		try {
 			const response = await requestHealthSymptomsByPart(partId);
-			if (requestSerial !== this.requestSerial) return;
+			if (!guard.isCurrent(token) || requestSerial !== this.requestSerial)
+				return;
 			this.setData({
 				rightItems: response.data.items,
 				// 左侧目录仍然存在时，右侧空结果必须保持 ready；否则
@@ -141,17 +173,21 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 				disclaimer: response.data.publication.disclaimer,
 			});
 		} catch (error) {
-			if (requestSerial !== this.requestSerial) return;
+			if (!guard.isCurrent(token) || requestSerial !== this.requestSerial)
+				return;
 			this.setData({ state: "error", errorMessage: errorMessage(error) });
 		}
 	},
 
 	async loadDiseaseCatalog(mode: DiseaseMode) {
+		const guard = getPageLatestRequestGuard(this, "health-encyclopedia");
+		const requestToken = guard.begin();
 		const serial = ++this.requestSerial;
-		this.setData({ state: "loading", errorMessage: "" });
+		this.setData({ state: "loading", errorMessage: "", rightItems: [] });
 		try {
 			const response = await requestHealthKnowledgeCatalog(mode);
-			if (serial !== this.requestSerial) return;
+			if (!guard.isCurrent(requestToken) || serial !== this.requestSerial)
+				return;
 			const items = response.data.items;
 			this.setData({
 				...(mode === "part" ? { parts: items } : {}),
@@ -166,23 +202,33 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 				this.setData({ state: "empty", rightItems: [] });
 				return;
 			}
-			await this.loadDiseases(mode, items[0]?.id ?? "", serial);
+			await this.loadDiseases(mode, items[0]?.id ?? "", serial, requestToken);
 		} catch (error) {
-			if (serial !== this.requestSerial) return;
+			if (!guard.isCurrent(requestToken) || serial !== this.requestSerial)
+				return;
 			this.setData({ state: "error", errorMessage: errorMessage(error) });
 		}
 	},
 
-	async loadDiseases(mode: DiseaseMode, id: string, serial?: number) {
+	async loadDiseases(
+		mode: DiseaseMode,
+		id: string,
+		serial?: number,
+		requestToken?: number,
+	) {
+		const guard = getPageLatestRequestGuard(this, "health-encyclopedia");
 		const requestSerial = serial ?? ++this.requestSerial;
+		const token = requestToken ?? guard.begin();
+		if (!guard.isCurrent(token)) return;
 		if (!id) {
 			this.setData({ state: "empty", rightItems: [] });
 			return;
 		}
-		this.setData({ state: "loading", errorMessage: "" });
+		this.setData({ state: "loading", errorMessage: "", rightItems: [] });
 		try {
 			const response = await requestHealthDiseasesByRelation(mode, id);
-			if (requestSerial !== this.requestSerial) return;
+			if (!guard.isCurrent(token) || requestSerial !== this.requestSerial)
+				return;
 			this.setData({
 				rightItems: response.data.items,
 				// 分类目录有内容但当前关系为空属于右栏空态，不能升级为
@@ -192,13 +238,16 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 				disclaimer: response.data.publication.disclaimer,
 			});
 		} catch (error) {
-			if (requestSerial !== this.requestSerial) return;
+			if (!guard.isCurrent(token) || requestSerial !== this.requestSerial)
+				return;
 			this.setData({ state: "error", errorMessage: errorMessage(error) });
 		}
 	},
 
 	onTabChange(event: WechatMiniprogram.TouchEvent) {
-		const tab = event.currentTarget.dataset.tab as KnowledgeTab;
+		const rawTab = event.currentTarget.dataset.tab;
+		if (rawTab !== "symptom" && rawTab !== "disease") return;
+		const tab = rawTab as KnowledgeTab;
 		if (tab === this.data.activeTab) return;
 		this.setData({ activeTab: tab, rightItems: [], state: "loading" });
 		const source = resolveKnowledgeTabSource(tab, this.data.parts.length);
@@ -229,7 +278,9 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 	},
 
 	onDiseaseModeChange(event: WechatMiniprogram.TouchEvent) {
-		const mode = event.currentTarget.dataset.mode as DiseaseMode;
+		const rawMode = event.currentTarget.dataset.mode;
+		if (!isKnowledgeDiseaseMode(rawMode)) return;
+		const mode = rawMode as DiseaseMode;
 		if (mode === this.data.diseaseMode && this.data.activeTab === "disease") {
 			return;
 		}
@@ -250,6 +301,9 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 
 	onLeftItemTap(event: WechatMiniprogram.TouchEvent) {
 		const id = String(event.currentTarget.dataset.id ?? "");
+		// 刷新或切换模式后，旧 WXML 事件可能携带已经不属于当前左栏的 ID；
+		// 先回查当前目录，再更新 selectedLeftId 或发起关联查询。
+		if (!this.data.leftItems.some((item) => item.id === id)) return;
 		this.setData({ selectedLeftId: id });
 		if (this.data.activeTab === "symptom") {
 			void this.loadSymptoms(id);
@@ -259,6 +313,8 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 	},
 
 	onSymptomTap(event: WechatMiniprogram.TouchEvent) {
+		if (this.data.activeTab !== "symptom" || this.data.state !== "ready")
+			return;
 		const id = String(event.currentTarget.dataset.id ?? "");
 		const item = this.data.rightItems.find((candidate) => candidate.id === id);
 		if (!item || !("initialLetter" in item)) return;
@@ -286,7 +342,11 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 	},
 
 	onSearchSymptoms() {
-		if (this.data.selectedSymptoms.length === 0) {
+		if (
+			this.data.state !== "ready" ||
+			this.data.selectedSymptoms.length === 0 ||
+			this.data.selectedSymptoms.length > 10
+		) {
 			wx.showToast({ title: "请先选择症状", icon: "none" });
 			return;
 		}
@@ -301,7 +361,14 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 
 	onDiseaseTap(event: WechatMiniprogram.TouchEvent) {
 		const id = String(event.currentTarget.dataset.id ?? "");
-		if (!id) return;
+		// 详情引用必须来自当前疾病列表；不能把旧卡片事件或手工 dataset
+		// 当作已经审核发布的疾病 ID。
+		if (
+			this.data.activeTab !== "disease" ||
+			this.data.state !== "ready" ||
+			!this.data.rightItems.some((item) => item.id === id)
+		)
+			return;
 		wx.navigateTo({
 			url: `/pages/health-knowledge-detail/health-knowledge-detail?kind=disease&id=${encodeURIComponent(id)}`,
 		});
@@ -310,5 +377,10 @@ Page<KnowledgePageData, KnowledgePageMethods>({
 	onRetry() {
 		if (this.data.activeTab === "symptom") void this.loadParts();
 		else void this.loadDiseaseCatalog(this.data.diseaseMode);
+	},
+
+	/** 页面卸载后让目录、关联内容和旧页面事件全部失去回写资格。 */
+	onUnload() {
+		disposePageInstance(this);
 	},
 });

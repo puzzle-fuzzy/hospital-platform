@@ -29,10 +29,18 @@ export function resolveKnowledgePanelState(
  * 服务端仍会在没有审核 bundle 时返回 fail-closed 错误。
  */
 export type KnowledgeTab = "symptom" | "disease";
+export type KnowledgeDiseaseMode = "part" | "crowd" | "department";
 export type KnowledgeTabSource =
 	| "cached-parts"
 	| "reload-symptom-catalog"
 	| "reload-disease-catalog";
+
+/** 疾病目录的三种关系模式必须在页面事件边界严格收窄。 */
+export function isKnowledgeDiseaseMode(
+	value: unknown,
+): value is KnowledgeDiseaseMode {
+	return value === "part" || value === "crowd" || value === "department";
+}
 
 export function resolveKnowledgeTabSource(
 	tab: KnowledgeTab,
