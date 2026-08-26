@@ -1033,6 +1033,30 @@ test("patient-scoped read pages share one current-patient gate", async () => {
 	}
 });
 
+test("patient-scoped pages clear stale snapshots when the session changes", async () => {
+	const pages = [
+		"pages/appointment-records/appointment-records.ts",
+		"pages/missed-appointments/missed-appointments.ts",
+		"pages/report-directory/report-directory.ts",
+		"pages/outpatient-payment/outpatient-payment.ts",
+		"pages/report-detail/report-detail.ts",
+	] as const;
+
+	for (const file of pages) {
+		const page = await source(file);
+		// 这些页面都可能在页面栈中停留；会话轮换时必须先清理本地患者
+		// 读模型，不能等下一次网络请求完成后才撤掉旧预约、金额或报告。
+		expect(page).toContain("registerPageSessionResetListener(this");
+		expect(page).toContain("disposePageSessionResetListener(this)");
+		expect(page).toContain("登录账号已切换");
+	}
+
+	const detail = await source("pages/report-detail/report-detail.ts");
+	// 详情页还必须清除深链引用，否则旧 reportId 仍可能被重试按钮重新提交。
+	expect(detail).toContain('sourcePatientId: ""');
+	expect(detail).toContain('sourceReportId: ""');
+});
+
 test("patient-scoped API reads pin the session generation at the request boundary", async () => {
 	const client = await source("services/api-client.ts");
 	const dashboard = await source("services/dashboard-service.ts");

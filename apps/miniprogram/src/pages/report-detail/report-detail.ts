@@ -16,6 +16,10 @@ import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import { toLaboratoryReportItemView } from "../../services/report-presenter";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import { getSessionGeneration } from "../../services/session-generation";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
@@ -64,6 +68,23 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 	},
 
 	onLoad(options: Record<string, string | undefined>): void {
+		registerPageSessionResetListener(this, () => {
+			// 详情页的 reportId/patientId 只在当前会话和当前患者下短期有效；
+			// 会话切换时连同深链引用一并清除，禁止重试按钮再次读取旧报告。
+			this.setData({
+				loading: false,
+				title: "报告详情不可用",
+				reportCount: 0,
+				activeTab: "report",
+				reportedAt: "",
+				items: [],
+				hasItems: false,
+				hasAttachment: false,
+				error: "登录账号已切换，请重新选择就诊人",
+				sourcePatientId: "",
+				sourceReportId: "",
+			});
+		});
 		const patientId = options?.patientId;
 		const reportId = options?.reportId;
 		const reportCount = parseReportCount(options?.reportCount);
@@ -203,6 +224,7 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 
 	/** 页面卸载后让报告详情请求失去回写资格。 */
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 

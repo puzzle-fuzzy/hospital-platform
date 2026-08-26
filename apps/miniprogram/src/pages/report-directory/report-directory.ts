@@ -10,6 +10,10 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
+import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
@@ -95,6 +99,23 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	onLoad() {
 		// 首次展示标记必须绑定当前页面实例，避免报告页栈叠加时互相影响。
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 报告摘要属于当前患者的临床读模型。会话切换后必须清除报告卡片
+			// 和本地展开窗口，不能等待下一次请求完成后才撤掉旧数据。
+			this.setData({
+				sessionState: "checking",
+				selectedPatient: null,
+				patientSessionGeneration: -1,
+				reports: [],
+				visibleReports: [],
+				reportCount: 0,
+				visibleReportCount: 0,
+				hasMoreReports: false,
+				loading: false,
+				error: "登录账号已切换，请重新读取就诊人",
+				canSelectPatient: false,
+			});
+		});
 		this.loadPage();
 	},
 
@@ -291,6 +312,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 
 	/** 页面卸载后让报告目录请求失去回写资格。 */
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 

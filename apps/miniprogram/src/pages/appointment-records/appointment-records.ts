@@ -16,6 +16,10 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
+import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
@@ -168,6 +172,22 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	onLoad() {
 		// 首次展示标记必须绑定当前页面实例，不能让不同页面栈共享状态。
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 预约历史是当前患者范围的读模型。账号切换后清空患者、列表和
+			// 本地展开窗口，避免旧预约卡片被误认为属于新账号。
+			this.setData({
+				sessionState: "checking",
+				selectedPatient: null,
+				patientSessionGeneration: -1,
+				records: [],
+				visibleRecords: [],
+				visibleRecordCount: 0,
+				hasMoreRecords: false,
+				loading: false,
+				error: "登录账号已切换，请重新读取就诊人",
+				canSelectPatient: false,
+			});
+		});
 		this.loadRecords();
 	},
 
@@ -460,6 +480,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 
 	/** 页面卸载后让尚未完成的患者范围请求失去回写资格。 */
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 

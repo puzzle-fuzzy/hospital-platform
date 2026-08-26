@@ -12,6 +12,10 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
+import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
@@ -107,6 +111,22 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	onLoad() {
 		// 首次展示标记必须绑定当前页面实例，不能在多层页面栈之间共享。
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 门诊费用当前只读，但金额和缴费状态同样属于患者敏感范围；账号
+			// 切换时必须先清空旧账单，再等待用户重新触发当前会话读取。
+			this.setData({
+				sessionState: "checking",
+				selectedPatient: null,
+				patientSessionGeneration: -1,
+				items: [],
+				visibleItems: [],
+				visibleItemCount: 0,
+				hasMoreItems: false,
+				loading: false,
+				error: "登录账号已切换，请重新读取就诊人",
+				canSelectPatient: false,
+			});
+		});
 		this.loadPage();
 	},
 
@@ -427,6 +447,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 
 	/** 页面卸载后让费用查询失去回写资格，避免旧金额回写到新页面实例。 */
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 
