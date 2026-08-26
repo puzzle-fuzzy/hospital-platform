@@ -10,7 +10,7 @@
 
 | 检查项 | 结果 |
 | --- | --- |
-| 当前小程序候选 | pending `de5dea8`（来源 `de5dea8df249c2fd1e122df4508bcd6cbb3852a7`）；live `02dbf10` |
+| 当前小程序候选 | pending `ed63a8e`（来源 `ed63a8ef570de7f4563f8c1821ce351612888efb`）；live `02dbf10` |
 | 原生页面与运行包 | 40 个页面；pending 根文件和来源指纹完整，live 根文件仍为上一候选 |
 | 主导航 | 4 个微信原生 `tabBar`，页面之间不重复渲染自定义 Tab |
 | 导航审计 | 通过；40 个页面、30 个字面导航调用 |
@@ -19,7 +19,7 @@
 | 迁移边界审计 | 通过；34 个冻结入口门禁、64 个旧页面都有唯一落点 |
 | TypeScript | 9 个 workspace 包全部通过 `tsc --noEmit` |
 | Biome lint | 435 个文件通过，无自动修复 |
-| 小程序核心测试 | `316 pass / 0 fail / 3574 expect()` |
+| 小程序核心测试 | `320 pass / 0 fail / 3580 expect()` |
 
 ## 当前仍未通过的门
 
@@ -30,7 +30,7 @@
 
 ### 2. 真机证据仍为空
 
-当前 `docs/release/device-evidence-de5dea8-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
+当前 `docs/release/device-evidence-ed63a8e-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
 
 ### 3. 健康百科仍不能发布
 
