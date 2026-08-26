@@ -172,12 +172,11 @@ export const currentBaselineDocuments = Object.freeze([
 		path: currentCandidateDocumentPath,
 		label: "当前服务端独立候选",
 	},
+	// `candidate-13f597ea-miniprogram-build-2026-08-24.md` 是线上历史小程序包，
+	// 保留用于追溯但不再作为当前基线入口；当前本地 live 候选由下方的
+	// `candidate-0be59f96-miniprogram-runtime-2026-08-26.md` 锁定。
 	{
-		path: "docs/release/candidate-13f597ea-miniprogram-build-2026-08-24.md",
-		label: "当前小程序运行包记录",
-	},
-	{
-		path: "docs/release/8eb51b5f-production-acceptance-2026-08-24.md",
+		path: "docs/release/e5d941ae-production-acceptance-2026-08-26.md",
 		label: "当前服务端生产切换记录",
 	},
 	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入

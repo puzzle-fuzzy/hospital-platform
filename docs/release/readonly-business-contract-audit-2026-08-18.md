@@ -1,4 +1,6 @@
 > 当前发布基线更新（2026-08-24 13:01 CST）：线上服务端 release 为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`；当前小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮为服务端独立只读 adapter 发布，真机业务三层证据仍待。
+> 当前配套小程序构建来源（2026-08-26）：`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，仅表示本地 live 候选，未证明微信线上版本或真机业务已验收。
+> 当前线上服务端 release（2026-08-26）：`e5d941aef3a8b0d1df24a518bea03f36f2ee505d`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 > 下方 2026-08-22 的 release 与运行包只作历史追溯；当前执行使用顶部 `13f597e` 配套基线。
 
@@ -47,10 +49,10 @@
 - `packages/domain/src/outpatient-payments.ts`
 - `packages/domain/src/patients.ts`
 
-当前线上 release 以 [`0e2a366e-production-acceptance-2026-08-22.md`](0e2a366e-production-acceptance-2026-08-22.md)
+当前线上 release 以 [`e5d941ae-production-acceptance-2026-08-26.md`](e5d941ae-production-acceptance-2026-08-26.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选为
-`13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`），服务端为 `28a5c0c131794ce9dcc5f94bd3809402188ac87a`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
+`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（提交 `0be59f96`），服务端为 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -139,8 +141,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 本节记录的历史审计候选为小程序 `d2086d8`，完整运行包来源为
 `d2086d819b3e393da2e8c5c39d7704012854214b`；这些数字仅用于追溯，不能作为当前真机包。当前真机候选以
-`13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）为准。当前真机候选以
-`28a5c0c1` 服务端配套的 `13f597e` 和完整来源指纹 `13f597ea9ee3f65b9be858117826d948339d904a` 为准。
+`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（提交 `0be59f96`）为准。当前真机候选以
+`e5d941ae` 服务端配套的 `0be59f96` 和完整来源指纹 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 为准。
 
 本节对应的当前服务端生产候选为 `c8eef370`；下方保留的 `398be8e`、`687690e`、`c26e696` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 

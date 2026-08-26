@@ -1,4 +1,5 @@
 # `8eb51b5f` 新 API 生产共存发布验收记录（2026-08-24）
+> 当前线上服务端 release（2026-08-26）：`e5d941aef3a8b0d1df24a518bea03f36f2ee505d`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 
 > 本记录证明普通资料日志边界修正候选完成受控切换、生产依赖 readiness、公网 runtime smoke 和旧 Python 共存复核。
 > 它不把健康检查误写成微信、患者、预约、门诊费用、Provider、支付或医保业务成功。

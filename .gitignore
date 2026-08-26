@@ -30,3 +30,4 @@ docs/release/wechat-preview-*.json
 docs/release/wechat-preview-*.png
 # 当前真机预览二维码只在本机临时使用，不进入源码、发布包或文档归档。
 .local/device-acceptance/
+docs/obsidian/.obsidian
