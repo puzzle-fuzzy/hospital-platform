@@ -33,6 +33,15 @@ pnpm health:remediation:ledger
 工具的 `publishable` 固定为 `false`。健康百科在审核 bundle、staging 导入、发布/撤回演练和真机证据
 全部完成前继续 fail-closed，不新增自测题库、诊断结论或个体化用药建议。
 
+## 工程侧已补充的发布保护
+
+健康知识导入器现在会在同一事务中先锁定已有 `published` 发布窗口，再按半开区间
+`[effectiveFrom, effectiveTo)` 检查重叠。重叠版本、已有窗口时间损坏或新窗口时间无效时，
+导入会在写入发布表前回滚；首尾相接的窗口可以正常导入。这个保护只约束未来明确提交的
+审核 bundle，不会读取或导入当前 `.local` 源快照，也不会改变患者端 `publishable=false`
+和线上服务状态。现阶段仍没有 staging/生产导入证据，因此 staging 事务导入与发布演练 gate
+继续保持阻塞。
+
 ## 本轮边界
 
 - 只新增脱敏整改台账、测试和用户可见的授权加载反馈；

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	HEALTH_KNOWLEDGE_DISCLAIMER,
 	type HealthKnowledgeImportBundle,
+	HealthKnowledgePublicationConflictError,
 } from "@hospital/domain";
 import type { Pool } from "mysql2/promise";
 import { importHealthKnowledgeBundle } from "./health-knowledge-import";
@@ -69,7 +70,13 @@ function validBundle(): HealthKnowledgeImportBundle {
 	};
 }
 
-function createFakePool(options: { failAt?: number } = {}): {
+function createFakePool(
+	options: {
+		failAt?: number;
+		publishedRows?: readonly Record<string, unknown>[];
+		publicationLockResult?: number;
+	} = {},
+): {
 	pool: Pool;
 	state: {
 		statements: string[];
@@ -105,6 +112,14 @@ function createFakePool(options: { failAt?: number } = {}): {
 			if (options.failAt === state.statements.length) {
 				throw new Error("fixture database failure");
 			}
+			if (sql.includes("SELECT GET_LOCK")) {
+				return [[{ locked: options.publicationLockResult ?? 1 }], []];
+			}
+			if (
+				sql.includes("SELECT content_version, effective_from, effective_to")
+			) {
+				return [options.publishedRows ?? [], []];
+			}
 			return [[], []];
 		},
 	};
@@ -133,16 +148,79 @@ test("health knowledge import writes the reviewed bundle in one transaction", as
 	expect(state.committed).toBe(true);
 	expect(state.rolledBack).toBe(false);
 	expect(state.released).toBe(true);
-	expect(state.statements).toHaveLength(15);
-	expect(state.statements[0]).toContain(
+	expect(state.statements).toHaveLength(18);
+	expect(state.statements[0]).toContain("SELECT GET_LOCK");
+	expect(state.statements[1]).toContain(
+		"SELECT content_version, effective_from, effective_to",
+	);
+	expect(state.statements[2]).toContain(
 		"INSERT INTO hp_health_knowledge_publications",
 	);
-	expect(state.values[0]?.[0]).toBe("health-2026-08-15");
-	expect(state.values.at(-1)).toEqual([
+	expect(state.values[2]?.[0]).toBe("health-2026-08-15");
+	expect(state.statements.at(-1)).toContain("SELECT RELEASE_LOCK");
+	expect(state.values.at(-2)).toEqual([
 		"health-2026-08-15",
 		"symptom-cough",
 		"disease-cold",
 	]);
+});
+
+test("health knowledge import rejects an overlapping published window before inserting", async () => {
+	const { pool, state } = createFakePool({
+		publishedRows: [
+			{
+				content_version: "health-2026-08-14",
+				effective_from: "2026-08-14T00:00:00.000Z",
+				effective_to: null,
+			},
+		],
+	});
+
+	await expect(
+		importHealthKnowledgeBundle(pool, validBundle()),
+	).rejects.toBeInstanceOf(HealthKnowledgePublicationConflictError);
+	expect(state.statements).toHaveLength(3);
+	expect(
+		state.statements.some((statement) =>
+			statement.includes("INSERT INTO hp_health_knowledge_publications"),
+		),
+	).toBe(false);
+	expect(state.committed).toBe(false);
+	expect(state.rolledBack).toBe(true);
+	expect(state.released).toBe(true);
+});
+
+test("health knowledge import fails closed when the publication lock is unavailable", async () => {
+	const { pool, state } = createFakePool({ publicationLockResult: 0 });
+
+	await expect(
+		importHealthKnowledgeBundle(pool, validBundle()),
+	).rejects.toBeInstanceOf(HealthKnowledgePublicationConflictError);
+	expect(state.statements).toHaveLength(1);
+	expect(state.statements[0]).toContain("SELECT GET_LOCK");
+	expect(state.rolledBack).toBe(true);
+	expect(state.released).toBe(true);
+});
+
+test("相邻健康知识发布窗口可以首尾衔接", async () => {
+	const bundle = validBundle();
+	bundle.publication.effectiveTo = "2026-08-16T00:00:00.000Z";
+	const { pool, state } = createFakePool({
+		publishedRows: [
+			{
+				content_version: "health-2026-08-14",
+				effective_from: "2026-08-14T00:00:00.000Z",
+				effective_to: "2026-08-15T00:00:00.000Z",
+			},
+		],
+	});
+
+	await expect(
+		importHealthKnowledgeBundle(pool, bundle),
+	).resolves.toMatchObject({
+		contentVersion: "health-2026-08-15",
+	});
+	expect(state.committed).toBe(true);
 });
 
 test("health knowledge import validates before acquiring a connection", async () => {
