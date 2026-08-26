@@ -64,7 +64,7 @@
 	</view>
 
 	<view class="page-actions">
-		<button class="refresh-button" loading="{{syncing}}" disabled="{{syncing || navigationPending}}" bindtap="onSyncPatients">
+		<button class="refresh-button" loading="{{syncing}}" disabled="{{loading || syncing || navigationPending}}" bindtap="onSyncPatients">
 			{{syncing ? "正在刷新" : "刷新就诊人"}}
 		</button>
 		<text class="action-hint">新增或绑定就诊人功能将在后续接入医院真实接口</text>

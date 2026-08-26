@@ -337,11 +337,13 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 * 隔离框架事件和业务状态。
 	 */
 	onSyncPatients(): Promise<void> {
-		// 选择完成后页面已经进入延迟返回窗口；此时再次启动同步会让即将
-		// 离开的页面发起第二条 Provider 命令，并把“选择患者”和“刷新目录”
-		// 两个不同业务动作混在同一个页面周期内。WXML 已经禁用按钮，方法层
-		// 仍保留门禁，防止测试、无障碍或未来其它入口绕过视图属性。
-		if (this.data.navigationPending) return Promise.resolve();
+		// 页面首次读取目录或已经执行同步时，不能再启动第二个“刷新目录”
+		// 命令。否则新的 listLoadGuard 会淘汰首轮目录响应，造成 loading、
+		// patients 和 error 分别来自不同请求周期；WXML disabled 是第一层，
+		// 这里的状态门禁是事件、无障碍操作和未来其它入口的第二层保护。
+		if (this.data.loading || this.data.syncing || this.data.navigationPending) {
+			return Promise.resolve();
+		}
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
 		return this.syncPatientDirectoryForLoad(listLoadGuard.begin());
 	},

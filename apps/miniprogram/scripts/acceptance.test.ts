@@ -639,7 +639,7 @@ test("native mini program exposes a real patient selection page", async () => {
 	expect(selection).toContain("navigationPending");
 	expect(selection).toContain("if (!this.data.navigationPending) return;");
 	expect(selection).toContain(
-		"if (this.data.navigationPending) return Promise.resolve();",
+		"if (this.data.loading || this.data.syncing || this.data.navigationPending)",
 	);
 	expect(selection).toContain("wx.stopPullDownRefresh();");
 	expect(selection).toContain("patientNavigationTimers");
@@ -656,7 +656,9 @@ test("native mini program exposes a real patient selection page", async () => {
 	// WXML 事件对象不能进入只接受 number 的内部加载 token 流程；
 	// 真机刷新必须经过无参数事件入口再创建本轮 token。
 	expect(template).toContain('bindtap="onSyncPatients"');
-	expect(template).toContain('disabled="{{syncing || navigationPending}}"');
+	expect(template).toContain(
+		'disabled="{{loading || syncing || navigationPending}}"',
+	);
 	expect(selection).toContain("onSyncPatients(): Promise<void>");
 	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken: number)");
 	expect(selection).not.toContain(
@@ -3567,6 +3569,12 @@ test("native mini program keeps the legacy hospital visual system", async () => 
 	expect(patientSelectTemplate).toContain("relationshipLabel");
 	expect(patientSelectScript).toContain('other: "其他"');
 	expect(patientSelectScript).toContain('unknown: "关系未提供"');
+	expect(patientSelectTemplate).toContain(
+		'disabled="{{loading || syncing || navigationPending}}"',
+	);
+	expect(patientSelectScript).toContain(
+		"if (this.data.loading || this.data.syncing || this.data.navigationPending)",
+	);
 	expect(patientSelectTemplate).toContain("电子就诊卡（脱敏）");
 	expect(patientSelectStyle).toContain("height: 80rpx");
 	expect(homeStyle).toContain("width: 350rpx");
