@@ -35,6 +35,22 @@ export class WechatUserProfileUnavailableError extends Error {
 	}
 }
 
+/**
+ * 打开微信授权设置页失败时使用独立错误。
+ *
+ * 这和“用户拒绝个人资料”不是同一个业务分支：前者可能是基础库能力或
+ * 用户手势链路失败，后者需要保留“再次打开设置”的入口。页面据此展示
+ * 不同提示，避免把设置页没有拉起误说成用户再次拒绝。
+ */
+export class WechatUserProfileSettingsError extends Error {
+	readonly code = "wechat-profile-settings-failed" as const;
+
+	constructor() {
+		super("Wechat user profile settings could not be opened");
+		this.name = "WechatUserProfileSettingsError";
+	}
+}
+
 /** 微信回调的头像地址只能作为展示输入，拒绝非 HTTPS URL，避免注入任意资源。 */
 function normalizeAvatarUrl(value: unknown): string | null {
 	if (typeof value !== "string") return null;
@@ -102,6 +118,28 @@ export function requestWechatUserProfile(): Promise<WechatUserProfileSnapshot> {
 				resolve(snapshot);
 			},
 			fail: () => reject(new WechatUserProfileAuthorizationError()),
+		});
+	});
+}
+
+/**
+ * 打开微信小程序的授权设置页。
+ *
+ * 微信会记住用户对个人资料权限的拒绝结果；拒绝后再次直接调用
+ * `wx.getUserProfile()` 可能不会弹窗，而是立即失败。因此“未授权”按钮
+ * 必须在用户真实点击链路中先打开设置页，设置页返回后再重新调用资料接口。
+ * 这里不读取或记录任何授权头、openid 或微信原始响应，只把调用成功/失败
+ * 交给上层的资料状态机处理。
+ */
+export function openWechatUserProfileSettings(): Promise<void> {
+	return new Promise((resolve, reject) => {
+		if (typeof wx.openSetting !== "function") {
+			reject(new WechatUserProfileUnavailableError());
+			return;
+		}
+		wx.openSetting({
+			success: () => resolve(),
+			fail: () => reject(new WechatUserProfileSettingsError()),
 		});
 	});
 }

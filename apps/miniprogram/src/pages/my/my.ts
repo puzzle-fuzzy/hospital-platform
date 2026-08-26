@@ -12,6 +12,7 @@ import {
 	subscribeGlobalUserProfile,
 	waitForGlobalUserProfile,
 } from "../../services/global-user-profile";
+import { openWechatUserProfileSettings } from "../../services/wechat-user-profile";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -336,7 +337,20 @@ Page<MyPageData, MyPageMethods>({
 			return Promise.resolve();
 		}
 
-		return authorizeGlobalWechatProfile()
+		/**
+		 * 微信会缓存拒绝结果；拒绝态不能只再次调用 getUserProfile，
+		 * 否则真机会立即失败，用户看到提示闪动却没有任何授权界面。
+		 * 只有用户点击当前提示时才打开设置页，设置页返回后再复用全局
+		 * 单飞授权流程。正常 idle/ready 状态仍直接走首次授权弹窗。
+		 */
+		const authorizationPromise =
+			this.data.wechatProfileState === "declined"
+				? openWechatUserProfileSettings().then(() =>
+						authorizeGlobalWechatProfile(),
+					)
+				: authorizeGlobalWechatProfile();
+
+		return authorizationPromise
 			.then(() => {
 				wx.showToast({ title: "头像昵称已更新", icon: "success" });
 			})
@@ -371,6 +385,17 @@ Page<MyPageData, MyPageMethods>({
 						wechatProfileHint: "未授权，可点击此处重新获取",
 					});
 					wx.showToast({ title: "未授权，可再次点击获取", icon: "none" });
+					return;
+				}
+				if (
+					error instanceof Error &&
+					error.name === "WechatUserProfileSettingsError"
+				) {
+					this.setData({
+						wechatProfileState: "declined",
+						wechatProfileHint: "授权设置未打开，请再次点击重试",
+					});
+					wx.showToast({ title: "授权设置未打开，请重试", icon: "none" });
 					return;
 				}
 				wx.showToast({ title: "获取头像昵称失败，请重试", icon: "none" });

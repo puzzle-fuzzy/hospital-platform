@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
 	normalizeWechatUserProfile,
+	openWechatUserProfileSettings,
 	WechatUserProfileAuthorizationError,
+	WechatUserProfileSettingsError,
 	WechatUserProfileUnavailableError,
 } from "./wechat-user-profile";
 
@@ -68,5 +70,58 @@ describe("微信个人资料授权边界", () => {
 		const error = new WechatUserProfileUnavailableError();
 		expect(error.code).toBe("wechat-profile-unavailable");
 		expect(error.name).toBe("WechatUserProfileUnavailableError");
+	});
+
+	test("用户拒绝后通过用户点击打开授权设置页", async () => {
+		const runtime = globalThis as typeof globalThis & {
+			wx?: {
+				openSetting?: (options: {
+					success?: (result: unknown) => void;
+					fail?: () => void;
+				}) => void;
+			};
+		};
+		const previousWx = runtime.wx;
+		let openSettingCalls = 0;
+		runtime.wx = {
+			openSetting(options) {
+				openSettingCalls += 1;
+				options.success?.({});
+			},
+		};
+
+		try {
+			await openWechatUserProfileSettings();
+			expect(openSettingCalls).toBe(1);
+		} finally {
+			if (previousWx === undefined) delete runtime.wx;
+			else runtime.wx = previousWx;
+		}
+	});
+
+	test("设置页无法打开时保留独立错误语义", async () => {
+		const runtime = globalThis as typeof globalThis & {
+			wx?: {
+				openSetting?: (options: {
+					success?: (result: unknown) => void;
+					fail?: () => void;
+				}) => void;
+			};
+		};
+		const previousWx = runtime.wx;
+		runtime.wx = {
+			openSetting(options) {
+				options.fail?.();
+			},
+		};
+
+		try {
+			await expect(openWechatUserProfileSettings()).rejects.toBeInstanceOf(
+				WechatUserProfileSettingsError,
+			);
+		} finally {
+			if (previousWx === undefined) delete runtime.wx;
+			else runtime.wx = previousWx;
+		}
 	});
 });

@@ -229,6 +229,11 @@ test("native profile consent remains clickable while patient data is loading", a
 	expect(template).toContain(
 		'class="profile-auth-action" catchtap="onWechatProfileTap"',
 	);
+	expect(my).toContain("openWechatUserProfileSettings");
+	expect(my).toContain('this.data.wechatProfileState === "declined"');
+	expect(await source("services/wechat-user-profile.ts")).toContain(
+		"拒绝后再次直接调用",
+	);
 	expect(style).toContain("扩大授权提示的可点击区域");
 });
 
