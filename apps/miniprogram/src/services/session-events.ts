@@ -6,6 +6,8 @@
  * 依赖。这里提供一个无业务依赖的事件桥：凭证轮换或失效时只发布“会话
  * 已变化”事实，由资料仓库、患者上下文等订阅者各自清理自己的派生快照。
  */
+import { invalidatePageRequests } from "./page-instance-state";
+
 export type SessionChangedListener = () => void;
 
 type PageSessionResetRuntime = {
@@ -64,7 +66,9 @@ export function registerSessionChangedListener(
  *
  * `reset` 只能清理患者卡片、错误文案和加载状态，不能在回调中发起网络
  * 请求：`setAccessToken` 发布事件时新 token 可能还没有写入全局状态。页面
- * 应在 `onShow`、重试按钮或用户重新进入入口时再读取新账号的数据。
+ * 应在 `onShow`、重试按钮或用户重新进入入口时再读取新账号的数据。回调
+ * 执行 reset 前会先淘汰当前页面全部请求 guard，防止会话事件之后晚返回的
+ * 旧 Promise 重新填充上一账号的患者、费用或资料快照。
  *
  * 统一封装这一层，避免便民、快递、采血、订阅等页面各自保存取消句柄，
  * 也避免忘记处理页面卸载后异步事件继续 `setData` 的生命周期问题。
@@ -80,6 +84,7 @@ export function registerPageSessionResetListener(
 	};
 	runtime.unsubscribe = registerSessionChangedListener(() => {
 		if (runtime.disposed) return;
+		invalidatePageRequests(page);
 		reset();
 	});
 	pageSessionResetRuntimes.set(page, runtime);

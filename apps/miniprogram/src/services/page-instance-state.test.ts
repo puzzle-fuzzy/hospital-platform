@@ -4,6 +4,7 @@ import {
 	getPageLatestRequestGuard,
 	getPageLifecycle,
 	getPageSingleFlight,
+	invalidatePageRequests,
 } from "./page-instance-state";
 
 test("page request guards are isolated between page instances", () => {
@@ -56,4 +57,20 @@ test("disposing a page invalidates its pending request guards", () => {
 
 	expect(getPageLifecycle(page).isActive()).toBe(false);
 	expect(guard.isCurrent(token)).toBe(false);
+});
+
+test("invalidating page requests keeps the page alive but rejects old tokens", () => {
+	const page = {};
+	const firstGuard = getPageLatestRequestGuard(page, "patients");
+	const secondGuard = getPageLatestRequestGuard(page, "profile");
+	const firstToken = firstGuard.begin();
+	const secondToken = secondGuard.begin();
+
+	invalidatePageRequests(page);
+
+	expect(getPageLifecycle(page).isActive()).toBe(true);
+	expect(firstGuard.isCurrent(firstToken)).toBe(false);
+	expect(secondGuard.isCurrent(secondToken)).toBe(false);
+	const nextToken = firstGuard.begin();
+	expect(firstGuard.isCurrent(nextToken)).toBe(true);
 });

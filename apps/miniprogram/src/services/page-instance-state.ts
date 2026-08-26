@@ -62,6 +62,24 @@ export function disposePageInstance(page: object): void {
 	getPageLifecycle(page).dispose();
 }
 
+/**
+ * 让页面实例的所有在途读请求失去回写资格，但不销毁页面本身。
+ *
+ * 会话切换通知发生在页面仍然可见时，不能调用 `disposePageInstance`，否则
+ * 新账号重新进入页面后无法复用同一个微信页面实例；只清空 WXML 也不够，
+ * 旧 Promise 仍可能在通知之后完成并把上一账号的数据写回来。这里遍历该
+ * 页面已经创建的 guard，推进每个 guard 的序号，随后页面重试/onShow 再开启
+ * 新周期。single-flight 仍可等待完成，但它的旧结果没有页面回写资格。
+ */
+export function invalidatePageRequests(page: object): void {
+	const state = pageState.get(page);
+	if (!state) return;
+	for (const [key, value] of state) {
+		if (!key.startsWith("guard:")) continue;
+		(value as LatestRequestGuard).begin();
+	}
+}
+
 /** 获取当前页面实例专属的最后一次请求守卫。 */
 export function getPageLatestRequestGuard(
 	page: object,

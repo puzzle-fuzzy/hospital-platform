@@ -4,6 +4,7 @@ import { loadCurrentPatientForOwner } from "./dashboard-service";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
+	invalidatePageRequests,
 } from "./page-instance-state";
 import { patientScopedErrorMessage } from "./patient-selection-service";
 import { registerSessionChangedListener } from "./session-events";
@@ -139,6 +140,9 @@ function ensurePatientSurfaceRuntime(
 		// `notifySessionChanged` 会复制监听器后再执行；即使页面恰好在
 		// 通知期间卸载，disposed 也必须阻止回调越过页面生命周期边界。
 		if (runtime.disposed || runtime.sessionGeneration < 0) return;
+		// 共享患者外壳没有使用页面级 reset 工厂，因此这里显式淘汰该页面
+		// 所有 guard；否则目录请求在会话通知后晚返回，仍可能覆盖清理态。
+		invalidatePageRequests(page);
 		runtime.sessionGeneration = -1;
 		page.setData(patientSurfaceSessionReset());
 	});

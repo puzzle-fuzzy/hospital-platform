@@ -4,6 +4,7 @@ import {
 	notifySessionChanged,
 	registerPageSessionResetListener,
 } from "./session-events";
+import { getPageLatestRequestGuard } from "./page-instance-state";
 
 test("页面会话清理监听按页面实例注册并可卸载", () => {
 	const firstPage = {};
@@ -46,5 +47,21 @@ test("同一页面重新注册时只保留最新清理回调", () => {
 	expect(oldResetCount).toBe(0);
 	expect(newResetCount).toBe(1);
 
+	disposePageSessionResetListener(page);
+});
+
+test("页面会话清理先淘汰在途请求再执行回调", () => {
+	const page = {};
+	const guard = getPageLatestRequestGuard(page, "patients");
+	const token = guard.begin();
+	let resetCount = 0;
+
+	registerPageSessionResetListener(page, () => {
+		resetCount += 1;
+	});
+	notifySessionChanged();
+
+	expect(resetCount).toBe(1);
+	expect(guard.isCurrent(token)).toBe(false);
 	disposePageSessionResetListener(page);
 });
