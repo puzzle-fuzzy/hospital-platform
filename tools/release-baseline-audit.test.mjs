@@ -341,7 +341,9 @@ test("A 批次只读验收计划的 pending 运行包不能漂移到历史来源
 	]);
 });
 
-test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async () => {
+// 当前基线包含迁移总览和患者边界文档，完整 Git/文档审计在 Windows 上
+// 可能超过 15 秒；提高的是测试等待上限，不放宽任何一致性断言。
+test("仓库当前发布文档保持同一套候选", { timeout: 30_000 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 	// 这里固定当前线上候选的来源，并明确记录服务端 release 漂移为失败。
 	// 线上仍运行旧 release 时，本地运行代码不能被测试结果“带绿”；只有
@@ -391,7 +393,7 @@ test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async
 });
 
 test("当前业务验收协议也必须绑定已部署服务端和小程序来源", {
-	timeout: 15_000,
+	timeout: 30_000,
 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 

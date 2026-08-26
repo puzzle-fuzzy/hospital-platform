@@ -293,6 +293,44 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "五个低风险业务域横向逻辑审计",
 		candidateOnly: true,
 	},
+	// 以下文档不是发布切换记录，但它们会被新会话直接用于判断业务状态、
+	// API 迁移边界和患者上下文。把它们纳入同一基线集合，防止总览页继续
+	// 引用旧 pending 候选而让正文与真机入口发生漂移。
+	{
+		path: "docs/business-correctness.md",
+		label: "患者端业务正确性规则",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/api-matrix.md",
+		label: "API 迁移矩阵",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/domain-migration-summary-2026-08-25.md",
+		label: "旧端业务域迁移覆盖摘要",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/migration-breadth-status-2026-08-25.md",
+		label: "全量迁移广度状态",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/health-knowledge-state-audit-2026-08-26.md",
+		label: "健康百科分类状态迁移审计",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/patient-agreement-static-migration-2026-08-26.md",
+		label: "就诊人协议静态页面迁移记录",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/migration/patient-surface-context-migration-2026-08-26.md",
+		label: "当前就诊人上下文横向迁移记录",
+		candidateOnly: true,
+	},
 	{
 		path: "docs/release/current-13f-real-device-acceptance-runbook-2026-08-24.md",
 		label: "当前小程序真机执行手册",
@@ -692,6 +730,97 @@ const currentCandidateReferenceRules = Object.freeze([
 						text: "审计对象为最新 pending 小程序候选",
 						expected: "pending-full",
 					},
+				],
+			},
+		],
+	},
+	{
+		path: "docs/business-correctness.md",
+		label: "患者端业务正确性规则",
+		sections: [
+			{
+				start: "# 患者端业务正确性规则",
+				end: "## 1. 患者上下文",
+				phrases: [
+					{ text: "当前本地源码候选（2026-08-26）", expected: "pending-full" },
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/api-matrix.md",
+		label: "API 迁移矩阵",
+		sections: [
+			{
+				start: "# API 迁移矩阵",
+				end: "## 状态说明",
+				phrases: [
+					{ text: "当前运行基线（2026-08-26）", expected: "pending-full" },
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/domain-migration-summary-2026-08-25.md",
+		label: "旧端业务域迁移覆盖摘要",
+		sections: [
+			{
+				start: "# 旧端业务域迁移覆盖摘要（2026-08-25）",
+				end: "## 当前覆盖总览",
+				phrases: [
+					{ text: "当前事实源（2026-08-26）", expected: "pending-full" },
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/migration-breadth-status-2026-08-25.md",
+		label: "全量迁移广度状态",
+		sections: [
+			{
+				start: "# 全量迁移广度状态（2026-08-25）",
+				end: "## 1. 当前结论",
+				phrases: [
+					{ text: "最新候选纠正（2026-08-26）", expected: "pending-full" },
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/health-knowledge-state-audit-2026-08-26.md",
+		label: "健康百科分类状态迁移审计",
+		sections: [
+			{
+				start: "# 健康百科分类状态迁移审计（2026-08-26）",
+				end: "## 修正前的逻辑风险",
+				phrases: [
+					{ text: "当前候选事实（2026-08-26）", expected: "pending-full" },
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/patient-agreement-static-migration-2026-08-26.md",
+		label: "就诊人协议静态页面迁移记录",
+		sections: [
+			{
+				start: "# 就诊人协议静态页面迁移记录（2026-08-26）",
+				end: "## 结论",
+				phrases: [
+					{ text: "最新小程序 pending 候选以", expected: "pending-full" },
+				],
+			},
+		],
+	},
+	{
+		path: "docs/migration/patient-surface-context-migration-2026-08-26.md",
+		label: "当前就诊人上下文横向迁移记录",
+		sections: [
+			{
+				start: "# 当前就诊人上下文横向迁移记录（2026-08-26）",
+				end: "## 已覆盖页面",
+				phrases: [
+					{ text: "当前运行基线（2026-08-26）", expected: "pending-full" },
 				],
 			},
 		],
