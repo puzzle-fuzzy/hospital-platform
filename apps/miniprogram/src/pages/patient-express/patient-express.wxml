@@ -16,7 +16,17 @@
 			<button class="patient-express-retry" bindtap="onRetry">重新获取</button>
 		</view>
 
-		<view class="patient-express-empty">
+		<!--
+			物流没有真实 Provider 查询；记录区域必须先经过患者读取状态，
+			不能在 loading/error 时同时出现“未查询到记录”空插图。三种状态
+			共用固定高度容器，避免重试时卡片突然增高或缩短。
+		-->
+		<view wx:if="{{recordState === 'loading'}}" class="patient-express-empty patient-express-loading">
+			<view class="patient-express-loading-icon" aria-hidden="true"></view>
+			<text class="patient-express-empty-text">正在获取就诊人...</text>
+		</view>
+
+		<view wx:elif="{{recordState === 'unavailable'}}" class="patient-express-empty">
 			<image class="patient-express-empty-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
 			<text class="patient-express-empty-text">未查询到相关记录!</text>
 			<text class="patient-express-empty-note">旧端当前没有接入物流记录服务</text>

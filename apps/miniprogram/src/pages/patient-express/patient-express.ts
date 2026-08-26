@@ -4,6 +4,10 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { patientScopedErrorMessage } from "../../services/patient-selection-service";
+import {
+	resolvePatientExpressRecordState,
+	type PatientExpressRecordState,
+} from "../../services/patient-express-state";
 import { loadCurrentPatient } from "../../services/dashboard-service";
 import type { Patient } from "../../types";
 
@@ -11,6 +15,7 @@ type PatientExpressPageData = {
 	loading: boolean;
 	patient: Patient | null;
 	error: string;
+	recordState: PatientExpressRecordState;
 	hasShown: boolean;
 };
 
@@ -36,6 +41,7 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 		loading: true,
 		patient: null,
 		error: "",
+		recordState: "loading",
 		hasShown: false,
 	},
 
@@ -56,17 +62,26 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 	loadCurrentPatient() {
 		const guard = getPageLatestRequestGuard(this, "patient-express");
 		const token = guard.begin();
-		this.setData({ loading: true, error: "" });
+		this.setData({
+			loading: true,
+			error: "",
+			recordState: resolvePatientExpressRecordState(true, ""),
+		});
 		return loadCurrentPatient()
 			.then((patient) => {
 				if (!guard.isCurrent(token)) return;
-				this.setData({ patient });
+				this.setData({
+					patient,
+					recordState: resolvePatientExpressRecordState(false, ""),
+				});
 			})
 			.catch((error) => {
 				if (!guard.isCurrent(token)) return;
+				const message = patientScopedErrorMessage(error);
 				this.setData({
 					patient: null,
-					error: patientScopedErrorMessage(error),
+					error: message,
+					recordState: resolvePatientExpressRecordState(false, message),
 				});
 			})
 			.finally(() => {

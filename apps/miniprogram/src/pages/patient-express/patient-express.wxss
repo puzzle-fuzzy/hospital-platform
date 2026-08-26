@@ -80,8 +80,29 @@ page {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	box-sizing: border-box;
+	min-height: 534rpx;
 	padding: 150rpx 24rpx 80rpx;
 	flex-direction: column;
+}
+
+.patient-express-loading-icon {
+	width: 44rpx;
+	height: 44rpx;
+	margin-bottom: 24rpx;
+	border: 4rpx solid #dce6ff;
+	border-top-color: #3d6df6;
+	border-radius: 50%;
+	animation: patient-express-loading-spin 0.9s linear infinite;
+}
+
+@keyframes patient-express-loading-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .patient-express-empty-image {
