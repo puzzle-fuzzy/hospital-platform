@@ -68,6 +68,10 @@ domain/service/repository/importer 边界。没有导入旧正文、没有注册
 
 新项目已具备健康百科只读域的工程骨架：
 
+当前小程序只开放 BMI 公式计算和血压读数格式校验这两个非诊断性本地工具；两者返回值固定带有
+`ruleSetVersion=local-non-diagnostic-v1`。该字段只用于确认工程规则来源，不代表采用了某个临床指南，
+也不能作为诊断、风险分级或就医建议的版本证明。
+
 - `packages/domain/src/knowledge.ts`：已审核只读读模型、固定免责声明和查询参数校验；
 - `packages/domain/src/knowledge-import.ts`：未知字段、版本、时区、关系、完整详情集和发布状态校验；
 - `packages/persistence/src/health-knowledge-import.ts`：单事务写入，失败回滚；

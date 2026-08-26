@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { calculateBmi, recordBloodPressure } from "./health-safe-calculators";
+import {
+	calculateBmi,
+	HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
+	recordBloodPressure,
+} from "./health-safe-calculators";
 
 describe("健康自测安全数值工具", () => {
 	test("BMI 只返回公式数值，不附带临床分级", () => {
 		const result = calculateBmi(170, 68);
 
 		expect(result).toEqual({
+			ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
 			heightCm: 170,
 			weightKg: 68,
 			bmi: 68 / 1.7 ** 2,
@@ -26,6 +31,7 @@ describe("健康自测安全数值工具", () => {
 		const result = recordBloodPressure(120, 80);
 
 		expect(result).toEqual({
+			ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
 			systolic: 120,
 			diastolic: 80,
 			display: "120/80 mmHg",

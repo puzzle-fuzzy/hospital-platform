@@ -18,7 +18,18 @@ export const BLOOD_PRESSURE_LIMITS = Object.freeze({
 	diastolic: { min: 30, max: 200 },
 });
 
+/**
+ * 本地数值工具的固定规则版本。
+ *
+ * 这个版本只标识输入范围、公式和格式化方式，不代表临床指南版本；
+ * 未来如果调整工程校验或展示规则，必须升级它并同步回归测试，避免
+ * 真机或问题日志里出现“同一个结果却无法确认规则来源”的情况。
+ */
+export const HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION =
+	"local-non-diagnostic-v1" as const;
+
 export type BmiCalculation = Readonly<{
+	ruleSetVersion: typeof HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION;
 	heightCm: number;
 	weightKg: number;
 	bmi: number;
@@ -26,6 +37,7 @@ export type BmiCalculation = Readonly<{
 }>;
 
 export type BloodPressureReading = Readonly<{
+	ruleSetVersion: typeof HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION;
 	systolic: number;
 	diastolic: number;
 	display: string;
@@ -66,6 +78,7 @@ export function calculateBmi(
 	if (!isFiniteNumber(bmi)) return null;
 
 	return Object.freeze({
+		ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
 		heightCm,
 		weightKg,
 		bmi,
@@ -94,6 +107,7 @@ export function recordBloodPressure(
 	}
 
 	return Object.freeze({
+		ruleSetVersion: HEALTH_SAFE_CALCULATOR_RULE_SET_VERSION,
 		systolic,
 		diastolic,
 		display: `${systolic}/${diastolic} mmHg`,
