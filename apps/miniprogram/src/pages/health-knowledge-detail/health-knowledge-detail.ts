@@ -3,6 +3,10 @@ import {
 	requestHealthDiseaseDetail,
 	requestHealthDrugDetail,
 } from "../../services/api-client";
+import {
+	disposePageInstance,
+	getPageLatestRequestGuard,
+} from "../../services/page-instance-state";
 import type {
 	HealthKnowledgeDiseaseDetail,
 	HealthKnowledgeDrugDetail,
@@ -26,6 +30,7 @@ type DetailPageMethods = {
 	load(kind: DetailKind, id: string): Promise<void>;
 	onDrugTap(event: WechatMiniprogram.TouchEvent): void;
 	onRetry(): void;
+	onUnload(): void;
 };
 
 function detailErrorMessage(error: unknown): string {
@@ -62,10 +67,24 @@ Page<DetailPageData, DetailPageMethods>({
 	},
 
 	async load(kind: DetailKind, id: string) {
-		this.setData({ state: "loading", errorMessage: "" });
+		const guard = getPageLatestRequestGuard(this, "health-knowledge-detail");
+		const token = guard.begin();
+		// 详情请求切换期间不保留旧正文，避免页面状态虽然是 loading，
+		// 但后续重试或页面复用仍能读到上一条疾病/药品内容。
+		this.setData({
+			kind,
+			contentId: id,
+			state: "loading",
+			errorMessage: "",
+			disclaimer: "",
+			publicationVersion: "",
+			disease: null,
+			drug: null,
+		});
 		try {
 			if (kind === "drug") {
 				const response = await requestHealthDrugDetail(id);
+				if (!guard.isCurrent(token)) return;
 				this.setData({
 					state: "ready",
 					drug: response.data.item,
@@ -77,6 +96,7 @@ Page<DetailPageData, DetailPageMethods>({
 			}
 
 			const response = await requestHealthDiseaseDetail(id);
+			if (!guard.isCurrent(token)) return;
 			this.setData({
 				state: "ready",
 				disease: response.data.item,
@@ -85,13 +105,27 @@ Page<DetailPageData, DetailPageMethods>({
 			});
 			wx.setNavigationBarTitle({ title: response.data.item.diseaseName });
 		} catch (error) {
-			this.setData({ state: "error", errorMessage: detailErrorMessage(error) });
+			if (guard.isCurrent(token)) {
+				this.setData({
+					state: "error",
+					errorMessage: detailErrorMessage(error),
+				});
+			}
 		}
 	},
 
 	onDrugTap(event: WechatMiniprogram.TouchEvent) {
 		const id = String(event.currentTarget.dataset.id ?? "");
-		if (!id) return;
+		// 详情页中的药品引用必须来自当前已经确认的疾病读模型；不可点击的
+		// 药品没有 drugId，旧事件也不能越过当前页面内容范围发起深链。
+		if (
+			!id ||
+			this.data.kind !== "disease" ||
+			!this.data.disease?.availableDrugs.some(
+				(drug) => drug.drugId === id && drug.isClickable,
+			)
+		)
+			return;
 		wx.navigateTo({
 			url: `/pages/health-knowledge-detail/health-knowledge-detail?kind=drug&id=${encodeURIComponent(id)}`,
 		});
@@ -101,5 +135,10 @@ Page<DetailPageData, DetailPageMethods>({
 	onRetry() {
 		if (this.data.state === "loading" || !this.data.contentId) return;
 		void this.load(this.data.kind, this.data.contentId);
+	},
+
+	/** 页面卸载后让未完成的内容查询失去回写资格。 */
+	onUnload() {
+		disposePageInstance(this);
 	},
 });

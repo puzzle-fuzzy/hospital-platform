@@ -43,3 +43,37 @@ export function resolveKnowledgeTabSource(
 		? "reload-symptom-catalog"
 		: "reload-disease-catalog";
 }
+
+/**
+ * 解析症状查询页携带的 opaque symptomId 列表。
+ *
+ * 查询条件来自页面栈 URL，不是 TypeScript 可以信任的业务事实；必须在
+ * 进入 requestHealthDiseasesBySymptoms 前复核服务端 contract 的数量、唯一
+ * 性和标识形状。解析失败返回 null，让页面展示稳定错误，不把 URI 异常、
+ * 重复 ID 或超过 10 项的请求交给 API 层再猜测。
+ */
+export function parseHealthKnowledgeSymptomIds(
+	value: unknown,
+): string[] | null {
+	if (typeof value !== "string" || value.length === 0) return null;
+	let decoded: string[];
+	try {
+		decoded = value.split(",").map((id) => decodeURIComponent(id).trim());
+	} catch {
+		return null;
+	}
+	if (
+		decoded.length === 0 ||
+		decoded.length > 10 ||
+		decoded.some(
+			(id) =>
+				id.length === 0 ||
+				id.length > 128 ||
+				Array.from(id).some((character) => character.charCodeAt(0) <= 0x1f),
+		)
+	) {
+		return null;
+	}
+	const uniqueIds = new Set(decoded);
+	return uniqueIds.size === decoded.length ? decoded : null;
+}

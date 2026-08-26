@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	parseHealthKnowledgeSymptomIds,
 	resolveKnowledgePanelState,
 	resolveKnowledgeTabSource,
 } from "./health-knowledge-view";
@@ -31,5 +32,26 @@ describe("健康百科 Tab 目录来源", () => {
 		expect(resolveKnowledgeTabSource("disease", 0)).toBe(
 			"reload-disease-catalog",
 		);
+	});
+});
+
+describe("健康百科症状查询参数", () => {
+	test("解码并保留不超过十个唯一的 opaque symptomId", () => {
+		expect(
+			parseHealthKnowledgeSymptomIds("symptom-cough,symptom%2Ffever"),
+		).toEqual(["symptom-cough", "symptom/fever"]);
+	});
+
+	test("拒绝重复、空值、非法 URI 和超过服务端上限的条件", () => {
+		expect(parseHealthKnowledgeSymptomIds("symptom-cough,symptom-cough")).toBe(
+			null,
+		);
+		expect(parseHealthKnowledgeSymptomIds("symptom-cough,")).toBe(null);
+		expect(parseHealthKnowledgeSymptomIds("%E0%A4%A")).toBe(null);
+		expect(
+			parseHealthKnowledgeSymptomIds(
+				Array.from({ length: 11 }, (_, index) => `symptom-${index}`).join(","),
+			),
+		).toBe(null);
 	});
 });
