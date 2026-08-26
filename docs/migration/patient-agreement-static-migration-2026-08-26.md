@@ -1,5 +1,10 @@
 # 就诊人协议静态页面迁移记录（2026-08-26）
 
+> 本文记录协议静态页当时的迁移实现，不是当前运行包事实源。文中历史 pending 构建数字
+> 只用于追溯；当前小程序 live 运行包以 `731c95718d26bcf2826987b72f79295413b203d7` 和
+> [`release/candidate-731c9571-miniprogram-runtime-2026-08-26.md`](../release/candidate-731c9571-miniprogram-runtime-2026-08-26.md)
+> 为准，协议同意、撤回和审计仍未开放。
+
 ## 结论
 
 旧端 `pagesB/patient/agreement.vue` 是一张静态协议说明页：没有请求、没有服务端协议版本、没有用户同意记录、没有撤回接口，也没有可靠的审计字段。旧端虽然在脚本中声明了 `handleAccept`/`handleReject`，但模板没有绑定这两个方法，因此不能把它解释为已经完成了协议授权流程。

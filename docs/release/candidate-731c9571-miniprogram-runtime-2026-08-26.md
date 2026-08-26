@@ -27,6 +27,9 @@
 
 ## 发布边界
 
-当前 `apps/miniprogram/dist/` 仍被微信开发者工具锁定。关闭开发者工具和真机调试后，
-才允许按 [`pending-runtime-publication-runbook-2026-08-26.md`](pending-runtime-publication-runbook-2026-08-26.md)
-执行原子发布；在此之前不能覆盖 live `dist`，也不能使用本候选生成真机完成证据。
+本候选已经按手册完成原子发布到 `apps/miniprogram/dist/`，发布后的 pending 目录已清理，
+`runtime:verify` 已确认 live 来源仍为完整指纹 `731c95718d26bcf2826987b72f79295413b203d7`。
+后续真机验收必须从当前 live `dist` 普通编译并重新生成二维码；不能使用旧 `87ad1092`、
+`adf536bf` 或线上 `13f597e` 运行包。若未来源码再次变化，必须先按
+[`pending-runtime-publication-runbook-2026-08-26.md`](pending-runtime-publication-runbook-2026-08-26.md)
+生成并校验新的 pending 候选，再进行下一次原子发布。

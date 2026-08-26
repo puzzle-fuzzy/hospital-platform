@@ -41,7 +41,7 @@
 
 > 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前候选以本页顶部 `731c9571` 为准。
 
-> 历史运行包观察：当时 live `dist/build-info.sourceRevision` 为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，`baa31df0` 在 pending staging 中完成 17 个页面脚本、类型检查、旧端 64 页面台账、迁移状态路由回归和就诊记录分批展示回归。当前 pending 候选请以本页上方 `731c9571` 事实为准；开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。
+> 历史运行包观察：当时 live `dist/build-info.sourceRevision` 为上一候选 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，`baa31df0` 在 pending staging 中完成 17 个页面脚本、类型检查、旧端 64 页面台账、迁移状态路由回归和就诊记录分批展示回归。当前 live 运行包请以本页上方 `731c9571` 事实为准；开发者工具只能打开 `apps/miniprogram/dist/` 独立运行包。
 
 > 当前迁移主线已经切换为“先广度覆盖、再深入 contract”：首页、“我的”和服务清单所有可见入口均有业务页或统一迁移状态页；状态页不代表真实业务完成，只用于消除无响应/404，并明确记录未开放原因。完整顺序见 [`migration/breadth-first-migration-plan-2026-08-25.md`](migration/breadth-first-migration-plan-2026-08-25.md)。
 
@@ -145,9 +145,9 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上服务端仍为 `8eb51b5f`，线上历史小程序包为 `13f597e`，最新本地 pending 候选为 `731c9571`，当前 live `dist` 为 `fcc6630e` |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上服务端仍为 `8eb51b5f`，线上历史小程序包为 `13f597e`，当前本地 live `dist` 为 `731c9571` |
 | [`migration/patient-agreement-static-migration-2026-08-26.md`](migration/patient-agreement-static-migration-2026-08-26.md) | 使用条款静态迁移、旧端无接口核对、协议同意 contract 的关闭边界和本候选验证记录 |
-| [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md) | 当前 `731c9571` 的 pending 运行包发布、dist 锁定保护和真机证据入口 |
+| [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md) | 当前 `731c9571` 的运行包发布、dist 锁定保护和真机证据入口；发布后的 live 运行包以 `build-info.json` 为准 |
 | [`release/device-evidence-731c9571-pending.json`](release/device-evidence-731c9571-pending.json) | 当前 `731c9571` 候选的 9 个真机证据域待办清单；全部为 `pending`，未填写真实证据前不能视为通过 |
 | [`release/current-readonly-business-audit-2026-08-25.md`](release/current-readonly-business-audit-2026-08-25.md) | 当前只读业务迁移审计、服务器共存核对、未注册能力和下一步真实证据顺序 |
 | [`release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md`](release/candidate-baa31df0-breadth-migration-gate-2026-08-25.md) | 历史小程序 pending 候选的旧端 64 页面广度迁移台账、17 页运行包、就诊记录分批展示、测试和 EBUSY 发布边界 |
