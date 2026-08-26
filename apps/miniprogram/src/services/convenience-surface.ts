@@ -10,6 +10,30 @@ import { patientScopedErrorMessage } from "./patient-selection-service";
 
 export type ConvenienceSurfaceFeature = "gift-banner" | "health-praise";
 
+/**
+ * 便民记录区域的状态只描述当前患者上下文是否已确认。
+ *
+ * 电子锦旗和表扬信的真实 Provider 尚未开放，因此 `unavailable` 不是
+ * Provider 成功返回的空数组，而是“患者读取成功后，业务能力仍关闭”。
+ * 把 loading/error 单独保留下来，避免页面把目录故障伪装成空记录。
+ */
+export type ConvenienceSurfaceRecordState = "loading" | "error" | "unavailable";
+
+/**
+ * 把患者目录读取结果投影为记录区域状态。
+ *
+ * loading 优先级最高，保证重试刚开始时不会短暂绘制旧错误或关闭态；
+ * 只有一次患者目录读取成功后，才允许进入真实业务尚未开放的状态。
+ */
+export function resolveConvenienceSurfaceRecordState(
+	loading: boolean,
+	error: string,
+): ConvenienceSurfaceRecordState {
+	if (loading) return "loading";
+	if (error) return "error";
+	return "unavailable";
+}
+
 type ConvenienceSurfaceDefinition = {
 	title: string;
 	recordTitle: string;
@@ -49,6 +73,7 @@ type ConvenienceSurfacePageData = {
 	patient: Patient | null;
 	loading: boolean;
 	error: string;
+	recordState: ConvenienceSurfaceRecordState;
 	recordTitle: string;
 	recordNote: string;
 	contractItems: ReadonlyArray<string>;
@@ -85,6 +110,7 @@ function toPageData(
 		patient: null,
 		loading: true,
 		error: "",
+		recordState: "loading",
 		recordTitle: definition.recordTitle,
 		recordNote: definition.recordNote,
 		contractItems: definition.contractItems,
@@ -119,16 +145,27 @@ export function registerConvenienceSurfacePage(
 		loadCurrentPatient() {
 			const guard = getPageLatestRequestGuard(this, `convenience-${feature}`);
 			const token = guard.begin();
-			this.setData({ loading: true, error: "" });
+			this.setData({
+				loading: true,
+				error: "",
+				recordState: resolveConvenienceSurfaceRecordState(true, ""),
+			});
 			return loadCurrentPatient()
 				.then((patient) => {
-					if (guard.isCurrent(token)) this.setData({ patient });
+					if (guard.isCurrent(token)) {
+						this.setData({
+							patient,
+							recordState: resolveConvenienceSurfaceRecordState(false, ""),
+						});
+					}
 				})
 				.catch((error) => {
 					if (guard.isCurrent(token)) {
+						const message = convenienceSurfaceErrorMessage(error);
 						this.setData({
 							patient: null,
-							error: convenienceSurfaceErrorMessage(error),
+							error: message,
+							recordState: resolveConvenienceSurfaceRecordState(false, message),
 						});
 					}
 				})

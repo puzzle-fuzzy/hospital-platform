@@ -2496,6 +2496,10 @@ test("native convenience pages keep patient context without fake public records"
 	expect(service).toContain("patientScopedErrorMessage");
 	expect(gift).toContain("选择就诊人");
 	expect(praise).toContain("选择就诊人");
+	expect(gift).toContain("recordState === 'loading'");
+	expect(praise).toContain("recordState === 'loading'");
+	expect(gift).toContain("暂时无法展示记录");
+	expect(praise).toContain("暂时无法展示记录");
 	expect(gift).toContain("公开记录暂未开放");
 	expect(praise).toContain("公开记录暂未开放");
 	expect(giftScript).toContain('registerConvenienceSurfacePage("gift-banner")');

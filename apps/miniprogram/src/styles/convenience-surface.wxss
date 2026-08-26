@@ -119,8 +119,44 @@ page {
 .convenience-surface-empty {
 	display: flex;
 	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: 390rpx;
 	padding: 58rpx 12rpx 42rpx;
 	flex-direction: column;
+}
+
+.convenience-surface-loading-icon {
+	width: 44rpx;
+	height: 44rpx;
+	margin-bottom: 24rpx;
+	border: 4rpx solid #dce6ff;
+	border-top-color: #3d6df6;
+	border-radius: 50%;
+	animation: convenience-surface-loading-spin 0.9s linear infinite;
+}
+
+@keyframes convenience-surface-loading-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.convenience-surface-error-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 54rpx;
+	height: 54rpx;
+	color: #b42318;
+	background: #fff1f0;
+	border: 2rpx solid #f5b9b4;
+	border-radius: 50%;
+	font-size: 34rpx;
+	font-weight: 700;
 }
 
 .convenience-surface-empty-image {

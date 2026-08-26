@@ -23,7 +23,21 @@
 
 		<view class="convenience-surface-card">
 			<text class="convenience-surface-card-title">{{recordTitle}}</text>
-			<view class="convenience-surface-empty">
+			<!--
+				患者目录还没有确认时，不能把关闭态“公开记录暂未开放”
+				当成查询结果；三种状态共用固定高度，避免重试后卡片跳变。
+			-->
+			<view wx:if="{{recordState === 'loading'}}" class="convenience-surface-empty convenience-surface-loading">
+				<view class="convenience-surface-loading-icon" aria-hidden="true"></view>
+				<text class="convenience-surface-empty-title">正在确认就诊人...</text>
+				<text class="convenience-surface-empty-note">请稍候，记录服务尚未发起查询</text>
+			</view>
+			<view wx:elif="{{recordState === 'error'}}" class="convenience-surface-empty">
+				<view class="convenience-surface-error-icon" aria-hidden="true">!</view>
+				<text class="convenience-surface-empty-title">暂时无法展示记录</text>
+				<text class="convenience-surface-empty-note">请先重新获取就诊人，当前不会展示空记录</text>
+			</view>
+			<view wx:else class="convenience-surface-empty">
 				<image class="convenience-surface-empty-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
 				<text class="convenience-surface-empty-title">公开记录暂未开放</text>
 				<text class="convenience-surface-empty-note">{{recordNote}}</text>

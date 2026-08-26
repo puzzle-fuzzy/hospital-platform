@@ -1,6 +1,28 @@
 import { expect, test } from "bun:test";
 import { ApiError } from "./api-client";
-import { convenienceSurfaceErrorMessage } from "./convenience-surface";
+import {
+	convenienceSurfaceErrorMessage,
+	resolveConvenienceSurfaceRecordState,
+} from "./convenience-surface";
+
+test("便民记录区域在患者读取期间保持加载态", () => {
+	expect(resolveConvenienceSurfaceRecordState(true, "")).toBe("loading");
+	// 新一轮重试开始时必须优先展示 loading，不能短暂显示上一次的错误或
+	// “公开记录暂未开放”，否则用户会把状态变化误认为查询已完成。
+	expect(resolveConvenienceSurfaceRecordState(true, "上一次读取失败")).toBe(
+		"loading",
+	);
+});
+
+test("便民记录区域不把患者读取故障伪装成空记录", () => {
+	expect(
+		resolveConvenienceSurfaceRecordState(false, "数据服务暂时不可用"),
+	).toBe("error");
+});
+
+test("便民记录区域仅在患者读取成功后进入未开放态", () => {
+	expect(resolveConvenienceSurfaceRecordState(false, "")).toBe("unavailable");
+});
 
 test("便民页面区分患者选择错误与服务暂不可用", () => {
 	expect(
