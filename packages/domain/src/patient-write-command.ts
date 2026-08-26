@@ -350,6 +350,11 @@ export function canTransitionPatientWriteCommand(
 export function allowedPatientWriteCommandTransitions(
 	from: PatientWriteCommandState,
 ): readonly PatientWriteCommandState[] {
+	// 该查询函数可能被仓储恢复、后台对账或未来 API 的运行时数据调用。
+	// 即使 TypeScript 声明了状态联合，外部 JSON 仍可能带来未知字符串；
+	// 非法状态没有任何合法后继，必须返回空集合而不是把 undefined 传给
+	// 调用方，避免后续 includes/遍历抛出未分类异常并绕过统一错误边界。
+	if (!isPatientWriteCommandState(from)) return [];
 	return PATIENT_WRITE_COMMAND_TRANSITIONS[from];
 }
 

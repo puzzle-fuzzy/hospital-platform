@@ -61,6 +61,7 @@ test("公开状态函数对运行时非法状态保持稳定语义", () => {
 	expect(canTransitionPatientWriteCommand("unknown" as never, "pending")).toBe(
 		false,
 	);
+	expect(allowedPatientWriteCommandTransitions("unknown" as never)).toEqual([]);
 	const command = createCommand();
 	expect(() =>
 		transitionPatientWriteCommand(command, "unknown" as never, FIRST_TIME),
