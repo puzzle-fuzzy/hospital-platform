@@ -36,9 +36,21 @@
 
 服务端仍是最终发布闸门：当前源快照 `publicationState=not-approved`，正式审核 bundle 不存在，因此健康内容继续 fail-closed。客户端本轮只是修正状态解释，不能把旧快照当作已审核医学内容。
 
+## 已登录用户的服务端闸门复核
+
+本轮补了一条 API 端到端回归：使用有效平台会话访问健康百科目录时，若仓储没有
+`published` 内容版本，服务端返回 `503 health-knowledge-unavailable` 和固定中文重试文案。
+这条测试专门覆盖“身份认证成功”与“医学内容已审核发布”之间的边界，防止后续有人把
+未发布快照、默认 fixture 或空数组包装成 `200` 成功。
+
+该验证不代表健康内容已上线；当前真实状态仍是审核 bundle 缺失、数据库发布表没有可供
+患者端读取的已发布版本，发布前还必须完成质量问题处理、内容责任人复核、staging 导入、
+发布/撤回演练和真机展示验收。
+
 ## 验证
 
 - 健康百科状态单元测试：5 pass / 0 fail / 7 expect()；
+- API 端到端未发布门禁回归：已登录访问仍返回 `503 health-knowledge-unavailable`，不降级为 `200` 空目录；
 - 小程序全量回归：312 pass / 0 fail / 3550 expect()；
 - `apps/miniprogram` TypeScript 检查通过；
 - Biome 检查和 `git diff --check` 通过；

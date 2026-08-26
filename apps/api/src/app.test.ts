@@ -9,6 +9,8 @@ import {
 import {
 	type AppointmentDirectoryGateway,
 	type AppointmentRecordDirectoryGateway,
+	HealthKnowledgeContentUnavailableError,
+	type HealthKnowledgeRepository,
 	type OutpatientPaymentGateway,
 	type PatientDirectoryGateway,
 	PaymentOrderService,
@@ -36,6 +38,7 @@ import {
 	createInMemorySessionTokenService,
 } from "./modules/auth";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
+import { HealthKnowledgeService } from "./modules/knowledge";
 import { PatientService } from "./modules/patients";
 import {
 	WechatPaymentNotificationService,
@@ -412,6 +415,59 @@ test("health knowledge routes remain fail-closed until reviewed content is ready
 	// 路由先注册以冻结旧端健康百科的后端入口，但默认组合根没有会话，
 	// 且没有审核发布内容；两道闸门都不能被解释为健康内容已经上线。
 	expect(response.status).toBe(401);
+});
+
+test("authenticated health knowledge reads keep the unpublished gate visible", async () => {
+	const unpublished: HealthKnowledgeRepository = {
+		// 该 fixture 模拟“数据库可访问，但当前没有 published 版本”的真实边界；
+		// 不能用空数组代替，否则小程序会把内容未发布误认为医院没有内容。
+		listCatalog: async () => {
+			throw new HealthKnowledgeContentUnavailableError();
+		},
+		listDiseasesByRelation: async () => {
+			throw new HealthKnowledgeContentUnavailableError();
+		},
+		listSymptomsByPart: async () => {
+			throw new HealthKnowledgeContentUnavailableError();
+		},
+		listDiseasesBySymptoms: async () => {
+			throw new HealthKnowledgeContentUnavailableError();
+		},
+		getDiseaseDetail: async () => {
+			throw new HealthKnowledgeContentUnavailableError();
+		},
+		getDrugDetail: async () => {
+			throw new HealthKnowledgeContentUnavailableError();
+		},
+	};
+	const services = createDefaultApplicationServices({
+		sessionStore: {
+			async save() {},
+			async findUserId() {
+				return "fixture-user-0001";
+			},
+		},
+	});
+	const issued = await services.sessions.issue("fixture-user-0001");
+	services.healthKnowledge = new HealthKnowledgeService({
+		repository: unpublished,
+	});
+	const response = await createApp({ services }).handle(
+		new Request("http://localhost/api/v1/knowledge/health/part/list", {
+			headers: { authorization: `Bearer ${issued.accessToken}` },
+		}),
+	);
+
+	// 已登录只证明用户身份，不证明内容已经经过审核发布；这里必须让
+	// 客户端进入“内容暂不可用”重试态，不能返回 200 空目录或旧快照。
+	expect(response.status).toBe(503);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "health-knowledge-unavailable",
+			message: "健康知识内容暂时不可用，请稍后重试",
+		},
+	});
 });
 
 test("provider-contract-dependent patient routes remain unregistered", async () => {
