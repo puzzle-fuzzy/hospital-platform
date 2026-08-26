@@ -795,13 +795,18 @@ export function loadPatients(): Promise<Array<Patient>> {
  * 下拉刷新和多个只读页并发打开就会互相制造同步租约冲突，也会把“页面读取”
  * 错误地升级成一次外部业务操作。
  *
+ * 即使调用方只是展示关闭态患者卡片，也必须先取得 canonical `/me` 的 owner
+ * 证明，再使用 `loadCurrentPatientForOwner` 完成目录读取后的 owner 重验证。
+ * 这样所有复用本 helper 的页面都不会因为“只是展示患者”而绕过账号边界。
  * `requireStoredPatientSelection` 同时检查首次默认、stale 和临床映射状态，
  * 因此调用方拿到的患者一定是可以进入只读临床查询的 ready 记录；页面不再
  * 各自复制这段容易漏条件的解析逻辑。
  */
 export function loadCurrentPatient(): Promise<Patient> {
-	return loadPatients().then((patients) =>
-		requireStoredPatientSelection(patients),
+	return getCurrentUser().then((currentUser) =>
+		loadCurrentPatientForOwner(currentUser.data.user.id).then(
+			({ patient }) => patient,
+		),
 	);
 }
 

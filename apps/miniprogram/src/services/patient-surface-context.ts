@@ -1,11 +1,13 @@
 import type { Patient } from "../types";
-import { ApiError } from "./api-client";
-import { loadCurrentPatient } from "./dashboard-service";
+import { ApiError, getCurrentUser } from "./api-client";
+import { loadCurrentPatientForOwner } from "./dashboard-service";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "./page-instance-state";
 import { patientScopedErrorMessage } from "./patient-selection-service";
+import { registerSessionChangedListener } from "./session-events";
+import { assertSessionGeneration } from "./session-boundary";
 
 /**
  * 关闭态页面可以展示的当前就诊人上下文。
@@ -39,6 +41,26 @@ type PatientSurfaceContextPage = {
 	data: PatientSurfaceContextData;
 	setData(data: Partial<PatientSurfaceContextData>): void;
 };
+
+type PatientSurfaceContextRuntime = {
+	/** 这张卡片最后一次成功确认的会话代际；-1 表示尚未确认。 */
+	sessionGeneration: number;
+	/** 页面卸载后阻止已复制到事件队列的旧回调继续 setData。 */
+	disposed: boolean;
+	unsubscribe: () => void;
+};
+
+/**
+ * 页面外壳的非渲染运行态必须按页面实例隔离。
+ *
+ * 不能把“当前患者是否属于本会话”放进模块级变量：多个页面实例可能同时
+ * 存在，模块变量会让一个页面的会话切换清掉另一个页面的门禁。WeakMap 只
+ * 保存当前页面的取消订阅句柄和会话代际，不进入 WXML、storage 或日志。
+ */
+const patientSurfaceRuntimes = new WeakMap<
+	PatientSurfaceContextPage,
+	PatientSurfaceContextRuntime
+>();
 
 /** 将患者目录错误稳定翻译为用户可理解的页面状态。 */
 export function patientSurfaceErrorMessage(error: unknown): string {
@@ -85,6 +107,46 @@ export function toPatientSurfaceData(
 }
 
 /**
+ * 会话变化时统一清理患者外壳。
+ *
+ * 账号切换不等于“当前账号暂时没有患者”，所以这里保留明确的重新读取
+ * 文案，并把 `patientContextLoaded` 退回 false；页面不能把上一账号的卡片
+ * 留在界面上，也不能把清理动作伪装成成功空结果。真正的重新读取由页面的
+ * onShow、重试或用户重新进入业务入口触发，避免在 `setAccessToken` 尚未
+ * 写入新 token 的通知回调中立即发起请求。
+ */
+export function patientSurfaceSessionReset(): Partial<PatientSurfaceContextData> {
+	return {
+		...toPatientSurfaceData(null),
+		patientContextLoading: false,
+		patientContextLoaded: false,
+		patientContextError: "登录账号已切换，请重新读取就诊人",
+	};
+}
+
+function ensurePatientSurfaceRuntime(
+	page: PatientSurfaceContextPage,
+): PatientSurfaceContextRuntime {
+	const existing = patientSurfaceRuntimes.get(page);
+	if (existing) return existing;
+
+	const runtime: PatientSurfaceContextRuntime = {
+		sessionGeneration: -1,
+		disposed: false,
+		unsubscribe: () => undefined,
+	};
+	runtime.unsubscribe = registerSessionChangedListener(() => {
+		// `notifySessionChanged` 会复制监听器后再执行；即使页面恰好在
+		// 通知期间卸载，disposed 也必须阻止回调越过页面生命周期边界。
+		if (runtime.disposed || runtime.sessionGeneration < 0) return;
+		runtime.sessionGeneration = -1;
+		page.setData(patientSurfaceSessionReset());
+	});
+	patientSurfaceRuntimes.set(page, runtime);
+	return runtime;
+}
+
+/**
  * 读取关闭态页面的当前就诊人。
  *
  * 每个页面实例有自己的 request guard：用户从选择页返回、连续点击重试或
@@ -96,24 +158,41 @@ export function loadPatientSurfaceContext(
 	page: PatientSurfaceContextPage,
 	guardKey: string,
 ): Promise<void> {
+	const runtime = ensurePatientSurfaceRuntime(page);
 	const guard = getPageLatestRequestGuard(page, guardKey);
 	const token = guard.begin();
+	// 新一轮读取开始后，上一轮卡片不再有可提交资格；WXML 的 loading
+	// 分支会遮住旧字段，最终仍必须等待同一 owner 的目录快照确认。
+	runtime.sessionGeneration = -1;
 	page.setData({
 		patientContextLoading: true,
 		patientContextLoaded: false,
 		patientContextError: "",
 	});
 
-	return loadCurrentPatient()
-		.then((patient) => {
-			if (!guard.isCurrent(token)) return;
+	return getCurrentUser()
+		.then((currentUser) => {
+			if (!guard.isCurrent(token)) return undefined;
+			// 关闭态页面虽然没有临床业务请求，也不能只依赖当前 token
+			// 存在；先取得 owner，再复用完整的目录 + owner 重验证 helper，
+			// 防止账号切换窗口把旧患者卡片组合进新会话。
+			return loadCurrentPatientForOwner(currentUser.data.user.id);
+		})
+		.then((patientContext) => {
+			if (!patientContext || !guard.isCurrent(token)) return;
+			assertSessionGeneration(
+				patientContext.sessionGeneration,
+				"Patient surface session changed before context was committed",
+			);
+			runtime.sessionGeneration = patientContext.sessionGeneration;
 			page.setData({
-				...toPatientSurfaceData(patient),
+				...toPatientSurfaceData(patientContext.patient),
 				patientContextError: "",
 			});
 		})
 		.catch((error: unknown) => {
 			if (!guard.isCurrent(token)) return;
+			runtime.sessionGeneration = -1;
 			page.setData({
 				...toPatientSurfaceData(null),
 				patientContextError: patientSurfaceErrorMessage(error),
@@ -130,5 +209,11 @@ export function loadPatientSurfaceContext(
 
 /** 关闭态页面统一销毁入口，防止目录 Promise 在页面卸载后继续 setData。 */
 export function disposePatientSurfaceContext(page: object): void {
+	const runtime = patientSurfaceRuntimes.get(page as PatientSurfaceContextPage);
+	if (runtime) {
+		runtime.disposed = true;
+		runtime.unsubscribe();
+		patientSurfaceRuntimes.delete(page as PatientSurfaceContextPage);
+	}
 	disposePageInstance(page);
 }

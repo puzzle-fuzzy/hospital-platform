@@ -2558,6 +2558,10 @@ test("native blocked domains keep one explicit current-patient context", async (
 	// 必须能看到当前上下文、失败原因和重试入口；不能只有一个“选择就诊人”
 	// 按钮，却让用户无法判断后续业务究竟针对谁。
 	expect(context).toContain("loadCurrentPatient");
+	expect(context).toContain("loadCurrentPatientForOwner");
+	expect(context).toContain("registerSessionChangedListener");
+	expect(context).toContain("patientSurfaceSessionReset");
+	expect(context).toContain("assertSessionGeneration");
 	expect(context).toContain("patient-selection-required");
 	expect(context).toContain("patient-clinical-unavailable");
 	expect(context).toContain("disposePageInstance");

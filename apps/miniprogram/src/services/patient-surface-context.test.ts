@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiError } from "./api-client";
 import {
 	patientSurfaceErrorMessage,
+	patientSurfaceSessionReset,
 	toPatientSurfaceData,
 } from "./patient-surface-context";
 
@@ -29,6 +30,18 @@ test("没有患者时保持可解释的选择入口", () => {
 	expect(data.currentPatient).toBeNull();
 	expect(data.currentPatientName).toBe("未选择就诊人");
 	expect(data.patientActionLabel).toBe("选择就诊人");
+});
+
+test("会话变化时患者外壳清理旧卡片并回到可重试状态", () => {
+	const data = patientSurfaceSessionReset();
+
+	expect(data.currentPatient).toBeNull();
+	expect(data.currentPatientName).toBe("未选择就诊人");
+	expect(data.currentPatientCardLabel).toBe("就诊卡信息不可用");
+	expect(data.patientActionLabel).toBe("选择就诊人");
+	expect(data.patientContextLoading).toBe(false);
+	expect(data.patientContextLoaded).toBe(false);
+	expect(data.patientContextError).toBe("登录账号已切换，请重新读取就诊人");
 });
 
 test("患者目录错误保持失效、映射不可用和暂时故障的区别", () => {
