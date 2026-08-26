@@ -27,7 +27,7 @@
 | 小程序回归 | `312 pass / 0 fail / 3550 expect()`；入口分发审计通过 |
 | live 静态验证 | `runtime:verify` 已通过；发布后的 pending 目录已清理 |
 | 当前 live `dist` | 来源为 `02dbf10419740d96c4445493df019021ac22bcfa`；真机是否已加载仍须通过二维码和页面证据确认 |
-| 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
+| 服务端本地候选 | 当前仓库最新运行时代码提交为 `a2599e61`，尚未因 release baseline drift 部署 |
 | 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
 
 本轮最新的只读共存核对见 [`release/current-runtime-coexistence-readonly-2026-08-25.md`](../release/current-runtime-coexistence-readonly-2026-08-25.md)。该记录证明运行层边界正常，但不替代当前候选的业务验收。
