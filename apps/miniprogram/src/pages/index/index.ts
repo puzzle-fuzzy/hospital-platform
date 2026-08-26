@@ -19,6 +19,10 @@ import {
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
+import {
 	type PatientBootstrapResult,
 	type PatientDirectoryLoadResult,
 	shouldContinueAfterLogin,
@@ -279,6 +283,16 @@ Page<IndexPageData, IndexPageMethods>({
 		// 生命周期状态必须保存在页面实例 data 内；模块热复用或多层页面栈
 		// 不能共享“是否首次展示”的标记。
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 首页是患者上下文的根页面。会话变化通知到达时不能等待下一次
+			// onShow 才清理，否则用户会在共享 Tab 上继续看到上一账号的姓名、
+			// 卡片和二维码。这里只清理本地派生状态，不在新 token 写入前发请求。
+			this.clearDisplayedPatientContext();
+			this.setData({
+				sessionStatus: SESSION_LABELS.restoring,
+				error: "登录账号已切换，请重新读取就诊人",
+			});
+		});
 		this.checkHealth();
 		const selectedPatientId = getSelectedPatientId();
 		if (selectedPatientId) this.setData({ selectedPatientId });
@@ -889,6 +903,7 @@ Page<IndexPageData, IndexPageMethods>({
 
 	/** 页面卸载后让首页的健康、患者目录和同步请求失去回写资格。 */
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 

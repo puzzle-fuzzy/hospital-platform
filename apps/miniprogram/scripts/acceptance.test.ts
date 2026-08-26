@@ -1057,6 +1057,46 @@ test("patient-scoped pages clear stale snapshots when the session changes", asyn
 	expect(detail).toContain('sourceReportId: ""');
 });
 
+test("patient-bearing entry pages clear stale UI on a session event", async () => {
+	const pages = [
+		{
+			file: "pages/index/index.ts",
+			clearMethod: "clearDisplayedPatientContext",
+		},
+		{
+			file: "pages/my/my.ts",
+			clearMethod: "selectedPatient: null",
+		},
+		{
+			file: "pages/consult/consult.ts",
+			clearMethod: "records: []",
+		},
+		{
+			file: "pages/profile/profile.ts",
+			clearMethod: "clearDisplayedProfileContext",
+		},
+		{
+			file: "pages/patient-select/patient-select.ts",
+			clearMethod: "clearDisplayedPatientDirectory",
+		},
+		{
+			file: "pages/patient-signature/patient-signature.ts",
+			clearMethod: "patients: []",
+		},
+	] as const;
+
+	for (const item of pages) {
+		const page = await source(item.file);
+		// 这些入口不是只有“下一次 onShow 再刷新”这么简单：它们可能正在
+		// 屏幕上展示患者姓名、脱敏卡号、二维码或资料表单。会话事件到达后，
+		// 必须先撤销旧 owner 的 UI 快照，再等待用户或生命周期重新读取。
+		expect(page).toContain("registerPageSessionResetListener(this");
+		expect(page).toContain("disposePageSessionResetListener(this)");
+		expect(page).toContain(item.clearMethod);
+		expect(page).toContain("登录账号已切换");
+	}
+});
+
 test("patient-scoped API reads pin the session generation at the request boundary", async () => {
 	const client = await source("services/api-client.ts");
 	const dashboard = await source("services/dashboard-service.ts");

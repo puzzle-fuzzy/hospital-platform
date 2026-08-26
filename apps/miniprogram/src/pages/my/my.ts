@@ -34,6 +34,10 @@ import {
 	sessionStateAfterAuthenticatedReadError,
 	sessionVerificationStateFromError,
 } from "../../services/session-service";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -174,6 +178,18 @@ Page<MyPageData, MyPageMethods>({
 		// 首次 onShow 只消费 onLoad 已发起的读取；该状态必须属于当前
 		// 页面实例，不能用 loading 推断，否则快速响应时会重复请求。
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 全局资料仓库会清理昵称和头像，但“我的”页还持有独立的
+			// 患者目录快照；两者必须在同一个会话事件中一起撤销，不能出现
+			// 新账号头像配旧账号就诊人数的混合帧。回读由 onShow/重试负责。
+			this.setData({
+				sessionState: "checking",
+				selectedPatient: null,
+				patientCount: 0,
+				loading: false,
+				error: "登录账号已切换，请重新读取就诊人",
+			});
+		});
 		const unsubscribe = subscribeGlobalUserProfile((state) =>
 			applyGlobalProfileToPage(this, state),
 		);
@@ -474,6 +490,7 @@ Page<MyPageData, MyPageMethods>({
 
 	/** 页面卸载后让会话/患者目录读取失去回写资格。 */
 	onUnload(): void {
+		disposePageSessionResetListener(this);
 		myPageProfileSubscriptions.get(this)?.();
 		myPageProfileSubscriptions.delete(this);
 		disposePageInstance(this);

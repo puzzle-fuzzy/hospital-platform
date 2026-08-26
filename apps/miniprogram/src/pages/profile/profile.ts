@@ -15,6 +15,10 @@ import {
 import { switchToPrimaryTab } from "../../services/patient-navigation";
 import { parseProfileAgeInput } from "../../services/profile-form";
 import { isCurrentSessionGeneration } from "../../services/session-generation";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { hasPlatformSession } from "../../services/session-service";
 import type { ProfilePageData, UserProfileResponse } from "../../types";
 
@@ -165,6 +169,13 @@ Page<
 		// 首次 onShow 只消费 onLoad 已发起的读取；该状态必须属于当前
 		// 页面实例，不能依赖模块级变量，否则页面栈复用时会漏掉资料刷新。
 		this.setData({ hasShown: false });
+		registerPageSessionResetListener(this, () => {
+			// 资料页可能在页面栈中停留；会话变化后不能继续让旧账号的
+			// 昵称、年龄、邮箱和 version 作为当前账号的可编辑事实。只清理
+			// 本地表单，不自动发起新的登录或资料请求。
+			this.clearDisplayedProfileContext();
+			this.setData({ error: "登录账号已切换，请重新加载个人资料" });
+		});
 		this.loadProfile();
 	},
 
@@ -399,6 +410,7 @@ Page<
 		const navigationTimer = profileNavigationTimers.get(this);
 		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
 		profileNavigationTimers.delete(this);
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 

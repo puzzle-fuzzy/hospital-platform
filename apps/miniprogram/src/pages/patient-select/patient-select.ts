@@ -23,6 +23,10 @@ import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "../../services/session-generation";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { hasPlatformSession } from "../../services/session-service";
 import type {
 	Patient,
@@ -147,6 +151,22 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		this.setData({ hasShown: false });
 		// 不能在 owner-scoped 目录返回前直接把本地缓存画成“当前”患者；
 		// 当前标记只能由本次成功读取并完成临床映射确认的目录恢复。
+		registerPageSessionResetListener(this, () => {
+			// 选择页同时展示姓名、关系和脱敏卡号；会话变化时这些字段
+			// 都失去 owner 证明。清理回跳定时器，避免旧账号的选择在通知
+			// 之后继续 navigateBack 到新账号页面。
+			const navigationTimer = patientNavigationTimers.get(this);
+			if (navigationTimer !== undefined) clearTimeout(navigationTimer);
+			patientNavigationTimers.delete(this);
+			patientSelectionSessionGenerations.delete(this);
+			this.clearDisplayedPatientDirectory();
+			this.setData({
+				loading: false,
+				syncing: false,
+				navigationPending: false,
+				error: "登录账号已切换，请重新读取就诊人",
+			});
+		});
 		this.loadPatientList();
 	},
 
@@ -433,6 +453,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		if (navigationTimer !== undefined) clearTimeout(navigationTimer);
 		patientNavigationTimers.delete(this);
 		patientSelectionSessionGenerations.delete(this);
+		disposePageSessionResetListener(this);
 		disposePageInstance(this);
 	},
 
