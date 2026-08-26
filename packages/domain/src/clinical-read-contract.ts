@@ -1,3 +1,4 @@
+import { parseStrictIsoInstant } from "./date-range";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 
 /**
@@ -108,14 +109,9 @@ function invalid(violation: ClinicalReadResultViolation): never {
 
 function parseInstant(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
-	// 临床结果的时间不能依赖运行机器时区，避免跨服务排序和验收不一致。
-	if (
-		!/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,3})?(?:Z|[+-][0-9]{2}:[0-9]{2})$/u.test(
-			value,
-		)
-	)
-		return undefined;
-	return Number.isFinite(Date.parse(value)) ? value : undefined;
+	// 临床结果的时间不能依赖运行机器时区，也不能接受自动进位的非法日期，
+	// 否则跨服务排序和页面验收会引用不同的观察事实。
+	return parseStrictIsoInstant(value) === undefined ? undefined : value;
 }
 
 function isClinicalReadFeature(value: unknown): value is ClinicalReadFeature {

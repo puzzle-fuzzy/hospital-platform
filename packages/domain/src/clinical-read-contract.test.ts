@@ -77,6 +77,12 @@ describe("clinical read contract", () => {
 				itemCount: 0,
 				observedAt: "2026-08-26T12:00:00",
 			},
+			{
+				...base,
+				state: "empty",
+				itemCount: 0,
+				observedAt: "2026-02-30T12:00:00+08:00",
+			},
 			{ ...base, state: "empty", itemCount: 0, patientId: "" },
 			{
 				...base,
