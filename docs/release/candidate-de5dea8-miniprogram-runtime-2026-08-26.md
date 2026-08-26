@@ -13,6 +13,7 @@
 | 页面数量 | 40 |
 | pending 运行文件 | 389 |
 | `runtime:verify:pending` | 通过，40 个页面和根文件完整 |
+| 真机证据清单 | [`device-evidence-de5dea8-pending.json`](device-evidence-de5dea8-pending.json)，9 个域均为 `pending` |
 | 当前 live 运行包 | `02dbf10419740d96c4445493df019021ac22bcfa`（`02dbf10`） |
 | 原子发布 | 被微信开发者工具 `EBUSY` 锁保护阻止，未覆盖 live |
 | 当前 pending | 保留，等待关闭工具后执行原子发布 |
