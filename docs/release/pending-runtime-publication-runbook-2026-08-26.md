@@ -8,14 +8,15 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| live 运行包来源 | `02dbf10419740d96c4445493df019021ac22bcfa`，40 个页面；已原子发布并通过 `runtime:verify` |
-| pending 候选来源 | 已发布到 live；发布成功后 pending 目录按设计清理 |
-| pending 目录 | 当前不存在；不能把 pending 缺失误判成运行包缺失 |
-| 发布结果 | `runtime:publish-pending` 成功，live `build-info.json` 已切换为 `02dbf10` |
-| 当前阻塞 | 九个真机证据域仍为 `pending`，下一步是生成二维码并按域取证 |
+| live 运行包来源 | `02dbf10419740d96c4445493df019021ac22bcfa`，40 个页面；旧候选仍通过 `runtime:verify` |
+| pending 候选来源 | `de5dea8df249c2fd1e122df4508bcd6cbb3852a7`（`de5dea8`），40 个页面；已通过 `runtime:verify:pending` |
+| pending 目录 | 当前保留；原子发布因微信开发者工具锁定 `dist` 返回 `EBUSY` |
+| 发布结果 | 尚未切换；旧 live `dist` 完整保留，不能手工覆盖或只替换来源指纹 |
+| 当前阻塞 | 先关闭占用 `dist` 的开发者工具/真机调试，再原子发布新候选；发布后才能开始九个真机证据域 |
 | 旧服务影响 | 无；旧 Python `8001` 和线上服务未修改 |
 
-> `02dbf10` 是当前运行相关源码候选。根目录文档提交不会改变运行包来源；本次构建已按
+> 当前 live 仍是 `02dbf10`，待发布候选是 `de5dea8`。根目录文档提交不会改变运行包来源；
+> 新候选构建已按
 > `build-info.json` 写入该完整来源指纹。当前来源、页面数量和静态校验结果以本机
 > `apps/miniprogram/dist/build-info.json` 与 `runtime:verify` 输出为准，
 > 不再使用旧 `de9c5b99`/`e1adbf7` 候选文档作为验收来源。
@@ -66,7 +67,8 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 ## 发布成功后的验收顺序
 
-发布只证明运行包切换，不证明业务完成。当前 live 候选已切换为 `02dbf10`，重新生成二维码后，按以下顺序逐域采证：
+发布只证明运行包切换，不证明业务完成。当前仍需先将 `de5dea8` 原子切换到 live；切换后
+重新生成二维码，再按以下顺序逐域采证：
 
 ```text
 微信登录
