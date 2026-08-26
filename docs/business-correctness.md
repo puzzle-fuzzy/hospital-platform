@@ -54,6 +54,12 @@ Provider 读模型的 `trace` 同样不能只依赖端口类型：预约目录/�
 `provider-response-invalid` 处理，固定记录 `readModelViolation`，不能把原始 trace 写入 Pino，也不能把错误 Provider
 当作成功读模型继续展示。该规则只保护只读链路的证据边界，不代表预约写入、支付、医保或 HIS 已开放。
 
+报告的异常标记也属于临床事实，不能按 JavaScript truthy/falsy 处理。LIS 目录的 `criticalFlag`、`flagGerm`
+和明细的 `flagCritical` 只接受明确的 boolean、0/1 数字或对应字符串；字段缺失才表示“没有该标记”，对象、
+数组、空字符串和未知值必须让 Provider 响应整体进入 `provider-response-invalid`。这样可以避免上游坏行被静默
+展示为“正常”，也避免详情的 critical 状态因为一次宽松转换而丢失。该规则只收紧已有报告只读映射，不扩大
+报告来源、附件下载或自动解读能力。
+
 ### 支付订单与报价的持久化读模型边界
 
 支付仍处于“真实支付最后处理”的 gate 之外，但其内部订单状态机不能因为支付尚未开放就放宽数据边界。

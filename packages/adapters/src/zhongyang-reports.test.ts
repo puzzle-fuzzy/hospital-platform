@@ -406,6 +406,96 @@ test("众阳报告 adapter 拒绝带控制字符的 Provider 文本", async () =
 	});
 });
 
+test("众阳报告异常标记遇到未知形状时拒绝而不是默认为正常", async () => {
+	const directoryCases = [
+		{
+			value: {
+				testList: "血常规",
+				reportTime: "2026-08-15 10:00:00",
+				criticalFlag: {},
+			},
+			requestId: "invalid-report-critical-flag",
+		},
+		{
+			value: {
+				testList: "血常规",
+				reportTime: "2026-08-15 10:00:00",
+				flagGerm: "2",
+			},
+			requestId: "invalid-report-germ-flag",
+		},
+	] as const;
+
+	for (const item of directoryCases) {
+		const gateway = createZhongyangReportGateway({
+			baseUrl: "https://zhongyang.example.test",
+			fetcher: async () =>
+				new Response(JSON.stringify({ success: true, data: [item.value] }), {
+					status: 200,
+					headers: { "x-request-id": item.requestId },
+				}),
+		});
+
+		await expect(
+			gateway.listReports(
+				{
+					providerPatientId: "provider-patient-invalid-flag",
+					query: {
+						startDate: "2026-08-01",
+						endDate: "2026-08-15",
+						kind: "laboratory",
+					},
+				},
+				context,
+			),
+		).rejects.toMatchObject({
+			name: "ProviderRequestError",
+			operation: "reports-laboratory",
+			requestId: item.requestId,
+			retryable: false,
+			responseInvalid: true,
+		});
+	}
+
+	const detailGateway = createZhongyangReportGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify({
+					success: true,
+					data: {
+						testList: "血常规",
+						reportTime: "2026-08-15 10:00:00",
+						details: [
+							{
+								itemName: "白细胞计数",
+								itemResult: "10.2",
+								flagCritical: [],
+							},
+						],
+					},
+				}),
+				{
+					status: 200,
+					headers: { "x-request-id": "invalid-report-detail-flag" },
+				},
+			),
+	});
+
+	await expect(
+		detailGateway.getLaboratoryDetail(
+			{ providerReportId: "provider-report-invalid-flag" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "reports-laboratory-detail",
+		requestId: "invalid-report-detail-flag",
+		retryable: false,
+		responseInvalid: true,
+	});
+});
+
 test("众阳报告附件标记拒绝宽松 truthy 值", async () => {
 	const cases = [
 		{

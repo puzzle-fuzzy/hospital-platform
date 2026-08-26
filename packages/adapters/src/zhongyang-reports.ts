@@ -514,9 +514,35 @@ function compareReportEntries(
 	);
 }
 
-function flag(value: unknown): boolean {
-	if (value === true || value === 1 || value === "1") return true;
-	return typeof value === "string" && value.trim().toLowerCase() === "true";
+/**
+ * 严格解析 Provider 的异常标记。
+ *
+ * 旧端类型把这些字段定义成 0/1 数字，但部分网关会把数字序列化成字符串；
+ * 因此这里只兼容明确的 boolean、0/1 数字和对应字符串。字段缺失表示“没有
+ * 该标记”，但对象、数组、空字符串或未知数字不能静默当成 false，否则一条
+ * 损坏的临床响应可能被患者端展示为“正常报告”。
+ */
+function flag(
+	value: unknown,
+	field: string,
+	operation: string,
+	requestId: string,
+): boolean {
+	if (value === undefined || value === null) return false;
+	if (typeof value === "boolean") return value;
+	if (typeof value === "number" && (value === 0 || value === 1)) {
+		return value === 1;
+	}
+	if (typeof value === "string") {
+		const normalized = value.trim().toLowerCase();
+		if (normalized === "0" || normalized === "false") return false;
+		if (normalized === "1" || normalized === "true") return true;
+	}
+	throw providerError(
+		operation,
+		`Zhongyang report flag field ${field} is invalid`,
+		requestId,
+	);
 }
 
 function reportStatus(abnormal: boolean): ReportSummary["status"] {
@@ -560,12 +586,19 @@ function mapLaboratory(
 		requestId,
 		256,
 	);
+	const criticalFlag = flag(
+		value.criticalFlag,
+		"criticalFlag",
+		operation,
+		requestId,
+	);
+	const germFlag = flag(value.flagGerm, "flagGerm", operation, requestId);
 	return {
 		summary: {
 			kind: "laboratory",
 			title,
 			reportedAt,
-			status: reportStatus(flag(value.criticalFlag) || flag(value.flagGerm)),
+			status: reportStatus(criticalFlag || germFlag),
 			hasAttachment: hasAttachmentTextList(
 				value,
 				"pdfUrlList",
@@ -640,8 +673,12 @@ function mapEcg(
 
 function detailFlag(
 	value: ProviderObject,
+	operation: string,
+	requestId: string,
 ): LaboratoryReportDetail["items"][number]["flag"] {
-	if (flag(value.flagCritical)) return "critical";
+	if (flag(value.flagCritical, "flagCritical", operation, requestId)) {
+		return "critical";
+	}
 	const mark =
 		typeof value.mark === "string" ? value.mark.trim().toLowerCase() : "";
 	if (["h", "high", "↑", "up"].includes(mark)) return "high";
@@ -723,7 +760,7 @@ function mapLaboratoryDetail(
 				),
 				...(unit !== undefined ? { unit } : {}),
 				...(referenceRange !== undefined ? { referenceRange } : {}),
-				flag: detailFlag(detail),
+				flag: detailFlag(detail, operation, requestId),
 			};
 		}),
 		hasAttachment: hasAttachmentTextList(
