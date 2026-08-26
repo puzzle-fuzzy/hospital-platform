@@ -733,6 +733,28 @@ test("MySQL ordinary profile converts unknown gender into the shared read-model 
 	});
 });
 
+test("MySQL ordinary profile rejects implicit numeric coercion from a malformed row", async () => {
+	const { pool } = createFakePool([
+		[
+			{
+				user_id: "user-profile-numeric-coercion-001",
+				display_name: "数值边界",
+				gender: "unknown",
+				// `Number([])` 会得到 0；年龄 0 在领域层是合法值，
+				// 所以必须在 persistence 边界先拒绝数组，不能等领域层猜测。
+				age: [],
+				email: null,
+				version: 1,
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.userProfiles.findByUserId("user-profile-numeric-coercion-001"),
+	).rejects.toThrow("invalid user profile age");
+});
+
 test("MySQL patient snapshot clears missing clinical references by stable internal id", async () => {
 	const existingPatient = {
 		patient_id: "stable-internal-patient-001",
@@ -1240,7 +1262,9 @@ test("MySQL prepay repository atomically claims due query schedules", async () =
 		provider: "wechat-pay",
 		idempotency_key: "prepay-due-001",
 		status: "succeeded",
-		version: 3,
+		// mysql2 在 BIGINT/INT 配置下可能返回十进制字符串；读取后必须
+		// 先转成安全整数，不能让 `version + 1` 变成字符串拼接。
+		version: "3",
 		query_attempts: 2,
 		last_queried_at: "2026-08-15 00:00:15.000",
 		next_query_at: "2026-08-15 00:01:00.000",
@@ -1278,6 +1302,41 @@ test("MySQL prepay repository atomically claims due query schedules", async () =
 	expect(state.committed).toBe(true);
 	expect(state.statements[0]).toContain("FOR UPDATE SKIP LOCKED");
 	expect(state.statements[1]).toContain("query_claimed_until = ?");
+});
+
+test("MySQL appointment snapshot rejects implicit zero slot counts", async () => {
+	const { pool } = createFakePool([
+		[
+			{
+				schedule_id: "schedule-numeric-coercion-001",
+				provider: "zhongyang",
+				provider_schedule_id: "provider-schedule-001",
+				department_id: "dept-001",
+				department_name: "心内科",
+				doctor_id: "doctor-001",
+				doctor_name: "李医生",
+				work_date: "2026-08-20",
+				shift_name: "上午",
+				start_time: "08:00",
+				end_time: "12:00",
+				// `Number([]) === 0` 会把损坏排班误报成“0 个号源”。
+				total_slots: [],
+				available_slots: 0,
+				time_group: "range",
+				provider_request_id: "provider-request-001",
+				observed_at: "2026-08-15 00:00:10.000",
+				expires_at: "2026-08-15 00:01:10.000",
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.appointmentScheduleSnapshots.findActive(
+			"schedule-numeric-coercion-001",
+			"2026-08-15T00:00:30.000Z",
+		),
+	).rejects.toThrow("invalid appointment slot count");
 });
 
 test("MySQL appointment schedule snapshots persist provider evidence and enforce expiry reads", async () => {

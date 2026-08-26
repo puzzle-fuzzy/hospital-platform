@@ -364,7 +364,9 @@ test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async
 			"apps/api/src/app.ts",
 			"apps/api/src/application.ts",
 			"apps/api/src/plugins/error-handler.ts",
+			"packages/adapters/src/http.ts",
 			"packages/adapters/src/zhongyang-appointments.ts",
+			"packages/adapters/src/zhongyang-outpatient-payments.ts",
 			"packages/domain/src/clinical-read-contract.ts",
 			"packages/domain/src/external-entry-session.ts",
 			"packages/domain/src/index.ts",
@@ -374,6 +376,7 @@ test("仓库当前发布文档保持同一套候选", { timeout: 15_000 }, async
 			"packages/domain/src/payment-state.ts",
 			"packages/domain/src/ports.ts",
 			"packages/persistence/src/mysql-health-knowledge-repository.ts",
+			"packages/persistence/src/mysql-repositories.ts",
 		],
 	});
 });

@@ -182,7 +182,7 @@ type PaymentOrderRow = RowDataPacket & {
 	insurance_fen: number | string;
 	cash_fen: number | string;
 	state: string;
-	version: number;
+	version: number | string;
 	created_at: string;
 	updated_at: string;
 };
@@ -194,8 +194,8 @@ type PaymentPrepayAttemptRow = RowDataPacket & {
 	provider: string;
 	idempotency_key: string;
 	status: string;
-	version: number;
-	query_attempts: number;
+	version: number | string;
+	query_attempts: number | string;
 	last_queried_at: string | null;
 	next_query_at: string | null;
 	query_claimed_until: string | null;
@@ -323,20 +323,45 @@ function isDuplicateEntry(error: unknown): boolean {
 	);
 }
 
-function safeFen(value: number | string): number {
-	const parsed = Number(value);
-	if (!Number.isSafeInteger(parsed) || parsed < 0) {
-		throw new Error("Persistence returned an invalid amount");
+/**
+ * MySQL BIGINT/INT 可能按连接配置返回 number 或十进制字符串。
+ *
+ * 这里只接受这两种真实数据库形态，不使用宽松的 `Number(value)`：
+ * `Number([])`、`Number(false)` 等隐式转换会把损坏行伪装成合法的 0，
+ * 甚至让预支付版本发生字符串拼接。所有数值读模型在进入领域层前都
+ * 必须经过这个统一边界；超出 JavaScript 安全整数也必须停止。
+ */
+function safeDatabaseInteger(
+	value: unknown,
+	minimum: number,
+	errorMessage: string,
+): number {
+	const parsed =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && /^\d+$/u.test(value)
+				? Number(value)
+				: Number.NaN;
+	if (!Number.isSafeInteger(parsed) || parsed < minimum) {
+		throw new Error(errorMessage);
 	}
 	return parsed;
 }
 
+function safeFen(value: number | string): number {
+	return safeDatabaseInteger(
+		value,
+		0,
+		"Persistence returned an invalid amount",
+	);
+}
+
 function safeSlotCount(value: number | string): number {
-	const parsed = Number(value);
-	if (!Number.isSafeInteger(parsed) || parsed < 0) {
-		throw new Error("Persistence returned an invalid appointment slot count");
-	}
-	return parsed;
+	return safeDatabaseInteger(
+		value,
+		0,
+		"Persistence returned an invalid appointment slot count",
+	);
 }
 
 /**
@@ -400,8 +425,19 @@ function identityUser(row: IdentityUserRow): IdentityUser {
 }
 
 function userProfile(row: UserProfileRow): UserProfile {
-	const version = Number(row.version);
-	const age = row.age === null ? null : Number(row.age);
+	const version = safeDatabaseInteger(
+		row.version,
+		0,
+		"Persistence returned an invalid user profile version",
+	);
+	const age =
+		row.age === null
+			? null
+			: safeDatabaseInteger(
+					row.age,
+					0,
+					"Persistence returned an invalid user profile age",
+				);
 	// MySQL 驱动的类型声明不能证明线上行仍符合业务读模型；例如历史脏数据
 	// 可能包含未知 gender 或越界 version。这里必须复用领域层的公开归一化函数，
 	// 让仓储异常统一成为 UserProfileReadModelValidationError，继续进入 API 的
@@ -853,7 +889,11 @@ function paymentOrder(row: PaymentOrderRow): PaymentOrder {
 			cashFen: safeFen(row.cash_fen),
 		},
 		state: paymentState(row.state),
-		version: row.version,
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid payment order version",
+		),
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 	};
@@ -913,8 +953,16 @@ function paymentPrepayAttempt(
 		provider: "wechat-pay",
 		idempotencyKey: row.idempotency_key,
 		status: paymentPrepayAttemptStatus(row.status),
-		version: row.version,
-		queryAttempts: row.query_attempts,
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid payment prepay version",
+		),
+		queryAttempts: safeDatabaseInteger(
+			row.query_attempts,
+			0,
+			"Persistence returned an invalid payment prepay query count",
+		),
 		...(row.last_queried_at ? { lastQueriedAt: row.last_queried_at } : {}),
 		...(row.next_query_at ? { nextQueryAt: row.next_query_at } : {}),
 		...(row.query_claimed_until
@@ -1269,12 +1317,11 @@ export function createMySqlRepositories(
 					row: PatientDirectorySyncOperationRow,
 					conflictScope: "same-key" | "owner-provider" = "same-key",
 				): Promise<PatientDirectorySyncStart> => {
-					const attemptCount = Number(row.attempt_count);
-					if (!Number.isSafeInteger(attemptCount) || attemptCount < 1) {
-						throw new Error(
-							"Persistence returned an invalid patient sync attempt count",
-						);
-					}
+					const attemptCount = safeDatabaseInteger(
+						row.attempt_count,
+						1,
+						"Persistence returned an invalid patient sync attempt count",
+					);
 					if (row.status === "succeeded") {
 						return {
 							outcome: "replay",
@@ -1846,6 +1893,13 @@ export function createMySqlRepositories(
 					],
 				);
 				for (const row of rows) {
+					// MySQL 可能把 INT 版本按字符串返回；先收窄为安全整数，
+					// 再用于条件更新和响应递增，禁止 `"3" + 1` 变成 `"31"`。
+					const currentVersion = safeDatabaseInteger(
+						row.version,
+						1,
+						"Persistence returned an invalid payment prepay version",
+					);
 					const result = await execute<ResultSetHeader>(
 						connection,
 						"UPDATE hp_payment_prepay_attempts SET query_claimed_until = ?, version = version + 1, updated_at = ? WHERE attempt_id = ? AND version = ?",
@@ -1853,7 +1907,7 @@ export function createMySqlRepositories(
 							mysqlDateTime(claimedUntil),
 							mysqlDateTime(now),
 							row.attempt_id,
-							row.version,
+							currentVersion,
 						],
 					);
 					// 行已被 FOR UPDATE 锁定，正常情况下这里必须恰好更新一行；
@@ -1866,7 +1920,12 @@ export function createMySqlRepositories(
 					paymentPrepayAttempt(
 						{
 							...row,
-							version: row.version + 1,
+							version:
+								safeDatabaseInteger(
+									row.version,
+									1,
+									"Persistence returned an invalid payment prepay version",
+								) + 1,
 							query_claimed_until: mysqlDateTime(claimedUntil),
 							updated_at: mysqlDateTime(now),
 						},
