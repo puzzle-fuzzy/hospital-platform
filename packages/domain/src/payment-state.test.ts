@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	InvalidPaymentTransitionError,
+	allowedPaymentTransitions,
 	canTransitionPayment,
 	transitionPayment,
 } from "./payment-state";
@@ -19,6 +20,8 @@ test("payment state machine permits the verified happy path", () => {
 
 test("unknown payment state cannot be treated as success", () => {
 	expect(canTransitionPayment("awaiting_confirmation", "completed")).toBe(true);
+	expect(canTransitionPayment("unknown" as never, "completed")).toBe(false);
+	expect(allowedPaymentTransitions("unknown" as never)).toEqual([]);
 	expect(() => transitionPayment("completed", "cash_pending")).toThrow(
 		InvalidPaymentTransitionError,
 	);
