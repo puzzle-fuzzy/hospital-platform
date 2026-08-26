@@ -195,6 +195,26 @@ function parseContextNow(now: Date): number {
 	return now.getTime();
 }
 
+/**
+ * 消费上下文也是未必经过 HTTP schema 的运行时输入。
+ *
+ * 外部入口未来可能由 WebView 回跳、Worker、回放任务或 persistence consumer
+ * 调用；如果只比较 `session.field === context.field`，非法值在两边同时出现时
+ * 仍会被接受。这里复用会话材料的字段边界，先验证授权根、患者范围、受众、
+ * 资源 key 和时间，再进入过期/重放/匹配判断，避免把错误 context 当成授权事实。
+ */
+function validateConsumeContext(
+	value: unknown,
+): asserts value is ExternalEntrySessionConsumeContext {
+	if (!isRecord(value)) invalid("owner-invalid");
+	if (!isBoundedOpaqueIdentifier(value.ownerUserId)) invalid("owner-invalid");
+	parseOptionalOpaqueIdentifier(value.patientId, "patient-invalid");
+	if (!isAudience(value.audience)) invalid("audience-invalid");
+	if (!isBoundedOpaqueIdentifier(value.resourceKey))
+		invalid("resource-invalid");
+	parseContextNow(value.now as Date);
+}
+
 function parseStatus(value: unknown): ExternalEntrySessionStatus {
 	if (value !== "issued" && value !== "consumed" && value !== "revoked") {
 		invalid("status-invalid");
@@ -305,6 +325,7 @@ export function evaluateExternalEntrySession(
 	context: ExternalEntrySessionConsumeContext,
 ): ExternalEntrySessionDecision {
 	const session = normalizeExternalEntrySession(value);
+	validateConsumeContext(context);
 	const nowTimestamp = parseContextNow(context.now);
 	if (session.status === "revoked") {
 		return { allowed: false, reason: "revoked" };

@@ -2,14 +2,16 @@
 
 ## 本轮结论
 
-普通资料、患者目录读模型和报告短期引用都属于 owner 作用域，但它们可能被 API、
+普通资料、患者目录读模型、报告短期引用和外部短期会话都属于 owner 作用域，但它们可能被 API、
 回放任务、Worker 或替换仓储直接调用，不能只依赖 Elysia route 或 TypeScript 类型。
 本轮补齐了三个 domain 边界：
 
 - 普通资料 `normalizeUserProfileReadModel` 先校验 `expectedUserId` 是合法 opaque 标识，
   再比较仓储返回的资料归属；
 - 报告 `ReportReference.ownerUserId` 复用 opaque 标识校验，拒绝控制字符和首尾空白；
-- 患者 `normalizePatientReadModel` 先校验 `expectedOwnerUserId`，再比较仓储返回的患者归属。
+- 患者 `normalizePatientReadModel` 先校验 `expectedOwnerUserId`，再比较仓储返回的患者归属；
+- 外部短期会话在比较 session 与消费 context 前，先校验 context 的 owner、患者、
+  受众、资源和时间边界，避免两边同时带非法值时错误放行。
 
 非法 owner 现在会在进入持久化查询、页面读模型和后续 Provider 链路前停止。合法
 业务行为不变，也没有把客户端提交的 owner 变成授权条件。
@@ -22,6 +24,7 @@
 | 患者目录 | 当前会话 userId | expected owner 是合法 opaque ID；每条患者归属与它相等 | repository 查询必须按 owner 过滤；同步必须使用服务端身份和租约 |
 | 报告引用 | 当前会话 userId + patientId | 引用 owner、患者、报告 ID、Provider、类型和 TTL 均合法 | MySQL 查询必须同时绑定 owner/patient/report；详情 Provider 只能收到服务端引用 |
 | 预约/门诊费用 | 当前会话 userId + patientId | service 校验 owner、患者和临床映射 | Provider 合同、真实公网/真机证据仍未完成 |
+| 外部短期会话 | 当前会话 userId + 可选 patientId + audience/resource | session 与消费 context 两侧字段均合法且精确匹配 | allowlist、Redis CAS、退出/撤回、回跳和外部 Provider contract 仍未开放 |
 
 这里的“domain 已证明”不等于业务已经上线：它只说明运行时对象没有越过当前
 公共模型边界。任何业务 service 仍必须继续执行 owner、患者、Provider 和会话代际
@@ -33,6 +36,8 @@
 - `packages/domain/src/reports.test.ts` 覆盖报告引用 owner 的相同边界；
 - `packages/domain/src/user-profile-read-model.test.ts` 覆盖普通资料 expected userId 的
   控制字符、首尾空白和错 owner；
+- `packages/domain/src/external-entry-session.test.ts` 覆盖消费 context 的 owner、患者、
+  受众和资源边界；
 - 患者 service、报告 service、Persistence 和 API 测试继续验证 owner 隔离、跨患者
   拒绝、过期引用和不调用 Provider 的行为；
 - 运行时测试、类型检查、Biome 和文档链接审计仍需在提交前重新执行。

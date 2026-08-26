@@ -161,6 +161,19 @@ test("消费和撤回拒绝 Invalid Date，不把 NaN 当成有效时间", () =>
 	).toThrow(ExternalEntrySessionValidationError);
 });
 
+test("外部会话消费上下文也必须通过 owner、患者、受众和资源边界", () => {
+	for (const [field, value, violation] of [
+		["ownerUserId", " owner-001", "owner-invalid"],
+		["patientId", "patient-001\u0000", "patient-invalid"],
+		["audience", "unknown-audience", "audience-invalid"],
+		["resourceKey", " resource-key", "resource-invalid"],
+	] as const) {
+		expect(() =>
+			evaluateExternalEntrySession(validSession(), context({ [field]: value })),
+		).toThrow(new ExternalEntrySessionValidationError(violation));
+	}
+});
+
 test("会话材料拒绝未知字段、不带时区的时间和不完整终态", () => {
 	expect(() =>
 		normalizeExternalEntrySession({
