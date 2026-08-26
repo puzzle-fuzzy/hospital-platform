@@ -365,10 +365,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/hospital/bloodAppointment.vue",
 			domain: "预约",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/blood-appointment/blood-appointment",
 			featureKey: "blood-appointment",
-			note: "已按旧端真实行为迁移当前就诊人、院区位置和无可预约项目空态；旧端没有采血号源请求，采血号源、预约写入、取消和最终状态查询仍关闭。",
+			note: "已按旧端真实行为迁移当前就诊人、院区位置和无可预约项目空态；这部分安全子集已完成，采血号源、预约写入、取消和最终状态查询仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/hospital/confirm_registration.vue",
@@ -462,18 +462,18 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/patient/express.vue",
 			domain: "患者",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/patient-express/patient-express",
 			featureKey: "patient-express",
-			note: "旧端实际只有患者选择和预留空列表，已迁移为原生空态；真实物流来源、患者归属和状态字段仍待 provider contract。",
+			note: "旧端实际只有患者选择和预留空列表，已迁移为 owner-scoped 原生患者卡片和空态；真实物流来源、患者归属和状态字段仍待 provider contract。",
 		},
 		{
 			legacyPath: "pagesB/patient/patient_signature.vue",
 			domain: "患者",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/patient-signature/patient-signature",
 			featureKey: "patient-signature",
-			note: "已迁移患者签名页面外壳和关闭态；不复用旧端假患者列表或硬编码外部小程序，真实签名 contract 仍待确认。",
+			note: "已迁移 owner-scoped 脱敏患者列表、选中态、协议入口和关闭说明；不复用旧端假患者列表或硬编码外部小程序，真实签名 contract 仍待确认。",
 		},
 		{
 			legacyPath: "pagesB/patient/patientAdd.vue",
@@ -529,10 +529,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/user/subscription_message.vue",
 			domain: "用户",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/patient-subscription/patient-subscription",
 			featureKey: "patient-subscription",
-			note: "已迁移消息订阅原生入口外壳；旧端本地开关不是微信订阅授权，完整发送链路仍关闭。",
+			note: "已迁移消息订阅的搜索、分类折叠、当前就诊人和只读开关展示；旧端本地开关不是微信订阅授权，完整发送链路仍关闭。",
 		},
 	] as const;
 

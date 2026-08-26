@@ -545,6 +545,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/hospital/bloodAppointment.vue"],
 		safeSurfaceTarget: "pages/blood-appointment/blood-appointment",
+		// 这里只允许已完成患者、院区和空状态展示的安全子集进入 partial；
+		// 号源、写入和最终状态仍需 provider contract，不能提前开放。
+		safePartialPaths: ["pagesB/hospital/bloodAppointment.vue"],
 		legacyActions: [],
 		requiredMaterials: ["blood-slot-source", "patient-owner", "status-enum"],
 		forbiddenCapabilities: [
@@ -625,6 +628,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/patient/express.vue"],
 		safeSurfaceTarget: "pages/patient-express/patient-express",
+		// 只迁移患者范围和旧端空状态，不把物流来源、运单字段或状态
+		// 映射伪装成已接通 provider。
+		safePartialPaths: ["pagesB/patient/express.vue"],
 		legacyActions: [],
 		requiredMaterials: [
 			"source-system",
@@ -667,6 +673,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "patient-write",
 		legacyPaths: ["pagesB/patient/patient_signature.vue"],
 		safeSurfaceTarget: "pages/patient-signature/patient-signature",
+		// 当前仅完成患者范围、脱敏列表和协议入口；签名会话、文件安全、
+		// 同意及撤回仍关闭，因此只能标记为 partial。
+		safePartialPaths: ["pagesB/patient/patient_signature.vue"],
 		legacyActions: [],
 		requiredMaterials: ["purpose", "file-security", "consent", "withdrawal"],
 		forbiddenCapabilities: ["复用旧端签名文件", "无用途上传", "跨患者读取签名"],
@@ -679,6 +688,9 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "external-session",
 		legacyPaths: ["pagesB/user/subscription_message.vue"],
 		safeSurfaceTarget: "pages/patient-subscription/patient-subscription",
+		// 本地查询、折叠和只读开关不等于微信订阅授权；真实授权与发送
+		// 仍需外部入口 contract，因此仅声明当前安全子集。
+		safePartialPaths: ["pagesB/user/subscription_message.vue"],
 		legacyActions: [],
 		requiredMaterials: [
 			"template-id",

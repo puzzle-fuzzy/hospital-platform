@@ -1,6 +1,6 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；当前统计为 `replaced=8 / partial=19 / surface-only=29 / blocked-payment=7 / excluded=1`。40 页运行相关源码候选和最新 pending 运行包来源均为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`，但仍受微信开发者工具锁定影响，需要重新发布；本轮新增微信资料拒绝后的设置页重试链路，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。40 页运行相关源码候选和最新 pending 运行包来源均为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`，但仍受微信开发者工具锁定影响，需要重新发布；本轮新增微信资料拒绝后的设置页重试链路，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
@@ -24,7 +24,7 @@
 | 小程序 pending 运行包 | `.local/hospital-miniprogram/pending/`，`build-info.sourceRevision=adf536bff5b01a2cd27c664f05b7feae2be6ec3f` |
 | 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
 | pending 页面数 | 40 个；`runtime:verify:pending` 已通过 |
-| 小程序回归 | `311 pass / 0 fail / 3527 expect()`；入口分发审计通过 |
+| 小程序回归 | `312 pass / 0 fail / 3548 expect()`；入口分发审计通过 |
 | pending 静态验证 | `runtime:verify:pending` 已通过；发布到 live `dist` 仍等待释放微信工具锁 |
 | 当前 live `dist` | 来源仍为 `fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`，被微信开发者工具占用，未替换；不能用来证明本候选已加载 |
 | 服务端本地候选 | 当前 `apps/api` 代码最新提交为 `b42922f4`，尚未因 release baseline drift 部署 |
@@ -39,8 +39,8 @@
 | 状态 | 数量 | 含义 |
 | --- | ---: | --- |
 | `replaced` | 8 | 已有原生页面或等价静态能力；仍需真实链路/真机证据才能称为完成 |
-| `partial` | 19 | 已有安全只读或静态子集；旧页面中的写入、详情、实时或外部能力仍关闭 |
-| `surface-only` | 29 | 页面外壳、必要的患者选择入口和关闭态已迁移；真实业务仍按对应 contract 阻塞 |
+| `partial` | 23 | 已有安全只读或静态子集；旧页面中的写入、详情、实时或外部能力仍关闭 |
+| `surface-only` | 25 | 页面外壳、必要的患者选择入口和关闭态已迁移；真实业务仍按对应 contract 阻塞 |
 | `blocked-provider` | 0 | Provider 入口已先迁移安全壳，真实读取仍未开放 |
 | `blocked-clinical` | 0 | 临床入口已先迁移安全壳，题库/阈值/内容业务仍未开放 |
 | `blocked-payment` | 7 | 等待金额、订单、支付、查单、退款和 HIS 回写状态机 |
@@ -56,7 +56,7 @@ pnpm migration:audit
 pnpm migration:boundary:audit
 ```
 
-除 29 个 `surface-only` 外壳外，剩余支付/医保/结算入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；这些外壳只展示页面边界和关闭态，不读取 Provider、不打开外部地址。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成；健康自测的 BMI/血压安全数值子集已单独进入 `partial`。
+除 25 个 `surface-only` 外壳外，剩余支付/医保/结算入口当前进入固定 `pages/feature-status/feature-status` 和固定 `FeatureKey`；这些外壳只展示页面边界和关闭态，不读取 Provider、不打开外部地址。这一步解决的是 404、无响应和任意旧 URL 跳转，不是空页面伪装成业务完成；健康自测以及采血预约、我的快递、患者签名展示、消息订阅展示的安全子集已单独进入 `partial`。
 
 首页和“我的”当前可见的 31 个 action 另外由 `pnpm migration:breadth:audit` 审计：它检查 action 是否存在固定分支、状态页引用是否属于本地目录、图标是否存在以及四个主 Tab 是否仍注册；同时检查全部 40 个已注册页面的 WXML 事件是否都能在对应 TS 页面方法或共享页面工厂中找到。该门禁只保证入口交互完整，不扩大任何真实业务范围。
 

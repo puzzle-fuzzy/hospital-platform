@@ -135,4 +135,26 @@ describe("全量阻断业务域准入目录", () => {
 			"pagesB/health/self_test_result.vue",
 		);
 	});
+
+	test("四个非支付入口显式声明当前已经完成的安全子集", () => {
+		const expectedSafePartialPaths = {
+			"blood-appointment": "pagesB/hospital/bloodAppointment.vue",
+			"patient-express": "pagesB/patient/express.vue",
+			"patient-signature": "pagesB/patient/patient_signature.vue",
+			"patient-subscription": "pagesB/user/subscription_message.vue",
+		};
+
+		for (const [gateId, legacyPath] of Object.entries(
+			expectedSafePartialPaths,
+		)) {
+			const gate = FROZEN_DOMAIN_GATE_CATALOG.find(
+				(item) => item.id === gateId,
+			);
+
+			// 安全子集必须显式绑定到旧入口，避免未来新增 partial 页面时
+			// 绕过人工审查，把 provider 或外部会话能力误报为已迁移。
+			expect(gate?.safePartialPaths).toEqual([legacyPath]);
+			expect(gate?.safeSurfaceTarget).toBeString();
+		}
+	});
 });

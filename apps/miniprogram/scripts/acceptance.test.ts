@@ -2441,7 +2441,7 @@ test("native mini program migrates the legacy express placeholder without fake l
 
 	// 旧端 express.vue 没有物流请求，预留列表始终为空；这里迁移的是
 	// 已存在的患者栏和空态，不把“页面能打开”误写成物流服务已接通。
-	expect(catalog).toContain('status: "surface-only"');
+	expect(catalog).toContain('status: "partial"');
 	expect(catalog).toContain("旧端实际只有患者选择和预留空列表");
 	expect(page).toContain("loadCurrentPatient");
 	expect(page).toContain('navigateToFeatureStatus("patient-express")');

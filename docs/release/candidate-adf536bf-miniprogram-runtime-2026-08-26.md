@@ -13,7 +13,7 @@
 | 短提交 | `adf536bf` |
 | 构建输出 | `.local/hospital-miniprogram/pending/` |
 | 页面数量 | 40 |
-| 小程序测试 | `311 pass / 0 fail / 3527 expect()` |
+| 小程序测试 | `312 pass / 0 fail / 3548 expect()` |
 | 类型检查、格式、Lint | 通过 |
 | pending 静态验证 | 通过；`runtime:verify:pending` 已确认来源和 40 个页面 |
 | live `dist` | 未替换；仍为旧来源 `fcc6630e`，被微信开发者工具占用 |

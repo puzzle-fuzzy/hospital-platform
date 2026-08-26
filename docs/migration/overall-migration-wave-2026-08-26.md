@@ -11,9 +11,9 @@
 | --- | --- | --- |
 | 旧端入口 | 64 个页面已进入逐页迁移台账 | 入口没有遗漏，不代表 64 个业务都已完成 |
 | 新端页面 | 40 个 TypeScript 原生页面已注册 | 页面事件和路由完整，不代表 Provider 已开放 |
-| 入口状态 | `replaced=8`、`partial=19`、`surface-only=29`、`blocked-payment=7`、排除=1 | 仍有真实业务需要按批次推进 |
+| 入口状态 | `replaced=8`、`partial=23`、`surface-only=25`、`blocked-payment=7`、排除=1 | 仍有真实业务需要按批次推进 |
 | 已有安全业务 | 患者目录、预约目录/历史、报告目录/受限详情、门诊费用只读、普通资料、健康百科代码 | 需要分别完成候选、服务端日志、Provider 和真机证据 |
-| 当前源码 / pending 小程序 | 业务源码候选与 pending 运行输入均为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`，40 页 | 源码回归 `311 pass / 0 fail / 3527 expect()`；pending 已通过静态运行包校验，`dist` 被开发者工具锁定，不能当作已发布 |
+| 当前源码 / pending 小程序 | 业务源码候选与 pending 运行输入均为 `adf536bff5b01a2cd27c664f05b7feae2be6ec3f`，40 页 | 源码回归 `312 pass / 0 fail / 3548 expect()`；pending 已通过静态运行包校验，`dist` 被开发者工具锁定，不能当作已发布 |
 | 线上新服务 | release `8eb51b5f`，与旧 Python `8001` 共存 | 本地未部署的运行时代码不能写成线上证据 |
 | 高风险批次 | C/D/E 缺正式 contract，F 等待支付状态机，B 缺审核 bundle | 保持 fail-closed，不用空数组、旧 WebView 或兼容转发伪造完成 |
 

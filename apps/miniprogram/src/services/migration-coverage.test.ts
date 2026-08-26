@@ -44,6 +44,38 @@ describe("迁移入口覆盖聚合", () => {
 		expect(coverage.feature.contractHint).toContain("临床审核");
 	});
 
+	test("四个页面先准确标记已完成的安全子集，不把后续真实能力误报为完成", () => {
+		const safeSubsetEntries = [
+			"pagesB/hospital/bloodAppointment.vue",
+			"pagesB/patient/express.vue",
+			"pagesB/patient/patient_signature.vue",
+			"pagesB/user/subscription_message.vue",
+		] as const;
+
+		for (const legacyPath of safeSubsetEntries) {
+			const entry = LEGACY_PAGE_MIGRATION_CATALOG.find(
+				(item) => item.legacyPath === legacyPath,
+			);
+			expect(entry).toBeDefined();
+			expect(entry?.status).toBe("partial");
+			expect(entry?.nativeTarget).not.toBeNull();
+			expect(entry?.note).toContain("仍");
+		}
+
+		expect(getFeatureMigrationCoverage("blood-appointment").stage).toBe(
+			"partial",
+		);
+		expect(getFeatureMigrationCoverage("patient-express").stage).toBe(
+			"partial",
+		);
+		expect(getFeatureMigrationCoverage("patient-signature").stage).toBe(
+			"partial",
+		);
+		expect(getFeatureMigrationCoverage("patient-subscription").stage).toBe(
+			"partial",
+		);
+	});
+
 	test("电子锦旗覆盖视图保留全部旧端入口和临床关闭语义", () => {
 		const coverage = getFeatureMigrationCoverage("gift-banner");
 		expect(coverage.stage as MigrationCoverageStage).toBe("surface-only");
