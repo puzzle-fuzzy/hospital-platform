@@ -97,9 +97,10 @@ test("native App entry does not trust a cached token before session verification
 	expect(app).not.toContain('wx.getStorageSync("access_token")');
 	expect(app).not.toContain("this.globalData.accessToken = storedToken");
 	expect(app).not.toContain('this.globalData.sessionStatus = "signed_in"');
-	// App.onLaunch 必须显式传递当前实例；无参形式只能由页面服务内部
-	// 作为容器已经初始化后的兜底，不能成为启动阶段的唯一入口。
-	expect(app).toContain("ensureGlobalUserProfile(this)");
+	// App.onLaunch 必须显式传递稳定的启动容器；不能把 this 或 getApp()
+	// 在启动窗口内已经可用当成前提。
+	expect(app).toContain("ensureGlobalUserProfile(APP_CONTAINER)");
+	expect(app).toContain("registerBootstrapApp(APP_CONTAINER)");
 	expect(app).toContain("onLaunch()");
 });
 
@@ -126,7 +127,8 @@ test("native user profile is bootstrapped once and shared across primary tabs", 
 
 	// App.onLaunch 是唯一自动初始化入口；首页、“我的”和资料编辑页只等待
 	// 这份全局快照，避免每次切换 Tab 都重新请求 `/me/profile` 或重置旧资料。
-	expect(app).toContain("ensureGlobalUserProfile(this)");
+	expect(app).toContain("ensureGlobalUserProfile(APP_CONTAINER)");
+	expect(app).toContain("registerBootstrapApp(APP_CONTAINER)");
 	expect(home).toContain("waitForGlobalUserProfile()");
 	expect(home).not.toContain("ensureGlobalUserProfile()");
 	expect(globalProfile).toContain("profileBootstrapInFlight");

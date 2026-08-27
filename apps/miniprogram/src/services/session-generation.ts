@@ -1,3 +1,5 @@
+import { getRegisteredApp } from "./app-runtime-context";
+
 /**
  * 小程序平台会话的进程内代际号。
  *
@@ -23,8 +25,7 @@ type SharedSessionGlobalData = {
  */
 function sharedGlobalData(): SharedSessionGlobalData["globalData"] | undefined {
 	try {
-		if (typeof getApp !== "function") return undefined;
-		return (getApp() as unknown as SharedSessionGlobalData).globalData;
+		return getRegisteredApp<SharedSessionGlobalData>()?.globalData;
 	} catch {
 		// 页面单元测试和构建期静态分析没有微信 App 容器，使用本地代际即可。
 		return undefined;

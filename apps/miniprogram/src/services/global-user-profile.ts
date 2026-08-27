@@ -6,6 +6,11 @@ import {
 	safeApiErrorMessage,
 	updateUserProfile,
 } from "./api-client";
+import {
+	getRegisteredApp,
+	type MiniProgramAppContainer,
+	registerBootstrapApp,
+} from "./app-runtime-context";
 import { registerSessionChangedListener } from "./session-events";
 import {
 	getSessionGeneration,
@@ -96,23 +101,20 @@ function globalData(
 	app?: GlobalUserProfileApp,
 ): GlobalUserProfileApp["globalData"] {
 	if (app) {
+		if (!app.globalData) {
+			throw new Error("Global user profile App globalData is not initialized");
+		}
 		launchApp = app;
+		registerBootstrapApp(app as MiniProgramAppContainer);
 		return app.globalData;
 	}
 
-	// 页面脚本优先从微信容器获取最新实例；这也避免单元测试或热重载时
-	// 误复用上一次调用留下的 App 引用。App.onLaunch 中 getApp() 可能尚未
-	// 就绪，此处失败后再回退到显式传入的 launchApp。
-	try {
-		if (typeof getApp === "function") {
-			const currentApp = getApp() as unknown as GlobalUserProfileApp;
-			if (currentApp?.globalData) {
-				launchApp = currentApp;
-				return currentApp.globalData;
-			}
-		}
-	} catch {
-		// App 容器尚未完成注册时由下面的显式启动实例兜底。
+	// 页面脚本优先从微信容器获取最新实例；启动 IIFE 或测试环境无法反查
+	// 时，由显式登记的容器兜底。两条路径都必须指向同一个 globalData 对象。
+	const currentApp = getRegisteredApp<GlobalUserProfileApp>();
+	if (currentApp?.globalData) {
+		launchApp = currentApp;
+		return currentApp.globalData;
 	}
 
 	if (launchApp?.globalData) return launchApp.globalData;

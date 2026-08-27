@@ -6,6 +6,8 @@
  * 依赖。这里提供一个无业务依赖的事件桥：凭证轮换或失效时只发布“会话
  * 已变化”事实，由资料仓库、患者上下文等订阅者各自清理自己的派生快照。
  */
+
+import { getRegisteredApp } from "./app-runtime-context";
 import { invalidatePageRequests } from "./page-instance-state";
 
 export type SessionChangedListener = () => void;
@@ -37,8 +39,7 @@ const pageSessionResetRuntimes = new WeakMap<object, PageSessionResetRuntime>();
 
 function getSharedListeners(): Set<SessionChangedListener> {
 	try {
-		if (typeof getApp !== "function") return fallbackListeners;
-		const appData = (getApp() as unknown as SharedAppData).globalData;
+		const appData = getRegisteredApp<SharedAppData>()?.globalData;
 		if (!appData) return fallbackListeners;
 		if (appData.sessionChangedListeners instanceof Set) {
 			return appData.sessionChangedListeners;

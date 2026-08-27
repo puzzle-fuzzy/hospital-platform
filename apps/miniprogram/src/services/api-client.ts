@@ -24,6 +24,7 @@ import {
 	recordApiRequestObservation,
 	sanitizeApiRequestPath,
 } from "./api-request-observability";
+import { getRegisteredApp } from "./app-runtime-context";
 import { isBoundedPatientId } from "./patient-identifiers";
 import { notifySessionChanged } from "./session-events";
 import {
@@ -119,6 +120,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"api-base-url-missing": "API 地址尚未配置",
 		"api-base-url-insecure": "API 地址必须使用 HTTPS",
 		"api-prefix-invalid": "API 版本前缀尚未配置",
+		"app-not-initialized": "小程序正在启动，请稍后重试",
 		"network-failed": "网络请求失败，请检查网络或服务地址",
 		"wechat-code-missing": "微信登录未返回临时凭证",
 		"session-missing": "登录响应缺少平台会话",
@@ -161,8 +163,13 @@ export class ApiError extends Error {
 }
 
 function globalData(): MiniProgramGlobalData {
-	return (getApp() as unknown as { globalData: MiniProgramGlobalData })
-		.globalData;
+	const app = getRegisteredApp<{
+		globalData?: MiniProgramGlobalData;
+	}>();
+	if (app?.globalData) return app.globalData;
+	throw new ApiError("小程序全局状态尚未初始化，请重新打开小程序", {
+		code: "app-not-initialized",
+	});
 }
 
 /**

@@ -9,6 +9,7 @@ import {
 	isUsableAccessToken,
 	login,
 } from "./api-client";
+import { getRegisteredApp } from "./app-runtime-context";
 
 /** 会话状态只在这一层写入全局，页面层只消费本地化后的显示文案。 */
 export const SESSION_STATES = Object.freeze({
@@ -81,11 +82,13 @@ export function sessionVerificationStateFromLabel(
 }
 
 function globalData(): { accessToken: string; sessionStatus: SessionState } {
-	return (
-		getApp() as unknown as {
-			globalData: { accessToken: string; sessionStatus: SessionState };
-		}
-	).globalData;
+	const app = getRegisteredApp<{
+		globalData?: { accessToken: string; sessionStatus: SessionState };
+	}>();
+	if (app?.globalData) return app.globalData;
+	throw new ApiError("小程序全局状态尚未初始化，请重新打开小程序", {
+		code: "app-not-initialized",
+	});
 }
 
 /** 判断是否存在可尝试恢复的平台 token。 */

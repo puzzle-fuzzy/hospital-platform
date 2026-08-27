@@ -1,3 +1,4 @@
+import { registerBootstrapApp } from "./services/app-runtime-context";
 import {
 	ensureGlobalUserProfile,
 	type GlobalUserProfileState,
@@ -54,32 +55,42 @@ type AppGlobalData = {
 const MINI_PROGRAM_BUILD_REVISION = "0000000000000000000000000000000000000000";
 
 /** 原生小程序全局状态只保存平台地址和 opaque 会话，不保存 provider 身份。 */
-App<{ globalData: AppGlobalData }>({
-	globalData: {
-		apiBaseUrl: "https://test-hp.meiyi.pro",
-		apiPrefix: "/api/v2",
-		accessToken: "",
-		sessionStatus: "signed_out",
-		sessionGeneration: 0,
-		userProfile: {
-			status: "idle",
-			ownerId: "",
-			sessionGeneration: -1,
-			serverDisplayName: "微信用户",
-			displayName: "微信用户",
-			gender: "unknown",
-			age: null,
-			email: null,
-			version: 0,
-			avatarUrl: "",
-			wechatProfileState: "idle",
-			wechatProfileHint: "",
-			error: "",
-		},
-		userProfileBootstrapPromise: null,
-		userProfileConsentPromise: null,
-		sessionChangedListeners: new Set(),
+const APP_GLOBAL_DATA: AppGlobalData = {
+	apiBaseUrl: "https://test-hp.meiyi.pro",
+	apiPrefix: "/api/v2",
+	accessToken: "",
+	sessionStatus: "signed_out",
+	sessionGeneration: 0,
+	userProfile: {
+		status: "idle",
+		ownerId: "",
+		sessionGeneration: -1,
+		serverDisplayName: "微信用户",
+		displayName: "微信用户",
+		gender: "unknown",
+		age: null,
+		email: null,
+		version: 0,
+		avatarUrl: "",
+		wechatProfileState: "idle",
+		wechatProfileHint: "",
+		error: "",
 	},
+	userProfileBootstrapPromise: null,
+	userProfileConsentPromise: null,
+	sessionChangedListeners: new Set(),
+};
+
+/**
+ * 启动阶段使用稳定的显式容器，不把 `onLaunch` 的 this 绑定行为当成事实。
+ * 这个容器和下面 App 配置中的 `globalData` 共享同一引用，保证首次恢复
+ * 会话写入的状态就是页面后续读取的状态。
+ */
+const APP_CONTAINER = { globalData: APP_GLOBAL_DATA };
+registerBootstrapApp(APP_CONTAINER);
+
+App<{ globalData: AppGlobalData }>({
+	globalData: APP_GLOBAL_DATA,
 
 	onLaunch() {
 		console.info(
@@ -90,10 +101,10 @@ App<{ globalData: AppGlobalData }>({
 		// 一条 Promise，不再把首页、我的页或资料页的 onLoad 当作初始化入口。
 		// 失败会沉淀到全局 error 状态，页面仍可提供明确的重试，不会形成未处理
 		// Promise，也不会把错误详情或用户资料写入控制台。
-		// 这里必须显式传入当前 App 实例。微信执行 App.onLaunch 时，getApp()
-		// 可能尚未注册完成；资料仓库若在此刻反查 getApp()，会在首屏前因
+		// 这里必须显式传入启动容器。微信执行 App.onLaunch 时，getApp() 或
+		// 生命周期 this 可能尚未稳定；资料仓库若此刻反查它，会在首屏前因
 		// `globalData` 读取 undefined 而中断整个小程序启动。
-		void ensureGlobalUserProfile(this).catch((error: unknown) => {
+		void ensureGlobalUserProfile(APP_CONTAINER).catch((error: unknown) => {
 			console.warn(
 				"[医院小程序] 全局用户资料初始化未完成，页面保留重试状态；errorType=",
 				error instanceof Error ? error.name : "unknown",
