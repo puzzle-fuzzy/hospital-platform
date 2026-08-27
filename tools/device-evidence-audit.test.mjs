@@ -445,4 +445,13 @@ describe("device evidence audit", () => {
 			"patientDirectory.scenarios 缺少 account-switch",
 		);
 	});
+
+	test("真机证据场景必须来自固定枚举，拒绝泛化场景名称", () => {
+		const manifest = completeManifest();
+		manifest.domains.auth = passedEvidence();
+		manifest.domains.auth.scenarios.push("已测试");
+		expect(() => auditDeviceEvidence(manifest)).toThrow(
+			"auth.scenarios 包含未登记业务场景",
+		);
+	});
 });

@@ -205,6 +205,16 @@ function validateScenarioCoverage(domain, evidence, complete) {
 		throw new Error(`${domain} 的业务场景名称必须是非空字符串`);
 	}
 	const scenarios = new Set(field);
+	const unknownScenarios = [...scenarios].filter(
+		(scenario) => !required.includes(scenario),
+	);
+	if (unknownScenarios.length > 0) {
+		// 场景名是验收协议的一部分，不能通过添加“已测试”或其它泛化描述
+		// 来伪造覆盖范围。只返回固定字段错误，不把证据文件正文回显到日志。
+		throw new Error(
+			`${domain}.${complete ? "scenarios" : "requiredScenarios"} 包含未登记业务场景`,
+		);
+	}
 	for (const scenario of required) {
 		if (!scenarios.has(scenario)) {
 			throw new Error(
