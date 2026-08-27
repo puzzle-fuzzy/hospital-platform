@@ -763,8 +763,8 @@ const currentCandidateReferenceRules = Object.freeze([
 				end: "## 1. 患者上下文",
 				phrases: [
 					{
-						text: "当前本地源码候选（2026-08-26）",
-						aliases: ["当前本地源码与运行包（2026-08-26）"],
+						text: "当前本地源码候选（2026-08-27）",
+						aliases: ["当前本地源码与运行包（2026-08-27）"],
 						expected: "pending-full",
 					},
 				],

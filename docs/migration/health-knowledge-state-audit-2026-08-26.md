@@ -2,8 +2,8 @@
 
 ## 本轮范围
 
-> **当前候选事实（2026-08-27）**：线上服务端 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`；本文的状态判断已绑定本地 live `0be59f96` 运行包；该运行包来源为
-> `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，发布前校验和发布后 `runtime:verify` 均通过，包含 40 个页面。历史候选的运行包数字不作为当前真机证据。
+> **当前候选事实（2026-08-27）**：线上服务端 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`；本文的状态判断已绑定本地 live `1691f2d` 运行包；该运行包来源为
+> `1691f2db1399419d81a1febff59cffd0369130ea`，运行包校验和 `runtime:verify` 均通过，包含 40 个页面。历史候选的运行包数字不作为当前真机证据。
 
 本轮继续按广度优先补齐 B 批次健康百科的客户端状态逻辑，涉及：
 
@@ -51,7 +51,7 @@
 
 - 健康百科状态单元测试：5 pass / 0 fail / 7 expect()；
 - API 端到端未发布门禁回归：已登录访问仍返回 `503 health-knowledge-unavailable`，不降级为 `200` 空目录；
-- 小程序全量回归：336 pass / 0 fail / 3697 expect()；
+- 小程序全量回归：336 pass / 0 fail / 3698 expect()；
 - `apps/miniprogram` TypeScript 检查通过；
 - Biome 检查和 `git diff --check` 通过；
 - 本文早期验证记录中的 pending 运行包来源为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，40 个页面；该数字仅作历史追溯，当前 live 运行包以 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 为准；

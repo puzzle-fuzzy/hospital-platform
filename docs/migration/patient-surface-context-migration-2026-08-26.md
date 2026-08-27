@@ -6,7 +6,7 @@
 
 > 当前运行基线（2026-08-27）：线上服务端 release 为
 > `1107a78a47ac2fbe0557958251d66da9effc66de`；本地 live 小程序运行包来源为
-> `0be59f96`，完整 sourceRevision 为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，已通过
+> `1691f2d`，完整 sourceRevision 为 `1691f2db1399419d81a1febff59cffd0369130ea`，已通过
 > `runtime:verify`。本记录只描述患者上下文安全边界，不代表临床 Provider 已开放。
 
 ## 已覆盖页面
@@ -40,7 +40,7 @@
 
 - `pnpm --filter @hospital/miniprogram typecheck`：通过；
 - 本文实现阶段曾验证 `309 pass / 0 fail / 3522 expect()`；本轮共享患者会话边界复核后工作树全量回归为
-  `336 pass / 0 fail / 3697 expect()`；
+  `336 pass / 0 fail / 3698 expect()`；
 - `pnpm migration:breadth:audit`：通过，40 个页面事件闭环、4 个主 Tab、首页/我的 action 和状态页引用均通过；
 - `pnpm format:check`：通过；
 - 当前 live 运行输入：`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；共享患者外壳在账号会话变化时会清理旧卡片并要求重新读取；

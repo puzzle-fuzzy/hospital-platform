@@ -3,6 +3,7 @@
 > 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 > 下方 2026-08-22 的 release 与运行包只作历史追溯；当前执行使用顶部 `13f597e` 配套基线。
+> 当前小程序配套运行包来源（2026-08-27）：`1691f2db1399419d81a1febff59cffd0369130ea`（`1691f2d`）；本文中更早候选和真机窗口仅作历史追溯，当前无真机/开发者工具会话。
 
 # P0 只读业务 contract 审计（2026-08-18）
 > 历史候选更新（2026-08-22）：服务端 release 为 `0e2a366e`；小程序运行包来源为 `171a8743185fb4ecc1696851662659c1a0ee7ebf`（提交 `171a874`）。历史候选仅作追溯。
@@ -52,7 +53,7 @@
 当前线上 release 以 [`e5d941ae-production-acceptance-2026-08-26.md`](e5d941ae-production-acceptance-2026-08-26.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选为
-`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（提交 `0be59f96`），服务端为 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
+`1691f2db1399419d81a1febff59cffd0369130ea`（提交 `1691f2d`），服务端为 `1107a78a47ac2fbe0557958251d66da9effc66de`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -141,8 +142,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 本节记录的历史审计候选为小程序 `d2086d8`，完整运行包来源为
 `d2086d819b3e393da2e8c5c39d7704012854214b`；这些数字仅用于追溯，不能作为当前真机包。当前真机候选以
-`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（提交 `0be59f96`）为准。当前真机候选以
-`e5d941ae` 服务端配套的 `0be59f96` 和完整来源指纹 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 为准。
+`1691f2db1399419d81a1febff59cffd0369130ea`（提交 `1691f2d`）为准。当前真机候选以
+`1107a78a` 服务端配套的 `1691f2d` 和完整来源指纹 `1691f2db1399419d81a1febff59cffd0369130ea` 为准。
 
 本节对应的当前服务端生产候选为 `c8eef370`；下方保留的 `398be8e`、`687690e`、`c26e696` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 

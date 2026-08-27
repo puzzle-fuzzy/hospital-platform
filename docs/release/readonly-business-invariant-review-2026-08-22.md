@@ -3,6 +3,7 @@
 > 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 > 下方 2026-08-22 的 release 与运行包只作历史追溯；当前执行使用顶部 `8eb51b5f` 服务端 + `13f597e` 小程序分层基线。
+> 当前小程序配套运行包来源（2026-08-27）：`1691f2db1399419d81a1febff59cffd0369130ea`（`1691f2d`）；本文中更早候选和真机窗口仅作历史追溯，当前无真机/开发者工具会话。
 
 # 只读业务不变量审计记录（2026-08-22）
 > 下方 2026-08-22 的候选只作历史追溯；当前执行使用顶部 `8eb51b5f` 服务端 + `13f597e` 小程序分层基线。
@@ -18,7 +19,7 @@
 ## 1. 当前版本与运行边界
 
 - 服务端当前已验证 release：`8eb51b5ffe85b0b8f8a032783f893117d3df549d`。
-- 小程序运行包来源：`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
+- 小程序运行包来源：`1691f2db1399419d81a1febff59cffd0369130ea`，40 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
 - 新 API：`10.0.0.3:18081`，systemd 状态为 `active`。
 - 旧 Python API：`0.0.0.0:8001`，仍在监听，旧 Gunicorn PID 未发生变化。
 - Worker：保持 `inactive`，没有因为本轮审计被启动。
@@ -65,7 +66,7 @@
 - 工具测试：`53 pass / 0 fail / 133 expects`；
 - 原生小程序：`221 pass / 0 fail / 1640 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `1107a78a47ac2fbe0557958251d66da9effc66de` 和小程序 `0be59f96`（完整来源 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`）。
+- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `1107a78a47ac2fbe0557958251d66da9effc66de` 和小程序 `1691f2d`（完整来源 `1691f2db1399419d81a1febff59cffd0369130ea`）。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
@@ -112,7 +113,7 @@
 
 ## 5. 下一步准入顺序
 
-1. 在微信开发者工具关闭旧真机调试，切换到已打开的 `apps/miniprogram/` 新项目窗口，普通编译并确认 `dist/build-info.json` 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`。
+1. 在微信开发者工具关闭旧真机调试，切换到已打开的 `apps/miniprogram/` 新项目窗口，普通编译并确认 `dist/build-info.json` 来源为 `1691f2db1399419d81a1febff59cffd0369130ea`。
 2. 以同一二维码取得微信登录、患者目录、显式切换第二位患者的页面截图、HTTP `requestId` 和服务端低敏日志；没有三层配对证据，不标记患者切换完成。
 3. 在同一会话中按“预约科室/排班 → 我的挂号 → 爽约 → 门诊费用待缴/已缴”的顺序验收，并核对每个请求的 owner、患者映射、Provider request id 和页面读模型。
 4. 只有 Provider 文档、金额边界、幂等、回调、查单和失败恢复契约齐全后，才进入现金支付；医保授权、6202/6301、退款和 HIS 回写最后专项处理。
