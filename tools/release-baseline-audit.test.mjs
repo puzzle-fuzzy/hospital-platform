@@ -264,13 +264,45 @@ test("文档导航的历史窗口说明必须跟随当前小程序候选", () =>
 	const documents = [
 		{
 			path: "docs/README.md",
-			content:
-				"# 项目文档导航\n\n该窗口因早于当前 `old-candidate` 构建。\n## 发布与运行",
+			content: `> 最新事实（2026-08-27）：线上服务端 release 为 \`1b94c46\`；最新小程序运行相关源码和本地 live 运行输入为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
+# 项目文档导航
+
+该窗口因早于当前 \`old-candidate\` 构建。
+## 发布与运行`,
 		},
 	];
 
 	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
 		"文档导航 的“因早于当前”未指向当前完整小程序 sourceRevision",
+	]);
+});
+
+test("当前事实入口必须同时锁定服务端和小程序完整来源", () => {
+	const baseline = {
+		serverRelease: "1bc8b0a8",
+		miniProgramCommit: "90d8910b",
+		miniProgramSourceRevision: "90d8910bdc54d48dde66c4ff03a7434c182ebd92",
+	};
+	const documents = [
+		{
+			path: "docs/release/current-project-baseline-2026-08-27.md",
+			content: `> 当前成套验收基线（2026-08-27）：服务端 release 为 \`old-server\`；本地 live 小程序 sourceRevision 为 \`old-mini\`。
+| 项目 | 当前事实 | 不能据此推出 |`,
+		},
+		{
+			path: "docs/README.md",
+			content: `> 最新事实（2026-08-27）：线上服务端 release 为 \`old-server\`；最新小程序运行相关源码和本地 live 运行输入均为 \`old-mini\`。
+# 项目文档导航
+该窗口因早于当前 \`90d8910b\` 构建。
+## 发布与运行`,
+		},
+	];
+
+	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
+		"当前项目发布与迁移基线 的“当前成套验收基线”未指向当前服务端 release",
+		"当前项目发布与迁移基线 的“当前成套验收基线”未指向当前完整小程序 sourceRevision",
+		"文档导航当前事实 的“最新事实（2026-08-27）”未指向当前服务端 release",
+		"文档导航当前事实 的“最新事实（2026-08-27）”未指向当前完整小程序 sourceRevision",
 	]);
 });
 

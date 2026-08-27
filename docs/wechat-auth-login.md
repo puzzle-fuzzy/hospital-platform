@@ -1,18 +1,18 @@
-> 当前事实（2026-08-27）：线上服务端 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](release/candidate-1107a78a-production-acceptance-2026-08-27.md)。
-> 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
+> 当前事实（2026-08-27）：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md`](release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md)。
+> 当前线上服务端 release（2026-08-27）：`1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 
-> 当前运行相关源码候选为 `6f47c64`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具规则版本，收紧共享患者外壳的 owner 证明、会话代际和账号切换清理，并在会话失效时清理旧 owner 的微信资料缓存；本候选补正就诊和互联网医院关闭态的纵向布局；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-6f47c64-miniprogram-runtime-2026-08-27.md`](release/candidate-6f47c64-miniprogram-runtime-2026-08-27.md)。
+> 当前运行相关源码候选为 `90d8910b`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具规则版本，收紧共享患者外壳的 owner 证明、会话代际和账号切换清理，并在会话失效时清理旧 owner 的微信资料缓存；本候选补正就诊和互联网医院关闭态的纵向布局；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md`](release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 # 微信授权登录实施与验收手册
-> 当前验收配套基线：线上服务端 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码和本地 live 运行输入为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，共 40 个页面。运行包已原子发布，真实微信业务三层证据仍待；25 个跨域页面当前为 `surface-only`，另有 4 个入口仅完成安全 `partial` 子集，健康自测另有安全数值子集。候选详情见 [`release/candidate-6f47c64-miniprogram-runtime-2026-08-27.md`](release/candidate-6f47c64-miniprogram-runtime-2026-08-27.md)，服务端切换详情见 [`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](release/candidate-1107a78a-production-acceptance-2026-08-27.md)。
+> 当前验收配套基线：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码和本地 live 运行输入为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。运行包已原子发布，真实微信业务三层证据仍待；25 个跨域页面当前为 `surface-only`，另有 4 个入口仅完成安全 `partial` 子集，健康自测另有安全数值子集。候选详情见 [`release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md`](release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md)，服务端切换详情见 [`release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md`](release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md)。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
 
 ## 当前结论
 
-当前线上新 API release 为 `1107a78a`，旧 Python `8001` 保持共存；生产切换和运行边界见
-[`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](release/candidate-1107a78a-production-acceptance-2026-08-27.md)。
+当前线上新 API release 为 `1bc8b0a8`，旧 Python `8001` 保持共存；生产切换和运行边界见
+[`release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md`](release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md)。
 该 release 切换只更新新服务运行层，不改变微信登录的业务开放边界。
 
 当前本地 live 运行输入为 `90d8910b`，完整指纹为
@@ -23,7 +23,7 @@
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
-当前页面真机验收应使用已原子发布的 live 候选 `6f47c64`；必须从当前 live `dist` 重新生成二维码，不能把历史 `1691f2d`、`02dbf10` 或旧二维码的页面、日志证据混写。
+当前页面真机验收应使用已原子发布的 live 候选 `90d8910b`；必须从当前 live `dist` 重新生成二维码，不能把历史 `1691f2d`、`02dbf10` 或旧二维码的页面、日志证据混写。
 
 2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见
 [`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。
@@ -46,7 +46,7 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试；当前候选
-全量小程序测试为 `337 pass / 0 fail / 3702 expect()`，当前 live 运行输入为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，登录后患者初始化边界见
+全量小程序测试为 `337 pass / 0 fail / 3702 expect()`，当前 live 运行输入为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 

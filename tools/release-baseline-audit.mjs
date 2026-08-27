@@ -178,7 +178,7 @@ export const currentBaselineDocuments = Object.freeze([
 	},
 	// `candidate-13f597ea-miniprogram-build-2026-08-24.md` 是线上历史小程序包，
 	// 保留用于追溯但不再作为当前基线入口；当前本地 live 候选由下方的
-	// `candidate-6f47c64-miniprogram-runtime-2026-08-27.md` 锁定。
+	// `candidate-90d8910b-miniprogram-runtime-2026-08-27.md` 锁定。
 	{
 		path: "docs/release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md",
 		label: "当前服务端生产切换记录",
@@ -463,6 +463,43 @@ async function readPendingMiniProgramSourceRevision(rootDirectory) {
  * 检查所有匹配短语附近的完整来源，历史段落不使用这些当前语义短语即可保留。
  */
 const currentCandidateReferenceRules = Object.freeze([
+	{
+		path: "docs/release/current-project-baseline-2026-08-27.md",
+		label: "当前项目发布与迁移基线",
+		sections: [
+			{
+				start: "> 当前成套验收基线（2026-08-27）",
+				end: "| 项目 | 当前事实 | 不能据此推出 |",
+				// 单一事实入口必须在同一段落同时写出 server release 和
+				// 小程序完整 sourceRevision，避免表格前后分别残留不同候选。
+				phrases: [
+					{
+						text: "当前成套验收基线",
+						serverExpected: "full",
+						expected: "full",
+					},
+				],
+			},
+		],
+	},
+	{
+		path: "docs/README.md",
+		label: "文档导航当前事实",
+		sections: [
+			{
+				start: "> 最新事实（2026-08-27）",
+				end: "# 项目文档导航",
+				// 导航页是新会话最容易先打开的文档，顶部事实必须成套锁定。
+				phrases: [
+					{
+						text: "最新事实（2026-08-27）",
+						serverExpected: "full",
+						expected: "full",
+					},
+				],
+			},
+		],
+	},
 	{
 		path: "docs/wechat-auth-login.md",
 		label: "微信授权登录手册",

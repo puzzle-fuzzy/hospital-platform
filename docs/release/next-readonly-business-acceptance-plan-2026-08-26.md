@@ -1,6 +1,6 @@
 # A 批次低风险业务统一验收计划（2026-08-26）
 
-> 当前服务端发布基线（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`；本计划中的业务证据仍须绑定该 release，不能使用历史服务端窗口替代。
+> 当前服务端发布基线（2026-08-27）：`1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；本计划中的业务证据仍须绑定该 release，不能使用历史服务端窗口替代。
 
 ## 结论
 
@@ -19,10 +19,10 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序业务候选 | `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（`6f47c64`） |
-| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，40 个页面，`runtime:verify` 已通过 |
+| 小程序业务候选 | `90d8910bdc54d48dde66c4ff03a7434c182ebd92`（`90d8910b`） |
+| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，40 个页面，`runtime:verify` 已通过 |
 | pending 运行包 | 当前无 pending 目录；后续源码变化必须重新构建并通过原子发布流程 |
-| 服务端 | 生产 `90d8910b`，新 Elysia 监听 `10.0.0.3:18081` |
+| 服务端 | 生产 `1bc8b0a8`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
@@ -35,9 +35,9 @@
 
 ## 当前 release baseline 前置门禁
 
-当前九域清单已经绑定 `1107a78a` 与 `6f47c64`；`pnpm device:evidence:audit --file
-docs/release/device-evidence-6f47c640-pending.json` 在进入真机通过判定前会先执行
-`release:baseline:audit`。截至 2026-08-26，仓库门禁已通过，线上服务端已完成
+当前九域清单已经绑定 `1bc8b0a8` 与 `90d8910b`；`pnpm device:evidence:audit --file
+docs/release/device-evidence-90d8910b-pending.json` 在进入真机通过判定前会先执行
+`release:baseline:audit`。截至 2026-08-27，仓库门禁已通过，线上服务端已完成
 production preflight、隔离 smoke、原子切换和公网 runtime smoke；服务端候选包含完整的
 `packages/adapters/src/zhongyang-appointments.ts` 运行代码。
 

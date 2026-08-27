@@ -6,15 +6,19 @@
 
 ## 1. 当前运行事实
 
+> 当前成套验收基线（2026-08-27）：服务端 release 为
+> `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；本地 live 小程序 sourceRevision 为
+> `90d8910bdc54d48dde66c4ff03a7434c182ebd92`。两者分别发布，必须在业务证据中同时记录，不能用历史微信线上包替代本地 live 包。
+
 | 项目 | 当前事实 | 不能据此推出 |
 | --- | --- | --- |
-| 新 API release | `1107a78a47ac2fbe0557958251d66da9effc66de`（`1107a78a`） | Provider、微信真机、支付或医保业务已经成功 |
+| 新 API release | `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`（`1bc8b0a8`） | Provider、微信真机、支付或医保业务已经成功 |
 | 新 API 监听 | `10.0.0.3:18081`，systemd `hospital-platform-api-v2.service=active` | 旧服务已被替换 |
 | 旧 Python 服务 | `0.0.0.0:8001`，继续共存 | 新 API 与旧 API 使用相同业务实现 |
 | Worker | `hospital-platform-worker-v2.service=inactive` | 支付、医保或 HIS 回写已经执行 |
 | 生产依赖 | MySQL、Redis、schema probe 均为 `ok` | 业务 Provider 字段或业务状态一定正确 |
 | 当前微信线上小程序 | 历史运行包 `13f597e` | 不可以拿线上历史包证明本地 live 候选的真机结果 |
-| 当前本地 live 小程序 | `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（`6f47c64`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
+| 当前本地 live 小程序 | `90d8910bdc54d48dde66c4ff03a7434c182ebd92`（`90d8910b`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
 | live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；同源 pending 候选已在释放微信开发者工具锁后原子发布，pending 目录已清理 | 开发者工具一定已经重新编译当前目录 |
 
 服务端 release 已完成 production preflight、隔离 runtime smoke、原子切换和公网 runtime smoke；
