@@ -177,14 +177,82 @@ const FORBIDDEN_RUNTIME_PATTERNS = Object.freeze([
 	},
 	{ label: "文件上传", pattern: /\bwx\.uploadFile\s*\(/u },
 	{
-		label: "直接调用集中 API client",
-		pattern: /from\s+["'][^"']*api-client[^"']*["']/u,
-	},
-	{
 		label: "直接调用请求函数",
 		pattern: /\brequest\s*\(\s*\{/u,
 	},
 ]);
+
+/**
+ * 导入路径必须在保留字符串的源码上检查。
+ *
+ * 导入语法的模块路径本身就是字符串；如果复用下面的
+ * `stripCommentsAndStrings`，路径会先被清空，导致集中 API client 的
+ * 导入规则永远无法命中。调用和导入是两种不同的词法边界，必须分开处理。
+ */
+const FORBIDDEN_SOURCE_PATTERNS = Object.freeze([
+	{
+		label: "直接导入集中 API client",
+		pattern:
+			/\bimport\s+(?:(?:[\s\S]*?)\sfrom\s+)?["'][^"']*api-client[^"']*["']/u,
+	},
+	{
+		label: "动态导入集中 API client",
+		pattern: /\b(?:import|require)\s*\(\s*["'][^"']*api-client[^"']*["']/u,
+	},
+]);
+
+/**
+ * 只去掉代码注释，保留字符串内容供导入路径规则检查。
+ *
+ * 这里仍然跳过引号和模板字符串，避免模块文档、URL 或用户文案里的
+ * `//` 被误当成注释；导入规则只需要识别静态模块语句，不需要执行模板
+ * 插值，因此模板整体在这个专用扫描中按字符串保留。
+ */
+function stripComments(source) {
+	const output = [];
+	let index = 0;
+	let quote;
+	while (index < source.length) {
+		const character = source[index];
+		const nextCharacter = source[index + 1];
+		if (quote !== undefined) {
+			output.push(character);
+			if (character === "\\") {
+				if (index + 1 < source.length) output.push(source[index + 1]);
+				index += 2;
+				continue;
+			}
+			if (character === quote) quote = undefined;
+			index += 1;
+			continue;
+		}
+		if (character === "'" || character === '"' || character === "`") {
+			quote = character;
+			output.push(character);
+			index += 1;
+			continue;
+		}
+		if (character === "/" && nextCharacter === "/") {
+			index += 2;
+			while (index < source.length && source[index] !== "\n") index += 1;
+			continue;
+		}
+		if (character === "/" && nextCharacter === "*") {
+			index += 2;
+			while (
+				index < source.length &&
+				!(source[index] === "*" && source[index + 1] === "/")
+			) {
+				index += 1;
+			}
+			index = Math.min(source.length, index + 2);
+			continue;
+		}
+		output.push(character);
+		index += 1;
+	}
+	return output.join("");
+}
 
 /**
  * 去掉注释和字符串后再做调用级扫描。
@@ -327,11 +395,17 @@ function compareSets(actual, expected, label) {
 	return failures;
 }
 
-function inspectForbiddenCalls(relativePath, source) {
+export function inspectForbiddenCalls(relativePath, source) {
 	const failures = [];
 	const executableSource = stripCommentsAndStrings(source);
 	for (const forbidden of FORBIDDEN_RUNTIME_PATTERNS) {
 		if (forbidden.pattern.test(executableSource)) {
+			failures.push(`${relativePath} 出现${forbidden.label}`);
+		}
+	}
+	const sourceWithoutComments = stripComments(source);
+	for (const forbidden of FORBIDDEN_SOURCE_PATTERNS) {
+		if (forbidden.pattern.test(sourceWithoutComments)) {
 			failures.push(`${relativePath} 出现${forbidden.label}`);
 		}
 	}

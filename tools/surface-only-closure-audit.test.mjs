@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	auditSurfaceOnlyClosure,
+	inspectForbiddenCalls,
 	stripCommentsAndStrings,
 } from "./surface-only-closure-audit.mjs";
 
@@ -37,5 +38,19 @@ describe("未开放页面关闭态审计", () => {
 		const source = "const text = `$" + '{wx.request({ url: "provider" })}`;';
 
 		expect(stripCommentsAndStrings(source)).toContain("wx.request");
+	});
+
+	test("导入路径扫描不会因字符串剥离而漏掉集中 API client", () => {
+		const source = 'import { request } from "../../services/api-client";';
+
+		expect(inspectForbiddenCalls("fixture.ts", source)).toContain(
+			"fixture.ts 出现直接导入集中 API client",
+		);
+		expect(
+			inspectForbiddenCalls(
+				"fixture.ts",
+				'// import { request } from "../../services/api-client";',
+			),
+		).toEqual([]);
 	});
 });
