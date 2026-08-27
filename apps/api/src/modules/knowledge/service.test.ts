@@ -123,6 +123,16 @@ test("health knowledge service validates direct inputs before repository access"
 		service.listDiseasesByRelation({ kind: "unknown", id: "part-1" } as never),
 	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
 	await expect(
+		service.listDiseasesByRelation({
+			kind: "part",
+			id: "part-1",
+			unexpected: "must-not-be-forwarded",
+		} as never),
+	).rejects.toMatchObject({
+		name: "HealthKnowledgeValidationError",
+		reason: "invalid_query",
+	});
+	await expect(
 		service.listSymptomsByPart("part-1\u0000" as never),
 	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
 	await expect(

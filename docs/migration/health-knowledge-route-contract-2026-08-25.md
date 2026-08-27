@@ -54,6 +54,11 @@
 
 当前 `tools/architecture-audit.mjs` 的 `knowledge.route-contract-fail-closed` 门禁保证路由可以冻结，但不会绕过上述内容发布条件。`apps/api` 的健康百科测试覆盖认证、版本 envelope、字段投影、坏读模型和未配置依赖；这些测试不能替代临床审核和真机验收。
 
+应用服务的疾病关系查询只接受 `kind` 和 `id` 两个字段。这个白名单不仅由
+HTTP schema 约束，`HealthKnowledgeService` 在进入 repository 前也会再次检查，
+因为任务、测试和其它组合调用可能绕过 HTTP 层；未知字段会以查询条件不合法
+失败，不会被静默丢弃或传给数据库。
+
 ## 与其他健康页面的边界
 
 - 健康自测、风险评估、BMI 和血压计算器：需要独立规则版本、适用人群、临床审核和免责声明，不能复用百科内容接口。

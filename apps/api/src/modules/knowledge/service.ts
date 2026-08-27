@@ -41,6 +41,29 @@ export type HealthKnowledgeServiceDependencies = {
 };
 
 /**
+ * 关系查询是 repository 的结构化查询条件，不能只依赖 HTTP 层的 schema。
+ * 应用服务也会被任务、测试或未来的管理端组合调用；未知字段在这里必须
+ * 直接拒绝，避免调用方以为字段已经生效而实际查询到另一组数据。
+ */
+function validateDiseaseRelation(
+	relation: unknown,
+): asserts relation is HealthKnowledgeDiseaseRelation {
+	if (
+		typeof relation !== "object" ||
+		relation === null ||
+		Array.isArray(relation)
+	) {
+		throw new HealthKnowledgeValidationError("invalid_identifier");
+	}
+	if (Object.keys(relation).some((key) => key !== "kind" && key !== "id")) {
+		throw new HealthKnowledgeValidationError("invalid_query");
+	}
+	const candidate = relation as Partial<HealthKnowledgeDiseaseRelation>;
+	validateHealthKnowledgeCatalogKind(candidate.kind);
+	validateHealthKnowledgeIdentifier(candidate.id as string);
+}
+
+/**
  * 健康知识应用服务只编排审核内容的只读查询。
  *
  * 这里不接收患者、provider 或 AI 参数；repository 负责选择同一发布版本，
@@ -80,15 +103,7 @@ export class HealthKnowledgeService {
 		const snapshot = await this.read(
 			"disease-relation",
 			() => {
-				if (
-					typeof relation !== "object" ||
-					relation === null ||
-					Array.isArray(relation)
-				) {
-					throw new HealthKnowledgeValidationError("invalid_identifier");
-				}
-				validateHealthKnowledgeCatalogKind(relation.kind);
-				validateHealthKnowledgeIdentifier(relation.id);
+				validateDiseaseRelation(relation);
 				return this.dependencies.repository.listDiseasesByRelation(relation);
 			},
 			normalizeHealthKnowledgeDiseaseListSnapshot,
