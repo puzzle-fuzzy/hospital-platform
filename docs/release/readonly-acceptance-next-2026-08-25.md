@@ -1,6 +1,6 @@
 # 当前候选只读业务验收手册（当前接力入口）
 
-> **当前执行事实（2026-08-27）**：线上服务端 release 为 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`；小程序当前 live 运行包来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，包含 40 个页面；公网 HTTPS 已通过无 `-k` TLS 校验。当前没有正在运行的微信开发者工具/真机会话，因此九个真机证据域仍为 `pending`，本手册不能据此宣称真实微信、Provider 或业务完成。
+> **当前执行事实（2026-08-27）**：线上服务端 release 为 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`；小程序当前 live 运行包来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，包含 40 个页面；公网 HTTPS 已通过无 `-k` TLS 校验。当前检测到微信开发者工具主进程 `wechatdevtools.exe`（窗口 `hospital-platform-runtime`，PID `36144`），它锁定了 `dist/`；是否已连接真机尚未确认，因此九个真机证据域仍为 `pending`，本手册不能据此宣称真实微信、Provider 或业务完成。构建脚本已将新候选保存在 `.local/hospital-miniprogram/pending/`，关闭工具后须重新验证再发布。
 
 > 本文下方第 6、7 节的 release、验收工具目录和 smoke 数字属于历史窗口，仅用于追溯，不能作为当前执行版本。当前开始验收前必须重新从 `apps/miniprogram/dist/` 读取 live 运行包，并以当前服务端 release 和新的客户端 `requestId` 为准。
 
