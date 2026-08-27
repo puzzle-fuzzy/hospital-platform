@@ -10,8 +10,8 @@
 源码中的 OpenAPI 路径门禁为准；本文继续负责记录旧接口的迁移状态、未注册接口组和 provider 前置，
 不把“目标路径”误写成“已经可调用”。
 
-> 当前运行基线（2026-08-26）：线上服务端 release 为
-> `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；本地 live 小程序运行包来源为
+> 当前运行基线（2026-08-27）：线上服务端 release 为
+> `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`；本地 live 小程序运行包来源为
 > `0be59f96`，完整 sourceRevision 为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，已通过
 > `runtime:verify`。本文只记录迁移矩阵，不代表 Provider、真机或支付业务已经验收。
 

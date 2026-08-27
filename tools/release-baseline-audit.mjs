@@ -167,6 +167,10 @@ const currentCandidateDocumentPath =
  */
 export const currentBaselineDocuments = Object.freeze([
 	{ path: "docs/README.md", label: "文档导航" },
+	{
+		path: "docs/release/current-project-baseline-2026-08-27.md",
+		label: "当前项目发布与迁移基线",
+	},
 	{ path: "docs/wechat-auth-login.md", label: "微信授权登录手册" },
 	{
 		path: currentCandidateDocumentPath,
@@ -775,7 +779,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "# API 迁移矩阵",
 				end: "## 状态说明",
 				phrases: [
-					{ text: "当前运行基线（2026-08-26）", expected: "pending-full" },
+					{
+						text: "当前运行基线（2026-08-27）",
+						aliases: ["当前运行基线（2026-08-26）"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],
@@ -856,7 +864,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "# 当前就诊人上下文横向迁移记录（2026-08-26）",
 				end: "## 已覆盖页面",
 				phrases: [
-					{ text: "当前运行基线（2026-08-26）", expected: "pending-full" },
+					{
+						text: "当前运行基线（2026-08-27）",
+						aliases: ["当前运行基线（2026-08-26）"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],

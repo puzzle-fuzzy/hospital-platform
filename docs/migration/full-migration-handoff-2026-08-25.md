@@ -31,8 +31,8 @@
 | 小程序回归 | `336 pass / 0 fail / 3697 expect()`；入口分发审计通过 |
 | 发布与运行包验证 | 发布前 `runtime:verify:pending` 已通过；发布后 `runtime:verify` 已通过 |
 | 当前 live `dist` | 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；真机是否已加载仍须通过新二维码和页面证据确认 |
-| 服务端本地候选 | 当前仓库最新运行时代码提交为 `a2599e61`，尚未因 release baseline drift 部署 |
-| 线上服务 | 新 API `8eb51b5f` 与旧 Python `8001` 共存；本轮不停止旧服务 |
+| 服务端本地候选 | 当前仓库运行时代码已与线上 `e5d941ae` 对齐，发布基线通过 |
+| 线上服务 | 新 API `e5d941ae` 与旧 Python `8001` 共存；本轮不停止旧服务 |
 
 本轮最新的只读共存核对见 [`release/current-runtime-coexistence-readonly-2026-08-25.md`](../release/current-runtime-coexistence-readonly-2026-08-25.md)。该记录证明运行层边界正常，但不替代当前候选的业务验收。
 
