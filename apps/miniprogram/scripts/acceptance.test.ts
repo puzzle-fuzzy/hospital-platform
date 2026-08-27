@@ -3613,7 +3613,10 @@ test("native client reads LIS detail only through the opaque Hospital API refere
 
 	expect(client).toContain("requestReportDetail");
 	expect(client).toContain(
-		`/reports/\${encodeURIComponent(options.reportId)}?patientId=\${encodeURIComponent(options.patientId)}`,
+		"const patientId = requirePatientScopedId(options?.patientId);",
+	);
+	expect(client).toContain(
+		`/reports/\${encodeURIComponent(options.reportId)}?patientId=\${encodeURIComponent(patientId)}`,
 	);
 	expect(client).not.toContain("lis-reports/details");
 	expect(client).not.toContain("providerReportId");

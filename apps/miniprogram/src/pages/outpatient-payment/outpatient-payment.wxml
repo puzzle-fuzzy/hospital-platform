@@ -81,16 +81,49 @@
 		</block>
 	</view>
 
+	<!--
+		门诊费用卡片恢复旧端的五段信息层级：院区、患者姓名、就诊科室、
+		金额和就诊时间。数据仍全部来自当前患者范围的只读读模型；支付、
+		详情和医保入口继续由 onRecordTap 收口到关闭态，不在视觉还原时误开写入。
+	-->
 	<view wx:elif="{{visibleItems.length}}" class="record-list">
-		<view wx:for="{{visibleItems}}" wx:key="recordId" class="record-card" bindtap="onRecordTap" data-view-key="{{item.viewKey}}">
+		<view
+			wx:for="{{visibleItems}}"
+			wx:key="recordId"
+			class="record-card record-card-{{item.status}}"
+			bindtap="onRecordTap"
+			data-view-key="{{item.viewKey}}"
+		>
 			<view class="record-header">
-				<text class="record-department">{{item.departmentName || '门诊费用'}}</text>
-				<text class="record-status">{{item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
+				<text class="record-hospital">{{hospitalName}}</text>
+				<image
+					class="record-arrow-image"
+					src="/assets/legacy-user/selector-arrow-right.svg"
+					mode="aspectFit"
+				/>
 			</view>
-			<view wx:if="{{item.doctorName}}" class="record-line">医生：{{item.doctorName}}</view>
-			<view class="record-footer">
-				<text>{{item.billDateLabel}}</text>
+			<view class="record-line">
+				<text class="record-label">患者姓名</text>
+				<text class="record-value">{{selectedPatient.displayName}}</text>
+			</view>
+			<view class="record-line">
+				<text class="record-label">就诊科室</text>
+				<text class="record-value">{{item.departmentName || '门诊费用'}}</text>
+			</view>
+			<view wx:if="{{item.doctorName}}" class="record-line">
+				<text class="record-label">就诊医生</text>
+				<text class="record-value">{{item.doctorName}}</text>
+			</view>
+			<view class="record-line">
+				<text class="record-label">缴费金额</text>
 				<text class="record-amount">{{item.amountLabel}}</text>
+			</view>
+			<view class="record-line record-line-last">
+				<text class="record-label">就诊时间</text>
+				<text class="record-time">{{item.billDateLabel}}</text>
+			</view>
+			<view class="record-status-wrap">
+				<text class="record-status">{{item.status === 'unpaid' ? '待缴费' : '已缴费'}}</text>
 			</view>
 		</view>
 		<view wx:if="{{hasMoreItems}}" class="load-more" bindtap="onLoadMore">加载更多缴费记录</view>

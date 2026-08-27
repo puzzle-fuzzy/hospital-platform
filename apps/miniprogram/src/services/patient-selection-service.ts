@@ -1,5 +1,12 @@
 import type { Patient } from "../types";
 import { ApiError, safeApiErrorMessage } from "./api-client";
+import { isBoundedPatientId } from "./patient-identifiers";
+
+// 保留原有导出路径，避免页面和历史测试重新定义患者标识边界。
+export {
+	isBoundedPatientId,
+	MAX_PATIENT_ID_LENGTH,
+} from "./patient-identifiers";
 
 /**
  * 当前就诊人的本地选择状态。
@@ -8,15 +15,6 @@ import { ApiError, safeApiErrorMessage } from "./api-client";
  * 医疗隐私字段；患者详情始终以服务端最新目录为准，避免本地缓存过期数据。
  */
 export const SELECTED_PATIENT_ID_KEY = "selected_patient_id";
-
-/**
- * 小程序患者上下文复用服务端 opaque patientId 的形状上限。
- *
- * 这只是输入形状校验，不代表 owner、临床映射或详情 TTL 已经授权；真正的
- * 业务权限仍由服务端目录和 owner-scoped API 决定。把规则集中在这里，是为了
- * 让查询请求、异步结果比较和本地持久化不会各自采用不同的字符串边界。
- */
-export const MAX_PATIENT_ID_LENGTH = 128;
 
 /**
  * 仅供损坏缓存进入 `stale` 分支的内部占位值。
@@ -39,19 +37,6 @@ const PATIENT_SELECTION_ERROR_CODES: ReadonlySet<string> = new Set([
 	"patient-not-bound",
 	"patient-clinical-unavailable",
 ]);
-
-export function isBoundedPatientId(value: unknown): value is string {
-	return (
-		typeof value === "string" &&
-		value.length > 0 &&
-		value.length <= MAX_PATIENT_ID_LENGTH &&
-		value === value.trim() &&
-		!Array.from(value).some((character) => {
-			const code = character.charCodeAt(0);
-			return code <= 0x1f || code === 0x7f;
-		})
-	);
-}
 
 /**
  * 将患者上下文错误翻译为一致的安全文案。

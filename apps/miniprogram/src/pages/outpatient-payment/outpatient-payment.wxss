@@ -147,15 +147,19 @@ page {
 	background: #ffffff;
 }
 
+.record-card-paid {
+	background: #f5f5f5;
+}
+
 .record-header,
-.record-footer {
+.record-line {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	min-width: 0;
 }
 
-.record-department {
+.record-hospital {
 	overflow: hidden;
 	color: #222222;
 	font-size: 29rpx;
@@ -164,27 +168,65 @@ page {
 	white-space: nowrap;
 }
 
-.record-status {
-	flex-shrink: 0;
-	margin-left: 16rpx;
-	padding: 6rpx 12rpx;
-	border-radius: 8rpx;
-	background: #f2f6ff;
-	color: #3d6df6;
-	font-size: 23rpx;
+.record-arrow-image {
+	display: block;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
+	margin-left: 14rpx;
 }
 
-.record-line,
-.record-footer {
+.record-line {
 	margin-top: 16rpx;
 	color: #777777;
 	font-size: 25rpx;
 }
 
+.record-line-last {
+	margin-bottom: 2rpx;
+}
+
+.record-label {
+	flex: 0 0 160rpx;
+}
+
+.record-value,
+.record-time {
+	overflow: hidden;
+	flex: 1;
+	color: #333333;
+	text-align: right;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .record-amount {
+	flex: 1;
 	color: #ee875e;
 	font-size: 29rpx;
 	font-weight: 700;
+	text-align: right;
+}
+
+.record-time {
+	color: #ee875e;
+}
+
+.record-status-wrap {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 18rpx;
+	padding-top: 16rpx;
+	border-top: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.record-status {
+	flex-shrink: 0;
+	padding: 6rpx 12rpx;
+	border-radius: 8rpx;
+	background: #f2f6ff;
+	color: #3d6df6;
+	font-size: 23rpx;
 }
 
 .load-more {

@@ -20,6 +20,11 @@ import {
 	syncPatientsFromHospital,
 } from "./dashboard-service";
 import { getSessionGeneration } from "./session-generation";
+import {
+	requestOutpatientPaymentRecords,
+	requestReportDetail,
+	requestReports,
+} from "./api-client";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
 const BEIJING_MIDNIGHT = new Date("2026-08-14T16:00:00.000Z");
@@ -143,6 +148,41 @@ test("门诊费用查询在网络请求前拒绝未知状态", async () => {
 			getSessionGeneration(),
 		),
 	).rejects.toMatchObject({ code: "outpatient-payment-query-invalid" });
+});
+
+test("报告和门诊费用底层请求在网络请求前拒绝非法患者范围参数", () => {
+	const generation = getSessionGeneration();
+
+	expect(() =>
+		requestOutpatientPaymentRecords(
+			{ patientId: "patient-001\n", status: "unpaid" },
+			generation,
+		),
+	).toThrow("请先登录并选择就诊人");
+	expect(() =>
+		requestReports(
+			{
+				patientId: "patient-001",
+				startDate: "2026-02-30",
+				endDate: "2026-03-01",
+			},
+			generation,
+		),
+	).toThrow("报告查询条件不合法");
+	expect(() =>
+		requestReports(
+			{
+				patientId: "patient-001",
+				startDate: "2026-03-01",
+				endDate: "2026-03-02",
+				kind: "unknown" as never,
+			},
+			generation,
+		),
+	).toThrow("报告查询条件不合法");
+	expect(() =>
+		requestReportDetail({ patientId: "patient-001", reportId: "" }, generation),
+	).toThrow("报告详情引用无效");
 });
 
 test("预约排班查询在网络请求前拒绝损坏的科室标识", async () => {

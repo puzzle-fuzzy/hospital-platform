@@ -30,6 +30,7 @@ import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "./session-generation";
+import { isBoundedPatientId } from "./patient-identifiers";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
@@ -205,6 +206,62 @@ function getAppConfig(): ApiConfig {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+/** 底层患者范围请求与页面 helper 共用同一条内部 patientId 形状边界。 */
+function requirePatientScopedId(value: unknown): string {
+	if (!isBoundedPatientId(value)) {
+		throw new ApiError("请先登录并选择就诊人", {
+			code: "patient-selection-required",
+		});
+	}
+	return value;
+}
+
+/** 严格校验报告查询使用的自然日，不依赖不同 JS 运行时的 Date.parse 猜测。 */
+function isCanonicalCalendarDate(value: unknown): value is string {
+	if (typeof value !== "string") {
+		return false;
+	}
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+	if (!match) return false;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const timestamp = Date.UTC(year, month - 1, day);
+	const date = new Date(timestamp);
+	return (
+		date.getUTCFullYear() === year &&
+		date.getUTCMonth() === month - 1 &&
+		date.getUTCDate() === day
+	);
+}
+
+/** 报告底层请求的运行时参数投影；无效输入在 requestWithStableSession 之前结束。 */
+function requireReportRequestOptions(value: unknown): {
+	patientId: string;
+	startDate: string;
+	endDate: string;
+	kind?: "laboratory" | "imaging" | "ecg";
+} {
+	if (!isRecord(value)) {
+		throw new ApiError("报告查询条件不合法", { code: "report-query-invalid" });
+	}
+	const patientId = requirePatientScopedId(value.patientId);
+	if (
+		!isCanonicalCalendarDate(value.startDate) ||
+		!isCanonicalCalendarDate(value.endDate) ||
+		value.startDate > value.endDate ||
+		(value.kind !== undefined && !isReportKind(value.kind))
+	) {
+		throw new ApiError("报告查询条件不合法", { code: "report-query-invalid" });
+	}
+	return {
+		patientId,
+		startDate: value.startDate,
+		endDate: value.endDate,
+		...(value.kind !== undefined ? { kind: value.kind } : {}),
+	};
 }
 
 /**
@@ -1724,8 +1781,16 @@ export function requestOutpatientPaymentRecords(
 	},
 	expectedSessionGeneration: number,
 ): Promise<OutpatientPaymentListResponse> {
+	const patientId = requirePatientScopedId(options?.patientId);
+	if (options?.status !== "unpaid" && options?.status !== "paid") {
+		// 底层函数也必须守住状态枚举；不能依赖页面事件或 TypeScript 类型，
+		// 否则旧页面的未知值可能被编码后交给服务端再误解为另一种状态。
+		throw new ApiError("门诊缴费查询条件不合法", {
+			code: "outpatient-payment-query-invalid",
+		});
+	}
 	const query = [
-		`patientId=${encodeURIComponent(options.patientId)}`,
+		`patientId=${encodeURIComponent(patientId)}`,
 		`status=${encodeURIComponent(options.status)}`,
 	].join("&");
 	return requestWithStableSession<unknown>(
@@ -1746,11 +1811,14 @@ export function requestReports(
 	},
 	expectedSessionGeneration: number,
 ): Promise<ReportListResponse> {
+	const normalizedOptions = requireReportRequestOptions(options);
 	const query = [
-		`patientId=${encodeURIComponent(options.patientId)}`,
-		`startDate=${encodeURIComponent(options.startDate)}`,
-		`endDate=${encodeURIComponent(options.endDate)}`,
-		...(options.kind ? [`kind=${encodeURIComponent(options.kind)}`] : []),
+		`patientId=${encodeURIComponent(normalizedOptions.patientId)}`,
+		`startDate=${encodeURIComponent(normalizedOptions.startDate)}`,
+		`endDate=${encodeURIComponent(normalizedOptions.endDate)}`,
+		...(normalizedOptions.kind
+			? [`kind=${encodeURIComponent(normalizedOptions.kind)}`]
+			: []),
 	].join("&");
 	return requestWithStableSession<unknown>(
 		{ url: `/reports?${query}` },
@@ -1766,9 +1834,15 @@ export function requestReportDetail(
 	},
 	expectedSessionGeneration: number,
 ): Promise<ReportDetailResponse> {
+	const patientId = requirePatientScopedId(options?.patientId);
+	if (!isBoundedPatientId(options?.reportId)) {
+		throw new ApiError("报告详情引用无效", {
+			code: "report-detail-id-missing",
+		});
+	}
 	return requestWithStableSession<unknown>(
 		{
-			url: `/reports/${encodeURIComponent(options.reportId)}?patientId=${encodeURIComponent(options.patientId)}`,
+			url: `/reports/${encodeURIComponent(options.reportId)}?patientId=${encodeURIComponent(patientId)}`,
 		},
 		expectedSessionGeneration,
 	).then((payload) => requireReportDetailResponse(payload, options.reportId));
