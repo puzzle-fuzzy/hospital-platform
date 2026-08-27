@@ -11,9 +11,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
+	createMiniProgramRuntimeLockError,
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
-	createMiniProgramRuntimeLockError,
 	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
 	publishMiniProgramRuntime,
@@ -50,83 +50,103 @@ async function createCommittedRuntimeFixture(): Promise<string> {
 	return repositoryRoot;
 }
 
-test("运行包来源解析只接受干净的已提交运行输入", async () => {
-	const repositoryRoot = await createCommittedRuntimeFixture();
-	try {
-		const committedRevision = resolveMiniProgramSourceRevision(
-			repositoryRoot,
-			undefined,
-			"TEST_SOURCE_REVISION",
-		);
-		expect(committedRevision).toMatch(/^[0-9a-f]{40}$/);
+/**
+ * Windows 下完整 workspace 测试会并发创建多个临时 Git 仓库；系统 Git
+ * 初始化、配置和首次提交可能受杀毒扫描或磁盘锁影响，偶尔超过 Bun 默认
+ * 5 秒测试时限。这里只延长 fixture 的等待窗口，不放宽来源、脏工作树或
+ * 测试文件提交不改变运行包指纹等业务断言。
+ */
+const runtimeFixtureTestOptions = { timeout: 30_000 };
 
-		await writeFile(
-			join(repositoryRoot, "apps/miniprogram/src/page.ts"),
-			"export const page = false;\n",
-			"utf8",
-		);
-		expect(() =>
-			resolveMiniProgramSourceRevision(
+test(
+	"运行包来源解析只接受干净的已提交运行输入",
+	async () => {
+		const repositoryRoot = await createCommittedRuntimeFixture();
+		try {
+			const committedRevision = resolveMiniProgramSourceRevision(
 				repositoryRoot,
 				undefined,
 				"TEST_SOURCE_REVISION",
-			),
-		).toThrow("runtime inputs are dirty");
-	} finally {
-		await rm(repositoryRoot, { recursive: true, force: true });
-	}
-});
+			);
+			expect(committedRevision).toMatch(/^[0-9a-f]{40}$/);
 
-test("开发者工具配置改动不冒充业务源码版本", async () => {
-	const repositoryRoot = await createCommittedRuntimeFixture();
-	try {
-		await mkdir(join(repositoryRoot, "apps/miniprogram"), {
-			recursive: true,
-		});
-		await writeFile(
-			join(repositoryRoot, "apps/miniprogram/project.config.json"),
-			'{"libVersion":"3.17.1"}\n',
-			"utf8",
-		);
-		const revision = resolveMiniProgramSourceRevision(
-			repositoryRoot,
-			undefined,
-			"TEST_SOURCE_REVISION",
-		);
-		expect(revision).toMatch(/^[0-9a-f]{40}$/);
-	} finally {
-		await rm(repositoryRoot, { recursive: true, force: true });
-	}
-});
-
-test("测试与规格文件改动不改变微信运行包来源", async () => {
-	const repositoryRoot = await createCommittedRuntimeFixture();
-	try {
-		const committedRevision = resolveMiniProgramSourceRevision(
-			repositoryRoot,
-			undefined,
-			"TEST_SOURCE_REVISION",
-		);
-		for (const fileName of ["page.test.ts", "page.spec.ts"]) {
 			await writeFile(
-				join(repositoryRoot, "apps/miniprogram/src", fileName),
-				"export const testOnly = true;\n",
+				join(repositoryRoot, "apps/miniprogram/src/page.ts"),
+				"export const page = false;\n",
 				"utf8",
 			);
+			expect(() =>
+				resolveMiniProgramSourceRevision(
+					repositoryRoot,
+					undefined,
+					"TEST_SOURCE_REVISION",
+				),
+			).toThrow("runtime inputs are dirty");
+		} finally {
+			await rm(repositoryRoot, { recursive: true, force: true });
 		}
-		runGit(repositoryRoot, ["add", "."]);
-		runGit(repositoryRoot, ["commit", "-m", "test-only"]);
-		const revisionAfterTestOnlyCommit = resolveMiniProgramSourceRevision(
-			repositoryRoot,
-			undefined,
-			"TEST_SOURCE_REVISION",
-		);
-		// 测试提交不进入 dist，因此不应迫使同一份业务运行包更换来源。
-		expect(revisionAfterTestOnlyCommit).toBe(committedRevision);
-	} finally {
-		await rm(repositoryRoot, { recursive: true, force: true });
-	}
-});
+	},
+	runtimeFixtureTestOptions,
+);
+
+test(
+	"开发者工具配置改动不冒充业务源码版本",
+	async () => {
+		const repositoryRoot = await createCommittedRuntimeFixture();
+		try {
+			await mkdir(join(repositoryRoot, "apps/miniprogram"), {
+				recursive: true,
+			});
+			await writeFile(
+				join(repositoryRoot, "apps/miniprogram/project.config.json"),
+				'{"libVersion":"3.17.1"}\n',
+				"utf8",
+			);
+			const revision = resolveMiniProgramSourceRevision(
+				repositoryRoot,
+				undefined,
+				"TEST_SOURCE_REVISION",
+			);
+			expect(revision).toMatch(/^[0-9a-f]{40}$/);
+		} finally {
+			await rm(repositoryRoot, { recursive: true, force: true });
+		}
+	},
+	runtimeFixtureTestOptions,
+);
+
+test(
+	"测试与规格文件改动不改变微信运行包来源",
+	async () => {
+		const repositoryRoot = await createCommittedRuntimeFixture();
+		try {
+			const committedRevision = resolveMiniProgramSourceRevision(
+				repositoryRoot,
+				undefined,
+				"TEST_SOURCE_REVISION",
+			);
+			for (const fileName of ["page.test.ts", "page.spec.ts"]) {
+				await writeFile(
+					join(repositoryRoot, "apps/miniprogram/src", fileName),
+					"export const testOnly = true;\n",
+					"utf8",
+				);
+			}
+			runGit(repositoryRoot, ["add", "."]);
+			runGit(repositoryRoot, ["commit", "-m", "test-only"]);
+			const revisionAfterTestOnlyCommit = resolveMiniProgramSourceRevision(
+				repositoryRoot,
+				undefined,
+				"TEST_SOURCE_REVISION",
+			);
+			// 测试提交不进入 dist，因此不应迫使同一份业务运行包更换来源。
+			expect(revisionAfterTestOnlyCommit).toBe(committedRevision);
+		} finally {
+			await rm(repositoryRoot, { recursive: true, force: true });
+		}
+	},
+	runtimeFixtureTestOptions,
+);
 
 test("运行包发布先完成 staging，再替换 live，旧文件不会在编译期间被清空", async () => {
 	const workspace = await mkdtemp(

@@ -1,0 +1,94 @@
+{
+	"candidate": {
+		"serverRelease": "1bc8b0a85f21cb58205a99ce4de0de6afe9bf240",
+		"miniProgramCommit": "f1b8b61",
+		"sourceRevision": "f1b8b61609e0560d3da3fe176f62ab3585b6ee98"
+	},
+	"startedAt": "2026-08-27T14:35:24+08:00",
+	"domains": {
+		"auth": {
+			"result": "pending",
+			"reason": "等待 f1b8b61 候选发布后的微信登录页面和日志证据",
+			"requiredScenarios": ["success", "unauthorized"]
+		},
+		"patientDirectory": {
+			"result": "pending",
+			"reason": "等待同一候选下的首页患者目录、账号切换清理与服务端事件",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"unauthorized",
+				"temporary-failure",
+				"account-switch"
+			]
+		},
+		"patientDirectorySync": {
+			"result": "pending",
+			"reason": "等待患者同步与临床映射证据",
+			"requiredScenarios": [
+				"success",
+				"success-empty-guard",
+				"sync-conflict",
+				"temporary-failure"
+			]
+		},
+		"patientSelection": {
+			"result": "pending",
+			"reason": "等待显式切换患者后的页面与 owner 证据",
+			"requiredScenarios": [
+				"initial-selection",
+				"explicit-switch",
+				"stale-selection"
+			]
+		},
+		"appointmentDirectory": {
+			"result": "pending",
+			"reason": "等待预约目录只读链路和 Provider 低敏 requestId 证据",
+			"requiredScenarios": [
+				"departments-success",
+				"schedules-success",
+				"success-empty",
+				"provider-failure"
+			]
+		},
+		"appointmentRecords": {
+			"result": "pending",
+			"reason": "等待预约历史在线/全部范围和爽约派生筛选的四方链路证据",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"unauthorized",
+				"patient-mapping-failure"
+			]
+		},
+		"missedAppointments": {
+			"result": "pending",
+			"reason": "等待爽约派生筛选与患者切换证据",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"patient-switch"
+			]
+		},
+		"outpatientPayment": {
+			"result": "pending",
+			"reason": "等待门诊费用只读链路证据，不触发支付",
+			"requiredScenarios": [
+				"success-non-empty",
+				"success-empty",
+				"unauthorized",
+				"patient-mapping-failure"
+			]
+		},
+		"profileReadonlyWrite": {
+			"result": "pending",
+			"reason": "等待普通资料读取、受控更新、版本冲突和微信授权回归的真机证据",
+			"requiredScenarios": [
+				"read-success",
+				"update-success",
+				"version-conflict",
+				"unauthorized"
+			]
+		}
+	}
+}

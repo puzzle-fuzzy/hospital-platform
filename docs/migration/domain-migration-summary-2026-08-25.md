@@ -2,7 +2,7 @@
 
 > 跨业务域并行执行顺序见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
 
-> **当前事实源（2026-08-27）**：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；源码已注册 40 个原生页面，本地 live 运行包来源为 `34f0fd21`，完整 sourceRevision 为 `34f0fd21aac33214e991de561d37dfd7071013bf`，已通过运行包校验。健康自测中的 BMI/血压安全数值子集已进入 `partial`；当前仍有 25 个 `surface-only` 和 7 个支付/回写阻塞入口未开放真实业务；本轮继续保持共享患者外壳、二维码安全壳和健康数值工具边界，并补齐会话失效时旧 owner 微信资料缓存清理和关闭态卡片纵向居中。以下表格按当前机器台账修正，旧日期段落只作追溯。
+> **当前事实源（2026-08-27）**：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；源码已注册 40 个原生页面，本地 live 运行包来源为 `f1b8b61`，完整 sourceRevision 为 `f1b8b61609e0560d3da3fe176f62ab3585b6ee98`，已通过运行包校验。健康自测中的 BMI/血压安全数值子集已进入 `partial`；当前仍有 25 个 `surface-only` 和 7 个支付/回写阻塞入口未开放真实业务；本轮继续保持共享患者外壳、二维码安全壳和健康数值工具边界，并补齐会话失效时旧 owner 微信资料缓存清理和关闭态卡片纵向居中。以下表格按当前机器台账修正，旧日期段落只作追溯。
 
 > 本页回答“旧端还有哪些入口没有迁移”这个范围问题，不把统一状态页误写成真实业务完成。数据由
 > `apps/miniprogram/src/services/legacy-page-catalog.ts` 派生，并由 `legacy-page-catalog.test.ts`
