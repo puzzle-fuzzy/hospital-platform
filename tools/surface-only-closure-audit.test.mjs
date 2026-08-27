@@ -30,4 +30,10 @@ describe("未开放页面关闭态审计", () => {
 		expect(stripCommentsAndStrings(source)).not.toContain("wx.request(");
 		expect(stripCommentsAndStrings(source)).toContain("wx.navigateTo");
 	});
+
+	test("保留模板插值中的可执行表达式，避免漏掉隐藏的直连调用", () => {
+		const source = 'const text = `${wx.request({ url: "provider" })}`;';
+
+		expect(stripCommentsAndStrings(source)).toContain("wx.request");
+	});
 });

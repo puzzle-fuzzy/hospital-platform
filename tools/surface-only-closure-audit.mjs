@@ -191,13 +191,121 @@ const FORBIDDEN_RUNTIME_PATTERNS = Object.freeze([
  *
  * 关闭态文案会正常出现“请求”“支付”等中文词，不能用整段文本关键字
  * 判断；这里只关心可执行调用，避免注释或用户文案造成误报。模板中的
- * `<web-view>` 另行按原文检查，因为它不是 TypeScript 调用。
+ * `${...}` 是真正会执行的 JavaScript 表达式，不能和普通模板文案一起
+ * 剥掉，否则审计器会漏掉藏在模板插值里的直连请求。模板文案本身仍然
+ * 会被清空，`<web-view>` 另行按原文检查，因为它不是 TypeScript 调用。
  */
 export function stripCommentsAndStrings(source) {
-	return source
-		.replace(/\/\*[\s\S]*?\*\//gu, "")
-		.replace(/\/\/[^\r\n]*/gu, "")
-		.replace(/'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/gu, '""');
+	const output = [];
+
+	/** 将被忽略的字符替换为空格，但保留换行，方便失败位置仍可定位。 */
+	function blank(character) {
+		output.push(character === "\n" ? "\n" : " ");
+	}
+
+	function blankRange(start, end) {
+		for (let index = start; index < end; index += 1) blank(source[index]);
+	}
+
+	/** 跳过单引号/双引号字符串，不把字符串里的调用文本当成代码。 */
+	function scanQuotedString(start, quote) {
+		let index = start;
+		while (index < source.length) {
+			const character = source[index];
+			if (character === "\\") {
+				index += 2;
+				continue;
+			}
+			if (character === quote) return index + 1;
+			index += 1;
+		}
+		return index;
+	}
+
+	/**
+	 * 扫描模板字符串的文案部分；遇到 `${` 时回到代码扫描器，保留其中
+	 * 的表达式，并用大括号深度准确找到插值的结束位置。
+	 */
+	function scanTemplate(start) {
+		let index = start;
+		while (index < source.length) {
+			const character = source[index];
+			if (character === "\\") {
+				blank(character);
+				if (index + 1 < source.length) blank(source[index + 1]);
+				index += 2;
+				continue;
+			}
+			if (character === "`") {
+				blank(character);
+				return index + 1;
+			}
+			if (character === "$" && source[index + 1] === "{") {
+				output.push("$", "{");
+				index = scanCode(index + 2, true);
+				continue;
+			}
+			blank(character);
+			index += 1;
+		}
+		return index;
+	}
+
+	/** 扫描可执行代码；interpolation=true 时只返回对应插值的大括号。 */
+	function scanCode(start, interpolation = false) {
+		let index = start;
+		let braceDepth = interpolation ? 1 : 0;
+		while (index < source.length) {
+			const character = source[index];
+			const nextCharacter = source[index + 1];
+
+			if (character === "/" && nextCharacter === "/") {
+				const commentStart = index;
+				index += 2;
+				while (index < source.length && source[index] !== "\n") index += 1;
+				blankRange(commentStart, index);
+				continue;
+			}
+			if (character === "/" && nextCharacter === "*") {
+				const commentStart = index;
+				index += 2;
+				while (
+					index < source.length &&
+					!(source[index] === "*" && source[index + 1] === "/")
+				) {
+					index += 1;
+				}
+				index = Math.min(source.length, index + 2);
+				blankRange(commentStart, index);
+				continue;
+			}
+			if (character === "'" || character === '"') {
+				const stringStart = index;
+				index = scanQuotedString(index + 1, character);
+				blankRange(stringStart, index);
+				continue;
+			}
+			if (character === "`") {
+				blank(character);
+				index = scanTemplate(index + 1);
+				continue;
+			}
+			if (interpolation && character === "{") braceDepth += 1;
+			if (interpolation && character === "}") {
+				braceDepth -= 1;
+				output.push(character);
+				if (braceDepth === 0) return index + 1;
+				index += 1;
+				continue;
+			}
+			output.push(character);
+			index += 1;
+		}
+		return index;
+	}
+
+	scanCode(0);
+	return output.join("");
 }
 
 async function readSource(root, relativePath) {
