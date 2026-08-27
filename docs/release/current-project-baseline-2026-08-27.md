@@ -13,7 +13,7 @@
 | 旧 Python 服务 | `0.0.0.0:8001`，继续共存 | 新 API 与旧 API 使用相同业务实现 |
 | Worker | `hospital-platform-worker-v2.service=inactive` | 支付、医保或 HIS 回写已经执行 |
 | 生产依赖 | MySQL、Redis、schema probe 均为 `ok` | 业务 Provider 字段或业务状态一定正确 |
-| 当前微信线上小程序 | 历史运行包 `13f597e` | 可以拿线上历史包证明本地候选真机结果 |
+| 当前微信线上小程序 | 历史运行包 `13f597e` | 不可以拿线上历史包证明本地 live 候选的真机结果 |
 | 当前本地 live 小程序 | `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（`6f47c64`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
 | live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；同源 pending 候选已在释放微信开发者工具锁后原子发布，pending 目录已清理 | 开发者工具一定已经重新编译当前目录 |
 
