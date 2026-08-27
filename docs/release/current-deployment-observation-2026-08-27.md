@@ -10,14 +10,14 @@
 | 构建入口 | `pnpm --filter @hospital/miniprogram build` |
 | 类型检查 | 通过 |
 | live 运行包 | `apps/miniprogram/dist/` |
-| 来源指纹 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` |
+| 来源指纹 | `1691f2db1399419d81a1febff59cffd0369130ea` |
 | 页面数量 | 40 |
 | 运行包门禁 | `runtime:verify` 通过 |
 | pending 目录 | 不存在；本次提交没有小程序运行时代码变化，因此没有新的 pending 候选 |
 
-构建器识别到当前提交只包含文档/迁移工具变化，沿用了已经通过验证的运行来源
-`0be59f96`。这不是跳过构建：本次仍重新完成 TypeScript 检查和运行包完整性校验，
-但没有为了改变来源指纹而制造没有运行时差异的候选包。
+当前 live 运行包的来源以 `dist/build-info.json` 为准，是已经通过构建和运行包完整性校验的
+`1691f2db`。本次没有重新生成新的小程序运行时候选，也没有为了改变来源指纹制造没有运行时
+差异的候选包；开发者工具若重新打开，仍必须从这个 live `dist/` 普通编译。
 
 开发者工具下一次验收仍应打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\`
 工程，并由其 `project.config.json` 使用 `dist/` 作为 `miniprogramRoot`；不要打开 `src/`，
@@ -37,6 +37,13 @@
 
 由于服务端运行时代码相对线上 release 没有变化，本轮没有执行新 API 重启，也没有修改旧服务。
 没有写入 MySQL/Redis，没有调用 Provider、支付、医保或 HIS 回写。
+
+2026-08-27 11:37 CST 左右的现场复核原样结果为：`current` 指向
+`releases/1107a78a47ac2fbe0557958251d66da9effc66de`；新 API 为 `active`，监听
+`10.0.0.3:18081`；旧 Python 仍监听 `0.0.0.0:8001`；Worker 为 `inactive`；内网
+`GET http://10.0.0.3:18081/health/ready` 返回 `200`，且 `database`、`redis`、`schema`
+均为 `ok`。此次没有运行中的开发者工具/真机会话，因此没有采集页面截图、客户端
+`requestId` 或真实业务链路证据。
 
 ## 3. 公网运行层 smoke
 
