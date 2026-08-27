@@ -383,12 +383,15 @@ test("A 批次只读验收计划的 pending 运行包不能漂移到历史来源
 
 // 当前基线包含迁移总览和患者边界文档，完整 Git/文档审计在 Windows 上
 // 可能超过 15 秒；提高的是测试等待上限，不放宽任何一致性断言。
-test("仓库当前发布文档保持同一套候选", { timeout: 30_000 }, async () => {
+test("仓库当前发布文档一致且未发布代码被正确阻断", {
+	timeout: 30_000,
+}, async () => {
 	const result = await auditCurrentReleaseConsistency();
-	// 当前候选已经把服务端运行时代码和验收文档统一到同一 release；线上是否
-	// 已完成原子切换，仍由部署后的远端 current、readiness 和共存检查证明。
+	// 当前仓库明确处于“新 API 候选已推送、线上 release 尚未包含最新运行代码”
+	// 的发布窗口之前。这里必须把该差异保留为失败结果，防止工具测试为了变绿
+	// 而绕过 release gate；文档本身仍要证明服务端和小程序候选没有发生漂移。
 	expect(result).toMatchObject({
-		passed: true,
+		passed: false,
 		// 该断言必须与当前候选文档同步；它防止只更新正文而遗漏路线图、真机模板或
 		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
 		serverRelease: "1bc8b0a85f21cb58205a99ce4de0de6afe9bf240",
@@ -397,10 +400,15 @@ test("仓库当前发布文档保持同一套候选", { timeout: 30_000 }, async
 		miniProgramCommit: "62cdb8f",
 		miniProgramSourceRevision: "62cdb8f82b4169dd1b9a6ed3403e3be2f7422328",
 	});
-	expect(result.failures).toHaveLength(0);
+	expect(result.failures).toEqual([
+		"服务端 release 1bc8b0a85f21cb58205a99ce4de0de6afe9bf240 之后存在未部署运行时代码：apps/api/src/modules/knowledge/index.ts, apps/api/src/modules/knowledge/service.ts",
+	]);
 	expect(result.serverSourceAudit).toMatchObject({
-		passed: true,
-		changedRuntimeFiles: [],
+		passed: false,
+		changedRuntimeFiles: [
+			"apps/api/src/modules/knowledge/index.ts",
+			"apps/api/src/modules/knowledge/service.ts",
+		],
 	});
 });
 
@@ -409,10 +417,12 @@ test("当前业务验收协议绑定当前服务端和小程序候选", {
 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 
-	// 候选文档已经统一到同一服务端 release；真实业务是否可验收仍必须等待
-	// 远端部署、公网路径和真机三层证据，不由这个文档一致性测试代替。
-	expect(result.passed).toBe(true);
-	expect(result.failures).toHaveLength(0);
+	// 当前候选文档已经统一到同一套服务端和小程序来源；但服务端运行时代码
+	// 尚未部署，所以整体结果必须保持阻断。这里精确锁定唯一失败原因，避免把
+	// 文档绑定正确误判成线上 release 已完成。
+	expect(result.failures).toEqual([
+		"服务端 release 1bc8b0a85f21cb58205a99ce4de0de6afe9bf240 之后存在未部署运行时代码：apps/api/src/modules/knowledge/index.ts, apps/api/src/modules/knowledge/service.ts",
+	]);
 });
 
 test("历史候选不被当前发布基线强制重写", () => {
