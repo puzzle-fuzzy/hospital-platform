@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import {
 	auditCurrentBaselineDocuments,
-	auditCurrentCandidateRuleRegistration,
 	auditCurrentCandidateReferences,
+	auditCurrentCandidateRuleRegistration,
 	auditCurrentExecutionSection,
 	auditCurrentReadonlyBusinessBoundaries,
 	auditCurrentReleaseConsistency,
@@ -430,7 +430,7 @@ test("仓库当前发布文档与已部署代码保持一致", {
 		passed: true,
 		// 该断言必须与当前候选文档同步，防止只更新正文而遗漏路线图、真机模板或
 		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
-		serverRelease: "b44421cd321ff9ff23eeb49b12641d1772d2bdc1",
+		serverRelease: "0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
 		miniProgramCommit: "d4f6748",
@@ -448,11 +448,11 @@ test("当前业务验收协议绑定当前服务端和小程序候选", {
 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 
-	// 当前候选文档已经统一到同一套服务端和小程序来源，且 b44421cd 已完成
+	// 当前候选文档已经统一到同一套服务端和小程序来源，且 0aaa13b5 已完成
 	// API-only 原子发布；这里要求没有漂移失败，防止把历史发布前阻断误报为当前状态。
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "b44421cd321ff9ff23eeb49b12641d1772d2bdc1",
+		serverRelease: "0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7",
 		miniProgramCommit: "d4f6748",
 		miniProgramSourceRevision: "d4f67485a34195a2e1e392071502cf2a7006dd27",
 	});

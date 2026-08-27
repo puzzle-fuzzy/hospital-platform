@@ -158,7 +158,7 @@ export function auditServerSourceRelease(baseline, options = {}) {
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-b44421cd-server-release-2026-08-27.md";
+	"docs/release/candidate-0aaa13b5-server-release-2026-08-27.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -180,7 +180,7 @@ export const currentBaselineDocuments = Object.freeze([
 	// 保留用于追溯但不再作为当前基线入口；当前本地 live 候选由下方最新来源
 	// 对应的候选记录锁定，避免代码推进后继续沿用旧的运行包。
 	{
-		path: "docs/release/candidate-b44421cd-production-acceptance-2026-08-27.md",
+		path: "docs/release/candidate-0aaa13b5-production-acceptance-2026-08-27.md",
 		label: "当前服务端生产切换记录",
 	},
 	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入
@@ -446,16 +446,16 @@ export const currentBaselineDocuments = Object.freeze([
 ]);
 
 /**
- * live 运行包和 pending 候选是两个有意并存的发布事实：发布前优先读取
- * pending，发布成功后 pending 会被原子发布器清理，此时必须回退读取 live。
- * 这里校验的是“当前本地运行候选”的完整来源指纹，不把开发者工具发布
- * 后 pending 目录的正常消失误判成候选缺失，也不把线上历史小程序来源混入。
+ * 读取当前“现网审计基线”的小程序来源指纹。
+ *
+ * `dist` 是开发者工具实际读取、且已经进入当前运行链路的包；`pending`
+ * 只是等待发布的候选，必须由 `runtime:verify:pending` 单独验收。若在这里
+ * 优先读取 pending，候选构建期间所有线上文档都会被误判为已漂移，反而会
+ * 掩盖真正的发布状态。因此现网一致性审计始终以 dist 优先，dist 缺失时
+ * 才回退到当前基线文档声明，绝不把 pending 冒充成 live。
  */
-async function readPendingMiniProgramSourceRevision(rootDirectory) {
-	for (const relativePath of [
-		".local/hospital-miniprogram/pending/build-info.json",
-		"apps/miniprogram/dist/build-info.json",
-	]) {
+async function readActiveMiniProgramSourceRevision(rootDirectory) {
+	for (const relativePath of ["apps/miniprogram/dist/build-info.json"]) {
 		try {
 			const content = await readFile(join(rootDirectory, relativePath), "utf8");
 			const sourceRevision = JSON.parse(content)?.sourceRevision;
@@ -1344,8 +1344,8 @@ export async function auditCurrentReleaseConsistency(
 	const candidatePath = join(rootDirectory, currentCandidateDocumentPath);
 	const candidateDocument = await readFile(candidatePath, "utf8");
 	const baseline = extractCurrentBaseline(candidateDocument);
-	const pendingMiniProgramSourceRevision =
-		await readPendingMiniProgramSourceRevision(rootDirectory);
+	const activeMiniProgramSourceRevision =
+		await readActiveMiniProgramSourceRevision(rootDirectory);
 	const documents = [];
 
 	for (const document of currentBaselineDocuments) {
@@ -1354,7 +1354,7 @@ export async function auditCurrentReleaseConsistency(
 	}
 
 	const documentAudit = auditCurrentBaselineDocuments(baseline, documents, {
-		pendingMiniProgramSourceRevision,
+		activeMiniProgramSourceRevision,
 	});
 	const candidateRuleRegistrationFailures =
 		auditCurrentCandidateRuleRegistration();

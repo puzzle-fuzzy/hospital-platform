@@ -4,6 +4,10 @@
 
 > **当前候选覆盖（2026-08-27）**：最新小程序源码和本地 live 运行输入为 `d4f67485a34195a2e1e392071502cf2a7006dd27`（`d4f6748`），40 页；核心回归、App.onLaunch 全局资料初始化时序、共享患者外壳会话边界、就诊二维码会话门禁、健康数值规则版本、会话失效资料缓存清理和预约请求运行时边界测试通过。该来源已完成校验并原子切换到 live `dist`，本候选未新增 Provider 请求或写入；本文下方旧候选数字只作历史追溯，以本段和 [`candidate-413cbea-miniprogram-runtime-2026-08-27.md`](../release/candidate-413cbea-miniprogram-runtime-2026-08-27.md) 为准。
 
+> **待发布启动保护候选（2026-08-27）**：小程序来源为 `02865d385a9c09876dc51da1ffb71183139a559b`（`02865d3`），已完成 pending 运行包校验但尚未覆盖 live `dist`；对应九域真机清单为 [`device-evidence-02865d38-pending.json`](../release/device-evidence-02865d38-pending.json)。该清单全部保持 `pending`，不构成真实微信登录、Provider 或业务完成证据。
+>
+> 发布候选后，使用 `pnpm device:evidence:audit --file docs/release/device-evidence-02865d38-pending.json` 继续维护该清单；在真实页面、客户端 requestId、服务端同链日志和 Provider 低敏请求号齐全前，不得改成 `passed`。
+
 > **最新候选纠正（2026-08-27）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。当前 40 页运行相关源码候选 `d4f67485a34195a2e1e392071502cf2a7006dd27` 已完成构建、运行包校验并原子切换到本地 live `dist`；九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本候选修复 App.onLaunch 全局资料初始化时序并保留预约排班与预约历史底层请求运行时边界；旧 Python 服务未修改，线上新 API 已按 [`release/candidate-b44421cd-production-acceptance-2026-08-27.md`](../release/candidate-b44421cd-production-acceptance-2026-08-27.md) 完成新旧共存发布。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
