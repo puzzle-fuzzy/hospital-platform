@@ -19,14 +19,14 @@
 ## 1. 当前版本与运行边界
 
 - 服务端当前已验证 release：`1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`。
-- 小程序运行包来源：`90d8910bdc54d48dde66c4ff03a7434c182ebd92`，40 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
+- 小程序运行包来源：`34f0fd21aac33214e991de561d37dfd7071013bf`，40 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
 - 新 API：`10.0.0.3:18081`，systemd 状态为 `active`。
 - 旧 Python API：`0.0.0.0:8001`，仍在监听，旧 Gunicorn PID 未发生变化。
 - Worker：保持 `inactive`，没有因为本轮审计被启动。
 - 支付、医保授权、退款、报告 Provider 和 HIS 写回仍保持关闭。
 
 本轮运行包门禁追加了测试脚本与 workspace 裸模块依赖扫描，当前客户端运行来源为
-`90d8910bdc54d48dde66c4ff03a7434c182ebd92`；真实微信、患者切换和只读业务三层证据仍未产生。
+`34f0fd21aac33214e991de561d37dfd7071013bf`；真实微信、患者切换和只读业务三层证据仍未产生。
 
 ## 2. 业务不变量审计结论
 
@@ -66,7 +66,7 @@
 - 工具测试：`53 pass / 0 fail / 133 expects`；
 - 原生小程序：`221 pass / 0 fail / 1640 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240` 和小程序 `90d8910b`（完整来源 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`）。
+- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240` 和小程序 `34f0fd21`（完整来源 `34f0fd21aac33214e991de561d37dfd7071013bf`）。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
@@ -113,7 +113,7 @@
 
 ## 5. 下一步准入顺序
 
-1. 在微信开发者工具关闭旧真机调试，切换到已打开的 `apps/miniprogram/` 新项目窗口，普通编译并确认 `dist/build-info.json` 来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`。
+1. 在微信开发者工具关闭旧真机调试，切换到已打开的 `apps/miniprogram/` 新项目窗口，普通编译并确认 `dist/build-info.json` 来源为 `34f0fd21aac33214e991de561d37dfd7071013bf`。
 2. 以同一二维码取得微信登录、患者目录、显式切换第二位患者的页面截图、HTTP `requestId` 和服务端低敏日志；没有三层配对证据，不标记患者切换完成。
 3. 在同一会话中按“预约科室/排班 → 我的挂号 → 爽约 → 门诊费用待缴/已缴”的顺序验收，并核对每个请求的 owner、患者映射、Provider request id 和页面读模型。
 4. 只有 Provider 文档、金额边界、幂等、回调、查单和失败恢复契约齐全后，才进入现金支付；医保授权、6202/6301、退款和 HIS 回写最后专项处理。

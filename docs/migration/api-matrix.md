@@ -12,7 +12,7 @@
 
 > 当前运行基线（2026-08-27）：线上服务端 release 为
 > `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；本地 live 小程序运行包来源为
-> `90d8910b`，完整 sourceRevision 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，已通过
+> `34f0fd21`，完整 sourceRevision 为 `34f0fd21aac33214e991de561d37dfd7071013bf`，已通过
 > `runtime:verify`。本文只记录迁移矩阵，不代表 Provider、真机或支付业务已经验收。
 
 ## 状态说明

@@ -178,7 +178,7 @@ export const currentBaselineDocuments = Object.freeze([
 	},
 	// `candidate-13f597ea-miniprogram-build-2026-08-24.md` 是线上历史小程序包，
 	// 保留用于追溯但不再作为当前基线入口；当前本地 live 候选由下方的
-	// `candidate-90d8910b-miniprogram-runtime-2026-08-27.md` 锁定。
+	// `candidate-34f0fd21-miniprogram-runtime-2026-08-27.md` 锁定。
 	{
 		path: "docs/release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md",
 		label: "当前服务端生产切换记录",
@@ -254,7 +254,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 当前小程序候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
-		path: "docs/release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-34f0fd21-miniprogram-runtime-2026-08-27.md",
 		label: "当前本地小程序运行包候选",
 		candidateOnly: true,
 	},

@@ -33,9 +33,9 @@
 | 检查 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm migration:readiness` | 通过结构审计 | 入口、只读域和页面事件结构通过；真实 Provider、真机和高风险写入仍按报告保持未完成 |
-| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 历史发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页，运行包文件完整；当前 live 候选为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa` |
+| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 历史发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页，运行包文件完整；当前 live 候选为 `34f0fd21aac33214e991de561d37dfd7071013bf` |
 | `pnpm --filter @hospital/miniprogram build` | 发布阶段曾被 `EBUSY` 阻断 | TypeScript 检查已通过；随后释放项目进程锁并通过 `runtime:publish-pending` 完成原子发布 |
-| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，40 页 |
+| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `34f0fd21aac33214e991de561d37dfd7071013bf`，40 页 |
 
 ## 4. 当前运行包锁处理
 

@@ -53,7 +53,7 @@
 当前线上 release 以 [`e5d941ae-production-acceptance-2026-08-26.md`](e5d941ae-production-acceptance-2026-08-26.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选为
-`90d8910bdc54d48dde66c4ff03a7434c182ebd92`（提交 `90d8910b`），服务端为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
+`34f0fd21aac33214e991de561d37dfd7071013bf`（提交 `34f0fd21`），服务端为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -142,8 +142,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 本节记录的历史审计候选为小程序 `d2086d8`，完整运行包来源为
 `d2086d819b3e393da2e8c5c39d7704012854214b`；这些数字仅用于追溯，不能作为当前真机包。当前真机候选以
-`90d8910bdc54d48dde66c4ff03a7434c182ebd92`（提交 `90d8910b`）为准。当前真机候选以
-`90d8910b` 服务端配套的 `90d8910b` 和完整来源指纹 `90d8910bdc54d48dde66c4ff03a7434c182ebd92` 为准。
+`34f0fd21aac33214e991de561d37dfd7071013bf`（提交 `34f0fd21`）为准。当前真机候选以
+`34f0fd21` 小程序候选和服务端 `1bc8b0a8` 的分层配套及完整来源指纹 `34f0fd21aac33214e991de561d37dfd7071013bf` 为准。
 
 本节对应的当前服务端生产候选为 `c8eef370`；下方保留的 `398be8e`、`687690e`、`c26e696` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 
