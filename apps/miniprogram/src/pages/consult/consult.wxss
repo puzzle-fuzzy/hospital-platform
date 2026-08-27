@@ -125,6 +125,15 @@ page {
 
 .consult-state {
 	display: flex;
+	/*
+		状态卡片中的插图、标题和说明必须按旧端的纵向空态排列；如果遗漏
+		flex-direction，微信默认使用 row，会把三段内容挤在同一行，导致
+		“正在获取就诊信息”和“暂无记录”在窄屏上错位。这里固定居中，
+		同时保持 query-state-shell 的稳定高度，避免状态切换时布局跳变。
+	*/
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
 	height: 380rpx;
 	min-height: 380rpx;
 	margin-top: 2rpx;
@@ -133,6 +142,7 @@ page {
 	background: #ffffff;
 	color: #777777;
 	font-size: 28rpx;
+	text-align: center;
 }
 
 .consult-record-list {

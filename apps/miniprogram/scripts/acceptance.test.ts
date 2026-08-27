@@ -1790,6 +1790,27 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	}
 });
 
+test("consult and internet hospital empty states keep the legacy vertical layout", async () => {
+	const consultStyle = await source("pages/consult/consult.wxss");
+	const hospitalStyle = await source("pages/hospital/hospital.wxss");
+
+	// 两个主 Tab 当前都可能展示“迁移中/暂无记录”状态；状态内容由图片、
+	// 标题和说明组成，必须明确声明纵向排列。只测到 display:flex 不够，
+	// 因为 WXSS 默认 flex-direction 是 row，真机上会把状态内容横向挤压。
+	expect(consultStyle).toMatch(
+		/\.consult-state\s*\{[\s\S]*?flex-direction:\s*column;/,
+	);
+	expect(consultStyle).toMatch(
+		/\.consult-state\s*\{[\s\S]*?align-items:\s*center;/,
+	);
+	expect(hospitalStyle).toMatch(
+		/\.state-card\s*\{[\s\S]*?flex-direction:\s*column;/,
+	);
+	expect(hospitalStyle).toMatch(
+		/\.state-card\s*\{[\s\S]*?align-items:\s*center;/,
+	);
+});
+
 test("native profile clears stale fields after session ownership is lost", async () => {
 	const page = await source("pages/profile/profile.ts");
 	const saveStart = page.indexOf("onSave(): Promise<void>");
