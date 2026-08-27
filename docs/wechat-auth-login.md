@@ -3,6 +3,8 @@
 
 > 当前运行相关源码候选为 `805c54e`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具版本，收紧共享患者外壳的 owner 证明、会话代际和账号切换清理，并在会话失效时清理旧 owner 微信资料缓存；本候选补正就诊和互联网医院关闭态的纵向布局，收紧报告/费用底层患者范围输入，并使报告详情点击先回查当前渲染批次、再校验患者和短期引用；同时收紧预约排班和预约历史请求构造器的运行时字段、日期和范围边界，并修复 App.onLaunch 阶段全局资料初始化对 getApp 注册时序的依赖；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-413cbea-miniprogram-runtime-2026-08-27.md`](release/candidate-413cbea-miniprogram-runtime-2026-08-27.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
+> **当前小程序启动修正（2026-08-27）**：运行相关源码和本地 live 运行包为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`（`76ca013`）。App、API、会话代际和资料订阅的 `globalData` 读取已统一经过启动桥；如果仍看到 `Cannot read property 'globalData' of undefined`，说明开发者工具或二维码仍在使用旧增量包，应关闭新项目调试、重新打开 `apps/miniprogram/dist/`、普通编译并重新扫码。详见 [`release/miniprogram-globaldata-startup-fix-2026-08-27.md`](release/miniprogram-globaldata-startup-fix-2026-08-27.md)。
+
 # 微信授权登录实施与验收手册
 > 当前验收配套基线：线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码和本地 live 运行输入为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，共 40 个页面。运行包已原子发布，真实微信业务三层证据仍待；25 个跨域页面当前为 `surface-only`，另有 4 个入口仅完成安全 `partial` 子集，健康自测另有安全数值子集。候选详情见 [`release/candidate-413cbea-miniprogram-runtime-2026-08-27.md`](release/candidate-413cbea-miniprogram-runtime-2026-08-27.md)，服务端切换详情见 [`release/candidate-b44421cd-production-acceptance-2026-08-27.md`](release/candidate-b44421cd-production-acceptance-2026-08-27.md)。
 

@@ -50,6 +50,8 @@
 > 三层只读证据；再处理普通资料写入（仅限受控测试值授权）；随后分别冻结报告详情、健康内容审核 bundle、
 > 患者绑定、二维码、病历和支付/医保的独立 contract。任何缺少 provider/HIS/权限/回滚证据的入口继续关闭。
 
+> **最新小程序启动修正（2026-08-27）**：运行相关源码和本地 live 运行包为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`（`76ca013`），App、API、会话代际和资料订阅的 `globalData` 读取已统一经过启动桥，40 个页面入口通过 `runtime:verify`。遇到旧的 `globalData` 未定义异常时，必须关闭新项目开发者工具/真机调试并重新打开 `apps/miniprogram/dist/`、普通编译、重新生成二维码；详见 [`release/miniprogram-globaldata-startup-fix-2026-08-27.md`](release/miniprogram-globaldata-startup-fix-2026-08-27.md)。
+
 # 下一阶段实施路线图
 
 > **当前小程序候选（2026-08-27）**：`805c54ea9fa943385ad6feebed1401d521fbad3c`（`805c54e`）已通过构建、回归和运行包校验并原子发布到 live `dist`；本候选修复 App.onLaunch 全局资料初始化时序，同时保留预约排班和预约历史请求构造器的运行时字段、日期和范围边界。新的九域真机清单为 [`release/device-evidence-805c54ea-pending.json`](release/device-evidence-805c54ea-pending.json)，当前开发者工具已恢复并观察到 iPhone 17 Pro 真机连接，微信登录与患者目录首批同链证据已记录，重复读取也已完成同链核对，但当前页面仍为首页，显式切换和其余域仍待完成，所有整域结果继续保持 `pending`。详见 [`release/device-observation-805c54e-auth-patient-2026-08-27.md`](release/device-observation-805c54e-auth-patient-2026-08-27.md)。
