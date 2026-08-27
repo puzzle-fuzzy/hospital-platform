@@ -87,6 +87,10 @@ const requiredTypeScriptFiles = [
 	"app.ts",
 	"data/department-location.ts",
 	"services/api-client.ts",
+	// App 启动容器是 globalData 时序修复的核心运行模块；它虽然没有直接
+	// 被页面 WXML 引用，也必须进入产物依赖闭环，避免构建或开发者工具
+	// 增量索引时把启动回退路径误判为未使用代码。
+	"services/app-runtime-context.ts",
 	"services/dashboard-service.ts",
 	"services/session-service.ts",
 	"services/patient-selection-service.ts",
