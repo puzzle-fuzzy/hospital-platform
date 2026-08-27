@@ -65,6 +65,7 @@ pnpm migration:readiness -- --strict
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
 - 未开放入口关闭态审计通过：15 个目标页中 14 个使用共享页面工厂、1 个为健康自测本地安全数值子集；页面和共享工厂未发现直连 HTTP、Provider、支付、微信登录、外部小程序或 WebView 旁路。该结果只证明 fail-closed 结构，不改变 C/D/E/F contract 阻断状态。
 - 关闭态审计器已在 `2580a1fe` 修正模板插值扫描边界：模板普通文案仍不参与调用匹配，`${...}` 内的可执行表达式不会被剥离；该门禁修正不改变 `99d9f60` 小程序运行包或任何业务放行状态。
+- 关闭态审计器随后在 `cbb43040` 分离导入路径扫描，避免集中 API client 的模块字符串因统一剥离而漏报；真实导入会被拒绝、注释中的伪导入不会误报，该门禁修正同样不改变运行包或业务放行状态。
 - 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 
 四域的结构化准入卡片位于 [`clinical-read-models-contract-gate.json`](../provider-intake/clinical-read-models-contract-gate.json)。它逐域记录 Provider contract、成功/空/拒绝/超时样例、owner 映射、字段白名单和脱敏规则的状态；当前只能是 `pending` 或 `missing`。这份卡片不是业务响应 fixture，不能被小程序或 API 读取；任何字段进入 `confirmed` 前必须先完成正式 contract 评审并同步独立域实现。
