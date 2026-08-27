@@ -2,8 +2,8 @@
 
 ## 本轮范围
 
-> **当前候选事实（2026-08-27）**：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；本文的状态判断已绑定本地 live `f1b8b61` 运行包；该运行包来源为
-> `f1b8b61609e0560d3da3fe176f62ab3585b6ee98`，运行包校验和 `runtime:verify` 均通过，包含 40 个页面。历史候选的运行包数字不作为当前真机证据。
+> **当前候选事实（2026-08-27）**：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；本文的状态判断已绑定本地 live `99d9f60` 运行包；该运行包来源为
+> `99d9f60f6291b7f8d08d779cec059892f054d80e`，运行包校验和 `runtime:verify` 均通过，包含 40 个页面。历史候选的运行包数字不作为当前真机证据。
 
 本轮继续按广度优先补齐 B 批次健康百科的客户端状态逻辑，涉及：
 
@@ -54,7 +54,7 @@
 - 小程序全量回归：337 pass / 0 fail / 3702 expect()；
 - `apps/miniprogram` TypeScript 检查通过；
 - Biome 检查和 `git diff --check` 通过；
-- 本文早期验证记录中的 pending 运行包来源为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，40 个页面；该数字仅作历史追溯，当前 live 运行包以 `f1b8b61609e0560d3da3fe176f62ab3585b6ee98` 为准；
+- 本文早期验证记录中的 pending 运行包来源为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，40 个页面；该数字仅作历史追溯，当前 live 运行包以 `99d9f60f6291b7f8d08d779cec059892f054d80e` 为准；
 - 发布前 `runtime:verify:pending` 通过，最新运行包已原子发布到 live `dist`，发布后 `runtime:verify` 通过；
 - 本轮没有把本地运行包写入微信线上版本，候选发布后真机证据仍需从新的 live `dist` 重新编译生成。
 

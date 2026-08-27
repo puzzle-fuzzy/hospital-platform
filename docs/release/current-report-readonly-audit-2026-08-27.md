@@ -1,7 +1,7 @@
 # 报告目录与受限详情当前逻辑审计（2026-08-27）
 
 > 本文记录当前新端报告目录/详情的代码与运行边界，不是 Provider、生产业务或真机验收证明。
-> 当前服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`（`1bc8b0a8`），本地 live 小程序运行输入为 `f1b8b61609e0560d3da3fe176f62ab3585b6ee98`（`f1b8b61`）。旧 Python `8001`、旧数据库、旧 Redis 和另一会话负责的众阳预约适配器不在本次审计范围内。
+> 当前服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`（`1bc8b0a8`），本地 live 小程序运行输入为 `99d9f60f6291b7f8d08d779cec059892f054d80e`（`99d9f60`）。旧 Python `8001`、旧数据库、旧 Redis 和另一会话负责的众阳预约适配器不在本次审计范围内。
 
 ## 1. 结论
 
@@ -101,4 +101,4 @@
 3. 当前报告 gate 为 `disabled`，尚无同一服务端 release、同一小程序运行包、页面、客户端 requestId、服务端 Pino 和 Provider requestId 的真实同链证据。
 
 正确的下一步是先取得脱敏 Provider contract，再在 staging 单独打开报告目录 gate，完成成功、合法空结果、鉴权失败、超时和患者切换验收；详情 gate 必须在目录证据稳定后单独放行。支付、医保、报告写回和旧 FSI 转发不属于本域，继续保持关闭或原样运行。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `f1b8b61609e0560d3da3fe176f62ab3585b6ee98`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `99d9f60f6291b7f8d08d779cec059892f054d80e`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

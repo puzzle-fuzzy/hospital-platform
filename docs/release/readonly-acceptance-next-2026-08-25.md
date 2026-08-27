@@ -1,10 +1,10 @@
 # 当前候选只读业务验收手册（当前接力入口）
 
-> **当前执行事实（2026-08-27）**：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序当前 live 运行包来源为 `f1b8b61609e0560d3da3fe176f62ab3585b6ee98`，包含 40 个页面；公网 HTTPS 已通过无 `-k` TLS 校验。当前没有运行中的微信开发者工具或真机会话，九个真机证据域仍为 `pending`，本手册不能据此宣称真实微信、Provider 或业务完成。当前候选已经原子发布到 live `dist`，不再存在待发布目录。
+> **当前执行事实（2026-08-27）**：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序当前 live 运行包来源为 `99d9f60f6291b7f8d08d779cec059892f054d80e`，包含 40 个页面；公网 HTTPS 已通过无 `-k` TLS 校验。当前没有运行中的微信开发者工具或真机会话，九个真机证据域仍为 `pending`，本手册不能据此宣称真实微信、Provider 或业务完成。当前候选已经原子发布到 live `dist`，不再存在待发布目录。
 
 > 本文下方第 6、7 节的 release、验收工具目录和 smoke 数字属于历史窗口，仅用于追溯，不能作为当前执行版本。当前开始验收前必须重新从 `apps/miniprogram/dist/` 读取 live 运行包，并以当前服务端 release 和新的客户端 `requestId` 为准。
 
-> 当前小程序运行相关源码和 live 运行包来源为 `f1b8b61609e0560d3da3fe176f62ab3585b6ee98`，包含 40 个页面；服务端线上 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`。
+> 当前小程序运行相关源码和 live 运行包来源为 `99d9f60f6291b7f8d08d779cec059892f054d80e`，包含 40 个页面；服务端线上 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`。
 > 当前 live `dist` 已完成原子发布；必须从该运行包重新生成二维码。历史 `87ad1092`、`c7220d73`、`ed20c52`、`39cbf021`、`eef55001`、`99c7e8fd`、`b587c7ea`、`baa31df0`、`c4dc00b9`、`b3436c24`、`90d5ab03`、`485c0892`、`296516a5`、`a002353b`、`8bc649f`、`1404a03`、`3b42b86`、`c7db7f04`、`e3356e50`、`adf536bf` 和 `fcc6630e` 不能作为本候选证据。
 > 开发者工具必须直接打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\dist\`，不能打开父目录、`src/` 或历史 `mp-weixin` 工程。
 > 本手册只覆盖代码和设备验收顺序，不把本地测试当作线上业务完成。
@@ -28,8 +28,8 @@
 3. 检查底部栏：四个主页面必须是 `pages/index/index`、`pages/consult/consult`、`pages/hospital/hospital`、
    `pages/my/my`；点击它们必须使用 `switchTab`，底部栏只允许由微信原生 `tabBar.list` 渲染，
    页面 WXML 不得复制；当前项的蓝色图标和文字由微信根据当前路由维护。
-4. 当前 live `f1b8b61` 已通过 `runtime:verify`；从该运行包重新生成预览/真机二维码，记录运行包候选
-   `f1b8b61` 和微信开发者工具显示的项目根，不能使用旧候选二维码验证本次修复。
+4. 当前 live `99d9f60` 已通过 `runtime:verify`；从该运行包重新生成预览/真机二维码，记录运行包候选
+   `99d9f60` 和微信开发者工具显示的项目根，不能使用旧候选二维码验证本次修复。
 
 ## 3. 设备操作顺序
 
@@ -132,4 +132,4 @@ HOSPITAL_API_PREFIX="/api/v2" \
 默认只读能力不包含 `patient-sync`、支付、医保、预约写入、退款和 HIS 写回。执行结束后，验收
 记录必须同时保存客户端 `requestId`、服务端 `traceId`/业务事件和 Provider 脱敏请求号；任一层缺失，
 只能记录为“待补证据”。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `f1b8b61609e0560d3da3fe176f62ab3585b6ee98`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `99d9f60f6291b7f8d08d779cec059892f054d80e`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
