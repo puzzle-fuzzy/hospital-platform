@@ -522,8 +522,15 @@ async function runtimeProvenance(root) {
 					? liveRevision === pendingRevision
 					: expectedSourceRevision && liveRevision === expectedSourceRevision),
 		),
+		/**
+		 * pending 不存在时仍可能有新的运行输入提交：此时 live 还是上一代
+		 * 运行包，也必须明确要求重新构建并原子发布，不能因为 pending 已被
+		 * 清理就把候选漂移静默当成“无需发布”。
+		 */
 		publicationRequired: Boolean(
-			pendingRevision && liveRevision !== pendingRevision,
+			liveRevision &&
+			(expectedSourceRevision ?? pendingRevision) &&
+			liveRevision !== (pendingRevision ?? expectedSourceRevision),
 		),
 	};
 }
