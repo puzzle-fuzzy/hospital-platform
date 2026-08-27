@@ -23,6 +23,7 @@ import {
 } from "@hospital/observability";
 import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
+import { HttpError } from "../errors";
 import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
 
 const requestStartTimes = new WeakMap<Request, number>();
@@ -83,6 +84,27 @@ function errorMetadataFor(request: Request): ErrorMetadata | undefined {
 }
 
 /**
+ * 将已知错误投影成最终对外错误码。
+ *
+ * Elysia 的 `onError` 生命周期会把部分业务异常报告成 `UNKNOWN`，但统一
+ * 错误处理器随后仍会把它们映射成稳定的 HTTP 错误码。请求日志如果只保存
+ * 生命周期的 code，线上就只能看到 `errorCode=UNKNOWN`，无法直接按
+ * `unauthorized` 或 `provider-temporarily-unavailable` 检索。这里仅覆盖
+ * 已有稳定映射的两类高频边界，不读取 message、请求体或 Provider 原文，
+ * 也不改变客户端收到的响应。
+ */
+function publicErrorCode(error: unknown): string | undefined {
+	if (error instanceof HttpError) return error.code;
+	if (error instanceof ProviderRequestError) {
+		if (error.responseInvalid) return "provider-response-invalid";
+		return error.retryable
+			? "provider-temporarily-unavailable"
+			: "provider-request-rejected";
+	}
+	return undefined;
+}
+
+/**
  * 把可用于排障的错误元数据提取到请求日志。
  *
  * provider 原始报文可能包含患者、费用或凭证信息，不能为了“方便排查”直接
@@ -92,9 +114,11 @@ export function safeErrorMetadata(
 	error: unknown,
 	code: unknown,
 ): ErrorMetadata {
+	const resolvedErrorCode =
+		publicErrorCode(error) ?? (typeof code === "string" ? code : undefined);
 	const metadata: ErrorMetadata = {
 		errorName: error instanceof Error ? error.name : "UnknownError",
-		...(typeof code === "string" ? { errorCode: code } : {}),
+		...(resolvedErrorCode ? { errorCode: resolvedErrorCode } : {}),
 	};
 	if (error instanceof ProviderRequestError) {
 		return {

@@ -9,10 +9,11 @@ import {
 	UserProfileReadModelValidationError,
 } from "@hospital/domain";
 import { PersistenceUnavailableError } from "@hospital/persistence";
+import { HttpError } from "../errors";
 import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
 import { safeErrorMetadata } from "./request-logging";
 
-test("请求日志保留 provider 诊断字段但不保留原始报文", () => {
+test("请求日志把可重试 Provider 失败映射为稳定业务错误码", () => {
 	const error = new ProviderRequestError({
 		provider: "zhongyang",
 		operation: "appointment-departments",
@@ -24,7 +25,7 @@ test("请求日志保留 provider 诊断字段但不保留原始报文", () => {
 
 	expect(safeErrorMetadata(error, "UNKNOWN")).toEqual({
 		errorName: "ProviderRequestError",
-		errorCode: "UNKNOWN",
+		errorCode: "provider-temporarily-unavailable",
 		provider: "zhongyang",
 		providerOperation: "appointment-departments",
 		providerRequestId: "provider-request-001",
@@ -34,6 +35,43 @@ test("请求日志保留 provider 诊断字段但不保留原始报文", () => {
 	expect(JSON.stringify(safeErrorMetadata(error, "UNKNOWN"))).not.toContain(
 		"provider raw response",
 	);
+});
+
+test("请求日志区分 Provider 响应非法和主动拒绝", () => {
+	const invalidResponse = new ProviderRequestError({
+		provider: "zhongyang",
+		operation: "reports-directory",
+		requestId: "invalid-response-request",
+		retryable: false,
+		responseInvalid: true,
+		message: "invalid response",
+	});
+	const rejected = new ProviderRequestError({
+		provider: "zhongyang",
+		operation: "reports-directory",
+		requestId: "rejected-request",
+		retryable: false,
+		message: "request rejected",
+	});
+
+	expect(safeErrorMetadata(invalidResponse, "UNKNOWN").errorCode).toBe(
+		"provider-response-invalid",
+	);
+	expect(safeErrorMetadata(rejected, "UNKNOWN").errorCode).toBe(
+		"provider-request-rejected",
+	);
+});
+
+test("请求日志优先采用 HttpError 的稳定业务错误码", () => {
+	const metadata = safeErrorMetadata(
+		new HttpError(401, "unauthorized", "请先登录"),
+		"UNKNOWN",
+	);
+
+	expect(metadata).toEqual({
+		errorName: "HttpError",
+		errorCode: "unauthorized",
+	});
 });
 
 test("依赖未配置时日志标记具体依赖而不是打印配置值", () => {
