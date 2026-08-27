@@ -214,6 +214,10 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "当前线上共存只读观察",
 	},
 	{
+		path: "docs/release/current-runtime-coexistence-readonly-2026-08-27.md",
+		label: "当前线上共存只读观察（2026-08-27）",
+	},
+	{
 		path: "docs/release/current-appointment-outpatient-invariant-audit-2026-08-24.md",
 		label: "当前预约与门诊费用不变量审计",
 	},

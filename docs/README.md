@@ -2,6 +2,8 @@
 > **当前仓库 API 候选（2026-08-27）**：当前 `main`（具体提交以 `git rev-parse HEAD` 为准）中包含来源于 `eb4d2eb4`、`4e1e53ed` 的健康知识服务运行时代码：前者收紧直调关系查询白名单，后者补充固定的失败校验原因日志；当前候选已推送但尚未部署到线上 API。线上仍是 `1bc8b0a8`，因此 `pnpm release:baseline:audit` 会正确阻断，直到完成一次只发布新 API 的远端 release。旧 Python `8001`、旧数据库和旧 Redis 未修改。完整当前来源、门禁结果和下一步见 [`migration/current-execution-checkpoint-2026-08-27.md`](migration/current-execution-checkpoint-2026-08-27.md)。
 > 当前线上服务端 release（2026-08-27）：`1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`，已完成候选 preflight、隔离 smoke、原子切换、公网 runtime smoke 和 HTTPS 证书校验；该运行层证据不等价于真实 Provider 或支付业务成功。
 
+> **当前运行层只读观察（2026-08-27 16:42 CST）**：通过 inspection key 复核 `current` 仍指向线上 `1bc8b0a8`，新 API `18081` 与旧 Python `8001` 同时监听，Worker 为 `inactive`，database/redis/schema readiness 均为 `ok`；本次没有切换、重启、读取 env/数据库/Redis 或修改旧项目。详见 [`release/current-runtime-coexistence-readonly-2026-08-27.md`](release/current-runtime-coexistence-readonly-2026-08-27.md)。
+
 > **源码同步备注（2026-08-27）**：`62cdb8f` 是最新运行相关源码和本地 live 运行包，在既有共享患者外壳、会话代际、二维码会话门禁和安全关闭态基础上，收紧预约排班和预约历史请求构造器的运行时字段、日期和范围边界。该候选已原子发布到本地 live `dist`，后续真机验收必须从 live 重新生成二维码并绑定本候选证据。
 > 服务端与小程序继续采用分层发布；线上历史小程序 `13f597e` 与本地 live `62cdb8f` 不得互相替代。本文以下旧候选编号均只作历史追溯。
 
