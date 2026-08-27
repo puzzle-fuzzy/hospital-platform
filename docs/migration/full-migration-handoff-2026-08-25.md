@@ -24,7 +24,7 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序运行相关源码基线 | `90d8910b`（已发布到 live） |
+| 小程序运行相关源码基线 | `413cbea13f022831f63e9c750661eeabbffc68d5`（已发布到 live） |
 | 当前小程序运行基线 | `413cbea`（live `dist`）；当前没有 pending 候选，最近一次构建已将请求边界修正候选原子发布 |
 | 小程序运行包候选 | 来源 `413cbea`；业务状态沿用全量入口迁移台账 |
 | live 运行包 | `apps/miniprogram/dist/build-info.json`，`sourceRevision=413cbea13f022831f63e9c750661eeabbffc68d5`，40 个页面 |
@@ -36,7 +36,7 @@
 | 服务端本地候选 | 当前 `main` 中包含 `eb4d2eb4`、`4e1e53ed` 引入的健康知识运行时代码；提交以 `git rev-parse HEAD` 为准，API-only 发布基线已通过 |
 | 线上服务 | 新 API `b44421cd` 与旧 Python `8001` 共存；本轮不停止旧服务 |
 
-本轮最新的只读共存核对见 [`release/current-runtime-coexistence-readonly-2026-08-25.md`](../release/current-runtime-coexistence-readonly-2026-08-25.md)。该记录证明运行层边界正常，但不替代当前候选的业务验收。
+本轮最新的只读共存核对见 [`release/current-runtime-coexistence-readonly-2026-08-27.md`](../release/current-runtime-coexistence-readonly-2026-08-27.md)。该记录证明运行层边界正常，但不替代当前候选的业务验收。
 
 ## 2. 64 个旧页面的覆盖事实
 

@@ -1,8 +1,8 @@
 # 当前只读业务迁移审计（2026-08-25）
 
-> **当前事实纠正（2026-08-25）**：本文主体记录的是早期 `eef55001/b587c7ea` 审计窗口，不能作为当前运行包证据。当前小程序 pending 来源为 `7bc5956`，服务端本地候选为 `b42922f4`；当前 9 个只读业务域的证据状态以 [`device-evidence-7bc5956-pending.json`](device-evidence-7bc5956-pending.json) 和 [`../migration/full-migration-handoff-2026-08-25.md`](../migration/full-migration-handoff-2026-08-25.md) 为准。
+> **当前事实（2026-08-27）**：本文主体记录的是早期 `eef55001/b587c7ea` 审计窗口，不能作为当前运行包证据。当前线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`，本地 live 小程序运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`；当前九个真机业务域的证据状态以 [`device-evidence-413cbea1-pending.json`](device-evidence-413cbea1-pending.json) 和 [`../migration/current-execution-checkpoint-2026-08-27.md`](../migration/current-execution-checkpoint-2026-08-27.md) 为准。
 
-> **历史本地源码候选（2026-08-25）**：本文主体审计窗口曾使用 `eef550012e071d2891f990035a9b40041f314e5d`、20 个页面和 `259 pass / 0 fail / 2525 expect()`；该窗口只作历史交接。当前 pending 候选和证据清单以第一段的 `7bc5956` 与 `device-evidence-7bc5956-pending.json` 为准。
+> **历史本地源码候选（2026-08-25）**：本文主体审计窗口曾使用 `eef550012e071d2891f990035a9b40041f314e5d`、20 个页面和 `259 pass / 0 fail / 2525 expect()`；该窗口只作历史交接。当前 live 候选和证据清单以第一段的 `413cbea` 与 `device-evidence-413cbea1-pending.json` 为准。
 
 > `eef55001` 历史窗口只补齐报告详情的显式重试和会话/患者边界复核，不改变报告真实 Provider、附件、支付或医保的关闭状态；全量迁移仍按 64 个旧入口台账和六个批次队列推进。
 
@@ -10,14 +10,11 @@
 
 > 历史事实源（2026-08-25）：早期 pending 运行包曾来源于 `b587c7ea8479e38d47055f3f5b672263f32aec41`；下方 `baa31df0`、`c4dc00b9`、`b3436c24`、`90d5ab03` 仅作历史交接。当前运行包来源以第一段和全量交接单为准。
 
-> 当前小程序只读验收入口：`apps/miniprogram/dist/`，当前可运行包仍为上一候选 `sourceRevision=fcc6630ebfa7b0697cbd03a5e376ce6765d1643b`；最新运行包候选
-> `7bc595673a6ba41503a751cd38f0beb15ee8f23f` 已完成构建但因微信开发者工具锁定 `dist/` 暂存于 `.local/hospital-miniprogram/pending/`。四个主 Tab 使用微信原生
-> `tabBar`；上一候选 custom-tab-bar 因真机未呈现已撤回，当前原生候选仍需扫码普通编译后验收。线上服务端 `8eb51b5f` 和旧 Python `8001` 的边界不变。
+> 当前小程序只读验收入口：`apps/miniprogram/dist/`，当前 live 运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`，当前没有 pending 目录。四个主 Tab 使用微信原生
+> `tabBar`；上一候选 custom-tab-bar 因真机未呈现已撤回，当前原生候选仍需扫码普通编译后验收。线上服务端为 `b44421cd`，旧 Python `8001` 继续共存。
 
-> **当前服务端发布门禁补充（2026-08-25）**：本地服务端候选为 `b42922f4`，但
-> `pnpm release:baseline:audit` fail-closed，检测到 `apps/api/src/app.ts`、`apps/api/src/application.ts`、
-> 健康知识发布门禁以及另一会话负责的众阳预约适配器尚未进入线上 release。该状态不是服务故障；它表示候选尚未完成
-> 统一发布，因此不执行新 API 重启，也不影响旧 Python `8001`。
+> **当前服务端发布门禁补充（2026-08-27）**：服务端 release `b44421cd` 已通过
+> `pnpm release:baseline:audit`，当前 API 运行时代码与线上 release 没有漂移；旧 Python `8001` 未修改、未停止。
 
 ## 审计结论
 
@@ -65,18 +62,16 @@
 
 因此本窗口只能记录为“尚未产生真实业务请求”，不能推断为业务成功、失败或空数据；扫描二维码后的下一次操作必须重新建立窗口并保存四方关联证据。
 
-代码门禁同时通过：架构边界 68 条、原生页面迁移登记 20 页、旧页面映射 64 页、旧路由登记 195 条、日志事件登记 84 条、Provider 文档接收审计 4 份/31 个 documentId。架构边界新增了“登录链路禁止隐式资料授权、独立资料模块必须由显式手势触发”以及“生产扫描排除测试 fixture”的校验；当前功能候选为 `7bc5956`、最新运行包来源同为 `7bc5956`，旧端 64 页面广度台账、健康百科路径回归、互联网医院安全壳分类回归、预约记录分批展示、跨会话授权拒绝回归和自动化验收通过，待释放 `dist/` 锁后发布；真机证据仍需重新采集。
+代码门禁同时通过：架构边界 68 条、原生页面迁移登记 40 页、旧页面映射 64 页、旧路由登记 195 条、日志事件登记 84 条、Provider 文档接收审计 4 份/31 个 documentId。架构边界新增了“登录链路禁止隐式资料授权、独立资料模块必须由显式手势触发”以及“生产扫描排除测试 fixture”的校验；当前功能候选和 live 运行包来源为 `413cbea`，旧端 64 页面广度台账、健康百科路径回归、互联网医院安全壳分类回归、预约记录分批展示、跨会话授权拒绝回归和自动化验收通过；真机证据仍需采集。
 
-本次重新执行 API 测试为 `210 pass / 1 fail / 891 expect()`；唯一失败是
-`P0 acceptance documents share the current release baseline`。`release:baseline:audit` 明确指出线上
-`8eb51b5f` 之后仍有未部署运行时代码（`apps/api/src/app.ts`、`apps/api/src/application.ts` 和另一会话负责的
-`packages/adapters/src/zhongyang-appointments.ts`），因此该失败是发布基线保护，不是把它改成通过的理由；在未完成受控发布前，不能宣称全仓测试完全通过。
+当前工作树已重新执行全量测试：工具测试 `108 pass / 0 fail / 764 expect()`，API 测试 `216 pass / 0 fail / 907 expect()`，
+小程序测试 `340 pass / 0 fail / 3726 expect()`；`release:baseline:audit` 已确认服务端与小程序当前来源一致。以上仍是代码、运行包和发布层证据，不能替代真机业务证据。
 
-> 当前功能执行入口和运行包执行入口均为 `7bc5956`；旧的 `39cbf021`、`99c7e8fd`、`b587c7ea`、`baa31df0`、`485c0892`、`b3436c24`、`90d5ab03`、`8bc649f`、`1404a03` 文字仅作历史交接。当前工作树复跑为 `266 pass / 0 fail / 2548 expect()`，仍需发布 pending 后重新取得真机证据。
+> 当前功能执行入口和运行包执行入口均为 `413cbea`；旧的 `39cbf021`、`99c7e8fd`、`b587c7ea`、`baa31df0`、`485c0892`、`b3436c24`、`90d5ab03`、`8bc649f`、`1404a03` 文字仅作历史交接。当前工作树复跑为 `340 pass / 0 fail / 3726 expect()`，仍需从 live 运行包重新普通编译并取得真机证据。
 
 ## 下一步顺序
 
-1. 关闭微信开发者工具及真机调试会话，执行 `pnpm --filter @hospital/miniprogram runtime:publish-pending` 发布 `7bc5956`，再用新的 `apps/miniprogram/dist/` 运行包完成微信原生四 Tab、登录、就诊人显式切换和健康百科关闭态验收。
+1. 在有微信开发者工具和真机会话时，从已发布的 `apps/miniprogram/dist/` 运行包普通编译并生成新二维码，完成微信原生四 Tab、登录、就诊人显式切换和健康百科关闭态验收。
 2. 在同一受控身份上采集预约历史在线/全部、爽约和门诊缴费只读的页面、客户端 requestId、服务端 Pino、Provider 低敏 requestId 四方关联。
 3. 在获得测试资料授权后验证普通资料首次 PUT、重复提交和 409 版本冲突；不使用真实敏感资料做回归。
 4. 重新核对报告 Provider 文档和 gate，具备完整来源证据后再做报告目录只读验收。

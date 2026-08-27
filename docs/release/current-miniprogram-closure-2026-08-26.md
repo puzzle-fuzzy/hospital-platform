@@ -1,5 +1,9 @@
 # 当前小程序全量闭环复核（2026-08-26）
 
+> **当前事实更新（2026-08-27）**：本记录的代码复核结论仍然有效；当前 live 小程序运行包来源为
+> `413cbea13f022831f63e9c750661eeabbffc68d5`（`413cbea`），40 个页面，当前无 pending 目录；
+> 线上服务端 release 为 `b44421cd`。下方较早的运行层和候选数字仅作历史窗口追溯。
+
 ## 结论
 
 本次复核确认新项目的小程序入口、原生 Tab 路由、运行包边界和核心客户端测试保持一致；这证明当前候选具备继续进行真实验收的工程基础，但不等价于 Provider、真机或支付业务已经完成。
@@ -11,7 +15,7 @@
 | 检查项 | 结果 |
 | --- | --- |
 | 当前小程序候选 | live 为 `413cbea`（来源 `413cbea13f022831f63e9c750661eeabbffc68d5`）；当前无 pending 目录 |
-| 原生页面与运行包 | 40 个页面；live 与 pending 根文件和来源指纹一致 |
+| 原生页面与运行包 | 40 个页面；live `runtime:verify` 通过，当前无 pending 目录 |
 | 主导航 | 4 个微信原生 `tabBar`，页面之间不重复渲染自定义 Tab |
 | 导航审计 | 通过；40 个页面、30 个字面导航调用 |
 | 患者展示审计 | 通过；扫描 80 个页面源文件 |
@@ -23,11 +27,11 @@
 
 ## 当前仍未通过的门
 
-### 1. 发布基线未统一
+### 1. 发布基线与运行包来源
 
 线上新服务当前对应服务端 release `b44421cd`；本地工作树的健康知识运行时代码已随本 release 发布，
-`packages/adapters/src/zhongyang-appointments.ts` 未被本轮修改。`release:baseline:audit` 当前会正确阻断，
-不能因此扩大 Provider 或写入业务范围。
+`packages/adapters/src/zhongyang-appointments.ts` 未被本轮修改。`release:baseline:audit` 已通过，
+这只证明来源一致，不能因此扩大 Provider 或写入业务范围。
 
 ### 2. 真机证据仍为空
 
@@ -47,7 +51,7 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 新 Elysia release | `/home/ps/code/hospital-platform/releases/8eb51b5ffe85b0b8f8a032783f893117d3df549d` |
+| 新 Elysia release | `/home/ps/code/hospital-platform/releases/b44421cd321ff9ff23eeb49b12641d1772d2bdc1` |
 | 新服务 | `hospital-platform-api-v2.service=active`，Bun 监听 `10.0.0.3:18081` |
 | 旧服务 | Gunicorn 继续监听 `0.0.0.0:8001` |
 | 报告业务事件 | 最近 24 小时未观察到 `report.directory.*`、`report.detail.*` 或 `report.detail_reference.*` |
@@ -56,9 +60,9 @@
 
 ## 下一步准入顺序
 
-1. 等预约适配器会话合入后，重新生成一个完整、可回滚的服务端候选，不拆半发布。
-2. 在同一候选上重新通过 `release:baseline:audit`、构建、类型、lint 和运行包来源校验。
-3. 以同一服务端候选和小程序候选重新发布配套运行包，再采集 A 批次九域真机证据。
+1. 在有真实微信开发者工具/真机会话时，从当前 live `413cbea` 运行包普通编译并生成新二维码。
+2. 先核对 `build-info.json`、服务端 `b44421cd` 和九域清单来源，再采集 A 批次九域真机证据。
+3. 若预约适配器或其它运行时代码再次变化，重新生成完整、可回滚的服务端候选，不拆半发布，并重新通过 `release:baseline:audit`、构建、类型、lint 和运行包来源校验。
 4. 只有 A 批次证据链完整后，才进入健康内容审核 bundle、临床只读 contract 和外部入口 contract。
 5. 支付、医保、结算、退款和 HIS 回写仍最后单独验收。
 
