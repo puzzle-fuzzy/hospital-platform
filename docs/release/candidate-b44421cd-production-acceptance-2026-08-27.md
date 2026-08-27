@@ -9,8 +9,8 @@
 | 项目 | 值 |
 | --- | --- |
 | 服务端 release | `b44421cd321ff9ff23eeb49b12641d1772d2bdc1` |
-| 小程序客户端 | `413cbea`（本地 live，独立于服务端发布） |
-| 小程序构建来源 | `413cbea13f022831f63e9c750661eeabbffc68d5` |
+| 小程序客户端 | `805c54e`（本地 live，独立于服务端发布） |
+| 小程序构建来源 | `805c54ea9fa943385ad6feebed1401d521fbad3c` |
 | 切换前服务端 release | `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240` |
 | 新 API | `10.0.0.3:18081` |
 | 旧 Python API | `0.0.0.0:8001` |

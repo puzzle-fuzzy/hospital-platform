@@ -418,8 +418,8 @@ test("仓库当前发布文档与已部署代码保持一致", {
 		serverRelease: "b44421cd321ff9ff23eeb49b12641d1772d2bdc1",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "413cbea",
-		miniProgramSourceRevision: "413cbea13f022831f63e9c750661eeabbffc68d5",
+		miniProgramCommit: "805c54e",
+		miniProgramSourceRevision: "805c54ea9fa943385ad6feebed1401d521fbad3c",
 	});
 	expect(result.failures).toEqual([]);
 	expect(result.serverSourceAudit).toMatchObject({
@@ -438,8 +438,8 @@ test("当前业务验收协议绑定当前服务端和小程序候选", {
 	expect(result).toMatchObject({
 		passed: true,
 		serverRelease: "b44421cd321ff9ff23eeb49b12641d1772d2bdc1",
-		miniProgramCommit: "413cbea",
-		miniProgramSourceRevision: "413cbea13f022831f63e9c750661eeabbffc68d5",
+		miniProgramCommit: "805c54e",
+		miniProgramSourceRevision: "805c54ea9fa943385ad6feebed1401d521fbad3c",
 	});
 	expect(result.failures).toEqual([]);
 });

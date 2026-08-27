@@ -7,7 +7,7 @@
 
 本轮没有发现需要立即修改的用户资料或患者归属缺陷，原因如下：
 
-1. `App.onLaunch` 通过 `ensureGlobalUserProfile()` 启动唯一的全局资料初始化；“我的”页和资料页通过 `waitForGlobalUserProfile()` 消费同一份快照，“我的”页还通过订阅接收昵称、头像和授权状态变化。
+1. `App.onLaunch` 通过 `ensureGlobalUserProfile(this)` 启动唯一的全局资料初始化；“我的”页和资料页通过 `waitForGlobalUserProfile()` 消费同一份快照，“我的”页还通过订阅接收昵称、头像和授权状态变化。
 2. 微信昵称/头像授权只允许用户明确点击触发，授权回调在写本机缓存、更新全局快照和资料 PUT 前同时校验 owner、会话代际和当前状态，旧账号回调不能回写新账号。
 3. `dashboard-service`、患者上下文和各业务页中的 `getCurrentUser()` 不是重复获取展示资料，而是患者目录、预约、报告和费用查询前的 owner 重验证。删除这些调用会把“资料全局共享”错误地扩大成“业务请求可以信任旧快照”，因此保留。
 4. 服务端患者响应只投影脱敏展示字段；owner、完整卡号、身份证号和众阳 `patId` 不进入小程序页面。`other` 只在上游明确给出其他关系时展示，缺失或无法识别的关系归为 `unknown`。
@@ -35,7 +35,7 @@
 | `pnpm migration:readiness` | 通过结构审计 | 入口、只读域和页面事件结构通过；真实 Provider、真机和高风险写入仍按报告保持未完成 |
 | `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 历史发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页，运行包文件完整；当前 live 候选为 `413cbea13f022831f63e9c750661eeabbffc68d5` |
 | `pnpm --filter @hospital/miniprogram build` | 发布阶段曾被 `EBUSY` 阻断 | TypeScript 检查已通过；随后释放项目进程锁并通过 `runtime:publish-pending` 完成原子发布 |
-| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`，40 页 |
+| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，40 页 |
 
 ## 4. 当前运行包锁处理
 
@@ -55,4 +55,4 @@
 - 九个真机证据域仍为 `pending`，需要同一小程序来源下的页面、客户端 `requestId`、公网 HTTP、服务端 Pino `traceId` 和 Provider 低敏请求号闭环。
 - 健康百科等待正式审核 bundle；临床、患者写入、外部会话、协议同意/撤回/审计仍等待各自 contract。
 - 预约写入、门诊支付、医保授权/结算、退款和 HIS 回写继续最后处理，不因本轮资料/患者审计通过而开放。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

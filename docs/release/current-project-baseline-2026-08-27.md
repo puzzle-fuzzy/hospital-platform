@@ -8,7 +8,7 @@
 
 > 当前成套验收基线（2026-08-27）：服务端 release 为
 > `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；本地 live 小程序 sourceRevision 为
-> `413cbea13f022831f63e9c750661eeabbffc68d5`。两者分别发布，必须在业务证据中同时记录，不能用历史微信线上包替代本地 live 包。
+> `805c54ea9fa943385ad6feebed1401d521fbad3c`。两者分别发布，必须在业务证据中同时记录，不能用历史微信线上包替代本地 live 包。
 >
 > **当前仓库候选补充**：当前 `main` 已推送，API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`，已完成 API-only 原子发布并取得远端证据；发布后的 `pnpm release:baseline:audit` 已重新执行并通过。后续若运行时代码再次变化，仍必须生成新候选并重新审计；本文的线上 release 事实不能反向覆盖当前工作树，也不能把本地测试结果写成线上业务验收。
 
@@ -20,7 +20,7 @@
 | Worker | `hospital-platform-worker-v2.service=inactive` | 支付、医保或 HIS 回写已经执行 |
 | 生产依赖 | MySQL、Redis、schema probe 均为 `ok` | 业务 Provider 字段或业务状态一定正确 |
 | 当前微信线上小程序 | 历史运行包 `13f597e` | 不可以拿线上历史包证明本地 live 候选的真机结果 |
-| 当前本地 live 小程序 | `413cbea13f022831f63e9c750661eeabbffc68d5`（`413cbea`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
+| 当前本地 live 小程序 | `805c54ea9fa943385ad6feebed1401d521fbad3c`（`805c54e`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
 | live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；同源 pending 候选已在释放微信开发者工具锁后原子发布，pending 目录已清理 | 开发者工具一定已经重新编译当前目录 |
 
 服务端 release 已完成 production preflight、隔离 runtime smoke、原子切换和公网 runtime smoke；
@@ -95,4 +95,4 @@ pnpm check
 ```
 
 其中真机清单在全部 `pending` 时只能完成结构审计；出现 `passed` 或 `failed` 前，必须先确认当前发布基线仍通过。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

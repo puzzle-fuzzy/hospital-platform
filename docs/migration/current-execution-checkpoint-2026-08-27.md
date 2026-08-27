@@ -13,7 +13,7 @@
 - `pnpm migration:readiness`：旧端 64 个入口全部登记，5 个低风险域代码就绪但真实证据为 `0/5`；
 - `pnpm clinical:contract:audit`：4 个临床域继续保持 `normalized / unregistered`；
 - `pnpm provider:audit`：4 份 Provider 接收记录、31 个 `documentId` 的来源和脱敏边界通过；
-- `pnpm docs:audit`、`pnpm release:baseline:audit`：文档无断链，线上 API `b44421cd` 与小程序 live `413cbea` 基线一致。
+- `pnpm docs:audit`、`pnpm release:baseline:audit`：文档无断链，线上 API `b44421cd` 与小程序 live `805c54e` 基线一致。
 
 本轮没有修改旧项目、旧 Python 服务、旧数据库或旧 Redis。后续若没有正式健康审核
 bundle、临床/患者/外部 contract，不能通过继续写页面的方式替代业务材料；若材料仍未到位，
@@ -25,7 +25,7 @@ bundle、临床/患者/外部 contract，不能通过继续写页面的方式替
 | --- | --- | --- |
 | 当前 Git 工作树 | 当前 `main`（提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed` | 已提交并推送到 `origin/main` |
 | 线上新 API | `b44421cd321ff9ff23eeb49b12641d1772d2bdc1` | 仍为已部署 release |
-| 本地小程序 live `dist` | `413cbea13f022831f63e9c750661eeabbffc68d5` | 与当前小程序运行包一致 |
+| 本地小程序 live `dist` | `805c54ea9fa943385ad6feebed1401d521fbad3c` | 与当前小程序运行包一致 |
 | 旧 Python 服务 | `0.0.0.0:8001` | 本轮未修改、未停止 |
 | 旧项目、旧 MySQL、旧 Redis | 不在本轮写入范围 | 本轮未操作 |
 
@@ -62,7 +62,7 @@ API-only 发布；代码发布事实与真实 Provider/真机业务证据仍然�
 ## 下一步固定顺序
 
 1. API-only 发布已完成；后续若发生业务层回归，只回滚新 API `current`，不停止旧 Python `8001`。
-2. 当前无微信开发者工具或真机会话；待会话恢复后，从当前 live 小程序 `dist` 重新普通编译并生成二维码，先核对 `413cbea13f022831f63e9c750661eeabbffc68d5`，再采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
+2. 当前无微信开发者工具或真机会话；待会话恢复后，从当前 live 小程序 `dist` 重新普通编译并生成二维码，先核对 `805c54ea9fa943385ad6feebed1401d521fbad3c`，再采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
 3. 收到正式审核 bundle、临床 contract、患者写入 contract、外部会话 contract 后，再按 B/C/D/E 独立准入；支付/医保/HIS 回写最后处理。
 
 ## 禁止事项
