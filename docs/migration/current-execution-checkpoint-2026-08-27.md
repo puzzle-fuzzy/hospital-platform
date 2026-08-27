@@ -4,6 +4,21 @@
 > 它记录代码、运行包、线上 release 和真实业务证据的边界，不把其中任意一项
 > 推断成另一项。
 
+## 本轮无会话复核（2026-08-27）
+
+当前没有正在运行的微信开发者工具或真机会话，因此本轮不生成二维码、不填写
+真机结果，也不把历史扫码现象当作当前候选证据。已完成不依赖真机的复核：
+
+- `pnpm migration:breadth:audit`：40 个原生页面、4 个主 Tab、2 个 action 页面和 14 个状态页入口通过；
+- `pnpm migration:readiness`：旧端 64 个入口全部登记，5 个低风险域代码就绪但真实证据为 `0/5`；
+- `pnpm clinical:contract:audit`：4 个临床域继续保持 `normalized / unregistered`；
+- `pnpm provider:audit`：4 份 Provider 接收记录、31 个 `documentId` 的来源和脱敏边界通过；
+- `pnpm docs:audit`、`pnpm release:baseline:audit`：文档无断链，线上 API `b44421cd` 与小程序 live `413cbea` 基线一致。
+
+本轮没有修改旧项目、旧 Python 服务、旧数据库或旧 Redis。后续若没有正式健康审核
+bundle、临床/患者/外部 contract，不能通过继续写页面的方式替代业务材料；若材料仍未到位，
+下一项实际动作只能在会话恢复后进行当前 live 小程序的真机三层取证。
+
 ## 当前来源与范围
 
 | 项目 | 当前事实 | 结论 |
