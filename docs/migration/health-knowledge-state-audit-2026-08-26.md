@@ -51,10 +51,10 @@
 
 - 健康百科状态单元测试：5 pass / 0 fail / 7 expect()；
 - API 端到端未发布门禁回归：已登录访问仍返回 `503 health-knowledge-unavailable`，不降级为 `200` 空目录；
-- 小程序全量回归：336 pass / 0 fail / 3698 expect()；
+- 小程序全量回归：337 pass / 0 fail / 3702 expect()；
 - `apps/miniprogram` TypeScript 检查通过；
 - Biome 检查和 `git diff --check` 通过；
-- 本文早期验证记录中的 pending 运行包来源为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，40 个页面；该数字仅作历史追溯，当前 live 运行包以 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 为准；
+- 本文早期验证记录中的 pending 运行包来源为 `e3356e50f14f77bac9061dcdfa5c42e5d022c188`，40 个页面；该数字仅作历史追溯，当前 live 运行包以 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa` 为准；
 - 发布前 `runtime:verify:pending` 通过，最新运行包已原子发布到 live `dist`，发布后 `runtime:verify` 通过；
 - 本轮没有把本地运行包写入微信线上版本，候选发布后真机证据仍需从新的 live `dist` 重新编译生成。
 

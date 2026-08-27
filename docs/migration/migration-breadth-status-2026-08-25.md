@@ -120,7 +120,7 @@ contract
 
 - `functional candidate`：源码和本地测试对应的功能提交；
 - `pending runtime`：下一次构建发布窗口中等待切换的候选构建；
-- `live dist`：当前开发者工具使用的本地运行包，本轮来源为 `0be59f96`。
+- `live dist`：当前开发者工具使用的本地运行包，本轮来源为 `6f47c64`。
 
 只有关闭开发者工具对 `apps/miniprogram/dist/` 的占用后，执行：
 

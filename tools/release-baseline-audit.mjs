@@ -389,6 +389,11 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "普通资料与患者状态机审计",
 	},
 	{
+		path: "docs/release/current-profile-patient-audit-2026-08-27.md",
+		label: "当前用户资料与患者上下文审计",
+		candidateOnly: true,
+	},
+	{
 		path: "docs/release/patient-directory-correctness-audit-2026-08-21.md",
 		label: "患者目录正确性审计",
 	},
@@ -670,6 +675,13 @@ const currentCandidateReferenceRules = Object.freeze([
 				end: "## 生成方式",
 				phrases: [{ text: "当前运行事实", expected: "pending-full" }],
 			},
+			{
+				// 报告说明的“当前基线”位于正文较后位置；只检查该章节，
+				// 避免把旧候选的历史解释误当成当前运行包来源。
+				start: "## 当前基线（2026-08-27）",
+				end: "四域的结构化准入卡片位于",
+				phrases: [{ text: "live `dist` 当前来源为", expected: "pending-full" }],
+			},
 		],
 	},
 	{
@@ -734,6 +746,13 @@ const currentCandidateReferenceRules = Object.freeze([
 						expected: "pending-full",
 					},
 				],
+			},
+			{
+				// 执行检查点仍会被后续会话直接复制执行命令；锁定其当前
+				// 发布值，防止表格悄悄退回上一候选。
+				start: "## 2.1 2026-08-25 广度执行检查点",
+				end: "冻结入口 gate 现在还按 A–F 批次机器归类：",
+				phrases: [{ text: "| 小程序运行包发布 | 已完成 |", expected: "short" }],
 			},
 		],
 	},
@@ -870,6 +889,55 @@ const currentCandidateReferenceRules = Object.freeze([
 						expected: "pending-full",
 					},
 				],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-report-readonly-audit-2026-08-27.md",
+		label: "报告目录与受限详情当前逻辑审计",
+		sections: [
+			{
+				start: "# 报告目录与受限详情当前逻辑审计（2026-08-27）",
+				end: "## 1. 结论",
+				phrases: [{ text: "本地 live 小程序运行输入为", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/readonly-acceptance-next-2026-08-25.md",
+		label: "当前候选只读业务验收手册",
+		sections: [
+			{
+				start: "# 当前候选只读业务验收手册（当前接力入口）",
+				end: "## 1. 本轮允许验收的范围",
+				phrases: [{ text: "小程序当前 live 运行包来源为", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/current-profile-patient-audit-2026-08-27.md",
+		label: "当前用户资料与患者上下文审计",
+		sections: [
+			{
+				start: "## 3. 本轮验证",
+				end: "## 4. 当前运行包锁处理",
+				phrases: [{ text: "当前 live 来源为", expected: "full" }],
+			},
+		],
+	},
+	{
+		path: "docs/release/pending-runtime-publication-runbook-2026-08-26.md",
+		label: "小程序运行包发布手册",
+		sections: [
+			{
+				start: "# 小程序 pending 运行包安全发布手册（2026-08-26）",
+				end: "## live 与 pending 的校验区别",
+				phrases: [{ text: "live 运行包来源", expected: "full" }],
+			},
+			{
+				start: "## 发布成功后的验收顺序",
+				end: "每个域都必须同时留下页面状态",
+				phrases: [{ text: "当前应从已切换的", expected: "short" }],
 			},
 		],
 	},

@@ -8,15 +8,15 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| live 运行包来源 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面；`runtime:verify` 通过 |
+| live 运行包来源 | `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，40 个页面；`runtime:verify` 通过 |
 | pending 候选来源 | 无；发布成功后 pending 目录已按发布器约定清理 |
 | pending 目录 | 不存在；发布前静态校验已通过 |
 | 发布结果 | 已原子切换到 live `dist`；没有手工覆盖或修改来源指纹 |
 | 当前阻塞 | 运行包发布不再阻塞；九个真机证据域仍需从当前 live 重新编译、扫码并逐域采集 |
 | 旧服务影响 | 无；旧 Python `8001` 和线上服务未修改 |
 
-> 当前 live 已是 `0be59f96`，发布前待发布候选是 `0be59f96`。根目录文档提交不会改变运行包来源；
-> 新候选构建已按
+> 历史发布窗口的 live 与待发布候选曾均为 `0be59f96`；该窗口记录只用于追溯。当前 live 已是
+> `6f47c64`，根目录文档提交不会改变运行包来源；新候选构建已按
 > `build-info.json` 写入该完整来源指纹。当前来源、页面数量和静态校验结果以本机
 > `apps/miniprogram/dist/build-info.json` 与 `runtime:verify` 输出为准，
 > 不再使用旧 `de9c5b99`/`e1adbf7` 候选文档作为验收来源。
@@ -88,7 +88,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 ## 发布成功后的验收顺序
 
-发布只证明运行包切换，不证明业务完成。当前应从已切换的 `0be59f96` live `dist`
+发布只证明运行包切换，不证明业务完成。当前应从已切换的 `6f47c64` live `dist`
 重新生成二维码，再按以下顺序逐域采证：
 
 ```text

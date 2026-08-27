@@ -102,14 +102,14 @@ pnpm migration:boundary:audit
 
 ## 4. 下一步执行规则
 
-1. 当前候选 `0be59f96` 已在释放微信开发者工具锁后通过原子发布器切换到 live `dist`，pending 目录已清理；后续重新构建时仍必须先确认锁状态并沿用原子发布器，不能删除或覆盖 live `dist`。
-2. 当前候选 `0be59f96` 的九域真机清单为 [`device-evidence-0be59f96-pending.json`](../release/device-evidence-0be59f96-pending.json)，已绑定 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；九个域全部为 `pending`，一次记录成功、空结果、401、依赖不可用、Provider 超时、患者切换和账号切换边界。上一候选的 `device-evidence-02dbf10-pending.json`、`device-evidence-731c9571-pending.json`、`device-evidence-de5dea8-pending.json` 和 `device-evidence-ed63a8e-pending.json` 只作历史模板，不能直接提交本轮证据。
-   执行 `pnpm device:evidence:audit --file docs/release/device-evidence-0be59f96-pending.json` 时，在全部域仍为 `pending` 的情况下总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
+1. 当前候选 `6f47c64` 已在释放微信开发者工具锁后通过原子发布器切换到 live `dist`，pending 目录已清理；后续重新构建时仍必须先确认锁状态并沿用原子发布器，不能删除或覆盖 live `dist`。
+2. 当前候选 `6f47c64` 的九域真机清单为 [`device-evidence-6f47c640-pending.json`](../release/device-evidence-6f47c640-pending.json)，已绑定 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`；九个域全部为 `pending`，一次记录成功、空结果、401、依赖不可用、Provider 超时、患者切换和账号切换边界。上一候选的 `device-evidence-02dbf10-pending.json`、`device-evidence-731c9571-pending.json`、`device-evidence-de5dea8-pending.json` 和 `device-evidence-ed63a8e-pending.json` 只作历史模板，不能直接提交本轮证据。
+   执行 `pnpm device:evidence:audit --file docs/release/device-evidence-6f47c640-pending.json` 时，在全部域仍为 `pending` 的情况下总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
 5. `pnpm release:baseline:audit` 当前已通过：`1107a78a` 覆盖线上运行时代码并完成 production preflight、隔离 smoke、原子切换和公网 runtime smoke。后续运行时代码变化仍必须生成新的可回滚候选，不能通过修改审计器或只部署半套代码来“变绿”。
 
-本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次从已发布的 `0be59f96` live 运行包开始采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
+本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次从已发布的 `6f47c64` live 运行包开始采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
 
 ## 5. 交接时必须运行的门禁
 
