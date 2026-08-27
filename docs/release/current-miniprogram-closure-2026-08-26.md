@@ -19,18 +19,18 @@
 | 迁移边界审计 | 通过；34 个冻结入口门禁、64 个旧页面都有唯一落点 |
 | TypeScript | 9 个 workspace 包全部通过 `tsc --noEmit` |
 | Biome lint | 435 个文件通过，无自动修复 |
-| 小程序核心测试 | 全量回归 `337 pass / 0 fail / 3702 expect()`；本候选新增共享患者会话边界、二维码会话门禁、健康规则版本和关闭态布局测试均通过 |
+| 小程序核心测试 | 全量回归 `338 pass / 0 fail / 3707 expect()`；本候选新增共享患者会话边界、二维码会话门禁、健康规则版本和关闭态布局测试均通过 |
 
 ## 当前仍未通过的门
 
 ### 1. 发布基线未统一
 
-线上新服务当前对应服务端 release `1107a78a`，本轮门诊费用运行时配置边界已随新 API 整体发布；其他会话负责的
+线上新服务当前对应服务端 release `1bc8b0a8`，本轮门诊费用运行时配置边界已随新 API 整体发布；其他会话负责的
 `packages/adapters/src/zhongyang-appointments.ts` 未被本轮修改。`release:baseline:audit` 已重新通过，不能因此扩大 Provider 或写入业务范围。
 
 ### 2. 真机证据仍为空
 
-当前 `docs/release/device-evidence-6f47c640-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
+当前 `docs/release/device-evidence-34f0fd21-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
 
 ### 3. 健康百科仍不能发布
 

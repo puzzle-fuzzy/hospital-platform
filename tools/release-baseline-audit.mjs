@@ -298,6 +298,21 @@ export const currentBaselineDocuments = Object.freeze([
 		label: "五个低风险业务域横向逻辑审计",
 		candidateOnly: true,
 	},
+	{
+		path: "docs/release/current-report-readonly-audit-2026-08-27.md",
+		label: "报告目录与受限详情当前逻辑审计",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/release/readonly-acceptance-next-2026-08-25.md",
+		label: "当前候选只读业务验收手册",
+		candidateOnly: true,
+	},
+	{
+		path: "docs/release/pending-runtime-publication-runbook-2026-08-26.md",
+		label: "小程序运行包发布手册",
+		candidateOnly: true,
+	},
 	// 以下文档不是发布切换记录，但它们会被新会话直接用于判断业务状态、
 	// API 迁移边界和患者上下文。把它们纳入同一基线集合，防止总览页继续
 	// 引用旧 pending 候选而让正文与真机入口发生漂移。
@@ -663,7 +678,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-34f0fd21-miniprogram-runtime-2026-08-27.md",
 		label: "当前 live 小程序运行包候选",
 		sections: [
 			{
@@ -980,6 +995,24 @@ const currentCandidateReferenceRules = Object.freeze([
 	},
 ]);
 
+/**
+ * 确认每条“当前候选”语义规则都注册在当前基线文档集合中。
+ *
+ * 规则路径一旦拼写错误，旧实现会因为找不到对应文档而直接跳过；这会让
+ * 发布基线看起来通过，但实际没有检查到某个执行入口。这里把规则注册
+ * 关系本身也纳入 fail-closed 门禁，避免候选文件轮换时出现静默失效。
+ */
+export function auditCurrentCandidateRuleRegistration(
+	baselineDocumentPaths = currentBaselineDocuments.map(
+		(document) => document.path,
+	),
+) {
+	const registeredPaths = new Set(baselineDocumentPaths);
+	return currentCandidateReferenceRules
+		.filter((rule) => !registeredPaths.has(rule.path))
+		.map((rule) => `当前候选引用规则未注册到基线文档集合：${rule.path}`);
+}
+
 /** 从验收候选的表格中提取当前服务端和小程序来源指纹。 */
 export function extractCurrentBaseline(candidateDocument) {
 	const serverRelease = candidateDocument.match(
@@ -1251,13 +1284,22 @@ export async function auditCurrentReleaseConsistency(
 	const documentAudit = auditCurrentBaselineDocuments(baseline, documents, {
 		pendingMiniProgramSourceRevision,
 	});
+	const candidateRuleRegistrationFailures =
+		auditCurrentCandidateRuleRegistration();
 	const serverSourceAudit = auditServerSourceRelease(baseline, {
 		rootDirectory,
 	});
 	return {
 		...documentAudit,
-		passed: documentAudit.passed && serverSourceAudit.passed,
-		failures: [...documentAudit.failures, ...serverSourceAudit.failures],
+		passed:
+			documentAudit.passed &&
+			candidateRuleRegistrationFailures.length === 0 &&
+			serverSourceAudit.passed,
+		failures: [
+			...documentAudit.failures,
+			...candidateRuleRegistrationFailures,
+			...serverSourceAudit.failures,
+		],
 		serverSourceAudit,
 	};
 }

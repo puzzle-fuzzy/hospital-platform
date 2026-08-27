@@ -25,9 +25,9 @@
 | --- | --- |
 | 旧端页面扫描 | 64 个 Vue 页面 |
 | 新端页面注册 | 40 个页面；前 4 个由微信原生 TabBar 管理，另含健康百科、协议原文、7 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳 |
-| 当前运行输入 | live 为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`；当前无 pending 目录 |
-| 当前 live 运行包 | `apps/miniprogram/dist/` 来源为 `6f47c64`，`runtime:verify` 已通过 |
-| 真机取证入口 | 发布 `6f47c64` 后从新的 live `dist` 普通编译并生成二维码；九个证据域仍为 `pending` |
+| 当前运行输入 | live 为 `34f0fd21aac33214e991de561d37dfd7071013bf`；当前无 pending 目录 |
+| 当前 live 运行包 | `apps/miniprogram/dist/` 来源为 `34f0fd21`，`runtime:verify` 已通过 |
+| 真机取证入口 | 发布 `34f0fd21` 后从新的 live `dist` 普通编译并生成二维码；九个证据域仍为 `pending` |
 | 旧服务 | Python `8001` 未修改、未停止；本轮只修改新项目 |
 
 ## 2.1 2026-08-25 广度执行检查点

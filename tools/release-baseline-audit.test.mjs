@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	auditCurrentBaselineDocuments,
+	auditCurrentCandidateRuleRegistration,
 	auditCurrentCandidateReferences,
 	auditCurrentExecutionSection,
 	auditCurrentReadonlyBusinessBoundaries,
@@ -9,6 +10,13 @@ import {
 	auditServerSourceRelease,
 	extractCurrentBaseline,
 } from "./release-baseline-audit.mjs";
+
+test("当前候选语义规则必须注册到当前基线文档集合", () => {
+	expect(auditCurrentCandidateRuleRegistration()).toEqual([]);
+	expect(auditCurrentCandidateRuleRegistration(["docs/README.md"])).toContain(
+		"当前候选引用规则未注册到基线文档集合：docs/release/current-project-baseline-2026-08-27.md",
+	);
+});
 
 test("从候选文档提取服务端和小程序来源基线", () => {
 	const baseline = extractCurrentBaseline(`

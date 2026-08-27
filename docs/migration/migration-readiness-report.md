@@ -56,7 +56,7 @@ pnpm migration:readiness -- --strict
 - 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
 - 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明；另外 40 个已注册页面的 WXML 事件均能找到对应 TS 方法或共享页面工厂。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
-- live `dist` 当前来源为 `34f0fd21aac33214e991de561d37dfd7071013bf`，40 个页面已通过 `runtime:verify`；发布后 pending 目录已清理，readiness 以 live `build-info.json` 和当前运行输入指纹比对。当前运行包包含 40 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文和共享患者会话清理、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态以及健康百科和报告详情迁移台账映射；小程序回归为 `337 pass / 0 fail / 3702 expect()`。
+- live `dist` 当前来源为 `34f0fd21aac33214e991de561d37dfd7071013bf`，40 个页面已通过 `runtime:verify`；发布后 pending 目录已清理，readiness 以 live `build-info.json` 和当前运行输入指纹比对。当前运行包包含 40 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文和共享患者会话清理、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态以及健康百科和报告详情迁移台账映射；小程序回归为 `338 pass / 0 fail / 3707 expect()`。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
 - 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 

@@ -1,7 +1,7 @@
-> 当前事实（2026-08-27）：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md`](release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md)。
+> 当前事实（2026-08-27）：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `34f0fd21aac33214e991de561d37dfd7071013bf`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md`](release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md)。
 > 当前线上服务端 release（2026-08-27）：`1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 
-> 当前运行相关源码候选为 `90d8910b`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具规则版本，收紧共享患者外壳的 owner 证明、会话代际和账号切换清理，并在会话失效时清理旧 owner 的微信资料缓存；本候选补正就诊和互联网医院关闭态的纵向布局；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md`](release/candidate-90d8910b-miniprogram-runtime-2026-08-27.md)。
+> 当前运行相关源码候选为 `34f0fd21`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具版本，收紧共享患者外壳的 owner 证明、会话代际和账号切换清理，并在会话失效时清理旧 owner 的微信资料缓存；本候选补正就诊和互联网医院关闭态的纵向布局，并收紧报告/费用底层患者范围输入；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-34f0fd21-miniprogram-runtime-2026-08-27.md`](release/candidate-34f0fd21-miniprogram-runtime-2026-08-27.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 # 微信授权登录实施与验收手册
 > 当前验收配套基线：线上服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码和本地 live 运行输入为 `34f0fd21aac33214e991de561d37dfd7071013bf`，共 40 个页面。运行包已原子发布，真实微信业务三层证据仍待；25 个跨域页面当前为 `surface-only`，另有 4 个入口仅完成安全 `partial` 子集，健康自测另有安全数值子集。候选详情见 [`release/candidate-34f0fd21-miniprogram-runtime-2026-08-27.md`](release/candidate-34f0fd21-miniprogram-runtime-2026-08-27.md)，服务端切换详情见 [`release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md`](release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md)。
@@ -46,7 +46,7 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试；当前候选
-全量小程序测试为 `337 pass / 0 fail / 3702 expect()`，当前 live 运行输入为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，登录后患者初始化边界见
+全量小程序测试为 `338 pass / 0 fail / 3707 expect()`，当前 live 运行输入为 `34f0fd21aac33214e991de561d37dfd7071013bf`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 
@@ -390,4 +390,4 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |
 > 历史发布基线更新（2026-08-24 19:54 CST）：当时线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当时小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。当前线上版本以本文顶部事实源和项目发布基线为准。
-> 当前统一发布基线补充（2026-08-27 13:12 CST）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `34f0fd21aac33214e991de561d37dfd7071013bf`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
