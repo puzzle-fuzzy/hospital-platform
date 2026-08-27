@@ -289,6 +289,39 @@ test("门诊费用查询缺少已确认渠道码时在 provider 前 fail-closed"
 	expect(gatewayCalled).toBe(false);
 });
 
+test("门诊费用查询把运行时非字符串渠道码收敛为依赖未配置", async () => {
+	let gatewayCalled = false;
+	const service = new OutpatientPaymentService({
+		repository: {
+			listByOwner: async () => [],
+			upsertFromDirectory: async () => {
+				throw new Error("not used");
+			},
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		},
+		gateway: {
+			listRecords: async () => {
+				gatewayCalled = true;
+				throw new Error("provider must not be called");
+			},
+		},
+		// 配置对象来自运行时边界，专门覆盖绕过 TypeScript 后的错误值。
+		authSysCode: undefined as never,
+	});
+
+	await expect(
+		service.list("user-001", "patient-001", "unpaid", {
+			traceId: "trace-invalid-auth-sys-code-type",
+			idempotencyKey: "key-invalid-auth-sys-code-type",
+		}),
+	).rejects.toBeInstanceOf(MissingDependencyError);
+	expect(gatewayCalled).toBe(false);
+});
+
 test("门诊费用查询拒绝运行时未知状态且不把它写入日志", async () => {
 	const lines: string[] = [];
 	let repositoryCalls = 0;

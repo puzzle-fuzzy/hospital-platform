@@ -258,7 +258,14 @@ export class OutpatientPaymentService {
 				// 误看成“没有门诊映射”，也会丢失统一的失败日志事件。
 				throw new OutpatientPaymentQueryError();
 			}
-			const authSysCode = this.dependencies.authSysCode.trim();
+			// 配置通常由 env 解析器提供字符串，但 service 也可能被 Worker、
+			// 回放任务或测试替身直接调用；TypeScript 类型不能约束运行时配置。
+			// 非字符串和空白字符串都必须统一视为“依赖未配置”，不能在 trim()
+			// 处抛出未映射 TypeError，更不能让 gateway 自行解释缺失渠道码。
+			const authSysCode =
+				typeof this.dependencies.authSysCode === "string"
+					? this.dependencies.authSysCode.trim()
+					: "";
 			if (!authSysCode) {
 				// Provider 渠道码决定权限和流量归属；缺失时必须停止在服务层，
 				// 不能让任意 gateway 把空值解释成另一个渠道的默认值。
