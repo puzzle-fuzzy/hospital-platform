@@ -195,6 +195,18 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.deviceEvidence.manifestPath).toBe(
 			`docs/release/device-evidence-${report.deviceEvidence.candidate.sourceRevision.slice(0, 8)}-pending.json`,
 		);
+		/**
+		 * 交接单里的可复制命令必须和 readiness 实际选择的证据清单一致；
+		 * 否则新会话可能把真机结果写入历史候选，造成页面、客户端和服务端
+		 * 证据看似齐全但来源无法配对。这里不硬编码提交号，候选轮换时由
+		 * 当前 live/pending 运行包自动决定应检查的清单路径。
+		 */
+		const handoff = await Bun.file(
+			"docs/migration/full-migration-handoff-2026-08-25.md",
+		).text();
+		expect(handoff).toContain(
+			`pnpm device:evidence:audit --file ${report.deviceEvidence.manifestPath}`,
+		);
 		expect(report.migrationQueue.map((batch) => batch.id)).toEqual([
 			"A-readonly-evidence",
 			"B-health-content",
