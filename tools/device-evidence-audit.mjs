@@ -34,6 +34,10 @@ export const DOMAIN_REQUIRED_SCENARIOS = Object.freeze({
 		"success-empty",
 		"unauthorized",
 		"temporary-failure",
+		// 首页患者目录会被全局用户会话复用；切换微信账号时必须证明
+		// 旧账号的患者列表和当前就诊人不会残留到新账号，不能只验证同一账号
+		// 下的普通读取成功。
+		"account-switch",
 	]),
 	patientDirectorySync: Object.freeze([
 		"success",

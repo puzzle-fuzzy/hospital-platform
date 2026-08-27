@@ -20,7 +20,7 @@
 | 小程序业务候选 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`） |
 | live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面，`runtime:verify` 已通过 |
 | pending 运行包 | 无；发布前候选已通过 `runtime:verify:pending`，发布成功后目录已清理 |
-| 服务端 | 生产 `8eb51b5f`，新 Elysia 监听 `10.0.0.3:18081` |
+| 服务端 | 生产 `e5d941ae`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
@@ -33,16 +33,16 @@
 
 ## 当前 release baseline 前置门禁
 
-当前九域清单虽然已经正确绑定 `0be59f96`，但 `pnpm device:evidence:audit --file
+当前九域清单已经绑定 `e5d941ae` 与 `0be59f96`；`pnpm device:evidence:audit --file
 docs/release/device-evidence-0be59f96-pending.json` 在进入真机通过判定前会先执行
-`release:baseline:audit`。截至本轮只读核对，该门禁仍失败：线上服务端 release
-`8eb51b5f` 之后存在尚未整体发布的运行时代码，其中包括另一会话负责的
-`packages/adapters/src/zhongyang-appointments.ts`。
+`release:baseline:audit`。截至 2026-08-26，仓库门禁已通过，线上服务端已完成
+production preflight、隔离 smoke、原子切换和公网 runtime smoke；服务端候选包含完整的
+`packages/adapters/src/zhongyang-appointments.ts` 运行代码。
 
-这意味着当前可以继续准备二维码和采集材料，但不能把真机结果写成 `passed`，也不能
-为了让审计变绿而跳过预约适配器、拆半发布服务端或改审计器。必须等各会话的服务端
-运行时代码合并为一个可回滚候选并完成整套 release baseline 后，再从同一小程序候选
-重新执行九域验收。旧 Python `8001` 不需要、也不允许为此停机。
+这意味着当前可以从 live `dist` 重新生成二维码并采集材料，但在九个业务域的页面、客户端
+requestId、HTTP、Pino/Provider 事件全部齐全前，清单仍必须保持 `pending`，不能把结构门禁写成
+业务 `passed`。后续任何运行时代码变化都必须生成新的可回滚候选并重新执行整套 release baseline；
+旧 Python `8001` 不需要、也不允许为此停机。
 
 ## 统一业务链路
 
@@ -67,6 +67,7 @@ docs/release/device-evidence-0be59f96-pending.json` 在进入真机通过判定�
 - 登录后进入首页，确认当前患者卡片只显示脱敏姓名、关系和卡号；不展示 `patId`、身份证、手机号或原始 Provider 字段。
 - 进入独立选择页，确认首次进入允许默认第一位“临床可用”患者；已有选择不因目录顺序变化而静默换人。
 - 选择另一位患者后返回首页、我的挂号、爽约和门诊费用，确认每页重新读取当前患者，不能沿用旧列表。
+- 更换微信账号后重新进入首页，确认旧账号的患者目录、当前就诊人和业务列表都被清理，不能把账号切换误当成普通刷新。
 - 同步失败、目录为空、患者映射失效时，确认页面不把“无记录”当成成功空目录，也不显示错误的当前标记。
 
 ### 2. 我的挂号与爽约记录

@@ -431,4 +431,18 @@ describe("device evidence audit", () => {
 			"patientDirectory.requiredScenarios 缺少 success-empty",
 		);
 	});
+
+	test("患者目录通过项必须证明账号切换后的数据隔离", () => {
+		const manifest = completeManifest();
+		manifest.domains.patientDirectory = passedEvidence("patientDirectory");
+		manifest.domains.patientDirectory.scenarios = [
+			"success-non-empty",
+			"success-empty",
+			"unauthorized",
+			"temporary-failure",
+		];
+		expect(() => auditDeviceEvidence(manifest)).toThrow(
+			"patientDirectory.scenarios 缺少 account-switch",
+		);
+	});
 });

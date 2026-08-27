@@ -2,7 +2,7 @@
 
 > **当前候选覆盖（2026-08-26）**：最新小程序源码和本地 live 运行输入为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`），40 页；核心回归、共享患者外壳会话边界、就诊二维码会话门禁和健康数值规则版本测试通过。该来源已完成 pending 校验并原子切换到 live `dist`，本候选未新增 Provider 请求或写入；本文下方旧候选数字只作历史追溯，以本段和 [`candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md) 为准。
 
-> **最新候选纠正（2026-08-26）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。最新 40 页运行相关源码候选 `aae1297baae5fc3c35b38472ce724f10ba82336b` 已完成构建和 pending 运行包校验；本地 live `dist` 仍为上一候选 `02dbf10419740d96c4445493df019021ac22bcfa`，因开发者工具文件锁尚未原子切换。九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本候选补齐就诊二维码安全壳的有效会话门禁和本地健康数值工具固定规则版本；旧 Python 服务、线上服务和另一会话的众阳预约适配器均未修改。
+> **最新候选纠正（2026-08-27）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。当前 40 页运行相关源码候选 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 已完成构建、pending 运行包校验并原子切换到本地 live `dist`；九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本候选补齐就诊二维码安全壳的有效会话门禁和本地健康数值工具固定规则版本；旧 Python 服务未修改，线上新 API 已按 [`release/e5d941ae-production-acceptance-2026-08-26.md`](../release/e5d941ae-production-acceptance-2026-08-26.md) 完成新旧共存发布。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
@@ -10,7 +10,7 @@
 
 > **最新候选事实（2026-08-26）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；40 页运行相关源码候选 `0be59f96` 已完成构建、静态校验并原子切换到 live `dist`。页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并补齐共享患者外壳的 owner 证明、会话代际和账号切换清理；同时保留微信资料拒绝后的设置页重试、选择页刷新并发门禁以及“我的快递”加载/错误/未开放状态边界，并统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。当前证据清单仍为九域 `pending`，从 live 重新生成二维码后逐域取证。当前候选证据见 [`../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md)；历史候选的 live 包和证据清单不能直接作为本轮真机完成证据。
 
-> **广度复核补充（2026-08-26）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁通过。`pnpm check` 当前仅在发布基线阶段因线上 `8eb51b5f` 落后于本地运行时代码而 fail-closed，其中包含另一会话维护的众阳预约适配器；这不是业务测试失败，也不能通过忽略差异代替完整发布。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
+> **广度复核补充（2026-08-27）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁和发布基线通过。`e5d941ae` 已完成 production preflight、隔离 smoke、原子切换和公网 runtime smoke；这不是业务测试失败，也不能把运行层 smoke 代替 Provider 或真机业务证据。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
 
 > **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；提交 `f97f9f03` 补齐健康知识错误码的服务端、客户端和文档契约；提交 `fc70fa0b` 修正未知/过期 `feature` 进入状态页时被误归类为“医疗记录”的错误语义；提交 `7627843a` 补齐状态页的迁移阶段，提交 `cd26a01` 补齐旧入口、业务域和下一步准入展示。以上候选均保留作历史追溯；当时 pending 小程序运行包为 `7f7a7a18`（20 页），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
 
@@ -107,7 +107,7 @@ pnpm migration:boundary:audit
    执行 `pnpm device:evidence:audit --file docs/release/device-evidence-0be59f96-pending.json` 时，在全部域仍为 `pending` 的情况下总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
-5. `pnpm release:baseline:audit` 当前应继续 fail-closed：线上 release 之后存在未部署运行时代码，且包含另一会话负责的众阳预约适配器。不能通过修改审计器或只部署半套代码来“变绿”。
+5. `pnpm release:baseline:audit` 当前已通过：`e5d941ae` 覆盖线上运行时代码并完成 production preflight、隔离 smoke、原子切换和公网 runtime smoke。后续运行时代码变化仍必须生成新的可回滚候选，不能通过修改审计器或只部署半套代码来“变绿”。
 
 本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次等待 `0be59f96` 运行包发布后采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
 
