@@ -32,7 +32,9 @@ describe("未开放页面关闭态审计", () => {
 	});
 
 	test("保留模板插值中的可执行表达式，避免漏掉隐藏的直连调用", () => {
-		const source = 'const text = `${wx.request({ url: "provider" })}`;';
+		// 用拼接构造 fixture，避免测试源码自身的模板占位符被 Biome 当成
+		// 未使用插值；最终传给扫描器的内容仍然是真实的 `${...}` 代码。
+		const source = "const text = `$" + '{wx.request({ url: "provider" })}`;';
 
 		expect(stripCommentsAndStrings(source)).toContain("wx.request");
 	});
