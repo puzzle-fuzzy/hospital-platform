@@ -5,6 +5,13 @@
 > `805c54ea9fa943385ad6feebed1401d521fbad3c`（`805c54e`）。下方 16:42:35
 > 的观察是切换前历史窗口，保留用于证明切换前新旧服务共存，不能覆盖发布后事实。
 
+> **发布后只读复核（2026-08-27 18:10:40，Asia/Shanghai）**：使用受控 inspection key
+> 只读连接 `192.168.112.172`，确认 `current` 仍指向上述 `b44421cd`，
+> `hospital-platform-api-v2.service=active/running`、`hospital-platform-worker-v2.service=inactive`，
+> 新 API 监听 `10.0.0.3:18081`，旧 Python 仍监听 `0.0.0.0:8001`；公网
+> `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 `success=true`，
+> `database/redis/schema` 均为 `ok`。该复核没有读取业务数据、原始日志或环境变量，也没有执行写入、切换或重启。
+
 > 切换前观察时间：2026-08-27 16:42:35（Asia/Shanghai）。切换前服务端 release 为
 > `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；切换前本地 live 小程序运行包来源为
 > `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`（`62cdb8f`）。本文只记录运行层
