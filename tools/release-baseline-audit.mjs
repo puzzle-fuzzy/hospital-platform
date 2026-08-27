@@ -705,8 +705,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				end: "## 一、这次策略调整",
 				phrases: [
 					{
-						text: "本轮 pending 小程序运行包来源为",
-						aliases: ["本轮小程序运行包来源和 live 运行输入均为"],
+						text: "本轮小程序运行包来源为",
+						aliases: [
+							"本轮 pending 小程序运行包来源为",
+							"本轮小程序运行包来源和 live 运行输入均为",
+						],
 						expected: "pending-full",
 					},
 				],
@@ -785,7 +788,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "# 旧端业务域迁移覆盖摘要（2026-08-25）",
 				end: "## 当前覆盖总览",
 				phrases: [
-					{ text: "当前事实源（2026-08-26）", expected: "pending-full" },
+					{
+						text: "当前事实源（2026-08-27）",
+						aliases: ["当前事实源（2026-08-26）"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],
@@ -798,7 +805,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "# 全量迁移广度状态（2026-08-25）",
 				end: "## 1. 当前结论",
 				phrases: [
-					{ text: "最新候选纠正（2026-08-26）", expected: "pending-full" },
+					{
+						text: "最新候选纠正（2026-08-27）",
+						aliases: ["最新候选纠正（2026-08-26）"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],
@@ -811,7 +822,11 @@ const currentCandidateReferenceRules = Object.freeze([
 				start: "# 健康百科分类状态迁移审计（2026-08-26）",
 				end: "## 修正前的逻辑风险",
 				phrases: [
-					{ text: "当前候选事实（2026-08-26）", expected: "pending-full" },
+					{
+						text: "当前候选事实（2026-08-27）",
+						aliases: ["当前候选事实（2026-08-26）"],
+						expected: "pending-full",
+					},
 				],
 			},
 		],

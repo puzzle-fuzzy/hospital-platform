@@ -22,9 +22,9 @@
 | 旧服务端路由 | 195 个已挂载路由，另有 1 个未挂载路由文件 | 已纳入旧 API 盘点 |
 | 旧端接口字面量 | 87 个 | 已纳入新旧接口语义清单 |
 | 新端四个主 Tab | 原生 `tabBar` 单一声明 | 页面不重复渲染底栏 |
-| 当前小程序运行相关源码候选 | pending `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；live `02dbf10419740d96c4445493df019021ac22bcfa` | 40 页；pending 校验通过；核心回归、共享患者会话边界和规则版本测试通过 |
-| 当前 live 运行包 | `02dbf10419740d96c4445493df019021ac22bcfa`（`02dbf10`） | 40 页，`runtime:verify` 通过；九个真机证据域仍为 pending，不能作为真机完成证据 |
-| 线上服务端 | `8eb51b5ffe85b0b8f8a032783f893117d3df549d` | 与旧 Python `8001` 共存，未因本轮文档而改变 |
+| 当前小程序运行相关源码候选 | live `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；当前无 pending 目录 | 40 页；发布前后运行包校验通过；核心回归、共享患者会话边界和规则版本测试通过 |
+| 当前 live 运行包 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`） | 40 页，`runtime:verify` 通过；九个真机证据域仍为 pending，不能作为真机完成证据 |
+| 线上服务端 | `e5d941aef3a8b0d1df24a518bea03f36f2ee505d` | 与旧 Python `8001` 共存，未修改旧服务 |
 
 ## 2. 本轮门禁结果
 
@@ -37,26 +37,22 @@
 - `pnpm migration:contract:audit`：C/D/E 三批次 23 个已暴露 FeatureKey 全部覆盖，仍正确保持 `businessReady=false`；D 的领域状态机另外覆盖尚未暴露入口的 `patient-address` 计划能力；
 - `pnpm provider:audit`、`pnpm clinical:contract:audit`、`pnpm docs:audit`、`pnpm logging:audit`：材料、临床边界、文档链接和日志注册结构通过。
 
-## 3. 全仓检查的唯一当前阻断
+## 3. 当前验收阻断
 
-`pnpm check` 在 `release:baseline:audit` 阶段按设计失败。失败原因不是测试失败，而是线上服务端 release 之后本地运行时代码继续变化，当前未重新部署：
+当前 `pnpm check`、`release:baseline:audit` 和服务端运行层发布门禁均已通过；线上
+`e5d941ae` 覆盖当前服务端运行时代码，旧 Python `8001` 继续共存。剩余阻断来自真实
+业务证据，而不是代码门禁：九个真机域仍为 `pending`，Provider/HIS contract、健康审核
+bundle、患者写入、外部会话以及支付/医保仍未满足开放条件。
 
-- `apps/api/src/app.ts`、`application.ts`、错误处理插件；
-- `packages/domain/src/appointments.ts`、`clinical-read-contract.ts`、`date-range.ts`、
-  `external-entry-session.ts`、`index.ts`、`knowledge.ts`、`knowledge-import.ts`、
-  `patient-write-command.ts`、`patients.ts`、`payment-state.ts`、`ports.ts`、`reports.ts`、
-  `user-profile.ts`；
-- `packages/persistence/src/health-knowledge-import.ts`、`mysql-health-knowledge-repository.ts`、
-  `mysql-repositories.ts`；
-- 另一会话维护的 `packages/adapters/src/zhongyang-appointments.ts`。
-
-这项失败必须保持 fail-closed。不能通过修改发布基线、忽略运行时代码差异或只发布部分工作树来伪造线上与本地一致。下一次服务端发布必须先取得完整工作树协调结果，并在不影响旧 Python `8001` 的前提下完成新的生产 preflight、原子切换和公网/内网 smoke。
+不能用本地测试、HTTP smoke、空列表或历史真机截图替代页面、客户端 requestId、服务端
+Pino/Provider 同链证据。后续任何运行时代码变化都必须生成新的可回滚候选，并在不影响旧
+Python `8001` 的前提下完成 production preflight、原子切换和公网/内网 smoke。
 
 ## 4. 各批次当前动作
 
 | 批次 | 当前状态 | 继续推进的内容 | 暂停内容 |
 | --- | --- | --- | --- |
-| A 安全只读 | 代码就绪，等待候选发布和真实证据 | 患者切换、预约历史/爽约、报告目录、门诊费用、普通资料统一采证 | 未拿到配套运行包前不宣称真机完成 |
+| A 安全只读 | 代码就绪，当前 live 候选已配套，等待真实证据 | 患者切换、预约历史/爽约、报告目录、门诊费用、普通资料统一采证 | 未拿到页面、客户端和服务端同链证据前不宣称真机完成 |
 | B 健康内容 | 代码就绪，审核 bundle 缺失 | 处理 133 个源快照质量告警，等待内容责任人提供审核 bundle | 不开放疾病/药品正式内容，不新增自测和医疗结论 |
 | C 临床只读 | 4 个域均 `normalized / unregistered` | 分别收集门诊记录、住院 episode、医生关系、电子导诊材料 | 不注册通用病历/住院/医生/导诊 API，不跨域复用 `patientId` |
 | D 患者与便民写入 | 等待正式 contract | 整理 owner、同意、幂等、撤回、文件安全和医护读取要求 | 不新增建档、绑卡、地址、签名、问卷提交 |
