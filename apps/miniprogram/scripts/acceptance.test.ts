@@ -3008,6 +3008,24 @@ test("native report detail actions reject stale directory events", async () => {
 	// 不得直接携带旧 reportId 导航到旧患者的详情页。
 	expect(page).toContain("findVisibleReport");
 	expect(page).toContain("event.currentTarget?.dataset?.viewKey");
+	const reportLookupIndex = page.indexOf("const report = findVisibleReport(");
+	const staleEventGuardIndex = page.indexOf(
+		"if (!report) {",
+		reportLookupIndex,
+	);
+	const patientContextIndex = page.indexOf(
+		"if (!this.isPatientContextCurrent())",
+		staleEventGuardIndex,
+	);
+	const reportReferenceIndex = page.indexOf(
+		"const reportId = report.reportId;",
+		patientContextIndex,
+	);
+	// 先确认事件仍属于当前渲染批次，再确认患者上下文，最后才读取
+	// 短期详情引用；这样失效事件不会被误导到功能关闭态。
+	expect(staleEventGuardIndex).toBeGreaterThan(reportLookupIndex);
+	expect(patientContextIndex).toBeGreaterThan(staleEventGuardIndex);
+	expect(reportReferenceIndex).toBeGreaterThan(patientContextIndex);
 	expect(page).toContain("this.toView(report, index, requestToken)");
 	expect(page).toContain("viewKey: `report-");
 	expect(template).toContain('wx:key="viewKey"');

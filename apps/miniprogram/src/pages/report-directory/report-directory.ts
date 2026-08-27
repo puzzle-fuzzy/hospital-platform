@@ -10,15 +10,15 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
-	disposePageSessionResetListener,
-	registerPageSessionResetListener,
-} from "../../services/session-events";
-import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
@@ -259,9 +259,10 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			this.data.visibleReports,
 			event.currentTarget?.dataset?.viewKey,
 		);
-		const reportId = report?.reportId;
-		if (typeof reportId !== "string" || !reportId) {
-			navigateToFeatureStatus("report-detail");
+		if (!report) {
+			// 事件可能来自患者切换或刷新前的旧 WXML。找不到当前渲染批次
+			// 的报告时必须静默丢弃，不能把失效点击误判为“详情未开放”，
+			// 更不能让旧事件获得任何详情路由资格。
 			return;
 		}
 		const patientId = this.data.selectedPatient?.id;
@@ -276,6 +277,13 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			// 这里先在客户端阻断旧 patientId，避免把合法但属于上一位患者的
 			// opaque 详情引用带入详情页；服务端 owner 校验仍是最后一道边界。
 			wx.showToast({ title: "当前就诊人已变化，请重新加载", icon: "none" });
+			return;
+		}
+		const reportId = report.reportId;
+		if (typeof reportId !== "string" || !reportId) {
+			// 当前报告确实存在，但服务端没有发放短期详情引用时，才进入
+			// 功能关闭态；这和“旧事件找不到报告”是两种不同的业务结果。
+			navigateToFeatureStatus("report-detail");
 			return;
 		}
 		wx.navigateTo({
