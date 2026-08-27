@@ -8,26 +8,26 @@
 
 | 项目 | 当前事实 | 结论 |
 | --- | --- | --- |
-| 当前 Git 工作树 | 当前 `main`（提交以 `git rev-parse HEAD` 为准）；API 运行时代码变更来源为 `eb4d2eb4` | 已提交并推送到 `origin/main` |
+| 当前 Git 工作树 | 当前 `main`（提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed` | 已提交并推送到 `origin/main` |
 | 线上新 API | `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240` | 仍为已部署 release |
 | 本地小程序 live `dist` | `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328` | 与当前小程序运行包一致 |
 | 旧 Python 服务 | `0.0.0.0:8001` | 本轮未修改、未停止 |
 | 旧项目、旧 MySQL、旧 Redis | 不在本轮写入范围 | 本轮未操作 |
 
 本轮 API 运行时代码变更 `eb4d2eb4` 包含健康知识服务的直调关系查询白名单：进入 repository 之前只接受
-`kind` 和 `id`，未知字段返回稳定的查询校验错误。此前 `927b90cf` 已将健康知识
-路由的认证顺序和未知 query 参数边界固定下来。两次提交都属于新 API 运行时代码，
-并继续只在失败日志中记录有限的 `validationReason`，因此在远端 API-only 发布完成之前，
+`kind` 和 `id`，未知字段返回稳定的查询校验错误；`4e1e53ed` 又为这条失败链补充固定枚举
+`validationReason`，便于排障而不记录查询值。此前 `927b90cf` 已将健康知识路由的认证顺序和未知
+query 参数边界固定下来。这些提交都属于新 API 运行时代码，因此在远端 API-only 发布完成之前，
 不能把它们写进线上 release 的事实。
 
 ## 门禁结果
 
 已完成并通过：
 
-- 健康知识 API 定向测试：8 项通过，0 失败；
+- 健康知识 API 定向测试：9 项通过，0 失败；
 - 全仓格式检查和 Biome lint；
 - `pnpm typecheck`：9/9 workspace 通过；
-- `pnpm test`：9/9 workspace 通过，API 215 项通过、0 失败；
+- `pnpm test`：9/9 workspace 通过，API 216 项通过、0 失败；
 - `pnpm build`：9/9 workspace 通过；
 - 迁移、导航、患者展示、临床关闭态、只读域、Provider 材料、文档和日志静态审计。
 
@@ -58,7 +58,7 @@
 
 ## 禁止事项
 
-- 不把当前 `main`、`eb4d2eb4` 或本地 `dist` 直接写成线上已发布事实；
+- 不把当前 `main`、`eb4d2eb4`、`4e1e53ed` 或本地 `dist` 直接写成线上已发布事实；
 - 不为了通过发布基线而回退安全校验、修改审计器或部署半套 API；
 - 不把旧 Python 的 FSI、医保、微信授权或数据库内容复制到新端的未经确认路径；
 - 不在缺少正式业务 contract 时新增患者写入、二维码、WebView、支付、医保或 HIS 回写接口。

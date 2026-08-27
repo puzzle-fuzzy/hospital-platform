@@ -10,7 +10,7 @@
 > `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；本地 live 小程序 sourceRevision 为
 > `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`。两者分别发布，必须在业务证据中同时记录，不能用历史微信线上包替代本地 live 包。
 >
-> **当前仓库候选补充**：当前 `main` 已推送但尚未部署到线上 API（候选提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`，新增健康知识服务直调关系查询白名单。因此 `pnpm release:baseline:audit` 当前应阻断，直到完成 API-only 原子发布并取得远端证据。本文的线上 release 事实不能反向覆盖当前工作树，也不能把本地测试结果写成线上业务验收。
+> **当前仓库候选补充**：当前 `main` 已推送但尚未部署到线上 API（候选提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`，新增健康知识服务直调关系白名单和固定失败校验原因日志。因此 `pnpm release:baseline:audit` 当前应阻断，直到完成 API-only 原子发布并取得远端证据。本文的线上 release 事实不能反向覆盖当前工作树，也不能把本地测试结果写成线上业务验收。
 
 | 项目 | 当前事实 | 不能据此推出 |
 | --- | --- | --- |
@@ -69,9 +69,9 @@
 
 ## 3. 当前门禁与未完成项
 
-- API 定向验证已通过；当前全量 API 测试为 `215 pass / 0 fail / 904 expect()`，TypeScript 检查和 Biome 检查均通过。
+- API 定向验证已通过；当前全量 API 测试为 `216 pass / 0 fail / 907 expect()`，TypeScript 检查和 Biome 检查均通过。
 - 全仓 `pnpm check` 当前由 `release:baseline:audit` 阻断：线上 `1bc8b0a8` 之后存在尚未部署的 `apps/api/src/modules/knowledge/index.ts`、`service.ts`。除此发布基线外，架构、迁移、导航、患者展示、临床 contract、只读域、Provider、文档、日志、错误契约、格式、lint、类型、workspace 测试和 9 个 workspace 构建均已通过；小程序发布阶段确认 40 页运行包已原子写入 live `dist`。
-- 当前小程序回归为 `340 pass / 0 fail / 3726 expect()`；这是代码和运行包证据，不是微信真机业务证据。
+- 当前小程序回归为 `340 pass / 0 fail / 3726 expect()`；API 全量回归为 `216 pass / 0 fail / 907 expect()`；这些都是代码和运行包证据，不是微信真机业务证据。
 - 九个真机证据域仍为 `pending`，见 [`device-evidence-62cdb8f8-pending.json`](device-evidence-62cdb8f8-pending.json)。清单结构通过不等于业务通过。
 - 健康百科仍等待正式审核 bundle；临床读取、患者绑定/协议同意/撤回/审计、外部会话、物流/采血号源和公开记录仍等待各自 contract。
 - 预约写入、取消、费用支付、医保授权/结算、退款和 HIS 回写保持最后处理，不因页面存在或只读列表成功而开放。

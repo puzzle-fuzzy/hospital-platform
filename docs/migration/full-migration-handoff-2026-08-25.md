@@ -1,6 +1,6 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **当前仓库执行检查点（2026-08-27）**：当前 `main`（具体提交以 `git rev-parse HEAD` 为准）中 API 运行时代码变更来源为 `eb4d2eb4`；当前候选已推送但尚未部署到线上 API，线上仍为 `1bc8b0a8`。本轮健康知识服务新增直调关系查询白名单，故 `pnpm release:baseline:audit` 会正确报告 `index.ts`、`service.ts` 尚未部署。旧 Python、旧数据库和旧 Redis 未修改。请先阅读 [`current-execution-checkpoint-2026-08-27.md`](current-execution-checkpoint-2026-08-27.md)，再使用本文下方的历史候选记录。
+> **当前仓库执行检查点（2026-08-27）**：当前 `main`（具体提交以 `git rev-parse HEAD` 为准）中 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`；当前候选已推送但尚未部署到线上 API，线上仍为 `1bc8b0a8`。本轮健康知识服务新增直调关系查询白名单并补充固定失败校验原因日志，故 `pnpm release:baseline:audit` 会正确报告 `index.ts`、`service.ts` 尚未部署。旧 Python、旧数据库和旧 Redis 未修改。请先阅读 [`current-execution-checkpoint-2026-08-27.md`](current-execution-checkpoint-2026-08-27.md)，再使用本文下方的历史候选记录。
 
 > **当前候选覆盖（2026-08-27）**：最新小程序源码和本地 live 运行输入为 `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`（`62cdb8f`），40 页；核心回归、共享患者外壳会话边界、就诊二维码会话门禁、健康数值规则版本、会话失效资料缓存清理和预约请求运行时边界测试通过。该来源已完成校验并原子切换到 live `dist`，本候选未新增 Provider 请求或写入；本文下方旧候选数字只作历史追溯，以本段和 [`candidate-62cdb8f-miniprogram-runtime-2026-08-27.md`](../release/candidate-62cdb8f-miniprogram-runtime-2026-08-27.md) 为准。
 
@@ -12,7 +12,7 @@
 
 > **最新候选事实（2026-08-27）**：功能工作树在既有全量 64 个旧入口 A–F 批次覆盖上继续完成当前就诊人上下文的横向迁移；40 页运行相关源码候选 `62cdb8f` 已完成构建、静态校验并原子切换到 live `dist`。页面只迁移 owner-scoped 患者展示、重试、选择入口、协议原文只读和明确关闭态，并补齐共享患者外壳的 owner 证明、会话代际、账号切换清理以及会话失效时旧 owner 微信资料缓存清理；同时保留微信资料拒绝后的设置页重试、选择页刷新并发门禁以及“我的快递”加载/错误/未开放状态边界，并统一电子锦旗和表扬信记录区域的加载、错误、未开放三态及固定高度，不虚构临床 Provider、问诊会话、物流、采血号源或公开记录 provider。当前候选还收紧预约排班和预约历史底层请求字段、日期和范围关系。当前证据清单仍为九域 `pending`，从 live 重新生成二维码后逐域取证。当前候选证据见 [`../release/candidate-62cdb8f-miniprogram-runtime-2026-08-27.md`](../release/candidate-62cdb8f-miniprogram-runtime-2026-08-27.md)；历史候选的 live 包和证据清单不能直接作为本轮真机完成证据。
 
-> **广度复核补充（2026-08-27）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁通过，但当前发布基线因 `eb4d2eb4` 的服务端运行时代码尚未进入线上 `1bc8b0a8` 而阻断。`1bc8b0a8` 已完成 production preflight、隔离 smoke、原子切换和公网 runtime smoke；这不是业务测试失败，也不能把运行层 smoke 代替 Provider 或真机业务证据。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
+> **广度复核补充（2026-08-27）**：64 个旧页面、195 个已挂载旧服务端路由和 87 个旧端接口字面量均已登记；本地结构门禁通过，但当前发布基线因 `eb4d2eb4`、`4e1e53ed` 的服务端运行时代码尚未进入线上 `1bc8b0a8` 而阻断。`1bc8b0a8` 已完成 production preflight、隔离 smoke、原子切换和公网 runtime smoke；这不是业务测试失败，也不能把运行层 smoke 代替 Provider 或真机业务证据。各批次当前动作见 [`current-breadth-audit-2026-08-26.md`](current-breadth-audit-2026-08-26.md)。
 
 > **2026-08-25 续做记录**：提交 `163d696b` 补强了跨患者、预约、报告和费用模块共用的 `AdapterCallContext` 失败日志兜底；提交 `f97f9f03` 补齐健康知识错误码的服务端、客户端和文档契约；提交 `fc70fa0b` 修正未知/过期 `feature` 进入状态页时被误归类为“医疗记录”的错误语义；提交 `7627843a` 补齐状态页的迁移阶段，提交 `cd26a01` 补齐旧入口、业务域和下一步准入展示。以上候选均保留作历史追溯；当时 pending 小程序运行包为 `7f7a7a18`（20 页），live `dist` 仍为旧来源 `fcc6630e`，因此没有覆盖 `dist`、没有发布微信运行包，也没有修改旧服务、旧数据库、旧 Redis 或另一会话的众阳预约适配器。
 
@@ -33,7 +33,7 @@
 | 小程序回归 | `340 pass / 0 fail / 3726 expect()`；入口分发审计通过 |
 | 发布与运行包验证 | 发布前 `runtime:verify:pending` 已通过；发布后 `runtime:verify` 已通过 |
 | 当前 live `dist` | 来源为 `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`；真机是否已加载仍须通过新二维码和页面证据确认 |
-| 服务端本地候选 | 当前 `main` 中包含 `eb4d2eb4` 引入的尚未部署健康知识运行时代码；提交以 `git rev-parse HEAD` 为准，发布基线等待 API-only 发布 |
+| 服务端本地候选 | 当前 `main` 中包含 `eb4d2eb4`、`4e1e53ed` 引入的尚未部署健康知识运行时代码；提交以 `git rev-parse HEAD` 为准，发布基线等待 API-only 发布 |
 | 线上服务 | 新 API `1bc8b0a8` 与旧 Python `8001` 共存；本轮不停止旧服务 |
 
 本轮最新的只读共存核对见 [`release/current-runtime-coexistence-readonly-2026-08-25.md`](../release/current-runtime-coexistence-readonly-2026-08-25.md)。该记录证明运行层边界正常，但不替代当前候选的业务验收。
