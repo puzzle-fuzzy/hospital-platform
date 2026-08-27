@@ -14,6 +14,11 @@ pnpm migration:readiness
 
 该命令只读取新项目仓库中的页面台账、原生小程序 `app.json`、首页/“我的”入口广度审计、只读域闭环清单、Provider 接收文档和本地运行包 `build-info.json`。它不会访问旧服务、数据库、Redis、Provider，也不会修改 `dist/` 或线上服务。
 
+未开放入口的执行旁路另由 `tools/surface-only-closure-audit.mjs` 做静态审计，
+并通过 `bun test tools` 纳入全量门禁。它把 15 个 `surface-only` 目标固定为 14
+个关闭态页面工厂和 1 个本地安全数值子集，拒绝页面或共享工厂直接调用 HTTP、
+Provider、支付、微信登录、外部小程序或 WebView；该门禁仍不等于正式 contract 已确认。
+
 如需把当前 live/pending 小程序运行包来源不一致视为命令失败，执行：
 
 ```bash
@@ -58,6 +63,7 @@ pnpm migration:readiness -- --strict
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
 - live `dist` 当前来源为 `99d9f60f6291b7f8d08d779cec059892f054d80e`，40 个页面已通过 `runtime:verify`；发布后 pending 目录已清理，readiness 以 live `build-info.json` 和当前运行输入指纹比对。当前运行包包含 40 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文和共享患者会话清理、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态、报告目录失效事件静默丢弃以及健康百科和报告详情迁移台账映射；小程序回归为 `338 pass / 0 fail / 3712 expect()`。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
+- 未开放入口关闭态审计通过：15 个目标页中 14 个使用共享页面工厂、1 个为健康自测本地安全数值子集；页面和共享工厂未发现直连 HTTP、Provider、支付、微信登录、外部小程序或 WebView 旁路。该结果只证明 fail-closed 结构，不改变 C/D/E/F contract 阻断状态。
 - 临床四域合同门禁通过只表示它们仍保持 `normalized / unregistered`；任何正式 Provider 材料到达后必须逐域进入 contract、adapter、domain 和 API 实现，不得删除门禁或共用 `/clinical`。
 
 四域的结构化准入卡片位于 [`clinical-read-models-contract-gate.json`](../provider-intake/clinical-read-models-contract-gate.json)。它逐域记录 Provider contract、成功/空/拒绝/超时样例、owner 映射、字段白名单和脱敏规则的状态；当前只能是 `pending` 或 `missing`。这份卡片不是业务响应 fixture，不能被小程序或 API 读取；任何字段进入 `confirmed` 前必须先完成正式 contract 评审并同步独立域实现。
