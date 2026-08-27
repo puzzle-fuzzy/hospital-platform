@@ -258,7 +258,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 当前小程序候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
-		path: "docs/release/candidate-413cbea-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-02865d3-miniprogram-runtime-2026-08-27.md",
 		label: "当前本地小程序运行包候选",
 		candidateOnly: true,
 	},
@@ -711,15 +711,15 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-413cbea-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-02865d3-miniprogram-runtime-2026-08-27.md",
 		label: "当前 live 小程序运行包候选",
 		sections: [
 			{
-				// 候选结论段先用自然语言解释来源，完整指纹位于“构建与验证”
-				// 表格；以表格段落作为范围，避免把说明句误当成证据。
-				start: "## 构建与验证",
-				end: "## 下一步",
-				phrases: [{ text: "运行输入来源", expected: "pending-full" }],
+				// 当前候选把服务端配套、提交和 live 指纹集中在“候选来源”
+				// 表格中；直接锁定 live 行，避免历史候选说明污染当前入口。
+				start: "## 候选来源",
+				end: "## 本轮修复",
+				phrases: [{ text: "当前 live `dist`", expected: "pending-full" }],
 			},
 		],
 	},

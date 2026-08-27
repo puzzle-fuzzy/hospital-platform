@@ -7,27 +7,31 @@
 ## 1. 当前运行事实
 
 > 当前成套验收基线（2026-08-27）：服务端 release 为
-> `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；本地 live 小程序 sourceRevision 为
-> `d4f67485a34195a2e1e392071502cf2a7006dd27`。两者分别发布，必须在业务证据中同时记录，不能用历史微信线上包替代本地 live 包。
+> `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`；本地 live 小程序 sourceRevision 为
+> `02865d385a9c09876dc51da1ffb71183139a559b`。两者分别发布，必须在业务证据中同时记录，不能用历史微信线上包替代本地 live 包。
 >
 > **当前仓库候选补充**：当前 `main` 已推送，API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`，已完成 API-only 原子发布并取得远端证据；发布后的 `pnpm release:baseline:audit` 已重新执行并通过。后续若运行时代码再次变化，仍必须生成新候选并重新审计；本文的线上 release 事实不能反向覆盖当前工作树，也不能把本地测试结果写成线上业务验收。
+>
+> **小程序候选发布完成补充**：启动保护候选 `02865d3`（完整来源
+> `02865d385a9c09876dc51da1ffb71183139a559b`）已通过 146 项定向回归、TypeScript 和 pending
+> 运行包校验，并已完成原子发布；发布后 `runtime:verify` 通过，pending 目录已清理。
 
 | 项目 | 当前事实 | 不能据此推出 |
 | --- | --- | --- |
-| 新 API release | `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`（`b44421cd`） | Provider、微信真机、支付或医保业务已经成功 |
+| 新 API release | `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`（`0aaa13b5`） | Provider、微信真机、支付或医保业务已经成功 |
 | 新 API 监听 | `10.0.0.3:18081`，systemd `hospital-platform-api-v2.service=active` | 旧服务已被替换 |
 | 旧 Python 服务 | `0.0.0.0:8001`，继续共存 | 新 API 与旧 API 使用相同业务实现 |
 | Worker | `hospital-platform-worker-v2.service=inactive` | 支付、医保或 HIS 回写已经执行 |
 | 生产依赖 | MySQL、Redis、schema probe 均为 `ok` | 业务 Provider 字段或业务状态一定正确 |
 | 当前微信线上小程序 | 历史运行包 `13f597e` | 不可以拿线上历史包证明本地 live 候选的真机结果 |
-| 当前本地 live 小程序 | `d4f67485a34195a2e1e392071502cf2a7006dd27`（`d4f6748`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
-| live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；同源 pending 候选已在释放微信开发者工具锁后原子发布，pending 目录已清理 | 开发者工具一定已经重新编译当前目录 |
+| 当前本地 live 小程序 | `02865d385a9c09876dc51da1ffb71183139a559b`（`02865d3`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
+| live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；发布后 pending 目录已清理 | 开发者工具一定已经重新编译当前目录 |
 
 服务端 release 已完成 production preflight、隔离 runtime smoke、原子切换和公网 runtime smoke；
 这些是运行层证据。旧 Python `8001` 在切换过程中没有停止、重启或修改。
 
 当前用户资料、患者目录投影和运行包锁的专项复核见
-[`current-profile-patient-audit-2026-08-27.md`](current-profile-patient-audit-2026-08-27.md)。该复核没有发现可安全独立修复的资料/owner 逻辑缺陷；初次构建的 TypeScript 检查通过但发布阶段曾遇到 `EBUSY`，随后已释放项目进程锁并完成 pending 到 live 的原子发布。
+[`current-profile-patient-audit-2026-08-27.md`](current-profile-patient-audit-2026-08-27.md)。该复核没有发现可安全独立修复的资料/owner 逻辑缺陷；启动保护候选的 TypeScript 检查、pending 校验和发布后 live 校验均通过，发布阶段的目录锁已解除并完成原子切换。
 
 ## 1.1 公网 HTTPS 安全门禁
 
@@ -70,19 +74,20 @@
 ## 3. 当前门禁与未完成项
 
 - API 定向验证已通过；当前全量 API 测试为 `216 pass / 0 fail / 907 expect()`，TypeScript 检查和 Biome 检查均通过。
-- 候选质量门禁 `pnpm check:candidate` 和发布基线门禁 `pnpm release:baseline:audit` 已通过；服务端 `b44421cd` 已包含当前 API 运行时代码，40 页小程序运行包也已原子写入 live `dist`。这只证明代码、来源和运行层一致，不等于真机业务验收完成。
-- 当前小程序回归为 `344 pass / 0 fail / 3733 expect()`；API 全量回归为 `216 pass / 0 fail / 907 expect()`；这些都是代码和运行包证据，不是微信真机业务证据。
-- 九个真机证据域仍为 `pending`，见 [`device-evidence-d4f67485-pending.json`](device-evidence-d4f67485-pending.json)。清单结构通过不等于业务通过。
+- 发布前基线 `0aaa13b5 + d4f6748` 的 `pnpm release:baseline:audit` 已通过；启动保护候选 `02865d3` 的静态审计、工具测试、TypeScript、定向测试和 pending 校验通过。微信开发者工具关闭后，候选已原子发布到 live，发布后 `runtime:verify` 通过，当前 live 来源为 `02865d3`；旧服务没有因此发生变化。
+- 当前小程序回归为 `345 pass / 0 fail / 3736 expect()`；本轮 API 全量回归为 `218 pass / 0 fail / 910 expect()`；这些都是代码和运行包证据，不是微信真机业务证据。
+- 九个真机证据域仍为 `pending`，见 [`device-evidence-02865d38-pending.json`](device-evidence-02865d38-pending.json)。清单结构通过不等于业务通过。
 - 健康百科仍等待正式审核 bundle；临床读取、患者绑定/协议同意/撤回/审计、外部会话、物流/采血号源和公开记录仍等待各自 contract。
 - 预约写入、取消、费用支付、医保授权/结算、退款和 HIS 回写保持最后处理，不因页面存在或只读列表成功而开放。
 
 ## 4. 下一步执行顺序
 
-1. 先执行公网无 `-k` 的 HTTPS live/ready/ping 和证书有效期复核；通过后，有真实开发者工具和手机会话时，只从当前 `apps/miniprogram/dist/` 普通编译并生成二维码，并核对 `build-info.json.sourceRevision` 与本文一致。
-2. 按九域清单逐项采集页面截图、客户端 `requestId`、公网 HTTP、服务端 Pino `traceId` 和 Provider 低敏请求号；每个域独立判定，不能用另一个域的成功链拼接。
-3. 没有运行中的真机/开发者工具会话时，保持清单 `pending`，只做代码、文档和脱敏审计，不制造“已通过”的证据。
-4. 收到正式 Provider 或内容材料后，先登记版本、来源指纹、成功/空/拒绝/超时样例、owner 映射和字段白名单，再分别实现 adapter、domain、API、页面状态机和日志。
-5. 最后才进入预约写入、支付、医保、退款和 HIS 回写，并额外提供幂等、最终状态查询、补偿和回滚证据。
+1. 当前启动保护候选已完成原子发布；后续源码变化仍须先关闭持有 `apps/miniprogram/dist/` 的微信开发者工具项目，再执行 `runtime:verify:pending`、`runtime:publish-pending` 和 `runtime:verify`，禁止手工覆盖 live 运行包。
+2. 从当前 live `dist` 普通编译并生成二维码，核对 `build-info.json.sourceRevision=02865d385a9c09876dc51da1ffb71183139a559b` 后再进入真机验收。
+3. 按九域清单逐项采集页面截图、客户端 `requestId`、公网 HTTP、服务端 Pino `traceId` 和 Provider 低敏请求号；每个域独立判定，不能用另一个域的成功链拼接。
+4. 没有运行中的真机/开发者工具会话时，保持清单 `pending`，只做代码、文档和脱敏审计，不制造“已通过”的证据。
+5. 收到正式 Provider 或内容材料后，先登记版本、来源指纹、成功/空/拒绝/超时样例、owner 映射和字段白名单，再分别实现 adapter、domain、API、页面状态机和日志。
+6. 最后才进入预约写入、支付、医保、退款和 HIS 回写，并额外提供幂等、最终状态查询、补偿和回滚证据。
 
 ## 5. 常用核对命令
 
@@ -90,9 +95,9 @@
 pnpm migration:readiness
 pnpm check:candidate
 pnpm release:baseline:audit
-pnpm device:evidence:audit --file docs/release/device-evidence-d4f67485-pending.json
+pnpm device:evidence:audit --file docs/release/device-evidence-02865d38-pending.json
 pnpm check
 ```
 
 其中真机清单在全部 `pending` 时只能完成结构审计；出现 `passed` 或 `failed` 前，必须先确认当前发布基线仍通过。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `d4f67485a34195a2e1e392071502cf2a7006dd27`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`；小程序本地 live 运行包来源为 `02865d385a9c09876dc51da1ffb71183139a559b`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。小程序下一次候选构建暂存于 `.local/hospital-miniprogram/pending`，原因是微信开发者工具仍持有 `dist` 锁。

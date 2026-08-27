@@ -2,7 +2,7 @@
 
 > 本候选只更新原生微信小程序运行包，不重启服务端；线上新 API 仍为
 > `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`，旧 Python `8001`、旧数据库和旧 Redis
-> 不在本候选的操作范围内。本记录用于区分待发布候选和当前 live 运行包，不能替代
+> 不在本候选的操作范围内。本记录用于说明已发布候选与当前 live 运行包，不能替代
 > 微信真机、Provider、支付、医保或 HIS 业务证据。
 
 ## 候选来源
@@ -13,8 +13,8 @@
 | 小程序提交 | `02865d3` |
 | 小程序构建来源 | `02865d385a9c09876dc51da1ffb71183139a559b` |
 | 注册页面 | 40 |
-| 当前 live `dist` | `d4f67485a34195a2e1e392071502cf2a7006dd27` |
-| 候选状态 | pending，尚未覆盖 live `dist` |
+| 当前 live `dist` | `02865d385a9c09876dc51da1ffb71183139a559b` |
+| 候选状态 | 已原子发布到 live `dist`；发布后 pending 目录已清理 |
 
 ## 本轮修复
 
@@ -36,12 +36,12 @@
 
 ## 发布边界
 
-构建器发现微信开发者工具仍持有 `apps/miniprogram/dist` 的目录句柄，因此没有删除或半覆盖
-现有 live 包，已验证候选保存在被忽略的 `.local/hospital-miniprogram/pending/`。当前错误若仍出现，
-不能据此否定源码候选；必须先释放工具缓存和目录锁，再让工具重新加载完整运行包。
+发布前微信开发者工具曾持有 `apps/miniprogram/dist` 的目录句柄，候选因此先保存在被忽略的
+`.local/hospital-miniprogram/pending/`；在工具窗口关闭后已完成原子发布，发布后 `runtime:verify`
+通过且 pending 目录已清理。当前若仍出现旧的 `globalData` 异常，必须关闭旧项目调试、重新打开
+当前 `dist`、普通编译并重新生成二维码，不能把旧增量包当作当前候选。
 
-请关闭标题为 `hospital-platform-runtime - 微信开发者工具 Stable v2.01.2510290` 的项目窗口，
-结束该项目真机调试后执行：
+发布时执行：
 
 ```powershell
 pnpm --filter @hospital/miniprogram runtime:publish-pending

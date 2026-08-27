@@ -1,6 +1,6 @@
 # 当前只读业务迁移审计（2026-08-25）
 
-> **当前事实（2026-08-27）**：本文主体记录的是早期 `eef55001/b587c7ea` 审计窗口，不能作为当前运行包证据。当前线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`，本地 live 小程序运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`；当前九个真机业务域的证据状态以 [`device-evidence-413cbea1-pending.json`](device-evidence-413cbea1-pending.json) 和 [`../migration/current-execution-checkpoint-2026-08-27.md`](../migration/current-execution-checkpoint-2026-08-27.md) 为准。
+> **当前事实（2026-08-27）**：本文主体记录的是早期 `eef55001/b587c7ea` 审计窗口，不能作为当前运行包证据。当前线上服务端 release 为 `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`，本地 live 小程序运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`；当前九个真机业务域的证据状态以 [`device-evidence-413cbea1-pending.json`](device-evidence-413cbea1-pending.json) 和 [`../migration/current-execution-checkpoint-2026-08-27.md`](../migration/current-execution-checkpoint-2026-08-27.md) 为准。
 
 > **历史本地源码候选（2026-08-25）**：本文主体审计窗口曾使用 `eef550012e071d2891f990035a9b40041f314e5d`、20 个页面和 `259 pass / 0 fail / 2525 expect()`；该窗口只作历史交接。当前 live 候选和证据清单以第一段的 `413cbea` 与 `device-evidence-413cbea1-pending.json` 为准。
 
@@ -13,7 +13,7 @@
 > 当前小程序只读验收入口：`apps/miniprogram/dist/`，当前 live 运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`，当前没有 pending 目录。四个主 Tab 使用微信原生
 > `tabBar`；上一候选 custom-tab-bar 因真机未呈现已撤回，当前原生候选仍需扫码普通编译后验收。线上服务端为 `b44421cd`，旧 Python `8001` 继续共存。
 
-> **当前服务端发布门禁补充（2026-08-27）**：服务端 release `b44421cd` 已通过
+> **当前服务端发布门禁补充（2026-08-27）**：服务端 release `0aaa13b5` 已通过
 > `pnpm release:baseline:audit`，当前 API 运行时代码与线上 release 没有漂移；旧 Python `8001` 未修改、未停止。
 
 ## 审计结论
