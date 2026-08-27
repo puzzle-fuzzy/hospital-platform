@@ -15,13 +15,13 @@
 | 生产依赖 | MySQL、Redis、schema probe 均为 `ok` | 业务 Provider 字段或业务状态一定正确 |
 | 当前微信线上小程序 | 历史运行包 `13f597e` | 可以拿线上历史包证明本地候选真机结果 |
 | 当前本地 live 小程序 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
-| live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；同源 pending 候选仍保留，待微信开发者工具完全退出后再清理或重新发布 | 开发者工具一定已经重新编译当前目录 |
+| live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；同源 pending 候选已在释放微信开发者工具锁后原子发布，pending 目录已清理 | 开发者工具一定已经重新编译当前目录 |
 
 服务端 release 已完成 production preflight、隔离 runtime smoke、原子切换和公网 runtime smoke；
 这些是运行层证据。旧 Python `8001` 在切换过程中没有停止、重启或修改。
 
 当前用户资料、患者目录投影和运行包锁的专项复核见
-[`current-profile-patient-audit-2026-08-27.md`](current-profile-patient-audit-2026-08-27.md)。该复核没有发现可安全独立修复的资料/owner 逻辑缺陷；本轮构建的 TypeScript 检查通过，但微信开发者工具仍占用 `dist`，pending 候选已保留。
+[`current-profile-patient-audit-2026-08-27.md`](current-profile-patient-audit-2026-08-27.md)。该复核没有发现可安全独立修复的资料/owner 逻辑缺陷；初次构建的 TypeScript 检查通过但发布阶段曾遇到 `EBUSY`，随后已释放项目进程锁并完成 pending 到 live 的原子发布。
 
 ## 1.1 公网 HTTPS 安全门禁
 
@@ -64,7 +64,7 @@
 ## 3. 当前门禁与未完成项
 
 - API 定向验证已通过：测试 `213 pass / 0 fail / 899 expect()`、TypeScript 检查和 Biome 检查均通过。
-- 本轮没有把全仓 `pnpm check` 写成通过：此前全仓前置审计、工具测试、workspace 类型检查和 workspace 测试已通过，但小程序构建阶段曾因微信开发者工具占用 `apps/miniprogram/dist/` 返回 `EBUSY`；关闭占用进程后仍需重新运行完整门禁。
+- 全仓 `pnpm check` 已通过：架构、迁移、导航、患者展示、临床 contract、只读域、Provider、文档、日志、错误契约、发布基线、格式、lint、工具测试、类型检查、workspace 测试和 9 个 workspace 构建均成功；小程序发布阶段确认 40 页运行包已原子写入 live `dist`。
 - 当前小程序回归为 `336 pass / 0 fail / 3697 expect()`；这是代码和运行包证据，不是微信真机业务证据。
 - 九个真机证据域仍为 `pending`，见 [`device-evidence-0be59f96-pending.json`](device-evidence-0be59f96-pending.json)。清单结构通过不等于业务通过。
 - 健康百科仍等待正式审核 bundle；临床读取、患者绑定/协议同意/撤回/审计、外部会话、物流/采血号源和公开记录仍等待各自 contract。
