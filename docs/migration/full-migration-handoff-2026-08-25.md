@@ -23,7 +23,7 @@
 | 项目 | 当前事实 |
 | --- | --- |
 | 小程序运行相关源码基线 | `0be59f96`（已发布到 live） |
-| 当前小程序运行基线 | `0be59f96`（live `dist`）；同源 pending 候选因工具占用仍保留 |
+| 当前小程序运行基线 | `0be59f96`（live `dist`）；当前没有 pending 候选，最近一次构建未产生新的运行时代码候选 |
 | 小程序运行包候选 | 来源 `0be59f96`；业务状态沿用全量入口迁移台账 |
 | live 运行包 | `apps/miniprogram/dist/build-info.json`，`sourceRevision=0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面 |
 | 当前源码页面数 | 40 个；每个页面具备 TypeScript 源码和页面配置 |
