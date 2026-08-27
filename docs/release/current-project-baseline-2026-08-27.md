@@ -70,7 +70,7 @@
 ## 3. 当前门禁与未完成项
 
 - API 定向验证已通过；当前全量 API 测试为 `216 pass / 0 fail / 907 expect()`，TypeScript 检查和 Biome 检查均通过。
-- 全仓 `pnpm check` 当前由 `release:baseline:audit` 阻断：线上 `1bc8b0a8` 之后存在尚未部署的 `apps/api/src/modules/knowledge/index.ts`、`service.ts`。除此发布基线外，架构、迁移、导航、患者展示、临床 contract、只读域、Provider、文档、日志、错误契约、格式、lint、类型、workspace 测试和 9 个 workspace 构建均已通过；小程序发布阶段确认 40 页运行包已原子写入 live `dist`。
+- 候选质量门禁 `pnpm check:candidate` 已通过；完整 `pnpm check` 当前由最后追加的 `release:baseline:audit` 阻断：线上 `1bc8b0a8` 之后存在尚未部署的 `apps/api/src/modules/knowledge/index.ts`、`service.ts`。这不是候选代码质量失败，而是线上一致性尚未完成。小程序发布阶段已确认 40 页运行包原子写入 live `dist`。
 - 当前小程序回归为 `340 pass / 0 fail / 3726 expect()`；API 全量回归为 `216 pass / 0 fail / 907 expect()`；这些都是代码和运行包证据，不是微信真机业务证据。
 - 九个真机证据域仍为 `pending`，见 [`device-evidence-62cdb8f8-pending.json`](device-evidence-62cdb8f8-pending.json)。清单结构通过不等于业务通过。
 - 健康百科仍等待正式审核 bundle；临床读取、患者绑定/协议同意/撤回/审计、外部会话、物流/采血号源和公开记录仍等待各自 contract。
@@ -88,6 +88,7 @@
 
 ```powershell
 pnpm migration:readiness
+pnpm check:candidate
 pnpm release:baseline:audit
 pnpm device:evidence:audit --file docs/release/device-evidence-62cdb8f8-pending.json
 pnpm check

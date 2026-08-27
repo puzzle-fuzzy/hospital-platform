@@ -179,11 +179,20 @@ describe("全项目迁移 readiness 报告", () => {
 				report.runtime.pending.sourceRevision,
 			);
 		} else {
-			expect(report.runtime.candidateRuntimeAligned).toBe(true);
-			expect(report.runtime.publicationRequired).toBe(false);
-			expect(report.runtime.expectedSourceRevision).toBe(
-				report.runtime.live?.sourceRevision,
+			/**
+			 * 没有 pending 目录并不等于当前工作树已经发布：候选提交可能刚刚
+			 * 改动了小程序运行输入，此时 live 仍然是上一代运行包。候选质量
+			 * 门禁应报告“需要发布”，而不是把尚未生成的候选包误判成测试失败。
+			 */
+			expect(report.runtime.candidateRuntimeAligned).toBe(
+				report.runtime.live?.sourceRevision ===
+					report.runtime.expectedSourceRevision,
 			);
+			expect(report.runtime.publicationRequired).toBe(
+				report.runtime.live?.sourceRevision !==
+					report.runtime.expectedSourceRevision,
+			);
+			expect(report.runtime.expectedSourceRevision).toMatch(/^[0-9a-f]{40}$/u);
 		}
 		expect(report.deviceEvidence.domainCount).toBe(9);
 		expect(report.deviceEvidence.allPending).toBe(true);

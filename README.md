@@ -56,6 +56,9 @@ pnpm dev
 pnpm check
 ```
 
+`pnpm check:candidate` 是不依赖当前线上 release 的候选质量门禁，覆盖结构、迁移、契约、文档、日志、格式、lint、工具测试、类型检查、全量测试和构建。
+`pnpm check` 会在候选质量门禁之后追加 `release:baseline:audit`，用于确认线上 release、服务端源码和小程序运行包已经完成一致性切换；因此在正常的“候选尚未发布”阶段，前者应通过，后者可以按预期阻断。
+
 `pnpm architecture:audit` 会在完整校验前检查不可妥协的架构边界：Pino 日志入口、schema
 gate、fail-closed 组合根、预约只读路线以及原生小程序 provider 隔离。它是静态漂移检查，
 不能替代 `db:integration`、provider smoke、开发者工具或真机验收。

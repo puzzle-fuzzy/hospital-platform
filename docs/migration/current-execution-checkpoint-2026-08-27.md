@@ -31,7 +31,8 @@ query 参数边界固定下来。这些提交都属于新 API 运行时代码，
 - `pnpm build`：9/9 workspace 通过；
 - 迁移、导航、患者展示、临床关闭态、只读域、Provider 材料、文档和日志静态审计。
 
-`pnpm check` 当前不会整体通过，唯一阻断是 `release:baseline:audit`：它检测到
+`pnpm check:candidate` 已通过；完整 `pnpm check` 当前不会整体通过，唯一阻断是
+其最后追加的 `release:baseline:audit`：它检测到
 线上 release `1bc8b0a8` 之后新增的未部署运行时代码为：
 
 - `apps/api/src/modules/knowledge/index.ts`
@@ -52,7 +53,7 @@ query 参数边界固定下来。这些提交都属于新 API 运行时代码，
 ## 下一步固定顺序
 
 1. 在明确的发布窗口内，只发布当前仓库 `main` 的新 API，先用 `git rev-parse HEAD` 固定候选，再按 systemd 原子切换、preflight、隔离 smoke、readiness 和旧端共存检查执行；不停止旧 Python `8001`。
-2. 只有远端 `current`、公网运行检查和 release 文档都确认后，重新运行 `pnpm release:baseline:audit`；不得先改文档再验收。
+2. 只有远端 `current`、公网运行检查和 release 文档都确认后，重新运行 `pnpm release:baseline:audit`；不得先改文档再验收。候选本地质量门禁使用 `pnpm check:candidate`。
 3. 从当前 live 小程序 `dist` 重新普通编译并生成二维码，采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
 4. 收到正式审核 bundle、临床 contract、患者写入 contract、外部会话 contract 后，再按 B/C/D/E 独立准入；支付/医保/HIS 最后处理。
 

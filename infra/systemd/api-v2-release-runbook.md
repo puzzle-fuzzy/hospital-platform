@@ -48,7 +48,8 @@ sudoers、仓库、聊天记录或日志。若 `visudo` 校验失败，必须删
 
 ## 2. 切换前检查
 
-以下命令由 `ps` 执行。`<sha>` 必须是已经通过本地 `pnpm check` 和独立生产 env smoke 的候选 commit，
+以下命令由 `ps` 执行。`<sha>` 必须是已经通过本地 `pnpm check:candidate` 和独立生产 env smoke 的候选 commit；
+`pnpm release:baseline:audit` 是切换完成后的线上一致性门禁，不能在候选尚未发布时作为候选质量门禁使用。
 `<old-sha>` 必须从切换前的 `readlink -f current` 读取，不能手写猜测。
 
 ```bash
@@ -83,7 +84,8 @@ sha256sum \
 - 新旧 API 是否已经分别监听 `18081` 和 `8001`；
 - 当前公网 `/api/v2/health/ready` 响应；
 - 旧 Python 进程仍由原启动方式运行；
-- 候选 release 的本地 `pnpm check`、临时端口 smoke 和日志文件。
+- 候选 release 的本地 `pnpm check:candidate`、临时端口 smoke 和日志文件；
+- 切换完成后再运行 `pnpm release:baseline:audit`，确认线上 `current` 已指向该候选。
 
 生产 release 的依赖目录可能没有 workspace `@hospital/*` 开发链接，不能在服务器 release 目录直接执行
 `bun build` 或临时 `bun install` 作为发布步骤；必须使用本地构建 bundle，并通过 checksum 证明上传内容
