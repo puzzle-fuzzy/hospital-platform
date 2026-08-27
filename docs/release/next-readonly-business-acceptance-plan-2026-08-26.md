@@ -1,5 +1,7 @@
 # A 批次低风险业务统一验收计划（2026-08-26）
 
+> 当前服务端发布基线（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`；本计划中的业务证据仍须绑定该 release，不能使用历史服务端窗口替代。
+
 ## 结论
 
 本轮下一步不是继续增加页面外壳，而是用同一个小程序候选完成五个低风险域的真实闭环：
@@ -19,8 +21,8 @@
 | --- | --- |
 | 小程序业务候选 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`） |
 | live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 个页面，`runtime:verify` 已通过 |
-| pending 运行包 | 无；发布前候选已通过 `runtime:verify:pending`，发布成功后目录已清理 |
-| 服务端 | 生产 `e5d941ae`，新 Elysia 监听 `10.0.0.3:18081` |
+| pending 运行包 | 当前仍存在同源候选；`runtime:verify:pending` 已通过，因微信开发者工具占用 live `dist` 暂不清理 |
+| 服务端 | 生产 `1107a78a`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
@@ -33,7 +35,7 @@
 
 ## 当前 release baseline 前置门禁
 
-当前九域清单已经绑定 `e5d941ae` 与 `0be59f96`；`pnpm device:evidence:audit --file
+当前九域清单已经绑定 `1107a78a` 与 `0be59f96`；`pnpm device:evidence:audit --file
 docs/release/device-evidence-0be59f96-pending.json` 在进入真机通过判定前会先执行
 `release:baseline:audit`。截至 2026-08-26，仓库门禁已通过，线上服务端已完成
 production preflight、隔离 smoke、原子切换和公网 runtime smoke；服务端候选包含完整的

@@ -1,6 +1,6 @@
 > 当前执行基线（2026-08-24）：线上服务端 release 为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为
 > 当前配套小程序构建来源（2026-08-26）：`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，仅表示本地 live 候选，未证明微信线上版本或真机业务已验收。
-> 当前线上服务端 release（2026-08-26）：`e5d941aef3a8b0d1df24a518bea03f36f2ee505d`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
+> 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 > `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。服务端独立候选已切换，真实真机证据仍待。
 
 # 下一阶段业务门禁执行板（2026-08-20）
@@ -120,7 +120,7 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 
 ## 2026-08-21 当前候选只读业务复核（历史候选）
 
-当前验收基线为服务端 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`、小程序候选 `0be59f96`（完整来源 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`）；
+当前验收基线为服务端 `1107a78a47ac2fbe0557958251d66da9effc66de`、小程序候选 `0be59f96`（完整来源 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`）；
 下方历史代码复核原始记录当时基于服务端 `9f491cb5ac813acf89ed1f2f4afb361517e82324`，只检查代码、领域 contract、adapter、页面状态机和本地测试，
 不代表当前线上服务端 release。当前线上服务端和真机候选以本文顶部基线为准，
 没有调用真实 Provider，没有修改线上配置，也没有把模拟器或历史日志当作真机验收证据。
@@ -214,3 +214,4 @@ live/ready 返回 `no-store`。该结果只证明公网路由边界，不替代�
 - 患者绑定准入草案：[`../migration/patient-binding-contract-draft.md`](../migration/patient-binding-contract-draft.md)
 - 医保/支付最后专项：[`../migration/payment-contract.md`](../migration/payment-contract.md)
 > 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。
+> 当前服务端发布基线（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`；本执行板禁止使用历史 release 作为当前验收依据。

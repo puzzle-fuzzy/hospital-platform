@@ -8,14 +8,14 @@
 
 | 项目 | 当前事实 | 不能据此推出 |
 | --- | --- | --- |
-| 新 API release | `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`（`e5d941ae`） | Provider、微信真机、支付或医保业务已经成功 |
+| 新 API release | `1107a78a47ac2fbe0557958251d66da9effc66de`（`1107a78a`） | Provider、微信真机、支付或医保业务已经成功 |
 | 新 API 监听 | `10.0.0.3:18081`，systemd `hospital-platform-api-v2.service=active` | 旧服务已被替换 |
 | 旧 Python 服务 | `0.0.0.0:8001`，继续共存 | 新 API 与旧 API 使用相同业务实现 |
 | Worker | `hospital-platform-worker-v2.service=inactive` | 支付、医保或 HIS 回写已经执行 |
 | 生产依赖 | MySQL、Redis、schema probe 均为 `ok` | 业务 Provider 字段或业务状态一定正确 |
 | 当前微信线上小程序 | 历史运行包 `13f597e` | 可以拿线上历史包证明本地候选真机结果 |
 | 当前本地 live 小程序 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`），40 个页面 | 微信线上版本已经上传或真机已经加载 |
-| live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过，发布后无 pending 目录 | 开发者工具一定已经重新编译当前目录 |
+| live 目录 | `apps/miniprogram/dist/`，`runtime:verify` 已通过；同源 pending 候选仍保留，待微信开发者工具完全退出后再清理或重新发布 | 开发者工具一定已经重新编译当前目录 |
 
 服务端 release 已完成 production preflight、隔离 runtime smoke、原子切换和公网 runtime smoke；
 这些是运行层证据。旧 Python `8001` 在切换过程中没有停止、重启或修改。
@@ -39,7 +39,7 @@
 不增加微信登录、Provider、真机业务或支付/医保证据。后续若证书、域名或 Nginx 转发再次变化，
 必须先完成无 `-k` 的 TLS 验证，再生成新的真机证据。
 
-本次运行层 smoke 的证据时间为 `2026-08-27 09:43 CST`。它只覆盖公网传输、路由、依赖就绪、认证拒绝和关闭边界；
+本次运行层 smoke 的证据时间为 `2026-08-27 10:03 CST`。它只覆盖公网传输、路由、依赖就绪、认证拒绝和关闭边界；
 没有登录微信、读取患者、访问 Provider 或触碰支付/医保数据，因此不能替代九个真机业务域的三层证据。
 
 ## 2. 迁移范围事实
@@ -60,7 +60,8 @@
 
 ## 3. 当前门禁与未完成项
 
-- `pnpm check` 已通过：架构、迁移台账、边界、契约材料、日志、错误码、发布基线、类型检查、测试和构建均通过。
+- API 定向验证已通过：测试 `213 pass / 0 fail / 899 expect()`、TypeScript 检查和 Biome 检查均通过。
+- 本轮没有把全仓 `pnpm check` 写成通过：此前全仓前置审计、工具测试、workspace 类型检查和 workspace 测试已通过，但小程序构建阶段曾因微信开发者工具占用 `apps/miniprogram/dist/` 返回 `EBUSY`；关闭占用进程后仍需重新运行完整门禁。
 - 当前小程序回归为 `336 pass / 0 fail / 3697 expect()`；这是代码和运行包证据，不是微信真机业务证据。
 - 九个真机证据域仍为 `pending`，见 [`device-evidence-0be59f96-pending.json`](device-evidence-0be59f96-pending.json)。清单结构通过不等于业务通过。
 - 健康百科仍等待正式审核 bundle；临床读取、患者绑定/协议同意/撤回/审计、外部会话、物流/采血号源和公开记录仍等待各自 contract。

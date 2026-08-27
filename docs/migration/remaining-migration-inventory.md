@@ -1,5 +1,5 @@
-> 当前服务端 release 为 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`（提交 `e5d941ae`）；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本地最新业务源码和 live 运行输入均为 `0be59f96`，完整来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，已完成运行包校验和原子发布。
-> 当前线上服务端 release（2026-08-27）：`e5d941aef3a8b0d1df24a518bea03f36f2ee505d`，已完成候选 preflight、隔离 smoke、原子切换、公网 runtime smoke 和 HTTPS 证书校验；该运行层证据不等价于真实 Provider 或支付业务成功。
+> 当前服务端 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`（提交 `1107a78a`）；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本地最新业务源码和 live 运行输入均为 `0be59f96`，完整来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，已完成运行包校验和原子发布。
+> 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换、公网 runtime smoke 和 HTTPS 证书校验；该运行层证据不等价于真实 Provider 或支付业务成功。
 
 > **当前回归复核（2026-08-27）**：当前 live 小程序全量回归为 `336 pass / 0 fail / 3697 expect()`；下方旧段落中仍出现的旧测试数字仅是前一轮候选记录，不覆盖本条当前事实。
 

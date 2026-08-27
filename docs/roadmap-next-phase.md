@@ -2186,7 +2186,7 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 ## 本次立即执行项
 
-当前执行项绑定服务端 release `e5d941aef3a8b0d1df24a518bea03f36f2ee505d` 与小程序来源
+当前执行项绑定服务端 release `1107a78a47ac2fbe0557958251d66da9effc66de` 与小程序来源
 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（提交 `0be59f96`）；下方历史 release 不得作为本轮真机或业务证据。
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；

@@ -1,5 +1,5 @@
-> 当前事实（2026-08-26）：线上服务端 release 为 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/e5d941ae-production-acceptance-2026-08-26.md`](release/e5d941ae-production-acceptance-2026-08-26.md)。
-> 当前线上服务端 release（2026-08-26）：`e5d941aef3a8b0d1df24a518bea03f36f2ee505d`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
+> 当前事实（2026-08-27）：线上服务端 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](release/candidate-1107a78a-production-acceptance-2026-08-27.md)。
+> 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 
 > 当前运行相关源码候选为 `0be59f96`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具规则版本，并收紧共享患者外壳的 owner 证明、会话代际和账号切换清理；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。

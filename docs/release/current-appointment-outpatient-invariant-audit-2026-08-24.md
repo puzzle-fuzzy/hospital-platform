@@ -1,6 +1,6 @@
 # 当前预约历史与门诊费用不变量审计（2026-08-24）
 > 当前配套小程序构建来源（2026-08-26）：`0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，仅表示本地 live 候选，未证明微信线上版本或真机业务已验收。
-> 当前线上服务端 release（2026-08-26）：`e5d941aef3a8b0d1df24a518bea03f36f2ee505d`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
+> 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 
 > 当前服务端 release：`28a5c0c131794ce9dcc5f94bd3809402188ac87a`；当前小程序运行包来源：
 > `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本记录只审计只读业务链和代码回归，
