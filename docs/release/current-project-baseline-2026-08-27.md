@@ -33,10 +33,14 @@
 - 已添加 Certbot deploy hook，续期成功后只执行 Nginx 平滑 reload，不停止旧 Python 进程。
 - `nginx -t` 通过，公网无 `-k` TLS 校验返回 `Verify return code: 0`；live、ready、ping 均返回 HTTP 200。
 - Certbot 自动续期定时器为 active；证书续期仍需在到期前通过公网无跳过校验复核，不能只看本机文件日期。
+- 证书切换后以 `NODE_ENV=production` 运行公网 runtime smoke：live、连续 3 次 ready、system ping、未登录认证边界和关闭边界均通过；服务端 journald 能按同一 `requestId/traceId` 看到 `production` 请求完成/失败事件。
 
 因此，当前 HTTPS 已恢复为可继续验收状态，但这次证书修复只证明传输层恢复，
 不增加微信登录、Provider、真机业务或支付/医保证据。后续若证书、域名或 Nginx 转发再次变化，
 必须先完成无 `-k` 的 TLS 验证，再生成新的真机证据。
+
+本次运行层 smoke 的证据时间为 `2026-08-27 09:43 CST`。它只覆盖公网传输、路由、依赖就绪、认证拒绝和关闭边界；
+没有登录微信、读取患者、访问 Provider 或触碰支付/医保数据，因此不能替代九个真机业务域的三层证据。
 
 ## 2. 迁移范围事实
 
