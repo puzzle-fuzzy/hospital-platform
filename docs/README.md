@@ -157,6 +157,7 @@
 | [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md) | 小程序运行包发布、回滚、dist 锁定保护和真机证据入口；当前 live 运行包以 `build-info.json` 为准 |
 | [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md) | 当前 `0be59f96` 候选的共享患者会话边界、构建/pending 校验、原子发布和真机证据边界 |
 | [`release/current-report-readonly-audit-2026-08-27.md`](release/current-report-readonly-audit-2026-08-27.md) | 报告目录、LIS 受限详情、患者/owner 作用域、短期引用、日志和当前 gate 的独立逻辑审计 |
+| [`release/current-outpatient-payment-readonly-audit-2026-08-27.md`](release/current-outpatient-payment-readonly-audit-2026-08-27.md) | 门诊缴费只读列表的状态、金额、时间窗口、患者归属、日志脱敏和支付/医保关闭边界 |
 | [`release/current-readonly-business-audit-2026-08-25.md`](release/current-readonly-business-audit-2026-08-25.md) | 当前只读业务迁移审计、服务器共存核对、未注册能力和下一步真实证据顺序 |
 | [`release/current-readonly-business-observation-2026-08-26-1144.md`](release/current-readonly-business-observation-2026-08-26-1144.md) | 2026-08-26 24 小时低敏业务观察、服务端门禁结果和 journald 权限/pipefail 失败边界；不替代真机证据 |
 | [`release/current-miniprogram-closure-2026-08-26.md`](release/current-miniprogram-closure-2026-08-26.md) | 2026-08-26 小程序 40 页、4 个原生 Tab、导航/展示审计和 324 项核心测试的闭环复核；明确发布基线、真机和健康内容阻塞 |
