@@ -129,6 +129,32 @@ describe("App 全局个人资料仓库", () => {
 		expect(globalData.userProfileConsentPromise).toBeNull();
 	});
 
+	test("App.onLaunch 传入实例时不依赖 getApp()", async () => {
+		const globalData = {
+			userProfile: {
+				status: "ready" as const,
+				ownerId: "owner-app-launch-test",
+				sessionGeneration: getSessionGeneration(),
+				serverDisplayName: "启动阶段用户",
+				displayName: "启动阶段用户",
+				gender: "unknown" as const,
+				age: null,
+				email: null,
+				version: 0,
+				avatarUrl: "",
+				wechatProfileState: "idle" as const,
+				wechatProfileHint: "",
+				error: "",
+			},
+		};
+		delete runtime.getApp;
+
+		const state = await ensureGlobalUserProfile({ globalData });
+
+		expect(state.ownerId).toBe("owner-app-launch-test");
+		expect(state.displayName).toBe("启动阶段用户");
+	});
+
 	test("多个主 Tab 启动时只读取一次服务端资料并复用全局快照", async () => {
 		const globalData = {
 			apiBaseUrl: "https://test-hp.meiyi.pro",

@@ -90,7 +90,10 @@ App<{ globalData: AppGlobalData }>({
 		// 一条 Promise，不再把首页、我的页或资料页的 onLoad 当作初始化入口。
 		// 失败会沉淀到全局 error 状态，页面仍可提供明确的重试，不会形成未处理
 		// Promise，也不会把错误详情或用户资料写入控制台。
-		void ensureGlobalUserProfile().catch((error: unknown) => {
+		// 这里必须显式传入当前 App 实例。微信执行 App.onLaunch 时，getApp()
+		// 可能尚未注册完成；资料仓库若在此刻反查 getApp()，会在首屏前因
+		// `globalData` 读取 undefined 而中断整个小程序启动。
+		void ensureGlobalUserProfile(this).catch((error: unknown) => {
 			console.warn(
 				"[医院小程序] 全局用户资料初始化未完成，页面保留重试状态；errorType=",
 				error instanceof Error ? error.name : "unknown",

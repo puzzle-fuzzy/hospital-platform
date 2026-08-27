@@ -67,7 +67,15 @@ const EMPTY_PROFILE_STATE: GlobalUserProfileState = Object.freeze({
 type ProfileListener = (state: GlobalUserProfileState) => void;
 
 let profileBootstrapInFlight: Promise<GlobalUserProfileState> | null = null;
-type AppGlobalDataWithProfile = {
+/**
+ * 资料仓库访问的 App 容器最小接口。
+ *
+ * App.onLaunch 执行期间不能假设 `getApp()` 已经能反查到当前实例，因此
+ * 启动入口必须把自己的 `globalData` 显式传入；页面 CommonJS bundle 则
+ * 继续通过 `getApp()` 取得同一份对象。这里只声明资料仓库需要的字段，
+ * 不把 API、患者或 provider 身份扩散到跨 bundle 的状态桥里。
+ */
+export type GlobalUserProfileApp = {
 	globalData: {
 		userProfile: GlobalUserProfileState;
 		/** App.onLaunch 与页面模块共享的唯一资料初始化 Promise。 */
@@ -81,8 +89,36 @@ type AppGlobalDataWithProfile = {
 	};
 };
 
-function globalData(): AppGlobalDataWithProfile["globalData"] {
-	return (getApp() as unknown as AppGlobalDataWithProfile).globalData;
+/** App IIFE 在 onLaunch 期间暂存的实例；页面 bundle 不会共享模块变量。 */
+let launchApp: GlobalUserProfileApp | null = null;
+
+function globalData(
+	app?: GlobalUserProfileApp,
+): GlobalUserProfileApp["globalData"] {
+	if (app) {
+		launchApp = app;
+		return app.globalData;
+	}
+
+	// 页面脚本优先从微信容器获取最新实例；这也避免单元测试或热重载时
+	// 误复用上一次调用留下的 App 引用。App.onLaunch 中 getApp() 可能尚未
+	// 就绪，此处失败后再回退到显式传入的 launchApp。
+	try {
+		if (typeof getApp === "function") {
+			const currentApp = getApp() as unknown as GlobalUserProfileApp;
+			if (currentApp?.globalData) {
+				launchApp = currentApp;
+				return currentApp.globalData;
+			}
+		}
+	} catch {
+		// App 容器尚未完成注册时由下面的显式启动实例兜底。
+	}
+
+	if (launchApp?.globalData) return launchApp.globalData;
+	throw new Error(
+		"Global user profile requires an initialized WeChat App instance",
+	);
 }
 
 /**
@@ -231,7 +267,12 @@ function canAuthorizeWechatProfile(state: GlobalUserProfileState): boolean {
  * `/me/profile`，最后再次读取 `/me` 确认 owner 没有在等待期间变化。所有
  * 页面复用同一个 Promise；因此原生 Tab 切换只消费快照，不会重复读取资料。
  */
-export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
+export function ensureGlobalUserProfile(
+	app?: GlobalUserProfileApp,
+): Promise<GlobalUserProfileState> {
+	// 必须在第一次读取资料前记录 App.onLaunch 传入的实例；否则下面的
+	// `getGlobalUserProfile()` 会在微信启动窗口内错误地再次调用 getApp()。
+	if (app) globalData(app);
 	const current = getGlobalUserProfile();
 	if (
 		current.status === "ready" &&
