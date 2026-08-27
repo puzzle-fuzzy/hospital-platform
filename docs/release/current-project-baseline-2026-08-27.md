@@ -88,4 +88,4 @@ pnpm check
 ```
 
 其中真机清单在全部 `pending` 时只能完成结构审计；出现 `passed` 或 `failed` 前，必须先确认当前发布基线仍通过。
-> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27 13:12 CST）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

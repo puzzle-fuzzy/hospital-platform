@@ -18,7 +18,7 @@
 
 ## 1. 当前版本与运行边界
 
-- 服务端当前已验证 release：`90d8910bdc54d48dde66c4ff03a7434c182ebd92`。
+- 服务端当前已验证 release：`1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`。
 - 小程序运行包来源：`90d8910bdc54d48dde66c4ff03a7434c182ebd92`，40 个页面入口完整，`dist/` 不含 `*.test.js` 或 `*.spec.js`。
 - 新 API：`10.0.0.3:18081`，systemd 状态为 `active`。
 - 旧 Python API：`0.0.0.0:8001`，仍在监听，旧 Gunicorn PID 未发生变化。
@@ -66,7 +66,7 @@
 - 工具测试：`53 pass / 0 fail / 133 expects`；
 - 原生小程序：`221 pass / 0 fail / 1640 expects`；
 - 运行包核验：`runtime:verify` 通过，14 个页面脚本齐全，`single-flight.test.js` 不存在于 `dist/`；
-- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `90d8910bdc54d48dde66c4ff03a7434c182ebd92` 和小程序 `90d8910b`（完整来源 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`）。
+- 文档链接审计：Markdown 文档无断链；发布基线指向服务端 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240` 和小程序 `90d8910b`（完整来源 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`）。
 
 服务器切换后的低敏日志窗口仍为：`parsedRecords=25`、`parseErrors=0`、`systemdWarningCount=0`、`providerRequestIdCount=0`，只包含基础设施域的健康/鉴权/关闭边界 smoke。当前没有新的真实微信、患者切换、预约历史、爽约或门诊费用业务事件；这表示“证据尚未产生”，不是 Provider 成功或失败。
 
@@ -79,7 +79,7 @@
 - `GET https://test-hp.meiyi.pro/api/v2/system/ping`：`200`；
 - 未携带会话的 `GET /api/v2/me`：`401 unauthorized`；
 - `pnpm --filter @hospital/miniprogram test`：`221 pass / 0 fail / 1640 expects`；
-- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `90d8910b` 与小程序 `90d8910b`；本轮无开发者工具或真机业务会话。
+- `pnpm release:baseline:audit` 与 `pnpm docs:audit`：均通过，当前来源为服务端 `1bc8b0a8` 与小程序 `90d8910b`；本轮无开发者工具或真机业务会话。
 
 本轮早先使用无交互方式对 `ps@192.168.112.172` 和 `ps@8.130.127.184` 做只读 SSH 连接时，均因当前环境返回 `Permission denied` 未进入服务器；随后通过已授权的交互式只读连接完成了下面的日志复核。早先失败的连接没有执行任何线上写入、部署或重启。
 
@@ -120,4 +120,4 @@
 
 开发者工具若再次报 `dist/services/single-flight.test.js`，不得复制测试脚本进入运行包；该路径说明工具仍持有旧增量索引，应关闭工具、重新构建、重新导入项目并重新生成二维码。
 > 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。
-> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27 13:12 CST）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

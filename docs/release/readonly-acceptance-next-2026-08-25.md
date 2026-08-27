@@ -132,4 +132,4 @@ HOSPITAL_API_PREFIX="/api/v2" \
 默认只读能力不包含 `patient-sync`、支付、医保、预约写入、退款和 HIS 写回。执行结束后，验收
 记录必须同时保存客户端 `requestId`、服务端 `traceId`/业务事件和 Provider 脱敏请求号；任一层缺失，
 只能记录为“待补证据”。
-> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27 13:12 CST）：服务端 release 为 `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
