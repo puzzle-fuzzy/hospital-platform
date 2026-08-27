@@ -19,6 +19,27 @@
 - `pnpm provider:audit`：4 份 Provider 接收记录、31 个 `documentId` 的来源和脱敏边界通过；
 - `pnpm docs:audit`、`pnpm release:baseline:audit`：文档无断链，线上 API `b44421cd` 与小程序 live `d4f6748` 基线一致。
 
+### 2026-08-27 19:21 线上运行层复核
+
+通过只读 SSH 在中转服务器 `192.168.112.172` 上复核了新旧服务共存状态：
+
+- 新 API `hospital-platform-api-v2.service` 为 `active/running`，生产进程绑定
+  `10.0.0.3:18081`；直接访问该绑定地址的 `/health/live` 和 `/health/ready`
+  均返回 `200`，database、Redis、schema 均为 `ok`。
+- 公网转发 `https://test-hp.meiyi.pro/api/v2/health/live` 和 `/ready` 均返回
+  `200`；因此当前公网转发、TLS 和新 API 监听链路正常。
+- 旧 Gunicorn 仍监听 `0.0.0.0:8001`；Worker unit 保持 `inactive`。本次只读核验
+  没有修改、停止或重启旧服务。
+- 新 API 日志在 `19:12` 观察到真机链路的 `/me`、普通资料和患者目录读取成功；随后
+  患者同步两次进入 `patient-list` Provider 请求并以可重试的 `503` 结束。该失败链
+  已记录平台 `traceId`、Provider 操作分类和 `providerRetryable=true`，没有记录患者号、
+  Provider 原文或凭证；它证明上游同步当时失败，不证明当前患者目录为空，也不构成
+  预约、报告、费用或真机整域验收证据。
+
+这条运行层观察与代码门禁、运行包来源和真机页面证据分开保存。后续若继续排查患者同步，
+应在同一平台 `traceId` 下取得 Provider 网关侧的可用请求记录；不能通过放宽校验、复制旧
+接口或把同步失败降级为空目录来“修复”页面。
+
 本轮没有修改旧项目、旧 Python 服务、旧数据库或旧 Redis。后续若没有正式健康审核
 bundle、临床/患者/外部 contract，不能通过继续写页面的方式替代业务材料；当前下一项实际动作
 是让手机扫描本轮二维码并完成患者显式切换、预约历史/爽约、门诊费用和普通资料的真机三层取证。
