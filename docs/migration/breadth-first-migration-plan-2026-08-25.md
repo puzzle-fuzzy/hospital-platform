@@ -25,7 +25,7 @@
 | --- | --- |
 | 旧端页面扫描 | 64 个 Vue 页面 |
 | 新端页面注册 | 40 个页面；前 4 个由微信原生 TabBar 管理，另含健康百科、协议原文、7 个临床内容、3 个外部入口、2 个预约 Provider 和 3 个患者域页面外壳 |
-| 当前运行输入 | live 与同源 pending 均为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；pending 因微信开发者工具占用 `dist` 尚未替换 live |
+| 当前运行输入 | live 为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；同源 pending 已在释放微信开发者工具锁后原子发布，pending 目录已清理 |
 | 当前 live 运行包 | `apps/miniprogram/dist/` 来源为 `0be59f96`，`runtime:verify` 已通过 |
 | 真机取证入口 | 发布 `0be59f96` 后从新的 live `dist` 普通编译并生成二维码；九个证据域仍为 `pending` |
 | 旧服务 | Python `8001` 未修改、未停止；本轮只修改新项目 |
@@ -43,7 +43,7 @@
 | 小程序运行包发布 | 已完成 | `0be59f96` 已完成原子发布并通过 `runtime:verify`；后续需从当前 live `dist` 重新编译取证 |
 | 入口/边界/只读/Provider/日志审计 | 通过 | 64 个旧页面、34 个冻结入口 gate、5 个只读域和 84 个日志事件均有登记 |
 | 跨页面入口分发审计 | 通过 | 首页 22 个、我的 9 个可见 action 均有固定分支；状态页 key、四个主 Tab 和 40 个页面的 WXML 事件方法均已校验 |
-| 已验证测试 | 通过 | 当前小程序回归为 `336 pass / 0 fail / 3697 expect()`；API 定向测试、类型检查和 Biome 通过；全仓 `pnpm check` 仍待释放 `dist` 锁后重跑 |
+| 已验证测试 | 通过 | 当前小程序回归为 `336 pass / 0 fail / 3697 expect()`；API 定向测试、类型检查和 Biome 通过；全仓 `pnpm check` 已在释放 `dist` 锁并同步发布基线测试夹具后重跑 |
 
 冻结入口 gate 现在还按 A–F 批次机器归类：A=4、B=0（健康内容独立审核队列）、C=4、D=11、E=8、F=7。D 的患者写入领域基础另覆盖 12 个计划能力，其中 `patient-address` 尚未暴露旧页面或 action，因此不计入冻结 gate。任何 gate 缺少批次都会让 `migration:boundary:audit` 和 `migration:readiness` 失败，避免后续只更新文档范围而漏掉执行队列。
 

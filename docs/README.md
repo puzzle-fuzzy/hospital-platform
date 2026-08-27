@@ -28,7 +28,7 @@
 
 > **当前全量迁移交接单（2026-08-26）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。最新运行相关源码和本地 live 运行输入均为 `0be59f96`；64 个旧页面均有明确落点，其中 8 个已替换、23 个安全 `partial` 子集、25 个 `surface-only` 页面外壳、7 个支付/回写入口仍按阻断原因关闭；健康自测仅开放 BMI/血压安全数值子集，今日预约摘要不冒充实时状态，协议正文已可读，但同意/撤回/审计仍关闭。本轮补齐共享患者外壳的 owner 证明、会话代际和账号切换清理，保留公共日期窗口、微信资料拒绝后的设置页重试、选择页刷新并发门禁和我的快递三态，并保留患者绑定/签名页查看协议原文安全入口；本页下方历史候选只作追溯。完整候选证据以 [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md)、[`release/device-evidence-0be59f96-pending.json`](release/device-evidence-0be59f96-pending.json) 和 live 的 `build-info.json` 为准。
 
-> **当前仓库交接基线（2026-08-26）**：本地 live 运行输入为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，发布前 pending 包已完成独立静态校验，发布后 `runtime:verify` 通过；全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上服务部署记录。
+> **当前仓库交接基线（2026-08-27）**：本地 live 运行输入为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，同源 pending 包已完成独立静态校验，并在释放微信开发者工具锁后原子发布；发布后 `runtime:verify` 通过，pending 目录已清理。全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上服务部署记录。
 
 > **当前 live 运行包**：`apps/miniprogram/dist/build-info.sourceRevision=0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页；live `runtime:verify` 已通过。回归为 `336 pass / 0 fail / 3697 expect()`；发布前 pending 目录已清理，发布和回滚步骤仍见 [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md)。
 
@@ -154,8 +154,8 @@
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
 | [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上服务端为 `1107a78a`，线上历史小程序包为 `13f597e`，当前本地 live `dist` 为 `0be59f96` |
 | [`migration/patient-agreement-static-migration-2026-08-26.md`](migration/patient-agreement-static-migration-2026-08-26.md) | 使用条款静态迁移、旧端无接口核对、协议同意 contract 的关闭边界和本候选验证记录 |
-| [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md) | 当前 `0be59f96` pending 运行包发布、dist 锁定保护和真机证据入口；发布后的 live 运行包以 `build-info.json` 为准 |
-| [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md) | 当前 `0be59f96` 候选的共享患者会话边界、pending 校验、原子发布阻塞和真机证据边界 |
+| [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md) | 小程序运行包发布、回滚、dist 锁定保护和真机证据入口；当前 live 运行包以 `build-info.json` 为准 |
+| [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md) | 当前 `0be59f96` 候选的共享患者会话边界、构建/pending 校验、原子发布和真机证据边界 |
 | [`release/current-report-readonly-audit-2026-08-27.md`](release/current-report-readonly-audit-2026-08-27.md) | 报告目录、LIS 受限详情、患者/owner 作用域、短期引用、日志和当前 gate 的独立逻辑审计 |
 | [`release/current-readonly-business-audit-2026-08-25.md`](release/current-readonly-business-audit-2026-08-25.md) | 当前只读业务迁移审计、服务器共存核对、未注册能力和下一步真实证据顺序 |
 | [`release/current-readonly-business-observation-2026-08-26-1144.md`](release/current-readonly-business-observation-2026-08-26-1144.md) | 2026-08-26 24 小时低敏业务观察、服务端门禁结果和 journald 权限/pipefail 失败边界；不替代真机证据 |

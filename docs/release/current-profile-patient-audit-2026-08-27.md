@@ -33,22 +33,22 @@
 | 检查 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm migration:readiness` | 通过结构审计 | 入口、只读域和页面事件结构通过；真实 Provider、真机和高风险写入仍按报告保持未完成 |
-| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页，运行包文件完整 |
-| `pnpm --filter @hospital/miniprogram build` | 发布阶段被 `EBUSY` 阻断 | TypeScript 检查已通过；微信开发者工具仍占用 live `dist`，构建器已保留完整 pending 候选 |
-| live 与 pending 来源 | 一致 | live 与 pending 均为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，没有半套运行包 |
+| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页，运行包文件完整 |
+| `pnpm --filter @hospital/miniprogram build` | 发布阶段曾被 `EBUSY` 阻断 | TypeScript 检查已通过；随后释放项目进程锁并通过 `runtime:publish-pending` 完成原子发布 |
+| `runtime:publish-pending` + `runtime:verify` | 通过 | pending 已清理，live 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页 |
 
 ## 4. 当前运行包锁处理
 
 本轮构建尝试时，Windows 仍观察到标题为 `hospital-platform-runtime - 微信开发者工具` 的主进程 PID `36144` 及其子进程；`apps/miniprogram/dist` 因文件句柄占用无法原子替换。该事实与用户界面是否可见无关，不能通过删除 `dist`、复制测试脚本或强行覆盖来绕过。
 
-正确处理顺序：
+本轮实际处理结果：
 
-1. 完全退出当前小程序项目窗口和真机调试会话；
-2. 确认 `wechatdevtools.exe` 不再持有本项目运行包；
-3. 执行 `pnpm --filter @hospital/miniprogram runtime:publish-pending`；
-4. 执行 `pnpm --filter @hospital/miniprogram runtime:verify`，然后再从当前 `dist` 普通编译和生成二维码。
+1. 确认用户没有正在使用的项目会话，并识别出项目主进程 PID `36144` 及其子进程；
+2. 只结束该项目进程树，不碰其它微信开发者工具实例；
+3. 执行 `pnpm --filter @hospital/miniprogram runtime:publish-pending` 成功；
+4. 执行 `pnpm --filter @hospital/miniprogram runtime:verify` 成功，确认 40 页和来源指纹完整。
 
-在锁释放前，live `dist` 保持原样，pending 候选可以继续用于只读校验，但不能写成已完成的真机发布证据。
+锁释放前 live `dist` 保持原样；锁释放后只通过原子发布器切换，未删除、手工复制或半套覆盖运行包。
 
 ## 5. 未完成项与下一步
 
