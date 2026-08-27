@@ -1,7 +1,7 @@
 # 就诊人协议静态页面迁移记录（2026-08-26）
 
 > 本文记录协议静态页当时的迁移实现，不是业务验收证明。文中历史 pending 构建数字
-> 只用于追溯；当前线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；最新小程序运行包以 `805c54ea9fa943385ad6feebed1401d521fbad3c` 和
+> 只用于追溯；当前线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；最新小程序运行包以 `76ca0137ea9a57b8b7ed9c8797bb718040535922` 和
 > [`release/candidate-413cbea-miniprogram-runtime-2026-08-27.md`](../release/candidate-413cbea-miniprogram-runtime-2026-08-27.md)
 > 为准，已原子发布到本地 live `dist`，协议同意、撤回和审计仍未开放。
 

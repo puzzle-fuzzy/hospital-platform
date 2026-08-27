@@ -1,4 +1,4 @@
-> 当前配套小程序运行包（2026-08-27）：本地 live `dist` 的 sourceRevision 为 `805c54ea9fa943385ad6feebed1401d521fbad3c`（`805c54e`），共 40 个页面；当前没有运行中的微信开发者工具或真机会话，九个真机证据域仍为 `pending`。本文下方历史候选仅作追溯。
+> 当前配套小程序运行包（2026-08-27）：本地 live `dist` 的 sourceRevision 为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`（`76ca013`），共 40 个页面；当前没有运行中的微信开发者工具或真机会话，九个真机证据域仍为 `pending`。本文下方历史候选仅作追溯。
 
 # 小程序 pending 运行包安全发布手册（2026-08-26）
 
@@ -10,7 +10,7 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| live 运行包来源 | `805c54ea9fa943385ad6feebed1401d521fbad3c`，40 个页面；`runtime:verify` 通过 |
+| live 运行包来源 | `76ca0137ea9a57b8b7ed9c8797bb718040535922`，40 个页面；`runtime:verify` 通过 |
 | pending 候选来源 | 无；发布成功后 pending 目录已按发布器约定清理 |
 | pending 目录 | 不存在；发布前静态校验已通过 |
 | 发布结果 | 已原子切换到 live `dist`；没有手工覆盖或修改来源指纹 |
@@ -90,7 +90,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 ## 发布成功后的验收顺序
 
-发布只证明运行包切换，不证明业务完成。当前应从已切换的 `805c54e` live `dist`
+发布只证明运行包切换，不证明业务完成。当前应从已切换的 `76ca013` live `dist`
 重新生成二维码，再按以下顺序逐域采证：
 
 ```text
@@ -106,4 +106,4 @@ pnpm --filter @hospital/miniprogram runtime:verify
 每个域都必须同时留下页面状态、客户端 `requestId`、Elysia/Pino 低敏事件以及适用时的
 Provider request id。HTTP 200、空列表、页面可打开或 `runtime:verify` 通过，均不能单独
 把业务状态标记为完成。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

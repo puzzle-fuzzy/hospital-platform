@@ -19,24 +19,24 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序业务候选 | `805c54ea9fa943385ad6feebed1401d521fbad3c`（`805c54e`） |
-| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，40 个页面，`runtime:verify` 已通过 |
+| 小程序业务候选 | `76ca0137ea9a57b8b7ed9c8797bb718040535922`（`76ca013`） |
+| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`，40 个页面，`runtime:verify` 已通过 |
 | pending 运行包 | 当前无 pending 目录；后续源码变化必须重新构建并通过原子发布流程 |
 | 服务端 | 生产 `b44421cd`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
 
-上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前 live 候选已创建新的九域清单 [`device-evidence-805c54ea-pending.json`](device-evidence-805c54ea-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
+上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前 live 候选已创建新的九域清单 [`device-evidence-76ca0137-pending.json`](device-evidence-76ca0137-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
 
-本次运行包来源为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，发布后以 live `build-info.json` 的同一来源指纹为准。
+本次运行包来源为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`，发布后以 live `build-info.json` 的同一来源指纹为准。
 
 本次候选切换已完成。现在必须从 live `dist` 重新普通编译并生成二维码；不能把历史二维码、旧 live 运行包或已经清理的 pending 目录当成真机包。
 
 ## 当前 release baseline 前置门禁
 
-当前九域清单已经绑定 `b44421cd` 与 `805c54e`；`pnpm device:evidence:audit --file
-docs/release/device-evidence-805c54ea-pending.json` 在进入真机通过判定前会先执行
+当前九域清单已经绑定 `b44421cd` 与 `76ca013`；`pnpm device:evidence:audit --file
+docs/release/device-evidence-76ca0137-pending.json` 在进入真机通过判定前会先执行
 `release:baseline:audit`。截至 2026-08-27，结构、代码、文档和发布基线门禁已通过；线上服务端已完成
 production preflight、隔离 smoke、原子切换和公网 runtime smoke，当前 release 为 `b44421cd`。
 

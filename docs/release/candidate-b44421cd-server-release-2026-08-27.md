@@ -1,6 +1,6 @@
 # 服务端独立候选 `b44421cd` 发布记录（2026-08-27）
 
-> 本候选只更新新 Bun/Elysia API 运行包，不上传微信线上小程序版本；配套小程序为本地 live `805c54e`。
+> 本候选只更新新 Bun/Elysia API 运行包，不上传微信线上小程序版本；配套小程序为本地 live `76ca013`。
 > 本记录证明候选构建、真实生产依赖、隔离 smoke 和新旧服务共存切换，不替代真实微信、患者、Provider、支付或医保业务证据。
 
 ## 候选来源
@@ -8,8 +8,8 @@
 | 项目 | 值 |
 | --- | --- |
 | 服务端 release | `b44421cd321ff9ff23eeb49b12641d1772d2bdc1` |
-| 小程序客户端 | `805c54e` |
-| 小程序构建来源 | `805c54ea9fa943385ad6feebed1401d521fbad3c` |
+| 小程序客户端 | `76ca013` |
+| 小程序构建来源 | `76ca0137ea9a57b8b7ed9c8797bb718040535922` |
 | 服务端运行时变化 | 健康知识关系查询增加 `kind`/`id` 白名单和固定失败校验原因日志；不记录查询值 |
 | 数据库 schema | 未新增 migration；继续使用线上已验证 `0016_patient_directory_sync_owner_index` |
 | Worker | 未启动，继续保持 inactive |
@@ -31,7 +31,7 @@
 
 ## 发布前门禁
 
-- `pnpm check:candidate` 通过：结构、迁移、契约、文档、日志、Biome、工具测试、9 个 workspace 类型检查、测试和构建均通过；工具测试为 `108 pass / 0 fail / 763 expect()`，API 为 `216 pass / 0 fail / 907 expect()`，小程序为 `341 pass / 0 fail / 3728 expect()`。本次小程序修复不改变服务端 release 内容。
+- `pnpm check:candidate` 通过：结构、迁移、契约、文档、日志、Biome、工具测试、9 个 workspace 类型检查、测试和构建均通过；工具测试为 `108 pass / 0 fail / 763 expect()`，API 为 `216 pass / 0 fail / 907 expect()`，小程序为 `341 pass / 0 fail / 3730 expect()`。本次小程序修复不改变服务端 release 内容。
 - 使用服务器既有 `shared/api.env` 的真实 production preflight 通过：MySQL、Redis、schema 均为 `ok`；微信身份、患者目录、预约目录/历史和门诊费用配置完整；支付、报告 gate 继续关闭。
 - 候选在 `127.0.0.1:18082` 以 `environment=production` 启动，live、连续 3 次 ready、system ping、未登录边界 401 和关闭能力 404 全部通过；隔离进程已清理。
 - 没有执行 migration、Redis 清理、真实 Provider、支付、医保或 HIS 写入。

@@ -1,12 +1,12 @@
-> 当前事实（2026-08-27）：线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/candidate-b44421cd-production-acceptance-2026-08-27.md`](release/candidate-b44421cd-production-acceptance-2026-08-27.md)。
+> 当前事实（2026-08-27）：线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码与本地 live 运行输入为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`，共 40 个页面，核心回归通过。该运行包已原子发布到本地 `dist`，真机业务三层证据仍待。服务端切换证据见 [`release/candidate-b44421cd-production-acceptance-2026-08-27.md`](release/candidate-b44421cd-production-acceptance-2026-08-27.md)。
 > 当前线上服务端 release（2026-08-27）：`b44421cd321ff9ff23eeb49b12641d1772d2bdc1`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 
-> 当前运行相关源码候选为 `805c54e`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具版本，收紧共享患者外壳的 owner 证明、会话代际和账号切换清理，并在会话失效时清理旧 owner 微信资料缓存；本候选补正就诊和互联网医院关闭态的纵向布局，收紧报告/费用底层患者范围输入，并使报告详情点击先回查当前渲染批次、再校验患者和短期引用；同时收紧预约排班和预约历史请求构造器的运行时字段、日期和范围边界，并修复 App.onLaunch 阶段全局资料初始化对 getApp 注册时序的依赖；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-413cbea-miniprogram-runtime-2026-08-27.md`](release/candidate-413cbea-miniprogram-runtime-2026-08-27.md)。
+> 当前运行相关源码候选为 `76ca013`：在全量入口覆盖、患者签名/消息订阅安全展示层、采血预约和锦旗/表扬信安全页面、临床/服务入口当前就诊人上下文基础上，继续保持二维码待开放并增加有效会话门禁，固定 BMI/血压安全数值工具版本，收紧共享患者外壳的 owner 证明、会话代际和账号切换清理，并在会话失效时清理旧 owner 微信资料缓存；本候选补正就诊和互联网医院关闭态的纵向布局，收紧报告/费用底层患者范围输入，并使报告详情点击先回查当前渲染批次、再校验患者和短期引用；同时收紧预约排班和预约历史请求构造器的运行时字段、日期和范围边界，并修复 App.onLaunch 阶段全局资料初始化对 getApp 注册时序的依赖；不调用未知外部小程序，不调用微信订阅授权，不伪造号源、预约写入、公开记录或临床 Provider；正式健康审核 bundle 缺失时仍保持 fail-closed，旧 Python 服务和线上服务均未修改。详见 [`release/candidate-413cbea-miniprogram-runtime-2026-08-27.md`](release/candidate-413cbea-miniprogram-runtime-2026-08-27.md)。
 > 本段优先于本文下方旧日期、旧 release 或旧运行包叙述；旧值只作为历史记录，不作为当前验收入口。
 > **当前小程序启动修正（2026-08-27）**：运行相关源码和本地 live 运行包为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`（`76ca013`）。App、API、会话代际和资料订阅的 `globalData` 读取已统一经过启动桥；如果仍看到 `Cannot read property 'globalData' of undefined`，说明开发者工具或二维码仍在使用旧增量包，应关闭新项目调试、重新打开 `apps/miniprogram/dist/`、普通编译并重新扫码。详见 [`release/miniprogram-globaldata-startup-fix-2026-08-27.md`](release/miniprogram-globaldata-startup-fix-2026-08-27.md)。
 
 # 微信授权登录实施与验收手册
-> 当前验收配套基线：线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码和本地 live 运行输入为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，共 40 个页面。运行包已原子发布，真实微信业务三层证据仍待；25 个跨域页面当前为 `surface-only`，另有 4 个入口仅完成安全 `partial` 子集，健康自测另有安全数值子集。候选详情见 [`release/candidate-413cbea-miniprogram-runtime-2026-08-27.md`](release/candidate-413cbea-miniprogram-runtime-2026-08-27.md)，服务端切换详情见 [`release/candidate-b44421cd-production-acceptance-2026-08-27.md`](release/candidate-b44421cd-production-acceptance-2026-08-27.md)。
+> 当前验收配套基线：线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`，最新运行相关源码和本地 live 运行输入为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`，共 40 个页面。运行包已原子发布，真实微信业务三层证据仍待；25 个跨域页面当前为 `surface-only`，另有 4 个入口仅完成安全 `partial` 子集，健康自测另有安全数值子集。候选详情见 [`release/candidate-413cbea-miniprogram-runtime-2026-08-27.md`](release/candidate-413cbea-miniprogram-runtime-2026-08-27.md)，服务端切换详情见 [`release/candidate-b44421cd-production-acceptance-2026-08-27.md`](release/candidate-b44421cd-production-acceptance-2026-08-27.md)。
 
 本文是微信小程序登录的唯一维护入口。新会话开始处理登录、会话、患者绑定或线上排障时，先阅读本文和
 [`docs/logging.md`](logging.md)，不要重新猜测旧服务的接口、微信 provider 地址或服务器端口。
@@ -17,7 +17,7 @@
 [`release/candidate-b44421cd-production-acceptance-2026-08-27.md`](release/candidate-b44421cd-production-acceptance-2026-08-27.md)。
 该 release 切换只更新新服务运行层，不改变微信登录的业务开放边界。
 
-当前本地 live 运行输入为 `805c54e`，完整指纹为 `805c54ea9fa943385ad6feebed1401d521fbad3c`；旧候选指纹记录如下：
+当前本地 live 运行输入为 `76ca013`，完整指纹为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`；旧候选指纹记录如下：
 `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`；线上历史小程序包为 `13f597e`。该运行包已原子发布到 live；发布后以 `apps/miniprogram/dist/build-info.json` 来源指纹为准。候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康自测安全数值子集、临床与外部入口安全页面、预约 Provider 入口、患者签名和消息订阅安全展示页、患者协议原文只读入口、旧端“我的快递”和采血预约真实空态、电子锦旗和健康表扬信安全页面、就诊/互联网医院关闭态纵向布局、共享页面工厂构建校验、统一当前就诊人上下文、共享患者外壳 owner/会话代际清理、会话失效时旧 owner 微信资料缓存清理、“我的问诊”患者作用域、患者切换链路、今日预约摘要边界、公共日期窗口错误边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态、便民记录三态、二维码有效会话门禁、健康数值工具规则版本、健康百科和报告详情迁移台账映射、预约排班/历史查询的底层请求边界以及成功请求低敏 requestId 观测，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
@@ -25,7 +25,7 @@
 命令请求禁止跨会话自动重放的边界见
 [`release/miniprogram-command-session-replay-boundary-2026-08-19.md`](release/miniprogram-command-session-replay-boundary-2026-08-19.md)。
 
-当前页面真机验收应使用已原子发布的 live 候选 `805c54e`；必须从当前 live `dist` 重新生成二维码，不能把历史 `1691f2d`、`02dbf10` 或旧二维码的页面、日志证据混写。
+当前页面真机验收应使用已原子发布的 live 候选 `76ca013`；必须从当前 live `dist` 重新生成二维码，不能把历史 `1691f2d`、`02dbf10` 或旧二维码的页面、日志证据混写。
 
 2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见
 [`release/miniprogram-real-device-login-acceptance-2026-08-20.md`](release/miniprogram-real-device-login-acceptance-2026-08-20.md)。
@@ -48,7 +48,7 @@
 有界 token 和内部 user id，只有通过后才写入本地会话；`requireCurrentUserResponse` 只接受 `/me` 返回的安全 owner 引用，
 并丢弃未知字段。这里使用 `request<unknown>`，不是把 TypeScript 泛型当作运行时校验；协议异常统一返回
 `provider-response-invalid`，不会被降级成“登录成功”或空用户。登录专属修正的历史本地证据为 `c727e1c`、152 项测试；当前候选
-全量小程序测试为 `341 pass / 0 fail / 3728 expect()`，当前 live 运行输入为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，登录后患者初始化边界见
+全量小程序测试为 `341 pass / 0 fail / 3730 expect()`，当前 live 运行输入为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`，登录后患者初始化边界见
 [`release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md`](release/miniprogram-login-patient-bootstrap-boundary-2026-08-19.md)，列表读取边界见
 [`release/miniprogram-list-response-envelope-contract-2026-08-19.md`](release/miniprogram-list-response-envelope-contract-2026-08-19.md)。
 
@@ -392,4 +392,4 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |
 > 历史发布基线更新（2026-08-24 19:54 CST）：当时线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当时小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。当前线上版本以本文顶部事实源和项目发布基线为准。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；小程序本地 live 运行包来源为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
