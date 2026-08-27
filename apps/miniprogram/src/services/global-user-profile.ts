@@ -299,6 +299,11 @@ export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
 			const isSessionError =
 				error instanceof ApiError &&
 				(error.code === "unauthorized" || error.code === "session-changed");
+			// 先保存失效前的 owner，再发布空快照。发布后 ownerId 会被清空，
+			// 如果此时才读取，就无法删除旧账号的本机微信昵称/头像缓存。
+			// 该缓存按 owner 隔离，但会长期保留旧账号隐私和过期头像，不能
+			// 把“新账号不会直接读到”当作清理已经完成。
+			const previousOwnerId = getGlobalUserProfile().ownerId;
 			const nextState = publishProfileState({
 				status: "error",
 				...(isSessionError
@@ -318,9 +323,8 @@ export function ensureGlobalUserProfile(): Promise<GlobalUserProfileState> {
 					: {}),
 				error: safeApiErrorMessage(error, "个人资料暂时不可用"),
 			});
-			const latestOwnerId = getGlobalUserProfile().ownerId;
-			if (isSessionError && latestOwnerId) {
-				clearStoredWechatUserProfile(latestOwnerId);
+			if (isSessionError && previousOwnerId) {
+				clearStoredWechatUserProfile(previousOwnerId);
 			}
 			// 普通资料是个人中心的增强读模型，不应阻断已完成的微信会话和
 			// 就诊人主流程；只有明确的会话失效才交给页面入口处理。
@@ -489,6 +493,13 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 				wechatProfileHint: "当前微信版本暂不支持资料授权，请升级后重试",
 			});
 		} else if (error instanceof ApiError && error.code === "session-changed") {
+			// 当前快照可能刚被其它 bundle 清空，也可能只是本次授权链收到
+			// 会话变化错误；在清空 owner 之前保留并删除旧缓存，确保两条
+			// 路径都不会留下旧账号的微信资料。
+			const previousOwnerId = latest.ownerId;
+			if (previousOwnerId) {
+				clearStoredWechatUserProfile(previousOwnerId);
+			}
 			publishProfileState({
 				status: "error",
 				ownerId: "",
@@ -554,6 +565,13 @@ export function applyServerUserProfile(
 export function clearGlobalUserProfile(): void {
 	profileBootstrapInFlight = null;
 	const appData = globalData();
+	const previousOwnerId = appData.userProfile?.ownerId;
+	// 全局快照清理和 owner 绑定的微信资料缓存必须是同一个会话边界。
+	// 患者选择另有独立的 owner/会话代际门禁，不能在这里顺手删除；但
+	// 昵称头像属于当前账号的本机隐私展示数据，账号失效后必须清掉。
+	if (typeof previousOwnerId === "string" && previousOwnerId.trim()) {
+		clearStoredWechatUserProfile(previousOwnerId);
+	}
 	appData.userProfileBootstrapPromise = null;
 	appData.userProfileConsentPromise = null;
 	publishProfileState({ ...EMPTY_PROFILE_STATE });

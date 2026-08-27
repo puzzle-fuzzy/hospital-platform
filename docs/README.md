@@ -26,6 +26,9 @@
 全局微信资料在跨账号、跨 bundle 授权回调下的 owner/会话代际边界，见
 [`release/global-profile-owner-race-audit-2026-08-26.md`](release/global-profile-owner-race-audit-2026-08-26.md)。
 
+会话失效时旧 owner 的本机微信资料缓存清理边界和回归证据，见
+[`release/global-profile-session-cache-cleanup-2026-08-27.md`](release/global-profile-session-cache-cleanup-2026-08-27.md)。
+
 > **当前全量迁移交接单（2026-08-26）**：请优先阅读 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。最新运行相关源码和本地 live 运行输入均为 `0be59f96`；64 个旧页面均有明确落点，其中 8 个已替换、23 个安全 `partial` 子集、25 个 `surface-only` 页面外壳、7 个支付/回写入口仍按阻断原因关闭；健康自测仅开放 BMI/血压安全数值子集，今日预约摘要不冒充实时状态，协议正文已可读，但同意/撤回/审计仍关闭。本轮补齐共享患者外壳的 owner 证明、会话代际和账号切换清理，保留公共日期窗口、微信资料拒绝后的设置页重试、选择页刷新并发门禁和我的快递三态，并保留患者绑定/签名页查看协议原文安全入口；本页下方历史候选只作追溯。完整候选证据以 [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md)、[`release/device-evidence-0be59f96-pending.json`](release/device-evidence-0be59f96-pending.json) 和 live 的 `build-info.json` 为准。
 
 > **当前仓库交接基线（2026-08-27）**：本地 live 运行输入为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，同源 pending 包已完成独立静态校验，并在释放微信开发者工具锁后原子发布；发布后 `runtime:verify` 通过，pending 目录已清理。全部 9 个真机证据域仍为 `pending`，所以总体仍返回 `passed=false`。任何真实 `passed/failed` 证据仍必须绑定通过 `release:baseline:audit` 的线上 release。不要把本行当作新的线上服务部署记录。

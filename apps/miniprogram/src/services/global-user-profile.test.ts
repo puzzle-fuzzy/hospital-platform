@@ -510,6 +510,17 @@ describe("App 全局个人资料仓库", () => {
 	});
 
 	test("会话凭证变化会清理旧账号的全局昵称和头像", () => {
+		const storage = new Map<string, unknown>([
+			[
+				"wechat-user-profile:owner-old-account",
+				{
+					ownerId: "owner-old-account",
+					nickName: "旧账号昵称",
+					avatarUrl: "https://wx.qlogo.cn/old-avatar/132",
+					gender: "female",
+				},
+			],
+		]);
 		const globalData = {
 			apiBaseUrl: "https://test-hp.meiyi.pro",
 			apiPrefix: "/api/v2",
@@ -535,7 +546,7 @@ describe("App 全局个人资料仓库", () => {
 		runtime.getApp = () => ({ globalData });
 		runtime.wx = {
 			getStorageSync: () => "old-account-token",
-			removeStorageSync: () => undefined,
+			removeStorageSync: (key: string) => storage.delete(key),
 			setStorageSync: () => undefined,
 		} as unknown as typeof wx;
 
@@ -552,6 +563,7 @@ describe("App 全局个人资料仓库", () => {
 		expect(state.displayName).toBe("微信用户");
 		expect(state.avatarUrl).toBe("");
 		expect(observedStates.at(-1)).toBe("idle:微信用户");
+		expect(storage.has("wechat-user-profile:owner-old-account")).toBe(false);
 	});
 
 	test("旧授权回调不能把新会话污染成授权拒绝", async () => {
