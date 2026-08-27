@@ -20,6 +20,9 @@
 服务端 release 已完成 production preflight、隔离 runtime smoke、原子切换和公网 runtime smoke；
 这些是运行层证据。旧 Python `8001` 在切换过程中没有停止、重启或修改。
 
+当前用户资料、患者目录投影和运行包锁的专项复核见
+[`current-profile-patient-audit-2026-08-27.md`](current-profile-patient-audit-2026-08-27.md)。该复核没有发现可安全独立修复的资料/owner 逻辑缺陷；本轮构建的 TypeScript 检查通过，但微信开发者工具仍占用 `dist`，pending 候选已保留。
+
 ## 1.1 公网 HTTPS 安全门禁
 
 2026-08-27 只读核对发现，阿里云中转机 `8.130.127.184` 上原来配置的

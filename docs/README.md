@@ -42,7 +42,7 @@
 
 > **当前事实源（2026-08-26，优先于本页旧候选段落）**：最新小程序源码和本地 live 运行输入为 `0be59f96`；回归为 `336 pass / 0 fail / 3697 expect()`，发布前 pending 校验和发布后 live 校验均通过。健康百科目录、症状查疾病结果、疾病/药品详情已接入，但正式审核 bundle 未发布前健康内容仍保持 fail-closed；25 个跨域页面为 `surface-only`，另有 4 个安全 `partial` 子集，健康自测只提供安全数值子集，今日预约摘要只展示预约事实，协议同意能力、外部互联网医院能力和支付医保能力继续关闭。旧端“我的快递”和采血预约已迁移真实空态，电子锦旗和健康表扬信已迁移患者上下文与关闭态；本轮统一便民记录区域的加载、错误、未开放三态及固定高度，并补齐共享患者外壳的 owner/会话代际/账号切换清理，保留公共日期窗口、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态和患者绑定/签名页查看协议原文安全入口，但真实临床 Provider、物流/采血号源、公开记录 provider 仍关闭。完整交接和 64 页推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。
 
-> **当前唯一发布事实入口（2026-08-27）**：请优先阅读 [`release/current-project-baseline-2026-08-27.md`](release/current-project-baseline-2026-08-27.md)。它固定服务端 `e5d941ae`、本地 live 小程序 `0be59f96`、旧 Python `8001` 共存、40 个原生页面、64 个旧入口及当前迁移统计；没有真机/开发者工具会话时，九个证据域必须保持 `pending`。
+> **当前唯一发布事实入口（2026-08-27）**：请优先阅读 [`release/current-project-baseline-2026-08-27.md`](release/current-project-baseline-2026-08-27.md)。它固定服务端 `1107a78a`、本地 live 小程序 `0be59f96`、旧 Python `8001` 共存、40 个原生页面、64 个旧入口及当前迁移统计；没有真机/开发者工具会话时，九个证据域必须保持 `pending`。
 
 > 历史广度候选：`baa31df08f63af30266664f9fef9224653cf52bb`。四个入口由微信原生 `tabBar` 统一渲染；`custom-tab-bar` 仅作为已撤回的历史候选，不再重新引入。本段只保留入口台账、患者栏和预约摘要的历史交接信息；当前 live 以本页顶部 `0be59f96` 为准。
 
@@ -119,7 +119,7 @@
 新会话开始前先阅读本页，再根据任务进入对应文档。文档中的“已实现”只代表代码/测试或部署证据，不自动代表
 真实微信、医保、HIS、支付 provider 或真机已经验收。
 
-当前发布基线（2026-08-26）为：线上服务端为 `e5d941aef3a8b0d1df24a518bea03f36f2ee505d`，当前本地 live 运行输入为
+当前发布基线（2026-08-27）为：线上服务端为 `1107a78a47ac2fbe0557958251d66da9effc66de`，当前本地 live 运行输入为
 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，当前 live `dist` 已完成原子切换。
 不能用旧 `13f597e` 运行包生成当前候选业务证据；旧 Python `8001` 未因本轮修改而改变。
 下方带有 `current-*` 或旧 release 名称的记录是当时窗口的历史证据，不覆盖这个当前基线。
@@ -152,7 +152,7 @@
 | --- | --- |
 | [`wechat-auth-login.md`](wechat-auth-login.md) | 微信授权登录的架构、配置、域名、日志、验收和回滚唯一入口 |
 | [`architecture.md`](architecture.md) | 全局分层、依赖注入、fail-closed 和迁移边界 |
-| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上服务端为 `e5d941ae`，线上历史小程序包为 `13f597e`，当前本地 live `dist` 为 `0be59f96` |
+| [`roadmap-next-phase.md`](roadmap-next-phase.md) | 业务、工程、运行和验收的下一阶段统一路线图；线上服务端为 `1107a78a`，线上历史小程序包为 `13f597e`，当前本地 live `dist` 为 `0be59f96` |
 | [`migration/patient-agreement-static-migration-2026-08-26.md`](migration/patient-agreement-static-migration-2026-08-26.md) | 使用条款静态迁移、旧端无接口核对、协议同意 contract 的关闭边界和本候选验证记录 |
 | [`release/pending-runtime-publication-runbook-2026-08-26.md`](release/pending-runtime-publication-runbook-2026-08-26.md) | 当前 `0be59f96` pending 运行包发布、dist 锁定保护和真机证据入口；发布后的 live 运行包以 `build-info.json` 为准 |
 | [`release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md) | 当前 `0be59f96` 候选的共享患者会话边界、pending 校验、原子发布阻塞和真机证据边界 |
@@ -380,7 +380,7 @@
 | [`release/device-evidence-0ae674e-pending.json`](release/device-evidence-0ae674e-pending.json) | 历史 `0ae674e5` 小程序候选的安全真机证据 pending 起始清单；不能替代当前候选 |
 | [`release/candidate-68902677-miniprogram-runtime-2026-08-25.md`](release/candidate-68902677-miniprogram-runtime-2026-08-25.md) | 当前 `68902677` 源码对应的 20 页面 pending 运行包、统一页面滚动边界和九域真机证据入口 |
 | [`release/device-evidence-6890267-pending.json`](release/device-evidence-6890267-pending.json) | 当前 `68902677` 小程序候选的安全真机证据 pending 起始清单；未填写真实三层证据前不能视为通过 |
-| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 40 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `e5d941ae`，线上历史小程序来源为 `13f597ea`，本地 live `dist` 已为 `0be59f96`，新增页面需要重新生成并再次校验运行包 |
+| [`migration/remaining-migration-inventory.md`](migration/remaining-migration-inventory.md) | 旧端 64 个页面、新端 40 个页面的差异、风险分级和新接口文档冻结模板；当前服务端为 `1107a78a`，线上历史小程序来源为 `13f597ea`，本地 live `dist` 已为 `0be59f96`，新增页面需要重新生成并再次校验运行包 |
 | [`migration/domain-migration-summary-2026-08-25.md`](migration/domain-migration-summary-2026-08-25.md) | 旧端 64 个页面按首页、就诊、预约、患者、健康、用户和互联网医院分域统计，以及各状态的后续推进顺序 |
 | [`migration/breadth-execution-board-2026-08-25.md`](migration/breadth-execution-board-2026-08-25.md) | 广度优先的跨域工作板：入口覆盖、只读业务、临床材料、患者写入、外部入口和支付医保分开推进 |
 | [`migration/overall-migration-wave-2026-08-26.md`](migration/overall-migration-wave-2026-08-26.md) | 当前全项目并行迁移波次、入口覆盖与真实业务完成定义、A–F 六条工作线和遇阻切换规则 |
@@ -395,7 +395,7 @@
 | [`migration/frozen-domain-contract-matrix-2026-08-25.md`](migration/frozen-domain-contract-matrix-2026-08-25.md) | 34 个冻结入口 gate 的 contract 家族、准入材料、关闭能力和批次顺序 |
 | [`migration/health-knowledge-route-contract-2026-08-25.md`](migration/health-knowledge-route-contract-2026-08-25.md) | 健康百科只读后端入口、版本化审核 bundle、关闭条件和与自测/病历/报告/AI 的边界 |
 | [`migration/current-execution-checkpoint-2026-08-17.md`](migration/current-execution-checkpoint-2026-08-17.md) | 当前执行检查点（历史段落保留但顶部已更新到 `c8eef370`）、剩余迁移分层、P0/P1/P2/P3 顺序和偏移检查表；旧 release 仅作历史追溯 |
-| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 历史迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；当前服务端以 `e5d941ae`、小程序 live 以 `0be59f96` 为准 |
+| [`migration/migration-gap-audit-2026-08-17.md`](migration/migration-gap-audit-2026-08-17.md) | 历史迁移差距、证据等级、未迁移分层、新文档接收门禁和下一阶段顺序；当前服务端以 `1107a78a`、小程序 live 以 `0be59f96` 为准 |
 | [`release/p0-readonly-business-acceptance-runbook-2026-08-17.md`](release/p0-readonly-business-acceptance-runbook-2026-08-17.md) | `7181e99e` 服务端与配套小程序候选的微信会话、患者上下文、预约历史、爽约和门诊费用真机/日志验收步骤与业务不变量 |
 | [`release/user-profile-readonly-device-acceptance-2026-08-18.md`](release/user-profile-readonly-device-acceptance-2026-08-18.md) | 普通资料首次读取、版本更新、409 并发冲突、非法字段和低敏日志的真机验收步骤 |
 | [`release/profile-read-model-display-fail-closed-2026-08-22.md`](release/profile-read-model-display-fail-closed-2026-08-22.md) | 普通资料读模型损坏、会话失效和暂时不可用的前端错误分流；避免把数据故障误判成登录失效 |

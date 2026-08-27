@@ -2,7 +2,7 @@
 
 > **当前候选覆盖（2026-08-26）**：最新小程序源码和本地 live 运行输入为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`），40 页；核心回归、共享患者外壳会话边界、就诊二维码会话门禁和健康数值规则版本测试通过。该来源已完成 pending 校验并原子切换到 live `dist`，本候选未新增 Provider 请求或写入；本文下方旧候选数字只作历史追溯，以本段和 [`candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md) 为准。
 
-> **最新候选纠正（2026-08-27）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。当前 40 页运行相关源码候选 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 已完成构建、pending 运行包校验并原子切换到本地 live `dist`；九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本候选补齐就诊二维码安全壳的有效会话门禁和本地健康数值工具固定规则版本；旧 Python 服务未修改，线上新 API 已按 [`release/e5d941ae-production-acceptance-2026-08-26.md`](../release/e5d941ae-production-acceptance-2026-08-26.md) 完成新旧共存发布。
+> **最新候选纠正（2026-08-27）**：当前源码已注册 40 个页面，健康自测中的 BMI/血压安全数值子集已进入 `partial`，就诊页今日预约摘要已补齐但实时叫号仍关闭；采血预约、我的快递、患者签名展示和消息订阅展示也已进入 `partial`，当前统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`。当前 40 页运行相关源码候选 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 已完成构建、pending 运行包校验并原子切换到本地 live `dist`；九个真机证据域仍为 `pending`，真实 Provider/临床/外部/患者写入业务仍未开放。协议版本、同意记录、撤回和审计仍关闭，正式健康审核 bundle 仍缺失；本候选补齐就诊二维码安全壳的有效会话门禁和本地健康数值工具固定规则版本；旧 Python 服务未修改，线上新 API 已按 [`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](../release/candidate-1107a78a-production-acceptance-2026-08-27.md) 完成新旧共存发布。
 
 > 这份文档是后续会话的广度优先入口。它把“页面入口已覆盖”“代码已有安全子集”“真实业务已经验收”严格分开，避免继续把某一个页面的修补误当成全项目迁移完成。
 >
@@ -107,7 +107,7 @@ pnpm migration:boundary:audit
    执行 `pnpm device:evidence:audit --file docs/release/device-evidence-0be59f96-pending.json` 时，在全部域仍为 `pending` 的情况下总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
-5. `pnpm release:baseline:audit` 当前已通过：`e5d941ae` 覆盖线上运行时代码并完成 production preflight、隔离 smoke、原子切换和公网 runtime smoke。后续运行时代码变化仍必须生成新的可回滚候选，不能通过修改审计器或只部署半套代码来“变绿”。
+5. `pnpm release:baseline:audit` 当前已通过：`1107a78a` 覆盖线上运行时代码并完成 production preflight、隔离 smoke、原子切换和公网 runtime smoke。后续运行时代码变化仍必须生成新的可回滚候选，不能通过修改审计器或只部署半套代码来“变绿”。
 
 本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次等待 `0be59f96` 运行包发布后采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
 
