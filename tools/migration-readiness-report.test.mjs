@@ -193,7 +193,7 @@ describe("全项目迁移 readiness 报告", () => {
 			report.runtime.pending ? "pending" : "live",
 		);
 		expect(report.deviceEvidence.manifestPath).toBe(
-			`docs/release/device-evidence-${report.deviceEvidence.candidate.miniProgramCommit}-pending.json`,
+			`docs/release/device-evidence-${report.deviceEvidence.candidate.sourceRevision.slice(0, 8)}-pending.json`,
 		);
 		expect(report.migrationQueue.map((batch) => batch.id)).toEqual([
 			"A-readonly-evidence",

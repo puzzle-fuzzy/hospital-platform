@@ -10,14 +10,15 @@
 | 构建入口 | `pnpm --filter @hospital/miniprogram build` |
 | 类型检查 | 通过 |
 | live 运行包 | `apps/miniprogram/dist/` |
-| 来源指纹 | `1691f2db1399419d81a1febff59cffd0369130ea` |
+| 来源指纹 | `6f47c6408fe5b62025bd74fa66893f306eb7b9aa` |
 | 页面数量 | 40 |
 | 运行包门禁 | `runtime:verify` 通过 |
-| pending 目录 | 不存在；本次提交没有小程序运行时代码变化，因此没有新的 pending 候选 |
+| pending 目录 | 不存在；`6f47c64` 已通过校验并原子发布到 live `dist/` |
 
 当前 live 运行包的来源以 `dist/build-info.json` 为准，是已经通过构建和运行包完整性校验的
-`1691f2db`。本次没有重新生成新的小程序运行时候选，也没有为了改变来源指纹制造没有运行时
-差异的候选包；开发者工具若重新打开，仍必须从这个 live `dist/` 普通编译。
+`6f47c640`。本次修正了就诊和互联网医院关闭态的纵向布局，并重新生成了与提交绑定的
+运行包；开发者工具若重新打开，必须从这个 live `dist/` 普通编译，不能继续使用旧二维码或
+旧候选的页面证据。
 
 开发者工具下一次验收仍应打开 `E:\__Super_Core__\hospital-platform\apps\miniprogram\`
 工程，并由其 `project.config.json` 使用 `dist/` 作为 `miniprogramRoot`；不要打开 `src/`，

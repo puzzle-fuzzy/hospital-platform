@@ -6,7 +6,7 @@
 
 > 当前运行基线（2026-08-27）：线上服务端 release 为
 > `1107a78a47ac2fbe0557958251d66da9effc66de`；本地 live 小程序运行包来源为
-> `1691f2d`，完整 sourceRevision 为 `1691f2db1399419d81a1febff59cffd0369130ea`，已通过
+> `6f47c64`，完整 sourceRevision 为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，已通过
 > `runtime:verify`。本记录只描述患者上下文安全边界，不代表临床 Provider 已开放。
 
 ## 已覆盖页面
