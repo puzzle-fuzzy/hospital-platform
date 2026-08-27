@@ -62,7 +62,7 @@
 
 > **2026-08-25 广度检查点（提交 `7732c843`）**：旧端 64 个页面的逐页落点、17 个原生页面和五个低风险只读域的闭环审计已经纳入仓库门禁。执行 `pnpm readonly:audit` 会同时检查就诊人、预约、报告、门诊费用、普通资料的页面、Elysia 路由、service/domain/adapter、日志和文档；通过只代表代码闭环完整，不代表 Provider、生产公网或真机业务已经验收。详细矩阵见 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md)。
 
-> 本检查点没有打开新的临床、外部或支付能力：门诊病历、住院、问诊实时、互联网医院、健康内容、患者绑定、二维码、预约写入、支付、医保和 HIS 回写仍按各自 contract 保持关闭。全仓测试当前唯一已知失败仍是另一会话未部署的 `packages/adapters/src/zhongyang-appointments.ts` 触发发布基线门禁；本会话不修改、不暂存、不部署该文件。
+> 本检查点没有打开新的临床、外部或支付能力：门诊病历、住院、问诊实时、互联网医院、健康内容、患者绑定、二维码、预约写入、支付、医保和 HIS 回写仍按各自 contract 保持关闭。该检查点之后，`packages/adapters/src/zhongyang-appointments.ts` 的运行时代码已随当前 API-only release 完成部署；当前 `pnpm check:candidate` 和 `pnpm release:baseline:audit` 均已通过。本轮仍不修改旧 Python 服务，也不把门禁通过误写成真机业务完成。
 
 > 当前最新小程序代码和 live 运行包来源为 `413cbea13f022831f63e9c750661eeabbffc68d5`，共 40 个注册页面，候选已通过构建、类型检查、旧端 64 页面台账、自动化测试和运行包静态校验，并完成原子发布；项目最终固定使用微信原生 `tabBar`。现场应直接打开独立工程并普通编译核对完整来源指纹。线上服务端 release 为 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；线上历史小程序运行包 sourceRevision 仍为 `13f597ea9ee3f65b9be858117826d948339d904a`，真实页面与服务端同链业务证据仍待。本页下方带历史日期的候选只作追溯。
 

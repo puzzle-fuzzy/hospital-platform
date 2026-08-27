@@ -84,4 +84,4 @@ pnpm format:check
 pnpm check
 ```
 
-其中 `pnpm check` 当前预期会在发布基线阶段报告“线上 release 落后于本地运行时代码”；该结果表示需要完整发布协调，不允许用门禁豁免代替部署。
+当前 `pnpm check` 已包含 `pnpm release:baseline:audit`，并以线上 `b44421cd321ff9ff23eeb49b12641d1772d2bdc1` 与本地 live 小程序 `413cbea` 的来源一致性为准；当前发布基线已经通过。后续运行时代码发生变化时，必须重新生成候选并完成完整发布协调，不允许用门禁豁免代替部署。
