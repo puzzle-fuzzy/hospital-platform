@@ -529,8 +529,8 @@ async function runtimeProvenance(root) {
 		 */
 		publicationRequired: Boolean(
 			liveRevision &&
-			(expectedSourceRevision ?? pendingRevision) &&
-			liveRevision !== (pendingRevision ?? expectedSourceRevision),
+				(expectedSourceRevision ?? pendingRevision) &&
+				liveRevision !== (pendingRevision ?? expectedSourceRevision),
 		),
 	};
 }
