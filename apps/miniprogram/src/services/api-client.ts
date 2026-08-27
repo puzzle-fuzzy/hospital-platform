@@ -432,19 +432,38 @@ export function requireHealthKnowledgeDiseaseListResponse(
 function requireKnowledgeDrugReference(
 	value: unknown,
 ): HealthKnowledgeDiseaseDetailResponse["data"]["item"]["availableDrugs"][number] {
-	if (
-		!isKnowledgeObject(value) ||
-		(value.drugId !== undefined && !hasKnowledgeText(value.drugId, 128)) ||
-		!hasKnowledgeText(value.drugName, 256) ||
-		typeof value.isClickable !== "boolean" ||
-		(value.isClickable === true && value.drugId === undefined)
-	) {
+	if (!isKnowledgeObject(value)) {
+		return invalidKnowledgeResponse();
+	}
+	if (!hasKnowledgeText(value.drugName, 256)) {
+		return invalidKnowledgeResponse();
+	}
+	if (typeof value.isClickable !== "boolean") {
+		return invalidKnowledgeResponse();
+	}
+
+	/**
+	 * 可点击药品必须携带服务端分配的 opaque `drugId`，否则详情页无法
+	 * 建立安全的二次查询范围；不可点击项可以只展示名称，不伪造 id。
+	 */
+	if (value.isClickable === true) {
+		if (!hasKnowledgeText(value.drugId, 128)) {
+			return invalidKnowledgeResponse();
+		}
+		return {
+			drugId: value.drugId,
+			drugName: value.drugName,
+			isClickable: true,
+		};
+	}
+
+	if (value.drugId !== undefined && !hasKnowledgeText(value.drugId, 128)) {
 		return invalidKnowledgeResponse();
 	}
 	return {
 		...(value.drugId !== undefined ? { drugId: value.drugId } : {}),
 		drugName: value.drugName,
-		isClickable: value.isClickable,
+		isClickable: false,
 	};
 }
 
