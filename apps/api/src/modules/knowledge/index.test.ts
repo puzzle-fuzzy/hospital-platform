@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import type { HealthKnowledgeRepository } from "@hospital/domain";
 import { HEALTH_KNOWLEDGE_DISCLAIMER } from "@hospital/domain";
+import { createApp } from "../../app";
+import { createDefaultApplicationServices } from "../../application";
 import { createInMemorySessionTokenService } from "../auth/service";
 import { healthKnowledgeModule } from "./index";
 import { HealthKnowledgeService } from "./service";
@@ -104,4 +106,57 @@ test("health knowledge module preserves legacy read paths with new safe payloads
 		success: true,
 		data: { item: { id: "disease-cold", availableDrugs: [] } },
 	});
+});
+
+test("health knowledge routes reject unknown query parameters before the service", async () => {
+	const sessions = createInMemorySessionTokenService();
+	const issued = await sessions.issue("fixture-user-0001");
+	let repositoryCalls = 0;
+	const repository = createRepository();
+	const services = createDefaultApplicationServices({
+		sessionStore: {
+			async save() {},
+			async findUserId() {
+				return "fixture-user-0001";
+			},
+		},
+	});
+	services.healthKnowledge = new HealthKnowledgeService({
+		repository: {
+			...repository,
+			listCatalog: async (...args) => {
+				repositoryCalls += 1;
+				return repository.listCatalog(...args);
+			},
+		},
+	});
+
+	const response = await createApp({ services }).handle(
+		new Request(
+			"http://localhost/api/v1/knowledge/health/part/list?partId=part-respiratory",
+			{ headers: { authorization: `Bearer ${issued.accessToken}` } },
+		),
+	);
+
+	expect(response.status).toBe(400);
+	expect(await response.json()).toEqual({
+		success: false,
+		error: {
+			code: "health-knowledge-query-invalid",
+			message: "健康知识查询条件不合法",
+		},
+	});
+	expect(repositoryCalls).toBe(0);
+});
+
+test("health knowledge authentication remains ahead of unknown query validation", async () => {
+	const services = createDefaultApplicationServices();
+	const response = await createApp({ services }).handle(
+		new Request(
+			"http://localhost/api/v1/knowledge/health/part/list?partId=part-respiratory",
+		),
+	);
+
+	// 未登录请求先结束于统一身份边界；未知 query 不能被用来探测内容路由。
+	expect(response.status).toBe(401);
 });

@@ -83,3 +83,22 @@
 这次没有修改 `.local` 源快照、没有导入 staging，也没有改变 API route gate。需要内容责任人重新导出并处理质量项，
 然后提供带 `contentVersion`、审核主体、带时区审核时间、生效窗口和免责声明的独立 bundle；在此之前不能用
 “源快照结构有效”或“服务端路由已注册”解释为健康内容迁移完成。
+
+## 2026-08-27 认证与查询参数边界复核
+
+本轮只修改新 API 的健康知识路由，不触碰旧 Python 服务、旧数据库或旧 Redis。复核发现无参数 GET 路由如果不检查原始 URL，
+会接受任意 query；客户端把参数拼错时可能被误判为合法请求。当前已修正为：
+
+- `apps/api/src/modules/knowledge/index.ts` 使用模块级 `onTransform({ as: "local" })`，先完成 Bearer 会话认证，保持未登录请求统一返回 `401`；
+- 无 query 语义的目录、关联、症状部位和详情路由，在身份认证成功后检查原始 URL；出现任意 query 时返回 `health-knowledge-query-invalid`，不会进入 service 或 repository；
+- 症状查疾病仍只接受 `symptomIds`，不兼容猜测旧端 `symptoms_ids`；
+- 不能用 route schema 代替认证顺序：Elysia 的 query schema 会在 handler 前执行，认证顺序因此由模块级生命周期和 handler 内的原始 query 检查共同保证。
+
+已验证：
+
+```bash
+pnpm --filter @hospital/api exec bun test src/modules/knowledge/index.test.ts
+pnpm biome check apps/api/src/modules/knowledge/index.ts apps/api/src/modules/knowledge/index.test.ts packages/domain/src/knowledge.ts
+```
+
+这只是输入和鉴权边界证据，不代表健康内容已经审核发布，也不替代 staging、内网、公网和真机验收。

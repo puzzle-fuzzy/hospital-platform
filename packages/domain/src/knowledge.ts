@@ -127,6 +127,7 @@ export type HealthKnowledgeDiseaseRelation = {
 export type HealthKnowledgeValidationReason =
 	| "invalid_publication"
 	| "invalid_identifier"
+	| "invalid_query"
 	| "invalid_initial_letter"
 	| "invalid_catalog_kind"
 	| "invalid_symptom_query";
