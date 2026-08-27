@@ -6,6 +6,7 @@ import {
 	auditCurrentExecutionSection,
 	auditCurrentReadonlyBusinessBoundaries,
 	auditCurrentReleaseConsistency,
+	auditCurrentSourceRevisionAnnouncements,
 	auditServerRuntimeSourceChanges,
 	auditServerSourceRelease,
 	extractCurrentBaseline,
@@ -16,6 +17,27 @@ test("当前候选语义规则必须注册到当前基线文档集合", () => {
 	expect(auditCurrentCandidateRuleRegistration(["docs/README.md"])).toContain(
 		"当前候选引用规则未注册到基线文档集合：docs/release/current-project-baseline-2026-08-27.md",
 	);
+});
+
+test("当前日期的运行包来源声明不能漂移到历史候选", () => {
+	const baseline = {
+		miniProgramSourceRevision: "4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d",
+	};
+	const failures = auditCurrentSourceRevisionAnnouncements(baseline, [
+		{
+			label: "当前验收手册",
+			content: [
+				"> 当前配套小程序运行包来源（2026-08-27）：`old-candidate`",
+				"> 当前小程序配套运行包来源（2026-08-27）：`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`",
+				"> 当前统一发布基线补充（2026-08-27）：小程序本地 live 运行包来源为 `old-candidate`",
+			].join("\n"),
+		},
+	]);
+
+	expect(failures).toEqual([
+		"当前验收手册 的“当前配套小程序运行包来源（2026-08-27）”未指向当前完整小程序 sourceRevision",
+		"当前验收手册 的“当前统一发布基线补充（2026-08-27）”未指向当前完整小程序 sourceRevision",
+	]);
 });
 
 test("从候选文档提取服务端和小程序来源基线", () => {

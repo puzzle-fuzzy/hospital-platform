@@ -996,6 +996,18 @@ const currentCandidateReferenceRules = Object.freeze([
 ]);
 
 /**
+ * 当前运行包来源声明的固定语义前缀。
+ *
+ * 这些声明常被复制到多个验收文档中；完整 sourceRevision 必须与当前候选
+ * 一致。只校验带当前日期的声明，历史候选仍可保留旧 hash 供追溯。
+ */
+const currentSourceRevisionAnnouncementPhrases = Object.freeze([
+	"当前配套小程序运行包来源（2026-08-27）",
+	"当前小程序配套运行包来源（2026-08-27）",
+	"当前统一发布基线补充（2026-08-27）",
+]);
+
+/**
  * 确认每条“当前候选”语义规则都注册在当前基线文档集合中。
  *
  * 规则路径一旦拼写错误，旧实现会因为找不到对应文档而直接跳过；这会让
@@ -1173,6 +1185,31 @@ export function auditCurrentCandidateReferences(
 }
 
 /**
+ * 检查当前日期的运行包来源声明是否指向当前完整 sourceRevision。
+ *
+ * 文档总览审计只能证明某个文件“曾经出现过”当前 hash，不能证明每一条
+ * 当前声明都没有写成旧候选。这里逐行检查固定声明，避免验收人员从旧的
+ * 当前段落复制运行包或二维码；失败信息只返回文档名和固定短语，不输出
+ * 患者数据、token 或 Provider 原文。
+ */
+export function auditCurrentSourceRevisionAnnouncements(baseline, documents) {
+	const failures = [];
+	for (const document of documents) {
+		for (const line of document.content.split(/\r?\n/u)) {
+			const phrase = currentSourceRevisionAnnouncementPhrases.find((item) =>
+				line.includes(item),
+			);
+			if (phrase && !line.includes(baseline.miniProgramSourceRevision)) {
+				failures.push(
+					`${document.label ?? document.path} 的“${phrase}”未指向当前完整小程序 sourceRevision`,
+				);
+			}
+		}
+	}
+	return failures;
+}
+
+/**
  * 检查当前只读验收文档是否仍然尊重报告 Provider 的关闭边界。
  *
  * 报告页面已经存在，但目录/详情 gate 仍关闭；如果路线图只写“验收报告”而
@@ -1255,6 +1292,9 @@ export function auditCurrentBaselineDocuments(
 	}
 	failures.push(
 		...auditCurrentCandidateReferences(baseline, documents, options),
+	);
+	failures.push(
+		...auditCurrentSourceRevisionAnnouncements(baseline, documents),
 	);
 	return {
 		passed: failures.length === 0,

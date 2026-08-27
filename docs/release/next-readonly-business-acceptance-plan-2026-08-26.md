@@ -37,8 +37,9 @@
 
 当前九域清单已经绑定 `1bc8b0a8` 与 `62cdb8f`；`pnpm device:evidence:audit --file
 docs/release/device-evidence-62cdb8f8-pending.json` 在进入真机通过判定前会先执行
-`release:baseline:audit`。截至 2026-08-27，仓库门禁已通过，线上服务端已完成
-production preflight、隔离 smoke、原子切换和公网 runtime smoke；服务端候选包含完整的
+`release:baseline:audit`。截至 2026-08-27，结构、代码和文档门禁已通过，但发布基线仍因
+线上服务端未包含当前工作树的健康知识运行时代码而阻断；线上服务端已完成
+production preflight、隔离 smoke、原子切换和公网 runtime smoke；服务端线上 release 仍为
 `packages/adapters/src/zhongyang-appointments.ts` 运行代码。
 
 这意味着当前可以从 live `dist` 重新生成二维码并采集材料，但在九个业务域的页面、客户端

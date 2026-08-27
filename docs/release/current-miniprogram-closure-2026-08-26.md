@@ -25,8 +25,9 @@
 
 ### 1. 发布基线未统一
 
-线上新服务当前对应服务端 release `1bc8b0a8`，本轮门诊费用运行时配置边界已随新 API 整体发布；其他会话负责的
-`packages/adapters/src/zhongyang-appointments.ts` 未被本轮修改。`release:baseline:audit` 已重新通过，不能因此扩大 Provider 或写入业务范围。
+线上新服务当前对应服务端 release `1bc8b0a8`；本地工作树另有尚未部署的健康知识运行时代码，
+`packages/adapters/src/zhongyang-appointments.ts` 未被本轮修改。`release:baseline:audit` 当前会正确阻断，
+不能因此扩大 Provider 或写入业务范围。
 
 ### 2. 真机证据仍为空
 

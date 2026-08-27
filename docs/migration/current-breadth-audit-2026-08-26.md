@@ -39,9 +39,9 @@
 
 ## 3. 当前验收阻断
 
-当前 `pnpm check`、`release:baseline:audit` 和服务端运行层发布门禁均已通过；线上
-`1bc8b0a8` 覆盖当前服务端运行时代码，旧 Python `8001` 继续共存。剩余阻断来自真实
-业务证据，而不是代码门禁：九个真机域仍为 `pending`，Provider/HIS contract、健康审核
+当前结构、业务边界和代码门禁均已通过；但 `pnpm check` 和 `release:baseline:audit` 当前仍由
+线上 `1bc8b0a8` 未包含本轮健康知识运行时代码而阻断。旧 Python `8001` 继续共存。剩余阻断来自真实
+业务证据，而不是只读代码审计：九个真机域仍为 `pending`，Provider/HIS contract、健康审核
 bundle、患者写入、外部会话以及支付/医保仍未满足开放条件。
 
 不能用本地测试、HTTP smoke、空列表或历史真机截图替代页面、客户端 requestId、服务端
