@@ -8,13 +8,13 @@
 
 | 项目 | 当前事实 | 结论 |
 | --- | --- | --- |
-| 当前 Git 工作树 | `eb4d2eb4`，提交信息为“收紧健康知识关系查询边界” | 已提交并推送到 `origin/main` |
+| 当前 Git 工作树 | `43514fcf`，包含本轮文档校正；API 运行时代码变更来源为 `eb4d2eb4` | 已提交并推送到 `origin/main` |
 | 线上新 API | `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240` | 仍为已部署 release |
 | 本地小程序 live `dist` | `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328` | 与当前小程序运行包一致 |
 | 旧 Python 服务 | `0.0.0.0:8001` | 本轮未修改、未停止 |
 | 旧项目、旧 MySQL、旧 Redis | 不在本轮写入范围 | 本轮未操作 |
 
-`eb4d2eb4` 包含健康知识服务的直调关系查询白名单：进入 repository 之前只接受
+本轮 API 运行时代码变更 `eb4d2eb4` 包含健康知识服务的直调关系查询白名单：进入 repository 之前只接受
 `kind` 和 `id`，未知字段返回稳定的查询校验错误。此前 `927b90cf` 已将健康知识
 路由的认证顺序和未知 query 参数边界固定下来。两次提交都属于新 API 运行时代码，
 因此在远端 API-only 发布完成之前，不能把它们写进线上 release 的事实。
@@ -50,14 +50,14 @@
 
 ## 下一步固定顺序
 
-1. 在明确的发布窗口内，只发布新 API 候选 `eb4d2eb4`，按 systemd 原子切换、preflight、隔离 smoke、readiness 和旧端共存检查执行；不停止旧 Python `8001`。
+1. 在明确的发布窗口内，只发布当前仓库候选 `43514fcf` 的新 API，按 systemd 原子切换、preflight、隔离 smoke、readiness 和旧端共存检查执行；不停止旧 Python `8001`。
 2. 只有远端 `current`、公网运行检查和 release 文档都确认后，重新运行 `pnpm release:baseline:audit`；不得先改文档再验收。
 3. 从当前 live 小程序 `dist` 重新普通编译并生成二维码，采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
 4. 收到正式审核 bundle、临床 contract、患者写入 contract、外部会话 contract 后，再按 B/C/D/E 独立准入；支付/医保/HIS 最后处理。
 
 ## 禁止事项
 
-- 不把 `eb4d2eb4` 或本地 `dist` 直接写成线上已发布事实；
+- 不把 `43514fcf`、`eb4d2eb4` 或本地 `dist` 直接写成线上已发布事实；
 - 不为了通过发布基线而回退安全校验、修改审计器或部署半套 API；
 - 不把旧 Python 的 FSI、医保、微信授权或数据库内容复制到新端的未经确认路径；
 - 不在缺少正式业务 contract 时新增患者写入、二维码、WebView、支付、医保或 HIS 回写接口。

@@ -13,7 +13,7 @@
 
 ## 当前阶段
 
-> **当前仓库执行检查点（2026-08-27）**：当前 `main=eb4d2eb4` 已推送但尚未部署到线上 API；线上新 API 仍为 `1bc8b0a8`，旧 Python `8001` 未修改。发布基线会因此阻断，不能把本地测试或代码状态当作线上业务验收。详见 [`docs/migration/current-execution-checkpoint-2026-08-27.md`](docs/migration/current-execution-checkpoint-2026-08-27.md)。
+> **当前仓库执行检查点（2026-08-27）**：当前 `main=43514fcf` 已推送但尚未部署到线上 API；本轮 API 运行时代码变更来源为 `eb4d2eb4`，线上新 API 仍为 `1bc8b0a8`，旧 Python `8001` 未修改。发布基线会因此阻断，不能把本地测试或代码状态当作线上业务验收。详见 [`docs/migration/current-execution-checkpoint-2026-08-27.md`](docs/migration/current-execution-checkpoint-2026-08-27.md)。
 
 当前仓库进入 Phase 7D：已建立 Phase 5A-2 的 MySQL/Redis 真实持久化验收脚本，并在其上完成
 Phase 5B-1 的 provider 审计、微信身份 adapter，以及微信支付 APIv3 的请求签名、响应验签、

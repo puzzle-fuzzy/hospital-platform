@@ -1,6 +1,6 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **当前仓库执行检查点（2026-08-27）**：当前 `main` 为 `eb4d2eb4`，该候选已推送但尚未部署到线上 API；线上仍为 `1bc8b0a8`。本轮健康知识服务新增直调关系查询白名单，故 `pnpm release:baseline:audit` 会正确报告 `index.ts`、`service.ts` 尚未部署。旧 Python、旧数据库和旧 Redis 未修改。请先阅读 [`current-execution-checkpoint-2026-08-27.md`](current-execution-checkpoint-2026-08-27.md)，再使用本文下方的历史候选记录。
+> **当前仓库执行检查点（2026-08-27）**：当前 `main` 为 `43514fcf`，其中 API 运行时代码变更来源为 `eb4d2eb4`；当前候选已推送但尚未部署到线上 API，线上仍为 `1bc8b0a8`。本轮健康知识服务新增直调关系查询白名单，故 `pnpm release:baseline:audit` 会正确报告 `index.ts`、`service.ts` 尚未部署。旧 Python、旧数据库和旧 Redis 未修改。请先阅读 [`current-execution-checkpoint-2026-08-27.md`](current-execution-checkpoint-2026-08-27.md)，再使用本文下方的历史候选记录。
 
 > **当前候选覆盖（2026-08-27）**：最新小程序源码和本地 live 运行输入为 `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`（`62cdb8f`），40 页；核心回归、共享患者外壳会话边界、就诊二维码会话门禁、健康数值规则版本、会话失效资料缓存清理和预约请求运行时边界测试通过。该来源已完成校验并原子切换到 live `dist`，本候选未新增 Provider 请求或写入；本文下方旧候选数字只作历史追溯，以本段和 [`candidate-62cdb8f-miniprogram-runtime-2026-08-27.md`](../release/candidate-62cdb8f-miniprogram-runtime-2026-08-27.md) 为准。
 
@@ -33,7 +33,7 @@
 | 小程序回归 | `340 pass / 0 fail / 3726 expect()`；入口分发审计通过 |
 | 发布与运行包验证 | 发布前 `runtime:verify:pending` 已通过；发布后 `runtime:verify` 已通过 |
 | 当前 live `dist` | 来源为 `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`；真机是否已加载仍须通过新二维码和页面证据确认 |
-| 服务端本地候选 | 当前 `main=eb4d2eb4`，包含尚未部署的健康知识运行时代码；发布基线等待 API-only 发布 |
+| 服务端本地候选 | 当前 `main=43514fcf`，其中 `eb4d2eb4` 引入尚未部署的健康知识运行时代码；发布基线等待 API-only 发布 |
 | 线上服务 | 新 API `1bc8b0a8` 与旧 Python `8001` 共存；本轮不停止旧服务 |
 
 本轮最新的只读共存核对见 [`release/current-runtime-coexistence-readonly-2026-08-25.md`](../release/current-runtime-coexistence-readonly-2026-08-25.md)。该记录证明运行层边界正常，但不替代当前候选的业务验收。
@@ -109,7 +109,7 @@ pnpm migration:boundary:audit
    执行 `pnpm device:evidence:audit --file docs/release/device-evidence-62cdb8f8-pending.json` 时，在全部域仍为 `pending` 的情况下总结果仍为 `passed=false`；一旦出现 `passed/failed` 真实链路结果，线上 release 基线必须先通过，否则工具直接拒绝纳入验收。
 3. Provider 材料缺失时转向 B/C/D/E 的 contract 收集，不停在一个页面上猜测字段。
 4. 每个业务域只有在 contract、adapter、domain 不变量、API、页面状态机、低敏日志、自动化测试和真实链路证据齐全后，才从 `partial/blocked-*` 改为完成。
-5. `pnpm release:baseline:audit` 当前因 `eb4d2eb4` 的 `apps/api/src/modules/knowledge/index.ts`、`service.ts` 尚未部署而失败；完成新的 API-only 原子发布并取得远端证据后，才可更新当前 release 基线。不能通过修改审计器或只部署半套代码来“变绿”。
+5. `pnpm release:baseline:audit` 当前因当前 `main=43514fcf` 中的 `apps/api/src/modules/knowledge/index.ts`、`service.ts` 尚未部署而失败；完成新的 API-only 原子发布并取得远端证据后，才可更新当前 release 基线。不能通过修改审计器或只部署半套代码来“变绿”。
 
 本轮共享基础设施修正已经完成，后续工作回到广度队列：A 批次从已发布的 `62cdb8f` live 运行包开始采集九个只读域证据；B 批次等待内容责任人审核 bundle；C/D/E 批次分别等待临床、患者写入和外部入口 contract；F 批次继续最后处理支付、医保和 HIS 回写。业务代码不能因为一个共享日志问题已修复就提前打开这些阻断域。
 
