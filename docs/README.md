@@ -7,7 +7,7 @@
 > **源码同步备注（2026-08-27）**：`805c54e` 是最新运行相关源码和本地 live 运行包，在既有共享患者外壳、会话代际、二维码会话门禁和安全关闭态基础上，收紧预约排班和预约历史请求构造器的运行时字段、日期和范围边界，并修复 App.onLaunch 全局资料初始化时序。该候选已原子发布到本地 live `dist`，后续真机验收必须从 live 重新生成二维码并绑定本候选证据。
 > 服务端与小程序继续采用分层发布；线上历史小程序 `13f597e` 与本地 live `805c54e` 不得互相替代。本文以下旧候选编号均只作历史追溯。
 
-> **真机会话状态（2026-08-27）**：当前已重新打开 `apps/miniprogram/dist/` 独立工程并生成 `805c54e` 的 iOS 二维码，已观察到 iPhone 17 Pro 真机连接，并取得微信登录与患者目录的首批低敏同链证据；页面、显式切换和其余域尚未完成，九个真机证据域仍保持 `pending`。详见 [`release/device-observation-805c54e-auth-patient-2026-08-27.md`](release/device-observation-805c54e-auth-patient-2026-08-27.md)。
+> **真机会话状态（2026-08-27）**：当前已重新打开 `apps/miniprogram/dist/` 独立工程并生成 `805c54e` 的 iOS 二维码，已观察到 iPhone 17 Pro 真机连接，并取得微信登录与患者目录的首批低敏同链证据；当前页面仍为首页，显式切换和其余域尚未完成，九个真机证据域仍保持 `pending`。详见 [`release/device-observation-805c54e-auth-patient-2026-08-27.md`](release/device-observation-805c54e-auth-patient-2026-08-27.md)。
 
 > **本轮最新修正**：在全量入口覆盖基础上新增 BMI/血压安全数值子集，并保留临床内容、外部入口和预约 Provider 的关闭态页面外壳。它们只展示真实边界、必要的患者选择入口和关闭态，不读取 Provider、不生成假数据。当前运行包事实以本页顶部和 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md) 为准。
 

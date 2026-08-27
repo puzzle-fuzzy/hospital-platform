@@ -23,6 +23,20 @@
 患者目录读取分别记录了 `patient.directory.read.requested`、`patient.directory.read.loaded`
 和 HTTP 完成事件。日志没有在本文或验收记录中复制凭证和患者正文。
 
+## 后续患者目录读取观察
+
+真机保持连接期间又观察到以下 3 次患者目录读取；客户端和服务端的请求号仍能一一对应，
+每次服务端读模型均加载 `1` 条记录：
+
+| 客户端 requestId | 客户端请求 | 服务端结果 |
+| --- | --- | --- |
+| `mp-mtbdli9f-9qieg592` | `GET /patients` | `/api/v1/patients` HTTP `200` |
+| `mp-mtbdm75z-j3n54hv4` | `GET /patients` | `/api/v1/patients` HTTP `200` |
+| `mp-mtbdmp7j-s61u99vu` | `GET /patients` | `/api/v1/patients` HTTP `200` |
+
+当前真机 WXML 根页面仍为首页，尚未观察到进入“选择就诊人”页面或显式切换其他患者；
+这些重复读取不计作患者切换成功。
+
 ## `SdkReport` 处理结论
 
 本次真机 Network 面板还观察到多条 `SdkReport` 请求。它们是微信基础库的诊断/统计流量，

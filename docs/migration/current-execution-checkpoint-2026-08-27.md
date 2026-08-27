@@ -14,7 +14,7 @@ iOS 调试二维码；随后已观察到 iPhone 17 Pro 真机连接，并取得�
 因此仍不把局部请求成功扩大为整域验收。已完成复核：
 
 - `pnpm migration:breadth:audit`：40 个原生页面、4 个主 Tab、2 个 action 页面和 14 个状态页入口通过；
-- `pnpm migration:readiness`：旧端 64 个入口全部登记，5 个低风险域代码就绪但真实证据为 `0/5`；
+- `pnpm migration:readiness`：旧端 64 个入口全部登记，5 个低风险域代码就绪但整域验收仍为 `0/5`；本轮首批局部真机观察另见证据文档；
 - `pnpm clinical:contract:audit`：4 个临床域继续保持 `normalized / unregistered`；
 - `pnpm provider:audit`：4 份 Provider 接收记录、31 个 `documentId` 的来源和脱敏边界通过；
 - `pnpm docs:audit`、`pnpm release:baseline:audit`：文档无断链，线上 API `b44421cd` 与小程序 live `805c54e` 基线一致。
@@ -59,7 +59,7 @@ API-only 发布；代码发布事实与真实 Provider/真机业务证据仍然�
 
 - 旧端 64 个页面均已登记，新端 40 个原生页面均有落点；
 - 当前 5 个低风险域已有代码闭环：患者目录、预约目录/历史、报告受限只读、门诊费用只读、普通资料；
-- 这 5 个域的真实业务证据仍为 `0/5`，九个真机证据域仍全部为 `pending`；
+- 这 5 个域的整域真实验收仍为 `0/5`，但微信登录和患者目录已产生局部同链观察；九个真机证据域仍全部为 `pending`；
 - 健康百科虽有只读 API 和页面，但正式审核 bundle 不存在，源快照仍 `not-approved`，继续 fail-closed；
 - C 临床、D 患者/便民写入、E 外部入口、F 支付/医保/HIS 回写继续关闭；
 - 不能把页面落点、类型测试、服务 smoke 或数据库 readiness 当作 Provider、真机或支付成功。

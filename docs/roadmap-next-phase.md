@@ -52,7 +52,7 @@
 
 # 下一阶段实施路线图
 
-> **当前小程序候选（2026-08-27）**：`805c54ea9fa943385ad6feebed1401d521fbad3c`（`805c54e`）已通过构建、回归和运行包校验并原子发布到 live `dist`；本候选修复 App.onLaunch 全局资料初始化时序，同时保留预约排班和预约历史请求构造器的运行时字段、日期和范围边界。新的九域真机清单为 [`release/device-evidence-805c54ea-pending.json`](release/device-evidence-805c54ea-pending.json)，当前开发者工具已恢复并观察到 iPhone 17 Pro 真机连接，微信登录与患者目录首批同链证据已记录，但页面、显式切换和其余域仍待完成，所有整域结果继续保持 `pending`。详见 [`release/device-observation-805c54e-auth-patient-2026-08-27.md`](release/device-observation-805c54e-auth-patient-2026-08-27.md)。
+> **当前小程序候选（2026-08-27）**：`805c54ea9fa943385ad6feebed1401d521fbad3c`（`805c54e`）已通过构建、回归和运行包校验并原子发布到 live `dist`；本候选修复 App.onLaunch 全局资料初始化时序，同时保留预约排班和预约历史请求构造器的运行时字段、日期和范围边界。新的九域真机清单为 [`release/device-evidence-805c54ea-pending.json`](release/device-evidence-805c54ea-pending.json)，当前开发者工具已恢复并观察到 iPhone 17 Pro 真机连接，微信登录与患者目录首批同链证据已记录，重复读取也已完成同链核对，但当前页面仍为首页，显式切换和其余域仍待完成，所有整域结果继续保持 `pending`。详见 [`release/device-observation-805c54e-auth-patient-2026-08-27.md`](release/device-observation-805c54e-auth-patient-2026-08-27.md)。
 
 > **最新小程序候选事实（2026-08-27）**：当前运行相关源码和本地 live 运行输入为 `805c54ea9fa943385ad6feebed1401d521fbad3c`，40 个页面；该候选已原子发布到 live `dist`，并修复 App.onLaunch 全局资料初始化时序，保留会话失效时旧 owner 微信资料缓存清理和就诊/互联网医院关闭态卡片纵向居中。本轮继续保持共享患者外壳、电子锦旗和表扬信记录区域、二维码安全壳和健康数值工具的安全边界，临床/服务入口的当前就诊人上下文、重试和选择入口、患者签名和消息订阅的原生安全展示层、采血预约、今日预约摘要与安全数值子集继续保持边界，未开放临床分级、采血号源、公开记录或实时叫号；预约排班和预约历史底层构造器拒绝未知字段、非法日期及范围错配。正式健康审核 bundle 缺失时健康百科仍保持 fail-closed，协议同意/撤回/审计仍关闭。支付、医保、临床真实读取、外部 WebView 和预约写入仍按各自 contract 关闭。
 
