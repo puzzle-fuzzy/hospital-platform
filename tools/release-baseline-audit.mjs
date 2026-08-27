@@ -451,8 +451,9 @@ export const currentBaselineDocuments = Object.freeze([
  * `dist` 是开发者工具实际读取、且已经进入当前运行链路的包；`pending`
  * 只是等待发布的候选，必须由 `runtime:verify:pending` 单独验收。若在这里
  * 优先读取 pending，候选构建期间所有线上文档都会被误判为已漂移，反而会
- * 掩盖真正的发布状态。因此现网一致性审计始终以 dist 优先，dist 缺失时
- * 才回退到当前基线文档声明，绝不把 pending 冒充成 live。
+ * 掩盖真正的发布状态。因此现网一致性审计只读取 dist；dist 缺失时返回
+ * 未定义并保持 fail-closed，由上层审计报告缺少当前运行包来源，绝不把
+ * 当前基线文档声明或 pending 候选冒充成 live。
  */
 async function readActiveMiniProgramSourceRevision(rootDirectory) {
 	for (const relativePath of ["apps/miniprogram/dist/build-info.json"]) {
