@@ -234,6 +234,9 @@ export class HealthKnowledgeService {
 					event: "health-knowledge.read.failed",
 					operation,
 					errorName: error instanceof Error ? error.name : "UnknownError",
+					...(error instanceof HealthKnowledgeValidationError
+						? { validationReason: error.reason }
+						: {}),
 					...(error instanceof HealthKnowledgeResultValidationError
 						? { resultViolation: error.violation }
 						: {}),

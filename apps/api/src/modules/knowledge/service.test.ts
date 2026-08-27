@@ -229,6 +229,41 @@ test("health knowledge service fails closed and logs only a fixed violation", as
 	});
 });
 
+test("health knowledge service logs a fixed validation reason without query values", async () => {
+	const lines: string[] = [];
+	const service = new HealthKnowledgeService({
+		repository: createRepository(),
+		logger: createLogger({
+			service: "hospital-api-test",
+			environment: "test",
+			level: "info",
+			destination: {
+				write(chunk: string) {
+					lines.push(chunk);
+				},
+			},
+		}),
+	});
+
+	await expect(
+		service.listDiseasesByRelation({
+			kind: "part",
+			id: "part-1",
+			unexpected: "must-not-be-logged",
+		} as never),
+	).rejects.toBeInstanceOf(HealthKnowledgeValidationError);
+
+	const records = lines.map(
+		(line) => JSON.parse(line) as Record<string, unknown>,
+	);
+	expect(records[1]).toMatchObject({
+		event: "health-knowledge.read.failed",
+		operation: "disease-relation",
+		validationReason: "invalid_query",
+	});
+	expect(JSON.stringify(records)).not.toContain("must-not-be-logged");
+});
+
 test("health knowledge service rejects a detail returned for another requested id", async () => {
 	const service = new HealthKnowledgeService({
 		repository: createRepository({

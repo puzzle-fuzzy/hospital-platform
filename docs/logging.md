@@ -101,7 +101,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `user.profile.conflict` | 普通个人资料版本冲突 | 记录 trace 和固定错误类型，保留 409 并发事实的可检索性；不记录 userId、版本值、字段值或请求正文 |
 | `user.profile.update_failed` | 普通个人资料更新失败（包括输入校验拒绝） | 记录 trace 和错误类型，不记录 userId、资料字段或底层错误消息 |
 | `health-knowledge.read.requested` / `health-knowledge.read.completed` | 健康知识只读服务 | 记录操作名、已发布内容版本和条目数量等低敏元数据；不记录疾病、药品正文或患者信息 |
-| `health-knowledge.read.failed` | 健康知识只读服务 | 记录操作名、固定错误类型和有限读模型违规原因；不把未审核内容或底层异常原文当作 API 返回 |
+| `health-knowledge.read.failed` | 健康知识只读服务 | 记录操作名、固定错误类型、有限 `validationReason` 或读模型违规原因；不记录查询值、未审核内容或底层异常原文 |
 | `health-knowledge.read.not_found` | 健康知识详情查询 | 区分合法的内容不存在与系统失败；只记录资源类型和操作名，不记录查询正文 |
 | `health-knowledge.import.started` | 健康知识 staging 导入命令 | 记录已通过 bundle 校验的内容版本和审核状态；只允许 staging 环境，不记录文件路径、正文或数据库地址 |
 | `health-knowledge.import.completed` | 健康知识 staging 导入命令 | 记录事务完成后的内容版本、状态和各类条目/关系数量；不表示患者端 API 已开放或生产已发布 |
