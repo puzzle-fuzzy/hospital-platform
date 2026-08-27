@@ -1,9 +1,18 @@
 import { expect, test } from "bun:test";
 import {
+	buildAppointmentRecordQuery,
+	buildAppointmentScheduleQuery,
 	isAllowedApiPrefix,
 	isUsableAccessToken,
+	localizedApiErrorMessage,
 	normalizeApiPrefix,
 	request,
+	requestHealthDiseaseDetail,
+	requestHealthDiseasesByRelation,
+	requestHealthDiseasesBySymptoms,
+	requestHealthDrugDetail,
+	requestHealthKnowledgeCatalog,
+	requestHealthSymptomsByPart,
 	requestWithSession,
 	requestWithStableSession,
 	requireAuthSessionResponse,
@@ -17,14 +26,6 @@ import {
 	requireReportDetailResponse,
 	requireReportListResponse,
 	requireSuccessDataResponse,
-	localizedApiErrorMessage,
-	requestHealthDiseasesByRelation,
-	requestHealthDiseasesBySymptoms,
-	requestHealthDiseaseDetail,
-	requestHealthKnowledgeCatalog,
-	requestHealthSymptomsByPart,
-	requestHealthDrugDetail,
-	buildAppointmentRecordQuery,
 } from "./api-client";
 import {
 	clearApiRequestObservations,
@@ -59,6 +60,79 @@ test("预约记录请求的 all 范围不携带在线日期窗口", () => {
 			scope: "all",
 		}),
 	).toBe("patientId=patient-001&scope=all");
+});
+
+test("预约记录底层构造器拒绝范围与日期不匹配的运行时输入", () => {
+	// 联合类型在微信运行时不存在；底层构造器必须独立守住“在线需要日期、
+	// 全部不得带日期”的业务关系，不能让错误调用先生成一条看似合法的 URL。
+	for (const invalid of [
+		null,
+		{ patientId: "patient-001", scope: "unknown" },
+		{
+			patientId: "patient-001",
+			scope: "online",
+			startDate: "2026-02-30",
+			endDate: "2026-03-01",
+		},
+		{
+			patientId: "patient-001",
+			scope: "online",
+			startDate: "2026-03-02",
+			endDate: "2026-03-01",
+		},
+		{
+			patientId: "patient-001",
+			scope: "all",
+			startDate: undefined,
+		},
+		{
+			patientId: "patient-001",
+			scope: "online",
+			startDate: "2026-03-01",
+			endDate: "2026-03-02",
+			legacyChannel: "4",
+		},
+	]) {
+		expect(() => buildAppointmentRecordQuery(invalid as never)).toThrow(
+			"预约记录查询条件不合法",
+		);
+	}
+});
+
+test("预约排班底层构造器校验自然日和筛选标识", () => {
+	// 页面 helper 的校验不能成为唯一防线；直接调用底层请求时也不能把
+	// 控制字符、错误日期或未知旧端字段送入服务端和 Provider 链路。
+	expect(
+		buildAppointmentScheduleQuery({
+			startDate: "2026-08-01",
+			endDate: "2026-08-07",
+			departmentId: "内科/001",
+			doctorId: "doctor-001",
+		}),
+	).toBe(
+		"startDate=2026-08-01&endDate=2026-08-07&departmentId=%E5%86%85%E7%A7%91%2F001&doctorId=doctor-001",
+	);
+
+	for (const invalid of [
+		null,
+		{ startDate: "2026-02-30", endDate: "2026-03-01" },
+		{ startDate: "2026-03-02", endDate: "2026-03-01" },
+		{ startDate: "2026-03-01", endDate: "2026-03-02", departmentId: " " },
+		{
+			startDate: "2026-03-01",
+			endDate: "2026-03-02",
+			doctorId: "doctor-001\n",
+		},
+		{
+			startDate: "2026-03-01",
+			endDate: "2026-03-02",
+			legacyChannel: "3",
+		},
+	]) {
+		expect(() => buildAppointmentScheduleQuery(invalid as never)).toThrow(
+			"预约排班查询条件不合法",
+		);
+	}
 });
 
 test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本", () => {

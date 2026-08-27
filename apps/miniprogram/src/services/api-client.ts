@@ -24,13 +24,13 @@ import {
 	recordApiRequestObservation,
 	sanitizeApiRequestPath,
 } from "./api-request-observability";
+import { isBoundedPatientId } from "./patient-identifiers";
 import { notifySessionChanged } from "./session-events";
 import {
 	advanceSessionGeneration,
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "./session-generation";
-import { isBoundedPatientId } from "./patient-identifiers";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
@@ -235,6 +235,180 @@ function isCanonicalCalendarDate(value: unknown): value is string {
 		date.getUTCMonth() === month - 1 &&
 		date.getUTCDate() === day
 	);
+}
+
+/**
+ * 预约排班请求使用的标识边界。
+ *
+ * 科室 ID 和医生 ID 虽然通常来自服务端目录，但它们仍会经过页面事件、
+ * 页面栈参数或测试替身；不能因为调用方拿到的是 TypeScript `string`，就把
+ * 空白、控制字符或超长值直接编码进 URL。这里与服务端 opaque 标识边界
+ * 保持同一形状，但不把“形状合法”误认为已经具备 Provider 授权。
+ */
+function isBoundedAppointmentRequestIdentifier(
+	value: unknown,
+): value is string {
+	return (
+		typeof value === "string" &&
+		value.length > 0 &&
+		value.length <= 128 &&
+		value === value.trim() &&
+		!Array.from(value).some((character) => {
+			const code = character.charCodeAt(0);
+			return code <= 0x1f || code === 0x7f;
+		})
+	);
+}
+
+function invalidAppointmentRequest(message: string): never {
+	throw new ApiError(message, { code: "appointment-query-invalid" });
+}
+
+function invalidAppointmentRecordRequest(message: string): never {
+	throw new ApiError(message, {
+		code: "appointment-record-query-invalid",
+	});
+}
+
+/** 底层排班请求只允许已经登记的 query 字段，禁止静默丢弃调用方意图。 */
+const APPOINTMENT_SCHEDULE_REQUEST_FIELDS = new Set([
+	"startDate",
+	"endDate",
+	"departmentId",
+	"doctorId",
+]);
+
+/** 底层预约历史请求只允许范围和对应日期字段。 */
+const APPOINTMENT_RECORD_REQUEST_FIELDS = new Set([
+	"patientId",
+	"scope",
+	"startDate",
+	"endDate",
+]);
+
+export type AppointmentScheduleRequestOptions = {
+	startDate: string;
+	endDate: string;
+	departmentId?: string;
+	doctorId?: string;
+};
+
+/**
+ * 在真正调用 `wx.request` 前归一化排班请求。
+ *
+ * 页面层的 `loadAppointmentSchedules` 已有一层校验，但这个底层函数是导出
+ * 的公共请求入口，未来页面、回放器或开发工具都可能直接调用。若只依赖
+ * 页面校验，异常值仍会污染客户端 requestId、服务端日志和 Provider 查询；
+ * 因此请求构造器本身必须再次 fail-closed。日期跨度的最终业务上限仍由
+ * 服务端 `AppointmentService` 执行，这里只保证自然日形状和筛选标识安全。
+ */
+function requireAppointmentScheduleRequestOptions(
+	value: unknown,
+): AppointmentScheduleRequestOptions {
+	if (
+		typeof value !== "object" ||
+		value === null ||
+		Array.isArray(value) ||
+		Object.keys(value).some(
+			(field) => !APPOINTMENT_SCHEDULE_REQUEST_FIELDS.has(field),
+		)
+	) {
+		return invalidAppointmentRequest("预约排班查询条件不合法");
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		!isCanonicalCalendarDate(record.startDate) ||
+		!isCanonicalCalendarDate(record.endDate) ||
+		record.startDate > record.endDate
+	) {
+		return invalidAppointmentRequest("预约排班查询条件不合法");
+	}
+	if (
+		record.departmentId !== undefined &&
+		!isBoundedAppointmentRequestIdentifier(record.departmentId)
+	) {
+		return invalidAppointmentRequest("预约排班查询条件不合法");
+	}
+	if (
+		record.doctorId !== undefined &&
+		!isBoundedAppointmentRequestIdentifier(record.doctorId)
+	) {
+		return invalidAppointmentRequest("预约排班查询条件不合法");
+	}
+	return {
+		startDate: record.startDate,
+		endDate: record.endDate,
+		...(record.departmentId === undefined
+			? {}
+			: { departmentId: record.departmentId }),
+		...(record.doctorId === undefined ? {} : { doctorId: record.doctorId }),
+	};
+}
+
+export type AppointmentRecordRequestOptions =
+	| {
+			patientId: string;
+			scope: "online";
+			startDate: string;
+			endDate: string;
+	  }
+	| {
+			patientId: string;
+			scope: "all";
+	  };
+
+/**
+ * 归一化预约历史底层请求，并锁定“范围—日期”一一对应关系。
+ *
+ * “全部挂号”不允许携带日期，“在线挂号”必须同时携带合法日期；不能让
+ * `undefined`、未知 scope 或额外旧端字段在 URL 构造时被静默忽略。这样
+ * 同一个函数无论来自页面还是直接调用，都不会把爽约/全部历史误发成另一种
+ * 查询，也不会在网络层才暴露一个难以定位的 400。
+ */
+function requireAppointmentRecordRequestOptions(
+	value: unknown,
+): AppointmentRecordRequestOptions {
+	if (
+		typeof value !== "object" ||
+		value === null ||
+		Array.isArray(value) ||
+		Object.keys(value).some(
+			(field) => !APPOINTMENT_RECORD_REQUEST_FIELDS.has(field),
+		)
+	) {
+		return invalidAppointmentRecordRequest("预约记录查询条件不合法");
+	}
+	const record = value as Record<string, unknown>;
+	if (!isBoundedPatientId(record.patientId)) {
+		return invalidAppointmentRecordRequest("预约记录查询条件不合法");
+	}
+	if (record.scope === "all") {
+		// 即使属性值为 undefined，只要调用方显式带入日期就说明请求对象
+		// 已经偏离 canonical union；拒绝它，避免调用方误以为日期生效。
+		if (
+			Object.hasOwn(record, "startDate") ||
+			Object.hasOwn(record, "endDate")
+		) {
+			return invalidAppointmentRecordRequest("预约记录查询条件不合法");
+		}
+		return { patientId: record.patientId, scope: "all" };
+	}
+	if (record.scope !== "online") {
+		return invalidAppointmentRecordRequest("预约记录查询条件不合法");
+	}
+	if (
+		!isCanonicalCalendarDate(record.startDate) ||
+		!isCanonicalCalendarDate(record.endDate) ||
+		record.startDate > record.endDate
+	) {
+		return invalidAppointmentRecordRequest("预约记录查询条件不合法");
+	}
+	return {
+		patientId: record.patientId,
+		scope: "online",
+		startDate: record.startDate,
+		endDate: record.endDate,
+	};
 }
 
 /** 报告底层请求的运行时参数投影；无效输入在 requestWithStableSession 之前结束。 */
@@ -1698,23 +1872,34 @@ export function requestHealthDrugDetail(
 	}).then(requireHealthKnowledgeDrugDetailResponse);
 }
 
-/** 读取服务端白名单后的排班目录。 */
-export function requestAppointmentSchedules(options: {
-	startDate: string;
-	endDate: string;
-	departmentId?: string;
-	doctorId?: string;
-}): Promise<AppointmentScheduleListResponse> {
-	const query = [
-		`startDate=${encodeURIComponent(options.startDate)}`,
-		`endDate=${encodeURIComponent(options.endDate)}`,
-		...(options.departmentId
-			? [`departmentId=${encodeURIComponent(options.departmentId)}`]
+/**
+ * 将排班查询条件编码为 HTTP query。
+ *
+ * 这一步单独暴露为纯函数，既让请求入口和测试共享完全相同的归一化，
+ * 也让未来新增页面不能绕过底层字段白名单。它只负责查询表达，不代表
+ * 该排班已可锁号或已获得预约写入授权。
+ */
+export function buildAppointmentScheduleQuery(
+	options: AppointmentScheduleRequestOptions,
+): string {
+	const normalized = requireAppointmentScheduleRequestOptions(options);
+	return [
+		`startDate=${encodeURIComponent(normalized.startDate)}`,
+		`endDate=${encodeURIComponent(normalized.endDate)}`,
+		...(normalized.departmentId
+			? [`departmentId=${encodeURIComponent(normalized.departmentId)}`]
 			: []),
-		...(options.doctorId
-			? [`doctorId=${encodeURIComponent(options.doctorId)}`]
+		...(normalized.doctorId
+			? [`doctorId=${encodeURIComponent(normalized.doctorId)}`]
 			: []),
 	].join("&");
+}
+
+/** 读取服务端白名单后的排班目录。 */
+export function requestAppointmentSchedules(
+	options: AppointmentScheduleRequestOptions,
+): Promise<AppointmentScheduleListResponse> {
+	const query = buildAppointmentScheduleQuery(options);
 	return requestWithSession<unknown>({
 		url: `/appointments/schedules?${query}`,
 	}).then((payload) =>
@@ -1724,36 +1909,18 @@ export function requestAppointmentSchedules(options: {
 	);
 }
 
-/**
- * 小程序预约记录请求的严格范围契约。
- *
- * 在线与全部是两个不同的 Provider 只读渠道；即使服务端仍为兼容旧调用
- * 保留默认值，小程序也必须显式发送 scope，避免未来新增调用方因为漏传
- * 参数而把“在线”或“全部”的业务意图交给服务端默认分支决定。
- */
-export type AppointmentRecordRequestOptions =
-	| {
-			patientId: string;
-			scope: "online";
-			startDate: string;
-			endDate: string;
-	  }
-	| {
-			patientId: string;
-			scope: "all";
-	  };
-
 /** 将预约记录契约编码为 HTTP query；这里不允许省略 scope 或混入错误范围的日期。 */
 export function buildAppointmentRecordQuery(
 	options: AppointmentRecordRequestOptions,
 ): string {
+	const normalized = requireAppointmentRecordRequestOptions(options);
 	return [
-		`patientId=${encodeURIComponent(options.patientId)}`,
-		`scope=${encodeURIComponent(options.scope)}`,
-		...(options.scope === "online"
+		`patientId=${encodeURIComponent(normalized.patientId)}`,
+		`scope=${encodeURIComponent(normalized.scope)}`,
+		...(normalized.scope === "online"
 			? [
-					`startDate=${encodeURIComponent(options.startDate)}`,
-					`endDate=${encodeURIComponent(options.endDate)}`,
+					`startDate=${encodeURIComponent(normalized.startDate)}`,
+					`endDate=${encodeURIComponent(normalized.endDate)}`,
 				]
 			: []),
 	].join("&");

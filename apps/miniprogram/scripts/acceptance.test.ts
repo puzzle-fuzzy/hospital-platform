@@ -2248,7 +2248,10 @@ test("native appointment tabs use server-owned read scopes", async () => {
 	expect(records).toContain("requestedTab,");
 	expect(view).toContain('record.status !== "cancelled"');
 	expect(records).not.toContain("requestChannel");
-	expect(client).toContain("encodeURIComponent(options.scope)");
+	// 底层请求必须先经过 canonical union 归一化，再编码最终 scope；
+	// 不能只检查“存在 scope”而放过未知范围或日期错配。
+	expect(client).toContain("encodeURIComponent(normalized.scope)");
+	expect(client).toContain("requireAppointmentRecordRequestOptions");
 	expect(client).toContain("scope=");
 	expect(template).not.toContain("status-tab-disabled");
 });
