@@ -520,6 +520,27 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
+		path: "docs/README.md",
+		label: "文档导航当前发布基线",
+		sections: [
+			{
+				// README 的这段内容位于导航正文之前，是新会话在打开
+				// 文档后最容易复制的运行包入口；它必须和顶部事实源
+				// 使用同一套服务端 release 与小程序完整指纹。
+				start: "当前发布基线（2026-08-27）为",
+				end: "## 首先阅读",
+				phrases: [
+					{
+						text: "当前发布基线（2026-08-27）为",
+						serverExpected: "full",
+						expected: "full",
+					},
+					{ text: "当前运行包规则（2026-08-27）", expected: "full" },
+				],
+			},
+		],
+	},
+	{
 		path: "docs/wechat-auth-login.md",
 		label: "微信授权登录手册",
 		sections: [

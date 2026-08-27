@@ -17,6 +17,11 @@ test("当前候选语义规则必须注册到当前基线文档集合", () => {
 	expect(auditCurrentCandidateRuleRegistration(["docs/README.md"])).toContain(
 		"当前候选引用规则未注册到基线文档集合：docs/release/current-project-baseline-2026-08-27.md",
 	);
+	expect(
+		auditCurrentCandidateRuleRegistration([
+			"docs/release/current-project-baseline-2026-08-27.md",
+		]),
+	).toContain("当前候选引用规则未注册到基线文档集合：docs/README.md");
 });
 
 test("当前日期的运行包来源声明不能漂移到历史候选", () => {
@@ -298,7 +303,12 @@ test("文档导航的历史窗口说明必须跟随当前小程序候选", () =>
 # 项目文档导航
 
 该窗口因早于当前 \`old-candidate\` 构建。
-## 发布与运行`,
+## 发布与运行
+当前发布基线（2026-08-27）为：线上服务端为 \`1b94c46\`，当前本地 live 运行输入为
+\`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
+当前运行包规则（2026-08-27）：当前为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
+## 首先阅读
+`,
 		},
 	];
 
@@ -324,7 +334,12 @@ test("当前事实入口必须同时锁定服务端和小程序完整来源", ()
 			content: `> 最新事实（2026-08-27）：线上服务端 release 为 \`old-server\`；最新小程序运行相关源码和本地 live 运行输入均为 \`old-mini\`。
 # 项目文档导航
 该窗口因早于当前 \`34f0fd21\` 构建。
-## 发布与运行`,
+## 发布与运行
+当前发布基线（2026-08-27）为：线上服务端为 \`1bc8b0a8\`，当前本地 live 运行输入为
+\`34f0fd21aac33214e991de561d37dfd7071013bf\`。
+当前运行包规则（2026-08-27）：当前为 \`34f0fd21aac33214e991de561d37dfd7071013bf\`。
+## 首先阅读
+`,
 		},
 	];
 
