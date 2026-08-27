@@ -89,6 +89,32 @@ const APP_GLOBAL_DATA: AppGlobalData = {
 const APP_CONTAINER = { globalData: APP_GLOBAL_DATA };
 registerBootstrapApp(APP_CONTAINER);
 
+/**
+ * 启动资料初始化必须同时防住“异步失败”和“同步抛错”两条路径。
+ *
+ * 正常情况下 `ensureGlobalUserProfile` 返回 Promise，`.catch()` 可以把网络、
+ * 会话或资料服务失败沉淀到全局状态；但开发者工具热重载、基础库启动时序
+ * 或旧增量 bundle 可能让它在返回 Promise 前就读取到不完整的 App 容器。
+ * 如果直接写成 `ensureGlobalUserProfile(...).catch(...)`，这种同步 TypeError
+ * 会越过 Promise 链并中断整个小程序启动。这里保留立即启动，同时用 try/catch
+ * 把两类错误统一降级为页面可重试的资料错误，不让个人资料增强功能拖垮首屏。
+ */
+function startGlobalUserProfileBootstrap(): void {
+	const reportBootstrapError = (error: unknown): void => {
+		console.warn(
+			"[医院小程序] 全局用户资料初始化未完成，页面保留重试状态；errorType=",
+			error instanceof Error ? error.name : "unknown",
+		);
+	};
+
+	try {
+		void ensureGlobalUserProfile(APP_CONTAINER).catch(reportBootstrapError);
+	} catch (error: unknown) {
+		// 保护 App.onLaunch 不因旧缓存或不完整开发者工具容器同步中断。
+		reportBootstrapError(error);
+	}
+}
+
 App<{ globalData: AppGlobalData }>({
 	globalData: APP_GLOBAL_DATA,
 
@@ -103,13 +129,9 @@ App<{ globalData: AppGlobalData }>({
 		// Promise，也不会把错误详情或用户资料写入控制台。
 		// 这里必须显式传入启动容器。微信执行 App.onLaunch 时，getApp() 或
 		// 生命周期 this 可能尚未稳定；资料仓库若此刻反查它，会在首屏前因
-		// `globalData` 读取 undefined 而中断整个小程序启动。
-		void ensureGlobalUserProfile(APP_CONTAINER).catch((error: unknown) => {
-			console.warn(
-				"[医院小程序] 全局用户资料初始化未完成，页面保留重试状态；errorType=",
-				error instanceof Error ? error.name : "unknown",
-			);
-		});
+		// `globalData` 读取 undefined 而中断整个小程序启动。启动包装器同时
+		// 捕获同步 TypeError 和异步 Promise 拒绝，页面随后可以明确重试。
+		startGlobalUserProfileBootstrap();
 		// App 入口不能把本地缓存直接当成已登录事实：缓存可能来自旧版本、
 		// 开发者工具手工写入或异常中断，也没有经过当前服务端的 owner 验证。
 		// token 保留在 storage，由 api-client/session-service 在真正请求前按同一

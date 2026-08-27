@@ -101,6 +101,8 @@ test("native App entry does not trust a cached token before session verification
 	// 在启动窗口内已经可用当成前提。
 	expect(app).toContain("ensureGlobalUserProfile(APP_CONTAINER)");
 	expect(app).toContain("registerBootstrapApp(APP_CONTAINER)");
+	expect(app).toContain("startGlobalUserProfileBootstrap");
+	expect(app).toContain("catch (error: unknown)");
 	expect(app).toContain("onLaunch()");
 });
 

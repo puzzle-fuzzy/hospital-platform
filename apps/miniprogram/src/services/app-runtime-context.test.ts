@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import {
 	getRegisteredApp,
-	registerBootstrapApp,
 	type MiniProgramAppContainer,
+	registerBootstrapApp,
 } from "./app-runtime-context";
 
 type TestGlobal = typeof globalThis & {
@@ -58,5 +58,17 @@ test("不完整的微信 App 实例不会覆盖有效的启动容器", () => {
 
 	// 开发者工具热重载期间可能短暂返回空对象；此时必须回退到同一份
 	// globalData，而不是继续解引用不完整实例。
+	expect(getRegisteredApp()).toBe(bootstrapApp);
+});
+
+test("getApp 返回 undefined 时仍回退到启动容器", () => {
+	const bootstrapApp: MiniProgramAppContainer = {
+		globalData: { accessToken: "bootstrap-undefined-app" },
+	};
+	registerBootstrapApp(bootstrapApp);
+	testGlobal.getApp = () => undefined;
+
+	// 某些启动窗口中 getApp() 不是抛错，而是直接返回 undefined；这和
+	// `getApp().globalData` 一样危险，必须在上下文桥内统一变成安全回退。
 	expect(getRegisteredApp()).toBe(bootstrapApp);
 });
