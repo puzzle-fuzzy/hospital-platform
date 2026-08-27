@@ -273,6 +273,13 @@ export const currentBaselineDocuments = Object.freeze([
 		candidateOnly: true,
 	},
 	{
+		// 交接单引用的执行检查点是新会话的直接入口；将其纳入当前基线，
+		// 防止它继续携带已经失效的 live 运行包或过期真机命令。
+		path: "docs/migration/current-execution-checkpoint-2026-08-27.md",
+		label: "当前执行检查点",
+		candidateOnly: true,
+	},
+	{
 		path: "docs/migration/migration-readiness-report.md",
 		label: "全项目迁移 readiness 报告说明",
 		candidateOnly: true,

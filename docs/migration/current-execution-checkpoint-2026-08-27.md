@@ -6,23 +6,23 @@
 
 ## 本轮会话恢复复核（2026-08-27）
 
-本轮开始时没有正在运行的微信开发者工具或真机会话；随后已重新打开当前
-`apps/miniprogram/dist/` 独立工程，模拟器加载正常，并确认控制台打印的运行包来源为
-`805c54ea9fa943385ad6feebed1401d521fbad3c`。随后通过“二维码真机调试”生成了当前候选的
-iOS 调试二维码；随后已观察到 iPhone 17 Pro 真机连接，并取得微信登录成功和患者目录读取的
-客户端 requestId/服务端低敏日志同链证据。真机页面截图、显式患者切换及其余业务域尚未完成，
-因此仍不把局部请求成功扩大为整域验收。已完成复核：
+本轮没有正在运行的微信开发者工具或真机会话；已完成当前
+`apps/miniprogram/dist/` 独立运行包的构建、静态校验和原子发布，并确认运行包来源为
+`d4f67485a34195a2e1e392071502cf2a7006dd27`。本轮没有从该新候选生成二维码，也没有取得新的
+真机页面或业务同链证据；九个真机证据域继续保持 `pending`，不能把历史二维码和旧候选观察
+绑定到当前运行包。已完成复核：
 
 - `pnpm migration:breadth:audit`：40 个原生页面、4 个主 Tab、2 个 action 页面和 14 个状态页入口通过；
-- `pnpm migration:readiness`：旧端 64 个入口全部登记，5 个低风险域代码就绪但整域验收仍为 `0/5`；本轮首批局部真机观察另见证据文档；
+- `pnpm migration:readiness`：旧端 64 个入口全部登记，5 个低风险域代码就绪但整域验收仍为 `0/5`；当前九域清单仍为 pending；
 - `pnpm clinical:contract:audit`：4 个临床域继续保持 `normalized / unregistered`；
 - `pnpm provider:audit`：4 份 Provider 接收记录、31 个 `documentId` 的来源和脱敏边界通过；
-- `pnpm docs:audit`、`pnpm release:baseline:audit`：文档无断链，线上 API `b44421cd` 与小程序 live `805c54e` 基线一致。
+- `pnpm docs:audit`、`pnpm release:baseline:audit`：文档无断链，线上 API `b44421cd` 与小程序 live `d4f6748` 基线一致。
 
 本轮没有修改旧项目、旧 Python 服务、旧数据库或旧 Redis。后续若没有正式健康审核
 bundle、临床/患者/外部 contract，不能通过继续写页面的方式替代业务材料；当前下一项实际动作
-是让已连接手机继续完成患者显式切换、预约历史/爽约、门诊费用和普通资料的真机三层取证。
-首批登录/患者观察详见 [`../release/device-observation-805c54e-auth-patient-2026-08-27.md`](../release/device-observation-805c54e-auth-patient-2026-08-27.md)。
+是重新打开 `apps/miniprogram/dist/`、普通编译并从同一运行包生成二维码，再完成患者显式切换、
+预约历史/爽约、门诊费用和普通资料的真机三层取证。当前待采集清单见
+[`../release/device-evidence-d4f67485-pending.json`](../release/device-evidence-d4f67485-pending.json)。
 
 ## 当前来源与范围
 
@@ -30,7 +30,7 @@ bundle、临床/患者/外部 contract，不能通过继续写页面的方式替
 | --- | --- | --- |
 | 当前 Git 工作树 | 当前 `main`（提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed` | 已提交并推送到 `origin/main` |
 | 线上新 API | `b44421cd321ff9ff23eeb49b12641d1772d2bdc1` | 仍为已部署 release |
-| 本地小程序 live `dist` | `805c54ea9fa943385ad6feebed1401d521fbad3c` | 与当前小程序运行包一致 |
+| 本地小程序 live `dist` | `d4f67485a34195a2e1e392071502cf2a7006dd27` | 与当前小程序运行包一致 |
 | 旧 Python 服务 | `0.0.0.0:8001` | 本轮未修改、未停止 |
 | 旧项目、旧 MySQL、旧 Redis | 不在本轮写入范围 | 本轮未操作 |
 
@@ -67,7 +67,7 @@ API-only 发布；代码发布事实与真实 Provider/真机业务证据仍然�
 ## 下一步固定顺序
 
 1. API-only 发布已完成；后续若发生业务层回归，只回滚新 API `current`，不停止旧 Python `8001`。
-2. 当前开发者工具已恢复并已生成二维码；待手机扫码后，先核对 `805c54ea9fa943385ad6feebed1401d521fbad3c`，再采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
+2. 当前没有运行中的开发者工具或真机会话；重新打开 `apps/miniprogram/dist/` 并普通编译后，先核对 `d4f67485a34195a2e1e392071502cf2a7006dd27`，再生成二维码并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
 3. 收到正式审核 bundle、临床 contract、患者写入 contract、外部会话 contract 后，再按 B/C/D/E 独立准入；支付/医保/HIS 回写最后处理。
 
 ## 禁止事项
