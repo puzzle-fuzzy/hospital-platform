@@ -10,6 +10,32 @@ import { parseStrictIsoInstant } from "./date-range";
 /** 患者端第一阶段只读的知识分类；自测和 AI 不与百科目录共用分类。 */
 export type HealthKnowledgeCatalogKind = "crowd" | "department" | "part";
 
+/**
+ * 健康知识字段的跨层长度契约。
+ *
+ * 这些上限必须同时约束导入 bundle、repository 读模型和患者端响应；
+ * 如果导入层比读取层宽松，就会出现“数据库已经提交、患者端读取才失败”
+ * 的半成功版本。数值与 `0010_health_knowledge.sql` 及公共 contract 对齐，
+ * 修改时必须同步检查这两处，而不是在某一个入口单独放宽。
+ */
+export const HEALTH_KNOWLEDGE_TEXT_LIMITS = {
+	identifier: 128,
+	itemName: 256,
+	initialLetter: 8,
+	publicationContentVersion: 64,
+	publicationReviewedAt: 64,
+	publicationSourceLabel: 128,
+	publicationDisclaimer: 512,
+	reviewerReference: 128,
+	diseaseSummarySymptoms: 10_000,
+	diseaseMetadata: 500,
+	diseaseBody: 100_000,
+	drugName: 256,
+	drugMetadata: 256,
+	drugRelation: 500,
+	drugBody: 100_000,
+} as const;
+
 /** 内容发布时必须随读模型返回的可追溯元数据。 */
 export type HealthKnowledgePublication = {
 	contentVersion: string;
@@ -32,6 +58,11 @@ export type HealthKnowledgeLetterItem = HealthKnowledgeCatalogItem & {
 	initialLetter: string;
 };
 
+/**
+ * 疾病列表只携带有界症状摘要；完整症状正文只在详情读模型中返回。
+ * 这样列表查询不会把 LONGTEXT 直接扩散到大量卡片，也不会因为一条
+ * 合法的长正文把整个目录响应推过公共 contract 上限。
+ */
 export type HealthKnowledgeDiseaseSummary = HealthKnowledgeLetterItem & {
 	treatmentDepartment?: string;
 	symptoms?: string;
@@ -257,10 +288,22 @@ function optionalKnowledgeBodyText(
 function normalizePublication(value: unknown): HealthKnowledgePublication {
 	if (!isRecord(value)) invalidResult("publication-not-object");
 	if (
-		!hasSafeKnowledgeText(value.contentVersion, 64) ||
-		!hasSafeKnowledgeText(value.reviewedAt, 64) ||
-		!hasSafeKnowledgeText(value.sourceLabel, 128) ||
-		!hasSafeKnowledgeText(value.disclaimer, 512)
+		!hasSafeKnowledgeText(
+			value.contentVersion,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationContentVersion,
+		) ||
+		!hasSafeKnowledgeText(
+			value.reviewedAt,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationReviewedAt,
+		) ||
+		!hasSafeKnowledgeText(
+			value.sourceLabel,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationSourceLabel,
+		) ||
+		!hasSafeKnowledgeText(
+			value.disclaimer,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationDisclaimer,
+		)
 	) {
 		invalidResult("publication-invalid");
 	}
@@ -282,8 +325,8 @@ function normalizePublication(value: unknown): HealthKnowledgePublication {
 function normalizeCatalogItem(value: unknown): HealthKnowledgeCatalogItem {
 	if (!isRecord(value)) invalidResult("catalog-item-invalid");
 	if (
-		!hasSafeKnowledgeText(value.id, 128) ||
-		!hasSafeKnowledgeText(value.name, 256)
+		!hasSafeKnowledgeText(value.id, HEALTH_KNOWLEDGE_TEXT_LIMITS.identifier) ||
+		!hasSafeKnowledgeText(value.name, HEALTH_KNOWLEDGE_TEXT_LIMITS.itemName)
 	) {
 		invalidResult("catalog-item-invalid");
 	}
@@ -293,9 +336,12 @@ function normalizeCatalogItem(value: unknown): HealthKnowledgeCatalogItem {
 function normalizeLetterItem(value: unknown): HealthKnowledgeLetterItem {
 	if (!isRecord(value)) invalidResult("letter-item-invalid");
 	if (
-		!hasSafeKnowledgeText(value.id, 128) ||
-		!hasSafeKnowledgeText(value.name, 256) ||
-		!hasSafeKnowledgeText(value.initialLetter, 8)
+		!hasSafeKnowledgeText(value.id, HEALTH_KNOWLEDGE_TEXT_LIMITS.identifier) ||
+		!hasSafeKnowledgeText(value.name, HEALTH_KNOWLEDGE_TEXT_LIMITS.itemName) ||
+		!hasSafeKnowledgeText(
+			value.initialLetter,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.initialLetter,
+		)
 	) {
 		invalidResult("letter-item-invalid");
 	}
@@ -320,7 +366,7 @@ function normalizeDiseaseSummary(
 	const symptoms = optionalKnowledgeBodyText(
 		value,
 		"symptoms",
-		10_000,
+		HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseSummarySymptoms,
 		"disease-summary-invalid",
 	);
 	return {
@@ -333,11 +379,17 @@ function normalizeDiseaseSummary(
 function normalizeDrugReference(value: unknown): HealthKnowledgeDrugReference {
 	if (!isRecord(value)) invalidResult("drug-reference-invalid");
 	const drugId = value.drugId;
-	if (drugId !== undefined && !hasSafeKnowledgeText(drugId, 128)) {
+	if (
+		drugId !== undefined &&
+		!hasSafeKnowledgeText(drugId, HEALTH_KNOWLEDGE_TEXT_LIMITS.identifier)
+	) {
 		invalidResult("drug-reference-invalid");
 	}
 	if (
-		!hasSafeKnowledgeText(value.drugName, 256) ||
+		!hasSafeKnowledgeText(
+			value.drugName,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugName,
+		) ||
 		typeof value.isClickable !== "boolean" ||
 		(value.isClickable && drugId === undefined)
 	) {
@@ -353,8 +405,11 @@ function normalizeDrugReference(value: unknown): HealthKnowledgeDrugReference {
 function normalizeDiseaseDetail(value: unknown): HealthKnowledgeDiseaseDetail {
 	if (!isRecord(value)) invalidResult("disease-detail-invalid");
 	if (
-		!hasSafeKnowledgeText(value.id, 128) ||
-		!hasSafeKnowledgeText(value.diseaseName, 256) ||
+		!hasSafeKnowledgeText(value.id, HEALTH_KNOWLEDGE_TEXT_LIMITS.identifier) ||
+		!hasSafeKnowledgeText(
+			value.diseaseName,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.itemName,
+		) ||
 		!Array.isArray(value.availableDrugs)
 	) {
 		invalidResult("disease-detail-invalid");
@@ -374,55 +429,55 @@ function normalizeDiseaseDetail(value: unknown): HealthKnowledgeDiseaseDetail {
 		diseaseAlias: optionalKnowledgeText(
 			value,
 			"diseaseAlias",
-			500,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseMetadata,
 			"disease-detail-invalid",
 		),
 		affectedPart: optionalKnowledgeText(
 			value,
 			"affectedPart",
-			500,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseMetadata,
 			"disease-detail-invalid",
 		),
 		treatmentDepartment: optionalKnowledgeText(
 			value,
 			"treatmentDepartment",
-			500,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseMetadata,
 			"disease-detail-invalid",
 		),
 		susceptibleCrowd: optionalKnowledgeText(
 			value,
 			"susceptibleCrowd",
-			500,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseMetadata,
 			"disease-detail-invalid",
 		),
 		cause: optionalKnowledgeBodyText(
 			value,
 			"cause",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseBody,
 			"disease-detail-invalid",
 		),
 		symptoms: optionalKnowledgeBodyText(
 			value,
 			"symptoms",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseBody,
 			"disease-detail-invalid",
 		),
 		examination: optionalKnowledgeBodyText(
 			value,
 			"examination",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseBody,
 			"disease-detail-invalid",
 		),
 		prevention: optionalKnowledgeBodyText(
 			value,
 			"prevention",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseBody,
 			"disease-detail-invalid",
 		),
 		treatment: optionalKnowledgeBodyText(
 			value,
 			"treatment",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseBody,
 			"disease-detail-invalid",
 		),
 	};
@@ -442,8 +497,8 @@ function normalizeDiseaseDetail(value: unknown): HealthKnowledgeDiseaseDetail {
 function normalizeDrugDetail(value: unknown): HealthKnowledgeDrugDetail {
 	if (!isRecord(value)) invalidResult("drug-detail-invalid");
 	if (
-		!hasSafeKnowledgeText(value.id, 128) ||
-		!hasSafeKnowledgeText(value.drugName, 256)
+		!hasSafeKnowledgeText(value.id, HEALTH_KNOWLEDGE_TEXT_LIMITS.identifier) ||
+		!hasSafeKnowledgeText(value.drugName, HEALTH_KNOWLEDGE_TEXT_LIMITS.drugName)
 	) {
 		invalidResult("drug-detail-invalid");
 	}
@@ -452,61 +507,61 @@ function normalizeDrugDetail(value: unknown): HealthKnowledgeDrugDetail {
 		manufacturer: optionalKnowledgeText(
 			value,
 			"manufacturer",
-			256,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugMetadata,
 			"drug-detail-invalid",
 		),
 		chineseName: optionalKnowledgeText(
 			value,
 			"chineseName",
-			256,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugMetadata,
 			"drug-detail-invalid",
 		),
 		specifications: optionalKnowledgeText(
 			value,
 			"specifications",
-			256,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugMetadata,
 			"drug-detail-invalid",
 		),
 		treatableDiseases: optionalKnowledgeText(
 			value,
 			"treatableDiseases",
-			500,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugRelation,
 			"drug-detail-invalid",
 		),
 		indications: optionalKnowledgeBodyText(
 			value,
 			"indications",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugBody,
 			"drug-detail-invalid",
 		),
 		usageDosage: optionalKnowledgeBodyText(
 			value,
 			"usageDosage",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugBody,
 			"drug-detail-invalid",
 		),
 		adverseReactions: optionalKnowledgeBodyText(
 			value,
 			"adverseReactions",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugBody,
 			"drug-detail-invalid",
 		),
 		contraindications: optionalKnowledgeBodyText(
 			value,
 			"contraindications",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugBody,
 			"drug-detail-invalid",
 		),
 		interactions: optionalKnowledgeBodyText(
 			value,
 			"interactions",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugBody,
 			"drug-detail-invalid",
 		),
 		precautions: optionalKnowledgeBodyText(
 			value,
 			"precautions",
-			100_000,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugBody,
 			"drug-detail-invalid",
 		),
 	};
@@ -649,9 +704,21 @@ export function normalizeHealthKnowledgeDrugDocument(
 export function validateHealthKnowledgePublication(
 	publication: HealthKnowledgePublication,
 ): void {
-	assertBoundedText(publication.contentVersion, 64, "invalid_publication");
-	assertBoundedText(publication.sourceLabel, 128, "invalid_publication");
-	assertBoundedText(publication.disclaimer, 512, "invalid_publication");
+	assertBoundedText(
+		publication.contentVersion,
+		HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationContentVersion,
+		"invalid_publication",
+	);
+	assertBoundedText(
+		publication.sourceLabel,
+		HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationSourceLabel,
+		"invalid_publication",
+	);
+	assertBoundedText(
+		publication.disclaimer,
+		HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationDisclaimer,
+		"invalid_publication",
+	);
 	// 内容审核时间会参与发布审计和版本比较，不能接受只带日期或不带时区的
 	// 字符串。否则 Bun、staging 和生产可能按各自本地时区解释同一份 bundle。
 	// 患者端安全文案由代码固定，内容导入不能通过数据库字段覆盖它。
@@ -667,7 +734,11 @@ export function validateHealthKnowledgePublication(
 
 /** 所有对外引用先经过统一长度校验，避免把数据库任意字段当成公开资源 id。 */
 export function validateHealthKnowledgeIdentifier(value: string): void {
-	assertBoundedText(value, 128, "invalid_identifier");
+	assertBoundedText(
+		value,
+		HEALTH_KNOWLEDGE_TEXT_LIMITS.identifier,
+		"invalid_identifier",
+	);
 }
 
 /**
@@ -688,8 +759,16 @@ export function validateHealthKnowledgeLetter(
 	value: HealthKnowledgeLetterItem,
 ): void {
 	validateHealthKnowledgeIdentifier(value.id);
-	assertBoundedText(value.name, 256, "invalid_identifier");
-	assertBoundedText(value.initialLetter, 8, "invalid_initial_letter");
+	assertBoundedText(
+		value.name,
+		HEALTH_KNOWLEDGE_TEXT_LIMITS.itemName,
+		"invalid_identifier",
+	);
+	assertBoundedText(
+		value.initialLetter,
+		HEALTH_KNOWLEDGE_TEXT_LIMITS.initialLetter,
+		"invalid_initial_letter",
+	);
 }
 
 /** 旧接口允许按多个症状筛选；平台把数量和重复值限制在领域层。 */

@@ -172,6 +172,36 @@ test("health knowledge import keeps reviewed multiline正文 readable and reject
 	);
 });
 
+test("health knowledge import uses the same field limits as the published read model", () => {
+	const diseaseMetadataTooLong = validBundle();
+	diseaseMetadataTooLong.diseaseDetails =
+		diseaseMetadataTooLong.diseaseDetails.map((detail) => ({
+			...detail,
+			affectedPart: "a".repeat(501),
+		}));
+	expect(() =>
+		validateHealthKnowledgeImportBundle(diseaseMetadataTooLong),
+	).toThrow("diseaseDetails[0].affectedPart");
+
+	const drugMetadataTooLong = validBundle();
+	drugMetadataTooLong.drugDetails = drugMetadataTooLong.drugDetails.map(
+		(detail) => ({ ...detail, manufacturer: "a".repeat(257) }),
+	);
+	expect(() =>
+		validateHealthKnowledgeImportBundle(drugMetadataTooLong),
+	).toThrow("drugDetails[0].manufacturer");
+
+	const diseaseBodyWithinLimit = validBundle();
+	diseaseBodyWithinLimit.diseaseDetails =
+		diseaseBodyWithinLimit.diseaseDetails.map((detail) => ({
+			...detail,
+			treatment: "a".repeat(100_000),
+		}));
+	expect(() =>
+		validateHealthKnowledgeImportBundle(diseaseBodyWithinLimit),
+	).not.toThrow();
+});
+
 test("health knowledge import turns malformed runtime JSON into stable field errors", () => {
 	expect(() => validateHealthKnowledgeImportBundle(null)).toThrow("bundle");
 	expect(() =>

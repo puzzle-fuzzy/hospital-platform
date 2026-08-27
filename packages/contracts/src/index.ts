@@ -359,46 +359,68 @@ export const HealthKnowledgeLetterItemSchema = Type.Intersect([
 export const HealthKnowledgeDiseaseSummarySchema = Type.Intersect([
 	HealthKnowledgeLetterItemSchema,
 	Type.Object({
-		treatmentDepartment: Type.Optional(Type.String({ maxLength: 500 })),
-		symptoms: Type.Optional(Type.String({ maxLength: 10_000 })),
+		treatmentDepartment: Type.Optional(
+			Type.String({ minLength: 1, maxLength: 500 }),
+		),
+		symptoms: Type.Optional(Type.String({ minLength: 1, maxLength: 10_000 })),
 	}),
 ]);
 
-export const HealthKnowledgeDrugReferenceSchema = Type.Object({
-	drugId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-	drugName: Type.String({ minLength: 1, maxLength: 256 }),
-	isClickable: Type.Boolean(),
-});
+/** 可点击药品必须绑定版本内 drugId；纯文本药品说明可以没有 id。 */
+export const HealthKnowledgeDrugReferenceSchema = Type.Union([
+	Type.Object({
+		drugId: Type.String({ minLength: 1, maxLength: 128 }),
+		drugName: Type.String({ minLength: 1, maxLength: 256 }),
+		isClickable: Type.Literal(true),
+	}),
+	Type.Object({
+		drugId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+		drugName: Type.String({ minLength: 1, maxLength: 256 }),
+		isClickable: Type.Literal(false),
+	}),
+]);
 
 /** 疾病正文是审核内容，不代表平台对用户作出诊断或处方。 */
 export const HealthKnowledgeDiseaseDetailSchema = Type.Object({
 	id: Type.String({ minLength: 1, maxLength: 128 }),
 	diseaseName: Type.String({ minLength: 1, maxLength: 256 }),
-	diseaseAlias: Type.Optional(Type.String({ maxLength: 500 })),
-	affectedPart: Type.Optional(Type.String({ maxLength: 500 })),
-	treatmentDepartment: Type.Optional(Type.String({ maxLength: 500 })),
-	susceptibleCrowd: Type.Optional(Type.String({ maxLength: 500 })),
+	diseaseAlias: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+	affectedPart: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+	treatmentDepartment: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 500 }),
+	),
+	susceptibleCrowd: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 500 }),
+	),
 	availableDrugs: Type.Array(HealthKnowledgeDrugReferenceSchema),
-	cause: Type.Optional(Type.String({ maxLength: 100_000 })),
-	symptoms: Type.Optional(Type.String({ maxLength: 100_000 })),
-	examination: Type.Optional(Type.String({ maxLength: 100_000 })),
-	prevention: Type.Optional(Type.String({ maxLength: 100_000 })),
-	treatment: Type.Optional(Type.String({ maxLength: 100_000 })),
+	cause: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
+	symptoms: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
+	examination: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
+	prevention: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
+	treatment: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
 });
 
 export const HealthKnowledgeDrugDetailSchema = Type.Object({
 	id: Type.String({ minLength: 1, maxLength: 128 }),
 	drugName: Type.String({ minLength: 1, maxLength: 256 }),
-	manufacturer: Type.Optional(Type.String({ maxLength: 256 })),
-	chineseName: Type.Optional(Type.String({ maxLength: 256 })),
-	specifications: Type.Optional(Type.String({ maxLength: 256 })),
-	treatableDiseases: Type.Optional(Type.String({ maxLength: 500 })),
-	indications: Type.Optional(Type.String({ maxLength: 100_000 })),
-	usageDosage: Type.Optional(Type.String({ maxLength: 100_000 })),
-	adverseReactions: Type.Optional(Type.String({ maxLength: 100_000 })),
-	contraindications: Type.Optional(Type.String({ maxLength: 100_000 })),
-	interactions: Type.Optional(Type.String({ maxLength: 100_000 })),
-	precautions: Type.Optional(Type.String({ maxLength: 100_000 })),
+	manufacturer: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+	chineseName: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+	specifications: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+	treatableDiseases: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 500 }),
+	),
+	indications: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
+	usageDosage: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
+	adverseReactions: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 100_000 }),
+	),
+	contraindications: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 100_000 }),
+	),
+	interactions: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 100_000 }),
+	),
+	precautions: Type.Optional(Type.String({ minLength: 1, maxLength: 100_000 })),
 });
 
 /** 列表 contract 统一携带 publication，避免缓存只按正文 id 判断新旧。 */

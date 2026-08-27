@@ -99,6 +99,7 @@ export type {
 export {
 	groupHealthKnowledgeByInitialLetter,
 	HEALTH_KNOWLEDGE_DISCLAIMER,
+	HEALTH_KNOWLEDGE_TEXT_LIMITS,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgePublicationConflictError,
 	HealthKnowledgeResultValidationError,

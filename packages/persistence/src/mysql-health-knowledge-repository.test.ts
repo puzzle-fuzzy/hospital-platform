@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	HEALTH_KNOWLEDGE_DISCLAIMER,
+	HEALTH_KNOWLEDGE_TEXT_LIMITS,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgePublicationConflictError,
 	HealthKnowledgeResultValidationError,
@@ -224,6 +225,26 @@ test("MySQL health knowledge enforces relation item kinds in every version", asy
 		expect(state.statements[1], relationCase.name).toContain(
 			relationCase.needle,
 		);
+	}
+});
+
+test("MySQL disease summaries do not return an unbounded LONGTEXT preview", async () => {
+	const relationCases = [
+		(repository: ReturnType<typeof createMySqlHealthKnowledgeRepository>) =>
+			repository.listDiseasesByRelation({ kind: "part", id: "part-1" }),
+		(repository: ReturnType<typeof createMySqlHealthKnowledgeRepository>) =>
+			repository.listDiseasesBySymptoms(["symptom-1"]),
+	] as const;
+
+	for (const read of relationCases) {
+		const { pool, state } = createFakePool([[publicationRow], []]);
+		await read(createMySqlHealthKnowledgeRepository(pool));
+		const statement = state.statements[1] ?? "";
+		expect(statement).toContain("CHAR_LENGTH(dd.symptoms)");
+		expect(statement).toContain(
+			`<= ${HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseSummarySymptoms}`,
+		);
+		expect(statement).toContain("ELSE NULL");
 	}
 });
 

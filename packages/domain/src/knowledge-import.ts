@@ -6,6 +6,7 @@ import type {
 	HealthKnowledgePublication,
 } from "./knowledge";
 import {
+	HEALTH_KNOWLEDGE_TEXT_LIMITS,
 	validateHealthKnowledgeIdentifier,
 	validateHealthKnowledgeLetter,
 	validateHealthKnowledgePublication,
@@ -467,7 +468,7 @@ function assertId(value: string, path: string): void {
  */
 function assertTimestamp(value: string | undefined, path: string): void {
 	if (value === undefined) return;
-	assertText(value, path, 64);
+	assertText(value, path, HEALTH_KNOWLEDGE_TEXT_LIMITS.publicationReviewedAt);
 	// 导入和读取必须使用同一套严格时间规则；否则 staging 能通过、
 	// MySQL 发布窗口却可能按已进位的日期选中错误版本。
 	if (parseStrictIsoInstant(value) === undefined) fail(path);
@@ -520,7 +521,11 @@ function validatePublication(
 		fail("publication.effectiveFrom");
 	}
 	if (publication.reviewerRef !== undefined) {
-		assertText(publication.reviewerRef, "publication.reviewerRef", 128);
+		assertText(
+			publication.reviewerRef,
+			"publication.reviewerRef",
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.reviewerReference,
+		);
 	}
 	assertTimestamp(publication.effectiveFrom, "publication.effectiveFrom");
 	assertTimestamp(publication.effectiveTo, "publication.effectiveTo");
@@ -544,7 +549,11 @@ function validateItems(
 	for (const [index, item] of items.entries()) {
 		const path = `items[${index}]`;
 		assertId(item.id, `${path}.id`);
-		assertText(item.name, `${path}.name`, 256);
+		assertText(
+			item.name,
+			`${path}.name`,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.itemName,
+		);
 		if (
 			!["crowd", "department", "part", "symptom", "disease", "drug"].includes(
 				item.kind,
@@ -563,7 +572,11 @@ function validateItems(
 				fail(`${path}.initialLetter`);
 			}
 		} else if (item.initialLetter !== undefined) {
-			assertText(item.initialLetter, `${path}.initialLetter`, 8);
+			assertText(
+				item.initialLetter,
+				`${path}.initialLetter`,
+				HEALTH_KNOWLEDGE_TEXT_LIMITS.initialLetter,
+			);
 		}
 		indexed.set(item.id, item);
 	}
@@ -581,7 +594,11 @@ function validateDiseaseDetails(
 	for (const [index, detail] of details.entries()) {
 		const path = `diseaseDetails[${index}]`;
 		assertItemKind(items, detail.id, "disease", `${path}.id`);
-		assertText(detail.diseaseName, `${path}.diseaseName`, 256);
+		assertText(
+			detail.diseaseName,
+			`${path}.diseaseName`,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.itemName,
+		);
 		if (items.get(detail.id)?.name !== detail.diseaseName) {
 			fail(`${path}.diseaseName`);
 		}
@@ -590,6 +607,17 @@ function validateDiseaseDetails(
 			"affectedPart",
 			"treatmentDepartment",
 			"susceptibleCrowd",
+		] as const) {
+			const value = detail[field];
+			if (value !== undefined) {
+				assertText(
+					value,
+					`${path}.${field}`,
+					HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseMetadata,
+				);
+			}
+		}
+		for (const field of [
 			"cause",
 			"symptoms",
 			"examination",
@@ -598,16 +626,23 @@ function validateDiseaseDetails(
 		] as const) {
 			const value = detail[field];
 			if (value !== undefined) {
-				assertText(value, `${path}.${field}`, 100_000, {
-					allowLineBreaks: true,
-				});
+				assertText(
+					value,
+					`${path}.${field}`,
+					HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseBody,
+					{ allowLineBreaks: true },
+				);
 			}
 		}
 		const drugNames = detail.availableDrugs.map((drug) => drug.drugName);
 		assertUnique(drugNames, `${path}.availableDrugs.drugName`);
 		for (const [drugIndex, drug] of detail.availableDrugs.entries()) {
 			const drugPath = `${path}.availableDrugs[${drugIndex}]`;
-			assertText(drug.drugName, `${drugPath}.drugName`, 256);
+			assertText(
+				drug.drugName,
+				`${drugPath}.drugName`,
+				HEALTH_KNOWLEDGE_TEXT_LIMITS.drugName,
+			);
 			if (drug.drugId !== undefined) {
 				assertItemKind(items, drug.drugId, "drug", `${drugPath}.drugId`);
 			}
@@ -629,7 +664,11 @@ function validateDrugDetails(
 	for (const [index, detail] of details.entries()) {
 		const path = `drugDetails[${index}]`;
 		assertItemKind(items, detail.id, "drug", `${path}.id`);
-		assertText(detail.drugName, `${path}.drugName`, 256);
+		assertText(
+			detail.drugName,
+			`${path}.drugName`,
+			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugName,
+		);
 		if (items.get(detail.id)?.name !== detail.drugName) {
 			fail(`${path}.drugName`);
 		}
@@ -637,7 +676,24 @@ function validateDrugDetails(
 			"manufacturer",
 			"chineseName",
 			"specifications",
-			"treatableDiseases",
+		] as const) {
+			const value = detail[field];
+			if (value !== undefined) {
+				assertText(
+					value,
+					`${path}.${field}`,
+					HEALTH_KNOWLEDGE_TEXT_LIMITS.drugMetadata,
+				);
+			}
+		}
+		if (detail.treatableDiseases !== undefined) {
+			assertText(
+				detail.treatableDiseases,
+				`${path}.treatableDiseases`,
+				HEALTH_KNOWLEDGE_TEXT_LIMITS.drugRelation,
+			);
+		}
+		for (const field of [
 			"indications",
 			"usageDosage",
 			"adverseReactions",
@@ -647,9 +703,12 @@ function validateDrugDetails(
 		] as const) {
 			const value = detail[field];
 			if (value !== undefined) {
-				assertText(value, `${path}.${field}`, 100_000, {
-					allowLineBreaks: true,
-				});
+				assertText(
+					value,
+					`${path}.${field}`,
+					HEALTH_KNOWLEDGE_TEXT_LIMITS.drugBody,
+					{ allowLineBreaks: true },
+				);
 			}
 		}
 	}

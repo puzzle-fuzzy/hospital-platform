@@ -13,6 +13,7 @@ import type {
 	HealthKnowledgeRepository,
 } from "@hospital/domain";
 import {
+	HEALTH_KNOWLEDGE_TEXT_LIMITS,
 	HealthKnowledgeContentUnavailableError,
 	HealthKnowledgePublicationConflictError,
 	HealthKnowledgeResultValidationError,
@@ -23,6 +24,21 @@ import {
 	validateHealthKnowledgeSymptomIds,
 } from "@hospital/domain";
 import type { Pool, RowDataPacket } from "mysql2/promise";
+
+/**
+ * 列表只读取有界症状摘要；超过摘要上限的正文保留在详情接口中。
+ *
+ * 不能用 `LEFT()` 静默截断医疗正文：截断后的半句话可能改变用户理解。
+ * 超限时返回 NULL，由领域层投影为缺省摘要；用户进入详情后仍可读取完整
+ * 的、已经通过同一版本校验的正文。上限来自共享领域常量，避免 SQL、导入
+ * 和公共 contract 各自维护不同数字。
+ */
+const DISEASE_SUMMARY_SYMPTOMS_PROJECTION = `CASE
+	WHEN dd.symptoms IS NULL
+		OR CHAR_LENGTH(dd.symptoms) <= ${HEALTH_KNOWLEDGE_TEXT_LIMITS.diseaseSummarySymptoms}
+	THEN dd.symptoms
+	ELSE NULL
+END AS symptoms`;
 
 /** MySQL DATETIME 没有时区；repository 边界统一转成领域层的 UTC ISO 字符串。 */
 function invalidHealthKnowledgeResult(
@@ -228,7 +244,10 @@ function catalogItem(row: CatalogRow): HealthKnowledgeCatalogItem {
 	}
 	try {
 		validateHealthKnowledgeIdentifier(row.item_id);
-		if (row.name.trim().length === 0 || row.name.length > 256) {
+		if (
+			row.name.trim().length === 0 ||
+			row.name.length > HEALTH_KNOWLEDGE_TEXT_LIMITS.itemName
+		) {
 			throw new HealthKnowledgeValidationError("invalid_identifier");
 		}
 	} catch {
@@ -339,7 +358,8 @@ export function createMySqlHealthKnowledgeRepository(
 			const rows = await execute<DiseaseSummaryRow[]>(
 				pool,
 				`SELECT d.item_id, d.name,
-						d.initial_letter, dd.treatment_department, dd.symptoms
+						d.initial_letter, dd.treatment_department,
+						${DISEASE_SUMMARY_SYMPTOMS_PROJECTION}
 				 FROM hp_health_knowledge_disease_relations AS r
 				 JOIN hp_health_knowledge_items AS relation_item
 				   ON relation_item.item_id = r.relation_id
@@ -396,7 +416,8 @@ export function createMySqlHealthKnowledgeRepository(
 			const rows = await execute<DiseaseSummaryRow[]>(
 				pool,
 				`SELECT d.item_id, d.name,
-						d.initial_letter, dd.treatment_department, dd.symptoms
+						d.initial_letter, dd.treatment_department,
+						${DISEASE_SUMMARY_SYMPTOMS_PROJECTION}
 				 FROM hp_health_knowledge_symptom_diseases AS sd
 				 JOIN hp_health_knowledge_items AS s
 				   ON s.item_id = sd.symptom_id

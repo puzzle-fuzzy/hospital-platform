@@ -88,6 +88,8 @@ pnpm --filter @hospital/domain knowledge:bundle:check -- C:\path\to\health-knowl
 - 只读取指定文件；
 - 解析运行时 `unknown`，拒绝缺失对象/数组、错误类型和未知字段；
 - 校验固定免责声明、带时区时间、已发布版本的明确 `effectiveFrom`、同版本引用、条目类型和完整详情集；
+- 校验字段长度与最终 schema/读模型一致：标识最多 128、名称最多 256、疾病元数据最多 500、
+  药品短字段最多 256、关联疾病文本最多 500、正文最多 100,000；疾病列表症状摘要最多 10,000；
 - 不连接 MySQL、Redis 或 Provider；
 - 不执行 migration，不插入、不更新、不发布任何数据库记录。
 

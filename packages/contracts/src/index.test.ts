@@ -5,6 +5,8 @@ import {
 	PatientCardNumberMaskedSchema,
 	PatientListResponse,
 	PatientSchema,
+	HealthKnowledgeDiseaseDetailSchema,
+	HealthKnowledgeDrugDetailSchema,
 	UserProfileDisplayNameSchema,
 	UserProfileSchema,
 	UserProfileUpdateRequest,
@@ -18,6 +20,12 @@ const patientCardNumberSchema = TypeCompiler.Compile(
 );
 const patientSchema = TypeCompiler.Compile(PatientSchema);
 const patientListSchema = TypeCompiler.Compile(PatientListResponse);
+const healthDiseaseDetailSchema = TypeCompiler.Compile(
+	HealthKnowledgeDiseaseDetailSchema,
+);
+const healthDrugDetailSchema = TypeCompiler.Compile(
+	HealthKnowledgeDrugDetailSchema,
+);
 
 function profile(displayName: string) {
 	return {
@@ -89,4 +97,37 @@ test("公共患者 contract 固定卡号最多前五位和后四位", () => {
 		expect(patientCardNumberSchema.Check(value)).toBe(false);
 		expect(Value.Check(PatientCardNumberMaskedSchema, value)).toBe(false);
 	}
+});
+
+test("健康知识 contract 与领域层保持可点击引用和非空文本边界", () => {
+	const validDisease = {
+		id: "disease-cold",
+		diseaseName: "普通感冒",
+		availableDrugs: [
+			{ drugId: "drug-cold", drugName: "示例药物", isClickable: true },
+			{ drugName: "文字药物说明", isClickable: false },
+		],
+		treatment: "对症处理",
+	};
+	const validDrug = {
+		id: "drug-cold",
+		drugName: "示例药物",
+		manufacturer: "示例厂家",
+		indications: "用于审核内容展示",
+	};
+
+	expect(healthDiseaseDetailSchema.Check(validDisease)).toBe(true);
+	expect(healthDrugDetailSchema.Check(validDrug)).toBe(true);
+	expect(
+		healthDiseaseDetailSchema.Check({
+			...validDisease,
+			diseaseAlias: "",
+		}),
+	).toBe(false);
+	expect(
+		healthDiseaseDetailSchema.Check({
+			...validDisease,
+			availableDrugs: [{ drugName: "缺少绑定", isClickable: true }],
+		}),
+	).toBe(false);
 });
