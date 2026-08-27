@@ -2707,6 +2707,10 @@ test("native subscription page preserves legacy presentation but never claims We
 	expect(catalog).toContain('featureKey: "patient-subscription"');
 	expect(page).toContain("loadCurrentPatient");
 	expect(page).toContain("buildSections");
+	// 分类折叠的 dataset 是不可信的运行时边界；必须只接受枚举自身的 key，
+	// 不能用会穿透原型链的 `in`，避免后续模板复用引入异常分类。
+	expect(page).toContain("Object.hasOwn(CATEGORY_TITLES, sectionKey)");
+	expect(page).not.toContain("sectionKey in CATEGORY_TITLES");
 	expect(page).toContain('navigateToFeatureStatus("patient-subscription")');
 	expect(page).not.toContain("requestSubscribeMessage");
 	expect(page).not.toContain("设置已保存");

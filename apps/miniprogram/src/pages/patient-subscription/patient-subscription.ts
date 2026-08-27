@@ -243,7 +243,15 @@ Page<SubscriptionPageData, SubscriptionPageMethods>({
 
 	onToggleSection(event) {
 		const sectionKey = event.currentTarget?.dataset?.sectionKey;
-		if (!sectionKey || !(sectionKey in CATEGORY_TITLES)) return;
+		// dataset 属于微信运行时输入，不能用 `in` 判断枚举成员：它会把
+		// 原型链上的 `constructor`、`__proto__` 等键也当成合法分类。虽然
+		// 当前 WXML 只会生成固定 key，事件边界仍要按自有属性严格收窄，
+		// 避免未来改模板或复用组件后把异常 key 传入 buildSections。
+		if (
+			typeof sectionKey !== "string" ||
+			!Object.hasOwn(CATEGORY_TITLES, sectionKey)
+		)
+			return;
 		const key = sectionKey as SubscriptionCategory;
 		const expanded = Object.fromEntries(
 			this.data.sections.map((section) => [section.key, section.expanded]),
