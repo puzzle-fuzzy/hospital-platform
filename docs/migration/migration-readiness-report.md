@@ -2,7 +2,7 @@
 
 > 本文说明 `pnpm migration:readiness` 的数据来源和判定边界。报告用于广度迁移交接，不是上线批准单，也不替代 Provider、公网、真机或临床审核证据。
 
-> **当前运行事实（2026-08-26）**：40 页运行相关源码和本地 live 运行输入均为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；该来源已完成 pending 构建、静态校验和原子发布，`runtime:verify` 通过。核心小程序回归、共享患者会话边界、二维码会话门禁和健康数值规则版本测试通过；25 个临床/患者/外部/Provider 页面仍是 `surface-only` 外壳，健康自测仅开放不带临床结论的安全数值子集，采血预约、患者签名展示和消息订阅展示已形成安全子集，今日预约摘要不推导实时状态，真实物流/采血号源/便民 Provider/临床/外部/患者业务仍关闭，真机证据尚未采集。协议静态页已迁移，但同意/撤回/审计能力仍关闭。当前候选证据见 [`../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md)。
+> **当前运行事实（2026-08-27）**：40 页运行相关源码和本地 live 运行输入均为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`；该来源已完成 pending 构建、静态校验和原子发布，`runtime:verify` 通过。核心小程序回归、共享患者会话边界、二维码会话门禁和健康数值规则版本测试通过；25 个临床/患者/外部/Provider 页面仍是 `surface-only` 外壳，健康自测仅开放不带临床结论的安全数值子集，采血预约、患者签名展示和消息订阅展示已形成安全子集，今日预约摘要不推导实时状态，真实物流/采血号源/便民 Provider/临床/外部/患者业务仍关闭，真机证据尚未采集。协议静态页已迁移，但同意/撤回/审计能力仍关闭。当前候选证据见 [`../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](../release/candidate-0be59f96-miniprogram-runtime-2026-08-26.md)。
 
 ## 生成方式
 
@@ -27,7 +27,7 @@ pnpm migration:readiness -- --strict
 | 字段 | 来源 | 可以说明什么 | 不能说明什么 |
 | --- | --- | --- | --- |
 | `entryCoverage.legacy` | `legacy-page-catalog.ts`、`feature-navigation.ts` | 64 个旧页面是否都有迁移状态和固定落点 | 页面业务是否已经实现、接口是否可用 |
-| `entryCoverage.legacy.domainCoverage` | `legacy-page-catalog.ts` | 按首页、就诊、互联网医院、预约、患者、健康、用户七个旧端业务域查看页面数、阻断数、状态分布和下一阶段 | 业务域内的页面数不等于业务功能完成数；`进入验收` 仍需要真实链路证据 |
+| `entryCoverage.legacy.domainCoverage` | `legacy-page-catalog.ts`、FeatureKey 门 | 按首页、就诊、互联网医院、预约、患者、健康、用户七个旧端业务域查看页面数、阻断数、状态分布和下一阶段 | 业务域内的页面数不等于业务功能完成数；`进入真实验收` 仍需要真实链路证据，`入口已覆盖，能力待契约/证据` 不能越过 FeatureKey 门 |
 | `entryCoverage.frozenBoundary` | `tools/migration-boundary-catalog.mjs`、`migration-boundary-audit.mjs` | 34 个冻结入口 gate 的 FeatureKey、统一状态页落点、contract 家族、旧页面/action 映射和材料数量是否一致；同时覆盖二级页面状态调用 | 不代表任何 Provider、临床、支付、患者写入或外部会话已经开放 |
 | `entryCoverage.frozenBoundary.batchCoverage` | 冻结入口 gate 的 `migrationBatch` 字段 | A–F 六个业务批次各自覆盖了多少 gate、旧页面和 action-only 入口，并能发现未分配批次 | 不代表批次内任何业务已经通过真实环境或真机验收 |
 | `contractIntake` | `tools/migration-contract-intake-catalog.mjs` | C/D/E 的材料入口、必备证据、实现顺序和未确认禁止项是否覆盖全部 23 个已暴露 FeatureKey | `passed=true` 只代表材料清单结构完整；三个批次的 `businessReady` 仍必须为 `false` |
@@ -48,7 +48,7 @@ pnpm migration:readiness -- --strict
 当前报告应体现以下事实：
 
 - 旧页面共 64 个，其中 `replaced=8`、`partial=23`、`surface-only=25`、`blocked-payment=7`、`excluded=1`；使用条款已迁移为原文只读页，健康自测只开放 BMI/血压安全数值子集，采血预约、我的快递、患者签名展示和消息订阅展示只开放低风险子集，但协议版本、同意记录、撤回和审计仍属于患者 contract 阻断能力；Provider、临床和外部入口已先进入安全壳，真实能力仍关闭。
-- 旧端七个业务域已按台账拆开汇总：互联网医院 2 页/1 阻断、患者 7 页/5 阻断、健康 34 页/27 阻断、就诊 1 页/0 阻断、首页 2 页/0 阻断、用户 8 页/2 阻断、预约 10 页/4 阻断；有阻断的域并行补 contract，无阻断的域进入真实验收，不再用一个页面的修复代表全项目进度。
+- 旧端七个业务域已按台账拆开汇总：互联网医院 2 页/0 页面阻断、患者 7 页/0 页面阻断、健康 34 页/5 页面阻断、就诊 1 页/0 页面阻断、首页 2 页/0 页面阻断、用户 8 页/0 页面阻断、预约 10 页/2 页面阻断；其中带有 FeatureKey 契约门的互联网医院、患者和用户域标记为“入口已覆盖，能力待契约/证据”，健康和预约按页面阻断标记为“并行补齐 contract”，只有不带契约门的首页和就诊域进入真实验收。页面阻断数不等于业务完成数，不再用一个页面的修复代表全项目进度。
 - 34 个冻结入口 gate 已由 `tools/migration-boundary-catalog.mjs` 统一登记，共覆盖 39 个旧页面入口和 13 个 action-only 引用（合计 52 个入口来源）；另有 31 次二级/主入口状态页调用、27 个对应 FeatureKey 纳入调用审计。每个 gate 都有独立 contract 家族、七类页面状态、通用/特有材料和关闭能力。readiness 的 `entryCoverage.frozenBoundary.passed=true` 只表示入口边界没有漂移，不表示这些业务可以调用 Provider。
 - gate 批次覆盖当前为 A `4/3/2`、B `0/0/0`、C `4/4/0`、D `11/22/1`、E `8/3/6`、F `7/7/4`（依次为 gate/旧页面/action-only）；B 的 0 是因为健康内容由独立审核 bundle 队列控制，不允许把内容发布误归入其它业务 gate。`consultation` 属于外部问诊会话，按 `external-session` 归入 E，不计入临床只读 C。
 - C/D/E 契约材料入口覆盖 23 个已暴露 FeatureKey，当前均为 `awaiting-formal-contract`；D 的命令领域基础另外覆盖尚未暴露入口的 `patient-address` 计划能力。`pnpm migration:contract:audit` 还会输出逐入口 `featureIntakeRows`，列出旧路径/action、契约族、去重后的材料要求和禁止能力，但不把结构通过转换成业务可用。

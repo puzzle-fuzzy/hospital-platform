@@ -75,9 +75,28 @@ describe("全项目迁移 readiness 报告", () => {
 		).toMatchObject({ pageCount: 34, blockedPageCount: 5 });
 		expect(
 			report.entryCoverage.legacy.domainCoverage.find(
+				(domain) => domain.domain === "健康",
+			),
+		).toMatchObject({ stage: "并行补齐 contract" });
+		expect(
+			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "首页",
 			),
-		).toMatchObject({ pageCount: 2, blockedPageCount: 0 });
+		).toMatchObject({
+			pageCount: 2,
+			blockedPageCount: 0,
+			stage: "进入真实验收",
+		});
+		expect(
+			report.entryCoverage.legacy.domainCoverage.find(
+				(domain) => domain.domain === "患者",
+			),
+		).toMatchObject({ stage: "入口已覆盖，能力待契约/证据" });
+		expect(
+			report.entryCoverage.legacy.domainCoverage.find(
+				(domain) => domain.domain === "互联网医院",
+			),
+		).toMatchObject({ stage: "入口已覆盖，能力待契约/证据" });
 		expect(report.entryCoverage.passed).toBe(true);
 		expect(report.migrationBreadth.passed).toBe(true);
 		expect(report.migrationBreadth.pages).toHaveLength(2);

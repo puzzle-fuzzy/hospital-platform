@@ -141,15 +141,30 @@ function legacyDomainCoverage() {
 
 	return [...grouped.values()]
 		.sort((left, right) => left.domain.localeCompare(right.domain, "zh-CN"))
-		.map((domain) => ({
-			domain: domain.domain,
-			pageCount: domain.pageCount,
-			statusCounts: domain.statusCounts,
-			blockedPageCount: domain.blockedPageCount,
-			featureKeys: [...domain.featureKeys].sort(),
-			nativeTargets: [...domain.nativeTargets].sort(),
-			stage: domain.blockedPageCount > 0 ? "并行补齐 contract" : "进入验收",
-		}));
+		.map((domain) => {
+			const featureKeys = [...domain.featureKeys].sort();
+			/**
+			 * `surface-only` 和 `partial` 不会以 `blocked-*` 出现在旧页面状态里，
+			 * 但它们对应的 FeatureKey 可能仍有患者、Provider 或外部 contract 门。
+			 * 只看 blockedPageCount 会把“有页面但能力未开放”的业务误标成可验收，
+			 * 因此必须把 FeatureKey 门也纳入业务域阶段判定。
+			 */
+			const stage =
+				domain.blockedPageCount > 0
+					? "并行补齐 contract"
+					: featureKeys.length > 0
+						? "入口已覆盖，能力待契约/证据"
+						: "进入真实验收";
+			return {
+				domain: domain.domain,
+				pageCount: domain.pageCount,
+				statusCounts: domain.statusCounts,
+				blockedPageCount: domain.blockedPageCount,
+				featureKeys,
+				nativeTargets: [...domain.nativeTargets].sort(),
+				stage,
+			};
+		});
 }
 
 function legacyCoverage() {
