@@ -158,7 +158,7 @@ export function auditServerSourceRelease(baseline, options = {}) {
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-1bc8b0a8-server-release-2026-08-27.md";
+	"docs/release/candidate-b44421cd-server-release-2026-08-27.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -180,7 +180,7 @@ export const currentBaselineDocuments = Object.freeze([
 	// 保留用于追溯但不再作为当前基线入口；当前本地 live 候选由下方最新来源
 	// 对应的候选记录锁定，避免代码推进后继续沿用旧的运行包。
 	{
-		path: "docs/release/candidate-1bc8b0a8-production-acceptance-2026-08-27.md",
+		path: "docs/release/candidate-b44421cd-production-acceptance-2026-08-27.md",
 		label: "当前服务端生产切换记录",
 	},
 	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入
@@ -258,7 +258,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 当前小程序候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
-		path: "docs/release/candidate-62cdb8f-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-413cbea-miniprogram-runtime-2026-08-27.md",
 		label: "当前本地小程序运行包候选",
 		candidateOnly: true,
 	},
@@ -682,7 +682,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-62cdb8f-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-413cbea-miniprogram-runtime-2026-08-27.md",
 		label: "当前 live 小程序运行包候选",
 		sections: [
 			{

@@ -10,7 +10,7 @@
 
 | 检查项 | 结果 |
 | --- | --- |
-| 当前小程序候选 | live 为 `62cdb8f`（来源 `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`）；当前无 pending 目录 |
+| 当前小程序候选 | live 为 `413cbea`（来源 `413cbea13f022831f63e9c750661eeabbffc68d5`）；当前无 pending 目录 |
 | 原生页面与运行包 | 40 个页面；live 与 pending 根文件和来源指纹一致 |
 | 主导航 | 4 个微信原生 `tabBar`，页面之间不重复渲染自定义 Tab |
 | 导航审计 | 通过；40 个页面、30 个字面导航调用 |
@@ -25,13 +25,13 @@
 
 ### 1. 发布基线未统一
 
-线上新服务当前对应服务端 release `1bc8b0a8`；本地工作树另有尚未部署的健康知识运行时代码，
+线上新服务当前对应服务端 release `b44421cd`；本地工作树的健康知识运行时代码已随本 release 发布，
 `packages/adapters/src/zhongyang-appointments.ts` 未被本轮修改。`release:baseline:audit` 当前会正确阻断，
 不能因此扩大 Provider 或写入业务范围。
 
 ### 2. 真机证据仍为空
 
-当前 `docs/release/device-evidence-62cdb8f8-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
+当前 `docs/release/device-evidence-413cbea1-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
 
 ### 3. 健康百科仍不能发布
 

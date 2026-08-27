@@ -1,7 +1,12 @@
 # 当前线上运行层共存只读观察（2026-08-27）
 
-> 当前观察时间：2026-08-27 16:42:35（Asia/Shanghai）。当前服务端 release 为
-> `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；本地 live 小程序运行包来源为
+> **发布后当前事实（2026-08-27）**：服务端 release 已原子切换为
+> `b44421cd321ff9ff23eeb49b12641d1772d2bdc1`；当前配套小程序运行包来源为
+> `413cbea13f022831f63e9c750661eeabbffc68d5`（`413cbea`）。下方 16:42:35
+> 的观察是切换前历史窗口，保留用于证明切换前新旧服务共存，不能覆盖发布后事实。
+
+> 切换前观察时间：2026-08-27 16:42:35（Asia/Shanghai）。切换前服务端 release 为
+> `1bc8b0a85f21cb58205a99ce4de0de6afe9bf240`；切换前本地 live 小程序运行包来源为
 > `62cdb8f82b4169dd1b9a6ed3403e3be2f7422328`（`62cdb8f`）。本文只记录运行层
 > 共存和依赖 readiness，不把它们推断成微信登录、Provider、真机或支付业务成功。
 
@@ -22,7 +27,7 @@
 
 | 检查项 | 结果 |
 | --- | --- |
-| 新 API `current` | `/home/ps/code/hospital-platform/releases/1bc8b0a85f21cb58205a99ce4de0de6afe9bf240` |
+| 新 API `current` | `/home/ps/code/hospital-platform/releases/b44421cd321ff9ff23eeb49b12641d1772d2bdc1` |
 | `hospital-platform-api-v2.service` | `active` |
 | `hospital-platform-worker-v2.service` | `inactive` |
 | 新 API 监听 | `10.0.0.3:18081` |
@@ -32,16 +37,15 @@
 ## 3. 结论与边界
 
 1. 新旧服务仍然共存，旧 Python `8001` 未因本轮操作停止、重启或改动。
-2. 新 API 运行层健康，数据库、Redis 和 schema readiness 正常；这不等于当前本地健康知识候选已经部署。
-3. 当前工作树包含尚未进入线上 release 的健康知识服务运行时代码，因此 `pnpm release:baseline:audit`
-   继续阻断是正确的，不能用本次 readiness 观察把发布门禁改成通过。
+2. 切换前新 API 运行层健康，数据库、Redis 和 schema readiness 正常；切换后发布事实以本文顶部和
+   [`candidate-b44421cd-production-acceptance-2026-08-27.md`](candidate-b44421cd-production-acceptance-2026-08-27.md) 为准。
+3. 当前服务端 release 已完成 API-only 原子发布并通过发布基线门禁；该门禁证明来源和运行层一致，仍不能代替真机业务证据。
 4. 当前没有微信开发者工具或真机会话，九个真机证据域继续保持 `pending`；没有页面截图、客户端
    requestId、服务端 Pino 同链事件和适用的 Provider 低敏 requestId，不能声明只读业务完成。
 
 ## 4. 下一步
 
-有明确发布窗口后，先按 [`../../infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)
-完成新 API 候选的本地 bundle、远端 checksum、生产 env preflight 和隔离端口 smoke；确认旧 `8001`
-持续监听后，只原子切换新 API 并重启 `hospital-platform-api-v2.service`。发布后再重新生成当前 live
-小程序二维码，按微信登录、患者显式切换、预约只读、报告目录、门诊费用和普通资料顺序采集真机证据。
+当前 API-only 发布已完成；后续只需在有真实微信开发者工具/真机会话时，从当前 live `dist` 重新普通编译并生成二维码，
+按微信登录、患者显式切换、预约只读、报告目录、门诊费用和普通资料顺序采集真机证据。若源码再次变化，
+必须重新执行 bundle、远端 checksum、production preflight、隔离 smoke、原子切换和发布基线审计。
 支付、医保、预约写入、取消、HIS 回写和旧 Python 仍不在本次开放范围。
