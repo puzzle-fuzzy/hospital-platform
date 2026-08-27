@@ -135,7 +135,8 @@ pnpm --filter @hospital/miniprogram runtime:verify
 如果微信开发者工具仍锁定 `dist/`，可先只读验证隔离候选，不覆盖 live 运行包：
 
 ```powershell
-$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = "0be59f966de2c3a0861cb44e9a526a1ef557f6c7"
+$pendingBuildInfo = Get-Content -LiteralPath '.local/hospital-miniprogram/pending/build-info.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+$env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION = $pendingBuildInfo.sourceRevision
 pnpm --filter @hospital/miniprogram runtime:verify:pending
 Remove-Item Env:HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION
 ```

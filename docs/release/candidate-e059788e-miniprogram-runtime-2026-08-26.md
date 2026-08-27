@@ -1,6 +1,6 @@
 # 历史小程序候选运行包 `e059788e`（2026-08-26）
 
-> 当前候选已推进到 `0be59f96`，本文件仅保留 `e059788e` 的历史来源和验收边界；当前入口见 [`candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](candidate-0be59f96-miniprogram-runtime-2026-08-26.md)。
+> 后续候选已推进到 `0be59f96`，本文件仅保留 `e059788e` 的历史来源和验收边界；当时入口见 [`candidate-0be59f96-miniprogram-runtime-2026-08-26.md`](candidate-0be59f96-miniprogram-runtime-2026-08-26.md)，当前入口以项目基线为准。
 
 ## 当前结论
 

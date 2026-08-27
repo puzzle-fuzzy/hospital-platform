@@ -1,10 +1,10 @@
-# 小程序候选运行包 `1691f2d`（2026-08-27）
+# 历史小程序候选运行包 `0be59f96`（2026-08-26）
 
 ## 当前结论
 
-本候选由提交 `1691f2db1399419d81a1febff59cffd0369130ea` 构建，包含 `app.json` 注册的 40 个页面。
-它已于 2026-08-27 从经过静态校验的运行包原子切换到
-`apps/miniprogram/dist/` live 目录；这只证明本地运行包来源已切换，不产生真机业务验收结论。
+本候选由提交 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7` 构建，包含 `app.json` 注册的 40 个页面。
+它曾于 2026-08-26 从经过静态校验的运行包原子切换到
+`apps/miniprogram/dist/` live 目录，后续已由 `6f47c64` 候选替代；这只证明当时本地运行包来源已切换，不产生真机业务验收结论。
 运行输入来源必须始终以 live 目录中的 `build-info.json` 为准；当前没有 pending 目录，后续源码变化必须重新构建、校验并通过原子发布器切换。
 
 本候选只修改新项目，不修改旧 Python 服务、旧数据库、旧 Redis、线上进程，也不修改另一会话维护的众阳预约适配器。
@@ -27,17 +27,17 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 运行输入来源 | `1691f2db1399419d81a1febff59cffd0369130ea`（`1691f2d`） |
+| 运行输入来源 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`（`0be59f96`） |
 | 页面数量 | 40 |
 | pending 校验 | `pnpm --filter @hospital/miniprogram runtime:verify:pending` 通过 |
 | 小程序全量回归 | 336 个测试通过；0 失败；3697 个断言 |
 | TypeScript | `pnpm --filter @hospital/miniprogram typecheck` 通过 |
-| live 运行包 | `1691f2db1399419d81a1febff59cffd0369130ea`，40 页；`runtime:verify` 通过 |
+| live 运行包 | `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页；`runtime:verify` 通过 |
 | 发布状态 | 已原子切换；发布后 pending 目录已清理；没有修改旧服务、旧数据库或旧 Redis |
 
-## 下一步
+## 后续交接
 
-从当前 live `dist` 重新执行普通编译并生成真机二维码，然后按 A 批次开始采证：
+后续候选已切换为 `6f47c64`；真机必须从当前 live `dist` 重新执行普通编译并生成二维码，然后按 A 批次开始采证：
 
 ```powershell
 pnpm --filter @hospital/miniprogram runtime:verify
