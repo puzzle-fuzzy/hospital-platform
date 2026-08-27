@@ -5,8 +5,8 @@
 本轮不继续深挖单个临床 Provider，而是先把已经存在的多类页面入口统一到同一套当前就诊人显示和切换规则，避免每个页面自行登录、重复同步或展示上一位患者的旧结果。
 
 > 当前运行基线（2026-08-27）：线上服务端 release 为
-> `1107a78a47ac2fbe0557958251d66da9effc66de`；本地 live 小程序运行包来源为
-> `6f47c64`，完整 sourceRevision 为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，已通过
+> `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；本地 live 小程序运行包来源为
+> `90d8910b`，完整 sourceRevision 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，已通过
 > `runtime:verify`。本记录只描述患者上下文安全边界，不代表临床 Provider 已开放。
 
 ## 已覆盖页面

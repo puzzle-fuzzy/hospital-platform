@@ -38,3 +38,4 @@
 [`candidate-7f7a7a18-miniprogram-runtime-2026-08-25.md`](candidate-7f7a7a18-miniprogram-runtime-2026-08-25.md)
 和 [`device-evidence-7f7a7a1-pending.json`](device-evidence-7f7a7a1-pending.json)。
 在 pending 候选完成构建发布、服务端配套发布和来源一致性审计前，不能把其页面或 requestId 填入本模板。
+> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

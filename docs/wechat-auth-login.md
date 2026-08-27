@@ -15,8 +15,8 @@
 [`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](release/candidate-1107a78a-production-acceptance-2026-08-27.md)。
 该 release 切换只更新新服务运行层，不改变微信登录的业务开放边界。
 
-当前本地 live 运行输入为 `6f47c64`，完整指纹为
-`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`；线上历史小程序包为 `13f597e`。该运行包已原子发布到 live；发布后以 `apps/miniprogram/dist/build-info.json` 来源指纹为准。候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康自测安全数值子集、临床与外部入口安全页面、预约 Provider 入口、患者签名和消息订阅安全展示页、患者协议原文只读入口、旧端“我的快递”和采血预约真实空态、电子锦旗和健康表扬信安全页面、就诊/互联网医院关闭态纵向布局、共享页面工厂构建校验、统一当前就诊人上下文、共享患者外壳 owner/会话代际清理、会话失效时旧 owner 微信资料缓存清理、“我的问诊”患者作用域、患者切换链路、今日预约摘要边界、公共日期窗口错误边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态、便民记录三态、二维码有效会话门禁、健康数值工具规则版本、健康百科和报告详情迁移台账映射以及成功请求低敏 requestId 观测，
+当前本地 live 运行输入为 `90d8910b`，完整指纹为
+`90d8910bdc54d48dde66c4ff03a7434c182ebd92`；线上历史小程序包为 `13f597e`。该运行包已原子发布到 live；发布后以 `apps/miniprogram/dist/build-info.json` 来源指纹为准。候选包含运行包 test/spec 文件边界、迁移入口覆盖展示、健康自测安全数值子集、临床与外部入口安全页面、预约 Provider 入口、患者签名和消息订阅安全展示页、患者协议原文只读入口、旧端“我的快递”和采血预约真实空态、电子锦旗和健康表扬信安全页面、就诊/互联网医院关闭态纵向布局、共享页面工厂构建校验、统一当前就诊人上下文、共享患者外壳 owner/会话代际清理、会话失效时旧 owner 微信资料缓存清理、“我的问诊”患者作用域、患者切换链路、今日预约摘要边界、公共日期窗口错误边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态、便民记录三态、二维码有效会话门禁、健康数值工具规则版本、健康百科和报告详情迁移台账映射以及成功请求低敏 requestId 观测，
 并保留认证命令会话代际边界，
 就诊人选择会话代际边界，不改变微信登录与 `/me`
 响应边界见 [`release/miniprogram-auth-session-response-contract-2026-08-19.md`](release/miniprogram-auth-session-response-contract-2026-08-19.md)。
@@ -390,3 +390,4 @@ sudo journalctl -u hospital-platform-api-v2.service --since "10 minutes ago" --n
 | `infra/systemd/hospital-platform-api-v2.service` | 新 API 进程启动边界 |
 | `infra/nginx/test-hp.meiyi.pro.conf.example` | 公网 v2 隔离路由模板 |
 > 历史发布基线更新（2026-08-24 19:54 CST）：当时线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；当时小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。当前线上版本以本文顶部事实源和项目发布基线为准。
+> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

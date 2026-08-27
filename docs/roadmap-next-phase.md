@@ -1,5 +1,5 @@
-> **当前事实源（2026-08-27，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮已完成新 API 的 production preflight、隔离 smoke、原子切换和公网 runtime smoke，没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。最新小程序运行相关源码和本地 live 运行输入为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（短提交 `6f47c64`），共 40 个页面；该来源已从通过校验的运行包原子发布到本地 live `dist`。本轮继续保持共享患者外壳、电子锦旗/表扬信、二维码和健康数值工具的安全边界，真实临床 Provider、物流/采血号源/公开记录仍关闭；就诊页今日预约摘要已补齐但实时叫号仍未开放；健康自测保留不带临床结论的 BMI/血压安全数值子集，其规则版本已固定，其余临床入口仍按 contract 关闭；九个真机证据域仍待采集。健康百科正式审核 bundle、协议同意/撤回/审计、二维码真实能力、支付/医保、临床真实读取、实时就诊和外部 web-view 继续关闭；旧端 64 页面逐页落点台账和 34 个冻结入口门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。服务端切换证据见 [`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](release/candidate-1107a78a-production-acceptance-2026-08-27.md)。
-> 当前线上服务端 release（2026-08-27）：`1107a78a47ac2fbe0557958251d66da9effc66de`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
+> **当前事实源（2026-08-27，优先于本文其余历史段落）**：新 Elysia API 线上 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，旧 Python 服务继续监听 `0.0.0.0:8001`；本轮已完成新 API 的 production preflight、隔离 smoke、原子切换和公网 runtime smoke，没有修改或停止旧服务。项目最终固定使用微信原生 `tabBar`。最新小程序运行相关源码和本地 live 运行输入为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`（短提交 `90d8910b`），共 40 个页面；该来源已从通过校验的运行包原子发布到本地 live `dist`。本轮继续保持共享患者外壳、电子锦旗/表扬信、二维码和健康数值工具的安全边界，真实临床 Provider、物流/采血号源/公开记录仍关闭；就诊页今日预约摘要已补齐但实时叫号仍未开放；健康自测保留不带临床结论的 BMI/血压安全数值子集，其规则版本已固定，其余临床入口仍按 contract 关闭；九个真机证据域仍待采集。健康百科正式审核 bundle、协议同意/撤回/审计、二维码真实能力、支付/医保、临床真实读取、实时就诊和外部 web-view 继续关闭；旧端 64 页面逐页落点台账和 34 个冻结入口门禁有效；完整推进队列见 [`migration/full-migration-handoff-2026-08-25.md`](migration/full-migration-handoff-2026-08-25.md)。服务端切换证据见 [`release/candidate-90d8910b-production-acceptance-2026-08-27.md`](release/candidate-90d8910b-production-acceptance-2026-08-27.md)。
+> 当前线上服务端 release（2026-08-27）：`90d8910bdc54d48dde66c4ff03a7434c182ebd92`，已完成候选 preflight、隔离 smoke、原子切换和公网 runtime smoke；该运行层证据不等价于真实 Provider 或支付业务成功。
 > **本轮迁移补充**：旧端使用条款已迁移为原文只读页，但未新增任何同意写入或本地授权状态；详见 [`migration/patient-agreement-static-migration-2026-08-26.md`](migration/patient-agreement-static-migration-2026-08-26.md)。
 > **2026-08-26 owner 作用域复核补充**：普通资料 `normalizeUserProfileReadModel`、患者目录和报告引用的 domain 入口现都会先校验当前会话 owner 的 opaque 标识，再比较仓储归属；预约历史与门诊费用 service 继续校验 owner、患者和临床映射。该修正只加固运行时 fail-closed 边界，不扩大 API、Provider、支付或真机验收范围，详见 [`migration/owner-scope-runtime-invariants-2026-08-26.md`](migration/owner-scope-runtime-invariants-2026-08-26.md)。
 > 2026-08-25 广度迁移补充：健康知识已完成旧库真实源快照的只读导出、稳定 opaque id 映射和质量告警，但 `publicationState` 仍为 `not-approved`；患者端只读 API 已注册但在没有有效 published 版本时 fail-closed。便民旧库存量也已盘点（预问诊 2、随访 4、风险评估 7、我的医生 21、表扬信 4、电子锦旗 4），新端未导入旧正文或快照。详见 [`migration/health-knowledge-import-runbook.md`](migration/health-knowledge-import-runbook.md)、[`release/health-knowledge-source-snapshot-2026-08-25.md`](release/health-knowledge-source-snapshot-2026-08-25.md) 和 [`release/convenience-source-inventory-2026-08-25.md`](release/convenience-source-inventory-2026-08-25.md)。
@@ -50,19 +50,19 @@
 
 # 下一阶段实施路线图
 
-> **当前小程序候选（2026-08-27）**：`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（`6f47c64`）已通过构建、回归和运行包校验并原子发布到 live `dist`；本候选修正就诊/互联网医院关闭态的纵向居中布局。新的九域真机清单为 [`release/device-evidence-6f47c640-pending.json`](release/device-evidence-6f47c640-pending.json)，当前没有运行中的开发者工具或真机会话，因此所有真机结果仍保持 `pending`。
+> **当前小程序候选（2026-08-27）**：`90d8910bdc54d48dde66c4ff03a7434c182ebd92`（`90d8910b`）已通过构建、回归和运行包校验并原子发布到 live `dist`；本候选修正就诊/互联网医院关闭态的纵向居中布局。新的九域真机清单为 [`release/device-evidence-90d8910b-pending.json`](release/device-evidence-90d8910b-pending.json)，当前没有运行中的开发者工具或真机会话，因此所有真机结果仍保持 `pending`。
 
-> **最新小程序候选事实（2026-08-27）**：当前运行相关源码和本地 live 运行输入为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，40 个页面；该候选已原子发布到 live `dist`，并补齐会话失效时旧 owner 微信资料缓存清理和就诊/互联网医院关闭态卡片纵向居中。本轮继续保持共享患者外壳、电子锦旗和表扬信记录区域、二维码安全壳和健康数值工具的安全边界，临床/服务入口的当前就诊人上下文、重试和选择入口、患者签名和消息订阅的原生安全展示层、采血预约、今日预约摘要与安全数值子集继续保持边界，未开放临床分级、采血号源、公开记录或实时叫号。正式健康审核 bundle 缺失时健康百科仍保持 fail-closed，协议同意/撤回/审计仍关闭。支付、医保、临床真实读取、外部 WebView 和预约写入仍按各自 contract 关闭。
+> **最新小程序候选事实（2026-08-27）**：当前运行相关源码和本地 live 运行输入为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，40 个页面；该候选已原子发布到 live `dist`，并补齐会话失效时旧 owner 微信资料缓存清理和就诊/互联网医院关闭态卡片纵向居中。本轮继续保持共享患者外壳、电子锦旗和表扬信记录区域、二维码安全壳和健康数值工具的安全边界，临床/服务入口的当前就诊人上下文、重试和选择入口、患者签名和消息订阅的原生安全展示层、采血预约、今日预约摘要与安全数值子集继续保持边界，未开放临床分级、采血号源、公开记录或实时叫号。正式健康审核 bundle 缺失时健康百科仍保持 fail-closed，协议同意/撤回/审计仍关闭。支付、医保、临床真实读取、外部 WebView 和预约写入仍按各自 contract 关闭。
 
-> **当前广度事实源（2026-08-27，运行包来源 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`）**：旧端 64 个页面已全部登记；新端现有 40 个注册页面，健康自测中的 BMI/血压安全数值工具已进入 `partial`，其余临床页面继续使用 `surface-only` 或关闭态，健康百科三个只读页面、协议原文只读页、旧端“我的快递”和采血预约真实空态、电子锦旗/健康表扬信安全页面结构、患者签名/消息订阅安全展示层、临床/服务入口共享当前就诊人上下文以及我的问诊患者作用域已接入，微信资料拒绝后的设置页重试、选择页刷新并发门禁和我的快递三态已接入，统一状态页已展示迁移阶段与旧入口覆盖范围。当前运行包已完成静态校验和原子发布，并补齐会话失效时旧 owner 微信资料缓存清理和关闭态卡片纵向居中；九个真机证据域仍为 pending。正式健康内容、协议同意、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
+> **当前广度事实源（2026-08-27，运行包来源 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`）**：旧端 64 个页面已全部登记；新端现有 40 个注册页面，健康自测中的 BMI/血压安全数值工具已进入 `partial`，其余临床页面继续使用 `surface-only` 或关闭态，健康百科三个只读页面、协议原文只读页、旧端“我的快递”和采血预约真实空态、电子锦旗/健康表扬信安全页面结构、患者签名/消息订阅安全展示层、临床/服务入口共享当前就诊人上下文以及我的问诊患者作用域已接入，微信资料拒绝后的设置页重试、选择页刷新并发门禁和我的快递三态已接入，统一状态页已展示迁移阶段与旧入口覆盖范围。当前运行包已完成静态校验和原子发布，并补齐会话失效时旧 owner 微信资料缓存清理和关闭态卡片纵向居中；九个真机证据域仍为 pending。正式健康内容、协议同意、临床审核、支付、医保、预约写入和 HIS 回写仍按原顺序关闭。
 
-> **当前仓库事实补充（2026-08-27）**：本轮小程序运行包来源为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，小程序核心回归通过。本轮继续保持共享患者外壳、电子锦旗和表扬信记录区域、二维码安全壳和健康数值工具的安全边界，不改变线上 `1107a78a`、live `dist` 之外的旧服务或其他会话适配器；候选已完成静态校验和原子发布，并补齐会话失效时旧 owner 微信资料缓存清理和就诊/互联网医院关闭态卡片纵向居中，协议同意、撤回、临床真实读取、采血号源、公开记录、实时叫号和支付医保继续关闭，上方旧候选段落保留为历史追溯。服务端切换证据见 [`release/candidate-1107a78a-production-acceptance-2026-08-27.md`](release/candidate-1107a78a-production-acceptance-2026-08-27.md)。
+> **当前仓库事实补充（2026-08-27）**：本轮小程序运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，小程序核心回归通过。本轮继续保持共享患者外壳、电子锦旗和表扬信记录区域、二维码安全壳和健康数值工具的安全边界，不改变线上 `90d8910b`、live `dist` 之外的旧服务或其他会话适配器；候选已完成静态校验和原子发布，并补齐会话失效时旧 owner 微信资料缓存清理和就诊/互联网医院关闭态卡片纵向居中，协议同意、撤回、临床真实读取、采血号源、公开记录、实时叫号和支付医保继续关闭，上方旧候选段落保留为历史追溯。服务端切换证据见 [`release/candidate-90d8910b-production-acceptance-2026-08-27.md`](release/candidate-90d8910b-production-acceptance-2026-08-27.md)。
 
 > **2026-08-25 广度检查点（提交 `7732c843`）**：旧端 64 个页面的逐页落点、17 个原生页面和五个低风险只读域的闭环审计已经纳入仓库门禁。执行 `pnpm readonly:audit` 会同时检查就诊人、预约、报告、门诊费用、普通资料的页面、Elysia 路由、service/domain/adapter、日志和文档；通过只代表代码闭环完整，不代表 Provider、生产公网或真机业务已经验收。详细矩阵见 [`migration/read-only-domain-closure-matrix-2026-08-25.md`](migration/read-only-domain-closure-matrix-2026-08-25.md)。
 
 > 本检查点没有打开新的临床、外部或支付能力：门诊病历、住院、问诊实时、互联网医院、健康内容、患者绑定、二维码、预约写入、支付、医保和 HIS 回写仍按各自 contract 保持关闭。全仓测试当前唯一已知失败仍是另一会话未部署的 `packages/adapters/src/zhongyang-appointments.ts` 触发发布基线门禁；本会话不修改、不暂存、不部署该文件。
 
- > 当前最新小程序代码和 live 运行包来源为 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，共 40 个注册页面，候选已通过构建、类型检查、旧端 64 页面台账、自动化测试和运行包静态校验，并完成原子发布；项目最终固定使用微信原生 `tabBar`。现场应直接打开独立工程并普通编译核对完整来源指纹。线上服务端 release 为 `1107a78a47ac2fbe0557958251d66da9effc66de`；线上历史小程序运行包 sourceRevision 仍为 `13f597ea9ee3f65b9be858117826d948339d904a`，真实页面与服务端同链业务证据仍待。本页下方带历史日期的候选只作追溯。
+ > 当前最新小程序代码和 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个注册页面，候选已通过构建、类型检查、旧端 64 页面台账、自动化测试和运行包静态校验，并完成原子发布；项目最终固定使用微信原生 `tabBar`。现场应直接打开独立工程并普通编译核对完整来源指纹。线上服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；线上历史小程序运行包 sourceRevision 仍为 `13f597ea9ee3f65b9be858117826d948339d904a`，真实页面与服务端同链业务证据仍待。本页下方带历史日期的候选只作追溯。
 
 ## 历史事实源（2026-08-22，仅供追溯）
 
@@ -2188,12 +2188,12 @@ available -> hold_pending -> held -> booking_pending -> booked
 
 ## 本次立即执行项
 
-当前执行项绑定服务端 release `1107a78a47ac2fbe0557958251d66da9effc66de` 与小程序来源
-`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（提交 `6f47c64`）；下方历史 release 不得作为本轮真机或业务证据。
+当前执行项绑定服务端 release `90d8910bdc54d48dde66c4ff03a7434c182ebd92` 与小程序来源
+`90d8910bdc54d48dde66c4ff03a7434c182ebd92`（提交 `90d8910b`）；下方历史 release 不得作为本轮真机或业务证据。
 
 1. 在真机重新验收首页患者卡片和切换就诊人，确认页面只显示脱敏卡号与平台摘要；报告目录当前只验证未配置 Provider 门禁时的 fail-closed 文案、HTTP 边界和日志边界，不进行真实报告数据验收，直到报告 Provider contract 和门禁明确开放；
 2. 在真机验收预约科室和排班，保存公网请求的 `requestId` 与页面证据；
-3. 使用当前服务端 release `1107a78a47ac2fbe0557958251d66da9effc66de` 和小程序候选 `6f47c64`（完整构建来源：`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
+3. 使用当前服务端 release `90d8910bdc54d48dde66c4ff03a7434c182ebd92` 和小程序候选 `90d8910b`（完整构建来源：`90d8910bdc54d48dde66c4ff03a7434c182ebd92`）重新同步真实账号的患者目录，先运行显式 `patient-sync` smoke，再补做 `his-patient` owner-scoped 记录查询验收；
 4. 验收门诊缴费只读页面：切换就诊人、待缴/已缴状态、空列表、异常重试和大数据滚动；
 5. 取得二维码医院扫码协议，完成短期 token 设计前保持入口未开放；
 6. 先取得患者绑定 PB-01 至 PB-16 的 provider 文档、脱敏样例和超时/重复请求证据；在此之前只维护患者目录读取和迁移提示，不开发建档/绑卡兼容代理；
@@ -2203,8 +2203,8 @@ available -> hold_pending -> held -> booking_pending -> booked
 10. 旧生产 env 文件权限已收紧到 `0700/0600` 且旧进程存活；新 API Redis 会话已切换至 DB3/`hospital_v2` 最小 ACL 并完成公网 readiness 验收；0014 普通资料已完成生产 schema/API 运行验收，但真实微信资料读写和真机证据仍待完成。下一步完成历史读取风险/秘密轮换判断，再继续报告、病历和文件资源 contract；旧 DB1 全权限账号、旧任务和其他基础设施仍不得视为已迁移。
 11. 收到新的 provider 文档后，先按 [`provider-document-intake.md`](provider-document-intake.md) 登记来源、版本、环境、脱敏样例和错误样例，再补齐 [`provider-contract-template.md`](provider-contract-template.md)；没有文档和样例的字段不得进入业务 schema、数据库或小程序页面。
 12. 首个文档驱动的业务优先处理门诊就诊记录目录：先确认病历查询使用的 `his-patient` 映射、日期窗口、空结果、超时、资源授权和诊断字段白名单，再决定是否从草案注册 API；当前 [`migration/medical-record-directory-contract-draft.md`](migration/medical-record-directory-contract-draft.md) 仍是 draft，不开放正文、诊断和文件下载。
-13. 当前服务端 release `1107a78a` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
-14. 当前公网 runtime 与 P0 日志 bundle 只证明请求进入 `1107a78a` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并使用 `6f47c64` 小程序候选（完整构建来源：`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`）。
+13. 当前服务端 release `90d8910b` 已按 [`infra/systemd/api-v2-release-runbook.md`](../infra/systemd/api-v2-release-runbook.md) 完成原子 `current` 切换和新 API 单元重启；`18081`、公网 `/api/v2`、旧 `8001` 已复测通过。下一步进行真实微信登录、患者切换、预约只读和门诊费用的分层验收，任何业务层失败只回滚新 API，不触碰旧 Python 服务。
+14. 当前公网 runtime 与 P0 日志 bundle 只证明请求进入 `90d8910b` Bun 进程；基础路由不再重复作为业务完成证据，下一步只补真实 session、owner 映射、Provider 状态和真机页面证据，并使用 `90d8910b` 小程序候选（完整构建来源：`90d8910bdc54d48dde66c4ff03a7434c182ebd92`）。
 
 ### 历史补充（仅供追溯，不作为当前执行项）
 

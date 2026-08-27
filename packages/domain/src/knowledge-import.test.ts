@@ -115,11 +115,15 @@ test("published health knowledge requires review metadata and clickable drugs ne
 		validateHealthKnowledgeImportBundle(missingEffectiveFrom),
 	).toThrow("publication.effectiveFrom");
 
-	const missingDrugId = validBundle();
-	missingDrugId.diseaseDetails = missingDrugId.diseaseDetails.map((detail) => ({
-		...detail,
+	const missingDrugId = validBundle() as unknown as Record<string, unknown>;
+	const diseaseDetails = [
+		...(missingDrugId.diseaseDetails as Array<Record<string, unknown>>),
+	];
+	diseaseDetails[0] = {
+		...diseaseDetails[0],
 		availableDrugs: [{ drugName: "示例药物", isClickable: true }],
-	}));
+	};
+	missingDrugId.diseaseDetails = diseaseDetails;
 	expect(() => validateHealthKnowledgeImportBundle(missingDrugId)).toThrow(
 		"diseaseDetails[0].availableDrugs[0].isClickable",
 	);

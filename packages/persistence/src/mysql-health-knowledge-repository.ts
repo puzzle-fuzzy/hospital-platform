@@ -477,7 +477,7 @@ export function createMySqlHealthKnowledgeRepository(
 				 ORDER BY drug_name`,
 				[publication.contentVersion, diseaseId],
 			);
-			const drugs = drugRows.map((drug) => {
+			const drugs = drugRows.map((drug): HealthKnowledgeDrugReference => {
 				if (drug.drug_id !== null && drug.drug_item_kind !== "drug") {
 					// 外键只证明 item 存在，不证明它是药品；错误类别不能
 					// 继续进入患者端的“可点击药品”读模型。
@@ -485,10 +485,25 @@ export function createMySqlHealthKnowledgeRepository(
 						"Persistence returned a health knowledge reference with an invalid drug kind",
 					);
 				}
+				const isClickable = booleanValue(drug.is_clickable);
+				if (isClickable) {
+					// 数据库中的可点击标记必须和同版本药品主键成对出现，
+					// 否则详情页不能安全地生成药品跳转入口。
+					if (drug.drug_id === null) {
+						throw new Error(
+							"Persistence returned a clickable health knowledge reference without a drug id",
+						);
+					}
+					return {
+						drugId: drug.drug_id,
+						drugName: drug.drug_name,
+						isClickable: true,
+					};
+				}
 				return {
 					...(drug.drug_id ? { drugId: drug.drug_id } : {}),
 					drugName: drug.drug_name,
-					isClickable: booleanValue(drug.is_clickable),
+					isClickable: false,
 				};
 			});
 			const item = diseaseDetail(row, drugs);

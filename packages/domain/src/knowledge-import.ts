@@ -197,13 +197,22 @@ function parseDrugReference(
 ): HealthKnowledgeDrugReference {
 	const record = asRecord(value, path);
 	assertAllowedKeys(record, ["drugId", "drugName", "isClickable"], path);
-	const reference: HealthKnowledgeDrugReference = {
-		drugName: requiredString(record.drugName, `${path}.drugName`),
-		isClickable: requiredBoolean(record.isClickable, `${path}.isClickable`),
-	};
+	const drugName = requiredString(record.drugName, `${path}.drugName`);
+	const isClickable = requiredBoolean(
+		record.isClickable,
+		`${path}.isClickable`,
+	);
 	const drugId = optionalString(record.drugId, `${path}.drugId`);
-	if (drugId !== undefined) reference.drugId = drugId;
-	return reference;
+	if (isClickable) {
+		// 可点击引用必须指向同一审核版本内的药品，不能让前端根据名称猜详情。
+		if (drugId === undefined) fail(`${path}.isClickable`);
+		return { drugId, drugName, isClickable: true };
+	}
+	return {
+		...(drugId !== undefined ? { drugId } : {}),
+		drugName,
+		isClickable: false,
+	};
 }
 
 function parseDiseaseDetail(

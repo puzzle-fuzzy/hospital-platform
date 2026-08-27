@@ -25,8 +25,8 @@
 
 ## 0. 当前检查点（2026-08-19）
 
-- 当前线上服务端 release 为 `e5d941ae`，配套小程序构建来源为
-  `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（当前候选 `6f47c64`）；本文件的 Provider 材料门禁不因 release 切换而放宽。
+- 当前线上服务端 release 为 `90d8910b`，配套小程序构建来源为
+  `90d8910bdc54d48dde66c4ff03a7434c182ebd92`（当前候选 `90d8910b`）；本文件的 Provider 材料门禁不因 release 切换而放宽。
 
 - `pnpm provider:audit` 通过，当前仓库登记了 3 份 Provider 接收记录、26 个 `documentId`；
   `docs/provider-intake/` 中没有报告目录专用的正式接收记录、脱敏响应样例或错误样例。
@@ -40,8 +40,8 @@
 
 ## 1. 当前链路
 
-当前服务端 release 为 `e5d941ae`，配套小程序构建来源为
-`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（当前候选 `6f47c64`）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
+当前服务端 release 为 `90d8910b`，配套小程序构建来源为
+`90d8910bdc54d48dde66c4ff03a7434c182ebd92`（当前候选 `90d8910b`）；本次只切换了新 API，报告 Provider gate 仍保持关闭。
 
 ```text
 小程序报告目录
@@ -152,3 +152,4 @@ HTTP 503 / `dependency-not-configured`，页面展示“报告服务暂未配置
 
 支付、医保、退款和 HIS 回写仍然保持在只读报告及门诊费用链路稳定之后处理。
 > 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。
+> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

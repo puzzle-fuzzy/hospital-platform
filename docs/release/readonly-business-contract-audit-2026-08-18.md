@@ -53,7 +53,7 @@
 当前线上 release 以 [`e5d941ae-production-acceptance-2026-08-26.md`](e5d941ae-production-acceptance-2026-08-26.md)
 为准；本文记录的 2026-08-18 历史审计使用小程序来源
 `d2086d819b3e393da2e8c5c39d7704012854214b`，不作为当前真机候选。当前配套候选为
-`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（提交 `6f47c64`），服务端为 `1107a78a47ac2fbe0557958251d66da9effc66de`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
+`90d8910bdc54d48dde66c4ff03a7434c182ebd92`（提交 `90d8910b`），服务端为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`。新 Bun/Elysia API 与旧 Python API 共存，旧服务没有被停止。当前只读发布已完成，历史 release 的窄观察窗口没有新的
 `appointment.*` 或 `outpatient.payment.*` 业务事件，因此本文不把历史日志、readiness 200、页面注册
 或“依赖 configured”当作真实业务成功证据。
 
@@ -142,8 +142,8 @@ requested -> owner mapping / provider call -> synced 或 loaded
 
 本节记录的历史审计候选为小程序 `d2086d8`，完整运行包来源为
 `d2086d819b3e393da2e8c5c39d7704012854214b`；这些数字仅用于追溯，不能作为当前真机包。当前真机候选以
-`6f47c6408fe5b62025bd74fa66893f306eb7b9aa`（提交 `6f47c64`）为准。当前真机候选以
-`1107a78a` 服务端配套的 `6f47c64` 和完整来源指纹 `6f47c6408fe5b62025bd74fa66893f306eb7b9aa` 为准。
+`90d8910bdc54d48dde66c4ff03a7434c182ebd92`（提交 `90d8910b`）为准。当前真机候选以
+`90d8910b` 服务端配套的 `90d8910b` 和完整来源指纹 `90d8910bdc54d48dde66c4ff03a7434c182ebd92` 为准。
 
 本节对应的当前服务端生产候选为 `c8eef370`；下方保留的 `398be8e`、`687690e`、`c26e696` 和 `1b94c46` 说明仅用于追溯当时的代码摘要，不能覆盖当前发布基线。
 
@@ -218,3 +218,4 @@ fail-closed，该修正已随历史 release `687690e` 部署，不增加真实�
 当前客户端与服务端的固定验收组合、操作顺序、证据字段和停止条件见
 [`miniprogram-readonly-acceptance-candidate-2026-08-18.md`](miniprogram-readonly-acceptance-candidate-2026-08-18.md)。
 > 当前发布基线更新（2026-08-24 19:54 CST）：线上服务端 release 已切换为 `8eb51b5ffe85b0b8f8a032783f893117d3df549d`；小程序运行包来源仍为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本轮只重启新 API，旧 Python `8001` 未修改；普通资料 PUT、支付、医保和 Provider 真机证据仍待。
+> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

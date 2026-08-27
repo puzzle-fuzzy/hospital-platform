@@ -68,12 +68,16 @@ export type HealthKnowledgeDiseaseSummary = HealthKnowledgeLetterItem & {
 	symptoms?: string;
 };
 
-/** 疾病详情中的药品引用不是处方建议，只表示知识内容中的关联条目。 */
-export type HealthKnowledgeDrugReference = {
-	drugId?: string;
-	drugName: string;
-	isClickable: boolean;
-};
+/**
+ * 疾病详情中的药品引用不是处方建议，只表示知识内容中的关联条目。
+ *
+ * 这里使用可辨识联合，而不是“可选 id + 普通 boolean”：只要页面认为
+ * 引用可点击，就必须同时拿到版本内的 `drugId`；纯文本说明则明确不可点击。
+ * 这样可以让 domain、API contract 和小程序跳转逻辑共享同一条安全不变量。
+ */
+export type HealthKnowledgeDrugReference =
+	| { drugId: string; drugName: string; isClickable: true }
+	| { drugId?: string; drugName: string; isClickable: false };
 
 export type HealthKnowledgeDiseaseDetail = {
 	id: string;
@@ -390,15 +394,22 @@ function normalizeDrugReference(value: unknown): HealthKnowledgeDrugReference {
 			value.drugName,
 			HEALTH_KNOWLEDGE_TEXT_LIMITS.drugName,
 		) ||
-		typeof value.isClickable !== "boolean" ||
-		(value.isClickable && drugId === undefined)
+		typeof value.isClickable !== "boolean"
 	) {
 		invalidResult("drug-reference-invalid");
+	}
+	if (value.isClickable) {
+		if (typeof drugId !== "string") invalidResult("drug-reference-invalid");
+		return {
+			drugId,
+			drugName: value.drugName,
+			isClickable: true,
+		};
 	}
 	return {
 		...(drugId !== undefined ? { drugId } : {}),
 		drugName: value.drugName,
-		isClickable: value.isClickable,
+		isClickable: false,
 	};
 }
 

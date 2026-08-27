@@ -8,7 +8,7 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| live 运行包来源 | `6f47c6408fe5b62025bd74fa66893f306eb7b9aa`，40 个页面；`runtime:verify` 通过 |
+| live 运行包来源 | `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，40 个页面；`runtime:verify` 通过 |
 | pending 候选来源 | 无；发布成功后 pending 目录已按发布器约定清理 |
 | pending 目录 | 不存在；发布前静态校验已通过 |
 | 发布结果 | 已原子切换到 live `dist`；没有手工覆盖或修改来源指纹 |
@@ -88,7 +88,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 ## 发布成功后的验收顺序
 
-发布只证明运行包切换，不证明业务完成。当前应从已切换的 `6f47c64` live `dist`
+发布只证明运行包切换，不证明业务完成。当前应从已切换的 `90d8910b` live `dist`
 重新生成二维码，再按以下顺序逐域采证：
 
 ```text
@@ -104,3 +104,4 @@ pnpm --filter @hospital/miniprogram runtime:verify
 每个域都必须同时留下页面状态、客户端 `requestId`、Elysia/Pino 低敏事件以及适用时的
 Provider request id。HTTP 200、空列表、页面可打开或 `runtime:verify` 通过，均不能单独
 把业务状态标记为完成。
+> 当前统一发布基线补充（2026-08-27 12:45 CST）：服务端 release 为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`；小程序本地 live 运行包来源为 `90d8910bdc54d48dde66c4ff03a7434c182ebd92`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
