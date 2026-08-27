@@ -20,6 +20,24 @@
 服务端 release 已完成 production preflight、隔离 runtime smoke、原子切换和公网 runtime smoke；
 这些是运行层证据。旧 Python `8001` 在切换过程中没有停止、重启或修改。
 
+## 1.1 公网 HTTPS 安全门禁
+
+2026-08-27 只读核对发现，阿里云中转机 `8.130.127.184` 上原来配置的
+`test-hp.meiyi.pro` 证书已于 `2026-08-26 23:59:59 GMT` 过期。该问题属于公网中转层，
+不是旧 Python 服务或新 Bun 服务的代码问题；证书过期期间，微信真机和小程序网络请求不能视为可验收。
+
+本次已在不停止旧服务的前提下完成修复：
+
+- 通过 Certbot 使用 HTTP-01 临时校验申请新的公开 DV 证书，有效期至 `2026-11-25`。
+- Nginx 已改为引用 `/etc/letsencrypt/live/test-hp.meiyi.pro/` 的自动更新路径，旧配置已保留备份。
+- 已添加 Certbot deploy hook，续期成功后只执行 Nginx 平滑 reload，不停止旧 Python 进程。
+- `nginx -t` 通过，公网无 `-k` TLS 校验返回 `Verify return code: 0`；live、ready、ping 均返回 HTTP 200。
+- Certbot 自动续期定时器为 active；证书续期仍需在到期前通过公网无跳过校验复核，不能只看本机文件日期。
+
+因此，当前 HTTPS 已恢复为可继续验收状态，但这次证书修复只证明传输层恢复，
+不增加微信登录、Provider、真机业务或支付/医保证据。后续若证书、域名或 Nginx 转发再次变化，
+必须先完成无 `-k` 的 TLS 验证，再生成新的真机证据。
+
 ## 2. 迁移范围事实
 
 | 范围 | 数量/状态 | 正确解读 |
@@ -46,7 +64,7 @@
 
 ## 4. 下一步执行顺序
 
-1. 有真实开发者工具和手机会话时，只从当前 `apps/miniprogram/dist/` 普通编译并生成二维码；先核对 `build-info.json.sourceRevision` 与本文一致。
+1. 先执行公网无 `-k` 的 HTTPS live/ready/ping 和证书有效期复核；通过后，有真实开发者工具和手机会话时，只从当前 `apps/miniprogram/dist/` 普通编译并生成二维码，并核对 `build-info.json.sourceRevision` 与本文一致。
 2. 按九域清单逐项采集页面截图、客户端 `requestId`、公网 HTTP、服务端 Pino `traceId` 和 Provider 低敏请求号；每个域独立判定，不能用另一个域的成功链拼接。
 3. 没有运行中的真机/开发者工具会话时，保持清单 `pending`，只做代码、文档和脱敏审计，不制造“已通过”的证据。
 4. 收到正式 Provider 或内容材料后，先登记版本、来源指纹、成功/空/拒绝/超时样例、owner 映射和字段白名单，再分别实现 adapter、domain、API、页面状态机和日志。
