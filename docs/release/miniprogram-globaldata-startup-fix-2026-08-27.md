@@ -38,6 +38,7 @@ App 入口被单独打包为 IIFE，页面服务则由微信按 CommonJS 模块�
 - 运行包已原子发布到 `apps/miniprogram/dist/`，来源指纹为 `76ca0137ea9a57b8b7ed9c8797bb718040535922`。
 - `pnpm --filter @hospital/miniprogram runtime:verify` 通过，40 个页面入口和必需根文件齐全。
 - 构建过程中检测到开发者工具占用 `dist` 时，候选先写入 pending；关闭新项目开发者工具后再执行 `runtime:publish-pending`，没有清空旧运行包。
+- 重新打开正确的 `dist` 独立工程并完成首次编译后，控制台确认同一来源指纹；启动链按预期经历无会话 `/me` 401、健康检查 200、微信登录 200、`/me` 200、资料读取 200，未再出现 `globalData` 未定义异常。
 
 ## 开发者工具操作要求
 
