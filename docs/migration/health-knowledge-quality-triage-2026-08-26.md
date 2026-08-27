@@ -3,6 +3,8 @@
 > 本文只记录源快照的脱敏数量和处理边界，不包含疾病名称、药品名称、健康正文、患者字段或 Provider 原文。
 > 数据来源为本机 `.local/health-knowledge/legacy-source-snapshot.json` 的只读审计；旧 Python 服务、数据库、Redis、线上进程和患者端 API 均未修改。
 
+> **2026-08-27 复核结果**：重新执行源快照审计、质量定位、整改台账和审核队列，结果仍为 `sourceValid=true`、`publishable=false`、质量问题合计 133 条；其中重复药品关系 6 组、控制字符 115 个、首尾空白字段 10 个、被忽略旧字段 1 个、被忽略旧来源 1 个。质量摘要与源投影一致，未发现禁止的患者或 Provider 标识字段。正式审核 bundle 仍不存在，因此健康知识路由继续 `fail-closed`，本次没有改写源快照、导入 staging 或修改线上服务。
+
 ## 1. 当前结果
 
 `pnpm health:quality:findings` 和 `pnpm health:remediation:ledger` 在同一份源快照上运行结果一致：
