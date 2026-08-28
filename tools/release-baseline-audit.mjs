@@ -158,7 +158,7 @@ export function auditServerSourceRelease(baseline, options = {}) {
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-0aaa13b5-server-release-2026-08-27.md";
+	"docs/release/candidate-5738a71-server-release-2026-08-28.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -258,7 +258,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 当前小程序候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
-		path: "docs/release/candidate-02865d3-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-cac6561-miniprogram-runtime-2026-08-28.md",
 		label: "当前本地小程序运行包候选",
 		candidateOnly: true,
 	},
@@ -275,7 +275,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 交接单引用的执行检查点是新会话的直接入口；将其纳入当前基线，
 		// 防止它继续携带已经失效的 live 运行包或过期真机命令。
-		path: "docs/migration/current-execution-checkpoint-2026-08-27.md",
+		path: "docs/migration/current-execution-checkpoint-2026-08-28.md",
 		label: "当前执行检查点",
 		candidateOnly: true,
 	},
@@ -514,12 +514,12 @@ const currentCandidateReferenceRules = Object.freeze([
 		label: "文档导航当前事实",
 		sections: [
 			{
-				start: "> 最新事实（2026-08-27）",
+				start: "> 最新事实（2026-08-28）",
 				end: "# 项目文档导航",
 				// 导航页是新会话最容易先打开的文档，顶部事实必须成套锁定。
 				phrases: [
 					{
-						text: "最新事实（2026-08-27）",
+						text: "最新事实（2026-08-28）",
 						serverExpected: "full",
 						expected: "full",
 					},
@@ -711,7 +711,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-02865d3-miniprogram-runtime-2026-08-27.md",
+		path: "docs/release/candidate-cac6561-miniprogram-runtime-2026-08-28.md",
 		label: "当前 live 小程序运行包候选",
 		sections: [
 			{
@@ -867,8 +867,8 @@ const currentCandidateReferenceRules = Object.freeze([
 				end: "## 1. 患者上下文",
 				phrases: [
 					{
-						text: "当前本地源码候选（2026-08-27）",
-						aliases: ["当前本地源码与运行包（2026-08-27）"],
+						text: "当前本地源码候选（2026-08-28）",
+						aliases: ["当前本地源码与运行包（2026-08-28）"],
 						expected: "pending-full",
 					},
 				],

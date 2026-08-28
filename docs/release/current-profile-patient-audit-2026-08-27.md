@@ -1,3 +1,5 @@
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`；历史段落只作追溯。
+
 # 当前用户资料与患者上下文审计（2026-08-27）
 
 > 本记录只审计新项目 `E:\__Super_Core__\hospital-platform` 的小程序资料展示、患者目录投影和运行包发布边界。
@@ -33,9 +35,9 @@
 | 检查 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm migration:readiness` | 通过结构审计 | 入口、只读域和页面事件结构通过；真实 Provider、真机和高风险写入仍按报告保持未完成 |
-| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 历史发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，40 页，运行包文件完整；当前 live 候选为 `02865d385a9c09876dc51da1ffb71183139a559b` |
+| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 历史发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，历史运行包页数不作为当前事实；当前 live 候选为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6` |
 | `pnpm --filter @hospital/miniprogram build` | 发布阶段曾被 `EBUSY` 阻断 | TypeScript 检查已通过；随后释放项目进程锁并通过 `runtime:publish-pending` 完成原子发布 |
-| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `02865d385a9c09876dc51da1ffb71183139a559b`，40 页 |
+| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`，38 页 |
 
 ## 4. 当前运行包锁处理
 
@@ -46,7 +48,7 @@
 1. 确认用户没有正在使用的项目会话，并识别出项目主进程 PID `36144` 及其子进程；
 2. 只结束该项目进程树，不碰其它微信开发者工具实例；
 3. 执行 `pnpm --filter @hospital/miniprogram runtime:publish-pending` 成功；
-4. 执行 `pnpm --filter @hospital/miniprogram runtime:verify` 成功，确认 40 页和来源指纹完整。
+4. 执行 `pnpm --filter @hospital/miniprogram runtime:verify` 成功，确认 38 页和来源指纹完整。
 
 锁释放前 live `dist` 保持原样；锁释放后只通过原子发布器切换，未删除、手工复制或半套覆盖运行包。
 
@@ -55,4 +57,4 @@
 - 九个真机证据域仍为 `pending`，需要同一小程序来源下的页面、客户端 `requestId`、公网 HTTP、服务端 Pino `traceId` 和 Provider 低敏请求号闭环。
 - 健康百科等待正式审核 bundle；临床、患者写入、外部会话、协议同意/撤回/审计仍等待各自 contract。
 - 预约写入、门诊支付、医保授权/结算、退款和 HIS 回写继续最后处理，不因本轮资料/患者审计通过而开放。
-> 当前统一发布基线补充（2026-08-27）：服务端 release 为 `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`；小程序本地 live 运行包来源为 `02865d385a9c09876dc51da1ffb71183139a559b`，共 40 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-28）：服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；小程序本地 live 运行包来源为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`，共 38 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

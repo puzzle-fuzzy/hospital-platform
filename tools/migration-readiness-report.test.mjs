@@ -201,8 +201,13 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.deviceEvidence.activeRuntime).toBe(
 			report.runtime.pending ? "pending" : "live",
 		);
-		expect(report.deviceEvidence.manifestPath).toBe(
-			`docs/release/device-evidence-${report.deviceEvidence.candidate.sourceRevision.slice(0, 8)}-pending.json`,
+		const evidenceManifest = await Bun.file(
+			report.deviceEvidence.manifestPath,
+		).json();
+		// 清单文件名的短前缀历史上有 7/8 位等不同写法，不能把文件名
+		// 当作候选身份；真正的绑定依据是清单内部的完整 sourceRevision。
+		expect(evidenceManifest.candidate.sourceRevision).toBe(
+			report.deviceEvidence.candidate.sourceRevision,
 		);
 		/**
 		 * 交接单里的可复制命令必须和 readiness 实际选择的证据清单一致；

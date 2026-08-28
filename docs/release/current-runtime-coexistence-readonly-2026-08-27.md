@@ -1,12 +1,14 @@
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`；历史段落只作追溯。
+
 # 当前线上运行层共存只读观察（2026-08-27）
 
 > **发布后当前事实（2026-08-27）**：服务端 release 已原子切换为
-> `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`；当前配套小程序运行包来源为
-> `02865d385a9c09876dc51da1ffb71183139a559b`（`02865d3`）。下方 16:42:35
+> `5738a71e0bcddaa8849106754baf5b296427bed7`；当前配套小程序运行包来源为
+> `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`（`cac6561`）。下方 16:42:35
 > 的观察是切换前历史窗口，保留用于证明切换前新旧服务共存，不能覆盖发布后事实。
 
 > **发布后只读复核（2026-08-27 18:10:40，Asia/Shanghai）**：使用受控 inspection key
-> 只读连接 `192.168.112.172`，确认 `current` 仍指向上述 `0aaa13b5`，
+> 只读连接 `192.168.112.172`，确认 `current` 仍指向上述 `5738a71e`，
 > `hospital-platform-api-v2.service=active/running`、`hospital-platform-worker-v2.service=inactive`，
 > 新 API 监听 `10.0.0.3:18081`，旧 Python 仍监听 `0.0.0.0:8001`；公网
 > `https://test-hp.meiyi.pro/api/v2/health/ready` 返回 `success=true`，
@@ -34,7 +36,7 @@
 
 | 检查项 | 结果 |
 | --- | --- |
-| 新 API `current` | `/home/ps/code/hospital-platform/releases/0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7` |
+| 新 API `current` | `/home/ps/code/hospital-platform/releases/5738a71e0bcddaa8849106754baf5b296427bed7` |
 | `hospital-platform-api-v2.service` | `active` |
 | `hospital-platform-worker-v2.service` | `inactive` |
 | 新 API 监听 | `10.0.0.3:18081` |
@@ -45,7 +47,7 @@
 
 1. 新旧服务仍然共存，旧 Python `8001` 未因本轮操作停止、重启或改动。
 2. 切换前后新 API 运行层健康，数据库、Redis 和 schema readiness 正常；切换后发布事实以本文顶部和
-   [`candidate-0aaa13b5-production-acceptance-2026-08-27.md`](candidate-0aaa13b5-production-acceptance-2026-08-27.md) 为准。
+   [`candidate-5738a71-server-release-2026-08-28.md`](candidate-5738a71-server-release-2026-08-28.md) 为准。
 3. 当前服务端 release 已完成 API-only 原子发布并通过发布基线门禁；该门禁证明来源和运行层一致，仍不能代替真机业务证据。
 4. 当前没有微信开发者工具或真机会话，九个真机证据域继续保持 `pending`；没有页面截图、客户端
    requestId、服务端 Pino 同链事件和适用的 Provider 低敏 requestId，不能声明只读业务完成。
@@ -58,4 +60,4 @@
 支付、医保、预约写入、取消、HIS 回写和旧 Python 仍不在本次开放范围。
 
 
-> 当前发布基线补充（2026-08-27）：服务端线上 release 为 `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`；本地 live 小程序构建来源为 `02865d385a9c09876dc51da1ffb71183139a559b`。本行只同步当前运行层指纹，文档中的历史发布记录仍保留用于追溯。
+> 当前发布基线补充（2026-08-27）：服务端线上 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；本地 live 小程序构建来源为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`。本行只同步当前运行层指纹，文档中的历史发布记录仍保留用于追溯。

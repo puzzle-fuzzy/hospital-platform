@@ -299,7 +299,7 @@ test("文档导航的历史窗口说明必须跟随当前小程序候选", () =>
 	const documents = [
 		{
 			path: "docs/README.md",
-			content: `> 最新事实（2026-08-27）：线上服务端 release 为 \`1b94c46\`；最新小程序运行相关源码和本地 live 运行输入为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
+			content: `> 最新事实（2026-08-28）：线上服务端 release 为 \`1b94c46\`；最新小程序运行相关源码和本地 live 运行输入为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
 # 项目文档导航
 
 该窗口因早于当前 \`old-candidate\` 构建。
@@ -331,7 +331,7 @@ test("当前事实入口必须同时锁定服务端和小程序完整来源", ()
 		},
 		{
 			path: "docs/README.md",
-			content: `> 最新事实（2026-08-27）：线上服务端 release 为 \`old-server\`；最新小程序运行相关源码和本地 live 运行输入均为 \`old-mini\`。
+			content: `> 最新事实（2026-08-28）：线上服务端 release 为 \`old-server\`；最新小程序运行相关源码和本地 live 运行输入均为 \`old-mini\`。
 # 项目文档导航
 该窗口因早于当前 \`34f0fd21\` 构建。
 ## 发布与运行
@@ -346,8 +346,8 @@ test("当前事实入口必须同时锁定服务端和小程序完整来源", ()
 	expect(auditCurrentCandidateReferences(baseline, documents)).toEqual([
 		"当前项目发布与迁移基线 的“当前成套验收基线”未指向当前服务端 release",
 		"当前项目发布与迁移基线 的“当前成套验收基线”未指向当前完整小程序 sourceRevision",
-		"文档导航当前事实 的“最新事实（2026-08-27）”未指向当前服务端 release",
-		"文档导航当前事实 的“最新事实（2026-08-27）”未指向当前完整小程序 sourceRevision",
+		"文档导航当前事实 的“最新事实（2026-08-28）”未指向当前服务端 release",
+		"文档导航当前事实 的“最新事实（2026-08-28）”未指向当前完整小程序 sourceRevision",
 	]);
 });
 
@@ -430,11 +430,11 @@ test("仓库当前发布文档与已部署代码保持一致", {
 		passed: true,
 		// 该断言必须与当前候选文档同步，防止只更新正文而遗漏路线图、真机模板或
 		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
-		serverRelease: "0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7",
+		serverRelease: "5738a71e0bcddaa8849106754baf5b296427bed7",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "02865d3",
-		miniProgramSourceRevision: "02865d385a9c09876dc51da1ffb71183139a559b",
+		miniProgramCommit: "cac6561",
+		miniProgramSourceRevision: "cac6561b3f4ebbae2de8c632b052837fe7bc28b6",
 	});
 	expect(result.failures).toEqual([]);
 	expect(result.serverSourceAudit).toMatchObject({
@@ -448,13 +448,13 @@ test("当前业务验收协议绑定当前服务端和小程序候选", {
 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 
-	// 当前候选文档已经统一到同一套服务端和小程序来源，且 0aaa13b5 已完成
+	// 当前候选文档已经统一到同一套服务端和小程序来源，且 5738a71e 已完成
 	// API-only 原子发布；这里要求没有漂移失败，防止把历史发布前阻断误报为当前状态。
 	expect(result).toMatchObject({
 		passed: true,
-		serverRelease: "0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7",
-		miniProgramCommit: "02865d3",
-		miniProgramSourceRevision: "02865d385a9c09876dc51da1ffb71183139a559b",
+		serverRelease: "5738a71e0bcddaa8849106754baf5b296427bed7",
+		miniProgramCommit: "cac6561",
+		miniProgramSourceRevision: "cac6561b3f4ebbae2de8c632b052837fe7bc28b6",
 	});
 	expect(result.failures).toEqual([]);
 });

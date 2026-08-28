@@ -1,8 +1,10 @@
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`；历史段落只作追溯。
+
 # 当前小程序全量闭环复核（2026-08-26）
 
 > **当前事实更新（2026-08-27）**：本记录的代码复核结论仍然有效；当前 live 小程序运行包来源为
-> `02865d385a9c09876dc51da1ffb71183139a559b`（`02865d3`），40 个页面，当前无 pending 目录；
-> 线上服务端 release 为 `0aaa13b5`。下方较早的运行层和候选数字仅作历史窗口追溯。
+> `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`（`cac6561`），38 个页面，当前无 pending 目录；
+> 线上服务端 release 为 `5738a71e`。下方较早的运行层和候选数字仅作历史窗口追溯。
 
 ## 结论
 
@@ -14,28 +16,28 @@
 
 | 检查项 | 结果 |
 | --- | --- |
-| 当前小程序候选 | live 为 `02865d3`（来源 `02865d385a9c09876dc51da1ffb71183139a559b`）；当前无 pending 目录 |
-| 原生页面与运行包 | 40 个页面；live `runtime:verify` 通过，当前无 pending 目录 |
+| 当前小程序候选 | live 为 `cac6561`（来源 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`）；当前无 pending 目录 |
+| 原生页面与运行包 | 38 个页面；live `runtime:verify` 通过，当前无 pending 目录 |
 | 主导航 | 4 个微信原生 `tabBar`，页面之间不重复渲染自定义 Tab |
-| 导航审计 | 通过；40 个页面、30 个字面导航调用 |
+| 导航审计 | 通过；38 个页面、30 个字面导航调用 |
 | 患者展示审计 | 通过；扫描 80 个页面源文件 |
 | 入口广度审计 | 通过；首页/我的 action、状态页和交互页面闭环 |
 | 迁移边界审计 | 通过；34 个冻结入口门禁、64 个旧页面都有唯一落点 |
 | TypeScript | 9 个 workspace 包全部通过 `tsc --noEmit` |
 | Biome lint | 435 个文件通过，无自动修复 |
-| 小程序核心测试 | 全量回归 `345 pass / 0 fail / 3736 expect()`；本候选新增 App.onLaunch 全局资料初始化时序回归，既有共享患者会话边界、二维码会话门禁、健康规则版本和关闭态布局测试均通过 |
+| 小程序核心测试 | 全量回归 `352 pass / 0 fail / 3818 expect()`；本候选新增 App.onLaunch 全局资料初始化时序回归，既有共享患者会话边界、二维码会话门禁、健康规则版本和关闭态布局测试均通过 |
 
 ## 当前仍未通过的门
 
 ### 1. 发布基线与运行包来源
 
-线上新服务当前对应服务端 release `0aaa13b5`；本地工作树的健康知识运行时代码已随本 release 发布，
+线上新服务当前对应服务端 release `5738a71e`；本地工作树的健康知识运行时代码已随本 release 发布，
 `packages/adapters/src/zhongyang-appointments.ts` 未被本轮修改。`release:baseline:audit` 已通过，
 这只证明来源一致，不能因此扩大 Provider 或写入业务范围。
 
 ### 2. 真机证据仍为空
 
-当前 `docs/release/device-evidence-02865d38-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
+当前 `docs/release/device-evidence-cac6561-pending.json` 的九个业务域仍为 `pending`。本地测试只能证明客户端状态机和响应校验，不足以证明微信真机、公网 HTTPS、Nginx、Elysia 日志和 Provider 请求号已经形成同一条证据链。
 
 ### 3. 健康百科仍不能发布
 
@@ -51,7 +53,7 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 新 Elysia release | `/home/ps/code/hospital-platform/releases/0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7` |
+| 新 Elysia release | `/home/ps/code/hospital-platform/releases/5738a71e0bcddaa8849106754baf5b296427bed7` |
 | 新服务 | `hospital-platform-api-v2.service=active`，Bun 监听 `10.0.0.3:18081` |
 | 旧服务 | Gunicorn 继续监听 `0.0.0.0:8001` |
 | 报告业务事件 | 最近 24 小时未观察到 `report.directory.*`、`report.detail.*` 或 `report.detail_reference.*` |
@@ -60,8 +62,8 @@
 
 ## 下一步准入顺序
 
-1. 在有真实微信开发者工具/真机会话时，从当前 live `02865d3` 运行包普通编译并生成新二维码。
-2. 先核对 `build-info.json`、服务端 `0aaa13b5` 和九域清单来源，再采集 A 批次九域真机证据。
+1. 在有真实微信开发者工具/真机会话时，从当前 live `cac6561` 运行包普通编译并生成新二维码。
+2. 先核对 `build-info.json`、服务端 `5738a71e` 和九域清单来源，再采集 A 批次九域真机证据。
 3. 若预约适配器或其它运行时代码再次变化，重新生成完整、可回滚的服务端候选，不拆半发布，并重新通过 `release:baseline:audit`、构建、类型、lint 和运行包来源校验。
 4. 只有 A 批次证据链完整后，才进入健康内容审核 bundle、临床只读 contract 和外部入口 contract。
 5. 支付、医保、结算、退款和 HIS 回写仍最后单独验收。

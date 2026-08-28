@@ -1,6 +1,8 @@
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`；历史段落只作追溯。
+
 # A 批次低风险业务统一验收计划（2026-08-26）
 
-> 当前服务端发布基线（2026-08-27）：`0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`；本计划中的业务证据仍须绑定该 release，不能使用历史服务端窗口替代。
+> 当前服务端发布基线（2026-08-27）：`5738a71e0bcddaa8849106754baf5b296427bed7`；本计划中的业务证据仍须绑定该 release，不能使用历史服务端窗口替代。
 
 ## 结论
 
@@ -19,26 +21,26 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序业务候选 | `02865d385a9c09876dc51da1ffb71183139a559b`（`02865d3`） |
-| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `02865d385a9c09876dc51da1ffb71183139a559b`，40 个页面，`runtime:verify` 已通过 |
+| 小程序业务候选 | `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`（`cac6561`） |
+| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`，38 个页面，`runtime:verify` 已通过 |
 | pending 运行包 | 当前无 pending 目录；后续源码变化必须重新构建并通过原子发布流程 |
-| 服务端 | 生产 `0aaa13b5`，新 Elysia 监听 `10.0.0.3:18081` |
+| 服务端 | 生产 `5738a71e`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |
 | Worker | 保持 inactive；只读业务验收不启动 Worker |
 | 关闭能力 | 预约写入、支付、医保、退款、HIS 回写、报告 Provider 和外部会话继续关闭 |
 
-上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前 live 候选已创建新的九域清单 [`device-evidence-02865d38-pending.json`](device-evidence-02865d38-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
+上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前 live 候选已创建新的九域清单 [`device-evidence-cac6561-pending.json`](device-evidence-cac6561-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
 
-本次运行包来源为 `02865d385a9c09876dc51da1ffb71183139a559b`，发布后以 live `build-info.json` 的同一来源指纹为准。
+本次运行包来源为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`，发布后以 live `build-info.json` 的同一来源指纹为准。
 
 本次候选切换已完成。现在必须从 live `dist` 重新普通编译并生成二维码；不能把历史二维码、旧 live 运行包或已经清理的 pending 目录当成真机包。
 
 ## 当前 release baseline 前置门禁
 
-当前九域清单已经绑定 `0aaa13b5` 与 `02865d3`；`pnpm device:evidence:audit --file
-docs/release/device-evidence-02865d38-pending.json` 在进入真机通过判定前会先执行
+当前九域清单已经绑定 `5738a71e` 与 `cac6561`；`pnpm device:evidence:audit --file
+docs/release/device-evidence-cac6561-pending.json` 在进入真机通过判定前会先执行
 `release:baseline:audit`。截至 2026-08-27，结构、代码、文档和发布基线门禁已通过；线上服务端已完成
-production preflight、隔离 smoke、原子切换和公网 runtime smoke，当前 release 为 `0aaa13b5`。
+production preflight、隔离 smoke、原子切换和公网 runtime smoke，当前 release 为 `5738a71e`。
 
 这意味着当前可以从 live `dist` 重新生成二维码并采集材料，但在九个业务域的页面、客户端
 requestId、HTTP、Pino/Provider 事件全部齐全前，清单仍必须保持 `pending`，不能把结构门禁写成
