@@ -117,6 +117,7 @@ test("provider HTTP boundary marks TLS and network failures as transport failure
 		name: "ProviderRequestError",
 		retryable: true,
 		failureStage: "transport",
+		requestId: context.traceId,
 		statusCode: undefined,
 	});
 });

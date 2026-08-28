@@ -189,6 +189,11 @@ export async function requestJson<T>(
 			message: controller.signal.aborted
 				? "Provider request timed out or was cancelled"
 				: "Provider request could not be completed",
+			// 传输层失败没有 Provider 响应头，不能获得对方 requestId；
+			// 使用本次服务端 traceId 作为 fallback，确保业务失败日志、HTTP
+			// 请求日志和客户端反馈仍能通过同一个关联号串起来。它不是
+			// Provider 已确认的请求号，因此只作为低敏诊断字段使用。
+			requestId: input.context.traceId,
 			retryable: true,
 			failureStage: "transport",
 			cause,

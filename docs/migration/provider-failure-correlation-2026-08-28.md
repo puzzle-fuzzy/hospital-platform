@@ -1,0 +1,88 @@
+# Provider 失败链路与旧端对照记录（2026-08-28）
+
+本文记录旧项目医保 FSI、新项目众阳只读查询和 Provider 失败日志之间的边界。
+它是迁移交接记录，不修改旧项目、旧服务、数据库、Redis 或线上配置。
+
+## 1. 先区分两条完全不同的 503
+
+| 用户看到的入口 | 新/旧端公共入口 | 最终下游 | 责任域 |
+| --- | --- | --- | --- |
+| 旧端 `common/mbs-fsi/6201` | 旧 Python 的医保转发路由 | 医保移动支付中心 `/org/local/api/hos/uldFeeInfo` | 医保 FSI |
+| 新端“我的挂号/爽约记录” | `GET /api/v2/appointments/records` | 众阳 `/msun-middle-business-appointment-server/v1/appointment-infos/{patId}` | 众阳预约历史 |
+
+`/common/mbs-fsi/6201` 不是众阳患者接口，也不是预约历史接口；
+`patInfosFind` 是众阳患者档案查询，不能用来解释医保 6201 超时。
+
+## 2. 旧项目 6201 的真实处理方式
+
+旧项目在 `app/api/v1/module_common/mbs_fsi/controller.py` 注册 6201，
+由 `MbsFsiService.forward_6201` 组装请求，经过转发服务发送到医保中心。
+旧服务的映射关系如下：
+
+```text
+6201 -> /org/local/api/hos/uldFeeInfo       费用明细上传
+6202 -> /org/local/api/hos/pay_order        支付下单
+6301 -> /org/local/api/hos/query_order_info 结算结果查询
+```
+
+旧代码已经有请求、原始响应和超时日志，也会把上游超时转换为“医保服务响应超时”。
+但它不能修复医保中心缺失的 FSI 交易配置、转发服务异常或医保中心处理超时。
+历史报文还出现过外层成功、嵌套 `data` 中实际失败的情况，因此旧端的“有日志”
+不等于已经正确处理了所有业务失败。
+
+## 3. 新端预约历史 503 的判断规则
+
+新端预约历史 adapter 的 operation 是 `appointment-records`，请求参数由服务端固定：
+
+- `scope=online` 使用众阳渠道 3，并携带服务端校验过的日期窗口；
+- `scope=all` 使用众阳渠道 4，不把客户端日期直接透传为全部历史条件；
+- 小程序只提交平台 `patientId`，众阳 `patId` 只在服务端 owner-scoped 映射成功后的调用栈内使用。
+
+新端把以下情况统一归类为可重试 Provider 失败并返回公共 HTTP 503：
+
+- 众阳 HTTP 429 或 5xx；
+- DNS、TLS、连接失败或超时；
+- 服务器主动取消的传输请求。
+
+因此，HTTP 503 本身不能证明众阳返回了 HTTP 503。必须在同一个 `traceId` 下检查：
+
+```text
+event=appointment.records.failed
+provider=zhongyang
+providerOperation=appointment-records
+providerStatusCode
+providerRequestId
+providerRetryable
+providerFailureStage=transport|http|response
+```
+
+## 4. 本轮代码修正
+
+`packages/adapters/src/http.ts` 的传输失败此前没有 Provider 响应头，
+所以 `providerRequestId` 可能为空。本轮使用服务端 `context.traceId` 作为低敏 fallback：
+
+- 已拿到 Provider 响应时，优先使用响应头中的 request id；
+- TLS/DNS/连接/超时阶段没有响应时，使用本次平台 trace id；
+- 不记录 URL、Authorization、请求体或 Provider 原始响应；
+- 不改变重试判断、HTTP 状态码或业务返回结构。
+
+这样可以把 service 失败日志、Elysia HTTP 失败日志和小程序 requestId 串起来，
+但不能把平台 trace 误称为 Provider 已确认的请求号。
+
+## 5. 当前迁移边界
+
+- 新端 `packages/adapters/src/legacy-fsi-contract.ts` 目前只是隔离的医保 contract 校验，
+  不是已经上线的 6201 真实转发路由；医保支付、医保授权、结算、退款和 HIS 回写继续关闭。
+- 新端预约历史是独立的众阳只读链路，不能复用医保 FSI 的错误处理或请求配置。
+- 临床病历、电子导诊、我的问诊和就诊二维码继续等待各自正式 contract，不能用预约、报告、费用或
+  6201 的响应拼接成“迁移完成”。
+- 真实验收仍需同时取得小程序 requestId、Elysia/Pino 低敏日志和 Provider 响应证据；本地测试通过
+  不能替代公网、Provider 或真机验收。
+
+## 6. 相关源码
+
+- 旧端医保路由：`G:/fuck/hospital/app/api/v1/module_common/mbs_fsi/controller.py`
+- 旧端医保转发：`G:/fuck/hospital/app/api/v1/module_common/mbs_fsi/service.py`
+- 新端 Provider HTTP 边界：`packages/adapters/src/http.ts`
+- 新端众阳预约 adapter：`packages/adapters/src/zhongyang-appointments.ts`
+- 新端预约 service：`apps/api/src/modules/appointments/service.ts`
