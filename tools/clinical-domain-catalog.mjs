@@ -91,8 +91,6 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 			"docs/migration/medical-record-and-hospital-boundary.md",
 		],
 		requiredMarkers: ["电子导诊", "患者上下文", "Provider contract", "未注册"],
-		forbiddenApiTokens: [
-			"/electronic-consultation",
-		],
+		forbiddenApiTokens: ["/electronic-consultation"],
 	},
 ]);
