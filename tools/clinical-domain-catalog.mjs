@@ -4,6 +4,8 @@
  * 这里描述的是“尚未注册时必须保持的边界”，不是运行时业务配置。
  * 门诊记录、住院、医生关系和问诊/电子导诊的 Provider 身份、患者映射、
  * 权限和保留周期不同，不能因为它们都从“我的”入口进入就共用一个接口。
+ * 其中“我的问诊”旧实现实际返回硬编码演示记录，真实来源尚未确认，
+ * 因此先按 Provider/source contract 阻断，不把它误判成已确认的外部会话。
  */
 export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 	{
@@ -72,13 +74,13 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 	{
 		id: "consultation",
 		name: "问诊与电子导诊",
-		expectedReadiness: "待外部入口 contract",
+		expectedReadiness: "待 provider contract",
 		legacyEntries: [
 			{
 				path: "pagesB/user/my_consultation.vue",
 				featureKey: "consultation",
 				status: "blocked-external",
-				readiness: "待外部入口 contract",
+				readiness: "待 provider contract",
 			},
 			{
 				path: "pagesB/health/electronic_consultation.vue",
