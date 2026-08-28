@@ -1,0 +1,90 @@
+/*
+ * “我的挂号 / 我的问诊 / 门诊病历”共用的查询状态骨架。
+ * 三个页面的数据 contract 不相同，但 loading、查询失败和合法空结果
+ * 必须共享同一视觉高度与层级，避免同一小程序内出现三种空状态跳变。
+ */
+.clinical-query-error-message {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 20rpx 32rpx;
+	background: #fff1f1;
+	color: #ff4444;
+	font-size: 26rpx;
+	line-height: 1.5;
+	text-align: center;
+}
+
+.clinical-query-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	height: 380rpx;
+	min-height: 380rpx;
+	padding: 40rpx 30rpx;
+	border-radius: 16rpx;
+	background: #fff;
+	color: #777;
+	text-align: center;
+	flex-direction: column;
+}
+
+.clinical-query-state-image {
+	display: block;
+	width: 150rpx;
+	height: 150rpx;
+	margin-bottom: 18rpx;
+}
+
+.clinical-query-loading-icon {
+	box-sizing: border-box;
+	width: 48rpx;
+	height: 48rpx;
+	margin-bottom: 20rpx;
+	border: 6rpx solid #e5e7eb;
+	border-top-color: #9ca3af;
+	border-radius: 50%;
+	animation: clinical-query-loading 900ms linear infinite;
+}
+
+@keyframes clinical-query-loading {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.clinical-query-error-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 58rpx;
+	height: 58rpx;
+	margin-bottom: 18rpx;
+	border: 2rpx solid #f5b9b4;
+	border-radius: 50%;
+	background: #fff1f0;
+	color: #b42318;
+	font-size: 34rpx;
+	font-weight: 700;
+}
+
+.clinical-query-state-title {
+	display: block;
+	font-size: 28rpx;
+}
+
+.clinical-query-state-hint {
+	display: block;
+	margin-top: 12rpx;
+	color: #aaa;
+	font-size: 23rpx;
+}
+
+.clinical-query-state-action {
+	margin-top: 24rpx;
+	padding: 12rpx 34rpx;
+	border-radius: 999rpx;
+	background: #3d6df6;
+	color: #fff;
+	font-size: 25rpx;
+}

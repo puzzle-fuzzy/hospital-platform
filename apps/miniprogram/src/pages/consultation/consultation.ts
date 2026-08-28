@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import { toAppointmentRecordView } from "../../services/appointment-record-view";
 import {
 	loadConsultationHistoryRecords,
@@ -11,6 +11,7 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
+	isPatientSelectionError,
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
@@ -58,6 +59,7 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 	data: {
 		hasShown: false,
 		sessionState: "checking",
+		queryState: "loading",
 		selectedPatient: null,
 		selectedPatientName: "正在获取就诊人...",
 		selectedPatientCardLabel: "就诊卡信息加载中",
@@ -68,6 +70,7 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 		hasMoreRecords: false,
 		loading: true,
 		error: "",
+		canSelectPatient: false,
 	},
 
 	onLoad() {
@@ -86,7 +89,9 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 				visibleRecordCount: 0,
 				hasMoreRecords: false,
 				loading: false,
+				queryState: "error",
 				error: "登录账号已切换，请重新读取就诊记录",
+				canSelectPatient: false,
 			});
 		});
 		void this.loadContext();
@@ -110,7 +115,9 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 		const token = guard.begin();
 		this.setData({
 			loading: true,
+			queryState: "loading",
 			error: "",
+			canSelectPatient: false,
 			sessionState: "checking",
 			selectedPatient: null,
 			selectedPatientName: "正在获取就诊人...",
@@ -128,6 +135,7 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 				if (!profileState.ownerId || !hasPlatformSession()) {
 					this.setData({
 						sessionState: "invalid",
+						queryState: "error",
 						error: "请先完成微信登录验证",
 					});
 					return undefined;
@@ -142,6 +150,10 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 				applyPatientContext(this, patient);
 				if (!patient) {
 					this.setData({
+						queryState: "error",
+						canSelectPatient:
+							resolution.state !== "selected" &&
+							resolution.state !== "defaulted",
 						error: patientSelectionResolutionMessage(resolution),
 					});
 					return;
@@ -183,6 +195,8 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 							records.length,
 						),
 						hasMoreRecords: records.length > CONSULTATION_PAGE_SIZE,
+						queryState: records.length ? "ready" : "empty",
+						canSelectPatient: false,
 						error: "",
 					});
 				});
@@ -196,6 +210,8 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 					visibleRecordCount: 0,
 					hasMoreRecords: false,
 					patientSessionGeneration: -1,
+					queryState: "error",
+					canSelectPatient: isPatientSelectionError(error),
 					sessionState: sessionStateAfterAuthenticatedReadError(
 						error,
 						this.data.sessionState,
@@ -203,8 +219,8 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 					),
 					error:
 						error instanceof ApiError
-							? "就诊记录暂不可用，请重试"
-							: "就诊记录加载失败，请重试",
+							? safeApiErrorMessage(error, "问诊记录加载失败，请重试")
+							: "问诊记录加载失败，请重试",
 				});
 			})
 			.finally(() => {

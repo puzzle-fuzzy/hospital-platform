@@ -178,6 +178,9 @@ export type SessionVerificationState =
 	| "invalid"
 	| "unavailable";
 
+/** 三类临床查询页面共用的展示阶段；不把错误或空结果混成 loading。 */
+export type ClinicalQueryState = "loading" | "ready" | "empty" | "error";
+
 export type ServiceTab = {
 	title: string;
 	items: ReadonlyArray<ServiceItem>;
@@ -293,6 +296,7 @@ export type ConsultationPageData = {
 	hasShown: boolean;
 	/** 当前页面读取的会话状态；服务暂时不可用时保留可重试语义。 */
 	sessionState: SessionVerificationState;
+	queryState: ClinicalQueryState;
 	selectedPatient: Patient | null;
 	selectedPatientName: string;
 	selectedPatientCardLabel: string;
@@ -305,6 +309,8 @@ export type ConsultationPageData = {
 	hasMoreRecords: boolean;
 	loading: boolean;
 	error: string;
+	/** 只有明确患者上下文错误时才允许引导重新选择。 */
+	canSelectPatient: boolean;
 };
 
 /**
@@ -317,6 +323,7 @@ export type ConsultationPageData = {
 export type MedicalRecordPageData = {
 	hasShown: boolean;
 	sessionState: SessionVerificationState;
+	queryState: ClinicalQueryState;
 	selectedPatient: Patient | null;
 	selectedPatientName: string;
 	selectedPatientCardLabel: string;
@@ -327,6 +334,8 @@ export type MedicalRecordPageData = {
 	hasMoreRecords: boolean;
 	loading: boolean;
 	error: string;
+	/** 只有明确患者上下文错误时才允许引导重新选择。 */
+	canSelectPatient: boolean;
 };
 
 /** 门诊病历摘要的页面键只用于 WXML diff，不是病历号或 Provider 标识。 */
@@ -348,6 +357,7 @@ export type AppointmentRecordsPageData = {
 	hasShown: boolean;
 	/** 只有 `/me` 验证成功后，页面才允许进入就诊人选择入口。 */
 	sessionState: SessionVerificationState;
+	queryState: ClinicalQueryState;
 	selectedPatient: Patient | null;
 	/** 当前预约记录卡片所属的会话代际；-1 表示本轮患者读模型尚未提交。 */
 	patientSessionGeneration: number;

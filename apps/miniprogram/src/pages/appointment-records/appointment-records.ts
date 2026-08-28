@@ -16,15 +16,15 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
-	disposePageSessionResetListener,
-	registerPageSessionResetListener,
-} from "../../services/session-events";
-import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
@@ -153,6 +153,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	data: {
 		hasShown: false,
 		sessionState: "checking",
+		queryState: "loading",
 		selectedPatient: null,
 		patientSessionGeneration: -1,
 		records: [],
@@ -184,6 +185,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 				visibleRecordCount: 0,
 				hasMoreRecords: false,
 				loading: false,
+				queryState: "error",
 				error: "登录账号已切换，请重新读取就诊人",
 				canSelectPatient: false,
 			});
@@ -217,6 +219,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		// 只有当前患者和当前请求都确认成功后，页面才重新展示记录。
 		this.setData({
 			loading: true,
+			queryState: "loading",
 			error: "",
 			canSelectPatient: false,
 			sessionState: "checking",
@@ -286,6 +289,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 						patientSessionGeneration: expectedSessionGeneration,
 						records: mappedRecords,
 						...visibleState,
+						queryState: visibleState.visibleRecords.length ? "ready" : "empty",
 						error: "",
 						canSelectPatient: false,
 					});
@@ -507,6 +511,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 				: patientContextErrorMessage(error, fallback);
 		const canSelectPatient = isPatientSelectionError(error);
 		this.setData({
+			queryState: "error",
 			error: message,
 			// “选择就诊人”只处理服务端明确返回的患者上下文错误；网络、
 			// Provider、持久化和依赖配置故障必须留在当前错误态，避免用户

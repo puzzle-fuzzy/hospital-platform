@@ -1,7 +1,7 @@
 <scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
 	<view class="consultation-page">
 		<!-- 网络异常必须固定在页面顶部，保持和旧端页面一致。 -->
-		<view wx:if="{{error}}" class="consultation-error-message">{{error}}</view>
+		<view wx:if="{{error}}" class="clinical-query-error-message">{{error}}</view>
 
 		<!-- 旧端 PatientHospitalSelector：就诊人与院区各占一行。 -->
 		<view class="consultation-selector-card">
@@ -26,20 +26,21 @@
 
 		<view class="consultation-record-area">
 			<!-- 固定状态容器，避免加载态切换为空态时页面突然增高。 -->
-			<view wx:if="{{loading || error || !visibleRecords.length}}" class="consultation-state query-state-shell query-state-shell-column">
-				<block wx:if="{{loading}}">
-					<view class="consultation-loading-icon" aria-hidden="true"></view>
-					<text class="consultation-state-title">加载中...</text>
+			<view wx:if="{{queryState !== 'ready'}}" class="clinical-query-state query-state-shell query-state-shell-column">
+				<block wx:if="{{queryState === 'loading'}}">
+					<view class="clinical-query-loading-icon" aria-hidden="true"></view>
+					<text class="clinical-query-state-title">正在查询记录...</text>
 				</block>
-				<block wx:elif="{{error}}">
-					<image class="consultation-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
-					<text class="consultation-state-title">本次问诊记录未加载成功</text>
-					<text class="consultation-state-hint">请根据上方提示处理后重试</text>
-					<view class="consultation-state-action" bindtap="onRetry">重新加载</view>
+				<block wx:elif="{{queryState === 'error'}}">
+					<view class="clinical-query-error-icon" aria-hidden="true">!</view>
+					<text class="clinical-query-state-title">问诊记录查询未完成</text>
+					<text class="clinical-query-state-hint">请根据上方提示处理后重试</text>
+					<view class="clinical-query-state-action" bindtap="onRetry">重新加载</view>
+					<view wx:if="{{canSelectPatient}}" class="clinical-query-state-action" bindtap="onChangePatient">选择就诊人</view>
 				</block>
 				<block wx:else>
-					<image class="consultation-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
-					<text class="consultation-state-title">未查询到您的记录</text>
+					<image class="clinical-query-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
+					<text class="clinical-query-state-title">未查询到您的记录</text>
 				</block>
 			</view>
 

@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { getPageLatestRequestGuard } from "./page-instance-state";
 import {
 	disposePageSessionResetListener,
 	notifySessionChanged,
 	registerPageSessionResetListener,
 } from "./session-events";
-import { getPageLatestRequestGuard } from "./page-instance-state";
 
 test("页面会话清理监听按页面实例注册并可卸载", () => {
 	const firstPage = {};
@@ -63,5 +63,22 @@ test("页面会话清理先淘汰在途请求再执行回调", () => {
 
 	expect(resetCount).toBe(1);
 	expect(guard.isCurrent(token)).toBe(false);
+	disposePageSessionResetListener(page);
+});
+
+test("token 失效过渡不重置页面，真实账号切换才重置页面", () => {
+	const page = {};
+	let resetCount = 0;
+	registerPageSessionResetListener(page, () => {
+		resetCount += 1;
+	});
+
+	// GET 自动恢复会先短暂清理旧 token；这不是账号切换，不能让页面
+	// 丢掉在途请求并显示一次误导性的“账号已切换”。
+	notifySessionChanged("session-invalidated");
+	expect(resetCount).toBe(0);
+
+	notifySessionChanged("account-switched");
+	expect(resetCount).toBe(1);
 	disposePageSessionResetListener(page);
 });

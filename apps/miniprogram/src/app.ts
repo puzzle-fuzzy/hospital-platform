@@ -15,6 +15,8 @@ type AppGlobalData = {
 	apiPrefix: "/api/v2" | "/api/v1";
 	accessToken: string;
 	sessionStatus: "signed_out" | "signed_in";
+	/** 最近一次通过 `/me` 或微信登录响应确认的 owner；token 轮换不等于账号切换。 */
+	sessionOwnerId: string;
 	/** App 与页面模块共享的会话代际，防止跨 bundle 误判合法响应。 */
 	sessionGeneration: number;
 	/**
@@ -60,6 +62,7 @@ const APP_GLOBAL_DATA: AppGlobalData = {
 	apiPrefix: "/api/v2",
 	accessToken: "",
 	sessionStatus: "signed_out",
+	sessionOwnerId: "",
 	sessionGeneration: 0,
 	userProfile: {
 		status: "idle",

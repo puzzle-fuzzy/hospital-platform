@@ -1,7 +1,7 @@
 <scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
 	<view class="page">
 	<!-- 错误区域固定在页面最上方，网络异常时用户无需滚动查找原因。 -->
-	<view wx:if="{{error}}" class="error-message">{{error}}</view>
+	<view wx:if="{{error}}" class="clinical-query-error-message">{{error}}</view>
 
 	<!-- 旧端 PatientHospitalSelector 的两行布局；患者切换仍进入平台选择页。 -->
 	<view class="selector-card">
@@ -85,39 +85,31 @@
 		会重新计算图片和文字布局，外壳复用后页面滚动位置更稳定。
 	-->
 	<view class="record-list">
-		<view
-			wx:if="{{loading || error || !visibleRecords.length}}"
-			class="state-card query-state-shell query-state-shell-column {{loading ? 'state-card-loading' : 'state-card-empty'}}"
-		>
-		<block wx:if="{{loading}}">
-			<view class="state-loading-icon" aria-hidden="true"></view>
-			<text>加载中...</text>
+		<view wx:if="{{queryState !== 'ready'}}" class="clinical-query-state query-state-shell query-state-shell-column">
+		<block wx:if="{{queryState === 'loading'}}">
+			<view class="clinical-query-loading-icon" aria-hidden="true"></view>
+			<text class="clinical-query-state-title">正在查询记录...</text>
 		</block>
-		<block wx:elif="{{error}}">
-			<image
-				class="state-empty-icon"
-				src="/assets/legacy-user/empty-record.svg"
-				mode="aspectFit"
-			/>
-			<text>本次挂号记录未加载成功</text>
-			<text class="state-hint">请根据上方提示处理后重试</text>
-			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		<block wx:elif="{{queryState === 'error'}}">
+			<view class="clinical-query-error-icon" aria-hidden="true">!</view>
+			<text class="clinical-query-state-title">挂号记录查询未完成</text>
+			<text class="clinical-query-state-hint">请根据上方提示处理后重试</text>
+			<view class="clinical-query-state-action" bindtap="onRetry">重新加载</view>
 			<view
 				wx:if="{{canSelectPatient}}"
-				class="state-hint state-hint-action"
+				class="clinical-query-state-action"
 				bindtap="onChangePatient"
 			>选择就诊人</view>
 		</block>
 		<block wx:else>
-			<!-- 旧端空列表使用 48rpx 的 file-text 图标，不能套用首页的大型服务插图。 -->
 			<image
-				class="state-empty-icon"
+				class="clinical-query-state-image"
 				src="/assets/legacy-user/empty-record.svg"
 				mode="aspectFit"
 			/>
-			<text>{{selectedPatient ? "暂无挂号记录" : "请先选择就诊人"}}</text>
-			<text wx:if="{{selectedPatient}}" class="state-hint">如果要查询其他就诊人，请点击上方更换</text>
-			<view wx:else class="state-hint state-hint-action" bindtap="onChangePatient">点击这里选择就诊人</view>
+			<text class="clinical-query-state-title">未查询到您的记录</text>
+			<text wx:if="{{selectedPatient}}" class="clinical-query-state-hint">如果要查询其他就诊人，请点击上方更换</text>
+			<view wx:else class="clinical-query-state-action" bindtap="onChangePatient">选择就诊人</view>
 		</block>
 		</view>
 

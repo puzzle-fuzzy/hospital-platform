@@ -330,10 +330,15 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 			source(templatePath),
 			source(pagePath),
 		]);
-		expect(template).toContain(
-			'class="state-card query-state-shell query-state-shell-column',
-		);
-		expect(template).toContain('<block wx:elif="{{error}}">');
+		if (templatePath.includes("appointment-records")) {
+			expect(template).toContain(
+				'class="clinical-query-state query-state-shell query-state-shell-column',
+			);
+		} else {
+			expect(template).toContain(
+				'class="state-card query-state-shell query-state-shell-column',
+			);
+		}
 		expect(template).toContain("query-state-shell");
 		expect(template).toContain('bindtap="onRetry"');
 		if (templatePath.includes("missed-appointments")) {
@@ -2923,7 +2928,11 @@ test("patient-scoped empty states keep a reachable patient selector", async () =
 		const page = await source(file);
 		// 失败或 stale 状态会清空 selectedPatient；此时不能只留下依赖患者卡片的
 		// “上方更换”文案，必须有一个真正绑定到选择页的可达入口。
-		expect(page).toContain('class="state-hint state-hint-action"');
+		if (file.includes("appointment-records")) {
+			expect(page).toContain('class="clinical-query-state-action"');
+		} else {
+			expect(page).toContain('class="state-hint state-hint-action"');
+		}
 		expect(page).toContain('bindtap="onChangePatient"');
 		expect(page).toContain("wx:else");
 		expect(page).toContain('wx:if="{{canSelectPatient}}"');

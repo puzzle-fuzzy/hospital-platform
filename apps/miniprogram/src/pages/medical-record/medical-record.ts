@@ -1,4 +1,4 @@
-import { ApiError } from "../../services/api-client";
+import { ApiError, safeApiErrorMessage } from "../../services/api-client";
 import {
 	loadOutpatientMedicalRecords,
 	loadPatientsForOwner,
@@ -10,6 +10,7 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
+	isPatientSelectionError,
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
@@ -61,6 +62,7 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 	data: {
 		hasShown: false,
 		sessionState: "checking",
+		queryState: "loading",
 		selectedPatient: null,
 		selectedPatientName: "正在获取就诊人...",
 		selectedPatientCardLabel: "就诊卡信息加载中",
@@ -71,6 +73,7 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 		hasMoreRecords: false,
 		loading: true,
 		error: "",
+		canSelectPatient: false,
 	},
 
 	onLoad() {
@@ -89,7 +92,9 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 				visibleRecordCount: 0,
 				hasMoreRecords: false,
 				loading: false,
+				queryState: "error",
 				error: "登录账号已切换，请重新读取门诊病历",
+				canSelectPatient: false,
 			});
 		});
 		void this.loadContext();
@@ -112,7 +117,9 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 		const token = guard.begin();
 		this.setData({
 			loading: true,
+			queryState: "loading",
 			error: "",
+			canSelectPatient: false,
 			sessionState: "checking",
 			selectedPatient: null,
 			selectedPatientName: "正在获取就诊人...",
@@ -130,6 +137,7 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 				if (!profileState.ownerId || !hasPlatformSession()) {
 					this.setData({
 						sessionState: "invalid",
+						queryState: "error",
 						error: "请先完成微信登录验证",
 					});
 					return undefined;
@@ -144,6 +152,10 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 				applyPatientContext(this, patient);
 				if (!patient) {
 					this.setData({
+						queryState: "error",
+						canSelectPatient:
+							resolution.state !== "selected" &&
+							resolution.state !== "defaulted",
 						error: patientSelectionResolutionMessage(resolution),
 					});
 					return undefined;
@@ -192,6 +204,8 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 					visibleRecords: recordViews.slice(0, visibleRecordCount),
 					visibleRecordCount,
 					hasMoreRecords: visibleRecordCount < recordViews.length,
+					queryState: recordViews.length ? "ready" : "empty",
+					canSelectPatient: false,
 					error: "",
 				});
 			})
@@ -204,18 +218,17 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 					visibleRecordCount: 0,
 					hasMoreRecords: false,
 					patientSessionGeneration: -1,
+					queryState: "error",
+					canSelectPatient: isPatientSelectionError(error),
 					sessionState: sessionStateAfterAuthenticatedReadError(
 						error,
 						this.data.sessionState,
 						hasPlatformSession(),
 					),
 					error:
-						error instanceof ApiError &&
-						error.code === "dependency-not-configured"
-							? "门诊病历服务暂不可用，请稍后重试"
-							: error instanceof ApiError
-								? "门诊病历暂不可用，请重试"
-								: "门诊病历加载失败，请重试",
+						error instanceof ApiError
+							? safeApiErrorMessage(error, "门诊病历加载失败，请重试")
+							: "门诊病历加载失败，请重试",
 				});
 			})
 			.finally(() => {

@@ -54,6 +54,8 @@ type MiniProgramGlobalData = {
 	apiPrefix: string;
 	accessToken: string;
 	sessionStatus: string;
+	/** 最近确认的 owner，用来区分 token 恢复和真实账号切换。 */
+	sessionOwnerId?: string;
 };
 
 type ApiConfig = {
@@ -1271,21 +1273,32 @@ export function isAllowedApiBaseUrl(value: unknown): value is string {
 	);
 }
 
-function setAccessToken(accessToken: string): void {
+function setAccessToken(accessToken: string, ownerId = ""): void {
 	const appData = globalData();
 	const previousAccessToken = String(
 		appData.accessToken || wx.getStorageSync(ACCESS_TOKEN_KEY) || "",
 	);
+	const previousOwnerId =
+		typeof appData.sessionOwnerId === "string" ? appData.sessionOwnerId : "";
+	const nextOwnerId = ownerId.trim();
 	if (previousAccessToken !== accessToken) {
 		// 患者、资料和费用请求不能跨账号复用；只递增不记录 token，避免
 		// 会话代际机制本身成为敏感信息存储点。
 		advanceSessionGeneration();
-		// token 轮换不只影响请求代际，也意味着所有旧账号的 UI 派生资料
-		// 立即失效。先发布清理事件，再写入新 token，避免重新登录期间页面
-		// 继续展示上一账号的昵称、头像或其它全局资料。
-		notifySessionChanged();
+	}
+	if (previousAccessToken && !accessToken) {
+		// token 失效是一次认证边界，资料仓库需要清掉旧快照；但页面级
+		// listener 会忽略这个过渡事件，让 GET 自动恢复可以继续回写成功结果。
+		notifySessionChanged("session-invalidated");
+	}
+	// token 变化可能只是旧 token 过期后的自动恢复，不能把它直接当成
+	// “账号已切换”。只有服务端已经确认了新 owner，且 owner 确实不同，
+	// 才清理所有页面的患者、资料和费用派生快照。
+	if (previousOwnerId && nextOwnerId && previousOwnerId !== nextOwnerId) {
+		notifySessionChanged("account-switched");
 	}
 	appData.accessToken = accessToken;
+	if (nextOwnerId) appData.sessionOwnerId = nextOwnerId;
 	// token 与全局展示状态必须原子地同步；401 清理 token 时不能继续显示“已登录”。
 	appData.sessionStatus = accessToken ? "signed_in" : "signed_out";
 	if (accessToken) {
@@ -1613,7 +1626,7 @@ function performLogin(): Promise<AuthSessionResponse> {
 					.then((payload) => {
 						// 只有完整响应通过运行时校验后才能落盘；坏响应不得污染
 						// 会话代际，也不得让后续页面误以为已经登录。
-						setAccessToken(payload.data.accessToken);
+						setAccessToken(payload.data.accessToken, payload.data.user.id);
 						resolve(payload);
 					})
 					.catch(reject);
@@ -1764,9 +1777,21 @@ export async function requestWithStableSession<TResponse>(
 
 /** 验证当前平台会话；响应只包含内部用户 id。 */
 export function getCurrentUser(): Promise<CurrentUserResponse> {
-	return requestWithSession<unknown>({ url: "/me" }).then(
-		requireCurrentUserResponse,
-	);
+	return requestWithSession<unknown>({ url: "/me" })
+		.then(requireCurrentUserResponse)
+		.then((payload) => {
+			const appData = globalData();
+			const previousOwnerId =
+				typeof appData.sessionOwnerId === "string"
+					? appData.sessionOwnerId
+					: "";
+			const ownerId = payload.data.user.id;
+			if (previousOwnerId && previousOwnerId !== ownerId) {
+				notifySessionChanged("account-switched");
+			}
+			appData.sessionOwnerId = ownerId;
+			return payload;
+		});
 }
 
 /**
