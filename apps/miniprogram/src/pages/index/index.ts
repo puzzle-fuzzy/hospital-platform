@@ -445,7 +445,10 @@ Page<IndexPageData, IndexPageMethods>({
 			})
 			.catch((error) => {
 				if (healthGuard.isCurrent(requestToken)) {
-					this.showError(error, "服务不可用");
+					// 健康检查失败只代表本次状态读取没有完成；这里使用用户
+					// 可理解的提示，不把“服务不可用”这类技术判断直接展示给
+					// 用户。诊断细节仍由服务端 requestId 和结构化日志保留。
+					this.showError(error, "当前信息暂时无法获取，请稍后重试");
 				}
 			});
 	},
