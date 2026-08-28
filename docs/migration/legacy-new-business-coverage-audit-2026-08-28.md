@@ -4,7 +4,7 @@
 
 ## 1. 当前总览
 
-当前新端运行相关源码已经构建为 38 个页面、4 个微信原生 Tab，完整来源为 `27d562e69ccb3972ec21fa624aaa28ee17dcbde7`。旧端扫描到 64 个页面，当前台账分布如下：
+当前新端运行相关源码已经构建为 38 个页面、4 个微信原生 Tab，完整来源为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`。旧端扫描到 64 个页面，当前台账分布如下：
 
 | 旧端台账状态 | 数量 | 当前含义 |
 | --- | ---: | --- |
@@ -68,6 +68,28 @@ GET /msun-middle-business-appointment-server/v1/appointment-infos/{patId}
 
 旧 Python 的 `/common/mbs-fsi/6201` 不是预约历史接口，而是医保移动支付费用上传。旧服务将 6201 映射到医保移动支付中心的 `/org/local/api/hos/uldFeeInfo`，经医保转发服务发送；上游返回 504/超时文本时，旧代码通常转换为 HTTP 502 和“医保服务响应超时，请稍后重试”。这条链路与 `patInfosFind`、预约历史和新端 `/api/v2/appointments/records` 完全不同。
 
+旧端源码审计显示，这条链路确实处理过“上游已经返回失败”的情况，但没有修复众阳/医保核心或中转服务本身的可用性：
+
+1. `app/api/v1/module_common/mbs_fsi/controller.py` 的 `POST /6201` 调用
+   `MbsFsiService.forward_6201`；`service.py` 的 `INFNO_PATH_MAP` 将它固定映射为
+   `/org/local/api/hos/uldFeeInfo`，请求再发往医保转发地址。
+2. 如果解密后的业务响应是 `success=false`，或错误码为 `360053`，或消息包含
+   `Gateway Time-out`/超时语义，旧端的 `_raise_if_failed_response` 会抛出
+   `CustomException(status_code=502)`，用户文案为“医保服务响应超时，请稍后重试。”。
+3. `httpx` 传输超时、转发 HTTP 状态错误和普通网络异常走的是另一组异常分支；这些分支没有显式设置 503，按旧端异常默认值返回 500。旧端虽然定义过 `SERVICE_UNAVAILABLE = (503, "服务不可用")`，但当前 6201 调用链没有实际使用它。
+
+线上旧端低敏日志已把一次完整失败链路对上：`2026-08-20 12:32:48` 记录了
+`infno=6201`、目标 path 为 `uldFeeInfo`；随后在 `12:32:54` 出现
+`360053`、HTTP `504`、`Gateway Time-out`，最后被归一为 `normalized_timeout`。
+这证明请求已进入旧端并触达医保转发链路；它不能单独证明故障发生在转发机还是
+医保目标机，继续定位需要同时取得转发机和目标端的访问/错误日志。旧端提交
+`92a62303`、`900341f` 只是补齐失败保留和超时文案映射，并不代表上游服务已经恢复。
+
+因此，用户看到的 `status_code=502` 在这条旧端业务分支中是旧应用自己的错误映射，
+不是“众阳接口一定返回了 HTTP 502”；如果实际网络响应是 HTTP `503`，应优先检查
+阿里云转发/Nginx 或其他入口层，而不是把它和新端预约历史的 `503
+provider-temporarily-unavailable`、持久化 `503` 混为一谈。
+
 ### 3.3 持久化 503
 
 如果公共错误码是 `persistence-temporarily-unavailable`，应排查新服务的 MySQL、Redis、schema 或连接池，不应继续追众阳预约接口。错误码定义见 [`api-v2-public.md`](../api-v2-public.md)。
@@ -87,6 +109,6 @@ GET /msun-middle-business-appointment-server/v1/appointment-infos/{patId}
 - 旧端页面逐页台账：[`legacy-page-catalog.ts`](../../apps/miniprogram/src/services/legacy-page-catalog.ts)
 - 新端公开 API：[`api-v2-public.md`](../api-v2-public.md)
 - 临床入口收口记录：[`clinical-boundary-retraction-2026-08-28.md`](clinical-boundary-retraction-2026-08-28.md)
-- 当前本地候选真机清单：[`device-evidence-27d562e6-pending.json`](../release/device-evidence-27d562e6-pending.json)
+- 当前本地候选真机清单：[`device-evidence-cac6561-pending.json`](../release/device-evidence-cac6561-pending.json)
 - 预约 Provider 失败日志：[`appointments/service.ts`](../../apps/api/src/modules/appointments/service.ts)
 - Provider HTTP 错误分类：[`adapters/http.ts`](../../packages/adapters/src/http.ts)
