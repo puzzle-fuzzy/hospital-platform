@@ -3646,7 +3646,7 @@ test("native homepage preserves explicit patient choice across login failure", a
 	expect(loginBody).toContain("不能在这里删除本地选择");
 });
 
-test("native homepage clears displayed patient context after directory failures", async () => {
+test("native homepage keeps the confirmed patient during temporary sync failures", async () => {
 	const home = await source("pages/index/index.ts");
 	const pageStart = home.indexOf("Page<IndexPageData");
 	const loadStart = home.indexOf(
@@ -3659,16 +3659,18 @@ test("native homepage clears displayed patient context after directory failures"
 	const syncEnd = home.indexOf("\n\t},", syncStart);
 	const syncBody = home.slice(syncStart, syncEnd);
 
-	// 目录读取和临床映射失败都必须清理首页展示；本地选择仍由独立 service
-	// 保存，不能把“清理展示”误实现成“删除用户选择”。
+	// 目录读取失败不等于患者已经失效。网络、Provider 或持久化暂时异常时，
+	// 首页应保留最近一次服务端确认的患者卡片，避免真实数据闪退为“未选择”；
+	// 只有统一错误策略判定为会话失效或账号变化时，才允许清理展示上下文。
 	expect(home).toContain("clearDisplayedPatientContext(): void");
 	expect(loadBody).toContain("this.clearDisplayedPatientContext();");
-	expect(syncBody).toContain("this.clearDisplayedPatientContext();");
-	// 同步请求发出前就要撤销旧卡片；否则临床映射尚未确认时，用户仍可把旧患者
-	// 当作预约、报告或费用页面的有效上下文。
-	expect(syncBody.indexOf("this.clearDisplayedPatientContext();")).toBeLessThan(
-		syncBody.indexOf('syncPatientsFromHospital("patient-sync")'),
-	);
+	expect(syncBody).toContain("shouldClearPatientContextAfterError");
+	expect(syncBody).toContain("保留旧卡片与本地选择");
+	// 首页原本在同步开始前无条件清空卡片，会造成“真实患者 -> 空白 -> 患者”
+	// 的闪动；同步期间必须继续展示最近一次确认结果。
+	expect(
+		syncBody.indexOf("this.clearDisplayedPatientContext();"),
+	).toBeGreaterThan(syncBody.indexOf("shouldClearPatientContextAfterError"));
 	// 旧目录请求失去页面/请求资格后必须安静结束，不能把错误冒泡到
 	// onShow/onRefresh 的外层回调，再次清空新请求或已卸载页面；同时必须
 	// 用显式状态阻止登录恢复链继续启动患者同步，不能返回 [] 冒充成功。

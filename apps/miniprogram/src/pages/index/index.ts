@@ -36,6 +36,7 @@ import {
 	patientContextErrorMessage,
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
+	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import {
 	disposePageSessionResetListener,
@@ -779,8 +780,9 @@ Page<IndexPageData, IndexPageMethods>({
 	 *
 	 * 成功的空目录和失败兜底都可能表现为数组长度为 0；如果这里返回
 	 * `[]`，后续调用方就无法区分“医院确认没有就诊人”和“同步失败”。
-	 * 患者快照只允许通过页面状态和服务端成功响应进入展示，失败则由本页
-	 * 清理展示上下文并保留可重试的会话，避免把错误伪装成业务空结果。
+	 * 患者快照只允许通过页面状态和服务端成功响应进入展示；但已有快照在
+	 * 一次同步失败时仍是最近一次已确认事实，不能因为本次请求失败就闪退。
+	 * 只有会话明确失效或账号上下文变化时，才清理展示上下文。
 	 */
 	onSyncPatients(): Promise<
 		Exclude<PatientBootstrapResult, "skipped" | "directory-loaded">
@@ -793,10 +795,10 @@ Page<IndexPageData, IndexPageMethods>({
 			const syncLoadingGuard = getPageLatestRequestGuard(this, "sync-loading");
 			const requestToken = patientDataGuard.begin();
 			const loadingToken = syncLoadingGuard.begin();
-			// 同步在途期间旧患者尚未得到本轮临床映射确认，不能继续作为
-			// 预约、报告和门诊费用的业务上下文。这里只清理首页展示态，
-			// 不删除本地显式选择，成功后仍由 resolveStoredPatientSelection 恢复。
-			this.clearDisplayedPatientContext();
+			// 同步是显式刷新，不是账号切换。旧快照仍然是最近一次已确认的
+			// 患者事实；在途期间保留它可以避免“真实数据 -> 空白/不可用”的
+			// 闪动。同步成功后由 setPatientsFromPayload 原子替换，失败时由
+			// 会话错误门禁决定是否需要清理。
 			this.setData({ syncingPatients: true, error: "" });
 			return syncPatientsFromHospital("patient-sync")
 				.then((patients) => {
@@ -810,9 +812,15 @@ Page<IndexPageData, IndexPageMethods>({
 				})
 				.catch((error) => {
 					if (patientDataGuard.isCurrent(requestToken)) {
-						// 临床映射同步失败时，旧卡片也不能继续作为可用患者上下文；
-						// 本地选择和会话 token 仍保留，等待用户重试恢复。
-						this.clearDisplayedPatientContext();
+						// Provider、网络或持久化失败不能证明上一次已确认患者
+						// 已失效，因此保留旧卡片与本地选择。只有 401、会话代际
+						// 变化或本地已无会话时才清理，复用统一错误判定避免首页
+						// 与其它患者范围页面产生不同语义。
+						if (
+							shouldClearPatientContextAfterError(error, hasPlatformSession())
+						) {
+							this.clearDisplayedPatientContext();
+						}
 						this.showError(error, "就诊人同步失败");
 					}
 					return patientDataGuard.isCurrent(requestToken)
