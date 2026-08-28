@@ -2121,6 +2121,19 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(provenance).not.toContain('"docs"');
 });
 
+test("pending mini program publish rejects a stale candidate before replacement", async () => {
+	const publishPending = await Bun.file(
+		join(import.meta.dir, "publish-pending.ts"),
+	).text();
+
+	// pending 是为了应对微信工具锁定 dist 的临时隔离物；发布前必须重新
+	// 对照当前运行输入来源，不能让旧候选覆盖已经生成的新运行包。
+	expect(publishPending).toContain("resolveMiniProgramSourceRevision");
+	expect(publishPending).toContain(
+		"Pending mini program runtime provenance mismatch",
+	);
+});
+
 test("native mini program exposes read-only appointment directory and records pages", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");

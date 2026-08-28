@@ -1,5 +1,6 @@
 import { access, cp, mkdtemp, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
 import {
 	createMiniProgramRuntimeLockError,
 	getMiniProgramPendingRuntimePath,
@@ -8,6 +9,7 @@ import {
 } from "./runtime-publisher";
 
 const root = join(import.meta.dir, "..");
+const repositoryRoot = join(root, "..", "..");
 const liveRuntime = join(root, "dist");
 const pendingRuntime = getMiniProgramPendingRuntimePath(root);
 
@@ -32,6 +34,23 @@ if (
 ) {
 	throw new Error(
 		"Pending mini program runtime has invalid build-info.json provenance",
+	);
+}
+
+/**
+ * pending 只代表“上一次因 dist 被锁定而暂存的当前候选”，不能成为回滚旧
+ * 源码的快捷入口。发布前重新解析当前运行输入来源，若候选已经过期就拒绝
+ * 操作；这样即使用户忘记清理旧 pending，也不会把已构建的新 dist 静默替换
+ * 成更早的客户端版本。
+ */
+const expectedSourceRevision = resolveMiniProgramSourceRevision(
+	repositoryRoot,
+	process.env.HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION,
+	"HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION",
+);
+if (buildInfo.sourceRevision !== expectedSourceRevision) {
+	throw new Error(
+		`Pending mini program runtime provenance mismatch: pending=${buildInfo.sourceRevision}, expected=${expectedSourceRevision}. Run the normal build to create a current candidate`,
 	);
 }
 
