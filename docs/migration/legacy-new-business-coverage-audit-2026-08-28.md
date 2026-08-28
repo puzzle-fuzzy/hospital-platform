@@ -1,6 +1,6 @@
 # 旧端与新端业务覆盖对照审计（2026-08-28）
 
-> 本文是当前迁移交接的对照事实，不修改旧项目，也不把“有页面”解释为“真实业务已开放”。旧端来源为 `G:\\fuck\\hospital\\hospital-app`，新端来源为当前仓库；历史日期文档保留原始观察窗口，不能覆盖本文的当前结论。
+> 本文是当前迁移交接的对照事实，不修改旧项目，也不把“有页面”解释为“真实业务已开放”。旧端来源为 `G:\fuck\hospital\hospital-app`，新端来源为当前仓库；历史日期文档保留原始观察窗口，不能覆盖本文的当前结论。
 
 ## 1. 当前总览
 
@@ -90,4 +90,3 @@ GET /msun-middle-business-appointment-server/v1/appointment-infos/{patId}
 - 当前本地候选真机清单：[`device-evidence-27d562e6-pending.json`](../release/device-evidence-27d562e6-pending.json)
 - 预约 Provider 失败日志：[`appointments/service.ts`](../../apps/api/src/modules/appointments/service.ts)
 - Provider HTTP 错误分类：[`adapters/http.ts`](../../packages/adapters/src/http.ts)
-
