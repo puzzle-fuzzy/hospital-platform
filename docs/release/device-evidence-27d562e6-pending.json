@@ -1,14 +1,14 @@
 {
 	"candidate": {
 		"serverRelease": "0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7",
-		"miniProgramCommit": "991a2ba",
-		"sourceRevision": "991a2ba3a4b4a1821af8eb7a3ff0eb846e400f33"
+		"miniProgramCommit": "27d562e",
+		"sourceRevision": "27d562e69ccb3972ec21fa624aaa28ee17dcbde7"
 	},
 	"startedAt": "2026-08-28T14:30:00+08:00",
 	"domains": {
 		"auth": {
 			"result": "pending",
-			"reason": "等待 991a2ba 候选的微信登录页面和日志证据",
+			"reason": "等待 27d562e 候选的微信登录页面和日志证据",
 			"requiredScenarios": ["success", "unauthorized"]
 		},
 		"patientDirectory": {

@@ -1,8 +1,8 @@
 # 全量迁移当前交接单（2026-08-25）
 
-> **本地候选交接（2026-08-28）**：本轮提交 `991a2ba3` 已完成服务端边界收口和小程序本地构建，当前 live `dist` 的完整 sourceRevision 为 `991a2ba3a4b4a1821af8eb7a3ff0eb846e400f33`，共 38 个页面、4 个原生 Tab。新增的临床入口尚未确认正式 Provider contract，已统一回到状态页并从 API 运行时注销；对应九域真机清单为 [`device-evidence-991a2ba3-pending.json`](../release/device-evidence-991a2ba3-pending.json)，全部保持 `pending`，不构成真机或真实业务完成证据。线上服务端仍以已部署 release 为准，本轮没有部署线上服务或修改旧 Python 服务、旧数据库、旧 Redis。
+> **本地候选交接（2026-08-28）**：本轮提交 `27d562e6` 已完成服务端边界收口和小程序本地构建，当前 live `dist` 的完整 sourceRevision 为 `27d562e69ccb3972ec21fa624aaa28ee17dcbde7`，共 38 个页面、4 个原生 Tab。新增的临床入口尚未确认正式 Provider contract，已统一回到状态页并从 API 运行时注销；对应九域真机清单为 [`device-evidence-27d562e6-pending.json`](../release/device-evidence-27d562e6-pending.json)，全部保持 `pending`，不构成真机或真实业务完成证据。线上服务端仍以已部署 release 为准，本轮没有部署线上服务或修改旧 Python 服务、旧数据库、旧 Redis。
 >
-> 本地候选继续取证时执行：`pnpm device:evidence:audit --file docs/release/device-evidence-991a2ba3-pending.json`。只有页面、客户端 requestId、服务端同链日志和 Provider 低敏请求号齐全后，才允许更新证据结果。
+> 本地候选继续取证时执行：`pnpm device:evidence:audit --file docs/release/device-evidence-27d562e6-pending.json`。只有页面、客户端 requestId、服务端同链日志和 Provider 低敏请求号齐全后，才允许更新证据结果。
 
 > **当前仓库执行检查点（2026-08-27）**：当前 `main`（具体提交以 `git rev-parse HEAD` 为准）中 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`；当前候选已完成 API-only 远端原子发布，线上为 `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`。本轮健康知识服务新增直调关系查询白名单并补充固定失败校验原因日志，发布基线已复核通过。旧 Python、旧数据库和旧 Redis 未修改。请先阅读 [`current-execution-checkpoint-2026-08-27.md`](current-execution-checkpoint-2026-08-27.md)，再使用本文下方的历史候选记录。
 
