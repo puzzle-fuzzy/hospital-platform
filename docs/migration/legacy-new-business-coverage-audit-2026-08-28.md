@@ -103,6 +103,24 @@ provider-temporarily-unavailable`、持久化 `503` 混为一谈。
 
 如果公共错误码是 `persistence-temporarily-unavailable`，应排查新服务的 MySQL、Redis、schema 或连接池，不应继续追众阳预约接口。错误码定义见 [`api-v2-public.md`](../api-v2-public.md)。
 
+### 3.4 普通个人资料的旧新边界
+
+旧端 `hospital-app/src/pages/user/user.vue` 在进入“我的”页面时通过
+`GET /system/user/current/info` 读取后台用户模型；编辑页
+`pagesB/user/edit_profile.vue` 还会调用头像上传接口，并把昵称、性别、年龄、
+邮箱、手机号、openid、unionid、身份证和真实姓名等字段一起提交到
+`PUT /system/user/current/info/update`。返回对象还包含角色、部门和菜单树，
+它的授权语义是后台用户管理，不是小程序患者端的普通展示资料。
+
+新端没有把这组混合字段直接迁移。`GET/PUT /api/v2/me/profile` 只接受当前
+Bearer 会话 owner 下的昵称、性别、年龄和邮箱；数据库表
+`hp_user_profiles` 使用 `version` 做乐观并发控制，头像、手机号、实名、
+身份证和微信身份继续留在各自的安全边界。更新成功后 service 还会校验返回
+版本必须严格递增，未知旧字段会被拒绝而不是静默丢弃。这样做意味着：普通
+资料页面的代码和 contract 已具备，但旧端头像上传、后台字段和微信授权不能
+被宣称为“已完全迁移”；真实 GET、受控 PUT、409 和微信授权仍需同一候选下
+的真机证据。
+
 ## 4. 当前可执行顺序
 
 1. A 批次：以当前本地候选和同候选二维码采集患者目录、患者切换、预约目录、我的挂号、爽约、门诊费用和普通资料证据；全部 9 个真机域目前仍是 `pending`。
@@ -118,6 +136,6 @@ provider-temporarily-unavailable`、持久化 `503` 混为一谈。
 - 旧端页面逐页台账：[`legacy-page-catalog.ts`](../../apps/miniprogram/src/services/legacy-page-catalog.ts)
 - 新端公开 API：[`api-v2-public.md`](../api-v2-public.md)
 - 临床入口收口记录：[`clinical-boundary-retraction-2026-08-28.md`](clinical-boundary-retraction-2026-08-28.md)
-- 当前本地候选真机清单：[`device-evidence-cac6561-pending.json`](../release/device-evidence-cac6561-pending.json)
+- 当前本地候选真机清单：[`device-evidence-1bc5bf6-pending.json`](../release/device-evidence-1bc5bf6-pending.json)
 - 预约 Provider 失败日志：[`appointments/service.ts`](../../apps/api/src/modules/appointments/service.ts)
 - Provider HTTP 错误分类：[`adapters/http.ts`](../../packages/adapters/src/http.ts)
