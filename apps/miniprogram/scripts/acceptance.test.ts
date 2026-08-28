@@ -1162,13 +1162,14 @@ test("患者范围页面区分会话失效与业务读取失败", async () => {
 	}
 });
 
-test("患者范围只读页面开始新查询前统一清空旧读模型", async () => {
+test("患者范围只读页面开始新查询前清空旧列表并保留稳定患者卡片", async () => {
 	const pages = [
 		{
 			file: "pages/appointment-records/appointment-records.ts",
 			method: "loadRecords(tab?: AppointmentRecordTab): Promise<void>",
 			fields: [
-				"selectedPatient: null",
+				"const preservedPatient = preservedPatientForReload(",
+				"selectedPatient: preservedPatient",
 				"records: []",
 				"visibleRecords: []",
 				"visibleRecordCount: 0",
@@ -1179,7 +1180,8 @@ test("患者范围只读页面开始新查询前统一清空旧读模型", async
 			file: "pages/missed-appointments/missed-appointments.ts",
 			method: "loadRecords(): Promise<void>",
 			fields: [
-				"selectedPatient: null",
+				"const preservedPatient = preservedPatientForReload(",
+				"selectedPatient: preservedPatient",
 				"records: []",
 				"visibleRecords: []",
 				"visibleRecordCount: 0",
@@ -1190,7 +1192,8 @@ test("患者范围只读页面开始新查询前统一清空旧读模型", async
 			file: "pages/report-directory/report-directory.ts",
 			method: "loadPage(): Promise<void>",
 			fields: [
-				"selectedPatient: null",
+				"const preservedPatient = preservedPatientForReload(",
+				"selectedPatient: preservedPatient",
 				"reports: []",
 				"visibleReports: []",
 				"reportCount: 0",
@@ -1202,7 +1205,8 @@ test("患者范围只读页面开始新查询前统一清空旧读模型", async
 			file: "pages/outpatient-payment/outpatient-payment.ts",
 			method: "loadPage(): Promise<void>",
 			fields: [
-				"selectedPatient: null",
+				"const preservedPatient = preservedPatientForReload(",
+				"selectedPatient: preservedPatient",
 				"items: []",
 				"visibleItems: []",
 				"visibleItemCount: 0",
@@ -1218,9 +1222,8 @@ test("患者范围只读页面开始新查询前统一清空旧读模型", async
 		const loadEnd = page.indexOf("\n\t},", loadStart);
 		const loadBody = page.slice(loadStart, loadEnd);
 
-		// 患者切换、下拉刷新或重试开始后，旧卡片和旧列表不能继续与新一轮
-		// owner-scoped 请求并存；否则加载中的页面会把上一位患者的临床事实
-		// 误显示成当前结果。该规则只检查页面状态清理，不替代运行时 guard。
+		// 刷新或重试开始后，旧列表不能继续与新一轮 owner-scoped 请求并存；
+		// 同一明确患者的卡片只作为稳定视觉上下文保留，不代表业务读取已成功。
 		expect(loadStart).toBeGreaterThanOrEqual(0);
 		expect(loadEnd).toBeGreaterThan(loadStart);
 		for (const field of item.fields) expect(loadBody).toContain(field);
@@ -2982,9 +2985,12 @@ test("patient-scoped empty states keep a reachable patient selector", async () =
 	expect(appointmentStyle).toContain(".state-hint-action");
 	expect(reportStyle).toContain(".state-hint-action");
 	expect(outpatientStyle).toContain(".state-hint-action");
-	// 门诊费用失败时不能保留上一轮患者卡片；否则空态与当前患者事实不成对，
-	// 也会让“更换就诊人”入口消失，必须回到可重新选择的状态。
-	expect(outpatientPage).toContain("selectedPatient: null");
+	// 门诊费用失败时保留已确认患者卡片，只把费用读模型收敛为空态；
+	// 仅会话或患者上下文错误才允许回到重新选择状态。
+	expect(outpatientPage).toContain("const clearPatient =");
+	expect(outpatientPage).toContain(
+		"preservedPatientForReload(this.data.selectedPatient)",
+	);
 	expect(outpatientPage).toContain(
 		"const canSelectPatient = isPatientSelectionError(error)",
 	);

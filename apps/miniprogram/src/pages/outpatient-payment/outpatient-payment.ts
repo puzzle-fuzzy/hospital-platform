@@ -15,6 +15,8 @@ import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
@@ -150,12 +152,16 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		// 另一个页面换号时，不能只靠当前页面 requestToken 继续拼接旧快照。
 		let expectedSessionGeneration = -1;
 		let expectedOwnerId = "";
-		// 患者切换期间不展示上一位患者的费用，避免身份和金额短暂错配。
+		// 同一账号、同一明确选择的患者在刷新期间保留身份卡片，但费用列表
+		// 必须清空并等待本轮 owner-scoped 查询，避免旧金额与新患者混在一起。
+		const preservedPatient = preservedPatientForReload(
+			this.data.selectedPatient,
+		);
 		this.setData({
 			loading: true,
 			error: "",
 			sessionState: "checking",
-			selectedPatient: null,
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			items: [],
 			visibleItems: [],
@@ -467,15 +473,20 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 							"缴费记录暂时无法获取，请稍后再试",
 						);
 		const canSelectPatient = isPatientSelectionError(error);
+		const clearPatient =
+			shouldClearPatientContextAfterError(error, hasPlatformSession()) ||
+			canSelectPatient;
+		const preservedPatient = clearPatient
+			? null
+			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
 			error: message,
 			// “outpatient-payment-patient-not-found” 表示当前患者没有费用映射，
 			// 不等于应该换人；只有统一患者上下文错误才显示选择动作。
 			canSelectPatient,
-			// 费用查询失败时，当前页面没有一份与患者卡片同时确认的费用读模型。
-			// 即使失败发生在已缴/待缴切换，也不能保留上一轮卡片让用户误以为
-			// 当前列表属于这位患者；WXML 的空态会提供重新选择入口。
-			selectedPatient: null,
+			// 费用查询失败不等于患者选择失效：保留卡片可以让用户知道当前
+			// 查询对象是谁，同时把列表收敛为空态。会话/患者上下文错误才清除。
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			items: [],
 			visibleItems: [],

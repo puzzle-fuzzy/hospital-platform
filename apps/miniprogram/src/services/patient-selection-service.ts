@@ -219,6 +219,22 @@ export function isCurrentSelectedPatient(
 }
 
 /**
+ * 读取页面重载期间仍可保留的患者卡片。
+ *
+ * 同一会话且设备当前明确选择仍与上一份已确认卡片相同，可以保留卡片
+ * 作为稳定视觉上下文；患者刚被切换、会话已经重置或缓存选择不一致时
+ * 返回 null。这样既避免“姓名卡片闪一下消失”，又不把旧患者显示给新选择。
+ */
+export function preservedPatientForReload(
+	patient: Patient | null,
+	storedPatientId = getSelectedPatientId(),
+): Patient | null {
+	return patient && isCurrentSelectedPatient(patient.id, storedPatientId)
+		? patient
+		: null;
+}
+
+/**
  * 纯函数解析患者目录与已保存选择，供业务页面和测试共用。
  *
  * 传入空的 `storedPatientId` 表示用户尚未做过选择，此时沿用现有产品体验，

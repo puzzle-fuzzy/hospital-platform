@@ -19,6 +19,8 @@ import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
@@ -219,15 +221,18 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		// 当前实例的刷新，不能覆盖另一个页面完成换号后的跨请求组合问题。
 		let expectedSessionGeneration = -1;
 		let expectedOwnerId = "";
-		// 患者切换或从选择页返回时，旧记录不能继续和新一轮目录读取并存；
-		// 只有当前患者和当前请求都确认成功后，页面才重新展示记录。
+		// 同一账号、同一明确选择的患者在刷新期间保留卡片，避免请求层的
+		// 短暂等待造成姓名闪退；真正换人或会话重置时 helper 会返回 null。
+		const preservedPatient = preservedPatientForReload(
+			this.data.selectedPatient,
+		);
 		this.setData({
 			loading: true,
 			queryState: "loading",
 			error: "",
 			canSelectPatient: false,
 			sessionState: "checking",
-			selectedPatient: null,
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],
@@ -514,6 +519,12 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 				? "挂号记录功能正在完善中，暂时无法使用"
 				: patientContextErrorMessage(error, "挂号记录暂时无法获取，请稍后再试");
 		const canSelectPatient = isPatientSelectionError(error);
+		const clearPatient =
+			shouldClearPatientContextAfterError(error, hasPlatformSession()) ||
+			canSelectPatient;
+		const preservedPatient = clearPatient
+			? null
+			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
 			queryState: "error",
 			error: message,
@@ -521,7 +532,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			// Provider、持久化和依赖配置故障必须留在当前错误态，避免用户
 			// 被错误引导去换人而掩盖真正的服务问题。
 			canSelectPatient,
-			selectedPatient: null,
+			// Provider/持久化/依赖故障只表示本轮查询失败，不能把已经确认的
+			// 患者误显示成“未选择”；会话失效和明确患者错误才清除上下文。
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],

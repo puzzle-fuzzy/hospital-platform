@@ -13,6 +13,8 @@ import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
@@ -140,12 +142,16 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		// 同一会话代际，不能只依赖单个请求的 HTTP 成功状态。
 		let expectedSessionGeneration = -1;
 		let expectedOwnerId = "";
-		// 切换患者后先清掉旧患者的结果，避免新请求期间出现患者和列表不一致。
+		// 同一账号、同一明确选择的患者在刷新期间继续展示患者卡片；报告列表
+		// 仍然清空并等待本轮 owner-scoped 查询，避免身份卡片闪退或旧列表串入。
+		const preservedPatient = preservedPatientForReload(
+			this.data.selectedPatient,
+		);
 		this.setData({
 			loading: true,
 			error: "",
 			sessionState: "checking",
-			selectedPatient: null,
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			reports: [],
 			visibleReports: [],
@@ -358,12 +364,20 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 				? "报告服务正在完善中，暂时无法使用"
 				: patientContextErrorMessage(error, "检查报告暂时无法获取，请稍后再试");
 		const canSelectPatient = isPatientSelectionError(error);
+		const clearPatient =
+			shouldClearPatientContextAfterError(error, hasPlatformSession()) ||
+			canSelectPatient;
+		const preservedPatient = clearPatient
+			? null
+			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
 			error: message,
 			// 只有明确的患者上下文错误才允许错误态引导换人；网络、Provider、
 			// 持久化和依赖配置失败只保留重试，避免把服务故障误判成未选患者。
 			canSelectPatient,
-			selectedPatient: null,
+			// 服务异常只影响报告查询，不代表已确认的患者消失；会话失效或
+			// 明确的患者选择错误才清除卡片并提供重新选择入口。
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			reports: [],
 			visibleReports: [],

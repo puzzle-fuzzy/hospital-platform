@@ -10,6 +10,7 @@ import {
 	patientScopedErrorMessage,
 	patientSelectionResolutionError,
 	patientSelectionResolutionMessage,
+	preservedPatientForReload,
 	requirePatientFromResolution,
 	resolvePatientSelection,
 	shouldClearPatientContextAfterError,
@@ -292,6 +293,20 @@ test("下游业务查询失败时保留已确认患者，会话失效时才清�
 	expect(
 		shouldClearPatientContextAfterError(new Error("token cleared"), false),
 	).toBe(true);
+});
+
+test("页面重载只保留仍与本地明确选择一致的患者卡片", () => {
+	const selected = patient("patient-a");
+
+	// 同账号刷新期间允许保留上一份已确认卡片，避免等待 provider 查询时
+	// 姓名和卡片高度闪退；这只是视觉上下文，不会绕过后续目录和代际校验。
+	expect(preservedPatientForReload(selected, "patient-a")).toEqual(selected);
+
+	// 用户已经在选择页换人，或会话刚重置时，旧卡片必须立即撤掉，不能把
+	// A 的身份留在 B 的页面上。非法/空缓存同样不能证明旧患者仍然有效。
+	expect(preservedPatientForReload(selected, "patient-b")).toBeNull();
+	expect(preservedPatientForReload(selected, "")).toBeNull();
+	expect(preservedPatientForReload(null, "patient-a")).toBeNull();
 });
 
 test("异步患者结果必须匹配当前显式选择", () => {

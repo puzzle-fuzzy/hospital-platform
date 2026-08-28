@@ -14,6 +14,7 @@ import {
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	patientSelectionResolutionMessage,
+	preservedPatientForReload,
 	resolveStoredPatientSelection,
 	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
@@ -151,6 +152,12 @@ Page<ConsultPageData, ConsultPageMethods>({
 		// 患者目录确认和下游业务查询是两个独立阶段。记录查询失败时保留
 		// 这份快照，只有会话失效才允许在 catch 中清空患者卡片。
 		let confirmedPatient: Patient | null = null;
+		// 同一账号、同一明确选择的患者可以跨一次 onShow/下拉刷新保留卡片；
+		// 该对象只作为稳定视觉上下文，后续仍必须重新完成 owner 和代际校验。
+		const preservedPatient = preservedPatientForReload(
+			this.data.selectedPatient,
+		);
+		const preservedSurface = toPatientSurfaceData(preservedPatient);
 		// 服务端查询范围和客户端标签分组必须共享同一时间快照。请求即使
 		// 跨过零点完成，也不能让同一批记录在页面停留期间改变归属。
 		const requestNow = new Date();
@@ -159,9 +166,11 @@ Page<ConsultPageData, ConsultPageMethods>({
 			loading: true,
 			error: "",
 			sessionState: "checking",
-			selectedPatient: null,
-			selectedPatientName: "正在获取就诊人...",
-			selectedPatientIdLabel: "就诊卡信息加载中",
+			selectedPatient: preservedSurface.currentPatient ?? null,
+			selectedPatientName:
+				preservedSurface.currentPatientName ?? "正在获取就诊人...",
+			selectedPatientIdLabel:
+				preservedSurface.currentPatientCardLabel ?? "就诊卡信息加载中",
 			businessDate,
 			records: [],
 			visibleRecords: [],
@@ -253,7 +262,10 @@ Page<ConsultPageData, ConsultPageMethods>({
 					error,
 					sessionStillPresent,
 				);
-				applyPatientContext(this, shouldClearPatient ? null : confirmedPatient);
+				applyPatientContext(
+					this,
+					shouldClearPatient ? null : (confirmedPatient ?? preservedPatient),
+				);
 				this.setData({
 					records: [],
 					visibleRecords: [],

@@ -14,7 +14,10 @@ import {
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	isCurrentSelectedPatient,
+	isPatientSelectionError,
 	patientContextErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
@@ -116,13 +119,18 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		// `/me`、患者目录和筛选结果绑定在同一会话代际，防止跨页换号串快照。
 		let expectedSessionGeneration = -1;
 		let expectedOwnerId = "";
+		// 同一账号、同一明确选择的患者在刷新期间继续显示患者卡片，避免
+		// 爽约记录 provider 查询较慢时出现身份闪退；真正换人时不保留旧卡片。
+		const preservedPatient = preservedPatientForReload(
+			this.data.selectedPatient,
+		);
 		this.setData({
 			loading: true,
 			error: "",
 			sessionState: "checking",
-			// 爽约记录是当前患者预约历史的派生结果；新患者查询开始后不能继续
-			// 展示上一位患者的卡片或记录，避免身份和列表短暂错配。
-			selectedPatient: null,
+			// 这里只保留患者卡片，不保留预约记录；列表必须等待当前患者的
+			// 新读模型确认，不能把旧患者的爽约记录与新一轮查询混在一起。
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],
@@ -302,9 +310,17 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			error instanceof ApiError && error.code === "dependency-not-configured"
 				? "爽约记录功能正在完善中，暂时无法使用"
 				: patientContextErrorMessage(error, "爽约记录暂时无法获取，请稍后再试");
+		const clearPatient =
+			shouldClearPatientContextAfterError(error, hasPlatformSession()) ||
+			isPatientSelectionError(error);
+		const preservedPatient = clearPatient
+			? null
+			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
 			error: message,
-			selectedPatient: null,
+			// 查询失败不等于用户未选择患者；只有会话或患者上下文明确失效
+			// 时清除卡片，避免错误态把服务异常误导成“请先选择”。
+			selectedPatient: preservedPatient,
 			patientSessionGeneration: -1,
 			records: [],
 			visibleRecords: [],
