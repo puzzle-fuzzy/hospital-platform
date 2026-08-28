@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`；历史段落只作追溯。
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`；历史段落只作追溯。
 
 # 当前就诊人上下文横向迁移记录（2026-08-26）
 
@@ -8,7 +8,7 @@
 
 > 当前运行基线（2026-08-27）：线上服务端 release 为
 > `5738a71e0bcddaa8849106754baf5b296427bed7`；本地 live 小程序运行包来源为
-> `cac6561`，完整 sourceRevision 为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`，已通过
+> `1bc5bf6`，完整 sourceRevision 为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，已通过
 > `runtime:verify`。本记录只描述患者上下文安全边界，不代表临床 Provider 已开放。
 
 ## 已覆盖页面
@@ -45,7 +45,7 @@
   `336 pass / 0 fail / 3698 expect()`；
 - `pnpm migration:breadth:audit`：通过，40 个页面事件闭环、4 个主 Tab、首页/我的 action 和状态页引用均通过；
 - `pnpm format:check`：通过；
-- 当前 live 运行输入：`cac6561b3f4ebbae2de8c632b052837fe7bc28b6`，40 个页面；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；共享患者外壳在账号会话变化时会清理旧卡片并要求重新读取；
+- 当前 live 运行输入：`1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，38 个页面；微信资料被拒绝后可由用户点击进入设置页，再重新发起授权；选择就诊人首次加载/同步期间刷新入口已由页面和方法两层门禁保护；共享患者外壳在账号会话变化时会清理旧卡片并要求重新读取；
 - 本文实现阶段曾因微信开发者工具锁定 `dist/` 返回 `EBUSY`；该历史阻塞已解除，运行包已经原子发布，不能手工覆盖 live。
 
 ## 未完成与下一批

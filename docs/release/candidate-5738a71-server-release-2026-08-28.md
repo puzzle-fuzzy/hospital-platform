@@ -7,8 +7,8 @@
 | 项目 | 值 |
 | --- | --- |
 | 服务端 release | `5738a71e0bcddaa8849106754baf5b296427bed7` |
-| 小程序客户端 | `cac6561` |
-| 小程序构建来源 | `cac6561b3f4ebbae2de8c632b052837fe7bc28b6` |
+| 小程序客户端 | `1bc5bf6` |
+| 小程序构建来源 | `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` |
 | 切换前服务端 release | `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7` |
 | 新 API | `10.0.0.3:18081`，`hospital-platform-api-v2.service` |
 | 旧 Python API | `0.0.0.0:8001`，本次未停止、未重启、未修改 |
@@ -68,6 +68,6 @@
 
 ## 当前下一步与回滚
 
-小程序候选必须继续使用 [`candidate-cac6561-miniprogram-runtime-2026-08-28.md`](candidate-cac6561-miniprogram-runtime-2026-08-28.md) 和 [`device-evidence-cac6561-pending.json`](device-evidence-cac6561-pending.json)，从本地 live `dist` 重新普通编译并生成二维码。九个真机域全部保持 `pending`，页面、客户端 `requestId`、服务端 trace/Pino 和 Provider 低敏请求号缺一不可。
+小程序候选必须继续使用 [`candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md`](candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md) 和 [`device-evidence-1bc5bf6-pending.json`](device-evidence-1bc5bf6-pending.json)，从本地 live `dist` 重新普通编译并生成二维码。九个真机域全部保持 `pending`，页面、客户端 `requestId`、服务端 trace/Pino 和 Provider 低敏请求号缺一不可。
 
 如果新 API readiness、公网路径或日志出现异常，只能把 `current` 原子切回 `releases/0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7` 并只重启 `hospital-platform-api-v2.service`；旧 Python `8001` 不参与回滚。

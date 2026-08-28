@@ -1,3 +1,5 @@
+> 当前小程序配套运行包来源（2026-08-28）：本地 live 运行输入为 1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916（提交 1bc5bf6）。本行只锁定当前候选，历史段落保留用于追溯。
+
 # 当前执行检查点（2026-08-28）
 
 > 本文是 2026-08-28 的当前事实入口，优先于同一仓库中更早生成的候选交接记录。它严格区分本地源码、运行包、线上服务和真实业务证据，避免把“本地测试通过”误写成“线上或真机验收完成”。
@@ -8,8 +10,8 @@
 | --- | --- | --- |
 | 新 Elysia API 线上 release | `5738a71e0bcddaa8849106754baf5b296427bed7` | 已完成 preflight、隔离 smoke、原子切换和公网 runtime smoke |
 | 旧 Python 服务 | 继续监听 `0.0.0.0:8001` | 本轮未修改、未停止 |
-| 本地小程序源码候选 | `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`（`cac6561`） | 当前工作树候选 |
-| 小程序运行包 | live/pending 校验输入均为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6` | 38 个页面、4 个原生 Tab |
+| 本地小程序源码候选 | `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`（`1bc5bf6`） | 当前工作树候选 |
+| 小程序运行包 | live/pending 校验输入均为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` | 38 个页面、4 个原生 Tab |
 | 线上小程序运行包 | 历史来源 `13f597ea9ee3f65b9be858117826d948339d904a` | 新候选尚未上传微信线上版本 |
 | 线上数据库、Redis、旧 Python | 仍使用现有线上配置 | 本轮未写入 |
 
@@ -22,7 +24,7 @@
 ## 已验证证据
 
 - `pnpm --filter @hospital/miniprogram typecheck`：通过。
-- `pnpm --filter @hospital/miniprogram test`：352 pass、0 fail、3818 个断言。
+- `pnpm --filter @hospital/miniprogram test`：356 pass、0 fail、3826 个断言。
 - `pnpm typecheck`：9 个 workspace 全部通过。
 - `pnpm test`：9 个 workspace 全部通过。
 - `pnpm docs:audit`：当前工作树文档无断链（数量以命令当次输出为准）。
@@ -36,7 +38,7 @@
 
 | 批次 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| A 只读已确认业务 | `awaiting-evidence`，代码可取证 | 从 `cac6561` 运行包生成二维码，采集九个真机业务域的页面、客户端 `requestId`、服务端同链日志和 Provider 低敏请求号 |
+| A 只读已确认业务 | `awaiting-evidence`，代码可取证 | 从 `1bc5bf6` 运行包生成二维码，采集九个真机业务域的页面、客户端 `requestId`、服务端同链日志和 Provider 低敏请求号 |
 | B 健康内容 | `awaiting-reviewed-bundle` | 等待审核后的正式内容 bundle，不导入 fixture 代替审核 |
 | C 临床只读 | `awaiting-provider-confirmation` | 单独取得正式 Provider contract、字段、权限和失败语义 |
 | D 患者/便民写入 | `awaiting-patient-contract` | 先确认患者归属、幂等、撤回和回滚规则 |
@@ -49,15 +51,15 @@
 
 1. 在微信开发者工具中关闭当前小程序项目或结束对应编译会话。
 2. 确认目录锁释放后执行 `pnpm --filter @hospital/miniprogram runtime:publish-pending`。
-3. 再执行 `pnpm --filter @hospital/miniprogram runtime:verify`，核对 `build-info.json` 的 `sourceRevision` 为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`。
+3. 再执行 `pnpm --filter @hospital/miniprogram runtime:verify`，核对 `build-info.json` 的 `sourceRevision` 为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`。
 4. 重新打开 `apps/miniprogram/dist/`，普通编译后再生成真机二维码。
 
-在第 4 步之前，不能把微信开发者工具当前页面或旧二维码当作 `cac6561` 真机证据。
+在第 4 步之前，不能把微信开发者工具当前页面或旧二维码当作 `1bc5bf6` 真机证据。
 
 ## 下一步执行顺序
 
-1. 使用 [`device-evidence-cac6561-pending.json`](../release/device-evidence-cac6561-pending.json) 从当前 live 候选重新开始 A 批次九域真机取证，先验证共享原生 Tab、微信登录全局资料、患者显式切换，再验证预约历史/爽约和门诊费用只读。
-3. 对每个 A 批次域建立页面表现、客户端 `requestId`、服务端 trace/Pino 日志、Provider 低敏请求号四方关联；只要任一层缺失，保持 `pending`。
-4. A 批次证据完成后，再按 B→C→D→E→F 进入下一批次；医保、微信支付和 HIS 写回继续最后处理。
+1. 使用 [`device-evidence-1bc5bf6-pending.json`](../release/device-evidence-1bc5bf6-pending.json) 从当前 live 候选重新开始 A 批次九域真机取证，先验证共享原生 Tab、微信登录全局资料、患者显式切换，再验证预约历史/爽约和门诊费用只读。
+2. 对每个 A 批次域建立页面表现、客户端 `requestId`、服务端 trace/Pino 日志、Provider 低敏请求号四方关联；只要任一层缺失，保持 `pending`。
+3. A 批次证据完成后，再按 B→C→D→E→F 进入下一批次；医保、微信支付和 HIS 写回继续最后处理。
 
 本检查点不授权部署新 API，也不改变旧 Python 服务。线上发布仍须单独经过 preflight、隔离 smoke、原子切换和公网运行时验证。

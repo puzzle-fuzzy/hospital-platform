@@ -32,16 +32,16 @@ test("当前日期的运行包来源声明不能漂移到历史候选", () => {
 		{
 			label: "当前验收手册",
 			content: [
-				"> 当前配套小程序运行包来源（2026-08-27）：`old-candidate`",
-				"> 当前小程序配套运行包来源（2026-08-27）：`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`",
-				"> 当前统一发布基线补充（2026-08-27）：小程序本地 live 运行包来源为 `old-candidate`",
+				"> 当前配套小程序运行包来源（2026-08-28）：`old-candidate`",
+				"> 当前小程序配套运行包来源（2026-08-28）：`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d`",
+				"> 当前统一发布基线补充（2026-08-28）：小程序本地 live 运行包来源为 `old-candidate`",
 			].join("\n"),
 		},
 	]);
 
 	expect(failures).toEqual([
-		"当前验收手册 的“当前配套小程序运行包来源（2026-08-27）”未指向当前完整小程序 sourceRevision",
-		"当前验收手册 的“当前统一发布基线补充（2026-08-27）”未指向当前完整小程序 sourceRevision",
+		"当前验收手册 的“当前配套小程序运行包来源（2026-08-28）”未指向当前完整小程序 sourceRevision",
+		"当前验收手册 的“当前统一发布基线补充（2026-08-28）”未指向当前完整小程序 sourceRevision",
 	]);
 });
 
@@ -433,8 +433,8 @@ test("仓库当前发布文档与已部署代码保持一致", {
 		serverRelease: "5738a71e0bcddaa8849106754baf5b296427bed7",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "cac6561",
-		miniProgramSourceRevision: "cac6561b3f4ebbae2de8c632b052837fe7bc28b6",
+		miniProgramCommit: "1bc5bf6",
+		miniProgramSourceRevision: "1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916",
 	});
 	expect(result.failures).toEqual([]);
 	expect(result.serverSourceAudit).toMatchObject({
@@ -453,8 +453,8 @@ test("当前业务验收协议绑定当前服务端和小程序候选", {
 	expect(result).toMatchObject({
 		passed: true,
 		serverRelease: "5738a71e0bcddaa8849106754baf5b296427bed7",
-		miniProgramCommit: "cac6561",
-		miniProgramSourceRevision: "cac6561b3f4ebbae2de8c632b052837fe7bc28b6",
+		miniProgramCommit: "1bc5bf6",
+		miniProgramSourceRevision: "1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916",
 	});
 	expect(result.failures).toEqual([]);
 });

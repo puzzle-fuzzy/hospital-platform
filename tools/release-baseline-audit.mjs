@@ -255,7 +255,7 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 当前小程序候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
-		path: "docs/release/candidate-cac6561-miniprogram-runtime-2026-08-28.md",
+		path: "docs/release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md",
 		label: "当前本地小程序运行包候选",
 		candidateOnly: true,
 	},
@@ -708,7 +708,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-cac6561-miniprogram-runtime-2026-08-28.md",
+		path: "docs/release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md",
 		label: "当前 live 小程序运行包候选",
 		sections: [
 			{
@@ -1032,9 +1032,9 @@ const currentCandidateReferenceRules = Object.freeze([
  * 一致。只校验带当前日期的声明，历史候选仍可保留旧 hash 供追溯。
  */
 const currentSourceRevisionAnnouncementPhrases = Object.freeze([
-	"当前配套小程序运行包来源（2026-08-27）",
-	"当前小程序配套运行包来源（2026-08-27）",
-	"当前统一发布基线补充（2026-08-27）",
+	"当前配套小程序运行包来源（2026-08-28）",
+	"当前小程序配套运行包来源（2026-08-28）",
+	"当前统一发布基线补充（2026-08-28）",
 ]);
 
 /**

@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`；历史段落只作追溯。
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`；历史段落只作追溯。
 
 # 当前执行检查点（2026-08-27）
 
@@ -9,19 +9,19 @@
 ## 本轮会话恢复复核（2026-08-27）
 
 当前没有运行中的微信开发者工具或真机会话。启动保护候选
-`cac6561b3f4ebbae2de8c632b052837fe7bc28b6` 已完成 pending 校验，并已在关闭开发者工具后原子覆盖
+`1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` 已完成 pending 校验，并已在关闭开发者工具后原子覆盖
 live `dist`；发布后的 `runtime:verify` 已通过。当前 live 运行包来源为
-`cac6561b3f4ebbae2de8c632b052837fe7bc28b6`。新的二维码和手机业务链
+`1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`。新的二维码和手机业务链
 尚未形成真机页面或业务同链证据，
 因此九个真机证据域继续保持 `pending`，不能把“二维码已生成”扩大为“真机业务已验收”。
-二维码临时输出位于被忽略的 `.local/hospital-miniprogram/device-evidence-cac6561/`，不进入 Git。
+二维码临时输出位于被忽略的 `.local/hospital-miniprogram/device-evidence-1bc5bf6/`，不进入 Git。
 已完成复核：
 
 - `pnpm migration:breadth:audit`：40 个原生页面、4 个主 Tab、2 个 action 页面和 14 个状态页入口通过；
 - `pnpm migration:readiness`：旧端 64 个入口全部登记，5 个低风险域代码就绪但整域验收仍为 `0/5`；当前九域清单仍为 pending；
 - `pnpm clinical:contract:audit`：4 个临床域继续保持 `normalized / unregistered`；
 - `pnpm provider:audit`：4 份 Provider 接收记录、31 个 `documentId` 的来源和脱敏边界通过；
-- `pnpm docs:audit`：文档无断链；线上 API `5738a71e` 与小程序 live `cac6561` 的已发布基线仍可追溯。启动保护候选 `cac6561` 已完成 live 发布，发布后的运行包校验通过。
+- `pnpm docs:audit`：文档无断链；线上 API `5738a71e` 与小程序 live `1bc5bf6` 的已发布基线仍可追溯。启动保护候选 `1bc5bf6` 已完成 live 发布，发布后的运行包校验通过。
 
 ### 2026-08-27 19:21 线上运行层复核
 
@@ -45,11 +45,11 @@ live `dist`；发布后的 `runtime:verify` 已通过。当前 live 运行包来
 接口或把同步失败降级为空目录来“修复”页面。
 
 本轮没有修改旧项目、旧 Python 服务、旧数据库或旧 Redis。候选已完成 live 发布，
-下一步应重新打开 `apps/miniprogram/dist/`，普通编译并生成绑定 `cac6561` 的新二维码。后续若没有正式健康审核
+下一步应重新打开 `apps/miniprogram/dist/`，普通编译并生成绑定 `1bc5bf6` 的新二维码。后续若没有正式健康审核
 bundle、临床/患者/外部 contract，不能通过继续写页面的方式替代业务材料；当前下一项实际动作
 是让手机扫描本轮二维码并完成患者显式切换、预约历史/爽约、门诊费用和普通资料的真机三层取证。
 当前待采集清单见
-[`../release/device-evidence-cac6561-pending.json`](../release/device-evidence-cac6561-pending.json)。
+[`../release/device-evidence-1bc5bf6-pending.json`](../release/device-evidence-1bc5bf6-pending.json)。
 
 ## 当前来源与范围
 
@@ -57,7 +57,7 @@ bundle、临床/患者/外部 contract，不能通过继续写页面的方式替
 | --- | --- | --- |
 | 当前 Git 工作树 | 当前 `main`（提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed` | 本轮文档同步随当前提交维护 |
 | 线上新 API | `5738a71e0bcddaa8849106754baf5b296427bed7` | 已部署本轮请求日志稳定错误码投影 |
-| 本地小程序 live `dist` | `cac6561b3f4ebbae2de8c632b052837fe7bc28b6` | 与当前小程序运行包一致 |
+| 本地小程序 live `dist` | `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` | 与当前小程序运行包一致 |
 | 旧 Python 服务 | `0.0.0.0:8001` | 本轮未修改、未停止 |
 | 旧项目、旧 MySQL、旧 Redis | 不在本轮写入范围 | 本轮未操作 |
 
@@ -81,7 +81,7 @@ API-only 发布；代码发布事实与真实 Provider/真机业务证据仍然�
 - 迁移、导航、患者展示、临床关闭态、只读域、Provider 材料、文档和日志静态审计。
 
 `pnpm check:candidate` 的前置审计、工具测试、9 个 workspace 的 TypeScript 检查和测试均通过；最终聚合构建曾在小程序阶段因微信开发者工具锁定
-`apps/miniprogram/dist` 而以 `EBUSY` 停止。关闭工具后已单独完成小程序 pending 校验、live 原子发布和发布后 `runtime:verify`；`5738a71e + cac6561` 的当前基线审计通过，
+`apps/miniprogram/dist` 而以 `EBUSY` 停止。关闭工具后已单独完成小程序 pending 校验、live 原子发布和发布后 `runtime:verify`；`5738a71e + 1bc5bf6` 的当前基线审计通过，
 当前 pending 目录已清理，不能把此前的目录锁误判为旧服务或 API 漂移。
 该门禁仍不替代真实 Provider、微信真机或支付业务证据。
 
@@ -97,7 +97,7 @@ API-only 发布；代码发布事实与真实 Provider/真机业务证据仍然�
 ## 下一步固定顺序
 
 1. API-only 发布已完成，当前服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；后续若发生业务层回归，只回滚新 API `current`，不停止旧 Python `8001`。
-2. 重新打开 `apps/miniprogram/dist/` 并普通编译，先核对 `build-info.json` 的 sourceRevision 为 `cac6561b3f4ebbae2de8c632b052837fe7bc28b6`，再生成二维码并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
+2. 重新打开 `apps/miniprogram/dist/` 并普通编译，先核对 `build-info.json` 的 sourceRevision 为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，再生成二维码并采集四 Tab、患者显式切换、预约历史/爽约、门诊费用和普通资料的三层证据：页面、客户端 `requestId`、服务端 Pino/Provider 低敏关联。
 3. 收到正式审核 bundle、临床 contract、患者写入 contract、外部会话 contract 后，再按 B/C/D/E 独立准入；支付/医保/HIS 回写最后处理。
 
 ## 禁止事项

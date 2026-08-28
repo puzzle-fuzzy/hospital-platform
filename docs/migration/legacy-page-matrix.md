@@ -1,6 +1,6 @@
 # 旧端逐页迁移矩阵
 
-> 当前事实（2026-08-26）：旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端 `app.json` 已注册 40 个 TypeScript 页面。使用条款已新增原文只读页，采血预约已补齐旧端真实空态；`feature-status` 仍是迁移期间的统一状态页，健康百科三个页面和协议页都不代表真实业务 contract 已全部完成。
+> 当前事实（2026-08-26）：旧端来源为 `G:\\fuck\\hospital\\hospital-app\\src`，共扫描 64 个 Vue 页面；新端 `app.json` 已注册 38 个 TypeScript 页面。使用条款已新增原文只读页，采血预约已补齐旧端真实空态；`feature-status` 仍是迁移期间的统一状态页，健康百科三个页面和协议页都不代表真实业务 contract 已全部完成。
 > 本矩阵用于防止页面遗漏，不把“有旧代码”或“新端有占位入口”当作业务完成证据。
 >
 > `pnpm migration:audit` 在本机能访问旧仓库时，会把 `src/pages`、`src/pagesB` 下的实际 `.vue` 文件与本矩阵逐项比对；

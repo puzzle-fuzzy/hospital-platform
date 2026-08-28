@@ -9,11 +9,11 @@
 | 配套服务端 release | `5738a71e0bcddaa8849106754baf5b296427bed7` |
 | 小程序提交 | `1bc5bf6` |
 | 小程序构建来源 | `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` |
-| 当前本地 `dist` | `apps/miniprogram/dist/`，sourceRevision=`1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` |
+| 当前 live `dist` | `apps/miniprogram/dist/`，sourceRevision=`1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` |
 | 页面与 Tab | 38 个页面、4 个微信原生 Tab |
 | 微信线上版本 | 尚未上传，本候选仅供本地/开发者工具验证 |
 
-## 本轮变化
+## 本轮修复
 
 - 修复预约记录查询失败时患者上下文尚未提交的问题，避免 503 被误翻译成“请先选择就诊人”。
 - 新增预约记录错误分类，将 provider 临时故障、持久化故障、未配置和无记录分别映射为用户可理解的提示。
