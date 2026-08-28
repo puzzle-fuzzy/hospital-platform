@@ -17,6 +17,28 @@
 `ZHONGYANG_PATIENT_DIRECTORY_READY`、`ZHONGYANG_APPOINTMENT_DIRECTORY_READY`、
 `ZHONGYANG_APPOINTMENT_RECORDS_READY`、`ZHONGYANG_REPORT_DIRECTORY_READY` 和
 `ZHONGYANG_REPORT_DETAIL_READY`、`ZHONGYANG_OUTPATIENT_PAYMENT_READY` 是六个独立 gate。
+
+## Provider TLS 先决检查
+
+预约历史、患者目录、科室排班和门诊费用虽然是不同业务 gate，但它们共用众阳的 HTTPS
+入口。入口证书过期或主机名校验失败时，小程序只能看到平台侧的 `503`，不能据此判断
+某个业务接口本身返回了 HTTP 503。
+
+发布或受控只读 smoke 前，先执行：
+
+```powershell
+pnpm provider:tls:audit -- --url https://<provider-host>
+```
+
+不传 `--url` 时读取服务端环境变量 `ZHONGYANG_BASE_URL`。该命令只建立一次使用系统
+默认 CA、默认主机名校验的 TLS 握手，不发送 HTTP 请求、不携带 Bearer token、不读取患者
+参数，也不允许使用 `-k` 或其他跳过校验的方式。输出中的 `errorCode=CERT_HAS_EXPIRED`
+等字段用于区分证书、DNS、连接和超时问题；只有 `status=passed` 才能继续做 Provider
+业务 smoke。
+
+这个检查是发布门禁，不是业务兼容层。发现失败时应在承载该域名的证书/Nginx 所在层
+续期并验证证书链，再重新执行检查；不能把 Provider 地址改成 HTTP，不能在 adapter
+里关闭 TLS 验证，也不能把“`curl -k` 能返回 200”当作可发布证据。
 共享连接地址不代表共享验收结果。
 
 ### 当前线上基线（2026-08-18）

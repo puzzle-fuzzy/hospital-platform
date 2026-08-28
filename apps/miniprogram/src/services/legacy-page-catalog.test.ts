@@ -135,4 +135,13 @@ describe("旧端页面全量迁移台账", () => {
 			}
 		}
 	});
+
+	test("我的问诊不把旧端硬编码演示数据误标为外部真实会话", () => {
+		const consultation = FEATURE_STATUS_CATALOG.consultation;
+
+		expect(consultation.readiness).toBe("待 provider contract");
+		expect(consultation.description).toContain("演示数据");
+		expect(consultation.description).toContain("不会复制");
+		expect(consultation.contractHint).toContain("真实问诊/陪诊来源");
+	});
 });
