@@ -16,6 +16,12 @@ test("会自行读取患者目录的页面可以跳过首页同步", () => {
 	expect(shouldContinueAfterLogin("skipped", true, true)).toBe(false);
 });
 
+test("登录后只读目录已有确认患者时可以继续患者范围动作", () => {
+	expect(shouldContinueAfterLogin("directory-loaded", true, true)).toBe(true);
+	expect(shouldContinueAfterLogin("directory-loaded", true, false)).toBe(false);
+	expect(shouldContinueAfterLogin("directory-loaded", false, false)).toBe(true);
+});
+
 test("被淘汰的患者目录读取不能启动同步", () => {
 	expect(shouldContinueAfterPatientLoad("loaded")).toBe(true);
 	expect(shouldContinueAfterPatientLoad("superseded")).toBe(false);

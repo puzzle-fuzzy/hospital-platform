@@ -3,12 +3,14 @@
  *
  * “微信会话建立成功”和“当前患者上下文可用”是两个不同阶段：
  * - skipped：本次动作明确由目标页面自行读取患者目录；
- * - succeeded：首页已完成本轮患者目录和临床映射同步；
+ * - directory-loaded：平台患者目录读取成功，使用已有的临床映射，不触发 Provider；
+ * - succeeded：用户明确发起的本轮临床患者映射同步成功；
  * - failed：同步请求失败，页面已经清理展示态；
  * - superseded：请求被新的页面/会话代际淘汰，旧结果没有回写资格。
  */
 export type PatientBootstrapResult =
 	| "skipped"
+	| "directory-loaded"
 	| "succeeded"
 	| "failed"
 	| "superseded";
@@ -33,9 +35,10 @@ export function shouldContinueAfterPatientLoad(
 /**
  * 判断登录成功后是否可以继续执行用户刚才点击的动作。
  *
- * 患者范围页面必须同时满足“同步成功”和“当前页存在已确认患者”；
- * 预约目录、患者选择页等会自行读取目录的页面可以跳过首页同步，但
- * 任何失败或被淘汰的同步都不能触发“登录完成后的成功回调”。
+ * 患者范围页面必须同时满足“已取得可用目录”和“当前页存在已确认患者”；
+ * 预约目录、患者选择页等会自行读取目录的页面可以跳过首页初始化。首页
+ * 登录恢复不再隐式触发 Provider 同步，只有用户明确同步成功后才使用
+ * `succeeded`；任何失败或被淘汰的流程都不能触发“登录完成后的成功回调”。
  */
 export function shouldContinueAfterLogin(
 	bootstrapResult: PatientBootstrapResult,
@@ -46,5 +49,8 @@ export function shouldContinueAfterLogin(
 		return false;
 	}
 	if (bootstrapResult === "skipped") return !requiresPatient;
+	if (bootstrapResult === "directory-loaded") {
+		return !requiresPatient || hasConfirmedPatient;
+	}
 	return !requiresPatient || hasConfirmedPatient;
 }

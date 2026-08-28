@@ -925,7 +925,9 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	// WXML disabled 只能降低重复点击概率，不能约束生命周期回调或真机重复事件。
 	// 两个入口都必须在方法层复用同一个 Promise；跨进程最终幂等仍由服务端保证。
 	expect(home).toContain("getPageSingleFlight<");
-	expect(home).toContain('Exclude<PatientBootstrapResult, "skipped">');
+	expect(home).toContain(
+		'Exclude<PatientBootstrapResult, "skipped" | "directory-loaded">',
+	);
 	expect(home).toContain("return patientSyncFlight.run(() => {");
 	expect(selection).toContain("getPageSingleFlight<Array<Patient>>");
 	expect(selection).toContain(".run(() => syncPatientsFromHospital");
@@ -3448,21 +3450,26 @@ test("native homepage marks session restored only after the current patient read
 	);
 });
 
-test("native homepage does not restore a patient before clinical sync completes", async () => {
+test("native homepage restores from the safe directory without implicit provider sync", async () => {
 	const home = await source("pages/index/index.ts");
+	const loadStart = home.indexOf("onLoad() {");
+	const loadEnd = home.indexOf("\n\t},", loadStart);
+	const loadBody = home.slice(loadStart, loadEnd);
+	const loginStart = home.indexOf("onLogin(options: LoginOptions = {})");
+	const loginEnd = home.indexOf("/** 顶部就诊人卡片", loginStart);
+	const loginBody = home.slice(loginStart, loginEnd);
 
-	// 登录恢复和主动登录都先读取平台目录，再执行医院侧临床同步；
-	// 预同步只能作为流程前置条件，不能把旧目录直接当成当前患者。
-	expect(home).toContain("return this.loadPatients(false);");
+	// 首页启动只读当前 owner 的目录；Provider 同步必须由明确的同步入口触发，
+	// 不能因为首页生命周期自动发起外部副作用。
+	expect(loadBody).toContain("return this.loadPatients();");
+	expect(loadBody).not.toContain("this.onSyncPatients()");
 	expect(home).toContain(
-		"return this.loadPatients(false).then((patientLoadResult) => {",
+		"return this.loadPatients().then((patientLoadResult) => {",
 	);
-	const preSyncStart = home.indexOf("if (!restoreSelection) {");
-	const preSyncEnd = home.indexOf("\n\t\t}\n\t\t// 空目录", preSyncStart);
-	const preSyncBody = home.slice(preSyncStart, preSyncEnd);
-	expect(preSyncBody).toContain('selectedPatientId: ""');
-	expect(preSyncBody).toContain("selectedPatient: null");
-	expect(preSyncBody).toContain("本轮");
+	expect(home).toContain("directory-loaded");
+	expect(home).toContain("目录中已经确认的 ready 患者");
+	expect(loginBody).toContain('return "directory-loaded" as const;');
+	expect(loginBody).not.toContain("syncPatientsFromHospital");
 });
 
 test("native appointment history pages clear old patient data before reload", async () => {
@@ -3547,10 +3554,7 @@ test("native homepage clears displayed patient context after directory failures"
 	);
 	const loadEnd = home.indexOf("\n\t},", loadStart);
 	const loadBody = home.slice(loadStart, loadEnd);
-	const syncStart = home.indexOf(
-		'onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">>',
-		pageStart,
-	);
+	const syncStart = home.indexOf("onSyncPatients(): Promise<", pageStart);
 	const syncEnd = home.indexOf("\n\t},", syncStart);
 	const syncBody = home.slice(syncStart, syncEnd);
 
@@ -3613,7 +3617,8 @@ test("patient context pull-to-refresh waits for the complete directory lifecycle
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");
 
-	// 刷新指示器必须覆盖健康检查、目录读取和临床映射同步，不能只等待第一段请求。
+	// 首页刷新只覆盖健康检查和安全目录读取；选择页的明确刷新才覆盖
+	// “目录读取 + 临床映射同步”完整链路。
 	expect(home).toContain(
 		"return Promise.all([this.checkHealth(), patientRefresh])",
 	);

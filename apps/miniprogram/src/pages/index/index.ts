@@ -19,10 +19,6 @@ import {
 	getPageSingleFlight,
 } from "../../services/page-instance-state";
 import {
-	disposePageSessionResetListener,
-	registerPageSessionResetListener,
-} from "../../services/session-events";
-import {
 	type PatientBootstrapResult,
 	type PatientDirectoryLoadResult,
 	shouldContinueAfterLogin,
@@ -41,6 +37,10 @@ import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
@@ -217,7 +217,9 @@ type IndexPageMethods = {
 	onServiceTabChange(event: IndexEvent): void;
 	onServiceItemTap(event: ActionEvent): void;
 	loadPatients(restoreSelection?: boolean): Promise<PatientDirectoryLoadResult>;
-	onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">>;
+	onSyncPatients(): Promise<
+		Exclude<PatientBootstrapResult, "skipped" | "directory-loaded">
+	>;
 	onLoadAppointments(): void;
 	onLoadOutpatientPayment(): void;
 	onRefresh(): Promise<void>;
@@ -238,14 +240,14 @@ type IndexPageMethods = {
 type LoginOptions = {
 	/** 登录完成并完成必要的首页初始化后，继续用户刚才触发的动作。 */
 	afterSuccess?: () => void;
-	/** 需要跳转到会自行读取目录的页面时，避免首页重复请求患者同步。 */
+	/** 目标页面自行读取患者目录时，跳过首页的目录恢复。 */
 	skipPatientBootstrap?: boolean;
 	/** 患者范围页面必须等当前轮次确认出患者后才能继续。 */
 	requiresPatient?: boolean;
 };
 
 /**
- * 首页可能同时发生会话恢复、下拉刷新和目录同步。各类 guard 使用固定
+ * 首页可能同时发生会话恢复、下拉刷新和用户明确发起的目录同步。各类 guard 使用固定
  * key 存在页面实例的 WeakMap 中：同一首页实例内后发的同步会淘汰旧读取，
  * 但不会影响页面栈中的另一个首页实例。
  *
@@ -319,9 +321,10 @@ Page<IndexPageData, IndexPageMethods>({
 					return;
 				}
 				this.setData({ sessionStatus: SESSION_LABELS.restored });
-				// 恢复链的第一次目录读取只确认当前 owner 能读到目录；本轮
-				// 临床映射尚未同步完成前，不能把旧目录里的患者画成首页当前患者。
-				return this.loadPatients(false);
+				// 首页启动是只读恢复链：先读取当前 owner 的平台目录，并使用
+				// 目录中已经确认的 ready 患者。这里不能隐式触发 Provider POST，
+				// 否则众阳短暂超时会阻断首页，而用户点击“重新加载”又会恢复。
+				return this.loadPatients();
 			})
 			.then((patientLoadResult) => {
 				if (
@@ -331,9 +334,9 @@ Page<IndexPageData, IndexPageMethods>({
 				) {
 					return;
 				}
-				// 恢复旧会话后也要重建一次临床患者映射；仅读取旧目录数据会让预约、报告
-				// 和门诊费用继续使用过期的上游映射，导致“患者信息不存在”。
-				return this.onSyncPatients();
+				// 目录读取已完成，首页只收敛会话状态；临床映射同步由选择页或
+				// 用户明确点击同步触发，不能作为首页启动的隐式副作用。
+				this.setData({ sessionStatus: SESSION_LABELS.restored });
 			})
 			.catch((error) => {
 				if (!sessionGuard.isCurrent(sessionToken)) return;
@@ -466,13 +469,14 @@ Page<IndexPageData, IndexPageMethods>({
 				// 不额外索取与医疗业务无关的头像和昵称权限。
 				wx.showToast({ title: "微信登录成功", icon: "success" });
 				if (options.skipPatientBootstrap) return "skipped" as const;
-				// 登录后的第一次目录读取同样只是同步前置检查；等医院侧映射
-				// 成功后，下面的 onSyncPatients 才允许恢复 selectedPatient。
-				return this.loadPatients(false).then((patientLoadResult) => {
+				// 登录动作只建立平台会话并读取当前 owner 的安全目录；不能把
+				// Provider 同步隐藏在登录成功之后。需要新增或重新确认患者时，
+				// 用户进入选择页后再明确点击同步。
+				return this.loadPatients().then((patientLoadResult) => {
 					if (!shouldContinueAfterPatientLoad(patientLoadResult)) {
 						return "superseded" as const;
 					}
-					return this.onSyncPatients();
+					return "directory-loaded" as const;
 				});
 			})
 			.then((bootstrapResult: PatientBootstrapResult | undefined) => {
@@ -532,9 +536,9 @@ Page<IndexPageData, IndexPageMethods>({
 
 	/** 统一通过页面路由进入患者管理，恢复旧端可浏览、可返回的交互。 */
 	openPatientSelector(): void {
-		// 患者同步可能由首页、我的或其他业务页发起；统一导航服务检查
-		// 进程级在途 Promise，不能只看当前首页的 syncingPatients。这样即使
-		// 首页已经隐藏，选择页也不会带另一条幂等键并发触发 provider 同步。
+		// 选择页负责真正的 Provider 同步；统一导航服务检查进程级在途 Promise，
+		// 不能只看当前首页的 syncingPatients。这样即使首页已经隐藏，选择页也
+		// 不会带另一条幂等键并发触发 Provider 同步。
 		navigateToPatientSelector(
 			sessionVerificationStateFromLabel(this.data.sessionStatus),
 		);
@@ -764,16 +768,18 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	/**
-	 * 首页同步只返回“同步流程结果”，不向调用方返回患者快照。
+	 * 首页的显式同步只返回“同步流程结果”，不向调用方返回患者快照。
 	 *
 	 * 成功的空目录和失败兜底都可能表现为数组长度为 0；如果这里返回
 	 * `[]`，后续调用方就无法区分“医院确认没有就诊人”和“同步失败”。
 	 * 患者快照只允许通过页面状态和服务端成功响应进入展示，失败则由本页
 	 * 清理展示上下文并保留可重试的会话，避免把错误伪装成业务空结果。
 	 */
-	onSyncPatients(): Promise<Exclude<PatientBootstrapResult, "skipped">> {
+	onSyncPatients(): Promise<
+		Exclude<PatientBootstrapResult, "skipped" | "directory-loaded">
+	> {
 		const patientSyncFlight = getPageSingleFlight<
-			Exclude<PatientBootstrapResult, "skipped">
+			Exclude<PatientBootstrapResult, "skipped" | "directory-loaded">
 		>(this, `patient-sync:${getSessionGeneration()}`);
 		return patientSyncFlight.run(() => {
 			const patientDataGuard = getPageLatestRequestGuard(this, "patients");
@@ -901,7 +907,7 @@ Page<IndexPageData, IndexPageMethods>({
 		void this.onRefresh();
 	},
 
-	/** 页面卸载后让首页的健康、患者目录和同步请求失去回写资格。 */
+	/** 页面卸载后让首页的健康、患者目录和显式同步请求失去回写资格。 */
 	onUnload(): void {
 		disposePageSessionResetListener(this);
 		disposePageInstance(this);
