@@ -73,6 +73,17 @@ HTTPS 证书校验失败，不是众阳接口主动返回 HTTP 503，也不是 M
 不能通过关闭 TLS 校验绕过；正确修复是续期并在众阳入口部署有效证书，然后重新做
 同一预约记录请求的公网/真机验收。
 
+随后对阿里云中转机做了只读配置复核：`/etc/nginx/conf.d/gpsrmyy.meiyi.pro.conf`
+的 443 虚拟主机使用静态证书 `/etc/nginx/ssl/gpsrmyy.meiyi.pro.pem`，并把请求
+转发到本机 `localhost:7112`；该 7112 端口由
+`/home/admin/inter/interceptor_core-0.0.1-SNAPSHOT.jar` 提供。证书文件的
+`notAfter` 为 `2026-08-26 23:59:59 GMT`，服务器的 Certbot 证书清单只有
+`test-hp.meiyi.pro`，没有 `gpsrmyy.meiyi.pro` 的自动续期 lineage。因此当前
+问题属于众阳转发域名的证书维护缺口，和新 API 的 `test-hp.meiyi.pro` 证书、
+新 API 进程以及旧 Python 进程无关。本次检查没有修改 Nginx、证书、7112 进程，
+也没有重启任何服务；修复后仍需先执行 Nginx 配置检查和无 `-k` TLS 探测，再做
+Provider 与真机验收。
+
 ### 3.2 旧端医保 6201 503/502
 
 旧 Python 的 `/common/mbs-fsi/6201` 不是预约历史接口，而是医保移动支付费用上传。旧服务将 6201 映射到医保移动支付中心的 `/org/local/api/hos/uldFeeInfo`，经医保转发服务发送；上游返回 504/超时文本时，旧代码通常转换为 HTTP 502 和“医保服务响应超时，请稍后重试”。这条链路与 `patInfosFind`、预约历史和新端 `/api/v2/appointments/records` 完全不同。
