@@ -80,6 +80,10 @@ describe("全量阻断业务域准入目录", () => {
 				?.migrationBatch,
 		).toBe("E-external-entry");
 		expect(
+			FROZEN_DOMAIN_GATE_CATALOG.find((gate) => gate.id === "consultation")
+				?.readiness,
+		).toBe("待外部入口 contract");
+		expect(
 			FROZEN_DOMAIN_GATE_CATALOG.find(
 				(gate) => gate.id === "electronic-consultation",
 			)?.migrationBatch,

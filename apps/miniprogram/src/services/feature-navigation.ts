@@ -179,11 +179,11 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	consultation: {
 		title: "我的问诊",
-		readiness: "待 provider contract",
+		readiness: "待外部入口 contract",
 		description:
-			"旧端问诊历史当前包含演示数据，真实来源正在核对中；新端不会复制演示记录或创建问诊会话。",
+			"旧端问诊历史当前包含演示数据，真实外部来源正在核对中；新端不会复制演示记录或创建问诊会话。",
 		contractHint:
-			"需要确认真实问诊/陪诊来源、患者归属、内容脱敏、会话生命周期和保留周期。",
+			"需要确认外部主体、受众、患者归属、内容脱敏、短期会话、回跳和保留周期。",
 		icon: "/assets/legacy-user/consultation.svg",
 	},
 	"discharge-followup": {
