@@ -2276,6 +2276,27 @@ test("native appointment record actions reject stale index events", async () => 
 	expect(template).not.toContain('data-index="{{index}}"');
 });
 
+test("native appointment records keep the confirmed patient when the provider read fails", async () => {
+	const page = await source("pages/appointment-records/appointment-records.ts");
+	const patientCommitIndex = page.indexOf(
+		"selectedPatient: patient,\n\t\t\t\t\tpatientSessionGeneration: expectedSessionGeneration",
+	);
+	const providerReadIndex = page.indexOf(
+		"return loadAppointmentRecords(",
+		patientCommitIndex,
+	);
+
+	// 患者目录成功并不等于预约记录成功。必须先提交已确认的患者上下文，
+	// 再读取 Provider；否则 Provider 503 会把患者卡片错误降级成未选择。
+	expect(patientCommitIndex).toBeGreaterThan(-1);
+	expect(providerReadIndex).toBeGreaterThan(patientCommitIndex);
+	expect(page).toContain(
+		'import { appointmentRecordsErrorMessage } from "../../services/appointment-record-error";',
+	);
+	expect(page).toContain("const patientContextReady =");
+	expect(page).toContain("appointmentRecordsErrorMessage(error)");
+});
+
 test("native appointment tabs use server-owned read scopes", async () => {
 	const records = await source(
 		"pages/appointment-records/appointment-records.ts",

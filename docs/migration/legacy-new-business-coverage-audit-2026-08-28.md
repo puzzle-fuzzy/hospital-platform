@@ -64,6 +64,15 @@ GET /msun-middle-business-appointment-server/v1/appointment-infos/{patId}
 
 适配器对众阳 HTTP 429、5xx、超时和网络失败标记为可重试，API 层才映射为 503 `provider-temporarily-unavailable`；Provider 返回 2xx 但读模型非法则是 502 `provider-response-invalid`，普通 4xx 拒绝则是 502 `provider-request-rejected`。因此，前端看到 503 不能单独证明众阳返回了 503，必须关联服务端的 `providerStatusCode`、`providerRequestId`、`providerRetryable` 和 `traceId`。
 
+2026-08-28 从中转服务器对同一路径做了只读探测：`gpsrmyy.meiyi.pro` 的 TLS
+证书 `notAfter=2026-08-26 23:59:59 GMT`，标准证书校验返回 `curl exit 60`；
+关闭证书校验后，同一接口返回 HTTP 200 和众阳业务响应“患者信息不存在”。结合新端
+线上 `appointment.records.failed` 没有 `providerStatusCode`/`providerRequestId`、
+但有 `providerRetryable=true`，本次小程序 503 的直接原因已确认是服务器到众阳的
+HTTPS 证书校验失败，不是众阳接口主动返回 HTTP 503，也不是 MySQL/Redis 故障。
+不能通过关闭 TLS 校验绕过；正确修复是续期并在众阳入口部署有效证书，然后重新做
+同一预约记录请求的公网/真机验收。
+
 ### 3.2 旧端医保 6201 503/502
 
 旧 Python 的 `/common/mbs-fsi/6201` 不是预约历史接口，而是医保移动支付费用上传。旧服务将 6201 映射到医保移动支付中心的 `/org/local/api/hos/uldFeeInfo`，经医保转发服务发送；上游返回 504/超时文本时，旧代码通常转换为 HTTP 502 和“医保服务响应超时，请稍后重试”。这条链路与 `patInfosFind`、预约历史和新端 `/api/v2/appointments/records` 完全不同。

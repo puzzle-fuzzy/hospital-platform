@@ -1,5 +1,6 @@
 import departmentLocations from "../../data/department-location";
-import { ApiError, getCurrentUser } from "../../services/api-client";
+import { getCurrentUser } from "../../services/api-client";
+import { appointmentRecordsErrorMessage } from "../../services/appointment-record-error";
 import {
 	filterAppointmentRecords,
 	isAppointmentRecordTabAvailable,
@@ -272,6 +273,14 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					expectedSessionGeneration,
 					"Appointment page session changed before records were requested",
 				);
+				// 先提交已确认的患者上下文，再发起 Provider 读取。这样 503、
+				// 超时或网络异常只会让“挂号记录”进入错误态，不会让患者卡片
+				// 闪退成“当前就诊人信息暂不可用”。
+				this.setData({
+					selectedPatient: patient,
+					patientSessionGeneration: expectedSessionGeneration,
+					canSelectPatient: false,
+				});
 				return loadAppointmentRecords(
 					patient.id,
 					new Date(),
@@ -514,10 +523,14 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	showError(error: unknown, _fallback: string): void {
-		const message =
-			error instanceof ApiError && error.code === "dependency-not-configured"
-				? "挂号记录功能正在完善中，暂时无法使用"
-				: patientContextErrorMessage(error, "挂号记录暂时无法获取，请稍后再试");
+		// 预约记录查询失败时，只有页面已经提交了本轮患者目录事实，才能
+		// 使用“挂号记录”领域文案；目录阶段失败仍使用患者上下文文案。
+		const patientContextReady =
+			this.data.selectedPatient !== null &&
+			this.data.patientSessionGeneration >= 0;
+		const message = patientContextReady
+			? appointmentRecordsErrorMessage(error)
+			: patientContextErrorMessage(error, "挂号记录暂时无法获取，请稍后再试");
 		const canSelectPatient = isPatientSelectionError(error);
 		const clearPatient =
 			shouldClearPatientContextAfterError(error, hasPlatformSession()) ||
