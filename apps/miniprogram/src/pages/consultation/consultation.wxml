@@ -10,7 +10,8 @@
 				<view class="consultation-selector-value">
 					<text wx:if="{{selectedPatient}}" class="consultation-selector-name">{{selectedPatient.displayName}}</text>
 					<text wx:elif="{{loading}}" class="consultation-selector-name">正在加载就诊人...</text>
-					<text wx:else class="consultation-selector-name">请先选择就诊人</text>
+					<text wx:elif="{{canSelectPatient}}" class="consultation-selector-name">请先选择就诊人</text>
+					<text wx:else class="consultation-selector-name">当前就诊人信息暂时无法读取</text>
 					<text wx:if="{{selectedPatient}}" class="consultation-selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>
 					<image class="consultation-selector-arrow" src="/assets/legacy-user/selector-arrow-right.svg" mode="aspectFit" />
 				</view>
@@ -33,9 +34,9 @@
 				</block>
 				<block wx:elif="{{queryState === 'error'}}">
 					<view class="clinical-query-error-icon" aria-hidden="true">!</view>
-					<text class="clinical-query-state-title">问诊记录查询未完成</text>
-					<text class="clinical-query-state-hint">请根据上方提示处理后重试</text>
-					<view class="clinical-query-state-action" bindtap="onRetry">重新加载</view>
+					<text class="clinical-query-state-title">问诊记录暂时无法获取</text>
+					<text class="clinical-query-state-hint">请稍后再试</text>
+					<view class="clinical-query-state-action" bindtap="onRetry">再试一次</view>
 					<view wx:if="{{canSelectPatient}}" class="clinical-query-state-action" bindtap="onChangePatient">选择就诊人</view>
 				</block>
 				<block wx:else>

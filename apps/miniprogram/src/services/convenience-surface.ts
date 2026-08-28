@@ -11,6 +11,7 @@ import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "./session-events";
+import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
 export type ConvenienceSurfaceFeature = "gift-banner" | "health-praise";
 
@@ -51,24 +52,14 @@ const DEFINITIONS: Readonly<
 	"gift-banner": {
 		title: "电子锦旗",
 		recordTitle: "电子锦旗记录",
-		recordNote:
-			"公开记录查询和赠送功能等待独立服务契约，当前不读取、不提交任何内容。",
-		contractItems: [
-			"患者、医生和就诊引用的服务端归属规则",
-			"文字/图片审核、内容安全和公开展示脱敏规则",
-			"赠送、撤回、分页和管理端读取的状态机",
-		],
+		recordNote: USER_FACING_SURFACE_COPY.description,
+		contractItems: USER_FACING_SURFACE_COPY.contractItems,
 	},
 	"health-praise": {
 		title: "表扬信",
 		recordTitle: "表扬信记录",
-		recordNote:
-			"公开记录查询和写入功能等待独立服务契约，当前不读取、不提交任何内容。",
-		contractItems: [
-			"就诊、患者和医生关系的服务端引用规则",
-			"内容审核、敏感信息脱敏和公开展示权限",
-			"提交幂等、撤回、分页和管理端读取状态",
-		],
+		recordNote: USER_FACING_SURFACE_COPY.description,
+		contractItems: USER_FACING_SURFACE_COPY.contractItems,
 	},
 });
 
@@ -137,16 +128,19 @@ export function registerConvenienceSurfacePage(
 
 		onLoad() {
 			this.setData(toPageData(feature));
-			registerPageSessionResetListener(this, () => {
-				// 会话轮换时只清理页面快照，不在旧 token 尚未退出时自动请求。
-				const message = "登录账号已切换，请重新读取就诊人";
-				this.setData({
-					patient: null,
-					loading: false,
-					error: message,
-					recordState: resolveConvenienceSurfaceRecordState(false, message),
-				});
-			});
+			registerPageSessionResetListener(
+				this,
+				() => {
+					// 会话轮换时只清理页面快照，不在旧 token 尚未退出时自动请求。
+					this.setData({
+						patient: null,
+						loading: true,
+						error: "",
+						recordState: resolveConvenienceSurfaceRecordState(true, ""),
+					});
+				},
+				() => this.loadCurrentPatient(),
+			);
 			wx.setNavigationBarTitle({ title: DEFINITIONS[feature].title });
 			void this.loadCurrentPatient();
 		},

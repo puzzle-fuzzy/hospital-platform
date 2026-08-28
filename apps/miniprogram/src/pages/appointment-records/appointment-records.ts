@@ -173,23 +173,27 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	onLoad() {
 		// 首次展示标记必须绑定当前页面实例，不能让不同页面栈共享状态。
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 预约历史是当前患者范围的读模型。账号切换后清空患者、列表和
-			// 本地展开窗口，避免旧预约卡片被误认为属于新账号。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				patientSessionGeneration: -1,
-				records: [],
-				visibleRecords: [],
-				visibleRecordCount: 0,
-				hasMoreRecords: false,
-				loading: false,
-				queryState: "error",
-				error: "登录账号已切换，请重新读取就诊人",
-				canSelectPatient: false,
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 预约历史是当前患者范围的读模型。账号切换后清空患者、列表和
+				// 本地展开窗口，避免旧预约卡片被误认为属于新账号。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					patientSessionGeneration: -1,
+					records: [],
+					visibleRecords: [],
+					visibleRecordCount: 0,
+					hasMoreRecords: false,
+					loading: true,
+					queryState: "loading",
+					error: "",
+					canSelectPatient: false,
+				});
+			},
+			() => this.loadRecords(),
+		);
 		this.loadRecords();
 	},
 
@@ -504,11 +508,11 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 		);
 	},
 
-	showError(error: unknown, fallback: string): void {
+	showError(error: unknown, _fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
-				? "预约记录服务暂未配置完成，请联系管理员"
-				: patientContextErrorMessage(error, fallback);
+				? "挂号记录功能正在完善中，暂时无法使用"
+				: patientContextErrorMessage(error, "挂号记录暂时无法获取，请稍后再试");
 		const canSelectPatient = isPatientSelectionError(error);
 		this.setData({
 			queryState: "error",

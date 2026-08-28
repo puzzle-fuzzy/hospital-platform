@@ -7,7 +7,7 @@
 
 		<view class="signature-notice">
 			<text>请选择需要进行签署的就诊人，确认后将进入签名流程。</text>
-			<text class="signature-notice-note">当前签名服务仍在迁移，暂不会跳转到外部小程序。</text>
+			<text class="signature-notice-note">签名服务正在完善中，暂时无法使用。</text>
 		</view>
 
 		<view class="signature-section-title">已绑定就诊人</view>
@@ -17,7 +17,7 @@
 			<text wx:if="{{loading}}">正在获取就诊人...</text>
 			<block wx:elif="{{error}}">
 				<text>本次就诊人目录未加载成功</text>
-				<text class="signature-state-note">请根据上方提示处理后重试</text>
+			<text class="signature-state-note">请稍后再试</text>
 			</block>
 			<block wx:else>
 				<image src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
@@ -43,7 +43,7 @@
 						<text class="signature-patient-relation">{{item.relationshipLabel}}</text>
 					</view>
 					<text class="signature-patient-card">电子就诊卡（脱敏）：{{item.cardNumberMasked}}</text>
-					<text wx:if="{{item.clinicalAccess !== 'ready'}}" class="signature-patient-unavailable">当前暂不可用于临床业务</text>
+					<text wx:if="{{item.clinicalAccess !== 'ready'}}" class="signature-patient-unavailable">当前服务暂不可用</text>
 				</view>
 				<text class="signature-arrow">›</text>
 			</view>
@@ -58,12 +58,12 @@
 		<view class="signature-tips">
 			<text class="signature-tips-title">签名提示</text>
 			<text>· 签名必须绑定明确用途、当前账号和当前就诊人。</text>
-			<text>· 当前不会上传文件，也不会把患者 ID 传给未知外部小程序。</text>
+			<text>· 当前暂不支持上传签名文件。</text>
 			<text>· 若需更换或新增就诊人，请点击“选择其他就诊人”。</text>
 		</view>
 
 		<button class="signature-status-button" bindtap="onOpenPatientAgreement">查看患者协议原文</button>
-		<button class="signature-status-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+		<button class="signature-status-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
 		<button class="signature-back-button" bindtap="onBackMy">返回我的</button>
 	</view>
 </scroll-view>

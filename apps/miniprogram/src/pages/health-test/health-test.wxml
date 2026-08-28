@@ -59,7 +59,7 @@
 			<text>重要提示</text>
 			<text>本页面不替代医生诊断、处方或就医建议。题库、风险评估和临床解释仍需审核后的业务规则。</text>
 		</view>
-		<button class="health-test-secondary-button" bindtap="onOpenMigrationStatus">查看完整迁移状态</button>
+		<button class="health-test-secondary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
 		<button class="health-test-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	buildAppointmentRecordQuery,
 	buildAppointmentScheduleQuery,
+	CLIENT_ERROR_MESSAGES,
 	isAllowedApiPrefix,
 	isUsableAccessToken,
 	localizedApiErrorMessage,
@@ -147,10 +148,17 @@ test("API 前缀只接受已注册版本，并清理旧缓存中的未知版本"
 
 test("健康知识公共错误码使用稳定中文文案，不回退到内部英文信息", () => {
 	const messages = [
-		["health-knowledge-unavailable", "健康知识内容暂时不可用，请稍后重试"],
-		["health-knowledge-query-invalid", "健康知识查询条件不合法"],
-		["health-knowledge-not-found", "未找到对应的健康知识内容"],
+		["health-knowledge-unavailable", "健康内容暂时无法获取，请稍后再试"],
+		["health-knowledge-query-invalid", "暂时无法查找健康内容，请稍后再试"],
+		["health-knowledge-not-found", "未找到相关健康内容"],
 	] as const;
+
+	// 技术错误码可以进入日志，但不能进入普通用户的页面文案。
+	for (const message of Object.values(CLIENT_ERROR_MESSAGES)) {
+		expect(message).not.toMatch(
+			/Provider|provider|contract|数据服务|外部服务|配置完成/u,
+		);
+	}
 
 	for (const [code, message] of messages) {
 		expect(localizedApiErrorMessage(code, "internal provider error")).toBe(

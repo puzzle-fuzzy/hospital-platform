@@ -75,25 +75,29 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 账号切换后必须同步清理患者摘要和历史记录，不能让旧账号的
-			// 问诊数据在页面栈中短暂可见。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				selectedPatientName: "正在获取就诊人...",
-				selectedPatientCardLabel: "就诊卡信息加载中",
-				patientSessionGeneration: -1,
-				records: [],
-				visibleRecords: [],
-				visibleRecordCount: 0,
-				hasMoreRecords: false,
-				loading: false,
-				queryState: "error",
-				error: "登录账号已切换，请重新读取就诊记录",
-				canSelectPatient: false,
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 账号切换后必须同步清理患者摘要和历史记录，不能让旧账号的
+				// 问诊数据在页面栈中短暂可见。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					selectedPatientName: "正在获取就诊人...",
+					selectedPatientCardLabel: "就诊卡信息加载中",
+					patientSessionGeneration: -1,
+					records: [],
+					visibleRecords: [],
+					visibleRecordCount: 0,
+					hasMoreRecords: false,
+					loading: true,
+					queryState: "loading",
+					error: "",
+					canSelectPatient: false,
+				});
+			},
+			() => this.loadContext(),
+		);
 		void this.loadContext();
 	},
 
@@ -219,8 +223,8 @@ Page<ConsultationPageData, ConsultationPageMethods>({
 					),
 					error:
 						error instanceof ApiError
-							? safeApiErrorMessage(error, "问诊记录加载失败，请重试")
-							: "问诊记录加载失败，请重试",
+							? safeApiErrorMessage(error, "问诊记录暂时无法获取，请稍后再试")
+							: "问诊记录暂时无法获取，请稍后再试",
 				});
 			})
 			.finally(() => {

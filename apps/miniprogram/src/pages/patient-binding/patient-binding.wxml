@@ -20,13 +20,13 @@
 		</view>
 
 		<view class="patient-contract-surface-card">
-			<text class="patient-contract-surface-card-title">当前迁移状态</text>
+			<text class="patient-contract-surface-card-title">服务状态</text>
 			<text class="patient-contract-surface-card-copy">{{description}}</text>
 			<text class="patient-contract-surface-coverage">{{coverageLabel}}</text>
 		</view>
 
 		<view class="patient-contract-surface-card">
-			<text class="patient-contract-surface-card-title">开放前还需确认</text>
+			<text class="patient-contract-surface-card-title">使用说明</text>
 			<view class="patient-contract-surface-list">
 				<view wx:for="{{contractItems}}" wx:key="*this" class="patient-contract-surface-list-row">
 					<text class="patient-contract-surface-list-dot">·</text>
@@ -36,7 +36,7 @@
 		</view>
 
 		<button class="patient-contract-surface-primary-button" bindtap="onOpenPatientAgreement">查看患者协议原文</button>
-		<button class="patient-contract-surface-secondary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+		<button class="patient-contract-surface-secondary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
 		<button class="patient-contract-surface-secondary-button" bindtap="onBackPatientSelector">返回选择就诊人</button>
 		<button class="patient-contract-surface-plain-button" bindtap="onBackMy">返回我的</button>
 	</view>

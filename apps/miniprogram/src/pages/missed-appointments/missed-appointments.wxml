@@ -51,8 +51,8 @@
 		<block wx:elif="{{error}}">
 			<image src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
 			<text>本次爽约记录未加载成功</text>
-			<text class="state-hint">请根据上方提示处理后重试</text>
-			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+		<text class="state-hint">请稍后再试</text>
+		<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
 		</block>
 		<block wx:else>
 			<image src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />

@@ -33,7 +33,7 @@
 		</view>
 
 		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">当前迁移状态</text>
+			<text class="migration-surface-card-title">服务状态</text>
 			<text class="migration-surface-card-copy">{{description}}</text>
 			<view class="migration-surface-list">
 				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
@@ -44,7 +44,7 @@
 		</view>
 
 		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">开放前还需确认</text>
+			<text class="migration-surface-card-title">使用说明</text>
 			<view class="migration-surface-list">
 				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
 					<text class="migration-surface-list-dot">·</text>
@@ -54,7 +54,7 @@
 			<text class="migration-surface-coverage">{{coverageLabel}}</text>
 		</view>
 
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
 		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

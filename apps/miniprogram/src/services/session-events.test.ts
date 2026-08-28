@@ -82,3 +82,21 @@ test("token 失效过渡不重置页面，真实账号切换才重置页面", ()
 	expect(resetCount).toBe(1);
 	disposePageSessionResetListener(page);
 });
+
+test("真实账号切换后在认证层写入新 token 后自动刷新页面", async () => {
+	const page = {};
+	let refreshCount = 0;
+	registerPageSessionResetListener(
+		page,
+		() => undefined,
+		() => {
+			refreshCount += 1;
+		},
+	);
+
+	notifySessionChanged("account-switched");
+	await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+	expect(refreshCount).toBe(1);
+	disposePageSessionResetListener(page);
+});

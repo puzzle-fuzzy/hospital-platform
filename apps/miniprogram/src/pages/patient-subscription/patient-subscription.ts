@@ -5,11 +5,11 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { patientScopedErrorMessage } from "../../services/patient-selection-service";
-import type { DatasetEvent, Patient } from "../../types";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import type { DatasetEvent, Patient } from "../../types";
 
 type SubscriptionCategory =
 	| "outpatient"
@@ -193,14 +193,18 @@ Page<SubscriptionPageData, SubscriptionPageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 微信订阅开关仍是只读展示；会话变化只清理患者上下文。
-			this.setData({
-				patient: null,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 微信订阅开关仍是只读展示；会话变化只清理患者上下文。
+				this.setData({
+					patient: null,
+					loading: true,
+					error: "",
+				});
+			},
+			() => this.loadPatient(),
+		);
 		void this.loadPatient();
 	},
 

@@ -22,7 +22,7 @@
 | `loading` | 固定高度查询占位，显示“正在查询记录...” |
 | `ready` | 展示当前就诊人的记录窗口 |
 | `empty` | 仅在查询链返回合法空结果时显示统一空图和“未查询到您的记录” |
-| `error` | 顶部显示服务端稳定错误文案，卡片显示“查询未完成”和重试入口 |
+| `error` | 顶部显示用户可理解的错误文案，卡片显示“记录暂时无法获取”和重试入口 |
 
 公共视觉骨架位于 `apps/miniprogram/src/styles/clinical-query-state.wxss`。
 页面仍保留各自的患者、业务字段和卡片内容，不把不同领域的数据模型合并。
@@ -31,14 +31,26 @@
 
 页面不再使用“只要是 `ApiError` 就显示暂不可用”的分支，而是通过客户端稳定错误码翻译：
 
-- `dependency-not-configured`、Provider 拒绝/超时、持久化故障：显示服务暂时不可用并允许重试；
+- `dependency-not-configured`：显示“功能正在完善中，暂时无法使用”；
+- Provider 拒绝/超时、持久化故障：显示“服务暂时不可用，请稍后重试”并允许重试；
 - `patient-not-bound`、`patient-selection-stale`、`patient-clinical-unavailable`：显示患者上下文错误，并允许进入统一就诊人选择页；
-- `appointment-record-patient-not-found`、`medical-record-patient-not-found`：显示当前就诊人暂无可查询记录，不再误报成泛化的服务不可用；
+- `appointment-record-patient-not-found`、`medical-record-patient-not-found`：显示未查询到对应业务记录；
 - `unauthorized`：保持登录失效语义，不引导用户把它当成空列表。
 
 空结果和错误仍然是两个不同的状态；“暂无记录”不能用来掩盖服务未配置或 Provider 故障。
 
-## 4. 会话恢复边界
+## 4. 用户可见文案策略
+
+用户只接触业务名称、当前状态和下一步动作，不接触 Provider、contract、数据服务、内部错误码或服务拓扑：
+
+- 成功查询且结果为空：显示“未查询到您的记录”，这是合法空结果；
+- 查询请求失败：显示“记录暂时无法获取”以及“请稍后再试”，避免把服务故障说成用户没有记录；
+- 服务尚未开放：显示“功能正在完善中，暂时无法使用”，不暴露内部迁移阶段；
+- 可以恢复的状态统一保留“再试一次”或“重新加载”入口，页面不使用技术错误详情作为按钮文案。
+
+开发日志仍保留稳定 `errorCode`、`providerOperation`、`requestId/traceId` 等诊断字段，便于维护人员根据用户反馈定位问题；这些字段不会进入小程序页面。
+
+## 5. 会话恢复边界
 
 小程序的会话事件现在区分：
 
@@ -47,7 +59,7 @@
 
 最近确认的 owner 保存在 `App.globalData.sessionOwnerId`，token 轮换本身不再作为账号切换事实。
 
-## 5. 线上配置边界
+## 6. 线上配置边界
 
 2026-08-28 只读核对服务器环境得到：
 

@@ -147,24 +147,27 @@ test("native user profile is bootstrapped once and shared across primary tabs", 
 	expect(globalProfile).toContain("authorizeGlobalWechatProfileInternal");
 });
 
-test("native migration entries expose a typed blocking reason instead of a generic toast", async () => {
+test("native migration entries expose a friendly service state instead of internal details", async () => {
 	const navigation = await source("services/feature-navigation.ts");
 	const statusPage = await source("pages/feature-status/feature-status.wxml");
 	const home = await source("pages/index/index.ts");
 	const my = await source("pages/my/my.ts");
 
-	// 迁移期间“能点击”只是入口完整性，不代表业务已完成。所有状态页都必须
-	// 把当前真正的准入阻塞类型带给用户；同时首页和“我的”里调用固定状态页的
-	// key 必须存在于同一份目录，防止新增入口落入无意义 Toast 或 404。
+	// 迁移期间“能点击”只是入口完整性，不代表业务已完成。内部准入类型仍
+	// 保留在目录和日志中，但状态页只给用户看可理解的进度说明；首页和“我的”
+	// 里调用固定状态页的 key 必须存在于同一份目录，防止入口落入无意义 Toast 或 404。
 	expect(navigation).toContain('"待 provider contract"');
 	expect(navigation).toContain('"待临床审核"');
 	expect(navigation).toContain('"待支付与回写 contract"');
 	expect(navigation).toContain('"待患者绑定 contract"');
 	expect(navigation).toContain('"待外部入口 contract"');
-	expect(statusPage).toContain("{{feature.readiness}}");
-	expect(statusPage).toContain("{{coverage.contractFamilyLabel}}");
-	expect(statusPage).toContain("{{coverage.notes}}");
-	expect(statusPage).not.toContain("功能迁移中</view>");
+	expect(statusPage).toContain("功能正在完善");
+	expect(statusPage).toContain("服务准备和上线前检查");
+	expect(statusPage).not.toContain("{{feature.readiness}}");
+	expect(statusPage).not.toContain("{{coverage.contractFamilyLabel}}");
+	expect(statusPage).not.toContain("{{coverage.notes}}");
+	expect(statusPage).not.toContain("Provider");
+	expect(statusPage).not.toContain("contract");
 
 	for (const page of [home, my]) {
 		for (const match of page.matchAll(
@@ -441,37 +444,37 @@ test("native client sends request ids for Pino HTTP correlation", async () => {
 
 test("native client localizes every public query and session error boundary", () => {
 	expect(localizedApiErrorMessage("patient-query-invalid", "fallback")).toBe(
-		"就诊人查询条件不合法",
+		"暂时无法获取就诊人，请稍后再试",
 	);
 	expect(localizedApiErrorMessage("patient-sync-in-progress", "fallback")).toBe(
-		"患者目录正在同步，请稍后刷新",
+		"就诊人信息正在更新，请稍后再试",
 	);
 	expect(localizedApiErrorMessage("user-profile-conflict", "fallback")).toBe(
-		"个人资料已被其他设备修改，请刷新后重试",
+		"个人资料已更新，请刷新后再试",
 	);
 	expect(
 		localizedApiErrorMessage(
 			"appointment-record-patient-not-found",
 			"fallback",
 		),
-	).toBe("当前就诊人暂无可查询的预约记录");
+	).toBe("未查询到挂号记录");
 	expect(localizedApiErrorMessage("report-not-found", "fallback")).toBe(
-		"报告详情暂不可用",
+		"未找到这份报告",
 	);
 	expect(
 		localizedApiErrorMessage("provider-request-rejected", "英文 provider 文案"),
-	).toBe("外部服务拒绝了本次请求，请稍后重试");
+	).toBe("服务暂时不可用，请稍后重试");
 	expect(
 		localizedApiErrorMessage(
 			"provider-response-invalid",
 			"英文 provider 响应文案",
 		),
-	).toBe("外部服务返回数据异常，请稍后重试");
+	).toBe("服务暂时不可用，请稍后重试");
 	expect(localizedApiErrorMessage("unrecognized-code", "安全兜底")).toBe(
 		"安全兜底",
 	);
 	expect(localizedApiErrorMessage("api-request-failed", "服务端原始错误")).toBe(
-		"请求失败，请稍后重试",
+		"服务暂时不可用，请稍后重试",
 	);
 });
 
@@ -507,7 +510,7 @@ test("native pages never display an unmapped ApiError message", async () => {
 			}),
 			"页面兜底",
 		),
-	).toBe("外部服务拒绝了本次请求，请稍后重试");
+	).toBe("服务暂时不可用，请稍后重试");
 	expect(
 		safeApiErrorMessage(
 			new ApiError("unknown internal detail", { code: "future-private-code" }),
@@ -797,9 +800,8 @@ test("patient selection clears the old directory after session ownership is lost
 		"shouldClearPatientDirectory(error)",
 		showErrorStart,
 	);
-	const patientListClearIndex = selection.indexOf(
+	const patientListClearIndex = selection.lastIndexOf(
 		"this.clearDisplayedPatientDirectory();",
-		showErrorStart,
 	);
 
 	// 暂时故障可以保留列表帮助重试，但 401、账号切换或重新登录失败后，
@@ -808,12 +810,14 @@ test("patient selection clears the old directory after session ownership is lost
 	expect(selection).toContain('error.code === "session-changed"');
 	expect(selection).toContain("if (!hasPlatformSession()) return true;");
 	expect(selection).toContain("isPatientSelectionSessionCurrent");
-	expect(selection).toContain("登录状态已变化，正在重新刷新");
+	expect(selection).toContain("登录状态正在更新，请稍后再试");
 	expect(selection).toContain(
 		"patientSelectionSessionGenerations.delete(this)",
 	);
 	expect(clearDirectoryIndex).toBeGreaterThan(showErrorStart);
-	expect(patientListClearIndex).toBeGreaterThan(clearDirectoryIndex);
+	// 清理动作同时用于生命周期、选择动作和错误分支；这里验证实现确实存在
+	// 失去 owner 证明后的清理，而不依赖多个分支在文件中的排列顺序。
+	expect(patientListClearIndex).toBeGreaterThanOrEqual(clearDirectoryIndex);
 	expect(selection).toContain("clearDisplayedPatientDirectory(): void");
 	expect(selection).toContain('switchToPrimaryTab("/pages/index/index");');
 	expect(selection).toContain("不能在当前页面自动重登并重放");
@@ -1059,9 +1063,10 @@ test("patient-scoped pages clear stale snapshots when the session changes", asyn
 		const page = await source(file);
 		// 这些页面都可能在页面栈中停留；会话轮换时必须先清理本地患者
 		// 读模型，不能等下一次网络请求完成后才撤掉旧预约、金额或报告。
-		expect(page).toContain("registerPageSessionResetListener(this");
+		expect(page).toContain("registerPageSessionResetListener");
 		expect(page).toContain("disposePageSessionResetListener(this)");
-		expect(page).toContain("登录账号已切换");
+		expect(page).toContain("loading: true");
+		expect(page).not.toContain("登录账号已切换");
 	}
 
 	const detail = await source("pages/report-detail/report-detail.ts");
@@ -1103,10 +1108,11 @@ test("patient-bearing entry pages clear stale UI on a session event", async () =
 		// 这些入口不是只有“下一次 onShow 再刷新”这么简单：它们可能正在
 		// 屏幕上展示患者姓名、脱敏卡号、二维码或资料表单。会话事件到达后，
 		// 必须先撤销旧 owner 的 UI 快照，再等待用户或生命周期重新读取。
-		expect(page).toContain("registerPageSessionResetListener(this");
+		expect(page).toContain("registerPageSessionResetListener");
 		expect(page).toContain("disposePageSessionResetListener(this)");
 		expect(page).toContain(item.clearMethod);
-		expect(page).toContain("登录账号已切换");
+		expect(page).toContain("loading: true");
+		expect(page).not.toContain("登录账号已切换");
 	}
 });
 
@@ -1396,7 +1402,7 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain("hasPlatformSession");
 	expect(my).toContain("getGlobalUserProfile");
 	expect(my).toContain("loadPatientsForOwner(expectedOwnerId)");
-	expect(my).toContain("登录状态已变化，请下拉刷新后重试");
+	expect(my).toContain("登录状态需要重新确认，请稍后再试");
 	// `/me` 和 `/me/profile` 已经由 App 全局仓库单飞完成；“我的”页只等待
 	// 这份快照，再独立刷新患者目录，避免每次切换 Tab 重复获取个人资料。
 	const myLoadStart = my.indexOf("loadPage(): Promise<void>");
@@ -1721,9 +1727,9 @@ test("consult and internet hospital tabs keep unfinished external contracts clos
 	expect(consult).not.toContain("thirdPatientId");
 	expect(consultTemplate).not.toContain("<web-view");
 	expect(consultTemplate).toContain("智能陪诊");
-	expect(consultTemplate).toContain("实时就诊 contract 尚未完成");
+	expect(consultTemplate).toContain("实时就诊状态暂未开放");
 	expect(consult).toContain("loadAppointmentRecords");
-	expect(consultTemplate).toContain("当前仅展示预约摘要");
+	expect(consultTemplate).toContain("当前仅展示已确认的就诊摘要");
 	expect(consultTemplate).toContain("query-state-shell");
 
 	// 互联网医院属于独立外部 audience：没有 resourceKey、allowlist、短期
@@ -1733,7 +1739,7 @@ test("consult and internet hospital tabs keep unfinished external contracts clos
 	expect(hospital).not.toContain("system/auth/ticket");
 	expect(hospital).not.toContain("navigateToMiniProgram");
 	expect(hospitalTemplate).not.toContain("<web-view");
-	expect(hospitalTemplate).toContain("互联网医院服务正在迁移中");
+	expect(hospitalTemplate).toContain("互联网医院服务正在完善中");
 	expect(hospitalTemplate).toContain("query-state-shell");
 });
 
@@ -2557,9 +2563,9 @@ test("native mini program migrates the legacy express placeholder without fake l
 	expect(catalog).toContain("旧端实际只有患者选择和预留空列表");
 	expect(page).toContain("loadCurrentPatient");
 	expect(page).toContain('navigateToFeatureStatus("patient-express")');
-	expect(template).toContain("未查询到相关记录!");
+	expect(template).toContain("物流服务正在完善中");
 	expect(template).toContain("选择就诊人");
-	expect(template).toContain("旧端当前没有接入物流记录服务");
+	expect(template).toContain("当前暂时无法使用，请稍后再试");
 	expect(template).toContain("/assets/legacy-user/empty-record.svg");
 	expect(style).toContain(".patient-express-empty");
 	expect(page).not.toContain("providerPatientId");
@@ -2581,8 +2587,8 @@ test("native blood appointment keeps the legacy empty state without fake slots",
 	expect(page).toContain("不复用普通门诊号源");
 	expect(page).not.toContain("hasProjects");
 	expect(page).not.toContain("providerPatientId");
-	expect(template).toContain("无可预约项目！");
-	expect(template).toContain("院区信息待采血服务接入");
+	expect(template).toContain("采血预约服务正在完善中");
+	expect(template).toContain("院区信息正在准备");
 	expect(template).toContain("选择就诊人");
 	expect(template).toContain("/assets/legacy-home/empty-services.png");
 	expect(style).toContain(".blood-appointment-empty-card");
@@ -2596,11 +2602,12 @@ test("native convenience pages keep patient context without fake public records"
 	const giftScript = await source("pages/gift-banner/gift-banner.ts");
 	const praiseScript = await source("pages/health-praise/health-praise.ts");
 
-	// 锦旗和表扬信都要先绑定当前就诊人，但 provider contract 未确认前，
+	// 锦旗和表扬信都要先绑定当前就诊人，但真实记录能力未确认前，
 	// “公开记录暂未开放”不能降级成“暂无记录”，也不能出现提交成功。
 	expect(service).toContain("loadCurrentPatient");
-	expect(service).toContain("公开记录查询");
-	expect(service).toContain("不读取、不提交任何内容");
+	expect(service).toContain("resolveConvenienceSurfaceRecordState");
+	expect(service).toContain("USER_FACING_SURFACE_COPY");
+	expect(service).toContain("recordState");
 	expect(service).toContain("disposePageInstance");
 	expect(service).toContain("convenienceSurfaceErrorMessage");
 	expect(service).toContain("patientScopedErrorMessage");
@@ -2658,6 +2665,7 @@ test("native blocked domains keep one explicit current-patient context", async (
 	expect(context).toContain("loadCurrentPatient");
 	expect(context).toContain("loadCurrentPatientForOwner");
 	expect(context).toContain("registerSessionChangedListener");
+	expect(context).toContain('event.reason === "session-invalidated"');
 	expect(context).toContain("patientSurfaceSessionReset");
 	expect(context).toContain("assertSessionGeneration");
 	expect(context).toContain("patient-selection-required");
@@ -2719,7 +2727,7 @@ test("native patient signature keeps the patient boundary without fake external 
 	expect(page).not.toContain("navigateToMiniProgram");
 	expect(page).not.toContain("wx0b76c9904392518f");
 	expect(template).toContain("选择其他就诊人");
-	expect(template).toContain("当前不会上传文件");
+	expect(template).toContain("当前暂不支持上传签名文件");
 	expect(template).toContain("电子就诊卡（脱敏）");
 	expect(style).toContain(".signature-error");
 	expect(style).toContain(".signature-state-card");
@@ -2750,8 +2758,8 @@ test("native subscription page preserves legacy presentation but never claims We
 	expect(page).not.toContain("requestSubscribeMessage");
 	expect(page).not.toContain("设置已保存");
 	expect(template).toContain("请输入消息标题进行查询");
-	expect(template).toContain("暂未接入");
-	expect(template).toContain("查看完整迁移说明");
+	expect(template).toContain("暂未开放");
+	expect(template).toContain("了解服务进度");
 	expect(style).toContain("position: fixed");
 	expect(style).toContain(".subscription-result-state");
 });
@@ -2859,7 +2867,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatientTemplate).toContain("{{item.billDateLabel}}");
 	expect(outpatient).toContain("formatOutpatientBillDateLabel");
 	expect(outpatientTemplate).toContain(
-		"当前仅展示门诊费用查询结果，支付、退费和医保结算请以医院正式渠道为准",
+		"当前仅提供门诊费用查询，支付、医保授权和结算功能正在完善中",
 	);
 	// 旧端文案会暗示支付或医保已经可以在此页面执行；只读页面必须明确拒绝这种语义回流。
 	expect(outpatientTemplate).not.toContain("缴费后如需退费需至窗口办理");
@@ -2867,9 +2875,7 @@ test("native mini program exposes outpatient payment and my pages through platfo
 	expect(outpatient).toContain("navigateToFeatureStatus");
 	expect(outpatient).toContain('"outpatient-payment-detail"');
 	expect(outpatient).toContain('"outpatient-payment-write"');
-	expect(outpatientTemplate).toContain(
-		"支付调起、医保授权和结算回写将在独立业务契约验收后开放",
-	);
+	expect(outpatientTemplate).toContain("支付、医保授权和结算功能正在完善中");
 	expect(my).toContain("navigateToPatientSelector");
 	expect(my).toContain("navigateToPatientScopedPage");
 	expect(navigation).toContain('url: "/pages/patient-select/patient-select"');

@@ -78,25 +78,29 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 账号切换必须立即清掉上一账号的病历摘要，不能等待下一次
-			// Provider 请求完成后才隐藏旧患者内容。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				selectedPatientName: "正在获取就诊人...",
-				selectedPatientCardLabel: "就诊卡信息加载中",
-				patientSessionGeneration: -1,
-				records: [],
-				visibleRecords: [],
-				visibleRecordCount: 0,
-				hasMoreRecords: false,
-				loading: false,
-				queryState: "error",
-				error: "登录账号已切换，请重新读取门诊病历",
-				canSelectPatient: false,
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 账号切换必须立即清掉上一账号的病历摘要，不能等待下一次
+				// Provider 请求完成后才隐藏旧患者内容。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					selectedPatientName: "正在获取就诊人...",
+					selectedPatientCardLabel: "就诊卡信息加载中",
+					patientSessionGeneration: -1,
+					records: [],
+					visibleRecords: [],
+					visibleRecordCount: 0,
+					hasMoreRecords: false,
+					loading: true,
+					queryState: "loading",
+					error: "",
+					canSelectPatient: false,
+				});
+			},
+			() => this.loadContext(),
+		);
 		void this.loadContext();
 	},
 
@@ -227,8 +231,8 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 					),
 					error:
 						error instanceof ApiError
-							? safeApiErrorMessage(error, "门诊病历加载失败，请重试")
-							: "门诊病历加载失败，请重试",
+							? safeApiErrorMessage(error, "门诊病历暂时无法获取，请稍后再试")
+							: "门诊病历暂时无法获取，请稍后再试",
 				});
 			})
 			.finally(() => {

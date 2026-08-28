@@ -62,13 +62,13 @@ export function patientContextErrorMessage(
  */
 export function patientScopedErrorMessage(
 	error: unknown,
-	fallback = "就诊人信息暂时无法加载，请重试",
+	fallback = "就诊人信息暂时无法获取，请稍后再试",
 ): string {
 	if (error instanceof ApiError && error.code === "unauthorized") {
-		return "登录状态已失效，请返回首页重新登录";
+		return "登录已过期，请返回首页重新登录";
 	}
 	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "就诊人服务暂不可用，请稍后重试";
+		return "就诊人服务暂时不可用，请稍后再试";
 	}
 	return patientContextErrorMessage(error, fallback);
 }

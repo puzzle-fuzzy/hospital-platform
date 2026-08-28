@@ -23,7 +23,7 @@
 			<view class="blood-appointment-location-icon">⌖</view>
 			<view class="blood-appointment-location-copy">
 				<text class="blood-appointment-location-title">采血院区</text>
-				<text class="blood-appointment-location-value">院区信息待采血服务接入</text>
+				<text class="blood-appointment-location-value">院区信息正在准备</text>
 			</view>
 			<text class="blood-appointment-location-state">暂未开放</text>
 		</view>
@@ -31,12 +31,12 @@
 		<view class="blood-appointment-empty-card">
 			<view class="blood-appointment-empty-content">
 				<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-				<text class="blood-appointment-empty-title">无可预约项目！</text>
-				<text class="blood-appointment-empty-note">旧端当前没有接入采血号源服务</text>
+				<text class="blood-appointment-empty-title">采血预约服务正在完善中</text>
+				<text class="blood-appointment-empty-note">当前暂时无法使用，请稍后再试</text>
 			</view>
 		</view>
 
-		<button class="blood-appointment-status-button" bindtap="onOpenMigrationStatus">查看采血预约迁移说明</button>
+		<button class="blood-appointment-status-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
 		<button class="blood-appointment-back-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

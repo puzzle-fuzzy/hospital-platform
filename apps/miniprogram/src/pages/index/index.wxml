@@ -152,9 +152,9 @@
 			<view class="patient-qr-name">{{patientQrName || "----"}}</view>
 			<view class="patient-qr-card">就诊卡：{{patientQrCardNumber || "----"}}</view>
 			<view class="patient-qr-notice">
-				医院扫码协议尚在确认中，当前不会生成或外发可扫码内容。
+				二维码服务正在完善中，当前暂不支持扫码使用。
 			</view>
-			<view class="patient-qr-status" bindtap="onPatientQrStatus">查看迁移说明</view>
+			<view class="patient-qr-status" bindtap="onPatientQrStatus">了解服务进度</view>
 			<view class="patient-qr-close" bindtap="closePatientQr">关闭</view>
 		</view>
 	</view>

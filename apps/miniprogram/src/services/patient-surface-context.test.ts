@@ -32,16 +32,16 @@ test("没有患者时保持可解释的选择入口", () => {
 	expect(data.patientActionLabel).toBe("选择就诊人");
 });
 
-test("会话变化时患者外壳清理旧卡片并回到可重试状态", () => {
+test("会话变化时患者外壳清理旧卡片并回到加载状态", () => {
 	const data = patientSurfaceSessionReset();
 
 	expect(data.currentPatient).toBeNull();
 	expect(data.currentPatientName).toBe("未选择就诊人");
 	expect(data.currentPatientCardLabel).toBe("就诊卡信息不可用");
 	expect(data.patientActionLabel).toBe("选择就诊人");
-	expect(data.patientContextLoading).toBe(false);
+	expect(data.patientContextLoading).toBe(true);
 	expect(data.patientContextLoaded).toBe(false);
-	expect(data.patientContextError).toBe("登录账号已切换，请重新读取就诊人");
+	expect(data.patientContextError).toBe("");
 });
 
 test("患者目录错误保持失效、映射不可用和暂时故障的区别", () => {
@@ -49,12 +49,12 @@ test("患者目录错误保持失效、映射不可用和暂时故障的区别",
 		patientSurfaceErrorMessage(
 			new ApiError("expired", { code: "unauthorized" }),
 		),
-	).toBe("登录状态已失效，请返回首页重新登录");
+	).toBe("登录已过期，请返回首页重新登录");
 	expect(
 		patientSurfaceErrorMessage(
 			new ApiError("unavailable", { code: "patient-clinical-unavailable" }),
 		),
-	).toBe("当前就诊人暂不可用于该服务，请更换就诊人");
+	).toBe("该就诊人暂时无法使用此服务，请更换就诊人");
 	expect(
 		patientSurfaceErrorMessage(
 			new ApiError("not bound", { code: "patient-not-bound" }),
@@ -64,17 +64,17 @@ test("患者目录错误保持失效、映射不可用和暂时故障的区别",
 		patientSurfaceErrorMessage(
 			new ApiError("stale", { code: "patient-selection-stale" }),
 		),
-	).toBe("上次选择的就诊人已失效，请重新选择");
+	).toBe("请选择就诊人后再继续");
 	expect(
 		patientSurfaceErrorMessage(
 			new ApiError("dependency", { code: "dependency-not-configured" }),
 		),
-	).toBe("就诊人服务暂不可用，请稍后重试");
+	).toBe("就诊人服务暂时不可用，请稍后再试");
 	expect(
 		patientSurfaceErrorMessage(
 			new ApiError("temporary", {
 				code: "persistence-temporarily-unavailable",
 			}),
 		),
-	).toBe("就诊人信息暂时不可用，请稍后重试");
+	).toBe("就诊人信息暂时无法获取，请稍后再试");
 });

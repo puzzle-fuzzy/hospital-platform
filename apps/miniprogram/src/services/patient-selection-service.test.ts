@@ -193,13 +193,13 @@ test("所有患者页面复用同一组目录解析错误码和文案", () => {
 		"patient-clinical-unavailable",
 	);
 	expect(patientSelectionResolutionMessage(empty)).toBe(
-		"当前微信账号暂无绑定的就诊人",
+		"暂未添加就诊人，请先添加",
 	);
 	expect(patientSelectionResolutionMessage(stale)).toBe(
-		"上次选择的就诊人已失效，请重新选择",
+		"请选择就诊人后再继续",
 	);
 	expect(patientSelectionResolutionMessage(unavailable)).toBe(
-		"该就诊人暂未完成医院档案映射，请选择其他就诊人或刷新",
+		"该就诊人暂时无法使用此服务，请更换就诊人",
 	);
 });
 
@@ -211,13 +211,13 @@ test("患者范围业务页使用统一的上下文错误文案", () => {
 			}),
 			"备用错误",
 		),
-	).toBe("该就诊人暂未完成医院档案映射，请选择其他就诊人或刷新");
+	).toBe("该就诊人暂时无法使用此服务，请更换就诊人");
 	expect(
 		patientContextErrorMessage(
 			new ApiError("stale patient", { code: "patient-selection-stale" }),
 			"备用错误",
 		),
-	).toBe("上次选择的就诊人已失效，请重新选择");
+	).toBe("请选择就诊人后再继续");
 	expect(
 		patientContextErrorMessage(new Error("内部原文不应展示"), "备用错误"),
 	).toBe("备用错误");
@@ -228,24 +228,24 @@ test("直接读取患者目录的页面共享登录、依赖和选择错误边�
 		patientScopedErrorMessage(
 			new ApiError("expired", { code: "unauthorized" }),
 		),
-	).toBe("登录状态已失效，请返回首页重新登录");
+	).toBe("登录已过期，请返回首页重新登录");
 	expect(
 		patientScopedErrorMessage(
 			new ApiError("not configured", { code: "dependency-not-configured" }),
 		),
-	).toBe("就诊人服务暂不可用，请稍后重试");
+	).toBe("就诊人服务暂时不可用，请稍后再试");
 	expect(
 		patientScopedErrorMessage(
 			new ApiError("stale", { code: "patient-selection-stale" }),
 		),
-	).toBe("上次选择的就诊人已失效，请重新选择");
+	).toBe("请选择就诊人后再继续");
 	expect(
 		patientScopedErrorMessage(
 			new ApiError("storage unavailable", {
 				code: "persistence-temporarily-unavailable",
 			}),
 		),
-	).toBe("数据服务暂时不可用，请稍后重试");
+	).toBe("服务暂时不可用，请稍后重试");
 });
 
 test("患者选择动作只由明确的患者上下文错误触发", () => {

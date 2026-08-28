@@ -3,54 +3,16 @@
 		<view class="feature-status-card">
 			<image class="feature-status-icon" src="{{feature.icon}}" mode="aspectFit" />
 			<text class="feature-status-title">{{feature.title}}</text>
-			<view class="feature-status-badge">{{feature.readiness}}</view>
-			<text class="feature-status-description">{{feature.description}}</text>
+			<view class="feature-status-badge">功能正在完善</view>
+			<text class="feature-status-description">这项服务正在完善中，暂时无法使用，请稍后再试。</text>
 		</view>
 
 		<view class="feature-status-panel">
 			<text class="feature-status-panel-title">当前状态</text>
-			<text class="feature-status-panel-copy">{{feature.contractHint}}</text>
-			<view wx:if="{{coverage}}" class="feature-status-coverage">
-				<view class="feature-status-coverage-row">
-					<text>迁移阶段</text>
-					<text class="feature-status-coverage-value">{{coverage.stageLabel}}</text>
-				</view>
-				<view class="feature-status-coverage-row">
-					<text>契约族</text>
-					<text class="feature-status-coverage-value">{{coverage.contractFamilyLabel}}</text>
-				</view>
-				<view class="feature-status-coverage-row">
-					<text>覆盖范围</text>
-					<text class="feature-status-coverage-value">{{coverage.coverageLabel}}</text>
-				</view>
-				<text class="feature-status-next-step">下一步：{{coverage.nextStep}}</text>
-				<view class="feature-status-batch">
-					<view class="feature-status-coverage-row">
-						<text>迁移批次</text>
-						<text class="feature-status-coverage-value">{{coverage.migrationBatch.label}}</text>
-					</view>
-					<text class="feature-status-batch-next">批次输入：{{coverage.migrationBatch.nextInput}}</text>
-				</view>
-				<view wx:if="{{coverage.legacyPaths.length}}" class="feature-status-entry-list">
-					<text class="feature-status-detail-title">关联旧端入口</text>
-					<view wx:for="{{coverage.legacyPaths}}" wx:key="*this" class="feature-status-entry-row">
-						<text class="feature-status-entry-path">{{item}}</text>
-					</view>
-				</view>
-				<view wx:if="{{coverage.domains.length}}" class="feature-status-domain-list">
-					<text class="feature-status-detail-title">所属业务域</text>
-					<text class="feature-status-domain-value">{{coverage.domainsLabel}}</text>
-				</view>
-				<view wx:if="{{coverage.notes.length}}" class="feature-status-note-list">
-					<text class="feature-status-detail-title">迁移说明</text>
-					<view wx:for="{{coverage.notes}}" wx:key="*this" class="feature-status-note-row">
-						<text class="feature-status-note">{{item}}</text>
-					</view>
-				</view>
-			</view>
+			<text class="feature-status-panel-copy">我们正在完成服务准备和上线前检查，开放后会及时更新。</text>
 			<view class="feature-status-notice">
-				<text>已完成的医疗服务仍可从首页或“我的”进入。</text>
-				<text>该入口不会读取旧缓存、调用未确认接口或发起支付。</text>
+				<text>已开放的医疗服务仍可从首页或“我的”进入。</text>
+				<text>你可以先返回医疗服务，使用其他已开放功能。</text>
 			</view>
 		</view>
 

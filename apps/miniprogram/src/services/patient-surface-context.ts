@@ -7,8 +7,11 @@ import {
 	invalidatePageRequests,
 } from "./page-instance-state";
 import { patientScopedErrorMessage } from "./patient-selection-service";
-import { registerSessionChangedListener } from "./session-events";
 import { assertSessionGeneration } from "./session-boundary";
+import {
+	registerSessionChangedListener,
+	type SessionChangedEvent,
+} from "./session-events";
 
 /**
  * 关闭态页面可以展示的当前就诊人上下文。
@@ -46,6 +49,8 @@ type PatientSurfaceContextPage = {
 type PatientSurfaceContextRuntime = {
 	/** 这张卡片最后一次成功确认的会话代际；-1 表示尚未确认。 */
 	sessionGeneration: number;
+	/** 当前页面使用的请求守卫 key，会话切换后用于自动重读当前患者。 */
+	guardKey: string;
 	/** 页面卸载后阻止已复制到事件队列的旧回调继续 setData。 */
 	disposed: boolean;
 	unsubscribe: () => void;
@@ -71,14 +76,14 @@ export function patientSurfaceErrorMessage(error: unknown): string {
 			case "patient-not-bound":
 				return "当前还没有可用的就诊人，请先选择就诊人";
 			case "patient-selection-stale":
-				return "上次选择的就诊人已失效，请重新选择";
+				return "请选择就诊人后再继续";
 			case "patient-clinical-unavailable":
-				return "当前就诊人暂不可用于该服务，请更换就诊人";
+				return "该就诊人暂时无法使用此服务，请更换就诊人";
 			case "persistence-temporarily-unavailable":
-				return "就诊人信息暂时不可用，请稍后重试";
+				return "就诊人信息暂时无法获取，请稍后再试";
 		}
 	}
-	return patientScopedErrorMessage(error, "就诊人信息暂时无法加载，请重试");
+	return patientScopedErrorMessage(error, "就诊人信息暂时无法获取，请稍后再试");
 }
 
 /** 将已校验患者投影为关闭态页面可以展示的脱敏字段。 */
@@ -110,18 +115,16 @@ export function toPatientSurfaceData(
 /**
  * 会话变化时统一清理患者外壳。
  *
- * 账号切换不等于“当前账号暂时没有患者”，所以这里保留明确的重新读取
- * 文案，并把 `patientContextLoaded` 退回 false；页面不能把上一账号的卡片
- * 留在界面上，也不能把清理动作伪装成成功空结果。真正的重新读取由页面的
- * onShow、重试或用户重新进入业务入口触发，避免在 `setAccessToken` 尚未
- * 写入新 token 的通知回调中立即发起请求。
+ * 账号切换不等于“当前账号暂时没有患者”，所以这里先清空旧卡片并回到
+ * 固定的加载态；页面不能把上一账号的卡片留在界面上，也不能把清理动作
+ * 伪装成成功空结果。新的读取会在认证层写入新 token 后自动开始。
  */
 export function patientSurfaceSessionReset(): Partial<PatientSurfaceContextData> {
 	return {
 		...toPatientSurfaceData(null),
-		patientContextLoading: false,
+		patientContextLoading: true,
 		patientContextLoaded: false,
-		patientContextError: "登录账号已切换，请重新读取就诊人",
+		patientContextError: "",
 	};
 }
 
@@ -133,19 +136,35 @@ function ensurePatientSurfaceRuntime(
 
 	const runtime: PatientSurfaceContextRuntime = {
 		sessionGeneration: -1,
+		guardKey: "",
 		disposed: false,
 		unsubscribe: () => undefined,
 	};
-	runtime.unsubscribe = registerSessionChangedListener(() => {
-		// `notifySessionChanged` 会复制监听器后再执行；即使页面恰好在
-		// 通知期间卸载，disposed 也必须阻止回调越过页面生命周期边界。
-		if (runtime.disposed || runtime.sessionGeneration < 0) return;
-		// 共享患者外壳没有使用页面级 reset 工厂，因此这里显式淘汰该页面
-		// 所有 guard；否则目录请求在会话通知后晚返回，仍可能覆盖清理态。
-		invalidatePageRequests(page);
-		runtime.sessionGeneration = -1;
-		page.setData(patientSurfaceSessionReset());
-	});
+	runtime.unsubscribe = registerSessionChangedListener(
+		(event: SessionChangedEvent) => {
+			// `notifySessionChanged` 会复制监听器后再执行；即使页面恰好在
+			// 通知期间卸载，disposed 也必须阻止回调越过页面生命周期边界。
+			if (runtime.disposed || runtime.sessionGeneration < 0) return;
+			// token 失效是 GET 自动恢复的中间步骤，不是账号切换事实；如果
+			// 在这里清空页面，用户会看到一次“账号已切换”的错误闪动。
+			if (event.reason === "session-invalidated") return;
+			// 共享患者外壳没有使用页面级 reset 工厂，因此这里显式淘汰该页面
+			// 所有 guard；否则目录请求在会话通知后晚返回，仍可能覆盖清理态。
+			invalidatePageRequests(page);
+			runtime.sessionGeneration = -1;
+			page.setData(patientSurfaceSessionReset());
+			if (runtime.guardKey) {
+				// 认证层在通知之后才写入新 token；延迟一个事件循环，避免把
+				// 失效 token 重新当作当前患者读取。失败由页面自己的状态处理。
+				setTimeout(() => {
+					if (runtime.disposed) return;
+					void loadPatientSurfaceContext(page, runtime.guardKey).catch(
+						() => undefined,
+					);
+				}, 0);
+			}
+		},
+	);
 	patientSurfaceRuntimes.set(page, runtime);
 	return runtime;
 }
@@ -163,6 +182,7 @@ export function loadPatientSurfaceContext(
 	guardKey: string,
 ): Promise<void> {
 	const runtime = ensurePatientSurfaceRuntime(page);
+	runtime.guardKey = guardKey;
 	const guard = getPageLatestRequestGuard(page, guardKey);
 	const token = guard.begin();
 	// 新一轮读取开始后，上一轮卡片不再有可提交资格；WXML 的 loading

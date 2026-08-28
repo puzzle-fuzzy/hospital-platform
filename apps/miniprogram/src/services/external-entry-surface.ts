@@ -9,6 +9,7 @@ import {
 	loadPatientSurfaceContext,
 	type PatientSurfaceContextData,
 } from "./patient-surface-context";
+import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
 export type ExternalEntrySurfaceFeature =
 	| "smart-customer"
@@ -104,14 +105,7 @@ function toPageData(
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
 		showPatientSelector: definition.showPatientSelector,
-		surfaceLabel: "原生入口已迁移 · 外部会话仍关闭",
-		description:
-			"当前页面只承接入口和安全说明，不会打开任意外部地址，不会传递平台 token，也不会把本地状态伪装成授权成功。",
-		scopeTitle: definition.scopeTitle,
-		scopeDescription: definition.scopeDescription,
-		boundaryItems: definition.boundaryItems,
-		contractItems: definition.contractItems,
-		coverageLabel: coverage.coverageLabel,
+		...USER_FACING_SURFACE_COPY,
 	};
 }
 

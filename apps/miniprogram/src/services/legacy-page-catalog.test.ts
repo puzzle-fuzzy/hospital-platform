@@ -111,7 +111,7 @@ describe("旧端页面全量迁移台账", () => {
 		// 主 Tab 的安全壳只说明 contract 尚未完成；真正的 web-view 和外部
 		// URL 必须等 audience、allowlist、短期会话和回跳证据齐全后再加入。
 		expect(pageWxml).not.toContain("<web-view");
-		expect(pageWxml).toContain("互联网医院服务正在迁移中");
+		expect(pageWxml).toContain("互联网医院服务正在完善中");
 	});
 
 	test("每个旧业务域都有可追溯的状态分布，且总量与逐页台账一致", () => {

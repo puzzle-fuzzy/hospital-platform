@@ -13,14 +13,14 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
-	disposePageSessionResetListener,
-	registerPageSessionResetListener,
-} from "../../services/session-events";
-import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
@@ -68,21 +68,25 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 	onLoad() {
 		// 首次展示标记必须绑定当前页面实例，避免和预约记录页串状态。
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 会话轮换时不能继续显示上一账号的爽约记录；这里只清理本地
-			// 快照，不在新 token 写入前自动发起患者查询。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				patientSessionGeneration: -1,
-				records: [],
-				visibleRecords: [],
-				visibleRecordCount: 0,
-				hasMoreRecords: false,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 会话轮换时不能继续显示上一账号的爽约记录；这里只清理本地
+				// 快照，不在新 token 写入前自动发起患者查询。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					patientSessionGeneration: -1,
+					records: [],
+					visibleRecords: [],
+					visibleRecordCount: 0,
+					hasMoreRecords: false,
+					loading: true,
+					error: "",
+				});
+			},
+			() => this.loadRecords(),
+		);
 		this.loadRecords();
 	},
 
@@ -293,11 +297,11 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 		);
 	},
 
-	showError(error: unknown, fallback: string): void {
+	showError(error: unknown, _fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
-				? "爽约记录服务暂未配置完成，请联系管理员"
-				: patientContextErrorMessage(error, fallback);
+				? "爽约记录功能正在完善中，暂时无法使用"
+				: patientContextErrorMessage(error, "爽约记录暂时无法获取，请稍后再试");
 		this.setData({
 			error: message,
 			selectedPatient: null,

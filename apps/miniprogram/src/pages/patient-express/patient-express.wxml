@@ -28,11 +28,11 @@
 
 		<view wx:elif="{{recordState === 'unavailable'}}" class="patient-express-empty">
 			<image class="patient-express-empty-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
-			<text class="patient-express-empty-text">未查询到相关记录!</text>
-			<text class="patient-express-empty-note">旧端当前没有接入物流记录服务</text>
+			<text class="patient-express-empty-text">物流服务正在完善中</text>
+			<text class="patient-express-empty-note">当前暂时无法使用，请稍后再试</text>
 		</view>
 
-		<button class="patient-express-link" bindtap="onOpenMigrationStatus">查看物流功能迁移说明</button>
+		<button class="patient-express-link" bindtap="onOpenMigrationStatus">了解服务进度</button>
 		<button class="patient-express-back" bindtap="onBackMy">返回我的</button>
 	</view>
 </scroll-view>

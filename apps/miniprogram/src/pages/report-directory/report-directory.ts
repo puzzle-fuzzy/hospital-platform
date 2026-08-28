@@ -99,23 +99,27 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 	onLoad() {
 		// 首次展示标记必须绑定当前页面实例，避免报告页栈叠加时互相影响。
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 报告摘要属于当前患者的临床读模型。会话切换后必须清除报告卡片
-			// 和本地展开窗口，不能等待下一次请求完成后才撤掉旧数据。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				patientSessionGeneration: -1,
-				reports: [],
-				visibleReports: [],
-				reportCount: 0,
-				visibleReportCount: 0,
-				hasMoreReports: false,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-				canSelectPatient: false,
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 报告摘要属于当前患者的临床读模型。会话切换后必须清除报告卡片
+				// 和本地展开窗口，不能等待下一次请求完成后才撤掉旧数据。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					patientSessionGeneration: -1,
+					reports: [],
+					visibleReports: [],
+					reportCount: 0,
+					visibleReportCount: 0,
+					hasMoreReports: false,
+					loading: true,
+					error: "",
+					canSelectPatient: false,
+				});
+			},
+			() => this.loadPage(),
+		);
 		this.loadPage();
 	},
 
@@ -348,11 +352,11 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 		};
 	},
 
-	showError(error: unknown, fallback: string): void {
+	showError(error: unknown, _fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
-				? "报告服务暂未配置完成，请联系管理员"
-				: patientContextErrorMessage(error, fallback);
+				? "报告服务正在完善中，暂时无法使用"
+				: patientContextErrorMessage(error, "检查报告暂时无法获取，请稍后再试");
 		const canSelectPatient = isPatientSelectionError(error);
 		this.setData({
 			error: message,

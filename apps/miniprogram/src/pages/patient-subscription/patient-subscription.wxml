@@ -7,7 +7,7 @@
 
 		<view class="subscription-warning">
 			<text>如您关闭订阅将无法收到相关业务提醒，请您慎重选择。</text>
-			<text class="subscription-warning-note">当前仅展示旧端项目，尚未接入微信订阅授权，不会保存修改。</text>
+			<text class="subscription-warning-note">消息订阅服务正在完善中，当前不会保存修改。</text>
 		</view>
 
 		<view class="subscription-patient" bindtap="onOpenPatientSelector">
@@ -49,7 +49,7 @@
 						<text class="subscription-item-title">{{item.title}}</text>
 						<view class="subscription-item-control">
 							<switch checked="{{item.enabled}}" disabled="{{true}}" color="#10B981" />
-							<text>暂未接入</text>
+							<text>暂未开放</text>
 						</view>
 					</view>
 				</view>
@@ -61,6 +61,6 @@
 </scroll-view>
 
 <view class="subscription-bottom-actions">
-	<button class="subscription-status-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
+	<button class="subscription-status-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
 	<button class="subscription-back-button" bindtap="onBackMy">返回我的</button>
 </view>

@@ -5,11 +5,11 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { patientScopedErrorMessage } from "../../services/patient-selection-service";
-import type { Patient } from "../../types";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import type { Patient } from "../../types";
 
 type BloodAppointmentPatientView = Patient & {
 	relationshipLabel: string;
@@ -64,14 +64,18 @@ Page<BloodAppointmentPageData, BloodAppointmentPageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 采血页面没有写操作，会话变化时清理展示快照即可。
-			this.setData({
-				patient: null,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 采血页面没有写操作，会话变化时清理展示快照即可。
+				this.setData({
+					patient: null,
+					loading: true,
+					error: "",
+				});
+			},
+			() => this.loadPatient(),
+		);
 		void this.loadPatient();
 	},
 

@@ -71,16 +71,20 @@ Page<PatientSignaturePageData, PatientSignaturePageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 签名页当前仍是关闭态，但患者列表仍属于当前账号；会话变化
-			// 后必须撤销姓名、关系和选中状态，不能把旧患者带入后续签名流程。
-			this.setData({
-				patients: [],
-				selectedPatientId: "",
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 签名页当前仍是关闭态，但患者列表仍属于当前账号；会话变化
+				// 后必须撤销姓名、关系和选中状态，不能把旧患者带入后续签名流程。
+				this.setData({
+					patients: [],
+					selectedPatientId: "",
+					loading: true,
+					error: "",
+				});
+			},
+			() => this.loadPatientList(),
+		);
 		void this.loadPatientList();
 	},
 

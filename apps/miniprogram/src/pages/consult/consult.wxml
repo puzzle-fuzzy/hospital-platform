@@ -3,7 +3,7 @@
 	<view class="consult-page">
 		<view class="consult-intro">
 			<text class="consult-intro-title">智能陪诊</text>
-			<text class="consult-intro-copy">就诊引导、排队叫号、缴费、查报告和取药进度将在独立 contract 完成后接入。</text>
+			<text class="consult-intro-copy">就诊引导、排队叫号、缴费、查报告和取药进度正在完善中。</text>
 		</view>
 
 		<view class="consult-patient-card">
@@ -33,7 +33,7 @@
 			<block wx:else>
 				<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
 				<text class="consult-state-title">{{activeTab === 'today' ? '今日暂无预约摘要' : activeTab === 'upcoming' ? '暂无未来就诊记录' : '暂无历史就诊记录'}}</text>
-				<text class="consult-state-hint">{{activeTab === 'today' ? '当前没有已确认的今日预约；实时就诊 contract 尚未完成，不会猜测叫号或排队状态' : '当前仅展示预约摘要，不包含实时叫号或队列状态'}}</text>
+		<text class="consult-state-hint">{{activeTab === 'today' ? '当前没有已确认的今日预约' : '当前仅展示已确认的就诊摘要'}}</text>
 			</block>
 		</view>
 
@@ -58,7 +58,7 @@
 				<text wx:if="{{item.serialNumber}}" class="consult-record-number">就诊序号：{{item.serialNumber}}</text>
 			</view>
 			<view wx:if="{{hasMoreRecords}}" class="consult-record-load-more" bindtap="onLoadMore">加载更多就诊记录</view>
-			<text class="consult-record-footnote">记录来自预约只读服务；实时就诊状态将在独立 contract 完成后接入。</text>
+			<text class="consult-record-footnote">这里展示已确认的预约摘要，实时就诊状态暂未开放。</text>
 		</view>
 	</view>
 </scroll-view>

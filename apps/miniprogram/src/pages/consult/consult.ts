@@ -12,16 +12,16 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
-import { toPatientSurfaceData } from "../../services/patient-surface-context";
-import {
-	disposePageSessionResetListener,
-	registerPageSessionResetListener,
-} from "../../services/session-events";
 import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
+import { toPatientSurfaceData } from "../../services/patient-surface-context";
 import { assertSessionGeneration } from "../../services/session-boundary";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
 import { hasPlatformSession } from "../../services/session-service";
 import type {
@@ -112,22 +112,26 @@ Page<ConsultPageData, ConsultPageMethods>({
 	onLoad() {
 		// 主 Tab 可能被微信复用；首次 onShow 不重复 onLoad 已发起的会话读取。
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 就诊记录是当前账号/当前患者的组合读模型。账号切换时必须
-			// 同时清空患者摘要和三类记录，不能等 onShow 才撤销旧医疗信息。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				selectedPatientName: "正在获取就诊人...",
-				selectedPatientIdLabel: "就诊卡信息加载中",
-				records: [],
-				visibleRecords: [],
-				visibleRecordCount: 0,
-				hasMoreRecords: false,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 就诊记录是当前账号/当前患者的组合读模型。账号切换时必须
+				// 同时清空患者摘要和三类记录，不能等 onShow 才撤销旧医疗信息。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					selectedPatientName: "正在获取就诊人...",
+					selectedPatientIdLabel: "就诊卡信息加载中",
+					records: [],
+					visibleRecords: [],
+					visibleRecordCount: 0,
+					hasMoreRecords: false,
+					loading: true,
+					error: "",
+				});
+			},
+			() => this.loadContext(),
+		);
 		void this.loadContext();
 	},
 

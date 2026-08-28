@@ -12,7 +12,6 @@ import {
 	subscribeGlobalUserProfile,
 	waitForGlobalUserProfile,
 } from "../../services/global-user-profile";
-import { openWechatUserProfileSettings } from "../../services/wechat-user-profile";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -28,16 +27,17 @@ import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
 } from "../../services/patient-selection-service";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { isCurrentSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
 	sessionStateAfterAuthenticatedReadError,
 	sessionVerificationStateFromError,
 } from "../../services/session-service";
-import {
-	disposePageSessionResetListener,
-	registerPageSessionResetListener,
-} from "../../services/session-events";
+import { openWechatUserProfileSettings } from "../../services/wechat-user-profile";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -178,18 +178,22 @@ Page<MyPageData, MyPageMethods>({
 		// 首次 onShow 只消费 onLoad 已发起的读取；该状态必须属于当前
 		// 页面实例，不能用 loading 推断，否则快速响应时会重复请求。
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 全局资料仓库会清理昵称和头像，但“我的”页还持有独立的
-			// 患者目录快照；两者必须在同一个会话事件中一起撤销，不能出现
-			// 新账号头像配旧账号就诊人数的混合帧。回读由 onShow/重试负责。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				patientCount: 0,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 全局资料仓库会清理昵称和头像，但“我的”页还持有独立的
+				// 患者目录快照；两者必须在同一个会话事件中一起撤销，不能出现
+				// 新账号头像配旧账号就诊人数的混合帧。回读由 onShow/重试负责。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					patientCount: 0,
+					loading: true,
+					error: "",
+				});
+			},
+			() => this.loadPage(),
+		);
 		const unsubscribe = subscribeGlobalUserProfile((state) =>
 			applyGlobalProfileToPage(this, state),
 		);
@@ -286,7 +290,7 @@ Page<MyPageData, MyPageMethods>({
 							sessionState: "checking",
 							selectedPatient: null,
 							patientCount: 0,
-							error: "登录状态已变化，请下拉刷新后重试",
+							error: "登录状态需要重新确认，请稍后再试",
 						});
 						return;
 					}
@@ -372,7 +376,7 @@ Page<MyPageData, MyPageMethods>({
 			})
 			.catch((error: unknown) => {
 				if (error instanceof ApiError && error.code === "session-changed") {
-					this.setData({ error: "登录状态已变化，请下拉刷新后重试" });
+					this.setData({ error: "登录状态需要重新确认，请稍后再试" });
 					return;
 				}
 				if (
@@ -471,7 +475,7 @@ Page<MyPageData, MyPageMethods>({
 				wx.navigateTo({ url: "/pages/feedback/feedback" });
 				break;
 			default:
-				wx.showToast({ title: "该服务正在迁移中", icon: "none" });
+				wx.showToast({ title: "该服务正在完善中，请稍后再试", icon: "none" });
 		}
 	},
 

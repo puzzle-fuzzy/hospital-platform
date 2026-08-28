@@ -152,22 +152,26 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		this.setData({ hasShown: false });
 		// 不能在 owner-scoped 目录返回前直接把本地缓存画成“当前”患者；
 		// 当前标记只能由本次成功读取并完成临床映射确认的目录恢复。
-		registerPageSessionResetListener(this, () => {
-			// 选择页同时展示姓名、关系和脱敏卡号；会话变化时这些字段
-			// 都失去 owner 证明。清理回跳定时器，避免旧账号的选择在通知
-			// 之后继续 navigateBack 到新账号页面。
-			const navigationTimer = patientNavigationTimers.get(this);
-			if (navigationTimer !== undefined) clearTimeout(navigationTimer);
-			patientNavigationTimers.delete(this);
-			patientSelectionSessionGenerations.delete(this);
-			this.clearDisplayedPatientDirectory();
-			this.setData({
-				loading: false,
-				syncing: false,
-				navigationPending: false,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 选择页同时展示姓名、关系和脱敏卡号；会话变化时这些字段
+				// 都失去 owner 证明。清理回跳定时器，避免旧账号的选择在通知
+				// 之后继续 navigateBack 到新账号页面。
+				const navigationTimer = patientNavigationTimers.get(this);
+				if (navigationTimer !== undefined) clearTimeout(navigationTimer);
+				patientNavigationTimers.delete(this);
+				patientSelectionSessionGenerations.delete(this);
+				this.clearDisplayedPatientDirectory();
+				this.setData({
+					loading: true,
+					syncing: true,
+					navigationPending: false,
+					error: "",
+				});
+			},
+			() => this.loadPatientList(),
+		);
 		this.loadPatientList();
 	},
 
@@ -308,7 +312,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			// 患者上下文。先清掉页面上的医疗派生数据，再重新读取当前会话；
 			// 不能把旧 patientId 写入 storage 后交给首页自行猜测归属。
 			this.clearDisplayedPatientDirectory();
-			wx.showToast({ title: "登录状态已变化，正在重新刷新", icon: "none" });
+			wx.showToast({ title: "登录状态正在更新，请稍后再试", icon: "none" });
 			void this.loadPatientList();
 			return;
 		}
@@ -480,11 +484,11 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		disposePageInstance(this);
 	},
 
-	showError(error: unknown, fallback: string): void {
+	showError(error: unknown, _fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
-				? "就诊人服务暂未配置完成，请联系管理员"
-				: patientContextErrorMessage(error, fallback);
+				? "就诊人服务正在完善中，暂时无法使用"
+				: patientContextErrorMessage(error, "就诊人暂时无法获取，请稍后再试");
 		const sessionDisplayInvalid = shouldClearPatientDirectory(error);
 		// 同步失败时可以保留已由平台目录确认的 ready 列表和当前标记，避免
 		// Provider 短暂不可用阻塞用户切换；如果本轮没有 ready 患者，则不能

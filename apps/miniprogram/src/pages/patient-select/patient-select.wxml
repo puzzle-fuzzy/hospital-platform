@@ -27,8 +27,8 @@
 		</block>
 		<block wx:elif="{{error}}">
 			<text>本次就诊人目录未加载成功</text>
-			<text class="state-hint">请根据上方提示处理后重试</text>
-			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+			<text class="state-hint">请稍后再试</text>
+			<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
 		</block>
 		<block wx:else>
 			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
@@ -67,7 +67,7 @@
 		<button class="refresh-button" loading="{{syncing}}" disabled="{{loading || syncing || navigationPending}}" bindtap="onSyncPatients">
 			{{syncing ? "正在刷新" : "刷新就诊人"}}
 		</button>
-		<text class="action-hint">新增或绑定就诊人功能将在后续接入医院真实接口</text>
+		<text class="action-hint">新增或绑定就诊人服务正在完善中</text>
 	</view>
 </view>
 </scroll-view>

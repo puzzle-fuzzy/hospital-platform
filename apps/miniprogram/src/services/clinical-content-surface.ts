@@ -9,6 +9,7 @@ import {
 	loadPatientSurfaceContext,
 	type PatientSurfaceContextData,
 } from "./patient-surface-context";
+import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
 export type ClinicalContentSurfaceFeature =
 	| "admission-preconsultation"
@@ -171,14 +172,7 @@ function toPageData(
 		...INITIAL_PATIENT_SURFACE_CONTEXT,
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
-		surfaceLabel: "页面外壳已迁移 · 临床业务仍关闭",
-		description:
-			"当前页面用于承接旧端入口和说明迁移边界，不会读取旧题库、提交答案、上传文件或生成医疗结论。",
-		scopeTitle: definition.scopeTitle,
-		scopeDescription: definition.scopeDescription,
-		boundaryItems: definition.boundaryItems,
-		contractItems: definition.contractItems,
-		coverageLabel: coverage.coverageLabel,
+		...USER_FACING_SURFACE_COPY,
 		showPatientSelector: definition.showPatientSelector,
 	};
 }

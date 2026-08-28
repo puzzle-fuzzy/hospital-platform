@@ -1,14 +1,14 @@
+import { loadCurrentPatient } from "../../services/dashboard-service";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import { patientScopedErrorMessage } from "../../services/patient-selection-service";
 import {
-	resolvePatientExpressRecordState,
 	type PatientExpressRecordState,
+	resolvePatientExpressRecordState,
 } from "../../services/patient-express-state";
-import { loadCurrentPatient } from "../../services/dashboard-service";
+import { patientScopedErrorMessage } from "../../services/patient-selection-service";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
@@ -51,15 +51,19 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 
 	onLoad() {
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 账号切换后不得把上一账号的快递患者卡片留在页面上。
-			this.setData({
-				patient: null,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-				recordState: "error",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 账号切换后不得把上一账号的快递患者卡片留在页面上。
+				this.setData({
+					patient: null,
+					loading: true,
+					error: "",
+					recordState: "loading",
+				});
+			},
+			() => this.loadCurrentPatient(),
+		);
 		void this.loadCurrentPatient();
 	},
 

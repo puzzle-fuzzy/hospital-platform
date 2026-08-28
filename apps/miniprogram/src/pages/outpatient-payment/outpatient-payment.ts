@@ -12,15 +12,15 @@ import {
 } from "../../services/page-instance-state";
 import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
-	disposePageSessionResetListener,
-	registerPageSessionResetListener,
-} from "../../services/session-events";
-import {
 	isCurrentSelectedPatient,
 	isPatientSelectionError,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
 import { assertSessionGeneration } from "../../services/session-boundary";
+import {
+	disposePageSessionResetListener,
+	registerPageSessionResetListener,
+} from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
 import {
 	hasPlatformSession,
@@ -111,22 +111,26 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 	onLoad() {
 		// 首次展示标记必须绑定当前页面实例，不能在多层页面栈之间共享。
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 门诊费用当前只读，但金额和缴费状态同样属于患者敏感范围；账号
-			// 切换时必须先清空旧账单，再等待用户重新触发当前会话读取。
-			this.setData({
-				sessionState: "checking",
-				selectedPatient: null,
-				patientSessionGeneration: -1,
-				items: [],
-				visibleItems: [],
-				visibleItemCount: 0,
-				hasMoreItems: false,
-				loading: false,
-				error: "登录账号已切换，请重新读取就诊人",
-				canSelectPatient: false,
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 门诊费用当前只读，但金额和缴费状态同样属于患者敏感范围；账号
+				// 切换时必须先清空旧账单，再等待用户重新触发当前会话读取。
+				this.setData({
+					sessionState: "checking",
+					selectedPatient: null,
+					patientSessionGeneration: -1,
+					items: [],
+					visibleItems: [],
+					visibleItemCount: 0,
+					hasMoreItems: false,
+					loading: true,
+					error: "",
+					canSelectPatient: false,
+				});
+			},
+			() => this.loadPage(),
+		);
 		this.loadPage();
 	},
 
@@ -451,14 +455,17 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 		disposePageInstance(this);
 	},
 
-	showError(error: unknown, fallback: string): void {
+	showError(error: unknown, _fallback: string): void {
 		const message =
 			error instanceof ApiError && error.code === "dependency-not-configured"
-				? "门诊缴费服务暂未配置完成，请联系管理员"
+				? "门诊缴费功能正在完善中，暂时无法使用"
 				: error instanceof ApiError &&
 						error.code === "outpatient-payment-patient-not-found"
-					? "当前就诊人暂未建立门诊缴费映射"
-					: patientContextErrorMessage(error, fallback);
+					? "未查询到缴费记录"
+					: patientContextErrorMessage(
+							error,
+							"缴费记录暂时无法获取，请稍后再试",
+						);
 		const canSelectPatient = isPatientSelectionError(error);
 		this.setData({
 			error: message,

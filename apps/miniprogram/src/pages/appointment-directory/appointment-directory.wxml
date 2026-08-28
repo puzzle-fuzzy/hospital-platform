@@ -18,8 +18,8 @@
 		</block>
 		<block wx:elif="{{error}}">
 			<text>本次预约目录未加载成功</text>
-			<text class="state-hint">请根据上方提示处理后重试</text>
-			<view class="state-hint state-hint-action" bindtap="onRetry">重新加载</view>
+			<text class="state-hint">请稍后再试</text>
+			<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
 		</block>
 		<block wx:else>
 			<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
@@ -113,7 +113,7 @@
 	</view>
 
 	<view class="readonly-note">
-		当前为预约目录查询。预约下单、锁号、取消和支付将在真实业务契约与线上验收完成后开放。
+		当前仅提供预约信息查询。预约下单、锁号、取消和支付功能正在完善中。
 	</view>
 	</view>
 </scroll-view>

@@ -551,8 +551,8 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 				serverDisplayName: "微信用户",
 				avatarUrl: "",
 				wechatProfileState: "idle",
-				wechatProfileHint: "登录状态已变化，请重新加载",
-				error: "登录状态已变化，请重新加载",
+				wechatProfileHint: "登录状态需要重新确认，请稍后再试",
+				error: "登录状态需要重新确认，请稍后再试",
 			});
 		}
 		throw error;

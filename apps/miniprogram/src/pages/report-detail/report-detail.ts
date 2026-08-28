@@ -4,6 +4,7 @@ import {
 	requestReportDetail,
 } from "../../services/api-client";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
+import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -12,14 +13,13 @@ import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
-import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import { toLaboratoryReportItemView } from "../../services/report-presenter";
 import { assertSessionGeneration } from "../../services/session-boundary";
-import { getSessionGeneration } from "../../services/session-generation";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import { getSessionGeneration } from "../../services/session-generation";
 import type { ReportDetailPageData, ReportTabEvent } from "../../types";
 
 /** 报告详情页只消费服务端白名单检测项，不保存 provider 原始响应。 */
@@ -80,7 +80,7 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 				items: [],
 				hasItems: false,
 				hasAttachment: false,
-				error: "登录账号已切换，请重新选择就诊人",
+				error: "登录状态已更新，请返回后重新选择就诊人",
 				sourcePatientId: "",
 				sourceReportId: "",
 			});

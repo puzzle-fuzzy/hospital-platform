@@ -29,9 +29,9 @@ type SearchPageMethods = {
 
 function searchErrorMessage(error: unknown): string {
 	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "健康百科内容尚未发布，请稍后再试";
+		return "健康内容正在完善中，暂时无法使用";
 	}
-	return "查找结果暂时无法加载，请稍后重试";
+	return "健康内容暂时无法获取，请稍后再试";
 }
 
 Page<SearchPageData, SearchPageMethods>({

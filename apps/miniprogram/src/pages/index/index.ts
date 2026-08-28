@@ -285,16 +285,20 @@ Page<IndexPageData, IndexPageMethods>({
 		// 生命周期状态必须保存在页面实例 data 内；模块热复用或多层页面栈
 		// 不能共享“是否首次展示”的标记。
 		this.setData({ hasShown: false });
-		registerPageSessionResetListener(this, () => {
-			// 首页是患者上下文的根页面。会话变化通知到达时不能等待下一次
-			// onShow 才清理，否则用户会在共享 Tab 上继续看到上一账号的姓名、
-			// 卡片和二维码。这里只清理本地派生状态，不在新 token 写入前发请求。
-			this.clearDisplayedPatientContext();
-			this.setData({
-				sessionStatus: SESSION_LABELS.restoring,
-				error: "登录账号已切换，请重新读取就诊人",
-			});
-		});
+		registerPageSessionResetListener(
+			this,
+			() => {
+				// 首页是患者上下文的根页面。会话变化通知到达时不能等待下一次
+				// onShow 才清理，否则用户会在共享 Tab 上继续看到上一账号的姓名、
+				// 卡片和二维码。这里只清理本地派生状态，不在新 token 写入前发请求。
+				this.clearDisplayedPatientContext();
+				this.setData({
+					sessionStatus: SESSION_LABELS.restoring,
+					error: "",
+				});
+			},
+			() => this.loadPatients().then(() => undefined),
+		);
 		this.checkHealth();
 		const selectedPatientId = getSelectedPatientId();
 		if (selectedPatientId) this.setData({ selectedPatientId });
@@ -965,10 +969,10 @@ Page<IndexPageData, IndexPageMethods>({
 		if (error instanceof ApiError) {
 			if (error.code === "dependency-not-configured") {
 				message = fallback.includes("预约")
-					? "预约服务暂未配置完成，请联系管理员"
+					? "预约服务正在完善中，暂时无法使用"
 					: fallback.includes("就诊人")
-						? "就诊人服务暂未配置完成，请联系管理员"
-						: "服务暂未配置完成，请联系管理员";
+						? "就诊人服务正在完善中，暂时无法使用"
+						: "该服务正在完善中，暂时无法使用";
 			} else {
 				message = patientContextErrorMessage(error, fallback);
 			}

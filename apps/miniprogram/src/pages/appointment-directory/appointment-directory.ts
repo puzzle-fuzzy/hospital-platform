@@ -273,8 +273,8 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		if (error instanceof ApiError) {
 			message =
 				error.code === "dependency-not-configured"
-					? "预约服务暂未配置完成，请联系管理员"
-					: safeApiErrorMessage(error, fallback);
+					? "预约服务正在完善中，暂时无法使用"
+					: safeApiErrorMessage(error, "预约信息暂时无法获取，请稍后再试");
 		}
 		this.setData({ error: message });
 	},

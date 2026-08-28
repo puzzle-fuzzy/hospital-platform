@@ -1,8 +1,9 @@
+import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
 } from "./migration-coverage";
-import { navigateToFeatureStatus, type FeatureKey } from "./feature-navigation";
+import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
 export type PatientContractSurfaceFeature =
 	| "patient-binding"
@@ -85,14 +86,7 @@ function toPageData(
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
 		readiness: coverage.feature.readiness,
-		surfaceLabel: "页面外壳已迁移 · 业务仍关闭",
-		description:
-			"当前页面用于承接旧端入口和说明迁移边界，不会提交实名资料、上传签名或伪造物流记录。",
-		scopeTitle: definition.scopeTitle,
-		scopeDescription: definition.scopeDescription,
-		boundaryItems: definition.boundaryItems,
-		contractItems: definition.contractItems,
-		coverageLabel: coverage.coverageLabel,
+		...USER_FACING_SURFACE_COPY,
 		showPatientSelector: definition.showPatientSelector,
 	};
 }

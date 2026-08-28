@@ -25,6 +25,8 @@ type PageSessionResetRuntime = {
 	unsubscribe: () => void;
 };
 
+type PageSessionRefresh = () => void | Promise<void>;
+
 type SharedAppData = {
 	globalData?: {
 		/** App IIFE 与页面 CommonJS bundle 共用的监听集合。 */
@@ -72,9 +74,10 @@ export function registerSessionChangedListener(
 /**
  * 为页面注册真实账号切换后的本地状态清理。
  *
- * `reset` 只能清理患者卡片、错误文案和加载状态，不能在回调中发起网络
- * 请求：`setAccessToken` 发布事件时新 token 可能还没有写入全局状态。页面
- * 应在 `onShow`、重试按钮或用户重新进入入口时再读取新账号的数据。回调
+ * `reset` 只能清理患者卡片、错误文案和加载状态，不能在回调中同步发起网络
+ * 请求：`setAccessToken` 发布事件时新 token 可能还没有写入全局状态。页面可以
+ * 提供 `refresh`，由这里在当前调用栈结束后自动重新读取；否则仍可在
+ * `onShow`、重试按钮或用户重新进入入口时再读取新账号的数据。回调
  * 执行 reset 前会先淘汰当前页面全部请求 guard，防止账号切换之后晚返回的
  * 旧 Promise 重新填充上一账号的患者、费用或资料快照。token 失效的短暂
  * 过渡事件只由全局资料仓库消费，页面不在自动恢复期间闪动。
@@ -85,6 +88,7 @@ export function registerSessionChangedListener(
 export function registerPageSessionResetListener(
 	page: object,
 	reset: () => void,
+	refresh?: PageSessionRefresh,
 ): void {
 	disposePageSessionResetListener(page);
 	const runtime: PageSessionResetRuntime = {
@@ -100,6 +104,18 @@ export function registerPageSessionResetListener(
 		if (event.reason === "session-invalidated") return;
 		invalidatePageRequests(page);
 		reset();
+		if (refresh) {
+			// 认证层在通知之后才写入新的 token；延迟一个事件循环，确保
+			// 页面重新读取时使用的是新会话，而不是刚刚失效的旧会话。
+			setTimeout(() => {
+				if (runtime.disposed) return;
+				try {
+					void Promise.resolve(refresh()).catch(() => undefined);
+				} catch {
+					// 页面刷新失败由页面自己的错误状态处理，不能反向影响会话层。
+				}
+			}, 0);
+		}
 	});
 	pageSessionResetRuntimes.set(page, runtime);
 }

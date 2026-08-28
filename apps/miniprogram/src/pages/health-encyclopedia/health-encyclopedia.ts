@@ -92,13 +92,13 @@ const EMPTY_DATA: KnowledgePageData = {
 function errorMessage(error: unknown): string {
 	if (error instanceof ApiError) {
 		if (error.code === "dependency-not-configured") {
-			return "健康百科内容尚未发布，请稍后再试";
+			return "健康内容正在完善中，暂时无法使用";
 		}
 		if (error.code === "persistence-temporarily-unavailable") {
-			return "数据服务暂时不可用，请稍后重试";
+			return "健康内容暂时无法获取，请稍后再试";
 		}
 	}
-	return "健康百科暂时无法加载，请稍后重试";
+	return "健康内容暂时无法获取，请稍后再试";
 }
 
 Page<KnowledgePageData, KnowledgePageMethods>({
