@@ -11,7 +11,6 @@ import {
 	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
-	OutpatientMedicalRecordResultValidationError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryReferenceConflictError,
@@ -52,10 +51,6 @@ import {
 	WechatLoginInputError,
 } from "../modules/auth/service";
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
-import {
-	MedicalRecordPatientNotFoundError,
-	MedicalRecordQueryError,
-} from "../modules/medical-records/service";
 import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
@@ -237,33 +232,10 @@ export function errorHandlerPlugin() {
 				};
 			}
 
-			if (error instanceof MedicalRecordQueryError) {
-				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "medical-record-query-invalid",
-						message: "门诊病历查询条件不合法",
-					},
-				};
-			}
-
-			if (error instanceof MedicalRecordPatientNotFoundError) {
-				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "medical-record-patient-not-found",
-						message: "当前就诊人暂无可查询的门诊病历",
-					},
-				};
-			}
-
 			if (
 				error instanceof OutpatientPaymentResultValidationError ||
 				error instanceof AppointmentDirectoryResultValidationError ||
 				error instanceof AppointmentRecordResultValidationError ||
-				error instanceof OutpatientMedicalRecordResultValidationError ||
 				error instanceof ReportResultValidationError ||
 				error instanceof PatientDirectoryResultValidationError ||
 				error instanceof ExternalTraceReadModelValidationError ||

@@ -10,7 +10,6 @@ import type {
 	HealthKnowledgeDrugDetailResponsePayload,
 	HealthKnowledgeSymptomListResponsePayload,
 	HealthPayload,
-	OutpatientMedicalRecordListPayload,
 	OutpatientPaymentListPayload,
 	PatientListPayload,
 	ReportDetailPayload,
@@ -61,8 +60,6 @@ export type AppointmentDepartmentListResponse =
 export type AppointmentScheduleListResponse = AppointmentScheduleListPayload;
 export type AppointmentRecordListResponse = AppointmentRecordListPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
-export type OutpatientMedicalRecordListResponse =
-	OutpatientMedicalRecordListPayload;
 export type ReportListResponse = ReportListPayload;
 export type ReportDetailResponse = ReportDetailPayload;
 export type WechatPrepayResponse = WechatPrepayPayload;
@@ -88,8 +85,6 @@ export type AppointmentRecord =
 	AppointmentRecordListResponse["data"]["items"][number];
 export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
-export type OutpatientMedicalRecord =
-	OutpatientMedicalRecordListResponse["data"]["items"][number];
 export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
 	/** 仅用于当前费用查询批次的 WXML 事件回查，不是账单号或支付业务引用。 */
 	viewKey: string;
@@ -311,36 +306,6 @@ export type ConsultationPageData = {
 	error: string;
 	/** 只有明确患者上下文错误时才允许引导重新选择。 */
 	canSelectPatient: boolean;
-};
-
-/**
- * “门诊病历”页面的安全只读状态。
- *
- * 页面只消费服务端已经按患者归属投影过的门诊摘要，不接触 Provider
- * patId、regId 或原始身份证字段；`visibleRecords` 仅是渲染窗口，不代表
- * 服务端分页，也不能改变 `records` 的业务总数。
- */
-export type MedicalRecordPageData = {
-	hasShown: boolean;
-	sessionState: SessionVerificationState;
-	queryState: ClinicalQueryState;
-	selectedPatient: Patient | null;
-	selectedPatientName: string;
-	selectedPatientCardLabel: string;
-	patientSessionGeneration: number;
-	records: Array<MedicalRecordView>;
-	visibleRecords: Array<MedicalRecordView>;
-	visibleRecordCount: number;
-	hasMoreRecords: boolean;
-	loading: boolean;
-	error: string;
-	/** 只有明确患者上下文错误时才允许引导重新选择。 */
-	canSelectPatient: boolean;
-};
-
-/** 门诊病历摘要的页面键只用于 WXML diff，不是病历号或 Provider 标识。 */
-export type MedicalRecordView = OutpatientMedicalRecord & {
-	viewKey: string;
 };
 
 /** “我的挂号”旧端的两个展示标签；切换只过滤当前已取得的安全读模型。 */

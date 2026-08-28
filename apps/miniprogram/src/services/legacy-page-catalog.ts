@@ -162,10 +162,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/electronic_record.vue",
 			domain: "健康",
-			status: "partial",
-			nativeTarget: "pages/medical-record/medical-record",
+			status: "blocked-provider",
+			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "medical-record",
-			note: "已迁移近 30 天门诊就诊摘要列表、患者切换和稳定状态；病历正文、详情、住院病历和附件仍独立关闭。",
+			note: "旧端只能证明存在门诊记录调用线索；尚无正式 Provider 请求/响应、患者映射和字段白名单，因此统一进入状态页，不读取预约或报告数据冒充病历。",
 		},
 		{
 			legacyPath: "pagesB/health/gift_electronic_banner.vue",
@@ -520,10 +520,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/user/my_consultation.vue",
 			domain: "用户",
-			status: "partial",
-			nativeTarget: "pages/consultation/consultation",
+			status: "blocked-external",
+			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "consultation",
-			note: "已迁移患者范围的问诊/就诊历史摘要列表和患者切换；外部问诊会话、正文、附件和实时能力仍关闭。",
+			note: "旧端实际调用独立的治疗陪诊历史入口，不是预约历史；外部主体、受众、短期会话、回跳和退出 contract 未确认，因此不把预约记录改名为问诊。",
 		},
 		{
 			legacyPath: "pagesB/user/my_registration.vue",

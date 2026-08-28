@@ -1793,7 +1793,7 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
 	// app.json 是小程序页面事实源；广度迁移新增的 12 个关闭态入口也必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(40);
+	expect(app.pages).toHaveLength(38);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -2712,28 +2712,26 @@ test("native blocked domains keep one explicit current-patient context", async (
 	}
 });
 
-test("我的问诊和门诊病历使用真实原生只读页面，不再渲染等待接入外壳", async () => {
-	const consultation = await source("pages/consultation/consultation.ts");
-	const consultationTemplate = await source(
-		"pages/consultation/consultation.wxml",
-	);
-	const medicalRecord = await source("pages/medical-record/medical-record.ts");
-	const medicalRecordTemplate = await source(
-		"pages/medical-record/medical-record.wxml",
-	);
+test("未确认的问诊与门诊病历入口统一进入状态页", async () => {
+	const app = JSON.parse(await source("app.json")) as { pages: string[] };
+	const catalog = await source("services/legacy-page-catalog.ts");
+	const navigation = await source("services/feature-navigation.ts");
 
-	expect(consultation).toContain("loadConsultationHistoryRecords");
-	expect(consultation).toContain("visibleRecords");
-	expect(consultation).not.toContain("registerExternalEntrySurfacePage");
-	expect(consultationTemplate).toContain("号源");
-	expect(consultationTemplate).toContain('bindtap="onChangePatient"');
-
-	expect(medicalRecord).toContain("loadOutpatientMedicalRecords");
-	expect(medicalRecord).toContain("visibleRecords");
-	expect(medicalRecord).not.toContain("registerClinicalSurfacePage");
-	expect(medicalRecordTemplate).toContain("诊断结果：");
-	expect(medicalRecordTemplate).toContain("未查询到您的记录");
-	expect(medicalRecordTemplate).not.toContain("等待业务接入");
+	// 旧端问诊历史与门诊病历分别依赖独立外部/临床 contract。没有正式
+	// contract 前，页面不能通过预约记录或报告目录“拼出”一个看似可用的结果。
+	expect(app.pages).not.toContain("pages/consultation/consultation");
+	expect(app.pages).not.toContain("pages/medical-record/medical-record");
+	expect(catalog).toContain('status: "blocked-provider"');
+	expect(catalog).toContain('status: "blocked-external"');
+	expect(catalog).toContain(
+		'nativeTarget: "pages/feature-status/feature-status"',
+	);
+	expect(navigation).not.toContain(
+		'"medical-record": "/pages/medical-record/medical-record"',
+	);
+	expect(navigation).not.toContain(
+		'consultation: "/pages/consultation/consultation"',
+	);
 });
 
 test("native patient signature keeps the patient boundary without fake external launch", async () => {
@@ -3416,9 +3414,7 @@ test("native patient center does not mislabel reports as outpatient medical reco
 	expect(myPage).toContain('action: "medical-record"');
 	expect(myTemplate).not.toContain('data-action="reports"');
 	expect(myPage).toContain('case "medical-record"');
-	expect(featureNavigation).toContain(
-		'"medical-record": "/pages/medical-record/medical-record"',
-	);
+	expect(featureNavigation).toContain('"medical-record"');
 });
 
 test("native homepage and my page reject stale patient directory responses", async () => {

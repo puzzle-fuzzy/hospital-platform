@@ -136,7 +136,6 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/knowledge/health/drug/detail/{drugId}` | Bearer | 返回指定审核药品详情；不构成个体化用药建议 |
 | `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg` |
 | `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；只返回已开放的检验详情白名单，不返回文件 URL |
-| `GET` | `/api/v2/medical-records` | Bearer | 必填 `patientId`、`startDate`、`endDate`；读取当前患者近 30 天门诊就诊记录摘要 |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
 | `GET` | `/api/v2/payments/orders/{orderId}` | Bearer | 读取当前用户自己的平台支付订单 |
@@ -391,7 +390,6 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 400 | `validation` / `parse` | 请求 schema 或 JSON 不合法 |
 | 400 | `appointment-query-invalid` | 排班日期/过滤条件不合法 |
 | 400 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
-| 400 | `medical-record-query-invalid` | 门诊病历日期范围或患者查询条件不合法 |
 | 400 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
 | 400 | `report-query-invalid` | 报告查询条件不合法 |
 | 400 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
@@ -403,7 +401,6 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | `not-found` | 请求路径未注册，不能据此推断业务资源不存在 |
 | 404 | `appointment-record-patient-not-found` | 当前用户不拥有该预约查询患者 |
 | 404 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
-| 404 | `medical-record-patient-not-found` | 当前就诊人尚未建立门诊病历映射 |
 | 404 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | `report-not-found` | 报告详情不可用或尚未通过 gate |
 | 404 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |

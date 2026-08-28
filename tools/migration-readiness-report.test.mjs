@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildMigrationReadinessReport } from "./migration-readiness-report.mjs";
 
 describe("全项目迁移 readiness 报告", () => {
-	// 报告会扫描旧端台账、40 个原生页面、迁移合同和 pending/live 运行包；
+	// 报告会扫描旧端台账、38 个原生页面、迁移合同和 pending/live 运行包；
 	// Windows 下单独执行已经超过 Bun 默认 5 秒，但这不是放宽业务断言。
 	test("区分入口结构完成、运行包发布和真实业务完成", {
 		timeout: 30_000,
@@ -13,8 +13,8 @@ describe("全项目迁移 readiness 报告", () => {
 		);
 
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
-		expect(report.entryCoverage.nativePageCount).toBe(40);
-		expect(report.entryCoverage.legacy.blockedPageCount).toBe(7);
+		expect(report.entryCoverage.nativePageCount).toBe(38);
+		expect(report.entryCoverage.legacy.blockedPageCount).toBe(9);
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
 			domainCount: 34,
 			legacyEntryCount: 39,
@@ -72,7 +72,7 @@ describe("全项目迁移 readiness 报告", () => {
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
 			),
-		).toMatchObject({ pageCount: 34, blockedPageCount: 5 });
+		).toMatchObject({ pageCount: 34, blockedPageCount: 6 });
 		expect(
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
@@ -101,7 +101,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationBreadth.passed).toBe(true);
 		expect(report.migrationBreadth.pages).toHaveLength(2);
 		expect(report.migrationBreadth.tabBarPageCount).toBe(4);
-		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(40);
+		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(38);
 		expect(report.migrationBreadth.interactionAudit.failures).toEqual([]);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.semanticStateCount).toBe(35);
@@ -231,7 +231,7 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[1].businessReady).toBe(false);
 		expect(report.migrationQueue[2].codeReady).toBe(false);
 		expect(report.migrationQueue[3].blockedPageCount).toBe(0);
-		expect(report.migrationQueue[4].blockedPageCount).toBe(0);
+		expect(report.migrationQueue[4].blockedPageCount).toBe(1);
 		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
 		expect(report.migrationQueue[0].frozenGateCount).toBe(4);
 		expect(report.migrationQueue[2].frozenGateCount).toBe(4);

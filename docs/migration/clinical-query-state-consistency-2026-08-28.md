@@ -1,4 +1,4 @@
-# 三类临床查询页面状态一致性记录
+# 预约记录查询状态与临床入口边界记录
 
 状态：已实现，待真机回归
 
@@ -15,14 +15,16 @@
 
 ## 2. 当前实现
 
-三个页面现在都使用 `ClinicalQueryState`：
+“我的挂号”和“爽约记录”使用 `ClinicalQueryState`；“我的问诊”和
+“门诊病历”在 Provider/外部 contract 未确认前不注册业务页面，统一进入功能状态页：
 
 | 状态 | 页面行为 |
 | --- | --- |
 | `loading` | 固定高度查询占位，显示“正在查询记录...” |
-| `ready` | 展示当前就诊人的记录窗口 |
+| `ready` | 仅展示已经确认来源的预约记录窗口 |
 | `empty` | 仅在查询链返回合法空结果时显示统一空图和“未查询到您的记录” |
 | `error` | 顶部显示用户可理解的错误文案，卡片显示“记录暂时无法获取”和重试入口 |
+| `blocked-*` | 不发起业务查询，进入统一状态页，明确说明入口仍在迁移 |
 
 公共视觉骨架位于 `apps/miniprogram/src/styles/clinical-query-state.wxss`。
 页面仍保留各自的患者、业务字段和卡片内容，不把不同领域的数据模型合并。
@@ -34,7 +36,7 @@
 - `dependency-not-configured`：显示“功能正在完善中，暂时无法使用”；
 - Provider 拒绝/超时、持久化故障：显示“服务暂时不可用，请稍后重试”并允许重试；
 - `patient-not-bound`、`patient-selection-stale`、`patient-clinical-unavailable`：显示患者上下文错误，并允许进入统一就诊人选择页；
-- `appointment-record-patient-not-found`、`medical-record-patient-not-found`：显示未查询到对应业务记录；
+- `appointment-record-patient-not-found`：显示未查询到挂号记录；门诊病历没有注册 API，不能伪造成空结果；
 - `unauthorized`：保持登录失效语义，不引导用户把它当成空列表。
 
 空结果和错误仍然是两个不同的状态；“暂无记录”不能用来掩盖服务未配置或 Provider 故障。
@@ -45,7 +47,7 @@
 
 - 成功查询且结果为空：显示“未查询到您的记录”，这是合法空结果；
 - 查询请求失败：显示“记录暂时无法获取”以及“请稍后再试”，避免把服务故障说成用户没有记录；
-- 服务尚未开放：显示“功能正在完善中，暂时无法使用”，不暴露内部迁移阶段；
+- 服务尚未开放：通过统一状态页显示“功能正在迁移中”，不暴露内部迁移阶段；
 - 可以恢复的状态统一保留“再试一次”或“重新加载”入口，页面不使用技术错误详情作为按钮文案。
 
 开发日志仍保留稳定 `errorCode`、`providerOperation`、`requestId/traceId` 等诊断字段，便于维护人员根据用户反馈定位问题；这些字段不会进入小程序页面。
@@ -66,6 +68,6 @@
 - 旧 Python 仍监听 `0.0.0.0:8001`；
 - 新 Elysia 监听 `10.0.0.3:18081`；
 - `ZHONGYANG_APPOINTMENT_RECORDS_READY=true`；
-- `ZHONGYANG_MEDICAL_RECORDS_READY` 当前未配置，按 fail-closed 默认值为 `false`。
+- `ZHONGYANG_MEDICAL_RECORDS_READY` 当前未配置，按 fail-closed 默认值为 `false`；该能力在新 API 中不注册路由。
 
-因此门诊病历在真实环境继续显示“服务暂不可用”是配置门禁事实，不是合法空列表。未完成 Provider、公网 HTTPS 和真机证据前，不打开该 gate，也不把它改成空态。
+因此门诊病历不会再进入“服务暂不可用”的业务查询错误页，而是直接进入迁移状态页。未完成 Provider、公网 HTTPS 和真机证据前，不打开该 gate，也不把它改成空态。

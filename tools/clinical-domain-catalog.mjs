@@ -15,7 +15,6 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 				path: "pagesB/health/electronic_record.vue",
 				featureKey: "medical-record",
 				status: "blocked-provider",
-				surfaceOnlyTarget: "pages/medical-record/medical-record",
 			},
 		],
 		documents: [
@@ -80,7 +79,6 @@ export const CLINICAL_DOMAIN_CATALOG = Object.freeze([
 				featureKey: "consultation",
 				status: "blocked-external",
 				readiness: "待外部入口 contract",
-				surfaceOnlyTarget: "pages/consultation/consultation",
 			},
 			{
 				path: "pagesB/health/electronic_consultation.vue",

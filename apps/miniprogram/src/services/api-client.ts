@@ -10,7 +10,6 @@ import type {
 	HealthKnowledgeDiseaseListResponse,
 	HealthKnowledgeDrugDetailResponse,
 	HealthKnowledgeSymptomListResponse,
-	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentListResponse,
 	PatientListResponse,
 	ReportDetailResponse,
@@ -109,8 +108,6 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"report-patient-not-found": "未查询到检查报告",
 		"report-not-found": "未找到这份报告",
 		"outpatient-payment-patient-not-found": "未查询到缴费记录",
-		"medical-record-query-invalid": "暂时无法查询门诊病历，请稍后再试",
-		"medical-record-patient-not-found": "未查询到门诊病历",
 		"payment-order-invalid": "暂时无法发起支付，请稍后再试",
 		"payment-order-not-found": "未找到这笔支付记录",
 		"payment-quote-not-found": "暂时无法获取费用信息，请稍后再试",
@@ -2000,39 +1997,6 @@ export function requestOutpatientPaymentRecords(
 		expectedSessionGeneration,
 	).then((payload) =>
 		requireSuccessDataResponse<OutpatientPaymentListResponse["data"]>(payload),
-	);
-}
-
-/** 读取当前用户所选就诊人的门诊病历摘要；Provider patId 只由服务端解析。 */
-export function requestOutpatientMedicalRecords(
-	options: {
-		patientId: string;
-		startDate: string;
-		endDate: string;
-	},
-	expectedSessionGeneration: number,
-): Promise<OutpatientMedicalRecordListResponse> {
-	const patientId = requirePatientScopedId(options?.patientId);
-	if (
-		typeof options?.startDate !== "string" ||
-		typeof options?.endDate !== "string"
-	) {
-		throw new ApiError("门诊病历查询条件不合法", {
-			code: "medical-record-query-invalid",
-		});
-	}
-	const query = [
-		`patientId=${encodeURIComponent(patientId)}`,
-		`startDate=${encodeURIComponent(options.startDate)}`,
-		`endDate=${encodeURIComponent(options.endDate)}`,
-	].join("&");
-	return requestWithStableSession<unknown>(
-		{ url: `/medical-records?${query}` },
-		expectedSessionGeneration,
-	).then((payload) =>
-		requireSuccessDataResponse<OutpatientMedicalRecordListResponse["data"]>(
-			payload,
-		),
 	);
 }
 

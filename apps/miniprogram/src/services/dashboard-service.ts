@@ -3,7 +3,6 @@ import type {
 	AppointmentRecord,
 	AppointmentSchedule,
 	HealthResponse,
-	OutpatientMedicalRecordListResponse,
 	OutpatientPaymentRecord,
 	Patient,
 	PatientListResponse,
@@ -18,7 +17,6 @@ import {
 	requestAppointmentDepartments,
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
-	requestOutpatientMedicalRecords,
 	requestOutpatientPaymentRecords,
 	requestReports,
 	requestWithSession,
@@ -990,21 +988,6 @@ export function loadOutpatientPaymentRecords(
 	);
 }
 
-/** 读取近 30 天门诊病历摘要，日期窗口由客户端和服务端双重限制。 */
-export function loadOutpatientMedicalRecords(
-	patientId: string,
-	now = new Date(),
-	expectedSessionGeneration: number,
-): Promise<OutpatientMedicalRecordListResponse["data"]> {
-	return requestOutpatientMedicalRecords(
-		{
-			patientId: requirePatientId(patientId),
-			...createPastDateRange(30, now),
-		},
-		expectedSessionGeneration,
-	).then((payload) => payload.data);
-}
-
 /**
  * 将已通过 contract 校验的账单时间投影为旧端列表的展示粒度。
  *
@@ -1149,29 +1132,6 @@ export function loadAppointmentRecords(
 ): Promise<Array<AppointmentRecord>> {
 	return requestAppointmentRecords(
 		createAppointmentRecordQuery(patientId, now, window, scope),
-		expectedSessionGeneration,
-	).then((payload) => requireAppointmentRecordListData(payload.data).items);
-}
-
-/**
- * 读取旧端“我的问诊”对应的陪诊历史摘要。
- *
- * 旧端 `getTreatmentCompanionHistoryApi` 的真实实现最终查询在线渠道，
- * 时间范围是过去约 120 天；它不是“全部挂号”页的渠道 4，也不能把预约
- * 的未来记录混入“历史问诊”。新端沿用已经过 owner-scoped 映射的预约只读
- * 服务，但在这里明确固定为 online + 过去 120 天，保持调用方语义可读。
- */
-export function loadConsultationHistoryRecords(
-	patientId: string,
-	now = new Date(),
-	expectedSessionGeneration: number,
-): Promise<Array<AppointmentRecord>> {
-	return requestAppointmentRecords(
-		{
-			patientId: requirePatientId(patientId),
-			scope: "online",
-			...createPastDateRange(120, now),
-		},
 		expectedSessionGeneration,
 	).then((payload) => requireAppointmentRecordListData(payload.data).items);
 }

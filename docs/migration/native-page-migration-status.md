@@ -26,7 +26,6 @@
 | `pages/health-encyclopedia/health-encyclopedia` | `部分迁移` | 已迁移旧端健康百科的身体部位/症状/疾病目录骨架，支持审核内容版本、免责声明、错误态和症状查疾病入口。 | 只消费服务端审核 bundle；无已发布内容时 fail-closed，不导入旧库快照、不写死疾病或药品内容、不生成医疗结论。 | 正式内容 bundle、临床审核、发布/撤回演练和真机证据。 |
 | `pages/health-knowledge-search/health-knowledge-search` | `部分迁移` | 已迁移症状关联疾病的只读结果页和稳定空/错/加载状态。 | 查询条件只允许服务端认可的 opaque 症状 ID；结果不是诊断建议，未发布内容不能伪造空结果。 | 内容索引发布、结果脱敏和真机证据。 |
 | `pages/health-knowledge-detail/health-knowledge-detail` | `部分迁移` | 已迁移疾病/药品审核内容详情的只读展示和关联药品跳转。 | 药品页面不构成处方或个体化用药建议；详情正文、引用关系和版本必须来自同一审核 bundle。 | 正式 bundle、临床审核、撤回审计和真机证据。 |
-| `pages/medical-record/medical-record` | `部分迁移` | 已接入旧端 `out-visit-records` 对应的近 30 天门诊就诊摘要、患者切换、稳定空/错/加载态和本地分批展示。 | 不返回 Provider `patId`/`regId`，不把摘要冒充病历正文；正文、详情、住院病历和附件仍关闭。 | 生产 gate、Provider 公网/真机验收、正文/详情/附件独立 contract。 |
 | `pages/inpatient-center/inpatient-center` | `页面外壳已迁移` | 已迁移住院信息入口、独立 episode 边界、患者选择入口和稳定关闭态。 | 不用门诊 patientId 推导住院 episode，不静默选择第一条记录，不展示假住院状态或费用。 | episode 权威来源、患者标识映射、状态枚举、错误样例和真机证据。 |
 | `pages/my-doctor/my-doctor` | `页面外壳已迁移` | 已迁移我的医生入口、关系/目录边界、患者选择入口和稳定关闭态。 | 不读取旧端医生快照，不接受客户端提交医生 ID 建立关系，不展示未经授权的联系方式。 | 医生目录、关系 owner、失效规则、字段白名单和真机证据。 |
 | `pages/electronic-consultation/electronic-consultation` | `页面外壳已迁移` | 已迁移电子导诊单入口、独立事实边界、患者选择入口和稳定关闭态。 | 不把预约摘要、实时队列或外部问诊会话冒充导诊单，不恢复万能 WebView。 | 专用来源、患者上下文、读取权限、保留周期、失败回退和真机证据。 |
@@ -42,7 +41,6 @@
 | `pages/pre-visit/pre-visit` | `页面外壳已迁移` | 已迁移预约前预问诊入口、患者选择入口和关闭态。 | 不跨预约复用答案，不把预问诊当预约成功，不输出未经审核的分诊结论。 | 预约上下文、问卷版本、授权、幂等、临床审核和医护读取。 |
 | `pages/risk-evaluation/risk-evaluation` | `页面外壳已迁移` | 已迁移跌倒/疼痛/压力等风险评估统一入口和患者选择入口。 | 不在客户端计算风险等级，不把风险等级包装成诊断，不使用未审核规则。 | 规则 bundle、评分算法、适用人群、免责声明、结果授权和临床审核。 |
 | `pages/smart-customer/smart-customer` | `页面外壳已迁移` | 已迁移智能客服原生入口和外部会话关闭态。 | 不打开任意 WebView，不传递平台 token，不把页面打开当作客服会话成功。 | HTTPS allowlist、短期 ticket、受众、回跳、退出、撤销和低敏日志。 |
-| `pages/consultation/consultation` | `部分迁移` | 已按旧端 `my_consultation.vue` 接入当前患者的历史摘要列表、患者切换、稳定空/错/加载态和本地分批展示；查询固定为预约只读 adapter 的 `online` 渠道和过去 120 天。 | 不把预约摘要冒充外部问诊会话；实时会话、正文、附件和外部 allowlist 仍关闭。 | 外部问诊会话索引、患者归属、脱敏、短期引用、退出和留存。 |
 | `pages/patient-subscription/patient-subscription` | `部分迁移` | 已迁移旧端橙色提示、当前就诊人入口、标题搜索、四类提醒、折叠布局、只读开关展示、迁移说明和顶部错误/重试；开关固定只读并标记“暂未接入”。 | 本地展示和开关不能代表微信授权、服务端保存或消息发送；授权拒绝/过期/撤销不能显示为已订阅。 | 模板 ID、授权回执、患者/账号作用域、业务事件、发送结果、重试、撤销和审计。 |
 | `pages/blood-appointment/blood-appointment` | `部分迁移` | 已按旧端真实行为迁移当前就诊人、院区位置、无可预约项目空态、顶部错误/重试和统一患者选择；旧端没有采血号源请求，不把硬编码院区当动态事实。 | 不读取普通门诊号源，不提交预约，不把空号源当成功。 | 采血号源、患者映射、状态枚举、预约写入、取消和最终查询。 |
 | `pages/appointment-detail/appointment-detail` | `页面外壳已迁移` | 已迁移挂号详情入口、患者选择入口和 Provider 读取关闭态。 | 只接受服务端预约引用；不使用列表索引，不返回原始挂号号或内部敏感标识。 | 预约引用、owner、状态映射、字段白名单、过期、空/拒绝/超时语义。 |
@@ -61,7 +59,7 @@
 
 ## 当前代码和文档的结论
 
-1. 目前共注册 40 个页面；注册表、页面 TypeScript 源码、构建生成的 JavaScript 和本台账必须同时存在。新增七个临床内容、三个外部入口和两个预约 Provider 页面目前是“页面外壳已迁移”，不代表 Provider 数据、外部会话或临床写入已经开放。健康百科三个页面已经纳入广度迁移，但仍受审核内容 bundle 闸门约束；使用条款已作为静态只读入口迁移，但协议同意 contract 仍关闭。
+1. 目前共注册 38 个页面；注册表、页面 TypeScript 源码、构建生成的 JavaScript 和本台账必须同时存在。未确认的门诊病历和我的问诊不再注册为业务页面，统一由状态页承接；其余临床内容、外部入口和预约 Provider 页面目前是“页面外壳已迁移”，不代表 Provider 数据、外部会话或临床写入已经开放。健康百科三个页面已经纳入广度迁移，但仍受审核内容 bundle 闸门约束；使用条款已作为静态只读入口迁移，但协议同意 contract 仍关闭。
 2. 当前安全可继续推进的是“真实只读 provider → 服务端脱敏/owner 隔离 → 公网 → 真机”闭环；预约写入、病历、费用支付、医保、退款和 HIS 回写仍然遵守最后处理原则。
 3. 页面跳转存在不等于业务完成。尤其是 `appointment-directory`、`report-directory`、`outpatient-payment` 三类页面，必须把“目录读到了”与“可以执行副作用”分开验收。
 4. 任何新 provider 文档到达后，应先更新本台账的能力和边界，再更新 contract、adapter、domain、persistence、API、小程序、日志和 release 证据；缺字段时保持 `待 contract`。

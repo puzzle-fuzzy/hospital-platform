@@ -117,7 +117,6 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待 provider contract",
 		contractFamily: "provider-read-only",
 		legacyPaths: ["pagesB/health/electronic_record.vue"],
-		safeSurfaceTarget: "pages/medical-record/medical-record",
 		requiredMaterials: ["provider-version", "patient-reference"],
 		forbiddenCapabilities: ["病历明细写入", "跨患者查询", "未经审核的临床建议"],
 	}),
@@ -277,7 +276,6 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		readiness: "待外部入口 contract",
 		contractFamily: "external-session",
 		legacyPaths: ["pagesB/user/my_consultation.vue"],
-		safeSurfaceTarget: "pages/consultation/consultation",
 		requiredMaterials: [
 			"external-subject",
 			"allowlist",

@@ -121,8 +121,10 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	consultation: {
 		title: "我的问诊",
 		readiness: "待外部入口 contract",
-		description: "当前已展示当前就诊人的安全历史摘要；外部问诊会话仍未开放。",
-		contractHint: "外部会话仍需确认会话索引、患者归属、内容脱敏、退出和保留周期。",
+		description:
+			"问诊历史和外部问诊会话正在迁移中，当前不会读取预约记录或创建问诊会话。",
+		contractHint:
+			"外部会话仍需确认会话索引、患者归属、内容脱敏、退出和保留周期。",
 		icon: "/assets/legacy-user/consultation.svg",
 	},
 	"discharge-followup": {
@@ -273,8 +275,10 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"medical-record": {
 		title: "门诊病历",
 		readiness: "待 provider contract",
-		description: "当前已接入近 30 天门诊就诊摘要；病历正文、详情和附件仍未开放。",
-		contractHint: "病历正文、详情引用、住院记录和附件仍需独立 HIS/EMR contract。",
+		description:
+			"门诊病历正在迁移中，当前不会读取未经确认的病历目录或用预约、报告数据替代。",
+		contractHint:
+			"病历正文、详情引用、住院记录和附件仍需独立 HIS/EMR contract。",
 		icon: "/assets/legacy-user/medical-record.svg",
 	},
 	"outpatient-payment-detail": {
@@ -422,7 +426,6 @@ export function navigateToFeatureStatus(feature: FeatureKey): void {
  */
 const FEATURE_SURFACE_TARGETS: Readonly<Partial<Record<FeatureKey, string>>> =
 	Object.freeze({
-		"medical-record": "/pages/medical-record/medical-record",
 		"inpatient-center": "/pages/inpatient-center/inpatient-center",
 		doctor: "/pages/my-doctor/my-doctor",
 		"electronic-consultation":
@@ -442,7 +445,6 @@ const FEATURE_SURFACE_TARGETS: Readonly<Partial<Record<FeatureKey, string>>> =
 		"pre-visit": "/pages/pre-visit/pre-visit",
 		"risk-evaluation": "/pages/risk-evaluation/risk-evaluation",
 		"smart-customer": "/pages/smart-customer/smart-customer",
-		consultation: "/pages/consultation/consultation",
 		"patient-subscription": "/pages/patient-subscription/patient-subscription",
 		"blood-appointment": "/pages/blood-appointment/blood-appointment",
 		"appointment-detail": "/pages/appointment-detail/appointment-detail",

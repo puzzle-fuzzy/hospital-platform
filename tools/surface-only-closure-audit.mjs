@@ -55,14 +55,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 		sharedSources: ["apps/miniprogram/src/services/clinical-entry-surface.ts"],
 	},
 	{
-		featureKey: "medical-record",
-		target: "pages/medical-record/medical-record",
-		mode: "surface-factory",
-		source: "apps/miniprogram/src/pages/medical-record/medical-record.ts",
-		registration: 'registerClinicalSurfacePage("medical-record")',
-		sharedSources: ["apps/miniprogram/src/services/clinical-entry-surface.ts"],
-	},
-	{
 		featureKey: "gift-banner",
 		target: "pages/gift-banner/gift-banner",
 		mode: "surface-factory",
@@ -151,14 +143,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 		sharedSources: [
 			"apps/miniprogram/src/services/patient-contract-surface.ts",
 		],
-	},
-	{
-		featureKey: "consultation",
-		target: "pages/consultation/consultation",
-		mode: "surface-factory",
-		source: "apps/miniprogram/src/pages/consultation/consultation.ts",
-		registration: 'registerExternalEntrySurfacePage("consultation")',
-		sharedSources: ["apps/miniprogram/src/services/external-entry-surface.ts"],
 	},
 ]);
 
