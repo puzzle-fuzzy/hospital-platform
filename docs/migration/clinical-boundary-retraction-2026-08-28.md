@@ -49,6 +49,31 @@
 
 日志不记录 Authorization、请求体、响应体、患者姓名、身份证号或 Provider 原始报文。HTTP 503 只能说明错误被分类为可重试失败，最终原因必须以同一 `traceId` 的服务端日志为准，不能仅凭小程序错误文案推断。
 
+### 2.4 本次预约历史 503 的现场定位
+
+本次复核把两条容易混淆的链路拆开：
+
+- 小程序“我的挂号/爽约记录”的公共接口是 `GET /api/v2/appointments/records`，内部路由是
+  `GET /api/v1/appointments/records`；新端 adapter 最终读取众阳
+  `GET https://gpsrmyy.meiyi.pro/msun-middle-business-appointment-server/v1/appointment-infos/{providerPatientId}`。
+- 旧 Python 的 `GET /common/mbs-fsi/6201` 是医保费用上传链路，经过旧转发服务进入医保下游
+  `/org/local/api/hos/uldFeeInfo`，不是预约历史接口，也不是这次小程序 503 的来源。
+
+从阿里云公网转发机对众阳预约入口进行默认证书校验时，TLS 握手返回
+`errorCode=CERT_HAS_EXPIRED`、`certificate has expired`；使用跳过校验的方式仅作诊断时，同一
+入口能够返回 HTTP 200。这证明当时网络和 Java 转发进程仍能到达 Provider，失败发生在可信
+TLS 建连阶段，不能把它写成“众阳业务 HTTP 503”，也不能用跳过校验作为修复。
+
+后续发布前先运行仓库命令：
+
+```powershell
+pnpm provider:tls:audit -- --url https://gpsrmyy.meiyi.pro
+```
+
+只有该命令返回 `status=passed` 后，才继续做预约历史业务 smoke；证书续期和 Nginx
+证书链修复应在承载 `gpsrmyy.meiyi.pro` 的公网入口完成，并重新做公网、服务端日志和真机
+三方验收。新端不会修改旧 Python 的 6201 实现，也不会通过 `-k` 或关闭证书校验兼容。
+
 ## 3. 未修改范围
 
 本轮只修改新项目和新项目文档：
@@ -69,4 +94,3 @@
 5. API、真机和公网 HTTPS 的分层验收结果。
 
 “我的问诊”还需要独立的外部入口 contract，包括外部主体、受众、短期会话、回跳、退出、撤销、内容保留和失败回退；不能直接复用预约历史。
-
