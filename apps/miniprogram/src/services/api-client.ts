@@ -42,6 +42,22 @@ const DEFAULT_API_PREFIX: SupportedApiPrefix = "/api/v1";
 const PRODUCTION_API_PREFIX: SupportedApiPrefix = "/api/v2";
 const SAFE_UNKNOWN_ERROR_MESSAGE = "当前信息暂时无法获取，请稍后重试";
 
+/**
+ * 这些错误表示本次读取没有完成，但没有证明业务数据为空。
+ * 页面传入自己的领域兜底文案时，应优先使用它，让用户知道失败的是
+ * “预约信息”“检查报告”还是“缴费记录”；其余稳定业务错误仍使用公共
+ * 错误码文案。Provider、网络和持久化的内部拓扑不会因此暴露给用户。
+ */
+const CONTEXTUAL_READ_ERROR_CODES: ReadonlySet<string> = new Set([
+	"api-request-failed",
+	"network-failed",
+	"persistence-invalid",
+	"persistence-temporarily-unavailable",
+	"provider-request-rejected",
+	"provider-response-invalid",
+	"provider-temporarily-unavailable",
+]);
+
 type ApiErrorDetails = {
 	statusCode?: number;
 	code?: string;
@@ -1407,6 +1423,27 @@ export function localizedApiErrorMessage(
 export function safeApiErrorMessage(error: unknown, fallback: string): string {
 	if (!(error instanceof ApiError)) return fallback;
 	return localizedApiErrorMessage(error.code, fallback);
+}
+
+/**
+ * 将一次患者范围读取失败投影成“当前业务 + 可重试”的用户文案。
+ *
+ * 不能让预约、报告、费用页面直接展示统一的“当前信息”，也不能因为
+ * Provider 失败就返回“未查询到记录”。只有网络/Provider/持久化这类
+ * 读取未完成错误使用页面的领域兜底；登录失效、患者未绑定和参数错误
+ * 仍必须保留公共错误码的明确引导。
+ */
+export function contextualApiErrorMessage(
+	error: unknown,
+	fallback: string,
+): string {
+	if (
+		error instanceof ApiError &&
+		CONTEXTUAL_READ_ERROR_CODES.has(error.code)
+	) {
+		return fallback;
+	}
+	return safeApiErrorMessage(error, fallback);
 }
 
 function parseErrorMessage(data: unknown): string {

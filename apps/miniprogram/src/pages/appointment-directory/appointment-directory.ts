@@ -1,4 +1,4 @@
-import { ApiError, safeApiErrorMessage } from "../../services/api-client";
+import { ApiError, contextualApiErrorMessage } from "../../services/api-client";
 import {
 	groupAppointmentSchedules,
 	visibleAppointmentSchedules,
@@ -274,7 +274,10 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			message =
 				error.code === "dependency-not-configured"
 					? "预约服务正在完善中，暂时无法使用"
-					: safeApiErrorMessage(error, "预约信息暂时无法获取，请稍后再试");
+					: contextualApiErrorMessage(
+							error,
+							"预约信息暂时无法获取，请稍后再试",
+						);
 		}
 		this.setData({ error: message });
 	},

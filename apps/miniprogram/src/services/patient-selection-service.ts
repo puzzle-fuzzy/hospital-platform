@@ -1,5 +1,5 @@
 import type { Patient } from "../types";
-import { ApiError, safeApiErrorMessage } from "./api-client";
+import { ApiError, contextualApiErrorMessage } from "./api-client";
 import { isBoundedPatientId } from "./patient-identifiers";
 
 // 保留原有导出路径，避免页面和历史测试重新定义患者标识边界。
@@ -50,7 +50,7 @@ export function patientContextErrorMessage(
 	error: unknown,
 	fallback: string,
 ): string {
-	return safeApiErrorMessage(error, fallback);
+	return contextualApiErrorMessage(error, fallback);
 }
 
 /**

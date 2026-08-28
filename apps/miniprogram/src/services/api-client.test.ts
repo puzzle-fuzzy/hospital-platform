@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+	ApiError,
 	buildAppointmentRecordQuery,
 	buildAppointmentScheduleQuery,
 	CLIENT_ERROR_MESSAGES,
+	contextualApiErrorMessage,
 	isAllowedApiPrefix,
 	isUsableAccessToken,
 	localizedApiErrorMessage,
@@ -165,6 +167,37 @@ test("健康知识公共错误码使用稳定中文文案，不回退到内部�
 			message,
 		);
 	}
+});
+
+test("患者范围读取失败使用页面领域兜底，但保留明确业务错误文案", () => {
+	for (const code of [
+		"provider-temporarily-unavailable",
+		"provider-response-invalid",
+		"persistence-temporarily-unavailable",
+		"network-failed",
+	]) {
+		expect(
+			contextualApiErrorMessage(
+				new ApiError("internal provider detail", { code }),
+				"检查报告暂时无法获取，请稍后再试",
+			),
+		).toBe("检查报告暂时无法获取，请稍后再试");
+	}
+
+	expect(
+		contextualApiErrorMessage(
+			new ApiError("patient selection required", {
+				code: "patient-selection-required",
+			}),
+			"检查报告暂时无法获取，请稍后再试",
+		),
+	).toBe("请先选择就诊人");
+	expect(
+		contextualApiErrorMessage(
+			new ApiError("expired", { code: "unauthorized" }),
+			"检查报告暂时无法获取，请稍后再试",
+		),
+	).toBe("登录已过期，请重新登录");
 });
 
 test("本地缓存 token 必须通过与登录响应相同的安全边界", () => {
