@@ -12,6 +12,7 @@ import {
 	patientSelectionResolutionMessage,
 	requirePatientFromResolution,
 	resolvePatientSelection,
+	shouldClearPatientContextAfterError,
 } from "./patient-selection-service";
 
 function patient(id: string): Patient {
@@ -195,9 +196,7 @@ test("所有患者页面复用同一组目录解析错误码和文案", () => {
 	expect(patientSelectionResolutionMessage(empty)).toBe(
 		"暂未添加就诊人，请先添加",
 	);
-	expect(patientSelectionResolutionMessage(stale)).toBe(
-		"请选择就诊人后再继续",
-	);
+	expect(patientSelectionResolutionMessage(stale)).toBe("请选择就诊人后再继续");
 	expect(patientSelectionResolutionMessage(unavailable)).toBe(
 		"该就诊人暂时无法使用此服务，请更换就诊人",
 	);
@@ -271,6 +270,28 @@ test("患者选择动作只由明确的患者上下文错误触发", () => {
 		);
 	}
 	expect(isPatientSelectionError(new Error("网络失败"))).toBe(false);
+});
+
+test("下游业务查询失败时保留已确认患者，会话失效时才清空", () => {
+	// 预约、问诊和病历记录都是患者目录确认后的下游只读查询；Provider
+	// 暂时不可用不等于患者不存在，页面应继续展示当前就诊人。
+	expect(
+		shouldClearPatientContextAfterError(
+			new ApiError("provider unavailable", {
+				code: "provider-request-rejected",
+			}),
+			true,
+		),
+	).toBe(false);
+	expect(
+		shouldClearPatientContextAfterError(
+			new ApiError("session expired", { code: "unauthorized" }),
+			true,
+		),
+	).toBe(true);
+	expect(
+		shouldClearPatientContextAfterError(new Error("token cleared"), false),
+	).toBe(true);
 });
 
 test("异步患者结果必须匹配当前显式选择", () => {

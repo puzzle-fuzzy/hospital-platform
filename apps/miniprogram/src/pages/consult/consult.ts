@@ -15,6 +15,7 @@ import { navigateToPatientSelector } from "../../services/patient-navigation";
 import {
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
+	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import { toPatientSurfaceData } from "../../services/patient-surface-context";
 import { assertSessionGeneration } from "../../services/session-boundary";
@@ -23,7 +24,10 @@ import {
 	registerPageSessionResetListener,
 } from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
-import { hasPlatformSession } from "../../services/session-service";
+import {
+	hasPlatformSession,
+	sessionStateAfterAuthenticatedReadError,
+} from "../../services/session-service";
 import type {
 	AppointmentRecordView,
 	Patient,
@@ -68,12 +72,6 @@ type ConsultPageMethods = {
 	onRetry(): void;
 	onUnload(): void;
 };
-
-function sessionStateFromError(error: unknown): SessionVerificationState {
-	if (error instanceof ApiError && error.code === "unauthorized")
-		return "invalid";
-	return "unavailable";
-}
 
 function applyPatientContext(
 	page: WechatMiniprogram.Page.Instance<ConsultPageData, ConsultPageMethods>,
@@ -150,6 +148,9 @@ Page<ConsultPageData, ConsultPageMethods>({
 	loadContext(): Promise<void> {
 		const guard = getPageLatestRequestGuard(this, "consult-context");
 		const token = guard.begin();
+		// 患者目录确认和下游业务查询是两个独立阶段。记录查询失败时保留
+		// 这份快照，只有会话失效才允许在 catch 中清空患者卡片。
+		let confirmedPatient: Patient | null = null;
 		// 服务端查询范围和客户端标签分组必须共享同一时间快照。请求即使
 		// 跨过零点完成，也不能让同一批记录在页面停留期间改变归属。
 		const requestNow = new Date();
@@ -184,6 +185,7 @@ Page<ConsultPageData, ConsultPageMethods>({
 				if (!result || !guard.isCurrent(token)) return;
 				const resolution = resolveStoredPatientSelection(result.patients);
 				const patient = resolution.patient ?? null;
+				confirmedPatient = patient;
 				applyPatientContext(this, patient);
 				const selectionMessage = patientSelectionResolutionMessage(resolution);
 				if (!patient) {
@@ -246,17 +248,26 @@ Page<ConsultPageData, ConsultPageMethods>({
 			})
 			.catch((error: unknown) => {
 				if (!guard.isCurrent(token)) return;
-				applyPatientContext(this, null);
+				const sessionStillPresent = hasPlatformSession();
+				const shouldClearPatient = shouldClearPatientContextAfterError(
+					error,
+					sessionStillPresent,
+				);
+				applyPatientContext(this, shouldClearPatient ? null : confirmedPatient);
 				this.setData({
 					records: [],
 					visibleRecords: [],
 					visibleRecordCount: 0,
 					hasMoreRecords: false,
-					sessionState: sessionStateFromError(error),
+					sessionState: sessionStateAfterAuthenticatedReadError(
+						error,
+						this.data.sessionState,
+						sessionStillPresent,
+					),
 					error:
 						error instanceof ApiError
-							? "就诊人信息暂不可用，请重试"
-							: "就诊页面加载失败，请重试",
+							? "就诊记录暂时无法获取，请稍后再试"
+							: "就诊记录暂时无法获取，请稍后再试",
 				});
 			})
 			.finally(() => {

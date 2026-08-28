@@ -13,6 +13,7 @@ import {
 	isPatientSelectionError,
 	patientSelectionResolutionMessage,
 	resolveStoredPatientSelection,
+	shouldClearPatientContextAfterError,
 } from "../../services/patient-selection-service";
 import { toPatientSurfaceData } from "../../services/patient-surface-context";
 import { assertSessionGeneration } from "../../services/session-boundary";
@@ -119,6 +120,9 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 	loadContext(): Promise<void> {
 		const guard = getPageLatestRequestGuard(this, "medical-record-context");
 		const token = guard.begin();
+		// 患者目录和病历读取是两个独立阶段。病历服务临时失败时保留
+		// 已确认的患者，让用户知道查询针对谁，也允许直接更换就诊人。
+		let confirmedPatient: Patient | null = null;
 		this.setData({
 			loading: true,
 			queryState: "loading",
@@ -153,6 +157,7 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 				if (!result || !guard.isCurrent(token)) return undefined;
 				const resolution = resolveStoredPatientSelection(result.patients);
 				const patient = resolution.patient ?? null;
+				confirmedPatient = patient;
 				applyPatientContext(this, patient);
 				if (!patient) {
 					this.setData({
@@ -215,7 +220,12 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 			})
 			.catch((error: unknown) => {
 				if (!guard.isCurrent(token)) return;
-				applyPatientContext(this, null);
+				const sessionStillPresent = hasPlatformSession();
+				const shouldClearPatient = shouldClearPatientContextAfterError(
+					error,
+					sessionStillPresent,
+				);
+				applyPatientContext(this, shouldClearPatient ? null : confirmedPatient);
 				this.setData({
 					records: [],
 					visibleRecords: [],
@@ -227,7 +237,7 @@ Page<MedicalRecordPageData, MedicalRecordPageMethods>({
 					sessionState: sessionStateAfterAuthenticatedReadError(
 						error,
 						this.data.sessionState,
-						hasPlatformSession(),
+						sessionStillPresent,
 					),
 					error:
 						error instanceof ApiError

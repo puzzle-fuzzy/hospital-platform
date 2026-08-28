@@ -87,6 +87,26 @@ export function isPatientSelectionError(error: unknown): boolean {
 }
 
 /**
+	判断患者范围业务失败后是否必须清空当前患者上下文。
+
+	患者目录已经成功确认后，预约、问诊、病历等下游只读服务仍可能因为
+	Provider 超时、依赖未配置或临时 503 失败。这些错误不代表用户没有
+	选择就诊人，页面必须保留已确认的患者卡片，避免出现“真实数据闪现后
+	消失”的误导。只有会话明确失效、会话代际发生变化，或本地已经没有
+	可用会话时，才允许清空患者上下文。
+ */
+export function shouldClearPatientContextAfterError(
+	error: unknown,
+	sessionStillPresent: boolean,
+): boolean {
+	if (!sessionStillPresent) return true;
+	return (
+		error instanceof ApiError &&
+		(error.code === "unauthorized" || error.code === "session-changed")
+	);
+}
+
+/**
  * 服务端目录与本地选择合并后的结果。
  *
  * `defaulted` 只允许发生在本地从未保存过选择的首次进入场景；如果已有选择
