@@ -176,13 +176,10 @@ export const currentBaselineDocuments = Object.freeze([
 		path: currentCandidateDocumentPath,
 		label: "当前服务端独立候选",
 	},
-	// `candidate-13f597ea-miniprogram-build-2026-08-24.md` 是线上历史小程序包，
-	// 保留用于追溯但不再作为当前基线入口；当前本地 live 候选由下方最新来源
-	// 对应的候选记录锁定，避免代码推进后继续沿用旧的运行包。
-	{
-		path: "docs/release/candidate-0aaa13b5-production-acceptance-2026-08-27.md",
-		label: "当前服务端生产切换记录",
-	},
+	// `candidate-13f597ea-miniprogram-build-2026-08-24.md` 和
+	// `candidate-0aaa13b5-production-acceptance-2026-08-27.md` 都是历史记录，
+	// 保留用于追溯但不再作为当前基线入口；当前服务端切换和小程序 live 来源
+	// 统一由上方最新候选记录锁定，避免代码推进后继续沿用旧运行包。
 	// 当前业务执行板、只读链路审计和真机模板也属于人工验收入口；如果不纳入
 	// 同一基线集合，文档虽然能打开，执行人员仍可能从旧模板生成可通过格式审计
 	// 的二维码证据。历史候选文档不加入这里，继续只承担追溯职责。
