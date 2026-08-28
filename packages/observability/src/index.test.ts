@@ -47,6 +47,41 @@ test("Provider 失败的异常字段不越过日志白名单", () => {
 	});
 });
 
+test("Provider 传输失败只保留白名单基础设施错误码", () => {
+	const certificateError = Object.assign(
+		new Error("certificate details must not enter logs"),
+		{
+			name: "ProviderRequestError",
+			provider: "zhongyang",
+			operation: "appointment-records",
+			failureStage: "transport",
+			retryable: true,
+			cause: Object.assign(new Error("expired certificate"), {
+				code: "CERT_HAS_EXPIRED",
+			}),
+		},
+	);
+	const unknownErrorCode = Object.assign(
+		new Error("unknown error details must not enter logs"),
+		{
+			name: "ProviderRequestError",
+			failureStage: "transport",
+			cause: { code: "host=secret.example" },
+		},
+	);
+
+	expect(providerFailureMetadata(certificateError)).toMatchObject({
+		providerFailureStage: "transport",
+		providerTransportErrorCode: "CERT_HAS_EXPIRED",
+	});
+	expect(providerFailureMetadata(unknownErrorCode)).not.toHaveProperty(
+		"providerTransportErrorCode",
+	);
+	expect(
+		JSON.stringify(providerFailureMetadata(certificateError)),
+	).not.toContain("expired certificate");
+});
+
 test("pino emits JSON and redacts configured sensitive paths", () => {
 	const lines: string[] = [];
 	const destination = {

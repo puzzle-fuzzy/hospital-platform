@@ -39,6 +39,27 @@ test("请求日志把可重试 Provider 失败映射为稳定业务错误码", (
 	);
 });
 
+test("请求日志保留证书过期的白名单诊断码但不记录异常原文", () => {
+	const error = new ProviderRequestError({
+		provider: "zhongyang",
+		operation: "appointment-records",
+		retryable: true,
+		failureStage: "transport",
+		message: "certificate details must not enter logs",
+		cause: Object.assign(new Error("expired certificate"), {
+			code: "CERT_HAS_EXPIRED",
+		}),
+	});
+
+	const metadata = safeErrorMetadata(error, "UNKNOWN");
+	expect(metadata).toMatchObject({
+		errorCode: "provider-temporarily-unavailable",
+		providerFailureStage: "transport",
+		providerTransportErrorCode: "CERT_HAS_EXPIRED",
+	});
+	expect(JSON.stringify(metadata)).not.toContain("expired certificate");
+});
+
 test("请求日志区分 Provider 响应非法和主动拒绝", () => {
 	const invalidResponse = new ProviderRequestError({
 		provider: "zhongyang",

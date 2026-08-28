@@ -19,7 +19,50 @@ export type ProviderFailureMetadata = {
 	providerRetryable?: boolean;
 	/** 仅记录有限枚举，便于区分 TLS/网络、HTTP 状态码和响应内容故障。 */
 	providerFailureStage?: "transport" | "http" | "response";
+	/**
+	 * 传输层底层错误的有限枚举，例如证书过期或 DNS 失败。
+	 * 只允许基础设施错误码，绝不把异常 message、URL 或证书内容写入日志。
+	 */
+	providerTransportErrorCode?: ProviderTransportErrorCode;
 };
+
+/**
+ * Provider 传输失败的可检索错误码白名单。
+ *
+ * Bun/Node 的 TLS、DNS、连接和超时错误通常会通过 `cause.code` 暴露；
+ * 这些码可以帮助定位 503 的基础设施根因，但未登记的错误码可能包含
+ * 主机名、连接串或第三方 SDK 私有信息，所以必须保持 fail-closed。
+ */
+export type ProviderTransportErrorCode =
+	| "CERT_HAS_EXPIRED"
+	| "CERT_NOT_YET_VALID"
+	| "ERR_TLS_CERT_ALTNAME_INVALID"
+	| "SELF_SIGNED_CERT_IN_CHAIN"
+	| "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
+	| "ENOTFOUND"
+	| "EAI_AGAIN"
+	| "ECONNREFUSED"
+	| "ECONNRESET"
+	| "ETIMEDOUT"
+	| "UND_ERR_CONNECT_TIMEOUT"
+	| "UND_ERR_SOCKET"
+	| "ABORT_ERR";
+
+const PROVIDER_TRANSPORT_ERROR_CODES: ReadonlySet<string> = new Set([
+	"CERT_HAS_EXPIRED",
+	"CERT_NOT_YET_VALID",
+	"ERR_TLS_CERT_ALTNAME_INVALID",
+	"SELF_SIGNED_CERT_IN_CHAIN",
+	"UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+	"ENOTFOUND",
+	"EAI_AGAIN",
+	"ECONNREFUSED",
+	"ECONNRESET",
+	"ETIMEDOUT",
+	"UND_ERR_CONNECT_TIMEOUT",
+	"UND_ERR_SOCKET",
+	"ABORT_ERR",
+]);
 
 /** Provider 返回的 request id 可能来自外部，先做长度和控制字符边界检查。 */
 function safeProviderText(value: unknown): string | undefined {
@@ -59,6 +102,7 @@ export function providerFailureMetadata(
 		retryable?: unknown;
 		failureStage?: unknown;
 		responseInvalid?: unknown;
+		cause?: unknown;
 	};
 	const provider = safeProviderText(candidate.provider);
 	const providerOperation = safeProviderText(candidate.operation);
@@ -75,6 +119,17 @@ export function providerFailureMetadata(
 			: candidate.responseInvalid === true
 				? "response"
 				: undefined;
+	const cause = candidate.cause;
+	const causeCode =
+		cause && typeof cause === "object" && "code" in cause
+			? (cause as { code?: unknown }).code
+			: undefined;
+	const providerTransportErrorCode =
+		failureStage === "transport" &&
+		typeof causeCode === "string" &&
+		PROVIDER_TRANSPORT_ERROR_CODES.has(causeCode)
+			? (causeCode as ProviderTransportErrorCode)
+			: undefined;
 	return {
 		...(provider ? { provider } : {}),
 		...(providerOperation ? { providerOperation } : {}),
@@ -89,6 +144,7 @@ export function providerFailureMetadata(
 			? { providerRetryable: candidate.retryable }
 			: {}),
 		...(failureStage ? { providerFailureStage: failureStage } : {}),
+		...(providerTransportErrorCode ? { providerTransportErrorCode } : {}),
 	};
 }
 
