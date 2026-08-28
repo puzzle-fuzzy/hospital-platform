@@ -20,6 +20,7 @@ test("请求日志把可重试 Provider 失败映射为稳定业务错误码", (
 		requestId: "provider-request-001",
 		statusCode: 502,
 		retryable: true,
+		failureStage: "http",
 		message: "provider raw response contains sensitive fields",
 	});
 
@@ -31,6 +32,7 @@ test("请求日志把可重试 Provider 失败映射为稳定业务错误码", (
 		providerRequestId: "provider-request-001",
 		providerStatusCode: 502,
 		providerRetryable: true,
+		providerFailureStage: "http",
 	});
 	expect(JSON.stringify(safeErrorMetadata(error, "UNKNOWN"))).not.toContain(
 		"provider raw response",

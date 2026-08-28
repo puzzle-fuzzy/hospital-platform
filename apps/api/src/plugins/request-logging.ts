@@ -38,6 +38,7 @@ type ErrorMetadata = {
 	providerRequestId?: string;
 	providerStatusCode?: number;
 	providerRetryable?: boolean;
+	providerFailureStage?: "transport" | "http" | "response";
 	/** 持久化内部操作分类，不包含 SQL、连接串或原始错误消息。 */
 	persistenceOperation?: PersistenceUnavailableError["operation"];
 	/** 仅允许列表中的连接/传输层错误码。 */

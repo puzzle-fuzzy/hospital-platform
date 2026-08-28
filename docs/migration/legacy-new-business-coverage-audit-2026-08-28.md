@@ -62,7 +62,7 @@ GET /msun-middle-business-appointment-server/v1/appointment-infos/{patId}
 
 `scope=online` 映射预约渠道 3，并携带有限日期窗口；`scope=all` 映射渠道 4 并省略在线日期窗口。新端只接受服务端 owner-scoped 患者映射，不把众阳 `patId` 返回给小程序。
 
-适配器对众阳 HTTP 429、5xx、超时和网络失败标记为可重试，API 层才映射为 503 `provider-temporarily-unavailable`；Provider 返回 2xx 但读模型非法则是 502 `provider-response-invalid`，普通 4xx 拒绝则是 502 `provider-request-rejected`。因此，前端看到 503 不能单独证明众阳返回了 503，必须关联服务端的 `providerStatusCode`、`providerRequestId`、`providerRetryable` 和 `traceId`。
+适配器对众阳 HTTP 429、5xx、超时和网络失败标记为可重试，API 层才映射为 503 `provider-temporarily-unavailable`；Provider 返回 2xx 但读模型非法则是 502 `provider-response-invalid`，普通 4xx 拒绝则是 502 `provider-request-rejected`。因此，前端看到 503 不能单独证明众阳返回了 503，必须关联服务端的 `providerStatusCode`、`providerRequestId`、`providerRetryable`、`providerFailureStage` 和 `traceId`。其中 `providerFailureStage=transport` 表示尚未拿到可验证的 HTTP 响应，`http` 表示已拿到非 2xx 响应，`response` 表示响应内容或业务包络不符合 contract。
 
 2026-08-28 从中转服务器对同一路径做了只读探测：`gpsrmyy.meiyi.pro` 的 TLS
 证书 `notAfter=2026-08-26 23:59:59 GMT`，标准证书校验返回 `curl exit 60`；

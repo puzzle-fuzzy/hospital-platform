@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
-import { AdapterNotConfiguredError, requestJson } from "./index";
 import {
+	AdapterNotConfiguredError,
 	createFixtureMedicalInsuranceGateway,
 	createNotConfiguredGateways,
+	requestJson,
 } from "./index";
 
 const context = {
@@ -94,6 +95,29 @@ test("provider HTTP boundary classifies upstream failures as retryable", async (
 		name: "ProviderRequestError",
 		statusCode: 503,
 		retryable: true,
+		failureStage: "http",
+	});
+});
+
+test("provider HTTP boundary marks TLS and network failures as transport failures", async () => {
+	await expect(
+		requestJson(
+			{
+				provider: "zhongyang",
+				operation: "appointment-records",
+				url: "https://provider.invalid/appointment-records",
+				method: "GET",
+				context,
+			},
+			async () => {
+				throw new Error("certificate has expired");
+			},
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		retryable: true,
+		failureStage: "transport",
+		statusCode: undefined,
 	});
 });
 

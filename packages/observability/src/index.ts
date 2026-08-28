@@ -17,6 +17,8 @@ export type ProviderFailureMetadata = {
 	providerRequestId?: string;
 	providerStatusCode?: number;
 	providerRetryable?: boolean;
+	/** 仅记录有限枚举，便于区分 TLS/网络、HTTP 状态码和响应内容故障。 */
+	providerFailureStage?: "transport" | "http" | "response";
 };
 
 /** Provider 返回的 request id 可能来自外部，先做长度和控制字符边界检查。 */
@@ -55,11 +57,24 @@ export function providerFailureMetadata(
 		requestId?: unknown;
 		statusCode?: unknown;
 		retryable?: unknown;
+		failureStage?: unknown;
+		responseInvalid?: unknown;
 	};
 	const provider = safeProviderText(candidate.provider);
 	const providerOperation = safeProviderText(candidate.operation);
 	const providerRequestId = safeProviderText(candidate.requestId);
 	const statusCode = candidate.statusCode;
+	// 老适配器的响应校验错误已经带有 `responseInvalid=true`，但早期构造点
+	// 尚未显式填写阶段。这里保留向后兼容的推断，避免同一类 Provider 响应
+	// 在不同业务模块的日志里出现字段缺失；显式阶段仍然拥有最高优先级。
+	const failureStage =
+		candidate.failureStage === "transport" ||
+		candidate.failureStage === "http" ||
+		candidate.failureStage === "response"
+			? candidate.failureStage
+			: candidate.responseInvalid === true
+				? "response"
+				: undefined;
 	return {
 		...(provider ? { provider } : {}),
 		...(providerOperation ? { providerOperation } : {}),
@@ -73,6 +88,7 @@ export function providerFailureMetadata(
 		...(typeof candidate.retryable === "boolean"
 			? { providerRetryable: candidate.retryable }
 			: {}),
+		...(failureStage ? { providerFailureStage: failureStage } : {}),
 	};
 }
 

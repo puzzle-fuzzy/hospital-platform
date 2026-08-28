@@ -15,6 +15,7 @@ test("Provider 失败只提取可关联的低敏诊断字段", () => {
 			requestId: "provider-request-001",
 			statusCode: 502,
 			retryable: false,
+			failureStage: "http",
 		},
 	);
 
@@ -24,6 +25,7 @@ test("Provider 失败只提取可关联的低敏诊断字段", () => {
 		providerRequestId: "provider-request-001",
 		providerStatusCode: 502,
 		providerRetryable: false,
+		providerFailureStage: "http",
 	});
 	expect(JSON.stringify(providerFailureMetadata(error))).not.toContain(
 		"patient data",

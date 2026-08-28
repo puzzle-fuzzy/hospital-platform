@@ -132,6 +132,7 @@ export async function requestJson<T>(
 				requestId,
 				statusCode: response.status,
 				retryable: response.status === 429 || response.status >= 500,
+				failureStage: "http",
 			});
 		}
 
@@ -152,6 +153,7 @@ export async function requestJson<T>(
 					message: "Provider response verification failed",
 					requestId,
 					retryable: false,
+					failureStage: "response",
 					cause,
 				});
 			}
@@ -174,6 +176,7 @@ export async function requestJson<T>(
 				message: "Provider response was not valid JSON",
 				requestId,
 				retryable: false,
+				failureStage: "response",
 				cause,
 			});
 		}
@@ -187,6 +190,7 @@ export async function requestJson<T>(
 				? "Provider request timed out or was cancelled"
 				: "Provider request could not be completed",
 			retryable: true,
+			failureStage: "transport",
 			cause,
 		});
 	} finally {
