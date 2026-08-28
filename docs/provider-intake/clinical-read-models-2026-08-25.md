@@ -16,9 +16,10 @@
 | `legacy-clinical-my-consultation-20260825` | `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\user\\my_consultation.vue` | `5c1492b6818424b4a620d38df0d8689f709a9cc8bf06c637b45635f1d107ed2d` | `snapshot-2026-08-25` | 旧项目源码 | `normalized` |
 | `legacy-clinical-electronic-consultation-20260825` | `G:\\fuck\\hospital\\hospital-app\\src\\pagesB\\health\\electronic_consultation.vue` | `4c82236dac47a3ea61118d0431a8204d26231a9ca140c70fa4afd49e90a8bdf6` | `snapshot-2026-08-25` | 旧项目源码 | `normalized` |
 
-本文把门诊病历、住院、医生关系和问诊四个未完成域拆开管理，目的不是增加状态页，
-而是让任意一个域拿到真实材料后可以独立进入 contract、adapter、API 和小程序验收。
-四个域不能共用 `patId`、通用 `convenience` 响应或万能 WebView。
+本文把批次 C 的门诊病历、住院、医生关系和电子导诊单四个临床只读域拆开管理，目的不是
+增加状态页，而是让任意一个域拿到真实材料后可以独立进入 contract、adapter、API 和小程序
+验收。批次 E 的“我的问诊/陪诊”另行管理，不能与 C 共用 `patId`、通用 `convenience`
+响应或万能 WebView。
 
 ## 当前总览
 
@@ -26,10 +27,11 @@
 | --- | --- | --- | --- |
 | 门诊就诊记录目录 | `POST /msun-middle-aggregate-clinic/v1/out-visit-records`；旧页面只展示摘要 | 未注册 | provider 当前请求/响应/空/拒绝/超时样例和 `patId` 映射确认 |
 | 门诊病历正文 | `GET /msun-middle-aggregate-clinic/v1/out-emrs`；旧页面没有实际调用证据 | 未注册 | 目录记录到正文的授权关系、短期引用、正文脱敏和审计说明 |
+| 电子导诊单 | 旧端 `electronic_consultation.vue` 的来源和权限仍需确认 | 未注册 | Provider 来源、患者上下文、读取权限、执行状态和短期资源引用 |
 | 住院信息/住院日费用 | `GET /msun-middle-aggregate-hsz/v1/patients`；费用使用独立 settlepay 接口 | 未注册 | episode 权威来源、住院患者映射、金额单位和账单状态样例 |
 | 住院病历 | `mr-menus`、`mr-contents`、`mr-content-structs` | 未注册 | 文档类型、内容格式、脱敏规则、资源授权和历史撤回语义 |
 | 我的医生 | 旧库 `my_doctor` 为 21 条快照关系 | 未注册 | 受控医生目录、医生引用映射、在职/失效和展示白名单 |
-| 我的问诊/陪诊 | 旧端有历史查询和外部入口混用 | 未注册 | 会话索引、owner/患者归属、外部主体、保留周期和回跳协议 |
+| 我的问诊/陪诊（批次 E） | 旧端有历史查询和外部入口混用 | 未注册 | 会话索引、owner/患者归属、外部主体、保留周期和回跳协议 |
 
 ## 统一硬边界
 

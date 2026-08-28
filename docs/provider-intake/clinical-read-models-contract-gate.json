@@ -43,7 +43,7 @@
 			"nextAction": "取得当前医生目录和 owner 关系的脱敏样例，确认失效语义"
 		},
 		{
-			"id": "consultation",
+			"id": "electronic-consultation",
 			"contractStatus": "pending",
 			"requestSample": "missing",
 			"successSample": "missing",
@@ -53,7 +53,7 @@
 			"ownerMapping": "pending",
 			"fieldAllowlist": "pending",
 			"redactionRule": "pending",
-			"nextAction": "分别确认电子导诊来源、问诊会话主体、短期回跳和退出语义"
+			"nextAction": "确认电子导诊单 Provider 来源、患者上下文、读取权限和短期资源引用语义"
 		}
 	]
 }

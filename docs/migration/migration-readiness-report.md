@@ -43,7 +43,7 @@ pnpm migration:readiness -- --strict
 | `migrationBreadth` | `migration-breadth-audit.mjs` 的结果 | 入口广度审计是否已经纳入总结构准入；任一可见 action 缺少固定分发，或当前 38 个页面的 WXML 事件缺少 TS 方法/共享页面工厂注册时，`structuralAuditPassed` 直接为 `false` | 不代表入口背后的 Provider、临床或支付业务已经完成 |
 | `readOnly` | `read-only-domain-catalog.mjs` | 就诊人、预约、报告、门诊费用、普通资料五个低风险域的页面/API/实现/日志/文档是否断链，并给出 `read-only`、`read-model-sync` 或 `read-write` 操作边界 | Provider 返回、生产流量或真机链路是否成功 |
 | `providerIntake` | `docs/provider-intake/*.md` | Provider 材料是否登记、状态是否为 `normalized` 或 `confirmed` | `normalized` 不等于接口确认；高风险业务仍需独立 contract |
-| `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档、结构化准入卡片和 API 源码 | 门诊记录、住院、医生关系、问诊/电子导诊四域是否仍独立、未注册且没有误加通用路由 | 不会因为材料登记就自动生成临床页面或接口 |
+| `clinicalContract` | `clinical-domain-catalog.mjs`、临床准入文档、结构化准入卡片和 API 源码 | 门诊记录、住院、医生关系、电子导诊单四个 C 批次临床域是否仍独立、未注册且没有误加通用路由；我的问诊属于 E 批次外部会话 | 不会因为材料登记就自动生成临床页面或接口 |
 | `healthContent` | 健康知识路由、约定的本机审核 bundle 证据目录和发布状态元数据 | 健康百科代码是否具备、正式审核 bundle 是否已经进入当前证据目录 | 不代表 bundle 已通过临床审核、已导入 staging、已发布或已完成真机验收 |
 | `runtime` | live/pending `build-info.json` 和当前运行输入指纹；发布前比较 pending/live，发布后比较 live/当前来源 | 当前开发者工具目录和待发布候选的源码来源是否一致 | 当前微信设备一定运行了哪个版本；锁定目录时必须保留现场证据 |
 | `deviceEvidence` | 当前运行包（优先 pending，否则 live）的完整 `sourceRevision` 匹配 `docs/release/device-evidence-<commit>-pending.json` | 当前候选的真机证据域数量、状态和候选指纹是否匹配 | `pending` 不等于失败；清单结构通过也不等于真实业务成功 |

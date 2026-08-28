@@ -9,6 +9,17 @@ describe("临床四域合同门禁", () => {
 		expect(report.intakeStatus).toBe("normalized");
 		expect(report.structuredGate.status).toBe("normalized");
 		expect(report.structuredGate.domains).toHaveLength(4);
+		expect(report.structuredGate.domains.map((domain) => domain.id)).toEqual(
+			expect.arrayContaining([
+				"outpatient-records",
+				"inpatient",
+				"doctor-relationship",
+				"electronic-consultation",
+			]),
+		);
+		expect(
+			report.structuredGate.domains.map((domain) => domain.id),
+		).not.toContain("consultation");
 		expect(
 			report.structuredGate.domains.every(
 				(domain) => domain.contractStatus === "pending",
