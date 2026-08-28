@@ -40,7 +40,7 @@ const API_PREFIX_KEY = "api_prefix";
 export type SupportedApiPrefix = "/api/v1" | "/api/v2";
 const DEFAULT_API_PREFIX: SupportedApiPrefix = "/api/v1";
 const PRODUCTION_API_PREFIX: SupportedApiPrefix = "/api/v2";
-const SAFE_UNKNOWN_ERROR_MESSAGE = "服务暂时不可用，请稍后重试";
+const SAFE_UNKNOWN_ERROR_MESSAGE = "当前信息暂时无法获取，请稍后重试";
 
 type ApiErrorDetails = {
 	statusCode?: number;
@@ -77,7 +77,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 	Object.freeze({
 		// 这张表是唯一允许进入小程序页面的错误文案表。技术错误码、Provider
 		// 名称和内部服务拓扑只写日志，不让普通用户承担实现细节。
-		"api-request-failed": "服务暂时不可用，请稍后重试",
+		"api-request-failed": "当前信息暂时无法获取，请稍后重试",
 		validation: "暂时无法完成操作，请稍后重试",
 		parse: "暂时无法完成操作，请稍后重试",
 		"not-found": "暂时找不到相关信息，请稍后重试",
@@ -89,11 +89,11 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"patient-directory-snapshot-unsafe": "暂时无法获取就诊人，请稍后再试",
 		"patient-directory-reference-conflict":
 			"就诊人信息需要重新确认，请刷新后再试",
-		"provider-request-rejected": "服务暂时不可用，请稍后重试",
-		"provider-response-invalid": "服务暂时不可用，请稍后重试",
-		"provider-temporarily-unavailable": "服务暂时不可用，请稍后重试",
-		"persistence-temporarily-unavailable": "服务暂时不可用，请稍后重试",
-		"persistence-invalid": "服务暂时不可用，请稍后重试",
+		"provider-request-rejected": "当前信息暂时无法获取，请稍后重试",
+		"provider-response-invalid": "当前信息暂时无法获取，请稍后重试",
+		"provider-temporarily-unavailable": "当前信息暂时无法获取，请稍后重试",
+		"persistence-temporarily-unavailable": "当前信息暂时无法获取，请稍后重试",
+		"persistence-invalid": "当前信息暂时无法获取，请稍后重试",
 		"health-knowledge-unavailable": "健康内容暂时无法获取，请稍后再试",
 		"health-knowledge-query-invalid": "暂时无法查找健康内容，请稍后再试",
 		"health-knowledge-not-found": "未找到相关健康内容",

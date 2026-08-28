@@ -68,7 +68,7 @@ export function patientScopedErrorMessage(
 		return "登录已过期，请返回首页重新登录";
 	}
 	if (error instanceof ApiError && error.code === "dependency-not-configured") {
-		return "就诊人服务暂时不可用，请稍后再试";
+		return "暂时无法获取就诊人，请稍后再试";
 	}
 	return patientContextErrorMessage(error, fallback);
 }

@@ -463,18 +463,18 @@ test("native client localizes every public query and session error boundary", ()
 	);
 	expect(
 		localizedApiErrorMessage("provider-request-rejected", "英文 provider 文案"),
-	).toBe("服务暂时不可用，请稍后重试");
+	).toBe("当前信息暂时无法获取，请稍后重试");
 	expect(
 		localizedApiErrorMessage(
 			"provider-response-invalid",
 			"英文 provider 响应文案",
 		),
-	).toBe("服务暂时不可用，请稍后重试");
+	).toBe("当前信息暂时无法获取，请稍后重试");
 	expect(localizedApiErrorMessage("unrecognized-code", "安全兜底")).toBe(
 		"安全兜底",
 	);
 	expect(localizedApiErrorMessage("api-request-failed", "服务端原始错误")).toBe(
-		"服务暂时不可用，请稍后重试",
+		"当前信息暂时无法获取，请稍后重试",
 	);
 });
 
@@ -510,7 +510,7 @@ test("native pages never display an unmapped ApiError message", async () => {
 			}),
 			"页面兜底",
 		),
-	).toBe("服务暂时不可用，请稍后重试");
+	).toBe("当前信息暂时无法获取，请稍后重试");
 	expect(
 		safeApiErrorMessage(
 			new ApiError("unknown internal detail", { code: "future-private-code" }),

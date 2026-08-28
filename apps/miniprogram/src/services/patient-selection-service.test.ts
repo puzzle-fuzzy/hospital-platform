@@ -233,7 +233,7 @@ test("直接读取患者目录的页面共享登录、依赖和选择错误边�
 		patientScopedErrorMessage(
 			new ApiError("not configured", { code: "dependency-not-configured" }),
 		),
-	).toBe("就诊人服务暂时不可用，请稍后再试");
+	).toBe("暂时无法获取就诊人，请稍后再试");
 	expect(
 		patientScopedErrorMessage(
 			new ApiError("stale", { code: "patient-selection-stale" }),
@@ -245,7 +245,7 @@ test("直接读取患者目录的页面共享登录、依赖和选择错误边�
 				code: "persistence-temporarily-unavailable",
 			}),
 		),
-	).toBe("服务暂时不可用，请稍后重试");
+	).toBe("当前信息暂时无法获取，请稍后重试");
 });
 
 test("患者选择动作只由明确的患者上下文错误触发", () => {

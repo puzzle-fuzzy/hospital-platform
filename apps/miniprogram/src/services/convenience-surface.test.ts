@@ -50,7 +50,7 @@ test("便民页面区分患者选择错误与服务暂不可用", () => {
 				code: "persistence-temporarily-unavailable",
 			}),
 		),
-	).toBe("服务暂时不可用，请稍后重试");
+	).toBe("当前信息暂时无法获取，请稍后重试");
 });
 
 test("便民页面保留登录失效与依赖未配置的操作引导", () => {
@@ -65,7 +65,7 @@ test("便民页面保留登录失效与依赖未配置的操作引导", () => {
 				code: "dependency-not-configured",
 			}),
 		),
-	).toBe("就诊人服务暂时不可用，请稍后再试");
+	).toBe("暂时无法获取就诊人，请稍后再试");
 	expect(convenienceSurfaceErrorMessage(new Error("内部原文不应展示"))).toBe(
 		"就诊人信息暂时无法获取，请稍后再试",
 	);

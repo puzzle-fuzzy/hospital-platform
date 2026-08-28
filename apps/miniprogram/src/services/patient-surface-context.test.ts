@@ -105,7 +105,7 @@ test("患者目录错误保持失效、映射不可用和暂时故障的区别",
 		patientSurfaceErrorMessage(
 			new ApiError("dependency", { code: "dependency-not-configured" }),
 		),
-	).toBe("就诊人服务暂时不可用，请稍后再试");
+	).toBe("暂时无法获取就诊人，请稍后再试");
 	expect(
 		patientSurfaceErrorMessage(
 			new ApiError("temporary", {
