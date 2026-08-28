@@ -1,1 +1,1 @@
-@import "../medical-record/medical-record.wxss";
+@import "../../styles/migration-surface.wxss";

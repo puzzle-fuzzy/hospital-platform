@@ -54,7 +54,7 @@ function applyPatientContext(
 		selectedPatient: surface.currentPatient ?? null,
 		selectedPatientName: surface.currentPatientName ?? "未选择就诊人",
 		selectedPatientCardLabel:
-			surface.currentPatientCardLabel ?? "就诊卡信息不可用",
+			surface.currentPatientCardLabel ?? "请先选择就诊人",
 	});
 }
 

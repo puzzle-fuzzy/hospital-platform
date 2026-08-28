@@ -1,15 +1,15 @@
-<scroll-view class="clinical-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="clinical-surface-page">
-		<view class="clinical-surface-hero">
-			<image class="clinical-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="clinical-surface-hero-copy">
-				<text class="clinical-surface-title">{{title}}</text>
-				<text class="clinical-surface-label">{{surfaceLabel}}</text>
+<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
+	<view class="migration-surface-page">
+		<view class="migration-surface-hero">
+			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
+			<view class="migration-surface-hero-copy">
+				<text class="migration-surface-title">{{title}}</text>
+				<text class="migration-surface-label">{{surfaceLabel}}</text>
 			</view>
 		</view>
-		<view class="clinical-surface-card">
-			<text class="clinical-surface-card-title">{{scopeTitle}}</text>
-			<text class="clinical-surface-card-copy">{{scopeDescription}}</text>
+		<view class="migration-surface-card">
+			<text class="migration-surface-card-title">{{scopeTitle}}</text>
+			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
 		</view>
 
 		<view class="migration-surface-patient-card">
@@ -30,25 +30,25 @@
 			</view>
 			<button class="migration-surface-patient-action" bindtap="onOpenPatientSelector">{{patientActionLabel}}</button>
 		</view>
-		<view class="clinical-surface-card">
-			<text class="clinical-surface-card-title">服务状态</text>
-			<text class="clinical-surface-card-copy">{{description}}</text>
-			<view class="clinical-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="clinical-surface-list-row">
-					<text class="clinical-surface-list-dot">·</text><text class="clinical-surface-list-text">{{item}}</text>
+		<view class="migration-surface-card">
+			<text class="migration-surface-card-title">服务状态</text>
+			<text class="migration-surface-card-copy">{{description}}</text>
+			<view class="migration-surface-list">
+				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
+					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
 				</view>
 			</view>
 		</view>
-		<view class="clinical-surface-card">
-			<text class="clinical-surface-card-title">使用说明</text>
-			<view class="clinical-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="clinical-surface-list-row">
-					<text class="clinical-surface-list-dot">·</text><text class="clinical-surface-list-text">{{item}}</text>
+		<view class="migration-surface-card">
+			<text class="migration-surface-card-title">使用说明</text>
+			<view class="migration-surface-list">
+				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
+					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
 				</view>
 			</view>
-			<text class="clinical-surface-coverage">{{coverageLabel}}</text>
+			<text class="migration-surface-coverage">{{coverageLabel}}</text>
 		</view>
-		<button class="clinical-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="clinical-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
+		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

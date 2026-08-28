@@ -4,10 +4,16 @@ page {
 	background: #f8f8f8;
 }
 
+/* scroll-view 的底部安全区属于滚动容器本身，必须同步页面底色，避免
+ * 内容不足一屏时在原生 TabBar 上方露出一块突兀的白色区域。 */
+.tab-page-scroll {
+	background: #f8f8f8;
+}
+
 .page {
 	position: relative;
 	box-sizing: border-box;
-	min-height: 100%;
+	min-height: 100vh;
 	padding: 1rpx 20rpx calc(24rpx + env(safe-area-inset-bottom));
 	background: #f8f8f8;
 }

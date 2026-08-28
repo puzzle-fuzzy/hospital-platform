@@ -37,7 +37,7 @@ test("会话变化时患者外壳清理旧卡片并回到加载状态", () => {
 
 	expect(data.currentPatient).toBeNull();
 	expect(data.currentPatientName).toBe("未选择就诊人");
-	expect(data.currentPatientCardLabel).toBe("就诊卡信息不可用");
+	expect(data.currentPatientCardLabel).toBe("请先选择就诊人");
 	expect(data.patientActionLabel).toBe("选择就诊人");
 	expect(data.patientContextLoading).toBe(true);
 	expect(data.patientContextLoaded).toBe(false);

@@ -86,8 +86,7 @@ function applyPatientContext(
 		// 就诊页只展示服务端已经脱敏的卡号。内部 opaque patientId 只用于
 		// 当前请求和 owner 作用域校验，不能因为页面仍沿用旧端“ID”文案而
 		// 进入 WXML、截图或用户转发内容。
-		selectedPatientIdLabel:
-			surface.currentPatientCardLabel ?? "就诊卡信息不可用",
+		selectedPatientIdLabel: surface.currentPatientCardLabel ?? "请先选择就诊人",
 	});
 }
 

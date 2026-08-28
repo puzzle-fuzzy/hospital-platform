@@ -1809,6 +1809,32 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	}
 });
 
+test("native clinical shells use the shared style and my page fills the scroll tail", async () => {
+	const clinicalPages = [
+		"pages/electronic-consultation/electronic-consultation",
+		"pages/inpatient-center/inpatient-center",
+		"pages/my-doctor/my-doctor",
+	];
+	for (const pagePath of clinicalPages) {
+		const template = await source(`${pagePath}.wxml`);
+		const style = await source(`${pagePath}.wxss`);
+		// 三个临床入口共享同一关闭态视觉骨架；样式导入和 WXML 类名必须
+		// 同时保持一致，避免页面变成没有间距和卡片样式的裸文本。
+		expect(style).toContain('@import "../../styles/migration-surface.wxss";');
+		expect(template).toContain('class="migration-surface-scroll"');
+		expect(template).not.toContain("clinical-surface-");
+	}
+
+	const myStyle = await source("pages/my/my.wxss");
+	const patientSurface = await source("services/patient-surface-context.ts");
+	// 主 Tab 的底部安全区属于 scroll-view，页面底色必须覆盖到原生底栏上方；
+	// 空患者状态也只能提示下一步，不能再显示“就诊卡信息不可用”。
+	expect(myStyle).toContain(".tab-page-scroll {");
+	expect(myStyle).toContain("background: #f8f8f8;");
+	expect(myStyle).toContain("min-height: 100vh;");
+	expect(patientSurface).not.toContain("就诊卡信息不可用");
+});
+
 test("consult and internet hospital empty states keep the legacy vertical layout", async () => {
 	const consultStyle = await source("pages/consult/consult.wxss");
 	const hospitalStyle = await source("pages/hospital/hospital.wxss");

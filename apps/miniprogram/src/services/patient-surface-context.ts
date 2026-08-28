@@ -94,7 +94,7 @@ export function toPatientSurfaceData(
 		return {
 			currentPatient: null,
 			currentPatientName: "未选择就诊人",
-			currentPatientCardLabel: "就诊卡信息不可用",
+			currentPatientCardLabel: "请先选择就诊人",
 			patientActionLabel: "选择就诊人",
 		};
 	}
