@@ -1,4 +1,8 @@
-import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
+import {
+	type FeatureKey,
+	getFeatureUserFacingCopy,
+	navigateToFeatureStatus,
+} from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
@@ -31,12 +35,17 @@ export type ClinicalSurfacePageData = PatientSurfaceContextData & {
 };
 
 function toPageData(coverage: MigrationCoverage): ClinicalSurfacePageData {
+	const copy = getFeatureUserFacingCopy(coverage.feature);
 	return {
 		...INITIAL_PATIENT_SURFACE_CONTEXT,
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
 		readiness: coverage.feature.readiness,
 		...USER_FACING_SURFACE_COPY,
+		surfaceLabel: copy.badge,
+		description: copy.description,
+		scopeTitle: "当前状态",
+		scopeDescription: copy.progress,
 	};
 }
 

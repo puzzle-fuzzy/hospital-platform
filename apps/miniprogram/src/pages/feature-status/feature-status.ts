@@ -1,11 +1,13 @@
 import {
-	resolveFeatureStatus,
 	type FeatureStatusKey,
+	getFeatureUserFacingCopy,
+	resolveFeatureStatus,
 } from "../../services/feature-navigation";
 import { getFeatureMigrationCoverage } from "../../services/migration-coverage";
 
 type FeatureStatusPageData = {
 	feature: ReturnType<typeof resolveFeatureStatus>["feature"];
+	featureCopy: ReturnType<typeof getFeatureUserFacingCopy>;
 	featureKey: FeatureStatusKey;
 	coverage: ReturnType<typeof getFeatureMigrationCoverage> | null;
 };
@@ -24,6 +26,7 @@ const initialStatus = resolveFeatureStatus();
 Page<FeatureStatusPageData, FeatureStatusPageMethods>({
 	data: {
 		feature: initialStatus.feature,
+		featureCopy: getFeatureUserFacingCopy(initialStatus.feature),
 		featureKey: initialStatus.featureKey,
 		coverage:
 			initialStatus.featureKey === "invalid-entry"
@@ -35,6 +38,7 @@ Page<FeatureStatusPageData, FeatureStatusPageMethods>({
 		const { feature, featureKey } = resolveFeatureStatus(options?.feature);
 		this.setData({
 			feature,
+			featureCopy: getFeatureUserFacingCopy(feature),
 			featureKey,
 			coverage:
 				featureKey === "invalid-entry"

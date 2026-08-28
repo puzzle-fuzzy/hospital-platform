@@ -150,6 +150,7 @@ test("native user profile is bootstrapped once and shared across primary tabs", 
 test("native migration entries expose a friendly service state instead of internal details", async () => {
 	const navigation = await source("services/feature-navigation.ts");
 	const statusPage = await source("pages/feature-status/feature-status.wxml");
+	const statusScript = await source("pages/feature-status/feature-status.ts");
 	const home = await source("pages/index/index.ts");
 	const my = await source("pages/my/my.ts");
 
@@ -161,13 +162,17 @@ test("native migration entries expose a friendly service state instead of intern
 	expect(navigation).toContain('"待支付与回写 contract"');
 	expect(navigation).toContain('"待患者绑定 contract"');
 	expect(navigation).toContain('"待外部入口 contract"');
-	expect(statusPage).toContain("功能正在完善");
-	expect(statusPage).toContain("服务准备和上线前检查");
+	expect(statusPage).toContain("{{featureCopy.badge}}");
+	expect(statusPage).toContain("{{featureCopy.description}}");
+	expect(statusPage).toContain("{{featureCopy.progress}}");
+	expect(statusScript).toContain("getFeatureUserFacingCopy");
 	expect(statusPage).not.toContain("{{feature.readiness}}");
 	expect(statusPage).not.toContain("{{coverage.contractFamilyLabel}}");
 	expect(statusPage).not.toContain("{{coverage.notes}}");
 	expect(statusPage).not.toContain("Provider");
 	expect(statusPage).not.toContain("contract");
+	expect(navigation).toContain("数据服务接入中");
+	expect(navigation).toContain("支付服务准备中");
 
 	for (const page of [home, my]) {
 		for (const match of page.matchAll(

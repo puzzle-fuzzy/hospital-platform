@@ -1,4 +1,8 @@
-import { type FeatureKey, navigateToFeatureStatus } from "./feature-navigation";
+import {
+	type FeatureKey,
+	getFeatureUserFacingCopy,
+	navigateToFeatureStatus,
+} from "./feature-navigation";
 import {
 	getFeatureMigrationCoverage,
 	type MigrationCoverage,
@@ -100,12 +104,20 @@ function toPageData(
 	coverage: MigrationCoverage,
 ): ExternalEntrySurfacePageData {
 	const definition = EXTERNAL_ENTRY_SURFACE_DEFINITIONS[feature];
+	const copy = getFeatureUserFacingCopy(coverage.feature);
 	return {
 		...INITIAL_PATIENT_SURFACE_CONTEXT,
 		title: coverage.feature.title,
 		icon: coverage.feature.icon,
 		showPatientSelector: definition.showPatientSelector,
 		...USER_FACING_SURFACE_COPY,
+		surfaceLabel: copy.badge,
+		description: copy.description,
+		scopeTitle: definition.scopeTitle,
+		scopeDescription: definition.scopeDescription,
+		boundaryItems: definition.boundaryItems,
+		contractItems: definition.contractItems,
+		coverageLabel: copy.progress,
 	};
 }
 

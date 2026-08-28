@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	FEATURE_STATUS_CATALOG,
+	getFeatureUserFacingCopy,
 	resolveFeatureStatus,
 } from "./feature-navigation";
 import {
@@ -143,5 +144,34 @@ describe("旧端页面全量迁移台账", () => {
 		expect(consultation.description).toContain("演示数据");
 		expect(consultation.description).toContain("不会复制");
 		expect(consultation.contractHint).toContain("真实问诊/陪诊来源");
+	});
+
+	test("状态页面按业务分类提供用户文案，不泄漏内部门禁术语", () => {
+		const providerCopy = getFeatureUserFacingCopy(
+			FEATURE_STATUS_CATALOG["medical-record"],
+		);
+		const paymentCopy = getFeatureUserFacingCopy(
+			FEATURE_STATUS_CATALOG.insurance,
+		);
+		const clinicalCopy = getFeatureUserFacingCopy(
+			FEATURE_STATUS_CATALOG["health-test"],
+		);
+
+		// Provider、支付和临床审核必须让用户看到不同的原因，不能再统一
+		// 显示“外部服务不可用”或“功能正在完善”。
+		expect(providerCopy.badge).toBe("数据服务接入中");
+		expect(paymentCopy.badge).toBe("支付服务准备中");
+		expect(clinicalCopy.badge).toBe("专业内容审核中");
+		expect(
+			new Set([providerCopy.badge, paymentCopy.badge, clinicalCopy.badge]).size,
+		).toBe(3);
+
+		// 这些文案会进入 WXML，不能把迁移台账里的内部分类带给普通用户。
+		for (const copy of [providerCopy, paymentCopy, clinicalCopy]) {
+			expect(copy.description).not.toContain("provider");
+			expect(copy.description).not.toContain("contract");
+			expect(copy.progress).not.toContain("provider");
+			expect(copy.progress).not.toContain("contract");
+		}
 	});
 });

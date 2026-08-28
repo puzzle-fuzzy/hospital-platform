@@ -3,13 +3,13 @@
 		<view class="feature-status-card">
 			<image class="feature-status-icon" src="{{feature.icon}}" mode="aspectFit" />
 			<text class="feature-status-title">{{feature.title}}</text>
-			<view class="feature-status-badge">功能正在完善</view>
-			<text class="feature-status-description">这项服务正在完善中，暂时无法使用，请稍后再试。</text>
+			<view class="feature-status-badge">{{featureCopy.badge}}</view>
+			<text class="feature-status-description">{{featureCopy.description}}</text>
 		</view>
 
 		<view class="feature-status-panel">
 			<text class="feature-status-panel-title">当前状态</text>
-			<text class="feature-status-panel-copy">我们正在完成服务准备和上线前检查，开放后会及时更新。</text>
+			<text class="feature-status-panel-copy">{{featureCopy.progress}}</text>
 			<view class="feature-status-notice">
 				<text>已开放的医疗服务仍可从首页或“我的”进入。</text>
 				<text>你可以先返回医疗服务，使用其他已开放功能。</text>

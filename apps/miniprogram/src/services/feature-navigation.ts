@@ -68,6 +68,65 @@ export type FeatureStatus = {
 };
 
 /**
+ * 面向普通用户的功能状态文案。
+ *
+ * `FeatureStatus.readiness` 是迁移和发布门禁使用的内部分类，不能直接
+ * 出现在小程序页面里。这里把同一分类转换成用户能理解的“正在准备什么”
+ * 和“当前会发生什么”，避免所有入口都只显示模糊的“服务不可用”。
+ */
+export type FeatureUserFacingCopy = {
+	badge: string;
+	description: string;
+	progress: string;
+};
+
+/** 将内部迁移分类投影为安全、稳定、可读的页面文案。 */
+export function getFeatureUserFacingCopy(
+	feature: FeatureStatus,
+): FeatureUserFacingCopy {
+	switch (feature.readiness) {
+		case "待 provider contract":
+			return {
+				badge: "数据服务接入中",
+				description: `${feature.title}正在接入医院数据服务，当前暂时无法查询。`,
+				progress: "我们正在完成数据来源、权限和安全检查，开放后会及时更新。",
+			};
+		case "待临床审核":
+			return {
+				badge: "专业内容审核中",
+				description: `${feature.title}的内容正在完成专业审核，当前暂时无法使用。`,
+				progress:
+					"我们正在完成内容版本、适用范围和安全检查，开放后会及时更新。",
+			};
+		case "待支付与回写 contract":
+			return {
+				badge: "支付服务准备中",
+				description: `${feature.title}涉及支付或结算，当前暂时无法使用。`,
+				progress: "我们正在完成订单、支付结果和结算核对，开放后会及时更新。",
+			};
+		case "待患者绑定 contract":
+			return {
+				badge: "就诊人服务完善中",
+				description: `${feature.title}需要完善就诊人服务，当前暂时无法使用。`,
+				progress: "我们正在完成就诊人信息和授权流程检查，开放后会及时更新。",
+			};
+		case "待外部入口 contract":
+			return {
+				badge: "安全配置中",
+				description: `${feature.title}正在完成安全配置，当前暂时无法使用。`,
+				progress:
+					"我们正在完成访问范围、登录隔离和返回流程检查，开放后会及时更新。",
+			};
+		case "入口校验失败":
+			return {
+				badge: "入口无效",
+				description: "该服务入口无效，请返回首页后重新选择服务。",
+				progress: "当前不会读取旧缓存或发起业务请求，请从首页重新进入。",
+			};
+	}
+}
+
+/**
  * 所有未完成入口共用一份状态目录，避免首页、“我的”和状态页出现互相
  * 矛盾的文案。新增真实业务页面时，应先从这里移除对应 key，再删除旧入口
  * 的迁移状态分支，确保迁移矩阵、导航和页面实现同步收敛。
