@@ -505,6 +505,16 @@ async function runtimeProvenance(root) {
 		// 非 Git 或运行输入未提交时保持 fail-closed；报告仍需返回稳定结构。
 		expectedSourceRevision = null;
 	}
+	const liveMatchesExpected = Boolean(
+		liveRevision &&
+			expectedSourceRevision &&
+			liveRevision === expectedSourceRevision,
+	);
+	const pendingMatchesExpected = Boolean(
+		pendingRevision &&
+			expectedSourceRevision &&
+			pendingRevision === expectedSourceRevision,
+	);
 	return {
 		live: liveRevision
 			? { sourceRevision: liveRevision, pageCount: live.pageCount ?? null }
@@ -516,21 +526,19 @@ async function runtimeProvenance(root) {
 				}
 			: null,
 		expectedSourceRevision,
-		candidateRuntimeAligned: Boolean(
-			liveRevision &&
-				(pendingRevision
-					? liveRevision === pendingRevision
-					: expectedSourceRevision && liveRevision === expectedSourceRevision),
-		),
+		/** 当前候选必须同时满足“来源指纹等于工作树”和“运行包存在”。 */
+		candidateRuntimeAligned: pendingMatchesExpected || liveMatchesExpected,
+		liveMatchesExpected,
+		pendingMatchesExpected,
+		/** pending 存在但不是当前源码时，只能作为历史恢复材料，不能发布。 */
+		stalePending: Boolean(pendingRevision && !pendingMatchesExpected),
 		/**
 		 * pending 不存在时仍可能有新的运行输入提交：此时 live 还是上一代
 		 * 运行包，也必须明确要求重新构建并原子发布，不能因为 pending 已被
 		 * 清理就把候选漂移静默当成“无需发布”。
 		 */
 		publicationRequired: Boolean(
-			liveRevision &&
-				(expectedSourceRevision ?? pendingRevision) &&
-				liveRevision !== (pendingRevision ?? expectedSourceRevision),
+			expectedSourceRevision && !liveMatchesExpected,
 		),
 	};
 }
@@ -618,7 +626,15 @@ async function deviceEvidenceCoverage(root, runtime) {
 	// 存在多轮清单。因此这里扫描候选文件，并以 manifest 内的
 	// 完整 sourceRevision 做唯一匹配，避免新页面、旧二维码和旧 requestId
 	// 被误合并成一条“当前证据”。
-	const activeRuntime = runtime.pending ?? runtime.live;
+	/**
+	 * 只有与当前源码一致的候选才能承载真机证据。陈旧 pending 即使存在，
+	 * 也不能压过已对齐的 live，更不能把历史截图和当前客户端拼成一条链。
+	 */
+	const activeRuntime = runtime.pendingMatchesExpected
+		? runtime.pending
+		: runtime.liveMatchesExpected
+			? runtime.live
+			: null;
 	const activeSourceRevision = activeRuntime?.sourceRevision ?? null;
 	const expectedEvidencePath = activeSourceRevision
 		? `docs/release/device-evidence-${activeSourceRevision.slice(0, 8)}-pending.json`
@@ -682,7 +698,11 @@ async function deviceEvidenceCoverage(root, runtime) {
 				evidenceSourceRevision &&
 				activeSourceRevision === evidenceSourceRevision,
 		),
-		activeRuntime: runtime.pending ? "pending" : runtime.live ? "live" : null,
+		activeRuntime: runtime.pendingMatchesExpected
+			? "pending"
+			: runtime.liveMatchesExpected
+				? "live"
+				: null,
 	};
 }
 

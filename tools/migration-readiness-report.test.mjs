@@ -161,54 +161,56 @@ describe("全项目迁移 readiness 报告", () => {
 			expect(report.healthContent.reviewQueue).toBeNull();
 		}
 		/**
-		 * pending/live 是有意并存的发布状态：pending 存在且来源不同，说明
-		 * 候选尚未原子发布，必须明确要求发布；pending 被发布器清理后，才
-		 * 回退到 live 与当前源码来源的对齐检查。测试不能把某一个窗口的
-		 * 具体 hash 写死成“已发布”，否则会掩盖运行包漂移。
+		 * 运行包是否当前候选只由完整 sourceRevision 决定。旧 pending 与当前
+		 * 源码不一致时，不能继续读取旧九域清单，也不能把它当作待发布候选。
 		 */
-		if (report.runtime.pending) {
-			expect(report.runtime.candidateRuntimeAligned).toBe(
-				report.runtime.live?.sourceRevision ===
-					report.runtime.pending.sourceRevision,
-			);
-			expect(report.runtime.publicationRequired).toBe(
-				report.runtime.live?.sourceRevision !==
-					report.runtime.pending.sourceRevision,
-			);
-			expect(report.runtime.expectedSourceRevision).toBe(
-				report.runtime.pending.sourceRevision,
+		expect(report.runtime.expectedSourceRevision).toMatch(/^[0-9a-f]{40}$/u);
+		expect(report.runtime.pendingMatchesExpected).toBe(
+			report.runtime.pending?.sourceRevision ===
+				report.runtime.expectedSourceRevision,
+		);
+		expect(report.runtime.liveMatchesExpected).toBe(
+			report.runtime.live?.sourceRevision ===
+				report.runtime.expectedSourceRevision,
+		);
+		expect(report.runtime.stalePending).toBe(
+			Boolean(report.runtime.pending && !report.runtime.pendingMatchesExpected),
+		);
+		expect(report.runtime.candidateRuntimeAligned).toBe(
+			report.runtime.pendingMatchesExpected ||
+				report.runtime.liveMatchesExpected,
+		);
+		expect(report.runtime.publicationRequired).toBe(
+			!report.runtime.liveMatchesExpected,
+		);
+		const expectedActiveRuntime = report.runtime.pendingMatchesExpected
+			? "pending"
+			: report.runtime.liveMatchesExpected
+				? "live"
+				: null;
+		expect(report.deviceEvidence.activeRuntime).toBe(expectedActiveRuntime);
+		expect(report.deviceEvidence.domainCount).toBe(
+			report.deviceEvidence.activeRuntime === "pending" ? 9 : 0,
+		);
+		expect(report.deviceEvidence.allPending).toBe(
+			report.deviceEvidence.activeRuntime === "pending",
+		);
+		expect(report.deviceEvidence.passed).toBe(false);
+		expect(report.deviceEvidence.candidateMatchesCurrentRuntime).toBe(
+			report.deviceEvidence.activeRuntime === "pending",
+		);
+		if (report.deviceEvidence.activeRuntime === "pending") {
+			const evidenceManifest = await Bun.file(
+				report.deviceEvidence.manifestPath,
+			).json();
+			// 清单文件名的短前缀历史上有 7/8 位等不同写法，不能把文件名
+			// 当作候选身份；真正的绑定依据是清单内部的完整 sourceRevision。
+			expect(evidenceManifest.candidate.sourceRevision).toBe(
+				report.deviceEvidence.candidate.sourceRevision,
 			);
 		} else {
-			/**
-			 * 没有 pending 目录并不等于当前工作树已经发布：候选提交可能刚刚
-			 * 改动了小程序运行输入，此时 live 仍然是上一代运行包。候选质量
-			 * 门禁应报告“需要发布”，而不是把尚未生成的候选包误判成测试失败。
-			 */
-			expect(report.runtime.candidateRuntimeAligned).toBe(
-				report.runtime.live?.sourceRevision ===
-					report.runtime.expectedSourceRevision,
-			);
-			expect(report.runtime.publicationRequired).toBe(
-				report.runtime.live?.sourceRevision !==
-					report.runtime.expectedSourceRevision,
-			);
-			expect(report.runtime.expectedSourceRevision).toMatch(/^[0-9a-f]{40}$/u);
+			expect(report.deviceEvidence.candidate).toBeNull();
 		}
-		expect(report.deviceEvidence.domainCount).toBe(9);
-		expect(report.deviceEvidence.allPending).toBe(true);
-		expect(report.deviceEvidence.passed).toBe(false);
-		expect(report.deviceEvidence.candidateMatchesCurrentRuntime).toBe(true);
-		expect(report.deviceEvidence.activeRuntime).toBe(
-			report.runtime.pending ? "pending" : "live",
-		);
-		const evidenceManifest = await Bun.file(
-			report.deviceEvidence.manifestPath,
-		).json();
-		// 清单文件名的短前缀历史上有 7/8 位等不同写法，不能把文件名
-		// 当作候选身份；真正的绑定依据是清单内部的完整 sourceRevision。
-		expect(evidenceManifest.candidate.sourceRevision).toBe(
-			report.deviceEvidence.candidate.sourceRevision,
-		);
 		/**
 		 * 交接单里的可复制命令必须和 readiness 实际选择的证据清单一致；
 		 * 否则新会话可能把真机结果写入历史候选，造成页面、客户端和服务端
@@ -218,9 +220,11 @@ describe("全项目迁移 readiness 报告", () => {
 		const handoff = await Bun.file(
 			"docs/migration/full-migration-handoff-2026-08-25.md",
 		).text();
-		expect(handoff).toContain(
-			`pnpm device:evidence:audit --file ${report.deviceEvidence.manifestPath}`,
-		);
+		if (report.deviceEvidence.present) {
+			expect(handoff).toContain(
+				`pnpm device:evidence:audit --file ${report.deviceEvidence.manifestPath}`,
+			);
+		}
 		expect(report.migrationQueue.map((batch) => batch.id)).toEqual([
 			"A-readonly-evidence",
 			"B-health-content",
