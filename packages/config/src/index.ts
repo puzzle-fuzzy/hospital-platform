@@ -41,6 +41,8 @@ export type RuntimeConfig = {
 	outpatientPaymentReady: boolean;
 	/** 众阳 2.6.33 所需的服务端渠道标识，必须由院方/Provider 显式确认。 */
 	outpatientPaymentAuthSysCode: string;
+	/** 门诊病历 out-visit-records 只读接口独立验收闸门。 */
+	outpatientMedicalRecordsReady: boolean;
 	/** LIS/PACS/ECG 报告目录独立验收，不能随患者目录一起隐式打开。 */
 	reportDirectoryReady: boolean;
 	/** LIS 详情独立验收；不会因为目录 gate 打开而自动暴露 provider 资源。 */
@@ -78,6 +80,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-appointment-directory"
 		| "zhongyang-appointment-records"
 		| "zhongyang-outpatient-payments"
+		| "zhongyang-medical-records"
 		| "zhongyang-report-directory"
 		| "zhongyang-report-detail";
 	status: ProviderConfigurationStatus;
@@ -298,6 +301,25 @@ export function outpatientPaymentConfigurationStatus(
 		: "incomplete";
 }
 
+export function outpatientMedicalRecordsConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.outpatientMedicalRecordsReady,
+	);
+}
+
+export function outpatientMedicalRecordsConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.outpatientMedicalRecordsReady) return "disabled";
+	return outpatientMedicalRecordsConfigurationMissingFields(runtimeConfig)
+		.length === 0
+		? "configured"
+		: "incomplete";
+}
+
 export function reportDirectoryConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
@@ -373,6 +395,12 @@ export function providerConfigurationDiagnostics(
 			name: "zhongyang-outpatient-payments" as const,
 			status: outpatientPaymentConfigurationStatus(runtimeConfig),
 			missingFields: outpatientPaymentConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-medical-records" as const,
+			status: outpatientMedicalRecordsConfigurationStatus(runtimeConfig),
+			missingFields:
+				outpatientMedicalRecordsConfigurationMissingFields(runtimeConfig),
 		},
 		{
 			name: "zhongyang-report-directory" as const,
@@ -537,6 +565,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		// 经验互换；缺失时让只读 gate 进入 incomplete，等待院方确认。
 		outpatientPaymentAuthSysCode:
 			optional(env.OUTPATIENT_PAYMENT_AUTH_SYS_CODE) ?? "",
+		outpatientMedicalRecordsReady: boolean(
+			env.ZHONGYANG_MEDICAL_RECORDS_READY,
+			false,
+		),
 		reportDirectoryReady: boolean(env.ZHONGYANG_REPORT_DIRECTORY_READY, false),
 		reportDetailReady: boolean(env.ZHONGYANG_REPORT_DETAIL_READY, false),
 		// 兼容早期草稿变量；新部署统一使用 ZHONGYANG_BASE_URL 与

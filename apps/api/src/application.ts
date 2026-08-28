@@ -3,6 +3,7 @@ import type { DependencyState } from "@hospital/contracts";
 import type {
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
+	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientDirectoryGateway,
 	ReportDetailGateway,
@@ -27,8 +28,9 @@ import {
 	createRedisSessionTokenService,
 	type SessionTokenService,
 } from "./modules/auth";
-import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { OutpatientMedicalRecordService } from "./modules/medical-records";
+import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
 import { WechatPrepayService } from "./modules/payments";
 import {
@@ -46,6 +48,8 @@ export type ApplicationServices = {
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
 	healthKnowledge?: HealthKnowledgeService;
 	reports: ReportService;
+	/** 门诊病历只读服务；电子导诊单和住院病历不复用此服务。 */
+	medicalRecords?: OutpatientMedicalRecordService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
 	wechatPaymentNotifications: WechatPaymentNotificationService;
@@ -73,6 +77,8 @@ export type ApplicationServiceOptions = {
 	appointmentRecordDirectoryGateway?: AppointmentRecordDirectoryGateway;
 	/** 门诊费用只读目录；支付和医保结算不由该网关隐式开启。 */
 	outpatientPaymentGateway?: OutpatientPaymentGateway;
+	/** 门诊病历只读 Provider；独立于预约、报告和电子导诊 gate。 */
+	outpatientMedicalRecordGateway?: OutpatientMedicalRecordGateway;
 	outpatientPaymentAuthSysCode?: string;
 	/** 只有完成众阳 LIS/PACS/ECG 只读合同和真实环境验收后才打开。 */
 	reportDirectoryGateway?: ReportDirectoryGateway;
@@ -138,6 +144,13 @@ export function createDefaultApplicationServices(
 			...(options.reportDetailGateway
 				? { detail: options.reportDetailGateway }
 				: {}),
+			...(options.logger ? { logger: options.logger } : {}),
+		}),
+		medicalRecords: new OutpatientMedicalRecordService({
+			repository: repositories.patients,
+			directory:
+				options.outpatientMedicalRecordGateway ??
+				gateways.outpatientMedicalRecords,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		outpatientPayments: new OutpatientPaymentService({

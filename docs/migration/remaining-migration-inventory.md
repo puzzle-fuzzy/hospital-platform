@@ -22,6 +22,11 @@
 
 # 剩余迁移盘点与下一步计划
 
+> **2026-08-28 当前增量**：门诊病历已从通用关闭态升级为 `partial` 安全只读子集，页面读取旧端对应的近 30 天
+> `out-visit-records` 摘要；“我的问诊”已从外部会话壳升级为当前患者历史摘要列表。两者不是病历正文或外部问诊全量完成。
+> 新 API 路由为 `GET /api/v2/medical-records`，生产 gate `ZHONGYANG_MEDICAL_RECORDS_READY` 默认关闭，必须完成
+> Provider、公网和真机证据后再开启。本轮未修改旧 Python 服务、旧数据库、Redis、旧端源码或另一会话的众阳自动化。
+
 > **当前事实覆盖（2026-08-27，优先于下方历史交接）**：源码已注册 40 个原生页面，健康自测中的 BMI/血压安全数值子集已从关闭外壳升级为 `partial`，采血预约、我的快递、患者签名展示和消息订阅展示也已形成低风险安全子集；当前旧端 64 页统计为 `replaced=8 / partial=23 / surface-only=25 / blocked-payment=7 / excluded=1`；本轮新增临床/服务入口共享当前就诊人上下文、重试和选择入口以及患者协议原文安全入口和公共日期窗口边界，微信资料被拒绝后的设置页重试和选择页刷新并发门禁已接入，并统一便民记录区域的加载/错误/未开放三态和固定高度，但健康内容、协议同意/撤回/审计、临床 Provider、外部会话、患者域真实 contract 和支付医保仍未开放。最新业务源码和 live 运行包来源为 `02865d3`（完整来源 `02865d385a9c09876dc51da1ffb71183139a559b`）；本轮另修正健康百科和报告详情迁移台账映射、报告/费用底层患者范围输入、预约查询底层输入边界，公网 HTTPS 已恢复并通过无 `-k` TLS 校验，九个真机证据域仍未完成。
 
 > **运行层复核补充（2026-08-26）**：新 Elysia `active` 且监听 `10.0.0.3:18081`，旧 Python `8001` 仍监听，内网和公网 readiness 均为 200；本次未执行业务请求，不能替代 A 批次真实只读证据。详见 [`../release/current-runtime-coexistence-readonly-2026-08-26.md`](../release/current-runtime-coexistence-readonly-2026-08-26.md)。
@@ -136,7 +141,7 @@
 | --- | --- | --- | --- |
 | P0 | 恢复受控发布链 | 阿里云 SSH 可用；服务端候选可在不停止旧 Python `8001` 的情况下切换；公网 live/ready、旧端口和新端口均有证据 | 已完成：线上 `0aaa13b5` 已稳定运行，切换后 runtime smoke 通过；旧 Python `8001` 继续共存 |
 | P1 | 真机只读与普通资料受控验收 | 新小程序运行包来源与已验证服务端配套；微信登录、患者同步/切换、预约历史、门诊费用、普通资料 GET 分别取得页面、HTTP requestId/Provider requestId、Pino 日志三层证据；普通资料 PUT/409 仅使用明确授权的可恢复测试值 | 当前进行中：真机配套使用本地 live 运行包 `02865d385a9c09876dc51da1ffb71183139a559b`，线上历史小程序仍为 `13f597e`；当前没有开发者工具或真机会话，显式患者切换、页面截图、预约历史、门诊费用和普通资料三层证据仍待，真实写入尚未执行，详见 [`../release/next-readonly-business-acceptance-plan-2026-08-26.md`](../release/next-readonly-business-acceptance-plan-2026-08-26.md) |
-| P2 | 门诊病历、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 继续保持未注册或迁移提示；不写兼容转发、不猜 `patId`/卡号用途。二维码停止条件详见 [`patient-qr-contract-audit-2026-08-24.md`](patient-qr-contract-audit-2026-08-24.md) |
+| P2 | 门诊病历正文/详情/附件、二维码、患者新增/绑定、住院和动态外部入口 | Provider/HIS 正式 contract、字段授权、owner/患者映射、成功/空/拒绝/暂时失败样例、回滚方案 | 门诊摘要目录已实现为 partial，生产 gate 默认关闭；其余能力继续保持未注册或迁移提示。不写兼容转发、不猜 `patId`/卡号用途。二维码停止条件详见 [`patient-qr-contract-audit-2026-08-24.md`](patient-qr-contract-audit-2026-08-24.md) |
 | P3 | 微信支付、医保授权、结算、退款和 HIS 写回 | 金额/状态机、授权、回调/查单、幂等、回滚及真实沙箱/生产验收全部冻结 | 最后处理；当前已统一关闭支付运行闸门，订单/预支付/通知不会访问仓储或 provider；只读费用列表不能触发支付或医保流程 |
 
 当前线上服务端 release 为 `0aaa13b53cb6e21b59b332dbd4e2b982a5aba1e7`，小程序 live 运行包来源为
@@ -659,7 +664,7 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | `pagesB/hospital/confirm_registration`、`registration_detail` | 预约确认、预约详情和状态刷新 | 锁号、预约写入、最终状态查询、幂等与取消矩阵 |
 | `pagesB/health/outpatient_pay_detail`、`electronic_bill` | 费用明细和可支付金额展示 | 费用详情 contract、金额单位和患者归属规则 |
 | `pagesB/health/report_query`、`report_detail` 的真实能力 | LIS/PACS/ECG/体检真实数据、附件和详情授权 | provider 文档、资源 URL/短期授权、数据脱敏规则 |
-| `pagesB/health/electronic_record` | 门诊病历目录、内容和结构化字段；旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | HIS/EMR 只读 contract、资源授权和脱敏清单；必须先确认 `thirdPatientId` 经 `patInfosFind(type=3)` 得到的 HIS `patId` 是否能复用现有 `his-patient` 引用；目录差异草案见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)，整体边界见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
+| `pagesB/health/electronic_record` | `partial`：已迁移近 30 天门诊就诊摘要目录；病历正文和结构化字段未迁移。旧端实际调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`，病历正文接口另有定义 | Provider 公网/真机验收、gate 放行、正文/详情/附件独立 contract；必须继续确认 `thirdPatientId` 经 `patInfosFind(type=3)` 得到的 HIS `patId` 是否能复用现有 `his-patient` 引用。目录差异草案见 [`medical-record-directory-contract-draft.md`](medical-record-directory-contract-draft.md)，整体边界见 [`medical-record-and-hospital-boundary.md`](medical-record-and-hospital-boundary.md) |
 | `pagesB/account/follow` | 公众号说明 | 静态说明已迁移至 `pages/official-account/official-account`；二维码、关注状态、订阅消息和外部主体 contract 仍缺 |
 | `pagesB/user/feedback` | 意见反馈 | 静态帮助页已迁移至 `pages/feedback/feedback`；真实反馈写入、客服工单和受控配置仍缺 |
 | `pagesB/hospital/hospitalList` | 医院列表 | 静态单院区入口已迁移至 `pages/hospital-list/hospital-list`；医院列表数据来源、机构选择语义和版本 contract 仍缺 |
@@ -676,11 +681,11 @@ P0 日志聚合已经使用同链 `correlation` bundle，内外网运行层和�
 | 预问诊/随访 | `pre_visit`、`admission_preconsultation`、`discharge_followup*` | 未迁移 | 旧端按原始 `pat_id` 和 JSON 数组保存，且不同表单可能按 `(user_id, pat_id)` 互相覆盖；必须先绑定预约/住院/随访任务、问卷版本、患者授权、幂等和医护读取权限；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 电子锦旗/表扬信 | `list_*`、`gift_*`、`record_*` | 页面结构已迁移，业务未开放 | 新端已迁移当前就诊人、列表/记录稳定关闭态和统一入口；“公开记录暂未开放”不等于真实空记录。旧端可提交伪造的患者/医生/就诊字段，且 `display_type=1` 不等于已审核公开；必须完成内容安全、审核、脱敏展示、撤回和幂等；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
 | 我的医生 | `pagesB/patient/doctor.vue` | 未迁移 | 旧端保存客户端医生快照，重复关注非幂等且使用 GET 删除；必须依赖受控医生目录、owner 关系、命令语义、唯一约束和审计；详见 [`convenience-service-boundaries.md`](convenience-service-boundaries.md) |
-| 智能陪诊/导诊 | `consult`、`webview`、`my_consultation` | 未迁移 | 独立 AI/会话 contract、免责声明、模型和知识版本审计 |
+| 智能陪诊/导诊 | `consult`、`webview` | 未迁移；`my_consultation` 的历史摘要已 partial | 独立 AI/会话 contract、免责声明、模型和知识版本审计；历史摘要不等于外部问诊会话 |
 
 ### P3：患者个人中心与低风险账户能力
 
-- `user/user.vue` 目前已由新端“我的”页、普通个人资料页和就诊人选择页组成安全子集；爽约记录已提供基于预约历史读模型的安全筛选子页，但真实 provider/公网/真机证据仍未完成；头像、实名资料、真实意见反馈提交、订阅消息、咨询历史、公众号真实关注、我的医生和患者签名尚未迁移。公众号静态通知说明和反馈帮助页的旧端静态行为已经迁移，但不代表未来关注、工单或反馈提交能力已开放；旧端反馈和订阅当前没有真实后端事实，不能复制假保存；详见 [`static-and-closed-feature-parity.md`](static-and-closed-feature-parity.md)，普通资料契约见 [`user-profile-contract.md`](user-profile-contract.md)，总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
+- `user/user.vue` 目前已由新端“我的”页、普通个人资料页和就诊人选择页组成安全子集；爽约记录已提供基于预约历史读模型的安全筛选子页，`my_consultation` 已提供 online/过去 120 天历史摘要，但真实 provider/公网/真机证据仍未完成；外部问诊会话、头像、实名资料、真实意见反馈提交、订阅消息、公众号真实关注和我的医生尚未迁移。公众号静态通知说明和反馈帮助页的旧端静态行为已经迁移，但不代表未来关注、工单或反馈提交能力已开放；旧端反馈和订阅当前没有真实后端事实，不能复制假保存；详见 [`static-and-closed-feature-parity.md`](static-and-closed-feature-parity.md)，普通资料契约见 [`user-profile-contract.md`](user-profile-contract.md)，总边界见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 - `patientAdd`、`patientChange` 的真实建档/绑卡接口尚未开放；旧端在查询档案失败时可能继续建档，当前“添加就诊人”只能显示迁移边界，不得伪造成功。候选状态机、字段白名单、幂等和待 provider 确认问题见 [`patient-binding-contract-draft.md`](patient-binding-contract-draft.md)。
 - `patient/agreement`、隐私授权、患者签名需要重新确认法律文本、授权记录和撤回策略，不能只复制旧页面；跨小程序票据和 WebView 规则见 [`patient-center-and-external-entry-boundaries.md`](patient-center-and-external-entry-boundaries.md)。
 

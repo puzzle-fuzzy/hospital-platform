@@ -15,11 +15,12 @@ import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
 import { healthKnowledgeModule } from "./modules/knowledge";
+import { medicalRecordsModule } from "./modules/medical-records";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
-import { reportsModule } from "./modules/reports";
 import { profileModule } from "./modules/profile";
+import { reportsModule } from "./modules/reports";
 import { systemModule } from "./modules/system";
 import { errorHandlerPlugin } from "./plugins/error-handler";
 import { requestContextPlugin } from "./plugins/request-context";
@@ -59,6 +60,7 @@ function openApiPlugin() {
 				{ name: "appointments", description: "预约目录" },
 				{ name: "knowledge", description: "审核后的健康百科只读内容" },
 				{ name: "reports", description: "检查检验报告目录" },
+				{ name: "medical-records", description: "门诊病历只读目录" },
 				{ name: "payments", description: "支付订单" },
 			],
 		},
@@ -112,6 +114,11 @@ export function createApp(options: AppOptions = {}) {
 				.use(patientsModule(services.patients, services.sessions))
 				.use(appointmentsModule(services.appointments, services.sessions))
 				.use(reportsModule(services.reports, services.sessions))
+				.use(
+					services.medicalRecords
+						? medicalRecordsModule(services.medicalRecords, services.sessions)
+						: new Elysia({ name: "medical-records-not-configured" }),
+				)
 				.use(
 					services.outpatientPayments
 						? outpatientPaymentsModule(

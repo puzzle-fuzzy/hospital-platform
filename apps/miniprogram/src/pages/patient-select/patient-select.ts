@@ -20,13 +20,13 @@ import {
 	setSelectedPatientId,
 } from "../../services/patient-selection-service";
 import {
-	getSessionGeneration,
-	isCurrentSessionGeneration,
-} from "../../services/session-generation";
-import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import {
+	getSessionGeneration,
+	isCurrentSessionGeneration,
+} from "../../services/session-generation";
 import { hasPlatformSession } from "../../services/session-service";
 import type {
 	Patient,
@@ -102,8 +102,9 @@ const PATIENT_RELATIONSHIP_LABELS: Record<Patient["relationship"], string> = {
  * 但旧读取不能阻止当前刷新正确结束 loading 状态。三个 guard 和同步
  * 单飞对象都按当前页面实例隔离，避免页面栈中的选择页互相取消状态。
  *
- * 自动同步和用户手动刷新可能同时触发；同一页面只允许一个同步请求进入 provider。
- * 服务端仍以 owner + Idempotency-Key 做最终幂等，这里是防止真机重复事件的第一层保护。
+ * 进入选择页只读取已经落库的 owner-scoped 目录，不隐式触发 Provider 同步。
+ * 只有用户明确点击“刷新就诊人”时才进入同步；同一页面只允许一个同步请求
+ * 进入 Provider，服务端仍以 owner + Idempotency-Key 做最终幂等。
  */
 function toPatientSelectionView(patient: Patient): PatientSelectionView {
 	return {
@@ -176,7 +177,8 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	 * 选择页可能在页面栈中停留期间发生 token 轮换、账号切换或其它页面
 	 * 收到 401。仅在点击患者时检查会话代际太晚：用户在此之前已经能看到
 	 * 上一轮姓名、关系和脱敏卡号。因此每次从其它页面返回都先清空当前
-	 * 派生目录，再以最新平台会话执行“目录读取 + 临床映射同步”完整流程。
+	 * 派生目录，再以最新平台会话读取 owner 目录；Provider 同步必须由用户
+	 * 点击“刷新就诊人”明确触发，避免生命周期回调偷偷发起同步。
 	 */
 	onShow(): void {
 		if (!this.data.hasShown) {
@@ -201,7 +203,15 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		void this.loadPatientList();
 	},
 
-	/** 进入页面先读取平台目录，再主动同步一次临床映射，保证直接打开选择页也可用。 */
+	/**
+	 * 进入页面先读取平台目录；已有经过临床映射确认的目录时直接允许用户
+	 * 选择，Provider 同步只作为用户点击“刷新就诊人”时的显式更新动作。
+	 *
+	 * 这样做是故障隔离而不是降级造假：`/patients` 返回的是服务端按 owner
+	 * 隔离、已完成映射的读模型，预约/报告等业务仍会在服务端再次校验患者
+	 * 引用。若当前没有可用目录，页面会明确提示用户点击“刷新就诊人”，
+	 * 不会在进入页面时自动同步 Provider。
+	 */
 	loadPatientList(): Promise<void> {
 		const listLoadGuard = getPageLatestRequestGuard(this, "patient-list-load");
 		const loadingGuard = getPageLatestRequestGuard(this, "loading");
@@ -217,15 +227,24 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		return loadPatients()
 			.then((patients) => {
 				if (!listLoadGuard.isCurrent(loadToken)) return;
-				// 目录读取只证明平台目录可读，不证明本轮 HIS 临床映射已经收敛；
-				// 预同步阶段只能展示患者资料，禁止先恢复本地“当前”标记。
-				this.setPatientList(patients, false);
-				// 选择页也可能被历史路径直接打开，不能依赖首页先完成临床映射；
-				// 无论本地是否已有目录记录，都主动同步一次，确保首次登录也能得到临床映射。
-				// 选择页的目录读取完成后还必须等待一次完整同步；否则下拉刷新会
-				// 提前结束，调用页可能在 HIS 映射尚未落库时开始预约/报告查询。
-				// loading 由外层 finally 统一关闭，不能在这里提前置 false。
-				return this.syncPatientDirectoryForLoad(loadToken);
+				// 平台目录读取成功后，已存在的 ready 记录就是上一轮完整同步
+				// 确认过的临床映射。Provider 本次不可用不能抹掉这份已确认事实，
+				// 也不能让用户因为一次刷新失败而无法更换就诊人。
+				markPatientSelectionSession(this);
+				this.setPatientList(patients, true);
+				if (hasClinicallyReadyPatients(patients)) {
+					this.setData({ selectionReady: true });
+					return;
+				}
+				// 目录读取不是同步命令：进入选择页不能因为 Provider 暂时不可用
+				// 自动发起 POST /patients/sync。用户仍可看到真实目录状态，并通过
+				// 页面底部“刷新就诊人”明确重试；没有 ready 映射时继续禁止业务选择。
+				this.setData({
+					error: patients.length
+						? "当前就诊人尚未完成医院侧映射，请点击刷新就诊人"
+						: "当前暂未读取到已绑定的就诊人，请点击刷新就诊人",
+				});
+				return;
 			})
 			.catch((error) => {
 				if (
@@ -243,9 +262,9 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 	},
 
 	/**
-	 * 错误态重试必须重新执行“平台目录读取 + 临床映射同步”完整链路。
-	 * 不能只清除 error 或复用上一轮 patients，否则页面会把旧目录误当成
-	 * 当前会话的可选患者；真正的选择资格只能由本轮同步成功恢复。
+	 * 错误态重试只重新读取当前 owner 的目录；“刷新就诊人”按钮才是
+	 * 临床映射同步命令。不能只清除 error 或无条件复用上一轮 patients，
+	 * 但也不能因 Provider 短暂不可用抹掉已经确认的目录。
 	 */
 	onRetry(): void {
 		void this.loadPatientList();
@@ -293,10 +312,10 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			void this.loadPatientList();
 			return;
 		}
-		// 目录读取成功不等于医院侧临床映射已经完成。同步期间即使页面还显示上一轮
-		// 列表，也必须禁止返回调用页，否则调用页可能在 his-patient 尚未落库时发起
-		// 预约、报告或门诊费用查询；失败后保留列表只用于诊断，不能被当作可用上下文。
-		if (this.data.loading || this.data.syncing || this.data.navigationPending) {
+		// 页面加载尚未取得当前 owner 的目录时不能选择；如果只是后台显式刷新
+		// 正在进行，当前列表仍是上一轮完整同步确认的读模型，可以安全地完成
+		// 用户已经明确点击的切换，避免 Provider 短暂超时阻塞整个选择入口。
+		if (this.data.loading || this.data.navigationPending) {
 			wx.showToast({ title: "就诊人正在同步，请稍后", icon: "none" });
 			return;
 		}
@@ -380,13 +399,17 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		);
 		const syncGuard = getPageLatestRequestGuard(this, "sync");
 		const syncToken = syncGuard.begin();
-		// 每次同步开始都先撤销上一次“可选择”状态；只有完整快照成功返回后才能恢复。
-		// 临床映射尚未被本轮同步确认前，不展示上一轮“当前”患者；同步成功后
-		// setPatientList 会基于最新 owner-scoped 目录恢复正确的展示标记。
+		// 已有 ready 目录时，刷新只是更新动作，不应因为 Provider 瞬时超时
+		// 清除上一轮已确认的选择；首次没有 ready 目录时仍严格保持关闭态。
+		const keepExistingSelection = hasClinicallyReadyPatients(
+			this.data.patients,
+		);
 		this.setData({
 			syncing: true,
-			selectionReady: false,
-			selectedPatientId: "",
+			selectionReady: keepExistingSelection,
+			selectedPatientId: keepExistingSelection
+				? this.data.selectedPatientId
+				: "",
 			error: "",
 		});
 
@@ -463,9 +486,10 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 				? "就诊人服务暂未配置完成，请联系管理员"
 				: patientContextErrorMessage(error, fallback);
 		const sessionDisplayInvalid = shouldClearPatientDirectory(error);
-		// 同步失败时可以保留列表帮助诊断和重试，但不能保留上一轮“当前”标记；
-		// 否则用户会误以为该患者的 his-patient 映射仍已确认。这里不删除本地
-		// opaque patientId，目录恢复后仍可正确进入 stale 判断，避免静默换人。
+		// 同步失败时可以保留已由平台目录确认的 ready 列表和当前标记，避免
+		// Provider 短暂不可用阻塞用户切换；如果本轮没有 ready 患者，则不能
+		// 保留“当前”标记。这里不删除本地 opaque patientId，目录恢复后仍可
+		// 正确进入 stale 判断，避免静默换人。
 		// 但会话归属已经失效时连患者列表也必须清理：列表中的姓名、关系和
 		// 脱敏卡号同样属于当前 owner 的派生数据，不能把“保留诊断列表”扩大
 		// 成“跨账号继续展示医疗目录”。
@@ -482,8 +506,12 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		}
 		this.setData({
 			error: message,
-			selectedPatientId: "",
-			selectionReady: false,
+			// 目录读取已经成功且页面中仍有 ready 患者时，失败只代表本次
+			// Provider 刷新没有完成，不得把可用的上一轮读模型变成不可选。
+			selectedPatientId: hasClinicallyReadyPatients(this.data.patients)
+				? this.data.selectedPatientId
+				: "",
+			selectionReady: hasClinicallyReadyPatients(this.data.patients),
 		});
 	},
 

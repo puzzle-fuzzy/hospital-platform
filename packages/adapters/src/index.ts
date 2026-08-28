@@ -67,6 +67,10 @@ export {
 	type ZhongyangAppointmentGatewayOptions,
 } from "./zhongyang-appointments";
 export {
+	createZhongyangMedicalRecordGateway,
+	ZhongyangMedicalRecordApiGateway,
+} from "./zhongyang-medical-records";
+export {
 	createZhongyangOutpatientPaymentGateway,
 	ZhongyangOutpatientPaymentApiGateway,
 } from "./zhongyang-outpatient-payments";

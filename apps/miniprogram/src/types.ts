@@ -10,6 +10,7 @@ import type {
 	HealthKnowledgeDrugDetailResponsePayload,
 	HealthKnowledgeSymptomListResponsePayload,
 	HealthPayload,
+	OutpatientMedicalRecordListPayload,
 	OutpatientPaymentListPayload,
 	PatientListPayload,
 	ReportDetailPayload,
@@ -60,6 +61,8 @@ export type AppointmentDepartmentListResponse =
 export type AppointmentScheduleListResponse = AppointmentScheduleListPayload;
 export type AppointmentRecordListResponse = AppointmentRecordListPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
+export type OutpatientMedicalRecordListResponse =
+	OutpatientMedicalRecordListPayload;
 export type ReportListResponse = ReportListPayload;
 export type ReportDetailResponse = ReportDetailPayload;
 export type WechatPrepayResponse = WechatPrepayPayload;
@@ -85,6 +88,8 @@ export type AppointmentRecord =
 	AppointmentRecordListResponse["data"]["items"][number];
 export type OutpatientPaymentRecord =
 	OutpatientPaymentListResponse["data"]["items"][number];
+export type OutpatientMedicalRecord =
+	OutpatientMedicalRecordListResponse["data"]["items"][number];
 export type OutpatientPaymentRecordView = OutpatientPaymentRecord & {
 	/** 仅用于当前费用查询批次的 WXML 事件回查，不是账单号或支付业务引用。 */
 	viewKey: string;
@@ -274,6 +279,59 @@ export type AppointmentRecordView = AppointmentRecord & {
 	statusClass: string;
 	/** 旧端把就诊日期与上午/下午作为独立视觉层级展示。 */
 	periodLabel: string;
+};
+
+/**
+ * “我的问诊”页面的渲染状态。
+ *
+ * 旧端这个入口实际展示的是当前就诊人的就诊历史摘要，并不是外部问诊
+ * 会话。单独声明页面模型，避免把它误接到 external-entry-surface 后又在
+ * 页面里显示“等待外部会话 contract”。
+ */
+export type ConsultationPageData = {
+	/** 只属于当前页面实例，首次 onShow 不重复 onLoad 发起的读取。 */
+	hasShown: boolean;
+	/** 当前页面读取的会话状态；服务暂时不可用时保留可重试语义。 */
+	sessionState: SessionVerificationState;
+	selectedPatient: Patient | null;
+	selectedPatientName: string;
+	selectedPatientCardLabel: string;
+	/** 当前患者历史记录所属的会话代际。 */
+	patientSessionGeneration: number;
+	records: Array<AppointmentRecordView>;
+	/** 当前交给 WXML 的局部窗口，避免历史问诊摘要过多造成首屏卡顿。 */
+	visibleRecords: Array<AppointmentRecordView>;
+	visibleRecordCount: number;
+	hasMoreRecords: boolean;
+	loading: boolean;
+	error: string;
+};
+
+/**
+ * “门诊病历”页面的安全只读状态。
+ *
+ * 页面只消费服务端已经按患者归属投影过的门诊摘要，不接触 Provider
+ * patId、regId 或原始身份证字段；`visibleRecords` 仅是渲染窗口，不代表
+ * 服务端分页，也不能改变 `records` 的业务总数。
+ */
+export type MedicalRecordPageData = {
+	hasShown: boolean;
+	sessionState: SessionVerificationState;
+	selectedPatient: Patient | null;
+	selectedPatientName: string;
+	selectedPatientCardLabel: string;
+	patientSessionGeneration: number;
+	records: Array<MedicalRecordView>;
+	visibleRecords: Array<MedicalRecordView>;
+	visibleRecordCount: number;
+	hasMoreRecords: boolean;
+	loading: boolean;
+	error: string;
+};
+
+/** 门诊病历摘要的页面键只用于 WXML diff，不是病历号或 Provider 标识。 */
+export type MedicalRecordView = OutpatientMedicalRecord & {
+	viewKey: string;
 };
 
 /** “我的挂号”旧端的两个展示标签；切换只过滤当前已取得的安全读模型。 */

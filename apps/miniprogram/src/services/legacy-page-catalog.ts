@@ -162,10 +162,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/electronic_record.vue",
 			domain: "健康",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/medical-record/medical-record",
 			featureKey: "medical-record",
-			note: "已迁移门诊病历页面外壳、患者选择入口和关闭态；HIS/EMR out-visit-records contract 与字段白名单仍待确认。",
+			note: "已迁移近 30 天门诊就诊摘要列表、患者切换和稳定状态；病历正文、详情、住院病历和附件仍独立关闭。",
 		},
 		{
 			legacyPath: "pagesB/health/gift_electronic_banner.vue",
@@ -520,10 +520,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/user/my_consultation.vue",
 			domain: "用户",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/consultation/consultation",
 			featureKey: "consultation",
-			note: "已迁移我的问诊原生入口外壳；问诊会话索引、患者归属、保留周期和脱敏规则仍关闭。",
+			note: "已迁移患者范围的问诊/就诊历史摘要列表和患者切换；外部问诊会话、正文、附件和实时能力仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/user/my_registration.vue",

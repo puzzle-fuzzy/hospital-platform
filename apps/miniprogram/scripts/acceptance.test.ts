@@ -760,19 +760,17 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	expect(bindingContract).toContain("PB-01");
 });
 
-test("patient selection cannot leave before clinical mapping synchronization completes", async () => {
+test("patient selection keeps an existing confirmed directory when provider refresh fails", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 
-	// 平台目录已经返回时，医院侧 his-patient 映射仍可能在同步中；页面只能在
-	// 完整同步成功后开放选择，失败时不能带着半成品患者上下文返回业务页。
+	// 平台 GET 目录已经返回 ready 患者时，它代表上一轮已确认的临床映射；
+	// Provider 本次刷新失败不能把选择页锁死。首次没有 ready 患者时仍然严格关闭。
 	expect(selection).toContain("selectionReady: false");
 	expect(selection).toContain("this.data.loading");
 	expect(selection).toContain("this.data.syncing");
-	expect(selection).toContain("!this.data.selectionReady");
-	expect(selection).toContain(
-		"selectionReady: hasClinicallyReadyPatients(patients)",
-	);
-	expect(selection).toContain("目录读取成功不等于医院侧临床映射已经完成");
+	expect(selection).toContain("hasClinicallyReadyPatients(patients)");
+	expect(selection).toContain("this.setData({ selectionReady: true })");
+	expect(selection).toContain("keepExistingSelection");
 });
 
 test("patient selection clears the current badge after synchronization failure", async () => {
@@ -894,23 +892,23 @@ test("homepage and my page expose explicit retry actions for top errors", async 
 	expect(myTemplate).toContain('bindtap="onRetry"');
 });
 
-test("patient selection hides the current badge while directory confirmation is pending", async () => {
+test("patient selection does not silently sync the provider on page entry", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 
-	// 读取和临床同步期间都不能把上一轮患者展示成已确认；只有最新目录和映射
-	// 同步成功后，setPatientList 才能重新设置 selectedPatientId。
+	// 进入选择页只读取已经落库的 owner-scoped 目录；没有 ready 映射时，
+	// 只能展示明确提示，不能因为一次页面导航自动发起 Provider POST。
 	expect(selection).toContain(
 		'loading: true,\n\t\t\tsyncing: false,\n\t\t\tselectionReady: false,\n\t\t\tselectedPatientId: "",',
 	);
-	// 目录先到、临床映射后到时，预同步列表只能展示资料，不能先恢复当前患者。
-	expect(selection).toContain("this.setPatientList(patients, false);");
+	expect(selection).toContain("this.setPatientList(patients, true);");
 	expect(selection).toContain(
 		"resolvePatientSelection(patients, getSelectedPatientId())",
 	);
-	expect(selection).toContain("绝不能调用");
-	expect(selection).toContain(
-		'syncing: true,\n\t\t\tselectionReady: false,\n\t\t\tselectedPatientId: "",',
-	);
+	expect(selection).toContain("自动发起 POST /patients/sync");
+	const loadStart = selection.indexOf("loadPatientList(): Promise<void>");
+	const loadEnd = selection.indexOf("\n\t},", loadStart);
+	const loadBody = selection.slice(loadStart, loadEnd);
+	expect(loadBody).not.toContain("syncPatientDirectoryForLoad(loadToken)");
 	expect(selection).not.toContain(
 		"this.setData({ selectedPatientId: getSelectedPatientId() });",
 	);
@@ -930,9 +928,11 @@ test("native patient synchronization is single-flight at both entry pages", asyn
 	);
 	expect(home).toContain("return patientSyncFlight.run(() => {");
 	expect(selection).toContain("getPageSingleFlight<Array<Patient>>");
-	expect(selection).toContain(".run(() => syncPatientsFromHospital");
+	expect(selection).toContain(".run(() =>");
 	expect(selection).toContain('"patient-list-load"');
-	expect(selection).toContain("syncPatientDirectoryForLoad(loadToken)");
+	expect(selection).toContain(
+		'syncPatientsFromHospital("patient-selection-sync")',
+	);
 	expect(selection).toContain("后发调用方仍要消费同一个患者数组");
 	// 同步内部的 /me 可能在 401 后安全恢复会话并推进代际；页面只能在
 	// 成功快照和当前页面令牌均确认后记录代际，不能在 Promise 发起前固定旧代际。
@@ -2638,15 +2638,12 @@ test("native blocked domains keep one explicit current-patient context", async (
 			"services/clinical-entry-surface.ts",
 			"services/clinical-content-surface.ts",
 			"services/provider-entry-surface.ts",
-			"services/external-entry-surface.ts",
 		].map((file) => source(file)),
 	);
 	const templates = await Promise.all(
 		[
-			"pages/medical-record/medical-record.wxml",
 			"pages/admission-preconsultation/admission-preconsultation.wxml",
 			"pages/appointment-detail/appointment-detail.wxml",
-			"pages/consultation/consultation.wxml",
 		].map((file) => source(file)),
 	);
 
@@ -2668,14 +2665,36 @@ test("native blocked domains keep one explicit current-patient context", async (
 		expect(factory).toContain("onRetry");
 		expect(factory).toContain("onUnload");
 	}
-	expect(factorySources[3]).toContain("showPatientSelector: true");
-	expect(factorySources[3]).toContain('feature === "consultation"');
 	for (const template of templates) {
 		expect(template).toContain("当前就诊人");
 		expect(template).toContain("currentPatientName");
 		expect(template).toContain('bindtap="onRetry"');
 		expect(template).toContain('bindtap="onOpenPatientSelector"');
 	}
+});
+
+test("我的问诊和门诊病历使用真实原生只读页面，不再渲染等待接入外壳", async () => {
+	const consultation = await source("pages/consultation/consultation.ts");
+	const consultationTemplate = await source(
+		"pages/consultation/consultation.wxml",
+	);
+	const medicalRecord = await source("pages/medical-record/medical-record.ts");
+	const medicalRecordTemplate = await source(
+		"pages/medical-record/medical-record.wxml",
+	);
+
+	expect(consultation).toContain("loadConsultationHistoryRecords");
+	expect(consultation).toContain("visibleRecords");
+	expect(consultation).not.toContain("registerExternalEntrySurfacePage");
+	expect(consultationTemplate).toContain("号源");
+	expect(consultationTemplate).toContain('bindtap="onChangePatient"');
+
+	expect(medicalRecord).toContain("loadOutpatientMedicalRecords");
+	expect(medicalRecord).toContain("visibleRecords");
+	expect(medicalRecord).not.toContain("registerClinicalSurfacePage");
+	expect(medicalRecordTemplate).toContain("诊断结果：");
+	expect(medicalRecordTemplate).toContain("未查询到您的记录");
+	expect(medicalRecordTemplate).not.toContain("等待业务接入");
 });
 
 test("native patient signature keeps the patient boundary without fake external launch", async () => {
@@ -3617,8 +3636,8 @@ test("patient context pull-to-refresh waits for the complete directory lifecycle
 	const home = await source("pages/index/index.ts");
 	const selection = await source("pages/patient-select/patient-select.ts");
 
-	// 首页刷新只覆盖健康检查和安全目录读取；选择页的明确刷新才覆盖
-	// “目录读取 + 临床映射同步”完整链路。
+	// 首页刷新只覆盖健康检查和安全目录读取；选择页进入时也只读取目录，
+	// 只有用户明确点击刷新才覆盖“目录读取 + 临床映射同步”完整链路。
 	expect(home).toContain(
 		"return Promise.all([this.checkHealth(), patientRefresh])",
 	);
@@ -3626,21 +3645,18 @@ test("patient context pull-to-refresh waits for the complete directory lifecycle
 		"this.onRefresh().finally(() => wx.stopPullDownRefresh())",
 	);
 	expect(selection).toContain(
-		"return this.syncPatientDirectoryForLoad(loadToken);",
-	);
-	expect(selection).toContain(
 		"this.loadPatientList().finally(() => wx.stopPullDownRefresh())",
-	);
-	const syncCallIndex = selection.indexOf(
-		"return this.syncPatientDirectoryForLoad(loadToken);",
 	);
 	const loadPatientListBody = selection.slice(
 		selection.indexOf("loadPatientList(): Promise<void>"),
-		syncCallIndex,
+		selection.indexOf(
+			"\n\t},",
+			selection.indexOf("loadPatientList(): Promise<void>"),
+		),
 	);
-	// 目录读取完成不等于临床映射同步完成；同步期间必须继续阻止页面进入业务。
+	// 目录读取完成不会隐式进入 Provider；显式同步入口仍由独立方法负责。
 	expect(loadPatientListBody).not.toContain(
-		"this.setData({ loading: false });",
+		"syncPatientDirectoryForLoad(loadToken)",
 	);
 });
 

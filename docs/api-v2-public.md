@@ -136,6 +136,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/knowledge/health/drug/detail/{drugId}` | Bearer | 返回指定审核药品详情；不构成个体化用药建议 |
 | `GET` | `/api/v2/reports` | Bearer | 必填 `patientId`、`startDate`、`endDate`；可选 `kind=laboratory|imaging|ecg` |
 | `GET` | `/api/v2/reports/{reportId}` | Bearer | 必填 query `patientId`；只返回已开放的检验详情白名单，不返回文件 URL |
+| `GET` | `/api/v2/medical-records` | Bearer | 必填 `patientId`、`startDate`、`endDate`；读取当前患者近 30 天门诊就诊记录摘要 |
 | `GET` | `/api/v2/payments/outpatient/records` | Bearer；幂等键可选 | 必填 `patientId`、`status=unpaid|paid`；门诊费用只读列表 |
 | `POST` | `/api/v2/payments/orders` | Bearer + 必填幂等键 | body 为 `{patientId, quoteId}`；金额必须来自服务端报价 |
 | `GET` | `/api/v2/payments/orders/{orderId}` | Bearer | 读取当前用户自己的平台支付订单 |
@@ -274,7 +275,22 @@ opaque `reportId`；当前只有检验报告可以返回该 `reportId`。读取�
 影像附件、体检报告、原始报告号、患者字段和文件下载 URL 尚未开放。详情返回 404 不等于
 患者没有报告，也可能表示该报告类型尚未通过详情 gate。
 
-### 3.5 门诊缴费和支付
+### 3.5 门诊病历目录
+
+门诊病历页面对应旧端 `electronic_record.vue` 的真实调用：服务端按当前 owner 解析
+`his-patient` 映射，再由 adapter 调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`。
+小程序只提交平台 `patientId` 和自然日窗口，Provider 的 `patId`、`regId`、姓名、身份证及
+其它原始字段不会进入小程序或日志。
+
+公共接口固定接受最多 30 天的 `startDate`/`endDate`，adapter 将自然日转换为旧 Provider
+要求的 `00:00:00` 与 `23:59:59` 边界，并固定 `type="5"`。成功空数组是合法空状态；Provider
+业务拒绝、超时、映射缺失和响应结构异常分别保持错误语义，不能沿用旧端“异常即空数组”的行为。
+
+当前只迁移了门诊就诊摘要列表：科室、医生、医院、就诊类型、收费类别、就诊时间和诊断摘要。
+病历正文、`out-emrs`、住院病历、附件、下载和详情引用仍是独立能力，不因目录有数据而自动开放。
+小程序首批只渲染 8 条，点击“加载更多记录”仅展开已取得的安全读模型，不代表 Provider 分页。
+
+### 3.6 门诊缴费和支付
 
 门诊缴费列表只返回 `recordId`、状态、科室/医生、账单时间和 `amountFen`。服务端会先校验
 `patientId` 并按当前用户解析 `his-patient` 映射，再调用 provider；空白、超长或带控制字符的标识、owner 映射缺失、
@@ -375,6 +391,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 400 | `validation` / `parse` | 请求 schema 或 JSON 不合法 |
 | 400 | `appointment-query-invalid` | 排班日期/过滤条件不合法 |
 | 400 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
+| 400 | `medical-record-query-invalid` | 门诊病历日期范围或患者查询条件不合法 |
 | 400 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
 | 400 | `report-query-invalid` | 报告查询条件不合法 |
 | 400 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
@@ -386,6 +403,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | `not-found` | 请求路径未注册，不能据此推断业务资源不存在 |
 | 404 | `appointment-record-patient-not-found` | 当前用户不拥有该预约查询患者 |
 | 404 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
+| 404 | `medical-record-patient-not-found` | 当前就诊人尚未建立门诊病历映射 |
 | 404 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | `report-not-found` | 报告详情不可用或尚未通过 gate |
 | 404 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |
@@ -437,7 +455,6 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 以下候选路径当前刻意保持 `404`，不是兼容入口，也不是“暂时返回空数据”：
 
 - `POST /api/v2/patients`：患者新增/建档；
-- `GET /api/v2/medical-records`、`GET /api/v2/medical-records/{visitRecordId}`：门诊就诊记录目录与详情；
 - `POST /api/v2/payments/insurance/authorization`：医保授权。
 - `POST /api/v2/appointments`、`POST /api/v2/appointments/holds`、
   `POST /api/v2/appointments/{appointmentId}/cancel`：预约写入、占号和取消。

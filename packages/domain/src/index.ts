@@ -18,6 +18,20 @@ export type {
 	AppointmentScheduleSnapshotInput,
 	AppointmentScheduleSnapshotRepository,
 } from "./appointments";
+export {
+	AppointmentDirectoryResultValidationError,
+	AppointmentRecordResultValidationError,
+	AppointmentScheduleSnapshotValidationError,
+	isAppointmentRecordStatus,
+	MAX_APPOINTMENT_DEPARTMENT_ITEMS,
+	MAX_APPOINTMENT_RECORD_ITEMS,
+	MAX_APPOINTMENT_SCHEDULE_ITEMS,
+	MAX_APPOINTMENT_SNAPSHOT_TTL_MS,
+	normalizeAppointmentDepartmentResults,
+	normalizeAppointmentRecordResults,
+	normalizeAppointmentScheduleResults,
+	validateAppointmentScheduleSnapshot,
+} from "./appointments";
 export type {
 	ClinicalReadErrorCode,
 	ClinicalReadFeature,
@@ -33,20 +47,6 @@ export {
 	createClinicalReadResult,
 	normalizeClinicalReadResult,
 } from "./clinical-read-contract";
-export {
-	AppointmentDirectoryResultValidationError,
-	AppointmentRecordResultValidationError,
-	AppointmentScheduleSnapshotValidationError,
-	isAppointmentRecordStatus,
-	MAX_APPOINTMENT_DEPARTMENT_ITEMS,
-	MAX_APPOINTMENT_RECORD_ITEMS,
-	MAX_APPOINTMENT_SCHEDULE_ITEMS,
-	MAX_APPOINTMENT_SNAPSHOT_TTL_MS,
-	normalizeAppointmentDepartmentResults,
-	normalizeAppointmentRecordResults,
-	normalizeAppointmentScheduleResults,
-	validateAppointmentScheduleSnapshot,
-} from "./appointments";
 export { parseIsoCalendarDate, parseStrictIsoInstant } from "./date-range";
 export {
 	DependencyNotConfiguredError,
@@ -55,12 +55,6 @@ export {
 	PatientDirectorySnapshotUnsafeError,
 	PatientDirectorySyncInProgressError,
 } from "./errors";
-export type { ExternalTraceReadModelViolation } from "./external-trace";
-export {
-	ExternalTraceReadModelValidationError,
-	MAX_EXTERNAL_TRACE_REQUEST_IDS,
-	normalizeExternalTrace,
-} from "./external-trace";
 export type {
 	ExternalEntryAudience,
 	ExternalEntrySession,
@@ -75,11 +69,17 @@ export {
 	EXTERNAL_ENTRY_AUDIENCES,
 	ExternalEntrySessionConsumeError,
 	ExternalEntrySessionValidationError,
-	MAX_EXTERNAL_ENTRY_SESSION_TTL_MS,
 	evaluateExternalEntrySession,
+	MAX_EXTERNAL_ENTRY_SESSION_TTL_MS,
 	normalizeExternalEntrySession,
 	revokeExternalEntrySession,
 } from "./external-entry-session";
+export type { ExternalTraceReadModelViolation } from "./external-trace";
+export {
+	ExternalTraceReadModelValidationError,
+	MAX_EXTERNAL_TRACE_REQUEST_IDS,
+	normalizeExternalTrace,
+} from "./external-trace";
 export type {
 	HealthKnowledgeCatalogItem,
 	HealthKnowledgeCatalogKind,
@@ -132,6 +132,18 @@ export {
 	HealthKnowledgeImportValidationError,
 	validateHealthKnowledgeImportBundle,
 } from "./knowledge-import";
+export type {
+	OutpatientMedicalRecord,
+	OutpatientMedicalRecordGateway,
+	OutpatientMedicalRecordQuery,
+	OutpatientMedicalRecordResultViolation,
+} from "./medical-records";
+export {
+	MAX_OUTPATIENT_MEDICAL_RECORDS,
+	normalizeOutpatientMedicalRecords,
+	OutpatientMedicalRecordResultValidationError,
+	validateMedicalRecordProviderReference,
+} from "./medical-records";
 export {
 	isBoundedOpaqueIdentifier,
 	MAX_OPAQUE_IDENTIFIER_LENGTH,
@@ -157,6 +169,27 @@ export {
 	parseOutpatientBillDateTime,
 	validateOutpatientPaymentRecords,
 } from "./outpatient-payments";
+export type {
+	PatientWriteCommand,
+	PatientWriteCommandInput,
+	PatientWriteCommandState,
+	PatientWriteCommandTransition,
+	PatientWriteCommandViolation,
+	PatientWriteFeature,
+} from "./patient-write-command";
+export {
+	allowedPatientWriteCommandTransitions,
+	canTransitionPatientWriteCommand,
+	createPatientWriteCommand,
+	InvalidPatientWriteCommandTransitionError,
+	isPatientWriteCommandTerminal,
+	MAX_PATIENT_WRITE_COMMAND_HISTORY,
+	normalizePatientWriteCommand,
+	PATIENT_WRITE_COMMAND_STATES,
+	PATIENT_WRITE_FEATURES,
+	PatientWriteCommandValidationError,
+	transitionPatientWriteCommand,
+} from "./patient-write-command";
 export type {
 	IdentityUser,
 	IdentityUserReadModelViolation,
@@ -249,27 +282,6 @@ export {
 	InvalidPaymentTransitionError,
 	transitionPayment,
 } from "./payment-state";
-export type {
-	PatientWriteCommand,
-	PatientWriteCommandInput,
-	PatientWriteCommandState,
-	PatientWriteCommandTransition,
-	PatientWriteFeature,
-	PatientWriteCommandViolation,
-} from "./patient-write-command";
-export {
-	allowedPatientWriteCommandTransitions,
-	canTransitionPatientWriteCommand,
-	createPatientWriteCommand,
-	InvalidPatientWriteCommandTransitionError,
-	isPatientWriteCommandTerminal,
-	MAX_PATIENT_WRITE_COMMAND_HISTORY,
-	PATIENT_WRITE_COMMAND_STATES,
-	PATIENT_WRITE_FEATURES,
-	PatientWriteCommandValidationError,
-	normalizePatientWriteCommand,
-	transitionPatientWriteCommand,
-} from "./patient-write-command";
 export type {
 	AdapterCallContext,
 	ExternalTrace,

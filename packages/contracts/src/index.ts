@@ -286,6 +286,25 @@ export const AppointmentRecordListResponse = Type.Object({
 	}),
 });
 
+/** 门诊病历列表只返回已经脱敏的就诊摘要，不返回 regId/patId 等 Provider 标识。 */
+export const OutpatientMedicalRecordSchema = Type.Object({
+	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	doctorName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	hospitalName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	clinicTypeName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	chargeClassName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	visitTime: Type.String({ minLength: 1, maxLength: 64 }),
+	diagnosis: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
+});
+
+export const OutpatientMedicalRecordListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(OutpatientMedicalRecordSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
 /** 报告目录的来源枚举；provider 原始数据和资源 URL 不在公开 contract。 */
 export const ReportKindSchema = Type.Union([
 	Type.Literal("laboratory"),
@@ -630,6 +649,12 @@ export type AppointmentScheduleListPayload = Static<
 export type AppointmentRecordPayload = Static<typeof AppointmentRecordSchema>;
 export type AppointmentRecordListPayload = Static<
 	typeof AppointmentRecordListResponse
+>;
+export type OutpatientMedicalRecordPayload = Static<
+	typeof OutpatientMedicalRecordSchema
+>;
+export type OutpatientMedicalRecordListPayload = Static<
+	typeof OutpatientMedicalRecordListResponse
 >;
 export type ReportPayload = Static<typeof ReportSchema>;
 export type ReportListPayload = Static<typeof ReportListResponse>;

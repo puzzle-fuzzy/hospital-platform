@@ -1,54 +1,68 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
+<scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
+	<view class="consultation-page">
+		<!-- 网络异常必须固定在页面顶部，保持和旧端页面一致。 -->
+		<view wx:if="{{error}}" class="consultation-error-message">{{error}}</view>
+
+		<!-- 旧端 PatientHospitalSelector：就诊人与院区各占一行。 -->
+		<view class="consultation-selector-card">
+			<view class="consultation-selector-row consultation-selector-row-border" bindtap="onChangePatient">
+				<text class="consultation-selector-label">就诊人</text>
+				<view class="consultation-selector-value">
+					<text wx:if="{{selectedPatient}}" class="consultation-selector-name">{{selectedPatient.displayName}}</text>
+					<text wx:elif="{{loading}}" class="consultation-selector-name">正在加载就诊人...</text>
+					<text wx:else class="consultation-selector-name">请先选择就诊人</text>
+					<text wx:if="{{selectedPatient}}" class="consultation-selector-card-number">（{{selectedPatient.cardNumberMasked}}）</text>
+					<image class="consultation-selector-arrow" src="/assets/legacy-user/selector-arrow-right.svg" mode="aspectFit" />
+				</view>
 			</view>
-		</view>
-
-		<view wx:if="{{showPatientSelector}}" class="migration-surface-patient-card" bindtap="onOpenPatientSelector">
-			<image class="migration-surface-patient-avatar" src="/assets/legacy-user/default-avatar.svg" mode="aspectFit" />
-			<view class="migration-surface-patient-copy">
-				<text class="migration-surface-patient-label">当前就诊人</text>
-				<text wx:if="{{patientContextLoading}}" class="migration-surface-patient-name migration-surface-muted">正在获取就诊人…</text>
-				<text wx:elif="{{patientContextError}}" class="migration-surface-patient-name migration-surface-error-text">{{patientContextError}}</text>
-				<text wx:elif="{{currentPatient}}" class="migration-surface-patient-name">{{currentPatientName}} · {{currentPatientCardLabel}}</text>
-				<text wx:else class="migration-surface-patient-name migration-surface-muted">请选择就诊人</text>
-			</view>
-			<text class="migration-surface-patient-action">{{patientActionLabel}}</text>
-		</view>
-		<button wx:if="{{showPatientSelector && patientContextError}}" class="migration-surface-patient-retry" bindtap="onRetry">重新获取</button>
-
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
-		</view>
-
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">当前迁移状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
+			<view class="consultation-selector-row">
+				<text class="consultation-selector-label">当前院区</text>
+				<view class="consultation-selector-value">
+					<text>高平市人民医院</text>
+					<image class="consultation-selector-arrow" src="/assets/legacy-user/selector-arrow-right.svg" mode="aspectFit" />
 				</view>
 			</view>
 		</view>
 
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">开放前还需确认</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text>
-					<text class="migration-surface-list-text">{{item}}</text>
-				</view>
+		<view class="consultation-record-area">
+			<!-- 固定状态容器，避免加载态切换为空态时页面突然增高。 -->
+			<view wx:if="{{loading || error || !visibleRecords.length}}" class="consultation-state query-state-shell query-state-shell-column">
+				<block wx:if="{{loading}}">
+					<view class="consultation-loading-icon" aria-hidden="true"></view>
+					<text class="consultation-state-title">加载中...</text>
+				</block>
+				<block wx:elif="{{error}}">
+					<image class="consultation-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
+					<text class="consultation-state-title">本次问诊记录未加载成功</text>
+					<text class="consultation-state-hint">请根据上方提示处理后重试</text>
+					<view class="consultation-state-action" bindtap="onRetry">重新加载</view>
+				</block>
+				<block wx:else>
+					<image class="consultation-state-image" src="/assets/legacy-user/empty-record.svg" mode="aspectFit" />
+					<text class="consultation-state-title">未查询到您的记录</text>
+				</block>
 			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
-		</view>
 
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">查看完整迁移说明</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
+			<view wx:elif="{{visibleRecords.length}}" class="consultation-record-list">
+				<!-- 旧端为白色纵向卡片；记录过多时只扩大列表，不一次性撑满渲染树。 -->
+				<view wx:for="{{visibleRecords}}" wx:key="viewKey" class="consultation-record-card">
+					<view class="consultation-record-header">
+						<view class="consultation-record-main">
+							<text class="consultation-record-department">{{item.departmentName || "科室"}}</text>
+							<view class="consultation-record-subtitle">
+								<text>号源</text>
+								<text wx:if="{{item.serialNumber}}"> · {{item.serialNumber}}</text>
+							</view>
+						</view>
+						<text class="consultation-record-time">{{item.workDate}} {{item.workTime || ""}}</text>
+					</view>
+					<view class="consultation-record-hint">
+						<text class="consultation-record-status">{{item.statusLabel}}</text>
+					</view>
+					<text wx:if="{{item.location}}" class="consultation-record-location">{{item.location}}</text>
+				</view>
+				<view wx:if="{{hasMoreRecords}}" class="consultation-load-more" bindtap="onLoadMore">加载更多记录</view>
+			</view>
+		</view>
 	</view>
 </scroll-view>

@@ -121,8 +121,8 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	consultation: {
 		title: "我的问诊",
 		readiness: "待外部入口 contract",
-		description: "问诊记录正在迁移中，当前不会展示未经归属校验的历史记录。",
-		contractHint: "等待问诊会话索引、患者归属、内容脱敏和保留周期确认。",
+		description: "当前已展示当前就诊人的安全历史摘要；外部问诊会话仍未开放。",
+		contractHint: "外部会话仍需确认会话索引、患者归属、内容脱敏、退出和保留周期。",
 		icon: "/assets/legacy-user/consultation.svg",
 	},
 	"discharge-followup": {
@@ -273,8 +273,8 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"medical-record": {
 		title: "门诊病历",
 		readiness: "待 provider contract",
-		description: "门诊病历正在迁移中，当前不会把报告或旧缓存冒充病历正文。",
-		contractHint: "等待 HIS/EMR 只读资源、患者归属、脱敏字段和详情授权确认。",
+		description: "当前已接入近 30 天门诊就诊摘要；病历正文、详情和附件仍未开放。",
+		contractHint: "病历正文、详情引用、住院记录和附件仍需独立 HIS/EMR contract。",
 		icon: "/assets/legacy-user/medical-record.svg",
 	},
 	"outpatient-payment-detail": {

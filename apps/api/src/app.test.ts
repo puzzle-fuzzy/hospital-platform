@@ -37,8 +37,8 @@ import {
 	authModule,
 	createInMemorySessionTokenService,
 } from "./modules/auth";
-import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
 import {
 	WechatPaymentNotificationService,
@@ -157,6 +157,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/knowledge/health/symptoms/list/part/{partId}",
 		"/api/v1/me",
 		"/api/v1/me/profile",
+		"/api/v1/medical-records",
 		"/api/v1/patients",
 		"/api/v1/patients/sync",
 		"/api/v1/payments/orders",
@@ -269,7 +270,7 @@ test("medical record draft preserves source evidence and fail-closed semantics",
 	// 这里把源码真实调用入口、旧端异常折叠方式和新端禁止事项固定成文档门禁；
 	// 后续若旧源码或迁移边界变化，必须先更新证据和 contract 草案，再改路由。
 	const requiredEvidence = [
-		"状态：`draft`",
+		"状态：`implemented-pending-acceptance`",
 		"页面真实导入 `@/api/modules/ZY`",
 		"响应只要不是数组就被替换为空数组",
 		"页面只调用 `out-visit-records`，没有调用 `out-emrs`",
@@ -293,6 +294,8 @@ test("public API documentation lists every stable public error code", async () =
 		"unauthorized",
 		"appointment-query-invalid",
 		"appointment-record-query-invalid",
+		"medical-record-query-invalid",
+		"medical-record-patient-not-found",
 		"appointment-record-patient-not-found",
 		"outpatient-payment-query-invalid",
 		"report-query-invalid",
@@ -373,7 +376,7 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"migration/date-window-boundary-audit.md",
 		"以下候选路径当前刻意保持 `404`",
 		"POST /api/v2/patients",
-		"GET /api/v2/medical-records",
+		"`GET` | `/api/v2/medical-records`",
 		"POST /api/v2/payments/insurance/authorization",
 		"POST /api/v2/appointments",
 		"POST /api/v2/appointments/holds",
@@ -470,10 +473,9 @@ test("authenticated health knowledge reads keep the unpublished gate visible", a
 	});
 });
 
-test("provider-contract-dependent patient routes remain unregistered", async () => {
+test("provider-contract-dependent write and detail routes remain unregistered", async () => {
 	const blockedRequests = [
 		{ method: "POST", path: "/api/v1/patients" },
-		{ method: "GET", path: "/api/v1/medical-records" },
 		{ method: "GET", path: "/api/v1/medical-records/visit-001" },
 		{ method: "POST", path: "/api/v1/payments/insurance/authorization" },
 	] as const;
@@ -496,6 +498,7 @@ test("provider-contract-dependent patient routes remain unregistered", async () 
 test("protected routes authenticate before query validation", async () => {
 	const protectedRequests = [
 		"/api/v1/appointments/records",
+		"/api/v1/medical-records",
 		"/api/v1/payments/outpatient/records?status=unpaid",
 		"/api/v1/reports",
 		"/api/v1/me/profile",

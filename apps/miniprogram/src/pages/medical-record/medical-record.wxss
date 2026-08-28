@@ -1,136 +1,232 @@
-@import "../../styles/migration-surface.wxss";
-
-.clinical-surface-scroll {
-	height: 100vh;
-	background: #f6f8fc;
+page {
+	background: #f8f8f8;
+}
+.medical-record-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+	background: #f5f5f5;
 }
 
-.clinical-surface-page {
+.medical-record-error-message,
+.medical-record-selector-card,
+.medical-record-content {
 	box-sizing: border-box;
-	min-height: 100%;
-	padding: 28rpx 24rpx 52rpx;
+	width: 100%;
 }
 
-.clinical-surface-hero,
-.clinical-surface-card {
-	box-sizing: border-box;
-	border-radius: 20rpx;
+.medical-record-error-message {
+	padding: 20rpx 40rpx;
+	background: #fff1f1;
+	color: #ff4444;
+	font-size: 26rpx;
+	line-height: 1.5;
+	text-align: center;
+}
+
+/* 复刻旧端 PatientHospitalSelector 的白色双行结构。 */
+.medical-record-selector-card {
+	overflow: hidden;
 	background: #fff;
-	box-shadow: 0 8rpx 26rpx rgba(40, 74, 150, 0.06);
 }
 
-.clinical-surface-hero {
+.medical-record-selector-row {
 	display: flex;
 	align-items: center;
-	padding: 34rpx 30rpx;
+	justify-content: space-between;
+	box-sizing: border-box;
+	min-height: 92rpx;
+	padding: 26rpx 30rpx;
+	color: #333;
 }
 
-.clinical-surface-icon {
-	flex: 0 0 auto;
-	width: 82rpx;
-	height: 82rpx;
-	margin-right: 22rpx;
+.medical-record-selector-row-border {
+	border-bottom: 1rpx solid #f0f0f0;
 }
 
-.clinical-surface-hero-copy {
+.medical-record-selector-label {
+	flex: 0 0 150rpx;
+	font-size: 28rpx;
+}
+
+.medical-record-selector-value {
 	display: flex;
-	flex-direction: column;
-}
-
-.clinical-surface-title {
-	color: #222b45;
-	font-size: 36rpx;
-	font-weight: 600;
-	line-height: 1.4;
-}
-
-.clinical-surface-label {
-	display: inline-block;
-	margin-top: 12rpx;
-	color: #3d6df6;
-	font-size: 24rpx;
-	line-height: 1.5;
-}
-
-.clinical-surface-card {
-	margin-top: 22rpx;
-	padding: 30rpx;
-}
-
-.clinical-surface-card-title {
-	display: block;
-	color: #222b45;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 1;
+	min-width: 0;
 	font-size: 30rpx;
-	font-weight: 600;
-	line-height: 1.5;
+	text-align: right;
 }
 
-.clinical-surface-card-copy {
+.medical-record-selector-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.medical-record-selector-card-number {
+	margin-left: 10rpx;
+	color: #999;
+	font-size: 23rpx;
+}
+
+.medical-record-selector-arrow {
 	display: block;
-	margin-top: 16rpx;
-	color: #68738a;
-	font-size: 27rpx;
-	line-height: 1.7;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
+	margin-left: 14rpx;
 }
 
-.clinical-surface-list {
-	margin-top: 20rpx;
+.medical-record-content {
+	box-sizing: border-box;
+	padding: 32rpx 32rpx 160rpx;
+	background: #f5f5f5;
 }
 
-.clinical-surface-list-row {
+.medical-record-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	box-sizing: border-box;
+	height: 380rpx;
+	min-height: 380rpx;
+	padding: 40rpx 30rpx;
+	border-radius: 16rpx;
+	background: #fff;
+	color: #777;
+	text-align: center;
+}
+
+.medical-record-state-image {
+	display: block;
+	width: 150rpx;
+	height: 150rpx;
+	margin-bottom: 18rpx;
+}
+
+.medical-record-loading-icon {
+	box-sizing: border-box;
+	width: 48rpx;
+	height: 48rpx;
+	margin-bottom: 20rpx;
+	border: 6rpx solid #e5e7eb;
+	border-top-color: #9ca3af;
+	border-radius: 50%;
+	animation: medical-record-loading 900ms linear infinite;
+}
+
+@keyframes medical-record-loading {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.medical-record-state-title,
+.medical-record-state-hint,
+.medical-record-title,
+.medical-record-subtitle,
+.medical-record-visit-time,
+.medical-record-diagnosis-label,
+.medical-record-diagnosis-value {
+	display: block;
+}
+
+.medical-record-state-title {
+	font-size: 28rpx;
+}
+
+.medical-record-state-hint {
+	margin-top: 12rpx;
+	color: #aaa;
+	font-size: 23rpx;
+}
+
+.medical-record-state-action {
+	margin-top: 24rpx;
+	padding: 12rpx 34rpx;
+	border-radius: 999rpx;
+	background: #3d6df6;
+	color: #fff;
+	font-size: 25rpx;
+}
+
+.medical-record-card {
+	box-sizing: border-box;
+	margin-bottom: 24rpx;
+	padding: 32rpx;
+	border: 1rpx solid #f0f0f0;
+	border-radius: 16rpx;
+	background: #fff;
+	box-shadow: 0 4rpx 16rpx rgba(35, 55, 95, 0.04);
+}
+
+.medical-record-header {
 	display: flex;
 	align-items: flex-start;
-	margin-top: 12rpx;
+	justify-content: space-between;
+	gap: 20rpx;
 }
 
-.clinical-surface-list-dot {
-	width: 28rpx;
-	color: #3d6df6;
-	font-size: 30rpx;
-	line-height: 1.4;
-}
-
-.clinical-surface-list-text {
+.medical-record-main {
+	min-width: 0;
 	flex: 1;
-	color: #68738a;
-	font-size: 26rpx;
-	line-height: 1.7;
 }
 
-.clinical-surface-coverage {
-	display: block;
+.medical-record-title {
+	overflow: hidden;
+	color: #222;
+	font-size: 32rpx;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.medical-record-subtitle {
+	margin-top: 8rpx;
+	overflow: hidden;
+	color: #666;
+	font-size: 24rpx;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.medical-record-visit-time {
+	flex: 0 0 auto;
+	max-width: 280rpx;
+	margin-left: 18rpx;
+	color: #3981f7;
+	font-size: 24rpx;
+	text-align: right;
+}
+
+.medical-record-diagnosis {
+	display: flex;
+	align-items: flex-start;
 	margin-top: 22rpx;
-	padding-top: 18rpx;
-	border-top: 1rpx solid #edf0f5;
-	color: #8791a5;
-	font-size: 23rpx;
+	padding: 18rpx 20rpx;
+	border-radius: 12rpx;
+	background: #f7f8fa;
+}
+
+.medical-record-diagnosis-label {
+	flex: 0 0 auto;
+	color: #333;
+	font-size: 24rpx;
+}
+
+.medical-record-diagnosis-value {
+	flex: 1;
+	color: #333;
+	font-size: 24rpx;
 	line-height: 1.6;
 }
 
-.clinical-surface-primary-button,
-.clinical-surface-secondary-button,
-.clinical-surface-plain-button {
-	box-sizing: border-box;
-	width: 100%;
-	border-radius: 16rpx;
-	font-size: 28rpx;
-	line-height: 84rpx;
-}
-
-.clinical-surface-primary-button {
-	margin-top: 28rpx;
-	background: #3d6df6;
-	color: #fff;
-}
-
-.clinical-surface-secondary-button {
-	margin: 24rpx 0 0;
-	background: #edf3ff;
+.medical-record-load-more {
+	padding: 14rpx 0 28rpx;
 	color: #3d6df6;
-}
-
-.clinical-surface-plain-button {
-	margin-top: 14rpx;
-	background: transparent;
-	color: #68738a;
+	font-size: 25rpx;
+	text-align: center;
 }
