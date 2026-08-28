@@ -16,11 +16,13 @@
 		<view class="migration-surface-patient-card">
 			<view class="migration-surface-patient-copy">
 				<text class="migration-surface-patient-label">当前就诊人</text>
-				<block wx:if="{{patientContextLoading}}">
+				<block wx:if="{{patientContextLoading && !patientContextLoaded}}">
 					<text class="migration-surface-patient-name">正在获取就诊人...</text>
 					<text class="migration-surface-patient-meta">当前只读取已确认的患者目录</text>
 				</block>
 				<block wx:elif="{{patientContextError}}">
+					<text wx:if="{{currentPatient}}" class="migration-surface-patient-name">{{currentPatientName}}</text>
+					<text wx:if="{{currentPatient}}" class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
 					<text class="migration-surface-patient-error">{{patientContextError}}</text>
 					<button class="migration-surface-patient-retry" bindtap="onRetry">重新读取</button>
 				</block>

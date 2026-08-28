@@ -6,12 +6,17 @@ import {
 	getPageLatestRequestGuard,
 	invalidatePageRequests,
 } from "./page-instance-state";
-import { patientScopedErrorMessage } from "./patient-selection-service";
+import {
+	patientScopedErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
+} from "./patient-selection-service";
 import { assertSessionGeneration } from "./session-boundary";
 import {
 	registerSessionChangedListener,
 	type SessionChangedEvent,
 } from "./session-events";
+import { hasPlatformSession } from "./session-service";
 
 /**
  * 关闭态页面可以展示的当前就诊人上下文。
@@ -40,6 +45,26 @@ export const INITIAL_PATIENT_SURFACE_CONTEXT: PatientSurfaceContextData = {
 	patientContextLoaded: false,
 	patientContextError: "",
 };
+
+/**
+ * 生成患者外壳下一轮读取开始时的状态。
+ *
+ * 同一账号、同一明确选择的患者在页面 onShow 或用户重试期间仍然是已确认
+ * 的业务上下文，不能因为请求尚未完成就退回“正在获取就诊人”。只有选择已
+ * 被用户替换、旧账号已经失效或本地选择无法和上次卡片对应时，才清空卡片。
+ * 这样加载态只占用首次读取的空白卡片，刷新不会造成页面闪动。
+ */
+export function patientSurfaceReloadState(
+	patient: Patient | null,
+): Partial<PatientSurfaceContextData> {
+	const preservedPatient = preservedPatientForReload(patient);
+	return {
+		...toPatientSurfaceData(preservedPatient),
+		patientContextLoading: true,
+		patientContextLoaded: Boolean(preservedPatient),
+		patientContextError: "",
+	};
+}
 
 type PatientSurfaceContextPage = {
 	data: PatientSurfaceContextData;
@@ -185,14 +210,12 @@ export function loadPatientSurfaceContext(
 	runtime.guardKey = guardKey;
 	const guard = getPageLatestRequestGuard(page, guardKey);
 	const token = guard.begin();
-	// 新一轮读取开始后，上一轮卡片不再有可提交资格；WXML 的 loading
-	// 分支会遮住旧字段，最终仍必须等待同一 owner 的目录快照确认。
+	// 刷新开始时只保留与 storage 当前选择一致的已确认卡片。WXML 会在
+	// patientContextLoaded=true 时继续展示它，避免 onShow 重读造成闪动；
+	// 如果用户已经换人，preservedPatientForReload 会返回 null，页面仍从
+	// 固定高度的首次加载态开始，不会把旧患者显示给新账号/新选择。
 	runtime.sessionGeneration = -1;
-	page.setData({
-		patientContextLoading: true,
-		patientContextLoaded: false,
-		patientContextError: "",
-	});
+	page.setData(patientSurfaceReloadState(page.data.currentPatient));
 
 	return getCurrentUser()
 		.then((currentUser) => {
@@ -217,8 +240,25 @@ export function loadPatientSurfaceContext(
 		.catch((error: unknown) => {
 			if (!guard.isCurrent(token)) return;
 			runtime.sessionGeneration = -1;
+			// 这里通常已经经过 getCurrentUser，App 容器必然存在；保留同步
+			// 保护是为了覆盖开发者工具热重载/页面单独恢复时容器尚未完成
+			// 初始化的边界。异常本身必须继续落到页面错误态，不能再被
+			// hasPlatformSession 的同步 TypeError 覆盖成未处理 Promise。
+			let sessionStillPresent = false;
+			try {
+				sessionStillPresent = hasPlatformSession();
+			} catch {
+				sessionStillPresent = false;
+			}
+			const clearPatient = shouldClearPatientContextAfterError(
+				error,
+				sessionStillPresent,
+			);
+			const preservedPatient = clearPatient
+				? null
+				: preservedPatientForReload(page.data.currentPatient);
 			page.setData({
-				...toPatientSurfaceData(null),
+				...toPatientSurfaceData(preservedPatient),
 				patientContextError: patientSurfaceErrorMessage(error),
 			});
 		})

@@ -1,7 +1,8 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { ApiError } from "./api-client";
 import {
 	patientSurfaceErrorMessage,
+	patientSurfaceReloadState,
 	patientSurfaceSessionReset,
 	toPatientSurfaceData,
 } from "./patient-surface-context";
@@ -14,6 +15,14 @@ const patient = {
 	source: "hospital-his" as const,
 	clinicalAccess: "ready" as const,
 };
+
+const runtime = globalThis as typeof globalThis & { wx?: typeof wx };
+const originalWx = runtime.wx;
+
+afterEach(() => {
+	if (originalWx) runtime.wx = originalWx;
+	else delete runtime.wx;
+});
 
 test("关闭态患者卡片只投影脱敏卡号，不展示内部患者 ID", () => {
 	const data = toPatientSurfaceData(patient);
@@ -42,6 +51,33 @@ test("会话变化时患者外壳清理旧卡片并回到加载状态", () => {
 	expect(data.patientContextLoading).toBe(true);
 	expect(data.patientContextLoaded).toBe(false);
 	expect(data.patientContextError).toBe("");
+});
+
+test("同一患者刷新时保留已确认卡片，避免加载态闪回", () => {
+	runtime.wx = {
+		getStorageSync: () => patient.id,
+	} as unknown as typeof wx;
+
+	const data = patientSurfaceReloadState(patient);
+
+	expect(data.currentPatient).toEqual(patient);
+	expect(data.currentPatientName).toBe("患者甲");
+	expect(data.patientContextLoading).toBe(true);
+	expect(data.patientContextLoaded).toBe(true);
+	expect(data.patientContextError).toBe("");
+});
+
+test("患者选择已经变化时刷新不能保留旧卡片", () => {
+	runtime.wx = {
+		getStorageSync: () => "patient-opaque-002",
+	} as unknown as typeof wx;
+
+	const data = patientSurfaceReloadState(patient);
+
+	expect(data.currentPatient).toBeNull();
+	expect(data.currentPatientName).toBe("未选择就诊人");
+	expect(data.patientContextLoading).toBe(true);
+	expect(data.patientContextLoaded).toBe(false);
 });
 
 test("患者目录错误保持失效、映射不可用和暂时故障的区别", () => {
