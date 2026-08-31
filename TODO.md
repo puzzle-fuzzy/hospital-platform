@@ -19,7 +19,7 @@
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
 | **合计未完成** | **51** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 90 项，其中已完成 39 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 91 项，其中已完成 40 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## 0. 先看结论
 
@@ -323,6 +323,7 @@
 
 - [ ] 旧仓库 Git 跟踪了 `env/.env.prod`、`env/wechat/apiclient_key.pem`、`env/wechat/wechatpay.pem`、小程序环境文件和 `insurance-service/.env`。禁止复制这些文件；确认它们是否曾暴露给不应访问的人员或远程仓库，并按结果吊销/轮换微信、医保和 Provider 凭据。这个判断超出新仓库权限，仍需服务器/代码托管管理员确认。
 - [x] 新仓库保持只有模板文件进入 Git；`pnpm secret:audit` 和 `pnpm secret:audit:history` 已完成工作树及可达历史扫描，均未发现真实凭据或私钥原文。扫描只输出定位信息，不输出秘密值，详见 [`docs/security/secret-scan.md`](docs/security/secret-scan.md)。
+- [x] 已根据当前 schema 和 repository 实现建立身份、患者 Provider 引用、报告短期引用、排班快照、订单/outbox、日志和备份的仓库级生命周期/撤回策略；明确哪些是已实现的 owner/TTL/级联边界，哪些仍需数据负责人、Provider 和运维提供外部删除/留存证据。详见 [`docs/security/patient-data-lifecycle-policy-2026-08-31.md`](docs/security/patient-data-lifecycle-policy-2026-08-31.md)。
 - [ ] 新 `hp_identity_users` 仍持久化 Provider subject/union id 等身份关联字段；在保留存量账户前确认最小化保留、访问控制、删除/解绑、备份和日志策略，不能只依赖 TypeScript 类型保证隐私。
 - [ ] 明确患者目录、Provider 引用、预约快照和报告短期引用的保留期限、失效清理及账户撤回后的处理。当前部分历史引用通过 `inactive`/外键保留，不能默认等同于隐私删除已完成。
 
