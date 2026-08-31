@@ -1,0 +1,53 @@
+name: CI
+
+on:
+	push:
+		branches:
+			- main
+	pull_request:
+		branches:
+			- main
+
+permissions:
+	contents: read
+
+concurrency:
+	group: hospital-platform-ci-${{ github.workflow }}-${{ github.ref }}
+	cancel-in-progress: true
+
+jobs:
+	quality:
+		name: 代码质量与候选门禁
+		runs-on: ubuntu-24.04
+		steps:
+			- name: 检出代码
+				uses: actions/checkout@v4
+
+			- name: 安装 Bun
+				uses: oven-sh/setup-bun@v2
+				with:
+					bun-version-file: .bun-version
+
+			- name: 安装 pnpm
+				uses: pnpm/action-setup@v4
+				with:
+					version: 11.9.0
+
+			- name: 安装 Node.js
+				uses: actions/setup-node@v4
+				with:
+					node-version-file: .node-version
+					cache: pnpm
+
+			- name: 校验工具链版本
+				run: |
+					bun --version
+					node --version
+					pnpm --version
+					pnpm toolchain:audit
+
+			- name: 安装依赖
+				run: pnpm install --frozen-lockfile
+
+			- name: 执行候选门禁
+				run: pnpm check:candidate
