@@ -16,7 +16,7 @@
 					<image src="/assets/legacy-home/service-consultation.svg" mode="aspectFit" />
 				</view>
 				<text class="contact-title">咨询电话</text>
-				<text class="contact-description">工作日：08:00-17:00</text>
+			<text class="contact-description">客服时间详见咨询电话</text>
 			</view>
 		</view>
 	</view>

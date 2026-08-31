@@ -1,3 +1,11 @@
+import {
+	getSupportContactModalContent,
+	SUPPORT_CONTACT,
+} from "../../services/support-contact";
+
+/** 页面局部别名只为保持旧测试与调用点的可读性，实际值来自统一配置。 */
+const SERVICE_PHONE = SUPPORT_CONTACT.phone;
+
 type FeedbackIssue = {
 	id: string;
 	title: string;
@@ -21,9 +29,6 @@ type FeedbackPageMethods = {
 	onIssueTap(event: FeedbackIssueEvent): void;
 };
 
-/** 旧端配置中的公开咨询电话；在线反馈提交没有真实接口，不能在此页伪造“已提交”。 */
-const SERVICE_PHONE = "13835627395";
-
 /**
  * 热点问题是旧页面直接写入的静态说明，不是服务端 FAQ 资源。
  * 变更这些文案前应同步产品/客服确认，避免把旧端提示误当成医疗结论。
@@ -32,8 +37,7 @@ const HOT_ISSUES = Object.freeze([
 	{
 		id: "1",
 		title: "1.软件使用问题咨询",
-		content:
-			"就诊人绑定、预约记录无法查询等软件使用问题请通过左上角软件使用咨询联系在线客服，紧急问题请联系13835627395。",
+		content: `就诊人绑定、预约记录无法查询等软件使用问题请通过左上角软件使用咨询联系在线客服，紧急问题请联系${SERVICE_PHONE}。`,
 	},
 	{
 		id: "2",
@@ -62,7 +66,7 @@ Page<FeedbackPageData, FeedbackPageMethods>({
 	onConsultTap() {
 		wx.showModal({
 			title: "咨询电话",
-			content: `客服电话：${SERVICE_PHONE}\n工作日：08:00-17:00`,
+			content: getSupportContactModalContent(),
 			cancelText: "取消",
 			confirmText: "拨打电话",
 			success: (result) => {
