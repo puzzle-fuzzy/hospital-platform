@@ -1055,3 +1055,27 @@ test("in-memory prepay attempts claim due work once until the lease expires", as
 		{ version: 4, queryClaimedUntil: "2026-08-15T00:02:00.000Z" },
 	]);
 });
+
+test("in-memory prepay attempts do not reclaim manual review records", async () => {
+	const attempts = createInMemoryPaymentPrepayAttemptRepository([
+		{
+			attemptId: "attempt-manual-review-001",
+			ownerUserId: "user-manual-review-001",
+			orderId: "order-manual-review-001",
+			provider: "wechat-pay",
+			idempotencyKey: "prepay-manual-review-001",
+			status: "manual_review",
+			version: 12,
+			queryAttempts: 12,
+			lastErrorCode: "provider-query-failed",
+			manualReviewAt: "2026-08-15T00:10:00.000Z",
+			nextQueryAt: "2026-08-15T00:00:00.000Z",
+			createdAt: "2026-08-15T00:00:00.000Z",
+			updatedAt: "2026-08-15T00:10:00.000Z",
+		},
+	]);
+
+	await expect(
+		attempts.claimDueForQuery(new Date("2026-08-15T00:20:00.000Z"), 1, 60_000),
+	).resolves.toEqual([]);
+});

@@ -768,6 +768,7 @@ export function createInMemoryPaymentPrepayAttemptRepository(
 			const claimedUntil = new Date(nowMs + leaseMs).toISOString();
 			const due = [...attempts.values()]
 				.filter((attempt) => {
+					if (attempt.status === "manual_review") return false;
 					if (!attempt.nextQueryAt) return false;
 					const nextQueryMs = new Date(attempt.nextQueryAt).getTime();
 					if (!Number.isFinite(nextQueryMs) || nextQueryMs > nowMs) {

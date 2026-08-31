@@ -58,6 +58,7 @@ export function createWechatPaymentNotificationEvent(
 	return {
 		eventId: `wechat-payment-notification:${notification.notificationId}`,
 		eventName: "payment.wechat-notification.received",
+		status: "pending",
 		aggregateId: notification.orderId,
 		payload: {
 			notificationId: notification.notificationId,

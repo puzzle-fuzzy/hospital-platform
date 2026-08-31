@@ -420,43 +420,50 @@ test("A 批次只读验收计划的 pending 运行包不能漂移到历史来源
 
 // 当前基线包含迁移总览和患者边界文档，完整 Git/文档审计在 Windows 上
 // 可能超过 15 秒；提高的是测试等待上限，不放宽任何一致性断言。
-test("仓库当前发布文档与已部署代码保持一致", {
+test("仓库当前发布文档发现未部署运行时代码时 fail-closed", {
 	timeout: 30_000,
 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
-	// 当前 API-only 发布已经完成，测试必须确认服务端 release、小程序 live 来源和
-	// 运行时代码漂移审计同时对齐；不能继续沿用发布前“故意阻断”的旧断言。
+	// 当前工作树在服务端 release 之后仍有未部署的运行时代码；测试必须确认
+	// 发布门禁拒绝继续验收，不能把“代码已改、线上未发”误报成一致。
 	expect(result).toMatchObject({
-		passed: true,
+		passed: false,
 		// 该断言必须与当前候选文档同步，防止只更新正文而遗漏路线图、真机模板或
 		// 发布基线测试，导致验收人员误拿已经下线的服务端 release。
 		serverRelease: "5738a71e0bcddaa8849106754baf5b296427bed7",
 		// 当前线上服务与待真机验收的小程序候选必须成套锁定；这里的
 		// 完整 sourceRevision 不能只写短提交号，否则 dist 可能来自另一轮构建。
-		miniProgramCommit: "1bc5bf6",
-		miniProgramSourceRevision: "1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916",
+		miniProgramCommit: "9354104",
+		miniProgramSourceRevision: "935410473e5a7c1be125a85834f957f53a833d8f",
 	});
-	expect(result.failures).toEqual([]);
+	expect(result.failures).toEqual([
+		"服务端 release 5738a71e0bcddaa8849106754baf5b296427bed7 之后存在未部署运行时代码：packages/adapters/src/errors.ts, packages/adapters/src/http.ts, packages/observability/src/index.ts",
+	]);
 	expect(result.serverSourceAudit).toMatchObject({
-		passed: true,
-		changedRuntimeFiles: [],
+		passed: false,
+		changedRuntimeFiles: [
+			"packages/adapters/src/errors.ts",
+			"packages/adapters/src/http.ts",
+			"packages/observability/src/index.ts",
+		],
 	});
 });
 
-test("当前业务验收协议绑定当前服务端和小程序候选", {
+test("当前业务验收协议绑定候选但拒绝未部署服务端漂移", {
 	timeout: 30_000,
 }, async () => {
 	const result = await auditCurrentReleaseConsistency();
 
-	// 当前候选文档已经统一到同一套服务端和小程序来源，且 5738a71e 已完成
-	// API-only 原子发布；这里要求没有漂移失败，防止把历史发布前阻断误报为当前状态。
+	// 候选文档已经统一到同一套服务端和小程序来源，但服务端 release 之后仍有
+	// 运行时代码漂移；业务验收必须在这里保持关闭，直到新的 API release 完成。
 	expect(result).toMatchObject({
-		passed: true,
+		passed: false,
 		serverRelease: "5738a71e0bcddaa8849106754baf5b296427bed7",
-		miniProgramCommit: "1bc5bf6",
-		miniProgramSourceRevision: "1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916",
+		miniProgramCommit: "9354104",
+		miniProgramSourceRevision: "935410473e5a7c1be125a85834f957f53a833d8f",
 	});
-	expect(result.failures).toEqual([]);
+	expect(result.failures).toHaveLength(1);
+	expect(result.failures[0]).toContain("未部署运行时代码");
 });
 
 test("历史候选不被当前发布基线强制重写", () => {

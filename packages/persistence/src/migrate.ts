@@ -105,6 +105,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0016_patient_directory_sync_owner_index.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0017_outbox_manual_review_state",
+		file: "../migrations/0017_outbox_manual_review_state.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -235,11 +240,13 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 		columns: [
 			"event_id",
 			"event_name",
+			"status",
 			"aggregate_id",
 			"payload",
 			"available_at",
 			"claimed_until",
 			"processed_at",
+			"manual_review_at",
 		],
 	},
 	{
@@ -257,7 +264,13 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"last_queried_at",
 			"next_query_at",
 			"query_claimed_until",
+			"manual_review_at",
 		],
+	},
+	{
+		table: "hp_outbox_events",
+		name: "ix_hp_outbox_status_available",
+		columns: ["status", "available_at", "claimed_until"],
 	},
 	{
 		table: "hp_wechat_payment_notifications",

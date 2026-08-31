@@ -91,6 +91,7 @@ test("wechat notification repository does not store the same provider transactio
 	const event: OutboxEvent = {
 		eventId: "event-001",
 		eventName: "payment.wechat-notification.received",
+		status: "pending",
 		aggregateId: notification.orderId,
 		payload: {},
 		occurredAt: notification.receivedAt,

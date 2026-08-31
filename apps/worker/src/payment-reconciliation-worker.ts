@@ -14,11 +14,17 @@ const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
 const QUERY_BATCH_SIZE = 1;
 /** provider 查询异常或进程崩溃后的 claim 接管窗口。 */
 const QUERY_CLAIM_LEASE_MS = 60_000;
+/**
+ * 微信查单自动重试上限；达到上限后必须停在 manual_review，等待人工核对，
+ * 不能继续制造没有边界的 provider 请求。
+ */
+export const MAX_PAYMENT_QUERY_ATTEMPTS = 12;
 
 export type PaymentReconciliationWorkerResult =
 	| "idle"
 	| "reconciled"
-	| "retry_scheduled";
+	| "retry_scheduled"
+	| "manual_review";
 
 function queryDelayMs(queryAttempts: number): number {
 	return Math.min(
@@ -30,26 +36,33 @@ function queryDelayMs(queryAttempts: number): number {
 function updateAttemptSchedule(
 	attempt: PaymentPrepayAttempt,
 	now: Date,
-	shouldContinue: boolean,
+	options: { shouldContinue: boolean; lastErrorCode?: string },
 ): PaymentPrepayAttempt {
 	// exactOptionalPropertyTypes 下不能把 undefined 写回可选字段；删除旧计划
 	// 后只在确实需要继续查单时重新加入 nextQueryAt。
 	const {
 		nextQueryAt: _previousNextQueryAt,
 		queryClaimedUntil: _previousQueryClaimedUntil,
+		lastErrorCode: _previousLastErrorCode,
+		manualReviewAt: _previousManualReviewAt,
 		...withoutQuerySchedule
 	} = attempt;
 	const queryAttempts = Math.min(
 		Number.MAX_SAFE_INTEGER,
 		attempt.queryAttempts + 1,
 	);
+	const exhausted =
+		options.shouldContinue && queryAttempts >= MAX_PAYMENT_QUERY_ATTEMPTS;
 	return {
 		...withoutQuerySchedule,
+		status: exhausted ? "manual_review" : attempt.status,
 		queryAttempts,
 		lastQueriedAt: now.toISOString(),
 		version: attempt.version + 1,
 		updatedAt: now.toISOString(),
-		...(shouldContinue
+		...(options.lastErrorCode ? { lastErrorCode: options.lastErrorCode } : {}),
+		...(exhausted ? { manualReviewAt: now.toISOString() } : {}),
+		...(options.shouldContinue && !exhausted
 			? {
 					nextQueryAt: new Date(
 						now.getTime() + queryDelayMs(attempt.queryAttempts),
@@ -112,12 +125,26 @@ export class PaymentReconciliationWorker {
 				query.state === "cash_pending" &&
 				(reconciliation.order.state === "cash_pending" ||
 					reconciliation.order.state === "awaiting_confirmation");
-			const updatedAttempt = updateAttemptSchedule(
-				attempt,
-				now,
+			const updatedAttempt = updateAttemptSchedule(attempt, now, {
 				shouldContinue,
-			);
+				...(shouldContinue ? { lastErrorCode: "provider-pending" } : {}),
+			});
 			await this.dependencies.attempts.update(updatedAttempt, attempt.version);
+			if (updatedAttempt.status === "manual_review") {
+				this.logger.error(
+					{
+						event: "worker.payment.wechat_query.manual_review_required",
+						attemptId: attempt.attemptId,
+						orderId: attempt.orderId,
+						queryAttempts: updatedAttempt.queryAttempts,
+						maxAttempts: MAX_PAYMENT_QUERY_ATTEMPTS,
+						providerState: query.state,
+						reason: "provider-pending",
+					},
+					"Wechat payment query requires manual review",
+				);
+				return "manual_review";
+			}
 			this.logger.info(
 				{
 					event: "worker.payment.wechat_query.reconciled",
@@ -133,10 +160,28 @@ export class PaymentReconciliationWorker {
 			);
 			return "reconciled";
 		} catch (error) {
-			const retryAttempt = updateAttemptSchedule(attempt, now, true);
+			const retryAttempt = updateAttemptSchedule(attempt, now, {
+				shouldContinue: true,
+				lastErrorCode: "provider-query-failed",
+			});
 			await this.dependencies.attempts
 				.update(retryAttempt, attempt.version)
 				.catch(() => undefined);
+			if (retryAttempt.status === "manual_review") {
+				this.logger.error(
+					{
+						event: "worker.payment.wechat_query.manual_review_required",
+						attemptId: attempt.attemptId,
+						orderId: attempt.orderId,
+						queryAttempts: retryAttempt.queryAttempts,
+						maxAttempts: MAX_PAYMENT_QUERY_ATTEMPTS,
+						reason: "provider-query-failed",
+						errorName: error instanceof Error ? error.name : "UnknownError",
+					},
+					"Wechat payment query requires manual review",
+				);
+				return "manual_review";
+			}
 			this.logger.warn(
 				{
 					event: "worker.payment.wechat_query.retry_scheduled",

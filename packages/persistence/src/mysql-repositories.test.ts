@@ -83,6 +83,7 @@ const order: PaymentOrder = {
 const createdEvent: OutboxEvent = {
 	eventId: "payment-order:order-001:created",
 	eventName: "payment-order.created",
+	status: "pending",
 	aggregateId: "order-001",
 	payload: { orderId: "order-001", state: "created" },
 	occurredAt: order.updatedAt,
@@ -242,7 +243,7 @@ test("MySQL order insert commits order and outbox in one transaction", async () 
 	expect(state.statements[0]).toContain("INSERT INTO hp_payment_orders");
 	expect(state.statements[1]).toContain("INSERT INTO hp_outbox_events");
 	expect(state.values[0]?.[9]).toBe("2026-08-15 00:00:00.000");
-	expect(state.values[1]?.[4]).toBe("2026-08-15 00:00:00.000");
+	expect(state.values[1]?.[5]).toBe("2026-08-15 00:00:00.000");
 });
 
 test("MySQL patient directory upsert stores provider mapping but returns internal id", async () => {
@@ -1160,6 +1161,8 @@ test("MySQL outbox claim returns an event and commits its lease", async () => {
 		available_at: createdEvent.availableAt,
 		attempts: 0,
 		claimed_until: null,
+		status: "pending",
+		manual_review_at: null,
 	};
 	const { pool, state } = createFakePool([[row], { affectedRows: 1 }]);
 	const repositories = createMySqlRepositories(pool);
@@ -1221,10 +1224,11 @@ test("MySQL prepay repository encrypts pay params and stores only prepay hash", 
 	await repositories.paymentPrepayAttempts.update(succeeded, pending.version);
 
 	const updateValues = state.values[1] ?? [];
-	const serialized = updateValues[3];
+	const storedPrepayHash = updateValues[7];
+	const serialized = updateValues[8];
 	expect(state.statements[0]).toContain("prepay_id_hash");
 	expect(state.statements[1]).toContain("pay_params_ciphertext");
-	expect(String(updateValues[2])).not.toBe("prepay-credential-001");
+	expect(String(storedPrepayHash)).not.toBe("prepay-credential-001");
 	expect(String(serialized)).not.toContain("sensitive-sign-001");
 });
 
@@ -1269,6 +1273,7 @@ test("MySQL prepay repository atomically claims due query schedules", async () =
 		last_queried_at: "2026-08-15 00:00:15.000",
 		next_query_at: "2026-08-15 00:01:00.000",
 		query_claimed_until: null,
+		manual_review_at: null,
 		prepay_id_hash: null,
 		pay_params_ciphertext: null,
 		provider_request_id: "request-001",

@@ -73,6 +73,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `worker.outbox.claimed` | Outbox worker | 确认事件被领取及当前重试次数 |
 | `worker.outbox.processed` | Outbox worker | 确认事件处理完成 |
 | `worker.outbox.retry_scheduled` | Outbox worker | 查询重试原因和下一次尝试前的状态 |
+| `worker.outbox.manual_review_required` | Outbox worker | 自动重试达到 12 次上限后记录人工接管原因、事件主键和最终尝试次数 |
 | `payment.wechat_prepay.requested` | 微信预支付应用服务 | 确认某个内部订单开始申请服务端调起参数 |
 | `payment.wechat_prepay.created` | 微信预支付应用服务 | 确认参数生成成功及 provider request id |
 | `payment.wechat_prepay.replayed` | 微信预支付应用服务 | 确认幂等重试复用已持久化的参数 |
@@ -82,6 +83,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `payment.wechat_notification.rejected` | 微信支付通知入站 | 记录验签、解密或白名单校验失败 |
 | `worker.payment.wechat_query.reconciled` | 微信支付查单 worker | 记录已验签的 provider 状态、金额校验结果和是否继续查单 |
 | `worker.payment.wechat_query.retry_scheduled` | 微信支付查单 worker | 记录可恢复查单错误和下一次调度元数据 |
+| `worker.payment.wechat_query.manual_review_required` | 微信支付查单 worker | 查单达到 12 次上限后记录人工接管原因、订单/尝试主键和 provider 状态 |
 | `worker.payment.wechat_notification.reconciled` | 微信支付通知 outbox handler | 记录安全通知事实经过金额和版本校验后的订单结果 |
 | `patient.directory.requested` | 患者目录同步应用服务 | 记录同步开始、provider 和 trace，不记录身份或请求内容 |
 | `patient.directory.operation.started` / `patient.directory.operation.lease_taken_over` | 患者目录同步操作台账 | 记录内部 operationId、attemptCount、provider 和 trace；不记录幂等键原文 |

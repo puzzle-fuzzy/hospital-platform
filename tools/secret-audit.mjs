@@ -120,30 +120,48 @@ function auditHistory(rootDirectory) {
 			".",
 		]);
 		for (const commit of commits.split(/\r?\n/u).filter(Boolean)) {
-			const diff = runGit(rootDirectory, [
+			const diffLines = runGit(rootDirectory, [
 				"show",
 				"--format=",
 				"--unified=0",
 				commit,
 				"--",
 				".",
-			]);
-			const addedLines = diff
-				.split(/\r?\n/u)
-				.filter((line) => line.startsWith("+") && !line.startsWith("+++"))
-				.map((line) => line.slice(1))
-				.join("\n");
-			for (const finding of auditSecretContent(
-				`commit:${commit}`,
-				addedLines,
-			)) {
-				if (finding.reason === name) {
+			]).split(/\r?\n/u);
+			let currentPath = "";
+			let nextAddedLine = 0;
+			for (const diffLine of diffLines) {
+				if (diffLine.startsWith("+++ b/")) {
+					currentPath = diffLine.slice("+++ b/".length);
+					continue;
+				}
+				const hunk = diffLine.match(/^@@ .* \+(\d+)/u);
+				if (hunk) {
+					nextAddedLine = Number(hunk[1]);
+					continue;
+				}
+				if (!diffLine.startsWith("+") || diffLine.startsWith("+++")) {
+					continue;
+				}
+				// 测试夹具中的 marker 是扫描器自身的输入，不是仓库凭据；
+				// 按文件边界跳过它，仍保留其它测试和业务文件的历史告警。
+				if (currentPath === "tools/secret-audit.test.mjs") {
+					nextAddedLine += 1;
+					continue;
+				}
+				const lineFindings = auditSecretContent(
+					`commit:${commit}`,
+					diffLine.slice(1),
+				);
+				for (const finding of lineFindings) {
+					if (finding.reason !== name) continue;
 					findings.push({
 						reason: `history-${name}`,
 						commit,
-						line: finding.line,
+						line: nextAddedLine,
 					});
 				}
+				nextAddedLine += 1;
 			}
 		}
 	}

@@ -10,8 +10,17 @@ import { createNoopLogger, type AppLogger } from "@hospital/observability";
 const MAX_RETRY_DELAY_MS = 15 * 60 * 1000;
 /** 第一次失败后的基础退避时间；真实部署可在配置层覆盖。 */
 const BASE_RETRY_DELAY_MS = 1000;
+/**
+ * 自动重试上限；超过上限必须进入人工接管状态，不能用远期 availableAt
+ * 伪装成已经处理。支付/HIS 开放前仍需为人工重放和告警补齐运维工具。
+ */
+export const MAX_OUTBOX_ATTEMPTS = 12;
 
-export type OutboxWorkerResult = "idle" | "processed" | "retry_scheduled";
+export type OutboxWorkerResult =
+	| "idle"
+	| "processed"
+	| "retry_scheduled"
+	| "manual_review";
 
 function retryDelayMs(attempts: number): number {
 	return Math.min(
@@ -47,18 +56,7 @@ export class OutboxWorker {
 
 		const handler = this.handlers[event.eventName];
 		if (!handler) {
-			await this.scheduleRetry(event, now, "handler-not-configured");
-			this.logger.warn(
-				{
-					event: "worker.outbox.retry_scheduled",
-					eventId: event.eventId,
-					eventName: event.eventName,
-					aggregateId: event.aggregateId,
-					reason: "handler-not-configured",
-				},
-				"Outbox handler is not configured",
-			);
-			return "retry_scheduled";
+			return this.scheduleFailure(event, now, "handler-not-configured");
 		}
 
 		try {
@@ -75,19 +73,49 @@ export class OutboxWorker {
 			);
 			return "processed";
 		} catch {
-			await this.scheduleRetry(event, now, "handler-failed");
-			this.logger.warn(
+			return this.scheduleFailure(event, now, "handler-failed");
+		}
+	}
+
+	private async scheduleFailure(
+		event: OutboxEvent,
+		now: Date,
+		reason: string,
+	): Promise<Exclude<OutboxWorkerResult, "idle" | "processed">> {
+		const nextAttempts = event.attempts + 1;
+		if (nextAttempts >= MAX_OUTBOX_ATTEMPTS) {
+			await this.repository.markManualReview(event.eventId, now, reason);
+			this.logger.error(
 				{
-					event: "worker.outbox.retry_scheduled",
+					event: "worker.outbox.manual_review_required",
 					eventId: event.eventId,
 					eventName: event.eventName,
 					aggregateId: event.aggregateId,
-					reason: "handler-failed",
+					reason,
+					attempts: nextAttempts,
+					maxAttempts: MAX_OUTBOX_ATTEMPTS,
 				},
-				"Outbox handler failed",
+				"Outbox event requires manual review",
 			);
-			return "retry_scheduled";
+			return "manual_review";
 		}
+
+		await this.scheduleRetry(event, now, reason);
+		this.logger.warn(
+			{
+				event: "worker.outbox.retry_scheduled",
+				eventId: event.eventId,
+				eventName: event.eventName,
+				aggregateId: event.aggregateId,
+				reason,
+				attempts: nextAttempts,
+				maxAttempts: MAX_OUTBOX_ATTEMPTS,
+			},
+			reason === "handler-not-configured"
+				? "Outbox handler is not configured"
+				: "Outbox handler failed",
+		);
+		return "retry_scheduled";
 	}
 
 	private async scheduleRetry(

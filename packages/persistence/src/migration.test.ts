@@ -220,6 +220,12 @@ test("core migration contains the transaction-critical constraints", async () =>
 			import.meta.url,
 		),
 	).text();
+	const outboxManualReviewSql = await Bun.file(
+		new URL(
+			"../migrations/0017_outbox_manual_review_state.sql",
+			import.meta.url,
+		),
+	).text();
 
 	expect(sql).toContain("CREATE TABLE IF NOT EXISTS hp_payment_orders");
 	expect(prepaySql).toContain(
@@ -256,6 +262,12 @@ test("core migration contains the transaction-critical constraints", async () =>
 	expect(patientSyncSql).toContain("fk_hp_patient_sync_owner");
 	expect(patientSyncOwnerIndexSql).toContain(
 		"ix_hp_patient_sync_owner_provider_state",
+	);
+	expect(outboxManualReviewSql).toContain("ADD COLUMN status");
+	expect(outboxManualReviewSql).toContain("ADD COLUMN manual_review_at");
+	expect(outboxManualReviewSql).toContain("ix_hp_outbox_status_available");
+	expect(outboxManualReviewSql).toContain(
+		"ALTER TABLE hp_payment_prepay_attempts",
 	);
 });
 

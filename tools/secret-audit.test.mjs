@@ -2,12 +2,10 @@ import { expect, test } from "bun:test";
 import { auditSecretContent, auditSensitivePaths } from "./secret-audit.mjs";
 
 test("secret scan 只返回定位信息，不返回秘密原文", () => {
+	const privateKeyMarker = ["-----BEGIN", "PRIVATE KEY-----"].join(" ");
 	const findings = auditSecretContent(
 		".env.prod",
-		[
-			"WECHAT_APP_SECRET=not-a-real-secret-value",
-			"-----BEGIN PRIVATE KEY-----",
-		].join("\n"),
+		["WECHAT_APP_SECRET=not-a-real-secret-value", privateKeyMarker].join("\n"),
 	);
 
 	expect(findings).toEqual([

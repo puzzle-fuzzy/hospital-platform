@@ -8,7 +8,10 @@ import type {
 } from "@hospital/domain";
 import { PaymentOrderService } from "@hospital/domain";
 import { createLogger } from "@hospital/observability";
-import { PaymentReconciliationWorker } from "./payment-reconciliation-worker";
+import {
+	MAX_PAYMENT_QUERY_ATTEMPTS,
+	PaymentReconciliationWorker,
+} from "./payment-reconciliation-worker";
 
 const now = new Date("2026-08-15T00:00:00.000Z");
 const order: PaymentOrder = {
@@ -81,6 +84,7 @@ function createAttemptRepository(seed: PaymentPrepayAttempt): {
 			if (
 				limit <= 0 ||
 				leaseMs <= 0 ||
+				current.status === "manual_review" ||
 				!current.nextQueryAt ||
 				new Date(current.nextQueryAt).getTime() > queryNow.getTime() ||
 				(current.queryClaimedUntil &&
@@ -228,4 +232,27 @@ test("reconciliation worker keeps a provider failure recoverable with structured
 	const output = lines.join("\n");
 	expect(output).toContain("worker.payment.wechat_query.retry_scheduled");
 	expect(output).not.toContain("provider is temporarily unavailable");
+});
+
+test("reconciliation worker stops provider failures at the manual review boundary", async () => {
+	const orders = createOrderRepository(order);
+	const attempts = createAttemptRepository({
+		...attempt(),
+		queryAttempts: MAX_PAYMENT_QUERY_ATTEMPTS - 1,
+	});
+	const worker = new PaymentReconciliationWorker({
+		attempts: attempts.repository,
+		orders: new PaymentOrderService({ orders: orders.repository }),
+		wechatPayment: gatewayFor(async () => {
+			throw new Error("provider is temporarily unavailable");
+		}),
+	});
+
+	await expect(worker.runOnce(now)).resolves.toBe("manual_review");
+	expect(attempts.read()).toMatchObject({
+		status: "manual_review",
+		queryAttempts: MAX_PAYMENT_QUERY_ATTEMPTS,
+		lastErrorCode: "provider-query-failed",
+	});
+	expect(attempts.read().nextQueryAt).toBeUndefined();
 });

@@ -375,7 +375,11 @@ export function normalizePaymentQuoteReadModel(
 	};
 }
 
-export type PaymentPrepayAttemptStatus = "pending" | "succeeded" | "unknown";
+export type PaymentPrepayAttemptStatus =
+	| "pending"
+	| "succeeded"
+	| "unknown"
+	| "manual_review";
 
 /**
  * 微信预支付尝试是独立的 provider 证据，不与订单状态混为一谈。
@@ -395,6 +399,8 @@ export type PaymentPrepayAttempt = {
 	nextQueryAt?: string;
 	/** 数据库 claim lease；进程崩溃后过期，其他 worker 才能接管查单。 */
 	queryClaimedUntil?: string;
+	/** 进入人工复核的时间；仅 manual_review 终态设置，便于后续运维审计。 */
+	manualReviewAt?: string;
 	prepayId?: string;
 	payParams?: WechatMiniProgramPayParams;
 	providerRequestId?: string;
@@ -833,6 +839,7 @@ function createPaymentOrderEvent(
 	return {
 		eventId: `payment-order:${order.orderId}:${suffix}`,
 		eventName,
+		status: "pending",
 		aggregateId: order.orderId,
 		payload: {
 			orderId: order.orderId,

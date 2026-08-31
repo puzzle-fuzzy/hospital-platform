@@ -341,7 +341,8 @@
 ### 11.2 后台任务、恢复和运维闭环：新增 P1
 
 - [ ] 旧 FastAPI 启动时会加载数据库中的 APScheduler 任务，并单独启动 `plugin_payment_reconcile_loop`，后者会扫描“微信预支付已创建但云健康/HIS 未完成回写”的订单并继续完成结算。新 Worker 目前只实现微信通知 handler 和微信查单，没有对应的云健康/HIS 插件恢复 handler；支付/HIS 批次开启前必须明确逐项替代、存量迁移和人工补偿方案。
-- [ ] 新 `OutboxWorker` 会产生 `handler-not-configured`/`handler-failed` 的延迟重试，但当前 outbox repository 没有最大尝试次数、死信/人工接管状态或告警出口；`PaymentReconciliationWorker` 的查单异常也会一直增加 `queryAttempts` 并继续排程。打开支付前补齐重试上限、终态、人工重放/隔离、告警和对应 runbook。
+- [x] 已为 `OutboxWorker` 和 `PaymentReconciliationWorker` 增加 12 次自动重试上限；达到上限后分别落库为 `manual_review`，清除下一次自动调度，并输出可检索的人工接管日志。新迁移为 `0017_outbox_manual_review_state`，尚未执行到生产库。
+- [ ] 仍缺人工重放/隔离工具、死信查询、告警出口和对应 runbook；这些能力完成并取得生产证据前，支付/HIS gate 继续关闭。
 - [ ] 支付订单服务会写入 `payment-order.created`、`payment-order.state-changed` 两类 outbox 事件，而生产 Worker 组合根当前只注册 `payment.wechat-notification.received` handler。确认前两类事件究竟是审计事件、需要业务 handler，还是应由明确的 no-op/归档策略消费；不能在支付 gate 打开后让它们无声地无限重试。
 - [ ] 旧任务管理 CRUD 与示例任务本身可以不迁入患者小程序，但切换前仍要盘点旧库中实际启用的任务记录，逐条标记“退休、保留在旧系统或改写到新 Worker”；不能仅因为后台 `/job` 路由不迁移，就推断没有业务定时任务。
 - [ ] 现有迁移恢复手册覆盖 MySQL DDL 的非事务性、schema probe 和失败止损，但尚未形成清晰的生产 MySQL 备份、binlog/PITR、恢复演练、保留周期、RPO/RTO 和告警记录。新旧切换前补齐；同时明确 Redis 会话可过期重建，而支付/订单/outbox 数据必须按数据库恢复策略处理。
@@ -349,11 +350,11 @@
 
 ### 11.3 环境模板与构建可复现性：新增 P1/P2
 
-- [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0016_patient_directory_sync_owner_index`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
+- [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0017_outbox_manual_review_state`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
 - [x] 已明确 `.env.example` 是开发/测试 API 与本地 Worker 模板，`infra/systemd/api.env.example` 是生产 API unit 模板；公共配置以 `packages/config/src/index.ts` 为准，`pnpm env:template:audit` 校验两份模板的职责边界、生产安全默认值和敏感值占位符。`pnpm runtime:preflight` 已用于真实配置的只读依赖探针，生产执行仍必须在服务器受控 shell 中完成。详见 [`infra/README.md`](infra/README.md)。
 - [x] 已建立 GitHub Actions CI，锁定 `.node-version=24.12.0`、`.bun-version=1.4.0`、`pnpm@11.9.0`，使用 `pnpm install --frozen-lockfile` 执行 `pnpm check:candidate`；`pnpm toolchain:audit` 会校验版本文件、`package.json` 和 workflow 的一致性。详见 [`docs/release/ci-and-toolchain-baseline.md`](docs/release/ci-and-toolchain-baseline.md)。
 - [ ] 生产发布执行器仍保持手动受控：当前服务端 release 之后有未部署运行时代码漂移，且旧 Python 服务必须共存；在补齐受控发布窗口、回滚和线上证据前，不自动化切换或重启线上服务。
-- [ ] 当前小程序源码与 `dist/build-info.json` 的来源 revision `9354104c...` 已对齐，本身不是迁移缺口；但应把 source revision、dist revision、API release、schema head 和真实设备证据绑定到一份发布记录，避免构建包、文档和服务端各自指向不同候选。
+- [x] 当前小程序源码与 `dist/build-info.json` 的来源 revision `9354104c...` 已对齐；`docs/release/current-baseline.json` 已把 source revision、dist revision、API release、schema head 和真实设备证据清单绑定到一份机器可读发布记录。真实设备证据仍保持 pending，不得把索引绑定误报为业务验收通过。
 
 ### 11.4 本轮确认不需要补充
 

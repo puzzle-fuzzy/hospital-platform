@@ -222,6 +222,7 @@ type PaymentPrepayAttemptRow = RowDataPacket & {
 	last_queried_at: string | null;
 	next_query_at: string | null;
 	query_claimed_until: string | null;
+	manual_review_at: string | null;
 	prepay_id_hash: string | null;
 	pay_params_ciphertext: string | null;
 	provider_request_id: string | null;
@@ -243,13 +244,28 @@ type WechatPaymentNotificationRow = RowDataPacket & {
 type OutboxEventRow = RowDataPacket & {
 	event_id: string;
 	event_name: OutboxEvent["eventName"];
+	status: OutboxEvent["status"];
 	aggregate_id: string;
 	payload: string | Readonly<Record<string, unknown>>;
 	occurred_at: string;
 	available_at: string;
 	attempts: number;
 	claimed_until: string | null;
+	manual_review_at: string | null;
 };
+
+const OUTBOX_EVENT_STATUSES: readonly OutboxEvent["status"][] = [
+	"pending",
+	"processed",
+	"manual_review",
+];
+
+function outboxEventStatus(value: string): OutboxEvent["status"] {
+	if (OUTBOX_EVENT_STATUSES.includes(value as OutboxEvent["status"])) {
+		return value as OutboxEvent["status"];
+	}
+	throw new Error("Persistence returned an unknown outbox event status");
+}
 
 export type MySqlRepositories = {
 	identityUsers: UserIdentityRepository;
@@ -928,6 +944,7 @@ const PREPAY_ATTEMPT_STATUSES: readonly PaymentPrepayAttempt["status"][] = [
 	"pending",
 	"succeeded",
 	"unknown",
+	"manual_review",
 ];
 
 function paymentPrepayAttemptStatus(
@@ -993,6 +1010,7 @@ function paymentPrepayAttempt(
 		...(row.query_claimed_until
 			? { queryClaimedUntil: row.query_claimed_until }
 			: {}),
+		...(row.manual_review_at ? { manualReviewAt: row.manual_review_at } : {}),
 		...(storedPayParams ? { payParams: storedPayParams } : {}),
 		...(row.provider_request_id
 			? { providerRequestId: row.provider_request_id }
@@ -1038,11 +1056,13 @@ function outboxEvent(row: OutboxEventRow): OutboxEvent {
 	return {
 		eventId: row.event_id,
 		eventName: row.event_name,
+		status: outboxEventStatus(row.status),
 		aggregateId: row.aggregate_id,
 		payload,
 		occurredAt: row.occurred_at,
 		availableAt: row.available_at,
 		attempts: row.attempts,
+		...(row.manual_review_at ? { manualReviewAt: row.manual_review_at } : {}),
 	};
 }
 
@@ -1062,13 +1082,14 @@ function insertOutboxSql(event: OutboxEvent): {
 	return {
 		sql: `
 			INSERT INTO hp_outbox_events
-				(event_id, event_name, aggregate_id, payload, occurred_at, available_at, attempts, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				(event_id, event_name, status, aggregate_id, payload, occurred_at, available_at, attempts, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON DUPLICATE KEY UPDATE event_id = event_id
 		`,
 		values: [
 			event.eventId,
 			event.eventName,
+			event.status,
 			event.aggregateId,
 			JSON.stringify(event.payload),
 			mysqlDateTime(event.occurredAt),
@@ -1803,7 +1824,7 @@ export function createMySqlRepositories(
 			const cipher = requiredPrepayCipher();
 			const rows = await execute<PaymentPrepayAttemptRow[]>(
 				pool,
-				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? AND idempotency_key = ? LIMIT 1",
+				"SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, manual_review_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE owner_user_id = ? AND order_id = ? AND idempotency_key = ? LIMIT 1",
 				[ownerUserId, orderId, idempotencyKey],
 			);
 			return rows[0] ? paymentPrepayAttempt(rows[0], cipher) : undefined;
@@ -1813,7 +1834,7 @@ export function createMySqlRepositories(
 			try {
 				await execute<ResultSetHeader>(
 					pool,
-					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, manual_review_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 					[
 						attempt.attemptId,
 						attempt.ownerUserId,
@@ -1827,6 +1848,9 @@ export function createMySqlRepositories(
 						attempt.nextQueryAt ? mysqlDateTime(attempt.nextQueryAt) : null,
 						attempt.queryClaimedUntil
 							? mysqlDateTime(attempt.queryClaimedUntil)
+							: null,
+						attempt.manualReviewAt
+							? mysqlDateTime(attempt.manualReviewAt)
 							: null,
 						attempt.prepayId
 							? createHash("sha256")
@@ -1859,7 +1883,7 @@ export function createMySqlRepositories(
 			const cipher = requiredPrepayCipher();
 			const result = await execute<ResultSetHeader>(
 				pool,
-				"UPDATE hp_payment_prepay_attempts SET status = ?, version = ?, query_attempts = ?, last_queried_at = ?, next_query_at = ?, query_claimed_until = ?, prepay_id_hash = ?, pay_params_ciphertext = ?, provider_request_id = ?, last_error_code = ?, updated_at = ? WHERE attempt_id = ? AND owner_user_id = ? AND version = ?",
+				"UPDATE hp_payment_prepay_attempts SET status = ?, version = ?, query_attempts = ?, last_queried_at = ?, next_query_at = ?, query_claimed_until = ?, manual_review_at = ?, prepay_id_hash = ?, pay_params_ciphertext = ?, provider_request_id = ?, last_error_code = ?, updated_at = ? WHERE attempt_id = ? AND owner_user_id = ? AND version = ?",
 				[
 					attempt.status,
 					attempt.version,
@@ -1869,6 +1893,7 @@ export function createMySqlRepositories(
 					attempt.queryClaimedUntil
 						? mysqlDateTime(attempt.queryClaimedUntil)
 						: null,
+					attempt.manualReviewAt ? mysqlDateTime(attempt.manualReviewAt) : null,
 					attempt.prepayId
 						? createHash("sha256")
 								.update(attempt.prepayId, "utf8")
@@ -1908,7 +1933,7 @@ export function createMySqlRepositories(
 			return withTransaction(pool, async (connection) => {
 				const rows = await execute<PaymentPrepayAttemptRow[]>(
 					connection,
-					`SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE next_query_at IS NOT NULL AND next_query_at <= ? AND (query_claimed_until IS NULL OR query_claimed_until <= ?) AND status IN (?, ?, ?) ORDER BY next_query_at, attempt_id LIMIT ${queryLimit} FOR UPDATE SKIP LOCKED`,
+					`SELECT attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, manual_review_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at FROM hp_payment_prepay_attempts WHERE next_query_at IS NOT NULL AND next_query_at <= ? AND (query_claimed_until IS NULL OR query_claimed_until <= ?) AND status IN (?, ?, ?) ORDER BY next_query_at, attempt_id LIMIT ${queryLimit} FOR UPDATE SKIP LOCKED`,
 					[
 						mysqlDateTime(now),
 						mysqlDateTime(now),
@@ -2137,9 +2162,10 @@ export function createMySqlRepositories(
 			return withTransaction(pool, async (connection) => {
 				const rows = await execute<OutboxEventRow[]>(
 					connection,
-					`SELECT event_id, event_name, aggregate_id, payload, occurred_at, available_at, attempts, claimed_until
+					`SELECT event_id, event_name, status, aggregate_id, payload, occurred_at, available_at, attempts, claimed_until, manual_review_at
 					 FROM hp_outbox_events
-					 WHERE processed_at IS NULL
+					 WHERE status = 'pending'
+					   AND processed_at IS NULL
 					   AND available_at <= ?
 					   AND (claimed_until IS NULL OR claimed_until <= ?)
 					 ORDER BY available_at, event_id
@@ -2153,7 +2179,7 @@ export function createMySqlRepositories(
 				const claimedUntil = new Date(now.getTime() + outboxClaimLeaseMs);
 				const result = await execute<ResultSetHeader>(
 					connection,
-					"UPDATE hp_outbox_events SET claimed_until = ? WHERE event_id = ? AND processed_at IS NULL",
+					"UPDATE hp_outbox_events SET claimed_until = ? WHERE event_id = ? AND status = 'pending' AND processed_at IS NULL",
 					[mysqlDateTime(claimedUntil), row.event_id],
 				);
 				if (result.affectedRows !== 1) return undefined;
@@ -2167,15 +2193,22 @@ export function createMySqlRepositories(
 		async markProcessed(eventId, processedAt) {
 			await execute<ResultSetHeader>(
 				pool,
-				"UPDATE hp_outbox_events SET processed_at = ?, claimed_until = NULL WHERE event_id = ? AND processed_at IS NULL",
+				"UPDATE hp_outbox_events SET status = 'processed', processed_at = ?, claimed_until = NULL WHERE event_id = ? AND status = 'pending' AND processed_at IS NULL",
 				[mysqlDateTime(processedAt), eventId],
 			);
 		},
 		async markRetry(eventId, nextAvailableAt, reason) {
 			await execute<ResultSetHeader>(
 				pool,
-				"UPDATE hp_outbox_events SET available_at = ?, attempts = attempts + 1, claimed_until = NULL, last_error = ? WHERE event_id = ? AND processed_at IS NULL",
+				"UPDATE hp_outbox_events SET status = 'pending', available_at = ?, attempts = attempts + 1, claimed_until = NULL, last_error = ? WHERE event_id = ? AND status = 'pending' AND processed_at IS NULL",
 				[mysqlDateTime(nextAvailableAt), reason.slice(0, 512), eventId],
+			);
+		},
+		async markManualReview(eventId, manualReviewAt, reason) {
+			await execute<ResultSetHeader>(
+				pool,
+				"UPDATE hp_outbox_events SET status = 'manual_review', attempts = attempts + 1, manual_review_at = ?, claimed_until = NULL, last_error = ? WHERE event_id = ? AND status = 'pending' AND processed_at IS NULL",
+				[mysqlDateTime(manualReviewAt), reason.slice(0, 512), eventId],
 			);
 		},
 	};

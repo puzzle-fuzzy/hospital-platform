@@ -151,6 +151,7 @@ export {
 export type {
 	OutboxEvent,
 	OutboxEventName,
+	OutboxEventStatus,
 	OutboxHandler,
 	OutboxRepository,
 } from "./outbox";

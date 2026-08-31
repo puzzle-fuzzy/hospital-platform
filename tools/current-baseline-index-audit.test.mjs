@@ -19,7 +19,7 @@ const validIndex = {
 		pageCount: 38,
 	},
 	persistence: {
-		schemaHead: "0016_patient_directory_sync_owner_index",
+		schemaHead: "0017_outbox_manual_review_state",
 		migrationSource: "packages/persistence/src/migrate.ts",
 	},
 	realDeviceEvidence: {
