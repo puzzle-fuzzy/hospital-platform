@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveMiniProgramSourceRevision } from "../apps/miniprogram/scripts/runtime-provenance.ts";
 import {
 	FROZEN_DOMAIN_GATE_CATALOG,
 	MIGRATION_BATCH_IDS,
@@ -7,6 +8,34 @@ import {
 import { auditMigrationContractIntake } from "./migration-contract-intake-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+const miniProgramAppConfig = JSON.parse(
+	await Bun.file(
+		resolve(repositoryRoot, "apps/miniprogram/src/app.json"),
+	).text(),
+);
+const { LEGACY_PAGE_MIGRATION_CATALOG } = await import(
+	"../apps/miniprogram/src/services/legacy-page-catalog.ts"
+);
+
+/**
+ * 当前小程序入口和页面状态必须直接来自源码事实，不允许在审计脚本里
+ * 手工复制一份数字。运行来源指纹沿用构建脚本的同一套输入边界，避免
+ * 文档把旧候选误标为当前 live 运行输入。
+ */
+const miniProgramPageCount = miniProgramAppConfig.pages.length;
+const legacyPageStatusCounts = Object.groupBy(
+	LEGACY_PAGE_MIGRATION_CATALOG,
+	(entry) => entry.status,
+);
+const miniProgramSourceRevision = resolveMiniProgramSourceRevision(
+	repositoryRoot,
+	undefined,
+	"HOSPITAL_MINIPROGRAM_SOURCE_REVISION",
+);
+
+function formatLegacyPageStatus(status) {
+	return `${status}=${legacyPageStatusCounts[status]?.length ?? 0}`;
+}
 
 /**
  * 统计准入目录的机器事实，避免手工文档把“计划能力”写成“已暴露入口”。
@@ -78,15 +107,17 @@ function requiredDocumentFragments(facts) {
 		},
 		{
 			// 这份页面覆盖证据保留了历史候选段落，顶部的当前事实必须
-			// 与机器台账同步；否则新会话很容易拿过期运行包继续生成真机
-			// 证据。这里只校验低敏版本、页数和状态计数，不读取 dist 内容。
+			// 与机器台账和运行来源同步；否则新会话很容易拿过期运行包
+			// 继续生成真机证据。这里只校验低敏版本、页数和状态计数，
+			// 不读取 dist 内容。
 			path: "docs/release/breadth-first-page-coverage-2026-08-25.md",
 			fragments: [
-				"64 个旧页面、40 个原生页面",
-				"partial=23",
-				"surface-only=25",
-				"当前小程序源码与 live 运行输入为 `02dbf10`",
-				"312 pass / 0 fail / 3550 expect()",
+				`64 个旧页面、${miniProgramPageCount} 个原生页面`,
+				formatLegacyPageStatus("partial"),
+				formatLegacyPageStatus("surface-only"),
+				formatLegacyPageStatus("blocked-provider"),
+				formatLegacyPageStatus("blocked-external"),
+				`当前小程序源码与 live 运行输入为 \`${miniProgramSourceRevision}\``,
 			],
 		},
 	];

@@ -80,7 +80,7 @@
 
 - API 定向验证已通过；当前全量 API 测试为 `216 pass / 0 fail / 907 expect()`，TypeScript 检查和 Biome 检查均通过。
 - 发布前基线 `5738a71e + d4f6748` 的 `pnpm release:baseline:audit` 已通过；启动保护候选 `ce1c217` 的静态审计、工具测试、TypeScript、定向测试和 pending 校验通过。微信开发者工具关闭后，候选已原子发布到 live，发布后 `runtime:verify` 通过，当前 live 来源为 `ce1c217`；旧服务没有因此发生变化。
-- 当前小程序回归为 `356 pass / 0 fail / 3826 expect()`；本轮 API 全量回归为 `218 pass / 0 fail / 910 expect()`；这些都是代码和运行包证据，不是微信真机业务证据。
+- 当前小程序回归为 `366 pass / 0 fail / 3890 expect()`；本轮 API 全量回归为 `218 pass / 0 fail / 910 expect()`；这些都是代码和运行包证据，不是微信真机业务证据。
 - 九个真机证据域仍为 `pending`，见 [`device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json`](device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json)。清单结构通过不等于业务通过。
 - 健康百科仍等待正式审核 bundle；临床读取、患者绑定/协议同意/撤回/审计、外部会话、物流/采血号源和公开记录仍等待各自 contract。
 - 预约写入、取消、费用支付、医保授权/结算、退款和 HIS 回写保持最后处理，不因页面存在或只读列表成功而开放。
