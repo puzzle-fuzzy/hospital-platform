@@ -26,7 +26,7 @@
 - 旧端共 64 个生产页面，均已登记唯一迁移落点；没有发现“完全没有登记”的页面。
 - 当前台账状态：`replaced=8`、`partial=23`、`surface-only=23`、`blocked-payment=7`、`blocked-provider=1`、`blocked-external=1`、`excluded=1`。
 - 旧 Python 服务静态发现 195 条已挂载路由，另有 1 个未挂载的 RAG 路由文件；新项目没有把它们全部复制成患者端 API，这是有意的边界。
-- 新小程序实际注册 38 个页面、4 个原生 Tab；当前 `dist` 的 `sourceRevision=935410473e5a7c1be125a85834f957f53a833d8f`，页面数与源码一致。
+- 新小程序实际注册 38 个页面、4 个原生 Tab；当前 `dist` 的 `sourceRevision=ce1c2179b57fe2783066b51f8621220224982928`，页面数与源码一致。
 - 新端结构已闭环的 5 个低风险域是：就诊人目录、预约目录/历史、报告目录、门诊费用只读列表、普通个人资料；它们都还缺 Provider/公网/真机的完整证据，因此不能称为业务完成。
 - 当前真实证据就绪业务域为 0；健康百科审核 bundle 不存在；Provider 接收材料 4 份均为 `normalized`、确认数为 0；Worker 当前因支付和 Provider 配置缺失而跳过实际业务循环。
 
@@ -45,7 +45,7 @@
 
 已通过的结构审计包括架构、页面台账、冻结入口、契约材料覆盖、入口广度、导航、患者展示、临床边界、低风险只读域、Provider intake、错误契约、文档链接、日志事件、工具链、模板和类型检查。当前仍有一项预期的发布阻断：
 
-- `pnpm check:candidate` 是仓库内候选代码门禁；`pnpm release:baseline:index:audit` 已通过，当前 `dist` 与 `9354104` 候选一致。
+- `pnpm check:candidate` 是仓库内候选代码门禁；`pnpm release:baseline:index:audit` 已通过，当前 `dist` 与 `ce1c217` 候选一致。
 - `pnpm release:baseline:audit` 仍 fail-closed，因为线上服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7` 之后存在 9 个未部署运行时代码文件：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts`。这必须在受控发布窗口处理，不能为了让门禁变绿而伪造线上已部署。
 
 ## 2. 64 个旧页面逐页结论
@@ -214,8 +214,8 @@
 
 ### P0：先补当前验收和运行基线
 
-- [x] 已生成 `docs/release/device-evidence-935410473e5a7c1be125a85834f957f53a833d8f-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
-- [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `935410473e5a7c1be125a85834f957f53a833d8f`；`pnpm release:baseline:audit` 的文档基线部分已通过，文档中保留的旧候选仅作历史追溯。
+- [x] 已生成 `docs/release/device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
+- [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `ce1c2179b57fe2783066b51f8621220224982928`；`pnpm release:baseline:index:audit` 的当前索引部分已通过，文档中保留的旧候选仅作历史追溯，服务端运行时代码漂移仍阻断完整 release audit。
 - [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts` 共 9 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md)。是否部署仍需单独受控发布窗口，不在本项中擅自执行。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。
@@ -373,7 +373,7 @@
 - [x] 已明确 `.env.example` 是开发/测试 API 与本地 Worker 模板，`infra/systemd/api.env.example` 是生产 API unit 模板；公共配置以 `packages/config/src/index.ts` 为准，`pnpm env:template:audit` 校验两份模板的职责边界、生产安全默认值和敏感值占位符。`pnpm runtime:preflight` 已用于真实配置的只读依赖探针，生产执行仍必须在服务器受控 shell 中完成。详见 [`infra/README.md`](infra/README.md)。
 - [x] 已建立 GitHub Actions CI，锁定 `.node-version=24.12.0`、`.bun-version=1.4.0`、`pnpm@11.9.0`，使用 `pnpm install --frozen-lockfile` 执行 `pnpm check:candidate`；`pnpm toolchain:audit` 会校验版本文件、`package.json` 和 workflow 的一致性。详见 [`docs/release/ci-and-toolchain-baseline.md`](docs/release/ci-and-toolchain-baseline.md)。
 - [ ] 生产发布执行器仍保持手动受控：当前服务端 release 之后有未部署运行时代码漂移，且旧 Python 服务必须共存；在补齐受控发布窗口、回滚和线上证据前，不自动化切换或重启线上服务。
-- [x] 当前小程序源码与 `dist/build-info.json` 的来源 revision `935410473e5a7c1be125a85834f957f53a833d8f`（`9354104`）已对齐；来源指纹只包含实际影响小程序产物的源码、构建/发布器、共享 contract 和锁文件，根目录工作区脚本及来源元数据脚本不会制造客户端候选漂移。`docs/release/current-baseline.json` 已把 source revision、dist revision、API release、schema head 和真实设备证据清单绑定到一份机器可读发布记录。真实设备证据仍保持 pending，不得把索引绑定误报为业务验收通过。
+- [x] 当前小程序源码与 `dist/build-info.json` 的来源 revision `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`）已对齐；来源指纹只包含实际影响小程序产物的源码、构建/发布器、共享 contract 和锁文件，根目录工作区脚本及来源元数据脚本不会制造客户端候选漂移。`docs/release/current-baseline.json` 已把 source revision、dist revision、API release、schema head 和真实设备证据清单绑定到一份机器可读发布记录。真实设备证据仍保持 pending，不得把索引绑定误报为业务验收通过。
 
 ### 11.4 本轮确认不需要补充
 

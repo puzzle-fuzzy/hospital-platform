@@ -13,7 +13,7 @@ const repositoryRoot = resolve(import.meta.dirname, "..");
  */
 export const currentBaselineIndexPath = "docs/release/current-baseline.json";
 export const currentCandidateDocumentPath =
-	"docs/release/candidate-5738a71-server-release-2026-08-28.md";
+	"docs/release/candidate-5738a71-server-release-2026-08-31.md";
 
 const fullRevisionPattern = /^[0-9a-f]{40}$/u;
 const shortRevisionPattern = /^[0-9a-f]{7,40}$/u;

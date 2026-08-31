@@ -1,0 +1,32 @@
+# 当前候选配套记录（2026-08-31）
+
+> 本文是当前本地候选的基线配套记录，不是新的线上发布证明。服务端当前登记的线上 release 仍为 `5738a71e0bcddaa8849106754baf5b296427bed7`；该 release 之后仓库存在未部署运行时代码漂移。旧 Python 服务、旧数据库、旧 Redis 和线上进程不在本地构建动作范围内。
+
+## 候选来源
+
+| 项目 | 值 |
+| --- | --- |
+| 服务端 release | `5738a71e0bcddaa8849106754baf5b296427bed7` |
+| 小程序客户端 | `ce1c217` |
+| 小程序构建来源 | `ce1c2179b57fe2783066b51f8621220224982928` |
+| 小程序运行包 | `apps/miniprogram/dist/`，38 个页面 |
+| 目标 schema head | `0017_outbox_manual_review_state` |
+| 真机证据 | pending，使用同源待采集清单 |
+
+## 当前事实
+
+1. 小程序运行包已根据当前已提交运行输入重建，`build-info.json` 与 `app.js` 启动来源均为 `ce1c2179b57fe2783066b51f8621220224982928`。
+2. 本地基线只绑定运行包来源、服务端登记 release、目标 schema 和真机清单，不代表小程序已经上传微信线上环境。
+3. `0017_outbox_manual_review_state` 是仓库当前目标 migration head；服务端是否已经执行到该版本必须通过真实服务器 readiness/schema 证据确认，不能由本地源码推断。
+4. 当前没有微信开发者工具或真机会话，登录、患者、预约、费用、报告和资料的真实页面—客户端 requestId—服务端 trace/Provider requestId 证据仍为 pending。
+
+## 发布边界
+
+- 本候选没有执行线上发布、SSH 写入、服务重启、数据库 migration、Redis 清理、旧服务修改或真实 Provider 业务调用。
+- 服务端 `5738a71e` 之后的仓库运行时代码必须先完成受控服务端发布，才能与本地候选组成可验收版本；当前仍以 [`server-runtime-drift-audit-2026-08-31.md`](server-runtime-drift-audit-2026-08-31.md) 的 fail-closed 结论为准。
+- 支付、医保、退款、预约写入、HIS 回写、临床 Provider、外部 WebView 和真机业务证据不因基线刷新而开放。
+
+## 真机取证入口
+
+使用 [`device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json`](device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json) 记录当前小程序候选的九个业务域。所有域必须在同一运行包、同一服务端版本和同一微信会话下逐项取得页面、客户端 requestId、服务端低敏日志及 Provider requestId（如有）；pending 模板本身不构成验收完成。
+
