@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`；历史段落只作追溯。
+> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`。本机旧 `8182a8774bf0d6ad6f62d928693add952ddff034` pending 与当前来源不一致，`runtime:verify:pending` 已拒绝，待开发者工具关闭后清理；历史段落只作追溯。
 
 # 全量迁移当前检查点（2026-08-26）
 
@@ -19,12 +19,12 @@
 | 项目 | 当前事实 | 结论 |
 | --- | --- | --- |
 | 旧端页面 | 64 个 Vue 页面 | 64/64 已进入逐页迁移台账 |
-| 新端页面 | 40 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环；其中 25 个仍为 `surface-only` 页面外壳 |
-| 入口状态 | `replaced=8`、`partial=23`、`surface-only=25`、`blocked-payment=7`、排除=1 | 64 个旧入口均有落点；支付/医保/回写仍关闭 |
+| 新端页面 | 38 个 TypeScript 原生页面 | `app.json` 注册完整，WXML 事件闭环；其中 23 个仍为 `surface-only` 页面外壳 |
+| 入口状态 | `replaced=8`、`partial=23`、`surface-only=23`、`blocked-payment=7`、排除=1 | 64 个旧入口均有落点；支付/医保/回写仍关闭 |
 | 旧服务端路由 | 195 个已挂载路由，另有 1 个未挂载路由文件 | 已纳入旧 API 盘点 |
 | 旧端接口字面量 | 87 个 | 已纳入新旧接口语义清单 |
 | 新端四个主 Tab | 原生 `tabBar` 单一声明 | 页面不重复渲染底栏 |
-| 当前小程序运行相关源码候选 | live `ce1c2179b57fe2783066b51f8621220224982928`；当前无 pending 目录 | 38 页；运行包校验通过；核心回归、App.onLaunch 初始化时序、共享患者会话边界、规则版本、关闭态布局和预约请求边界测试通过 |
+| 当前小程序运行相关源码候选 | live `ce1c2179b57fe2783066b51f8621220224982928`；旧 `8182a877` pending 与当前来源不一致，已被 `runtime:verify:pending` 拒绝 | 38 页；运行包校验通过；核心回归、App.onLaunch 初始化时序、共享患者会话边界、规则版本、关闭态布局和预约请求边界测试通过 |
 | 当前 live 运行包 | `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`） | 38 页，`runtime:verify` 通过；九个真机证据域仍为 pending，不能作为真机完成证据 |
 | 线上服务端 | `5738a71e0bcddaa8849106754baf5b296427bed7` | 与旧 Python `8001` 共存，未修改旧服务 |
 
@@ -32,7 +32,7 @@
 
 以下门禁已经通过，证明的是结构、契约覆盖和代码边界：
 
-- `pnpm migration:audit`：64 个旧页面、40 个新页面、195 个旧服务端路由、87 个旧端接口字面量均有登记；
+- `pnpm migration:audit`：64 个旧页面、38 个新页面、195 个旧服务端路由、87 个旧端接口字面量均有登记；
 - `pnpm migration:boundary:audit`：34 个冻结业务入口门禁通过；
 - `pnpm migration:breadth:audit`：首页/“我的”可见 action、38 个页面事件方法、四个主 Tab 和统一状态页入口通过；共享临床/患者/外部/Provider 页面工厂的事件方法由审计显式识别；
 - `pnpm readonly:audit`：5 个低风险域、8 个页面、10 个公共路由和 35 个语义状态通过；

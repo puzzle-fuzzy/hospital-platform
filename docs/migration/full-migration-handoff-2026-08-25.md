@@ -1,10 +1,10 @@
-> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision 为 `ce1c2179b57fe2783066b51f8621220224982928`，pending 目录已清理；历史段落只作追溯。
+> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision 为 `ce1c2179b57fe2783066b51f8621220224982928`。本机旧 `8182a8774bf0d6ad6f62d928693add952ddff034` pending 与当前来源不一致，`runtime:verify:pending` 已拒绝，待开发者工具关闭后清理；历史段落只作追溯。
 
 > 当前 live 候选的九域真机证据清单仍为 pending，执行审计时使用：`pnpm device:evidence:audit --file docs/release/device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json`。清单通过结构审计不等于业务通过，必须继续补齐页面、客户端 `requestId`、服务端同链日志和 Provider 低敏请求号。
 
 # 全量迁移当前交接单（2026-08-25）
 
-> **本轮最新小程序运行包候选来源为（2026-09-01）**：`ce1c2179b57fe2783066b51f8621220224982928`（提交 `ce1c217`），已完成构建、静态校验、原子发布到本地 live `dist` 和发布后 `runtime:verify`；当前无 pending 运行包。真实微信业务九域证据仍保持 `pending`，本行只锁定当前运行包来源，不代表业务验收完成。
+> **本轮最新小程序运行包候选来源为（2026-09-01）**：`ce1c2179b57fe2783066b51f8621220224982928`（提交 `ce1c217`），已完成构建、静态校验、原子发布到本地 live `dist` 和发布后 `runtime:verify`；本机旧 `8182a8774bf0d6ad6f62d928693add952ddff034` pending 与当前来源不一致，已被 `runtime:verify:pending` 拒绝，待开发者工具关闭后清理。真实微信业务九域证据仍保持 `pending`，本行只锁定当前运行包来源，不代表业务验收完成。
 
 > **以下为历史交接段落**：2026-08-28 及更早候选仅用于追溯，不覆盖顶部 2026-09-01 当前候选和后方“1. 当前真实基线”表。
 
@@ -41,13 +41,13 @@
 | 项目 | 当前事实 |
 | --- | --- |
 | 小程序运行相关源码基线 | 当前候选 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`；已发布到本地 live `dist` |
-| 当前小程序运行基线 | `ce1c217`（live `dist`）；当前无 pending 运行包 |
+| 当前小程序运行基线 | `ce1c217`（live `dist`）；旧 `8182a877` pending 与当前来源不一致，已被校验拒绝，待开发者工具关闭后清理 |
 | 小程序运行包候选 | 来源 `ce1c217`；业务状态沿用全量入口迁移台账 |
 | live 运行包 | `apps/miniprogram/dist/build-info.json`，`sourceRevision=ce1c2179b57fe2783066b51f8621220224982928`，38 个页面 |
 | 当前源码页面数 | 38 个；每个页面具备 TypeScript 源码和页面配置 |
 | live 页面数 | 38 个；`runtime:verify` 已通过 |
 | 小程序回归 | `366 pass / 0 fail / 3890 expect()`；入口分发审计通过 |
-| 发布与运行包验证 | live `runtime:verify` 已通过；当前无 pending 运行包；真实设备是否已加载仍须通过新二维码和页面证据确认 |
+| 发布与运行包验证 | live `runtime:verify` 已通过；旧 pending 已被来源校验拒绝；真实设备是否已加载仍须通过新二维码和页面证据确认 |
 | 当前 live `dist` | 来源为 `ce1c2179b57fe2783066b51f8621220224982928`；真机业务九域证据仍为 `pending`，不能把本地运行包校验当作业务验收 |
 | 服务端本地候选 | 当前 `main` 已包含最新服务端候选代码；线上仍以 `5738a71e` 为准，release 之后的 16 个运行文件和 `0017` schema 尚未取得线上部署证据 |
 | 线上服务 | 新 API `5738a71e` 与旧 Python `8001` 共存；本轮不停止旧服务 |

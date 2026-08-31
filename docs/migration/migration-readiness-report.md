@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`；历史段落只作追溯。
+> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`。本机旧 `8182a8774bf0d6ad6f62d928693add952ddff034` pending 与当前来源不一致，`runtime:verify:pending` 已拒绝，待开发者工具关闭后清理；历史段落只作追溯。
 
 # 全项目迁移 readiness 报告说明
 
@@ -54,14 +54,14 @@ pnpm migration:readiness -- --strict
 
 当前报告应体现以下事实：
 
-- 旧页面共 64 个，其中 `replaced=8`、`partial=23`、`surface-only=25`、`blocked-payment=7`、`excluded=1`；使用条款已迁移为原文只读页，健康自测只开放 BMI/血压安全数值子集，采血预约、我的快递、患者签名展示和消息订阅展示只开放低风险子集，但协议版本、同意记录、撤回和审计仍属于患者 contract 阻断能力；Provider、临床和外部入口已先进入安全壳，真实能力仍关闭。
+- 旧页面共 64 个，其中 `replaced=8`、`partial=23`、`surface-only=23`、`blocked-payment=7`、`excluded=1`；使用条款已迁移为原文只读页，健康自测只开放 BMI/血压安全数值子集，采血预约、我的快递、患者签名展示和消息订阅展示只开放低风险子集，但协议版本、同意记录、撤回和审计仍属于患者 contract 阻断能力；Provider、临床和外部入口已先进入安全壳，真实能力仍关闭。
 - 旧端七个业务域已按台账拆开汇总：互联网医院 2 页/0 页面阻断、患者 7 页/0 页面阻断、健康 34 页/5 页面阻断、就诊 1 页/0 页面阻断、首页 2 页/0 页面阻断、用户 8 页/0 页面阻断、预约 10 页/2 页面阻断；其中带有 FeatureKey 契约门的互联网医院、患者和用户域标记为“入口已覆盖，能力待契约/证据”，健康和预约按页面阻断标记为“并行补齐 contract”，只有不带契约门的首页和就诊域进入真实验收。页面阻断数不等于业务完成数，不再用一个页面的修复代表全项目进度。
 - 34 个冻结入口 gate 已由 `tools/migration-boundary-catalog.mjs` 统一登记，共覆盖 39 个旧页面入口和 13 个 action-only 引用（合计 52 个入口来源）；另有 31 次二级/主入口状态页调用、27 个对应 FeatureKey 纳入调用审计。每个 gate 都有独立 contract 家族、七类页面状态、通用/特有材料和关闭能力。readiness 的 `entryCoverage.frozenBoundary.passed=true` 只表示入口边界没有漂移，不表示这些业务可以调用 Provider。
 - gate 批次覆盖当前为 A `4/3/2`、B `0/0/0`、C `4/4/0`、D `11/22/1`、E `8/3/6`、F `7/7/4`（依次为 gate/旧页面/action-only）；B 的 0 是因为健康内容由独立审核 bundle 队列控制，不允许把内容发布误归入其它业务 gate。`consultation` 属于外部问诊会话，按 `external-session` 归入 E，不计入临床只读 C。
 - C/D/E 契约材料入口覆盖 23 个已暴露 FeatureKey，当前均为 `awaiting-formal-contract`；D 的命令领域基础另外覆盖尚未暴露入口的 `patient-address` 计划能力。`pnpm migration:contract:audit` 还会输出逐入口 `featureIntakeRows`，列出旧路径/action、契约族、去重后的材料要求和禁止能力，但不把结构通过转换成业务可用。
 - 原生小程序注册 38 个页面，四个主入口继续使用微信原生 `tabBar`；23 个临床、患者、外部和预约 Provider 入口当前为 `surface-only`。
 - 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
-- 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明；另外 40 个已注册页面的 WXML 事件均能找到对应 TS 方法或共享页面工厂。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
+- 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明；另外 38 个已注册页面的 WXML 事件均能找到对应 TS 方法或共享页面工厂。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
 - live `dist` 当前来源为 `ce1c2179b57fe2783066b51f8621220224982928`，38 个页面已通过 `runtime:verify`；本机另有来源为 `8182a8774bf0d6ad6f62d928693add952ddff034` 的旧 pending，因来源不一致已被 `runtime:verify:pending` 拒绝，待开发者工具关闭后清理。readiness 以 live `build-info.json` 和当前运行输入指纹比对。当前运行包包含 38 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文和共享患者会话清理、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态、报告目录失效事件静默丢弃、预约排班/历史底层请求边界以及健康百科和报告详情迁移台账映射，并修复 App.onLaunch 全局资料初始化时序；小程序回归为 `356 pass / 0 fail / 3826 expect()`。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。

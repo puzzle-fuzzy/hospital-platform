@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`；历史段落只作追溯。
+> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`。本机旧 `8182a8774bf0d6ad6f62d928693add952ddff034` pending 与当前来源不一致，`runtime:verify:pending` 已拒绝，待开发者工具关闭后清理；历史段落只作追溯。
 
 # 全项目广度迁移执行工作板（2026-08-25）
 
