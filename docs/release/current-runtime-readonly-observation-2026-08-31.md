@@ -50,10 +50,20 @@ Worker 未启用与当前支付、Provider 和人工接管 gate 关闭的发布�
 
 ## 4. schema 漂移确认
 
-仓库当前 migration head 为 `0017_outbox_manual_review_state`，而线上已部署 release 的 preflight 仍以 `0016_patient_directory_sync_owner_index` 为期望 head。结合 [`server-runtime-drift-audit-2026-08-31.md`](server-runtime-drift-audit-2026-08-31.md) 中的 12 个未部署运行时文件，服务端 release 漂移是已取得线上证据的真实阻塞，不应通过修改审计器、跳过 migration 或拆分发布来绕过。
+仓库当前 migration head 为 `0017_outbox_manual_review_state`，而线上已部署 release 的 preflight 仍以 `0016_patient_directory_sync_owner_index` 为期望 head。结合 [`server-runtime-drift-audit-2026-08-31.md`](server-runtime-drift-audit-2026-08-31.md) 中的 16 个未部署运行时文件，服务端 release 漂移是已取得线上证据的真实阻塞，不应通过修改审计器、跳过 migration 或拆分发布来绕过。
 
 因此当前结论是：
 
 1. 新 API、旧 Python `8001` 和公网转发在本次只读观测中均保持可响应。
 2. 当前线上不是仓库最新服务端运行时代码；`0017` 及其关联的 outbox/人工复核实现尚未取得线上部署证据。
 3. 发布前仍需负责人安排受控窗口，使用完整服务端候选执行 preflight、备份/回滚确认、候选切换、重启后 smoke，以及旧端口共存核验。
+
+## 5. 2026-09-01 只读复核
+
+本次重新使用内网 SSH 只读探针复核，未修改文件、配置、数据库、Redis 或服务进程：
+
+- `hospital-platform-api-v2.service` 仍为 `active`；当前 release 指针仍为 `5738a71e0bcddaa8849106754baf5b296427bed7`。
+- 新 API 仍监听 `10.0.0.3:18081`，旧 Python 服务仍监听 `0.0.0.0:8001`，共存关系未改变。
+- 线上 schema 仍以 preflight 的 `0016_patient_directory_sync_owner_index` 为准，仓库当前 head 仍为 `0017_outbox_manual_review_state`。
+
+本次复核只证明原有线上状态仍然存在，不能关闭 P0 发布漂移、真机验收或生产恢复/告警 TODO。
