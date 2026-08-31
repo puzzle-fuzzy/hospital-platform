@@ -299,7 +299,7 @@ test("文档导航的历史窗口说明必须跟随当前小程序候选", () =>
 	const documents = [
 		{
 			path: "docs/README.md",
-			content: `> 最新事实（2026-08-28）：线上服务端 release 为 \`1b94c46\`；最新小程序运行相关源码和本地 live 运行输入为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
+			content: `> 最新事实（2026-09-01）：线上服务端 release 为 \`1b94c46\`；最新小程序运行相关源码和本地 live 运行输入为 \`4c9cfb4b1e4632a25e3e03ae4288d74ed845df3d\`。
 # 项目文档导航
 
 该窗口因早于当前 \`old-candidate\` 构建。

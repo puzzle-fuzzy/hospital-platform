@@ -516,8 +516,10 @@ const currentCandidateReferenceRules = Object.freeze([
 				// 导航页是新会话最容易先打开的文档，顶部事实必须成套锁定。
 				phrases: [
 					{
-						text: "最新事实（2026-08-31）",
-						aliases: ["最新事实（2026-08-28）"],
+						text: "最新事实（日期）",
+						// 日期属于文档更新时间，不应随每个发布窗口写死；
+						// 候选 hash 和 server release 才是需要严格比对的事实。
+						patterns: [/最新事实（\d{4}-\d{2}-\d{2}）/u],
 						serverExpected: "full",
 						expected: "full",
 					},
@@ -1163,9 +1165,20 @@ export function auditCurrentCandidateReferences(
 			for (const phraseDefinition of section.phrases) {
 				const phraseVariants = [
 					phraseDefinition.text,
+					...(phraseDefinition.patterns ?? []),
 					...(phraseDefinition.aliases ?? []),
 				];
 				const occurrences = phraseVariants.flatMap((phrase) => {
+					if (phrase instanceof RegExp) {
+						const flags = phrase.flags.includes("g")
+							? phrase.flags
+							: `${phrase.flags}g`;
+						const matcher = new RegExp(phrase.source, flags);
+						return Array.from(sectionContent.matchAll(matcher), (match) => ({
+							phrase: match[0],
+							offset: match.index ?? -1,
+						}));
+					}
 					const matches = [];
 					let offset = sectionContent.indexOf(phrase);
 					while (offset >= 0) {
