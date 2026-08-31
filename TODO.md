@@ -349,7 +349,7 @@
 
 ### 11.3 环境模板与构建可复现性：新增 P1/P2
 
-- [ ] 统一 schema gate 文案：代码当前 migration head 是 `0016_patient_directory_sync_owner_index`，但根目录 `.env.example` 仍写 `0001-0010`，`infra/systemd/api.env.example` 仍写 `0001-0011`；这可能导致运维误开或误不开 `PERSISTENCE_SCHEMA_READY`。
+- [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0016_patient_directory_sync_owner_index`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
 - [ ] 明确 `.env.example` 与 `infra/systemd/api.env.example` 的用途和唯一来源。两者在 `HOST`、`PORT`、`DOCS_ENABLED`、`LOG_LEVEL`、`CORS_ORIGINS`、`OUTPATIENT_PAYMENT_AUTH_SYS_CODE` 默认值，以及本地 `API_BASE_URL`/Worker 审计变量上存在差异；应增加生产 preflight，避免把开发模板当成生产配置。
 - [ ] 建立官方 CI/发布执行器并锁定 Node、Bun、pnpm 版本。目前只有 `pnpm-lock.yaml`，没有 `.nvmrc`、`.node-version`、`.tool-versions`、`mise.toml`、Volta 配置或仓库内 CI workflow；根 `package.json` 声明 `pnpm@11.9.0` 与 `Node >=24`、`Bun >=1.4.0`，本机实际 pnpm 为 `11.19.0`，仍有版本漂移空间。
 - [ ] 当前小程序源码与 `dist/build-info.json` 的来源 revision `3f8274ec...` 已对齐，本身不是迁移缺口；但应把 source revision、dist revision、API release、schema head 和真实设备证据绑定到一份发布记录，避免构建包、文档和服务端各自指向不同候选。

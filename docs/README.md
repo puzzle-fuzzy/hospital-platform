@@ -17,7 +17,7 @@
 
 > **候选切换记录**：本页下方仍保留旧候选文件名和历史验收段落，均不再代表当前运行包；最新运行相关源码和当前 live 来源均为 `3f8274e`。该候选已通过静态校验并完成原子发布；38 个页面仍无本轮真机业务证据，不能沿用旧候选清单。
 
-> **当前候选覆盖（2026-08-27）**：最新小程序源码和本地 live 运行输入为 `3f8274e`（完整来源 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`），38 页，回归 `356 pass / 0 fail / 3826 expect()`；共享患者外壳已补齐 owner 证明、会话代际和账号切换清理，会话失效时会清理旧 owner 微信资料缓存，预约排班和预约历史底层请求构造器已补齐运行时字段、日期和范围边界，并修复 App.onLaunch 全局资料初始化时序。候选已完成原子发布，九个真机证据域仍为 pending。候选证据见 [`release/candidate-3f8274e-miniprogram-runtime-2026-08-28.md`](release/candidate-3f8274e-miniprogram-runtime-2026-08-28.md) 和 [`release/device-evidence-3f8274e-pending.json`](release/device-evidence-3f8274e-pending.json)。
+> **当前候选覆盖（2026-08-27）**：最新小程序源码和本地 live 运行输入为 `3f8274e`（完整来源 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`），38 页，回归 `356 pass / 0 fail / 3826 expect()`；共享患者外壳已补齐 owner 证明、会话代际和账号切换清理，会话失效时会清理旧 owner 微信资料缓存，预约排班和预约历史底层请求构造器已补齐运行时字段、日期和范围边界，并修复 App.onLaunch 全局资料初始化时序。候选已完成原子发布，九个真机证据域仍为 pending。候选证据见 [`release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md`](release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md) 和 [`release/device-evidence-3f8274ec5435779c0603ce8475a4f4e86d292cbd-pending.json`](release/device-evidence-3f8274ec5435779c0603ce8475a4f4e86d292cbd-pending.json)。
 
 > **最新小程序启动修正（2026-08-27）**：当前运行相关源码和本地 live 运行包为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`（`3f8274e`），回归为 `356 pass / 0 fail / 3826 expect()`。App、API、会话代际和资料订阅的 `globalData` 读取已统一经过启动桥；构建产物已原子发布，38 个页面入口通过 `runtime:verify`。旧 Python 服务、线上旧小程序、MySQL、Redis 和 Provider 配置未修改。遇到旧的 `Cannot read property 'globalData' of undefined` 时，必须关闭新项目开发者工具/真机调试并重新打开 `apps/miniprogram/dist/`、普通编译、重新生成二维码；详见 [`release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md`](release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md)。
 
