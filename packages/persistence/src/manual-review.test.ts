@@ -91,6 +91,7 @@ test("人工复核重放使用状态条件并且不重置尝试次数", async ()
 
 	expect(changed).toBe(true);
 	const query = queries[0];
+	if (!query) throw new Error("人工复核重放未生成 SQL 查询");
 	expect(query.sql).toContain("status = 'manual_review'");
 	expect(query.sql).toContain("processed_at IS NULL");
 	expect(query.sql).not.toContain("attempts = 0");
@@ -108,6 +109,7 @@ test("微信查单人工复核重放只清理当前尝试的调度状态", async
 
 	expect(changed).toBe(true);
 	const query = queries[0];
+	if (!query) throw new Error("微信查单人工复核重放未生成 SQL 查询");
 	expect(query.sql).toContain("provider = 'wechat-pay'");
 	expect(query.sql).toContain("status = 'manual_review'");
 	expect(query.sql).toContain("version = version + 1");

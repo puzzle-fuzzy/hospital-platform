@@ -19,7 +19,7 @@
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
 | **合计未完成** | **51** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 89 项，其中已完成 38 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 90 项，其中已完成 39 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## 0. 先看结论
 
@@ -358,6 +358,7 @@
 
 ### 11.2 后台任务、恢复和运维闭环：新增 P1
 
+- [x] 已修复全量候选门禁中人工复核测试的 TypeScript 可空值断言，并用 Biome 统一发布审计测试格式；持久化 typecheck、工具测试、workspace 全量 typecheck/test/build 均通过。
 - [ ] 旧 FastAPI 启动时会加载数据库中的 APScheduler 任务，并单独启动 `plugin_payment_reconcile_loop`，后者会扫描“微信预支付已创建但云健康/HIS 未完成回写”的订单并继续完成结算。新 Worker 目前只实现微信通知 handler 和微信查单，没有对应的云健康/HIS 插件恢复 handler；支付/HIS 批次开启前必须明确逐项替代、存量迁移和人工补偿方案。
 - [x] 已为 `OutboxWorker` 和 `PaymentReconciliationWorker` 增加 12 次自动重试上限；达到上限后分别落库为 `manual_review`，清除下一次自动调度，并输出可检索的人工接管日志。新迁移为 `0017_outbox_manual_review_state`，尚未执行到生产库。
 - [x] 已补齐人工复核队列的低敏查询、告警检查和单条受控重放：`apps/worker/src/manual-review.ts` 提供 `list`、`check` 和要求固定原因码及 `--confirm` 的 `requeue`；`check` 以退出码 `2` 暴露队列积压，仓储使用状态条件更新且不重置累计尝试次数。对应手册见 [`docs/release/manual-review-operations.md`](docs/release/manual-review-operations.md)。这些能力完成并取得生产证据前，支付/HIS gate 继续关闭。

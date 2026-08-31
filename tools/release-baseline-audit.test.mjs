@@ -432,7 +432,9 @@ test("仓库当前发布文档发现未部署运行时代码时 fail-closed", {
 	// 具体漂移文件会随着候选推进变化；测试锁定 fail-closed 语义和低敏
 	// 文件名输出，不把当前候选的文件列表硬编码成脆弱 fixture。
 	expect(result.serverSourceAudit.passed).toBe(false);
-	expect(result.serverSourceAudit.changedRuntimeFiles.length).toBeGreaterThan(0);
+	expect(result.serverSourceAudit.changedRuntimeFiles.length).toBeGreaterThan(
+		0,
+	);
 	expect(result.failures).toContain(result.serverSourceAudit.failures[0]);
 });
 
