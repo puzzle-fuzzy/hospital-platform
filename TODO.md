@@ -19,7 +19,7 @@
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
 | **合计未完成** | **51** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 87 项，其中已完成 36 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 88 项，其中已完成 37 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## 0. 先看结论
 
@@ -362,7 +362,8 @@
 - [x] 已补齐人工复核队列的低敏查询、告警检查和单条受控重放：`apps/worker/src/manual-review.ts` 提供 `list`、`check` 和要求固定原因码及 `--confirm` 的 `requeue`；`check` 以退出码 `2` 暴露队列积压，仓储使用状态条件更新且不重置累计尝试次数。对应手册见 [`docs/release/manual-review-operations.md`](docs/release/manual-review-operations.md)。这些能力完成并取得生产证据前，支付/HIS gate 继续关闭。
 - [x] 已确认 `payment-order.created`、`payment-order.state-changed` 是内部审计事件，不直接触发 Provider；Worker 组合根已显式注册经过 payload/金额/状态校验的归档 handler，并输出 `worker.outbox.audit_event_archived`，损坏事件仍会失败并进入重试/人工复核。这样支付 gate 打开后不会因缺 handler 无限重试，也不会把归档成功误报为支付成功。
 - [ ] 旧任务管理 CRUD 与示例任务本身可以不迁入患者小程序，但切换前仍要盘点旧库中实际启用的任务记录，逐条标记“退休、保留在旧系统或改写到新 Worker”；不能仅因为后台 `/job` 路由不迁移，就推断没有业务定时任务。
-- [ ] 现有迁移恢复手册覆盖 MySQL DDL 的非事务性、schema probe 和失败止损，但尚未形成清晰的生产 MySQL 备份、binlog/PITR、恢复演练、保留周期、RPO/RTO 和告警记录。新旧切换前补齐；同时明确 Redis 会话可过期重建，而支付/订单/outbox 数据必须按数据库恢复策略处理。
+- [x] 已补齐仓库级 MySQL/Redis 数据分级、全量备份、binlog/PITR、隔离恢复、保留周期、RPO/RTO 记录格式和恢复后门禁；明确 Redis 会话可重新建立，而支付/订单/outbox 必须按 MySQL 恢复事实处理。详见 [`docs/release/backup-recovery-and-rto-policy-2026-08-31.md`](backup-recovery-and-rto-policy-2026-08-31.md)。
+- [ ] 在生产环境配置并验证备份、binlog/PITR、隔离恢复、RPO/RTO、保留策略和告警通知，保留真实演练证据；当前仓库没有这部分外部证明。
 - [x] 已在 `@hospital/observability` 固化 API/Worker readiness、`not_configured`、`not_ready`、outbox 重试/过期积压、查单长期 pending、Provider 错误率/延迟和恢复失败的统一告警代码、阈值、低敏聚合输入和测试；详见 [`docs/release/operational-alert-policy-2026-08-31.md`](operational-alert-policy-2026-08-31.md)。
 - [ ] 将告警策略接入生产指标/日志平台，配置通知、值班责任人，并完成触发/恢复演练；本地判定测试不能替代实际监控证据。
 
