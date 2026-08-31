@@ -38,16 +38,16 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序运行相关源码基线 | pending 候选 `8182a8774bf0d6ad6f62d928693add952ddff034`；尚未发布到 live |
-| 当前小程序运行基线 | `87eb00f`（live `dist`）；`8182a877` pending，等待 dist 锁释放后原子发布 |
-| 小程序运行包候选 | 来源 `8182a877`；业务状态沿用全量入口迁移台账 |
-| live 运行包 | `apps/miniprogram/dist/build-info.json`，`sourceRevision=87eb00f0aa0c6d46b61364449d375df5105c80d6`，38 个页面 |
+| 小程序运行相关源码基线 | 当前候选 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`；已发布到本地 live `dist` |
+| 当前小程序运行基线 | `ce1c217`（live `dist`）；当前无 pending 运行包 |
+| 小程序运行包候选 | 来源 `ce1c217`；业务状态沿用全量入口迁移台账 |
+| live 运行包 | `apps/miniprogram/dist/build-info.json`，`sourceRevision=ce1c2179b57fe2783066b51f8621220224982928`，38 个页面 |
 | 当前源码页面数 | 38 个；每个页面具备 TypeScript 源码和页面配置 |
 | live 页面数 | 38 个；`runtime:verify` 已通过 |
-| 小程序回归 | `359 pass / 0 fail / 3839 expect()`；入口分发审计通过 |
-| 发布与运行包验证 | pending `runtime:verify:pending` 已通过；live `runtime:verify` 等待发布候选后再验证 |
-| 当前 live `dist` | 来源为 `87eb00f0aa0c6d46b61364449d375df5105c80d6`；pending 候选为 `8182a8774bf0d6ad6f62d928693add952ddff034`，真机是否已加载仍须通过新二维码和页面证据确认 |
-| 服务端本地候选 | 当前 `main` 中包含 `eb4d2eb4`、`4e1e53ed` 引入的健康知识运行时代码；提交以 `git rev-parse HEAD` 为准，API-only 发布基线已通过 |
+| 小程序回归 | `366 pass / 0 fail / 3890 expect()`；入口分发审计通过 |
+| 发布与运行包验证 | live `runtime:verify` 已通过；当前无 pending 运行包；真实设备是否已加载仍须通过新二维码和页面证据确认 |
+| 当前 live `dist` | 来源为 `ce1c2179b57fe2783066b51f8621220224982928`；真机业务九域证据仍为 `pending`，不能把本地运行包校验当作业务验收 |
+| 服务端本地候选 | 当前 `main` 已包含最新服务端候选代码；线上仍以 `5738a71e` 为准，release 之后的 16 个运行文件和 `0017` schema 尚未取得线上部署证据 |
 | 线上服务 | 新 API `5738a71e` 与旧 Python `8001` 共存；本轮不停止旧服务 |
 
 本轮最新的只读共存核对见 [`release/current-runtime-coexistence-readonly-2026-08-27.md`](../release/current-runtime-coexistence-readonly-2026-08-27.md)。该记录证明运行层边界正常，但不替代当前候选的业务验收。
