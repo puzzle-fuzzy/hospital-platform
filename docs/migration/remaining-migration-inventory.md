@@ -1,6 +1,6 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`；历史段落只作追溯。
+> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`。本机另有旧 `8182a8774bf0d6ad6f62d928693add952ddff034` pending，与当前来源不一致且已被 `runtime:verify:pending` 拒绝，待开发者工具关闭后清理；历史段落只作追溯。
 
-> 当前配套小程序运行包（2026-08-28）：本地 live `dist` 的 sourceRevision 为 `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`），共 38 个页面；启动保护候选已完成发布后 live 校验并覆盖 live，pending 目录已清理。当前没有开发者工具或真机会话，九个真机证据域仍为 `pending`。本文下方历史候选仅作追溯。
+> 当前配套小程序运行包（2026-09-01）：本地 live `dist` 的 sourceRevision 为 `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`），共 38 个页面；启动保护候选已完成发布后 live 校验并覆盖 live。本机旧 `8182a877` pending 与当前来源不一致，`runtime:verify:pending` 已拒绝，待开发者工具关闭后清理。当前仍有开发者工具进程，但不把进程存在误认为真机业务证据，九个真机证据域仍为 `pending`。本文下方历史候选仅作追溯。
 
 > 当前服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`（提交 `5738a71e`）；线上历史小程序运行包来源为 `13f597ea9ee3f65b9be858117826d948339d904a`（提交 `13f597e`）。本地 live 业务源码和运行输入均为 `ce1c217`，完整来源为 `ce1c2179b57fe2783066b51f8621220224982928`，已完成运行包校验和原子发布；启动保护候选已发布到 live。
 > 当前线上服务端 release（2026-08-28）：`5738a71e0bcddaa8849106754baf5b296427bed7`，已完成候选 preflight、隔离 smoke、原子切换、公网 runtime smoke 和 HTTPS 证书校验；该运行层证据不等价于真实 Provider 或支付业务成功。

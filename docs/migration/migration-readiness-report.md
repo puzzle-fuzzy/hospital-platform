@@ -4,7 +4,7 @@
 
 > 本文说明 `pnpm migration:readiness` 的数据来源和判定边界。报告用于广度迁移交接，不是上线批准单，也不替代 Provider、公网、真机或临床审核证据。
 
-> **当前运行事实（2026-08-28）**：最新小程序运行相关源码和本地 live/pending 运行输入均为 `ce1c2179b57fe2783066b51f8621220224982928`，共 38 个页面、4 个原生 Tab；`runtime:verify` 和 pending 校验通过。当前候选的小程序类型检查、352 项小程序测试、全仓 9 个 workspace 类型检查与测试、文档断链审计均通过；全仓聚合构建仅因微信开发者工具锁定 `apps/miniprogram/dist` 未完成，候选已保存在 pending，不能把本地校验写成线上部署。患者显式切换、预约历史/爽约、门诊费用只读和共享会话边界继续按已确认 contract 处理；临床/患者写入/外部/Provider 页面、支付医保、预约写入、实时就诊和真机证据仍保持各自阻断状态。当前候选检查点见 [`../migration/current-execution-checkpoint-2026-08-28.md`](../migration/current-execution-checkpoint-2026-08-28.md)。
+> **当前运行事实（2026-09-01）**：最新小程序运行相关源码和本地 live 运行输入为 `ce1c2179b57fe2783066b51f8621220224982928`，共 38 个页面、4 个原生 Tab；`runtime:verify` 通过，但本机旧 `8182a877` pending 与当前来源不一致，`runtime:verify:pending` 已明确拒绝，不能作为候选使用，待开发者工具关闭后清理。当前候选的小程序类型检查、全仓 workspace 类型检查与测试、文档断链审计均通过；患者显式切换、预约历史/爽约、门诊费用只读和共享会话边界继续按已确认 contract 处理；临床/患者写入/外部/Provider 页面、支付医保、预约写入、实时就诊和真机证据仍保持各自阻断状态。当前候选检查点见 [`../migration/current-execution-checkpoint-2026-08-28.md`](../migration/current-execution-checkpoint-2026-08-28.md)。
 
 ## 生成方式
 
@@ -63,7 +63,7 @@ pnpm migration:readiness -- --strict
 - 五个低风险域的仓库闭环结构审计通过，但只表示文件、日志和文档没有断链；其中患者目录是受控读模型同步，普通资料包含版本化 PUT，不能把它们误读为纯读取。
 - 首页和“我的”共 31 个可见 action 已通过 `pnpm migration:breadth:audit`；每个 action 都有固定分发分支，阻断能力统一落到已登记的 `FeatureKey`，主 Tab 仍由 `app.json` 单一声明；另外 40 个已注册页面的 WXML 事件均能找到对应 TS 方法或共享页面工厂。该结果已经纳入 `migration:readiness` 的 `migrationBreadth` 字段和 `structuralAuditPassed` 结构准入，后续入口回退会直接阻断总报告。
 - Provider 接收材料为 4 份、当前均为 `normalized`，确认数为 0；挂号写入、支付、医保、退款和 HIS 回写不能据此开放。
-- live `dist` 当前来源为 `ce1c2179b57fe2783066b51f8621220224982928`，38 个页面已通过 `runtime:verify`；发布后 pending 目录已清理，readiness 以 live `build-info.json` 和当前运行输入指纹比对。当前运行包包含 38 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文和共享患者会话清理、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态、报告目录失效事件静默丢弃、预约排班/历史底层请求边界以及健康百科和报告详情迁移台账映射，并修复 App.onLaunch 全局资料初始化时序；小程序回归为 `356 pass / 0 fail / 3826 expect()`。
+- live `dist` 当前来源为 `ce1c2179b57fe2783066b51f8621220224982928`，38 个页面已通过 `runtime:verify`；本机另有来源为 `8182a8774bf0d6ad6f62d928693add952ddff034` 的旧 pending，因来源不一致已被 `runtime:verify:pending` 拒绝，待开发者工具关闭后清理。readiness 以 live `build-info.json` 和当前运行输入指纹比对。当前运行包包含 38 个页面、今日预约摘要、健康自测安全数值子集、统一当前就诊人上下文和共享患者会话清理、我的问诊患者作用域、跨域页面外壳、协议原文只读入口、采血预约真实空态和锦旗/表扬信稳定关闭态、公共日期窗口边界、微信资料拒绝后的设置页重试、选择页刷新并发门禁、我的快递三态、报告目录失效事件静默丢弃、预约排班/历史底层请求边界以及健康百科和报告详情迁移台账映射，并修复 App.onLaunch 全局资料初始化时序；小程序回归为 `356 pass / 0 fail / 3826 expect()`。
 - 当前 9 个真机证据域全部为 `pending`；候选指纹与 pending 运行包一致，但真实页面、客户端 requestId 和服务端同链日志尚未形成通过证据。
 - 未开放入口关闭态审计通过：15 个目标页中 14 个使用共享页面工厂、1 个为健康自测本地安全数值子集；页面和共享工厂未发现直连 HTTP、Provider、支付、微信登录、外部小程序或 WebView 旁路。该结果只证明 fail-closed 结构，不改变 C/D/E/F contract 阻断状态。
 - 关闭态审计器已在 `2580a1fe` 修正模板插值扫描边界：模板普通文案仍不参与调用匹配，`${...}` 内的可执行表达式不会被剥离；当前 `ce1c217` 修复 App.onLaunch 全局资料初始化时序，不改变任何业务放行状态。

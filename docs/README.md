@@ -1,12 +1,12 @@
 > 当前小程序配套运行包来源（2026-08-31）：本地 live 运行输入为 ce1c2179b57fe2783066b51f8621220224982928（提交 ce1c217）。本行只锁定当前候选，历史段落保留用于追溯。
 
-> **当前候选同步（2026-08-31）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`，pending 目录已清理；历史段落只作追溯。
+> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`。本机另有旧候选 `8182a8774bf0d6ad6f62d928693add952ddff034` 暂存在 pending，和当前候选不一致，`runtime:verify:pending` 会拒绝它；待开发者工具关闭后再清理，历史段落只作追溯。
 
 > 机器可读发布指纹统一登记在 [`release/current-baseline.json`](release/current-baseline.json)，并由 `pnpm release:baseline:index:audit` 校验候选文档、真机证据模板、live `build-info.json`（存在时）和 schema head 的绑定关系。
 
 > 工具链和 CI 责任边界见 [`release/ci-and-toolchain-baseline.md`](release/ci-and-toolchain-baseline.md)；CI 固定 Bun、Node.js、pnpm 并执行候选门禁，生产切换仍需受控发布窗口。
 
-> 最新事实（2026-08-31）：线上服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；小程序运行相关源码和本地 live 运行输入为 `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`），共注册 38 个页面，本地回归为 `356 pass / 0 fail / 3826 expect()`。启动保护候选已完成原子发布到 live `dist`，pending 目录已清理；API-only 候选也已完成远端原子切换。旧 Python `8001` 未修改；公网 `test-hp.meiyi.pro` HTTPS 证书已恢复并启用自动续期，真实真机业务证据仍待采集。23 个 `surface-only` 页面及 4 个安全 `partial` 子集仍未开放对应真实业务，支付/医保入口保持关闭，健康自测仅开放安全数值子集，今日预约摘要已补齐但实时叫号仍关闭。本轮继续横向迁移，不伪造临床 Provider、物流、采血号源或公开记录数据。
+> 最新事实（2026-09-01）：线上服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；小程序运行相关源码和本地 live 运行输入为 `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`），共注册 38 个页面，本地回归为 `356 pass / 0 fail / 3826 expect()`。启动保护候选已完成原子发布到 live `dist`；本机另有旧 `8182a877` pending 目录，来源与当前候选不一致且会被 `runtime:verify:pending` 拒绝，不能作为运行包使用，待开发者工具关闭后清理。API-only 候选也已完成远端原子切换。旧 Python `8001` 未修改；公网 `test-hp.meiyi.pro` HTTPS 证书已恢复并启用自动续期，真实真机业务证据仍待采集。23 个 `surface-only` 页面及 4 个安全 `partial` 子集仍未开放对应真实业务，支付/医保入口保持关闭，健康自测仅开放安全数值子集，今日预约摘要已补齐但实时叫号仍关闭。本轮继续横向迁移，不伪造临床 Provider、物流、采血号源或公开记录数据。
 > **当前仓库 API 候选（2026-08-28）**：当前 `main`（具体提交以 `git rev-parse HEAD` 为准）包含请求日志稳定错误码投影，线上 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`，已完成 API-only 远端发布；发布后的 `pnpm release:baseline:audit` 需在本轮文档同步后重新执行并通过，后续若运行时代码再次变化仍必须重复该门禁；旧 Python `8001`、旧数据库和旧 Redis 未修改。完整当前来源、门禁结果和下一步见 [`migration/current-execution-checkpoint-2026-08-28.md`](migration/current-execution-checkpoint-2026-08-28.md)。
 > 当前线上服务端 release（2026-08-27）：`5738a71e0bcddaa8849106754baf5b296427bed7`，已完成候选 preflight、隔离 smoke、原子切换、公网 runtime smoke、稳定 `unauthorized` 日志投影和 HTTPS 证书校验；该运行层证据不等价于真实 Provider 或支付业务成功。
 
