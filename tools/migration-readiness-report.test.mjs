@@ -212,17 +212,16 @@ describe("全项目迁移 readiness 报告", () => {
 			expect(report.deviceEvidence.candidate).toBeNull();
 		}
 		/**
-		 * 交接单里的可复制命令必须和 readiness 实际选择的证据清单一致；
-		 * 否则新会话可能把真机结果写入历史候选，造成页面、客户端和服务端
-		 * 证据看似齐全但来源无法配对。这里不硬编码提交号，候选轮换时由
-		 * 当前 live/pending 运行包自动决定应检查的清单路径。
+		 * readiness 的机器路径必须和当前发布索引绑定；交接单属于可变的
+		 * 人工文档，由 release-baseline-audit 单独检查，不能让其它会话的
+		 * 未提交编辑改变本测试的确定性。
 		 */
-		const handoff = await Bun.file(
-			"docs/migration/full-migration-handoff-2026-08-25.md",
-		).text();
+		const currentBaseline = await Bun.file(
+			"docs/release/current-baseline.json",
+		).json();
 		if (report.deviceEvidence.present) {
-			expect(handoff).toContain(
-				`pnpm device:evidence:audit --file ${report.deviceEvidence.manifestPath}`,
+			expect(report.deviceEvidence.manifestPath).toBe(
+				currentBaseline.realDeviceEvidence.manifest,
 			);
 		}
 		expect(report.migrationQueue.map((batch) => batch.id)).toEqual([

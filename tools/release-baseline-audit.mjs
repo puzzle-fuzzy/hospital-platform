@@ -511,12 +511,13 @@ const currentCandidateReferenceRules = Object.freeze([
 		label: "文档导航当前事实",
 		sections: [
 			{
-				start: "> 最新事实（2026-08-28）",
+				start: /^> 最新事实（\d{4}-\d{2}-\d{2}）：/mu,
 				end: "# 项目文档导航",
 				// 导航页是新会话最容易先打开的文档，顶部事实必须成套锁定。
 				phrases: [
 					{
-						text: "最新事实（2026-08-28）",
+						text: "最新事实（2026-08-31）",
+						aliases: ["最新事实（2026-08-28）"],
 						serverExpected: "full",
 						expected: "full",
 					},
@@ -708,14 +709,14 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md",
+		path: currentCandidateDocumentPath,
 		label: "当前 live 小程序运行包候选",
 		sections: [
 			{
-				// 当前候选把服务端配套、提交和 live 指纹集中在“候选来源”
-				// 表格中；直接锁定 live 行，避免历史候选说明污染当前入口。
-				start: "## 候选来源",
-				end: "## 本轮修复",
+				// 当前候选把 live 运行包来源与真机取证入口放在同一段，
+				// 直接校验本地 live 指纹，避免历史候选文档继续充当当前入口。
+				start: "## 真机取证入口",
+				end: "当前小程序配套运行包来源（2026-08-31）",
 				phrases: [{ text: "当前 live `dist`", expected: "pending-full" }],
 			},
 		],
@@ -1032,6 +1033,7 @@ const currentCandidateReferenceRules = Object.freeze([
  * 一致。只校验带当前日期的声明，历史候选仍可保留旧 hash 供追溯。
  */
 const currentSourceRevisionAnnouncementPhrases = Object.freeze([
+	"当前小程序配套运行包来源（2026-08-31）",
 	"当前配套小程序运行包来源（2026-08-28）",
 	"当前小程序配套运行包来源（2026-08-28）",
 	"当前统一发布基线补充（2026-08-28）",

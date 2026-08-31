@@ -1,6 +1,6 @@
-> 当前小程序配套运行包来源（2026-08-28）：本地 live 运行输入为 935410473e5a7c1be125a85834f957f53a833d8f（提交 9354104）。本行只锁定当前候选，历史段落保留用于追溯。
+> 当前小程序配套运行包来源（2026-08-28）：本地 live 运行输入为 ce1c2179b57fe2783066b51f8621220224982928（提交 ce1c217）。本行只锁定当前候选，历史段落保留用于追溯。
 
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `935410473e5a7c1be125a85834f957f53a833d8f`；历史段落只作追溯。
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`；历史段落只作追溯。
 
 # 当前用户资料与患者上下文审计（2026-08-27）
 
@@ -37,9 +37,9 @@
 | 检查 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm migration:readiness` | 通过结构审计 | 入口、只读域和页面事件结构通过；真实 Provider、真机和高风险写入仍按报告保持未完成 |
-| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 历史发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，历史运行包页数不作为当前事实；当前 live 候选为 `935410473e5a7c1be125a85834f957f53a833d8f` |
+| `pnpm --filter @hospital/miniprogram runtime:verify:pending` | 通过 | 历史发布前 pending 来源为 `0be59f966de2c3a0861cb44e9a526a1ef557f6c7`，历史运行包页数不作为当前事实；当前 live 候选为 `ce1c2179b57fe2783066b51f8621220224982928` |
 | `pnpm --filter @hospital/miniprogram build` | 发布阶段曾被 `EBUSY` 阻断 | TypeScript 检查已通过；随后释放项目进程锁并通过 `runtime:publish-pending` 完成原子发布 |
-| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `935410473e5a7c1be125a85834f957f53a833d8f`，38 页 |
+| `runtime:publish-pending` + `runtime:verify` | 通过 | 历史 pending 已清理；当前 live 来源为 `ce1c2179b57fe2783066b51f8621220224982928`，38 页 |
 
 ## 4. 当前运行包锁处理
 
@@ -59,4 +59,4 @@
 - 九个真机证据域仍为 `pending`，需要同一小程序来源下的页面、客户端 `requestId`、公网 HTTP、服务端 Pino `traceId` 和 Provider 低敏请求号闭环。
 - 健康百科等待正式审核 bundle；临床、患者写入、外部会话、协议同意/撤回/审计仍等待各自 contract。
 - 预约写入、门诊支付、医保授权/结算、退款和 HIS 回写继续最后处理，不因本轮资料/患者审计通过而开放。
-> 当前统一发布基线补充（2026-08-28）：服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；小程序本地 live 运行包来源为 `935410473e5a7c1be125a85834f957f53a833d8f`，共 38 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-28）：服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；小程序本地 live 运行包来源为 `ce1c2179b57fe2783066b51f8621220224982928`，共 38 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

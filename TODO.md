@@ -19,7 +19,7 @@
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
 | **合计未完成** | **51** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 88 项，其中已完成 37 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 89 项，其中已完成 38 项、未完成 51 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 9、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## 0. 先看结论
 
@@ -337,6 +337,7 @@
 - [x] 已建立机器可读当前基线索引 [`docs/release/current-baseline.json`](docs/release/current-baseline.json)，并由 `pnpm release:baseline:index:audit` 校验；人工文档中的旧候选仅保留为历史追溯，不再作为当前验收入口。
 - [x] 已将源码 revision、dist/build-info、API release、schema head 和真实证据批次绑定到同一发布记录；索引审计会在 live `dist` 存在时检查其 sourceRevision，真机证据仍必须逐域采集，不能用 pending 模板宣称完成。
 - [x] 已明确本机测试基线：`project.private.config.json` 被 `.gitignore` 忽略，测试在文件存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时不再因 `undefined` 失败；详见小程序 acceptance test。
+- [x] 已核对并同步当前候选文档中的 live 小程序完整 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`，并让发布基线测试只断言 fail-closed 语义与低敏漂移文件输出，避免候选轮换后被旧 fixture 掩盖真实阻断；其他会话未提交的交接单/检查点仍由完整发布审计单独拦截。
 
 ### 10.6 本轮确认不需要补充的内容
 
