@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"updatedAt": "2026-08-31",
+	"server": {
+		"release": "5738a71e0bcddaa8849106754baf5b296427bed7",
+		"service": "hospital-platform-api-v2.service",
+		"publicBaseUrl": "https://test-hp.meiyi.pro/api/v2"
+	},
+	"miniProgram": {
+		"commit": "9354104",
+		"sourceRevision": "935410473e5a7c1be125a85834f957f53a833d8f",
+		"liveBuildInfo": "apps/miniprogram/dist/build-info.json",
+		"pageCount": 38
+	},
+	"persistence": {
+		"schemaHead": "0016_patient_directory_sync_owner_index",
+		"migrationSource": "packages/persistence/src/migrate.ts"
+	},
+	"realDeviceEvidence": {
+		"manifest": "docs/release/device-evidence-935410473e5a7c1be125a85834f957f53a833d8f-pending.json",
+		"status": "pending"
+	},
+	"policy": {
+		"oldPythonService": "read-only",
+		"providerBusinessEvidence": "pending",
+		"paymentAndInsurance": "closed"
+	}
+}

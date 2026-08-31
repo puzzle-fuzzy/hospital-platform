@@ -2,6 +2,8 @@
 
 > **当前候选同步（2026-08-31）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision `935410473e5a7c1be125a85834f957f53a833d8f`；历史段落只作追溯。服务端 release 之后的运行时代码漂移仍未部署，不能据此宣称服务端与当前工作树一致。
 
+> 机器可读的同一基线见 [`current-baseline.json`](current-baseline.json)；它绑定服务端 release、小程序 sourceRevision、schema head 和当前真机证据清单，避免只更新人工文档而遗漏运行包指纹。
+
 # 当前项目发布与迁移基线（2026-08-27）
 
 > 本文是新项目当前发布事实的单一阅读入口。本文只描述

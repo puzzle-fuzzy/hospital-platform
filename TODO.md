@@ -318,9 +318,9 @@
 
 ### 10.5 文档事实源与发布校验：新增 P1
 
-- [ ] 建立一个当前基线索引，或让生成器统一更新文档头部。当前 `docs/migration/api-matrix.md`、`docs/migration/migration-readiness-report.md`、`docs/roadmap-next-phase.md` 仍保留 `1bc5bf6`/`5738a71e` 等旧候选的“当前”描述，而仓库当前 HEAD 为 `119a11a6`、小程序 dist source revision 为 `9354104c`；历史记录可以保留，但不能继续作为验收入口。
-- [ ] 将“源码 revision、dist/build-info、API release、schema head、真实证据批次”绑定到同一发布记录。现有链接审计只能发现断链，不能发现文档中的事实已经过期。
-- [ ] 修复或明确本机测试基线：`project.private.config.json` 被 `.gitignore` 忽略，导致小程序测试需要的 `miniprogramRoot` 在干净 checkout 中不存在；它不是迁移缺页，但应由本地配置说明或测试 fixture 解决。
+- [x] 已建立机器可读当前基线索引 [`docs/release/current-baseline.json`](docs/release/current-baseline.json)，并由 `pnpm release:baseline:index:audit` 校验；人工文档中的旧候选仅保留为历史追溯，不再作为当前验收入口。
+- [x] 已将源码 revision、dist/build-info、API release、schema head 和真实证据批次绑定到同一发布记录；索引审计会在 live `dist` 存在时检查其 sourceRevision，真机证据仍必须逐域采集，不能用 pending 模板宣称完成。
+- [x] 已明确本机测试基线：`project.private.config.json` 被 `.gitignore` 忽略，测试在文件存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时不再因 `undefined` 失败；详见小程序 acceptance test。
 
 ### 10.6 本轮确认不需要补充的内容
 
