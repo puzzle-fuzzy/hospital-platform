@@ -1,8 +1,42 @@
 {
-	"desc": "Hospital Platform native mini program sitemap",
+	"desc": "只收录医院公开信息和审核后的健康百科，不收录患者作用域页面",
 	"rules": [
 		{
 			"action": "allow",
+			"page": "pages/hospital/hospital"
+		},
+		{
+			"action": "allow",
+			"page": "pages/hospital-list/hospital-list"
+		},
+		{
+			"action": "allow",
+			"page": "pages/hospital-navigation/hospital-navigation"
+		},
+		{
+			"action": "allow",
+			"page": "pages/official-account/official-account"
+		},
+		{
+			"action": "allow",
+			"page": "pages/feedback/feedback"
+		},
+		{
+			"action": "allow",
+			"page": "pages/health-encyclopedia/health-encyclopedia"
+		},
+		{
+			"action": "allow",
+			"page": "pages/health-knowledge-search/health-knowledge-search",
+			"params": ["ids"]
+		},
+		{
+			"action": "allow",
+			"page": "pages/health-knowledge-detail/health-knowledge-detail",
+			"params": ["kind", "id"]
+		},
+		{
+			"action": "disallow",
 			"page": "*"
 		}
 	]

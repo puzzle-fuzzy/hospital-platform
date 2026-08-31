@@ -88,6 +88,46 @@ test("native DevTools project isolates dist runtime from TypeScript source", asy
 	expect(runtimeProjectConfig.setting?.ignoreDevUnusedFiles).toBe(false);
 });
 
+test("native sitemap only exposes public pages", async () => {
+	const sitemap = JSON.parse(
+		await Bun.file(join(import.meta.dir, "..", "src/sitemap.json")).text(),
+	) as {
+		rules: Array<{ action?: string; page?: string; params?: string[] }>;
+	};
+
+	const publicPages = [
+		"pages/hospital/hospital",
+		"pages/hospital-list/hospital-list",
+		"pages/hospital-navigation/hospital-navigation",
+		"pages/official-account/official-account",
+		"pages/feedback/feedback",
+		"pages/health-encyclopedia/health-encyclopedia",
+		"pages/health-knowledge-search/health-knowledge-search",
+		"pages/health-knowledge-detail/health-knowledge-detail",
+	];
+	const allowRules = sitemap.rules.filter((rule) => rule.action === "allow");
+
+	// 患者目录、预约、报告、费用、资料和其它业务页可能携带患者作用域；
+	// 使用通配 disallow 作为最低优先级兜底，只显式开放已确认的公开页面。
+	expect(allowRules.map((rule) => rule.page)).toEqual(publicPages);
+	expect(sitemap.rules).toContainEqual({ action: "disallow", page: "*" });
+	expect(allowRules).not.toContainEqual({ action: "allow", page: "*" });
+	expect(
+		allowRules.find((rule) => rule.page?.endsWith("health-knowledge-search")),
+	).toEqual({
+		action: "allow",
+		page: "pages/health-knowledge-search/health-knowledge-search",
+		params: ["ids"],
+	});
+	expect(
+		allowRules.find((rule) => rule.page?.endsWith("health-knowledge-detail")),
+	).toEqual({
+		action: "allow",
+		page: "pages/health-knowledge-detail/health-knowledge-detail",
+		params: ["kind", "id"],
+	});
+});
+
 test("native App entry does not trust a cached token before session verification", async () => {
 	const app = await source("app.ts");
 
