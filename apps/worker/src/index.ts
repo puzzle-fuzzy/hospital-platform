@@ -8,8 +8,19 @@ import {
 
 export type WorkerStatus = WorkerRuntimeStatus;
 
+export {
+	type RuntimeSmokeCheck,
+	type RuntimeSmokeFetcher,
+	type RuntimeSmokeOptions,
+	type RuntimeSmokeResult,
+	runApiRuntimeSmoke,
+} from "./api-runtime-smoke";
 export type { OutboxWorkerResult } from "./outbox-worker";
 export { OutboxWorker } from "./outbox-worker";
+export {
+	createPaymentOrderAuditEventHandler,
+	PaymentOrderAuditEventValidationError,
+} from "./payment-order-audit-handler";
 export {
 	PaymentReconciliationWorker,
 	type PaymentReconciliationWorkerResult,
@@ -26,13 +37,6 @@ export {
 	type ProviderSmokeResult,
 	runProviderDirectorySmoke,
 } from "./provider-directory-smoke";
-export {
-	type RuntimeSmokeCheck,
-	type RuntimeSmokeFetcher,
-	type RuntimeSmokeOptions,
-	type RuntimeSmokeResult,
-	runApiRuntimeSmoke,
-} from "./api-runtime-smoke";
 export {
 	createWorkerRuntime,
 	runWorkerLoop,

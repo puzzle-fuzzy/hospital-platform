@@ -12,6 +12,7 @@ import {
 	type PersistenceRuntime,
 } from "@hospital/persistence";
 import { OutboxWorker, type OutboxWorkerResult } from "./outbox-worker";
+import { createPaymentOrderAuditEventHandler } from "./payment-order-audit-handler";
 import {
 	PaymentReconciliationWorker,
 	type PaymentReconciliationWorkerResult,
@@ -147,6 +148,10 @@ export function createWorkerRuntime(
 	const outbox = new OutboxWorker(
 		repositories.outbox,
 		{
+			"payment-order.created": createPaymentOrderAuditEventHandler({ logger }),
+			"payment-order.state-changed": createPaymentOrderAuditEventHandler({
+				logger,
+			}),
 			"payment.wechat-notification.received":
 				createWechatPaymentNotificationHandler({ orders, logger }),
 		},
