@@ -1,5 +1,7 @@
 > **当前候选同步（2026-08-31）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision 为 `935410473e5a7c1be125a85834f957f53a833d8f`，pending 目录已清理；历史段落只作追溯。
 
+> 当前 live 候选的九域真机证据清单仍为 pending，执行审计时使用：`pnpm device:evidence:audit --file docs/release/device-evidence-935410473e5a7c1be125a85834f957f53a833d8f-pending.json`。清单通过结构审计不等于业务通过，必须继续补齐页面、客户端 `requestId`、服务端同链日志和 Provider 低敏请求号。
+
 # 全量迁移当前交接单（2026-08-25）
 
 > **本轮最新小程序运行包候选来源为（2026-08-31）**：`935410473e5a7c1be125a85834f957f53a833d8f`（提交 `9354104`），已完成构建、静态校验、原子发布到本地 live `dist` 和发布后 `runtime:verify`；当前无 pending 运行包。真实微信业务九域证据仍保持 `pending`，本行只锁定当前运行包来源，不代表业务验收完成。

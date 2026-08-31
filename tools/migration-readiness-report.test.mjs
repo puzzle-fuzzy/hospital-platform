@@ -190,16 +190,16 @@ describe("全项目迁移 readiness 报告", () => {
 				: null;
 		expect(report.deviceEvidence.activeRuntime).toBe(expectedActiveRuntime);
 		expect(report.deviceEvidence.domainCount).toBe(
-			report.deviceEvidence.activeRuntime === "pending" ? 9 : 0,
+			report.deviceEvidence.present ? 9 : 0,
 		);
 		expect(report.deviceEvidence.allPending).toBe(
-			report.deviceEvidence.activeRuntime === "pending",
+			report.deviceEvidence.present,
 		);
 		expect(report.deviceEvidence.passed).toBe(false);
 		expect(report.deviceEvidence.candidateMatchesCurrentRuntime).toBe(
-			report.deviceEvidence.activeRuntime === "pending",
+			report.deviceEvidence.present,
 		);
-		if (report.deviceEvidence.activeRuntime === "pending") {
+		if (report.deviceEvidence.present) {
 			const evidenceManifest = await Bun.file(
 				report.deviceEvidence.manifestPath,
 			).json();

@@ -5,6 +5,22 @@
 本文是本次“旧项目 → 新项目”全量静态校对的结论和后续清单。旧项目
 `/Users/yxswy/Documents/GitHub/hospital` 只做源码、路由和资源盘点，没有运行旧服务、旧小程序、旧数据库、Redis 或 Provider。
 
+## 0.1 未完成项统计（2026-08-31）
+
+统计口径：`[ ]` 表示仍需实现、取得外部证据或完成受控运维动作；`[x]` 表示本仓库内的代码/文档/边界判断已经完成。第 7、10.6、11.4 节的“不迁移”条目属于已经确认的策略，不再计入未完成工作。
+
+| 工作流 | 未完成条目 | 当前判断 |
+| --- | ---: | --- |
+| P0 数据迁移、身份安全与当前准入 | 10 | 旧库存量、凭据轮换、真机证据和切换窗口仍需外部确认 |
+| P1 只读业务真实闭环 | 5 | 代码骨架已在库内，Provider、公网和真机证据仍缺 |
+| P1 健康内容发布 | 3 | 脱敏源快照、审核 bundle、导入/撤回和真机验收仍缺 |
+| P1/P2 临床、患者、便民与外部能力 | 20 | contract、归属、资源权限、真实主体和业务页面仍缺 |
+| P1 运维、恢复、告警与运营配置 | 12 | 代码门禁已有，生产 runbook、告警和人工接管工具仍缺 |
+| P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
+| **合计未完成** | **56** | **不包含已经确认“不迁移”的策略项** |
+
+复选框总数为 85 项，其中已完成 29 项、未完成 56 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 10、P1 24、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+
 ## 0. 先看结论
 
 - 旧端共 64 个生产页面，均已登记唯一迁移落点；没有发现“完全没有登记”的页面。
@@ -27,10 +43,10 @@
 - 旧接口完整清单：`docs/migration/legacy-api-endpoint-inventory.md`。
 - 旧客户端非页面逻辑：`docs/migration/legacy-client-infrastructure-boundaries.md`。
 
-已通过的结构审计包括架构、页面台账、冻结入口、契约材料覆盖、入口广度、导航、患者展示、临床边界、低风险只读域、Provider intake、错误契约、文档链接、日志事件和类型检查。当前仍有两类质量门禁问题：
+已通过的结构审计包括架构、页面台账、冻结入口、契约材料覆盖、入口广度、导航、患者展示、临床边界、低风险只读域、Provider intake、错误契约、文档链接、日志事件、工具链、模板和类型检查。当前仍有一项预期的发布阻断：
 
-- `bun test tools`：109 pass、2 fail，失败来自发布基线文档仍指向旧的小程序 revision `1bc5bf6...`，以及 `packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/observability/src/index.ts` 尚未纳入旧的已部署 server release 基线。
-- `apps/miniprogram`：362 pass、1 fail；失败测试要求本机存在 `apps/miniprogram/project.private.config.json`，当前收到 `undefined`。这属于开发者工具本机配置/测试基线问题，不是旧业务迁移缺页。
+- `pnpm check:candidate` 是仓库内候选代码门禁；`pnpm release:baseline:index:audit` 已通过，当前 `dist` 与 `9354104` 候选一致。
+- `pnpm release:baseline:audit` 仍 fail-closed，因为线上服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7` 之后存在 9 个未部署运行时代码文件：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts`。这必须在受控发布窗口处理，不能为了让门禁变绿而伪造线上已部署。
 
 ## 2. 64 个旧页面逐页结论
 
@@ -200,10 +216,10 @@
 
 - [x] 已生成 `docs/release/device-evidence-935410473e5a7c1be125a85834f957f53a833d8f-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
 - [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `935410473e5a7c1be125a85834f957f53a833d8f`；`pnpm release:baseline:audit` 的文档基线部分已通过，文档中保留的旧候选仅作历史追溯。
-- [x] 已明确 `5738a71e...` server release 与当前 `packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/observability/src/index.ts` 的部署关系：3 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md)。是否部署仍需单独受控发布窗口，不在本项中擅自执行。
+- [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts` 共 9 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md)。是否部署仍需单独受控发布窗口，不在本项中擅自执行。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。
-- [ ] 保持旧项目只读；本清单不授权启动旧服务、不改旧数据库、不改旧支付或医保链路。
+- [x] 本轮保持旧项目只读；本清单不授权启动旧服务、不改旧数据库、不改旧支付或医保链路。
 
 ### P1：完成 5 个代码就绪只读域的真实闭环
 
@@ -255,14 +271,14 @@
 
 ## 7. 明确不需要补充、也不应原样迁移的内容
 
-- [ ] 不把旧 `module_system`、`module_monitor`、`module_application/job` 的后台管理/运维 CRUD 搬进患者小程序；如未来需要，另立 Admin/Operations 项目和 RBAC/审计边界。
-- [ ] 不把旧 FastAPI 的通用 CRUD、Swagger、权限依赖、旧数据库模型、Redis/Mongo/文件/调度实现作为新患者端代码复制；新平台已经有自己的 Elysia、domain、adapter、persistence 和 Worker 边界。
-- [ ] 不迁移 `pages/setting/setData.vue`、`patientChange.bak2`、调试页、旧构建产物和旧接口文档中的示例数据。
-- [ ] 不迁移 `httpZy.ts`、`ws.ts`、`proxyForward`、任意 `fullUrl`、Provider URL、Provider ID、unionId/openid/session_key、完整卡号/身份证缓存，以及 token query WebSocket。
-- [ ] 不迁移旧端“查询失败就继续建档”“ID/卡号字段互相冒充”“GET 删除”“无幂等覆盖”“支付页面自行带金额”“HTTP 成功即业务成功”等危险兜底行为。
-- [ ] 不把旧健康题目、分值、阈值、风险结论、报告解读或 AI 输出当作事实；没有内容/临床责任和版本审核就保持关闭。
-- [ ] 不要求旧页面和新页面一一同名同路径；多个旧页面合并到一个安全只读页面是已确认的迁移策略，关键是行为边界和状态可追溯。
-- [ ] 不全量复制旧 `static`/OSS 资源；只保留已核对的本地资源，并补来源、版权、缓存和失效策略即可。
+- [x] 不把旧 `module_system`、`module_monitor`、`module_application/job` 的后台管理/运维 CRUD 搬进患者小程序；如未来需要，另立 Admin/Operations 项目和 RBAC/审计边界。
+- [x] 不把旧 FastAPI 的通用 CRUD、Swagger、权限依赖、旧数据库模型、Redis/Mongo/文件/调度实现作为新患者端代码复制；新平台已经有自己的 Elysia、domain、adapter、persistence 和 Worker 边界。
+- [x] 不迁移 `pages/setting/setData.vue`、`patientChange.bak2`、调试页、旧构建产物和旧接口文档中的示例数据。
+- [x] 不迁移 `httpZy.ts`、`ws.ts`、`proxyForward`、任意 `fullUrl`、Provider URL、Provider ID、unionId/openid/session_key、完整卡号/身份证缓存，以及 token query WebSocket。
+- [x] 不迁移旧端“查询失败就继续建档”“ID/卡号字段互相冒充”“GET 删除”“无幂等覆盖”“支付页面自行带金额”“HTTP 成功即业务成功”等危险兜底行为。
+- [x] 不把旧健康题目、分值、阈值、风险结论、报告解读或 AI 输出当作事实；没有内容/临床责任和版本审核就保持关闭。
+- [x] 不要求旧页面和新页面一一同名同路径；多个旧页面合并到一个安全只读页面是已确认的迁移策略，关键是行为边界和状态可追溯。
+- [x] 不全量复制旧 `static`/OSS 资源；只保留已核对的本地资源，并补来源、版权、缓存和失效策略即可。
 
 ## 8. 后续执行顺序
 
@@ -324,9 +340,9 @@
 
 ### 10.6 本轮确认不需要补充的内容
 
-- [ ] 不需要把旧后台 `module_system`、监控、任务调度、保险辅助服务、Java/外部库和通用 CRUD 迁入患者小程序；它们应保持独立项目或明确归档。
-- [ ] 不需要复制旧端直连 Provider、任意 URL/WebView、token query、完整患者号/卡号和旧支付页面；本轮静态复核未发现这些危险调用进入新小程序生产源码。
-- [ ] `apps/miniprogram/src/assets/legacy-home` 中未被引用的旧 Tab 图标变体属于资源清理项，不是功能迁移缺口；当前 `app.json` 已明确使用 `v6` 资源，后续可单独清理并做构建回归。
+- [x] 不需要把旧后台 `module_system`、监控、任务调度、保险辅助服务、Java/外部库和通用 CRUD 迁入患者小程序；它们应保持独立项目或明确归档。
+- [x] 不需要复制旧端直连 Provider、任意 URL/WebView、token query、完整患者号/卡号和旧支付页面；本轮静态复核未发现这些危险调用进入新小程序生产源码。
+- [x] `apps/miniprogram/src/assets/legacy-home` 中未被引用的旧 Tab 图标变体属于资源清理项，不是功能迁移缺口；当前 `app.json` 已明确使用 `v6` 资源，后续可单独清理并做构建回归。
 
 ## 11. 第三轮非功能与运行一致性复核（2026-08-31）
 
@@ -354,10 +370,10 @@
 - [x] 已明确 `.env.example` 是开发/测试 API 与本地 Worker 模板，`infra/systemd/api.env.example` 是生产 API unit 模板；公共配置以 `packages/config/src/index.ts` 为准，`pnpm env:template:audit` 校验两份模板的职责边界、生产安全默认值和敏感值占位符。`pnpm runtime:preflight` 已用于真实配置的只读依赖探针，生产执行仍必须在服务器受控 shell 中完成。详见 [`infra/README.md`](infra/README.md)。
 - [x] 已建立 GitHub Actions CI，锁定 `.node-version=24.12.0`、`.bun-version=1.4.0`、`pnpm@11.9.0`，使用 `pnpm install --frozen-lockfile` 执行 `pnpm check:candidate`；`pnpm toolchain:audit` 会校验版本文件、`package.json` 和 workflow 的一致性。详见 [`docs/release/ci-and-toolchain-baseline.md`](docs/release/ci-and-toolchain-baseline.md)。
 - [ ] 生产发布执行器仍保持手动受控：当前服务端 release 之后有未部署运行时代码漂移，且旧 Python 服务必须共存；在补齐受控发布窗口、回滚和线上证据前，不自动化切换或重启线上服务。
-- [x] 当前小程序源码与 `dist/build-info.json` 的来源 revision `9354104c...` 已对齐；`docs/release/current-baseline.json` 已把 source revision、dist revision、API release、schema head 和真实设备证据清单绑定到一份机器可读发布记录。真实设备证据仍保持 pending，不得把索引绑定误报为业务验收通过。
+- [x] 当前小程序源码与 `dist/build-info.json` 的来源 revision `935410473e5a7c1be125a85834f957f53a833d8f`（`9354104`）已对齐；来源指纹只包含实际影响小程序产物的源码、构建/发布器、共享 contract 和锁文件，根目录工作区脚本及来源元数据脚本不会制造客户端候选漂移。`docs/release/current-baseline.json` 已把 source revision、dist revision、API release、schema head 和真实设备证据清单绑定到一份机器可读发布记录。真实设备证据仍保持 pending，不得把索引绑定误报为业务验收通过。
 
 ### 11.4 本轮确认不需要补充
 
-- [ ] 不需要把旧 `App.onHide` 空实现、旧端未发现的 update-manager/location/scanCode 等系统能力人为补回；应以新端目标平台和实际需求为准。
-- [ ] 不需要复制旧医保回跳中的原始 token/授权码、旧直连 Provider、旧任意 WebView、旧多端权限或旧调度器实现；这些是待 contract/安全审核或独立运维边界，不是患者小程序的直接迁移目标。
-- [ ] 不需要把旧示例 `app/module_task/scheduler_test.py` 当成真实业务任务迁移；只需要完成上一节所述的旧库已启用任务记录盘点和去留确认。
+- [x] 不需要把旧 `App.onHide` 空实现、旧端未发现的 update-manager/location/scanCode 等系统能力人为补回；应以新端目标平台和实际需求为准。
+- [x] 不需要复制旧医保回跳中的原始 token/授权码、旧直连 Provider、旧任意 WebView、旧多端权限或旧调度器实现；这些是待 contract/安全审核或独立运维边界，不是患者小程序的直接迁移目标。
+- [x] 不需要把旧示例 `app/module_task/scheduler_test.py` 当成真实业务任务迁移；只需要完成上一节所述的旧库已启用任务记录盘点和去留确认。

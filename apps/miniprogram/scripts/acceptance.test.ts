@@ -2174,7 +2174,9 @@ test("native mini program runtime verification checks build provenance", async (
 	expect(verify).toContain("build provenance mismatch");
 	expect(provenance).toContain('"apps/miniprogram/src"');
 	expect(provenance).toContain('"apps/miniprogram/scripts/build.ts"');
-	expect(provenance).toContain(
+	// 来源解析脚本只生成 build-info 元数据，不改变业务运行产物，不能
+	// 把它自身纳入输入集合，否则每次修正指纹逻辑都会制造新的候选。
+	expect(provenance).not.toContain(
 		'"apps/miniprogram/scripts/runtime-provenance.ts"',
 	);
 	expect(provenance).toContain(

@@ -437,14 +437,20 @@ test("仓库当前发布文档发现未部署运行时代码时 fail-closed", {
 		miniProgramSourceRevision: "935410473e5a7c1be125a85834f957f53a833d8f",
 	});
 	expect(result.failures).toEqual([
-		"服务端 release 5738a71e0bcddaa8849106754baf5b296427bed7 之后存在未部署运行时代码：packages/adapters/src/errors.ts, packages/adapters/src/http.ts, packages/observability/src/index.ts",
+		"服务端 release 5738a71e0bcddaa8849106754baf5b296427bed7 之后存在未部署运行时代码：packages/adapters/src/errors.ts, packages/adapters/src/http.ts, packages/domain/src/payment-order.ts, packages/domain/src/payment-provider.ts, packages/observability/src/index.ts, packages/persistence/src/migrate.ts, packages/persistence/src/mysql-repositories.ts, packages/persistence/src/outbox.ts, packages/persistence/src/repositories.ts",
 	]);
 	expect(result.serverSourceAudit).toMatchObject({
 		passed: false,
 		changedRuntimeFiles: [
 			"packages/adapters/src/errors.ts",
 			"packages/adapters/src/http.ts",
+			"packages/domain/src/payment-order.ts",
+			"packages/domain/src/payment-provider.ts",
 			"packages/observability/src/index.ts",
+			"packages/persistence/src/migrate.ts",
+			"packages/persistence/src/mysql-repositories.ts",
+			"packages/persistence/src/outbox.ts",
+			"packages/persistence/src/repositories.ts",
 		],
 	});
 });
