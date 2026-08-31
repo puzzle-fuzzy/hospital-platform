@@ -305,8 +305,8 @@
 
 ### 10.3 身份、凭据与患者数据安全：新增 P0/P1
 
-- [ ] 旧仓库 Git 跟踪了 `env/.env.prod`、`env/wechat/apiclient_key.pem`、`env/wechat/wechatpay.pem`、小程序环境文件和 `insurance-service/.env`。禁止复制这些文件；确认它们是否曾暴露给不应访问的人员或远程仓库，并按结果吊销/轮换微信、医保和 Provider 凭据。
-- [ ] 新仓库当前只发现 `.env.example`，没有私钥或真实环境文件；保持这一边界，并在发布前对 Git 工作树和提交历史做一次不输出秘密值的 secret scan。
+- [ ] 旧仓库 Git 跟踪了 `env/.env.prod`、`env/wechat/apiclient_key.pem`、`env/wechat/wechatpay.pem`、小程序环境文件和 `insurance-service/.env`。禁止复制这些文件；确认它们是否曾暴露给不应访问的人员或远程仓库，并按结果吊销/轮换微信、医保和 Provider 凭据。这个判断超出新仓库权限，仍需服务器/代码托管管理员确认。
+- [x] 新仓库保持只有模板文件进入 Git；`pnpm secret:audit` 和 `pnpm secret:audit:history` 已完成工作树及可达历史扫描，均未发现真实凭据或私钥原文。扫描只输出定位信息，不输出秘密值，详见 [`docs/security/secret-scan.md`](docs/security/secret-scan.md)。
 - [ ] 新 `hp_identity_users` 仍持久化 Provider subject/union id 等身份关联字段；在保留存量账户前确认最小化保留、访问控制、删除/解绑、备份和日志策略，不能只依赖 TypeScript 类型保证隐私。
 - [ ] 明确患者目录、Provider 引用、预约快照和报告短期引用的保留期限、失效清理及账户撤回后的处理。当前部分历史引用通过 `inactive`/外键保留，不能默认等同于隐私删除已完成。
 
