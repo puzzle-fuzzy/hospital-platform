@@ -2,6 +2,17 @@
 
 这里的 Compose 只服务于本地开发和隔离集成验收，不承载生产数据。
 
+## 环境模板职责
+
+根目录 [`.env.example`](../.env.example) 是开发/测试 API 与本地 Worker 的模板，包含
+`API_BASE_URL`、`WORKER_POLL_INTERVAL_MS` 和 `REDIS_SESSION_AUDIT_URL` 等本地维护变量；
+它的默认值是 `development`、开启开发文档和 `debug` 日志，不能复制为生产环境文件。
+
+[`systemd/api.env.example`](systemd/api.env.example) 只描述生产 API unit 的变量，使用生产监听地址、
+关闭 OpenAPI、`info` 日志和占位符凭据；它不包含 Worker 专属变量。两份模板的公共配置名以
+`packages/config/src/index.ts` 的运行时配置为准，差异由 `pnpm env:template:audit` 固定检查。
+该审计只读模板，不读取真实 env，也不会把占位符误当成可用凭据。
+
 | 服务 | 地址 | 用途 |
 | --- | --- | --- |
 | MySQL 8.4 | `127.0.0.1:3307` | 订单、患者、报价和 outbox 目标库 |
@@ -22,6 +33,11 @@ migration，不执行 migration，也不会调用微信支付或其他 provider�
 ```powershell
 pnpm runtime:preflight
 ```
+
+生产候选必须在服务器受控 shell 中使用真实 `shared/api.env` 运行同一份 preflight；
+仓库模板只用于核对变量名和安全默认值，不能替代真实配置、TLS、数据库/Redis/schema 探针或
+Provider/真机业务证据。具体上传、隔离端口 smoke、原子切换和回滚步骤见
+[`systemd/api-v2-release-runbook.md`](systemd/api-v2-release-runbook.md)。
 
 preflight 返回非零并不代表代码故障：在 schema staging 验收或持久化配置缺失时，
 `PERSISTENCE_SCHEMA_READY`、MySQL 或 Redis 检查应当失败；支付 gate 保持关闭时不要求支付密钥，

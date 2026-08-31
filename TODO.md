@@ -350,7 +350,7 @@
 ### 11.3 环境模板与构建可复现性：新增 P1/P2
 
 - [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0016_patient_directory_sync_owner_index`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
-- [ ] 明确 `.env.example` 与 `infra/systemd/api.env.example` 的用途和唯一来源。两者在 `HOST`、`PORT`、`DOCS_ENABLED`、`LOG_LEVEL`、`CORS_ORIGINS`、`OUTPATIENT_PAYMENT_AUTH_SYS_CODE` 默认值，以及本地 `API_BASE_URL`/Worker 审计变量上存在差异；应增加生产 preflight，避免把开发模板当成生产配置。
+- [x] 已明确 `.env.example` 是开发/测试 API 与本地 Worker 模板，`infra/systemd/api.env.example` 是生产 API unit 模板；公共配置以 `packages/config/src/index.ts` 为准，`pnpm env:template:audit` 校验两份模板的职责边界、生产安全默认值和敏感值占位符。`pnpm runtime:preflight` 已用于真实配置的只读依赖探针，生产执行仍必须在服务器受控 shell 中完成。详见 [`infra/README.md`](infra/README.md)。
 - [x] 已建立 GitHub Actions CI，锁定 `.node-version=24.12.0`、`.bun-version=1.4.0`、`pnpm@11.9.0`，使用 `pnpm install --frozen-lockfile` 执行 `pnpm check:candidate`；`pnpm toolchain:audit` 会校验版本文件、`package.json` 和 workflow 的一致性。详见 [`docs/release/ci-and-toolchain-baseline.md`](docs/release/ci-and-toolchain-baseline.md)。
 - [ ] 生产发布执行器仍保持手动受控：当前服务端 release 之后有未部署运行时代码漂移，且旧 Python 服务必须共存；在补齐受控发布窗口、回滚和线上证据前，不自动化切换或重启线上服务。
 - [ ] 当前小程序源码与 `dist/build-info.json` 的来源 revision `9354104c...` 已对齐，本身不是迁移缺口；但应把 source revision、dist revision、API release、schema head 和真实设备证据绑定到一份发布记录，避免构建包、文档和服务端各自指向不同候选。
