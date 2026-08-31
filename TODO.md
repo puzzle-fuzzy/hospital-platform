@@ -1,11 +1,11 @@
 # Hospital Platform 迁移校对 TODO
 
-更新时间：2026-08-31
+更新时间：2026-09-01
 
 本文是本次“旧项目 → 新项目”全量静态校对的结论和后续清单。旧项目
 `/Users/yxswy/Documents/GitHub/hospital` 只做源码、路由和资源盘点，没有运行旧服务、旧小程序、旧数据库、Redis 或 Provider。
 
-## 0.1 未完成项统计（2026-08-31）
+## 0.1 未完成项统计（2026-09-01）
 
 统计口径：`[ ]` 表示仍需实现、取得外部证据或完成受控运维动作；`[x]` 表示本仓库内的代码/文档/边界判断已经完成。第 7、10.6、11.4 节的“不迁移”条目属于已经确认的策略，不再计入未完成工作。
 
@@ -46,7 +46,7 @@
 已通过的结构审计包括架构、页面台账、冻结入口、契约材料覆盖、入口广度、导航、患者展示、临床边界、低风险只读域、Provider intake、错误契约、文档链接、日志事件、工具链、模板和类型检查。当前仍有一项预期的发布阻断：
 
 - `pnpm check:candidate` 是仓库内候选代码门禁；`pnpm release:baseline:index:audit` 已通过，当前 `dist` 与 `ce1c217` 候选一致。
-- `pnpm release:baseline:audit` 仍 fail-closed，因为线上服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7` 之后存在 12 个未部署运行时代码文件：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts`。这必须在受控发布窗口处理，不能为了让门禁变绿而伪造线上已部署。
+- `pnpm release:baseline:audit` 仍 fail-closed，因为线上服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7` 之后存在 16 个未部署运行时代码文件：`apps/api/src/modules/auth/service.ts`、`apps/api/src/plugins/request-logging.ts`、`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/errors.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/redis-session.ts`、`packages/persistence/src/repositories.ts`。这必须在受控发布窗口处理，不能为了让门禁变绿而伪造线上已部署。
 
 ## 2. 64 个旧页面逐页结论
 
