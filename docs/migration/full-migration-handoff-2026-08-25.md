@@ -1,8 +1,8 @@
-> **当前候选同步（2026-08-31）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision 为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，pending 目录已清理；历史段落只作追溯。
+> **当前候选同步（2026-08-31）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision 为 `935410473e5a7c1be125a85834f957f53a833d8f`，pending 目录已清理；历史段落只作追溯。
 
 # 全量迁移当前交接单（2026-08-25）
 
-> **本轮最新小程序运行包候选来源为（2026-08-31）**：`3f8274ec5435779c0603ce8475a4f4e86d292cbd`（提交 `3f8274e`），已完成构建、静态校验、原子发布到本地 live `dist` 和发布后 `runtime:verify`；当前无 pending 运行包。真实微信业务九域证据仍保持 `pending`，本行只锁定当前运行包来源，不代表业务验收完成。
+> **本轮最新小程序运行包候选来源为（2026-08-31）**：`935410473e5a7c1be125a85834f957f53a833d8f`（提交 `9354104`），已完成构建、静态校验、原子发布到本地 live `dist` 和发布后 `runtime:verify`；当前无 pending 运行包。真实微信业务九域证据仍保持 `pending`，本行只锁定当前运行包来源，不代表业务验收完成。
 
 > **本地候选交接（2026-08-28）**：本轮提交 `8182a877` 已完成“我的问诊”演示数据边界、众阳 TLS 只读诊断和运行时预检清单同步；pending 运行输入的完整 sourceRevision 为 `8182a8774bf0d6ad6f62d928693add952ddff034`，共 38 个页面、4 个原生 Tab，live 仍为上一候选 `87eb00f0aa0c6d46b61364449d375df5105c80d6`。新增的临床入口尚未确认正式 Provider contract，已统一回到状态页并从 API 运行时注销；当前九域真机清单为 [`device-evidence-8182a877-pending.json`](../release/device-evidence-8182a877-pending.json)，全部保持 `pending`，不构成真机或真实业务完成证据。线上服务端仍以已部署 release `5738a71e0bcddaa8849106754baf5b296427bed7` 为准，本轮没有部署线上服务或修改旧 Python 服务、旧数据库、旧 Redis。当前执行检查点见 [`current-execution-checkpoint-2026-08-28.md`](current-execution-checkpoint-2026-08-28.md)。
 >
@@ -12,7 +12,7 @@
 
 > **当前候选覆盖（2026-08-28）**：最新小程序源码和本地 pending 运行输入为 `8182a8774bf0d6ad6f62d928693add952ddff034`（`8182a877`），38 页、4 个原生 Tab；核心回归、App.onLaunch 全局资料初始化时序、共享患者外壳会话边界、就诊二维码会话门禁、健康数值规则版本、会话失效资料缓存清理、预约请求运行时边界和“我的问诊”演示数据边界测试通过。该来源已完成构建并保存在 pending，尚未切换到 live `dist`，本候选未新增 Provider 请求或写入；本文下方旧候选数字只作历史追溯，以本段和 [`device-evidence-8182a877-pending.json`](../release/device-evidence-8182a877-pending.json) 为准。
 
-> **上一候选发布记录（2026-08-27）**：小程序来源为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`（`1bc5bf6`），已完成 pending 运行包校验、原子发布和发布后 live 校验；对应九域真机清单为 [`device-evidence-1bc5bf6-pending.json`](../release/device-evidence-1bc5bf6-pending.json)。该清单全部保持 `pending`，不构成真实微信登录、Provider 或业务完成证据。
+> **上一候选发布记录（2026-08-27）**：小程序来源为 `935410473e5a7c1be125a85834f957f53a833d8f`（`9354104`），已完成 pending 运行包校验、原子发布和发布后 live 校验；对应九域真机清单为 [`device-evidence-1bc5bf6-pending.json`](../release/device-evidence-1bc5bf6-pending.json)。该清单全部保持 `pending`，不构成真实微信登录、Provider 或业务完成证据。
 >
 > 上一候选发布后，使用 `pnpm device:evidence:audit --file docs/release/device-evidence-1bc5bf6-pending.json` 维护历史清单；在真实页面、客户端 requestId、服务端同链日志和 Provider 低敏请求号齐全前，不得改成 `passed`。本轮应使用上方 `device-evidence-8182a877-pending.json`。
 

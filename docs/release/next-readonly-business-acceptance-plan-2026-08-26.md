@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`；历史段落只作追溯。
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `935410473e5a7c1be125a85834f957f53a833d8f`；历史段落只作追溯。
 
 # A 批次低风险业务统一验收计划（2026-08-26）
 
@@ -31,7 +31,7 @@
 
 上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前 live 候选已创建新的九域清单 [`device-evidence-1bc5bf6-pending.json`](device-evidence-1bc5bf6-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
 
-本次运行包来源为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，发布后以 live `build-info.json` 的同一来源指纹为准。
+本次运行包来源为 `935410473e5a7c1be125a85834f957f53a833d8f`，发布后以 live `build-info.json` 的同一来源指纹为准。
 
 本次候选切换已完成。现在必须从 live `dist` 重新普通编译并生成二维码；不能把历史二维码、旧 live 运行包或已经清理的 pending 目录当成真机包。
 

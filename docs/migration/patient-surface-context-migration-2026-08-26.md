@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`；历史段落只作追溯。
+> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `935410473e5a7c1be125a85834f957f53a833d8f`；历史段落只作追溯。
 
 # 当前就诊人上下文横向迁移记录（2026-08-26）
 
@@ -8,7 +8,7 @@
 
 > 当前运行基线（2026-08-27）：线上服务端 release 为
 > `5738a71e0bcddaa8849106754baf5b296427bed7`；本地 live 小程序运行包来源为
-> `3f8274e`，完整 sourceRevision 为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，已通过
+> `9354104`，完整 sourceRevision 为 `935410473e5a7c1be125a85834f957f53a833d8f`，已通过
 > `runtime:verify`。本记录只描述患者上下文安全边界，不代表临床 Provider 已开放。
 
 ## 已覆盖页面

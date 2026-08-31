@@ -10,7 +10,7 @@
 - 旧端共 64 个生产页面，均已登记唯一迁移落点；没有发现“完全没有登记”的页面。
 - 当前台账状态：`replaced=8`、`partial=23`、`surface-only=23`、`blocked-payment=7`、`blocked-provider=1`、`blocked-external=1`、`excluded=1`。
 - 旧 Python 服务静态发现 195 条已挂载路由，另有 1 个未挂载的 RAG 路由文件；新项目没有把它们全部复制成患者端 API，这是有意的边界。
-- 新小程序实际注册 38 个页面、4 个原生 Tab；当前 `dist` 的 `sourceRevision=3f8274ec5435779c0603ce8475a4f4e86d292cbd`，页面数与源码一致。
+- 新小程序实际注册 38 个页面、4 个原生 Tab；当前 `dist` 的 `sourceRevision=935410473e5a7c1be125a85834f957f53a833d8f`，页面数与源码一致。
 - 新端结构已闭环的 5 个低风险域是：就诊人目录、预约目录/历史、报告目录、门诊费用只读列表、普通个人资料；它们都还缺 Provider/公网/真机的完整证据，因此不能称为业务完成。
 - 当前真实证据就绪业务域为 0；健康百科审核 bundle 不存在；Provider 接收材料 4 份均为 `normalized`、确认数为 0；Worker 当前因支付和 Provider 配置缺失而跳过实际业务循环。
 
@@ -198,8 +198,8 @@
 
 ### P0：先补当前验收和运行基线
 
-- [x] 已生成 `docs/release/device-evidence-3f8274ec5435779c0603ce8475a4f4e86d292cbd-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
-- [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `3f8274ec5435779c0603ce8475a4f4e86d292cbd`；`pnpm release:baseline:audit` 的文档基线部分已通过，文档中保留的旧候选仅作历史追溯。
+- [x] 已生成 `docs/release/device-evidence-935410473e5a7c1be125a85834f957f53a833d8f-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
+- [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `935410473e5a7c1be125a85834f957f53a833d8f`；`pnpm release:baseline:audit` 的文档基线部分已通过，文档中保留的旧候选仅作历史追溯。
 - [x] 已明确 `5738a71e...` server release 与当前 `packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/observability/src/index.ts` 的部署关系：3 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md)。是否部署仍需单独受控发布窗口，不在本项中擅自执行。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。
@@ -318,7 +318,7 @@
 
 ### 10.5 文档事实源与发布校验：新增 P1
 
-- [ ] 建立一个当前基线索引，或让生成器统一更新文档头部。当前 `docs/migration/api-matrix.md`、`docs/migration/migration-readiness-report.md`、`docs/roadmap-next-phase.md` 仍保留 `1bc5bf6`/`5738a71e` 等旧候选的“当前”描述，而仓库当前 HEAD 为 `119a11a6`、小程序 dist source revision 为 `3f8274ec`；历史记录可以保留，但不能继续作为验收入口。
+- [ ] 建立一个当前基线索引，或让生成器统一更新文档头部。当前 `docs/migration/api-matrix.md`、`docs/migration/migration-readiness-report.md`、`docs/roadmap-next-phase.md` 仍保留 `1bc5bf6`/`5738a71e` 等旧候选的“当前”描述，而仓库当前 HEAD 为 `119a11a6`、小程序 dist source revision 为 `9354104c`；历史记录可以保留，但不能继续作为验收入口。
 - [ ] 将“源码 revision、dist/build-info、API release、schema head、真实证据批次”绑定到同一发布记录。现有链接审计只能发现断链，不能发现文档中的事实已经过期。
 - [ ] 修复或明确本机测试基线：`project.private.config.json` 被 `.gitignore` 忽略，导致小程序测试需要的 `miniprogramRoot` 在干净 checkout 中不存在；它不是迁移缺页，但应由本地配置说明或测试 fixture 解决。
 
@@ -352,7 +352,7 @@
 - [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0016_patient_directory_sync_owner_index`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
 - [ ] 明确 `.env.example` 与 `infra/systemd/api.env.example` 的用途和唯一来源。两者在 `HOST`、`PORT`、`DOCS_ENABLED`、`LOG_LEVEL`、`CORS_ORIGINS`、`OUTPATIENT_PAYMENT_AUTH_SYS_CODE` 默认值，以及本地 `API_BASE_URL`/Worker 审计变量上存在差异；应增加生产 preflight，避免把开发模板当成生产配置。
 - [ ] 建立官方 CI/发布执行器并锁定 Node、Bun、pnpm 版本。目前只有 `pnpm-lock.yaml`，没有 `.nvmrc`、`.node-version`、`.tool-versions`、`mise.toml`、Volta 配置或仓库内 CI workflow；根 `package.json` 声明 `pnpm@11.9.0` 与 `Node >=24`、`Bun >=1.4.0`，本机实际 pnpm 为 `11.19.0`，仍有版本漂移空间。
-- [ ] 当前小程序源码与 `dist/build-info.json` 的来源 revision `3f8274ec...` 已对齐，本身不是迁移缺口；但应把 source revision、dist revision、API release、schema head 和真实设备证据绑定到一份发布记录，避免构建包、文档和服务端各自指向不同候选。
+- [ ] 当前小程序源码与 `dist/build-info.json` 的来源 revision `9354104c...` 已对齐，本身不是迁移缺口；但应把 source revision、dist revision、API release、schema head 和真实设备证据绑定到一份发布记录，避免构建包、文档和服务端各自指向不同候选。
 
 ### 11.4 本轮确认不需要补充
 
