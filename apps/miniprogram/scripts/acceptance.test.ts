@@ -1621,11 +1621,18 @@ test("native primary tabs keep one stable selected bar", async () => {
 	const projectConfig = JSON.parse(
 		await Bun.file(join(import.meta.dir, "..", "project.config.json")).text(),
 	) as { setting?: { compileHotReLoad?: boolean } };
-	const privateProjectConfig = JSON.parse(
-		await Bun.file(
-			join(import.meta.dir, "..", "project.private.config.json"),
-		).text(),
-	) as { miniprogramRoot?: string; setting?: { compileHotReLoad?: boolean } };
+	const privateProjectConfigPath = join(
+		import.meta.dir,
+		"..",
+		"project.private.config.json",
+	);
+	const privateProjectConfig = (
+		(await Bun.file(privateProjectConfigPath).exists())
+			? JSON.parse(await Bun.file(privateProjectConfigPath).text())
+			: undefined
+	) as
+		| { miniprogramRoot?: string; setting?: { compileHotReLoad?: boolean } }
+		| undefined;
 	const tabList = app.tabBar?.list ?? [];
 	// 原生 tabBar 由微信运行时持有，是四个 tab 页共享的唯一底栏；页面自身
 	// 不再创建固定底栏，因此切换时不会出现第二套底栏或页面级底栏闪动。
@@ -1654,10 +1661,13 @@ test("native primary tabs keep one stable selected bar", async () => {
 	expect(runtimeProjectConfig.miniprogramRoot).toBe("./");
 	expect(runtimeProjectConfig.setting?.compileHotReLoad).toBe(false);
 	expect(runtimeProjectConfig.setting?.ignoreDevUnusedFiles).toBe(false);
-	// 本机私有配置也必须指向同一份 dist；否则开发者工具可能把旧的 src
-	// 增量页面图当成当前候选，正是底栏闪动和 selected 图标消失的表现。
-	expect(privateProjectConfig.miniprogramRoot).toBe("dist/");
-	expect(privateProjectConfig.setting?.compileHotReLoad).toBe(false);
+	// 私有配置由微信开发者工具在本机生成并被 .gitignore 忽略：存在时必须指向
+	// 同一份 dist，避免旧 src 增量页面图造成底栏闪动；干净 checkout 没有该文件
+	// 时也应能通过仓库测试，不能把个人工具配置误当成生产源码依赖。
+	if (privateProjectConfig) {
+		expect(privateProjectConfig.miniprogramRoot).toBe("dist/");
+		expect(privateProjectConfig.setting?.compileHotReLoad).toBe(false);
+	}
 	expect(tabList.map((item) => item.text)).toEqual([
 		"医疗服务",
 		"就诊",

@@ -201,7 +201,7 @@
 - [ ] 生成 `docs/release/device-evidence-3f8274ec5435779c0603ce8475a4f4e86d292cbd-pending.json` 对应的真实设备证据；当前文件不存在，9 个真机域均没有通过证据。
 - [ ] 用当前小程序 source revision 更新发布基线文档，清理所有仍指向 `1bc5bf6...` 的历史候选语句。
 - [ ] 明确 `5738a71e...` server release 与当前 `packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/observability/src/index.ts` 的部署关系；在部署或基线更新前，不宣称当前 release 一致。
-- [ ] 为本机开发者工具补齐或明确忽略 `apps/miniprogram/project.private.config.json`，使“原生 primary tabs”测试不再因 `miniprogramRoot` 为 `undefined` 失败；私有配置不得提交敏感值。
+- [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。
 - [ ] 保持旧项目只读；本清单不授权启动旧服务、不改旧数据库、不改旧支付或医保链路。
 
