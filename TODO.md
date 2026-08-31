@@ -15,11 +15,11 @@
 | P1 只读业务真实闭环 | 5 | 代码骨架已在库内，Provider、公网和真机证据仍缺 |
 | P1 健康内容发布 | 2 | 源快照已存在但仍有质量告警，审核 bundle、导入/撤回和真机验收仍缺 |
 | P1/P2 临床、患者、便民与外部能力 | 19 | contract、归属、资源权限、真实主体和业务页面仍缺 |
-| P1 运维、恢复、告警与运营配置 | 10 | 代码门禁、人工复核工具和订单审计归档已有，生产告警接入、存量任务盘点和恢复演练仍缺 |
+| P1 运维、恢复、告警与运营配置 | 9 | 代码门禁、人工复核工具和订单审计归档已有；生产告警接入和恢复演练仍缺 |
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
-| **合计未完成** | **46** | **不包含已经确认“不迁移”的策略项** |
+| **合计未完成** | **45** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 93 项，其中已完成 47 项、未完成 46 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 4、P1 20、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 93 项，其中已完成 48 项、未完成 45 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 4、P1 19、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## 0. 先看结论
 
@@ -366,7 +366,7 @@
 - [x] 已补齐人工复核队列的低敏查询、告警检查和单条受控重放：`apps/worker/src/manual-review.ts` 提供 `list`、`check` 和要求固定原因码及 `--confirm` 的 `requeue`；`check` 以退出码 `2` 暴露队列积压，仓储使用状态条件更新且不重置累计尝试次数。对应手册见 [`docs/release/manual-review-operations.md`](docs/release/manual-review-operations.md)。这些能力完成并取得生产证据前，支付/HIS gate 继续关闭。
 - [x] 已确认 `payment-order.created`、`payment-order.state-changed` 是内部审计事件，不直接触发 Provider；Worker 组合根已显式注册经过 payload/金额/状态校验的归档 handler，并输出 `worker.outbox.audit_event_archived`，损坏事件仍会失败并进入重试/人工复核。这样支付 gate 打开后不会因缺 handler 无限重试，也不会把归档成功误报为支付成功。
 - [x] 已完成旧 FastAPI 调度源码、初始化任务字典和独立支付恢复循环的静态盘点；确认 `scheduler_test` 仅为演示函数，`plugin_payment_reconcile_loop` 不属于普通 `app_job`。详见 [`docs/release/legacy-scheduled-task-inventory-2026-08-31.md`](legacy-scheduled-task-inventory-2026-08-31.md)。
-- [ ] 旧任务管理 CRUD 与示例任务本身可以不迁入患者小程序，但切换前仍要从旧库导出实际启用的 `app_job` 记录，逐条标记“退休、保留在旧系统或改写到新 Worker”，并完成参数脱敏、负责人、切换时间和回滚方案；不能仅因为后台 `/job` 路由不迁移，就推断没有业务定时任务。
+- [x] 已通过旧服务数据库的受控只读 SSH 查询核对 `app_job`：当前总记录数、启用数和停用数均为 0，因此没有需要逐条分流的动态任务；独立的 `plugin_payment_reconcile_loop` 仍单独受支付/HIS gate 约束。正式切换前仍需在冻结窗口重复查询。详见 [`docs/release/legacy-scheduled-task-runtime-inventory-2026-08-31.md`](legacy-scheduled-task-runtime-inventory-2026-08-31.md)。
 - [x] 已补齐仓库级 MySQL/Redis 数据分级、全量备份、binlog/PITR、隔离恢复、保留周期、RPO/RTO 记录格式和恢复后门禁；明确 Redis 会话可重新建立，而支付/订单/outbox 必须按 MySQL 恢复事实处理。详见 [`docs/release/backup-recovery-and-rto-policy-2026-08-31.md`](backup-recovery-and-rto-policy-2026-08-31.md)。
 - [ ] 在生产环境配置并验证备份、binlog/PITR、隔离恢复、RPO/RTO、保留策略和告警通知，保留真实演练证据；当前仓库没有这部分外部证明。
 - [x] 已在 `@hospital/observability` 固化 API/Worker readiness、`not_configured`、`not_ready`、outbox 重试/过期积压、查单长期 pending、Provider 错误率/延迟和恢复失败的统一告警代码、阈值、低敏聚合输入和测试；详见 [`docs/release/operational-alert-policy-2026-08-31.md`](operational-alert-policy-2026-08-31.md)。
