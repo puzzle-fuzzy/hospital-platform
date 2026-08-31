@@ -322,7 +322,7 @@
 
 ### 10.3 身份、凭据与患者数据安全：新增 P0/P1
 
-- [ ] 旧仓库 Git 跟踪了 `env/.env.prod`、`env/wechat/apiclient_key.pem`、`env/wechat/wechatpay.pem`、小程序环境文件和 `insurance-service/.env`；本轮只读元数据审计确认这些路径确实存在历史触及（`.env.prod` 25 次、两个 PEM 各 1 次、医保 `.env` 4 次），但未读取内容。禁止复制这些文件；确认它们是否曾暴露给不应访问的人员或远程仓库，并按结果吊销/轮换微信、医保和 Provider 凭据。详见 [`docs/security/legacy-credential-exposure-readonly-audit-2026-08-31.md`](legacy-credential-exposure-readonly-audit-2026-08-31.md)，这个判断仍需服务器/代码托管管理员确认。
+- [ ] 旧仓库 Git 跟踪了 `env/.env.prod`、`env/wechat/apiclient_key.pem`、`env/wechat/wechatpay.pem`、小程序环境文件和 `insurance-service/.env`；本轮只读元数据审计确认这些路径确实存在历史触及（`.env.prod` 25 次、两个 PEM 各 1 次、医保 `.env` 4 次），且远程 refs 可匿名读取，但未读取内容。禁止复制这些文件；确认它们是否曾暴露给不应访问的人员或远程仓库，并按结果吊销/轮换微信、医保和 Provider 凭据。详见 [`docs/security/legacy-credential-exposure-readonly-audit-2026-08-31.md`](legacy-credential-exposure-readonly-audit-2026-08-31.md)，这个判断仍需服务器/代码托管管理员确认。
 - [x] 新仓库保持只有模板文件进入 Git；`pnpm secret:audit` 和 `pnpm secret:audit:history` 已完成工作树及可达历史扫描，均未发现真实凭据或私钥原文。扫描只输出定位信息，不输出秘密值，详见 [`docs/security/secret-scan.md`](docs/security/secret-scan.md)。
 - [x] 已根据当前 schema 和 repository 实现建立身份、患者 Provider 引用、报告短期引用、排班快照、订单/outbox、日志和备份的仓库级生命周期/撤回策略；明确哪些是已实现的 owner/TTL/级联边界，哪些仍需数据负责人、Provider 和运维提供外部删除/留存证据。详见 [`docs/security/patient-data-lifecycle-policy-2026-08-31.md`](docs/security/patient-data-lifecycle-policy-2026-08-31.md)。
 - [ ] 新 `hp_identity_users` 仍持久化 Provider subject/union id 等身份关联字段；在保留存量账户前确认最小化保留、访问控制、删除/解绑、备份和日志策略，不能只依赖 TypeScript 类型保证隐私。
