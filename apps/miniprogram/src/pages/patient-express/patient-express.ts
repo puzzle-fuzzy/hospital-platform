@@ -8,11 +8,16 @@ import {
 	type PatientExpressRecordState,
 	resolvePatientExpressRecordState,
 } from "../../services/patient-express-state";
-import { patientScopedErrorMessage } from "../../services/patient-selection-service";
+import {
+	patientScopedErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
+} from "../../services/patient-selection-service";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import { hasPlatformSession } from "../../services/session-service";
 import type { Patient } from "../../types";
 
 type PatientExpressPageData = {
@@ -79,9 +84,14 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 	loadCurrentPatient() {
 		const guard = getPageLatestRequestGuard(this, "patient-express");
 		const token = guard.begin();
+		// 物流列表没有真实请求，但患者卡片仍然是当前账号已经确认的
+		// 上下文。重读期间保留它，不能让“物流能力关闭”造成姓名闪退。
+		// 如果用户刚换人或会话刚重置，helper 会拒绝保留旧卡片。
+		const preservedPatient = preservedPatientForReload(this.data.patient);
 		this.setData({
 			loading: true,
 			error: "",
+			patient: preservedPatient,
 			recordState: resolvePatientExpressRecordState(true, ""),
 		});
 		return loadCurrentPatient()
@@ -95,8 +105,16 @@ Page<PatientExpressPageData, PatientExpressPageMethods>({
 			.catch((error) => {
 				if (!guard.isCurrent(token)) return;
 				const message = patientScopedErrorMessage(error);
+				const clearPatient = shouldClearPatientContextAfterError(
+					error,
+					hasPlatformSession(),
+				);
 				this.setData({
-					patient: null,
+					// 读取失败时仍区分“患者上下文失效”和“下游暂时失败”。
+					// 后者保留姓名卡片，避免用户把物流关闭态误解成没有患者。
+					patient: clearPatient
+						? null
+						: preservedPatientForReload(this.data.patient),
 					error: message,
 					recordState: resolvePatientExpressRecordState(false, message),
 				});

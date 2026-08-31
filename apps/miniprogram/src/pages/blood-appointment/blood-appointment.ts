@@ -4,11 +4,16 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import { patientScopedErrorMessage } from "../../services/patient-selection-service";
+import {
+	patientScopedErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
+} from "../../services/patient-selection-service";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import { hasPlatformSession } from "../../services/session-service";
 import type { Patient } from "../../types";
 
 type BloodAppointmentPatientView = Patient & {
@@ -46,6 +51,13 @@ function toPatientView(patient: Patient): BloodAppointmentPatientView {
 		...patient,
 		relationshipLabel: PATIENT_RELATIONSHIP_LABELS[patient.relationship],
 	};
+}
+
+/** 保留患者卡片时也必须带上页面需要的关系标签，不能把裸目录类型直接写入 WXML。 */
+function toOptionalPatientView(
+	patient: Patient | null,
+): BloodAppointmentPatientView | null {
+	return patient ? toPatientView(patient) : null;
 }
 
 /**
@@ -91,7 +103,16 @@ Page<BloodAppointmentPageData, BloodAppointmentPageMethods>({
 	loadPatient() {
 		const guard = getPageLatestRequestGuard(this, "blood-appointment");
 		const token = guard.begin();
-		this.setData({ loading: true, error: "", patient: null });
+		// 患者目录重读期间只更新加载状态；同一会话、同一明确选择的患者
+		// 仍是已经确认过的视觉上下文，不能因为采血业务尚未开放而闪退。
+		// 用户换人或会话重置时，preservedPatientForReload 会返回 null，
+		// 因此不会把上一位患者带入新上下文。
+		const preservedPatient = preservedPatientForReload(this.data.patient);
+		this.setData({
+			loading: true,
+			error: "",
+			patient: toOptionalPatientView(preservedPatient),
+		});
 		return loadCurrentPatient()
 			.then((patient) => {
 				if (guard.isCurrent(token))
@@ -99,8 +120,18 @@ Page<BloodAppointmentPageData, BloodAppointmentPageMethods>({
 			})
 			.catch((error) => {
 				if (guard.isCurrent(token)) {
+					const clearPatient = shouldClearPatientContextAfterError(
+						error,
+						hasPlatformSession(),
+					);
 					this.setData({
-						patient: null,
+						// Provider、持久化或网络故障不代表患者消失；只有会话
+						// 失效才清掉已确认卡片，避免用户看到错误的“未选择”。
+						patient: clearPatient
+							? null
+							: toOptionalPatientView(
+									preservedPatientForReload(this.data.patient),
+								),
 						error: patientScopedErrorMessage(error),
 					});
 				}

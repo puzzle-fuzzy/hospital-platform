@@ -4,11 +4,16 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import { patientScopedErrorMessage } from "../../services/patient-selection-service";
+import {
+	patientScopedErrorMessage,
+	preservedPatientForReload,
+	shouldClearPatientContextAfterError,
+} from "../../services/patient-selection-service";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
+import { hasPlatformSession } from "../../services/session-service";
 import type { DatasetEvent, Patient } from "../../types";
 
 type SubscriptionCategory =
@@ -219,15 +224,24 @@ Page<SubscriptionPageData, SubscriptionPageMethods>({
 	loadPatient() {
 		const guard = getPageLatestRequestGuard(this, "patient-subscription");
 		const token = guard.begin();
-		this.setData({ loading: true, error: "", patient: null });
+		// 订阅消息开关当前是只读关闭态，但患者卡片仍属于已确认的
+		// owner-scoped 上下文。重读时保留卡片，只有换人或会话失效才清除。
+		const preservedPatient = preservedPatientForReload(this.data.patient);
+		this.setData({ loading: true, error: "", patient: preservedPatient });
 		return loadCurrentPatient()
 			.then((patient) => {
 				if (guard.isCurrent(token)) this.setData({ patient });
 			})
 			.catch((error) => {
 				if (guard.isCurrent(token)) {
+					const clearPatient = shouldClearPatientContextAfterError(
+						error,
+						hasPlatformSession(),
+					);
 					this.setData({
-						patient: null,
+						patient: clearPatient
+							? null
+							: preservedPatientForReload(this.data.patient),
 						error: patientScopedErrorMessage(error),
 					});
 				}

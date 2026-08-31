@@ -362,6 +362,28 @@ test("native patient-scoped list errors do not fall through to empty patient sta
 	}
 });
 
+test("patient-bearing closed pages preserve the confirmed patient during a reload", async () => {
+	const pagePaths = [
+		"pages/blood-appointment/blood-appointment.ts",
+		"pages/patient-express/patient-express.ts",
+		"pages/patient-subscription/patient-subscription.ts",
+	] as const;
+
+	for (const pagePath of pagePaths) {
+		const page = await source(pagePath);
+
+		// 这些页面当前没有可调用的下游业务，但页面顶部的患者卡片仍是
+		// 已确认的 owner-scoped 上下文。重读目录失败只能显示业务错误，
+		// 不能把患者同步的暂时故障粗暴渲染成“未选择就诊人”。
+		expect(page).toContain("preservedPatientForReload");
+		expect(page).toContain("shouldClearPatientContextAfterError");
+		expect(page).toContain("hasPlatformSession()");
+		expect(page).not.toMatch(
+			/setData\(\{[\s\S]{0,160}loading:\s*true,[\s\S]{0,160}patient:\s*null/u,
+		);
+	}
+});
+
 test("patient selection errors do not fall through to an unbound-patient empty state", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
