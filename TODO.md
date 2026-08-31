@@ -368,7 +368,7 @@
 - [x] 已完成旧 FastAPI 调度源码、初始化任务字典和独立支付恢复循环的静态盘点；确认 `scheduler_test` 仅为演示函数，`plugin_payment_reconcile_loop` 不属于普通 `app_job`。详见 [`docs/release/legacy-scheduled-task-inventory-2026-08-31.md`](legacy-scheduled-task-inventory-2026-08-31.md)。
 - [x] 已通过旧服务数据库的受控只读 SSH 查询核对 `app_job`：当前总记录数、启用数和停用数均为 0，因此没有需要逐条分流的动态任务；独立的 `plugin_payment_reconcile_loop` 仍单独受支付/HIS gate 约束。正式切换前仍需在冻结窗口重复查询。详见 [`docs/release/legacy-scheduled-task-runtime-inventory-2026-08-31.md`](legacy-scheduled-task-runtime-inventory-2026-08-31.md)。
 - [x] 已补齐仓库级 MySQL/Redis 数据分级、全量备份、binlog/PITR、隔离恢复、保留周期、RPO/RTO 记录格式和恢复后门禁；明确 Redis 会话可重新建立，而支付/订单/outbox 必须按 MySQL 恢复事实处理。详见 [`docs/release/backup-recovery-and-rto-policy-2026-08-31.md`](backup-recovery-and-rto-policy-2026-08-31.md)。
-- [ ] 在生产环境配置并验证备份、binlog/PITR、隔离恢复、RPO/RTO、保留策略和告警通知，保留真实演练证据；当前仓库没有这部分外部证明。
+- [ ] 在生产环境配置并验证备份、binlog/PITR、隔离恢复、RPO/RTO、保留策略和告警通知，保留真实演练证据；当前只确认 MySQL `log_bin=ON`、ROW binlog 和约 30 天保留，不能替代完整备份/恢复演练，详见 [`docs/release/current-backup-pitr-readonly-observation-2026-08-31.md`](current-backup-pitr-readonly-observation-2026-08-31.md)。
 - [x] 已在 `@hospital/observability` 固化 API/Worker readiness、`not_configured`、`not_ready`、outbox 重试/过期积压、查单长期 pending、Provider 错误率/延迟和恢复失败的统一告警代码、阈值、低敏聚合输入和测试；详见 [`docs/release/operational-alert-policy-2026-08-31.md`](operational-alert-policy-2026-08-31.md)。
 - [ ] 将告警策略接入生产指标/日志平台，配置通知、值班责任人，并完成触发/恢复演练；本地判定测试不能替代实际监控证据。
 
