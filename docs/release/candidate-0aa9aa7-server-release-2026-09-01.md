@@ -19,6 +19,10 @@
 2026-09-01 通过 SSH 只读检查确认：线上 `current` 仍指向 `5738a71e...`，API 为 `active`，Worker 为 `inactive`，`18081` 与旧端口
 `8001` 同时监听；`/health/ready` 返回 database、Redis 和 schema 均为 `ok`。本记录没有修改服务器。
 
+同一只读窗口确认 `ps` 账号的 sudo 规则只允许新 API unit 的 `restart`、`is-active` 和 `status` 三个固定命令，
+没有旧 Python unit、Worker 或通配符权限；`shared/api.env` 权限为 `600`。这说明受控重启通道当前可用，
+但不替代发布负责人、备份恢复证据和 `0017` schema 变更批准，也没有在本次检查中执行这些命令。
+
 ## 2. 本地构建产物指纹
 
 以下文件来自当前仓库构建目录，上传前必须在服务器新的 `releases/<完整 commit>/` 目录重新计算 SHA-256 并逐项比对：
@@ -55,4 +59,3 @@
 5. 只有候选、schema、配置、回滚和 smoke 全部通过后，才允许原子切换 `current`，并且只重启新 API unit；切换后重新确认新 API readiness 和旧 `8001`。
 
 具体命令和停止条件遵循 [`infra/systemd/api-v2-release-runbook.md`](../../infra/systemd/api-v2-release-runbook.md)。
-
