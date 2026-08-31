@@ -28,6 +28,7 @@
 - Redis session store 以及 Redis session service 的兜底包装统一标记为 `redis`；
 - 未知或可替换实现不猜测来源，字段保持省略；
 - HTTP 响应仍然是 `503 persistence-temporarily-unavailable`，没有改变用户可见文案、重试次数或写入安全边界；
+- 请求失败日志也统一记录稳定的 `errorCode=persistence-temporarily-unavailable`，不再把该类 503 记录成 `UNKNOWN`；
 - 日志仍只输出固定枚举、持久化操作和允许列表中的错误码，不输出原始异常消息。
 
 相关测试覆盖来源枚举、MySQL/Redis 投影和请求日志白名单。该修正进入下一次受控 API release 后，维护人员可以使用同一个 `requestId/traceId` 判断 `read + mysql + ETIMEDOUT` 或 `read + redis + ETIMEDOUT`，再分别核对对应基础设施日志。

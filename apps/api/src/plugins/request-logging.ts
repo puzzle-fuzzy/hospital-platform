@@ -107,6 +107,9 @@ function publicErrorCode(error: unknown): string | undefined {
 			? "provider-temporarily-unavailable"
 			: "provider-request-rejected";
 	}
+	if (error instanceof PersistenceUnavailableError) {
+		return "persistence-temporarily-unavailable";
+	}
 	return undefined;
 }
 

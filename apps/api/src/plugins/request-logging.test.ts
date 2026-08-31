@@ -121,7 +121,7 @@ test("持久化瞬态故障只记录操作和允许列表错误码", () => {
 
 	expect(metadata).toEqual({
 		errorName: "PersistenceUnavailableError",
-		errorCode: "UNKNOWN",
+		errorCode: "persistence-temporarily-unavailable",
 		persistenceDependency: "mysql",
 		persistenceOperation: "read",
 		persistenceErrorCode: "PROTOCOL_CONNECTION_LOST",
@@ -141,7 +141,7 @@ test("持久化日志拒绝未知或可能携带敏感信息的错误码", () =>
 
 	expect(metadata).toEqual({
 		errorName: "PersistenceUnavailableError",
-		errorCode: "UNKNOWN",
+		errorCode: "persistence-temporarily-unavailable",
 		persistenceOperation: "write",
 	});
 });

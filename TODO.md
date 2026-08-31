@@ -19,7 +19,7 @@
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
 | **合计未完成** | **45** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 94 项，其中已完成 49 项、未完成 45 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 4、P1 19、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 95 项，其中已完成 50 项、未完成 45 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 4、P1 19、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## 0. 先看结论
 
@@ -219,6 +219,7 @@
 - [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts` 共 12 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md)。是否部署仍需单独受控发布窗口，不在本项中擅自执行。
 - [x] 已通过内网 SSH 和公网只读 smoke 取得当前运行层证据：新 API release `5738a71e...` 为 active/current，旧 Python `8001` 仍监听，API/Worker preflight 显示 production、MySQL/Redis/schema ready；线上 schema head 为 `0016_patient_directory_sync_owner_index`，仓库当前 head 为 `0017_outbox_manual_review_state`。该项只完成运行层观测，不代表 Provider、真机或支付业务验收。详见 [`docs/release/current-runtime-readonly-observation-2026-08-31.md`](docs/release/current-runtime-readonly-observation-2026-08-31.md)。
 - [x] 已补齐持久化 503 的后端来源低敏日志字段：MySQL/Redis 适配边界分别投影为固定 `persistenceDependency`，未知实现省略字段；保留现有 503 文案、错误码和重试安全边界。线上旧 release 尚未包含该修正，不能用仓库测试代替真实部署证据。详见 [`docs/release/current-persistence-dependency-observation-2026-08-31.md`](docs/release/current-persistence-dependency-observation-2026-08-31.md)。
+- [x] 已修正请求日志对持久化 503 的稳定错误码映射：`PersistenceUnavailableError` 不再被 Elysia 的 `UNKNOWN` 覆盖，日志统一记录 `errorCode=persistence-temporarily-unavailable`；线上旧 release 尚未包含该修正，仍需随受控候选发布验证。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。
 - [x] 本轮保持旧项目只读；本清单不授权启动旧服务、不改旧数据库、不改旧支付或医保链路。
