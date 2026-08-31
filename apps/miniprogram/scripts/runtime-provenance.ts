@@ -4,7 +4,7 @@
  * 文档和历史验收记录不属于运行包输入；如果只修改文档，已经验证过的
  * `dist/` 不应被错误判定为另一份客户端代码。验收测试和运行包校验脚本也
  * 不会改变小程序实际产物，不能把整个 scripts 目录打包进指纹；只有构建
- * 实际运行源码、构建脚本及其来源解析辅助、构建缓存策略、共享 contract 和锁文件变化才必须
+ * 实际运行源码、影响产物的构建脚本、发布器、构建缓存策略、共享 contract 和锁文件变化才必须
  * 推进来源指纹，避免旧运行包继续被使用。开发者工具维护的
  * `project.config.json` 只在构建时校验必要字段，故意不参与业务源码指纹，
  * 避免本地工具设置变化伪造新的业务版本。
@@ -16,7 +16,6 @@ const RUNTIME_INPUT_PATHS = [
 	"apps/miniprogram/scripts/build.ts",
 	// 发布器决定 live dist 的替换、回滚和开发者工具 404 风险，必须参与运行包来源指纹。
 	"apps/miniprogram/scripts/runtime-publisher.ts",
-	"apps/miniprogram/scripts/runtime-provenance.ts",
 	"apps/miniprogram/turbo.json",
 	"apps/miniprogram/package.json",
 	"apps/miniprogram/tsconfig.build.json",
