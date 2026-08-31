@@ -1,4 +1,4 @@
-> **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`；历史段落只作追溯。
+> **历史归档说明（2026-09-01）**：本文件记录 2026-08-27/28 执行窗口，文中的 `1bc5bf6` 运行包不再是当前候选。当前来源以 [`docs/release/current-baseline.json`](../release/current-baseline.json) 和最新全量交接单为准；本文件仅用于追溯，不能作为当前二维码、运行包或真机验收入口。
 
 # 当前执行检查点（2026-08-27）
 
