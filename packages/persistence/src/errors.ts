@@ -88,6 +88,13 @@ export function safePersistenceErrorCode(error: unknown): string | undefined {
  */
 export type PersistenceDependency = "mysql" | "redis";
 
+/** 运行时重新收窄依赖来源，防止 JavaScript 调用方绕过 TypeScript 类型。 */
+function normalizePersistenceDependency(
+	value: unknown,
+): PersistenceDependency | undefined {
+	return value === "mysql" || value === "redis" ? value : undefined;
+}
+
 /**
  * 持久化后端在请求期间暂时不可用。
  *
@@ -109,7 +116,7 @@ export class PersistenceUnavailableError extends Error {
 		super("Persistence backend is temporarily unavailable");
 		this.name = "PersistenceUnavailableError";
 		this.operation = operation;
-		this.dependency = dependency;
+		this.dependency = normalizePersistenceDependency(dependency);
 		this.errorCode = safePersistenceErrorCode(cause);
 		this.cause = cause;
 	}

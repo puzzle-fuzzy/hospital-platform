@@ -46,3 +46,13 @@ test("持久化故障来源只接受固定后端枚举", () => {
 	expect(mysqlError.dependency).toBe("mysql");
 	expect(redisError.dependency).toBe("redis");
 });
+
+test("持久化故障来源在运行时拒绝越过类型系统的任意字符串", () => {
+	const error = new PersistenceUnavailableError(
+		"read",
+		undefined,
+		"mysql://user:password@host/database" as "mysql",
+	);
+
+	expect(error.dependency).toBeUndefined();
+});
