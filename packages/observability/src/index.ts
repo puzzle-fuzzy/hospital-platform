@@ -1,6 +1,16 @@
 import pino, { type DestinationStream, type Logger as PinoLogger } from "pino";
 
 export type { DestinationStream } from "pino";
+export {
+	evaluateOperationalAlerts,
+	OPERATIONAL_ALERT_THRESHOLDS,
+	type OperationalAlert,
+	type OperationalAlertCode,
+	type OperationalAlertSeverity,
+	type OperationalAlertSnapshot,
+	OperationalAlertSnapshotError,
+	type OperationalDependencyState,
+} from "./operational-alerts";
 export type AppLogger = PinoLogger;
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 
