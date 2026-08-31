@@ -8,6 +8,8 @@
  * 推进来源指纹，避免旧运行包继续被使用。开发者工具维护的
  * `project.config.json` 只在构建时校验必要字段，故意不参与业务源码指纹，
  * 避免本地工具设置变化伪造新的业务版本。
+ * 根目录 `package.json` 只承载工作区脚本和安全扫描入口，不参与小程序产物，
+ * 因此不能作为运行包来源输入；否则仅修改仓库工具脚本就会制造新的客户端候选。
  */
 const RUNTIME_INPUT_PATHS = [
 	"apps/miniprogram/src",
@@ -19,7 +21,6 @@ const RUNTIME_INPUT_PATHS = [
 	"apps/miniprogram/package.json",
 	"apps/miniprogram/tsconfig.build.json",
 	"packages/contracts/src",
-	"package.json",
 	"pnpm-lock.yaml",
 ] as const;
 
