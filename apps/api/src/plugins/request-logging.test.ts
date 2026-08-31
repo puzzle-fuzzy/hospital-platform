@@ -115,13 +115,14 @@ test("持久化瞬态故障只记录操作和允许列表错误码", () => {
 		code: "PROTOCOL_CONNECTION_LOST",
 	});
 	const metadata = safeErrorMetadata(
-		new PersistenceUnavailableError("read", cause),
+		new PersistenceUnavailableError("read", cause, "mysql"),
 		"UNKNOWN",
 	);
 
 	expect(metadata).toEqual({
 		errorName: "PersistenceUnavailableError",
 		errorCode: "UNKNOWN",
+		persistenceDependency: "mysql",
 		persistenceOperation: "read",
 		persistenceErrorCode: "PROTOCOL_CONNECTION_LOST",
 	});

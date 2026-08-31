@@ -46,6 +46,8 @@ type ErrorMetadata = {
 	persistenceOperation?: PersistenceUnavailableError["operation"];
 	/** 仅允许列表中的连接/传输层错误码。 */
 	persistenceErrorCode?: string;
+	/** 持久化后端的固定来源，不记录连接地址或驱动细节。 */
+	persistenceDependency?: PersistenceUnavailableError["dependency"];
 	dependency?: string;
 	/** 持久化读模型固定违规原因，不携带字段原值或数据库内容。 */
 	readModelViolation?: string;
@@ -134,6 +136,7 @@ export function safeErrorMetadata(
 		return {
 			...metadata,
 			persistenceOperation: error.operation,
+			...(error.dependency ? { persistenceDependency: error.dependency } : {}),
 			...(error.errorCode ? { persistenceErrorCode: error.errorCode } : {}),
 		};
 	}

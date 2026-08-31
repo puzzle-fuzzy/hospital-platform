@@ -80,6 +80,15 @@ export function safePersistenceErrorCode(error: unknown): string | undefined {
 }
 
 /**
+ * 持久化故障的后端来源。
+ *
+ * 这里只允许记录平台已知的固定枚举，不能把驱动连接串、主机名或 Redis
+ * 键名作为“依赖名称”传入日志。这样线上出现 `read + ETIMEDOUT` 时，维护
+ * 人员可以继续区分 MySQL 与 Redis，而不会扩大敏感信息暴露面。
+ */
+export type PersistenceDependency = "mysql" | "redis";
+
+/**
  * 持久化后端在请求期间暂时不可用。
  *
  * 该错误只携带内部操作分类和原始 cause，HTTP 层必须映射成安全的
@@ -87,13 +96,20 @@ export function safePersistenceErrorCode(error: unknown): string | undefined {
  */
 export class PersistenceUnavailableError extends Error {
 	readonly operation: "read" | "write" | "transaction";
+	/** 产生本次故障的固定后端来源；未知来源时保持 undefined。 */
+	readonly dependency: PersistenceDependency | undefined;
 	/** 仅允许记录的连接/传输层错误码，不包含原始错误消息。 */
 	readonly errorCode: string | undefined;
 
-	constructor(operation: "read" | "write" | "transaction", cause?: unknown) {
+	constructor(
+		operation: "read" | "write" | "transaction",
+		cause?: unknown,
+		dependency?: PersistenceDependency,
+	) {
 		super("Persistence backend is temporarily unavailable");
 		this.name = "PersistenceUnavailableError";
 		this.operation = operation;
+		this.dependency = dependency;
 		this.errorCode = safePersistenceErrorCode(cause);
 		this.cause = cause;
 	}

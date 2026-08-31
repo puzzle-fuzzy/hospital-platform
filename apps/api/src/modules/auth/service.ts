@@ -348,7 +348,7 @@ export function createRedisSessionTokenService(
 					error instanceof PersistenceUnavailableError
 				)
 					throw error;
-				throw new PersistenceUnavailableError("write", error);
+				throw new PersistenceUnavailableError("write", error, "redis");
 			}
 			return { accessToken, expiresInSeconds };
 		},
@@ -372,7 +372,7 @@ export function createRedisSessionTokenService(
 					error instanceof SessionPrincipalReadModelValidationError
 				)
 					throw error;
-				throw new PersistenceUnavailableError("read", error);
+				throw new PersistenceUnavailableError("read", error, "redis");
 			}
 		},
 	};

@@ -43,12 +43,14 @@ test("Redis session store 将读写传输故障投影为持久化暂不可用", 
 		{
 			name: "PersistenceUnavailableError",
 			operation: "write",
+			dependency: "redis",
 			errorCode: "ECONNRESET",
 		},
 	);
 	await expect(store.findUserId("token-001")).rejects.toMatchObject({
 		name: "PersistenceUnavailableError",
 		operation: "read",
+		dependency: "redis",
 		errorCode: "ECONNRESET",
 	});
 });

@@ -54,7 +54,7 @@ export function createRedisSessionStore(
 				// 不是“没有配置”。统一在 persistence 边界投影，避免 API
 				// 把登录失败错误地返回为 dependency-not-configured。
 				if (error instanceof PersistenceUnavailableError) throw error;
-				throw new PersistenceUnavailableError("write", error);
+				throw new PersistenceUnavailableError("write", error, "redis");
 			}
 		},
 		async findUserId(accessToken) {
@@ -64,7 +64,7 @@ export function createRedisSessionStore(
 				// GET 失败不能被当成“没有这个 token”：前者代表基础设施故障，
 				// 后者才是正常的会话过期/主动退出，分别对应 503 和 401。
 				if (error instanceof PersistenceUnavailableError) throw error;
-				throw new PersistenceUnavailableError("read", error);
+				throw new PersistenceUnavailableError("read", error, "redis");
 			}
 		},
 	};

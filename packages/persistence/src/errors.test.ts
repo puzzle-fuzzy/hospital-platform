@@ -30,3 +30,19 @@ test("未知持久化错误码不因包含关键词而被放行", () => {
 	expect(isTransientPersistenceError(cause)).toBe(false);
 	expect(safePersistenceErrorCode(cause)).toBeUndefined();
 });
+
+test("持久化故障来源只接受固定后端枚举", () => {
+	const mysqlError = new PersistenceUnavailableError(
+		"read",
+		undefined,
+		"mysql",
+	);
+	const redisError = new PersistenceUnavailableError(
+		"read",
+		undefined,
+		"redis",
+	);
+
+	expect(mysqlError.dependency).toBe("mysql");
+	expect(redisError.dependency).toBe("redis");
+});

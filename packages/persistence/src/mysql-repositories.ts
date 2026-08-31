@@ -339,12 +339,13 @@ async function execute<T extends RowDataPacket[] | ResultSetHeader>(
 					lastError = retryError;
 				}
 			}
-			throw new PersistenceUnavailableError("read", lastError);
+			throw new PersistenceUnavailableError("read", lastError, "mysql");
 		}
 
 		throw new PersistenceUnavailableError(
 			isPoolClient(client) ? "write" : "transaction",
 			error,
+			"mysql",
 		);
 	}
 }
@@ -360,7 +361,7 @@ async function withTransaction<T>(
 		// 事务连接申请失败时还没有可 rollback 的连接，但它仍然属于
 		// 持久化瞬态故障；统一包装成 transaction，避免调用方看到驱动原文。
 		if (isTransientPersistenceError(error)) {
-			throw new PersistenceUnavailableError("transaction", error);
+			throw new PersistenceUnavailableError("transaction", error, "mysql");
 		}
 		throw error;
 	}

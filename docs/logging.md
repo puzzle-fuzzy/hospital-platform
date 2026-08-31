@@ -17,9 +17,11 @@
 API 请求还应记录 `method`、`path`、`statusCode`、`durationMs`；失败请求额外记录
 低敏的 `errorName`，必要时记录 Elysia 生命周期 `errorCode`，但不记录错误消息。
 如果失败类型是 `PersistenceUnavailableError`，还可记录 `persistenceOperation`
-和允许列表中的规范化 `persistenceErrorCode`，用于判断连接丢失、重置或超时；
-驱动或包装层返回的小写、短横线形式会先统一为固定的大写下划线码；这两个字段
-不包含 SQL、连接串、账号、参数或原始错误消息。
+、固定枚举 `persistenceDependency` 和允许列表中的规范化 `persistenceErrorCode`，用于判断
+是 MySQL 还是 Redis 的连接丢失、重置或超时；
+驱动或包装层返回的小写、短横线形式会先统一为固定的大写下划线码；这些诊断字段
+不包含 SQL、连接串、账号、参数或原始错误消息。无法确定来源的可替换实现不应猜测，
+此时省略 `persistenceDependency`，仍保留操作和安全错误码。
 如果会话存储或可替换的 `SessionTokenService` 返回了异常 principal，统一请求日志还可记录固定的
 `readModelViolation=user-id-invalid`；该字段只说明会话读模型不符合 contract，不记录原始 `userId`、token
 或 Redis 键。该错误公共响应为 `persistence-invalid`，不能记录成普通 401，否则会让客户端把数据损坏误判为
@@ -65,7 +67,7 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 | `http.request.failed` | API 请求生命周期 | 查询异常请求、错误类型和耗时 |
 | `worker.loop.failed` | Worker 单次轮询 | 记录单次 outbox/查单轮询异常类型；不会把异常原文写入日志，也不代表进程已经停止 |
 | `log.redaction.failed` | Pino 安全序列化边界 | 记录日志记录因序列化或脱敏边界异常被丢弃；只允许固定错误类型，不能回退输出原始日志正文 |
-| `persistence-temporarily-unavailable` | API 持久化错误响应 | MySQL 连接/传输层短暂异常；连接池内的幂等读最多执行初始请求加两次短退避恢复尝试（25ms、100ms），写入和事务不会盲目重试；响应只返回 503 安全错误码，日志最多增加 `persistenceOperation` 和允许列表中的 `persistenceErrorCode`，不记录原始协议报文 |
+| `persistence-temporarily-unavailable` | API 持久化错误响应 | MySQL/Redis 连接或传输层短暂异常；MySQL 连接池内的幂等读最多执行初始请求加两次短退避恢复尝试（25ms、100ms），写入和事务不会盲目重试；响应只返回 503 安全错误码，日志最多增加固定的 `persistenceDependency`、`persistenceOperation` 和允许列表中的 `persistenceErrorCode`，不记录原始协议报文 |
 | `auth.wechat.login.requested` | 微信授权登录应用服务 | 记录登录开始、traceId、provider 和是否携带幂等键；不记录 code |
 | `auth.wechat.login.succeeded` | 微信授权登录应用服务 | 记录内部 userId、provider request id 和会话 TTL；不记录 openid、unionId 或 access token |
 | `auth.wechat.login.failed` | 微信授权登录应用服务 | 记录错误类型和是否可重试；不记录 provider message、code 或原始响应 |
@@ -284,8 +286,9 @@ smoke 批次号：网络错误、非法 JSON、HTTP/业务失败和 readiness �
 还要求平台错误码为 `not-found`，避免把代理层的任意 404 误认为应用确实保持了未注册状态。
 `statusCode=0` 只表示没有收到 HTTP 响应，不是服务端返回的业务状态码。
 
-MySQL 出现连接断开时，优先按 `requestId` 检索 `http.request.failed`，结合 `errorName`、HTTP 503、
-`persistenceOperation` 和 `persistenceErrorCode`，再与时间窗口内的数据库服务、网络和连接池状态核对。
+持久化出现连接断开时，优先按 `requestId` 检索 `http.request.failed`，结合 `errorName`、HTTP 503、
+`persistenceDependency`、`persistenceOperation` 和 `persistenceErrorCode`，再与时间窗口内的对应
+数据库/Redis 服务、网络和连接池状态核对。若来源缺失，不能仅凭 `read` 推断是 MySQL 或 Redis。
 幂等查询可以自动恢复一次；支付、预约等写入或事务
 遇到断连不会自动重复提交，必须先根据持久化事实确认服务端是否已经执行，再决定补偿或重试。
 

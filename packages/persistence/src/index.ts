@@ -1,6 +1,7 @@
 import type { DependencyState } from "@hospital/contracts";
 
 export {
+	type PersistenceDependency,
 	PersistenceNotConfiguredError,
 	PersistenceUnavailableError,
 } from "./errors";
