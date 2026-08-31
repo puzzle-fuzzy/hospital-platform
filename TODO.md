@@ -344,7 +344,7 @@
 - [x] 已将源码 revision、dist/build-info、API release、schema head 和真实证据批次绑定到同一发布记录；索引审计会在 live `dist` 存在时检查其 sourceRevision，真机证据仍必须逐域采集，不能用 pending 模板宣称完成。
 - [x] 已明确本机测试基线：`project.private.config.json` 被 `.gitignore` 忽略，测试在文件存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时不再因 `undefined` 失败；详见小程序 acceptance test。
 - [x] 已核对并同步当前候选文档中的 live 小程序完整 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`，修正干净的全量迁移交接单当前入口并明确旧候选段落为历史；同时将干净的 2026-08-27 执行检查点标记为历史归档。发布基线测试只断言 fail-closed 语义与低敏漂移文件输出，避免候选轮换后被旧 fixture 掩盖真实阻断；其他会话未提交的 2026-08-28 执行检查点仍由完整发布审计单独拦截。
-- [x] 已校正服务端线上漂移审计中的当前 `main` revision 为真实存在的 `7668d747c1eb0885bf2dde29f83024fcae6adf99`；16 个运行时代码文件仍按线上 release 漂移门禁保持未部署状态，未因文档修正而放宽发布条件。
+- [x] 已校正服务端线上漂移审计中的审计取样基线为真实存在的 `7668d747c1eb0885bf2dde29f83024fcae6adf99`；16 个运行时代码文件仍按线上 release 漂移门禁保持未部署状态，未因文档修正而放宽发布条件。
 
 ### 10.6 本轮确认不需要补充的内容
 
