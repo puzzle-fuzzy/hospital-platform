@@ -111,12 +111,22 @@ function requiredDocumentFragments(facts) {
 			// 继续生成真机证据。这里只校验低敏版本、页数和状态计数，
 			// 不读取 dist 内容。
 			path: "docs/release/breadth-first-page-coverage-2026-08-25.md",
+			scope: "current-prefix",
+			forbiddenFragments: [
+				"64 个旧页面、40 个原生页面",
+				"surface-only=25",
+				"当前小程序源码与 live 运行输入为 `02dbf10`",
+				"312 pass / 0 fail / 3550 expect()",
+			],
 			fragments: [
 				`64 个旧页面、${miniProgramPageCount} 个原生页面`,
+				formatLegacyPageStatus("replaced"),
 				formatLegacyPageStatus("partial"),
 				formatLegacyPageStatus("surface-only"),
+				formatLegacyPageStatus("blocked-payment"),
 				formatLegacyPageStatus("blocked-provider"),
 				formatLegacyPageStatus("blocked-external"),
+				formatLegacyPageStatus("excluded"),
 				`当前小程序源码与 live 运行输入为 \`${miniProgramSourceRevision}\``,
 			],
 		},
@@ -129,9 +139,21 @@ export async function auditMigrationDocumentation(root = repositoryRoot) {
 	const failures = [];
 	for (const document of requiredDocumentFragments(facts)) {
 		const content = await Bun.file(resolve(root, document.path)).text();
+		const currentContent =
+			document.scope === "current-prefix"
+				? content.split("\n## 结论", 1)[0]
+				: content;
+		if (document.scope === "current-prefix" && currentContent === content) {
+			failures.push(`${document.path} 缺少当前事实区边界：## 结论`);
+		}
 		for (const fragment of document.fragments) {
-			if (!content.includes(fragment)) {
+			if (!currentContent.includes(fragment)) {
 				failures.push(`${document.path} 缺少当前事实：${fragment}`);
+			}
+		}
+		for (const fragment of document.forbiddenFragments ?? []) {
+			if (currentContent.includes(fragment)) {
+				failures.push(`${document.path} 当前事实区仍含历史候选：${fragment}`);
 			}
 		}
 	}
