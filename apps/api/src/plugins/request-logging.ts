@@ -110,6 +110,9 @@ function publicErrorCode(error: unknown): string | undefined {
 	if (error instanceof PersistenceUnavailableError) {
 		return "persistence-temporarily-unavailable";
 	}
+	if (error instanceof DependencyNotConfiguredError) {
+		return "dependency-not-configured";
+	}
 	return undefined;
 }
 

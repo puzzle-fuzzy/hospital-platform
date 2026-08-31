@@ -105,7 +105,7 @@ test("依赖未配置时日志标记具体依赖而不是打印配置值", () =>
 
 	expect(metadata).toEqual({
 		errorName: "DependencyNotConfiguredError",
-		errorCode: "UNKNOWN",
+		errorCode: "dependency-not-configured",
 		dependency: "zhongyang-appointment-directory",
 	});
 });
