@@ -133,6 +133,15 @@ export {
 	validateHealthKnowledgeImportBundle,
 } from "./knowledge-import";
 export type {
+	ManualReviewKind,
+	ManualReviewReasonCode,
+	ManualReviewRepository,
+	ManualReviewSnapshot,
+	OutboxManualReviewItem,
+	PaymentManualReviewItem,
+} from "./manual-review";
+export { MANUAL_REVIEW_REASON_CODES } from "./manual-review";
+export type {
 	OutpatientMedicalRecord,
 	OutpatientMedicalRecordGateway,
 	OutpatientMedicalRecordQuery,

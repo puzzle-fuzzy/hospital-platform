@@ -2,6 +2,7 @@ import type {
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotRepository,
 	IdentityUser,
+	ManualReviewRepository,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
 	PatientDirectorySyncStart,
@@ -926,6 +927,7 @@ export function createNotConfiguredRepositories(): {
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	reportReferences: ReportReferenceRepository;
+	operations: ManualReviewRepository;
 	healthKnowledge: ReturnType<
 		typeof createNotConfiguredHealthKnowledgeRepository
 	>;
@@ -1017,6 +1019,14 @@ export function createNotConfiguredRepositories(): {
 			},
 			findByOwnerPatientAndId: async () => {
 				throw new PersistenceNotConfiguredError("report-references");
+			},
+		},
+		operations: {
+			list: async () => {
+				throw new PersistenceNotConfiguredError("manual-review");
+			},
+			requeue: async () => {
+				throw new PersistenceNotConfiguredError("manual-review");
 			},
 		},
 		healthKnowledge: createNotConfiguredHealthKnowledgeRepository(),

@@ -110,6 +110,7 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 		| "wechat-payment-notifications"
 		| "appointment-schedule-snapshots"
 		| "report-references"
+		| "manual-review"
 		| "health-knowledge";
 
 	constructor(
@@ -123,6 +124,7 @@ export class PersistenceNotConfiguredError extends DependencyNotConfiguredError 
 			| "wechat-payment-notifications"
 			| "appointment-schedule-snapshots"
 			| "report-references"
+			| "manual-review"
 			| "health-knowledge",
 	) {
 		super(`persistence:${resource}`);

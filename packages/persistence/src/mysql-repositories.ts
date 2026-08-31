@@ -5,7 +5,10 @@ import type {
 	AppointmentScheduleSnapshotRepository,
 	HealthKnowledgeRepository,
 	IdentityUser,
+	ManualReviewRepository,
+	ManualReviewSnapshot,
 	OutboxEvent,
+	OutboxManualReviewItem,
 	OutboxRepository,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
@@ -16,6 +19,7 @@ import type {
 	PatientRecord,
 	PatientRelationship,
 	PatientRepository,
+	PaymentManualReviewItem,
 	PaymentOrder,
 	PaymentOrderRepository,
 	PaymentPrepayAttempt,
@@ -38,8 +42,8 @@ import {
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
-	UserProfileVersionConflictError,
 	parseStrictIsoInstant,
+	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
 } from "@hospital/domain";
@@ -254,6 +258,30 @@ type OutboxEventRow = RowDataPacket & {
 	manual_review_at: string | null;
 };
 
+type OutboxManualReviewRow = RowDataPacket & {
+	event_id: string;
+	event_name: string;
+	aggregate_id: string;
+	attempts: number | string;
+	occurred_at: string;
+	available_at: string;
+	manual_review_at: string | null;
+	last_error: string | null;
+};
+
+type PaymentManualReviewRow = RowDataPacket & {
+	attempt_id: string;
+	order_id: string;
+	provider: string;
+	status: string;
+	version: number | string;
+	query_attempts: number | string;
+	manual_review_at: string | null;
+	last_error_code: string | null;
+	created_at: string;
+	updated_at: string;
+};
+
 const OUTBOX_EVENT_STATUSES: readonly OutboxEvent["status"][] = [
 	"pending",
 	"processed",
@@ -278,6 +306,8 @@ export type MySqlRepositories = {
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
 	reportReferences: ReportReferenceRepository;
 	outbox: OutboxRepository;
+	/** 只供受控维护命令使用；患者 API 和普通 Worker 不应调用。 */
+	operations: ManualReviewRepository;
 	healthKnowledge: HealthKnowledgeRepository;
 };
 
@@ -1063,6 +1093,82 @@ function outboxEvent(row: OutboxEventRow): OutboxEvent {
 		availableAt: row.available_at,
 		attempts: row.attempts,
 		...(row.manual_review_at ? { manualReviewAt: row.manual_review_at } : {}),
+	};
+}
+
+/**
+ * 维护列表只允许回显固定格式的内部原因码。
+ *
+ * `last_error` 是历史上为了诊断保留的字符串，不能假设未来所有写入方都
+ * 只写固定枚举；如果值不符合低敏格式，宁可显示为 unknown，也不能把 SQL、
+ * provider 原文或异常参数打印到运维终端。
+ */
+function safeOperationalReasonCode(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const normalized = value.startsWith("manual-replay:")
+		? value.slice("manual-replay:".length)
+		: value;
+	return /^[a-z][a-z0-9._-]{0,63}$/u.test(normalized) ? normalized : undefined;
+}
+
+function manualReviewLimit(value: number): number {
+	if (!Number.isSafeInteger(value) || value < 1) {
+		throw new Error("Manual review limit must be a positive integer");
+	}
+	return Math.min(value, 100);
+}
+
+function outboxManualReviewItem(
+	row: OutboxManualReviewRow,
+): OutboxManualReviewItem {
+	const attempts = safeDatabaseInteger(
+		row.attempts,
+		0,
+		"Persistence returned an invalid outbox attempts count",
+	);
+	const reasonCode = safeOperationalReasonCode(row.last_error);
+	return {
+		kind: "outbox",
+		eventId: row.event_id,
+		eventName: row.event_name,
+		aggregateId: row.aggregate_id,
+		attempts,
+		occurredAt: row.occurred_at,
+		availableAt: row.available_at,
+		...(row.manual_review_at ? { manualReviewAt: row.manual_review_at } : {}),
+		...(reasonCode ? { reasonCode } : {}),
+	};
+}
+
+function paymentManualReviewItem(
+	row: PaymentManualReviewRow,
+): PaymentManualReviewItem {
+	if (row.provider !== "wechat-pay" || row.status !== "manual_review") {
+		throw new Error(
+			"Persistence returned an invalid payment manual review row",
+		);
+	}
+	const lastErrorCode = safeOperationalReasonCode(row.last_error_code);
+	return {
+		kind: "wechat-payment-query",
+		attemptId: row.attempt_id,
+		orderId: row.order_id,
+		provider: "wechat-pay",
+		status: "manual_review",
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid payment manual review version",
+		),
+		queryAttempts: safeDatabaseInteger(
+			row.query_attempts,
+			0,
+			"Persistence returned an invalid payment query attempts count",
+		),
+		...(row.manual_review_at ? { manualReviewAt: row.manual_review_at } : {}),
+		...(lastErrorCode ? { lastErrorCode } : {}),
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
 	};
 }
 
@@ -2213,6 +2319,63 @@ export function createMySqlRepositories(
 		},
 	};
 
+	/**
+	 * 受控人工复核仓储。
+	 *
+	 * 列表查询只投影运维摘要，不读取 payload 或支付密文；重新入队使用
+	 * `status = 'manual_review'` 条件，防止过期的人工操作覆盖另一位操作员
+	 * 已经完成的处理。attempt/queryAttempts 不重置，若再次失败仍会很快回到
+	 * 人工复核，避免通过人工命令绕过自动重试上限。
+	 */
+	const operations: ManualReviewRepository = {
+		async list(limit) {
+			const queryLimit = manualReviewLimit(limit);
+			const [outboxRows, paymentRows] = await Promise.all([
+				execute<OutboxManualReviewRow[]>(
+					pool,
+					`SELECT event_id, event_name, aggregate_id, attempts, occurred_at,
+						available_at, manual_review_at, last_error
+					 FROM hp_outbox_events
+					 WHERE status = 'manual_review' AND processed_at IS NULL
+					 ORDER BY manual_review_at IS NULL, manual_review_at, event_id
+					 LIMIT ${queryLimit}`,
+				),
+				execute<PaymentManualReviewRow[]>(
+					pool,
+					`SELECT attempt_id, order_id, provider, status, version, query_attempts,
+						manual_review_at, last_error_code, created_at, updated_at
+					 FROM hp_payment_prepay_attempts
+					 WHERE provider = 'wechat-pay' AND status = 'manual_review'
+					 ORDER BY manual_review_at IS NULL, manual_review_at, attempt_id
+					 LIMIT ${queryLimit}`,
+				),
+			]);
+			const snapshot: ManualReviewSnapshot = {
+				outbox: outboxRows.map(outboxManualReviewItem),
+				paymentQueries: paymentRows.map(paymentManualReviewItem),
+			};
+			return snapshot;
+		},
+		async requeue({ kind, id, now, reasonCode }) {
+			const replayReason = `manual-replay:${reasonCode}` satisfies string;
+			if (kind === "outbox") {
+				const result = await execute<ResultSetHeader>(
+					pool,
+					"UPDATE hp_outbox_events SET status = 'pending', available_at = ?, claimed_until = NULL, manual_review_at = NULL, last_error = ? WHERE event_id = ? AND status = 'manual_review' AND processed_at IS NULL",
+					[mysqlDateTime(now), replayReason, id],
+				);
+				return result.affectedRows === 1;
+			}
+
+			const result = await execute<ResultSetHeader>(
+				pool,
+				"UPDATE hp_payment_prepay_attempts SET status = 'pending', next_query_at = ?, query_claimed_until = NULL, manual_review_at = NULL, last_error_code = ?, version = version + 1, updated_at = ? WHERE attempt_id = ? AND provider = 'wechat-pay' AND status = 'manual_review'",
+				[mysqlDateTime(now), replayReason, mysqlDateTime(now), id],
+			);
+			return result.affectedRows === 1;
+		},
+	};
+
 	return {
 		identityUsers,
 		userProfiles,
@@ -2224,6 +2387,7 @@ export function createMySqlRepositories(
 		appointmentScheduleSnapshots,
 		reportReferences,
 		outbox,
+		operations,
 		healthKnowledge: createMySqlHealthKnowledgeRepository(pool),
 	};
 }
