@@ -199,7 +199,7 @@
 ### P0：先补当前验收和运行基线
 
 - [x] 已生成 `docs/release/device-evidence-3f8274ec5435779c0603ce8475a4f4e86d292cbd-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
-- [ ] 已将服务端候选记录和当前项目基线更新为小程序 source revision `3f8274ec...`；其余验收文档仍有旧候选语句，待继续清理后再标记完成。
+- [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `3f8274ec5435779c0603ce8475a4f4e86d292cbd`；`pnpm release:baseline:audit` 的文档基线部分已通过，文档中保留的旧候选仅作历史追溯。
 - [ ] 明确 `5738a71e...` server release 与当前 `packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/observability/src/index.ts` 的部署关系；在部署或基线更新前，不宣称当前 release 一致。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。

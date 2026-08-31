@@ -4,7 +4,7 @@
 
 > 跨业务域并行执行顺序见 [`breadth-execution-board-2026-08-25.md`](breadth-execution-board-2026-08-25.md)。
 
-> **当前事实源（2026-08-27）**：线上服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；源码已注册 38 个原生页面，本地 live 运行包来源为 `1bc5bf6`，完整 sourceRevision 为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，已通过运行包校验。健康自测中的 BMI/血压安全数值子集已进入 `partial`；当前仍有 25 个 `surface-only` 和 7 个支付/回写阻塞入口未开放真实业务；本轮继续保持共享患者外壳、二维码安全壳和健康数值工具边界，并补齐会话失效时旧 owner 微信资料缓存清理、关闭态卡片纵向居中、预约查询底层输入边界和 App.onLaunch 全局资料初始化时序。以下表格按当前机器台账修正，旧日期段落只作追溯。
+> **当前事实源（2026-08-27）**：线上服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；源码已注册 38 个原生页面，本地 live 运行包来源为 `3f8274e`，完整 sourceRevision 为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，已通过运行包校验。健康自测中的 BMI/血压安全数值子集已进入 `partial`；当前仍有 25 个 `surface-only` 和 7 个支付/回写阻塞入口未开放真实业务；本轮继续保持共享患者外壳、二维码安全壳和健康数值工具边界，并补齐会话失效时旧 owner 微信资料缓存清理、关闭态卡片纵向居中、预约查询底层输入边界和 App.onLaunch 全局资料初始化时序。以下表格按当前机器台账修正，旧日期段落只作追溯。
 
 > 本页回答“旧端还有哪些入口没有迁移”这个范围问题，不把统一状态页误写成真实业务完成。数据由
 > `apps/miniprogram/src/services/legacy-page-catalog.ts` 派生，并由 `legacy-page-catalog.test.ts`

@@ -1,4 +1,4 @@
-> 当前小程序配套运行包来源（2026-08-28）：本地 live 运行输入为 1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916（提交 1bc5bf6）。本行只锁定当前候选，历史段落保留用于追溯。
+> 当前小程序配套运行包来源（2026-08-28）：本地 live 运行输入为 3f8274ec5435779c0603ce8475a4f4e86d292cbd（提交 3f8274e）。本行只锁定当前候选，历史段落保留用于追溯。
 
 > **当前候选同步（2026-08-28）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live/pending 运行包 sourceRevision `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`；历史段落只作追溯。
 
@@ -14,7 +14,7 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| live 运行包来源 | `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，38 个页面；`runtime:verify` 通过 |
+| live 运行包来源 | `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，38 个页面；`runtime:verify` 通过 |
 | pending 候选来源 | 无；发布成功后 pending 目录已按发布器约定清理 |
 | pending 目录 | 不存在；发布前静态校验已通过 |
 | 发布结果 | 已原子切换到 live `dist`；没有手工覆盖或修改来源指纹 |
@@ -94,7 +94,7 @@ pnpm --filter @hospital/miniprogram runtime:verify
 
 ## 发布成功后的验收顺序
 
-发布只证明运行包切换，不证明业务完成。当前应从已切换的 `1bc5bf6` live `dist`
+发布只证明运行包切换，不证明业务完成。当前应从已切换的 `3f8274e` live `dist`
 重新生成二维码，再按以下顺序逐域采证：
 
 ```text
@@ -110,4 +110,4 @@ pnpm --filter @hospital/miniprogram runtime:verify
 每个域都必须同时留下页面状态、客户端 `requestId`、Elysia/Pino 低敏事件以及适用时的
 Provider request id。HTTP 200、空列表、页面可打开或 `runtime:verify` 通过，均不能单独
 把业务状态标记为完成。
-> 当前统一发布基线补充（2026-08-28）：服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；小程序本地 live 运行包来源为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，共 38 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。
+> 当前统一发布基线补充（2026-08-28）：服务端 release 为 `5738a71e0bcddaa8849106754baf5b296427bed7`；小程序本地 live 运行包来源为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，共 38 个页面。本文更早版本仅作历史追溯，真机证据仍为 pending；旧 Python `8001` 未修改。

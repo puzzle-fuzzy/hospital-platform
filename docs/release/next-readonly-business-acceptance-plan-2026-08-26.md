@@ -21,8 +21,8 @@
 
 | 项目 | 当前事实 |
 | --- | --- |
-| 小程序业务候选 | `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`（`1bc5bf6`） |
-| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，38 个页面，`runtime:verify` 已通过 |
+| 小程序业务候选 | `3f8274ec5435779c0603ce8475a4f4e86d292cbd`（`3f8274e`） |
+| live 小程序运行包 | `apps/miniprogram/dist/` 已切换为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，38 个页面，`runtime:verify` 已通过 |
 | pending 运行包 | 当前无 pending 目录；后续源码变化必须重新构建并通过原子发布流程 |
 | 服务端 | 生产 `5738a71e`，新 Elysia 监听 `10.0.0.3:18081` |
 | 旧服务 | Python `8001` 继续监听，本计划不修改、不停止、不重启 |
@@ -31,7 +31,7 @@
 
 上一份待采集清单绑定候选 `731c9571`，不能直接沿用；当前 live 候选已创建新的九域清单 [`device-evidence-1bc5bf6-pending.json`](device-evidence-1bc5bf6-pending.json)，全部域仍为 `pending`，不能把结构校验结果写成真机完成。
 
-本次运行包来源为 `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916`，发布后以 live `build-info.json` 的同一来源指纹为准。
+本次运行包来源为 `3f8274ec5435779c0603ce8475a4f4e86d292cbd`，发布后以 live `build-info.json` 的同一来源指纹为准。
 
 本次候选切换已完成。现在必须从 live `dist` 重新普通编译并生成二维码；不能把历史二维码、旧 live 运行包或已经清理的 pending 目录当成真机包。
 

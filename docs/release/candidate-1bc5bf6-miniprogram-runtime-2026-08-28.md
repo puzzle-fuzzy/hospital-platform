@@ -8,8 +8,8 @@
 | --- | --- |
 | 配套服务端 release | `5738a71e0bcddaa8849106754baf5b296427bed7` |
 | 小程序提交 | `1bc5bf6` |
-| 小程序构建来源 | `1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` |
-| 当前 live `dist` | `apps/miniprogram/dist/`，sourceRevision=`1bc5bf6f7cc4d38fad29fbf7e8aca3f65c46b916` |
+| 小程序构建来源 | `3f8274ec5435779c0603ce8475a4f4e86d292cbd` |
+| 当前 live `dist` | `apps/miniprogram/dist/`，sourceRevision=`3f8274ec5435779c0603ce8475a4f4e86d292cbd` |
 | 页面与 Tab | 38 个页面、4 个微信原生 Tab |
 | 微信线上版本 | 尚未上传，本候选仅供本地/开发者工具验证 |
 
