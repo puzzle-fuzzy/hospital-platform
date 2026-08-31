@@ -6,15 +6,18 @@
 
 当前线上候选仍是服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`。仓库 `main` 在该 release 之后新增了 Provider 失败阶段和传输错误码观测、支付/ outbox 自动重试上限与人工复核状态，以及对应的 schema migration；这些变更尚未部署到线上，因此不能把仓库当前源码描述为线上运行事实。
 
-`pnpm release:baseline:audit` 的小程序文档基线部分已经通过；它仍因下列 9 个运行时文件未进入线上 release 而保持失败，这正是预期的 fail-closed 结果：
+`pnpm release:baseline:audit` 的小程序文档基线部分已经通过；它仍因下列 12 个运行时文件未进入线上 release 而保持失败，这正是预期的 fail-closed 结果：
 
 | 文件 | 变更提交 | 变更目的 | 当前关系 |
 | --- | --- | --- | --- |
 | `packages/adapters/src/errors.ts` | `2a0d98bc`、后续整理 | 增加 Provider 失败阶段类型 | 仓库候选有，线上 release 无 |
 | `packages/adapters/src/http.ts` | `2a0d98bc`、后续整理 | 区分 HTTP、响应和传输失败 | 仓库候选有，线上 release 无 |
+| `packages/domain/src/index.ts` | `c39189c7` | 导出人工复核领域模型 | 仓库候选有，线上 release 无 |
+| `packages/domain/src/manual-review.ts` | `c39189c7` | 定义人工复核状态/原因码边界 | 仓库候选有，线上 release 无 |
 | `packages/domain/src/payment-order.ts` | `283dabb5` | 增加支付预支付人工复核状态和时间 | 仓库候选有，线上 release 无 |
 | `packages/domain/src/payment-provider.ts` | `283dabb5` | 对齐支付查单失败/人工复核边界 | 仓库候选有，线上 release 无 |
 | `packages/observability/src/index.ts` | `2a0d98bc`、`48061c3d`、`6063d5dd` | 记录受限传输错误码和失败阶段 | 仓库候选有，线上 release 无 |
+| `packages/observability/src/operational-alerts.ts` | `07f60e9f` | 固化运维告警阈值和低敏聚合 | 仓库候选有，线上 release 无 |
 | `packages/persistence/src/migrate.ts` | `283dabb5` | 纳入 `0017_outbox_manual_review_state` schema | 仓库候选有，线上 release 无 |
 | `packages/persistence/src/mysql-repositories.ts` | `283dabb5` | 持久化 outbox/支付人工复核状态 | 仓库候选有，线上 release 无 |
 | `packages/persistence/src/outbox.ts` | `283dabb5` | 持久化 outbox 人工复核状态 | 仓库候选有，线上 release 无 |
@@ -25,14 +28,14 @@
 在仓库根目录执行：
 
 ```text
-git diff --name-status 5738a71e0bcddaa8849106754baf5b296427bed7 -- packages/adapters/src/errors.ts packages/adapters/src/http.ts packages/domain/src/payment-order.ts packages/domain/src/payment-provider.ts packages/observability/src/index.ts packages/persistence/src/migrate.ts packages/persistence/src/mysql-repositories.ts packages/persistence/src/outbox.ts packages/persistence/src/repositories.ts
+git diff --name-status 5738a71e0bcddaa8849106754baf5b296427bed7 -- packages/adapters/src/errors.ts packages/adapters/src/http.ts packages/domain/src/index.ts packages/domain/src/manual-review.ts packages/domain/src/payment-order.ts packages/domain/src/payment-provider.ts packages/observability/src/index.ts packages/observability/src/operational-alerts.ts packages/persistence/src/migrate.ts packages/persistence/src/mysql-repositories.ts packages/persistence/src/outbox.ts packages/persistence/src/repositories.ts
 pnpm release:baseline:audit
 ```
 
-核验结果为 9 个运行时文件存在 release 之后的源码差异；审计器同时报告：
+核验结果为 12 个运行时文件存在 release 之后的源码差异；审计器同时报告：
 
 ```text
-服务端 release 5738a71e0bcddaa8849106754baf5b296427bed7 之后存在未部署运行时代码：packages/adapters/src/errors.ts, packages/adapters/src/http.ts, packages/domain/src/payment-order.ts, packages/domain/src/payment-provider.ts, packages/observability/src/index.ts, packages/persistence/src/migrate.ts, packages/persistence/src/mysql-repositories.ts, packages/persistence/src/outbox.ts, packages/persistence/src/repositories.ts
+服务端 release 5738a71e0bcddaa8849106754baf5b296427bed7 之后存在未部署运行时代码：packages/adapters/src/errors.ts, packages/adapters/src/http.ts, packages/domain/src/index.ts, packages/domain/src/manual-review.ts, packages/domain/src/payment-order.ts, packages/domain/src/payment-provider.ts, packages/observability/src/index.ts, packages/observability/src/operational-alerts.ts, packages/persistence/src/migrate.ts, packages/persistence/src/mysql-repositories.ts, packages/persistence/src/outbox.ts, packages/persistence/src/repositories.ts
 ```
 
 这些改动包含低敏故障定位字段和后台人工接管状态，不应通过修改审计器、只发布其中一部分、跳过 `0017` migration 或把源码提交号写成线上版本来绕过门禁。

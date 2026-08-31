@@ -46,7 +46,7 @@
 已通过的结构审计包括架构、页面台账、冻结入口、契约材料覆盖、入口广度、导航、患者展示、临床边界、低风险只读域、Provider intake、错误契约、文档链接、日志事件、工具链、模板和类型检查。当前仍有一项预期的发布阻断：
 
 - `pnpm check:candidate` 是仓库内候选代码门禁；`pnpm release:baseline:index:audit` 已通过，当前 `dist` 与 `ce1c217` 候选一致。
-- `pnpm release:baseline:audit` 仍 fail-closed，因为线上服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7` 之后存在 9 个未部署运行时代码文件：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts`。这必须在受控发布窗口处理，不能为了让门禁变绿而伪造线上已部署。
+- `pnpm release:baseline:audit` 仍 fail-closed，因为线上服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7` 之后存在 12 个未部署运行时代码文件：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts`。这必须在受控发布窗口处理，不能为了让门禁变绿而伪造线上已部署。
 
 ## 2. 64 个旧页面逐页结论
 
@@ -216,7 +216,7 @@
 
 - [x] 已生成 `docs/release/device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
 - [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `ce1c2179b57fe2783066b51f8621220224982928`；`pnpm release:baseline:index:audit` 的当前索引部分已通过，文档中保留的旧候选仅作历史追溯，服务端运行时代码漂移仍阻断完整 release audit。
-- [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts` 共 9 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md)。是否部署仍需单独受控发布窗口，不在本项中擅自执行。
+- [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/repositories.ts` 共 12 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md)。是否部署仍需单独受控发布窗口，不在本项中擅自执行。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。
 - [x] 本轮保持旧项目只读；本清单不授权启动旧服务、不改旧数据库、不改旧支付或医保链路。
