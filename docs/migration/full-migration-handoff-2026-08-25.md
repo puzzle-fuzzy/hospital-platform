@@ -1,10 +1,10 @@
-> **当前候选同步（2026-08-31）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision 为 `935410473e5a7c1be125a85834f957f53a833d8f`，pending 目录已清理；历史段落只作追溯。
+> **当前候选同步（2026-09-01）**：服务端 release `5738a71e0bcddaa8849106754baf5b296427bed7`；本地小程序 live 运行包 sourceRevision 为 `ce1c2179b57fe2783066b51f8621220224982928`，pending 目录已清理；历史段落只作追溯。
 
-> 当前 live 候选的九域真机证据清单仍为 pending，执行审计时使用：`pnpm device:evidence:audit --file docs/release/device-evidence-935410473e5a7c1be125a85834f957f53a833d8f-pending.json`。清单通过结构审计不等于业务通过，必须继续补齐页面、客户端 `requestId`、服务端同链日志和 Provider 低敏请求号。
+> 当前 live 候选的九域真机证据清单仍为 pending，执行审计时使用：`pnpm device:evidence:audit --file docs/release/device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json`。清单通过结构审计不等于业务通过，必须继续补齐页面、客户端 `requestId`、服务端同链日志和 Provider 低敏请求号。
 
 # 全量迁移当前交接单（2026-08-25）
 
-> **本轮最新小程序运行包候选来源为（2026-08-31）**：`935410473e5a7c1be125a85834f957f53a833d8f`（提交 `9354104`），已完成构建、静态校验、原子发布到本地 live `dist` 和发布后 `runtime:verify`；当前无 pending 运行包。真实微信业务九域证据仍保持 `pending`，本行只锁定当前运行包来源，不代表业务验收完成。
+> **本轮最新小程序运行包候选来源为（2026-09-01）**：`ce1c2179b57fe2783066b51f8621220224982928`（提交 `ce1c217`），已完成构建、静态校验、原子发布到本地 live `dist` 和发布后 `runtime:verify`；当前无 pending 运行包。真实微信业务九域证据仍保持 `pending`，本行只锁定当前运行包来源，不代表业务验收完成。
 
 > **本地候选交接（2026-08-28）**：本轮提交 `8182a877` 已完成“我的问诊”演示数据边界、众阳 TLS 只读诊断和运行时预检清单同步；pending 运行输入的完整 sourceRevision 为 `8182a8774bf0d6ad6f62d928693add952ddff034`，共 38 个页面、4 个原生 Tab，live 仍为上一候选 `87eb00f0aa0c6d46b61364449d375df5105c80d6`。新增的临床入口尚未确认正式 Provider contract，已统一回到状态页并从 API 运行时注销；当前九域真机清单为 [`device-evidence-8182a877-pending.json`](../release/device-evidence-8182a877-pending.json)，全部保持 `pending`，不构成真机或真实业务完成证据。线上服务端仍以已部署 release `5738a71e0bcddaa8849106754baf5b296427bed7` 为准，本轮没有部署线上服务或修改旧 Python 服务、旧数据库、旧 Redis。当前执行检查点见 [`current-execution-checkpoint-2026-08-28.md`](current-execution-checkpoint-2026-08-28.md)。
 >
