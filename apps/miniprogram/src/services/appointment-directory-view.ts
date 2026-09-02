@@ -1,4 +1,4 @@
-import type { AppointmentSchedule } from "../types";
+import type { AppointmentDoctorCard, AppointmentSchedule } from "../types";
 
 /** 预约目录日期标签的中文星期文案；日期事实仍保留服务端的 YYYY-MM-DD。 */
 const WEEKDAY_LABELS = [
@@ -16,6 +16,20 @@ export type AppointmentDateGroup = {
 	label: string;
 	count: number;
 };
+
+/**
+ * 只从当前已校验的排班中收窄某位医生的展示窗口。
+ *
+ * 医生 ID 为空时代表“全部医生”。这只是本地读模型筛选，不能把医生 ID
+ * 当成 Provider 查询条件或预约授权；实际排班请求仍由页面按科室发起。
+ */
+export function filterAppointmentSchedulesByDoctor(
+	schedules: readonly AppointmentSchedule[],
+	doctorId = "",
+): AppointmentSchedule[] {
+	if (!doctorId) return [...schedules];
+	return schedules.filter((schedule) => schedule.doctorId === doctorId);
+}
 
 /**
  * 把医院业务日历转换成旧端右栏的短标签。
@@ -47,9 +61,13 @@ export function formatAppointmentDateLabel(value: string): string {
  */
 export function groupAppointmentSchedules(
 	schedules: readonly Pick<AppointmentSchedule, "workDate">[],
+	doctorId = "",
 ): AppointmentDateGroup[] {
 	const counts = new Map<string, number>();
 	for (const schedule of schedules) {
+		if (doctorId && "doctorId" in schedule && schedule.doctorId !== doctorId) {
+			continue;
+		}
 		counts.set(schedule.workDate, (counts.get(schedule.workDate) ?? 0) + 1);
 	}
 	return [...counts.entries()]
@@ -72,10 +90,65 @@ export function visibleAppointmentSchedules(
 	schedules: readonly AppointmentSchedule[],
 	selectedDate: string,
 	visibleCount: number,
+	doctorId = "",
 ): AppointmentSchedule[] {
 	const boundedCount =
 		Number.isSafeInteger(visibleCount) && visibleCount > 0 ? visibleCount : 0;
-	return schedules
+	return filterAppointmentSchedulesByDoctor(schedules, doctorId)
 		.filter((schedule) => schedule.workDate === selectedDate)
 		.slice(0, boundedCount);
+}
+
+/**
+ * 将当前科室已读取的排班聚合成旧端“按医生挂号”的卡片。
+ *
+ * 新合同不提供头像、职称、擅长、费用或关注关系，因此这里严格只使用
+ * 医生、日期、排班数量和余号，并把同一医生同日的多个班次合并展示。
+ */
+export function groupAppointmentDoctorCards(
+	schedules: readonly AppointmentSchedule[],
+): AppointmentDoctorCard[] {
+	type MutableDoctorCard = {
+		doctorId: string;
+		doctorName: string;
+		scheduleCount: number;
+		availableSlots: number;
+		dateSlots: Map<string, number>;
+	};
+
+	const cardsByDoctor = new Map<string, MutableDoctorCard>();
+	for (const schedule of schedules) {
+		const card = cardsByDoctor.get(schedule.doctorId);
+		if (card) {
+			card.scheduleCount += 1;
+			card.availableSlots += schedule.availableSlots;
+			card.dateSlots.set(
+				schedule.workDate,
+				(card.dateSlots.get(schedule.workDate) ?? 0) + schedule.availableSlots,
+			);
+			continue;
+		}
+		cardsByDoctor.set(schedule.doctorId, {
+			doctorId: schedule.doctorId,
+			doctorName: schedule.doctorName,
+			scheduleCount: 1,
+			availableSlots: schedule.availableSlots,
+			dateSlots: new Map([[schedule.workDate, schedule.availableSlots]]),
+		});
+	}
+
+	return [...cardsByDoctor.values()].map((card) => ({
+		doctorId: card.doctorId,
+		doctorName: card.doctorName,
+		avatarLabel: card.doctorName.slice(0, 1),
+		scheduleCount: card.scheduleCount,
+		availableSlots: card.availableSlots,
+		dates: [...card.dateSlots.entries()]
+			.sort(([first], [second]) => first.localeCompare(second))
+			.map(([workDate, availableSlots]) => ({
+				workDate,
+				label: formatAppointmentDateLabel(workDate),
+				availableSlots,
+			})),
+	}));
 }

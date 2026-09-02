@@ -81,6 +81,24 @@ export type AppointmentDepartment =
 	AppointmentDepartmentListResponse["data"]["items"][number];
 export type AppointmentSchedule =
 	AppointmentScheduleListResponse["data"]["items"][number];
+
+/** 预约目录“按医生挂号”页签的本地展示模型；只由已校验的排班字段派生。 */
+export type AppointmentDoctorCard = {
+	doctorId: string;
+	doctorName: string;
+	/** 医生卡片的本地字母/汉字头像；不依赖旧端未确认的头像 URL。 */
+	avatarLabel: string;
+	scheduleCount: number;
+	availableSlots: number;
+	dates: Array<{
+		workDate: string;
+		label: string;
+		availableSlots: number;
+	}>;
+};
+
+/** 旧端预约页的两种只读浏览方式，不代表预约写入状态。 */
+export type AppointmentDirectoryMode = "doctor" | "date";
 export type AppointmentRecord =
 	AppointmentRecordListResponse["data"]["items"][number];
 export type OutpatientPaymentRecord =
@@ -254,8 +272,15 @@ export type PatientSelectionPageData = {
 export type AppointmentDirectoryPageData = {
 	departments: Array<AppointmentDepartment>;
 	schedules: Array<AppointmentSchedule>;
+	doctorCards: Array<AppointmentDoctorCard>;
+	activeMode: AppointmentDirectoryMode;
 	selectedDepartmentId: string;
 	selectedDepartmentName: string;
+	/** 当前从医生卡片进入日期页时的本地过滤条件；为空表示查看全部医生。 */
+	selectedDoctorId: string;
+	selectedDoctorName: string;
+	/** 搜索框只用于当前已读取的目录，不会把任意关键字透传给 Provider。 */
+	searchText: string;
 	dateGroups: Array<{
 		workDate: string;
 		label: string;

@@ -1,5 +1,6 @@
 import { ApiError, contextualApiErrorMessage } from "../../services/api-client";
 import {
+	groupAppointmentDoctorCards,
 	groupAppointmentSchedules,
 	visibleAppointmentSchedules,
 } from "../../services/appointment-directory-view";
@@ -12,7 +13,12 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
-import type { AppointmentDirectoryPageData } from "../../types";
+import type {
+	AppointmentDirectoryMode,
+	AppointmentDirectoryPageData,
+	AppointmentDoctorCard,
+	AppointmentSchedule,
+} from "../../types";
 
 /**
  * 当前右侧最多绘制的号源数量，继续加载由用户明确触发。
@@ -25,15 +31,71 @@ const SCHEDULE_PAGE_SIZE = 12;
 type AppointmentDirectoryPageMethods = {
 	loadDirectory(): Promise<void>;
 	loadDepartmentSchedules(departmentId: string): Promise<void>;
+	selectDoctor(doctor: AppointmentDoctorCard, requestedDate?: string): void;
 	onRetry(): void;
+	onGuideTap(): void;
+	onSearchInput(event: WechatMiniprogram.Input): void;
+	onSearchTap(): void;
+	onModeTap(event: WechatMiniprogram.TouchEvent): void;
 	onDepartmentTap(event: WechatMiniprogram.TouchEvent): void;
+	onDoctorCardTap(event: WechatMiniprogram.TouchEvent): void;
+	onDoctorDateTap(event: WechatMiniprogram.TouchEvent): void;
+	onClearDoctorFilter(): void;
 	onDateTap(event: WechatMiniprogram.TouchEvent): void;
 	onLoadMore(): void;
-	onScheduleTap(): void;
+	onScheduleTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
 	showError(error: unknown, fallback: string): void;
 };
+
+type SchedulePresentation = Pick<
+	AppointmentDirectoryPageData,
+	| "dateGroups"
+	| "selectedDate"
+	| "visibleSchedules"
+	| "hasMoreSchedules"
+	| "visibleScheduleCount"
+>;
+
+function isAppointmentDirectoryMode(
+	value: unknown,
+): value is AppointmentDirectoryMode {
+	return value === "doctor" || value === "date";
+}
+
+/**
+ * 将排班读模型投影为当前日期/医生筛选下的页面窗口。
+ *
+ * 所有事件都通过这里重新计算日期分组、可见窗口和“加载更多”状态，避免
+ * 旧医生卡片或旧日期事件只改其中一个字段，造成右栏展示不属于当前科室的号源。
+ */
+function createSchedulePresentation(
+	schedules: readonly AppointmentSchedule[],
+	selectedDoctorId: string,
+	requestedDate: string,
+	visibleCount: number,
+): SchedulePresentation {
+	const dateGroups = groupAppointmentSchedules(schedules, selectedDoctorId);
+	const selectedDate = dateGroups.some(
+		(group) => group.workDate === requestedDate,
+	)
+		? requestedDate
+		: (dateGroups[0]?.workDate ?? "");
+	const group = dateGroups.find((item) => item.workDate === selectedDate);
+	return {
+		dateGroups,
+		selectedDate,
+		visibleSchedules: visibleAppointmentSchedules(
+			schedules,
+			selectedDate,
+			visibleCount,
+			selectedDoctorId,
+		),
+		hasMoreSchedules: Boolean(group && group.count > visibleCount),
+		visibleScheduleCount: visibleCount,
+	};
+}
 
 /**
  * 预约目录有两层异步读取：左栏科室和右栏排班。
@@ -45,8 +107,13 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 	data: {
 		departments: [],
 		schedules: [],
+		doctorCards: [],
+		activeMode: "doctor",
 		selectedDepartmentId: "",
 		selectedDepartmentName: "",
+		selectedDoctorId: "",
+		selectedDoctorName: "",
+		searchText: "",
 		dateGroups: [],
 		selectedDate: "",
 		visibleSchedules: [],
@@ -75,8 +142,12 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			error: "",
 			departments: [],
 			schedules: [],
+			doctorCards: [],
+			activeMode: "doctor",
 			selectedDepartmentId: "",
 			selectedDepartmentName: "",
+			selectedDoctorId: "",
+			selectedDoctorName: "",
 			dateGroups: [],
 			selectedDate: "",
 			visibleSchedules: [],
@@ -90,8 +161,12 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 				this.setData({
 					departments,
 					schedules: [],
+					doctorCards: [],
+					activeMode: "doctor",
 					selectedDepartmentId: selected?.departmentId ?? "",
 					selectedDepartmentName: selected?.displayName ?? "",
+					selectedDoctorId: "",
+					selectedDoctorName: "",
 					dateGroups: [],
 					selectedDate: "",
 					visibleSchedules: [],
@@ -133,9 +208,13 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		this.setData({
 			loading: true,
 			error: "",
+			activeMode: "doctor",
 			selectedDepartmentId: department.departmentId,
 			selectedDepartmentName: department.displayName,
+			selectedDoctorId: "",
+			selectedDoctorName: "",
 			schedules: [],
+			doctorCards: [],
 			dateGroups: [],
 			selectedDate: "",
 			visibleSchedules: [],
@@ -146,20 +225,19 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		return loadAppointmentSchedules(departmentId)
 			.then((schedules) => {
 				if (!scheduleGuard.isCurrent(scheduleToken)) return;
-				const groups = groupAppointmentSchedules(schedules);
-				const selectedDate = groups[0]?.workDate ?? "";
-				const visibleCount = SCHEDULE_PAGE_SIZE;
+				const presentation = createSchedulePresentation(
+					schedules,
+					"",
+					"",
+					SCHEDULE_PAGE_SIZE,
+				);
 				this.setData({
 					schedules,
-					dateGroups: groups,
-					selectedDate,
-					visibleSchedules: visibleAppointmentSchedules(
-						schedules,
-						selectedDate,
-						visibleCount,
-					),
-					hasMoreSchedules: groups[0] ? groups[0].count > visibleCount : false,
-					visibleScheduleCount: visibleCount,
+					doctorCards: groupAppointmentDoctorCards(schedules),
+					activeMode: "doctor",
+					selectedDoctorId: "",
+					selectedDoctorName: "",
+					...presentation,
 					error: "",
 				});
 			})
@@ -184,6 +262,66 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		void this.loadDirectory();
 	},
 
+	/** 旧端顶部导诊入口保留位置，尚未开放的内容统一进入受控状态页。 */
+	onGuideTap(): void {
+		navigateToFeatureStatus("guide");
+	},
+
+	/** 输入只保留在当前页面；搜索请求不会透传给 Provider。 */
+	onSearchInput(event): void {
+		const rawValue = event.detail?.value;
+		const searchText =
+			typeof rawValue === "string"
+				? rawValue.replace(/[\r\n]/gu, "").slice(0, 32)
+				: "";
+		this.setData({ searchText });
+	},
+
+	/**
+	 * 旧端搜索框支持科室或医生名称。新端只在已经取得的安全目录中定位，
+	 * 不为了全文检索读取所有科室排班，也不会把自由文本发送给 Provider。
+	 */
+	onSearchTap(): void {
+		if (this.data.loading) return;
+		const keyword = this.data.searchText.trim().toLocaleLowerCase();
+		if (!keyword) {
+			wx.showToast({ title: "请输入科室或医生名字", icon: "none" });
+			return;
+		}
+
+		const department = this.data.departments.find((item) =>
+			item.displayName.toLocaleLowerCase().includes(keyword),
+		);
+		if (
+			department &&
+			department.departmentId !== this.data.selectedDepartmentId
+		) {
+			void this.loadDepartmentSchedules(department.departmentId);
+			return;
+		}
+
+		const doctor = this.data.doctorCards.find((item) =>
+			item.doctorName.toLocaleLowerCase().includes(keyword),
+		);
+		if (doctor) {
+			this.selectDoctor(doctor);
+			return;
+		}
+
+		if (department) {
+			wx.showToast({ title: "当前科室已展示", icon: "none" });
+			return;
+		}
+		wx.showToast({ title: "未找到匹配的科室或医生", icon: "none" });
+	},
+
+	onModeTap(event): void {
+		const mode = event.currentTarget?.dataset?.mode;
+		if (!isAppointmentDirectoryMode(mode) || mode === this.data.activeMode)
+			return;
+		this.setData({ activeMode: mode });
+	},
+
 	onDepartmentTap(event): void {
 		const departmentId = event.currentTarget?.dataset?.departmentId;
 		if (typeof departmentId !== "string" || !departmentId) return;
@@ -204,6 +342,73 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		this.loadDepartmentSchedules(department.departmentId);
 	},
 
+	/** 医生卡片只切换到当前已读排班的日期视图，不附带医生详情或写入引用。 */
+	onDoctorCardTap(event): void {
+		const doctorId = event.currentTarget?.dataset?.doctorId;
+		if (typeof doctorId !== "string" || !doctorId) return;
+		const doctor = this.data.doctorCards.find(
+			(item) => item.doctorId === doctorId,
+		);
+		if (!doctor) return;
+		this.selectDoctor(doctor);
+	},
+
+	/** 日期标签来自当前医生卡片，事件必须同时属于当前卡片和当前日期集合。 */
+	onDoctorDateTap(event): void {
+		const doctorId = event.currentTarget?.dataset?.doctorId;
+		const workDate = event.currentTarget?.dataset?.date;
+		if (
+			typeof doctorId !== "string" ||
+			!doctorId ||
+			typeof workDate !== "string" ||
+			!workDate
+		)
+			return;
+		const doctor = this.data.doctorCards.find(
+			(item) => item.doctorId === doctorId,
+		);
+		if (!doctor?.dates.some((item) => item.workDate === workDate)) return;
+		this.selectDoctor(doctor, workDate);
+	},
+
+	/** 将医生卡片转换为本地日期筛选；不再读取任何额外 Provider 字段。 */
+	selectDoctor(doctor: AppointmentDoctorCard, requestedDate = ""): void {
+		const currentDoctor = this.data.doctorCards.find(
+			(item) => item.doctorId === doctor.doctorId,
+		);
+		if (!currentDoctor) return;
+		const presentation = createSchedulePresentation(
+			this.data.schedules,
+			currentDoctor.doctorId,
+			requestedDate || currentDoctor.dates[0]?.workDate || "",
+			SCHEDULE_PAGE_SIZE,
+		);
+		this.setData({
+			activeMode: "date",
+			selectedDoctorId: currentDoctor.doctorId,
+			selectedDoctorName: currentDoctor.doctorName,
+			...presentation,
+		});
+	},
+
+	/** 清除医生筛选后回到蓝湖首屏对应的当前科室医生列表。 */
+	onClearDoctorFilter(): void {
+		if (!this.data.selectedDoctorId) return;
+		const presentation = createSchedulePresentation(
+			this.data.schedules,
+			"",
+			this.data.selectedDate,
+			SCHEDULE_PAGE_SIZE,
+		);
+		this.setData({
+			activeMode: "doctor",
+			selectedDoctorId: "",
+			selectedDoctorName: "",
+			...presentation,
+		});
+	},
+
+	/** 当前日期只能属于当前科室/医生的日期分组。 */
 	onDateTap(event): void {
 		const selectedDate = event.currentTarget?.dataset?.date;
 		if (typeof selectedDate !== "string" || !selectedDate) return;
@@ -218,14 +423,16 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			return;
 		}
 		this.setData({
+			activeMode: "date",
 			selectedDate,
 			visibleScheduleCount: visibleCount,
 			visibleSchedules: visibleAppointmentSchedules(
 				this.data.schedules,
 				selectedDate,
 				visibleCount,
+				this.data.selectedDoctorId,
 			),
-			hasMoreSchedules: Boolean(group && group.count > visibleCount),
+			hasMoreSchedules: group.count > visibleCount,
 		});
 	},
 
@@ -249,13 +456,28 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 				this.data.schedules,
 				this.data.selectedDate,
 				nextCount,
+				this.data.selectedDoctorId,
 			),
-			hasMoreSchedules: Boolean(group && group.count > nextCount),
+			hasMoreSchedules: group.count > nextCount,
 		});
 	},
 
-	/** 预约写入契约尚未开放，统一进入状态页，不伪造预约成功。 */
-	onScheduleTap(): void {
+	/**
+	 * 点击前重新回查当前可见的安全读模型：旧 WXML 的按钮事件不能把已刷新、
+	 * 已约满或不属于当前日期的排班当作可预约资源。写入契约尚未开放，
+	 * 通过验证后统一进入状态页，不伪造预约成功。
+	 */
+	onScheduleTap(event): void {
+		const scheduleId = event.currentTarget?.dataset?.scheduleId;
+		if (typeof scheduleId !== "string" || !scheduleId) return;
+		const schedule = this.data.visibleSchedules.find(
+			(item) => item.scheduleId === scheduleId,
+		);
+		if (!schedule) return;
+		if (schedule.availableSlots <= 0) {
+			wx.showToast({ title: "当前号源已约满", icon: "none" });
+			return;
+		}
 		navigateToFeatureStatus("appointment-write");
 	},
 

@@ -1,119 +1,183 @@
 <scroll-view class="secondary-page-scroll" scroll-y="true" enhanced="true">
-	<view class="page">
-	<!-- 错误提示置于页面首部，避免用户先看到不可用的业务内容。 -->
-	<view wx:if="{{error}}" class="error-message">{{error}}</view>
-
-	<view class="page-header">
-		<view class="page-title">预约挂号</view>
-		<view class="page-description">未来 7 天可预约科室与排班</view>
-	</view>
-
-	<!--
-		首层目录的状态必须复用同一个外壳。错误必须先于级联和空态判断，
-		避免 Provider 失败被显示成无科室；空科室和加载中也不能改变页面高度。
-	-->
-	<view wx:if="{{error || !departments.length}}" class="state-card query-state-shell query-state-shell-column">
-		<block wx:if="{{loading}}">
-			<text>正在加载预约科室...</text>
-		</block>
-		<block wx:elif="{{error}}">
-			<text>本次预约目录未加载成功</text>
-			<text class="state-hint">请稍后再试</text>
-			<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
-		</block>
-		<block wx:else>
-			<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-			<text>当前暂无可预约科室</text>
-			<text class="state-hint">请稍后刷新，或联系医院确认排班安排</text>
-		</block>
-	</view>
-
-	<view wx:elif="{{departments.length}}" class="cascade-shell">
-		<!-- 左栏：旧版一级科室导航；只负责改变右栏上下文。 -->
-		<scroll-view class="department-panel" scroll-y>
-			<view
-				wx:for="{{departments}}"
-				wx:key="departmentId"
-				class="department-item {{item.departmentId === selectedDepartmentId ? 'department-item-active' : ''}}"
-				bindtap="onDepartmentTap"
-				data-department-id="{{item.departmentId}}"
-			>
-				<view class="department-active-line"></view>
-				<text class="department-name">{{item.displayName}}</text>
-			</view>
-		</scroll-view>
-
-		<!-- 右栏：当前科室的日期级联和号源；不把所有科室排班同时绘制。 -->
-		<view class="schedule-panel">
-			<view class="schedule-panel-header">
-				<text class="schedule-panel-title">{{selectedDepartmentName || '选择科室'}}</text>
-				<text class="schedule-panel-count">{{schedules.length}} 个排班</text>
-			</view>
-
-			<scroll-view class="schedule-scroll" scroll-y>
-				<!-- 排班状态复用外壳；切换科室时不能因空态插图把右栏撑高。 -->
-				<view wx:if="{{loading || !dateGroups.length}}" class="panel-state-shell query-state-shell query-state-shell-column">
-					<view wx:if="{{loading}}" class="panel-loading query-state-shell query-state-shell-column">
-						<text>正在加载排班...</text>
-					</view>
-					<view wx:else class="panel-empty query-state-shell query-state-shell-column">
-						<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
-						<text>当前科室暂无排班</text>
-						<text class="state-hint">请切换其他科室或稍后刷新</text>
+	<view class="appointment-page">
+		<!-- 蓝湖“选择科室”首屏：导诊区域保持独立的白色背景。 -->
+		<view class="registration-hero-section">
+			<view class="registration-hero">
+				<view class="registration-hero-copy">
+					<text class="registration-hero-title">挂什么科？找哪个医生？</text>
+					<view class="registration-hero-guide">
+						<text>智能导诊为您推荐</text>
+						<view class="guide-button" bindtap="onGuideTap">去看看 &gt;</view>
 					</view>
 				</view>
 
-				<block wx:elif="{{dateGroups.length}}">
-					<scroll-view class="date-scroll" scroll-x>
-						<view class="date-list">
-							<view
-								wx:for="{{dateGroups}}"
-								wx:key="workDate"
-								class="date-item {{item.workDate === selectedDate ? 'date-item-active' : ''}}"
-								bindtap="onDateTap"
-								data-date="{{item.workDate}}"
-							>
-								<text class="date-label">{{item.label}}</text>
-								<text class="date-count">{{item.count}} 个号源</text>
-							</view>
-						</view>
-					</scroll-view>
+				<!-- 使用本地医生插画和扫描角标，避免依赖旧端的外部素材地址。 -->
+				<view class="registration-hero-illustration">
+					<view class="guide-scan-corner guide-scan-corner-top-left"></view>
+					<view class="guide-scan-corner guide-scan-corner-top-right"></view>
+					<view class="guide-scan-corner guide-scan-corner-bottom-left"></view>
+					<view class="guide-scan-corner guide-scan-corner-bottom-right"></view>
+					<image
+						class="registration-hero-image"
+						src="/assets/legacy-user/doctor.svg"
+						mode="aspectFit"
+					/>
+				</view>
+			</view>
+		</view>
 
-					<view class="schedule-list">
-						<view
-							wx:for="{{visibleSchedules}}"
-							wx:key="scheduleId"
-							class="schedule-item"
-							bindtap="onScheduleTap"
-							data-schedule-id="{{item.scheduleId}}"
-						>
-							<view class="schedule-item-main">
-								<text class="schedule-doctor">{{item.doctorName}}</text>
-								<text class="schedule-shift">{{item.shiftName}}</text>
-							</view>
-							<view class="schedule-item-meta">
-								<text wx:if="{{item.startTime && item.endTime}}">{{item.startTime}} - {{item.endTime}}</text>
-								<text wx:else>时间待确认</text>
-								<text class="schedule-slots">余 {{item.availableSlots}} 号</text>
-							</view>
+		<!-- 搜索只匹配已读取的安全目录，不把自由文本透传给 Provider。 -->
+		<view class="registration-search-section">
+			<view class="appointment-search">
+				<image
+					class="appointment-search-icon"
+					src="/assets/legacy-user/location-search.svg"
+					mode="aspectFit"
+				/>
+				<input
+					class="appointment-search-input"
+					value="{{searchText}}"
+					placeholder="请输入科室或医生名字"
+					placeholder-class="appointment-search-placeholder"
+					maxlength="32"
+					confirm-type="search"
+					bindinput="onSearchInput"
+					bindconfirm="onSearchTap"
+				/>
+				<view class="appointment-search-button" bindtap="onSearchTap">搜索</view>
+			</view>
+		</view>
+
+		<!-- 错误提示置于页面首部，避免用户先看到不可用的业务内容。 -->
+		<view wx:if="{{error}}" class="error-message">{{error}}</view>
+
+		<!--
+			首层目录的状态必须复用同一个外壳。错误必须先于级联和空态判断，
+			避免 Provider 失败被显示成无科室；空科室和加载中也不能改变页面高度。
+		-->
+		<view wx:if="{{error || !departments.length}}" class="state-card query-state-shell query-state-shell-column">
+			<block wx:if="{{loading}}">
+				<text>正在加载预约科室...</text>
+			</block>
+			<block wx:elif="{{error}}">
+				<text>本次预约目录未加载成功</text>
+				<text class="state-hint">请稍后再试</text>
+				<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
+			</block>
+			<block wx:else>
+				<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+				<text>当前暂无可预约科室</text>
+				<text class="state-hint">请稍后刷新，或联系医院确认排班安排</text>
+			</block>
+		</view>
+
+		<!-- 与蓝湖一致的两列级联：左侧为科室上下文，右侧为下一步可选项。 -->
+		<view wx:elif="{{departments.length}}" class="cascade-shell">
+			<scroll-view class="department-panel" scroll-y="true" enhanced="true">
+				<view
+					wx:for="{{departments}}"
+					wx:key="departmentId"
+					class="department-item {{item.departmentId === selectedDepartmentId ? 'department-item-active' : ''}}"
+					bindtap="onDepartmentTap"
+					data-department-id="{{item.departmentId}}"
+				>
+					<view class="department-active-line"></view>
+					<text class="department-name">{{item.displayName}}</text>
+				</view>
+			</scroll-view>
+
+			<view class="directory-panel">
+				<scroll-view class="directory-scroll" scroll-y="true" enhanced="true">
+					<!-- 右栏仍维持固定高度状态，切换科室时不会出现内容跳动。 -->
+					<view wx:if="{{loading || (!doctorCards.length && activeMode === 'doctor') || (!dateGroups.length && activeMode === 'date')}}" class="panel-state-shell query-state-shell query-state-shell-column">
+						<view wx:if="{{loading}}" class="panel-loading query-state-shell query-state-shell-column">
+							<text>正在加载可预约信息...</text>
+						</view>
+						<view wx:else class="panel-empty query-state-shell query-state-shell-column">
+							<image src="/assets/legacy-home/empty-services.png" mode="widthFix" />
+							<text>当前科室暂无可预约信息</text>
+							<text class="state-hint">请切换其他科室或稍后刷新</text>
 						</view>
 					</view>
 
-					<button
-						wx:if="{{hasMoreSchedules}}"
-						class="load-more-button"
-						bindtap="onLoadMore"
-					>
-						加载更多号源
-					</button>
-				</block>
+					<!--
+						新端只公开了扁平科室与排班 contract，未提供旧端的二级科室树。
+						因此右栏使用当前科室下真实可预约医生作为下一层，保持设计的列表密度，
+						也不编造二级科室数据。
+					-->
+					<block wx:elif="{{activeMode === 'doctor'}}">
+						<view class="department-option-list">
+							<view
+								wx:for="{{doctorCards}}"
+								wx:key="doctorId"
+								class="department-option"
+								bindtap="onDoctorCardTap"
+								data-doctor-id="{{item.doctorId}}"
+							>
+								<text class="department-option-name">{{item.doctorName}}</text>
+								<view class="department-option-chevron"></view>
+							</view>
+						</view>
+					</block>
 
-			</scroll-view>
+					<!-- 选择医生后复用当前已读排班，继续以列表而非卡片堆叠呈现。 -->
+					<block wx:else>
+						<view wx:if="{{selectedDoctorName}}" class="selected-doctor-filter">
+							<text>已选择：{{selectedDoctorName}}</text>
+							<view class="selected-doctor-clear" bindtap="onClearDoctorFilter">返回列表</view>
+						</view>
+
+						<scroll-view class="date-scroll" scroll-x="true" enhanced="true">
+							<view class="date-list">
+								<view
+									wx:for="{{dateGroups}}"
+									wx:key="workDate"
+									class="date-item {{item.workDate === selectedDate ? 'date-item-active' : ''}}"
+									bindtap="onDateTap"
+									data-date="{{item.workDate}}"
+								>
+									<text class="date-label">{{item.label}}</text>
+									<text class="date-count">{{item.count}} 个号源</text>
+								</view>
+							</view>
+						</scroll-view>
+
+						<view class="schedule-list">
+							<view
+								wx:for="{{visibleSchedules}}"
+								wx:key="scheduleId"
+								class="schedule-item"
+								bindtap="onScheduleTap"
+								data-schedule-id="{{item.scheduleId}}"
+							>
+								<view class="schedule-shift-badge">{{item.shiftName}}</view>
+								<view class="schedule-item-copy">
+									<text class="schedule-doctor">{{item.doctorName}}</text>
+									<text class="schedule-department">{{item.departmentName}}</text>
+									<text wx:if="{{item.startTime && item.endTime}}" class="schedule-time">{{item.startTime}} - {{item.endTime}}</text>
+									<text wx:else class="schedule-time">具体时间以医院排班为准</text>
+								</view>
+								<view class="schedule-item-action">
+									<text class="schedule-slots {{item.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">余 {{item.availableSlots}} 号</text>
+									<view class="schedule-reserve {{item.availableSlots > 0 ? 'schedule-reserve-active' : 'schedule-reserve-disabled'}}">{{item.availableSlots > 0 ? '预约' : '约满'}}</view>
+								</view>
+							</view>
+						</view>
+
+						<button
+							wx:if="{{hasMoreSchedules}}"
+							class="load-more-button"
+							bindtap="onLoadMore"
+						>
+							加载更多号源
+						</button>
+
+						<view class="readonly-note">
+							当前可浏览未来 7 天医院已公开的排班。预约下单、锁号、取消和支付功能正在完善中。
+						</view>
+					</block>
+				</scroll-view>
+			</view>
 		</view>
-	</view>
-
-	<view class="readonly-note">
-		当前仅提供预约信息查询。预约下单、锁号、取消和支付功能正在完善中。
-	</view>
 	</view>
 </scroll-view>
