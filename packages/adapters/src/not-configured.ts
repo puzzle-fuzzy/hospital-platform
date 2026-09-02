@@ -1,4 +1,5 @@
 import type {
+	AppointmentDepartmentTreeGateway,
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
 	HospitalSettlementGateway,
@@ -32,6 +33,7 @@ export type NotConfiguredGateways = {
 	patientDirectory: PatientDirectoryGateway;
 	reportDirectory: ReportDirectoryGateway;
 	appointmentDirectory: AppointmentDirectoryGateway;
+	appointmentDepartmentTree: AppointmentDepartmentTreeGateway;
 	appointmentRecords: AppointmentRecordDirectoryGateway;
 	outpatientPayments: OutpatientPaymentGateway;
 	outpatientMedicalRecords: OutpatientMedicalRecordGateway;
@@ -55,6 +57,10 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const appointmentDirectory: AppointmentDirectoryGateway = {
 		listDepartments: async (_input, _context) => unavailable("zhongyang"),
 		listSchedules: async (_input, _context) => unavailable("zhongyang"),
+	};
+	const appointmentDepartmentTree: AppointmentDepartmentTreeGateway = {
+		listDepartmentTree: async (_context) => unavailable("zhongyang"),
+		listClinicDepartments: async (_input, _context) => unavailable("zhongyang"),
 	};
 	const appointmentRecords: AppointmentRecordDirectoryGateway = {
 		listRecords: async (_input, _context) => unavailable("zhongyang"),
@@ -82,6 +88,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		patientDirectory,
 		reportDirectory,
 		appointmentDirectory,
+		appointmentDepartmentTree,
 		appointmentRecords,
 		outpatientPayments,
 		outpatientMedicalRecords,

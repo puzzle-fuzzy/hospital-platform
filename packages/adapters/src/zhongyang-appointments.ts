@@ -1,7 +1,10 @@
 import {
 	type AdapterCallContext,
+	type AppointmentClinicDepartmentQuery,
 	type AppointmentDepartment,
+	type AppointmentDepartmentGroup,
 	type AppointmentDepartmentQuery,
+	type AppointmentDepartmentTreeGateway,
 	type AppointmentDirectoryGateway,
 	type AppointmentProviderSchedule,
 	type AppointmentRecord,
@@ -29,10 +32,16 @@ const RECORD_REQUEST_CHANNELS: Record<AppointmentRecordScope, string> = {
 };
 const DEPARTMENT_PATH =
 	"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts";
+const DEPARTMENT_TREE_PATH = "/msun-middle-business-amc-server/v1/first-depts";
 const SCHEDULE_PATH = "/msun-middle-business-amc-server/v1/schedulings";
 const RECORD_PATH =
 	"/msun-middle-business-appointment-server/v1/appointment-infos/";
 const DEPARTMENT_QUERY_FIELDS = new Set(["startDate", "endDate"]);
+const CLINIC_DEPARTMENT_QUERY_FIELDS = new Set([
+	"startDate",
+	"endDate",
+	"parentDepartmentId",
+]);
 const SCHEDULE_QUERY_FIELDS = new Set([
 	"startDate",
 	"endDate",
@@ -114,6 +123,28 @@ function normalizeDepartmentQuery(value: unknown): AppointmentDepartmentQuery {
 	const operation = "appointment-departments";
 	const record = normalizeDateRange(value, operation, DEPARTMENT_QUERY_FIELDS);
 	return { startDate: record.startDate, endDate: record.endDate };
+}
+
+function normalizeClinicDepartmentQuery(
+	value: unknown,
+): AppointmentClinicDepartmentQuery {
+	const operation = "appointment-clinic-departments";
+	const record = normalizeDateRange(
+		value,
+		operation,
+		CLINIC_DEPARTMENT_QUERY_FIELDS,
+	);
+	if (!isBoundedOpaqueIdentifier(record.parentDepartmentId)) {
+		return invalidQuery(
+			operation,
+			"Zhongyang appointment parent department identifier is invalid",
+		);
+	}
+	return {
+		startDate: record.startDate,
+		endDate: record.endDate,
+		parentDepartmentId: record.parentDepartmentId,
+	};
 }
 
 function normalizeScheduleQuery(value: unknown): AppointmentScheduleQuery {
@@ -646,6 +677,109 @@ function mapDepartment(
 	};
 }
 
+/**
+ * `/first-depts` 的二级条目只允许进入挂号目录所需的关联键和展示名称。
+ * 它和 `/schedulings/scheduling-depts` 的可预约科室是两种 Provider 事实，
+ * 不能因为字段名相同就把简介、机构或 HIS 创建人字段混到公共目录中。
+ */
+function mapTreeDepartment(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): AppointmentDepartment {
+	return {
+		departmentId: requiredText(value.deptId, "deptId", operation, requestId),
+		displayName: requiredText(value.deptName, "deptName", operation, requestId),
+	};
+}
+
+function mapDepartmentGroup(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): AppointmentDepartmentGroup {
+	if (!Array.isArray(value.secondDeptList)) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment department tree secondDeptList is invalid",
+			requestId,
+		);
+	}
+	if (value.secondDeptList.length > MAX_APPOINTMENT_DEPARTMENT_ITEMS) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment department tree contained too many second departments",
+			requestId,
+		);
+	}
+	return {
+		groupId: requiredText(
+			value.firstDeptId,
+			"firstDeptId",
+			operation,
+			requestId,
+		),
+		displayName: requiredText(
+			value.firstDeptName,
+			"firstDeptName",
+			operation,
+			requestId,
+			256,
+		),
+		departments: value.secondDeptList.map((department) =>
+			mapTreeDepartment(
+				objectValue(department, operation, requestId),
+				operation,
+				requestId,
+			),
+		),
+	};
+}
+
+/**
+ * 一级/二级目录中二级 ID 必须在整棵树内唯一。
+ *
+ * 三级接口只接受二级 ID，而不是名称；如果 ID 同时属于两个一级分类，adapter
+ * 无法安全决定应使用哪一个真实 `deptName` 检索排班科室，因此整批拒绝。
+ */
+function ensureUniqueDepartmentTreeIds(
+	groups: readonly AppointmentDepartmentGroup[],
+	operation: string,
+	requestId: string,
+): void {
+	const groupIds = new Set<string>();
+	const departmentIds = new Set<string>();
+	let departmentCount = 0;
+	for (const group of groups) {
+		if (groupIds.has(group.groupId)) {
+			throw providerError(
+				operation,
+				"Zhongyang appointment response contained duplicate first department ids",
+				requestId,
+			);
+		}
+		groupIds.add(group.groupId);
+		departmentCount += group.departments.length;
+		if (departmentCount > MAX_APPOINTMENT_DEPARTMENT_ITEMS) {
+			throw providerError(
+				operation,
+				"Zhongyang appointment response contained too many second departments",
+				requestId,
+			);
+		}
+		for (const department of group.departments) {
+			if (departmentIds.has(department.departmentId)) {
+				throw providerError(
+					operation,
+					"Zhongyang appointment response contained duplicate second department ids",
+					requestId,
+				);
+			}
+			departmentIds.add(department.departmentId);
+		}
+	}
+}
+
 function mapSchedule(
 	value: ProviderObject,
 	operation: string,
@@ -734,8 +868,17 @@ function mapSchedule(
 	};
 }
 
-function trace(operation: string, requestId: string): ExternalTrace {
-	return { provider: "zhongyang", operation, requestId };
+function trace(
+	operation: string,
+	requestId: string,
+	requestIds?: readonly string[],
+): ExternalTrace {
+	return {
+		provider: "zhongyang",
+		operation,
+		requestId,
+		...(requestIds && requestIds.length > 1 ? { requestIds } : {}),
+	};
 }
 
 /**
@@ -746,7 +889,10 @@ function trace(operation: string, requestId: string): ExternalTrace {
  * 组合边界替换为 opaque 平台 scheduleId 后才进入公共 response。
  */
 export class ZhongyangAppointmentApiGateway
-	implements AppointmentDirectoryGateway, AppointmentRecordDirectoryGateway
+	implements
+		AppointmentDirectoryGateway,
+		AppointmentDepartmentTreeGateway,
+		AppointmentRecordDirectoryGateway
 {
 	private readonly baseUrl: string;
 	private readonly authorizationToken: string | undefined;
@@ -762,6 +908,45 @@ export class ZhongyangAppointmentApiGateway
 		return this.authorizationToken
 			? { Authorization: `Bearer ${this.authorizationToken}` }
 			: undefined;
+	}
+
+	/**
+	 * 读取旧挂号页的一级/二级目录。
+	 *
+	 * 渠道、当日挂号和查询模式由服务端冻结。调用方只能获得白名单投影，
+	 * 不会把院区、就诊类型、名称或 Provider 的其它筛选参数带到旧端。
+	 */
+	private async requestDepartmentTree(
+		context: AdapterCallContext,
+		operation: string,
+	): Promise<{
+		groups: AppointmentDepartmentGroup[];
+		requestId: string;
+	}> {
+		const url = new URL(DEPARTMENT_TREE_PATH, this.baseUrl);
+		url.searchParams.set("requestChannel", "3");
+		url.searchParams.set("todayRegisterFlag", "0");
+		url.searchParams.set("queryMode", "0");
+		const headers = this.headers();
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation,
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(headers ? { headers } : {}),
+			},
+			this.fetcher,
+		);
+		const groups = responseItems(
+			response.data,
+			operation,
+			response.requestId,
+			MAX_APPOINTMENT_DEPARTMENT_ITEMS,
+		).map((item) => mapDepartmentGroup(item, operation, response.requestId));
+		ensureUniqueDepartmentTreeIds(groups, operation, response.requestId);
+		return { groups, requestId: response.requestId };
 	}
 
 	async listDepartments(
@@ -796,6 +981,75 @@ export class ZhongyangAppointmentApiGateway
 		).map((item) => mapDepartment(item, operation, response.requestId));
 		ensureUniqueDepartmentIds(departments, operation, response.requestId);
 		return { departments, trace: trace(operation, response.requestId) };
+	}
+
+	async listDepartmentTree(context: AdapterCallContext) {
+		const operation = "appointment-department-tree";
+		const result = await this.requestDepartmentTree(context, operation);
+		return {
+			groups: result.groups,
+			trace: trace(operation, result.requestId),
+		};
+	}
+
+	async listClinicDepartments(
+		input: AppointmentClinicDepartmentQuery,
+		context: AdapterCallContext,
+	) {
+		const operation = "appointment-clinic-departments";
+		const normalizedInput = normalizeClinicDepartmentQuery(input);
+		const tree = await this.requestDepartmentTree(context, operation);
+		const parent = tree.groups
+			.flatMap((group) => group.departments)
+			.find(
+				(department) =>
+					department.departmentId === normalizedInput.parentDepartmentId,
+			);
+		if (!parent) {
+			// 只接受当前服务端树中存在的二级 ID。未知/过期引用不得回退为
+			// 客户端名称或空 searchCondition，否则会扩大成任意 Provider 检索。
+			throw providerError(
+				operation,
+				"Zhongyang appointment parent department is not available",
+				tree.requestId,
+				false,
+			);
+		}
+
+		const url = new URL(DEPARTMENT_PATH, this.baseUrl);
+		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
+		url.searchParams.set("startDate", normalizedInput.startDate);
+		url.searchParams.set("endDate", normalizedInput.endDate);
+		// 旧端只支持名称筛选；此名称严格来自刚刚验证的一级/二级目录，
+		// 而不是 HTTP query、页面文本或任何 Provider 原样字段。
+		url.searchParams.set("searchCondition", parent.displayName);
+		const headers = this.headers();
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation,
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(headers ? { headers } : {}),
+			},
+			this.fetcher,
+		);
+		const departments = responseItems(
+			response.data,
+			operation,
+			response.requestId,
+			MAX_APPOINTMENT_DEPARTMENT_ITEMS,
+		).map((item) => mapDepartment(item, operation, response.requestId));
+		ensureUniqueDepartmentIds(departments, operation, response.requestId);
+		const requestIds =
+			tree.requestId === response.requestId
+				? undefined
+				: [tree.requestId, response.requestId];
+		return {
+			departments,
+			trace: trace(operation, response.requestId, requestIds),
+		};
 	}
 
 	async listSchedules(
@@ -892,6 +1146,8 @@ export type ZhongyangAppointmentGatewayOptions = ZhongyangGatewayOptions;
 
 export function createZhongyangAppointmentGateway(
 	options: ZhongyangGatewayOptions,
-): AppointmentDirectoryGateway & AppointmentRecordDirectoryGateway {
+): AppointmentDirectoryGateway &
+	AppointmentDepartmentTreeGateway &
+	AppointmentRecordDirectoryGateway {
 	return new ZhongyangAppointmentApiGateway(options);
 }

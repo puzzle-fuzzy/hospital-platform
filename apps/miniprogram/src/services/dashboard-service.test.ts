@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+	requestOutpatientPaymentRecords,
+	requestReportDetail,
+	requestReports,
+} from "./api-client";
+import {
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
 	createPastDateRange,
@@ -12,6 +17,7 @@ import {
 	loadOutpatientPaymentRecords,
 	loadPatientsForOwner,
 	requireAppointmentDepartmentListData,
+	requireAppointmentDepartmentTreeData,
 	requireAppointmentRecordListData,
 	requireAppointmentScheduleListData,
 	requireExactListData,
@@ -20,11 +26,6 @@ import {
 	syncPatientsFromHospital,
 } from "./dashboard-service";
 import { getSessionGeneration } from "./session-generation";
-import {
-	requestOutpatientPaymentRecords,
-	requestReportDetail,
-	requestReports,
-} from "./api-client";
 
 // 2026-08-15 00:00:00 Asia/Shanghai 对应 UTC 前一天 16:00。
 const BEIJING_MIDNIGHT = new Date("2026-08-14T16:00:00.000Z");
@@ -592,6 +593,39 @@ test("预约科室目录响应必须保持唯一标识和公开展示字段", ()
 		},
 	]) {
 		expect(() => requireAppointmentDepartmentListData(invalid)).toThrow(
+			"Appointment",
+		);
+	}
+});
+
+test("预约科室树只接受受控一级和二级目录，不允许重复二级引用", () => {
+	const valid = {
+		items: [
+			{
+				groupId: "first-surgery",
+				displayName: "外科",
+				departments: [
+					{ departmentId: "second-general", displayName: "普外科门诊" },
+				],
+			},
+		],
+		total: 1,
+	};
+	expect(requireAppointmentDepartmentTreeData(valid)).toEqual(valid);
+
+	for (const invalid of [
+		{ ...valid, items: [{ ...valid.items[0], groupId: "" }] },
+		{
+			...valid,
+			items: [
+				valid.items[0],
+				{ ...valid.items[0], groupId: "first-surgery-other" },
+			],
+			total: 2,
+		},
+		{ ...valid, items: [{ ...valid.items[0], departments: null }] },
+	]) {
+		expect(() => requireAppointmentDepartmentTreeData(invalid)).toThrow(
 			"Appointment",
 		);
 	}

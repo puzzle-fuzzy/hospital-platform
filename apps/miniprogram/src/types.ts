@@ -1,5 +1,6 @@
 import type {
 	AppointmentDepartmentListPayload,
+	AppointmentDepartmentTreePayload,
 	AppointmentRecordListPayload,
 	AppointmentScheduleListPayload,
 	AuthSessionPayload,
@@ -57,6 +58,8 @@ export type CurrentUserResponse = CurrentUserPayload;
 export type PatientListResponse = PatientListPayload;
 export type AppointmentDepartmentListResponse =
 	AppointmentDepartmentListPayload;
+export type AppointmentDepartmentTreeResponse =
+	AppointmentDepartmentTreePayload;
 export type AppointmentScheduleListResponse = AppointmentScheduleListPayload;
 export type AppointmentRecordListResponse = AppointmentRecordListPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
@@ -77,18 +80,15 @@ export type Patient = PatientListResponse["data"]["items"][number];
 export type PatientSelectionView = Patient & {
 	relationshipLabel: string;
 };
+/** 旧项目 `first-depts` 受控投影的一级/二级挂号目录。 */
+export type AppointmentDepartmentGroup =
+	AppointmentDepartmentTreeResponse["data"]["items"][number];
+/** 一级目录下的真实二级科室；其 ID 才可作为三级门诊查询的受控输入。 */
 export type AppointmentDepartment =
+	AppointmentDepartmentGroup["departments"][number];
+/** 三级可预约门诊沿用既有的白名单字段，不含 Provider 的其它元数据。 */
+export type AppointmentClinicDepartment =
 	AppointmentDepartmentListResponse["data"]["items"][number];
-
-/**
- * 蓝湖目录页的一级导航只是一层本地展示分类：其子项始终是 Provider 已公开的
- * 真实科室，不会把分类标签当成新的医院科室或请求参数。
- */
-export type AppointmentDepartmentGroup = {
-	groupId: string;
-	displayName: string;
-	departments: Array<AppointmentDepartment>;
-};
 export type AppointmentSchedule =
 	AppointmentScheduleListResponse["data"]["items"][number];
 
@@ -285,11 +285,15 @@ export type AppointmentDirectoryPageData = {
 	/** 当前一级分类下、可展开的真实二级科室。 */
 	currentGroupDepartments: Array<AppointmentDepartment>;
 	selectedDepartmentGroupId: string;
+	/** 当前已展开二级科室下的真实三级门诊。 */
+	clinicDepartments: Array<AppointmentClinicDepartment>;
 	schedules: Array<AppointmentSchedule>;
 	doctorCards: Array<AppointmentDoctorCard>;
 	activeMode: AppointmentDirectoryMode;
 	selectedDepartmentId: string;
 	selectedDepartmentName: string;
+	selectedClinicDepartmentId: string;
+	selectedClinicDepartmentName: string;
 	/** 当前从医生卡片进入日期页时的本地过滤条件；为空表示查看全部医生。 */
 	selectedDoctorId: string;
 	selectedDoctorName: string;
@@ -305,7 +309,14 @@ export type AppointmentDirectoryPageData = {
 	hasMoreSchedules: boolean;
 	visibleScheduleCount: number;
 	loading: boolean;
+	clinicLoading: boolean;
+	scheduleLoading: boolean;
+	/** 只有一级/二级目录读取失败时才进入整页错误态。 */
 	error: string;
+	/** 已加载目录仍可浏览；细分门诊失败只在当前二级科室内提示。 */
+	clinicError: string;
+	/** 医生与号源失败只在当前三级门诊内提示。 */
+	scheduleError: string;
 };
 
 /** 挂号记录页使用服务端规范化状态，避免在小程序解析 provider 状态码。 */

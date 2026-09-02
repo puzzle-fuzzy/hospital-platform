@@ -1,6 +1,7 @@
 import type {
 	ApiRequestOptions,
 	AppointmentDepartmentListResponse,
+	AppointmentDepartmentTreeResponse,
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
 	AuthSessionResponse,
@@ -1871,6 +1872,36 @@ export function syncPatients(
 export function requestAppointmentDepartments(): Promise<AppointmentDepartmentListResponse> {
 	return requestWithSession<unknown>({
 		url: "/appointments/departments",
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentDepartmentListResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/**
+ * 读取旧挂号页同源的一级/二级目录。这个新接口与旧扁平目录分离，避免
+ * 改变其它调用方已经依赖的 `/appointments/departments` 形状。
+ */
+export function requestAppointmentDepartmentTree(): Promise<AppointmentDepartmentTreeResponse> {
+	return requestWithSession<unknown>({
+		url: "/appointments/department-tree",
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentDepartmentTreeResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/**
+ * 读取已选二级科室下的三级可预约门诊。仅发送目录返回的 opaque ID；名称
+ * 由服务端从受控树重新解析，永不把搜索框或任意文本透传给 Provider。
+ */
+export function requestAppointmentClinicDepartments(
+	parentDepartmentId: string,
+): Promise<AppointmentDepartmentListResponse> {
+	return requestWithSession<unknown>({
+		url: `/appointments/clinic-departments?parentDepartmentId=${encodeURIComponent(parentDepartmentId)}`,
 	}).then((payload) =>
 		requireSuccessDataResponse<AppointmentDepartmentListResponse["data"]>(
 			payload,

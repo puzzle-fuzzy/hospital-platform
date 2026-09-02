@@ -2,11 +2,12 @@ import { expect, test } from "bun:test";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
 import { Value } from "@sinclair/typebox/value";
 import {
+	AppointmentDepartmentTreeResponse,
+	HealthKnowledgeDiseaseDetailSchema,
+	HealthKnowledgeDrugDetailSchema,
 	PatientCardNumberMaskedSchema,
 	PatientListResponse,
 	PatientSchema,
-	HealthKnowledgeDiseaseDetailSchema,
-	HealthKnowledgeDrugDetailSchema,
 	UserProfileDisplayNameSchema,
 	UserProfileSchema,
 	UserProfileUpdateRequest,
@@ -25,6 +26,9 @@ const healthDiseaseDetailSchema = TypeCompiler.Compile(
 );
 const healthDrugDetailSchema = TypeCompiler.Compile(
 	HealthKnowledgeDrugDetailSchema,
+);
+const appointmentDepartmentTreeSchema = TypeCompiler.Compile(
+	AppointmentDepartmentTreeResponse,
 );
 
 function profile(displayName: string) {
@@ -128,6 +132,44 @@ test("健康知识 contract 与领域层保持可点击引用和非空文本边�
 		healthDiseaseDetailSchema.Check({
 			...validDisease,
 			availableDrugs: [{ drugName: "缺少绑定", isClickable: true }],
+		}),
+	).toBe(false);
+});
+
+test("预约一级二级目录 contract 仅接受受控分组和二级科室数组", () => {
+	expect(
+		appointmentDepartmentTreeSchema.Check({
+			success: true,
+			data: {
+				items: [
+					{
+						groupId: "group-internal",
+						displayName: "内科",
+						departments: [
+							{
+								departmentId: "second-cardiology",
+								displayName: "心血管内科",
+							},
+						],
+					},
+				],
+				total: 1,
+			},
+		}),
+	).toBe(true);
+	expect(
+		appointmentDepartmentTreeSchema.Check({
+			success: true,
+			data: {
+				items: [
+					{
+						groupId: "group-internal",
+						displayName: "内科",
+						departments: null,
+					},
+				],
+				total: 1,
+			},
 		}),
 	).toBe(false);
 });

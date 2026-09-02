@@ -1001,9 +1001,31 @@ page {
 	padding: 0 30rpx;
 	border-bottom: 1rpx solid #dddddd;
 	background: #eaeffd;
-	color: #4b8eff;
+	color: #1f5fbf;
 	font-size: 28rpx;
 	line-height: 1.35;
+}
+
+.department-child-option-active {
+	background: #dbe6ff;
+	font-weight: 500;
+}
+
+/* 医生只在选中最末级门诊后出现，视觉上与蓝底三级门诊明确区分。 */
+.doctor-option-list {
+	background: #ffffff;
+}
+
+.doctor-option {
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: 87rpx;
+	padding: 0 30rpx;
+	border-bottom: 1rpx solid #dddddd;
+	background: #ffffff;
+	color: #282828;
+	font-size: 28rpx;
 }
 
 .selected-doctor-filter {

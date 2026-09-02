@@ -6,10 +6,58 @@ import {
 	MAX_APPOINTMENT_RECORD_ITEMS,
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 	MAX_APPOINTMENT_SNAPSHOT_TTL_MS,
+	normalizeAppointmentDepartmentGroupResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
+
+test("预约目录树只投影一级、二级白名单字段并拒绝跨分组重复二级 ID", () => {
+	const groups = normalizeAppointmentDepartmentGroupResults([
+		{
+			groupId: "group-internal",
+			displayName: "内科",
+			providerOrgId: "provider-secret",
+			departments: [
+				{
+					departmentId: "second-cardiology",
+					displayName: "心血管内科",
+					providerIntroduction: "provider-secret-description",
+				},
+			],
+		},
+	]);
+
+	expect(groups).toEqual([
+		{
+			groupId: "group-internal",
+			displayName: "内科",
+			departments: [
+				{ departmentId: "second-cardiology", displayName: "心血管内科" },
+			],
+		},
+	]);
+	expect(() =>
+		normalizeAppointmentDepartmentGroupResults([
+			{
+				groupId: "group-internal",
+				displayName: "内科",
+				departments: [
+					{ departmentId: "second-cardiology", displayName: "心血管内科" },
+				],
+			},
+			{
+				groupId: "group-surgery",
+				displayName: "外科",
+				departments: [
+					{ departmentId: "second-cardiology", displayName: "重复科室" },
+				],
+			},
+		]),
+	).toThrow(
+		new AppointmentDirectoryResultValidationError("department-id-duplicate"),
+	);
+});
 
 function providerSchedule(index: number) {
 	return {

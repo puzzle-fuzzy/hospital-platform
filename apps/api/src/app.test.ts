@@ -7,6 +7,7 @@ import {
 	ProviderRequestError,
 } from "@hospital/adapters";
 import {
+	type AppointmentDepartmentTreeGateway,
 	type AppointmentDirectoryGateway,
 	type AppointmentRecordDirectoryGateway,
 	HealthKnowledgeContentUnavailableError,
@@ -141,7 +142,9 @@ test("OpenAPI route inventory matches the current public application surface", a
 
 	// 这份白名单用于发现“代码加了路由但契约文档未更新”或误开放写入接口。
 	const expectedPaths = [
+		"/api/v1/appointments/clinic-departments",
 		"/api/v1/appointments/departments",
+		"/api/v1/appointments/department-tree",
 		"/api/v1/appointments/records",
 		"/api/v1/appointments/schedules",
 		"/api/v1/auth/wechat",
@@ -1488,6 +1491,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 	const identityUsers = createInMemoryIdentityUserRepository();
 	const identityGateway = createFixtureWechatIdentityGateway();
 	let departmentInput: Record<string, string | undefined> | undefined;
+	let clinicDepartmentInput: Record<string, string | undefined> | undefined;
 	let scheduleInput: Record<string, string | undefined> | undefined;
 	let failDepartments = false;
 	const directory: AppointmentDirectoryGateway = {
@@ -1544,6 +1548,43 @@ test("appointment directory keeps provider fields behind a server read model", a
 			};
 		},
 	};
+	const departmentTree: AppointmentDepartmentTreeGateway = {
+		listDepartmentTree: async (context) => ({
+			groups: [
+				{
+					groupId: "first-surgery",
+					displayName: "外科",
+					departments: [
+						{
+							departmentId: "second-general",
+							displayName: "普外科门诊",
+						},
+					],
+				},
+			],
+			trace: {
+				provider: "zhongyang",
+				operation: "appointment-department-tree",
+				requestId: context.traceId,
+			},
+		}),
+		listClinicDepartments: async (input, context) => {
+			clinicDepartmentInput = input;
+			return {
+				departments: [
+					{
+						departmentId: "clinic-neurosurgery",
+						displayName: "神经外科门诊",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-clinic-departments",
+					requestId: context.traceId,
+				},
+			};
+		},
+	};
 	const paymentOrders = new PaymentOrderService({
 		orders: createInMemoryPaymentOrderRepository(),
 		quotes: createInMemoryPaymentQuoteRepository(),
@@ -1554,6 +1595,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 			patients: new PatientService(createInMemoryPatientRepository()),
 			appointments: new AppointmentService({
 				directory,
+				departmentTree,
 				now: () => new Date("2026-08-15T00:00:00.000Z"),
 				createScheduleId: () => "platform-schedule-001",
 			}),
@@ -1594,6 +1636,25 @@ test("appointment directory keeps provider fields behind a server read model", a
 			},
 		}),
 	);
+	const departmentTreeResponse = await app.handle(
+		new Request("http://localhost/api/v1/appointments/department-tree", {
+			headers: {
+				authorization,
+				"x-request-id": "appointment-tree-trace",
+			},
+		}),
+	);
+	const clinicDepartmentsResponse = await app.handle(
+		new Request(
+			"http://localhost/api/v1/appointments/clinic-departments?parentDepartmentId=second-general",
+			{
+				headers: {
+					authorization,
+					"x-request-id": "appointment-clinics-trace",
+				},
+			},
+		),
+	);
 	const schedulesResponse = await app.handle(
 		new Request(
 			"http://localhost/api/v1/appointments/schedules?startDate=2026-08-20&endDate=2026-08-21&departmentId=dept-001&doctorId=doctor-001",
@@ -1625,6 +1686,43 @@ test("appointment directory keeps provider fields behind a server read model", a
 			],
 			total: 1,
 		},
+	});
+	expect(departmentTreeResponse.status).toBe(200);
+	expect(await departmentTreeResponse.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					groupId: "first-surgery",
+					displayName: "外科",
+					departments: [
+						{
+							departmentId: "second-general",
+							displayName: "普外科门诊",
+						},
+					],
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(clinicDepartmentsResponse.status).toBe(200);
+	expect(await clinicDepartmentsResponse.json()).toEqual({
+		success: true,
+		data: {
+			items: [
+				{
+					departmentId: "clinic-neurosurgery",
+					displayName: "神经外科门诊",
+				},
+			],
+			total: 1,
+		},
+	});
+	expect(clinicDepartmentInput).toEqual({
+		parentDepartmentId: "second-general",
+		startDate: "2026-08-15",
+		endDate: "2026-08-22",
 	});
 	expect(schedulesResponse.status).toBe(200);
 	expect(await schedulesResponse.json()).toEqual({

@@ -10,6 +10,19 @@ export type AppointmentDepartment = {
 	location?: string;
 };
 
+/**
+ * 挂号页的一级目录及其二级科室。
+ *
+ * 这是独立于“可排班科室”扁平目录的展示层级：`groupId` 和二级
+ * `departmentId` 都是 Provider 的受控引用，只能由服务端目录读取生成，
+ * 不能把名称或任意搜索词作为后续 Provider 查询条件。
+ */
+export type AppointmentDepartmentGroup = {
+	groupId: string;
+	displayName: string;
+	departments: AppointmentDepartment[];
+};
+
 /** 患者端可展示的排班详情；不包含 provider 标识或费用事实。 */
 export type AppointmentScheduleDetails = {
 	departmentId: string;
@@ -75,6 +88,12 @@ export type AppointmentDirectoryResultViolation =
 	| "department-not-object"
 	| "department-field-invalid"
 	| "department-id-duplicate"
+	| "department-groups-not-array"
+	| "department-groups-too-many"
+	| "department-group-not-object"
+	| "department-group-field-invalid"
+	| "department-group-id-duplicate"
+	| "department-group-departments-not-array"
 	| "schedules-not-array"
 	| "schedules-too-many"
 	| "schedule-not-object"
@@ -199,6 +218,91 @@ export function normalizeAppointmentDepartmentResults(
 			displayName,
 			...(location ? { location } : {}),
 		};
+	});
+}
+
+/**
+ * 校验并重新投影一级/二级科室树。
+ *
+ * 第一层仅用于挂号页目录导航，第二层仍是服务端控制的 opaque 科室引用。
+ * 这里不允许跨分组复用二级科室 ID：否则后续三级科室读取仅凭
+ * `parentDepartmentId` 无法确定应使用哪一个真实名称，可能造成错误检索。
+ */
+export function normalizeAppointmentDepartmentGroupResults(
+	value: unknown,
+): AppointmentDepartmentGroup[] {
+	if (!Array.isArray(value)) {
+		invalidAppointmentDirectoryResult("department-groups-not-array");
+	}
+	if (value.length > MAX_APPOINTMENT_DEPARTMENT_ITEMS) {
+		invalidAppointmentDirectoryResult("department-groups-too-many");
+	}
+
+	const groupIds = new Set<string>();
+	const departmentIds = new Set<string>();
+	let departmentCount = 0;
+
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidAppointmentDirectoryResult("department-group-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		const groupId = requiredAppointmentText(
+			record,
+			"groupId",
+			128,
+			"department-group-field-invalid",
+		);
+		const displayName = requiredAppointmentText(
+			record,
+			"displayName",
+			256,
+			"department-group-field-invalid",
+		);
+		if (groupIds.has(groupId)) {
+			invalidAppointmentDirectoryResult("department-group-id-duplicate");
+		}
+		groupIds.add(groupId);
+
+		if (!Array.isArray(record.departments)) {
+			invalidAppointmentDirectoryResult(
+				"department-group-departments-not-array",
+			);
+		}
+		departmentCount += record.departments.length;
+		if (departmentCount > MAX_APPOINTMENT_DEPARTMENT_ITEMS) {
+			invalidAppointmentDirectoryResult("departments-too-many");
+		}
+
+		const departments = record.departments.map((department) => {
+			if (
+				typeof department !== "object" ||
+				department === null ||
+				Array.isArray(department)
+			) {
+				invalidAppointmentDirectoryResult("department-not-object");
+			}
+			const departmentRecord = department as Record<string, unknown>;
+			const departmentId = requiredAppointmentText(
+				departmentRecord,
+				"departmentId",
+				128,
+				"department-field-invalid",
+			);
+			const departmentDisplayName = requiredAppointmentText(
+				departmentRecord,
+				"displayName",
+				256,
+				"department-field-invalid",
+			);
+			if (departmentIds.has(departmentId)) {
+				invalidAppointmentDirectoryResult("department-id-duplicate");
+			}
+			departmentIds.add(departmentId);
+			return { departmentId, displayName: departmentDisplayName };
+		});
+
+		return { groupId, displayName, departments };
 	});
 }
 
@@ -337,6 +441,17 @@ export type AppointmentDepartmentQuery = Pick<
 	AppointmentScheduleQuery,
 	"startDate" | "endDate"
 >;
+
+/**
+ * 三级可预约科室查询的服务端输入。
+ *
+ * `parentDepartmentId` 来自一级/二级树的受控二级引用；adapter 必须先重新
+ * 从树中解析其名称，再把该名称作为旧 Provider 的 searchCondition。客户端
+ * 不得提交名称或其它 Provider 检索字段。
+ */
+export type AppointmentClinicDepartmentQuery = AppointmentDepartmentQuery & {
+	parentDepartmentId: string;
+};
 
 /**
  * 服务端观察到的排班快照。
@@ -723,6 +838,26 @@ export interface AppointmentDirectoryGateway {
 		context: AdapterCallContext,
 	): Promise<{
 		schedules: readonly AppointmentProviderSchedule[];
+		trace: ExternalTrace;
+	}>;
+}
+
+/**
+ * 一级/二级目录和其下三级可预约科室的独立读取能力。
+ *
+ * 保持它与既有扁平 `AppointmentDirectoryGateway` 分离，避免新目录协议改变
+ * 已发布的 `/appointments/departments` 公共响应。
+ */
+export interface AppointmentDepartmentTreeGateway {
+	listDepartmentTree(context: AdapterCallContext): Promise<{
+		groups: readonly AppointmentDepartmentGroup[];
+		trace: ExternalTrace;
+	}>;
+	listClinicDepartments(
+		input: AppointmentClinicDepartmentQuery,
+		context: AdapterCallContext,
+	): Promise<{
+		departments: readonly AppointmentDepartment[];
 		trace: ExternalTrace;
 	}>;
 }

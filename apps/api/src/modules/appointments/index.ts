@@ -1,5 +1,6 @@
 import {
 	AppointmentDepartmentListResponse,
+	AppointmentDepartmentTreeResponse,
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
 	success,
@@ -26,6 +27,14 @@ const AppointmentScheduleQuery = t.Object({
 	endDate: t.String({ pattern: DatePattern }),
 	departmentId: t.Optional(t.String({ minLength: 1, maxLength: 128 })),
 	doctorId: t.Optional(t.String({ minLength: 1, maxLength: 128 })),
+});
+
+/**
+ * 三级可预约科室只接受一级/二级树中公开的二级 opaque ID；名称筛选由
+ * service/adapter 从树中重新解析，不能让 HTTP query 进入 Provider。
+ */
+const AppointmentClinicDepartmentQuery = t.Object({
+	parentDepartmentId: t.String({ minLength: 1, maxLength: 128 }),
 });
 
 /**
@@ -60,6 +69,40 @@ export function appointmentsModule(
 			},
 			{
 				headers: AppointmentHeaders,
+				response: { 200: AppointmentDepartmentListResponse },
+				tags: ["appointments"],
+			},
+		)
+		.get(
+			"/appointments/department-tree",
+			async ({ request, headers }) => {
+				await authentication.get(request);
+				return success(
+					await appointmentService.listDepartmentTree(
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: AppointmentHeaders,
+				response: { 200: AppointmentDepartmentTreeResponse },
+				tags: ["appointments"],
+			},
+		)
+		.get(
+			"/appointments/clinic-departments",
+			async ({ request, headers, query }) => {
+				await authentication.get(request);
+				return success(
+					await appointmentService.listClinicDepartments(
+						query.parentDepartmentId,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: AppointmentHeaders,
+				query: AppointmentClinicDepartmentQuery,
 				response: { 200: AppointmentDepartmentListResponse },
 				tags: ["appointments"],
 			},

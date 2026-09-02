@@ -1,5 +1,7 @@
 import type {
+	AppointmentClinicDepartment,
 	AppointmentDepartment,
+	AppointmentDepartmentGroup,
 	AppointmentRecord,
 	AppointmentSchedule,
 	HealthResponse,
@@ -14,7 +16,9 @@ import {
 	createIdempotencyKey,
 	getCurrentUser,
 	request,
+	requestAppointmentClinicDepartments,
 	requestAppointmentDepartments,
+	requestAppointmentDepartmentTree,
 	requestAppointmentRecords,
 	requestAppointmentSchedules,
 	requestOutpatientPaymentRecords,
@@ -377,6 +381,71 @@ export function requireAppointmentDepartmentListData(
 			...(location === undefined ? {} : { location }),
 		});
 	}
+	return { items, total: list.total };
+}
+
+/**
+ * 一级/二级科室树在客户端再次按公开白名单字段投影。树的层级关系已经由
+ * 服务端从旧 Provider 目录验证，但微信收到的 JSON 仍是未知输入；任何
+ * 重复 ID、控制字符或越界字段都不能变成随后三级门诊查询的依据。
+ */
+export function requireAppointmentDepartmentTreeData(
+	value: unknown,
+): ExactListData<AppointmentDepartmentGroup> {
+	const list = requireExactListData<unknown>(value);
+	const seenGroupIds = new Set<string>();
+	const seenDepartmentIds = new Set<string>();
+	const items: AppointmentDepartmentGroup[] = [];
+	let departmentCount = 0;
+
+	for (const item of list.items) {
+		if (!isRecord(item)) {
+			return invalidAppointmentResponse(
+				"Appointment department tree response item is invalid",
+			);
+		}
+		const groupId = requiredAppointmentText(item.groupId, 128);
+		const displayName = requiredAppointmentText(item.displayName, 256);
+		if (seenGroupIds.has(groupId) || !Array.isArray(item.departments)) {
+			return invalidAppointmentResponse(
+				"Appointment department tree response item is invalid",
+			);
+		}
+		seenGroupIds.add(groupId);
+		departmentCount += item.departments.length;
+		if (departmentCount > 256) {
+			return invalidAppointmentResponse(
+				"Appointment department tree response item is invalid",
+			);
+		}
+
+		const departments: AppointmentDepartment[] = [];
+		for (const department of item.departments) {
+			if (!isRecord(department)) {
+				return invalidAppointmentResponse(
+					"Appointment department tree response item is invalid",
+				);
+			}
+			const departmentId = requiredAppointmentText(
+				department.departmentId,
+				128,
+			);
+			const departmentName = requiredAppointmentText(
+				department.displayName,
+				256,
+			);
+			if (seenDepartmentIds.has(departmentId)) {
+				return invalidAppointmentResponse(
+					"Appointment department tree response item is invalid",
+				);
+			}
+			seenDepartmentIds.add(departmentId);
+			departments.push({ departmentId, displayName: departmentName });
+		}
+
+		items.push({ groupId, displayName, departments });
+	}
+
 	return { items, total: list.total };
 }
 
@@ -923,6 +992,36 @@ export function loadAppointmentDepartments(): Promise<
 > {
 	return requestAppointmentDepartments().then(
 		(payload) => requireAppointmentDepartmentListData(payload.data).items,
+	);
+}
+
+/** 读取挂号页一级/二级真实目录，替代客户端基于名称的猜测分类。 */
+export function loadAppointmentDepartmentTree(): Promise<
+	Array<AppointmentDepartmentGroup>
+> {
+	return requestAppointmentDepartmentTree().then(
+		(payload) => requireAppointmentDepartmentTreeData(payload.data).items,
+	);
+}
+
+/**
+ * 读取已选二级科室下的细分门诊。二级 ID 必须已经通过树目录读取与本地
+ * 回查；这里再次做形状校验，不能让历史 WXML 事件构造无意义的请求。
+ */
+export function loadAppointmentClinicDepartments(
+	parentDepartmentId: string,
+): Promise<Array<AppointmentClinicDepartment>> {
+	if (!isBoundedAppointmentIdentifier(parentDepartmentId)) {
+		return Promise.reject(
+			new ApiError("预约科室参数不合法", {
+				code: "appointment-query-invalid",
+			}),
+		);
+	}
+	return requestAppointmentClinicDepartments(parentDepartmentId).then(
+		(payload) =>
+			requireAppointmentDepartmentListData(payload.data)
+				.items as Array<AppointmentClinicDepartment>,
 	);
 }
 

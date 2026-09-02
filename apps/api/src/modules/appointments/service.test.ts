@@ -444,6 +444,114 @@ test("appointment department reads add the provider date window on the server", 
 	});
 });
 
+test("appointment department tree keeps hierarchy separate and resolves clinic departments by opaque parent ID", async () => {
+	let clinicInput:
+		| {
+				startDate: string;
+				endDate: string;
+				parentDepartmentId: string;
+		  }
+		| undefined;
+	let clinicCalls = 0;
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-departments",
+					requestId: "unused-flat-directory",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedules",
+					requestId: "unused-schedules",
+				},
+			}),
+		},
+		departmentTree: {
+			listDepartmentTree: async () => ({
+				groups: [
+					{
+						groupId: "group-internal",
+						displayName: "内科",
+						departments: [
+							{
+								departmentId: "second-cardiology",
+								displayName: "心血管内科",
+								providerExtra: "provider-secret",
+							},
+						],
+						providerExtra: "provider-secret",
+					},
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-department-tree",
+					requestId: "tree-request-001",
+				},
+			}),
+			listClinicDepartments: async (input) => {
+				clinicCalls += 1;
+				clinicInput = input;
+				return {
+					departments: [
+						{
+							departmentId: "clinic-cardiology",
+							displayName: "心内科门诊",
+							providerExtra: "provider-secret",
+						},
+					],
+					trace: {
+						provider: "zhongyang",
+						operation: "appointment-clinic-departments",
+						requestId: "clinic-request-001",
+					},
+				};
+			},
+		},
+		now: () => new Date("2026-08-15T00:00:00.000Z"),
+	});
+	const context = {
+		traceId: "tree-trace-001",
+		idempotencyKey: "tree-key-001",
+	};
+
+	await expect(service.listDepartmentTree(context)).resolves.toEqual({
+		items: [
+			{
+				groupId: "group-internal",
+				displayName: "内科",
+				departments: [
+					{
+						departmentId: "second-cardiology",
+						displayName: "心血管内科",
+					},
+				],
+			},
+		],
+		total: 1,
+	});
+	await expect(
+		service.listClinicDepartments("second-cardiology", context),
+	).resolves.toEqual({
+		items: [{ departmentId: "clinic-cardiology", displayName: "心内科门诊" }],
+		total: 1,
+	});
+	expect(clinicInput).toEqual({
+		startDate: "2026-08-15",
+		endDate: "2026-08-22",
+		parentDepartmentId: "second-cardiology",
+	});
+	await expect(
+		service.listClinicDepartments("\ninvalid", context),
+	).rejects.toBeInstanceOf(AppointmentScheduleQueryError);
+	expect(clinicCalls).toBe(1);
+});
+
 test("appointment date ranges accept the configured span and reject anything wider", async () => {
 	let scheduleProviderCalls = 0;
 	let recordProviderCalls = 0;

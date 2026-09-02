@@ -64,6 +64,188 @@ test("众阳预约目录只返回科室白名单并固定服务端渠道", async
 	expect(JSON.stringify(result)).not.toContain("internal-provider-field");
 });
 
+test("众阳挂号目录树固定 first-depts 参数并只映射一二级白名单字段", async () => {
+	let requestUrl = "";
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrl = String(input);
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							firstDeptId: "first-internal",
+							firstDeptName: "内科",
+							orgId: "provider-org-secret",
+							secondDeptList: [
+								{
+									deptId: "second-cardiology",
+									deptName: "心血管内科",
+									deptIntroduction: "provider-internal-description",
+								},
+							],
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "tree-request-001" } },
+			);
+		},
+	});
+
+	const result = await gateway.listDepartmentTree(context);
+
+	expect(requestUrl).toBe(
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/first-depts?requestChannel=3&todayRegisterFlag=0&queryMode=0",
+	);
+	expect(result).toEqual({
+		groups: [
+			{
+				groupId: "first-internal",
+				displayName: "内科",
+				departments: [
+					{
+						departmentId: "second-cardiology",
+						displayName: "心血管内科",
+					},
+				],
+			},
+		],
+		trace: {
+			provider: "zhongyang",
+			operation: "appointment-department-tree",
+			requestId: "tree-request-001",
+		},
+	});
+	expect(JSON.stringify(result)).not.toContain("provider-org-secret");
+	expect(JSON.stringify(result)).not.toContain("provider-internal-description");
+});
+
+test("众阳三级可预约科室只从受控二级 ID 解析名称后查询", async () => {
+	const requestUrls: string[] = [];
+	let requestCount = 0;
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (input) => {
+			requestUrls.push(String(input));
+			requestCount += 1;
+			if (requestCount === 1) {
+				return new Response(
+					JSON.stringify({
+						success: true,
+						data: [
+							{
+								firstDeptId: "first-internal",
+								firstDeptName: "内科",
+								secondDeptList: [
+									{
+										deptId: "second-cardiology",
+										deptName: "心血管内科",
+									},
+								],
+							},
+						],
+					}),
+					{ status: 200, headers: { "x-request-id": "tree-request-002" } },
+				);
+			}
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							deptId: "clinic-cardiology",
+							deptName: "心内科门诊",
+							roomAddress: "门诊楼二层",
+							hisCreaterName: "provider-creator-secret",
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "clinic-request-002" } },
+			);
+		},
+	});
+
+	const result = await gateway.listClinicDepartments(
+		{
+			startDate: "2026-08-15",
+			endDate: "2026-08-22",
+			parentDepartmentId: "second-cardiology",
+		},
+		context,
+	);
+
+	expect(requestUrls).toHaveLength(2);
+	expect(requestUrls[0]).toBe(
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/first-depts?requestChannel=3&todayRegisterFlag=0&queryMode=0",
+	);
+	const clinicUrl = new URL(requestUrls[1] as string);
+	expect(clinicUrl.pathname).toBe(
+		"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts",
+	);
+	expect(Object.fromEntries(clinicUrl.searchParams)).toEqual({
+		requestChannel: "4",
+		startDate: "2026-08-15",
+		endDate: "2026-08-22",
+		searchCondition: "心血管内科",
+	});
+	expect(result).toEqual({
+		departments: [
+			{
+				departmentId: "clinic-cardiology",
+				displayName: "心内科门诊",
+				location: "门诊楼二层",
+			},
+		],
+		trace: {
+			provider: "zhongyang",
+			operation: "appointment-clinic-departments",
+			requestId: "clinic-request-002",
+			requestIds: ["tree-request-002", "clinic-request-002"],
+		},
+	});
+	expect(JSON.stringify(result)).not.toContain("provider-creator-secret");
+});
+
+test("众阳三级可预约科室拒绝未知二级 ID 且不发名称检索", async () => {
+	let providerCalls = 0;
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () => {
+			providerCalls += 1;
+			return new Response(
+				JSON.stringify({
+					success: true,
+					data: [
+						{
+							firstDeptId: "first-internal",
+							firstDeptName: "内科",
+							secondDeptList: [],
+						},
+					],
+				}),
+				{ status: 200, headers: { "x-request-id": "tree-request-unknown" } },
+			);
+		},
+	});
+
+	await expect(
+		gateway.listClinicDepartments(
+			{
+				startDate: "2026-08-15",
+				endDate: "2026-08-22",
+				parentDepartmentId: "second-unknown",
+			},
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-clinic-departments",
+		responseInvalid: false,
+	});
+	expect(providerCalls).toBe(1);
+});
+
 test("众阳排班目录固定请求渠道并只返回已验证的号源读模型", async () => {
 	let requestUrl = "";
 	const gateway = createZhongyangAppointmentGateway({

@@ -2234,8 +2234,11 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(home).toContain("navigateToPatientScopedPage");
 	expect(home).toContain('"/pages/appointment-records/appointment-records"');
 	expect(home).not.toContain("预约下单功能仍在迁移中");
-	expect(directory).toContain("loadAppointmentDepartments");
-	expect(directory).toContain("loadDepartmentSchedules");
+	expect(directory).toContain("loadAppointmentDepartmentTree");
+	expect(directory).toContain("loadClinicDepartments");
+	expect(directory).toContain("loadClinicSchedules");
+	expect(directoryTemplate).toContain("departmentGroups");
+	expect(directoryTemplate).toContain("clinicDepartments");
 	expect(directory).toContain("scheduleGuard");
 	expect(directory).toContain("directoryGuard");
 	expect(directory).toContain("directoryScheduleToken");
@@ -4025,7 +4028,7 @@ test("appointment directory ignores stale department events after a cascade refr
 	expect(departmentHandler).toContain("this.data.departments.find");
 	expect(departmentHandler).toContain("if (!department)");
 	expect(departmentHandler).toContain(
-		"this.loadDepartmentSchedules(department.departmentId)",
+		"this.loadClinicDepartments(department.departmentId)",
 	);
 });
 

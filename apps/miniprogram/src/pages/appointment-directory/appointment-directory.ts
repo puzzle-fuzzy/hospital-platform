@@ -1,12 +1,12 @@
 import { ApiError, contextualApiErrorMessage } from "../../services/api-client";
 import {
-	groupAppointmentDepartments,
 	groupAppointmentDoctorCards,
 	groupAppointmentSchedules,
 	visibleAppointmentSchedules,
 } from "../../services/appointment-directory-view";
 import {
-	loadAppointmentDepartments,
+	loadAppointmentClinicDepartments,
+	loadAppointmentDepartmentTree,
 	loadAppointmentSchedules,
 } from "../../services/dashboard-service";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
@@ -15,6 +15,7 @@ import {
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
 import type {
+	AppointmentClinicDepartment,
 	AppointmentDirectoryMode,
 	AppointmentDirectoryPageData,
 	AppointmentDoctorCard,
@@ -31,7 +32,8 @@ const SCHEDULE_PAGE_SIZE = 12;
 
 type AppointmentDirectoryPageMethods = {
 	loadDirectory(): Promise<void>;
-	loadDepartmentSchedules(departmentId: string): Promise<void>;
+	loadClinicDepartments(departmentId: string): Promise<void>;
+	loadClinicSchedules(clinic: AppointmentClinicDepartment): Promise<void>;
 	selectDoctor(doctor: AppointmentDoctorCard, requestedDate?: string): void;
 	onRetry(): void;
 	onGuideTap(): void;
@@ -40,6 +42,7 @@ type AppointmentDirectoryPageMethods = {
 	onModeTap(event: WechatMiniprogram.TouchEvent): void;
 	onDepartmentGroupTap(event: WechatMiniprogram.TouchEvent): void;
 	onDepartmentTap(event: WechatMiniprogram.TouchEvent): void;
+	onClinicDepartmentTap(event: WechatMiniprogram.TouchEvent): void;
 	onDoctorCardTap(event: WechatMiniprogram.TouchEvent): void;
 	onDoctorDateTap(event: WechatMiniprogram.TouchEvent): void;
 	onClearDoctorFilter(): void;
@@ -48,7 +51,8 @@ type AppointmentDirectoryPageMethods = {
 	onScheduleTap(event: WechatMiniprogram.TouchEvent): void;
 	onPullDownRefresh(): void;
 	onUnload(): void;
-	showError(error: unknown, fallback: string): void;
+	onClinicRetry(): void;
+	onScheduleRetry(): void;
 };
 
 type SchedulePresentation = Pick<
@@ -64,6 +68,20 @@ function isAppointmentDirectoryMode(
 	value: unknown,
 ): value is AppointmentDirectoryMode {
 	return value === "doctor" || value === "date";
+}
+
+/**
+ * 一级目录、细分门诊和排班都使用同一套受控错误文案；调用方决定错误展示范围，
+ * 以免局部读取失败时把已验证的一、二级目录误隐藏为整页失败。
+ */
+function appointmentDirectoryErrorMessage(
+	error: unknown,
+	fallback: string,
+): string {
+	if (!(error instanceof ApiError)) return fallback;
+	return error.code === "dependency-not-configured"
+		? "预约服务正在完善中，暂时无法使用"
+		: contextualApiErrorMessage(error, "预约信息暂时无法获取，请稍后再试");
 }
 
 /**
@@ -100,9 +118,9 @@ function createSchedulePresentation(
 }
 
 /**
- * 预约目录有两层异步读取：左栏科室和右栏排班。
+ * 预约目录分三级异步读取：一级/二级目录、细分门诊和医生/排班。
  * 用户快速切换科室或下拉刷新时，旧 provider 响应可能晚于新响应到达；
- * 两层分别设守卫，防止旧科室的排班覆盖当前选择，也防止旧刷新恢复旧状态。
+ * 每一层分别设守卫，防止旧响应覆盖当前选择，也防止旧刷新恢复旧状态。
  */
 
 Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
@@ -111,11 +129,14 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		departmentGroups: [],
 		currentGroupDepartments: [],
 		selectedDepartmentGroupId: "",
+		clinicDepartments: [],
 		schedules: [],
 		doctorCards: [],
 		activeMode: "doctor",
 		selectedDepartmentId: "",
 		selectedDepartmentName: "",
+		selectedClinicDepartmentId: "",
+		selectedClinicDepartmentName: "",
 		selectedDoctorId: "",
 		selectedDoctorName: "",
 		searchText: "",
@@ -125,35 +146,45 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		hasMoreSchedules: false,
 		visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 		loading: true,
+		clinicLoading: false,
+		scheduleLoading: false,
 		error: "",
+		clinicError: "",
+		scheduleError: "",
 	},
 
 	onLoad() {
 		this.loadDirectory();
 	},
 
-	/** 首屏只读取科室，再按左栏当前选择读取排班。 */
+	/** 首屏只读取旧项目同源的一级/二级科室树，不预读三级门诊或医生。 */
 	loadDirectory(): Promise<void> {
 		const directoryGuard = getPageLatestRequestGuard(this, "directory");
+		const clinicGuard = getPageLatestRequestGuard(this, "clinic");
 		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
 		const directoryToken = directoryGuard.begin();
-		// 新一轮科室目录会使上一轮右栏排班失效，避免刷新完成后旧排班回写。
+		const directoryClinicToken = clinicGuard.begin();
+		// 新一轮目录会使已展开的三级门诊和排班都失效，避免旧响应回写。
 		const directoryScheduleToken = scheduleGuard.begin();
-		// 刷新开始后，上一轮科室和排班都不再代表当前读取；只让请求守卫失效
-		// 还不够，因为请求等待期间 WXML 仍可能展示旧号源。先清空整个级联
-		// 读模型，等新科室和对应排班都成功后再恢复页面内容。
 		this.setData({
 			loading: true,
+			clinicLoading: false,
+			scheduleLoading: false,
 			error: "",
+			clinicError: "",
+			scheduleError: "",
 			departments: [],
 			departmentGroups: [],
 			currentGroupDepartments: [],
 			selectedDepartmentGroupId: "",
+			clinicDepartments: [],
 			schedules: [],
 			doctorCards: [],
 			activeMode: "doctor",
 			selectedDepartmentId: "",
 			selectedDepartmentName: "",
+			selectedClinicDepartmentId: "",
+			selectedClinicDepartmentName: "",
 			selectedDoctorId: "",
 			selectedDoctorName: "",
 			dateGroups: [],
@@ -162,21 +193,23 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			hasMoreSchedules: false,
 			visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 		});
-		return loadAppointmentDepartments()
-			.then((departments) => {
+		return loadAppointmentDepartmentTree()
+			.then((departmentGroups) => {
 				if (!directoryGuard.isCurrent(directoryToken)) return undefined;
-				const departmentGroups = groupAppointmentDepartments(departments);
 				const selectedGroup = departmentGroups[0];
 				this.setData({
-					departments,
+					departments: departmentGroups.flatMap((group) => group.departments),
 					departmentGroups,
 					currentGroupDepartments: selectedGroup?.departments ?? [],
 					selectedDepartmentGroupId: selectedGroup?.groupId ?? "",
+					clinicDepartments: [],
 					schedules: [],
 					doctorCards: [],
 					activeMode: "doctor",
 					selectedDepartmentId: "",
 					selectedDepartmentName: "",
+					selectedClinicDepartmentId: "",
+					selectedClinicDepartmentName: "",
 					selectedDoctorId: "",
 					selectedDoctorName: "",
 					dateGroups: [],
@@ -185,19 +218,22 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 					hasMoreSchedules: false,
 					visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 					error: "",
+					clinicError: "",
+					scheduleError: "",
 				});
 				return undefined;
 			})
 			.catch((error) => {
 				if (directoryGuard.isCurrent(directoryToken)) {
-					this.showError(error, "预约目录加载失败");
+					this.setData({
+						error: appointmentDirectoryErrorMessage(error, "预约目录加载失败"),
+					});
 				}
 			})
 			.finally(() => {
-				// 目录请求启动的排班读取可能已经被用户切换科室淘汰；此时
-				// loading 的结束权属于新的科室请求，外层不能提前结束它的加载态。
 				if (
 					directoryGuard.isCurrent(directoryToken) &&
+					clinicGuard.isCurrent(directoryClinicToken) &&
 					scheduleGuard.isCurrent(directoryScheduleToken)
 				) {
 					this.setData({ loading: false });
@@ -205,22 +241,30 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			});
 	},
 
-	/** 切换左栏科室时只替换右栏数据，保留级联页面的稳定空间。 */
-	loadDepartmentSchedules(departmentId: string): Promise<void> {
+	/** 展开二级科室时读取真实三级门诊，绝不把医生卡片当作三级目录。 */
+	loadClinicDepartments(departmentId: string): Promise<void> {
 		const department = this.data.departments.find(
 			(item) => item.departmentId === departmentId,
 		);
 		if (!department) return Promise.resolve();
 
+		const clinicGuard = getPageLatestRequestGuard(this, "clinic");
 		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
-		const scheduleToken = scheduleGuard.begin();
+		const clinicToken = clinicGuard.begin();
+		scheduleGuard.begin();
 
 		this.setData({
-			loading: true,
+			clinicLoading: true,
+			scheduleLoading: false,
 			error: "",
+			clinicError: "",
+			scheduleError: "",
 			activeMode: "doctor",
 			selectedDepartmentId: department.departmentId,
 			selectedDepartmentName: department.displayName,
+			selectedClinicDepartmentId: "",
+			selectedClinicDepartmentName: "",
+			clinicDepartments: [],
 			selectedDoctorId: "",
 			selectedDoctorName: "",
 			schedules: [],
@@ -232,7 +276,60 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 		});
 
-		return loadAppointmentSchedules(departmentId)
+		return loadAppointmentClinicDepartments(departmentId)
+			.then((clinicDepartments) => {
+				if (!clinicGuard.isCurrent(clinicToken)) return;
+				this.setData({
+					clinicDepartments,
+					clinicError: "",
+				});
+			})
+			.catch((error) => {
+				if (clinicGuard.isCurrent(clinicToken)) {
+					this.setData({
+						clinicError: appointmentDirectoryErrorMessage(
+							error,
+							"细分门诊加载失败",
+						),
+					});
+				}
+			})
+			.finally(() => {
+				if (clinicGuard.isCurrent(clinicToken)) {
+					this.setData({ clinicLoading: false });
+				}
+			});
+	},
+
+	/** 用户明确选中最末级门诊后，才读取该门诊的医生与号源。 */
+	loadClinicSchedules(clinic: AppointmentClinicDepartment): Promise<void> {
+		if (
+			!this.data.clinicDepartments.some(
+				(item) => item.departmentId === clinic.departmentId,
+			)
+		) {
+			return Promise.resolve();
+		}
+		const scheduleGuard = getPageLatestRequestGuard(this, "schedule");
+		const scheduleToken = scheduleGuard.begin();
+		this.setData({
+			scheduleLoading: true,
+			error: "",
+			scheduleError: "",
+			activeMode: "doctor",
+			selectedClinicDepartmentId: clinic.departmentId,
+			selectedClinicDepartmentName: clinic.displayName,
+			selectedDoctorId: "",
+			selectedDoctorName: "",
+			schedules: [],
+			doctorCards: [],
+			dateGroups: [],
+			selectedDate: "",
+			visibleSchedules: [],
+			hasMoreSchedules: false,
+			visibleScheduleCount: SCHEDULE_PAGE_SIZE,
+		});
+		return loadAppointmentSchedules(clinic.departmentId)
 			.then((schedules) => {
 				if (!scheduleGuard.isCurrent(scheduleToken)) return;
 				const presentation = createSchedulePresentation(
@@ -248,28 +345,42 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 					selectedDoctorId: "",
 					selectedDoctorName: "",
 					...presentation,
-					error: "",
+					scheduleError: "",
 				});
 			})
 			.catch((error) => {
 				if (scheduleGuard.isCurrent(scheduleToken)) {
-					this.showError(error, "预约排班加载失败");
+					this.setData({
+						scheduleError: appointmentDirectoryErrorMessage(
+							error,
+							"预约排班加载失败",
+						),
+					});
 				}
 			})
 			.finally(() => {
 				if (scheduleGuard.isCurrent(scheduleToken)) {
-					this.setData({ loading: false });
+					this.setData({ scheduleLoading: false });
 				}
 			});
 	},
 
-	/**
-	 * 预约目录错误态只允许从头重读科室和排班两层目录。
-	 * 局部保留的旧科室/排班不能在错误恢复时直接使用，否则用户看到的
-	 * 可能是上一轮 Provider 快照，重试也无法证明当前目录已经重新收敛。
-	 */
+	/** 一级/二级目录失败时从头读取目录；局部失败分别在当前展开项重试。 */
 	onRetry(): void {
 		void this.loadDirectory();
+	},
+
+	onClinicRetry(): void {
+		if (!this.data.selectedDepartmentId) return;
+		void this.loadClinicDepartments(this.data.selectedDepartmentId);
+	},
+
+	onScheduleRetry(): void {
+		const clinic = this.data.clinicDepartments.find(
+			(item) => item.departmentId === this.data.selectedClinicDepartmentId,
+		);
+		if (!clinic) return;
+		void this.loadClinicSchedules(clinic);
 	},
 
 	/** 旧端顶部导诊入口保留位置，尚未开放的内容统一进入受控状态页。 */
@@ -287,15 +398,50 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		this.setData({ searchText });
 	},
 
-	/**
-	 * 旧端搜索框支持科室或医生名称。新端只在已经取得的安全目录中定位，
-	 * 不为了全文检索读取所有科室排班，也不会把自由文本发送给 Provider。
-	 */
+	/** 搜索仅定位当前已读取的一级/二级/三级目录和医生，不透传自由文本。 */
 	onSearchTap(): void {
 		if (this.data.loading) return;
 		const keyword = this.data.searchText.trim().toLocaleLowerCase();
 		if (!keyword) {
 			wx.showToast({ title: "请输入科室或医生名字", icon: "none" });
+			return;
+		}
+
+		const departmentGroup = this.data.departmentGroups.find((item) =>
+			item.displayName.toLocaleLowerCase().includes(keyword),
+		);
+		if (departmentGroup) {
+			if (departmentGroup.groupId !== this.data.selectedDepartmentGroupId) {
+				// 命中一级分类只定位二级目录；三级门诊和排班仍须由用户明确展开。
+				getPageLatestRequestGuard(this, "clinic").begin();
+				getPageLatestRequestGuard(this, "schedule").begin();
+				this.setData({
+					selectedDepartmentGroupId: departmentGroup.groupId,
+					currentGroupDepartments: departmentGroup.departments,
+					selectedDepartmentId: "",
+					selectedDepartmentName: "",
+					selectedClinicDepartmentId: "",
+					selectedClinicDepartmentName: "",
+					clinicDepartments: [],
+					clinicLoading: false,
+					scheduleLoading: false,
+					selectedDoctorId: "",
+					selectedDoctorName: "",
+					schedules: [],
+					doctorCards: [],
+					dateGroups: [],
+					selectedDate: "",
+					visibleSchedules: [],
+					hasMoreSchedules: false,
+					visibleScheduleCount: SCHEDULE_PAGE_SIZE,
+					error: "",
+					clinicError: "",
+					scheduleError: "",
+					loading: false,
+				});
+				return;
+			}
+			wx.showToast({ title: "当前分类已展示", icon: "none" });
 			return;
 		}
 
@@ -309,13 +455,19 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 				),
 			);
 			if (group && group.groupId !== this.data.selectedDepartmentGroupId) {
-				// 搜索定位到其他一级分类时，先淘汰旧科室的在途排班，再切换右栏。
+				// 搜索切换一级分类时，三级门诊和排班的旧响应均失去回写资格。
+				getPageLatestRequestGuard(this, "clinic").begin();
 				getPageLatestRequestGuard(this, "schedule").begin();
 				this.setData({
 					selectedDepartmentGroupId: group.groupId,
 					currentGroupDepartments: group.departments,
 					selectedDepartmentId: "",
 					selectedDepartmentName: "",
+					selectedClinicDepartmentId: "",
+					selectedClinicDepartmentName: "",
+					clinicDepartments: [],
+					clinicLoading: false,
+					scheduleLoading: false,
 					selectedDoctorId: "",
 					selectedDoctorName: "",
 					schedules: [],
@@ -326,13 +478,27 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 					hasMoreSchedules: false,
 					visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 					error: "",
+					clinicError: "",
+					scheduleError: "",
 					loading: false,
 				});
 			}
 			if (department.departmentId !== this.data.selectedDepartmentId) {
-				void this.loadDepartmentSchedules(department.departmentId);
+				void this.loadClinicDepartments(department.departmentId);
 				return;
 			}
+		}
+
+		const clinic = this.data.clinicDepartments.find((item) =>
+			item.displayName.toLocaleLowerCase().includes(keyword),
+		);
+		if (clinic) {
+			if (clinic.departmentId !== this.data.selectedClinicDepartmentId) {
+				void this.loadClinicSchedules(clinic);
+				return;
+			}
+			wx.showToast({ title: "当前门诊已展示", icon: "none" });
+			return;
 		}
 
 		const doctor = this.data.doctorCards.find((item) =>
@@ -347,7 +513,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			wx.showToast({ title: "当前科室已展示", icon: "none" });
 			return;
 		}
-		wx.showToast({ title: "未找到匹配的科室或医生", icon: "none" });
+		wx.showToast({ title: "未找到匹配的科室、门诊或医生", icon: "none" });
 	},
 
 	onModeTap(event): void {
@@ -357,7 +523,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		this.setData({ activeMode: mode });
 	},
 
-	/** 切换蓝湖左侧一级分类，只替换当前可展开的真实科室，不发起虚构分类查询。 */
+	/** 切换左侧真实一级科室，只更换其二级列表，不发起虚构分类查询。 */
 	onDepartmentGroupTap(event): void {
 		const groupId = event.currentTarget?.dataset?.groupId;
 		if (typeof groupId !== "string" || !groupId) return;
@@ -366,13 +532,19 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		);
 		if (!group || group.groupId === this.data.selectedDepartmentGroupId) return;
 
-		// 左栏切换会让旧右栏排班失去展示资格；不等待它结束，也不能让它回写。
+		// 左栏切换会让旧的三级门诊和排班失去展示资格，不能让它们回写。
+		getPageLatestRequestGuard(this, "clinic").begin();
 		getPageLatestRequestGuard(this, "schedule").begin();
 		this.setData({
 			selectedDepartmentGroupId: group.groupId,
 			currentGroupDepartments: group.departments,
 			selectedDepartmentId: "",
 			selectedDepartmentName: "",
+			selectedClinicDepartmentId: "",
+			selectedClinicDepartmentName: "",
+			clinicDepartments: [],
+			clinicLoading: false,
+			scheduleLoading: false,
 			selectedDoctorId: "",
 			selectedDoctorName: "",
 			schedules: [],
@@ -385,6 +557,8 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 			loading: false,
 			error: "",
+			clinicError: "",
+			scheduleError: "",
 		});
 	},
 
@@ -402,13 +576,19 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		}
 		if (
 			department.departmentId === this.data.selectedDepartmentId &&
-			!this.data.error
+			!this.data.clinicError
 		) {
-			// 与蓝湖右栏一致：再次点击已展开的二级科室会收起它的医生/号源。
+			// 与图 1 一致：再次点击已展开二级科室会收起三级门诊及其号源。
+			getPageLatestRequestGuard(this, "clinic").begin();
 			getPageLatestRequestGuard(this, "schedule").begin();
 			this.setData({
 				selectedDepartmentId: "",
 				selectedDepartmentName: "",
+				selectedClinicDepartmentId: "",
+				selectedClinicDepartmentName: "",
+				clinicDepartments: [],
+				clinicLoading: false,
+				scheduleLoading: false,
 				selectedDoctorId: "",
 				selectedDoctorName: "",
 				schedules: [],
@@ -420,10 +600,46 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 				hasMoreSchedules: false,
 				visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 				loading: false,
+				clinicError: "",
+				scheduleError: "",
 			});
 			return;
 		}
-		void this.loadDepartmentSchedules(department.departmentId);
+		void this.loadClinicDepartments(department.departmentId);
+	},
+
+	/** 三级门诊的 ID 只能来自当前已加载目录，随后才允许读取医生和排班。 */
+	onClinicDepartmentTap(event): void {
+		const clinicDepartmentId = event.currentTarget?.dataset?.clinicDepartmentId;
+		if (typeof clinicDepartmentId !== "string" || !clinicDepartmentId) return;
+		const clinic = this.data.clinicDepartments.find(
+			(item) => item.departmentId === clinicDepartmentId,
+		);
+		if (!clinic) return;
+		if (
+			clinic.departmentId === this.data.selectedClinicDepartmentId &&
+			!this.data.scheduleError
+		) {
+			getPageLatestRequestGuard(this, "schedule").begin();
+			this.setData({
+				selectedClinicDepartmentId: "",
+				selectedClinicDepartmentName: "",
+				scheduleLoading: false,
+				selectedDoctorId: "",
+				selectedDoctorName: "",
+				schedules: [],
+				doctorCards: [],
+				activeMode: "doctor",
+				dateGroups: [],
+				selectedDate: "",
+				visibleSchedules: [],
+				hasMoreSchedules: false,
+				visibleScheduleCount: SCHEDULE_PAGE_SIZE,
+				scheduleError: "",
+			});
+			return;
+		}
+		void this.loadClinicSchedules(clinic);
 	},
 
 	/** 医生卡片只切换到当前已读排班的日期视图，不附带医生详情或写入引用。 */
@@ -572,19 +788,5 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 	/** 页面卸载后让科室与排班请求失去回写资格。 */
 	onUnload(): void {
 		disposePageInstance(this);
-	},
-
-	showError(error: unknown, fallback: string): void {
-		let message = fallback;
-		if (error instanceof ApiError) {
-			message =
-				error.code === "dependency-not-configured"
-					? "预约服务正在完善中，暂时无法使用"
-					: contextualApiErrorMessage(
-							error,
-							"预约信息暂时无法获取，请稍后再试",
-						);
-		}
-		this.setData({ error: message });
 	},
 });

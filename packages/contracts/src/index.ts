@@ -191,10 +191,29 @@ export const AppointmentDepartmentSchema = Type.Object({
 	location: Type.Optional(Type.String({ minLength: 1 })),
 });
 
+/**
+ * 挂号页一级分类及其二级科室。三级可预约科室需通过受控的
+ * `parentDepartmentId` 查询，避免把用户输入的名称透传到 Provider。
+ */
+export const AppointmentDepartmentGroupSchema = Type.Object({
+	groupId: Type.String({ minLength: 1 }),
+	displayName: Type.String({ minLength: 1 }),
+	departments: Type.Array(AppointmentDepartmentSchema),
+});
+
 export const AppointmentDepartmentListResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
 		items: Type.Array(AppointmentDepartmentSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+/** 旧扁平预约科室接口之外的一级/二级目录，供新版挂号级联页使用。 */
+export const AppointmentDepartmentTreeResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(AppointmentDepartmentGroupSchema),
 		total: Type.Integer({ minimum: 0 }),
 	}),
 });
@@ -637,8 +656,14 @@ export type PatientListPayload = Static<typeof PatientListResponse>;
 export type AppointmentDepartmentPayload = Static<
 	typeof AppointmentDepartmentSchema
 >;
+export type AppointmentDepartmentGroupPayload = Static<
+	typeof AppointmentDepartmentGroupSchema
+>;
 export type AppointmentDepartmentListPayload = Static<
 	typeof AppointmentDepartmentListResponse
+>;
+export type AppointmentDepartmentTreePayload = Static<
+	typeof AppointmentDepartmentTreeResponse
 >;
 export type AppointmentSchedulePayload = Static<
 	typeof AppointmentScheduleSchema

@@ -1,6 +1,7 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
 import type { DependencyState } from "@hospital/contracts";
 import type {
+	AppointmentDepartmentTreeGateway,
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
 	OutpatientPaymentGateway,
@@ -69,6 +70,8 @@ export type ApplicationServiceOptions = {
 	patientDirectoryGateway?: PatientDirectoryGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
+	/** 挂号页一级/二级树及受控三级科室读取，独立于既有扁平目录契约。 */
+	appointmentDepartmentTreeGateway?: AppointmentDepartmentTreeGateway;
 	/** 预约历史使用独立 endpoint，必须独立完成合同和真实环境验收。 */
 	appointmentRecordDirectoryGateway?: AppointmentRecordDirectoryGateway;
 	/** 门诊费用只读目录；支付和医保结算不由该网关隐式开启。 */
@@ -124,6 +127,9 @@ export function createDefaultApplicationServices(
 		appointments: new AppointmentService({
 			directory:
 				options.appointmentDirectoryGateway ?? gateways.appointmentDirectory,
+			departmentTree:
+				options.appointmentDepartmentTreeGateway ??
+				gateways.appointmentDepartmentTree,
 			repository: repositories.patients,
 			records:
 				options.appointmentRecordDirectoryGateway ??

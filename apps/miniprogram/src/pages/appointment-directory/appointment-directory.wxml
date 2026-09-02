@@ -73,18 +73,19 @@
 			</block>
 		</view>
 
-		<!-- 蓝湖首屏：左栏一级分类，右栏为可展开的、接口实际返回的二级科室。 -->
+		<!-- 图 1 的真实三级目录：左栏一级科室，右栏二级科室，展开后才读取细分门诊。 -->
 		<view wx:elif="{{departments.length}}" class="cascade-shell">
 			<scroll-view class="department-panel" scroll-y="true" enhanced="true">
 				<view
 					wx:for="{{departmentGroups}}"
+					wx:for-item="group"
 					wx:key="groupId"
-					class="department-item {{item.groupId === selectedDepartmentGroupId ? 'department-item-active' : ''}}"
+					class="department-item {{group.groupId === selectedDepartmentGroupId ? 'department-item-active' : ''}}"
 					bindtap="onDepartmentGroupTap"
-					data-group-id="{{item.groupId}}"
+					data-group-id="{{group.groupId}}"
 				>
 					<view class="department-active-line"></view>
-					<text class="department-name">{{item.displayName}}</text>
+					<text class="department-name">{{group.displayName}}</text>
 				</view>
 			</scroll-view>
 
@@ -97,36 +98,70 @@
 					</view>
 
 					<block wx:else>
-						<view wx:for="{{currentGroupDepartments}}" wx:key="departmentId" class="department-option-list">
+						<view
+							wx:for="{{currentGroupDepartments}}"
+							wx:for-item="department"
+							wx:key="departmentId"
+							class="department-option-list"
+						>
 							<view
-								class="department-option {{item.departmentId === selectedDepartmentId ? 'department-option-active' : ''}}"
+								class="department-option {{department.departmentId === selectedDepartmentId ? 'department-option-active' : ''}}"
 								bindtap="onDepartmentTap"
-								data-department-id="{{item.departmentId}}"
+								data-department-id="{{department.departmentId}}"
 							>
-								<text class="department-option-name">{{item.displayName}}</text>
-								<view class="department-option-chevron {{item.departmentId === selectedDepartmentId ? 'department-option-chevron-open' : ''}}"></view>
+								<text class="department-option-name">{{department.displayName}}</text>
+								<view class="department-option-chevron {{department.departmentId === selectedDepartmentId ? 'department-option-chevron-open' : ''}}"></view>
 							</view>
 
-							<block wx:if="{{item.departmentId === selectedDepartmentId}}">
-								<view wx:if="{{loading}}" class="panel-loading query-state-shell query-state-shell-column">
-									<text>正在加载可预约信息...</text>
+							<block wx:if="{{department.departmentId === selectedDepartmentId}}">
+								<view wx:if="{{clinicLoading}}" class="panel-loading query-state-shell query-state-shell-column">
+									<text>正在加载细分门诊...</text>
+								</view>
+								<view wx:elif="{{clinicError}}" class="panel-empty query-state-shell query-state-shell-column">
+									<text>{{clinicError}}</text>
+									<view class="state-hint state-hint-action" bindtap="onClinicRetry">重新加载细分门诊</view>
 								</view>
 
-								<!-- 医生仅在用户展开一个真实二级科室后出现，不再占用蓝湖首屏。 -->
-								<view wx:elif="{{activeMode === 'doctor' && doctorCards.length}}" class="department-child-option-list">
-									<view
-										wx:for="{{doctorCards}}"
-										wx:key="doctorId"
-										class="department-child-option"
-										bindtap="onDoctorCardTap"
-										data-doctor-id="{{item.doctorId}}"
+								<!-- 二级科室展开后先展示旧项目中的真实三级门诊，而不是医生。 -->
+								<view wx:elif="{{clinicDepartments.length}}" class="department-child-option-list">
+									<block
+										wx:for="{{clinicDepartments}}"
+										wx:for-item="clinic"
+										wx:key="departmentId"
 									>
-										<text>{{item.doctorName}}</text>
+										<view
+										class="department-child-option {{clinic.departmentId === selectedClinicDepartmentId ? 'department-child-option-active' : ''}}"
+										bindtap="onClinicDepartmentTap"
+										data-clinic-department-id="{{clinic.departmentId}}"
+									>
+										<text>{{clinic.displayName}}</text>
 									</view>
-								</view>
 
-								<!-- 选择医生后才在展开项内查看日期和号源。 -->
-								<block wx:elif="{{activeMode === 'date'}}">
+									<!-- 只有明确选择三级门诊后，才进入医生和号源读取。 -->
+									<block wx:if="{{clinic.departmentId === selectedClinicDepartmentId}}">
+										<view wx:if="{{scheduleLoading}}" class="panel-loading query-state-shell query-state-shell-column">
+											<text>正在加载可预约信息...</text>
+										</view>
+										<view wx:elif="{{scheduleError}}" class="panel-empty query-state-shell query-state-shell-column">
+											<text>{{scheduleError}}</text>
+											<view class="state-hint state-hint-action" bindtap="onScheduleRetry">重新加载医生和号源</view>
+										</view>
+
+										<view wx:elif="{{activeMode === 'doctor' && doctorCards.length}}" class="doctor-option-list">
+											<view
+												wx:for="{{doctorCards}}"
+												wx:for-item="doctor"
+												wx:key="doctorId"
+												class="doctor-option"
+												bindtap="onDoctorCardTap"
+												data-doctor-id="{{doctor.doctorId}}"
+											>
+												<text>{{doctor.doctorName}}</text>
+											</view>
+										</view>
+
+										<!-- 选择医生后才在已选三级门诊内查看日期和号源。 -->
+										<block wx:elif="{{activeMode === 'date'}}">
 									<view wx:if="{{selectedDoctorName}}" class="selected-doctor-filter">
 										<text>已选择：{{selectedDoctorName}}</text>
 										<view class="selected-doctor-clear" bindtap="onClearDoctorFilter">返回列表</view>
@@ -134,15 +169,16 @@
 
 									<scroll-view class="date-scroll" scroll-x="true" enhanced="true">
 										<view class="date-list">
-											<view
-												wx:for="{{dateGroups}}"
-												wx:key="workDate"
-												class="date-item {{item.workDate === selectedDate ? 'date-item-active' : ''}}"
-												bindtap="onDateTap"
-												data-date="{{item.workDate}}"
-											>
-												<text class="date-label">{{item.label}}</text>
-												<text class="date-count">{{item.count}} 个号源</text>
+												<view
+													wx:for="{{dateGroups}}"
+													wx:for-item="dateGroup"
+													wx:key="workDate"
+													class="date-item {{dateGroup.workDate === selectedDate ? 'date-item-active' : ''}}"
+													bindtap="onDateTap"
+													data-date="{{dateGroup.workDate}}"
+												>
+													<text class="date-label">{{dateGroup.label}}</text>
+													<text class="date-count">{{dateGroup.count}} 个号源</text>
 											</view>
 										</view>
 									</scroll-view>
@@ -150,21 +186,22 @@
 									<view class="schedule-list">
 										<view
 											wx:for="{{visibleSchedules}}"
+											wx:for-item="schedule"
 											wx:key="scheduleId"
 											class="schedule-item"
 											bindtap="onScheduleTap"
-											data-schedule-id="{{item.scheduleId}}"
+											data-schedule-id="{{schedule.scheduleId}}"
 										>
-											<view class="schedule-shift-badge">{{item.shiftName}}</view>
+											<view class="schedule-shift-badge">{{schedule.shiftName}}</view>
 											<view class="schedule-item-copy">
-												<text class="schedule-doctor">{{item.doctorName}}</text>
-												<text class="schedule-department">{{item.departmentName}}</text>
-												<text wx:if="{{item.startTime && item.endTime}}" class="schedule-time">{{item.startTime}} - {{item.endTime}}</text>
+												<text class="schedule-doctor">{{schedule.doctorName}}</text>
+												<text class="schedule-department">{{schedule.departmentName}}</text>
+												<text wx:if="{{schedule.startTime && schedule.endTime}}" class="schedule-time">{{schedule.startTime}} - {{schedule.endTime}}</text>
 												<text wx:else class="schedule-time">具体时间以医院排班为准</text>
 											</view>
 											<view class="schedule-item-action">
-												<text class="schedule-slots {{item.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">余 {{item.availableSlots}} 号</text>
-												<view class="schedule-reserve {{item.availableSlots > 0 ? 'schedule-reserve-active' : 'schedule-reserve-disabled'}}">{{item.availableSlots > 0 ? '预约' : '约满'}}</view>
+												<text class="schedule-slots {{schedule.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">余 {{schedule.availableSlots}} 号</text>
+												<view class="schedule-reserve {{schedule.availableSlots > 0 ? 'schedule-reserve-active' : 'schedule-reserve-disabled'}}">{{schedule.availableSlots > 0 ? '预约' : '约满'}}</view>
 											</view>
 										</view>
 									</view>
@@ -176,10 +213,18 @@
 									<view class="readonly-note">
 										当前可浏览未来 7 天医院已公开的排班。预约下单、锁号、取消和支付功能正在完善中。
 									</view>
-								</block>
+										</block>
+
+										<view wx:else class="panel-empty query-state-shell query-state-shell-column">
+											<text>当前门诊暂无可预约信息</text>
+											<text class="state-hint">请切换其他门诊或稍后刷新</text>
+										</view>
+									</block>
+									</block>
+								</view>
 
 								<view wx:else class="panel-empty query-state-shell query-state-shell-column">
-									<text>当前科室暂无可预约信息</text>
+									<text>当前科室暂无细分门诊</text>
 									<text class="state-hint">请切换其他科室或稍后刷新</text>
 								</view>
 							</block>

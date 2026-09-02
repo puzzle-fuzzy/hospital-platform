@@ -1,6 +1,9 @@
 export type {
+	AppointmentClinicDepartmentQuery,
 	AppointmentDepartment,
+	AppointmentDepartmentGroup,
 	AppointmentDepartmentQuery,
+	AppointmentDepartmentTreeGateway,
 	AppointmentDirectoryGateway,
 	AppointmentDirectoryResultViolation,
 	AppointmentProviderSchedule,
@@ -27,6 +30,7 @@ export {
 	MAX_APPOINTMENT_RECORD_ITEMS,
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 	MAX_APPOINTMENT_SNAPSHOT_TTL_MS,
+	normalizeAppointmentDepartmentGroupResults,
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,

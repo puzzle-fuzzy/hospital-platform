@@ -128,6 +128,8 @@ const appointmentGateway =
 		: undefined;
 const appointmentDirectoryGateway =
 	appointmentDirectoryStatus === "configured" ? appointmentGateway : undefined;
+const appointmentDepartmentTreeGateway =
+	appointmentDirectoryStatus === "configured" ? appointmentGateway : undefined;
 const appointmentRecordDirectoryGateway =
 	appointmentRecordsStatus === "configured" ? appointmentGateway : undefined;
 const outpatientPaymentGateway =
@@ -222,6 +224,9 @@ const app = createApp({
 		...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
 		...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
 		...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
+		...(appointmentDepartmentTreeGateway
+			? { appointmentDepartmentTreeGateway }
+			: {}),
 		...(appointmentRecordDirectoryGateway
 			? { appointmentRecordDirectoryGateway }
 			: {}),

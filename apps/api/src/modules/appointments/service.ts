@@ -1,11 +1,14 @@
 import type {
 	AppointmentDepartmentListPayload,
+	AppointmentDepartmentTreePayload,
 	AppointmentRecordListPayload,
 	AppointmentScheduleListPayload,
 } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
+	type AppointmentClinicDepartmentQuery,
 	type AppointmentDepartmentQuery,
+	type AppointmentDepartmentTreeGateway,
 	type AppointmentDirectoryGateway,
 	AppointmentDirectoryResultValidationError,
 	type AppointmentProviderSchedule,
@@ -22,6 +25,7 @@ import {
 	ExternalTraceReadModelValidationError,
 	isBoundedOpaqueIdentifier,
 	normalizeAdapterCallContext,
+	normalizeAppointmentDepartmentGroupResults,
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
@@ -38,6 +42,8 @@ import {
 
 export type AppointmentServiceDependencies = {
 	directory: AppointmentDirectoryGateway;
+	/** 新挂号页的一级/二级树和受控三级科室读取；未配置时必须 fail-closed。 */
+	departmentTree?: AppointmentDepartmentTreeGateway;
 	/** 记录查询需要 owner-scoped provider mapping；目录查询不依赖该 repository。 */
 	repository?: PatientRepository;
 	records?: AppointmentRecordDirectoryGateway;
@@ -538,6 +544,133 @@ export class AppointmentService {
 		}
 	}
 
+	/**
+	 * 读取旧挂号页的一级/二级目录。
+	 *
+	 * 它是新增的独立协议，不能替换已发布的扁平 `/appointments/departments`
+	 * 响应；这样旧客户端继续按原有可预约科室读模型工作，新页面才使用树。
+	 */
+	async listDepartmentTree(
+		context: AdapterCallContext,
+	): Promise<AppointmentDepartmentTreePayload["data"]> {
+		let trace: ExternalTrace | undefined;
+		try {
+			context = requireAppointmentContext(
+				context,
+				new AppointmentScheduleQueryError(
+					"Appointment department tree call context is invalid",
+				),
+			);
+			if (!this.dependencies.departmentTree) {
+				throw new DependencyNotConfiguredError("appointment-department-tree");
+			}
+			this.logger.info(
+				{
+					event: "appointment.directory.department-tree.requested",
+					traceId: adapterContextTraceId(context),
+					provider: "zhongyang",
+				},
+				"Appointment department tree requested",
+			);
+			const result =
+				await this.dependencies.departmentTree.listDepartmentTree(context);
+			trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
+			const normalizedGroups = normalizeAppointmentDepartmentGroupResults(
+				(result as { groups?: unknown } | undefined)?.groups,
+			);
+			this.logger.info(
+				{
+					event: "appointment.directory.department-tree.synced",
+					traceId: adapterContextTraceId(context),
+					provider: trace.provider,
+					...traceLogFields(trace),
+					itemCount: normalizedGroups.length,
+				},
+				"Appointment department tree loaded",
+			);
+			return { items: normalizedGroups, total: normalizedGroups.length };
+		} catch (error) {
+			this.logFailure(context, error, "department-tree", trace);
+			throw error;
+		}
+	}
+
+	/**
+	 * 读取指定二级科室下的三级可预约科室。
+	 *
+	 * HTTP 只提供已公开树中的 opaque 二级 ID；日期窗口和旧 Provider 所需的
+	 * 名称检索均由服务端/adapter 决定，客户端不能扩大成任意关键词搜索。
+	 */
+	async listClinicDepartments(
+		parentDepartmentId: string,
+		context: AdapterCallContext,
+	): Promise<AppointmentDepartmentListPayload["data"]> {
+		let trace: ExternalTrace | undefined;
+		try {
+			context = requireAppointmentContext(
+				context,
+				new AppointmentScheduleQueryError(
+					"Appointment clinic department call context is invalid",
+				),
+			);
+			if (!isBoundedOpaqueIdentifier(parentDepartmentId)) {
+				throw new AppointmentScheduleQueryError(
+					"Appointment clinic department parent identifier is invalid",
+				);
+			}
+			if (!this.dependencies.departmentTree) {
+				throw new DependencyNotConfiguredError("appointment-department-tree");
+			}
+			const dateRange = createDepartmentQuery(this.now());
+			const query: AppointmentClinicDepartmentQuery = {
+				...dateRange,
+				parentDepartmentId,
+			};
+			this.logger.info(
+				{
+					event: "appointment.directory.clinic-departments.requested",
+					traceId: adapterContextTraceId(context),
+					provider: "zhongyang",
+					startDate: query.startDate,
+					endDate: query.endDate,
+				},
+				"Appointment clinic departments requested",
+			);
+			const result =
+				await this.dependencies.departmentTree.listClinicDepartments(
+					query,
+					context,
+				);
+			trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
+			const normalizedDepartments = normalizeAppointmentDepartmentResults(
+				(result as { departments?: unknown } | undefined)?.departments,
+			);
+			this.logger.info(
+				{
+					event: "appointment.directory.clinic-departments.synced",
+					traceId: adapterContextTraceId(context),
+					provider: trace.provider,
+					...traceLogFields(trace),
+					itemCount: normalizedDepartments.length,
+				},
+				"Appointment clinic departments loaded",
+			);
+			return {
+				items: normalizedDepartments,
+				total: normalizedDepartments.length,
+			};
+		} catch (error) {
+			this.logFailure(context, error, "clinic-departments", trace);
+			throw error;
+		}
+	}
+
 	async listSchedules(
 		input: AppointmentScheduleQuery,
 		context: AdapterCallContext,
@@ -850,7 +983,11 @@ export class AppointmentService {
 	private logFailure(
 		context: unknown,
 		error: unknown,
-		resource: "departments" | "schedules",
+		resource:
+			| "departments"
+			| "department-tree"
+			| "clinic-departments"
+			| "schedules",
 		trace?: ExternalTrace,
 	): void {
 		this.logger.error(
