@@ -123,9 +123,11 @@ Outbox worker 还应记录 `eventId`、`eventName`、`aggregateId` 和 `attempts
 
 | `appointment.directory.departments.requested` | 预约科室目录读取 | 记录读取开始、provider 和 trace |
 | `appointment.directory.departments.synced` | 预约科室目录读取 | 记录已校验的 `providerRequestId`、可选有界 `providerRequestIds` 和科室数量 |
+| `appointment.directory.department-tree.requested` / `appointment.directory.department-tree.synced` | 预约一级/二级目录读取 | 分别记录受控树读取开始，以及已校验的 provider request id、可选有界请求号列表和一级分类数量；不记录 Provider 原始目录、筛选条件或患者信息 |
+| `appointment.directory.clinic-departments.requested` / `appointment.directory.clinic-departments.synced` | 预约细分门诊读取 | 分别记录受控二级科室对应的三级门诊读取开始，以及已校验的 provider request id、可选有界请求号列表和门诊数量；不记录前端任意名称、Provider 原始报文或患者信息 |
 | `appointment.directory.schedules.requested` | 预约排班目录读取 | 记录日期范围、provider 和 trace，不记录患者信息 |
 | `appointment.directory.schedules.synced` | 预约排班目录读取 | 记录已校验的 `providerRequestId`、可选有界 `providerRequestIds`、排班数量和 `snapshotPersistenceStatus`；该字段区分只读 Provider 结果与未来写入前的快照事实 |
-| `appointment.directory.departments.failed` / `appointment.directory.schedules.failed` | 预约目录读取 | 覆盖服务端日期生成、输入校验、依赖和 Provider 失败；若 trace 已通过校验但后续读模型失败，同时保留主请求号和有界请求号列表；Provider 失败额外记录低敏 operation/request id/HTTP 状态/retryable，不记录原始错误报文 |
+| `appointment.directory.departments.failed` / `appointment.directory.department-tree.failed` / `appointment.directory.clinic-departments.failed` / `appointment.directory.schedules.failed` | 预约目录读取 | 覆盖服务端日期生成、输入校验、依赖和 Provider 失败；若 trace 已通过校验但后续读模型失败，同时保留主请求号和有界请求号列表；Provider 失败额外记录低敏 operation/request id/HTTP 状态/retryable，不记录原始错误报文 |
 | `appointment.records.requested` / `appointment.records.synced` | 预约历史只读查询 | 记录内部 patientId、有限日期范围、已校验的 provider request id 及可选有界列表和返回数量；空数组成功必须保留 `synced`，不记录 provider 患者号 |
 | `appointment.records.failed` | 预约历史只读查询 | 覆盖日期校验、依赖未配置、owner 映射和 Provider 失败；若 trace 已通过校验则保留完整低敏请求号列表，另记录错误类型、内部 patientId 以及 Provider 低敏诊断字段，不记录 provider 原始报文 |
 | `outpatient.payment.records.requested` | 门诊费用只读查询 | 仅在 patientId 通过服务层非空校验后记录内部 patientId、查询状态和 trace；不记录 provider 患者号、订单号或原始报文 |
