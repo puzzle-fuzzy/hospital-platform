@@ -702,7 +702,7 @@ page {
  */
 .appointment-page {
 	min-height: 100vh;
-	padding: 0 0 calc(24rpx + env(safe-area-inset-bottom));
+	padding: 0;
 	background: #f8f8f8;
 }
 
@@ -716,9 +716,9 @@ page {
 	justify-content: space-between;
 	box-sizing: border-box;
 	width: 710rpx;
-	min-height: 172rpx;
+	height: 170rpx;
 	margin: 0 auto;
-	padding: 26rpx 0 30rpx;
+	padding: 0 0 30rpx;
 	border-radius: 0;
 	background: transparent;
 }
@@ -761,14 +761,27 @@ page {
 	justify-content: center;
 	flex: 0 0 104rpx;
 	width: 104rpx;
-	height: 120rpx;
-	margin: 0 10rpx 0 24rpx;
+	height: 140rpx;
+	margin: 0;
+}
+
+.registration-hero-portrait {
+	position: absolute;
+	right: -2rpx;
+	bottom: 0;
+	width: 108rpx;
+	height: 88rpx;
+	overflow: hidden;
 }
 
 .registration-hero-image {
+	position: absolute;
+	top: 0;
+	left: -21rpx;
 	display: block;
-	width: 104rpx;
-	height: 120rpx;
+	width: 150rpx;
+	height: auto;
+	max-width: none;
 	margin: 0;
 }
 
@@ -783,26 +796,26 @@ page {
 }
 
 .guide-scan-corner-top-left {
-	top: 12rpx;
-	left: -4rpx;
+	top: 42rpx;
+	left: -2rpx;
 	border-width: 3rpx 0 0 3rpx;
 }
 
 .guide-scan-corner-top-right {
-	top: 12rpx;
-	right: -4rpx;
+	top: 42rpx;
+	right: -2rpx;
 	border-width: 3rpx 3rpx 0 0;
 }
 
 .guide-scan-corner-bottom-left {
-	bottom: 16rpx;
-	left: -4rpx;
+	bottom: 10rpx;
+	left: -2rpx;
 	border-width: 0 0 3rpx 3rpx;
 }
 
 .guide-scan-corner-bottom-right {
-	right: -4rpx;
-	bottom: 16rpx;
+	right: -2rpx;
+	bottom: 10rpx;
 	border-width: 0 3rpx 3rpx 0;
 }
 
@@ -865,7 +878,7 @@ page {
 	box-sizing: border-box;
 	width: 100%;
 	height: calc(100vh - 450rpx);
-	min-height: 640rpx;
+	min-height: 0;
 	margin: 0;
 	border-radius: 0;
 	overflow: hidden;
@@ -896,6 +909,7 @@ page {
 
 .department-active-line {
 	width: 10rpx;
+	background: #dddddd;
 }
 
 .department-item-active .department-active-line {
@@ -951,6 +965,10 @@ page {
 	font-size: 28rpx;
 }
 
+.department-option-active {
+	background: #f1f1f1;
+}
+
 .department-option-name {
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -964,7 +982,29 @@ page {
 	margin-left: 20rpx;
 	border-right: 3rpx solid #b7b7b7;
 	border-bottom: 3rpx solid #b7b7b7;
-	transform: rotate(-45deg);
+	transform: rotate(45deg);
+}
+
+.department-option-chevron-open {
+	transform: rotate(225deg);
+}
+
+.department-child-option-list {
+	background: #eaeffd;
+}
+
+.department-child-option {
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: 87rpx;
+	padding: 0 30rpx;
+	border-bottom: 1rpx solid #dddddd;
+	background: #eaeffd;
+	color: #4b8eff;
+	font-size: 28rpx;
+	line-height: 1.35;
+}
 }
 
 .selected-doctor-filter {

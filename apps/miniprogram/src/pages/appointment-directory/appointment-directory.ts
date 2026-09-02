@@ -1,5 +1,6 @@
 import { ApiError, contextualApiErrorMessage } from "../../services/api-client";
 import {
+	groupAppointmentDepartments,
 	groupAppointmentDoctorCards,
 	groupAppointmentSchedules,
 	visibleAppointmentSchedules,
@@ -37,6 +38,7 @@ type AppointmentDirectoryPageMethods = {
 	onSearchInput(event: WechatMiniprogram.Input): void;
 	onSearchTap(): void;
 	onModeTap(event: WechatMiniprogram.TouchEvent): void;
+	onDepartmentGroupTap(event: WechatMiniprogram.TouchEvent): void;
 	onDepartmentTap(event: WechatMiniprogram.TouchEvent): void;
 	onDoctorCardTap(event: WechatMiniprogram.TouchEvent): void;
 	onDoctorDateTap(event: WechatMiniprogram.TouchEvent): void;
@@ -106,6 +108,9 @@ function createSchedulePresentation(
 Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 	data: {
 		departments: [],
+		departmentGroups: [],
+		currentGroupDepartments: [],
+		selectedDepartmentGroupId: "",
 		schedules: [],
 		doctorCards: [],
 		activeMode: "doctor",
@@ -141,6 +146,9 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 			loading: true,
 			error: "",
 			departments: [],
+			departmentGroups: [],
+			currentGroupDepartments: [],
+			selectedDepartmentGroupId: "",
 			schedules: [],
 			doctorCards: [],
 			activeMode: "doctor",
@@ -157,14 +165,18 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		return loadAppointmentDepartments()
 			.then((departments) => {
 				if (!directoryGuard.isCurrent(directoryToken)) return undefined;
-				const selected = departments[0];
+				const departmentGroups = groupAppointmentDepartments(departments);
+				const selectedGroup = departmentGroups[0];
 				this.setData({
 					departments,
+					departmentGroups,
+					currentGroupDepartments: selectedGroup?.departments ?? [],
+					selectedDepartmentGroupId: selectedGroup?.groupId ?? "",
 					schedules: [],
 					doctorCards: [],
 					activeMode: "doctor",
-					selectedDepartmentId: selected?.departmentId ?? "",
-					selectedDepartmentName: selected?.displayName ?? "",
+					selectedDepartmentId: "",
+					selectedDepartmentName: "",
 					selectedDoctorId: "",
 					selectedDoctorName: "",
 					dateGroups: [],
@@ -174,9 +186,7 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 					visibleScheduleCount: SCHEDULE_PAGE_SIZE,
 					error: "",
 				});
-				return selected
-					? this.loadDepartmentSchedules(selected.departmentId)
-					: undefined;
+				return undefined;
 			})
 			.catch((error) => {
 				if (directoryGuard.isCurrent(directoryToken)) {
@@ -292,12 +302,37 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		const department = this.data.departments.find((item) =>
 			item.displayName.toLocaleLowerCase().includes(keyword),
 		);
-		if (
-			department &&
-			department.departmentId !== this.data.selectedDepartmentId
-		) {
-			void this.loadDepartmentSchedules(department.departmentId);
-			return;
+		if (department) {
+			const group = this.data.departmentGroups.find((item) =>
+				item.departments.some(
+					(candidate) => candidate.departmentId === department.departmentId,
+				),
+			);
+			if (group && group.groupId !== this.data.selectedDepartmentGroupId) {
+				// 搜索定位到其他一级分类时，先淘汰旧科室的在途排班，再切换右栏。
+				getPageLatestRequestGuard(this, "schedule").begin();
+				this.setData({
+					selectedDepartmentGroupId: group.groupId,
+					currentGroupDepartments: group.departments,
+					selectedDepartmentId: "",
+					selectedDepartmentName: "",
+					selectedDoctorId: "",
+					selectedDoctorName: "",
+					schedules: [],
+					doctorCards: [],
+					dateGroups: [],
+					selectedDate: "",
+					visibleSchedules: [],
+					hasMoreSchedules: false,
+					visibleScheduleCount: SCHEDULE_PAGE_SIZE,
+					error: "",
+					loading: false,
+				});
+			}
+			if (department.departmentId !== this.data.selectedDepartmentId) {
+				void this.loadDepartmentSchedules(department.departmentId);
+				return;
+			}
 		}
 
 		const doctor = this.data.doctorCards.find((item) =>
@@ -322,6 +357,37 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		this.setData({ activeMode: mode });
 	},
 
+	/** 切换蓝湖左侧一级分类，只替换当前可展开的真实科室，不发起虚构分类查询。 */
+	onDepartmentGroupTap(event): void {
+		const groupId = event.currentTarget?.dataset?.groupId;
+		if (typeof groupId !== "string" || !groupId) return;
+		const group = this.data.departmentGroups.find(
+			(item) => item.groupId === groupId,
+		);
+		if (!group || group.groupId === this.data.selectedDepartmentGroupId) return;
+
+		// 左栏切换会让旧右栏排班失去展示资格；不等待它结束，也不能让它回写。
+		getPageLatestRequestGuard(this, "schedule").begin();
+		this.setData({
+			selectedDepartmentGroupId: group.groupId,
+			currentGroupDepartments: group.departments,
+			selectedDepartmentId: "",
+			selectedDepartmentName: "",
+			selectedDoctorId: "",
+			selectedDoctorName: "",
+			schedules: [],
+			doctorCards: [],
+			activeMode: "doctor",
+			dateGroups: [],
+			selectedDate: "",
+			visibleSchedules: [],
+			hasMoreSchedules: false,
+			visibleScheduleCount: SCHEDULE_PAGE_SIZE,
+			loading: false,
+			error: "",
+		});
+	},
+
 	onDepartmentTap(event): void {
 		const departmentId = event.currentTarget?.dataset?.departmentId;
 		if (typeof departmentId !== "string" || !departmentId) return;
@@ -337,9 +403,27 @@ Page<AppointmentDirectoryPageData, AppointmentDirectoryPageMethods>({
 		if (
 			department.departmentId === this.data.selectedDepartmentId &&
 			!this.data.error
-		)
+		) {
+			// 与蓝湖右栏一致：再次点击已展开的二级科室会收起它的医生/号源。
+			getPageLatestRequestGuard(this, "schedule").begin();
+			this.setData({
+				selectedDepartmentId: "",
+				selectedDepartmentName: "",
+				selectedDoctorId: "",
+				selectedDoctorName: "",
+				schedules: [],
+				doctorCards: [],
+				activeMode: "doctor",
+				dateGroups: [],
+				selectedDate: "",
+				visibleSchedules: [],
+				hasMoreSchedules: false,
+				visibleScheduleCount: SCHEDULE_PAGE_SIZE,
+				loading: false,
+			});
 			return;
-		this.loadDepartmentSchedules(department.departmentId);
+		}
+		void this.loadDepartmentSchedules(department.departmentId);
 	},
 
 	/** 医生卡片只切换到当前已读排班的日期视图，不附带医生详情或写入引用。 */

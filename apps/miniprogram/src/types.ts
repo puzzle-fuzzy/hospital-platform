@@ -79,6 +79,16 @@ export type PatientSelectionView = Patient & {
 };
 export type AppointmentDepartment =
 	AppointmentDepartmentListResponse["data"]["items"][number];
+
+/**
+ * 蓝湖目录页的一级导航只是一层本地展示分类：其子项始终是 Provider 已公开的
+ * 真实科室，不会把分类标签当成新的医院科室或请求参数。
+ */
+export type AppointmentDepartmentGroup = {
+	groupId: string;
+	displayName: string;
+	departments: Array<AppointmentDepartment>;
+};
 export type AppointmentSchedule =
 	AppointmentScheduleListResponse["data"]["items"][number];
 
@@ -271,6 +281,10 @@ export type PatientSelectionPageData = {
 /** 预约目录页只展示服务端已校验的科室和排班，不承载下单状态。 */
 export type AppointmentDirectoryPageData = {
 	departments: Array<AppointmentDepartment>;
+	departmentGroups: Array<AppointmentDepartmentGroup>;
+	/** 当前一级分类下、可展开的真实二级科室。 */
+	currentGroupDepartments: Array<AppointmentDepartment>;
+	selectedDepartmentGroupId: string;
 	schedules: Array<AppointmentSchedule>;
 	doctorCards: Array<AppointmentDoctorCard>;
 	activeMode: AppointmentDirectoryMode;

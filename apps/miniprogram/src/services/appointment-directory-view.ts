@@ -1,4 +1,9 @@
-import type { AppointmentDoctorCard, AppointmentSchedule } from "../types";
+import type {
+	AppointmentDepartment,
+	AppointmentDepartmentGroup,
+	AppointmentDoctorCard,
+	AppointmentSchedule,
+} from "../types";
 
 /** 预约目录日期标签的中文星期文案；日期事实仍保留服务端的 YYYY-MM-DD。 */
 const WEEKDAY_LABELS = [
@@ -10,6 +15,138 @@ const WEEKDAY_LABELS = [
 	"周五",
 	"周六",
 ] as const;
+
+/**
+ * 蓝湖首屏的一级科室导航。当前公开预约接口只返回扁平科室，故分类只用于
+ * 本地浏览，不会写回 Provider，也不会把分类名伪装成医院返回的科室。
+ */
+const DEPARTMENT_GROUP_RULES = [
+	{
+		groupId: "internal-medicine",
+		displayName: "内科",
+		keywords: [
+			"内科",
+			"心血管",
+			"呼吸",
+			"消化",
+			"神经",
+			"肾",
+			"内分泌",
+			"代谢",
+			"风湿",
+			"血液",
+			"结核",
+			"老年",
+			"肝病",
+			"戒烟",
+		],
+	},
+	{
+		groupId: "surgery",
+		displayName: "外科",
+		keywords: [
+			"外科",
+			"骨",
+			"脊柱",
+			"甲状腺",
+			"乳腺",
+			"泌尿",
+			"肛肠",
+			"疼痛",
+			"介入",
+			"伤口",
+			"picc",
+		],
+	},
+	{
+		groupId: "combined-clinic",
+		displayName: "联合门诊",
+		keywords: ["联合", "多学科"],
+	},
+	{
+		groupId: "obstetrics",
+		displayName: "产科",
+		keywords: ["产科", "产后", "母乳", "盆底", "婴儿"],
+	},
+	{
+		groupId: "gynecology",
+		displayName: "妇科",
+		keywords: ["妇科", "子宫", "海扶"],
+	},
+	{
+		groupId: "psychology",
+		displayName: "临床心理科",
+		keywords: ["心理", "精神"],
+	},
+	{
+		groupId: "pediatrics",
+		displayName: "儿科",
+		keywords: ["儿科", "儿童"],
+	},
+	{
+		groupId: "reproductive-endocrinology",
+		displayName: "生殖内分泌科",
+		keywords: ["生殖", "生育"],
+	},
+	{
+		groupId: "ophthalmology",
+		displayName: "眼科中心",
+		keywords: ["眼科"],
+	},
+	{
+		groupId: "dentistry",
+		displayName: "牙科",
+		keywords: ["牙科", "口腔"],
+	},
+	{
+		groupId: "dermatology",
+		displayName: "皮肤科",
+		keywords: ["皮肤"],
+	},
+	{
+		groupId: "ent",
+		displayName: "耳鼻咽喉科",
+		keywords: ["耳鼻", "五官"],
+	},
+] as const;
+
+/** 将扁平公开科室按产品导航归类；无法可靠归类的科室仍可在“其他门诊”中访问。 */
+export function groupAppointmentDepartments(
+	departments: readonly AppointmentDepartment[],
+): AppointmentDepartmentGroup[] {
+	const buckets = new Map<string, Array<AppointmentDepartment>>(
+		DEPARTMENT_GROUP_RULES.map((rule) => [rule.groupId, []]),
+	);
+	const ungrouped: Array<AppointmentDepartment> = [];
+
+	for (const department of departments) {
+		const searchableName = department.displayName.toLocaleLowerCase();
+		const rule = DEPARTMENT_GROUP_RULES.find((candidate) =>
+			candidate.keywords.some((keyword) => searchableName.includes(keyword)),
+		);
+		if (!rule) {
+			ungrouped.push(department);
+			continue;
+		}
+		buckets.get(rule.groupId)?.push(department);
+	}
+
+	const groups: AppointmentDepartmentGroup[] = DEPARTMENT_GROUP_RULES.map(
+		(rule) => ({
+		groupId: rule.groupId,
+		displayName: rule.displayName,
+		departments: buckets.get(rule.groupId) ?? [],
+		}),
+	);
+	if (ungrouped.length) {
+		groups.push({
+			groupId: "other",
+			displayName: "其他门诊",
+			departments: ungrouped,
+		});
+	}
+	return groups;
+}
 
 export type AppointmentDateGroup = {
 	workDate: string;
