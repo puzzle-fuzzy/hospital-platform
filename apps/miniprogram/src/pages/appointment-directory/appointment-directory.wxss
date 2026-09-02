@@ -1005,7 +1005,6 @@ page {
 	font-size: 28rpx;
 	line-height: 1.35;
 }
-}
 
 .selected-doctor-filter {
 	box-sizing: border-box;
