@@ -7,6 +7,8 @@
  * 当成永久头像资源写入普通资料接口。
  */
 
+import { logClientErrorTransformed } from "./telemetry";
+
 export type WechatUserGender = "male" | "female" | "unknown";
 
 export type WechatUserProfileSnapshot = {
@@ -117,7 +119,15 @@ export function requestWechatUserProfile(): Promise<WechatUserProfileSnapshot> {
 				}
 				resolve(snapshot);
 			},
-			fail: () => reject(new WechatUserProfileAuthorizationError()),
+			fail: (failure) => {
+				// 授权失败会统一折叠为单一错误类；原始 fail 事实先留痕，
+				// 否则用户拒绝与容器故障在遥测里无法区分。
+				logClientErrorTransformed(
+					"wechat-user-profile.get-user-profile-fail",
+					failure,
+				);
+				reject(new WechatUserProfileAuthorizationError());
+			},
 		});
 	});
 }
@@ -139,7 +149,13 @@ export function openWechatUserProfileSettings(): Promise<void> {
 		}
 		wx.openSetting({
 			success: () => resolve(),
-			fail: () => reject(new WechatUserProfileSettingsError()),
+			fail: (failure) => {
+				logClientErrorTransformed(
+					"wechat-user-profile.open-setting-fail",
+					failure,
+				);
+				reject(new WechatUserProfileSettingsError());
+			},
 		});
 	});
 }

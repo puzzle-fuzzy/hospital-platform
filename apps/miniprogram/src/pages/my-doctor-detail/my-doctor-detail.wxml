@@ -1,0 +1,118 @@
+<scroll-view class="my-doctor-detail-scroll" scroll-y="true" enhanced="true">
+	<view class="my-doctor-detail-page">
+		<view wx:if="{{loading}}" class="detail-state">
+			<view class="detail-spinner"></view>
+			<text>正在加载医生信息...</text>
+		</view>
+
+		<view wx:elif="{{error}}" class="detail-state detail-state-error">
+			<image class="detail-state-icon" src="/assets/legacy-user/doctor.svg" mode="aspectFit" />
+			<text>{{error}}</text>
+			<view class="detail-retry" bindtap="onRetry">重新加载</view>
+		</view>
+
+		<block wx:else>
+			<view class="doctor-profile-card">
+				<image
+					wx:if="{{doctor.doctorAvatarUrl}}"
+					class="doctor-profile-avatar doctor-profile-avatar-photo"
+					src="{{doctor.doctorAvatarUrl}}"
+					mode="aspectFill"
+					lazy-load="{{true}}"
+					aria-label="医生照片"
+				/>
+				<image
+					wx:else
+					class="doctor-profile-avatar"
+					src="/assets/legacy-user/default-avatar.svg"
+					mode="aspectFit"
+					aria-label="默认医生头像"
+				/>
+				<view class="doctor-profile-copy">
+					<view class="doctor-profile-name-row">
+						<text class="doctor-profile-name">{{doctor.doctorName}}</text>
+						<text wx:if="{{doctor.titleName}}" class="doctor-profile-title">{{doctor.titleName}}</text>
+					</view>
+					<text class="doctor-profile-department">{{doctor.departmentName}}</text>
+					<text wx:if="{{doctor.departmentLocation}}" class="doctor-profile-location">{{doctor.departmentLocation}}</text>
+				</view>
+				<button
+					class="doctor-follow-button {{followed ? 'doctor-followed' : ''}}"
+					disabled="{{actionLoading}}"
+					bindtap="onFollowTap"
+				>{{actionLoading ? '处理中' : followed ? '已关注' : '关注'}}</button>
+			</view>
+
+			<view wx:if="{{doctor.expertise}}" class="doctor-introduction-card">
+				<text class="detail-section-title">擅长</text>
+				<text class="doctor-introduction-copy">{{doctor.expertise}}</text>
+			</view>
+
+			<view wx:if="{{doctor.introduction}}" class="doctor-introduction-card">
+				<text class="detail-section-title">个人简介</text>
+				<text class="doctor-introduction-copy">{{doctor.introduction}}</text>
+			</view>
+
+			<view class="doctor-schedule-card">
+				<view class="detail-section-heading">
+					<text class="detail-section-title">出诊排班</text>
+					<text class="detail-section-caption">未来七天</text>
+				</view>
+				<scroll-view wx:if="{{dateOptions.length}}" class="doctor-date-scroll" scroll-x="true" show-scrollbar="false">
+					<view class="doctor-date-list">
+						<view
+							wx:for="{{dateOptions}}"
+							wx:key="workDate"
+							class="doctor-date-item {{item.workDate === selectedDate ? 'doctor-date-item-active' : ''}}"
+							bindtap="onDateTap"
+							data-date="{{item.workDate}}"
+						>
+							<text>{{item.dateLabel}}</text>
+							<text class="doctor-date-weekday">{{item.weekdayLabel}}</text>
+						</view>
+					</view>
+				</scroll-view>
+				<view wx:if="{{scheduleLoading}}" class="schedule-state">
+					<text>正在获取排班...</text>
+				</view>
+				<view wx:elif="{{visibleSchedules.length}}" class="doctor-schedule-list">
+					<view
+						wx:for="{{visibleSchedules}}"
+						wx:key="scheduleId"
+						class="doctor-schedule-row"
+						bindtap="onScheduleTap"
+						data-schedule-id="{{item.scheduleId}}"
+					>
+						<view class="doctor-schedule-copy">
+							<text class="doctor-schedule-shift">{{item.shiftName}}</text>
+							<text wx:if="{{item.startTime}}" class="doctor-schedule-time">
+								{{item.startTime}}<text wx:if="{{item.endTime}}"> - {{item.endTime}}</text>
+							</text>
+							<text wx:else class="doctor-schedule-time">具体时段以医院排班为准</text>
+						</view>
+						<view class="doctor-schedule-action">
+							<text class="doctor-schedule-slots {{item.availableSlots > 0 ? 'doctor-slots-available' : ''}}">余 {{item.availableSlots}} 号</text>
+							<view wx:if="{{item.availableSlots > 0}}" class="doctor-schedule-booking">
+								<text class="doctor-schedule-arrow-label">预约</text>
+								<image
+									class="doctor-schedule-arrow"
+									src="/assets/legacy-user/selector-arrow-right.svg"
+									mode="aspectFit"
+									aria-label="查看预约时段"
+								/>
+							</view>
+							<text wx:else class="doctor-schedule-arrow-label">已约满</text>
+						</view>
+					</view>
+				</view>
+				<view wx:elif="{{dateOptions.length}}" class="schedule-state">
+					<text>当天暂无出诊安排</text>
+				</view>
+				<view wx:else class="schedule-state">
+					<text>未来七天暂无排班</text>
+				</view>
+			</view>
+			<text class="detail-note">号源和出诊时间以医院实时安排为准，点击有余号的时段查看预约信息。</text>
+		</block>
+	</view>
+</scroll-view>

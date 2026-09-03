@@ -27,8 +27,19 @@ export type AppointmentDepartmentGroup = {
 export type AppointmentScheduleDetails = {
 	departmentId: string;
 	departmentName: string;
+	/** 旧端医生名片使用的受控职称、简介、擅长和科室位置字段。 */
+	titleName?: string;
+	introduction?: string;
+	expertise?: string;
+	departmentLocation?: string;
 	doctorId: string;
 	doctorName: string;
+	/**
+	 * 旧端 `doctorPic` 的受控照片展示字段：只允许完整 http(s) URL。
+	 * 域名可用性由小程序平台的图片域名白名单约束，不接受相对路径、
+	 * 任意协议或携带空白的值；空值合法（无图医生用占位展示）。
+	 */
+	doctorPhotoUrl?: string;
 	workDate: string;
 	shiftName: string;
 	startTime?: string;
@@ -63,6 +74,27 @@ export type AppointmentProviderSchedule = AppointmentScheduleDetails & {
 export const MAX_APPOINTMENT_DEPARTMENT_ITEMS = 256;
 export const MAX_APPOINTMENT_SCHEDULE_ITEMS = 512;
 export const MAX_APPOINTMENT_RECORD_ITEMS = 512;
+/**
+ * 单个排班可返回的分时段号源上限。
+ *
+ * 这是平台资源防护，不是 Provider 的号源契约。超量必须整批拒绝，
+ * 不能截断后把不完整的时段目录当作“当前可约时段”。
+ */
+export const MAX_APPOINTMENT_SOURCE_ITEMS = 512;
+
+/**
+ * 分时段号源的公共只读展示模型。
+ *
+ * 只保留旧端页面已确认的安全展示字段：挂号序号和归一化后的时段。
+ * Provider 的 `sourceId` 只能留在 adapter 边界内，供未来写入合同在
+ * 服务端重新解析；它不出现在公共读模型，客户端也不得提交它。
+ */
+export type AppointmentScheduleSource = {
+	serialNumber: string;
+	/** adapter 归一化后的时间点 HH:mm 或时间段 HH:mm-HH:mm。 */
+	timeLabel: string;
+	timeGroup: "point" | "range";
+};
 
 /**
  * 排班快照的服务端安全有效期上限。
@@ -107,7 +139,14 @@ export type AppointmentDirectoryResultViolation =
 	| "provider-schedule-id-duplicate"
 	/** service 生成的公共引用也属于读模型边界，不能信任生成器返回值。 */
 	| "schedule-id-invalid"
-	| "schedule-id-duplicate";
+	| "schedule-id-duplicate"
+	| "sources-not-array"
+	| "sources-too-many"
+	| "source-not-object"
+	| "source-field-invalid"
+	| "source-serial-invalid"
+	| "source-serial-duplicate"
+	| "source-time-invalid";
 
 /** 预约目录 gateway 的结果不满足平台只读 contract。 */
 export class AppointmentDirectoryResultValidationError extends Error {
@@ -347,6 +386,18 @@ export function normalizeAppointmentScheduleResults(
 			256,
 			"schedule-field-invalid",
 		);
+		const titleName = optionalAppointmentScheduleText(record, "titleName", 128);
+		const introduction = optionalAppointmentScheduleText(
+			record,
+			"introduction",
+			512,
+		);
+		const expertise = optionalAppointmentScheduleText(record, "expertise", 255);
+		const departmentLocation = optionalAppointmentScheduleText(
+			record,
+			"departmentLocation",
+			256,
+		);
 		const doctorId = requiredAppointmentText(
 			record,
 			"doctorId",
@@ -380,6 +431,7 @@ export function normalizeAppointmentScheduleResults(
 		}
 		const startTime = optionalAppointmentScheduleText(record, "startTime", 32);
 		const endTime = optionalAppointmentScheduleText(record, "endTime", 32);
+		const doctorPhotoUrl = optionalAppointmentDoctorPhotoUrl(record);
 		const totalSlots = record.totalSlots;
 		const availableSlots = record.availableSlots;
 		if (
@@ -403,10 +455,15 @@ export function normalizeAppointmentScheduleResults(
 			providerScheduleId,
 			departmentId,
 			departmentName,
+			...(titleName ? { titleName } : {}),
+			...(introduction ? { introduction } : {}),
+			...(expertise ? { expertise } : {}),
+			...(departmentLocation ? { departmentLocation } : {}),
 			doctorId,
 			doctorName,
 			workDate,
 			shiftName,
+			...(doctorPhotoUrl ? { doctorPhotoUrl } : {}),
 			...(startTime ? { startTime } : {}),
 			...(endTime ? { endTime } : {}),
 			totalSlots,
@@ -414,6 +471,22 @@ export function normalizeAppointmentScheduleResults(
 			timeGroup,
 		};
 	});
+}
+
+/** 医生照片只接受完整 http(s) URL；空值合法（无图医生由页面占位展示）。 */
+function optionalAppointmentDoctorPhotoUrl(
+	record: Record<string, unknown>,
+): string | undefined {
+	const value = record.doctorPhotoUrl;
+	if (value === undefined || value === null || value === "") return undefined;
+	if (
+		typeof value !== "string" ||
+		value.length > 512 ||
+		!/^https?:\/\/[^\s]+$/u.test(value)
+	) {
+		invalidAppointmentDirectoryResult("schedule-field-invalid");
+	}
+	return value;
 }
 
 function optionalAppointmentScheduleText(
@@ -427,6 +500,55 @@ function optionalAppointmentScheduleText(
 		invalidAppointmentDirectoryResult("schedule-field-invalid");
 	}
 	return value;
+}
+
+/**
+ * 校验并重新投影单个排班的分时段号源。
+ *
+ * 时段展示沿用预约记录 `workTime` 的同一运行时判定：时间点或起止合法的时间段。
+ * 任何一条坏号源都拒绝整批，避免页面把不完整时段当成当前可约事实；
+ * 重复挂号序号同样拒绝，否则选择态会指向不确定的时段。
+ */
+export function normalizeAppointmentScheduleSourceResults(
+	value: unknown,
+): AppointmentScheduleSource[] {
+	if (!Array.isArray(value)) {
+		invalidAppointmentDirectoryResult("sources-not-array");
+	}
+	if (value.length > MAX_APPOINTMENT_SOURCE_ITEMS) {
+		invalidAppointmentDirectoryResult("sources-too-many");
+	}
+	const serialNumbers = new Set<string>();
+	return value.map((item) => {
+		if (typeof item !== "object" || item === null || Array.isArray(item)) {
+			invalidAppointmentDirectoryResult("source-not-object");
+		}
+		const record = item as Record<string, unknown>;
+		const serialNumber = requiredAppointmentText(
+			record,
+			"serialNumber",
+			32,
+			"source-serial-invalid",
+		);
+		if (serialNumbers.has(serialNumber)) {
+			invalidAppointmentDirectoryResult("source-serial-duplicate");
+		}
+		serialNumbers.add(serialNumber);
+		const timeLabel = requiredAppointmentText(
+			record,
+			"timeLabel",
+			32,
+			"source-field-invalid",
+		);
+		if (!isAppointmentRecordWorkTime(timeLabel)) {
+			invalidAppointmentDirectoryResult("source-time-invalid");
+		}
+		const timeGroup: AppointmentScheduleSource["timeGroup"] =
+			record.timeGroup === "point" || record.timeGroup === "range"
+				? record.timeGroup
+				: invalidAppointmentDirectoryResult("source-field-invalid");
+		return { serialNumber, timeLabel, timeGroup };
+	});
 }
 
 export type AppointmentScheduleQuery = {
@@ -536,10 +658,25 @@ export function validateAppointmentScheduleSnapshot(
 		[schedule.workDate, 32],
 		[schedule.shiftName, 128],
 	];
+	const optionalScheduleTexts: readonly [unknown, number][] = [
+		[schedule.titleName, 128],
+		[schedule.introduction, 512],
+		[schedule.expertise, 255],
+		[schedule.departmentLocation, 256],
+	];
 	if (
 		requiredScheduleTexts.some(
 			([value, maxLength]) => !hasSafeAppointmentText(value, maxLength),
 		) ||
+		optionalScheduleTexts.some(
+			([value, maxLength]) =>
+				value !== undefined && !hasSafeAppointmentText(value, maxLength),
+		) ||
+		(schedule.doctorPhotoUrl !== undefined &&
+			schedule.doctorPhotoUrl !== null &&
+			(typeof schedule.doctorPhotoUrl !== "string" ||
+				schedule.doctorPhotoUrl.length > 512 ||
+				!/^https?:\/\/[^\s]+$/u.test(schedule.doctorPhotoUrl))) ||
 		(schedule.startTime !== undefined &&
 			!hasSafeAppointmentText(schedule.startTime, 32)) ||
 		(schedule.endTime !== undefined &&
@@ -840,7 +977,27 @@ export interface AppointmentDirectoryGateway {
 		schedules: readonly AppointmentProviderSchedule[];
 		trace: ExternalTrace;
 	}>;
+	/**
+	 * 读取单个排班的分时段号源（可选能力）。
+	 *
+	 * 输入是服务端快照中保存的 provider 排班引用；网关返回的号源只包含
+	 * 公共展示字段。Provider 号源 ID 与锁号状态不出网关，未来写入合同
+	 * 必须在服务端重新解析并校验，不能依赖这次只读结果。未实现该能力
+	 * 的网关保持 undefined，service 必须 fail-closed。
+	 */
+	listSources?(
+		input: AppointmentScheduleSourceQuery,
+		context: AdapterCallContext,
+	): Promise<{
+		sources: readonly AppointmentScheduleSource[];
+		trace: ExternalTrace;
+	}>;
 }
+
+/** 分时段号源查询只接受服务端解析出的 provider 排班引用。 */
+export type AppointmentScheduleSourceQuery = {
+	providerScheduleId: string;
+};
 
 /**
  * 一级/二级目录和其下三级可预约科室的独立读取能力。

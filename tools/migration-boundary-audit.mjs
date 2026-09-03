@@ -70,7 +70,7 @@ const requiredCommonMaterials = new Set([
 const legacyStatusByReadiness = new Map([
 	["待 provider contract", "blocked-provider"],
 	["待临床审核", "blocked-clinical"],
-	["待支付与回写 contract", "blocked-payment"],
+	["全量替换进行中", "partial"],
 	["待患者绑定 contract", "blocked-patient-contract"],
 	["待外部入口 contract", "blocked-external"],
 ]);
@@ -243,13 +243,19 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 	gateFailureCounts.set(gate.name, failures.length - failureCountBeforeGate);
 }
 
-// 每个当前可见的状态页 action 都必须有 gate；以后真正实现某个能力时，
-// 应先移除其状态页分发，再同步删除或替换对应 gate，而不是留下裸入口。
+// 每个当前可见的状态页 action 都必须有 gate；已经进入正式原生页面的
+// action 则由 FEATURE_SURFACE_TARGETS 负责闭环，不能继续占用旧的冻结 gate。
 const gateFeatureKeys = new Set(
 	FROZEN_DOMAIN_GATES.map((gate) => gate.featureKey),
 );
+const surfacedFeatureKeys = new Set(
+	Object.keys(featureNavigation.FEATURE_SURFACE_TARGETS ?? {}),
+);
 for (const featureKey of actionFeatureKeys) {
-	if (!gateFeatureKeys.has(featureKey)) {
+	if (
+		!gateFeatureKeys.has(featureKey) &&
+		!surfacedFeatureKeys.has(featureKey)
+	) {
 		fail(`可见 action FeatureKey 缺少冻结域准入门禁：${featureKey}`);
 	}
 }

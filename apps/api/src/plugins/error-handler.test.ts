@@ -63,6 +63,7 @@ test("persistence connection failures return a safe 503 contract", async () => {
 		success: false,
 		error: {
 			code: "persistence-temporarily-unavailable",
+			numericCode: 10600,
 			message: "数据服务暂时不可用，请稍后重试",
 		},
 	});
@@ -80,6 +81,7 @@ test("患者读模型损坏不能降级为空目录", async () => {
 		success: false,
 		error: {
 			code: "persistence-invalid",
+			numericCode: 10700,
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
@@ -97,6 +99,7 @@ test("微信登录服务输入错误保持 400 validation 契约", async () => {
 		success: false,
 		error: {
 			code: "validation",
+			numericCode: 10100,
 			message: "微信登录参数不合法",
 		},
 	});
@@ -114,6 +117,7 @@ test("患者 service 输入错误保持 400 查询契约", async () => {
 		success: false,
 		error: {
 			code: "patient-query-invalid",
+			numericCode: 20100,
 			message: "就诊人查询条件不合法",
 		},
 	});
@@ -131,6 +135,7 @@ test("普通资料读模型损坏使用同一套持久化错误契约", async ()
 		success: false,
 		error: {
 			code: "persistence-invalid",
+			numericCode: 10700,
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
@@ -148,6 +153,7 @@ test("健康知识读模型损坏使用持久化错误契约", async () => {
 		success: false,
 		error: {
 			code: "persistence-invalid",
+			numericCode: 10700,
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
@@ -165,6 +171,7 @@ test("健康知识发布版本窗口冲突保持暂不可用而不静默选版�
 		success: false,
 		error: {
 			code: "health-knowledge-unavailable",
+			numericCode: 60120,
 			message: "健康知识内容暂时不可用，请稍后重试",
 		},
 	});
@@ -182,6 +189,7 @@ test("身份仓储读模型损坏不能继续进入业务并返回持久化错�
 		success: false,
 		error: {
 			code: "persistence-invalid",
+			numericCode: 10700,
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
@@ -199,6 +207,7 @@ test("会话 principal 读模型损坏不能伪装成未登录", async () => {
 		success: false,
 		error: {
 			code: "persistence-invalid",
+			numericCode: 10700,
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
@@ -220,6 +229,7 @@ test("支付订单和报价读模型损坏使用统一持久化错误契约", as
 			success: false,
 			error: {
 				code: "persistence-invalid",
+				numericCode: 10700,
 				message: "数据服务返回异常，请联系管理员",
 			},
 		});
@@ -240,6 +250,7 @@ test("患者快照提交结果读模型损坏返回持久化错误", async () =>
 		success: false,
 		error: {
 			code: "persistence-invalid",
+			numericCode: 10700,
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
@@ -259,6 +270,7 @@ test("服务端生成的患者 ID 违反内部 contract 返回持久化错误", 
 		success: false,
 		error: {
 			code: "persistence-invalid",
+			numericCode: 10700,
 			message: "数据服务返回异常，请联系管理员",
 		},
 	});
@@ -276,6 +288,7 @@ test("ambiguous empty patient snapshots return a safe 502 contract", async () =>
 		success: false,
 		error: {
 			code: "patient-directory-snapshot-unsafe",
+			numericCode: 20400,
 			message: "外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
 		},
 	});
@@ -293,6 +306,7 @@ test("stale patient snapshots return a retryable conflict contract", async () =>
 		success: false,
 		error: {
 			code: "patient-sync-stale",
+			numericCode: 20300,
 			message: "本次同步结果已过期，请刷新后重试",
 		},
 	});
@@ -310,6 +324,7 @@ test("患者外部档案映射冲突返回安全的 502 契约", async () => {
 		success: false,
 		error: {
 			code: "patient-directory-reference-conflict",
+			numericCode: 20500,
 			message: "患者医院档案映射存在冲突，当前就诊人未更新，请稍后重试",
 		},
 	});
@@ -321,66 +336,77 @@ test("支付领域内部错误统一映射为稳定中文公共契约", async ()
 			error: new PaymentOrderInputError("internal validation detail"),
 			status: 400,
 			code: "payment-order-invalid",
+			numericCode: 50100,
 			message: "创建订单输入不合法",
 		},
 		{
 			error: new PaymentQuoteNotFoundError(),
 			status: 404,
 			code: "payment-quote-not-found",
+			numericCode: 50120,
 			message: "服务端报价不存在",
 		},
 		{
 			error: new PaymentQuoteExpiredError(),
 			status: 409,
 			code: "payment-quote-expired",
+			numericCode: 50130,
 			message: "服务端报价已过期，请重新获取报价",
 		},
 		{
 			error: new PaymentIdempotencyConflictError(),
 			status: 409,
 			code: "payment-idempotency-conflict",
+			numericCode: 50140,
 			message: "幂等键与已有订单的请求内容冲突",
 		},
 		{
 			error: new PaymentOrderVersionConflictError(),
 			status: 409,
 			code: "payment-order-conflict",
+			numericCode: 50150,
 			message: "订单版本已被其他流程更新",
 		},
 		{
 			error: new PaymentNotificationConflictError(),
 			status: 409,
 			code: "payment-notification-conflict",
+			numericCode: 50210,
 			message: "重复通知与已落库事件冲突",
 		},
 		{
 			error: new WechatPaymentNotificationRejectedError(),
 			status: 400,
 			code: "payment-notification-rejected",
+			numericCode: 50200,
 			message: "微信支付通知验签或内容校验失败",
 		},
 		{
 			error: new PaymentCashPrepayNotAllowedError(),
 			status: 409,
 			code: "payment-cash-prepay-not-allowed",
+			numericCode: 50220,
 			message: "当前订单不允许现金预支付",
 		},
 		{
 			error: new PaymentIdentityNotFoundError(),
 			status: 409,
 			code: "payment-identity-not-found",
+			numericCode: 50230,
 			message: "支付身份映射不可用",
 		},
 		{
 			error: new PaymentPrepayAttemptInProgressError(),
 			status: 409,
 			code: "payment-prepay-in-progress",
+			numericCode: 50240,
 			message: "预支付仍在处理，不能并发创建",
 		},
 		{
 			error: new PaymentPrepayAttemptUnknownError(),
 			status: 409,
 			code: "payment-prepay-unknown",
+			numericCode: 50250,
 			message: "预支付结果需向外部服务确认，不能直接重建",
 		},
 	] as const;
@@ -394,7 +420,11 @@ test("支付领域内部错误统一映射为稳定中文公共契约", async ()
 		expect(response.status).toBe(scenario.status);
 		expect(await response.json()).toEqual({
 			success: false,
-			error: { code: scenario.code, message: scenario.message },
+			error: {
+				code: scenario.code,
+				numericCode: scenario.numericCode,
+				message: scenario.message,
+			},
 		});
 	}
 });
@@ -404,31 +434,37 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 		{
 			error: new AppointmentScheduleQueryError("internal schedule detail"),
 			code: "appointment-query-invalid",
+			numericCode: 30100,
 			message: "预约排班查询条件不合法",
 		},
 		{
 			error: new AppointmentRecordQueryError("internal record detail"),
 			code: "appointment-record-query-invalid",
+			numericCode: 30200,
 			message: "预约记录查询条件不合法",
 		},
 		{
 			error: new ReportQueryError("internal report detail"),
 			code: "report-query-invalid",
+			numericCode: 40100,
 			message: "报告查询条件不合法",
 		},
 		{
 			error: new InvalidOutpatientPaymentStatusError(),
 			code: "outpatient-payment-query-invalid",
+			numericCode: 50300,
 			message: "门诊缴费查询条件不合法",
 		},
 		{
 			error: new OutpatientPaymentQueryError(),
 			code: "outpatient-payment-query-invalid",
+			numericCode: 50300,
 			message: "门诊缴费查询条件不合法",
 		},
 		{
 			error: new InvalidReportKindError(),
 			code: "report-query-invalid",
+			numericCode: 40100,
 			message: "报告查询条件不合法",
 		},
 	] as const;
@@ -442,7 +478,11 @@ test("查询边界错误统一映射为稳定中文公共契约", async () => {
 		expect(response.status).toBe(400);
 		expect(await response.json()).toEqual({
 			success: false,
-			error: { code: scenario.code, message: scenario.message },
+			error: {
+				code: scenario.code,
+				numericCode: scenario.numericCode,
+				message: scenario.message,
+			},
 		});
 	}
 });
@@ -467,6 +507,7 @@ test("Provider 读模型校验错误映射为不可重试的 502", async () => {
 			success: false,
 			error: {
 				code: "provider-response-invalid",
+				numericCode: 10820,
 				message: "外部服务返回数据异常，请稍后重试",
 			},
 		});
@@ -491,6 +532,7 @@ test("Provider adapter 标记响应非法时映射为 provider-response-invalid"
 		success: false,
 		error: {
 			code: "provider-response-invalid",
+			numericCode: 10820,
 			message: "外部服务返回数据异常，请稍后重试",
 		},
 	});

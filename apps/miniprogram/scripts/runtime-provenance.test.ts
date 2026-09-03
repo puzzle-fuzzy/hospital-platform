@@ -5,17 +5,22 @@ import {
 	mkdtemp,
 	readdir,
 	rm,
+	stat,
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
+import {
+	resolveDevelopmentMiniProgramRuntimeSnapshot,
+	resolveMiniProgramSourceRevision,
+} from "./runtime-provenance";
 import {
 	createMiniProgramRuntimeLockError,
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
 	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
+	publishMiniProgramDevelopmentRuntime,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
 
@@ -69,11 +74,25 @@ test(
 				"TEST_SOURCE_REVISION",
 			);
 			expect(committedRevision).toMatch(/^[0-9a-f]{40}$/);
+			const developmentSnapshot =
+				resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot);
+			expect(developmentSnapshot.baseSourceRevision).toBe(committedRevision);
+			expect(developmentSnapshot.sourceRevision).toMatch(
+				/^workspace-sha256:[0-9a-f]{64}$/,
+			);
 
 			await writeFile(
 				join(repositoryRoot, "apps/miniprogram/src/page.ts"),
 				"export const page = false;\n",
 				"utf8",
+			);
+			const dirtyDevelopmentSnapshot =
+				resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot);
+			expect(dirtyDevelopmentSnapshot.baseSourceRevision).toBe(
+				committedRevision,
+			);
+			expect(dirtyDevelopmentSnapshot.sourceRevision).not.toBe(
+				developmentSnapshot.sourceRevision,
 			);
 			expect(() =>
 				resolveMiniProgramSourceRevision(
@@ -125,6 +144,8 @@ test(
 				undefined,
 				"TEST_SOURCE_REVISION",
 			);
+			const developmentSnapshot =
+				resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot);
 			for (const fileName of ["page.test.ts", "page.spec.ts"]) {
 				await writeFile(
 					join(repositoryRoot, "apps/miniprogram/src", fileName),
@@ -132,6 +153,10 @@ test(
 					"utf8",
 				);
 			}
+			expect(
+				resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot)
+					.sourceRevision,
+			).toBe(developmentSnapshot.sourceRevision);
 			runGit(repositoryRoot, ["add", "."]);
 			runGit(repositoryRoot, ["commit", "-m", "test-only"]);
 			const revisionAfterTestOnlyCommit = resolveMiniProgramSourceRevision(
@@ -141,6 +166,29 @@ test(
 			);
 			// 测试提交不进入 dist，因此不应迫使同一份业务运行包更换来源。
 			expect(revisionAfterTestOnlyCommit).toBe(committedRevision);
+		} finally {
+			await rm(repositoryRoot, { recursive: true, force: true });
+		}
+	},
+	runtimeFixtureTestOptions,
+);
+
+test(
+	"开发来源快照包含未跟踪的运行输入",
+	async () => {
+		const repositoryRoot = await createCommittedRuntimeFixture();
+		try {
+			const before =
+				resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot);
+			await writeFile(
+				join(repositoryRoot, "apps/miniprogram/src/new-page.wxml"),
+				"<view>development</view>\n",
+				"utf8",
+			);
+			const after =
+				resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot);
+			expect(after.baseSourceRevision).toBe(before.baseSourceRevision);
+			expect(after.sourceRevision).not.toBe(before.sourceRevision);
 		} finally {
 			await rm(repositoryRoot, { recursive: true, force: true });
 		}
@@ -210,6 +258,51 @@ test("运行包发布失败时保留旧 live 目录", async () => {
 		expect(await Bun.file(join(liveRuntime, "app.js")).text()).toBe(
 			"old-runtime",
 		);
+	} finally {
+		await rm(workspace, { recursive: true, force: true });
+	}
+});
+
+test("开发运行包同步保持开发者工具打开的根目录稳定", async () => {
+	const workspace = await mkdtemp(
+		join(tmpdir(), "hospital-mini-development-runtime-publish-"),
+	);
+	const liveRuntime = join(workspace, "development");
+	const stagingRuntime = join(workspace, "staging");
+	try {
+		await mkdir(join(liveRuntime, "pages/index"), { recursive: true });
+		await writeFile(join(liveRuntime, "app.js"), "old-app", "utf8");
+		await writeFile(join(liveRuntime, "app.json"), '{"pages":[]}', "utf8");
+		await writeFile(
+			join(liveRuntime, "pages/index/index.js"),
+			"old-page",
+			"utf8",
+		);
+		await writeFile(join(liveRuntime, "stale.js"), "stale", "utf8");
+		const liveDirectoryStats = await stat(liveRuntime);
+
+		await mkdir(join(stagingRuntime, "pages/index"), { recursive: true });
+		await writeFile(join(stagingRuntime, "app.js"), "new-app", "utf8");
+		await writeFile(
+			join(stagingRuntime, "pages/index/index.js"),
+			"new-page",
+			"utf8",
+		);
+		await writeFile(
+			join(stagingRuntime, "app.json"),
+			'{"pages":["pages/index/index"]}',
+			"utf8",
+		);
+
+		await publishMiniProgramDevelopmentRuntime(stagingRuntime, liveRuntime);
+
+		expect((await stat(liveRuntime)).ino).toBe(liveDirectoryStats.ino);
+		expect(await Bun.file(join(liveRuntime, "app.js")).text()).toBe("new-app");
+		expect(
+			await Bun.file(join(liveRuntime, "pages/index/index.js")).text(),
+		).toBe("new-page");
+		await expect(access(join(liveRuntime, "stale.js"))).rejects.toThrow();
+		await expect(access(stagingRuntime)).rejects.toThrow();
 	} finally {
 		await rm(workspace, { recursive: true, force: true });
 	}

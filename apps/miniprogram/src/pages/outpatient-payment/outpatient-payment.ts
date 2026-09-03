@@ -1,3 +1,4 @@
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	formatOutpatientAmountLabel,
@@ -480,7 +481,7 @@ Page<OutpatientPaymentPageData, OutpatientPaymentPageMethods>({
 			? null
 			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
-			error: message,
+			error: errorMessageWithCode(error, message),
 			// “outpatient-payment-patient-not-found” 表示当前患者没有费用映射，
 			// 不等于应该换人；只有统一患者上下文错误才显示选择动作。
 			canSelectPatient,

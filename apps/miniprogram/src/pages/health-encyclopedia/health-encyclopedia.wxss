@@ -25,7 +25,7 @@
 .knowledge-item-name { font-size: 28rpx; }
 .knowledge-item-extra { margin-left: 12rpx; color: #999; font-size: 22rpx; }
 .knowledge-check { color: #4c8eff; font-size: 23rpx; }
-.knowledge-arrow { color: #9aa1ad; font-size: 40rpx; }
+.knowledge-arrow { display: block; flex: 0 0 28rpx; width: 28rpx; height: 28rpx; margin-left: 16rpx; }
 .knowledge-item-clickable { color: #222; }
 .knowledge-inline-empty { padding: 120rpx 24rpx; color: #aaa; text-align: center; font-size: 26rpx; }
 .knowledge-selected { padding: 18rpx 24rpx 24rpx; border-top: 1rpx solid #eee; background: #fff; }

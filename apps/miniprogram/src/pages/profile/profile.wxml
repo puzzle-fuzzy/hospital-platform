@@ -18,8 +18,7 @@
 			<text>正在加载个人资料...</text>
 		</block>
 		<block wx:elif="{{error}}">
-			<text>本次个人资料未加载成功</text>
-			<text class="state-hint">请稍后再试</text>
+			<text>{{error}}</text>
 			<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
 		</block>
 	</view>
@@ -38,7 +37,15 @@
 		<view class="form-row">
 			<text class="form-label">性别</text>
 			<picker mode="selector" range="{{genderLabels}}" value="{{genderIndex}}" bindchange="onGenderChange">
-				<view class="picker-value">{{genderLabel}} <text class="picker-arrow">›</text></view>
+				<view class="picker-value">
+					<text>{{genderLabel}}</text>
+					<image
+						class="picker-arrow"
+						src="/assets/legacy-user/selector-arrow-right.svg"
+						mode="aspectFit"
+						aria-hidden="true"
+					/>
+				</view>
 			</picker>
 		</view>
 		<view class="form-row">

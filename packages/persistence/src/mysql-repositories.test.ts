@@ -3,6 +3,7 @@ import type {
 	OutboxEvent,
 	PaymentOrder,
 	PaymentPrepayAttempt,
+	MedicalInsuranceQueryTask,
 	WechatPaymentNotification,
 } from "@hospital/domain";
 import {
@@ -1307,6 +1308,146 @@ test("MySQL prepay repository atomically claims due query schedules", async () =
 	expect(state.committed).toBe(true);
 	expect(state.statements[0]).toContain("FOR UPDATE SKIP LOCKED");
 	expect(state.statements[1]).toContain("query_claimed_until = ?");
+});
+
+test("MySQL medical insurance query tasks claim and update with a version fence", async () => {
+	const row = {
+		task_id: "medical-query-task-001",
+		medical_order_id: "medical-order-001",
+		status: "pending",
+		attempts: "0",
+		max_attempts: "12",
+		version: "1",
+		next_attempt_at: "2026-09-03 00:00:00.000",
+		claimed_until: null,
+		terminal_ord_stas: null,
+		last_error_code: null,
+		created_at: "2026-09-03 00:00:00.000",
+		updated_at: "2026-09-03 00:00:00.000",
+	};
+	const { pool, state } = createFakePool([[row], { affectedRows: 1 }]);
+	const repositories = createMySqlRepositories(pool);
+
+	const claimed =
+		await repositories.medicalInsuranceQueryTasks.claimDueForQuery(
+			new Date("2026-09-03T00:00:00.000Z"),
+			1,
+			60_000,
+		);
+	expect(claimed).toMatchObject([
+		{
+			taskId: "medical-query-task-001",
+			medicalOrderId: "medical-order-001",
+			status: "in_progress",
+			version: 2,
+			claimedUntil: "2026-09-03T00:01:00.000Z",
+		},
+	]);
+	expect(state.committed).toBe(true);
+	expect(state.statements[0]).toContain("FOR UPDATE");
+	expect(state.statements[1]).toContain("status = 'in_progress'");
+
+	const current = claimed[0];
+	if (!current) throw new Error("Claimed medical query task is missing");
+	const completed: MedicalInsuranceQueryTask = {
+		...current,
+		status: "completed",
+		version: current.version + 1,
+		attempts: 1,
+		claimedUntil: null,
+		updatedAt: "2026-09-03T00:00:01.000Z",
+	};
+	const updatePool = createFakePool([
+		{ affectedRows: 1 },
+		[
+			{
+				...row,
+				status: "completed",
+				attempts: 1,
+				version: 3,
+				updated_at: "2026-09-03 00:00:01.000",
+			},
+		],
+	]);
+	const updateRepositories = createMySqlRepositories(updatePool.pool);
+	const updated = await updateRepositories.medicalInsuranceQueryTasks.update(
+		completed,
+		current.version,
+	);
+	expect(updated).toMatchObject({
+		status: "completed",
+		version: 3,
+		attempts: 1,
+	});
+});
+
+test("MySQL medical insurance query task insert is idempotent and rejects drift", async () => {
+	const now = "2026-09-03 00:00:00.000";
+	const task: MedicalInsuranceQueryTask = {
+		taskId: "medical-query-task-insert-001",
+		medicalOrderId: "medical-order-001",
+		status: "pending",
+		version: 1,
+		attempts: 0,
+		maxAttempts: 12,
+		nextAttemptAt: "2026-09-03T00:00:00.000Z",
+		claimedUntil: null,
+		terminalOrdStas: null,
+		lastErrorCode: null,
+		createdAt: "2026-09-03T00:00:00.000Z",
+		updatedAt: "2026-09-03T00:00:00.000Z",
+	};
+	const { pool, state } = createFakePool([
+		{ affectedRows: 1 },
+		[
+			{
+				task_id: task.taskId,
+				medical_order_id: task.medicalOrderId,
+				status: task.status,
+				attempts: "0",
+				max_attempts: "12",
+				version: "1",
+				next_attempt_at: now,
+				claimed_until: null,
+				terminal_ord_stas: null,
+				last_error_code: null,
+				created_at: now,
+				updated_at: now,
+			},
+		],
+	]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.medicalInsuranceQueryTasks.insert(task),
+	).resolves.toEqual(task);
+	expect(state.statements[0]).toContain(
+		"ON DUPLICATE KEY UPDATE task_id = task_id",
+	);
+
+	const driftPool = createFakePool([
+		{ affectedRows: 0 },
+		[
+			{
+				task_id: task.taskId,
+				medical_order_id: "medical-order-other",
+				status: task.status,
+				attempts: "0",
+				max_attempts: "12",
+				version: "1",
+				next_attempt_at: now,
+				claimed_until: null,
+				terminal_ord_stas: null,
+				last_error_code: null,
+				created_at: now,
+				updated_at: now,
+			},
+		],
+	]);
+	const driftRepositories = createMySqlRepositories(driftPool.pool);
+	await expect(
+		driftRepositories.medicalInsuranceQueryTasks.insert(task),
+	).rejects.toThrow("idempotency payload changed");
 });
 
 test("MySQL appointment snapshot rejects implicit zero slot counts", async () => {

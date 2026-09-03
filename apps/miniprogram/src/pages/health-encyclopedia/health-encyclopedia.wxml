@@ -45,7 +45,12 @@
 								<text class="knowledge-item-name">{{item.name}}</text>
 								<text class="knowledge-item-extra" wx:if="{{item.treatmentDepartment}}">{{item.treatmentDepartment}}</text>
 							</view>
-							<text class="knowledge-arrow">›</text>
+							<image
+								class="knowledge-arrow"
+								src="/assets/legacy-user/selector-arrow-right.svg"
+								mode="aspectFit"
+								aria-hidden="true"
+							/>
 						</view>
 					</view>
 					<view class="knowledge-inline-empty" wx:if="{{rightItems.length === 0}}">暂无该分类内容</view>

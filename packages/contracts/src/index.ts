@@ -223,8 +223,17 @@ export const AppointmentScheduleSchema = Type.Object({
 	scheduleId: Type.String({ minLength: 1 }),
 	departmentId: Type.String({ minLength: 1 }),
 	departmentName: Type.String({ minLength: 1 }),
+	titleName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	introduction: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+	expertise: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+	departmentLocation: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 256 }),
+	),
 	doctorId: Type.String({ minLength: 1 }),
 	doctorName: Type.String({ minLength: 1 }),
+	doctorPhotoUrl: Type.Optional(
+		Type.String({ pattern: "^https?:\\/\\/[^\\s]+$", maxLength: 512 }),
+	),
 	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
 	shiftName: Type.String({ minLength: 1 }),
 	startTime: Type.Optional(Type.String({ minLength: 1 })),
@@ -242,6 +251,68 @@ export const AppointmentScheduleListResponse = Type.Object({
 	success: Type.Literal(true),
 	data: Type.Object({
 		items: Type.Array(AppointmentScheduleSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+/** 我的医生关系是当前平台用户级收藏，不绑定当前就诊人，也不接受客户端 owner。 */
+export const MyDoctorSchema = Type.Object({
+	doctorId: Type.String({ minLength: 1, maxLength: 128 }),
+	doctorName: Type.String({ minLength: 1, maxLength: 128 }),
+	titleName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+	introduction: Type.Optional(Type.String({ minLength: 1, maxLength: 512 })),
+	expertise: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+	departmentLocation: Type.Optional(
+		Type.String({ minLength: 1, maxLength: 256 }),
+	),
+	departmentName: Type.String({ minLength: 1, maxLength: 128 }),
+	doctorAvatarUrl: Type.Optional(
+		Type.String({ pattern: "^https?:\\/\\/[^\\s]+$", maxLength: 512 }),
+	),
+	createdAt: Type.String({ minLength: 1, maxLength: 64 }),
+});
+
+export const MyDoctorFollowRequest = Type.Object(
+	{ doctorId: Type.String({ minLength: 1, maxLength: 128 }) },
+	{ additionalProperties: false },
+);
+
+export const MyDoctorListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		items: Type.Array(MyDoctorSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
+export const MyDoctorResponse = Type.Object({
+	success: Type.Literal(true),
+	data: MyDoctorSchema,
+});
+
+export const MyDoctorDeleteResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		doctorId: Type.String({ minLength: 1, maxLength: 128 }),
+		followed: Type.Literal(false),
+	}),
+});
+
+/** 分时段号源只返回展示字段；provider 号源 ID、锁号状态和费用不出服务端。 */
+export const AppointmentScheduleSourceSchema = Type.Object({
+	serialNumber: Type.String({ minLength: 1 }),
+	timeLabel: Type.String({
+		pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d(?:-(?:[01]\\d|2[0-3]):[0-5]\\d)?$",
+	}),
+	timeGroup: Type.Union([Type.Literal("point"), Type.Literal("range")]),
+});
+
+/** 号源响应同时返回排班展示上下文，页面不需要二次请求排班详情。 */
+export const AppointmentScheduleSourceListResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		schedule: AppointmentScheduleSchema,
+		items: Type.Array(AppointmentScheduleSourceSchema),
 		total: Type.Integer({ minimum: 0 }),
 	}),
 });
@@ -553,6 +624,12 @@ export const ErrorResponse = Type.Object({
 	success: Type.Literal(false),
 	error: Type.Object({
 		code: Type.String(),
+		/**
+		 * 服务端权威分配的数字错误码（见 apps/api error-handler 的
+		 * ERROR_NUMERIC_CODES 与 docs/错误码.md）。数值仅用于人工排障
+		 * 定位，客户端不得用它替代字符串码做程序分支。
+		 */
+		numericCode: Type.Integer(),
 		message: Type.String(),
 	}),
 });
@@ -670,6 +747,17 @@ export type AppointmentSchedulePayload = Static<
 >;
 export type AppointmentScheduleListPayload = Static<
 	typeof AppointmentScheduleListResponse
+>;
+export type MyDoctorPayload = Static<typeof MyDoctorSchema>;
+export type MyDoctorFollowPayload = Static<typeof MyDoctorFollowRequest>;
+export type MyDoctorListPayload = Static<typeof MyDoctorListResponse>;
+export type MyDoctorResponsePayload = Static<typeof MyDoctorResponse>;
+export type MyDoctorDeletePayload = Static<typeof MyDoctorDeleteResponse>;
+export type AppointmentScheduleSourcePayload = Static<
+	typeof AppointmentScheduleSourceSchema
+>;
+export type AppointmentScheduleSourceListPayload = Static<
+	typeof AppointmentScheduleSourceListResponse
 >;
 export type AppointmentRecordPayload = Static<typeof AppointmentRecordSchema>;
 export type AppointmentRecordListPayload = Static<

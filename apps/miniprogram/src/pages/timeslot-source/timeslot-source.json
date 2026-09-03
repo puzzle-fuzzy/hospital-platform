@@ -1,0 +1,8 @@
+{
+	"navigationBarTitleText": "分时段号源",
+	"navigationBarBackgroundColor": "#f8f8f8",
+	"navigationBarTextStyle": "black",
+	"backgroundColor": "#f6f6f6",
+	"disableScroll": true,
+	"enablePullDownRefresh": true
+}

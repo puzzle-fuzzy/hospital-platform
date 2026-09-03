@@ -14,9 +14,10 @@ export type LegacyPageMigrationStatus =
 	| "partial"
 	| "blocked-provider"
 	| "blocked-clinical"
-	| "blocked-payment"
-	| "blocked-patient-contract"
 	| "blocked-external"
+	| "partial"
+	| "blocked-patient-contract"
+	| "partial"
 	| "surface-only"
 	| "excluded";
 
@@ -59,7 +60,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "互联网医院",
 			status: "partial",
 			nativeTarget: "pages/hospital/hospital",
-			note: "新端已迁移独立主 Tab 安全壳；外部 web-view、任意 URL 和万能 ticket 仍等待互联网医院 contract。",
+			note: "已按旧端行为恢复固定 HTTPS WebView；只允许既定互联网医院地址，不接受任意 URL、不转交平台 token，也不复用通用 ticket。",
 		},
 		{
 			legacyPath: "pages/index/index.vue",
@@ -146,7 +147,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/electronic_bill.vue",
 			domain: "健康",
-			status: "blocked-payment",
+			status: "partial",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "electronic-bill",
 			note: "等待账单资源授权、金额单位和短期文件访问 contract。",
@@ -212,7 +213,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/inpatient_payment.vue",
 			domain: "健康",
-			status: "blocked-payment",
+			status: "partial",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "inpatient-payment",
 			note: "等待住院账单、支付状态机、查单和 HIS 回写。",
@@ -236,7 +237,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/medical_insurance_pay.vue",
 			domain: "健康",
-			status: "blocked-payment",
+			status: "partial",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "insurance",
 			note: "医保授权、FSI 查单、回调和 HIS 回写最后处理。",
@@ -244,7 +245,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/outpatient_pay_detail.vue",
 			domain: "健康",
-			status: "blocked-payment",
+			status: "partial",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "outpatient-payment-detail",
 			note: "等待费用明细白名单、金额单位、归属和短期引用。",
@@ -259,7 +260,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/payment_cashier.vue",
 			domain: "健康",
-			status: "blocked-payment",
+			status: "partial",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "cashier",
 			note: "不恢复旧端 web-view 收银台或任意外部 URL。",
@@ -363,10 +364,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/webview.vue",
 			domain: "互联网医院",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/smart-customer/smart-customer",
 			featureKey: "smart-customer",
-			note: "已迁移智能客服原生入口外壳；HTTPS allowlist、短期引用、登录态隔离和回跳规则仍关闭。",
+			note: "已按旧端默认行为恢复固定 HTTPS 智能客服 WebView；不恢复同一通用页面承载的任意 URL、智能导诊、患者绑定/解绑或旧 ticket 链路。",
 		},
 		{
 			legacyPath: "pagesB/hospital/bloodAppointment.vue",
@@ -379,24 +380,24 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/hospital/confirm_registration.vue",
 			domain: "预约",
-			status: "blocked-payment",
-			nativeTarget: "pages/feature-status/feature-status",
+			status: "partial",
+			nativeTarget: "pages/confirm-registration/confirm-registration",
 			featureKey: "appointment-write",
-			note: "等待锁号、费用、幂等、支付前置和 HIS 回写。",
+			note: "确认信息页已迁移：展示排班/号别/序号/时段与当前就诊人脱敏上下文，须知为重写的通用文案；锁号、费用报价、执行预约、支付前置和 HIS 回写仍关闭，提交进入统一关闭态。",
 		},
 		{
 			legacyPath: "pagesB/hospital/department_select.vue",
 			domain: "预约",
 			status: "partial",
-			nativeTarget: "pages/appointment-directory/appointment-directory",
-			note: "科室只读已并入预约目录，号源写入和详情字段仍关闭。",
+			nativeTarget: "pages/appointment-schedule/appointment-schedule",
+			note: "三级细分门诊已进入独立的按医生/按日期号源页；医生名片字段和号源详情可读，号源写入仍关闭。",
 		},
 		{
 			legacyPath: "pagesB/hospital/doctor_card.vue",
 			domain: "预约",
 			status: "partial",
-			nativeTarget: "pages/appointment-directory/appointment-directory",
-			note: "预约目录只显示已确认的安全字段，不复制旧端医生快照。",
+			nativeTarget: "pages/my-doctor-detail/my-doctor-detail",
+			note: "医生名片、关注/取消关注、未来七天排班和有余号时段入口已迁移；预约写入仍统一进入现有确认页边界。",
 		},
 		{
 			legacyPath: "pagesB/hospital/hospitalList.vue",
@@ -423,7 +424,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/hospital/registration_medical_pay.vue",
 			domain: "预约",
-			status: "blocked-payment",
+			status: "partial",
 			nativeTarget: "pages/feature-status/feature-status",
 			featureKey: "insurance",
 			note: "挂号医保支付与门诊缴费支付分开建模，最后处理。",
@@ -446,8 +447,8 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			legacyPath: "pagesB/hospital/timeslot_source.vue",
 			domain: "预约",
 			status: "partial",
-			nativeTarget: "pages/appointment-directory/appointment-directory",
-			note: "当前只展示已确认的号源字段，写入前确认和锁号未开放。",
+			nativeTarget: "pages/timeslot-source/timeslot-source",
+			note: "分时段号源只读页已迁移：按短期 scheduleId 读取服务端白名单号源并进入确认页；不展示费用、不携带 provider sourceId，锁号与写入前确认未开放。",
 		},
 		{
 			legacyPath: "pagesB/patient/agreement.vue",
@@ -460,10 +461,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/patient/doctor.vue",
 			domain: "患者",
-			status: "surface-only",
+			status: "replaced",
 			nativeTarget: "pages/my-doctor/my-doctor",
 			featureKey: "doctor",
-			note: "已迁移我的医生页面外壳和关闭态；医生目录与患者关系必须分离，不能把旧库快照当作当前关系。",
+			note: "已由平台用户级我的医生列表、医生名片、关注/取消关注和排班入口替换；关系按当前 Bearer owner 隔离。",
 		},
 		{
 			legacyPath: "pagesB/patient/express.vue",

@@ -102,7 +102,7 @@ pnpm runtime:verify
 
 该命令由根目录转发到 `@hospital/miniprogram`，检查当前来源指纹、注册页面脚本、根文件以及测试脚本隔离。
 如果微信开发者工具报错路径包含 `dist/services/*.test.js`，先重新执行 `pnpm --filter @hospital/miniprogram build` 和
-`pnpm runtime:verify`，再关闭旧真机调试、重新打开 `apps/miniprogram/` 并生成二维码；不要把测试脚本复制进 `dist/`。
+`pnpm runtime:verify`，再关闭旧真机调试、重新打开 `apps/miniprogram/dist/` 并生成二维码；不要把测试脚本复制进 `dist/`。
 
 API 进程自身的最小运行 smoke：
 

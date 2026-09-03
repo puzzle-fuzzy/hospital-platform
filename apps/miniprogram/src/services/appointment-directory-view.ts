@@ -17,6 +17,56 @@ export type AppointmentDateGroup = {
 	count: number;
 };
 
+/** 蓝狐“按日期挂号”横向日期条的安全展示模型。 */
+export type AppointmentDateStripItem = {
+	workDate: string;
+	dateLabel: string;
+	weekdayLabel: string;
+};
+
+function parseCalendarDate(value: string): Date | undefined {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+	const date = new Date(`${value}T00:00:00.000Z`);
+	return Number.isNaN(date.getTime()) ||
+		date.toISOString().slice(0, 10) !== value
+		? undefined
+		: date;
+}
+
+/**
+ * 生成旧项目“按日期挂号”的六日横向日期条。
+ *
+ * workDate 是医院日历自然日，因此固定使用 UTC 进位；这不会把中国时区
+ * 的午夜切换成前一天。maxDate 仅用于产品可预约上限，并不扩大 API 查询。
+ */
+export function buildAppointmentDateStrip(
+	startDate: string,
+	length = 6,
+	maxDate = "",
+): AppointmentDateStripItem[] {
+	if (!Number.isSafeInteger(length) || length <= 0) return [];
+	const start = parseCalendarDate(startDate);
+	const maximum = maxDate ? parseCalendarDate(maxDate) : undefined;
+	if (!start || (maxDate && !maximum) || (maximum && start > maximum))
+		return [];
+
+	const items: AppointmentDateStripItem[] = [];
+	for (let index = 0; index < length; index += 1) {
+		const date = new Date(start.getTime());
+		date.setUTCDate(date.getUTCDate() + index);
+		if (maximum && date > maximum) break;
+		const workDate = date.toISOString().slice(0, 10);
+		items.push({
+			workDate,
+			dateLabel: `${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(
+				date.getUTCDate(),
+			).padStart(2, "0")}`,
+			weekdayLabel: WEEKDAY_LABELS[date.getUTCDay()] ?? "",
+		});
+	}
+	return items;
+}
+
 /**
  * 只从当前已校验的排班中收窄某位医生的展示窗口。
  *
@@ -102,8 +152,9 @@ export function visibleAppointmentSchedules(
 /**
  * 将当前科室已读取的排班聚合成旧端“按医生挂号”的卡片。
  *
- * 新合同不提供头像、职称、擅长、费用或关注关系，因此这里严格只使用
- * 医生、日期、排班数量和余号，并把同一医生同日的多个班次合并展示。
+ * 卡片只使用医生、日期、排班数量、余号和已确认的医生照片字段；
+ * 同一医生同日的多个班次合并展示，照片取该医生排班中首个非空 URL，
+ * 不携带职称、擅长、费用或关注关系。
  */
 export function groupAppointmentDoctorCards(
 	schedules: readonly AppointmentSchedule[],
@@ -111,6 +162,7 @@ export function groupAppointmentDoctorCards(
 	type MutableDoctorCard = {
 		doctorId: string;
 		doctorName: string;
+		doctorPhotoUrl?: string;
 		scheduleCount: number;
 		availableSlots: number;
 		dateSlots: Map<string, number>;
@@ -126,11 +178,18 @@ export function groupAppointmentDoctorCards(
 				schedule.workDate,
 				(card.dateSlots.get(schedule.workDate) ?? 0) + schedule.availableSlots,
 			);
+			// 建卡时无图的医生，用后续排班中首个非空照片补齐；已有照片不覆盖。
+			if (!card.doctorPhotoUrl && schedule.doctorPhotoUrl) {
+				card.doctorPhotoUrl = schedule.doctorPhotoUrl;
+			}
 			continue;
 		}
 		cardsByDoctor.set(schedule.doctorId, {
 			doctorId: schedule.doctorId,
 			doctorName: schedule.doctorName,
+			...(schedule.doctorPhotoUrl
+				? { doctorPhotoUrl: schedule.doctorPhotoUrl }
+				: {}),
 			scheduleCount: 1,
 			availableSlots: schedule.availableSlots,
 			dateSlots: new Map([[schedule.workDate, schedule.availableSlots]]),
@@ -140,6 +199,7 @@ export function groupAppointmentDoctorCards(
 	return [...cardsByDoctor.values()].map((card) => ({
 		doctorId: card.doctorId,
 		doctorName: card.doctorName,
+		...(card.doctorPhotoUrl ? { doctorPhotoUrl: card.doctorPhotoUrl } : {}),
 		avatarLabel: card.doctorName.slice(0, 1),
 		scheduleCount: card.scheduleCount,
 		availableSlots: card.availableSlots,

@@ -97,10 +97,11 @@ page {
 }
 
 .subscription-arrow {
-	color: #999999;
-	font-size: 46rpx;
-	font-weight: 300;
-	line-height: 1;
+	display: block;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
+	margin-left: 16rpx;
 }
 
 .subscription-search-card {

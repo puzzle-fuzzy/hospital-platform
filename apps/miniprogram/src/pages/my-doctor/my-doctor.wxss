@@ -1,1 +1,193 @@
-@import "../../styles/migration-surface.wxss";
+page {
+	background: #f6f7fb;
+}
+
+.my-doctor-scroll {
+	height: 100vh;
+	background: #f6f7fb;
+}
+
+.my-doctor-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 30rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.my-doctor-header {
+	display: flex;
+	flex-direction: column;
+	padding: 8rpx 8rpx 28rpx;
+}
+
+.my-doctor-title {
+	color: #20232b;
+	font-size: 40rpx;
+	font-weight: 700;
+	line-height: 1.4;
+}
+
+.my-doctor-subtitle {
+	margin-top: 10rpx;
+	color: #8b91a0;
+	font-size: 24rpx;
+	line-height: 1.4;
+}
+
+.my-doctor-list {
+	display: flex;
+	flex-direction: column;
+}
+
+.my-doctor-card {
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: 170rpx;
+	margin-bottom: 20rpx;
+	padding: 24rpx 20rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	box-shadow: 0 8rpx 24rpx rgba(40, 67, 118, 0.05);
+}
+
+.my-doctor-avatar {
+	display: block;
+	flex: 0 0 104rpx;
+	width: 104rpx;
+	height: 104rpx;
+	border-radius: 52rpx;
+	background: #edf3ff;
+}
+
+.my-doctor-avatar-photo {
+	background: #eef1f6;
+}
+
+.my-doctor-card-copy {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	margin-left: 22rpx;
+}
+
+.my-doctor-name-line {
+	display: flex;
+	align-items: baseline;
+	min-width: 0;
+}
+
+.my-doctor-name {
+	max-width: 270rpx;
+	overflow: hidden;
+	color: #242832;
+	font-size: 32rpx;
+	font-weight: 700;
+	line-height: 1.4;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.my-doctor-title-name {
+	margin-left: 14rpx;
+	color: #5d79b9;
+	font-size: 24rpx;
+	line-height: 1.4;
+	white-space: nowrap;
+}
+
+.my-doctor-department,
+.my-doctor-location,
+.my-doctor-expertise {
+	overflow: hidden;
+	margin-top: 8rpx;
+	color: #717888;
+	font-size: 24rpx;
+	line-height: 1.35;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.my-doctor-location {
+	margin-top: 4rpx;
+	color: #9aa1af;
+}
+
+.my-doctor-expertise {
+	margin-top: 10rpx;
+	color: #6f88bd;
+}
+
+.my-doctor-arrow {
+	display: block;
+	flex: 0 0 34rpx;
+	width: 34rpx;
+	height: 34rpx;
+	margin-left: 16rpx;
+}
+
+.my-doctor-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: 620rpx;
+	padding: 60rpx 48rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	color: #7e8490;
+	font-size: 27rpx;
+	line-height: 1.55;
+	text-align: center;
+	flex-direction: column;
+}
+
+.my-doctor-state-error {
+	color: #875c5c;
+}
+
+.my-doctor-state-icon {
+	display: block;
+	width: 112rpx;
+	height: 112rpx;
+	margin-bottom: 24rpx;
+	opacity: 0.72;
+}
+
+.my-doctor-empty-title {
+	color: #555c6b;
+	font-size: 30rpx;
+	font-weight: 600;
+}
+
+.my-doctor-empty-copy {
+	margin-top: 14rpx;
+	color: #a0a6b1;
+	font-size: 24rpx;
+}
+
+.my-doctor-retry {
+	margin-top: 28rpx;
+	padding: 12rpx 34rpx;
+	border-radius: 999rpx;
+	background: #eaf1ff;
+	color: #4f82eb;
+	font-size: 25rpx;
+}
+
+.my-doctor-spinner {
+	box-sizing: border-box;
+	width: 50rpx;
+	height: 50rpx;
+	margin-bottom: 24rpx;
+	border: 6rpx solid #e7ecf6;
+	border-top-color: #598af2;
+	border-radius: 50%;
+	animation: my-doctor-spin 900ms linear infinite;
+}
+
+@keyframes my-doctor-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}

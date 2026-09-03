@@ -1,3 +1,4 @@
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError } from "../../services/api-client";
 import {
 	loadPatients,
@@ -509,7 +510,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 			return;
 		}
 		this.setData({
-			error: message,
+			error: errorMessageWithCode(error, message),
 			// 目录读取已经成功且页面中仍有 ready 患者时，失败只代表本次
 			// Provider 刷新没有完成，不得把可用的上一轮读模型变成不可选。
 			selectedPatientId: hasClinicallyReadyPatients(this.data.patients)

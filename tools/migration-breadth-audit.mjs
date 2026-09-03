@@ -36,6 +36,7 @@ const FEATURE_STATUS_PAGE_LABELS = Object.freeze({
 	"pages/index/index": "首页",
 	"pages/my/my": "我的",
 	"pages/appointment-directory/appointment-directory": "预约目录",
+	"pages/confirm-registration/confirm-registration": "确认挂号信息",
 	"pages/appointment-records/appointment-records": "预约记录",
 	"pages/report-directory/report-directory": "报告目录",
 	"pages/report-detail/report-detail": "报告详情",

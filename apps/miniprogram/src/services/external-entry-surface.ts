@@ -16,7 +16,6 @@ import {
 import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
 export type ExternalEntrySurfaceFeature =
-	| "smart-customer"
 	| "consultation"
 	| "patient-subscription";
 
@@ -36,22 +35,6 @@ type ExternalEntrySurfaceDefinition = {
 const EXTERNAL_ENTRY_SURFACE_DEFINITIONS: Readonly<
 	Record<ExternalEntrySurfaceFeature, ExternalEntrySurfaceDefinition>
 > = Object.freeze({
-	"smart-customer": {
-		showPatientSelector: false,
-		scopeTitle: "智能客服入口范围",
-		scopeDescription:
-			"智能客服可能承载外部会话或 WebView，当前只展示迁移状态，不会打开旧域名或转交登录态。",
-		boundaryItems: [
-			"外部域名必须使用固定 HTTPS allowlist",
-			"平台 token 不直接进入外部页面",
-			"会话必须有受众、短期有效期和明确退出",
-		],
-		contractItems: [
-			"域名、回跳和错误页配置",
-			"短期 ticket、受众和会话撤销",
-			"客服内容的日志、隐私和留存规则",
-		],
-	},
 	consultation: {
 		showPatientSelector: true,
 		scopeTitle: "问诊记录入口范围",

@@ -949,3 +949,140 @@ test("众阳预约目录超过资源上限时在字段映射前整批拒绝", as
 		responseInvalid: true,
 	});
 });
+
+test("众阳分时段号源返回白名单展示字段并丢弃 provider sourceId", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						sourceId: "src-0001",
+						serialNumber: 3,
+						workTime: "08:30",
+						groupStart: "08:00",
+						groupEnd: "09:00",
+					},
+					{
+						sourceId: "src-0002",
+						serialNumber: 4,
+						workTime: "09:30",
+					},
+				]),
+				{
+					status: 200,
+					headers: { "x-request-id": "sources-ok-001" },
+				},
+			),
+	});
+
+	const result = await gateway.listSources?.(
+		{ providerScheduleId: "schedule/sources&special" },
+		context,
+	);
+	if (!result) throw new Error("listSources capability missing");
+
+	expect(result.sources).toEqual([
+		{ serialNumber: "3", timeLabel: "08:00-09:00", timeGroup: "range" },
+		{ serialNumber: "4", timeLabel: "09:30", timeGroup: "point" },
+	]);
+	expect(result.trace).toMatchObject({
+		provider: "zhongyang",
+		operation: "appointment-schedule-sources",
+		requestId: "sources-ok-001",
+	});
+});
+
+test("众阳分时段号源缺少 sourceId 或 workTime 时整批拒绝", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(JSON.stringify([{ serialNumber: 1, workTime: "08:00" }]), {
+				status: 200,
+				headers: { "x-request-id": "sources-missing-id" },
+			}),
+	});
+
+	await expect(
+		gateway.listSources?.({ providerScheduleId: "schedule-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-schedule-sources",
+		requestId: "sources-missing-id",
+		retryable: false,
+	});
+});
+
+test("众阳排班映射医生照片并拒绝不可用 URL", async () => {
+	const gateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async (_input: URL | RequestInfo, _init?: RequestInit) =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-photo-001",
+						deptId: "dept-001",
+						deptName: "心内科",
+						docId: "doctor-001",
+						docName: "李医生",
+						doctorPic:
+							"https://web-wlx-oss.oss-cn-beijing.aliyuncs.com/doctors/001.jpg",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 30,
+						usableSourceNum: 12,
+						timeGroupFlag: 1,
+					},
+				]),
+				{
+					status: 200,
+					headers: { "x-request-id": "photo-ok-001" },
+				},
+			),
+	});
+
+	const result = await gateway.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		context,
+	);
+	expect(result.schedules[0]).toMatchObject({
+		doctorPhotoUrl:
+			"https://web-wlx-oss.oss-cn-beijing.aliyuncs.com/doctors/001.jpg",
+	});
+
+	const badGateway = createZhongyangAppointmentGateway({
+		baseUrl: "https://zhongyang.example.test",
+		fetcher: async () =>
+			new Response(
+				JSON.stringify([
+					{
+						hisScheduleId: "schedule-photo-002",
+						deptId: "dept-001",
+						deptName: "心内科",
+						docId: "doctor-001",
+						docName: "李医生",
+						doctorPic: "javascript:alert(1)",
+						workDate: "2026-08-20",
+						shiftName: "上午",
+						totalNum: 30,
+						usableSourceNum: 12,
+					},
+				]),
+				{
+					status: 200,
+					headers: { "x-request-id": "photo-bad-001" },
+				},
+			),
+	});
+	await expect(
+		badGateway.listSchedules(
+			{ startDate: "2026-08-20", endDate: "2026-08-21" },
+			context,
+		),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		operation: "appointment-schedules",
+		requestId: "photo-bad-001",
+		retryable: false,
+	});
+});

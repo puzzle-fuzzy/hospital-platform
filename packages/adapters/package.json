@@ -16,7 +16,8 @@
 	},
 	"dependencies": {
 		"@hospital/contracts": "workspace:*",
-		"@hospital/domain": "workspace:*"
+		"@hospital/domain": "workspace:*",
+		"sm-crypto": "^0.5.7"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",

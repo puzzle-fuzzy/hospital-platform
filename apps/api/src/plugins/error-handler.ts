@@ -11,6 +11,10 @@ import {
 	IdentityUserReadModelValidationError,
 	InvalidOutpatientPaymentStatusError,
 	InvalidReportKindError,
+	MyDoctorAlreadyExistsError,
+	MyDoctorInputError,
+	MyDoctorNotFoundError,
+	MyDoctorReadModelValidationError,
 	OutpatientPaymentResultValidationError,
 	PatientDirectoryGeneratedIdValidationError,
 	PatientDirectoryReferenceConflictError,
@@ -45,6 +49,7 @@ import {
 	AppointmentRecordPatientNotFoundError,
 	AppointmentRecordQueryError,
 	AppointmentScheduleQueryError,
+	AppointmentScheduleReferenceExpiredError,
 } from "../modules/appointments/service";
 import {
 	SessionPrincipalReadModelValidationError,
@@ -63,6 +68,90 @@ import {
 	ReportPatientNotFoundError,
 	ReportQueryError,
 } from "../modules/reports/service";
+
+/**
+ * 服务端稳定字符串错误码的唯一权威数字码分配表。
+ *
+ * 数字码是给维护者的定位索引：用户反馈"错误码 30210"时，可以在
+ * `docs/错误码.md` 反查原因、grep 关键字和排障链路。分配规则：
+ * 10xxx 请求层/会话/运行时，20xxx 就诊人，30xxx 预约，40xxx 报告，
+ * 50xxx 支付/门诊缴费，60xxx 健康内容/个人资料；80xxx 保留给客户端
+ * 本地错误，服务端永不使用。段内按 10 递增预留插入空间。
+ * 该表与 `docs/公共API-v2.md`、客户端 `error-registry.ts` 镜像
+ * 由 `tools/error-contract-audit.mjs` 强制同步。
+ */
+export const ERROR_NUMERIC_CODES = Object.freeze({
+	validation: 10100,
+	unauthorized: 10200,
+	parse: 10300,
+	"not-found": 10400,
+	"dependency-not-configured": 10500,
+	"persistence-temporarily-unavailable": 10600,
+	"persistence-invalid": 10700,
+	"provider-request-rejected": 10800,
+	"provider-temporarily-unavailable": 10810,
+	"provider-response-invalid": 10820,
+	unknown: 10900,
+	"patient-query-invalid": 20100,
+	"patient-sync-in-progress": 20200,
+	"patient-sync-stale": 20300,
+	"patient-directory-snapshot-unsafe": 20400,
+	"patient-directory-reference-conflict": 20500,
+	"appointment-query-invalid": 30100,
+	"appointment-record-query-invalid": 30200,
+	"appointment-record-patient-not-found": 30210,
+	"appointment-schedule-reference-expired": 30300,
+	"report-query-invalid": 40100,
+	"report-patient-not-found": 40110,
+	"report-not-found": 40120,
+	"payment-order-invalid": 50100,
+	"payment-order-not-found": 50110,
+	"payment-quote-not-found": 50120,
+	"payment-quote-expired": 50130,
+	"payment-idempotency-conflict": 50140,
+	"payment-order-conflict": 50150,
+	"payment-notification-rejected": 50200,
+	"payment-notification-conflict": 50210,
+	"payment-cash-prepay-not-allowed": 50220,
+	"payment-identity-not-found": 50230,
+	"payment-prepay-in-progress": 50240,
+	"payment-prepay-unknown": 50250,
+	"outpatient-payment-query-invalid": 50300,
+	"outpatient-payment-patient-not-found": 50310,
+	"health-knowledge-query-invalid": 60100,
+	"health-knowledge-not-found": 60110,
+	"health-knowledge-unavailable": 60120,
+	"user-profile-invalid": 60200,
+	"user-profile-conflict": 60210,
+	"my-doctor-query-invalid": 60300,
+	"my-doctor-not-found": 60310,
+	"my-doctor-already-followed": 60320,
+} as const);
+
+export type ServerErrorStableCode = keyof typeof ERROR_NUMERIC_CODES;
+
+/** 未登记字符串码统一回落 unknown 数字码，不回显或猜测其他数值。 */
+export function numericCodeFor(code: string): number {
+	return (
+		(ERROR_NUMERIC_CODES as Readonly<Record<string, number | undefined>>)[
+			code
+		] ?? ERROR_NUMERIC_CODES.unknown
+	);
+}
+
+/** 统一错误封套：字符串码保持既有契约，numericCode 提供定位索引。 */
+function errorPayload(
+	code: string,
+	message: string,
+): {
+	success: false;
+	error: { code: string; numericCode: number; message: string };
+} {
+	return {
+		success: false,
+		error: { code, numericCode: numericCodeFor(code), message },
+	};
+}
 
 function normalizeCode(code: string | number): string {
 	return typeof code === "string" ? code : "UNKNOWN";
@@ -91,76 +180,52 @@ export function errorHandlerPlugin() {
 		({ code, error, set }) => {
 			if (error instanceof HttpError) {
 				set.status = error.statusCode;
-				return {
-					success: false,
-					error: { code: error.code, message: error.message },
-				};
+				return errorPayload(error.code, error.message);
 			}
 
 			if (error instanceof DependencyNotConfiguredError) {
 				set.status = 503;
-				return {
-					success: false,
-					error: {
-						code: "dependency-not-configured",
-						message: "该服务暂未配置完成，请稍后重试",
-					},
-				};
+				return errorPayload(
+					"dependency-not-configured",
+					"该服务暂未配置完成，请稍后重试",
+				);
 			}
 
 			if (error instanceof PatientServiceInputError) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "patient-query-invalid",
-						message: "就诊人查询条件不合法",
-					},
-				};
+				return errorPayload("patient-query-invalid", "就诊人查询条件不合法");
 			}
 
 			if (error instanceof PatientDirectorySyncInProgressError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "patient-sync-in-progress",
-						message: "患者目录正在同步，请稍后刷新",
-					},
-				};
+				return errorPayload(
+					"patient-sync-in-progress",
+					"患者目录正在同步，请稍后刷新",
+				);
 			}
 
 			if (error instanceof PatientDirectorySnapshotUnsafeError) {
 				set.status = 502;
-				return {
-					success: false,
-					error: {
-						code: "patient-directory-snapshot-unsafe",
-						message: "外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
-					},
-				};
+				return errorPayload(
+					"patient-directory-snapshot-unsafe",
+					"外部患者目录结果不完整，当前就诊人未更新，请稍后重试",
+				);
 			}
 
 			if (error instanceof PatientDirectorySnapshotStaleError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "patient-sync-stale",
-						message: "本次同步结果已过期，请刷新后重试",
-					},
-				};
+				return errorPayload(
+					"patient-sync-stale",
+					"本次同步结果已过期，请刷新后重试",
+				);
 			}
 
 			if (error instanceof PatientDirectoryReferenceConflictError) {
 				set.status = 502;
-				return {
-					success: false,
-					error: {
-						code: "patient-directory-reference-conflict",
-						message: "患者医院档案映射存在冲突，当前就诊人未更新，请稍后重试",
-					},
-				};
+				return errorPayload(
+					"patient-directory-reference-conflict",
+					"患者医院档案映射存在冲突，当前就诊人未更新，请稍后重试",
+				);
 			}
 
 			if (
@@ -168,68 +233,52 @@ export function errorHandlerPlugin() {
 				error instanceof HealthKnowledgePublicationConflictError
 			) {
 				set.status = 503;
-				return {
-					success: false,
-					error: {
-						code: "health-knowledge-unavailable",
-						message: "健康知识内容暂时不可用，请稍后重试",
-					},
-				};
+				return errorPayload(
+					"health-knowledge-unavailable",
+					"健康知识内容暂时不可用，请稍后重试",
+				);
 			}
 
 			if (error instanceof HealthKnowledgeValidationError) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "health-knowledge-query-invalid",
-						message: "健康知识查询条件不合法",
-					},
-				};
+				return errorPayload(
+					"health-knowledge-query-invalid",
+					"健康知识查询条件不合法",
+				);
 			}
 
 			if (error instanceof HealthKnowledgeNotFoundError) {
 				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "health-knowledge-not-found",
-						message: "未找到对应的健康知识内容",
-					},
-				};
+				return errorPayload(
+					"health-knowledge-not-found",
+					"未找到对应的健康知识内容",
+				);
 			}
 
 			if (error instanceof HealthKnowledgeResultValidationError) {
 				// 健康知识来自已审核内容的持久化读模型，不是 Provider 代理结果；
 				// 读模型损坏不能降级成空目录，也不能误报成可重试的外部服务错误。
 				set.status = 500;
-				return {
-					success: false,
-					error: {
-						code: "persistence-invalid",
-						message: "数据服务返回异常，请联系管理员",
-					},
-				};
+				return errorPayload(
+					"persistence-invalid",
+					"数据服务返回异常，请联系管理员",
+				);
 			}
 
 			if (error instanceof ProviderRequestError) {
 				set.status = error.retryable ? 503 : 502;
 				const responseInvalid = error.responseInvalid === true;
-				return {
-					success: false,
-					error: {
-						code: responseInvalid
-							? "provider-response-invalid"
-							: error.retryable
-								? "provider-temporarily-unavailable"
-								: "provider-request-rejected",
-						message: responseInvalid
-							? "外部服务返回数据异常，请稍后重试"
-							: error.retryable
-								? "外部服务暂时不可用，请稍后重试"
-								: "外部服务拒绝了本次请求，请稍后重试",
-					},
-				};
+				const providerCode = responseInvalid
+					? "provider-response-invalid"
+					: error.retryable
+						? "provider-temporarily-unavailable"
+						: "provider-request-rejected";
+				const providerMessage = responseInvalid
+					? "外部服务返回数据异常，请稍后重试"
+					: error.retryable
+						? "外部服务暂时不可用，请稍后重试"
+						: "外部服务拒绝了本次请求，请稍后重试";
+				return errorPayload(providerCode, providerMessage);
 			}
 
 			if (
@@ -244,100 +293,89 @@ export function errorHandlerPlugin() {
 				// Provider 已返回响应，但网关结果违反平台读模型；这不是患者
 				// 查询参数错误，也不能降级为空列表，应明确返回不可重试的 502。
 				set.status = 502;
-				return {
-					success: false,
-					error: {
-						code: "provider-response-invalid",
-						message: "外部服务返回数据异常，请稍后重试",
-					},
-				};
+				return errorPayload(
+					"provider-response-invalid",
+					"外部服务返回数据异常，请稍后重试",
+				);
 			}
 
 			if (error instanceof UserProfileInputError) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "user-profile-invalid",
-						message: "个人资料字段不合法",
-					},
-				};
+				return errorPayload("user-profile-invalid", "个人资料字段不合法");
+			}
+
+			if (error instanceof MyDoctorInputError) {
+				set.status = 400;
+				return errorPayload("my-doctor-query-invalid", "我的医生请求不合法");
+			}
+
+			if (error instanceof MyDoctorNotFoundError) {
+				set.status = 404;
+				return errorPayload("my-doctor-not-found", "未找到该医生");
+			}
+
+			if (error instanceof MyDoctorAlreadyExistsError) {
+				set.status = 409;
+				return errorPayload(
+					"my-doctor-already-followed",
+					"该医生已在我的医生中",
+				);
 			}
 
 			if (error instanceof WechatLoginInputError) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "validation",
-						message: "微信登录参数不合法",
-					},
-				};
+				return errorPayload("validation", "微信登录参数不合法");
 			}
 
 			if (error instanceof UserProfileVersionConflictError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "user-profile-conflict",
-						message: "个人资料已被其他设备修改，请刷新后重试",
-					},
-				};
+				return errorPayload(
+					"user-profile-conflict",
+					"个人资料已被其他设备修改，请刷新后重试",
+				);
 			}
 
 			if (error instanceof PersistenceUnavailableError) {
 				set.status = 503;
-				return {
-					success: false,
-					error: {
-						code: "persistence-temporarily-unavailable",
-						message: "数据服务暂时不可用，请稍后重试",
-					},
-				};
+				return errorPayload(
+					"persistence-temporarily-unavailable",
+					"数据服务暂时不可用，请稍后重试",
+				);
 			}
 
 			if (
 				error instanceof PatientReadModelValidationError ||
 				error instanceof PatientDirectorySnapshotResultValidationError ||
-				error instanceof PatientDirectoryGeneratedIdValidationError
+				error instanceof PatientDirectoryGeneratedIdValidationError ||
+				error instanceof MyDoctorReadModelValidationError
 			) {
 				// 患者内部身份或数据库读模型违反 contract 时不能降级为空目录；
 				// 空目录会让小程序误以为用户没有就诊人，甚至触发错误的默认选择。
 				// 生成 ID 的异常同样是服务端内部持久化边界问题，不应误报成
 				// Provider 502。固定返回 500，详细原因只进入低敏服务端日志。
 				set.status = 500;
-				return {
-					success: false,
-					error: {
-						code: "persistence-invalid",
-						message: "数据服务返回异常，请联系管理员",
-					},
-				};
+				return errorPayload(
+					"persistence-invalid",
+					"数据服务返回异常，请联系管理员",
+				);
 			}
 
 			if (error instanceof IdentityUserReadModelValidationError) {
 				set.status = 500;
-				return {
-					success: false,
-					error: {
-						code: "persistence-invalid",
-						message: "数据服务返回异常，请联系管理员",
-					},
-				};
+				return errorPayload(
+					"persistence-invalid",
+					"数据服务返回异常，请联系管理员",
+				);
 			}
 
 			if (error instanceof SessionPrincipalReadModelValidationError) {
 				// Redis/session 实现返回的 userId 属于鉴权读模型；不能伪装成 401，
 				// 否则会掩盖持久化损坏并让所有 owner-scoped 请求反复重试。
 				set.status = 500;
-				return {
-					success: false,
-					error: {
-						code: "persistence-invalid",
-						message: "数据服务返回异常，请联系管理员",
-					},
-				};
+				return errorPayload(
+					"persistence-invalid",
+					"数据服务返回异常，请联系管理员",
+				);
 			}
 
 			if (
@@ -347,13 +385,10 @@ export function errorHandlerPlugin() {
 				// 订单和报价读模型损坏不能降级为“没有订单”或重新读取客户端金额，
 				// 否则会把持久化异常扩散到状态机和支付边界。具体 violation 只进入低敏日志。
 				set.status = 500;
-				return {
-					success: false,
-					error: {
-						code: "persistence-invalid",
-						message: "数据服务返回异常，请联系管理员",
-					},
-				};
+				return errorPayload(
+					"persistence-invalid",
+					"数据服务返回异常，请联系管理员",
+				);
 			}
 
 			if (error instanceof UserProfileReadModelValidationError) {
@@ -361,24 +396,18 @@ export function errorHandlerPlugin() {
 				// 伪装成“没有资料”。固定错误码让监控和页面保持稳定，具体字段原因
 				// 只保留在服务端的 readModelViolation 日志中。
 				set.status = 500;
-				return {
-					success: false,
-					error: {
-						code: "persistence-invalid",
-						message: "数据服务返回异常，请联系管理员",
-					},
-				};
+				return errorPayload(
+					"persistence-invalid",
+					"数据服务返回异常，请联系管理员",
+				);
 			}
 
 			if (error instanceof OutpatientPaymentPatientNotFoundError) {
 				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "outpatient-payment-patient-not-found",
-						message: "当前就诊人暂未建立门诊缴费映射",
-					},
-				};
+				return errorPayload(
+					"outpatient-payment-patient-not-found",
+					"当前就诊人暂未建立门诊缴费映射",
+				);
 			}
 
 			if (
@@ -386,48 +415,46 @@ export function errorHandlerPlugin() {
 				error instanceof OutpatientPaymentQueryError
 			) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "outpatient-payment-query-invalid",
-						message: "门诊缴费查询条件不合法",
-					},
-				};
+				return errorPayload(
+					"outpatient-payment-query-invalid",
+					"门诊缴费查询条件不合法",
+				);
 			}
 
 			if (error instanceof AppointmentScheduleQueryError) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "appointment-query-invalid",
-						// 查询边界的内部细节只用于日志，公共接口返回稳定中文文案。
-						message: "预约排班查询条件不合法",
-					},
-				};
+				// 查询边界的内部细节只用于日志，公共接口返回稳定中文文案。
+				return errorPayload(
+					"appointment-query-invalid",
+					"预约排班查询条件不合法",
+				);
 			}
 
 			if (error instanceof AppointmentRecordQueryError) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "appointment-record-query-invalid",
-						// 不把日期范围上限等实现细节暴露给小程序页面。
-						message: "预约记录查询条件不合法",
-					},
-				};
+				// 不把日期范围上限等实现细节暴露给小程序页面。
+				return errorPayload(
+					"appointment-record-query-invalid",
+					"预约记录查询条件不合法",
+				);
 			}
 
 			if (error instanceof AppointmentRecordPatientNotFoundError) {
 				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "appointment-record-patient-not-found",
-						message: "当前就诊人暂无可查询的预约记录",
-					},
-				};
+				return errorPayload(
+					"appointment-record-patient-not-found",
+					"当前就诊人暂无可查询的预约记录",
+				);
+			}
+
+			if (error instanceof AppointmentScheduleReferenceExpiredError) {
+				// scheduleId 是短期 opaque 引用；过期只能回到目录重取，
+				// 不能提示重试同一个引用，更不能接受客户端提交 provider 排班号。
+				set.status = 404;
+				return errorPayload(
+					"appointment-schedule-reference-expired",
+					"排班信息已更新，请返回预约目录重新选择",
+				);
 			}
 
 			if (
@@ -435,147 +462,90 @@ export function errorHandlerPlugin() {
 				error instanceof InvalidReportKindError
 			) {
 				set.status = 400;
-				return {
-					success: false,
-					// provider 查询窗口和字段校验不属于公共错误契约。
-					error: {
-						code: "report-query-invalid",
-						message: "报告查询条件不合法",
-					},
-				};
+				// provider 查询窗口和字段校验不属于公共错误契约。
+				return errorPayload("report-query-invalid", "报告查询条件不合法");
 			}
 
 			if (error instanceof ReportPatientNotFoundError) {
 				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "report-patient-not-found",
-						message: "当前就诊人暂无可查询的报告",
-					},
-				};
+				return errorPayload(
+					"report-patient-not-found",
+					"当前就诊人暂无可查询的报告",
+				);
 			}
 
 			if (error instanceof ReportNotFoundError) {
 				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "report-not-found",
-						message: "报告详情暂不可用",
-					},
-				};
+				return errorPayload("report-not-found", "报告详情暂不可用");
 			}
 
 			if (error instanceof PaymentOrderInputError) {
 				set.status = 400;
-				return {
-					success: false,
-					// 输入错误可能来自领域层内部校验，公共 API 只返回稳定的安全文案。
-					error: {
-						code: "payment-order-invalid",
-						message: "创建订单输入不合法",
-					},
-				};
+				// 输入错误可能来自领域层内部校验，公共 API 只返回稳定的安全文案。
+				return errorPayload("payment-order-invalid", "创建订单输入不合法");
 			}
 
 			if (error instanceof PaymentOrderNotFoundError) {
 				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "payment-order-not-found",
-						message: "未找到对应的支付订单",
-					},
-				};
+				return errorPayload("payment-order-not-found", "未找到对应的支付订单");
 			}
 
 			if (error instanceof PaymentQuoteNotFoundError) {
 				set.status = 404;
-				return {
-					success: false,
-					error: {
-						code: "payment-quote-not-found",
-						message: "服务端报价不存在",
-					},
-				};
+				return errorPayload("payment-quote-not-found", "服务端报价不存在");
 			}
 
 			if (error instanceof PaymentQuoteExpiredError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "payment-quote-expired",
-						message: "服务端报价已过期，请重新获取报价",
-					},
-				};
+				return errorPayload(
+					"payment-quote-expired",
+					"服务端报价已过期，请重新获取报价",
+				);
 			}
 
 			if (error instanceof PaymentIdempotencyConflictError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "payment-idempotency-conflict",
-						message: "幂等键与已有订单的请求内容冲突",
-					},
-				};
+				return errorPayload(
+					"payment-idempotency-conflict",
+					"幂等键与已有订单的请求内容冲突",
+				);
 			}
 
 			if (error instanceof PaymentOrderVersionConflictError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "payment-order-conflict",
-						message: "订单版本已被其他流程更新",
-					},
-				};
+				return errorPayload(
+					"payment-order-conflict",
+					"订单版本已被其他流程更新",
+				);
 			}
 
 			if (error instanceof PaymentNotificationConflictError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "payment-notification-conflict",
-						message: "重复通知与已落库事件冲突",
-					},
-				};
+				return errorPayload(
+					"payment-notification-conflict",
+					"重复通知与已落库事件冲突",
+				);
 			}
 
 			if (error instanceof WechatPaymentNotificationRejectedError) {
 				set.status = 400;
-				return {
-					success: false,
-					error: {
-						code: "payment-notification-rejected",
-						message: "微信支付通知验签或内容校验失败",
-					},
-				};
+				return errorPayload(
+					"payment-notification-rejected",
+					"微信支付通知验签或内容校验失败",
+				);
 			}
 
 			if (error instanceof PaymentCashPrepayNotAllowedError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "payment-cash-prepay-not-allowed",
-						message: "当前订单不允许现金预支付",
-					},
-				};
+				return errorPayload(
+					"payment-cash-prepay-not-allowed",
+					"当前订单不允许现金预支付",
+				);
 			}
 
 			if (error instanceof PaymentIdentityNotFoundError) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code: "payment-identity-not-found",
-						message: "支付身份映射不可用",
-					},
-				};
+				return errorPayload("payment-identity-not-found", "支付身份映射不可用");
 			}
 
 			if (
@@ -583,30 +553,21 @@ export function errorHandlerPlugin() {
 				error instanceof PaymentPrepayAttemptUnknownError
 			) {
 				set.status = 409;
-				return {
-					success: false,
-					error: {
-						code:
-							error instanceof PaymentPrepayAttemptInProgressError
-								? "payment-prepay-in-progress"
-								: "payment-prepay-unknown",
-						message:
-							error instanceof PaymentPrepayAttemptInProgressError
-								? "预支付仍在处理，不能并发创建"
-								: "预支付结果需向外部服务确认，不能直接重建",
-					},
-				};
+				const inProgress = error instanceof PaymentPrepayAttemptInProgressError;
+				return errorPayload(
+					inProgress ? "payment-prepay-in-progress" : "payment-prepay-unknown",
+					inProgress
+						? "预支付仍在处理，不能并发创建"
+						: "预支付结果需向外部服务确认，不能直接重建",
+				);
 			}
 
 			const normalizedCode = normalizeCode(code);
 			set.status = statusFor(normalizedCode);
-			return {
-				success: false,
-				error: {
-					code: errorCode(normalizedCode),
-					message: messageFor(normalizedCode),
-				},
-			};
+			return errorPayload(
+				errorCode(normalizedCode),
+				messageFor(normalizedCode),
+			);
 		},
 	);
 }

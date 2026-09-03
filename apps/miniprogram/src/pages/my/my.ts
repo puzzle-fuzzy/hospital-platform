@@ -1,9 +1,7 @@
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError } from "../../services/api-client";
 import { loadPatientsForOwner } from "../../services/dashboard-service";
-import {
-	navigateToFeatureEntry,
-	navigateToFeatureStatus,
-} from "../../services/feature-navigation";
+import { navigateToFeatureEntry } from "../../services/feature-navigation";
 import {
 	authorizeGlobalWechatProfile,
 	type GlobalUserProfileState,
@@ -38,6 +36,7 @@ import {
 	sessionVerificationStateFromError,
 } from "../../services/session-service";
 import { openWechatUserProfileSettings } from "../../services/wechat-user-profile";
+import { navigateToInsuranceVoucher } from "../../services/insurance-voucher-navigation";
 import type { ActionEvent, MyPageData } from "../../types";
 
 type MyPageMethods = {
@@ -468,7 +467,7 @@ Page<MyPageData, MyPageMethods>({
 				navigateToFeatureEntry("smart-customer");
 				break;
 			case "insurance":
-				navigateToFeatureStatus("insurance");
+				navigateToInsuranceVoucher();
 				break;
 			case "feedback":
 				// 旧端反馈页目前也是静态问答和客服电话，在线反馈提交仍未开放。
@@ -504,7 +503,10 @@ Page<MyPageData, MyPageMethods>({
 		// 患者目录失败不等于个人资料失败；全局资料仍然是当前账号的已确认
 		// 快照，不能因为某个业务列表暂时不可用就把昵称头像清成匿名状态。
 		this.setData({
-			error: patientContextErrorMessage(error, fallback),
+			error: errorMessageWithCode(
+				error,
+				patientContextErrorMessage(error, fallback),
+			),
 			selectedPatient: null,
 			patientCount: 0,
 		});

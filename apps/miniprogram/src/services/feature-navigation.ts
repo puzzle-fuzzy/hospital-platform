@@ -1,9 +1,9 @@
 /**
- * 旧端仍可见、但新端尚未具备正式业务 contract 的入口目录。
+ * 旧端可见入口与新端业务页面的统一导航目录。
  *
- * 这里的作用是先把迁移期间的导航闭环建立起来：用户点击任意可见入口
- * 都能看到稳定、可解释的状态页，而不是无响应或进入不存在的页面。状态
- * 页只表达迁移边界，不会把 Toast、本地缓存或静态页面伪装成真实业务成功。
+ * 迁移期间，已接入的原生业务页走自己的真实链路，其余入口进入稳定、可
+ * 解释的状态页；状态页只表达迁移边界，不会把 Toast、本地缓存或静态页面
+ * 伪装成真实业务成功。
  */
 export type FeatureKey =
 	| "admission-preconsultation"
@@ -54,6 +54,8 @@ export type FeatureStatus = {
 	 * 按域批量替换，不会把医疗审核、支付回写和普通 provider 读取混成一类。
 	 */
 	readiness:
+		| "已迁移"
+		| "全量替换进行中"
 		| "待 provider contract"
 		| "待临床审核"
 		| "待支付与回写 contract"
@@ -99,6 +101,7 @@ export function getFeatureUserFacingCopy(
 					"我们正在完成内容版本、适用范围和安全检查，开放后会及时更新。",
 			};
 		case "待支付与回写 contract":
+		case "全量替换进行中":
 			return {
 				badge: "支付服务准备中",
 				description: `${feature.title}涉及支付或结算，当前暂时无法使用。`,
@@ -123,13 +126,19 @@ export function getFeatureUserFacingCopy(
 				description: "该服务入口无效，请返回首页后重新选择服务。",
 				progress: "当前不会读取旧缓存或发起业务请求，请从首页重新进入。",
 			};
+		case "已迁移":
+			return {
+				badge: "服务已接入",
+				description: `${feature.title}已接入平台服务。`,
+				progress: "可直接查看服务端返回的受控信息。",
+			};
 	}
 }
 
 /**
- * 所有未完成入口共用一份状态目录，避免首页、“我的”和状态页出现互相
- * 矛盾的文案。新增真实业务页面时，应先从这里移除对应 key，再删除旧入口
- * 的迁移状态分支，确保迁移矩阵、导航和页面实现同步收敛。
+ * 所有迁移入口共用一份状态目录，避免首页、“我的”和状态页出现互相
+ * 矛盾的文案。新增真实业务页面时，应同步更新对应 key 的状态、迁移分支
+ * 和页面实现，确保迁移矩阵、导航和页面实现同步收敛。
  */
 export const FEATURE_STATUS_CATALOG: Readonly<
 	Record<FeatureKey, FeatureStatus>
@@ -150,7 +159,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"appointment-write": {
 		title: "预约下单",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		description: "预约下单正在迁移中，当前不会锁号、创建预约或发起支付。",
 		contractHint: "等待锁号、幂等、取消、费用、支付前置和 HIS 回写规则确认。",
 		icon: "/assets/legacy-home/service-registration.svg",
@@ -164,7 +173,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	cashier: {
 		title: "支付收银台",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		description: "收银台正在迁移中，当前不会打开旧端 WebView 或任意外部地址。",
 		contractHint:
 			"等待 HTTPS allowlist、订单 owner、回调、查单和失败回退规则确认。",
@@ -195,9 +204,9 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	doctor: {
 		title: "我的医生",
-		readiness: "待 provider contract",
-		description: "医生关系数据正在迁移中，当前不会展示未经授权的医生信息。",
-		contractHint: "等待医生关系来源、患者归属、展示白名单和失效规则确认。",
+		readiness: "已迁移",
+		description: "我的医生列表、医生名片、关注关系和未来排班已接入平台服务。",
+		contractHint: "关注关系按当前平台用户隔离，医生信息由服务端排班目录确认。",
 		icon: "/assets/legacy-user/doctor.svg",
 	},
 	"doctor-directory": {
@@ -216,7 +225,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"electronic-bill": {
 		title: "电子账单",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		description: "电子账单正在迁移中，当前不会展示未经引用校验的账单文件。",
 		contractHint:
 			"等待账单资源授权、金额单位、患者归属、短期链接和过期规则确认。",
@@ -319,15 +328,15 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"inpatient-payment": {
 		title: "住院预缴",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		description: "住院预缴正在迁移中，当前不会发起支付或医保授权。",
 		contractHint: "等待住院费用、金额单位、支付状态机、查单和回写规则确认。",
 		icon: "/assets/legacy-home/service-inpatient-payment.svg",
 	},
 	insurance: {
-		title: "医保电子凭证",
-		readiness: "待支付与回写 contract",
-		description: "医保电子凭证需要独立授权，当前暂未开放。",
+		title: "医保支付",
+		readiness: "全量替换进行中",
+		description: "医保支付流程需要独立授权和结算回写，当前按支付入口单独处理。",
 		contractHint: "等待医保授权、1101/6201/6202 等协议、查单和 HIS 回写验收。",
 		icon: "/assets/legacy-user/insurance.svg",
 	},
@@ -342,7 +351,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"outpatient-payment-detail": {
 		title: "费用记录详情",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		description: "门诊费用详情正在迁移中，当前不会展示未经引用校验的费用明细。",
 		contractHint:
 			"等待账单引用、患者归属、金额单位、明细白名单和短期授权确认。",
@@ -350,7 +359,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	},
 	"outpatient-payment-write": {
 		title: "门诊缴费",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		description:
 			"门诊缴费流程正在迁移中，当前不会创建订单或发起微信/医保支付。",
 		contractHint:
@@ -421,7 +430,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "智能客服",
 		readiness: "待外部入口 contract",
 		description:
-			"智能客服正在迁移中，当前不会打开未经过 allowlist 校验的外部页面。",
+			"智能客服固定网页入口已恢复；当前不向网页交付平台登录态或客服会话凭证。",
 		contractHint: "等待客服会话、外部域名白名单、登录态隔离和失败回退确认。",
 		icon: "/assets/legacy-user/smart-customer.svg",
 	},
@@ -479,35 +488,36 @@ export function navigateToFeatureStatus(feature: FeatureKey): void {
 }
 
 /**
- * 页面外壳已经迁移的入口走自己的原生页面，尚未具备页面外壳的入口仍
- * 进入统一状态页。这个分发只改变页面落点，不代表对应 Provider、临床
- * 数据或外部业务已经开放；原生页面会继续展示关闭态和迁移说明。
+ * 已具备原生页面的入口走自己的页面，其余入口仍进入统一状态页。这个分发
+ * 只改变页面落点，不代表对应 Provider、临床数据或外部业务已经开放；
+ * 页面自身继续负责真实数据或安全关闭态。
  */
-const FEATURE_SURFACE_TARGETS: Readonly<Partial<Record<FeatureKey, string>>> =
-	Object.freeze({
-		"inpatient-center": "/pages/inpatient-center/inpatient-center",
-		doctor: "/pages/my-doctor/my-doctor",
-		"electronic-consultation":
-			"/pages/electronic-consultation/electronic-consultation",
-		"patient-binding": "/pages/patient-binding/patient-binding",
-		// 协议原文是已迁移的静态只读页面；查看协议不会写入同意状态，
-		// 也不会把“看过协议”误判为实名绑定或授权完成。
-		"patient-agreement": "/pages/patient-agreement/patient-agreement",
-		"patient-signature": "/pages/patient-signature/patient-signature",
-		"patient-express": "/pages/patient-express/patient-express",
-		"admission-preconsultation":
-			"/pages/admission-preconsultation/admission-preconsultation",
-		"health-test": "/pages/health-test/health-test",
-		"discharge-followup": "/pages/discharge-followup/discharge-followup",
-		"gift-banner": "/pages/gift-banner/gift-banner",
-		"health-praise": "/pages/health-praise/health-praise",
-		"pre-visit": "/pages/pre-visit/pre-visit",
-		"risk-evaluation": "/pages/risk-evaluation/risk-evaluation",
-		"smart-customer": "/pages/smart-customer/smart-customer",
-		"patient-subscription": "/pages/patient-subscription/patient-subscription",
-		"blood-appointment": "/pages/blood-appointment/blood-appointment",
-		"appointment-detail": "/pages/appointment-detail/appointment-detail",
-	});
+export const FEATURE_SURFACE_TARGETS: Readonly<
+	Partial<Record<FeatureKey, string>>
+> = Object.freeze({
+	"inpatient-center": "/pages/inpatient-center/inpatient-center",
+	doctor: "/pages/my-doctor/my-doctor",
+	"electronic-consultation":
+		"/pages/electronic-consultation/electronic-consultation",
+	"patient-binding": "/pages/patient-binding/patient-binding",
+	// 协议原文是已迁移的静态只读页面；查看协议不会写入同意状态，
+	// 也不会把“看过协议”误判为实名绑定或授权完成。
+	"patient-agreement": "/pages/patient-agreement/patient-agreement",
+	"patient-signature": "/pages/patient-signature/patient-signature",
+	"patient-express": "/pages/patient-express/patient-express",
+	"admission-preconsultation":
+		"/pages/admission-preconsultation/admission-preconsultation",
+	"health-test": "/pages/health-test/health-test",
+	"discharge-followup": "/pages/discharge-followup/discharge-followup",
+	"gift-banner": "/pages/gift-banner/gift-banner",
+	"health-praise": "/pages/health-praise/health-praise",
+	"pre-visit": "/pages/pre-visit/pre-visit",
+	"risk-evaluation": "/pages/risk-evaluation/risk-evaluation",
+	"smart-customer": "/pages/smart-customer/smart-customer",
+	"patient-subscription": "/pages/patient-subscription/patient-subscription",
+	"blood-appointment": "/pages/blood-appointment/blood-appointment",
+	"appointment-detail": "/pages/appointment-detail/appointment-detail",
+});
 
 export function navigateToFeatureEntry(feature: FeatureKey): void {
 	if (!FEATURE_STATUS_CATALOG[feature]) return;

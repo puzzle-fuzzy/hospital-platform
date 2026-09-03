@@ -1,0 +1,320 @@
+page {
+	background: #f6f7fb;
+}
+
+.my-doctor-detail-scroll {
+	height: 100vh;
+	background: #f6f7fb;
+}
+
+.my-doctor-detail-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 28rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.doctor-profile-card,
+.doctor-introduction-card,
+.doctor-schedule-card {
+	box-sizing: border-box;
+	margin-bottom: 20rpx;
+	padding: 26rpx 22rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	box-shadow: 0 8rpx 24rpx rgba(40, 67, 118, 0.05);
+}
+
+.doctor-profile-card {
+	display: flex;
+	align-items: center;
+	min-height: 180rpx;
+}
+
+.doctor-profile-avatar {
+	display: block;
+	flex: 0 0 112rpx;
+	width: 112rpx;
+	height: 112rpx;
+	border-radius: 56rpx;
+	background: #edf3ff;
+}
+
+.doctor-profile-avatar-photo {
+	background: #eef1f6;
+}
+
+.doctor-profile-copy {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	margin-left: 22rpx;
+}
+
+.doctor-profile-name-row {
+	display: flex;
+	align-items: baseline;
+	min-width: 0;
+}
+
+.doctor-profile-name {
+	max-width: 240rpx;
+	overflow: hidden;
+	color: #252a34;
+	font-size: 34rpx;
+	font-weight: 700;
+	line-height: 1.4;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.doctor-profile-title {
+	margin-left: 12rpx;
+	color: #5c79b8;
+	font-size: 24rpx;
+	white-space: nowrap;
+}
+
+.doctor-profile-department,
+.doctor-profile-location {
+	margin-top: 10rpx;
+	overflow: hidden;
+	color: #697181;
+	font-size: 25rpx;
+	line-height: 1.4;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.doctor-profile-location {
+	margin-top: 5rpx;
+	color: #9ca3af;
+	font-size: 23rpx;
+}
+
+.doctor-follow-button {
+	box-sizing: border-box;
+	min-width: 112rpx;
+	height: 62rpx;
+	margin: 0 0 0 14rpx;
+	padding: 0 20rpx;
+	border: 1rpx solid #5d8ff3;
+	border-radius: 999rpx;
+	background: #5d8ff3;
+	color: #ffffff;
+	font-size: 24rpx;
+	line-height: 60rpx;
+}
+
+.doctor-follow-button.doctor-followed {
+	border-color: #dbe5f7;
+	background: #ffffff;
+	color: #6883b6;
+}
+
+.doctor-introduction-copy {
+	display: block;
+	margin-top: 16rpx;
+	color: #6c7483;
+	font-size: 26rpx;
+	line-height: 1.65;
+}
+
+.detail-section-heading {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+}
+
+.detail-section-title {
+	color: #2d3440;
+	font-size: 30rpx;
+	font-weight: 700;
+	line-height: 1.4;
+}
+
+.detail-section-caption {
+	color: #a0a6b1;
+	font-size: 22rpx;
+}
+
+.doctor-date-scroll {
+	margin: 22rpx -22rpx 0;
+	white-space: nowrap;
+}
+
+.doctor-date-list {
+	display: flex;
+	padding: 0 22rpx 4rpx;
+}
+
+.doctor-date-item {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: 116rpx;
+	height: 76rpx;
+	margin-right: 14rpx;
+	border: 1rpx solid #edf0f5;
+	border-radius: 14rpx;
+	background: #fafbfc;
+	color: #727a89;
+	font-size: 24rpx;
+	line-height: 1.2;
+	flex-direction: column;
+}
+
+.doctor-date-item-active {
+	border-color: #5d8ff3;
+	background: #edf3ff;
+	color: #4d7fe4;
+	font-weight: 600;
+}
+
+.doctor-date-weekday {
+	margin-top: 5rpx;
+	color: #a1a7b2;
+	font-size: 21rpx;
+}
+
+.doctor-date-item-active .doctor-date-weekday {
+	color: #6f91dc;
+}
+
+.doctor-schedule-list {
+	margin-top: 22rpx;
+	border-top: 1rpx solid #f0f1f4;
+}
+
+.doctor-schedule-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 116rpx;
+	border-bottom: 1rpx solid #f0f1f4;
+}
+
+.doctor-schedule-copy {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.doctor-schedule-shift {
+	color: #343b47;
+	font-size: 28rpx;
+	font-weight: 600;
+}
+
+.doctor-schedule-time {
+	margin-top: 8rpx;
+	color: #9299a5;
+	font-size: 23rpx;
+}
+
+.doctor-schedule-action {
+	display: flex;
+	align-items: flex-end;
+	flex-direction: column;
+	margin-left: 16rpx;
+}
+
+.doctor-schedule-slots {
+	color: #a3a8b2;
+	font-size: 23rpx;
+}
+
+.doctor-slots-available {
+	color: #f08a59;
+}
+
+
+.doctor-schedule-booking {
+	display: flex;
+	align-items: center;
+	margin-top: 8rpx;
+	}
+
+.doctor-schedule-arrow-label {
+	color: #5687ed;
+	font-size: 23rpx;
+}
+
+.doctor-schedule-arrow {
+	display: block;
+	width: 22rpx;
+	height: 22rpx;
+	margin-left: 4rpx;
+}
+
+.schedule-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 190rpx;
+	color: #9aa1ad;
+	font-size: 25rpx;
+}
+
+.detail-note {
+	display: block;
+	padding: 8rpx 10rpx;
+	color: #9ba1ad;
+	font-size: 22rpx;
+	line-height: 1.55;
+	text-align: center;
+}
+
+.detail-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: 720rpx;
+	padding: 60rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	color: #858b97;
+	font-size: 26rpx;
+	line-height: 1.55;
+	text-align: center;
+	flex-direction: column;
+}
+
+.detail-state-error {
+	color: #875c5c;
+}
+
+.detail-state-icon {
+	width: 112rpx;
+	height: 112rpx;
+	margin-bottom: 24rpx;
+	opacity: 0.72;
+}
+
+.detail-retry {
+	margin-top: 28rpx;
+	padding: 12rpx 34rpx;
+	border-radius: 999rpx;
+	background: #eaf1ff;
+	color: #4f82eb;
+	font-size: 25rpx;
+}
+
+.detail-spinner {
+	box-sizing: border-box;
+	width: 50rpx;
+	height: 50rpx;
+	margin-bottom: 24rpx;
+	border: 6rpx solid #e7ecf6;
+	border-top-color: #598af2;
+	border-radius: 50%;
+	animation: detail-spin 900ms linear infinite;
+}
+
+@keyframes detail-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}

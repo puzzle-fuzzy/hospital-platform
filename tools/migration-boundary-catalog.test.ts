@@ -28,11 +28,11 @@ const REQUIRED_COMMON_MATERIALS = [
 ];
 
 describe("全量阻断业务域准入目录", () => {
-	test("34 个冻结入口都有唯一身份和页面或 action-only 入口来源", () => {
-		expect(FROZEN_DOMAIN_GATE_CATALOG).toHaveLength(34);
+	test("33 个冻结入口都有唯一身份和页面或 action-only 入口来源", () => {
+		expect(FROZEN_DOMAIN_GATE_CATALOG).toHaveLength(33);
 		expect(
 			new Set(FROZEN_DOMAIN_GATE_CATALOG.map((gate) => gate.id)).size,
-		).toBe(34);
+		).toBe(33);
 		for (const gate of FROZEN_DOMAIN_GATE_CATALOG) {
 			expect(gate.name.length).toBeGreaterThan(0);
 			expect(gate.featureKey.length).toBeGreaterThan(0);
@@ -140,12 +140,13 @@ describe("全量阻断业务域准入目录", () => {
 		);
 	});
 
-	test("四个非支付入口显式声明当前已经完成的安全子集", () => {
+	test("五个非支付入口显式声明当前已经完成的安全子集", () => {
 		const expectedSafePartialPaths = {
 			"blood-appointment": "pagesB/hospital/bloodAppointment.vue",
 			"patient-express": "pagesB/patient/express.vue",
 			"patient-signature": "pagesB/patient/patient_signature.vue",
 			"patient-subscription": "pagesB/user/subscription_message.vue",
+			"smart-customer": "pagesB/health/webview.vue",
 		};
 
 		for (const [gateId, legacyPath] of Object.entries(

@@ -1,0 +1,157 @@
+.timeslot-scroll {
+	height: 100vh;
+	background: #f6f6f6;
+	padding: 24rpx 24rpx 48rpx;
+	box-sizing: border-box;
+}
+
+.timeslot-error,
+.timeslot-loading,
+.timeslot-empty {
+	background: #ffffff;
+	border-radius: 20rpx;
+	padding: 96rpx 32rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16rpx;
+}
+
+.timeslot-error {
+	color: #8a919f;
+	font-size: 28rpx;
+}
+
+.timeslot-retry {
+	margin-top: 8rpx;
+	background: #2f6bd8;
+	color: #ffffff;
+	font-size: 28rpx;
+	border-radius: 40rpx;
+	padding: 0 48rpx;
+	line-height: 72rpx;
+}
+
+.timeslot-loading {
+	color: #8a919f;
+	font-size: 28rpx;
+}
+
+.timeslot-doctor {
+	background: #ffffff;
+	border-radius: 20rpx;
+	padding: 28rpx 24rpx;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-shadow: 0 6rpx 20rpx rgba(20, 30, 50, 0.05);
+}
+
+.timeslot-doctor-main {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 10rpx;
+}
+
+.timeslot-doctor-title {
+	display: flex;
+	align-items: baseline;
+	gap: 12rpx;
+}
+
+.timeslot-doctor-name {
+	color: #22252c;
+	font-size: 36rpx;
+	font-weight: 600;
+}
+
+.timeslot-doctor-shift {
+	color: #2f6bd8;
+	background: #eef4ff;
+	border-radius: 8rpx;
+	font-size: 24rpx;
+	padding: 4rpx 12rpx;
+}
+
+.timeslot-doctor-dept {
+	color: #444a56;
+	font-size: 30rpx;
+}
+
+.timeslot-doctor-date {
+	color: #8a919f;
+	font-size: 26rpx;
+}
+
+.timeslot-doctor-count {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4rpx;
+	min-width: 128rpx;
+}
+
+.timeslot-doctor-count-num {
+	color: #2f6bd8;
+	font-size: 44rpx;
+	font-weight: 600;
+}
+
+.timeslot-doctor-count-label {
+	color: #8a919f;
+	font-size: 24rpx;
+}
+
+.timeslot-grid {
+	margin-top: 24rpx;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 20rpx;
+}
+
+.timeslot-slot {
+	background: #ffffff;
+	border: 2rpx solid #eef0f4;
+	border-radius: 16rpx;
+	height: 140rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8rpx;
+	box-shadow: 0 4rpx 12rpx rgba(20, 30, 50, 0.04);
+}
+
+.timeslot-slot:active {
+	border-color: #2f6bd8;
+	background: #f5f9ff;
+}
+
+.timeslot-slot-no {
+	color: #22252c;
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.timeslot-slot-time {
+	color: #444a56;
+	font-size: 26rpx;
+}
+
+.timeslot-empty-title {
+	color: #444a56;
+	font-size: 30rpx;
+}
+
+.timeslot-empty-note {
+	color: #8a919f;
+	font-size: 26rpx;
+}
+
+.timeslot-notice {
+	margin-top: 32rpx;
+	color: #9aa1ad;
+	font-size: 24rpx;
+	line-height: 40rpx;
+}

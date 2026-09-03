@@ -12,6 +12,7 @@ import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
 } from "../../services/page-instance-state";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { switchToPrimaryTab } from "../../services/patient-navigation";
 import { parseProfileAgeInput } from "../../services/profile-form";
 import {
@@ -457,6 +458,6 @@ Page<
 			switchToPrimaryTab("/pages/index/index");
 			return;
 		}
-		this.setData({ error: message });
+		this.setData({ error: errorMessageWithCode(error, message) });
 	},
 });

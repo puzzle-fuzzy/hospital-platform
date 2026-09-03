@@ -15,6 +15,9 @@ import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
 import { healthKnowledgeModule } from "./modules/knowledge";
+import { medicalInsuranceModule } from "./modules/medical-insurance";
+import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
+import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
@@ -38,6 +41,11 @@ export type AppOptions = {
 	 * 但所有支付入口在仓储/provider 之前返回 503，避免误删公共契约或产生副作用。
 	 */
 	wechatPaymentEnabled?: boolean;
+	/**
+	 * 医保结算通知模块；未传入 service 时不注册路由（组合根级 fail-closed）。
+	 * 生产组合根只有在 MEDICAL_INSURANCE_READY 与完整密钥配置下才构造。
+	 */
+	medicalInsuranceNotification?: MedicalInsuranceNotificationService;
 };
 
 function openApiPlugin() {
@@ -57,6 +65,7 @@ function openApiPlugin() {
 				{ name: "profile", description: "普通个人资料" },
 				{ name: "patients", description: "患者档案" },
 				{ name: "appointments", description: "预约目录" },
+				{ name: "my-doctors", description: "我的医生" },
 				{ name: "knowledge", description: "审核后的健康百科只读内容" },
 				{ name: "reports", description: "检查检验报告目录" },
 				{ name: "payments", description: "支付订单" },
@@ -111,6 +120,11 @@ export function createApp(options: AppOptions = {}) {
 				)
 				.use(patientsModule(services.patients, services.sessions))
 				.use(appointmentsModule(services.appointments, services.sessions))
+				.use(
+					services.myDoctors
+						? myDoctorsModule(services.myDoctors, services.sessions)
+						: new Elysia({ name: "my-doctors-not-configured" }),
+				)
 				.use(reportsModule(services.reports, services.sessions))
 				.use(
 					services.outpatientPayments
@@ -128,6 +142,11 @@ export function createApp(options: AppOptions = {}) {
 						services.sessions,
 						options.wechatPaymentEnabled === true,
 					),
+				)
+				.use(
+					options.medicalInsuranceNotification
+						? medicalInsuranceModule(options.medicalInsuranceNotification)
+						: new Elysia({ name: "medical-insurance-not-configured" }),
 				),
 		);
 

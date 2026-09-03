@@ -1,68 +1,15 @@
 page {
 	height: 100%;
 	overflow: hidden;
-	background: #f5f5f5;
-}
-
-.page {
-	box-sizing: border-box;
-	min-height: 100%;
-	padding: 24rpx 20rpx calc(24rpx + env(safe-area-inset-bottom));
-}
-
-.hero-card,
-.state-card {
-	box-sizing: border-box;
-	width: 710rpx;
-	margin-right: auto;
-	margin-left: auto;
-}
-
-.hero-card {
-	padding: 28rpx 30rpx;
-	border-radius: 20rpx;
-	background: #eaeffd;
-	color: #3d6df6;
-}
-
-.hero-title {
-	font-size: 34rpx;
-	font-weight: 700;
-}
-
-.hero-copy {
-	margin-top: 12rpx;
-	font-size: 25rpx;
-	line-height: 1.6;
-}
-
-.state-card {
-	display: flex;
-	/* 互联网医院关闭态沿用旧页面的纵向插图布局，避免 flex 默认 row 造成错位。 */
-	align-items: center;
-	justify-content: center;
-	flex-direction: column;
-	height: 380rpx;
-	min-height: 380rpx;
-	margin-top: 20rpx;
-	padding: 40rpx 30rpx;
-	border-radius: 20rpx;
 	background: #ffffff;
-	color: #777777;
-	font-size: 28rpx;
-	text-align: center;
 }
 
-.state-card image {
+.internet-hospital-webview {
 	display: block;
-	width: 150rpx;
-	height: 150rpx;
-	margin-bottom: 18rpx;
+	width: 100%;
+	height: 100%;
 }
 
-.state-hint {
-	display: block;
-	margin-top: 12rpx;
-	color: #aaaaaa;
-	font-size: 23rpx;
+.internet-hospital-scroll {
+	height: 100%;
 }

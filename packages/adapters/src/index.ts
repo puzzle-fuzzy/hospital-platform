@@ -17,20 +17,27 @@ export type {
 } from "./http";
 export { requestJson } from "./http";
 export {
+	classifyLegacyFsiOrderStatus,
 	LEGACY_FSI_ROUTES,
 	type LegacyFsiAmountBreakdown,
 	LegacyFsiContractError,
 	type LegacyFsiFeeUploadCredential,
 	type LegacyFsiInfno,
+	type LegacyFsiOrderStatusClass,
 	type LegacyFsiRefundAmounts,
 	type LegacyFsiSettlement,
+	type LegacyFsiSettlementQuery,
 	unwrapLegacyFsiData,
 	validate6201FeeUpload,
 	validate6201Response,
+	validate6202Request,
 	validate6202Settlement,
 	validate6203Refund,
 	validate6203Response,
+	validate6301QueryResult,
+	validate6301Request,
 	validate6301Settlement,
+	validate6401Request,
 	validate6401Response,
 	yuanToFen,
 } from "./legacy-fsi-contract";
@@ -42,6 +49,31 @@ export {
 	validateLegacyFsiOpenedPayload,
 	validateLegacyFsiSealedEnvelope,
 } from "./legacy-fsi-crypto";
+export {
+	createLegacyFsiGateway,
+	type LegacyFsiFeeUploadResult,
+	type LegacyFsiGateway,
+	type LegacyFsiGatewayOptions,
+	type LegacyFsiPaymentOrderResult,
+	type LegacyFsiRefundResult,
+	type LegacyFsiRevokeResult,
+	type LegacyFsiSettlementQueryResult,
+} from "./legacy-fsi-gateway";
+export {
+	base64PrivateKeyToHex,
+	base64PublicKeyToHex,
+	buildLegacyFsiSignSource,
+	cleanLegacyFsiSignObject,
+	cleanLegacyFsiSignValue,
+	createSmCryptoLegacyFsiCrypto,
+	decryptLegacyFsiSm4Hex,
+	deriveLegacyFsiSm4KeyHex,
+	encryptLegacyFsiSm4Hex,
+	legacyFsiCompactJson,
+	localLegacyFsiTimestamp,
+	normalizeLegacyFsiSignValue,
+	type SmCryptoLegacyFsiConfig,
+} from "./legacy-fsi-sm-crypto";
 export {
 	createNotConfiguredGateways,
 	type NotConfiguredGateways,

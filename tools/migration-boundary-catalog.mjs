@@ -1,5 +1,5 @@
 /**
- * 全量迁移中尚未放行的 34 个业务入口准入目录。
+ * 全量迁移中尚未放行的 33 个业务入口准入目录。
  *
  * 这份目录只描述“要满足什么条件才可以离开统一状态页”，不是运行时
  * 路由配置，也不是 Provider 的兼容层。所有域都必须先完成自己的 contract、
@@ -52,7 +52,6 @@ const MIGRATION_BATCH_BY_FEATURE_KEY = Object.freeze({
 	"report-detail": "A-readonly-evidence",
 	"medical-record": "C-clinical-readonly-contracts",
 	"inpatient-center": "C-clinical-readonly-contracts",
-	doctor: "C-clinical-readonly-contracts",
 	"electronic-consultation": "C-clinical-readonly-contracts",
 	"patient-binding": "D-patient-and-convenience-write",
 	"patient-agreement": "D-patient-and-convenience-write",
@@ -143,9 +142,11 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "inpatient-payment",
 		name: "住院支付",
 		featureKey: "inpatient-payment",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/inpatient_payment.vue"],
+		safeSurfaceTarget: "pages/feature-status/feature-status",
+		safePartialPaths: ["pagesB/health/inpatient_payment.vue"],
 		requiredMaterials: [
 			"amount-unit",
 			"order-state-machine",
@@ -164,44 +165,36 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "insurance",
 		name: "医保电子凭证与挂号医保支付",
 		featureKey: "insurance",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
 		legacyPaths: [
 			"pagesB/health/medical_insurance_pay.vue",
 			"pagesB/hospital/registration_medical_pay.vue",
 		],
-		legacyActions: ["我的:insurance"],
+		safeSurfaceTarget: "pages/feature-status/feature-status",
+		safePartialPaths: [
+			"pagesB/health/medical_insurance_pay.vue",
+			"pagesB/hospital/registration_medical_pay.vue",
+		],
 		requiredMaterials: [
 			"authorization-code-ttl",
 			"patient-and-order-owner",
 			"medical-insurance-protocol",
 			"query-and-callback",
 			"idempotency",
+			// 2026-09-03 依据旧端链路流向图复核补齐：6201/6202 的服务端
+			// 前置数据源与授权中转目标，缺任何一项都不能启动医保下单编排。
+			"wecity-authorization-relay",
+			"settle-fee-detail-source",
+			"insurance-dept-code-mapping",
+			"insurance-doctor-code-mapping",
+			"child-payment-acct-flag",
 		],
 		forbiddenCapabilities: [
 			"把授权成功当作结算成功",
 			"小程序提交 provider token 或金额",
 			"绕过平台订单直接调用医保接口",
 			"医保结果未经查单写回 HIS",
-		],
-	}),
-	createGate({
-		id: "doctor-relationship",
-		name: "我的医生",
-		featureKey: "doctor",
-		readiness: "待 provider contract",
-		contractFamily: "provider-read-only",
-		legacyPaths: ["pagesB/patient/doctor.vue"],
-		safeSurfaceTarget: "pages/my-doctor/my-doctor",
-		requiredMaterials: [
-			"relationship-source",
-			"display-allowlist",
-			"expiration",
-		],
-		forbiddenCapabilities: [
-			"客户端自行指定医生关系",
-			"医生资料写入",
-			"跨 owner 查看医生",
 		],
 	}),
 	createGate({
@@ -255,6 +248,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "external-session",
 		legacyPaths: ["pagesB/health/webview.vue"],
 		safeSurfaceTarget: "pages/smart-customer/smart-customer",
+		safePartialPaths: ["pagesB/health/webview.vue"],
 		legacyActions: ["我的:smart-customer"],
 		requiredMaterials: [
 			"domain-allowlist",
@@ -528,11 +522,22 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "appointment-write",
 		name: "预约下单",
 		featureKey: "appointment-write",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/hospital/confirm_registration.vue"],
-		legacyActions: ["预约目录:appointment-write"],
-		requiredMaterials: ["slot-lock", "order-owner", "cancel", "his-writeback"],
+		legacyActions: ["确认挂号信息:appointment-write"],
+		// 确认信息展示已迁移为安全子集：排班/时段/脱敏就诊人可展示，
+		// 但锁号、费用报价、执行预约与支付前置仍全部关闭。
+		safeSurfaceTarget: "pages/confirm-registration/confirm-registration",
+		safePartialPaths: ["pagesB/hospital/confirm_registration.vue"],
+		requiredMaterials: [
+			"slot-lock",
+			"order-owner",
+			"cancel",
+			"his-writeback",
+			// 试算挂号费是预约登记的报价来源；金额必须由服务端取得并复核。
+			"register-fee-quote",
+		],
 		forbiddenCapabilities: ["直接锁号", "客户端提交金额", "无幂等创建预约"],
 	}),
 	createGate({
@@ -558,10 +563,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "cashier",
 		name: "支付收银台",
 		featureKey: "cashier",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/payment_cashier.vue"],
 		legacyActions: [],
+		safeSurfaceTarget: "pages/feature-status/feature-status",
+		safePartialPaths: ["pagesB/health/payment_cashier.vue"],
 		requiredMaterials: [
 			"order-owner",
 			"amount-unit",
@@ -578,10 +585,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "electronic-bill",
 		name: "电子账单",
 		featureKey: "electronic-bill",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/electronic_bill.vue"],
 		legacyActions: [],
+		safeSurfaceTarget: "pages/feature-status/feature-status",
+		safePartialPaths: ["pagesB/health/electronic_bill.vue"],
 		requiredMaterials: [
 			"bill-reference",
 			"amount-unit",
@@ -706,10 +715,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "outpatient-payment-detail",
 		name: "费用记录详情",
 		featureKey: "outpatient-payment-detail",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/health/outpatient_pay_detail.vue"],
 		legacyActions: ["门诊费用:outpatient-payment-detail"],
+		safeSurfaceTarget: "pages/feature-status/feature-status",
+		safePartialPaths: ["pagesB/health/outpatient_pay_detail.vue"],
 		requiredMaterials: [
 			"bill-reference",
 			"amount-unit",
@@ -726,7 +737,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "outpatient-payment-write",
 		name: "门诊缴费",
 		featureKey: "outpatient-payment-write",
-		readiness: "待支付与回写 contract",
+		readiness: "全量替换进行中",
 		contractFamily: "payment-write",
 		legacyPaths: [],
 		legacyActions: ["门诊费用:outpatient-payment-write"],

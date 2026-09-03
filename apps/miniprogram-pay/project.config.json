@@ -1,0 +1,51 @@
+{
+	"description": "高平医院医保测试一键挂号小程序",
+	"compileType": "miniprogram",
+	"miniprogramRoot": "dist/",
+	"projectname": "miniprogram-pay",
+	"appid": "wx4bc833cb3358c8d8",
+	"setting": {
+		"urlCheck": true,
+		"es6": true,
+		"enhance": true,
+		"postcss": true,
+		"minified": true,
+		"minifyWXML": true,
+		"minifyWXSS": true,
+		"compileHotReLoad": false,
+		"useCompilerPlugins": ["typescript"],
+		"ignoreDevUnusedFiles": false,
+		"compileWorklet": false,
+		"uglifyFileName": false,
+		"uploadWithSourceMap": true,
+		"packNpmManually": false,
+		"packNpmRelationList": [],
+		"localPlugins": false,
+		"disableUseStrict": false,
+		"condition": false,
+		"babelSetting": {
+			"ignore": [],
+			"disablePlugins": [],
+			"outputPath": ""
+		}
+	},
+	"packOptions": {
+		"ignore": [
+			{
+				"value": "src",
+				"type": "folder"
+			},
+			{
+				"value": "scripts",
+				"type": "folder"
+			},
+			{
+				"value": "README.md",
+				"type": "file"
+			}
+		],
+		"include": []
+	},
+	"simulatorPluginLibVersion": {},
+	"editorSetting": {}
+}

@@ -1,0 +1,557 @@
+page {
+	background: #f6f6f6;
+}
+
+.appointment-schedule-scroll {
+	height: 100vh;
+	background: #f6f6f6;
+}
+
+.appointment-schedule-page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+	background: #f6f6f6;
+}
+
+/* 蓝狐 375px 基准：两个页签与短蓝色下划线使用同一条白色工具栏。 */
+.appointment-mode-tabs {
+	position: relative;
+	display: flex;
+	box-sizing: border-box;
+	height: 96rpx;
+	border-bottom: 1rpx solid #ededed;
+	background: #ffffff;
+}
+
+.appointment-mode-tab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	box-sizing: border-box;
+	padding-bottom: 2rpx;
+	color: #272727;
+	font-size: 30rpx;
+	line-height: 1;
+}
+
+.appointment-mode-tab-active {
+	color: #5c93f8;
+	font-weight: 600;
+}
+
+.appointment-mode-indicator {
+	position: absolute;
+	bottom: 0;
+	width: 172rpx;
+	height: 5rpx;
+	border-radius: 999rpx;
+	background: #5c93f8;
+	transition: left 180ms ease;
+}
+
+.appointment-mode-indicator-doctor {
+	left: calc(25% - 86rpx);
+}
+
+.appointment-mode-indicator-date {
+	left: calc(75% - 86rpx);
+}
+
+.schedule-query-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: 470rpx;
+	padding: 48rpx 60rpx;
+	color: #777777;
+	font-size: 27rpx;
+	line-height: 1.55;
+	text-align: center;
+	flex-direction: column;
+}
+
+.schedule-query-state-error {
+	color: #7b4a4a;
+}
+
+.schedule-query-state-empty {
+	color: #777777;
+}
+
+.schedule-loading-icon {
+	box-sizing: border-box;
+	width: 48rpx;
+	height: 48rpx;
+	margin-bottom: 20rpx;
+	border: 6rpx solid #e5e7eb;
+	border-top-color: #7ca7f8;
+	border-radius: 50%;
+	animation: appointment-schedule-loading 900ms linear infinite;
+}
+
+@keyframes appointment-schedule-loading {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.schedule-query-error {
+	max-width: 560rpx;
+}
+
+.schedule-query-retry {
+	margin-top: 20rpx;
+	padding: 10rpx 30rpx;
+	border-radius: 999rpx;
+	background: #eaf2ff;
+	color: #5c93f8;
+	font-size: 25rpx;
+}
+
+.schedule-query-hint {
+	margin-top: 14rpx;
+	color: #a4a4a4;
+	font-size: 23rpx;
+}
+
+/* 按医生挂号：白色圆角卡片、虚线分隔和浅灰出诊日期块。 */
+.doctor-list {
+	box-sizing: border-box;
+	padding: 30rpx 24rpx 12rpx;
+}
+
+.doctor-card {
+	box-sizing: border-box;
+	margin-bottom: 26rpx;
+	padding: 32rpx 26rpx 28rpx;
+	border-radius: 20rpx;
+	background: #ffffff;
+	box-shadow: 0 4rpx 16rpx rgba(38, 67, 111, 0.05);
+}
+
+.doctor-card:active {
+	background: #fbfcff;
+}
+
+.doctor-card-main {
+	display: flex;
+	align-items: flex-start;
+}
+
+/* 公开排班没有头像，使用医生姓名首字作为数据诚实的视觉占位。 */
+.doctor-avatar,
+.schedule-avatar {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	border-radius: 10rpx;
+	background: #e5efff;
+	color: #5c93f8;
+	font-weight: 600;
+}
+
+.doctor-avatar {
+	flex: 0 0 100rpx;
+	width: 100rpx;
+	height: 108rpx;
+	margin-right: 24rpx;
+	font-size: 38rpx;
+}
+
+/* 医生照片填满原头像位；文本头像样式保持为无图兜底。 */
+.doctor-avatar-photo,
+.schedule-avatar-photo {
+	overflow: hidden;
+}
+
+.doctor-card-copy {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.doctor-card-name-row,
+.schedule-doctor-line {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.doctor-card-name {
+	overflow: hidden;
+	min-width: 0;
+	color: #1f1f1f;
+	font-size: 31rpx;
+	font-weight: 600;
+	line-height: 1.35;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.doctor-availability {
+	flex-shrink: 0;
+	margin-left: 14rpx;
+	padding: 4rpx 14rpx;
+	border-radius: 6rpx;
+	font-size: 22rpx;
+	line-height: 1.25;
+}
+
+.doctor-availability-open {
+	background: #5c93f8;
+	color: #ffffff;
+}
+
+.doctor-availability-full {
+	background: #f0f0f0;
+	color: #999999;
+}
+
+.doctor-card-meta {
+	margin-top: 18rpx;
+	color: #777777;
+	font-size: 25rpx;
+	line-height: 1.45;
+}
+
+.doctor-card-hint {
+	margin-top: 10rpx;
+	color: #a1a1a1;
+	font-size: 23rpx;
+	line-height: 1.45;
+}
+
+.doctor-card-divider {
+	margin-top: 28rpx;
+	border-top: 1rpx dashed #e3e3e3;
+}
+
+.doctor-date-section {
+	display: flex;
+	align-items: flex-start;
+	margin-top: 24rpx;
+}
+
+.doctor-date-label {
+	flex: 0 0 104rpx;
+	padding-top: 12rpx;
+	color: #777777;
+	font-size: 25rpx;
+	line-height: 1.4;
+}
+
+.doctor-date-list {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	flex-wrap: wrap;
+	gap: 12rpx;
+	min-width: 0;
+}
+
+.doctor-date-chip {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-height: 76rpx;
+	padding: 9rpx 16rpx;
+	border-radius: 8rpx;
+	background: #f2f3f5;
+	color: #444444;
+	font-size: 22rpx;
+	line-height: 1.35;
+	flex-direction: column;
+}
+
+.doctor-date-chip:active {
+	background: #e7efff;
+	color: #5c93f8;
+}
+
+.doctor-date-slots {
+	margin-top: 5rpx;
+	color: #999999;
+	font-size: 20rpx;
+}
+
+.doctor-more-dates {
+	padding: 8rpx 2rpx;
+	color: #999999;
+	font-size: 26rpx;
+	line-height: 1;
+}
+
+.doctor-card-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 28rpx;
+	color: #999999;
+	font-size: 22rpx;
+	line-height: 1.45;
+}
+
+.doctor-card-action {
+	flex-shrink: 0;
+	margin-left: 24rpx;
+	color: #5c93f8;
+}
+
+/* 按日期挂号：蓝狐的两个筛选位、六日横条和列表区域。 */
+.date-filter-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 84rpx;
+	padding: 0 32rpx;
+	border-bottom: 1rpx solid #eeeeee;
+	background: #ffffff;
+	color: #2c2c2c;
+	font-size: 25rpx;
+}
+
+.date-picker-trigger,
+.date-filter-static {
+	display: flex;
+	align-items: center;
+}
+
+.date-filter-static {
+	color: #9b9b9b;
+}
+
+.date-filter-chevron {
+	width: 12rpx;
+	height: 12rpx;
+	margin: -5rpx 0 0 10rpx;
+	border-right: 2rpx solid #a4a4a4;
+	border-bottom: 2rpx solid #a4a4a4;
+	transform: rotate(45deg);
+}
+
+.selected-doctor-filter {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	box-sizing: border-box;
+	margin: 18rpx 24rpx 0;
+	padding: 16rpx 20rpx;
+	border-radius: 10rpx;
+	background: #eaf2ff;
+	color: #4d86ec;
+	font-size: 24rpx;
+	line-height: 1.35;
+}
+
+.selected-doctor-clear {
+	flex-shrink: 0;
+	margin-left: 16rpx;
+	font-weight: 600;
+}
+
+.date-scroll {
+	box-sizing: border-box;
+	width: 100%;
+	border-bottom: 1rpx solid #ededed;
+	background: #ffffff;
+	white-space: nowrap;
+}
+
+.date-list {
+	display: inline-flex;
+	min-width: 100%;
+}
+
+.date-item {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 125rpx;
+	height: 112rpx;
+	border-right: 1rpx solid #eeeeee;
+	background: #ffffff;
+	color: #757575;
+	flex-direction: column;
+}
+
+.date-item-active {
+	background: #f3f7ff;
+	color: #5c93f8;
+}
+
+.date-item-active::after {
+	position: absolute;
+	bottom: 0;
+	left: 24rpx;
+	right: 24rpx;
+	height: 4rpx;
+	border-radius: 999rpx;
+	background: #5c93f8;
+	content: "";
+}
+
+.date-label {
+	font-size: 24rpx;
+	line-height: 1.3;
+}
+
+.date-weekday {
+	margin-top: 9rpx;
+	font-size: 21rpx;
+	line-height: 1.2;
+}
+
+.date-section-title {
+	box-sizing: border-box;
+	padding: 26rpx 30rpx 16rpx;
+	color: #7a7a7a;
+	font-size: 24rpx;
+	line-height: 1.3;
+}
+
+.schedule-list {
+	box-sizing: border-box;
+	padding: 0 24rpx;
+}
+
+.schedule-item {
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: 148rpx;
+	margin-bottom: 16rpx;
+	padding: 20rpx;
+	border-radius: 14rpx;
+	background: #ffffff;
+	box-shadow: 0 4rpx 16rpx rgba(38, 67, 111, 0.04);
+}
+
+.schedule-item:active {
+	background: #fbfcff;
+}
+
+.schedule-avatar {
+	flex: 0 0 72rpx;
+	width: 72rpx;
+	height: 72rpx;
+	margin-right: 18rpx;
+	font-size: 28rpx;
+}
+
+.schedule-item-copy {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.schedule-doctor {
+	overflow: hidden;
+	min-width: 0;
+	color: #292929;
+	font-size: 29rpx;
+	font-weight: 600;
+	line-height: 1.3;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.schedule-shift {
+	flex-shrink: 0;
+	margin-left: 12rpx;
+	color: #ef716b;
+	font-size: 21rpx;
+	line-height: 1.3;
+}
+
+.schedule-date,
+.schedule-time {
+	overflow: hidden;
+	color: #8a8a8a;
+	font-size: 21rpx;
+	line-height: 1.35;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.schedule-date {
+	margin-top: 10rpx;
+}
+
+.schedule-time {
+	margin-top: 4rpx;
+}
+
+.schedule-item-action {
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	flex: 0 0 112rpx;
+	margin-left: 12rpx;
+	flex-direction: column;
+}
+
+.schedule-slots {
+	font-size: 20rpx;
+	line-height: 1.3;
+	white-space: nowrap;
+}
+
+.schedule-slots-available {
+	color: #e46862;
+}
+
+.schedule-slots-empty {
+	color: #a8a8a8;
+}
+
+.schedule-reserve {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 100rpx;
+	height: 56rpx;
+	margin-top: 10rpx;
+	border-radius: 8rpx;
+	font-size: 24rpx;
+	line-height: 1;
+}
+
+.schedule-reserve-active {
+	background: #5c93f8;
+	color: #ffffff;
+}
+
+.schedule-reserve-full {
+	background: #efefef;
+	color: #a4a4a4;
+}
+
+.schedule-load-more {
+	box-sizing: border-box;
+	margin: 4rpx 0 22rpx;
+	padding: 21rpx;
+	border-radius: 12rpx;
+	background: #ffffff;
+	color: #5c93f8;
+	font-size: 25rpx;
+	line-height: 1.35;
+	text-align: center;
+}
+
+.schedule-readonly-note {
+	padding: 22rpx 40rpx 10rpx;
+	color: #a7a7a7;
+	font-size: 21rpx;
+	line-height: 1.35;
+	text-align: center;
+}

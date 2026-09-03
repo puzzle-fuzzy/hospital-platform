@@ -17,22 +17,42 @@
 
 页面只能通过 `src/services/api-client.ts` 调用 Hospital API，不允许把众阳、医保或微信商户配置放到小程序环境变量中。
 
+互联网医院主 Tab 是经旧端源码确认的固定 H5 例外之一：它只加载
+`https://cx.o2o.bailingjk.net/wechat/#/bluser/userCard/index?publicNoCode=gzh-048400_0001`，
+不接受路由传入 URL，不拼接平台 token，也不复用通用 ticket 交换链路。上线前必须在微信公众平台的“小程序业务域名”中配置
+`cx.o2o.bailingjk.net`；这只是恢复旧端网页承载，不代表互联网医院服务端已经迁移到本项目。
+
+“我的 → 智能客服”同样恢复旧端默认 H5，但只加载固定地址 `https://html.ydrj.top` 并追加时间戳刷新；不恢复旧通用 WebView 的任意 URL、智能导诊路径、患者绑定/解绑路径或 `/system/auth/ticket`。上线前必须将
+`html.ydrj.top` 配置为小程序业务域名；固定网页可见不代表客服登录会话或服务端能力已经迁移。
+
+“我的 → 医保电子凭证”按旧端行为跳转到固定的医保电子凭证小程序
+`wx81ce904580cc0ff1`，不携带患者、订单或平台会话参数。该入口与医保支付页
+使用的授权小程序属于不同流程，不能混用 AppID；新端已在 `app.json` 登记固定跳转白名单。
+
 微信开发者工具的 `project.private.config.json` 仅用于本机设置，已加入仓库忽略；项目公共配置和业务代码不保存 provider 密钥。
 
-仓库内的微信公共构建配置是 `apps/miniprogram/project.config.json`，构建生成的
-`apps/miniprogram/dist/project.config.json` 是交给开发者工具打开的独立运行配置。不要在
-`src/` 下创建或恢复任何微信项目配置：嵌套配置会让开发者工具同时监听源码和 `dist/`，旧的增量页面图
-可能造成主 Tab 闪动、选中态丢失和页面脚本 404。若本机已经存在这类嵌套配置，请先关闭开发者工具后删除。
+仓库内的微信公共构建配置是 `apps/miniprogram/project.config.json`。运行包分为两条完全隔离的链路：
 
-修改源码后先执行构建，再直接打开 `apps/miniprogram/dist/`，不要打开父目录、`src/` 或把父目录的
-`miniprogramRoot=dist/` 当成开发者工具工程。运行包自己的 `project.config.json` 使用
-`miniprogramRoot=./`，并关闭 `compileHotReLoad` 与 `ignoreDevUnusedFiles`；这样 watcher 根只包含真实
-JavaScript/WXML/WXSS 运行文件，不会再把 TypeScript 源码、构建脚本或旧增量页面图带入模块图。
-父目录配置仍用于构建约束和发布前检查，不是本机开发者工具的打开入口。
+| 用途 | 命令 | 开发者工具唯一打开目录 | 来源要求 |
+| --- | --- | --- | --- |
+| 日常开发 | `pnpm --filter @hospital/miniprogram dev` | `.local/hospital-miniprogram/development/` | 允许未提交改动，以 workspace SHA-256 快照标识 |
+| 正式构建、预览与真机验收 | `pnpm --filter @hospital/miniprogram build` | `apps/miniprogram/dist/` | 仅接受干净 Git 运行输入与 40 位提交号 |
+
+`dev` 会监听源码并重新生成完整开发运行包；只需要单次生成时使用
+`pnpm --filter @hospital/miniprogram dev:once`。开发包仍会执行 TypeScript、页面、资源、相对依赖和
+测试脚本门禁，只是不再要求为了预览而提交代码。开发者工具在开发包更新后应执行一次“普通编译”。
+
+不要在 `src/` 下创建或恢复任何微信项目配置：嵌套配置会让开发者工具同时监听源码和运行包，旧的增量页面图
+可能造成主 Tab 闪动、选中态丢失和页面脚本 404。不要打开父目录、`src/`，也不要同时打开开发包和正式包。
+两种运行包自己的 `project.config.json` 都使用 `miniprogramRoot=./`，并关闭 `compileHotReLoad` 与
+`ignoreDevUnusedFiles`；这样 watcher 根只包含真实 JavaScript/WXML/WXSS 运行文件。父目录配置仍用于构建
+约束和正式发布前检查，不是本机开发者工具的打开入口。
 
 如果普通编译后仍出现底部 Tab 闪动、四项同时未选中、或页面看起来混入旧的
 `static/tabbar` 资源，先不要修改页面代码。开发者工具可能保留了旧项目或旧增量
-文件图；确认安全服务端口已经开启后，只重置本项目的文件缓存并重新打开本项目：
+文件图；确认安全服务端口已经开启后，只重置当前使用的那一套运行包的文件缓存并重新打开它。
+下列示例是正式验收包；日常开发时把每个 `dist` 路径替换为
+`.local/hospital-miniprogram/development`，不要清理或打开另一条链路：
 
 ```powershell
 Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
@@ -41,8 +61,8 @@ Set-Location 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist'
 & 'D:\software\微信web开发者工具\cli.bat' open --project 'E:\__Super_Core__\hospital-platform\apps\miniprogram\dist' --port 25799
 ```
 
-CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从 monorepo 根目录或
-`apps/miniprogram` 父目录打开，微信工具可能额外启动 watcher，把 `.turbo/`、README、`src/`
+CLI 必须针对当前独立运行根执行（正式为 `apps/miniprogram/dist`，开发为
+`.local/hospital-miniprogram/development`）；如果从 monorepo 根目录或 `apps/miniprogram` 父目录打开，微信工具可能额外启动 watcher，把 `.turbo/`、README、`src/`
 或构建脚本的变化带入增量编译。若管理页仍保留父工程、`src/` 或旧 `dist/` 窗口，先执行一次
 `quit` 关闭全部开发者工具窗口，再从上述目录只打开这一套工程。随后在工具中执行一次“普通编译”。
 这两条命令只处理当前新项目的开发者工具文件
@@ -51,9 +71,8 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 项目根目录，再检查 `dist/build-info.json`，不能通过新增页面级底栏来掩盖缓存问题。
 
 开发者工具“管理”页可能同时保留 `apps/miniprogram/`、其下的 `dist/`、其下的
-`src/`，以及旧 `mp-weixin` 工程卡片。当前只能打开路径为
-`E:\__Super_Core__\hospital-platform\apps\miniprogram\dist` 的独立运行工程；父目录是构建工程，
-`src/` 不是可直接编译的微信项目。2026-08-24 的本机
+`src/`，以及旧 `mp-weixin` 工程卡片。日常开发只打开 development 运行包；正式验收才打开
+`E:\__Super_Core__\hospital-platform\apps\miniprogram\dist`。父目录是构建工程，`src/` 不是可直接编译的微信项目。2026-08-24 的本机
 历史本机复核已确认根工程页面路径为 `pages/index/index`；本轮针对真机仍出现的底栏闪动和
 选中态消失时，不能再增加页面级底栏或第二份 selected 状态。本轮改用微信原生 tabBar，
 由微信运行时持有底栏和选中资源，页面代码不再参与选中态同步。
@@ -99,15 +118,19 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 登录后如果本地没有患者映射，页面会主动执行一次服务端患者目录同步；同步失败必须按配置或 provider 错误提示，不能展示假患者。
 同步按钮只调用平台 API 的 `POST /patients/sync`；生产前缀由 `app.ts` 的 `apiPrefix=/api/v2` 注入，
 本地 API 使用默认 `/api/v1`。unionId 从服务端会话解析，provider 患者号只在服务端映射表内使用。
-首页的“预约挂号”入口会进入 `pages/appointment-directory/appointment-directory`，只调用平台 API 的
-`GET /appointments/departments` 和 `GET /appointments/schedules`，日期范围由客户端限制为未来 7 天展示；
+首页的“预约挂号”入口会进入 `pages/appointment-directory/appointment-directory`，按旧版两列级联只调用平台 API 的
+`GET /appointments/departments`、`GET /appointments/department-tree` 和 `GET /appointments/clinic-departments` 来选择细分门诊；
+点击细分门诊后才进入独立的 `pages/appointment-schedule/appointment-schedule` 页面。该页面默认按医生挂号，
+在未来 7 天号源中归并同一医生；切换到按日期挂号时只查询当前日期，日期选择范围限制为未来 30 天。
+两种视图都只展示服务端规范化的医生、班次与余号数据，不会在小程序侧伪造医生职称、头像、停诊状态或可预约记录；
+旧端医生名片所需的头像、职称、擅长和详情引用尚未进入公开 contract，因此当前点击医生会查看该医生的日期号源，而不会伪造一张医生详情页；
 “我的挂号”进入 `pages/appointment-records/appointment-records`，按当前选择的内部 `patientId` 查询当前日前后各 90 天记录；
 “爽约记录”单独查询过去 90 天，并只展示服务端归一化的 `missed` 状态。两页都保留本次完整查询结果，首批只渲染 10 条，
 “加载更多”只展开本地已取得的数据，不代表 provider 分页。
 “我的挂号”继续复刻旧端的全宽就诊人/院区行、在线/全部标签、灰色列表背景、预约状态图标、卡片操作按钮和院内导航弹窗；
 点击挂号卡会给出“挂号详情暂未开放”提示，因为当前只读 contract 没有稳定的详情引用，不能用列表索引拼接旧端详情 URL。
-预约目录按旧版“两列级联”复刻：左侧科室独立滚动，右侧只加载当前科室，再按日期分组并以每次 12 条的方式展示号源；
-两页只读展示服务端规范化结果，预约写入、锁号、取消和支付尚未开放。
+预约目录保留左侧科室独立滚动、右侧细分门诊的旧版“两列级联”交互；号源页按医生或按日期展示，日期号源按每次 12 条展开。
+这些页面只读展示服务端规范化结果，预约写入、锁号、取消和支付尚未开放。
 首页的“门诊缴费”进入 `pages/outpatient-payment/outpatient-payment`，按当前内部 `patientId` 查询门诊待缴/已缴摘要；
 “我的”进入 `pages/my/my`，提供就诊人管理、挂号记录和门诊缴费入口，并固定底部导航栏。门诊费用页面当前只接入查询，
 点击费用记录不会伪造支付，也不会把 provider 订单号、医保字段或支付凭证交给小程序；一次完整查询结果首批只渲染 10 条，
@@ -139,12 +162,37 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 因此不新增无依据的忽略规则。若开发者工具在本机生成同名诊断文件，应保留在工具本地目录，不复制到 `src/`、`dist/`
 或 Git 提交中；真正需要忽略的本机配置仍由 `project.private.config.json` 负责。
 
-构建小程序时必须使用 `pnpm --filter @hospital/miniprogram build`，该命令执行 TypeScript 类型检查、CommonJS
-JavaScript 生成，并动态校验 `app.json` 的每个页面同时存在 `.json/.wxml/.wxss/.ts` 以及最终的 `.js`；
-同时验证 WXML/WXSS/JSON 和 `src/assets/` 完整。微信开发者工具必须直接打开
-`apps/miniprogram/dist/`；该目录包含独立的 `project.config.json`，不要打开父目录、`src/` 或待发布候选目录。
+### 日常开发
 
-如果开发者工具最近打开记录经常恢复到旧项目，Windows 可以使用工具自带的 CLI 明确指定项目根目录：
+`pnpm --filter @hospital/miniprogram dev` 会持续监听开发输入，生成 `.local/hospital-miniprogram/development/`。
+开发者工具只能打开该目录，并可用下列命令复核当前源码快照是否已经进入开发包：
+
+```bash
+pnpm --filter @hospital/miniprogram runtime:verify:dev
+```
+
+开发包的 `build-info.json` 使用 `schemaVersion: 2`、`buildMode: "development"` 和
+`workspace-sha256:*` 来源快照；它不能用于上传、真机验收、发布基线或替换 `dist/`。
+
+### 错误展示与排障
+
+用户可见错误统一为"哪个部分 + 什么问题 + 怎么办（错误码 N）"；数字码 N 在
+[`docs/错误码.md`](../../docs/错误码.md) 反查原因与抛出点，服务端权威分配表在
+`apps/api/src/plugins/error-handler.ts` 的 `ERROR_NUMERIC_CODES`，客户端镜像与 80xxx
+本地段在 `src/services/error-registry.ts`（`pnpm error:contract:audit` 强制同步）。
+页面 `showError` 通过 `src/services/error-presentation.ts` 组合文案并追加错误码；
+失败遥测事件携带 `errorCode/errorKey/requestId`，并自动把数字码注册为微信实时日志
+过滤关键字，公众平台"实时日志"可直接按用户口头反馈的数字过滤。被转换或吞没的原始
+错误以 `error.transformed` 事件留痕，登记位置见 `docs/日志规范.md`。
+
+### 正式构建与真机验收
+
+正式构建必须使用 `pnpm --filter @hospital/miniprogram build`。该命令执行 TypeScript 类型检查、CommonJS
+JavaScript 生成，并动态校验 `app.json` 的每个页面同时存在 `.json/.wxml/.wxss/.ts` 以及最终的 `.js`；
+同时验证 WXML/WXSS/JSON 和 `src/assets/` 完整。正式链只接受干净的 Git 运行输入，并且开发者工具必须直接打开
+`apps/miniprogram/dist/`；该目录包含独立的 `project.config.json`，不要打开父目录、`src/` 或任何开发/pending 目录。
+
+如果开发者工具最近打开记录经常恢复到旧项目，Windows 可以使用工具自带的 CLI 明确指定正式项目根目录：
 
 ```powershell
 <微信开发者工具安装目录>\cli.bat open --project E:\__Super_Core__\hospital-platform\apps\miniprogram\dist

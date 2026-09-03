@@ -75,10 +75,11 @@ page {
 }
 
 .convenience-surface-arrow {
-	color: #b6bcc8;
-	font-size: 48rpx;
-	font-weight: 300;
-	line-height: 1;
+	display: block;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
+	margin-left: 16rpx;
 }
 
 .convenience-surface-hero {

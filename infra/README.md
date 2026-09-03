@@ -39,6 +39,9 @@ pnpm runtime:preflight
 Provider/真机业务证据。具体上传、隔离端口 smoke、原子切换和回滚步骤见
 [`systemd/api-v2-release-runbook.md`](systemd/api-v2-release-runbook.md)。
 
+生产链路的真实拓扑（阿里云中转 / Java 拦截器 / forward 协议 / 双隧道 / 数据库位置）
+见 [`生产链路拓扑.md`](生产链路拓扑.md)；该文件基于 2026-09-03 的只读服务器实测。
+
 preflight 返回非零并不代表代码故障：在 schema staging 验收或持久化配置缺失时，
 `PERSISTENCE_SCHEMA_READY`、MySQL 或 Redis 检查应当失败；支付 gate 保持关闭时不要求支付密钥，
 但支付 gate 一旦打开，支付密钥和商户配置必须完整。preflight 通过也不代表允许启动支付 Worker。

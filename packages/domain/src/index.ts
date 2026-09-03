@@ -20,6 +20,8 @@ export type {
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotInput,
 	AppointmentScheduleSnapshotRepository,
+	AppointmentScheduleSource,
+	AppointmentScheduleSourceQuery,
 } from "./appointments";
 export {
 	AppointmentDirectoryResultValidationError,
@@ -30,10 +32,12 @@ export {
 	MAX_APPOINTMENT_RECORD_ITEMS,
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 	MAX_APPOINTMENT_SNAPSHOT_TTL_MS,
+	MAX_APPOINTMENT_SOURCE_ITEMS,
 	normalizeAppointmentDepartmentGroupResults,
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
+	normalizeAppointmentScheduleSourceResults,
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
 export type {
@@ -146,6 +150,44 @@ export type {
 } from "./manual-review";
 export { MANUAL_REVIEW_REASON_CODES } from "./manual-review";
 export type {
+	MyDoctor,
+	MyDoctorCreateInput,
+	MyDoctorReadModelViolation,
+	MyDoctorRepository,
+} from "./my-doctors";
+export {
+	MyDoctorAlreadyExistsError,
+	MyDoctorInputError,
+	MyDoctorNotFoundError,
+	MyDoctorReadModelValidationError,
+	normalizeMyDoctorReadModel,
+	validateMyDoctorCreateInput,
+} from "./my-doctors";
+export type {
+	MedicalInsuranceAmounts,
+	MedicalInsuranceCredentialContext,
+	MedicalInsuranceCredentialHandle,
+	MedicalInsuranceCredentialPurpose,
+	MedicalInsuranceCredentialRepository,
+	MedicalInsuranceOrder,
+	MedicalInsuranceOrderRepository,
+	MedicalInsuranceOrderStatus,
+	MedicalInsuranceQueryTask,
+	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceQueryTaskStatus,
+	MedicalInsuranceSettlementNotification,
+} from "./medical-insurance-order";
+export {
+	assertMedicalInsuranceOrderTransition,
+	assertValidMedicalInsuranceAmounts,
+	isMedicalInsuranceOrderStatus,
+	isValidMedicalInsuranceReference,
+	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	MedicalInsuranceOrderTransitionError,
+	medicalInsuranceStatusForNotification,
+	normalizeMedicalInsuranceSettlementNotification,
+} from "./medical-insurance-order";
+export type {
 	OutpatientMedicalRecord,
 	OutpatientMedicalRecordGateway,
 	OutpatientMedicalRecordQuery,
@@ -248,6 +290,8 @@ export {
 } from "./patients";
 export type {
 	CreatePaymentOrderInput,
+	MedicalInsuranceReconciliationOutcome,
+	MedicalInsuranceReconciliationResult,
 	PaymentAmounts,
 	PaymentOrder,
 	PaymentOrderReadModelViolation,
@@ -302,6 +346,8 @@ export type {
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
 	MedicalInsuranceSettlementEvidence,
+	MedicalInsuranceSettlementEvidenceFinality,
+	MedicalInsuranceSettlementEvidenceSource,
 	MedicalInsuranceSettlementState,
 	PaymentOrderSnapshot,
 	WechatMiniProgramPayParams,

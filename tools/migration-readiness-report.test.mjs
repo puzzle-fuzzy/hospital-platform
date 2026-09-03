@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { buildMigrationReadinessReport } from "./migration-readiness-report.mjs";
 
 describe("全项目迁移 readiness 报告", () => {
-	// 报告会扫描旧端台账、38 个原生页面、迁移合同和 pending/live 运行包；
+	// 报告会扫描旧端台账、42 个原生页面、迁移合同和 pending/live 运行包；
 	// Windows 下单独执行已经超过 Bun 默认 5 秒，但这不是放宽业务断言。
 	test("区分入口结构完成、运行包发布和真实业务完成", {
 		timeout: 30_000,
@@ -13,17 +13,17 @@ describe("全项目迁移 readiness 报告", () => {
 		);
 
 		expect(report.entryCoverage.legacy.legacyPageCount).toBe(64);
-		expect(report.entryCoverage.nativePageCount).toBe(38);
-		expect(report.entryCoverage.legacy.blockedPageCount).toBe(9);
+		expect(report.entryCoverage.nativePageCount).toBe(42);
+		expect(report.entryCoverage.legacy.blockedPageCount).toBe(2);
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
-			domainCount: 34,
-			legacyEntryCount: 39,
-			legacyActionCount: 13,
-			coveredEntryCount: 52,
-			actionFeatureKeyCount: 16,
+			domainCount: 33,
+			legacyEntryCount: 38,
+			legacyActionCount: 12,
+			coveredEntryCount: 50,
+			actionFeatureKeyCount: 15,
 			uncoveredActionFeatureKeys: [],
 			featureStatusCallCount: 14,
-			featureStatusFeatureKeyCount: 14,
+			featureStatusFeatureKeyCount: 13,
 			uncoveredFeatureStatusKeys: [],
 			passed: true,
 		});
@@ -43,8 +43,8 @@ describe("全项目迁移 readiness 报告", () => {
 			},
 			{
 				batchId: "C-clinical-readonly-contracts",
-				gateCount: 4,
-				legacyEntryCount: 4,
+				gateCount: 3,
+				legacyEntryCount: 3,
 				legacyActionCount: 0,
 			},
 			{
@@ -63,7 +63,7 @@ describe("全项目迁移 readiness 报告", () => {
 				batchId: "F-payment-and-writeback",
 				gateCount: 7,
 				legacyEntryCount: 7,
-				legacyActionCount: 4,
+				legacyActionCount: 3,
 			},
 		]);
 		expect(report.entryCoverage.legacy.domainCoverage).toHaveLength(7);
@@ -72,7 +72,7 @@ describe("全项目迁移 readiness 报告", () => {
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
 			),
-		).toMatchObject({ pageCount: 34, blockedPageCount: 6 });
+		).toMatchObject({ pageCount: 34, blockedPageCount: 1 });
 		expect(
 			report.entryCoverage.legacy.domainCoverage.find(
 				(domain) => domain.domain === "健康",
@@ -101,23 +101,23 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationBreadth.passed).toBe(true);
 		expect(report.migrationBreadth.pages).toHaveLength(2);
 		expect(report.migrationBreadth.tabBarPageCount).toBe(4);
-		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(38);
+		expect(report.migrationBreadth.interactionAudit.pageCount).toBe(42);
 		expect(report.migrationBreadth.interactionAudit.failures).toEqual([]);
 		expect(report.readOnly.domainCount).toBe(5);
 		expect(report.readOnly.semanticStateCount).toBe(35);
 		expect(report.readOnly.semanticFailures).toEqual([]);
 		expect(report.readOnly.passed).toBe(true);
-		expect(report.providerIntake.documentCount).toBe(4);
-		expect(report.providerIntake.documentIdCount).toBe(31);
+		expect(report.providerIntake.documentCount).toBe(6);
+		expect(report.providerIntake.documentIdCount).toBe(35);
 		expect(report.providerIntake.confirmedDocumentCount).toBe(0);
 		expect(report.providerIntake.businessReady).toBe(false);
-		expect(report.clinicalContract.domainCount).toBe(4);
+		expect(report.clinicalContract.domainCount).toBe(3);
 		expect(report.clinicalContract.structuredGate.passed).toBe(true);
-		expect(report.clinicalContract.structuredGate.domains).toHaveLength(4);
+		expect(report.clinicalContract.structuredGate.domains).toHaveLength(3);
 		expect(report.clinicalContract.passed).toBe(true);
 		expect(report.contractIntake).toMatchObject({
 			laneCount: 3,
-			coveredFeatureKeyCount: 23,
+			coveredFeatureKeyCount: 22,
 			duplicatedFeatureKeys: [],
 			uncoveredFeatureKeys: [],
 			businessReady: false,
@@ -127,7 +127,7 @@ describe("全项目迁移 readiness 报告", () => {
 			{
 				batchId: "C-clinical-readonly-contracts",
 				status: "awaiting-formal-contract",
-				gateCount: 4,
+				gateCount: 3,
 				businessReady: false,
 			},
 			{
@@ -164,7 +164,15 @@ describe("全项目迁移 readiness 报告", () => {
 		 * 运行包是否当前候选只由完整 sourceRevision 决定。旧 pending 与当前
 		 * 源码不一致时，不能继续读取旧九域清单，也不能把它当作待发布候选。
 		 */
-		expect(report.runtime.expectedSourceRevision).toMatch(/^[0-9a-f]{40}$/u);
+		if (report.runtime.expectedSourceRevision === null) {
+			// 脏工作树不能生成可发布的 Git 来源指纹；报告应保持 fail-closed，
+			// 但不能因此让结构审计本身失去确定性。
+			expect(report.runtime.candidateRuntimeAligned).toBe(false);
+			expect(report.runtime.liveMatchesExpected).toBe(false);
+			expect(report.runtime.pendingMatchesExpected).toBe(false);
+		} else {
+			expect(report.runtime.expectedSourceRevision).toMatch(/^[0-9a-f]{40}$/u);
+		}
 		expect(report.runtime.pendingMatchesExpected).toBe(
 			report.runtime.pending?.sourceRevision ===
 				report.runtime.expectedSourceRevision,
@@ -181,7 +189,8 @@ describe("全项目迁移 readiness 报告", () => {
 				report.runtime.liveMatchesExpected,
 		);
 		expect(report.runtime.publicationRequired).toBe(
-			!report.runtime.liveMatchesExpected,
+			Boolean(report.runtime.expectedSourceRevision) &&
+				!report.runtime.liveMatchesExpected,
 		);
 		const expectedActiveRuntime = report.runtime.pendingMatchesExpected
 			? "pending"
@@ -216,9 +225,7 @@ describe("全项目迁移 readiness 报告", () => {
 		 * 人工文档，由 release-baseline-audit 单独检查，不能让其它会话的
 		 * 未提交编辑改变本测试的确定性。
 		 */
-		const currentBaseline = await Bun.file(
-			"docs/发布/当前基线.json",
-		).json();
+		const currentBaseline = await Bun.file("docs/发布/当前基线.json").json();
 		if (report.deviceEvidence.present) {
 			expect(report.deviceEvidence.manifestPath).toBe(
 				currentBaseline.realDeviceEvidence.manifest,
@@ -240,9 +247,9 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.migrationQueue[2].codeReady).toBe(false);
 		expect(report.migrationQueue[3].blockedPageCount).toBe(0);
 		expect(report.migrationQueue[4].blockedPageCount).toBe(1);
-		expect(report.migrationQueue[5].blockedPageCount).toBe(7);
+		expect(report.migrationQueue[5].blockedPageCount).toBe(0);
 		expect(report.migrationQueue[0].frozenGateCount).toBe(4);
-		expect(report.migrationQueue[2].frozenGateCount).toBe(4);
+		expect(report.migrationQueue[2].frozenGateCount).toBe(3);
 		expect(report.migrationQueue[2]).toMatchObject({
 			contractIntakeStatus: "awaiting-formal-contract",
 			contractBusinessReady: false,

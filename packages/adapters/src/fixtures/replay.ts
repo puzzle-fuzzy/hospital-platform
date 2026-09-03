@@ -60,8 +60,12 @@ export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway 
 			),
 		}),
 		settle: async (_input, context) => ({
-			state: "insurance_settled",
+			state: "awaiting_confirmation",
 			amounts: { totalFen: 10_000, insuranceFen: 8_000, cashFen: 2_000 },
+			source: "6202",
+			providerStatus: "6",
+			finality: "settlement_candidate",
+			authoritative: false,
 			trace: trace(
 				"fixture-medical-insurance",
 				"6202",
@@ -70,8 +74,12 @@ export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway 
 			),
 		}),
 		query: async (_input, context) => ({
-			state: "insurance_settled",
+			state: "awaiting_confirmation",
 			amounts: { totalFen: 10_000, insuranceFen: 8_000, cashFen: 2_000 },
+			source: "6301",
+			providerStatus: "6",
+			finality: "settlement_candidate",
+			authoritative: false,
 			trace: trace(
 				"fixture-medical-insurance",
 				"6301",

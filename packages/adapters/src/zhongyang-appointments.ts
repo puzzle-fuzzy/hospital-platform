@@ -13,11 +13,14 @@ import {
 	type AppointmentRecordScope,
 	type AppointmentSchedule,
 	type AppointmentScheduleQuery,
+	type AppointmentScheduleSource,
+	type AppointmentScheduleSourceQuery,
 	type ExternalTrace,
 	isBoundedOpaqueIdentifier,
 	MAX_APPOINTMENT_DEPARTMENT_ITEMS,
 	MAX_APPOINTMENT_RECORD_ITEMS,
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
+	MAX_APPOINTMENT_SOURCE_ITEMS,
 	parseIsoCalendarDate,
 } from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
@@ -34,6 +37,7 @@ const DEPARTMENT_PATH =
 	"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts";
 const DEPARTMENT_TREE_PATH = "/msun-middle-business-amc-server/v1/first-depts";
 const SCHEDULE_PATH = "/msun-middle-business-amc-server/v1/schedulings";
+const SCHEDULE_SOURCES_PATH = "/msun-middle-business-amc-server/v1/sources/";
 const RECORD_PATH =
 	"/msun-middle-business-appointment-server/v1/appointment-infos/";
 const DEPARTMENT_QUERY_FIELDS = new Set(["startDate", "endDate"]);
@@ -499,6 +503,75 @@ function timeGroup(value: unknown): AppointmentSchedule["timeGroup"] {
 	return "unknown";
 }
 
+/**
+ * 旧端分时段号源响应的逐项白名单映射。
+ *
+ * 旧页面的展示规则：`groupStart`/`groupEnd` 都存在且不同时显示时间段，
+ * 否则显示 `workTime` 时间点。`sourceId` 是 provider 写入凭证，只在
+ * adapter 内校验存在性后丢弃，绝不进入公共读模型或客户端路由。
+ */
+function mapSource(
+	value: ProviderObject,
+	operation: string,
+	requestId: string,
+): AppointmentScheduleSource {
+	// 校验 sourceId 存在只为确认响应形状；写入合同必须在服务端重新解析。
+	requiredText(value.sourceId, "sourceId", operation, requestId, 128);
+	const serialNumber = requiredInteger(
+		value.serialNumber,
+		"serialNumber",
+		operation,
+		requestId,
+	);
+	if (serialNumber < 0) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment source serialNumber is invalid",
+			requestId,
+		);
+	}
+	const workTime = optionalText(
+		value.workTime,
+		"workTime",
+		operation,
+		requestId,
+		32,
+	);
+	const groupStart = optionalText(
+		value.groupStart,
+		"groupStart",
+		operation,
+		requestId,
+		32,
+	);
+	const groupEnd = optionalText(
+		value.groupEnd,
+		"groupEnd",
+		operation,
+		requestId,
+		32,
+	);
+	if (groupStart && groupEnd && groupStart !== groupEnd) {
+		return {
+			serialNumber: String(serialNumber),
+			timeLabel: `${groupStart}-${groupEnd}`,
+			timeGroup: "range",
+		};
+	}
+	if (!workTime) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment source workTime is missing",
+			requestId,
+		);
+	}
+	return {
+		serialNumber: String(serialNumber),
+		timeLabel: workTime,
+		timeGroup: "point",
+	};
+}
+
 function recordStatus(value: unknown): AppointmentRecord["status"] {
 	const normalized =
 		typeof value === "number"
@@ -837,6 +910,50 @@ function mapSchedule(
 		requestId,
 		32,
 	);
+	// 旧端 doctorPic 是排班响应里的医生照片展示字段；空值合法，非空但
+	// 不是完整 http(s) URL 时拒绝整批，不能把相对路径或脚本串带给 <image>。
+	const rawDoctorPhotoUrl = optionalText(
+		value.doctorPic,
+		"doctorPic",
+		operation,
+		requestId,
+		512,
+	);
+	if (rawDoctorPhotoUrl && !/^https?:\/\/[^\s]+$/u.test(rawDoctorPhotoUrl)) {
+		throw providerError(
+			operation,
+			"Zhongyang appointment doctorPic is not a usable http(s) URL",
+			requestId,
+		);
+	}
+	const titleName = optionalText(
+		value.postTitleName,
+		"postTitleName",
+		operation,
+		requestId,
+		128,
+	);
+	const introduction = optionalText(
+		value.introduce,
+		"introduce",
+		operation,
+		requestId,
+		512,
+	);
+	const expertise = optionalText(
+		value.specialty,
+		"specialty",
+		operation,
+		requestId,
+		255,
+	);
+	const departmentLocation = optionalText(
+		value.deptAddr,
+		"deptAddr",
+		operation,
+		requestId,
+		256,
+	);
 	return {
 		providerScheduleId: requiredText(
 			value.hisScheduleId,
@@ -851,8 +968,13 @@ function mapSchedule(
 			operation,
 			requestId,
 		),
+		...(titleName ? { titleName } : {}),
+		...(introduction ? { introduction } : {}),
+		...(expertise ? { expertise } : {}),
+		...(departmentLocation ? { departmentLocation } : {}),
 		doctorId: requiredText(value.docId, "docId", operation, requestId),
 		doctorName: requiredText(value.docName, "docName", operation, requestId),
+		...(rawDoctorPhotoUrl ? { doctorPhotoUrl: rawDoctorPhotoUrl } : {}),
 		workDate,
 		shiftName: requiredText(
 			value.shiftName ?? value.shiftCode,
@@ -1086,6 +1208,40 @@ export class ZhongyangAppointmentApiGateway
 		).map((item) => mapSchedule(item, operation, response.requestId));
 		ensureUniqueScheduleIds(schedules, operation, response.requestId);
 		return { schedules, trace: trace(operation, response.requestId) };
+	}
+
+	async listSources(
+		input: AppointmentScheduleSourceQuery,
+		context: AdapterCallContext,
+	) {
+		const operation = "appointment-schedule-sources";
+		const providerScheduleId = requiredConfig(input?.providerScheduleId);
+		// 与记录接口一样只接受服务端快照解析出的 provider 排班引用；
+		// URL 编码防止引用中意外出现路径分隔符改变请求目标。
+		const url = new URL(
+			`${SCHEDULE_SOURCES_PATH}${encodeURIComponent(providerScheduleId)}`,
+			this.baseUrl,
+		);
+		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
+		const headers = this.headers();
+		const response = await requestJson<unknown>(
+			{
+				provider: "zhongyang",
+				operation,
+				url: url.toString(),
+				method: "GET",
+				context,
+				...(headers ? { headers } : {}),
+			},
+			this.fetcher,
+		);
+		const sources = responseItems(
+			response.data,
+			operation,
+			response.requestId,
+			MAX_APPOINTMENT_SOURCE_ITEMS,
+		).map((item) => mapSource(item, operation, response.requestId));
+		return { sources, trace: trace(operation, response.requestId) };
 	}
 
 	async listRecords(

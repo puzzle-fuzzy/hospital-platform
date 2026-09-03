@@ -17,6 +17,7 @@ import {
 	isCurrentSessionGeneration,
 } from "./session-generation";
 import { restorePlatformSession } from "./session-service";
+import { logClientErrorTransformed } from "./telemetry";
 import {
 	clearStoredWechatUserProfile,
 	readStoredWechatUserProfile,
@@ -342,6 +343,15 @@ export function ensureGlobalUserProfile(
 			const isSessionError =
 				error instanceof ApiError &&
 				(error.code === "unauthorized" || error.code === "session-changed");
+			// 非会话错误会被下面的通用文案吞掉且不再抛出；转换前的数字码
+			// 必须留痕，否则资料读模型的真实失败原因（Provider/持久化等）
+			// 只剩一句"个人资料暂时不可用"。
+			if (!isSessionError) {
+				logClientErrorTransformed(
+					"global-user-profile.bootstrap-genericized",
+					error,
+				);
+			}
 			// 先保存失效前的 owner，再发布空快照。发布后 ownerId 会被清空，
 			// 如果此时才读取，就无法删除旧账号的本机微信昵称/头像缓存。
 			// 该缓存按 owner 隔离，但会长期保留旧账号隐私和过期头像，不能
@@ -520,6 +530,12 @@ async function authorizeGlobalWechatProfileInternal(): Promise<GlobalUserProfile
 			latest.sessionGeneration !== current.sessionGeneration ||
 			(latest.status !== "ready" && latest.status !== "error")
 		) {
+			// 原始失败（可能是授权拒绝、网络或资料接口错误）会被替换成
+			// 泛化的 session-changed；替换前留痕，避免代际竞争掩盖真实原因。
+			logClientErrorTransformed(
+				"global-user-profile.consent-session-superseded",
+				error,
+			);
 			throw profileSessionChangedError();
 		}
 		// 普通资料 GET 暂时失败时，当前 owner 和会话代际仍然可能是有效的。

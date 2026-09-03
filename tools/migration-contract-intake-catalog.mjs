@@ -37,7 +37,7 @@ export const MIGRATION_CONTRACT_INTAKE_CATALOG = Object.freeze(
 				"用成功空数组替代未确认的 Provider 响应",
 			]),
 			nextInput:
-				"分别提供门诊记录、住院 episode、医生关系和电子导诊的脱敏 contract；外部我的问诊另由 E 批次确认，不能用一份通用接口材料覆盖不同主体。",
+				"分别提供门诊记录、住院 episode 和电子导诊的脱敏 contract；外部我的问诊另由 E 批次确认，不能用一份通用接口材料覆盖不同主体。",
 		},
 		{
 			batchId: "D-patient-and-convenience-write",

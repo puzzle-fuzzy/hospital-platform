@@ -96,7 +96,7 @@ describe("旧端页面全量迁移台账", () => {
 		});
 	});
 
-	test("互联网医院旧入口只迁移安全壳，不伪造外部业务完成", async () => {
+	test("互联网医院旧入口恢复为固定 H5 WebView，不开放任意外部地址", async () => {
 		const entry = LEGACY_PAGE_MIGRATION_CATALOG.find(
 			(item) => item.legacyPath === "pages/hospital/hospital.vue",
 		);
@@ -109,10 +109,63 @@ describe("旧端页面全量迁移台账", () => {
 		const pageWxml = await Bun.file(
 			new URL("../pages/hospital/hospital.wxml", import.meta.url),
 		).text();
-		// 主 Tab 的安全壳只说明 contract 尚未完成；真正的 web-view 和外部
-		// URL 必须等 audience、allowlist、短期会话和回跳证据齐全后再加入。
-		expect(pageWxml).not.toContain("<web-view");
-		expect(pageWxml).toContain("互联网医院服务正在完善中");
+		expect(pageWxml).toContain('<web-view class="internet-hospital-webview"');
+		expect(pageWxml).toContain('src="{{webViewUrl}}"');
+		const pageScript = await Bun.file(
+			new URL("../pages/hospital/hospital.ts", import.meta.url),
+		).text();
+		expect(pageScript).toContain("INTERNET_HOSPITAL_BASE_URL");
+		expect(pageScript).toContain("https://cx.o2o.bailingjk.net/wechat/");
+		expect(pageScript).toContain("publicNoCode=gzh-048400_0001");
+		expect(pageScript).not.toContain("decodeURIComponent");
+		expect(pageScript).not.toContain("system/auth/ticket");
+		expect(pageScript).not.toContain("navigateToMiniProgram");
+	});
+
+	test("智能客服旧入口恢复为固定 H5 WebView，不恢复通用动态入口", async () => {
+		const entry = LEGACY_PAGE_MIGRATION_CATALOG.find(
+			(item) => item.legacyPath === "pagesB/health/webview.vue",
+		);
+		expect(entry).toMatchObject({
+			status: "partial",
+			nativeTarget: "pages/smart-customer/smart-customer",
+			featureKey: "smart-customer",
+		});
+
+		const pageWxml = await Bun.file(
+			new URL("../pages/smart-customer/smart-customer.wxml", import.meta.url),
+		).text();
+		expect(pageWxml).toContain('<web-view class="smart-customer-webview"');
+		expect(pageWxml).toContain('src="{{webViewUrl}}"');
+		const pageScript = await Bun.file(
+			new URL("../pages/smart-customer/smart-customer.ts", import.meta.url),
+		).text();
+		expect(pageScript).toContain("SMART_CUSTOMER_BASE_URL");
+		expect(pageScript).toContain("https://html.ydrj.top");
+		expect(pageScript).not.toContain("system/auth/ticket");
+		expect(pageScript).not.toContain("decodeURIComponent");
+		expect(pageScript).not.toContain("fullUrl");
+	});
+
+	test("我的医保电子凭证入口恢复为旧端固定小程序跳转", async () => {
+		const app = await Bun.file(new URL("../app.json", import.meta.url)).text();
+		const pageScript = await Bun.file(
+			new URL("../pages/my/my.ts", import.meta.url),
+		).text();
+		const navigation = await Bun.file(
+			new URL("./insurance-voucher-navigation.ts", import.meta.url),
+		).text();
+
+		expect(app).toContain('"navigateToMiniProgramAppIdList"');
+		expect(app).toContain('"wx81ce904580cc0ff1"');
+		expect(pageScript).toContain("navigateToInsuranceVoucher");
+		expect(pageScript).not.toContain('navigateToFeatureStatus("insurance")');
+		expect(navigation).toContain("wx.navigateToMiniProgram({");
+		expect(navigation).toContain(
+			'INSURANCE_VOUCHER_APP_ID = "wx81ce904580cc0ff1"',
+		);
+		expect(navigation).toContain('path: ""');
+		expect(navigation).toContain("extraData: {}");
 	});
 
 	test("每个旧业务域都有可追溯的状态分布，且总量与逐页台账一致", () => {

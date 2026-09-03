@@ -1,13 +1,18 @@
 import { expect, test } from "bun:test";
 import {
 	LEGACY_FSI_ROUTES,
+	classifyLegacyFsiOrderStatus,
 	LegacyFsiContractError,
 	validate6201FeeUpload,
 	validate6201Response,
+	validate6202Request,
 	validate6202Settlement,
 	validate6203Refund,
 	validate6203Response,
+	validate6301QueryResult,
+	validate6301Request,
 	validate6301Settlement,
+	validate6401Request,
 	validate6401Response,
 	yuanToFen,
 } from "./legacy-fsi-contract";
@@ -144,6 +149,61 @@ test("6202 and 6301 make settlement decomposition authoritative", () => {
 			"pay-order-001",
 		),
 	).toMatchObject({ totalFen: 10000, fundFen: 5000 });
+});
+
+test("6301 keeps intermediate statuses separate from final settlement evidence", () => {
+	expect(
+		validate6301QueryResult(
+			{ data: { payOrdId: "pay-order-001", ordStas: "1" } },
+			"pay-order-001",
+		),
+	).toEqual({ payOrdId: "pay-order-001", ordStas: "1" });
+
+	expect(() =>
+		validate6301QueryResult(
+			{ data: { payOrdId: "other-order", ordStas: "1" } },
+			"pay-order-001",
+		),
+	).toThrow(LegacyFsiContractError);
+
+	expect(() =>
+		validate6202Request({
+			payAuthNo: "auth-001",
+			payOrdId: "pay-order-001",
+			payToken: "token-001",
+			orgCodg: "org-001",
+			orgBizSer: "biz-001",
+			chrgBchno: "batch-001",
+			feeType: "01",
+			mdtrtId: "visit-001",
+			acctUsedFlag: "2",
+		}),
+	).toThrow(LegacyFsiContractError);
+});
+
+test("classifies ordStas without calling any value payment success", () => {
+	for (const status of ["0", "1", "2"]) {
+		expect(classifyLegacyFsiOrderStatus(status)).toBe("processing");
+	}
+	for (const status of ["3", "4", "5", "6"]) {
+		expect(classifyLegacyFsiOrderStatus(status)).toBe("settlement_candidate");
+	}
+	for (const status of ["7", "8", "9", "10", "11", "12", "13"]) {
+		expect(classifyLegacyFsiOrderStatus(status)).toBe("cancelled");
+	}
+	for (const status of ["14", "15", "16"]) {
+		expect(classifyLegacyFsiOrderStatus(status)).toBe("failed");
+	}
+	expect(classifyLegacyFsiOrderStatus("unexpected")).toBe("unknown");
+});
+
+test("provider credential requests require explicit order and identity fields", () => {
+	expect(() => validate6301Request({ payOrdId: "only-order" })).toThrow(
+		LegacyFsiContractError,
+	);
+	expect(() => validate6401Request({ payOrdId: "only-order" })).toThrow(
+		LegacyFsiContractError,
+	);
 });
 
 test("6203 enforces refund type and original settlement bounds", () => {

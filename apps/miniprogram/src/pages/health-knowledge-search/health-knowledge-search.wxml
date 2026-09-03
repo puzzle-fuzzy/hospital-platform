@@ -13,7 +13,12 @@
 				<view class="knowledge-disease-title">{{item.name}}</view>
 				<view class="knowledge-disease-department" wx:if="{{item.treatmentDepartment}}">就诊科室：{{item.treatmentDepartment}}</view>
 				<view class="knowledge-disease-symptoms" wx:if="{{item.symptoms}}">相关症状：{{item.symptoms}}</view>
-				<text class="knowledge-arrow">›</text>
+				<image
+					class="knowledge-arrow"
+					src="/assets/legacy-user/selector-arrow-right.svg"
+					mode="aspectFit"
+					aria-hidden="true"
+				/>
 			</view>
 		</view>
 	</view>

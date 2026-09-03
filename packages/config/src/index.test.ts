@@ -5,6 +5,8 @@ import {
 	appointmentRecordsConfigurationMissingFields,
 	appointmentRecordsConfigurationStatus,
 	loadRuntimeConfig,
+	medicalInsuranceConfigurationMissingFields,
+	medicalInsuranceConfigurationStatus,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
 	patientDirectoryConfigurationMissingFields,
@@ -29,6 +31,7 @@ test("runtime config defaults to safe development gates", () => {
 		persistenceSchemaReady: false,
 		wechatIdentityReady: false,
 		wechatPaymentReady: false,
+		medicalInsuranceReady: false,
 		workerPollIntervalMs: 1000,
 	});
 });
@@ -129,6 +132,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(outpatientPaymentConfigurationStatus(disabled)).toBe("disabled");
 	expect(reportDirectoryConfigurationStatus(disabled)).toBe("disabled");
 	expect(reportDetailConfigurationStatus(disabled)).toBe("disabled");
+	expect(medicalInsuranceConfigurationStatus(disabled)).toBe("disabled");
 
 	const incomplete = loadRuntimeConfig({
 		WECHAT_PAYMENT_READY: "true",
@@ -137,6 +141,27 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(wechatPaymentConfigurationStatus(incomplete)).toBe("incomplete");
 	expect(wechatPaymentConfigurationMissingFields(incomplete)).toContain(
 		"WECHAT_PAY_APP_ID",
+	);
+	const medicalInsuranceIncomplete = loadRuntimeConfig({
+		MEDICAL_INSURANCE_READY: "true",
+		MBS_FORWARD_RELAY_URL: "http://medical-insurance.internal/forward",
+		MBS_FORWARD_BASE_URL_6201: "http://medical-insurance.internal",
+		MBS_ENCRYPT_ENABLE: "false",
+		MBS_SM2_VERIFY_STRICT: "false",
+	});
+	expect(medicalInsuranceConfigurationStatus(medicalInsuranceIncomplete)).toBe(
+		"incomplete",
+	);
+	expect(
+		medicalInsuranceConfigurationMissingFields(medicalInsuranceIncomplete),
+	).toEqual(
+		expect.arrayContaining([
+			"MBS_FORWARD_AUTHORIZATION_TOKEN",
+			"MBS_SM2_PRIVATE_KEY_B64",
+			"MBS_FORWARD_RELAY_URL(https)",
+			"MBS_ENCRYPT_ENABLE",
+			"MBS_SM2_VERIFY_STRICT",
+		]),
 	);
 	const patientDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",

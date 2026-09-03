@@ -1,0 +1,53 @@
+<view class="page">
+	<view class="hero">
+		<view class="eyebrow">REAL TEST FLOW</view>
+		<view class="title">一键挂号 · 医保支付</view>
+		<view class="subtitle">只保留就诊人、号源和支付三个决策</view>
+	</view>
+
+	<view class="card">
+		<view class="label">就诊人</view>
+		<picker mode="selector" range="{{patientNames}}" value="{{patientIndex}}" bindchange="onPatientChange" disabled="{{busy}}">
+			<view class="picker-row">
+				<text class="value">{{patientIndex >= 0 ? patientNames[patientIndex] : '请选择就诊人'}}</text>
+				<text class="arrow">›</text>
+			</view>
+		</picker>
+		<view wx:if="{{patientIndex >= 0}}" class="muted patient-meta">{{patientRelation}} · {{patientCard}}</view>
+	</view>
+
+	<view class="card">
+		<view class="label">固定预约条件</view>
+		<view class="condition-row"><text>门诊</text><text class="value">内科风湿</text></view>
+		<view class="condition-row"><text>日期</text><text class="value">{{targetDate}}</text></view>
+		<view class="condition-row"><text>时段</text><text class="value">上午</text></view>
+		<view wx:if="{{schedule}}" class="schedule-detail">
+			<view class="doctor">{{schedule.docName}} <text>{{schedule.registerClassName}}</text></view>
+			<view class="muted">{{schedule.roomAddr || '门诊部'}} · 挂号费 {{schedule.registrationFee}} 元</view>
+		</view>
+		<view wx:if="{{source}}" class="source-detail">
+			<view class="source-title">已选分时段号源</view>
+			<view class="source-time">{{source.groupStart && source.groupEnd ? source.groupStart + '-' + source.groupEnd : source.workTime}}</view>
+			<view class="muted">{{source.serialNumber}} 号 · sourceId 已锁定为本次预约目标</view>
+		</view>
+	</view>
+
+	<view wx:if="{{duplicate}}" class="duplicate-card">
+		<view class="duplicate-title">该就诊人当天已有同门诊预约</view>
+		<view class="duplicate-text">{{duplicate.deptName}} · {{duplicate.workDate}} · {{duplicate.statusName || '已预约'}}</view>
+		<view class="duplicate-hint">系统不会自动重复挂号。确认取消原预约后，才会重新选择同一号源并发起医保支付。</view>
+		<button class="button danger-button" bindtap="onCancelAndRetry" loading="{{busy}}" disabled="{{busy}}">取消后重新挂号</button>
+	</view>
+
+	<view wx:if="{{message}}" class="status-card">
+		<view class="status-dot {{stage}}"></view>
+		<view class="status-message">{{message}}</view>
+		<view wx:if="{{stage === 'success'}}" class="success">最终结算已确认</view>
+	</view>
+	<view wx:if="{{error}}" class="card error-card"><text class="error">{{error}}</text></view>
+
+	<button class="button" bindtap="onQuickRegister" loading="{{busy}}" disabled="{{busy || patientIndex < 0 || (!hasPendingPayment && (!source || duplicate))}}">
+		{{busy ? '处理中…' : (hasPendingPayment ? '继续医保支付' : '立即挂号并医保支付')}}
+	</button>
+	<view class="footnote">支付完成以医院最终结算结果为准；返回授权页不代表支付成功。</view>
+</view>

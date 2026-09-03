@@ -1,0 +1,665 @@
+566f9bc976f1fc3e39644366ecc59fb3f5beff48
+diff --git a/app/api/v1/module_common/mbs_fsi/order_model.py b/app/api/v1/module_common/mbs_fsi/order_model.py
+index 612b1ea..350ad9d 100644
+--- a/app/api/v1/module_common/mbs_fsi/order_model.py
++++ b/app/api/v1/module_common/mbs_fsi/order_model.py
+@@ -1,9 +1,10 @@
+ # -*- coding: utf-8 -*-
+ 
++from datetime import datetime
+ from decimal import Decimal
+ from typing import Optional
+ 
+-from sqlalchemy import BigInteger, Boolean, Index, Numeric, String, Text, UniqueConstraint
++from sqlalchemy import BigInteger, Boolean, DateTime, Index, Numeric, String, Text, UniqueConstraint
+ from sqlalchemy.orm import Mapped, mapped_column
+ 
+ from app.core.base_model import ModelMixin
+@@ -44,6 +45,10 @@ class MbsMedicalOrderModel(ModelMixin):
+     own_pay_amt: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="现金支付金额")
+     psn_acct_pay: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="个人账户支付")
+     fund_pay: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="医保基金支付")
++    fee_sum_amt_6202: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="6202原始医保费用总额")
++    own_pay_amt_6202: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="6202原始现金支付金额")
++    psn_acct_pay_6202: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="6202原始个人账户支付")
++    fund_pay_6202: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="6202原始医保基金支付")
+     refund_total_amt: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="医保退款总额")
+     refund_type: Mapped[Optional[str]] = mapped_column(String(16), nullable=True, comment="医保退款类型")
+     refund_cash_amt: Mapped[Optional[Decimal]] = mapped_column(Numeric(16, 2), nullable=True, comment="医保退款现金分项")
+@@ -83,6 +88,15 @@ class MbsMedicalOrderModel(ModelMixin):
+     plugin_work_station_id: Mapped[Optional[str]] = mapped_column(
+         String(100), nullable=True, comment="插件外部系统工作站ID"
+     )
++    plugin_trade_code: Mapped[Optional[str]] = mapped_column(
++        String(64), nullable=True, comment="第二次2.6.65.2结算订单编号"
++    )
++    plugin_context_ciphertext: Mapped[Optional[str]] = mapped_column(
++        Text, nullable=True, comment="插件支付可信业务上下文密文"
++    )
++    plugin_openid_hash: Mapped[Optional[str]] = mapped_column(
++        String(64), nullable=True, comment="插件微信openid摘要"
++    )
+     plugin_prepay_id: Mapped[Optional[str]] = mapped_column(
+         String(128), nullable=True, comment="医院微信JSAPI prepay_id"
+     )
+@@ -107,11 +121,23 @@ class MbsMedicalOrderModel(ModelMixin):
+     plugin_last_error: Mapped[Optional[str]] = mapped_column(
+         Text, nullable=True, comment="插件支付/退款同步最近错误"
+     )
++    plugin_preorder_at: Mapped[Optional[datetime]] = mapped_column(
++        DateTime(timezone=True), nullable=True, comment="第二次2.6.65.2最近一次服务端请求时间"
++    )
++    plugin_reconcile_state: Mapped[Optional[str]] = mapped_column(
++        String(32), nullable=True, comment="插件支付服务端恢复状态"
++    )
++    plugin_reconcile_at: Mapped[Optional[datetime]] = mapped_column(
++        DateTime(timezone=True), nullable=True, comment="插件支付服务端最近一次恢复时间"
++    )
+     medical_refund_total_fen: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, comment="医保退款通知总金额(分)")
+     medical_refund_gov_fen: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, comment="医保统筹退款通知金额(分)")
+     medical_refund_self_fen: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, comment="医保个账退款通知金额(分)")
+     medical_refund_other_fen: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, comment="医保其他退款通知金额(分)")
+     medical_refund_no: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, comment="医保退款通知退款单号")
++    medical_refund_request_no: Mapped[Optional[str]] = mapped_column(
++        String(64), nullable=True, comment="医保6203退款申请单号"
++    )
+     last_callback_event_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, comment="最近处理回调事件ID")
+     last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True, comment="最近一次业务错误")
+ 
+diff --git a/app/api/v1/module_common/mbs_fsi/order_service.py b/app/api/v1/module_common/mbs_fsi/order_service.py
+index cfd628b..e3c8d76 100644
+--- a/app/api/v1/module_common/mbs_fsi/order_service.py
++++ b/app/api/v1/module_common/mbs_fsi/order_service.py
+@@ -1,7 +1,11 @@
+ # -*- coding: utf-8 -*-
+ 
++import base64
+ import hashlib
+ import hmac
++import json
++import os
++from datetime import datetime, timedelta, timezone
+ from decimal import Decimal
+ from typing import Any, Dict, Optional
+ from uuid import uuid4
+@@ -21,6 +25,24 @@ class MbsPaymentOrderService:
+     """医保支付订单持久化、凭证关联和异步通知幂等处理。"""
+ 
+     FINAL_STATES = {"SETTLEMENT_SUCCESS", "REFUNDED", "REVOKED"}
++    PLUGIN_PREORDER_STATES = {
++        "PLUGIN_PREPAY_PENDING",
++        "PLUGIN_PREORDERING",
++        "PLUGIN_PREPAY_FAILED",
++        "PLUGIN_PREPAY_CREATED",
++        "PLUGIN_WECHAT_PENDING",
++        "PLUGIN_WECHAT_SUCCESS",
++        "PLUGIN_29_SUCCESS",
++        "PLUGIN_15_SUCCESS",
++        "PLUGIN_SETTLED",
++    }
++    PLUGIN_RECONCILE_CANDIDATE_STATES = {
++        "PLUGIN_PREPAY_CREATED",
++        "PLUGIN_WECHAT_PENDING",
++        "PLUGIN_WECHAT_SUCCESS",
++        "PLUGIN_29_SUCCESS",
++        "PLUGIN_15_SUCCESS",
++    }
+ 
+     @staticmethod
+     def token_hash(value: Any) -> str:
+@@ -40,6 +62,87 @@ class MbsPaymentOrderService:
+             raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+         return hashlib.sha256(raw).hexdigest()
+ 
++    @staticmethod
++    def openid_hash(value: Any) -> str:
++        text = str(value or "").strip()
++        if not text:
++            raise CustomException(msg="微信openid不能为空", status_code=422)
++        return hashlib.sha256(text.encode("utf-8")).hexdigest()
++
++    @staticmethod
++    def _plugin_context_key() -> bytes:
++        secret = str(settings.SECRET_KEY or "").encode("utf-8")
++        if not secret:
++            raise CustomException(msg="插件支付上下文缺少服务端加密密钥", status_code=500)
++        return hashlib.sha256(secret).digest()
++
++    @classmethod
++    def encrypt_plugin_context(cls, context: Dict[str, Any]) -> str:
++        """加密保存 .29/.15/.5 所需的可信上下文，避免恢复任务依赖前端重新提交身份证信息。"""
++        from cryptography.hazmat.primitives.ciphers import aead
++
++        nonce = os.urandom(12)
++        plaintext = json.dumps(context, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
++        ciphertext = aead.AESGCM(cls._plugin_context_key()).encrypt(nonce, plaintext, b"hospital-plugin-payment-v1")
++        return "v1." + base64.urlsafe_b64encode(nonce + ciphertext).decode("ascii")
++
++    @classmethod
++    def decrypt_plugin_context(cls, value: Optional[str]) -> Dict[str, Any]:
++        from cryptography.hazmat.primitives.ciphers import aead
++
++        text = str(value or "").strip()
++        if not text:
++            return {}
++        if not text.startswith("v1."):
++            raise CustomException(msg="插件支付上下文版本无法识别", status_code=409)
++        try:
++            raw = base64.urlsafe_b64decode(text[3:].encode("ascii"))
++            nonce, ciphertext = raw[:12], raw[12:]
++            result = json.loads(
++                aead.AESGCM(cls._plugin_context_key()).decrypt(
++                    nonce, ciphertext, b"hospital-plugin-payment-v1"
++                ).decode("utf-8")
++            )
++        except Exception as exc:
++            raise CustomException(msg="插件支付上下文解密失败，已停止后续回写", status_code=409) from exc
++        if not isinstance(result, dict):
++            raise CustomException(msg="插件支付上下文格式错误", status_code=409)
++        return result
++
++    @staticmethod
++    def _same_context_value(left: Any, right: Any) -> bool:
++        return str(left if left is not None else "").strip() == str(right if right is not None else "").strip()
++
++    @classmethod
++    def _build_plugin_context(cls, payload: Dict[str, Any]) -> Dict[str, Any]:
++        required = (
++            "pat_id", "hospital_id", "cert_no", "psn_cert_type", "psn_name", "psn_no",
++            "trade_type_code", "pat_in_hos_id", "trade_code", "pay_auth_no",
++        )
++        for field_name in required:
++            cls._required_text(payload, field_name)
++        pat_id = int(str(payload["pat_id"]).strip())
++        if pat_id <= 0:
++            raise CustomException(msg="插件支付patId必须是正整数", status_code=422)
++        hospital_id = str(payload["hospital_id"]).strip()
++        if not hospital_id.isdigit() or int(hospital_id) <= 0:
++            raise CustomException(msg="插件支付hospitalId必须是正整数", status_code=422)
++        pat_in_hos_id = str(payload["pat_in_hos_id"]).strip()
++        if not pat_in_hos_id.isdigit() or int(pat_in_hos_id) < 0:
++            raise CustomException(msg="插件支付patInHosId必须是非负整数", status_code=422)
++        return {
++            "pat_id": pat_id,
++            "hospital_id": hospital_id,
++            "cert_no": cls._required_text(payload, "cert_no"),
++            "psn_cert_type": cls._required_text(payload, "psn_cert_type"),
++            "psn_name": cls._required_text(payload, "psn_name"),
++            "psn_no": cls._required_text(payload, "psn_no"),
++            "trade_type_code": cls._required_text(payload, "trade_type_code"),
++            "pat_in_hos_id": pat_in_hos_id,
++            "trade_code": cls._required_text(payload, "trade_code"),
++            "pay_auth_no": cls._required_text(payload, "pay_auth_no"),
++        }
++
+     @staticmethod
+     def _required_text(payload: Dict[str, Any], field_name: str) -> str:
+         value = payload.get(field_name)
+@@ -278,10 +381,25 @@ class MbsPaymentOrderService:
+                 order.remote_ord_stas = str(response.get("ordStas") or "").strip() or None
+                 amount_fields = ("feeSumamt", "ownPayAmt", "psnAcctPay", "fundPay")
+                 if all(response.get(field_name) not in (None, "") for field_name in amount_fields):
+-                    order.fee_sum_amt = MbsFsiService._amount(response["feeSumamt"], "feeSumamt", 12, 2)
+-                    order.own_pay_amt = MbsFsiService._amount(response["ownPayAmt"], "ownPayAmt", 12, 2)
+-                    order.psn_acct_pay = MbsFsiService._amount(response["psnAcctPay"], "psnAcctPay", 12, 2)
+-                    order.fund_pay = MbsFsiService._amount(response["fundPay"], "fundPay", 12, 2)
++                    parsed_amounts = {
++                        "fee_sum_amt": MbsFsiService._amount(response["feeSumamt"], "feeSumamt", 12, 2),
++                        "own_pay_amt": MbsFsiService._amount(response["ownPayAmt"], "ownPayAmt", 12, 2),
++                        "psn_acct_pay": MbsFsiService._amount(response["psnAcctPay"], "psnAcctPay", 12, 2),
++                        "fund_pay": MbsFsiService._amount(response["fundPay"], "fundPay", 12, 2),
++                    }
++                    snapshot_fields = {
++                        "fee_sum_amt": "fee_sum_amt_6202",
++                        "own_pay_amt": "own_pay_amt_6202",
++                        "psn_acct_pay": "psn_acct_pay_6202",
++                        "fund_pay": "fund_pay_6202",
++                    }
++                    for field_name, snapshot_name in snapshot_fields.items():
++                        snapshot = getattr(order, snapshot_name)
++                        if snapshot is not None and snapshot != parsed_amounts[field_name]:
++                            raise CustomException(msg=f"医保6202重复响应的{field_name}与首次金额不一致", status_code=409)
++                        if snapshot is None:
++                            setattr(order, snapshot_name, parsed_amounts[field_name])
++                        setattr(order, field_name, parsed_amounts[field_name])
+                 order.state = "PAY_ORDER_CREATED"
+ 
+     @classmethod
+@@ -290,7 +408,6 @@ class MbsPaymentOrderService:
+ 
+     @classmethod
+     async def record_6301(cls, input_data: Dict[str, Any], result: Dict[str, Any]) -> None:
+-        await cls.record_6202(input_data, result)
+         response = MbsFsiService._response_data(result)
+         pay_ord_id = cls._required_text(input_data, "payOrdId")
+         async with session_connect() as db:
+@@ -298,6 +415,17 @@ class MbsPaymentOrderService:
+                 order = await cls._find_by_pay_ord_id(db, pay_ord_id, lock=True)
+                 if order is None:
+                     raise CustomException(msg="医保6301未找到对应订单", status_code=409)
++                if not hmac.compare_digest(order.pay_token_hash or "", cls.token_hash(input_data.get("payToken"))):
++                    raise CustomException(msg="医保6301 payToken 与6201不一致", status_code=409)
++                response_org_codg = str(response.get("orgCodg") or "").strip()
++                if response_org_codg and order.org_codg and response_org_codg != order.org_codg:
++                    raise CustomException(msg="医保6301返回 orgCodg 与订单不一致", status_code=502)
++                amount_fields = ("feeSumamt", "ownPayAmt", "psnAcctPay", "fundPay")
++                if all(response.get(field_name) not in (None, "") for field_name in amount_fields):
++                    order.fee_sum_amt = MbsFsiService._amount(response["feeSumamt"], "6301.feeSumamt", 12, 2)
++                    order.own_pay_amt = MbsFsiService._amount(response["ownPayAmt"], "6301.ownPayAmt", 12, 2)
++                    order.psn_acct_pay = MbsFsiService._amount(response["psnAcctPay"], "6301.psnAcctPay", 12, 2)
++                    order.fund_pay = MbsFsiService._amount(response["fundPay"], "6301.fundPay", 12, 2)
+                 order.remote_ord_stas = str(response.get("ordStas") or "").strip() or order.remote_ord_stas
+                 order.remote_call_type = str(response.get("callType") or "").strip() or None
+                 order.settlement_type = str(response.get("setlType") or "").strip() or None
+@@ -311,6 +439,11 @@ class MbsPaymentOrderService:
+             order = await cls._find_by_pay_ord_id(db, pay_ord_id)
+             if order is None:
+                 raise CustomException(msg="医保6203未找到对应订单", status_code=409)
++            request_no = cls._required_text(input_data, "appRefdSn")
++            if order.medical_refund_request_no and order.medical_refund_request_no != request_no:
++                raise CustomException(msg="医保订单已有其他6203退款申请，拒绝重复退款", status_code=409)
++            if order.medical_refund_request_no == request_no:
++                return
+             cls._validate_6203_refund_amounts(order, input_data)
+ 
+     @staticmethod
+@@ -362,6 +495,7 @@ class MbsPaymentOrderService:
+                 order.refund_cash_amt = MbsFsiService._amount(input_data["cashRefdAmt"], "cashRefdAmt", 12, 2)
+                 order.refund_psn_acct_amt = MbsFsiService._optional_amount(input_data, "psnAcctRefdAmt", 12, 2) or Decimal("0")
+                 order.refund_fund_amt = MbsFsiService._optional_amount(input_data, "fundRefdAmt", 12, 2) or Decimal("0")
++                order.medical_refund_request_no = str(input_data.get("appRefdSn") or "").strip() or None
+                 order.state = {
+                     "SUCC": "REFUND_REQUESTED",
+                     "FAIL": "REFUND_FAILED",
+@@ -547,7 +681,28 @@ class MbsPaymentOrderService:
+                 raise CustomException(msg="微信退款金额超过订单现金支付金额", status_code=409)
+             requested_refund_no = str(payload.get("out_refund_no") or "").strip()
+             if order.wechat_refund_no and order.wechat_refund_no != requested_refund_no:
+-                raise CustomException(msg="微信退款单号与已有退款不一致", status_code=409)
++                raise CustomException(msg="当前插件订单只允许一个退款单号，不能再次创建新的微信退款", status_code=409)
++            if order.wechat_refund_no and order.wechat_refund_fee_fen is not None and int(order.wechat_refund_fee_fen) != refund_fee:
++                raise CustomException(msg="同一微信退款单号的退款金额不能修改", status_code=409)
++
++    @classmethod
++    async def registration_plugin_refund_context(cls, pay_ord_id: str) -> Dict[str, Any]:
++        pay_ord_id = cls._required_text({"pay_ord_id": pay_ord_id}, "pay_ord_id")
++        async with session_connect() as db:
++            order = await cls._find_by_pay_ord_id(db, pay_ord_id)
++            if order is None:
++                raise CustomException(msg="插件退款未找到医保订单", status_code=409)
++            return {
++                "refund_no": str(order.wechat_refund_no or ""),
++                "refund_fee_fen": int(order.wechat_refund_fee_fen or 0),
++                "wechat_refund_state": str(order.wechat_refund_state or ""),
++                "plugin_refund_state": str(order.plugin_refund_state or ""),
++                "medical_refund_type": str(order.refund_type or ""),
++                "medical_refund_total": str(order.refund_total_amt or ""),
++                "medical_refund_request_no": str(order.medical_refund_request_no or ""),
++                "medical_refund_fund": str(order.refund_fund_amt or "0"),
++                "medical_refund_psn_acct": str(order.refund_psn_acct_amt or "0"),
++            }
+ 
+     @classmethod
+     async def record_wechat_refund(cls, payload: Dict[str, Any], result: Dict[str, Any]) -> None:
+@@ -628,16 +783,17 @@ class MbsPaymentOrderService:
+     async def prepare_registration_plugin_order(cls, payload: Dict[str, Any]) -> Dict[str, Any]:
+         """校验医保真实自费金额，并登记第二笔插件支付流水。
+ 
+-        金额只读 6202 已落库的 own_pay_amt；businessId、payingId、tradingId
+-        以及支付方式由第二次 2.6.65.2 返回后传入，不能由前端改写金额。
++        金额只读 6202/6301 已落库的 own_pay_amt。第二次 2.6.65.2 改由后端
++        在订单锁内按固定 requestId 调用，前端不能伪造 payingId/tradingId 或金额。
+         """
+         pay_ord_id = cls._required_text(payload, "pay_ord_id")
+         business_id = cls._required_text(payload, "business_id")
+-        paying_id = cls._required_text(payload, "paying_id")
+-        trading_id = cls._required_text(payload, "trading_id")
+         pay_type_id = cls._required_text(payload, "pay_type_id")
+         pay_type = cls._required_text(payload, "pay_type").upper()
+-        work_station_id = cls._required_text(payload, "work_station_id")
++        # 插件版挂号支付沿用首笔医保请求的约定，允许 workStationId 为空字符串。
++        work_station_id = str(payload.get("work_station_id") or "").strip()
++        openid = cls._required_text(payload, "openid")
++        plugin_context = cls._build_plugin_context(payload)
+         if pay_type not in {"CREDIT", "POS", "CROWD_FUNDING"}:
+             raise CustomException(msg="插件支付类型必须是 CREDIT、POS 或 CROWD_FUNDING", status_code=422)
+         configured_pay_type_id = str(settings.YUNHEALTH_PLUGIN_PAY_TYPE_ID or "").strip()
+@@ -660,28 +816,29 @@ class MbsPaymentOrderService:
+ 
+                 if order.registration_business_id and order.registration_business_id != business_id:
+                     raise CustomException(msg="挂号businessId与医保订单已登记值不一致", status_code=409)
+-                if order.plugin_paying_id and order.plugin_paying_id != paying_id:
+-                    raise CustomException(msg="插件payingId与订单已登记值不一致", status_code=409)
+-                if order.plugin_trading_id and order.plugin_trading_id != trading_id:
+-                    raise CustomException(msg="插件tradingId与订单已登记值不一致", status_code=409)
+                 if order.plugin_pay_type_id and order.plugin_pay_type_id != pay_type_id:
+                     raise CustomException(msg="插件payTypeId与订单已登记值不一致", status_code=409)
++                if order.plugin_work_station_id and order.plugin_work_station_id != work_station_id:
++                    raise CustomException(msg="插件workStationId与订单已登记值不一致", status_code=409)
++                if order.plugin_trade_code and order.plugin_trade_code != plugin_context["trade_code"]:
++                    raise CustomException(msg="插件tradeCode与订单已登记值不一致", status_code=409)
++
++                saved_context = cls.decrypt_plugin_context(order.plugin_context_ciphertext)
++                for field_name, value in plugin_context.items():
++                    if saved_context and not cls._same_context_value(saved_context.get(field_name), value):
++                        raise CustomException(msg=f"插件支付字段 {field_name} 与订单已登记值不一致", status_code=409)
++                openid_digest = cls.openid_hash(openid)
++                if order.plugin_openid_hash and not hmac.compare_digest(order.plugin_openid_hash, openid_digest):
++                    raise CustomException(msg="插件微信openid与订单已登记用户不一致", status_code=409)
+ 
+                 order.registration_business_id = business_id
+-                order.plugin_paying_id = paying_id
+-                order.plugin_trading_id = trading_id
+                 order.plugin_pay_type_id = pay_type_id
+                 order.plugin_pay_type = pay_type
+                 order.plugin_work_station_id = work_station_id
+-                if order.plugin_payment_state not in {
+-                    "PLUGIN_PREPAY_PENDING",
+-                    "PLUGIN_PREPAY_CREATED",
+-                    "PLUGIN_WECHAT_PENDING",
+-                    "PLUGIN_WECHAT_SUCCESS",
+-                    "PLUGIN_29_SUCCESS",
+-                    "PLUGIN_15_SUCCESS",
+-                    "PLUGIN_SETTLED",
+-                }:
++                order.plugin_trade_code = plugin_context["trade_code"]
++                order.plugin_context_ciphertext = cls.encrypt_plugin_context(plugin_context)
++                order.plugin_openid_hash = openid_digest
++                if order.plugin_payment_state not in cls.PLUGIN_PREORDER_STATES:
+                     order.plugin_payment_state = "PLUGIN_PREPAY_PENDING"
+                 amount = Decimal(order.own_pay_amt).quantize(Decimal("0.01"))
+                 if order.out_trade_no:
+@@ -698,11 +855,12 @@ class MbsPaymentOrderService:
+                 return {
+                     "pay_ord_id": pay_ord_id,
+                     "business_id": business_id,
+-                    "paying_id": paying_id,
+-                    "trading_id": trading_id,
++                    "paying_id": order.plugin_paying_id,
++                    "trading_id": order.plugin_trading_id,
+                     "pay_type_id": pay_type_id,
+                     "pay_type": pay_type,
+                     "work_station_id": work_station_id,
++                    "plugin_context": plugin_context,
+                     "out_trade_no": out_trade_no,
+                     "total_fee": str(amount),
+                     "prepay_id": order.plugin_prepay_id,
+@@ -710,6 +868,82 @@ class MbsPaymentOrderService:
+                     "payment_state": order.plugin_payment_state,
+                 }
+ 
++    @classmethod
++    async def bind_registration_plugin_context(cls, pay_ord_id: str, context: Dict[str, Any]) -> None:
++        """为历史订单补绑服务端可信上下文；已绑定时只允许完全一致。"""
++        pay_ord_id = cls._required_text({"pay_ord_id": pay_ord_id}, "pay_ord_id")
++        normalized = cls._build_plugin_context(context)
++        async with session_connect() as db:
++            async with db.begin():
++                order = await cls._find_by_pay_ord_id(db, pay_ord_id, lock=True)
++                if order is None:
++                    raise CustomException(msg="插件支付未找到对应医保订单", status_code=409)
++                saved = cls.decrypt_plugin_context(order.plugin_context_ciphertext)
++                if saved:
++                    for field_name, value in normalized.items():
++                        if not cls._same_context_value(saved.get(field_name), value):
++                            raise CustomException(msg=f"插件支付字段 {field_name} 与订单已保存值不一致", status_code=409)
++                    return
++                order.plugin_context_ciphertext = cls.encrypt_plugin_context(normalized)
++                order.plugin_trade_code = normalized["trade_code"]
++
++    @classmethod
++    async def claim_registration_plugin_preorder(cls, pay_ord_id: str) -> Dict[str, Any]:
++        """以数据库行锁控制第二次 .2，避免重复点击产生多个云健康支付流水。"""
++        now = datetime.now(timezone.utc)
++        async with session_connect() as db:
++            async with db.begin():
++                order = await cls._find_by_pay_ord_id(db, cls._required_text({"pay_ord_id": pay_ord_id}, "pay_ord_id"), lock=True)
++                if order is None:
++                    raise CustomException(msg="插件支付未找到医保订单", status_code=409)
++                if order.plugin_paying_id and order.plugin_trading_id:
++                    return {"claimed": False, "in_progress": False, "paying_id": order.plugin_paying_id, "trading_id": order.plugin_trading_id}
++                if (
++                    order.plugin_payment_state == "PLUGIN_PREORDERING"
++                    and order.plugin_preorder_at
++                ):
++                    preorder_at = order.plugin_preorder_at
++                    if preorder_at.tzinfo is None:
++                        preorder_at = preorder_at.replace(tzinfo=timezone.utc)
++                    if now - preorder_at < timedelta(minutes=2):
++                        return {"claimed": False, "in_progress": True, "paying_id": None, "trading_id": None}
++                order.plugin_payment_state = "PLUGIN_PREORDERING"
++                order.plugin_preorder_at = now
++                return {"claimed": True, "in_progress": False, "paying_id": None, "trading_id": None}
++
++    @classmethod
++    async def record_registration_plugin_preorder(
++        cls,
++        pay_ord_id: str,
++        *,
++        paying_id: str,
++        trading_id: str,
++    ) -> None:
++        paying_id = cls._required_text({"paying_id": paying_id}, "paying_id")
++        trading_id = cls._required_text({"trading_id": trading_id}, "trading_id")
++        async with session_connect() as db:
++            async with db.begin():
++                order = await cls._find_by_pay_ord_id(db, cls._required_text({"pay_ord_id": pay_ord_id}, "pay_ord_id"), lock=True)
++                if order is None:
++                    raise CustomException(msg="插件支付第二次2.6.65.2回执未找到医保订单", status_code=409)
++                if order.plugin_paying_id and order.plugin_paying_id != paying_id:
++                    raise CustomException(msg="插件payingId与订单已登记值不一致", status_code=409)
++                if order.plugin_trading_id and order.plugin_trading_id != trading_id:
++                    raise CustomException(msg="插件tradingId与订单已登记值不一致", status_code=409)
++                order.plugin_paying_id = paying_id
++                order.plugin_trading_id = trading_id
++                order.plugin_payment_state = "PLUGIN_PREPAY_CREATED"
++                order.plugin_preorder_at = None
++                order.plugin_last_error = None
++
++    @classmethod
++    async def record_registration_plugin_preorder_failure(cls, pay_ord_id: str, error: str) -> None:
++        await cls.record_registration_plugin_writeback(
++            pay_ord_id,
++            state="PLUGIN_PREPAY_FAILED",
++            error=str(error or "插件第二次2.6.65.2调用失败")[:2000],
++        )
++
+     @classmethod
+     async def record_registration_plugin_prepay(cls, payload: Dict[str, Any], result: Dict[str, Any]) -> None:
+         pay_ord_id = cls._required_text(payload, "pay_ord_id")
+@@ -755,8 +989,60 @@ class MbsPaymentOrderService:
+                 "payment_state": order.plugin_payment_state,
+                 "refund_no": order.plugin_refund_no,
+                 "refund_state": order.plugin_refund_state,
++                "fee_sum_amt": str(order.fee_sum_amt or "0"),
++                "own_pay_amt": str(order.own_pay_amt or "0"),
++                "psn_acct_pay": str(order.psn_acct_pay or "0"),
++                "fund_pay": str(order.fund_pay or "0"),
++                "plugin_context": cls.decrypt_plugin_context(order.plugin_context_ciphertext),
++                "reconcile_state": order.plugin_reconcile_state,
+             }
+ 
++    @classmethod
++    async def list_plugin_reconcile_candidates(cls, limit: int) -> list[str]:
++        limit = max(1, min(int(limit), 100))
++        async with session_connect() as db:
++            statement = (
++                select(MbsMedicalOrderModel.pay_ord_id)
++                .where(
++                    MbsMedicalOrderModel.plugin_payment_state.in_(cls.PLUGIN_RECONCILE_CANDIDATE_STATES),
++                    MbsMedicalOrderModel.plugin_prepay_id.is_not(None),
++                    MbsMedicalOrderModel.plugin_context_ciphertext.is_not(None),
++                )
++                .order_by(MbsMedicalOrderModel.updated_at.asc())
++                .limit(limit)
++            )
++            return [str(value) for value in (await db.scalars(statement)).all() if value]
++
++    @classmethod
++    async def claim_plugin_reconcile(cls, pay_ord_id: str) -> bool:
++        now = datetime.now(timezone.utc)
++        async with session_connect() as db:
++            async with db.begin():
++                order = await cls._find_by_pay_ord_id(db, cls._required_text({"pay_ord_id": pay_ord_id}, "pay_ord_id"), lock=True)
++                if order is None or order.plugin_payment_state not in cls.PLUGIN_RECONCILE_CANDIDATE_STATES:
++                    return False
++                if order.plugin_reconcile_state == "PROCESSING" and order.plugin_reconcile_at:
++                    reconcile_at = order.plugin_reconcile_at
++                    if reconcile_at.tzinfo is None:
++                        reconcile_at = reconcile_at.replace(tzinfo=timezone.utc)
++                    if now - reconcile_at < timedelta(minutes=5):
++                        return False
++                order.plugin_reconcile_state = "PROCESSING"
++                order.plugin_reconcile_at = now
++                return True
++
++    @classmethod
++    async def finish_plugin_reconcile(cls, pay_ord_id: str, *, error: Optional[str] = None) -> None:
++        async with session_connect() as db:
++            async with db.begin():
++                order = await cls._find_by_pay_ord_id(db, cls._required_text({"pay_ord_id": pay_ord_id}, "pay_ord_id"), lock=True)
++                if order is None:
++                    return
++                order.plugin_reconcile_state = "FAILED" if error else "IDLE"
++                order.plugin_reconcile_at = datetime.now(timezone.utc)
++                if error:
++                    order.plugin_last_error = str(error)[:2000]
++
+     @classmethod
+     async def record_registration_plugin_writeback(
+         cls,
+@@ -810,6 +1096,25 @@ class MbsPaymentOrderService:
+                     raise CustomException(msg="微信自费订单未找到预登记记录", status_code=409)
+                 order.state = "SELF_PAY_CREATED"
+ 
++    @staticmethod
++    def _validate_wechat_callback_identity(decrypted: Dict[str, Any], *, event_type: str) -> None:
++        """校验解密后的回调确实属于本商户及本应用，避免只凭 out_trade_no 认领订单。"""
++        expected_mchid = str(settings.WECHAT_MCH_ID or "").strip()
++        actual_mchid = str(decrypted.get("mchid") or decrypted.get("mch_id") or "").strip()
++        if expected_mchid and actual_mchid != expected_mchid:
++            raise CustomException(msg="微信支付回调商户号与当前配置不一致", status_code=409)
++        actual_appid = str(decrypted.get("appid") or decrypted.get("app_id") or "").strip()
++        if not actual_appid:
++            return
++        expected_appids = {
++            str(settings.WECHAT_APPID or "").strip(),
++        }
++        if event_type == "MIX_PAY_NOTIFY":
++            expected_appids.add(str(settings.WECHAT_MED_INS_APPID or "").strip())
++        expected_appids.discard("")
++        if expected_appids and actual_appid not in expected_appids:
++            raise CustomException(msg="微信支付回调appid与当前配置不一致", status_code=409)
++
+     @classmethod
+     async def process_wechat_notify(
+         cls,
+@@ -831,6 +1136,7 @@ class MbsPaymentOrderService:
+                     order = await cls._find_by_out_trade_no(db, out_trade_no, lock=True)
+                 if order is None:
+                     raise CustomException(msg="微信支付回调未找到对应订单", status_code=409)
++                cls._validate_wechat_callback_identity(decrypted, event_type=event_type)
+                 duplicate = await cls._record_event(db, event_id, event_type, raw_body, order.id)
+                 if duplicate:
+                     return True
+diff --git a/app/api/v1/module_common/yunhealth_settle/schema.py b/app/api/v1/module_common/yunhealth_settle/schema.py
+index e8a4022..528ab43 100644
+--- a/app/api/v1/module_common/yunhealth_settle/schema.py
++++ b/app/api/v1/module_common/yunhealth_settle/schema.py
+@@ -1,6 +1,6 @@
+ # -*- coding: utf-8 -*-
+ 
+-from typing import Any
++from typing import Any, Literal
+ 
+ from pydantic import BaseModel, Field
+ 
+@@ -30,23 +30,20 @@ class RegistrationPluginSettlementCompleteRequest(BaseModel):
+ 
+ 
+ class RegistrationPluginPaymentOrderRequest(BaseModel):
+-    """6202 后创建插件第二笔支付及医院微信小程序预支付单。"""
++    """6202 后由后端幂等创建插件第二笔支付及医院微信小程序预支付单。
++
++    payingId/tradingId 不再由前端传入；它们必须来自服务端调用第二次
++    2.6.65.2 的持久化响应。其余医保/挂号上下文在第一次请求时固化，供
++    页面退出后的服务端恢复任务继续执行 .29/.15/.5。
++    """
+ 
+     payOrdId: str = Field(..., min_length=1, description="医保6202/6301支付订单号")
+     businessId: str = Field(..., min_length=1, description="2.6.65.1返回的businessId")
+-    payingId: str = Field(..., min_length=1, description="第二次2.6.65.2返回的payingId")
+-    tradingId: str = Field(..., min_length=1, description="第二次2.6.65.2返回的tradingId")
++    tradeCode: str = Field(..., min_length=1, description="插件第二次2.6.65.2业务订单号")
+     payTypeId: str = Field(..., min_length=1, description="第二次2.6.65.2使用的插件支付方式ID")
+     payType: str = Field(..., min_length=1, description="第三方支付类型")
+-    workStationId: str = Field(..., min_length=1, description="插件外部系统工作站ID")
++    workStationId: str = Field(..., description="插件外部系统工作站ID，可按首笔医保请求传空字符串")
+     openid: str = Field(..., min_length=1, description="当前微信用户openid")
+-
+-
+-class RegistrationPluginPaymentCompleteRequest(BaseModel):
+-    """微信支付成功后执行 .29 → .15 → .5。"""
+-
+-    payOrdId: str = Field(..., min_length=1, description="医保6202/6301支付订单号")
+-    businessId: str = Field(..., min_length=1, description="2.6.65.1返回的businessId")
+     patId: int = Field(..., gt=0, description="患者ID")
+     hospitalId: int | str = Field(..., description="医院ID")
+     certNo: str = Field(..., min_length=1, description="患者证件号码")
+@@ -54,16 +51,41 @@ class RegistrationPluginPaymentCompleteRequest(BaseModel):
+     psnName: str = Field(..., min_length=1, description="患者姓名")
+     psnNo: str = Field(..., min_length=1, description="医保人员编号")
+     tradeTypeCode: str = Field(default="10", min_length=1, description="业务编码")
+-    workStationId: str = Field(..., min_length=1, description="插件外部系统工作站ID")
+     patInHosId: int | str = Field(default=0, description="门诊传0")
++    payAuthNo: str = Field(..., min_length=1, description="6202使用的医保支付授权号")
++    # 兼容旧版调用方，但后端永远忽略这两个客户端流水号。
++    payingId: str | None = Field(default=None, description="已废弃：由服务端调用2.6.65.2生成")
++    tradingId: str | None = Field(default=None, description="已废弃：由服务端调用2.6.65.2生成")
++
++
++class RegistrationPluginPaymentCompleteRequest(BaseModel):
++    """微信支付成功后执行 .29 → .15 → .5。"""
++
++    payOrdId: str = Field(..., min_length=1, description="医保6202/6301支付订单号")
++    businessId: str = Field(..., min_length=1, description="2.6.65.1返回的businessId")
++    patId: int | None = Field(default=None, gt=0, description="兼容旧版：以订单已保存患者上下文为准")
++    hospitalId: int | str | None = Field(default=None, description="兼容旧版：以订单已保存医院上下文为准")
++    certNo: str | None = Field(default=None, description="兼容旧版：以订单已保存证件号码为准")
++    psnCertType: str | None = Field(default=None, description="兼容旧版：以订单已保存证件类型为准")
++    psnName: str | None = Field(default=None, description="兼容旧版：以订单已保存姓名为准")
++    psnNo: str | None = Field(default=None, description="兼容旧版：以订单已保存医保人员编号为准")
++    tradeTypeCode: str | None = Field(default=None, description="兼容旧版：以订单已保存业务编码为准")
++    workStationId: str | None = Field(default=None, description="兼容旧版：以订单已保存工作站为准")
++    patInHosId: int | str | None = Field(default=None, description="兼容旧版：以订单已保存门诊住院标识为准")
+ 
+ 
+ class RegistrationPluginRefundRequest(BaseModel):
+-    """插件微信现金退款；退款成功后同步 .15 的 payingType=3。"""
++    """插件版退款。
++
++    CASH 退微信自费并回写 .15；HI 只退医保分项并调用 6203；ALL 两边都退。
++    """
+ 
+     payOrdId: str = Field(..., min_length=1, description="医保6202/6301支付订单号")
+     outRefundNo: str = Field(..., min_length=1, description="微信商户退款单号")
+-    refundFee: str = Field(..., min_length=1, description="退款金额，单位元")
++    refundType: Literal["CASH", "HI", "ALL"] = Field(default="CASH", description="退款范围")
++    refundFee: str = Field(default="0", min_length=1, description="微信退款金额，单位元")
++    medicalPsnAcctRefundFee: str | None = Field(default=None, description="医保个人账户退款金额，单位元")
++    medicalFundRefundFee: str | None = Field(default=None, description="医保统筹基金退款金额，单位元")
+     reason: str = Field(default="挂号医保混合支付退款", description="退款原因")
+     tradeTypeCode: str = Field(default="10", min_length=1, description="业务编码")
+     workStationId: str = Field(..., min_length=1, description="插件外部系统工作站ID")
+@@ -76,7 +98,10 @@ class RegistrationPluginRefundSyncRequest(BaseModel):
+ 
+     payOrdId: str = Field(..., min_length=1, description="医保6202/6301支付订单号")
+     outRefundNo: str = Field(..., min_length=1, description="微信商户退款单号")
+-    refundFee: str = Field(..., min_length=1, description="退款金额，单位元")
++    refundType: Literal["CASH", "HI", "ALL"] = Field(default="CASH", description="退款范围")
++    refundFee: str = Field(default="0", min_length=1, description="微信退款金额，单位元")
++    medicalPsnAcctRefundFee: str | None = Field(default=None, description="医保个人账户退款金额，单位元")
++    medicalFundRefundFee: str | None = Field(default=None, description="医保统筹基金退款金额，单位元")
+     tradeTypeCode: str = Field(default="10", min_length=1, description="业务编码")
+     workStationId: str = Field(..., min_length=1, description="插件外部系统工作站ID")
+     hospitalId: int | str = Field(..., description="医院ID")

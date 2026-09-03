@@ -20,6 +20,8 @@ apps/.hospital-miniprogram-pending/
 .idea/
 .vscode/
 apps/miniprogram/dist/
+apps/miniprogram-pay/dist/
+apps/miniprogram-pay/project.private.config.json
 # 微信开发者工具的个人设置可能包含本机路径和开发者状态，不进入版本库。
 apps/miniprogram/project.private.config.json
 apps/miniprogram/src/project.private.config.json
@@ -30,4 +32,9 @@ docs/release/wechat-preview-*.json
 docs/release/wechat-preview-*.png
 # 当前真机预览二维码只在本机临时使用，不进入源码、发布包或文档归档。
 .local/device-acceptance/
-docs/obsidian/.obsidian
+# 医保测试环境密钥材料（反馈单提取值与旧项目凭据暂存），只能留在本机忽略目录。
+.local/medical-insurance/
+# 微信支付商户证书/私钥暂存（来自旧项目，仅本机使用）。
+.local/wechat-payment/
+# docs/相关文档/ 内含真实凭据反馈单与大体量规范原件，仓库只登记 SHA-256 指纹，原件不入库。
+docs/相关文档/

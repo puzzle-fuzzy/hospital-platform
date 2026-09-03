@@ -23,7 +23,10 @@ describe("跨业务域入口广度审计", () => {
 		expect(result.featureStatusActions).toContain(
 			"门诊费用:outpatient-payment-write",
 		);
-		expect(result.interactionAudit.pageCount).toBe(38);
+		expect(result.featureStatusActions).toContain(
+			"确认挂号信息:appointment-write",
+		);
+		expect(result.interactionAudit.pageCount).toBe(42);
 		expect(result.interactionAudit.failures).toEqual([]);
 		expect(result.interactionAudit.pages.every((page) => page.passed)).toBe(
 			true,

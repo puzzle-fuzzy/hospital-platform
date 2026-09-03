@@ -9,6 +9,7 @@
 		"pages/patient-select/patient-select",
 		"pages/hospital-list/hospital-list",
 		"pages/appointment-directory/appointment-directory",
+		"pages/appointment-schedule/appointment-schedule",
 		"pages/appointment-records/appointment-records",
 		"pages/missed-appointments/missed-appointments",
 		"pages/report-directory/report-directory",
@@ -36,8 +37,11 @@
 		"pages/appointment-detail/appointment-detail",
 		"pages/inpatient-center/inpatient-center",
 		"pages/my-doctor/my-doctor",
+		"pages/my-doctor-detail/my-doctor-detail",
 		"pages/electronic-consultation/electronic-consultation",
-		"pages/feature-status/feature-status"
+		"pages/feature-status/feature-status",
+		"pages/timeslot-source/timeslot-source",
+		"pages/confirm-registration/confirm-registration"
 	],
 	"window": {
 		"navigationBarTitleText": "高平医院",
@@ -79,6 +83,7 @@
 			}
 		]
 	},
+	"navigateToMiniProgramAppIdList": ["wx81ce904580cc0ff1"],
 	"style": "v2",
 	"sitemapLocation": "sitemap.json"
 }

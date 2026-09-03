@@ -39,6 +39,9 @@ export {
 export {
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
+	createInMemoryMedicalInsuranceOrderRepository,
+	createInMemoryMedicalInsuranceQueryTaskRepository,
+	createInMemoryMyDoctorRepository,
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,

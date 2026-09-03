@@ -31,6 +31,19 @@ export type RuntimeConfig = {
 	wechatPayApiV3Key: string | undefined;
 	wechatPayNotifyUrl: string | undefined;
 	wechatPayBaseUrl: string;
+	/** 旧医保 FSI 移动支付中心；完整配置不等于已通过真实结算验收。 */
+	medicalInsuranceReady: boolean;
+	medicalInsuranceRelayUrl: string | undefined;
+	medicalInsuranceDirectBaseUrl: string | undefined;
+	medicalInsuranceRelayAuthorizationToken: string | undefined;
+	medicalInsuranceAppId: string | undefined;
+	medicalInsuranceAppSecret: string | undefined;
+	medicalInsuranceSm2PrivateKeyB64: string | undefined;
+	medicalInsuranceSm2OwnPublicKeyB64: string | undefined;
+	medicalInsuranceSm2PlatformPublicKeyB64: string | undefined;
+	medicalInsuranceSm2UserId: string;
+	medicalInsuranceEncryptionEnabled: boolean;
+	medicalInsuranceVerifyStrict: boolean;
 	/** 众阳患者目录默认关闭；配置完整也不代表 provider 已联调。 */
 	patientDirectoryReady: boolean;
 	/** 预约 AMC 只读目录独立验收，不能随患者目录一起隐式打开。 */
@@ -76,6 +89,7 @@ export type ProviderConfigurationDiagnostic = {
 	name:
 		| "wechat-identity"
 		| "wechat-payment"
+		| "medical-insurance"
 		| "zhongyang-patient-directory"
 		| "zhongyang-appointment-directory"
 		| "zhongyang-appointment-records"
@@ -188,6 +202,70 @@ export function wechatPaymentConfigurationStatus(
 ): ProviderConfigurationStatus {
 	if (!runtimeConfig.wechatPaymentReady) return "disabled";
 	return wechatPaymentConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
+/**
+ * 医保移动支付只允许严格加密、严格验签和显式中转鉴权。
+ * 旧项目曾把中转 Bearer 写死在代码里；新项目不迁移这个默认值，缺失时
+ * 必须保持 incomplete，避免把正式医保报文发到未鉴权的 relay。
+ */
+export function medicalInsuranceConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.medicalInsuranceReady) return [];
+	const missing = missingRuntimeFields([
+		{
+			name: "MBS_FORWARD_RELAY_URL",
+			value: runtimeConfig.medicalInsuranceRelayUrl,
+		},
+		{
+			name: "MBS_FORWARD_BASE_URL_6201",
+			value: runtimeConfig.medicalInsuranceDirectBaseUrl,
+		},
+		{
+			name: "MBS_FORWARD_AUTHORIZATION_TOKEN",
+			value: runtimeConfig.medicalInsuranceRelayAuthorizationToken,
+		},
+		{ name: "MBS_APP_ID", value: runtimeConfig.medicalInsuranceAppId },
+		{ name: "MBS_APP_SECRET", value: runtimeConfig.medicalInsuranceAppSecret },
+		{
+			name: "MBS_SM2_PRIVATE_KEY_B64",
+			value: runtimeConfig.medicalInsuranceSm2PrivateKeyB64,
+		},
+		{
+			name: "MBS_SM2_OWN_PUBLIC_B64",
+			value: runtimeConfig.medicalInsuranceSm2OwnPublicKeyB64,
+		},
+		{
+			name: "MBS_SM2_PLATFORM_PUBLIC_B64",
+			value: runtimeConfig.medicalInsuranceSm2PlatformPublicKeyB64,
+		},
+		{ name: "MBS_SM2_USER_ID", value: runtimeConfig.medicalInsuranceSm2UserId },
+	]);
+	for (const [name, value] of [
+		["MBS_FORWARD_RELAY_URL", runtimeConfig.medicalInsuranceRelayUrl],
+		["MBS_FORWARD_BASE_URL_6201", runtimeConfig.medicalInsuranceDirectBaseUrl],
+	] as const) {
+		if (value && !isHttpsUrl(value) && !missing.includes(`${name}(https)`)) {
+			missing.push(`${name}(https)`);
+		}
+	}
+	if (!runtimeConfig.medicalInsuranceEncryptionEnabled) {
+		missing.push("MBS_ENCRYPT_ENABLE");
+	}
+	if (!runtimeConfig.medicalInsuranceVerifyStrict) {
+		missing.push("MBS_SM2_VERIFY_STRICT");
+	}
+	return missing;
+}
+
+export function medicalInsuranceConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.medicalInsuranceReady) return "disabled";
+	return medicalInsuranceConfigurationMissingFields(runtimeConfig).length === 0
 		? "configured"
 		: "incomplete";
 }
@@ -375,6 +453,11 @@ export function providerConfigurationDiagnostics(
 			missingFields: wechatPaymentConfigurationMissingFields(runtimeConfig),
 		},
 		{
+			name: "medical-insurance" as const,
+			status: medicalInsuranceConfigurationStatus(runtimeConfig),
+			missingFields: medicalInsuranceConfigurationMissingFields(runtimeConfig),
+		},
+		{
 			name: "zhongyang-patient-directory" as const,
 			status: patientDirectoryConfigurationStatus(runtimeConfig),
 			missingFields: patientDirectoryConfigurationMissingFields(runtimeConfig),
@@ -545,6 +628,23 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.WECHAT_PAY_BASE_URL,
 			DEFAULT_WECHAT_PAY_BASE_URL,
 		),
+		medicalInsuranceReady: boolean(env.MEDICAL_INSURANCE_READY, false),
+		medicalInsuranceRelayUrl: optional(env.MBS_FORWARD_RELAY_URL),
+		medicalInsuranceDirectBaseUrl: optional(env.MBS_FORWARD_BASE_URL_6201),
+		medicalInsuranceRelayAuthorizationToken: optional(
+			env.MBS_FORWARD_AUTHORIZATION_TOKEN,
+		),
+		medicalInsuranceAppId: optional(env.MBS_APP_ID),
+		medicalInsuranceAppSecret: optional(env.MBS_APP_SECRET),
+		medicalInsuranceSm2PrivateKeyB64: optional(env.MBS_SM2_PRIVATE_KEY_B64),
+		medicalInsuranceSm2OwnPublicKeyB64: optional(env.MBS_SM2_OWN_PUBLIC_B64),
+		medicalInsuranceSm2PlatformPublicKeyB64: optional(
+			env.MBS_SM2_PLATFORM_PUBLIC_B64,
+		),
+		medicalInsuranceSm2UserId:
+			optional(env.MBS_SM2_USER_ID) ?? "1234567812345678",
+		medicalInsuranceEncryptionEnabled: boolean(env.MBS_ENCRYPT_ENABLE, true),
+		medicalInsuranceVerifyStrict: boolean(env.MBS_SM2_VERIFY_STRICT, true),
 		patientDirectoryReady: boolean(
 			env.ZHONGYANG_PATIENT_DIRECTORY_READY,
 			false,

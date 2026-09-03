@@ -196,11 +196,11 @@ page {
 }
 
 .signature-arrow {
+	display: block;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
 	margin-left: 16rpx;
-	color: #999999;
-	font-size: 46rpx;
-	font-weight: 300;
-	line-height: 1;
 }
 
 .signature-other-row {

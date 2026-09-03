@@ -3,6 +3,9 @@ import {
 	ensureGlobalUserProfile,
 	type GlobalUserProfileState,
 } from "./services/global-user-profile";
+import { installClientPageTelemetry } from "./services/page-telemetry";
+import { resolveErrorNumericCode } from "./services/error-registry";
+import { recordClientTelemetryEvent } from "./services/telemetry";
 
 /**
  * App 入口最终会由构建脚本打包成微信可直接执行的全局脚本。源码可以使用
@@ -50,11 +53,13 @@ type AppGlobalData = {
 };
 
 /**
- * 构建脚本会把这个 40 位占位提交号替换为运行包的真实来源。
- * 真机调试日志因此可以直接区分“当前候选”与开发者工具/手机缓存的旧包，
+ * 构建脚本会把这些语义化占位符替换为运行包来源。正式包记录 Git 提交，
+ * 本地开发包记录工作树快照；日志因此可以区分当前候选、开发预览和旧缓存，
  * 不需要把患者、会话或 provider 信息写入日志。
  */
 const MINI_PROGRAM_BUILD_REVISION = "0000000000000000000000000000000000000000";
+const MINI_PROGRAM_BUILD_MODE = "__MINI_PROGRAM_BUILD_MODE__";
+const MINI_PROGRAM_BUILD_SOURCE_KIND = "__MINI_PROGRAM_BUILD_SOURCE_KIND__";
 
 /** 原生小程序全局状态只保存平台地址和 opaque 会话，不保存 provider 身份。 */
 const APP_GLOBAL_DATA: AppGlobalData = {
@@ -93,6 +98,13 @@ const APP_CONTAINER = { globalData: APP_GLOBAL_DATA };
 registerBootstrapApp(APP_CONTAINER);
 
 /**
+ * 在第一个页面模块加载前包装全局 `Page` 与导航 API：此后每个页面的
+ * 生命周期、用户点击和中转请求都会进入统一遥测事件流。安装失败只损失
+ * 观测，不影响小程序启动。
+ */
+installClientPageTelemetry();
+
+/**
  * 启动资料初始化必须同时防住“异步失败”和“同步抛错”两条路径。
  *
  * 正常情况下 `ensureGlobalUserProfile` 返回 Promise，`.catch()` 可以把网络、
@@ -104,10 +116,33 @@ registerBootstrapApp(APP_CONTAINER);
  */
 function startGlobalUserProfileBootstrap(): void {
 	const reportBootstrapError = (error: unknown): void => {
-		console.warn(
-			"[医院小程序] 全局用户资料初始化未完成，页面保留重试状态；errorType=",
-			error instanceof Error ? error.name : "unknown",
-		);
+		// 启动失败不会到达任何页面 UI；数字码与错误类型是这轮启动留存的
+		// 全部排障事实，原始错误对象本身不再向下传播。
+		if (typeof error === "object" && error !== null) {
+			const record = error as { code?: unknown; numericCode?: unknown };
+			const code = typeof record.code === "string" ? record.code : "";
+			const numeric =
+				typeof record.numericCode === "number"
+					? record.numericCode
+					: resolveErrorNumericCode(code);
+			recordClientTelemetryEvent({
+				kind: "app.launch",
+				outcome: "failed",
+				errorName: error instanceof Error ? error.name : "UnknownError",
+				fields: {
+					stage: "user-profile-bootstrap",
+					errorCode: numeric,
+					...(code ? { errorKey: code } : {}),
+				},
+			});
+			return;
+		}
+		recordClientTelemetryEvent({
+			kind: "app.launch",
+			outcome: "failed",
+			errorName: "UnknownError",
+			fields: { stage: "user-profile-bootstrap", errorCode: 10900 },
+		});
 	};
 
 	try {
@@ -122,10 +157,14 @@ App<{ globalData: AppGlobalData }>({
 	globalData: APP_GLOBAL_DATA,
 
 	onLaunch() {
-		console.info(
-			"[医院小程序] 运行包来源：微信原生 tabBar；revision=",
-			MINI_PROGRAM_BUILD_REVISION,
-		);
+		recordClientTelemetryEvent({
+			kind: "app.launch",
+			fields: {
+				mode: MINI_PROGRAM_BUILD_MODE,
+				sourceKind: MINI_PROGRAM_BUILD_SOURCE_KIND,
+				revision: MINI_PROGRAM_BUILD_REVISION,
+			},
+		});
 		// 用户进入小程序后立即启动一次静默会话/资料初始化；页面只等待这
 		// 一条 Promise，不再把首页、我的页或资料页的 onLoad 当作初始化入口。
 		// 失败会沉淀到全局 error 状态，页面仍可提供明确的重试，不会形成未处理

@@ -76,14 +76,18 @@ page {
 }
 
 .picker-value {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
 	padding: 30rpx 0;
 }
 
 .picker-arrow {
+	display: block;
+	flex: 0 0 28rpx;
+	width: 28rpx;
+	height: 28rpx;
 	margin-left: 12rpx;
-	color: #aaaaaa;
-	font-size: 40rpx;
-	line-height: 1;
 }
 
 .boundary-card {

@@ -1,4 +1,5 @@
 import departmentLocations from "../../data/department-location";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { getCurrentUser } from "../../services/api-client";
 import { appointmentRecordsErrorMessage } from "../../services/appointment-record-error";
 import {
@@ -540,7 +541,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
 			queryState: "error",
-			error: message,
+			error: errorMessageWithCode(error, message),
 			// “选择就诊人”只处理服务端明确返回的患者上下文错误；网络、
 			// Provider、持久化和依赖配置故障必须留在当前错误态，避免用户
 			// 被错误引导去换人而掩盖真正的服务问题。

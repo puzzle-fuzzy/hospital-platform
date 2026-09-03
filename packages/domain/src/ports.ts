@@ -137,6 +137,28 @@ export type MedicalInsuranceSettlementState =
 	| "awaiting_confirmation"
 	| "failed";
 
+/** 医保结算证据的来源；来源决定它是否具有最终性。 */
+export type MedicalInsuranceSettlementEvidenceSource =
+	| "6202"
+	| "6301"
+	| "6302"
+	| "yunhealth";
+
+/**
+ * 外部“成功”不能直接等价为业务成功。
+ *
+ * 6202/6301 的 3/4/5/6 只是当前旧流程允许进入后置编排的候选状态；
+ * 只有云健康/HIS 后置接口确认后，才可以标记为 paid。未知值必须停在
+ * unknown，避免 success=true 或 HTTP 200 穿透状态机。
+ */
+export type MedicalInsuranceSettlementEvidenceFinality =
+	| "processing"
+	| "settlement_candidate"
+	| "paid"
+	| "cancelled"
+	| "failed"
+	| "unknown";
+
 /**
  * 6202/6301 的金额证据必须和状态一起返回；query 不能只返回一个 success-like 状态。
  * 金额沿用订单的整数分模型，避免医保 adapter 重新定义元/分单位。
@@ -145,6 +167,11 @@ export type MedicalInsuranceSettlementEvidence = {
 	state: MedicalInsuranceSettlementState;
 	amounts: PaymentAmounts;
 	trace: ExternalTrace;
+	source: MedicalInsuranceSettlementEvidenceSource;
+	providerStatus: string;
+	finality: MedicalInsuranceSettlementEvidenceFinality;
+	/** 仅表示该证据可用于状态迁移，不表示整个业务订单已完成。 */
+	authoritative: boolean;
 };
 
 /** 支付订单的内部快照，金额统一使用整数分。 */
@@ -210,6 +237,10 @@ export interface MedicalInsuranceGateway {
 		state: MedicalInsuranceSettlementState;
 		amounts: PaymentAmounts;
 		trace: ExternalTrace;
+		source: MedicalInsuranceSettlementEvidenceSource;
+		providerStatus: string;
+		finality: MedicalInsuranceSettlementEvidenceFinality;
+		authoritative: boolean;
 	}>;
 	query(
 		input: {

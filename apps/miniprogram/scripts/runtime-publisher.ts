@@ -1,22 +1,54 @@
-import { access, mkdir, readdir, rename, rm } from "node:fs/promises";
+import {
+	access,
+	copyFile,
+	mkdir,
+	mkdtemp,
+	readdir,
+	readFile,
+	rename,
+	rm,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
+
+export type MiniProgramRuntimeBuildMode = "development" | "release";
 
 /**
  * 获取小程序待发布候选的本机隔离路径。
  *
- * 待发布候选只是在微信开发者工具锁住 `dist/` 时的临时副本，不是源码，
+ * 待发布候选只是在微信开发者工具锁住正式或开发运行目录时的临时副本，不是源码，
  * 不能放在 `apps/` 下，否则根目录 Biome、Git 或开发者工具都可能把它当成
  * 第二套小程序工程。统一放到仓库 `.local/` 下，既保留故障恢复能力，也
  * 让候选与正式运行包、TypeScript 源码和文档完全隔离。
  */
-export function getMiniProgramPendingRuntimePath(packageRoot: string): string {
+export function getMiniProgramPendingRuntimePath(
+	packageRoot: string,
+	buildMode: MiniProgramRuntimeBuildMode = "release",
+): string {
 	return join(
 		packageRoot,
 		"..",
 		"..",
 		".local",
 		"hospital-miniprogram",
-		"pending",
+		buildMode === "development" ? "pending-development" : "pending",
+	);
+}
+
+/**
+ * 本地开发包必须与正式 `apps/miniprogram/dist/` 完全隔离。开发者工具打开
+ * 此目录只能预览脏工作树快照，不能把它误传为正式候选或让父工程 watcher
+ * 混入另一套页面图。
+ */
+export function getMiniProgramDevelopmentRuntimePath(
+	packageRoot: string,
+): string {
+	return join(
+		packageRoot,
+		"..",
+		"..",
+		".local",
+		"hospital-miniprogram",
+		"development",
 	);
 }
 
@@ -52,15 +84,17 @@ export function isMiniProgramRuntimeLockError(error: unknown): boolean {
  *
  * `build` 和 `runtime:publish-pending` 都可能遇到同一个 Windows 文件句柄
  * 错误；如果两个入口各自拼接文案，维护人员会看到不同的下一步，甚至误以为
- * pending 候选已经丢失。这里集中说明三个事实：旧 dist 保留、候选已保留、
- * 关闭开发者工具后只需要执行一次发布命令。
+ * pending 候选已经丢失。这里集中说明三个事实：旧运行包保留、候选已保留、
+ * 关闭开发者工具后只需要执行一次匹配模式的发布命令。
  */
 export function createMiniProgramRuntimeLockError(
 	pendingRuntime: string,
 	cause: unknown,
+	publishCommand = "pnpm --filter @hospital/miniprogram runtime:publish-pending",
+	runtimeLabel = "dist/",
 ): Error {
 	return new Error(
-		`Mini program dist/ is locked by WeChat DevTools. The validated candidate was preserved at ${pendingRuntime}. Close the current mini-program window and any real-device debugging session, then run pnpm --filter @hospital/miniprogram runtime:publish-pending; the previous complete dist/ runtime was preserved.`,
+		`Mini program runtime is locked by WeChat DevTools. The validated candidate was preserved at ${pendingRuntime}. Close the current mini-program window and any real-device debugging session, then run ${publishCommand}; the previous complete ${runtimeLabel} runtime was preserved.`,
 		{ cause },
 	);
 }
@@ -185,6 +219,98 @@ export async function publishMiniProgramRuntime(
 	// 的运行包存在性，而不是只得到 rename 成功这一层的文件系统事实。
 	if (!(await pathExists(liveRuntime))) {
 		throw new Error("Mini program live runtime is missing after publish");
+	}
+}
+
+async function filesHaveSameContents(
+	leftPath: string,
+	rightPath: string,
+): Promise<boolean> {
+	try {
+		const [left, right] = await Promise.all([
+			readFile(leftPath),
+			readFile(rightPath),
+		]);
+		return left.equals(right);
+	} catch (error) {
+		if (isMissingPath(error)) return false;
+		throw error;
+	}
+}
+
+function developmentRuntimeFileOrder(relativePath: string): number {
+	// 先放入页面及其依赖，最后才切换注册表和启动脚本。这样开发者工具即使
+	// 恰好在监听一次保存，也只会看到“旧注册表 + 完整旧包”或“新注册表 +
+	// 完整新页面”，不会要求一个尚未写入的页面模块。
+	if (relativePath === "app.json") return 1;
+	if (
+		relativePath === "app.js" ||
+		relativePath === "project.config.json" ||
+		relativePath === "build-info.json"
+	) {
+		return 2;
+	}
+	return 0;
+}
+
+/**
+ * 开发者工具会把打开目录本身作为 worker 模块图的根。整目录 rename 虽然对
+ * 发布物是原子的，但会让工具短暂持有一个已移走的目录，进而报
+ * `module 'app.js' is not defined`。开发模式因此保持根目录 inode 不变：
+ * 每个已变更文件先复制到运行根外的临时目录，再以单文件 rename 覆盖；所有
+ * 页面文件先于 app.json，app.js 最后替换，旧模块路径始终存在。
+ *
+ * 正式 dist 继续使用上面的整目录原子发布，本函数只用于 development runtime。
+ */
+export async function publishMiniProgramDevelopmentRuntime(
+	stagingRuntime: string,
+	liveRuntime: string,
+): Promise<void> {
+	if (!(await pathExists(stagingRuntime))) {
+		throw new Error("Mini program development staging runtime does not exist");
+	}
+
+	if (!(await pathExists(liveRuntime))) {
+		await publishMiniProgramRuntime(stagingRuntime, liveRuntime);
+		return;
+	}
+
+	const stagingFiles = [...(await listFiles(stagingRuntime))].sort(
+		(left, right) => {
+			const orderDifference =
+				developmentRuntimeFileOrder(left) - developmentRuntimeFileOrder(right);
+			return orderDifference || left.localeCompare(right);
+		},
+	);
+	const stagingFileSet = new Set(stagingFiles);
+	const liveFiles = await listFiles(liveRuntime);
+	const syncDirectory = await mkdtemp(
+		join(dirname(liveRuntime), ".hospital-miniprogram-development-sync-"),
+	);
+
+	try {
+		for (const relativePath of stagingFiles) {
+			const stagedFile = join(stagingRuntime, relativePath);
+			const liveFile = join(liveRuntime, relativePath);
+			if (await filesHaveSameContents(stagedFile, liveFile)) continue;
+
+			const replacementFile = join(syncDirectory, relativePath);
+			await mkdir(dirname(replacementFile), { recursive: true });
+			await copyFile(stagedFile, replacementFile);
+			await mkdir(dirname(liveFile), { recursive: true });
+			await rename(replacementFile, liveFile);
+		}
+
+		// app.json 已在上一步靠后替换完成，残留的旧页面或资源现在才可安全
+		// 删除；它们从不会在新注册表生效前消失。
+		for (const relativePath of liveFiles) {
+			if (!stagingFileSet.has(relativePath)) {
+				await rm(join(liveRuntime, relativePath), { force: true });
+			}
+		}
+	} finally {
+		await rm(syncDirectory, { recursive: true, force: true });
+		await rm(stagingRuntime, { recursive: true, force: true });
 	}
 }
 

@@ -13,7 +13,7 @@
 		"pageCount": 38
 	},
 	"persistence": {
-		"schemaHead": "0017_outbox_manual_review_state",
+		"schemaHead": "0022_medical_insurance_query_task_version",
 		"migrationSource": "packages/persistence/src/migrate.ts"
 	},
 	"realDeviceEvidence": {

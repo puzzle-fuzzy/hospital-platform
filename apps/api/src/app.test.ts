@@ -147,6 +147,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/appointments/department-tree",
 		"/api/v1/appointments/records",
 		"/api/v1/appointments/schedules",
+		"/api/v1/appointments/schedules/{scheduleId}/sources",
 		"/api/v1/auth/wechat",
 		"/api/v1/knowledge/health/crowd/list",
 		"/api/v1/knowledge/health/department/list",
@@ -160,6 +161,8 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/knowledge/health/symptoms/list/part/{partId}",
 		"/api/v1/me",
 		"/api/v1/me/profile",
+		"/api/v1/my/doctors",
+		"/api/v1/my/doctors/{doctorId}",
 		"/api/v1/patients",
 		"/api/v1/patients/sync",
 		"/api/v1/payments/orders",
@@ -234,10 +237,7 @@ test("public API route table contains no unregistered method or path", async () 
 
 test("migration inventory labels production observations as evidence snapshots", async () => {
 	const inventory = await Bun.file(
-		join(
-			import.meta.dir,
-			"../../../docs/迁移/剩余迁移清单.md",
-		),
+		join(import.meta.dir, "../../../docs/迁移/剩余迁移清单.md"),
 	).text();
 
 	// 生产复核记录属于带版本的历史证据；如果不标明边界，新会话很容易把旧快照
@@ -262,10 +262,7 @@ test("migration inventory labels production observations as evidence snapshots",
 
 test("medical record draft preserves source evidence and fail-closed semantics", async () => {
 	const draft = await Bun.file(
-		join(
-			import.meta.dir,
-			"../../../docs/迁移/病案目录契约草案.md",
-		),
+		join(import.meta.dir, "../../../docs/迁移/病案目录契约草案.md"),
 	).text();
 
 	// 病历是最容易把“旧端声明过接口”误认为“新端可以直接复用”的业务域。
@@ -297,6 +294,7 @@ test("public API documentation lists every stable public error code", async () =
 		"appointment-query-invalid",
 		"appointment-record-query-invalid",
 		"appointment-record-patient-not-found",
+		"appointment-schedule-reference-expired",
 		"outpatient-payment-query-invalid",
 		"report-query-invalid",
 		"report-patient-not-found",
@@ -330,6 +328,9 @@ test("public API documentation lists every stable public error code", async () =
 		"persistence-invalid",
 		"user-profile-invalid",
 		"user-profile-conflict",
+		"my-doctor-query-invalid",
+		"my-doctor-not-found",
+		"my-doctor-already-followed",
 	] as const;
 
 	for (const code of publicErrorCodes) {
@@ -361,7 +362,7 @@ test("public API documentation freezes list and rendering semantics", async () =
 	// 路由存在门禁只能发现“有没有写接口”，这里额外固定列表的数量、空态、
 	// 排序和本地分批边界，避免后续把小程序的渲染优化误写成 provider 分页。
 	const requiredDocumentation = [
-		"### 3.6 列表、空结果和大结果集语义",
+		"### 3.8 列表、空结果和大结果集语义",
 		"`data.total` 必须等于 `items.length`",
 		"当前没有公开 `page`、`pageSize`、`cursor` 或 `hasMore` 字段",
 		"HTTP `200`、`items: []` 和 `total: 0`",
@@ -467,6 +468,7 @@ test("authenticated health knowledge reads keep the unpublished gate visible", a
 		success: false,
 		error: {
 			code: "health-knowledge-unavailable",
+			numericCode: 60120,
 			message: "健康知识内容暂时不可用，请稍后重试",
 		},
 	});
@@ -512,6 +514,7 @@ test("protected routes authenticate before query validation", async () => {
 			success: false,
 			error: {
 				code: "unauthorized",
+				numericCode: 10200,
 				message: "请先登录后再继续操作",
 			},
 		});
@@ -540,6 +543,7 @@ test("会话 Redis 失效时返回 401，而不是把缺失 token 当作依赖�
 		success: false,
 		error: {
 			code: "unauthorized",
+			numericCode: 10200,
 			message: "登录状态已失效，请重新登录",
 		},
 	});
@@ -568,6 +572,7 @@ test("会话 Redis 读取故障保持持久化暂不可用 503，不能误报为
 		success: false,
 		error: {
 			code: "persistence-temporarily-unavailable",
+			numericCode: 10600,
 			message: "数据服务暂时不可用，请稍后重试",
 		},
 	});
@@ -585,6 +590,7 @@ test("patient sync authenticates before validating its idempotency header", asyn
 		success: false,
 		error: {
 			code: "unauthorized",
+			numericCode: 10200,
 			message: "请先登录后再继续操作",
 		},
 	});
@@ -809,6 +815,7 @@ test("profile endpoint is owner-scoped and rejects stale versions", async () => 
 		success: false,
 		error: {
 			code: "user-profile-conflict",
+			numericCode: 60210,
 			message: "个人资料已被其他设备修改，请刷新后重试",
 		},
 	});
@@ -1133,6 +1140,7 @@ test("default auth dependency fails closed instead of issuing a fake token", asy
 		success: false,
 		error: {
 			code: "dependency-not-configured",
+			numericCode: 10500,
 			message: "该服务暂未配置完成，请稍后重试",
 		},
 	});
@@ -1765,6 +1773,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 		success: false,
 		error: {
 			code: "appointment-query-invalid",
+			numericCode: 30100,
 			message: "预约排班查询条件不合法",
 		},
 	});
@@ -1781,6 +1790,7 @@ test("appointment directory keeps provider fields behind a server read model", a
 		success: false,
 		error: {
 			code: "provider-request-rejected",
+			numericCode: 10800,
 			message: "外部服务拒绝了本次请求，请稍后重试",
 		},
 	});
@@ -1942,6 +1952,7 @@ test("report directory resolves internal patient ownership before provider looku
 		success: false,
 		error: {
 			code: "report-not-found",
+			numericCode: 40120,
 			message: "报告详情暂不可用",
 		},
 	});
@@ -1958,6 +1969,7 @@ test("report directory resolves internal patient ownership before provider looku
 		success: false,
 		error: {
 			code: "report-patient-not-found",
+			numericCode: 40110,
 			message: "当前就诊人暂无可查询的报告",
 		},
 	});
@@ -2618,6 +2630,7 @@ test("wechat prepay endpoint fails closed while the payment gate is disabled", a
 		success: false,
 		error: {
 			code: "dependency-not-configured",
+			numericCode: 10500,
 			message: "该服务暂未配置完成，请稍后重试",
 		},
 	});
@@ -2694,6 +2707,7 @@ test("payment routes fail closed before persistence while the payment gate is di
 		success: false,
 		error: {
 			code: "dependency-not-configured",
+			numericCode: 10500,
 			message: "该服务暂未配置完成，请稍后重试",
 		},
 	});
@@ -2702,6 +2716,7 @@ test("payment routes fail closed before persistence while the payment gate is di
 		success: false,
 		error: {
 			code: "dependency-not-configured",
+			numericCode: 10500,
 			message: "该服务暂未配置完成，请稍后重试",
 		},
 	});

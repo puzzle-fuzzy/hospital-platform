@@ -1,0 +1,195 @@
+<scroll-view class="appointment-schedule-scroll" scroll-y="true" enhanced="true">
+	<view class="appointment-schedule-page">
+		<!--
+			对应旧项目 department_select 与蓝狐的独立“门诊医生”页：
+			三级门诊名称由路由带入，排班数据由本页重新读取。
+		-->
+		<view class="appointment-mode-tabs">
+			<view
+				class="appointment-mode-tab {{activeMode === 'doctor' ? 'appointment-mode-tab-active' : ''}}"
+				bindtap="onModeTap"
+				data-mode="doctor"
+			>
+				按医生挂号
+			</view>
+			<view
+				class="appointment-mode-tab {{activeMode === 'date' ? 'appointment-mode-tab-active' : ''}}"
+				bindtap="onModeTap"
+				data-mode="date"
+			>
+				按日期挂号
+			</view>
+			<view
+				class="appointment-mode-indicator {{activeMode === 'doctor' ? 'appointment-mode-indicator-doctor' : 'appointment-mode-indicator-date'}}"
+			></view>
+		</view>
+
+		<!-- 读取、错误和空结果保持在同一个页面上下文，不回退到科室目录。 -->
+		<view wx:if="{{loading}}" class="schedule-query-state">
+			<view class="schedule-loading-icon" aria-hidden="true"></view>
+			<text>正在加载{{activeMode === 'doctor' ? '医生排班' : '当日号源'}}...</text>
+		</view>
+
+		<view wx:elif="{{error}}" class="schedule-query-state schedule-query-state-error">
+			<text class="schedule-query-error">{{error}}</text>
+			<view class="schedule-query-retry" bindtap="onRetry">重新加载</view>
+		</view>
+
+		<!-- 蓝狐图 9：默认以医生为主卡，医生卡只使用当前 API 实际返回的字段。 -->
+		<block wx:elif="{{activeMode === 'doctor'}}">
+			<view wx:if="{{doctorCards.length}}" class="doctor-list">
+				<view
+					wx:for="{{doctorCards}}"
+					wx:for-item="doctor"
+					wx:key="doctorId"
+					class="doctor-card"
+					bindtap="onDoctorCardTap"
+					data-doctor-id="{{doctor.doctorId}}"
+				>
+					<view class="doctor-card-main">
+						<image
+							wx:if="{{doctor.doctorPhotoUrl}}"
+							class="doctor-avatar doctor-avatar-photo"
+							src="{{doctor.doctorPhotoUrl}}"
+							mode="aspectFill"
+							lazy-load="{{true}}"
+							aria-label="医生照片"
+						/>
+						<view wx:else class="doctor-avatar" aria-label="医生">{{doctor.avatarLabel}}</view>
+						<view class="doctor-card-copy">
+							<view class="doctor-card-name-row">
+								<text class="doctor-card-name">{{doctor.doctorName}}</text>
+								<text
+									class="doctor-availability {{doctor.availableSlots > 0 ? 'doctor-availability-open' : 'doctor-availability-full'}}"
+								>{{doctor.availableSlots > 0 ? '有号' : '已约满'}}</text>
+							</view>
+							<text class="doctor-card-meta">共 {{doctor.scheduleCount}} 个出诊时段</text>
+							<text class="doctor-card-hint">当前可预约余 {{doctor.availableSlots}} 个号</text>
+						</view>
+					</view>
+
+					<view class="doctor-card-divider"></view>
+					<view class="doctor-date-section">
+						<text class="doctor-date-label">出诊日期</text>
+						<view class="doctor-date-list">
+							<block
+								wx:for="{{doctor.dates}}"
+								wx:for-item="date"
+								wx:for-index="dateIndex"
+								wx:key="workDate"
+							>
+								<view
+									wx:if="{{dateIndex < 3}}"
+									class="doctor-date-chip"
+									catchtap="onDoctorDateTap"
+									data-doctor-id="{{doctor.doctorId}}"
+									data-date="{{date.workDate}}"
+								>
+									<text>{{date.label}}</text>
+									<text class="doctor-date-slots">余 {{date.availableSlots}} 号</text>
+								</view>
+							</block>
+							<text wx:if="{{doctor.dates.length > 3}}" class="doctor-more-dates">...</text>
+						</view>
+					</view>
+					<view class="doctor-card-footer">
+						<text>点击医生或出诊日期查看该医生号源</text>
+						<text class="doctor-card-action">看号源</text>
+					</view>
+				</view>
+			</view>
+
+			<view wx:else class="schedule-query-state schedule-query-state-empty">
+				<text>当前细分门诊暂无可预约医生</text>
+				<text class="schedule-query-hint">请切换其他门诊或稍后刷新</text>
+			</view>
+		</block>
+
+		<!-- 蓝狐图 10：日期筛选、横向日期条及医生排班行。 -->
+		<block wx:else>
+			<view class="date-filter-bar">
+				<picker
+					mode="date"
+					value="{{selectedDate}}"
+					start="{{datePickerStart}}"
+					end="{{datePickerEnd}}"
+					bindchange="onDatePickerChange"
+				>
+					<view class="date-picker-trigger">
+						<text>{{selectedDateLabel}}</text>
+						<view class="date-filter-chevron" aria-hidden="true"></view>
+					</view>
+				</picker>
+				<!-- 当前公开 contract 尚无号别字段；保留信息位但不伪造下拉筛选。 -->
+				<view class="date-filter-static" aria-disabled="true">
+					<text>全部号别</text>
+				</view>
+			</view>
+
+			<view wx:if="{{selectedDoctorId}}" class="selected-doctor-filter">
+				<text>仅看 {{selectedDoctorName}} 的号源</text>
+				<text class="selected-doctor-clear" bindtap="onClearDoctorFilter">查看全部</text>
+			</view>
+
+			<scroll-view class="date-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
+				<view class="date-list">
+					<view
+						wx:for="{{dateOptions}}"
+						wx:for-item="date"
+						wx:key="workDate"
+						class="date-item {{date.workDate === selectedDate ? 'date-item-active' : ''}}"
+						bindtap="onDateTap"
+						data-date="{{date.workDate}}"
+					>
+						<text class="date-label">{{date.dateLabel}}</text>
+						<text class="date-weekday">{{date.weekdayLabel}}</text>
+					</view>
+				</view>
+			</scroll-view>
+
+			<view class="date-section-title">可预约号源</view>
+			<view wx:if="{{visibleSchedules.length}}" class="schedule-list">
+				<view
+					wx:for="{{visibleSchedules}}"
+					wx:key="scheduleId"
+					class="schedule-item"
+					bindtap="onScheduleTap"
+					data-schedule-id="{{item.scheduleId}}"
+				>
+					<image
+						wx:if="{{item.doctorPhotoUrl}}"
+						class="schedule-avatar schedule-avatar-photo"
+						src="{{item.doctorPhotoUrl}}"
+						mode="aspectFill"
+						lazy-load="{{true}}"
+						aria-label="医生照片"
+					/>
+					<view wx:else class="schedule-avatar" aria-label="医生">医</view>
+					<view class="schedule-item-copy">
+						<view class="schedule-doctor-line">
+							<text class="schedule-doctor">{{item.doctorName}}</text>
+							<text class="schedule-shift">{{item.shiftName}}</text>
+						</view>
+						<text class="schedule-date">{{item.workDate}}</text>
+						<text wx:if="{{item.startTime}}" class="schedule-time">
+							{{item.startTime}}<text wx:if="{{item.endTime}}"> - {{item.endTime}}</text>
+						</text>
+						<text wx:else class="schedule-time">具体时段以医院排班为准</text>
+					</view>
+					<view class="schedule-item-action">
+						<text class="schedule-slots {{item.availableSlots > 0 ? 'schedule-slots-available' : 'schedule-slots-empty'}}">剩 {{item.availableSlots}} 个</text>
+						<view class="schedule-reserve {{item.availableSlots > 0 ? 'schedule-reserve-active' : 'schedule-reserve-full'}}">{{item.availableSlots > 0 ? '挂号' : '已约满'}}</view>
+					</view>
+				</view>
+				<view wx:if="{{hasMoreSchedules}}" class="schedule-load-more" bindtap="onLoadMore">加载更多号源</view>
+			</view>
+
+			<view wx:else class="schedule-query-state schedule-query-state-empty">
+				<text>该日期暂无可预约号源</text>
+				<text class="schedule-query-hint">请选择其他日期或查看其他医生</text>
+			</view>
+		</block>
+
+		<view class="schedule-readonly-note">号源以医院实时安排为准</view>
+	</view>
+</scroll-view>

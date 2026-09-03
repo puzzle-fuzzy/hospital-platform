@@ -4,6 +4,7 @@ import type {
 	AppointmentDepartmentTreeResponse,
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
+	AppointmentScheduleSourceListResponse,
 	AuthSessionResponse,
 	CurrentUserResponse,
 	HealthKnowledgeCatalogResponse,
@@ -11,6 +12,9 @@ import type {
 	HealthKnowledgeDiseaseListResponse,
 	HealthKnowledgeDrugDetailResponse,
 	HealthKnowledgeSymptomListResponse,
+	MyDoctorDeleteResponse,
+	MyDoctorListResponse,
+	MyDoctorResponse,
 	OutpatientPaymentListResponse,
 	PatientListResponse,
 	ReportDetailResponse,
@@ -26,6 +30,8 @@ import {
 	sanitizeApiRequestPath,
 } from "./api-request-observability";
 import { getRegisteredApp } from "./app-runtime-context";
+import { resolveErrorNumericCode } from "./error-registry";
+import { logClientErrorTransformed } from "./telemetry";
 import { isBoundedPatientId } from "./patient-identifiers";
 import { notifySessionChanged } from "./session-events";
 import {
@@ -63,6 +69,11 @@ type ApiErrorDetails = {
 	statusCode?: number;
 	code?: string;
 	requestId?: string;
+	/**
+	 * 服务端权威数字错误码。旧服务响应可能缺少该字段；未提供时按
+	 * `error-registry.ts` 的镜像表由字符串码回退解析。
+	 */
+	numericCode?: number | undefined;
 };
 
 type MiniProgramGlobalData = {
@@ -116,10 +127,14 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"health-knowledge-not-found": "未找到相关健康内容",
 		"user-profile-invalid": "暂时无法读取个人资料，请稍后再试",
 		"user-profile-conflict": "个人资料已更新，请刷新后再试",
+		"my-doctor-query-invalid": "我的医生请求不合法，请稍后再试",
+		"my-doctor-not-found": "未找到该医生，请刷新后再试",
+		"my-doctor-already-followed": "该医生已在我的医生中",
 		"appointment-query-invalid": "暂时无法查询预约信息，请稍后再试",
 		"appointment-record-query-invalid": "暂时无法查询挂号记录，请稍后再试",
 		"date-range-invalid": "暂时无法查询，请稍后再试",
 		"appointment-record-patient-not-found": "未查询到挂号记录",
+		"appointment-schedule-reference-expired": "排班信息已更新，请返回重新选择",
 		"outpatient-payment-query-invalid": "暂时无法查询缴费记录，请稍后再试",
 		"report-query-invalid": "暂时无法查询检查报告，请稍后再试",
 		"report-patient-not-found": "未查询到检查报告",
@@ -159,11 +174,13 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		unknown: SAFE_UNKNOWN_ERROR_MESSAGE,
 	});
 
-/** API 错误保留状态码和服务端安全错误码，页面只展示 message。 */
+/** API 错误保留状态码、服务端安全错误码和数字错误码，页面只展示 message。 */
 export class ApiError extends Error {
 	readonly statusCode: number;
 	readonly code: string;
 	readonly requestId: string;
+	/** 排障定位索引；见 `error-registry.ts` 与 `docs/错误码.md`。 */
+	readonly numericCode: number;
 
 	constructor(
 		message: string,
@@ -171,6 +188,7 @@ export class ApiError extends Error {
 			statusCode = 0,
 			code = "api-request-failed",
 			requestId = "",
+			numericCode,
 		}: ApiErrorDetails = {},
 	) {
 		super(message);
@@ -178,6 +196,10 @@ export class ApiError extends Error {
 		this.statusCode = statusCode;
 		this.code = code;
 		this.requestId = requestId;
+		this.numericCode =
+			typeof numericCode === "number" && Number.isSafeInteger(numericCode)
+				? numericCode
+				: resolveErrorNumericCode(code);
 	}
 }
 
@@ -294,6 +316,15 @@ function invalidAppointmentRecordRequest(message: string): never {
 	throw new ApiError(message, {
 		code: "appointment-record-query-invalid",
 	});
+}
+
+function requireMyDoctorIdentifier(value: unknown): string {
+	if (!isBoundedAppointmentRequestIdentifier(value)) {
+		throw new ApiError("我的医生请求不合法", {
+			code: "my-doctor-query-invalid",
+		});
+	}
+	return value;
 }
 
 /** 底层排班请求只允许已经登记的 query 字段，禁止静默丢弃调用方意图。 */
@@ -1459,6 +1490,18 @@ function parseErrorCode(data: unknown): string {
 		: "api-request-failed";
 }
 
+/**
+ * 读取服务端权威数字错误码；旧服务响应或异常形状缺失时返回 undefined，
+ * 由 ApiError 按镜像表回退。非安全整数不透传，避免把任意数字写进展示层。
+ */
+function parseErrorNumericCode(data: unknown): number | undefined {
+	if (!isRecord(data) || !isRecord(data.error)) return undefined;
+	const value = data.error.numericCode;
+	return typeof value === "number" && Number.isSafeInteger(value)
+		? value
+		: undefined;
+}
+
 /** 生成仅用于链路关联的客户端 request id，不是认证凭证。 */
 function createRequestId(): string {
 	return `mp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -1569,16 +1612,20 @@ function requestWithConfig<TResponse = unknown>(
 			outcome: "success" | "http-error" | "network-error",
 			errorCode?: string,
 			resolvedRequestId = requestId,
+			payload?: Readonly<{ requestData?: unknown; responseData?: unknown }>,
 		) => {
-			recordApiRequestObservation({
-				requestId: resolvedRequestId,
-				method,
-				path: requestPath,
-				statusCode,
-				durationMs: Math.max(0, Date.now() - startedAt),
-				outcome,
-				...(errorCode ? { errorCode } : {}),
-			});
+			recordApiRequestObservation(
+				{
+					requestId: resolvedRequestId,
+					method,
+					path: requestPath,
+					statusCode,
+					durationMs: Math.max(0, Date.now() - startedAt),
+					outcome,
+					...(errorCode ? { errorCode } : {}),
+				},
+				payload,
+			);
 		};
 		wx.request<WechatMiniprogram.IAnyObject>({
 			url: requestUrl,
@@ -1595,7 +1642,16 @@ function requestWithConfig<TResponse = unknown>(
 			success: (response) => {
 				const resolvedRequestId = responseRequestId(response) || requestId;
 				if (response.statusCode >= 200 && response.statusCode < 300) {
-					observe(response.statusCode, "success", undefined, resolvedRequestId);
+					observe(
+						response.statusCode,
+						"success",
+						undefined,
+						resolvedRequestId,
+						{
+							requestData: data,
+							responseData: response.data,
+						},
+					);
 					resolve(response.data as TResponse);
 					return;
 				}
@@ -1606,12 +1662,17 @@ function requestWithConfig<TResponse = unknown>(
 					"http-error",
 					errorCode,
 					resolvedRequestId,
+					{
+						requestData: data,
+						responseData: errorData,
+					},
 				);
 				reject(
 					new ApiError(parseErrorMessage(errorData), {
 						statusCode: response.statusCode,
 						code: errorCode,
 						requestId: resolvedRequestId,
+						numericCode: parseErrorNumericCode(errorData),
 					}),
 				);
 			},
@@ -1722,6 +1783,9 @@ export async function requestWithSession<TResponse>(
 			// 跨账号写入或重复命令。即使服务端最终会拒绝，也不能把这
 			// 个安全责任交给“通常会 401”的实现细节。
 			if (currentToken && currentToken !== accessToken) {
+				// 替换前的原始 401 原因必须留痕：用户看到的 session-changed
+				// 数字码无法区分 unauthorized 与其他 401，转换前事实只在这里。
+				logClientErrorTransformed("api-client.command-session-retry", error);
 				throw new ApiError("Session changed while a command was pending", {
 					code: "session-changed",
 					requestId: error.requestId,
@@ -2006,6 +2070,84 @@ export function requestAppointmentSchedules(
 		requireSuccessDataResponse<AppointmentScheduleListResponse["data"]>(
 			payload,
 		),
+	);
+}
+
+/**
+ * 读取单个排班的分时段号源。
+ *
+ * scheduleId 是目录接口返回的短期 opaque 引用；过期时服务端返回
+ * `appointment-schedule-reference-expired`，页面应引导回目录重选。
+ */
+export function requestAppointmentScheduleSources(
+	scheduleId: string,
+): Promise<AppointmentScheduleSourceListResponse> {
+	if (
+		typeof scheduleId !== "string" ||
+		!scheduleId.trim() ||
+		scheduleId.length > 128
+	) {
+		return Promise.reject(
+			new ApiError("排班引用无效", {
+				code: "appointment-schedule-reference-expired",
+			}),
+		);
+	}
+	return requestWithSession<unknown>({
+		url: `/appointments/schedules/${encodeURIComponent(scheduleId.trim())}/sources`,
+	}).then((payload) =>
+		requireSuccessDataResponse<AppointmentScheduleSourceListResponse["data"]>(
+			payload,
+		),
+	);
+}
+
+/** 读取当前平台用户关注的医生；关系按服务端会话 owner 隔离。 */
+export function requestMyDoctors(): Promise<MyDoctorListResponse> {
+	return requestWithSession<unknown>({ url: "/my/doctors" }).then((payload) =>
+		requireSuccessDataResponse<MyDoctorListResponse["data"]>(payload),
+	);
+}
+
+/** 读取单个已关注医生的服务端关系快照。 */
+export function requestMyDoctor(doctorId: string): Promise<MyDoctorResponse> {
+	const normalizedDoctorId = requireMyDoctorIdentifier(doctorId);
+	return requestWithSession<unknown>({
+		url: `/my/doctors/${encodeURIComponent(normalizedDoctorId)}`,
+	}).then((payload) =>
+		requireSuccessDataResponse<MyDoctorResponse["data"]>(payload),
+	);
+}
+
+/**
+ * 关注医生只发送目录返回的医生 ID；服务端会重新读取排班事实并生成关系
+ * 快照，不接受小程序提交姓名、科室或 provider 原始字段。
+ */
+export function requestMyDoctorFollow(
+	doctorId: string,
+): Promise<MyDoctorResponse> {
+	const normalizedDoctorId = requireMyDoctorIdentifier(doctorId);
+	return requestWithSession<unknown>({
+		url: "/my/doctors",
+		method: "POST",
+		data: { doctorId: normalizedDoctorId },
+		idempotencyKey: createIdempotencyKey("my-doctor-follow"),
+	}).then((payload) =>
+		requireSuccessDataResponse<MyDoctorResponse["data"]>(payload),
+	);
+}
+
+/** 取消关注是幂等删除；即使关系已经不存在也返回 followed=false。 */
+export function requestMyDoctorUnfollow(
+	doctorId: string,
+): Promise<MyDoctorDeleteResponse> {
+	const normalizedDoctorId = requireMyDoctorIdentifier(doctorId);
+	return requestWithSession<unknown>({
+		url: `/my/doctors/${encodeURIComponent(normalizedDoctorId)}`,
+		method: "DELETE",
+		idempotencyKey: createIdempotencyKey("my-doctor-unfollow"),
+	}).then((payload) =>
+		requireSuccessDataResponse<MyDoctorDeleteResponse["data"]>(payload),
 	);
 }
 

@@ -44,8 +44,7 @@
 		</block>
 		<block wx:elif="{{error}}">
 			<image src="/assets/legacy-home/empty-services.png" mode="aspectFit" />
-			<text>本次报告目录未加载成功</text>
-			<text class="state-hint">请稍后再试</text>
+			<text>{{error}}</text>
 			<view class="state-hint state-hint-action" bindtap="onRetry">再试一次</view>
 			<view
 				wx:if="{{canSelectPatient}}"

@@ -37,6 +37,8 @@ const sources = Object.fromEntries(
 			"apps/miniprogram/src/services/global-user-profile.ts",
 			"apps/miniprogram/src/pages/index/index.ts",
 			"apps/miniprogram/src/pages/my/my.ts",
+			"apps/miniprogram/src/services/insurance-voucher-navigation.ts",
+			"apps/miniprogram/src/app.json",
 			"packages/observability/src/index.ts",
 			"packages/persistence/src/runtime.ts",
 			"packages/persistence/src/migrate.ts",
@@ -80,6 +82,91 @@ const miniprogramSource = (
 		),
 	)
 ).join("\n");
+
+/**
+ * 旧端源码已确认两个固定 H5 入口：互联网医院主 Tab 和默认智能客服；另有
+ * 一个固定的医保电子凭证小程序入口。它们不等于开放通用外链；每个入口都
+ * 必须通过自己的固定目标校验，其他页面仍全部禁止外部跳转。
+ */
+const internetHospitalScript = await readSource(
+	"apps/miniprogram/src/pages/hospital/hospital.ts",
+);
+const internetHospitalTemplate = await readSource(
+	"apps/miniprogram/src/pages/hospital/hospital.wxml",
+);
+const smartCustomerScript = await readSource(
+	"apps/miniprogram/src/pages/smart-customer/smart-customer.ts",
+);
+const smartCustomerTemplate = await readSource(
+	"apps/miniprogram/src/pages/smart-customer/smart-customer.wxml",
+);
+const insuranceVoucherNavigationSource = await readSource(
+	"apps/miniprogram/src/services/insurance-voucher-navigation.ts",
+);
+const miniprogramSourceWithoutBoundedExternalEntries = (
+	await Promise.all(
+		miniprogramProductionSourceFiles
+			.filter(
+				(file) =>
+					![
+						"apps/miniprogram/src/pages/hospital/hospital.wxml",
+						"apps/miniprogram/src/pages/smart-customer/smart-customer.wxml",
+						"apps/miniprogram/src/services/insurance-voucher-navigation.ts",
+						"apps/miniprogram/src/app.json",
+					].includes(file),
+			)
+			.map((file) =>
+				Bun.file(new URL(file.replaceAll("\\", "/"), repositoryRoot)).text(),
+			),
+	)
+).join("\n");
+const internetHospitalWebViewIsBounded =
+	(internetHospitalTemplate.match(/<web-view\b/gu) ?? []).length === 1 &&
+	internetHospitalTemplate.includes(
+		'<web-view class="internet-hospital-webview" src="{{webViewUrl}}">',
+	) &&
+	internetHospitalScript.includes("INTERNET_HOSPITAL_BASE_URL") &&
+	internetHospitalScript.includes(
+		"https://cx.o2o.bailingjk.net/wechat/#/bluser/userCard/index?publicNoCode=gzh-048400_0001",
+	) &&
+	[
+		"decodeURIComponent",
+		"system/auth/ticket",
+		"navigateToMiniProgram",
+		"openEmbeddedMiniProgram",
+	].every((fragment) => !internetHospitalScript.includes(fragment));
+const smartCustomerWebViewIsBounded =
+	(smartCustomerTemplate.match(/<web-view\b/gu) ?? []).length === 1 &&
+	smartCustomerTemplate.includes(
+		'<web-view class="smart-customer-webview" src="{{webViewUrl}}">',
+	) &&
+	smartCustomerScript.includes("SMART_CUSTOMER_BASE_URL") &&
+	smartCustomerScript.includes("https://html.ydrj.top") &&
+	[
+		"decodeURIComponent",
+		"system/auth/ticket",
+		"navigateToMiniProgram",
+		"openEmbeddedMiniProgram",
+	].every((fragment) => !smartCustomerScript.includes(fragment));
+const insuranceVoucherNavigationIsBounded =
+	insuranceVoucherNavigationSource.includes("wx.navigateToMiniProgram({") &&
+	insuranceVoucherNavigationSource.includes(
+		'INSURANCE_VOUCHER_APP_ID = "wx81ce904580cc0ff1"',
+	) &&
+	insuranceVoucherNavigationSource.includes('path: ""') &&
+	insuranceVoucherNavigationSource.includes("extraData: {}") &&
+	[
+		"decodeURIComponent",
+		"patientId",
+		"patient.id",
+		"orderId",
+		"provider",
+		"url:",
+		"openEmbeddedMiniProgram",
+	].every((fragment) => !insuranceVoucherNavigationSource.includes(fragment)) &&
+	(sources["apps/miniprogram/src/app.json"] ?? "").includes(
+		'"wx81ce904580cc0ff1"',
+	);
 
 /** 每条规则都有稳定名称，方便 CI 失败后按规则定位，而不是只看总分。 */
 const checks = [];
@@ -332,15 +419,20 @@ for (const forbidden of [
 }
 
 /**
- * 外部小程序和 WebView 不是普通页面跳转：它们需要主体、受众、短期票据、回调校验和撤销策略。
- * 在这些 contract 与 Provider 文档冻结前，生产源码必须保持无入口，避免“先跳起来再补安全”的不可逆迁移。
+ * 外部小程序和 WebView 不是普通页面跳转：它们需要明确的目标、受众、参数
+ * 和失败边界。互联网医院、默认智能客服和医保电子凭证是旧端已确认的固定
+ * 入口，因此仅允许这三处通过专门校验；其他页面仍必须保持无外部入口。
  */
 check(
 	"miniprogram.no-unverified-external-entry",
 	!["navigateToMiniProgram", "openEmbeddedMiniProgram", "<web-view"].some(
-		(fragment) => miniprogramSource.includes(fragment),
+		(fragment) =>
+			miniprogramSourceWithoutBoundedExternalEntries.includes(fragment),
 	),
-	"跨小程序和 WebView 入口必须等待独立安全 contract、allowlist 与回调验收后再开放。",
+	internetHospitalWebViewIsBounded &&
+		smartCustomerWebViewIsBounded &&
+		insuranceVoucherNavigationIsBounded,
+	"仅允许互联网医院、默认智能客服固定 H5 和医保电子凭证固定小程序入口；其他外部入口必须经过独立安全审计。",
 );
 
 /**
@@ -393,7 +485,7 @@ check(
 		"CURRENT_PATIENT",
 		"wx0b76c9904392518f",
 	].some((fragment) => miniprogramSource.includes(fragment)),
-	"生产小程序不能携带旧端假患者、固定外部 AppID 或本地患者缓存标记。",
+	"生产小程序不能携带旧端假患者、未审计外部 AppID 或本地患者缓存标记。",
 );
 
 check(

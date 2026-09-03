@@ -1,0 +1,51 @@
+<scroll-view class="timeslot-scroll" scroll-y="true" enhanced="true">
+	<view wx:if="{{error}}" class="timeslot-error">
+		<text>{{error}}</text>
+		<button class="timeslot-retry" bindtap="onRetry">重新获取</button>
+	</view>
+
+	<block wx:elif="{{loading}}">
+		<view class="timeslot-loading">
+			<text>正在获取号源…</text>
+		</view>
+	</block>
+
+	<block wx:else>
+		<view wx:if="{{schedule}}" class="timeslot-doctor">
+			<view class="timeslot-doctor-main">
+				<view class="timeslot-doctor-title">
+					<text class="timeslot-doctor-name">{{schedule.doctorName}}</text>
+					<text class="timeslot-doctor-shift">{{schedule.shiftName}}</text>
+				</view>
+				<text class="timeslot-doctor-dept">{{schedule.departmentName}}</text>
+				<text class="timeslot-doctor-date">就诊日期 {{schedule.workDate}}</text>
+			</view>
+			<view class="timeslot-doctor-count">
+				<text class="timeslot-doctor-count-num">{{schedule.availableSlots}}</text>
+				<text class="timeslot-doctor-count-label">剩余号源</text>
+			</view>
+		</view>
+
+		<view wx:if="{{slots.length > 0}}" class="timeslot-grid">
+			<view
+				wx:for="{{slots}}"
+				wx:key="serialNumber"
+				class="timeslot-slot"
+				data-index="{{index}}"
+				bindtap="onSlotTap"
+			>
+				<text class="timeslot-slot-no">{{item.serialNumber}}号</text>
+				<text class="timeslot-slot-time">{{item.timeLabel}}</text>
+			</view>
+		</view>
+
+		<view wx:else class="timeslot-empty">
+			<text class="timeslot-empty-title">当前排班暂无可约时段</text>
+			<text class="timeslot-empty-note">请返回选择其他医生或日期</text>
+		</view>
+
+		<view class="timeslot-notice">
+			<text>时段号源为医院实时数据，以下单时实际可约为准；预约写入与支付功能开放前，暂不能在线锁号。</text>
+		</view>
+	</block>
+</scroll-view>

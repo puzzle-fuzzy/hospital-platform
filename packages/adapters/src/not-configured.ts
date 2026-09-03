@@ -57,6 +57,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const appointmentDirectory: AppointmentDirectoryGateway = {
 		listDepartments: async (_input, _context) => unavailable("zhongyang"),
 		listSchedules: async (_input, _context) => unavailable("zhongyang"),
+		listSources: async (_input, _context) => unavailable("zhongyang"),
 	};
 	const appointmentDepartmentTree: AppointmentDepartmentTreeGateway = {
 		listDepartmentTree: async (_context) => unavailable("zhongyang"),

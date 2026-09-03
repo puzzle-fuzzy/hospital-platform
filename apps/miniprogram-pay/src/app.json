@@ -1,0 +1,12 @@
+{
+	"pages": ["pages/index/index"],
+	"window": {
+		"navigationBarTitleText": "医保测试挂号",
+		"navigationBarBackgroundColor": "#f7f8fa",
+		"navigationBarTextStyle": "black",
+		"backgroundColor": "#f7f8fa",
+		"backgroundTextStyle": "dark"
+	},
+	"navigateToMiniProgramAppIdList": ["wxe183cd55df4b4369"],
+	"sitemapLocation": "sitemap.json"
+}

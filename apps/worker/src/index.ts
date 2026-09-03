@@ -26,6 +26,16 @@ export {
 	type PaymentReconciliationWorkerResult,
 } from "./payment-reconciliation-worker";
 export {
+	MedicalInsuranceReconciliationWorker,
+	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	type MedicalInsuranceReconciliationWorkerResult,
+} from "./medical-insurance-reconciliation-worker";
+export type {
+	MedicalInsuranceQueryTask,
+	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceQueryTaskStatus,
+} from "@hospital/domain";
+export {
 	type PreflightCheck,
 	runWorkerPreflight,
 	type WorkerPreflightResult,

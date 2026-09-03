@@ -442,7 +442,7 @@ test("patient selection errors do not fall through to an unbound-patient empty s
 	expect(selection).toContain("void this.loadPatientList()");
 });
 
-test("appointment directory errors do not fall through to cascade or empty schedule state", async () => {
+test("appointment directory errors do not fall through to cascade or empty clinic state", async () => {
 	const directory = await source(
 		"pages/appointment-directory/appointment-directory.ts",
 	);
@@ -450,7 +450,7 @@ test("appointment directory errors do not fall through to cascade or empty sched
 		"pages/appointment-directory/appointment-directory.wxml",
 	);
 
-	// 科室读取和排班读取都属于同一只读目录链；任一层失败时统一回到完整
+	// 一级、二级和细分门诊都属于同一只读目录链；任一层失败时统一回到完整
 	// 目录重试，不能把旧快照或空数组解释成“没有可预约内容”。
 	const errorBranch = '<block wx:elif="{{error}}">';
 	expect(template.indexOf(errorBranch)).toBeGreaterThan(-1);
@@ -460,7 +460,7 @@ test("appointment directory errors do not fall through to cascade or empty sched
 		),
 	);
 	expect(template).toContain('bindtap="onRetry"');
-	// 首层目录和右栏排班都必须固定状态高度，避免加载完成切到图片空态时跳动。
+	// 首层目录和右栏细分门诊都必须固定状态高度，避免加载完成切到图片空态时跳动。
 	expect(template).toContain(
 		'class="state-card query-state-shell query-state-shell-column"',
 	);
@@ -815,10 +815,7 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
 	const bindingContract = await Bun.file(
-		join(
-			import.meta.dir,
-			"../../../docs/迁移/患者绑定契约草案.md",
-		),
+		join(import.meta.dir, "../../../docs/迁移/患者绑定契约草案.md"),
 	).text();
 
 	// provider 文档和最终状态查询未冻结前，页面只能进入安全的迁移外壳，
@@ -1459,6 +1456,9 @@ test("native my page separates ordinary profile from family patient selection", 
 	const client = await source("services/api-client.ts");
 	const navigation = await source("services/patient-navigation.ts");
 	const featureNavigation = await source("services/feature-navigation.ts");
+	const insuranceVoucherNavigation = await source(
+		"services/insurance-voucher-navigation.ts",
+	);
 	const build = await Bun.file(join(import.meta.dir, "build.ts")).text();
 
 	expect(app).toContain('"pages/profile/profile"');
@@ -1573,11 +1573,21 @@ test("native my page separates ordinary profile from family patient selection", 
 	expect(my).toContain('title: "智能客服"');
 	expect(my).toContain('case "electronic-consultation"');
 	expect(my).toContain('case "smart-customer"');
+	expect(my).toContain("navigateToInsuranceVoucher");
+	expect(my).not.toContain('navigateToFeatureStatus("insurance")');
+	expect(insuranceVoucherNavigation).toContain(
+		'INSURANCE_VOUCHER_APP_ID = "wx81ce904580cc0ff1"',
+	);
+	expect(insuranceVoucherNavigation).toContain("wx.navigateToMiniProgram({");
+	expect(insuranceVoucherNavigation).toContain('path: ""');
+	expect(insuranceVoucherNavigation).toContain("extraData: {}");
+	expect(app).toContain('"navigateToMiniProgramAppIdList"');
+	expect(app).toContain('"wx81ce904580cc0ff1"');
 	expect(my).toContain("navigateToFeatureEntry");
 	expect(home).toContain("onFloatingGuide");
 	expect(home).toContain('navigateToFeatureEntry("smart-customer")');
 	expect(home).not.toContain('title: "智能客服功能迁移中"');
-	expect(featureNavigation).toContain("医保电子凭证需要独立授权");
+	expect(featureNavigation).toContain("医保支付流程需要独立授权和结算回写");
 	expect(featureNavigation).toContain("FEATURE_STATUS_CATALOG");
 	expect(featureNavigation).toContain("encodeURIComponent(feature)");
 	for (const feature of [
@@ -1762,7 +1772,7 @@ test("native primary tabs keep one stable selected bar", async () => {
 	expect(app.tabBar).not.toHaveProperty("fontSize");
 	expect(app.tabBar).not.toHaveProperty("iconWidth");
 	expect(app.tabBar).not.toHaveProperty("spacing");
-	expect(await source("app.wxss")).toContain(
+	expect(await source("app.wxss")).not.toContain(
 		"padding-bottom: calc(130rpx + env(safe-area-inset-bottom));",
 	);
 	expect(build).toContain("native tabBar");
@@ -1786,7 +1796,7 @@ test("native primary tab pages keep a stable patient header during session refre
 	expect(my).toContain("全局资料仓库");
 });
 
-test("consult and internet hospital tabs keep unfinished external contracts closed", async () => {
+test("consult remains closed while fixed legacy H5 entries stay bounded", async () => {
 	const app = JSON.parse(await source("app.json")) as {
 		tabBar?: { list?: Array<{ pagePath: string }> };
 	};
@@ -1794,6 +1804,10 @@ test("consult and internet hospital tabs keep unfinished external contracts clos
 	const consultTemplate = await source("pages/consult/consult.wxml");
 	const hospital = await source("pages/hospital/hospital.ts");
 	const hospitalTemplate = await source("pages/hospital/hospital.wxml");
+	const smartCustomer = await source("pages/smart-customer/smart-customer.ts");
+	const smartCustomerTemplate = await source(
+		"pages/smart-customer/smart-customer.wxml",
+	);
 
 	// 这两个页面虽然已经是正式主 Tab，但页面入口存在不等于业务 contract
 	// 已冻结。门禁直接阻止旧端 WebSocket、队列直连和 provider 患者号回到新端。
@@ -1812,15 +1826,30 @@ test("consult and internet hospital tabs keep unfinished external contracts clos
 	expect(consultTemplate).toContain("当前仅展示已确认的就诊摘要");
 	expect(consultTemplate).toContain("query-state-shell");
 
-	// 互联网医院属于独立外部 audience：没有 resourceKey、allowlist、短期
-	// 一次性引用和回调审计之前，不能把旧固定地址或万能 WebView 复活。
-	expect(hospital).not.toContain("webViewUrl");
-	expect(hospital).not.toContain("cx.o2o.bailingjk.net");
+	// 互联网医院只恢复旧端已确认的固定地址；页面不接受任意 URL，也不把
+	// 平台 token 或通用 ticket 交给外部页面。
+	expect(hospital).toContain("webViewUrl");
+	expect(hospital).toContain("cx.o2o.bailingjk.net");
 	expect(hospital).not.toContain("system/auth/ticket");
 	expect(hospital).not.toContain("navigateToMiniProgram");
-	expect(hospitalTemplate).not.toContain("<web-view");
-	expect(hospitalTemplate).toContain("互联网医院服务正在完善中");
-	expect(hospitalTemplate).toContain("query-state-shell");
+	expect(hospitalTemplate).toContain(
+		'<web-view class="internet-hospital-webview"',
+	);
+	expect(hospitalTemplate).toContain('src="{{webViewUrl}}"');
+	expect(hospitalTemplate).not.toContain("互联网医院服务正在完善中");
+	expect(hospitalTemplate).not.toContain("扫描身份证办卡");
+	expect(hospitalTemplate).not.toContain("query-state-shell");
+
+	// 智能客服同样恢复旧端默认 H5，但不恢复通用 webview 的动态 URL 和 ticket。
+	expect(smartCustomer).toContain("SMART_CUSTOMER_BASE_URL");
+	expect(smartCustomer).toContain("https://html.ydrj.top");
+	expect(smartCustomer).not.toContain("system/auth/ticket");
+	expect(smartCustomer).not.toContain("decodeURIComponent");
+	expect(smartCustomerTemplate).toContain(
+		'<web-view class="smart-customer-webview"',
+	);
+	expect(smartCustomerTemplate).toContain('src="{{webViewUrl}}"');
+	expect(smartCustomerTemplate).not.toContain("migration-surface");
 });
 
 test("native primary tabs keep scrolling inside the content viewport", async () => {
@@ -1831,8 +1860,8 @@ test("native primary tabs keep scrolling inside the content viewport", async () 
 	const appStyle = await source("app.wxss");
 
 	// 微信 page 默认负责整体滚动；如果主 Tab 只靠 fixed 底栏而不隔离内容，
-	// 页面滚动时底栏会进入同一滚动边界。四个主页面必须统一使用内容 scroll-view，
-	// 防止某个页面日后又回退成“整页滚动 + 底栏跟着漂移”。
+	// 页面滚动时底栏会进入同一滚动边界。三个原生主页面使用内容 scroll-view，
+	// 互联网医院是旧端固定 WebView 例外。
 	expect(tabPages).toHaveLength(4);
 	expect(appStyle).toContain(".tab-page-scroll {");
 	for (const pagePath of tabPages) {
@@ -1841,9 +1870,19 @@ test("native primary tabs keep scrolling inside the content viewport", async () 
 		const pageConfig = JSON.parse(await source(`${pagePath}.json`)) as {
 			disableScroll?: boolean;
 		};
+		expect(pageConfig.disableScroll).toBe(true);
+		if (pagePath === "pages/hospital/hospital") {
+			// 互联网医院按旧端行为承载固定 H5，不使用原生 scroll-view。
+			expect(template.trimStart()).toContain(
+				'<web-view class="internet-hospital-webview"',
+			);
+			expect(template).toContain('src="{{webViewUrl}}"');
+			expect(pageStyle).toContain("height: 100%;");
+			expect(pageStyle).toContain("overflow: hidden;");
+			continue;
+		}
 		// 原生底栏已经是微信独立层；如果页面自身仍可滚动，切换时会出现
 		// 整页滚动边界与内容 scroll-view 竞争，表现为底栏闪动或页面整体滚动条。
-		expect(pageConfig.disableScroll).toBe(true);
 		expect(
 			template.startsWith("\n<scroll-view") ||
 				template.startsWith("<scroll-view"),
@@ -1871,9 +1910,9 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 	// 主 Tab 与二级页面都必须关闭微信默认的页面级滚动；前者使用共享
 	// tab-page-scroll，后者使用统一的 secondary-page-scroll。这样用户只会
 	// 看到内容区域滚动，不会在页面层和业务列表之间遇到额外滚动边界。
-	// app.json 是小程序页面事实源；广度迁移新增的 12 个关闭态入口也必须
+	// app.json 是小程序页面事实源；广度迁移入口和新增的独立门诊排班页都必须
 	// 纳入构建和真机运行包，避免只更新台账而漏掉实际路由注册。
-	expect(app.pages).toHaveLength(38);
+	expect(app.pages).toHaveLength(42);
 	expect(appStyle).toContain(".secondary-page-scroll {");
 	for (const pagePath of app.pages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -1883,17 +1922,30 @@ test("native secondary pages keep scrolling inside one explicit content viewport
 		const expectedClass = tabPages.has(pagePath) ? "tab-page-scroll" : "scroll";
 
 		expect(pageConfig.disableScroll).toBe(true);
+		if (
+			pagePath === "pages/hospital/hospital" ||
+			pagePath === "pages/smart-customer/smart-customer"
+		) {
+			// 互联网医院和默认智能客服按旧端行为承载固定 H5，是原生页面中
+			// 唯一的两个 WebView 例外。
+			expect(template.trimStart()).toContain(
+				pagePath === "pages/hospital/hospital"
+					? '<web-view class="internet-hospital-webview"'
+					: '<web-view class="smart-customer-webview"',
+			);
+			expect(template).toContain('src="{{webViewUrl}}"');
+			continue;
+		}
 		expect(template.trimStart().startsWith("<scroll-view")).toBe(true);
 		expect(template).toContain('scroll-y="true"');
 		expect(template).toMatch(new RegExp(`class="[^"]*${expectedClass}`));
 	}
 });
 
-test("native clinical shells use the shared style and my page fills the scroll tail", async () => {
+test("native clinical shells keep the shared style and my-doctor is a real page", async () => {
 	const clinicalPages = [
 		"pages/electronic-consultation/electronic-consultation",
 		"pages/inpatient-center/inpatient-center",
-		"pages/my-doctor/my-doctor",
 	];
 	for (const pagePath of clinicalPages) {
 		const template = await source(`${pagePath}.wxml`);
@@ -1904,6 +1956,12 @@ test("native clinical shells use the shared style and my page fills the scroll t
 		expect(template).toContain('class="migration-surface-scroll"');
 		expect(template).not.toContain("clinical-surface-");
 	}
+	const doctorTemplate = await source("pages/my-doctor/my-doctor.wxml");
+	const doctorScript = await source("pages/my-doctor/my-doctor.ts");
+	expect(doctorTemplate).toContain('class="my-doctor-scroll"');
+	expect(doctorTemplate).toContain('bindtap="onDoctorTap"');
+	expect(doctorScript).toContain("requestMyDoctors");
+	expect(doctorScript).not.toContain("registerClinicalSurfacePage");
 
 	const myStyle = await source("pages/my/my.wxss");
 	const patientSurface = await source("services/patient-surface-context.ts");
@@ -1915,25 +1973,22 @@ test("native clinical shells use the shared style and my page fills the scroll t
 	expect(patientSurface).not.toContain("就诊卡信息不可用");
 });
 
-test("consult and internet hospital empty states keep the legacy vertical layout", async () => {
+test("consult keeps its empty state while internet hospital uses the fixed legacy webview", async () => {
 	const consultStyle = await source("pages/consult/consult.wxss");
 	const hospitalStyle = await source("pages/hospital/hospital.wxss");
 
-	// 两个主 Tab 当前都可能展示“迁移中/暂无记录”状态；状态内容由图片、
-	// 标题和说明组成，必须明确声明纵向排列。只测到 display:flex 不够，
-	// 因为 WXSS 默认 flex-direction 是 row，真机上会把状态内容横向挤压。
+	// 问诊页仍可能展示“迁移中/暂无记录”状态；状态内容由图片、标题和说明
+	// 组成，必须明确声明纵向排列。只测到 display:flex 不够，因为 WXSS
+	// 默认 flex-direction 是 row，真机上会把状态内容横向挤压。
 	expect(consultStyle).toMatch(
 		/\.consult-state\s*\{[\s\S]*?flex-direction:\s*column;/,
 	);
 	expect(consultStyle).toMatch(
 		/\.consult-state\s*\{[\s\S]*?align-items:\s*center;/,
 	);
-	expect(hospitalStyle).toMatch(
-		/\.state-card\s*\{[\s\S]*?flex-direction:\s*column;/,
-	);
-	expect(hospitalStyle).toMatch(
-		/\.state-card\s*\{[\s\S]*?align-items:\s*center;/,
-	);
+	expect(hospitalStyle).toContain(".internet-hospital-webview {");
+	expect(hospitalStyle).toContain("height: 100%;");
+	expect(hospitalStyle).toContain("overflow: hidden;");
 });
 
 test("native profile clears stale fields after session ownership is lost", async () => {
@@ -2121,6 +2176,44 @@ test("native mini program app entry remains a global script", async () => {
 	expect(build).toContain("app.ts global-script bundle failed");
 });
 
+test("native mini program separates dirty development runtime from release runtime", async () => {
+	const packageConfig = JSON.parse(
+		await Bun.file(join(import.meta.dir, "..", "package.json")).text(),
+	) as { scripts?: Record<string, string> };
+	const build = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "build.ts"),
+	).text();
+	const verify = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "verify-runtime.ts"),
+	).text();
+	const publisher = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "runtime-publisher.ts"),
+	).text();
+	const provenance = await Bun.file(
+		join(import.meta.dir, "..", "scripts", "runtime-provenance.ts"),
+	).text();
+
+	// 正式 build 仍是默认链；开发链必须显式使用独立运行目录、快照来源和
+	// verify 命令，不能通过环境变量或覆盖 dist 来绕过 release 的 clean gate。
+	expect(packageConfig.scripts?.build).toContain("--mode=release");
+	expect(packageConfig.scripts?.["build:dev"]).toContain("--mode=development");
+	expect(packageConfig.scripts?.["runtime:verify:dev"]).toContain(
+		"--mode=development",
+	);
+	expect(packageConfig.scripts?.["runtime:publish-pending:dev"]).toContain(
+		"--mode=development",
+	);
+	expect(packageConfig.scripts?.dev).toContain("dev:watch");
+	expect(build).toContain("getMiniProgramDevelopmentRuntimePath");
+	expect(build).toContain("runtime-input-snapshot");
+	expect(build).toContain("initialDevelopmentSnapshot");
+	expect(verify).toContain("development runtime snapshot mismatch");
+	expect(verify).toContain("must contain release Git-commit provenance");
+	expect(publisher).toContain("pending-development");
+	expect(provenance).toContain("resolveDevelopmentMiniProgramRuntimeSnapshot");
+	expect(provenance).toContain("workspace-sha256:");
+});
+
 test("native mini program build guards runtime page boundaries", async () => {
 	const build = await Bun.file(
 		join(import.meta.dir, "..", "scripts", "build.ts"),
@@ -2150,14 +2243,18 @@ test("native mini program runtime verification checks build provenance", async (
 		join(import.meta.dir, "..", "scripts", "runtime-provenance.ts"),
 	).text();
 
-	// dist/ 可能被开发者工具持续监听；来源指纹必须先写入 staging 目录，
-	// 再一次性发布到 live 目录，避免 tsc 编译期间出现“目录存在但页面 JS 暂时不存在”的 404。
+	// release dist/ 可能被开发者工具持续监听；来源指纹必须先写入 staging
+	// 目录再原子发布。development 运行根则保持目录稳定，避免工具在目录
+	// rename 期间丢失 app.js 模块索引。
 	expect(build).toContain('join(stagingRuntime, "build-info.json")');
 	expect(build).toContain(
 		'join(dirname(root), ".hospital-miniprogram-staging-")',
 	);
 	expect(build).toContain("--outDir");
 	expect(build).toContain("publishMiniProgramRuntime(stagingRuntime, runtime)");
+	expect(build).toContain(
+		"publishMiniProgramDevelopmentRuntime(stagingRuntime, runtime)",
+	);
 	expect(build).not.toContain(
 		"await rm(runtime, { recursive: true, force: true })",
 	);
@@ -2208,17 +2305,23 @@ test("pending mini program publish rejects a stale candidate before replacement"
 	);
 });
 
-test("native mini program exposes read-only appointment directory and records pages", async () => {
+test("native mini program exposes appointment directory, scheduling, and records pages", async () => {
 	const app = await source("app.json");
 	const home = await source("pages/index/index.ts");
 	const directory = await source(
 		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const schedule = await source(
+		"pages/appointment-schedule/appointment-schedule.ts",
 	);
 	const records = await source(
 		"pages/appointment-records/appointment-records.ts",
 	);
 	const directoryTemplate = await source(
 		"pages/appointment-directory/appointment-directory.wxml",
+	);
+	const scheduleTemplate = await source(
+		"pages/appointment-schedule/appointment-schedule.wxml",
 	);
 	const recordsTemplate = await source(
 		"pages/appointment-records/appointment-records.wxml",
@@ -2228,6 +2331,7 @@ test("native mini program exposes read-only appointment directory and records pa
 	);
 
 	expect(app).toContain('"pages/appointment-directory/appointment-directory"');
+	expect(app).toContain('"pages/appointment-schedule/appointment-schedule"');
 	expect(app).toContain('"pages/appointment-records/appointment-records"');
 	expect(home).toContain("navigateToAuthenticatedPage");
 	expect(home).toContain('"/pages/hospital-list/hospital-list"');
@@ -2236,17 +2340,21 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(home).not.toContain("预约下单功能仍在迁移中");
 	expect(directory).toContain("loadAppointmentDepartmentTree");
 	expect(directory).toContain("loadClinicDepartments");
-	expect(directory).toContain("loadClinicSchedules");
 	expect(directoryTemplate).toContain("departmentGroups");
 	expect(directoryTemplate).toContain("clinicDepartments");
-	expect(directory).toContain("scheduleGuard");
-	expect(directory).toContain("directoryGuard");
-	expect(directory).toContain("directoryScheduleToken");
+	// 旧端的 scheduling-depts 是独立的 department_select 页：目录只负责
+	// 读取三级门诊并安全传递受控参数，不得在右栏嵌入医生或号源。
+	expect(directory).toContain("openClinicSchedule");
 	expect(directory).toContain(
-		"scheduleGuard.isCurrent(directoryScheduleToken)",
+		"/pages/appointment-schedule/appointment-schedule",
 	);
-	expect(directory).toContain("旧科室的排班覆盖当前选择");
-	// 目录刷新失败时不能继续展示上一轮科室和号源；请求守卫只阻止旧响应，
+	expect(directory).toContain("encodeURIComponent");
+	expect(directory).not.toContain("loadClinicSchedules");
+	expect(directory).not.toContain("scheduleGuard");
+	expect(directory).toContain("directoryGuard");
+	expect(directory).toContain("directoryClinicToken");
+	expect(directory).not.toContain("directoryScheduleToken");
+	// 目录刷新失败时不能继续展示上一轮科室和细分门诊；请求守卫只阻止旧响应，
 	// 页面状态仍必须在新请求开始时主动清空。
 	const loadDirectoryStart = directory.indexOf(
 		"loadDirectory(): Promise<void>",
@@ -2257,8 +2365,28 @@ test("native mini program exposes read-only appointment directory and records pa
 		loadDirectoryEnd,
 	);
 	expect(loadDirectoryBody).toContain("departments: []");
-	expect(loadDirectoryBody).toContain("schedules: []");
+	expect(loadDirectoryBody).toContain("clinicDepartments: []");
 	expect(loadDirectoryBody).toContain('selectedDepartmentId: ""');
+	// 细分门诊页按旧项目独立呈现：默认按医生读取未来号源，按日期时只读取
+	// 当前自然日，并且所有切换均通过实例请求守卫防止旧响应覆盖新选择。
+	expect(schedule).toContain("loadDoctorSchedules");
+	expect(schedule).toContain("loadDateSchedules");
+	expect(schedule).toContain("onModeTap");
+	expect(schedule).toContain("onDoctorCardTap");
+	expect(schedule).toContain("onDateTap");
+	expect(schedule).toContain("onDatePickerChange");
+	expect(schedule).toContain("onScheduleTap");
+	expect(schedule).toContain("loadAppointmentSchedules");
+	expect(schedule).toContain("loadAppointmentSchedulesForDate");
+	expect(schedule).toContain(
+		'getPageLatestRequestGuard(this, "appointment-schedule")',
+	);
+	expect(scheduleTemplate).toContain("按医生挂号");
+	expect(scheduleTemplate).toContain("按日期挂号");
+	expect(scheduleTemplate).toContain("可预约号源");
+	expect(scheduleTemplate).toContain("已约满");
+	expect(scheduleTemplate).toContain("余");
+	expect(schedule).toContain("当前号源已约满");
 	expect(records).toContain("loadAppointmentRecords");
 	// 完整预约历史仍保留在页面状态；只有可见窗口交给 WXML，不能把本地分批
 	// 描述成 provider 分页，也不能因为首批少就把 total/状态事实截断。
@@ -2270,11 +2398,8 @@ test("native mini program exposes read-only appointment directory and records pa
 	expect(recordsTemplate).toContain("visibleRecords");
 	expect(recordsTemplate).toContain("加载更多挂号记录");
 	expect(records).toContain("loadCurrentPatient");
-	expect(directoryTemplate).toContain("未来 7 天");
 	expect(directoryTemplate).toContain("cascade-shell");
-	expect(directoryTemplate).toContain("加载更多号源");
 	expect(directoryTemplate).toContain("当前暂无可预约科室");
-	expect(directoryTemplate).toContain("预约下单、锁号、取消和支付");
 	expect(recordsTemplate).toContain('bindtap="onChangePatient"');
 	// 错误态的换人按钮不能成为所有失败的默认出口：只有患者上下文明确
 	// 缺失/失效时才显示，Provider、网络、持久化和依赖配置失败只允许重试。
@@ -2841,7 +2966,7 @@ test("未确认的问诊与门诊病历入口统一进入状态页", async () =>
 	expect(app.pages).not.toContain("pages/consultation/consultation");
 	expect(app.pages).not.toContain("pages/medical-record/medical-record");
 	expect(catalog).toContain('status: "blocked-provider"');
-	expect(catalog).toContain('status: "blocked-external"');
+	expect(catalog).toContain('featureKey: "consultation"');
 	expect(catalog).toContain(
 		'nativeTarget: "pages/feature-status/feature-status"',
 	);
@@ -3480,8 +3605,8 @@ test("native homepage uses the same verified session state for every business en
 });
 
 test("native secondary actions use fixed migration routes instead of dead toasts", async () => {
-	const appointmentDirectory = await source(
-		"pages/appointment-directory/appointment-directory.ts",
+	const appointmentSchedule = await source(
+		"pages/appointment-schedule/appointment-schedule.ts",
 	);
 	const appointmentRecords = await source(
 		"pages/appointment-records/appointment-records.ts",
@@ -3494,7 +3619,13 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 		"pages/outpatient-payment/outpatient-payment.ts",
 	);
 
-	expect(appointmentDirectory).toContain(
+	expect(appointmentSchedule).toContain(
+		"pages/timeslot-source/timeslot-source?scheduleId=",
+	);
+	const confirmRegistration = await source(
+		"pages/confirm-registration/confirm-registration.ts",
+	);
+	expect(confirmRegistration).toContain(
 		'navigateToFeatureStatus("appointment-write")',
 	);
 	expect(appointmentRecords).toContain(
@@ -3513,7 +3644,7 @@ test("native secondary actions use fixed migration routes instead of dead toasts
 
 	// 迁移边界的反馈必须能进入稳定页面，不能因为 Toast 消失而让用户
 	// 误以为点击没有生效；真实 contract 完成前仍不允许创建业务数据。
-	expect(appointmentDirectory).not.toContain("预约下单功能迁移中");
+	expect(appointmentSchedule).not.toContain("预约下单功能迁移中");
 	expect(appointmentRecords).not.toContain("挂号详情暂未开放");
 	expect(appointmentRecords).not.toContain("预问诊功能正在迁移中");
 	expect(reportDetail).not.toContain("云影像功能迁移中");
@@ -3956,6 +4087,7 @@ test("dashboard service owns bounded date windows and internal patient inputs", 
 
 	expect(service).toContain("DASHBOARD_DATE_RANGE_DAYS");
 	expect(service).toContain("appointmentDirectory: 7");
+	expect(service).toContain("appointmentScheduleCalendar: 30");
 	expect(service).toContain("appointmentRecordsPast: 90");
 	expect(service).toContain("appointmentRecordsFuture: 90");
 	expect(service).toContain(
@@ -3997,19 +4129,19 @@ test("appointment directory labels provider calendar dates without device timezo
 	expect(formatAppointmentDateLabel("2026-02-30")).toBe("2026-02-30");
 });
 
-test("appointment directory ignores stale date events after a cascade refresh", async () => {
+test("appointment schedule ignores stale date events after its date strip refreshes", async () => {
 	const page = await source(
-		"pages/appointment-directory/appointment-directory.ts",
+		"pages/appointment-schedule/appointment-schedule.ts",
 	);
 	const dateHandlerStart = page.indexOf("onDateTap(event)");
 	const dateHandlerEnd = page.indexOf("\n\t},", dateHandlerStart);
 	const dateHandler = page.slice(dateHandlerStart, dateHandlerEnd);
 
-	// 日期事件可能来自刷新前的 WXML；只有当前日期分组中仍存在的日期，
-	// 才能改变右侧排班读模型，避免级联页面产生脱离当前科室的 selectedDate。
-	expect(dateHandler).toContain("const group = this.data.dateGroups.find");
-	expect(dateHandler).toContain("if (!group)");
-	expect(dateHandler).toContain("selectedDate,");
+	// 日期事件可能来自刷新前的 WXML；只有当前日期选择器范围、且仍在当前
+	// 日期条中的日期才允许重读号源，避免旧事件覆盖细分门诊的新上下文。
+	expect(dateHandler).toContain("isDateInPickerRange(");
+	expect(dateHandler).toContain("this.data.dateOptions.some");
+	expect(dateHandler).toContain("this.loadDateSchedules(");
 });
 
 test("appointment directory ignores stale department events after a cascade refresh", async () => {
@@ -4024,7 +4156,7 @@ test("appointment directory ignores stale department events after a cascade refr
 	);
 
 	// 科室事件也可能来自刷新前的 WXML；必须先在当前科室目录中回查，
-	// 再允许改变右栏排班查询条件，避免旧级联上下文重新发起请求。
+	// 再允许改变细分门诊查询条件，避免旧级联上下文重新发起请求。
 	expect(departmentHandler).toContain("this.data.departments.find");
 	expect(departmentHandler).toContain("if (!department)");
 	expect(departmentHandler).toContain(
@@ -4032,22 +4164,25 @@ test("appointment directory ignores stale department events after a cascade refr
 	);
 });
 
-test("appointment directory load-more events cannot expand a stale local window", async () => {
+test("appointment schedule load-more events cannot expand a stale local window", async () => {
 	const page = await source(
-		"pages/appointment-directory/appointment-directory.ts",
+		"pages/appointment-schedule/appointment-schedule.ts",
 	);
 	const loadMoreStart = page.indexOf("onLoadMore(): void {");
 	const loadMoreEnd = page.indexOf("\n\t},", loadMoreStart);
 	const loadMoreHandler = page.slice(loadMoreStart, loadMoreEnd);
 
-	// 加载更多不是 Provider 分页；旧按钮事件只能展开当前日期分组中尚未
-	// 展示的安全读模型。刷新或切换期间必须直接忽略，不能把旧点击写入新状态。
-	expect(loadMoreHandler).toContain("if (!group || this.data.loading");
+	// 加载更多不是 Provider 分页；按钮事件只能展开当前日期、当前医生筛选下
+	// 尚未展示的安全读模型。刷新或切换期间必须直接忽略，不能把旧点击写入新状态。
+	expect(loadMoreHandler).toContain(
+		"if (this.data.loading || !this.data.hasMoreSchedules) return;",
+	);
 	expect(loadMoreHandler).toContain("!this.data.hasMoreSchedules");
 	expect(loadMoreHandler).toContain("Math.min(");
 	expect(loadMoreHandler).toContain(
 		"if (nextCount <= this.data.visibleScheduleCount)",
 	);
+	expect(loadMoreHandler).toContain("createDateSchedulePresentation(");
 });
 
 test("page request guard only permits the latest patient read to update state", () => {
@@ -4059,7 +4194,7 @@ test("page request guard only permits the latest patient read to update state", 
 	expect(guard.isCurrent(second)).toBe(true);
 });
 
-test("patient-scoped pages guard stale asynchronous responses", async () => {
+test("native data pages guard stale asynchronous responses", async () => {
 	const records = await source(
 		"pages/appointment-records/appointment-records.ts",
 	);
@@ -4070,6 +4205,9 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const appointmentDirectory = await source(
 		"pages/appointment-directory/appointment-directory.ts",
+	);
+	const appointmentSchedule = await source(
+		"pages/appointment-schedule/appointment-schedule.ts",
 	);
 	const missedAppointments = await source(
 		"pages/missed-appointments/missed-appointments.ts",
@@ -4083,6 +4221,7 @@ test("patient-scoped pages guard stale asynchronous responses", async () => {
 		payments,
 		selection,
 		appointmentDirectory,
+		appointmentSchedule,
 		missedAppointments,
 		home,
 		my,

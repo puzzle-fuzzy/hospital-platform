@@ -3,6 +3,7 @@ import {
 	getCurrentUser,
 	requestReportDetail,
 } from "../../services/api-client";
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
 import { navigateToFeatureStatus } from "../../services/feature-navigation";
 import {
@@ -256,7 +257,7 @@ Page<ReportDetailPageState, ReportDetailPageMethods>({
 		// WXML 当前会隐藏详情区域，也必须把页面状态本身收敛为空，避免未来重试
 		// 或页面复用时把旧患者的临床结果重新展示出来。
 		this.setData({
-			error: message,
+			error: errorMessageWithCode(error, message),
 			loading: false,
 			title: "报告详情不可用",
 			reportedAt: "",

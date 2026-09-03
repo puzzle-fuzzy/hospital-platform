@@ -1,24 +1,67 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
+import {
+	resolveDevelopmentMiniProgramRuntimeSnapshot,
+	resolveMiniProgramSourceRevision,
+} from "./runtime-provenance";
 import {
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
+	getMiniProgramDevelopmentRuntimePath,
+	getMiniProgramPendingRuntimePath,
 	listRuntimeFiles,
+	type MiniProgramRuntimeBuildMode,
 } from "./runtime-publisher";
 
 const root = join(import.meta.dir, "..");
 const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
-const verifyPending = process.argv.includes("--pending");
+
+function resolveVerificationOptions(): Readonly<{
+	buildMode: MiniProgramRuntimeBuildMode;
+	verifyPending: boolean;
+}> {
+	const argumentsAfterScript = process.argv.slice(2);
+	let buildMode: MiniProgramRuntimeBuildMode = "release";
+	let verifyPending = false;
+
+	for (const argument of argumentsAfterScript) {
+		if (argument === "--mode=release") continue;
+		if (argument === "--mode=development") {
+			buildMode = "development";
+			continue;
+		}
+		if (argument === "--pending") {
+			verifyPending = true;
+			continue;
+		}
+		throw new Error(
+			"Mini program runtime verification only accepts --pending, --mode=release, or --mode=development",
+		);
+	}
+
+	return { buildMode, verifyPending };
+}
+
+const { buildMode, verifyPending } = resolveVerificationOptions();
 const runtime = verifyPending
-	? join(repositoryRoot, ".local", "hospital-miniprogram", "pending")
-	: join(root, "dist");
-const runtimeLabel = verifyPending ? "pending" : "dist";
+	? getMiniProgramPendingRuntimePath(root, buildMode)
+	: buildMode === "development"
+		? getMiniProgramDevelopmentRuntimePath(root)
+		: join(root, "dist");
+const runtimeLabel = verifyPending
+	? `${buildMode} pending runtime`
+	: buildMode === "development"
+		? "development runtime"
+		: "dist";
+const buildCommand =
+	buildMode === "development"
+		? "pnpm --filter @hospital/miniprogram build:dev"
+		: "pnpm --filter @hospital/miniprogram build";
 
 /**
- * 保留 live 运行包既有的错误前缀，避免工具和验收测试只能因为 pending
- * 校验增加而失去稳定的诊断关键词；pending 模式只在前缀中明确候选范围。
+ * 保留正式运行包既有的错误前缀；development 模式只扩展范围说明，不能把
+ * 脏工作树预览误写成正式候选。
  */
 const runtimeTestScriptErrorPrefix =
 	"Mini program runtime must not contain test scripts";
@@ -27,7 +70,9 @@ const runtimeMissingImportErrorPrefix =
 const runtimeWorkspaceImportErrorPrefix =
 	"Mini program runtime must not import pnpm workspace modules";
 const withRuntimeScope = (message: string): string =>
-	verifyPending ? message.replace("runtime", "pending runtime") : message;
+	verifyPending || buildMode === "development"
+		? message.replace("runtime", runtimeLabel)
+		: message;
 
 type MiniProgramAppConfig = {
 	pages?: unknown;
@@ -43,25 +88,32 @@ type MiniProgramProjectConfig = {
 
 type MiniProgramBuildInfo = {
 	schemaVersion?: unknown;
+	buildMode?: unknown;
 	sourceRevision?: unknown;
+	sourceRevisionKind?: unknown;
+	baseSourceRevision?: unknown;
 	pageCount?: unknown;
 	generatedAt?: unknown;
 };
 
-/**
- * 真机调试最终应该打开构建产物 `dist/`，但当微信开发者工具锁住 `dist/`
- * 时，可以用 `--pending` 只读检查隔离的待发布候选。两种模式都不会重新
- * 编译、删除或修改运行包；pending 模式还必须显式传入候选完整来源指纹，
- * 防止把旧候选误当成当前源码的验证结果。
- */
 async function assertFile(relativePath: string): Promise<void> {
 	try {
 		await access(join(runtime, relativePath));
 	} catch {
 		throw new Error(
-			`Mini program ${runtimeLabel} file is missing: ${runtimeLabel}/${relativePath}. Run pnpm --filter @hospital/miniprogram build first.`,
+			`Mini program ${runtimeLabel} file is missing: ${runtimeLabel}/${relativePath}. Run ${buildCommand} first.`,
 		);
 	}
+}
+
+function isGitRevision(value: unknown): value is string {
+	return typeof value === "string" && /^[0-9a-f]{40}$/u.test(value);
+}
+
+function isDevelopmentSnapshot(value: unknown): value is string {
+	return (
+		typeof value === "string" && /^workspace-sha256:[0-9a-f]{64}$/u.test(value)
+	);
 }
 
 const appConfig = JSON.parse(
@@ -83,7 +135,7 @@ if (
 	);
 }
 
-if (!verifyPending) {
+if (buildMode === "release" && !verifyPending) {
 	const projectConfig = JSON.parse(
 		await Bun.file(join(root, "project.config.json")).text(),
 	) as MiniProgramProjectConfig;
@@ -101,9 +153,8 @@ await assertFile("build-info.json");
 await assertFile("project.config.json");
 
 /**
- * 运行包自身必须是独立工程，不能再依赖父目录的 `miniprogramRoot=dist/`
- * 做间接隔离；否则工具仍可能监听旁边的 src/。pending 和 live 都必须
- * 使用 `./`，这样候选工程可以在不替换 live 的情况下独立打开检查。
+ * 正式与开发运行包都必须作为独立工程打开，不能依赖父目录的
+ * `miniprogramRoot=dist/`，否则工具仍可能监听旁边的 src/。
  */
 const runtimeProjectConfig = JSON.parse(
 	await Bun.file(join(runtime, "project.config.json")).text(),
@@ -127,11 +178,6 @@ await assertFile("data/department-location.js");
 // 漏掉间接依赖，导致开发者工具沿用旧增量索引去寻找不存在的测试脚本。
 await assertFile("services/single-flight.js");
 
-/**
- * 运行包只允许承载微信页面运行时脚本；测试文件即使不是页面入口，
- * 也可能被开发者工具的增量编译器索引，导致真机出现“找不到 .test.js”。
- * 因此这里对已经存在的 dist 做只读扫描，发现测试脚本立即停止验收。
- */
 const forbiddenTestRuntimeFiles = (await listRuntimeFiles(runtime)).filter(
 	(file) => /(?:\.test|\.spec)\.js$/u.test(file),
 );
@@ -159,9 +205,6 @@ const buildInfo = JSON.parse(
 	await Bun.file(join(runtime, "build-info.json")).text(),
 ) as MiniProgramBuildInfo;
 if (
-	buildInfo.schemaVersion !== 1 ||
-	typeof buildInfo.sourceRevision !== "string" ||
-	!/^[0-9a-f]{40}$/.test(buildInfo.sourceRevision) ||
 	typeof buildInfo.pageCount !== "number" ||
 	!Number.isInteger(buildInfo.pageCount) ||
 	buildInfo.pageCount < 1 ||
@@ -173,7 +216,31 @@ if (
 	);
 }
 
-/** 启动日志中的来源必须与独立 build-info.json 一致，避免真机只显示静态标记。 */
+const isLegacyReleaseBuild =
+	buildInfo.schemaVersion === 1 && buildInfo.buildMode === undefined;
+if (buildMode === "development") {
+	if (
+		buildInfo.schemaVersion !== 2 ||
+		buildInfo.buildMode !== "development" ||
+		buildInfo.sourceRevisionKind !== "runtime-input-snapshot" ||
+		!isDevelopmentSnapshot(buildInfo.sourceRevision) ||
+		!isGitRevision(buildInfo.baseSourceRevision)
+	) {
+		throw new Error(
+			`Mini program ${runtimeLabel}/build-info.json must contain development workspace-snapshot provenance`,
+		);
+	}
+} else if (
+	(!isLegacyReleaseBuild && buildInfo.schemaVersion !== 1) ||
+	buildInfo.buildMode === "development" ||
+	!isGitRevision(buildInfo.sourceRevision)
+) {
+	throw new Error(
+		`Mini program ${runtimeLabel}/build-info.json must contain release Git-commit provenance`,
+	);
+}
+
+/** 启动日志必须与 build-info 一致，避免真机只显示静态标记。 */
 const runtimeApp = await Bun.file(join(runtime, "app.js")).text();
 if (
 	!runtimeApp.includes(
@@ -184,22 +251,47 @@ if (
 		`Mini program ${runtimeLabel}/app.js build revision does not match ${runtimeLabel}/build-info.json`,
 	);
 }
-
-const expectedSourceRevision = resolveMiniProgramSourceRevision(
-	repositoryRoot,
-	process.env.HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION,
-	"HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION",
-);
-if (buildInfo.sourceRevision !== expectedSourceRevision) {
-	throw new Error(
-		`Mini program build provenance mismatch: ${runtimeLabel}=${buildInfo.sourceRevision}, expected=${expectedSourceRevision}`,
-	);
+if (!isLegacyReleaseBuild) {
+	const expectedBuildMode =
+		buildMode === "development" ? "development" : "release";
+	const expectedSourceKind =
+		buildMode === "development" ? "runtime-input-snapshot" : "git-commit";
+	if (
+		!runtimeApp.includes(`MINI_PROGRAM_BUILD_MODE = "${expectedBuildMode}"`) ||
+		!runtimeApp.includes(
+			`MINI_PROGRAM_BUILD_SOURCE_KIND = "${expectedSourceKind}"`,
+		)
+	) {
+		throw new Error(
+			`Mini program ${runtimeLabel}/app.js build mode does not match ${runtimeLabel}/build-info.json`,
+		);
+	}
 }
 
-/**
- * 每个 app.json 入口都必须形成完整的微信页面文件集合。只检查源码会漏掉
- * “源码存在但 dist 没有 JS”的部署错误；只检查 JS 又会漏掉模板或样式缺失。
- */
+if (buildMode === "development") {
+	const expectedSnapshot =
+		resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot);
+	if (
+		buildInfo.sourceRevision !== expectedSnapshot.sourceRevision ||
+		buildInfo.baseSourceRevision !== expectedSnapshot.baseSourceRevision
+	) {
+		throw new Error(
+			`Mini program development runtime snapshot mismatch: ${runtimeLabel} no longer matches current runtime inputs. Run ${buildCommand}.`,
+		);
+	}
+} else {
+	const expectedSourceRevision = resolveMiniProgramSourceRevision(
+		repositoryRoot,
+		process.env.HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION,
+		"HOSPITAL_MINIPROGRAM_EXPECTED_SOURCE_REVISION",
+	);
+	if (buildInfo.sourceRevision !== expectedSourceRevision) {
+		throw new Error(
+			`Mini program build provenance mismatch: ${runtimeLabel}=${buildInfo.sourceRevision}, expected=${expectedSourceRevision}`,
+		);
+	}
+}
+
 for (const page of appConfig.pages as string[]) {
 	for (const extension of [".js", ".json", ".wxml", ".wxss"] as const) {
 		await assertFile(`${page}${extension}`);
@@ -212,5 +304,5 @@ if (buildInfo.pageCount !== appConfig.pages.length) {
 }
 
 console.log(
-	`Mini program ${runtimeLabel} verified: revision=${buildInfo.sourceRevision.slice(0, 7)}; ${appConfig.pages.length} pages and required root files are present`,
+	`Mini program ${runtimeLabel} verified: mode=${buildMode}; source=${String(buildInfo.sourceRevision).slice(0, 24)}; ${appConfig.pages.length} pages and required root files are present`,
 );

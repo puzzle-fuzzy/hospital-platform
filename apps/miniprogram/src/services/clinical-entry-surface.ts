@@ -18,7 +18,6 @@ import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 export type ClinicalSurfaceFeature =
 	| "medical-record"
 	| "inpatient-center"
-	| "doctor"
 	| "electronic-consultation";
 
 export type ClinicalSurfacePageData = PatientSurfaceContextData & {
@@ -50,9 +49,9 @@ function toPageData(coverage: MigrationCoverage): ClinicalSurfacePageData {
 }
 
 /**
- * 注册四个页面的共同行为，避免页面外壳各自复制导航和状态页逻辑。
+ * 注册三个仍使用统一状态外壳的页面行为，避免页面外壳各自复制导航和状态页逻辑。
  * 该函数不发起业务请求；“选择就诊人”只进入真实选择页，不把选择结果
- * 假装成病历、住院、医生或导诊数据已经可查询。
+ * 假装成病历、住院或导诊数据已经可查询。
  */
 export function registerClinicalSurfacePage(
 	feature: ClinicalSurfaceFeature,

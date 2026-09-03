@@ -1,56 +1,66 @@
-<scroll-view class="migration-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="migration-surface-page">
-		<view class="migration-surface-hero">
-			<image class="migration-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="migration-surface-hero-copy">
-				<text class="migration-surface-title">{{title}}</text>
-				<text class="migration-surface-label">{{surfaceLabel}}</text>
-			</view>
-		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">{{scopeTitle}}</text>
-			<text class="migration-surface-card-copy">{{scopeDescription}}</text>
+<scroll-view class="my-doctor-scroll" scroll-y="true" enhanced="true">
+	<view class="my-doctor-page">
+		<view class="my-doctor-header">
+			<text class="my-doctor-title">我的医生</text>
+			<text class="my-doctor-subtitle">关注的医生会持续显示在这里</text>
 		</view>
 
-		<view class="migration-surface-patient-card">
-			<view class="migration-surface-patient-copy">
-				<text class="migration-surface-patient-label">当前就诊人</text>
-				<block wx:if="{{patientContextLoading && !patientContextLoaded}}">
-					<text class="migration-surface-patient-name">正在获取就诊人...</text>
-					<text class="migration-surface-patient-meta">当前只读取已确认的患者目录</text>
-				</block>
-				<block wx:elif="{{patientContextError}}">
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text wx:if="{{currentPatient}}" class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-					<text class="migration-surface-patient-error">{{patientContextError}}</text>
-					<button class="migration-surface-patient-retry" bindtap="onRetry">重新读取</button>
-				</block>
-				<block wx:else>
-					<text class="migration-surface-patient-name">{{currentPatientName}}</text>
-					<text class="migration-surface-patient-meta">{{currentPatientCardLabel}}</text>
-				</block>
-			</view>
-			<button class="migration-surface-patient-action" bindtap="onOpenPatientSelector">{{patientActionLabel}}</button>
+		<view wx:if="{{loading}}" class="my-doctor-state">
+			<view class="my-doctor-spinner"></view>
+			<text>正在加载我的医生...</text>
 		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">服务状态</text>
-			<text class="migration-surface-card-copy">{{description}}</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
+
+		<view wx:elif="{{error}}" class="my-doctor-state my-doctor-state-error">
+			<image class="my-doctor-state-icon" src="/assets/legacy-user/doctor.svg" mode="aspectFit" />
+			<text>{{error}}</text>
+			<view class="my-doctor-retry" bindtap="onRetry">重新加载</view>
+		</view>
+
+		<view wx:elif="{{!items.length}}" class="my-doctor-state">
+			<image class="my-doctor-state-icon" src="/assets/legacy-user/doctor.svg" mode="aspectFit" />
+			<text class="my-doctor-empty-title">还没有关注医生</text>
+			<text class="my-doctor-empty-copy">在预约目录中打开医生名片即可关注</text>
+		</view>
+
+		<view wx:else class="my-doctor-list">
+			<view
+				wx:for="{{items}}"
+				wx:key="doctorId"
+				class="my-doctor-card"
+				bindtap="onDoctorTap"
+				data-doctor-id="{{item.doctorId}}"
+			>
+				<image
+					wx:if="{{item.doctorAvatarUrl}}"
+					class="my-doctor-avatar my-doctor-avatar-photo"
+					src="{{item.doctorAvatarUrl}}"
+					mode="aspectFill"
+					lazy-load="{{true}}"
+					aria-label="医生照片"
+				/>
+				<image
+					wx:else
+					class="my-doctor-avatar"
+					src="/assets/legacy-user/default-avatar.svg"
+					mode="aspectFit"
+					aria-label="默认医生头像"
+				/>
+				<view class="my-doctor-card-copy">
+					<view class="my-doctor-name-line">
+						<text class="my-doctor-name">{{item.doctorName}}</text>
+						<text wx:if="{{item.titleName}}" class="my-doctor-title-name">{{item.titleName}}</text>
+					</view>
+					<text class="my-doctor-department">{{item.departmentName}}</text>
+					<text wx:if="{{item.departmentLocation}}" class="my-doctor-location">{{item.departmentLocation}}</text>
+					<text wx:if="{{item.expertise}}" class="my-doctor-expertise">{{item.expertise}}</text>
 				</view>
+				<image
+					class="my-doctor-arrow"
+					src="/assets/legacy-user/arrow-right.svg"
+					mode="aspectFit"
+					aria-label="查看医生详情"
+				/>
 			</view>
 		</view>
-		<view class="migration-surface-card">
-			<text class="migration-surface-card-title">使用说明</text>
-			<view class="migration-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="migration-surface-list-row">
-					<text class="migration-surface-list-dot">·</text><text class="migration-surface-list-text">{{item}}</text>
-				</view>
-			</view>
-			<text class="migration-surface-coverage">{{coverageLabel}}</text>
-		</view>
-		<button class="migration-surface-primary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="migration-surface-plain-button" bindtap="onBackHome">返回医疗服务</button>
 	</view>
 </scroll-view>

@@ -1,0 +1,79 @@
+{
+	"provenance": "由旧仓库 app/api/v1/module_common/mbs_fsi/crypto.py（MbsCrypto）在自造测试参数下生成；密钥均为测试值",
+	"appId": "43AF047BBA47FC8A1AE8EFB232BDBBCB",
+	"appSecret": "4117E877F5FA0A0188891283E4B617D5",
+	"expectedDerivedSm4KeyHexUpperAscii": "38363342354634304337304237314541",
+	"samples": [
+		{
+			"name": "spec-example",
+			"payload": {
+				"appId": "43AF047BBA47FC8A1AE8EFB232BDBBCB",
+				"data": {
+					"appId": "43AF047BBA47FC8A1AE8EFB232BDBBCB",
+					"appUserId": "o8z4C5avQXqC0aWFPf1Mzu6D7WCQ_bd",
+					"idNo": "350181199011193519",
+					"idType": "01",
+					"phoneNumber": "13763873033",
+					"userName": "测试"
+				},
+				"encType": "SM4",
+				"signData": "URVQNdVNn5mz2EhKZhLTlXNwAWTSncFoSe8Ilx7jhn81eABJ46sdRRN1ZiAiQjPUTixG9bwqEhiJupHRGmyO5w==",
+				"signType": "SM2",
+				"timestamp": "20200207175759",
+				"version": "1.0.0"
+			},
+			"expectedSignString": "appId=43AF047BBA47FC8A1AE8EFB232BDBBCB&data={\"appId\":\"43AF047BBA47FC8A1AE8EFB232BDBBCB\",\"appUserId\":\"o8z4C5avQXqC0aWFPf1Mzu6D7WCQ_bd\",\"idNo\":\"350181199011193519\",\"idType\":\"01\",\"phoneNumber\":\"13763873033\",\"userName\":\"测试\"}&encType=SM4&signType=SM2&timestamp=20200207175759&version=1.0.0&key=4117E877F5FA0A0188891283E4B617D5",
+			"expectedCleanedDataJson": "{\"appId\":\"43AF047BBA47FC8A1AE8EFB232BDBBCB\",\"appUserId\":\"o8z4C5avQXqC0aWFPf1Mzu6D7WCQ_bd\",\"idNo\":\"350181199011193519\",\"idType\":\"01\",\"phoneNumber\":\"13763873033\",\"userName\":\"测试\"}",
+			"expectedEncData": "64A9C5A7AB3AEA5FC01DE87025F999521C08D25DA13BD715D7E036A7D7C1DBCB6AB7914898A23A99C97EBEFE5277247AD7D0DD9B18F4DCC71A2C280C5143F25B857C795E6BA9F399652C3A4264FC2CBBA7E06B08E151362301659FC3F377348019010E5EA11342846470277652953B35C2CA95C9975090885AB286BB736BA3BB98F3540962552F40C8350926B93CD21CB7A624E6C4E41E349627E7B36B5C1B5F2A3E846EEB254C6DCD536A5D25825E8E0A4E1A6424F4D8B4116AEF8D0699C425",
+			"roundtrip": "{\"appId\":\"43AF047BBA47FC8A1AE8EFB232BDBBCB\",\"appUserId\":\"o8z4C5avQXqC0aWFPf1Mzu6D7WCQ_bd\",\"idNo\":\"350181199011193519\",\"idType\":\"01\",\"phoneNumber\":\"13763873033\",\"userName\":\"测试\"}"
+		},
+		{
+			"name": "edge-cases",
+			"payload": {
+				"appId": "43AF047BBA47FC8A1AE8EFB232BDBBCB",
+				"data": {
+					"emptyString": "",
+					"nullValue": null,
+					"emptyDict": {},
+					"emptyList": [],
+					"nested": {
+						"b": 2,
+						"a": 1,
+						"deep": {
+							"z": "",
+							"y": [
+								1,
+								"",
+								null,
+								{
+									"k": "值"
+								}
+							]
+						}
+					},
+					"boolTrue": true,
+					"boolFalse": false,
+					"number": 123,
+					"chinese": "高平市人民医院"
+				},
+				"extra": "should-be-excluded",
+				"encType": "SM4",
+				"signType": "SM2",
+				"timestamp": "20260903000000",
+				"version": "2.0.1"
+			},
+			"expectedSignString": "appId=43AF047BBA47FC8A1AE8EFB232BDBBCB&data={\"boolFalse\":false,\"boolTrue\":true,\"chinese\":\"高平市人民医院\",\"nested\":{\"a\":1,\"b\":2,\"deep\":{\"y\":[1,{\"k\":\"值\"}]}},\"number\":123}&encType=SM4&signType=SM2&timestamp=20260903000000&version=2.0.1&key=4117E877F5FA0A0188891283E4B617D5",
+			"expectedCleanedDataJson": "{\"boolFalse\":false,\"boolTrue\":true,\"chinese\":\"高平市人民医院\",\"nested\":{\"a\":1,\"b\":2,\"deep\":{\"y\":[1,{\"k\":\"值\"}]}},\"number\":123}",
+			"expectedEncData": "F8B6D0EE9B2BBD4C15FB93D134536C51F1D611E1709EBBD7C55DA0E66CA8CA15799897233519F644B0B887A3499BDE42342F95ACA31A7481661752DA66259506A807ACB78800CDE6128D813451AE8B120567A9454E19C20859172CB3EC677B2B3EF8062D261F382FA553D13C9336C0F23190EEC5C8A5CB0298B03C37A37B173788D1656BDA4A973DCC3B4154158592C7",
+			"roundtrip": "{\"boolFalse\":false,\"boolTrue\":true,\"chinese\":\"高平市人民医院\",\"nested\":{\"a\":1,\"b\":2,\"deep\":{\"y\":[1,{\"k\":\"值\"}]}},\"number\":123}"
+		}
+	],
+	"sm2OpensslCrossFixture": {
+		"note": "OpenSSL 3.6.3 genpkey -algorithm SM2 生成并签名（distid=userId），sm-crypto 验签通过；反向 sm-crypto 签名经 openssl pkeyutl -verify 验证通过。密钥为一次性测试密钥。",
+		"userId": "1234567812345678",
+		"message": "高平市人民医院-SM2交叉验证消息-0123456789",
+		"privateKeyHex": "211fee8c3c5fee2fad3dc926fc9403366d2def02cdd0bb5bd683ca015d99db7f",
+		"publicKeyHex130": "0417cc16abaebedc7f87b2e0a508c0cb93631761db7fa19adece712c6aade1d673e389b5e902df7a2e6fe3917b0f55747e00d74e36e939ecc3e7967b7058a91858",
+		"opensslSignatureRsHex": "c26647c279a6180bf418dd06c2d081632b709139c9b1fa883aba35ddec3128ce2ff4c93011cf4ded0ba3784c4699369edb8cee986271f70d35c1cdffc7b5fb4d"
+	}
+}

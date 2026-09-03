@@ -677,6 +677,8 @@ export function requireAppointmentRecordListData(
  */
 export const DASHBOARD_DATE_RANGE_DAYS = Object.freeze({
 	appointmentDirectory: 7,
+	/** 旧项目“按日期挂号”的日历最多展示未来 30 天。 */
+	appointmentScheduleCalendar: 30,
 	/** 我的挂号需要同时覆盖近期历史和即将到来的预约。 */
 	appointmentRecordsPast: 90,
 	appointmentRecordsFuture: 90,
@@ -810,6 +812,44 @@ export function createUpcomingDateRange(
 	return {
 		startDate: formatCalendarDate(start),
 		endDate: formatCalendarDate(end),
+	};
+}
+
+/**
+ * 将一个已校验的医院工作日转换为旧项目按日期挂号所需的单日查询窗口。
+ *
+ * Provider 对 endDate 的包含语义由服务端 gateway 解释；页面始终只渲染
+ * workDate 等于 selectedDate 的条目，避免相邻自然日结果越界显示。
+ */
+export function createAppointmentScheduleDayRange(workDate: string): {
+	startDate: string;
+	endDate: string;
+} {
+	if (!isIsoCalendarDate(workDate)) {
+		throw new ApiError("查询日期范围不合法", {
+			code: "date-range-invalid",
+		});
+	}
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(workDate);
+	// isIsoCalendarDate 已验证过上述形状；保留回退分支让未来修改验证器时仍 fail-closed。
+	if (!match) {
+		throw new ApiError("查询日期范围不合法", {
+			code: "date-range-invalid",
+		});
+	}
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	const next = new Date(0);
+	next.setUTCFullYear(year, month - 1, day + 1);
+	next.setUTCHours(0, 0, 0, 0);
+	return {
+		startDate: workDate,
+		endDate: formatCalendarDate({
+			year: next.getUTCFullYear(),
+			month: next.getUTCMonth() + 1,
+			day: next.getUTCDate(),
+		}),
 	};
 }
 
@@ -1055,6 +1095,55 @@ export function loadAppointmentSchedules(
 			DASHBOARD_DATE_RANGE_DAYS.appointmentDirectory,
 			now,
 		),
+	}).then(
+		(payload) =>
+			requireAppointmentScheduleListData(payload.data, departmentId).items,
+	);
+}
+
+/**
+ * 独立“门诊医生”页在日期模式下只读选中自然日的排班。
+ *
+ * doctorId 只允许来自同一页面已经校验过的医生卡片；空值表示查看该细分
+ * 门诊下的全部医生，不能把自由文本或旧页面事件直接透传给 Provider。
+ */
+export function loadAppointmentSchedulesForDate(
+	departmentId: string,
+	workDate: string,
+	doctorId = "",
+): Promise<Array<AppointmentSchedule>> {
+	if (!departmentId) {
+		return Promise.reject(
+			new ApiError("预约科室不能为空", {
+				code: "appointment-department-missing",
+			}),
+		);
+	}
+	if (!isBoundedAppointmentIdentifier(departmentId)) {
+		return Promise.reject(
+			new ApiError("预约科室参数不合法", {
+				code: "appointment-query-invalid",
+			}),
+		);
+	}
+	if (doctorId && !isBoundedAppointmentIdentifier(doctorId)) {
+		return Promise.reject(
+			new ApiError("预约医生参数不合法", {
+				code: "appointment-query-invalid",
+			}),
+		);
+	}
+
+	let range: { startDate: string; endDate: string };
+	try {
+		range = createAppointmentScheduleDayRange(workDate);
+	} catch (error) {
+		return Promise.reject(error);
+	}
+	return requestAppointmentSchedules({
+		departmentId,
+		...range,
+		...(doctorId ? { doctorId } : {}),
 	}).then(
 		(payload) =>
 			requireAppointmentScheduleListData(payload.data, departmentId).items,

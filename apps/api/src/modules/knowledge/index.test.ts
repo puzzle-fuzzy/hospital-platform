@@ -143,6 +143,7 @@ test("health knowledge routes reject unknown query parameters before the service
 		success: false,
 		error: {
 			code: "health-knowledge-query-invalid",
+			numericCode: 60100,
 			message: "健康知识查询条件不合法",
 		},
 	});

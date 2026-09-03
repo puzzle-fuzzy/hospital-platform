@@ -187,3 +187,35 @@ test("排班快照 persistence 边界拒绝未知来源、坏排班和过长 TTL
 		),
 	);
 });
+
+test("预约排班医生照片只接受完整 http(s) URL", () => {
+	expect(
+		normalizeAppointmentScheduleResults([
+			{
+				...providerSchedule(1),
+				doctorPhotoUrl: "https://oss.example.test/doctors/001.jpg",
+			},
+		]),
+	).toMatchObject([
+		{ doctorPhotoUrl: "https://oss.example.test/doctors/001.jpg" },
+	]);
+	// 空值合法：无图医生由页面占位展示。
+	expect(normalizeAppointmentScheduleResults([providerSchedule(2)])).toEqual([
+		expect.not.objectContaining({ doctorPhotoUrl: expect.anything() }),
+	]);
+
+	for (const invalid of [
+		"/doctors/001.jpg",
+		"ftp://oss.example.test/001.jpg",
+		"https://oss.example.test/ 001.jpg",
+		`https://oss.example.test/${"a".repeat(512)}`,
+	]) {
+		expect(() =>
+			normalizeAppointmentScheduleResults([
+				{ ...providerSchedule(3), doctorPhotoUrl: invalid },
+			]),
+		).toThrow(
+			new AppointmentDirectoryResultValidationError("schedule-field-invalid"),
+		);
+	}
+});

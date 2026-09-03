@@ -92,8 +92,7 @@
 		</block>
 		<block wx:elif="{{queryState === 'error'}}">
 			<view class="clinical-query-error-icon" aria-hidden="true">!</view>
-			<text class="clinical-query-state-title">挂号记录暂时无法获取</text>
-			<text class="clinical-query-state-hint">请稍后再试</text>
+			<text class="clinical-query-state-title">{{error}}</text>
 			<view class="clinical-query-state-action" bindtap="onRetry">再试一次</view>
 			<view
 				wx:if="{{canSelectPatient}}"

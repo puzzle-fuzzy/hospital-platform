@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 /**
  * 会影响原生小程序运行包的输入路径。
  *
@@ -29,6 +33,16 @@ const NON_RUNTIME_INPUT_PATHS = [
 	":(exclude,glob)apps/miniprogram/src/**/*.spec.ts",
 ] as const;
 
+/**
+ * 正式候选只允许引用提交，而本地开发包必须能准确标识尚未提交的源码快照。
+ * 这个标识不是 Git commit，调用方必须同时写入 development build mode，避免
+ * 脏工作区产物在日志、验收或发布链中被误认为正式候选。
+ */
+export type DevelopmentMiniProgramRuntimeSnapshot = Readonly<{
+	baseSourceRevision: string;
+	sourceRevision: string;
+}>;
+
 function validateRevision(revision: string, variableName: string): string {
 	if (!/^[0-9a-f]{40}$/.test(revision)) {
 		throw new Error(
@@ -36,6 +50,87 @@ function validateRevision(revision: string, variableName: string): string {
 		);
 	}
 	return revision;
+}
+
+function readGitOutput(repositoryRoot: string, args: string[]): string {
+	const process = Bun.spawnSync(["git", ...args], {
+		cwd: repositoryRoot,
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	if (!process.success) {
+		throw new Error(
+			`Unable to inspect mini program runtime inputs with git ${args[0] ?? "command"}; run the build from a Git checkout`,
+		);
+	}
+	return new TextDecoder().decode(process.stdout);
+}
+
+function isNonRuntimeInputPath(path: string): boolean {
+	const normalizedPath = path.replaceAll("\\", "/");
+	return (
+		normalizedPath.startsWith("apps/miniprogram/src/") &&
+		/\.(?:test|spec)\.ts$/u.test(normalizedPath)
+	);
+}
+
+/**
+ * 本地开发快照只列出 Git 已跟踪或未忽略的运行输入。这与正式来源门禁的
+ * `git status --untracked-files=all` 范围保持一致，同时不会把 .DS_Store、
+ * private DevTools 配置等被忽略的本机噪声写进开发来源标识。
+ */
+function listDevelopmentRuntimeInputFiles(repositoryRoot: string): Readonly<{
+	deleted: ReadonlySet<string>;
+	files: readonly string[];
+}> {
+	const listedFiles = readGitOutput(repositoryRoot, [
+		"ls-files",
+		"--cached",
+		"--others",
+		"--exclude-standard",
+		"--",
+		...RUNTIME_INPUT_PATHS,
+	])
+		.split("\n")
+		.map((entry) => entry.trim())
+		.filter((entry) => entry.length > 0 && !isNonRuntimeInputPath(entry));
+	const deletedFiles = readGitOutput(repositoryRoot, [
+		"ls-files",
+		"--deleted",
+		"--",
+		...RUNTIME_INPUT_PATHS,
+	])
+		.split("\n")
+		.map((entry) => entry.trim())
+		.filter((entry) => entry.length > 0 && !isNonRuntimeInputPath(entry));
+	const deleted = new Set(deletedFiles);
+	return {
+		deleted,
+		files: [...new Set([...listedFiles, ...deletedFiles])].sort((left, right) =>
+			left.localeCompare(right),
+		),
+	};
+}
+
+function resolveCommittedRuntimeInputRevision(
+	repositoryRoot: string,
+	configuredRevision: string | undefined,
+	variableName: string,
+): string {
+	const explicitRevision = configuredRevision?.trim();
+	if (explicitRevision) {
+		return validateRevision(explicitRevision, variableName);
+	}
+
+	const revision = readGitOutput(repositoryRoot, [
+		"log",
+		"-1",
+		"--format=%H",
+		"--",
+		...RUNTIME_INPUT_PATHS,
+		...NON_RUNTIME_INPUT_PATHS,
+	]).trim();
+	return validateRevision(revision, "Git runtime input revision");
 }
 
 /**
@@ -76,6 +171,47 @@ function assertRuntimeInputsClean(repositoryRoot: string): void {
 }
 
 /**
+ * 为本地开发生成实际工作树输入的内容快照。完整文件路径和字节都进入
+ * SHA-256，新增、修改、删除运行文件都会改变结果；测试文件不进入运行包，
+ * 因而和正式来源规则一样不会改变开发快照。
+ */
+export function resolveDevelopmentMiniProgramRuntimeSnapshot(
+	repositoryRoot: string,
+): DevelopmentMiniProgramRuntimeSnapshot {
+	const runtimeInputFiles = listDevelopmentRuntimeInputFiles(repositoryRoot);
+	const digest = createHash("sha256");
+	digest.update("hospital-miniprogram-development-runtime-v1\0");
+
+	for (const relativePath of runtimeInputFiles.files) {
+		digest.update(relativePath);
+		digest.update("\0");
+		if (runtimeInputFiles.deleted.has(relativePath)) {
+			digest.update("deleted\0");
+			continue;
+		}
+
+		try {
+			digest.update(readFileSync(join(repositoryRoot, relativePath)));
+		} catch (error) {
+			throw new Error(
+				`Unable to read development mini program runtime input ${relativePath}; retry after the file operation completes`,
+				{ cause: error },
+			);
+		}
+		digest.update("\0");
+	}
+
+	return {
+		baseSourceRevision: resolveCommittedRuntimeInputRevision(
+			repositoryRoot,
+			undefined,
+			"Git runtime input revision",
+		),
+		sourceRevision: `workspace-sha256:${digest.digest("hex")}`,
+	};
+}
+
+/**
  * 解析小程序运行包的可追溯来源。
  *
  * 发布流水线可以显式传入完整提交号；本地构建/验证则读取最近一次触及
@@ -88,32 +224,9 @@ export function resolveMiniProgramSourceRevision(
 	variableName: string,
 ): string {
 	assertRuntimeInputsClean(repositoryRoot);
-	const explicitRevision = configuredRevision?.trim();
-	if (explicitRevision) {
-		return validateRevision(explicitRevision, variableName);
-	}
-
-	const revisionProcess = Bun.spawnSync(
-		[
-			"git",
-			"log",
-			"-1",
-			"--format=%H",
-			"--",
-			...RUNTIME_INPUT_PATHS,
-			...NON_RUNTIME_INPUT_PATHS,
-		],
-		{
-			cwd: repositoryRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		},
+	return resolveCommittedRuntimeInputRevision(
+		repositoryRoot,
+		configuredRevision,
+		variableName,
 	);
-	const revision = new TextDecoder().decode(revisionProcess.stdout).trim();
-	if (!revisionProcess.success) {
-		throw new Error(
-			`Unable to resolve the mini program source revision; set ${variableName} in a non-Git environment`,
-		);
-	}
-	return validateRevision(revision, "Git runtime input revision");
 }

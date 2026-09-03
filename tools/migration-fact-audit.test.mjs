@@ -17,8 +17,8 @@ describe("迁移事实文档审计", () => {
 		const report = await auditMigrationDocumentation(process.cwd());
 
 		expect(report).toMatchObject({
-			frozenGateCount: 34,
-			contractFeatureKeyCount: 23,
+			frozenGateCount: 33,
+			contractFeatureKeyCount: 22,
 			failures: [],
 			passed: true,
 		});

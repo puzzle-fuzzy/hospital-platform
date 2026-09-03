@@ -8,21 +8,52 @@ import {
 	rm,
 } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
-import { resolveMiniProgramSourceRevision } from "./runtime-provenance";
+import {
+	type DevelopmentMiniProgramRuntimeSnapshot,
+	resolveDevelopmentMiniProgramRuntimeSnapshot,
+	resolveMiniProgramSourceRevision,
+} from "./runtime-provenance";
 import {
 	createMiniProgramRuntimeLockError,
 	findForbiddenWorkspaceImports,
 	findMissingRelativeImports,
+	getMiniProgramDevelopmentRuntimePath,
 	getMiniProgramPendingRuntimePath,
 	isMiniProgramRuntimeLockError,
 	listRuntimeFiles,
+	type MiniProgramRuntimeBuildMode,
+	publishMiniProgramDevelopmentRuntime,
 	publishMiniProgramRuntime,
 } from "./runtime-publisher";
 
 const root = join(import.meta.dir, "..");
 const repositoryRoot = join(root, "..", "..");
 const source = join(root, "src");
-const runtime = join(root, "dist");
+
+function resolveBuildMode(): MiniProgramRuntimeBuildMode {
+	const argumentsAfterScript = process.argv.slice(2);
+	if (
+		argumentsAfterScript.length === 0 ||
+		argumentsAfterScript[0] === "--mode=release"
+	) {
+		return "release";
+	}
+	if (
+		argumentsAfterScript.length === 1 &&
+		argumentsAfterScript[0] === "--mode=development"
+	) {
+		return "development";
+	}
+	throw new Error(
+		"Mini program build mode must be omitted, --mode=release, or --mode=development",
+	);
+}
+
+const buildMode = resolveBuildMode();
+const runtime =
+	buildMode === "development"
+		? getMiniProgramDevelopmentRuntimePath(root)
+		: join(root, "dist");
 const projectConfigPath = join(root, "project.config.json");
 const privateProjectConfigPath = join(root, "project.private.config.json");
 const nestedSourceProjectConfigPath = join(source, "project.config.json");
@@ -55,6 +86,9 @@ const requiredStaticFiles = [
 	"pages/appointment-directory/appointment-directory.json",
 	"pages/appointment-directory/appointment-directory.wxml",
 	"pages/appointment-directory/appointment-directory.wxss",
+	"pages/appointment-schedule/appointment-schedule.json",
+	"pages/appointment-schedule/appointment-schedule.wxml",
+	"pages/appointment-schedule/appointment-schedule.wxss",
 	"pages/appointment-records/appointment-records.json",
 	"pages/appointment-records/appointment-records.wxml",
 	"pages/appointment-records/appointment-records.wxss",
@@ -102,6 +136,7 @@ const requiredTypeScriptFiles = [
 	"pages/feedback/feedback.ts",
 	"pages/hospital-list/hospital-list.ts",
 	"pages/appointment-directory/appointment-directory.ts",
+	"pages/appointment-schedule/appointment-schedule.ts",
 	"pages/appointment-records/appointment-records.ts",
 	"pages/missed-appointments/missed-appointments.ts",
 	"pages/report-directory/report-directory.ts",
@@ -118,23 +153,32 @@ const requiredTypeScriptFiles = [
 const requiredAssetDirectories = ["assets"];
 
 type MiniProgramBuildInfo = {
-	schemaVersion: 1;
+	schemaVersion: 1 | 2;
+	buildMode?: "development";
+	baseSourceRevision?: string;
 	sourceRevision: string;
+	sourceRevisionKind?: "runtime-input-snapshot";
 	pageCount: number;
 	generatedAt: string;
 };
 
 /**
- * 构建来源必须能被真机验收人员复核。优先允许发布流水线显式传入来源，
- * 本地开发则从最近一次影响小程序运行输入的 Git 提交读取；两条路径都只
- * 接受完整 40 位小写提交号，避免把分支名、短提交号或用户隐私写进运行包。
+ * release 必须保留可复核的 Git 提交来源；development 则只记录实际工作树的
+ * 内容快照及其最近的已提交基线，绝不把未提交代码伪装成正式候选提交。
  */
-function resolveSourceRevision(): string {
-	return resolveMiniProgramSourceRevision(
-		repositoryRoot,
-		process.env.HOSPITAL_MINIPROGRAM_SOURCE_REVISION,
-		"HOSPITAL_MINIPROGRAM_SOURCE_REVISION",
-	);
+function resolveBuildProvenance():
+	| { sourceRevision: string }
+	| DevelopmentMiniProgramRuntimeSnapshot {
+	if (buildMode === "development") {
+		return resolveDevelopmentMiniProgramRuntimeSnapshot(repositoryRoot);
+	}
+	return {
+		sourceRevision: resolveMiniProgramSourceRevision(
+			repositoryRoot,
+			process.env.HOSPITAL_MINIPROGRAM_SOURCE_REVISION,
+			"HOSPITAL_MINIPROGRAM_SOURCE_REVISION",
+		),
+	};
 }
 
 /**
@@ -562,7 +606,10 @@ async function validatePageRuntimeBoundaries(
 		}
 
 		for (const match of script.matchAll(pageNavigationPattern)) {
-			const target = match[1]?.replace(/^\//, "");
+			const rawTarget = match[1];
+			const target = rawTarget
+				? (rawTarget.split(/[?#]/u, 1)[0] ?? "").replace(/^\//, "")
+				: undefined;
 			if (target && !registeredPages.has(target)) {
 				throw new Error(
 					`${pagePath}.ts navigates to unregistered mini-program page ${target}`,
@@ -587,6 +634,14 @@ for (const file of [...requiredStaticFiles, ...requiredTypeScriptFiles]) {
 for (const directory of requiredAssetDirectories) {
 	await access(join(source, directory));
 }
+
+/**
+ * 本地开发允许未提交运行输入，但不能把构建过程中发生的第二次保存混入
+ * 第一轮 TypeScript/WXML 输出。正式构建仍在发布前通过 Git clean 门禁保证
+ * 同一性质；开发构建额外在发布前对比两次内容快照。
+ */
+const initialDevelopmentSnapshot =
+	buildMode === "development" ? resolveBuildProvenance() : undefined;
 
 /** 只把非 TypeScript 资源复制到运行目录，避免把源码配置副本带入上传包。 */
 async function copyStaticFiles(
@@ -617,15 +672,21 @@ async function copyStaticFiles(
 /**
  * 使用项目锁定的 TypeScript 编译器输出 CommonJS 页面脚本到 staging；staging
  * 放在 miniprogram 项目根目录之外，避免微信开发者工具把临时文件当成页面输入。
- * 小程序只消费已经完整发布的 dist，src 仍是唯一业务源码；不能在这里清空 live
- * dist，否则开发者工具监听到整目录删除时会出现页面 404。
+ * 小程序只消费已经完整发布的运行目录，src 仍是唯一业务源码；不能在这里清空
+ * live runtime，否则开发者工具监听到整目录删除时会出现页面 404。
  */
 const stagingRuntime = await mkdtemp(
 	join(dirname(root), ".hospital-miniprogram-staging-"),
 );
 // 该目录位于小程序项目根之外，不会被微信工具当作运行包；只有完整构建
-// 校验通过、但 `dist/` 被工具锁定时，才会短暂保留它作为待发布候选。
-const pendingRuntime = getMiniProgramPendingRuntimePath(root);
+// 校验通过、但运行目录被工具锁定时，才会短暂保留它作为待发布候选。开发与
+// release 的候选目录必须分开，避免脏工作区快照覆盖正式 dist。
+const pendingRuntime = getMiniProgramPendingRuntimePath(root, buildMode);
+const pendingPublishCommand =
+	buildMode === "development"
+		? "pnpm --filter @hospital/miniprogram runtime:publish-pending:dev"
+		: "pnpm --filter @hospital/miniprogram runtime:publish-pending";
+const runtimeLabel = buildMode === "development" ? "development/" : "dist/";
 try {
 	/**
 	 * tsconfig.build.json 会继续检查同一份 src 类型树，但明确排除 *.test.ts 和
@@ -686,24 +747,28 @@ try {
 	await copyStaticFiles(source, stagingRuntime);
 
 	/**
-	 * 运行包必须可以作为一个“只包含 dist 内容”的独立微信工程打开。
+	 * 运行包必须可以作为一个“只包含运行内容”的独立微信工程打开。
 	 *
 	 * 之前只在父目录放 `project.config.json`，再通过 `miniprogramRoot=dist/`
 	 * 指向运行目录；但开发者工具仍会以父目录为 watcher 根，扫描旁边的
 	 * `src/` 和 `scripts/`。当历史自定义底栏或隐式 TypeScript 输出残留时，
 	 * 它们就可能重新进入增量模块图，导致底栏闪动、selected 图标丢失和
-	 * 页面脚本 404。把配置随完整运行包一起生成，真机工程直接打开 `dist/`
-	 * 后，运行层与 TypeScript 源码在文件系统上彻底隔离。
+	 * 页面脚本 404。把配置随完整运行包一起生成：正式验收直接打开 `dist/`，
+	 * 本地开发只打开 `.local/hospital-miniprogram/development/`；两者都和
+	 * TypeScript 源码在文件系统上彻底隔离。
 	 *
 	 * 这里不复制开发者工具的 private 配置，也不把源码路径写入运行包；
-	 * `dist/project.private.config.json` 由工具按本机状态自行生成，并且
-	 * 因为 dist 已被 Git 忽略，不会污染提交。
+	 * 运行目录的 `project.private.config.json` 由工具按本机状态自行生成，
+	 * 并且整个运行目录已被 Git 忽略，不会污染提交。
 	 */
 	const runtimeProjectConfig = {
-		description: "高平医院原生微信小程序运行包",
+		description:
+			buildMode === "development"
+				? "高平医院原生微信小程序本地开发运行包（不可用于上传或真机验收）"
+				: "高平医院原生微信小程序正式运行包",
 		compileType: "miniprogram",
 		miniprogramRoot: "./",
-		projectname: `${String(projectConfig.projectname ?? "hospital-platform")}-runtime`,
+		projectname: `${String(projectConfig.projectname ?? "hospital-platform")}-${buildMode === "development" ? "development" : "runtime"}`,
 		appid: String(projectConfig.appid ?? ""),
 		setting: {
 			urlCheck: true,
@@ -765,31 +830,63 @@ try {
 	}
 
 	/**
-	 * 这是运行包的来源指纹，不携带环境变量、会话、患者或服务商数据。
-	 * 开发者工具导入 dist/ 后，验收人员可以直接将 sourceRevision 与候选提交核对，
-	 * 从而区分“代码已修复但工具仍在运行旧缓存”和“当前候选本身仍有问题”。
+	 * 这是运行包的来源标识，不携带环境变量、会话、患者或服务商数据。release
+	 * 记录完整 Git revision；development 记录实际运行输入的 SHA-256 快照，并显式
+	 * 标为 schema 2，避免被正式验收链误认为候选提交。
 	 */
+	const finalBuildProvenance = resolveBuildProvenance();
+	if (
+		buildMode === "development" &&
+		initialDevelopmentSnapshot &&
+		finalBuildProvenance.sourceRevision !==
+			initialDevelopmentSnapshot.sourceRevision
+	) {
+		throw new Error(
+			"Mini program development runtime inputs changed during build; retry after the current save completes",
+		);
+	}
 	const buildInfo: MiniProgramBuildInfo = {
-		schemaVersion: 1,
-		sourceRevision: resolveSourceRevision(),
+		schemaVersion: buildMode === "development" ? 2 : 1,
+		...(buildMode === "development"
+			? {
+					buildMode: "development" as const,
+					baseSourceRevision: (
+						finalBuildProvenance as DevelopmentMiniProgramRuntimeSnapshot
+					).baseSourceRevision,
+					sourceRevisionKind: "runtime-input-snapshot" as const,
+				}
+			: {}),
+		sourceRevision: finalBuildProvenance.sourceRevision,
 		pageCount: appPagePaths.length,
 		generatedAt: new Date().toISOString(),
 	};
 	/**
-	 * 把来源指纹写入 app.js 的启动日志。占位符和 Git 提交号长度相同，
-	 * 不改变生成脚本的行偏移；真机控制台可据此确认是否运行了本次候选。
+	 * 把来源模式与标识写入 app.js 启动日志。正式包显示 Git 提交；开发包显示
+	 * workspace 快照，避免开发者工具/手机缓存把两个运行目录混为同一候选。
 	 */
 	const runtimeAppPath = join(stagingRuntime, "app.js");
 	const runtimeApp = await Bun.file(runtimeAppPath).text();
 	const buildRevisionPlaceholder = "0000000000000000000000000000000000000000";
-	if (!runtimeApp.includes(buildRevisionPlaceholder)) {
+	const buildModePlaceholder = "__MINI_PROGRAM_BUILD_MODE__";
+	const buildSourceKindPlaceholder = "__MINI_PROGRAM_BUILD_SOURCE_KIND__";
+	if (
+		!runtimeApp.includes(buildRevisionPlaceholder) ||
+		!runtimeApp.includes(buildModePlaceholder) ||
+		!runtimeApp.includes(buildSourceKindPlaceholder)
+	) {
 		throw new Error(
-			"Mini program app.js is missing the build revision placeholder",
+			"Mini program app.js is missing build provenance placeholders",
 		);
 	}
 	await Bun.write(
 		runtimeAppPath,
-		runtimeApp.replaceAll(buildRevisionPlaceholder, buildInfo.sourceRevision),
+		runtimeApp
+			.replaceAll(buildRevisionPlaceholder, buildInfo.sourceRevision)
+			.replaceAll(buildModePlaceholder, buildMode)
+			.replaceAll(
+				buildSourceKindPlaceholder,
+				buildInfo.sourceRevisionKind ?? "git-commit",
+			),
 	);
 	await Bun.write(
 		join(stagingRuntime, "build-info.json"),
@@ -806,10 +903,14 @@ try {
 		await access(join(stagingRuntime, `${pagePath}.js`));
 	}
 
-	await publishMiniProgramRuntime(stagingRuntime, runtime);
+	if (buildMode === "development") {
+		await publishMiniProgramDevelopmentRuntime(stagingRuntime, runtime);
+	} else {
+		await publishMiniProgramRuntime(stagingRuntime, runtime);
+	}
 
 	console.log(
-		`Native tabBar mini program runtime published at ${runtime}; revision=${buildInfo.sourceRevision.slice(0, 7)}; ${buildInfo.pageCount} app.json page scripts are present`,
+		`${buildMode === "development" ? "Development" : "Release"} native tabBar mini program runtime published at ${runtime}; source=${buildInfo.sourceRevision.slice(0, 24)}; ${buildInfo.pageCount} app.json page scripts are present`,
 	);
 } catch (error) {
 	if (isMiniProgramRuntimeLockError(error)) {
@@ -823,13 +924,18 @@ try {
 		} catch (preserveError) {
 			await rm(stagingRuntime, { recursive: true, force: true });
 			throw new Error(
-				`Mini program dist/ is locked and the validated pending runtime could not be preserved: ${String(preserveError)}`,
+				`Mini program ${runtimeLabel} is locked and the validated pending runtime could not be preserved: ${String(preserveError)}`,
 				{ cause: error },
 			);
 		}
-		throw createMiniProgramRuntimeLockError(pendingRuntime, error);
+		throw createMiniProgramRuntimeLockError(
+			pendingRuntime,
+			error,
+			pendingPublishCommand,
+			runtimeLabel,
+		);
 	}
-	// 发布前的任意非锁定编译/校验失败都只清理 staging；live dist 保留上一份
+	// 发布前的任意非锁定编译/校验失败都只清理 staging；live runtime 保留上一份
 	// 完整运行包，让开发者工具继续使用旧候选，而不是暴露页面 404。
 	await rm(stagingRuntime, { recursive: true, force: true });
 	throw error;

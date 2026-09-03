@@ -1,36 +1,52 @@
 {
-	"description": "高平医院原生微信小程序项目配置",
-	"compileType": "miniprogram",
-	"miniprogramRoot": "dist/",
-	"projectname": "hospital-platform",
-	"appid": "wx4bc833cb3358c8d8",
-	"setting": {
-		"urlCheck": true,
-		"es6": true,
-		"enhance": true,
-		"postcss": true,
-		"minified": true,
-		"minifyWXML": true,
-		"minifyWXSS": true,
-		"uploadWithSourceMap": true,
-		"compileHotReLoad": false,
-		"useCompilerPlugins": ["typescript"]
-	},
-	"packOptions": {
-		"ignore": [
-			{
-				"type": "folder",
-				"value": "src"
-			},
-			{
-				"type": "folder",
-				"value": "scripts"
-			},
-			{
-				"type": "file",
-				"value": "README.md"
-			}
-		],
-		"include": []
-	}
+  "description": "高平医院原生微信小程序项目配置",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "dist/",
+  "projectname": "hospital-platform",
+  "appid": "wx4bc833cb3358c8d8",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "minifyWXML": true,
+    "minifyWXSS": true,
+    "uploadWithSourceMap": true,
+    "compileHotReLoad": false,
+    "useCompilerPlugins": [
+      "typescript"
+    ],
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "condition": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "packOptions": {
+    "ignore": [
+      {
+        "value": "src",
+        "type": "folder"
+      },
+      {
+        "value": "scripts",
+        "type": "folder"
+      },
+      {
+        "value": "README.md",
+        "type": "file"
+      }
+    ],
+    "include": []
+  },
+  "simulatorPluginLibVersion": {},
+  "editorSetting": {}
 }

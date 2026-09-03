@@ -3,6 +3,7 @@ import type {
 	AppointmentDepartmentTreePayload,
 	AppointmentRecordListPayload,
 	AppointmentScheduleListPayload,
+	AppointmentScheduleSourceListPayload,
 	AuthSessionPayload,
 	CurrentUserPayload,
 	HealthKnowledgeCatalogResponsePayload,
@@ -11,6 +12,9 @@ import type {
 	HealthKnowledgeDrugDetailResponsePayload,
 	HealthKnowledgeSymptomListResponsePayload,
 	HealthPayload,
+	MyDoctorDeletePayload,
+	MyDoctorListPayload,
+	MyDoctorResponsePayload,
 	OutpatientPaymentListPayload,
 	PatientListPayload,
 	ReportDetailPayload,
@@ -61,6 +65,11 @@ export type AppointmentDepartmentListResponse =
 export type AppointmentDepartmentTreeResponse =
 	AppointmentDepartmentTreePayload;
 export type AppointmentScheduleListResponse = AppointmentScheduleListPayload;
+export type AppointmentScheduleSourceListResponse =
+	AppointmentScheduleSourceListPayload;
+export type MyDoctorListResponse = MyDoctorListPayload;
+export type MyDoctorResponse = MyDoctorResponsePayload;
+export type MyDoctorDeleteResponse = MyDoctorDeletePayload;
 export type AppointmentRecordListResponse = AppointmentRecordListPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
 export type ReportListResponse = ReportListPayload;
@@ -91,12 +100,15 @@ export type AppointmentClinicDepartment =
 	AppointmentDepartmentListResponse["data"]["items"][number];
 export type AppointmentSchedule =
 	AppointmentScheduleListResponse["data"]["items"][number];
+export type MyDoctor = MyDoctorListResponse["data"]["items"][number];
 
 /** 预约目录“按医生挂号”页签的本地展示模型；只由已校验的排班字段派生。 */
 export type AppointmentDoctorCard = {
 	doctorId: string;
 	doctorName: string;
-	/** 医生卡片的本地字母/汉字头像；不依赖旧端未确认的头像 URL。 */
+	/** 旧端 doctorPic 的受控照片 URL；同一医生取首个非空照片，无图时页面回退本地头像。 */
+	doctorPhotoUrl?: string;
+	/** 无照片时的本地字母/汉字头像兜底。 */
 	avatarLabel: string;
 	scheduleCount: number;
 	availableSlots: number;
@@ -107,8 +119,8 @@ export type AppointmentDoctorCard = {
 	}>;
 };
 
-/** 旧端预约页的两种只读浏览方式，不代表预约写入状态。 */
-export type AppointmentDirectoryMode = "doctor" | "date";
+/** 旧端“门诊医生”页的两种只读浏览方式，不代表预约写入状态。 */
+export type AppointmentScheduleMode = "doctor" | "date";
 export type AppointmentRecord =
 	AppointmentRecordListResponse["data"]["items"][number];
 export type OutpatientPaymentRecord =
@@ -278,7 +290,7 @@ export type PatientSelectionPageData = {
 	error: string;
 };
 
-/** 预约目录页只展示服务端已校验的科室和排班，不承载下单状态。 */
+/** 预约目录页只展示服务端已校验的一、二、三级科室，不承载排班或下单状态。 */
 export type AppointmentDirectoryPageData = {
 	departments: Array<AppointmentDepartment>;
 	departmentGroups: Array<AppointmentDepartmentGroup>;
@@ -287,36 +299,88 @@ export type AppointmentDirectoryPageData = {
 	selectedDepartmentGroupId: string;
 	/** 当前已展开二级科室下的真实三级门诊。 */
 	clinicDepartments: Array<AppointmentClinicDepartment>;
-	schedules: Array<AppointmentSchedule>;
-	doctorCards: Array<AppointmentDoctorCard>;
-	activeMode: AppointmentDirectoryMode;
 	selectedDepartmentId: string;
 	selectedDepartmentName: string;
-	selectedClinicDepartmentId: string;
-	selectedClinicDepartmentName: string;
-	/** 当前从医生卡片进入日期页时的本地过滤条件；为空表示查看全部医生。 */
-	selectedDoctorId: string;
-	selectedDoctorName: string;
 	/** 搜索框只用于当前已读取的目录，不会把任意关键字透传给 Provider。 */
 	searchText: string;
-	dateGroups: Array<{
-		workDate: string;
-		label: string;
-		count: number;
-	}>;
-	selectedDate: string;
-	visibleSchedules: Array<AppointmentSchedule>;
-	hasMoreSchedules: boolean;
-	visibleScheduleCount: number;
 	loading: boolean;
 	clinicLoading: boolean;
-	scheduleLoading: boolean;
 	/** 只有一级/二级目录读取失败时才进入整页错误态。 */
 	error: string;
 	/** 已加载目录仍可浏览；细分门诊失败只在当前二级科室内提示。 */
 	clinicError: string;
-	/** 医生与号源失败只在当前三级门诊内提示。 */
-	scheduleError: string;
+};
+
+/**
+ * 旧项目 `department_select` 对应的独立“门诊医生”页。
+ *
+ * 三级门诊的 opaque ID 仅通过路由带入；页面重新向平台 API 查询经过验证的
+ * 排班，不把目录页内存中的排班或 Provider 原文字段跨页传递。
+ */
+export type AppointmentSchedulePageData = {
+	departmentId: string;
+	departmentName: string;
+	activeMode: AppointmentScheduleMode;
+	/** 默认“按医生挂号”读取未来七天的已验证排班。 */
+	doctorSchedules: Array<AppointmentSchedule>;
+	doctorCards: Array<AppointmentDoctorCard>;
+	/** “按日期挂号”只保留当前选择日期的请求结果。 */
+	dateSchedules: Array<AppointmentSchedule>;
+	/** 用户从医生卡片进入日期模式时的本地筛选；空值表示全部医生。 */
+	selectedDoctorId: string;
+	selectedDoctorName: string;
+	/** 仅用于顶部筛选位的 MM-DD 展示，原始 YYYY-MM-DD 始终保留在 selectedDate。 */
+	selectedDateLabel: string;
+	selectedDate: string;
+	dateOptions: Array<{
+		workDate: string;
+		dateLabel: string;
+		weekdayLabel: string;
+	}>;
+	datePickerStart: string;
+	datePickerEnd: string;
+	visibleSchedules: Array<AppointmentSchedule>;
+	hasMoreSchedules: boolean;
+	visibleScheduleCount: number;
+	loading: boolean;
+	error: string;
+};
+
+/** 旧项目 pagesB/patient/doctor.vue 的平台用户级“我的医生”列表。 */
+export type MyDoctorPageData = {
+	items: Array<MyDoctor>;
+	loading: boolean;
+	error: string;
+};
+
+export type MyDoctorDetailView = {
+	doctorId: string;
+	doctorName: string;
+	titleName?: string;
+	introduction?: string;
+	expertise?: string;
+	departmentLocation?: string;
+	departmentName: string;
+	doctorAvatarUrl?: string;
+};
+
+/** 旧项目 doctor_card.vue 的医生名片与未来七天排班展示。 */
+export type MyDoctorDetailPageData = {
+	doctorId: string;
+	doctor: MyDoctorDetailView | null;
+	schedules: Array<AppointmentSchedule>;
+	visibleSchedules: Array<AppointmentSchedule>;
+	dateOptions: Array<{
+		workDate: string;
+		dateLabel: string;
+		weekdayLabel: string;
+	}>;
+	selectedDate: string;
+	followed: boolean;
+	loading: boolean;
+	scheduleLoading: boolean;
+	actionLoading: boolean;
+	error: string;
 };
 
 /** 挂号记录页使用服务端规范化状态，避免在小程序解析 provider 状态码。 */
@@ -327,6 +391,44 @@ export type AppointmentRecordView = AppointmentRecord & {
 	statusClass: string;
 	/** 旧端把就诊日期与上午/下午作为独立视觉层级展示。 */
 	periodLabel: string;
+};
+
+/**
+ * 分时段号源的白名单展示模型。
+ *
+ * 服务端只返回挂号序号与归一化时段；provider 号源 ID、锁号状态和费用
+ * 不进入小程序，页面也不把这些字段拼进后续路由。
+ */
+export type AppointmentScheduleSource =
+	AppointmentScheduleSourceListPayload["data"]["items"][number];
+
+/** 旧项目 `timeslot_source` 对应的“分时段号源”只读页。 */
+export type TimeslotSourcePageData = {
+	scheduleId: string;
+	schedule: AppointmentSchedule | null;
+	slots: Array<AppointmentScheduleSource>;
+	loading: boolean;
+	error: string;
+};
+
+/**
+ * 旧项目 `confirm_registration` 对应的“确认挂号信息”页。
+ *
+ * 只承载排班与号源的展示事实和当前就诊人上下文；“确定预约”进入统一的
+ * 预约写入关闭态，不在客户端拼装费用或 provider 写入参数。
+ */
+export type ConfirmRegistrationPageData = {
+	hospitalName: string;
+	departmentName: string;
+	doctorName: string;
+	workDate: string;
+	shiftName: string;
+	timeLabel: string;
+	serialNumber: string;
+	patientName: string;
+	patientCardLabel: string;
+	patientLoading: boolean;
+	agreed: boolean;
 };
 
 /**

@@ -3,6 +3,7 @@ import type {
 	AppointmentDepartmentTreePayload,
 	AppointmentRecordListPayload,
 	AppointmentScheduleListPayload,
+	AppointmentScheduleSourceListPayload,
 } from "@hospital/contracts";
 import {
 	type AdapterCallContext,
@@ -19,6 +20,7 @@ import {
 	type AppointmentSchedule,
 	type AppointmentScheduleQuery,
 	type AppointmentScheduleSnapshotRepository,
+	type AppointmentScheduleSourceQuery,
 	adapterContextTraceId,
 	DependencyNotConfiguredError,
 	type ExternalTrace,
@@ -29,6 +31,7 @@ import {
 	normalizeAppointmentDepartmentResults,
 	normalizeAppointmentRecordResults,
 	normalizeAppointmentScheduleResults,
+	normalizeAppointmentScheduleSourceResults,
 	normalizeExternalTrace,
 	type PatientRepository,
 	parseIsoCalendarDate,
@@ -168,6 +171,19 @@ export class AppointmentRecordQueryError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "AppointmentRecordQueryError";
+	}
+}
+
+/**
+ * 客户端提交的 scheduleId 无法对应一条未过期的排班快照。
+ *
+ * scheduleId 是服务端生成的短期 opaque 引用；引用过期时必须回到目录
+ * 重新读取，不能由客户端续期或提交 provider 排班号。
+ */
+export class AppointmentScheduleReferenceExpiredError extends Error {
+	constructor() {
+		super("Appointment schedule reference is not active");
+		this.name = "AppointmentScheduleReferenceExpiredError";
 	}
 }
 
@@ -766,6 +782,89 @@ export class AppointmentService {
 	}
 
 	/**
+	 * 读取单个排班的分时段号源（只读展示）。
+	 *
+	 * scheduleId 必须能对应一条未过期的排班快照：过期或未知引用说明目录
+	 * 事实已失效，必须回到目录重新获取，不能由客户端提交 provider 排班号
+	 * 续期。号源响应不包含 provider sourceId、锁号状态或费用；未来写入
+	 * 合同必须在服务端重新解析并校验当前可用号源。
+	 */
+	async listScheduleSources(
+		scheduleId: string,
+		context: AdapterCallContext,
+	): Promise<AppointmentScheduleSourceListPayload["data"]> {
+		let trace: ExternalTrace | undefined;
+		try {
+			context = requireAppointmentContext(
+				context,
+				new AppointmentScheduleQueryError(
+					"Appointment schedule source call context is invalid",
+				),
+			);
+			if (!isBoundedOpaqueIdentifier(scheduleId)) {
+				throw new AppointmentScheduleQueryError(
+					"Appointment schedule reference is invalid",
+				);
+			}
+			const snapshots = this.dependencies.snapshots;
+			if (!snapshots) {
+				throw new DependencyNotConfiguredError("appointment-schedule-sources");
+			}
+			const listSources = this.dependencies.directory.listSources;
+			if (!listSources) {
+				throw new DependencyNotConfiguredError("appointment-schedule-sources");
+			}
+			const snapshot = await snapshots.findActive(
+				scheduleId,
+				this.now().toISOString(),
+			);
+			if (!snapshot) {
+				throw new AppointmentScheduleReferenceExpiredError();
+			}
+			this.logger.info(
+				{
+					event: "appointment.directory.sources.requested",
+					traceId: adapterContextTraceId(context),
+					provider: "zhongyang",
+					scheduleId,
+					workDate: snapshot.schedule.workDate,
+				},
+				"Appointment schedule sources requested",
+			);
+			const sourceQuery: AppointmentScheduleSourceQuery = {
+				providerScheduleId: snapshot.providerScheduleId,
+			};
+			const result = await listSources(sourceQuery, context);
+			trace = normalizeExternalTrace(
+				(result as { trace?: unknown } | undefined)?.trace,
+				{ expectedProvider: "zhongyang" },
+			);
+			const sources = normalizeAppointmentScheduleSourceResults(
+				(result as { sources?: unknown } | undefined)?.sources,
+			);
+			this.logger.info(
+				{
+					event: "appointment.directory.sources.synced",
+					traceId: adapterContextTraceId(context),
+					provider: trace.provider,
+					...traceLogFields(trace),
+					scheduleId,
+					itemCount: sources.length,
+				},
+				"Appointment schedule sources loaded",
+			);
+			return {
+				schedule: snapshot.schedule,
+				items: sources,
+				total: sources.length,
+			};
+		} catch (error) {
+			this.logFailure(context, error, "sources", trace);
+			throw error;
+		}
+	}
+
+	/**
 	 * 将 provider 只读结果落成短期快照，供未来预约写入前进行服务端复核。
 	 * 快照失败不阻断当前只读目录：在 provider 写入合同完成前，快照不是患者端
 	 * 成功的前置条件；真正开放写入时必须把该策略升级为严格 precondition。
@@ -987,7 +1086,8 @@ export class AppointmentService {
 			| "departments"
 			| "department-tree"
 			| "clinic-departments"
-			| "schedules",
+			| "schedules"
+			| "sources",
 		trace?: ExternalTrace,
 	): void {
 		this.logger.error(

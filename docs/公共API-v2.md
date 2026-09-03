@@ -125,7 +125,12 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/appointments/department-tree` | Bearer；幂等键可选 | 返回挂号页的一级/二级真实科室树 |
 | `GET` | `/api/v2/appointments/clinic-departments` | Bearer；幂等键可选 | 必填 `parentDepartmentId`；返回该受控二级科室下的三级可预约门诊 |
 | `GET` | `/api/v2/appointments/schedules` | Bearer；幂等键可选 | 必填 `startDate`、`endDate`；可选 `departmentId`、`doctorId` |
+| `GET` | `/api/v2/appointments/schedules/{scheduleId}/sources` | Bearer；幂等键可选 | 读取单个排班的分时段号源；`scheduleId` 必须对应未过期排班快照，否则 404 `appointment-schedule-reference-expired`；不返回 provider 号源 ID、锁号状态或费用 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
+| `GET` | `/api/v2/my/doctors` | Bearer | 返回当前平台用户关注的医生关系；不接收 `userId` 或 `patientId` |
+| `GET` | `/api/v2/my/doctors/{doctorId}` | Bearer | 返回当前用户自己的单个医生关系快照 |
+| `POST` | `/api/v2/my/doctors` | Bearer + 幂等键可选 | body 只有 `{doctorId}`；服务端从当前排班目录确认医生资料后建立关注关系 |
+| `DELETE` | `/api/v2/my/doctors/{doctorId}` | Bearer + 幂等键可选 | 幂等取消当前用户的医生关注关系；不会按 GET 执行破坏性操作 |
 | `GET` | `/api/v2/knowledge/health/part/list` | Bearer | 返回已发布健康百科的身体部位目录；没有审核发布版本时 fail-closed |
 | `GET` | `/api/v2/knowledge/health/crowd/list` | Bearer | 返回已发布健康百科的人群目录；不接受 provider 或患者参数 |
 | `GET` | `/api/v2/knowledge/health/department/list` | Bearer | 返回已发布健康百科的科室目录；不接受 provider 或患者参数 |
@@ -251,7 +256,18 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 在 provider 文档、锁号/取消幂等、身份映射、失败补偿和真实验收完成前，旧服务的预约写入
 接口不能被转发成新端接口。
 
-### 3.4 报告
+### 3.4 我的医生
+
+“我的医生”是当前平台用户级关系，沿用旧端的用户级语义，但不复用旧端客户端快照写入。
+列表、单项读取和取消关注都由 Bearer 会话确定 owner；客户端只提交服务端排班目录返回的
+opaque `doctorId`。关注时 API 会在未来 7 天排班目录中重新确认医生姓名、科室和头像，再写入
+`hp_my_doctors`；数据库以 `(owner_user_id, doctor_id)` 唯一键保证并发关注不重复，删除是幂等的。
+关系不绑定当前就诊人，也不把 provider 的原始医生号或患者字段暴露给小程序。
+
+服务端没有可确认的医生排班时返回 `404 my-doctor-not-found`；排班目录或持久化读模型异常时
+返回对应的服务错误，不能把异常降级成“暂无医生”。
+
+### 3.5 报告
 
 报告目录只返回 `kind`、标题、时间、`available`/`abnormal`、`hasAttachment` 和可选的
 opaque `reportId`；当前只有检验报告可以返回该 `reportId`。读取详情时必须同时提交目录当前选中的
@@ -283,7 +299,7 @@ opaque `reportId`；当前只有检验报告可以返回该 `reportId`。读取�
 影像附件、体检报告、原始报告号、患者字段和文件下载 URL 尚未开放。详情返回 404 不等于
 患者没有报告，也可能表示该报告类型尚未通过详情 gate。
 
-### 3.5 门诊病历目录
+### 3.6 门诊病历目录
 
 门诊病历页面对应旧端 `electronic_record.vue` 的真实调用：服务端按当前 owner 解析
 `his-patient` 映射，再由 adapter 调用 `POST /msun-middle-aggregate-clinic/v1/out-visit-records`。
@@ -298,7 +314,7 @@ opaque `reportId`；当前只有检验报告可以返回该 `reportId`。读取�
 病历正文、`out-emrs`、住院病历、附件、下载和详情引用仍是独立能力，不因目录有数据而自动开放。
 小程序首批只渲染 8 条，点击“加载更多记录”仅展开已取得的安全读模型，不代表 Provider 分页。
 
-### 3.6 门诊缴费和支付
+### 3.7 门诊缴费和支付
 
 门诊缴费列表只返回 `recordId`、状态、科室/医生、账单时间和 `amountFen`。服务端会先校验
 `patientId` 并按当前用户解析 `his-patient` 映射，再调用 provider；空白、超长或带控制字符的标识、owner 映射缺失、
@@ -341,7 +357,7 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 `503 dependency-not-configured`；同一幂等键不会永久停留在 `pending`。闸门关闭时不会创建尝试，
 配置和验收完成后应重新发起新的幂等请求。
 
-### 3.6 列表、空结果和大结果集语义
+### 3.8 列表、空结果和大结果集语义
 
 当前患者端所有列表接口都使用同一个最小响应形状：`data.items` 是本次服务端实际返回的数组，
 `data.total` 必须等于 `items.length`。当前没有公开 `page`、`pageSize`、`cursor` 或 `hasMore` 字段，
@@ -366,7 +382,7 @@ OpenAPI 仍保留路由是为了冻结公共契约，不代表当前支付已经
 未来要开放真正分页、游标或大结果集查询，必须先在 provider contract 中冻结游标一致性、排序键、重复项、
 快照时间、`total` 语义和失败后的续取方式，再同步修改公共 contract、adapter、页面和验收文档。
 
-### 3.7 健康百科只读路径
+### 3.9 健康百科只读路径
 
 健康百科路由已经纳入新 API 的公共 contract，覆盖旧端健康百科、疾病详情、药品详情和症状关联查询的后端入口。
 它只读取通过审核并已发布的版本化 bundle，并在服务端统一返回 `publication`、白名单字段和免责声明；不接收患者号、
@@ -396,48 +412,53 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 当前已注册公共路由会使用以下稳定错误码。`message` 是可记录和排障文本，页面展示应由
 小程序按错误码映射，不能依赖英文 message 做业务判断。
 
-| HTTP | `code` | 含义 |
-| ---: | --- | --- |
-| 400 | `validation` / `parse` | 请求 schema 或 JSON 不合法 |
-| 400 | `appointment-query-invalid` | 排班日期/过滤条件不合法 |
-| 400 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
-| 400 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
-| 400 | `report-query-invalid` | 报告查询条件不合法 |
-| 400 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
-| 400 | `patient-query-invalid` | 就诊人查询上下文不合法 |
-| 400 | `payment-order-invalid` | 创建订单输入不合法 |
-| 400 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |
-| 400 | `user-profile-invalid` | 普通个人资料字段不合法或没有可更新字段 |
-| 401 | `unauthorized` | 会话缺失、无效或已过期 |
-| 404 | `not-found` | 请求路径未注册，不能据此推断业务资源不存在 |
-| 404 | `appointment-record-patient-not-found` | 当前用户不拥有该预约查询患者 |
-| 404 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
-| 404 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
-| 404 | `report-not-found` | 报告详情不可用或尚未通过 gate |
-| 404 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |
-| 404 | `payment-order-not-found` | 订单不存在或不属于当前用户 |
-| 404 | `payment-quote-not-found` | 服务端报价不存在 |
-| 409 | `payment-quote-expired` | 服务端报价已过期，必须重新获取报价 |
-| 409 | `payment-idempotency-conflict` | 幂等键与已有订单的请求内容冲突 |
-| 409 | `payment-order-conflict` | 订单版本已被其他流程更新 |
-| 409 | `payment-notification-conflict` | 重复通知与已落库事件冲突 |
-| 409 | `payment-cash-prepay-not-allowed` | 当前订单不允许现金预支付 |
-| 409 | `payment-identity-not-found` | 支付身份映射不可用 |
-| 409 | `payment-prepay-in-progress` | 预支付仍在处理，不能并发创建 |
-| 409 | `payment-prepay-unknown` | 预支付结果需向 provider 确认，不能直接重建 |
-| 409 | `patient-sync-in-progress` | 当前用户的患者目录仍在同步，不能并发访问 provider |
-| 409 | `patient-sync-stale` | 本次患者目录结果早于已经提交的新快照，服务端拒绝旧结果回写 |
-| 409 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
-| 502 | `patient-directory-snapshot-unsafe` | Provider 返回空患者目录但当前已有就诊人，服务端拒绝执行不确定的批量失效 |
-| 502 | `patient-directory-reference-conflict` | 同一用户的医院档案映射与另一位就诊人冲突，本次就诊人未更新 |
-| 502 | `provider-request-rejected` | provider 明确拒绝请求，不能盲目重试 |
-| 502 | `provider-response-invalid` | provider 返回的数据违反平台读模型，不能作为患者端业务事实 |
-| 503 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |
-| 503 | `health-knowledge-unavailable` | 健康知识没有可用的已发布版本，或发布窗口发生冲突 |
-| 503 | `persistence-temporarily-unavailable` | 数据库、Redis 或 schema 暂时不可用 |
-| 503 | `provider-temporarily-unavailable` | provider 暂时不可用，可按策略重试 |
-| 500 | `unknown` | 未分类服务异常；页面不得根据此码推断业务结果 |
-| 500 | `persistence-invalid` | 数据库读模型或服务端内部身份违反 contract，不能降级为空列表 |
+| HTTP | 数字码 | `code` | 含义 |
+| ---: | ---: | --- | --- |
+| 400 | 10100 | `validation` | 请求 schema 不合法 |
+| 400 | 10300 | `parse` | JSON 请求体无法解析 |
+| 400 | 30100 | `appointment-query-invalid` | 排班日期/过滤条件不合法 |
+| 400 | 30200 | `appointment-record-query-invalid` | 预约记录查询条件不合法 |
+| 400 | 50300 | `outpatient-payment-query-invalid` | 门诊缴费查询条件不合法 |
+| 400 | 40100 | `report-query-invalid` | 报告查询条件不合法 |
+| 400 | 60100 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
+| 400 | 20100 | `patient-query-invalid` | 就诊人查询上下文不合法 |
+| 400 | 50100 | `payment-order-invalid` | 创建订单输入不合法 |
+| 400 | 50200 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |
+| 400 | 60200 | `user-profile-invalid` | 普通个人资料字段不合法或没有可更新字段 |
+| 401 | 10200 | `unauthorized` | 会话缺失、无效或已过期 |
+| 404 | 10400 | `not-found` | 请求路径未注册，不能据此推断业务资源不存在 |
+| 404 | 30210 | `appointment-record-patient-not-found` | 当前用户不拥有该预约查询患者 |
+| 404 | 30300 | `appointment-schedule-reference-expired` | 排班快照引用未知或已过期；需返回目录重新获取 scheduleId |
+| 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
+| 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
+| 404 | 40120 | `report-not-found` | 报告详情不可用或尚未通过 gate |
+| 404 | 60110 | `health-knowledge-not-found` | 未找到对应的健康知识内容 |
+| 404 | 50110 | `payment-order-not-found` | 订单不存在或不属于当前用户 |
+| 404 | 50120 | `payment-quote-not-found` | 服务端报价不存在 |
+| 409 | 50130 | `payment-quote-expired` | 服务端报价已过期，必须重新获取报价 |
+| 409 | 50140 | `payment-idempotency-conflict` | 幂等键与已有订单的请求内容冲突 |
+| 409 | 50150 | `payment-order-conflict` | 订单版本已被其他流程更新 |
+| 409 | 50210 | `payment-notification-conflict` | 重复通知与已落库事件冲突 |
+| 409 | 50220 | `payment-cash-prepay-not-allowed` | 当前订单不允许现金预支付 |
+| 409 | 50230 | `payment-identity-not-found` | 支付身份映射不可用 |
+| 409 | 50240 | `payment-prepay-in-progress` | 预支付仍在处理，不能并发创建 |
+| 409 | 50250 | `payment-prepay-unknown` | 预支付结果需向 provider 确认，不能直接重建 |
+| 409 | 20200 | `patient-sync-in-progress` | 当前用户的患者目录仍在同步，不能并发访问 provider |
+| 409 | 20300 | `patient-sync-stale` | 本次患者目录结果早于已经提交的新快照，服务端拒绝旧结果回写 |
+| 409 | 60210 | `user-profile-conflict` | 普通个人资料版本已被其他设备更新 |
+| 400 | 60300 | `my-doctor-query-invalid` | 我的医生请求或医生标识不合法 |
+| 404 | 60310 | `my-doctor-not-found` | 医生关系不存在或最新排班目录没有该医生 |
+| 409 | 60320 | `my-doctor-already-followed` | 该医生已经被当前用户关注 |
+| 502 | 20400 | `patient-directory-snapshot-unsafe` | Provider 返回空患者目录但当前已有就诊人，服务端拒绝执行不确定的批量失效 |
+| 502 | 20500 | `patient-directory-reference-conflict` | 同一用户的医院档案映射与另一位就诊人冲突，本次就诊人未更新 |
+| 502 | 10800 | `provider-request-rejected` | provider 明确拒绝请求，不能盲目重试 |
+| 502 | 10820 | `provider-response-invalid` | provider 返回的数据违反平台读模型，不能作为患者端业务事实 |
+| 503 | 10500 | `dependency-not-configured` | 必需服务未配置，当前实例 fail-closed |
+| 503 | 60120 | `health-knowledge-unavailable` | 健康知识没有可用的已发布版本，或发布窗口发生冲突 |
+| 503 | 10600 | `persistence-temporarily-unavailable` | 数据库、Redis 或 schema 暂时不可用 |
+| 503 | 10810 | `provider-temporarily-unavailable` | provider 暂时不可用，可按策略重试 |
+| 500 | 10900 | `unknown` | 未分类服务异常；页面不得根据此码推断业务结果 |
+| 500 | 10700 | `persistence-invalid` | 数据库读模型或服务端内部身份违反 contract，不能降级为空列表 |
 
 小程序端统一在 [`apps/miniprogram/src/services/api-client.ts`](../apps/miniprogram/src/services/api-client.ts)
 按上述稳定错误码映射中文文案；新增公共错误码时必须同步更新该映射和验收测试。未知错误码只展示安全兜底，

@@ -3,6 +3,7 @@ import {
 	AppointmentDepartmentTreeResponse,
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
+	AppointmentScheduleSourceListResponse,
 	success,
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
@@ -122,6 +123,26 @@ export function appointmentsModule(
 				headers: AppointmentHeaders,
 				query: AppointmentScheduleQuery,
 				response: { 200: AppointmentScheduleListResponse },
+				tags: ["appointments"],
+			},
+		)
+		.get(
+			"/appointments/schedules/:scheduleId/sources",
+			async ({ request, headers, params }) => {
+				await authentication.get(request);
+				return success(
+					await appointmentService.listScheduleSources(
+						params.scheduleId,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: AppointmentHeaders,
+				params: t.Object({
+					scheduleId: t.String({ minLength: 1, maxLength: 128 }),
+				}),
+				response: { 200: AppointmentScheduleSourceListResponse },
 				tags: ["appointments"],
 			},
 		)

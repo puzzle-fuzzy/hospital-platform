@@ -3,8 +3,7 @@ import { fileURLToPath } from "node:url";
 import { CLINICAL_DOMAIN_CATALOG } from "./clinical-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
-const STRUCTURED_GATE_PATH =
-	"docs/提供商接入/临床读模型契约门禁.json";
+const STRUCTURED_GATE_PATH = "docs/提供商接入/临床读模型契约门禁.json";
 const REQUIRED_GATE_FIELDS = [
 	"contractStatus",
 	"requestSample",

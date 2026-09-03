@@ -30,19 +30,6 @@
 			"nextAction": "确认住院 episode 权威来源、患者映射、状态枚举和费用边界"
 		},
 		{
-			"id": "doctor-relationship",
-			"contractStatus": "pending",
-			"requestSample": "missing",
-			"successSample": "missing",
-			"emptySample": "missing",
-			"rejectedSample": "missing",
-			"timeoutSample": "missing",
-			"ownerMapping": "pending",
-			"fieldAllowlist": "pending",
-			"redactionRule": "pending",
-			"nextAction": "取得当前医生目录和 owner 关系的脱敏样例，确认失效语义"
-		},
-		{
 			"id": "electronic-consultation",
 			"contractStatus": "pending",
 			"requestSample": "missing",

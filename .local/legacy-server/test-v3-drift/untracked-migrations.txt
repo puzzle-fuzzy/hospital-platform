@@ -1,0 +1,19 @@
+566f9bc fix: use pay type 50 for plugin self pay
+"""补充插件支付幂等上下文
+
+Revision ID: b2c3d4e5f6a7
+Revises: a7b8c9d0e1f2
+Create Date: 2026-08-17 00:00:00.000000
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+revision: str = "b2c3d4e5f6a7"
+down_revision: Union[str, None] = "a7b8c9d0e1f2"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+

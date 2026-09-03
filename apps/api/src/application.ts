@@ -29,6 +29,7 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
 import { WechatPrepayService } from "./modules/payments";
@@ -43,6 +44,7 @@ export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
 	appointments: AppointmentService;
+	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
 	healthKnowledge?: HealthKnowledgeService;
@@ -111,6 +113,18 @@ export function createDefaultApplicationServices(
 		orders: repositories.paymentOrders,
 		quotes: repositories.paymentQuotes,
 	});
+	const appointments = new AppointmentService({
+		directory:
+			options.appointmentDirectoryGateway ?? gateways.appointmentDirectory,
+		departmentTree:
+			options.appointmentDepartmentTreeGateway ??
+			gateways.appointmentDepartmentTree,
+		repository: repositories.patients,
+		records:
+			options.appointmentRecordDirectoryGateway ?? gateways.appointmentRecords,
+		snapshots: repositories.appointmentScheduleSnapshots,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
 
 	return {
 		auth: new AuthService({
@@ -124,17 +138,10 @@ export function createDefaultApplicationServices(
 			directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
-		appointments: new AppointmentService({
-			directory:
-				options.appointmentDirectoryGateway ?? gateways.appointmentDirectory,
-			departmentTree:
-				options.appointmentDepartmentTreeGateway ??
-				gateways.appointmentDepartmentTree,
-			repository: repositories.patients,
-			records:
-				options.appointmentRecordDirectoryGateway ??
-				gateways.appointmentRecords,
-			snapshots: repositories.appointmentScheduleSnapshots,
+		appointments,
+		myDoctors: new MyDoctorService({
+			repository: repositories.myDoctors,
+			appointments,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		reports: new ReportService({

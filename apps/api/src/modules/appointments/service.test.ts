@@ -14,7 +14,7 @@ import {
 	ExternalTraceReadModelValidationError,
 	MAX_APPOINTMENT_SCHEDULE_ITEMS,
 } from "@hospital/domain";
-import { createLogger } from "@hospital/observability";
+import { createLogger, createNoopLogger } from "@hospital/observability";
 import { createInMemoryAppointmentScheduleSnapshotRepository } from "@hospital/persistence";
 import {
 	AppointmentRecordPatientNotFoundError,
@@ -2086,4 +2086,129 @@ test("预约目录失败日志保留经过校验的多请求 provider trace", as
 			],
 		}),
 	);
+});
+
+test("appointment schedule sources resolve an active snapshot and whitelist slots", async () => {
+	const seenProviderScheduleIds: string[] = [];
+	const directory: AppointmentDirectoryGateway = {
+		listDepartments: async () => ({
+			departments: [],
+			trace: {
+				provider: "zhongyang",
+				operation: "appointment-departments",
+				requestId: "unused",
+			},
+		}),
+		listSchedules: async () => ({
+			schedules: [
+				{
+					providerScheduleId: "provider-schedule-77",
+					departmentId: "dept-001",
+					departmentName: "心内科",
+					doctorId: "doctor-001",
+					doctorName: "李医生",
+					workDate: "2026-08-20",
+					shiftName: "上午",
+					startTime: "08:00",
+					endTime: "12:00",
+					totalSlots: 30,
+					availableSlots: 12,
+					timeGroup: "range",
+				},
+			],
+			trace: {
+				provider: "zhongyang",
+				operation: "appointment-schedules",
+				requestId: "provider-request-001",
+			},
+		}),
+		listSources: async (input) => {
+			seenProviderScheduleIds.push(input.providerScheduleId);
+			return {
+				sources: [
+					{
+						serialNumber: "3",
+						timeLabel: "08:00-09:00",
+						timeGroup: "range",
+					},
+					{ serialNumber: "4", timeLabel: "09:30", timeGroup: "point" },
+				],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-schedule-sources",
+					requestId: "provider-request-sources-001",
+				},
+			};
+		},
+	};
+	const snapshots = createInMemoryAppointmentScheduleSnapshotRepository();
+	const service = new AppointmentService({
+		directory,
+		snapshots,
+		logger: createNoopLogger(),
+		now: () => new Date("2026-08-15T00:00:00.000Z"),
+		createScheduleId: () => "platform-schedule-001",
+	});
+
+	// 先读取排班目录生成 opaque scheduleId 与服务端快照。
+	await service.listSchedules(
+		{ startDate: "2026-08-20", endDate: "2026-08-21" },
+		{ traceId: "trace-001", idempotencyKey: "key-001" },
+	);
+
+	const payload = await service.listScheduleSources("platform-schedule-001", {
+		traceId: "trace-002",
+		idempotencyKey: "key-002",
+	});
+
+	expect(seenProviderScheduleIds).toEqual(["provider-schedule-77"]);
+	expect(payload.schedule).toMatchObject({
+		scheduleId: "platform-schedule-001",
+		doctorName: "李医生",
+	});
+	expect(payload.items).toEqual([
+		{ serialNumber: "3", timeLabel: "08:00-09:00", timeGroup: "range" },
+		{ serialNumber: "4", timeLabel: "09:30", timeGroup: "point" },
+	]);
+	expect(payload.total).toBe(2);
+});
+
+test("appointment schedule sources reject expired or unknown schedule references", async () => {
+	const directory: AppointmentDirectoryGateway = {
+		listDepartments: async () => ({
+			departments: [],
+			trace: {
+				provider: "zhongyang",
+				operation: "appointment-departments",
+				requestId: "unused",
+			},
+		}),
+		listSchedules: async () => ({
+			schedules: [],
+			trace: {
+				provider: "zhongyang",
+				operation: "appointment-schedules",
+				requestId: "unused",
+			},
+		}),
+		listSources: async () => {
+			throw new Error("listSources must not be called");
+		},
+	};
+	const service = new AppointmentService({
+		directory,
+		snapshots: createInMemoryAppointmentScheduleSnapshotRepository(),
+		logger: createNoopLogger(),
+		now: () => new Date("2026-08-15T00:00:00.000Z"),
+		createScheduleId: () => "platform-schedule-001",
+	});
+
+	await expect(
+		service.listScheduleSources("platform-schedule-404", {
+			traceId: "trace-003",
+			idempotencyKey: "key-003",
+		}),
+	).rejects.toMatchObject({
+		name: "AppointmentScheduleReferenceExpiredError",
+	});
 });

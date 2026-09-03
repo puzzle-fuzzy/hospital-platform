@@ -33,7 +33,7 @@ test("fixture gateway exposes traceable synthetic responses", async () => {
 		context,
 	);
 
-	expect(result.state).toBe("insurance_settled");
+	expect(result.state).toBe("awaiting_confirmation");
 	expect(result.amounts.totalFen).toBe(
 		result.amounts.insuranceFen + result.amounts.cashFen,
 	);
@@ -45,7 +45,7 @@ test("fixture gateway exposes traceable synthetic responses", async () => {
 	});
 
 	const queried = await gateway.query({ orderId: "order-001" }, context);
-	expect(queried.state).toBe("insurance_settled");
+	expect(queried.state).toBe("awaiting_confirmation");
 	expect(queried.amounts).toEqual(result.amounts);
 });
 

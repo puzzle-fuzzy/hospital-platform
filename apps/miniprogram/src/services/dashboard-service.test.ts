@@ -5,6 +5,7 @@ import {
 	requestReports,
 } from "./api-client";
 import {
+	createAppointmentScheduleDayRange,
 	createAppointmentRecordDateRange,
 	createAppointmentRecordQuery,
 	createPastDateRange,
@@ -123,6 +124,20 @@ test("公共日期窗口拒绝 Invalid Date 和非法天数，不生成 NaN 查�
 	}
 
 	expect(() => formatPlatformDate(invalidDate)).toThrow("查询日期范围不合法");
+});
+
+test("按日期挂号将一个医院工作日转换为相邻日查询边界", () => {
+	expect(createAppointmentScheduleDayRange("2026-02-28")).toEqual({
+		startDate: "2026-02-28",
+		endDate: "2026-03-01",
+	});
+	expect(createAppointmentScheduleDayRange("2024-02-29")).toEqual({
+		startDate: "2024-02-29",
+		endDate: "2024-03-01",
+	});
+	expect(() => createAppointmentScheduleDayRange("2026-02-30")).toThrow(
+		"查询日期范围不合法",
+	);
 });
 
 test("预约记录查询在日期无效时先失败，不把错误传给服务端", () => {

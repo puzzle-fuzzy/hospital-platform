@@ -11,10 +11,10 @@ export type SecretValueCipher = {
 	open(value: string): string;
 };
 
-function decodeKey(value: string): Buffer {
+function decodeKey(value: string, keyName: string): Buffer {
 	const key = Buffer.from(value.trim(), "base64");
 	if (key.byteLength !== AES_KEY_BYTES) {
-		throw new Error("PAYMENT_DATA_ENCRYPTION_KEY must decode to 32 bytes");
+		throw new Error(`${keyName} must decode to 32 bytes`);
 	}
 	return key;
 }
@@ -33,8 +33,11 @@ function decode(value: string): Buffer {
  */
 export function createAesGcmSecretValueCipher(
 	base64Key: string,
+	options: { keyName?: string; valueName?: string } = {},
 ): SecretValueCipher {
-	const key = decodeKey(base64Key);
+	const keyName = options.keyName ?? "PAYMENT_DATA_ENCRYPTION_KEY";
+	const valueName = options.valueName ?? "payment value";
+	const key = decodeKey(base64Key, keyName);
 
 	return {
 		seal(value) {
@@ -60,7 +63,7 @@ export function createAesGcmSecretValueCipher(
 				!encodedTag ||
 				!encodedCiphertext
 			) {
-				throw new Error("Encrypted payment value has an unsupported format");
+				throw new Error(`Encrypted ${valueName} has an unsupported format`);
 			}
 			const iv = decode(encodedIv);
 			const tag = decode(encodedTag);
@@ -70,7 +73,7 @@ export function createAesGcmSecretValueCipher(
 				tag.byteLength !== AES_TAG_BYTES ||
 				ciphertext.byteLength === 0
 			) {
-				throw new Error("Encrypted payment value has invalid lengths");
+				throw new Error(`Encrypted ${valueName} has invalid lengths`);
 			}
 
 			const decipher = createDecipheriv(AES_ALGORITHM, key, iv);

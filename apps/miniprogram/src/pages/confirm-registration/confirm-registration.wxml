@@ -1,0 +1,63 @@
+<scroll-view class="confirm-scroll" scroll-y="true" enhanced="true">
+	<view class="confirm-card">
+		<view class="confirm-card-title">
+			<text>预约信息</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">预约医院</text>
+			<text class="confirm-row-value">{{hospitalName}}</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">预约科室</text>
+			<text class="confirm-row-value">{{departmentName}}</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">预约医生</text>
+			<text class="confirm-row-value">{{doctorName}}</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">挂号序号</text>
+			<text class="confirm-row-value">{{serialNumber}}号</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">预约就诊时间</text>
+			<text class="confirm-row-value">{{workDate}} {{shiftName}} {{timeLabel}}</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">挂号费用</text>
+			<text class="confirm-row-fee">以下单时医院实际收费为准</text>
+		</view>
+	</view>
+
+	<view class="confirm-card" bindtap="onOpenPatientSelector">
+		<view class="confirm-card-title">
+			<text>就诊人</text>
+			<text class="confirm-card-action">更换</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">姓名</text>
+			<text wx:if="{{patientLoading}}" class="confirm-row-value confirm-muted">正在获取就诊人…</text>
+			<text wx:else class="confirm-row-value">{{patientName}}</text>
+		</view>
+		<view class="confirm-row">
+			<text class="confirm-row-label">就诊卡</text>
+			<text class="confirm-row-value confirm-muted">{{patientCardLabel}}</text>
+		</view>
+	</view>
+
+	<view class="confirm-agree" bindtap="onToggleAgree">
+		<view class="confirm-checkbox {{agreed ? 'confirm-checkbox-on' : ''}}">
+			<text wx:if="{{agreed}}" class="confirm-checkbox-mark">✓</text>
+		</view>
+		<text class="confirm-agree-text">我已阅读并同意</text>
+		<text class="confirm-agree-link" catchtap="onOpenNotice">《预约挂号须知》</text>
+	</view>
+
+	<view class="confirm-submit {{agreed ? '' : 'confirm-submit-off'}}" bindtap="onConfirmTap">
+		<text>确定预约</text>
+	</view>
+
+	<view class="confirm-note">
+		<text>预约写入与在线支付功能正在按医院安排逐步开放；当前提交将进入服务进度说明，不会产生预约记录或扣费。</text>
+	</view>
+</scroll-view>

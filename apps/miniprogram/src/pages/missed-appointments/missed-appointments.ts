@@ -1,3 +1,4 @@
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	isMissedAppointment,
@@ -317,7 +318,7 @@ Page<MissedAppointmentsPageData, MissedAppointmentsPageMethods>({
 			? null
 			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
-			error: message,
+			error: errorMessageWithCode(error, message),
 			// 查询失败不等于用户未选择患者；只有会话或患者上下文明确失效
 			// 时清除卡片，避免错误态把服务异常误导成“请先选择”。
 			selectedPatient: preservedPatient,

@@ -8,7 +8,12 @@
 				<text wx:elif="{{!loading}}" class="patient-express-patient-name patient-express-muted">请选择就诊人</text>
 				<text wx:else class="patient-express-patient-name patient-express-muted">正在获取就诊人…</text>
 			</view>
-			<text class="patient-express-arrow">›</text>
+			<image
+				class="patient-express-arrow"
+				src="/assets/legacy-user/selector-arrow-right.svg"
+				mode="aspectFit"
+				aria-hidden="true"
+			/>
 		</view>
 
 		<view wx:if="{{error}}" class="patient-express-error">

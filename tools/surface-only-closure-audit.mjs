@@ -16,9 +16,9 @@ import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/
 const repositoryRoot = resolve(import.meta.dir, "..");
 
 /**
- * `surface-only` 入口的唯一运行时落点。
+ * `surface-only` 入口的运行时落点目录。
  *
- * 每个工厂页只负责患者上下文和关闭态展示；健康自测是唯一的本地安全子集，
+ * 工厂页只负责患者上下文和关闭态展示；健康自测是唯一的本地安全子集，
  * 因此单独声明所需计算器，而不能把它误当作临床题库或风险评估实现。
  */
 export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
@@ -110,14 +110,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 		],
 	},
 	{
-		featureKey: "smart-customer",
-		target: "pages/smart-customer/smart-customer",
-		mode: "surface-factory",
-		source: "apps/miniprogram/src/pages/smart-customer/smart-customer.ts",
-		registration: 'registerExternalEntrySurfacePage("smart-customer")',
-		sharedSources: ["apps/miniprogram/src/services/external-entry-surface.ts"],
-	},
-	{
 		featureKey: "appointment-detail",
 		target: "pages/appointment-detail/appointment-detail",
 		mode: "surface-factory",
@@ -125,14 +117,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 			"apps/miniprogram/src/pages/appointment-detail/appointment-detail.ts",
 		registration: 'registerProviderEntrySurfacePage("appointment-detail")',
 		sharedSources: ["apps/miniprogram/src/services/provider-entry-surface.ts"],
-	},
-	{
-		featureKey: "doctor",
-		target: "pages/my-doctor/my-doctor",
-		mode: "surface-factory",
-		source: "apps/miniprogram/src/pages/my-doctor/my-doctor.ts",
-		registration: 'registerClinicalSurfacePage("doctor")',
-		sharedSources: ["apps/miniprogram/src/services/clinical-entry-surface.ts"],
 	},
 	{
 		featureKey: "patient-binding",

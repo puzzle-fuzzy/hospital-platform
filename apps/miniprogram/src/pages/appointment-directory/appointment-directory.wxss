@@ -55,6 +55,8 @@ page {
 }
 
 .guide-button {
+	display: flex;
+	align-items: center;
 	flex-shrink: 0;
 	margin-left: 22rpx;
 	padding: 6rpx 18rpx;
@@ -63,6 +65,15 @@ page {
 	color: #ffffff;
 	font-size: 23rpx;
 	line-height: 1.2;
+}
+
+.guide-button-arrow {
+	width: 12rpx;
+	height: 12rpx;
+	margin-left: 8rpx;
+	border-top: 2rpx solid #ffffff;
+	border-right: 2rpx solid #ffffff;
+	transform: rotate(45deg);
 }
 
 .registration-hero-image {
@@ -996,6 +1007,7 @@ page {
 .department-child-option {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	box-sizing: border-box;
 	min-height: 87rpx;
 	padding: 0 30rpx;
@@ -1004,6 +1016,16 @@ page {
 	color: #1f5fbf;
 	font-size: 28rpx;
 	line-height: 1.35;
+}
+
+.department-child-option-chevron {
+	box-sizing: border-box;
+	width: 15rpx;
+	height: 15rpx;
+	margin-left: 20rpx;
+	border-top: 2rpx solid #78a7ee;
+	border-right: 2rpx solid #78a7ee;
+	transform: rotate(45deg);
 }
 
 .department-child-option-active {

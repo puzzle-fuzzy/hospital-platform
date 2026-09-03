@@ -2,7 +2,14 @@ import type { PaymentState } from "@hospital/contracts";
 import { transitionPayment } from "./payment-state";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { OutboxEvent } from "./outbox";
-import type { ExternalTrace, WechatMiniProgramPayParams } from "./ports";
+import type {
+	ExternalTrace,
+	MedicalInsuranceSettlementEvidence,
+	MedicalInsuranceSettlementEvidenceFinality,
+	MedicalInsuranceSettlementEvidenceSource,
+	MedicalInsuranceSettlementState,
+	WechatMiniProgramPayParams,
+} from "./ports";
 
 /** 幂等键长度上限，防止客户端把无限长字符串写入订单索引。 */
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -542,6 +549,19 @@ export type WechatPaymentReconciliationResult = {
 	order: PaymentOrder;
 };
 
+export type MedicalInsuranceReconciliationOutcome =
+	| "insurance_settled"
+	| "cash_pending"
+	| "failed"
+	| "awaiting_confirmation"
+	| "unchanged"
+	| "ignored";
+
+export type MedicalInsuranceReconciliationResult = {
+	outcome: MedicalInsuranceReconciliationOutcome;
+	order: PaymentOrder;
+};
+
 export type CreatePaymentOrderInput = {
 	ownerUserId: string;
 	patientId: string;
@@ -780,6 +800,138 @@ export class PaymentOrderService {
 		return { outcome: "unchanged", order: current };
 	}
 
+	/**
+	 * 将医保 6202/6301/6302/HIS 证据应用到订单。
+	 *
+	 * 6202/6301 的外层 success、HTTP 200 或 ordStas=1～6 都不足以把订单
+	 * 标为最终成功。只有带有权威来源和 paid finality 的证据才允许推进；
+	 * 推进后最多到 insurance_settled/cash_pending，永远不能越过现金支付和
+	 * HIS 回写直接进入 completed。
+	 */
+	async reconcileMedicalInsuranceSettlement(
+		input: MedicalInsuranceSettlementEvidence & { orderId: string },
+	): Promise<MedicalInsuranceReconciliationResult> {
+		const result = await this.dependencies.orders.findById(input.orderId);
+		if (!result) throw new PaymentOrderNotFoundError();
+		const current = normalizePaymentOrderReadModel(result, {
+			expectedOrderId: input.orderId,
+		});
+		assertMedicalInsuranceEvidence(input);
+
+		const evidence = {
+			provider: input.trace.provider,
+			operation: input.trace.operation,
+			requestId: input.trace.requestId,
+			...(input.trace.providerOrderId
+				? { providerOrderId: input.trace.providerOrderId }
+				: {}),
+			source: input.source,
+			providerStatus: input.providerStatus,
+			finality: input.finality,
+			authoritative: input.authoritative,
+			state: input.state,
+			amounts: input.amounts,
+		};
+
+		const update = async (
+			nextState: PaymentState,
+			outcome: MedicalInsuranceReconciliationOutcome,
+		): Promise<MedicalInsuranceReconciliationResult> => {
+			const updated: PaymentOrder = {
+				...current,
+				state: transitionPayment(current.state, nextState),
+				version: current.version + 1,
+				updatedAt: this.now().toISOString(),
+			};
+			const stored = await this.dependencies.orders.update(
+				updated,
+				current.version,
+				createPaymentOrderEvent(
+					"payment-order.state-changed",
+					updated,
+					evidence,
+				),
+			);
+			return {
+				outcome,
+				order: normalizePaymentOrderReadModel(stored, {
+					expectedOrderId: updated.orderId,
+					expectedOwnerUserId: updated.ownerUserId,
+					expectedState: updated.state,
+					expectedVersion: updated.version,
+				}),
+			};
+		};
+		const waitForConfirmation =
+			async (): Promise<MedicalInsuranceReconciliationResult> => {
+				if (current.state === "awaiting_confirmation") {
+					return { outcome: "awaiting_confirmation", order: current };
+				}
+				return update("awaiting_confirmation", "awaiting_confirmation");
+			};
+
+		if (!samePaymentAmounts(input.amounts, current.amounts)) {
+			if (
+				current.state === "insurance_submitted" ||
+				current.state === "awaiting_confirmation"
+			) {
+				return waitForConfirmation();
+			}
+			return { outcome: "ignored", order: current };
+		}
+
+		if (input.finality === "failed" || input.finality === "cancelled") {
+			if (
+				input.authoritative &&
+				(current.state === "insurance_submitted" ||
+					current.state === "awaiting_confirmation")
+			) {
+				return update("failed", "failed");
+			}
+			if (
+				current.state === "insurance_submitted" ||
+				current.state === "awaiting_confirmation"
+			) {
+				return waitForConfirmation();
+			}
+			return { outcome: "ignored", order: current };
+		}
+
+		// 6202/6301 的“处理中”或“后置候选”都只能留下待确认事实；
+		// 不能因为返回了完整金额就把它当成保险已结算。
+		if (input.finality !== "paid" || !input.authoritative) {
+			if (
+				current.state === "insurance_submitted" ||
+				current.state === "awaiting_confirmation"
+			) {
+				return waitForConfirmation();
+			}
+			return { outcome: "unchanged", order: current };
+		}
+
+		const expectedState: Extract<
+			PaymentState,
+			"insurance_settled" | "cash_pending"
+		> = input.amounts.cashFen > 0 ? "cash_pending" : "insurance_settled";
+		if (input.state !== expectedState) {
+			if (
+				current.state === "insurance_submitted" ||
+				current.state === "awaiting_confirmation"
+			) {
+				return waitForConfirmation();
+			}
+			return { outcome: "ignored", order: current };
+		}
+
+		if (
+			current.state === "insurance_submitted" ||
+			current.state === "awaiting_confirmation"
+		) {
+			return update(expectedState, expectedState);
+		}
+		return { outcome: "ignored", order: current };
+	}
+
 	async transition(
 		ownerUserId: string,
 		orderId: string,
@@ -815,6 +967,76 @@ export class PaymentOrderService {
 	}
 }
 
+function samePaymentAmounts(
+	left: PaymentAmounts,
+	right: PaymentAmounts,
+): boolean {
+	return (
+		left.totalFen === right.totalFen &&
+		left.insuranceFen === right.insuranceFen &&
+		left.cashFen === right.cashFen
+	);
+}
+
+function assertMedicalInsuranceEvidence(
+	input: MedicalInsuranceSettlementEvidence & { orderId: string },
+): void {
+	try {
+		assertValidPaymentAmounts(input.amounts);
+	} catch {
+		throw new PaymentOrderInputError("Medical insurance amounts are invalid");
+	}
+	if (
+		typeof input.providerStatus !== "string" ||
+		input.providerStatus.length === 0 ||
+		input.providerStatus.length > 32 ||
+		!/^[A-Za-z0-9_.:=\-]+$/.test(input.providerStatus)
+	) {
+		throw new PaymentOrderInputError(
+			"Medical insurance provider status is invalid",
+		);
+	}
+	if (typeof input.authoritative !== "boolean") {
+		throw new PaymentOrderInputError(
+			"Medical insurance evidence authority is invalid",
+		);
+	}
+	const sources: readonly MedicalInsuranceSettlementEvidenceSource[] = [
+		"6202",
+		"6301",
+		"6302",
+		"yunhealth",
+	];
+	const finalities: readonly MedicalInsuranceSettlementEvidenceFinality[] = [
+		"processing",
+		"settlement_candidate",
+		"paid",
+		"cancelled",
+		"failed",
+		"unknown",
+	];
+	const states: readonly MedicalInsuranceSettlementState[] = [
+		"insurance_settled",
+		"cash_pending",
+		"awaiting_confirmation",
+		"failed",
+	];
+	if (
+		!sources.includes(input.source) ||
+		!finalities.includes(input.finality) ||
+		!states.includes(input.state)
+	) {
+		throw new PaymentOrderInputError(
+			"Medical insurance evidence classification is invalid",
+		);
+	}
+	if (input.finality === "paid" && input.source !== "yunhealth") {
+		throw new PaymentOrderInputError(
+			"Medical insurance paid evidence must come from Yunhealth/HIS",
+		);
+	}
+}
+
 /**
  * 订单事件只携带 worker 恢复所需的内部摘要，不携带凭证、原始 provider 报文或患者敏感信息。
  * eventId 按订单和版本确定，数据库重试时不会重复制造逻辑事件。
@@ -822,17 +1044,30 @@ export class PaymentOrderService {
 function createPaymentOrderEvent(
 	eventName: "payment-order.created" | "payment-order.state-changed",
 	order: PaymentOrder,
-	evidence?: {
-		provider: "wechat-pay";
-		operation: string;
-		requestId: string;
-		providerOrderId?: string;
-		reportedState: Extract<
-			PaymentState,
-			"cash_pending" | "cash_paid" | "failed"
-		>;
-		totalFen: number;
-	},
+	evidence?:
+		| {
+				provider: "wechat-pay";
+				operation: string;
+				requestId: string;
+				providerOrderId?: string;
+				reportedState: Extract<
+					PaymentState,
+					"cash_pending" | "cash_paid" | "failed"
+				>;
+				totalFen: number;
+		  }
+		| {
+				provider: string;
+				operation: string;
+				requestId: string;
+				providerOrderId?: string;
+				source: MedicalInsuranceSettlementEvidenceSource;
+				providerStatus: string;
+				finality: MedicalInsuranceSettlementEvidenceFinality;
+				authoritative: boolean;
+				state: MedicalInsuranceSettlementState;
+				amounts: PaymentAmounts;
+		  },
 ): OutboxEvent {
 	const suffix =
 		eventName === "payment-order.created" ? "created" : order.version;

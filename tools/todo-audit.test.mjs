@@ -6,10 +6,10 @@ describe("TODO 统计门禁", () => {
 		const report = await auditTodo();
 
 		expect(report).toMatchObject({
-			total: 103,
-			done: 58,
-			open: 45,
-			byPriority: { P0: 4, P1: 19, P2: 16, P3: 6 },
+			total: 140,
+			done: 79,
+			open: 61,
+			byPriority: { P0: 4, P1: 32, P2: 19, P3: 6 },
 			failures: [],
 			passed: true,
 		});

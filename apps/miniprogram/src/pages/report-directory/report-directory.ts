@@ -1,3 +1,4 @@
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError, getCurrentUser } from "../../services/api-client";
 import {
 	loadCurrentPatientForOwner,
@@ -371,7 +372,7 @@ Page<ReportDirectoryPageData, ReportDirectoryPageMethods>({
 			? null
 			: preservedPatientForReload(this.data.selectedPatient);
 		this.setData({
-			error: message,
+			error: errorMessageWithCode(error, message),
 			// 只有明确的患者上下文错误才允许错误态引导换人；网络、Provider、
 			// 持久化和依赖配置失败只保留重试，避免把服务故障误判成未选患者。
 			canSelectPatient,

@@ -3,6 +3,15 @@ import type {
 	AppointmentScheduleSnapshotRepository,
 	IdentityUser,
 	ManualReviewRepository,
+	MedicalInsuranceCredentialContext,
+	MedicalInsuranceCredentialHandle,
+	MedicalInsuranceCredentialRepository,
+	MedicalInsuranceOrder,
+	MedicalInsuranceOrderRepository,
+	MedicalInsuranceQueryTask,
+	MedicalInsuranceQueryTaskRepository,
+	MyDoctor,
+	MyDoctorRepository,
 	PatientDirectorySnapshotInput,
 	PatientDirectorySnapshotResult,
 	PatientDirectorySyncStart,
@@ -27,17 +36,21 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
+	MyDoctorAlreadyExistsError,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
 	PaymentIdempotencyConflictError,
 	PaymentOrderVersionConflictError,
 	PaymentPrepayAttemptVersionConflictError,
+	normalizeMyDoctorReadModel,
+	validateMyDoctorCreateInput,
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
+import { createAesGcmSecretValueCipher } from "./prepay-cipher";
 
 /** 仅用于单元测试和本地组合测试；它不提供生产持久化保证。 */
 export function createInMemoryIdentityUserRepository(
@@ -917,15 +930,61 @@ export function createInMemoryReportReferenceRepository(
 	};
 }
 
+/** 我的医生关系内存仓储；仅用于单元测试和本地组合测试。 */
+export function createInMemoryMyDoctorRepository(
+	seed: readonly MyDoctor[] = [],
+): MyDoctorRepository {
+	const doctors = new Map<string, MyDoctor>();
+	const keyFor = (ownerUserId: string, doctorId: string): string =>
+		`${ownerUserId}:${doctorId}`;
+	for (const doctor of seed) {
+		const normalized = normalizeMyDoctorReadModel(doctor);
+		const key = keyFor(normalized.ownerUserId, normalized.doctorId);
+		if (doctors.has(key)) throw new MyDoctorAlreadyExistsError();
+		doctors.set(key, { ...normalized });
+	}
+
+	return {
+		async listByOwner(ownerUserId) {
+			return [...doctors.values()]
+				.filter((doctor) => doctor.ownerUserId === ownerUserId)
+				.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+				.map((doctor) => ({ ...doctor }));
+		},
+		async findByOwnerAndDoctor(ownerUserId, doctorId) {
+			const doctor = doctors.get(keyFor(ownerUserId, doctorId));
+			return doctor ? { ...doctor } : undefined;
+		},
+		async create(input) {
+			validateMyDoctorCreateInput(input);
+			const normalized = normalizeMyDoctorReadModel({
+				...input,
+				createdAt: input.createdAt ?? new Date().toISOString(),
+			});
+			const key = keyFor(normalized.ownerUserId, normalized.doctorId);
+			if (doctors.has(key)) throw new MyDoctorAlreadyExistsError();
+			doctors.set(key, { ...normalized });
+			return { ...normalized };
+		},
+		async deleteByOwnerAndDoctor(ownerUserId, doctorId) {
+			return doctors.delete(keyFor(ownerUserId, doctorId));
+		},
+	};
+}
+
 export function createNotConfiguredRepositories(): {
 	identityUsers: UserIdentityRepository;
 	userProfiles: UserProfileRepository;
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
+	medicalInsuranceOrders: MedicalInsuranceOrderRepository;
+	medicalInsuranceQueryTasks: MedicalInsuranceQueryTaskRepository;
+	medicalInsuranceCredentials: MedicalInsuranceCredentialRepository;
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
+	myDoctors: MyDoctorRepository;
 	reportReferences: ReportReferenceRepository;
 	operations: ManualReviewRepository;
 	healthKnowledge: ReturnType<
@@ -958,6 +1017,54 @@ export function createNotConfiguredRepositories(): {
 			},
 			resolveProviderReference: async () => {
 				throw new PersistenceNotConfiguredError("patients");
+			},
+		},
+		medicalInsuranceOrders: {
+			insert: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+			findByPayOrdId: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+			findByOwnerAndIdempotencyKey: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+			applySettlement: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+		},
+		medicalInsuranceQueryTasks: {
+			insert: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-query-tasks",
+				);
+			},
+			claimDueForQuery: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-query-tasks",
+				);
+			},
+			update: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-query-tasks",
+				);
+			},
+		},
+		medicalInsuranceCredentials: {
+			put: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-credentials",
+				);
+			},
+			get: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-credentials",
+				);
+			},
+			revoke: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-credentials",
+				);
 			},
 		},
 		paymentOrders: {
@@ -1013,6 +1120,20 @@ export function createNotConfiguredRepositories(): {
 				);
 			},
 		},
+		myDoctors: {
+			listByOwner: async () => {
+				throw new PersistenceNotConfiguredError("my-doctors");
+			},
+			findByOwnerAndDoctor: async () => {
+				throw new PersistenceNotConfiguredError("my-doctors");
+			},
+			create: async () => {
+				throw new PersistenceNotConfiguredError("my-doctors");
+			},
+			deleteByOwnerAndDoctor: async () => {
+				throw new PersistenceNotConfiguredError("my-doctors");
+			},
+		},
 		reportReferences: {
 			upsert: async () => {
 				throw new PersistenceNotConfiguredError("report-references");
@@ -1030,5 +1151,234 @@ export function createNotConfiguredRepositories(): {
 			},
 		},
 		healthKnowledge: createNotConfiguredHealthKnowledgeRepository(),
+	};
+}
+
+/** 医保查单任务内存仓储：复现 claim 租约和 version CAS 语义。 */
+export function createInMemoryMedicalInsuranceQueryTaskRepository(
+	seed: readonly MedicalInsuranceQueryTask[] = [],
+): MedicalInsuranceQueryTaskRepository {
+	const tasks = new Map(
+		seed.map((task) => [
+			task.taskId,
+			{ ...task } satisfies MedicalInsuranceQueryTask,
+		]),
+	);
+	return {
+		async insert(task) {
+			const existing = tasks.get(task.taskId);
+			if (existing) {
+				if (!sameMedicalInsuranceQueryTask(existing, task)) {
+					throw new Error(
+						"Medical insurance query task idempotency payload changed",
+					);
+				}
+				return { ...existing };
+			}
+			tasks.set(task.taskId, { ...task });
+			return { ...task };
+		},
+		async claimDueForQuery(now, limit, leaseMs) {
+			if (
+				!Number.isSafeInteger(limit) ||
+				limit <= 0 ||
+				!Number.isSafeInteger(leaseMs) ||
+				leaseMs <= 0
+			) {
+				return [];
+			}
+			const nowMs = now.getTime();
+			const leaseUntil = new Date(nowMs + leaseMs).toISOString();
+			const due = [...tasks.values()]
+				.filter((task) => {
+					if (task.status !== "pending") return false;
+					const nextAttemptMs = new Date(task.nextAttemptAt).getTime();
+					if (!Number.isFinite(nextAttemptMs) || nextAttemptMs > nowMs) {
+						return false;
+					}
+					if (!task.claimedUntil) return true;
+					const claimedUntilMs = new Date(task.claimedUntil).getTime();
+					return !Number.isFinite(claimedUntilMs) || claimedUntilMs <= nowMs;
+				})
+				.sort((left, right) => {
+					const leftMs = new Date(left.nextAttemptAt).getTime();
+					const rightMs = new Date(right.nextAttemptAt).getTime();
+					return leftMs - rightMs || left.taskId.localeCompare(right.taskId);
+				})
+				.slice(0, limit)
+				.map((task) => ({
+					...task,
+					status: "in_progress" as const,
+					version: task.version + 1,
+					claimedUntil: leaseUntil,
+					updatedAt: now.toISOString(),
+				}));
+			for (const task of due) tasks.set(task.taskId, task);
+			return due;
+		},
+		async update(task, expectedVersion) {
+			const current = tasks.get(task.taskId);
+			if (!current || current.version !== expectedVersion) {
+				throw new Error(
+					"Medical insurance query task was changed by another worker",
+				);
+			}
+			tasks.set(task.taskId, { ...task });
+			return { ...task };
+		},
+	};
+}
+
+/** 医保凭证上下文内存实现：密文仍用同一 AES-GCM 边界，避免测试绕过安全约束。 */
+export function createInMemoryMedicalInsuranceCredentialRepository(
+	base64Key = Buffer.alloc(32, 1).toString("base64"),
+): MedicalInsuranceCredentialRepository {
+	const cipher = createAesGcmSecretValueCipher(base64Key, {
+		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+		valueName: "medical insurance credential",
+	});
+	type StoredCredential = MedicalInsuranceCredentialHandle & {
+		payloadCiphertext: string;
+		revokedAt: string | null;
+	};
+	const credentials = new Map<string, StoredCredential>();
+
+	return {
+		async put(input) {
+			const handle: MedicalInsuranceCredentialHandle = {
+				credentialId: input.credentialId,
+				ownerUserId: input.ownerUserId,
+				medicalOrderId: input.medicalOrderId,
+				payOrdId: input.payOrdId,
+				purpose: input.purpose,
+				expiresAt: input.expiresAt,
+				createdAt: input.createdAt,
+			};
+			const existing = credentials.get(input.credentialId);
+			const payloadCiphertext = cipher.seal(input.payToken);
+			if (existing) {
+				if (
+					existing.ownerUserId !== handle.ownerUserId ||
+					existing.medicalOrderId !== handle.medicalOrderId ||
+					existing.payOrdId !== handle.payOrdId ||
+					existing.purpose !== handle.purpose ||
+					existing.expiresAt !== handle.expiresAt ||
+					existing.createdAt !== handle.createdAt ||
+					cipher.open(existing.payloadCiphertext) !== input.payToken
+				) {
+					throw new Error("Medical insurance credential idempotency payload changed");
+				}
+				return { ...existing };
+			}
+			credentials.set(input.credentialId, {
+				...handle,
+				payloadCiphertext,
+				revokedAt: null,
+			});
+			return handle;
+		},
+		async get(input) {
+			const stored = credentials.get(input.credentialId);
+			if (
+				!stored ||
+				stored.revokedAt ||
+				stored.ownerUserId !== input.ownerUserId ||
+				stored.medicalOrderId !== input.medicalOrderId ||
+				stored.purpose !== input.purpose ||
+				Date.parse(stored.expiresAt) <= Date.parse(input.now)
+			) {
+				return undefined;
+			}
+			return {
+				credentialId: stored.credentialId,
+				ownerUserId: stored.ownerUserId,
+				medicalOrderId: stored.medicalOrderId,
+				payOrdId: stored.payOrdId,
+				purpose: stored.purpose,
+				expiresAt: stored.expiresAt,
+				createdAt: stored.createdAt,
+				payToken: cipher.open(stored.payloadCiphertext),
+			} satisfies MedicalInsuranceCredentialContext;
+		},
+		async revoke(input) {
+			const stored = credentials.get(input.credentialId);
+			if (
+				!stored ||
+				stored.ownerUserId !== input.ownerUserId ||
+				stored.medicalOrderId !== input.medicalOrderId ||
+				stored.revokedAt
+			) {
+				return false;
+			}
+			stored.revokedAt = input.now;
+			stored.payloadCiphertext = "";
+			return true;
+		},
+	};
+}
+
+function sameMedicalInsuranceQueryTask(
+	left: MedicalInsuranceQueryTask,
+	right: MedicalInsuranceQueryTask,
+): boolean {
+	return (
+		left.taskId === right.taskId &&
+		left.medicalOrderId === right.medicalOrderId &&
+		left.status === right.status &&
+		left.version === right.version &&
+		left.attempts === right.attempts &&
+		left.maxAttempts === right.maxAttempts &&
+		left.nextAttemptAt === right.nextAttemptAt &&
+		left.claimedUntil === right.claimedUntil &&
+		left.terminalOrdStas === right.terminalOrdStas &&
+		left.lastErrorCode === right.lastErrorCode &&
+		left.createdAt === right.createdAt &&
+		left.updatedAt === right.updatedAt
+	);
+}
+
+/** 医保订单内存仓储：测试与服务端单测使用；CAS 语义与 MySQL 实现一致。 */
+export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranceOrderRepository {
+	const orders = new Map<string, MedicalInsuranceOrder>();
+	return {
+		async insert(order) {
+			if (orders.has(order.medicalOrderId)) {
+				throw new Error(`duplicate medical order ${order.medicalOrderId}`);
+			}
+			orders.set(order.medicalOrderId, { ...order });
+			return order;
+		},
+		async findByPayOrdId(payOrdId) {
+			return (
+				[...orders.values()].find((order) => order.payOrdId === payOrdId) ??
+				undefined
+			);
+		},
+		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
+			return (
+				[...orders.values()].find(
+					(order) =>
+						order.ownerUserId === ownerUserId &&
+						order.idempotencyKey === idempotencyKey,
+				) ?? undefined
+			);
+		},
+		async applySettlement(medicalOrderId, expectedVersion, patch) {
+			const current = orders.get(medicalOrderId);
+			if (!current || current.version !== expectedVersion) return undefined;
+			const updated: MedicalInsuranceOrder = {
+				...current,
+				status: patch.status,
+				ordStas: patch.ordStas,
+				amounts: patch.amounts,
+				setlType: patch.setlType,
+				revsTokenHash: patch.revsTokenHash,
+				revsTokenExpiresAt: patch.revsTokenExpiresAt,
+				version: current.version + 1,
+				updatedAt: new Date().toISOString(),
+			};
+			orders.set(medicalOrderId, updated);
+			return updated;
+		},
 	};
 }

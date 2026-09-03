@@ -56,6 +56,31 @@ export type LegacyFsiSettlement = LegacyFsiAmountBreakdown & {
 	ordStas: string;
 };
 
+/**
+ * 6301 在 0/1/2 等处理中状态下可能只返回订单号和状态，不返回金额。
+ * 这类结果只能驱动“等待确认”，不能被强行填成一笔已结算金额。
+ */
+export type LegacyFsiSettlementQuery = {
+	payOrdId: string;
+	ordStas: string;
+	amounts?: LegacyFsiAmountBreakdown;
+	setlType?: "ALL" | "CASH" | "HI";
+};
+
+/**
+ * FSI 订单状态的安全分类。
+ *
+ * `settlement_candidate` 刻意不叫 paid：3/4/5/6 只能进入旧流程的后置
+ * 编排，最终仍要经过云健康/HIS 的成功证据。这样 6202/6301 的 success
+ * 外层、HTTP 200 或完整金额不会被误用为支付成功。
+ */
+export type LegacyFsiOrderStatusClass =
+	| "processing"
+	| "settlement_candidate"
+	| "cancelled"
+	| "failed"
+	| "unknown";
+
 export class LegacyFsiContractError extends Error {
 	readonly infno: LegacyFsiInfno;
 
@@ -64,6 +89,22 @@ export class LegacyFsiContractError extends Error {
 		this.name = "LegacyFsiContractError";
 		this.infno = infno;
 	}
+}
+
+export function classifyLegacyFsiOrderStatus(
+	value: unknown,
+): LegacyFsiOrderStatusClass {
+	const status =
+		typeof value === "string" ? value.trim() : String(value ?? "").trim();
+	if (["0", "1", "2"].includes(status)) return "processing";
+	if (["3", "4", "5", "6"].includes(status)) {
+		return "settlement_candidate";
+	}
+	if (["7", "8", "9", "10", "11", "12", "13"].includes(status)) {
+		return "cancelled";
+	}
+	if (["14", "15", "16"].includes(status)) return "failed";
+	return "unknown";
 }
 
 function contractError(infno: LegacyFsiInfno, message: string): never {
@@ -309,6 +350,113 @@ export function validate6301Settlement(
 		requiredText(payload, fieldName, infno);
 	}
 	return settlement;
+}
+
+/**
+ * 校验 6301 查询结果，但保留医保中心的处理中状态。
+ *
+ * 旧端把 0～16 都展示为状态；新端只允许 3/4/5/6 携带完整金额进入结算
+ * 编排，其余状态返回无金额的查询结果，由上层映射为 awaiting_confirmation
+ * 或 failed。这样不会因为“查到订单”就把医保订单误判成已支付。
+ */
+export function validate6301QueryResult(
+	result: unknown,
+	expectedPayOrdId?: string,
+): LegacyFsiSettlementQuery {
+	const infno = "6301" as const;
+	const payload = unwrapLegacyFsiData(result, infno);
+	const payOrdId = requiredText(payload, "payOrdId", infno);
+	if (expectedPayOrdId !== undefined && payOrdId !== expectedPayOrdId) {
+		contractError(infno, "response payOrdId does not match the request order");
+	}
+	const ordStas = requiredText(payload, "ordStas", infno);
+	const rawSetlType = payload.setlType;
+	if (rawSetlType !== undefined && rawSetlType !== "") {
+		if (
+			!(["ALL", "CASH", "HI"] as const).includes(
+				rawSetlType as "ALL" | "CASH" | "HI",
+			)
+		) {
+			contractError(infno, "setlType must be ALL, CASH or HI");
+		}
+	}
+
+	const finalStatuses = new Set(["3", "4", "5", "6"]);
+	if (!finalStatuses.has(ordStas)) {
+		return {
+			payOrdId,
+			ordStas,
+			...(rawSetlType
+				? { setlType: rawSetlType as "ALL" | "CASH" | "HI" }
+				: {}),
+		};
+	}
+
+	const settlement = validate6301Settlement(payload, expectedPayOrdId);
+	return {
+		payOrdId: settlement.payOrdId,
+		ordStas: settlement.ordStas,
+		amounts: {
+			totalFen: settlement.totalFen,
+			cashFen: settlement.cashFen,
+			personalAccountFen: settlement.personalAccountFen,
+			fundFen: settlement.fundFen,
+		},
+		...(rawSetlType ? { setlType: rawSetlType as "ALL" | "CASH" | "HI" } : {}),
+	};
+}
+
+function validateRequiredFields(
+	payload: Record<string, unknown>,
+	fields: readonly string[],
+	infno: LegacyFsiInfno,
+): void {
+	for (const field of fields) requiredText(payload, field, infno);
+}
+
+/** 6202 的输入只能使用 6201 返回的凭证，不能由客户端自行拼接。 */
+export function validate6202Request(payload: Record<string, unknown>): void {
+	validateRequiredFields(
+		payload,
+		[
+			"payAuthNo",
+			"payOrdId",
+			"payToken",
+			"orgCodg",
+			"orgBizSer",
+			"chrgBchno",
+			"feeType",
+			"mdtrtId",
+		],
+		"6202",
+	);
+	const acctUsedFlag = payload.acctUsedFlag;
+	if (
+		acctUsedFlag !== undefined &&
+		acctUsedFlag !== "" &&
+		acctUsedFlag !== "0" &&
+		acctUsedFlag !== "1"
+	) {
+		contractError("6202", "acctUsedFlag must be empty, 0 or 1");
+	}
+}
+
+/** 6301 查询必须再次提交 6201 凭证和实名字段；它们不能来自 URL。 */
+export function validate6301Request(payload: Record<string, unknown>): void {
+	validateRequiredFields(
+		payload,
+		["payOrdId", "orgCodg", "payToken", "idNo", "userName", "idType"],
+		"6301",
+	);
+}
+
+/** 6401 撤销同样只能使用已发放的 provider 订单凭证。 */
+export function validate6401Request(payload: Record<string, unknown>): void {
+	validateRequiredFields(
+		payload,
+		["payOrdId", "orgCodg", "payToken", "idNo", "userName", "idType"],
+		"6401",
+	);
 }
 
 export function validate6203Refund(

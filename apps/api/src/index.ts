@@ -1,4 +1,5 @@
 import {
+	createSmCryptoLegacyFsiCrypto,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
@@ -12,6 +13,7 @@ import {
 	appointmentDirectoryConfigurationStatus,
 	appointmentRecordsConfigurationMissingFields,
 	appointmentRecordsConfigurationStatus,
+	medicalInsuranceConfigurationMissingFields,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
 	patientDirectoryConfigurationMissingFields,
@@ -34,6 +36,7 @@ import {
 } from "./application";
 import { config } from "./config";
 import { createReadinessService } from "./infrastructure/readiness";
+import { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import { withShutdownDeadline } from "./shutdown";
 
 /**
@@ -188,6 +191,31 @@ const wechatPaymentNotificationDecoder:
  * 仅凭环境变量字段完整不能放行订单写入：没有回调入口时，订单状态无法
  * 形成闭环，生产 API 必须继续保持 fail-closed。
  */
+
+const medicalInsuranceMissing =
+	medicalInsuranceConfigurationMissingFields(config);
+const medicalInsuranceReady =
+	config.medicalInsuranceReady && medicalInsuranceMissing.length === 0;
+const medicalInsuranceCrypto =
+	medicalInsuranceReady && config.zhongyangBaseUrl
+		? createSmCryptoLegacyFsiCrypto({
+				appId: config.medicalInsuranceAppId ?? "",
+				appSecret: config.medicalInsuranceAppSecret ?? "",
+				channelPrivateKeyB64: config.medicalInsuranceSm2PrivateKeyB64 ?? "",
+				platformPublicKeyB64:
+					config.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
+				sm2UserId: config.medicalInsuranceSm2UserId,
+			})
+		: undefined;
+const medicalInsuranceNotification =
+	medicalInsuranceCrypto && persistence.repositories
+		? new MedicalInsuranceNotificationService({
+				crypto: medicalInsuranceCrypto,
+				orders: persistence.repositories.medicalInsuranceOrders,
+				logger,
+			})
+		: undefined;
+
 const wechatPaymentEnabled = Boolean(
 	wechatPaymentGateway && wechatPaymentNotificationDecoder,
 );
@@ -237,6 +265,7 @@ const app = createApp({
 		...(wechatPaymentNotificationDecoder
 			? { wechatPaymentNotificationDecoder }
 			: {}),
+		...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
 	}),
 	wechatPaymentEnabled,
 	readiness: createReadinessService({

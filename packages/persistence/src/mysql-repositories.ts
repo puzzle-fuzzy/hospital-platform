@@ -6,7 +6,16 @@ import type {
 	HealthKnowledgeRepository,
 	IdentityUser,
 	ManualReviewRepository,
+	MedicalInsuranceCredentialContext,
+	MedicalInsuranceCredentialHandle,
+	MedicalInsuranceCredentialRepository,
 	ManualReviewSnapshot,
+	MedicalInsuranceOrder,
+	MedicalInsuranceOrderRepository,
+	MedicalInsuranceQueryTask,
+	MedicalInsuranceQueryTaskRepository,
+	MyDoctor,
+	MyDoctorRepository,
 	OutboxEvent,
 	OutboxManualReviewItem,
 	OutboxRepository,
@@ -36,6 +45,7 @@ import type {
 	WechatPaymentNotificationRepository,
 } from "@hospital/domain";
 import {
+	MyDoctorAlreadyExistsError,
 	normalizeUserProfileReadModel,
 	PatientDirectoryReferenceConflictError,
 	PatientDirectorySnapshotStaleError,
@@ -46,6 +56,8 @@ import {
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
+	normalizeMyDoctorReadModel,
+	validateMyDoctorCreateInput,
 } from "@hospital/domain";
 import type {
 	Pool,
@@ -142,6 +154,10 @@ type AppointmentScheduleSnapshotRow = RowDataPacket & {
 	provider_schedule_id: string;
 	department_id: string;
 	department_name: string;
+	title_name: string | null;
+	introduction: string | null;
+	expertise: string | null;
+	department_location: string | null;
 	doctor_id: string;
 	doctor_name: string;
 	work_date: string;
@@ -154,6 +170,20 @@ type AppointmentScheduleSnapshotRow = RowDataPacket & {
 	provider_request_id: string;
 	observed_at: string;
 	expires_at: string;
+};
+
+type MyDoctorRow = RowDataPacket & {
+	relation_id: string;
+	owner_user_id: string;
+	doctor_id: string;
+	doctor_name: string;
+	title_name: string | null;
+	introduction: string | null;
+	expertise: string | null;
+	department_location: string | null;
+	department_name: string;
+	doctor_avatar_url: string | null;
+	created_at: string;
 };
 
 /**
@@ -295,15 +325,188 @@ function outboxEventStatus(value: string): OutboxEvent["status"] {
 	throw new Error("Persistence returned an unknown outbox event status");
 }
 
+type MIRow = RowDataPacket & {
+	medical_order_id: string;
+	owner_user_id: string;
+	patient_id: string;
+	idempotency_key: string;
+	med_org_ord: string;
+	chrg_bchno: string;
+	pay_ord_id: string | null;
+	pay_token_hash: string | null;
+	status: string;
+	ord_stas: string | null;
+	total_fen: number;
+	cash_fen: number;
+	personal_account_fen: number;
+	fund_fen: number;
+	setl_type: string | null;
+	revs_token_hash: string | null;
+	revs_token_expires_at: Date | null;
+	last_error: string | null;
+	version: number;
+	created_at: Date;
+	updated_at: Date;
+};
+
+type MedicalInsuranceQueryTaskRow = RowDataPacket & {
+	task_id: string;
+	medical_order_id: string;
+	status: string;
+	attempts: number | string;
+	max_attempts: number | string;
+	version: number | string;
+	next_attempt_at: string;
+	claimed_until: string | null;
+	terminal_ord_stas: string | null;
+	last_error_code: string | null;
+	created_at: string;
+	updated_at: string;
+};
+
+type MedicalInsuranceCredentialRow = RowDataPacket & {
+	credential_id: string;
+	owner_user_id: string;
+	medical_order_id: string;
+	pay_ord_id: string;
+	purpose: string;
+	payload_ciphertext: string;
+	expires_at: string;
+	created_at: string;
+	};
+
+const MEDICAL_INSURANCE_QUERY_TASK_STATUSES: readonly MedicalInsuranceQueryTask["status"][] =
+	[
+		"pending",
+		"in_progress",
+		"awaiting_confirmation",
+		"completed",
+		"manual_review",
+	];
+
+function medicalInsuranceQueryTaskStatus(
+	value: string,
+): MedicalInsuranceQueryTask["status"] {
+	if (
+		MEDICAL_INSURANCE_QUERY_TASK_STATUSES.includes(
+			value as MedicalInsuranceQueryTask["status"],
+		)
+	) {
+		return value as MedicalInsuranceQueryTask["status"];
+	}
+	throw new Error(
+		"Persistence returned an unknown medical insurance query task status",
+	);
+}
+
+function medicalInsuranceQueryTask(
+	row: MedicalInsuranceQueryTaskRow,
+): MedicalInsuranceQueryTask {
+	const attempts = safeDatabaseInteger(
+		row.attempts,
+		0,
+		"Persistence returned an invalid medical insurance query attempts count",
+	);
+	const maxAttempts = safeDatabaseInteger(
+		row.max_attempts,
+		1,
+		"Persistence returned an invalid medical insurance query max attempts",
+	);
+	if (attempts > maxAttempts) {
+		throw new Error(
+			"Persistence returned medical insurance query attempts above its limit",
+		);
+	}
+	return {
+		taskId: row.task_id,
+		medicalOrderId: row.medical_order_id,
+		status: medicalInsuranceQueryTaskStatus(row.status),
+		version: safeDatabaseInteger(
+			row.version,
+			1,
+			"Persistence returned an invalid medical insurance query task version",
+		),
+		attempts,
+		maxAttempts,
+		nextAttemptAt: mysqlUtcDateTimeToIso(row.next_attempt_at),
+		claimedUntil: row.claimed_until
+			? mysqlUtcDateTimeToIso(row.claimed_until)
+			: null,
+		terminalOrdStas: row.terminal_ord_stas,
+		lastErrorCode: row.last_error_code,
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+		updatedAt: mysqlUtcDateTimeToIso(row.updated_at),
+	};
+}
+
+function medicalInsuranceCredentialPurpose(
+	value: string,
+): MedicalInsuranceCredentialHandle["purpose"] {
+	if (value === "settlement" || value === "query") return value;
+	throw new Error("Persistence returned an unknown medical insurance credential purpose");
+}
+
+function medicalInsuranceCredentialHandle(
+	row: MedicalInsuranceCredentialRow,
+): MedicalInsuranceCredentialHandle {
+	return {
+		credentialId: row.credential_id,
+		ownerUserId: row.owner_user_id,
+		medicalOrderId: row.medical_order_id,
+		payOrdId: row.pay_ord_id,
+		purpose: medicalInsuranceCredentialPurpose(row.purpose),
+		expiresAt: mysqlUtcDateTimeToIso(row.expires_at),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+	};
+}
+
+const MI_SELECT =
+	"SELECT medical_order_id, owner_user_id, patient_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, version, created_at, updated_at FROM hp_medical_insurance_orders";
+
+function miOrder(row: MIRow): MedicalInsuranceOrder {
+	return {
+		medicalOrderId: row.medical_order_id,
+		ownerUserId: row.owner_user_id,
+		patientId: row.patient_id,
+		idempotencyKey: row.idempotency_key,
+		medOrgOrd: row.med_org_ord,
+		chrgBchno: row.chrg_bchno,
+		payOrdId: row.pay_ord_id,
+		payTokenHash: row.pay_token_hash,
+		status: row.status as MedicalInsuranceOrder["status"],
+		ordStas: row.ord_stas,
+		amounts:
+			row.total_fen > 0
+				? {
+						totalFen: row.total_fen,
+						cashFen: row.cash_fen,
+						personalAccountFen: row.personal_account_fen,
+						fundFen: row.fund_fen,
+					}
+				: null,
+		setlType: (row.setl_type as "ALL" | "CASH" | "HI" | null) ?? null,
+		revsTokenHash: row.revs_token_hash,
+		revsTokenExpiresAt: row.revs_token_expires_at?.toISOString() ?? null,
+		lastError: row.last_error,
+		version: row.version,
+		createdAt: row.created_at.toISOString(),
+		updatedAt: row.updated_at.toISOString(),
+	};
+}
+
 export type MySqlRepositories = {
 	identityUsers: UserIdentityRepository;
 	userProfiles: UserProfileRepository;
 	patients: PatientRepository;
 	paymentOrders: PaymentOrderRepository;
+	medicalInsuranceOrders: MedicalInsuranceOrderRepository;
+	medicalInsuranceQueryTasks: MedicalInsuranceQueryTaskRepository;
+	medicalInsuranceCredentials: MedicalInsuranceCredentialRepository;
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
+	myDoctors: MyDoctorRepository;
 	reportReferences: ReportReferenceRepository;
 	outbox: OutboxRepository;
 	/** 只供受控维护命令使用；患者 API 和普通 Worker 不应调用。 */
@@ -886,6 +1089,12 @@ function appointmentScheduleSnapshot(
 			scheduleId: row.schedule_id,
 			departmentId: row.department_id,
 			departmentName: row.department_name,
+			...(row.title_name ? { titleName: row.title_name } : {}),
+			...(row.introduction ? { introduction: row.introduction } : {}),
+			...(row.expertise ? { expertise: row.expertise } : {}),
+			...(row.department_location
+				? { departmentLocation: row.department_location }
+				: {}),
 			doctorId: row.doctor_id,
 			doctorName: row.doctor_name,
 			workDate: row.work_date,
@@ -911,6 +1120,25 @@ function appointmentScheduleSnapshot(
 		expiresAt: snapshot.expiresAt,
 	});
 	return snapshot;
+}
+
+function myDoctor(row: MyDoctorRow): MyDoctor {
+	return normalizeMyDoctorReadModel({
+		ownerUserId: row.owner_user_id,
+		doctorId: row.doctor_id,
+		doctorName: row.doctor_name,
+		...(row.title_name ? { titleName: row.title_name } : {}),
+		...(row.introduction ? { introduction: row.introduction } : {}),
+		...(row.expertise ? { expertise: row.expertise } : {}),
+		...(row.department_location
+			? { departmentLocation: row.department_location }
+			: {}),
+		departmentName: row.department_name,
+		...(row.doctor_avatar_url
+			? { doctorAvatarUrl: row.doctor_avatar_url }
+			: {}),
+		createdAt: mysqlUtcDateTimeToIso(row.created_at),
+	});
 }
 
 function reportReference(row: ReportReferenceRow): ReportReference {
@@ -1220,6 +1448,9 @@ export function createMySqlRepositories(
 		/** 支付调起参数必须使用部署注入的 AES-GCM 密钥保护后再落库。 */
 		prepayCipher?: SecretValueCipher;
 		paymentDataEncryptionKey?: string;
+		/** 医保 payToken 只允许以独立密钥加密后落库，不能复用支付密钥。 */
+		medicalInsuranceCredentialCipher?: SecretValueCipher;
+		medicalInsuranceCredentialEncryptionKey?: string;
 	} = {},
 ): MySqlRepositories {
 	const outboxClaimLeaseMs =
@@ -1237,6 +1468,25 @@ export function createMySqlRepositories(
 			throw new PersistenceNotConfiguredError("payment-prepay-attempts");
 		}
 		return prepayCipher;
+	};
+	const medicalInsuranceCredentialCipher =
+		options.medicalInsuranceCredentialCipher ??
+		(options.medicalInsuranceCredentialEncryptionKey
+			? createAesGcmSecretValueCipher(
+					options.medicalInsuranceCredentialEncryptionKey,
+					{
+						keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+						valueName: "medical insurance credential",
+					},
+				)
+			: undefined);
+	const requiredMedicalInsuranceCredentialCipher = (): SecretValueCipher => {
+		if (!medicalInsuranceCredentialCipher) {
+			throw new PersistenceNotConfiguredError(
+				"medical-insurance-credentials",
+			);
+		}
+		return medicalInsuranceCredentialCipher;
 	};
 
 	/**
@@ -2189,14 +2439,19 @@ export function createMySqlRepositories(
 				pool,
 				`INSERT INTO hp_appointment_schedule_snapshots
 					(schedule_id, provider, provider_schedule_id, department_id, department_name,
+					 title_name, introduction, expertise, department_location,
 					 doctor_id, doctor_name, work_date, shift_name, start_time, end_time,
 					 total_slots, available_slots, time_group, provider_request_id,
 					 observed_at, expires_at, created_at, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				 ON DUPLICATE KEY UPDATE
 					provider_schedule_id = IF(observed_at <= VALUES(observed_at), VALUES(provider_schedule_id), provider_schedule_id),
 					department_id = IF(observed_at <= VALUES(observed_at), VALUES(department_id), department_id),
 					department_name = IF(observed_at <= VALUES(observed_at), VALUES(department_name), department_name),
+					title_name = IF(observed_at <= VALUES(observed_at), VALUES(title_name), title_name),
+					introduction = IF(observed_at <= VALUES(observed_at), VALUES(introduction), introduction),
+					expertise = IF(observed_at <= VALUES(observed_at), VALUES(expertise), expertise),
+					department_location = IF(observed_at <= VALUES(observed_at), VALUES(department_location), department_location),
 					doctor_id = IF(observed_at <= VALUES(observed_at), VALUES(doctor_id), doctor_id),
 					doctor_name = IF(observed_at <= VALUES(observed_at), VALUES(doctor_name), doctor_name),
 					work_date = IF(observed_at <= VALUES(observed_at), VALUES(work_date), work_date),
@@ -2216,6 +2471,10 @@ export function createMySqlRepositories(
 					input.providerScheduleId,
 					input.schedule.departmentId,
 					input.schedule.departmentName,
+					input.schedule.titleName ?? null,
+					input.schedule.introduction ?? null,
+					input.schedule.expertise ?? null,
+					input.schedule.departmentLocation ?? null,
 					input.schedule.doctorId,
 					input.schedule.doctorName,
 					input.schedule.workDate,
@@ -2235,7 +2494,8 @@ export function createMySqlRepositories(
 			const rows = await execute<AppointmentScheduleSnapshotRow[]>(
 				pool,
 				`SELECT schedule_id, provider, provider_schedule_id, department_id,
-					department_name, doctor_id, doctor_name, work_date, shift_name,
+					department_name, title_name, introduction, expertise, department_location,
+					doctor_id, doctor_name, work_date, shift_name,
 					start_time, end_time, total_slots, available_slots, time_group,
 					provider_request_id, observed_at, expires_at
 				 FROM hp_appointment_schedule_snapshots WHERE schedule_id = ? LIMIT 1`,
@@ -2249,7 +2509,8 @@ export function createMySqlRepositories(
 			const rows = await execute<AppointmentScheduleSnapshotRow[]>(
 				pool,
 				`SELECT schedule_id, provider, provider_schedule_id, department_id,
-					department_name, doctor_id, doctor_name, work_date, shift_name,
+					department_name, title_name, introduction, expertise, department_location,
+					doctor_id, doctor_name, work_date, shift_name,
 					start_time, end_time, total_slots, available_slots, time_group,
 					provider_request_id, observed_at, expires_at
 				 FROM hp_appointment_schedule_snapshots
@@ -2257,6 +2518,84 @@ export function createMySqlRepositories(
 				[scheduleId, mysqlDateTime(now)],
 			);
 			return rows[0] ? appointmentScheduleSnapshot(rows[0]) : undefined;
+		},
+	};
+
+	const myDoctors: MyDoctorRepository = {
+		async listByOwner(ownerUserId) {
+			const rows = await execute<MyDoctorRow[]>(
+				pool,
+				`SELECT owner_user_id, doctor_id, doctor_name, title_name, introduction, expertise,
+					department_location, department_name, doctor_avatar_url, created_at
+				 FROM hp_my_doctors
+				 WHERE owner_user_id = ?
+				 ORDER BY created_at, relation_id`,
+				[ownerUserId],
+			);
+			return rows.map(myDoctor);
+		},
+		async findByOwnerAndDoctor(ownerUserId, doctorId) {
+			const rows = await execute<MyDoctorRow[]>(
+				pool,
+				`SELECT owner_user_id, doctor_id, doctor_name, title_name, introduction, expertise,
+					department_location, department_name, doctor_avatar_url, created_at
+				 FROM hp_my_doctors
+				 WHERE owner_user_id = ? AND doctor_id = ? LIMIT 1`,
+				[ownerUserId, doctorId],
+			);
+			return rows[0] ? myDoctor(rows[0]) : undefined;
+		},
+		async create(input) {
+			const createdAt = input.createdAt ?? new Date().toISOString();
+			validateMyDoctorCreateInput({ ...input, createdAt });
+			const relationId = crypto.randomUUID();
+			try {
+				await execute<ResultSetHeader>(
+					pool,
+					`INSERT INTO hp_my_doctors
+						(relation_id, owner_user_id, doctor_id, doctor_name, title_name,
+						 introduction, expertise, department_location, department_name,
+						 doctor_avatar_url,
+						 created_at, updated_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					[
+						relationId,
+						input.ownerUserId,
+						input.doctorId,
+						input.doctorName,
+						input.titleName ?? null,
+						input.introduction ?? null,
+						input.expertise ?? null,
+						input.departmentLocation ?? null,
+						input.departmentName,
+						input.doctorAvatarUrl ?? null,
+						mysqlDateTime(createdAt),
+						mysqlDateTime(new Date()),
+					],
+				);
+			} catch (error) {
+				if (!isDuplicateEntry(error)) throw error;
+				const existing = await myDoctors.findByOwnerAndDoctor(
+					input.ownerUserId,
+					input.doctorId,
+				);
+				if (existing) throw new MyDoctorAlreadyExistsError();
+				throw error;
+			}
+			const created = await this.findByOwnerAndDoctor(
+				input.ownerUserId,
+				input.doctorId,
+			);
+			if (!created) throw new Error("My doctor was not stored");
+			return created;
+		},
+		async deleteByOwnerAndDoctor(ownerUserId, doctorId) {
+			const result = await execute<ResultSetHeader>(
+				pool,
+				"DELETE FROM hp_my_doctors WHERE owner_user_id = ? AND doctor_id = ?",
+				[ownerUserId, doctorId],
+			);
+			return result.affectedRows === 1;
 		},
 	};
 
@@ -2377,18 +2716,287 @@ export function createMySqlRepositories(
 		},
 	};
 
+	const medicalInsuranceOrders: MedicalInsuranceOrderRepository = {
+		async insert(order) {
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_medical_insurance_orders (
+					medical_order_id, owner_user_id, patient_id, idempotency_key,
+					med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash,
+					status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen,
+					setl_type, revs_token_hash, revs_token_expires_at, last_error,
+					version, created_at, updated_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				[
+					order.medicalOrderId,
+					order.ownerUserId,
+					order.patientId,
+					order.idempotencyKey,
+					order.medOrgOrd,
+					order.chrgBchno,
+					order.payOrdId,
+					order.payTokenHash,
+					order.status,
+					order.ordStas,
+					order.amounts?.totalFen ?? 0,
+					order.amounts?.cashFen ?? 0,
+					order.amounts?.personalAccountFen ?? 0,
+					order.amounts?.fundFen ?? 0,
+					order.setlType,
+					order.revsTokenHash,
+					order.revsTokenExpiresAt,
+					order.lastError,
+					order.version,
+					mysqlDateTime(order.createdAt),
+					mysqlDateTime(order.updatedAt),
+				],
+			);
+			return order;
+		},
+		async findByPayOrdId(payOrdId) {
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_SELECT} WHERE pay_ord_id = ? LIMIT 1`,
+				[payOrdId],
+			);
+			return rows[0] ? miOrder(rows[0]) : undefined;
+		},
+		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_SELECT} WHERE owner_user_id = ? AND idempotency_key = ? LIMIT 1`,
+				[ownerUserId, idempotencyKey],
+			);
+			return rows[0] ? miOrder(rows[0]) : undefined;
+		},
+		async applySettlement(medicalOrderId, expectedVersion, patch) {
+			const result = await execute<ResultSetHeader>(
+				pool,
+				`UPDATE hp_medical_insurance_orders SET
+					status = ?, ord_stas = ?, total_fen = ?, cash_fen = ?, personal_account_fen = ?, fund_fen = ?,
+					setl_type = ?, revs_token_hash = ?, revs_token_expires_at = ?, version = version + 1, updated_at = NOW(3)
+				WHERE medical_order_id = ? AND version = ?`,
+				[
+					patch.status,
+					patch.ordStas,
+					patch.amounts?.totalFen ?? 0,
+					patch.amounts?.cashFen ?? 0,
+					patch.amounts?.personalAccountFen ?? 0,
+					patch.amounts?.fundFen ?? 0,
+					patch.setlType,
+					patch.revsTokenHash,
+					patch.revsTokenExpiresAt,
+					medicalOrderId,
+					expectedVersion,
+				],
+			);
+			if (result.affectedRows === 0) return undefined;
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_SELECT} WHERE medical_order_id = ? LIMIT 1`,
+				[medicalOrderId],
+			);
+			return rows[0] ? miOrder(rows[0]) : undefined;
+		},
+	};
+
+	/**
+	 * 医保 6301 查单任务仓储。
+	 *
+	 * claim 在短事务内锁定最早到期任务，再把状态改为 in_progress 并递增
+	 * version；Provider 调用发生在事务提交之后，避免长时间占用数据库行锁。
+	 * update 使用 claim 后的版本做 CAS，过期 Worker 不能覆盖新一轮查单结果。
+	 */
+	const medicalInsuranceQueryTasks: MedicalInsuranceQueryTaskRepository = {
+		async insert(task) {
+			await execute<ResultSetHeader>(
+				pool,
+				`INSERT INTO hp_medical_insurance_query_tasks
+					(task_id, medical_order_id, status, attempts, max_attempts, version,
+					 next_attempt_at, claimed_until, terminal_ord_stas, last_error_code,
+					 created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 ON DUPLICATE KEY UPDATE task_id = task_id`,
+				[
+					task.taskId,
+					task.medicalOrderId,
+					task.status,
+					task.attempts,
+					task.maxAttempts,
+					task.version,
+					mysqlDateTime(task.nextAttemptAt),
+					task.claimedUntil ? mysqlDateTime(task.claimedUntil) : null,
+					task.terminalOrdStas,
+					task.lastErrorCode,
+					mysqlDateTime(task.createdAt),
+					mysqlDateTime(task.updatedAt),
+				],
+			);
+			const rows = await execute<MedicalInsuranceQueryTaskRow[]>(
+				pool,
+				`SELECT task_id, medical_order_id, status, attempts, max_attempts,
+					version, next_attempt_at, claimed_until, terminal_ord_stas,
+					last_error_code, created_at, updated_at
+				 FROM hp_medical_insurance_query_tasks WHERE task_id = ? LIMIT 1`,
+				[task.taskId],
+			);
+			const existing = rows[0];
+			if (!existing) {
+				throw new Error(
+					"Medical insurance query task disappeared after insert",
+				);
+			}
+			const persisted = medicalInsuranceQueryTask(existing);
+			if (!sameMedicalInsuranceQueryTask(persisted, task)) {
+				throw new Error(
+					"Medical insurance query task idempotency payload changed",
+				);
+			}
+			return persisted;
+		},
+		async claimDueForQuery(now, limit, leaseMs) {
+			if (
+				!Number.isSafeInteger(limit) ||
+				limit <= 0 ||
+				!Number.isSafeInteger(leaseMs) ||
+				leaseMs <= 0
+			) {
+				return [];
+			}
+			const boundedLimit = Math.min(limit, 100);
+			const nowValue = mysqlDateTime(now);
+			const leaseUntil = mysqlDateTime(new Date(now.getTime() + leaseMs));
+			return withTransaction(pool, async (connection) => {
+				const rows = await execute<MedicalInsuranceQueryTaskRow[]>(
+					connection,
+					`SELECT task_id, medical_order_id, status, attempts, max_attempts,
+						version, next_attempt_at, claimed_until, terminal_ord_stas,
+						last_error_code, created_at, updated_at
+					 FROM hp_medical_insurance_query_tasks
+					 WHERE status = 'pending'
+					   AND next_attempt_at <= ?
+					   AND (claimed_until IS NULL OR claimed_until <= ?)
+					 ORDER BY next_attempt_at ASC, task_id ASC
+					 LIMIT ${boundedLimit} FOR UPDATE`,
+					[nowValue, nowValue],
+				);
+				const claimed: MedicalInsuranceQueryTask[] = [];
+				for (const row of rows) {
+					const currentVersion = safeDatabaseInteger(
+						row.version,
+						1,
+						"Persistence returned an invalid medical insurance query task version",
+					);
+					const result = await execute<ResultSetHeader>(
+						connection,
+						`UPDATE hp_medical_insurance_query_tasks
+						 SET status = 'in_progress', claimed_until = ?,
+						     version = version + 1, updated_at = ?
+						 WHERE task_id = ? AND status = 'pending' AND version = ?`,
+						[leaseUntil, nowValue, row.task_id, currentVersion],
+					);
+					if (result.affectedRows !== 1) continue;
+					claimed.push(
+						medicalInsuranceQueryTask({
+							...row,
+							status: "in_progress",
+							version: currentVersion + 1,
+							claimed_until: leaseUntil,
+							updated_at: nowValue,
+						}),
+					);
+				}
+				return claimed;
+			});
+		},
+		async update(task, expectedVersion) {
+			if (
+				!Number.isSafeInteger(expectedVersion) ||
+				expectedVersion < 1 ||
+				task.version !== expectedVersion + 1
+			) {
+				throw new Error(
+					"Medical insurance query task version update is invalid",
+				);
+			}
+			const result = await execute<ResultSetHeader>(
+				pool,
+				`UPDATE hp_medical_insurance_query_tasks SET
+					status = ?, attempts = ?, max_attempts = ?, version = ?,
+					next_attempt_at = ?, claimed_until = ?, terminal_ord_stas = ?,
+					last_error_code = ?, updated_at = ?
+				 WHERE task_id = ? AND version = ?`,
+				[
+					task.status,
+					task.attempts,
+					task.maxAttempts,
+					task.version,
+					mysqlDateTime(task.nextAttemptAt),
+					task.claimedUntil ? mysqlDateTime(task.claimedUntil) : null,
+					task.terminalOrdStas,
+					task.lastErrorCode,
+					mysqlDateTime(task.updatedAt),
+					task.taskId,
+					expectedVersion,
+				],
+			);
+			if (result.affectedRows !== 1) {
+				throw new Error(
+					"Medical insurance query task was changed by another worker",
+				);
+			}
+			const rows = await execute<MedicalInsuranceQueryTaskRow[]>(
+				pool,
+				`SELECT task_id, medical_order_id, status, attempts, max_attempts,
+					version, next_attempt_at, claimed_until, terminal_ord_stas,
+					last_error_code, created_at, updated_at
+				 FROM hp_medical_insurance_query_tasks WHERE task_id = ? LIMIT 1`,
+				[task.taskId],
+			);
+			if (!rows[0]) {
+				throw new Error(
+					"Medical insurance query task disappeared after update",
+				);
+			}
+			return medicalInsuranceQueryTask(rows[0]);
+		},
+	};
+
 	return {
 		identityUsers,
 		userProfiles,
 		patients,
 		paymentOrders,
+		medicalInsuranceOrders,
+		medicalInsuranceQueryTasks,
 		paymentQuotes,
 		paymentPrepayAttempts,
 		wechatPaymentNotifications,
 		appointmentScheduleSnapshots,
+		myDoctors,
 		reportReferences,
 		outbox,
 		operations,
 		healthKnowledge: createMySqlHealthKnowledgeRepository(pool),
 	};
+}
+
+function sameMedicalInsuranceQueryTask(
+	left: MedicalInsuranceQueryTask,
+	right: MedicalInsuranceQueryTask,
+): boolean {
+	return (
+		left.taskId === right.taskId &&
+		left.medicalOrderId === right.medicalOrderId &&
+		left.status === right.status &&
+		left.version === right.version &&
+		left.attempts === right.attempts &&
+		left.maxAttempts === right.maxAttempts &&
+		left.nextAttemptAt === right.nextAttemptAt &&
+		left.claimedUntil === right.claimedUntil &&
+		left.terminalOrdStas === right.terminalOrdStas &&
+		left.lastErrorCode === right.lastErrorCode &&
+		left.createdAt === right.createdAt &&
+		left.updatedAt === right.updatedAt
+	);
 }

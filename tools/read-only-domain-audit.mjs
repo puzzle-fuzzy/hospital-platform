@@ -39,9 +39,7 @@ export async function auditReadOnlyDomains() {
 		await readRepositoryFile("apps/miniprogram/src/app.json"),
 	);
 	const registeredPages = new Set(appJson.pages ?? []);
-	const publicApiDocumentation = await readRepositoryFile(
-		"docs/公共API-v2.md",
-	);
+	const publicApiDocumentation = await readRepositoryFile("docs/公共API-v2.md");
 	const errorHandlerSource = await readRepositoryFile(
 		"apps/api/src/plugins/error-handler.ts",
 	);

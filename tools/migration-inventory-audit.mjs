@@ -188,9 +188,7 @@ if (!(await Bun.file(legacyApiSentinel).exists())) {
 		`Legacy API inventory skipped: old API repository is not available at ${legacyApiRoot}`,
 	);
 } else {
-	const legacyApiInventory = await readText(
-		"docs/迁移/旧接口清单.md",
-	);
+	const legacyApiInventory = await readText("docs/迁移/旧接口清单.md");
 	const expectedModuleCounts = new Map();
 	for (const match of legacyApiInventory.matchAll(
 		/^\| `(module_[^`]+)` \| (\d+) \|/gmu,
@@ -419,9 +417,7 @@ if (!(await Bun.file(legacyClientApiModulesSentinel).exists())) {
 		/["'`](\/(?:api|common|convenience|intelligent|knowledge|msun|system|shift-scheduling|monitor|application|webSocket)[^"'`\s]*)["'`]/gu;
 	const normalizeEndpoint = (value) =>
 		value.replace(/\$\{[^}]+\}/gu, "{param}").replace(/\?.*$/u, "");
-	const inventoryText = await readText(
-		"docs/迁移/旧接口清单.md",
-	);
+	const inventoryText = await readText("docs/迁移/旧接口清单.md");
 	const normalizedInventoryText = inventoryText
 		.replace(/\{[^}\r\n]+\}/gu, "{param}")
 		.replace(/\?[A-Za-z0-9_=&{}.-]+/gu, "?{query}");

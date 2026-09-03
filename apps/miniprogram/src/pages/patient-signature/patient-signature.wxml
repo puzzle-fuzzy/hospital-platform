@@ -45,14 +45,24 @@
 					<text class="signature-patient-card">电子就诊卡（脱敏）：{{item.cardNumberMasked}}</text>
 					<text wx:if="{{item.clinicalAccess !== 'ready'}}" class="signature-patient-unavailable">当前服务暂不可用</text>
 				</view>
-				<text class="signature-arrow">›</text>
+				<image
+					class="signature-arrow"
+					src="/assets/legacy-user/selector-arrow-right.svg"
+					mode="aspectFit"
+					aria-hidden="true"
+				/>
 			</view>
 		</view>
 
 		<view class="signature-other-row" bindtap="onOpenPatientSelector">
 			<image src="/assets/legacy-home/service-patient.svg" mode="aspectFit" />
 			<text>选择其他就诊人</text>
-			<text class="signature-arrow">›</text>
+			<image
+				class="signature-arrow"
+				src="/assets/legacy-user/selector-arrow-right.svg"
+				mode="aspectFit"
+				aria-hidden="true"
+			/>
 		</view>
 
 		<view class="signature-tips">

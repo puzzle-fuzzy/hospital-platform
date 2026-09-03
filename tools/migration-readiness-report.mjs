@@ -2,7 +2,10 @@ import { resolve } from "node:path";
 import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolveMiniProgramSourceRevision } from "../apps/miniprogram/scripts/runtime-provenance.ts";
-import { FEATURE_STATUS_CATALOG } from "../apps/miniprogram/src/services/feature-navigation.ts";
+import {
+	FEATURE_STATUS_CATALOG,
+	FEATURE_SURFACE_TARGETS,
+} from "../apps/miniprogram/src/services/feature-navigation.ts";
 import { LEGACY_PAGE_MIGRATION_CATALOG } from "../apps/miniprogram/src/services/legacy-page-catalog.ts";
 import { getLegacyPageMigrationBatch } from "../apps/miniprogram/src/services/migration-coverage.ts";
 import { buildClinicalContractAudit } from "./clinical-contract-audit.mjs";
@@ -225,8 +228,10 @@ function frozenBoundaryCoverage(migrationBreadth) {
 	const gateFeatureKeys = new Set(
 		FROZEN_DOMAIN_GATE_CATALOG.map((gate) => gate.featureKey),
 	);
+	const surfacedFeatureKeys = new Set(Object.keys(FEATURE_SURFACE_TARGETS));
 	const uncoveredActionFeatureKeys = [...actionFeatureKeys].filter(
-		(featureKey) => !gateFeatureKeys.has(featureKey),
+		(featureKey) =>
+			!gateFeatureKeys.has(featureKey) && !surfacedFeatureKeys.has(featureKey),
 	);
 	const actionPages = new Map(
 		migrationBreadth.pages.map((page) => [page.id, page]),

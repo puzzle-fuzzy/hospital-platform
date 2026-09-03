@@ -1,3 +1,4 @@
+import { errorMessageWithCode } from "../../services/error-presentation";
 import { ApiError } from "../../services/api-client";
 import {
 	loadHealth,
@@ -636,8 +637,8 @@ Page<IndexPageData, IndexPageMethods>({
 	},
 
 	onFloatingGuide() {
-		// 悬浮按钮也是首页可见入口；先进入原生外部入口壳，真实 WebView
-		// 仍由 allowlist、短期会话和受众 contract 控制，不能直接恢复旧地址。
+		// 悬浮按钮也是首页可见入口；智能客服页只承载旧端确认的固定 H5，
+		// 不接受任意 URL，也不通过旧 ticket 交换平台登录态。
 		navigateToFeatureEntry("smart-customer");
 	},
 
@@ -988,7 +989,7 @@ Page<IndexPageData, IndexPageMethods>({
 				message = patientContextErrorMessage(error, fallback);
 			}
 		}
-		this.setData({ error: message });
+		this.setData({ error: errorMessageWithCode(error, message) });
 	},
 
 	/**

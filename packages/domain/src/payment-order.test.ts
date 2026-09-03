@@ -433,4 +433,129 @@ describe("payment order domain", () => {
 			order: { state: "cash_paid" },
 		});
 	});
+
+	test("does not treat a 6202/6301 intermediate result as payment success", async () => {
+		const events: OutboxEvent[] = [];
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(events),
+			createOrderId: () => "order-medical-pending-001",
+		});
+		const created = await service.create({
+			ownerUserId: "user-medical-pending-001",
+			patientId: "patient-medical-pending-001",
+			idempotencyKey: "pay-medical-pending-001",
+			amounts,
+		});
+		for (const state of [
+			"authorized",
+			"pre_settled",
+			"insurance_submitted",
+		] as const) {
+			await service.transition(created.ownerUserId, created.orderId, state);
+		}
+
+		const result = await service.reconcileMedicalInsuranceSettlement({
+			orderId: created.orderId,
+			state: "awaiting_confirmation",
+			amounts,
+			trace: {
+				provider: "legacy-fsi",
+				operation: "legacy-fsi.6301",
+				requestId: "medical-query-pending-001",
+				providerOrderId: "provider-order-medical-001",
+			},
+			source: "6301",
+			providerStatus: "1",
+			finality: "processing",
+			authoritative: false,
+		});
+
+		expect(result).toMatchObject({
+			outcome: "awaiting_confirmation",
+			order: { state: "awaiting_confirmation" },
+		});
+		expect(events.at(-1)?.payload).toMatchObject({
+			providerEvidence: {
+				source: "6301",
+				providerStatus: "1",
+				finality: "processing",
+				authoritative: false,
+			},
+		});
+
+		const replay = await service.reconcileMedicalInsuranceSettlement({
+			orderId: created.orderId,
+			state: "awaiting_confirmation",
+			amounts,
+			trace: {
+				provider: "legacy-fsi",
+				operation: "legacy-fsi.6301",
+				requestId: "medical-query-pending-002",
+			},
+			source: "6301",
+			providerStatus: "1",
+			finality: "processing",
+			authoritative: false,
+		});
+		expect(replay).toMatchObject({
+			outcome: "awaiting_confirmation",
+			order: { state: "awaiting_confirmation", version: 5 },
+		});
+	});
+
+	test("requires Yunhealth/HIS final evidence before insurance settlement", async () => {
+		const service = new PaymentOrderService({
+			orders: createMemoryOrders(),
+			createOrderId: () => "order-medical-final-001",
+		});
+		const created = await service.create({
+			ownerUserId: "user-medical-final-001",
+			patientId: "patient-medical-final-001",
+			idempotencyKey: "pay-medical-final-001",
+			amounts: { totalFen: 700, insuranceFen: 700, cashFen: 0 },
+		});
+		for (const state of [
+			"authorized",
+			"pre_settled",
+			"insurance_submitted",
+		] as const) {
+			await service.transition(created.ownerUserId, created.orderId, state);
+		}
+
+		const candidate = await service.reconcileMedicalInsuranceSettlement({
+			orderId: created.orderId,
+			state: "awaiting_confirmation",
+			amounts: { totalFen: 700, insuranceFen: 700, cashFen: 0 },
+			trace: {
+				provider: "legacy-fsi",
+				operation: "legacy-fsi.6301",
+				requestId: "medical-query-candidate-001",
+			},
+			source: "6301",
+			providerStatus: "6",
+			finality: "settlement_candidate",
+			authoritative: false,
+		});
+		expect(candidate.order.state).toBe("awaiting_confirmation");
+
+		const final = await service.reconcileMedicalInsuranceSettlement({
+			orderId: created.orderId,
+			state: "insurance_settled",
+			amounts: { totalFen: 700, insuranceFen: 700, cashFen: 0 },
+			trace: {
+				provider: "yunhealth",
+				operation: "yunhealth.registration.complete",
+				requestId: "yunhealth-complete-001",
+			},
+			source: "yunhealth",
+			providerStatus: "isSettle=1",
+			finality: "paid",
+			authoritative: true,
+		});
+
+		expect(final).toMatchObject({
+			outcome: "insurance_settled",
+			order: { state: "insurance_settled" },
+		});
+	});
 });

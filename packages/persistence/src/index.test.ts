@@ -6,6 +6,7 @@ import {
 	createInMemoryPatientRepository,
 	createInMemoryPaymentOrderRepository,
 	createInMemoryPaymentPrepayAttemptRepository,
+	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryReportReferenceRepository,
 	createInMemoryUserProfileRepository,
 	createNotConfiguredHealthKnowledgeRepository,
@@ -1078,4 +1079,54 @@ test("in-memory prepay attempts do not reclaim manual review records", async () 
 	await expect(
 		attempts.claimDueForQuery(new Date("2026-08-15T00:20:00.000Z"), 1, 60_000),
 	).resolves.toEqual([]);
+});
+
+test("in-memory medical insurance query tasks use a lease and version CAS", async () => {
+	const now = new Date("2026-09-03T00:00:00.000Z");
+	const task = {
+		taskId: "medical-query-task-001",
+		medicalOrderId: "medical-order-001",
+		status: "pending" as const,
+		version: 1,
+		attempts: 0,
+		maxAttempts: 12,
+		nextAttemptAt: now.toISOString(),
+		claimedUntil: null,
+		terminalOrdStas: null,
+		lastErrorCode: null,
+		createdAt: now.toISOString(),
+		updatedAt: now.toISOString(),
+	};
+	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task]);
+	await expect(tasks.insert(task)).resolves.toEqual(task);
+	await expect(
+		tasks.insert({ ...task, medicalOrderId: "medical-order-other" }),
+	).rejects.toThrow("idempotency payload changed");
+
+	const claimed = await tasks.claimDueForQuery(now, 1, 60_000);
+	expect(claimed).toMatchObject([
+		{
+			status: "in_progress",
+			version: 2,
+			claimedUntil: "2026-09-03T00:01:00.000Z",
+		},
+	]);
+	await expect(tasks.update(task, task.version)).rejects.toThrow(
+		"changed by another worker",
+	);
+	const current = claimed[0];
+	if (!current) throw new Error("Claimed task fixture is missing");
+	await tasks.update(
+		{
+			...current,
+			status: "completed",
+			version: current.version + 1,
+			attempts: 1,
+			claimedUntil: null,
+			lastErrorCode: null,
+			updatedAt: now.toISOString(),
+		},
+		current.version,
+	);
+	expect(await tasks.claimDueForQuery(now, 1, 60_000)).toEqual([]);
 });
