@@ -1,4 +1,5 @@
 import type {
+	PaymentOrderPayload,
 	WechatPrepayPayload,
 	WechatPrepayStatusPayload,
 } from "@hospital/contracts";
@@ -158,7 +159,8 @@ export class WechatPrepayService {
 				order.orderId,
 				input.context.idempotencyKey,
 			);
-		if (existing) return this.replayAttempt(existing, order.state);
+		if (existing)
+			return this.replayAttempt(existing, order.state, input.ownerUserId);
 
 		const storedIdentity = await this.dependencies.identityUsers.findByUserId(
 			input.ownerUserId,
@@ -186,12 +188,13 @@ export class WechatPrepayService {
 		};
 		const stored = await this.dependencies.attempts.insert(pending);
 		if (stored.attemptId !== pending.attemptId) {
-			return this.replayAttempt(stored, order.state);
+			return this.replayAttempt(stored, order.state, input.ownerUserId);
 		}
 
 		this.logger.info(
 			{
 				event: "payment.wechat_prepay.requested",
+				ownerUserId: input.ownerUserId,
 				orderId: order.orderId,
 				traceId: input.context.traceId,
 				cashFen: order.amounts.cashFen,
@@ -222,6 +225,7 @@ export class WechatPrepayService {
 			this.logger.info(
 				{
 					event: "payment.wechat_prepay.created",
+					ownerUserId: input.ownerUserId,
 					orderId: order.orderId,
 					traceId: input.context.traceId,
 					provider: result.trace.provider,
@@ -253,6 +257,7 @@ export class WechatPrepayService {
 			this.logger.warn(
 				{
 					event: "payment.wechat_prepay.failed",
+					ownerUserId: input.ownerUserId,
 					orderId: order.orderId,
 					traceId: input.context.traceId,
 					errorName: error instanceof Error ? error.name : "UnknownError",
@@ -313,9 +318,62 @@ export class WechatPrepayService {
 		};
 	}
 
+	/**
+	 * 直接向微信查单并把结果收敛到平台订单；小程序回调或 wx 调起成功
+	 * 都不能替代这一步。普通自费挂号和通用门诊支付共用同一条状态边界。
+	 */
+	async reconcile(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: { traceId: string; idempotencyKey: string };
+	}): Promise<{
+		orderId: string;
+		state: PaymentOrderPayload["data"]["state"];
+		status: "pending" | "paid" | "failed";
+	}> {
+		const order = await this.dependencies.orders.get(
+			input.ownerUserId,
+			input.orderId,
+		);
+		if (order.state === "cash_paid" || order.state === "failed") {
+			return {
+				orderId: order.orderId,
+				state: order.state,
+				status: order.state === "cash_paid" ? "paid" : "failed",
+			};
+		}
+		const result = await this.dependencies.wechatPayment.query(
+			{ orderId: order.orderId },
+			input.context,
+		);
+		const reconciled = await this.dependencies.orders.reconcileWechatPayment({
+			orderId: order.orderId,
+			state:
+				result.state === "cash_paid"
+					? "cash_paid"
+					: result.state === "failed"
+						? "failed"
+						: "cash_pending",
+			totalFen: result.totalFen,
+			trace: result.trace,
+		});
+		const status =
+			reconciled.order.state === "cash_paid"
+				? "paid"
+				: reconciled.order.state === "failed"
+					? "failed"
+					: "pending";
+		return {
+			orderId: reconciled.order.orderId,
+			state: reconciled.order.state,
+			status,
+		};
+	}
+
 	private replayAttempt(
 		attempt: PaymentPrepayAttempt,
 		state: WechatPrepayPayload["data"]["state"],
+		ownerUserId: string,
 	): WechatPrepayPayload["data"] {
 		if (attempt.status === "pending") {
 			throw new PaymentPrepayAttemptInProgressError();
@@ -332,6 +390,7 @@ export class WechatPrepayService {
 		this.logger.info(
 			{
 				event: "payment.wechat_prepay.replayed",
+				ownerUserId,
 				orderId: attempt.orderId,
 				attemptId: attempt.attemptId,
 			},

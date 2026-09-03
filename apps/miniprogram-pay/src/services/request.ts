@@ -12,12 +12,20 @@ export type RequestOptions = {
 export class ApiError extends Error {
 	readonly statusCode: number;
 	readonly payload: unknown;
+	/** 服务端返回的低敏 request id，供测试人员反查 API 日志；不展示给普通用户。 */
+	readonly requestId: string;
 
-	constructor(message: string, statusCode: number, payload?: unknown) {
+	constructor(
+		message: string,
+		statusCode: number,
+		payload?: unknown,
+		requestId = "",
+	) {
 		super(message);
 		this.name = "ApiError";
 		this.statusCode = statusCode;
 		this.payload = payload;
+		this.requestId = requestId;
 	}
 }
 
@@ -49,11 +57,11 @@ function readMessage(payload: unknown): string {
 	return String(value.message || value.msg || value.err_msg || "请求失败");
 }
 
-function unwrap<T>(payload: unknown): T {
+function unwrap<T>(payload: unknown, requestId: string): T {
 	if (payload && typeof payload === "object") {
 		const value = payload as Record<string, unknown>;
 		if (value.success === false)
-			throw new ApiError(readMessage(payload), 200, payload);
+			throw new ApiError(readMessage(payload), 200, payload, requestId);
 		if (value.data !== undefined) return value.data as T;
 	}
 	return payload as T;
@@ -63,17 +71,35 @@ function requestId(): string {
 	return `mpay-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function responseRequestId(
+	response: WechatMiniprogram.RequestSuccessCallbackResult,
+): string {
+	const headers = response.header || {};
+	const pattern = /^[A-Za-z0-9._:-]{1,128}$/;
+	for (const [name, value] of Object.entries(headers)) {
+		if (
+			name.toLowerCase() === "x-request-id" &&
+			typeof value === "string" &&
+			pattern.test(value)
+		) {
+			return value;
+		}
+	}
+	return "";
+}
+
 /** 所有小程序网络请求都经过新版平台 API，provider 凭证永不进入页面代码。 */
 export function request<T>(options: RequestOptions): Promise<T> {
 	const token = readToken();
 	return new Promise((resolve, reject) => {
+		const clientRequestId = requestId();
 		const requestOptions: WechatMiniprogram.RequestOption = {
 			url: buildUrl(options.path, options.query),
 			method: options.method || "GET",
 			timeout: PAY_CONFIG.requestTimeoutMs,
 			header: {
 				"Content-Type": options.contentType || "application/json",
-				"X-Request-Id": requestId(),
+				"X-Request-Id": clientRequestId,
 				...(options.idempotencyKey
 					? { "Idempotency-Key": options.idempotencyKey }
 					: {}),
@@ -81,23 +107,38 @@ export function request<T>(options: RequestOptions): Promise<T> {
 			},
 			success: (response) => {
 				if (response.statusCode < 200 || response.statusCode >= 300) {
+					const resolvedRequestId =
+						responseRequestId(response) || clientRequestId;
 					reject(
 						new ApiError(
 							readMessage(response.data),
 							response.statusCode,
 							response.data,
+							resolvedRequestId,
 						),
 					);
 					return;
 				}
 				try {
-					resolve(unwrap<T>(response.data));
+					resolve(
+						unwrap<T>(
+							response.data,
+							responseRequestId(response) || clientRequestId,
+						),
+					);
 				} catch (error) {
 					reject(error);
 				}
 			},
 			fail: (error) =>
-				reject(new ApiError(error.errMsg || "网络请求失败", 0, error)),
+				reject(
+					new ApiError(
+						error.errMsg || "网络请求失败",
+						0,
+						error,
+						clientRequestId,
+					),
+				),
 		};
 		if (options.data) requestOptions.data = options.data;
 		wx.request(requestOptions);

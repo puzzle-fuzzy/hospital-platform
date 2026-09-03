@@ -98,13 +98,15 @@ export interface AppointmentPatientProfileGateway {
 /**
  * 预约写入 provider 边界。
  *
- * `resolveSource` 会重新读取并校验指定排班的号源；客户端只提交 opaque
- * scheduleId 和序号，永远不能提交 sourceId、patId 或金额。
+ * `resolveSource` 会重新读取并校验指定排班的号源，然后调用众阳 2.10.3.3
+ * 完成号源锁定；客户端只提交 opaque scheduleId 和序号，永远不能提交
+ * sourceId、patId 或金额。
  */
 export interface AppointmentWriteGateway {
 	resolveSource(
 		input: {
 			providerScheduleId: string;
+			providerPatientId: string;
 			sourceSerialNumber: string;
 		},
 		context: AdapterCallContext,

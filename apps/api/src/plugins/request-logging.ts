@@ -26,6 +26,7 @@ import { PersistenceUnavailableError } from "@hospital/persistence";
 import { Elysia } from "elysia";
 import { HttpError } from "../errors";
 import { SessionPrincipalReadModelValidationError } from "../modules/auth/service";
+import { requestOwner } from "./request-context";
 
 const requestStartTimes = new WeakMap<Request, number>();
 const requestErrors = new WeakMap<Request, ErrorMetadata>();
@@ -68,10 +69,12 @@ function requestFields(
 	event = status >= 400 ? "http.request.failed" : "http.request.completed",
 ) {
 	const requestId = request.headers.get("x-request-id") ?? "unknown";
+	const ownerUserId = requestOwner(request);
 	return {
 		event,
 		requestId,
 		traceId: requestId,
+		...(ownerUserId ? { ownerUserId } : {}),
 		method: request.method,
 		path: requestPath(request),
 		statusCode: status,

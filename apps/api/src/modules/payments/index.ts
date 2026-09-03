@@ -1,19 +1,21 @@
-import { Elysia, t } from "elysia";
+import type { PaymentOrderPayload } from "@hospital/contracts";
 import {
 	PaymentOrderCreateRequest,
 	PaymentOrderResponse,
+	RegistrationSelfPayResponse,
 	success,
 	WechatPrepayResponse,
 	WechatPrepayStatusResponse,
 } from "@hospital/contracts";
-import { DependencyNotConfiguredError } from "@hospital/domain";
-import type { PaymentOrderPayload } from "@hospital/contracts";
 import type { PaymentOrder, PaymentOrderService } from "@hospital/domain";
+import { DependencyNotConfiguredError } from "@hospital/domain";
+import { Elysia, t } from "elysia";
+import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
-import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
-import type { WechatPrepayService } from "./service";
 import type { WechatPaymentNotificationService } from "./notification-service";
+import type { RegistrationSelfPayService } from "./registration-self-pay-service";
+import type { WechatPrepayService } from "./service";
 
 const WechatPaymentNotificationAckResponse = t.Object({
 	code: t.Literal("SUCCESS"),
@@ -75,6 +77,7 @@ export function paymentsModule(
 	wechatPaymentNotifications: WechatPaymentNotificationService,
 	sessions: SessionTokenService,
 	wechatPaymentEnabled: boolean,
+	registrationSelfPay: RegistrationSelfPayService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions, [
 		"/payments/wechat/notifications",
@@ -99,6 +102,50 @@ export function paymentsModule(
 			},
 			{
 				response: { 200: WechatPaymentNotificationAckResponse },
+				tags: ["payments"],
+			},
+		)
+		.post(
+			"/payments/appointments/:appointmentId/self-pay",
+			async ({ headers, params, request }) => {
+				const principal = await authentication.get(request);
+				ensureWechatPaymentEnabled(wechatPaymentEnabled);
+				return success(
+					await registrationSelfPay.create({
+						ownerUserId: principal.userId,
+						appointmentId: params.appointmentId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: CreateWechatPrepayHeaders,
+				params: t.Object({
+					appointmentId: t.String({ minLength: 1, maxLength: 64 }),
+				}),
+				response: { 200: RegistrationSelfPayResponse },
+				tags: ["payments"],
+			},
+		)
+		.get(
+			"/payments/appointments/:appointmentId/self-pay",
+			async ({ headers, params, request }) => {
+				const principal = await authentication.get(request);
+				ensureWechatPaymentEnabled(wechatPaymentEnabled);
+				return success(
+					await registrationSelfPay.query({
+						ownerUserId: principal.userId,
+						appointmentId: params.appointmentId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: AuthenticatedHeaders,
+				params: t.Object({
+					appointmentId: t.String({ minLength: 1, maxLength: 64 }),
+				}),
+				response: { 200: RegistrationSelfPayResponse },
 				tags: ["payments"],
 			},
 		)
@@ -182,12 +229,12 @@ export function paymentsModule(
 }
 
 export {
+	type WechatPaymentNotificationDecoder,
+	WechatPaymentNotificationRejectedError,
+	WechatPaymentNotificationService,
+} from "./notification-service";
+export {
 	PaymentIdentityNotFoundError,
 	WechatPrepayService,
 	type WechatPrepayServiceDependencies,
 } from "./service";
-export {
-	WechatPaymentNotificationRejectedError,
-	WechatPaymentNotificationService,
-	type WechatPaymentNotificationDecoder,
-} from "./notification-service";

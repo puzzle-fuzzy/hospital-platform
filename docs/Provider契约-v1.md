@@ -61,11 +61,12 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 报告查询指定 `kind` 时，service 会确认所有返回摘要都属于该来源；来源错配整批返回 `provider-response-invalid`，不把其它来源静默混入当前报告列表。
 - 报告公共目录（LIS、PACS、ECG 合并后的单次结果）最多允许 512 条，LIS 详情最多允许 1024 条检测项；adapter 与 domain/service 都会在映射或短期详情引用创建前整批拒绝超量结果，返回 `provider-response-invalid`，不截断、不创建部分短期详情引用，也不返回部分临床明细。该边界是平台资源防护，不是 Provider 分页或患者报告数量合同。
 
-预约 Phase 7B 目前只实现众阳 AMC 的只读目录：
+预约 Phase 7B 已实现众阳 AMC 只读目录；预约写入仅使用已在众阳门户精确核对的门诊合同：
 
-- `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts` 映射为科室读模型；该接口虽然返回科室列表，仍要求 `requestChannel=4`、`startDate` 和 `endDate`，日期窗口由服务端固定为未来 7 天，不由小程序透传；provider 的 `endDate` 是否包含当天、以及最大范围的计数方式仍待文档确认，当前服务端只按起止日期差值限制平台请求跨度；
-- `/msun-middle-business-amc-server/v1/schedulings` 映射为排班、时间和号源数量读模型，服务端固定 `requestChannel=4`；真实响应中的 `remainingNumber` 可能为 `null`，当前有效号源数只使用 provider 的 `usableSourceNum`；若该字段缺失，adapter 必须拒绝整条响应，不能用旧端其他接口的 `usableNum`/`remainingNumber` 兜底或据此授权未来写入；
-- 新 API 不返回挂号费、医生电话/照片、provider 原始字段，也不允许小程序透传任意 query；预约写入、锁号、取消和支付仍等待完整 contract。
+- `/msun-middle-business-amc-server/v1/schedulings/scheduling-depts`、`/scheduling-doctors` 和 `/schedulings` 使用众阳 2.10.2.1/2/3，门诊微信固定 `requestChannel=3`；医生排班固定带必填 `scheduleType=1`，日期窗口由服务端生成，不由小程序透传；
+- `/msun-middle-business-amc-server/v1/sources/{hisScheduleId}` 和 `/sources/locked-sources` 使用众阳 2.10.3.2/3，号源读取后由服务端按 `sourceId`、`patId` 和排班重新锁定；服务端不接受小程序提交 provider 身份、sourceId 或金额；
+- `/msun-middle-business-appointment-server/v1/appointment-infos/fact-register-fee`、`/appointment-infos`、`/appointment-infos/d` 使用众阳 2.10.3.8、2.10.4.1/3；实际费用只取 Provider 返回并转换为整数分，执行预约发送 `isPay="0"` 和 `requestChannel=3`；2.10.3.8 的必填 `registerSource` 固定值未在门户中明确，本项目不猜值；
+- 新 API 不返回挂号费、医生电话/照片、provider 原始字段，也不允许小程序透传任意 query；门诊自费 `2.6.65.*` 中门户未标注为对应门诊业务的重复条目已跳过，不用相似接口补齐。
 - 已验证排班目录在写入短期观察快照时最多 4 路并发，并保持目录结果顺序；该限制只保护 MySQL 资源，任一写入异常会停止领取新快照、等待已在途写入收尾后记录 `unavailable`，不改变只读目录结果，也不把部分快照当作未来写入授权。
 - 排班 service 会再次确认每条结果都在请求的日期窗口内，并匹配请求中的科室/医生筛选；窗口外或筛选错配时整批返回 `provider-response-invalid`，不会过滤坏行后伪装成完整号源目录。
 - 预约只读数组在 adapter 与 domain/service 两层设置资源上限：科室最多 256 条、排班最多 512 条、预约历史最多 512 条。超量结果整批返回 `provider-response-invalid`，不截断、不生成平台 `scheduleId`、不写入短期快照，也不把不完整历史返回给小程序；这些数值是平台资源防护，不是 Provider 分页或业务数量合同。
@@ -90,10 +91,10 @@ Phase 7A 已建立众阳患者目录 adapter：
 - 旧项目的预约写入/取消请求仍未作为新 contract 依据，因为它们把 provider 患者号、完整身份信息、挂号费、结算方式和支付状态混在小程序 payload 中，且缺少当前 provider 的金额单位、幂等和状态回写证据；
 - 记录使用独立的 `ZHONGYANG_APPOINTMENT_RECORDS_READY` gate，不会因 AMC 排班目录 gate 打开而隐式启用；默认组合根仍注入 fail-closed gateway。
 
-预约写入、锁号、取消和挂号费的目标入口与证据门槛见
-[预约写入契约-v1.md](预约写入契约-v1.md)。在 provider 合同、
-金额单位、幂等/锁号生命周期和支付/HIS 回写顺序确认前，不注册写入 route，也不增加
-`ZHONGYANG_APPOINTMENT_WRITE_READY` 配置开关。
+预约写入、锁号、取消和挂号费的精确边界见
+[预约写入契约-v1.md](预约写入契约-v1.md)。未确认的 `registerSource` 取值、锁号生命周期、
+最终状态查询、退款/HIS 回写和门诊自费终结链路继续保持 fail-closed；不能把目录 gate 或
+医保支付 gate 视为这些未确认能力的授权。
 
 门诊缴费 Phase 7E 当前只实现“费用目录查询”，不等同于已经接通支付：
 

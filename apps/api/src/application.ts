@@ -1,11 +1,11 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
 import type { DependencyState } from "@hospital/contracts";
 import type {
-	AppointmentPatientProfileGateway,
-	AppointmentWriteGateway,
 	AppointmentDepartmentTreeGateway,
 	AppointmentDirectoryGateway,
+	AppointmentPatientProfileGateway,
 	AppointmentRecordDirectoryGateway,
+	AppointmentWriteGateway,
 	OutpatientPaymentGateway,
 	PatientDirectoryGateway,
 	ReportDetailGateway,
@@ -32,6 +32,8 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
+import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
@@ -40,10 +42,9 @@ import {
 	type WechatPaymentNotificationDecoder,
 	WechatPaymentNotificationService,
 } from "./modules/payments/notification-service";
+import { RegistrationSelfPayService } from "./modules/payments/registration-self-pay-service";
 import { UserProfileService } from "./modules/profile";
 import { ReportService } from "./modules/reports";
-import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
-import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 
 export type ApplicationServices = {
 	auth: AuthService;
@@ -59,6 +60,7 @@ export type ApplicationServices = {
 	reports: ReportService;
 	paymentOrders: PaymentOrderService;
 	wechatPrepay: WechatPrepayService;
+	registrationSelfPay?: RegistrationSelfPayService;
 	wechatPaymentNotifications: WechatPaymentNotificationService;
 	/** 普通资料模块在默认组合根启用；自定义测试组合根可省略以保持 fail-closed。 */
 	profile?: UserProfileService;
@@ -175,6 +177,19 @@ export function createDefaultApplicationServices(
 			registration: medicalInsurance,
 			...(options.logger ? { logger: options.logger } : {}),
 		});
+	const wechatPrepay = new WechatPrepayService({
+		orders: paymentOrders,
+		identityUsers: repositories.identityUsers,
+		attempts: repositories.paymentPrepayAttempts,
+		wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
+	const registrationSelfPay = new RegistrationSelfPayService({
+		appointments: appointmentWrites,
+		paymentOrders,
+		wechatPrepay,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
 
 	return {
 		auth: new AuthService({
@@ -219,13 +234,8 @@ export function createDefaultApplicationServices(
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		paymentOrders,
-		wechatPrepay: new WechatPrepayService({
-			orders: paymentOrders,
-			identityUsers: repositories.identityUsers,
-			attempts: repositories.paymentPrepayAttempts,
-			wechatPayment: options.wechatPaymentGateway ?? gateways.wechatPayment,
-			...(options.logger ? { logger: options.logger } : {}),
-		}),
+		wechatPrepay,
+		registrationSelfPay,
 		wechatPaymentNotifications: new WechatPaymentNotificationService({
 			notifications: repositories.wechatPaymentNotifications,
 			decoder:

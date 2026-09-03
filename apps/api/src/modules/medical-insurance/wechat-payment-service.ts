@@ -159,6 +159,7 @@ export class MedicalInsuranceWechatPaymentService {
 			{
 				event: "medical-insurance.wechat-mix.requested",
 				traceId: input.context.traceId,
+				ownerUserId,
 				orderId,
 				cashFen: order.amounts.cashFen,
 			},
@@ -200,6 +201,7 @@ export class MedicalInsuranceWechatPaymentService {
 			{
 				event: "medical-insurance.wechat-mix.ready",
 				traceId: input.context.traceId,
+				ownerUserId,
 				orderId,
 				providerRequestId: result.trace.requestId,
 			},
@@ -262,6 +264,7 @@ export class MedicalInsuranceWechatPaymentService {
 			{
 				event: "medical-insurance.wechat-mix.queried",
 				traceId: input.context.traceId,
+				ownerUserId,
 				orderId,
 				providerStatus: result.providerStatus,
 				paymentState,

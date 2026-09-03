@@ -1,7 +1,7 @@
 import type { PaymentState } from "@hospital/contracts";
-import { transitionPayment } from "./payment-state";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { OutboxEvent } from "./outbox";
+import { transitionPayment } from "./payment-state";
 import type {
 	ExternalTrace,
 	MedicalInsuranceSettlementEvidence,
@@ -663,6 +663,61 @@ export class PaymentOrderService {
 		return normalized;
 	}
 
+	/**
+	 * 创建纯自费订单。它不伪造医保授权或医保金额，直接把服务端确认的
+	 * 挂号金额放入 cash_pending，随后由普通微信 JSAPI 预支付服务处理。
+	 */
+	async createCashPending(
+		input: CreatePaymentOrderInput,
+	): Promise<PaymentOrder> {
+		const current = await this.create(input);
+		if (current.state !== "created") return current;
+		const updated: PaymentOrder = {
+			...current,
+			state: transitionPayment(current.state, "cash_pending"),
+			version: current.version + 1,
+			updatedAt: this.now().toISOString(),
+		};
+		let stored: PaymentOrder;
+		try {
+			stored = await this.dependencies.orders.update(
+				updated,
+				current.version,
+				createPaymentOrderEvent("payment-order.state-changed", updated),
+			);
+		} catch (error) {
+			// 两个相同幂等键的首请求可能同时读到 created；如果另一个请求
+			// 已经完成迁移，只重读已提交事实，不把正常竞争暴露成支付失败。
+			if (!(error instanceof PaymentOrderVersionConflictError)) throw error;
+			const replay = await this.create(input);
+			if (replay.state !== "created") return replay;
+			throw error;
+		}
+		return normalizePaymentOrderReadModel(stored, {
+			expectedOrderId: updated.orderId,
+			expectedOwnerUserId: updated.ownerUserId,
+			expectedState: "cash_pending",
+			expectedVersion: updated.version,
+		});
+	}
+
+	/** 仅供自费挂号重试按服务端生成的幂等键读取订单。 */
+	async findByOwnerAndIdempotencyKey(
+		ownerUserId: string,
+		idempotencyKey: string,
+	): Promise<PaymentOrder | undefined> {
+		const result = await this.dependencies.orders.findByOwnerAndIdempotencyKey(
+			ownerUserId,
+			idempotencyKey,
+		);
+		return result
+			? normalizePaymentOrderReadModel(result, {
+					expectedOwnerUserId: ownerUserId,
+					expectedIdempotencyKey: idempotencyKey,
+				})
+			: undefined;
+	}
+
 	/** 通过服务端 quote 创建订单，防止客户端伪造医保和现金金额。 */
 	async createFromQuote(input: {
 		ownerUserId: string;
@@ -990,7 +1045,7 @@ function assertMedicalInsuranceEvidence(
 		typeof input.providerStatus !== "string" ||
 		input.providerStatus.length === 0 ||
 		input.providerStatus.length > 32 ||
-		!/^[A-Za-z0-9_.:=\-]+$/.test(input.providerStatus)
+		!/^[A-Za-z0-9_.:=-]+$/.test(input.providerStatus)
 	) {
 		throw new PaymentOrderInputError(
 			"Medical insurance provider status is invalid",

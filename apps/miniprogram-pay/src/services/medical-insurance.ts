@@ -9,7 +9,11 @@ export type PaymentProgress =
 	| "polling"
 	| "cash-paying"
 	| "cash-confirming"
+	| "self-paying"
+	| "self-confirming"
 	| "success";
+
+export type PaymentMode = "medical" | "mixed" | "self";
 
 /** 回跳前只保存新版平台的 opaque 引用，不保存患者实名、医院号或医保凭证。 */
 export type PendingPayment = {
@@ -19,9 +23,16 @@ export type PendingPayment = {
 	authorizeIdempotencyKey: string;
 	feesIdempotencyKey: string;
 	settleIdempotencyKey: string;
-	phase?: "authorization" | "cash_payment";
+	mode?: PaymentMode;
+	phase?:
+		| "authorization"
+		| "cash_payment"
+		| "medical_cash_required"
+		| "self_payment";
 	wechatPayIdempotencyKey?: string;
 	wechatQueryIdempotencyKey?: string;
+	selfPayIdempotencyKey?: string;
+	selfQueryIdempotencyKey?: string;
 };
 
 type Progress = (stage: PaymentProgress, message: string) => void;
@@ -31,6 +42,13 @@ type CashPaymentPending = PendingPayment & {
 	phase: "cash_payment";
 	wechatPayIdempotencyKey: string;
 	wechatQueryIdempotencyKey: string;
+};
+
+type SelfPaymentPending = PendingPayment & {
+	orderId: string;
+	phase: "self_payment";
+	selfPayIdempotencyKey: string;
+	selfQueryIdempotencyKey: string;
 };
 
 /** 微信跳转被用户主动取消属于正常业务分支，不应被页面显示为系统异常。 */
@@ -46,6 +64,14 @@ export class WechatPaymentCancelledError extends Error {
 	constructor() {
 		super("用户取消了微信支付");
 		this.name = "WechatPaymentCancelledError";
+	}
+}
+
+/** 纯医保订单出现现金应付时，不应隐式切换成混合支付。 */
+export class MedicalCashRequiredError extends Error {
+	constructor() {
+		super("当前医保结算包含自费金额，请选择医保混合支付");
+		this.name = "MedicalCashRequiredError";
 	}
 }
 
@@ -75,11 +101,21 @@ function validPending(value: unknown): value is PendingPayment {
 		(item.orderId === undefined || isOpaque(item.orderId)) &&
 		(item.phase === undefined ||
 			item.phase === "authorization" ||
-			item.phase === "cash_payment") &&
+			item.phase === "cash_payment" ||
+			item.phase === "medical_cash_required" ||
+			item.phase === "self_payment") &&
+		(item.mode === undefined ||
+			item.mode === "medical" ||
+			item.mode === "mixed" ||
+			item.mode === "self") &&
 		(item.wechatPayIdempotencyKey === undefined ||
 			isOpaque(item.wechatPayIdempotencyKey)) &&
 		(item.wechatQueryIdempotencyKey === undefined ||
-			isOpaque(item.wechatQueryIdempotencyKey))
+			isOpaque(item.wechatQueryIdempotencyKey)) &&
+		(item.selfPayIdempotencyKey === undefined ||
+			isOpaque(item.selfPayIdempotencyKey)) &&
+		(item.selfQueryIdempotencyKey === undefined ||
+			isOpaque(item.selfQueryIdempotencyKey))
 	);
 }
 
@@ -90,6 +126,16 @@ function savePending(value: PendingPayment): void {
 export function readPendingPayment(): PendingPayment | null {
 	const value = wx.getStorageSync(STORAGE_KEYS.pendingPayment);
 	return validPending(value) ? value : null;
+}
+
+/** 预约已存在时只允许切换后续支付分支，不重新创建预约或医保订单。 */
+export function setPendingPaymentMode(
+	pending: PendingPayment,
+	mode: PaymentMode,
+): PendingPayment {
+	const next = { ...pending, mode };
+	savePending(next);
+	return next;
 }
 
 function clearPendingPayment(): void {
@@ -144,6 +190,7 @@ export async function navigateToMedicalAuth(): Promise<void> {
 export async function startMedicalPayment(
 	appointment: CreatedAppointment,
 	onProgress: Progress,
+	mode: Exclude<PaymentMode, "self"> = "mixed",
 ): Promise<PendingPayment> {
 	const pending: PendingPayment = {
 		appointmentId: appointment.appointmentId,
@@ -151,6 +198,7 @@ export async function startMedicalPayment(
 		authorizeIdempotencyKey: newIdempotencyKey("medical-authorize"),
 		feesIdempotencyKey: newIdempotencyKey("medical-fees"),
 		settleIdempotencyKey: newIdempotencyKey("medical-settle"),
+		mode,
 		phase: "authorization",
 	};
 	savePending(pending);
@@ -186,6 +234,24 @@ type MedicalWechatPayment = {
 	cashFen: number;
 	mixTradeNo?: string;
 	payParams?: WechatMedicalInsurancePayParams;
+};
+
+type SelfPayParams = {
+	appId: string;
+	timeStamp: string;
+	nonceStr: string;
+	package: string;
+	signType: "RSA";
+	paySign: string;
+};
+
+type RegistrationSelfPayment = {
+	appointmentId: string;
+	orderId: string;
+	status: "prepay_ready" | "awaiting_confirmation" | "cash_paid" | "failed";
+	paymentState: string;
+	totalFen: number;
+	payParams?: SelfPayParams;
 };
 
 async function orderCommand(
@@ -228,6 +294,30 @@ function requestWechatPayment(
 	});
 }
 
+function requestWechatSelfPayment(params: {
+	appId: string;
+	timeStamp: string;
+	nonceStr: string;
+	package: string;
+	signType: "RSA";
+	paySign: string;
+}): Promise<void> {
+	return new Promise((resolve, reject) => {
+		wx.requestPayment({
+			...params,
+			success: () => resolve(),
+			fail: (error) => {
+				const message = String(error?.errMsg || "");
+				reject(
+					/取消|cancel/i.test(message)
+						? new WechatPaymentCancelledError()
+						: error,
+				);
+			},
+		});
+	});
+}
+
 function saveCashPaymentPhase(pending: PendingPayment): CashPaymentPending {
 	const orderId = pending.orderId?.trim();
 	if (!orderId) throw new Error("医保订单引用为空，无法继续微信支付");
@@ -250,6 +340,7 @@ function finishMedicalPayment(
 	pending: PendingPayment,
 	orderId: string,
 	onProgress: Progress,
+	message = "挂号和医保支付成功",
 ): void {
 	clearPendingPayment();
 	wx.setStorageSync(STORAGE_KEYS.lastResult, {
@@ -257,7 +348,7 @@ function finishMedicalPayment(
 		orderId,
 		completedAt: Date.now(),
 	});
-	onProgress("success", "挂号和医保支付成功");
+	onProgress("success", message);
 }
 
 /** 微信调起成功后仍需服务端查混合订单，再回到医保后置完成结算。 */
@@ -316,6 +407,127 @@ export async function continueMedicalCashPayment(
 	);
 }
 
+function selfPaymentPending(
+	appointment: CreatedAppointment,
+): SelfPaymentPending {
+	const pending: SelfPaymentPending = {
+		appointmentId: appointment.appointmentId,
+		patientId: appointment.patientId,
+		authorizeIdempotencyKey: newIdempotencyKey("self-pay-authorize"),
+		feesIdempotencyKey: newIdempotencyKey("self-pay-fees"),
+		settleIdempotencyKey: newIdempotencyKey("self-pay-settle"),
+		mode: "self",
+		phase: "self_payment",
+		orderId: "pending",
+		selfPayIdempotencyKey: newIdempotencyKey("registration-self-pay"),
+		selfQueryIdempotencyKey: newIdempotencyKey("registration-self-query"),
+	};
+	return pending;
+}
+
+/** 纯自费挂号不进入医保授权，只创建普通微信支付单并按微信查单确认。 */
+export async function startSelfPayment(
+	appointment: CreatedAppointment,
+	onProgress: Progress,
+): Promise<PendingPayment> {
+	const pending = selfPaymentPending(appointment);
+	savePending(pending);
+	const result = await continueSelfPayment(pending, onProgress, true);
+	return result;
+}
+
+async function continueSelfPayment(
+	pending: SelfPaymentPending,
+	onProgress: Progress,
+	initial = false,
+): Promise<PendingPayment> {
+	if (!pending.selfPayIdempotencyKey || !pending.selfQueryIdempotencyKey)
+		throw new Error("自费支付上下文不完整，无法继续支付");
+	const payment = await request<RegistrationSelfPayment>({
+		path: `/payments/appointments/${encodeURIComponent(pending.appointmentId)}/self-pay`,
+		method: "POST",
+		idempotencyKey: pending.selfPayIdempotencyKey,
+	});
+	const current: SelfPaymentPending = {
+		...pending,
+		orderId: payment.orderId,
+		phase: "self_payment",
+	};
+	savePending(current);
+	if (payment.status === "cash_paid") {
+		finishMedicalPayment(
+			current,
+			payment.orderId,
+			onProgress,
+			"挂号和自费支付成功",
+		);
+		return current;
+	}
+	let paymentWasCancelled = false;
+	if (payment.payParams) {
+		onProgress("self-paying", "正在打开微信自费支付收银台");
+		try {
+			await requestWechatSelfPayment(payment.payParams);
+		} catch (error) {
+			if (!(error instanceof WechatPaymentCancelledError)) throw error;
+			paymentWasCancelled = true;
+		}
+	}
+	for (
+		let index = 0;
+		index < PAY_CONFIG.insurancePollDelaysMs.length;
+		index += 1
+	) {
+		onProgress("self-confirming", "正在确认微信自费支付结果");
+		const result = await request<RegistrationSelfPayment>({
+			path: `/payments/appointments/${encodeURIComponent(current.appointmentId)}/self-pay`,
+			idempotencyKey: current.selfQueryIdempotencyKey,
+		});
+		if (result.status === "cash_paid") {
+			finishMedicalPayment(
+				current,
+				result.orderId,
+				onProgress,
+				"挂号和自费支付成功",
+			);
+			return current;
+		}
+		if (result.status === "failed")
+			throw new Error("微信自费支付已失败，请不要重复预约");
+		if (paymentWasCancelled) throw new WechatPaymentCancelledError();
+		await new Promise((resolve) =>
+			setTimeout(resolve, PAY_CONFIG.insurancePollDelaysMs[index] || 1500),
+		);
+	}
+	if (initial) {
+		throw new Error("微信自费支付已提交，请稍后点击继续自费支付");
+	}
+	throw new Error("微信自费支付仍在确认，请稍后点击继续自费支付");
+}
+
+export async function continueSelfPaymentFromPending(
+	pending: PendingPayment,
+	onProgress: Progress,
+): Promise<void> {
+	if (
+		pending.phase !== "self_payment" ||
+		!pending.orderId ||
+		!pending.selfPayIdempotencyKey ||
+		!pending.selfQueryIdempotencyKey
+	)
+		throw new Error("自费支付上下文不完整，无法继续支付");
+	await continueSelfPayment(
+		{
+			...pending,
+			orderId: pending.orderId,
+			phase: "self_payment",
+			selfPayIdempotencyKey: pending.selfPayIdempotencyKey,
+			selfQueryIdempotencyKey: pending.selfQueryIdempotencyKey,
+		},
+		onProgress,
+	);
+}
+
 /**
  * 授权回跳后的完整新接口链路：授权、费用上传、结算。
  * 结算未形成终态时只查单，不重新挂号，也不重新授权。
@@ -353,6 +565,11 @@ export async function continueMedicalPayment(
 		if (order.status === "insurance_settled") break;
 		if (order.status === "cash_pending") {
 			pending.orderId = orderId;
+			if (pending.mode === "medical") {
+				pending.phase = "medical_cash_required";
+				savePending(pending);
+				throw new MedicalCashRequiredError();
+			}
 			return continueMedicalCashPayment(pending, onProgress);
 		}
 		if (order.status === "failed" || order.status === "manual_review")

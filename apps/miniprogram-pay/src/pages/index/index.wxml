@@ -1,7 +1,7 @@
 <view class="page">
 	<view class="hero">
 		<view class="eyebrow">REAL TEST FLOW</view>
-		<view class="title">一键挂号 · 医保支付</view>
+		<view class="title">一键挂号 · 选择支付方式</view>
 		<view class="subtitle">只保留就诊人、号源和支付三个决策</view>
 	</view>
 
@@ -47,8 +47,11 @@
 	</view>
 	<view wx:if="{{error}}" class="card error-card"><text class="error">{{error}}</text></view>
 
-	<button class="button" bindtap="onRegisterAndPay" loading="{{busy}}" disabled="{{busy || (!hasPendingPayment && (patientIndex < 0 || !source || duplicate))}}">
-		{{busy ? '处理中…' : (hasPendingPayment ? '继续医保支付' : '立即挂号并医保支付')}}
-	</button>
-	<view class="footnote">支付完成以医院最终结算结果为准；返回授权页不代表支付成功。</view>
+	<view class="payment-label">选择支付方式</view>
+	<view class="payment-actions">
+		<button class="button payment-button medical-button" data-mode="medical" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'medical'}}" disabled="{{busy || (!hasPendingPayment && (patientIndex < 0 || !source || duplicate))}}">医保支付</button>
+		<button class="button payment-button mixed-button" data-mode="mixed" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'mixed'}}" disabled="{{busy || (!hasPendingPayment && (patientIndex < 0 || !source || duplicate))}}">医保混合支付</button>
+		<button class="button payment-button self-button" data-mode="self" bindtap="onRegisterAndPay" loading="{{busy && selectedMode === 'self'}}" disabled="{{busy || (!hasPendingPayment && (patientIndex < 0 || !source || duplicate))}}">自费支付</button>
+	</view>
+	<view class="footnote">支付完成以医院最终结算结果为准；取消授权或支付不会重复挂号，当前预约会保留。</view>
 </view>

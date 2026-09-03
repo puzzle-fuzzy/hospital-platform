@@ -130,6 +130,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/appointments/registrations` | Bearer + 幂等键 | body 为 `{patientId, holdId}`；服务端执行重复预约检查、预约写入并保存 owner-scoped 取消映射 |
 | `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射调用取消接口；重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
+| `POST` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 必填幂等键 | 从已写入预约读取服务端挂号费，创建普通微信 JSAPI 自费订单并返回小程序调起参数；不会进入医保授权 |
+| `GET` | `/api/v2/payments/appointments/{appointmentId}/self-pay` | Bearer + 幂等键可选 | 服务端查微信自费订单并返回 `awaiting_confirmation`、`cash_paid` 或 `failed`；调起成功不代表支付完成 |
 | `POST` | `/api/v2/payments/medical-insurance/authorize` | Bearer + 必填幂等键 | body 为 `{appointmentId, authCode}`；授权码只在服务端调用医保授权 adapter，成功后返回服务端 `orderId` |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/fees` | Bearer + 必填幂等键 | 从关联预约读取服务端金额和患者映射，独立执行医保费用上传 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/settle` | Bearer + 必填幂等键 | 使用已授权订单和费用上传引用，独立执行医保结算，不把中间状态当成功 |

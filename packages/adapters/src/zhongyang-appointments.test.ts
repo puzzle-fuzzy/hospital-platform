@@ -41,7 +41,7 @@ test("众阳预约目录只返回科室白名单并固定服务端渠道", async
 	);
 
 	expect(requestUrl).toBe(
-		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings/scheduling-depts?requestChannel=4&startDate=2026-08-15&endDate=2026-08-22",
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings/scheduling-depts?requestChannel=3&startDate=2026-08-15&endDate=2026-08-22",
 	);
 	expect(requestHeaders?.get("authorization")).toBe("Bearer server-token");
 	expect(requestHeaders?.get("x-request-id")).toBe(context.traceId);
@@ -184,7 +184,7 @@ test("众阳三级可预约科室只从受控二级 ID 解析名称后查询", a
 		"/msun-middle-business-amc-server/v1/schedulings/scheduling-depts",
 	);
 	expect(Object.fromEntries(clinicUrl.searchParams)).toEqual({
-		requestChannel: "4",
+		requestChannel: "3",
 		startDate: "2026-08-15",
 		endDate: "2026-08-22",
 		searchCondition: "心血管内科",
@@ -289,7 +289,7 @@ test("众阳排班目录固定请求渠道并只返回已验证的号源读模�
 	);
 
 	expect(requestUrl).toBe(
-		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings?requestChannel=4&startDate=2026-08-20&endDate=2026-08-21&deptId=dept-001&docId=doctor-001",
+		"https://zhongyang.example.test/msun-middle-business-amc-server/v1/schedulings?requestChannel=3&startDate=2026-08-20&endDate=2026-08-21&scheduleType=1&deptId=dept-001&docId=doctor-001",
 	);
 	expect(result.schedules).toEqual([
 		{

@@ -5,7 +5,9 @@ import type { PaymentState } from "@hospital/contracts";
  * 不能因为页面或单次请求失败就直接推导 completed/failed。
  */
 const transitions: Record<PaymentState, readonly PaymentState[]> = {
-	created: ["authorized", "cancelled"],
+	// 自费挂号不经过医保授权/预结算，服务端创建订单后可以直接进入
+	// cash_pending；医保订单仍沿既有 authorized -> pre_settled 边迁移。
+	created: ["authorized", "cash_pending", "cancelled"],
 	authorized: ["pre_settled", "cancelled"],
 	pre_settled: ["insurance_submitted", "cash_pending", "cancelled"],
 	insurance_submitted: ["insurance_settled", "awaiting_confirmation", "failed"],

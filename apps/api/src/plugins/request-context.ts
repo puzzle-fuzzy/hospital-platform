@@ -5,6 +5,9 @@ import { Elysia } from "elysia";
  * 空白或超长值进入响应头、日志字段和 Provider 调用上下文。
  */
 const requestIdPattern = /^[A-Za-z0-9._:-]{1,128}$/;
+const ownerUserIdPattern = /^[A-Za-z0-9._:-]{1,64}$/;
+
+const requestOwners = new WeakMap<Request, string>();
 
 /**
  * 归一化调用方提供的关联值；非法值返回 undefined，由调用边界生成新的安全值。
@@ -34,6 +37,16 @@ export function adapterContextFromHeaders(
 	const idempotencyKey =
 		normalizedHeaderValue(headers["idempotency-key"]) ?? traceId;
 	return { traceId, idempotencyKey };
+}
+
+/** 仅供同一 HTTP 请求的观测层读取；不把 principal 放进 Provider context。 */
+export function setRequestOwner(request: Request, ownerUserId: string): void {
+	if (ownerUserIdPattern.test(ownerUserId))
+		requestOwners.set(request, ownerUserId);
+}
+
+export function requestOwner(request: Request): string | undefined {
+	return requestOwners.get(request);
 }
 
 export function requestContextPlugin() {

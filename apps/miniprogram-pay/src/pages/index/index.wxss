@@ -144,6 +144,42 @@
 	background: #fff5f3;
 }
 
+.payment-label {
+	margin-top: 30rpx;
+	color: #747d87;
+	font-size: 26rpx;
+}
+
+.payment-actions {
+	display: flex;
+}
+
+.payment-button {
+	box-sizing: border-box;
+	flex: 1;
+	min-width: 0;
+	width: auto;
+	margin-top: 16rpx;
+	font-size: 27rpx;
+	line-height: 86rpx;
+}
+
+.payment-button + .payment-button {
+	margin-left: 16rpx;
+}
+
+.medical-button {
+	background: #2677ff;
+}
+
+.mixed-button {
+	background: #15945d;
+}
+
+.self-button {
+	background: #f08a24;
+}
+
 .footnote {
 	padding: 20rpx 18rpx;
 	color: #9aa3ad;

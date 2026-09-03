@@ -825,6 +825,24 @@ export const MedicalInsuranceWechatPayResponse = Type.Object({
 	}),
 });
 
+/** 纯自费挂号支付响应；支付金额仍来自服务端已写入的预约金额。 */
+export const RegistrationSelfPayResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		appointmentId: Type.String({ minLength: 1, maxLength: 64 }),
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("prepay_ready"),
+			Type.Literal("awaiting_confirmation"),
+			Type.Literal("cash_paid"),
+			Type.Literal("failed"),
+		]),
+		paymentState: PaymentStateSchema,
+		totalFen: Type.Integer({ minimum: 1 }),
+		payParams: Type.Optional(WechatMiniProgramPayParamsSchema),
+	}),
+});
+
 /** 预支付接口只表示参数已生成，不表示微信支付成功或业务订单完成。 */
 export const WechatPrepayResponse = Type.Object({
 	success: Type.Literal(true),
@@ -975,6 +993,9 @@ export type PaymentOrderPayload = Static<typeof PaymentOrderResponse>;
 export type WechatPrepayPayload = Static<typeof WechatPrepayResponse>;
 export type WechatPrepayStatusPayload = Static<
 	typeof WechatPrepayStatusResponse
+>;
+export type RegistrationSelfPayPayload = Static<
+	typeof RegistrationSelfPayResponse
 >;
 
 export function success<const T>(data: T): { success: true; data: T } {

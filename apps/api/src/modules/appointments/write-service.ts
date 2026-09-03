@@ -3,13 +3,14 @@ import type {
 	AppointmentRegistrationPayload,
 } from "@hospital/contracts";
 import {
-	DependencyNotConfiguredError,
-	isBoundedOpaqueIdentifier,
-	normalizeAdapterCallContext,
 	type AppointmentPatientProfileGateway,
 	type AppointmentWriteGateway,
 	type AppointmentWriteRepository,
+	DependencyNotConfiguredError,
+	isBoundedOpaqueIdentifier,
 	type MedicalInsuranceOrderRepository,
+	normalizeAdapterCallContext,
+	normalizeExternalTrace,
 	type PatientRepository,
 	type UserIdentityRepository,
 } from "@hospital/domain";
@@ -53,7 +54,9 @@ export class AppointmentRegistrationNotFoundError extends Error {
 
 export class AppointmentCancellationMedicalPaymentActiveError extends Error {
 	constructor() {
-		super("Appointment has an active medical insurance payment and cannot be cancelled");
+		super(
+			"Appointment has an active medical insurance payment and cannot be cancelled",
+		);
 		this.name = "AppointmentCancellationMedicalPaymentActiveError";
 	}
 }
@@ -108,6 +111,36 @@ function id(value: unknown, label: string): string {
 	if (!isBoundedOpaqueIdentifier(value))
 		throw new AppointmentWriteInputError(`${label} is invalid`);
 	return value;
+}
+
+/**
+ * 写入成功日志也要能和众阳服务端日志关联，但不能让不可信的替身 trace
+ * 直接进入 journald。异常 trace 只是不附带关联字段，不能在 Provider 已经
+ * 写入成功后因为日志投影失败而改变业务结果。
+ */
+function traceLogFields(
+	...values: readonly unknown[]
+): Record<string, unknown> {
+	const requestIds: string[] = [];
+	let primaryRequestId: string | undefined;
+	for (const value of values) {
+		try {
+			const trace = normalizeExternalTrace(value, {
+				expectedProvider: "zhongyang",
+			});
+			primaryRequestId = trace.requestId;
+			requestIds.push(...(trace.requestIds ?? [trace.requestId]));
+		} catch {
+			// 日志字段不是业务成功条件；未知 trace 不得阻断已完成的写入。
+		}
+	}
+	const uniqueRequestIds = [...new Set(requestIds)];
+	return {
+		...(primaryRequestId ? { providerRequestId: primaryRequestId } : {}),
+		...(uniqueRequestIds.length
+			? { providerRequestIds: uniqueRequestIds }
+			: {}),
+	};
 }
 
 function outputRegistration(
@@ -182,6 +215,40 @@ export class AppointmentWriteService {
 		return snapshot;
 	}
 
+	/**
+	 * 自费支付只读取服务端已写入的预约金额，不能让小程序重新提交金额。
+	 * 这是支付模块与预约仓储之间的窄边界，不向公共预约读接口暴露内部字段。
+	 */
+	async getPaymentContext(
+		ownerUserId: string,
+		appointmentId: string,
+	): Promise<{
+		appointmentId: string;
+		patientId: string;
+		totalFen: number;
+	}> {
+		const owner = id(ownerUserId, "ownerUserId");
+		const appointment = id(appointmentId, "appointmentId");
+		const registration = await this.dependencies.repository.findRegistration(
+			owner,
+			appointment,
+		);
+		if (!registration || registration.status === "cancelled")
+			throw new AppointmentRegistrationNotFoundError();
+		if (
+			!Number.isSafeInteger(registration.totalFen) ||
+			registration.totalFen <= 0
+		)
+			throw new AppointmentWriteInputError(
+				"Appointment registration amount is invalid",
+			);
+		return {
+			appointmentId: registration.appointmentId,
+			patientId: registration.patientId,
+			totalFen: registration.totalFen,
+		};
+	}
+
 	async hold(input: {
 		ownerUserId: string;
 		patientId: string;
@@ -228,6 +295,7 @@ export class AppointmentWriteService {
 			{
 				event: "appointment.hold.requested",
 				traceId: context.traceId,
+				ownerUserId,
 				patientId,
 				scheduleId,
 				sourceSerialNumber,
@@ -241,7 +309,11 @@ export class AppointmentWriteService {
 			context,
 		);
 		const source = await this.dependencies.gateway.resolveSource(
-			{ providerScheduleId: snapshot.providerScheduleId, sourceSerialNumber },
+			{
+				providerScheduleId: snapshot.providerScheduleId,
+				providerPatientId: profile.providerPatientId,
+				sourceSerialNumber,
+			},
 			context,
 		);
 		const fee = await this.dependencies.gateway.getFactRegisterFee(
@@ -271,10 +343,12 @@ export class AppointmentWriteService {
 			{
 				event: "appointment.hold.created",
 				traceId: context.traceId,
+				ownerUserId,
 				holdId: hold.holdId,
 				patientId,
 				scheduleId,
 				totalFen: hold.totalFen,
+				...traceLogFields(source.trace, fee.trace),
 			},
 			"Appointment hold created",
 		);
@@ -348,6 +422,7 @@ export class AppointmentWriteService {
 			{
 				event: "appointment.registration.requested",
 				traceId: context.traceId,
+				ownerUserId,
 				holdId,
 				patientId,
 			},
@@ -414,9 +489,11 @@ export class AppointmentWriteService {
 				{
 					event: "appointment.registration.duplicate",
 					traceId: context.traceId,
+					ownerUserId,
 					holdId,
 					appointmentId: registration.appointmentId,
 					patientId,
+					...traceLogFields(active.trace),
 				},
 				"Existing appointment detected; registration was not repeated",
 			);
@@ -478,9 +555,11 @@ export class AppointmentWriteService {
 			{
 				event: "appointment.registration.created",
 				traceId: context.traceId,
+				ownerUserId,
 				appointmentId: registration.appointmentId,
 				holdId,
 				patientId,
+				...traceLogFields(active.trace, result.trace),
 			},
 			"Appointment registration created",
 		);
@@ -502,10 +581,11 @@ export class AppointmentWriteService {
 		if (!registration) throw new AppointmentRegistrationNotFoundError();
 		if (registration.status === "cancelled")
 			return { appointmentId, status: "cancelled" };
-		const medicalOrder = await this.dependencies.medicalInsuranceOrders?.findByOwnerAndAppointmentId(
-			ownerUserId,
-			appointmentId,
-		);
+		const medicalOrder =
+			await this.dependencies.medicalInsuranceOrders?.findByOwnerAndAppointmentId(
+				ownerUserId,
+				appointmentId,
+			);
 		if (
 			medicalOrder &&
 			(medicalOrder.status !== "created" ||
@@ -517,11 +597,12 @@ export class AppointmentWriteService {
 			{
 				event: "appointment.cancellation.requested",
 				traceId: context.traceId,
+				ownerUserId,
 				appointmentId,
 			},
 			"Appointment cancellation requested",
 		);
-		await this.dependencies.gateway.cancel(
+		const result = await this.dependencies.gateway.cancel(
 			{
 				providerPatientId: registration.providerPatientId,
 				providerAppointmentId: registration.providerAppointmentId,
@@ -541,7 +622,9 @@ export class AppointmentWriteService {
 			{
 				event: "appointment.cancellation.completed",
 				traceId: context.traceId,
+				ownerUserId,
 				appointmentId,
+				...traceLogFields(result.trace),
 			},
 			"Appointment cancellation completed",
 		);

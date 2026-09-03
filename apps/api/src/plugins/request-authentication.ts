@@ -3,6 +3,7 @@ import {
 	type SessionPrincipal,
 	type SessionTokenService,
 } from "../modules/auth/service";
+import { setRequestOwner } from "./request-context";
 
 /**
  * 当前 HTTP Request 对应的认证主体解析器。
@@ -65,6 +66,7 @@ export function createRequestPrincipalResolver(
 				sessions,
 			);
 			principals.set(request, principal);
+			setRequestOwner(request, principal.userId);
 		},
 		async get(request) {
 			const principal = principals.get(request);

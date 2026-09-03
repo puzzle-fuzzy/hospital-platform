@@ -1,7 +1,7 @@
 import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
-import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import { DependencyNotConfiguredError } from "@hospital/domain";
+import { type AppLogger, createNoopLogger } from "@hospital/observability";
 import { Elysia } from "elysia";
 import {
 	type ApplicationServices,
@@ -12,19 +12,20 @@ import {
 	createReadinessService,
 	type ReadinessService,
 } from "./infrastructure/readiness";
-import { appointmentsModule } from "./modules/appointments";
 import type { AppointmentWriteService } from "./modules/appointments";
+import { appointmentsModule } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
 import { healthKnowledgeModule } from "./modules/knowledge";
-import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsuranceRegistrationService } from "./modules/medical-insurance";
-import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
+import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
+import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
 import { patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
+import type { RegistrationSelfPayService } from "./modules/payments/registration-self-pay-service";
 import { profileModule } from "./modules/profile";
 import { reportsModule } from "./modules/reports";
 import { systemModule } from "./modules/system";
@@ -132,6 +133,16 @@ export function createApp(options: AppOptions = {}) {
 				);
 			},
 		} as unknown as MedicalInsuranceWechatPaymentService);
+	const registrationSelfPay =
+		services.registrationSelfPay ??
+		({
+			create: async () => {
+				throw new DependencyNotConfiguredError("registration-self-pay");
+			},
+			query: async () => {
+				throw new DependencyNotConfiguredError("registration-self-pay");
+			},
+		} as unknown as RegistrationSelfPayService);
 
 	// 患者端公共 contract 采用 fail-closed 输入语义：未知字段不能被 Elysia
 	// 默认 normalize 静默清洗，否则旧端的身份/支付字段可能被误认为已保存。
@@ -195,6 +206,7 @@ export function createApp(options: AppOptions = {}) {
 						services.wechatPaymentNotifications,
 						services.sessions,
 						options.wechatPaymentEnabled === true,
+						registrationSelfPay,
 					),
 				)
 				.use(

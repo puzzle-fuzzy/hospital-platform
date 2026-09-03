@@ -27,7 +27,9 @@ import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
-const REQUEST_CHANNEL = "4";
+// 众阳 2.10.2/2.10.3 预约目录合同明确约定：门诊微信渠道编码为 3。
+// 自助机的 4 只保留在显式的历史全量记录范围，不得复用到小程序读链路。
+const REQUEST_CHANNEL = "3";
 /** 旧 provider 记录接口的两个已核实只读渠道；数字不进入公共 API。 */
 const RECORD_REQUEST_CHANNELS: Record<AppointmentRecordScope, string> = {
 	online: "3",
@@ -1184,6 +1186,8 @@ export class ZhongyangAppointmentApiGateway
 		url.searchParams.set("requestChannel", REQUEST_CHANNEL);
 		url.searchParams.set("startDate", normalizedInput.startDate);
 		url.searchParams.set("endDate", normalizedInput.endDate);
+		// 众阳 2.10.2.3 将 scheduleType 标为必填；本 demo 只走医生排班。
+		url.searchParams.set("scheduleType", "1");
 		if (normalizedInput.departmentId)
 			url.searchParams.set("deptId", normalizedInput.departmentId);
 		if (normalizedInput.doctorId)

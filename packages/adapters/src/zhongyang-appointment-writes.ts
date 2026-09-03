@@ -1,8 +1,8 @@
 import type {
 	AdapterCallContext,
 	AppointmentPatientProfileGateway,
-	AppointmentRegistrationPatient,
 	AppointmentProviderRecord,
+	AppointmentRegistrationPatient,
 	AppointmentWriteGateway,
 	ExternalTrace,
 } from "@hospital/domain";
@@ -11,6 +11,8 @@ import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
 const SOURCE_PATH = "/msun-middle-business-amc-server/v1/sources/";
+const LOCKED_SOURCE_PATH =
+	"/msun-middle-business-amc-server/v1/sources/locked-sources";
 const FACT_FEE_PATH =
 	"/msun-middle-business-appointment-server/v1/appointment-infos/fact-register-fee";
 const APPOINTMENT_PATH =
@@ -18,7 +20,8 @@ const APPOINTMENT_PATH =
 const RECORD_PATH = `${APPOINTMENT_PATH}/`;
 const PATIENT_INFO_PATH = "/api/public/patientInfoByUnionId";
 const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
-const REQUEST_CHANNEL = "4";
+// 众阳 2.10.3/2.10.4 合同明确约定：门诊微信渠道编码为 3。
+const REQUEST_CHANNEL = "3";
 
 type ProviderObject = Record<string, unknown>;
 
@@ -163,6 +166,28 @@ function text(
 	)
 		throw providerError(operation, `Zhongyang ${field} was invalid`, requestId);
 	return result;
+}
+
+function providerInteger(
+	value: unknown,
+	field: string,
+	operation: string,
+): number {
+	const raw =
+		typeof value === "number"
+			? value
+			: typeof value === "string" && /^\d+$/.test(value.trim())
+				? Number(value.trim())
+				: Number.NaN;
+	if (!Number.isSafeInteger(raw) || raw < 0) {
+		throw providerError(
+			operation,
+			`Zhongyang ${field} must be a non-negative integer`,
+			undefined,
+			false,
+		);
+	}
+	return raw;
 }
 
 function yuanToFen(
@@ -405,13 +430,22 @@ export class ZhongyangAppointmentWriteApiGateway
 	}
 
 	async resolveSource(
-		input: { providerScheduleId: string; sourceSerialNumber: string },
+		input: {
+			providerScheduleId: string;
+			providerPatientId: string;
+			sourceSerialNumber: string;
+		},
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-source-resolve";
+		const providerScheduleId = providerInteger(
+			input.providerScheduleId,
+			"hisScheduleId",
+			operation,
+		);
 		const response = await this.get<unknown>(
 			operation,
-			`${SOURCE_PATH}${encodeURIComponent(input.providerScheduleId)}`,
+			`${SOURCE_PATH}${providerScheduleId}`,
 			context,
 			{ requestChannel: REQUEST_CHANNEL },
 		);
@@ -431,20 +465,110 @@ export class ZhongyangAppointmentWriteApiGateway
 				response.requestId,
 				false,
 			);
-		return {
-			providerSourceId: text(
-				source.sourceId,
-				"sourceId",
+		const sourceId = providerInteger(source.sourceId, "sourceId", operation);
+		const providerPatientId = providerInteger(
+			input.providerPatientId,
+			"patId",
+			operation,
+		);
+		const lockedSourceBody: Record<string, unknown> = {
+			requestChannel: REQUEST_CHANNEL,
+			hisScheduleId: providerScheduleId,
+			sourceId,
+			patId: providerPatientId,
+		};
+		// 点号源的可选时间段字段在众阳响应中可能以 null/空串表示未提供；
+		// 两端都缺失时不发送范围字段，只有单端存在才视为合同形状错误。
+		const hasGroupStart =
+			source.groupStart !== undefined &&
+			source.groupStart !== null &&
+			source.groupStart !== "";
+		const hasGroupEnd =
+			source.groupEnd !== undefined &&
+			source.groupEnd !== null &&
+			source.groupEnd !== "";
+		if (hasGroupStart !== hasGroupEnd) {
+			throw providerError(
+				operation,
+				"Zhongyang appointment source time range is incomplete",
+				response.requestId,
+				false,
+			);
+		}
+		if (hasGroupStart && hasGroupEnd) {
+			const groupStart = text(
+				source.groupStart,
+				"groupStart",
 				operation,
 				response.requestId,
-			),
+			);
+			const groupEnd = text(
+				source.groupEnd,
+				"groupEnd",
+				operation,
+				response.requestId,
+			);
+			if (
+				!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(groupStart) ||
+				!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(groupEnd) ||
+				groupStart >= groupEnd
+			) {
+				throw providerError(
+					operation,
+					"Zhongyang appointment source time range is invalid",
+					response.requestId,
+					false,
+				);
+			}
+			lockedSourceBody.groupStart = groupStart;
+			lockedSourceBody.groupEnd = groupEnd;
+		}
+		const locked = await this.post<unknown>(
+			"appointment-source-lock",
+			LOCKED_SOURCE_PATH,
+			context,
+			lockedSourceBody,
+		);
+		const lockedEnvelope = objectValue(
+			locked.data,
+			"appointment-source-lock",
+			locked.requestId,
+		);
+		const lockedPayload = successfulEnvelope(
+			lockedEnvelope,
+			"appointment-source-lock",
+			locked.requestId,
+		);
+		const lockedData = objectValue(
+			lockedPayload,
+			"appointment-source-lock",
+			locked.requestId,
+		);
+		const lockedSourceId = providerInteger(
+			lockedData.sourceId,
+			"sourceId",
+			"appointment-source-lock",
+		);
+		if (lockedSourceId !== sourceId) {
+			throw providerError(
+				"appointment-source-lock",
+				"Zhongyang locked source did not match the requested source",
+				locked.requestId,
+				false,
+			);
+		}
+		return {
+			providerSourceId: String(lockedSourceId),
 			sourceSerialNumber: text(
 				source.serialNumber,
 				"serialNumber",
 				operation,
 				response.requestId,
 			),
-			trace: trace(operation, response.requestId),
+			trace: trace(operation, response.requestId, [
+				response.requestId,
+				locked.requestId,
+			]),
 		};
 	}
 
@@ -453,13 +577,23 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-fact-register-fee";
+		const providerScheduleId = providerInteger(
+			input.providerScheduleId,
+			"hisScheduleId",
+			operation,
+		);
+		const providerPatientId = providerInteger(
+			input.providerPatientId,
+			"patId",
+			operation,
+		);
 		const response = await this.get<unknown>(
 			operation,
 			FACT_FEE_PATH,
 			context,
 			{
-				hisScheduleId: input.providerScheduleId,
-				patId: input.providerPatientId,
+				hisScheduleId: String(providerScheduleId),
+				patId: String(providerPatientId),
 				requestChannel: REQUEST_CHANNEL,
 			},
 		);
@@ -482,9 +616,14 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-active-records";
+		const providerPatientId = providerInteger(
+			input.providerPatientId,
+			"patId",
+			operation,
+		);
 		const response = await this.get<unknown>(
 			operation,
-			`${RECORD_PATH}${encodeURIComponent(input.providerPatientId)}`,
+			`${RECORD_PATH}${providerPatientId}`,
 			context,
 			{
 				requestChannel: REQUEST_CHANNEL,
@@ -574,24 +713,37 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-registration-create";
+		const providerPatientId = providerInteger(
+			input.patient.providerPatientId,
+			"patId",
+			operation,
+		);
+		const providerScheduleId = providerInteger(
+			input.target.providerScheduleId,
+			"hisScheduleId",
+			operation,
+		);
+		const providerSourceId = providerInteger(
+			input.target.providerSourceId,
+			"sourceId",
+			operation,
+		);
 		const response = await this.post<unknown>(
 			operation,
 			APPOINTMENT_PATH,
 			context,
 			{
-				patId: input.patient.providerPatientId,
+				patId: providerPatientId,
 				patName: input.patient.name,
 				patCardNo: input.patient.cardNo,
 				idcardNo: input.patient.idNo,
 				registrationFee: input.totalFen / 100,
 				workDate: input.target.workDate,
 				telephone: input.patient.phone,
-				hisScheduleId: input.target.providerScheduleId,
-				sourceId: input.target.providerSourceId,
-				registerSource: 15,
-				settleWay: 6,
-				isPay: 0,
-				requestChannel: "my",
+				hisScheduleId: providerScheduleId,
+				sourceId: providerSourceId,
+				isPay: "0",
+				requestChannel: REQUEST_CHANNEL,
 				recordId: input.recordId,
 			},
 		);
@@ -634,14 +786,24 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-cancellation";
+		const providerPatientId = providerInteger(
+			input.providerPatientId,
+			"patId",
+			operation,
+		);
+		const providerAppointmentId = providerInteger(
+			input.providerAppointmentId,
+			"appointmentInfoId",
+			operation,
+		);
 		const response = await this.post<unknown>(
 			`${operation}`,
 			`${APPOINTMENT_PATH}/d`,
 			context,
 			{
-				requestChannel: "3",
-				appointmentInfoId: input.providerAppointmentId,
-				patId: input.providerPatientId,
+				requestChannel: REQUEST_CHANNEL,
+				appointmentInfoId: providerAppointmentId,
+				patId: providerPatientId,
 			},
 		);
 		const envelope = objectValue(response.data, operation, response.requestId);

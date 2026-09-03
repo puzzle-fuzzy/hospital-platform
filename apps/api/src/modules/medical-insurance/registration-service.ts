@@ -3,20 +3,20 @@ import type {
 	MedicalInsuranceOrderPayload,
 } from "@hospital/contracts";
 import {
-	assertValidMedicalInsuranceAmounts,
-	DependencyNotConfiguredError,
-	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
-	normalizeAdapterCallContext,
-	isBoundedOpaqueIdentifier,
-	type AppointmentRegistration,
 	type AppointmentMedicalInsuranceContext,
 	type AppointmentPatientProfileGateway,
+	type AppointmentRegistration,
 	type AppointmentWriteRepository,
+	assertValidMedicalInsuranceAmounts,
+	DependencyNotConfiguredError,
+	isBoundedOpaqueIdentifier,
+	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	type MedicalInsuranceGateway,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceQueryTaskRepository,
 	type MedicalInsuranceSettlementEvidenceFinality,
+	normalizeAdapterCallContext,
 	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
@@ -242,6 +242,7 @@ export class MedicalInsuranceRegistrationService {
 			{
 				event: "medical-insurance.authorization.requested",
 				traceId: context.traceId,
+				ownerUserId,
 				orderId: order.medicalOrderId,
 				appointmentId,
 			},
@@ -273,6 +274,7 @@ export class MedicalInsuranceRegistrationService {
 			{
 				event: "medical-insurance.authorization.completed",
 				traceId: context.traceId,
+				ownerUserId,
 				orderId: order.medicalOrderId,
 				appointmentId,
 				providerRequestId: result.trace.requestId,
@@ -306,6 +308,7 @@ export class MedicalInsuranceRegistrationService {
 			{
 				event: "medical-insurance.fees.requested",
 				traceId: context.traceId,
+				ownerUserId,
 				orderId,
 				appointmentId: appointment.appointmentId,
 			},
@@ -360,6 +363,7 @@ export class MedicalInsuranceRegistrationService {
 			{
 				event: "medical-insurance.fees.completed",
 				traceId: context.traceId,
+				ownerUserId,
 				orderId,
 				appointmentId: appointment.appointmentId,
 				providerRequestId: result.trace.requestId,
@@ -400,6 +404,7 @@ export class MedicalInsuranceRegistrationService {
 			{
 				event: "medical-insurance.settlement.requested",
 				traceId: context.traceId,
+				ownerUserId,
 				orderId,
 				appointmentId: order.appointmentId,
 			},
@@ -437,6 +442,7 @@ export class MedicalInsuranceRegistrationService {
 			{
 				event: "medical-insurance.settlement.completed",
 				traceId: context.traceId,
+				ownerUserId,
 				orderId,
 				appointmentId: order.appointmentId,
 				state: result.state,
@@ -494,6 +500,7 @@ export class MedicalInsuranceRegistrationService {
 			{
 				event: "medical-insurance.settlement.queried",
 				traceId: context.traceId,
+				ownerUserId,
 				orderId,
 				state: result.state,
 				providerRequestId: result.trace.requestId,
