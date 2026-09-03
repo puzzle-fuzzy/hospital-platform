@@ -21,6 +21,24 @@ export type PendingPayment = {
 
 type Progress = (stage: PaymentProgress, message: string) => void;
 
+/** 微信跳转被用户主动取消属于正常业务分支，不应被页面显示为系统异常。 */
+export class MedicalAuthNavigationCancelledError extends Error {
+	constructor() {
+		super("用户取消了医保授权跳转");
+		this.name = "MedicalAuthNavigationCancelledError";
+	}
+}
+
+function isNavigationCancelled(value: unknown): boolean {
+	const message =
+		value instanceof Error
+			? value.message
+			: typeof value === "object" && value !== null
+				? String((value as { errMsg?: unknown }).errMsg ?? "")
+				: String(value ?? "");
+	return /取消|\bcancel(?:led|ed)?\b/i.test(message);
+}
+
 function isOpaque(value: unknown): value is string {
 	return typeof value === "string" && /^[A-Za-z0-9._:-]{1,128}$/.test(value);
 }
@@ -85,7 +103,12 @@ export async function navigateToMedicalAuth(): Promise<void> {
 			path,
 			envVersion: PAY_CONFIG.medicalEnvVersion,
 			success: () => resolve(),
-			fail: reject,
+			fail: (error) =>
+				reject(
+					isNavigationCancelled(error)
+						? new MedicalAuthNavigationCancelledError()
+						: error,
+				),
 		});
 	});
 }

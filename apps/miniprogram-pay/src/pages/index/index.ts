@@ -13,6 +13,7 @@ import {
 } from "../../services/appointment";
 import {
 	continueMedicalPayment,
+	MedicalAuthNavigationCancelledError,
 	navigateToMedicalAuth,
 	readPendingPayment,
 	startMedicalPayment,
@@ -57,9 +58,22 @@ const progressText: Record<RegistrationProgress, string> = {
 };
 
 function friendlyError(error: unknown): string {
+	if (error instanceof MedicalAuthNavigationCancelledError) return "";
 	const message =
-		error instanceof Error ? error.message : "请求失败，请查看开发者工具日志";
+		error instanceof Error
+			? error.message
+			: typeof error === "object" && error !== null && "errMsg" in error
+				? String((error as { errMsg?: unknown }).errMsg || "请求失败")
+				: "请求失败，请查看开发者工具日志";
 	return message.length > 80 ? `${message.slice(0, 80)}…` : message;
+}
+
+function showNavigationCancelled(page: PageInstance): void {
+	page.setData({
+		hasPendingPayment: Boolean(readPendingPayment()),
+		error: "",
+		message: "已取消跳转，预约已保留，请点击继续医保支付",
+	});
 }
 
 type PageInstance = { setData(data: Partial<PageData>): void; data: PageData };
@@ -225,12 +239,16 @@ Page<
 			this.setData({ busy: true, error: "" });
 			setProgress(this, "authorizing", "请在医保小程序继续完成授权");
 			void navigateToMedicalAuth()
-				.catch((error: unknown) =>
+				.catch((error: unknown) => {
+					if (error instanceof MedicalAuthNavigationCancelledError) {
+						showNavigationCancelled(this);
+						return;
+					}
 					this.setData({
 						error: friendlyError(error),
 						message: "医保授权未完成",
-					}),
-				)
+					});
+				})
 				.finally(() => this.setData({ busy: false }));
 			return;
 		}
@@ -250,9 +268,13 @@ Page<
 					setProgress(this, stage, message),
 				);
 			})
-			.catch((error: unknown) =>
-				this.setData({ error: friendlyError(error), message: "流程未完成" }),
-			)
+			.catch((error: unknown) => {
+				if (error instanceof MedicalAuthNavigationCancelledError) {
+					showNavigationCancelled(this);
+					return;
+				}
+				this.setData({ error: friendlyError(error), message: "流程未完成" });
+			})
 			.finally(() => {
 				if (!this.data.duplicate) this.setData({ busy: false });
 			});
@@ -287,12 +309,16 @@ Page<
 							setProgress(this, stage, message),
 						);
 					})
-					.catch((error: unknown) =>
+					.catch((error: unknown) => {
+						if (error instanceof MedicalAuthNavigationCancelledError) {
+							showNavigationCancelled(this);
+							return;
+						}
 						this.setData({
 							error: friendlyError(error),
 							message: "取消或重新预约未完成",
-						}),
-					)
+						});
+					})
 					.finally(() => this.setData({ busy: false }));
 			},
 		});
