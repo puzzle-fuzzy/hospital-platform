@@ -217,7 +217,7 @@ describe("全项目迁移 readiness 报告", () => {
 		 * 未提交编辑改变本测试的确定性。
 		 */
 		const currentBaseline = await Bun.file(
-			"docs/release/current-baseline.json",
+			"docs/发布/当前基线.json",
 		).json();
 		if (report.deviceEvidence.present) {
 			expect(report.deviceEvidence.manifestPath).toBe(

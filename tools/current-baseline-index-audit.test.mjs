@@ -24,7 +24,7 @@ const validIndex = {
 	},
 	realDeviceEvidence: {
 		manifest:
-			"docs/release/device-evidence-935410473e5a7c1be125a85834f957f53a833d8f-pending.json",
+			"docs/发布/真机证据-935410473e5a7c1be125a85834f957f53a833d8f-pending.json",
 		status: "pending",
 	},
 };

@@ -19,7 +19,7 @@
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
 | **合计未完成** | **45** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 98 项，其中已完成 53 项、未完成 45 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 4、P1 19、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 103 项，其中已完成 58 项、未完成 45 项。上表按工作流归并，`P1/P2 临床、患者、便民与外部能力` 包含第 10.2 节的 4 个产品闭环骨架项和 C/D/E 三个批次的 16 个 contract 项。另按标题优先级统计未完成项为：P0 4、P1 19、P2 16、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## 0. 先看结论
 
@@ -40,8 +40,8 @@
 - 旧服务路由：`/Users/yxswy/Documents/GitHub/hospital/app/api/v1`。
 - 新页面台账：`apps/miniprogram/src/services/legacy-page-catalog.ts`。
 - 新入口/批次：`apps/miniprogram/src/services/feature-navigation.ts`、`apps/miniprogram/src/services/migration-coverage.ts`。
-- 旧接口完整清单：`docs/migration/legacy-api-endpoint-inventory.md`。
-- 旧客户端非页面逻辑：`docs/migration/legacy-client-infrastructure-boundaries.md`。
+- 旧接口完整清单：`docs/迁移/旧接口清单.md`。
+- 旧客户端非页面逻辑：`docs/迁移/旧客户端基础设施边界.md`。
 
 已通过的结构审计包括架构、页面台账、冻结入口、契约材料覆盖、入口广度、导航、患者展示、临床边界、低风险只读域、Provider intake、错误契约、文档链接、日志事件、工具链、模板和类型检查。当前仍有一项预期的发布阻断：
 
@@ -171,7 +171,7 @@
 
 ## 4. 旧服务 195 条路由的迁移分类
 
-完整的旧 endpoint literal 已写入 `docs/migration/legacy-api-endpoint-inventory.md`。本节按旧模块把全部路由范围归类，避免把“没有复制旧路由”误判成遗漏：
+完整的旧 endpoint literal 已写入 `docs/迁移/旧接口清单.md`。本节按旧模块把全部路由范围归类，避免把“没有复制旧路由”误判成遗漏：
 
 | 旧模块 | 已挂载数 | 分类 | 新端处理 |
 | --- | ---: | --- | --- |
@@ -214,11 +214,11 @@
 
 ### P0：先补当前验收和运行基线
 
-- [x] 已生成 `docs/release/device-evidence-ce1c2179b57fe2783066b51f8621220224982928-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
+- [x] 已生成 `docs/发布/真机证据-ce1c2179b57fe2783066b51f8621220224982928-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
 - [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `ce1c2179b57fe2783066b51f8621220224982928`；`pnpm release:baseline:index:audit` 的当前索引部分已通过，文档中保留的旧候选仅作历史追溯，服务端运行时代码漂移仍阻断完整 release audit。
-- [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`apps/api/src/modules/auth/service.ts`、`apps/api/src/plugins/request-logging.ts`、`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/errors.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/redis-session.ts`、`packages/persistence/src/repositories.ts` 共 16 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。2026-09-02 候选 `9f29eb2` 已上传到独立 release，但生产 preflight 因目标 schema 缺少 `0017_outbox_manual_review_state` 失败，未切换 `current`、未重启新 API。详见 [`docs/release/server-runtime-drift-audit-2026-08-31.md`](docs/release/server-runtime-drift-audit-2026-08-31.md) 和 [`docs/release/candidate-9f29eb2-preproduction-blocked-2026-09-02.md`](docs/release/candidate-9f29eb2-preproduction-blocked-2026-09-02.md)。是否执行 schema migration 仍需 DBA/运维单独批准。
-- [x] 已通过内网 SSH 和公网只读 smoke 取得当前运行层证据：新 API release `5738a71e...` 为 active/current，旧 Python `8001` 仍监听，API/Worker preflight 显示 production、MySQL/Redis/schema ready；线上 schema head 为 `0016_patient_directory_sync_owner_index`，仓库当前 head 为 `0017_outbox_manual_review_state`。该项只完成运行层观测，不代表 Provider、真机或支付业务验收。详见 [`docs/release/current-runtime-readonly-observation-2026-08-31.md`](docs/release/current-runtime-readonly-observation-2026-08-31.md)。
-- [x] 已补齐持久化 503 的后端来源低敏日志字段：MySQL/Redis 适配边界分别投影为固定 `persistenceDependency`，运行时也会拒绝越过 TypeScript 类型的任意字符串，未知实现省略字段；保留现有 503 文案、错误码和重试安全边界。线上旧 release 尚未包含该修正，不能用仓库测试代替真实部署证据。详见 [`docs/release/current-persistence-dependency-observation-2026-08-31.md`](docs/release/current-persistence-dependency-observation-2026-08-31.md)。
+- [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`apps/api/src/modules/auth/service.ts`、`apps/api/src/plugins/request-logging.ts`、`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/errors.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/redis-session.ts`、`packages/persistence/src/repositories.ts` 共 16 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。2026-09-02 候选 `9f29eb2` 已上传到独立 release，但生产 preflight 因目标 schema 缺少 `0017_outbox_manual_review_state` 失败，未切换 `current`、未重启新 API。详见 [`docs/发布/服务端运行时漂移审计-2026-08-31.md`](docs/发布/服务端运行时漂移审计-2026-08-31.md) 和 [`docs/发布/候选-9f29eb2-预发布阻断-2026-09-02.md`](docs/发布/候选-9f29eb2-预发布阻断-2026-09-02.md)。是否执行 schema migration 仍需 DBA/运维单独批准。
+- [x] 已通过内网 SSH 和公网只读 smoke 取得当前运行层证据：新 API release `5738a71e...` 为 active/current，旧 Python `8001` 仍监听，API/Worker preflight 显示 production、MySQL/Redis/schema ready；线上 schema head 为 `0016_patient_directory_sync_owner_index`，仓库当前 head 为 `0017_outbox_manual_review_state`。该项只完成运行层观测，不代表 Provider、真机或支付业务验收。详见 [`docs/发布/当前运行时只读观察-2026-08-31.md`](docs/发布/当前运行时只读观察-2026-08-31.md)。
+- [x] 已补齐持久化 503 的后端来源低敏日志字段：MySQL/Redis 适配边界分别投影为固定 `persistenceDependency`，运行时也会拒绝越过 TypeScript 类型的任意字符串，未知实现省略字段；保留现有 503 文案、错误码和重试安全边界。线上旧 release 尚未包含该修正，不能用仓库测试代替真实部署证据。详见 [`docs/发布/当前持久化依赖观察-2026-08-31.md`](docs/发布/当前持久化依赖观察-2026-08-31.md)。
 - [x] 已修正请求日志对公共依赖错误的稳定错误码映射：`PersistenceUnavailableError` 和 `DependencyNotConfiguredError` 不再被 Elysia 的 `UNKNOWN` 覆盖，分别记录 `persistence-temporarily-unavailable` 与 `dependency-not-configured`；线上旧 release 尚未包含该修正，仍需随受控候选发布验证。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
 - [ ] 真机验收至少覆盖：登录、患者切换、首页入口、预约目录、预约历史/爽约、门诊费用、报告、普通资料、错误重试，并关联客户端 `requestId`、服务端 `traceId` 和截图/结果。
@@ -308,12 +308,12 @@
 
 ### 10.1 数据迁移与切换：新增 P0
 
-- [x] 已根据当前代码和 schema 审计固化技术默认：本次候选按“新库冷启动”处理，不自动导入旧用户/旧业务存量；没有旧库 backfill、双读、双写或切换脚本。若业务最终要求保留存量，必须先完成账户/患者/订单映射、脱敏 staging、对账和回滚演练。详见 [`docs/migration/data-cutover-decision-2026-08-31.md`](docs/migration/data-cutover-decision-2026-08-31.md)。
-- [x] 已完成旧 `system_users` 到 `hp_identity_users` 的账户连续性映射设计，明确同 AppID/环境的精确身份匹配、重复/冲突隔离、首次登录绑定、资料分离和可回滚流程；没有执行真实数据迁移，也没有放开旧身份字段进入公共 contract。详见 [`docs/migration/identity-continuity-mapping-2026-08-31.md`](identity-continuity-mapping-2026-08-31.md)。
-- [x] 已完成旧患者标识到 `hp_patients` / `hp_patient_provider_references` 的脱敏映射设计，明确账户 owner 前置、目录 `thirdPatientId` 与临床 `patId` 用途分离、Provider 复核、冲突隔离、幂等写入和回滚；没有执行真实患者数据迁移。详见 [`docs/migration/patient-continuity-mapping-2026-08-31.md`](patient-continuity-mapping-2026-08-31.md)。
-- [x] 已为旧 `mbs_medical_orders` / `mbs_payment_events` 建立支付存量策略，明确待支付、已支付、退款中、失败和重复通知的冻结、对账、人工复核、历史只读和回滚边界；没有执行订单迁移、支付调用或状态伪造。详见 [`docs/migration/payment-stock-cutover-strategy-2026-08-31.md`](payment-stock-cutover-strategy-2026-08-31.md)。
-- [x] 已分别决定旧便民问卷、医生关系、表扬信/锦旗和健康知识的默认处置：新端不直接迁移，合规需要时进入受限只读归档；任何重新建模都必须先完成 owner/患者、版本、审核、撤回和权限 contract。详见 [`docs/migration/legacy-convenience-and-health-history-disposition-2026-08-31.md`](legacy-convenience-and-health-history-disposition-2026-08-31.md)。
-- [x] 已补齐数据切换的脱敏 staging、导出快照、数量/关系/孤儿校验、幂等重跑、审计留痕、旧新共存、切换停止条件和失败回滚步骤；本文只完成 runbook 设计，真实演练和切换证据仍需在受控窗口取得。详见 [`docs/migration/data-cutover-execution-runbook-2026-08-31.md`](data-cutover-execution-runbook-2026-08-31.md)。
+- [x] 已根据当前代码和 schema 审计固化技术默认：本次候选按“新库冷启动”处理，不自动导入旧用户/旧业务存量；没有旧库 backfill、双读、双写或切换脚本。若业务最终要求保留存量，必须先完成账户/患者/订单映射、脱敏 staging、对账和回滚演练。详见 [`docs/迁移/数据切换决策-2026-08-31.md`](docs/迁移/数据切换决策-2026-08-31.md)。
+- [x] 已完成旧 `system_users` 到 `hp_identity_users` 的账户连续性映射设计，明确同 AppID/环境的精确身份匹配、重复/冲突隔离、首次登录绑定、资料分离和可回滚流程；没有执行真实数据迁移，也没有放开旧身份字段进入公共 contract。详见 [`docs/迁移/身份连续性映射-2026-08-31.md`](identity-continuity-mapping-2026-08-31.md)。
+- [x] 已完成旧患者标识到 `hp_patients` / `hp_patient_provider_references` 的脱敏映射设计，明确账户 owner 前置、目录 `thirdPatientId` 与临床 `patId` 用途分离、Provider 复核、冲突隔离、幂等写入和回滚；没有执行真实患者数据迁移。详见 [`docs/迁移/患者连续性映射-2026-08-31.md`](patient-continuity-mapping-2026-08-31.md)。
+- [x] 已为旧 `mbs_medical_orders` / `mbs_payment_events` 建立支付存量策略，明确待支付、已支付、退款中、失败和重复通知的冻结、对账、人工复核、历史只读和回滚边界；没有执行订单迁移、支付调用或状态伪造。详见 [`docs/迁移/支付存量切换策略-2026-08-31.md`](payment-stock-cutover-strategy-2026-08-31.md)。
+- [x] 已分别决定旧便民问卷、医生关系、表扬信/锦旗和健康知识的默认处置：新端不直接迁移，合规需要时进入受限只读归档；任何重新建模都必须先完成 owner/患者、版本、审核、撤回和权限 contract。详见 [`docs/迁移/旧便民与健康历史处置-2026-08-31.md`](legacy-convenience-and-health-history-disposition-2026-08-31.md)。
+- [x] 已补齐数据切换的脱敏 staging、导出快照、数量/关系/孤儿校验、幂等重跑、审计留痕、旧新共存、切换停止条件和失败回滚步骤；本文只完成 runbook 设计，真实演练和切换证据仍需在受控窗口取得。详见 [`docs/迁移/数据切换执行手册-2026-08-31.md`](data-cutover-execution-runbook-2026-08-31.md)。
 
 ### 10.2 已有骨架但没有产品闭环：新增 P1/P2
 
@@ -324,9 +324,9 @@
 
 ### 10.3 身份、凭据与患者数据安全：新增 P0/P1
 
-- [ ] 旧仓库 Git 跟踪了 `env/.env.prod`、`env/wechat/apiclient_key.pem`、`env/wechat/wechatpay.pem`、小程序环境文件和 `insurance-service/.env`；本轮只读元数据审计确认这些路径确实存在历史触及（`.env.prod` 25 次、两个 PEM 各 1 次、医保 `.env` 4 次），且远程 refs 可匿名读取，但未读取内容。禁止复制这些文件；确认它们是否曾暴露给不应访问的人员或远程仓库，并按结果吊销/轮换微信、医保和 Provider 凭据。详见 [`docs/security/legacy-credential-exposure-readonly-audit-2026-08-31.md`](legacy-credential-exposure-readonly-audit-2026-08-31.md)，这个判断仍需服务器/代码托管管理员确认。
-- [x] 新仓库保持只有模板文件进入 Git；`pnpm secret:audit` 和 `pnpm secret:audit:history` 已完成工作树及可达历史扫描，均未发现真实凭据或私钥原文。扫描只输出定位信息，不输出秘密值，详见 [`docs/security/secret-scan.md`](docs/security/secret-scan.md)。
-- [x] 已根据当前 schema 和 repository 实现建立身份、患者 Provider 引用、报告短期引用、排班快照、订单/outbox、日志和备份的仓库级生命周期/撤回策略；明确哪些是已实现的 owner/TTL/级联边界，哪些仍需数据负责人、Provider 和运维提供外部删除/留存证据。详见 [`docs/security/patient-data-lifecycle-policy-2026-08-31.md`](docs/security/patient-data-lifecycle-policy-2026-08-31.md)。
+- [ ] 旧仓库 Git 跟踪了 `env/.env.prod`、`env/wechat/apiclient_key.pem`、`env/wechat/wechatpay.pem`、小程序环境文件和 `insurance-service/.env`；本轮只读元数据审计确认这些路径确实存在历史触及（`.env.prod` 25 次、两个 PEM 各 1 次、医保 `.env` 4 次），且远程 refs 可匿名读取，但未读取内容。禁止复制这些文件；确认它们是否曾暴露给不应访问的人员或远程仓库，并按结果吊销/轮换微信、医保和 Provider 凭据。详见 [`docs/安全/旧凭据暴露只读审计-2026-08-31.md`](legacy-credential-exposure-readonly-audit-2026-08-31.md)，这个判断仍需服务器/代码托管管理员确认。
+- [x] 新仓库保持只有模板文件进入 Git；`pnpm secret:audit` 和 `pnpm secret:audit:history` 已完成工作树及可达历史扫描，均未发现真实凭据或私钥原文。扫描只输出定位信息，不输出秘密值，详见 [`docs/安全/秘密扫描.md`](docs/安全/秘密扫描.md)。
+- [x] 已根据当前 schema 和 repository 实现建立身份、患者 Provider 引用、报告短期引用、排班快照、订单/outbox、日志和备份的仓库级生命周期/撤回策略；明确哪些是已实现的 owner/TTL/级联边界，哪些仍需数据负责人、Provider 和运维提供外部删除/留存证据。详见 [`docs/安全/患者数据生命周期策略-2026-08-31.md`](docs/安全/患者数据生命周期策略-2026-08-31.md)。
 - [ ] 新 `hp_identity_users` 仍持久化 Provider subject/union id 等身份关联字段；在保留存量账户前确认最小化保留、访问控制、删除/解绑、备份和日志策略，不能只依赖 TypeScript 类型保证隐私。
 - [ ] 明确患者目录、Provider 引用、预约快照和报告短期引用的保留期限、失效清理及账户撤回后的处理。当前部分历史引用通过 `inactive`/外键保留，不能默认等同于隐私删除已完成。
 
@@ -334,13 +334,13 @@
 
 - [x] 已收窄 `apps/miniprogram/src/sitemap.json`：移除全量 `allow: "*"`，只显式开放医院公开信息、公众号说明、反馈说明和审核健康百科页面，并以 `disallow: "*"` 保护其余患者作用域页面；`acceptance.test.ts` 已锁定公开白名单及健康百科参数。
 - [ ] 真实开通前继续逐域核对“页面状态、API 路由、service、adapter、provider 映射、持久化”是否同一版本；尤其不能把患者目录/预约/报告/费用的只读闭环误扩展成病历正文、支付或外部 WebView。
-- [x] 已补齐所有 read-through/只读域的来源权威与新鲜度策略，明确实时 Provider、目录/排班观察快照、报告短期引用、失败时是否保留旧读模型以及写入禁止推导；详见 [`docs/migration/read-through-freshness-policy-2026-08-31.md`](read-through-freshness-policy-2026-08-31.md)。Provider、公网和真机证据仍按各域 TODO 单独采集。
+- [x] 已补齐所有 read-through/只读域的来源权威与新鲜度策略，明确实时 Provider、目录/排班观察快照、报告短期引用、失败时是否保留旧读模型以及写入禁止推导；详见 [`docs/迁移/读穿透新鲜度策略-2026-08-31.md`](read-through-freshness-policy-2026-08-31.md)。Provider、公网和真机证据仍按各域 TODO 单独采集。
 - [x] 已修正迁移事实审计的历史候选假绿：页面数、状态分布和小程序运行来源现在从当前源码台账/运行输入计算，不再硬编码旧候选的 40 页、`surface-only=25` 和 `02dbf10`；当前事实校验进一步限定在文档顶部事实区，并拒绝该区域残留历史候选。已同步当前事实页与最新小程序回归结果，相关提交已推送。
 - [x] 已加入 `pnpm todo:audit` 统计门禁：自动核对 TODO 复选框总数、已完成/未完成数和 P0–P3 标题优先级分布，并纳入 `pnpm check:candidate`，防止清单增删后统计摘要漂移。
 
 ### 10.5 文档事实源与发布校验：新增 P1
 
-- [x] 已建立机器可读当前基线索引 [`docs/release/current-baseline.json`](docs/release/current-baseline.json)，并由 `pnpm release:baseline:index:audit` 校验；人工文档中的旧候选仅保留为历史追溯，不再作为当前验收入口。
+- [x] 已建立机器可读当前基线索引 [`docs/发布/当前基线.json`](docs/发布/当前基线.json)，并由 `pnpm release:baseline:index:audit` 校验；人工文档中的旧候选仅保留为历史追溯，不再作为当前验收入口。
 - [x] 已将源码 revision、dist/build-info、API release、schema head 和真实证据批次绑定到同一发布记录；索引审计会在 live `dist` 存在时检查其 sourceRevision，真机证据仍必须逐域采集，不能用 pending 模板宣称完成。
 - [x] 已明确本机测试基线：`project.private.config.json` 被 `.gitignore` 忽略，测试在文件存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时不再因 `undefined` 失败；详见小程序 acceptance test。
 - [x] 已核对并同步当前候选文档中的 live 小程序完整 sourceRevision `ce1c2179b57fe2783066b51f8621220224982928`，修正干净的全量迁移交接单当前入口并明确旧候选段落为历史；同时将干净的 2026-08-27 执行检查点标记为历史归档。发布基线测试只断言 fail-closed 语义与低敏漂移文件输出，避免候选轮换后被旧 fixture 掩盖真实阻断；其他会话未提交的 2026-08-28 执行检查点仍由完整发布审计单独拦截。
@@ -359,7 +359,7 @@
 ### 11.1 生命周期和用户可见运营配置：新增 P1
 
 - [ ] 旧端 `hospital-app/src/App.vue` 的 `onShow` 会接收医保小程序回跳并把 `authCode`、`extraData` 写入全局状态，甚至直接输出到日志；新端没有复制这条回跳链，这是正确的安全边界，但必须由产品确认医保回跳是“明确下线”还是后续按新 contract 重做。不得恢复旧的原始授权码日志行为。
-- [x] 已将新原生小程序反馈页的客服电话、工作时间和拨号/热点问题文案收归 `apps/miniprogram/src/services/support-contact.ts`，并补充单元测试与发布边界文档 [`docs/release/support-contact-configuration.md`](docs/release/support-contact-configuration.md)；反馈按钮仍不伪造工单成功。
+- [x] 已将新原生小程序反馈页的客服电话、工作时间和拨号/热点问题文案收归 `apps/miniprogram/src/services/support-contact.ts`，并补充单元测试与发布边界文档 [`docs/发布/客服联系配置.md`](docs/发布/客服联系配置.md)；反馈按钮仍不伪造工单成功。
 - [ ] 运营事实仍待客服/产品负责人确认：旧端和新端曾使用 `13835627395` 与 `工作日 08:00-17:00`，需确认号码、时段、归属人和变更流程有效；确认完成前不能把公开配置视为正式运营事实。
 - [ ] 旧 `manifest.json` 还包含医保小程序 AppID、关闭 `urlCheck` 和多端原生权限；新项目目标是原生微信小程序，当前不需要迁移 Android/iOS 权限或旧 `urlCheck=false`。若未来重新支持医保/原生端，须另做平台安全审核，不按旧配置直接复制。
 
@@ -368,25 +368,36 @@
 - [x] 已修复全量候选门禁中人工复核测试的 TypeScript 可空值断言，并用 Biome 统一发布审计测试格式；持久化 typecheck、工具测试、workspace 全量 typecheck/test/build 均通过。
 - [ ] 旧 FastAPI 启动时会加载数据库中的 APScheduler 任务，并单独启动 `plugin_payment_reconcile_loop`，后者会扫描“微信预支付已创建但云健康/HIS 未完成回写”的订单并继续完成结算。新 Worker 目前只实现微信通知 handler 和微信查单，没有对应的云健康/HIS 插件恢复 handler；支付/HIS 批次开启前必须明确逐项替代、存量迁移和人工补偿方案。
 - [x] 已为 `OutboxWorker` 和 `PaymentReconciliationWorker` 增加 12 次自动重试上限；达到上限后分别落库为 `manual_review`，清除下一次自动调度，并输出可检索的人工接管日志。新迁移为 `0017_outbox_manual_review_state`，尚未执行到生产库。
-- [x] 已补齐人工复核队列的低敏查询、告警检查和单条受控重放：`apps/worker/src/manual-review.ts` 提供 `list`、`check` 和要求固定原因码及 `--confirm` 的 `requeue`；`check` 以退出码 `2` 暴露队列积压，仓储使用状态条件更新且不重置累计尝试次数。对应手册见 [`docs/release/manual-review-operations.md`](docs/release/manual-review-operations.md)。这些能力完成并取得生产证据前，支付/HIS gate 继续关闭。
+- [x] 已补齐人工复核队列的低敏查询、告警检查和单条受控重放：`apps/worker/src/manual-review.ts` 提供 `list`、`check` 和要求固定原因码及 `--confirm` 的 `requeue`；`check` 以退出码 `2` 暴露队列积压，仓储使用状态条件更新且不重置累计尝试次数。对应手册见 [`docs/发布/人工复核运维手册.md`](docs/发布/人工复核运维手册.md)。这些能力完成并取得生产证据前，支付/HIS gate 继续关闭。
 - [x] 已确认 `payment-order.created`、`payment-order.state-changed` 是内部审计事件，不直接触发 Provider；Worker 组合根已显式注册经过 payload/金额/状态校验的归档 handler，并输出 `worker.outbox.audit_event_archived`，损坏事件仍会失败并进入重试/人工复核。这样支付 gate 打开后不会因缺 handler 无限重试，也不会把归档成功误报为支付成功。
-- [x] 已完成旧 FastAPI 调度源码、初始化任务字典和独立支付恢复循环的静态盘点；确认 `scheduler_test` 仅为演示函数，`plugin_payment_reconcile_loop` 不属于普通 `app_job`。详见 [`docs/release/legacy-scheduled-task-inventory-2026-08-31.md`](legacy-scheduled-task-inventory-2026-08-31.md)。
-- [x] 已通过旧服务数据库的受控只读 SSH 查询核对 `app_job`：当前总记录数、启用数和停用数均为 0，因此没有需要逐条分流的动态任务；独立的 `plugin_payment_reconcile_loop` 仍单独受支付/HIS gate 约束。正式切换前仍需在冻结窗口重复查询。详见 [`docs/release/legacy-scheduled-task-runtime-inventory-2026-08-31.md`](legacy-scheduled-task-runtime-inventory-2026-08-31.md)。
-- [x] 已补齐仓库级 MySQL/Redis 数据分级、全量备份、binlog/PITR、隔离恢复、保留周期、RPO/RTO 记录格式和恢复后门禁；明确 Redis 会话可重新建立，而支付/订单/outbox 必须按 MySQL 恢复事实处理。详见 [`docs/release/backup-recovery-and-rto-policy-2026-08-31.md`](backup-recovery-and-rto-policy-2026-08-31.md)。
-- [ ] 在生产环境配置并验证备份、binlog/PITR、隔离恢复、RPO/RTO、保留策略和告警通知，保留真实演练证据；当前只确认 MySQL `log_bin=ON`、ROW binlog 和约 30 天保留，不能替代完整备份/恢复演练，详见 [`docs/release/current-backup-pitr-readonly-observation-2026-08-31.md`](current-backup-pitr-readonly-observation-2026-08-31.md)。
-- [x] 已在 `@hospital/observability` 固化 API/Worker readiness、`not_configured`、`not_ready`、outbox 重试/过期积压、查单长期 pending、Provider 错误率/延迟和恢复失败的统一告警代码、阈值、低敏聚合输入和测试；详见 [`docs/release/operational-alert-policy-2026-08-31.md`](operational-alert-policy-2026-08-31.md)。
-- [ ] 将告警策略接入生产指标/日志平台，配置通知、值班责任人，并完成触发/恢复演练；当前只读观测未发现主机侧采集器或告警接收端，Journald 存在也不能替代通知证据，详见 [`docs/release/current-alerting-readonly-observation-2026-08-31.md`](current-alerting-readonly-observation-2026-08-31.md)。
+- [x] 已完成旧 FastAPI 调度源码、初始化任务字典和独立支付恢复循环的静态盘点；确认 `scheduler_test` 仅为演示函数，`plugin_payment_reconcile_loop` 不属于普通 `app_job`。详见 [`docs/发布/旧定时任务盘点-2026-08-31.md`](legacy-scheduled-task-inventory-2026-08-31.md)。
+- [x] 已通过旧服务数据库的受控只读 SSH 查询核对 `app_job`：当前总记录数、启用数和停用数均为 0，因此没有需要逐条分流的动态任务；独立的 `plugin_payment_reconcile_loop` 仍单独受支付/HIS gate 约束。正式切换前仍需在冻结窗口重复查询。详见 [`docs/发布/旧定时任务运行时盘点-2026-08-31.md`](legacy-scheduled-task-runtime-inventory-2026-08-31.md)。
+- [x] 已补齐仓库级 MySQL/Redis 数据分级、全量备份、binlog/PITR、隔离恢复、保留周期、RPO/RTO 记录格式和恢复后门禁；明确 Redis 会话可重新建立，而支付/订单/outbox 必须按 MySQL 恢复事实处理。详见 [`docs/发布/备份恢复与RTO策略-2026-08-31.md`](backup-recovery-and-rto-policy-2026-08-31.md)。
+- [ ] 在生产环境配置并验证备份、binlog/PITR、隔离恢复、RPO/RTO、保留策略和告警通知，保留真实演练证据；当前只确认 MySQL `log_bin=ON`、ROW binlog 和约 30 天保留，不能替代完整备份/恢复演练，详见 [`docs/发布/当前备份PITR只读观察-2026-08-31.md`](current-backup-pitr-readonly-observation-2026-08-31.md)。
+- [x] 已在 `@hospital/observability` 固化 API/Worker readiness、`not_configured`、`not_ready`、outbox 重试/过期积压、查单长期 pending、Provider 错误率/延迟和恢复失败的统一告警代码、阈值、低敏聚合输入和测试；详见 [`docs/发布/运维告警策略-2026-08-31.md`](operational-alert-policy-2026-08-31.md)。
+- [ ] 将告警策略接入生产指标/日志平台，配置通知、值班责任人，并完成触发/恢复演练；当前只读观测未发现主机侧采集器或告警接收端，Journald 存在也不能替代通知证据，详见 [`docs/发布/当前告警只读观察-2026-08-31.md`](current-alerting-readonly-observation-2026-08-31.md)。
 
 ### 11.3 环境模板与构建可复现性：新增 P1/P2
 
 - [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0017_outbox_manual_review_state`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
 - [x] 已明确 `.env.example` 是开发/测试 API 与本地 Worker 模板，`infra/systemd/api.env.example` 是生产 API unit 模板；公共配置以 `packages/config/src/index.ts` 为准，`pnpm env:template:audit` 校验两份模板的职责边界、生产安全默认值和敏感值占位符。`pnpm runtime:preflight` 已用于真实配置的只读依赖探针，生产执行仍必须在服务器受控 shell 中完成。详见 [`infra/README.md`](infra/README.md)。
-- [x] 已建立 GitHub Actions CI，锁定 `.node-version=24.12.0`、`.bun-version=1.4.0`、`pnpm@11.9.0`，使用 `pnpm install --frozen-lockfile` 执行 `pnpm check:candidate`；`pnpm toolchain:audit` 会校验版本文件、`package.json` 和 workflow 的一致性。详见 [`docs/release/ci-and-toolchain-baseline.md`](docs/release/ci-and-toolchain-baseline.md)。
+- [x] 已建立 GitHub Actions CI，锁定 `.node-version=24.12.0`、`.bun-version=1.4.0`、`pnpm@11.9.0`，使用 `pnpm install --frozen-lockfile` 执行 `pnpm check:candidate`；`pnpm toolchain:audit` 会校验版本文件、`package.json` 和 workflow 的一致性。详见 [`docs/发布/CI与工具链基线.md`](docs/发布/CI与工具链基线.md)。
 - [ ] 生产发布执行器仍保持手动受控：当前服务端 release 之后有未部署运行时代码漂移，且旧 Python 服务必须共存；在补齐受控发布窗口、回滚和线上证据前，不自动化切换或重启线上服务。
-- [x] 当前小程序源码与 `dist/build-info.json` 的来源 revision `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`）已对齐；来源指纹只包含实际影响小程序产物的源码、构建/发布器、共享 contract 和锁文件，根目录工作区脚本及来源元数据脚本不会制造客户端候选漂移。`docs/release/current-baseline.json` 已把 source revision、dist revision、API release、schema head 和真实设备证据清单绑定到一份机器可读发布记录。真实设备证据仍保持 pending，不得把索引绑定误报为业务验收通过。
+- [x] 当前小程序源码与 `dist/build-info.json` 的来源 revision `ce1c2179b57fe2783066b51f8621220224982928`（`ce1c217`）已对齐；来源指纹只包含实际影响小程序产物的源码、构建/发布器、共享 contract 和锁文件，根目录工作区脚本及来源元数据脚本不会制造客户端候选漂移。`docs/发布/当前基线.json` 已把 source revision、dist revision、API release、schema head 和真实设备证据清单绑定到一份机器可读发布记录。真实设备证据仍保持 pending，不得把索引绑定误报为业务验收通过。
 
 ### 11.4 本轮确认不需要补充
 
 - [x] 不需要把旧 `App.onHide` 空实现、旧端未发现的 update-manager/location/scanCode 等系统能力人为补回；应以新端目标平台和实际需求为准。
 - [x] 不需要复制旧医保回跳中的原始 token/授权码、旧直连 Provider、旧任意 WebView、旧多端权限或旧调度器实现；这些是待 contract/安全审核或独立运维边界，不是患者小程序的直接迁移目标。
 - [x] 不需要把旧示例 `app/module_task/scheduler_test.py` 当成真实业务任务迁移；只需要完成上一节所述的旧库已启用任务记录盘点和去留确认。
+## 17. 第九轮：docs 历史快照清理与全部文件名中文化（2026-09-03）
+
+本轮执行所有者决策：docs 目录文件过多，删除未被引用的一次性历史快照，并把全部英文目录名/文件名改为中文。
+
+### 17.1 已完成
+
+- [x] 已删除 `docs/release/` 下 708 个未被任何代码、测试、README、TODO、`current-baseline.json` 引用的一次性历史快照（按提交哈希生成的 production-acceptance/observation 报告、过期真机证据模板与 pending 清单）；全部为 Git 跟踪文件，原文可从 Git 历史恢复。保留了全部被审计工具引用的证据文档与 6 份无日期活文档，`docs/发布/` 仅存当前基线相关材料。
+- [x] 目录与文件全部中文化（194 个文件经 `git mv` 保留历史）：`adr→架构决策`、`architecture→架构`、`migration→迁移`、`provider-intake→提供商接入`、`release→发布`、`runbooks→操作手册`、`security→安全`；文件名保留日期、提交哈希与版本号后缀（如 `发布/候选-5738a71-服务端发布-2026-08-31.md`、`发布/真机证据-ce1c2179…-pending.json`）。`docs/README.md`、`docs/相关文档/` 名称不变。
+- [x] 引用同步：工具脚本（含 `provider-intake-audit` 的 join 分段路径、`migration-readiness-report` 的真机证据模板串、`zhongyang-docs` 的 intake 注册相对路径）、`apps/api/src/app.test.ts`、`apps/miniprogram/scripts/acceptance.test.ts`、根 README/TODO/PRODUCT、`docs/发布/当前基线.json`、docs 内部 468 处相对链接与索引表格行全部改指新路径；指向已删快照的死链转为纯文本并注明“历史快照已清理，原文见 Git 历史”。
+- [x] 验证：`pnpm docs:audit` 通过（191 个文档无断链）；`provider:audit` 通过（5 份接收记录、34 个 documentId）；architecture/migration 系列/todo/logging/error:contract/env:template/toolchain/secret/readonly/clinical:contract 等 17 项审计通过；工具测试 121 pass，唯一失败（迁移 readiness 报告的 sourceRevision 断言）与 `release:baseline:audit`、`release:baseline:index:audit` 的失败经干净 HEAD 工作树对照确认均为本轮之前已存在的运行时漂移门禁（live dist `2ecdf8ec` 与基线索引 `ce1c217` 不一致、错误码 `appointment-schedule-reference-expired` 未登记文档），与本次整理无关。
+- [x] 机器可读索引 [`docs/发布/当前基线.json`](docs/发布/当前基线.json) 的 manifest 路径已同步中文名，`release:baseline:index:audit` 仅剩既有 live dist 漂移一项失败。

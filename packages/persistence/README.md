@@ -76,7 +76,7 @@ probe、staging 审批或备份流程。
 `non_transactional_ddl` 执行模式，不再把 `beginTransaction/rollback` 当作 DDL 的原子性保证。
 每个 migration 开始前会写入 `hp_schema_migration_runs`；失败或进程中断后，下一次执行会
 停止并要求人工检查目标 schema，禁止盲目重放可能已经部分执行的 DDL。相关恢复步骤见
-[`docs/runbooks/persistence-migration-recovery.md`](../../docs/runbooks/persistence-migration-recovery.md)。
+[`docs/操作手册/持久化迁移恢复.md`](../../docs/操作手册/持久化迁移恢复.md)。
 
 订单仓储已经具备“订单写入 + outbox 事件”同事务实现，`db:integration` 现在还覆盖排班
 快照的 provider 映射、TTL 和旧观察保护；实际执行仍需在 Docker 依赖可用的隔离环境完成。

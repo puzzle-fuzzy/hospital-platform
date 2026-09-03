@@ -5,7 +5,7 @@ const repositoryRoot = resolve(import.meta.dir, "..");
 
 const ERROR_HANDLER_PATH = "apps/api/src/plugins/error-handler.ts";
 const CLIENT_ERROR_TABLE_PATH = "apps/miniprogram/src/services/api-client.ts";
-const PUBLIC_API_DOC_PATH = "docs/api-v2-public.md";
+const PUBLIC_API_DOC_PATH = "docs/公共API-v2.md";
 
 const ERROR_CODE_PATTERN = /\bcode\s*:\s*["']([a-z0-9-]+)["']/gu;
 const CLIENT_ERROR_TABLE_PATTERN =

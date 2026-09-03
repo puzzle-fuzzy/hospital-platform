@@ -24,8 +24,8 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 		domainFiles: ["packages/domain/src/patients.ts"],
 		adapterFiles: ["packages/adapters/src/zhongyang-patients.ts"],
 		documentation: [
-			"docs/migration/patient-context-read-contract.md",
-			"docs/release/patient-directory-correctness-audit-2026-08-21.md",
+			"docs/迁移/患者上下文读契约.md",
+			"docs/发布/患者目录正确性审计-2026-08-21.md",
 		],
 		logEvents: [
 			"patient.directory.requested",
@@ -93,8 +93,8 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 		domainFiles: ["packages/domain/src/appointments.ts"],
 		adapterFiles: ["packages/adapters/src/zhongyang-appointments.ts"],
 		documentation: [
-			"docs/release/miniprogram-appointment-directory-readonly-contract-2026-08-19.md",
-			"docs/release/miniprogram-appointment-record-readonly-contract-2026-08-19.md",
+			"docs/发布/小程序预约目录只读契约-2026-08-19.md",
+			"docs/发布/小程序预约记录只读契约-2026-08-19.md",
 		],
 		logEvents: [
 			"appointment.directory.departments.requested",
@@ -154,8 +154,8 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 		domainFiles: ["packages/domain/src/reports.ts"],
 		adapterFiles: ["packages/adapters/src/zhongyang-reports.ts"],
 		documentation: [
-			"docs/migration/report-provider-contract-audit-2026-08-19.md",
-			"docs/release/report-readonly-migration-audit-2026-08-22.md",
+			"docs/迁移/报告Provider契约审计-2026-08-19.md",
+			"docs/发布/报告只读迁移审计-2026-08-22.md",
 		],
 		logEvents: [
 			"report.directory.requested",
@@ -211,8 +211,8 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 		domainFiles: ["packages/domain/src/outpatient-payments.ts"],
 		adapterFiles: ["packages/adapters/src/zhongyang-outpatient-payments.ts"],
 		documentation: [
-			"docs/migration/outpatient-payment-provider-contract-audit-2026-08-19.md",
-			"docs/release/outpatient-payment-readonly-audit-2026-08-22.md",
+			"docs/迁移/门诊缴费Provider契约审计-2026-08-19.md",
+			"docs/发布/门诊缴费只读审计-2026-08-22.md",
 		],
 		logEvents: [
 			"outpatient.payment.records.requested",
@@ -262,8 +262,8 @@ export const READ_ONLY_DOMAIN_CATALOG = [
 		domainFiles: ["packages/domain/src/user-profile.ts"],
 		adapterFiles: [],
 		documentation: [
-			"docs/migration/user-profile-contract.md",
-			"docs/release/current-report-profile-invariant-audit-2026-08-24.md",
+			"docs/迁移/用户资料契约.md",
+			"docs/发布/当前报告资料不变量审计-2026-08-24.md",
 		],
 		logEvents: [
 			"user.profile.requested",

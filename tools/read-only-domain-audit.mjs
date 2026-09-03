@@ -40,7 +40,7 @@ export async function auditReadOnlyDomains() {
 	);
 	const registeredPages = new Set(appJson.pages ?? []);
 	const publicApiDocumentation = await readRepositoryFile(
-		"docs/api-v2-public.md",
+		"docs/公共API-v2.md",
 	);
 	const errorHandlerSource = await readRepositoryFile(
 		"apps/api/src/plugins/error-handler.ts",
@@ -48,7 +48,7 @@ export async function auditReadOnlyDomains() {
 	const clientErrorSource = await readRepositoryFile(
 		"apps/miniprogram/src/services/api-client.ts",
 	);
-	const loggingDocumentation = await readRepositoryFile("docs/logging.md");
+	const loggingDocumentation = await readRepositoryFile("docs/日志规范.md");
 
 	for (const domain of READ_ONLY_DOMAIN_CATALOG) {
 		if (seenDomainIds.has(domain.id)) {

@@ -5,11 +5,11 @@ import { dirname, join } from "node:path";
 import { auditMigrationDocumentation } from "./migration-fact-audit.mjs";
 
 const AUDITED_DOCUMENTS = [
-	"docs/migration/migration-readiness-report.md",
-	"docs/migration/contract-intake-catalog-2026-08-25.md",
-	"docs/migration/breadth-first-migration-plan-2026-08-25.md",
-	"docs/migration/current-breadth-audit-2026-08-26.md",
-	"docs/release/breadth-first-page-coverage-2026-08-25.md",
+	"docs/迁移/迁移就绪报告.md",
+	"docs/迁移/契约接入目录-2026-08-25.md",
+	"docs/迁移/广度优先迁移计划-2026-08-25.md",
+	"docs/迁移/当前广度审计-2026-08-26.md",
+	"docs/发布/广度优先页面覆盖-2026-08-25.md",
 ];
 
 describe("迁移事实文档审计", () => {
@@ -37,7 +37,7 @@ describe("迁移事实文档审计", () => {
 
 			const coveragePath = join(
 				fixtureRoot,
-				"docs/release/breadth-first-page-coverage-2026-08-25.md",
+				"docs/发布/广度优先页面覆盖-2026-08-25.md",
 			);
 			const original = await Bun.file(coveragePath).text();
 			const currentBoundary = original.indexOf("\n## 结论");
@@ -56,7 +56,7 @@ describe("迁移事实文档审计", () => {
 			const report = await auditMigrationDocumentation(fixtureRoot);
 			expect(report.passed).toBe(false);
 			expect(report.failures).toContain(
-				"docs/release/breadth-first-page-coverage-2026-08-25.md 当前事实区仍含历史候选：64 个旧页面、40 个原生页面",
+				"docs/发布/广度优先页面覆盖-2026-08-25.md 当前事实区仍含历史候选：64 个旧页面、40 个原生页面",
 			);
 		} finally {
 			await rm(fixtureRoot, { recursive: true, force: true });

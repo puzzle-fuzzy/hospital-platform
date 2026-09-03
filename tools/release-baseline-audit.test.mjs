@@ -15,11 +15,11 @@ import {
 test("当前候选语义规则必须注册到当前基线文档集合", () => {
 	expect(auditCurrentCandidateRuleRegistration()).toEqual([]);
 	expect(auditCurrentCandidateRuleRegistration(["docs/README.md"])).toContain(
-		"当前候选引用规则未注册到基线文档集合：docs/release/current-project-baseline-2026-08-27.md",
+		"当前候选引用规则未注册到基线文档集合：docs/发布/当前项目基线-2026-08-27.md",
 	);
 	expect(
 		auditCurrentCandidateRuleRegistration([
-			"docs/release/current-project-baseline-2026-08-27.md",
+			"docs/发布/当前项目基线-2026-08-27.md",
 		]),
 	).toContain("当前候选引用规则未注册到基线文档集合：docs/README.md");
 });
@@ -172,15 +172,15 @@ test("当前语义短语附近的历史候选会被发布基线拒绝", () => {
 	};
 	const documents = [
 		{
-			path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
+			path: "docs/发布/只读业务契约审计-2026-08-18.md",
 			content: `## 1. 证据范围与当前发布边界\n当前配套候选为 \`${baseline.miniProgramSourceRevision}\`。\n## 2. 已验证的不变量\n## 3. 当前工作树测试证据\n当前真机候选以 \`old-candidate\` 为准。\n## 4. 尚未完成的证据与停止条件`,
 		},
 		{
-			path: "docs/migration/migration-gap-audit-2026-08-17.md",
+			path: "docs/迁移/迁移缺口审计-2026-08-17.md",
 			content: `## 2. 当前事实\n配套小程序构建来源为 \`${baseline.miniProgramSourceRevision}\`。\n## 3. 下一步`,
 		},
 		{
-			path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
+			path: "docs/发布/报告只读契约审计-2026-08-18.md",
 			content: `## 0. 当前检查点\n配套小程序构建来源为 \`${baseline.miniProgramSourceRevision}\`。\n## 1. 当前链路\n配套小程序构建来源为 \`old-report-candidate\`。\n## 2. 已验证`,
 		},
 	];
@@ -199,7 +199,7 @@ test("业务门禁执行板的当前候选不能漂移到历史小程序包", ()
 	};
 	const documents = [
 		{
-			path: "docs/release/next-business-gates-2026-08-20.md",
+			path: "docs/发布/下一批业务门禁-2026-08-20.md",
 			content: `## 2026-08-21 当前候选只读业务复核
 当前验收基线为服务端 \`old-server\`、小程序候选 \`old-candidate\`；
 ## 1. 当前门禁状态`,
@@ -220,7 +220,7 @@ test("只读业务不变量审计的当前章节不能漂移到历史候选", ()
 	};
 	const documents = [
 		{
-			path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
+			path: "docs/发布/只读业务不变量复核-2026-08-22.md",
 			content: `
 ## 1. 当前版本与运行边界
 小程序运行包来源：\`old-candidate\`。
@@ -251,7 +251,7 @@ test("剩余迁移清单的执行入口不能漂移到历史候选", () => {
 	};
 	const documents = [
 		{
-			path: "docs/migration/remaining-migration-inventory.md",
+			path: "docs/迁移/剩余迁移清单.md",
 			content: `
 ## 2026-08-22 当前执行决策
 | P1 | 真机只读验收 | 当前进行中：\`old-candidate\` 已构建 |
@@ -276,7 +276,7 @@ test("剩余迁移清单允许当前执行章节随发布窗口更新日期", ()
 	};
 	const documents = [
 		{
-			path: "docs/migration/remaining-migration-inventory.md",
+			path: "docs/迁移/剩余迁移清单.md",
 			content: `
 ## 2026-08-24 当前执行决策
 | P1 | 真机只读验收 | 当前进行中：\`4c9cfb4\` 已构建 |
@@ -325,7 +325,7 @@ test("当前事实入口必须同时锁定服务端和小程序完整来源", ()
 	};
 	const documents = [
 		{
-			path: "docs/release/current-project-baseline-2026-08-27.md",
+			path: "docs/发布/当前项目基线-2026-08-27.md",
 			content: `> 当前成套验收基线（2026-08-27）：服务端 release 为 \`old-server\`；本地 live 小程序 sourceRevision 为 \`old-mini\`。
 | 项目 | 当前事实 | 不能据此推出 |`,
 		},
@@ -359,13 +359,13 @@ test("微信登录手册和路线图顶部当前候选不能漂移到旧运行�
 	};
 	const documents = [
 		{
-			path: "docs/wechat-auth-login.md",
+			path: "docs/微信授权登录.md",
 			content: `# 微信授权登录实施与验收手册
 当前本地 pending 运行输入为 \`old-candidate\`。
 2026-08-20 真机登录与患者同步的最新低敏证据和未完成页面边界见`,
 		},
 		{
-			path: "docs/roadmap-next-phase.md",
+			path: "docs/下一阶段路线图.md",
 			content: `# 下一阶段实施路线图
 最新小程序候选事实：\`old-candidate\`
 当前广度事实源：\`old-candidate\`
@@ -397,7 +397,7 @@ test("A 批次只读验收计划的 pending 运行包不能漂移到历史来源
 	};
 	const documents = [
 		{
-			path: "docs/release/next-readonly-business-acceptance-plan-2026-08-26.md",
+			path: "docs/发布/下一批只读业务验收计划-2026-08-26.md",
 			content: `# A 批次低风险业务统一验收计划（2026-08-26）
 
 ## 当前候选与运行边界

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
-const intakeDirectory = join(repositoryRoot, "docs", "provider-intake");
+const intakeDirectory = join(repositoryRoot, "docs", "提供商接入");
 const docsReadmePath = join(repositoryRoot, "docs", "README.md");
 
 const allowedStatuses = new Set([
@@ -115,7 +115,7 @@ function validateDocument(fileName, content, docsReadme) {
 		}
 	}
 
-	if (!docsReadme.includes(`provider-intake/${fileName}`)) {
+	if (!docsReadme.includes(`提供商接入/${fileName}`)) {
 		errors.push("未在 docs/README.md 登记入口");
 	}
 
@@ -128,7 +128,7 @@ const failures = [];
 const documentOwners = new Map();
 
 if (fileNames.length === 0) {
-	failures.push("docs/provider-intake 目录没有可审计的 Markdown 文档");
+	failures.push("docs/提供商接入 目录没有可审计的 Markdown 文档");
 }
 
 for (const fileName of fileNames) {

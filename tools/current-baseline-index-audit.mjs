@@ -11,9 +11,9 @@ const repositoryRoot = resolve(import.meta.dirname, "..");
  * 指纹之间的绑定关系，不访问数据库、Redis、微信或 Provider，也不会执行
  * migration、发布或服务重启。
  */
-export const currentBaselineIndexPath = "docs/release/current-baseline.json";
+export const currentBaselineIndexPath = "docs/发布/当前基线.json";
 export const currentCandidateDocumentPath =
-	"docs/release/candidate-5738a71-server-release-2026-08-31.md";
+	"docs/发布/候选-5738a71-服务端发布-2026-08-31.md";
 
 const fullRevisionPattern = /^[0-9a-f]{40}$/u;
 const shortRevisionPattern = /^[0-9a-f]{7,40}$/u;

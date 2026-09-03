@@ -181,7 +181,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 test("public API documentation covers every registered OpenAPI method and path", async () => {
 	const [openApiResponse, documentation] = await Promise.all([
 		createApp().handle(new Request("http://localhost/openapi/json")),
-		Bun.file(join(import.meta.dir, "../../../docs/api-v2-public.md")).text(),
+		Bun.file(join(import.meta.dir, "../../../docs/公共API-v2.md")).text(),
 	]);
 	const document = (await openApiResponse.json()) as {
 		paths: Record<string, Record<string, unknown>>;
@@ -202,7 +202,7 @@ test("public API documentation covers every registered OpenAPI method and path",
 test("public API route table contains no unregistered method or path", async () => {
 	const [openApiResponse, documentation] = await Promise.all([
 		createApp().handle(new Request("http://localhost/openapi/json")),
-		Bun.file(join(import.meta.dir, "../../../docs/api-v2-public.md")).text(),
+		Bun.file(join(import.meta.dir, "../../../docs/公共API-v2.md")).text(),
 	]);
 	const document = (await openApiResponse.json()) as {
 		paths: Record<string, Record<string, unknown>>;
@@ -236,7 +236,7 @@ test("migration inventory labels production observations as evidence snapshots",
 	const inventory = await Bun.file(
 		join(
 			import.meta.dir,
-			"../../../docs/migration/remaining-migration-inventory.md",
+			"../../../docs/迁移/剩余迁移清单.md",
 		),
 	).text();
 
@@ -264,7 +264,7 @@ test("medical record draft preserves source evidence and fail-closed semantics",
 	const draft = await Bun.file(
 		join(
 			import.meta.dir,
-			"../../../docs/migration/medical-record-directory-contract-draft.md",
+			"../../../docs/迁移/病案目录契约草案.md",
 		),
 	).text();
 
@@ -286,7 +286,7 @@ test("medical record draft preserves source evidence and fail-closed semantics",
 
 test("public API documentation lists every stable public error code", async () => {
 	const documentation = await Bun.file(
-		join(import.meta.dir, "../../../docs/api-v2-public.md"),
+		join(import.meta.dir, "../../../docs/公共API-v2.md"),
 	).text();
 	const publicErrorCodes = [
 		"validation",
@@ -355,7 +355,7 @@ test("public API documentation lists every stable public error code", async () =
 
 test("public API documentation freezes list and rendering semantics", async () => {
 	const documentation = await Bun.file(
-		join(import.meta.dir, "../../../docs/api-v2-public.md"),
+		join(import.meta.dir, "../../../docs/公共API-v2.md"),
 	).text();
 
 	// 路由存在门禁只能发现“有没有写接口”，这里额外固定列表的数量、空态、
@@ -373,7 +373,7 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"不能被验收记录写成“服务端已支持分页”",
 		"当前日期范围按 `endDate - startDate` 的 UTC 日历零点差值校验",
 		"provider 的 `endDate` 是否包含当天仍待合同确认",
-		"migration/date-window-boundary-audit.md",
+		"迁移/日期窗口边界审计.md",
 		"以下候选路径当前刻意保持 `404`",
 		"POST /api/v2/patients",
 		"POST /api/v2/payments/insurance/authorization",

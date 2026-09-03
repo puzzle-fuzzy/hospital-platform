@@ -14,7 +14,7 @@
 环境文件必须通过受控 SSH 传输，权限设置为 `0600`，不能提交到 Git。
 
 微信登录启用前，`api.env` 必须完成 `WECHAT_IDENTITY_READY`、AppID/AppSecret、MySQL、Redis 和 schema
-的分阶段验收；详细步骤见 [`docs/wechat-auth-login.md`](../../docs/wechat-auth-login.md)。没有真实凭据时保持
+的分阶段验收；详细步骤见 [`docs/微信授权登录.md`](../../docs/微信授权登录.md)。没有真实凭据时保持
 fail-closed，不允许为了验证页面而写入假的 AppID、openid 或 token。
 
 启动 API 前必须先验证：
@@ -47,7 +47,7 @@ API 启动日志必须包含 `runtimeMode`、`authRuntimeStatus`、`authIdentity
 `hospital:session:*`；新 API 代码中的 key 前缀只是第二道保护，不能替代 Redis ACL。`worker.env` 不得
 因为 API 会话隔离完成而自动切换，worker 仍需单独通过支付、schema、lease、日志和回滚 gate。
 
-2026-08-16 的生产只读快照见 [`docs/release/production-coexistence-readonly-audit-2026-08-16.md`](../../docs/release/production-coexistence-readonly-audit-2026-08-16.md)。
+2026-08-16 的生产只读快照见 ``docs/发布/production-coexistence-readonly-audit-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 该快照先确认新旧服务共用 Redis DB1，随后记录了新 API 会话隔离和只重启新 API 的结果；新 worker 仍为
 disabled/inactive，旧 Python 服务仍由手工进程运行，因此不能把新 API 的 active 或公网 health 200 解释为全量迁移完成。
 
@@ -55,4 +55,4 @@ disabled/inactive，旧 Python 服务仍由手工进程运行，因此不能把�
 [`api-v2-release-runbook.md`](api-v2-release-runbook.md)。目标服务器仍按该手册保护新 API 发布范围；当前
 `current=28a5c0c1` 已完成候选 smoke、生产切换和公网验收。后续每次发布仍必须重新固定 commit、完成候选
 smoke 和公网验收，不能复用旧 release 证据。当前切换证据见
-[`../../docs/release/28a5c0c1-production-acceptance-2026-08-24.md`](../../docs/release/28a5c0c1-production-acceptance-2026-08-24.md)。
+``../../docs/发布/28a5c0c1-production-acceptance-2026-08-24.md``（历史快照已清理，原文见 Git 历史）。

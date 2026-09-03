@@ -158,7 +158,7 @@ export function auditServerSourceRelease(baseline, options = {}) {
  * 这个入口，避免“代码已推进、验收文档仍指向旧包”的隐性漂移。
  */
 const currentCandidateDocumentPath =
-	"docs/release/candidate-5738a71-server-release-2026-08-31.md";
+	"docs/发布/候选-5738a71-服务端发布-2026-08-31.md";
 
 /**
  * 当前候选文档是发布基线的唯一人工入口；只有明确标记为当前入口的少量文档
@@ -168,10 +168,10 @@ const currentCandidateDocumentPath =
 export const currentBaselineDocuments = Object.freeze([
 	{ path: "docs/README.md", label: "文档导航" },
 	{
-		path: "docs/release/current-project-baseline-2026-08-27.md",
+		path: "docs/发布/当前项目基线-2026-08-27.md",
 		label: "当前项目发布与迁移基线",
 	},
-	{ path: "docs/wechat-auth-login.md", label: "微信授权登录手册" },
+	{ path: "docs/微信授权登录.md", label: "微信授权登录手册" },
 	{
 		path: currentCandidateDocumentPath,
 		label: "当前服务端独立候选",
@@ -184,69 +184,69 @@ export const currentBaselineDocuments = Object.freeze([
 	// 同一基线集合，文档虽然能打开，执行人员仍可能从旧模板生成可通过格式审计
 	// 的二维码证据。历史候选文档不加入这里，继续只承担追溯职责。
 	{
-		path: "docs/release/next-business-gates-2026-08-20.md",
+		path: "docs/发布/下一批业务门禁-2026-08-20.md",
 		label: "下一阶段业务门禁执行板",
 	},
 	{
-		path: "docs/release/next-readonly-business-acceptance-plan-2026-08-26.md",
+		path: "docs/发布/下一批只读业务验收计划-2026-08-26.md",
 		label: "A 批次低风险业务统一验收计划",
 		// 该计划锁定的是当前小程序候选，不能要求它包含线上微信小程序
 		// 的来源；但仍必须参加下方的当前候选语义检查。
 		candidateOnly: true,
 	},
 	{
-		path: "docs/release/readonly-business-chain-audit-2026-08-21.md",
+		path: "docs/发布/只读业务链路审计-2026-08-21.md",
 		label: "当前只读业务链审计",
 	},
 	{
-		path: "docs/release/current-gated-domains-audit-2026-08-21.md",
+		path: "docs/发布/当前受门禁域审计-2026-08-21.md",
 		label: "当前未开放业务门禁审计",
 	},
 	{
-		path: "docs/release/current-health-payment-boundary-audit-2026-08-24.md",
+		path: "docs/发布/当前健康支付边界审计-2026-08-24.md",
 		label: "当前健康与支付边界审计",
 	},
 	{
-		path: "docs/release/current-runtime-coexistence-readonly-observation-2026-08-24-1342.md",
+		path: "docs/发布/当前运行时共存只读观察-2026-08-24-1342.md",
 		label: "当前线上共存只读观察",
 	},
 	{
-		path: "docs/release/current-runtime-coexistence-readonly-2026-08-27.md",
+		path: "docs/发布/当前运行时共存只读审计-2026-08-27.md",
 		label: "当前线上共存只读观察（2026-08-27）",
 	},
 	{
-		path: "docs/release/current-appointment-outpatient-invariant-audit-2026-08-24.md",
+		path: "docs/发布/当前预约门诊不变量审计-2026-08-24.md",
 		label: "当前预约与门诊费用不变量审计",
 	},
 	{
-		path: "docs/release/current-report-profile-invariant-audit-2026-08-24.md",
+		path: "docs/发布/当前报告资料不变量审计-2026-08-24.md",
 		label: "当前报告与普通资料不变量审计",
 	},
 	{
-		path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
+		path: "docs/发布/只读业务不变量复核-2026-08-22.md",
 		label: "当前只读业务不变量审计",
 	},
 	{
-		path: "docs/release/current-device-acceptance-gate-2026-08-22.md",
+		path: "docs/发布/当前真机验收门禁-2026-08-22.md",
 		label: "当前真机准入记录",
 	},
 	// 当前下一步审计和最新二维码会话是人工操作的直接入口；把它们纳入
 	// 发布基线后，服务端或小程序候选变化时，旧二维码交接记录会立即被门禁
 	// 拦住，避免下一次会话沿用已经失效的运行包和二维码。
 	{
-		path: "docs/release/current-next-step-audit-2026-08-22.md",
+		path: "docs/发布/当前下一步审计-2026-08-22.md",
 		label: "当前候选下一步审计",
 	},
 	{
-		path: "docs/release/appointment-record-status-mapping-audit-2026-08-22.md",
+		path: "docs/发布/预约记录状态映射审计-2026-08-22.md",
 		label: "当前预约历史状态映射审计",
 	},
 	{
-		path: "docs/release/current-public-health-observation-2026-08-22-1811.md",
+		path: "docs/发布/当前公网健康观察-2026-08-22-1811.md",
 		label: "当前公网健康探针观察",
 	},
 	{
-		path: "docs/release/miniprogram-real-device-evidence-template-13f597e.md",
+		path: "docs/发布/小程序真机证据模板-13f597e.md",
 		label: "当前线上小程序真机证据模板",
 	},
 	// 这些文档描述的是本地 live 候选，而不是已经上传到微信线上环境的
@@ -255,69 +255,69 @@ export const currentBaselineDocuments = Object.freeze([
 	{
 		// 当前小程序候选随源码来源滚动更新；旧候选文档保留为历史追溯，
 		// 不能继续作为发布基线的当前事实源。
-		path: "docs/release/candidate-1bc5bf6-miniprogram-runtime-2026-08-28.md",
+		path: "docs/发布/候选-1bc5bf6-小程序运行时-2026-08-28.md",
 		label: "当前本地小程序运行包候选",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/release/current-miniprogram-closure-2026-08-26.md",
+		path: "docs/发布/当前小程序闭环-2026-08-26.md",
 		label: "当前小程序全量闭环复核",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/full-migration-handoff-2026-08-25.md",
+		path: "docs/迁移/全量迁移交接单-2026-08-25.md",
 		label: "全量迁移当前交接单",
 		candidateOnly: true,
 	},
 	{
 		// 交接单引用的执行检查点是新会话的直接入口；将其纳入当前基线，
 		// 防止它继续携带已经失效的 live 运行包或过期真机命令。
-		path: "docs/migration/current-execution-checkpoint-2026-08-28.md",
+		path: "docs/迁移/当前执行检查点-2026-08-28.md",
 		label: "当前执行检查点",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/migration-readiness-report.md",
+		path: "docs/迁移/迁移就绪报告.md",
 		label: "全项目迁移 readiness 报告说明",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/current-breadth-audit-2026-08-26.md",
+		path: "docs/迁移/当前广度审计-2026-08-26.md",
 		label: "全量迁移当前检查点",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/overall-migration-wave-2026-08-26.md",
+		path: "docs/迁移/整体迁移波次-2026-08-26.md",
 		label: "全项目迁移并行执行波次",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/breadth-execution-board-2026-08-25.md",
+		path: "docs/迁移/广度执行看板-2026-08-25.md",
 		label: "全项目广度迁移执行工作板",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/breadth-first-migration-plan-2026-08-25.md",
+		path: "docs/迁移/广度优先迁移计划-2026-08-25.md",
 		label: "广度优先迁移计划",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/readonly-surface-logic-audit-2026-08-26.md",
+		path: "docs/迁移/只读外壳逻辑审计-2026-08-26.md",
 		label: "五个低风险业务域横向逻辑审计",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/release/current-report-readonly-audit-2026-08-27.md",
+		path: "docs/发布/当前报告只读审计-2026-08-27.md",
 		label: "报告目录与受限详情当前逻辑审计",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/release/readonly-acceptance-next-2026-08-25.md",
+		path: "docs/发布/只读验收下一步-2026-08-25.md",
 		label: "当前候选只读业务验收手册",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/release/pending-runtime-publication-runbook-2026-08-26.md",
+		path: "docs/发布/Pending运行包发布手册-2026-08-26.md",
 		label: "小程序运行包发布手册",
 		candidateOnly: true,
 	},
@@ -325,119 +325,119 @@ export const currentBaselineDocuments = Object.freeze([
 	// API 迁移边界和患者上下文。把它们纳入同一基线集合，防止总览页继续
 	// 引用旧 pending 候选而让正文与真机入口发生漂移。
 	{
-		path: "docs/business-correctness.md",
+		path: "docs/业务正确性.md",
 		label: "患者端业务正确性规则",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/api-matrix.md",
+		path: "docs/迁移/API矩阵.md",
 		label: "API 迁移矩阵",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/domain-migration-summary-2026-08-25.md",
+		path: "docs/迁移/领域迁移总结-2026-08-25.md",
 		label: "旧端业务域迁移覆盖摘要",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/migration-breadth-status-2026-08-25.md",
+		path: "docs/迁移/迁移广度状态-2026-08-25.md",
 		label: "全量迁移广度状态",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/health-knowledge-state-audit-2026-08-26.md",
+		path: "docs/迁移/健康知识状态审计-2026-08-26.md",
 		label: "健康百科分类状态迁移审计",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/patient-agreement-static-migration-2026-08-26.md",
+		path: "docs/迁移/患者协议静态迁移-2026-08-26.md",
 		label: "就诊人协议静态页面迁移记录",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/migration/patient-surface-context-migration-2026-08-26.md",
+		path: "docs/迁移/患者外壳上下文迁移-2026-08-26.md",
 		label: "当前就诊人上下文横向迁移记录",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/release/current-13f-real-device-acceptance-runbook-2026-08-24.md",
+		path: "docs/发布/13f真机验收手册-2026-08-24.md",
 		label: "当前小程序真机执行手册",
 	},
-	{ path: "docs/roadmap-next-phase.md", label: "下一阶段实施路线图" },
+	{ path: "docs/下一阶段路线图.md", label: "下一阶段实施路线图" },
 	{
-		path: "docs/migration/remaining-migration-inventory.md",
+		path: "docs/迁移/剩余迁移清单.md",
 		label: "剩余迁移清单",
 	},
 	{
-		path: "docs/release/miniprogram-real-device-acceptance-checklist-2026-08-19.md",
+		path: "docs/发布/小程序真机验收清单-2026-08-19.md",
 		label: "当前小程序真机验收清单",
 	},
 	{
-		path: "docs/release/p0-readonly-business-acceptance-runbook-2026-08-17.md",
+		path: "docs/发布/P0只读业务验收手册-2026-08-17.md",
 		label: "P0 只读业务验收手册",
 	},
 	{
-		path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
+		path: "docs/发布/只读业务契约审计-2026-08-18.md",
 		label: "P0 只读业务 contract 审计",
 	},
 	{
-		path: "docs/migration/migration-gap-audit-2026-08-17.md",
+		path: "docs/迁移/迁移缺口审计-2026-08-17.md",
 		label: "迁移差距审计",
 	},
 	{
-		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
+		path: "docs/发布/报告只读契约审计-2026-08-18.md",
 		label: "报告只读契约审计",
 	},
 	// 这些业务审计/验收协议会被新会话直接用于准备真机操作；它们虽然不是
 	// 发布切换记录，但一旦继续引用旧的服务端或小程序来源，就会把有效的
 	// 页面证据绑定到错误的运行包，因此必须纳入同一套当前基线检查。
 	{
-		path: "docs/release/current-profile-read-write-acceptance-2026-08-22.md",
+		path: "docs/发布/当前资料读写验收-2026-08-22.md",
 		label: "普通资料当前读写验收协议",
 	},
 	{
-		path: "docs/release/next-appointment-records-acceptance-2026-08-22.md",
+		path: "docs/发布/下一步预约记录验收-2026-08-22.md",
 		label: "预约历史与爽约验收清单",
 	},
 	{
-		path: "docs/release/outpatient-payment-readonly-audit-2026-08-22.md",
+		path: "docs/发布/门诊缴费只读审计-2026-08-22.md",
 		label: "门诊费用只读审计",
 	},
 	{
-		path: "docs/release/report-readonly-current-candidate-audit-2026-08-22.md",
+		path: "docs/发布/报告只读当前候选审计-2026-08-22.md",
 		label: "报告只读当前候选审计",
 	},
 	{
-		path: "docs/release/readonly-profile-patient-state-audit-2026-08-21.md",
+		path: "docs/发布/只读资料患者状态审计-2026-08-21.md",
 		label: "普通资料与患者状态机审计",
 	},
 	{
-		path: "docs/release/current-profile-patient-audit-2026-08-27.md",
+		path: "docs/发布/当前资料患者审计-2026-08-27.md",
 		label: "当前用户资料与患者上下文审计",
 		candidateOnly: true,
 	},
 	{
-		path: "docs/release/patient-directory-correctness-audit-2026-08-21.md",
+		path: "docs/发布/患者目录正确性审计-2026-08-21.md",
 		label: "患者目录正确性审计",
 	},
 	{
-		path: "docs/release/miniprogram-typescript-runtime-audit-2026-08-22.md",
+		path: "docs/发布/小程序TypeScript运行时审计-2026-08-22.md",
 		label: "小程序 TypeScript 运行包审计",
 	},
 	{
-		path: "docs/release/my-page-migration-audit-2026-08-22.md",
+		path: "docs/发布/我的页面迁移审计-2026-08-22.md",
 		label: "我的页面迁移审计",
 	},
 	{
-		path: "docs/release/miniprogram-profile-logic-audit-2026-08-20.md",
+		path: "docs/发布/小程序资料逻辑审计-2026-08-20.md",
 		label: "小程序资料逻辑审计",
 	},
 	{
-		path: "docs/release/profile-read-model-display-fail-closed-2026-08-22.md",
+		path: "docs/发布/资料读模型展示fail-closed-2026-08-22.md",
 		label: "资料读模型 fail-closed 审计",
 	},
 	{
-		path: "docs/release/miniprogram-readonly-list-load-more-boundary-audit-2026-08-21.md",
+		path: "docs/发布/小程序只读列表加载更多边界审计-2026-08-21.md",
 		label: "小程序只读列表窗口审计",
 	},
 ]);
@@ -488,7 +488,7 @@ async function readActiveMiniProgramSourceRevision(rootDirectory) {
  */
 const currentCandidateReferenceRules = Object.freeze([
 	{
-		path: "docs/release/current-project-baseline-2026-08-27.md",
+		path: "docs/发布/当前项目基线-2026-08-27.md",
 		label: "当前项目发布与迁移基线",
 		sections: [
 			{
@@ -549,7 +549,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/wechat-auth-login.md",
+		path: "docs/微信授权登录.md",
 		label: "微信授权登录手册",
 		sections: [
 			{
@@ -566,7 +566,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/next-readonly-business-acceptance-plan-2026-08-26.md",
+		path: "docs/发布/下一批只读业务验收计划-2026-08-26.md",
 		label: "A 批次低风险业务统一验收计划",
 		sections: [
 			{
@@ -577,7 +577,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/roadmap-next-phase.md",
+		path: "docs/下一阶段路线图.md",
 		label: "下一阶段实施路线图",
 		sections: [
 			{
@@ -608,7 +608,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/readonly-business-contract-audit-2026-08-18.md",
+		path: "docs/发布/只读业务契约审计-2026-08-18.md",
 		label: "P0 只读业务 contract 审计",
 		sections: [
 			{
@@ -624,7 +624,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/migration-gap-audit-2026-08-17.md",
+		path: "docs/迁移/迁移缺口审计-2026-08-17.md",
 		label: "迁移差距审计",
 		sections: [
 			{
@@ -635,7 +635,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/report-readonly-contract-audit-2026-08-18.md",
+		path: "docs/发布/报告只读契约审计-2026-08-18.md",
 		label: "报告只读契约审计",
 		sections: [
 			{
@@ -651,7 +651,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/next-business-gates-2026-08-20.md",
+		path: "docs/发布/下一批业务门禁-2026-08-20.md",
 		label: "下一阶段业务门禁执行板",
 		sections: [
 			{
@@ -668,7 +668,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/readonly-business-invariant-review-2026-08-22.md",
+		path: "docs/发布/只读业务不变量复核-2026-08-22.md",
 		label: "当前只读业务不变量审计",
 		sections: [
 			{
@@ -695,7 +695,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/remaining-migration-inventory.md",
+		path: "docs/迁移/剩余迁移清单.md",
 		label: "剩余迁移清单",
 		sections: [
 			{
@@ -724,7 +724,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/current-miniprogram-closure-2026-08-26.md",
+		path: "docs/发布/当前小程序闭环-2026-08-26.md",
 		label: "当前小程序全量闭环复核",
 		sections: [
 			{
@@ -735,7 +735,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/full-migration-handoff-2026-08-25.md",
+		path: "docs/迁移/全量迁移交接单-2026-08-25.md",
 		label: "全量迁移当前交接单",
 		sections: [
 			{
@@ -752,7 +752,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/migration-readiness-report.md",
+		path: "docs/迁移/迁移就绪报告.md",
 		label: "全项目迁移 readiness 报告说明",
 		sections: [
 			{
@@ -770,7 +770,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/current-breadth-audit-2026-08-26.md",
+		path: "docs/迁移/当前广度审计-2026-08-26.md",
 		label: "全量迁移当前检查点",
 		sections: [
 			{
@@ -787,7 +787,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/overall-migration-wave-2026-08-26.md",
+		path: "docs/迁移/整体迁移波次-2026-08-26.md",
 		label: "全项目迁移并行执行波次",
 		sections: [
 			{
@@ -798,7 +798,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/breadth-execution-board-2026-08-25.md",
+		path: "docs/迁移/广度执行看板-2026-08-25.md",
 		label: "全项目广度迁移执行工作板",
 		sections: [
 			{
@@ -818,7 +818,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/breadth-first-migration-plan-2026-08-25.md",
+		path: "docs/迁移/广度优先迁移计划-2026-08-25.md",
 		label: "广度优先迁移计划",
 		sections: [
 			{
@@ -842,7 +842,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/readonly-surface-logic-audit-2026-08-26.md",
+		path: "docs/迁移/只读外壳逻辑审计-2026-08-26.md",
 		label: "五个低风险业务域横向逻辑审计",
 		sections: [
 			{
@@ -859,7 +859,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/business-correctness.md",
+		path: "docs/业务正确性.md",
 		label: "患者端业务正确性规则",
 		sections: [
 			{
@@ -876,7 +876,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/api-matrix.md",
+		path: "docs/迁移/API矩阵.md",
 		label: "API 迁移矩阵",
 		sections: [
 			{
@@ -893,7 +893,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/domain-migration-summary-2026-08-25.md",
+		path: "docs/迁移/领域迁移总结-2026-08-25.md",
 		label: "旧端业务域迁移覆盖摘要",
 		sections: [
 			{
@@ -910,7 +910,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/migration-breadth-status-2026-08-25.md",
+		path: "docs/迁移/迁移广度状态-2026-08-25.md",
 		label: "全量迁移广度状态",
 		sections: [
 			{
@@ -927,7 +927,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/health-knowledge-state-audit-2026-08-26.md",
+		path: "docs/迁移/健康知识状态审计-2026-08-26.md",
 		label: "健康百科分类状态迁移审计",
 		sections: [
 			{
@@ -944,7 +944,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/patient-agreement-static-migration-2026-08-26.md",
+		path: "docs/迁移/患者协议静态迁移-2026-08-26.md",
 		label: "就诊人协议静态页面迁移记录",
 		sections: [
 			{
@@ -961,7 +961,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/migration/patient-surface-context-migration-2026-08-26.md",
+		path: "docs/迁移/患者外壳上下文迁移-2026-08-26.md",
 		label: "当前就诊人上下文横向迁移记录",
 		sections: [
 			{
@@ -978,7 +978,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/current-report-readonly-audit-2026-08-27.md",
+		path: "docs/发布/当前报告只读审计-2026-08-27.md",
 		label: "报告目录与受限详情当前逻辑审计",
 		sections: [
 			{
@@ -989,7 +989,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/readonly-acceptance-next-2026-08-25.md",
+		path: "docs/发布/只读验收下一步-2026-08-25.md",
 		label: "当前候选只读业务验收手册",
 		sections: [
 			{
@@ -1000,7 +1000,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/current-profile-patient-audit-2026-08-27.md",
+		path: "docs/发布/当前资料患者审计-2026-08-27.md",
 		label: "当前用户资料与患者上下文审计",
 		sections: [
 			{
@@ -1011,7 +1011,7 @@ const currentCandidateReferenceRules = Object.freeze([
 		],
 	},
 	{
-		path: "docs/release/pending-runtime-publication-runbook-2026-08-26.md",
+		path: "docs/发布/Pending运行包发布手册-2026-08-26.md",
 		label: "小程序运行包发布手册",
 		sections: [
 			{

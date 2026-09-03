@@ -26,7 +26,7 @@ if (
 	);
 }
 
-const ledger = await readText("docs/migration/native-page-migration-status.md");
+const ledger = await readText("docs/迁移/原生页面迁移状态.md");
 const missingPages = pagePaths.filter(
 	(pagePath) => !ledger.includes(`| \`${pagePath}\` |`),
 );
@@ -79,7 +79,7 @@ if (!(await Bun.file(legacySentinel).exists())) {
 		`Legacy page inventory skipped: old repository is not available at ${legacyRoot}`,
 	);
 } else {
-	const legacyMatrix = await readText("docs/migration/legacy-page-matrix.md");
+	const legacyMatrix = await readText("docs/迁移/旧页面矩阵.md");
 	const documentedLegacyPages = new Set();
 	for (const line of legacyMatrix.split("\n")) {
 		const row = line.match(/^\| `([^`]+\/)` \| (.+?) \|/u);
@@ -189,7 +189,7 @@ if (!(await Bun.file(legacyApiSentinel).exists())) {
 	);
 } else {
 	const legacyApiInventory = await readText(
-		"docs/migration/legacy-api-endpoint-inventory.md",
+		"docs/迁移/旧接口清单.md",
 	);
 	const expectedModuleCounts = new Map();
 	for (const match of legacyApiInventory.matchAll(
@@ -325,7 +325,7 @@ if (!(await Bun.file(legacyClientSentinel).exists())) {
 	);
 } else {
 	const legacyClientInventory = await readText(
-		"docs/migration/legacy-client-infrastructure-boundaries.md",
+		"docs/迁移/旧客户端基础设施边界.md",
 	);
 	const expectedCategories = [
 		"api",
@@ -420,7 +420,7 @@ if (!(await Bun.file(legacyClientApiModulesSentinel).exists())) {
 	const normalizeEndpoint = (value) =>
 		value.replace(/\$\{[^}]+\}/gu, "{param}").replace(/\?.*$/u, "");
 	const inventoryText = await readText(
-		"docs/migration/legacy-api-endpoint-inventory.md",
+		"docs/迁移/旧接口清单.md",
 	);
 	const normalizedInventoryText = inventoryText
 		.replace(/\{[^}\r\n]+\}/gu, "{param}")
@@ -465,7 +465,7 @@ if (!(await Bun.file(legacyBehaviorSentinel).exists())) {
 	);
 } else {
 	const legacyBehaviorInventory = await readText(
-		"docs/migration/legacy-client-infrastructure-boundaries.md",
+		"docs/迁移/旧客户端基础设施边界.md",
 	);
 	const behaviorRules = [
 		{

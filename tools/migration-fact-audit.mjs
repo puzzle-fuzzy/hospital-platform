@@ -72,7 +72,7 @@ function requiredDocumentFragments(facts) {
 	};
 	return [
 		{
-			path: "docs/migration/migration-readiness-report.md",
+			path: "docs/迁移/迁移就绪报告.md",
 			fragments: [
 				`${facts.frozenGateCount} 个冻结入口 gate`,
 				`A \`${formatBatch("A-readonly-evidence")}\``,
@@ -81,7 +81,7 @@ function requiredDocumentFragments(facts) {
 			],
 		},
 		{
-			path: "docs/migration/contract-intake-catalog-2026-08-25.md",
+			path: "docs/迁移/契约接入目录-2026-08-25.md",
 			fragments: [
 				`${facts.contractIntake.featureIntakeRows.length} 个已暴露入口逐条展开`,
 				`| D：患者与便民写入 | ${batch("D-patient-and-convenience-write").gateCount} |`,
@@ -90,7 +90,7 @@ function requiredDocumentFragments(facts) {
 			],
 		},
 		{
-			path: "docs/migration/breadth-first-migration-plan-2026-08-25.md",
+			path: "docs/迁移/广度优先迁移计划-2026-08-25.md",
 			fragments: [
 				`A=${batch("A-readonly-evidence").gateCount}`,
 				`D=${batch("D-patient-and-convenience-write").gateCount}`,
@@ -98,7 +98,7 @@ function requiredDocumentFragments(facts) {
 			],
 		},
 		{
-			path: "docs/migration/current-breadth-audit-2026-08-26.md",
+			path: "docs/迁移/当前广度审计-2026-08-26.md",
 			fragments: [
 				`${facts.contractIntake.coveredFeatureKeyCount} 个已暴露 FeatureKey 全部覆盖`,
 				"12 个计划能力共用的命令状态基础",
@@ -110,7 +110,7 @@ function requiredDocumentFragments(facts) {
 			// 与机器台账和运行来源同步；否则新会话很容易拿过期运行包
 			// 继续生成真机证据。这里只校验低敏版本、页数和状态计数，
 			// 不读取 dist 内容。
-			path: "docs/release/breadth-first-page-coverage-2026-08-25.md",
+			path: "docs/发布/广度优先页面覆盖-2026-08-25.md",
 			scope: "current-prefix",
 			forbiddenFragments: [
 				"64 个旧页面、40 个原生页面",

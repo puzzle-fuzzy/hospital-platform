@@ -13,7 +13,7 @@
 
 ## 当前阶段
 
-> **当前仓库执行检查点（2026-08-27）**：当前 `main` 已推送但尚未部署到线上 API（具体提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`，线上新 API 仍为 `1bc8b0a8`，旧 Python `8001` 未修改。发布基线会因此阻断，不能把本地测试或代码状态当作线上业务验收。详见 [`docs/migration/current-execution-checkpoint-2026-08-27.md`](docs/migration/current-execution-checkpoint-2026-08-27.md)。
+> **当前仓库执行检查点（2026-08-27）**：当前 `main` 已推送但尚未部署到线上 API（具体提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`，线上新 API 仍为 `1bc8b0a8`，旧 Python `8001` 未修改。发布基线会因此阻断，不能把本地测试或代码状态当作线上业务验收。详见 [`docs/迁移/当前执行检查点-2026-08-27.md`](docs/迁移/当前执行检查点-2026-08-27.md)。
 
 当前仓库进入 Phase 7D：已建立 Phase 5A-2 的 MySQL/Redis 真实持久化验收脚本，并在其上完成
 Phase 5B-1 的 provider 审计、微信身份 adapter，以及微信支付 APIv3 的请求签名、响应验签、
@@ -25,7 +25,7 @@ provider 继续 fail-closed。
 并将会话生命周期和日期/读模型编排拆到独立 service；gated LIS opaque report detail 页面也已接入。
 微信授权登录现在已经形成可部署的首个业务闭环：小程序只提交 `wx.login` code，服务端完成 code2session、
 内部用户幂等映射和 Redis TTL 会话；生产是否可登录仍需真实 AppID/AppSecret、schema、Redis、合法域名和真机证据。
-详细启用、日志和回滚步骤见 [`docs/wechat-auth-login.md`](docs/wechat-auth-login.md)。真实微信开发者工具/真机验收仍未完成。
+详细启用、日志和回滚步骤见 [`docs/微信授权登录.md`](docs/微信授权登录.md)。真实微信开发者工具/真机验收仍未完成。
 6B 已建立服务端微信预支付参数边界，6C 已为预支付尝试建立
 独立幂等记录和受控密文存储，6D 又加入同一幂等键下的服务端状态读模型，6E-1 又加入
 微信支付通知的 APIv3 验签、解密、白名单映射、通知去重和入站 outbox；6E-2 又加入
@@ -67,7 +67,7 @@ gate、fail-closed 组合根、预约只读路线以及原生小程序 provider 
 它不访问外部网站，不能替代 Provider 文档来源、版本和真实接口可用性验收。
 
 `pnpm logging:audit` 会扫描 API、worker 和 packages 的生产 TypeScript/JavaScript 源码，
-确认静态 `event` 字面量均已登记在 [`docs/logging.md`](docs/logging.md)；插值事件必须在文档中说明稳定前缀或事件表，
+确认静态 `event` 字面量均已登记在 [`docs/日志规范.md`](docs/日志规范.md)；插值事件必须在文档中说明稳定前缀或事件表，
 该审计不会读取或回显真实日志内容，也不能替代敏感字段和线上采集链路验收。
 
 本地真实持久化验收：
@@ -83,7 +83,7 @@ pnpm infra:down
 ```
 
 完整的层级边界、结构化日志事件、失败恢复和证据记录模板见
-[`docs/release/persistence-acceptance.md`](docs/release/persistence-acceptance.md)。
+[`docs/发布/持久化验收.md`](docs/发布/持久化验收.md)。
 
 `db:integration` 只允许 localhost，且会清理随机前缀的本地验收数据；它不替代 staging、
 微信、医保、HIS、支付回调或真实设备验收。
@@ -139,15 +139,15 @@ pnpm provider:smoke
 smoke 只执行 GET、默认要求 HTTPS，并使用 Pino 输出结构化验收日志。
 
 支付发布验收按代码、运行、provider 和设备四层区分，执行前请阅读
-[`docs/release/payment-acceptance.md`](docs/release/payment-acceptance.md)；本地单测和
+[`docs/发布/支付验收.md`](docs/发布/支付验收.md)；本地单测和
 `runtime:preflight` 不等于真实微信支付已上线。
 
 众阳患者/预约/报告目录的四层验收请阅读
-[`docs/release/provider-directory-acceptance.md`](docs/release/provider-directory-acceptance.md)；
+[`docs/发布/Provider目录验收.md`](docs/发布/Provider目录验收.md)；
 provider gate 配置完整不等于真实 provider 已授权或真机可用。
 
 预约写入、锁号、取消和挂号费仍处于合同冻结状态，目标边界见
-[`docs/appointment-write-contract-v1.md`](docs/appointment-write-contract-v1.md)；当前不会
+[`docs/预约写入契约-v1.md`](docs/预约写入契约-v1.md)；当前不会
 把旧小程序的 provider 身份、金额或支付字段重新包装成新 API。
 
 API 默认运行在 `http://localhost:3000`：
@@ -175,8 +175,8 @@ worker 进程组合和通知 outbox 消费核心已经接入，但真实数据�
 
 部署、日志和回滚入口：
 
-- [`docs/wechat-auth-login.md`](docs/wechat-auth-login.md)：微信授权登录唯一实施与验收手册
-- [`docs/logging.md`](docs/logging.md)：Pino 事件、脱敏和 journald 检索规范
+- [`docs/微信授权登录.md`](docs/微信授权登录.md)：微信授权登录唯一实施与验收手册
+- [`docs/日志规范.md`](docs/日志规范.md)：Pino 事件、脱敏和 journald 检索规范
 - [`infra/systemd/README.md`](infra/systemd/README.md)：新服务 systemd 部署边界
 - [`infra/nginx/test-hp.meiyi.pro.conf.example`](infra/nginx/test-hp.meiyi.pro.conf.example)：公网 v2 路由模板
 

@@ -39,7 +39,7 @@ sudo -n systemctl is-active hospital-platform-worker-v2.service
 sudoers、仓库、聊天记录或日志。若 `visudo` 校验失败，必须删除未生效的临时文件并停止发布流程。
 
 2026-08-16 已在目标主机安装并验证该规则；安装、校验和无密码 smoke 的证据见
-[`docs/release/systemd-narrow-permission-acceptance-2026-08-16.md`](../../docs/release/systemd-narrow-permission-acceptance-2026-08-16.md)。
+``docs/发布/systemd-narrow-permission-acceptance-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 > 重要的当前性边界：上面的内容是 2026-08-16 的历史安装证据，不代表今天的 sudoers 仍然生效。
 > 2026-08-24 候选 `13f597ea` 的发布复核中，`sudo -n` 仍不能完成 systemd 操作，因此下一次切换前必须由管理员
@@ -223,7 +223,7 @@ sudo -n systemctl restart hospital-platform-api-v2.service
 `/api/v2/health/ready` 均通过，ready 的 database/redis/schema 为 `ok`；新 API `18081` 与旧 Python
 `8001` 同时监听，旧 Python PID 集合前后不变，Worker 保持 inactive。启动日志明确为 production，支付、医保、
 HIS 写回和报告 Provider 继续关闭。完整记录见
-[`../../docs/release/8eb51b5f-production-acceptance-2026-08-24.md`](../../docs/release/8eb51b5f-production-acceptance-2026-08-24.md)。
+``../../docs/发布/8eb51b5f-production-acceptance-2026-08-24.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-22 08:02–08:05 CST：候选 `49f74e0` 已完成远端 bundle checksum、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `7181e99e` 原子切换到
@@ -233,7 +233,7 @@ HIS 写回和报告 Provider 继续关闭。完整记录见
 `8001` 同时监听，旧 Python PID 集合前后不变，Worker 保持 inactive。期间先回收了一个已确认属于旧候选的遗留
 `18082` 进程，候选 smoke 后再次确认无 `18082` 残留。启动日志明确为 production，当前发布仍不包含真机或 Provider
 业务成功证据，支付、医保、HIS 写回和报告 Provider 继续关闭。完整记录见
-[`../../docs/release/49f74e0-production-acceptance-2026-08-22.md`](../../docs/release/49f74e0-production-acceptance-2026-08-22.md)。
+``../../docs/发布/49f74e0-production-acceptance-2026-08-22.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-22：会话 Redis 错误分类修复候选 `7181e99e` 已完成远端 bundle checksum、真实生产 env
 preflight、`127.0.0.1:18082` 隔离 runtime smoke，并从 `84fac75c` 原子切换到当前
@@ -242,7 +242,7 @@ preflight、`127.0.0.1:18082` 隔离 runtime smoke，并从 `84fac75c` 原子切
 `8001` 同时监听，旧 Python PID 未变化，Worker 保持 inactive。启动日志明确为 production，
 `database/redis/schema` 探针为 `ok`；当前发布仍不包含真机或 Provider 业务成功证据，支付、医保、
 HIS 写回和报告 Provider 继续关闭。完整记录见
-[`../../docs/release/7181e99e-production-acceptance-2026-08-22.md`](../../docs/release/7181e99e-production-acceptance-2026-08-22.md)。
+``../../docs/发布/7181e99e-production-acceptance-2026-08-22.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-22 04:44–04:48 CST：候选 `84fac75c` 已完成远端 bundle checksum、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `002acc1b` 原子切换到当前
@@ -250,32 +250,32 @@ HIS 写回和报告 Provider 继续关闭。完整记录见
 切换后内网/公网 live、ready、system-ping 和未登录认证边界通过；新 API `18081` 与旧 Python `8001`
 同时监听，旧 Python PID 未变化，Worker 保持 inactive。当前发布仍不包含真机或 Provider 业务成功证据，
 支付、医保、HIS 写回和报告 Provider 继续关闭。完整记录见
-[`../../docs/release/84fac75c-production-acceptance-2026-08-22.md`](../../docs/release/84fac75c-production-acceptance-2026-08-22.md)。
+``../../docs/发布/84fac75c-production-acceptance-2026-08-22.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-22 00:32–00:44 CST：候选 `002acc1b` 已完成本地全仓门禁、远端八个 bundle checksum、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `9f491cb5` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。切换后内网/公网 readiness 和公网 runtime smoke 通过，新 API `18081` 与旧 Python
 `8001` 同时监听，旧 Python PID 未变化，Worker 保持 inactive；切换后低敏日志无解析错误且没有新的真实业务事件。
 当前发布仍不包含真机或 Provider 业务成功证据。完整记录见
-[`../../docs/release/002acc1b-production-acceptance-2026-08-22.md`](../../docs/release/002acc1b-production-acceptance-2026-08-22.md)。
+``../../docs/发布/002acc1b-production-acceptance-2026-08-22.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-21 19:36–19:44 CST：候选 `c8eef370` 已完成本地构建、远端 checksum、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `5a31427` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。切换后内网/公网 readiness 通过，新 API `18081` 与旧 Python `8001` 同时监听，
 Worker 保持 inactive；当前发布不包含真机或 Provider 业务成功证据。完整记录见
-[`../../docs/release/c8eef370-production-acceptance-2026-08-21.md`](../../docs/release/c8eef370-production-acceptance-2026-08-21.md)。
+``../../docs/发布/c8eef370-production-acceptance-2026-08-21.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-21 02:41–02:46 CST：候选 `6038560` 已完成本地全仓门禁、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `0e360d3` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。切换后内网 `/health/ready` 和公网 `/api/v2` runtime smoke 均通过，
 新 API `18081`、旧 Python `8001` 同时监听，Worker 保持 inactive；完整证据见
-[`../../docs/release/6038560-production-acceptance-2026-08-21.md`](../../docs/release/6038560-production-acceptance-2026-08-21.md)。
+``../../docs/发布/6038560-production-acceptance-2026-08-21.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-20 13:42–13:44 CST：候选 `0e360d3` 已完成本地全仓门禁、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `398be8e` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。切换后内网/公网 readiness、生产模式启动日志、公网 runtime smoke 和 journald
 低敏聚合均通过；旧 Python `8001` 的 Gunicorn master/worker PID 与启动时间未变化。完整证据见
-[`../../docs/release/0e360d3-production-acceptance-2026-08-20.md`](../../docs/release/0e360d3-production-acceptance-2026-08-20.md)。
+``../../docs/发布/0e360d3-production-acceptance-2026-08-20.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-19 16:30–16:37 CST：候选 `398be8e` 已完成八个 bundle SHA-256 对照、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke，并从 `968af78` 原子切换到当前 `current`，只重启
@@ -283,28 +283,28 @@ Worker 保持 inactive；当前发布不包含真机或 Provider 业务成功证
 ready 的 database/redis/schema 为 `ok`；新 API `18081` 与旧 Python `8001` 同时监听。切换窗口日志聚合为
 `parseErrors=0`、`systemdWarningCount=0`，仅包含基础设施和健康检查事件，没有把本次运行层 smoke 误记为真实患者、
 预约或费用业务证据。完整记录见
-[`../../docs/release/398be8e-production-acceptance-2026-08-19.md`](../../docs/release/398be8e-production-acceptance-2026-08-19.md)。
+``../../docs/发布/398be8e-production-acceptance-2026-08-19.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-19 00:48–00:50 CST：候选 `b7c9451` 已从 `c26e696` 原子切换到当前 `current`，只重启
 `hospital-platform-api-v2.service`。第一次 `sudo -n` 因服务器要求密码被保护分支回滚，随后使用标准
 `sudo -S` 完成同一范围的重启；回滚分支确认没有影响旧 Python。切换后新 API 的 production 启动字段、内外网
 live/ready/system-ping、未登录 `401`、`no-store` 和 `18081`/`8001` 共存均通过，Worker inactive，
 `18082` 无残留。当前 release 使用带 `correlation` 的 P0 聚合和业务证据 bundle；完整记录见
-[`../../docs/release/b7c9451-production-acceptance-2026-08-19.md`](../../docs/release/b7c9451-production-acceptance-2026-08-19.md)。
+``../../docs/发布/b7c9451-production-acceptance-2026-08-19.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-18 15:23-15:25 CST：候选 `4ae2a31` 已完成八个 bundle SHA-256 对照、真实生产 env preflight、
 `127.0.0.1:18082` 隔离 runtime smoke 和正常 SIGTERM 回收，随后从 `9acdaf2` 原子切换到
 `4ae2a31`，只重启新 API。切换后内网/公网 live、ready、system-ping 均通过，ready 的 database/redis/schema 为 `ok`；
 旧 Python `8001` 的监听和 PID 集合保持不变，Worker 未启动。切换窗口日志聚合为 `parseErrors=0`、
 `systemdWarningCount=0`，只有基础设施和健康请求，没有真实业务事件。完整记录见
-[`../../docs/release/4ae2a31-production-acceptance-2026-08-18.md`](../../docs/release/4ae2a31-production-acceptance-2026-08-18.md)。
+``../../docs/发布/4ae2a31-production-acceptance-2026-08-18.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-18 11:40 CST 左右：候选 `9ca3a89` 已上传到独立 release 目录，8 个 bundle SHA-256 与本地构建产物一致，
 使用真实 `shared/api.env` 的生产 preflight 通过，并在 `127.0.0.1:18082` 完成 production runtime smoke（live 200、
 ready 3/3、system-ping 200、未登录认证 401）后正常 SIGTERM 回收。候选未切换 `current`，当前仍为 `c63dba9`；
 新 API `18081` 与旧 Python `8001` 均保持监听，两个生产服务均未重启。新增 Redis TTL 审计命令使用现有常驻 API Redis ACL
 时按设计返回 `redis-session-scan-unavailable`、退出码 2；没有修改 ACL、Redis、数据库或业务数据。独立维护 ACL 尚未注入，
-因此会话 TTL 仍未验证。完整证据见 [`../../docs/release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md`](../../docs/release/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md)。
+因此会话 TTL 仍未验证。完整证据见 ``../../docs/发布/candidate-9ca3a89-redis-session-ttl-audit-2026-08-18.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-18 11:07-11:09 CST：候选 `c63dba9` 已完成 7 个 artifact checksum、真实生产 env preflight、
 `127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从 `e5bafd3` 原子切换到
@@ -314,81 +314,81 @@ ready 3/3、system-ping 200、未登录认证 401）后正常 SIGTERM 回收。�
 普通资料更新的 `user.profile.update.requested` 日志链路；切换后受控窗口的微信登录 `4/4`、患者目录读取 `20/20`、
 患者同步 `10/10` 请求/成功门禁通过，但预约历史和门诊费用仍缺少请求/成功事件，也没有执行 migration、支付、医保、
 退款或 HIS 写入。完整记录见
-[`../../docs/release/c63dba9-production-acceptance-2026-08-18.md`](../../docs/release/c63dba9-production-acceptance-2026-08-18.md)。
+``../../docs/发布/c63dba9-production-acceptance-2026-08-18.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-18 01:26-01:32 CST：候选 `52e9624` 已完成 7 个 artifact checksum、真实生产 env preflight、
 `127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从 `b3c9a99` 原子切换到
 `52e9624`，只重启新 API。切换后内网与公网 ready 通过，新 API `18081` 与旧 Python `8001` 保持共存，
 Worker 未启动。当前窗口日志只有运行时与未登录认证事件，不能替代真实微信、患者、预约历史或门诊费用业务证据；
-完整记录见 [`52e9624-production-acceptance-2026-08-18.md`](../../docs/release/52e9624-production-acceptance-2026-08-18.md)。
+完整记录见 ``52e9624-production-acceptance-2026-08-18.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16：前一候选 `3a37e7e` 和候选 `a8174f1` 已在生产 env 和临时 `18082` 完成隔离 smoke；历史候选
 `86cae9a` 进一步完成 live/ready no-store、system ping 和六个受保护路由的 401 认证边界验收。之后
 `main` 先后新增 `0dc39aa`（原生页面迁移台账和静态门禁）及 `09c88b1`（发布文档时序校正），这些提交尚未
 构建、上传或部署，不能沿用 `86cae9a` 的候选产物作为当前 HEAD。生产 `current` 仍为 `55fce6c`，`18081` 和旧 `8001` 均保持运行，
 候选端口已释放；发布前仍必须重新执行 `git rev-parse HEAD` 固定当前候选，并按本手册复核完整 release。详细证据见
-[`candidate-86cae9a-production-smoke-2026-08-16.md`](../../docs/release/candidate-86cae9a-production-smoke-2026-08-16.md)。
+``candidate-86cae9a-production-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 上述段落是窄权限配置前的历史记录；当前规则已安装并验证，最新候选切换证据见
-[`query-error-contract-smoke-2026-08-16.md`](../../docs/release/query-error-contract-smoke-2026-08-16.md)。
+``query-error-contract-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-17 01:11-01:17 CST：候选 `b186098` 已完成五个 bundle checksum、真实生产 env preflight、
 `127.0.0.1:18082` production smoke、SIGTERM 回收和原子 `current` 切换。切换后 `current=b186098`、
 新 API `18081` active、旧 Python `8001` 保持 PID/监听、Worker inactive；公网 runtime smoke 完成
 6/6 readiness、no-store、system ping 和未登录认证边界。支付、医保、HIS、报告 gate 和真实微信/Provider
-业务仍关闭或待验收，完整证据见 [`b186098-production-acceptance-2026-08-17.md`](../../docs/release/b186098-production-acceptance-2026-08-17.md)。
+业务仍关闭或待验收，完整证据见 ``b186098-production-acceptance-2026-08-17.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 19:05-19:07 CST：候选 `e660ccb` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 使用 `shared/api.env` 的真实生产 env preflight 通过，候选 API 在 `18082` 完成 production mode、
 MySQL/Redis/schema、no-store、`/api/v1/system/ping` 和未登录 `401` smoke，随后已停止临时进程。
 `current=55fce6c`、新 API `18081` 和旧 Python `8001` 全程未改变。完整证据见
-[`../../docs/release/candidate-e660ccb-production-smoke-2026-08-16.md`](../../docs/release/candidate-e660ccb-production-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-e660ccb-production-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 20:08-20:11 CST：候选 `b4dc33b` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 使用 `shared/api.env` 的真实生产 env preflight 通过，候选 API 在 `18082` 和 loopback `18083` 完成
 production mode、MySQL/Redis/schema、no-store、system ping 和未登录认证边界 smoke，随后已停止临时进程。
 `current=55fce6c`、新 API `18081` 和旧 Python `8001` 全程未改变。完整证据见
-[`../../docs/release/candidate-b4dc33b-production-smoke-2026-08-16.md`](../../docs/release/candidate-b4dc33b-production-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-b4dc33b-production-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 20:37-20:42 CST：候选 `d177991` 已完成 checksum、真实生产 env preflight、`18082/18083`
 隔离 runtime smoke，并按本手册原子切换 `current` 后只重启新 API。公网 `/api/v2` 的 live、ready、system-ping
 和未登录认证边界全部通过，旧 Python `8001` 与 Worker 状态未改变。完整证据见
-[`../../docs/release/candidate-d177991-production-acceptance-2026-08-16.md`](../../docs/release/candidate-d177991-production-acceptance-2026-08-16.md)。
+``../../docs/发布/candidate-d177991-production-acceptance-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 20:58-21:00 CST：候选 `93373d9` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 真实生产 env preflight 通过，公网 runtime smoke 首次观察到 database/schema 探针瞬态不可用后恢复，随后复测
 live、ready、system ping 和未登录认证边界全部通过。`current=d177991`、新 API `18081`、旧 Python `8001`
 和 Worker 状态全程未改变。完整证据见
-[`../../docs/release/candidate-93373d9-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-93373d9-preproduction-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-93373d9-preproduction-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 21:05-21:07 CST：候选 `411cd31` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 真实生产 env preflight 通过，并在 `127.0.0.1:18084` 完成 production mode、真实 MySQL/Redis/schema、live/ready
 和 SIGTERM 停止验收。`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
-[`../../docs/release/candidate-411cd31-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-411cd31-preproduction-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-411cd31-preproduction-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 21:16-21:18 CST：候选 `3dc6f5f` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 真实生产 env preflight 通过，并在 `127.0.0.1:18085` 完成 production mode、真实 MySQL/Redis/schema、
 live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。候选 runtime smoke 已补齐失败请求 traceId
 关联；`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
-[`../../docs/release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-3dc6f5f-preproduction-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 21:25-21:27 CST：候选 `3129148` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 真实生产 env preflight 通过，并在 `127.0.0.1:18086` 完成 production mode、真实 MySQL/Redis/schema、
 live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。Provider smoke 新增 `session` 会话边界，
 但候选未切换公网；`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
-[`../../docs/release/candidate-3129148-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-3129148-preproduction-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-3129148-preproduction-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 21:37-21:39 CST：候选 `d8f14f1` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 真实生产 env preflight 通过，并在 `127.0.0.1:18087` 完成 production mode、真实 MySQL/Redis/schema、
 live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。Provider smoke 新增患者归属门禁，
 要求目标内部 patientId 出现在当前 session 的 `/patients` 目录中，未归属时不请求 Provider；候选未切换公网，
 `current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
-[`../../docs/release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-d8f14f1-preproduction-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-d8f14f1-preproduction-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 22:16-22:19 CST：候选 `a11f117` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 真实生产 env preflight 通过，并在 `127.0.0.1:18088` 完成 production mode、真实 MySQL/Redis/schema、
 live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。本候选只增加 MySQL/Schema 只读探针一次有界重试，
 未切换公网；`current=d177991`、新 API `18081`、旧 Python `8001` 和 Worker 状态全程未改变。完整证据见
-[`../../docs/release/candidate-a11f117-preproduction-smoke-2026-08-16.md`](../../docs/release/candidate-a11f117-preproduction-smoke-2026-08-16.md)。
+``../../docs/发布/candidate-a11f117-preproduction-smoke-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-16 22:24-22:25 CST：在 MySQL/Schema readiness 恢复后，候选 `a11f117` 已按本手册完成
 `current.next -> current` 原子切换，只重启 `hospital-platform-api-v2.service`。切换后内网
@@ -396,7 +396,7 @@ live/ready、system-ping、未登录认证边界和 SIGTERM 停止验收。本�
 `database/redis/schema` 均为 `ok`；旧 Python `8001` 保持运行，Worker 仍 inactive。注意公网业务
 ping 是 `/api/v2/system/ping`，内部直连才是 `/api/v1/system/ping`，不能重复拼接两个前缀。
 真实微信、患者、预约、费用、Provider 和真机业务仍未在本次切换中调用。完整证据见
-[`../../docs/release/a11f117-production-acceptance-2026-08-16.md`](../../docs/release/a11f117-production-acceptance-2026-08-16.md)。
+``../../docs/发布/a11f117-production-acceptance-2026-08-16.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-17 02:09-02:12 CST：候选 `ca5a372` 已上传到独立 release，五个 bundle SHA-256 与本地产物一致；
 使用 `shared/api.env` 的真实生产 env preflight 通过，候选 API 在 `127.0.0.1:18082` 完成 production
@@ -404,27 +404,27 @@ mode、MySQL/Redis/schema、live/ready、system-ping 和认证边界 smoke 后�
 `current.next -> current` 原子切换并只重启新 API。公网 `/api/v2` 连续 6/6 readiness、live、system-ping
 和四条“不登录且缺少业务参数”的受保护路径均通过，返回 401/`unauthorized`；旧 Python `8001`、PID
 `636918` 和 Worker inactive 状态保持不变。完整证据见
-[`../../docs/release/ca5a372-production-acceptance-2026-08-17.md`](../../docs/release/ca5a372-production-acceptance-2026-08-17.md)。
+``../../docs/发布/ca5a372-production-acceptance-2026-08-17.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-17 15:00-15:05 CST：候选 `9833a01` 完成本地 build、真实生产 env preflight、5 个 bundle checksum、
 `127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收；随后从 `3ab0a6c` 原子切换到
 `9833a01`，只重启新 API。公网 `/api/v2` 连续 6/6 readiness、live、system-ping 和未登录认证边界全部通过，
 旧 Python `8001` 保持监听，Worker 未启动。首次 `sudo -n` 重启因服务器要求密码失败，软链接已自动恢复并经核对后使用交互式 sudo 完成切换；后续应重新验证 NOPASSWD 规则。真实微信、患者、预约历史、门诊费用、报告 Provider 和真机业务仍未在本次切换中调用。完整证据见
-[`../../docs/release/9833a01-production-acceptance-2026-08-17.md`](../../docs/release/9833a01-production-acceptance-2026-08-17.md)。
+``../../docs/发布/9833a01-production-acceptance-2026-08-17.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-17 15:38-15:40 CST：候选 `daee96d` 完成本地完整门禁、真实生产 env preflight、5 个 bundle checksum、
 `127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收；随后从 `9833a01` 原子切换到 `daee96d`，
 只重启新 API。切换后公网 `/api/v2` live、ready 连续 6/6、system-ping 和未登录认证边界全部通过，
 旧 Python `8001` 保持监听，Worker 仍 inactive。此次只增加 Provider 失败低敏诊断字段，不执行 Provider 业务、
 支付、医保、退款、HIS 写入或 migration。完整证据见
-[`../../docs/release/daee96d-production-acceptance-2026-08-17.md`](../../docs/release/daee96d-production-acceptance-2026-08-17.md)。
+``../../docs/发布/daee96d-production-acceptance-2026-08-17.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-17 20:29-20:32 CST：候选 `bf67b96` 完成六个 artifact checksum、真实生产 env preflight 和
 `127.0.0.1:18082` 隔离 runtime smoke 后，按本手册原子切换 `current`，只重启新 API。切换后公网 live、ready
 连续 6/6、system-ping 和未登录认证边界全部通过，旧 Python `8001` 保持监听，Worker 仍 inactive；当前 release
 内的 `p0-log-aggregate.js` 对切换后 journald 窗口聚合 `parseErrors=0`。本次没有调用真实微信、患者、预约、费用
 Provider，也没有执行 migration、支付、医保、退款或 HIS 写入。完整证据见
-[`../../docs/release/bf67b96-production-acceptance-2026-08-17.md`](../../docs/release/bf67b96-production-acceptance-2026-08-17.md)。
+``../../docs/发布/bf67b96-production-acceptance-2026-08-17.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-17 23:13-23:18 CST：候选 `b823727` 完成 7 个 artifact checksum、真实生产 env preflight、
 `127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从
@@ -432,7 +432,7 @@ Provider，也没有执行 migration、支付、医保、退款或 HIS 写入。
 live、ready、system-ping 通过，公网 runtime smoke 的 ready 连续 3/3，旧 Python `8001` 保持监听，
 Worker 仍 inactive。当前 release 的日志聚合 `parseErrors=0`，但预约历史和门诊费用 P0 证据门禁均因
 本窗口没有有效微信业务请求而缺少 requested/success；这不是业务验收完成。完整证据见
-[`../../docs/release/b823727-production-acceptance-2026-08-17.md`](../../docs/release/b823727-production-acceptance-2026-08-17.md)。
+``../../docs/发布/b823727-production-acceptance-2026-08-17.md``（历史快照已清理，原文见 Git 历史）。
 
 2026-08-18 00:04-00:06 CST：候选 `b3c9a99` 完成 7 个 artifact checksum、真实生产 env preflight、
 `127.0.0.1:18082` production runtime smoke 和正常 SIGTERM 回收，随后从 `b823727` 原子切换到
@@ -441,4 +441,4 @@ smoke 的 ready 连续 3/3，旧 Python `8001` 保持监听，Worker 仍 inactiv
 认证边界和 release 共存，没有调用真实微信、患者、预约、费用 Provider，也没有执行 migration、支付、
 医保、退款或 HIS 写入；`sudo journalctl` 因服务器要求交互密码未执行聚合，不能把 startup/runtime smoke
 误写成 P0 业务日志验收。完整证据见
-[`../../docs/release/b3c9a99-production-acceptance-2026-08-18.md`](../../docs/release/b3c9a99-production-acceptance-2026-08-18.md)。
+``../../docs/发布/b3c9a99-production-acceptance-2026-08-18.md``（历史快照已清理，原文见 Git 历史）。

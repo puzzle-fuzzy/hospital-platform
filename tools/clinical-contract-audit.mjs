@@ -4,7 +4,7 @@ import { CLINICAL_DOMAIN_CATALOG } from "./clinical-domain-catalog.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const STRUCTURED_GATE_PATH =
-	"docs/provider-intake/clinical-read-models-contract-gate.json";
+	"docs/提供商接入/临床读模型契约门禁.json";
 const REQUIRED_GATE_FIELDS = [
 	"contractStatus",
 	"requestSample",
@@ -147,7 +147,7 @@ export async function buildClinicalContractAudit(root = repositoryRoot) {
 	);
 	const intakeDocument = await readText(
 		root,
-		"docs/provider-intake/clinical-read-models-2026-08-25.md",
+		"docs/提供商接入/临床读模型-2026-08-25.md",
 	);
 	const structuredGate = buildStructuredGateAudit(
 		await readJson(root, STRUCTURED_GATE_PATH),

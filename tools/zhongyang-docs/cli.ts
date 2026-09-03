@@ -75,7 +75,7 @@ function usage(): string {
   --result-selector <css>                    结果项选择器
   --authenticated-selector <css>             登录后可见元素选择器
   --allowed-hosts <host1,host2>              允许采集响应的主机，默认门户主机
-  --write-intake                            将 found 结果写入 docs/provider-intake/
+  --write-intake                            将 found 结果写入 docs/提供商接入/
   --headless=false                          默认 false，必须使用有界面浏览器完成验证码
   --help                                    显示帮助
 
@@ -199,7 +199,7 @@ async function main(): Promise<void> {
 			}
 			if (config.writeIntake) {
 				const intakeFileName = `${config.query.replace(/[^a-zA-Z0-9.-]+/gu, "-")}.md`;
-				const intakePath = resolve("docs/provider-intake", intakeFileName);
+				const intakePath = resolve("docs/提供商接入", intakeFileName);
 				await writeFile(intakePath, markdown, {
 					encoding: "utf8",
 					flag: "wx",
@@ -232,10 +232,10 @@ async function main(): Promise<void> {
 async function registerIntakeEntry(fileName: string): Promise<void> {
 	const docsReadmePath = resolve("docs/README.md");
 	const content = await readFile(docsReadmePath, "utf8");
-	const relativePath = `provider-intake/${fileName}`;
+	const relativePath = `提供商接入/${fileName}`;
 	if (content.includes(relativePath)) return;
 	const entry = `| [\`${relativePath}\`](${relativePath}) | 浏览器采集的众阳接口文档脱敏草稿；当前为 \`normalized\`，待人工 contract 复核 |`;
-	const anchor = "| [`medical-insurance-contract-v1.md`]";
+	const anchor = "| [`医保契约-v1.md`]";
 	if (!content.includes(anchor)) {
 		throw new Error("docs/README.md 缺少 Provider 文档索引插入位置");
 	}

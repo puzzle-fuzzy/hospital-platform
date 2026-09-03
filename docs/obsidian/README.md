@@ -44,7 +44,7 @@ status: maintained
 
 本知识库是可导航入口；完整的文字版流程仍保留在：
 
-- [完整业务流程](../architecture/hospital-platform-complete-flow.md)
-- [架构说明](../architecture.md)
-- [微信认证登录](../wechat-auth-login.md)
-- [API v2 公共约定](../api-v2-public.md)
+- [完整业务流程](../架构/平台完整流程.md)
+- [架构说明](../架构说明.md)
+- [微信认证登录](../微信授权登录.md)
+- [API v2 公共约定](../公共API-v2.md)

@@ -132,7 +132,7 @@ CLI 必须针对 `apps/miniprogram/dist` 这个独立运行根执行；如果从
 旧版本缓存造成的刷新 404，同时避免把一个尚未注册的 API 版本误当作兼容接口。新增公共版本时必须同步修改
 `src/services/api-client.ts`、服务端反向代理、公共 API 文档和真机验收记录。
 客户端只允许本机 `localhost/127.0.0.1` 使用 HTTP，其他地址必须使用 HTTPS。完整登录启用、日志检索和真机验收
-请阅读 [`docs/wechat-auth-login.md`](../docs/wechat-auth-login.md)。
+请阅读 [`docs/微信授权登录.md`](../docs/微信授权登录.md)。
 小程序始终只接收平台会话，不接收 openid、session_key、医保凭证或商户配置。
 
 开发者工具的 `sdkreport` 排查结论：当前新旧项目源码、构建产物和配置中均未发现 `sdkreport` 文件或业务引用，

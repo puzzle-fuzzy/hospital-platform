@@ -396,7 +396,7 @@ async function readOnlyCoverage(root) {
 		];
 		const missing = await missingFiles(requiredFiles, root);
 		const loggingSource = await Bun.file(
-			resolve(root, "docs/logging.md"),
+			resolve(root, "docs/日志规范.md"),
 		).text();
 		const missingLogEvents = domain.logEvents.filter(
 			(event) => !loggingSource.includes(`\`${event}\``),
@@ -434,7 +434,7 @@ async function readOnlyCoverage(root) {
  * readiness 报告，避免后续会话只看到“有文档”就误判为“业务可用”。
  */
 async function providerIntakeCoverage(root) {
-	const intakeDirectory = resolve(root, "docs/provider-intake");
+	const intakeDirectory = resolve(root, "docs/提供商接入");
 	const glob = new Bun.Glob("*.md");
 	const documentFiles = [];
 	for await (const file of glob.scan({
@@ -637,14 +637,14 @@ async function deviceEvidenceCoverage(root, runtime) {
 			: null;
 	const activeSourceRevision = activeRuntime?.sourceRevision ?? null;
 	const expectedEvidencePath = activeSourceRevision
-		? `docs/release/device-evidence-${activeSourceRevision.slice(0, 8)}-pending.json`
-		: "docs/release/device-evidence-missing-current.json";
-	const releaseDirectory = resolve(root, "docs/release");
+		? `docs/发布/真机证据-${activeSourceRevision.slice(0, 8)}-pending.json`
+		: "docs/发布/真机证据-缺当前候选.json";
+	const releaseDirectory = resolve(root, "docs/发布");
 	let evidenceFiles = [];
 	try {
 		evidenceFiles = (await readdir(releaseDirectory))
 			.filter((fileName) =>
-				/^device-evidence-[0-9a-f]+-pending\.json$/iu.test(fileName),
+				/^真机证据-[0-9a-f]+-pending\.json$/iu.test(fileName),
 			)
 			.sort();
 	} catch {
@@ -654,7 +654,7 @@ async function deviceEvidenceCoverage(root, runtime) {
 	let evidencePath = expectedEvidencePath;
 	let evidence = null;
 	for (const fileName of evidenceFiles) {
-		const candidatePath = `docs/release/${fileName}`;
+		const candidatePath = `docs/发布/${fileName}`;
 		const candidate = await readJsonIfExists(resolve(root, candidatePath));
 		if (
 			activeSourceRevision &&

@@ -594,7 +594,7 @@ test("native pages never display an unmapped ApiError message", async () => {
 
 test("native client error messages cover every code documented by the public API", async () => {
 	const markdown = await Bun.file(
-		join(import.meta.dir, "../../../docs/api-v2-public.md"),
+		join(import.meta.dir, "../../../docs/公共API-v2.md"),
 	).text();
 	const errorTable = markdown.split("## 5. 当前实现边界")[0] ?? "";
 	const documentedCodes = new Set<string>();
@@ -817,7 +817,7 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	const bindingContract = await Bun.file(
 		join(
 			import.meta.dir,
-			"../../../docs/migration/patient-binding-contract-draft.md",
+			"../../../docs/迁移/患者绑定契约草案.md",
 		),
 	).text();
 

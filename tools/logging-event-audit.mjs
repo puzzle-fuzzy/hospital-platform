@@ -81,7 +81,7 @@ export async function auditCurrentLoggingEventDocumentation(
 		for (const file of files) sourceFiles.push(await readFile(file, "utf8"));
 	}
 	const documentation = await readFile(
-		join(rootDirectory, "docs/logging.md"),
+		join(rootDirectory, "docs/日志规范.md"),
 		"utf8",
 	);
 	return auditLoggingEventDocumentation({ sourceFiles, documentation });

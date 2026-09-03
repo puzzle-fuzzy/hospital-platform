@@ -61,7 +61,7 @@ pnpm runtime:smoke
 费用路由在无 token 时返回稳定 `401 unauthorized`；它不执行 migration，也不调用 provider。
 
 连续 readiness 门禁的采样范围、生产命令和失败后的证据处理见
-[`docs/release/readiness-stability-gate.md`](../docs/release/readiness-stability-gate.md)。
+[`docs/发布/就绪稳定性门禁.md`](../docs/发布/就绪稳定性门禁.md)。
 
 PowerShell 中运行 migration 和 integration 时，需要为当前进程提供本地连接串：
 
@@ -77,4 +77,4 @@ Compose 使用的是显式开发凭据，只允许绑定到本机端口。不要
 `pnpm db:migrate` 是唯一的 schema 变更入口。API 启动不会自动迁移，也不会因为 migration 命令成功就自动设置 `PERSISTENCE_SCHEMA_READY`。
 
 微信授权登录的 staging/生产启用顺序、MySQL 身份表、Redis 会话 TTL、合法域名、日志检索和回滚见
-[`docs/wechat-auth-login.md`](../docs/wechat-auth-login.md)。不要为了登录验收直接复用旧服务数据库或旧服务 env。
+[`docs/微信授权登录.md`](../docs/微信授权登录.md)。不要为了登录验收直接复用旧服务数据库或旧服务 env。
