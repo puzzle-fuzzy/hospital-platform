@@ -2,6 +2,7 @@ import {
 	MedicalInsuranceAuthorizeRequest,
 	MedicalInsuranceAuthorizeResponse,
 	MedicalInsuranceOrderResponse,
+	MedicalInsuranceWechatPayResponse,
 	success,
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
@@ -9,6 +10,7 @@ import { createRequestPrincipalResolver } from "../../plugins/request-authentica
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
 import type { MedicalInsuranceRegistrationService } from "./registration-service";
+import type { MedicalInsuranceWechatPaymentService } from "./wechat-payment-service";
 import type { MedicalInsuranceNotificationService } from "./service";
 
 /** 医保业务入口只允许平台会话和服务端生成的关联/幂等信息。 */
@@ -41,6 +43,7 @@ const MedicalInsuranceOrderParams = t.Object({
 export function medicalInsuranceModule(
 	registrationService: MedicalInsuranceRegistrationService,
 	sessions: SessionTokenService,
+	wechatPaymentService: MedicalInsuranceWechatPaymentService,
 	notificationService?: MedicalInsuranceNotificationService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions, [
@@ -103,6 +106,44 @@ export function medicalInsuranceModule(
 				headers: MedicalInsuranceCommandHeaders,
 				params: MedicalInsuranceOrderParams,
 				response: { 200: MedicalInsuranceOrderResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.post(
+			"/payments/medical-insurance/orders/:orderId/wechat-pay",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await wechatPaymentService.create({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceCommandHeaders,
+				params: MedicalInsuranceOrderParams,
+				response: { 200: MedicalInsuranceWechatPayResponse },
+				tags: ["medical-insurance"],
+			},
+		)
+		.get(
+			"/payments/medical-insurance/orders/:orderId/wechat-pay",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await wechatPaymentService.query({
+						ownerUserId: principal.userId,
+						orderId: params.orderId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: MedicalInsuranceQueryHeaders,
+				params: MedicalInsuranceOrderParams,
+				response: { 200: MedicalInsuranceWechatPayResponse },
 				tags: ["medical-insurance"],
 			},
 		)

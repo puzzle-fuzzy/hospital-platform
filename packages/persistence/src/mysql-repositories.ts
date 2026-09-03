@@ -47,6 +47,7 @@ import type {
 	UserProfile,
 	UserProfileRepository,
 	UserProfileUpdate,
+	WechatMedicalInsurancePayParams,
 	WechatMiniProgramPayParams,
 	WechatPaymentNotification,
 	WechatPaymentNotificationRepository,
@@ -396,6 +397,10 @@ type MIRow = RowDataPacket & {
 	revs_token_hash: string | null;
 	revs_token_expires_at: Date | null;
 	last_error: string | null;
+	wechat_mix_trade_no: string | null;
+	wechat_out_trade_no: string | null;
+	wechat_payment_state: string;
+	wechat_pay_params_ciphertext: string | null;
 	version: number;
 	created_at: Date;
 	updated_at: Date;
@@ -458,12 +463,17 @@ function deserializeMedicalInsuranceSettlementContext(
 		typeof (parsed as { patientId?: unknown }).patientId !== "string" ||
 		typeof (parsed as { payingId?: unknown }).payingId !== "string" ||
 		typeof (parsed as { tradingId?: unknown }).tradingId !== "string" ||
-		typeof (parsed as { networkRegister?: unknown }).networkRegister !== "object" ||
+		typeof (parsed as { networkRegister?: unknown }).networkRegister !==
+			"object" ||
 		(parsed as { networkRegister?: unknown }).networkRegister === null ||
 		Array.isArray((parsed as { networkRegister?: unknown }).networkRegister) ||
-		typeof (parsed as { outNetworkSettleMain?: unknown }).outNetworkSettleMain !== "object" ||
-		(parsed as { outNetworkSettleMain?: unknown }).outNetworkSettleMain === null ||
-		!Array.isArray((parsed as { nationalUpDetailList?: unknown }).nationalUpDetailList) ||
+		typeof (parsed as { outNetworkSettleMain?: unknown })
+			.outNetworkSettleMain !== "object" ||
+		(parsed as { outNetworkSettleMain?: unknown }).outNetworkSettleMain ===
+			null ||
+		!Array.isArray(
+			(parsed as { nationalUpDetailList?: unknown }).nationalUpDetailList,
+		) ||
 		!Array.isArray((parsed as { upDetailList?: unknown }).upDetailList) ||
 		!Array.isArray((parsed as { tradeOrderIds?: unknown }).tradeOrderIds)
 	) {
@@ -659,9 +669,46 @@ function medicalInsuranceCredentialHandle(
 }
 
 const MI_SELECT =
-	"SELECT medical_order_id, owner_user_id, patient_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, version, created_at, updated_at FROM hp_medical_insurance_orders";
+	"SELECT medical_order_id, owner_user_id, patient_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, version, created_at, updated_at FROM hp_medical_insurance_orders";
 
-function miOrder(row: MIRow): MedicalInsuranceOrder {
+const MI_WECHAT_PAYMENT_STATES = [
+	"not_started",
+	"prepay_ready",
+	"cash_paid",
+	"failed",
+	"unknown",
+] as const;
+
+function miWechatPaymentState(
+	value: string,
+): NonNullable<MedicalInsuranceOrder["wechatPaymentState"]> {
+	if (
+		MI_WECHAT_PAYMENT_STATES.includes(
+			value as (typeof MI_WECHAT_PAYMENT_STATES)[number],
+		)
+	) {
+		return value as NonNullable<MedicalInsuranceOrder["wechatPaymentState"]>;
+	}
+	throw new Error(
+		"Persistence returned an unknown medical WeChat payment state",
+	);
+}
+
+function miOrder(
+	row: MIRow,
+	cipher?: SecretValueCipher,
+): MedicalInsuranceOrder {
+	const storedPayParams = row.wechat_pay_params_ciphertext
+		? (() => {
+				if (!cipher) {
+					throw new PersistenceNotConfiguredError("payment-prepay-attempts");
+				}
+				return (
+					medicalWechatPayParams(row.wechat_pay_params_ciphertext, cipher) ??
+					null
+				);
+			})()
+		: null;
 	return {
 		medicalOrderId: row.medical_order_id,
 		ownerUserId: row.owner_user_id,
@@ -691,6 +738,10 @@ function miOrder(row: MIRow): MedicalInsuranceOrder {
 		revsTokenHash: row.revs_token_hash,
 		revsTokenExpiresAt: row.revs_token_expires_at?.toISOString() ?? null,
 		lastError: row.last_error,
+		wechatMixTradeNo: row.wechat_mix_trade_no,
+		wechatOutTradeNo: row.wechat_out_trade_no,
+		wechatPayParams: storedPayParams,
+		wechatPaymentState: miWechatPaymentState(row.wechat_payment_state),
 		version: row.version,
 		createdAt: row.created_at.toISOString(),
 		updatedAt: row.updated_at.toISOString(),
@@ -1505,6 +1556,28 @@ function payParams(
 		throw new Error("Persistence returned invalid Wechat pay params");
 	}
 	return parsed as WechatMiniProgramPayParams;
+}
+
+function medicalWechatPayParams(
+	value: string | null,
+	cipher: SecretValueCipher,
+): WechatMedicalInsurancePayParams | undefined {
+	if (value === null) return undefined;
+	const parsed = JSON.parse(cipher.open(value)) as unknown;
+	if (
+		typeof parsed !== "object" ||
+		parsed === null ||
+		Array.isArray(parsed) ||
+		typeof (parsed as { timeStamp?: unknown }).timeStamp !== "string" ||
+		typeof (parsed as { nonceStr?: unknown }).nonceStr !== "string" ||
+		typeof (parsed as { package?: unknown }).package !== "string" ||
+		(parsed as { signType?: unknown }).signType !== "RSA" ||
+		typeof (parsed as { paySign?: unknown }).paySign !== "string" ||
+		typeof (parsed as { mixTradeNo?: unknown }).mixTradeNo !== "string"
+	) {
+		throw new Error("Persistence returned invalid medical Wechat pay params");
+	}
+	return parsed as WechatMedicalInsurancePayParams;
 }
 
 function paymentPrepayAttempt(
@@ -3170,8 +3243,9 @@ export function createMySqlRepositories(
 					med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag,
 					status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen,
 					setl_type, revs_token_hash, revs_token_expires_at, last_error,
+					wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext,
 					version, created_at, updated_at
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				[
 					order.medicalOrderId,
 					order.ownerUserId,
@@ -3196,6 +3270,12 @@ export function createMySqlRepositories(
 					order.revsTokenHash,
 					order.revsTokenExpiresAt,
 					order.lastError,
+					order.wechatMixTradeNo ?? null,
+					order.wechatOutTradeNo ?? null,
+					order.wechatPaymentState ?? "not_started",
+					order.wechatPayParams
+						? requiredPrepayCipher().seal(JSON.stringify(order.wechatPayParams))
+						: null,
 					order.version,
 					mysqlDateTime(order.createdAt),
 					mysqlDateTime(order.updatedAt),
@@ -3209,7 +3289,7 @@ export function createMySqlRepositories(
 				`${MI_SELECT} WHERE pay_ord_id = ? LIMIT 1`,
 				[payOrdId],
 			);
-			return rows[0] ? miOrder(rows[0]) : undefined;
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
 		async findByMedicalOrderId(medicalOrderId) {
 			const rows = await execute<MIRow[]>(
@@ -3217,7 +3297,7 @@ export function createMySqlRepositories(
 				`${MI_SELECT} WHERE medical_order_id = ? LIMIT 1`,
 				[medicalOrderId],
 			);
-			return rows[0] ? miOrder(rows[0]) : undefined;
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
 		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
 			const rows = await execute<MIRow[]>(
@@ -3225,7 +3305,7 @@ export function createMySqlRepositories(
 				`${MI_SELECT} WHERE owner_user_id = ? AND appointment_id = ? LIMIT 1`,
 				[ownerUserId, appointmentId],
 			);
-			return rows[0] ? miOrder(rows[0]) : undefined;
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			const rows = await execute<MIRow[]>(
@@ -3233,7 +3313,7 @@ export function createMySqlRepositories(
 				`${MI_SELECT} WHERE owner_user_id = ? AND idempotency_key = ? LIMIT 1`,
 				[ownerUserId, idempotencyKey],
 			);
-			return rows[0] ? miOrder(rows[0]) : undefined;
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
 		async saveSettlementContext(ownerUserId, medicalOrderId, context) {
 			const cipher = requiredMedicalInsuranceCredentialCipher();
@@ -3249,7 +3329,9 @@ export function createMySqlRepositories(
 				],
 			);
 			if (result.affectedRows !== 1) {
-				throw new Error("Medical insurance settlement context order is unavailable");
+				throw new Error(
+					"Medical insurance settlement context order is unavailable",
+				);
 			}
 		},
 		async getSettlementContext(ownerUserId, medicalOrderId) {
@@ -3279,6 +3361,10 @@ export function createMySqlRepositories(
 					setl_type = ?, revs_token_hash = ?, revs_token_expires_at = ?,
 					appointment_id = COALESCE(?, appointment_id), authorization_id = COALESCE(?, authorization_id),
 					fee_upload_id = COALESCE(?, fee_upload_id),
+					wechat_mix_trade_no = COALESCE(?, wechat_mix_trade_no),
+					wechat_out_trade_no = COALESCE(?, wechat_out_trade_no),
+					wechat_payment_state = COALESCE(?, wechat_payment_state),
+					wechat_pay_params_ciphertext = COALESCE(?, wechat_pay_params_ciphertext),
 					version = version + 1, updated_at = NOW(3)
 				WHERE medical_order_id = ? AND version = ?`,
 				[
@@ -3298,6 +3384,16 @@ export function createMySqlRepositories(
 					patch.appointmentId ?? null,
 					patch.authorizationId ?? null,
 					patch.feeUploadId ?? null,
+					patch.wechatMixTradeNo ?? null,
+					patch.wechatOutTradeNo ?? null,
+					patch.wechatPaymentState ?? null,
+					patch.wechatPayParams === undefined
+						? null
+						: patch.wechatPayParams === null
+							? null
+							: requiredPrepayCipher().seal(
+									JSON.stringify(patch.wechatPayParams),
+								),
 					medicalOrderId,
 					expectedVersion,
 				],
@@ -3308,7 +3404,7 @@ export function createMySqlRepositories(
 				`${MI_SELECT} WHERE medical_order_id = ? LIMIT 1`,
 				[medicalOrderId],
 			);
-			return rows[0] ? miOrder(rows[0]) : undefined;
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
 	};
 

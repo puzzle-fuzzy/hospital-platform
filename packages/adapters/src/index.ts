@@ -98,6 +98,7 @@ export {
 	mapWechatPaymentNotification,
 	verifyAndDecryptWechatPaymentNotification,
 	WechatPaymentApiGateway,
+	type WechatMedicalInsuranceOptions,
 	type WechatPaymentGatewayOptions,
 	type WechatPaymentNotification,
 	type WechatPaymentNotificationDecoderInput,

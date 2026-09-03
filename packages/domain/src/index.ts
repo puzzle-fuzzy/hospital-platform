@@ -366,6 +366,9 @@ export type {
 	ExternalTrace,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
+	MedicalInsuranceWechatPaymentGateway,
+	MedicalInsuranceWechatPaymentState,
+	MedicalInsuranceWechatProviderState,
 	AppointmentMedicalInsuranceContext,
 	AppointmentMedicalInsurancePatient,
 	MedicalInsuranceSettlementEvidence,
@@ -374,6 +377,7 @@ export type {
 	MedicalInsuranceSettlementState,
 	PaymentOrderSnapshot,
 	WechatMiniProgramPayParams,
+	WechatMedicalInsurancePayParams,
 	WechatPaymentGateway,
 	WechatPaymentQueryState,
 } from "./ports";

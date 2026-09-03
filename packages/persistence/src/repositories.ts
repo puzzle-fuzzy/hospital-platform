@@ -1666,7 +1666,10 @@ function sameMedicalInsuranceQueryTask(
 /** 医保订单内存仓储：测试与服务端单测使用；CAS 语义与 MySQL 实现一致。 */
 export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranceOrderRepository {
 	const orders = new Map<string, MedicalInsuranceOrder>();
-	const settlementContexts = new Map<string, MedicalInsuranceSettlementContext>();
+	const settlementContexts = new Map<
+		string,
+		MedicalInsuranceSettlementContext
+	>();
 	return {
 		async insert(order) {
 			if (orders.has(order.medicalOrderId)) {
@@ -1705,7 +1708,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 		async saveSettlementContext(ownerUserId, medicalOrderId, context) {
 			const order = orders.get(medicalOrderId);
 			if (!order || order.ownerUserId !== ownerUserId) {
-				throw new Error("Medical insurance settlement context order is unavailable");
+				throw new Error(
+					"Medical insurance settlement context order is unavailable",
+				);
 			}
 			const existing = settlementContexts.get(medicalOrderId);
 			if (existing && JSON.stringify(existing) !== JSON.stringify(context)) {
@@ -1715,7 +1720,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...context,
 				networkRegister: { ...context.networkRegister },
 				outNetworkSettleMain: { ...context.outNetworkSettleMain },
-				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({ ...item })),
+				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
+					...item,
+				})),
 				upDetailList: context.upDetailList.map((item) => ({ ...item })),
 				tradeOrderIds: [...context.tradeOrderIds],
 			});
@@ -1723,12 +1730,15 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 		async getSettlementContext(ownerUserId, medicalOrderId) {
 			const order = orders.get(medicalOrderId);
 			const context = settlementContexts.get(medicalOrderId);
-			if (!order || order.ownerUserId !== ownerUserId || !context) return undefined;
+			if (!order || order.ownerUserId !== ownerUserId || !context)
+				return undefined;
 			return {
 				...context,
 				networkRegister: { ...context.networkRegister },
 				outNetworkSettleMain: { ...context.outNetworkSettleMain },
-				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({ ...item })),
+				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({
+					...item,
+				})),
 				upDetailList: context.upDetailList.map((item) => ({ ...item })),
 				tradeOrderIds: [...context.tradeOrderIds],
 			};
@@ -1750,6 +1760,18 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				...(patch.mdtrtId !== undefined ? { mdtrtId: patch.mdtrtId } : {}),
 				...(patch.acctUsedFlag !== undefined
 					? { acctUsedFlag: patch.acctUsedFlag }
+					: {}),
+				...(patch.wechatMixTradeNo !== undefined
+					? { wechatMixTradeNo: patch.wechatMixTradeNo }
+					: {}),
+				...(patch.wechatOutTradeNo !== undefined
+					? { wechatOutTradeNo: patch.wechatOutTradeNo }
+					: {}),
+				...(patch.wechatPayParams !== undefined
+					? { wechatPayParams: patch.wechatPayParams }
+					: {}),
+				...(patch.wechatPaymentState !== undefined
+					? { wechatPaymentState: patch.wechatPaymentState }
 					: {}),
 				status: patch.status,
 				ordStas: patch.ordStas,

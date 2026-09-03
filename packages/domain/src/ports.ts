@@ -1,7 +1,11 @@
 import type { PaymentState } from "@hospital/contracts";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { PaymentAmounts } from "./payment-order";
-import type { MedicalInsuranceAmounts } from "./medical-insurance-order";
+import type {
+	MedicalInsuranceAmounts,
+	MedicalInsuranceSettlementContext,
+} from "./medical-insurance-order";
+import type { MedicalInsuranceAuthorizationContext } from "./medical-insurance-authorization";
 
 /** 每次 provider 调用都必须携带的链路和幂等上下文。 */
 export type AdapterCallContext = {
@@ -200,6 +204,16 @@ export type WechatMiniProgramPayParams = {
 	paySign: string;
 };
 
+/** 微信小程序医保混合支付专用调起参数；字段名和 wx API 保持一致。 */
+export type WechatMedicalInsurancePayParams = {
+	timeStamp: string;
+	nonceStr: string;
+	package: string;
+	signType: "RSA";
+	paySign: string;
+	mixTradeNo: string;
+};
+
 export interface MedicalInsuranceGateway {
 	authorize(
 		input: {
@@ -257,9 +271,66 @@ export interface MedicalInsuranceGateway {
 		input: {
 			orderId: string;
 			ownerUserId: string;
+			/** 微信医保混合订单已确认现金支付后，允许执行后置医保完成结算。 */
+			cashPaymentConfirmed?: boolean;
 		},
 		context: AdapterCallContext,
 	): Promise<MedicalInsuranceSettlementEvidence>;
+}
+
+/** 微信医保混合订单的 provider 状态，只在 adapter 内部映射后进入编排层。 */
+export type MedicalInsuranceWechatPaymentState =
+	| "not_started"
+	| "prepay_ready"
+	| "cash_paid"
+	| "failed"
+	| "unknown";
+
+export type MedicalInsuranceWechatProviderState = "pending" | "paid" | "failed";
+
+/**
+ * 6202 留下自费金额后的官方微信医保混合支付边界。
+ *
+ * 6201/6202 的凭证和 2.27.2.27 明细只能由后端从加密仓储读取后传入，
+ * 小程序不能提交金额、payAuthNo、参保号或费用明细。adapter 负责先创建
+ * JSAPI prepay，再创建 /v3/med-ins/orders 混合订单。
+ */
+export interface MedicalInsuranceWechatPaymentGateway {
+	createMixedOrder(
+		input: {
+			orderId: string;
+			outTradeNo: string;
+			openid: string;
+			payOrdId: string;
+			medOrgOrd: string;
+			amounts: MedicalInsuranceAmounts;
+			authorization: MedicalInsuranceAuthorizationContext;
+			settlement: MedicalInsuranceSettlementContext;
+		},
+		context: AdapterCallContext,
+	): Promise<{
+		mixTradeNo: string;
+		prepayId: string;
+		payParams: WechatMedicalInsurancePayParams;
+		cashFen: number;
+		trace: ExternalTrace;
+	}>;
+	queryMixedOrder(
+		input: {
+			orderId: string;
+			mixTradeNo: string;
+			expectedTotalFen: number;
+			expectedCashFen: number;
+		},
+		context: AdapterCallContext,
+	): Promise<{
+		cashState: MedicalInsuranceWechatProviderState;
+		insuranceState: MedicalInsuranceWechatProviderState;
+		cashFen: number;
+		totalFen: number;
+		providerStatus: string;
+		trace: ExternalTrace;
+	}>;
 }
 
 /** 预约写入已经取得的实名资料；只在服务端医保 adapter 调用帧中出现。 */

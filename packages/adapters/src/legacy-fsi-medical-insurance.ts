@@ -1061,6 +1061,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			orderId: string;
 			ownerUserId: string;
 			amounts: MedicalInsuranceAmounts;
+			cashPaymentConfirmed?: boolean;
 		},
 		context: AdapterCallContext,
 	): Promise<{
@@ -1217,7 +1218,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			};
 		}
 
-		if (input.amounts.cashFen > 0) {
+		if (input.amounts.cashFen > 0 && !input.cashPaymentConfirmed) {
 			return {
 				state: "cash_pending",
 				amounts: input.amounts,
@@ -2166,7 +2167,14 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			if (result.statusClass === "settlement_candidate") {
 				try {
 					const finalized = await finalizeStoredSettlement(
-						{ orderId: input.orderId, ownerUserId: input.ownerUserId, amounts },
+						{
+							orderId: input.orderId,
+							ownerUserId: input.ownerUserId,
+							amounts,
+							...(input.cashPaymentConfirmed === undefined
+								? {}
+								: { cashPaymentConfirmed: input.cashPaymentConfirmed }),
+						},
 						context,
 					);
 					return {

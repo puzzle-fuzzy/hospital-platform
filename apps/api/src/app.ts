@@ -19,6 +19,7 @@ import { healthModule } from "./modules/health";
 import { healthKnowledgeModule } from "./modules/knowledge";
 import { medicalInsuranceModule } from "./modules/medical-insurance";
 import type { MedicalInsuranceRegistrationService } from "./modules/medical-insurance";
+import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
@@ -117,6 +118,20 @@ export function createApp(options: AppOptions = {}) {
 				throw new DependencyNotConfiguredError("medical-insurance");
 			},
 		} as unknown as MedicalInsuranceRegistrationService);
+	const medicalInsuranceWechatPayment =
+		services.medicalInsuranceWechatPayment ??
+		({
+			create: async () => {
+				throw new DependencyNotConfiguredError(
+					"medical-insurance-wechat-payment",
+				);
+			},
+			query: async () => {
+				throw new DependencyNotConfiguredError(
+					"medical-insurance-wechat-payment",
+				);
+			},
+		} as unknown as MedicalInsuranceWechatPaymentService);
 
 	// 患者端公共 contract 采用 fail-closed 输入语义：未知字段不能被 Elysia
 	// 默认 normalize 静默清洗，否则旧端的身份/支付字段可能被误认为已保存。
@@ -186,6 +201,7 @@ export function createApp(options: AppOptions = {}) {
 					medicalInsuranceModule(
 						medicalInsurance,
 						services.sessions,
+						medicalInsuranceWechatPayment,
 						options.medicalInsuranceNotification,
 					),
 				),

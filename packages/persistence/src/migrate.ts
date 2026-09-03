@@ -185,6 +185,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0032_appointment_writes_owner_patient_fk.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0033_medical_insurance_wechat_mix_payment",
+		file: "../migrations/0033_medical_insurance_wechat_mix_payment.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -376,6 +381,10 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"revs_token_expires_at",
 			"last_error",
 			"settlement_context_ciphertext",
+			"wechat_mix_trade_no",
+			"wechat_out_trade_no",
+			"wechat_payment_state",
+			"wechat_pay_params_ciphertext",
 			"version",
 			"created_at",
 			"updated_at",
@@ -665,6 +674,11 @@ export const PERSISTENCE_SCHEMA_INDEXES = [
 		table: "hp_medical_insurance_orders",
 		name: "uq_hp_mi_orders_pay_ord_id",
 		columns: ["pay_ord_id"],
+	},
+	{
+		table: "hp_medical_insurance_orders",
+		name: "uq_hp_mi_orders_wechat_mix_trade_no",
+		columns: ["wechat_mix_trade_no"],
 	},
 	{
 		table: "hp_medical_insurance_query_tasks",

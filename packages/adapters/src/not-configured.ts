@@ -6,6 +6,7 @@ import type {
 	AppointmentWriteGateway,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
+	MedicalInsuranceWechatPaymentGateway,
 	OutpatientMedicalRecordGateway,
 	OutpatientPaymentGateway,
 	PatientDirectoryGateway,
@@ -42,6 +43,7 @@ export type NotConfiguredGateways = {
 	outpatientPayments: OutpatientPaymentGateway;
 	outpatientMedicalRecords: OutpatientMedicalRecordGateway;
 	wechatPayment: WechatPaymentGateway;
+	medicalInsuranceWechatPayment: MedicalInsuranceWechatPaymentGateway;
 	hospitalSettlement: HospitalSettlementGateway;
 };
 
@@ -96,6 +98,10 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const hospitalSettlement: HospitalSettlementGateway = {
 		writeBack: async (_input, _context) => unavailable("yunhealth"),
 	};
+	const medicalInsuranceWechatPayment: MedicalInsuranceWechatPaymentGateway = {
+		createMixedOrder: async (_input, _context) => unavailable("wechat-pay"),
+		queryMixedOrder: async (_input, _context) => unavailable("wechat-pay"),
+	};
 
 	return {
 		wechatIdentity,
@@ -110,6 +116,7 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		outpatientPayments,
 		outpatientMedicalRecords,
 		wechatPayment,
+		medicalInsuranceWechatPayment,
 		hospitalSettlement,
 	};
 }

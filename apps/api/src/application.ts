@@ -43,6 +43,7 @@ import {
 import { UserProfileService } from "./modules/profile";
 import { ReportService } from "./modules/reports";
 import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
+import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 
 export type ApplicationServices = {
 	auth: AuthService;
@@ -50,6 +51,7 @@ export type ApplicationServices = {
 	appointments: AppointmentService;
 	appointmentWrites?: AppointmentWriteService;
 	medicalInsurance?: MedicalInsuranceRegistrationService;
+	medicalInsuranceWechatPayment?: MedicalInsuranceWechatPaymentService;
 	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
@@ -96,6 +98,8 @@ export type ApplicationServiceOptions = {
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
 	/** 医保授权、费用上传、结算和查单的真实 adapter；未配置时 fail-closed。 */
 	medicalInsuranceGateway?: import("@hospital/domain").MedicalInsuranceGateway;
+	/** 官方微信医保混合支付 adapter；未配置时保持 fail-closed。 */
+	medicalInsuranceWechatPaymentGateway?: import("@hospital/domain").MedicalInsuranceWechatPaymentGateway;
 };
 
 /**
@@ -160,6 +164,17 @@ export function createDefaultApplicationServices(
 		queryTasks: repositories.medicalInsuranceQueryTasks,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const medicalInsuranceWechatPayment =
+		new MedicalInsuranceWechatPaymentService({
+			orders: repositories.medicalInsuranceOrders,
+			authorizations: repositories.medicalInsuranceAuthorizations,
+			identityUsers: repositories.identityUsers,
+			wechatPayment:
+				options.medicalInsuranceWechatPaymentGateway ??
+				gateways.medicalInsuranceWechatPayment,
+			registration: medicalInsurance,
+			...(options.logger ? { logger: options.logger } : {}),
+		});
 
 	return {
 		auth: new AuthService({
@@ -176,6 +191,7 @@ export function createDefaultApplicationServices(
 		appointments,
 		appointmentWrites,
 		medicalInsurance,
+		medicalInsuranceWechatPayment,
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,
 			appointments,

@@ -451,6 +451,7 @@ export class MedicalInsuranceRegistrationService {
 		ownerUserId: string;
 		orderId: string;
 		context: unknown;
+		cashPaymentConfirmed?: boolean;
 	}): Promise<MedicalInsuranceOrderPayload["data"]> {
 		const context = contextOf(input.context);
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
@@ -459,7 +460,11 @@ export class MedicalInsuranceRegistrationService {
 		if (!order || order.ownerUserId !== ownerUserId)
 			throw new MedicalInsuranceOrderNotFoundError();
 		const result = await this.dependencies.medicalInsurance.query(
-			{ orderId, ownerUserId },
+			{
+				orderId,
+				ownerUserId,
+				...(input.cashPaymentConfirmed ? { cashPaymentConfirmed: true } : {}),
+			},
 			context,
 		);
 		const amounts = assertValidMedicalInsuranceAmounts({
@@ -496,5 +501,28 @@ export class MedicalInsuranceRegistrationService {
 			"Medical insurance settlement queried",
 		);
 		return output(updated);
+	}
+
+	/**
+	 * 微信混合订单确认现金支付后，重新进入医保 6301/后置完成链路。
+	 * 微信客户端回调不是业务终态，只有这里的 provider 证据可以推进医保订单。
+	 */
+	async confirmWechatCashPayment(input: {
+		ownerUserId: string;
+		orderId: string;
+		context: unknown;
+	}): Promise<MedicalInsuranceOrderPayload["data"]> {
+		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
+		const orderId = opaque(input.orderId, "orderId");
+		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
+		if (!order || order.ownerUserId !== ownerUserId)
+			throw new MedicalInsuranceOrderNotFoundError();
+		if (order.wechatPaymentState !== "cash_paid") return output(order);
+		return this.query({
+			ownerUserId,
+			orderId,
+			context: input.context,
+			cashPaymentConfirmed: true,
+		});
 	}
 }

@@ -31,6 +31,17 @@ export type RuntimeConfig = {
 	wechatPayApiV3Key: string | undefined;
 	wechatPayNotifyUrl: string | undefined;
 	wechatPayBaseUrl: string;
+	/** 官方微信医保混合订单独立闸门；必须与普通微信支付配置同时完整。 */
+	wechatMedicalInsuranceReady: boolean;
+	wechatMedicalInsuranceAppId: string | undefined;
+	wechatMedicalInsuranceCityId: string | undefined;
+	wechatMedicalInsuranceOrderType: string | undefined;
+	wechatMedicalInsuranceInstitutionName: string | undefined;
+	wechatMedicalInsuranceInstitutionNo: string | undefined;
+	wechatMedicalInsuranceCallbackUrl: string | undefined;
+	wechatMedicalInsuranceGeoLocation: string | undefined;
+	wechatMedicalInsuranceChannelNo: string | undefined;
+	wechatMedicalInsuranceTestEnvironment: boolean;
 	/** 旧医保 FSI 移动支付中心；完整配置不等于已通过真实结算验收。 */
 	medicalInsuranceReady: boolean;
 	medicalInsuranceRelayUrl: string | undefined;
@@ -101,6 +112,7 @@ export type ProviderConfigurationDiagnostic = {
 	name:
 		| "wechat-identity"
 		| "wechat-payment"
+		| "wechat-medical-insurance"
 		| "medical-insurance"
 		| "zhongyang-patient-directory"
 		| "zhongyang-appointment-directory"
@@ -225,6 +237,64 @@ export function wechatPaymentConfigurationStatus(
 ): ProviderConfigurationStatus {
 	if (!runtimeConfig.wechatPaymentReady) return "disabled";
 	return wechatPaymentConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
+/** 微信医保混合下单的字段与普通微信支付分开诊断，避免只配置 JSAPI 就误报可用。 */
+export function wechatMedicalInsuranceConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.wechatMedicalInsuranceReady) return [];
+	const missing = missingRuntimeFields([
+		{
+			name: "WECHAT_MEDICAL_INSURANCE_APP_ID",
+			value: runtimeConfig.wechatMedicalInsuranceAppId,
+		},
+		{
+			name: "WECHAT_MEDICAL_INSURANCE_CITY_ID",
+			value: runtimeConfig.wechatMedicalInsuranceCityId,
+		},
+		{
+			name: "WECHAT_MEDICAL_INSURANCE_ORDER_TYPE",
+			value: runtimeConfig.wechatMedicalInsuranceOrderType,
+		},
+		{
+			name: "WECHAT_MEDICAL_INSURANCE_INSTITUTION_NAME",
+			value: runtimeConfig.wechatMedicalInsuranceInstitutionName,
+		},
+		{
+			name: "WECHAT_MEDICAL_INSURANCE_INSTITUTION_NO",
+			value: runtimeConfig.wechatMedicalInsuranceInstitutionNo,
+		},
+		{
+			name: "WECHAT_MEDICAL_INSURANCE_CALLBACK_URL",
+			value: runtimeConfig.wechatMedicalInsuranceCallbackUrl,
+		},
+		{
+			name: "WECHAT_MEDICAL_INSURANCE_GEO_LOCATION",
+			value: runtimeConfig.wechatMedicalInsuranceGeoLocation,
+		},
+	]);
+	for (const [name, value] of [
+		[
+			"WECHAT_MEDICAL_INSURANCE_CALLBACK_URL",
+			runtimeConfig.wechatMedicalInsuranceCallbackUrl,
+		],
+	] as const) {
+		if (value && !isHttpsUrl(value) && !missing.includes(`${name}(https)`)) {
+			missing.push(`${name}(https)`);
+		}
+	}
+	return missing;
+}
+
+export function wechatMedicalInsuranceConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.wechatMedicalInsuranceReady) return "disabled";
+	return wechatMedicalInsuranceConfigurationMissingFields(runtimeConfig)
+		.length === 0
 		? "configured"
 		: "incomplete";
 }
@@ -524,6 +594,12 @@ export function providerConfigurationDiagnostics(
 			missingFields: wechatPaymentConfigurationMissingFields(runtimeConfig),
 		},
 		{
+			name: "wechat-medical-insurance" as const,
+			status: wechatMedicalInsuranceConfigurationStatus(runtimeConfig),
+			missingFields:
+				wechatMedicalInsuranceConfigurationMissingFields(runtimeConfig),
+		},
+		{
 			name: "medical-insurance" as const,
 			status: medicalInsuranceConfigurationStatus(runtimeConfig),
 			missingFields: medicalInsuranceConfigurationMissingFields(runtimeConfig),
@@ -703,6 +779,36 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		wechatPayBaseUrl: providerBaseUrl(
 			env.WECHAT_PAY_BASE_URL,
 			DEFAULT_WECHAT_PAY_BASE_URL,
+		),
+		wechatMedicalInsuranceReady: boolean(
+			env.WECHAT_MEDICAL_INSURANCE_READY,
+			false,
+		),
+		wechatMedicalInsuranceAppId: optional(env.WECHAT_MEDICAL_INSURANCE_APP_ID),
+		wechatMedicalInsuranceCityId: optional(
+			env.WECHAT_MEDICAL_INSURANCE_CITY_ID,
+		),
+		wechatMedicalInsuranceOrderType: optional(
+			env.WECHAT_MEDICAL_INSURANCE_ORDER_TYPE,
+		),
+		wechatMedicalInsuranceInstitutionName: optional(
+			env.WECHAT_MEDICAL_INSURANCE_INSTITUTION_NAME,
+		),
+		wechatMedicalInsuranceInstitutionNo: optional(
+			env.WECHAT_MEDICAL_INSURANCE_INSTITUTION_NO,
+		),
+		wechatMedicalInsuranceCallbackUrl: optional(
+			env.WECHAT_MEDICAL_INSURANCE_CALLBACK_URL,
+		),
+		wechatMedicalInsuranceGeoLocation: optional(
+			env.WECHAT_MEDICAL_INSURANCE_GEO_LOCATION,
+		),
+		wechatMedicalInsuranceChannelNo: optional(
+			env.WECHAT_MEDICAL_INSURANCE_CHANNEL_NO,
+		),
+		wechatMedicalInsuranceTestEnvironment: boolean(
+			env.WECHAT_MEDICAL_INSURANCE_TEST_ENVIRONMENT,
+			false,
 		),
 		medicalInsuranceReady: boolean(env.MEDICAL_INSURANCE_READY, false),
 		medicalInsuranceRelayUrl: optional(env.MBS_FORWARD_RELAY_URL),

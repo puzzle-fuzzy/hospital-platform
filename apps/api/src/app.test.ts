@@ -175,6 +175,7 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/payments/medical-insurance/orders/{orderId}",
 		"/api/v1/payments/medical-insurance/orders/{orderId}/fees",
 		"/api/v1/payments/medical-insurance/orders/{orderId}/settle",
+		"/api/v1/payments/medical-insurance/orders/{orderId}/wechat-pay",
 		"/api/v1/payments/outpatient/records",
 		"/api/v1/payments/wechat/notifications",
 		"/api/v1/reports",

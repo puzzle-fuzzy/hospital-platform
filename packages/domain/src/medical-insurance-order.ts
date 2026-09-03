@@ -1,4 +1,5 @@
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type { WechatMedicalInsurancePayParams } from "./ports";
 
 /**
  * 医保订单域（F 批次）。
@@ -176,6 +177,18 @@ export type MedicalInsuranceOrder = {
 	revsTokenHash: string | null;
 	revsTokenExpiresAt: string | null;
 	lastError: string | null;
+	/** 官方微信医保混合订单标识；只保存 provider 可关联引用。 */
+	wechatMixTradeNo?: string | null;
+	/** 服务端生成的微信自费 out_trade_no；用于 JSAPI 预下单幂等。 */
+	wechatOutTradeNo?: string | null;
+	/** 微信调起参数的读模型；MySQL 实现必须以密文保存。 */
+	wechatPayParams?: WechatMedicalInsurancePayParams | null;
+	wechatPaymentState?:
+		| "not_started"
+		| "prepay_ready"
+		| "cash_paid"
+		| "failed"
+		| "unknown";
 	version: number;
 	createdAt: string;
 	updatedAt: string;
@@ -434,6 +447,10 @@ export interface MedicalInsuranceOrderRepository {
 			payTokenHash?: string | null;
 			mdtrtId?: string | null;
 			acctUsedFlag?: string | null;
+			wechatMixTradeNo?: string | null;
+			wechatOutTradeNo?: string | null;
+			wechatPayParams?: WechatMedicalInsurancePayParams | null;
+			wechatPaymentState?: MedicalInsuranceOrder["wechatPaymentState"];
 		},
 	): Promise<MedicalInsuranceOrder | undefined>;
 }

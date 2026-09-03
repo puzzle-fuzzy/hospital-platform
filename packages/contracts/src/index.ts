@@ -790,6 +790,41 @@ export const WechatMiniProgramPayParamsSchema = Type.Object({
 	paySign: Type.String({ minLength: 1 }),
 });
 
+/** 微信医保混合支付专用调起参数，直接对应 wx.requestMedicalInsurancePay。 */
+export const WechatMedicalInsurancePayParamsSchema = Type.Object({
+	timeStamp: Type.String({ minLength: 1 }),
+	nonceStr: Type.String({ minLength: 1 }),
+	package: Type.String({ minLength: 1 }),
+	signType: Type.Literal("RSA"),
+	paySign: Type.String({ minLength: 1 }),
+	mixTradeNo: Type.String({ minLength: 1, maxLength: 256 }),
+});
+
+/** 微信医保混合支付只返回服务端生成的调起参数，不返回 payAuthNo 或费用明细。 */
+export const MedicalInsuranceWechatPayResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("cash_pending"),
+			Type.Literal("insurance_settled"),
+			Type.Literal("awaiting_confirmation"),
+			Type.Literal("manual_review"),
+			Type.Literal("failed"),
+		]),
+		paymentState: Type.Union([
+			Type.Literal("not_started"),
+			Type.Literal("prepay_ready"),
+			Type.Literal("cash_paid"),
+			Type.Literal("failed"),
+			Type.Literal("unknown"),
+		]),
+		cashFen: Type.Integer({ minimum: 0 }),
+		mixTradeNo: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+		payParams: Type.Optional(WechatMedicalInsurancePayParamsSchema),
+	}),
+});
+
 /** 预支付接口只表示参数已生成，不表示微信支付成功或业务订单完成。 */
 export const WechatPrepayResponse = Type.Object({
 	success: Type.Literal(true),
@@ -922,6 +957,9 @@ export type MedicalInsuranceOrderCommandPayload = Static<
 >;
 export type MedicalInsuranceOrderPayload = Static<
 	typeof MedicalInsuranceOrderResponse
+>;
+export type MedicalInsuranceWechatPayPayload = Static<
+	typeof MedicalInsuranceWechatPayResponse
 >;
 export type OutpatientPaymentStatusPayload = Static<
 	typeof OutpatientPaymentStatusSchema

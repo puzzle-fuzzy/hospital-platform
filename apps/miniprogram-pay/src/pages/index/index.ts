@@ -12,11 +12,13 @@ import {
 	type Source,
 } from "../../services/appointment";
 import {
+	continueMedicalCashPayment,
 	continueMedicalPayment,
 	MedicalAuthNavigationCancelledError,
 	navigateToMedicalAuth,
 	readPendingPayment,
 	startMedicalPayment,
+	WechatPaymentCancelledError,
 	type PaymentProgress,
 } from "../../services/medical-insurance";
 import { loadPatients, mask, type Patient } from "../../services/patient";
@@ -54,11 +56,17 @@ const progressText: Record<RegistrationProgress, string> = {
 	insuring: "正在上传医保费用",
 	settling: "正在进行医保结算",
 	polling: "正在确认医保结算结果",
+	"cash-paying": "正在打开微信支付收银台",
+	"cash-confirming": "正在确认微信医保混合支付结果",
 	success: "挂号和医保支付成功",
 };
 
 function friendlyError(error: unknown): string {
-	if (error instanceof MedicalAuthNavigationCancelledError) return "";
+	if (
+		error instanceof MedicalAuthNavigationCancelledError ||
+		error instanceof WechatPaymentCancelledError
+	)
+		return "";
 	const message =
 		error instanceof Error
 			? error.message
@@ -73,6 +81,14 @@ function showNavigationCancelled(page: PageInstance): void {
 		hasPendingPayment: Boolean(readPendingPayment()),
 		error: "",
 		message: "已取消跳转，预约已保留，请点击继续医保支付",
+	});
+}
+
+function showWechatPaymentCancelled(page: PageInstance): void {
+	page.setData({
+		hasPendingPayment: Boolean(readPendingPayment()),
+		error: "",
+		message: "已取消微信支付，预约已保留，请点击主按钮继续支付",
 	});
 }
 
@@ -151,8 +167,12 @@ Page<
 		if (!authCode && pending) {
 			this.setData({
 				hasPendingPayment: true,
-				stage: "authorizing",
-				message: "检测到未完成的医保支付，请点击主按钮继续授权",
+				stage:
+					pending.phase === "cash_payment" ? "cash-confirming" : "authorizing",
+				message:
+					pending.phase === "cash_payment"
+						? "检测到未完成的微信医保支付，请点击主按钮继续支付"
+						: "检测到未完成的医保支付，请点击主按钮继续授权",
 				error: "",
 			});
 			return;
@@ -166,13 +186,17 @@ Page<
 			setProgress(this, stage, message),
 		)
 			.then(() => this.setData({ hasPendingPayment: false }))
-			.catch((error: unknown) =>
+			.catch((error: unknown) => {
+				if (error instanceof WechatPaymentCancelledError) {
+					showWechatPaymentCancelled(this);
+					return;
+				}
 				this.setData({
 					hasPendingPayment: Boolean(readPendingPayment()),
 					error: friendlyError(error),
 					message: "医保支付未完成，请不要重复预约",
-				}),
-			)
+				});
+			})
 			.finally(() => {
 				resumingPayment = false;
 				this.setData({ busy: false });
@@ -237,6 +261,25 @@ Page<
 		if (this.data.busy) return;
 		if (pending) {
 			this.setData({ busy: true, error: "" });
+			if (pending.phase === "cash_payment" && pending.orderId) {
+				setProgress(this, "cash-confirming", "请继续完成微信医保支付");
+				void continueMedicalCashPayment(pending, (stage, message) =>
+					setProgress(this, stage, message),
+				)
+					.then(() => this.setData({ hasPendingPayment: false }))
+					.catch((error: unknown) => {
+						if (error instanceof WechatPaymentCancelledError) {
+							showWechatPaymentCancelled(this);
+							return;
+						}
+						this.setData({
+							error: friendlyError(error),
+							message: "微信医保支付未完成，请不要重复预约",
+						});
+					})
+					.finally(() => this.setData({ busy: false }));
+				return;
+			}
 			setProgress(this, "authorizing", "请在医保小程序继续完成授权");
 			void navigateToMedicalAuth()
 				.catch((error: unknown) => {

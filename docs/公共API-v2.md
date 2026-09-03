@@ -133,6 +133,8 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `POST` | `/api/v2/payments/medical-insurance/authorize` | Bearer + 必填幂等键 | body 为 `{appointmentId, authCode}`；授权码只在服务端调用医保授权 adapter，成功后返回服务端 `orderId` |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/fees` | Bearer + 必填幂等键 | 从关联预约读取服务端金额和患者映射，独立执行医保费用上传 |
 | `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/settle` | Bearer + 必填幂等键 | 使用已授权订单和费用上传引用，独立执行医保结算，不把中间状态当成功 |
+| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer + 必填幂等键 | 读取已落库 6202 金额、6201 授权和参保上下文，创建官方微信医保混合订单并返回小程序调起参数 |
+| `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}/wechat-pay` | Bearer；幂等键可选 | 按 `mix_trade_no` 查微信医保混合订单；自费成功后继续确认医保结算，不把调起成功当作完成 |
 | `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}` | Bearer；幂等键可选 | 查询医保订单最终状态和服务端金额快照；不返回 payToken、身份证或 provider 原始字段 |
 | `GET` | `/api/v2/my/doctors` | Bearer | 返回当前平台用户关注的医生关系；不接收 `userId` 或 `patientId` |
 | `GET` | `/api/v2/my/doctors/{doctorId}` | Bearer | 返回当前用户自己的单个医生关系快照 |
@@ -258,11 +260,14 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 
 `miniprogram-pay` 使用上表中的独立命令，不存在把“预约 + 医保支付”包成一个后端快速编排
 接口的入口。业务顺序固定为：读取排班/号源 → 创建服务端占位 → 预约写入 → 医保授权 →
-费用上传 → 医保结算 → 必要时查单。预约已存在时服务端返回已有的 opaque `appointmentId`，
+费用上传 → 医保结算 → 微信自费混合下单 → `wx.requestMedicalInsurancePay` → 微信医保混合查单 → 必要时查医保后置结算。
+预约已存在时服务端返回已有的 opaque `appointmentId`，
 小程序只能先调用取消命令，取消成功后再用新的幂等键重新占位和写入。
 
 预约占位、预约写入、取消、医保授权、费用上传和结算分别有独立的日志事件、幂等键和错误边界；
-provider 患者号、预约号、身份证、卡号、授权码和 payToken 不进入公共响应。医保 adapter 或
+provider 患者号、预约号、身份证、卡号、授权码和 payToken 不进入公共响应。微信混合支付的
+`prepay_id`、`paySign` 和 `mixTradeNo` 由服务端生成，小程序只调用 `wx.requestMedicalInsurancePay`；
+医保 adapter 或
 持久化未配置时统一 fail-closed，不返回伪造成功。
 
 ### 3.4 我的医生
@@ -351,8 +356,8 @@ query schema 的内部任务传入未知值，也只能返回 `400 outpatient-pa
 → `cash_pending` → `cash_paid` → `his_written_back` → `awaiting_confirmation` → `completed`。
 
 `failed` 和 `cancelled` 是终止分支。小程序不能跳过状态、把 `6202` 或支付调起成功当成
-最终结算成功，也不能提交 `totalFen`、`insuranceFen`、`cashFen` 或 HIS 完成状态。支付接口
-当前仅完成平台编排边界，真实微信支付、医保、HIS 和真机验收仍未完成。
+最终结算成功，也不能提交 `totalFen`、`insuranceFen`、`cashFen` 或 HIS 完成状态。微信医保混合支付
+必须以服务端按 `mix_trade_no` 查单、医保后置查询和 HIS 完成结果共同收敛。
 
 支付订单、订单查询、微信预支付和微信通知共用一个服务端运行时闸门。当前候选默认关闭；
 闸门关闭时，这四类路由会在读取报价、读取订单、写入订单/outbox、验签解密或写入通知去重表

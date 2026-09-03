@@ -33,6 +33,8 @@ import {
 	wechatIdentityConfigurationStatus,
 	wechatPaymentConfigurationMissingFields,
 	wechatPaymentConfigurationStatus,
+	wechatMedicalInsuranceConfigurationMissingFields,
+	wechatMedicalInsuranceConfigurationStatus,
 } from "@hospital/config";
 import { createLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
@@ -61,6 +63,10 @@ const wechatIdentityStatus = wechatIdentityConfigurationStatus(config);
 const wechatPaymentStatus = wechatPaymentConfigurationStatus(config);
 const wechatIdentityMissing = wechatIdentityConfigurationMissingFields(config);
 const wechatPaymentMissing = wechatPaymentConfigurationMissingFields(config);
+const wechatMedicalInsuranceStatus =
+	wechatMedicalInsuranceConfigurationStatus(config);
+const wechatMedicalInsuranceMissing =
+	wechatMedicalInsuranceConfigurationMissingFields(config);
 const patientDirectoryStatus = patientDirectoryConfigurationStatus(config);
 const patientDirectoryMissing =
 	patientDirectoryConfigurationMissingFields(config);
@@ -119,7 +125,32 @@ const wechatPaymentGateway =
 				apiV3Key: config.wechatPayApiV3Key ?? "",
 				notifyUrl: config.wechatPayNotifyUrl ?? "",
 				baseUrl: config.wechatPayBaseUrl,
+				...(wechatMedicalInsuranceStatus === "configured"
+					? {
+							medicalInsurance: {
+								appId: config.wechatMedicalInsuranceAppId ?? "",
+								cityId: config.wechatMedicalInsuranceCityId ?? "",
+								orderType: config.wechatMedicalInsuranceOrderType ?? "",
+								medicalInstitutionName:
+									config.wechatMedicalInsuranceInstitutionName ?? "",
+								medicalInstitutionNo:
+									config.wechatMedicalInsuranceInstitutionNo ?? "",
+								callbackUrl: config.wechatMedicalInsuranceCallbackUrl ?? "",
+								geoLocation: config.wechatMedicalInsuranceGeoLocation ?? "",
+								...(config.wechatMedicalInsuranceChannelNo
+									? {
+											channelNo: config.wechatMedicalInsuranceChannelNo,
+										}
+									: {}),
+								testEnvironment: config.wechatMedicalInsuranceTestEnvironment,
+							},
+						}
+					: {}),
 			})
+		: undefined;
+const medicalInsuranceWechatPaymentGateway =
+	wechatPaymentGateway && wechatMedicalInsuranceStatus === "configured"
+		? wechatPaymentGateway
 		: undefined;
 const patientDirectoryGateway =
 	patientDirectoryStatus === "configured" && config.zhongyangBaseUrl
@@ -316,6 +347,9 @@ const app = createApp({
 		...(persistence.sessions ? { sessionStore: persistence.sessions } : {}),
 		...(identityGateway ? { identityGateway } : {}),
 		...(wechatPaymentGateway ? { wechatPaymentGateway } : {}),
+		...(medicalInsuranceWechatPaymentGateway
+			? { medicalInsuranceWechatPaymentGateway }
+			: {}),
 		...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
 		...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
 		...(appointmentDepartmentTreeGateway
@@ -406,6 +440,7 @@ logger.info(
 		authSessionStore: persistence.sessions ? "injected" : "fail_closed",
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
+		wechatMedicalInsuranceConfiguration: wechatMedicalInsuranceStatus,
 		wechatPaymentRuntime: wechatPaymentEnabled ? "enabled" : "fail_closed",
 		medicalInsuranceConfiguration: medicalInsuranceConfigurationStatus(config),
 		medicalInsuranceRuntime: medicalInsuranceGateway
@@ -420,6 +455,9 @@ logger.info(
 		reportDetailConfiguration: reportDetailStatus,
 		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
 		...(wechatPaymentMissing.length > 0 ? { wechatPaymentMissing } : {}),
+		...(wechatMedicalInsuranceMissing.length > 0
+			? { wechatMedicalInsuranceMissing }
+			: {}),
 		...(medicalInsuranceMissing.length > 0 ? { medicalInsuranceMissing } : {}),
 		...(patientDirectoryMissing.length > 0 ? { patientDirectoryMissing } : {}),
 		...(appointmentDirectoryMissing.length > 0
