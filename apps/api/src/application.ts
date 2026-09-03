@@ -1,6 +1,8 @@
 import { createNotConfiguredGateways } from "@hospital/adapters";
 import type { DependencyState } from "@hospital/contracts";
 import type {
+	AppointmentPatientProfileGateway,
+	AppointmentWriteGateway,
 	AppointmentDepartmentTreeGateway,
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
@@ -22,6 +24,7 @@ import type {
 } from "@hospital/persistence";
 import { createNotConfiguredRepositories } from "@hospital/persistence";
 import { AppointmentService } from "./modules/appointments";
+import { AppointmentWriteService } from "./modules/appointments/write-service";
 import {
 	AuthService,
 	createNotConfiguredSessionTokenService,
@@ -39,11 +42,14 @@ import {
 } from "./modules/payments/notification-service";
 import { UserProfileService } from "./modules/profile";
 import { ReportService } from "./modules/reports";
+import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
 
 export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
 	appointments: AppointmentService;
+	appointmentWrites?: AppointmentWriteService;
+	medicalInsurance?: MedicalInsuranceRegistrationService;
 	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
 	/** 健康百科只读模块；未发布审核内容时由仓储保持 fail-closed。 */
@@ -76,6 +82,9 @@ export type ApplicationServiceOptions = {
 	appointmentDepartmentTreeGateway?: AppointmentDepartmentTreeGateway;
 	/** 预约历史使用独立 endpoint，必须独立完成合同和真实环境验收。 */
 	appointmentRecordDirectoryGateway?: AppointmentRecordDirectoryGateway;
+	/** 预约写入使用独立的患者实名解析与写入 adapter。 */
+	appointmentPatientProfileGateway?: AppointmentPatientProfileGateway;
+	appointmentWriteGateway?: AppointmentWriteGateway;
 	/** 门诊费用只读目录；支付和医保结算不由该网关隐式开启。 */
 	outpatientPaymentGateway?: OutpatientPaymentGateway;
 	outpatientPaymentAuthSysCode?: string;
@@ -85,6 +94,8 @@ export type ApplicationServiceOptions = {
 	reportDetailGateway?: ReportDetailGateway;
 	/** APIv3 验签、解密和白名单映射只从组合根注入。 */
 	wechatPaymentNotificationDecoder?: WechatPaymentNotificationDecoder;
+	/** 医保授权、费用上传、结算和查单的真实 adapter；未配置时 fail-closed。 */
+	medicalInsuranceGateway?: import("@hospital/domain").MedicalInsuranceGateway;
 };
 
 /**
@@ -125,6 +136,30 @@ export function createDefaultApplicationServices(
 		snapshots: repositories.appointmentScheduleSnapshots,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const appointmentWrites = new AppointmentWriteService({
+		repository: repositories.appointmentWrites,
+		patients: repositories.patients,
+		identityUsers: repositories.identityUsers,
+		patientProfile:
+			options.appointmentPatientProfileGateway ??
+			gateways.appointmentPatientProfile,
+		gateway: options.appointmentWriteGateway ?? gateways.appointmentWrites,
+		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+		snapshots: repositories.appointmentScheduleSnapshots,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
+	const medicalInsurance = new MedicalInsuranceRegistrationService({
+		orders: repositories.medicalInsuranceOrders,
+		appointments: repositories.appointmentWrites,
+		identityUsers: repositories.identityUsers,
+		patientProfile:
+			options.appointmentPatientProfileGateway ??
+			gateways.appointmentPatientProfile,
+		medicalInsurance:
+			options.medicalInsuranceGateway ?? gateways.medicalInsurance,
+		queryTasks: repositories.medicalInsuranceQueryTasks,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
 
 	return {
 		auth: new AuthService({
@@ -139,6 +174,8 @@ export function createDefaultApplicationServices(
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		appointments,
+		appointmentWrites,
+		medicalInsurance,
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,
 			appointments,

@@ -1,6 +1,7 @@
 import type { PaymentState } from "@hospital/contracts";
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
 import type { PaymentAmounts } from "./payment-order";
+import type { MedicalInsuranceAmounts } from "./medical-insurance-order";
 
 /** 每次 provider 调用都必须携带的链路和幂等上下文。 */
 export type AdapterCallContext = {
@@ -204,6 +205,10 @@ export interface MedicalInsuranceGateway {
 		input: {
 			authCode: string;
 			patientId: string;
+			ownerUserId: string;
+			orderId: string;
+			providerSubject: string;
+			patient: AppointmentMedicalInsurancePatient;
 		},
 		context: AdapterCallContext,
 	): Promise<{
@@ -214,28 +219,34 @@ export interface MedicalInsuranceGateway {
 	uploadFees(
 		input: {
 			orderId: string;
+			ownerUserId: string;
 			patientId: string;
 			authorizationId: string;
-			totalFen: number;
-			insuranceFen: number;
-			cashFen: number;
+			appointment: AppointmentMedicalInsuranceContext;
 		},
 		context: AdapterCallContext,
 	): Promise<{
 		/** 仅是服务端引用；不得把 6201 的 payToken 或原始 envelope 放入此字段。 */
 		feeUploadId: string;
+		payOrdId: string;
+		payTokenHash: string;
+		mdtrtId: string;
+		acctUsedFlag: string;
 		trace: ExternalTrace;
 	}>;
 	settle(
 		input: {
 			orderId: string;
+			ownerUserId: string;
 			authorizationId: string;
 			feeUploadId: string;
+			mdtrtId: string;
+			acctUsedFlag: string;
 		},
 		context: AdapterCallContext,
 	): Promise<{
 		state: MedicalInsuranceSettlementState;
-		amounts: PaymentAmounts;
+		amounts: MedicalInsuranceAmounts;
 		trace: ExternalTrace;
 		source: MedicalInsuranceSettlementEvidenceSource;
 		providerStatus: string;
@@ -245,10 +256,37 @@ export interface MedicalInsuranceGateway {
 	query(
 		input: {
 			orderId: string;
+			ownerUserId: string;
 		},
 		context: AdapterCallContext,
 	): Promise<MedicalInsuranceSettlementEvidence>;
 }
+
+/** 预约写入已经取得的实名资料；只在服务端医保 adapter 调用帧中出现。 */
+export type AppointmentMedicalInsurancePatient = {
+	providerPatientId: string;
+	name: string;
+	cardNo: string;
+	idNo: string;
+	phone: string;
+};
+
+/** 6201/6202 所需的预约事实，不接受前端金额或 Provider ID 覆盖。 */
+export type AppointmentMedicalInsuranceContext = {
+	appointmentId: string;
+	providerAppointmentId: string;
+	providerPatientId: string;
+	providerRegisterId?: string;
+	providerHisRegisterId?: string;
+	departmentId?: string;
+	departmentName: string;
+	doctorId?: string;
+	doctorName: string;
+	workDate: string;
+	shiftName: string;
+	sourceSerialNumber: string;
+	totalFen: number;
+};
 
 export interface WechatPaymentGateway {
 	createJsapiOrder(

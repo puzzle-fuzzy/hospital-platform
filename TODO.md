@@ -1,11 +1,11 @@
 # Hospital Platform 迁移校对 TODO
 
-更新时间：2026-09-02
+更新时间：2026-09-03
 
 本文是本次“旧项目 → 新项目”全量静态校对的结论和后续清单。旧项目
 `/Users/yxswy/Documents/GitHub/hospital` 只做源码、路由和资源盘点，没有运行旧服务、旧小程序、旧数据库、Redis 或 Provider。
 
-## 0.1 未完成项统计（2026-09-01）
+## 0.1 未完成项统计（2026-09-03）
 
 统计口径：`[ ]` 表示仍需实现、取得外部证据或完成受控运维动作；`[x]` 表示本仓库内的代码/文档/边界判断已经完成。第 7、10.6、11.4 节的“不迁移”条目属于已经确认的策略，不再计入未完成工作。
 
@@ -17,12 +17,12 @@
 | P1/P2 临床、患者、便民与外部能力 | 19 | contract、归属、资源权限、真实主体和业务页面仍缺 |
 | P1 运维、恢复、告警与运营配置 | 9 | 代码门禁、人工复核工具和订单审计归档已有；生产告警接入和恢复演练仍缺 |
 | P3 支付、医保、退款与 HIS 回写 | 6 | 按约定最后处理，当前保持关闭 |
-| P1/P2 本轮医保、报告与 Worker 补充 | 6 | 已完成受控 adapter 和文档；crypto、订单持久化、Provider 及 Worker 证据仍缺 |
+| P1/P2 本轮医保、报告与 Worker 补充 | 6 | 医保 crypto、订单持久化、真实服务端 adapter 和 Worker 代码接线已完成；Provider 业务、生产运行和报告/真机证据仍缺 |
 | P2 第六轮新登记的旧端遗留能力 | 1 | 仅剩第二医保小程序入口待 E 批次确认；insurance-service 与 RAG 语料已决策不迁移，Provider 材料按“仅 PDF + 插件采集”路线完成归档 |
-| P2 第七轮 crypto 解锁 | 1 | 密钥材料已齐（测试反馈单 + 旧生产 env）；golden vector 待用旧 JAR 离线生成后实现并双向验证 |
+| P2 第七轮 crypto 解锁 | 1 | crypto 已按规范完成并通过测试环境报文层验证；仍需在受控发布前保留向量与 Provider 业务验收证据 |
 | **合计未完成** | **53** | **不包含已经确认“不迁移”的策略项** |
 
-复选框总数为 140 项，其中已完成 79 项、未完成 61 项。上表按工作流归并；本轮新增医保、报告、Worker 和我的医生条目仍归入对应的 P1/P2 工作流。另按标题优先级统计未完成项为：P0 4、P1 32、P2 19、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
+复选框总数为 144 项，其中已完成 89 项、未完成 55 项。上表按工作流归并；本轮新增医保、报告、Worker 和我的医生条目仍归入对应的 P1/P2 工作流。另按标题优先级统计未完成项为：P0 4、P1 26、P2 19、P3 6；混合标题按标题中最高优先级归类。每次清单变更后，提交前都必须重新计算这组数字。
 
 ## -1. 全量替换策略（2026-09-03 所有者决策）
 
@@ -229,7 +229,7 @@
 - [x] 已生成 `docs/发布/真机证据-ce1c2179b57fe2783066b51f8621220224982928-pending.json` 脱敏待采集模板；真实设备证据仍未取得，9 个真机域均保持 `pending`，不能用模板宣称真机完成。
 - [x] 已将服务端候选记录和当前项目基线及当前验收语义统一更新为小程序 source revision `ce1c2179b57fe2783066b51f8621220224982928`；`pnpm release:baseline:index:audit` 的当前索引部分已通过，文档中保留的旧候选仅作历史追溯，服务端运行时代码漂移仍阻断完整 release audit。
 - [x] 已明确 `5738a71e...` server release 与当前仓库运行时代码的部署关系：`apps/api/src/modules/auth/service.ts`、`apps/api/src/plugins/request-logging.ts`、`packages/adapters/src/errors.ts`、`packages/adapters/src/http.ts`、`packages/domain/src/index.ts`、`packages/domain/src/manual-review.ts`、`packages/domain/src/payment-order.ts`、`packages/domain/src/payment-provider.ts`、`packages/observability/src/index.ts`、`packages/observability/src/operational-alerts.ts`、`packages/persistence/src/errors.ts`、`packages/persistence/src/migrate.ts`、`packages/persistence/src/mysql-repositories.ts`、`packages/persistence/src/outbox.ts`、`packages/persistence/src/redis-session.ts`、`packages/persistence/src/repositories.ts` 共 16 个文件属于 release 之后的仓库候选，尚未进入线上；`pnpm release:baseline:audit` 因此继续 fail-closed，不宣称当前 release 与仓库运行时代码一致。2026-09-02 候选 `9f29eb2` 已上传到独立 release，但生产 preflight 因目标 schema 缺少 `0017_outbox_manual_review_state` 失败，未切换 `current`、未重启新 API。详见 [`docs/发布/服务端运行时漂移审计-2026-08-31.md`](docs/发布/服务端运行时漂移审计-2026-08-31.md) 和 [`docs/发布/候选-9f29eb2-预发布阻断-2026-09-02.md`](docs/发布/候选-9f29eb2-预发布阻断-2026-09-02.md)。是否执行 schema migration 仍需 DBA/运维单独批准。
-- [x] 已通过内网 SSH 和公网只读 smoke 取得当前运行层证据：新 API release `5738a71e...` 为 active/current，旧 Python `8001` 仍监听，API/Worker preflight 显示 production、MySQL/Redis/schema ready；当时线上 schema head 为 `0016_patient_directory_sync_owner_index`，当时仓库 head 为 `0017_outbox_manual_review_state`。当前仓库目标 head 已推进到 `0022_medical_insurance_query_task_version`。该项只完成运行层观测，不代表 Provider、真机或支付业务验收。详见 [`docs/发布/当前运行时只读观察-2026-08-31.md`](docs/发布/当前运行时只读观察-2026-08-31.md)。
+- [x] 已通过内网 SSH 和公网只读 smoke 取得当前运行层证据：新 API release `5738a71e...` 为 active/current，旧 Python `8001` 仍监听，API/Worker preflight 显示 production、MySQL/Redis/schema ready；当时线上 schema head 为 `0016_patient_directory_sync_owner_index`，当时仓库 head 为 `0017_outbox_manual_review_state`。当前仓库目标 head 已推进到 `0030_medical_insurance_owner_patient_fk`。该项只完成运行层观测，不代表 Provider、真机或支付业务验收。详见 [`docs/发布/当前运行时只读观察-2026-08-31.md`](docs/发布/当前运行时只读观察-2026-08-31.md)。
 - [x] 已补齐持久化 503 的后端来源低敏日志字段：MySQL/Redis 适配边界分别投影为固定 `persistenceDependency`，运行时也会拒绝越过 TypeScript 类型的任意字符串，未知实现省略字段；保留现有 503 文案、错误码和重试安全边界。线上旧 release 尚未包含该修正，不能用仓库测试代替真实部署证据。详见 [`docs/发布/当前持久化依赖观察-2026-08-31.md`](docs/发布/当前持久化依赖观察-2026-08-31.md)。
 - [x] 已修正请求日志对公共依赖错误的稳定错误码映射：`PersistenceUnavailableError` 和 `DependencyNotConfiguredError` 不再被 Elysia 的 `UNKNOWN` 覆盖，分别记录 `persistence-temporarily-unavailable` 与 `dependency-not-configured`；线上旧 release 尚未包含该修正，仍需随受控候选发布验证。
 - [x] 已明确 `apps/miniprogram/project.private.config.json` 为本机可选配置：存在时校验 `miniprogramRoot=dist/` 和关闭热重载，干净 checkout 缺失时测试不再因 `undefined` 失败；文件继续被 `.gitignore` 忽略，不提交敏感值。
@@ -391,7 +391,7 @@
 
 ### 11.3 环境模板与构建可复现性：新增 P1/P2
 
-- [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0022_medical_insurance_query_task_version`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
+- [x] 已统一 schema gate 文案：根目录 `.env.example` 与 `infra/systemd/api.env.example` 均引用 `packages/persistence/src/migrate.ts` 的完整迁移清单，并明确当前 migration head 为 `0030_medical_insurance_owner_patient_fk`；两处均保留 `PERSISTENCE_SCHEMA_READY` 仅作显式 gate、不是自动迁移开关的说明。
 - [x] 已明确 `.env.example` 是开发/测试 API 与本地 Worker 模板，`infra/systemd/api.env.example` 是生产 API unit 模板；公共配置以 `packages/config/src/index.ts` 为准，`pnpm env:template:audit` 校验两份模板的职责边界、生产安全默认值和敏感值占位符。`pnpm runtime:preflight` 已用于真实配置的只读依赖探针，生产执行仍必须在服务器受控 shell 中完成。详见 [`infra/README.md`](infra/README.md)。
 - [x] 已建立 GitHub Actions CI，锁定 `.node-version=24.12.0`、`.bun-version=1.4.0`、`pnpm@11.9.0`，使用 `pnpm install --frozen-lockfile` 执行 `pnpm check:candidate`；`pnpm toolchain:audit` 会校验版本文件、`package.json` 和 workflow 的一致性。详见 [`docs/发布/CI与工具链基线.md`](docs/发布/CI与工具链基线.md)。
 - [ ] 生产发布执行器仍保持手动受控：当前服务端 release 之后有未部署运行时代码漂移，且旧 Python 服务必须共存；在补齐受控发布窗口、回滚和线上证据前，不自动化切换或重启线上服务。
@@ -417,16 +417,22 @@
 - [x] 新增 adapter 测试，验证固定路由、加密 envelope 不含明文 `data`、处理中状态和未鉴权 relay 的 fail-closed 行为。
 - [x] 报告迁移文档明确 LIS/PACS/ECG 目录、PEIS/附件/解读缺口；确认未发现需要虚构的独立报告 Worker，报告目录继续走 API 只读链路。
 - [x] 依据最近脱敏日志确认：`apply-pay-settle` 的 `settleStatus=1`、预下单 `payRecord.status=1`、6202 `ordStas=1` 都不是最终支付成功；新端已补充支付最终性微调记录，见 [`docs/迁移/支付最终性微调-2026-09-02.md`](docs/迁移/支付最终性微调-2026-09-02.md)。
-- [x] 新端已补医保证据 `source/finality/authoritative`、6202/6301 `ordStas` 安全分类、金额/权威性对账，以及不接生产 runtime 的医保查单 Worker 骨架；任何未确认结果统一停在 `awaiting_confirmation`，不能直达 `completed`。
+- [x] 新端已补医保证据 `source/finality/authoritative`、6202/6301 `ordStas` 安全分类、金额/权威性对账，以及独立 gate 下的医保查单 Worker；任何未确认结果统一停在 `awaiting_confirmation`，不能直达 `completed`。
 
 ### 13.2 P1/P2：仍需外部材料或后续实现
 
-- [ ] 医保 crypto 实现仍未接入：需要正式 SM2/SM4 golden vector、编码/`userId`/padding 规则和经过验证的 Node/Bun 实现或受控 sidecar；没有这些材料不能打开 `MEDICAL_INSURANCE_READY`。旧实现为 jpype 启动 JVM 调 `msun-openapi-license` JAR 完成签名/加密（`app/utils/java_util.py` 与 `external_library/`），可作为行为参考，但不迁移 JVM/JAR 依赖。2026-09-02 已从规范 v1.3.35 确认 SM4=ECB/PKCS7、SM3withSM2 签名拼接（参数 ASCII 升序 `k=v&…&key=appSecret`，`signData`/`encData` 不参与）与 `appId` 派生 SM4 密钥规则，见 [`docs/迁移/医保FSI接口规范整理-2026-09-02.md`](docs/迁移/医保FSI接口规范整理-2026-09-02.md)；2026-09-03 密钥材料已齐（见第 15 节）：测试环境反馈单提供应用 ID、SM4 数字密钥、渠道 SM2 公私钥与平台公钥，旧 `env/.env.prod` 提供生产 `MBS_APP_ID`/`MBS_APP_SECRET`/`MBS_SM2_PRIVATE_KEY_B64`/`MBS_SM2_OWN_PUBLIC_B64`/`MBS_SM2_PLATFORM_PUBLIC_B64`/`MBS_SM2_USER_ID` 与中转地址，均暂存 `.local/`（gitignored）。golden vector 仍缺，6xxx 经中转的报文层级仍待测试环境回放确认。
-- [x] 医保订单域地基已建立：新端已有 owner-scoped 医保订单、6201 凭证 hash、6302 回调状态落库和 6301 查单任务表；本轮补齐任务的幂等入队、claim 租约与 version CAS。退款/撤销编排和真实 6201/6202 订单入口仍单独验收，provider 凭证不进入普通微信支付表。
-- [ ] 医保 API 与原生页面仍未开放：需先冻结授权回跳、费用来源、现金补缴、订单终态、异常和退款公共 contract，再接入 `apps/api` 与 `apps/miniprogram`。
-- [ ] Worker 仍未接生产医保补偿：已提供可恢复任务仓储（含幂等入队、租约、版本条件更新）、凭证安全边界、provider 查单证据和人工复核骨架；仍需把任务入队接到真实医保订单编排，并完成生产 gateway/凭证/回调验收。报告不增加独立 Worker，除非取得真实后台刷新任务 contract。
+- [x] 医保 crypto 与测试环境报文层已接入：`legacy-fsi-sm-crypto.ts` 已按规范完成 SM2/SM3/SM4 封套和严格验签，6201/6202/6301 走固定加密路由；golden vector、业务数据、Provider/真机验收仍是 `MEDICAL_INSURANCE_READY` 的后续开放条件。密钥材料仍只暂存 `.local/`，不进入仓库。
+- [x] 医保订单域地基已建立：新端已有 owner-scoped 医保订单、6201 凭证 hash、6302 回调状态落库和 6301 查单任务表；本轮补齐任务的幂等入队、claim 租约、version CAS，以及独立密钥保护的短期 6201 凭证上下文（密文、TTL、owner/订单/用途绑定和撤销）。退款/撤销编排和 HIS 回写仍单独验收，provider 凭证不进入普通微信支付表。
+- [x] `miniprogram-pay` 与 `/payments/medical-insurance/*` 已完成最小真实业务接线：授权解析 → 1101 参保信息 → 2.6.65.1/2.27.2.27 真实费用 → 2.1.9/2.1.13 编码 → 2.6.33 个账标志 → 6201 → 6202 → 6301。主患者端仍保持原有关闭态；新项目只有在配置、schema 和 Provider 验收 gate 同时满足时才会发送真实请求。
+- [ ] Worker 代码已接入生产形态的医保补偿路径：任务入队、owner-scoped 凭证、真实 gateway、重试和人工复核均已落地；仍需生产 schema/unit 发布、Provider 业务/回调/终态验收和恢复演练。报告不增加独立 Worker，除非取得真实后台刷新任务 contract。
 - [ ] 报告目录/详情仍缺真实 Provider、公网、字段样例和真机证据；PEIS、PACS/ECG 详情、附件下载和 AI 解读继续关闭。
 - [ ] 微信证书仍未进入新服务配置：旧 PEM 是文件路径语义，而新支付 adapter 要求受控的 PEM 内容/secret mount；在确认部署方式、平台公钥和回调验收前不转换、不上传、不启用。
+
+### 17.3 2026-09-03：6301 查询接线补充
+
+- [x] `packages/adapters/src/legacy-fsi-medical-query.ts` 已把旧 FSI 6301 接到窄的 Worker `query` 能力；查询从 owner-scoped、TTL 约束的加密凭证读取 `payToken` 与 `orgCodg/idNo/userName/idType`，不从 task、URL 或小程序拼接。
+- [x] 6301 无金额的处理中结果沿用已落库订单金额作对账基线；3/4/5/6 仍保持 `settlement_candidate`，不会伪装成 `paid`，并补齐处理、候选、无凭证 fail-closed 测试。
+- [x] 6201/6202 订单编排已经生成并绑定 owner-scoped 加密凭证，6202 非终态会幂等写入 6301 查单任务，6301 直接复用查询凭证；独立 Worker runtime gate 和新订单 Worker 已注册，仍需完成生产 schema/unit 与真实终态证据。本轮没有触发真实 Provider、挂号或支付。
 
 ## 12. 第四轮：按“旧项目全量能力 → 新 Node 服务端 → 原生小程序”的迁移关系复核（2026-09-02）
 
@@ -467,7 +473,7 @@
 | 新 API | `hospital-platform-api-v2.service` 为 `active/enabled`，监听 `10.0.0.3:18081`，live/ready 返回正常，数据库、Redis、schema 探针为 `ok` | 只能证明新 API 进程可运行，不能证明 Provider、支付或真机业务完成 |
 | 新 Worker | 构建产物存在，但 `hospital-platform-worker-v2.service` 为 `inactive/disabled` | outbox、微信通知查单和补偿没有生产常驻闭环；支付/HIS 仍必须关闭 |
 | 生产代码版本 | 远端 `current` 仍指向 `5738a71e...`；本地最新代码为 `902a682d` | `pnpm release:baseline:audit` 按漂移 fail-closed；不能把本地代码当线上代码 |
-| 数据库 schema | 远端观测到 `0016_patient_directory_sync_owner_index`；仓库目标 head 已为 `0022_medical_insurance_query_task_version` | 不能直接切换或执行 Worker；schema migration 需 DBA/运维单独批准 |
+| 数据库 schema | 远端观测到 `0016_patient_directory_sync_owner_index`；仓库目标 head 已为 `0030_medical_insurance_owner_patient_fk` | 不能直接切换或执行 Worker；schema migration 需 DBA/运维单独批准 |
 | 旧服务 | 旧 Python Gunicorn 仍监听 `0.0.0.0:8001` | 当前是新旧共存，不是旧服务已被替换；本轮没有触碰旧进程 |
 | 真实业务证据 | 当前 real-evidence-ready domain 为 0；Provider 4 份材料均 `normalized`、确认数为 0；真机证据 pending | 结构审计通过不等于业务验收通过 |
 
@@ -564,10 +570,10 @@ requiredMaterials 补齐 6201/6202 前置数据源与 wecity；3090 test-v3 分�
 
 ### 17.1 P1：医保订单域（F 批次地基）
 
-- [x] 持久化：`0018_medical_insurance_orders` 已建立医保订单和查单任务表；本轮新增不可变迁移 `0022_medical_insurance_query_task_version`，并将订单/任务字段、索引、外键接入 `migrate.ts` schema manifest。查单任务仓储已支持按 `taskId` 幂等入队、claim 租约和 CAS 更新；6201 凭证仍只存 hash，金额仍按四分项分值保存。
+- [x] 持久化：`0018_medical_insurance_orders` 已建立医保订单和查单任务表；本轮新增不可变迁移 `0022_medical_insurance_query_task_version`、`0023_medical_insurance_credentials`，并将订单/任务/凭证字段、索引、外键接入 `migrate.ts` schema manifest。查单任务仓储已支持按 `taskId` 幂等入队、claim 租约和 CAS 更新；6201 凭证在订单读模型仍只存 hash，provider 调用所需原文仅进入独立 AES-GCM 密文上下文并受 TTL/撤销约束，金额仍按四分项分值保存。
 - [x] domain：医保订单状态机（`created → fee_uploaded(6201) → order_placed(6202) → insurance_settled / cash_pending / awaiting_confirmation / manual_review`）及 6302 金额/最终性校验已存在；本轮把 `MedicalInsuranceQueryTaskRepository` 统一到 domain，任务状态和版本 CAS 不再由 Worker 自定义。
-- [x] Worker 地基：新增 MySQL/内存查单任务仓储，claim 在短事务内完成 `pending → in_progress`、租约和 version 递增，结果更新使用 CAS；Worker 测试已改用 `medicalOrderId/attempts/nextAttemptAt` 公共字段。Provider 凭证安全读取和真实医保 gateway 仍需在下一子步接入，当前不会进入生产循环。
-- [ ] API：`/payments/medical-insurance/*` 服务端编排（费用清单来自 2.27.2.27、caty/医师码映射、acctUsedFlag 判定），回调路由带验签；当前 API 组合根已按 `MEDICAL_INSURANCE_READY` + 完整密钥构造 `createSmCryptoLegacyFsiCrypto` 并注册 6302 回调，真实 `createLegacyFsiGateway` 将在 Worker/订单编排组合根接入，未配置保持 not-configured 503。
+- [x] Worker 地基：新增 MySQL/内存查单任务仓储，claim 在短事务内完成 `pending → in_progress`、租约和 version 递增，结果更新使用 CAS；`MedicalInsuranceOrderReconciliationWorker` 已消费新订单域，Provider 凭证安全读取、真实医保 gateway、非终态入队和独立 runtime gate 已接入，生产 unit/schema/provider 验收仍单独保留。
+- [x] API：`/payments/medical-insurance/*` 已完成服务端编排（费用清单来自 2.27.2.27、caty/医师码映射、acctUsedFlag 判定）；当前组合根按 `MEDICAL_INSURANCE_READY` + 完整密钥 + schema/provider 地址注入真实 gateway，未配置保持 not-configured 503。退款、回调终态和 HIS 回写仍是独立后续能力。
 - [ ] 6201 真实业务闭环：用真实 ecToken/患者/费用清单完成一次测试环境上传→下单→6301 终态，取得脱敏四方证据。
 
 ### 17.2 P1：预约写入与微信支付

@@ -1100,6 +1100,15 @@ test("in-memory medical insurance query tasks use a lease and version CAS", asyn
 	const tasks = createInMemoryMedicalInsuranceQueryTaskRepository([task]);
 	await expect(tasks.insert(task)).resolves.toEqual(task);
 	await expect(
+		tasks.insert({
+			...task,
+			version: 7,
+			attempts: 3,
+			nextAttemptAt: "2026-09-03T00:10:00.000Z",
+			updatedAt: "2026-09-03T00:10:00.000Z",
+		}),
+	).resolves.toEqual(task);
+	await expect(
 		tasks.insert({ ...task, medicalOrderId: "medical-order-other" }),
 	).rejects.toThrow("idempotency payload changed");
 

@@ -100,7 +100,7 @@ describe("6302 结算通知归一化", () => {
 				setlType: "HI",
 				revsToken: "R",
 			}),
-		).not.toThrow();
+		).toThrow();
 	});
 
 	test("通知推导状态：现金为零即全结；金额不一致进等待确认", () => {

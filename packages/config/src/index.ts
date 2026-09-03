@@ -35,6 +35,8 @@ export type RuntimeConfig = {
 	medicalInsuranceReady: boolean;
 	medicalInsuranceRelayUrl: string | undefined;
 	medicalInsuranceDirectBaseUrl: string | undefined;
+	/** 通用 FSI（1101）明文调用的 forward 目标；与 6201/6202 目标不同。 */
+	medicalInsuranceFoundationBaseUrl: string | undefined;
 	medicalInsuranceRelayAuthorizationToken: string | undefined;
 	medicalInsuranceAppId: string | undefined;
 	medicalInsuranceAppSecret: string | undefined;
@@ -44,12 +46,22 @@ export type RuntimeConfig = {
 	medicalInsuranceSm2UserId: string;
 	medicalInsuranceEncryptionEnabled: boolean;
 	medicalInsuranceVerifyStrict: boolean;
+	/** 仅用于医保 payToken 短期上下文密文，必须与微信支付密钥分离。 */
+	medicalInsuranceCredentialEncryptionKey: string | undefined;
+	medicalInsuranceUserQueryBaseUrl: string;
+	medicalInsuranceUserQueryPath: string;
+	medicalInsuranceOrgCode: string;
+	medicalInsuranceHospitalId: string;
+	medicalInsuranceInsutype: string;
+	medicalInsuranceInsuCode: string;
 	/** 众阳患者目录默认关闭；配置完整也不代表 provider 已联调。 */
 	patientDirectoryReady: boolean;
 	/** 预约 AMC 只读目录独立验收，不能随患者目录一起隐式打开。 */
 	appointmentDirectoryReady: boolean;
 	/** 预约历史使用 appointment-server 独立 endpoint，必须单独验收。 */
 	appointmentRecordsReady: boolean;
+	/** 预约占位、写入和取消必须独立验收，不能随只读目录开启。 */
+	appointmentWritesReady: boolean;
 	/** 门诊费用只读目录独立验收；支付和医保结算仍使用其他闸门。 */
 	outpatientPaymentReady: boolean;
 	/** 众阳 2.6.33 所需的服务端渠道标识，必须由院方/Provider 显式确认。 */
@@ -93,6 +105,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "zhongyang-patient-directory"
 		| "zhongyang-appointment-directory"
 		| "zhongyang-appointment-records"
+		| "zhongyang-appointment-writes"
 		| "zhongyang-outpatient-payments"
 		| "zhongyang-medical-records"
 		| "zhongyang-report-directory"
@@ -116,6 +129,16 @@ function isHttpsUrl(value: string | undefined): boolean {
 	if (!value) return false;
 	try {
 		return new URL(value).protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
+function isHttpUrl(value: string | undefined): boolean {
+	if (!value) return false;
+	try {
+		const url = new URL(value);
+		return url.protocol === "http:" || url.protocol === "https:";
 	} catch {
 		return false;
 	}
@@ -225,6 +248,11 @@ export function medicalInsuranceConfigurationMissingFields(
 			value: runtimeConfig.medicalInsuranceDirectBaseUrl,
 		},
 		{
+			name: "MBS_FORWARD_BASE_URL",
+			value: runtimeConfig.medicalInsuranceFoundationBaseUrl,
+		},
+		{ name: "ZHONGYANG_BASE_URL", value: runtimeConfig.zhongyangBaseUrl },
+		{
 			name: "MBS_FORWARD_AUTHORIZATION_TOKEN",
 			value: runtimeConfig.medicalInsuranceRelayAuthorizationToken,
 		},
@@ -243,12 +271,37 @@ export function medicalInsuranceConfigurationMissingFields(
 			value: runtimeConfig.medicalInsuranceSm2PlatformPublicKeyB64,
 		},
 		{ name: "MBS_SM2_USER_ID", value: runtimeConfig.medicalInsuranceSm2UserId },
+		{
+			name: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+			value: runtimeConfig.medicalInsuranceCredentialEncryptionKey,
+		},
 	]);
-	for (const [name, value] of [
-		["MBS_FORWARD_RELAY_URL", runtimeConfig.medicalInsuranceRelayUrl],
-		["MBS_FORWARD_BASE_URL_6201", runtimeConfig.medicalInsuranceDirectBaseUrl],
+	for (const [name, value, requiresHttps] of [
+		["MBS_FORWARD_RELAY_URL", runtimeConfig.medicalInsuranceRelayUrl, true],
+		// 这两个地址只作为 HTTPS relay 请求体中的内部路由目标；旧正式链路
+		// 的医院内网 FSI/HIS 服务使用 HTTP，因此不能误判为公网明文 API。
+		[
+			"MBS_FORWARD_BASE_URL_6201",
+			runtimeConfig.medicalInsuranceDirectBaseUrl,
+			false,
+		],
+		[
+			"MBS_FORWARD_BASE_URL",
+			runtimeConfig.medicalInsuranceFoundationBaseUrl,
+			false,
+		],
+		["ZHONGYANG_BASE_URL", runtimeConfig.zhongyangBaseUrl, true],
 	] as const) {
-		if (value && !isHttpsUrl(value) && !missing.includes(`${name}(https)`)) {
+		if (!value || missing.includes(name)) continue;
+		if (!isHttpUrl(value) && !missing.includes(`${name}(url)`)) {
+			missing.push(`${name}(url)`);
+			continue;
+		}
+		if (
+			requiresHttps &&
+			!isHttpsUrl(value) &&
+			!missing.includes(`${name}(https)`)
+		) {
 			missing.push(`${name}(https)`);
 		}
 	}
@@ -348,6 +401,24 @@ export function appointmentRecordsConfigurationStatus(
 	if (!runtimeConfig.appointmentRecordsReady) return "disabled";
 	return appointmentRecordsConfigurationMissingFields(runtimeConfig).length ===
 		0
+		? "configured"
+		: "incomplete";
+}
+
+export function appointmentWritesConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	return zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		runtimeConfig.appointmentWritesReady,
+	);
+}
+
+export function appointmentWritesConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.appointmentWritesReady) return "disabled";
+	return appointmentWritesConfigurationMissingFields(runtimeConfig).length === 0
 		? "configured"
 		: "incomplete";
 }
@@ -473,6 +544,11 @@ export function providerConfigurationDiagnostics(
 			status: appointmentRecordsConfigurationStatus(runtimeConfig),
 			missingFields:
 				appointmentRecordsConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-appointment-writes" as const,
+			status: appointmentWritesConfigurationStatus(runtimeConfig),
+			missingFields: appointmentWritesConfigurationMissingFields(runtimeConfig),
 		},
 		{
 			name: "zhongyang-outpatient-payments" as const,
@@ -631,6 +707,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		medicalInsuranceReady: boolean(env.MEDICAL_INSURANCE_READY, false),
 		medicalInsuranceRelayUrl: optional(env.MBS_FORWARD_RELAY_URL),
 		medicalInsuranceDirectBaseUrl: optional(env.MBS_FORWARD_BASE_URL_6201),
+		medicalInsuranceFoundationBaseUrl: optional(env.MBS_FORWARD_BASE_URL),
 		medicalInsuranceRelayAuthorizationToken: optional(
 			env.MBS_FORWARD_AUTHORIZATION_TOKEN,
 		),
@@ -645,6 +722,21 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			optional(env.MBS_SM2_USER_ID) ?? "1234567812345678",
 		medicalInsuranceEncryptionEnabled: boolean(env.MBS_ENCRYPT_ENABLE, true),
 		medicalInsuranceVerifyStrict: boolean(env.MBS_SM2_VERIFY_STRICT, true),
+		medicalInsuranceCredentialEncryptionKey: optional(
+			env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY,
+		),
+		medicalInsuranceUserQueryBaseUrl: providerBaseUrl(
+			env.MBS_USER_QUERY_BASE_URL,
+			"https://test-receiver.wecity.qq.com",
+		),
+		medicalInsuranceUserQueryPath:
+			optional(env.MBS_USER_QUERY_PATH) ??
+			"/api/mipuserquery/userQuery/50010828",
+		medicalInsuranceOrgCode:
+			optional(env.MBS_INSURANCE_ORG_CODE) ?? "H14058101270",
+		medicalInsuranceHospitalId: optional(env.MBS_HOSPITAL_ID) ?? "10389001",
+		medicalInsuranceInsutype: optional(env.MBS_INSUTYPE) ?? "310",
+		medicalInsuranceInsuCode: optional(env.MBS_INSU_CODE) ?? "140581",
 		patientDirectoryReady: boolean(
 			env.ZHONGYANG_PATIENT_DIRECTORY_READY,
 			false,
@@ -655,6 +747,10 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		),
 		appointmentRecordsReady: boolean(
 			env.ZHONGYANG_APPOINTMENT_RECORDS_READY,
+			false,
+		),
+		appointmentWritesReady: boolean(
+			env.ZHONGYANG_APPOINTMENT_WRITES_READY,
 			false,
 		),
 		outpatientPaymentReady: boolean(

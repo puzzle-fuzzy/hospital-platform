@@ -52,6 +52,10 @@ export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway 
 		}),
 		uploadFees: async (_input, context) => ({
 			feeUploadId: "fixture-fee-001",
+			payOrdId: "fixture-pay-001",
+			payTokenHash: "fixture-pay-token-hash",
+			mdtrtId: "fixture-mdtrt-001",
+			acctUsedFlag: "",
 			trace: trace(
 				"fixture-medical-insurance",
 				"6201",
@@ -61,7 +65,12 @@ export function createFixtureMedicalInsuranceGateway(): MedicalInsuranceGateway 
 		}),
 		settle: async (_input, context) => ({
 			state: "awaiting_confirmation",
-			amounts: { totalFen: 10_000, insuranceFen: 8_000, cashFen: 2_000 },
+			amounts: {
+				totalFen: 10_000,
+				cashFen: 2_000,
+				personalAccountFen: 3_000,
+				fundFen: 5_000,
+			},
 			source: "6202",
 			providerStatus: "6",
 			finality: "settlement_candidate",

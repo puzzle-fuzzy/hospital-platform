@@ -1,23 +1,24 @@
 import { PAY_CONFIG } from "../../config";
 import {
-	type AppointmentRecord,
+	cancelAppointment,
+	createAppointment,
+	holdAppointment,
 	loadSources,
 	loadTargetSchedule,
+	selectSource,
+	type AppointmentRecord,
+	type CreatedAppointment,
 	type Schedule,
 	type Source,
-	selectSource,
 } from "../../services/appointment";
 import {
 	continueMedicalPayment,
 	navigateToMedicalAuth,
 	readPendingPayment,
+	startMedicalPayment,
+	type PaymentProgress,
 } from "../../services/medical-insurance";
 import { loadPatients, mask, type Patient } from "../../services/patient";
-import {
-	cancelAndRetry,
-	type QuickProgress,
-	runQuickRegistration,
-} from "../../services/quick-registration";
 import { ensureSession } from "../../services/session";
 
 type PageData = {
@@ -37,48 +38,77 @@ type PageData = {
 	error: string;
 };
 
+type RegistrationProgress =
+	| PaymentProgress
+	| "loading-source"
+	| "holding"
+	| "registering";
 let resumingPayment = false;
 
-const progressText: Record<QuickProgress, string> = {
-	checking: "正在检查预约状态",
-	"reading-source": "正在读取号源",
-	registering: "正在预约指定号源",
-	settling: "正在创建医保结算订单",
-	paying: "正在发起医保支付",
+const progressText: Record<RegistrationProgress, string> = {
+	"loading-source": "正在读取指定分时段",
+	holding: "正在占用指定号源",
+	registering: "正在写入预约",
 	authorizing: "请在医保小程序完成授权",
-	insuring: "正在核验医保信息",
+	insuring: "正在上传医保费用",
+	settling: "正在进行医保结算",
 	polling: "正在确认医保结算结果",
-	"wechat-paying": "请完成微信自费支付",
 	success: "挂号和医保支付成功",
 };
 
 function friendlyError(error: unknown): string {
 	const message =
-		error instanceof Error
-			? error.message
-			: "请求失败，请查看开发者工具网络日志";
+		error instanceof Error ? error.message : "请求失败，请查看开发者工具日志";
 	return message.length > 80 ? `${message.slice(0, 80)}…` : message;
 }
 
-type PageInstance = { setData(data: Partial<PageData>): void };
-
-type IndexPageMethods = {
-	bootstrap(): Promise<void>;
-	loadSchedule(): Promise<void>;
-	onPatientChange(event: WechatMiniprogram.PickerChange): void;
-	onQuickRegister(): void;
-	onCancelAndRetry(): void;
-};
+type PageInstance = { setData(data: Partial<PageData>): void; data: PageData };
 
 function setProgress(
 	page: PageInstance,
-	stage: QuickProgress,
+	stage: RegistrationProgress,
 	message?: string,
 ): void {
 	page.setData({ stage, message: message || progressText[stage], error: "" });
 }
 
-Page<PageData, IndexPageMethods>({
+async function registerOnce(
+	page: PageInstance,
+	patient: Patient,
+	schedule: Schedule,
+	source: Source,
+): Promise<CreatedAppointment | null> {
+	setProgress(page, "holding");
+	const hold = await holdAppointment(patient, schedule, source);
+	page.setData({ schedule: { ...schedule, totalFen: hold.totalFen } });
+	setProgress(page, "registering");
+	const appointment = await createAppointment(patient, hold);
+	if (appointment.status === "duplicate") {
+		page.setData({
+			duplicate: {
+				appointmentId: appointment.appointmentId,
+				departmentName: appointment.departmentName,
+				workDate: appointment.workDate,
+				status: "scheduled",
+			},
+		});
+		return null;
+	}
+	return appointment;
+}
+
+Page<
+	PageData,
+	{
+		onLoad(): void;
+		onShow(): void;
+		bootstrap(): Promise<void>;
+		loadSchedule(): Promise<void>;
+		onPatientChange(event: WechatMiniprogram.PickerChange): void;
+		onRegisterAndPay(): void;
+		onCancelAndRetry(): void;
+	}
+>({
 	data: {
 		patients: [],
 		patientNames: [],
@@ -117,7 +147,7 @@ Page<PageData, IndexPageMethods>({
 		app.globalData.authCode = "";
 		resumingPayment = true;
 		this.setData({ busy: true, duplicate: null });
-		setProgress(this, "insuring", "正在继续医保支付");
+		setProgress(this, "insuring", "正在调用新版医保授权接口");
 		void continueMedicalPayment(authCode, pending, (stage, message) =>
 			setProgress(this, stage, message),
 		)
@@ -142,20 +172,20 @@ Page<PageData, IndexPageMethods>({
 			const patients = await loadPatients();
 			const pending = readPendingPayment();
 			const pendingIndex = pending
-				? patients.findIndex((item) => item.patId === pending.patId)
+				? patients.findIndex((item) => item.id === pending.patientId)
 				: -1;
 			const defaultIndex =
 				pendingIndex >= 0 ? pendingIndex : patients.length === 1 ? 0 : -1;
 			const defaultPatient = patients[defaultIndex];
 			this.setData({
 				patients,
-				patientNames: patients.map((item) => item.name),
+				patientNames: patients.map((item) => item.displayName),
 				patientIndex: defaultIndex,
 				hasPendingPayment: Boolean(pending),
 				...(defaultPatient
 					? {
 							patientRelation: defaultPatient.relation || "本人",
-							patientCard: mask(defaultPatient.cardNo || ""),
+							patientCard: mask(defaultPatient.cardNumberMasked),
 						}
 					: {}),
 			});
@@ -168,10 +198,10 @@ Page<PageData, IndexPageMethods>({
 	},
 
 	async loadSchedule() {
-		// 首屏不分叉：预约编排服务在这里加载目标排班和第一个可用号源。
+		setProgress(this, "loading-source", "正在读取新版预约目录");
 		const schedule = await loadTargetSchedule();
 		const source = selectSource(await loadSources(schedule));
-		this.setData({ schedule, source });
+		this.setData({ schedule, source, stage: "", message: "" });
 	},
 
 	onPatientChange(event: WechatMiniprogram.PickerChange) {
@@ -182,18 +212,17 @@ Page<PageData, IndexPageMethods>({
 		this.setData({
 			patientIndex: index,
 			patientRelation: patient.relation,
-			patientCard: mask(patient.cardNo),
+			patientCard: mask(patient.cardNumberMasked),
 			duplicate: null,
 			error: "",
 		});
 	},
 
-	onQuickRegister() {
-		const patient = this.data.patients[this.data.patientIndex];
-		if (!patient || this.data.busy) return;
+	onRegisterAndPay() {
 		const pending = readPendingPayment();
+		if (this.data.busy) return;
 		if (pending) {
-			this.setData({ busy: true, duplicate: null, error: "" });
+			this.setData({ busy: true, error: "" });
 			setProgress(this, "authorizing", "请在医保小程序继续完成授权");
 			void navigateToMedicalAuth()
 				.catch((error: unknown) =>
@@ -205,34 +234,24 @@ Page<PageData, IndexPageMethods>({
 				.finally(() => this.setData({ busy: false }));
 			return;
 		}
-		if (!this.data.source) return;
+		const patient = this.data.patients[this.data.patientIndex];
+		if (!patient) return;
+		const { schedule, source } = this.data;
+		if (!schedule || !source) return;
 		this.setData({ busy: true, duplicate: null, error: "" });
-		void runQuickRegistration(patient, (stage, message) =>
-			setProgress(this, stage, message),
-		)
-			.then((result) => {
-				if (result.kind === "duplicate") {
-					this.setData({
-						duplicate: result.record,
-						schedule: result.schedule,
-						source: result.source,
-						busy: false,
-						message: "检测到已有预约，未重复挂号",
-					});
+		void registerOnce(this, patient, schedule, source)
+			.then(async (appointment) => {
+				if (!appointment) {
+					this.setData({ busy: false, message: "检测到已有预约，未重复挂号" });
 					return;
 				}
-				this.setData({
-					schedule: result.schedule,
-					source: result.source,
-					message: "已创建预约，正在进入医保支付",
-				});
+				this.setData({ message: "预约已写入，正在进入医保授权" });
+				await startMedicalPayment(appointment, (stage, message) =>
+					setProgress(this, stage, message),
+				);
 			})
 			.catch((error: unknown) =>
-				this.setData({
-					error: friendlyError(error),
-					busy: false,
-					message: "流程未完成",
-				}),
+				this.setData({ error: friendlyError(error), message: "流程未完成" }),
 			)
 			.finally(() => {
 				if (!this.data.duplicate) this.setData({ busy: false });
@@ -242,34 +261,36 @@ Page<PageData, IndexPageMethods>({
 	onCancelAndRetry() {
 		const patient = this.data.patients[this.data.patientIndex];
 		const record = this.data.duplicate;
-		if (!patient || !record || this.data.busy) return;
+		const { schedule, source } = this.data;
+		if (!patient || !record || !schedule || !source || this.data.busy) return;
 		wx.showModal({
 			title: "确认取消并重挂？",
-			content: "原预约取消成功后，才会重新预约同一门诊并发起医保支付。",
+			content:
+				"将先调用取消预约接口，取消成功后再重新占号、写入预约并发起医保授权。",
 			confirmText: "确认继续",
 			success: (result) => {
 				if (!result.confirm) return;
-				this.setData({ busy: true, duplicate: null, error: "" });
-				void cancelAndRetry(patient, record, (stage, message) =>
-					setProgress(this, stage, message),
-				)
-					.then((next) => {
-						if (next.kind === "duplicate")
-							this.setData({
-								duplicate: next.record,
-								message: "原预约已处理，但仍检测到有效预约",
-							});
-						else
-							this.setData({
-								schedule: next.schedule,
-								source: next.source,
-								message: "已创建预约，正在进入医保支付",
-							});
+				// 取消成功前保留重复预约卡片，取消接口失败时用户仍能看到
+				// 原预约并可再次处理，不能把失败误显示成“没有重复预约”。
+				this.setData({ busy: true, error: "" });
+				void cancelAppointment(record.appointmentId)
+					.then(() => {
+						this.setData({ duplicate: null });
+						return registerOnce(this, patient, schedule, source);
+					})
+					.then(async (appointment) => {
+						if (!appointment) {
+							this.setData({ message: "取消成功，但仍存在有效预约" });
+							return;
+						}
+						await startMedicalPayment(appointment, (stage, message) =>
+							setProgress(this, stage, message),
+						);
 					})
 					.catch((error: unknown) =>
 						this.setData({
 							error: friendlyError(error),
-							message: "取消或重挂未完成",
+							message: "取消或重新预约未完成",
 						}),
 					)
 					.finally(() => this.setData({ busy: false }));

@@ -11,7 +11,9 @@ const medicalCredentialPath = join(
 
 let medicalOrgChannelCredential = "";
 if (await Bun.file(medicalCredentialPath).exists()) {
-	const localConfig = JSON.parse(await Bun.file(medicalCredentialPath).text()) as {
+	const localConfig = JSON.parse(
+		await Bun.file(medicalCredentialPath).text(),
+	) as {
 		identityVerificationFeedback?: { orgChannelAuthCode?: unknown };
 	};
 	medicalOrgChannelCredential = String(

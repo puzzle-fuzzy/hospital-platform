@@ -9,9 +9,9 @@
 | --- | --- | --- | --- |
 | 小程序登录 | `G:\\fuck\\hospital\\app\\api\\v1\\module_common\\...` 与 `wechat_util.py` | 公网 `/api/v2/auth/wechat` → 内部 `WechatIdentityGateway.exchangeCode` | adapter、平台会话和 v2 路由已实现；真实凭据、schema 和真机验收待完成 |
 | 微信自费 JSAPI | `wechat_medical.py::_build_jsapi_order` | `WechatPaymentGateway.createJsapiOrder` | APIv3 adapter 已实现，默认未接入 |
-| 医保费用上传 | `MbsFsiService.forward_6201` | `MedicalInsuranceGateway.uploadFees` | contract/金额校验已实现，密码 adapter 待实现 |
-| 医保支付下单 | `MbsFsiService.forward_6202` | `MedicalInsuranceGateway.settle` | contract/金额校验已实现，密码 adapter 待实现 |
-| 医保结算查询 | `MbsFsiService.forward_6301` | `MedicalInsuranceGateway.query` | contract/金额校验已实现，密码 adapter 待实现 |
+| 医保费用上传 | `MbsFsiService.forward_6201` | `MedicalInsuranceGateway.uploadFees` | contract/金额校验和真实服务端 adapter 已实现；默认仍由配置/schema/provider gate 保护 |
+| 医保支付下单 | `MbsFsiService.forward_6202` | `MedicalInsuranceGateway.settle` | contract/金额校验和真实服务端 adapter 已实现；默认仍由配置/schema/provider gate 保护 |
+| 医保结算查询 | `MbsFsiService.forward_6301` | `MedicalInsuranceGateway.query` | contract/金额校验和真实服务端 adapter 已实现；默认仍由配置/schema/provider gate 保护 |
 | 医保退款/撤销 | `forward_6203` / `forward_6401` | `legacy-fsi-contract.ts` validators | contract 已拆分，退款状态 port 待补充 |
 | HIS 回写 | 旧项目订单服务的回写调用 | `HospitalSettlementGateway.writeBack` | 待实现 |
 

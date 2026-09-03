@@ -16,7 +16,20 @@ test("not-configured gateways fail closed instead of returning fake success", as
 
 	await expect(
 		gateways.medicalInsurance.authorize(
-			{ authCode: "test-code", patientId: "patient-001" },
+			{
+				authCode: "test-code",
+				patientId: "patient-001",
+				ownerUserId: "owner-001",
+				orderId: "order-001",
+				providerSubject: "openid-001",
+				patient: {
+					providerPatientId: "provider-patient-001",
+					name: "张三",
+					cardNo: "card-001",
+					idNo: "id-001",
+					phone: "13800000000",
+				},
+			},
 			context,
 		),
 	).rejects.toBeInstanceOf(AdapterNotConfiguredError);
@@ -27,15 +40,20 @@ test("fixture gateway exposes traceable synthetic responses", async () => {
 	const result = await gateway.settle(
 		{
 			orderId: "order-001",
+			ownerUserId: "owner-001",
 			authorizationId: "auth-001",
 			feeUploadId: "fee-001",
+			mdtrtId: "mdtrt-001",
+			acctUsedFlag: "",
 		},
 		context,
 	);
 
 	expect(result.state).toBe("awaiting_confirmation");
 	expect(result.amounts.totalFen).toBe(
-		result.amounts.insuranceFen + result.amounts.cashFen,
+		result.amounts.personalAccountFen +
+			result.amounts.fundFen +
+			result.amounts.cashFen,
 	);
 	expect(result.trace).toEqual({
 		provider: "fixture-medical-insurance",
@@ -44,9 +62,16 @@ test("fixture gateway exposes traceable synthetic responses", async () => {
 		providerOrderId: "fixture-pay-001",
 	});
 
-	const queried = await gateway.query({ orderId: "order-001" }, context);
+	const queried = await gateway.query(
+		{ orderId: "order-001", ownerUserId: "owner-001" },
+		context,
+	);
 	expect(queried.state).toBe("awaiting_confirmation");
-	expect(queried.amounts).toEqual(result.amounts);
+	expect(queried.amounts).toEqual({
+		totalFen: result.amounts.totalFen,
+		insuranceFen: result.amounts.personalAccountFen + result.amounts.fundFen,
+		cashFen: result.amounts.cashFen,
+	});
 });
 
 test("provider HTTP boundary adds trace and idempotency headers", async () => {

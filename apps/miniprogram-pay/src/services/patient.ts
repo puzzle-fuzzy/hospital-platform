@@ -1,70 +1,56 @@
-import { asList, asRecord, providerRequest } from "./request";
-import { assertProviderSession } from "./session";
+import { request } from "./request";
 
 export type Patient = {
-	patId: string;
-	name: string;
-	cardNo: string;
-	idNo: string;
-	phone: string;
+	id: string;
+	displayName: string;
 	relation: string;
+	cardNumberMasked: string;
+	clinicalAccess: "ready" | "unavailable";
 };
 
-function firstText(record: Record<string, any>, keys: string[]): string {
-	for (const key of keys) {
-		const value = String(record[key] ?? "").trim();
-		if (value) return value;
-	}
-	return "";
+const RELATION_LABELS: Readonly<Record<string, string>> = {
+	self: "本人",
+	spouse: "配偶",
+	child: "子女",
+	parent: "父母",
+	other: "其他",
+	unknown: "关系未提供",
+	本人: "本人",
+	配偶: "配偶",
+	子女: "子女",
+	父母: "父母",
+	其他: "其他",
+};
+
+function relationLabel(value: unknown): string {
+	const normalized = String(value ?? "").trim();
+	return RELATION_LABELS[normalized] || "关系未提供";
+}
+
+function normalize(value: unknown): Patient {
+	const item = value as Record<string, unknown>;
+	const patient = {
+		id: String(item.id || "").trim(),
+		displayName: String(item.displayName || "").trim(),
+		relation: relationLabel(item.relationship),
+		cardNumberMasked: String(item.cardNumberMasked || "未绑定"),
+		clinicalAccess: item.clinicalAccess === "ready" ? "ready" : "unavailable",
+	} as Patient;
+	if (!patient.id || !patient.displayName)
+		throw new Error("新版平台返回的就诊人不完整");
+	return patient;
 }
 
 export function mask(value: string): string {
-	if (value.length <= 4) return value;
-	return `${value.slice(0, 3)}****${value.slice(-2)}`;
+	return value || "未绑定";
 }
 
-/** 先按 unionId 取绑定就诊人，再补查众阳 patId。 */
+/** 就诊人由新版平台按当前会话返回；页面不接触医院患者号、证件号或手机号。 */
 export async function loadPatients(): Promise<Patient[]> {
-	const session = await assertProviderSession();
-	const bindingResponse = await providerRequest<unknown>({
-		path: "/api/public/patientInfoByUnionId",
-		query: { unionId: session.unionid },
-	});
-	const bindingList = asList<Record<string, any>>(bindingResponse);
-	const bindings =
-		bindingList.length > 0
-			? bindingList
-			: [asRecord(bindingResponse)].filter(
-					(item) => item.patientName || item.patName || item.name,
-				);
-	if (bindings.length === 0) throw new Error("当前微信未绑定就诊人");
-
-	const patients: Patient[] = [];
-	for (const binding of bindings) {
-		const cardNo = firstText(binding, ["cardNo", "card_no", "medicalCardNo"]);
-		const name = firstText(binding, ["patientName", "patName", "name"]);
-		if (!cardNo || !name) continue;
-		const archiveResponse = await providerRequest<unknown>({
-			path: "/msun-middle-aggregate-patient/v1/patInfosFind",
-			query: { type: 3, cardNo, patName: name },
-		});
-		const archive =
-			asList<Record<string, any>>(archiveResponse)[0] ||
-			asRecord(archiveResponse);
-		const patId = firstText(archive, ["patId", "id"]);
-		if (!patId) continue;
-		patients.push({
-			patId,
-			name,
-			cardNo,
-			idNo:
-				firstText(archive, ["idCardNo", "idcardNo", "idNo", "certNo"]) ||
-				firstText(binding, ["idCardNo", "idcardNo"]),
-			phone: firstText(binding, ["mobile", "telephone", "phone"]),
-			relation: firstText(binding, ["relation"]) || "本人",
-		});
-	}
-	if (patients.length === 0)
-		throw new Error("就诊人已绑定，但未找到医院 patId");
+	const data = await request<{ items: unknown[] }>({ path: "/patients" });
+	const patients = (data.items || []).map(normalize);
+	if (patients.length === 0) throw new Error("当前账号未找到可用就诊人");
+	if (patients.some((patient) => patient.clinicalAccess !== "ready"))
+		throw new Error("当前就诊人尚未完成医院档案映射");
 	return patients;
 }

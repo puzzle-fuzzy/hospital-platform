@@ -1,11 +1,11 @@
 type AppGlobalData = {
 	authCode: string;
-	insuranceAuthExtraData: Record<string, any> | null;
+	insuranceAuthExtraData: Record<string, unknown> | null;
 };
 
 App<{ globalData: AppGlobalData }>({
 	globalData: { authCode: "", insuranceAuthExtraData: null },
-	onShow(options: any) {
+	onShow(options) {
 		const extraData = options?.referrerInfo?.extraData;
 		const authCode = String(
 			extraData?.authCode || extraData?.qrcode || "",

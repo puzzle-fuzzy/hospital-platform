@@ -1,6 +1,7 @@
 import cors from "@elysiajs/cors";
 import openapi from "@elysiajs/openapi";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import { DependencyNotConfiguredError } from "@hospital/domain";
 import { Elysia } from "elysia";
 import {
 	type ApplicationServices,
@@ -12,10 +13,12 @@ import {
 	type ReadinessService,
 } from "./infrastructure/readiness";
 import { appointmentsModule } from "./modules/appointments";
+import type { AppointmentWriteService } from "./modules/appointments";
 import { authModule } from "./modules/auth";
 import { healthModule } from "./modules/health";
 import { healthKnowledgeModule } from "./modules/knowledge";
 import { medicalInsuranceModule } from "./modules/medical-insurance";
+import type { MedicalInsuranceRegistrationService } from "./modules/medical-insurance";
 import type { MedicalInsuranceNotificationService } from "./modules/medical-insurance/service";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
@@ -65,6 +68,7 @@ function openApiPlugin() {
 				{ name: "profile", description: "普通个人资料" },
 				{ name: "patients", description: "患者档案" },
 				{ name: "appointments", description: "预约目录" },
+				{ name: "medical-insurance", description: "医保授权与结算" },
 				{ name: "my-doctors", description: "我的医生" },
 				{ name: "knowledge", description: "审核后的健康百科只读内容" },
 				{ name: "reports", description: "检查检验报告目录" },
@@ -84,6 +88,35 @@ export function createApp(options: AppOptions = {}) {
 		});
 	const services = options.services ?? createDefaultApplicationServices();
 	const logger = options.logger ?? createNoopLogger();
+	const appointmentWrites =
+		services.appointmentWrites ??
+		({
+			hold: async () => {
+				throw new DependencyNotConfiguredError("appointment-writes");
+			},
+			register: async () => {
+				throw new DependencyNotConfiguredError("appointment-writes");
+			},
+			cancel: async () => {
+				throw new DependencyNotConfiguredError("appointment-writes");
+			},
+		} as unknown as AppointmentWriteService);
+	const medicalInsurance =
+		services.medicalInsurance ??
+		({
+			authorize: async () => {
+				throw new DependencyNotConfiguredError("medical-insurance");
+			},
+			uploadFees: async () => {
+				throw new DependencyNotConfiguredError("medical-insurance");
+			},
+			settle: async () => {
+				throw new DependencyNotConfiguredError("medical-insurance");
+			},
+			query: async () => {
+				throw new DependencyNotConfiguredError("medical-insurance");
+			},
+		} as unknown as MedicalInsuranceRegistrationService);
 
 	// 患者端公共 contract 采用 fail-closed 输入语义：未知字段不能被 Elysia
 	// 默认 normalize 静默清洗，否则旧端的身份/支付字段可能被误认为已保存。
@@ -119,7 +152,13 @@ export function createApp(options: AppOptions = {}) {
 						: new Elysia({ name: "profile-not-configured" }),
 				)
 				.use(patientsModule(services.patients, services.sessions))
-				.use(appointmentsModule(services.appointments, services.sessions))
+				.use(
+					appointmentsModule(
+						services.appointments,
+						appointmentWrites,
+						services.sessions,
+					),
+				)
 				.use(
 					services.myDoctors
 						? myDoctorsModule(services.myDoctors, services.sessions)
@@ -144,9 +183,11 @@ export function createApp(options: AppOptions = {}) {
 					),
 				)
 				.use(
-					options.medicalInsuranceNotification
-						? medicalInsuranceModule(options.medicalInsuranceNotification)
-						: new Elysia({ name: "medical-insurance-not-configured" }),
+					medicalInsuranceModule(
+						medicalInsurance,
+						services.sessions,
+						options.medicalInsuranceNotification,
+					),
 				),
 		);
 

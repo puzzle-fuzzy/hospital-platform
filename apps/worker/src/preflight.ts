@@ -31,7 +31,8 @@ function errorName(error: unknown): string {
 /**
  * 候选 release 的 preflight 与支付 Worker 启动是两个不同的门禁：
  * - preflight 只验证 API/只读业务所需的持久化基础设施；支付关闭是当前合法状态；
- * - Worker 启动仍由 `workerConfigurationMissingFields` 严格要求支付密钥和完整商户配置。
+ * - Worker 启动仍由 `workerConfigurationMissingFields` 对已打开的微信支付或医保 gate
+ *   分别要求各自的完整配置；两个 gate 彼此独立 fail-closed。
  *
  * 如果这里复用 Worker 的严格检查，支付尚未迁移完成时所有候选 release 都会被错误判定为
  * 不可发布；如果反过来放宽 Worker 检查，则可能启动没有密钥的支付补偿进程。两个边界必须分开。

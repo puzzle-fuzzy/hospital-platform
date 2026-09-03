@@ -21,6 +21,7 @@ import {
 	validate6301Request,
 	validate6401Request,
 	validate6401Response,
+	unwrapLegacyFsiData,
 } from "./legacy-fsi-contract";
 import {
 	type LegacyFsiCryptoGateway,
@@ -42,6 +43,8 @@ export type LegacyFsiGatewayOptions = {
 
 export type LegacyFsiFeeUploadResult = {
 	credential: LegacyFsiFeeUploadCredential;
+	/** 6201 返回的真实就诊/医保结算号；未返回时上层必须停止 6202。 */
+	mdtrtId?: string;
 	totalFen: number;
 	trace: ExternalTrace;
 };
@@ -212,8 +215,17 @@ export function createLegacyFsiGateway(
 		async uploadFees(data, context) {
 			const { totalFen } = validate6201FeeUpload(data);
 			const response = await call("6201", data, context);
+			const credential = validate6201Response(response.data);
+			const payload = unwrapLegacyFsiData(response.data, "6201");
+			const mdtrtId =
+				typeof payload.mdtrtId === "string" && payload.mdtrtId.trim()
+					? payload.mdtrtId.trim()
+					: typeof payload.mdtrt_id === "string" && payload.mdtrt_id.trim()
+						? payload.mdtrt_id.trim()
+						: undefined;
 			return {
-				credential: validate6201Response(response.data),
+				credential,
+				...(mdtrtId ? { mdtrtId } : {}),
 				totalFen,
 				trace: trace("6201", response.requestId),
 			};

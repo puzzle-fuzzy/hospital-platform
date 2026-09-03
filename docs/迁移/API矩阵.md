@@ -70,11 +70,11 @@
 
 | 旧路径 | 目标边界 | 关键规则 | 状态 |
 | --- | --- | --- | --- |
-| `POST /common/mip-user-query` | `POST /api/v1/payments/insurance/authorization` | 授权码只在服务端兑换；不把 provider 凭证返回小程序 | 待实现 |
-| `POST /common/mbs-fsi/1101` | `MedicalInsuranceGateway.getPerson` | 只允许由支付编排服务调用 | 待实现 |
-| `POST /common/mbs-fsi/6201` | `MedicalInsuranceGateway.uploadFees` | 费用明细必须来自真实结算信息 | 待实现 |
-| `POST /common/mbs-fsi/6202` | `MedicalInsuranceGateway.createSettlement` | 6202 返回的医保订单与金额必须落库 | 待实现 |
-| `POST /common/mbs-fsi/6301` | `MedicalInsuranceGateway.querySettlement` | 查单是补偿路径，不是前端猜状态 | 待实现 |
+| `POST /common/mip-user-query` | `POST /api/v1/payments/insurance/authorization` | 授权码只在服务端兑换；不把 provider 凭证返回小程序 | 服务端已实现；配置、schema 和 provider/真机验收后才开放 |
+| `POST /common/mbs-fsi/1101` | `MedicalInsuranceGateway` 内部授权解析 | 只允许由支付编排服务调用；参保信息只在服务端上下文内使用 | 服务端已实现；配置、schema 和 provider验收后才开放 |
+| `POST /common/mbs-fsi/6201` | `MedicalInsuranceGateway.uploadFees` | 费用明细必须来自真实结算信息 | 服务端已实现；配置、schema 和 provider验收后才开放 |
+| `POST /common/mbs-fsi/6202` | `MedicalInsuranceGateway.settle` | 6202 返回的医保订单与金额必须落库 | 服务端已实现；配置、schema 和 provider验收后才开放 |
+| `POST /common/mbs-fsi/6301` | `MedicalInsuranceGateway.query` | 查单是补偿路径，不是前端猜状态 | 服务端已实现；配置、schema 和 provider验收后才开放 |
 | `POST /common/mbs-fsi/6203` | `MedicalInsuranceGateway.refund` | 退款必须绑定已落库支付订单和金额 | 待实现 |
 | `POST /common/mbs-fsi/6302` | `POST /api/v1/webhooks/medical-insurance/settlement` | 公开回调验签、去重、入事件表后异步处理 | 待实现 |
 | `POST /common/mbs-fsi/wechat-med-ins/*` | `WechatPaymentGateway` | 微信医保混合支付只暴露启动/查询结果视图 | 待实现 |
@@ -117,5 +117,6 @@
 
 门诊结算、支付查单、关单、取消结算和医保回写的补充材料已单独登记为
 [`../提供商接入/2026-08-16-门诊结算医保.md`](../提供商接入/2026-08-16-门诊结算医保.md)，
-当前同样是 `normalized`。它们补充了流程顺序和高风险副作用，但没有改变本节支付/医保 API 的“待实现”状态；
-2.6.65.5、2.6.65.6、2.6.65.11 和 2.27.2.32 仍不能进入公共 route 或生产 gate。
+当前同样是 `normalized`。它们补充了流程顺序和高风险副作用，但没有改变本节退款、回调、微信混合支付和 HIS 回写仍未接入的状态；
+2.6.65.5、2.6.65.6、2.6.65.11 和 2.27.2.32 仍不能进入公共 route 或生产 gate。授权解析、1101、6201、6202、6301
+已经由服务端真实 adapter 串起，但仍受 `MEDICAL_INSURANCE_READY`、凭证、HTTPS 上游和迁移 schema gate 共同保护。

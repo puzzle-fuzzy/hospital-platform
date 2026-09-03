@@ -1,9 +1,13 @@
 import {
 	createSmCryptoLegacyFsiCrypto,
+	createLegacyFsiGateway,
+	createLegacyFsiMedicalInsuranceGateway,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
 	createZhongyangAppointmentGateway,
+	createZhongyangAppointmentPatientProfileGateway,
+	createZhongyangAppointmentWriteGateway,
 	createZhongyangOutpatientPaymentGateway,
 	createZhongyangPatientGateway,
 	createZhongyangReportGateway,
@@ -13,7 +17,10 @@ import {
 	appointmentDirectoryConfigurationStatus,
 	appointmentRecordsConfigurationMissingFields,
 	appointmentRecordsConfigurationStatus,
+	appointmentWritesConfigurationMissingFields,
+	appointmentWritesConfigurationStatus,
 	medicalInsuranceConfigurationMissingFields,
+	medicalInsuranceConfigurationStatus,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
 	patientDirectoryConfigurationMissingFields,
@@ -64,6 +71,9 @@ const appointmentDirectoryMissing =
 const appointmentRecordsStatus = appointmentRecordsConfigurationStatus(config);
 const appointmentRecordsMissing =
 	appointmentRecordsConfigurationMissingFields(config);
+const appointmentWritesStatus = appointmentWritesConfigurationStatus(config);
+const appointmentWritesMissing =
+	appointmentWritesConfigurationMissingFields(config);
 const outpatientPaymentStatus = outpatientPaymentConfigurationStatus(config);
 const outpatientPaymentMissing =
 	outpatientPaymentConfigurationMissingFields(config);
@@ -78,6 +88,12 @@ const persistence = createPersistenceRuntime({
 	logger,
 	...(config.paymentDataEncryptionKey
 		? { paymentDataEncryptionKey: config.paymentDataEncryptionKey }
+		: {}),
+	...(config.medicalInsuranceCredentialEncryptionKey
+		? {
+				medicalInsuranceCredentialEncryptionKey:
+					config.medicalInsuranceCredentialEncryptionKey,
+			}
 		: {}),
 	useRepositories: config.persistenceSchemaReady,
 });
@@ -135,6 +151,24 @@ const appointmentDepartmentTreeGateway =
 	appointmentDirectoryStatus === "configured" ? appointmentGateway : undefined;
 const appointmentRecordDirectoryGateway =
 	appointmentRecordsStatus === "configured" ? appointmentGateway : undefined;
+const appointmentPatientProfileGateway =
+	appointmentWritesStatus === "configured" && config.zhongyangBaseUrl
+		? createZhongyangAppointmentPatientProfileGateway({
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
+					? { authorizationToken: config.zhongyangAuthorizationToken }
+					: {}),
+			})
+		: undefined;
+const appointmentWriteGateway =
+	appointmentWritesStatus === "configured" && config.zhongyangBaseUrl
+		? createZhongyangAppointmentWriteGateway({
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
+					? { authorizationToken: config.zhongyangAuthorizationToken }
+					: {}),
+			})
+		: undefined;
 const outpatientPaymentGateway =
 	outpatientPaymentStatus === "configured" && config.zhongyangBaseUrl
 		? createZhongyangOutpatientPaymentGateway({
@@ -196,17 +230,16 @@ const medicalInsuranceMissing =
 	medicalInsuranceConfigurationMissingFields(config);
 const medicalInsuranceReady =
 	config.medicalInsuranceReady && medicalInsuranceMissing.length === 0;
-const medicalInsuranceCrypto =
-	medicalInsuranceReady && config.zhongyangBaseUrl
-		? createSmCryptoLegacyFsiCrypto({
-				appId: config.medicalInsuranceAppId ?? "",
-				appSecret: config.medicalInsuranceAppSecret ?? "",
-				channelPrivateKeyB64: config.medicalInsuranceSm2PrivateKeyB64 ?? "",
-				platformPublicKeyB64:
-					config.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
-				sm2UserId: config.medicalInsuranceSm2UserId,
-			})
-		: undefined;
+const medicalInsuranceCrypto = medicalInsuranceReady
+	? createSmCryptoLegacyFsiCrypto({
+			appId: config.medicalInsuranceAppId ?? "",
+			appSecret: config.medicalInsuranceAppSecret ?? "",
+			channelPrivateKeyB64: config.medicalInsuranceSm2PrivateKeyB64 ?? "",
+			platformPublicKeyB64:
+				config.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
+			sm2UserId: config.medicalInsuranceSm2UserId,
+		})
+	: undefined;
 const medicalInsuranceNotification =
 	medicalInsuranceCrypto && persistence.repositories
 		? new MedicalInsuranceNotificationService({
@@ -232,6 +265,39 @@ const readyRepositories = selectReadyRepositories(
 	persistence.repositories,
 	startupSchemaProbe,
 );
+const legacyFsiGateway =
+	medicalInsuranceReady && medicalInsuranceCrypto
+		? createLegacyFsiGateway({
+				relayUrl: config.medicalInsuranceRelayUrl ?? "",
+				directBaseUrl: config.medicalInsuranceDirectBaseUrl ?? "",
+				relayAuthorizationToken:
+					config.medicalInsuranceRelayAuthorizationToken ?? "",
+				crypto: medicalInsuranceCrypto,
+			})
+		: undefined;
+const medicalInsuranceGateway =
+	legacyFsiGateway && readyRepositories && config.zhongyangBaseUrl
+		? createLegacyFsiMedicalInsuranceGateway({
+				legacyFsi: legacyFsiGateway,
+				orders: readyRepositories.medicalInsuranceOrders,
+				authorizations: readyRepositories.medicalInsuranceAuthorizations,
+				credentials: readyRepositories.medicalInsuranceCredentials,
+				relayUrl: config.medicalInsuranceRelayUrl ?? "",
+				relayAuthorizationToken:
+					config.medicalInsuranceRelayAuthorizationToken ?? "",
+				foundationBaseUrl: config.medicalInsuranceFoundationBaseUrl ?? "",
+				zhongyangBaseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
+					? { zhongyangAuthorizationToken: config.zhongyangAuthorizationToken }
+					: {}),
+				userQueryBaseUrl: config.medicalInsuranceUserQueryBaseUrl,
+				userQueryPath: config.medicalInsuranceUserQueryPath,
+				orgCode: config.medicalInsuranceOrgCode,
+				hospitalId: config.medicalInsuranceHospitalId,
+				insutype: config.medicalInsuranceInsutype,
+				insuCode: config.medicalInsuranceInsuCode,
+			})
+		: undefined;
 // 登录能力必须同时具备微信身份 adapter、MySQL 身份仓储和 Redis 会话存储；
 // 任意一项缺失都记录为 fail-closed，避免启动日志把“配置完整”误报成“可登录”。
 const authRuntimeStatus =
@@ -258,6 +324,10 @@ const app = createApp({
 		...(appointmentRecordDirectoryGateway
 			? { appointmentRecordDirectoryGateway }
 			: {}),
+		...(appointmentPatientProfileGateway
+			? { appointmentPatientProfileGateway }
+			: {}),
+		...(appointmentWriteGateway ? { appointmentWriteGateway } : {}),
 		...(outpatientPaymentGateway ? { outpatientPaymentGateway } : {}),
 		outpatientPaymentAuthSysCode: config.outpatientPaymentAuthSysCode,
 		...(reportDirectoryGateway ? { reportDirectoryGateway } : {}),
@@ -266,6 +336,7 @@ const app = createApp({
 			? { wechatPaymentNotificationDecoder }
 			: {}),
 		...(medicalInsuranceNotification ? { medicalInsuranceNotification } : {}),
+		...(medicalInsuranceGateway ? { medicalInsuranceGateway } : {}),
 	}),
 	wechatPaymentEnabled,
 	readiness: createReadinessService({
@@ -336,20 +407,29 @@ logger.info(
 		wechatIdentityConfiguration: wechatIdentityStatus,
 		wechatPaymentConfiguration: wechatPaymentStatus,
 		wechatPaymentRuntime: wechatPaymentEnabled ? "enabled" : "fail_closed",
+		medicalInsuranceConfiguration: medicalInsuranceConfigurationStatus(config),
+		medicalInsuranceRuntime: medicalInsuranceGateway
+			? "enabled"
+			: "fail_closed",
 		patientDirectoryConfiguration: patientDirectoryStatus,
 		appointmentDirectoryConfiguration: appointmentDirectoryStatus,
 		appointmentRecordsConfiguration: appointmentRecordsStatus,
+		appointmentWritesConfiguration: appointmentWritesStatus,
 		outpatientPaymentConfiguration: outpatientPaymentStatus,
 		reportDirectoryConfiguration: reportDirectoryStatus,
 		reportDetailConfiguration: reportDetailStatus,
 		...(wechatIdentityMissing.length > 0 ? { wechatIdentityMissing } : {}),
 		...(wechatPaymentMissing.length > 0 ? { wechatPaymentMissing } : {}),
+		...(medicalInsuranceMissing.length > 0 ? { medicalInsuranceMissing } : {}),
 		...(patientDirectoryMissing.length > 0 ? { patientDirectoryMissing } : {}),
 		...(appointmentDirectoryMissing.length > 0
 			? { appointmentDirectoryMissing }
 			: {}),
 		...(appointmentRecordsMissing.length > 0
 			? { appointmentRecordsMissing }
+			: {}),
+		...(appointmentWritesMissing.length > 0
+			? { appointmentWritesMissing }
 			: {}),
 		...(outpatientPaymentMissing.length > 0
 			? { outpatientPaymentMissing }

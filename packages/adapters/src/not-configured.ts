@@ -2,6 +2,8 @@ import type {
 	AppointmentDepartmentTreeGateway,
 	AppointmentDirectoryGateway,
 	AppointmentRecordDirectoryGateway,
+	AppointmentPatientProfileGateway,
+	AppointmentWriteGateway,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
 	OutpatientMedicalRecordGateway,
@@ -35,6 +37,8 @@ export type NotConfiguredGateways = {
 	appointmentDirectory: AppointmentDirectoryGateway;
 	appointmentDepartmentTree: AppointmentDepartmentTreeGateway;
 	appointmentRecords: AppointmentRecordDirectoryGateway;
+	appointmentPatientProfile: AppointmentPatientProfileGateway;
+	appointmentWrites: AppointmentWriteGateway;
 	outpatientPayments: OutpatientPaymentGateway;
 	outpatientMedicalRecords: OutpatientMedicalRecordGateway;
 	wechatPayment: WechatPaymentGateway;
@@ -66,6 +70,16 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 	const appointmentRecords: AppointmentRecordDirectoryGateway = {
 		listRecords: async (_input, _context) => unavailable("zhongyang"),
 	};
+	const appointmentPatientProfile: AppointmentPatientProfileGateway = {
+		resolve: async (_input, _context) => unavailable("zhongyang"),
+	};
+	const appointmentWrites: AppointmentWriteGateway = {
+		resolveSource: async (_input, _context) => unavailable("zhongyang"),
+		getFactRegisterFee: async (_input, _context) => unavailable("zhongyang"),
+		listActive: async (_input, _context) => unavailable("zhongyang"),
+		create: async (_input, _context) => unavailable("zhongyang"),
+		cancel: async (_input, _context) => unavailable("zhongyang"),
+	};
 	const outpatientPayments: OutpatientPaymentGateway = {
 		listRecords: async (_input, _context) => unavailable("zhongyang"),
 	};
@@ -91,6 +105,8 @@ export function createNotConfiguredGateways(): NotConfiguredGateways {
 		appointmentDirectory,
 		appointmentDepartmentTree,
 		appointmentRecords,
+		appointmentPatientProfile,
+		appointmentWrites,
 		outpatientPayments,
 		outpatientMedicalRecords,
 		wechatPayment,

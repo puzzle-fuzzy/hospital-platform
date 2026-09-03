@@ -57,6 +57,10 @@ const ALLOWED_TRANSITIONS: Record<
 	created: ["fee_uploaded", "failed", "manual_review"],
 	fee_uploaded: [
 		"order_placed",
+		// 6202 may return a final candidate in the same command; the adapter
+		// then completes 2.27.2.32 → 2.6.65.5 before the service persists it.
+		"insurance_settled",
+		"cash_pending",
 		"awaiting_confirmation",
 		"failed",
 		"manual_review",
@@ -150,11 +154,21 @@ export type MedicalInsuranceOrder = {
 	medicalOrderId: string;
 	ownerUserId: string;
 	patientId: string;
+	/** 预约医保链路关联的服务端 opaque appointment 引用。 */
+	appointmentId?: string;
+	/** 授权成功后保存的服务端引用；原始 authCode 永不落库。 */
+	authorizationId?: string | null;
+	/** 6201 成功后的服务端费用上传引用，原始 payToken 仍只在凭证仓储内。 */
+	feeUploadId?: string | null;
 	idempotencyKey: string;
 	medOrgOrd: string;
 	chrgBchno: string;
 	payOrdId: string | null;
 	payTokenHash: string | null;
+	/** 6201 返回并供 6202 关联的就诊/医保结算号。 */
+	mdtrtId?: string | null;
+	/** 2.6.33 + 1101 推导出的 6202 个账支付标志；空串表示按医保中心默认规则。 */
+	acctUsedFlag?: string | null;
 	status: MedicalInsuranceOrderStatus;
 	ordStas: string | null;
 	amounts: MedicalInsuranceAmounts | null;
@@ -165,6 +179,27 @@ export type MedicalInsuranceOrder = {
 	version: number;
 	createdAt: string;
 	updatedAt: string;
+};
+
+/**
+ * 医保后置回写所需的服务端事实。
+ *
+ * 这些字段来自 2.6.65.1、2.27.2.27、2.6.33、1101 和 2.6.65.2，
+ * 只能通过 owner-scoped 加密仓储交给医保 adapter，不能进入订单读模型、
+ * API response、日志或 outbox。
+ */
+export type MedicalInsuranceSettlementContext = {
+	businessId: string;
+	businessCode?: string;
+	hospitalId: string;
+	patientId: string;
+	networkRegister: Record<string, unknown>;
+	outNetworkSettleMain: Record<string, unknown>;
+	nationalUpDetailList: readonly Record<string, unknown>[];
+	upDetailList: readonly Record<string, unknown>[];
+	tradeOrderIds: readonly string[];
+	payingId: string;
+	tradingId: string;
 };
 
 /** 6302 结算结果通知的已解密事实（open 之后进入 domain 的形状）。 */
@@ -252,6 +287,11 @@ export function normalizeMedicalInsuranceSettlementNotification(
 		setlType: setlTypeRaw,
 		revsToken: text("revsToken", 64),
 	};
+	if (notification.callType !== "02") {
+		throw new InvalidMedicalInsuranceNotificationError(
+			"callType must be 02 for a payment-success notification",
+		);
+	}
 	assertValidMedicalInsuranceAmounts({
 		totalFen: notification.feeSumamt,
 		cashFen: notification.ownPayAmt,
@@ -322,7 +362,8 @@ export const MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS = 12;
  */
 export interface MedicalInsuranceQueryTaskRepository {
 	/**
-	 * 以 taskId 幂等入队；相同 taskId 但指向另一订单或不同调度内容必须拒绝。
+	 * 以 taskId 幂等入队；taskId 指向另一订单时必须拒绝，已存在任务的状态、版本
+	 * 和调度字段以数据库权威行返回，不能被重新入队覆盖。
 	 */
 	insert(task: MedicalInsuranceQueryTask): Promise<MedicalInsuranceQueryTask>;
 	claimDueForQuery(
@@ -355,11 +396,27 @@ export function isValidMedicalInsuranceReference(value: unknown): boolean {
  */
 export interface MedicalInsuranceOrderRepository {
 	insert(order: MedicalInsuranceOrder): Promise<MedicalInsuranceOrder>;
+	findByMedicalOrderId(
+		medicalOrderId: string,
+	): Promise<MedicalInsuranceOrder | undefined>;
 	findByPayOrdId(payOrdId: string): Promise<MedicalInsuranceOrder | undefined>;
+	findByOwnerAndAppointmentId(
+		ownerUserId: string,
+		appointmentId: string,
+	): Promise<MedicalInsuranceOrder | undefined>;
 	findByOwnerAndIdempotencyKey(
 		ownerUserId: string,
 		idempotencyKey: string,
 	): Promise<MedicalInsuranceOrder | undefined>;
+	saveSettlementContext(
+		ownerUserId: string,
+		medicalOrderId: string,
+		context: MedicalInsuranceSettlementContext,
+	): Promise<void>;
+	getSettlementContext(
+		ownerUserId: string,
+		medicalOrderId: string,
+	): Promise<MedicalInsuranceSettlementContext | undefined>;
 	applySettlement(
 		medicalOrderId: string,
 		expectedVersion: number,
@@ -370,6 +427,13 @@ export interface MedicalInsuranceOrderRepository {
 			setlType: "ALL" | "CASH" | "HI" | null;
 			revsTokenHash: string | null;
 			revsTokenExpiresAt: string | null;
+			appointmentId?: string;
+			authorizationId?: string | null;
+			feeUploadId?: string | null;
+			payOrdId?: string | null;
+			payTokenHash?: string | null;
+			mdtrtId?: string | null;
+			acctUsedFlag?: string | null;
 		},
 	): Promise<MedicalInsuranceOrder | undefined>;
 }

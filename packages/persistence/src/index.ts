@@ -37,9 +37,12 @@ export {
 	type RedisSessionTtlAuditResult,
 } from "./redis-session-ttl-audit";
 export {
+	createInMemoryAppointmentWriteRepository,
 	createInMemoryAppointmentScheduleSnapshotRepository,
 	createInMemoryIdentityUserRepository,
 	createInMemoryMedicalInsuranceOrderRepository,
+	createInMemoryMedicalInsuranceCredentialRepository,
+	createInMemoryMedicalInsuranceAuthorizationRepository,
 	createInMemoryMedicalInsuranceQueryTaskRepository,
 	createInMemoryMyDoctorRepository,
 	createInMemoryPatientRepository,

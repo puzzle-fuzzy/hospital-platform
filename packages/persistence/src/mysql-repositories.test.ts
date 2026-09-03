@@ -1415,6 +1415,23 @@ test("MySQL medical insurance query task insert is idempotent and rejects drift"
 				updated_at: now,
 			},
 		],
+		{ affectedRows: 0 },
+		[
+			{
+				task_id: task.taskId,
+				medical_order_id: task.medicalOrderId,
+				status: task.status,
+				attempts: "0",
+				max_attempts: "12",
+				version: "1",
+				next_attempt_at: now,
+				claimed_until: null,
+				terminal_ord_stas: null,
+				last_error_code: null,
+				created_at: now,
+				updated_at: now,
+			},
+		],
 	]);
 	const repositories = createMySqlRepositories(pool);
 
@@ -1424,6 +1441,15 @@ test("MySQL medical insurance query task insert is idempotent and rejects drift"
 	expect(state.statements[0]).toContain(
 		"ON DUPLICATE KEY UPDATE task_id = task_id",
 	);
+	await expect(
+		repositories.medicalInsuranceQueryTasks.insert({
+			...task,
+			version: 7,
+			attempts: 3,
+			nextAttemptAt: "2026-09-03T00:10:00.000Z",
+			updatedAt: "2026-09-03T00:10:00.000Z",
+		}),
+	).resolves.toEqual(task);
 
 	const driftPool = createFakePool([
 		{ affectedRows: 0 },
@@ -1448,6 +1474,77 @@ test("MySQL medical insurance query task insert is idempotent and rejects drift"
 	await expect(
 		driftRepositories.medicalInsuranceQueryTasks.insert(task),
 	).rejects.toThrow("idempotency payload changed");
+});
+
+test("MySQL medical insurance credentials store ciphertext and enforce scoped reads", async () => {
+	const key = Buffer.alloc(32, 8).toString("base64");
+	const input = {
+		credentialId: "credential-001",
+		ownerUserId: "user-001",
+		medicalOrderId: "medical-order-001",
+		payOrdId: "pay-ord-001",
+		payToken: "provider-token-secret",
+		providerQueryIdentity: {
+			orgCodg: "org-001",
+			idNo: "masked-id-001",
+			userName: "测试用户",
+			idType: "01",
+		},
+		purpose: "query" as const,
+		expiresAt: "2026-09-03T12:00:00.000Z",
+		createdAt: "2026-09-03T10:00:00.000Z",
+	};
+	const payloadCiphertext = createAesGcmSecretValueCipher(key).seal(
+		JSON.stringify({
+			payToken: input.payToken,
+			providerQueryIdentity: input.providerQueryIdentity,
+		}),
+	);
+	const row = {
+		credential_id: input.credentialId,
+		owner_user_id: input.ownerUserId,
+		medical_order_id: input.medicalOrderId,
+		pay_ord_id: input.payOrdId,
+		purpose: input.purpose,
+		payload_ciphertext: payloadCiphertext,
+		expires_at: "2026-09-03 12:00:00.000",
+		created_at: "2026-09-03 10:00:00.000",
+	};
+	const putPool = createFakePool([{ affectedRows: 1 }, [row]]);
+	const repositories = createMySqlRepositories(putPool.pool, {
+		medicalInsuranceCredentialEncryptionKey: key,
+	});
+	await expect(
+		repositories.medicalInsuranceCredentials.put(input),
+	).resolves.toMatchObject({
+		credentialId: input.credentialId,
+		payOrdId: input.payOrdId,
+		purpose: input.purpose,
+	});
+	expect(putPool.state.values[0]?.[5]).not.toBe(input.payToken);
+
+	const getPool = createFakePool([[row]]);
+	const getRepositories = createMySqlRepositories(getPool.pool, {
+		medicalInsuranceCredentialEncryptionKey: key,
+	});
+	await expect(
+		getRepositories.medicalInsuranceCredentials.get({
+			credentialId: input.credentialId,
+			ownerUserId: input.ownerUserId,
+			medicalOrderId: input.medicalOrderId,
+			purpose: input.purpose,
+			now: "2026-09-03T11:00:00.000Z",
+		}),
+	).resolves.toMatchObject(input);
+	await expect(
+		getRepositories.medicalInsuranceCredentials.get({
+			credentialId: input.credentialId,
+			ownerUserId: "another-user",
+			medicalOrderId: input.medicalOrderId,
+			purpose: input.purpose,
+			now: "2026-09-03T11:00:00.000Z",
+		}),
+	).resolves.toBeUndefined();
 });
 
 test("MySQL appointment snapshot rejects implicit zero slot counts", async () => {

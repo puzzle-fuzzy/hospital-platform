@@ -1,273 +1,165 @@
 import { PAY_CONFIG } from "../config";
 import type { Patient } from "./patient";
-import { asList, asRecord, providerRequest } from "./request";
+import { asList, asRecord, newIdempotencyKey, request } from "./request";
 
 export type Schedule = {
-	hisScheduleId: string;
-	deptId: string;
-	deptCode: string;
-	deptName: string;
-	docId: string;
-	docCode: string;
-	docName: string;
+	scheduleId: string;
+	departmentId: string;
+	departmentName: string;
+	doctorId: string;
+	doctorName: string;
 	workDate: string;
 	shiftName: string;
-	registrationFee: number;
-	registerClassName: string;
-	roomAddr: string;
-	hospitalId: string;
+	totalSlots: number;
+	availableSlots: number;
+	timeGroup: "point" | "range" | "unknown";
+	startTime?: string;
+	endTime?: string;
+	totalFen?: number;
 };
 
 export type Source = {
-	sourceId: string;
-	hisScheduleId: string;
-	workDate: string;
-	workTime: string;
 	serialNumber: string;
-	groupStart: string;
-	groupEnd: string;
-	appendFlag: string;
+	timeLabel: string;
+	timeGroup: "point" | "range";
 };
 
 export type AppointmentRecord = {
-	appointmentInfoId: string;
-	patId: string;
-	patName: string;
-	deptName: string;
+	appointmentId: string;
+	departmentName?: string;
 	workDate: string;
-	status: number;
-	statusName: string;
-	registerId: string;
-	hisRegisterId: string;
-	isPay: string;
+	status: string;
 };
 
-function text(record: Record<string, any>, keys: string[]): string {
-	for (const key of keys) {
-		const value = String(record[key] ?? "").trim();
-		if (value) return value;
-	}
-	return "";
+function record(value: unknown): Record<string, unknown> {
+	return asRecord(value);
 }
 
-function number(record: Record<string, any>, keys: string[]): number {
-	for (const key of keys) {
-		const value = Number(record[key]);
-		if (Number.isFinite(value)) return value;
-	}
-	return 0;
+function text(value: unknown, key: string): string {
+	return String(record(value)[key] ?? "").trim();
 }
 
-function mapSchedule(value: Record<string, any>): Schedule {
-	return {
-		hisScheduleId: text(value, ["hisScheduleId", "scheduleId"]),
-		deptId: text(value, ["deptId"]),
-		deptCode: text(value, ["deptCode"]),
-		deptName: text(value, ["deptName"]),
-		docId: text(value, ["docId"]),
-		docCode: text(value, ["docCode", "docId"]),
-		docName: text(value, ["docName"]),
-		workDate: text(value, ["workDate"]),
-		shiftName: text(value, ["shiftName"]),
-		registrationFee: number(value, ["registrationFee", "registFree"]),
-		registerClassName: text(value, ["registerClassName"]),
-		roomAddr: text(value, ["roomAddr", "deptAddr"]),
-		hospitalId: text(value, ["hospitalId"]) || PAY_CONFIG.hospitalId,
-	};
+function list<T>(value: unknown): T[] {
+	return asList<T>(value);
 }
 
+function isTargetDepartment(value: unknown): boolean {
+	const displayName = text(value, "displayName");
+	const targetNames = new Set<string>([
+		PAY_CONFIG.departmentName,
+		...PAY_CONFIG.departmentProviderNames,
+	]);
+	return targetNames.has(displayName);
+}
+
+/** 从新版科室目录中确定固定门诊，再用 opaque departmentId 查询排班。 */
 export async function loadTargetSchedule(): Promise<Schedule> {
-	const departmentResponse = await providerRequest<unknown>({
-		path: "/msun-middle-business-amc-server/v1/schedulings/scheduling-depts",
-		query: {
-			requestChannel: PAY_CONFIG.requestChannel,
-			startDate: PAY_CONFIG.targetDate,
-			endDate: PAY_CONFIG.targetDate,
-			searchCondition: PAY_CONFIG.departmentName,
-		},
-	});
-	const departments = asList<Record<string, any>>(departmentResponse);
-	const department =
-		departments.find(
-			(item) => text(item, ["deptName"]) === PAY_CONFIG.departmentName,
-		) ||
-		departments.find((item) =>
-			text(item, ["deptName"]).includes(PAY_CONFIG.departmentName),
-		);
+	const departments = list<Record<string, unknown>>(
+		await request<unknown>({ path: "/appointments/departments" }),
+	);
+	// 页面使用业务别名“内科风湿”，Provider 的公开目录使用正式名称
+	// “风湿免疫科门诊”；两者都只映射到同一个服务端返回的 opaque ID，
+	// 不把名称或 Provider ID 写死到预约/医保写入请求中。
+	const department = departments.find(isTargetDepartment);
 	if (!department)
 		throw new Error(`未找到指定门诊：${PAY_CONFIG.departmentName}`);
-
-	const schedulesResponse = await providerRequest<unknown>({
-		path: "/msun-middle-business-amc-server/v1/schedulings",
-		query: {
-			requestChannel: PAY_CONFIG.requestChannel,
-			startDate: PAY_CONFIG.targetDate,
-			endDate: PAY_CONFIG.targetDate,
-			scheduleType: 1,
-			deptId: text(department, ["deptId"]),
-			stopFlag: "0",
-		},
-	});
-	const schedules = asList<Record<string, any>>(schedulesResponse)
-		.map(mapSchedule)
-		.filter(
-			(item) =>
-				item.workDate === PAY_CONFIG.targetDate &&
-				item.shiftName === PAY_CONFIG.shiftName &&
-				item.deptName.includes(PAY_CONFIG.departmentName),
-		);
-	const schedule = schedules.find((item) => item.registrationFee >= 0);
-	if (!schedule)
-		throw new Error(
-			`${PAY_CONFIG.targetDate} 暂无${PAY_CONFIG.shiftName}可约排班`,
-		);
+	const schedules = list<Schedule>(
+		await request<unknown>({
+			path: "/appointments/schedules",
+			query: {
+				startDate: PAY_CONFIG.targetDate,
+				endDate: PAY_CONFIG.targetDate,
+				departmentId: text(department, "departmentId"),
+			},
+		}),
+	).filter(
+		(item) =>
+			item.workDate === PAY_CONFIG.targetDate &&
+			item.shiftName === PAY_CONFIG.shiftName &&
+			item.availableSlots > 0,
+	);
+	const schedule = schedules[0];
+	if (!schedule) throw new Error(`${PAY_CONFIG.targetDate} 暂无上午可约排班`);
 	return schedule;
 }
 
 export async function loadSources(schedule: Schedule): Promise<Source[]> {
-	const response = await providerRequest<unknown>({
-		path: `/msun-middle-business-amc-server/v1/sources/${encodeURIComponent(schedule.hisScheduleId)}`,
-		query: { requestChannel: PAY_CONFIG.requestChannel },
+	const data = await request<{ schedule: Schedule; items: unknown[] }>({
+		path: `/appointments/schedules/${encodeURIComponent(schedule.scheduleId)}/sources`,
 	});
-	return asList<Record<string, any>>(response)
-		.map((item) => ({
-			sourceId: text(item, ["sourceId", "id"]),
-			hisScheduleId: text(item, ["hisScheduleId"]) || schedule.hisScheduleId,
-			workDate: text(item, ["workDate"]) || schedule.workDate,
-			workTime: text(item, ["workTime"]),
-			serialNumber: text(item, ["serialNumber"]),
-			groupStart: text(item, ["groupStart"]),
-			groupEnd: text(item, ["groupEnd"]),
-			appendFlag: text(item, ["appendFlag"]),
-		}))
-		.filter((item) => item.sourceId);
+	return list<Source>(data.items).filter((item) =>
+		Boolean(item.serialNumber && item.timeLabel),
+	);
 }
 
 export function selectSource(sources: Source[]): Source {
-	const exact = PAY_CONFIG.targetSourceId
-		? sources.find((item) => item.sourceId === PAY_CONFIG.targetSourceId)
-		: undefined;
-	const bySerial = PAY_CONFIG.targetSerialNumber
+	const source = PAY_CONFIG.targetSerialNumber
 		? sources.find(
 				(item) => item.serialNumber === PAY_CONFIG.targetSerialNumber,
 			)
-		: undefined;
-	const source = exact || bySerial || sources[0];
-	if (!source) throw new Error("指定排班没有可用号源");
+		: sources[0];
+	if (!source) throw new Error("指定排班没有可用分时段");
 	return source;
 }
 
-export async function listActiveAppointments(
-	patient: Patient,
-): Promise<AppointmentRecord[]> {
-	const response = await providerRequest<unknown>({
-		path: `/msun-middle-business-appointment-server/v1/appointment-infos/${encodeURIComponent(patient.patId)}`,
-		query: {
-			requestChannel: PAY_CONFIG.requestChannel,
-			startDate: PAY_CONFIG.targetDate,
-			endDate: PAY_CONFIG.targetDate,
-			isMzFlag: "1",
-			dateFlag: "1",
-		},
-	});
-	return asList<Record<string, any>>(response)
-		.map((item) => ({
-			appointmentInfoId: text(item, ["appointmentInfoId"]),
-			patId: text(item, ["patId"]),
-			patName: text(item, ["patName"]),
-			deptName: text(item, ["deptName"]),
-			workDate: text(item, ["workDate"]),
-			status: number(item, ["status"]),
-			statusName: text(item, ["statusName"]),
-			registerId: text(item, ["registerId"]),
-			hisRegisterId: text(item, ["hisRegisterId"]),
-			isPay: text(item, ["isPay"]),
-		}))
-		.filter((item) => item.appointmentInfoId && item.status !== 1);
-}
-
-export function findDuplicate(
-	records: AppointmentRecord[],
-	patient: Patient,
-	schedule: Schedule,
-): AppointmentRecord | undefined {
-	return records.find(
-		(item) =>
-			item.status !== 1 &&
-			item.patId === patient.patId &&
-			item.workDate === schedule.workDate &&
-			item.deptName.includes(PAY_CONFIG.departmentName),
-	);
-}
-
-export async function cancelAppointment(
-	record: AppointmentRecord,
-	patient: Patient,
-): Promise<void> {
-	await providerRequest<unknown>({
-		path: "/msun-middle-business-appointment-server/v1/appointment-infos/d",
-		method: "POST",
-		contentType: "application/json",
-		data: {
-			requestChannel: "3",
-			appointmentInfoId: record.appointmentInfoId,
-			patId: patient.patId,
-		},
-	});
-}
-
-export type CreatedAppointment = {
-	appointmentInfoId: string;
-	patId: string;
-	registerId: string;
-	hisRegisterId: string;
-	workDate: string;
-	serialNumber: string;
-	registrationFee: number;
-	[key: string]: any;
+export type AppointmentHold = {
+	holdId: string;
+	status: "held";
+	totalFen: number;
+	expiresAt: string;
 };
 
-export async function createAppointment(
+export type CreatedAppointment = {
+	appointmentId: string;
+	status: "booked" | "duplicate";
+	patientId: string;
+	departmentName: string;
+	doctorName: string;
+	workDate: string;
+	shiftName: string;
+	sourceSerialNumber: string;
+	totalFen: number;
+};
+
+/** 独立预约占位命令；服务端会重新校验排班、号源、患者和挂号费。 */
+export async function holdAppointment(
 	patient: Patient,
 	schedule: Schedule,
 	source: Source,
+): Promise<AppointmentHold> {
+	return request<AppointmentHold>({
+		path: "/appointments/holds",
+		method: "POST",
+		idempotencyKey: newIdempotencyKey("appointment-hold"),
+		data: {
+			patientId: patient.id,
+			scheduleId: schedule.scheduleId,
+			sourceSerialNumber: source.serialNumber,
+		},
+	});
+}
+
+/** 独立预约写入命令；不把任何医院预约号返回给小程序。 */
+export async function createAppointment(
+	patient: Patient,
+	hold: AppointmentHold,
 ): Promise<CreatedAppointment> {
-	const response = asRecord(
-		await providerRequest<unknown>({
-			path: "/msun-middle-business-appointment-server/v1/appointment-infos",
-			method: "POST",
-			contentType: "application/json",
-			data: {
-				patId: patient.patId,
-				patName: patient.name,
-				patCardNo: patient.cardNo,
-				idcardNo: patient.idNo,
-				registrationFee: schedule.registrationFee,
-				workDate: schedule.workDate,
-				telephone: patient.phone,
-				hisScheduleId: schedule.hisScheduleId,
-				sourceId: source.sourceId,
-				registerSource: PAY_CONFIG.registrationSource,
-				settleWay: PAY_CONFIG.settleWay,
-				isPay: 0,
-				requestChannel: PAY_CONFIG.appointmentRequestChannel,
-				recordId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-			},
-		}),
-	);
-	const value = asRecord(response.data || response);
-	if (!text(value, ["appointmentInfoId"]))
-		throw new Error("预约接口未返回 appointmentInfoId");
-	return {
-		...value,
-		appointmentInfoId: text(value, ["appointmentInfoId"]),
-		patId: text(value, ["patId"]) || patient.patId,
-		registerId: text(value, ["registerId"]),
-		hisRegisterId: text(value, ["hisRegisterId", "registerId"]),
-		workDate: text(value, ["workDate"]) || schedule.workDate,
-		serialNumber: text(value, ["serialNumber"]) || source.serialNumber,
-		registrationFee:
-			number(value, ["registrationFee", "registFree"]) ||
-			schedule.registrationFee,
-	};
+	return request<CreatedAppointment>({
+		path: "/appointments/registrations",
+		method: "POST",
+		idempotencyKey: newIdempotencyKey("appointment-register"),
+		data: { patientId: patient.id, holdId: hold.holdId },
+	});
+}
+
+export async function cancelAppointment(appointmentId: string): Promise<void> {
+	await request({
+		path: `/appointments/registrations/${encodeURIComponent(appointmentId)}/cancel`,
+		method: "POST",
+		idempotencyKey: newIdempotencyKey("appointment-cancel"),
+	});
+}
+
+export function withFee(schedule: Schedule, totalFen: number): Schedule {
+	return { ...schedule, totalFen };
 }

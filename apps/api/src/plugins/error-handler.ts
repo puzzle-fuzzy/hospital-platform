@@ -52,6 +52,14 @@ import {
 	AppointmentScheduleReferenceExpiredError,
 } from "../modules/appointments/service";
 import {
+	AppointmentHoldExpiredError,
+	AppointmentHoldNotFoundError,
+	AppointmentCancellationMedicalPaymentActiveError,
+	AppointmentRegistrationNotFoundError,
+	AppointmentWriteInputError,
+	AppointmentWritePatientNotFoundError,
+} from "../modules/appointments/write-service";
+import {
 	SessionPrincipalReadModelValidationError,
 	WechatLoginInputError,
 } from "../modules/auth/service";
@@ -68,6 +76,11 @@ import {
 	ReportPatientNotFoundError,
 	ReportQueryError,
 } from "../modules/reports/service";
+import {
+	MedicalInsuranceAppointmentNotFoundError,
+	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegistrationInputError,
+} from "../modules/medical-insurance/registration-service";
 
 /**
  * 服务端稳定字符串错误码的唯一权威数字码分配表。
@@ -101,6 +114,15 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-record-query-invalid": 30200,
 	"appointment-record-patient-not-found": 30210,
 	"appointment-schedule-reference-expired": 30300,
+	"appointment-write-invalid": 30400,
+	"appointment-write-patient-not-found": 30410,
+	"appointment-hold-not-found": 30420,
+	"appointment-hold-expired": 30430,
+	"appointment-registration-not-found": 30440,
+	"appointment-medical-payment-active": 30450,
+	"medical-insurance-invalid": 30500,
+	"medical-insurance-appointment-not-found": 30510,
+	"medical-insurance-order-not-found": 30520,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -454,6 +476,75 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-schedule-reference-expired",
 					"排班信息已更新，请返回预约目录重新选择",
+				);
+			}
+
+			if (error instanceof AppointmentWriteInputError) {
+				set.status = 400;
+				return errorPayload("appointment-write-invalid", "预约请求参数不合法");
+			}
+
+			if (error instanceof AppointmentWritePatientNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"appointment-write-patient-not-found",
+					"当前就诊人暂不可预约",
+				);
+			}
+
+			if (error instanceof AppointmentHoldNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"appointment-hold-not-found",
+					"预约占位已失效，请重新选择号源",
+				);
+			}
+
+			if (error instanceof AppointmentHoldExpiredError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-hold-expired",
+					"号源占位已失效，请重新选择号源",
+				);
+			}
+
+			if (error instanceof AppointmentRegistrationNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"appointment-registration-not-found",
+					"未找到对应的预约记录",
+				);
+			}
+
+			if (error instanceof AppointmentCancellationMedicalPaymentActiveError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-medical-payment-active",
+					"该预约已有医保支付流水，不能直接取消，请先完成或由收费端处理",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceRegistrationInputError) {
+				set.status = 400;
+				return errorPayload(
+					"medical-insurance-invalid",
+					"医保请求参数或流程状态不合法",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceAppointmentNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"medical-insurance-appointment-not-found",
+					"未找到可进行医保支付的预约",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceOrderNotFoundError) {
+				set.status = 404;
+				return errorPayload(
+					"medical-insurance-order-not-found",
+					"未找到对应的医保订单",
 				);
 			}
 

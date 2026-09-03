@@ -1,4 +1,7 @@
 import type {
+	AppointmentHold,
+	AppointmentRegistration,
+	AppointmentWriteRepository,
 	AppointmentScheduleSnapshot,
 	AppointmentScheduleSnapshotRepository,
 	IdentityUser,
@@ -6,8 +9,12 @@ import type {
 	MedicalInsuranceCredentialContext,
 	MedicalInsuranceCredentialHandle,
 	MedicalInsuranceCredentialRepository,
+	MedicalInsuranceAuthorizationContext,
+	MedicalInsuranceAuthorizationRepository,
+	MedicalInsuranceProviderQueryIdentity,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
+	MedicalInsuranceSettlementContext,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
 	MyDoctor,
@@ -47,6 +54,7 @@ import {
 	UserProfileVersionConflictError,
 	validateAppointmentScheduleSnapshot,
 	validateReportReference,
+	isValidMedicalInsuranceProviderQueryIdentity,
 } from "@hospital/domain";
 import { PersistenceNotConfiguredError } from "./errors";
 import { createNotConfiguredHealthKnowledgeRepository } from "./knowledge";
@@ -886,6 +894,99 @@ export function createInMemoryAppointmentScheduleSnapshotRepository(
 	};
 }
 
+/** 预约写入命令的内存仓储；只用于本地组合，生产由 MySQL 实现。 */
+export function createInMemoryAppointmentWriteRepository(
+	seed: readonly AppointmentHold[] = [],
+	registrations: readonly AppointmentRegistration[] = [],
+): AppointmentWriteRepository {
+	const holds = new Map(seed.map((hold) => [hold.holdId, { ...hold }]));
+	const appointmentRegistrations = new Map(
+		registrations.map((registration) => [
+			registration.appointmentId,
+			{ ...registration },
+		]),
+	);
+	return {
+		async findHold(ownerUserId, holdId) {
+			const hold = holds.get(holdId);
+			return hold?.ownerUserId === ownerUserId ? { ...hold } : undefined;
+		},
+		async findHoldByIdempotency(ownerUserId, idempotencyKey) {
+			const hold = [...holds.values()].find(
+				(item) =>
+					item.ownerUserId === ownerUserId &&
+					item.idempotencyKey === idempotencyKey,
+			);
+			return hold ? { ...hold } : undefined;
+		},
+		async insertHold(hold) {
+			const existing = [...holds.values()].find(
+				(item) =>
+					item.ownerUserId === hold.ownerUserId &&
+					item.idempotencyKey === hold.idempotencyKey,
+			);
+			if (existing) return { ...existing };
+			holds.set(hold.holdId, { ...hold });
+			return { ...hold };
+		},
+		async updateHold(hold, expectedStatus) {
+			const current = holds.get(hold.holdId);
+			if (
+				!current ||
+				current.ownerUserId !== hold.ownerUserId ||
+				(expectedStatus !== undefined && current.status !== expectedStatus)
+			)
+				return undefined;
+			holds.set(hold.holdId, { ...hold });
+			return { ...hold };
+		},
+		async findRegistration(ownerUserId, appointmentId) {
+			const registration = appointmentRegistrations.get(appointmentId);
+			return registration?.ownerUserId === ownerUserId
+				? { ...registration }
+				: undefined;
+		},
+		async findRegistrationByIdempotency(ownerUserId, idempotencyKey) {
+			const registration = [...appointmentRegistrations.values()].find(
+				(item) =>
+					item.ownerUserId === ownerUserId &&
+					item.idempotencyKey === idempotencyKey,
+			);
+			return registration ? { ...registration } : undefined;
+		},
+		async findActiveRegistration(input) {
+			const registration = [...appointmentRegistrations.values()].find(
+				(item) =>
+					item.ownerUserId === input.ownerUserId &&
+					item.patientId === input.patientId &&
+					item.workDate === input.workDate &&
+					item.departmentName === input.departmentName &&
+					item.status === "booked",
+			);
+			return registration ? { ...registration } : undefined;
+		},
+		async insertRegistration(registration) {
+			appointmentRegistrations.set(registration.appointmentId, {
+				...registration,
+			});
+			return { ...registration };
+		},
+		async updateRegistration(registration, expectedStatus) {
+			const current = appointmentRegistrations.get(registration.appointmentId);
+			if (
+				!current ||
+				current.ownerUserId !== registration.ownerUserId ||
+				(expectedStatus !== undefined && current.status !== expectedStatus)
+			)
+				return undefined;
+			appointmentRegistrations.set(registration.appointmentId, {
+				...registration,
+			});
+			return { ...registration };
+		},
+	};
+}
+
 /**
  * 仅用于报告详情组合测试；生产实现必须把 provider 引用放在 MySQL，
  * 并通过 owner + patient + 过期时间查询，不能依赖进程内 Map。
@@ -980,10 +1081,12 @@ export function createNotConfiguredRepositories(): {
 	medicalInsuranceOrders: MedicalInsuranceOrderRepository;
 	medicalInsuranceQueryTasks: MedicalInsuranceQueryTaskRepository;
 	medicalInsuranceCredentials: MedicalInsuranceCredentialRepository;
+	medicalInsuranceAuthorizations: MedicalInsuranceAuthorizationRepository;
 	paymentQuotes: PaymentQuoteRepository;
 	paymentPrepayAttempts: PaymentPrepayAttemptRepository;
 	wechatPaymentNotifications: WechatPaymentNotificationRepository;
 	appointmentScheduleSnapshots: AppointmentScheduleSnapshotRepository;
+	appointmentWrites: AppointmentWriteRepository;
 	myDoctors: MyDoctorRepository;
 	reportReferences: ReportReferenceRepository;
 	operations: ManualReviewRepository;
@@ -1023,10 +1126,22 @@ export function createNotConfiguredRepositories(): {
 			insert: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
+			findByMedicalOrderId: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
 			findByPayOrdId: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
+			findByOwnerAndAppointmentId: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
 			findByOwnerAndIdempotencyKey: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+			saveSettlementContext: async () => {
+				throw new PersistenceNotConfiguredError("medical-insurance-orders");
+			},
+			getSettlementContext: async () => {
 				throw new PersistenceNotConfiguredError("medical-insurance-orders");
 			},
 			applySettlement: async () => {
@@ -1050,6 +1165,23 @@ export function createNotConfiguredRepositories(): {
 				);
 			},
 		},
+		medicalInsuranceAuthorizations: {
+			put: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-authorizations",
+				);
+			},
+			get: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-authorizations",
+				);
+			},
+			getActiveForOrder: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-authorizations",
+				);
+			},
+		},
 		medicalInsuranceCredentials: {
 			put: async () => {
 				throw new PersistenceNotConfiguredError(
@@ -1057,6 +1189,11 @@ export function createNotConfiguredRepositories(): {
 				);
 			},
 			get: async () => {
+				throw new PersistenceNotConfiguredError(
+					"medical-insurance-credentials",
+				);
+			},
+			getActiveForOrder: async () => {
 				throw new PersistenceNotConfiguredError(
 					"medical-insurance-credentials",
 				);
@@ -1118,6 +1255,35 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError(
 					"appointment-schedule-snapshots",
 				);
+			},
+		},
+		appointmentWrites: {
+			findHold: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			findHoldByIdempotency: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			insertHold: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			updateHold: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			findRegistration: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			findRegistrationByIdempotency: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			findActiveRegistration: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			insertRegistration: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			updateRegistration: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
 			},
 		},
 		myDoctors: {
@@ -1241,6 +1407,33 @@ export function createInMemoryMedicalInsuranceCredentialRepository(
 		payloadCiphertext: string;
 		revokedAt: string | null;
 	};
+	type CredentialPayload = {
+		payToken: string;
+		providerQueryIdentity: MedicalInsuranceProviderQueryIdentity;
+	};
+	const serializePayload = (input: CredentialPayload): string =>
+		JSON.stringify(input);
+	const deserializePayload = (value: string): CredentialPayload => {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(value);
+		} catch (error) {
+			throw new Error("Medical insurance credential payload is invalid", {
+				cause: error,
+			});
+		}
+		if (
+			typeof parsed !== "object" ||
+			parsed === null ||
+			typeof (parsed as { payToken?: unknown }).payToken !== "string" ||
+			!isValidMedicalInsuranceProviderQueryIdentity(
+				(parsed as { providerQueryIdentity?: unknown }).providerQueryIdentity,
+			)
+		) {
+			throw new Error("Medical insurance credential payload is invalid");
+		}
+		return parsed as CredentialPayload;
+	};
 	const credentials = new Map<string, StoredCredential>();
 
 	return {
@@ -1255,8 +1448,23 @@ export function createInMemoryMedicalInsuranceCredentialRepository(
 				createdAt: input.createdAt,
 			};
 			const existing = credentials.get(input.credentialId);
-			const payloadCiphertext = cipher.seal(input.payToken);
+			if (
+				!isValidMedicalInsuranceProviderQueryIdentity(
+					input.providerQueryIdentity,
+				)
+			) {
+				throw new Error("Medical insurance provider query identity is invalid");
+			}
+			const payloadCiphertext = cipher.seal(
+				serializePayload({
+					payToken: input.payToken,
+					providerQueryIdentity: input.providerQueryIdentity,
+				}),
+			);
 			if (existing) {
+				const existingPayload = deserializePayload(
+					cipher.open(existing.payloadCiphertext),
+				);
 				if (
 					existing.ownerUserId !== handle.ownerUserId ||
 					existing.medicalOrderId !== handle.medicalOrderId ||
@@ -1264,9 +1472,13 @@ export function createInMemoryMedicalInsuranceCredentialRepository(
 					existing.purpose !== handle.purpose ||
 					existing.expiresAt !== handle.expiresAt ||
 					existing.createdAt !== handle.createdAt ||
-					cipher.open(existing.payloadCiphertext) !== input.payToken
+					existingPayload.payToken !== input.payToken ||
+					JSON.stringify(existingPayload.providerQueryIdentity) !==
+						JSON.stringify(input.providerQueryIdentity)
 				) {
-					throw new Error("Medical insurance credential idempotency payload changed");
+					throw new Error(
+						"Medical insurance credential idempotency payload changed",
+					);
 				}
 				return { ...existing };
 			}
@@ -1289,6 +1501,7 @@ export function createInMemoryMedicalInsuranceCredentialRepository(
 			) {
 				return undefined;
 			}
+			const payload = deserializePayload(cipher.open(stored.payloadCiphertext));
 			return {
 				credentialId: stored.credentialId,
 				ownerUserId: stored.ownerUserId,
@@ -1297,7 +1510,35 @@ export function createInMemoryMedicalInsuranceCredentialRepository(
 				purpose: stored.purpose,
 				expiresAt: stored.expiresAt,
 				createdAt: stored.createdAt,
-				payToken: cipher.open(stored.payloadCiphertext),
+				payToken: payload.payToken,
+				providerQueryIdentity: payload.providerQueryIdentity,
+			} satisfies MedicalInsuranceCredentialContext;
+		},
+		async getActiveForOrder(input) {
+			const stored = [...credentials.values()]
+				.filter(
+					(candidate) =>
+						!candidate.revokedAt &&
+						candidate.ownerUserId === input.ownerUserId &&
+						candidate.medicalOrderId === input.medicalOrderId &&
+						candidate.purpose === input.purpose &&
+						Date.parse(candidate.expiresAt) > Date.parse(input.now),
+				)
+				.sort((left, right) =>
+					right.createdAt.localeCompare(left.createdAt),
+				)[0];
+			if (!stored) return undefined;
+			const payload = deserializePayload(cipher.open(stored.payloadCiphertext));
+			return {
+				credentialId: stored.credentialId,
+				ownerUserId: stored.ownerUserId,
+				medicalOrderId: stored.medicalOrderId,
+				payOrdId: stored.payOrdId,
+				purpose: stored.purpose,
+				expiresAt: stored.expiresAt,
+				createdAt: stored.createdAt,
+				payToken: payload.payToken,
+				providerQueryIdentity: payload.providerQueryIdentity,
 			} satisfies MedicalInsuranceCredentialContext;
 		},
 		async revoke(input) {
@@ -1317,29 +1558,115 @@ export function createInMemoryMedicalInsuranceCredentialRepository(
 	};
 }
 
+/** 医保授权上下文内存实现：与生产表使用同一 AES-GCM 密文边界。 */
+export function createInMemoryMedicalInsuranceAuthorizationRepository(
+	base64Key = Buffer.alloc(32, 2).toString("base64"),
+): MedicalInsuranceAuthorizationRepository {
+	const cipher = createAesGcmSecretValueCipher(base64Key, {
+		keyName: "MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY",
+		valueName: "medical insurance authorization",
+	});
+	type Payload = Omit<
+		MedicalInsuranceAuthorizationContext,
+		| "authorizationId"
+		| "ownerUserId"
+		| "medicalOrderId"
+		| "expiresAt"
+		| "createdAt"
+	>;
+	type Stored = Pick<
+		MedicalInsuranceAuthorizationContext,
+		| "authorizationId"
+		| "ownerUserId"
+		| "medicalOrderId"
+		| "expiresAt"
+		| "createdAt"
+	> & { payloadCiphertext: string };
+	const rows = new Map<string, Stored>();
+	const handleOf = (row: Stored) => ({
+		authorizationId: row.authorizationId,
+		ownerUserId: row.ownerUserId,
+		medicalOrderId: row.medicalOrderId,
+		expiresAt: row.expiresAt,
+		createdAt: row.createdAt,
+	});
+	const contextOf = (row: Stored): MedicalInsuranceAuthorizationContext => ({
+		...handleOf(row),
+		...(JSON.parse(cipher.open(row.payloadCiphertext)) as Payload),
+	});
+	return {
+		async put(input) {
+			const existing = rows.get(input.authorizationId);
+			if (existing) {
+				if (JSON.stringify(contextOf(existing)) !== JSON.stringify(input))
+					throw new Error(
+						"Medical insurance authorization idempotency payload changed",
+					);
+				return handleOf(existing);
+			}
+			const row: Stored = {
+				authorizationId: input.authorizationId,
+				ownerUserId: input.ownerUserId,
+				medicalOrderId: input.medicalOrderId,
+				expiresAt: input.expiresAt,
+				createdAt: input.createdAt,
+				payloadCiphertext: cipher.seal(
+					JSON.stringify({
+						providerSubject: input.providerSubject,
+						payAuthNo: input.payAuthNo,
+						patient: input.patient,
+						psnNo: input.psnNo,
+						insutype: input.insutype,
+						insuplcAdmdvs: input.insuplcAdmdvs,
+						insuCode: input.insuCode,
+						...(input.ecToken ? { ecToken: input.ecToken } : {}),
+						...(input.regionCode ? { regionCode: input.regionCode } : {}),
+					}),
+				),
+			};
+			rows.set(row.authorizationId, row);
+			return handleOf(row);
+		},
+		async get(input) {
+			const row = rows.get(input.authorizationId);
+			if (
+				!row ||
+				row.ownerUserId !== input.ownerUserId ||
+				row.medicalOrderId !== input.medicalOrderId ||
+				Date.parse(row.expiresAt) <= Date.parse(input.now)
+			)
+				return undefined;
+			return contextOf(row);
+		},
+		async getActiveForOrder(input) {
+			const row = [...rows.values()]
+				.filter(
+					(candidate) =>
+						candidate.ownerUserId === input.ownerUserId &&
+						candidate.medicalOrderId === input.medicalOrderId &&
+						Date.parse(candidate.expiresAt) > Date.parse(input.now),
+				)
+				.sort((left, right) =>
+					right.createdAt.localeCompare(left.createdAt),
+				)[0];
+			return row ? contextOf(row) : undefined;
+		},
+	};
+}
+
 function sameMedicalInsuranceQueryTask(
 	left: MedicalInsuranceQueryTask,
 	right: MedicalInsuranceQueryTask,
 ): boolean {
 	return (
-		left.taskId === right.taskId &&
-		left.medicalOrderId === right.medicalOrderId &&
-		left.status === right.status &&
-		left.version === right.version &&
-		left.attempts === right.attempts &&
-		left.maxAttempts === right.maxAttempts &&
-		left.nextAttemptAt === right.nextAttemptAt &&
-		left.claimedUntil === right.claimedUntil &&
-		left.terminalOrdStas === right.terminalOrdStas &&
-		left.lastErrorCode === right.lastErrorCode &&
-		left.createdAt === right.createdAt &&
-		left.updatedAt === right.updatedAt
+		left.taskId === right.taskId && left.medicalOrderId === right.medicalOrderId
 	);
 }
 
 /** 医保订单内存仓储：测试与服务端单测使用；CAS 语义与 MySQL 实现一致。 */
 export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranceOrderRepository {
 	const orders = new Map<string, MedicalInsuranceOrder>();
+	const settlementContexts = new Map<string, MedicalInsuranceSettlementContext>();
 	return {
 		async insert(order) {
 			if (orders.has(order.medicalOrderId)) {
@@ -1354,6 +1681,18 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				undefined
 			);
 		},
+		async findByMedicalOrderId(medicalOrderId) {
+			return orders.get(medicalOrderId);
+		},
+		async findByOwnerAndAppointmentId(ownerUserId, appointmentId) {
+			return (
+				[...orders.values()].find(
+					(order) =>
+						order.ownerUserId === ownerUserId &&
+						order.appointmentId === appointmentId,
+				) ?? undefined
+			);
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return (
 				[...orders.values()].find(
@@ -1363,11 +1702,55 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				) ?? undefined
 			);
 		},
+		async saveSettlementContext(ownerUserId, medicalOrderId, context) {
+			const order = orders.get(medicalOrderId);
+			if (!order || order.ownerUserId !== ownerUserId) {
+				throw new Error("Medical insurance settlement context order is unavailable");
+			}
+			const existing = settlementContexts.get(medicalOrderId);
+			if (existing && JSON.stringify(existing) !== JSON.stringify(context)) {
+				throw new Error("Medical insurance settlement context changed");
+			}
+			settlementContexts.set(medicalOrderId, {
+				...context,
+				networkRegister: { ...context.networkRegister },
+				outNetworkSettleMain: { ...context.outNetworkSettleMain },
+				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({ ...item })),
+				upDetailList: context.upDetailList.map((item) => ({ ...item })),
+				tradeOrderIds: [...context.tradeOrderIds],
+			});
+		},
+		async getSettlementContext(ownerUserId, medicalOrderId) {
+			const order = orders.get(medicalOrderId);
+			const context = settlementContexts.get(medicalOrderId);
+			if (!order || order.ownerUserId !== ownerUserId || !context) return undefined;
+			return {
+				...context,
+				networkRegister: { ...context.networkRegister },
+				outNetworkSettleMain: { ...context.outNetworkSettleMain },
+				nationalUpDetailList: context.nationalUpDetailList.map((item) => ({ ...item })),
+				upDetailList: context.upDetailList.map((item) => ({ ...item })),
+				tradeOrderIds: [...context.tradeOrderIds],
+			};
+		},
 		async applySettlement(medicalOrderId, expectedVersion, patch) {
 			const current = orders.get(medicalOrderId);
 			if (!current || current.version !== expectedVersion) return undefined;
 			const updated: MedicalInsuranceOrder = {
 				...current,
+				...(patch.appointmentId ? { appointmentId: patch.appointmentId } : {}),
+				...(patch.authorizationId
+					? { authorizationId: patch.authorizationId }
+					: {}),
+				...(patch.feeUploadId ? { feeUploadId: patch.feeUploadId } : {}),
+				...(patch.payOrdId !== undefined ? { payOrdId: patch.payOrdId } : {}),
+				...(patch.payTokenHash !== undefined
+					? { payTokenHash: patch.payTokenHash }
+					: {}),
+				...(patch.mdtrtId !== undefined ? { mdtrtId: patch.mdtrtId } : {}),
+				...(patch.acctUsedFlag !== undefined
+					? { acctUsedFlag: patch.acctUsedFlag }
+					: {}),
 				status: patch.status,
 				ordStas: patch.ordStas,
 				amounts: patch.amounts,

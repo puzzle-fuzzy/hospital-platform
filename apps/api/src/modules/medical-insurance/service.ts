@@ -64,6 +64,19 @@ export class MedicalInsuranceNotificationService {
 			);
 			return { success: false, message: "订单不存在或尚未同步" };
 		}
+		if (order.medOrgOrd !== notification.medOrgOrd) {
+			this.logger.warn(
+				{
+					event: "medical.insurance.notification.order_mismatch",
+					traceId: input.context.traceId,
+					orderId: order.medicalOrderId,
+					payOrdIdHash: sha256Short(notification.payOrdId),
+					medOrgOrdHash: sha256Short(notification.medOrgOrd),
+				},
+				"Medical insurance notification medOrgOrd does not match the order",
+			);
+			return { success: false, message: "通知与订单不匹配" };
+		}
 		let nextStatus = medicalInsuranceStatusForNotification(
 			notification,
 			order.amounts,

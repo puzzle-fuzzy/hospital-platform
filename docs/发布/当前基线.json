@@ -13,7 +13,7 @@
 		"pageCount": 38
 	},
 	"persistence": {
-		"schemaHead": "0022_medical_insurance_query_task_version",
+		"schemaHead": "0026_medical_insurance_fee_refs",
 		"migrationSource": "packages/persistence/src/migrate.ts"
 	},
 	"realDeviceEvidence": {

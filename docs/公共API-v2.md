@@ -126,7 +126,14 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/appointments/clinic-departments` | Bearer；幂等键可选 | 必填 `parentDepartmentId`；返回该受控二级科室下的三级可预约门诊 |
 | `GET` | `/api/v2/appointments/schedules` | Bearer；幂等键可选 | 必填 `startDate`、`endDate`；可选 `departmentId`、`doctorId` |
 | `GET` | `/api/v2/appointments/schedules/{scheduleId}/sources` | Bearer；幂等键可选 | 读取单个排班的分时段号源；`scheduleId` 必须对应未过期排班快照，否则 404 `appointment-schedule-reference-expired`；不返回 provider 号源 ID、锁号状态或费用 |
+| `POST` | `/api/v2/appointments/holds` | Bearer + 幂等键 | body 为 `{patientId, scheduleId, sourceSerialNumber}`；服务端重新读取有效排班、号源和挂号费，创建 60 秒服务端占位 |
+| `POST` | `/api/v2/appointments/registrations` | Bearer + 幂等键 | body 为 `{patientId, holdId}`；服务端执行重复预约检查、预约写入并保存 owner-scoped 取消映射 |
+| `POST` | `/api/v2/appointments/registrations/{appointmentId}/cancel` | Bearer + 幂等键 | 通过服务端预约映射调用取消接口；重复取消返回已取消，不接收 provider 预约号 |
 | `GET` | `/api/v2/appointments/records` | Bearer；幂等键可选 | 必填 `patientId`；默认 `scope=online` 时必填日期，`scope=all` 时不传日期；只读预约历史 |
+| `POST` | `/api/v2/payments/medical-insurance/authorize` | Bearer + 必填幂等键 | body 为 `{appointmentId, authCode}`；授权码只在服务端调用医保授权 adapter，成功后返回服务端 `orderId` |
+| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/fees` | Bearer + 必填幂等键 | 从关联预约读取服务端金额和患者映射，独立执行医保费用上传 |
+| `POST` | `/api/v2/payments/medical-insurance/orders/{orderId}/settle` | Bearer + 必填幂等键 | 使用已授权订单和费用上传引用，独立执行医保结算，不把中间状态当成功 |
+| `GET` | `/api/v2/payments/medical-insurance/orders/{orderId}` | Bearer；幂等键可选 | 查询医保订单最终状态和服务端金额快照；不返回 payToken、身份证或 provider 原始字段 |
 | `GET` | `/api/v2/my/doctors` | Bearer | 返回当前平台用户关注的医生关系；不接收 `userId` 或 `patientId` |
 | `GET` | `/api/v2/my/doctors/{doctorId}` | Bearer | 返回当前用户自己的单个医生关系快照 |
 | `POST` | `/api/v2/my/doctors` | Bearer + 幂等键可选 | body 只有 `{doctorId}`；服务端从当前排班目录确认医生资料后建立关注关系 |
@@ -247,14 +254,16 @@ adapter、contract 和测试，不能由小程序根据文字猜测最终状态�
 不会因为只查询过去而静默消失；原生“爽约记录”调用同一接口时只使用过去 90 天，并且只筛选
 服务端明确返回的 `status=missed`。
 
-当前没有以下写入路由：
+### 3.3.1 预约写入与医保支付命令
 
-- `POST /api/v2/appointments/holds`
-- `POST /api/v2/appointments`
-- `POST /api/v2/appointments/{appointmentId}/cancel`
+`miniprogram-pay` 使用上表中的独立命令，不存在把“预约 + 医保支付”包成一个后端快速编排
+接口的入口。业务顺序固定为：读取排班/号源 → 创建服务端占位 → 预约写入 → 医保授权 →
+费用上传 → 医保结算 → 必要时查单。预约已存在时服务端返回已有的 opaque `appointmentId`，
+小程序只能先调用取消命令，取消成功后再用新的幂等键重新占位和写入。
 
-在 provider 文档、锁号/取消幂等、身份映射、失败补偿和真实验收完成前，旧服务的预约写入
-接口不能被转发成新端接口。
+预约占位、预约写入、取消、医保授权、费用上传和结算分别有独立的日志事件、幂等键和错误边界；
+provider 患者号、预约号、身份证、卡号、授权码和 payToken 不进入公共响应。医保 adapter 或
+持久化未配置时统一 fail-closed，不返回伪造成功。
 
 ### 3.4 我的医生
 
@@ -429,6 +438,15 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 404 | 10400 | `not-found` | 请求路径未注册，不能据此推断业务资源不存在 |
 | 404 | 30210 | `appointment-record-patient-not-found` | 当前用户不拥有该预约查询患者 |
 | 404 | 30300 | `appointment-schedule-reference-expired` | 排班快照引用未知或已过期；需返回目录重新获取 scheduleId |
+| 400 | 30400 | `appointment-write-invalid` | 预约写入请求参数、幂等键或状态不合法 |
+| 404 | 30410 | `appointment-write-patient-not-found` | 当前就诊人未找到有效的预约服务端映射 |
+| 404 | 30420 | `appointment-hold-not-found` | 预约占位不存在或不属于当前用户 |
+| 409 | 30430 | `appointment-hold-expired` | 预约占位已过期、已消费或不可继续使用 |
+| 404 | 30440 | `appointment-registration-not-found` | 预约记录不存在或不属于当前用户 |
+| 409 | 30450 | `appointment-medical-payment-active` | 预约已有医保支付流水，不能直接取消，请由支付/收费流程处理 |
+| 400 | 30500 | `medical-insurance-invalid` | 医保授权、费用上传或结算请求状态不合法 |
+| 404 | 30510 | `medical-insurance-appointment-not-found` | 关联预约不存在、已取消或不属于当前用户 |
+| 404 | 30520 | `medical-insurance-order-not-found` | 医保订单不存在或不属于当前用户 |
 | 404 | 50310 | `outpatient-payment-patient-not-found` | 当前就诊人尚未建立门诊缴费映射 |
 | 404 | 40110 | `report-patient-not-found` | 当前用户不拥有该报告查询患者 |
 | 404 | 40120 | `report-not-found` | 报告详情不可用或尚未通过 gate |
@@ -466,8 +484,8 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 
 ## 5. 当前实现边界
 
-以下内容在旧服务中存在，但当前没有注册为新患者端公共路由：医保 FSI、医保身份授权、云
-健康结算/HIS 回写、文件上传、健康自测、报告解读、AI 导诊、管理端 RBAC、监控
+以下内容在旧服务中存在，但当前没有注册为通用患者端公共路由：医保 FSI、云健康结算/HIS
+回写、文件上传、健康自测、报告解读、AI 导诊、管理端 RBAC、监控
 和任务管理。旧接口逐项来源和状态见
 [`迁移/旧接口清单.md`](迁移/旧接口清单.md)，
 完整前置条件见 [`迁移/API矩阵.md`](迁移/API矩阵.md)。
@@ -481,15 +499,13 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 4. 真实 provider 文档到达后，先进入 [`Provider文档接入流程.md`](Provider文档接入流程.md)
    做版本、来源、hash、字段和错误码冻结，再实现写入/支付/医保能力。
 
-以下候选路径当前刻意保持 `404`，不是兼容入口，也不是“暂时返回空数据”：
+以下候选路径当前仍刻意保持 `404`，不是兼容入口，也不是“暂时返回空数据”：
 
 - `POST /api/v2/patients`：患者新增/建档；
-- `POST /api/v2/payments/insurance/authorization`：医保授权。
-- `POST /api/v2/appointments`、`POST /api/v2/appointments/holds`、
-  `POST /api/v2/appointments/{appointmentId}/cancel`：预约写入、占号和取消。
+- `POST /api/v2/payments/insurance/authorization`：旧的通用医保授权路径。
+- `POST /api/v2/appointments`、`POST /api/v2/appointments/{appointmentId}/cancel`：旧的通用预约路径。
 
-它们必须先完成 provider/HIS contract、owner 映射、状态/幂等、脱敏和真实验收，才允许进入公共
-OpenAPI；旧服务存在对应能力不改变这一关闭状态。
+它们与 `miniprogram-pay` 使用的分层命令不是同一路由；旧服务存在对应能力不改变这些旧路径的关闭状态。
 
 ## 6. 源码证据与维护入口
 

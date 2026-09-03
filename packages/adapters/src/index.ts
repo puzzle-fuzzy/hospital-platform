@@ -60,6 +60,15 @@ export {
 	type LegacyFsiSettlementQueryResult,
 } from "./legacy-fsi-gateway";
 export {
+	createLegacyFsiMedicalInsuranceGateway,
+	type LegacyFsiMedicalInsuranceGatewayOptions,
+} from "./legacy-fsi-medical-insurance";
+export {
+	createLegacyFsiMedicalInsuranceQueryGateway,
+	LegacyFsiMedicalInsuranceQueryContextUnavailableError,
+	type LegacyFsiMedicalInsuranceQueryGateway,
+} from "./legacy-fsi-medical-query";
+export {
 	base64PrivateKeyToHex,
 	base64PublicKeyToHex,
 	buildLegacyFsiSignSource,
@@ -94,6 +103,12 @@ export {
 	type WechatPaymentNotificationDecoderInput,
 	type WechatPaymentNotificationVerifierOptions,
 } from "./wechat-pay";
+export {
+	createZhongyangAppointmentPatientProfileGateway,
+	createZhongyangAppointmentWriteGateway,
+	ZhongyangAppointmentPatientProfileGateway,
+	ZhongyangAppointmentWriteApiGateway,
+} from "./zhongyang-appointment-writes";
 export {
 	createZhongyangAppointmentGateway,
 	ZhongyangAppointmentApiGateway,

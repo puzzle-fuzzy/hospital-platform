@@ -4,6 +4,11 @@ import {
 	AppointmentRecordListResponse,
 	AppointmentScheduleListResponse,
 	AppointmentScheduleSourceListResponse,
+	AppointmentCancellationResponse,
+	AppointmentHoldRequest,
+	AppointmentHoldResponse,
+	AppointmentRegistrationRequest,
+	AppointmentRegistrationResponse,
 	success,
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
@@ -11,11 +16,22 @@ import { createRequestPrincipalResolver } from "../../plugins/request-authentica
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
 import type { AppointmentService } from "./service";
+import type { AppointmentWriteService } from "./write-service";
 
 /** 只接收平台链路所需的认证、幂等和请求关联头，不允许透传 Provider 头。 */
 const AppointmentHeaders = t.Object({
 	authorization: t.Optional(t.String({ maxLength: 512 })),
 	"idempotency-key": t.Optional(t.String({ maxLength: 128 })),
+	"x-request-id": t.Optional(t.String({ maxLength: 128 })),
+});
+
+const AppointmentCommandHeaders = t.Object({
+	authorization: t.Optional(t.String({ maxLength: 512 })),
+	"idempotency-key": t.String({
+		minLength: 1,
+		maxLength: 128,
+		pattern: "^[A-Za-z0-9._:-]+$",
+	}),
 	"x-request-id": t.Optional(t.String({ maxLength: 128 })),
 });
 
@@ -53,6 +69,7 @@ const AppointmentRecordQuery = t.Object({
 /** 预约目录必须经过平台会话，provider 授权只存在服务端组合根。 */
 export function appointmentsModule(
 	appointmentService: AppointmentService,
+	appointmentWrites: AppointmentWriteService,
 	sessions: SessionTokenService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions);
@@ -71,6 +88,68 @@ export function appointmentsModule(
 			{
 				headers: AppointmentHeaders,
 				response: { 200: AppointmentDepartmentListResponse },
+				tags: ["appointments"],
+			},
+		)
+		.post(
+			"/appointments/holds",
+			async ({ request, headers, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await appointmentWrites.hold({
+						ownerUserId: principal.userId,
+						patientId: body.patientId,
+						scheduleId: body.scheduleId,
+						sourceSerialNumber: body.sourceSerialNumber,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: AppointmentCommandHeaders,
+				body: AppointmentHoldRequest,
+				response: { 200: AppointmentHoldResponse },
+				tags: ["appointments"],
+			},
+		)
+		.post(
+			"/appointments/registrations",
+			async ({ request, headers, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await appointmentWrites.register({
+						ownerUserId: principal.userId,
+						patientId: body.patientId,
+						holdId: body.holdId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: AppointmentCommandHeaders,
+				body: AppointmentRegistrationRequest,
+				response: { 200: AppointmentRegistrationResponse },
+				tags: ["appointments"],
+			},
+		)
+		.post(
+			"/appointments/registrations/:appointmentId/cancel",
+			async ({ request, headers, params }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await appointmentWrites.cancel({
+						ownerUserId: principal.userId,
+						appointmentId: params.appointmentId,
+						context: adapterContextFromHeaders(headers),
+					}),
+				);
+			},
+			{
+				headers: AppointmentCommandHeaders,
+				params: t.Object({
+					appointmentId: t.String({ minLength: 1, maxLength: 64 }),
+				}),
+				response: { 200: AppointmentCancellationResponse },
 				tags: ["appointments"],
 			},
 		)
@@ -175,3 +254,12 @@ export {
 	AppointmentScheduleQueryError,
 	AppointmentService,
 } from "./service";
+export {
+	AppointmentHoldExpiredError,
+	AppointmentHoldNotFoundError,
+	AppointmentRegistrationNotFoundError,
+	AppointmentWriteInputError,
+	AppointmentWritePatientNotFoundError,
+	AppointmentWriteService,
+	type AppointmentWriteServiceDependencies,
+} from "./write-service";

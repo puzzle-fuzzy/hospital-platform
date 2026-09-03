@@ -1,7 +1,8 @@
 import type {
-	MedicalInsuranceGateway,
+	AdapterCallContext,
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
+	MedicalInsuranceSettlementEvidence,
 	MedicalInsuranceSettlementEvidenceFinality,
 	PaymentOrderService,
 } from "@hospital/domain";
@@ -11,6 +12,14 @@ export type {
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,
 } from "@hospital/domain";
+
+/** 查单 Worker 只依赖 query 能力，避免把 6201/6202/6203/6401 误接入。 */
+export type MedicalInsuranceQueryGateway = {
+	query(
+		input: { orderId: string },
+		context: AdapterCallContext,
+	): Promise<MedicalInsuranceSettlementEvidence>;
+};
 
 const BASE_QUERY_DELAY_MS = 15_000;
 const MAX_QUERY_DELAY_MS = 15 * 60 * 1000;
@@ -99,7 +108,7 @@ export class MedicalInsuranceReconciliationWorker {
 		private readonly dependencies: {
 			tasks: MedicalInsuranceQueryTaskRepository;
 			orders: PaymentOrderService;
-			medicalInsurance: MedicalInsuranceGateway;
+			medicalInsurance: MedicalInsuranceQueryGateway;
 			logger?: AppLogger;
 		},
 	) {

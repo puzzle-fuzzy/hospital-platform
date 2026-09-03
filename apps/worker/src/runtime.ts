@@ -1,6 +1,12 @@
-import { createWechatPaymentGateway } from "@hospital/adapters";
+import {
+	createLegacyFsiGateway,
+	createLegacyFsiMedicalInsuranceGateway,
+	createSmCryptoLegacyFsiCrypto,
+	createWechatPaymentGateway,
+} from "@hospital/adapters";
 import {
 	config as defaultConfig,
+	medicalInsuranceConfigurationMissingFields,
 	type RuntimeConfig,
 	wechatPaymentConfigurationMissingFields,
 } from "@hospital/config";
@@ -18,6 +24,10 @@ import {
 	type PaymentReconciliationWorkerResult,
 } from "./payment-reconciliation-worker";
 import { createWechatPaymentNotificationHandler } from "./wechat-payment-notification-handler";
+import {
+	MedicalInsuranceOrderReconciliationWorker,
+	type MedicalInsuranceOrderReconciliationWorkerResult,
+} from "./medical-insurance-order-reconciliation-worker";
 
 export type WorkerRuntimeStatus = "not_configured" | "not_ready" | "ready";
 
@@ -37,38 +47,35 @@ export type WorkerRuntime = {
 	runOnce(): Promise<{
 		outbox: OutboxWorkerResult;
 		reconciliation: PaymentReconciliationWorkerResult;
+		medicalInsuranceReconciliation?: MedicalInsuranceOrderReconciliationWorkerResult;
 	}>;
 	close(): Promise<void>;
 };
 
 type ReadyRuntimeConfig = RuntimeConfig & {
 	databaseUrl: string;
-	paymentDataEncryptionKey: string;
-	wechatPayAppId: string;
-	wechatPayMchId: string;
-	wechatPayMerchantCertificateSerial: string;
-	wechatPayMerchantPrivateKey: string;
-	wechatPayPlatformCertificateSerial: string;
-	wechatPayPlatformPublicKey: string;
-	wechatPayApiV3Key: string;
-	wechatPayNotifyUrl: string;
+	paymentDataEncryptionKey?: string;
 };
 
 /**
- * worker 必须同时具备持久化密钥和完整微信支付 APIv3 配置。
- * 任意一项缺失都返回 not_configured，不启动半可用的 provider 进程。
+ * Worker 的持久化基础设施必须就绪，并至少打开一个完整的 provider 子 Worker。
+ * 微信支付和医保查单各自 fail-closed，医保不能因为微信支付尚未打开而无法补偿。
  */
 export function workerConfigurationMissingFields(runtimeConfig: RuntimeConfig) {
 	const missing: string[] = [];
 	if (!runtimeConfig.persistenceSchemaReady)
 		missing.push("PERSISTENCE_SCHEMA_READY");
 	if (!runtimeConfig.databaseUrl) missing.push("DATABASE_URL");
-	if (!runtimeConfig.paymentDataEncryptionKey)
-		missing.push("PAYMENT_DATA_ENCRYPTION_KEY");
-	if (!runtimeConfig.wechatPaymentReady) {
-		missing.push("WECHAT_PAYMENT_READY");
-	} else {
+	const medicalInsuranceMissing =
+		medicalInsuranceConfigurationMissingFields(runtimeConfig);
+	if (runtimeConfig.medicalInsuranceReady)
+		missing.push(...medicalInsuranceMissing);
+	if (runtimeConfig.wechatPaymentReady) {
+		if (!runtimeConfig.paymentDataEncryptionKey)
+			missing.push("PAYMENT_DATA_ENCRYPTION_KEY");
 		missing.push(...wechatPaymentConfigurationMissingFields(runtimeConfig));
+	} else if (!runtimeConfig.medicalInsuranceReady) {
+		missing.push("WECHAT_PAYMENT_READY");
 	}
 	return missing;
 }
@@ -122,7 +129,15 @@ export function createWorkerRuntime(
 		createPersistenceRuntime({
 			databaseUrl: runtimeConfig.databaseUrl,
 			redisUrl: runtimeConfig.redisUrl,
-			paymentDataEncryptionKey: runtimeConfig.paymentDataEncryptionKey,
+			...(runtimeConfig.paymentDataEncryptionKey
+				? { paymentDataEncryptionKey: runtimeConfig.paymentDataEncryptionKey }
+				: {}),
+			...(runtimeConfig.medicalInsuranceCredentialEncryptionKey
+				? {
+						medicalInsuranceCredentialEncryptionKey:
+							runtimeConfig.medicalInsuranceCredentialEncryptionKey,
+					}
+				: {}),
 			useRepositories: true,
 		});
 	const repositories = persistence.repositories;
@@ -131,17 +146,21 @@ export function createWorkerRuntime(
 		return createNotConfiguredRuntime(["PERSISTENCE_REPOSITORIES"]);
 	}
 
-	const wechatPayment = createWechatPaymentGateway({
-		appId: runtimeConfig.wechatPayAppId,
-		mchId: runtimeConfig.wechatPayMchId,
-		merchantCertificateSerial: runtimeConfig.wechatPayMerchantCertificateSerial,
-		merchantPrivateKey: runtimeConfig.wechatPayMerchantPrivateKey,
-		platformCertificateSerial: runtimeConfig.wechatPayPlatformCertificateSerial,
-		platformPublicKey: runtimeConfig.wechatPayPlatformPublicKey,
-		apiV3Key: runtimeConfig.wechatPayApiV3Key,
-		notifyUrl: runtimeConfig.wechatPayNotifyUrl,
-		baseUrl: runtimeConfig.wechatPayBaseUrl,
-	});
+	const wechatPayment = runtimeConfig.wechatPaymentReady
+		? createWechatPaymentGateway({
+				appId: runtimeConfig.wechatPayAppId ?? "",
+				mchId: runtimeConfig.wechatPayMchId ?? "",
+				merchantCertificateSerial:
+					runtimeConfig.wechatPayMerchantCertificateSerial ?? "",
+				merchantPrivateKey: runtimeConfig.wechatPayMerchantPrivateKey ?? "",
+				platformCertificateSerial:
+					runtimeConfig.wechatPayPlatformCertificateSerial ?? "",
+				platformPublicKey: runtimeConfig.wechatPayPlatformPublicKey ?? "",
+				apiV3Key: runtimeConfig.wechatPayApiV3Key ?? "",
+				notifyUrl: runtimeConfig.wechatPayNotifyUrl ?? "",
+				baseUrl: runtimeConfig.wechatPayBaseUrl,
+			})
+		: undefined;
 	const orders = new PaymentOrderService({
 		orders: repositories.paymentOrders,
 	});
@@ -157,12 +176,65 @@ export function createWorkerRuntime(
 		},
 		logger,
 	);
-	const reconciliation = new PaymentReconciliationWorker({
-		attempts: repositories.paymentPrepayAttempts,
-		orders,
-		wechatPayment,
-		logger,
-	});
+	const reconciliation = wechatPayment
+		? new PaymentReconciliationWorker({
+				attempts: repositories.paymentPrepayAttempts,
+				orders,
+				wechatPayment,
+				logger,
+			})
+		: undefined;
+	const medicalInsuranceGateway =
+		runtimeConfig.medicalInsuranceReady &&
+		medicalInsuranceConfigurationMissingFields(runtimeConfig).length === 0 &&
+		runtimeConfig.zhongyangBaseUrl
+			? createLegacyFsiMedicalInsuranceGateway({
+					legacyFsi: createLegacyFsiGateway({
+						relayUrl: runtimeConfig.medicalInsuranceRelayUrl ?? "",
+						directBaseUrl: runtimeConfig.medicalInsuranceDirectBaseUrl ?? "",
+						relayAuthorizationToken:
+							runtimeConfig.medicalInsuranceRelayAuthorizationToken ?? "",
+						crypto: createSmCryptoLegacyFsiCrypto({
+							appId: runtimeConfig.medicalInsuranceAppId ?? "",
+							appSecret: runtimeConfig.medicalInsuranceAppSecret ?? "",
+							channelPrivateKeyB64:
+								runtimeConfig.medicalInsuranceSm2PrivateKeyB64 ?? "",
+							platformPublicKeyB64:
+								runtimeConfig.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
+							sm2UserId: runtimeConfig.medicalInsuranceSm2UserId,
+						}),
+					}),
+					orders: repositories.medicalInsuranceOrders,
+					authorizations: repositories.medicalInsuranceAuthorizations,
+					credentials: repositories.medicalInsuranceCredentials,
+					relayUrl: runtimeConfig.medicalInsuranceRelayUrl ?? "",
+					relayAuthorizationToken:
+						runtimeConfig.medicalInsuranceRelayAuthorizationToken ?? "",
+					foundationBaseUrl:
+						runtimeConfig.medicalInsuranceFoundationBaseUrl ?? "",
+					zhongyangBaseUrl: runtimeConfig.zhongyangBaseUrl,
+					...(runtimeConfig.zhongyangAuthorizationToken
+						? {
+								zhongyangAuthorizationToken:
+									runtimeConfig.zhongyangAuthorizationToken,
+							}
+						: {}),
+					userQueryBaseUrl: runtimeConfig.medicalInsuranceUserQueryBaseUrl,
+					userQueryPath: runtimeConfig.medicalInsuranceUserQueryPath,
+					orgCode: runtimeConfig.medicalInsuranceOrgCode,
+					hospitalId: runtimeConfig.medicalInsuranceHospitalId,
+					insutype: runtimeConfig.medicalInsuranceInsutype,
+					insuCode: runtimeConfig.medicalInsuranceInsuCode,
+				})
+			: undefined;
+	const medicalInsuranceReconciliation = medicalInsuranceGateway
+		? new MedicalInsuranceOrderReconciliationWorker({
+				tasks: repositories.medicalInsuranceQueryTasks,
+				orders: repositories.medicalInsuranceOrders,
+				medicalInsurance: medicalInsuranceGateway,
+				logger,
+			})
+		: undefined;
 
 	let status: WorkerRuntimeStatus = "not_ready";
 	let closed = false;
@@ -202,10 +274,20 @@ export function createWorkerRuntime(
 				return { outbox: "idle", reconciliation: "idle" };
 			}
 			const now = new Date();
-			return {
+			const result = {
 				outbox: await outbox.runOnce(now),
-				reconciliation: await reconciliation.runOnce(now),
+				reconciliation: reconciliation
+					? await reconciliation.runOnce(now)
+					: ("idle" as const),
 			};
+			if (medicalInsuranceReconciliation) {
+				return {
+					...result,
+					medicalInsuranceReconciliation:
+						await medicalInsuranceReconciliation.runOnce(now),
+				};
+			}
+			return result;
 		},
 		close,
 	};

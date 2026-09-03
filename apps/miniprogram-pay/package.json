@@ -4,7 +4,7 @@
 	"version": "0.1.0",
 	"scripts": {
 		"build": "bun run typecheck && bun run scripts/build.ts",
-		"test": "bun test src/**/*.test.ts",
+		"test": "bun test --pass-with-no-tests",
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {

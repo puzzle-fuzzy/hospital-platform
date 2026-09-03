@@ -29,7 +29,13 @@ export {
 	MedicalInsuranceReconciliationWorker,
 	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
 	type MedicalInsuranceReconciliationWorkerResult,
+	type MedicalInsuranceQueryGateway,
 } from "./medical-insurance-reconciliation-worker";
+export {
+	MedicalInsuranceOrderReconciliationWorker,
+	type MedicalInsuranceOrderQueryGateway,
+	type MedicalInsuranceOrderReconciliationWorkerResult,
+} from "./medical-insurance-order-reconciliation-worker";
 export type {
 	MedicalInsuranceQueryTask,
 	MedicalInsuranceQueryTaskRepository,

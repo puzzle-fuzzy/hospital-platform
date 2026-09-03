@@ -810,10 +810,15 @@ export class AppointmentService {
 			if (!snapshots) {
 				throw new DependencyNotConfiguredError("appointment-schedule-sources");
 			}
-			const listSources = this.dependencies.directory.listSources;
-			if (!listSources) {
+			if (!this.dependencies.directory.listSources) {
 				throw new DependencyNotConfiguredError("appointment-schedule-sources");
 			}
+			// directory 通常是有状态的 adapter 实例；不能把 class method
+			// 脱离实例后直接调用，否则 adapter 内部访问 baseUrl/fetcher 时
+			// 会丢失 this，最终被统一错误处理成 10900。
+			const listSources = this.dependencies.directory.listSources.bind(
+				this.dependencies.directory,
+			);
 			const snapshot = await snapshots.findActive(
 				scheduleId,
 				this.now().toISOString(),

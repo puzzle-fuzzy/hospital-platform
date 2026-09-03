@@ -332,6 +332,8 @@ export function createPersistenceRuntime(options: {
 	logger?: AppLogger;
 	/** 支付调起参数落库前的 AES-GCM 密钥；未配置时预支付 repository fail-closed。 */
 	paymentDataEncryptionKey?: string;
+	/** 医保 6201 payToken 短期上下文的独立 AES-GCM 密钥。 */
+	medicalInsuranceCredentialEncryptionKey?: string;
 	/** 只有显式确认目标 migration 已完成，才暴露真实 repository。 */
 	useRepositories: boolean;
 }): PersistenceRuntime {
@@ -400,6 +402,12 @@ export function createPersistenceRuntime(options: {
 				? createMySqlRepositories(databasePool, {
 						...(options.paymentDataEncryptionKey
 							? { paymentDataEncryptionKey: options.paymentDataEncryptionKey }
+							: {}),
+						...(options.medicalInsuranceCredentialEncryptionKey
+							? {
+									medicalInsuranceCredentialEncryptionKey:
+										options.medicalInsuranceCredentialEncryptionKey,
+								}
 							: {}),
 					})
 				: undefined,

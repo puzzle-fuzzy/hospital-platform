@@ -41,6 +41,18 @@ export {
 	validateAppointmentScheduleSnapshot,
 } from "./appointments";
 export type {
+	AppointmentHold,
+	AppointmentHoldStatus,
+	AppointmentPatientProfileGateway,
+	AppointmentProviderRecord,
+	AppointmentRegistration,
+	AppointmentRegistrationPatient,
+	AppointmentRegistrationStatus,
+	AppointmentRegistrationTarget,
+	AppointmentWriteGateway,
+	AppointmentWriteRepository,
+} from "./appointment-write";
+export type {
 	ClinicalReadErrorCode,
 	ClinicalReadFeature,
 	ClinicalReadResult,
@@ -164,11 +176,11 @@ export {
 	validateMyDoctorCreateInput,
 } from "./my-doctors";
 export type {
+	MedicalInsuranceAuthorizationContext,
+	MedicalInsuranceAuthorizationRepository,
+} from "./medical-insurance-authorization";
+export type {
 	MedicalInsuranceAmounts,
-	MedicalInsuranceCredentialContext,
-	MedicalInsuranceCredentialHandle,
-	MedicalInsuranceCredentialPurpose,
-	MedicalInsuranceCredentialRepository,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
 	MedicalInsuranceOrderStatus,
@@ -176,7 +188,16 @@ export type {
 	MedicalInsuranceQueryTaskRepository,
 	MedicalInsuranceQueryTaskStatus,
 	MedicalInsuranceSettlementNotification,
+	MedicalInsuranceSettlementContext,
 } from "./medical-insurance-order";
+export type {
+	MedicalInsuranceCredentialContext,
+	MedicalInsuranceCredentialHandle,
+	MedicalInsuranceCredentialPurpose,
+	MedicalInsuranceCredentialRepository,
+	MedicalInsuranceProviderQueryIdentity,
+} from "./medical-insurance-credential";
+export { isValidMedicalInsuranceProviderQueryIdentity } from "./medical-insurance-credential";
 export {
 	assertMedicalInsuranceOrderTransition,
 	assertValidMedicalInsuranceAmounts,
@@ -345,6 +366,8 @@ export type {
 	ExternalTrace,
 	HospitalSettlementGateway,
 	MedicalInsuranceGateway,
+	AppointmentMedicalInsuranceContext,
+	AppointmentMedicalInsurancePatient,
 	MedicalInsuranceSettlementEvidence,
 	MedicalInsuranceSettlementEvidenceFinality,
 	MedicalInsuranceSettlementEvidenceSource,

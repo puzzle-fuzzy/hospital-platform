@@ -145,7 +145,10 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/appointments/clinic-departments",
 		"/api/v1/appointments/departments",
 		"/api/v1/appointments/department-tree",
+		"/api/v1/appointments/holds",
 		"/api/v1/appointments/records",
+		"/api/v1/appointments/registrations",
+		"/api/v1/appointments/registrations/{appointmentId}/cancel",
 		"/api/v1/appointments/schedules",
 		"/api/v1/appointments/schedules/{scheduleId}/sources",
 		"/api/v1/auth/wechat",
@@ -168,6 +171,10 @@ test("OpenAPI route inventory matches the current public application surface", a
 		"/api/v1/payments/orders",
 		"/api/v1/payments/orders/{orderId}",
 		"/api/v1/payments/orders/{orderId}/wechat-prepay",
+		"/api/v1/payments/medical-insurance/authorize",
+		"/api/v1/payments/medical-insurance/orders/{orderId}",
+		"/api/v1/payments/medical-insurance/orders/{orderId}/fees",
+		"/api/v1/payments/medical-insurance/orders/{orderId}/settle",
 		"/api/v1/payments/outpatient/records",
 		"/api/v1/payments/wechat/notifications",
 		"/api/v1/reports",
@@ -295,6 +302,15 @@ test("public API documentation lists every stable public error code", async () =
 		"appointment-record-query-invalid",
 		"appointment-record-patient-not-found",
 		"appointment-schedule-reference-expired",
+		"appointment-write-invalid",
+		"appointment-write-patient-not-found",
+		"appointment-hold-not-found",
+		"appointment-hold-expired",
+		"appointment-registration-not-found",
+		"appointment-medical-payment-active",
+		"medical-insurance-invalid",
+		"medical-insurance-appointment-not-found",
+		"medical-insurance-order-not-found",
 		"outpatient-payment-query-invalid",
 		"report-query-invalid",
 		"report-patient-not-found",
@@ -375,12 +391,10 @@ test("public API documentation freezes list and rendering semantics", async () =
 		"当前日期范围按 `endDate - startDate` 的 UTC 日历零点差值校验",
 		"provider 的 `endDate` 是否包含当天仍待合同确认",
 		"迁移/日期窗口边界审计.md",
-		"以下候选路径当前刻意保持 `404`",
+		"以下候选路径当前仍刻意保持 `404`",
 		"POST /api/v2/patients",
 		"POST /api/v2/payments/insurance/authorization",
 		"POST /api/v2/appointments",
-		"POST /api/v2/appointments/holds",
-		"POST /api/v2/appointments/{appointmentId}/cancel",
 	] as const;
 
 	for (const statement of requiredDocumentation) {
@@ -388,11 +402,14 @@ test("public API documentation freezes list and rendering semantics", async () =
 	}
 });
 
-test("appointment write routes remain absent while provider contract is blocked", async () => {
+test("appointment write routes are registered and remain auth-protected", async () => {
 	const writeRequests = [
 		{ method: "POST", path: "/api/v1/appointments/holds" },
-		{ method: "POST", path: "/api/v1/appointments" },
-		{ method: "POST", path: "/api/v1/appointments/appointment-001/cancel" },
+		{ method: "POST", path: "/api/v1/appointments/registrations" },
+		{
+			method: "POST",
+			path: "/api/v1/appointments/registrations/appointment-001/cancel",
+		},
 	] as const;
 
 	for (const request of writeRequests) {
@@ -406,7 +423,7 @@ test("appointment write routes remain absent while provider contract is blocked"
 			new Request(`http://localhost${request.path}`, requestInit),
 		);
 
-		expect(response.status).toBe(404);
+		expect(response.status).toBe(401);
 	}
 });
 

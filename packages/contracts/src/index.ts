@@ -376,6 +376,59 @@ export const AppointmentRecordListResponse = Type.Object({
 	}),
 });
 
+/** 预约写入命令：客户端只提交平台 opaque 引用和号源序号。 */
+export const AppointmentHoldRequest = Type.Object(
+	{
+		patientId: Type.String({ minLength: 1, maxLength: 128 }),
+		scheduleId: Type.String({ minLength: 1, maxLength: 128 }),
+		sourceSerialNumber: Type.String({ minLength: 1, maxLength: 32 }),
+	},
+	{ additionalProperties: false },
+);
+
+export const AppointmentHoldResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		holdId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Literal("held"),
+		totalFen: Type.Integer({ minimum: 1 }),
+		expiresAt: Type.String({ minLength: 1 }),
+	}),
+});
+
+export const AppointmentRegistrationRequest = Type.Object(
+	{
+		patientId: Type.String({ minLength: 1, maxLength: 128 }),
+		holdId: Type.String({ minLength: 1, maxLength: 64 }),
+	},
+	{ additionalProperties: false },
+);
+
+const AppointmentRegistrationData = Type.Object({
+	appointmentId: Type.String({ minLength: 1, maxLength: 64 }),
+	status: Type.Union([Type.Literal("booked"), Type.Literal("duplicate")]),
+	patientId: Type.String({ minLength: 1, maxLength: 128 }),
+	departmentName: Type.String({ minLength: 1, maxLength: 128 }),
+	doctorName: Type.String({ minLength: 1, maxLength: 128 }),
+	workDate: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+	shiftName: Type.String({ minLength: 1, maxLength: 64 }),
+	sourceSerialNumber: Type.String({ minLength: 1, maxLength: 32 }),
+	totalFen: Type.Integer({ minimum: 1 }),
+});
+
+export const AppointmentRegistrationResponse = Type.Object({
+	success: Type.Literal(true),
+	data: AppointmentRegistrationData,
+});
+
+export const AppointmentCancellationResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		appointmentId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Literal("cancelled"),
+	}),
+});
+
 /** 门诊病历列表只返回已经脱敏的就诊摘要，不返回 regId/patId 等 Provider 标识。 */
 export const OutpatientMedicalRecordSchema = Type.Object({
 	departmentName: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
@@ -582,6 +635,52 @@ export const PaymentOrderCreateRequest = Type.Object({
 	quoteId: Type.String({ minLength: 1, maxLength: 128 }),
 });
 
+/** 挂号医保专用命令；授权码只在授权回跳后短暂提交给服务端。 */
+export const MedicalInsuranceAuthorizeRequest = Type.Object(
+	{
+		appointmentId: Type.String({ minLength: 1, maxLength: 64 }),
+		authCode: Type.String({ minLength: 1, maxLength: 512 }),
+	},
+	{ additionalProperties: false },
+);
+
+export const MedicalInsuranceAuthorizeResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Literal("authorized"),
+	}),
+});
+
+export const MedicalInsuranceOrderCommandRequest = Type.Object(
+	{},
+	{ additionalProperties: false },
+);
+
+export const MedicalInsuranceOrderResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		orderId: Type.String({ minLength: 1, maxLength: 64 }),
+		status: Type.Union([
+			Type.Literal("created"),
+			Type.Literal("fee_uploaded"),
+			Type.Literal("order_placed"),
+			Type.Literal("insurance_settled"),
+			Type.Literal("cash_pending"),
+			Type.Literal("awaiting_confirmation"),
+			Type.Literal("manual_review"),
+			Type.Literal("failed"),
+		]),
+		amounts: Type.Optional(
+			Type.Object({
+				totalFen: Type.Integer({ minimum: 1 }),
+				insuranceFen: Type.Integer({ minimum: 0 }),
+				cashFen: Type.Integer({ minimum: 0 }),
+			}),
+		),
+	}),
+});
+
 /** 门诊费用状态由服务端根据 provider 合同映射，小程序不得自行推导。 */
 export const OutpatientPaymentStatusSchema = Type.Union([
 	Type.Literal("unpaid"),
@@ -763,6 +862,19 @@ export type AppointmentRecordPayload = Static<typeof AppointmentRecordSchema>;
 export type AppointmentRecordListPayload = Static<
 	typeof AppointmentRecordListResponse
 >;
+export type AppointmentHoldRequestPayload = Static<
+	typeof AppointmentHoldRequest
+>;
+export type AppointmentHoldPayload = Static<typeof AppointmentHoldResponse>;
+export type AppointmentRegistrationRequestPayload = Static<
+	typeof AppointmentRegistrationRequest
+>;
+export type AppointmentRegistrationPayload = Static<
+	typeof AppointmentRegistrationResponse
+>;
+export type AppointmentCancellationPayload = Static<
+	typeof AppointmentCancellationResponse
+>;
 export type OutpatientMedicalRecordPayload = Static<
 	typeof OutpatientMedicalRecordSchema
 >;
@@ -798,6 +910,18 @@ export type HealthKnowledgeDrugDetailResponsePayload = Static<
 >;
 export type PaymentOrderCreatePayload = Static<
 	typeof PaymentOrderCreateRequest
+>;
+export type MedicalInsuranceAuthorizeRequestPayload = Static<
+	typeof MedicalInsuranceAuthorizeRequest
+>;
+export type MedicalInsuranceAuthorizePayload = Static<
+	typeof MedicalInsuranceAuthorizeResponse
+>;
+export type MedicalInsuranceOrderCommandPayload = Static<
+	typeof MedicalInsuranceOrderCommandRequest
+>;
+export type MedicalInsuranceOrderPayload = Static<
+	typeof MedicalInsuranceOrderResponse
 >;
 export type OutpatientPaymentStatusPayload = Static<
 	typeof OutpatientPaymentStatusSchema

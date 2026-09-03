@@ -16,7 +16,6 @@ test("worker runtime remains fail-closed without complete persistence/provider c
 	expect(workerConfigurationMissingFields(runtimeConfig)).toEqual([
 		"PERSISTENCE_SCHEMA_READY",
 		"DATABASE_URL",
-		"PAYMENT_DATA_ENCRYPTION_KEY",
 		"WECHAT_PAYMENT_READY",
 	]);
 	const runtime = createWorkerRuntime({ runtimeConfig });
@@ -26,7 +25,6 @@ test("worker runtime remains fail-closed without complete persistence/provider c
 		missingConfiguration: [
 			"PERSISTENCE_SCHEMA_READY",
 			"DATABASE_URL",
-			"PAYMENT_DATA_ENCRYPTION_KEY",
 			"WECHAT_PAYMENT_READY",
 		],
 	});
@@ -35,6 +33,28 @@ test("worker runtime remains fail-closed without complete persistence/provider c
 		reconciliation: "idle",
 	});
 	await runtime.close();
+});
+
+test("medical insurance worker can be configured without the WeChat payment gate", () => {
+	const runtimeConfig = loadRuntimeConfig({
+		PERSISTENCE_SCHEMA_READY: "true",
+		DATABASE_URL: "mysql://hospital:test@127.0.0.1:3307/hospital_platform",
+		MEDICAL_INSURANCE_READY: "true",
+		MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY: "medical-test-key",
+		MBS_FORWARD_RELAY_URL: "https://relay.example.test",
+		MBS_FORWARD_BASE_URL_6201: "http://fsi.internal",
+		MBS_FORWARD_BASE_URL: "http://foundation.internal",
+		MBS_FORWARD_AUTHORIZATION_TOKEN: "relay-token",
+		MBS_APP_ID: "medical-app",
+		MBS_APP_SECRET: "medical-secret",
+		MBS_SM2_PRIVATE_KEY_B64: "private-key",
+		MBS_SM2_OWN_PUBLIC_B64: "own-public-key",
+		MBS_SM2_PLATFORM_PUBLIC_B64: "platform-public-key",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+	});
+
+	expect(workerConfigurationMissingFields(runtimeConfig)).toEqual([]);
+	expect(workerConfigurationStatus(runtimeConfig)).toBe("ready");
 });
 
 test("worker startup failure emits structured persistence readiness logs", async () => {
