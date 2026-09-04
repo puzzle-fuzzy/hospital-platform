@@ -484,7 +484,8 @@ export class ZhongyangAppointmentWriteApiGateway
 			sourceId,
 			patId: providerPatientId,
 		};
-		// 点号源的可选时间段字段在众阳响应中可能以 null/空串表示未提供；
+		// 点号源的 groupStart/groupEnd 可能同时存在且相等；这表示一个时间点，
+		// 不能误判成倒序时间段，也不应把时间范围字段发送给锁号接口。
 		// 两端都缺失时不发送范围字段，只有单端存在才视为合同形状错误。
 		const hasGroupStart =
 			source.groupStart !== undefined &&
@@ -517,18 +518,25 @@ export class ZhongyangAppointmentWriteApiGateway
 			);
 			if (
 				!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(groupStart) ||
-				!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(groupEnd) ||
-				groupStart >= groupEnd
+				!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(groupEnd)
 			) {
 				throw providerError(
 					operation,
 					"Zhongyang appointment source time range is invalid",
 					response.requestId,
-					false,
 				);
 			}
-			lockedSourceBody.groupStart = groupStart;
-			lockedSourceBody.groupEnd = groupEnd;
+			if (groupStart !== groupEnd) {
+				if (groupStart >= groupEnd) {
+					throw providerError(
+						operation,
+						"Zhongyang appointment source time range is invalid",
+						response.requestId,
+					);
+				}
+				lockedSourceBody.groupStart = groupStart;
+				lockedSourceBody.groupEnd = groupEnd;
+			}
 		}
 		const locked = await this.post<unknown>(
 			"appointment-source-lock",
