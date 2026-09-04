@@ -85,12 +85,13 @@ function verifyRequestAuthorization(
 function createGateway(
 	fetcher: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
 	nonces: string[] = ["request-nonce-001", "pay-nonce-001"],
+	merchantPrivateKeyOverride = merchantPrivateKey,
 ): WechatPaymentApiGateway {
 	return new WechatPaymentApiGateway({
 		appId: "wx-app-001",
 		mchId: "mch-001",
 		merchantCertificateSerial: "merchant-serial-001",
-		merchantPrivateKey,
+		merchantPrivateKey: merchantPrivateKeyOverride,
 		platformCertificateSerial: "platform-serial-001",
 		platformPublicKey,
 		apiV3Key: "0123456789abcdef0123456789abcdef",
@@ -101,6 +102,35 @@ function createGateway(
 		fetcher,
 	});
 }
+
+test("systemd 转义的 PEM 换行可以用于 APIv3 查单签名", async () => {
+	const body = JSON.stringify({
+		trade_state: "NOTPAY",
+		amount: { total: 6202 },
+	});
+	const escapedMerchantPrivateKey = merchantPrivateKey.replaceAll("\n", "\\n");
+	const gateway = createGateway(
+		async (_input, init) => {
+			verifyRequestAuthorization(
+				init,
+				"GET",
+				"/v3/pay/transactions/out-trade-no/order-escaped-001?mchid=mch-001",
+				"",
+			);
+			return new Response(body, {
+				status: 200,
+				headers: providerResponseHeaders(body),
+			});
+		},
+		["request-nonce-escaped-001"],
+		escapedMerchantPrivateKey,
+	);
+
+	const result = await gateway.query({ orderId: "order-escaped-001" }, context);
+
+	expect(result.state).toBe("cash_pending");
+	expect(result.totalFen).toBe(6202);
+});
 
 test("微信 JSAPI 下单使用 APIv3 签名并返回服务端调起参数", async () => {
 	let requestBody = "";

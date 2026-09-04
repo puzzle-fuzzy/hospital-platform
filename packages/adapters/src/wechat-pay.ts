@@ -132,9 +132,14 @@ function requiredConfig(value: string, adapter: "wechat-pay"): string {
  * 避免把旧项目的证书材料迁移到新 API 后变成不可用的单行密钥。
  */
 function requiredPem(value: string, adapter: "wechat-pay"): string {
-	return requiredConfig(value, adapter)
-		.replace(/\\r?\\n/g, "\n")
-		.replace(/\r\n/g, "\n");
+	return (
+		requiredConfig(value, adapter)
+			// EnvironmentFile 中的 PEM 可能分别以 `\\n` 或 `\\r\\n` 传入；
+			// 用字符串替换避免正则转义层级把单个反斜杠误判成两个。
+			.replaceAll("\\r\\n", "\n")
+			.replaceAll("\\n", "\n")
+			.replace(/\r\n/g, "\n")
+	);
 }
 
 function requiredPositiveFen(value: number): number {
