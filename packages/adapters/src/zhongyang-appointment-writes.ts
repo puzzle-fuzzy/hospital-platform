@@ -174,23 +174,26 @@ function text(
 	return result;
 }
 
-function providerInteger(
+function providerId(
 	value: unknown,
 	field: string,
 	operation: string,
-): number {
+	requestId?: string,
+): string {
+	// 众阳文档将这些字段标成整型，但线上返回的 HIS/号源/患者编号可达
+	// 19 位；JavaScript Number 会丢失精度，写入链路必须保留十进制字符串。
 	const raw =
-		typeof value === "number"
-			? value
-			: typeof value === "string" && /^\d+$/.test(value.trim())
-				? Number(value.trim())
-				: Number.NaN;
-	if (!Number.isSafeInteger(raw) || raw < 0) {
+		typeof value === "string" && /^\d+$/.test(value.trim())
+			? value.trim()
+			: typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+				? String(value)
+				: "";
+	if (!raw) {
 		throw providerError(
 			operation,
-			`Zhongyang ${field} must be a non-negative integer`,
-			undefined,
-			false,
+			`Zhongyang ${field} must be a non-negative decimal identifier`,
+			requestId,
+			requestId === undefined ? false : true,
 		);
 	}
 	return raw;
@@ -444,7 +447,7 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-source-resolve";
-		const providerScheduleId = providerInteger(
+		const providerScheduleId = providerId(
 			input.providerScheduleId,
 			"hisScheduleId",
 			operation,
@@ -472,8 +475,13 @@ export class ZhongyangAppointmentWriteApiGateway
 				false,
 				"appointment-source-unavailable",
 			);
-		const sourceId = providerInteger(source.sourceId, "sourceId", operation);
-		const providerPatientId = providerInteger(
+		const sourceId = providerId(
+			source.sourceId,
+			"sourceId",
+			operation,
+			response.requestId,
+		);
+		const providerPatientId = providerId(
 			input.providerPatientId,
 			"patId",
 			operation,
@@ -559,10 +567,11 @@ export class ZhongyangAppointmentWriteApiGateway
 			"appointment-source-lock",
 			locked.requestId,
 		);
-		const lockedSourceId = providerInteger(
+		const lockedSourceId = providerId(
 			lockedData.sourceId,
 			"sourceId",
 			"appointment-source-lock",
+			locked.requestId,
 		);
 		if (lockedSourceId !== sourceId) {
 			throw providerError(
@@ -573,7 +582,7 @@ export class ZhongyangAppointmentWriteApiGateway
 			);
 		}
 		return {
-			providerSourceId: String(lockedSourceId),
+			providerSourceId: lockedSourceId,
 			sourceSerialNumber: text(
 				source.serialNumber,
 				"serialNumber",
@@ -592,12 +601,12 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-fact-register-fee";
-		const providerScheduleId = providerInteger(
+		const providerScheduleId = providerId(
 			input.providerScheduleId,
 			"hisScheduleId",
 			operation,
 		);
-		const providerPatientId = providerInteger(
+		const providerPatientId = providerId(
 			input.providerPatientId,
 			"patId",
 			operation,
@@ -607,8 +616,8 @@ export class ZhongyangAppointmentWriteApiGateway
 			FACT_FEE_PATH,
 			context,
 			{
-				hisScheduleId: String(providerScheduleId),
-				patId: String(providerPatientId),
+				hisScheduleId: providerScheduleId,
+				patId: providerPatientId,
 				requestChannel: REQUEST_CHANNEL,
 			},
 		);
@@ -631,7 +640,7 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-active-records";
-		const providerPatientId = providerInteger(
+		const providerPatientId = providerId(
 			input.providerPatientId,
 			"patId",
 			operation,
@@ -728,17 +737,17 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-registration-create";
-		const providerPatientId = providerInteger(
+		const providerPatientId = providerId(
 			input.patient.providerPatientId,
 			"patId",
 			operation,
 		);
-		const providerScheduleId = providerInteger(
+		const providerScheduleId = providerId(
 			input.target.providerScheduleId,
 			"hisScheduleId",
 			operation,
 		);
-		const providerSourceId = providerInteger(
+		const providerSourceId = providerId(
 			input.target.providerSourceId,
 			"sourceId",
 			operation,
@@ -801,12 +810,12 @@ export class ZhongyangAppointmentWriteApiGateway
 		context: AdapterCallContext,
 	) {
 		const operation = "appointment-cancellation";
-		const providerPatientId = providerInteger(
+		const providerPatientId = providerId(
 			input.providerPatientId,
 			"patId",
 			operation,
 		);
-		const providerAppointmentId = providerInteger(
+		const providerAppointmentId = providerId(
 			input.providerAppointmentId,
 			"appointmentInfoId",
 			operation,
