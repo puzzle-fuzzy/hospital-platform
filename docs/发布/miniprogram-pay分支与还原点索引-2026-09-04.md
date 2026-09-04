@@ -7,7 +7,7 @@
 | 对象 | 指向 | 含义 |
 | --- | --- | --- |
 | 本地当前分支 | `codex/miniprogram-pay-mixed-payment` | 医保支付 demo 的持续开发分支 |
-| 本地 HEAD | `2d133556` | 当前最新提交；仅修正本索引里的回退示例 |
+| 本地 HEAD | `85211eb4` | 当前最新提交；仅修正本索引里的服务器发布指针 |
 | 服务器 `current` | `/home/ps/code/hospital-platform/releases/39db53092b55c927a936ef89a1f2baad69802666` | `hospital-platform-api-v2.service` 当前运行包；包含 `146e6cda` 业务修复和 `39db5309` 日志阶段修复 |
 | `main` | `0a0548680b6052819825b630f1351a7a8cc3024b` | 医保 demo 在混合支付前的本地还原点；未作为当前服务版本 |
 | `origin/main` | `10c6b471c7df5ed36795c5f0d7269e38d54046af` | 新项目医保支付基础版本；当前功能分支在其之上继续开发 |
@@ -27,7 +27,8 @@
 | `97911c88` | 处理 `groupStart === groupEnd` 的时间点号源，时间点不再被当作倒序时间段。 | 已被 `146e6cda` supersede；不能单独作为最终修复版本 |
 | `146e6cda` | 修复众阳 `hisScheduleId`、`sourceId`、`patId`、预约 ID 可能为 19 位数字字符串时被 `Number` 转换破坏的问题；锁号、费用、预约、查询、取消统一保留字符串。 | 当前业务基线 |
 | `39db5309` | 增加 `providerFailureStage=validation`，并补齐本索引文档；2xx 业务拒绝标为 `response`。 | 当前服务器 API 版本 |
-| `2d133556` | 只修正文档中的回退目标示例；尚未重新发布服务器，因为不包含运行代码。 | 当前本地 HEAD |
+| `2d133556` | 只修正文档中的回退目标示例；尚未重新发布服务器，因为不包含运行代码。 | 文档中间修订点 |
+| `85211eb4` | 只修正本索引中的服务器发布指针；尚未重新发布服务器，因为不包含运行代码。 | 当前本地 HEAD |
 
 完整分支关系：
 
@@ -41,7 +42,8 @@ origin/main 10c6b471
                   ├─ 97911c88  时间点号源
                   ├─ 146e6cda  19 位 Provider ID 精度修复
                   ├─ 39db5309  日志 validation/response 阶段（当前服务器）
-                  └─ 2d133556  还原点索引文档修正（当前本地 HEAD）
+                  ├─ 2d133556  还原点索引文档修正
+                  └─ 85211eb4  当前索引指针修正（当前本地 HEAD）
 ```
 
 ## 服务器上的历史 release 目录
