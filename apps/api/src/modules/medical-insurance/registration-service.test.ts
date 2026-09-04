@@ -71,6 +71,7 @@ test("non-terminal 6202 settlement is persisted and enqueued exactly once", asyn
 	const service = new MedicalInsuranceRegistrationService({
 		orders,
 		appointments: {} as never,
+		patients: {} as never,
 		identityUsers: {} as never,
 		patientProfile: {} as never,
 		medicalInsurance,
@@ -109,4 +110,109 @@ test("non-terminal 6202 settlement is persisted and enqueued exactly once", asyn
 		status: "awaiting_confirmation",
 	});
 	expect(settleCalls).toBe(1);
+});
+
+test("medical authorization resolves the directory reference instead of the HIS patient id", async () => {
+	const orders = createInMemoryMedicalInsuranceOrderRepository();
+	const appointments = {
+		findRegistration: async () => ({
+			appointmentId: "appointment-auth-001",
+			ownerUserId: "user-auth-001",
+			patientId: "patient-auth-001",
+			holdId: "hold-auth-001",
+			idempotencyKey: "appointment-auth-idempotency",
+			// 预约记录保存的是 patInfosFind.data.patId。
+			providerPatientId: "his-patient-001",
+			providerAppointmentId: "provider-appointment-001",
+			departmentName: "内科风湿",
+			doctorName: "测试医生",
+			workDate: "2026-09-07",
+			shiftName: "上午",
+			sourceSerialNumber: "1",
+			totalFen: 1000,
+			status: "booked" as const,
+			createdAt: now.toISOString(),
+			updatedAt: now.toISOString(),
+		}),
+	} as never;
+	const patients = {
+		resolveProviderReference: async (input: {
+			referenceKind?: "directory" | "his-patient";
+		}) => {
+			expect(input.referenceKind).toBe("directory");
+			return {
+				patientId: "patient-auth-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "directory-patient-001",
+			};
+		},
+	} as never;
+	const identityUsers = {
+		findByUserId: async () => ({
+			userId: "user-auth-001",
+			providerSubject: "openid-auth-001",
+			unionId: "union-auth-001",
+		}),
+	} as never;
+	let profileInput: { unionId: string; providerPatientId: string } | undefined;
+	const patientProfile = {
+		resolve: async (input: { unionId: string; providerPatientId: string }) => {
+			profileInput = input;
+			return {
+				patient: {
+					providerPatientId: "his-patient-001",
+					name: "张三",
+					cardNo: "1234567890",
+					idNo: "110101199001011234",
+					phone: "13800000000",
+				},
+				trace: {
+					provider: "zhongyang" as const,
+					operation: "appointment-patient-profile",
+					requestId: "profile-auth-001",
+				},
+			};
+		},
+	} as never;
+	const medicalInsurance = {
+		authorize: async (input: { patientId: string }) => {
+			expect(input.patientId).toBe("his-patient-001");
+			return {
+				authorizationId: "authorization-auth-001",
+				trace: {
+					provider: "medical-insurance" as const,
+					operation: "medical-insurance.authorize",
+					requestId: "authorize-auth-001",
+				},
+			};
+		},
+	} as never;
+	const service = new MedicalInsuranceRegistrationService({
+		orders,
+		appointments,
+		patients,
+		identityUsers,
+		patientProfile,
+		medicalInsurance,
+		now: () => now,
+	});
+
+	expect(
+		await service.authorize({
+			ownerUserId: "user-auth-001",
+			appointmentId: "appointment-auth-001",
+			authCode: "auth-code-001",
+			context: {
+				traceId: "medical-auth-trace-001",
+				idempotencyKey: "medical-auth-idempotency-001",
+			},
+		}),
+	).toEqual({
+		orderId: expect.any(String),
+		status: "authorized",
+	});
+	expect(profileInput).toEqual({
+		unionId: "union-auth-001",
+		providerPatientId: "directory-patient-001",
+	});
 });

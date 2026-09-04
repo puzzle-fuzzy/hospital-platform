@@ -172,6 +172,7 @@ export function createDefaultApplicationServices(
 	const medicalInsurance = new MedicalInsuranceRegistrationService({
 		orders: repositories.medicalInsuranceOrders,
 		appointments: repositories.appointmentWrites,
+		patients: repositories.patients,
 		identityUsers: repositories.identityUsers,
 		patientProfile:
 			options.appointmentPatientProfileGateway ??

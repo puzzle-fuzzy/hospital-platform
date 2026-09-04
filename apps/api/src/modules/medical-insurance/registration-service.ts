@@ -14,6 +14,8 @@ import {
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceQueryTaskRepository,
+	type PatientRepository,
+	validatePatientProviderReference,
 	normalizeAdapterCallContext,
 	type UserIdentityRepository,
 } from "@hospital/domain";
@@ -39,6 +41,7 @@ export class MedicalInsuranceAppointmentNotFoundError extends Error {
 export type MedicalInsuranceRegistrationServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
 	appointments: AppointmentWriteRepository;
+	patients: PatientRepository;
 	identityUsers: UserIdentityRepository;
 	patientProfile: AppointmentPatientProfileGateway;
 	medicalInsurance: MedicalInsuranceGateway;
@@ -148,10 +151,34 @@ export class MedicalInsuranceRegistrationService {
 			throw new MedicalInsuranceRegistrationInputError(
 				"微信身份未完成 unionId/openid 绑定，无法解析医保授权",
 			);
+		// 预约记录里的 providerPatientId 是 patInfosFind 返回的 HIS patId，
+		// 而 patientInfoByUnionId 使用的是目录 thirdPatientId。两者不能互相
+		// 当作查询键；这里按 owner + 平台 patientId 重新取得 directory 引用，
+		// 再让 profile gateway 解析实名资料，避免医保授权阶段把 HIS patId
+		// 错拿去匹配微信目录患者。
+		const directoryReference =
+			await this.dependencies.patients.resolveProviderReference({
+				ownerUserId,
+				patientId: appointment.patientId,
+				provider: "zhongyang",
+				referenceKind: "directory",
+			});
+		if (!directoryReference)
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前就诊人缺少众阳目录映射，无法解析医保授权",
+			);
+		const referenceViolation = validatePatientProviderReference(
+			directoryReference,
+			appointment.patientId,
+		);
+		if (referenceViolation)
+			throw new MedicalInsuranceRegistrationInputError(
+				"当前就诊人的众阳目录映射无效，无法解析医保授权",
+			);
 		const result = await this.dependencies.patientProfile.resolve(
 			{
 				unionId: identity.unionId,
-				providerPatientId: appointment.providerPatientId,
+				providerPatientId: directoryReference.providerPatientId,
 			},
 			context,
 		);
