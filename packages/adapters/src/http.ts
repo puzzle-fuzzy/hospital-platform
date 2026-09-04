@@ -1,5 +1,5 @@
 import type { AdapterContext, AdapterName } from "./context";
-import { ProviderRequestError } from "./errors";
+import { ProviderRequestError, type ProviderRequestOutcome } from "./errors";
 
 /** provider 默认超时；具体 adapter 可以按官方协议覆盖，但不得无限等待。 */
 const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000;
@@ -81,6 +81,8 @@ export async function requestJson<T>(
 			operation: input.operation,
 			message: "Provider request cannot define both body and bodyText",
 			retryable: false,
+			failureStage: "validation",
+			requestOutcome: "not_sent",
 		});
 	}
 
@@ -113,7 +115,14 @@ export async function requestJson<T>(
 
 	try {
 		if (controller.signal.aborted) {
-			throw new Error("Provider request was cancelled before dispatch");
+			throw new ProviderRequestError({
+				provider: input.provider,
+				operation: input.operation,
+				message: "Provider request was cancelled before dispatch",
+				retryable: false,
+				failureStage: "validation",
+				requestOutcome: "not_sent",
+			});
 		}
 
 		const response = await fetcher(input.url, init);
@@ -125,6 +134,12 @@ export async function requestJson<T>(
 		);
 
 		if (!response.ok) {
+			const requestOutcome: ProviderRequestOutcome =
+				response.status >= 400 &&
+				response.status < 500 &&
+				response.status !== 429
+					? "rejected"
+					: "unknown";
 			throw new ProviderRequestError({
 				provider: input.provider,
 				operation: input.operation,
@@ -133,6 +148,7 @@ export async function requestJson<T>(
 				statusCode: response.status,
 				retryable: response.status === 429 || response.status >= 500,
 				failureStage: "http",
+				requestOutcome,
 			});
 		}
 
@@ -154,6 +170,7 @@ export async function requestJson<T>(
 					requestId,
 					retryable: false,
 					failureStage: "response",
+					requestOutcome: "unknown",
 					cause,
 				});
 			}
@@ -177,6 +194,7 @@ export async function requestJson<T>(
 				requestId,
 				retryable: false,
 				failureStage: "response",
+				requestOutcome: "unknown",
 				cause,
 			});
 		}
@@ -196,6 +214,7 @@ export async function requestJson<T>(
 			requestId: input.context.traceId,
 			retryable: true,
 			failureStage: "transport",
+			requestOutcome: "unknown",
 			cause,
 		});
 	} finally {

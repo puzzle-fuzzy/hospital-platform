@@ -26,6 +26,15 @@ export type ProviderFailureStage =
 	| "http"
 	| "response";
 
+/**
+ * Provider 请求边界的结果确定性。
+ *
+ * `not_sent` 表示平台在签名/参数校验阶段就停止了，允许修复后重试；
+ * `rejected` 表示 provider 已明确拒绝，不能把它误当成支付成功；
+ * `unknown` 表示请求可能已经到达 provider，必须先查单再决定是否重建。
+ */
+export type ProviderRequestOutcome = "not_sent" | "rejected" | "unknown";
+
 /** 已确认的 Provider 业务竞争原因；只用于稳定映射和低敏日志。 */
 export type ProviderFailureReason = "appointment-source-unavailable";
 
@@ -41,6 +50,8 @@ export class ProviderRequestError extends Error {
 	readonly responseInvalid: boolean;
 	/** 已确认的号源竞争边界；不能把其它 Provider 拒绝猜测成该原因。 */
 	readonly reason: ProviderFailureReason | undefined;
+	/** 请求是否已越过 provider 边界；支付预支付重试策略依赖该字段。 */
+	readonly requestOutcome: ProviderRequestOutcome | undefined;
 
 	constructor(input: {
 		provider: AdapterName;
@@ -52,6 +63,7 @@ export class ProviderRequestError extends Error {
 		failureStage?: ProviderFailureStage;
 		responseInvalid?: boolean;
 		reason?: ProviderFailureReason;
+		requestOutcome?: ProviderRequestOutcome;
 		cause?: unknown;
 	}) {
 		super(input.message, { cause: input.cause });
@@ -64,5 +76,6 @@ export class ProviderRequestError extends Error {
 		this.failureStage = input.failureStage;
 		this.responseInvalid = input.responseInvalid === true;
 		this.reason = input.reason;
+		this.requestOutcome = input.requestOutcome;
 	}
 }

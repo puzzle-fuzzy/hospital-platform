@@ -21,7 +21,12 @@ import {
 	assertValidMedicalInsuranceAmounts,
 	isMedicalInsuranceOrderType,
 } from "@hospital/domain";
-import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
+import {
+	AdapterNotConfiguredError,
+	ProviderRequestError,
+	type ProviderFailureStage,
+	type ProviderRequestOutcome,
+} from "./errors";
 import { requestJson, type ProviderFetcher } from "./http";
 
 const DEFAULT_WECHAT_PAY_BASE_URL = "https://api.mch.weixin.qq.com";
@@ -139,6 +144,8 @@ function requiredPositiveFen(value: number): number {
 			operation: "jsapi-prepay",
 			message: "Wechat payment totalFen must be a positive safe integer",
 			retryable: false,
+			failureStage: "validation",
+			requestOutcome: "not_sent",
 		});
 	}
 	return value;
@@ -151,6 +158,8 @@ function requiredNonNegativeFen(value: number, field: string): number {
 			operation: "medical-mix-validation",
 			message: `Wechat medical payment ${field} must be a non-negative safe integer`,
 			retryable: false,
+			failureStage: "validation",
+			requestOutcome: "not_sent",
 		});
 	}
 	return value;
@@ -164,6 +173,8 @@ function requiredInput(value: string, field: string, maxLength = 256): string {
 			operation: "request-validation",
 			message: `Wechat payment ${field} is invalid`,
 			retryable: false,
+			failureStage: "validation",
+			requestOutcome: "not_sent",
 		});
 	}
 	return normalized;
@@ -173,6 +184,8 @@ function providerError(input: {
 	operation: string;
 	message: string;
 	requestId?: string;
+	failureStage?: ProviderFailureStage;
+	requestOutcome?: ProviderRequestOutcome;
 	cause?: unknown;
 }): ProviderRequestError {
 	return new ProviderRequestError({
@@ -180,6 +193,8 @@ function providerError(input: {
 		operation: input.operation,
 		message: input.message,
 		retryable: false,
+		failureStage: input.failureStage ?? "response",
+		requestOutcome: input.requestOutcome ?? "unknown",
 		...(input.requestId ? { requestId: input.requestId } : {}),
 		...(input.cause ? { cause: input.cause } : {}),
 	});
@@ -296,7 +311,20 @@ function apiV3Authorization(input: {
 	merchantPrivateKey: string;
 }): string {
 	const message = `${input.method}\n${input.path}\n${input.timestamp}\n${input.nonce}\n${input.body}\n`;
-	const signature = signRsaSha256(message, input.merchantPrivateKey);
+	let signature: string;
+	try {
+		signature = signRsaSha256(message, input.merchantPrivateKey);
+	} catch (cause) {
+		// 这一步发生在 fetch 之前，微信还没有收到请求；不能把本地 PEM
+		// 配置错误记录成 provider 结果未知，否则修复配置后也无法重试。
+		throw providerError({
+			operation: "request-signing",
+			message: "Wechat payment request signing failed before dispatch",
+			failureStage: "validation",
+			requestOutcome: "not_sent",
+			cause,
+		});
+	}
 	return [
 		"WECHATPAY2-SHA256-RSA2048",
 		`mchid="${input.mchId}"`,
@@ -331,13 +359,27 @@ function payParams(input: {
 	const nonceStr = input.nonce();
 	const packageValue = `prepay_id=${input.prepayId}`;
 	const message = `${input.appId}\n${timeStamp}\n${nonceStr}\n${packageValue}\n`;
+	let paySign: string;
+	try {
+		paySign = signRsaSha256(message, input.merchantPrivateKey);
+	} catch (cause) {
+		// 此时微信预支付单已经成功返回，调起参数签名失败仍不能重建
+		// 预支付单，必须保留为未知并走查单/人工确认。
+		throw providerError({
+			operation: "pay-params-signing",
+			message: "Wechat mini-program pay params signing failed",
+			failureStage: "response",
+			requestOutcome: "unknown",
+			cause,
+		});
+	}
 	return {
 		appId: input.appId,
 		timeStamp,
 		nonceStr,
 		package: packageValue,
 		signType: "RSA",
-		paySign: signRsaSha256(message, input.merchantPrivateKey),
+		paySign,
 	};
 }
 

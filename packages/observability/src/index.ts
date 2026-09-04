@@ -29,6 +29,8 @@ export type ProviderFailureMetadata = {
 	providerRetryable?: boolean;
 	/** 仅记录有限枚举，便于区分本地校验、TLS/网络、HTTP 状态码和响应内容故障。 */
 	providerFailureStage?: "validation" | "transport" | "http" | "response";
+	/** 请求是否越过 Provider 边界；用于区分可安全重试和必须查单的失败。 */
+	providerRequestOutcome?: "not_sent" | "rejected" | "unknown";
 	/** 已确认的 Provider 业务竞争原因，不记录 Provider 原始响应。 */
 	providerFailureReason?: "appointment-source-unavailable";
 	/**
@@ -113,6 +115,7 @@ export function providerFailureMetadata(
 		statusCode?: unknown;
 		retryable?: unknown;
 		failureStage?: unknown;
+		requestOutcome?: unknown;
 		responseInvalid?: unknown;
 		reason?: unknown;
 		cause?: unknown;
@@ -148,6 +151,12 @@ export function providerFailureMetadata(
 		candidate.reason === "appointment-source-unavailable"
 			? candidate.reason
 			: undefined;
+	const providerRequestOutcome =
+		candidate.requestOutcome === "not_sent" ||
+		candidate.requestOutcome === "rejected" ||
+		candidate.requestOutcome === "unknown"
+			? candidate.requestOutcome
+			: undefined;
 	return {
 		...(provider ? { provider } : {}),
 		...(providerOperation ? { providerOperation } : {}),
@@ -162,6 +171,7 @@ export function providerFailureMetadata(
 			? { providerRetryable: candidate.retryable }
 			: {}),
 		...(failureStage ? { providerFailureStage: failureStage } : {}),
+		...(providerRequestOutcome ? { providerRequestOutcome } : {}),
 		...(providerFailureReason ? { providerFailureReason } : {}),
 		...(providerTransportErrorCode ? { providerTransportErrorCode } : {}),
 	};

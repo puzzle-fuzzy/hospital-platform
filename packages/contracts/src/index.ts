@@ -886,6 +886,7 @@ export const WechatPrepayStatusResponse = Type.Object({
 			Type.Literal("not_started"),
 			Type.Literal("pending"),
 			Type.Literal("ready"),
+			Type.Literal("failed"),
 			Type.Literal("unknown"),
 		]),
 		payParams: Type.Optional(WechatMiniProgramPayParamsSchema),

@@ -268,11 +268,11 @@ test("wechat prepay does not leave a not-configured dependency permanently pendi
 			orderId: input.orderId,
 			idempotencyKey: input.context.idempotencyKey,
 		}),
-	).resolves.toMatchObject({ status: "unknown" });
+	).resolves.toMatchObject({ status: "failed" });
 
 	// 重试同一幂等键时仍返回配置错误，不能伪装成永久的并发处理中。
 	await expect(service.create(input)).rejects.toThrow(
-		"Dependency is not configured: wechat-pay",
+		"Dependency is not configured: adapter:wechat-pay",
 	);
 });
 

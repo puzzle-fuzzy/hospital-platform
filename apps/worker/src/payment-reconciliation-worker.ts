@@ -4,7 +4,11 @@ import type {
 	PaymentPrepayAttemptRepository,
 	WechatPaymentGateway,
 } from "@hospital/domain";
-import { createNoopLogger, type AppLogger } from "@hospital/observability";
+import {
+	createNoopLogger,
+	providerFailureMetadata,
+	type AppLogger,
+} from "@hospital/observability";
 
 /** 首次明确未支付后给 provider 的最小重试间隔。 */
 const BASE_QUERY_DELAY_MS = 15_000;
@@ -189,6 +193,7 @@ export class PaymentReconciliationWorker {
 					orderId: attempt.orderId,
 					queryAttempts: retryAttempt.queryAttempts,
 					errorName: error instanceof Error ? error.name : "UnknownError",
+					...providerFailureMetadata(error),
 				},
 				"Wechat payment query will be retried",
 			);

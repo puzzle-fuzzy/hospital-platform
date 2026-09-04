@@ -385,6 +385,8 @@ export function normalizePaymentQuoteReadModel(
 export type PaymentPrepayAttemptStatus =
 	| "pending"
 	| "succeeded"
+	/** 已确认请求未发出或被 provider 明确拒绝，可在修复后重新发起。 */
+	| "failed"
 	| "unknown"
 	| "manual_review";
 

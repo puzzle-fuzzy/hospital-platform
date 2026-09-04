@@ -14,6 +14,7 @@ import {
 	PaymentPrepayAttemptInProgressError,
 	type PaymentPrepayAttemptRepository,
 	PaymentPrepayAttemptUnknownError,
+	PaymentPrepayAttemptVersionConflictError,
 	type UserIdentityRepository,
 	type WechatPaymentGateway,
 } from "@hospital/domain";
@@ -52,6 +53,47 @@ type WechatPrepayReadInput = {
 	orderId: string;
 	idempotencyKey: string;
 };
+
+type PrepayErrorMetadata = {
+	name?: unknown;
+	requestOutcome?: unknown;
+	failureStage?: unknown;
+	requestId?: unknown;
+};
+
+function prepayErrorMetadata(error: unknown): PrepayErrorMetadata {
+	if (typeof error !== "object" || error === null) return {};
+	return error as PrepayErrorMetadata;
+}
+
+/**
+ * 只有“请求尚未发出”或 provider 已明确拒绝时，才允许同一幂等键重试。
+ * 网络超时、5xx、响应验签失败以及调起参数签名失败都可能发生在 provider
+ * 已创建订单之后，必须保留 unknown 并走查单，不能因为用户再次点击就重建。
+ */
+function isKnownPrepayFailure(error: unknown): boolean {
+	if (error instanceof Error && error.name === "AdapterNotConfiguredError") {
+		return true;
+	}
+	const metadata = prepayErrorMetadata(error);
+	return (
+		metadata.requestOutcome === "not_sent" ||
+		metadata.requestOutcome === "rejected"
+	);
+}
+
+function providerRequestIdFromError(error: unknown): string | undefined {
+	const metadata = prepayErrorMetadata(error);
+	if (
+		(metadata.failureStage !== "http" &&
+			metadata.failureStage !== "response") ||
+		typeof metadata.requestId !== "string" ||
+		!metadata.requestId.trim()
+	) {
+		return undefined;
+	}
+	return metadata.requestId.trim();
+}
 
 /**
  * 预支付服务也可能被组合根或 Worker 直接调用，不能只依赖 HTTP schema。
@@ -121,7 +163,7 @@ function normalizeWechatPrepayReadInput(value: unknown): WechatPrepayReadInput {
  * - openid 只从服务端身份仓储读取，不接受客户端提交；
  * - 只允许对医保结算后明确留下的 cash_pending 订单申请现金预支付；
  * - 返回 payParams 只是“可调起支付”，不迁移订单到 cash_paid 或 completed；
- * - 预支付尝试先落库，重试会复用已成功的参数或明确进入待确认，不重复猜测 provider 结果；
+	 * - 预支付尝试先落库；本地未发出/明确拒绝进入 failed 可重试，边界不确定进入 unknown 查单，绝不猜测 provider 结果；
  * - 日志只记录内部订单、trace 和 provider request id，不记录 openid、prepay_id 或签名。
  */
 export class WechatPrepayService {
@@ -159,9 +201,12 @@ export class WechatPrepayService {
 				order.orderId,
 				input.context.idempotencyKey,
 			);
-		if (existing)
+		if (existing && existing.status !== "failed")
 			return this.replayAttempt(existing, order.state, input.ownerUserId);
 
+		// 已确认未发出/被拒绝的尝试可以复用同一业务幂等键重试；unknown
+		// 则必须先由查单确认，不能走到这里重建。更新带 version 条件，
+		// 并发点击时最多只有一个请求能把 failed 重新置为 pending。
 		const storedIdentity = await this.dependencies.identityUsers.findByUserId(
 			input.ownerUserId,
 		);
@@ -169,34 +214,101 @@ export class WechatPrepayService {
 		const identity = normalizeIdentityUserReadModel(storedIdentity, {
 			expectedUserId: input.ownerUserId,
 		});
-		const now = this.now();
-		const timestamp = now.toISOString();
-		const pending: PaymentPrepayAttempt = {
-			attemptId: this.createAttemptId(),
-			ownerUserId: input.ownerUserId,
-			orderId: order.orderId,
-			provider: "wechat-pay",
-			idempotencyKey: input.context.idempotencyKey,
+
+		let pending: PaymentPrepayAttempt;
+		if (existing) {
+			const retrying = this.rearmFailedAttempt(existing);
+			try {
+				pending = await this.dependencies.attempts.update(
+					retrying,
+					existing.version,
+				);
+			} catch (error) {
+				if (!(error instanceof PaymentPrepayAttemptVersionConflictError))
+					throw error;
+				const concurrent =
+					await this.dependencies.attempts.findByOwnerOrderAndIdempotencyKey(
+						input.ownerUserId,
+						order.orderId,
+						input.context.idempotencyKey,
+					);
+				if (!concurrent) throw new PaymentPrepayAttemptVersionConflictError();
+				return this.replayAttempt(concurrent, order.state, input.ownerUserId);
+			}
+		} else {
+			const now = this.now();
+			const timestamp = now.toISOString();
+			pending = {
+				attemptId: this.createAttemptId(),
+				ownerUserId: input.ownerUserId,
+				orderId: order.orderId,
+				provider: "wechat-pay",
+				idempotencyKey: input.context.idempotencyKey,
+				status: "pending",
+				version: 1,
+				queryAttempts: 0,
+				nextQueryAt: new Date(
+					now.getTime() + INITIAL_QUERY_DELAY_MS,
+				).toISOString(),
+				createdAt: timestamp,
+				updatedAt: timestamp,
+			};
+			const stored = await this.dependencies.attempts.insert(pending);
+			if (stored.attemptId !== pending.attemptId) {
+				return this.replayAttempt(stored, order.state, input.ownerUserId);
+			}
+		}
+
+		return this.dispatchPrepay({
+			input,
+			order,
+			identity,
+			pending,
+		});
+	}
+
+	private rearmFailedAttempt(
+		attempt: PaymentPrepayAttempt,
+	): PaymentPrepayAttempt {
+		const {
+			lastQueriedAt: _lastQueriedAt,
+			nextQueryAt: _nextQueryAt,
+			queryClaimedUntil: _queryClaimedUntil,
+			manualReviewAt: _manualReviewAt,
+			prepayId: _prepayId,
+			payParams: _payParams,
+			providerRequestId: _providerRequestId,
+			lastErrorCode: _lastErrorCode,
+			...base
+		} = attempt;
+		const timestamp = this.now().toISOString();
+		return {
+			...base,
 			status: "pending",
-			version: 1,
+			version: attempt.version + 1,
 			queryAttempts: 0,
 			nextQueryAt: new Date(
-				now.getTime() + INITIAL_QUERY_DELAY_MS,
+				this.now().getTime() + INITIAL_QUERY_DELAY_MS,
 			).toISOString(),
-			createdAt: timestamp,
+			createdAt: attempt.createdAt,
 			updatedAt: timestamp,
 		};
-		const stored = await this.dependencies.attempts.insert(pending);
-		if (stored.attemptId !== pending.attemptId) {
-			return this.replayAttempt(stored, order.state, input.ownerUserId);
-		}
+	}
+
+	private async dispatchPrepay(input: {
+		input: WechatPrepayCreateInput;
+		order: Awaited<ReturnType<PaymentOrderService["get"]>>;
+		identity: ReturnType<typeof normalizeIdentityUserReadModel>;
+		pending: PaymentPrepayAttempt;
+	}): Promise<WechatPrepayPayload["data"]> {
+		const { input: request, order, identity, pending } = input;
 
 		this.logger.info(
 			{
 				event: "payment.wechat_prepay.requested",
-				ownerUserId: input.ownerUserId,
+				ownerUserId: request.ownerUserId,
 				orderId: order.orderId,
-				traceId: input.context.traceId,
+				traceId: request.context.traceId,
 				cashFen: order.amounts.cashFen,
 			},
 			"Wechat prepay requested",
@@ -209,7 +321,7 @@ export class WechatPrepayService {
 					openid: identity.providerSubject,
 					totalFen: order.amounts.cashFen,
 				},
-				input.context,
+				request.context,
 			);
 			const succeeded: PaymentPrepayAttempt = {
 				...pending,
@@ -225,9 +337,9 @@ export class WechatPrepayService {
 			this.logger.info(
 				{
 					event: "payment.wechat_prepay.created",
-					ownerUserId: input.ownerUserId,
+					ownerUserId: request.ownerUserId,
 					orderId: order.orderId,
-					traceId: input.context.traceId,
+					traceId: request.context.traceId,
 					provider: result.trace.provider,
 					operation: result.trace.operation,
 					providerRequestId: result.trace.requestId,
@@ -240,27 +352,30 @@ export class WechatPrepayService {
 				payParams: result.payParams,
 			};
 		} catch (error) {
-			// 配置闸门未打开时也必须把 pending 收敛为 unknown。
-			// 如果把这类失败留在 pending，同一幂等键后续会永久得到“处理中”，
-			// 既掩盖真实配置问题，也会让补齐配置后的重试无法进入明确的恢复路径。
-			const unknown: PaymentPrepayAttempt = {
+			const knownFailure = isKnownPrepayFailure(error);
+			const providerRequestId = providerRequestIdFromError(error);
+			const failed: PaymentPrepayAttempt = {
 				...pending,
-				status: "unknown",
+				status: knownFailure ? "failed" : "unknown",
 				version: pending.version + 1,
 				lastErrorCode: error instanceof Error ? error.name : "UnknownError",
-				nextQueryAt: this.nextQueryAt(),
 				updatedAt: this.now().toISOString(),
+				...(providerRequestId ? { providerRequestId } : {}),
 			};
+			if (!knownFailure) failed.nextQueryAt = this.nextQueryAt();
 			await this.dependencies.attempts
-				.update(unknown, pending.version)
+				.update(failed, pending.version)
 				.catch(() => undefined);
 			this.logger.warn(
 				{
 					event: "payment.wechat_prepay.failed",
-					ownerUserId: input.ownerUserId,
+					ownerUserId: request.ownerUserId,
 					orderId: order.orderId,
-					traceId: input.context.traceId,
+					traceId: request.context.traceId,
 					errorName: error instanceof Error ? error.name : "UnknownError",
+					failureClass: knownFailure ? "known_failure" : "unknown",
+					requestOutcome: prepayErrorMetadata(error).requestOutcome,
+					failureStage: prepayErrorMetadata(error).failureStage,
 				},
 				"Wechat prepay request failed",
 			);
@@ -296,9 +411,11 @@ export class WechatPrepayService {
 				? "pending"
 				: attempt.status === "unknown"
 					? "unknown"
-					: attempt.payParams
-						? "ready"
-						: "unknown";
+					: attempt.status === "failed"
+						? "failed"
+						: attempt.payParams
+							? "ready"
+							: "unknown";
 		this.logger.debug(
 			{
 				event: "payment.wechat_prepay.read",
@@ -382,6 +499,11 @@ export class WechatPrepayService {
 			if (attempt.lastErrorCode === "AdapterNotConfiguredError") {
 				throw new DependencyNotConfiguredError("wechat-pay");
 			}
+			throw new PaymentPrepayAttemptUnknownError();
+		}
+		if (attempt.status === "failed") {
+			// create() 会先把已确认失败的尝试原子重置为 pending；如果
+			// 未来新增入口遗漏了这一步，仍然不能把 failed 当成可支付参数。
 			throw new PaymentPrepayAttemptUnknownError();
 		}
 		if (!attempt.payParams) {
