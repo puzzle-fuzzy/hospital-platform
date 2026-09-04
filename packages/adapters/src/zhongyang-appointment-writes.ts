@@ -10,6 +10,7 @@ import {
 	AdapterNotConfiguredError,
 	ProviderRequestError,
 	type ProviderFailureReason,
+	type ProviderFailureStage,
 } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
@@ -45,6 +46,7 @@ function providerError(
 	requestId?: string,
 	responseInvalid = true,
 	reason?: ProviderFailureReason,
+	failureStage?: ProviderFailureStage,
 ): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "zhongyang",
@@ -53,6 +55,7 @@ function providerError(
 		retryable: false,
 		responseInvalid,
 		...(reason ? { reason } : {}),
+		...(failureStage ? { failureStage } : {}),
 		...(requestId ? { requestId } : {}),
 	});
 }
@@ -105,6 +108,8 @@ function successfulEnvelope(
 			"Zhongyang appointment provider rejected the request",
 			requestId,
 			false,
+			undefined,
+			"response",
 		);
 	}
 	return value.data ?? value;
@@ -194,6 +199,8 @@ function providerId(
 			`Zhongyang ${field} must be a non-negative decimal identifier`,
 			requestId,
 			requestId === undefined ? false : true,
+			undefined,
+			requestId === undefined ? "validation" : "response",
 		);
 	}
 	return raw;

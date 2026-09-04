@@ -27,8 +27,8 @@ export type ProviderFailureMetadata = {
 	providerRequestId?: string;
 	providerStatusCode?: number;
 	providerRetryable?: boolean;
-	/** 仅记录有限枚举，便于区分 TLS/网络、HTTP 状态码和响应内容故障。 */
-	providerFailureStage?: "transport" | "http" | "response";
+	/** 仅记录有限枚举，便于区分本地校验、TLS/网络、HTTP 状态码和响应内容故障。 */
+	providerFailureStage?: "validation" | "transport" | "http" | "response";
 	/** 已确认的 Provider 业务竞争原因，不记录 Provider 原始响应。 */
 	providerFailureReason?: "appointment-source-unavailable";
 	/**
@@ -125,6 +125,7 @@ export function providerFailureMetadata(
 	// 尚未显式填写阶段。这里保留向后兼容的推断，避免同一类 Provider 响应
 	// 在不同业务模块的日志里出现字段缺失；显式阶段仍然拥有最高优先级。
 	const failureStage =
+		candidate.failureStage === "validation" ||
 		candidate.failureStage === "transport" ||
 		candidate.failureStage === "http" ||
 		candidate.failureStage === "response"

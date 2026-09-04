@@ -40,7 +40,7 @@ type ErrorMetadata = {
 	providerRequestId?: string;
 	providerStatusCode?: number;
 	providerRetryable?: boolean;
-	providerFailureStage?: "transport" | "http" | "response";
+	providerFailureStage?: "validation" | "transport" | "http" | "response";
 	providerFailureReason?: "appointment-source-unavailable";
 	/** 只记录 observability 包登记过的 TLS/DNS/连接错误码。 */
 	providerTransportErrorCode?: ProviderTransportErrorCode;

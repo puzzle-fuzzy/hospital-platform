@@ -14,12 +14,17 @@ export class AdapterNotConfiguredError extends DependencyNotConfiguredError {
 /**
  * Provider 失败发生的阶段。
  *
- * `transport` 表示没有拿到可验证的 HTTP 响应（例如 TLS、DNS、连接或超时）；
- * `http` 表示 Provider 已返回 HTTP 响应但状态码不是 2xx；`response` 表示
- * HTTP 响应已返回，但响应格式或 Provider 业务结果不符合已声明 contract。
+ * `validation` 表示在发出 Provider 请求前的平台合同校验失败；`transport` 表示没有拿到
+ * 可验证的 HTTP 响应（例如 TLS、DNS、连接或超时）；`http` 表示 Provider 已返回 HTTP 响应但
+ * 状态码不是 2xx；`response` 表示 HTTP 响应已返回，但响应格式或 Provider 业务结果不符合
+ * 已声明 contract。
  * 该字段只用于服务端日志，不改变对小程序暴露的业务错误码。
  */
-export type ProviderFailureStage = "transport" | "http" | "response";
+export type ProviderFailureStage =
+	| "validation"
+	| "transport"
+	| "http"
+	| "response";
 
 /** 已确认的 Provider 业务竞争原因；只用于稳定映射和低敏日志。 */
 export type ProviderFailureReason = "appointment-source-unavailable";
