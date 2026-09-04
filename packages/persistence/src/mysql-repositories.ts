@@ -780,11 +780,83 @@ export type MySqlRepositories = {
 	healthKnowledge: HealthKnowledgeRepository;
 };
 
+/**
+ * 医保订单 INSERT 的唯一字段清单。
+ *
+ * 挂号和门诊共用这张订单表；字段每次扩展时必须同时更新这里和下面的
+ * 参数数组。占位符由参数数组自动生成，避免再次出现“列 33 个、值 33 个，
+ * 但 SQL 只有 32 个 ?”这种只能在线上点击支付后才暴露的问题。
+ */
+const MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS = [
+	"medical_order_id",
+	"owner_user_id",
+	"patient_id",
+	"business_type",
+	"order_type",
+	"business_id",
+	"appointment_id",
+	"authorization_id",
+	"fee_upload_id",
+	"idempotency_key",
+	"med_org_ord",
+	"chrg_bchno",
+	"pay_ord_id",
+	"pay_token_hash",
+	"mdtrt_id",
+	"acct_used_flag",
+	"status",
+	"ord_stas",
+	"total_fen",
+	"cash_fen",
+	"personal_account_fen",
+	"fund_fen",
+	"setl_type",
+	"revs_token_hash",
+	"revs_token_expires_at",
+	"last_error",
+	"wechat_mix_trade_no",
+	"wechat_out_trade_no",
+	"wechat_payment_state",
+	"wechat_pay_params_ciphertext",
+	"version",
+	"created_at",
+	"updated_at",
+] as const;
+
+function sqlParameterPlaceholders(count: number): string {
+	return Array.from({ length: count }, () => "?").join(", ");
+}
+
+class SqlParameterCountMismatchError extends Error {
+	readonly code = "PERSISTENCE_SQL_PARAMETER_COUNT_MISMATCH";
+
+	constructor(
+		readonly expected: number,
+		readonly actual: number,
+	) {
+		super("Persistence SQL parameter count mismatch");
+		this.name = "SqlParameterCountMismatchError";
+	}
+}
+
+function assertSqlParameterCount(
+	sql: string,
+	values: readonly unknown[],
+): void {
+	const expected = [...sql].filter((character) => character === "?").length;
+	if (expected !== values.length) {
+		throw new SqlParameterCountMismatchError(expected, values.length);
+	}
+}
+
 async function execute<T extends RowDataPacket[] | ResultSetHeader>(
 	client: Pool | PoolConnection,
 	sql: string,
 	values: readonly unknown[] = [],
 ): Promise<T> {
+	// 所有 SQL 都先做参数形状校验；这是开发/部署遗漏字段时的最后一道
+	// 保护，避免 MySQL 只在真实用户操作时返回 ER_WRONG_VALUE_COUNT_ON_ROW。
+	assertSqlParameterCount(sql, values);
 	const executor = client as unknown as QueryExecutor;
 	try {
 		const [rows] = await executor.execute(sql, values);
@@ -3246,53 +3318,53 @@ export function createMySqlRepositories(
 
 	const medicalInsuranceOrders: MedicalInsuranceOrderRepository = {
 		async insert(order) {
+			const values = [
+				order.medicalOrderId,
+				order.ownerUserId,
+				order.patientId,
+				order.businessType ?? "registration",
+				order.orderType ?? "RegPay",
+				order.businessId ?? order.appointmentId ?? null,
+				order.appointmentId ?? null,
+				order.authorizationId ?? null,
+				order.feeUploadId ?? null,
+				order.idempotencyKey,
+				order.medOrgOrd,
+				order.chrgBchno,
+				order.payOrdId,
+				order.payTokenHash,
+				order.mdtrtId ?? null,
+				order.acctUsedFlag ?? null,
+				order.status,
+				order.ordStas,
+				order.amounts?.totalFen ?? 0,
+				order.amounts?.cashFen ?? 0,
+				order.amounts?.personalAccountFen ?? 0,
+				order.amounts?.fundFen ?? 0,
+				order.setlType,
+				order.revsTokenHash,
+				order.revsTokenExpiresAt,
+				order.lastError,
+				order.wechatMixTradeNo ?? null,
+				order.wechatOutTradeNo ?? null,
+				order.wechatPaymentState ?? "not_started",
+				order.wechatPayParams
+					? requiredPrepayCipher().seal(JSON.stringify(order.wechatPayParams))
+					: null,
+				order.version,
+				mysqlDateTime(order.createdAt),
+				mysqlDateTime(order.updatedAt),
+			] satisfies readonly unknown[];
+			if (values.length !== MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.length) {
+				throw new SqlParameterCountMismatchError(
+					MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.length,
+					values.length,
+				);
+			}
 			await execute<ResultSetHeader>(
 				pool,
-				`INSERT INTO hp_medical_insurance_orders (
-					medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key,
-					med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag,
-					status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen,
-					setl_type, revs_token_hash, revs_token_expires_at, last_error,
-					wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext,
-					version, created_at, updated_at
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				[
-					order.medicalOrderId,
-					order.ownerUserId,
-					order.patientId,
-					order.businessType ?? "registration",
-					order.orderType ?? "RegPay",
-					order.businessId ?? order.appointmentId ?? null,
-					order.appointmentId ?? null,
-					order.authorizationId ?? null,
-					order.feeUploadId ?? null,
-					order.idempotencyKey,
-					order.medOrgOrd,
-					order.chrgBchno,
-					order.payOrdId,
-					order.payTokenHash,
-					order.mdtrtId ?? null,
-					order.acctUsedFlag ?? null,
-					order.status,
-					order.ordStas,
-					order.amounts?.totalFen ?? 0,
-					order.amounts?.cashFen ?? 0,
-					order.amounts?.personalAccountFen ?? 0,
-					order.amounts?.fundFen ?? 0,
-					order.setlType,
-					order.revsTokenHash,
-					order.revsTokenExpiresAt,
-					order.lastError,
-					order.wechatMixTradeNo ?? null,
-					order.wechatOutTradeNo ?? null,
-					order.wechatPaymentState ?? "not_started",
-					order.wechatPayParams
-						? requiredPrepayCipher().seal(JSON.stringify(order.wechatPayParams))
-						: null,
-					order.version,
-					mysqlDateTime(order.createdAt),
-					mysqlDateTime(order.updatedAt),
-				],
+				`INSERT INTO hp_medical_insurance_orders (${MEDICAL_INSURANCE_ORDER_INSERT_COLUMNS.join(", ")}) VALUES (${sqlParameterPlaceholders(values.length)})`,
+				values,
 			);
 			return order;
 		},

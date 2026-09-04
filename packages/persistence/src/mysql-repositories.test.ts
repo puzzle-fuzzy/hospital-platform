@@ -3,6 +3,7 @@ import type {
 	OutboxEvent,
 	PaymentOrder,
 	PaymentPrepayAttempt,
+	MedicalInsuranceOrder,
 	MedicalInsuranceQueryTask,
 	WechatPaymentNotification,
 } from "@hospital/domain";
@@ -1231,6 +1232,53 @@ test("MySQL prepay repository encrypts pay params and stores only prepay hash", 
 	expect(state.statements[1]).toContain("pay_params_ciphertext");
 	expect(String(storedPrepayHash)).not.toBe("prepay-credential-001");
 	expect(String(serialized)).not.toContain("sensitive-sign-001");
+});
+
+test("MySQL medical insurance order insert keeps columns and values aligned", async () => {
+	const medicalOrder: MedicalInsuranceOrder = {
+		medicalOrderId: "medical-order-insert-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		businessType: "registration",
+		orderType: "RegPay",
+		businessId: "appointment-001",
+		appointmentId: "appointment-001",
+		authorizationId: null,
+		feeUploadId: null,
+		idempotencyKey: "medical-order-idempotency-001",
+		medOrgOrd: "med-org-001",
+		chrgBchno: "batch-001",
+		payOrdId: null,
+		payTokenHash: null,
+		mdtrtId: null,
+		acctUsedFlag: null,
+		status: "created",
+		ordStas: null,
+		amounts: null,
+		setlType: null,
+		revsTokenHash: null,
+		revsTokenExpiresAt: null,
+		lastError: null,
+		wechatMixTradeNo: null,
+		wechatOutTradeNo: null,
+		wechatPaymentState: "not_started",
+		wechatPayParams: null,
+		version: 1,
+		createdAt: "2026-09-03T00:00:00.000Z",
+		updatedAt: "2026-09-03T00:00:00.000Z",
+	};
+	const { pool, state } = createFakePool([{ affectedRows: 1 }]);
+	const repositories = createMySqlRepositories(pool);
+
+	await expect(
+		repositories.medicalInsuranceOrders.insert(medicalOrder),
+	).resolves.toEqual(medicalOrder);
+
+	const statement = state.statements[0] ?? "";
+	const values = state.values[0] ?? [];
+	expect(statement).toContain("updated_at");
+	expect(statement.match(/\?/g) ?? []).toHaveLength(values.length);
+	expect(values).toHaveLength(33);
 });
 
 test("MySQL notification repository commits the safe fact and outbox together", async () => {
