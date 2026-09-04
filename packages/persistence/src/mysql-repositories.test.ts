@@ -1234,6 +1234,47 @@ test("MySQL prepay repository encrypts pay params and stores only prepay hash", 
 	expect(String(serialized)).not.toContain("sensitive-sign-001");
 });
 
+test("MySQL prepay repository reads a provider-confirmed failed attempt", async () => {
+	const row = {
+		attempt_id: "attempt-failed-001",
+		owner_user_id: "user-001",
+		order_id: "order-001",
+		provider: "wechat-pay",
+		idempotency_key: "prepay-failed-001",
+		status: "failed",
+		version: 29,
+		query_attempts: 12,
+		last_queried_at: "2026-08-15 00:00:15.000",
+		next_query_at: null,
+		query_claimed_until: null,
+		manual_review_at: null,
+		prepay_id_hash: null,
+		pay_params_ciphertext: null,
+		provider_request_id: "request-404-001",
+		last_error_code: "provider-order-not-found",
+		created_at: "2026-08-15 00:00:00.000",
+		updated_at: "2026-08-15 00:00:15.000",
+	};
+	const { pool } = createFakePool([[row]]);
+	const repositories = createMySqlRepositories(pool, {
+		prepayCipher: createAesGcmSecretValueCipher(
+			Buffer.alloc(32, 7).toString("base64"),
+		),
+	});
+
+	await expect(
+		repositories.paymentPrepayAttempts.findByOwnerOrderAndIdempotencyKey(
+			"user-001",
+			"order-001",
+			"prepay-failed-001",
+		),
+	).resolves.toMatchObject({
+		attemptId: "attempt-failed-001",
+		status: "failed",
+		lastErrorCode: "provider-order-not-found",
+	});
+});
+
 test("MySQL medical insurance order insert keeps columns and values aligned", async () => {
 	const medicalOrder: MedicalInsuranceOrder = {
 		medicalOrderId: "medical-order-insert-001",

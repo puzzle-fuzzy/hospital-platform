@@ -1603,6 +1603,7 @@ function paymentOrder(row: PaymentOrderRow): PaymentOrder {
 const PREPAY_ATTEMPT_STATUSES: readonly PaymentPrepayAttempt["status"][] = [
 	"pending",
 	"succeeded",
+	"failed",
 	"unknown",
 	"manual_review",
 ];
