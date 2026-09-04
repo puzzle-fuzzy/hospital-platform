@@ -96,6 +96,23 @@ function providerRequestIdFromError(error: unknown): string | undefined {
 }
 
 /**
+ * 预支付重试在真正调用 Provider 前还会经过身份仓储和尝试重置。
+ * 这些边界失败不能只让 HTTP 层落一条 UNKNOWN；只记录异常类型和驱动
+ * 已知短错误码，不记录 message、SQL、连接串或任何支付参数。
+ */
+function retryBoundaryErrorMetadata(error: unknown): {
+	errorName: string;
+	errorCode?: string;
+} {
+	const errorName = error instanceof Error ? error.name : "UnknownError";
+	if (typeof error !== "object" || error === null) return { errorName };
+	const code = (error as { code?: unknown }).code;
+	return typeof code === "string" && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(code)
+		? { errorName, errorCode: code }
+		: { errorName };
+}
+
+/**
  * 预支付服务也可能被组合根或 Worker 直接调用，不能只依赖 HTTP schema。
  *
  * 这里仅验证平台内部标识和链路字段的形状，不代表订单允许支付，也不
@@ -163,7 +180,7 @@ function normalizeWechatPrepayReadInput(value: unknown): WechatPrepayReadInput {
  * - openid 只从服务端身份仓储读取，不接受客户端提交；
  * - 只允许对医保结算后明确留下的 cash_pending 订单申请现金预支付；
  * - 返回 payParams 只是“可调起支付”，不迁移订单到 cash_paid 或 completed；
-	 * - 预支付尝试先落库；本地未发出/明确拒绝进入 failed 可重试，边界不确定进入 unknown 查单，绝不猜测 provider 结果；
+ * - 预支付尝试先落库；本地未发出/明确拒绝进入 failed 可重试，边界不确定进入 unknown 查单，绝不猜测 provider 结果；
  * - 日志只记录内部订单、trace 和 provider request id，不记录 openid、prepay_id 或签名。
  */
 export class WechatPrepayService {
@@ -217,6 +234,16 @@ export class WechatPrepayService {
 
 		let pending: PaymentPrepayAttempt;
 		if (existing) {
+			this.logger.info(
+				{
+					event: "payment.wechat_prepay.retry_rearm_requested",
+					ownerUserId: input.ownerUserId,
+					orderId: order.orderId,
+					attemptId: existing.attemptId,
+					attemptVersion: existing.version,
+				},
+				"Wechat failed prepay attempt will be rearmed",
+			);
 			const retrying = this.rearmFailedAttempt(existing);
 			try {
 				pending = await this.dependencies.attempts.update(
@@ -224,6 +251,18 @@ export class WechatPrepayService {
 					existing.version,
 				);
 			} catch (error) {
+				if (!(error instanceof PaymentPrepayAttemptVersionConflictError))
+					this.logger.error(
+						{
+							event: "payment.wechat_prepay.retry_rearm_failed",
+							ownerUserId: input.ownerUserId,
+							orderId: order.orderId,
+							attemptId: existing.attemptId,
+							attemptVersion: existing.version,
+							...retryBoundaryErrorMetadata(error),
+						},
+						"Wechat failed prepay attempt could not be rearmed",
+					);
 				if (!(error instanceof PaymentPrepayAttemptVersionConflictError))
 					throw error;
 				const concurrent =
@@ -235,6 +274,16 @@ export class WechatPrepayService {
 				if (!concurrent) throw new PaymentPrepayAttemptVersionConflictError();
 				return this.replayAttempt(concurrent, order.state, input.ownerUserId);
 			}
+			this.logger.info(
+				{
+					event: "payment.wechat_prepay.retry_rearmed",
+					ownerUserId: input.ownerUserId,
+					orderId: order.orderId,
+					attemptId: pending.attemptId,
+					attemptVersion: pending.version,
+				},
+				"Wechat failed prepay attempt rearmed",
+			);
 		} else {
 			const now = this.now();
 			const timestamp = now.toISOString();
