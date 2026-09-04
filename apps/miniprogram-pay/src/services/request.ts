@@ -9,6 +9,15 @@ export type RequestOptions = {
 	idempotencyKey?: string;
 };
 
+type SessionRecovery = () => Promise<unknown>;
+
+/**
+ * 由 session 模块注册重新登录动作，避免 request.ts 与 session.ts 互相 import。
+ * 认证恢复只在受保护请求收到 401 时触发，登录接口本身不会递归触发恢复。
+ */
+let sessionRecovery: SessionRecovery | undefined;
+let sessionRecoveryInFlight: Promise<unknown> | undefined;
+
 export class ApiError extends Error {
 	readonly statusCode: number;
 	readonly payload: unknown;
@@ -65,9 +74,7 @@ function readCode(payload: unknown): string {
 	const error = (payload as Record<string, unknown>).error;
 	if (!error || typeof error !== "object" || Array.isArray(error)) return "";
 	const code = (error as Record<string, unknown>).code;
-	return typeof code === "string" && /^[a-z0-9-]{1,64}$/.test(code)
-		? code
-		: "";
+	return typeof code === "string" && /^[a-z0-9-]{1,64}$/.test(code) ? code : "";
 }
 
 function unwrap<T>(payload: unknown, requestId: string): T {
@@ -101,8 +108,23 @@ function responseRequestId(
 	return "";
 }
 
-/** 所有小程序网络请求都经过新版平台 API，provider 凭证永不进入页面代码。 */
-export function request<T>(options: RequestOptions): Promise<T> {
+/** 供 session.ts 注册单飞的重新登录动作。 */
+export function registerSessionRecovery(recovery: SessionRecovery): void {
+	sessionRecovery = recovery;
+}
+
+function isWechatLoginRequest(options: RequestOptions): boolean {
+	return options.path.replace(/^\/+/, "") === "auth/wechat";
+}
+
+/**
+ * 只执行一次真实的微信登录请求。
+ *
+ * 业务请求不在这里重试；这里保留“单次原请求”的边界，避免占号、预约写入
+ * 或支付命令因为网络/服务端响应异常被盲目重放。只有明确的 401 会话失效才
+ * 允许重新建立会话，然后把原请求再执行一次。
+ */
+function requestOnce<T>(options: RequestOptions): Promise<T> {
 	const token = readToken();
 	return new Promise((resolve, reject) => {
 		const clientRequestId = requestId();
@@ -156,6 +178,38 @@ export function request<T>(options: RequestOptions): Promise<T> {
 		if (options.data) requestOptions.data = options.data;
 		wx.request(requestOptions);
 	});
+}
+
+/**
+ * 所有小程序网络请求都经过新版平台 API，provider 凭证永不进入页面代码。
+ *
+ * 体验版可能长时间保留在后台，Redis 会话 TTL 到期后页面再次展示时仍会带
+ * 旧 token。收到服务端 401 时清除旧会话、单飞重新登录，并仅重放当前一次
+ * 请求，避免用户必须手动清理小程序缓存；第二次仍失败则原样交给页面处理。
+ */
+export async function request<T>(options: RequestOptions): Promise<T> {
+	try {
+		return await requestOnce<T>(options);
+	} catch (error) {
+		if (
+			!(error instanceof ApiError) ||
+			error.statusCode !== 401 ||
+			isWechatLoginRequest(options) ||
+			!sessionRecovery
+		)
+			throw error;
+
+		if (!sessionRecoveryInFlight) {
+			const recovery = sessionRecovery;
+			sessionRecoveryInFlight = Promise.resolve()
+				.then(() => recovery())
+				.finally(() => {
+					sessionRecoveryInFlight = undefined;
+				});
+		}
+		await sessionRecoveryInFlight;
+		return requestOnce<T>(options);
+	}
 }
 
 export function newIdempotencyKey(prefix: string): string {

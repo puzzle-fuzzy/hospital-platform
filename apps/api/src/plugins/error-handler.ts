@@ -52,9 +52,9 @@ import {
 	AppointmentScheduleReferenceExpiredError,
 } from "../modules/appointments/service";
 import {
+	AppointmentCancellationMedicalPaymentActiveError,
 	AppointmentHoldExpiredError,
 	AppointmentHoldNotFoundError,
-	AppointmentCancellationMedicalPaymentActiveError,
 	AppointmentRegistrationNotFoundError,
 	AppointmentWriteInputError,
 	AppointmentWritePatientNotFoundError,
@@ -65,9 +65,15 @@ import {
 } from "../modules/auth/service";
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import {
+	MedicalInsuranceAppointmentNotFoundError,
+	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegistrationInputError,
+} from "../modules/medical-insurance/registration-service";
+import {
 	OutpatientPaymentPatientNotFoundError,
 	OutpatientPaymentQueryError,
 } from "../modules/outpatient-payments";
+import { PatientBindingInputError } from "../modules/patients/binding-service";
 import { PatientServiceInputError } from "../modules/patients/service";
 import { WechatPaymentNotificationRejectedError } from "../modules/payments/notification-service";
 import { PaymentIdentityNotFoundError } from "../modules/payments/service";
@@ -76,11 +82,6 @@ import {
 	ReportPatientNotFoundError,
 	ReportQueryError,
 } from "../modules/reports/service";
-import {
-	MedicalInsuranceAppointmentNotFoundError,
-	MedicalInsuranceOrderNotFoundError,
-	MedicalInsuranceRegistrationInputError,
-} from "../modules/medical-insurance/registration-service";
 
 /**
  * 服务端稳定字符串错误码的唯一权威数字码分配表。
@@ -110,6 +111,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"patient-sync-stale": 20300,
 	"patient-directory-snapshot-unsafe": 20400,
 	"patient-directory-reference-conflict": 20500,
+	"patient-binding-invalid": 20600,
 	"appointment-query-invalid": 30100,
 	"appointment-record-query-invalid": 30200,
 	"appointment-record-patient-not-found": 30210,
@@ -217,6 +219,14 @@ export function errorHandlerPlugin() {
 			if (error instanceof PatientServiceInputError) {
 				set.status = 400;
 				return errorPayload("patient-query-invalid", "就诊人查询条件不合法");
+			}
+
+			if (error instanceof PatientBindingInputError) {
+				set.status = 400;
+				return errorPayload(
+					"patient-binding-invalid",
+					"请检查姓名、手机号、身份证号和授权确认",
+				);
 			}
 
 			if (error instanceof PatientDirectorySyncInProgressError) {

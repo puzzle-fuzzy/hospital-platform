@@ -183,6 +183,29 @@ export const PatientListResponse = Type.Object({
 	}),
 });
 
+/** 新增就诊人只接受旧服务已确认的实名建档字段；不接受患者号、卡类型或 owner。 */
+export const PatientBindingRequest = Type.Object(
+	{
+		displayName: Type.String({ minLength: 1, maxLength: 128 }),
+		mobile: Type.String({ pattern: "^1[3-9]\\d{9}$" }),
+		identityNumber: Type.String({
+			pattern: "^(?:\\d{15}|\\d{17}[0-9Xx])$",
+		}),
+		consent: Type.Literal(true),
+	},
+	{ additionalProperties: false },
+);
+
+/** 建档或已有档案绑卡后，返回服务端重新同步过的脱敏目录。 */
+export const PatientBindingResponse = Type.Object({
+	success: Type.Literal(true),
+	data: Type.Object({
+		created: Type.Boolean(),
+		items: Type.Array(PatientSchema),
+		total: Type.Integer({ minimum: 0 }),
+	}),
+});
+
 /** 预约目录科室是 provider 白名单后的公开读模型。 */
 export const AppointmentDepartmentSchema = Type.Object({
 	departmentId: Type.String({ minLength: 1 }),
@@ -882,6 +905,8 @@ export type UserProfilePayload = Static<typeof UserProfileResponse>;
 export type UserProfileUpdatePayload = Static<typeof UserProfileUpdateRequest>;
 export type PatientPayload = Static<typeof PatientSchema>;
 export type PatientListPayload = Static<typeof PatientListResponse>;
+export type PatientBindingRequestPayload = Static<typeof PatientBindingRequest>;
+export type PatientBindingPayload = Static<typeof PatientBindingResponse>;
 export type AppointmentDepartmentPayload = Static<
 	typeof AppointmentDepartmentSchema
 >;

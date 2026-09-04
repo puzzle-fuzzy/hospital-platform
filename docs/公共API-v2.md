@@ -65,7 +65,7 @@ Content-Type: application/json
 | Header | 使用范围 | 规则 |
 | --- | --- | --- |
 | `X-Request-Id` | 业务请求可选 | 用于贯穿小程序、Nginx、API、adapter 和日志；服务端缺失时生成安全 requestId |
-| `Idempotency-Key` | 患者同步、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` + `0016` schema gate 通过后使用 owner-scoped operation ledger，线上新 release、并发、公网和真机验收仍待完成 |
+| `Idempotency-Key` | 患者同步、患者绑定、创建支付订单、微信预支付 | 支付订单和微信预支付由服务端持久化幂等；患者同步在 `0015` + `0016` schema gate 通过后使用 owner-scoped operation ledger；患者绑定按 owner 使用幂等键合并重复请求，并固定 Provider 查档/建档/绑卡顺序，完成后的目录同步使用独立 key，且必须同时打开患者绑定与患者目录 gate |
 | `Authorization` | 受保护接口 | 只接受平台 Bearer 会话，不接受 provider token |
 
 无论接口返回成功还是错误，服务端都会在响应头返回最终采用的 `X-Request-Id`；错误响应不会因为进入统一错误处理器而丢失它。
@@ -120,6 +120,7 @@ adapter 请求上下文。当前候选代码在 `0015_patient_directory_sync_ope
 | `GET` | `/api/v2/me/profile` | Bearer | 读取当前用户的普通展示资料；不存在时返回安全默认值，不隐式创建记录 |
 | `PUT` | `/api/v2/me/profile` | Bearer | 使用 `version` 更新昵称、性别、年龄、邮箱；不接收实名/微信/患者/头像字段 |
 | `POST` | `/api/v2/patients/sync` | Bearer + 必填幂等键 | 从 provider 刷新当前用户的患者目录；不接受 body |
+| `POST` | `/api/v2/patients/bind` | Bearer + 必填幂等键 | body 为 `{displayName,mobile,identityNumber,consent:true}`；服务端按旧服务顺序查档、建档（必要时）、绑卡并同步脱敏目录 |
 | `GET` | `/api/v2/patients` | Bearer | 返回当前用户 owner-scoped 的脱敏患者目录 |
 | `GET` | `/api/v2/appointments/departments` | Bearer；幂等键可选 | 返回 provider 白名单后的科室目录 |
 | `GET` | `/api/v2/appointments/department-tree` | Bearer；幂等键可选 | 返回挂号页的一级/二级真实科室树 |
@@ -438,6 +439,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 400 | 40100 | `report-query-invalid` | 报告查询条件不合法 |
 | 400 | 60100 | `health-knowledge-query-invalid` | 健康知识查询参数不符合公开 contract |
 | 400 | 20100 | `patient-query-invalid` | 就诊人查询上下文不合法 |
+| 400 | 20600 | `patient-binding-invalid` | 添加就诊人的姓名、手机号、身份证号或授权确认不合法 |
 | 400 | 50100 | `payment-order-invalid` | 创建订单输入不合法 |
 | 400 | 50200 | `payment-notification-rejected` | 微信支付通知验签或内容校验失败 |
 | 400 | 60200 | `user-profile-invalid` | 普通个人资料字段不合法或没有可更新字段 |

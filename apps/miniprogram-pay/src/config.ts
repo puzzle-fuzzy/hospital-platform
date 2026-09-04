@@ -9,6 +9,9 @@ declare const MINIPROGRAM_PAY_MEDICAL_ORG_CHANNEL_CREDENTIAL: string;
 export const PAY_CONFIG = {
 	/** 新版平台 API；小程序只访问这一地址，不直连医院 provider。 */
 	apiBaseUrl: "https://test-hp.meiyi.pro/api/v2",
+	/** 本测试端只承载挂号支付；服务端订单事实对应 RegPay。 */
+	businessType: "registration",
+	orderType: "RegPay",
 	medicalAppId: "wxe183cd55df4b4369",
 	medicalEnvVersion: "trial",
 	medicalBizType: "04107",

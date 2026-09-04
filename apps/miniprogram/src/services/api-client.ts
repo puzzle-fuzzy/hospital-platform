@@ -16,6 +16,8 @@ import type {
 	MyDoctorListResponse,
 	MyDoctorResponse,
 	OutpatientPaymentListResponse,
+	PatientBindingRequest,
+	PatientBindingResponse,
 	PatientListResponse,
 	ReportDetailResponse,
 	ReportListResponse,
@@ -31,7 +33,6 @@ import {
 } from "./api-request-observability";
 import { getRegisteredApp } from "./app-runtime-context";
 import { resolveErrorNumericCode } from "./error-registry";
-import { logClientErrorTransformed } from "./telemetry";
 import { isBoundedPatientId } from "./patient-identifiers";
 import { notifySessionChanged } from "./session-events";
 import {
@@ -39,6 +40,7 @@ import {
 	getSessionGeneration,
 	isCurrentSessionGeneration,
 } from "./session-generation";
+import { logClientErrorTransformed } from "./telemetry";
 
 const ACCESS_TOKEN_KEY = "access_token";
 const API_BASE_URL_KEY = "api_base_url";
@@ -117,6 +119,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"patient-directory-snapshot-unsafe": "暂时无法获取就诊人，请稍后再试",
 		"patient-directory-reference-conflict":
 			"就诊人信息需要重新确认，请刷新后再试",
+		"patient-binding-invalid": "请检查姓名、手机号、身份证号和授权确认",
 		"provider-request-rejected": "当前信息暂时无法获取，请稍后重试",
 		"provider-response-invalid": "当前信息暂时无法获取，请稍后重试",
 		"provider-temporarily-unavailable": "当前信息暂时无法获取，请稍后重试",
@@ -1940,6 +1943,21 @@ export function syncPatients(
 		idempotencyKey,
 	}).then((payload) =>
 		requireSuccessDataResponse<PatientListResponse["data"]>(payload),
+	);
+}
+
+/** 提交实名就诊人绑定；身份证和手机号只发往平台 API，不在小程序直连 Provider。 */
+export function bindPatient(
+	input: PatientBindingRequest,
+	idempotencyKey: string,
+): Promise<PatientBindingResponse> {
+	return requestWithSession<unknown>({
+		url: "/patients/bind",
+		method: "POST",
+		data: input,
+		idempotencyKey,
+	}).then((payload) =>
+		requireSuccessDataResponse<PatientBindingResponse["data"]>(payload),
 	);
 }
 

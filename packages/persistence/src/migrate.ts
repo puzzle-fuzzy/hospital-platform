@@ -190,6 +190,11 @@ export const PERSISTENCE_MIGRATIONS = [
 		file: "../migrations/0033_medical_insurance_wechat_mix_payment.sql",
 		executionMode: "non_transactional_ddl",
 	},
+	{
+		id: "0034_medical_insurance_business_key",
+		file: "../migrations/0034_medical_insurance_business_key.sql",
+		executionMode: "non_transactional_ddl",
+	},
 ] as const satisfies readonly PersistenceMigration[];
 
 /**
@@ -360,6 +365,9 @@ export const PERSISTENCE_SCHEMA_COLUMNS = [
 			"medical_order_id",
 			"owner_user_id",
 			"patient_id",
+			"business_type",
+			"order_type",
+			"business_id",
 			"appointment_id",
 			"authorization_id",
 			"fee_upload_id",

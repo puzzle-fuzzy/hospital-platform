@@ -369,9 +369,10 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"patient-binding": {
 		title: "添加就诊人",
 		readiness: "待患者绑定 contract",
-		description: "新增或绑定就诊人正在迁移中，当前不会提交实名或绑卡资料。",
+		description:
+			"填写实名信息后，服务端会按医院规则查档、建档并绑定就诊卡；医院接口未配置时保持安全关闭。",
 		contractHint:
-			"等待查档、建档、绑卡、协议、幂等、最终状态查询和撤回规则确认。",
+			"已接入查档、必要时建档、绑卡、服务端幂等和完成后的目录同步；医院接口未配置时保持安全关闭。",
 		icon: "/assets/legacy-home/service-patient.svg",
 	},
 	"pre-visit": {

@@ -32,6 +32,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"patient-sync-stale": 20300,
 	"patient-directory-snapshot-unsafe": 20400,
 	"patient-directory-reference-conflict": 20500,
+	"patient-binding-invalid": 20600,
 	"appointment-query-invalid": 30100,
 	"appointment-record-query-invalid": 30200,
 	"appointment-record-patient-not-found": 30210,

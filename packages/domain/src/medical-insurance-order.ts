@@ -1,4 +1,8 @@
 import { isBoundedOpaqueIdentifier } from "./opaque-identifier";
+import type {
+	MedicalInsuranceBusinessType,
+	MedicalInsuranceOrderType,
+} from "./medical-insurance-business";
 import type { WechatMedicalInsurancePayParams } from "./ports";
 
 /**
@@ -155,6 +159,15 @@ export type MedicalInsuranceOrder = {
 	medicalOrderId: string;
 	ownerUserId: string;
 	patientId: string;
+	/**
+	 * 统一医保订单的业务维度。旧订单可能没有该字段，读取时按 appointment_id
+	 * 兼容推导为 registration；所有新订单必须显式写入，禁止从页面名称猜测。
+	 */
+	businessType?: MedicalInsuranceBusinessType;
+	/** 发送给微信医保统一下单的 `order_type`，由业务类型推导并持久化。 */
+	orderType?: MedicalInsuranceOrderType;
+	/** 业务事实主键：挂号为 appointmentId，门诊为服务端确认的费用记录 ID。 */
+	businessId?: string;
 	/** 预约医保链路关联的服务端 opaque appointment 引用。 */
 	appointmentId?: string;
 	/** 授权成功后保存的服务端引用；原始 authCode 永不落库。 */
@@ -417,6 +430,15 @@ export interface MedicalInsuranceOrderRepository {
 		ownerUserId: string,
 		appointmentId: string,
 	): Promise<MedicalInsuranceOrder | undefined>;
+	/**
+	 * 统一业务键查询。旧实现可暂不提供，编排层会回退到旧的幂等查询；
+	 * MySQL 和内存实现必须实现它，保证门诊不会复用 appointment 专属查询。
+	 */
+	findByOwnerAndBusinessKey?: (
+		ownerUserId: string,
+		businessType: MedicalInsuranceBusinessType,
+		businessId: string,
+	) => Promise<MedicalInsuranceOrder | undefined>;
 	findByOwnerAndIdempotencyKey(
 		ownerUserId: string,
 		idempotencyKey: string,
@@ -441,6 +463,9 @@ export interface MedicalInsuranceOrderRepository {
 			revsTokenHash: string | null;
 			revsTokenExpiresAt: string | null;
 			appointmentId?: string;
+			businessType?: MedicalInsuranceBusinessType;
+			orderType?: MedicalInsuranceOrderType;
+			businessId?: string;
 			authorizationId?: string | null;
 			feeUploadId?: string | null;
 			payOrdId?: string | null;

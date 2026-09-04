@@ -7,33 +7,27 @@ import {
 	type AppointmentPatientProfileGateway,
 	type AppointmentRegistration,
 	type AppointmentWriteRepository,
-	assertValidMedicalInsuranceAmounts,
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
-	MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
+	medicalInsuranceOrderTypeForBusiness,
 	type MedicalInsuranceGateway,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
 	type MedicalInsuranceQueryTaskRepository,
-	type MedicalInsuranceSettlementEvidenceFinality,
 	normalizeAdapterCallContext,
 	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import {
+	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegistrationInputError,
+} from "./errors";
+import { MedicalInsurancePaymentCore } from "./payment-core";
 
-export class MedicalInsuranceRegistrationInputError extends Error {
-	constructor(message = "Medical insurance registration input is invalid") {
-		super(message);
-		this.name = "MedicalInsuranceRegistrationInputError";
-	}
-}
-
-export class MedicalInsuranceOrderNotFoundError extends Error {
-	constructor() {
-		super("Medical insurance order was not found");
-		this.name = "MedicalInsuranceOrderNotFoundError";
-	}
-}
+export {
+	MedicalInsuranceOrderNotFoundError,
+	MedicalInsuranceRegistrationInputError,
+} from "./errors";
 
 export class MedicalInsuranceAppointmentNotFoundError extends Error {
 	constructor() {
@@ -48,7 +42,9 @@ export type MedicalInsuranceRegistrationServiceDependencies = {
 	identityUsers: UserIdentityRepository;
 	patientProfile: AppointmentPatientProfileGateway;
 	medicalInsurance: MedicalInsuranceGateway;
-	/** 6202 非终态结果必须进入持久化查单队列；测试组合根可省略。 */
+	/** 可注入统一核心；省略时为兼容旧组合根自动创建同一核心实现。 */
+	core?: MedicalInsurancePaymentCore;
+	/** 兼容旧组合根，实际由统一核心持有。 */
 	queryTasks?: MedicalInsuranceQueryTaskRepository;
 	logger?: AppLogger;
 	now?: () => Date;
@@ -100,20 +96,14 @@ function emptySettlementPatch(order: MedicalInsuranceOrder) {
 	};
 }
 
-function needsMedicalInsuranceQuery(
-	finality: MedicalInsuranceSettlementEvidenceFinality,
-): boolean {
-	return (
-		finality === "processing" ||
-		finality === "settlement_candidate" ||
-		finality === "unknown"
-	);
-}
+const REGISTRATION_ORDER_TYPE =
+	medicalInsuranceOrderTypeForBusiness("registration");
 
 export class MedicalInsuranceRegistrationService {
 	private readonly logger: AppLogger;
 	private readonly now: () => Date;
 	private readonly createId: () => string;
+	private readonly core: MedicalInsurancePaymentCore;
 
 	constructor(
 		private readonly dependencies: MedicalInsuranceRegistrationServiceDependencies,
@@ -121,6 +111,17 @@ export class MedicalInsuranceRegistrationService {
 		this.logger = dependencies.logger ?? createNoopLogger();
 		this.now = dependencies.now ?? (() => new Date());
 		this.createId = dependencies.createId ?? (() => crypto.randomUUID());
+		this.core =
+			dependencies.core ??
+			new MedicalInsurancePaymentCore({
+				orders: dependencies.orders,
+				medicalInsurance: dependencies.medicalInsurance,
+				...(dependencies.queryTasks
+					? { queryTasks: dependencies.queryTasks }
+					: {}),
+				...(dependencies.logger ? { logger: dependencies.logger } : {}),
+				...(dependencies.now ? { now: dependencies.now } : {}),
+			});
 	}
 
 	private async appointment(
@@ -157,27 +158,6 @@ export class MedicalInsuranceRegistrationService {
 		return { identity, patient: result.patient };
 	}
 
-	private async enqueueQueryTask(orderId: string): Promise<void> {
-		if (!this.dependencies.queryTasks) return;
-		const timestamp = this.now().toISOString();
-		await this.dependencies.queryTasks.insert({
-			// 订单 ID 本身已经是有界 opaque 标识；复用它可保持 taskId 稳定，
-			// 同一订单不会因重试生成多个查单任务。
-			taskId: orderId,
-			medicalOrderId: orderId,
-			status: "pending",
-			version: 1,
-			attempts: 0,
-			maxAttempts: MAX_MEDICAL_INSURANCE_QUERY_ATTEMPTS,
-			nextAttemptAt: timestamp,
-			claimedUntil: null,
-			terminalOrdStas: null,
-			lastErrorCode: null,
-			createdAt: timestamp,
-			updatedAt: timestamp,
-		});
-	}
-
 	async authorize(input: {
 		ownerUserId: string;
 		appointmentId: string;
@@ -198,7 +178,25 @@ export class MedicalInsuranceRegistrationService {
 			ownerUserId,
 			context.idempotencyKey,
 		);
-		if (order && order.appointmentId !== appointmentId)
+		// 统一订单的业务键比单次请求幂等键更重要：同一预约已经创建过
+		// 医保订单时，换一个幂等键重试也不能再造一笔订单。新 MySQL 仓储
+		// 提供业务键查询；旧仓储没有该方法时仍回退到原有行为。
+		if (!order && this.dependencies.orders.findByOwnerAndBusinessKey) {
+			order = await this.dependencies.orders.findByOwnerAndBusinessKey(
+				ownerUserId,
+				"registration",
+				appointmentId,
+			);
+		}
+		if (
+			order &&
+			((order.appointmentId !== undefined &&
+				order.appointmentId !== appointmentId) ||
+				(order.businessId !== undefined &&
+					order.businessId !== appointmentId) ||
+				(order.businessType !== undefined &&
+					order.businessType !== "registration"))
+		)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance idempotency key conflicts with appointment",
 			);
@@ -209,6 +207,9 @@ export class MedicalInsuranceRegistrationService {
 				medicalOrderId,
 				ownerUserId,
 				patientId: appointment.patientId,
+				businessType: "registration",
+				orderType: REGISTRATION_ORDER_TYPE,
+				businessId: appointmentId,
 				appointmentId,
 				authorizationId: null,
 				feeUploadId: null,
@@ -245,6 +246,8 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				orderId: order.medicalOrderId,
 				appointmentId,
+				businessType: "registration",
+				orderType: REGISTRATION_ORDER_TYPE,
 			},
 			"Medical insurance authorization requested",
 		);
@@ -265,6 +268,9 @@ export class MedicalInsuranceRegistrationService {
 			{
 				...emptySettlementPatch(order),
 				authorizationId: result.authorizationId,
+				businessType: "registration",
+				orderType: REGISTRATION_ORDER_TYPE,
+				businessId: appointmentId,
 				appointmentId,
 			},
 		);
@@ -277,6 +283,8 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				orderId: order.medicalOrderId,
 				appointmentId,
+				businessType: "registration",
+				orderType: REGISTRATION_ORDER_TYPE,
 				providerRequestId: result.trace.requestId,
 			},
 			"Medical insurance authorization completed",
@@ -295,6 +303,13 @@ export class MedicalInsuranceRegistrationService {
 		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
 		if (!order || order.ownerUserId !== ownerUserId)
 			throw new MedicalInsuranceOrderNotFoundError();
+		if (
+			(order.businessType && order.businessType !== "registration") ||
+			(order.orderType && order.orderType !== "RegPay")
+		)
+			throw new MedicalInsuranceRegistrationInputError(
+				"Medical insurance order business type is not registration",
+			);
 		if (!order.authorizationId || !order.appointmentId)
 			throw new MedicalInsuranceRegistrationInputError(
 				"Medical insurance authorization is required",
@@ -311,6 +326,8 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				orderId,
 				appointmentId: appointment.appointmentId,
+				businessType: "registration",
+				orderType: REGISTRATION_ORDER_TYPE,
 			},
 			"Medical insurance fee upload requested",
 		);
@@ -349,6 +366,9 @@ export class MedicalInsuranceRegistrationService {
 			order.version,
 			{
 				...emptySettlementPatch(order),
+				businessType: "registration",
+				orderType: REGISTRATION_ORDER_TYPE,
+				businessId: appointment.appointmentId,
 				status: "fee_uploaded",
 				feeUploadId: result.feeUploadId,
 				payOrdId: result.payOrdId,
@@ -366,6 +386,8 @@ export class MedicalInsuranceRegistrationService {
 				ownerUserId,
 				orderId,
 				appointmentId: appointment.appointmentId,
+				businessType: "registration",
+				orderType: REGISTRATION_ORDER_TYPE,
 				providerRequestId: result.trace.requestId,
 			},
 			"Medical insurance fee upload completed",
@@ -378,79 +400,7 @@ export class MedicalInsuranceRegistrationService {
 		orderId: string;
 		context: unknown;
 	}): Promise<MedicalInsuranceOrderPayload["data"]> {
-		const context = contextOf(input.context);
-		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
-		const orderId = opaque(input.orderId, "orderId");
-		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
-		if (!order || order.ownerUserId !== ownerUserId)
-			throw new MedicalInsuranceOrderNotFoundError();
-		if (!order.authorizationId || !order.feeUploadId)
-			throw new MedicalInsuranceRegistrationInputError(
-				"Medical insurance fee upload is required",
-			);
-		if (order.status === "awaiting_confirmation") {
-			// 结算事实可能已经提交而任务写入在网络故障中丢失；重试命令
-			// 必须能够补回同一 taskId，不能再次调用 6202。
-			await this.enqueueQueryTask(order.medicalOrderId);
-			return output(order);
-		}
-		if (
-			order.status === "insurance_settled" ||
-			order.status === "cash_pending" ||
-			order.status === "failed"
-		)
-			return output(order);
-		this.logger.info(
-			{
-				event: "medical-insurance.settlement.requested",
-				traceId: context.traceId,
-				ownerUserId,
-				orderId,
-				appointmentId: order.appointmentId,
-			},
-			"Medical insurance settlement requested",
-		);
-		const result = await this.dependencies.medicalInsurance.settle(
-			{
-				orderId,
-				ownerUserId,
-				authorizationId: order.authorizationId,
-				feeUploadId: order.feeUploadId,
-				mdtrtId: order.mdtrtId ?? "",
-				acctUsedFlag: order.acctUsedFlag ?? "",
-			},
-			context,
-		);
-		const amounts = assertValidMedicalInsuranceAmounts(result.amounts);
-		const updated = await this.dependencies.orders.applySettlement(
-			order.medicalOrderId,
-			order.version,
-			{
-				status: result.state,
-				ordStas: result.providerStatus,
-				amounts,
-				setlType: amounts.cashFen > 0 ? "CASH" : "ALL",
-				revsTokenHash: null,
-				revsTokenExpiresAt: null,
-			},
-		);
-		if (!updated)
-			throw new DependencyNotConfiguredError("medical-insurance-orders");
-		if (needsMedicalInsuranceQuery(result.finality))
-			await this.enqueueQueryTask(order.medicalOrderId);
-		this.logger.info(
-			{
-				event: "medical-insurance.settlement.completed",
-				traceId: context.traceId,
-				ownerUserId,
-				orderId,
-				appointmentId: order.appointmentId,
-				state: result.state,
-				providerRequestId: result.trace.requestId,
-			},
-			"Medical insurance settlement completed",
-		);
-		return output(updated);
+		return this.core.settle(input);
 	}
 
 	async query(input: {
@@ -459,77 +409,14 @@ export class MedicalInsuranceRegistrationService {
 		context: unknown;
 		cashPaymentConfirmed?: boolean;
 	}): Promise<MedicalInsuranceOrderPayload["data"]> {
-		const context = contextOf(input.context);
-		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
-		const orderId = opaque(input.orderId, "orderId");
-		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
-		if (!order || order.ownerUserId !== ownerUserId)
-			throw new MedicalInsuranceOrderNotFoundError();
-		const result = await this.dependencies.medicalInsurance.query(
-			{
-				orderId,
-				ownerUserId,
-				...(input.cashPaymentConfirmed ? { cashPaymentConfirmed: true } : {}),
-			},
-			context,
-		);
-		const amounts = assertValidMedicalInsuranceAmounts({
-			totalFen: result.amounts.totalFen,
-			cashFen: result.amounts.cashFen,
-			personalAccountFen:
-				order.amounts?.personalAccountFen ?? result.amounts.insuranceFen,
-			fundFen: order.amounts?.fundFen ?? 0,
-		});
-		const updated = await this.dependencies.orders.applySettlement(
-			order.medicalOrderId,
-			order.version,
-			{
-				status: result.state,
-				ordStas: result.providerStatus,
-				amounts,
-				setlType: amounts.cashFen > 0 ? "CASH" : "ALL",
-				revsTokenHash: null,
-				revsTokenExpiresAt: null,
-			},
-		);
-		if (!updated)
-			throw new DependencyNotConfiguredError("medical-insurance-orders");
-		if (needsMedicalInsuranceQuery(result.finality))
-			await this.enqueueQueryTask(order.medicalOrderId);
-		this.logger.info(
-			{
-				event: "medical-insurance.settlement.queried",
-				traceId: context.traceId,
-				ownerUserId,
-				orderId,
-				state: result.state,
-				providerRequestId: result.trace.requestId,
-			},
-			"Medical insurance settlement queried",
-		);
-		return output(updated);
+		return this.core.query(input);
 	}
 
-	/**
-	 * 微信混合订单确认现金支付后，重新进入医保 6301/后置完成链路。
-	 * 微信客户端回调不是业务终态，只有这里的 provider 证据可以推进医保订单。
-	 */
 	async confirmWechatCashPayment(input: {
 		ownerUserId: string;
 		orderId: string;
 		context: unknown;
 	}): Promise<MedicalInsuranceOrderPayload["data"]> {
-		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
-		const orderId = opaque(input.orderId, "orderId");
-		const order = await this.dependencies.orders.findByMedicalOrderId(orderId);
-		if (!order || order.ownerUserId !== ownerUserId)
-			throw new MedicalInsuranceOrderNotFoundError();
-		if (order.wechatPaymentState !== "cash_paid") return output(order);
-		return this.query({
-			ownerUserId,
-			orderId,
-			context: input.context,
-			cashPaymentConfirmed: true,
-		});
+		return this.core.confirmWechatCashPayment(input);
 	}
 }

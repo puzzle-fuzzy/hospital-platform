@@ -794,6 +794,20 @@ export interface PatientDirectoryGateway {
 	}>;
 }
 
+/** 实名查档、建档与绑卡必须由服务端完成，绝不接受客户端患者号或 Provider 地址。 */
+export interface PatientBindingGateway {
+	bind(
+		input: {
+			displayName: string;
+			mobile: string;
+			identityNumber: string;
+			birthDate: string;
+			sex: "1" | "2";
+		},
+		context: AdapterCallContext,
+	): Promise<{ created: boolean; trace: ExternalTrace }>;
+}
+
 /** 微信登录 provider 边界；code2session 的原始报文不离开 adapter 层。 */
 export interface WechatIdentityGateway {
 	exchangeCode(

@@ -32,6 +32,8 @@ import { ApiError } from "../../services/request";
 import { ensureSession } from "../../services/session";
 
 type PageData = {
+	businessType: string;
+	orderType: string;
 	patients: Patient[];
 	patientNames: string[];
 	patientIndex: number;
@@ -201,6 +203,8 @@ Page<
 	}
 >({
 	data: {
+		businessType: PAY_CONFIG.businessType,
+		orderType: PAY_CONFIG.orderType,
 		patients: [],
 		patientNames: [],
 		patientIndex: -1,

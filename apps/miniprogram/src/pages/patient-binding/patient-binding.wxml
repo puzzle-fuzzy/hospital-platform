@@ -1,43 +1,45 @@
-<scroll-view class="patient-contract-surface-scroll" scroll-y="true" enhanced="true">
-	<view class="patient-contract-surface-page">
-		<view class="patient-contract-surface-hero">
-			<image class="patient-contract-surface-icon" src="{{icon}}" mode="aspectFit" />
-			<view class="patient-contract-surface-hero-copy">
-				<text class="patient-contract-surface-title">{{title}}</text>
-				<text class="patient-contract-surface-label">{{surfaceLabel}}</text>
-			</view>
-		</view>
+<scroll-view class="binding-scroll" scroll-y="true" enhanced="true">
+  <view class="binding-page">
+    <view class="binding-header">
+      <view class="binding-back" bindtap="onBack">‹</view>
+      <text class="binding-title">添加就诊人</text>
+      <view class="binding-header-placeholder"></view>
+    </view>
 
-		<view class="patient-contract-surface-card">
-			<text class="patient-contract-surface-card-title">{{scopeTitle}}</text>
-			<text class="patient-contract-surface-card-copy">{{scopeDescription}}</text>
-			<view class="patient-contract-surface-list">
-				<view wx:for="{{boundaryItems}}" wx:key="*this" class="patient-contract-surface-list-row">
-					<text class="patient-contract-surface-list-dot">·</text>
-					<text class="patient-contract-surface-list-text">{{item}}</text>
-				</view>
-			</view>
-		</view>
+    <view class="binding-intro">
+      <text class="binding-intro-title">完善就诊人信息</text>
+      <text class="binding-intro-copy">请填写本人或家属的实名信息，医院将据此查找或建立就诊档案。</text>
+    </view>
 
-		<view class="patient-contract-surface-card">
-			<text class="patient-contract-surface-card-title">服务状态</text>
-			<text class="patient-contract-surface-card-copy">{{description}}</text>
-			<text class="patient-contract-surface-coverage">{{coverageLabel}}</text>
-		</view>
+    <view class="binding-card">
+      <view class="binding-field">
+        <text class="binding-label"><text class="binding-required">*</text>姓名</text>
+        <input class="binding-input" value="{{displayName}}" maxlength="128" placeholder="请输入真实姓名" placeholder-class="binding-placeholder" bindinput="onDisplayNameInput" />
+      </view>
+      <view class="binding-divider"></view>
+      <view class="binding-field">
+        <text class="binding-label"><text class="binding-required">*</text>手机号</text>
+        <input class="binding-input" type="number" value="{{mobile}}" maxlength="11" placeholder="请输入就诊人手机号" placeholder-class="binding-placeholder" bindinput="onMobileInput" />
+      </view>
+      <view class="binding-divider"></view>
+      <view class="binding-field">
+        <text class="binding-label"><text class="binding-required">*</text>身份证号</text>
+        <input class="binding-input binding-identity" value="{{identityNumber}}" maxlength="18" placeholder="请输入15或18位身份证号" placeholder-class="binding-placeholder" bindinput="onIdentityNumberInput" />
+      </view>
+    </view>
 
-		<view class="patient-contract-surface-card">
-			<text class="patient-contract-surface-card-title">使用说明</text>
-			<view class="patient-contract-surface-list">
-				<view wx:for="{{contractItems}}" wx:key="*this" class="patient-contract-surface-list-row">
-					<text class="patient-contract-surface-list-dot">·</text>
-					<text class="patient-contract-surface-list-text">{{item}}</text>
-				</view>
-			</view>
-		</view>
+    <view class="binding-note">身份证号用于匹配医院档案，提交后不会在小程序页面展示。</view>
 
-		<button class="patient-contract-surface-primary-button" bindtap="onOpenPatientAgreement">查看患者协议原文</button>
-		<button class="patient-contract-surface-secondary-button" bindtap="onOpenMigrationStatus">了解服务进度</button>
-		<button class="patient-contract-surface-secondary-button" bindtap="onBackPatientSelector">返回选择就诊人</button>
-		<button class="patient-contract-surface-plain-button" bindtap="onBackMy">返回我的</button>
-	</view>
+    <checkbox-group class="binding-consent" bindchange="onAgreementChange">
+      <label class="binding-consent-label">
+        <checkbox value="agree" checked="{{agreed}}" color="#2f80ed" />
+        <text>我已阅读并同意</text>
+        <text class="binding-agreement-link" bindtap="onOpenAgreement">《就诊人信息使用说明》</text>
+      </label>
+    </checkbox-group>
+
+    <view wx:if="{{error}}" class="binding-error">{{error}}</view>
+    <button class="binding-submit {{submitting ? 'binding-submit-disabled' : ''}}" loading="{{submitting}}" disabled="{{submitting}}" bindtap="onSubmit">{{submitting ? '正在添加…' : '确认添加'}}</button>
+    <text class="binding-footnote">添加成功后，系统会自动刷新就诊人列表。</text>
+  </view>
 </scroll-view>

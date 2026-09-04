@@ -23,7 +23,7 @@ import type { MedicalInsuranceNotificationService } from "./modules/medical-insu
 import type { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { myDoctorsModule } from "./modules/my-doctors";
 import { outpatientPaymentsModule } from "./modules/outpatient-payments";
-import { patientsModule } from "./modules/patients";
+import { PatientBindingService, patientsModule } from "./modules/patients";
 import { paymentsModule } from "./modules/payments";
 import type { RegistrationSelfPayService } from "./modules/payments/registration-self-pay-service";
 import { profileModule } from "./modules/profile";
@@ -89,6 +89,16 @@ export function createApp(options: AppOptions = {}) {
 			schemaReady: config.persistenceSchemaReady,
 		});
 	const services = options.services ?? createDefaultApplicationServices();
+	const patientBinding =
+		services.patientBinding ??
+		new PatientBindingService({
+			patients: services.patients,
+			gateway: {
+				bind: async () => {
+					throw new DependencyNotConfiguredError("patient-binding");
+				},
+			},
+		});
 	const logger = options.logger ?? createNoopLogger();
 	const appointmentWrites =
 		services.appointmentWrites ??
@@ -177,7 +187,9 @@ export function createApp(options: AppOptions = {}) {
 						? profileModule(services.profile, services.sessions)
 						: new Elysia({ name: "profile-not-configured" }),
 				)
-				.use(patientsModule(services.patients, services.sessions))
+				.use(
+					patientsModule(services.patients, patientBinding, services.sessions),
+				)
 				.use(
 					appointmentsModule(
 						services.appointments,

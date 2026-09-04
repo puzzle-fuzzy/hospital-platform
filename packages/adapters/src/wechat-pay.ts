@@ -17,7 +17,10 @@ import type {
 	WechatPaymentQueryState,
 	WechatMedicalInsurancePayParams,
 } from "@hospital/domain";
-import { assertValidMedicalInsuranceAmounts } from "@hospital/domain";
+import {
+	assertValidMedicalInsuranceAmounts,
+	isMedicalInsuranceOrderType,
+} from "@hospital/domain";
 import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { requestJson, type ProviderFetcher } from "./http";
 
@@ -81,7 +84,6 @@ export type WechatPaymentGatewayOptions = {
 export type WechatMedicalInsuranceOptions = {
 	appId: string;
 	cityId: string;
-	orderType: string;
 	medicalInstitutionName: string;
 	medicalInstitutionNo: string;
 	callbackUrl: string;
@@ -117,6 +119,17 @@ function requiredConfig(value: string, adapter: "wechat-pay"): string {
 	const normalized = value.trim();
 	if (!normalized) throw new AdapterNotConfiguredError(adapter);
 	return normalized;
+}
+
+/**
+ * systemd EnvironmentFile 通常把 PEM 多行内容以 `\\n` 形式保存。
+ * 统一在 adapter 边界还原转义换行，同时兼容直接注入的真实多行 PEM，
+ * 避免把旧项目的证书材料迁移到新 API 后变成不可用的单行密钥。
+ */
+function requiredPem(value: string, adapter: "wechat-pay"): string {
+	return requiredConfig(value, adapter)
+		.replace(/\\r?\\n/g, "\n")
+		.replace(/\r\n/g, "\n");
 }
 
 function requiredPositiveFen(value: number): number {
@@ -601,7 +614,7 @@ export class WechatPaymentApiGateway
 			options.merchantCertificateSerial,
 			"wechat-pay",
 		);
-		this.merchantPrivateKey = requiredConfig(
+		this.merchantPrivateKey = requiredPem(
 			options.merchantPrivateKey,
 			"wechat-pay",
 		);
@@ -609,7 +622,7 @@ export class WechatPaymentApiGateway
 			options.platformCertificateSerial,
 			"wechat-pay",
 		);
-		this.platformPublicKey = requiredConfig(
+		this.platformPublicKey = requiredPem(
 			options.platformPublicKey,
 			"wechat-pay",
 		);
@@ -623,10 +636,6 @@ export class WechatPaymentApiGateway
 			this.medicalInsurance = {
 				appId: requiredConfig(options.medicalInsurance.appId, "wechat-pay"),
 				cityId: requiredConfig(options.medicalInsurance.cityId, "wechat-pay"),
-				orderType: requiredConfig(
-					options.medicalInsurance.orderType,
-					"wechat-pay",
-				),
 				medicalInstitutionName: requiredConfig(
 					options.medicalInsurance.medicalInstitutionName,
 					"wechat-pay",
@@ -817,6 +826,14 @@ export class WechatPaymentApiGateway
 		const openid = requiredInput(input.openid, "openid");
 		const payOrdId = requiredInput(input.payOrdId, "payOrdId", 64);
 		const medOrgOrd = requiredInput(input.medOrgOrd, "medOrgOrd", 64);
+		// `order_type` 是统一下单协议中的业务事实，不是部署级默认值。
+		// 这样同一个微信医保商户才能安全承载 RegPay 和 DiagPay 两条入口。
+		if (!isMedicalInsuranceOrderType(input.orderType)) {
+			throw providerError({
+				operation: "medical-mix-validation",
+				message: "Wechat medical orderType is invalid",
+			});
+		}
 		const amounts = assertValidMedicalInsuranceAmounts(input.amounts);
 		if (medical.appId !== this.appId) {
 			throw providerError({
@@ -847,7 +864,7 @@ export class WechatPaymentApiGateway
 		);
 		const body = JSON.stringify({
 			mix_pay_type: "CASH_AND_INSURANCE",
-			order_type: medical.orderType,
+			order_type: input.orderType,
 			out_trade_no: outTradeNo,
 			serial_no: medOrgOrd,
 			med_inst_name: medical.medicalInstitutionName,
@@ -1053,7 +1070,7 @@ export function verifyAndDecryptWechatPaymentNotification(input: {
 			input.options.platformCertificateSerial,
 			"wechat-pay",
 		),
-		platformPublicKey: requiredConfig(
+		platformPublicKey: requiredPem(
 			input.options.platformPublicKey,
 			"wechat-pay",
 		),

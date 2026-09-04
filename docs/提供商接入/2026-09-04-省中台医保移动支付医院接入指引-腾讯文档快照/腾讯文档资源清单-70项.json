@@ -1,0 +1,1810 @@
+{
+  "sourceUrl": "https://docs.qq.com/doc/DV1J6ZVB6eHZ3amxK",
+  "capturedAt": "2026-09-04",
+  "inventory": {
+    "assets": [
+      {
+        "id": "55781bee523b90bc",
+        "kind": "image",
+        "name": "EXe3n2cMJp4nM_iw_KwWcg.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg4.docs.qq.com/image/EXe3n2cMJp4nM_iw_KwWcg.png?w=1280&h=698.1818181818182"
+      },
+      {
+        "id": "ee25a65aee85b861",
+        "kind": "image",
+        "name": "AgAABdlcCDY5uxKEp5pMgJTidASd0TFm.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg4.docs.qq.com/image/AgAABdlcCDY5uxKEp5pMgJTidASd0TFm.png?w=974&h=536"
+      },
+      {
+        "id": "b3ec4c40f50dc275",
+        "kind": "image",
+        "name": "AgAABdlcCDYkxbaFNLJGQK74bmr5Feyp.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDYkxbaFNLJGQK74bmr5Feyp.png?w=974&h=538"
+      },
+      {
+        "id": "e41f33a56c35e7b2",
+        "kind": "image",
+        "name": "AgAABdlcCDaHn7jOqapElIzmFFGHtq_G.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg5.docs.qq.com/image/AgAABdlcCDaHn7jOqapElIzmFFGHtq_G.png?w=1280&h=490.6666666666667"
+      },
+      {
+        "id": "c2577c3290e928dd",
+        "kind": "image",
+        "name": "AgAABdlcCDZ8GwUWarpEr6FEIKsB3DMF.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg7.docs.qq.com/image/AgAABdlcCDZ8GwUWarpEr6FEIKsB3DMF.png?w=1126&h=368"
+      },
+      {
+        "id": "b09a447ba314fb5b",
+        "kind": "image",
+        "name": "AgAABdlcCDZ8cDKPXLFLmIU0dmEihBHu.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg1.docs.qq.com/image/AgAABdlcCDZ8cDKPXLFLmIU0dmEihBHu.png?w=1900&h=900"
+      },
+      {
+        "id": "a7835de33d8a97d5",
+        "kind": "image",
+        "name": "AgAABdlcCDYRVhSibIdIj7sLvb7LwXsC.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg6.docs.qq.com/image/AgAABdlcCDYRVhSibIdIj7sLvb7LwXsC.png?w=2199&h=629"
+      },
+      {
+        "id": "a2d5e9f9cc1aa075",
+        "kind": "image",
+        "name": "AgAABdlcCDbmaU_fGsROWL0rV1ve-JKB.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg8.docs.qq.com/image/AgAABdlcCDbmaU_fGsROWL0rV1ve-JKB.png?w=1648&h=1568"
+      },
+      {
+        "id": "eaccbcc966f9a225",
+        "kind": "image",
+        "name": "0qjT5qfVSxVntIqcMGcXWQ.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg6.docs.qq.com/image/0qjT5qfVSxVntIqcMGcXWQ.png?w=1030&h=1028"
+      },
+      {
+        "id": "463a13d9a16d97ba",
+        "kind": "image",
+        "name": "AgAABdlcCDbB2uS8GU5NtLHMaUpBUd8V.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg7.docs.qq.com/image/AgAABdlcCDbB2uS8GU5NtLHMaUpBUd8V.png?w=1209&h=347"
+      },
+      {
+        "id": "a18a6922b11ab321",
+        "kind": "image",
+        "name": "k1Gl20yX_6jqMgkSegC-pw.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg3.docs.qq.com/image/k1Gl20yX_6jqMgkSegC-pw.png?w=558&h=1174"
+      },
+      {
+        "id": "cfef6603680669cf",
+        "kind": "image",
+        "name": "btb0f3Rd07GMpGIoD_ylLA.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg1.docs.qq.com/image/btb0f3Rd07GMpGIoD_ylLA.png?w=1280&h=694.7412882787751"
+      },
+      {
+        "id": "74470e7802f81234",
+        "kind": "image",
+        "name": "AgAABdlcCDaweMhJbWxOMYfPG5fAv6A7.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDaweMhJbWxOMYfPG5fAv6A7.png?w=772&h=1642"
+      },
+      {
+        "id": "956cdbab71e93d34",
+        "kind": "image",
+        "name": "9F2WlWckgmjIsoqaP7KKTw.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg8.docs.qq.com/image/9F2WlWckgmjIsoqaP7KKTw.png?w=1280&h=1144.200716845878"
+      },
+      {
+        "id": "3a6990ff64557cfe",
+        "kind": "image",
+        "name": "AgAABdlcCDYxIzHc61ZFaLCwxYPAgl_0.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg6.docs.qq.com/image/AgAABdlcCDYxIzHc61ZFaLCwxYPAgl_0.png?w=1209&h=478"
+      },
+      {
+        "id": "f2566bd41cc76358",
+        "kind": "image",
+        "name": "AgAABdlcCDagduJ_RdhD9JgUxzBeuZvf.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg5.docs.qq.com/image/AgAABdlcCDagduJ_RdhD9JgUxzBeuZvf.png?w=997&h=805"
+      },
+      {
+        "id": "285378d2d128fa33",
+        "kind": "image",
+        "name": "dVjWZbiq7lI2bQpj5U64Aw.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg1.docs.qq.com/image/dVjWZbiq7lI2bQpj5U64Aw.png?w=948&h=1594"
+      },
+      {
+        "id": "b7488a0c149022e4",
+        "kind": "image",
+        "name": "9i-izOJKaq4MS8k21uCcTQ.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg3.docs.qq.com/image/9i-izOJKaq4MS8k21uCcTQ.png?w=1280&h=601.1870967741935"
+      },
+      {
+        "id": "719fbf12244d200a",
+        "kind": "image",
+        "name": "AgAABdlcCDZm-jfZMPxETYxB31fK5w8O.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg9.docs.qq.com/image/AgAABdlcCDZm-jfZMPxETYxB31fK5w8O.png?w=604&h=164"
+      },
+      {
+        "id": "545a872dde7ee750",
+        "kind": "image",
+        "name": "AgAABdlcCDZqoZSTuu5B1Y0fVpybprgI.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg9.docs.qq.com/image/AgAABdlcCDZqoZSTuu5B1Y0fVpybprgI.png?w=1280&h=675.8620689655172"
+      },
+      {
+        "id": "6c8e0a702f7f5719",
+        "kind": "other",
+        "name": "speed",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          }
+        ],
+        "url": "https://rumt-zh.com/speed?from=https%3A%2F%2Fdocs.qq.com%2Fdoc%2FDV1J6ZVB6eHZ3amxK&sampled=1&id=1270&uin=10000&version=20220823-1711-release_dver_doc_2_1_0_0822_1639_77232eb1&aid=6dd3511e-9ea4-4bba-add0-11a03adb3c8c&env=production&platform=4&netType=4&vp=1728%20*%20889&sr=1728%20*%201117&sessionId=e93c26b81ec9476e8c7f9fc38d5a7765&referer="
+      },
+      {
+        "id": "ee86692a675c8780",
+        "kind": "other",
+        "name": "zzsreport",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          }
+        ],
+        "url": "https://report.idqqimg.com/node_b/zzsreport"
+      },
+      {
+        "id": "9e0171ec630219b1",
+        "kind": "other",
+        "name": "trace",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          }
+        ],
+        "url": "https://tpstelemetry.tencent.com/v1/trace"
+      },
+      {
+        "id": "fc8927cfce06f052",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494779625"
+      },
+      {
+        "id": "75403ec0bc672332",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494794626"
+      },
+      {
+        "id": "3e418be90899eac1",
+        "kind": "other",
+        "name": "report",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          },
+          {
+            "kind": "resource",
+            "property": "xmlhttprequest"
+          }
+        ],
+        "url": "https://report.idqqimg.com/node/report/"
+      },
+      {
+        "id": "37713b7ad0705950",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494809626"
+      },
+      {
+        "id": "231c95a27d149da7",
+        "kind": "image",
+        "name": "D7yQQ8ukL6mFrisyvjDy1w.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          },
+          {
+            "kind": "attribute",
+            "nodeId": 101537,
+            "property": "src"
+          }
+        ],
+        "url": "https://docimg3.docs.qq.com/image/D7yQQ8ukL6mFrisyvjDy1w.png?w=196&h=24"
+      },
+      {
+        "id": "c638ef96ba7c442e",
+        "kind": "image",
+        "name": "AgAABdlcCDZ5s0DjfQxNLK44ZTOzChMz.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDZ5s0DjfQxNLK44ZTOzChMz.png?w=1894&h=1028"
+      },
+      {
+        "id": "8774dc06162872f1",
+        "kind": "image",
+        "name": "mQzRvPSEnS9WmNaQL4QlYg.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg3.docs.qq.com/image/mQzRvPSEnS9WmNaQL4QlYg.png?w=492&h=1032"
+      },
+      {
+        "id": "3d7a856952bf2b2f",
+        "kind": "image",
+        "name": "HK1jyq8GBAwvrcPIJZAOGA.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg4.docs.qq.com/image/HK1jyq8GBAwvrcPIJZAOGA.png?w=896&h=927"
+      },
+      {
+        "id": "df4f7057ccdff157",
+        "kind": "image",
+        "name": "AgAABdlcCDYadThMlRhEEqJYFut9lJXe.png",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDYadThMlRhEEqJYFut9lJXe.png?w=1890&h=1034"
+      },
+      {
+        "id": "cdd439be3eceea58",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494824624"
+      },
+      {
+        "id": "9ff6c57d98f607aa",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788494824630"
+      },
+      {
+        "id": "7f21426bb34fa1ad",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494839626"
+      },
+      {
+        "id": "ac5a03b8ec6cec27",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494854626"
+      },
+      {
+        "id": "db1a06d8a8bfe2dc",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494869624"
+      },
+      {
+        "id": "6847bcd7b3e2b6a9",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494884627"
+      },
+      {
+        "id": "480cba7c95964ae2",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788494884632"
+      },
+      {
+        "id": "2d4aeaf9bca4de0c",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494899627"
+      },
+      {
+        "id": "61a1b530cfa0f8d3",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494914627"
+      },
+      {
+        "id": "4dd5c9ab15f41169",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494929626"
+      },
+      {
+        "id": "7e957fc265347285",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494944628"
+      },
+      {
+        "id": "4914eda5622cbb96",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788494944629"
+      },
+      {
+        "id": "cb6e36771a63d7ca",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494959626"
+      },
+      {
+        "id": "d03c766690ec6d8e",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494974626"
+      },
+      {
+        "id": "94ee8f368a0f37fc",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494989628"
+      },
+      {
+        "id": "2ce72bb7a5b3a151",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495004627"
+      },
+      {
+        "id": "c17d29b5e0317b4e",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788495004632"
+      },
+      {
+        "id": "2044526842b5dcc3",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495019626"
+      },
+      {
+        "id": "93dc1f14953e2e8d",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495034625"
+      },
+      {
+        "id": "eeeea66ea89d2b15",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495049628"
+      },
+      {
+        "id": "8f6b16adfc5abf5f",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495064624"
+      },
+      {
+        "id": "9a7aab11e4bbfeab",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788495064629"
+      },
+      {
+        "id": "c04ab29cc6b4b624",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495079627"
+      },
+      {
+        "id": "2bb7f97258be91ad",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495094628"
+      },
+      {
+        "id": "53bde33dafb3cc53",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495109629"
+      },
+      {
+        "id": "c851bce84f348342",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495124629"
+      },
+      {
+        "id": "1e450cc2eed8c4ce",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788495124633"
+      },
+      {
+        "id": "5dc366d5ba4ba136",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495139626"
+      },
+      {
+        "id": "743bd5f15cfa45bc",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495154629"
+      },
+      {
+        "id": "cf2c2c576adf0129",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495169625"
+      },
+      {
+        "id": "3dc4a8650b36cc2f",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495184627"
+      },
+      {
+        "id": "9642d891c88205f1",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788495184631"
+      },
+      {
+        "id": "bdb5b5aa881f263a",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495199628"
+      },
+      {
+        "id": "64ad4bcf2bc7f569",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495214626"
+      },
+      {
+        "id": "7ad935a834394806",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495229626"
+      },
+      {
+        "id": "b1489c08b669659e",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495244628"
+      },
+      {
+        "id": "0cb6752b3d6b30a6",
+        "kind": "image",
+        "name": "img",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://docs.qq.com/net-check/img?t=1788495244633"
+      },
+      {
+        "id": "c567309ae37a2f06",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "sources": [
+          {
+            "kind": "resource",
+            "property": "img"
+          }
+        ],
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495259626"
+      }
+    ],
+    "id": "151960b2-f782-4d84-8005-0ea50157864f",
+    "inlineSvgs": [
+      {
+        "id": "d11197966f0a4441",
+        "markup": "<svg width=\"24px\" height=\"24px\" viewBox=\"0 0 24 24\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"视觉\" stroke=\"none\" stroke-width=\"1\" fill=\"none\" fill-rule=\"evenodd\"><g id=\"03_评论_评论归档\" transform=\"translate(-243.000000, -195.000000)\"><g id=\"编组\" transform=\"translate(243.000000, 195.000000)\"><rect id=\"bg\" x=\"0\" y=\"0\" width=\"24\" height=\"24\" rx=\"2\"></rect><path d=\"M7,11 L7,13 L5,13 L5,11 L7,11 Z M13,11 L13,13 L11,13 L11,11 L13,11 Z M19,11 L19,13 L17,13 L17,11 L19,11 Z\" id=\"形状结合\" fill=\"#464D5A\" fill-rule=\"nonzero\"></path></g></g></g></svg>",
+        "name": "svg-1"
+      },
+      {
+        "id": "9b1051e1be61c504",
+        "markup": "<svg width=\"24px\" height=\"24px\" viewBox=\"0 0 24 24\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\"><g id=\"视觉\" stroke=\"none\" stroke-width=\"1\" fill=\"none\" fill-rule=\"evenodd\"><g id=\"03_评论_评论归档\" transform=\"translate(-243.000000, -195.000000)\"><g id=\"编组\" transform=\"translate(243.000000, 195.000000)\"><rect id=\"bg\" x=\"0\" y=\"0\" width=\"24\" height=\"24\" rx=\"2\"></rect><path d=\"M7,11 L7,13 L5,13 L5,11 L7,11 Z M13,11 L13,13 L11,13 L11,11 L13,11 Z M19,11 L19,13 L17,13 L17,11 L19,11 Z\" id=\"形状结合\" fill=\"#464D5A\" fill-rule=\"nonzero\"></path></g></g></g></svg>",
+        "name": "svg-2"
+      }
+    ],
+    "pageUrl": "https://docs.qq.com/doc/DV1J6ZVB6eHZ3amxK",
+    "summary": {
+      "byKind": {
+        "font": 0,
+        "image": 66,
+        "other": 4,
+        "script": 0,
+        "stylesheet": 0,
+        "video": 0
+      },
+      "inlineSvgCount": 2,
+      "totalCount": 70
+    }
+  },
+  "bundle": {
+    "directoryPath": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929",
+    "exported": [
+      {
+        "id": "55781bee523b90bc",
+        "kind": "image",
+        "name": "EXe3n2cMJp4nM_iw_KwWcg.png",
+        "contentType": "image/png",
+        "url": "https://docimg4.docs.qq.com/image/EXe3n2cMJp4nM_iw_KwWcg.png?w=1280&h=698.1818181818182",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/55781bee523b90bc.png"
+      },
+      {
+        "id": "ee25a65aee85b861",
+        "kind": "image",
+        "name": "AgAABdlcCDY5uxKEp5pMgJTidASd0TFm.png",
+        "contentType": "image/png",
+        "url": "https://docimg4.docs.qq.com/image/AgAABdlcCDY5uxKEp5pMgJTidASd0TFm.png?w=974&h=536",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/ee25a65aee85b861.png"
+      },
+      {
+        "id": "b3ec4c40f50dc275",
+        "kind": "image",
+        "name": "AgAABdlcCDYkxbaFNLJGQK74bmr5Feyp.png",
+        "contentType": "image/png",
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDYkxbaFNLJGQK74bmr5Feyp.png?w=974&h=538",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/b3ec4c40f50dc275.png"
+      },
+      {
+        "id": "e41f33a56c35e7b2",
+        "kind": "image",
+        "name": "AgAABdlcCDaHn7jOqapElIzmFFGHtq_G.png",
+        "contentType": "image/png",
+        "url": "https://docimg5.docs.qq.com/image/AgAABdlcCDaHn7jOqapElIzmFFGHtq_G.png?w=1280&h=490.6666666666667",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/e41f33a56c35e7b2.png"
+      },
+      {
+        "id": "c2577c3290e928dd",
+        "kind": "image",
+        "name": "AgAABdlcCDZ8GwUWarpEr6FEIKsB3DMF.png",
+        "contentType": "image/png",
+        "url": "https://docimg7.docs.qq.com/image/AgAABdlcCDZ8GwUWarpEr6FEIKsB3DMF.png?w=1126&h=368",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/c2577c3290e928dd.png"
+      },
+      {
+        "id": "b09a447ba314fb5b",
+        "kind": "image",
+        "name": "AgAABdlcCDZ8cDKPXLFLmIU0dmEihBHu.png",
+        "contentType": "image/png",
+        "url": "https://docimg1.docs.qq.com/image/AgAABdlcCDZ8cDKPXLFLmIU0dmEihBHu.png?w=1900&h=900",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/b09a447ba314fb5b.png"
+      },
+      {
+        "id": "a7835de33d8a97d5",
+        "kind": "image",
+        "name": "AgAABdlcCDYRVhSibIdIj7sLvb7LwXsC.png",
+        "contentType": "image/png",
+        "url": "https://docimg6.docs.qq.com/image/AgAABdlcCDYRVhSibIdIj7sLvb7LwXsC.png?w=2199&h=629",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/a7835de33d8a97d5.png"
+      },
+      {
+        "id": "a2d5e9f9cc1aa075",
+        "kind": "image",
+        "name": "AgAABdlcCDbmaU_fGsROWL0rV1ve-JKB.png",
+        "contentType": "image/png",
+        "url": "https://docimg8.docs.qq.com/image/AgAABdlcCDbmaU_fGsROWL0rV1ve-JKB.png?w=1648&h=1568",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/a2d5e9f9cc1aa075.png"
+      },
+      {
+        "id": "a18a6922b11ab321",
+        "kind": "image",
+        "name": "k1Gl20yX_6jqMgkSegC-pw.png",
+        "contentType": "image/png",
+        "url": "https://docimg3.docs.qq.com/image/k1Gl20yX_6jqMgkSegC-pw.png?w=558&h=1174",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/a18a6922b11ab321.png"
+      },
+      {
+        "id": "cfef6603680669cf",
+        "kind": "image",
+        "name": "btb0f3Rd07GMpGIoD_ylLA.png",
+        "contentType": "image/png",
+        "url": "https://docimg1.docs.qq.com/image/btb0f3Rd07GMpGIoD_ylLA.png?w=1280&h=694.7412882787751",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/cfef6603680669cf.png"
+      },
+      {
+        "id": "3a6990ff64557cfe",
+        "kind": "image",
+        "name": "AgAABdlcCDYxIzHc61ZFaLCwxYPAgl_0.png",
+        "contentType": "image/png",
+        "url": "https://docimg6.docs.qq.com/image/AgAABdlcCDYxIzHc61ZFaLCwxYPAgl_0.png?w=1209&h=478",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/3a6990ff64557cfe.png"
+      },
+      {
+        "id": "719fbf12244d200a",
+        "kind": "image",
+        "name": "AgAABdlcCDZm-jfZMPxETYxB31fK5w8O.png",
+        "contentType": "image/png",
+        "url": "https://docimg9.docs.qq.com/image/AgAABdlcCDZm-jfZMPxETYxB31fK5w8O.png?w=604&h=164",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/719fbf12244d200a.png"
+      },
+      {
+        "id": "231c95a27d149da7",
+        "kind": "image",
+        "name": "D7yQQ8ukL6mFrisyvjDy1w.png",
+        "contentType": "image/png",
+        "url": "https://docimg3.docs.qq.com/image/D7yQQ8ukL6mFrisyvjDy1w.png?w=196&h=24",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/231c95a27d149da7.png"
+      },
+      {
+        "id": "c638ef96ba7c442e",
+        "kind": "image",
+        "name": "AgAABdlcCDZ5s0DjfQxNLK44ZTOzChMz.png",
+        "contentType": "image/png",
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDZ5s0DjfQxNLK44ZTOzChMz.png?w=1894&h=1028",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/c638ef96ba7c442e.png"
+      },
+      {
+        "id": "df4f7057ccdff157",
+        "kind": "image",
+        "name": "AgAABdlcCDYadThMlRhEEqJYFut9lJXe.png",
+        "contentType": "image/png",
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDYadThMlRhEEqJYFut9lJXe.png?w=1890&h=1034",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/df4f7057ccdff157.png"
+      },
+      {
+        "id": "9ff6c57d98f607aa",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788494824630",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/9ff6c57d98f607aa"
+      },
+      {
+        "id": "480cba7c95964ae2",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788494884632",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/480cba7c95964ae2"
+      },
+      {
+        "id": "4914eda5622cbb96",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788494944629",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/4914eda5622cbb96"
+      },
+      {
+        "id": "c17d29b5e0317b4e",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788495004632",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/c17d29b5e0317b4e"
+      },
+      {
+        "id": "9a7aab11e4bbfeab",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788495064629",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/9a7aab11e4bbfeab"
+      },
+      {
+        "id": "1e450cc2eed8c4ce",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788495124633",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/1e450cc2eed8c4ce"
+      },
+      {
+        "id": "9642d891c88205f1",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788495184631",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/9642d891c88205f1"
+      },
+      {
+        "id": "0cb6752b3d6b30a6",
+        "kind": "image",
+        "name": "img",
+        "contentType": "image/svg+xml",
+        "url": "https://docs.qq.com/net-check/img?t=1788495244633",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/0cb6752b3d6b30a6"
+      },
+      {
+        "id": "c567309ae37a2f06",
+        "kind": "image",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "contentType": "image/gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495259626",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/c567309ae37a2f06.gif"
+      },
+      {
+        "id": "d11197966f0a4441",
+        "kind": "image",
+        "name": "svg-1",
+        "contentType": "image/svg+xml",
+        "url": "inline-svg:d11197966f0a4441",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/d11197966f0a4441.svg"
+      },
+      {
+        "id": "9b1051e1be61c504",
+        "kind": "image",
+        "name": "svg-2",
+        "contentType": "image/svg+xml",
+        "url": "inline-svg:9b1051e1be61c504",
+        "path": "/var/folders/11/y_216lx573bg6t7h5q5ctlk00000gn/T/browser-use/assets/637ed521-c029-45c1-8b34-2dfd33ba0929/9b1051e1be61c504.svg"
+      }
+    ],
+    "failures": [
+      {
+        "id": "eaccbcc966f9a225",
+        "name": "0qjT5qfVSxVntIqcMGcXWQ.png",
+        "url": "https://docimg6.docs.qq.com/image/0qjT5qfVSxVntIqcMGcXWQ.png?w=1030&h=1028",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "463a13d9a16d97ba",
+        "name": "AgAABdlcCDbB2uS8GU5NtLHMaUpBUd8V.png",
+        "url": "https://docimg7.docs.qq.com/image/AgAABdlcCDbB2uS8GU5NtLHMaUpBUd8V.png?w=1209&h=347",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "74470e7802f81234",
+        "name": "AgAABdlcCDaweMhJbWxOMYfPG5fAv6A7.png",
+        "url": "https://docimg10.docs.qq.com/image/AgAABdlcCDaweMhJbWxOMYfPG5fAv6A7.png?w=772&h=1642",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "956cdbab71e93d34",
+        "name": "9F2WlWckgmjIsoqaP7KKTw.png",
+        "url": "https://docimg8.docs.qq.com/image/9F2WlWckgmjIsoqaP7KKTw.png?w=1280&h=1144.200716845878",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "f2566bd41cc76358",
+        "name": "AgAABdlcCDagduJ_RdhD9JgUxzBeuZvf.png",
+        "url": "https://docimg5.docs.qq.com/image/AgAABdlcCDagduJ_RdhD9JgUxzBeuZvf.png?w=997&h=805",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "285378d2d128fa33",
+        "name": "dVjWZbiq7lI2bQpj5U64Aw.png",
+        "url": "https://docimg1.docs.qq.com/image/dVjWZbiq7lI2bQpj5U64Aw.png?w=948&h=1594",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "b7488a0c149022e4",
+        "name": "9i-izOJKaq4MS8k21uCcTQ.png",
+        "url": "https://docimg3.docs.qq.com/image/9i-izOJKaq4MS8k21uCcTQ.png?w=1280&h=601.1870967741935",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "545a872dde7ee750",
+        "name": "AgAABdlcCDZqoZSTuu5B1Y0fVpybprgI.png",
+        "url": "https://docimg9.docs.qq.com/image/AgAABdlcCDZqoZSTuu5B1Y0fVpybprgI.png?w=1280&h=675.8620689655172",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "fc8927cfce06f052",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494779625",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "75403ec0bc672332",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494794626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "37713b7ad0705950",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494809626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "8774dc06162872f1",
+        "name": "mQzRvPSEnS9WmNaQL4QlYg.png",
+        "url": "https://docimg3.docs.qq.com/image/mQzRvPSEnS9WmNaQL4QlYg.png?w=492&h=1032",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "3d7a856952bf2b2f",
+        "name": "HK1jyq8GBAwvrcPIJZAOGA.png",
+        "url": "https://docimg4.docs.qq.com/image/HK1jyq8GBAwvrcPIJZAOGA.png?w=896&h=927",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "cdd439be3eceea58",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494824624",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "7f21426bb34fa1ad",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494839626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "ac5a03b8ec6cec27",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494854626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "db1a06d8a8bfe2dc",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494869624",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "6847bcd7b3e2b6a9",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494884627",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "2d4aeaf9bca4de0c",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494899627",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "61a1b530cfa0f8d3",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494914627",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "4dd5c9ab15f41169",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494929626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "7e957fc265347285",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494944628",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "cb6e36771a63d7ca",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494959626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "d03c766690ec6d8e",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494974626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "94ee8f368a0f37fc",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788494989628",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "2ce72bb7a5b3a151",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495004627",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "2044526842b5dcc3",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495019626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "93dc1f14953e2e8d",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495034625",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "eeeea66ea89d2b15",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495049628",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "8f6b16adfc5abf5f",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495064624",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "c04ab29cc6b4b624",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495079627",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "2bb7f97258be91ad",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495094628",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "53bde33dafb3cc53",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495109629",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "c851bce84f348342",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495124629",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "5dc366d5ba4ba136",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495139626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "743bd5f15cfa45bc",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495154629",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "cf2c2c576adf0129",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495169625",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "3dc4a8650b36cc2f",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495184627",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "bdb5b5aa881f263a",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495199628",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "64ad4bcf2bc7f569",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495214626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "7ad935a834394806",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495229626",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      },
+      {
+        "id": "b1489c08b669659e",
+        "name": "390bc96befed3c9fe3aa1d013695fb41.gif",
+        "url": "https://pub.idqqimg.com/pc/misc/files/20200114/390bc96befed3c9fe3aa1d013695fb41.gif?t=1788495244628",
+        "reason": "Loaded resource fetch failed: Asset bundling failed; page fetch failed: Browser Use encountered an error interacting with this webpage: TypeError: Failed to fetch"
+      }
+    ]
+  }
+}

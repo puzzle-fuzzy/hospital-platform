@@ -1,7 +1,7 @@
 import {
-	createSmCryptoLegacyFsiCrypto,
 	createLegacyFsiGateway,
 	createLegacyFsiMedicalInsuranceGateway,
+	createSmCryptoLegacyFsiCrypto,
 	createWechatIdentityGateway,
 	createWechatPaymentGateway,
 	createWechatPaymentNotificationDecoder,
@@ -9,6 +9,7 @@ import {
 	createZhongyangAppointmentPatientProfileGateway,
 	createZhongyangAppointmentWriteGateway,
 	createZhongyangOutpatientPaymentGateway,
+	createZhongyangPatientBindingGateway,
 	createZhongyangPatientGateway,
 	createZhongyangReportGateway,
 } from "@hospital/adapters";
@@ -23,6 +24,8 @@ import {
 	medicalInsuranceConfigurationStatus,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
+	patientBindingConfigurationMissingFields,
+	patientBindingConfigurationStatus,
 	patientDirectoryConfigurationMissingFields,
 	patientDirectoryConfigurationStatus,
 	reportDetailConfigurationMissingFields,
@@ -31,10 +34,10 @@ import {
 	reportDirectoryConfigurationStatus,
 	wechatIdentityConfigurationMissingFields,
 	wechatIdentityConfigurationStatus,
-	wechatPaymentConfigurationMissingFields,
-	wechatPaymentConfigurationStatus,
 	wechatMedicalInsuranceConfigurationMissingFields,
 	wechatMedicalInsuranceConfigurationStatus,
+	wechatPaymentConfigurationMissingFields,
+	wechatPaymentConfigurationStatus,
 } from "@hospital/config";
 import { createLogger } from "@hospital/observability";
 import { createPersistenceRuntime } from "@hospital/persistence";
@@ -70,6 +73,8 @@ const wechatMedicalInsuranceMissing =
 const patientDirectoryStatus = patientDirectoryConfigurationStatus(config);
 const patientDirectoryMissing =
 	patientDirectoryConfigurationMissingFields(config);
+const patientBindingStatus = patientBindingConfigurationStatus(config);
+const patientBindingMissing = patientBindingConfigurationMissingFields(config);
 const appointmentDirectoryStatus =
 	appointmentDirectoryConfigurationStatus(config);
 const appointmentDirectoryMissing =
@@ -130,7 +135,6 @@ const wechatPaymentGateway =
 							medicalInsurance: {
 								appId: config.wechatMedicalInsuranceAppId ?? "",
 								cityId: config.wechatMedicalInsuranceCityId ?? "",
-								orderType: config.wechatMedicalInsuranceOrderType ?? "",
 								medicalInstitutionName:
 									config.wechatMedicalInsuranceInstitutionName ?? "",
 								medicalInstitutionNo:
@@ -160,6 +164,15 @@ const patientDirectoryGateway =
 					? {
 							authorizationToken: config.zhongyangAuthorizationToken,
 						}
+					: {}),
+			})
+		: undefined;
+const patientBindingGateway =
+	patientBindingStatus === "configured" && config.zhongyangBaseUrl
+		? createZhongyangPatientBindingGateway({
+				baseUrl: config.zhongyangBaseUrl,
+				...(config.zhongyangAuthorizationToken
+					? { authorizationToken: config.zhongyangAuthorizationToken }
 					: {}),
 			})
 		: undefined;
@@ -351,6 +364,7 @@ const app = createApp({
 			? { medicalInsuranceWechatPaymentGateway }
 			: {}),
 		...(patientDirectoryGateway ? { patientDirectoryGateway } : {}),
+		...(patientBindingGateway ? { patientBindingGateway } : {}),
 		...(appointmentDirectoryGateway ? { appointmentDirectoryGateway } : {}),
 		...(appointmentDepartmentTreeGateway
 			? { appointmentDepartmentTreeGateway }
@@ -447,6 +461,7 @@ logger.info(
 			? "enabled"
 			: "fail_closed",
 		patientDirectoryConfiguration: patientDirectoryStatus,
+		patientBindingConfiguration: patientBindingStatus,
 		appointmentDirectoryConfiguration: appointmentDirectoryStatus,
 		appointmentRecordsConfiguration: appointmentRecordsStatus,
 		appointmentWritesConfiguration: appointmentWritesStatus,
@@ -460,6 +475,7 @@ logger.info(
 			: {}),
 		...(medicalInsuranceMissing.length > 0 ? { medicalInsuranceMissing } : {}),
 		...(patientDirectoryMissing.length > 0 ? { patientDirectoryMissing } : {}),
+		...(patientBindingMissing.length > 0 ? { patientBindingMissing } : {}),
 		...(appointmentDirectoryMissing.length > 0
 			? { appointmentDirectoryMissing }
 			: {}),

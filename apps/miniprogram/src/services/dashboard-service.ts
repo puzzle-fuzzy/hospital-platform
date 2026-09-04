@@ -7,12 +7,14 @@ import type {
 	HealthResponse,
 	OutpatientPaymentRecord,
 	Patient,
+	PatientBindingRequest,
 	PatientListResponse,
 	ReportListResponse,
 	ReportQuery,
 } from "../types";
 import {
 	ApiError,
+	bindPatient,
 	createIdempotencyKey,
 	getCurrentUser,
 	request,
@@ -1014,6 +1016,23 @@ export function syncPatientsFromHospital(
 			syncPatients(createIdempotencyKey(operationPrefix)).then(
 				(payload) => requirePatientListData(payload.data).items,
 			),
+		),
+	);
+}
+
+/** 添加就诊人后由服务端重新同步脱敏目录，页面不保存实名字段。 */
+export function bindPatientToHospital(
+	input: PatientBindingRequest,
+): Promise<{ created: boolean; patients: Array<Patient> }> {
+	return getCurrentUser().then(() =>
+		bindPatient(input, createIdempotencyKey("patient-binding")).then(
+			(payload) => {
+				const directory = requirePatientListData({
+					items: payload.data.items,
+					total: payload.data.total,
+				});
+				return { created: payload.data.created, patients: directory.items };
+			},
 		),
 	);
 }

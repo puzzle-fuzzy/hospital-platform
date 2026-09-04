@@ -9,6 +9,8 @@ import {
 	medicalInsuranceConfigurationStatus,
 	outpatientPaymentConfigurationMissingFields,
 	outpatientPaymentConfigurationStatus,
+	patientBindingConfigurationMissingFields,
+	patientBindingConfigurationStatus,
 	patientDirectoryConfigurationMissingFields,
 	patientDirectoryConfigurationStatus,
 	reportDetailConfigurationMissingFields,
@@ -173,6 +175,16 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(
 		patientDirectoryConfigurationMissingFields(patientDirectoryIncomplete),
 	).toContain("ZHONGYANG_BASE_URL(https)");
+	const patientBindingWithoutDirectory = loadRuntimeConfig({
+		ZHONGYANG_PATIENT_BINDING_READY: "true",
+		ZHONGYANG_BASE_URL: "https://zhongyang.example.test",
+	});
+	expect(
+		patientBindingConfigurationStatus(patientBindingWithoutDirectory),
+	).toBe("incomplete");
+	expect(
+		patientBindingConfigurationMissingFields(patientBindingWithoutDirectory),
+	).toContain("ZHONGYANG_PATIENT_DIRECTORY_READY");
 	const appointmentDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
@@ -250,6 +262,7 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(wechatPaymentConfigurationStatus(configured)).toBe("configured");
 	const configuredPatientDirectory = loadRuntimeConfig({
 		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
+		ZHONGYANG_PATIENT_BINDING_READY: "true",
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
 		ZHONGYANG_OUTPATIENT_PAYMENT_READY: "true",
@@ -260,6 +273,9 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 		ZHONGYANG_AUTHORIZATION_TOKEN: "provider-token",
 	});
 	expect(patientDirectoryConfigurationStatus(configuredPatientDirectory)).toBe(
+		"configured",
+	);
+	expect(patientBindingConfigurationStatus(configuredPatientDirectory)).toBe(
 		"configured",
 	);
 	expect(

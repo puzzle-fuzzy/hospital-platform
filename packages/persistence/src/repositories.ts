@@ -1696,6 +1696,16 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 				) ?? undefined
 			);
 		},
+		async findByOwnerAndBusinessKey(ownerUserId, businessType, businessId) {
+			return (
+				[...orders.values()].find(
+					(order) =>
+						order.ownerUserId === ownerUserId &&
+						(order.businessType ?? "registration") === businessType &&
+						(order.businessId ?? order.appointmentId) === businessId,
+				) ?? undefined
+			);
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			return (
 				[...orders.values()].find(
@@ -1748,6 +1758,9 @@ export function createInMemoryMedicalInsuranceOrderRepository(): MedicalInsuranc
 			if (!current || current.version !== expectedVersion) return undefined;
 			const updated: MedicalInsuranceOrder = {
 				...current,
+				...(patch.businessType ? { businessType: patch.businessType } : {}),
+				...(patch.orderType ? { orderType: patch.orderType } : {}),
+				...(patch.businessId ? { businessId: patch.businessId } : {}),
 				...(patch.appointmentId ? { appointmentId: patch.appointmentId } : {}),
 				...(patch.authorizationId
 					? { authorizationId: patch.authorizationId }

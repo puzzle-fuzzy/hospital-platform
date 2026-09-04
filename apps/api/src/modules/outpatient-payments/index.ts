@@ -280,6 +280,11 @@ export class OutpatientPaymentService {
 					event: "outpatient.payment.records.requested",
 					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
+					// 这里明确标识门诊业务和 DiagPay，只表示读取待缴费记录，
+					// 不代表已经创建医保订单或完成医保结算。
+					businessType: "outpatient",
+					orderType: "DiagPay",
+					capability: "records-read",
 					status,
 					patientId,
 					startTime: window.startTime,
@@ -346,6 +351,9 @@ export class OutpatientPaymentService {
 					event: "outpatient.payment.records.loaded",
 					traceId: adapterContextTraceId(context),
 					provider: trace.provider,
+					businessType: "outpatient",
+					orderType: "DiagPay",
+					capability: "records-read",
 					...traceLogFields(trace),
 					status,
 					itemCount: normalizedRecords.length,
@@ -363,6 +371,9 @@ export class OutpatientPaymentService {
 					event: "outpatient.payment.records.failed",
 					traceId: adapterContextTraceId(context),
 					provider: "zhongyang",
+					businessType: "outpatient",
+					orderType: "DiagPay",
+					capability: "records-read",
 					// 这是平台内部 opaque patientId，用于把 owner 映射失败与
 					// 页面请求关联；provider 患者号仍只存在于调用帧内。
 					patientId: isBoundedOpaqueIdentifier(patientId)

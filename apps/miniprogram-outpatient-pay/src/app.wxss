@@ -1,0 +1,42 @@
+page {
+	background: #f7f8fa;
+	color: #20242b;
+	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+
+.page {
+	box-sizing: border-box;
+	min-height: 100vh;
+	padding: 32rpx 28rpx 60rpx;
+}
+
+.card {
+	box-sizing: border-box;
+	margin-bottom: 24rpx;
+	padding: 28rpx;
+	background: #ffffff;
+	border-radius: 24rpx;
+}
+
+.label {
+	margin-bottom: 14rpx;
+	color: #7b8490;
+	font-size: 26rpx;
+}
+
+.value {
+	color: #20242b;
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.muted {
+	color: #8b949e;
+	font-size: 24rpx;
+}
+
+.error {
+	color: #c43d3d;
+	font-size: 28rpx;
+	line-height: 1.6;
+}

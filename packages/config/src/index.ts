@@ -35,7 +35,6 @@ export type RuntimeConfig = {
 	wechatMedicalInsuranceReady: boolean;
 	wechatMedicalInsuranceAppId: string | undefined;
 	wechatMedicalInsuranceCityId: string | undefined;
-	wechatMedicalInsuranceOrderType: string | undefined;
 	wechatMedicalInsuranceInstitutionName: string | undefined;
 	wechatMedicalInsuranceInstitutionNo: string | undefined;
 	wechatMedicalInsuranceCallbackUrl: string | undefined;
@@ -67,6 +66,8 @@ export type RuntimeConfig = {
 	medicalInsuranceInsuCode: string;
 	/** 众阳患者目录默认关闭；配置完整也不代表 provider 已联调。 */
 	patientDirectoryReady: boolean;
+	/** 新增就诊人的查档、建档与绑卡是独立写入能力，必须单独验收。 */
+	patientBindingReady: boolean;
 	/** 预约 AMC 只读目录独立验收，不能随患者目录一起隐式打开。 */
 	appointmentDirectoryReady: boolean;
 	/** 预约历史使用 appointment-server 独立 endpoint，必须单独验收。 */
@@ -115,6 +116,7 @@ export type ProviderConfigurationDiagnostic = {
 		| "wechat-medical-insurance"
 		| "medical-insurance"
 		| "zhongyang-patient-directory"
+		| "zhongyang-patient-binding"
 		| "zhongyang-appointment-directory"
 		| "zhongyang-appointment-records"
 		| "zhongyang-appointment-writes"
@@ -254,10 +256,6 @@ export function wechatMedicalInsuranceConfigurationMissingFields(
 		{
 			name: "WECHAT_MEDICAL_INSURANCE_CITY_ID",
 			value: runtimeConfig.wechatMedicalInsuranceCityId,
-		},
-		{
-			name: "WECHAT_MEDICAL_INSURANCE_ORDER_TYPE",
-			value: runtimeConfig.wechatMedicalInsuranceOrderType,
 		},
 		{
 			name: "WECHAT_MEDICAL_INSURANCE_INSTITUTION_NAME",
@@ -437,6 +435,32 @@ export function patientDirectoryConfigurationStatus(
 		: "incomplete";
 }
 
+export function patientBindingConfigurationMissingFields(
+	runtimeConfig: RuntimeConfig,
+): string[] {
+	if (!runtimeConfig.patientBindingReady) return [];
+	const missing = zhongyangDirectoryConfigurationMissingFields(
+		runtimeConfig,
+		true,
+	);
+	// 绑定成功后必须返回服务端重新同步的患者目录；如果只打开绑定 gate，
+	// provider 可能已经建档/绑卡但平台无法生成最终读模型，形成“接口报错
+	// 但外部已写入”的部分成功。因此把目录 gate 作为绑定能力的前置条件。
+	if (!runtimeConfig.patientDirectoryReady) {
+		missing.push("ZHONGYANG_PATIENT_DIRECTORY_READY");
+	}
+	return missing;
+}
+
+export function patientBindingConfigurationStatus(
+	runtimeConfig: RuntimeConfig,
+): ProviderConfigurationStatus {
+	if (!runtimeConfig.patientBindingReady) return "disabled";
+	return patientBindingConfigurationMissingFields(runtimeConfig).length === 0
+		? "configured"
+		: "incomplete";
+}
+
 export function appointmentDirectoryConfigurationMissingFields(
 	runtimeConfig: RuntimeConfig,
 ): string[] {
@@ -608,6 +632,11 @@ export function providerConfigurationDiagnostics(
 			name: "zhongyang-patient-directory" as const,
 			status: patientDirectoryConfigurationStatus(runtimeConfig),
 			missingFields: patientDirectoryConfigurationMissingFields(runtimeConfig),
+		},
+		{
+			name: "zhongyang-patient-binding" as const,
+			status: patientBindingConfigurationStatus(runtimeConfig),
+			missingFields: patientBindingConfigurationMissingFields(runtimeConfig),
 		},
 		{
 			name: "zhongyang-appointment-directory" as const,
@@ -788,9 +817,6 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		wechatMedicalInsuranceCityId: optional(
 			env.WECHAT_MEDICAL_INSURANCE_CITY_ID,
 		),
-		wechatMedicalInsuranceOrderType: optional(
-			env.WECHAT_MEDICAL_INSURANCE_ORDER_TYPE,
-		),
 		wechatMedicalInsuranceInstitutionName: optional(
 			env.WECHAT_MEDICAL_INSURANCE_INSTITUTION_NAME,
 		),
@@ -847,6 +873,7 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			env.ZHONGYANG_PATIENT_DIRECTORY_READY,
 			false,
 		),
+		patientBindingReady: boolean(env.ZHONGYANG_PATIENT_BINDING_READY, false),
 		appointmentDirectoryReady: boolean(
 			env.ZHONGYANG_APPOINTMENT_DIRECTORY_READY,
 			false,

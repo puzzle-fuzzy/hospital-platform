@@ -1,0 +1,139 @@
+.hero {
+	padding: 18rpx 4rpx 30rpx;
+}
+
+.eyebrow {
+	margin-bottom: 12rpx;
+	color: #2677ff;
+	font-size: 22rpx;
+	font-weight: 700;
+	letter-spacing: 4rpx;
+}
+
+.title {
+	font-size: 52rpx;
+	font-weight: 700;
+}
+
+.subtitle {
+	margin-top: 14rpx;
+	color: #8b949e;
+	font-size: 26rpx;
+}
+
+.picker-row,
+.section-heading,
+.bill-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.picker-row {
+	min-height: 66rpx;
+}
+
+.arrow {
+	color: #9aa3ad;
+	font-size: 42rpx;
+}
+
+.patient-meta {
+	margin-top: 8rpx;
+}
+
+.section-heading .label {
+	margin-bottom: 0;
+}
+
+.bill-row {
+	padding: 22rpx 0;
+	border-top: 1rpx solid #edf0f4;
+}
+
+.bill-main {
+	min-width: 0;
+}
+
+.bill-name {
+	overflow: hidden;
+	margin-bottom: 8rpx;
+	font-size: 30rpx;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.amount {
+	margin-left: 24rpx;
+	color: #20242b;
+	font-size: 30rpx;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.empty {
+	padding: 28rpx 0 8rpx;
+	color: #8b949e;
+	font-size: 27rpx;
+	text-align: center;
+}
+
+.status-card {
+	display: flex;
+	align-items: center;
+	gap: 14rpx;
+	box-sizing: border-box;
+	margin-bottom: 24rpx;
+	padding: 24rpx 28rpx;
+	background: #eef5ff;
+	border-radius: 20rpx;
+}
+
+.status-dot {
+	width: 14rpx;
+	height: 14rpx;
+	background: #2677ff;
+	border-radius: 50%;
+}
+
+.status-message {
+	flex: 1;
+	color: #31557f;
+	font-size: 27rpx;
+}
+
+.error-card {
+	background: #fff5f3;
+}
+
+.contract-card {
+	background: #f1f6ff;
+	border: 1rpx solid #dce9ff;
+}
+
+.contract-title {
+	margin-bottom: 12rpx;
+	font-size: 29rpx;
+	font-weight: 600;
+}
+
+.contract-text {
+	margin-top: 10rpx;
+	line-height: 1.6;
+}
+
+.contract-tip {
+	margin-top: 18rpx;
+	color: #2677ff;
+	font-size: 25rpx;
+	line-height: 1.5;
+}
+
+.footnote {
+	padding: 20rpx 18rpx;
+	color: #9aa3ad;
+	font-size: 23rpx;
+	line-height: 1.6;
+	text-align: center;
+}

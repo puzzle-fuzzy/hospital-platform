@@ -377,6 +377,9 @@ type MIRow = RowDataPacket & {
 	medical_order_id: string;
 	owner_user_id: string;
 	patient_id: string;
+	business_type: string | null;
+	order_type: string | null;
+	business_id: string | null;
 	appointment_id: string | null;
 	authorization_id: string | null;
 	fee_upload_id: string | null;
@@ -669,7 +672,7 @@ function medicalInsuranceCredentialHandle(
 }
 
 const MI_SELECT =
-	"SELECT medical_order_id, owner_user_id, patient_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, version, created_at, updated_at FROM hp_medical_insurance_orders";
+	"SELECT medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key, med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag, status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen, setl_type, revs_token_hash, revs_token_expires_at, last_error, wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext, version, created_at, updated_at FROM hp_medical_insurance_orders";
 
 const MI_WECHAT_PAYMENT_STATES = [
 	"not_started",
@@ -709,10 +712,17 @@ function miOrder(
 				);
 			})()
 		: null;
+	const businessId = row.business_id ?? row.appointment_id;
 	return {
 		medicalOrderId: row.medical_order_id,
 		ownerUserId: row.owner_user_id,
 		patientId: row.patient_id,
+		// 0034 之后这两个字段由数据库保证；fallback 只为读取尚未完成
+		// 迁移的历史回放数据，真实写入仍必须经过业务层显式赋值。
+		businessType:
+			row.business_type === "outpatient" ? "outpatient" : "registration",
+		orderType: row.order_type === "DiagPay" ? "DiagPay" : "RegPay",
+		...(businessId ? { businessId } : {}),
 		...(row.appointment_id ? { appointmentId: row.appointment_id } : {}),
 		authorizationId: row.authorization_id,
 		feeUploadId: row.fee_upload_id,
@@ -2530,7 +2540,7 @@ export function createMySqlRepositories(
 			try {
 				await execute<ResultSetHeader>(
 					pool,
-					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, manual_review_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					"INSERT INTO hp_payment_prepay_attempts (attempt_id, owner_user_id, order_id, provider, idempotency_key, status, version, query_attempts, last_queried_at, next_query_at, query_claimed_until, manual_review_at, prepay_id_hash, pay_params_ciphertext, provider_request_id, last_error_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 					[
 						attempt.attemptId,
 						attempt.ownerUserId,
@@ -3239,17 +3249,20 @@ export function createMySqlRepositories(
 			await execute<ResultSetHeader>(
 				pool,
 				`INSERT INTO hp_medical_insurance_orders (
-					medical_order_id, owner_user_id, patient_id, appointment_id, authorization_id, fee_upload_id, idempotency_key,
+					medical_order_id, owner_user_id, patient_id, business_type, order_type, business_id, appointment_id, authorization_id, fee_upload_id, idempotency_key,
 					med_org_ord, chrg_bchno, pay_ord_id, pay_token_hash, mdtrt_id, acct_used_flag,
 					status, ord_stas, total_fen, cash_fen, personal_account_fen, fund_fen,
 					setl_type, revs_token_hash, revs_token_expires_at, last_error,
 					wechat_mix_trade_no, wechat_out_trade_no, wechat_payment_state, wechat_pay_params_ciphertext,
 					version, created_at, updated_at
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				[
 					order.medicalOrderId,
 					order.ownerUserId,
 					order.patientId,
+					order.businessType ?? "registration",
+					order.orderType ?? "RegPay",
+					order.businessId ?? order.appointmentId ?? null,
 					order.appointmentId ?? null,
 					order.authorizationId ?? null,
 					order.feeUploadId ?? null,
@@ -3307,6 +3320,14 @@ export function createMySqlRepositories(
 			);
 			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
 		},
+		async findByOwnerAndBusinessKey(ownerUserId, businessType, businessId) {
+			const rows = await execute<MIRow[]>(
+				pool,
+				`${MI_SELECT} WHERE owner_user_id = ? AND business_type = ? AND business_id = ? LIMIT 1`,
+				[ownerUserId, businessType, businessId],
+			);
+			return rows[0] ? miOrder(rows[0], prepayCipher) : undefined;
+		},
 		async findByOwnerAndIdempotencyKey(ownerUserId, idempotencyKey) {
 			const rows = await execute<MIRow[]>(
 				pool,
@@ -3359,7 +3380,9 @@ export function createMySqlRepositories(
 					mdtrt_id = COALESCE(?, mdtrt_id),
 					acct_used_flag = COALESCE(?, acct_used_flag),
 					setl_type = ?, revs_token_hash = ?, revs_token_expires_at = ?,
-					appointment_id = COALESCE(?, appointment_id), authorization_id = COALESCE(?, authorization_id),
+					business_type = COALESCE(?, business_type), order_type = COALESCE(?, order_type),
+					business_id = COALESCE(?, business_id), appointment_id = COALESCE(?, appointment_id),
+					authorization_id = COALESCE(?, authorization_id),
 					fee_upload_id = COALESCE(?, fee_upload_id),
 					wechat_mix_trade_no = COALESCE(?, wechat_mix_trade_no),
 					wechat_out_trade_no = COALESCE(?, wechat_out_trade_no),
@@ -3381,6 +3404,9 @@ export function createMySqlRepositories(
 					patch.setlType,
 					patch.revsTokenHash,
 					patch.revsTokenExpiresAt,
+					patch.businessType ?? null,
+					patch.orderType ?? null,
+					patch.businessId ?? null,
 					patch.appointmentId ?? null,
 					patch.authorizationId ?? null,
 					patch.feeUploadId ?? null,

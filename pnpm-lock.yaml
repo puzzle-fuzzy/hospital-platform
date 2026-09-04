@@ -116,6 +116,18 @@ importers:
         specifier: 'catalog:'
         version: 7.0.2
 
+  apps/miniprogram-outpatient-pay:
+    devDependencies:
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      '@types/wechat-miniprogram':
+        specifier: 'catalog:'
+        version: 3.4.10
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
   apps/miniprogram-pay:
     devDependencies:
       '@types/bun':

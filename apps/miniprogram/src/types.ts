@@ -16,6 +16,8 @@ import type {
 	MyDoctorListPayload,
 	MyDoctorResponsePayload,
 	OutpatientPaymentListPayload,
+	PatientBindingPayload,
+	PatientBindingRequestPayload,
 	PatientListPayload,
 	ReportDetailPayload,
 	ReportListPayload,
@@ -60,6 +62,8 @@ export type HealthKnowledgeDrugDetailResponse =
 export type AuthSessionResponse = AuthSessionPayload;
 export type CurrentUserResponse = CurrentUserPayload;
 export type PatientListResponse = PatientListPayload;
+export type PatientBindingRequest = PatientBindingRequestPayload;
+export type PatientBindingResponse = PatientBindingPayload;
 export type AppointmentDepartmentListResponse =
 	AppointmentDepartmentListPayload;
 export type AppointmentDepartmentTreeResponse =

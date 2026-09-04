@@ -124,6 +124,10 @@ export {
 	ZhongyangOutpatientPaymentApiGateway,
 } from "./zhongyang-outpatient-payments";
 export {
+	createZhongyangPatientBindingGateway,
+	ZhongyangPatientBindingApiGateway,
+} from "./zhongyang-patient-binding";
+export {
 	createZhongyangPatientGateway,
 	type ZhongyangGatewayOptions,
 	ZhongyangPatientApiGateway,

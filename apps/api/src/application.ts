@@ -7,6 +7,7 @@ import type {
 	AppointmentRecordDirectoryGateway,
 	AppointmentWriteGateway,
 	OutpatientPaymentGateway,
+	PatientBindingGateway,
 	PatientDirectoryGateway,
 	ReportDetailGateway,
 	ReportDirectoryGateway,
@@ -32,11 +33,13 @@ import {
 	type SessionTokenService,
 } from "./modules/auth";
 import { HealthKnowledgeService } from "./modules/knowledge";
+import { MedicalInsurancePaymentCore } from "./modules/medical-insurance/payment-core";
 import { MedicalInsuranceRegistrationService } from "./modules/medical-insurance/registration-service";
 import { MedicalInsuranceWechatPaymentService } from "./modules/medical-insurance/wechat-payment-service";
 import { MyDoctorService } from "./modules/my-doctors";
 import { OutpatientPaymentService } from "./modules/outpatient-payments";
 import { PatientService } from "./modules/patients";
+import { PatientBindingService } from "./modules/patients/binding-service";
 import { WechatPrepayService } from "./modules/payments";
 import {
 	type WechatPaymentNotificationDecoder,
@@ -49,9 +52,12 @@ import { ReportService } from "./modules/reports";
 export type ApplicationServices = {
 	auth: AuthService;
 	patients: PatientService;
+	patientBinding?: PatientBindingService;
 	appointments: AppointmentService;
 	appointmentWrites?: AppointmentWriteService;
 	medicalInsurance?: MedicalInsuranceRegistrationService;
+	/** 挂号与门诊共享的 6202/6301/CAS 支付核心。 */
+	medicalInsuranceCore?: MedicalInsurancePaymentCore;
 	medicalInsuranceWechatPayment?: MedicalInsuranceWechatPaymentService;
 	myDoctors?: MyDoctorService;
 	outpatientPayments?: OutpatientPaymentService;
@@ -80,6 +86,8 @@ export type ApplicationServiceOptions = {
 	wechatPaymentGateway?: WechatPaymentGateway;
 	/** 只有完成众阳/HIS 合同和真实环境验收后才打开。 */
 	patientDirectoryGateway?: PatientDirectoryGateway;
+	/** 新增或绑定就诊人必须使用独立的查档/建档/绑卡 adapter。 */
+	patientBindingGateway?: PatientBindingGateway;
 	/** 只有完成众阳 AMC 只读目录合同和真实环境验收后才打开。 */
 	appointmentDirectoryGateway?: AppointmentDirectoryGateway;
 	/** 挂号页一级/二级树及受控三级科室读取，独立于既有扁平目录契约。 */
@@ -154,6 +162,13 @@ export function createDefaultApplicationServices(
 		snapshots: repositories.appointmentScheduleSnapshots,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const medicalInsuranceCore = new MedicalInsurancePaymentCore({
+		orders: repositories.medicalInsuranceOrders,
+		medicalInsurance:
+			options.medicalInsuranceGateway ?? gateways.medicalInsurance,
+		queryTasks: repositories.medicalInsuranceQueryTasks,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
 	const medicalInsurance = new MedicalInsuranceRegistrationService({
 		orders: repositories.medicalInsuranceOrders,
 		appointments: repositories.appointmentWrites,
@@ -163,7 +178,7 @@ export function createDefaultApplicationServices(
 			gateways.appointmentPatientProfile,
 		medicalInsurance:
 			options.medicalInsuranceGateway ?? gateways.medicalInsurance,
-		queryTasks: repositories.medicalInsuranceQueryTasks,
+		core: medicalInsuranceCore,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
 	const medicalInsuranceWechatPayment =
@@ -174,7 +189,8 @@ export function createDefaultApplicationServices(
 			wechatPayment:
 				options.medicalInsuranceWechatPaymentGateway ??
 				gateways.medicalInsuranceWechatPayment,
-			registration: medicalInsurance,
+			confirmCashPayment: (input) =>
+				medicalInsuranceCore.confirmWechatCashPayment(input),
 			...(options.logger ? { logger: options.logger } : {}),
 		});
 	const wechatPrepay = new WechatPrepayService({
@@ -190,6 +206,11 @@ export function createDefaultApplicationServices(
 		wechatPrepay,
 		...(options.logger ? { logger: options.logger } : {}),
 	});
+	const patients = new PatientService(repositories.patients, {
+		identityUsers: repositories.identityUsers,
+		directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
+		...(options.logger ? { logger: options.logger } : {}),
+	});
 
 	return {
 		auth: new AuthService({
@@ -198,14 +219,22 @@ export function createDefaultApplicationServices(
 			sessions,
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
-		patients: new PatientService(repositories.patients, {
-			identityUsers: repositories.identityUsers,
-			directory: options.patientDirectoryGateway ?? gateways.patientDirectory,
+		patients,
+		patientBinding: new PatientBindingService({
+			patients,
+			gateway:
+				options.patientBindingGateway ??
+				({
+					bind: async () => {
+						throw new DependencyNotConfiguredError("patient-binding");
+					},
+				} satisfies PatientBindingGateway),
 			...(options.logger ? { logger: options.logger } : {}),
 		}),
 		appointments,
 		appointmentWrites,
 		medicalInsurance,
+		medicalInsuranceCore,
 		medicalInsuranceWechatPayment,
 		myDoctors: new MyDoctorService({
 			repository: repositories.myDoctors,

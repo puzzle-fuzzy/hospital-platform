@@ -1,7 +1,12 @@
-import type { MedicalInsuranceWechatPayPayload } from "@hospital/contracts";
+import type {
+	MedicalInsuranceOrderPayload,
+	MedicalInsuranceWechatPayPayload,
+} from "@hospital/contracts";
 import {
 	DependencyNotConfiguredError,
 	isBoundedOpaqueIdentifier,
+	isMedicalInsuranceOrderType,
+	medicalInsuranceOrderTypeForBusiness,
 	type MedicalInsuranceAuthorizationContext,
 	type MedicalInsuranceOrder,
 	type MedicalInsuranceOrderRepository,
@@ -10,7 +15,6 @@ import {
 	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
-import type { MedicalInsuranceRegistrationService } from "./registration-service";
 
 export class MedicalInsuranceWechatPaymentInputError extends Error {
 	constructor(message = "Medical insurance WeChat payment input is invalid") {
@@ -72,12 +76,38 @@ function settlementPatch(order: MedicalInsuranceOrder) {
 	};
 }
 
+function orderBusiness(order: MedicalInsuranceOrder): {
+	businessType: "registration" | "outpatient";
+	orderType: "RegPay" | "DiagPay";
+} {
+	// 0034 以前的订单没有业务字段；有 appointment_id 的历史订单按挂号
+	// 兼容读取。新订单必须由入口显式写入，且这里再次校验类型配对，避免
+	// 把门诊账单误发成 RegPay 或把挂号费用误发成 DiagPay。
+	const businessType =
+		order.businessType ?? (order.appointmentId ? "registration" : undefined);
+	if (!businessType) throw new MedicalInsuranceWechatPaymentNotAllowedError();
+	const expectedOrderType = medicalInsuranceOrderTypeForBusiness(businessType);
+	const orderType = order.orderType ?? expectedOrderType;
+	if (
+		!isMedicalInsuranceOrderType(orderType) ||
+		orderType !== expectedOrderType
+	) {
+		throw new MedicalInsuranceWechatPaymentNotAllowedError();
+	}
+	return { businessType, orderType };
+}
+
 export type MedicalInsuranceWechatPaymentServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
 	authorizations: import("@hospital/domain").MedicalInsuranceAuthorizationRepository;
 	identityUsers: UserIdentityRepository;
 	wechatPayment: MedicalInsuranceWechatPaymentGateway;
-	registration: MedicalInsuranceRegistrationService;
+	/** 微信现金支付确认后回到统一医保订单核心，而不是绑定挂号 service。 */
+	confirmCashPayment: (input: {
+		ownerUserId: string;
+		orderId: string;
+		context: { traceId: string; idempotencyKey: string };
+	}) => Promise<MedicalInsuranceOrderPayload["data"]>;
 	logger?: AppLogger;
 	now?: () => Date;
 };
@@ -144,6 +174,7 @@ export class MedicalInsuranceWechatPaymentService {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
+		const { businessType, orderType } = orderBusiness(order);
 		if (order.wechatPaymentState === "prepay_ready" && order.wechatPayParams)
 			return output(order);
 		if (order.wechatPaymentState === "cash_paid") return output(order, false);
@@ -162,6 +193,8 @@ export class MedicalInsuranceWechatPaymentService {
 				ownerUserId,
 				orderId,
 				cashFen: order.amounts.cashFen,
+				businessType,
+				orderType,
 			},
 			"Medical insurance WeChat mixed payment requested",
 		);
@@ -172,6 +205,7 @@ export class MedicalInsuranceWechatPaymentService {
 				openid,
 				payOrdId: order.payOrdId as string,
 				medOrgOrd: order.medOrgOrd,
+				orderType,
 				amounts: order.amounts,
 				authorization,
 				settlement,
@@ -204,6 +238,8 @@ export class MedicalInsuranceWechatPaymentService {
 				ownerUserId,
 				orderId,
 				providerRequestId: result.trace.requestId,
+				businessType,
+				orderType,
 			},
 			"Medical insurance WeChat mixed payment is ready",
 		);
@@ -218,6 +254,7 @@ export class MedicalInsuranceWechatPaymentService {
 		const ownerUserId = opaque(input.ownerUserId, "ownerUserId");
 		const orderId = opaque(input.orderId, "orderId");
 		let order = await this.order(ownerUserId, orderId);
+		const { businessType, orderType } = orderBusiness(order);
 		if (!order.wechatMixTradeNo || !order.amounts) return output(order, false);
 		const result = await this.dependencies.wechatPayment.queryMixedOrder(
 			{
@@ -246,12 +283,11 @@ export class MedicalInsuranceWechatPaymentService {
 		if (paymentState === "cash_paid" && result.insuranceState === "paid") {
 			// wx.requestPayment 的 success 只代表客户端调起成功；必须再走服务端
 			// 混合查单和医保后置完成，才能清除 pending 上下文。
-			const confirmed =
-				await this.dependencies.registration.confirmWechatCashPayment({
-					ownerUserId,
-					orderId,
-					context: input.context,
-				});
+			const confirmed = await this.dependencies.confirmCashPayment({
+				ownerUserId,
+				orderId,
+				context: input.context,
+			});
 			return {
 				...output(order, false),
 				status:
@@ -266,6 +302,8 @@ export class MedicalInsuranceWechatPaymentService {
 				traceId: input.context.traceId,
 				ownerUserId,
 				orderId,
+				businessType,
+				orderType,
 				providerStatus: result.providerStatus,
 				paymentState,
 				providerRequestId: result.trace.requestId,

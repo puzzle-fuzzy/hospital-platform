@@ -50,7 +50,7 @@ export type AppointmentServiceDependencies = {
 	/** 记录查询需要 owner-scoped provider mapping；目录查询不依赖该 repository。 */
 	repository?: PatientRepository;
 	records?: AppointmentRecordDirectoryGateway;
-	/** 只读排班观察事实；不会因此开放预约写入。 */
+	/** 只读排班观察事实；预约写入由独立 AppointmentWriteService 复核。 */
 	snapshots?: AppointmentScheduleSnapshotRepository;
 	logger?: AppLogger;
 	now?: () => Date;
@@ -72,7 +72,7 @@ const SCHEDULE_SNAPSHOT_TTL_MS = 60_000;
  *
  * 这是平台数据库资源策略，不是 Provider 的分页或号源数量合同。目录仍
  * 会尝试保存全部已验证排班，但不会因为一次只读响应就同时打满 MySQL
- * 连接；未来预约写入也不能仅凭快照已落库而绕过自己的合同门禁。
+ * 连接；预约写入也不能仅凭快照已落库而绕过自己的 Provider 合同门禁。
  */
 const SCHEDULE_SNAPSHOT_CONCURRENCY = 4;
 
@@ -490,7 +490,7 @@ function createDepartmentQuery(now: Date): AppointmentDepartmentQuery {
  * 预约目录应用服务。
  *
  * 这里只读 provider 的科室/排班目录，不接收 patientId、挂号费或支付状态；
- * 预约写入必须在取得完整 provider contract 后另建命令模型。
+ * 预约写入由独立命令模型承载，不能把患者身份和副作用参数混入目录查询。
  */
 export class AppointmentService {
 	private readonly logger: AppLogger;
@@ -870,9 +870,9 @@ export class AppointmentService {
 	}
 
 	/**
-	 * 将 provider 只读结果落成短期快照，供未来预约写入前进行服务端复核。
-	 * 快照失败不阻断当前只读目录：在 provider 写入合同完成前，快照不是患者端
-	 * 成功的前置条件；真正开放写入时必须把该策略升级为严格 precondition。
+	 * 将 provider 只读结果落成短期快照，供预约写入前进行服务端复核。
+	 * 快照失败不阻断当前只读目录，但 AppointmentWriteService 会把新鲜快照
+	 * 作为写入前置条件；快照本身不能代替 Provider 锁号/登记合同。
 	 */
 	private async persistScheduleSnapshots(
 		schedules: readonly {

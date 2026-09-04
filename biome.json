@@ -13,7 +13,9 @@
 			"!**/.turbo",
 			"!**/apps/miniprogram/project.config.json",
 			"!**/apps/miniprogram/src/assets/legacy-home/*.svg",
-			"!**/apps/miniprogram/src/assets/legacy-user/*.svg"
+			"!**/apps/miniprogram/src/assets/legacy-user/*.svg",
+			"!**/docs/提供商接入/**/*.svg",
+			"!**/docs/提供商接入/**/*.json"
 		]
 	},
 	"formatter": {

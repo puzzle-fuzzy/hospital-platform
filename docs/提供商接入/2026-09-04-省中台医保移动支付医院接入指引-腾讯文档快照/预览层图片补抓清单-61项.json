@@ -1,0 +1,41 @@
+{
+  "sourceDocument": "https://docs.qq.com/doc/DV1J6ZVB6eHZ3amxK",
+  "capturedAt": "2026-09-04",
+  "previewCount": 61,
+  "newUniqueAssetCount": 28,
+  "notes": [
+    "预览层位置中存在重复图片，pages 字段记录同一图片出现的位置。",
+    "sourcePath 是预览层实际返回的图片路径；不根据缺失的 docimg 主机名进行猜测。",
+    "所有本轮新增图片均通过预览底部下载按钮获取。"
+  ],
+  "assets": [
+    {"pages":[4],"id":"YVwn3ka693J135gdPjya9g","sourcePath":"/YVwn3ka693J135gdPjya9g.png?w=1080&h=1032","localPath":"./assets/YVwn3ka693J135gdPjya9g.png"},
+    {"pages":[6],"id":"Ikw5jANiJEr52Lg9_66vUw","sourcePath":"/Ikw5jANiJEr52Lg9_66vUw.png?w=654&h=1032","localPath":"./assets/Ikw5jANiJEr52Lg9_66vUw.png"},
+    {"pages":[7],"id":"AgAABdlcCDbW31TTdulF-4RYQ6iZUyNl","sourcePath":"/AgAABdlcCDbW31TTdulF-4RYQ6iZUyNl.png?w=1280&h=700.2751322751323","localPath":"./assets/AgAABdlcCDbW31TTdulF-4RYQ6iZUyNl.png"},
+    {"pages":[9],"id":"t-XiWOXtu2xtNrK1AHd6Xg","sourcePath":"/t-XiWOXtu2xtNrK1AHd6Xg.png?w=931&h=921","localPath":"./assets/t-XiWOXtu2xtNrK1AHd6Xg.png"},
+    {"pages":[14],"id":"AgAABdlcCDa6NLkec-BHj5Nrtt74uFop","sourcePath":"/AgAABdlcCDa6NLkec-BHj5Nrtt74uFop.png?w=1280&h=1697.3679798826488","localPath":"./assets/AgAABdlcCDa6NLkec-BHj5Nrtt74uFop.png"},
+    {"pages":[15],"id":"KInYZBDBMfoZHj8mE5clqg","sourcePath":"/KInYZBDBMfoZHj8mE5clqg.png?w=1280&h=472.2660753880266","localPath":"./assets/KInYZBDBMfoZHj8mE5clqg.png"},
+    {"pages":[18],"id":"IRgzuh2XqgYUaZfq4m_ZnA","sourcePath":"/IRgzuh2XqgYUaZfq4m_ZnA.png?w=1280&h=201.87428571428572","localPath":"./assets/IRgzuh2XqgYUaZfq4m_ZnA.png"},
+    {"pages":[19],"id":"aCBluPOKPs2MyHlylbltTw","sourcePath":"/aCBluPOKPs2MyHlylbltTw.png?w=1280&h=661.7232375979112","localPath":"./assets/aCBluPOKPs2MyHlylbltTw.png"},
+    {"pages":[20],"id":"AgAABdlcCDaZwQP8L9dNDYg_exMK1kfA","sourcePath":"/AgAABdlcCDaZwQP8L9dNDYg_exMK1kfA.png?w=1209&h=163","localPath":"./assets/AgAABdlcCDaZwQP8L9dNDYg_exMK1kfA.png"},
+    {"pages":[24],"id":"AgAABdlcCDYdllislA5DdLS_o8P_SeTU","sourcePath":"/AgAABdlcCDYdllislA5DdLS_o8P_SeTU.png?w=1280&h=1900.4986149584486","localPath":"./assets/AgAABdlcCDYdllislA5DdLS_o8P_SeTU.png"},
+    {"pages":[26],"id":"AgAABdlcCDba9fXdHCNNsK1tlxfFP6fd","sourcePath":"/AgAABdlcCDba9fXdHCNNsK1tlxfFP6fd.png?w=926&h=1878","localPath":"./assets/AgAABdlcCDba9fXdHCNNsK1tlxfFP6fd.png"},
+    {"pages":[27],"id":"AgAABdlcCDaeghGc2LFKt62hKxsesH9w","sourcePath":"/AgAABdlcCDaeghGc2LFKt62hKxsesH9w.png?w=1280&h=243.8968481375358","localPath":"./assets/AgAABdlcCDaeghGc2LFKt62hKxsesH9w.png"},
+    {"pages":[30],"id":"AgAABdlcCDZyR5lnd61AM77uOtVx4Y4p","sourcePath":"/AgAABdlcCDZyR5lnd61AM77uOtVx4Y4p.png?w=1280&h=444.15114422565193","localPath":"./assets/AgAABdlcCDZyR5lnd61AM77uOtVx4Y4p.png"},
+    {"pages":[31,25],"id":"mutA4ZtjCs1ZQoIBDxdN3Q","sourcePath":"/mutA4ZtjCs1ZQoIBDxdN3Q.png?w=1280&h=617.5438596491229","localPath":"./assets/mutA4ZtjCs1ZQoIBDxdN3Q.png"},
+    {"pages":[32],"id":"3Tn3XBRT19WMIUqoDHBh8Q","sourcePath":"/3Tn3XBRT19WMIUqoDHBh8Q.png?w=1280&h=702.0234291799786","localPath":"./assets/3Tn3XBRT19WMIUqoDHBh8Q.png"},
+    {"pages":[34],"id":"AgAABdlcCDZVwfhQYIpI5rm32tZ4O2hl","sourcePath":"/AgAABdlcCDZVwfhQYIpI5rm32tZ4O2hl.png?w=1280&h=702.0234291799786","localPath":"./assets/AgAABdlcCDZVwfhQYIpI5rm32tZ4O2hl.png"},
+    {"pages":[35,33],"id":"0iWHnLGWYsFhdrCC4syRgg","sourcePath":"/0iWHnLGWYsFhdrCC4syRgg.png?w=462&h=1028","localPath":"./assets/0iWHnLGWYsFhdrCC4syRgg.png"},
+    {"pages":[36],"id":"jFaTFCDakMqnVaR_xALpiA","sourcePath":"/jFaTFCDakMqnVaR_xALpiA.png?w=1280&h=697.4445617740232","localPath":"./assets/jFaTFCDakMqnVaR_xALpiA.png"},
+    {"pages":[37],"id":"c4TCrqGr3rsy-5Q2dVXjxg","sourcePath":"/c4TCrqGr3rsy-5Q2dVXjxg.png?w=928&h=1024","localPath":"./assets/c4TCrqGr3rsy-5Q2dVXjxg.png"},
+    {"pages":[38,2],"id":"NhSftzqN7rmJVgX4ATC53w","sourcePath":"/NhSftzqN7rmJVgX4ATC53w.png?w=1280&h=698.9206349206349","localPath":"./assets/NhSftzqN7rmJVgX4ATC53w.png"},
+    {"pages":[40],"id":"2DwkO8_xLcoL31hjf-WkGw","sourcePath":"/2DwkO8_xLcoL31hjf-WkGw.png?w=1280&h=698.1818181818182","localPath":"./assets/2DwkO8_xLcoL31hjf-WkGw.png"},
+    {"pages":[42],"id":"UN3eisj3Gz6a4Qda4Fe1kg","sourcePath":"/UN3eisj3Gz6a4Qda4Fe1kg.png?w=1280&h=699.6610169491526","localPath":"./assets/UN3eisj3Gz6a4Qda4Fe1kg.png"},
+    {"pages":[44],"id":"NrjF6e8TJyMUoH-D0EFGNA","sourcePath":"/NrjF6e8TJyMUoH-D0EFGNA.png?w=1280&h=699.6610169491526","localPath":"./assets/NrjF6e8TJyMUoH-D0EFGNA.png"},
+    {"pages":[46],"id":"gaOGbWUQcl0pb4tP71xgNA","sourcePath":"/gaOGbWUQcl0pb4tP71xgNA.png?w=1280&h=694.468085106383","localPath":"./assets/gaOGbWUQcl0pb4tP71xgNA.png"},
+    {"pages":[47,43],"id":"nHipxOHVH2fBxDVi0oEf0Q","sourcePath":"/nHipxOHVH2fBxDVi0oEf0Q.png?w=1280&h=698.1818181818182","localPath":"./assets/nHipxOHVH2fBxDVi0oEf0Q.png"},
+    {"pages":[48],"id":"_fu6oBMsr7K1kS8Jawb08Q","sourcePath":"/_fu6oBMsr7K1kS8Jawb08Q.png?w=948&h=1032","localPath":"./assets/_fu6oBMsr7K1kS8Jawb08Q.png"},
+    {"pages":[59],"id":"AgAABdlcCDZaMbwnkQZHZ69kxCp4kFhB","sourcePath":"/AgAABdlcCDZaMbwnkQZHZ69kxCp4kFhB.png?w=1628&h=1636","localPath":"./assets/AgAABdlcCDZaMbwnkQZHZ69kxCp4kFhB.png"},
+    {"pages":[60],"id":"AgAABdlcCDZRoj1l7upC67dCN7LV1D0a","sourcePath":"/AgAABdlcCDZRoj1l7upC67dCN7LV1D0a.png?w=1692&h=1328","localPath":"./assets/AgAABdlcCDZRoj1l7upC67dCN7LV1D0a.png"}
+  ]
+}

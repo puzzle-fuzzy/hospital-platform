@@ -180,6 +180,16 @@ export type {
 	MedicalInsuranceAuthorizationRepository,
 } from "./medical-insurance-authorization";
 export type {
+	MedicalInsuranceBusinessType,
+	MedicalInsuranceOrderType,
+} from "./medical-insurance-business";
+export {
+	MEDICAL_INSURANCE_ORDER_TYPES,
+	isMedicalInsuranceBusinessType,
+	isMedicalInsuranceOrderType,
+	medicalInsuranceOrderTypeForBusiness,
+} from "./medical-insurance-business";
+export type {
 	MedicalInsuranceAmounts,
 	MedicalInsuranceOrder,
 	MedicalInsuranceOrderRepository,
@@ -271,6 +281,7 @@ export type {
 	IdentityUser,
 	IdentityUserReadModelViolation,
 	PatientClinicalAccess,
+	PatientBindingGateway,
 	PatientDirectoryGateway,
 	PatientDirectoryGeneratedIdViolation,
 	PatientDirectoryProfile,

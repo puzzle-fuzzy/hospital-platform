@@ -1,1 +1,163 @@
-@import "../../styles/patient-contract-surface.wxss";
+.binding-scroll {
+  height: 100vh;
+  background: #f6f8fc;
+}
+
+.binding-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 0 32rpx 60rpx;
+  color: #1f2937;
+}
+
+.binding-header {
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.binding-back,
+.binding-header-placeholder {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.binding-back {
+  color: #1f2937;
+  font-size: 64rpx;
+  line-height: 54rpx;
+  text-align: left;
+  font-family: Arial, sans-serif;
+}
+
+.binding-title {
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+.binding-intro {
+  padding: 28rpx 8rpx 32rpx;
+}
+
+.binding-intro-title,
+.binding-intro-copy {
+  display: block;
+}
+
+.binding-intro-title {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #172033;
+}
+
+.binding-intro-copy {
+  margin-top: 16rpx;
+  color: #7b8495;
+  font-size: 26rpx;
+  line-height: 1.7;
+}
+
+.binding-card {
+  padding: 0 28rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  box-shadow: 0 8rpx 28rpx rgba(38, 61, 96, 0.05);
+}
+
+.binding-field {
+  min-height: 112rpx;
+  display: flex;
+  align-items: center;
+}
+
+.binding-label {
+  width: 172rpx;
+  flex-shrink: 0;
+  font-size: 30rpx;
+  color: #374151;
+}
+
+.binding-required {
+  margin-right: 6rpx;
+  color: #ef5b5b;
+}
+
+.binding-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 30rpx;
+  color: #172033;
+  text-align: right;
+}
+
+.binding-identity {
+  letter-spacing: 1rpx;
+}
+
+.binding-placeholder {
+  color: #b7beca;
+}
+
+.binding-divider {
+  height: 1rpx;
+  background: #edf0f5;
+}
+
+.binding-note {
+  padding: 20rpx 8rpx 28rpx;
+  color: #9aa3b1;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.binding-consent {
+  margin: 0 8rpx 24rpx;
+}
+
+.binding-consent-label {
+  display: flex;
+  align-items: center;
+  color: #7b8495;
+  font-size: 24rpx;
+}
+
+.binding-agreement-link {
+  color: #2f80ed;
+}
+
+.binding-error {
+  margin: 0 8rpx 20rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 12rpx;
+  background: #fff1f0;
+  color: #d84d4d;
+  font-size: 25rpx;
+  line-height: 1.5;
+}
+
+.binding-submit {
+  height: 92rpx;
+  margin: 12rpx 8rpx 0;
+  border-radius: 46rpx;
+  background: #2f80ed;
+  color: #fff;
+  font-size: 32rpx;
+  line-height: 92rpx;
+}
+
+.binding-submit::after {
+  border: 0;
+}
+
+.binding-submit-disabled {
+  opacity: 0.6;
+}
+
+.binding-footnote {
+  display: block;
+  margin-top: 24rpx;
+  color: #a3abb8;
+  font-size: 23rpx;
+  text-align: center;
+}

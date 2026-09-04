@@ -1,8 +1,14 @@
-import { PatientListResponse, success } from "@hospital/contracts";
+import {
+	PatientBindingRequest,
+	PatientBindingResponse,
+	PatientListResponse,
+	success,
+} from "@hospital/contracts";
 import { Elysia, t } from "elysia";
 import { createRequestPrincipalResolver } from "../../plugins/request-authentication";
 import { adapterContextFromHeaders } from "../../plugins/request-context";
 import type { SessionTokenService } from "../auth/service";
+import type { PatientBindingService } from "./binding-service";
 import type { PatientService } from "./service";
 
 const AuthorizationHeaders = t.Object({
@@ -25,11 +31,31 @@ const SyncPatientsHeaders = t.Object({
 /** 患者档案读取入口；患者归属从 token 解析，路由不接受 ownerUserId 参数。 */
 export function patientsModule(
 	patientService: PatientService,
+	patientBindingService: PatientBindingService,
 	sessions: SessionTokenService,
 ) {
 	const authentication = createRequestPrincipalResolver(sessions);
 	return new Elysia({ name: "patients-module" })
 		.onTransform({ as: "local" }, authentication.authenticate)
+		.post(
+			"/patients/bind",
+			async ({ request, headers, body }) => {
+				const principal = await authentication.get(request);
+				return success(
+					await patientBindingService.bind(
+						principal.userId,
+						body,
+						adapterContextFromHeaders(headers),
+					),
+				);
+			},
+			{
+				headers: SyncPatientsHeaders,
+				body: PatientBindingRequest,
+				response: { 200: PatientBindingResponse },
+				tags: ["patients"],
+			},
+		)
 		.post(
 			"/patients/sync",
 			async ({ request, headers }) => {
@@ -66,4 +92,9 @@ export function patientsModule(
 		);
 }
 
+export type { PatientBindingServiceDependencies } from "./binding-service";
+export {
+	PatientBindingInputError,
+	PatientBindingService,
+} from "./binding-service";
 export { PatientService, PatientServiceInputError } from "./service";

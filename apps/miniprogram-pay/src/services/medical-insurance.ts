@@ -166,7 +166,9 @@ export async function navigateToMedicalAuth(): Promise<void> {
 		`&cityCode=${encodeURIComponent(PAY_CONFIG.medicalCityCode)}` +
 		`&channel=${encodeURIComponent(PAY_CONFIG.medicalChannel)}` +
 		`&sourceapp=${encodeURIComponent(PAY_CONFIG.medicalSourceApp)}` +
-		`&orgChnlCrtfCodg=${encodeURIComponent(PAY_CONFIG.medicalOrgChannelCredential)}` +
+		// 机构渠道认证编码沿用旧服务的原样传法；该编码包含 `/`，医保授权页
+		// 对这个字段不会按普通 URL 参数再次解码，编码成 `%2F` 会被判定为错误编码。
+		`&orgChnlCrtfCodg=${PAY_CONFIG.medicalOrgChannelCredential}` +
 		`&orgCodg=${encodeURIComponent(PAY_CONFIG.medicalOrgCode)}` +
 		`&bizType=${encodeURIComponent(PAY_CONFIG.medicalBizType)}` +
 		`&orgAppId=${encodeURIComponent(PAY_CONFIG.medicalOrgAppId)}`;

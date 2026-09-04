@@ -390,13 +390,22 @@ contains(
 	"健康内容导入失败必须回滚，不能留下部分版本。",
 );
 
-/** 预约写入合同未完成前，路由文件只能注册 GET 目录/历史读取。 */
-check(
-	"appointments.read-only",
-	!/\.(post|put|patch|delete)\s*\(/u.test(
-		sources["apps/api/src/modules/appointments/index.ts"],
-	),
-	"预约写入、锁号、取消和挂号费仍保持未注册。",
+/**
+ * 预约的读模型与命令模型必须保持分层：目录/历史查询仍是 GET 读入口，
+ * 锁号、预约登记和取消则只能通过显式注入的 AppointmentWriteService 暴露。
+ * 这条门禁随预约写入合同落地后更新，避免旧的“全模块只读”断言与当前已
+ * 注册的挂号支付流程冲突；门诊费用支付仍由自己的模块和正式 6201 合同负责。
+ */
+containsAll(
+	"appointments.command-boundary",
+	"apps/api/src/modules/appointments/index.ts",
+	[
+		"appointmentWrites: AppointmentWriteService",
+		'"/appointments/holds"',
+		'"/appointments/registrations"',
+		'"/appointments/registrations/:appointmentId/cancel"',
+	],
+	"预约读模型保持独立，锁号、登记和取消必须经过显式预约写服务。",
 );
 
 for (const forbidden of [

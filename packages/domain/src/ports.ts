@@ -6,6 +6,7 @@ import type {
 	MedicalInsuranceSettlementContext,
 } from "./medical-insurance-order";
 import type { MedicalInsuranceAuthorizationContext } from "./medical-insurance-authorization";
+import type { MedicalInsuranceOrderType } from "./medical-insurance-business";
 
 /** 每次 provider 调用都必须携带的链路和幂等上下文。 */
 export type AdapterCallContext = {
@@ -303,6 +304,8 @@ export interface MedicalInsuranceWechatPaymentGateway {
 			openid: string;
 			payOrdId: string;
 			medOrgOrd: string;
+			/** 按业务订单事实传入 RegPay/DiagPay，不能读取全局部署默认值。 */
+			orderType: MedicalInsuranceOrderType;
 			amounts: MedicalInsuranceAmounts;
 			authorization: MedicalInsuranceAuthorizationContext;
 			settlement: MedicalInsuranceSettlementContext;

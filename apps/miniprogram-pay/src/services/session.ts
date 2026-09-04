@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from "../config";
-import { request } from "./request";
+import { registerSessionRecovery, request } from "./request";
 
 export type Session = {
 	accessToken: string;
@@ -45,3 +45,7 @@ export async function refreshSession(): Promise<Session> {
 	wx.removeStorageSync(STORAGE_KEYS.userInfo);
 	return ensureSession();
 }
+
+// 请求层收到 401 时使用同一个恢复入口；注册函数只保存回调，不会在模块加载时
+// 触发登录，因此不会影响正常启动，也不会让 /auth/wechat 请求递归重试。
+registerSessionRecovery(refreshSession);
