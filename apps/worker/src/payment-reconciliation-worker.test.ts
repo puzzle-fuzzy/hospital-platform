@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	PaymentOrder,
 	PaymentOrderRepository,
@@ -232,6 +233,49 @@ test("reconciliation worker keeps a provider failure recoverable with structured
 	const output = lines.join("\n");
 	expect(output).toContain("worker.payment.wechat_query.retry_scheduled");
 	expect(output).not.toContain("provider is temporarily unavailable");
+});
+
+test("reconciliation worker marks an absent WeChat order failed and retryable", async () => {
+	const lines: string[] = [];
+	const orders = createOrderRepository(order);
+	const attempts = createAttemptRepository(attempt());
+	const worker = new PaymentReconciliationWorker({
+		attempts: attempts.repository,
+		orders: new PaymentOrderService({ orders: orders.repository }),
+		wechatPayment: gatewayFor(async () => {
+			throw new ProviderRequestError({
+				provider: "wechat-pay",
+				operation: "order-query",
+				message: "Wechat order query confirmed payment order does not exist",
+				requestId: "wechat-query-missing-001",
+				statusCode: 404,
+				retryable: false,
+				failureStage: "http",
+				requestOutcome: "rejected",
+				reason: "payment-order-not-found",
+				providerErrorCode: "ORDER_NOT_EXIST",
+				providerErrorMessage: "订单不存在",
+			});
+		}),
+		logger: createLogger({
+			service: "hospital-worker-test",
+			environment: "test",
+			level: "warn",
+			destination: { write: (chunk) => lines.push(chunk) },
+		}),
+	});
+
+	await expect(worker.runOnce(now)).resolves.toBe("failed");
+	expect(attempts.read()).toMatchObject({
+		status: "failed",
+		lastErrorCode: "provider-order-not-found",
+		queryAttempts: 1,
+	});
+	expect(attempts.read().nextQueryAt).toBeUndefined();
+	const output = lines.join("\n");
+	expect(output).toContain("worker.payment.wechat_query.order_not_found");
+	expect(output).toContain("ORDER_NOT_EXIST");
+	expect(output).toContain("订单不存在");
 });
 
 test("reconciliation worker stops provider failures at the manual review boundary", async () => {

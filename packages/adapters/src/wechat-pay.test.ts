@@ -238,6 +238,35 @@ test("微信订单查询只把已验签的 SUCCESS 映射为 cash_paid", async (
 	});
 });
 
+test("微信查单返回 ORDER_NOT_EXIST 时保留可重试的业务原因", async () => {
+	const gateway = createGateway(
+		async (_input, init) => {
+			verifyRequestAuthorization(
+				init,
+				"GET",
+				"/v3/pay/transactions/out-trade-no/order-missing-001?mchid=mch-001",
+				"",
+			);
+			return new Response(
+				JSON.stringify({ code: "ORDER_NOT_EXIST", message: "订单不存在" }),
+				{ status: 404 },
+			);
+		},
+		["query-nonce-missing-001"],
+	);
+
+	await expect(
+		gateway.query({ orderId: "order-missing-001" }, context),
+	).rejects.toMatchObject({
+		name: "ProviderRequestError",
+		statusCode: 404,
+		requestOutcome: "rejected",
+		reason: "payment-order-not-found",
+		providerErrorCode: "ORDER_NOT_EXIST",
+		providerErrorMessage: "订单不存在",
+	});
+});
+
 test("微信支付通知先验签，再解密 AES-256-GCM resource", () => {
 	const apiV3Key = "0123456789abcdef0123456789abcdef";
 	const resourceNonce = "123456789012";

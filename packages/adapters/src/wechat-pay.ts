@@ -801,36 +801,72 @@ export class WechatPaymentApiGateway
 		const path = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(orderId)}?mchid=${encodeURIComponent(this.mchId)}`;
 		const nonce = this.nonce();
 		const timestamp = unixSeconds(this.now);
-		const response = await requestJson<WechatOrderQueryResponse>(
-			{
-				provider: "wechat-pay",
-				operation: "order-query",
-				url: new URL(path, this.baseUrl).toString(),
-				method: "GET",
-				context,
-				headers: {
-					Authorization: apiV3Authorization({
-						method: "GET",
-						path,
-						timestamp,
-						nonce,
-						body: "",
-						mchId: this.mchId,
-						merchantCertificateSerial: this.merchantCertificateSerial,
-						merchantPrivateKey: this.merchantPrivateKey,
-					}),
+		let response: {
+			data: WechatOrderQueryResponse;
+			statusCode: number;
+			requestId: string;
+		};
+		try {
+			response = await requestJson<WechatOrderQueryResponse>(
+				{
+					provider: "wechat-pay",
+					operation: "order-query",
+					url: new URL(path, this.baseUrl).toString(),
+					method: "GET",
+					context,
+					headers: {
+						Authorization: apiV3Authorization({
+							method: "GET",
+							path,
+							timestamp,
+							nonce,
+							body: "",
+							mchId: this.mchId,
+							merchantCertificateSerial: this.merchantCertificateSerial,
+							merchantPrivateKey: this.merchantPrivateKey,
+						}),
+					},
+					verifyResponse: (verification) =>
+						verifyPlatformSignature({
+							...verification,
+							platformCertificateSerial: this.platformCertificateSerial,
+							platformPublicKey: this.platformPublicKey,
+							now: this.now,
+							operation: "order-query",
+						}),
 				},
-				verifyResponse: (verification) =>
-					verifyPlatformSignature({
-						...verification,
-						platformCertificateSerial: this.platformCertificateSerial,
-						platformPublicKey: this.platformPublicKey,
-						now: this.now,
-						operation: "order-query",
-					}),
-			},
-			this.fetcher,
-		);
+				this.fetcher,
+			);
+		} catch (error) {
+			// 微信返回 ORDER_NOT_EXIST 是已确认的业务事实：该商户号下不存在
+			// 这笔 out_trade_no。它与网络超时、5xx 或验签失败不同，不需要
+			// 继续把尝试锁在 unknown；交给 worker 置为 failed 后可以安全重试。
+			if (
+				error instanceof ProviderRequestError &&
+				error.provider === "wechat-pay" &&
+				error.operation === "order-query" &&
+				error.statusCode === 404 &&
+				error.providerErrorCode === "ORDER_NOT_EXIST"
+			) {
+				throw new ProviderRequestError({
+					provider: "wechat-pay",
+					operation: "order-query",
+					message: "Wechat order query confirmed payment order does not exist",
+					...(error.requestId ? { requestId: error.requestId } : {}),
+					statusCode: error.statusCode,
+					retryable: false,
+					failureStage: "http",
+					requestOutcome: "rejected",
+					reason: "payment-order-not-found",
+					providerErrorCode: error.providerErrorCode,
+					...(error.providerErrorMessage
+						? { providerErrorMessage: error.providerErrorMessage }
+						: {}),
+					cause: error,
+				});
+			}
+			throw error;
+		}
 		const state = mapTradeState(response.data.trade_state);
 		const amount = response.data.amount;
 		if (

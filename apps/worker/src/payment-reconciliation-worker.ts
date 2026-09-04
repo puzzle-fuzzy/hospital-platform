@@ -27,6 +27,8 @@ export const MAX_PAYMENT_QUERY_ATTEMPTS = 12;
 export type PaymentReconciliationWorkerResult =
 	| "idle"
 	| "reconciled"
+	/** Provider 已明确确认没有订单，本地尝试可安全重新发起。 */
+	| "failed"
 	| "retry_scheduled"
 	| "manual_review";
 
@@ -40,7 +42,11 @@ function queryDelayMs(queryAttempts: number): number {
 function updateAttemptSchedule(
 	attempt: PaymentPrepayAttempt,
 	now: Date,
-	options: { shouldContinue: boolean; lastErrorCode?: string },
+	options: {
+		shouldContinue: boolean;
+		status?: PaymentPrepayAttempt["status"];
+		lastErrorCode?: string;
+	},
 ): PaymentPrepayAttempt {
 	// exactOptionalPropertyTypes 下不能把 undefined 写回可选字段；删除旧计划
 	// 后只在确实需要继续查单时重新加入 nextQueryAt。
@@ -59,7 +65,7 @@ function updateAttemptSchedule(
 		options.shouldContinue && queryAttempts >= MAX_PAYMENT_QUERY_ATTEMPTS;
 	return {
 		...withoutQuerySchedule,
-		status: exhausted ? "manual_review" : attempt.status,
+		status: options.status ?? (exhausted ? "manual_review" : attempt.status),
 		queryAttempts,
 		lastQueriedAt: now.toISOString(),
 		version: attempt.version + 1,
@@ -164,13 +170,35 @@ export class PaymentReconciliationWorker {
 			);
 			return "reconciled";
 		} catch (error) {
+			const providerFailure = providerFailureMetadata(error);
+			const providerOrderNotFound =
+				providerFailure.providerFailureReason === "payment-order-not-found";
 			const retryAttempt = updateAttemptSchedule(attempt, now, {
-				shouldContinue: true,
-				lastErrorCode: "provider-query-failed",
+				shouldContinue: !providerOrderNotFound,
+				...(providerOrderNotFound
+					? {
+							status: "failed" as const,
+							lastErrorCode: "provider-order-not-found",
+						}
+					: { lastErrorCode: "provider-query-failed" }),
 			});
 			await this.dependencies.attempts
 				.update(retryAttempt, attempt.version)
 				.catch(() => undefined);
+			if (providerOrderNotFound) {
+				this.logger.warn(
+					{
+						event: "worker.payment.wechat_query.order_not_found",
+						attemptId: attempt.attemptId,
+						orderId: attempt.orderId,
+						queryAttempts: retryAttempt.queryAttempts,
+						outcome: "retryable_failed",
+						...providerFailure,
+					},
+					"Wechat payment order was not found; prepay can be retried",
+				);
+				return "failed";
+			}
 			if (retryAttempt.status === "manual_review") {
 				this.logger.error(
 					{

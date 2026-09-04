@@ -32,7 +32,12 @@ export type ProviderFailureMetadata = {
 	/** 请求是否越过 Provider 边界；用于区分可安全重试和必须查单的失败。 */
 	providerRequestOutcome?: "not_sent" | "rejected" | "unknown";
 	/** 已确认的 Provider 业务竞争原因，不记录 Provider 原始响应。 */
-	providerFailureReason?: "appointment-source-unavailable";
+	providerFailureReason?:
+		| "appointment-source-unavailable"
+		| "payment-order-not-found";
+	/** Provider 错误响应的有限检索字段，不记录原始响应 body。 */
+	providerErrorCode?: string;
+	providerErrorMessage?: string;
 	/**
 	 * 传输层底层错误的有限枚举，例如证书过期或 DNS 失败。
 	 * 只允许基础设施错误码，绝不把异常 message、URL 或证书内容写入日志。
@@ -118,6 +123,8 @@ export function providerFailureMetadata(
 		requestOutcome?: unknown;
 		responseInvalid?: unknown;
 		reason?: unknown;
+		providerErrorCode?: unknown;
+		providerErrorMessage?: unknown;
 		cause?: unknown;
 	};
 	const provider = safeProviderText(candidate.provider);
@@ -145,12 +152,15 @@ export function providerFailureMetadata(
 		failureStage === "transport" &&
 		typeof causeCode === "string" &&
 		PROVIDER_TRANSPORT_ERROR_CODES.has(causeCode)
-		? (causeCode as ProviderTransportErrorCode)
-		: undefined;
+			? (causeCode as ProviderTransportErrorCode)
+			: undefined;
 	const providerFailureReason =
-		candidate.reason === "appointment-source-unavailable"
+		candidate.reason === "appointment-source-unavailable" ||
+		candidate.reason === "payment-order-not-found"
 			? candidate.reason
 			: undefined;
+	const providerErrorCode = safeProviderText(candidate.providerErrorCode);
+	const providerErrorMessage = safeProviderText(candidate.providerErrorMessage);
 	const providerRequestOutcome =
 		candidate.requestOutcome === "not_sent" ||
 		candidate.requestOutcome === "rejected" ||
@@ -173,6 +183,8 @@ export function providerFailureMetadata(
 		...(failureStage ? { providerFailureStage: failureStage } : {}),
 		...(providerRequestOutcome ? { providerRequestOutcome } : {}),
 		...(providerFailureReason ? { providerFailureReason } : {}),
+		...(providerErrorCode ? { providerErrorCode } : {}),
+		...(providerErrorMessage ? { providerErrorMessage } : {}),
 		...(providerTransportErrorCode ? { providerTransportErrorCode } : {}),
 	};
 }

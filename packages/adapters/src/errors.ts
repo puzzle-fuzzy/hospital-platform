@@ -36,7 +36,10 @@ export type ProviderFailureStage =
 export type ProviderRequestOutcome = "not_sent" | "rejected" | "unknown";
 
 /** 已确认的 Provider 业务竞争原因；只用于稳定映射和低敏日志。 */
-export type ProviderFailureReason = "appointment-source-unavailable";
+export type ProviderFailureReason =
+	| "appointment-source-unavailable"
+	/** 微信查单明确返回订单不存在，可安全把本地尝试置为 failed 后重试。 */
+	| "payment-order-not-found";
 
 export class ProviderRequestError extends Error {
 	readonly provider: AdapterName;
@@ -50,6 +53,9 @@ export class ProviderRequestError extends Error {
 	readonly responseInvalid: boolean;
 	/** 已确认的号源竞争边界；不能把其它 Provider 拒绝猜测成该原因。 */
 	readonly reason: ProviderFailureReason | undefined;
+	/** Provider 错误响应中的有限字段；不保存原始响应，供服务端日志关联。 */
+	readonly providerErrorCode: string | undefined;
+	readonly providerErrorMessage: string | undefined;
 	/** 请求是否已越过 provider 边界；支付预支付重试策略依赖该字段。 */
 	readonly requestOutcome: ProviderRequestOutcome | undefined;
 
@@ -63,6 +69,8 @@ export class ProviderRequestError extends Error {
 		failureStage?: ProviderFailureStage;
 		responseInvalid?: boolean;
 		reason?: ProviderFailureReason;
+		providerErrorCode?: string;
+		providerErrorMessage?: string;
 		requestOutcome?: ProviderRequestOutcome;
 		cause?: unknown;
 	}) {
@@ -76,6 +84,8 @@ export class ProviderRequestError extends Error {
 		this.failureStage = input.failureStage;
 		this.responseInvalid = input.responseInvalid === true;
 		this.reason = input.reason;
+		this.providerErrorCode = input.providerErrorCode;
+		this.providerErrorMessage = input.providerErrorMessage;
 		this.requestOutcome = input.requestOutcome;
 	}
 }

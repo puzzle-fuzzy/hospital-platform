@@ -71,6 +71,50 @@ function responseRequestId(headers: Headers, fallback: string): string {
 	return fallback;
 }
 
+/**
+ * 只提取 Provider 错误响应中可用于检索的有限字段。
+ *
+ * 原始响应可能包含凭证、患者信息或超长文本，不能写入异常和日志；
+ * 这里也不把错误 body 作为业务数据向上层传播，只保留 code/message。
+ */
+function responseErrorDetails(raw: string): {
+	code?: string;
+	message?: string;
+} {
+	if (!raw) return {};
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return {};
+	}
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+		return {};
+	}
+	const record = parsed as Record<string, unknown>;
+	const bounded = (value: unknown, maxLength: number): string | undefined => {
+		if (typeof value !== "string") return undefined;
+		if (
+			[...value].some((character) => {
+				const code = character.charCodeAt(0);
+				return code < 32 || code === 127;
+			})
+		) {
+			return undefined;
+		}
+		const normalized = value.trim();
+		return normalized && normalized.length <= maxLength
+			? normalized
+			: undefined;
+	};
+	const code = bounded(record.code, 64);
+	const message = bounded(record.message, 256);
+	return {
+		...(code ? { code } : {}),
+		...(message ? { message } : {}),
+	};
+}
+
 export async function requestJson<T>(
 	input: ProviderRequest,
 	fetcher: ProviderFetcher = fetch,
@@ -119,7 +163,9 @@ export async function requestJson<T>(
 				provider: input.provider,
 				operation: input.operation,
 				message: "Provider request was cancelled before dispatch",
-				retryable: false,
+				// 请求尚未跨出 Provider 边界，取消只影响本次调用；上层可
+				// 在新的请求上下文中安全重试，不应被当成 unknown。
+				retryable: true,
 				failureStage: "validation",
 				requestOutcome: "not_sent",
 			});
@@ -134,6 +180,7 @@ export async function requestJson<T>(
 		);
 
 		if (!response.ok) {
+			const errorDetails = responseErrorDetails(raw);
 			const requestOutcome: ProviderRequestOutcome =
 				response.status >= 400 &&
 				response.status < 500 &&
@@ -149,6 +196,10 @@ export async function requestJson<T>(
 				retryable: response.status === 429 || response.status >= 500,
 				failureStage: "http",
 				requestOutcome,
+				...(errorDetails.code ? { providerErrorCode: errorDetails.code } : {}),
+				...(errorDetails.message
+					? { providerErrorMessage: errorDetails.message }
+					: {}),
 			});
 		}
 
