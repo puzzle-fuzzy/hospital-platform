@@ -98,12 +98,15 @@ origin/main 10c6b471
 
 ## 当前回退命令
 
-回退前先读取旧 `current`，不要手写 SHA；只回退 API，不执行数据库回退：
+回退前先读取当前 `current`，再从上面的索引选择经过确认的完整目标 SHA；不能把当前 SHA 当成回退目标，只回退 API，不执行数据库回退。当前版本若要回到上一个可运行包，目标是 `146e6cda1041bf486288d80af6b25ccc9a58bfe3`：
 
 ```bash
 cd /home/ps/code/hospital-platform
-old_sha="$(readlink -f current | sed 's#.*/##')"
-ln -s "releases/${old_sha}" current.next
+current_sha="$(readlink -f current | sed 's#.*/##')"
+target_sha="146e6cda1041bf486288d80af6b25ccc9a58bfe3"
+test "$target_sha" != "$current_sha"
+test -f "releases/${target_sha}/apps/api/dist/index.js"
+ln -s "releases/${target_sha}" current.next
 mv -Tf current.next current
 sudo -n systemctl restart hospital-platform-api-v2.service
 curl -fsS https://test-hp.meiyi.pro/api/v2/health/ready
