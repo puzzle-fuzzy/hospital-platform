@@ -34,7 +34,7 @@
 	</view>
 
 	<view wx:if="{{duplicate}}" class="duplicate-card">
-		<view class="duplicate-title">该就诊人当天已有同门诊预约</view>
+		<view class="duplicate-title">该就诊人在预约日期已有同门诊预约</view>
 		<view class="duplicate-text">{{duplicate.departmentName}} · {{duplicate.workDate}} · 已预约</view>
 		<view class="duplicate-hint">系统不会自动重复挂号。确认取消原预约后，才会重新选择同一号源并发起医保支付。</view>
 		<button class="button danger-button" bindtap="onCancelAndRetry" loading="{{busy}}" disabled="{{busy}}">取消后重新挂号</button>

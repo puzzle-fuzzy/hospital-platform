@@ -29,6 +29,8 @@ export type ProviderFailureMetadata = {
 	providerRetryable?: boolean;
 	/** 仅记录有限枚举，便于区分 TLS/网络、HTTP 状态码和响应内容故障。 */
 	providerFailureStage?: "transport" | "http" | "response";
+	/** 已确认的 Provider 业务竞争原因，不记录 Provider 原始响应。 */
+	providerFailureReason?: "appointment-source-unavailable";
 	/**
 	 * 传输层底层错误的有限枚举，例如证书过期或 DNS 失败。
 	 * 只允许基础设施错误码，绝不把异常 message、URL 或证书内容写入日志。
@@ -112,6 +114,7 @@ export function providerFailureMetadata(
 		retryable?: unknown;
 		failureStage?: unknown;
 		responseInvalid?: unknown;
+		reason?: unknown;
 		cause?: unknown;
 	};
 	const provider = safeProviderText(candidate.provider);
@@ -138,7 +141,11 @@ export function providerFailureMetadata(
 		failureStage === "transport" &&
 		typeof causeCode === "string" &&
 		PROVIDER_TRANSPORT_ERROR_CODES.has(causeCode)
-			? (causeCode as ProviderTransportErrorCode)
+		? (causeCode as ProviderTransportErrorCode)
+		: undefined;
+	const providerFailureReason =
+		candidate.reason === "appointment-source-unavailable"
+			? candidate.reason
 			: undefined;
 	return {
 		...(provider ? { provider } : {}),
@@ -154,6 +161,7 @@ export function providerFailureMetadata(
 			? { providerRetryable: candidate.retryable }
 			: {}),
 		...(failureStage ? { providerFailureStage: failureStage } : {}),
+		...(providerFailureReason ? { providerFailureReason } : {}),
 		...(providerTransportErrorCode ? { providerTransportErrorCode } : {}),
 	};
 }

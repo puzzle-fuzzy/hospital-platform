@@ -5,6 +5,7 @@ import {
 	cancelAppointment,
 	createAppointment,
 	holdAppointment,
+	appointmentCandidateDates,
 	loadSources,
 	loadTargetSchedule,
 	type Schedule,
@@ -27,6 +28,7 @@ import {
 	WechatPaymentCancelledError,
 } from "../../services/medical-insurance";
 import { loadPatients, mask, type Patient } from "../../services/patient";
+import { ApiError } from "../../services/request";
 import { ensureSession } from "../../services/session";
 
 type PageData = {
@@ -116,6 +118,51 @@ function setProgress(
 	page.setData({ stage, message: message || progressText[stage], error: "" });
 }
 
+/**
+ * 页面初始化时展示的号源只是目录快照；真正占号前必须重新读取一次。
+ * 测试小程序可能同时被多人扫码使用，不能把首次加载时选中的 serial
+ * 当作仍然可用的号源。服务端还会再次校验，这里只是把明显的过期窗口
+ * 压缩到用户点击和提交之间。
+ */
+async function loadFreshRegistrationTarget(
+	page: PageInstance,
+): Promise<{ schedule: Schedule; source: Source }> {
+	setProgress(page, "loading-source", "正在刷新当前可用号源");
+	const schedule = await loadTargetSchedule();
+	const source = selectSource(await loadSources(schedule));
+	page.setData({ schedule, source, targetDate: schedule.workDate });
+	return { schedule, source };
+}
+
+/**
+ * 号源在“刷新列表 → 服务端实时复核”之间消失时，第一次请求没有创建 hold，
+ * 因此只允许重新取一次号源并重试。其它错误不重试，避免把锁号、挂号费或
+ * Provider 未知拒绝误当成可安全重放的号源竞争。
+ */
+async function registerWithFreshTarget(
+	page: PageInstance,
+	patient: Patient,
+): Promise<CreatedAppointment | null> {
+	const target = await loadFreshRegistrationTarget(page);
+	try {
+		return await registerOnce(page, patient, target.schedule, target.source);
+	} catch (error) {
+		if (
+			!(error instanceof ApiError) ||
+			error.code !== "appointment-source-unavailable"
+		) {
+			throw error;
+		}
+		const retryTarget = await loadFreshRegistrationTarget(page);
+		return registerOnce(
+			page,
+			patient,
+			retryTarget.schedule,
+			retryTarget.source,
+		);
+	}
+}
+
 async function registerOnce(
 	page: PageInstance,
 	patient: Patient,
@@ -159,7 +206,7 @@ Page<
 		patientIndex: -1,
 		patientRelation: "",
 		patientCard: "",
-		targetDate: PAY_CONFIG.targetDate,
+		targetDate: appointmentCandidateDates()[0] || "",
 		schedule: null,
 		source: null,
 		duplicate: null,
@@ -296,9 +343,7 @@ Page<
 	},
 
 	async loadSchedule() {
-		setProgress(this, "loading-source", "正在读取新版预约目录");
-		const schedule = await loadTargetSchedule();
-		const source = selectSource(await loadSources(schedule));
+		const { schedule, source } = await loadFreshRegistrationTarget(this);
 		this.setData({ schedule, source, stage: "", message: "" });
 	},
 
@@ -413,10 +458,8 @@ Page<
 		}
 		const patient = this.data.patients[this.data.patientIndex];
 		if (!patient) return;
-		const { schedule, source } = this.data;
-		if (!schedule || !source) return;
 		this.setData({ busy: true, duplicate: null, error: "" });
-		void registerOnce(this, patient, schedule, source)
+		void registerWithFreshTarget(this, patient)
 			.then(async (appointment) => {
 				if (!appointment) {
 					this.setData({ busy: false, message: "检测到已有预约，未重复挂号" });
@@ -472,9 +515,8 @@ Page<
 	onCancelAndRetry() {
 		const patient = this.data.patients[this.data.patientIndex];
 		const record = this.data.duplicate;
-		const { schedule, source } = this.data;
 		const mode: PaymentMode = this.data.selectedMode || "mixed";
-		if (!patient || !record || !schedule || !source || this.data.busy) return;
+		if (!patient || !record || this.data.busy) return;
 		wx.showModal({
 			title: "确认取消并重挂？",
 			content:
@@ -492,7 +534,7 @@ Page<
 				void cancelAppointment(record.appointmentId)
 					.then(() => {
 						this.setData({ duplicate: null });
-						return registerOnce(this, patient, schedule, source);
+						return registerWithFreshTarget(this, patient);
 					})
 					.then(async (appointment) => {
 						if (!appointment) {

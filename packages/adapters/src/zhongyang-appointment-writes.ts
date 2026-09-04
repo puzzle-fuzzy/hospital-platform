@@ -6,7 +6,11 @@ import type {
 	AppointmentWriteGateway,
 	ExternalTrace,
 } from "@hospital/domain";
-import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
+import {
+	AdapterNotConfiguredError,
+	ProviderRequestError,
+	type ProviderFailureReason,
+} from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 import type { ZhongyangGatewayOptions } from "./zhongyang-patients";
 
@@ -40,6 +44,7 @@ function providerError(
 	message: string,
 	requestId?: string,
 	responseInvalid = true,
+	reason?: ProviderFailureReason,
 ): ProviderRequestError {
 	return new ProviderRequestError({
 		provider: "zhongyang",
@@ -47,6 +52,7 @@ function providerError(
 		message,
 		retryable: false,
 		responseInvalid,
+		...(reason ? { reason } : {}),
 		...(requestId ? { requestId } : {}),
 	});
 }
@@ -464,6 +470,7 @@ export class ZhongyangAppointmentWriteApiGateway
 				"Appointment source is no longer available",
 				response.requestId,
 				false,
+				"appointment-source-unavailable",
 			);
 		const sourceId = providerInteger(source.sourceId, "sourceId", operation);
 		const providerPatientId = providerInteger(

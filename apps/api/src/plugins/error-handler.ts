@@ -120,6 +120,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-hold-expired": 30430,
 	"appointment-registration-not-found": 30440,
 	"appointment-medical-payment-active": 30450,
+	"appointment-source-unavailable": 30460,
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,
 	"medical-insurance-order-not-found": 30520,
@@ -288,6 +289,13 @@ export function errorHandlerPlugin() {
 			}
 
 			if (error instanceof ProviderRequestError) {
+				if (error.reason === "appointment-source-unavailable") {
+					set.status = 409;
+					return errorPayload(
+						"appointment-source-unavailable",
+						"指定号源刚刚发生变化，请刷新后重试",
+					);
+				}
 				set.status = error.retryable ? 503 : 502;
 				const responseInvalid = error.responseInvalid === true;
 				const providerCode = responseInvalid

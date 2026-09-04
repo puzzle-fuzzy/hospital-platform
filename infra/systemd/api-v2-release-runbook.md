@@ -1,5 +1,7 @@
 # 新 API 候选版本无损切换手册
 
+> 若 `3090-local` 无法连接，先按 [`3090-local SSH 连接恢复手册`](../../docs/发布/3090-local-SSH连接恢复手册.md) 建立本地 SSH 转发并重试；连接未恢复前不要切换 `current`。
+
 本文只负责切换 `hospital-platform-api-v2.service` 使用的 `current` release，
 不管理旧 Python 服务、不修改旧端口 `8001`、不执行数据库 migration，也不启动支付/医保/HIS worker。
 

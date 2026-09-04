@@ -1,7 +1,7 @@
 # miniprogram-pay
 
 高平医院医保测试小程序。页面只保留一条清晰业务流程：选择就诊人后，固定预约 `内科风湿 /
-配置日期 / 上午 / 指定号源`，依次调用预约占位、预约写入、医保授权、费用上传和医保结算。
+后天（无可约时顺延大后天）/ 上午 / 指定号源`，依次调用预约占位、预约写入、医保授权、费用上传和医保结算。
 
 ## 真实链路
 
@@ -29,7 +29,7 @@
 - `medicalEnvVersion`：测试环境使用 `trial`；正式发布前才改为 `release`；
 - `medicalOrgChannelCredential`：机构渠道凭证；构建时从本机忽略文件 `.local/medical-insurance/test-environment-key-material.json` 的 `identityVerificationFeedback.orgChannelAuthCode` 注入，不能提交到仓库；
 - `departmentName` / `departmentProviderNames`：页面固定业务名称与 Provider 目录正式名称的对应关系；
-- `targetDate`：本次测试日期；
+- `targetDateOffsets`：候选日期偏移，当前为 `[2, 3]`（后天优先，无可约时顺延大后天）；不会请求当天；
 - `targetSerialNumber`：要固定命中的号源；为空时取该排班第一个返回号源。
 
 医保机构渠道凭证只用于跳转医保授权小程序。小程序不直连医院 provider，也不保存患者实名资料、

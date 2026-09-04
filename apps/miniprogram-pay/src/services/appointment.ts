@@ -52,6 +52,23 @@ function isTargetDepartment(value: unknown): boolean {
 	return targetNames.has(displayName);
 }
 
+function localDateText(date: Date): string {
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const day = String(date.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
+/** 业务日期使用设备本地自然日；候选只允许后天及之后的明确偏移。 */
+export function appointmentCandidateDates(now = new Date()): string[] {
+	return PAY_CONFIG.targetDateOffsets.map((offset) => {
+		const date = new Date(now.getTime());
+		date.setHours(12, 0, 0, 0);
+		date.setDate(date.getDate() + offset);
+		return localDateText(date);
+	});
+}
+
 /** 从新版科室目录中确定固定门诊，再用 opaque departmentId 查询排班。 */
 export async function loadTargetSchedule(): Promise<Schedule> {
 	const departments = list<Record<string, unknown>>(
@@ -63,24 +80,28 @@ export async function loadTargetSchedule(): Promise<Schedule> {
 	const department = departments.find(isTargetDepartment);
 	if (!department)
 		throw new Error(`未找到指定门诊：${PAY_CONFIG.departmentName}`);
-	const schedules = list<Schedule>(
-		await request<unknown>({
-			path: "/appointments/schedules",
-			query: {
-				startDate: PAY_CONFIG.targetDate,
-				endDate: PAY_CONFIG.targetDate,
-				departmentId: text(department, "departmentId"),
-			},
-		}),
-	).filter(
-		(item) =>
-			item.workDate === PAY_CONFIG.targetDate &&
-			item.shiftName === PAY_CONFIG.shiftName &&
-			item.availableSlots > 0,
-	);
-	const schedule = schedules[0];
-	if (!schedule) throw new Error(`${PAY_CONFIG.targetDate} 暂无上午可约排班`);
-	return schedule;
+	const departmentId = text(department, "departmentId");
+	const candidateDates = appointmentCandidateDates();
+	for (const targetDate of candidateDates) {
+		const schedules = list<Schedule>(
+			await request<unknown>({
+				path: "/appointments/schedules",
+				query: {
+					startDate: targetDate,
+					endDate: targetDate,
+					departmentId,
+				},
+			}),
+		).filter(
+			(item) =>
+				item.workDate === targetDate &&
+				item.shiftName === PAY_CONFIG.shiftName &&
+				item.availableSlots > 0,
+		);
+		const schedule = schedules[0];
+		if (schedule) return schedule;
+	}
+	throw new Error(`${candidateDates.join("、")} 暂无上午可约排班`);
 }
 
 export async function loadSources(schedule: Schedule): Promise<Source[]> {

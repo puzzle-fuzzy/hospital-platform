@@ -1,5 +1,5 @@
 export type { AdapterContext, AdapterName } from "./context";
-export type { ProviderFailureStage } from "./errors";
+export type { ProviderFailureReason, ProviderFailureStage } from "./errors";
 export {
 	AdapterNotConfiguredError,
 	ProviderRequestError,

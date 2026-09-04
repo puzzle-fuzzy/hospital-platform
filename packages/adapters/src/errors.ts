@@ -21,6 +21,9 @@ export class AdapterNotConfiguredError extends DependencyNotConfiguredError {
  */
 export type ProviderFailureStage = "transport" | "http" | "response";
 
+/** 已确认的 Provider 业务竞争原因；只用于稳定映射和低敏日志。 */
+export type ProviderFailureReason = "appointment-source-unavailable";
+
 export class ProviderRequestError extends Error {
 	readonly provider: AdapterName;
 	readonly operation: string;
@@ -31,6 +34,8 @@ export class ProviderRequestError extends Error {
 	readonly failureStage: ProviderFailureStage | undefined;
 	/** Provider 已响应但内容不符合平台读模型时，公共错误码必须区分于请求被拒绝。 */
 	readonly responseInvalid: boolean;
+	/** 已确认的号源竞争边界；不能把其它 Provider 拒绝猜测成该原因。 */
+	readonly reason: ProviderFailureReason | undefined;
 
 	constructor(input: {
 		provider: AdapterName;
@@ -41,6 +46,7 @@ export class ProviderRequestError extends Error {
 		retryable: boolean;
 		failureStage?: ProviderFailureStage;
 		responseInvalid?: boolean;
+		reason?: ProviderFailureReason;
 		cause?: unknown;
 	}) {
 		super(input.message, { cause: input.cause });
@@ -52,5 +58,6 @@ export class ProviderRequestError extends Error {
 		this.retryable = input.retryable;
 		this.failureStage = input.failureStage;
 		this.responseInvalid = input.responseInvalid === true;
+		this.reason = input.reason;
 	}
 }

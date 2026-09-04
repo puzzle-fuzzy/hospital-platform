@@ -41,6 +41,7 @@ type ErrorMetadata = {
 	providerStatusCode?: number;
 	providerRetryable?: boolean;
 	providerFailureStage?: "transport" | "http" | "response";
+	providerFailureReason?: "appointment-source-unavailable";
 	/** 只记录 observability 包登记过的 TLS/DNS/连接错误码。 */
 	providerTransportErrorCode?: ProviderTransportErrorCode;
 	/** 持久化内部操作分类，不包含 SQL、连接串或原始错误消息。 */
@@ -105,6 +106,8 @@ function errorMetadataFor(request: Request): ErrorMetadata | undefined {
 function publicErrorCode(error: unknown): string | undefined {
 	if (error instanceof HttpError) return error.code;
 	if (error instanceof ProviderRequestError) {
+		if (error.reason === "appointment-source-unavailable")
+			return "appointment-source-unavailable";
 		if (error.responseInvalid) return "provider-response-invalid";
 		return error.retryable
 			? "provider-temporarily-unavailable"

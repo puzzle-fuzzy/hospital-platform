@@ -25,8 +25,8 @@ export const PAY_CONFIG = {
 	/** Provider 目录中的真实门诊名称；页面业务名称仍保持“内科风湿”。 */
 	departmentProviderNames: ["风湿免疫门诊", "风湿免疫科门诊"] as const,
 	shiftName: "上午",
-	/** 测试哪一天就改这一行；页面不会让用户绕回完整挂号流程。 */
-	targetDate: "2026-09-04",
+	/** 只申请未来日期：优先后天，后天无可约排班时再申请大后天。 */
+	targetDateOffsets: [2, 3] as const,
 	/** 留空时自动取该日期上午第一个可用分时段。 */
 	targetSerialNumber: "",
 	requestTimeoutMs: 20_000,

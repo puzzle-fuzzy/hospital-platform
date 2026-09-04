@@ -451,6 +451,7 @@ Redis 已配置但发生连接、ACL 或传输故障时返回 `503 persistence-t
 | 409 | 30430 | `appointment-hold-expired` | 预约占位已过期、已消费或不可继续使用 |
 | 404 | 30440 | `appointment-registration-not-found` | 预约记录不存在或不属于当前用户 |
 | 409 | 30450 | `appointment-medical-payment-active` | 预约已有医保支付流水，不能直接取消，请由支付/收费流程处理 |
+| 409 | 30460 | `appointment-source-unavailable` | 服务端重新读取号源时，提交的号源序号已不可用；可刷新号源后重试 |
 | 400 | 30500 | `medical-insurance-invalid` | 医保授权、费用上传或结算请求状态不合法 |
 | 404 | 30510 | `medical-insurance-appointment-not-found` | 关联预约不存在、已取消或不属于当前用户 |
 | 404 | 30520 | `medical-insurance-order-not-found` | 医保订单不存在或不属于当前用户 |

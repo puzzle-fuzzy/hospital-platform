@@ -142,6 +142,7 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"appointment-registration-not-found": "未找到对应的预约记录",
 		"appointment-medical-payment-active":
 			"该预约已有医保支付流水，不能直接取消，请先完成或由收费端处理",
+		"appointment-source-unavailable": "指定号源刚刚发生变化，请刷新后重试",
 		"medical-insurance-invalid": "医保请求参数或流程状态不合法，请稍后再试",
 		"medical-insurance-appointment-not-found": "未找到可进行医保支付的预约",
 		"medical-insurance-order-not-found": "未找到对应的医保订单",

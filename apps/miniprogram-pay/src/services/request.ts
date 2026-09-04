@@ -12,6 +12,8 @@ export type RequestOptions = {
 export class ApiError extends Error {
 	readonly statusCode: number;
 	readonly payload: unknown;
+	/** 服务端稳定错误码；小程序业务分支只能按字符串码判断。 */
+	readonly code: string;
 	/** 服务端返回的低敏 request id，供测试人员反查 API 日志；不展示给普通用户。 */
 	readonly requestId: string;
 
@@ -25,6 +27,7 @@ export class ApiError extends Error {
 		this.name = "ApiError";
 		this.statusCode = statusCode;
 		this.payload = payload;
+		this.code = readCode(payload);
 		this.requestId = requestId;
 	}
 }
@@ -55,6 +58,16 @@ function readMessage(payload: unknown): string {
 	if (error && typeof error === "object" && "message" in error && error.message)
 		return String(error.message);
 	return String(value.message || value.msg || value.err_msg || "请求失败");
+}
+
+function readCode(payload: unknown): string {
+	if (!payload || typeof payload !== "object") return "";
+	const error = (payload as Record<string, unknown>).error;
+	if (!error || typeof error !== "object" || Array.isArray(error)) return "";
+	const code = (error as Record<string, unknown>).code;
+	return typeof code === "string" && /^[a-z0-9-]{1,64}$/.test(code)
+		? code
+		: "";
 }
 
 function unwrap<T>(payload: unknown, requestId: string): T {
