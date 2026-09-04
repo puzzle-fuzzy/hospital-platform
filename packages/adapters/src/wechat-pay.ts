@@ -330,14 +330,13 @@ function apiV3Authorization(input: {
 			cause,
 		});
 	}
-	return [
-		"WECHATPAY2-SHA256-RSA2048",
+	return `WECHATPAY2-SHA256-RSA2048 ${[
 		`mchid="${input.mchId}"`,
 		`nonce_str="${input.nonce}"`,
+		`signature="${signature}"`,
 		`timestamp="${input.timestamp}"`,
 		`serial_no="${input.merchantCertificateSerial}"`,
-		`signature="${signature}"`,
-	].join(" ");
+	].join(",")}`;
 }
 
 function paymentTrace(
