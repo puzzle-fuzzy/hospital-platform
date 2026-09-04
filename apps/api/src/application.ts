@@ -147,6 +147,7 @@ export function createDefaultApplicationServices(
 		repository: repositories.patients,
 		records:
 			options.appointmentRecordDirectoryGateway ?? gateways.appointmentRecords,
+		appointmentWrites: repositories.appointmentWrites,
 		snapshots: repositories.appointmentScheduleSnapshots,
 		...(options.logger ? { logger: options.logger } : {}),
 	});

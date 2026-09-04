@@ -965,6 +965,23 @@ export function createInMemoryAppointmentWriteRepository(
 			);
 			return registration ? { ...registration } : undefined;
 		},
+		async listRegistrationsByPatient(input) {
+			return [...appointmentRegistrations.values()]
+				.filter(
+					(item) =>
+						item.ownerUserId === input.ownerUserId &&
+						item.patientId === input.patientId &&
+						(input.startDate === undefined ||
+							item.workDate >= input.startDate) &&
+						(input.endDate === undefined || item.workDate <= input.endDate),
+				)
+				.sort((left, right) =>
+					`${right.workDate}:${right.createdAt}`.localeCompare(
+						`${left.workDate}:${left.createdAt}`,
+					),
+				)
+				.map((item) => ({ ...item }));
+		},
 		async insertRegistration(registration) {
 			appointmentRegistrations.set(registration.appointmentId, {
 				...registration,
@@ -1277,6 +1294,9 @@ export function createNotConfiguredRepositories(): {
 				throw new PersistenceNotConfiguredError("appointment-writes");
 			},
 			findActiveRegistration: async () => {
+				throw new PersistenceNotConfiguredError("appointment-writes");
+			},
+			listRegistrationsByPatient: async () => {
 				throw new PersistenceNotConfiguredError("appointment-writes");
 			},
 			insertRegistration: async () => {

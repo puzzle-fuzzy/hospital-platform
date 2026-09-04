@@ -179,6 +179,13 @@ export interface AppointmentWriteRepository {
 		workDate: string;
 		departmentName: string;
 	}): Promise<AppointmentRegistration | undefined>;
+	/** 供“我的挂号”读取支付小程序已经写入的本地预约事实。 */
+	listRegistrationsByPatient(input: {
+		ownerUserId: string;
+		patientId: string;
+		startDate?: string;
+		endDate?: string;
+	}): Promise<readonly AppointmentRegistration[]>;
 	insertRegistration(
 		registration: AppointmentRegistration,
 	): Promise<AppointmentRegistration>;

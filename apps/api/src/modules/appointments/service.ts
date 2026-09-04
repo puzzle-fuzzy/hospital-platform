@@ -12,6 +12,7 @@ import {
 	type AppointmentDepartmentTreeGateway,
 	type AppointmentDirectoryGateway,
 	AppointmentDirectoryResultValidationError,
+	type AppointmentRegistration,
 	type AppointmentProviderSchedule,
 	type AppointmentRecord,
 	type AppointmentRecordDirectoryGateway,
@@ -33,6 +34,7 @@ import {
 	normalizeAppointmentScheduleResults,
 	normalizeAppointmentScheduleSourceResults,
 	normalizeExternalTrace,
+	type AppointmentWriteRepository,
 	type PatientRepository,
 	parseIsoCalendarDate,
 	validatePatientProviderReference,
@@ -50,6 +52,11 @@ export type AppointmentServiceDependencies = {
 	/** 记录查询需要 owner-scoped provider mapping；目录查询不依赖该 repository。 */
 	repository?: PatientRepository;
 	records?: AppointmentRecordDirectoryGateway;
+	/** 支付小程序写入的预约先落在本地仓储；记录页必须把这条事实合并进来。 */
+	appointmentWrites?: Pick<
+		AppointmentWriteRepository,
+		"listRegistrationsByPatient"
+	>;
 	/** 只读排班观察事实；预约写入由独立 AppointmentWriteService 复核。 */
 	snapshots?: AppointmentScheduleSnapshotRepository;
 	logger?: AppLogger;
@@ -131,6 +138,56 @@ function countAppointmentRecordStatuses(
 		statusCounts[record.status] = (statusCounts[record.status] ?? 0) + 1;
 	}
 	return statusCounts;
+}
+
+/** 将新预约写入仓储中的状态投影到“我的挂号”公共状态。 */
+function localRegistrationRecord(
+	registration: AppointmentRegistration,
+): AppointmentRecord {
+	return {
+		departmentName: registration.departmentName,
+		doctorName: registration.doctorName,
+		workDate: registration.workDate,
+		serialNumber: registration.sourceSerialNumber,
+		status:
+			registration.status === "booked"
+				? "scheduled"
+				: registration.status === "cancelled"
+					? "cancelled"
+					: "unknown",
+	};
+}
+
+/**
+ * 合并 Provider 历史与平台预约写入事实。
+ *
+ * 新支付小程序的预约写入已经成功落库，但 Provider 记录查询可能存在
+ * 最终一致性窗口；因此当前用户的预约不能只依赖随后一次 Provider 读取。
+ * 匹配到同一条记录时以本地预约状态为准（取消只有 Provider 取消成功后
+ * 才会写入），没有匹配到时补入本地记录，旧项目历史仍继续来自 Provider。
+ */
+function mergeLocalAppointmentRecords(
+	providerRecords: readonly AppointmentRecord[],
+	localRecords: readonly AppointmentRecord[],
+): { records: AppointmentRecord[]; localOnlyCount: number } {
+	const records = providerRecords.map((record) => ({ ...record }));
+	let localOnlyCount = 0;
+	for (const local of localRecords) {
+		const match = records.findIndex(
+			(record) =>
+				record.workDate === local.workDate &&
+				record.departmentName === local.departmentName &&
+				record.doctorName === local.doctorName &&
+				record.serialNumber === local.serialNumber,
+		);
+		if (match >= 0) {
+			records[match] = { ...records[match], ...local };
+		} else {
+			records.push(local);
+			localOnlyCount += 1;
+		}
+	}
+	return { records, localOnlyCount };
 }
 
 /**
@@ -1036,8 +1093,24 @@ export class AppointmentService {
 			// adapter 已经完成 Provider 字段白名单映射，但 service 端口仍可
 			// 被其它实现注入；在 `synced` 日志和 API 响应前再做一次校验并
 			// 重新投影，确保患者身份、预约号、费用和支付字段不会越过边界。
-			const normalizedRecords = normalizeAppointmentRecordResults(
+			const providerRecords = normalizeAppointmentRecordResults(
 				(result as { records?: unknown } | undefined)?.records,
+			);
+			const localRegistrations = this.dependencies.appointmentWrites
+				? await this.dependencies.appointmentWrites.listRegistrationsByPatient({
+						ownerUserId,
+						patientId,
+						...(query.startDate ? { startDate: query.startDate } : {}),
+						...(query.endDate ? { endDate: query.endDate } : {}),
+					})
+				: [];
+			const localRecords = localRegistrations.map(localRegistrationRecord);
+			const merged = mergeLocalAppointmentRecords(
+				providerRecords,
+				localRecords,
+			);
+			const normalizedRecords = normalizeAppointmentRecordResults(
+				merged.records,
 			);
 			validateAppointmentRecordWindow(normalizedRecords, query);
 			this.logger.info(
@@ -1049,6 +1122,9 @@ export class AppointmentService {
 					...traceLogFields(trace),
 					patientId,
 					itemCount: normalizedRecords.length,
+					providerItemCount: providerRecords.length,
+					localRegistrationCount: localRegistrations.length,
+					localOnlyCount: merged.localOnlyCount,
 					statusCounts: countAppointmentRecordStatuses(normalizedRecords),
 				},
 				"Appointment records loaded",

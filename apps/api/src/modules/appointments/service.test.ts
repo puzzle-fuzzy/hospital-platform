@@ -3,6 +3,7 @@ import { ProviderRequestError } from "@hospital/adapters";
 import type {
 	AppointmentDepartment,
 	AppointmentDirectoryGateway,
+	type AppointmentRegistration,
 	AppointmentProviderSchedule,
 	AppointmentRecord,
 	AppointmentScheduleQuery,
@@ -636,6 +637,87 @@ test("appointment date ranges accept the configured span and reject anything wid
 
 	expect(scheduleProviderCalls).toBe(1);
 	expect(recordProviderCalls).toBe(1);
+});
+
+test("appointment records include registrations written by the payment flow", async () => {
+	const localRegistration: AppointmentRegistration = {
+		appointmentId: "appointment-local-001",
+		ownerUserId: "user-001",
+		patientId: "patient-001",
+		holdId: "hold-local-001",
+		idempotencyKey: "appointment-register-local-001",
+		providerAppointmentId: "provider-appointment-local-001",
+		providerPatientId: "provider-patient-001",
+		departmentName: "风湿免疫门诊",
+		doctorName: "温慧芬",
+		workDate: "2026-09-07",
+		shiftName: "上午",
+		sourceSerialNumber: "1",
+		totalFen: 1000,
+		status: "booked",
+		createdAt: "2026-09-04T12:23:00.000Z",
+		updatedAt: "2026-09-04T12:23:00.000Z",
+	};
+	const service = new AppointmentService({
+		directory: {
+			listDepartments: async () => ({
+				departments: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+			listSchedules: async () => ({
+				schedules: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "unused",
+					requestId: "unused",
+				},
+			}),
+		},
+		repository: {
+			resolveProviderReference: async () => ({
+				patientId: "patient-001",
+				provider: "zhongyang" as const,
+				providerPatientId: "provider-patient-001",
+			}),
+		} as unknown as PatientRepository,
+		records: {
+			listRecords: async () => ({
+				records: [],
+				trace: {
+					provider: "zhongyang",
+					operation: "appointment-records",
+					requestId: "record-empty-local-fallback",
+				},
+			}),
+		},
+		appointmentWrites: {
+			listRegistrationsByPatient: async () => [localRegistration],
+		},
+	});
+
+	await expect(
+		service.listRecords(
+			"user-001",
+			"patient-001",
+			{ startDate: "2026-09-01", endDate: "2026-09-30" },
+			{ traceId: "trace-local-record", idempotencyKey: "key-local-record" },
+		),
+	).resolves.toEqual({
+		items: [
+			{
+				departmentName: "风湿免疫门诊",
+				doctorName: "温慧芬",
+				workDate: "2026-09-07",
+				serialNumber: "1",
+				status: "scheduled",
+			},
+		],
+		total: 1,
+	});
 });
 
 test("appointment record empty results are successful and record failures are logged", async () => {

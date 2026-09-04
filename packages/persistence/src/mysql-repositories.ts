@@ -3253,6 +3253,32 @@ export function createMySqlRepositories(
 			);
 			return rows[0] ? appointmentRegistration(rows[0]) : undefined;
 		},
+		async listRegistrationsByPatient(input) {
+			const conditions = [
+				"owner_user_id = ?",
+				"patient_id = ?",
+				...(input.startDate !== undefined ? ["work_date >= ?"] : []),
+				...(input.endDate !== undefined ? ["work_date <= ?"] : []),
+			];
+			const values = [
+				input.ownerUserId,
+				input.patientId,
+				...(input.startDate !== undefined ? [input.startDate] : []),
+				...(input.endDate !== undefined ? [input.endDate] : []),
+			];
+			const rows = await execute<AppointmentRegistrationRow[]>(
+				pool,
+				`SELECT appointment_id, owner_user_id, patient_id, hold_id,
+					provider_appointment_id, provider_patient_id, provider_register_id,
+					provider_his_register_id, idempotency_key, department_name, department_id, doctor_id, doctor_name, work_date,
+					shift_name, source_serial_number, total_fen, status, created_at, updated_at
+				 FROM hp_appointment_registrations
+				 WHERE ${conditions.join(" AND ")}
+				 ORDER BY work_date DESC, created_at DESC`,
+				values,
+			);
+			return rows.map(appointmentRegistration);
+		},
 		async insertRegistration(registration) {
 			await execute<ResultSetHeader>(
 				pool,
