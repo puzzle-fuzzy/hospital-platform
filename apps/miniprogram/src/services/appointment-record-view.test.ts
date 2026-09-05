@@ -58,7 +58,7 @@ test("在线挂号展示边界拒绝绕过响应校验的未知状态", () => {
 	expect(filterAppointmentRecords([invalid], "online")).toEqual([]);
 });
 
-test("全部挂号使用独立渠道结果并保留已取消记录", () => {
+test("全部挂号保留同一份完整读模型中的已取消记录", () => {
 	const records = [record("scheduled"), record("cancelled")];
 
 	expect(isAppointmentRecordTabAvailable("online")).toBe(true);

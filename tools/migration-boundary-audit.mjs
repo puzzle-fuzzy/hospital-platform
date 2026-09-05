@@ -332,7 +332,9 @@ for (const gate of FROZEN_DOMAIN_GATES) {
 	const targetDescription = gate.safeReadOnlyTarget
 		? `${gate.safeReadOnlyTarget}（安全只读入口已迁移，独立写入能力仍按 contract 管理）`
 		: gate.safeSurfaceTarget
-			? `${gate.safeSurfaceTarget}（页面外壳/安全子集已迁移，真实 contract 仍关闭）`
+			? gate.readiness === "读写已实现"
+				? `${gate.safeSurfaceTarget}（普通读写已迁移，剩余支付分支按独立 contract 管理）`
+				: `${gate.safeSurfaceTarget}（页面外壳/安全子集已迁移，真实 contract 仍关闭）`
 			: `${expectedStatusPage}?feature=${gate.featureKey}（${gate.readiness}）`;
 	console.log(
 		`[${failureCount === 0 ? "PASS" : "FAIL"}] ${gate.name}：${gate.legacyPaths.length} 个旧页面 + ${(gate.legacyActions ?? []).length} 个 action-only 入口 -> ${targetDescription}`,

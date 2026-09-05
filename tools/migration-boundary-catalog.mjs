@@ -523,12 +523,12 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		id: "appointment-write",
 		name: "预约下单",
 		featureKey: "appointment-write",
-		readiness: "全量替换进行中",
+		readiness: "读写已实现",
 		contractFamily: "payment-write",
 		legacyPaths: ["pagesB/hospital/confirm_registration.vue"],
-		legacyActions: ["确认挂号信息:appointment-write"],
-		// 确认信息展示已迁移为安全子集：排班/时段/脱敏就诊人可展示，
-		// 但锁号、费用报价、执行预约与支付前置仍全部关闭。
+		// 普通预约写入和挂号自费支付已经进入原生流程；医保/混合支付、
+		// HIS 回写仍由独立的 miniprogram-pay 流程承接，不能把两个边界
+		// 合并成一个“全量支付已迁移”的结论。
 		safeSurfaceTarget: "pages/confirm-registration/confirm-registration",
 		safePartialPaths: ["pagesB/hospital/confirm_registration.vue"],
 		requiredMaterials: [

@@ -25,9 +25,9 @@ export function isMissedAppointment(record: AppointmentRecord): boolean {
 }
 
 /**
- * 在线标签使用服务端的微信渠道读模型，并排除明确取消的记录；全部标签
- * 使用服务端独立查询的历史读模型，保留已取消记录。两个列表来自不同的
- * Provider 请求，不能在客户端把在线结果复制成全部结果。
+ * 在线标签使用当前完整挂号读模型，并排除明确取消的记录；全部标签保留
+ * 同一份读模型中的取消记录。页面只允许在这一层做展示筛选，不能再发起
+ * 第二条 Provider 查询，也不能把本地预约记录拼成一套新的事实。
  */
 export function isOnlineAppointmentRecord(record: AppointmentRecord): boolean {
 	// dashboard-service 已经做过一次响应重投影，但页面展示边界不能把
@@ -41,7 +41,7 @@ export function isOnlineAppointmentRecord(record: AppointmentRecord): boolean {
 	);
 }
 
-/** 服务端已为在线和全部标签分别冻结只读查询语义。 */
+/** 页面标签只影响同一份服务端完整读模型的本地展示筛选。 */
 export function isAppointmentRecordTabAvailable(
 	tab: "online" | "all",
 ): boolean {
@@ -49,11 +49,9 @@ export function isAppointmentRecordTabAvailable(
 }
 
 /**
- * 标签切换只影响当前已取得的对应渠道读模型。
- *
- * 全部查询由页面切换时重新请求服务端；
- * 不能让未来新增调用方误把在线记录当成全部记录；已取得的结果只在同一
- * 范围内做本地窗口分页，不能把在线结果在此处拼接成全量历史。
+ * 标签切换只影响当前已取得的完整读模型。
+ * 页面可以重新加载这份快照，但不能把在线结果复制成全部结果，也不能把
+ * 两条 Provider 查询拼接后再对外展示。
  */
 export function filterAppointmentRecords<T extends AppointmentRecord>(
 	records: readonly T[],

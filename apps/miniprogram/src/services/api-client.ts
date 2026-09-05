@@ -24,6 +24,7 @@ import type {
 	PatientBindingRequest,
 	PatientBindingResponse,
 	PatientListResponse,
+	RegistrationSelfPayResponse,
 	ReportDetailResponse,
 	ReportListResponse,
 	UserProfileResponse,
@@ -151,6 +152,8 @@ export const CLIENT_ERROR_MESSAGES: Readonly<Record<string, string>> =
 		"appointment-registration-not-found": "未找到对应的预约记录",
 		"appointment-medical-payment-active":
 			"该预约已有医保支付流水，不能直接取消，请先完成或由收费端处理",
+		"appointment-payment-active":
+			"该预约已有自费支付流水，不能直接取消，请先完成或继续支付",
 		"appointment-source-unavailable": "指定号源刚刚发生变化，请刷新后重试",
 		"medical-insurance-invalid": "医保请求参数或流程状态不合法，请稍后再试",
 		"medical-insurance-appointment-not-found": "未找到可进行医保支付的预约",
@@ -646,6 +649,78 @@ export function requireSuccessDataResponse<TData>(value: unknown): {
 		});
 	}
 	return { success: true, data: value.data as TData };
+}
+
+const REGISTRATION_SELF_PAY_STATUSES = new Set([
+	"prepay_ready",
+	"awaiting_confirmation",
+	"cash_paid",
+	"failed",
+]);
+
+const PAYMENT_STATES = new Set([
+	"created",
+	"authorized",
+	"pre_settled",
+	"insurance_submitted",
+	"insurance_settled",
+	"cash_pending",
+	"cash_paid",
+	"his_written_back",
+	"awaiting_confirmation",
+	"completed",
+	"failed",
+	"cancelled",
+]);
+
+function registrationSelfPayResponse(
+	value: unknown,
+	expectedAppointmentId: string,
+): RegistrationSelfPayResponse {
+	if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+		throw new ApiError("自费支付响应不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	const data = value.data;
+	if (
+		typeof data.appointmentId !== "string" ||
+		data.appointmentId !== expectedAppointmentId ||
+		typeof data.orderId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(data.orderId) ||
+		data.orderId.length > 64 ||
+		typeof data.status !== "string" ||
+		!REGISTRATION_SELF_PAY_STATUSES.has(data.status) ||
+		typeof data.paymentState !== "string" ||
+		!PAYMENT_STATES.has(data.paymentState) ||
+		!Number.isSafeInteger(data.totalFen) ||
+		(data.totalFen as number) <= 0
+	) {
+		throw new ApiError("自费支付响应不可用", {
+			code: "provider-response-invalid",
+		});
+	}
+	const payParams =
+		data.payParams === undefined
+			? undefined
+			: parseWechatPaymentParamsValue(data.payParams);
+	if (data.payParams !== undefined && !payParams) {
+		throw new ApiError("服务端支付参数不可用", {
+			code: "wechat-pay-params-missing",
+		});
+	}
+	return {
+		success: true,
+		data: {
+			appointmentId: data.appointmentId,
+			orderId: data.orderId,
+			status: data.status as RegistrationSelfPayResponse["data"]["status"],
+			paymentState:
+				data.paymentState as RegistrationSelfPayResponse["data"]["paymentState"],
+			totalFen: data.totalFen as number,
+			...(payParams ? { payParams } : {}),
+		},
+	};
 }
 
 /**
@@ -2388,6 +2463,13 @@ const APPOINTMENT_DETAIL_STATUSES = new Set([
 	"unknown",
 ]);
 
+const APPOINTMENT_SELF_PAY_STATUSES = new Set([
+	"not_started",
+	"awaiting_confirmation",
+	"cash_paid",
+	"failed",
+]);
+
 function invalidAppointmentDetailResponse(): never {
 	throw new ApiError("挂号详情响应无效", { code: "provider-response-invalid" });
 }
@@ -2434,6 +2516,7 @@ export function requireAppointmentDetailResponse(
 		!hasSafeReportText(data.sourceSerialNumber, 32) ||
 		!Number.isSafeInteger(data.totalFen) ||
 		(data.totalFen as number) <= 0 ||
+		!APPOINTMENT_SELF_PAY_STATUSES.has(data.selfPayStatus as string) ||
 		!APPOINTMENT_DETAIL_STATUSES.has(data.status as string)
 	) {
 		return invalidAppointmentDetailResponse();
@@ -2462,6 +2545,8 @@ export function requireAppointmentDetailResponse(
 			...(data.workTime === undefined ? {} : { workTime: data.workTime }),
 			sourceSerialNumber: data.sourceSerialNumber,
 			totalFen: data.totalFen as number,
+			selfPayStatus:
+				data.selfPayStatus as AppointmentDetailResponse["data"]["selfPayStatus"],
 			status: data.status as AppointmentDetailResponse["data"]["status"],
 		},
 	};
@@ -2520,6 +2605,51 @@ export function requestAppointmentCancellation(
 			payload,
 		),
 	);
+}
+
+/**
+ * 挂号详情内的纯自费支付入口。
+ * 金额、订单和微信预支付参数全部由服务端根据 appointmentId 生成；小程序
+ * 不提交金额，也不把医保授权字段混入普通微信支付请求。
+ */
+export function requestAppointmentSelfPay(
+	appointmentId: string,
+	idempotencyKey = createIdempotencyKey("registration-self-pay"),
+): Promise<RegistrationSelfPayResponse> {
+	if (
+		typeof appointmentId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(appointmentId) ||
+		appointmentId.length > 64
+	) {
+		return Promise.reject(
+			new ApiError("预约引用无效", { code: "appointment-query-invalid" }),
+		);
+	}
+	return requestWithSession<unknown>({
+		url: `/payments/appointments/${encodeURIComponent(appointmentId)}/self-pay`,
+		method: "POST",
+		data: {},
+		idempotencyKey,
+	}).then((payload) => registrationSelfPayResponse(payload, appointmentId));
+}
+
+/** 查询挂号自费支付的最终状态；微信调起成功不等于现金订单已支付。 */
+export function queryAppointmentSelfPay(
+	appointmentId: string,
+): Promise<RegistrationSelfPayResponse> {
+	if (
+		typeof appointmentId !== "string" ||
+		!isBoundedAppointmentRequestIdentifier(appointmentId) ||
+		appointmentId.length > 64
+	) {
+		return Promise.reject(
+			new ApiError("预约引用无效", { code: "appointment-query-invalid" }),
+		);
+	}
+	return requestWithSession<unknown>({
+		url: `/payments/appointments/${encodeURIComponent(appointmentId)}/self-pay`,
+		method: "GET",
+	}).then((payload) => registrationSelfPayResponse(payload, appointmentId));
 }
 
 /** 读取当前用户所选就诊人的门诊费用摘要；临床患者映射只在服务端解析。 */
@@ -2654,7 +2784,11 @@ export function requestWechatPrepay(
 /** 从服务端响应中显式提取微信原生调起字段。 */
 export function toWechatPaymentParams(payload: unknown): PaymentParams | null {
 	if (!isRecord(payload) || !isRecord(payload.data)) return null;
-	const params = payload.data.payParams;
+	return parseWechatPaymentParamsValue(payload.data.payParams);
+}
+
+function parseWechatPaymentParamsValue(value: unknown): PaymentParams | null {
+	const params = value;
 	if (!isRecord(params)) return null;
 	const appId = params.appId;
 	const timeStamp = params.timeStamp;

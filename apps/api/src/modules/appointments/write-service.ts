@@ -2,6 +2,7 @@ import type {
 	AppointmentDetailPayload,
 	AppointmentHoldPayload,
 	AppointmentRegistrationPayload,
+	PaymentState,
 } from "@hospital/contracts";
 import {
 	type AppointmentPatientProfileGateway,
@@ -14,9 +15,11 @@ import {
 	normalizeExternalTrace,
 	normalizePatientReadModel,
 	type PatientRepository,
+	type PaymentOrderRepository,
 	type UserIdentityRepository,
 } from "@hospital/domain";
 import { type AppLogger, createNoopLogger } from "@hospital/observability";
+import { registrationSelfPayOrderKey } from "../payments/registration-self-pay-service";
 import { AppointmentScheduleReferenceExpiredError } from "./service";
 
 export class AppointmentWriteInputError extends Error {
@@ -63,6 +66,15 @@ export class AppointmentCancellationMedicalPaymentActiveError extends Error {
 	}
 }
 
+export class AppointmentCancellationPaymentActiveError extends Error {
+	constructor() {
+		super(
+			"Appointment has an active registration self-pay order and cannot be cancelled",
+		);
+		this.name = "AppointmentCancellationPaymentActiveError";
+	}
+}
+
 export type AppointmentWriteServiceDependencies = {
 	repository: AppointmentWriteRepository;
 	patients: PatientRepository;
@@ -70,6 +82,8 @@ export type AppointmentWriteServiceDependencies = {
 	patientProfile: AppointmentPatientProfileGateway;
 	gateway: AppointmentWriteGateway;
 	medicalInsuranceOrders?: MedicalInsuranceOrderRepository;
+	/** 挂号自费订单也必须参与取消前检查，避免页面刷新后绕过支付边界。 */
+	paymentOrders?: PaymentOrderRepository;
 	snapshots: {
 		findActive(
 			scheduleId: string,
@@ -162,6 +176,22 @@ function outputRegistration(
 		sourceSerialNumber: registration.sourceSerialNumber,
 		totalFen: registration.totalFen,
 	};
+}
+
+type AppointmentSelfPayStatus =
+	AppointmentDetailPayload["data"]["selfPayStatus"];
+
+/**
+ * 详情只暴露普通挂号自费订单的稳定状态，不把 PaymentOrder 全量字段带到
+ * 公共 API。没有订单是正常的“尚未发起支付”，不能被当成服务异常。
+ */
+function appointmentSelfPayStatus(
+	state: PaymentState | undefined,
+): AppointmentSelfPayStatus {
+	if (!state || state === "cancelled") return "not_started";
+	if (state === "cash_paid") return "cash_paid";
+	if (state === "failed") return "failed";
+	return "awaiting_confirmation";
 }
 
 export class AppointmentWriteService {
@@ -308,6 +338,12 @@ export class AppointmentWriteService {
 				"Appointment registration amount is invalid",
 			);
 		}
+		const selfPayOrder =
+			await this.dependencies.paymentOrders?.findByOwnerAndIdempotencyKey(
+				ownerUserId,
+				registrationSelfPayOrderKey(appointmentId),
+			);
+		const selfPayStatus = appointmentSelfPayStatus(selfPayOrder?.state);
 		const status: AppointmentDetailPayload["data"]["status"] =
 			registration.status === "booked"
 				? "scheduled"
@@ -328,6 +364,7 @@ export class AppointmentWriteService {
 			shiftName: registration.shiftName,
 			sourceSerialNumber: registration.sourceSerialNumber,
 			totalFen: registration.totalFen,
+			selfPayStatus,
 			status,
 		};
 		this.logger.info(
@@ -338,6 +375,7 @@ export class AppointmentWriteService {
 				patientId,
 				appointmentId,
 				status,
+				selfPayStatus,
 				totalFen: detail.totalFen,
 			},
 			"Appointment detail loaded",
@@ -688,6 +726,18 @@ export class AppointmentWriteService {
 				Boolean(medicalOrder.feeUploadId || medicalOrder.payOrdId))
 		) {
 			throw new AppointmentCancellationMedicalPaymentActiveError();
+		}
+		const selfPayOrder =
+			await this.dependencies.paymentOrders?.findByOwnerAndIdempotencyKey(
+				ownerUserId,
+				registrationSelfPayOrderKey(appointmentId),
+			);
+		if (
+			selfPayOrder &&
+			selfPayOrder.state !== "failed" &&
+			selfPayOrder.state !== "cancelled"
+		) {
+			throw new AppointmentCancellationPaymentActiveError();
 		}
 		this.logger.info(
 			{

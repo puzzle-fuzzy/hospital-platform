@@ -24,6 +24,7 @@ import type {
 	PatientBindingPayload,
 	PatientBindingRequestPayload,
 	PatientListPayload,
+	RegistrationSelfPayPayload,
 	ReportDetailPayload,
 	ReportListPayload,
 	UserProfilePayload,
@@ -84,6 +85,7 @@ export type AppointmentDetailResponse = AppointmentDetailPayload;
 export type AppointmentCancellationResponse = AppointmentCancellationPayload;
 export type AppointmentHoldResponse = AppointmentHoldPayload;
 export type AppointmentRegistrationResponse = AppointmentRegistrationPayload;
+export type RegistrationSelfPayResponse = RegistrationSelfPayPayload;
 export type OutpatientPaymentListResponse = OutpatientPaymentListPayload;
 export type OutpatientPaymentDetailResponse = OutpatientPaymentDetailPayload;
 export type ReportListResponse = ReportListPayload;
@@ -442,6 +444,13 @@ export type AppointmentDetailPageData = {
 	statusLabel: string;
 	canCancel: boolean;
 	canceling: boolean;
+	/** 挂号详情内的普通微信自费支付状态；不表示医保或门诊支付状态。 */
+	selfPayBusy: boolean;
+	selfPayStatus: "idle" | "awaiting_confirmation" | "cash_paid" | "failed";
+	selfPayMessage: string;
+	selfPayError: string;
+	/** 详情成功读取时绑定的会话代际，防止切换账号后继续支付旧预约。 */
+	sessionGeneration: number;
 	/** Provider-only 历史记录没有平台详情引用，只允许显示列表摘要。 */
 	localDetail: boolean;
 	sourceAppointmentId: string;

@@ -41,7 +41,8 @@ function contextOf(value: unknown): Context {
 	};
 }
 
-function orderKey(appointmentId: string): string {
+/** 挂号自费订单的服务端固定幂等键；取消预约也用同一键检查活动支付。 */
+export function registrationSelfPayOrderKey(appointmentId: string): string {
 	return `registration-self-pay:${appointmentId}`;
 }
 
@@ -93,7 +94,7 @@ export class RegistrationSelfPayService {
 		const order = await this.dependencies.paymentOrders.createCashPending({
 			ownerUserId,
 			patientId: appointment.patientId,
-			idempotencyKey: orderKey(appointment.appointmentId),
+			idempotencyKey: registrationSelfPayOrderKey(appointment.appointmentId),
 			amounts: {
 				totalFen: appointment.totalFen,
 				insuranceFen: 0,
@@ -145,7 +146,7 @@ export class RegistrationSelfPayService {
 		const order =
 			await this.dependencies.paymentOrders.findByOwnerAndIdempotencyKey(
 				ownerUserId,
-				orderKey(appointment.appointmentId),
+				registrationSelfPayOrderKey(appointment.appointmentId),
 			);
 		if (!order || order.patientId !== appointment.patientId)
 			throw new PaymentOrderInputError(

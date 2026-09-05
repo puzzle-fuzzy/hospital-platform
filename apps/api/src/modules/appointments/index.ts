@@ -1,15 +1,15 @@
 import {
+	AppointmentCancellationResponse,
 	AppointmentDepartmentListResponse,
 	AppointmentDepartmentTreeResponse,
 	AppointmentDetailResponse,
-	AppointmentRecordListResponse,
-	AppointmentScheduleListResponse,
-	AppointmentScheduleSourceListResponse,
-	AppointmentCancellationResponse,
 	AppointmentHoldRequest,
 	AppointmentHoldResponse,
+	AppointmentRecordListResponse,
 	AppointmentRegistrationRequest,
 	AppointmentRegistrationResponse,
+	AppointmentScheduleListResponse,
+	AppointmentScheduleSourceListResponse,
 	success,
 } from "@hospital/contracts";
 import { Elysia, t } from "elysia";
@@ -284,6 +284,7 @@ export {
 	AppointmentService,
 } from "./service";
 export {
+	AppointmentCancellationPaymentActiveError,
 	AppointmentHoldExpiredError,
 	AppointmentHoldNotFoundError,
 	AppointmentRegistrationNotFoundError,

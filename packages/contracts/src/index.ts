@@ -404,6 +404,18 @@ export const AppointmentRecordListResponse = Type.Object({
 	}),
 });
 
+/**
+ * 挂号详情中的普通微信自费订单状态。
+ * `awaiting_confirmation` 覆盖已创建、待确认和微信预支付处理中等不能
+ * 直接判定为成功的服务端状态；它不代表医保或门诊支付状态。
+ */
+export const AppointmentSelfPayStatusSchema = Type.Union([
+	Type.Literal("not_started"),
+	Type.Literal("awaiting_confirmation"),
+	Type.Literal("cash_paid"),
+	Type.Literal("failed"),
+]);
+
 /** 详情页只返回脱敏后的当前就诊人展示信息，不返回身份证、手机号或完整卡号。 */
 const AppointmentDetailPatientSchema = Type.Object({
 	displayName: Type.String({ minLength: 1, maxLength: 128 }),
@@ -435,6 +447,7 @@ export const AppointmentDetailResponse = Type.Object({
 		),
 		sourceSerialNumber: Type.String({ minLength: 1, maxLength: 32 }),
 		totalFen: Type.Integer({ minimum: 1 }),
+		selfPayStatus: AppointmentSelfPayStatusSchema,
 		status: AppointmentRecordStatusSchema,
 	}),
 });

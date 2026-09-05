@@ -53,6 +53,7 @@ import {
 } from "../modules/appointments/service";
 import {
 	AppointmentCancellationMedicalPaymentActiveError,
+	AppointmentCancellationPaymentActiveError,
 	AppointmentHoldExpiredError,
 	AppointmentHoldNotFoundError,
 	AppointmentRegistrationNotFoundError,
@@ -124,6 +125,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-hold-expired": 30430,
 	"appointment-registration-not-found": 30440,
 	"appointment-medical-payment-active": 30450,
+	"appointment-payment-active": 30455,
 	"appointment-source-unavailable": 30460,
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,
@@ -559,6 +561,14 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"appointment-medical-payment-active",
 					"该预约已有医保支付流水，不能直接取消，请先完成或由收费端处理",
+				);
+			}
+
+			if (error instanceof AppointmentCancellationPaymentActiveError) {
+				set.status = 409;
+				return errorPayload(
+					"appointment-payment-active",
+					"该预约已有自费支付流水，不能直接取消，请先完成或继续支付",
 				);
 			}
 

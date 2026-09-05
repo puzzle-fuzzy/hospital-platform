@@ -193,6 +193,25 @@
 	line-height: 1.6;
 }
 
+.detail-payment-message {
+	box-sizing: border-box;
+	margin-bottom: 16rpx;
+	padding: 20rpx 24rpx;
+	border-radius: 14rpx;
+	background: #eef4ff;
+	color: #315bbf;
+	font-size: 25rpx;
+	line-height: 1.6;
+}
+
+.detail-payment-error {
+	display: block;
+	margin: -4rpx 8rpx 16rpx;
+	color: #d92d20;
+	font-size: 24rpx;
+	line-height: 1.6;
+}
+
 .detail-actions {
 	display: flex;
 	padding: 4rpx 0 16rpx;
@@ -213,6 +232,17 @@
 	border: 1rpx solid #3d6df6;
 	background: #ffffff;
 	color: #3d6df6;
+}
+
+.detail-pay-button {
+	border: 0;
+	background: #3d6df6;
+	color: #ffffff;
+}
+
+.detail-pay-button[disabled] {
+	background: #a9bff8;
+	color: #ffffff;
 }
 
 .detail-back-button {

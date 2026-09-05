@@ -160,6 +160,7 @@ export function createDefaultApplicationServices(
 			gateways.appointmentPatientProfile,
 		gateway: options.appointmentWriteGateway ?? gateways.appointmentWrites,
 		medicalInsuranceOrders: repositories.medicalInsuranceOrders,
+		paymentOrders: repositories.paymentOrders,
 		snapshots: repositories.appointmentScheduleSnapshots,
 		...(options.logger ? { logger: options.logger } : {}),
 	});

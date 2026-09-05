@@ -282,12 +282,15 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 					patientSessionGeneration: expectedSessionGeneration,
 					canSelectPatient: false,
 				});
+				// “在线挂号”和“全部挂号”必须来自同一份完整记录快照。
+				// 在线标签只是当前已归一化记录的展示筛选，不能再次请求另一条
+				// Provider 渠道后与全部标签产生两套事实。
 				return loadAppointmentRecords(
 					patient.id,
 					new Date(),
 					"history",
 					expectedSessionGeneration,
-					requestedTab,
+					"all",
 				).then((records) => {
 					assertSessionGeneration(
 						expectedSessionGeneration,
@@ -362,10 +365,9 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 	},
 
 	/**
-	 * 旧端双标签分别对应两个 Provider 只读查询范围。
-	 *
-	 * 服务端已确认“全部挂号”的渠道 4 成功包络和历史返回语义；页面不接触
-	 * 渠道数字，只表达 `all` 业务范围，并在切换时重新读取对应数据。
+	 * 旧端双标签现在共用一份完整挂号读模型；页面不接触渠道数字，只表达
+	 * 当前展示筛选。服务端仍保留 `online` 查询能力供爽约等有限窗口页面使用，
+	 * 但“我的挂号”不会让两种标签各自形成一套 Provider 事实。
 	 */
 	onTabTap(event: WechatMiniprogram.TouchEvent): void {
 		const tab = event.currentTarget?.dataset?.tab;
@@ -386,7 +388,7 @@ Page<AppointmentRecordsPageData, AppointmentRecordsPageMethods>({
 			return;
 		}
 		this.setData({ activeTab });
-		// 切换标签必须重新请求对应 Provider 范围，不能把在线结果复制成全部。
+		// 切换标签重新建立同一份完整读模型，不能让标签切换改变 Provider 事实。
 		void this.loadRecords(activeTab);
 	},
 

@@ -162,18 +162,19 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 	"appointment-detail": {
 		title: "挂号详情",
 		readiness: "已迁移",
-		description: "挂号详情已接入平台服务，可查看预约信息、就诊人和预约状态。",
+		description:
+			"挂号详情已接入平台服务，可查看预约信息、就诊人和预约状态，并完成挂号自费支付。",
 		contractHint:
-			"详情引用、患者归属、状态映射和敏感字段白名单已由服务端校验。",
+			"详情引用、患者归属、状态映射和敏感字段白名单已由服务端校验；自费支付金额和订单由服务端生成并查单确认。",
 		icon: "/assets/legacy-user/appointment-status.svg",
 	},
 	"appointment-write": {
 		title: "预约下单",
 		readiness: "读写已实现",
 		description:
-			"预约下单已接入服务端占位、预约写入、详情和取消；支付仍由独立支付测试项目承接。",
+			"预约下单已接入服务端占位、预约写入、详情、挂号自费支付和取消；医保/混合支付仍由独立支付测试项目承接。",
 		contractHint:
-			"小程序只提交 opaque 排班、号源和就诊人引用；支付与医保结算继续按 miniprogram-pay 的独立流程验收。",
+			"小程序只提交 opaque 排班、号源和就诊人引用；挂号自费金额和订单由服务端生成，医保/混合结算继续按 miniprogram-pay 的独立流程验收。",
 		icon: "/assets/legacy-home/service-registration.svg",
 	},
 	"blood-appointment": {

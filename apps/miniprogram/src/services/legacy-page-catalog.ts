@@ -384,7 +384,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			status: "partial",
 			nativeTarget: "pages/confirm-registration/confirm-registration",
 			featureKey: "appointment-write",
-			note: "确认信息页已接入服务端占位与预约写入：展示排班/号别/序号/时段与当前就诊人脱敏上下文，提交只携带 opaque 引用，成功后进入平台挂号详情；支付前置和医保/HIS 回写仍由独立 miniprogram-pay 流程承接。",
+			note: "确认信息页已接入服务端占位与预约写入：展示排班/号别/序号/时段与当前就诊人脱敏上下文，提交只携带 opaque 引用，成功后进入平台挂号详情；挂号自费支付已在详情页接入，医保/HIS 回写仍由独立 miniprogram-pay 流程承接。",
 		},
 		{
 			legacyPath: "pagesB/hospital/department_select.vue",
@@ -532,7 +532,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 			domain: "用户",
 			status: "partial",
 			nativeTarget: "pages/appointment-records/appointment-records",
-			note: "已迁移在线/全部预约历史只读；本地平台预约支持详情和 owner-scoped 取消，Provider 历史摘要不提供写操作，支付仍由 miniprogram-pay 处理。",
+			note: "已迁移在线/全部预约历史只读；本地平台预约支持详情、挂号自费支付和 owner-scoped 取消，Provider 历史摘要不提供写操作，医保/混合支付仍由 miniprogram-pay 处理。",
 		},
 		{
 			legacyPath: "pagesB/user/subscription_message.vue",

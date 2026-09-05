@@ -314,6 +314,7 @@ test("public API documentation lists every stable public error code", async () =
 		"appointment-hold-expired",
 		"appointment-registration-not-found",
 		"appointment-medical-payment-active",
+		"appointment-payment-active",
 		"medical-insurance-invalid",
 		"medical-insurance-appointment-not-found",
 		"medical-insurance-appointment-stale",

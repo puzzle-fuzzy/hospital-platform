@@ -54,6 +54,12 @@
 					<text class="detail-row-label">挂号记账金额</text>
 					<text class="detail-fee">{{totalLabel}}</text>
 				</view>
+				<view wx:if="{{localDetail && selfPayStatus !== 'idle'}}" class="detail-row detail-row-last">
+					<text class="detail-row-label">自费支付状态</text>
+					<text class="detail-row-value">
+						{{selfPayStatus === 'cash_paid' ? '已支付' : selfPayStatus === 'failed' ? '支付失败，可重试' : '支付确认中'}}
+					</text>
+				</view>
 			</view>
 
 			<view class="detail-card detail-address-card">
@@ -80,7 +86,18 @@
 				<text>这条记录来自历史挂号摘要，当前未建立平台详情引用，仅展示已核实信息。</text>
 			</view>
 
+			<view wx:if="{{selfPayMessage}}" class="detail-payment-message">
+				<text>{{selfPayMessage}}</text>
+			</view>
+			<text wx:if="{{selfPayError}}" class="detail-payment-error">{{selfPayError}}</text>
+
 			<view class="detail-actions">
+				<button
+					wx:if="{{localDetail && status === 'scheduled' && selfPayStatus !== 'cash_paid'}}"
+					class="detail-pay-button"
+					bindtap="onSelfPay"
+					disabled="{{selfPayBusy}}"
+				>{{selfPayBusy ? "正在确认自费支付..." : selfPayStatus === "awaiting_confirmation" ? "继续自费支付" : selfPayStatus === "failed" ? "重新自费支付" : "自费支付"}}</button>
 				<button wx:if="{{canCancel}}" class="detail-cancel-button" bindtap="onCancel">
 					{{canceling ? "取消中..." : "取消预约"}}
 				</button>

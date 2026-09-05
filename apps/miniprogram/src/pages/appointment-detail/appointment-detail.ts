@@ -4,8 +4,11 @@ import {
 	requestAppointmentCancellation,
 	requestAppointmentDetail,
 } from "../../services/api-client";
-import { errorMessageWithCode } from "../../services/error-presentation";
 import { loadCurrentPatientForOwner } from "../../services/dashboard-service";
+import {
+	errorMessageWithCode,
+	presentClientError,
+} from "../../services/error-presentation";
 import {
 	disposePageInstance,
 	getPageLatestRequestGuard,
@@ -14,12 +17,21 @@ import {
 	isCurrentSelectedPatient,
 	patientContextErrorMessage,
 } from "../../services/patient-selection-service";
+import {
+	RegistrationSelfPayCancelledError,
+	RegistrationSelfPayPendingError,
+	startRegistrationSelfPay,
+} from "../../services/registration-self-pay";
 import { assertSessionGeneration } from "../../services/session-boundary";
 import {
 	disposePageSessionResetListener,
 	registerPageSessionResetListener,
 } from "../../services/session-events";
 import { getSessionGeneration } from "../../services/session-generation";
+import {
+	logClientErrorTransformed,
+	logClientPageAction,
+} from "../../services/telemetry";
 import type { AppointmentDetailPageData } from "../../types";
 
 const STATUS_LABELS: Record<AppointmentDetailPageData["status"], string> = {
@@ -39,6 +51,7 @@ type AppointmentDetailPageMethods = {
 	loadPatientContext(patientId: string): Promise<void>;
 	onRetry(): void;
 	onCancel(): void;
+	onSelfPay(): void;
 	onBack(): void;
 	onUnload(): void;
 	showError(error: unknown): void;
@@ -126,6 +139,11 @@ function detailDefaults(): AppointmentDetailPageState {
 		statusLabel: "",
 		canCancel: false,
 		canceling: false,
+		selfPayBusy: false,
+		selfPayStatus: "idle",
+		selfPayMessage: "",
+		selfPayError: "",
+		sessionGeneration: -1,
 		localDetail: false,
 		sourceAppointmentId: "",
 		sourcePatientId: "",
@@ -160,6 +178,12 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 				status: "",
 				statusLabel: "",
 				canCancel: false,
+				canceling: false,
+				selfPayBusy: false,
+				selfPayStatus: "idle",
+				selfPayMessage: "",
+				selfPayError: "",
+				sessionGeneration: -1,
 				localDetail: false,
 				legacySummary: false,
 				location: "",
@@ -225,6 +249,10 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			totalFen: 0,
 			totalLabel: "以医院实际收费记录为准",
 			canCancel: false,
+			selfPayBusy: false,
+			selfPayStatus: "idle",
+			selfPayMessage: "",
+			selfPayError: "",
 		});
 		void this.loadPatientContext(patientId);
 	},
@@ -337,6 +365,14 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					status: detail.status,
 					statusLabel: STATUS_LABELS[detail.status],
 					canCancel: detail.status === "scheduled",
+					selfPayBusy: false,
+					selfPayStatus:
+						detail.selfPayStatus === "not_started"
+							? "idle"
+							: detail.selfPayStatus,
+					selfPayMessage: "",
+					selfPayError: "",
+					sessionGeneration: expectedSessionGeneration,
 					localDetail: true,
 					legacySummary: false,
 				});
@@ -363,6 +399,17 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 		if (!this.data.localDetail || !this.data.canCancel || this.data.canceling) {
 			return;
 		}
+		if (
+			this.data.selfPayBusy ||
+			(this.data.selfPayStatus !== "idle" &&
+				this.data.selfPayStatus !== "failed")
+		) {
+			wx.showToast({
+				title: "当前有自费支付在确认，请先完成或继续支付",
+				icon: "none",
+			});
+			return;
+		}
 		wx.showModal({
 			title: "取消预约",
 			content: "确认取消这条预约吗？取消后不能直接恢复。",
@@ -370,6 +417,15 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			cancelText: "暂不取消",
 			success: (result) => {
 				if (!result.confirm || this.data.canceling) return;
+				try {
+					assertSessionGeneration(
+						this.data.sessionGeneration,
+						"Appointment detail session changed before cancellation",
+					);
+				} catch (error) {
+					this.showError(error);
+					return;
+				}
 				this.setData({ canceling: true });
 				requestAppointmentCancellation(this.data.appointmentId)
 					.then(() => {
@@ -384,6 +440,80 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 					.finally(() => this.setData({ canceling: false }));
 			},
 		});
+	},
+
+	/** 挂号自费只允许从服务端已确认的本地预约详情发起。 */
+	onSelfPay(): void {
+		if (
+			!this.data.localDetail ||
+			this.data.status !== "scheduled" ||
+			this.data.selfPayBusy ||
+			this.data.selfPayStatus === "cash_paid" ||
+			!this.data.appointmentId
+		) {
+			return;
+		}
+		try {
+			assertSessionGeneration(
+				this.data.sessionGeneration,
+				"Appointment detail session changed before self-payment",
+			);
+		} catch (error) {
+			this.showError(error);
+			return;
+		}
+		logClientPageAction("appointment-detail", "onSelfPay");
+		this.setData({
+			selfPayBusy: true,
+			selfPayStatus: "idle",
+			selfPayMessage: "正在创建自费支付订单",
+			selfPayError: "",
+		});
+		void startRegistrationSelfPay(this.data.appointmentId, (stage, message) => {
+			if (stage === "confirming") {
+				this.setData({ selfPayStatus: "awaiting_confirmation" });
+			}
+			this.setData({ selfPayMessage: message });
+		})
+			.then(() => {
+				this.setData({
+					selfPayBusy: false,
+					selfPayStatus: "cash_paid",
+					selfPayMessage: "挂号和自费支付成功",
+					selfPayError: "",
+					canCancel: false,
+				});
+				wx.showToast({ title: "支付成功", icon: "success" });
+			})
+			.catch((error) => {
+				logClientErrorTransformed("appointment-detail.self-pay", error);
+				if (error instanceof RegistrationSelfPayCancelledError) {
+					this.setData({
+						selfPayBusy: false,
+						selfPayStatus: "awaiting_confirmation",
+						selfPayMessage: "已取消自费支付，预约已保留，可继续支付",
+						selfPayError: "",
+					});
+					return;
+				}
+				if (error instanceof RegistrationSelfPayPendingError) {
+					this.setData({
+						selfPayBusy: false,
+						selfPayStatus: "awaiting_confirmation",
+						selfPayMessage:
+							"支付结果仍在确认，预约已保留，请稍后点击继续自费支付",
+						selfPayError: "",
+					});
+					return;
+				}
+				const presented = presentClientError(error, "payment");
+				this.setData({
+					selfPayBusy: false,
+					selfPayStatus: "awaiting_confirmation",
+					selfPayMessage: "自费支付未完成，预约已保留",
+					selfPayError: presented.displayText,
+				});
+			});
 	},
 
 	onBack(): void {
@@ -406,6 +536,11 @@ Page<AppointmentDetailPageState, AppointmentDetailPageMethods>({
 			patientName: "",
 			patientCardLabel: "",
 			canCancel: false,
+			selfPayBusy: false,
+			selfPayStatus: "idle",
+			selfPayMessage: "",
+			selfPayError: "",
+			sessionGeneration: -1,
 		});
 		wx.showToast({ title: message, icon: "none" });
 	},

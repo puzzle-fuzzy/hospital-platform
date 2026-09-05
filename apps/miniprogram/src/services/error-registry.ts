@@ -43,6 +43,7 @@ export const SERVER_ERROR_NUMERIC_CODES = Object.freeze({
 	"appointment-hold-expired": 30430,
 	"appointment-registration-not-found": 30440,
 	"appointment-medical-payment-active": 30450,
+	"appointment-payment-active": 30455,
 	"appointment-source-unavailable": 30460,
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,

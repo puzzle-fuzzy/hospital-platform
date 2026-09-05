@@ -18,12 +18,12 @@ describe("全项目迁移 readiness 报告", () => {
 		expect(report.entryCoverage.frozenBoundary).toMatchObject({
 			domainCount: 33,
 			legacyEntryCount: 39,
-			legacyActionCount: 9,
-			coveredEntryCount: 48,
+			legacyActionCount: 8,
+			coveredEntryCount: 47,
 			actionFeatureKeyCount: 15,
 			uncoveredActionFeatureKeys: [],
-			featureStatusCallCount: 11,
-			featureStatusFeatureKeyCount: 10,
+			featureStatusCallCount: 10,
+			featureStatusFeatureKeyCount: 9,
 			uncoveredFeatureStatusKeys: [],
 			passed: true,
 		});
@@ -63,7 +63,7 @@ describe("全项目迁移 readiness 报告", () => {
 				batchId: "F-payment-and-writeback",
 				gateCount: 6,
 				legacyEntryCount: 7,
-				legacyActionCount: 1,
+				legacyActionCount: 0,
 			},
 		]);
 		expect(report.entryCoverage.legacy.domainCoverage).toHaveLength(7);
