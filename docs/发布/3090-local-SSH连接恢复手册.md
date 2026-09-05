@@ -33,6 +33,16 @@ ssh -J meiyi.pro -o BatchMode=yes -o ConnectTimeout=8 \
 如果 `journalctl` 被系统权限拒绝，再由服务器管理员执行对应的 `sudo journalctl`；不要为了排障
 临时把完整环境文件、数据库连接串或 PEM 内容复制到聊天记录。
 
+### 0.1 2026-09-05 现场复核结论
+
+本次复核发现 3090 上的 `/tmp/hospital-3090-ssh.sock` 文件仍存在，但 `ss -xlpn` 和 `lsof`
+均没有监听进程；因此它是残留 socket 文件，不是可用的 SSH 入口。此时在 macOS 上重建
+`22023` 转发仍会得到 `Connection reset by peer`，继续重试不会修复远端监听缺失。
+
+恢复 `3090-local` 必须由维护该 Unix socket 的远端进程/服务重新创建监听；在没有确认其启动
+命令和目标的情况下，不要直接删除 socket 或自行启动未知代理。项目发布和日志排障可直接使用
+上面的 PEM 兜底命令，不受 `3090-local` 残留 socket 影响。
+
 ## 1. 先检查 `3090-local`
 
 ```bash
