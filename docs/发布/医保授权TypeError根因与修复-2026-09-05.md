@@ -49,3 +49,18 @@ http.request.completed 或带稳定错误码的 http.request.failed
 ```
 
 如果再次失败，先按同一 `traceId/requestId` 查询服务端 journald；不能只根据小程序的“服务器内部错误”判断为医保机构拒绝。
+
+## 发布复核与运行时补充
+
+本次修复提交 `3defdeed1e390a0cc3bd97c6f0b09a3dae1b368c` 已上传到独立 release，API bundle
+SHA-256 为 `85abf12bba3dc60d3d4dc3fa65324da2a5209eda50a23b99a3393c7780e78d15`，并完成原子切换。
+切换过程中发现目标机的 systemd 沙箱会让 Bun 默认临时目录不可写；仅设置 `TMPDIR/TMP/TEMP`
+无效，必须在生产 `shared/api.env` 增加：
+
+```text
+BUN_TMPDIR=/home/ps/code/hospital-platform/shared/tmp
+```
+
+该目录已创建并限制为 `0700`。补充后 API 以新 release 稳定启动，`/health/ready` 返回
+`database=ok`、`redis=ok`、`schema=ok`，18081 正常监听。该问题属于部署运行时配置，不是本次
+医保授权业务代码的根因；后续候选发布必须同时检查 Bun 临时目录，避免把启动失败误判成业务接口错误。

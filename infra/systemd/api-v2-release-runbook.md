@@ -103,6 +103,12 @@ worker，也不会执行 migration 或支付/医保/HIS 写入。还必须包含
 
 候选 release 上传后，可在不切换 `current` 的情况下执行生产环境 preflight：
 
+> 注意：`shared/api.env` 是 systemd `EnvironmentFile`，其中的私钥等值可能包含转义换行，
+> 不能把它当作普通 shell 脚本直接 `. shared/api.env`。若出现 shell 解析警告，应改用受控的
+> systemd 环境运行候选，或由管理员提供不回显密钥的 preflight wrapper；不要修改真实凭据格式。
+> API 常驻运行还必须确认 `BUN_TMPDIR` 已配置且目录权限为 `0700`，否则 Bun 可能在 systemd
+> 沙箱中报 `ReadOnlyFileSystem` 并退出。
+
 ```bash
 cd /home/ps/code/hospital-platform
 set -a
