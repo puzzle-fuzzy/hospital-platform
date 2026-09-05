@@ -312,6 +312,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		contractFamily: "patient-write",
 		legacyPaths: ["pagesB/patient/patientAdd.vue"],
 		safeSurfaceTarget: "pages/patient-binding/patient-binding",
+		safePartialPaths: ["pagesB/patient/patientAdd.vue"],
 		requiredMaterials: [
 			"consent",
 			"identity-verification",
@@ -334,6 +335,7 @@ export const FROZEN_DOMAIN_GATE_CATALOG = Object.freeze([
 		legacyPaths: ["pagesB/health/admission_preconsultation.vue"],
 		safeSurfaceTarget:
 			"pages/admission-preconsultation/admission-preconsultation",
+		safePartialPaths: ["pagesB/health/admission_preconsultation.vue"],
 		requiredMaterials: [
 			"questionnaire-version",
 			"authorization",

@@ -5,9 +5,7 @@ import {
 } from "./migration-coverage";
 import { USER_FACING_SURFACE_COPY } from "./user-facing-surface-copy";
 
-export type PatientContractSurfaceFeature =
-	| "patient-binding"
-	| "patient-signature";
+export type PatientContractSurfaceFeature = "patient-signature";
 
 type PatientContractSurfaceDefinition = {
 	scopeTitle: string;
@@ -18,33 +16,16 @@ type PatientContractSurfaceDefinition = {
 };
 
 /**
- * 患者域的两个页面先统一迁移“入口 + 关闭态”，不共享患者写入模型。
+ * 患者签名等仍待正式 contract 的页面统一使用“入口 + 关闭态”，不共享患者写入模型。
  *
- * 旧端的新增绑定、患者签名和快递页面都存在未确认的 provider 或外部
- * 合同：绑定页不能在查档失败后继续建档，签名页不能复用假患者和硬编码
- * 外部小程序，快递页也不能把预留空数组当作真实查询结果。因此这里仅
- * 固定用户能看懂的范围、禁止事项和后续材料，等正式 contract 到达后再
- * 在各自页面接入 owner 校验、请求状态机和低敏日志。
+ * 签名页面不能复用假患者和硬编码外部小程序。因此这里仅固定用户能看懂
+ * 的范围、禁止事项和后续材料，等正式 contract 到达后再接入 owner 校验、
+ * 请求状态机和低敏日志。新增就诊人页面已经改为独立的真实姓名资料表单，
+ * 不再使用本关闭态工厂。
  */
 const PATIENT_CONTRACT_SURFACE_DEFINITIONS: Readonly<
 	Record<PatientContractSurfaceFeature, PatientContractSurfaceDefinition>
 > = Object.freeze({
-	"patient-binding": {
-		scopeTitle: "实名绑定范围",
-		scopeDescription:
-			"绑定关系必须由当前账号和医院服务端共同确认，不会只凭姓名或客户端患者号完成绑定。",
-		boundaryItems: [
-			"查档失败不能继续建档或绑卡",
-			"姓名、身份证和手机号只用于受控的实名校验",
-			"写入后必须重新查询最终患者关系和状态",
-		],
-		contractItems: [
-			"实名同意、查档、建档和绑卡的顺序",
-			"幂等键、重复绑定、撤回和失败补偿规则",
-			"患者 owner、字段白名单和医护侧审计",
-		],
-		showPatientSelector: false,
-	},
 	"patient-signature": {
 		scopeTitle: "患者签名范围",
 		scopeDescription:
@@ -96,8 +77,9 @@ function toPageData(
 }
 
 /**
- * 注册患者域页面外壳。页面只做静态边界展示和安全导航，不读取患者缓存，
- * 不调用 provider，也不把“已进入页面”记录成真实业务成功。
+ * 注册仍待正式 contract 的患者域页面外壳。页面只做静态边界展示和安全
+ * 导航，不读取患者缓存，不调用 provider，也不把“已进入页面”记录成真实
+ * 业务成功。
  */
 export function registerPatientContractSurfacePage(
 	feature: PatientContractSurfaceFeature,

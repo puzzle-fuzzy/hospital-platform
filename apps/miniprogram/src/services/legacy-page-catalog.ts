@@ -93,7 +93,7 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/health/admission_preconsultation.vue",
 			domain: "健康",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/admission-preconsultation/admission-preconsultation",
 			featureKey: "admission-preconsultation",
 			note: "已迁移入院预问诊原生页面外壳和患者入口；版本化问卷、授权、幂等提交和医护读取规则仍关闭。",
@@ -486,10 +486,10 @@ export const LEGACY_PAGE_MIGRATION_CATALOG: ReadonlyArray<LegacyPageMigration> =
 		{
 			legacyPath: "pagesB/patient/patientAdd.vue",
 			domain: "患者",
-			status: "surface-only",
+			status: "partial",
 			nativeTarget: "pages/patient-binding/patient-binding",
 			featureKey: "patient-binding",
-			note: "已迁移添加就诊人页面外壳和关闭态；旧端查档异常继续建档、无幂等和最终确认等行为不原样迁移。",
+			note: "已迁移姓名、手机号、身份证号和协议确认表单，并通过服务端提交；查档、建档、绑卡、幂等和最终确认仍由服务端 contract/gate 控制。",
 		},
 		{
 			legacyPath: "pagesB/patient/patientChange.vue",

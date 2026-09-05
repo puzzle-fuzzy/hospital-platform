@@ -171,6 +171,9 @@ const patientBindingGateway =
 	patientBindingStatus === "configured" && config.zhongyangBaseUrl
 		? createZhongyangPatientBindingGateway({
 				baseUrl: config.zhongyangBaseUrl,
+				orgId: config.patientBindingOrgId ?? 0,
+				hospitalId: config.patientBindingHospitalId ?? 0,
+				cardTypeId: config.patientBindingCardTypeId ?? 0,
 				...(config.zhongyangAuthorizationToken
 					? { authorizationToken: config.zhongyangAuthorizationToken }
 					: {}),

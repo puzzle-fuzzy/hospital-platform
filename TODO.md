@@ -42,7 +42,7 @@
 - 新端结构已闭环的 5 个低风险域是：就诊人目录、预约目录/历史、报告目录、门诊费用只读列表、普通个人资料；它们都还缺 Provider/公网/真机的完整证据，因此不能称为业务完成。
 - 当前真实证据就绪业务域为 0；健康百科审核 bundle 不存在；Provider 接收材料 4 份均为 `normalized`、确认数为 0；Worker 当前因支付和 Provider 配置缺失而跳过实际业务循环。
 
-“页面存在”“状态页存在”“本地测试通过”均不等于迁移完成。任何患者绑定、临床内容、实时会话、支付、医保、退款和 HIS 回写，必须在正式 contract、服务端实现、低敏日志、公网和真机证据齐全后才可打开。
+“页面存在”“状态页存在”“本地测试通过”均不等于迁移完成。患者绑定页面的实名资料录入可以先开放，但查档、建档、绑卡、临床内容、实时会话、支付、医保、退款和 HIS 回写，必须在正式 contract、服务端实现、低敏日志、公网和真机证据齐全后才可打开。
 
 ## 1. 校对证据与当前基线
 
@@ -106,7 +106,7 @@
 | `pagesB/patient/doctor.vue` | `pages/my-doctor/my-doctor` | surface-only | 医生目录与患者关系必须分开建模，不能直接恢复旧库快照。 |
 | `pagesB/patient/express.vue` | `pages/patient-express/patient-express` | partial | 患者卡片和空态已迁移；真实物流来源、归属和状态字段待 Provider contract。 |
 | `pagesB/patient/patient_signature.vue` | `pages/patient-signature/patient-signature` | partial | owner-scoped 脱敏列表和协议入口已迁移；签名材料、证据保留、撤回和医护读取待 contract。 |
-| `pagesB/patient/patientAdd.vue` | `pages/patient-binding/patient-binding` | surface-only | 建档/绑卡外壳已迁移；实名核验、幂等、重复绑定、撤回和失败重试关闭。 |
+| `pagesB/patient/patientAdd.vue` | `pages/patient-binding/patient-binding` | partial | 姓名、手机号、身份证号和协议确认表单已迁移并提交服务端；真实查档、建档、绑卡、幂等、重复绑定、撤回和失败重试仍由服务端 gate 控制。 |
 | `pagesB/patient/patientChange.vue` | `pages/patient-select/patient-select` | replaced | 已由 owner-scoped 目录和显式选择替换；旧 patId/卡号缓存不迁移。 |
 | `pagesB/user/edit_profile.vue` | `pages/profile/profile` | partial | 普通资料子集已迁移；头像、实名、手机号、微信身份与患者身份保持独立。 |
 | `pagesB/user/feedback.vue` | `pages/feedback/feedback` | replaced | 旧端静态帮助和客服电话行为已替换；无需恢复旧后台工单接口。 |
@@ -220,7 +220,7 @@
 | 健康百科 | `/api/v2/knowledge/health/*` | 路由和 fail-closed 代码完成；当前没有 `.local/health-knowledge/reviewed-bundle.json`。 |
 | 支付基础设施 | `/api/v2/payments/orders*`、微信通知 | 代码和 gate 存在；`WECHAT_PAYMENT_READY`、加密密钥和真实回调验收缺失，不能调用。 |
 
-明确没有注册、不能用近似数据冒充的模块：门诊病历、住院 episode、电子导诊单、患者新增/绑卡、随访/风险/自测提交、锦旗/表扬信写入、智能导诊/陪诊/客服、WebSocket、报告分享/云影像、预约写入/取消、费用明细、收银台、住院支付、医保、退款和 HIS 回写。我的医生已注册独立的 owner-scoped API，不属于本关闭列表。
+明确没有注册、不能用近似数据冒充的模块：门诊病历、住院 episode、电子导诊单、患者新增的真实查档/建档/绑卡写入、随访/风险/自测提交、锦旗/表扬信写入、智能导诊/陪诊/客服、WebSocket、报告分享/云影像、预约写入/取消、费用明细、收银台、住院支付、医保、退款和 HIS 回写。我的医生已注册独立的 owner-scoped API，不属于本关闭列表；新增就诊人的实名资料表单不属于 Provider 写入完成。
 
 ## 6. 需要真正补齐的事项
 

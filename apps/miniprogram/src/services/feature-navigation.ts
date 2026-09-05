@@ -384,7 +384,7 @@ export const FEATURE_STATUS_CATALOG: Readonly<
 		title: "添加就诊人",
 		readiness: "待患者绑定 contract",
 		description:
-			"实名绑定服务正在完善中，当前不会采集或提交姓名、手机号、身份证号等实名信息。",
+			"姓名、手机号和身份证号表单已接入；提交后由服务端按患者绑定 contract 处理，真实建档和绑卡仍受服务端配置控制。",
 		contractHint:
 			"等待查档、建档、绑卡、幂等、重复绑定、撤回和完成后目录同步规则确认。",
 		icon: "/assets/legacy-home/service-patient.svg",

@@ -69,6 +69,12 @@ export type RuntimeConfig = {
 	patientDirectoryReady: boolean;
 	/** 新增就诊人的查档、建档与绑卡是独立写入能力，必须单独验收。 */
 	patientBindingReady: boolean;
+	/** 众阳患者绑定使用的机构 ID；不能复用医保 orgCode。 */
+	patientBindingOrgId: number | undefined;
+	/** 众阳患者建档使用的院区 ID；不能复用医保 hospitalId。 */
+	patientBindingHospitalId: number | undefined;
+	/** 众阳 2.1.55 卡类型字典确认后的 cardTypeId；不允许代码默认猜测。 */
+	patientBindingCardTypeId: number | undefined;
 	/** 预约 AMC 只读目录独立验收，不能随患者目录一起隐式打开。 */
 	appointmentDirectoryReady: boolean;
 	/** 预约历史使用 appointment-server 独立 endpoint，必须单独验收。 */
@@ -157,6 +163,16 @@ function isHttpUrl(value: string | undefined): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/** 解析 provider 的正整数 ID；非法值收敛为 undefined，由 gate 统一报告缺失。 */
+function optionalPositiveInteger(
+	value: string | undefined,
+): number | undefined {
+	const normalized = optional(value);
+	if (!normalized || !/^\d+$/u.test(normalized)) return undefined;
+	const parsed = Number(normalized);
+	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 /** 只返回环境变量名，绝不返回密钥、证书或 URL 的实际值。 */
@@ -441,6 +457,13 @@ export function patientBindingConfigurationMissingFields(
 		runtimeConfig,
 		true,
 	);
+	for (const [name, value] of [
+		["ZHONGYANG_PATIENT_ORG_ID", runtimeConfig.patientBindingOrgId],
+		["ZHONGYANG_PATIENT_HOSPITAL_ID", runtimeConfig.patientBindingHospitalId],
+		["ZHONGYANG_PATIENT_CARD_TYPE_ID", runtimeConfig.patientBindingCardTypeId],
+	] as const) {
+		if (value === undefined) missing.push(name);
+	}
 	// 绑定成功后必须返回服务端重新同步的患者目录；如果只打开绑定 gate，
 	// provider 可能已经建档/绑卡但平台无法生成最终读模型，形成“接口报错
 	// 但外部已写入”的部分成功。因此把目录 gate 作为绑定能力的前置条件。
@@ -874,6 +897,13 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 			false,
 		),
 		patientBindingReady: boolean(env.ZHONGYANG_PATIENT_BINDING_READY, false),
+		patientBindingOrgId: optionalPositiveInteger(env.ZHONGYANG_PATIENT_ORG_ID),
+		patientBindingHospitalId: optionalPositiveInteger(
+			env.ZHONGYANG_PATIENT_HOSPITAL_ID,
+		),
+		patientBindingCardTypeId: optionalPositiveInteger(
+			env.ZHONGYANG_PATIENT_CARD_TYPE_ID,
+		),
 		appointmentDirectoryReady: boolean(
 			env.ZHONGYANG_APPOINTMENT_DIRECTORY_READY,
 			false,

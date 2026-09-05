@@ -361,7 +361,7 @@ Page<PatientSelectionPageData, PatientSelectionPageMethods>({
 		patientNavigationTimers.set(this, navigationTimer);
 	},
 
-	/** 绑定写入接口尚未通过真实医院契约验收，进入原生关闭态而不是伪造成功。 */
+	/** 进入原生实名资料表单；提交结果仍由服务端 gate 和 Provider 合同决定。 */
 	onAddPatient(): void {
 		navigateToFeatureEntry("patient-binding");
 	},

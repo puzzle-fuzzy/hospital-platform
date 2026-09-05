@@ -811,15 +811,19 @@ test("patient selection never silently switches a stale patient to another patie
 	});
 });
 
-test("native patient selection keeps unverified patient binding fail-closed", async () => {
+test("native patient selection enters the manual patient binding form", async () => {
 	const selection = await source("pages/patient-select/patient-select.ts");
 	const template = await source("pages/patient-select/patient-select.wxml");
+	const bindingPage = await source("pages/patient-binding/patient-binding.ts");
+	const bindingTemplate = await source(
+		"pages/patient-binding/patient-binding.wxml",
+	);
 	const bindingContract = await Bun.file(
 		join(import.meta.dir, "../../../docs/迁移/患者绑定契约草案.md"),
 	).text();
 
-	// provider 文档和最终状态查询未冻结前，页面只能进入安全的迁移外壳，
-	// 不能产生“查档失败后继续建档”的旧端副作用，也不能把医院患者号带回小程序。
+	// 页面先收集旧端确认的实名资料，再由服务端负责查档、建档、绑卡和最终
+	// 关系确认；小程序不直接调用 Provider，也不把医院患者号带回客户端。
 	expect(selection).toContain("onAddPatient");
 	expect(selection).toContain("navigateToFeatureEntry");
 	expect(selection).toContain('"patient-binding"');
@@ -827,7 +831,13 @@ test("native patient selection keeps unverified patient binding fail-closed", as
 	expect(selection).not.toContain("createPatientApi");
 	expect(selection).not.toContain("bindCardApi");
 	expect(template).toContain("添加就诊人");
-	expect(template).toContain("真实绑定接口接入前进入统一状态页");
+	expect(bindingPage).toContain("bindPatientToHospital");
+	expect(bindingPage).toContain("请输入正确的手机号");
+	expect(bindingPage).toContain("请输入正确的身份证号");
+	expect(bindingTemplate).toContain('data-field="displayName"');
+	expect(bindingTemplate).toContain('data-field="mobile"');
+	expect(bindingTemplate).toContain('data-field="identityNumber"');
+	expect(bindingTemplate).toContain("我已阅读并同意");
 	expect(bindingContract).toContain("查找异常不得转成“没有档案”");
 	expect(bindingContract).toContain("PB-01");
 });

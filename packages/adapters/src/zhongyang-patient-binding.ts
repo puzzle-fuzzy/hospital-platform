@@ -3,7 +3,7 @@ import type {
 	ExternalTrace,
 	PatientBindingGateway,
 } from "@hospital/domain";
-import { ProviderRequestError } from "./errors";
+import { AdapterNotConfiguredError, ProviderRequestError } from "./errors";
 import { type ProviderFetcher, requestJson } from "./http";
 
 const PATIENT_ARCHIVE_PATH = "/msun-middle-aggregate-patient/v1/patInfosFind";
@@ -12,6 +12,12 @@ const PATIENT_CARD_BIND_PATH = "/msun-middle-aggregate-patient/v1/patCards";
 
 type ZhongyangPatientBindingOptions = {
 	baseUrl: string;
+	/** 众阳 2.1.53 的 `org-id` 请求头及 2.1.51 的 orgId。 */
+	orgId: number;
+	/** 众阳 2.1.51 建档使用的 hospitalId。 */
+	hospitalId: number;
+	/** 由 2.1.55 卡类型字典确认的 cardTypeId。 */
+	cardTypeId: number;
 	authorizationToken?: string;
 	fetcher?: ProviderFetcher;
 };
@@ -55,6 +61,13 @@ function requiredText(
 	return normalized;
 }
 
+function requiredPositiveInteger(value: unknown): number {
+	if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+		throw new AdapterNotConfiguredError("zhongyang");
+	}
+	return value;
+}
+
 function successfulEnvelope(
 	value: unknown,
 	requestId: string,
@@ -77,10 +90,12 @@ function successfulEnvelope(
 	return envelope;
 }
 
-function archivePatientId(
+type PatientReference = { patId: number; cardNo: string };
+
+function patientReference(
 	value: unknown,
 	requestId: string,
-): string | undefined {
+): PatientReference | undefined {
 	if (value === undefined || value === null) return undefined;
 	if (typeof value !== "object" || Array.isArray(value)) {
 		throw providerError(
@@ -89,42 +104,63 @@ function archivePatientId(
 			true,
 		);
 	}
-	const patientId = (value as Record<string, unknown>).patId;
-	if (
-		typeof patientId !== "string" ||
-		!patientId.trim() ||
-		patientId.length > 128
-	) {
+	const record = value as Record<string, unknown>;
+	const patientId = record.patId;
+	if (typeof patientId !== "number" || !Number.isSafeInteger(patientId)) {
 		throw providerError(
 			"Zhongyang patient archive patId is invalid",
 			requestId,
 			true,
 		);
 	}
-	return patientId.trim();
-}
-
-function createdPatientId(value: unknown, requestId: string): string {
-	const patientId = archivePatientId(value, requestId);
-	if (!patientId) {
+	if (patientId <= 0) {
 		throw providerError(
-			"Zhongyang patient creation did not return patId",
+			"Zhongyang patient archive patId is invalid",
 			requestId,
 			true,
 		);
 	}
-	return patientId;
+	const cardNo = record.cardNo;
+	if (typeof cardNo !== "string" || !cardNo.trim() || cardNo.length > 300) {
+		throw providerError(
+			"Zhongyang patient archive cardNo is invalid",
+			requestId,
+			true,
+		);
+	}
+	return { patId: patientId, cardNo: cardNo.trim() };
+}
+
+function createdPatientReference(
+	value: unknown,
+	requestId: string,
+): PatientReference {
+	const patient = patientReference(value, requestId);
+	if (!patient) {
+		throw providerError(
+			"Zhongyang patient creation did not return patId/cardNo",
+			requestId,
+			true,
+		);
+	}
+	return patient;
 }
 
 export class ZhongyangPatientBindingApiGateway
 	implements PatientBindingGateway
 {
 	private readonly baseUrl: string;
+	private readonly orgId: number;
+	private readonly hospitalId: number;
+	private readonly cardTypeId: number;
 	private readonly authorizationToken: string | undefined;
 	private readonly fetcher: ProviderFetcher;
 
 	constructor(options: ZhongyangPatientBindingOptions) {
 		this.baseUrl = requiredText(options.baseUrl, "baseUrl", 512);
+		this.orgId = requiredPositiveInteger(options.orgId);
+		this.hospitalId = requiredPositiveInteger(options.hospitalId);
+		this.cardTypeId = requiredPositiveInteger(options.cardTypeId);
 		this.authorizationToken = options.authorizationToken?.trim() || undefined;
 		this.fetcher = options.fetcher ?? fetch;
 	}
@@ -146,9 +182,12 @@ export class ZhongyangPatientBindingApiGateway
 			"identityNumber",
 			32,
 		);
-		const headers = this.authorizationToken
-			? { Authorization: `Bearer ${this.authorizationToken}` }
-			: undefined;
+		const headers = {
+			"org-id": String(this.orgId),
+			...(this.authorizationToken
+				? { Authorization: `Bearer ${this.authorizationToken}` }
+				: {}),
+		};
 		const archiveUrl = new URL(PATIENT_ARCHIVE_PATH, this.baseUrl);
 		archiveUrl.searchParams.set("type", "2");
 		archiveUrl.searchParams.set("idCardType", "0");
@@ -157,7 +196,7 @@ export class ZhongyangPatientBindingApiGateway
 		const archiveResponse = await requestJson<unknown>(
 			{
 				provider: "zhongyang",
-				operation: "patient-binding",
+				operation: "patient-binding.archive-lookup",
 				url: archiveUrl.toString(),
 				method: "GET",
 				context,
@@ -176,13 +215,14 @@ export class ZhongyangPatientBindingApiGateway
 				true,
 			);
 		}
-		let patientId = archivePatientId(archive.data, archiveResponse.requestId);
+		let patient = patientReference(archive.data, archiveResponse.requestId);
 		let created = false;
-		if (!patientId) {
+		let createRequestId: string | undefined;
+		if (!patient) {
 			const createResponse = await requestJson<unknown>(
 				{
 					provider: "zhongyang",
-					operation: "patient-binding",
+					operation: "patient-binding.create-archive",
 					url: new URL(PATIENT_CREATE_PATH, this.baseUrl).toString(),
 					method: "POST",
 					context,
@@ -191,16 +231,18 @@ export class ZhongyangPatientBindingApiGateway
 						patName: displayName,
 						phone: mobile,
 						idCardNo: identityNumber,
-						idCardType: "0",
+						idCardType: 0,
 						birthday: `${input.birthDate} 00:00:00`,
-						sex: input.sex,
-						cardNo: identityNumber,
-						cardType: "3",
+						sex: Number(input.sex),
+						cardType: this.cardTypeId,
+						hospitalId: this.hospitalId,
+						orgId: this.orgId,
 					},
 				},
 				this.fetcher,
 			);
-			patientId = createdPatientId(
+			createRequestId = createResponse.requestId;
+			patient = createdPatientReference(
 				successfulEnvelope(createResponse.data, createResponse.requestId).data,
 				createResponse.requestId,
 			);
@@ -209,12 +251,12 @@ export class ZhongyangPatientBindingApiGateway
 		const bindResponse = await requestJson<unknown>(
 			{
 				provider: "zhongyang",
-				operation: "patient-binding",
+				operation: "patient-binding.bind-card",
 				url: new URL(PATIENT_CARD_BIND_PATH, this.baseUrl).toString(),
 				method: "POST",
 				context,
 				...(headers ? { headers } : {}),
-				body: { patId: patientId, cardNo: identityNumber },
+				body: { patId: patient.patId, cardNo: patient.cardNo },
 			},
 			this.fetcher,
 		);
@@ -225,6 +267,11 @@ export class ZhongyangPatientBindingApiGateway
 				provider: "zhongyang",
 				operation: "patient-binding",
 				requestId: bindResponse.requestId,
+				requestIds: [
+					archiveResponse.requestId,
+					...(createRequestId ? [createRequestId] : []),
+					bindResponse.requestId,
+				],
 			},
 		};
 	}

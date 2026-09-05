@@ -109,16 +109,6 @@ export const SURFACE_ONLY_RUNTIME_CATALOG = Object.freeze([
 			"apps/miniprogram/src/services/clinical-content-surface.ts",
 		],
 	},
-	{
-		featureKey: "patient-binding",
-		target: "pages/patient-binding/patient-binding",
-		mode: "surface-factory",
-		source: "apps/miniprogram/src/pages/patient-binding/patient-binding.ts",
-		registration: 'registerPatientContractSurfacePage("patient-binding")',
-		sharedSources: [
-			"apps/miniprogram/src/services/patient-contract-surface.ts",
-		],
-	},
 ]);
 
 /** 这些调用一旦出现在关闭态页面，就意味着页面绕过了统一 contract。 */

@@ -188,6 +188,15 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	expect(
 		patientBindingConfigurationMissingFields(patientBindingWithoutDirectory),
 	).toContain("ZHONGYANG_PATIENT_DIRECTORY_READY");
+	expect(
+		patientBindingConfigurationMissingFields(patientBindingWithoutDirectory),
+	).toEqual(
+		expect.arrayContaining([
+			"ZHONGYANG_PATIENT_ORG_ID",
+			"ZHONGYANG_PATIENT_HOSPITAL_ID",
+			"ZHONGYANG_PATIENT_CARD_TYPE_ID",
+		]),
+	);
 	const appointmentDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_BASE_URL: "http://zhongyang.internal",
@@ -266,6 +275,9 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 	const configuredPatientDirectory = loadRuntimeConfig({
 		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
 		ZHONGYANG_PATIENT_BINDING_READY: "true",
+		ZHONGYANG_PATIENT_ORG_ID: "10756",
+		ZHONGYANG_PATIENT_HOSPITAL_ID: "10389001",
+		ZHONGYANG_PATIENT_CARD_TYPE_ID: "3",
 		ZHONGYANG_APPOINTMENT_DIRECTORY_READY: "true",
 		ZHONGYANG_APPOINTMENT_RECORDS_READY: "true",
 		ZHONGYANG_OUTPATIENT_PAYMENT_READY: "true",
