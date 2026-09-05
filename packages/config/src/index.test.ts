@@ -162,9 +162,12 @@ test("provider configuration diagnostics distinguish disabled, incomplete and co
 			"MBS_SM2_PRIVATE_KEY_B64",
 			"MBS_FORWARD_RELAY_URL(https)",
 			"MBS_ENCRYPT_ENABLE",
-			"MBS_SM2_VERIFY_STRICT",
 		]),
 	);
+	const nonStrict = loadRuntimeConfig({
+		MBS_SM2_VERIFY_STRICT: "false",
+	});
+	expect(nonStrict.medicalInsuranceVerifyStrict).toBeFalse();
 	const patientDirectoryIncomplete = loadRuntimeConfig({
 		ZHONGYANG_PATIENT_DIRECTORY_READY: "true",
 		ZHONGYANG_BASE_URL: "http://zhongyang.internal",

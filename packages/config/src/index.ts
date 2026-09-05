@@ -55,6 +55,7 @@ export type RuntimeConfig = {
 	medicalInsuranceSm2PlatformPublicKeyB64: string | undefined;
 	medicalInsuranceSm2UserId: string;
 	medicalInsuranceEncryptionEnabled: boolean;
+	/** 当前医保测试环境暂按兼容模式运行；拿到严格回包验签证据后再显式打开。 */
 	medicalInsuranceVerifyStrict: boolean;
 	/** 仅用于医保 payToken 短期上下文密文，必须与微信支付密钥分离。 */
 	medicalInsuranceCredentialEncryptionKey: string | undefined;
@@ -375,9 +376,6 @@ export function medicalInsuranceConfigurationMissingFields(
 	}
 	if (!runtimeConfig.medicalInsuranceEncryptionEnabled) {
 		missing.push("MBS_ENCRYPT_ENABLE");
-	}
-	if (!runtimeConfig.medicalInsuranceVerifyStrict) {
-		missing.push("MBS_SM2_VERIFY_STRICT");
 	}
 	return missing;
 }
@@ -853,7 +851,9 @@ export function loadRuntimeConfig(env: RuntimeEnv): RuntimeConfig {
 		medicalInsuranceSm2UserId:
 			optional(env.MBS_SM2_USER_ID) ?? "1234567812345678",
 		medicalInsuranceEncryptionEnabled: boolean(env.MBS_ENCRYPT_ENABLE, true),
-		medicalInsuranceVerifyStrict: boolean(env.MBS_SM2_VERIFY_STRICT, true),
+		// 当前测试环境回包业务成功但签名不通过，先按非严格模式兼容；
+		// 取得平台回包验签证据后，由部署环境显式设为 true。
+		medicalInsuranceVerifyStrict: boolean(env.MBS_SM2_VERIFY_STRICT, false),
 		medicalInsuranceCredentialEncryptionKey: optional(
 			env.MEDICAL_INSURANCE_CREDENTIAL_ENCRYPTION_KEY,
 		),

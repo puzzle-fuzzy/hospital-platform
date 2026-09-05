@@ -51,6 +51,13 @@ test("legacy FSI opened payload cannot bypass signature verification", () => {
 			"6202",
 		),
 	).toThrow(LegacyFsiContractError);
+	expect(
+		validateLegacyFsiOpenedPayload(
+			{ data: { payOrdId: "pay-order-001" }, signVerified: false },
+			"6201",
+			{ allowUnverified: true },
+		),
+	).toEqual({ data: { payOrdId: "pay-order-001" }, signVerified: false });
 });
 
 test("legacy FSI crypto remains fail-closed until an implementation is configured", async () => {

@@ -11,36 +11,55 @@
 - 原生微信小程序：WXML、WXSS、TypeScript 源码（构建后生成微信运行所需的 JavaScript）
 - MySQL、Redis 和医保/HIS/微信支付适配层保持独立边界
 
-## 当前阶段
+## 当前状态（2026-09-05）
 
-> **当前仓库执行检查点（2026-08-27）**：当前 `main` 已推送但尚未部署到线上 API（具体提交以 `git rev-parse HEAD` 为准）；本轮 API 运行时代码变更来源为 `eb4d2eb4`、`4e1e53ed`，线上新 API 仍为 `1bc8b0a8`，旧 Python `8001` 未修改。发布基线会因此阻断，不能把本地测试或代码状态当作线上业务验收。详见 [`docs/迁移/当前执行检查点-2026-08-27.md`](docs/迁移/当前执行检查点-2026-08-27.md)。
+> 当前代码已经合并并推送到 `main`；本次 README 同步只修改仓库文档，不执行服务器部署、服务重启、数据库迁移或真实 Provider 请求。线上 `test-hp.meiyi.pro` 的实际版本必须通过 `3090-local` 上的 release、systemd 和公网 readiness 证据单独确认，不能由 Git 状态推断。
 
-当前仓库进入 Phase 7D：已建立 Phase 5A-2 的 MySQL/Redis 真实持久化验收脚本，并在其上完成
-Phase 5B-1 的 provider 审计、微信身份 adapter，以及微信支付 APIv3 的请求签名、响应验签、
-JSAPI 下单、订单查询和通知 AES-256-GCM 解密边界，并开始固化医保 6201/6202/6203/6301/6401
-的路由、金额和退款 contract。微信支付 adapter 已有“完整配置 + 显式闸门”的组合根注入
-路径，但默认关闭且缺配置时 fail-closed；医保 crypto 已有严格 port 但尚无真实实现，HIS
-provider 继续 fail-closed。
-原生小程序已经完成健康检查、微信登录、会话恢复、服务端归属患者列表、预约/报告只读工作台，
-并将会话生命周期和日期/读模型编排拆到独立 service；gated LIS opaque report detail 页面也已接入。
-微信授权登录现在已经形成可部署的首个业务闭环：小程序只提交 `wx.login` code，服务端完成 code2session、
-内部用户幂等映射和 Redis TTL 会话；生产是否可登录仍需真实 AppID/AppSecret、schema、Redis、合法域名和真机证据。
-详细启用、日志和回滚步骤见 [`docs/微信授权登录.md`](docs/微信授权登录.md)。真实微信开发者工具/真机验收仍未完成。
-6B 已建立服务端微信预支付参数边界，6C 已为预支付尝试建立
-独立幂等记录和受控密文存储，6D 又加入同一幂等键下的服务端状态读模型，6E-1 又加入
-微信支付通知的 APIv3 验签、解密、白名单映射、通知去重和入站 outbox；6E-2 又加入
-预支付尝试的持久化查单调度、金额二次校验、版本化订单状态迁移、通知 outbox handler 和可注入查单 worker；
-API/worker 现已共用 `@hospital/config`，worker 还会在进入循环前核对 MySQL 与目标 schema；预约目录、预约历史和 LIS/PACS/ECG 报告摘要也已建立独立 gate，但
-`WECHAT_PAYMENT_READY` 默认关闭，不复制旧项目的前端医保参数拼装、估算金额或 mock 成功状态。
-预约只读排班现在由 API 生成 opaque 平台 `scheduleId`，并写入带 provider request id、观察时间
-和 TTL 的服务端快照，作为未来锁号/预约写入前的必要事实；这不等于已经取得 provider 写入
-合同，也没有注册任何预约写入 API。
+当前仓库已经从“只读骨架”进入“统一支付核心 + 受控业务入口”阶段：预约写入、取消、挂号自费、医保授权/费用/结算、医保混合支付和门诊费用只读接口均已在新版 API 中注册；真实调用仍受运行配置、schema、Provider 合同、商户权限和人工验收门禁控制，缺少证据时保持 fail-closed。
+
+### 当前可用代码边界
+
+| 模块 | 当前实现 | 当前限制 |
+| --- | --- | --- |
+| `apps/api` | Bun + Elysia API、会话、患者目录、预约目录/排班、预约写入/取消/详情、挂号自费、医保支付、门诊费用只读、报告和结构化日志 | 生产可用性以运行时 gate、数据库/schema、Provider 和支付回调证据为准 |
+| `apps/miniprogram` | 43 个原生微信页面；微信登录、会话恢复、就诊人选择、预约目录/排班、挂号记录/详情、门诊费用列表/详情等主项目链路 | 患者绑定、临床 Provider、实时叫号、未确认内容和主项目内支付入口继续保持对应关闭态；支付由独立测试小程序承载 |
+| `apps/miniprogram-pay` | 挂号支付测试端：固定“内科风湿 + 后天优先/大后天顺延 + 上午 + 可用号源”，支持医保支付、医保混合支付、自费支付三条分支 | 真实医保/微信支付是否可调用由服务端配置和 Provider 验收决定；用户取消支付时保留预约和待支付上下文，不重复挂号 |
+| `apps/miniprogram-outpatient-pay` | 门诊支付测试端：登录、选择就诊人、读取待缴/已缴费用列表和已核对的摘要详情 | 当前只读，不创建门诊支付订单，不调用医保结算；门诊支付写入需先冻结正式 contract |
+| `apps/worker` | 医保订单/微信通知 outbox 的查单与补偿执行骨架、生产日志和 schema 前置检查 | 是否在线运行、是否接管生产订单必须通过服务器上的 systemd 和日志证据确认 |
+
+### 挂号支付测试端的实际流程
+
+`miniprogram-pay` 不使用“一条窄的快速挂号编排接口”，而是按业务阶段调用新版平台 API：
+
+```text
+POST /appointments/holds
+  → POST /appointments/registrations
+  → 医保授权小程序回跳 authCode（医保/混合支付）
+  → POST /payments/medical-insurance/authorize
+  → POST /payments/medical-insurance/orders/{orderId}/fees
+  → POST /payments/medical-insurance/orders/{orderId}/settle
+  → 需要自费时 POST /payments/medical-insurance/orders/{orderId}/wechat-pay
+  → 纯自费时 POST /payments/appointments/{appointmentId}/self-pay
+  → 服务端查单确认最终状态
+```
+
+服务端会在预约写入前检查重复预约；重复时不会再次挂号，用户确认后才调用独立取消接口，再重新读取号源并重试。医保结算返回自费金额时，纯医保分支不会偷偷切换为混合支付，而是提示用户明确选择医保混合支付。详细接口、状态和日志见 [`docs/miniprogram-pay-三个支付按钮业务说明.md`](docs/miniprogram-pay-三个支付按钮业务说明.md) 与 [`docs/医保支付操作流程图.md`](docs/医保支付操作流程图.md)。
+
+### 安全和运行门禁
+
+- 小程序只提交平台 opaque 的会话、患者、排班、预约和订单引用；众阳患者号、医保凭证、身份证、支付签名和商户密钥只在服务端使用。
+- 金额只能来自服务端已保存的预约/费用事实；`wx.requestPayment` 或医保支付调起回调本身不等于业务成功，最终状态以服务端通知、查单和回写为准。
+- `.env.example` 中的微信支付、医保、众阳和写入 gate 默认关闭；`configured` 只代表字段齐全，不代表 Provider 已授权或真实业务已通过。
+- 服务端日志统一记录 `requestId/traceId`、业务阶段、内部 opaque 标识、Provider 请求号和稳定错误码，不记录授权码、完整费用明细、证件号、支付凭证或原始 Provider 报文。
+- 新 API 公网入口为 `https://test-hp.meiyi.pro/api/v2`，应用内部路由为 `/api/v1`；线上部署和旧 Python `8001` 的共存状态必须单独验证。
 
 ```text
 apps/
   api/                 Elysia API 服务
-  miniprogram/         原生微信小程序壳
-  worker/              异步任务与回调处理进程（骨架）
+  miniprogram/         主项目原生微信小程序壳
+  miniprogram-pay/     挂号医保/混合/自费支付测试小程序
+  miniprogram-outpatient-pay/  门诊费用只读测试小程序
+  worker/              异步查单、outbox 与回调处理进程
 packages/
   contracts/           HTTP/API 契约与 TypeBox schema
   domain/              与框架无关的领域状态机和端口
@@ -114,10 +133,9 @@ $env:HOSPITAL_API_PREFIX = "/api/v1"
 pnpm runtime:smoke
 ```
 
-它会访问 `health/live`、`health/ready`、`system/ping`，检查已注册保护路由的未登录 `401/unauthorized`
-边界，并检查当前刻意关闭的患者新增、门诊病历、医保授权和预约写入路由保持
-`404/not-found`。关闭边界的 POST 只发送空 JSON，GET 不带 query/body，用于确认 HTTP 方法和路径；不需要平台 token，
-不会携带患者/订单数据，也不会调用 Provider 或触碰业务写入；同时会确认两个健康接口的
+它会访问 `health/live`、`health/ready`、`system/ping`，检查已注册保护路由的未登录
+`401/unauthorized` 边界，并检查未配置 Provider/支付闸门时的 fail-closed 响应。探针不携带平台 token、
+患者或订单数据，不调用 Provider，也不触碰业务写入；同时会确认两个健康接口的
 `Cache-Control` 保留 `no-store`，防止公网代理缓存 readiness 状态。
 开发观察模式下 `ready=not_ready` 会记录 warning；发布验收设置
 `$env:HOSPITAL_RUNTIME_REQUIRE_READY = "true"`，此时未 ready 会返回失败。
@@ -146,9 +164,10 @@ smoke 只执行 GET、默认要求 HTTPS，并使用 Pino 输出结构化验收�
 [`docs/发布/Provider目录验收.md`](docs/发布/Provider目录验收.md)；
 provider gate 配置完整不等于真实 provider 已授权或真机可用。
 
-预约写入、锁号、取消和挂号费仍处于合同冻结状态，目标边界见
-[`docs/预约写入契约-v1.md`](docs/预约写入契约-v1.md)；当前不会
-把旧小程序的 provider 身份、金额或支付字段重新包装成新 API。
+预约写入、锁号、取消、挂号自费和医保支付接口已经形成独立的新版 contract 与服务层，
+由 [`apps/miniprogram-pay`](apps/miniprogram-pay/README.md) 作为测试入口；门诊支付小程序仍只读。
+真实 Provider、医保、微信支付和 HIS 回写仍必须按 [`docs/发布/支付验收.md`](docs/发布/支付验收.md)
+完成配置、部署和业务证据，不能把接口已注册当作生产业务已验收。
 
 API 默认运行在 `http://localhost:3000`：
 
@@ -161,8 +180,21 @@ API 默认运行在 `http://localhost:3000`：
 - `POST /api/v1/payments/wechat/notifications`：接收已验签的微信支付成功通知并返回 provider ack
 - `GET /api/v1/appointments/departments`：读取服务端白名单后的预约科室目录
 - `GET /api/v1/appointments/schedules`：按最多 31 天范围读取服务端白名单后的排班目录
+- `POST /api/v1/appointments/holds`：校验号源、读取服务端挂号费并创建短期预约占位
+- `POST /api/v1/appointments/registrations`：检查重复预约并写入预约
+- `POST /api/v1/appointments/registrations/:appointmentId/cancel`：取消当前账号可操作的预约
+- `GET /api/v1/appointments/registrations/:appointmentId`：读取当前账号和就诊人范围内的挂号详情
 - `GET /api/v1/appointments/records`：按内部 `patientId` 和最多 366 天范围读取脱敏预约历史摘要
+- `POST /api/v1/payments/appointments/:appointmentId/self-pay`：创建挂号普通微信自费支付
+- `GET /api/v1/payments/appointments/:appointmentId/self-pay`：查询挂号自费订单最终状态
+- `POST /api/v1/payments/medical-insurance/authorize`：接收授权码并创建医保订单
+- `POST /api/v1/payments/medical-insurance/orders/:orderId/fees`：上传服务端核对的医保费用
+- `POST /api/v1/payments/medical-insurance/orders/:orderId/settle`：发起医保结算
+- `POST /api/v1/payments/medical-insurance/orders/:orderId/wechat-pay`：创建医保混合支付调起参数
+- `GET /api/v1/payments/medical-insurance/orders/:orderId/wechat-pay`：查询医保混合支付结果
+- `GET /api/v1/payments/medical-insurance/orders/:orderId`：查询医保订单最终状态
 - `GET /api/v1/payments/outpatient/records`：按内部 `patientId` 读取门诊待缴/已缴费用摘要；当前只读，不启动支付或医保结算
+- `GET /api/v1/payments/outpatient/records/:recordId`：读取已核对的门诊费用摘要详情；当前只读
 - `GET /api/v1/reports`：按内部 `patientId` 和最多 366 天范围读取 LIS/PACS/ECG 报告摘要目录
 - `GET /api/v1/reports/:reportId`：读取服务端短期引用对应的 LIS 白名单详情；独立 gate 默认关闭
 - `GET /openapi`：OpenAPI 文档
@@ -170,8 +202,9 @@ API 默认运行在 `http://localhost:3000`：
 本地 API 直接使用 `/api/v1`；公网新服务通过阿里云 Nginx 使用 `/api/v2`，并映射到新 API 的 `/api/v1`。
 原生小程序生产配置使用 `apiBaseUrl=https://test-hp.meiyi.pro` 和 `apiPrefix=/api/v2`，不要把两个前缀重复拼接。
 
-worker 进程组合和通知 outbox 消费核心已经接入，但真实数据库/provider 配置运行、微信开发者工具/公网
-回调和真机支付验收仍未完成；这些边界在没有真实证据前不会标记为 ready。
+worker 已接入医保订单/微信通知 outbox 的查单与补偿代码，但是否在线运行、是否接管生产订单必须以服务器
+systemd 状态和同链日志为准。真实数据库/provider 配置、微信公网回调和真机支付验收仍需单独完成；这些边界在
+没有真实证据前不会标记为 ready。
 
 部署、日志和回滚入口：
 

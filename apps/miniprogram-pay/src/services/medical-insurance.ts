@@ -19,6 +19,8 @@ export type PaymentMode = "medical" | "mixed" | "self";
 export type PendingPayment = {
 	appointmentId: string;
 	patientId: string;
+	/** 支付上下文创建时间；超过 15 分钟不得继续复用旧预约。 */
+	createdAt: number;
 	orderId?: string;
 	authorizeIdempotencyKey: string;
 	feesIdempotencyKey: string;
@@ -28,7 +30,8 @@ export type PendingPayment = {
 		| "authorization"
 		| "cash_payment"
 		| "medical_cash_required"
-		| "self_payment";
+		| "self_payment"
+		| "self_payment_cancelled";
 	wechatPayIdempotencyKey?: string;
 	wechatQueryIdempotencyKey?: string;
 	selfPayIdempotencyKey?: string;
@@ -95,6 +98,8 @@ function validPending(value: unknown): value is PendingPayment {
 	return (
 		isOpaque(item.appointmentId) &&
 		isOpaque(item.patientId) &&
+		typeof item.createdAt === "number" &&
+		Number.isSafeInteger(item.createdAt) &&
 		isOpaque(item.authorizeIdempotencyKey) &&
 		isOpaque(item.feesIdempotencyKey) &&
 		isOpaque(item.settleIdempotencyKey) &&
@@ -103,7 +108,8 @@ function validPending(value: unknown): value is PendingPayment {
 			item.phase === "authorization" ||
 			item.phase === "cash_payment" ||
 			item.phase === "medical_cash_required" ||
-			item.phase === "self_payment") &&
+			item.phase === "self_payment" ||
+			item.phase === "self_payment_cancelled") &&
 		(item.mode === undefined ||
 			item.mode === "medical" ||
 			item.mode === "mixed" ||
@@ -125,7 +131,19 @@ function savePending(value: PendingPayment): void {
 
 export function readPendingPayment(): PendingPayment | null {
 	const value = wx.getStorageSync(STORAGE_KEYS.pendingPayment);
-	return validPending(value) ? value : null;
+	if (!validPending(value)) return null;
+	const age = Date.now() - value.createdAt;
+	// 旧版本残留的 pending 没有可靠的创建时间，不能继续复用其中的
+	// 预约/医保订单；让下一次点击回到“重新取可用号源并预约”的入口。
+	if (age < 0 || age > PAY_CONFIG.pendingPaymentMaxAgeMs) {
+		clearPendingPayment();
+		return null;
+	}
+	return value;
+}
+
+export function clearPendingPayment(): void {
+	wx.removeStorageSync(STORAGE_KEYS.pendingPayment);
 }
 
 /** 预约已存在时只允许切换后续支付分支，不重新创建预约或医保订单。 */
@@ -138,8 +156,51 @@ export function setPendingPaymentMode(
 	return next;
 }
 
-function clearPendingPayment(): void {
-	wx.removeStorageSync(STORAGE_KEYS.pendingPayment);
+/** 用户取消自费收银台后，允许把同一预约切换到医保支付。 */
+export function switchCancelledSelfPaymentToMedical(
+	pending: PendingPayment,
+	mode: Exclude<PaymentMode, "self">,
+): PendingPayment {
+	if (pending.phase !== "self_payment_cancelled") {
+		throw new Error("只有取消自费支付后才能切换医保支付");
+	}
+	const next: PendingPayment = {
+		appointmentId: pending.appointmentId,
+		patientId: pending.patientId,
+		createdAt: pending.createdAt,
+		authorizeIdempotencyKey: newIdempotencyKey("medical-authorize"),
+		feesIdempotencyKey: newIdempotencyKey("medical-fees"),
+		settleIdempotencyKey: newIdempotencyKey("medical-settle"),
+		mode,
+		phase: "authorization",
+	};
+	savePending(next);
+	return next;
+}
+
+/** 取消自费后仍可重新打开自费收银台，但必须恢复为自费阶段。 */
+function resumeCancelledSelfPayment(
+	pending: PendingPayment,
+): SelfPaymentPending {
+	if (pending.phase !== "self_payment_cancelled") {
+		throw new Error("自费支付上下文状态不允许恢复");
+	}
+	if (!pending.orderId) {
+		throw new Error("自费支付订单引用为空，无法恢复");
+	}
+	const next: SelfPaymentPending = {
+		...pending,
+		orderId: pending.orderId,
+		phase: "self_payment",
+		selfPayIdempotencyKey:
+			pending.selfPayIdempotencyKey ??
+			newIdempotencyKey("registration-self-pay"),
+		selfQueryIdempotencyKey:
+			pending.selfQueryIdempotencyKey ??
+			newIdempotencyKey("registration-self-query"),
+	};
+	savePending(next);
+	return next;
 }
 
 /** 授权小程序的参数仍来自联调配置；凭证只用于跳转，不用于 API 请求。 */
@@ -197,6 +258,7 @@ export async function startMedicalPayment(
 	const pending: PendingPayment = {
 		appointmentId: appointment.appointmentId,
 		patientId: appointment.patientId,
+		createdAt: Date.now(),
 		authorizeIdempotencyKey: newIdempotencyKey("medical-authorize"),
 		feesIdempotencyKey: newIdempotencyKey("medical-fees"),
 		settleIdempotencyKey: newIdempotencyKey("medical-settle"),
@@ -415,6 +477,7 @@ function selfPaymentPending(
 	const pending: SelfPaymentPending = {
 		appointmentId: appointment.appointmentId,
 		patientId: appointment.patientId,
+		createdAt: Date.now(),
 		authorizeIdempotencyKey: newIdempotencyKey("self-pay-authorize"),
 		feesIdempotencyKey: newIdempotencyKey("self-pay-fees"),
 		settleIdempotencyKey: newIdempotencyKey("self-pay-settle"),
@@ -434,8 +497,18 @@ export async function startSelfPayment(
 ): Promise<PendingPayment> {
 	const pending = selfPaymentPending(appointment);
 	savePending(pending);
-	const result = await continueSelfPayment(pending, onProgress, true);
-	return result;
+	try {
+		return await continueSelfPayment(pending, onProgress, true);
+	} catch (error) {
+		if (error instanceof WechatPaymentCancelledError) {
+			// continueSelfPayment 会先把服务端返回的 orderId 写回本地；
+			// 取消时必须保留这份最新上下文，之后用户仍可继续自费，
+			// 或切换到医保支付。
+			const current = readPendingPayment() ?? pending;
+			savePending({ ...current, phase: "self_payment_cancelled" });
+		}
+		throw error;
+	}
 }
 
 async function continueSelfPayment(
@@ -494,8 +567,10 @@ async function continueSelfPayment(
 			);
 			return current;
 		}
-		if (result.status === "failed")
+		if (result.status === "failed") {
+			if (paymentWasCancelled) throw new WechatPaymentCancelledError();
 			throw new Error("微信自费支付已失败，请不要重复预约");
+		}
 		if (paymentWasCancelled) throw new WechatPaymentCancelledError();
 		await new Promise((resolve) =>
 			setTimeout(resolve, PAY_CONFIG.insurancePollDelaysMs[index] || 1500),
@@ -512,22 +587,38 @@ export async function continueSelfPaymentFromPending(
 	onProgress: Progress,
 ): Promise<void> {
 	if (
-		pending.phase !== "self_payment" ||
-		!pending.orderId ||
-		!pending.selfPayIdempotencyKey ||
-		!pending.selfQueryIdempotencyKey
+		(pending.phase !== "self_payment" &&
+			pending.phase !== "self_payment_cancelled") ||
+		!pending.orderId
 	)
 		throw new Error("自费支付上下文不完整，无法继续支付");
-	await continueSelfPayment(
-		{
-			...pending,
-			orderId: pending.orderId,
-			phase: "self_payment",
-			selfPayIdempotencyKey: pending.selfPayIdempotencyKey,
-			selfQueryIdempotencyKey: pending.selfQueryIdempotencyKey,
-		},
-		onProgress,
-	);
+	const orderId = pending.orderId;
+	const resumable =
+		pending.phase === "self_payment_cancelled"
+			? resumeCancelledSelfPayment(pending)
+			: pending;
+	try {
+		await continueSelfPayment(
+			{
+				...resumable,
+				orderId,
+				phase: "self_payment",
+				selfPayIdempotencyKey:
+					resumable.selfPayIdempotencyKey ??
+					newIdempotencyKey("registration-self-pay"),
+				selfQueryIdempotencyKey:
+					resumable.selfQueryIdempotencyKey ??
+					newIdempotencyKey("registration-self-query"),
+			},
+			onProgress,
+		);
+	} catch (error) {
+		if (error instanceof WechatPaymentCancelledError) {
+			const current = readPendingPayment() ?? resumable;
+			savePending({ ...current, phase: "self_payment_cancelled" });
+		}
+		throw error;
+	}
 }
 
 /**

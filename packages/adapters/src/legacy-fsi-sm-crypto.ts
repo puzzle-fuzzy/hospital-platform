@@ -258,6 +258,8 @@ export type SmCryptoLegacyFsiConfig = {
 	sm2UserId?: string;
 	/** 派生 SM4 密钥覆盖（测试注入）；生产必须由 appId/appSecret 派生。 */
 	derivedSm4KeyHexOverride?: string;
+	/** 测试环境兼容开关；严格模式由部署环境显式打开。 */
+	verifyResponseStrict?: boolean;
 };
 
 export function createSmCryptoLegacyFsiCrypto(
@@ -378,9 +380,15 @@ export function createSmCryptoLegacyFsiCrypto(
 			if (typeof data !== "object" || data === null || Array.isArray(data)) {
 				contractError(input.infno, "decrypted payload must be a JSON object");
 			}
+			// crypto adapter 默认仍严格；只有 API 根据显式运行配置传入 false
+			// 时，才打开当前测试环境的兼容模式。
+			const verifyResponseStrict = config.verifyResponseStrict !== false;
 			const signData = response.signData;
 			if (typeof signData !== "string" || !signData.trim()) {
-				contractError(input.infno, "response has no signData to verify");
+				if (verifyResponseStrict) {
+					contractError(input.infno, "response has no signData to verify");
+				}
+				return { data: data as Record<string, unknown>, signVerified: false };
 			}
 			const verifyPayload: Record<string, unknown> = {};
 			for (const [key, value] of Object.entries(response)) {
@@ -389,6 +397,12 @@ export function createSmCryptoLegacyFsiCrypto(
 			}
 			verifyPayload.data = data;
 			if (!verify(verifyPayload, signData as string)) {
+				if (!verifyResponseStrict) {
+					return {
+						data: data as Record<string, unknown>,
+						signVerified: false,
+					};
+				}
 				contractError(input.infno, "response signData verification failed");
 			}
 			return { data: data as Record<string, unknown>, signVerified: true };

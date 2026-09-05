@@ -1,7 +1,7 @@
 # miniprogram-pay
 
-高平医院挂号医保测试小程序。页面只保留一条清晰业务流程：选择就诊人后，固定预约 `内科风湿 /
-后天（无可约时顺延大后天）/ 上午 / 指定号源`，依次调用预约占位、预约写入、医保授权、费用上传和医保结算。
+高平医院挂号医保测试小程序。页面只保留一条清晰业务流程：选择就诊人后，自动预约 `内科风湿 /
+后天（无可约时顺延大后天）/ 上午 / 当前可用号源`，依次调用预约占位、预约写入、医保授权、费用上传和医保结算。
 
 本端业务标识固定为 `businessType=registration`、`orderType=RegPay`。它对应统一医保核心的挂号入口，
 不承载门诊费用记录；统一分层依据见 [医保统一核心与业务入口 ADR](../../docs/架构决策/0005-医保统一核心与业务入口.md)。
@@ -33,7 +33,10 @@
 - `medicalOrgChannelCredential`：机构渠道凭证；构建时从本机忽略文件 `.local/medical-insurance/test-environment-key-material.json` 的 `identityVerificationFeedback.orgChannelAuthCode` 注入，不能提交到仓库；
 - `departmentName` / `departmentProviderNames`：页面固定业务名称与 Provider 目录正式名称的对应关系；
 - `targetDateOffsets`：候选日期偏移，当前为 `[2, 3]`（后天优先，无可约时顺延大后天）；不会请求当天；
-- `targetSerialNumber`：要固定命中的号源；为空时取该排班第一个返回号源。
+- pay 小程序不开放号源选择：自动取服务端返回的第一条可用候选；真正写入前服务端会重新读取并锁定号源，
+  如果号源已被其他用户占用则刷新候选后重试一次。
+- `pendingPaymentMaxAgeMs`：支付上下文有效期，当前为 15 分钟；超过后不复用旧预约，重新获取可用号源。
+  服务端医保授权入口也会再次校验同一窗口，不能通过重放旧 `appointmentId` 绕过。
 
 医保机构渠道凭证只用于跳转医保授权小程序。小程序不直连医院 provider，也不保存患者实名资料、
 provider 号、授权码或 payToken；医保 adapter 未配置时服务端保持 fail-closed。

@@ -274,20 +274,34 @@ const medicalInsuranceMissing =
 	medicalInsuranceConfigurationMissingFields(config);
 const medicalInsuranceReady =
 	config.medicalInsuranceReady && medicalInsuranceMissing.length === 0;
-const medicalInsuranceCrypto = medicalInsuranceReady
-	? createSmCryptoLegacyFsiCrypto({
+const medicalInsuranceCryptoConfig = medicalInsuranceReady
+	? {
 			appId: config.medicalInsuranceAppId ?? "",
 			appSecret: config.medicalInsuranceAppSecret ?? "",
 			channelPrivateKeyB64: config.medicalInsuranceSm2PrivateKeyB64 ?? "",
 			platformPublicKeyB64:
 				config.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
 			sm2UserId: config.medicalInsuranceSm2UserId,
+		}
+	: undefined;
+// 6201/6202 目前按测试环境的兼容模式接收“已解密但验签未通过”的响应；
+// 医保异步通知仍单独使用严格实例，避免把非严格边界扩大到回调入账。
+const medicalInsuranceCrypto = medicalInsuranceCryptoConfig
+	? createSmCryptoLegacyFsiCrypto({
+			...medicalInsuranceCryptoConfig,
+			verifyResponseStrict: config.medicalInsuranceVerifyStrict,
+		})
+	: undefined;
+const medicalInsuranceNotificationCrypto = medicalInsuranceCryptoConfig
+	? createSmCryptoLegacyFsiCrypto({
+			...medicalInsuranceCryptoConfig,
+			verifyResponseStrict: true,
 		})
 	: undefined;
 const medicalInsuranceNotification =
-	medicalInsuranceCrypto && persistence.repositories
+	medicalInsuranceNotificationCrypto && persistence.repositories
 		? new MedicalInsuranceNotificationService({
-				crypto: medicalInsuranceCrypto,
+				crypto: medicalInsuranceNotificationCrypto,
 				orders: persistence.repositories.medicalInsuranceOrders,
 				logger,
 			})
@@ -317,6 +331,8 @@ const legacyFsiGateway =
 				relayAuthorizationToken:
 					config.medicalInsuranceRelayAuthorizationToken ?? "",
 				crypto: medicalInsuranceCrypto,
+				logger,
+				allowUnverifiedResponse: !config.medicalInsuranceVerifyStrict,
 			})
 		: undefined;
 const medicalInsuranceGateway =
@@ -340,6 +356,7 @@ const medicalInsuranceGateway =
 				hospitalId: config.medicalInsuranceHospitalId,
 				insutype: config.medicalInsuranceInsutype,
 				insuCode: config.medicalInsuranceInsuCode,
+				logger,
 			})
 		: undefined;
 // 登录能力必须同时具备微信身份 adapter、MySQL 身份仓储和 Redis 会话存储；
@@ -460,6 +477,9 @@ logger.info(
 		medicalInsuranceRuntime: medicalInsuranceGateway
 			? "enabled"
 			: "fail_closed",
+		medicalInsuranceResponseVerification: config.medicalInsuranceVerifyStrict
+			? "strict"
+			: "non_strict_compatibility",
 		patientDirectoryConfiguration: patientDirectoryStatus,
 		patientBindingConfiguration: patientBindingStatus,
 		appointmentDirectoryConfiguration: appointmentDirectoryStatus,

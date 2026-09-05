@@ -30,8 +30,8 @@ export const PAY_CONFIG = {
 	shiftName: "上午",
 	/** 只申请未来日期：优先后天，后天无可约排班时再申请大后天。 */
 	targetDateOffsets: [2, 3] as const,
-	/** 留空时自动取该日期上午第一个可用分时段。 */
-	targetSerialNumber: "",
+	/** 支付上下文最长保留时间；超过后必须重新获取号源并重新预约。 */
+	pendingPaymentMaxAgeMs: 15 * 60 * 1000,
 	requestTimeoutMs: 20_000,
 	insurancePollDelaysMs: [1_500, 3_000, 5_000, 8_000],
 } as const;

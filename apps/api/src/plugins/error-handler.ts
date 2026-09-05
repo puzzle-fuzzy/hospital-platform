@@ -66,6 +66,7 @@ import {
 import { HealthKnowledgeNotFoundError } from "../modules/knowledge/service";
 import {
 	MedicalInsuranceAppointmentNotFoundError,
+	MedicalInsuranceAppointmentStaleError,
 	MedicalInsuranceOrderNotFoundError,
 	MedicalInsuranceRegistrationInputError,
 } from "../modules/medical-insurance/registration-service";
@@ -127,6 +128,7 @@ export const ERROR_NUMERIC_CODES = Object.freeze({
 	"medical-insurance-invalid": 30500,
 	"medical-insurance-appointment-not-found": 30510,
 	"medical-insurance-order-not-found": 30520,
+	"medical-insurance-appointment-stale": 30530,
 	"report-query-invalid": 40100,
 	"report-patient-not-found": 40110,
 	"report-not-found": 40120,
@@ -565,6 +567,14 @@ export function errorHandlerPlugin() {
 				return errorPayload(
 					"medical-insurance-appointment-not-found",
 					"未找到可进行医保支付的预约",
+				);
+			}
+
+			if (error instanceof MedicalInsuranceAppointmentStaleError) {
+				set.status = 409;
+				return errorPayload(
+					"medical-insurance-appointment-stale",
+					"当前预约已失效，请重新获取号源并预约",
 				);
 			}
 

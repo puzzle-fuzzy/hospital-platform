@@ -21,10 +21,10 @@ export type LegacyFsiSealedEnvelope = {
 	signData: string;
 };
 
-/** 严格模式下，未验签 payload 不能进入业务 mapper 或状态机。 */
+/** 回包是否通过平台签名校验；非严格联调模式允许为 false，但必须被日志标记。 */
 export type LegacyFsiOpenedPayload = {
 	data: Record<string, unknown>;
-	signVerified: true;
+	signVerified: boolean;
 };
 
 export interface LegacyFsiCryptoGateway {
@@ -103,9 +103,10 @@ export function validateLegacyFsiSealedEnvelope(
 export function validateLegacyFsiOpenedPayload(
 	value: unknown,
 	infno: LegacyFsiInfno,
+	options: { allowUnverified?: boolean } = {},
 ): LegacyFsiOpenedPayload {
 	const payload = objectValue(value, infno);
-	if (payload.signVerified !== true) {
+	if (payload.signVerified !== true && !options.allowUnverified) {
 		throw new LegacyFsiContractError(
 			infno,
 			"crypto response must have signVerified=true",
@@ -113,7 +114,7 @@ export function validateLegacyFsiOpenedPayload(
 	}
 	return {
 		data: objectValue(payload.data, infno),
-		signVerified: true,
+		signVerified: payload.signVerified === true,
 	};
 }
 

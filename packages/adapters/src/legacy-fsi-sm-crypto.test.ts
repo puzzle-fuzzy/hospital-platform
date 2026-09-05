@@ -194,6 +194,14 @@ describe("sm-crypto gateway seal/open round trip", () => {
 		platformPublicKeyB64: hexToBase64(fx.publicKeyHex130),
 		sm2UserId: fx.userId,
 	});
+	const compatibility = createSmCryptoLegacyFsiCrypto({
+		appId: differentialFixture.appId,
+		appSecret: differentialFixture.appSecret,
+		channelPrivateKeyB64: hexToBase64(fx.privateKeyHex),
+		platformPublicKeyB64: hexToBase64(fx.publicKeyHex130),
+		sm2UserId: fx.userId,
+		verifyResponseStrict: false,
+	});
 
 	test("seal then open returns the cleaned payload and strict verification", async () => {
 		const envelope = await gateway.seal(
@@ -258,6 +266,28 @@ describe("sm-crypto gateway seal/open round trip", () => {
 				callContext,
 			),
 		).rejects.toThrow(LegacyFsiContractError);
+	});
+
+	test("compatibility mode keeps decrypted data when signData is unverified", async () => {
+		const envelope = await gateway.seal(
+			{ infno: "6201", data: { payOrdId: "PO-COMPAT" } },
+			callContext,
+		);
+		const corrupted = bytesToHex(
+			Array.from(atob(envelope.signData), (ch) => ch.charCodeAt(0) as number),
+		);
+		const flipped = hexToBase64(
+			(corrupted.slice(0, 2) === "00" ? "01" : "00") + corrupted.slice(2),
+		);
+		await expect(
+			compatibility.open(
+				{ infno: "6201", response: { ...envelope, signData: flipped } },
+				callContext,
+			),
+		).resolves.toEqual({
+			data: { payOrdId: "PO-COMPAT" },
+			signVerified: false,
+		});
 	});
 
 	test("response without encData or signData is rejected fail-closed", async () => {

@@ -95,7 +95,7 @@ const DEFAULT_OUTBOX_CLAIM_LEASE_MS = 60_000;
  * 连接刚被发现断开、连接池正在清理坏连接的瞬态时间，不是把数据库故障
  * 伪装成无限重试。写入、事务和 Provider 调用仍然禁止自动重放。
  */
-const READ_CONNECTION_RECOVERY_DELAYS_MS = [25, 100] as const;
+const READ_CONNECTION_RECOVERY_DELAYS_MS = [100, 500, 1_500] as const;
 
 /** 将 mysql2 的多重 overload 收窄为 repository 需要的参数形状。 */
 type QueryExecutor = {

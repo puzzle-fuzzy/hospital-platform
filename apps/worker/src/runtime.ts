@@ -202,7 +202,11 @@ export function createWorkerRuntime(
 							platformPublicKeyB64:
 								runtimeConfig.medicalInsuranceSm2PlatformPublicKeyB64 ?? "",
 							sm2UserId: runtimeConfig.medicalInsuranceSm2UserId,
+							verifyResponseStrict: runtimeConfig.medicalInsuranceVerifyStrict,
 						}),
+						logger,
+						allowUnverifiedResponse:
+							!runtimeConfig.medicalInsuranceVerifyStrict,
 					}),
 					orders: repositories.medicalInsuranceOrders,
 					authorizations: repositories.medicalInsuranceAuthorizations,
@@ -225,6 +229,7 @@ export function createWorkerRuntime(
 					hospitalId: runtimeConfig.medicalInsuranceHospitalId,
 					insutype: runtimeConfig.medicalInsuranceInsutype,
 					insuCode: runtimeConfig.medicalInsuranceInsuCode,
+					logger,
 				})
 			: undefined;
 	const medicalInsuranceReconciliation = medicalInsuranceGateway

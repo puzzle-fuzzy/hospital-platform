@@ -38,12 +38,22 @@ export type LegacyFsiGatewayOptions = {
 	relayAuthorizationToken: string;
 	/** 真实 SM2/SM4 实现通过该边界注入，未配置时必须失败。 */
 	crypto: LegacyFsiCryptoGateway;
+	/** 只记录阶段、请求号和字段形状，不记录请求体、凭证或患者原文。 */
+	logger?: ProviderDiagnosticLogger;
 	fetcher?: ProviderFetcher;
+	/** 测试环境兼容模式允许业务成功但回包未验签；生产必须保持 false。 */
+	allowUnverifiedResponse?: boolean;
+};
+
+export type ProviderDiagnosticLogger = {
+	info(bindings: object, message?: string): void;
+	warn(bindings: object, message?: string): void;
+	error(bindings: object, message?: string): void;
 };
 
 export type LegacyFsiFeeUploadResult = {
 	credential: LegacyFsiFeeUploadCredential;
-	/** 6201 返回的真实就诊/医保结算号；未返回时上层必须停止 6202。 */
+	/** 6201 返回的真实就诊/医保结算号；上层也可使用同次前置结算事实补齐。 */
 	mdtrtId?: string;
 	totalFen: number;
 	trace: ExternalTrace;
@@ -145,6 +155,15 @@ function trace(infno: LegacyFsiInfno, requestId: string): ExternalTrace {
 	};
 }
 
+function providerKeys(value: unknown): readonly string[] {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return [];
+	}
+	return Object.keys(value as Record<string, unknown>)
+		.sort()
+		.slice(0, 48);
+}
+
 /**
  * 受控的旧医保 FSI 移动支付传输适配器。
  *
@@ -167,6 +186,15 @@ export function createLegacyFsiGateway(
 		data: Record<string, unknown>,
 		context: AdapterCallContext,
 	): Promise<{ data: Record<string, unknown>; requestId: string }> => {
+		options.logger?.info(
+			{
+				event: "medical-insurance.legacy-fsi.requested",
+				traceId: context.traceId,
+				operation: `legacy-fsi.${infno}`,
+				infno,
+			},
+			"Legacy FSI request dispatched",
+		);
 		const sealed = await options.crypto.seal({ infno, data }, context);
 		const envelope = validateLegacyFsiSealedEnvelope(sealed, infno);
 		const response = await requestJson<unknown>(
@@ -195,11 +223,49 @@ export function createLegacyFsiGateway(
 				{ infno, response: asRecord(response.data, infno) },
 				context,
 			);
+			const validated = validateLegacyFsiOpenedPayload(opened, infno, {
+				allowUnverified: options.allowUnverifiedResponse === true,
+			});
+			if (!validated.signVerified) {
+				options.logger?.warn(
+					{
+						event: "medical-insurance.legacy-fsi.response.unverified",
+						traceId: context.traceId,
+						operation: `legacy-fsi.${infno}`,
+						infno,
+						providerRequestId: response.requestId,
+					},
+					"Legacy FSI response accepted in non-strict verification mode",
+				);
+			}
+			options.logger?.info(
+				{
+					event: "medical-insurance.legacy-fsi.response.opened",
+					traceId: context.traceId,
+					operation: `legacy-fsi.${infno}`,
+					infno,
+					providerRequestId: response.requestId,
+					providerStatusCode: response.statusCode,
+					responseKeys: providerKeys(validated.data),
+				},
+				"Legacy FSI response opened",
+			);
 			return {
-				data: validateLegacyFsiOpenedPayload(opened, infno).data,
+				data: validated.data,
 				requestId: response.requestId,
 			};
 		} catch (error) {
+			options.logger?.error(
+				{
+					event: "medical-insurance.legacy-fsi.response.invalid",
+					traceId: context.traceId,
+					operation: `legacy-fsi.${infno}`,
+					infno,
+					providerRequestId: response.requestId,
+					errorName: error instanceof Error ? error.name : "UnknownError",
+				},
+				"Legacy FSI response could not be opened",
+			);
 			if (error instanceof AdapterNotConfiguredError) throw error;
 			if (error instanceof ProviderRequestError) throw error;
 			throw providerResponseError(

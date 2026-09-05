@@ -339,9 +339,15 @@ export function createPersistenceRuntime(options: {
 }): PersistenceRuntime {
 	const databasePool = options.databaseUrl
 		? createPool({
-				uri: options.databaseUrl,
-				connectionLimit: 10,
-				connectTimeout: 3_000,
+					uri: options.databaseUrl,
+					connectionLimit: 10,
+					// 公网 MySQL 连接可能被中间网络设备回收；启用 TCP 保活，
+					// 同时主动回收空闲连接，避免下一次用户读请求拿到陈旧连接。
+					enableKeepAlive: true,
+					keepAliveInitialDelay: 10_000,
+					maxIdle: 10,
+					idleTimeout: 60_000,
+					connectTimeout: 3_000,
 				dateStrings: true,
 				waitForConnections: true,
 			})

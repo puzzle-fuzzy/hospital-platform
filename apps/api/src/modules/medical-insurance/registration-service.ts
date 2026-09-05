@@ -38,6 +38,14 @@ export class MedicalInsuranceAppointmentNotFoundError extends Error {
 	}
 }
 
+/** 医保支付不能继续复用超过有效窗口的旧预约。 */
+export class MedicalInsuranceAppointmentStaleError extends Error {
+	constructor() {
+		super("Appointment for medical insurance has expired; reacquire a source");
+		this.name = "MedicalInsuranceAppointmentStaleError";
+	}
+}
+
 export type MedicalInsuranceRegistrationServiceDependencies = {
 	orders: MedicalInsuranceOrderRepository;
 	appointments: AppointmentWriteRepository;
@@ -101,6 +109,8 @@ function emptySettlementPatch(order: MedicalInsuranceOrder) {
 
 const REGISTRATION_ORDER_TYPE =
 	medicalInsuranceOrderTypeForBusiness("registration");
+/** 支付上下文有效期；超过后必须重新获取号源并重新预约。 */
+const MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS = 15 * 60 * 1000;
 
 export class MedicalInsuranceRegistrationService {
 	private readonly logger: AppLogger;
@@ -201,6 +211,28 @@ export class MedicalInsuranceRegistrationService {
 		)
 			throw new MedicalInsuranceRegistrationInputError("authCode is invalid");
 		const appointment = await this.appointment(ownerUserId, appointmentId);
+		const appointmentCreatedAt = Date.parse(appointment.createdAt);
+		const appointmentAge = this.now().getTime() - appointmentCreatedAt;
+		if (
+			!Number.isFinite(appointmentCreatedAt) ||
+			appointmentAge < 0 ||
+			appointmentAge > MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS
+		) {
+			this.logger.warn(
+				{
+					event: "medical-insurance.authorization.stale-appointment",
+					traceId: context.traceId,
+					ownerUserId,
+					appointmentId,
+					appointmentAgeMs: Number.isFinite(appointmentAge)
+						? appointmentAge
+						: undefined,
+					maxAgeMs: MEDICAL_PAYMENT_CONTEXT_MAX_AGE_MS,
+				},
+				"Medical insurance authorization rejected stale appointment",
+			);
+			throw new MedicalInsuranceAppointmentStaleError();
+		}
 		let order = await this.dependencies.orders.findByOwnerAndIdempotencyKey(
 			ownerUserId,
 			context.idempotencyKey,

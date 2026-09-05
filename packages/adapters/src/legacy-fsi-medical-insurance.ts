@@ -26,6 +26,7 @@ import {
 import type {
 	LegacyFsiGateway,
 	LegacyFsiSettlementQueryResult,
+	ProviderDiagnosticLogger,
 } from "./legacy-fsi-gateway";
 import { type ProviderFetcher, requestJson } from "./http";
 
@@ -63,6 +64,8 @@ export type LegacyFsiMedicalInsuranceGatewayOptions = {
 	hospitalId?: string;
 	insutype?: string;
 	insuCode?: string;
+	/** 只写入阶段、字段来源和数量，不写入医保凭证或患者原文。 */
+	logger?: ProviderDiagnosticLogger;
 	fetcher?: ProviderFetcher;
 	now?: () => Date;
 	createId?: () => string;
@@ -146,7 +149,15 @@ function responseError(
 	operation: string,
 	message: string,
 	requestId?: string,
+	details?: {
+		providerErrorCode?: string | undefined;
+		providerErrorMessage?: string | undefined;
+	},
 ): ProviderRequestError {
+	const diagnosticMessage = (details?.providerErrorMessage ?? message).slice(
+		0,
+		128,
+	);
 	return new ProviderRequestError({
 		provider: "medical-insurance",
 		operation,
@@ -155,6 +166,10 @@ function responseError(
 		failureStage: "response",
 		responseInvalid: true,
 		...(requestId ? { requestId } : {}),
+		...(details?.providerErrorCode
+			? { providerErrorCode: details.providerErrorCode.slice(0, 64) }
+			: {}),
+		...(diagnosticMessage ? { providerErrorMessage: diagnosticMessage } : {}),
 	});
 }
 
@@ -181,6 +196,21 @@ function unwrapProviderPayload(
 ): unknown {
 	let current = value;
 	for (let depth = 0; depth < 4; depth += 1) {
+		if (typeof current === "string") {
+			// 旧医保转发服务在部分交易上会把上游 JSON 再编码成字符串返回。
+			// 先还原这一层，才能继续识别 infcode/baseinfo/insuinfo；不能把
+			// HTTP 200 的双重 JSON 误报成“响应格式非法”。
+			try {
+				current = JSON.parse(current.trim()) as unknown;
+			} catch {
+				throw responseError(
+					operation,
+					"provider payload string is not valid JSON",
+					requestId,
+				);
+			}
+			continue;
+		}
 		if (Array.isArray(current)) return current;
 		const object = recordValue(current, operation, requestId);
 		if (
@@ -199,6 +229,14 @@ function unwrapProviderPayload(
 				operation,
 				String(object.message ?? object.msg ?? "provider rejected the request"),
 				requestId,
+				{
+					providerErrorCode:
+						typeof object.code === "string" ? object.code : undefined,
+					providerErrorMessage:
+						typeof (object.message ?? object.msg) === "string"
+							? String(object.message ?? object.msg)
+							: undefined,
+				},
 			);
 		}
 		if (object.infcode !== undefined && object.infcode !== null) {
@@ -213,6 +251,14 @@ function unwrapProviderPayload(
 							`provider infcode=${infcode}`,
 					).slice(0, 256),
 					requestId,
+					{
+						providerErrorCode: infcode,
+						providerErrorMessage:
+							typeof (object.err_msg ?? object.errmsg ?? object.message) ===
+							"string"
+								? String(object.err_msg ?? object.errmsg ?? object.message)
+								: undefined,
+					},
 				);
 			}
 		}
@@ -289,6 +335,31 @@ function findTextAnywhere(
 		if (found) return found;
 	}
 	return undefined;
+}
+
+function firstTextWithSource(
+	sources: readonly {
+		source: string;
+		record: ProviderRecord;
+	}[],
+	keys: readonly string[],
+	operation: string,
+	requestId: string | undefined,
+): { value: string; source: string } | undefined {
+	for (const candidate of sources) {
+		const value = optionalText(candidate.record, keys, operation, requestId);
+		if (value) return { value, source: candidate.source };
+	}
+	return undefined;
+}
+
+function providerKeys(value: unknown): readonly string[] {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return [];
+	}
+	return Object.keys(value as ProviderRecord)
+		.sort()
+		.slice(0, 48);
 }
 
 function objectPayload(
@@ -1024,7 +1095,7 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				for (const item of value) url.searchParams.append(key, item);
 			}
 		}
-		return requestJson<unknown>(
+		const response = await requestJson<unknown>(
 			{
 				provider: "zhongyang",
 				operation,
@@ -1035,6 +1106,18 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			},
 			fetcher,
 		);
+		options.logger?.info(
+			{
+				event: "medical-insurance.zhongyang.response",
+				traceId: context.traceId,
+				operation,
+				providerRequestId: response.requestId,
+				providerStatusCode: response.statusCode,
+				queryKeys: Object.keys(query).sort(),
+			},
+			"Zhongyang response received",
+		);
+		return response;
 	};
 
 	const zhongyangPost = async (
@@ -1054,7 +1137,20 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				body,
 			},
 			fetcher,
-		);
+		).then((response) => {
+			options.logger?.info(
+				{
+					event: "medical-insurance.zhongyang.response",
+					traceId: context.traceId,
+					operation,
+					providerRequestId: response.requestId,
+					providerStatusCode: response.statusCode,
+					bodyKeys: Object.keys(body).sort(),
+				},
+				"Zhongyang response received",
+			);
+			return response;
+		});
 
 	const finalizeStoredSettlement = async (
 		input: {
@@ -1299,7 +1395,23 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 			},
 			fetcher,
-		);
+		).then((response) => {
+			options.logger?.info(
+				{
+					event: "medical-insurance.relay.response",
+					traceId: context.traceId,
+					operation,
+					providerRequestId: response.requestId,
+					providerStatusCode: response.statusCode,
+					bodyKeys:
+						body && typeof body === "object" && !Array.isArray(body)
+							? Object.keys(body as Record<string, unknown>).sort()
+							: [],
+				},
+				"Medical insurance relay response received",
+			);
+			return response;
+		});
 
 	const resolveAuthorization = async (
 		input: {
@@ -1424,18 +1536,47 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				infoResponse.requestId,
 			);
 		}
-		const psnNo = requiredText(
-			selectedInsu,
+		// 众阳/医保 1101 的参保号和参保地不保证都落在同一条 insuinfo
+		// 记录中。旧项目的真实处理顺序是 insuinfo -> baseinfo -> 授权查询结果，
+		// 这里保持同一顺序，避免把 HTTP 200 的有效响应误判成字段缺失。
+		const psnNoResult = firstTextWithSource(
+			[
+				{ source: "1101.insuinfo", record: selectedInsu },
+				{ source: "1101.baseinfo", record: baseInfo },
+				{
+					source: "authorization.user-query",
+					record: queryPayload,
+				},
+			],
 			["psn_no", "psnNo"],
 			"medical-insurance.1101",
 			infoResponse.requestId,
 		);
-		const insuplcAdmdvs = requiredText(
-			selectedInsu,
+		const psnNo = psnNoResult?.value;
+		if (!psnNo) {
+			throw responseError(
+				"medical-insurance.1101",
+				"1101 返回信息缺少参保人员编号 psn_no/psnNo（已检查 insuinfo、baseinfo 和授权查询结果）",
+				infoResponse.requestId,
+			);
+		}
+		const insuplcAdmdvsResult = firstTextWithSource(
+			[
+				{ source: "1101.insuinfo", record: selectedInsu },
+				{ source: "1101.baseinfo", record: baseInfo },
+			],
 			["insuplc_admdvs", "insuplcAdmdvs"],
 			"medical-insurance.1101",
 			infoResponse.requestId,
 		);
+		const insuplcAdmdvs = insuplcAdmdvsResult?.value;
+		if (!insuplcAdmdvs) {
+			throw responseError(
+				"medical-insurance.1101",
+				"1101 返回信息缺少真实参保地 insuplc_admdvs/insuplcAdmdvs",
+				infoResponse.requestId,
+			);
+		}
 		const returnedInsutype =
 			optionalText(
 				selectedInsu,
@@ -1443,7 +1584,39 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				"medical-insurance.1101",
 				infoResponse.requestId,
 			) ?? insutype;
-		const ecToken = tokenFromBaseInfo(baseInfo);
+		const baseInfoEcToken = tokenFromBaseInfo(baseInfo);
+		const queryEcToken = optionalText(
+			queryPayload,
+			["ec_token", "ecToken"],
+			"medical-insurance.authorization.user-query",
+			queryResponse.requestId,
+		);
+		const ecToken = baseInfoEcToken ?? queryEcToken;
+		options.logger?.info(
+			{
+				event: "medical-insurance.1101.parsed",
+				traceId: context.traceId,
+				orderId: input.orderId,
+				providerRequestId: infoResponse.requestId,
+				baseInfoPresent: Object.keys(baseInfo).length > 0,
+				baseInfoKeys: providerKeys(baseInfo),
+				queryPayloadKeys: providerKeys(queryPayload),
+				insuInfoCount: insuInfoList.length,
+				selectedInsutype: returnedInsutype,
+				selectedInsuKeys: providerKeys(selectedInsu),
+				psnNoSource: psnNoResult?.source ?? "missing",
+				insuredAreaSource: insuplcAdmdvsResult?.source ?? "missing",
+				ecTokenSource: baseInfoEcToken
+					? "1101.baseinfo.exp_content"
+					: queryEcToken
+						? "authorization.user-query"
+						: "missing",
+				hasPsnNo: Boolean(psnNo),
+				hasInsuredArea: Boolean(insuplcAdmdvs),
+				hasEcToken: Boolean(ecToken),
+			},
+			"Medical insurance 1101 response fields parsed",
+		);
 		const companyName = optionalText(
 			selectedInsu,
 			["emp_name", "empName"],
@@ -1933,11 +2106,39 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					valiFlag: "1",
 				},
 			];
+			options.logger?.info(
+				{
+					event: "medical-insurance.6201.payload.ready",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: detailResponse.requestId,
+					businessId,
+					businessCode,
+					settlementAmountFen,
+					appointmentTotalFen: appointment.totalFen,
+					detailCount: details.length,
+					feedetailCount: feedetailList.length,
+					diagnosisCount: diagnoseList.length,
+					insutype: auth.insutype,
+					insuCode: auth.insuCode,
+					acctUsedFlag,
+					deptCode,
+					caty,
+					medType: "11",
+					feeType: "01",
+					hasPsnNo: Boolean(auth.psnNo),
+					hasPayAuthNo: Boolean(auth.payAuthNo),
+					hasEcToken: Boolean(auth.ecToken),
+					hasMdtrtId: Boolean(preResolvedMdtrtId),
+				},
+				"Medical insurance 6201 payload is ready",
+			);
 			const feeResult = await options.legacyFsi.uploadFees(
 				{
 					...(preResolvedMdtrtId ? { mdtrtId: preResolvedMdtrtId } : {}),
 					...(auth.ecToken ? { ecToken: auth.ecToken } : {}),
 					payAuthNo: auth.payAuthNo,
+					acctUsedFlag,
 					orgCodg: orgCode,
 					psnNo: auth.psnNo,
 					insutype: auth.insutype,
@@ -1968,16 +2169,35 @@ export function createLegacyFsiMedicalInsuranceGateway(
 				},
 				context,
 			);
-			const mdtrtId = feeResult.mdtrtId;
+			// 真实 6201 回包可能只返回 payOrdId/payToken；mdtrtId 由
+			// 2.6.65.1/2.27.2.27 前置事实提供时，沿用该权威值进入 6202。
+			const mdtrtId = feeResult.mdtrtId ?? preResolvedMdtrtId;
 			if (!mdtrtId)
 				throw responseError(
 					"medical-insurance.6201",
-					"6201 未返回 mdtrtId",
+					"6201 与前置结算事实均未提供 mdtrtId",
 					feeResult.trace.requestId,
 				);
+			options.logger?.info(
+				{
+					event: "medical-insurance.6201.completed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: feeResult.trace.requestId,
+					hasMdtrtId: Boolean(mdtrtId),
+					mdtrtIdSource: feeResult.mdtrtId
+						? "6201"
+						: preResolvedMdtrtId
+							? "pre_resolved_settlement_fact"
+							: "missing",
+					hasPayOrdId: Boolean(feeResult.credential.payOrdId),
+					hasPayToken: Boolean(feeResult.credential.payToken),
+				},
+				"Medical insurance 6201 completed",
+			);
 			const createdAt = now().toISOString();
 			const expiresAt = new Date(
-				now().getTime() + 30 * 60 * 1000,
+				now().getTime() + 15 * 60 * 1000,
 			).toISOString();
 			const settlementCredentialId = createId();
 			const queryCredentialId = createId();
@@ -2083,6 +2303,19 @@ export function createLegacyFsiMedicalInsuranceGateway(
 			const mdtrtId = input.mdtrtId || order.mdtrtId;
 			if (!mdtrtId)
 				throw responseError("medical-insurance.6202", "mdtrtId is unavailable");
+			options.logger?.info(
+				{
+					event: "medical-insurance.6202.payload.ready",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					hasPayAuthNo: Boolean(auth.payAuthNo),
+					hasPayOrdId: Boolean(credential.payOrdId),
+					hasPayToken: Boolean(credential.payToken),
+					hasMdtrtId: Boolean(mdtrtId),
+					acctUsedFlag: input.acctUsedFlag || order.acctUsedFlag || "",
+				},
+				"Medical insurance 6202 payload is ready",
+			);
 			const result = await options.legacyFsi.createPaymentOrder(
 				{
 					payAuthNo: auth.payAuthNo,
@@ -2096,6 +2329,18 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					acctUsedFlag: input.acctUsedFlag || order.acctUsedFlag || "",
 				},
 				context,
+			);
+			options.logger?.info(
+				{
+					event: "medical-insurance.6202.completed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: result.trace.requestId,
+					statusClass: result.statusClass,
+					providerStatus: result.settlement.ordStas,
+					hasPayOrdId: Boolean(result.settlement.payOrdId),
+				},
+				"Medical insurance 6202 completed",
 			);
 			const amounts = mapMedicalAmounts(result.settlement);
 			const mapping = statusMapping(result, amounts);
@@ -2143,6 +2388,16 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					"medical-insurance.6301",
 					"query context is unavailable",
 				);
+			options.logger?.info(
+				{
+					event: "medical-insurance.6301.payload.ready",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					hasPayOrdId: Boolean(credential.payOrdId),
+					hasPayToken: Boolean(credential.payToken),
+				},
+				"Medical insurance 6301 payload is ready",
+			);
 			const result: LegacyFsiSettlementQueryResult =
 				await options.legacyFsi.querySettlement(
 					{
@@ -2152,6 +2407,17 @@ export function createLegacyFsiMedicalInsuranceGateway(
 					},
 					context,
 				);
+			options.logger?.info(
+				{
+					event: "medical-insurance.6301.completed",
+					traceId: context.traceId,
+					orderId: input.orderId,
+					providerRequestId: result.trace.requestId,
+					statusClass: result.statusClass,
+					providerStatus: result.settlement.ordStas,
+				},
+				"Medical insurance 6301 completed",
+			);
 			const storedAmounts = order.amounts;
 			const amounts = result.settlement.amounts
 				? mapMedicalAmounts(result.settlement.amounts)

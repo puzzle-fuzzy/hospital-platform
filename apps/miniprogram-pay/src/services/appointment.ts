@@ -114,11 +114,11 @@ export async function loadSources(schedule: Schedule): Promise<Source[]> {
 }
 
 export function selectSource(sources: Source[]): Source {
-	const source = PAY_CONFIG.targetSerialNumber
-		? sources.find(
-				(item) => item.serialNumber === PAY_CONFIG.targetSerialNumber,
-			)
-		: sources[0];
+	// pay 小程序不开放号源选择；服务端返回的列表是当前读取到的可用候选，
+	// 这里固定取第一条。真正提交时服务端还会重新读取并原子锁号，
+	// 号源已被其他用户占用时会返回 appointment-source-unavailable，
+	// 页面再重新读取一次候选，不能把旧号源强行提交。
+	const source = sources[0];
 	if (!source) throw new Error("指定排班没有可用分时段");
 	return source;
 }
